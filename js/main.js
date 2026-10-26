@@ -16,6 +16,7 @@
   // ---------- boot ----------
   Main.boot = async function () {
     const loading = document.getElementById('loading');
+    try { A.init(); A.play('cover'); } catch (e) {} // plays right away if the browser allows it
     try { G.ui_autoloot = JSON.parse(localStorage.getItem('kr_autoloot') || 'false'); R.cam.zoom = JSON.parse(localStorage.getItem('kr_zoom') || '1'); } catch (e) {}
     await Promise.race([Sys.Store.init(), new Promise((r) => setTimeout(r, 4000))]);
     await Sys.loadAccount();

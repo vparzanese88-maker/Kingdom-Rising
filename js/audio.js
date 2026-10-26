@@ -24,6 +24,11 @@
     A.enabled = true;
     setInterval(schedule, 50);
   };
+  A.running = () => !!ctx && ctx.state === 'running';
+  // browsers keep sound off until the player touches the page, so start it on the very first press of any kind
+  const UNLOCK = ['pointerdown', 'touchstart', 'mousedown', 'keydown'];
+  const unlock = () => { A.init(); if (A.running()) UNLOCK.forEach((ev) => removeEventListener(ev, unlock, true)); };
+  UNLOCK.forEach((ev) => addEventListener(ev, unlock, true));
   A.setVolumes = function (m, s) {
     A.musicVol = m; A.sfxVol = s;
     if (musicBus) musicBus.gain.setTargetAtTime(m * 0.6, ctx.currentTime, 0.1);

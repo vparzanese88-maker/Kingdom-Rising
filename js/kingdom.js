@@ -527,12 +527,15 @@
   // the cover page: two brothers, one crown, a kingdom on fire
   // =====================================================================
   K.cover = function (gate, onGo) {
-    gate.classList.add('cover-on'); gate.innerHTML = `<canvas class="cv-bg"></canvas><canvas class="cv-title"></canvas><div class="cv-sub">Two brothers. One crown.</div><div class="cv-click" id="gate-go">Click anywhere to continue to the main menu</div><button class="cv-snd" title="Sound">🔊</button>`;
+    gate.classList.add('cover-on'); gate.innerHTML = `<canvas class="cv-bg"></canvas><canvas class="cv-title"></canvas><div class="cv-sub">Two brothers. One crown.</div><div class="cv-click" id="gate-go">Click anywhere to continue to the main menu</div><button class="cv-snd" title="Sound">🔇</button>`;
     const bg = gate.querySelector('.cv-bg'), g = bg.getContext('2d'); const tc = gate.querySelector('.cv-title'), tg = tc.getContext('2d');
     const t0 = performance.now(); let alive = true;
     const startMusic = () => { try { KR.A.init(); KR.A.play('cover'); K.coverMusicUntil = performance.now() + 30000; } catch (e) {} };
     startMusic();
-    gate.querySelector('.cv-snd').onclick = (ev) => { ev.stopPropagation(); startMusic(); gate.querySelector('.cv-snd').classList.add('on'); };
+    const snd = gate.querySelector('.cv-snd');
+    const sndTick = () => { const on = KR.A.running && KR.A.running(); snd.textContent = on ? '🔊' : '🔇'; snd.classList.toggle('on', !!on); snd.title = on ? 'Sound is on' : 'Tap to turn on sound'; if (alive) setTimeout(sndTick, 300); };
+    sndTick();
+    snd.onclick = (ev) => { ev.stopPropagation(); startMusic(); };
     const go = () => { if (!alive) return; alive = false; startMusic(); gate.classList.add('out'); setTimeout(() => { gate.hidden = true; gate.classList.remove('out'); onGo(); }, 450); };
     // the first click (or key) takes the cover full screen and starts the music; the next one continues.
     // Browsers only allow full screen after the player does something, so it cannot happen on its own.

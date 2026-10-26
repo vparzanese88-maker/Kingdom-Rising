@@ -1,0 +1,360 @@
+// Kingdom Rising — intro history, main menu, character select and creation
+(function () {
+  const KR = (window.KR = window.KR || {});
+  const D = KR.D, U = KR.U, S = KR.S, Sys = KR.Sys, G = KR.G;
+  const M = (KR.Menus = {});
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------------- vignette painter (shared by intro + menu background) ----------------
+  function sky(g, w, h, top, bot) { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, top); gr.addColorStop(1, bot); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+  function stars(g, w, h, t, n = 80) { for (let i = 0; i < n; i++) { const x = (U.hash(i, 1) * w), y = U.hash(i, 2) * h * 0.55; g.fillStyle = `rgba(255,255,240,${0.3 + 0.5 * Math.abs(Math.sin(t * 0.8 + i))})`; g.fillRect(x, y, 1.5, 1.5); } }
+  function hills(g, w, h, y0, amp, col, seed, t, par = 0) { g.fillStyle = col; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 8) { const xx = x + t * par; g.lineTo(x, y0 + Math.sin(xx * 0.006 + seed) * amp + Math.sin(xx * 0.017 + seed * 2) * amp * 0.4); } g.lineTo(w, h); g.closePath(); g.fill(); }
+  M.paintCity = function (g, w, h, which, t) {
+    const pan = t * 6;
+    if (which === 'sylvan') {
+      sky(g, w, h, '#16324a', '#5f8a7a'); stars(g, w, h, t, 60);
+      g.fillStyle = 'rgba(255,250,220,0.9)'; g.beginPath(); g.arc(w * 0.78, h * 0.2, 34, 0, 6.28); g.fill();
+      hills(g, w, h, h * 0.62, 26, '#1f3f36', 1, t, 4);
+      // giant trees and spires
+      for (let i = 0; i < 7; i++) {
+        const x = ((i * 220 - pan * 0.6) % (w + 300) + w + 300) % (w + 300) - 150, base = h * 0.78, th = h * (0.45 + U.hash(i, 9) * 0.2);
+        g.fillStyle = '#2a2a24'; g.fillRect(x - 14, base - th, 28, th);
+        for (let k = 0; k < 5; k++) { g.fillStyle = ['#1f4a33', '#2b6141', '#3d7d4f'][k % 3]; g.beginPath(); g.arc(x + Math.sin(k * 2 + i) * 40, base - th + k * 18 - 10, 70 - k * 8, 0, 6.28); g.fill(); }
+      }
+      // elven spires with lights
+      for (let i = 0; i < 4; i++) { const x = w * (0.2 + i * 0.2), y = h * 0.7; g.fillStyle = '#d8d0b0'; g.beginPath(); g.moveTo(x - 12, y); g.lineTo(x, y - 140 - i * 20); g.lineTo(x + 12, y); g.fill(); g.fillStyle = '#4f8a4a'; g.beginPath(); g.arc(x, y - 60, 18, Math.PI, 0); g.fill(); g.fillStyle = `rgba(255,230,150,${0.6 + Math.sin(t * 2 + i) * 0.3})`; g.fillRect(x - 3, y - 90 - i * 10, 6, 10); }
+      hills(g, w, h, h * 0.82, 14, '#16302a', 4, t, 10);
+      for (let i = 0; i < 40; i++) { const x = (U.hash(i, 5) * w + Math.sin(t + i) * 20), y = h * 0.6 + U.hash(i, 6) * h * 0.35 + Math.cos(t * 0.7 + i) * 10; g.fillStyle = `rgba(220,255,140,${0.4 + 0.5 * Math.sin(t * 3 + i)})`; g.beginPath(); g.arc(x, y, 2, 0, 6.28); g.fill(); }
+    } else if (which === 'iron') {
+      sky(g, w, h, '#2a2230', '#8a5a3a'); stars(g, w, h, t, 40);
+      g.fillStyle = '#3a3438'; g.beginPath(); g.moveTo(0, h); g.lineTo(w * 0.12, h * 0.4); g.lineTo(w * 0.3, h * 0.55); g.lineTo(w * 0.5, h * 0.12); g.lineTo(w * 0.7, h * 0.5); g.lineTo(w * 0.88, h * 0.3); g.lineTo(w, h * 0.6); g.lineTo(w, h); g.fill();
+      g.fillStyle = '#eef'; g.beginPath(); g.moveTo(w * 0.45, h * 0.2); g.lineTo(w * 0.5, h * 0.12); g.lineTo(w * 0.55, h * 0.2); g.fill();
+      // great gate carved into mountain
+      const gx = w * 0.5, gy = h * 0.82;
+      g.fillStyle = '#5a5250'; g.fillRect(gx - 150, gy - 220, 300, 220);
+      g.fillStyle = '#4a4442'; for (let k = 0; k < 6; k++) g.fillRect(gx - 150 + k * 50, gy - 240, 30, 20);
+      g.fillStyle = '#1a1210'; g.beginPath(); g.moveTo(gx - 60, gy); g.lineTo(gx - 60, gy - 110); g.arc(gx, gy - 110, 60, Math.PI, 0); g.lineTo(gx + 60, gy); g.fill();
+      const glow = 0.5 + Math.sin(t * 3) * 0.2; const gr = g.createRadialGradient(gx, gy - 60, 10, gx, gy - 60, 120); gr.addColorStop(0, `rgba(255,140,40,${glow})`); gr.addColorStop(1, 'rgba(255,140,40,0)'); g.fillStyle = gr; g.fillRect(gx - 130, gy - 190, 260, 190);
+      // statues
+      for (const s of [-1, 1]) { const sx = gx + s * 110; g.fillStyle = '#6a625e'; g.fillRect(sx - 18, gy - 160, 36, 160); g.beginPath(); g.arc(sx, gy - 170, 18, 0, 6.28); g.fill(); g.fillStyle = '#7a726c'; g.beginPath(); g.moveTo(sx - 18, gy - 150); g.quadraticCurveTo(sx, gy - 100, sx + 18, gy - 150); g.fill(); }
+      // smoke + embers
+      for (let k = 0; k < 12; k++) { const ph = (t * 0.15 + k / 12) % 1; g.fillStyle = `rgba(80,70,70,${0.4 * (1 - ph)})`; g.beginPath(); g.arc(w * 0.7 + Math.sin(ph * 5 + k) * 30, h * 0.5 - ph * h * 0.4, 20 + ph * 40, 0, 6.28); g.fill(); }
+      for (let k = 0; k < 30; k++) { const ph = (t * 0.3 + k / 30) % 1; g.fillStyle = `rgba(255,170,60,${1 - ph})`; g.fillRect(gx + Math.sin(k * 7 + t) * 80, gy - 40 - ph * 260, 2, 2); }
+    } else {
+      sky(g, w, h, '#3a4a7a', '#f0a868');
+      g.fillStyle = 'rgba(255,220,150,0.95)'; g.beginPath(); g.arc(w * 0.25, h * 0.55, 46, 0, 6.28); g.fill();
+      hills(g, w, h, h * 0.6, 18, '#6a7a4a', 3, t, 3);
+      // castle
+      const cx = w * 0.62, cy = h * 0.66;
+      g.fillStyle = '#c8bca4'; g.fillRect(cx - 160, cy - 90, 320, 90);
+      for (const tx of [-160, -60, 60, 140]) { g.fillRect(cx + tx, cy - 170, 30, 170); g.fillStyle = '#b0483a'; g.beginPath(); g.moveTo(cx + tx - 6, cy - 170); g.lineTo(cx + tx + 15, cy - 215); g.lineTo(cx + tx + 36, cy - 170); g.fill(); g.fillStyle = '#c8bca4'; }
+      g.fillRect(cx - 30, cy - 200, 60, 200); g.fillStyle = '#b0483a'; g.beginPath(); g.moveTo(cx - 38, cy - 200); g.lineTo(cx, cy - 260); g.lineTo(cx + 38, cy - 200); g.fill();
+      for (let k = 0; k < 3; k++) { const fx = cx - 100 + k * 100; g.fillStyle = '#5a4a3a'; g.fillRect(fx, cy - 250 + (k === 1 ? -20 : 40), 2, 40); g.fillStyle = '#28457a'; g.beginPath(); g.moveTo(fx + 2, cy - 250 + (k === 1 ? -20 : 40)); g.quadraticCurveTo(fx + 20, cy - 245 + Math.sin(t * 4 + k) * 4 + (k === 1 ? -20 : 40), fx + 34, cy - 238 + (k === 1 ? -20 : 40)); g.lineTo(fx + 2, cy - 230 + (k === 1 ? -20 : 40)); g.fill(); }
+      g.fillStyle = '#2a1e16'; g.beginPath(); g.moveTo(cx - 22, cy); g.lineTo(cx - 22, cy - 40); g.arc(cx, cy - 40, 22, Math.PI, 0); g.lineTo(cx + 22, cy); g.fill();
+      for (let k = 0; k < 6; k++) { g.fillStyle = `rgba(255,220,140,${0.6 + Math.sin(t * 2 + k) * 0.3})`; g.fillRect(cx - 140 + k * 50, cy - 60, 8, 12); }
+      // wheat fields
+      hills(g, w, h, h * 0.78, 10, '#c8a84a', 6, t, 8);
+      g.strokeStyle = 'rgba(120,90,30,0.5)'; for (let k = 0; k < 80; k++) { const x = (k * 23 + t * 8) % w, y = h * 0.8 + (k % 5) * 18; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.sin(t * 2 + k) * 3, y - 14); g.stroke(); }
+    }
+    const vg = g.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, h * 0.9); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.65)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
+  };
+
+  // ---------------- intro ----------------
+  const INTRO = [
+    { city: 'crown', text: 'For forty years King Edric Valen ruled one kingdom, from the western plains to the old elven forests, and the land knew peace.' },
+    { city: 'crown', title: 'The Old King Dies', sub: 'A feast, a cup, a poisoner never found', text: 'At the midwinter feast the old king drank from his cup and fell. The wine was poisoned. The poisoner was never found, and each of his sons, Aldric and Theron, swore the other had done it.' },
+    { city: 'crown', title: 'Valenmoor', sub: 'Crown of Valen · Humans, Dwarves, Gnomes, Halflings and Barbarians', text: 'Aldric, the firstborn, claimed the crown by right of birth and kept the old capital. The mountain clans and the halflings of the plains knelt to him.' },
+    { city: 'sylvan', title: 'Aelindor', sub: 'Sylvan Throne · Humans, High Elves, Wood Elves, Half Elves and Dark Elves', text: 'Theron, the younger, would not kneel. He rode to the elven city of Aelindor, and the elves, who never loved his brother, crowned him there. Many human families fled after him.' },
+    { city: 'sylvan', text: 'The kingdom split in two. Each brother calls the other a tyrant, and each swears the whole land is his by right.' },
+    { city: 'crown', title: 'Kingdom Rising', text: 'Choose your king. Gather timber and stone, slay the beasts that haunt the land, build your kingdom, and crush your king\'s brother.' },
+  ];
+  let introRaf = 0;
+  M.playIntro = function (done) {
+    const scr = $('#screen'); scr.innerHTML = `<canvas id="intro-cv"></canvas><div class="intro-txt"><div class="it-title"></div><div class="it-sub"></div><p class="it-body"></p></div><div class="intro-nav"><span class="it-dots"></span><button class="btn ghost" id="it-skip">Skip</button></div>`;
+    const cv = $('#intro-cv'), g = cv.getContext('2d');
+    let idx = -1, t0 = performance.now(), sceneStart = 0;
+    const DUR = 7.5;
+    const fit = () => { cv.width = innerWidth; cv.height = innerHeight; };
+    fit(); addEventListener('resize', fit);
+    const show = (i) => {
+      idx = i; sceneStart = (performance.now() - t0) / 1000;
+      const s = INTRO[i];
+      const box = $('.intro-txt'); box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
+      $('.it-title').textContent = s.title || ''; $('.it-sub').textContent = s.sub || ''; $('.it-body').textContent = s.text;
+      $('.it-dots').innerHTML = INTRO.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+    };
+    const finish = () => { cancelAnimationFrame(introRaf); removeEventListener('resize', fit); removeEventListener('keydown', key); try { localStorage.setItem('kr_intro_seen', '1'); } catch (e) {} done(); };
+    const key = (e) => { if (e.key === 'Escape') finish(); else if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') { if (idx < INTRO.length - 1) show(idx + 1); else finish(); } };
+    addEventListener('keydown', key);
+    $('#it-skip').onclick = finish;
+    cv.onclick = () => { if (idx < INTRO.length - 1) show(idx + 1); else finish(); };
+    show(0);
+    const loop = () => {
+      if (!cv.isConnected) { removeEventListener('resize', fit); removeEventListener('keydown', key); return; }
+      const t = (performance.now() - t0) / 1000; const st = t - sceneStart;
+      if (st > DUR) { if (idx < INTRO.length - 1) show(idx + 1); else return finish(); }
+      M.paintCity(g, cv.width, cv.height, INTRO[idx].city, t);
+      const fade = Math.min(1, st / 0.8, (DUR - st) / 0.8); g.fillStyle = `rgba(0,0,0,${1 - Math.max(0, fade)})`; g.fillRect(0, 0, cv.width, cv.height);
+      introRaf = requestAnimationFrame(loop);
+    };
+    loop();
+  };
+
+  // ---------------- main menu / character select ----------------
+  let bgRaf = 0;
+  function bgLoop(cv) {
+    cancelAnimationFrame(bgRaf);
+    const g = cv.getContext('2d'); const t0 = performance.now(); const order = ['sylvan', 'crown', 'iron'];
+    const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit(); addEventListener('resize', fit);
+    const loop = () => { if (!cv.isConnected) { removeEventListener('resize', fit); return; } const t = (performance.now() - t0) / 1000; const i = Math.floor(t / 12) % 3; M.paintCity(g, cv.width, cv.height, order[i], t); const st = t % 12; const f = Math.min(1, st / 1, (12 - st) / 1); g.fillStyle = `rgba(0,0,0,${0.35 + 0.65 * (1 - f)})`; g.fillRect(0, 0, cv.width, cv.height); bgRaf = requestAnimationFrame(loop); };
+    loop();
+  }
+  // ---------------- main menu: a city rising from hamlet to capital ----------------
+  const RISE = (() => { // deterministic city layout, built in five tiers
+    const B = []; let seed = 7; const r = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const add = (tier, x, w, hgt, kind, depth) => B.push({ tier, x, w, h: hgt, kind, depth, delay: r() * 0.7, roof: ['#8a3a2a', '#3a5a8a', '#4a6a3a', '#7a5a2a', '#5a3a6a'][Math.floor(r() * 5)], seed: r() });
+    for (let i = 0; i < 9; i++) add(0, (r() - 0.5) * 0.22, 0.03 + r() * 0.012, 0.035 + r() * 0.015, 'hut', 2 + r());
+    for (let i = 0; i < 16; i++) add(1, (r() - 0.5) * 0.42, 0.032 + r() * 0.02, 0.05 + r() * 0.03, 'house', 1 + r() * 2);
+    add(2, -0.33, 0.04, 0.13, 'tower', 0.5); add(2, 0.33, 0.04, 0.13, 'tower', 0.5); add(2, 0, 0.66, 0.055, 'wall', 0.4);
+    for (let i = 0; i < 14; i++) add(2, (r() - 0.5) * 0.5, 0.035 + r() * 0.02, 0.07 + r() * 0.04, 'house', 1.2 + r() * 1.5);
+    for (let i = 0; i < 10; i++) add(3, (r() - 0.5) * 0.46, 0.04 + r() * 0.02, 0.1 + r() * 0.06, 'stone', 1.4 + r());
+    add(3, -0.14, 0.05, 0.2, 'tower', 1.3); add(3, 0.15, 0.05, 0.18, 'tower', 1.3); add(3, 0.07, 0.06, 0.16, 'temple', 1.5);
+    add(4, 0, 0.13, 0.22, 'keep', 1.9); add(4, -0.055, 0.035, 0.32, 'spire', 2.0); add(4, 0.055, 0.035, 0.3, 'spire', 2.0); add(4, 0, 0.04, 0.4, 'spire', 2.1);
+    add(4, -0.45, 0.045, 0.16, 'tower', 0.3); add(4, 0.45, 0.045, 0.16, 'tower', 0.3); add(4, 0, 0.92, 0.07, 'wall', 0.2);
+    return B.sort((a, b) => b.depth - a.depth);
+  })();
+  const TIER_NAMES = ['Hamlet', 'Village', 'Town', 'City', 'Kingdom', 'Capital'];
+  M.paintRising = function (g, w, h, t) {
+    const CYCLE = 40, k = t % CYCLE; const L = Math.min(5, (k / 30) * 5.3);
+    const night = 0.55 + 0.45 * Math.sin(t * 0.05);
+    sky(g, w, h, `rgb(${Math.round(18 + 30 * (1 - night))},${Math.round(16 + 26 * (1 - night))},${Math.round(40 + 40 * (1 - night))})`, `rgb(${Math.round(150 - 60 * night)},${Math.round(90 - 40 * night)},${Math.round(70 - 20 * night)})`);
+    stars(g, w, h, t, 120);
+    // moon and drifting clouds
+    g.fillStyle = 'rgba(255,245,215,0.9)'; g.beginPath(); g.arc(w * 0.8, h * 0.17, Math.min(w, h) * 0.045, 0, 6.28); g.fill();
+    for (let i = 0; i < 6; i++) { const cx = ((i * 0.23 + t * 0.006 * (1 + i * 0.2)) % 1.3 - 0.15) * w, cy = h * (0.12 + i * 0.05); g.fillStyle = 'rgba(40,30,50,0.35)'; for (let j = 0; j < 4; j++) { g.beginPath(); g.ellipse(cx + j * 40, cy + (j % 2) * 6, 70, 18, 0, 0, 6.28); g.fill(); } }
+    hills(g, w, h, h * 0.62, 30, '#2a2236', 3, t, 0); hills(g, w, h, h * 0.7, 22, '#211a2a', 9, t, 0);
+    // the hill the city grows on
+    const cx = w / 2, base = h * 0.82, S2 = Math.min(w * 0.95, h * 1.6);
+    g.fillStyle = '#1a1520'; g.beginPath(); g.moveTo(0, h); g.lineTo(0, base + 40); g.quadraticCurveTo(cx, base - S2 * 0.06, w, base + 40); g.lineTo(w, h); g.fill();
+    // golden glow grows with the city
+    const glow = g.createRadialGradient(cx, base - S2 * 0.12, 10, cx, base - S2 * 0.12, S2 * 0.6); glow.addColorStop(0, `rgba(255,190,90,${0.06 + 0.07 * L})`); glow.addColorStop(1, 'rgba(255,190,90,0)'); g.fillStyle = glow; g.fillRect(0, 0, w, h);
+    if (L >= 4.9) { g.save(); g.globalCompositeOperation = 'lighter'; for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.16 + Math.sin(t * 0.3 + i) * 0.03; g.fillStyle = `rgba(255,215,140,${0.05})`; g.beginPath(); g.moveTo(cx, base - S2 * 0.3); g.lineTo(cx + Math.cos(a - 0.04) * h, base - S2 * 0.3 + Math.sin(a - 0.04) * h); g.lineTo(cx + Math.cos(a + 0.04) * h, base - S2 * 0.3 + Math.sin(a + 0.04) * h); g.fill(); } g.restore(); }
+    for (const b of RISE) {
+      const gr = Math.max(0, Math.min(1, (L - b.tier - b.delay) * 1.6)); if (gr <= 0) continue;
+      const e = 1 - Math.pow(1 - gr, 3); const bx = cx + b.x * S2, bw = b.w * S2, bh = b.h * S2 * e, by = base - S2 * 0.03 * (1 - Math.abs(b.x) * 1.6) + (b.depth - 1) * 6;
+      const shade = 0.75 + 0.25 * (1 - b.depth / 2.5);
+      const stone = b.kind === 'hut' ? `rgb(${Math.round(110 * shade)},${Math.round(80 * shade)},${Math.round(55 * shade)})` : b.kind === 'house' ? `rgb(${Math.round(150 * shade)},${Math.round(125 * shade)},${Math.round(95 * shade)})` : `rgb(${Math.round(120 * shade)},${Math.round(112 * shade)},${Math.round(104 * shade)})`;
+      g.fillStyle = stone;
+      if (b.kind === 'wall') { g.fillRect(bx - bw / 2, by - bh, bw, bh); g.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = bx - bw / 2; x < bx + bw / 2; x += 14) g.fillRect(x, by - bh - 6 * e, 8, 6 * e); g.fillStyle = stone; for (let x = bx - bw / 2; x < bx + bw / 2; x += 14) g.fillRect(x, by - bh - 6 * e, 8, 6 * e); g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(bx, by, bh * 0.45, Math.PI, 0); g.fill(); continue; }
+      g.fillRect(bx - bw / 2, by - bh, bw, bh);
+      // roofs
+      if (b.kind === 'hut' || b.kind === 'house') { g.fillStyle = b.kind === 'hut' ? '#6a5a3a' : b.roof; g.beginPath(); g.moveTo(bx - bw * 0.62, by - bh); g.lineTo(bx, by - bh - bw * 0.55 * e); g.lineTo(bx + bw * 0.62, by - bh); g.fill(); }
+      else if (b.kind === 'tower' || b.kind === 'stone') { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(bx - bw / 2, by - bh, bw * 0.18, bh); if (b.kind === 'tower') { g.fillStyle = b.roof; g.beginPath(); g.moveTo(bx - bw * 0.65, by - bh); g.lineTo(bx, by - bh - bw * 1.3 * e); g.lineTo(bx + bw * 0.65, by - bh); g.fill(); } else { g.fillStyle = stone; for (let x = bx - bw / 2; x < bx + bw / 2 - 2; x += bw / 4) g.fillRect(x, by - bh - 5 * e, bw / 8, 5 * e); } }
+      else if (b.kind === 'temple') { g.fillStyle = '#c8b890'; g.beginPath(); g.arc(bx, by - bh, bw * 0.45 * e, Math.PI, 0); g.fill(); }
+      else if (b.kind === 'keep') { g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(bx - bw / 2, by - bh, bw * 0.15, bh); g.fillStyle = stone; for (let x = bx - bw / 2; x < bx + bw / 2 - 4; x += bw / 7) g.fillRect(x, by - bh - 8 * e, bw / 14, 8 * e); g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(bx, by, bw * 0.16, Math.PI, 0); g.fill(); }
+      else if (b.kind === 'spire') { g.fillStyle = '#3a4a7a'; g.beginPath(); g.moveTo(bx - bw * 0.7, by - bh); g.lineTo(bx, by - bh - bw * 2.2 * e); g.lineTo(bx + bw * 0.7, by - bh); g.fill(); if (gr >= 1) { const fy = by - bh - bw * 2.2; g.strokeStyle = '#ccc'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(bx, fy); g.lineTo(bx, fy - 18); g.stroke(); g.fillStyle = '#c8282a'; g.beginPath(); g.moveTo(bx, fy - 18); for (let q = 0; q <= 6; q++) g.lineTo(bx + q * 4, fy - 18 + Math.sin(t * 5 + q * 0.8 + b.seed * 6) * 2 + q * 0.2); g.lineTo(bx + 24, fy - 10); for (let q = 6; q >= 0; q--) g.lineTo(bx + q * 4, fy - 10 + Math.sin(t * 5 + q * 0.8 + b.seed * 6) * 2); g.fill(); } }
+      // lit windows
+      if (gr >= 1 && b.kind !== 'hut') { const rows = Math.max(1, Math.floor(bh / 18)), cols = Math.max(1, Math.floor(bw / 12)); for (let ry = 0; ry < rows; ry++) for (let cxw = 0; cxw < cols; cxw++) { const hsh = U.hash(Math.round(b.seed * 1000) + cxw, ry); if (hsh < 0.45) continue; const fl = 0.6 + 0.4 * Math.sin(t * 2 + hsh * 20); g.fillStyle = `rgba(255,${Math.round(190 + 40 * hsh)},110,${night * fl})`; g.fillRect(bx - bw / 2 + 4 + cxw * (bw - 8) / cols, by - bh + 8 + ry * 18, 3, 5); } }
+      if (gr >= 1 && (b.kind === 'house' || b.kind === 'hut') && b.seed < 0.35) for (let q = 0; q < 3; q++) { const ph = (t * 0.25 + q / 3 + b.seed) % 1; g.fillStyle = `rgba(200,200,210,${0.25 * (1 - ph)})`; g.beginPath(); g.arc(bx + bw * 0.25 + ph * 12, by - bh - bw * 0.5 - ph * 40, 3 + ph * 7, 0, 6.28); g.fill(); }
+      if (gr > 0 && gr < 1) for (let q = 0; q < 4; q++) { g.fillStyle = `rgba(180,150,110,${0.35 * (1 - gr)})`; g.beginPath(); g.arc(bx + (q - 1.5) * bw * 0.35, by - 2 - gr * 10, 4 + gr * 8, 0, 6.28); g.fill(); }
+    }
+    // tier label
+    const ti = Math.min(5, Math.floor(L)); g.textAlign = 'center'; g.font = `600 ${Math.round(Math.min(26, w / 40))}px Cinzel, Georgia, serif`; g.fillStyle = 'rgba(255,224,160,0.85)'; g.fillText(TIER_NAMES[ti], cx, h - 26);
+    for (let i = 0; i < 5; i++) { g.fillStyle = i < Math.floor(L) ? '#ffd27a' : 'rgba(255,224,160,0.25)'; g.beginPath(); g.arc(cx - 40 + i * 20, h - 12, 4, 0, 6.28); g.fill(); }
+    // fade out and in around the loop
+    const fade = k < 1.5 ? 1 - k / 1.5 : k > CYCLE - 1.5 ? (k - (CYCLE - 1.5)) / 1.5 : 0; if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade})`; g.fillRect(0, 0, w, h); }
+    const vg = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
+  };
+  let riseRaf = 0;
+  function riseLoop(cv) {
+    cancelAnimationFrame(riseRaf); cancelAnimationFrame(bgRaf);
+    const g = cv.getContext('2d'); const t0 = performance.now();
+    const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit(); addEventListener('resize', fit);
+    const loop = () => { if (!cv.isConnected) { removeEventListener('resize', fit); return; } M.paintRising(g, cv.width, cv.height, (performance.now() - t0) / 1000); riseRaf = requestAnimationFrame(loop); };
+    loop();
+  }
+  const LSg = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  const LSs = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  let mmTab = 'heroes', heroDir = 0;
+  const lookOf = (ch) => Object.assign(S.classLook(ch.cls, null), ch.look || {}, { race: ch.race, gender: ch.gender, skin: S.skinOf(ch.race, ch.skin), hair: S.HAIRS[ch.hair], hairStyle: ch.hairStyle, cls: ch.cls });
+  const ago = (ts) => { if (!ts) return 'never'; const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+  M.showMenu = function (tab) {
+    const scr = $('#screen'); scr.hidden = false; $('#ui').hidden = true; if (tab) mmTab = tab;
+    KR.A.play('menu');
+    const a = G.account; const chars = a.chars.slice().sort((x, y) => (y.updated || 0) - (x.updated || 0));
+    let sel = LSg('kr_sel_hero', null); if (!chars.some((c) => c.id === sel)) sel = chars[0] ? chars[0].id : null;
+    if (!chars.length && mmTab !== 'history' && mmTab !== 'options' && mmTab !== 'guide') mmTab = 'guide';
+    const tabs = [['heroes', '🛡', 'Choose Hero'], ['create', '✚', 'Create New Hero'], ['guide', '🧭', 'How to Play'], ['delete', '🗑', 'Delete Hero'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options']];
+    scr.innerHTML = `<canvas class="bgcv"></canvas><div class="mm">
+      <header class="mm-title"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><p>Two brothers. One crown. Build your kingdom and destroy his.</p></header>
+      <nav class="mm-nav">${tabs.map(([k, ic, n]) => `<button class="mm-tab ${mmTab === k ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
+        <div class="mm-realm">${D.FACTION_IDS.map((f) => `<div style="--fc:${D.FACTIONS[f].color}"><b>${D.FACTIONS[f].city}</b><span>${'★'.repeat(a.cities[f].level)}${'☆'.repeat(5 - a.cities[f].level)}</span></div>`).join('')}<small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
+      <section class="mm-panel"></section></div>`;
+    riseLoop($('.bgcv', scr));
+    { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.appendChild(lab); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
+    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'create') { if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } return M.showCreate(); } mmTab = b.dataset.t; M.showMenu(); }));
+    const P = $('.mm-panel', scr);
+    if (mmTab === 'heroes') {
+      if (!chars.length) { P.innerHTML = `<div class="mm-empty"><h2>No heroes yet</h2><p>Every kingdom starts as a hamlet. Create a hero to begin raising yours.</p><button class="btn gold big" id="mm-first">Create your first hero</button></div>`; $('#mm-first').onclick = () => M.showCreate(); return; }
+      const ch = chars.find((c) => c.id === sel);
+      P.innerHTML = `<div class="mm-hero"><div class="mm-stage"><canvas width="380" height="440"></canvas><div class="mm-rot"><button class="btn small ghost" data-r="-1" aria-label="Turn left">⟲</button><button class="btn small ghost" data-r="1" aria-label="Turn right">⟳</button></div></div>
+        <div class="mm-info"><h2>${esc(ch.name)}</h2><div class="mm-cls">Level ${ch.level} ${esc(D.RACES[ch.race].name)} ${esc(D.CLASSES[ch.cls].name)}</div>
+        <dl><dt>Kingdom</dt><dd style="color:${D.FACTIONS[ch.faction].color}">${esc(D.FACTIONS[ch.faction].city)}</dd><dt>Location</dt><dd>${esc(ch.zone || D.FACTIONS[ch.faction].city)}</dd><dt>Last played</dt><dd>${ago(ch.updated)}</dd></dl>
+        <button class="btn gold big mm-enter" id="mm-enter">Enter World</button></div></div>
+        <div class="mm-roster"><h3>Your heroes <small>${chars.length} / 8</small></h3><div class="mm-list"></div></div>`;
+      const cv = $('.mm-stage canvas', P); const g = cv.getContext('2d'); const look = lookOf(ch); const t0 = performance.now();
+      const draw = () => { if (!cv.isConnected) return; const t = (performance.now() - t0) / 1000; g.clearRect(0, 0, 380, 440);
+        const gl = g.createRadialGradient(190, 380, 10, 190, 330, 220); gl.addColorStop(0, `${D.FACTIONS[ch.faction].color}55`); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gl; g.fillRect(0, 0, 380, 440);
+        g.save(); g.translate(190, 400); g.scale(1, 0.32); g.strokeStyle = 'rgba(255,215,140,0.55)'; g.lineWidth = 4; g.beginPath(); g.arc(0, 0, 110, 0, 6.28); g.stroke(); g.strokeStyle = 'rgba(255,215,140,0.25)'; g.beginPath(); g.arc(0, 0, 130, t, t + 4); g.stroke(); g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.arc(0, 0, 80, 0, 6.28); g.fill(); g.restore();
+        for (let i = 0; i < 14; i++) { const ph = (t * 0.15 + i / 14) % 1; g.fillStyle = `rgba(255,220,150,${0.5 * (1 - ph)})`; g.fillRect(190 + Math.sin(i * 2.3) * 120, 400 - ph * 360, 2, 2); }
+        S.drawHumanoid(g, 190, 398 + Math.sin(t * 1.6) * 1.5, Object.assign({}, look, { scale: 5.2, dir: [0, 1, 3, 2][((heroDir % 4) + 4) % 4], walk: 0, moving: false }), t);
+        requestAnimationFrame(draw); };
+      draw();
+      P.querySelectorAll('.mm-rot [data-r]').forEach((b) => (b.onclick = () => { heroDir += +b.dataset.r; }));
+      const enter = () => { LSs('kr_sel_hero', ch.id); cancelAnimationFrame(riseRaf); KR.Main.enterWorld(ch.id); };
+      $('#mm-enter', P).onclick = enter;
+      const list = $('.mm-list', P);
+      chars.forEach((c) => {
+        const card = document.createElement('button'); card.className = 'mm-card' + (c.id === sel ? ' on' : '');
+        card.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>${c.level} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small><small class="dim">${esc(c.zone || '')}</small></span>`;
+        S.drawHumanoid(card.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
+        card.onclick = () => { LSs('kr_sel_hero', c.id); KR.A.sfx('click'); M.showMenu(); };
+        card.ondblclick = () => { LSs('kr_sel_hero', c.id); KR.Main.enterWorld(c.id); };
+        list.appendChild(card);
+      });
+    } else if (mmTab === 'delete') {
+      P.innerHTML = `<div class="mm-del"><h2>Delete a hero</h2><p class="dim">Deleting a hero cannot be undone. Items and coin in the shared bank are kept for your other heroes.</p><div class="mm-list wide"></div></div>`;
+      const list = $('.mm-list', P); if (!chars.length) list.innerHTML = '<p class="empty-note">You have no heroes.</p>';
+      P.querySelector('.mm-del').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Start completely over</h3><p class="dim">Delete every hero and reset both kingdoms to level 1.</p><button class="btn danger" id="md-reset">Reset entire game</button></div>`);
+      $('#md-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('guide'); });
+      chars.forEach((c) => {
+        const row = document.createElement('div'); row.className = 'mm-card del';
+        row.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>Level ${c.level} ${esc(D.RACES[c.race].name)} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small></span><button class="btn danger">Delete</button>`;
+        S.drawHumanoid(row.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
+        row.querySelector('button').onclick = () => KR.UI.confirm(`Delete ${c.name} forever? This cannot be undone.`, () => { Sys.deleteChar(c.id); setTimeout(() => M.showMenu('delete'), 50); });
+        list.appendChild(row);
+      });
+    } else if (mmTab === 'guide') {
+      const T = D.CITY_THRESHOLDS;
+      P.innerHTML = `<div class="mm-guide">
+        <h2>How to Play</h2>
+        <p class="mg-goal"><b>The story:</b> Old King Edric Valen is dead, and his two sons have split his kingdom. Aldric, the firstborn, rules Valenmoor. Theron, the younger, rules Aelindor. <b>Your goal:</b> build your king's kingdom from a hamlet into a mighty capital, then <b>destroy the other kingdom by slaying its king</b>.</p>
+        <div class="mg-steps">
+          <div class="mg-step"><span>1</span><div><b>Level up your hero</b><p>Hunt monsters in the wilds around your kingdom. White and blue monsters are fair fights, yellow ones hurt, red ones will kill you. Your stats come only from gear, so buy, loot and craft better equipment as you go.</p></div></div>
+          <div class="mg-step"><span>2</span><div><b>Earn status</b><p>Townsfolk with a gold <b>!</b> over their heads have work for you. Quests, <b>bosses</b> and <b>named monsters</b> earn status for your kingdom. Bosses give the most.</p></div></div>
+          <div class="mg-step"><span>3</span><div><b>Gather timber and stone</b><p>You carry a woodcutter's axe and a miner's pick. Walk up to a tree or a boulder and press <b>E</b> (or click it) to harvest. Each kingdom level needs a different wood and stone, found in harder lands: Oak and Fieldstone, then Darkoak and Granite, Willow and Sandstone, and finally Frostpine and Marble. Better tools are sold by the Outfitter.</p></div></div>
+          <div class="mg-step"><span>4</span><div><b>Build your kingdom</b><p>Your king in the great hall asks for the timber and stone for each new level. A kingdom rises when it has <b>both</b> the materials and the status: ${T[1]} status for level 2, ${T[2]} for 3, ${T[3]} for 4 and ${T[4]} for 5. Each level brings new merchants, more guards and heavier defenses at the gates.</p></div></div>
+          <div class="mg-step"><span>5</span><div><b>Go to war</b><p>Recruit soldiers from the recruiter in your barracks (6 more places every Kingdom Level) and send the war party whenever you are ready. Their goal is the enemy king. When your alarm bell rings, the enemy is at your gates: defend the towers. Playing alone? A rival hero serves the other brother, levels up and sends raids of their own.</p></div></div>
+          <div class="mg-step"><span>6</span><div><b>Win the war</b><p>When the other king falls, to you or to your war party, you win. You keep your hero, and a new age begins with both kingdoms back at level 1.</p></div></div>
+        </div>
+        <p class="dim">Not sure what to do next? Talk to the townsfolk of your kingdom: they will tell you which quests are waiting, where to hunt and gather at your level, and what your king still needs.</p>
+        ${chars.length ? '' : '<button class="btn gold big" id="mm-first">Create your first hero</button>'}</div>`;
+      const fb = $('#mm-first', P); if (fb) fb.onclick = () => M.showCreate();
+    } else if (mmTab === 'history') {
+      P.innerHTML = `<div class="mm-hist"><h2>History of the Realm</h2><p>For forty years King Edric Valen ruled one kingdom from the plains to the old forests. Then, at his own midwinter feast, someone poisoned his wine. The poisoner was never found. Each of his sons, Aldric and Theron, accused the other, and the kingdom tore in two before the snow had melted.</p><p>Aldric, the firstborn, holds the old capital of Valenmoor with the mountain clans and the halflings. Theron, the younger, was crowned by the elves in Aelindor, and many human families followed him there. Aldric calls his brother a thief in a borrowed crown. Theron calls Aldric a tyrant. Both swear the whole land is theirs by right.</p><p>Every boss you slay, every named beast you hunt and every quest you finish earns status for your kingdom. Bring your king timber and stone and he will build it higher, from hamlet to village, town, city and finally capital.</p><button class="btn gold" id="mm-intro">Watch the history</button></div>`;
+      $('#mm-intro', P).onclick = () => M.playIntro(() => M.showMenu());
+    } else if (mmTab === 'options') {
+      const st = a.settings;
+      P.innerHTML = `<div class="mm-opt"><h2>Options</h2><label class="slider">Music <input type="range" id="mo-mus" min="0" max="1" step="0.05" value="${st.music}"></label><label class="slider">Sound effects <input type="range" id="mo-sfx" min="0" max="1" step="0.05" value="${st.sfx}"></label><button class="btn" id="mo-fs">Toggle full screen</button><p class="dim small">More settings (hotbar, panels, zoom) are in the game's Settings window (Esc).</p></div>`;
+      const apply = () => { st.music = +$('#mo-mus').value; st.sfx = +$('#mo-sfx').value; KR.A.setVolumes(st.music, st.sfx); Sys.saveAccount && Sys.saveAccount(); };
+      P.querySelector('.mm-opt').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Reset the whole game</h3><p class="dim">Deletes every hero you have made, empties the shared bank and returns both kingdoms to Kingdom Level 1. This cannot be undone.</p><button class="btn danger" id="mo-reset">Reset entire game</button></div>`);
+      $('#mo-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('guide'); });
+      $('#mo-mus').oninput = apply; $('#mo-sfx').oninput = apply; $('#mo-fs').onclick = () => KR.UI.toggleFullscreen && KR.UI.toggleFullscreen();
+    }
+  };
+
+  // ---------------- creation ----------------
+  let cs = null;
+  M.showCreate = function () {
+    cs = { step: 0, faction: null, race: null, cls: null, gender: 'm', skin: 1, hair: 1, hairStyle: 0, name: '', bonus: {}, dir: 0 };
+    D.STATS.forEach((s) => (cs.bonus[s] = 0));
+    renderCreate();
+  };
+  const BONUS = 20;
+  function renderCreate() {
+    const scr = $('#screen');
+    const steps = ['Kingdom', 'Race', 'Class', 'Appearance', 'Name'];
+    scr.innerHTML = `<canvas class="bgcv"></canvas><div class="cr"><header class="cr-h"><button class="btn ghost" id="cr-back">← Back</button><ol class="steps">${steps.map((s, i) => `<li class="${i === cs.step ? 'on' : i < cs.step ? 'done' : ''}">${s}</li>`).join('')}</ol></header><div class="cr-body"></div></div>`;
+    bgLoop($('.bgcv', scr));
+    $('#cr-back').onclick = () => { if (cs.step === 0) M.showMenu(); else { cs.step--; renderCreate(); } };
+    const body = $('.cr-body', scr);
+    const next = () => { cs.step++; renderCreate(); };
+    if (cs.step === 0) {
+      body.innerHTML = `<h2>Choose your kingdom</h2><p class="lead">Old King Edric is dead, and his sons have split the land in two. Choose which brother you serve. Your kingdom decides your home, your people and your enemies, and the guards of the other brother will attack you on sight. Humans serve both kings.</p><div class="cards two"></div>`;
+      const cards = $('.cards', body);
+      D.FACTION_IDS.forEach((f) => {
+        const F = D.FACTIONS[f];
+        const c = document.createElement('button'); c.className = 'card fac' + (cs.faction === f ? ' sel' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
+        c.innerHTML = `<canvas width="300" height="150"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name}</div><p>${F.blurb}</p><div class="dim small">${F.races.map((r) => D.RACES[r].name).join(' · ')} · Rivals: ${F.enemyMobs}</div></div>`;
+        const g = c.querySelector('canvas').getContext('2d'); g.scale(300 / 860, 150 / 430); M.paintCity(g, 860, 430, f, 3);
+        c.onclick = () => { cs.faction = f; cs.race = null; cs.cls = null; next(); };
+        cards.appendChild(c);
+      });
+    } else if (cs.step === 1) {
+      const F = D.FACTIONS[cs.faction];
+      body.innerHTML = `<h2>Choose your race</h2><p class="lead">The peoples who serve ${F.king}. Each starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards three"></div>`;
+      const cards = $('.cards', body);
+      F.races.forEach((r) => {
+        const R = D.RACES[r];
+        const c = document.createElement('button'); c.className = 'card race' + (cs.race === r ? ' sel' : '');
+        c.innerHTML = `<canvas width="120" height="140"></canvas><div class="card-b"><h3>${R.name}</h3><p>${R.desc}</p><table class="mini-stats">${D.STATS.map((s) => `<tr><th>${s}</th><td><span class="sb"><i style="width:${R.stats[s]}%"></i></span>${R.stats[s]}</td></tr>`).join('')}</table><div class="dim small">${R.classes.length} classes available</div></div>`;
+        const look = Object.assign(S.classLook(R.classes[0], null), { race: r, gender: cs.gender, skin: S.skinOf(r, 1), hair: S.HAIRS[R.hairDefault != null ? R.hairDefault : r === 'gnome' ? 5 : r === 'highelf' ? 3 : 1], hairStyle: 1, cls: R.classes[0] });
+        look.hat = null; look.helm = null;
+        S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 60, 132, Object.assign(look, { scale: 2.0 * R.scale }), 0);
+        c.onclick = () => { cs.race = r; cs.cls = null; if (R.hairDefault != null) cs.hair = R.hairDefault; next(); };
+        cards.appendChild(c);
+      });
+    } else if (cs.step === 2) {
+      const R = D.RACES[cs.race];
+      body.innerHTML = `<h2>Choose your class</h2><p class="lead">Melee classes earn new techniques as they level. Hybrids mix steel with nearly 40 spells. Casters master over 75 spells across the schools of magic.</p><div class="cards cls"></div>`;
+      const cards = $('.cards', body);
+      R.classes.forEach((k) => {
+        const C = D.CLASSES[k];
+        const c = document.createElement('button'); c.className = 'card clsc' + (cs.cls === k ? ' sel' : ''); c.style.setProperty('--fc', C.color);
+        c.innerHTML = `<canvas width="90" height="104"></canvas><div class="card-b"><h3>${C.name}</h3><div class="tags"><span>${C.role === 'melee' ? 'Melee' : C.role === 'hybrid' ? 'Hybrid · 38 spells' : 'Caster · 75+ spells'}</span><span>${C.armor} armor</span></div><p>${C.desc}</p></div>`;
+        const look = Object.assign(S.classLook(k, { kind: C.armor === 'cloth' ? 'cloth' : C.armor, ak: C.armor }), { race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, 1), hair: S.HAIRS[1], hairStyle: 0, cls: k });
+        look.armor.kind = C.armor; if (C.armor === 'plate') { look.armor.col = k === 'shadowknight' ? '#3a3440' : k === 'paladin' ? '#d8d4c8' : '#a8acb4'; look.helm = k === 'warrior' || k === 'shadowknight' || k === 'paladin' ? 'plate' : null; if (look.helm) look.hat = null; }
+        if (C.armor === 'chain') look.armor.col = '#8e9298';
+        look.weapon = C.role === 'caster' ? '2HB' : C.weapons[0] === '2HS' ? 'axe' : C.weapons[0]; if (k === 'ranger') look.back = 'bow'; if (C.shield && C.role !== 'caster') look.offhand = 'shield'; look.shieldCol = D.FACTIONS[cs.faction].banner;
+        S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * D.RACES[cs.race].scale }), 0);
+        c.onclick = () => { cs.cls = k; next(); };
+        cards.appendChild(c);
+      });
+    } else if (cs.step === 3) {
+      body.innerHTML = `<h2>Your appearance</h2><div class="app"><div class="app-prev"><canvas id="ap-cv" width="220" height="260"></canvas><div class="row"><button class="btn ghost" id="ap-rot" aria-label="Turn">↻ Turn</button></div></div><div class="app-opts">
+        <div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
+        <div class="opt"><label>Skin</label><div class="sw">${S.skinsFor(cs.race).map((c, i) => `<button data-skin="${i}" style="background:${c}" class="${cs.skin === i ? 'on' : ''}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div></div>
+        <div class="opt"><label>Hair color</label><div class="sw">${S.HAIRS.map((c, i) => `<button data-hair="${i}" style="background:${c}" class="${cs.hair === i ? 'on' : ''}" aria-label="Hair color ${i + 1}"></button>`).join('')}</div></div>
+        <div class="opt"><label>Hair style</label><div class="seg">${['Short', 'Long', 'Crest', 'Flowing', 'Shaved'].map((n, i) => `<button data-hs="${i}" class="${cs.hairStyle === i ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+        <button class="btn gold big" id="ap-next">Continue</button></div></div>`;
+      const cv = $('#ap-cv'); let raf;
+      const draw = () => { if (!cv.isConnected) return cancelAnimationFrame(raf); const g = cv.getContext('2d'); g.clearRect(0, 0, 220, 260); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(110, 240, 60, 14, 0, 0, 6.28); g.fill(); const look = Object.assign(S.classLook(cs.cls, null), { race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, cs.skin), hair: S.HAIRS[cs.hair], hairStyle: cs.hairStyle, cls: cs.cls, hat: null, helm: null, mask: null }); S.drawHumanoid(g, 110, 238, Object.assign(look, { dir: cs.dir, scale: 3.6 * D.RACES[cs.race].scale, walk: performance.now() / 160, moving: false }), performance.now() / 1000); raf = requestAnimationFrame(draw); };
+      draw();
+      body.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => { cs.gender = b.dataset.g; renderCreate(); }));
+      body.querySelectorAll('[data-skin]').forEach((b) => (b.onclick = () => { cs.skin = +b.dataset.skin; renderCreate(); }));
+      body.querySelectorAll('[data-hair]').forEach((b) => (b.onclick = () => { cs.hair = +b.dataset.hair; renderCreate(); }));
+      body.querySelectorAll('[data-hs]').forEach((b) => (b.onclick = () => { cs.hairStyle = +b.dataset.hs; renderCreate(); }));
+      $('#ap-rot').onclick = () => { cs.dir = [0, 2, 3, 1][(([0, 2, 3, 1].indexOf(cs.dir)) + 1) % 4]; };
+      $('#ap-next').onclick = next;
+    } else {
+      const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
+      const used = D.STATS.reduce((a, s) => a + cs.bonus[s], 0);
+      body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(D.NAMES[cs.faction][cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
+        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">Starts with a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots, food and water, and 3 abilities.</span></div></div>
+        <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
+        <button class="btn gold big" id="cr-go">Begin your journey</button>`;
+      const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
+      $('#cr-rand').onclick = () => { const N = D.NAMES[cs.faction]; cs.name = U.pick(N[cs.gender]) + U.pick(['', 'a', 'en', 'ric', 'wyn', 'dor', 'ix']); inp.value = cs.name; };
+      $('#cr-go').onclick = () => { if (cs.busy) return;
+        const nm = cs.name.trim();
+        if (!/^[A-Za-z]{3,14}$/.test(nm)) { $('#cr-err').textContent = 'Use 3 to 14 letters, no spaces or numbers.'; inp.focus(); return; }
+        if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
+        const name = nm[0].toUpperCase() + nm.slice(1).toLowerCase();
+        cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, bonus: {} });
+        if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
+      };
+      setTimeout(() => inp.focus(), 50);
+    }
+  }
+})();

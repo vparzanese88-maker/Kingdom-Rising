@@ -11,6 +11,7 @@ import { weaponMesh, WFX, BLADE_LEN } from './weapons.js';
 import { fx, rgb } from './fx.js';
 import { view } from './camera.js';
 import { cardTex } from './texgen.js';
+import { buildFlags } from './structures.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
 const root = new THREE.Group(); root.name = 'actors'; K3.scene.add(root);
@@ -117,6 +118,12 @@ function build(av) {
     av.height = av.rig.top; av.float = !!look.float;
     if (look.wings || e.kind === 'harpy') addWings(av, look.wings || e.col);
     if (e.mounted && KR.War) { av.horse = horseModel(e); av.obj.add(av.horse.mesh); av.rig.mesh.position.y = 0.72; av.height += 0.9; }
+    // the standard-bearer's banner and the drummer's drum
+    if (look.standard) { const pole = new THREE.Group(); const mb = new MB(); mb.cylB('timber', 0, -1.1, 0, 0.035, 4.6, '#5a3a20', 8); mb.sph('gold', 0, 3.55, 0, 0.12, 0.16, 0.12, '#e0c050'); pole.add(mb.build()); buildFlags([{ kind: 'pole', x: 0, y: 3.35, z: 0, w: 1.5, h: 1.0, f: look.standard }], pole); av.rig.bones.handR.add(pole); if (av.rig.hands) pole.position.set(...av.rig.hands.R.grip); pole.rotation.set(Math.PI / 2, 0, 0); av.standard = pole; }
+    if (look.drum) { const mb = new MB(); mb.cyl('planks', 0, 0, 0, 0.22, 0.32, '#7a2a1a', 16).cyl('cloth', 0, 0.165, 0, 0.215, 0.01, '#efe6cc', 16).cyl('cloth', 0, -0.165, 0, 0.215, 0.01, '#efe6cc', 16);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; mb.box('timber', Math.cos(a) * 0.21, 0, Math.sin(a) * 0.21, 0.02, 0.34, 0.02, '#e0c050', 0, 0, (k % 2 ? 0.5 : -0.5)); }
+      const drum = mb.build(); drum.position.set(0.05, -0.1, 0.24); drum.rotation.set(0.25, 0, 0); av.rig.bones.hips.add(drum);
+      const sticks = []; for (const S of ['R', 'L']) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.38, 6), mats.get('timber')); const g = new THREE.Group(); g.add(st); st.position.y = -0.17; av.rig.bones['hand' + S].add(g); if (av.rig.hands) g.position.set(...av.rig.hands[S].grip); g.rotation.set(Math.PI / 2, 0, 0); sticks.push(g); } av.drumSticks = sticks; }
     if (e.soldier === 'musketeer') { const m = weaponMesh('musket'); if (m) { av.rig.bones.handR.add(m); m.rotation.set(Math.PI / 2 - 0.4, 0, 0); } }
     if (look.glow) av.glowCol = look.glow;
     return;
@@ -236,6 +243,7 @@ function updateAvatar(av, dt, ctx) {
   if (av.wings) { const f = Math.sin(K3.time * 9); av.wings[0].rotation.y = -0.4 + f * 0.6; av.wings[1].rotation.y = 0.4 - f * 0.6; }
   if (av.kind === 'war' && av.model) warAnim(av, e);
   if (av.kind === 'board') { drawBillboard(av, e); av.obj.rotation.set(0, 0, 0); av.model.obj.quaternion.copy(K3.camera.quaternion); }
+  if (av.drumSticks) { const since = (G.now - (e.drumHit || 0)) / 1000; av.drumSticks.forEach((g, i) => { const hit = (e.drumHit && since < 0.25 && i === Math.floor(e.drumHit / 7) % 2) ? Math.sin(Math.min(1, since / 0.25) * Math.PI) : 0; g.rotation.x = Math.PI / 2 - 0.9 + hit * 0.9; }); }
   // effects tied to the body
   bodyFx(av, e, dt);
 }

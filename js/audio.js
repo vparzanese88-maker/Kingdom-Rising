@@ -535,6 +535,7 @@
       case 'stab': noise(d, t, 0.05, 0.2, { f: 5000, q: 2 }); tone(d, 200, t + 0.04, 0.15, 'sine', 0.35, { slide: 0.6, release: 0.15 }); noise(d, t + 0.04, 0.15, 0.15, { f: 700, q: 2 }); break;
       case 'heavy': noise(d, t, 0.18, 0.2, { f: 500, f2: 2500, q: 1.5 }); tone(d, 75, t + 0.15, 0.4, 'sine', 0.6, { slide: 0.5, release: 0.4 }); noise(d, t + 0.15, 0.25, 0.35, { f: 300, q: 0.8 }); break;
       case 'flurry': for (let i = 0; i < 4; i++) { noise(d, t + i * 0.08, 0.1, 0.12, { f: 900, f2: 3000, q: 1.5 }); noise(d, t + i * 0.08 + 0.06, 0.05, 0.15, { f: 3000, q: 2 }); } break;
+      case 'wardrum': tone(d, 64, t, 0.6, 'sine', 0.95, { slide: 0.55, release: 0.55 }); tone(d, 118, t, 0.14, 'triangle', 0.25, { slide: 0.6, release: 0.14 }); noise(d, t, 0.1, 0.4, { f: 220, q: 0.7 }); noise(d, t, 0.03, 0.15, { f: 2400, q: 1 }); break;
       case 'shout': case 'warcry': tone(d, 180, t, 0.6, 'sawtooth', 0.12, { slide: 1.25, release: 0.6, lp: 1400 }); tone(d, 270, t, 0.6, 'sawtooth', 0.07, { slide: 1.25, release: 0.6, lp: 1600 }); noise(d, t, 0.5, 0.08, { f: 900, q: 2 }); break;
       case 'stealth': noise(d, t, 0.6, 0.1, { f: 3000, f2: 400, q: 2, attack: 0.05 }); [79, 74, 67].forEach((n, i) => tone(d, midi(n), t + i * 0.08, 0.3, 'sine', 0.035, { release: 0.3 })); break;
       case 'charge': noise(d, t, 0.3, 0.2, { f: 400, f2: 3000, q: 1.2, attack: 0.05 }); tone(d, 90, t + 0.28, 0.25, 'sine', 0.55, { slide: 0.5, release: 0.25 }); noise(d, t + 0.28, 0.15, 0.25, { f: 500 }); break;

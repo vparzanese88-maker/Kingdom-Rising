@@ -64,7 +64,8 @@
         if (dx && dy && (W.isBlockedTile(x + dx, y, opts) || W.isBlockedTile(x, y + dy, opts))) continue;
         const nk = ny * WW + nx; if (closed[nk]) continue;
         // stay a little away from walls and props so wide soldiers don't scrape corners
-        const ng = gS[k] + (dx && dy ? 1.414 : 1) + (W.tile(nx, ny) === KR.T.WATER ? 3 : 0) + (W.isBlockedTile(nx + 1, ny, opts) || W.isBlockedTile(nx - 1, ny, opts) || W.isBlockedTile(nx, ny + 1, opts) || W.isBlockedTile(nx, ny - 1, opts) ? 0.6 : 0);
+        const step = dx && dy ? 1.414 : 1; const tn = W.tile(nx, ny); const offRoad = opts && opts.roads && tn !== KR.T.ROAD && tn !== KR.T.BRIDGE && tn !== KR.T.COBBLE && tn !== KR.T.STONE ? step * 2.6 : 0; // armies keep to the roads
+        const ng = gS[k] + step + offRoad + (tn === KR.T.WATER ? 3 : 0) + (W.isBlockedTile(nx + 1, ny, opts) || W.isBlockedTile(nx - 1, ny, opts) || W.isBlockedTile(nx, ny + 1, opts) || W.isBlockedTile(nx, ny - 1, opts) ? 0.6 : 0);
         if (ng >= gS[nk]) continue; if (gS[nk] === 1e9) touched.push(nk); gS[nk] = ng; came[nk] = k; push(nk, ng + Math.hypot(gx - nx, gy - ny));
       }
     }
@@ -252,7 +253,7 @@
     const F = D.FACTIONS[f], E = D.FACTIONS[ef], p = G.player; const mine = p && p.c.faction === f, theirs = p && p.c.faction === ef;
     if (!members.length) { if (mine && !quiet) G.log(`The war horns of ${F.city} sound, but the barracks is empty. No one marches this time.`, 'status', '#ffb24a'); return 0; }
     const bk = W.cityData[f].barracks || best.a;
-    let path = W.findPathLong(bk[0], bk[1], best.b[0], best.b[1]);
+    let path = W.findPathLong(bk[0], bk[1], best.b[0], best.b[1], 420000, { door: 'pass', roads: true }) || W.findPathLong(bk[0], bk[1], best.b[0], best.b[1]);
     if (!path) { path = []; const n = Math.ceil(best.d / 4); for (let i = 1; i <= n; i++) path.push([Math.round(best.a[0] + (best.b[0] - best.a[0]) * i / n), Math.round(best.a[1] + (best.b[1] - best.a[1]) * i / n)]); }
     path.unshift(bk.slice());
     const sq = { f, ef, members: [], order: [], queue: [], path, hi: 0, id: Math.random().toString(36).slice(2, 7), started: G.now, arrived: false, bk };
@@ -826,7 +827,7 @@
     const F = D.FACTIONS[f], E = D.FACTIONS[ef], p = G.player; const mine = p && p.c.faction === f, theirs = p && p.c.faction === ef;
     if (!members.length) { if (mine && !quiet) G.log('The barracks is empty. Recruit soldiers first.', 'sys', '#ffb24a'); return 0; }
     const bk = W.cityData[f].barracks || best.a;
-    let path = W.findPathLong(bk[0], bk[1], best.b[0], best.b[1]);
+    let path = W.findPathLong(bk[0], bk[1], best.b[0], best.b[1], 420000, { door: 'pass', roads: true }) || W.findPathLong(bk[0], bk[1], best.b[0], best.b[1]);
     if (!path) { path = []; const n = Math.ceil(best.d / 4); for (let i = 1; i <= n; i++) path.push([Math.round(best.a[0] + (best.b[0] - best.a[0]) * i / n), Math.round(best.a[1] + (best.b[1] - best.a[1]) * i / n)]); }
     path.unshift(bk.slice());
     const cdE = W.cityData[ef]; const end = path[path.length - 1]; let ax = cdE.cx - end[0], ay = cdE.cy - end[1]; const al = Math.hypot(ax, ay) || 1;

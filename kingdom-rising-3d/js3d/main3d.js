@@ -21,6 +21,9 @@ await import('./herolight.js');
 await import('./harvest3d.js');
 await import('./items3d.js');
 const { grass } = await import('./grass.js');
+const { menu: menu3d } = await import('./menu3d.js');
+await import('./cine3d.js');
+await import('./heroview.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;
@@ -77,6 +80,8 @@ Main.boot = async function () {
   await Promise.race([Sys.Store.init(), new Promise((r) => setTimeout(r, 4000))]);
   await Sys.loadAccount();
   A.setVolumes(G.account.settings.music, G.account.settings.sfx);
+  // build the world now, behind the loading screen, so the cover and the menus can fly over it
+  try { const bm = document.getElementById('boot3d-msg'); if (bm) bm.textContent = 'Raising the realm...'; await new Promise((r) => setTimeout(r, 30)); Main.ensureWorld(); syncWorld(true); menu3d.start(); } catch (e) { console.error('menu world', e); }
   if (boot) boot.remove();
   const start = () => { A.init(); A.setVolumes(G.account.settings.music, G.account.settings.sfx); KR.Menus.showMenu(); setTimeout(() => { try { if (worldKey !== G.account.seed && !running) Main.ensureWorld(); } catch (e) { console.error(e); } }, 700); };
   const gate = document.getElementById('gate'); gate.hidden = false;
@@ -106,8 +111,8 @@ Main.autoFullscreen = function () {
   const d = document.documentElement;
   try { const pr = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen && d.webkitRequestFullscreen(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
 };
-Main.enterWorld = async function (id, newChar) {
-  Main.autoFullscreen();
+Main.enterWorld = async function (id, newChar, opt = {}) {
+  Main.autoFullscreen(); menu3d.stop();
   const scr = document.getElementById('screen');
   scr.innerHTML = '<div class="enter"><div class="spin"></div><p id="enter-step">Loading your hero...</p></div>';
   const step = async (t) => { const el = document.getElementById('enter-step'); if (el) el.textContent = t; await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
@@ -128,11 +133,15 @@ Main.enterWorld = async function (id, newChar) {
     if (newChar) { G.clock = 9 * 60; Sys.save(true); } else if (G.account.clock != null) G.clock = G.account.clock;
     Sys.Net.init();
     scr.hidden = true; scr.innerHTML = '';
-    document.getElementById('ui').hidden = false;
     UI.buildHUD();
-    hud3d.show(true);
     Main.snapCamera();
-    if (newChar) {
+    const showHud = () => { document.getElementById('ui').hidden = false; hud3d.show(true); };
+    if (opt.cine && K3.startCine) {
+      // the opening film; the HUD and the welcome come up when it ends
+      K3.startCine(c, () => { showHud(); UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`); });
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
+    } else showHud();
+    if (opt.cine && K3.startCine) {} else if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`);
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else G.log('3D view: W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
@@ -158,6 +167,7 @@ Main.exitToMenu = function (create) {
   document.getElementById('ui').hidden = true; hud3d.show(false); settings3d.toggle(false); endLook();
   G.player = null; G.ents = [];
   KR.Menus.showMenu(); if (create === true) KR.Menus.showCreate();
+  menu3d.start();
 };
 Main.snapCamera = function () {
   const p = G.player; if (!p) return; R.cam.x = p.x; R.cam.y = p.y - 20;
@@ -194,13 +204,15 @@ function loopBody(now) {
   if (f) move.autorun = false;
   if (move.autorun) f = 1;
   if (mouse.r && turn) { s -= turn; turn = 0; }
+  if (K3.cine) turn = 0;
   view.yaw += turn * dt * (K3.settings.turnSpeed || 1.9);
   view.turning = !!turn;
   // both mouse buttons held: walk forward (like most 3D RPGs)
   if (mouse.l && mouse.r) f = 1;
+  if (K3.cine) f = s = 0; // the opening film is playing
   move.back = f < 0;
   let { mx, my } = moveInput(f, s);
-  if (touch.move) { const m2 = moveInput(-touch.my, touch.mx); mx = m2.mx; my = m2.my; }
+  if (touch.move && !K3.cine) { const m2 = moveInput(-touch.my, touch.mx); mx = m2.mx; my = m2.my; }
   if (p.fear > 0 && p.fearFrom) { const dx = p.x - p.fearFrom.x, dy = p.y - p.fearFrom.y, d = Math.hypot(dx, dy) || 1; mx = dx / d; my = dy / d; }
   G.update(dt, { mx, my });
   Sys.worldTick(dt);
@@ -210,6 +222,7 @@ function loopBody(now) {
   syncWorld();
   // camera, world and actors
   updateCamera(dt, p);
+  if (K3.cine) K3.updateCine(dt);
   const inside = W.buildingAt(p.x, p.y);
   world3d.update(dt, { inside, cam: K3.camera.position });
   actors.update(dt, { inside });
@@ -241,14 +254,14 @@ function loopBody(now) {
   else if (hubNear('tidesong') || hubNear('docks')) track = 'harbor';
   else if (hubNear('eyrie')) track = 'eyrie';
   else track = reg.music || 'plains';
-  A.play(track);
+  if (!K3.cine) A.play(track);
   saveT += dt; if (saveT > 45) { saveT = 0; Sys.save(); }
   const npcW = UI.wins.npc; if (npcW && !npcW.el.hidden && UI._npc && Math.hypot(UI._npc.x - p.x, UI._npc.y - p.y) > 260) UI.close('npc');
 }
 
 // ---------- keyboard ----------
 addEventListener('keydown', (e) => {
-  if (!running) return;
+  if (!running || K3.cine) return;
   if (typing()) { if (e.key === 'Escape') document.activeElement.blur(); return; }
   if (settings3d.capturing && settings3d.capturing()) return; // the key bindings window is listening for a new key
   if (e.key === 'Enter') { e.preventDefault(); const ci = document.getElementById('chatin'); if (ci) ci.focus(); return; }
@@ -358,7 +371,7 @@ function endLook() { view.look = false; if (document.pointerLockElement === cv) 
 K3.endLook = endLook;
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
 cv.addEventListener('pointerdown', (ev) => {
-  if (!running) return;
+  if (!running || K3.cine) return;
   A.init();
   if (ev.pointerType === 'touch') return onTouchStart(ev);
   mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0;

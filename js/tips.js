@@ -110,7 +110,7 @@
   };
   // pacing: one at a time, a breather between them, nothing mid-fight unless it is about staying alive
   function pump() {
-    const p = G.player; if (!p || !queue.length || cur) return; const c = p.c; if (!c.tipsOn) { queue.length = 0; return; }
+    const p = G.player; if (!p || !queue.length || cur || (window.K3 && window.K3.cine)) return; const c = p.c; // not over the opening film if (!c.tipsOn) { queue.length = 0; return; }
     const next = queue[0]; const tip = TIPS[next];
     if (c.tipsSeen[next]) { queue.shift(); return; }
     if (CTX[next] && !CTX[next]()) { queue.shift(); return; }

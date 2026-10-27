@@ -659,7 +659,8 @@
     try { document.fonts && document.fonts.ready.then(() => { buildTitle(); out = null; lastProg = -1; }); } catch (e) {}
     const frame = (now) => {
       if (!alive && gate.hidden) return; const t = (now - t0) / 1000;
-      const W2 = bg.width = innerWidth, H2 = bg.height = innerHeight;
+      // in 3D the real world is behind the cover (kingdom-rising-3d/js3d/menu3d.js): only the title is drawn here
+      const W2 = window.KR3D ? 0 : (bg.width = innerWidth), H2 = window.KR3D ? 0 : (bg.height = innerHeight); if (!window.KR3D) {
       // sky: smoke-red night
       const sk = g.createLinearGradient(0, 0, 0, H2); sk.addColorStop(0, '#0a0406'); sk.addColorStop(0.55, '#3a0c08'); sk.addColorStop(0.8, '#8a2a0c'); sk.addColorStop(1, '#1a0604'); g.fillStyle = sk; g.fillRect(0, 0, W2, H2);
       // smoke plumes
@@ -683,6 +684,7 @@
       drawBrothers(g, W2, H2, t);
       // vignette
       const vg = g.createRadialGradient(W2 / 2, H2 / 2, H2 * 0.3, W2 / 2, H2 / 2, H2 * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)'); g.fillStyle = vg; g.fillRect(0, 0, W2, H2);
+      }
       // the title burns into view
       const wantW = Math.min(1100, innerWidth * 0.92) | 0; if (tc.width !== wantW) { buildTitle(); lastProg = -1; }
       const prog = Math.min(1.15, Math.max(0, (t - 0.8) / 3.2) * 1.15);

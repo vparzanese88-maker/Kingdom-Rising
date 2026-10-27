@@ -105,6 +105,7 @@
   let bgRaf = 0;
   function bgLoop(cv) {
     cancelAnimationFrame(bgRaf);
+    if (window.KR3D) return; // in 3D the real world flies by behind the menus (kingdom-rising-3d/js3d/menu3d.js)
     const g = cv.getContext('2d'); const t0 = performance.now(); const order = ['sylvan', 'crown', 'iron'];
     const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit(); addEventListener('resize', fit);
     const loop = () => { if (!cv.isConnected) { removeEventListener('resize', fit); return; } const t = (performance.now() - t0) / 1000; const i = Math.floor(t / 12) % 3; M.paintCity(g, cv.width, cv.height, order[i], t); const st = t % 12; const f = Math.min(1, st / 1, (12 - st) / 1); g.fillStyle = `rgba(0,0,0,${0.35 + 0.65 * (1 - f)})`; g.fillRect(0, 0, cv.width, cv.height); bgRaf = requestAnimationFrame(loop); };
@@ -169,6 +170,7 @@
   let riseRaf = 0;
   function riseLoop(cv) {
     cancelAnimationFrame(riseRaf); cancelAnimationFrame(bgRaf);
+    if (window.KR3D) return;
     const g = cv.getContext('2d'); const t0 = performance.now();
     const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit(); addEventListener('resize', fit);
     const loop = () => { if (!cv.isConnected) { removeEventListener('resize', fit); return; } M.paintRising(g, cv.width, cv.height, (performance.now() - t0) / 1000); riseRaf = requestAnimationFrame(loop); };
@@ -179,7 +181,10 @@
   // an invite link (?join=code) opens straight onto the Multiplayer screen
   const INVITED = !!new URLSearchParams(location.search).get('join');
   let mmTab = INVITED ? 'online' : 'heroes', heroDir = 0, inviteFailed = false;
-  const lookOf = (ch) => Object.assign(S.classLook(ch.cls, null), ch.look || {}, { race: ch.race, gender: ch.gender, skin: S.skinOf(ch.race, ch.skin), hair: S.HAIRS[ch.hair], hairStyle: ch.hairStyle, cls: ch.cls });
+  // in 3D a hero looks exactly like what it wears: nothing from the class picture is added
+  const lookOf = (ch) => Object.assign(window.KR3D && ch.look ? {} : S.classLook(ch.cls, null), ch.look || {}, ch.app || {}, { race: ch.race, gender: ch.gender, skin: S.skinOf(ch.race, ch.skin), hair: S.HAIRS[ch.hair], hairStyle: ch.hairStyle, cls: ch.cls });
+  // 3D: a still render of a hero drawn into a small card canvas (falls back to the 2D figure)
+  const snap3 = (cv, look) => { if (!(window.KR3D && KR.heroSnap)) return false; try { const img = new Image(); img.onload = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height); }; img.src = KR.heroSnap(look, cv.width, cv.height); return true; } catch (e) { console.warn(e); return false; } };
   const ago = (ts) => { if (!ts) return 'never'; const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
   M.showMenu = function (tab) {
     const scr = $('#screen'); scr.hidden = false; $('#ui').hidden = true; if (tab) mmTab = tab;
@@ -214,8 +219,9 @@
         for (let i = 0; i < 14; i++) { const ph = (t * 0.15 + i / 14) % 1; g.fillStyle = `rgba(255,220,150,${0.5 * (1 - ph)})`; g.fillRect(190 + Math.sin(i * 2.3) * 120, 400 - ph * 360, 2, 2); }
         S.drawHumanoid(g, 190, 398 + Math.sin(t * 1.6) * 1.5, Object.assign({}, look, { scale: 5.2, dir: [0, 1, 3, 2][((heroDir % 4) + 4) % 4], walk: 0, moving: false }), t);
         requestAnimationFrame(draw); };
-      draw();
-      P.querySelectorAll('.mm-rot [data-r]').forEach((b) => (b.onclick = () => { heroDir += +b.dataset.r; }));
+      let hv = null;
+      if (window.KR3D && KR.heroView3D) { cv.classList.add('k3-hero'); hv = KR.heroView3D(cv, { ring: D.FACTIONS[ch.faction].color, pose: 'ready' }); hv.set(look); } else draw();
+      P.querySelectorAll('.mm-rot [data-r]').forEach((b) => (b.onclick = () => { heroDir += +b.dataset.r; if (hv) hv.yaw += +b.dataset.r * Math.PI / 2; }));
       const enter = () => { LSs('kr_sel_hero', ch.id); cancelAnimationFrame(riseRaf); KR.Main.enterWorld(ch.id); };
       $('#mm-enter', P).onclick = enter;
       $('#mm-multi', P).onclick = () => { KR.A.sfx('click'); mmTab = 'online'; M.showMenu(); };
@@ -223,7 +229,7 @@
       chars.forEach((c) => {
         const card = document.createElement('button'); card.className = 'mm-card' + (c.id === sel ? ' on' : '');
         card.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>${c.level} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small><small class="dim">${esc(c.zone || '')}</small></span>`;
-        S.drawHumanoid(card.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
+        if (!snap3(card.querySelector('canvas'), lookOf(c))) S.drawHumanoid(card.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
         card.onclick = () => { LSs('kr_sel_hero', c.id); KR.A.sfx('click'); M.showMenu(); };
         card.ondblclick = () => { LSs('kr_sel_hero', c.id); KR.Main.enterWorld(c.id); };
         list.appendChild(card);
@@ -410,7 +416,7 @@
         c.innerHTML = `<canvas width="120" height="140"></canvas><div class="card-b"><h3>${R.name}</h3><p>${R.desc}</p><table class="mini-stats">${D.STATS.map((s) => `<tr><th>${s}</th><td><span class="sb"><i style="width:${R.stats[s]}%"></i></span>${R.stats[s]}</td></tr>`).join('')}</table><div class="dim small">${R.classes.length} classes available</div></div>`;
         const look = Object.assign(S.classLook(R.classes[0], null), { race: r, gender: cs.gender, skin: S.skinOf(r, 1), hair: S.HAIRS[R.hairDefault != null ? R.hairDefault : r === 'gnome' ? 5 : r === 'highelf' ? 3 : 1], hairStyle: 1, cls: R.classes[0] });
         look.hat = null; look.helm = null;
-        S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 60, 132, Object.assign(look, { scale: 2.0 * R.scale }), 0);
+        if (!snap3(c.querySelector('canvas'), look)) S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 60, 132, Object.assign(look, { scale: 2.0 * R.scale }), 0);
         c.onclick = () => { cs.race = r; cs.cls = null; if (R.hairDefault != null) cs.hair = R.hairDefault; next(); };
         cards.appendChild(c);
       });
@@ -426,10 +432,12 @@
         look.armor.kind = C.armor; if (C.armor === 'plate') { look.armor.col = k === 'shadowknight' ? '#3a3440' : k === 'paladin' ? '#d8d4c8' : '#a8acb4'; look.helm = k === 'warrior' || k === 'shadowknight' || k === 'paladin' ? 'plate' : null; if (look.helm) look.hat = null; }
         if (C.armor === 'chain') look.armor.col = '#8e9298';
         look.weapon = C.role === 'caster' ? '2HB' : C.weapons[0] === '2HS' ? 'axe' : C.weapons[0]; if (k === 'ranger') look.back = 'bow'; if (C.shield && C.role !== 'caster') look.offhand = 'shield'; look.shieldCol = D.FACTIONS[cs.faction].banner;
-        S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * D.RACES[cs.race].scale }), 0);
+        if (!snap3(c.querySelector('canvas'), look)) S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * D.RACES[cs.race].scale }), 0);
         c.onclick = () => { cs.cls = k; next(); };
         cards.appendChild(c);
       });
+    } else if (cs.step === 3 && window.KR3D && KR.heroView3D) {
+      appearance3D(body, next);
     } else if (cs.step === 3) {
       body.innerHTML = `<h2>Your appearance</h2><div class="app"><div class="app-prev"><canvas id="ap-cv" width="220" height="260"></canvas><div class="row"><button class="btn ghost" id="ap-rot" aria-label="Turn">↻ Turn</button></div></div><div class="app-opts">
         <div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
@@ -450,7 +458,7 @@
       const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
       const used = D.STATS.reduce((a, s) => a + cs.bonus[s], 0);
       body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(D.NAMES[cs.faction][cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
-        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">Starts with a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots, food and water, and 3 abilities.</span></div></div>
+        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">Starts with nothing but a linen loincloth${cs.gender === 'f' ? ' and breast wrap' : ''}, a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots and 3 abilities. Everything else you earn.</span></div></div>
         <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
         <button class="btn gold big" id="cr-go">Begin your journey</button>`;
       const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
@@ -460,7 +468,7 @@
         if (!/^[A-Za-z]{3,14}$/.test(nm)) { $('#cr-err').textContent = 'Use 3 to 14 letters, no spaces or numbers.'; inp.focus(); return; }
         if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
         const name = nm[0].toUpperCase() + nm.slice(1).toLowerCase();
-        cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, bonus: {} });
+        cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} });
         // invited players go back to the Multiplayer screen with their new hero to join the game
         if (INVITED && !inviteFailed && KR.Online && KR.Online.mode === 'solo') {
           const code = KR.Online.cleanCode(new URLSearchParams(location.search).get('join'));
@@ -468,9 +476,60 @@
           KR.Online.join(code, '').then(() => { LSs('kr_sel_hero', c.id); return KR.Main.enterWorld(null, c); }).then(() => G.log(`You joined "${KR.Online.name}".`, 'status', '#9ad8ff'))
             .catch((err) => { cs.busy = false; inviteFailed = true; $('#cr-go').disabled = false; $('#cr-err').textContent = `${(err && err.message) || err} Press "Begin your journey" again to start on your own; you can join from Multiplayer later.`; });
         }
+        else if (window.KR3D && KR.K3cine) KR.Main.enterWorld(null, c, { cine: true }); // 3D: the opening film plays in the real world
         else if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
       };
       setTimeout(() => inp.focus(), 50);
     }
+  }
+  // ---------------- 3D appearance: a live model you can turn, with face, body, hair and marks ----------------
+  const SCARS = ['None', 'Cheek slash', 'Blind eye', 'Brow nick', 'Split lip', 'Claw marks', 'Jaw scar'];
+  const TATS = ['None', 'Tribal cheek', 'Forehead rune', 'Chin lines', 'Woad', 'Eye band', 'Shoulder tribal', 'Arm bands', 'Chest sigil'];
+  const INKS = ['#1e2a5a', '#2a1a14', '#7a1a1a', '#1a4a2a', '#4a2a6a', '#c8a040'];
+  const IRIS = ['#5a3a1e', '#3a6aa8', '#4a7a4a', '#7a7a8a', '#b8862a', '#6a3a8a', '#b8302a'];
+  const STYLES = ['Short', 'Long', 'Crest', 'Flowing', 'Shaved', 'Buzz', 'Curly', 'Ponytail', 'Bun'];
+  const BEARDS = ['Clean', 'Stubble', 'Short', 'Full', 'Long', 'Goatee', 'Moustache'];
+  const MORPH = [['nose', 'Nose'], ['jaw', 'Jaw'], ['cheek', 'Cheekbones'], ['eyes', 'Eye size'], ['lips', 'Lips'], ['brow', 'Brow'], ['head', 'Head shape']];
+  let apTab = 'body';
+  function appearance3D(body, next) {
+    const a = cs.app = cs.app || { tall: 0, face: 0, morph: {}, beardStyle: cs.race === 'dwarf' ? 4 : 2, scar: 0, tattoo: 0, tatCol: INKS[0], iris: null };
+    const lookNow = () => { try { const c = Sys.newChar({ name: 'Preview', faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: a }); return G.lookFor(c); } catch (e) { console.warn(e); return Object.assign({ race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, cs.skin), hair: S.HAIRS[cs.hair], hairStyle: cs.hairStyle, cls: cs.cls }, a); } };
+    const seg = (key, names, cur) => `<div class="seg wrap">${names.map((n, i) => `<button data-${key}="${i}" class="${cur === i ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+    const sw = (key, cols, cur, lbl) => `<div class="sw">${cols.map((c, i) => `<button data-${key}="${i}" style="background:${c}" class="${cur === i || cur === c ? 'on' : ''}" aria-label="${lbl} ${i + 1}"></button>`).join('')}</div>`;
+    const slider = (key, label, v) => `<div class="opt sl"><label>${label}</label><input type="range" min="-100" max="100" step="5" value="${Math.round((v || 0) * 100)}" data-sl="${key}"><span class="slv">${v > 0.02 ? '+' : ''}${Math.round((v || 0) * 100)}</span></div>`;
+    const tabs = [['body', 'Body'], ['face', 'Face'], ['hair', 'Hair'], ['marks', 'Scars & Tattoos']];
+    body.innerHTML = `<h2>Your appearance</h2><div class="app app3"><div class="app-prev3"><canvas id="ap-cv3" class="k3-hero"></canvas><div class="ap-cam"><button class="btn small ghost" id="ap-rand">🎲 Surprise me</button><span class="dim small">Drag to turn</span></div></div>
+      <div class="app-opts3"><nav class="ap-tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${apTab === k ? 'on' : ''}">${n}</button>`).join('')}</nav><div class="ap-pane"></div><button class="btn gold big" id="ap-next">Continue</button></div></div>`;
+    const view = KR.heroView3D($('#ap-cv3'), { ring: D.FACTIONS[cs.faction].color, yaw: 0.25 });
+    const refresh = () => view.set(lookNow());
+    const pane = $('.ap-pane', body);
+    const paint = () => {
+      body.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === apTab));
+      view.focus(apTab === 'body' ? 'full' : 'face');
+      if (apTab === 'body') pane.innerHTML = `<div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
+        ${slider('tall', 'Height', a.tall)}<div class="opt"><label>Skin</label>${sw('skin', S.skinsFor(cs.race), cs.skin, 'Skin tone')}</div>
+        <p class="dim small">You begin with only a linen loincloth${cs.gender === 'f' ? ' and breast wrap' : ''} and your class weapon. What you wear from here on is what you earn.</p>`;
+      else if (apTab === 'face') pane.innerHTML = `<div class="opt"><label>Face</label><div class="seg"><button id="ap-fp">◀</button><button class="on" disabled>Face ${a.face + 1}</button><button id="ap-fn">▶</button></div></div>
+        ${MORPH.map(([k, n]) => slider(k, n, a.morph[k])).join('')}<div class="opt"><label>Eyes</label>${sw('iris', IRIS, a.iris, 'Eye colour')}</div>`;
+      else if (apTab === 'hair') pane.innerHTML = `<div class="opt"><label>Hair colour</label>${sw('hair', S.HAIRS, cs.hair, 'Hair colour')}</div><div class="opt"><label>Hair style</label>${seg('hs', STYLES, cs.hairStyle)}</div>
+        ${cs.gender === 'm' ? `<div class="opt"><label>Beard</label>${seg('bd', BEARDS, a.beardStyle)}</div>` : ''}`;
+      else pane.innerHTML = `<div class="opt"><label>Scar</label>${seg('sc', SCARS, a.scar)}</div><div class="opt"><label>Tattoo</label>${seg('tt', TATS, a.tattoo)}</div><div class="opt"><label>Ink</label>${sw('ink', INKS, a.tatCol, 'Ink colour')}</div>`;
+      const on = (sel, fn) => pane.querySelectorAll(sel).forEach((b) => (b.onclick = () => { KR.A.sfx('click', 0.5); fn(b); paint(); refresh(); }));
+      on('[data-g]', (b) => { cs.gender = b.dataset.g; });
+      on('[data-skin]', (b) => { cs.skin = +b.dataset.skin; });
+      on('[data-hair]', (b) => { cs.hair = +b.dataset.hair; });
+      on('[data-hs]', (b) => { cs.hairStyle = +b.dataset.hs; });
+      on('[data-bd]', (b) => { a.beardStyle = +b.dataset.bd; });
+      on('[data-sc]', (b) => { a.scar = +b.dataset.sc; });
+      on('[data-tt]', (b) => { a.tattoo = +b.dataset.tt; });
+      on('[data-ink]', (b) => { a.tatCol = INKS[+b.dataset.ink]; });
+      on('[data-iris]', (b) => { a.iris = IRIS[+b.dataset.iris]; });
+      on('#ap-fp', () => { a.face = (a.face + 19) % 20; }); on('#ap-fn', () => { a.face = (a.face + 1) % 20; });
+      pane.querySelectorAll('[data-sl]').forEach((r) => { r.oninput = () => { const v = +r.value / 100, k = r.dataset.sl; if (k === 'tall') a.tall = v; else a.morph[k] = v; r.nextElementSibling.textContent = (v > 0.02 ? '+' : '') + r.value; refresh(); }; });
+    };
+    body.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { KR.A.sfx('click', 0.5); apTab = b.dataset.tab; paint(); }));
+    $('#ap-rand').onclick = () => { const r = Math.random, pick = (n) => Math.floor(r() * n); a.face = pick(20); a.tall = Math.round((r() * 2 - 1) * 20) / 20; MORPH.forEach(([k]) => (a.morph[k] = Math.round((r() * 1.6 - 0.8) * 20) / 20)); cs.skin = pick(S.skinsFor(cs.race).length); cs.hair = pick(S.HAIRS.length); cs.hairStyle = pick(STYLES.length); a.beardStyle = pick(BEARDS.length); a.scar = r() < 0.4 ? 1 + pick(6) : 0; a.tattoo = r() < 0.35 ? 1 + pick(8) : 0; a.tatCol = INKS[pick(INKS.length)]; a.iris = IRIS[pick(IRIS.length)]; paint(); refresh(); };
+    $('#ap-next').onclick = () => { view.focus('full'); next(); };
+    paint(); refresh();
   }
 })();

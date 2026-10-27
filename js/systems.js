@@ -8,7 +8,7 @@
   // =============== CHARACTER CREATION ===============
   Sys.newChar = function (o) {
     const R = D.RACES[o.race], C = D.CLASSES[o.cls];
-    const c = { id: U.uid() + U.uid(), name: o.name, race: o.race, cls: o.cls, gender: o.gender, skin: o.skin, hair: o.hair, hairStyle: o.hairStyle, faction: (o.faction && (R.factions || [R.faction]).includes(o.faction)) ? o.faction : R.faction,
+    const c = { id: U.uid() + U.uid(), name: o.name, race: o.race, cls: o.cls, gender: o.gender, skin: o.skin, hair: o.hair, hairStyle: o.hairStyle, app: o.app || null, faction: (o.faction && (R.factions || [R.faction]).includes(o.faction)) ? o.faction : R.faction,
       level: 1, xp: 0, statPoints: 0, alloc: {}, bonus: {}, coins: 200, inv: new Array(16).fill(null), worldV: 3, equip: {}, spells: [], bars: {}, wskill: {}, school: {}, craft: { smithing: 0, tailoring: 0, scribing: 0, fletching: 0, jewelcrafting: 0 },
       quests: { active: {}, done: {} }, rangeMode: 'both', macros: [{ id: 'm1', name: 'Attack', icon: '⚔', lines: '/attack on' }], playTime: 0, created: Date.now(), updated: Date.now(), pos: null, bind: null, explored: null, kills: 0 };
     D.STATS.forEach((s) => (c.alloc[s] = 0));
@@ -1307,7 +1307,7 @@
     return remote && (!local || (remote.updated || 0) >= (local.updated || 0)) ? remote : local;
   };
   let saveTimer = null, lastRemote = 0;
-  Sys.charSummary = (c) => ({ id: c.id, name: c.name, race: c.race, cls: c.cls, level: c.level, faction: c.faction, gender: c.gender, skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, updated: c.updated, zone: c.zone || '', look: c.lookSaved || null });
+  Sys.charSummary = (c) => ({ id: c.id, name: c.name, race: c.race, cls: c.cls, level: c.level, faction: c.faction, gender: c.gender, skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, app: c.app || null, updated: c.updated, zone: c.zone || '', look: c.lookSaved || null });
   Sys.saveAccount = function (force) {
     const a = G.account; if (!a) return;
     a.updated = Date.now();

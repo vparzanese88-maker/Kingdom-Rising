@@ -129,7 +129,9 @@ export const world3d = {
   update(dt, ctx) {
     if (pending.length) {
       const t0 = performance.now();
-      while (pending.length && performance.now() - t0 < 7) { const [cx, cy] = pending.shift(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); }
+      // build the areas nearest the camera first (the menus and the opening film fly far and fast)
+      if (ctx.cam && K3.frame % 20 === 0) { const cx = ctx.cam.x / (CH * TILE), cz = ctx.cam.z / (CH * TILE); pending.sort((a, b) => Math.hypot(a[0] + 0.5 - cx, a[1] + 0.5 - cz) - Math.hypot(b[0] + 0.5 - cx, b[1] + 0.5 - cz)); }
+      while (pending.length && performance.now() - t0 < (ctx.budget || 7)) { const [cx, cy] = pending.shift(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); }
       if (!pending.length || K3.frame % 30 === 0) this.finish();
     }
     const cam = ctx.cam; const view = K3.quality.view;

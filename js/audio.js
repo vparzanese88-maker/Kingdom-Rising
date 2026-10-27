@@ -369,18 +369,31 @@
         if (m) I.horn(d, m, t, ml * 0.95, 0.04);
       } }),
     // cover page: two brothers, one crown, a kingdom burning. Slow, heavy, choir and war drums
-    cover: song({ key: 50, bpm: 66, scale: 'hminor', order: ['A', 'A2', 'B', 'A2'], gain: 1.1, sec: {
-      A: { prog: ['i', 'VI', 'iv', 'V'], mel: '5:6 4:1 3:1 | 3:4 1:4 | 4:3 5:1 6:2 5:2 | 4:8' },
-      A2: { prog: ['i', 'VI', 'bII', 'V'], mel: '8:6 7:1 6:1 | 5:4 3:4 | 6:3 5:1 4:2 3:2 | 2:4 1:2 0:2' },
-      B: { prog: ['iv', 'i', 'VI', 'V'], mel: '6:4 8:4 | 7:3 6:1 5:4 | 4:2 5:2 6:2 8:2 | 7:8' } },
-      arr(x) { const { d, t, b, st, ch, root, m, ml, B } = x;
-        if (st === 0) { ch.forEach((n, k) => I.strings(d, n + 12, t, b * 8.2, 0.016 - k * 0.003)); I.choir(d, ch[0] + 12, t, b * 8, 0.02, 'a'); I.choir(d, ch[2] + 12, t, b * 8, 0.014, 'a'); I.cello(d, root - 12, t, b * 7.8, 0.06); I.brass(d, root - 12, t, b * 2.5, 0.035); }
-        if (st === 0 || st === 3 || st === 6) I.taiko(d, t, st === 0 ? 0.42 : 0.24);
-        if (st === 0 || st === 4) I.timp(d, t, st === 0 ? 0.2 : 0.12, root - 12);
-        if (st === 7) { I.snare(d, t, 0.06); I.snare(d, t + b / 2, 0.08); }
-        if (B.first && st === 0) I.cymbal(d, t, 0.07);
-        if (st % 2 === 1) I.stac(d, root, t, b * 0.5, 0.012);
-        if (m) { I.horn(d, m, t, ml * 0.95, 0.055); I.brass(d, m - 12, t, ml * 0.95, 0.03); I.strings(d, m + 12, t, ml * 0.95, 0.014); }
+    // the cover: a war song. Taiko war drums and timpani, driving string ostinato, brass power stabs,
+    // a full choir on every chord, horns carrying the theme, snare rolls and cymbal crashes into each section
+    cover: song({ key: 50, bpm: 136, scale: 'hminor', order: ['I', 'A', 'A2', 'B', 'C'], gain: 1.2, sec: {
+      I: { prog: ['i', 'i', 'VI', 'V'] },
+      A: { prog: ['i', 'VI', 'iv', 'V'], mel: '5:3 4:1 3:2 4:2 | 3:4 1:4 | 4:2 5:2 6:2 8:2 | 7:8' },
+      A2: { prog: ['i', 'VI', 'bII', 'V'], mel: '8:3 7:1 6:2 5:2 | 6:4 3:4 | 6:2 5:2 4:2 3:2 | 2:4 5:4' },
+      B: { prog: ['iv', 'i', 'VI', 'V'], mel: '8:4 10:4 | 9:3 8:1 7:4 | 6:2 7:2 8:2 10:2 | 9:8' },
+      C: { prog: ['VI', 'VII', 'i', 'i'], mel: '10:4 9:2 8:2 | 9:4 7:4 | 8:8 | 8:8' } },
+      arr(x) { const { d, t, b, st, ch, root, m, ml, B, sec } = x; const intro = sec === 'I', big = sec === 'B' || sec === 'C';
+        // the string ostinato that never lets up
+        const os = [root, root + 12, ch[2], root + 12, ch[1], root + 12, ch[2], root + 12][st];
+        I.stac(d, os, t, b * 0.45, intro ? 0.017 : 0.024); if (!intro) I.stac(d, os - 12, t, b * 0.4, 0.014);
+        // war drums
+        if (st === 0 || st === 3 || st === 4 || st === 6) I.taiko(d, t, st === 0 ? 0.6 : 0.34);
+        if (!intro && (st === 2 || st === 7)) I.taiko(d, t, 0.2);
+        if (big && st % 2 === 1) I.taiko(d, t + b / 2, 0.14);
+        if (st === 0) I.timp(d, t, intro ? 0.18 : 0.26, root - 12);
+        if (B.last && st >= 4) { I.snare(d, t, 0.05 + (st - 4) * 0.03); I.snare(d, t + b / 2, 0.06 + (st - 4) * 0.03); if (st === 7) I.timp(d, t + b / 2, 0.22, root - 12); }
+        if (B.first && st === 0) I.cymbal(d, t, intro ? 0.06 : 0.13);
+        // power: brass stabs, choir and low strings on every chord
+        if (intro && st === 0) { I.cello(d, root - 12, t, b * 7.8, 0.06); I.choir(d, root + 12, t, b * 8, 0.014, 'o'); I.brass(d, root - 24, t, b * 7, 0.03); }
+        if (!intro && st === 0) { I.brass(d, root - 12, t, b * 1.4, 0.07); I.brass(d, ch[2] - 12, t, b * 1.4, 0.05); ch.forEach((n, k) => I.choir(d, n + 12, t, b * 8, 0.022 - k * 0.003, 'a')); I.cello(d, root - 12, t, b * 7.8, 0.075); I.strings(d, ch[1] + 12, t, b * 8, 0.016); }
+        if (!intro && (st === 3 || st === 6)) I.brass(d, root - 12, t, b * 0.7, big ? 0.06 : 0.045);
+        // the theme on horns, doubled by brass and strings
+        if (m) { I.horn(d, m, t, ml * 0.95, big ? 0.08 : 0.07); I.brass(d, m - 12, t, ml * 0.95, 0.04); I.strings(d, m + 12, t, ml * 0.95, big ? 0.026 : 0.02); if (big) I.choir(d, m + 12, t, ml * 0.95, 0.02, 'a'); }
       } }),
     // main menu: heroic overture
     menu: song({ key: 50, bpm: 76, order: ['A', 'A2', 'B', 'A2'], sec: {

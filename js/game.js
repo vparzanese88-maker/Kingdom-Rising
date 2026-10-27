@@ -194,6 +194,7 @@
     const chest = c.equip.chest, head = c.equip.head;
     const look = KR.S.classLook(c.cls, chest);
     look.race = c.race; look.gender = c.gender; look.skin = KR.S.skinOf(c.race, c.skin); look.hair = KR.S.HAIRS[c.hair] || c.hair; look.hairStyle = c.hairStyle; look.cls = c.cls;
+    if (c.app) Object.assign(look, c.app); // height, face, beard, scars and tattoos chosen at creation (3D)
     if (chest) { look.armor.kind = chest.ak; if (chest.ak === 'cloth') look.robe = true; if (chest.ak !== 'cloth' && D.CLASSES[c.cls].armor !== 'cloth') look.robe = false; }
     else if (D.CLASSES[c.cls].armor === 'cloth') look.armor.kind = 'cloth';
     if (look.armor.kind === 'plate') { look.armor.col = c.cls === 'shadowknight' ? '#3a3440' : c.cls === 'paladin' ? '#d8d4c8' : c.cls === 'bard' ? '#c8b070' : '#a8acb4'; look.armor.trim = D.CLASSES[c.cls].trim === '#c9ccd1' ? D.CLASSES[c.cls].color : D.CLASSES[c.cls].trim; }

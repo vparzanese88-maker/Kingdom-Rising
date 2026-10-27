@@ -182,7 +182,8 @@ export function updateSky(dt, camPos, ctx) {
   const duskK = Math.max(0, 1 - Math.abs(elev - 0.04) / 0.22) * K3.smooth(-0.2, 0.0, elev); // near the horizon
   const nightK = 1 - K3.smooth(-0.2, 0.02, elev);
   sky.night = nightK;
-  const reg = D.REGIONS[W.regionAtPx(G.player.x, G.player.y)] || {};
+  const rp = G.player || { x: camPos.x / PX, y: camPos.z / PX }; // no hero yet: the menus fly over the world
+  const reg = D.REGIONS[W.regionAtPx(rp.x, rp.y)] || {};
   const dungeon = geo.dungeon;
   regDark += ((reg.dark || 0) - regDark) * Math.min(1, dt * 0.8);
   const wt = G.weather ? G.weather.type : 'clear';

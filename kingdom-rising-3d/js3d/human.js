@@ -62,7 +62,7 @@ export function bodySpec(look, kind) {
   const rnd = rngOf(seed); const sr = () => rnd() * 2 - 1;
   const muscle = K3.clamp((k.muscle ?? r.muscle ?? CLS_MUSCLE[L.cls] ?? 0.5) + sr() * 0.12 - (fem ? 0.12 : 0), 0, 1);
   const weight = K3.clamp((k.weight ?? r.weight ?? 0.5) + sr() * 0.15 + (L.width ? (L.width - 1) * 0.8 : 0), 0, 1);
-  const height = K3.clamp((k.h ?? r.h ?? 0.5) + sr() * 0.15, 0, 1);
+  const height = L.tall != null ? K3.clamp(0.5 + L.tall * 0.5, 0, 1) : K3.clamp((k.h ?? r.h ?? 0.5) + sr() * 0.15, 0, 1);
   // skin tone picks the ethnic face shapes
   const sk = hex2rgb(L.skin || '#e2b48e'); const l = lum(sk); const warm = sk.r - sk.b;
   const human = !k.muscle && !KIND[kind];
@@ -96,8 +96,17 @@ export function bodySpec(look, kind) {
   if (r.forehead) { det('forehead-scale-vert', 0.6); }
   if (k.belly) det('stomach-pregnant', 0.9);
   if (L.old) det('head-age', 0.9);
+  // the player's own choices in character creation, on top of the face they rolled
+  const mo = L.morph || {};
+  if (mo.nose) { det('nose-scale-vert', mo.nose * 0.7); det('nose-scale-horiz', mo.nose * 0.5); det('nose-trans-forward', mo.nose * 0.4); }
+  if (mo.jaw) { det('chin-width', mo.jaw * 0.8); det('chin-prominent', mo.jaw * 0.6); det('head-square', mo.jaw * 0.7); }
+  if (mo.cheek) { det('l-cheek-bones', mo.cheek * 0.9); det('r-cheek-bones', mo.cheek * 0.9); }
+  if (mo.eyes) { det('l-eye-scale', mo.eyes * 0.6); det('r-eye-scale', mo.eyes * 0.6); }
+  if (mo.lips) { det('mouth-upperlip-volume', mo.lips * 0.7); det('mouth-lowerlip-volume', mo.lips * 0.8); }
+  if (mo.brow) { det('eyebrows-angle', mo.brow * 0.8); det('forehead-trans-forward', mo.brow * 0.3); }
+  if (mo.head) { if (mo.head > 0) det('head-round', mo.head * 0.8); else det('head-oval', -mo.head * 0.8); }
   const baseH = (fem ? 1.70 : 1.82) * (L.race ? raceD.scale || 1 : 1);
-  return { seed, M, fem, muscle, weight, ear, scales: { leg: k.leg ?? r.leg ?? 1, arm: k.arm ?? r.arm ?? 1, head: k.head ?? r.head ?? 1, neck: k.neck ?? r.neck ?? 1 }, height: baseH * (1 + (height - 0.5) * 0.06), hunch: k.hunch || 0, gaunt: k.gaunt || 0, tusk: L.tusk };
+  return { seed, M, fem, muscle, weight, ear, scales: { leg: k.leg ?? r.leg ?? 1, arm: k.arm ?? r.arm ?? 1, head: k.head ?? r.head ?? 1, neck: k.neck ?? r.neck ?? 1 }, height: baseH * (1 + (height - 0.5) * (L.tall != null ? 0.12 : 0.06)), hunch: k.hunch || 0, gaunt: k.gaunt || 0, tusk: L.tusk };
 }
 
 // ---------------------------------------------------------------- shaping, re-posing, measuring
@@ -220,8 +229,9 @@ function skinMaterial(u) {
       varying vec3 vRest;
       uniform vec3 uSkin, uLip, uBrow, uHairC, uEye, uMouth, uNose, uChin, uBrowIn, uBrowOut, uHead;
       uniform float uCorner, uStub, uScalp, uFem, uAge, uBrowW, uPaint, uGrime;
-      uniform vec3 uPaintC;
-      float gBump; float gRough;
+      uniform vec3 uPaintC, uTatC, uChestP, uShP; uniform float uScar, uTat;
+      float seg2(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.); return length(pa - ba * h); }
+      float gBump; float gRough; float gBumpScar = 0.;
       ${NOISE}`)
       .replace('#include <map_fragment>', `
       {
@@ -275,8 +285,34 @@ function skinMaterial(u) {
         // war paint or grime
         col = mix(col, uPaintC, uPaint * smoothstep(.55, .62, vn(vec3(q.x * 30., p.y * 8., 0.))) * smoothstep(uEye.y + .02, uEye.y - .01, p.y) * smoothstep(uNose.y - .01, uNose.y + .01, p.y) * front);
         col *= 1. - uGrime * .35 * smoothstep(.4, .8, fbm3(p * 9.));
+        float faceF = smoothstep(uEye.z - .055, uEye.z - .025, p.z) * step(uChin.y - .03, p.y);
+        // tattoos: ink in the skin (face patterns, or on the shoulders, arms and chest)
+        if (uTat > .5) {
+          float tt = 0.;
+          if (uTat < 1.5) { vec2 c2 = vec2(q.x - (uEye.x + .006), p.y - (uEye.y - .042)); float r = length(c2), a = atan(c2.y, c2.x); tt = smoothstep(.0032, .0012, abs(r - .011 - .005 * sin(a * 2. + r * 140.))) * step(r, .026) * faceF; }
+          else if (uTat < 2.5) { vec2 c2 = vec2(p.x, p.y - (uBrowIn.y + .034)); float r = length(c2); tt = max(smoothstep(.0022, .0009, abs(r - .011)), max(smoothstep(.0016, .0006, abs(c2.x)) * step(abs(c2.y), .017), smoothstep(.0016, .0006, abs(c2.y + abs(c2.x) * .8 - .004)) * step(r, .011))) * faceF; }
+          else if (uTat < 3.5) { tt = smoothstep(.0013, .0005, abs(fract(q.x / .0075) - .5) * .0075) * step(q.x, .02) * step(p.y, uMouth.y - .012) * faceF; }
+          else if (uTat < 4.5) { tt = step(0., p.x) * smoothstep(.52, .58, vn(vec3(p.x * 95., p.y * 95., 3.))) * step(uChin.y, p.y) * step(p.y, uBrowIn.y + .05) * faceF; }
+          else if (uTat < 5.5) { tt = smoothstep(.012, .0095, abs(p.y - uEye.y)) * step(q.x, uBrowOut.x + .012) * faceF; }
+          else if (uTat < 6.5) { float sy = p.y - uShP.y; tt = step(.1, q.x) * smoothstep(.055, .045, abs(sy + .02)) * smoothstep(.35, .55, abs(sin(q.x * 110. + p.z * 80. + sy * 60.))); }
+          else if (uTat < 7.5) { float yb = uShP.y - .1; tt = step(.15, q.x) * (smoothstep(.007, .0045, abs(p.y - yb)) + smoothstep(.0035, .002, abs(p.y - yb + .016))); }
+          else { vec2 c2 = vec2(p.x, p.y - (uChestP.y + .03)); float r = length(c2); tt = step(.0, p.z) * (smoothstep(.003, .0014, abs(r - .05)) + smoothstep(.003, .0014, abs(r - .036)) + smoothstep(.0024, .001, abs(abs(c2.x) - abs(c2.y))) * step(r, .05)); }
+          col = mix(col, uTatC * (.8 + .2 * n1), clamp(tt, 0., 1.) * .88);
+        }
+        // a scar: a pale, raised line
+        if (uScar > .5) {
+          vec2 fp = p.xy; float sc = 1e3; vec3 E = uEye;
+          if (uScar < 1.5) sc = seg2(fp, vec2(E.x + .012, E.y - .014), vec2(E.x - .028, uMouth.y + .006));
+          else if (uScar < 2.5) sc = seg2(fp, vec2(-E.x + .004, uBrowIn.y + .022), vec2(-E.x - .006, E.y - .036));
+          else if (uScar < 3.5) sc = seg2(fp, vec2(uBrowOut.x * .78, uBrowIn.y + .014), vec2(uBrowOut.x * .64, uBrowIn.y - .008));
+          else if (uScar < 4.5) sc = seg2(fp, vec2(.006, uMouth.y + .017), vec2(.001, uMouth.y - .015));
+          else if (uScar < 5.5) { for (int i = 0; i < 3; i++) { float o = float(i) * .0085; sc = min(sc, seg2(fp, vec2(-E.x - .014 + o, E.y - .012), vec2(-E.x + .004 + o, uMouth.y - .006))); } }
+          else sc = seg2(fp, vec2(E.x + .032, uChin.y + .032), vec2(.012, uChin.y - .001));
+          float sm = (1. - smoothstep(.0011, .0024, sc)) * faceF;
+          col = mix(col, col * vec3(1.1, .9, .88) + vec3(.07, .025, .025), sm * .85); gRough = mix(gRough, .3, sm); gBumpScar = sm;
+        }
         // pores and fine wrinkles for the bump
-        gBump = vn(p * 480.) * .6 + vn(p * 1100.) * .4 - fbm3(vec3(q.x * 30., p.y * 300., p.z * 30.)) * .5 * uAge * smoothstep(uEye.y - .01, uEye.y + .04, p.y);
+        gBump = gBumpScar * .9 + vn(p * 480.) * .6 + vn(p * 1100.) * .4 - fbm3(vec3(q.x * 30., p.y * 300., p.z * 30.)) * .5 * uAge * smoothstep(uEye.y - .01, uEye.y + .04, p.y);
         diffuseColor.rgb = col;
       }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gRough;')
@@ -285,7 +321,7 @@ function skinMaterial(u) {
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1); vec3 gr = sign(det) * (bx * r1 + by * r2);
           float fade = 1. - smoothstep(.6, 6., -vViewPosition.z); normal = normalize(abs(det) * normal - gr * .00035 * fade); }`);
   };
-  m.customProgramCacheKey = () => 'krskin2';
+  m.customProgramCacheKey = () => 'krskin3';
   return m;
 }
 function skinUniforms(look, kind, sh, spec) {
@@ -300,7 +336,8 @@ function skinUniforms(look, kind, sh, spec) {
     uSkin: { value: skin }, uLip: { value: lip }, uBrow: { value: hairC.clone().multiplyScalar(0.75) }, uHairC: { value: hairC },
     uEye: { value: lm.eyeL.c.clone() }, uMouth: { value: lm.mouth.clone() }, uNose: { value: lm.nose.clone() }, uChin: { value: lm.chin.clone() },
     uBrowIn: { value: lm.browIn.clone() }, uBrowOut: { value: lm.browOut.clone() }, uHead: { value: head }, uCorner: { value: Math.max(0.012, Math.abs(lm.corner.x)) },
-    uStub: { value: fem ? 0 : beardy ? 1 : 0.25 + (spec.seed % 7) / 12 }, uScalp: { value: bald ? (fem ? 0 : 0.18) : 1 }, uFem: { value: fem ? 1 : 0 }, uAge: { value: L.old ? 1 : 0.15 },
+    uStub: { value: fem ? 0 : L.beardStyle != null ? [0, 0.9, 1, 1, 1, 0.6, 0.35][L.beardStyle] || 0 : beardy ? 1 : 0.25 + (spec.seed % 7) / 12 }, uScalp: { value: bald ? (fem ? 0 : 0.18) : 1 }, uFem: { value: fem ? 1 : 0 }, uAge: { value: L.old ? 1 : 0.15 },
+    uScar: { value: L.scar || 0 }, uTat: { value: L.tattoo || 0 }, uTatC: { value: new THREE.Color(L.tatCol || '#1e2a5a') }, uChestP: { value: new V3(...(sh.pivots.chest ? [sh.pivots.chest.x, sh.pivots.chest.y, sh.pivots.chest.z] : [0, 1.3, 0])) }, uShP: { value: new V3(...(sh.pivots.shL ? [sh.pivots.shL.x, sh.pivots.shL.y, sh.pivots.shL.z] : [0.18, 1.45, 0])) },
     uBrowW: { value: fem ? 0.75 : kind === 'orc' ? 1.4 : 1 }, uPaint: { value: L.warpaint ? 1 : 0 }, uPaintC: { value: new THREE.Color(L.warpaint || '#2a3a8a') }, uGrime: { value: kind === 'zombie' ? 1 : kind === 'goblin' || kind === 'troll' ? 0.5 : 0 },
   };
 }
@@ -456,12 +493,20 @@ const HAIR_STYLE = {
   long: { n: 2000, len: [0.32, 0.44], seg: 11, grav: 1, lift: 0.3, w: 0.021 },
   vlong: { n: 2100, len: [0.45, 0.58], seg: 12, grav: 1, lift: 0.3, w: 0.021 },
   mohawk: { n: 600, len: [0.07, 0.12], seg: 4, grav: 0, lift: 1, w: 0.012, strip: 0.025 },
+  buzz: { n: 2600, len: [0.012, 0.024], seg: 2, grav: 0.2, lift: 0.1, w: 0.008 },
+  curly: { n: 2200, len: [0.06, 0.1], seg: 7, grav: 0.4, lift: 0.6, w: 0.016, curl: 1 },
+  pony: { n: 1700, len: [0.18, 0.26], seg: 9, grav: 0.2, lift: 0.2, w: 0.018, gather: 'pony' },
+  bun: { n: 1700, len: [0.16, 0.22], seg: 9, grav: 0.1, lift: 0.2, w: 0.018, gather: 'bun' },
 };
 function styleFor(look, kind, fem) {
   const hs = look.hairStyle || 0;
   if (kind === 'goblin' || kind === 'ogre' || kind === 'troll' && hs !== 2) return null;
   if (hs === 4) return fem ? 'crop' : null;
   if (hs === 2) return 'mohawk';
+  if (hs === 5) return 'buzz';
+  if (hs === 6) return 'curly';
+  if (hs === 7) return 'pony';
+  if (hs === 8) return 'bun';
   if (hs === 3) return fem ? 'vlong' : 'long';
   if (hs === 1) return fem ? 'long' : 'shoulder';
   return fem ? 'shoulder' : 'short';
@@ -505,7 +550,9 @@ function strandCards(look, kind, sh, spec, N, rest) {
     const S = HAIR_STYLE[style]; const crown = new V3(c.x, c.y + rad.y * 0.95, c.z - rad.z * 0.35);
     const fallY = c.y - rad.y * 0.35; const faceZ = c.z + rad.z * 0.45, browY = lm.browIn.y + 0.012;
     const roots = sampleSurface(P, N, A.tri.body, (v) => fr.isScalp[v] && (!S.strip || Math.abs(P[v * 3]) < S.strip * 1.8), Math.round(S.n * (K3.quality && K3.quality.grass >= 1.5 ? 1 : 0.7)), rnd);
-    const part = ((spec.seed >> 3) % 3) - 1; const partX = part * 0.025; const short = style === 'short' || style === 'crop';
+    const part = ((spec.seed >> 3) % 3) - 1; const partX = part * 0.025; const short = style === 'short' || style === 'crop' || style === 'buzz' || style === 'curly';
+    // ponytails and buns: everything is combed to one point at the back of the head
+    const G = S.gather === 'pony' ? new V3(c.x, c.y + rad.y * 0.12, c.z - rad.z * 1.02) : S.gather === 'bun' ? new V3(c.x, c.y + rad.y * 0.72, c.z - rad.z * 0.78) : null;
     for (const r of roots) {
       if (S.strip && Math.abs(r.p.x) > S.strip) continue;
       if (covered && r.p.y > c.y - 0.01) continue; // under a hat only the hair below the brim shows
@@ -516,6 +563,8 @@ function strandCards(look, kind, sh, spec, N, rest) {
       flow.sub(r.n.clone().multiplyScalar(flow.dot(r.n))).normalize();
       const len = S.len[0] + rnd() * (S.len[1] - S.len[0]);
       let dir = S.strip ? r.n.clone().lerp(new V3(0, 0.3, -1), 0.3).normalize() : r.n.clone().multiplyScalar(0.25).add(flow).normalize();
+      if (G) { const tg = G.clone().sub(r.p); tg.sub(r.n.clone().multiplyScalar(tg.dot(r.n))); dir = tg.normalize().lerp(r.n, 0.12).normalize(); }
+      const curlPh = rnd() * 6.28;
       const pts = [], side = [], width = [], nrm = [], chest = []; const p = r.p.clone().add(r.n.clone().multiplyScalar(0.001)); const seg = len / S.seg;
       const shell = 1.035 + layer * (short ? 0.05 : 0.09);
       let cut = false;
@@ -526,6 +575,8 @@ function strandCards(look, kind, sh, spec, N, rest) {
         chest.push(smooth(neckY + 0.02, neckY - 0.12, p.y));
         if (k === S.seg || cut) break;
         p.addScaledVector(dir, seg);
+        if (G) { if (p.distanceTo(G) < 0.03) cut = true; dir.lerp(G.clone().sub(p).normalize(), 0.45).normalize(); }
+        if (S.curl) { const o3 = p.clone().sub(c).normalize(); dir.applyAxisAngle(o3, Math.sin(k * 1.9 + curlPh) * 0.9); }
         const e = inHead(p); const onHead = p.y > fallY || (p.z > c.z && p.y > lm.chin.y);
         if (S.strip) { dir.lerp(new V3(0, 0.2, -1).normalize(), 0.25).normalize(); continue; }
         if (onHead || e < shell) {
@@ -540,16 +591,39 @@ function strandCards(look, kind, sh, spec, N, rest) {
       }
       push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.35), 0.2, Math.min(1, len / 0.2 + 0.35));
     }
+    if (G && S.gather === 'pony') {
+      // the tail: a thick bundle from the tie down the back
+      for (let i = 0; i < 260; i++) {
+        const p = G.clone().add(new V3((rnd() - 0.5) * 0.024, (rnd() - 0.5) * 0.02, -rnd() * 0.01)); let dir = new V3((rnd() - 0.5) * 0.3, 0.15, -1).normalize();
+        const L = (spec.fem ? 0.3 : 0.24) + rnd() * 0.12, n = 10, sg = L / n; const pts = [], side = [], width = [], nrm = [], chest = [];
+        for (let k = 0; k <= n; k++) { pts.push(p.clone()); side.push(new V3(1, 0, 0)); width.push(0.016 * (1 - 0.7 * k / n)); nrm.push(new V3(0, 0.3, -1).normalize()); chest.push(smooth(neckY + 0.04, neckY - 0.1, p.y)); p.addScaledVector(dir, sg); dir.y -= 0.32; dir.z *= 0.92; dir.normalize(); if (p.z > backZ - 0.01 && p.y < neckY + 0.05) p.z = backZ - 0.01; }
+        push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.3), 0.2, 1);
+      }
+      // the tie
+      for (let i = 0; i < 18; i++) { const a = (i / 18) * 6.283; const p0 = G.clone().add(new V3(Math.cos(a) * 0.014, Math.sin(a) * 0.014, -0.012)); const t2 = new V3(-Math.sin(a), Math.cos(a), 0); push([p0, p0.clone().addScaledVector(t2, 0.006)], [new V3(0, 0, 1), new V3(0, 0, 1)], [0.008, 0.008], [new V3(0, 0, -1), new V3(0, 0, -1)], null, new THREE.Color('#3a2418'), 0.05, 0.2, false); }
+    }
+    if (G && S.gather === 'bun') {
+      // coils of hair round a knot at the crown
+      const B = G.clone().add(G.clone().sub(c).normalize().multiplyScalar(0.035));
+      for (let i = 0; i < 300; i++) {
+        const ax = new V3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize(); let u = new V3(1, 0, 0).cross(ax); if (u.lengthSq() < 0.01) u = new V3(0, 1, 0).cross(ax); u.normalize(); const w2 = ax.clone().cross(u);
+        const R2 = 0.034 + rnd() * 0.014, a0 = rnd() * 6.283, n = 10; const pts = [], side = [], width = [], nrm = [];
+        for (let k = 0; k <= n; k++) { const a = a0 + (k / n) * 3.6; const rv = u.clone().multiplyScalar(Math.cos(a)).add(w2.clone().multiplyScalar(Math.sin(a))); pts.push(B.clone().addScaledVector(rv, R2)); side.push(ax.clone()); width.push(0.014); nrm.push(rv); }
+        push(pts, side, width, nrm, null, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.3), 0.2, 0.8);
+      }
+    }
   }
   // ---- beard and moustache ----
   const raceD = D.RACES[look.race] || {};
   const beardCol = new THREE.Color(look.beard || look.hair || '#3a2a1e');
-  if (!spec.fem && (look.beard || raceD.beard)) {
-    const long = look.race === 'dwarf' || kind === 'giant'; const ex = lm.eyeL.c;
+  const bst = look.beardStyle; // 0 none, 1 stubble, 2 short, 3 full, 4 long, 5 goatee, 6 moustache
+  if (!spec.fem && (bst != null ? bst >= 2 : (look.beard || raceD.beard))) {
+    const long = bst != null ? bst === 4 : look.race === 'dwarf' || kind === 'giant'; const ex = lm.eyeL.c;
     const test = (v) => { const x = Math.abs(P[v * 3]), y = P[v * 3 + 1], z = P[v * 3 + 2]; if (A.B[A.region[v]] !== 'head' && A.B[A.region[v]] !== 'neck') return false; return y < lm.nose.y - 0.006 && y > lm.chin.y - 0.03 && x < ex.x + 0.045 && z > lm.mouth.z - 0.07 && y < ex.y - 0.04 - x * 0.2 && !(Math.abs(y - lm.mouth.y) < 0.008 && x < Math.abs(lm.corner.x) * 1.1); };
-    const roots = sampleSurface(P, N, A.tri.body, test, long ? 900 : 650, rnd);
+    const test2 = bst === 5 ? (v) => test(v) && Math.abs(P[v * 3]) < 0.03 && P[v * 3 + 1] < lm.mouth.y + 0.014 : bst === 6 ? (v) => test(v) && P[v * 3 + 1] > lm.mouth.y + 0.002 && P[v * 3 + 1] < lm.nose.y - 0.004 : test;
+    const roots = sampleSurface(P, N, A.tri.body, test2, long ? 900 : bst === 6 ? 260 : bst === 5 ? 380 : 650, rnd);
     for (const r of roots) {
-      const lip = r.p.y > lm.mouth.y; const len = lip ? 0.012 + rnd() * 0.008 : long ? 0.08 + rnd() * 0.12 * smooth(lm.mouth.y, lm.chin.y - 0.01, r.p.y) + 0.03 : 0.015 + rnd() * 0.02;
+      const lip = r.p.y > lm.mouth.y; const len = lip ? 0.012 + rnd() * 0.008 : long ? 0.08 + rnd() * 0.12 * smooth(lm.mouth.y, lm.chin.y - 0.01, r.p.y) + 0.03 : bst === 2 ? 0.007 + rnd() * 0.008 : bst === 5 ? 0.02 + rnd() * 0.03 : 0.015 + rnd() * 0.02;
       let dir = r.n.clone().multiplyScalar(0.45).add(new V3(Math.sign(r.p.x) * (lip ? 0.6 : 0.1), -1, lip ? 0 : 0.25)).normalize();
       const segs = long && !lip ? 6 : 2; const pts = [], side = [], width = [], nrm = []; const p = r.p.clone().add(r.n.clone().multiplyScalar(0.001));
       for (let k = 0; k <= segs; k++) { pts.push(p.clone()); const sd = new V3().crossVectors(dir, r.n).normalize(); side.push(sd); width.push((long ? 0.012 : 0.008) * (1 - 0.5 * k / segs)); nrm.push(r.n.clone()); if (k < segs) { dir.y -= long ? 0.25 : 0.05; dir.normalize(); p.addScaledVector(dir, len / segs); } }
@@ -734,7 +808,7 @@ const cache = new Map();
 export const HUMAN_PARENT = (() => { const P = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', shL: 'chest', armL: 'shL', foreL: 'armL', handL: 'foreL', shR: 'chest', armR: 'shR', foreR: 'armR', handR: 'foreR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', capeA: 'chest', capeB: 'capeA', tail1: 'hips', tail2: 'tail1', tail3: 'tail2', wingL: 'chest', wingR: 'chest' }; for (const S of ['L', 'R']) for (const f of ['th', 'f1', 'f2', 'f3', 'f4']) { P[f + S + '1'] = 'hand' + S; P[f + S + '2'] = f + S + '1'; } return P; })();
 export function humanKey(look, kind) {
   const L = look || {}; const a = L.armor || {};
-  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.noPants, L.wrap].join('|');
+  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.noPants, L.wrap, L.tall, JSON.stringify(L.morph || null), L.beardStyle, L.scar, L.tattoo, L.tatCol, L.iris].join('|');
 }
 function skinGeometry(sh, N, hidden) {
   const NS = A.NS, map = A.map;
@@ -753,7 +827,7 @@ export function humanGeometry(look, kind, accessories) {
   const skin = skinGeometry(sh, N, fit.hidden);
   const uniforms = skinUniforms(L, kind, sh, spec);
   const glow = !!L.eyesCol || kind === 'zombie' || kind === 'deathknight';
-  const iris = L.eyesCol || (L.race === 'darkelf' ? '#b8302a' : /elf/.test(L.race || '') ? ['#4a7aaa', '#5a8a5a', '#7a5aa8'][spec.seed % 3] : EYE_COLS[spec.seed % EYE_COLS.length]);
+  const iris = L.eyesCol || L.iris || (L.race === 'darkelf' ? '#b8302a' : /elf/.test(L.race || '') ? ['#4a7aaa', '#5a8a5a', '#7a5aa8'][spec.seed % 3] : EYE_COLS[spec.seed % EYE_COLS.length]);
   const eyes = eyeGeometry(sh, A.BI.head);
   const hair = strandCards(L, kind, sh, spec, N, rest);
   const gar = fit.pieces.length ? mergeSimple(fit.pieces) : null; if (gar) { gar.computeBoundingSphere(); gar.boundingSphere.radius *= 1.5; }

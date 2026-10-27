@@ -38,7 +38,7 @@
 
   // ---------- actions ----------
   Sys.groupInvite = function (target) {
-    if (!Net.ok || !me()) { G.log('Grouping needs other players online.', 'sys', '#ffb24a'); return; }
+    if (!Net.ok || !me()) { G.log('Grouping needs other players: host or join a multiplayer game from the main menu.', 'sys', '#ffb24a'); return; }
     const pp = typeof target === 'string' ? Net.peers.find((x) => x.peer === target || (x.n || '').toLowerCase() === target.toLowerCase()) : target;
     if (!pp) { G.log(`No player named "${target}" is online.`, 'sys', '#ffb24a'); return; }
     if (inGroup() && !isLeader()) { G.log('Only the group leader can invite.', 'sys', '#ffb24a'); return; }
@@ -193,7 +193,7 @@
     if (!w || w.el.hidden) return;
     const p = G.player; if (!p) return; const c = p.c; const b = w.body;
     const keep = b.querySelector('.gp-search'); const hadFocus = keep && document.activeElement === keep;
-    if (!Net.ok) { b.innerHTML = `<p class="empty-note">Grouping needs a connection to other players. Open the published game to play with others online.</p>`; return; }
+    if (!Net.ok) { b.innerHTML = `<p class="empty-note">Grouping is for multiplayer games. Go back to the main menu and choose Multiplayer to host a game or join one.</p>`; return; }
     const lead = Grp.leader;
     const mem = inGroup() ? Grp.members : [me()];
     const rows = mem.map((id) => {

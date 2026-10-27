@@ -43,7 +43,7 @@ function label(e, sx, sy, dist, p, peer) {
   else if (e.type === 'guard' || e.type === 'king') col = e.faction === p.c.faction ? '#a8e0ff' : '#ff6a5a';
   else if (e.type === 'pet') col = '#c8ffc8';
   else if (e.type === 'merc') col = '#9affb8';
-  else if (peer) col = e.f === p.c.faction ? '#9affb8' : '#ffb08a';
+  else if (peer) col = KR.Sys.isMate && KR.Sys.isMate(e) ? KR.Sys.GROUP_COL : e.f === p.c.faction ? '#9affb8' : '#ffb08a';
   const big = e.boss || e.type === 'king';
   g.font = `600 ${big ? 15 : 13}px "Alegreya Sans", system-ui, sans-serif`; g.textAlign = 'center';
   let name = peer ? `${String(e.n).slice(0, 24)} (${e.l || 1})` : e.name; if (e.dead) name += "'s corpse";
@@ -66,16 +66,32 @@ export const hud3d = {
     const p = G.player; if (!p) return; const cam = K3.camera.position;
     // name plates, nearest last so they draw on top
     const list = [];
-    for (const [e, av] of K3.actors.avatars) {
-      if (e === p && !(e.bubble)) continue; if (!av.obj.visible) continue;
+    const R2 = KR.R; const mateIds = new Set();
+    for (const [, av] of K3.actors.avatars) {
+      const e = av.e; if (e === p && !(e.bubble)) continue; if (!av.obj.visible) continue;
+      const mate = av.peer && KR.Sys.isMate && KR.Sys.isMate(e); if (mate) mateIds.add(e.peer);
       const dist = Math.hypot(av.obj.position.x - cam.x, av.obj.position.y - cam.y, av.obj.position.z - cam.z);
-      if (dist > 60 && e !== p.target) continue;
-      if (e !== p.target && e !== p && !visible(e)) continue;
+      if (dist > 60 && e !== p.target && !mate) continue;
+      if (e !== p.target && e !== p && !mate && !visible(e)) continue;
       if (!K3.actors.headPos(e, _v)) continue; const s = project(_v); if (!s) continue;
-      list.push([dist, e, s, av.peer]);
+      list.push([dist, e, s, av.peer, mate]);
     }
     list.sort((a, b) => b[0] - a[0]);
-    for (const [dist, e, s, peer] of list) { if (e === p) { if (e.bubble && !view.firstPerson()) bubble(s[0], s[1] - 6, e.bubble.text); continue; } label(e, s[0], s[1], dist, p, peer); }
+    for (const [dist, e, s, peer, mate] of list) {
+      if (e === p) { if (e.bubble && !view.firstPerson()) bubble(s[0], s[1] - 6, e.bubble.text); continue; }
+      label(e, s[0], s[1], dist, p, peer);
+      // group mates: an arrow over their heads, seen through walls, up to 500 ft away
+      if (mate && !e.dead && R2.mateArrow && Math.hypot(e.x - p.x, e.y - p.y) < R2.MATE_RANGE) R2.mateArrow(g, s[0], s[1] - 26 + Math.sin(K3.time * 3) * 3, 1);
+    }
+    // and arrows at the screen edge for mates off screen (or too far for a body to be drawn)
+    if (KR.Sys.mates && R2.edgeArrow) for (const pp of KR.Sys.mates()) {
+      _v.set(pp.x * PX, geo.floorAt(pp.x, pp.y) + 1.4, pp.y * PX).applyMatrix4(K3.camera.matrixWorldInverse);
+      const ahead = _v.z < 0; const c = _v.clone().applyMatrix4(K3.camera.projectionMatrix);
+      const sx = (c.x * 0.5 + 0.5) * innerWidth, sy = (-c.y * 0.5 + 0.5) * innerHeight;
+      if (ahead && sx > 0 && sy > 0 && sx < innerWidth && sy < innerHeight) continue;
+      let dx = _v.x, dy = -_v.y; if (!ahead && Math.hypot(dx, dy) < 1e-3) dy = 1;
+      R2.edgeArrow(g, innerWidth, innerHeight, innerWidth / 2, innerHeight / 2, dx, dy, pp.n, Math.hypot(pp.x - p.x, pp.y - p.y) * R2.FT_PER_PX);
+    }
     // floating combat text: rises from where it appeared
     for (const f of G.floaters) {
       if (f._y3 == null) { f._x3 = f.x; f._z3 = f.y + 46; f._y3 = geo.floorAt(f.x, f.y + 46) + 2.1; }

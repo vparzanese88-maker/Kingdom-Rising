@@ -91,7 +91,34 @@
     for (const s of sorted) { if (s.e) drawLabel(ctx, s.e, inside); if (s.peer) drawPeerLabel(ctx, s.peer); }
     for (const f of G.floaters) { const a = 1 - Math.max(0, f.t - 0.7) / 0.6; ctx.globalAlpha = a; ctx.font = `700 ${f.big ? 17 : 13}px "Alegreya Sans", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y); }
     ctx.globalAlpha = 1;
+    // group mates: an arrow over their heads that shows through walls and roofs (up to 500 ft away)
+    const mates = KR.Sys.mates ? KR.Sys.mates() : [];
+    for (const pp of mates) { if (pp.dead || Math.hypot(pp.x - p.x, pp.y - p.y) > R.MATE_RANGE) continue; R.mateArrow(ctx, pp.x, pp.y - 80 + Math.sin(t * 3) * 3, 1); }
     ctx.restore();
+    // and an arrow at the edge of the screen pointing to each mate who is off screen
+    for (const pp of mates) {
+      const sx = (pp.x - x0) * z, sy = (pp.y - 30 - y0) * z;
+      if (sx > 0 && sy > 0 && sx < vw && sy < vh) continue;
+      R.edgeArrow(ctx, vw, vh, vw / 2, vh / 2, sx - vw / 2, sy - vh / 2, pp.n, Math.hypot(pp.x - p.x, pp.y - p.y) * R.FT_PER_PX);
+    }
+  };
+  R.FT_PER_PX = 0.05 * 3.28084; // one pixel is 5 cm
+  R.MATE_RANGE = 500 / R.FT_PER_PX;
+  R.mateArrow = function (ctx, x, y, s) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.shadowColor = KR.Sys.GROUP_COL; ctx.shadowBlur = 8; ctx.fillStyle = KR.Sys.GROUP_COL; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-8, -2); ctx.lineTo(-3, -2); ctx.lineTo(-3, -10); ctx.lineTo(3, -10); ctx.lineTo(3, -2); ctx.lineTo(8, -2); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+  };
+  // a small arrow pointing from the centre (cx, cy) along (dx, dy) toward a mate, with their name and distance
+  R.edgeArrow = function (ctx, vw, vh, cx, cy, dx, dy, name, ft) {
+    // on a ring around the middle of the screen, clear of the corner panels
+    const a = Math.atan2(dy, dx); const x = cx + Math.cos(a) * Math.min(vw * 0.36, vw / 2 - 60), y = cy + Math.sin(a) * Math.min(vh * 0.34, vh / 2 - 60);
+    ctx.save(); ctx.translate(x, y);
+    ctx.save(); ctx.rotate(a); ctx.shadowColor = KR.Sys.GROUP_COL; ctx.shadowBlur = 8; ctx.fillStyle = KR.Sys.GROUP_COL; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+    ctx.font = '700 11px "Alegreya Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#e8fdff';
+    const ty = Math.sin(a) > 0.5 ? -16 : 22; const label = `${String(name || '').slice(0, 16)} ${ft >= 1000 ? (ft / 5280).toFixed(1) + ' mi' : Math.round(ft) + ' ft'}`;
+    ctx.strokeText(label, 0, ty); ctx.fillText(label, 0, ty); ctx.restore();
   };
 
   function drawDoorInside(ctx, b) {
@@ -208,12 +235,20 @@
     const look = Object.assign(S.classLook(pp.c || 'warrior', pp.a && pp.a !== 'none' ? { ak: pp.a, kind: pp.a } : null), { race: pp.r, gender: pp.g, skin: S.skinOf(pp.r, pp.s), hair: S.HAIRS[pp.h] || S.HAIRS[1], hairStyle: pp.hs, cls: pp.c, weapon: pp.w });
     if (pp.a && pp.a !== 'none') look.armor.kind = pp.a;
     pp.walk = (pp.walk || 0) + (pp.m ? 0.18 : 0);
+    const mate = KR.Sys.isMate && KR.Sys.isMate(pp);
+    if (mate) { // group mates shine: a ring at their feet and a glowing outline
+      const pulse = 0.65 + 0.35 * Math.sin(t * 4);
+      ctx.save(); ctx.strokeStyle = KR.Sys.GROUP_COL; ctx.globalAlpha = 0.85 * pulse; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(pp.x, pp.y + 2, 15, 7, 0, 0, 6.28); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.shadowColor = KR.Sys.GROUP_COL; ctx.shadowBlur = 10 + 6 * pulse;
+    }
     S.drawHumanoid(ctx, pp.x, pp.y, Object.assign(look, { dir: pp.d || 0, walk: pp.walk, moving: !!pp.m }), t);
+    if (mate) ctx.restore();
   }
   function drawPeerLabel(ctx, pp) {
     const top = pp.y - 60;
     ctx.font = '600 12px "Alegreya Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-    const label = `${String(pp.n).slice(0, 24)} (${pp.l || 1})`; ctx.strokeText(label, pp.x, top); ctx.fillStyle = pp.f === G.player.c.faction ? '#9affb8' : '#ffb08a'; ctx.fillText(label, pp.x, top);
+    const mate = KR.Sys.isMate && KR.Sys.isMate(pp);
+    const label = `${String(pp.n).slice(0, 24)} (${pp.l || 1})`; ctx.strokeText(label, pp.x, top); ctx.fillStyle = mate ? KR.Sys.GROUP_COL : pp.f === G.player.c.faction ? '#9affb8' : '#ffb08a'; ctx.fillText(label, pp.x, top);
     if (pp.bubble && pp.bubble.until > Date.now()) drawBubble(ctx, pp.x, top - 18, pp.bubble.text);
   }
   function drawProj(ctx, p, t) {
@@ -384,7 +419,16 @@
       else if (e.type === 'merc') { g.fillStyle = '#9affb8'; g.beginPath(); g.arc(mx, my, 2.5, 0, 6.28); g.fill(); }
       else if (e.type === 'pet') { g.fillStyle = '#7aff8a'; g.fillRect(mx - 1, my - 1, 3, 3); }
     }
-    for (const pp of KR.Sys.Net.peers) { if ((pp.rm || 'main') !== (W.realm || 'main')) continue; const [mx, my] = toM(pp.x / TS, pp.y / TS); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(mx, my, 2.5, 0, 6.28); g.fill(); }
+    for (const pp of KR.Sys.Net.peers) {
+      if ((pp.rm || 'main') !== (W.realm || 'main')) continue; let [mx, my] = toM(pp.x / TS, pp.y / TS);
+      if (!(KR.Sys.isMate && KR.Sys.isMate(pp))) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(mx, my, 2.5, 0, 6.28); g.fill(); continue; }
+      // group mates: a bright dot, or a pointer on the rim when they are beyond the minimap
+      const dx = mx - w / 2, dy = my - h / 2, rr = Math.min(w, h) / 2 - 7, d = Math.hypot(dx, dy);
+      g.save();
+      if (d > rr) { const a = Math.atan2(dy, dx); g.translate(w / 2 + Math.cos(a) * rr, h / 2 + Math.sin(a) * rr); g.rotate(a); g.fillStyle = KR.Sys.GROUP_COL; g.strokeStyle = '#000'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, -5); g.lineTo(-4, 5); g.closePath(); g.fill(); g.stroke(); }
+      else { g.fillStyle = KR.Sys.GROUP_COL; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.arc(mx, my, 4, 0, 6.28); g.fill(); g.stroke(); g.font = 'bold 10px sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeText(String(pp.n || '').slice(0, 10), mx, my - 7); g.fillText(String(pp.n || '').slice(0, 10), mx, my - 7); }
+      g.restore();
+    }
     // player arrow
     g.save(); g.translate(w / 2, h / 2); g.rotate([Math.PI, Math.PI / 2, -Math.PI / 2, 0][p.dir] || 0); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 6); g.lineTo(-4, -4); g.lineTo(4, -4); g.closePath(); g.fill(); g.stroke(); g.restore();
   };

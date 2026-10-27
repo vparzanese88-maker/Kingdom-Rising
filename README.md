@@ -57,10 +57,13 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
 ## Single player and multiplayer
 - **Single Player** plays offline in your own world. Your kingdoms are saved to your account (claude.ai) or your browser (elsewhere).
 - **Multiplayer** (main menu, or the Multiplayer button under your hero):
+  - **Quick start:** press **Host a game**. An invite link is copied for you (type `/invite` in chat to see it again). Friends open the link, pick or make a hero and press **Join**.
   - **Host a game:** give it a name and, if you like, a password. You get a game code to share. Your page runs the game: it owns both kingdoms, the clock and the war, and saves the hosted world as you play.
   - **Join a game:** pick one from the open games list or type its code, plus the password if it has one.
   - **Saved games:** a hosted world is saved separately from your single-player world, so anyone with its code and password can host it again later and carry on.
   - **Host hand-off:** if the host leaves while others are still playing, one of them takes over as host automatically and the game goes on.
+- **Groups:** invite another player with `/invite <name>` or from the Group window (G). Group mates glow cyan in the world, show as cyan dots on the minimap and world map, have an arrow over their heads that shows through walls (within 500 ft), and an arrow on screen points to any mate who is out of view, with the distance.
+- **Group loot:** kills are looted automatically. Coins are split evenly between the members nearby, ordinary drops are handed out in turn, and weapons, ingredients and rare items are rolled for: everyone nearby gets a dice window (Need, Greed or Pass), the highest Need roll wins, then the highest Greed roll.
 - The password protects the game: the game room and the saved world are both derived from the code and password, and the save is encrypted with the password.
 - Multiplayer works wherever the game is hosted: GitHub Pages, your own site, or claude.ai. Friends open the same link, press **Multiplayer** and join with your code. The 2D page and the 3D page (`kingdom-rising-3d/`) can play together in the same game.
 - Outside claude.ai, `js/relay.js` connects players through free public MQTT brokers over secure websockets (broker.emqx.io and broker.hivemq.com, both at once, so one being down does not matter). The hosted world is saved, encrypted with the password, on those brokers and in the host's browser.

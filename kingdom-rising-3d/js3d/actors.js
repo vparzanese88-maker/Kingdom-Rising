@@ -14,7 +14,9 @@ import { cardTex } from './texgen.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
 const root = new THREE.Group(); root.name = 'actors'; K3.scene.add(root);
-const avatars = new Map(); // entity (or peer) -> avatar
+const avatars = new Map(); // entity (or 'p:' + peer id for other players) -> avatar
+// other players' presence objects are replaced on every update, so they are keyed by their peer id
+const keyOf = (e) => (e && typeof e.peer === 'string' && !e.type ? 'p:' + e.peer : e);
 // the hero is drawn on layer 1 in first person: invisible to the camera but still casting a shadow
 K3.camera.layers.enable(0);
 
@@ -142,12 +144,32 @@ function atkKindFor(av, e) {
   return 'slash';
 }
 export function actorY(e) {
-  const av = avatars.get(e); const base = geo.floorAt(e.x, e.y);
+  const av = avatars.get(keyOf(e)); const base = geo.floorAt(e.x, e.y);
   return base + (av ? av.hoverNow || 0 : 0);
 }
 K3.actorY = (e) => geo.floorAt(e.x, e.y);
+// group mates shine: a glowing shell around the body that also shows faintly through walls
+let glowMat = null, glowBack = null;
+function makeGlowMats() {
+  const mk = (behind) => {
+    // the outline is the back of a slightly fattened body; the see-through layer is its front, drawn only where something hides it
+    const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(KR.Sys.GROUP_COL || '#3cf0ff').multiplyScalar(behind ? 0.9 : 1.8), transparent: true, opacity: behind ? 0.35 : 0.6, side: behind ? THREE.FrontSide : THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    if (behind) m.depthFunc = THREE.GreaterDepth;
+    m.onBeforeCompile = (sh) => { sh.uniforms.uTime = K3.shared.uTime; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;').replace('#include <skinning_vertex>', '#include <skinning_vertex>\n transformed += normalize(objectNormal) * (0.035 + 0.012 * sin(uTime * 4.));'); };
+    m.customProgramCacheKey = () => 'krglow' + (behind ? 'b' : 'f'); return m;
+  };
+  glowMat = mk(false); glowBack = mk(true);
+}
+function mateGlow(av, on) {
+  const rig = av.rig; if (!rig || !rig.mesh) return;
+  if (on && !rig.glow) {
+    if (!glowMat) makeGlowMats();
+    rig.glow = [glowMat, glowBack].map((m, i) => { const g = new THREE.SkinnedMesh(rig.mesh.geometry, m); g.bind(rig.mesh.skeleton, rig.mesh.bindMatrix); g.frustumCulled = false; g.renderOrder = i ? 8 : 2; g.castShadow = false; rig.mesh.add(g); return g; });
+  } else if (!on && rig.glow) { for (const g of rig.glow) rig.mesh.remove(g); rig.glow = null; }
+}
 function updateAvatar(av, dt, ctx) {
   const e = av.e; const p = G.player;
+  if (av.peer) mateGlow(av, KR.Sys.isMate && KR.Sys.isMate(e));
   if (!av.peer && e.type === 'player' && e === p) { const s = lookSig(e.look); if (s !== av.sig) build(av); }
   else if (av.peer) { const s = lookSig(peerLook(e)); if (s !== av.sig) build(av); }
   const fy = geo.floorAt(e.x, e.y);
@@ -269,7 +291,7 @@ function updateProjectiles(dt) {
     if (o.userData.col && Math.random() < 0.8) { const c = o.userData.col; fx.add.emit({ x: o.position.x, y: o.position.y, z: o.position.z, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, life: 0.35, s0: 0.32, s1: 0.05, r: c[0], g: c[1], b: c[2], kind: 1 }); }
   }
 }
-function srcY(e) { const av = avatars.get(e); return av ? av.height * av.scale * 0.72 + (av.hoverNow || 0) : 1.3; }
+function srcY(e) { const av = avatars.get(keyOf(e)); return av ? av.height * av.scale * 0.72 + (av.hoverNow || 0) : 1.3; }
 
 // ---------- one-off effects from the shared game (G.fx) ----------
 const seenFx = new WeakSet();
@@ -332,7 +354,7 @@ function ensureRings() {
 function updateRings(dt) {
   ensureRings(); const p = G.player; const t = p && p.target && !p.target.removed ? p.target : null;
   targetRing.visible = !!t;
-  if (t) { const av = avatars.get(t); const r = ((t.r || 12) * (t.scale || 1) + 8) * PX * 1.3; targetRing.scale.setScalar(r); targetRing.position.set(t.x * PX, geo.floorAt(t.x, t.y) + 0.05, t.y * PX); const col = G.isHostile(p, t) ? D.CON_COLORS[D.conOf(p.level, t.level)] : '#7aff8a'; targetRing.material.color.set(col).multiplyScalar(1.6); targetRing.rotation.z = K3.time * 0.5; }
+  if (t) { const av = avatars.get(keyOf(t)); const r = ((t.r || 12) * (t.scale || 1) + 8) * PX * 1.3; targetRing.scale.setScalar(r); targetRing.position.set(t.x * PX, geo.floorAt(t.x, t.y) + 0.05, t.y * PX); const col = G.isHostile(p, t) ? D.CON_COLORS[D.conOf(p.level, t.level)] : '#7aff8a'; targetRing.material.color.set(col).multiplyScalar(1.6); targetRing.rotation.z = K3.time * 0.5; }
   // spell circles under casters
   if (!runeMat) runeMat = cardTex('runes');
   for (const [e, m] of castRings) if (!e.cast || e.dead || e.removed) { root.remove(m); m.geometry.dispose(); m.material.dispose(); castRings.delete(e); }
@@ -354,12 +376,14 @@ export const actors = {
     const consider = (e, peer) => {
       if (!e || e.removed || e.hidden) return;
       const d = Math.hypot(e.x * PX - cam.x, e.y * PX - cam.z);
-      if (d > 160) { const av = avatars.get(e); if (av) { root.remove(av.obj); avatars.delete(e); } return; }
-      alive.add(e);
-      let av = avatars.get(e);
+      const key = keyOf(e);
+      if (d > 160) { const av = avatars.get(key); if (av) { root.remove(av.obj); avatars.delete(key); } return; }
+      alive.add(key);
+      let av = avatars.get(key);
       try {
-        if (!av) { av = makeAvatar(e, peer); avatars.set(e, av); }
-        av.obj.visible = d < 150;
+        if (!av) { av = makeAvatar(e, peer); avatars.set(key, av); }
+        av.e = e;
+        av.obj.visible = d < (peer ? 156 : 150);
         updateAvatar(av, dt, ctx);
       } catch (err) { if (av && !av._err) { av._err = true; console.warn('actor', e.name, err); } else if (!av) { console.warn('actor build', e.name, e.kind, err); const dummy = { e, obj: new THREE.Group(), height: 1.8, scale: 1, _err: true }; avatars.set(e, dummy); } }
     };
@@ -389,6 +413,6 @@ export const actors = {
     return best;
   },
   // world-space head position of an entity (for name plates)
-  headPos(e, out) { const av = avatars.get(e); if (!av) return null; out.copy(av.obj.position); out.y += (e.dead ? 0.6 : av.height * av.scale + 0.25); return out; },
+  headPos(e, out) { const av = avatars.get(keyOf(e)); if (!av) return null; out.copy(av.obj.position); out.y += (e.dead ? 0.6 : av.height * av.scale + 0.25); return out; },
 };
 K3.actors = actors;

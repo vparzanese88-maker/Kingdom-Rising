@@ -178,7 +178,6 @@
       case 'z': UI.toggleMinimap(); break;
       case 'f': UI.toggleFullscreen(); break;
       case 'i': case 'b': UI.toggle('inv'); break;
-      case 'c': UI.toggle('char'); break;
       case 'p': UI.toggle('spells'); break;
       case 'k': UI.toggle('abil'); break;
       case 'j': case 'l': UI.toggle('journal'); break;

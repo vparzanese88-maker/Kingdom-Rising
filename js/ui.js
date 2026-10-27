@@ -69,9 +69,9 @@
   function saveGeo(id, el) { geo[id] = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, locked: el.classList.contains('locked') }; LSset('kr_ui_geo', geo); }
   let zTop = 20;
   UI.front = (el) => { el.style.zIndex = ++zTop; };
-  UI.open = function (id) { const w = UI.wins[id]; if (!w) return; w.el.hidden = false; UI.front(w.el); if (w.render) w.render(w); KR.A.sfx('open', 0.3); };
+  UI.open = function (id) { if (id === 'char') id = 'inv'; const w = UI.wins[id]; if (!w) return; w.el.hidden = false; UI.front(w.el); if (w.render) w.render(w); KR.A.sfx('open', 0.3); };
   UI.close = function (id) { const w = UI.wins[id]; if (!w || w.el.hidden) return; w.el.hidden = true; if (w.onClose) w.onClose(); };
-  UI.toggle = function (id) { const w = UI.wins[id]; if (!w) return; if (w.el.hidden) UI.open(id); else UI.close(id); };
+  UI.toggle = function (id) { if (id === 'char') id = 'inv'; const w = UI.wins[id]; if (!w) return; if (w.el.hidden) UI.open(id); else UI.close(id); };
   UI.isOpen = (id) => UI.wins[id] && !UI.wins[id].el.hidden;
   UI.closeAll = function () { let n = 0; for (const id in UI.wins) { const w = UI.wins[id]; if (!w.el.hidden) { UI.close(id); n++; } } document.querySelectorAll('.ctx, .modal').forEach((x) => { x.remove(); n++; }); UI.hideTip && UI.hideTip(); return n > 0; };
   UI.closeTop = function () { let best = null, bz = -1; for (const id in UI.wins) { const w = UI.wins[id]; if (!w.el.hidden && +w.el.style.zIndex > bz) { bz = +w.el.style.zIndex; best = id; } } if (best) { UI.close(best); return true; } return false; };
@@ -95,6 +95,8 @@
     if (it.kind === 'weapon') s += `<div>${D.WEAPON_TYPES[it.wt].name}${it.twoHand ? ' (two-handed)' : ''}</div><div>Damage <b>${Math.round(it.dmg * G.upMul(it))}</b> · Delay ${it.delay.toFixed(1)}s · <span class="dim">${(it.dmg * G.upMul(it) / it.delay).toFixed(1)} dps</span></div>`;
     if (it.kind === 'armor') s += `<div>${it.shield ? 'Shield' : it.ak === 'misc' ? D.SLOT_NAMES[it.slot] + ' · any class' : esc(it.ak[0].toUpperCase() + it.ak.slice(1)) + ' · ' + D.SLOT_NAMES[it.slot]}</div><div>Armor <b>${Math.round(it.ac * G.upMul(it))}</b></div>`;
     if (it.kind === 'jewel') s += `<div>${D.SLOT_NAMES[it.slot]}</div>`;
+    if (it.kind === 'gear' && it.light && KR.Gear) { const L = KR.Gear.LIGHTS[it.light]; s += `<div>Light source · reaches ${L.r} m</div><div class="dim small">While lit at night, monsters notice you ${Math.round(L.aggro * 220)}% further away. Blow it out to slip past them (right-click it, or the Light key).</div>${it.lit === false ? '<div style="color:#9aa0b8">Unlit</div>' : `<div style="color:${L.col}">Lit</div>`}`; }
+    if (it.kind === 'gear' && it.tool && KR.Gear) { const T = KR.Gear.TOOL_TIERS[it.ttier], K = KR.Gear.TOOL_KINDS[it.tool]; s += `<div>${K.name} · tier ${it.ttier} of 5</div><div class="dim small">Needed to ${K.verb}${it.tool === 'axe' ? ' trees' : it.tool === 'pick' ? ' rock and ore' : ' animals for hides'}. Works ${Math.round(T.speed * 100)}% as fast as a copper tool; higher ${K.skill} skill speeds it up further.</div>${(it.req || 1) > G.player.c.level ? `<div class="bad">Requires level ${it.req}</div>` : ''}`; }
     const st = Object.entries(it.stats || {}).map(([k, v]) => `+${Math.round(v * G.upMul(it))} ${k}`);
     if (it.hp) st.push(`+${Math.round(it.hp * G.upMul(it))} HP`); if (it.mana) st.push(`+${Math.round(it.mana * G.upMul(it))} Mana`);
     if (it.haste) st.push(`<span style="color:#ffd84a">${Math.round(it.haste * 100)}% Haste</span>`);
@@ -262,7 +264,7 @@
     ui.appendChild(h('div', 'hud-chat', `<div id="chatlog" class="chatlog" aria-live="polite"></div><form id="chatform"><input id="chatin" autocomplete="off" maxlength="200" placeholder="Press Enter to chat. /help for commands"></form>`));
     $('#chatform').onsubmit = (e) => { e.preventDefault(); const v = $('#chatin').value.trim(); $('#chatin').value = ''; $('#chatin').blur(); if (v) Sys.command(v); };
     ui.appendChild(h('nav', 'hud-menu', [
-      ['inv', '🎒', 'Inventory (I)'], ['char', '🧍', 'Character (C)'], ['spells', '📖', 'Spellbook (P)'], ['abil', '⚔', 'Abilities & Skills (K)'], ['journal', '📜', 'Journal (J)'], ['map', '🗺', 'Map (M)'], ['kingdom', '👑', 'Kingdom (N)'], ['macros', '⌨', 'Macros (U)'], ['mercs', '🤝', 'Mercenaries (Y)'], ['group', '👥', 'Group: invite players and find others online (G)'], ['minimap', '🧭', 'Show / hide minimap (Z)'], ['fullscreen', '⛶', 'Full screen (F)'], ['menu', '⚙', 'Settings, Save & Exit (Esc)'],
+      ['inv', '🎒', 'Inventory and character (I)'], ['spells', '📖', 'Spellbook (P)'], ['abil', '⚔', 'Abilities & Skills (K)'], ['journal', '📜', 'Journal (J)'], ['map', '🗺', 'Map (M)'], ['kingdom', '👑', 'Kingdom (N)'], ['macros', '⌨', 'Macros (U)'], ['mercs', '🤝', 'Mercenaries (Y)'], ['group', '👥', 'Group: invite players and find others online (G)'], ['minimap', '🧭', 'Show / hide minimap (Z)'], ['fullscreen', '⛶', 'Full screen (F)'], ['menu', '⚙', 'Settings, Save & Exit (Esc)'],
     ].map(([id, ic, t]) => `<button data-w="${id}" title="${t}" aria-label="${t}">${ic}</button>`).join('')));
     $('.hud-menu').querySelectorAll('button').forEach((b) => (b.onclick = () => (b.dataset.w === 'minimap' ? UI.toggleMinimap() : b.dataset.w === 'layout' ? UI.toggleLayout() : b.dataset.w === 'fullscreen' ? UI.toggleFullscreen() : UI.toggle(b.dataset.w))));
     ui.appendChild(h('div', 'toasts', '')); ui.appendChild(h('div', 'banner', '')); $('.banner').hidden = true;
@@ -438,7 +440,7 @@
   UI.buildWindows = function () {
     UI.wins = {};
     const vw = innerWidth;
-    UI.win('inv', 'Inventory', { w: 440, x: -12, y: 60, render: renderInv });
+    UI.win('inv', 'Inventory', { w: 700, x: -12, y: 40, render: renderInv });
     UI.win('char', 'Character', { w: 380, x: 12, y: 120, render: renderChar });
     UI.win('spells', 'Spellbook', { w: 460, h: 520, x: 60, y: 80, render: renderSpells });
     UI.win('abil', 'Abilities & Skills', { w: 520, h: 560, x: 80, y: 70, render: renderAbil });
@@ -470,32 +472,77 @@
     return el;
   }
   UI.itemCell = itemCell;
+  // the inventory: everything on one fixed screen. Gear slots around the hero (hover the hero for the full
+  // stat sheet), health, mana and endurance with their regeneration, then the bag.
+  const INV_LEFT = ['head', 'neck', 'back', 'chest', 'hands'], INV_RIGHT = ['waist', 'legs', 'feet', 'ring', 'light'], INV_BOTTOM = ['primary', 'secondary', 'range', 'axe', 'pick', 'knife'];
+  UI.statSheet = function () {
+    const p = G.player, c = p.c, R = D.RACES[c.race], C = D.CLASSES[c.cls]; const wd = G.weaponDmg(p, 'main');
+    const rows = D.STATS.map((s2) => { const base = R.stats[s2]; const gear = p.stats[s2] - base; return `<tr><th>${D.STAT_NAMES[s2]}</th><td><b>${p.stats[s2]}</b></td><td class="dim">${base}${gear ? ` <span class="${gear > 0 ? 'good' : 'bad'}">${gear > 0 ? '+' : ''}${gear}</span>` : ''}</td><td class="dim small">${esc(D.STAT_HELP[s2].split('.')[0])}</td></tr>`; }).join('');
+    const res = p.res ? Object.entries(p.res).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
+    return `<div class="tt-n">${esc(c.name)}</div><div>Level ${c.level} ${R.name} ${C.name}</div><div class="dim">${D.FACTIONS[c.faction].name} · played ${Math.floor((c.playTime || 0) / 3600)}h ${Math.floor(((c.playTime || 0) % 3600) / 60)}m · ${c.kills || 0} kills</div>
+      <table class="stats tt-stats">${rows}</table>
+      <div class="tt-sec">Armor <b>${p.ac}</b> · Weapon <b>${wd.dmg}</b> dmg / ${wd.delay.toFixed(1)}s${p.haste ? ` · Haste <b>${Math.round(p.haste * 100)}%</b>` : ''}${p.spellCrit ? ` · Spell crit ${Math.round(p.spellCrit * 100)}%` : ''}</div>
+      ${res ? `<div class="dim small">Resists: ${esc(res)}</div>` : ''}<div class="dim small">Stats come from your race and your gear (max ${D.STAT_CAP}).</div>`;
+  };
+  const vitBar = (cls, label, cur, max, rate) => `<div class="vit ${cls}"><span class="vl">${label}</span><span class="bar ${cls}"><i style="width:${max ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0}%"></i><span>${Math.floor(cur)} / ${max}</span></span><span class="vr" title="Regenerates per second (out of combat; sitting triples it)">+${rate.toFixed(1)}/s</span></div>`;
   function renderInv(w) {
     const p = G.player, c = p.c; const b = w.body; b.innerHTML = '';
-    const doll = h('div', 'eqdoll');
-    const POS = { head: [1, 1], back: [1, 2], chest: [1, 3], hands: [1, 4], neck: [4, 1], ring: [4, 2], waist: [4, 3], legs: [4, 4], primary: [1, 5], secondary: [2, 5], range: [3, 5], feet: [4, 5] };
-    for (const sl of D.EQUIP_SLOTS) {
-      const it = c.equip[sl]; const [gx, gy] = POS[sl] || [1, 1];
-      const box = h('div', 'eq'); box.dataset.slot = sl; box.style.gridColumn = gx; box.style.gridRow = gy; box.appendChild(h('label', null, D.SLOT_NAMES[sl]));
-      const cell = itemCell(it, () => Sys.unequip(sl), 'equip'); if (!it) cell.title = D.SLOT_NAMES[sl]; if (it) dragSrc(cell, it, { slot: sl });
-      box.appendChild(cell); doll.appendChild(box);
-    }
-    const pv = h('div', 'eq-pv'); pv.style.gridColumn = '2 / 4'; pv.style.gridRow = '1 / 5';
-    pv.innerHTML = `<canvas width="180" height="230"></canvas><div class="eq-st"><span title="Armor class">🛡 ${p.ac}</span><span title="Health">❤ ${p.hpMax}</span>${p.manaMax ? `<span title="Mana">✦ ${p.manaMax}</span>` : ''}${p.haste ? `<span title="Haste">⚡ ${Math.round(p.haste * 100)}%</span>` : ''}</div><div class="eq-rot"><button class="mini" data-r="-1" aria-label="Turn left">⟲</button><button class="mini" data-r="1" aria-label="Turn right">⟳</button></div>`;
-    doll.appendChild(pv); b.appendChild(doll);
-    const cv = $('canvas', pv); const dirs = [0, 1, 3, 2];
-    pv.querySelectorAll('[data-r]').forEach((bt) => (bt.onclick = () => { UI._invDir = ((UI._invDir || 0) + +bt.dataset.r + 4) % 4; }));
-    const draw = () => { if (!cv.isConnected || w.el.hidden) return; const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); const gr = g.createRadialGradient(90, 150, 10, 90, 150, 120); gr.addColorStop(0, 'rgba(255,220,150,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 180, 230); g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(90, 214, 46, 10, 0, 0, 6.28); g.fill(); const lk = G.player.look; KR.S.drawHumanoid(g, 90, 212, Object.assign({}, lk, { dir: dirs[UI._invDir || 0], scale: 2.6 * (D.RACES[c.race].scale || 1), moving: false }), performance.now() / 1000); requestAnimationFrame(draw); };
-    draw();
-    b.appendChild(h('div', 'inv-h', `<span>Bag</span><span class="coins">${G.fmtCoins(c.coins)}</span>`));
-    const grid = h('div', 'grid');
+    w.el.classList.add('inv-fixed');
+    const wrap = h('div', 'inv2');
+    const doll = h('div', 'inv2-doll');
+    const slotBox = (sl) => {
+      const it = c.equip[sl]; const box = h('div', 'eq'); box.dataset.slot = sl; box.appendChild(h('label', null, D.SLOT_NAMES[sl] || sl));
+      const cell = itemCell(it, (x, e, rc) => { if (rc && it && it.light && KR.Gear) { UI.menu(e, [[it.lit === false ? 'Light it' : 'Blow it out', () => KR.Gear.toggleLight()], ['Take off', () => Sys.unequip(sl)]]); return; } Sys.unequip(sl); }, 'equip');
+      if (!it) cell.title = D.SLOT_NAMES[sl]; else dragSrc(cell, it, { slot: sl });
+      if (it && it.light && it.lit === false) cell.classList.add('unlit');
+      box.appendChild(cell); return box;
+    };
+    const colL = h('div', 'inv2-col'); INV_LEFT.forEach((sl) => colL.appendChild(slotBox(sl)));
+    const colR = h('div', 'inv2-col'); INV_RIGHT.forEach((sl) => colR.appendChild(slotBox(sl)));
+    const pv = h('div', 'eq-pv inv2-hero');
+    const R = D.RACES[c.race], C = D.CLASSES[c.cls];
+    pv.innerHTML = `<div class="inv2-name"><b>${esc(c.name)}</b><small>Level ${c.level} ${esc(R.name)} ${esc(C.name)}</small></div><div class="eq-rot"><button class="mini" data-r="-1" aria-label="Turn left">⟲</button><button class="mini" data-r="1" aria-label="Turn right">⟳</button></div><div class="inv2-hint">Hover for stats</div>`;
+    // one canvas for the hero, kept between redraws so the 3D view does not restart
+    if (!UI._invCv) { UI._invCv = document.createElement('canvas'); UI._invCv.width = 220; UI._invCv.height = 300; UI._invCv.className = 'inv2-cv'; }
+    pv.insertBefore(UI._invCv, pv.firstChild);
+    UI.bindTip(pv, () => UI.statSheet());
+    pv.querySelectorAll('[data-r]').forEach((bt) => (bt.onclick = (e) => { e.stopPropagation(); UI._invDir = ((UI._invDir || 0) + +bt.dataset.r + 4) % 4; UI._invYaw = (UI._invYaw || 0) + +bt.dataset.r * Math.PI / 2; }));
+    doll.append(colL, pv, colR);
+    const bot = h('div', 'inv2-bottom'); INV_BOTTOM.forEach((sl) => bot.appendChild(slotBox(sl)));
+    doll.appendChild(bot);
+    wrap.appendChild(doll);
+    // right side: vitals and the bag
+    const side = h('div', 'inv2-side');
+    const rr = p.regenRates || { hp: 0, mana: 0, end: 0 };
+    const wd = G.weaponDmg(p, 'main');
+    side.innerHTML = `<div class="inv2-vit">${vitBar('hp', 'Health', p.hp, p.hpMax, rr.hp)}${p.manaMax ? vitBar('mana', 'Mana', p.mana, p.manaMax, rr.mana) : ''}${vitBar('endur', 'Endurance', p.endur, p.endurMax, rr.end)}
+      <div class="inv2-nums"><span title="Armor class">🛡 <b>${p.ac}</b> armor</span><span title="Main hand damage and delay">⚔ <b>${wd.dmg}</b> / ${wd.delay.toFixed(1)}s</span>${p.haste ? `<span title="Haste">⚡ <b>${Math.round(p.haste * 100)}%</b></span>` : ''}${KR.Gear && KR.Gear.lightOf(c) ? `<span title="Your light source">${KR.Gear.isLit(c) ? '🔥 lit' : '🌑 dark'}</span>` : ''}</div></div>
+      <div class="inv-h"><span>Bag</span><span class="coins">${G.fmtCoins(c.coins)}</span></div>`;
+    const grid = h('div', 'grid inv2-bag');
     c.inv.forEach((it, i) => { const cell = itemCell(it, (x, e, rc) => invClick(x, e, rc)); cell.dataset.bag = i; if (it) dragSrc(cell, it, { bag: i }); grid.appendChild(cell); });
-    b.appendChild(grid);
-    b.appendChild(h('p', 'hint', 'Click to equip or use, or drag an item onto a gear slot. Drag gear back into your bag to take it off. Shift-click a one-handed weapon for your secondary hand. Right-click for more options.'));
+    side.appendChild(grid);
+    side.appendChild(h('p', 'hint small', 'Click to equip or use, or drag onto a slot. Right-click for more. Shift-click a one-handed weapon for your off hand.'));
+    wrap.appendChild(side);
+    b.appendChild(wrap);
+    // the hero: in 3D the real model (kingdom-rising-3d/js3d/portrait3d.js), otherwise the drawn figure
+    if (UI.heroPortrait3D) UI.heroPortrait3D(UI._invCv, w);
+    else {
+      const cv = UI._invCv; const dirs = [0, 1, 3, 2];
+      const draw = () => { if (!cv.isConnected || w.el.hidden) return; const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); const gr = g.createRadialGradient(110, 200, 10, 110, 200, 150); gr.addColorStop(0, 'rgba(255,220,150,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(110, 284, 56, 12, 0, 0, 6.28); g.fill(); KR.S.drawHumanoid(g, 110, 282, Object.assign({}, G.player.look, { dir: dirs[UI._invDir || 0], scale: 3.2 * (D.RACES[c.race].scale || 1), moving: false }), performance.now() / 1000); requestAnimationFrame(draw); };
+      draw();
+    }
+    UI.fitInv(w);
   }
+  // the inventory never scrolls or resizes: it is scaled to fit the screen instead
+  UI.fitInv = function (w) {
+    const el = w.el; el.style.width = ''; el.style.height = ''; el.style.zoom = 1;
+    const natW = 700, natH = 520; const k = Math.min(1, (innerWidth - 16) / natW, (innerHeight - 16) / natH);
+    el.style.zoom = k < 0.999 ? k.toFixed(3) : '';
+    const r = el.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight) { el.style.left = Math.max(0, (innerWidth / (k || 1) - natW) / 2) + 'px'; el.style.top = Math.max(0, (innerHeight / (k || 1) - natH) / 2) + 'px'; }
+  };
   // ----- drag and drop equipping -----
   UI.slotOk = function (it, sl, c) {
-    if (!it || !['weapon', 'armor', 'jewel'].includes(it.kind)) return false;
+    if (!it || !['weapon', 'armor', 'jewel', 'gear'].includes(it.kind)) return false;
     if (!G.canUse(c, it).ok) return false;
     if (G.itemSlot(it, c) === sl) return true;
     return sl === 'secondary' && it.kind === 'weapon' && !it.twoHand && !D.WEAPON_TYPES[it.wt].ranged && G.hasSkill(c, 'dualwield');

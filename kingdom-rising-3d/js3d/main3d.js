@@ -16,6 +16,7 @@ const { hud3d } = await import('./hud3d.js');
 const { viewmodel } = await import('./viewmodel.js');
 const { settings3d } = await import('./settings3d.js');
 const { actionOf, held, pressed } = await import('./keys3d.js');
+await import('./portrait3d.js');
 const { grass } = await import('./grass.js');
 
 const KR = window.KR;
@@ -276,11 +277,11 @@ function runAction(act, p) {
     case 'interact': Main.interact(); break;
     case 'autorun': move.autorun = !move.autorun; break;
     case 'walk': Main.toggleWalk(); break;
+    case 'light': if (KR.Gear) KR.Gear.toggleLight(); break;
     case 'map': UI.toggle('map'); break;
     case 'minimap': UI.toggleMinimap(); break;
     case 'fullscreen': UI.toggleFullscreen(); break;
     case 'inv': UI.toggle('inv'); break;
-    case 'char': UI.toggle('char'); break;
     case 'spells': UI.toggle('spells'); break;
     case 'abil': UI.toggle('abil'); break;
     case 'journal': UI.toggle('journal'); break;

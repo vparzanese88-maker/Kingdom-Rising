@@ -972,7 +972,7 @@
         m.scanT = 0.4 + Math.random() * 0.3;
         if (p && !p.dead && !p.fd && !m.passive && !m.returning) {
           const con = D.conOf(p.level, m.level);
-          const ar = m.aggroR + (m.level - p.level) * 8;
+          const ar = (m.aggroR + (m.level - p.level) * 8) * (KR.Gear ? KR.Gear.aggroScale(p) : 1); // a burning lantern carries far at night
           if ((con !== 'gray' && con !== 'green') || m.undead || m.boss) {
             if (Math.hypot(p.x - m.x, p.y - m.y) < Math.max(70, ar) && W.lineClear(m.x, m.y - 10, p.x, p.y - 10)) G.addHate(m, p, 1);
           }

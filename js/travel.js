@@ -136,10 +136,13 @@
     const t0 = performance.now();
     setTimeout(() => { try { work(); } catch (e) { console.error(e); } const left = Math.max(0, 1500 - (performance.now() - t0)); setTimeout(() => { ov.classList.remove('in'); ov.classList.add('out'); }, left); }, 120);
   };
+  Sys.nearGrate = function (p, r = 1.8) { if (!p || !W.portals || (W.realm && W.realm !== 'main')) return null; return W.portals.find((pt) => pt.cityGrate && !pt.back && Math.hypot(p.x / TS - (pt.x + 0.5), p.y / TS - (pt.y + 0.5)) <= r) || null; };
+  Sys.useGrate = function (pt) { const p = G.player; if (!p || p.dead || !pt) return false; p._grate = { realm: pt.to, out: pt.out }; Sys.enterRealm(pt.to, null, null, { text: `You lift the grate and climb down into ${pt.label}...` }); p.portalCd = G.now + 4000; return true; };
   Sys.portalTick = function () {
     const p = G.player; if (!p || p.dead || !W.portals || (p.portalCd || 0) > G.now) return;
     for (const pt of W.portals) {
       if (Math.hypot(p.x / TS - (pt.x + 0.5), p.y / TS - (pt.y + 0.5)) > 1.1) continue;
+      if (pt.cityGrate && !pt.back) continue; // a street grate is only entered on purpose (E or click), never by walking over it
       if (pt.back && p._grate && p._grate.realm === W.realm) { const g = p._grate; p._grate = null; Sys.enterRealm('main', g.out[0], g.out[1], { text: 'You climb up out of the sewer grate...' }); p.portalCd = G.now + 4000; return; }
       if (pt.back) { const dg = D.DUNGEONS.find((d) => d.id === W.realm); const ins = dg.entry === 'n' ? [0, 1] : dg.entry === 's' ? [0, -1] : dg.entry === 'w' ? [1, 0] : [-1, 0]; Sys.enterRealm(dg.parent || 'main', dg.at[0] - ins[0] * 3, dg.at[1] - ins[1] * 3, { text: `You climb out of ${W.REALMS[dg.id].name}...` }); }
       else { p._grate = pt.cityGrate ? { realm: pt.to, out: pt.out } : null; Sys.enterRealm(pt.to, null, null, { text: pt.cityGrate ? `You lift the grate and climb down into ${pt.label}...` : `You enter ${pt.label}...` }); }

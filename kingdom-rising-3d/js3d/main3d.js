@@ -129,7 +129,7 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     await step('Waking the townsfolk...');
     Sys.startPlayer(c);
     if (G.player._resumeRealm) { const [rid, rx, ry] = G.player._resumeRealm; await step('Entering ' + (W.REALMS[rid] ? W.REALMS[rid].name : rid) + '...'); Sys.enterRealm(rid, rx, ry, { instant: true }); }
-    await step('Raising mountains, castles and forests in three dimensions...');
+    await step('Raising mountains, castles and forests...');
     syncWorld(true);
     { const t0 = performance.now(); const n = world3d.flush(2500); console.log(`built ${n} more areas in ${Math.round(performance.now() - t0)} ms`); }
     await step('Dressing the townsfolk...');
@@ -152,7 +152,7 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     if (opt.cine && K3.startCine) {} else if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`);
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
-    } else G.log('3D view: W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
+    } else G.log('W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
     running = true; last = performance.now(); requestAnimationFrame(loop);
   } catch (err) {
     console.error(err); running = false; document.getElementById('ui').hidden = true;
@@ -166,7 +166,7 @@ Main.showFatal = function (err, hard) {
   const scr = document.getElementById('screen'); if (!scr) return;
   const msg = (err && (err.stack || err.message)) || String(err);
   scr.hidden = false;
-  scr.innerHTML = `<div class="enter"><p>Something went wrong.</p><pre class="dim small" style="max-width:min(680px,90vw);white-space:pre-wrap;text-align:left;overflow:auto;max-height:40vh">${KR.UI ? KR.UI.esc(msg) : msg}</pre><p class="dim small">Game version ${window.KR_VERSION} (3D). Reloading the page usually fixes this.</p><p><button class="btn gold" id="fatal-back">Back to character select</button></p></div>`;
+  scr.innerHTML = `<div class="enter"><p>Something went wrong.</p><pre class="dim small" style="max-width:min(680px,90vw);white-space:pre-wrap;text-align:left;overflow:auto;max-height:40vh">${KR.UI ? KR.UI.esc(msg) : msg}</pre><p class="dim small">Game version ${window.KR_VERSION}. Reloading the page usually fixes this.</p><p><button class="btn gold" id="fatal-back">Back to character select</button></p></div>`;
   document.getElementById('fatal-back').onclick = () => { try { KR.Menus.showMenu(); } catch (e) { location.reload(); } };
 };
 Main.exitToMenu = function (create) {
@@ -433,6 +433,9 @@ function leftClick(sx, sy) {
   }
   // trees and rocks to gather
   const d = world3d.pickDecor(screenRay(sx, sy));
+  // a sewer grate in the street: click it (when close) to climb down
+  { const ray = screenRay(sx, sy); const gp = rayGround ? rayGround(ray) : null; const gr = W.portals && W.portals.find((pt) => pt.cityGrate && !pt.back && ((d && d.cityGrate && d.tx === pt.x && d.ty === pt.y) || (gp && Math.hypot(gp.x / TILE - (pt.x + 0.5), gp.z / TILE - (pt.y + 0.5)) < 1.2)));
+    if (gr) { if (Math.hypot(p.x / TS - (gr.x + 0.5), p.y / TS - (gr.y + 0.5)) <= 3) Sys.useGrate(gr); else G.log('Walk up to the grate first.', 'sys', '#aaa'); return; } }
   if (d && KR.Kingdom && KR.Kingdom.harvestOf && KR.Kingdom.harvestOf(d)) { KR.Kingdom.startHarvest(d); return; }
   // clicking the ground does nothing in 3D: you steer with the keys and the mouse
 }

@@ -12,7 +12,7 @@ const Tl = TILE;
 
 const STYLE = {
   crown: { plinth: '#9e978a', wall: '#ece3cf', beam: '#9a6a44', roofMat: 'rooftile', roof: '#c06a50', trim: '#f0c75e', shutter: '#28457a', frame: true, stone: false, curve: false, pitch: 0.72, inner: '#e8dcc4' },
-  sylvan: { plinth: '#cfc6ad', wall: '#e4dcc2', beam: '#a8804c', roofMat: 'shingle', roof: '#8fd08a', trim: '#e7d48a', shutter: '#2e6a3c', frame: true, stone: false, curve: true, pitch: 0.8, inner: '#ebe2c8' },
+  sylvan: { plinth: '#cfc6ad', wall: '#e4dcc2', beam: '#a8804c', roofMat: 'shingle', roof: '#8fd08a', trim: '#e7d48a', shutter: '#2e6a3c', frame: true, stone: false, curve: true, pitch: 0.98, inner: '#ebe2c8' },
   iron: { plinth: '#7a756c', wall: '#a8a298', beam: '#4a443c', roofMat: 'slate', roof: '#a0aab8', trim: '#c98b3a', shutter: '#7a3e1c', frame: false, stone: true, curve: false, pitch: 0.62, inner: '#d8d0c0' },
   chamber: { plinth: '#4a4440', wall: '#6a625c', beam: '#2e2a26', roofMat: 'darkstone', roof: '#6a625c', trim: '#8a2a2a', shutter: '#3a1a1a', frame: false, stone: true, curve: false, pitch: 0, inner: '#5a524c' },
 };
@@ -66,12 +66,18 @@ function wallRun(mb, o) {
 }
 
 // ---------- one building ----------
+// every house a little different: wall wash, roof colour and pitch, and some shops and houses a storey taller
+const WASH = { crown: ['#ece3cf', '#e8d6b0', '#f2ebe0', '#dcc8a8', '#e8d2c2', '#d8d0bc'], sylvan: ['#e4dcc2', '#dde4cc', '#ece4d0', '#d8d2b8', '#e6dccc'], iron: null };
+const ROOFS = { crown: ['#c06a50', '#a85a40', '#8a5a48', '#b4744c', '#7a6a62', '#9a4a3a'], sylvan: ['#8fd08a', '#6aa878', '#7ab8a0', '#9ac87a', '#5a9a6a'], iron: null };
+const TALLER = new Set(['house', 'tailor', 'store', 'smithy', 'armorer', 'weaponsmith', 'jeweler', 'scribe', 'fletcher', 'bowyer', 'gemcutter', 'armory', 'forge']);
 function building(mb, b) {
-  const st = STYLE[b.style] || STYLE.crown;
+  let st = STYLE[b.style] || STYLE.crown;
+  const hv = K3.hash(b.x, b.y, 5), hv2 = K3.hash(b.x, b.y, 9), hv3 = K3.hash(b.x, b.y, 13);
+  if (!['hall', 'chamber', 'kingtower'].includes(b.type) && WASH[b.style]) st = Object.assign({}, st, { wall: WASH[b.style][Math.floor(hv * WASH[b.style].length)], roof: ROOFS[b.style][Math.floor(hv2 * ROOFS[b.style].length)], pitch: st.pitch * (0.92 + hv3 * 0.32) });
   const X0 = b.x * Tl, X1 = (b.x + b.w) * Tl, Z0 = b.y * Tl, Z1 = (b.y + b.h) * Tl;
   const y0 = b._y3 != null ? b._y3 : 0, fy = b._floor3 != null ? b._floor3 : y0 + 0.16;
   const isHall = b.type === 'hall', isLair = b.type === 'chamber', isTower = b.type === 'kingtower';
-  const Hw = HEIGHT[b.type] || 4.2;
+  const Hw = (HEIGHT[b.type] || 4.2) * (TALLER.has(b.type) && hv3 > 0.45 ? 1.42 : 1); b._H3 = Hw;
   const top = y0 + Hw;
   const outT = 0.34;
   const wallKey = st.stone || isHall || isLair || isTower ? (isLair ? 'darkstone' : 'stone') : 'plaster';
@@ -257,7 +263,7 @@ function gableRoof(mb, b, st, X0, X1, Z0, Z1, top, wallKey, wallCol) {
   const P = (u, y, v) => (alongX ? V(u, y, v) : V(v, y, u));
   // profile from the eave (s=0) to the ridge (s=1): straight for crown/iron, curved for the elves
   const prof = []; const N = st.curve ? 5 : 1; const rise = half * st.pitch * (st.curve ? 1.2 : 1);
-  for (let k = 0; k <= N; k++) { const s = k / N; const yy = st.curve ? rise * (1 - Math.pow(1 - s, 1.7)) : rise * s; prof.push([(half + oh) * (1 - s), yy]); }
+  for (let k = 0; k <= N; k++) { const s = k / N; const yy = st.curve ? rise * (1 - Math.pow(1 - s, 1.3)) : rise * s; prof.push([(half + oh) * (1 - s), yy]); }
   const eaveDrop = st.curve ? -0.25 : -oh * st.pitch;
   prof[0][1] += eaveDrop;
   const ridgeY = top + rise; b._ridge3 = ridgeY;
@@ -564,7 +570,7 @@ geo.roofAt = function (x, z) {
 geo.structTop = function (x, z) {
   const tx = Math.floor(x / Tl), ty = Math.floor(z / Tl); if (!W.inb(tx, ty)) return 0;
   const i = ty * W.W + tx; const bi = geo.bmap[i];
-  if (bi >= 0) { const b = W.buildings[bi]; return (b._y3 || 0) + (HEIGHT[b.type] || 4.2) + 0.3; }
+  if (bi >= 0) { const b = W.buildings[bi]; return (b._y3 || 0) + (b._H3 || HEIGHT[b.type] || 4.2) + 0.3; }
   if (W.tiles[i] === T.CWALL) { for (const f in W.cityData) { const cd = W.cityData[f]; if (cd && cd._wallTop3 && Math.abs(tx - cd.cx) <= cd.R + 1 && Math.abs(ty - cd.cy) <= cd.R + 1) return cd._wallTop3 + 1.2; } }
   return geo.groundT(tx + 0.5, ty + 0.5) + 3.6;
 };

@@ -56,7 +56,7 @@
   K.gather = (c) => (c.gather = c.gather || {});
   K.have = (c, m) => K.gather(c)[m] || 0;
   K.harvestOf = function (d) {
-    if (!d || !d.kind) return null;
+    if (!d || !d.kind || d.garden) return null; // the trees planted in the city are not for chopping
     if (TREE_MAT[d.kind]) return { mat: TREE_MAT[d.kind], tool: 'axe' };
     if (d.kind === 'orevein') return { mat: 'ore' + (d.ore || 0), tool: 'pick' };
     if (d.kind === 'boulder') { const reg = D.REGIONS[W.regionAt(d.tx, d.ty)]; const m = reg && STONE_MAT[reg.biome]; return m ? { mat: m, tool: 'pick' } : null; }
@@ -227,7 +227,11 @@
       const d = K.nearestHarvest(p.x, p.y, 70);
       tgt = corpse || (d && !(d.cutUntil && d.cutUntil > G.now) ? d : null);
     }
-    if (!tgt) { prompt.hidden = true; promptFor = null; return; }
+    if (!tgt) {
+      const gr = Sys.nearGrate && Sys.nearGrate(p);
+      if (gr && !p.dead) { const k2 = window.K3 && window.K3.keys ? window.K3.keys.keyName(window.K3.keys.bindingsOf('interact')[0]) : 'E'; const html = `<span><kbd>${k2}</kbd> or click to climb down into <b>${esc(gr.label)}</b></span><small>A rusted iron grate in the street</small>`; if (promptFor !== html) { prompt.innerHTML = html; promptFor = html; } prompt.hidden = false; prompt.classList.remove('cant'); return; }
+      prompt.hidden = true; promptFor = null; return;
+    }
     const key = window.K3 && window.K3.keys ? window.K3.keys.keyName(window.K3.keys.bindingsOf('interact')[0]) : 'E';
     const tool = tgt.dead ? 'knife' : K.harvestOf(tgt).tool; const verb = KR.Gear.TOOL_KINDS[tool].verb;
     const why = K.whyNot(p.c, tgt);
@@ -249,6 +253,7 @@
       const corpse = G.ents.filter((e) => K.skinnable(e) && (!e.loot || !e.loot.items.length) && Math.hypot(e.x - p.x, e.y - p.y) < 80).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
       const d = K.nearestHarvest(p.x, p.y, 70);
       const nearD = near.length ? Math.min(...near.map((x) => Math.hypot(x.x - p.x, x.y - p.y))) : 1e9;
+      const gr = Sys.nearGrate && Sys.nearGrate(p); if (gr && nearD > 50 && !corpse) { Sys.useGrate(gr); return; }
       if (corpse && Math.hypot(corpse.x - p.x, corpse.y - p.y) < nearD) { K.startSkin(corpse); return; }
       // your own camp: sleep, or pack it up
       if (KR.Gear && KR.Gear.nearCamp(p) && nearD > 50 && !(d && Math.hypot(d.x - p.x, d.y - p.y) < 40)) { UI.choice('Your camp. The fire crackles and the bedroll looks inviting.', [['Sleep a while (wake Well Rested: +10% XP for 1 hour)', () => KR.Gear.nap()], ['Pack up camp (your soul returns to the city healer)', () => KR.Gear.breakCamp()], ['Leave it be']]); return; }

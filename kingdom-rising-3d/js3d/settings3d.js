@@ -141,7 +141,7 @@ function make() {
   el.innerHTML = `<div class="k3s-head"><b>Settings</b><button class="mini k3s-x" title="Close (Esc)">✕</button></div>
     <div class="k3s-tabs">${TABS.map(([k, n]) => `<button class="k3s-tab" data-t="${k}">${n}</button>`).join('')}</div>
     <div class="k3s-body"></div>
-    <div class="k3s-foot"><button class="btn small" id="k3-reset">Reset this tab</button><a href="../" class="k3s-link">Play the 2D version</a></div>`;
+    <div class="k3s-foot"><button class="btn small" id="k3-reset">Reset this tab</button></div>`;
   document.body.appendChild(el);
   el.querySelector('.k3s-x').onclick = () => settings3d.toggle(false);
   el.querySelectorAll('.k3s-tab').forEach((b) => (b.onclick = () => { tab = b.dataset.t; waiting = null; el.querySelector('.k3s-body').scrollTop = 0; render(); }));

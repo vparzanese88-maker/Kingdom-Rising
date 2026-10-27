@@ -793,13 +793,18 @@
 
   // ---------- city layout ----------
   // [type, x, y, w, h, minLevel, name]
-  const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel] — at least 2 open tiles between buildings
-    ['hall', -7, -18, 15, 9, 1], ['inn', -18, -7, 10, 7, 1], ['bank', 9, -7, 8, 6, 1], ['guild', 11, 6, 8, 7, 1], ['smithy', -18, 7, 7, 6, 1], ['tailor', -9, 7, 6, 5, 1], ['store', 3, 7, 6, 5, 1],
-    ['house', 3, 14, 5, 4, 1], ['house', 11, 15, 6, 4, 1], ['house', -18, -18, 6, 5, 1], ['kingtower', 12, -18, 7, 7, 1],
-    ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 6, 4, 5, 2], ['house', 21, 6, 4, 5, 2], ['house', -14, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -7, 21, 5, 4, 2], ['house', 3, 21, 5, 4, 2],
-    ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -22, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -16, 27, 6, 4, 3], ['house', 11, 27, 6, 4, 3],
-    ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -8, -36, 6, 4, 4], ['bowyer', 3, -36, 6, 4, 4], ['house', -26, 33, 6, 4, 4], ['house', 21, 33, 6, 4, 4],
-    ['exchange', 39, -9, 4, 8, 5], ['heroes', -42, -9, 4, 8, 5], ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -30, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -8, 39, 5, 4, 5], ['house', 4, 39, 5, 4, 5],
+  // The city is laid out around two paved avenues that run gate to gate through the plaza (north-south and
+  // east-west), with a lane behind each row of houses. Every building faces a street (doors are on the south
+  // side), alleys between them are at least two tiles wide, and the throne hall and the king's tower stand on
+  // either side of the green at the head of the north avenue, so the way to the sea gate stays open.
+  const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel]
+  ['hall', -18, -19, 12, 8, 1], ['kingtower', 9, -19, 7, 7, 1], ['inn', -18, -8, 10, 7, 1], ['bank', 8, -7, 8, 6, 1],
+  ['smithy', -18, 7, 7, 6, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 6, 1],
+  ['house', -18, 15, 5, 3, 1], ['house', -10, 15, 5, 3, 1], ['house', 5, 15, 5, 3, 1], ['house', 12, 15, 5, 3, 1],
+  ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -15, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
+  ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
+  ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -10, -36, 6, 4, 4], ['bowyer', 4, -36, 6, 4, 4], ['house', -27, 32, 6, 4, 4], ['house', 21, 32, 6, 4, 4],
+  ['exchange', 39, -9, 4, 8, 5], ['heroes', -42, -9, 4, 8, 5], ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -31, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -9, 38, 5, 4, 5], ['house', 4, 38, 5, 4, 5],
   ];
   const BNAMES = {
     sylvan: { kingtower: "Theron's Tower", hall: 'Starbough Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
@@ -816,7 +821,8 @@
         const dx = x - cx, dy = y - cy;
         if (Math.abs(dx) > R - 1 - (M > 1 ? 1 : 0) || Math.abs(dy) > R - 1 - (M > 1 ? 1 : 0)) return false;
         if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // plaza
-        if (Math.abs(dx) <= 2 && dy >= 0) return false; // road from the south gate
+        if (Math.abs(dx) <= 3) return false; // the north-south avenue
+        if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
         const t = W.tiles[y * W.W + x]; if (t === T.WALL || t === T.DOOR || t === T.CWALL || t === T.WATER) return false;
       }
       for (const b of W.buildings) if (b.city === f && !(x0 + w + M <= b.x || b.x + b.w + M <= x0 || y0 + h + M + 1 <= b.y || b.y + b.h + M <= y0)) return false;
@@ -907,10 +913,18 @@
     harbour(f, R, cx, cy);
     // plaza
     for (let ty = cy - 5; ty <= cy + 1; ty++) for (let tx = cx - 5; tx <= cx + 5; tx++) W.tiles[ty * W.W + tx] = T.STONE;
+    // the two avenues (paved, gate to gate) and the lanes behind the rows of buildings
+    for (let d = -R + 1; d <= R - 1; d++) { for (let w = -2; w <= 2; w++) { W.tiles[(cy + d) * W.W + cx + w] = T.STONE; } for (let w = 1; w <= 5; w++) W.tiles[(cy + w) * W.W + cx + d] = T.STONE; }
+    for (const ly of [-10, -9, 13, 14, 18, 19]) if (Math.abs(ly) < R - 1) for (let d = -R + 1; d <= R - 1; d++) { const k = (cy + ly) * W.W + cx + d; if (W.tiles[k] !== T.STONE) W.tiles[k] = T.COBBLE; }
+    // the green between the throne hall and the king's tower, with trees and benches
+    for (let ty = cy - 18; ty <= cy - 12; ty++) for (let tx = cx - 5; tx <= cx + 6; tx++) if (Math.abs(tx - cx) > 2) W.tiles[ty * W.W + tx] = T.GRASS;
+    for (const [ox, oy] of [[-4, -17], [5, -17], [-4, -13], [5, -13]]) addDecor('oak', cx + ox, cy + oy, { garden: true });
+    for (const [ox, oy] of [[-4, -15], [5, -15]]) addDecor('bench', cx + ox, cy + oy, { nb: true, ry: ox < 0 ? -Math.PI / 2 : Math.PI / 2 });
+    for (let d = -R + 3; d <= R - 3; d += 6) for (const [x, y] of [[cx - 3, cy + d], [cx + 3, cy + d], [cx + d, cy], [cx + d, cy + 6]]) { if (Math.abs(x - cx) <= 6 && y - cy >= -6 && y - cy <= 1) continue; const k = y * W.W + x; if (W.tiles[k] !== T.STONE && W.tiles[k] !== T.COBBLE) continue; addDecor('lamp', x, y, {}); W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
     addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});
     for (const [ox, oy] of [[-5, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
     W.lights.push({ x: cx * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 260 : 170, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' });
-    if (level >= 2) { addDecor('stall', cx - 4, cy - 4, { col: '#b84a3a' }); addDecor('stall', cx + 4, cy - 4, { col: '#3a6ab8' }); addDecor('stall', cx - 4, cy + 1, { col: '#c9a23a' }); }
+    if (level >= 2) { addDecor('stall', cx - 5, cy - 5, { col: '#b84a3a' }); addDecor('stall', cx + 5, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 5, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 5, cy - 1, { col: '#3a8a5a' }); }
     if (level >= 3) { addDecor('statue', cx - 6, cy - 6, {}); addDecor('statue', cx + 6, cy - 6, {}); }
     // towers + torches on walls
     // (the old stone guard towers on the wall corners are gone: the gates are guarded by archer towers and siege engines)
@@ -932,6 +946,22 @@
     }
     // the barracks grows with the city: it houses every soldier of the kingdom's war parties
     placeBarracks(f, level, cx, cy, R, names);
+    // no dead-end slivers: one-tile gaps behind buildings and along the wall, where walkers wander in and jam,
+    // are filled with stacked crates and barrels (through-passages stay open)
+    {
+      const open = (x, y) => W.inb(x, y) && !W.isBlockedTile(x, y) && W.tile(x, y) !== T.DOOR;
+      const inB = (x, y) => !!W.buildingAt(x * TS + 16, y * TS + 16);
+      for (let pass = 0; pass < 60; pass++) { let n = 0;
+        for (let y = cy - R + 1; y < cy + R; y++) for (let x = cx - R + 1; x < cx + R; x++) {
+          if (!open(x, y) || inB(x, y) || W.tile(x, y) === T.STONE) continue;
+          const sq = (!open(x - 1, y) && !open(x + 1, y)) || (!open(x, y - 1) && !open(x, y + 1)); if (!sq) continue;
+          const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => open(x + dx, y + dy) && !W.doorAt[(y + dy) * W.W + x + dx]).length;
+          const byWall = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => W.tile(x + dx, y + dy) === T.CWALL);
+          if ((nb > 1 && !byWall) || [[1, 0], [-1, 0], [0, 1], [0, -1], [0, -2]].some(([dx, dy]) => W.tile(x + dx, y + dy) === T.DOOR)) continue;
+          W.decor = W.decor.filter((d) => !(d.tx === x && d.ty === y)); { const h = U.hash(x, y, 3); addDecor(h < 0.4 ? 'crate' : h < 0.75 ? 'barrel' : 'keg', x, y, {}); } W.block[y * W.W + x] = 1; n++;
+        }
+        if (!n) break; }
+    }
     // farm fields outside the walls, east and west
     for (const side of [-1, 1]) {
       const fx0 = side < 0 ? cx - R - 13 : cx + R + 4, fy0 = cy + 7;

@@ -1318,8 +1318,10 @@
   Sys.saveAccount = function (force) {
     const a = G.account; if (!a) return;
     a.updated = Date.now();
-    LS.set('kr_account', JSON.stringify(a));
-    if (Store.db && (force || Date.now() - lastRemote > 15000)) { lastRemote = Date.now(); Store.col().doc('account').set(JSON.parse(JSON.stringify(a))).catch(() => {}); }
+    // in a hosted game the account holds the host's world; only the player's own world is saved here
+    const out = Sys.persistable ? Sys.persistable(a) : a;
+    LS.set('kr_account', JSON.stringify(out));
+    if (Store.db && (force || Date.now() - lastRemote > 15000)) { lastRemote = Date.now(); Store.col().doc('account').set(JSON.parse(JSON.stringify(out))).catch(() => {}); }
   };
   Sys.save = function (force) {
     const p = G.player; if (!p || !G.account) return;
@@ -1340,20 +1342,21 @@
     if (Store.db) { try { Promise.resolve(Store.col().doc('char_' + id).delete()).catch(() => {}); } catch (e) {} }
   };
 
-  // =============== MULTIPLAYER (room presence) ===============
+  // =============== MULTIPLAYER (presence in the hosted game's room, see online.js) ===============
   const Net = (Sys.Net = { room: null, peers: [], ok: false });
   // subscribe safely: a refused topic must never break the game
   Net.on = function (topic, fn) { try { const r = Net.room.on(topic, (m) => { try { fn(m); } catch (e) { console.warn(e); } }); if (r && r.catch) r.catch((e) => console.warn('room topic', topic, e)); } catch (e) { console.warn('room topic', topic, e); } };
   Net.init = async function () {
-    try { if (!window.claude || !window.claude.use) return; const room = await window.claude.use('room'); if (!room) return; Net.room = room; Net.ok = true;
-      room.onPeers((ch) => { const me = ch.peers.find((p) => p.isMe); if (me) Net.me = me.peer; Net.peers = ch.peers.filter((p) => !p.isMe && p.presence && p.presence.n).map((p) => Object.assign({ peer: p.peer, updatedAt: p.updatedAt }, p.presence)); Sys.onPeersChanged && Sys.onPeersChanged(); });
+    try { const room = KR.Online && KR.Online.room; Net.peers = []; if (!room) { Net.room = null; Net.ok = false; return; } Net.room = room; Net.ok = true;
+      if (Net.bound === room) return; Net.bound = room;
+      room.onPeers((ch) => { if (Net.room !== room) return; const me = ch.peers.find((p) => p.isMe); if (me) Net.me = me.peer; Net.peers = ch.peers.filter((p) => !p.isMe && p.presence && p.presence.n).map((p) => Object.assign({ peer: p.peer, updatedAt: p.updatedAt }, p.presence)); Sys.onPeersChanged && Sys.onPeersChanged(); });
       Net.on('chat', (m) => { if (m.isMe || !m.data) return; const d = m.data; G.log(`[World] ${String(d.n || 'Someone').slice(0, 24)}: ${String(d.t || '').slice(0, 200)}`, 'world', '#9ad8ff'); const pp = Net.peers.find((x) => x.peer === m.peer); if (pp) pp.bubble = { text: String(d.t || '').slice(0, 120), until: Date.now() + 5000 }; });
       try { Sys.onNetReady && Sys.onNetReady(room); } catch (e) { console.warn(e); }
     } catch (e) { Net.ok = false; }
   };
   let lastPres = 0;
   Net.tick = function () {
-    if (!Net.room || !G.player) return; const now = Date.now(); if (now - lastPres < 150) return; lastPres = now;
+    if (!Net.room || !G.player) return; KR.Online && KR.Online.tick(); const now = Date.now(); if (now - lastPres < 150) return; lastPres = now;
     const p = G.player, c = p.c, L = p.look || {};
     Net.room.presence({ n: c.name, r: c.race, c: c.cls, f: c.faction, g: c.gender, l: c.level, x: Math.round(p.x), y: Math.round(p.y), d: p.dir, m: p.moving ? 1 : 0, rm: W.realm || 'main', s: c.skin, h: c.hair, hs: c.hairStyle, w: L.weapon || null, a: L.armor ? L.armor.kind : 'none', dead: p.dead ? 1 : 0, ...(Sys.presenceExtra ? Sys.presenceExtra() : {}) }).catch(() => {});
   };

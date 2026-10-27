@@ -38,10 +38,20 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
   - `story.js`: the cinematic story for a new hero.
   - `affinity.js`: monster weaknesses and resistances.
   - `group.js`: grouping.
+  - `online.js`: single player and hosted multiplayer (hosting, joining, passwords, shared saves, host hand-off).
   - `menus.js`: the main menu and hero creation.
   - `main.js`: boot and input.
 - When you change a file, bump `?v=` on every script tag and `window.KR_VERSION` in `index.html` so browsers fetch the new copy.
 
-## Saving and multiplayer
-- Outside claude.ai, heroes and kingdoms are saved in each player's own browser (localStorage).
-- The live multiplayer (seeing other players and grouping) and the cloud saves use claude.ai's artifact services, so they only work in the claude.ai version. Everything else plays the same on GitHub Pages.
+## Single player and multiplayer
+- **Single Player** plays offline in your own world. Your kingdoms are saved to your account (claude.ai) or your browser (elsewhere).
+- **Multiplayer** (main menu, or the Multiplayer button under your hero):
+  - **Host a game:** give it a name and, if you like, a password. You get a game code to share. Your page runs the game: it owns both kingdoms, the clock and the war, and saves the hosted world as you play.
+  - **Join a game:** pick one from the open games list or type its code, plus the password if it has one.
+  - **Saved games:** a hosted world is saved separately from your single-player world, so anyone with its code and password can host it again later and carry on.
+  - **Host hand-off:** if the host leaves while others are still playing, one of them takes over as host automatically and the game goes on.
+- The password protects the game: the game room and the saved world are both derived from the code and password, and the save is encrypted with the password.
+- Multiplayer and cloud saves use claude.ai's artifact services, so they only work in the claude.ai version. On GitHub Pages you can play Single Player, saved in your browser.
+
+## Publishing to claude.ai
+The artifact needs these capabilities: `db`, `user`, and `room` with the topics `chat`, `grp`, `hello`, `world` and `op` opened to the `interact` level (so players other than the owner can send them).

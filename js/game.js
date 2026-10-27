@@ -212,7 +212,7 @@
     const rg = c.equip.range;
     if (rg && rg.wt === 'ARC') look.back = 'bow';
     look.rangeW = rg ? rg.wt : null;
-    if (window.KR3D) G.strictLook(look, c);
+    if (window.KR3D) { look.wItem = pw || null; look.oItem = sec || null; G.strictLook(look, c); } // 3D draws the actual items
     return look;
   };
   // 3D: a hero looks exactly like what they wear: no class hats, capes or robes that are not in the gear

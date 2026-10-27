@@ -58,15 +58,17 @@ function rebuild(look) {
 }
 function setHeld(wt, look, tool) {
   for (const s of ['L', 'R']) { if (arms[s].held) { arms[s].grip.remove(arms[s].held); arms[s].held = null; } }
-  const opt = { staff: look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls), orb: look.orb, tomeCol: look.tomeCol };
+  const opt = { staff: look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls), orb: look.orb, tomeCol: look.tomeCol, item: tool ? null : look.wItem };
   const kind = tool || wt;
   arms.kind = kind;
   if (kind) {
     const w = weaponMesh(kind === 'sword' ? '1HS' : kind, opt);
-    if (w) { w.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); const side = kind === 'ARC' || kind === 'TOME' ? 'L' : 'R'; arms[side].grip.add(w); arms[side].held = w; w.rotation.set(Math.PI / 2, 0, 0); if (kind === 'ARC') w.rotation.set(Math.PI / 2, 0, 0); }
+    if (w) { w.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); const side = kind === 'ARC' || kind === 'TOME' ? 'L' : 'R'; arms[side].grip.add(w); arms[side].held = w; w.rotation.set(Math.PI / 2, 0, 0); if (kind === 'ARC') w.rotation.set(Math.PI / 2, 0, 0);
+      // a book rests on the palm, cover towards you, so the hand stays in view beneath it
+      if (kind === 'TOME') { w.rotation.set(Math.PI / 2 + 0.35, 0.2, 0.15); w.position.set(-0.01, -0.035, 0.07); } }
   }
   if (!tool && look.offhand) {
-    const off = look.offhand === 'shield' ? weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb }) : weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, {});
+    const off = look.offhand === 'shield' ? weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb }) : weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, { item: look.oItem });
     if (off) { off.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); arms.L.grip.add(off); arms.L.held = off; if (look.offhand === 'shield') { off.position.set(0.06, 0.02, 0.06); off.rotation.set(-0.6, -Math.PI / 2 + 0.5, 0); off.scale.setScalar(0.6); arms.shield = true; } else { off.rotation.set(Math.PI / 2, 0, 0); arms.shield = false; } }
   } else arms.shield = false;
   arms.tool = tool || null;
@@ -78,10 +80,10 @@ export const viewmodel = {
     const fp = view.firstPerson() && K3.settings.fpArms && !p.dead && !p.sit;
     K3.vmVisible = fp;
     if (!fp) return;
-    const look = p.look || {}; const s = JSON.stringify([look.armor, look.weapon, look.offhand, look.skin, look.robe, look.bare, look.staff, look.orb, look.wfx]);
+    const look = p.look || {}; const s = JSON.stringify([look.armor, look.weapon, look.offhand, look.skin, look.robe, look.bare, look.staff, look.orb, look.wfx, look.wItem && look.wItem.uid, look.oItem && look.oItem.uid]);
     if (s !== sig || !arms) { sig = s; rebuild(look); }
     // gathering swaps in a tool
-    const tool = p.harvest ? (p.harvest.tool === 'axe' ? 'axe' : 'pick') : null;
+    const tool = p.harvest ? (p.harvest.tool === 'axe' ? 'axe' : p.harvest.tool === 'knife' ? '1HP' : 'pick') : null;
     if ((arms.tool || null) !== tool) setHeld(look.weapon, look, tool);
     // lighting follows the world
     scene.environment = K3.scene.environment; scene.environmentIntensity = K3.scene.environmentIntensity != null ? K3.scene.environmentIntensity : 1;
@@ -100,6 +102,7 @@ export const viewmodel = {
     E(L.shoulder, -1.05, -0.15, -0.1); E(L.elbow, -0.9, 0, 0); E(L.wrist, 0.2, 0, 0);
     if (!k || k === 'H2H') { E(R.shoulder, -1.0, 0.2, 0.12); E(R.elbow, -1.5, 0, 0); E(L.shoulder, -1.0, -0.2, -0.12); E(L.elbow, -1.5, 0, 0); }
     if (k === '2HS' || k === '2HSaxe' || k === 'spear' || (k === '2HB' && !(look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls)))) { E(R.shoulder, -1.1, 0.35, 0.1); E(R.elbow, -0.8, 0, 0); E(L.shoulder, -1.15, -0.55, -0.35); E(L.elbow, -0.7, 0, 0.3); }
+    if (k === 'TOME') { E(L.shoulder, -1.2, -0.42, -0.25); E(L.elbow, -1.05, 0, 0); E(L.wrist, 0.45, 0.2, 0.35); }
     if (k === 'ARC') { E(L.shoulder, -1.4, 0.32, -0.1); E(L.elbow, -0.2, 0, 0); E(L.wrist, 0, 0, 0.35); E(R.shoulder, -1.25, -0.15, 0.15); E(R.elbow, -1.3, 0, 0); }
     if (arms.shield) { E(L.shoulder, -1.15 - 0.2 * ready, 0.4, -0.25); E(L.elbow, -0.45, 0, 0); }
     if (!arms.shield && !arms.L.held && k !== 'ARC' && k && k !== 'H2H' && !(k === '2HS' || k === 'spear' || k === '2HSaxe')) { E(L.shoulder, -0.6, -0.1, -0.1); E(L.elbow, -0.4, 0, 0); }

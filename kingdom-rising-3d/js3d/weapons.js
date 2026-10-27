@@ -43,7 +43,19 @@ function build(kind, opt) {
       for (let k = 0; k < 12; k++) mb.rod('timber', pts[k], pts[k + 1], 0.016 - Math.abs(k - 6) * 0.0012, '#6a4a2a', 5);
       mb.rod('paint', pts[0], pts[12], 0.003, '#e8e0d0', 3); mb.cyl('leather', -0.07, 0, 0, 0.022, 0.14, '#3a2a1a', 6); break; }
     case 'THR': blade(mb, 0.18, 0.035, 0.06, steel); mb.cyl('leather', 0, -0.04, 0, 0.012, 0.07, dark, 6); break;
-    case 'TOME': mb.box('leather', 0, 0.08, 0, 0.2, 0.26, 0.06, opt.tomeCol || '#6a3a8a'); mb.box('paint', 0.004, 0.08, 0, 0.19, 0.24, 0.045, '#efe3c8'); mb.box('gold', 0, 0.08, 0.031, 0.06, 0.06, 0.005, '#e0c060'); break;
+    case 'TOME': { // a proper grimoire: leather boards, page block, ridged spine, brass corners, clasp and a jewel
+      const c = opt.tomeCol || '#6a3a8a', W2 = 0.2, H2 = 0.27, P = 0.042, B = 0.011, y = 0.08;
+      for (const sz of [-1, 1]) mb.box('leather', 0, y, sz * (P / 2 + B / 2), W2, H2, B, c);
+      mb.box('paint', 0.006, y, 0, W2 - 0.012, H2 - 0.012, P, '#eadfc4');
+      for (let k = 1; k < 6; k++) mb.box('paint', W2 / 2 - 0.0035, y, -P / 2 + (k * P) / 6, 0.002, H2 - 0.016, 0.0012, '#b8a888'); // the edges of the pages
+      mb.cyl('leather', -W2 / 2, y, 0, P / 2 + B, H2, K3.shade(c, -0.25), 10);
+      for (const k of [-0.36, -0.12, 0.12, 0.36]) mb.cyl('gold', -W2 / 2, y + k * H2, 0, P / 2 + B + 0.003, 0.01, '#c8a040', 10);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) mb.box('gold', sx * (W2 / 2 - 0.016), y + sy * (H2 / 2 - 0.016), sz * (P / 2 + B), 0.034, 0.034, 0.004, '#d8b048');
+      mb.box('leather', W2 / 2 + 0.002, y, 0, 0.012, 0.04, P + 2 * B + 0.006, K3.shade(c, -0.35)); mb.box('gold', W2 / 2 + 0.008, y, P / 2 + B + 0.002, 0.016, 0.028, 0.004, '#e0c060');
+      mb.cyl('gold', 0.01, y + 0.01, P / 2 + B + 0.002, 0.05, 0.004, '#d8b048', 16, null, 0, Math.PI / 2, 0);
+      mb.cyl('paint', 0.01, y + 0.01, P / 2 + B + 0.004, 0.038, 0.004, K3.shade(c, -0.15), 16, null, 0, Math.PI / 2, 0);
+      mb.sph('glow', 0.01, y + 0.01, P / 2 + B + 0.009, 0.026, 0.026, 0.014, opt.gem || '#ffe08a');
+      break; }
     case 'shield': { // heater shield facing +z
       const s = new THREE.Shape(); s.moveTo(-0.3, 0.32); s.lineTo(0.3, 0.32); s.lineTo(0.3, 0.02); s.quadraticCurveTo(0.26, -0.3, 0, -0.42); s.quadraticCurveTo(-0.26, -0.3, -0.3, 0.02); s.closePath();
       const g = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.02, bevelSegments: 2 });
@@ -64,6 +76,8 @@ function build(kind, opt) {
 // a weapon model (shared geometry) for a weapon type
 export function weaponMesh(kind, opt = {}) {
   if (!kind) return null;
+  // the hero's own items are drawn with the same detailed, one-of-a-kind model as their inventory icon
+  if (opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { m.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.matrixAutoUpdate = true; } }); return m.group; } } catch (e) { console.warn(e); } }
   const key = kind + '|' + (opt.staff ? 's' : '') + (opt.orb || '') + (opt.shieldCol || '') + (opt.shieldEmb || '') + (opt.tomeCol || '') + (opt.wood ? 'w' : '');
   let g = cache.get(key);
   if (g === undefined) { g = build(kind, opt); cache.set(key, g); }

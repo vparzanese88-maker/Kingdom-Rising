@@ -475,15 +475,15 @@ export function equip(rig, look) {
   for (const k in rig.held) { const o = rig.held[k]; if (o && o.parent) o.parent.remove(o); }
   rig.held = {};
   const wt = look.weapon; const rangedBow = look.rangeW && look.rangeW === 'ARC';
-  const opt = { staff: look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls), orb: look.orb, tomeCol: look.tomeCol };
+  const opt = { staff: look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls), orb: look.orb, tomeCol: look.tomeCol, item: look.wItem };
   if (wt) {
     const w = weaponMesh(wt === 'sword' ? '1HS' : wt, opt);
     if (w) { const gp = (S, dy, dz) => (rig.hands ? w.position.set(...rig.hands[S].grip) : w.position.set(0, dy, dz)); if (wt === 'ARC') { rig.bones.handL.add(w); gp('L', -0.06, 0.02); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.bow = true; } else if (wt === 'TOME') { rig.bones.handL.add(w); gp('L', -0.08, 0.04); w.rotation.set(0.3, 0, 0); rig.held.L = w; } else { rig.bones.handR.add(w); gp('R', -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.R = w; } }
     rig.wtype = wt;
   }
   if (look.offhand && !rig.held.L) {
-    if (look.offhand === 'shield') { const s = weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb, wood: false }); if (s) { rig.bones.foreL.add(s); const fl = rig.rest.foreL, hl = rig.rest.handL; s.position.set((hl[0] - fl[0]) * 0.55 + 0.07, (hl[1] - fl[1]) * 0.55, 0.04); s.rotation.set(0, Math.PI / 2, 0); rig.held.L = s; rig.shield = true; } }
-    else { const w = weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, {}); if (w) { rig.bones.handL.add(w); if (rig.hands) w.position.set(...rig.hands.L.grip); else w.position.set(0, -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.dual = true; } }
+    if (look.offhand === 'shield') { const s = weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb, wood: false, item: look.oItem }); if (s) { rig.bones.foreL.add(s); const fl = rig.rest.foreL, hl = rig.rest.handL; s.position.set((hl[0] - fl[0]) * 0.55 + 0.07, (hl[1] - fl[1]) * 0.55, 0.04); s.rotation.set(0, Math.PI / 2, 0); rig.held.L = s; rig.shield = true; } }
+    else { const w = weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, { item: look.oItem }); if (w) { rig.bones.handL.add(w); if (rig.hands) w.position.set(...rig.hands.L.grip); else w.position.set(0, -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.dual = true; } }
   }
   if (look.back === 'bow' && wt !== 'ARC') { const b = weaponMesh('ARC', {}); if (b) { rig.bones.chest.add(b); b.position.set(0.02, 0.0, -0.16); b.rotation.set(0, 0, 0.7); rig.held.back = b; } const q = weaponMesh('quiver', {}); if (q) { rig.bones.chest.add(q); q.position.set(-0.1, 0.02, -0.15); q.rotation.set(0.15, 0, -0.35); rig.held.quiver = q; } }
   rig.mesh.updateMatrixWorld(true);

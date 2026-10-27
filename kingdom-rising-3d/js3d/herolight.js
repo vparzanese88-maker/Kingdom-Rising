@@ -42,6 +42,7 @@ function build(id) {
   return { g, f: f || [] };
 }
 
+K3.lightModel = (id) => { const m = build(id); return m.g; };
 let flick = 0;
 K3.updaters.push((dt, t) => {
   const p = G.player; const rig = K3.playerRig;

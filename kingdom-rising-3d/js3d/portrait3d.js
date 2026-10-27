@@ -2,6 +2,7 @@
 // turning slowly; drag to spin. It wears exactly what is equipped and rebuilds the moment gear changes.
 import { THREE, K3 } from './core.js';
 import { makeHumanoid, animateHumanoid } from './chars.js';
+import { studioEnv } from './items3d.js';
 
 const KR = window.KR, G = KR.G, D = KR.D, UI = KR.UI;
 let renderer = null, scene, cam, rig = null, sig = '', yaw = 0.35, drag = null, raf = 0, holder;
@@ -11,7 +12,7 @@ function setup(cv) {
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  scene = new THREE.Scene();
+  scene = new THREE.Scene(); scene.environment = studioEnv(renderer); scene.environmentIntensity = 0.8;
   cam = new THREE.PerspectiveCamera(26, 220 / 300, 0.1, 30);
   scene.add(new THREE.HemisphereLight(0xfff0dc, 0x3a2a1c, 1.1));
   const key = new THREE.DirectionalLight(0xffe2b8, 2.6); key.position.set(1.6, 3.2, 2.4); key.castShadow = true; key.shadow.mapSize.set(512, 512);

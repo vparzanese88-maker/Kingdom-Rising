@@ -31,7 +31,7 @@ function lookOf(e) {
   return S.mobLook ? S.mobLook(e) : null;
 }
 function kindOf(e) { return e.type === 'player' || e.type === 'npc' || e.type === 'king' || e.type === 'guard' || e.type === 'merc' ? (e.look && e.look.kind) || 'human' : e.kind || 'human'; }
-function lookSig(l) { if (!l) return ''; const a = l.armor || {}; return [l.race, l.gender, l.skin, l.hair, l.hairStyle, a.kind, a.col, a.trim, l.robe, l.helm, l.hat, l.cape, l.weapon, l.offhand, l.back, l.wfx, l.rangeW, l.bare, l.crown, l.sash, l.mask, l.beard, l.noShirt, l.noPants, l.wrap, l.barefoot, l.helmPlume].join('|'); }
+function lookSig(l) { if (!l) return ''; const a = l.armor || {}; return [l.race, l.gender, l.skin, l.hair, l.hairStyle, a.kind, a.col, a.trim, l.robe, l.helm, l.hat, l.cape, l.weapon, l.offhand, l.back, l.wfx, l.rangeW, l.bare, l.crown, l.sash, l.mask, l.beard, l.noShirt, l.noPants, l.wrap, l.barefoot, l.helmPlume, l.wItem && l.wItem.uid, l.oItem && l.oItem.uid].join('|'); }
 
 // ---------- war engines and other special entities ----------
 function warModel(e) {

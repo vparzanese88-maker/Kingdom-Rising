@@ -75,3 +75,15 @@ canvas.k3-hero:active { cursor: grabbing; }
 .k3c-flash { position: absolute; inset: 0; background: radial-gradient(circle, #fff6e0, #ffd080 60%, #a86020); opacity: 0; }
 .k3c-skip { position: absolute; right: 18px; bottom: calc(11vh + 14px); pointer-events: auto; }
 .k3-cine.out { opacity: 0; transition: opacity 0.9s; }
+
+/* the homecoming by sea: subtitles with the speaker's name, and tips at the side */
+.k3i-sub { position: absolute; left: 50%; bottom: calc(11vh + 22px); transform: translate(-50%, 10px); width: min(820px, 90vw); text-align: center; opacity: 0; transition: opacity 0.7s, transform 0.7s; text-shadow: 0 2px 8px #000, 0 0 20px rgba(0,0,0,0.9); }
+.k3i-sub.in { opacity: 1; transform: translate(-50%, 0); }
+.k3i-sub b { display: block; font: 700 13px 'Alegreya Sans', sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: #e0b050; margin-bottom: 4px; }
+.k3i-sub span { font: 400 clamp(17px, 1.9vw, 23px)/1.4 'Alegreya Sans', sans-serif; color: #fbf3e0; }
+.k3i-tip { position: absolute; left: 18px; top: calc(11vh + 18px); width: min(320px, 40vw); padding: 12px 14px; background: rgba(14,11,9,0.72); border: 1px solid rgba(240,200,120,0.35); border-radius: 10px; opacity: 0; transform: translateX(-12px); transition: opacity 0.6s, transform 0.6s; backdrop-filter: blur(4px); }
+.k3i-tip.in { opacity: 1; transform: none; }
+.k3i-tk { font: 700 11px 'Alegreya Sans', sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: #c8a050; }
+.k3i-tip h3 { margin: 4px 0 6px; font: 400 21px "IM Fell English SC", Georgia, serif; color: #ffe0a0; }
+.k3i-tip p { margin: 0; font: 400 14px/1.45 'Alegreya Sans', sans-serif; color: #efe4cc; }
+.k3i-hint { position: absolute; left: 50%; top: calc(11vh + 14px); transform: translateX(-50%); font: 600 13px 'Alegreya Sans', sans-serif; color: #f4e6c0; text-shadow: 0 2px 6px #000; transition: opacity 1.2s; }

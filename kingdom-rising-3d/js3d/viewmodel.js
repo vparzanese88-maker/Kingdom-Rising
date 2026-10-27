@@ -77,7 +77,7 @@ function setHeld(wt, look, tool) {
 const E = (o, x, y, z) => o.rotation.set(x, y, z);
 export const viewmodel = {
   update(dt, p) {
-    const fp = view.firstPerson() && K3.settings.fpArms && !p.dead && !p.sit;
+    const fp = view.firstPerson() && K3.settings.fpArms && !p.dead && !p.sit && !K3.cine;
     K3.vmVisible = fp;
     if (!fp) return;
     const look = p.look || {}; const s = JSON.stringify([look.armor, look.weapon, look.offhand, look.skin, look.robe, look.bare, look.staff, look.orb, look.wfx, look.wItem && look.wItem.uid, look.oItem && look.oItem.uid]);

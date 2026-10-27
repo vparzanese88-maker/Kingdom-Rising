@@ -145,7 +145,7 @@ function atkKindFor(av, e) {
   return 'slash';
 }
 // where someone stands: the ground, a floor, a deck, the wall-walk, or an upper floor they climbed to
-const floorOf = (e) => (e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : geo.floorAt(e.x, e.y));
+const floorOf = (e) => (e.introY != null ? e.introY : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : geo.floorAt(e.x, e.y));
 export function actorY(e) {
   const av = avatars.get(keyOf(e)); const base = floorOf(e);
   return base + (av ? av.hoverNow || 0 : 0);

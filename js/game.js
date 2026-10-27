@@ -223,6 +223,7 @@
     if (head) {
       const n = head.name || '';
       if (head.ak === 'plate' || head.ak === 'chain') { look.helm = head.ak; look.helmCol = head.ak === 'plate' ? (look.armor.col || '#a8acb4') : '#9a9ea6'; if (head.ak === 'plate') look.helmPlume = head.tier >= 2 ? D.CLASSES[c.cls].color : null; }
+      else if (/sailor/i.test(n)) { look.hat = 'sailor'; look.hatCol = head.col || '#1e2a4a'; }
       else if (/mitre/i.test(n)) { look.hat = 'mitre'; look.hatCol = '#f1efe6'; look.hatTrim = '#c8a040'; }
       else if (/circlet|diadem|crown|tiara/i.test(n)) { look.hat = 'circlet'; look.hatTrim = '#e0c060'; }
       else if (/headband|band/i.test(n)) { look.hat = 'headband'; look.hatCol = D.CLASSES[c.cls].color; }
@@ -239,6 +240,10 @@
     look.noPants = !legs || !!legs.loin;
     look.barefoot = !E.feet;
     look.bare = false;
+    // plain clothes keep their own colours (a white silk shirt, navy trousers)
+    if (shirt && chest.col) look.armor.col = chest.col;
+    if (legs && !legs.loin && legs.col) look.pants = legs.col;
+    if (shirt && /silk shirt/i.test(chest.name || '')) look.sleeves = 'long';
     return look;
   };
 

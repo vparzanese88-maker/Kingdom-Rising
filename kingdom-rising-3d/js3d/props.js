@@ -149,6 +149,7 @@ P.sewermouth = (o, d) => { // a brick arch in the outflow wall with a bent grate
   o.box('metalv', 0, 0.7, -0.45, 2.1, 0.05, 0.05, '#6a4a32').box('metalv', 0, 1.6, -0.45, 2.1, 0.05, 0.05, '#6a4a32').box('metalv', 0.35, 1.1, -0.42, 0.05, 2.0, 0.05, '#6a4a32', 0, 0, -0.25);
   o.box('glow', 0, 0.05, 0.3, 1.4, 0.03, 1.8, '#3a5a2a'); };
 P.drainpipe = (o, d) => { o.cyl('metalv', 0, 1.4, -0.2, 0.28, 0.7, '#5a5a58', 12, Math.PI / 2).cyl('dark', 0, 1.4, 0.16, 0.2, 0.02, null, 12, Math.PI / 2); o.out.emitters.push({ kind: 'drip', p: o.w(0, 1.3, 0.2) }); };
+P.flagpole = (o, d, ctx) => { o.cylB('metalv', 0, 0, 0, 0.09, 11, '#d8d0c0', 8).cylB('stone', 0, 0, 0, 0.35, 0.5, '#8a8478', 8).sph('gold', 0, 11.1, 0, 0.26, 0.26, 0.26, '#e0c050'); ctx.flags.push({ kind: 'pole', x: o.x, y: o.y + 10.6, z: o.z, w: 3.4, h: 2.1, f: d.f }); };
 P.grate = (o, d) => { o.box('dark', 0, 0.01, 0, 1.2, 0.02, 0.8, null); for (let k = -2; k <= 2; k++) o.box('metalv', k * 0.24, 0.03, 0, 0.05, 0.04, 0.8, '#4a4440'); o.box('metalv', 0, 0.03, 0, 1.2, 0.04, 0.06, '#4a4440'); };
 P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry }); };
 P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z: o.z, v: d.v }); };

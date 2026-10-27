@@ -592,6 +592,8 @@
     // posts, crates, barrels, nets and lamps
     for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }
     for (let s = -24; s <= 24; s += 6) { const x = gx + dx * (k - 2) + px * s, y = gy + dy * (k - 2) + py * s; if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 4); deco(h < 0.35 ? 'crate' : h < 0.7 ? 'barrel' : 'lamp', x, y, h >= 0.7 ? {} : { nb: true }); if (h >= 0.7) W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
+    // tall flags along the quay
+    for (let s = -24; s <= 24; s += 8) { const x = gx + dx * (k - 3) + px * s, y = gy + dy * (k - 3) + py * s; if (W.inb(x, y) && W.tiles[y * W.W + x] === T.STONE) deco('flagpole', x, y, { nb: true, f }); }
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py };
   }
   function nearCity(x, y, r) { for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) return true; } return false; }
@@ -863,6 +865,7 @@
     // plaza
     for (let ty = cy - 5; ty <= cy + 1; ty++) for (let tx = cx - 5; tx <= cx + 5; tx++) W.tiles[ty * W.W + tx] = T.STONE;
     addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});
+    for (const [ox, oy] of [[-5, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
     W.lights.push({ x: cx * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 260 : 170, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' });
     if (level >= 2) { addDecor('stall', cx - 4, cy - 4, { col: '#b84a3a' }); addDecor('stall', cx + 4, cy - 4, { col: '#3a6ab8' }); addDecor('stall', cx - 4, cy + 1, { col: '#c9a23a' }); }
     if (level >= 3) { addDecor('statue', cx - 6, cy - 6, {}); addDecor('statue', cx + 6, cy - 6, {}); }

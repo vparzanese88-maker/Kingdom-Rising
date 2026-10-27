@@ -21,8 +21,9 @@
     if (C.shield) c.wskill.SHIELD = 1;
     if (C.ranged.length) { const rt = kit.range && C.ranged.includes(kit.range) ? kit.range : C.ranged[0]; c.wskill[rt] = 1; if (o.cls === 'warrior' || o.cls === 'paladin') c.rangeMode = 'melee'; }
     // everyone starts with nothing but the clothes on their back and the weapon of their calling
-    const loin = G.makeArmor('cloth', 'legs', 0, { ilvl: 1, q: 0.6 }); loin.name = 'Linen Loincloth'; loin.stats = {}; loin.mana = 0; loin.ac = 1; loin.req = 1; loin.loin = true; loin.value = 1; c.equip.legs = loin;
-    if (o.gender === 'f') { const wrap = G.makeArmor('cloth', 'chest', 0, { ilvl: 1, q: 0.6 }); wrap.name = 'Linen Breast Wrap'; wrap.stats = {}; wrap.mana = 0; wrap.ac = 1; wrap.req = 1; wrap.wrap = true; wrap.value = 1; c.equip.chest = wrap; }
+    // a sailor home from the sea: plain clothes with no armour and no stats (everything else is earned)
+    const plain = (slot, name, col, icon) => { const it = G.makeArmor('cloth', slot, 0, { ilvl: 1, q: 0.6 }); Object.assign(it, { name, stats: {}, mana: 0, ac: 0, req: 1, value: 2, col, plainClothes: true }); if (icon) it.icon = icon; c.equip[slot] = it; };
+    plain('head', "Sailor's Cap", '#1e2a4a', '🧢'); plain('chest', 'Loose Silk Shirt', '#efe6d2', '👕'); plain('legs', 'Baggy Sailor Trousers', '#2a3a5a', '👖'); plain('feet', 'Sea Boots', '#3a2a1e', '🥾');
     // spells known at level 1
     if (D.CLASS_SPELLS[o.cls]) c.spells = D.CLASS_SPELLS[o.cls].filter((id) => D.SPELLS[id].level <= (C.role === 'caster' ? 2 : 1));
     // starting hotbar (3 slots)

@@ -460,7 +460,7 @@
       const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
       const used = D.STATS.reduce((a, s) => a + cs.bonus[s], 0);
       body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(D.NAMES[cs.faction][cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
-        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">Starts with nothing but a linen loincloth${cs.gender === 'f' ? ' and breast wrap' : ''}, a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots and 3 abilities. Everything else you earn.</span></div></div>
+        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">You come home from the sea in plain sailor's clothes (no armour), with a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots and 3 abilities. Everything else you earn.</span></div></div>
         <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
         <button class="btn gold big" id="cr-go">Begin your journey</button>`;
       const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
@@ -496,7 +496,7 @@
   let apTab = 'body';
   function appearance3D(body, next) {
     const a = cs.app = cs.app || { tall: 0, face: 0, morph: {}, beardStyle: cs.race === 'dwarf' ? 4 : 2, scar: 0, tattoo: 0, tatCol: INKS[0], iris: null };
-    const lookNow = () => { try { const c = Sys.newChar({ name: 'Preview', faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: a }); return G.lookFor(c); } catch (e) { console.warn(e); return Object.assign({ race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, cs.skin), hair: S.HAIRS[cs.hair], hairStyle: cs.hairStyle, cls: cs.cls }, a); } };
+    const lookNow = () => { try { const c = Sys.newChar({ name: 'Preview', faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: a }); if (apTab !== 'body') delete c.equip.head; /* show the hair and face, not the cap */ return G.lookFor(c); } catch (e) { console.warn(e); return Object.assign({ race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, cs.skin), hair: S.HAIRS[cs.hair], hairStyle: cs.hairStyle, cls: cs.cls }, a); } };
     const seg = (key, names, cur) => `<div class="seg wrap">${names.map((n, i) => `<button data-${key}="${i}" class="${cur === i ? 'on' : ''}">${n}</button>`).join('')}</div>`;
     const sw = (key, cols, cur, lbl) => `<div class="sw">${cols.map((c, i) => `<button data-${key}="${i}" style="background:${c}" class="${cur === i || cur === c ? 'on' : ''}" aria-label="${lbl} ${i + 1}"></button>`).join('')}</div>`;
     const slider = (key, label, v) => `<div class="opt sl"><label>${label}</label><input type="range" min="-100" max="100" step="5" value="${Math.round((v || 0) * 100)}" data-sl="${key}"><span class="slv">${v > 0.02 ? '+' : ''}${Math.round((v || 0) * 100)}</span></div>`;
@@ -511,7 +511,7 @@
       view.focus(apTab === 'body' ? 'full' : 'face');
       if (apTab === 'body') pane.innerHTML = `<div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
         ${slider('tall', 'Height', a.tall)}<div class="opt"><label>Skin</label>${sw('skin', S.skinsFor(cs.race), cs.skin, 'Skin tone')}</div>
-        <p class="dim small">You begin with only a linen loincloth${cs.gender === 'f' ? ' and breast wrap' : ''} and your class weapon. What you wear from here on is what you earn.</p>`;
+        <p class="dim small">You arrive by sea in a sailor's cap, a loose silk shirt, baggy trousers and boots, with your class weapon. What you wear from here on is what you earn.</p>`;
       else if (apTab === 'face') pane.innerHTML = `<div class="opt"><label>Face</label><div class="seg"><button id="ap-fp">◀</button><button class="on" disabled>Face ${a.face + 1}</button><button id="ap-fn">▶</button></div></div>
         ${MORPH.map(([k, n]) => slider(k, n, a.morph[k])).join('')}<div class="opt"><label>Eyes</label>${sw('iris', IRIS, a.iris, 'Eye colour')}</div>`;
       else if (apTab === 'hair') pane.innerHTML = `<div class="opt"><label>Hair colour</label>${sw('hair', S.HAIRS, cs.hair, 'Hair colour')}</div><div class="opt"><label>Hair style</label>${seg('hs', STYLES, cs.hairStyle)}</div>

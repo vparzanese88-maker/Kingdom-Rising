@@ -25,6 +25,7 @@ const { menu: menu3d } = await import('./menu3d.js');
 await import('./cine3d.js');
 await import('./heroview.js');
 await import('./wildlife.js');
+await import('./intro3d.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;
@@ -142,7 +143,9 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     const showHud = () => { document.getElementById('ui').hidden = false; hud3d.show(true); };
     if (opt.cine && K3.startCine) {
       // the opening film; the HUD and the welcome come up when it ends
-      K3.startCine(c, () => { showHud(); UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`); });
+      const after = () => { showHud(); UI.banner(`Welcome home to ${D.FACTIONS[c.faction].city}`, `${D.FACTIONS[c.faction].king} must see you at once: the great hall is at the top of the city. Look for the gold ! above townsfolk.`); };
+      // a homecoming by sea when the city has a harbour, else the flight over the land
+      if (!(K3.startIntro && K3.startIntro(c, after))) K3.startCine(c, after);
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else showHud();
     if (opt.cine && K3.startCine) {} else if (newChar) {
@@ -231,7 +234,7 @@ function loopBody(now) {
   syncWorld(); mk('sync');
   // camera, world and actors
   updateCamera(dt, p);
-  if (K3.cine) K3.updateCine(dt);
+  if (K3.cine) (K3.cine.update || K3.updateCine)(dt);
   const inside = W.buildingAt(p.x, p.y);
   mk('camera');
   world3d.update(dt, { inside, cam: K3.camera.position }); mk('world');
@@ -381,7 +384,8 @@ function endLook() { view.look = false; if (document.pointerLockElement === cv) 
 K3.endLook = endLook;
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
 cv.addEventListener('pointerdown', (ev) => {
-  if (!running || K3.cine) return;
+  if (!running || (K3.cine && !K3.cine.look)) return;
+  if (K3.cine) { mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0; if (ev.button === 2) { mouse.r = true; startLook(); ev.preventDefault(); } else if (ev.button === 0) mouse.l = true; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} return; }
   A.init();
   if (ev.pointerType === 'touch') return onTouchStart(ev);
   mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0;
@@ -406,6 +410,7 @@ addEventListener('pointerup', (ev) => {
   if (ev.pointerType === 'touch') return onTouchEnd(ev);
   const click = performance.now() - mouse.downT < 350 && mouse.moved < 7;
   if (ev.button !== 0 && ev.button !== 2) pressed.delete('Mouse' + (ev.button + 2));
+  if (K3.cine) { if (ev.button === 2) { mouse.r = false; endLook(); } else if (ev.button === 0) mouse.l = false; return; }
   if (ev.button === 2 && mouse.r) { mouse.r = false; endLook(); if (click) rightClick(mouse.downX, mouse.downY); }
   else if (ev.button === 0 && mouse.l) { mouse.l = false; if (click && ev.target === cv) leftClick(ev.clientX, ev.clientY); }
 });

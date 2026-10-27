@@ -32,7 +32,7 @@ function stop() {
   const a = active; active = null; if (!a) return;
   if (a.mesh && a.mesh.parent) a.mesh.parent.remove(a.mesh);
   for (const h of a.hidden) h.visible = true;
-  if (a.wantBefore != null && Math.abs(view.want - 3.4) < 0.01) view.want = a.wantBefore;
+  if (a.wantBefore != null && Math.abs(view.want - 3.4) < 0.01) { view.want = a.wantBefore; if (a.yawBefore != null) view.yaw = a.yawBefore; }
 }
 K3.updaters.push(() => {
   const p = G.player; const rig = K3.playerRig;

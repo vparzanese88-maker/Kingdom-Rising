@@ -342,7 +342,7 @@
     if (!O.available()) { $('#mo-list', P).innerHTML = '<p class="empty-note">Not available in this version.</p>'; busy(true); $('#mo-hero', P).disabled = false; return; }
     O.getLobby().then((l) => {
       if (!P.isConnected) return;
-      if (!l) { $('#mo-list', P).innerHTML = '<p class="empty-note">Could not reach other players. Make sure you are signed in to claude.ai.</p>'; return; }
+      if (!l) { $('#mo-list', P).innerHTML = (window.claude ? '<p class="empty-note">Could not reach other players. Make sure you are signed in to claude.ai.</p>' : '<p class="empty-note">Could not reach the multiplayer servers. Check your internet connection, or join with a game code.</p>'); return; }
       renderList(); offL = l.onPeers(() => { if (!P.isConnected) return M.offLobby(); renderList(); });
     });
   };

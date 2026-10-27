@@ -135,7 +135,7 @@ Main.showFatal = function (err) {
 };
 Main.exitToMenu = function (create) {
   if (Sys.Grp && Sys.Grp.gid) Sys.groupLeave();
-  Sys.save(true); Sys.Net.leave(); running = false; if (KR.UI.toast) KR.UI.toast('Game saved');
+  Sys.save(true); Sys.Net.leave(); if (KR.Online) KR.Online.exit(); running = false; if (KR.UI.toast) KR.UI.toast('Game saved');
   for (const id in UI.wins) UI.close(id);
   document.getElementById('ui').hidden = true; hud3d.show(false); settings3d.showButton(false); settings3d.toggle(false); endLook();
   G.player = null; G.ents = [];

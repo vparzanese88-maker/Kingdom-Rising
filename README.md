@@ -54,6 +54,9 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
   - `main.js`: boot and input.
 - When you change a file, bump `?v=` on every script tag and `window.KR_VERSION` in `index.html` so browsers fetch the new copy.
 
+### Characters in 3D
+- People are built from the MakeHuman base human (released as CC0, public domain, by Data Collection AB, Joel Palmius and Jonas Hauquier, www.makehumancommunity.org). `kingdom-rising-3d/tools/makehuman/build.mjs` converts it once into `kingdom-rising-3d/assets/human/`; the game then shapes every race, gender, build and face from morph targets, re-poses and rigs it with real fingers, and paints skin, lips, brows and stubble in the shader. Eyes, lashes, brows, hair and beards are separate meshes; clothes and armour are shells cut from the body.
+
 ## Single player and multiplayer
 - **Single Player** plays offline in your own world. Your kingdoms are saved to your account (claude.ai) or your browser (elsewhere).
 - **Multiplayer** (main menu, or the Multiplayer button under your hero):

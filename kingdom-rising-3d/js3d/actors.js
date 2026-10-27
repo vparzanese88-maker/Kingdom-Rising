@@ -214,7 +214,7 @@ function updateAvatar(av, dt, ctx) {
   av.prevAtk = st.atk;
   if (av.peer) { st.move = e.m ? 1 : 0; st.dist = e.m ? dt * 6 : 0; }
   if (tgt && av.kind === 'human' && !moving) st.lookYaw = K3.dampAngle(0, Math.atan2(tgt.x - e.x, tgt.y - e.y) - av.yaw, 1);
-  if (av.kind === 'human') animateHumanoid(av.rig, st, dt);
+  if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
   else if (av.kind === 'creature') animateCreature(av.rig, st, dt);
   if (av.horse) animateCreature(av.horse, { move: st.move, dist: st.dist * 1.5, atk: 0 }, dt);
   if (av.archer) { av.archer.mesh.rotation.y = (e.aimAng != null ? Math.PI / 2 - e.aimAng : 0) - av.yaw; animateHumanoid(av.archer, { move: 0, dist: 0, atk: (e.fireK || 0) > 0.05 ? 1 - e.fireK : 0, atkKind: 'bow', combat: true }, dt); }

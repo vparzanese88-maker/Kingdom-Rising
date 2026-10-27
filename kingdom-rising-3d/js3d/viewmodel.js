@@ -3,7 +3,8 @@
 import { THREE, K3 } from './core.js';
 import { MB } from './mb.js';
 import { weaponMesh, WFX, BLADE_LEN } from './weapons.js';
-import { charMat } from './chars.js';
+import { charMat, useHumanBody } from './chars.js';
+import { firstPersonArm } from './human.js';
 import { view } from './camera.js';
 import { fx, rgb } from './fx.js';
 
@@ -42,9 +43,16 @@ function buildArm(side, look) {
 }
 function rebuild(look) {
   for (const c of [...holder.children]) holder.remove(c);
-  const L = buildArm(1, look), R = buildArm(-1, look);
-  L.shoulder.position.set(0.3, -0.34, 0.05); R.shoulder.position.set(-0.3, -0.34, 0.05); // the holder is turned to face -z
-  holder.add(L.shoulder); holder.add(R.shoulder);
+  let L, R;
+  if (useHumanBody(look, 'human')) {
+    // the real arms of your hero: the same skin, sleeves and gloves as your body
+    L = firstPersonArm(look, 'human', 'L'); R = firstPersonArm(look, 'human', 'R');
+    for (const [a, x] of [[L, 0.27], [R, -0.27]]) { a.mesh.position.set(x - a.restArm[0], -0.27 - a.restArm[1], 0.0 - a.restArm[2]); holder.add(a.mesh); }
+  } else {
+    L = buildArm(1, look); R = buildArm(-1, look);
+    L.shoulder.position.set(0.3, -0.34, 0.05); R.shoulder.position.set(-0.3, -0.34, 0.05); // the holder is turned to face -z
+    holder.add(L.shoulder); holder.add(R.shoulder);
+  }
   arms = { L, R, look };
   setHeld(look.weapon, look);
 }
@@ -116,7 +124,10 @@ export const viewmodel = {
     // kicks (monks) and special moves
     if (p.animK && p.animT > G.now) { const pk = 1 - (p.animT - G.now) / (p.animDur || 400); const s1 = Math.sin(pk * Math.PI); if (p.animK === 'raise') { R.shoulder.rotation.x -= 1.0 * s1; L.shoulder.rotation.x -= 1.0 * s1; } else if (p.animK === 'slam') { R.shoulder.rotation.x += -1.2 * s1 + 0.6; L.shoulder.rotation.x += -1.2 * s1 + 0.6; } else if (p.animK === 'spin') { holder.rotation.z = pk * Math.PI * 2; } }
     else holder.rotation.z = 0;
+    for (const a of [L, R]) if (a.restArm) a.shoulder.position.z = a.restArm[2] + (a.shoulder.position.z - 0.05); // real arms keep their own shoulder
     holder.rotation.y = Math.PI;
+    // fingers wrap the weapon, open for spells
+    for (const S of ['L', 'R']) { const a = arms[S]; if (!a.curl) continue; const want = p.cast ? 0.1 : a.held ? (arms.shield && S === 'L' ? 0.8 : 1.4) : 0.35; a.c = a.c == null ? want : a.c + (want - a.c) * Math.min(1, dt * 12); a.curl(a.c); }
     // enchanted blades shed sparks
     if (look.wfx && R.held && WFX[look.wfx] && Math.random() < 0.5) { const c = WFX[look.wfx]; const wp = new THREE.Vector3(0, (BLADE_LEN[k] || 0.7) * Math.random(), 0); R.held.localToWorld(wp); wp.applyMatrix4(K3.camera.matrixWorld); fx.add.emit({ x: wp.x, y: wp.y, z: wp.z, vy: 0.2, life: 0.3, s0: 0.04, s1: 0.01, r: c[0], g: c[1], b: c[2], kind: 1 }); }
     cam.fov = Math.min(70, K3.settings.fov * 0.85); cam.updateProjectionMatrix();

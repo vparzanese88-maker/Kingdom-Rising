@@ -5,6 +5,7 @@ import { THREE, K3 } from './core.js';
 import { MB, PRIM } from './mb.js';
 import { weaponMesh } from './weapons.js';
 
+import { humanAsset, makeHumanRig } from './human.js';
 const KR = window.KR, D = KR.D;
 
 // ---------- the material: vertex colours plus per-vertex metal/roughness and procedural detail ----------
@@ -397,7 +398,41 @@ export function humanoidGeometry(look, kind) {
 }
 
 // ---------- a rigged instance ----------
+// kinds still built the classic way (no human body underneath)
+const CLASSIC = new Set(['skeleton', 'lich', 'lizard', 'scarecrow']);
+export const useHumanBody = (look, kind) => !!humanAsset() && !CLASSIC.has(kind) && !(look && (look.snout || look.wings || look.classic));
+// hats, helmets, crowns, capes and plumes placed on a realistic head (the classic builders, re-aimed)
+function humanAccessories(look, kind) {
+  return (c) => {
+    const f = c.headFrame; const rest = Object.assign({}, c.rest); rest.head = [rest.head[0], rest.head[1], f.c.z];
+    const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top };
+    const L = Object.assign({}, look); if (L.helm === 'chain' || L.helm === 'plate') { /* helmets keep their classic shapes for now */ }
+    headgear(B, L, c.P, H);
+    if (look.cape) {
+      const cw = 0.4, chh = rest.capeA[1] - 0.14;
+      const g = new THREE.PlaneGeometry(cw, chh, 6, 12); const p = g.attributes.position; const base = B.n;
+      for (let i = 0; i < p.count; i++) { const y = p.getY(i); const t = 0.5 - y / chh; p.setX(i, p.getX(i) * (1 + t * 0.3)); p.setZ(i, -Math.abs(p.getX(i)) * 0.12 - Math.sin(p.getX(i) * 40) * 0.006 * t); }
+      g.computeVertexNormals();
+      B.geom('capeA', g, new THREE.Matrix4().makeTranslation(0, rest.capeA[1] - chh / 2, rest.capeA[2] - 0.01), look.cape, 'cloth');
+      for (let i = base; i < B.n; i++) { const y = B.pos[i * 3 + 1]; const t = K3.clamp((rest.capeA[1] - y) / chh, 0, 1); B.si[i * 4] = BI.capeA; B.si[i * 4 + 1] = BI.capeB; B.sw[i * 4] = 1 - t; B.sw[i * 4 + 1] = t; }
+      const g2 = g.clone(); const ix = g2.index.array; for (let i = 0; i < ix.length; i += 3) { const tmp = ix[i]; ix[i] = ix[i + 2]; ix[i + 2] = tmp; } const nn = g2.attributes.normal; for (let i = 0; i < nn.count; i++) nn.setXYZ(i, -nn.getX(i), -nn.getY(i), -nn.getZ(i));
+      const base2 = B.n; B.geom('capeA', g2, new THREE.Matrix4().makeTranslation(0, rest.capeA[1] - chh / 2, rest.capeA[2] - 0.015), shade(look.cape, -0.25), 'cloth');
+      for (let i = base2; i < B.n; i++) { const y = B.pos[i * 3 + 1]; const t = K3.clamp((rest.capeA[1] - y) / chh, 0, 1); B.si[i * 4] = BI.capeA; B.si[i * 4 + 1] = BI.capeB; B.sw[i * 4] = 1 - t; B.sw[i * 4 + 1] = t; }
+      g.dispose(); g2.dispose();
+      B.box('chest', 0, rest.capeA[1] + 0.005, rest.capeA[2] + 0.02, cw * 0.85, 0.035, 0.04, shade(look.cape, -0.2), 'cloth');
+      for (const sx of [-1, 1]) B.ell('chest', sx * cw * 0.42, rest.capeA[1] + 0.005, rest.capeA[2] + 0.05, 0.016, 0.016, 0.01, '#d8b048', 'gold');
+    }
+    if (look.sash) B.box('hips', -0.1, rest.hips[1] - 0.06, 0.11, 0.05, 0.22, 0.015, look.sash, 'cloth');
+    if (!B.n) return null;
+    const g = B.build(); return g;
+  };
+}
 export function makeHumanoid(look, kind) {
+  if (useHumanBody(look, kind)) {
+    const rig = makeHumanRig(look, kind, humanAccessories(look, kind), charMat);
+    equip(rig, look);
+    return rig;
+  }
   const geom = humanoidGeometry(look, kind); const rest = geom.userData.rest;
   const bones = BONE_NAMES.map((n) => { const b = new THREE.Bone(); b.name = n; return b; });
   bones.forEach((b, i) => { const n = BONE_NAMES[i]; const p = rest[n]; const par = PARENT[n]; if (par) { const pp = rest[par]; b.position.set(p[0] - pp[0], p[1] - pp[1], p[2] - pp[2]); bones[BI[par]].add(b); } else b.position.set(p[0], p[1], p[2]); });
@@ -416,12 +451,12 @@ export function equip(rig, look) {
   const opt = { staff: look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls), orb: look.orb, tomeCol: look.tomeCol };
   if (wt) {
     const w = weaponMesh(wt === 'sword' ? '1HS' : wt, opt);
-    if (w) { if (wt === 'ARC') { rig.bones.handL.add(w); w.position.set(0, -0.06, 0.02); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.bow = true; } else if (wt === 'TOME') { rig.bones.handL.add(w); w.position.set(0, -0.08, 0.04); w.rotation.set(0.3, 0, 0); rig.held.L = w; } else { rig.bones.handR.add(w); w.position.set(0, -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.R = w; } }
+    if (w) { const gp = (S, dy, dz) => (rig.hands ? w.position.set(...rig.hands[S].grip) : w.position.set(0, dy, dz)); if (wt === 'ARC') { rig.bones.handL.add(w); gp('L', -0.06, 0.02); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.bow = true; } else if (wt === 'TOME') { rig.bones.handL.add(w); gp('L', -0.08, 0.04); w.rotation.set(0.3, 0, 0); rig.held.L = w; } else { rig.bones.handR.add(w); gp('R', -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.R = w; } }
     rig.wtype = wt;
   }
   if (look.offhand && !rig.held.L) {
     if (look.offhand === 'shield') { const s = weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb, wood: false }); if (s) { rig.bones.foreL.add(s); const fl = rig.rest.foreL, hl = rig.rest.handL; s.position.set((hl[0] - fl[0]) * 0.55 + 0.07, (hl[1] - fl[1]) * 0.55, 0.04); s.rotation.set(0, Math.PI / 2, 0); rig.held.L = s; rig.shield = true; } }
-    else { const w = weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, {}); if (w) { rig.bones.handL.add(w); w.position.set(0, -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.dual = true; } }
+    else { const w = weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, {}); if (w) { rig.bones.handL.add(w); if (rig.hands) w.position.set(...rig.hands.L.grip); else w.position.set(0, -0.07, 0.01); w.rotation.set(Math.PI / 2, 0, 0); rig.held.L = w; rig.dual = true; } }
   }
   if (look.back === 'bow' && wt !== 'ARC') { const b = weaponMesh('ARC', {}); if (b) { rig.bones.chest.add(b); b.position.set(0.02, 0.0, -0.16); b.rotation.set(0, 0, 0.7); rig.held.back = b; } const q = weaponMesh('quiver', {}); if (q) { rig.bones.chest.add(q); q.position.set(-0.1, 0.02, -0.15); q.rotation.set(0.15, 0, -0.35); rig.held.quiver = q; } }
   rig.mesh.updateMatrixWorld(true);
@@ -510,5 +545,13 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
   if (st.lookYaw) { B.head.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.6; B.neck.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.3; }
+  // fingers: a fist around a weapon, open while casting, loosely curled otherwise
+  if (rig.hands) for (const S of ['L', 'R']) {
+    const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;
+    const want = st.cast ? 0.08 : held ? 1.35 : grip ? 1.1 : st.dead ? 0.6 : 0.32 + Math.sin(t * 0.7 + (S === 'L' ? 1 : 0)) * 0.03;
+    const k = 'curl' + S; rig[k] = rig[k] == null ? want : rig[k] + (want - rig[k]) * Math.min(1, dt * 10); const c = rig[k]; const h = rig.hands[S];
+    for (let f = 1; f <= 4; f++) { const sp = (f - 2.5) * 0.05; B['f' + f + S + '1'].quaternion.setFromAxisAngle(h.axis, c * (0.95 + sp)); B['f' + f + S + '2'].quaternion.setFromAxisAngle(h.axis, c * (1.05 + sp)); }
+    B['th' + S + '1'].quaternion.setFromAxisAngle(h.tax, c * 0.35); B['th' + S + '2'].quaternion.setFromAxisAngle(h.tax, c * 0.55);
+  }
 }
 export { BONE_NAMES, BI };

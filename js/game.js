@@ -485,8 +485,11 @@
       const d = Math.hypot(tgt.x - p.x, tgt.y - p.y);
       if (d > range) { G.log('Your target is too far away.', 'sys', '#ffb24a'); return; }
       if (def.kind === 'spell' && !W.lineClear(p.x, p.y - 20, tgt.x, tgt.y - 20)) { G.log('You cannot see your target.', 'sys', '#ffb24a'); return; }
-    } else if (tt === 'ally') {
-      tgt = p.target && !G.isHostile(p, p.target) && !p.target.dead && (p.target.type === 'pet' || p.target.type === 'merc' || p.target.type === 'player' || p.target.type === 'peer') ? p.target : p;
+    } else if (tt === 'ally' || (tt === 'self' && G.isHealDef(def))) {
+      // heals and friendly spells land on a friendly target; on a monster or enemy (or with no target) they land on you
+      const t = p.target;
+      tgt = t && t !== p && !t.dead && !t.removed && t.hp != null && t.type !== 'mob' && !t.bell && !G.isHostile(p, t) ? t : p;
+      if (tgt !== p && Math.hypot(tgt.x - p.x, tgt.y - p.y) > (typeof def.range === 'number' ? def.range : 420)) { G.log(`${tgt.name} is too far away.`, 'sys', '#ffb24a'); return; }
     } else if (tt === 'pet') { tgt = p.pet && !p.pet.dead ? p.pet : null; if (!tgt) { G.log('You have no pet.', 'sys', '#ffb24a'); return; } }
     else tgt = p;
     const calm = def.kind === 'spell' && ['mez', 'fear', 'charm', 'lull'].includes(def.type);
@@ -505,13 +508,15 @@
     if (G.animFor(def) === 'kick') p.kickT = 0.01;
     const cdKey = a.k + ':' + a.id;
     const ec = p.endurMax ? G.endCost(p, def) : 0;
-    const lowM = def.mana && p.mana < def.mana, lowE = ec && p.endur < ec;
+    const lowM = def.mana && p.mana < def.mana, lowE = ec && p.endur < ec; const weak = !!(lowM || lowE);
     if (def.mana) p.mana = Math.max(0, p.mana - def.mana);
     if (ec) p.endur = Math.max(0, p.endur - ec);
     if (lowM || lowE) { const nm = def.name; def = G.weakDef(def); if (p === G.player) { G.float(p, 'Weakened', '#ffb24a'); G.log(`Low on ${lowM ? 'mana' : 'endurance'}: ${nm} works at 50% strength.`, 'sys', '#ffb24a'); } }
     if (def.cd) p.cds[cdKey] = G.now + def.cd * 1000;
     if (def.kind === 'spell') { p.gcd = G.now + 1500; G.schoolUp(p, def.school); }
     G.applyAll(p, tgt, def);
+    // another player: what you see here is only a picture, so the spell is sent to their game too
+    if (tgt && tgt.type === 'peer' && p === G.player && KR.Sys.castOnPeer) KR.Sys.castOnPeer(tgt, a, def, weak);
     if (p.c && def.kind === 'weapon') G.skillUp(p, def.wt, true);
   };
   G.isHostile = function (a, b) {
@@ -642,11 +647,15 @@
     im[kind] = G.now + (du + 6) * 1000; if (hard) im.hard = G.now + (du + 4) * 1000;
     return du;
   };
+  // both INT and WIS add spell power: the higher one fully, the other partly
+  G.spellPower = (src) => (src.spellMul || 1) * (src.stats ? 1 + U.clamp((src.stats.INT - 75) / 300 + (src.stats.WIS - 75) / 300, -0.3, 1.3) : 1);
+  G.HEAL_EFFECTS = ['heal', 'healpct', 'hot'];
+  G.isHealDef = (def) => !!(def && def.effects && def.effects.length && def.effects.every((e) => G.HEAL_EFFECTS.includes(e.t)));
   G.applyEffects = function (src, tgt, def) {
     if (!tgt || tgt.dead) return;
     const lv = src.level;
     const isSpell = def.kind === 'spell';
-    const sm = isSpell ? (src.spellMul || 1) * (src.stats ? 1 + U.clamp((src.stats.INT - 75) / 300 + (src.stats.WIS - 75) / 300, -0.3, 1.3) : 1) : 1; // both INT and WIS add spell power: the higher one fully, the other partly
+    const sm = isSpell ? G.spellPower(src) : 1;
     let resisted = false;
     for (const e of def.effects) {
       if (resisted) break;

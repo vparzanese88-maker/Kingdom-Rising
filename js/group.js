@@ -91,6 +91,18 @@
     G.giveXp(share, `(group of ${n})`);
     const p = G.player; send('xp', { gid: Grp.gid, amt: share, rm: W.realm || 'main', x: Math.round(p.x), y: Math.round(p.y), mob: e ? e.name : '' });
   };
+  // another player as a target: a stand-in kept in step with what they share (position, level, health %)
+  const peerEnts = new Map();
+  function syncPeer(e, pp) { e.name = String(pp.n || 'Someone').slice(0, 24); e.x = +pp.x || 0; e.y = +pp.y || 0; e.level = U.clamp(+pp.l || 1, 1, D.MAX_LEVEL); e.hp = pp.hp != null ? U.clamp(+pp.hp || 0, 0, 100) : 100; e.dead = !!pp.dead; e.faction = pp.f; e.buffs = []; e.removed = (pp.rm || 'main') !== (W.realm || 'main'); }
+  Sys.peerEnt = function (pp) { let e = peerEnts.get(pp.peer); if (!e) { e = { type: 'peer', peer: pp.peer, r: 12, h: 46, hpMax: 100, buffs: [] }; peerEnts.set(pp.peer, e); } syncPeer(e, pp); return e; };
+  function syncPeerEnts() { for (const [id, e] of peerEnts) { const pp = peerOf(id); if (pp) syncPeer(e, pp); else { e.removed = true; peerEnts.delete(id); } } }
+  // a heal or buff cast on another player is applied in their game
+  const PEER_EFFECTS = ['heal', 'healpct', 'hot', 'buff', 'rune'];
+  Sys.castOnPeer = function (tgt, a, def, weak) {
+    if (!a || (a.k !== 'spell' && a.k !== 'skill') || !def.effects || !def.effects.every((e) => PEER_EFFECTS.includes(e.t))) return;
+    const p = G.player;
+    send('cast', { to: tgt.peer, k: a.k, id: a.id, weak: weak ? 1 : 0, lvl: p.level, sm: +G.spellPower(p).toFixed(3), hm: +(p.healMul || 1).toFixed(3), rm: W.realm || 'main', x: Math.round(p.x), y: Math.round(p.y) });
+  };
   // group buffs reach real players in your group
   Sys.groupBuff = function (def, src) {
     if (!inGroup() || !def || def.kind !== 'spell' || !nearMembers(BUFF_RANGE).length) return;
@@ -213,6 +225,13 @@
           if (Grp.members.length <= 1) { clearGroup('Your group has disbanded.'); return; }
           if (isLeader()) broadcastState(); refresh(); break;
         case 'chat': if (Grp.gid !== d.gid) return; { const t = String(d.t || '').slice(0, 200); G.log(`[Group] ${Grp.names[from]}: ${t}`, 'group', GCOL); const pp = peerOf(from); if (pp) pp.bubble = { text: t.slice(0, 120), until: Date.now() + 5000 }; } break;
+        case 'cast': { if (d.to !== me() || p.dead || (d.rm || 'main') !== (W.realm || 'main') || Math.hypot(d.x - p.x, d.y - p.y) > 700) return;
+          const def0 = G.actionDef({ k: d.k === 'skill' ? 'skill' : 'spell', id: String(d.id) }); if (!def0 || !def0.effects || !def0.effects.every((e) => PEER_EFFECTS.includes(e.t))) return;
+          const def = d.weak ? G.weakDef(def0) : def0;
+          const src = { level: U.clamp(+d.lvl || 1, 1, D.MAX_LEVEL), name: Grp.names[from] || 'Someone', spellMul: U.clamp(+d.sm || 1, 0.5, 3), healMul: U.clamp(+d.hm || 1, 0.5, 3), type: 'peer' };
+          G.applyEffects(src, p, def);
+          if (G.isHealDef(def)) G.fxAdd({ k: 'pillar', ent: p, rgb: '170,255,170', life: 1.0 }); else G.fxAdd({ k: 'aura', x: p.x, y: p.y, col: '#9affb8', life: 0.9, ent: p });
+          G.log(`${src.name} casts ${def.name} on you.`, 'spell', '#9affb8'); break; }
         case 'xp': if (Grp.gid !== d.gid || (d.rm || 'main') !== (W.realm || 'main') || p.dead) return;
           if (Math.hypot(d.x - p.x, d.y - p.y) > XP_RANGE) return;
           G.giveXp(Math.max(1, Math.min(+d.amt || 0, D.xpNeeded(p.c.level) * 0.5)), `as your group's share${d.mob ? ' for ' + String(d.mob).slice(0, 30) : ''}`); break;
@@ -239,6 +258,7 @@
   };
   Sys.onPeersChanged = function () {
     const now = Date.now(); for (const pp of Net.peers) Grp.seen[pp.peer] = now;
+    syncPeerEnts();
     if (UI.isOpen('group')) { const w = UI.wins.group; clearTimeout(Grp._rt); Grp._rt = setTimeout(() => renderGroup(w), 250); }
   };
   // leader drops members who have been offline for a minute

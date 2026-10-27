@@ -239,6 +239,12 @@
       const rad = Math.max(22, (e.r || 12) * sc * 1.6);
       if (d < rad && d < bd) { bd = d; best = e; }
     }
+    // other players can be clicked too (to heal, buff or invite them)
+    for (const pp of Sys.Net.peers) {
+      if ((pp.rm || 'main') !== (W.realm || 'main') || !Number.isFinite(pp.x) || !Number.isFinite(pp.y)) continue; if (W.buildingAt(pp.x, pp.y) && W.buildingAt(pp.x, pp.y) !== inside) continue;
+      const d = Math.hypot(wx - pp.x, (wy - (pp.y - 21)) * 0.7);
+      if (d < 22 && d < bd) { bd = d; best = Sys.peerEnt(pp); }
+    }
     return best;
   }
   let lastClick = 0;

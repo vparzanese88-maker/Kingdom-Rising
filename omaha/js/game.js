@@ -2,7 +2,8 @@
 /* ================= Game state ================= */
 const G={mode:'menu',flags:[],round:1,score:[0,0],timeLeft:900,waveT:[0,0],waveInt:[11,13],introT:0,endT:0,artyT:40,ambT:0,demo:false,paused:false,winner:-1,shipT:3,planeT:30};
 const stats={shots:0};
-const ROUND_TIME=900;
+const ROUND_TIME=900,FREEZE_T=10,INTRO_T=8;
+const preRound=()=>G.mode==='freeze'||G.mode==='intro';
 
 /* ---- flags ---- */
 function flagCanvas(team,w,h){
@@ -86,7 +87,7 @@ const COMPOSITION={0:['rifleman','rifleman','rifleman','rifleman','rifleman','ri
 function clsById(team,id){return CLASSES[team].find(c=>c.id===id);}
 function makeTeams(size,playerTeam,playerCls){
   for(const u of UNITS)if(u.model)scene.remove(u.model.root);
-  UNITS.length=0;for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  UNITS.length=0;for(const m of CORPSES)removeCorpse(m);CORPSES.length=0;clearRagdolls();
   for(let t=0;t<2;t++){
     const names=NAMES[t].slice().sort(()=>Math.random()-.5);
     const nb=playerTeam===t?size-1:size;
@@ -102,7 +103,7 @@ function spawnUnit(u,initial,at){
   if(at&&at.cls)u.cls=clsById(u.team,at.cls)||u.cls;
   if(u.nextCls){u.cls=u.nextCls;u.nextCls=null;}
   giveLoadout(u);u.hp=100;u.alive=true;u.stance='stand';u.deployed=false;u.vel.set(0,0,0);u.stam=100;u.slowT=0;u.reloadT=0;u.lastHurt=-99;
-  u.spawnProt=G.mode==='intro'?999:2;
+  u.spawnProt=preRound()?999:2;
   // old body stays where it fell
   if(u.model&&!CORPSES.includes(u.model))scene.remove(u.model.root);
   u.model=buildModel(u);
@@ -135,9 +136,10 @@ function spawnUnit(u,initial,at){
 function updateUnits(dt){
   for(const u of UNITS){
     if(!u.alive){animModel(u,dt);continue;}
-    if(u.spawnProt>0&&G.mode!=='intro')u.spawnProt-=dt;
+    if(u.spawnProt>0&&!preRound())u.spawnProt-=dt;
+    bleedTick(u,dt);bandageTick(u,dt);woundTick(u,dt);
     if(u.remote||(Net.client&&!u.isPlayer)){netFollow(u,dt);updateHitSpheres(u);animModel(u,dt);continue;}
-    if(G.mode==='intro'){
+    if(preRound()){
       if(u.boat){const b=BOATS[u.boat.b];u.pos.set(b.g.position.x+u.boat.lx,b.g.position.y-.1,b.g.position.z+u.boat.lz);u.vel.set(0,0,0);}
       else if(u.brain){u.brain.perceive();if(u.brain.target){const t=u.brain.target;u.yaw+=angDiff(u.yaw,Math.atan2(t.pos.x-u.pos.x,t.pos.z-u.pos.z))*Math.min(1,dt*3);}
         const wantS=u.brain.role()==='mg'&&u.brain.goal&&u.brain.goal.perch&&u.brain.goal.perch.deployY?u.brain.deployStance(u.brain.goal.perch.deployY):u.brain.role()==='rifle'?'crouch':'prone';u.stance=wantS;}
@@ -151,7 +153,7 @@ function updateUnits(dt){
 /* ================= Round flow ================= */
 function resetRoundVisuals(){
   clearNades();clearDecals();smoke.clear();chunks.clear();glow.clear();
-  for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  for(const m of CORPSES)removeCorpse(m);CORPSES.length=0;clearRagdolls();
   resetFlags();
   for(const b of BOATS){b.g.position.copy(b.home);if(!G.demo)b.g.position.z+=70;b.rp.rotation.x=G.demo?-1.62:0;b.rampT=undefined;}
   $('roundend').hidden=true;
@@ -166,7 +168,7 @@ function introCue(){
 function startRound(){
   resetRoundVisuals();boatSlot=0;
   G.timeLeft=ROUND_TIME;G.waveT=[G.waveInt[0],G.waveInt[1]];G.winner=-1;G.artyT=rand(35,55);
-  G.mode=G.demo?'demo':'intro';G.introT=G.demo?0:11;
+  G.mode=G.demo?'demo':'freeze';G.freezeT=FREEZE_T;G.introT=G.demo?0:INTRO_T;
   if(Net.host)Net.event(['rs',G.round]);
   for(const u of UNITS){u.alive=false;if(u.brain)u.brain.reset();}
   for(const u of UNITS)if(u.team===1)spawnUnit(u,true);
@@ -292,7 +294,8 @@ function updateHUD(dt){
     const wt=Math.ceil(G.waveT[u.team]);const sub=document.querySelector('#center small');
     if(sub&&PL.deathT>1.2)sub.textContent=`Reinforcements in ${wt}s · M to change class`;
   }
-  if(G.mode==='intro'){center(u.team===0?'LANDING':'STAND BY',`${u.team===0?'Ramp down in':'They land in'} ${Math.ceil(G.introT)}`,.3);}
+  if(G.mode==='freeze')center('GET READY',`Round starts in ${Math.ceil(G.freezeT)} · Press M to change class`,.3);
+  else if(G.mode==='intro'){center(u.team===0?'LANDING':'STAND BY',`${u.team===0?'Ramp down in':'They land in'} ${Math.ceil(G.introT)}`,.3);}
   // fade overlays
   for(const d of PL.dmgDirs){d.t-=dt;d.el.style.opacity=Math.max(0,d.t/1.2);d.el.style.transform=`rotate(${-(d.ang-PL.yaw-Math.PI)}rad)`;}
   PL.dmgDirs=PL.dmgDirs.filter(d=>{if(d.t<=0){d.el.remove();return false;}return true;});
@@ -324,66 +327,107 @@ function updateBoard(){
 }
 
 /* ================= Menus ================= */
-let pickTeam=SET.team,pickCls=null;
+// screens: cover -> main menu -> (find games) -> class selection
+const SCREENS=['cover','menu','browser','settings','controls','classes'];
+function showScreen(id){for(const s of SCREENS)$(s).hidden=s!==id;if(id!=='browser'&&Net.browsing)stopBrowse();}
+let pickTeam=SET.team,pickCls=null,classMode='offline',settingsFrom='menu';
 function setPressed(sel,attr,val){for(const b of document.querySelectorAll(sel))b.setAttribute('aria-pressed',String(b.dataset[attr])===String(val)?'true':'false');}
-setPressed('.teams .opt','team',pickTeam);setPressed('#diff .opt','d',SET.diff);
+setPressed('#diff .opt','d',SET.diff);
 $('size').value=SET.size;$('sizeO').textContent=`${SET.size} v ${SET.size}`;
-$('tMusic').checked=$('pMusic').checked=SET.music;$('tVoice').checked=$('pVoice').checked=SET.voice;
-$('sens').value=Math.round(SET.sens*10);$('sensO').textContent=SET.sens.toFixed(1);
-for(const b of document.querySelectorAll('.teams .opt'))b.onclick=()=>{pickTeam=+b.dataset.team;SET.team=pickTeam;setPressed('.teams .opt','team',pickTeam);saveSettings();};
+$('pname').value=SET.name||'';$('pname').onchange=()=>{SET.name=playerName();saveSettings();};
 for(const b of document.querySelectorAll('#diff .opt'))b.onclick=()=>{SET.diff=+b.dataset.d;setPressed('#diff .opt','d',SET.diff);saveSettings();};
 $('size').oninput=()=>{SET.size=+$('size').value;$('sizeO').textContent=`${SET.size} v ${SET.size}`;saveSettings();};
-$('tMusic').onchange=$('pMusic').onchange=e=>{$('tMusic').checked=$('pMusic').checked=e.target.checked;setMusicOn(e.target.checked);if(e.target.checked&&!MUS.on&&AU.ctx)playMusic(G.mode==='menu'||G.demo?'theme':'tension');};
-$('tVoice').onchange=$('pVoice').onchange=e=>{$('tVoice').checked=$('pVoice').checked=e.target.checked;SET.voice=e.target.checked;saveSettings();if(!SET.voice&&window.speechSynthesis)speechSynthesis.cancel();};
-$('tHigh').onchange=e=>{GAME.quality=e.target.checked?'high':'medium';renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GAME.quality==='high'?1.5:1));resize();sun.shadow.mapSize.set(GAME.quality==='high'?2048:1024,GAME.quality==='high'?2048:1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}};
+// settings sliders (one set, moved between the settings screen and the pause menu)
+for(const[k,id]of[['master','vMaster'],['sfx','vSfx'],['music','vMusic'],['voice','vVoice']]){
+  const el=$(id),o=$(id+'O');el.value=Math.round(SET.vol[k]*100);o.textContent=el.value;
+  el.oninput=()=>{SET.vol[k]=el.value/100;o.textContent=el.value;applyVolumes();saveSettings();
+    if(k==='music'&&SET.vol.music>.01&&!MUS.on&&AU.ctx)playMusic(G.demo?'theme':'tension');if(k==='voice'&&SET.vol.voice<.02&&window.speechSynthesis)speechSynthesis.cancel();};
+  el.onchange=()=>{if(k==='voice')say('Testing, one, two.',{force:true,vol:.8});else if(k==='sfx'||k==='master')play('g_garand',{vol:.5});};
+}
+$('sens').value=Math.round(SET.sens*10);$('sensO').textContent=SET.sens.toFixed(1);
 $('sens').oninput=()=>{SET.sens=$('sens').value/10;$('sensO').textContent=SET.sens.toFixed(1);saveSettings();};
+$('tHigh').checked=SET.quality!=='medium';
+function applyQuality(){GAME.quality=SET.quality==='medium'?'medium':'high';renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GAME.quality==='high'?1.5:1));resize();
+  sun.shadow.mapSize.set(GAME.quality==='high'?4096:2048,GAME.quality==='high'?4096:2048);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
+$('tHigh').onchange=e=>{SET.quality=e.target.checked?'high':'medium';saveSettings();applyQuality();};
+// cover
+function leaveCover(){if($('cover').hidden)return;initAudio();if(SET.vol.music>.01&&!MUS.on)playMusic('theme');showScreen('menu');
+  if(q.get('join')&&!Net.on){$('mInvite').hidden=false;$('mInviteS').textContent='Room '+q.get('join').toUpperCase().slice(0,4)+' · type your name, then click here';$('pname').focus();}}
+$('cover').addEventListener('click',leaveCover);
+document.addEventListener('keydown',e=>{if(!$('cover').hidden&&!e.repeat){e.preventDefault();leaveCover();}},true);
+// main menu
+$('mOffline').onclick=()=>{initAudio();SET.name=playerName();saveSettings();openClasses(pickTeam,false,'offline');};
+$('mHost').onclick=()=>{initAudio();SET.name=playerName();saveSettings();openClasses(pickTeam,false,'host');};
+$('mFind').onclick=()=>{initAudio();SET.name=playerName();saveSettings();showScreen('browser');netBrowse();};
+$('mInvite').onclick=()=>{SET.name=playerName();saveSettings();showScreen('browser');netJoin(q.get('join'));};
+$('mSettings').onclick=()=>{settingsFrom='menu';$('setSlot').appendChild($('setBox'));showScreen('settings');};
+$('mControls').onclick=()=>showScreen('controls');
+$('setBack').onclick=()=>showScreen('menu');$('ctlBack').onclick=()=>showScreen('menu');
+$('brBack').onclick=()=>{if(Net.joining){Net.joining=false;netLeave(true);}showScreen('menu');};
+$('join').onclick=()=>netJoin($('jcode').value);
+$('jcode').onkeydown=e=>{if(e.key==='Enter')netJoin($('jcode').value);};
+// class selection
 let classTeam=0,classFromGame=false;
 function classCount(team,id,except){if(Net.pendingRoster)return Net.pendingRoster.filter(r=>r[1]===team&&r[3]===id).length;let n=0;for(const u of UNITS){if(u.team!==team||u===except)continue;const c=u.nextCls||u.cls;if(c&&c.id===id)n++;}return n;}
-function openClasses(team,fromGame){
-  classTeam=team;classFromGame=fromGame;
-  $('cTitle').textContent=`${TEAM_NAME[team].toUpperCase()} · CHOOSE YOUR CLASS`;
-  $('cSub').textContent=team===0?'US Army, 29th and 1st Infantry Divisions. Sniper and machine gun slots are limited.':'Wehrmacht, 352nd Infantry Division. Sniper and machine gun slots are limited.';
+function humansOn(t){if(Net.pendingRoster)return Net.pendingRoster.filter(r=>r[1]===t&&r[5]).length;return UNITS.filter(u=>u.team===t&&(u.human||u.isPlayer)).length;}
+function resolveTeam(t){if(t===0||t===1)return t;if(classMode==='join'){const a=humansOn(0),b=humansOn(1);return a===b?(Math.random()<.5?0:1):a<b?0:1;}return Math.random()<.5?0:1;}
+function openClasses(team,fromGame,mode){
+  classFromGame=fromGame;if(mode)classMode=mode;
+  $('tabs').hidden=fromGame;
+  if(!fromGame){pickTeam=team;setPressed('#tabs button','team',pickTeam);}
+  classTeam=fromGame?PL.u.team:(pickTeam===0||pickTeam===1?pickTeam:(classTeam===0||classTeam===1?classTeam:0));
+  if(!fromGame&&pickTeam<0)classTeam=resolveTeam(-1),Net.autoTeam=classTeam;
+  const t=classTeam;
+  $('cTitle').textContent=`${TEAM_NAME[t].toUpperCase()} · CHOOSE YOUR CLASS`;
+  $('cSub').textContent=(t===0?'US Army, 29th and 1st Infantry Divisions.':'Wehrmacht, 352nd Infantry Division.')+(pickTeam<0&&!fromGame?' Auto picked this side for you.':'')+' Sniper and machine gun slots are limited.';
   const grid=$('cgrid');grid.innerHTML='';
   const cur=fromGame&&PL.u?(PL.u.nextCls||PL.u.cls):null;
-  if(!pickCls||pickCls.team!==team)pickCls=Object.assign({team},CLASSES[team][0]);
-  if(cur)pickCls=Object.assign({team},cur);
-  CLASSES[team].forEach((c,i)=>{
+  if(!pickCls||pickCls.team!==t)pickCls=Object.assign({team:t},CLASSES[t][0]);
+  if(cur)pickCls=Object.assign({team:t},cur);
+  CLASSES[t].forEach((c,i)=>{
     const W=WEAPONS[c.wep];const dmg=Math.min(100,W.dmg/1.2),rate=Math.min(100,(1/W.rof)/20*100*(W.type==='bolt'?.4:1)),acc=Math.max(5,100-W.ads*1600-(W.mg?40:0));
-    const used=classCount(team,c.id,PL.u);
+    const used=classCount(t,c.id,PL.u);
     const b=document.createElement('button');b.className='card';b.setAttribute('aria-pressed',pickCls.id===c.id?'true':'false');
     b.innerHTML=`<span class="k">${i+1}</span><b>${c.name}</b><i>${W.name}${c.pistol?' · '+WEAPONS[c.pistol].name:''}</i><p>${c.desc}</p>
       <div class="bars"><em>DAMAGE</em><span style="--v:${dmg}%"></span><em>FIRE RATE</em><span style="--v:${rate}%"></span><em>ACCURACY</em><span style="--v:${acc}%"></span></div>
       <span class="cnt">${c.limit?`${Math.min(used,c.limit)} of ${c.limit} taken${used>=c.limit?' · a bot will swap out':''}`:`${used} on your side`} · ${c.nades} grenade${c.nades===1?'':'s'}</span>`;
-    b.onclick=()=>{pickCls=Object.assign({team},c);for(const x of grid.children)x.setAttribute('aria-pressed',x===b?'true':'false');};
+    b.onclick=()=>{pickCls=Object.assign({team:t},c);for(const x of grid.children)x.setAttribute('aria-pressed',x===b?'true':'false');};
     b.ondblclick=()=>$('deploy').click();
     grid.appendChild(b);
   });
   $('cBack').textContent=fromGame?'CANCEL':'BACK';
-  $('cNote').textContent=fromGame&&PL.u&&PL.u.alive?'Your new class takes effect when you next respawn.':'';
-  $('classes').hidden=false;$('menu').hidden=true;
+  $('deploy').textContent=classMode==='host'&&!fromGame?'HOST & DEPLOY':classMode==='join'&&!fromGame?'JOIN & DEPLOY':'DEPLOY';
+  $('cNote').textContent=fromGame&&PL.u&&PL.u.alive?(G.mode==='freeze'?'The round has not started: you switch right away.':'Your new class takes effect when you next respawn.'):'';
+  showScreen('classes');
 }
-$('go').onclick=()=>{initAudio();const t=pickTeam<0?(Math.random()<.5?0:1):pickTeam;openClasses(t,false);};
-$('cBack').onclick=()=>{if(Net.pendingJoin){netLeave(true);mpStatus('');}Net.wantHost=false;$('classes').hidden=true;if(!classFromGame){$('menu').hidden=false;}else resumeGame();};
+for(const b of document.querySelectorAll('#tabs button'))b.onclick=()=>{pickTeam=+b.dataset.team;SET.team=pickTeam;saveSettings();openClasses(pickTeam,false);};
+$('cBack').onclick=()=>{
+  if(classFromGame){showScreen(null);resumeGame();return;}
+  if(Net.pendingJoin){Net.joining=false;netLeave(true);mpStatus('');showScreen('browser');netBrowse();return;}
+  showScreen('menu');};
 $('deploy').onclick=()=>{
   const c=clsById(classTeam,pickCls.id);
+  if(Net.pendingJoin){Net.joinTeam=classTeam;Net.joinCls=c;Net.sentJoin=true;Net.send({t:'join',team:classTeam,cls:c.id});mpStatus('Joining…');showScreen('browser');return;}
   // take a limited slot from a bot if needed
   if(c.limit&&classCount(classTeam,c.id,PL.u)>=c.limit){const bot=UNITS.find(u=>u.team===classTeam&&!u.isPlayer&&(u.nextCls||u.cls).id===c.id);if(bot)bot.nextCls=CLASSES[classTeam][0];}
-  $('classes').hidden=true;
-  if(Net.pendingJoin){Net.joinTeam=classTeam;Net.joinCls=c;Net.send({t:'join',team:classTeam,cls:c.id});mpStatus('Joining…');$('menu').hidden=false;return;}
   if(classFromGame&&PL.u){
-    if(c.id!==PL.u.cls.id){PL.u.nextCls=c;if(Net.client)Net.send({t:'cls',id:c.id});if(PL.u.alive)hint(`You will respawn as ${c.name}`,3);}
+    showScreen(null);
+    if(c.id!==PL.u.cls.id){PL.u.nextCls=c;
+      if(Net.client)Net.send({t:'cls',id:c.id});
+      else if(G.mode==='freeze'&&PL.u.alive)spawnUnit(PL.u,true);
+      if(PL.u.alive&&G.mode!=='freeze')hint(`You will respawn as ${c.name}`,3);}
     resumeGame();return;
   }
-  const host=Net.wantHost;Net.wantHost=false;
+  showScreen(null);
   startGame(classTeam,c);
-  if(host)netHost();
+  if(classMode==='host')netHost();
 };
 document.addEventListener('keydown',e=>{if(!$('classes').hidden&&/^Digit[1-7]$/.test(e.code)){const i=+e.code.slice(5)-1;const cards=$('cgrid').children;if(cards[i])cards[i].click();}
   if(!$('classes').hidden&&e.code==='Enter')$('deploy').click();});
 function startGame(team,cls){
   initAudio();G.demo=false;G.round=1;G.score=[0,0];
   makeTeams(SET.size,team,cls);
-  $('menu').hidden=true;$('hud').hidden=false;
+  $('hud').hidden=false;
   buildFlagHUD();
   startRound();
   requestLock();canvas.focus();
@@ -392,7 +436,7 @@ function quitToMenu(){
   netLeave(true);
   G.paused=false;$('pause').hidden=true;$('hud').hidden=true;$('roundend').hidden=true;$('scope').hidden=true;
   if(document.pointerLockElement)document.exitPointerLock();
-  startDemo();$('menu').hidden=false;if(SET.music&&AU.ctx)playMusic('theme');
+  startDemo();showScreen('menu');if(SET.vol.music>.01&&AU.ctx)playMusic('theme');
   if(window.speechSynthesis)speechSynthesis.cancel();
 }
 function startDemo(){
@@ -402,7 +446,7 @@ function startDemo(){
 /* ================= Input ================= */
 function requestLock(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{PL.lockOK=false;});}catch(e){PL.lockOK=false;}}
 function resumeGame(){G.paused=false;$('pause').hidden=true;if(PL.lockOK)requestLock();}
-function pauseGame(){if(G.demo||G.mode==='menu')return;G.paused=true;$('pause').hidden=false;updateInvite();for(const k in PL.keys)PL.keys[k]=false;PL.fireHeld=false;PL.rmb=false;$('board').hidden=true;}
+function pauseGame(){if(G.demo||G.mode==='menu')return;G.paused=true;$('pSet').appendChild($('setBox'));$('pause').hidden=false;updateInvite();for(const k in PL.keys)PL.keys[k]=false;PL.fireHeld=false;PL.rmb=false;$('board').hidden=true;}
 document.addEventListener('pointerlockchange',()=>{PL.locked=document.pointerLockElement===canvas;if(!PL.locked&&!G.demo&&$('classes').hidden&&!G.paused)pauseGame();});
 document.addEventListener('pointerlockerror',()=>{PL.lockOK=false;});
 document.addEventListener('mousemove',e=>{
@@ -422,9 +466,10 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',e=>{if(G.demo||G.paused||!PL.u||!PL.u.alive)return;e.preventDefault();cycleWeapon(e.deltaY>0?1:-1);},{passive:false});
 document.addEventListener('keydown',e=>{
   if(e.code==='Tab'){if(!G.demo&&PL.u){e.preventDefault();updateBoard();$('board').hidden=false;}return;}
+  if(e.code==='Escape'&&!G.demo&&PL.u&&!$('classes').hidden&&classFromGame){showScreen(null);resumeGame();return;}
   if(e.code==='Escape'&&!G.demo&&PL.u&&$('classes').hidden&&!PL.locked){if(G.paused)resumeGame();else pauseGame();return;}
   if(G.demo||!PL.u||!$('classes').hidden)return;
-  if(['Space','KeyW','KeyA','KeyS','KeyD','KeyC','KeyZ','KeyQ','KeyE'].includes(e.code))e.preventDefault();
+  if(['Space','KeyW','KeyA','KeyS','KeyD','KeyC','KeyZ','KeyQ','KeyE','KeyH','ControlLeft','ControlRight'].includes(e.code))e.preventDefault();
   if(G.paused)return;
   PL.keys[e.code]=true;if(e.repeat)return;
   const u=PL.u;
@@ -437,6 +482,7 @@ document.addEventListener('keydown',e=>{
     case'KeyG':if(u.weps.nade.count>0&&!PL.nadeHold){const prev=u.cur;u.cur='nade';buildVM(u.weps.nade.id,u.team);pullPin();PL.nadeHold.armed=true;setTimeout(()=>{releaseNade();setTimeout(()=>{if(PL.u.alive&&PL.u.cur==='nade'){PL.u.cur=prev;buildVM(curW().id,PL.u.team);}},450);},250);}break;
     case'KeyF':doMelee();break;
     case'KeyE':pickupNade();break;
+    case'KeyH':bandageKey();break;
     case'KeyZ':setStance(u.stance==='prone'?'stand':'prone');break;
   }
 });
@@ -461,8 +507,13 @@ function demoCam(dt){
 /* ================= Main loop ================= */
 function update(dt){
   GAME.time+=dt;updatePending();
+  if(G.mode==='freeze'){
+    G.freezeT-=dt;
+    BOATS.forEach((b,i)=>{b.g.position.z=b.home.z+70;b.g.position.y=b.home.y+Math.sin(GAME.time*1.6+i)*.12;b.g.rotation.x=Math.sin(GAME.time*1.3+i*2)*.025;b.g.rotation.z=Math.sin(GAME.time*1.1+i)*.02;});
+    if(G.freezeT<=0&&!Net.client){G.mode='intro';G.introT=INTRO_T;Net.event(['fz']);}
+  }
   if(G.mode==='intro'){
-    G.introT-=dt;const k=1-Math.max(0,G.introT)/11;const e=1-Math.pow(1-k,2);
+    G.introT-=dt;const k=1-Math.max(0,G.introT)/INTRO_T;const e=1-Math.pow(1-k,2);
     BOATS.forEach((b,i)=>{b.g.position.z=b.home.z+70*(1-e);b.g.position.y=b.home.y+Math.sin(GAME.time*1.6+i)*.12*(1-e*.7);b.g.rotation.x=Math.sin(GAME.time*1.3+i*2)*.025*(1-e);b.g.rotation.z=Math.sin(GAME.time*1.1+i)*.02*(1-e);
       if(Math.random()<dt*14)smoke.spawn(b.g.position.x+rand(-1.5,1.5),.3,b.g.position.z-5.5,rand(-2,2),rand(1.5,4),rand(-1,1),rand(.6,1.2),.3,1.4,.6,.85,.87,.88,1,9);});
     if(!Net.client&&Math.random()<dt*.9){const b=pick(BOATS);explosion(new V3(b.g.position.x+rand(-14,14),0,b.g.position.z+rand(-12,10)),1.6,null,'arty');}
@@ -477,6 +528,7 @@ function update(dt){
   updateWaves(dt);
   updateUnits(dt);
   updateFlags(dt);
+  updateBullets(dt);updateRagdolls(dt);
   if(Net.client)netNades(dt);else updateNades(dt);
   if(Net.on)netTick(dt);
 }
@@ -485,7 +537,7 @@ window.addEventListener('resize',resize);
 buildFlags();buildFlagHUD();
 startDemo();resize();
 // audio needs a user gesture: start the menu theme on the first click anywhere
-document.addEventListener('pointerdown',function first(){initAudio();if(SET.music&&!MUS.on&&(G.demo))playMusic('theme');document.removeEventListener('pointerdown',first);},{once:false});
+applyQuality();
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
@@ -494,12 +546,43 @@ function frame(now){
   const live=!G.paused||Net.on;
   if(live)update(dt);
   if(G.demo)demoCam(dt);
-  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
+  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
   FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);
-  if(!G.demo)updateHUD(dt);
+  if(!G.demo){updateHUD(dt);tipsTick(dt);}
   if(AU.ctx){updateListener();musicTick();}
   sky.position.copy(camera.position);placeSun(camera.position);
   vmSun.position.copy(sunDir);
   renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);
 }
 requestAnimationFrame(frame);
+
+/* ================= Tips ================= */
+const TIPS=['Hold Ctrl to duck behind cover. Press Z to go prone, and Z again to get up.',
+  'Wounds bleed. Press H to bandage before you bleed out.',
+  'Bullets drop over distance and take time to arrive. Aim a little high and lead moving targets far away.',
+  'Machine guns are useless from the hip. Go prone or rest the gun on sandbags or a wall, then right-click to deploy.',
+  'Sprinting drains stamina, and a hit slows you down. Catch your breath before you cross open ground.',
+  'Grenades bounce. Hold left-click to cook one, release to throw. Press E to grab an enemy grenade and throw it back.',
+  'Stand in a flag zone to capture it. More men capture faster. Any enemy in the zone stops the capture.',
+  'The Garand pings when its clip runs dry. The enemy hears it too.',
+  'Snipers: stay still and go prone. Your aim drifts while you breathe.',
+  'Reinforcements arrive in waves. The timer shows while you wait.',
+  'Hold the West or East Bunker and the Allies get a forward spawn at the seawall.',
+  'Press M to change class. During the 10-second freeze it switches right away.',
+  'Artillery comes with a whistle. When you hear it, get down or get moving.',
+  'Press Tab for the scores. Press Esc for volume, mouse speed and the invite link.'];
+let tipI=Math.random()*TIPS.length|0,tipNext=8,tipShowT=0;
+SET.tips=SET.tips!==false;SET.gore=SET.gore!==false;
+$('tTips').checked=SET.tips;$('tGore').checked=SET.gore;
+$('tTips').onchange=e=>{SET.tips=e.target.checked;saveSettings();if(!SET.tips)$('tips').hidden=true;};
+$('tGore').onchange=e=>{SET.gore=e.target.checked;saveSettings();};
+function showTip(text){if(!SET.tips)return;$('tipT').textContent=text||TIPS[tipI++%TIPS.length];$('tips').hidden=false;tipShowT=11;}
+$('tipX').onclick=()=>{$('tips').hidden=true;tipShowT=0;};
+$('tipOff').onclick=()=>{SET.tips=false;saveSettings();$('tTips').checked=false;$('tips').hidden=true;hint('Tips off. Turn them back on in Esc > Show tips.',3);};
+function tipsTick(dt){
+  if(!PL.u||G.demo)return;
+  $('bleed').hidden=!(PL.u.alive&&PL.u.bleed&&!(PL.u.bandT>0));
+  if(tipShowT>0){tipShowT-=dt;if(tipShowT<=0)$('tips').hidden=true;}
+  if(!SET.tips)return;
+  tipNext-=dt;if(tipNext<=0){tipNext=55;showTip();}
+}

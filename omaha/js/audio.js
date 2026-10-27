@@ -76,6 +76,7 @@ function buildBuffers(){
   const step=(lo,hi,a,b,tail)=>[0,1,2,3].map(()=>mkbuf(.22,(d,sr,n)=>{const L=filt(n,0,lo,sr),Hh=filt(n,hi,0,sr);const k=rand(.3,.8);for(let i=0;i<n;i++){const t=i/sr;d[i]=L[i]*a*Math.min(1,t/.004)*Math.exp(-t/tail)+Hh[i]*Math.exp(-t/.02)*b*k;}},.5));
   B.stSand=step(500,2500,5,1.2,.06);B.stGrass=step(700,3000,4,1.6,.05);B.stHard=step(900,3500,5,.8,.03);B.stWood=step(600,2000,6,.5,.05);
   B.stWater=[0,1,2].map(()=>mkbuf(.45,(d,sr,n)=>{const h=filt(n,500,5000,sr),lo=filt(n,0,400,sr);for(let i=0;i<n;i++){const t=i/sr;const e=Math.sin(Math.PI*Math.min(1,t/.4));d[i]=h[i]*e*Math.exp(-t/.15)*2+lo[i]*Math.exp(-t/.05)*3;}},.5));
+  B.flap=mkbuf(.5,(d,sr,n)=>{const h=filt(n,700,4000,sr);for(let i=0;i<n;i++){const t=i/sr;d[i]=h[i]*Math.sin(Math.PI*t/.5)*(.6+.4*Math.sin(t*60));}},.4);
   B.jumpLand=mkbuf(.3,(d,sr,n)=>{const lo=filt(n,0,400,sr);for(let i=0;i<n;i++){const t=i/sr;d[i]=lo[i]*Math.exp(-t/.05)*6;}},.6);
   B.heart=mkbuf(.9,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr;let v=0;for(const t0 of[0,.22]){const u=t-t0;if(u>0)v+=Math.sin(TAU*48*u)*Math.exp(-u/.07)*(t0?.7:1);}d[i]=v;}},.9);
   B.breath=mkbuf(1.2,(d,sr,n)=>{const h=filt(n,400,2500,sr);for(let i=0;i<n;i++){const t=i/sr;const e=t<.45?Math.sin(Math.PI*t/.45):t>.55?Math.sin(Math.PI*(t-.55)/.6)*.8:0;d[i]=h[i]*e;}},.4);
@@ -98,8 +99,8 @@ function initAudio(){
   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=20000;lp.Q.value=.5;
   const master=ctx.createGain();master.gain.value=.85;master.connect(lp);lp.connect(comp);comp.connect(ctx.destination);
   const rev=ctx.createConvolver();rev.buffer=impulse(ctx,3);const revIn=ctx.createGain();revIn.connect(rev);rev.connect(master);
-  const musicBus=ctx.createGain();musicBus.gain.value=SET.music?.55:0;musicBus.connect(comp);
-  AU.master=master;AU.lp=lp;AU.revIn=revIn;AU.music=musicBus;
+  const musicBus=ctx.createGain();musicBus.gain.value=0;musicBus.connect(comp);
+  AU.master=master;AU.lp=lp;AU.revIn=revIn;AU.music=musicBus;applyVolumes();
   buildBuffers();
   AU.loops.waves=loopSrc('waves',.0);AU.loops.wind=loopSrc('wind',.06);AU.loops.engine=loopSrc('engine',0);
 }
@@ -131,7 +132,7 @@ function play(name,o={}){
   return src;
 }
 function muffle(freq,dur){if(!AU.ctx)return;const f=AU.lp.frequency,n=AU.ctx.currentTime;f.cancelScheduledValues(n);f.setValueAtTime(freq,n);f.exponentialRampToValueAtTime(20000,n+dur);}
-function earRing(vol,dur=4){if(!AU.ctx)return;const ctx=AU.ctx,o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=rand(3300,3900);g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+dur+.1);}
+function earRing(vol,dur=4){if(!AU.ctx)return;vol*=SET.vol.master*SET.vol.sfx;if(vol<.0002)return;const ctx=AU.ctx,o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=rand(3300,3900);g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+dur+.1);}
 // short synthetic shout used for pain and death (positional)
 const VOWEL={a:[[730,1],[1090,.5],[2440,.22]],u:[[440,1],[1020,.4],[2240,.18]],e:[[530,1],[1840,.45],[2480,.2]],o:[[570,1],[840,.45],[2410,.2]]};
 function vox(pos,o){
@@ -160,13 +161,14 @@ function pickVoice(lang){
   if(vs.length)SAY.voices[lang]=v;return v;
 }
 function say(text,o={}){
-  if(!SET.voice||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
+  const vv=SET.vol.voice*SET.vol.master;
+  if(vv<.02||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
   const now=performance.now();if(!o.force&&now-SAY.last<1400)return;
   if(o.force)speechSynthesis.cancel();else if(speechSynthesis.speaking||speechSynthesis.pending)return;
   SAY.last=now;
   const u=new SpeechSynthesisUtterance(text);
   const lang=o.de?'de':'en';const v=pickVoice(lang);if(v)u.voice=v;u.lang=o.de?'de-DE':'en-US';
-  u.pitch=o.pitch!=null?o.pitch:rand(.6,1.0);u.rate=o.rate||rand(1.05,1.25);u.volume=clamp(o.vol!=null?o.vol:.8,0,1);
+  u.pitch=o.pitch!=null?o.pitch:rand(.6,1.0);u.rate=o.rate||rand(1.05,1.25);u.volume=clamp((o.vol!=null?o.vol:.8)*vv,0,1);
   try{speechSynthesis.speak(u);}catch(e){}
 }
 const LINES={
@@ -239,4 +241,7 @@ function musicTick(){
     tr.bar(MUS.i%tr.bars,MUS.next,spb);MUS.i++;MUS.next+=spb*4;
   }
 }
-function setMusicOn(on){SET.music=on;saveSettings();if(AU.music)AU.music.gain.setTargetAtTime(on?.55:0,AU.ctx.currentTime,.2);}
+// volumes: master, effects (everything but music and voices), music, voices
+function applyVolumes(){const V=SET.vol;SET.music=V.music>.01;SET.voice=V.voice>.01;if(!AU.ctx)return;const t=AU.ctx.currentTime;
+  AU.master.gain.setTargetAtTime(.85*V.master*V.sfx,t,.05);AU.music.gain.setTargetAtTime(.55*V.master*V.music*1.6,t,.05);}
+function setMusicOn(on){SET.vol.music=on?Math.max(.3,SET.vol.music):0;applyVolumes();saveSettings();}

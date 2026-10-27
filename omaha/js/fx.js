@@ -67,7 +67,7 @@ class PS{
   }
 }
 const smoke=new PS(5000,smokeTex,false,2);
-const chunks=new PS(1500,chunkTex,false,2);
+const chunks=new PS(3200,chunkTex,false,2);
 const glow=new PS(1000,glowTex,true,4);
 function particleScale(){const s=renderer.getDrawingBufferSize(new THREE.Vector2()).y/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2));smoke.mat.uniforms.scale.value=chunks.mat.uniforms.scale.value=glow.mat.uniforms.scale.value=s;}
 
@@ -94,10 +94,8 @@ function tracer(o,dir,dist,speed=520){
   tr.o.copy(o);tr.d.copy(dir);tr.max=dist;tr.t=0;tr.speed=speed;tr.m.visible=true;
   tr.m.position.copy(o);tr.m.lookAt(o.x-dir.x,o.y-dir.y,o.z-dir.z);
 }
-function updateTracers(dt){
-  for(const tr of tracers){if(!tr.m.visible)continue;tr.t+=dt*tr.speed;if(tr.t>tr.max){tr.m.visible=false;continue;}
-    const len=Math.min(tr.t,7,tr.max-tr.t+.5);tr.m.position.copy(tr.o).addScaledVector(tr.d,tr.t);tr.m.scale.set(1,1,Math.max(.3,len));}
-}
+function updateTracers(dt){}
+
 
 /* ================= Debris (physical chunks) ================= */
 const debris=[];
@@ -128,18 +126,29 @@ function updateDebris(dt){
 const decals=[];
 {
   const scorchMat=new THREE.MeshBasicMaterial({map:TEX.crater,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,opacity:.85});
-  const bloodTex=canvasTex(64,64,(g)=>{for(let i=0;i<14;i++){const x=32+rand(-14,14),y=32+rand(-14,14),r=rand(3,12);g.fillStyle=`rgba(90,8,4,${rand(.5,.9)})`;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}});
+  const bloodTex=canvasTex(64,64,(g)=>{for(let i=0;i<14;i++){const x=32+rand(-14,14),y=32+rand(-14,14),r=rand(3,12);g.fillStyle=`rgba(${rand(110,140)|0},6,4,${rand(.6,.92)})`;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}});
   bloodTex.wrapS=bloodTex.wrapT=THREE.ClampToEdgeWrapping;
-  const bloodMat=new THREE.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,color:C(0x8a8a8a)});
-  decals.scorch=scorchMat;decals.blood=bloodMat;decals.list=[];
+  const bloodMat=new THREE.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,color:C(0xc0c0c0)});
+  const poolMat=new THREE.MeshStandardMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-5,color:C(0x6a1010),roughness:.15,metalness:.1});
+  decals.scorch=scorchMat;decals.blood=bloodMat;decals.pool=poolMat;decals.list=[];
 }
 function decalAt(x,z,size,kind){
   // conformed to the terrain: a small grid draped over H
   const n=6,geo=new THREE.PlaneGeometry(size,size,n,n);geo.rotateX(-Math.PI/2);const p=geo.attributes.position;const a=rand(0,TAU),ca=Math.cos(a),sa=Math.sin(a);
   for(let i=0;i<p.count;i++){const lx=p.getX(i),lz=p.getZ(i);const wx=x+lx*ca-lz*sa,wz=z+lx*sa+lz*ca;p.setXYZ(i,wx,H(wx,wz)+.04,wz);}
   geo.computeBoundingSphere();
-  const m=new THREE.Mesh(geo,kind==='blood'?decals.blood:decals.scorch);m.renderOrder=0;scene.add(m);decals.list.push(m);
-  if(decals.list.length>90){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  if(kind==='pool'){geo.translate(-x,0,-z);}
+  const m=new THREE.Mesh(geo,kind==='blood'?decals.blood:kind==='pool'?decals.pool:decals.scorch);if(kind==='pool')m.position.set(x,0,z);m.renderOrder=0;scene.add(m);decals.list.push(m);
+  if(decals.list.length>260){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  return m;
+}
+// a blood splash on a wall: a small quad facing out of the surface
+function wallDecal(h,size){
+  const geo=new THREE.PlaneGeometry(size,size*rand(1,1.6));geo.translate(0,-size*.25,0);
+  const m=new THREE.Mesh(geo,decals.blood);m.position.set(h.x+h.nx*.02,h.y+h.ny*.02,h.z+h.nz*.02);m.lookAt(h.x+h.nx,h.y+h.ny,h.z+h.nz);m.rotateZ(rand(-.3,.3));
+  scene.add(m);decals.list.push(m);
+  if(decals.list.length>260){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  return m;
 }
 function clearDecals(){for(const m of decals.list){scene.remove(m);m.geometry.dispose();}decals.list.length=0;}
 
@@ -186,6 +195,11 @@ function explosion(p,power,owner,weapon){
     for(let k=0;k<18*P;k++){const a=rand(0,TAU),s=rand(.5,3)*P;smoke.spawn(p.x+Math.cos(a)*rand(0,1),p.y+rand(0,1.5)*P,p.z+Math.sin(a)*rand(0,1),Math.cos(a)*s,rand(1,6)*P,Math.sin(a)*s,rand(4,9),rand(.8,1.6)*P,rand(4,8)*P,rand(.45,.7),.22,.2,.18,1.4,0);}
     for(let k=0;k<6*P;k++)smoke.spawn(p.x+rand(-1,1),p.y+rand(0,2),p.z+rand(-1,1),rand(-1,1),rand(3,9),rand(-1,1),rand(2,4),.8*P,3*P,.5,ground[0]*.8,ground[1]*.8,ground[2]*.8,1.2,0);
     throwDebris(new V3(p.x,p.y+.3,p.z),Math.round(5*P),7*P,new THREE.Color(ground[0]*.6,ground[1]*.6,ground[2]*.6));
+    // a geyser of sand and earth thrown straight up, which then rains back down
+    const sandy=p.z>35;const gc=sandy?[.72,.64,.5]:ground;
+    for(let k=0;k<55*P;k++){const a=rand(0,TAU),s=rand(0,2.4)*P;chunks.spawn(p.x+Math.cos(a)*rand(0,.8),p.y+.2,p.z+Math.sin(a)*rand(0,.8),Math.cos(a)*s,rand(9,20)*P*.8,Math.sin(a)*s,rand(2,3.6),rand(.05,.14),.05,1,gc[0]*rand(.6,.9),gc[1]*rand(.6,.9),gc[2]*rand(.6,.9),.15,13);}
+    for(let k=0;k<14*P;k++){const h=rand(.3,1);smoke.spawn(p.x+rand(-.6,.6),p.y+.5,p.z+rand(-.6,.6),rand(-.8,.8),rand(10,17)*P*h*.75,rand(-.8,.8),rand(2.5,4.5),rand(.8,1.4)*P,rand(3,5.5)*P,rand(.55,.8),gc[0]*.95,gc[1]*.93,gc[2]*.9,1.6,0);}
+    for(let k=0;k<10*P;k++){const a=rand(0,TAU),r=rand(1,3)*P;smoke.spawn(p.x+Math.cos(a)*r,p.y+.3,p.z+Math.sin(a)*r,Math.cos(a)*rand(2,5),rand(.3,1.2),Math.sin(a)*rand(2,5),rand(3,6),rand(1,2)*P,rand(5,8)*P,rand(.35,.55),gc[0],gc[1]*.97,gc[2]*.92,1.2,0);}
     decalAt(p.x,p.z,2.2*P+rand(0,1),'scorch');
     flashAt(new V3(p.x,p.y+1.5,p.z),9*P,.25,18*P);
     play(P>1.5?'boom':'nade',{pos:p,vol:P>1.5?1:.85,ref:P>1.5?14:9});
@@ -198,10 +212,14 @@ function explosion(p,power,owner,weapon){
     // walls between the blast and the target soak it
     const eye=new V3(u.pos.x,u.pos.y+1.0,u.pos.z);if(!clearLine(new V3(p.x,p.y+.4,p.z),eye))continue;
     const dmg=d<lethal?200:120*Math.pow(1-(d-lethal)/(maxR-lethal),1.5);
+    u.blast={c:p.clone(),P};
     if(dmg>3)hurt(u,dmg,owner,weapon||'arty','blast',new V3(u.pos.x-p.x,0,u.pos.z-p.z).normalize());
+    if(u.alive)u.blast=null;
   }
   const dc=p.distanceTo(camera.position);
-  FX.trauma=Math.min(1.4,FX.trauma+clamp((P*14)/(dc+3),0,1.1));
+  FX.trauma=Math.min(1.6,FX.trauma+clamp((P*18)/(dc+3),0,1.3));
+  if(!inWater&&dc<22*P*.8)sandRain(clamp(1.3-dc/(22*P*.8),.2,1),p.z>35);
+  if(dc<12*P)FX.kick=Math.min(1,(FX.kick||0)+(1-dc/(12*P))*.8);
   if(dc<6*P){FX.blur=Math.min(1,FX.blur+(1-dc/(6*P))*.9);FX.white=Math.max(FX.white,.5*(1-dc/(6*P)));muffle(380,3.5);earRing(.05*(1-dc/(6*P)),4);if(dc<3*P){FX.aberr=1;}}
   else if(dc<14*P){muffle(1600,1.2);}
 }
@@ -218,3 +236,23 @@ function burnTick(dt){
 function hazeTick(dt){
   if(Math.random()<dt*2.2){const x=rand(-100,100),z=rand(40,140);smoke.spawn(x,H(x,z)+1,z,rand(-.5,.5),.2,rand(-.5,.5),rand(18,30),rand(5,8),rand(14,22),rand(.12,.22),.55,.55,.54,.2,0);}
 }
+
+/* ---- sand raining down on you after a close blast, and grit on the lens ---- */
+const RAIN={t:0,amt:0,sandy:true};
+function sandRain(a,sandy){RAIN.t=Math.max(RAIN.t,1.2+a*2.2);RAIN.amt=Math.max(RAIN.amt,a);RAIN.sandy=sandy;if(a>.35)dirtOnLens(a);
+  play('debris',{vol:.25+a*.4,delay:.6});}
+function rainTick(dt){
+  if(RAIN.t<=0)return;RAIN.t-=dt;const c=camera.position,a=RAIN.amt*Math.min(1,RAIN.t/1.2);const col=RAIN.sandy?[.7,.62,.48]:[.42,.35,.26];
+  const n=Math.round(a*220*dt*10)/10;for(let k=0;k<n;k++){const r=rand(.5,6),an=rand(0,TAU);
+    chunks.spawn(c.x+Math.cos(an)*r,c.y+rand(3,7),c.z+Math.sin(an)*r,rand(-.5,.5),rand(-4,-1),rand(-.5,.5),rand(1,1.8),rand(.02,.06),.03,1,col[0]*rand(.7,1),col[1]*rand(.7,1),col[2]*rand(.7,1),.1,9);}
+  if(Math.random()<a*dt*6)smoke.spawn(c.x+rand(-3,3),c.y+rand(1,4),c.z+rand(-3,3),rand(-.3,.3),rand(-1.2,-.4),rand(-.3,.3),rand(2,3.5),rand(1,2),rand(3,5),.18*a,col[0],col[1],col[2],.5,0);
+}
+const dirt=$('dirt');const dctx=dirt.getContext('2d');let dirtA=0;
+function dirtOnLens(a){
+  dirt.width=innerWidth>>1;dirt.height=innerHeight>>1;const w=dirt.width,h=dirt.height;dctx.clearRect(0,0,w,h);
+  for(let i=0;i<120*a;i++){const x=rand(0,w),y=rand(0,h);const edge=Math.min(1,Math.hypot(x/w-.5,y/h-.5)*2.2);if(Math.random()>edge*1.1)continue;
+    const r=rand(1,4)*(1+a);dctx.fillStyle=`rgba(${rand(70,120)|0},${rand(55,95)|0},${rand(35,60)|0},${rand(.5,.9)})`;dctx.beginPath();dctx.ellipse(x,y,r,r*rand(.6,1),rand(0,3),0,TAU);dctx.fill();}
+  for(let i=0;i<8*a;i++){const x=rand(0,w),y=rand(0,h),r=rand(20,70);const g=dctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba(90,72,50,.35)');g.addColorStop(1,'rgba(90,72,50,0)');dctx.fillStyle=g;dctx.fillRect(x-r,y-r,r*2,r*2);}
+  dirtA=Math.min(1,.6+a*.5);dirt.style.opacity=dirtA;
+}
+function dirtTick(dt){if(dirtA>0){dirtA=Math.max(0,dirtA-dt*.28);dirt.style.opacity=dirtA;}}

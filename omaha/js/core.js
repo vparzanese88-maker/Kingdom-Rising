@@ -23,6 +23,7 @@ const _realRandom=Math.random;
 {let s=0x2c1b3c6d;Math.random=function(){s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const SET={music:true,voice:true,sens:1.4,size:16,diff:1,team:0};
 try{const s=JSON.parse(localStorage.getItem('omaha.settings')||'null');if(s)Object.assign(SET,s);}catch(e){}
+SET.vol=Object.assign({master:.9,sfx:1,music:.6,voice:.9},SET.vol||{});
 function saveSettings(){try{localStorage.setItem('omaha.settings',JSON.stringify(SET));}catch(e){}}
 
 /* ================= Renderer ================= */
@@ -67,13 +68,14 @@ function makeRT(){
   if(rt.samples!==undefined)rt.samples=GAME.quality==='high'?4:2;
   rt.texture.encoding=THREE.sRGBEncoding;
   if(post)post.mat.uniforms.res.value.set(s.x,s.y);
+  if(window.BLOOM&&BLOOM.a){BLOOM.a.setSize(s.x>>2,s.y>>2);BLOOM.b.setSize(s.x>>2,s.y>>2);}
 }
 const post={};
 post.mat=new THREE.ShaderMaterial({
-  uniforms:{tD:{value:null},res:{value:new THREE.Vector2(1,1)},time:{value:0},desat:{value:.32},grain:{value:.045},blur:{value:0},aberr:{value:0},
+  uniforms:{tD:{value:null},tB:{value:null},bloom:{value:.55},res:{value:new THREE.Vector2(1,1)},time:{value:0},desat:{value:.32},grain:{value:.045},blur:{value:0},aberr:{value:0},
     hurt:{value:0},lowHp:{value:0},white:{value:0},dark:{value:0},vig:{value:.55}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
-  fragmentShader:`uniform sampler2D tD;uniform vec2 res;uniform float time,desat,grain,blur,aberr,hurt,lowHp,white,dark,vig;varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tD,tB;uniform float bloom;uniform vec2 res;uniform float time,desat,grain,blur,aberr,hurt,lowHp,white,dark,vig;varying vec2 vUv;
   float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   void main(){
     vec2 uv=vUv,c=uv-0.5;
@@ -90,6 +92,7 @@ post.mat=new THREE.ShaderMaterial({
     col*=1.0-smoothstep(0.35,1.15,r)*vig;
     col=mix(col,vec3(0.45,0.02,0.0),hurt*smoothstep(0.25,0.95,r));
     col+=(h(uv*res+fract(time*7.13)*vec2(91.0,37.0))-0.5)*grain;
+    col+=texture2D(tB,uv).rgb*bloom;
     col=mix(col,vec3(1.0,0.97,0.9),white);
     col*=1.0-dark;
     gl_FragColor=vec4(col,1.0);
@@ -98,10 +101,30 @@ post.scene=new THREE.Scene();post.cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1
 {const q=new THREE.Mesh(new THREE.PlaneGeometry(2,2),post.mat);q.frustumCulled=false;post.scene.add(q);}
 makeRT();
 const FX={trauma:0,blur:0,aberr:0,hurt:0,white:0,dark:0,ring:0};
+// bloom: bright parts are cut out at quarter size, blurred twice and added back
+var BLOOM={};
+{
+  const quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));quad.frustumCulled=false;BLOOM.scene=new THREE.Scene();BLOOM.scene.add(quad);BLOOM.quad=quad;
+  const vs=`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`;
+  BLOOM.bright=new THREE.ShaderMaterial({uniforms:{tD:{value:null}},vertexShader:vs,fragmentShader:`uniform sampler2D tD;varying vec2 vUv;void main(){vec3 c=texture2D(tD,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));gl_FragColor=vec4(c*smoothstep(.72,1.0,l),1.0);}`,depthTest:false,depthWrite:false});
+  BLOOM.blur=new THREE.ShaderMaterial({uniforms:{tD:{value:null},dir:{value:new THREE.Vector2()}},vertexShader:vs,fragmentShader:`uniform sampler2D tD;uniform vec2 dir;varying vec2 vUv;
+    void main(){vec3 c=texture2D(tD,vUv).rgb*.227;c+=(texture2D(tD,vUv+dir*1.38).rgb+texture2D(tD,vUv-dir*1.38).rgb)*.316;c+=(texture2D(tD,vUv+dir*3.23).rgb+texture2D(tD,vUv-dir*3.23).rgb)*.07;gl_FragColor=vec4(c,1.0);}`,depthTest:false,depthWrite:false});
+  const s=renderer.getDrawingBufferSize(new THREE.Vector2());const o={minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false};
+  BLOOM.a=new THREE.WebGLRenderTarget(s.x>>2,s.y>>2,o);BLOOM.b=new THREE.WebGLRenderTarget(s.x>>2,s.y>>2,o);
+}
+function bloomPass(){
+  const B=BLOOM,q=B.quad;
+  q.material=B.bright;B.bright.uniforms.tD.value=rt.texture;renderer.setRenderTarget(B.a);renderer.render(B.scene,post.cam);
+  for(let i=0;i<2;i++){
+    q.material=B.blur;B.blur.uniforms.tD.value=B.a.texture;B.blur.uniforms.dir.value.set((i+1)/B.a.width,0);renderer.setRenderTarget(B.b);renderer.render(B.scene,post.cam);
+    B.blur.uniforms.tD.value=B.b.texture;B.blur.uniforms.dir.value.set(0,(i+1)/B.a.height);renderer.setRenderTarget(B.a);renderer.render(B.scene,post.cam);}
+  post.mat.uniforms.tB.value=B.a.texture;
+}
 function renderFrame(showVM){
   renderer.setRenderTarget(rt);renderer.clear();
   renderer.render(scene,camera);
   if(showVM){renderer.clearDepth();renderer.render(vmScene,vmCam);}
+  bloomPass();
   renderer.setRenderTarget(null);
   const u=post.mat.uniforms;u.tD.value=rt.texture;u.time.value=GAME.time;
   u.blur.value=FX.blur;u.aberr.value=FX.aberr;u.hurt.value=FX.hurt;u.white.value=FX.white;u.dark.value=FX.dark;

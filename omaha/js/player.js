@@ -64,7 +64,7 @@ function playerSpread(W){
   return s;
 }
 function playerFire(){
-  const u=PL.u;if(!u.alive||G.mode!=='play'||PL.switchT>0||PL.reloadT>0||PL.stanceT>.2)return false;
+  const u=PL.u;if(!u.alive||G.mode!=='play'||PL.switchT>0||PL.reloadT>0||PL.stanceT>.2||u.bandT>0)return false;
   const slot=u.cur,w=curW(),W=curWD();
   if(W.type==='melee'){if(PL.meleeT>0)return false;doMelee(W);return true;}
   if(W.type==='nade'){if(!PL.nadeHold&&u.weps.nade.count>0)pullPin();return true;}
@@ -73,7 +73,8 @@ function playerFire(){
   if(PL.sprinting)return false;
   camera.getWorldDirection(_f);
   const spread=playerSpread(W);
-  const dir=spreadDir(_f,spread,_d);
+  // sights are zeroed at 100 m: the barrel points a hair above the line of sight
+  const dir=spreadDir(dropComp(_f.clone(),100,w.id,1),spread,_d);
   const o=_e.copy(camera.position);
   fireBullet(u,o,dir,W,w.id,W.tracer&&(w.mag%W.tracer===0));
   // muzzle flash in the world, in front of the viewmodel muzzle
@@ -134,11 +135,11 @@ function updatePlayer(dt){
   const u=PL.u;if(!u)return;
   if(!u.alive){updateDeathCam(dt);return;}
   const K=PL.keys;const W=curWD(),w=curW();
-  const intro=G.mode==='intro';
+  const intro=G.mode==='intro'||G.mode==='freeze';
   // stance transitions
   if(PL.stanceT>0){PL.stanceT-=dt;if(PL.stanceT<=0||PL.targetStance!=='prone'&&u.stance!=='prone')u.stance=PL.targetStance;}
   else if(u.stance!==PL.targetStance)u.stance=PL.targetStance;
-  if(K.KeyC){if(u.stance!=='crouch'&&PL.targetStance!=='crouch'&&!PL.crouchHeld)setStance('crouch');PL.crouchHeld=true;}
+  if(K.KeyC||K.ControlLeft||K.ControlRight){if(u.stance!=='crouch'&&PL.targetStance!=='crouch'&&!PL.crouchHeld)setStance('crouch');PL.crouchHeld=true;}
   else if(PL.crouchHeld){PL.crouchHeld=false;if(PL.targetStance==='crouch')setStance('stand');}
   // movement input
   let ix=0,iz=0;if(!intro){if(K.KeyW)iz-=1;if(K.KeyS)iz+=1;if(K.KeyA)ix-=1;if(K.KeyD)ix+=1;}
@@ -187,7 +188,7 @@ function updatePlayer(dt){
   if(u.stam<35){PL.breathT-=dt;if(PL.breathT<=0){PL.breathT=1.3;play('breath',{vol:.35*(1-u.stam/35)+.08});}}
   if(u.hp<35){PL.heartT-=dt;if(PL.heartT<=0){PL.heartT=.9-(.35-u.hp/100);play('heart',{vol:.5});}}
   // regenerate a little health after a while (bandaging is automatic out of combat)
-  if(GAME.time-(u.lastHurt||-99)>8&&u.hp<100&&u.hp>0)u.hp=Math.min(100,u.hp+dt*4);
+  if(Net.client)bandageTick(u,dt);
   // weapon state
   if(PL.switchT>0){PL.switchT-=dt;if(PL.switchT<=0&&PL.pendingW){PL.lastW=u.cur;u.cur=PL.pendingW;PL.pendingW=null;buildVM(curW().id,u.team);PL.switchT=-.3;play('cock',{vol:.35});}}
   else if(PL.switchT<0)PL.switchT=Math.min(0,PL.switchT+dt);
@@ -225,7 +226,8 @@ function updatePlayer(dt){
   PL.roll=lerp(PL.roll,-ix*.018*(PL.sprinting?1.6:1),dt*6);
   camera.position.set(u.pos.x+bobX*cy,u.pos.y+PL.eyeH+bobY-PL.landV*.08,u.pos.z-bobX*sy);
   if(intro&&G.introBoat){camera.position.y+=Math.sin(t*1.7)*.06;}
-  camera.rotation.set(PL.pitch+shy,PL.yaw+shx,PL.roll+shr+(intro?Math.sin(t*1.3)*.03:0));
+  const kk=FX.kick||0;FX.kick=Math.max(0,kk-dt*2.5);
+  camera.rotation.set(PL.pitch+shy+kk*.08*Math.sin(t*30),PL.yaw+shx+kk*.05*Math.sin(t*23),PL.roll+shr+kk*.12*Math.sin(t*17)+(intro?Math.sin(t*1.3)*.03:0));
   // field of view
   const fov=lerp(75,W.adsFov||75,PL.ads)*(PL.sprinting?1.04:1);
   if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix();particleScale();}
@@ -243,8 +245,9 @@ function updateViewmodel(dt,sp){
   if(W.mg||W.bipod&&u.deployed){x=lerp(.1,.0,u.deployed?1:0);y=u.deployed?-(VM.sightY||.09)-.005:-.17;z=u.deployed?-.2:-.3;ry=u.deployed?0:.08;}
   if(W.pistol){x=lerp(.12,0,a);y=lerp(-.13,-(VM.sightY||.055),a);z=lerp(-.32,-.28,a);}
   if(W.type==='melee'){x=.16;y=-.18;z=-.3;rx=.25;ry=-.2;}
-  if(W.type==='nade'){x=.16;y=-.16;z=-.3;if(PL.nadeHold){x=.2;y=-.08;z=-.2;rx=-.4;}}
+  if(W.type==='nade'){x=.12;y=-.1;z=-.26;if(PL.nadeHold){x=.16;y=-.06;z=-.2;rx=-.4;}}
   if(PL.sprinting){x+=-.02;y-=.03;rx+=-.35;ry+=.55;rz+=.25;}
+  if(u.bandT>0){y-=.22;rx-=.6;}
   if(u.stance==='prone'&&!u.deployed&&sp>.3){y-=.12;rx-=.4;ry+=.4;}
   // walk bob
   const bb=PL.bobAmt*(1-a*.85);x+=Math.cos(PL.bob)*.012*bb;y+=Math.abs(Math.sin(PL.bob))*-.016*bb;
@@ -269,7 +272,7 @@ function updateViewmodel(dt,sp){
   vmCam.fov=lerp(56,W.scope?40:46,a);vmCam.updateProjectionMatrix();
 }
 function updateDeathCam(dt){
-  const u=PL.u;PL.deathT+=dt;const c=u.model?u.model.root.position:u.pos;
+  const u=PL.u;PL.deathT+=dt;const c=ragCenter(u.model)||u.pos;
   const k=Math.min(1,PL.deathT/2.5);
   const a=PL.deathYaw+PL.deathT*.15;const r=lerp(1.5,5.5,k),h=lerp(1.2,4,k);
   const tx=c.x+Math.sin(a)*r,tz=c.z+Math.cos(a)*r;
@@ -282,7 +285,7 @@ function updateDeathCam(dt){
 }
 function playerHurt(dmg,attacker,zone,dir){
   const u=PL.u;
-  FX.hurt=Math.min(1,FX.hurt+dmg/60);FX.trauma=Math.min(1,FX.trauma+.18);
+  FX.hurt=Math.min(1,FX.hurt+dmg/60);FX.trauma=Math.min(1,FX.trauma+.18);bloodOnLens(Math.min(1,dmg/70));
   PL.kickP+=rand(-.04,.08);PL.kickY+=rand(-.06,.06);
   play('flesh',{vol:.7});if(zone==='head')FX.white=Math.max(FX.white,.15);
   if(Math.random()<.6)painGrunt(null,.35);
@@ -298,3 +301,6 @@ function playerDied(attacker,wid){
   center('YOU ARE DEAD',by);
   $('cap').hidden=true;
 }
+
+function bandageKey(){const u=PL.u;if(!u||!u.alive)return;if(!u.bleed){hint('You are not bleeding',1.2);return;}
+  undeploy();if(startBandage(u)&&Net.client)Net.send({t:'band'});}

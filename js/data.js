@@ -32,7 +32,7 @@
       id: 'sylvan', name: 'Sylvan Throne', city: 'Aelindor', king: 'King Theron Valen', kingFirst: 'Theron', brother: 'Aldric',
       races: ['human', 'highelf', 'woodelf', 'darkelf', 'gnome', 'halfling', 'dwarf', 'barbarian', 'ogrin'], color: '#8fd16f', banner: '#2e6a3c', trim: '#e7d48a',
       craftPrefix: 'Leafsteel', craftBias: ['AGI', 'WIS'], drink: 'Moonpetal Wine', food: 'honeyed acorn bread',
-      blurb: 'The younger brother\'s kingdom. King Theron Valen was crowned in the elven city of Aelindor, and the elves, the half-elves and every human family that fled Aldric\'s rule followed him. Free, fierce, and certain the crown belongs to whoever deserves it.',
+      blurb: 'The younger brother\'s kingdom. King Theron Valen was crowned in the elven city of Aelindor among the old forests, and every people of the realm has sworn to him there. Free, fierce, and certain the crown belongs to whoever deserves it.',
       enemyMobs: 'Orcs of the Greywood', crop: 'silverleaf berries',
     },
     iron: {
@@ -46,7 +46,7 @@
       id: 'crown', name: 'Crown of Valen', city: 'Valenmoor', king: 'King Aldric Valen', kingFirst: 'Aldric', brother: 'Theron',
       races: ['human', 'highelf', 'woodelf', 'darkelf', 'gnome', 'halfling', 'dwarf', 'barbarian', 'ogrin'], color: '#7fb0e8', banner: '#28457a', trim: '#f0c75e',
       craftPrefix: 'Valenguard', craftBias: ['DEX', 'CHA'], drink: 'Valen Gold Ale', food: 'roast pheasant',
-      blurb: 'The firstborn\'s kingdom. King Aldric Valen holds the old capital on the western plains, with the old human houses, the halflings and the dwarves, gnomes and barbarians of the mountain clans behind him. Proud, disciplined, and certain the crown is his by right.',
+      blurb: 'The firstborn\'s kingdom. King Aldric Valen holds the old capital of Valenmoor on the western plains, and every people of the realm has sworn to him there too. Proud, disciplined, and certain the crown is his by right.',
       enemyMobs: 'Bandits of Thornfield', crop: 'golden wheat',
     },
   };

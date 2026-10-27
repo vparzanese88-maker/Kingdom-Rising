@@ -6,32 +6,44 @@ const STY={
 };
 const SKIN=[0xd9a882,0xc99470,0xe0b48f,0xb98a65,0xd0a07a];
 const GEO_CACHE={};
+const SPH=new THREE.SphereGeometry(1,18,14);
+const sc=(geo,col,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>({geo,col:C(col),m:compose(x,y,z,rx,ry,rz,sx,sy,sz)});
+// jacket torso, head and helmet, webbing: all rounded shapes
+const TORSO=latheY([[0,-.1],[.17,-.1],[.19,.05],[.205,.2],[.215,.36],[.2,.5],[.13,.6],[.06,.64],[0,.64]],18);
+const HELM_US=latheY([[0,.215],[.07,.205],[.12,.17],[.15,.11],[.163,.05],[.168,.01],[.178,-.005],[.172,-.012],[.15,-.004],[0,-.004]],24);
+const HELM_DE=latheY([[0,.2],[.075,.19],[.125,.155],[.148,.1],[.152,.04],[.158,0],[.18,-.045],[.198,-.07],[.19,-.075],[.15,-.03],[0,-.03]],24);
+const CANT=lathe([[0,.08],[.04,.075],[.05,.05],[.05,-.05],[.04,-.075],[0,-.08]],14);
 function bodyGeo(team,v){
   const key='b'+team+v;if(GEO_CACHE[key])return GEO_CACHE[key];
   const s=STY[team],coat=s.coat[v%3],skin=SKIN[v%5];const p=[];
-  p.push(P(Bx(.38,.22,.24),coat,0,.03,0),P(Bx(.42,.5,.26),coat,0,.33,0),P(Bx(.44,.05,.28),s.web,0,.1,0),P(Bx(.1,.09,.1),skin,0,.62,0));
-  p.push(P(new THREE.IcosahedronGeometry(.112,1),skin,0,.75,.0,0,0,0,1,1.12,1.05),P(Bx(.03,.05,.04),skin,0,.74,.115),P(Bx(.22,.06,.02),coat,0,.6,.12));
+  p.push(sc(TORSO,coat,0,0,0,1,1,.66));
+  for(const sx of[-.19,.19])p.push(sc(SPH,coat,sx,.49,0,.08,.075,.08));
+  p.push(sc(new THREE.CylinderGeometry(.205,.2,.055,18),s.web,0,.1,0,1,1,.7));
+  p.push(sc(new THREE.CylinderGeometry(.055,.06,.1,12),skin,0,.64,0,1,1,1));
+  p.push(sc(SPH,skin,0,.755,.005,.105,.122,.112),sc(SPH,skin,0,.745,.108,.018,.024,.022));
+  for(const sx of[-.104,.104])p.push(sc(SPH,skin,sx,.75,0,.015,.026,.02));
+  for(const sx of[-.037,.037])p.push(sc(SPH,0x2a2018,sx,.772,.098,.012,.009,.008),sc(SPH,0x5a4030,sx,.79,.1,.02,.005,.008));
+  p.push(sc(new THREE.TorusGeometry(.07,.022,8,18),coat,0,.6,.01,1,1,1,Math.PI/2));
   if(team===0){
-    const hg=new THREE.SphereGeometry(.155,12,7,0,TAU,0,Math.PI/2);
-    p.push(P(hg,s.helm,0,.78,-.005,0,0,0,1,.82,1.1),P(Cy(.17,.17,.018,14),s.helm,0,.785,-.005,0,0,0,1,1,1.1));
-    // suspenders, cartridge belt pouches, canteen, pack
-    p.push(P(Bx(.05,.5,.02),s.web,.11,.33,.135),P(Bx(.05,.5,.02),s.web,-.11,.33,.135),P(Bx(.05,.5,.02),s.web,.11,.33,-.135),P(Bx(.05,.5,.02),s.web,-.11,.33,-.135));
-    for(let k=-2;k<=2;k++)if(k)p.push(P(Bx(.07,.08,.05),s.web,k*.085,.1,.15));
-    p.push(P(Cy(.05,.05,.15,8),0x55573f,.21,.02,-.06),P(Bx(.3,.3,.13),s.pack,0,.38,-.2),P(Bx(.08,.22,.06),0x6a5e42,.12,.25,-.24));
+    p.push(sc(HELM_US,s.helm,0,.755,-.005,1,1,1.08));
+    p.push(sc(new THREE.TorusGeometry(.105,.004,6,16,Math.PI),0x3b3220,0,.73,.0,1,1,1,0,Math.PI/2,Math.PI));
+    for(const sx of[-.1,.1])for(const sz of[.13,-.13])p.push(sc(rbox(.04,.5,.014,.005),s.web,sx,.33,sz,1,1,1));
+    for(let k=-2;k<=2;k++)if(k)p.push(sc(rbox(.065,.075,.045,.014),s.web,k*.08,.1,.14,1,1,1));
+    p.push(sc(CANT,0x55573f,.2,.02,-.07,1,1,1,Math.PI/2),sc(rbox(.28,.3,.12,.04),s.pack,0,.38,-.19,1,1,1),sc(rbox(.07,.22,.055,.02),0x6a5e42,.12,.24,-.24,1,1,1));
   }else{
-    const hg=new THREE.SphereGeometry(.152,12,7,0,TAU,0,Math.PI/2);
-    p.push(P(hg,s.helm,0,.765,0,0,0,0,1,.95,1.08),P(Cy(.16,.185,.07,14),s.helm,0,.755,-.01,-.12,0,0,1,1,1.05),P(Cy(.18,.19,.02,14),s.helm,0,.72,-.02,-.15,0,0,1,1,1.05));
-    // Y-straps, ammo pouches, bread bag, gas-mask canister, mess tin
-    p.push(P(Bx(.04,.5,.02),s.web,.1,.33,.135,0,0,.12),P(Bx(.04,.5,.02),s.web,-.1,.33,.135,0,0,-.12),P(Bx(.04,.5,.02),s.web,0,.33,-.135));
-    p.push(P(Bx(.12,.1,.05),0x2a2a26,.12,.13,.15),P(Bx(.12,.1,.05),0x2a2a26,-.12,.13,.15),P(Bx(.18,.16,.08),s.pack,.16,.0,-.12),P(Cy(.06,.06,.26,10),0x4e5546,-.08,.12,-.2,.3,0,0),P(Bx(.12,.1,.05),0x4f5244,.08,.3,-.17));
+    p.push(sc(HELM_DE,s.helm,0,.755,-.01,1,1,1.06));
+    p.push(sc(rbox(.035,.5,.014,.005),s.web,.09,.33,.135,1,1,1,0,0,.12),sc(rbox(.035,.5,.014,.005),s.web,-.09,.33,.135,1,1,1,0,0,-.12),sc(rbox(.035,.5,.014,.005),s.web,0,.33,-.135,1,1,1));
+    p.push(sc(rbox(.11,.09,.05,.015),0x2a2a26,.12,.13,.15,1,1,1),sc(rbox(.11,.09,.05,.015),0x2a2a26,-.12,.13,.15,1,1,1),sc(rbox(.17,.15,.08,.03),s.pack,.16,.0,-.12,1,1,1));
+    p.push(sc(lathe([[0,.13],[.055,.125],[.06,.11],[.06,-.11],[.055,-.125],[0,-.13]],16),0x4e5546,-.08,.12,-.2,1,1,1,-Math.PI/2+.3),sc(rbox(.11,.1,.05,.02),0x4f5244,.08,.3,-.17,1,1,1));
   }
   return GEO_CACHE[key]=mergeGeos(p);
 }
 function legGeos(team){
   const key='l'+team;if(GEO_CACHE[key])return GEO_CACHE[key];const s=STY[team];
-  const thigh=mergeGeos([P(Bx(.16,.47,.18),s.trou,0,-.22,0)]);
-  const shin=team===0?mergeGeos([P(Bx(.14,.24,.16),s.trou,0,-.1,0),P(Bx(.145,.2,.165),s.leg,0,-.3,0),P(Bx(.14,.09,.26),s.boot,0,-.45,.045)])
-                     :mergeGeos([P(Bx(.14,.12,.16),s.trou,0,-.05,0),P(Bx(.15,.34,.17),s.boot,0,-.28,0),P(Bx(.14,.09,.26),s.boot,0,-.45,.045)]);
+  const thigh=mergeGeos([sc(new THREE.CylinderGeometry(.084,.072,.48,14),s.trou,0,-.22,0,1,1,1),sc(SPH,s.trou,0,-.45,0,.07,.06,.075)]);
+  const boot=rbox(.11,.085,.25,.035);
+  const shin=team===0?mergeGeos([sc(new THREE.CylinderGeometry(.068,.062,.24,14),s.trou,0,-.1,0,1,1,1),sc(new THREE.CylinderGeometry(.07,.066,.2,14),s.leg,0,-.3,0,1,1,1),sc(boot,s.boot,0,-.45,.045,1,1,1)])
+                     :mergeGeos([sc(new THREE.CylinderGeometry(.068,.064,.12,14),s.trou,0,-.05,0,1,1,1),sc(new THREE.CylinderGeometry(.074,.068,.34,14),s.boot,0,-.28,0,1,1,1),sc(boot,s.boot,0,-.45,.045,1,1,1)]);
   return GEO_CACHE[key]={thigh,shin};
 }
 // arms holding a given weapon; grip sits in front of the right shoulder
@@ -41,15 +53,13 @@ function armsGeo(team,v,wid){
   const grip=new V3(-.1,-.12,.25),fore=new V3(-.07,-.1,.25-m.foreZ);
   const parts=[];
   if(W.type==='melee'||W.type==='nade'||W.pistol){grip.set(-.12,-.12,.4);fore.copy(grip).add(new V3(.06,0,0));}
-  const sh=new V3(-.21,0,0),shL=new V3(.21,0,0);
+  const sh=new V3(-.2,0,0),shL=new V3(.2,0,0);
   const el=grip.clone().add(sh).multiplyScalar(.5).add(new V3(-.06,-.12,-.05));const elL=fore.clone().add(shL).multiplyScalar(.5).add(new V3(.08,-.14,-.02));
-  const lb=(a,b,w,c)=>{const q=limb(a,b,w,c);parts.push(q);};
-  lb(sh,el,.1,coat);lb(el,grip,.09,coat);parts.push(P(Bx(.07,.08,.08),skin,grip.x,grip.y,grip.z));
-  lb(shL,elL,.1,coat);lb(elL,fore,.09,coat);parts.push(P(Bx(.07,.08,.08),skin,fore.x,fore.y,fore.z));
+  const lb=(a,b,w,c)=>{parts.push(limb(a,b,w,c));};
+  lb(sh,el,.1,coat);lb(el,grip,.088,coat,.075);parts.push(sc(SPH,coat,el.x,el.y,el.z,.05,.05,.05),sc(SPH,skin,grip.x,grip.y,grip.z,.04,.045,.055));
+  lb(shL,elL,.1,coat);lb(elL,fore,.088,coat,.075);parts.push(sc(SPH,coat,elL.x,elL.y,elL.z,.05,.05,.05),sc(SPH,skin,fore.x,fore.y,fore.z,.04,.045,.055));
   const wg=weaponGeoTP(wid);
-  parts.push({geo:wg,m:compose(grip.x+.02,grip.y+.06,grip.z),col:null});
-  // mergeGeos would tint with white; keep the weapon's own vertex colors
-  const G=mergeGeos(parts.filter(q=>q.geo!==wg));
+  const G=mergeGeos(parts);
   const wgc=wg.clone();wgc.applyMatrix4(compose(grip.x+.02,grip.y+.06,grip.z));
   return GEO_CACHE[key]=concatGeos(G,wgc);
 }
@@ -58,7 +68,7 @@ function concatGeos(a,b){
   for(const name of['position','normal','color','uv']){const A=a.attributes[name],B=b.attributes[name];const arr=new Float32Array(A.array.length+B.array.length);arr.set(A.array);arr.set(B.array,A.array.length);out.setAttribute(name,new THREE.BufferAttribute(arr,A.itemSize));}
   out.computeBoundingSphere();return out;
 }
-const SMAT=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:.05});
+const SMAT=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8,metalness:.08,envMap:ENV,envMapIntensity:.45});
 
 function buildModel(u){
   const root=new THREE.Group();root.rotation.order='YXZ';

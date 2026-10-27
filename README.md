@@ -26,6 +26,7 @@ Each one is a single self-contained HTML page:
 - `line-of-battle/`: Line of Battle, a 3D Civil War infantry shooter.
 - `hold-aim-fire/`: Hold, Aim, Fire, a Civil War volley-timing game.
 - `dead-end-boulevard/`: Dead End Boulevard, a zombie street survival game.
+- `castle-wars/`: Castle Wars, a first-person medieval castle siege: blue castle against red, nine hero classes with war shouts, troops to command and raider waves. Unlike the others it is several files (three.js r160 and PeerJS are vendored in `castle-wars/vendor/`), so serve it over http. Online play connects two browsers directly (WebRTC via PeerJS).
 
 With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name>/line-of-battle/` and so on.
 

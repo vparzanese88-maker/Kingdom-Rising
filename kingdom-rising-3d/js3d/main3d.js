@@ -24,6 +24,7 @@ const { grass } = await import('./grass.js');
 const { menu: menu3d } = await import('./menu3d.js');
 await import('./cine3d.js');
 await import('./heroview.js');
+await import('./wildlife.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kingdom Rising 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap">
+<!--
+  Kingdom Rising 3D. This page runs the very same game as ../index.html: it reads the 2D page's
+  stylesheet and script list at startup and loads every game file from ../js/ (everything except
+  main.js). js3d/ replaces the flat renderer and the input code with a 3D world.
+-->
+<style>
+html, body { height: 100%; margin: 0; background: #07080b; overflow: hidden; }
+#boot3d { position: fixed; inset: 0; display: grid; place-items: center; color: #b9a989; font: 15px "Alegreya Sans", system-ui, sans-serif; background: radial-gradient(ellipse at center, #2a1f16 0%, #0b0a0f 70%); z-index: 90; text-align: center; padding: 16px; }
+#boot3d b { display: block; font: 400 clamp(34px, 6vw, 64px)/1 "IM Fell English SC", Georgia, serif; color: #f0d48a; margin-bottom: 14px; }
+</style>
+<link rel="stylesheet" href="css3d/k3d.css?v=4">
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.min.js",
+  "three/addons/": "./vendor/three/examples/jsm/",
+  "./js3d/actors.js": "./js3d/actors.js?v=4",
+  "./js3d/camera.js": "./js3d/camera.js?v=4",
+  "./js3d/chars.js": "./js3d/chars.js?v=4",
+  "./js3d/core.js": "./js3d/core.js?v=4",
+  "./js3d/creatures.js": "./js3d/creatures.js?v=4",
+  "./js3d/fx.js": "./js3d/fx.js?v=4",
+  "./js3d/geo.js": "./js3d/geo.js?v=4",
+  "./js3d/grass.js": "./js3d/grass.js?v=4",
+  "./js3d/hud3d.js": "./js3d/hud3d.js?v=4",
+  "./js3d/lights.js": "./js3d/lights.js?v=4",
+  "./js3d/mats.js": "./js3d/mats.js?v=4",
+  "./js3d/mb.js": "./js3d/mb.js?v=4",
+  "./js3d/props.js": "./js3d/props.js?v=4",
+  "./js3d/settings3d.js": "./js3d/settings3d.js?v=4",
+  "./js3d/sky.js": "./js3d/sky.js?v=4",
+  "./js3d/structures.js": "./js3d/structures.js?v=4",
+  "./js3d/terrain.js": "./js3d/terrain.js?v=4",
+  "./js3d/texgen.js": "./js3d/texgen.js?v=4",
+  "./js3d/veg.js": "./js3d/veg.js?v=4",
+  "./js3d/viewmodel.js": "./js3d/viewmodel.js?v=4",
+  "./js3d/weapons.js": "./js3d/weapons.js?v=4",
+  "./js3d/world3d.js": "./js3d/world3d.js?v=4"
+} }
+</script>
+
+<canvas id="game" aria-label="Kingdom Rising 3D game world"></canvas>
+<canvas id="hud3d" aria-hidden="true"></canvas>
+<div id="ui" hidden></div>
+<div id="screen"></div>
+<div id="loading" hidden><div><div class="spin"></div><p class="dim">Preparing the realm...</p></div></div>
+<div id="gate" hidden><div class="cv-click" id="gate-go">Click anywhere to continue</div></div>
+<div id="boot3d"><div><b>Kingdom Rising</b><span id="boot3d-msg">Loading the game files...</span></div></div>
+
+<script>
+// load the 2D page's styles and game scripts, in order, then start the 3D renderer (js3d/main3d.js)
+window.KR3D = true;
+window.addEventListener('error', function (e) { if (e.filename && e.filename.indexOf('/js') < 0) return; if (window.KR && window.KR.Main && window.KR.Main.showFatal) window.KR.Main.showFatal(e.error || e.message); });
+window.addEventListener('unhandledrejection', function (e) { try { e.preventDefault(); } catch (x) {} console.warn('Ignored async error:', e.reason); });
+window.KR_READY = (async function () {
+  const msg = (t) => { const el = document.getElementById('boot3d-msg'); if (el) el.textContent = t; };
+  let html;
+  try { const r = await fetch('../index.html', { cache: 'no-cache' }); if (!r.ok) throw new Error(r.status); html = await r.text(); }
+  catch (e) { msg('Could not load the game files. Serve this folder over http (for example: python3 -m http.server) instead of opening the file directly.'); throw e; }
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const css = [...doc.querySelectorAll('style')].map((s) => s.textContent).join('\n');
+  const st = document.createElement('style'); st.id = 'kr2d-css'; st.textContent = css; document.head.insertBefore(st, document.head.querySelector('link[href^="css3d"]'));
+  const inline = [...doc.querySelectorAll('script:not([src])')].map((s) => s.textContent).join('\n');
+  const m = /KR_VERSION\s*=\s*(\d+)/.exec(inline); window.KR_VERSION = m ? +m[1] : 1;
+  const srcs = [...doc.querySelectorAll('script[src]')].map((s) => s.getAttribute('src')).filter((s) => !/(^|\/)main\.js(\?|$)/.test(s));
+  await new Promise((resolve, reject) => {
+    let left = srcs.length;
+    srcs.forEach((src, i) => {
+      const s = document.createElement('script'); s.src = '../' + src; s.async = false;
+      s.onload = () => { msg('Loading the game files... ' + Math.round(((srcs.length - --left) / srcs.length) * 100) + '%'); if (!left) resolve(); };
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.body.appendChild(s);
+    });
+  });
+  msg('Raising the world in three dimensions...');
+})();
+</script>
+<script type="module" src="js3d/main3d.js?v=4"></script>
+</html>

@@ -18,6 +18,7 @@
   O.available = () => !!((window.claude && window.claude.use) || KR.Relay);
   // the shared save lives in claude.ai's database there, and on the public relay everywhere else (relay.js)
   const sharedDb = () => Sys.Store.db || (KR.Relay && KR.Relay.db) || null;
+  O.inviteLink = () => { const u = new URL(location.href); u.search = ''; u.hash = ''; const q = new URLSearchParams(location.search); if (q.get('relay')) u.searchParams.set('relay', q.get('relay')); u.searchParams.set('join', O.code); return u.toString(); };
   O.cleanCode = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
   O.newCode = () => { const s = 'abcdefghjkmnpqrstuvwxyz23456789'; let c = ''; for (let i = 0; i < 6; i++) c += s[Math.floor(Math.random() * s.length)]; return c; };
   O.getLobby = async function () {

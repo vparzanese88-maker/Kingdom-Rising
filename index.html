@@ -145,6 +145,12 @@ textarea { font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize:
 .mo-list { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow: auto; }
 .mo-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid #4a3a28; border-radius: 8px; background: rgba(40,28,18,.6); } .mo-row span { flex: 1; min-width: 0; display: flex; flex-direction: column; } .mo-row small { color: var(--parch-dim); font-size: 12px; overflow-wrap: anywhere; }
 .mm-quit { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 16px; background: radial-gradient(circle at 50% 40%, #2a1a10, #0b0a0f 70%); } .mm-quit h1 { font: 400 clamp(36px, 7vw, 64px) var(--f-disp); margin: 0; color: var(--brass-hi); } .mm-quit p { color: #e8d8b8; margin: 0 0 8px; }
+.mo-main { margin-bottom: 14px; border-color: #8a6a3a; background: rgba(30,22,12,.55); }
+.mo-how { margin: 0 0 4px 18px; padding: 0; color: #e8d8b8; line-height: 1.55; }
+.mo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 6px 0 2px; }
+.mo-or { color: var(--parch-dim); font-style: italic; }
+.mo-joinrow { display: flex; gap: 8px; flex: 1; min-width: 220px; } .mo-joinrow input { flex: 1; min-width: 0; font-size: 18px; text-transform: lowercase; letter-spacing: .08em; }
+.mo-more summary { cursor: pointer; color: var(--parch-dim); font-size: 13px; margin-top: 4px; } .mo-more[open] { display: flex; flex-direction: column; gap: 8px; } .mo-more label { max-width: 360px; }
 @media (max-width: 760px) { .mo-grid { grid-template-columns: 1fr; } }
 /* the main menu always fits the screen: everything sizes to the viewport height */
 @media (min-width: 861px) {
@@ -400,6 +406,12 @@ body.dnd, body.dnd * { cursor: grabbing !important; } body.dnd .tip { display: n
 body.layout-edit .hud-group { min-height: 48px; min-width: 170px; background: rgba(24,18,12,.6); border-radius: 8px; }
 .ginv-box { position: absolute; left: 50%; top: 120px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 9000; }
 .ginv { background: linear-gradient(#2c2418, #1a140d); border: 1px solid #7fd69a; border-radius: 8px; padding: 10px 14px; color: #f0e6d2; box-shadow: 0 6px 24px rgba(0,0,0,.6); min-width: 240px; }
+.groll-box { position: absolute; right: 18px; bottom: 200px; display: flex; flex-direction: column; gap: 8px; z-index: 9000; pointer-events: auto; }
+.groll { display: flex; gap: 10px; align-items: center; background: linear-gradient(#2c2418, #1a140d); border: 1px solid #3cf0ff; border-radius: 8px; padding: 9px 12px; color: #f0e6d2; box-shadow: 0 6px 24px rgba(0,0,0,.6); width: 300px; max-width: calc(100vw - 36px); box-sizing: border-box; }
+.groll-i { font-size: 30px; width: 44px; height: 44px; display: grid; place-items: center; background: rgba(0,0,0,.35); border-radius: 6px; flex: none; } .groll-i img { width: 40px; height: 40px; }
+.groll-m { flex: 1; min-width: 0; } .groll-m b { color: #ffe9a8; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .groll-m small { color: #bba; display: block; font-size: 11px; }
+.groll-t { height: 4px; background: rgba(0,0,0,.5); border-radius: 2px; margin: 6px 0; overflow: hidden; } .groll-t i { display: block; height: 100%; background: #3cf0ff; }
+.groll-b { display: flex; gap: 6px; }
 .ginv b { color: #9affb8; } .ginv small { display: block; color: #bba; } .ginv-b { display: flex; gap: 8px; margin-top: 8px; }
 .gp { display: flex; flex-direction: column; gap: 12px; } .gp-sec h4 { margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; }
 .gp-mem { display: flex; flex-direction: column; gap: 6px; } .gp-m { padding: 6px 8px; border: 1px solid #5a4430; border-radius: 6px; background: rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 3px; } .gp-m.off { opacity: .55; }
@@ -450,28 +462,28 @@ body.layout-edit .hud-mercs { min-height: 48px; min-width: 180px; background: rg
 <div id="gate" hidden><div class="cv-click" id="gate-go">Click anywhere to continue</div></div>
 
 <script>
-window.KR_VERSION = 41;
+window.KR_VERSION = 42;
 window.addEventListener('error', function (e) { if (e.filename && e.filename.indexOf('/js/') < 0) return; if (window.KR && window.KR.Main && window.KR.Main.showFatal) window.KR.Main.showFatal(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { try { e.preventDefault(); } catch (x) {} console.warn('Ignored async error:', e.reason); });
 </script>
-<script src="js/data.js?v=41"></script>
-<script src="js/audio.js?v=41"></script>
-<script src="js/world.js?v=41"></script>
-<script src="js/sprites.js?v=41"></script>
-<script src="js/game.js?v=41"></script>
-<script src="js/systems.js?v=41"></script>
-<script src="js/mercs.js?v=41"></script>
-<script src="js/render.js?v=41"></script>
-<script src="js/ui.js?v=41"></script>
-<script src="js/mercui.js?v=41"></script>
-<script src="js/travel.js?v=41"></script>
-<script src="js/war.js?v=41"></script>
-<script src="js/kingdom.js?v=41"></script>
-<script src="js/tips.js?v=41"></script>
-<script src="js/story.js?v=41"></script>
-<script src="js/affinity.js?v=41"></script>
-<script src="js/group.js?v=41"></script>
-<script src="js/relay.js?v=41"></script>
-<script src="js/online.js?v=41"></script>
-<script src="js/menus.js?v=41"></script>
-<script src="js/main.js?v=41"></script>
+<script src="js/data.js?v=42"></script>
+<script src="js/audio.js?v=42"></script>
+<script src="js/world.js?v=42"></script>
+<script src="js/sprites.js?v=42"></script>
+<script src="js/game.js?v=42"></script>
+<script src="js/systems.js?v=42"></script>
+<script src="js/mercs.js?v=42"></script>
+<script src="js/render.js?v=42"></script>
+<script src="js/ui.js?v=42"></script>
+<script src="js/mercui.js?v=42"></script>
+<script src="js/travel.js?v=42"></script>
+<script src="js/war.js?v=42"></script>
+<script src="js/kingdom.js?v=42"></script>
+<script src="js/tips.js?v=42"></script>
+<script src="js/story.js?v=42"></script>
+<script src="js/affinity.js?v=42"></script>
+<script src="js/group.js?v=42"></script>
+<script src="js/relay.js?v=42"></script>
+<script src="js/online.js?v=42"></script>
+<script src="js/menus.js?v=42"></script>
+<script src="js/main.js?v=42"></script>

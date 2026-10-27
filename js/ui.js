@@ -203,6 +203,7 @@
   UI.icHTML = function (it, small) {
     if (!it) return '';
     if (['weapon', 'armor', 'jewel'].includes(it.kind) && KR.S.itemIcon) { const src = KR.S.itemIcon(it.kind === 'armor' && ['neck', 'ring', 'ear', 'finger'].includes(it.slot) ? Object.assign({}, it, { kind: 'jewel', uid: (it.uid || '') + 'j' }) : it); if (src) return `<img class="iimg${small ? ' sm' : ''}${it.unique ? ' uq' : it.proc ? ' pr' : ''}" src="${src}" alt="">`; }
+    if (it.kind === 'trophy' && it.icon === '🦴' && G.trophyIcon) it.icon = G.trophyIcon(it.name); // older saves gave every trophy a bone
     return esc(it.icon || '?');
   };
   function weaponAbDesc(d) {
@@ -713,7 +714,11 @@
     for (const pt of W.portals || []) { const [a, b2] = T2(pt.x, pt.y); g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.75)'; const t = (pt.back ? '⇧ ' : pt.sewer ? '🕳 ' : '⛏ ') + (pt.label || ''); g.strokeText(t, a, b2 - 8); g.fillStyle = pt.back ? '#ffe9a8' : '#e0c090'; g.fillText(t, a, b2 - 8); g.beginPath(); g.arc(a, b2, 4, 0, 6.28); g.fill(); }
     for (const k in D.HUBS) { const hb = D.HUBS[k]; if ((hb.realm || 'main') !== W.realm) continue; const [hx, hy] = hb.at; if (!W.explored[(hy >> 2) * EW + (hx >> 2)]) continue; const [a, b2] = T2(hx, hy); g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.75)'; const t = (k === 'lair' ? '🐉 ' : k === 'eyrie' ? '🎈 ' : '⚓ ') + hb.name; g.strokeText(t, a, b2 - 8); g.fillStyle = '#9ad8ff'; g.fillText(t, a, b2 - 8); }
     KR.R.drawQuestMarks(g, T2, s);
-    for (const pp of Sys.Net.peers) { const [a, b2] = T2(pp.x / 32, pp.y / 32); g.fillStyle = '#fff'; g.beginPath(); g.arc(a, b2, 3, 0, 6.28); g.fill(); }
+    for (const pp of Sys.Net.peers) {
+      if ((pp.rm || 'main') !== (W.realm || 'main')) continue; const [a, b2] = T2(pp.x / 32, pp.y / 32);
+      if (Sys.isMate && Sys.isMate(pp)) { g.fillStyle = Sys.GROUP_COL; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(a, b2, 5, 0, 6.28); g.fill(); g.stroke(); g.font = '700 12px "Alegreya Sans", sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeText(String(pp.n || '').slice(0, 16), a, b2 - 9); g.fillText(String(pp.n || '').slice(0, 16), a, b2 - 9); }
+      else { g.fillStyle = '#fff'; g.beginPath(); g.arc(a, b2, 3, 0, 6.28); g.fill(); }
+    }
     for (const m of p.mercs || []) { const [a, b2] = T2(m.x / 32, m.y / 32); g.fillStyle = '#9affb8'; g.beginPath(); g.arc(a, b2, 2.5, 0, 6.28); g.fill(); }
     const [px, py] = T2(p.x / 32, p.y / 32); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 5, 0, 6.28); g.fill(); g.stroke();
     g.fillStyle = '#ff4a3a'; g.beginPath(); g.arc(px, py, 2, 0, 6.28); g.fill();

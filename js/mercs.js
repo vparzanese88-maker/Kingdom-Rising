@@ -13,8 +13,11 @@
   const TANKS = ['warrior', 'paladin', 'shadowknight'];
   Sys.MERC_TANKS = TANKS;
   Sys.mercRole = (cls) => (TANKS.includes(cls) ? 'Tank' : ['cleric', 'druid', 'shaman'].includes(cls) ? 'Healer' : ['enchanter', 'bard', 'beastlord'].includes(cls) ? 'Support' : 'Damage');
-  Sys.mercSlots = () => (G.player ? Math.min(5, Sys.cityLevel(G.player.c.faction)) : 1); // one slot per kingdom level
-  Sys.mercCost = (lv) => Math.round(40 + lv * lv * 12);
+  // mercenaries are for hire from Kingdom Level 2: one slot then, and one more each level after (4 at level 5)
+  Sys.MERC_MIN_KL = 2;
+  Sys.mercSlots = () => (G.player ? Math.max(0, Math.min(4, Sys.cityLevel(G.player.c.faction) - 1)) : 0);
+  // a contract costs more as you level, and each mercenary you already lead makes the next one dearer (+50%)
+  Sys.mercCost = (lv, have) => { if (have == null) have = G.player ? (G.player.c.mercs || []).length : 0; return Math.round((100 + lv * lv * 30) * (1 + 0.5 * have)); };
 
   // ---------- trader offers (refresh every in-game day) ----------
   Sys.mercOffers = function () {
@@ -53,7 +56,9 @@
 
   Sys.hireMerc = function (offer) {
     const p = G.player, c = p.c; c.mercs = c.mercs || [];
-    if (c.mercs.length >= Sys.mercSlots()) { const kl = Sys.cityLevel(c.faction); G.log(`Your kingdom is level ${kl}, so you can lead ${Sys.mercSlots()} mercenar${Sys.mercSlots() > 1 ? 'ies' : 'y'}. ${kl < 5 ? 'Raise your kingdom to level ' + (kl + 1) + ' for another slot.' : ''}`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
+    const kl = Sys.cityLevel(c.faction);
+    if (kl < Sys.MERC_MIN_KL) { G.log(`No mercenary will sign with a hamlet. Raise ${D.FACTIONS[c.faction].city} to Kingdom Level ${Sys.MERC_MIN_KL} to hire one.`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
+    if (c.mercs.length >= Sys.mercSlots()) { G.log(`Your kingdom is level ${kl}, so you can lead ${Sys.mercSlots()} mercenar${Sys.mercSlots() > 1 ? 'ies' : 'y'}. ${kl < 5 ? 'Raise your kingdom to level ' + (kl + 1) + ' for another slot.' : ''}`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
     const cost = Sys.mercCost(c.level);
     if (c.coins < cost) { G.log("You can't afford that mercenary's contract.", 'sys', '#ff8a6a'); KR.A.sfx('fail', 0.5); return; }
     c.coins -= cost;

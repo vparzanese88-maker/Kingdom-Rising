@@ -35,7 +35,7 @@
   D.MOB_CLASS_KITS.Cavalry = ['charge', 'cleave', 'trip', 'enrage'];
   D.WAR = { everyMin: 24, squad: ['longbowman', 'longbowman', 'longbowman', 'pikeman', 'pikeman', 'knight'], spawnGap: 1.6 };
   D.WAR.rosterMax = (tier) => 4 + tier * 2;
-  War.hireCost = (f, cls) => Math.round(Sys.mercCost(Sys.cityTierLevel(f)) * 1.5 * D.SOLDIERS[cls].cost);
+  War.hireCost = (f, cls) => { const L = Sys.cityTierLevel(f); return Math.round((40 + L * L * 12) * 1.5 * D.SOLDIERS[cls].cost); }; // soldiers keep their own price (mercenary contracts cost more)
   Sys.cityTierLevel = (f) => D.CITY_TIER_LEVELS[U.clamp(Sys.cityLevel(f), 1, 5) - 1];
   War.enemyOf = (f) => D.FACTION_IDS.find((x) => x !== f);
 

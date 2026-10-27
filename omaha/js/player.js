@@ -134,7 +134,7 @@ function updatePlayer(dt){
   const u=PL.u;if(!u)return;
   if(!u.alive){updateDeathCam(dt);return;}
   const K=PL.keys;const W=curWD(),w=curW();
-  const intro=G.mode==='intro';
+  const intro=G.mode==='intro'||G.mode==='freeze';
   // stance transitions
   if(PL.stanceT>0){PL.stanceT-=dt;if(PL.stanceT<=0||PL.targetStance!=='prone'&&u.stance!=='prone')u.stance=PL.targetStance;}
   else if(u.stance!==PL.targetStance)u.stance=PL.targetStance;
@@ -225,7 +225,8 @@ function updatePlayer(dt){
   PL.roll=lerp(PL.roll,-ix*.018*(PL.sprinting?1.6:1),dt*6);
   camera.position.set(u.pos.x+bobX*cy,u.pos.y+PL.eyeH+bobY-PL.landV*.08,u.pos.z-bobX*sy);
   if(intro&&G.introBoat){camera.position.y+=Math.sin(t*1.7)*.06;}
-  camera.rotation.set(PL.pitch+shy,PL.yaw+shx,PL.roll+shr+(intro?Math.sin(t*1.3)*.03:0));
+  const kk=FX.kick||0;FX.kick=Math.max(0,kk-dt*2.5);
+  camera.rotation.set(PL.pitch+shy+kk*.08*Math.sin(t*30),PL.yaw+shx+kk*.05*Math.sin(t*23),PL.roll+shr+kk*.12*Math.sin(t*17)+(intro?Math.sin(t*1.3)*.03:0));
   // field of view
   const fov=lerp(75,W.adsFov||75,PL.ads)*(PL.sprinting?1.04:1);
   if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix();particleScale();}
@@ -243,7 +244,7 @@ function updateViewmodel(dt,sp){
   if(W.mg||W.bipod&&u.deployed){x=lerp(.1,.0,u.deployed?1:0);y=u.deployed?-(VM.sightY||.09)-.005:-.17;z=u.deployed?-.2:-.3;ry=u.deployed?0:.08;}
   if(W.pistol){x=lerp(.12,0,a);y=lerp(-.13,-(VM.sightY||.055),a);z=lerp(-.32,-.28,a);}
   if(W.type==='melee'){x=.16;y=-.18;z=-.3;rx=.25;ry=-.2;}
-  if(W.type==='nade'){x=.16;y=-.16;z=-.3;if(PL.nadeHold){x=.2;y=-.08;z=-.2;rx=-.4;}}
+  if(W.type==='nade'){x=.12;y=-.1;z=-.26;if(PL.nadeHold){x=.16;y=-.06;z=-.2;rx=-.4;}}
   if(PL.sprinting){x+=-.02;y-=.03;rx+=-.35;ry+=.55;rz+=.25;}
   if(u.stance==='prone'&&!u.deployed&&sp>.3){y-=.12;rx-=.4;ry+=.4;}
   // walk bob

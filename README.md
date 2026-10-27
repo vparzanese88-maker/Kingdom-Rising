@@ -48,6 +48,7 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
   - `affinity.js`: monster weaknesses and resistances.
   - `group.js`: grouping.
   - `online.js`: single player and hosted multiplayer (hosting, joining, passwords, shared saves, host hand-off).
+  - `relay.js`: the multiplayer connection when the game is hosted outside claude.ai (public MQTT brokers).
   - `menus.js`: the main menu and hero creation.
   - `main.js`: boot and input.
 - When you change a file, bump `?v=` on every script tag and `window.KR_VERSION` in `index.html` so browsers fetch the new copy.
@@ -60,7 +61,11 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
   - **Saved games:** a hosted world is saved separately from your single-player world, so anyone with its code and password can host it again later and carry on.
   - **Host hand-off:** if the host leaves while others are still playing, one of them takes over as host automatically and the game goes on.
 - The password protects the game: the game room and the saved world are both derived from the code and password, and the save is encrypted with the password.
-- Multiplayer and cloud saves use claude.ai's artifact services, so they only work in the claude.ai version. On GitHub Pages you can play Single Player, saved in your browser.
+- Multiplayer works wherever the game is hosted: GitHub Pages, your own site, or claude.ai. Friends open the same link, press **Multiplayer** and join with your code. The 2D page and the 3D page (`kingdom-rising-3d/`) can play together in the same game.
+- Outside claude.ai, `js/relay.js` connects players through free public MQTT brokers over secure websockets (broker.emqx.io and broker.hivemq.com, both at once, so one being down does not matter). The hosted world is saved, encrypted with the password, on those brokers and in the host's browser.
+- To use your own broker, add `?relay=wss://your.broker:port/mqtt` to the page address (several can be given, separated by commas). Everyone in a game must use the same brokers.
+- Players on claude.ai and players on other hosts are on different networks and cannot see each other.
+- Cloud saves of your heroes only work on claude.ai; elsewhere heroes are saved in your browser.
 
 ## Publishing to claude.ai
 The artifact needs these capabilities: `db`, `user`, and `room` with the topics `chat`, `grp`, `hello`, `world` and `op` opened to the `interact` level (so players other than the owner can send them).

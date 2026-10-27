@@ -15,12 +15,14 @@
   const toast = (t, s) => KR.UI && KR.UI.toast && KR.UI.toast(t, s);
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  O.available = () => !!(window.claude && window.claude.use);
+  O.available = () => !!((window.claude && window.claude.use) || KR.Relay);
+  // the shared save lives in claude.ai's database there, and on the public relay everywhere else (relay.js)
+  const sharedDb = () => Sys.Store.db || (KR.Relay && KR.Relay.db) || null;
   O.cleanCode = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
   O.newCode = () => { const s = 'abcdefghjkmnpqrstuvwxyz23456789'; let c = ''; for (let i = 0; i < 6; i++) c += s[Math.floor(Math.random() * s.length)]; return c; };
   O.getLobby = async function () {
     if (O.lobby) return O.lobby;
-    try { if (O.available()) O.lobby = await window.claude.use('room'); } catch (e) { O.lobby = null; }
+    try { if (window.claude && window.claude.use) O.lobby = await window.claude.use('room'); else if (KR.Relay) O.lobby = await KR.Relay.lobby(); } catch (e) { O.lobby = null; }
     return O.lobby;
   };
 
@@ -55,17 +57,17 @@
 
   // ---------- the shared save ----------
   O.loadShared = async function (code, pass) {
-    const db = Sys.Store.db; if (!db) return null;
-    const s = await Sys.withTimeout(db.doc(await docFor(code, pass)).get(), 6000);
+    const db = sharedDb(); if (!db) return null;
+    const s = await Sys.withTimeout(db.doc(await docFor(code, pass)).get(), 8000);
     if (!s || !s.exists) return null;
     try { return await unseal(s.data(), code, pass); } catch (e) { return null; }
   };
   O.saveShared = function () {
-    if (O.mode !== 'host' || !Sys.Store.db) return;
+    if (O.mode !== 'host' || !sharedDb()) return;
     const a = G.account; a.clock = Math.round(G.clock);
     const save = { name: O.name, world: pick(a, HOST_KEYS), updated: Date.now() }; // taken now, before any await
     const { code, pass } = O; O.lastShared = Date.now();
-    (async () => { try { await Sys.Store.db.doc(await docFor(code, pass)).set(Object.assign({ v: 1, updated: save.updated }, await seal(save, code, pass))); } catch (e) { console.warn('hosted save', e); } })();
+    (async () => { try { await sharedDb().doc(await docFor(code, pass)).set(Object.assign({ v: 1, updated: save.updated }, await seal(save, code, pass))); } catch (e) { console.warn('hosted save', e); } })();
   };
   O.freshWorld = function () {
     const def = Sys.defaultAccount(); for (const f of D.FACTION_IDS) def.cities[f].built = 0;
@@ -132,7 +134,7 @@
   }
   async function enterRoom(code, pass) {
     const lobby = await O.getLobby();
-    if (!lobby) throw new Error('Multiplayer only works in the claude.ai version of the game.');
+    if (!lobby) throw new Error(O.available() ? 'Could not reach the multiplayer servers. Check your internet connection and try again.' : 'Multiplayer is not available in this browser.');
     let room;
     try { room = await lobby.join(await roomFor(code, pass)); } catch (e) { throw new Error('Could not open the game room (' + (e && e.code || 'error') + '). Try again in a moment.'); }
     for (let i = 0; i < 20 && !room.connected(); i++) await wait(150);
@@ -152,7 +154,7 @@
   // opts: {code, pass, name, fresh}
   O.host = async function (opts) {
     const code = O.cleanCode(opts.code) || O.newCode(), pass = String(opts.pass || '');
-    if (!Sys.Store.db) throw new Error('Hosting needs you to be signed in to claude.ai, so the game can be saved.');
+    if (!sharedDb()) throw new Error('Hosting needs you to be signed in to claude.ai, so the game can be saved.');
     const room = await enterRoom(code, pass);
     const other = await findHost(room, 2500);
     if (other) { room.leave().catch(() => {}); throw new Error(`"${other.data.name || code}" already has a host. Join it instead.`); }

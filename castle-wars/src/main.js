@@ -1,0 +1,290 @@
+// Entry point: renderer, main loop and menu wiring.
+import * as THREE from 'three';
+import { Game } from './game.js';
+import { UI } from './ui.js';
+import { Audio } from './audio.js';
+import { Input } from './input.js';
+import { Net } from './net.js';
+import { RoomNet } from './roomnet.js';
+import { PeerNet } from './peernet.js';
+import { setMapSize, WORLD, MAP_SIZES } from './config.js';
+
+const $ = (id) => document.getElementById(id);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+$('app').appendChild(renderer.domElement);
+
+const ui = new UI();
+const audio = new Audio();
+const input = new Input(renderer.domElement);
+
+// map size (remembered per browser); the world is rebuilt when it changes
+let mapSize = 'medium';
+try { mapSize = localStorage.getItem('cw-map') || 'medium'; } catch (e) { /* storage unavailable */ }
+if (!MAP_SIZES[mapSize]) mapSize = 'medium';
+
+let game;
+function buildGame(size) {
+  setMapSize(size);
+  game = new Game(renderer, ui, audio, input);
+  game.state = 'menu';
+  game.mapBuiltFor = size;
+  ui.mapBg = null;
+  window.__game = game; // handy for debugging from the console
+}
+try {
+  buildGame(mapSize);
+} catch (e) {
+  console.error(e);
+  $('loading').textContent = 'Failed to start: ' + e.message;
+  throw e;
+}
+$('loading').classList.add('hidden');
+$('menu').classList.remove('hidden');
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  game.camera.aspect = innerWidth / innerHeight;
+  game.camera.updateProjectionMatrix();
+  game.fx.setScale(innerHeight * renderer.getPixelRatio());
+}
+addEventListener('resize', resize);
+resize();
+
+// graphics quality (remembered per browser)
+let quality = 'medium';
+try { quality = localStorage.getItem('cw-quality') || 'medium'; } catch (e) { /* storage unavailable */ }
+function setQuality(q) {
+  quality = q;
+  game.setQuality(q);
+  document.querySelectorAll('.quality button').forEach((b) => b.classList.toggle('active', b.dataset.q === q));
+  try { localStorage.setItem('cw-quality', q); } catch (e) { /* ignore */ }
+}
+document.querySelectorAll('.quality button').forEach((b) => b.addEventListener('click', () => setQuality(b.dataset.q)));
+setQuality(quality);
+
+let difficulty = 'normal';
+document.querySelectorAll('#difficulty button').forEach((b) => {
+  b.addEventListener('click', () => {
+    difficulty = b.dataset.d;
+    document.querySelectorAll('#difficulty button').forEach((o) => o.classList.toggle('active', o === b));
+  });
+});
+
+function selectMap(size) {
+  mapSize = size;
+  document.querySelectorAll('#mapsize button').forEach((b) => b.classList.toggle('active', b.dataset.m === size));
+  $('mapDesc').textContent = MAP_SIZES[size].desc;
+  try { localStorage.setItem('cw-map', size); } catch (e) { /* ignore */ }
+}
+document.querySelectorAll('#mapsize button').forEach((b) => b.addEventListener('click', () => selectMap(b.dataset.m)));
+selectMap(mapSize);
+
+// rebuild the world if the chosen map size differs from the one on screen
+function ensureMap(size) {
+  if (WORLD.size === size && game.mapBuiltFor === size) return;
+  const net0 = game.net;
+  renderer.renderLists.dispose();
+  buildGame(size);
+  game.net = net0;
+  game.setQuality(quality);
+  resize();
+}
+
+function begin(diff, setup = null, map = mapSize) {
+  ensureMap(map);
+  if (net) game.net = net;
+  audio.init();
+  $('menu').classList.add('hidden');
+  $('lobby').classList.add('hidden');
+  ui.showHud();
+  game.start(diff, setup);
+  input.lock();
+}
+
+$('play').addEventListener('click', () => begin(difficulty));
+
+// ---------------- online play ----------------
+let net = null;
+let lobby = [];      // [{ team, name, netId }]
+let coop = false;    // lobby game mode chosen by the host
+const playerName = () => ($('pname').value.trim() || 'Lord').slice(0, 16);
+try { $('pname').value = localStorage.getItem('cw-name') || ''; } catch (e) { /* storage unavailable */ }
+const rememberName = () => { try { localStorage.setItem('cw-name', playerName()); } catch (e) { /* ignore */ } };
+
+// Online play goes through the Castle Wars server when the page comes from one, otherwise through
+// the claude.ai live room when the game is opened as an artifact there.
+let liveRoom = null;
+let direct = false;
+const onlineReady = Net.available().then(async (ok) => {
+  if (!ok) liveRoom = await RoomNet.open();
+  // served as plain files (GitHub Pages and the like): players connect browser to browser
+  if (!ok && !liveRoom) direct = PeerNet.available();
+  return ok || !!liveRoom || direct;
+});
+
+// Multiplayer panel on the main menu
+const showMultiplayer = async () => {
+  const can = await onlineReady;
+  $('online').classList.toggle('hidden', !can);
+  $('offlineNote').classList.toggle('hidden', can);
+  $('mpBtn').classList.add('active');
+  if (can) ($('pname').value ? $('joinCode').value ? $('joinBtn') : $('hostBtn') : $('pname')).focus();
+};
+$('mpBtn').addEventListener('click', showMultiplayer);
+
+// opened from an invite link (?join=CODE): open the panel with the code filled in
+const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+if (invited.length === 4) {
+  $('joinCode').value = invited;
+  $('inviteBanner').textContent = `You're invited to game ${invited}. Enter your name and press Join.`;
+  $('inviteBanner').classList.remove('hidden');
+  showMultiplayer();
+}
+
+for (const id of ['pname', 'joinCode']) {
+  $(id).addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    $($('joinCode').value.trim().length === 4 ? 'joinBtn' : 'hostBtn').click();
+  });
+}
+
+$('copyInvite').addEventListener('click', async () => {
+  const el = $('inviteLink');
+  try { await navigator.clipboard.writeText(el.value); }
+  catch (e) { el.select(); try { document.execCommand('copy'); } catch (e2) { /* ignore */ } }
+  $('copyInvite').textContent = 'Copied!';
+  setTimeout(() => { $('copyInvite').textContent = 'Copy Invite'; }, 1500);
+});
+
+async function connect() {
+  if (!(await onlineReady)) throw new Error('Online play is not available here.');
+  net = liveRoom ? new RoomNet(liveRoom) : direct ? new PeerNet() : new Net();
+  game.net = net;
+  await net.connect();
+  net.on('error', (msg) => { ui.lobbyError(msg); net.close(); $('lobby').classList.add('hidden'); $('menu').classList.remove('hidden'); });
+  net.on('closed', () => {
+    if (game.state === 'playing' && game.mode === 'client') game.finish(-1, 'Lost connection to the server.');
+  });
+  net.on('hostleft', () => {
+    if (game.state === 'playing') game.finish(-1, 'The host left the game.');
+    else { ui.lobbyError('The host closed the game.'); $('lobby').classList.add('hidden'); $('menu').classList.remove('hidden'); }
+  });
+}
+
+$('hostBtn').addEventListener('click', async () => {
+  rememberName();
+  ui.lobbyError('');
+  try { await connect(); } catch (e) { ui.lobbyError(e.message); return; }
+  lobby = [{ team: 0, name: playerName(), netId: null }];
+  const broadcast = () => { ui.renderLobby(lobby, 0, coop); net.toAll({ k: 'lobby', players: lobby, coop }); };
+  for (const b of document.querySelectorAll('#lobbyModes button')) {
+    b.onclick = () => { coop = b.dataset.mode === 'coop'; broadcast(); };
+  }
+  net.on('created', (m) => { ui.showLobby(m.code, true); broadcast(); });
+  net.on('peer', (m) => {
+    const used = new Set(lobby.map((p) => p.team));
+    const team = [1, 2, 3].find((t) => !used.has(t));
+    if (team === undefined) return;
+    lobby.push({ team, name: m.name, netId: m.id });
+    broadcast();
+  });
+  net.on('leave', (id) => { lobby = lobby.filter((p) => p.netId !== id); broadcast(); });
+  net.create(playerName());
+});
+
+$('startOnline').addEventListener('click', () => {
+  net.toAll({ k: 'start', diff: difficulty, players: lobby, map: mapSize, coop });
+  begin(difficulty, { mode: 'host', localTeam: 0, players: lobby, coop });
+});
+
+$('joinBtn').addEventListener('click', async () => {
+  rememberName();
+  ui.lobbyError('');
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (code.length !== 4) { ui.lobbyError('Enter the 4-letter room code from the host.'); return; }
+  try { await connect(); } catch (e) { ui.lobbyError(e.message); return; }
+  net.on('joined', (m) => ui.showLobby(m.code, false));
+  net.on('data', ({ d }) => {
+    if (d.k === 'lobby') ui.renderLobby(d.players, (d.players.find((p) => p.netId === net.id) || {}).team, !!d.coop);
+    if (d.k === 'start') {
+      const me = d.players.find((p) => p.netId === net.id);
+      if (!me) return;
+      begin(d.diff, { mode: 'client', localTeam: me.team, players: d.players.map((p) => ({ team: p.team, name: p.name })), coop: !!d.coop }, d.map || 'medium');
+    }
+  });
+  net.join(code, playerName());
+});
+
+$('leaveLobby').addEventListener('click', () => location.reload());
+
+// clicking anywhere on the pause screen resumes
+$('pause').addEventListener('click', (e) => {
+  if (e.target.closest('input, label, .quality')) return;
+  $('pauseHint').textContent = '';
+  input.lock();
+});
+input.onLockFail = () => {
+  if (game.state !== 'playing' || ui.shopOpen) return;
+  game.paused = true;
+  ui.showPause(true);
+  $('pauseHint').textContent = 'The browser needs one more click to capture the mouse. Click anywhere to continue.';
+};
+$('shopClose').addEventListener('click', () => ui.toggleShop(false));
+$('again').addEventListener('click', () => location.reload());
+$('sens').addEventListener('input', (e) => { game.player.sensitivity = 0.0008 + (e.target.value / 100) * 0.004; });
+$('vol').addEventListener('input', (e) => { audio.volume = e.target.value / 100; if (audio.master) audio.master.gain.value = audio.volume; });
+
+input.onLockChange = (locked) => {
+  if (game.state !== 'playing') return;
+  if (game.mode !== 'single' && !locked && !ui.shopOpen) { game.paused = true; ui.showPause(true); return; }
+  if (locked) {
+    game.paused = false;
+    ui.showPause(false);
+  } else if (!ui.shopOpen) {
+    game.paused = true;
+    ui.showPause(true);
+  }
+};
+
+// Clicking the game view while playing re-captures the mouse.
+renderer.domElement.addEventListener('click', () => {
+  if (game.state === 'playing' && !input.locked && !ui.shopOpen) input.lock();
+});
+
+// While the shop is open, B / Escape closes it.
+addEventListener('keydown', (e) => {
+  if (ui.shopOpen && (e.code === 'KeyB' || e.code === 'Escape' || e.code === 'KeyO')) {
+    e.preventDefault();
+    input.pressed.delete(e.code); // don't let the game loop re-open it this frame
+    ui.toggleShop(false);
+  }
+});
+
+const clock = new THREE.Clock();
+let frameErrors = 0;
+let fpsT = 0, frames = 0;
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, clock.getDelta());
+  // one bad frame must never freeze the game: report it once and keep going
+  try {
+    game.update(dt);
+    ui.update(dt);
+  } catch (e) {
+    if (!frameErrors++) console.error('Frame error (the game keeps running):', e);
+  }
+  input.endFrame();
+  renderer.render(game.scene, game.camera);
+  frames++;
+  fpsT += dt;
+  if (fpsT > 1) { $('fps').textContent = `${frames} fps`; frames = 0; fpsT = 0; }
+}
+frame();

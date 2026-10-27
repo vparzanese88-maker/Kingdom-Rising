@@ -572,13 +572,31 @@
     // from the sea gate straight out to the water
     const [gx, gy, dx, dy] = f === 'sylvan' ? [cx, cy - R - 1, 0, -1] : [cx - R - 1, cy + 3, -1, 0];
     const isW = (x, y) => { const t = W.tile(x, y); return t === T.WATER || t === T.DEEP; };
-    let k = 0; while (k < 40 && !isW(gx + dx * k, gy + dy * k)) k++;
-    if (k >= 40) return;
+    let k = 0; while (k < 60 && !isW(gx + dx * k, gy + dy * k)) k++;
+    if (k >= 60) return;
     // a rebuilt city rebuilds its harbour: clear the old one first (some of it lies outside the city's own area)
     W.decor = W.decor.filter((d) => d.harbour !== f);
     const deco = (kind, x, y, o = {}) => addDecor(kind, x, y, Object.assign({ harbour: f }, o));
     const px = -dy, py = dx; // along the shore
     const half = Math.min(R + 1, 11), P2 = (i, sd) => [gx + dx * i + px * sd, gy + dy * i + py * sd];
+    // the marina sits right at the sea gate at every size of city: a short quay, then the water. A small city
+    // gets a basin dug out to the old shore (wide enough for the piers and the ships along them); a big one
+    // that has grown to the shore fills in a strip of sea for its quay
+    const KQ = 6, KMIN = 4, BW = half + 17;
+    if (k > KQ) {
+      for (let sd = -BW - 2; sd <= BW + 2; sd++) for (let i = KQ; i < k + 16; i++) {
+        const edge = BW + Math.floor(U.hash(i, sd > 0 ? 1 : 2, 57) * 3) - (i === KQ ? 2 : 0); if (Math.abs(sd) > edge) continue;
+        const [x, y] = P2(i, sd); if (!W.inb(x, y)) break; const j = y * W.W + x;
+        if (isW(x, y)) break; // reached the open sea in this column
+        if (W.tiles[j] === T.CWALL) continue;
+        W.tiles[j] = i < KQ + 2 || Math.abs(sd) > edge - 2 ? T.WATER : T.DEEP; W.block[j] = 0;
+      }
+      W.decor = W.decor.filter((d) => !isW(d.tx, d.ty) || d.kind === 'boat' || d.harbour);
+      k = KQ;
+    } else if (k < KMIN) {
+      for (let i = 0; i < KMIN; i++) for (let sd = -half; sd <= half; sd++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; const j = y * W.W + x; if (isW(x, y)) { W.tiles[j] = T.STONE; W.block[j] = 0; } }
+      k = KMIN;
+    }
     // the dock district: everything from the sea wall down to the water is paved, the road through it cobbled,
     // and two curtain walls run from the city's corners down to the sea, so the harbour lies inside the walls
     for (let i = 0; i < k + 1; i++) for (let sd = -half; sd <= half; sd++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; const t = W.tiles[y * W.W + x]; if (isW(x, y) || t === T.CWALL) continue; W.tiles[y * W.W + x] = Math.abs(sd) <= 2 ? T.COBBLE : T.STONE; W.block[y * W.W + x] = 0; }
@@ -1025,9 +1043,13 @@
       if (ci < 0 || ni < 0) continue;
       const reg = D.REGIONS[ni]; const easy = reg.mobs.filter((m) => D.MOBS[m].lv[0] <= 3); if (!easy.length) continue;
       const [cx, cy] = D.CITY_CENTER[f]; const R = (W.cityData[f] && W.cityData[f].R) || 20;
+      // nothing hunts on the harbour: from the sea gate across the quay and out along the piers
+      const H = W.cityData[f].harbour;
+      const inHarbour = (x, y) => { if (!H) return false; const ox = x - H.gx, oy = y - H.gy; const i = ox * H.dx + oy * H.dy, sd = ox * H.px + oy * H.py; return i >= -2 && i <= H.k + 24 && Math.abs(sd) <= H.half + 20; };
       const pts = [];
       for (let y = cy - 52; y <= cy + 52; y += 2) for (let x = cx - 52; x <= cx + 52; x += 2) {
-        const dc = Math.max(Math.abs(x - cx), Math.abs(y - cy)); if (dc <= R + 5) continue;
+        const dc = Math.max(Math.abs(x - cx), Math.abs(y - cy)); if (dc <= R + 5 || inHarbour(x, y)) continue;
+        if ([T.WOOD, T.STONE, T.COBBLE].includes(W.tile(x, y))) continue; // no wolves on the paving or the planks
         if (!W.inb(x, y) || (W.regionAt(x, y) !== ci && dc > 47)) continue;
         if (W.isBlockedTile(x, y) || [T.WATER, T.ROAD, T.BRIDGE].includes(W.tile(x, y))) continue;
         pts.push([x, y, dc]);

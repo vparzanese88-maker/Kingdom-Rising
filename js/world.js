@@ -520,18 +520,10 @@
     for (let k = 0; k < 9; k += 3) for (const w of [-2, 2]) { const tx = x + dx * k, ty = y + w; if (W.inb(tx, ty)) addDecor('post', tx, ty, { nb: true }); }
   }
 
-  // ---- a sewer grate in a back street: climb down into the city's sewers from inside the walls ----
-  function cityGrate(f, R, cx, cy) {
-    const id = 'sewer_' + f; if (!W.REALMS || !W.REALMS[id]) return;
-    W.portals = (W.portals || []).filter((p) => p.cityGrate !== f); W.decor = W.decor.filter((d) => !d.cityGrate);
-    const free = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) { const t = W.tile(x + i, y + j); if (t == null || SOLID[t] || t === T.DOOR || t === T.WATER || W.block[(y + j) * W.W + x + i] || W.buildingAt((x + i) * TS + 16, (y + j) * TS + 16)) return false; } return true; };
-    for (let r = 6; r < R - 3; r++) for (let a = 0; a < 16; a++) {
-      const x = Math.round(cx + Math.cos(a / 16 * 6.283 + 0.7) * r), y = Math.round(cy + 4 + Math.sin(a / 16 * 6.283 + 0.7) * r);
-      if (!free(x, y)) continue;
-      W.tiles[y * W.W + x] = T.STONE; addDecor('grate', x, y, { nb: true, cityGrate: true });
-      W.portals.push({ x, y, to: id, label: W.REALMS[id].name, out: [x, y + 2], sewer: true, cityGrate: f });
-      return;
-    }
+  // ---- no way down into the sewers from inside a city: they are reached only by the outflow outside the walls ----
+  // (this clears any grate an older version of the world left in the streets)
+  function cityGrate(f) {
+    W.portals = (W.portals || []).filter((p) => p.cityGrate !== f); W.decor = W.decor.filter((d) => !(d.cityGrate && (d.cityGrate === true || d.cityGrate === f)));
   }
   // ---- the wall-walk: the top of the city wall can be walked, reached by stone stairs inside the wall ----
   // W.wallTop marks walkable wall tiles (not the corner towers or the gatehouses); W.stairs maps a tile to its step
@@ -759,7 +751,7 @@
       case 'chamber': D_('brazier', x0, y0); D_('brazier', x1, y0); D_('bones', x0 + 2, y1, { nb: true }); D_('bones', x1 - 1, y1 - 1, { nb: true }); lightIn(x0, y0, 170, '255,110,60'); lightIn(x1, y0, 170, '255,110,60'); spot(b, 'boss', mx, y0 + 2); break;
     }
     if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) makeLoft(b, x0, y0, x1, y1);
-    if (b.type === 'kingtower') makeLoft(b, x0, y0, x1, y1, y1 - 2);
+    if (b.type === 'kingtower') { makeLoft(b, x0, y0, x1, y1, y1 - 2); if (b.loft) towerBalcony(b); }
     dress(b, x0, y0, x1, y1);
   }
   // the things people of the 1300s had at home, added around what each building already has:
@@ -801,12 +793,30 @@
     const other = col === x0 ? x1 : x0, step = col === x0 ? -1 : 1;
     const up = (k, tx, ty, o = {}) => addDecor(k, tx, ty, Object.assign({ nb: true, up: true }, o));
     if (b.type === 'kingtower') {
-      // the king's bedchamber: a canopied bed, a writing desk, a wardrobe, a rug... and in the corner, an iron-bound chest with a skull and crossed bones on its front
-      up('kingbed', other + step, y0); up('poisonchest', other, ym); up('desk', other + step * 3, y0); up('chair', other + step * 3, y0 + 1); up('wardrobe', col - step, y0); up('rug', other + step * 2, ym - 1, { flat: true }); up('candle', col - step, ym); up('tapestry', other + step * 2, y0);
+      // the king holds court up here: his throne against the back wall under tapestries, a rug before it, and in the
+      // corner an iron-bound chest with a skull and crossed bones on its front
+      const mid = Math.floor((x0 + x1) / 2);
+      up('throne', mid, y0); up('rug', mid, y0 + 1, { flat: true }); up('tapestry', mid - 1, y0); up('tapestry', mid + 1, y0); up('poisonchest', other, ym); up('candle', col - step, ym);
     }
     else if (b.type === 'inn') { up('bed', other, y0); up('bed', other + step * 2, y0); up('chest', other, ym); up('table', other + step * 4, y0); up('rug', other + step * 2, ym, { flat: true }); }
     else if (b.type === 'guild' || b.type === 'heroes') { up('bookshelf', other, y0); up('bookshelf', other + step, y0); up('table', other + step * 2, ym); up('lectern', other, ym); }
     else { up('chest', other, y0); up('chest', other + step, y0); up('vault', other + step * 2, y0); }
+  }
+
+  // the king's tower: the upper floor runs out through an open arcade onto a balcony two tiles deep, over the green
+  // on the west side (or the east if that is blocked). The loft's tile rectangle covers the balcony, so walking on
+  // the upper floor works there too; b.balcony tells the 3D builder where to open the wall and put the railing.
+  function towerBalcony(b) {
+    const L = b.loft;
+    const free = (tx, ty) => { if (!W.inb(tx, ty)) return false; const t = W.tiles[ty * W.W + tx]; return !SOLID[t] && t !== T.WATER && t !== T.DOOR && !W.buildings.some((o) => o !== b && tx >= o.x && ty >= o.y && tx < o.x + o.w && ty < o.y + o.h); };
+    for (const side of ['w', 'e']) {
+      const xs = side === 'w' ? [b.x - 2, b.x - 1] : [b.x + b.w, b.x + b.w + 1];
+      let ok = true; for (let ty = L.y0; ty <= L.y1 && ok; ty++) for (const tx of xs) if (!free(tx, ty)) ok = false;
+      if (!ok) continue;
+      b.balcony = { side, x0: xs[0], x1: xs[1], y0: L.y0, y1: L.y1, wall: side === 'w' ? b.x : b.x + b.w - 1 };
+      if (side === 'w') L.x0 = b.x - 2; else L.x1 = b.x + b.w + 1;
+      return;
+    }
   }
 
   // ---------- city layout ----------
@@ -860,6 +870,36 @@
       return b;
     }
     return null;
+  }
+  // the last touches to a city once everything stands
+  function cityFinish(f) {
+    const bs = W.buildings.filter((b) => b.city === f);
+    // the king and his royal guard stand up in the king's tower: the king before his throne, two guards beside
+    // him and two out on the balcony
+    const hall = bs.find((b) => b.type === 'hall'), tw = bs.find((b) => b.type === 'kingtower' && b.loft);
+    if (hall && tw) {
+      const L = tw.loft, ix0 = tw.x + 1, ix1 = tw.x + tw.w - 2, mid = Math.floor((ix0 + ix1) / 2);
+      const at = (tx, ty) => [tx * TS + 16, ty * TS + 20];
+      hall.spots.king = [at(mid, L.y0 + 1)];
+      const g = [at(mid - 2, L.y0 + 1), at(mid + 2, L.y0 + 1)];
+      const B = tw.balcony; if (B) { const bx = B.side === 'w' ? B.x0 : B.x1; g.push(at(bx, B.y0), at(bx, B.y1)); } else g.push(at(mid - 1, L.y1), at(mid + 1, L.y1));
+      hall.spots.guard = g;
+      tw.court = true; // KR.Kingdom marks the king and guards standing here as upstairs
+      if (B) W.decor = W.decor.filter((d) => d.up || d.flat || !(d.tx >= B.x0 && d.tx <= B.x1 && d.ty >= B.y0 - 1 && d.ty <= B.y1 + 1));
+    }
+    // doorways stay clear: nothing standing in a door, on the two tiles inside it or the two in front of it
+    // (torches, lamps and dummies do not block in 2D, but in 3D you would walk through them)
+    const keep = ['rug', 'carpet', 'banner', 'lamp_wall', 'torch_wall', 'tapestry'];
+    for (const b of bs) {
+      const d = b.door; if (!d) continue;
+      const [nx, ny] = d.ty === b.y + b.h - 1 ? [0, 1] : d.ty === b.y ? [0, -1] : d.tx === b.x ? [-1, 0] : [1, 0]; // outward
+      const tiles = [[0, 0], [-1, 0], [-2, 0], [1, 0], [2, 0], [1, 1], [1, -1]].map(([o, l]) => [d.tx + nx * o + ny * l, d.ty + ny * o + nx * l]);
+      for (const [tx, ty] of tiles) {
+        if (!W.inb(tx, ty)) continue;
+        W.decor = W.decor.filter((o) => !(o.tx === tx && o.ty === ty && !o.up && !o.flat && !keep.includes(o.kind)));
+        const k = ty * W.W + tx; if (!SOLID[W.tiles[k]]) W.block[k] = 0;
+      }
+    }
   }
   W.stampCity = function (f, level, initial) {
     const [cx, cy] = D.CITY_CENTER[f]; const base = W.cityBase[f]; const R = D.cityRadius(level);
@@ -1000,6 +1040,7 @@
     W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
     wallWalks(f, R, cx, cy);
     cityGrate(f, R, cx, cy);
+    cityFinish(f);
     // invalidate chunk caches
     if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(x0, y0, bw, bw);
     if (!initial) W.buildMinimap();

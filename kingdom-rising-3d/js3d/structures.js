@@ -98,6 +98,8 @@ function building(mb, b) {
   for (const k of winRow(b.w)) { const cx = (b.x + k + 0.5) * Tl; addWin('n', cx - winW / 2, cx + winW / 2); }
   for (const k of winRow(b.h)) { const cz = (b.y + k + 0.5) * Tl; addWin('w', cz - winW / 2, cz + winW / 2); addWin('e', cz - winW / 2, cz + winW / 2); }
   if (isLair) { openings.n = []; openings.w = []; openings.e = []; openings.s = openings.s.filter(() => false); }
+  // the king's tower opens onto its balcony: an archway the width of the upper floor, in place of the windows there
+  if (b.balcony) { const B = b.balcony, lf = fy + geo.LOFT_H, u0 = B.y0 * Tl + 0.12, u1 = (B.y1 + 1) * Tl - 0.12; openings[B.side] = openings[B.side].filter((o) => o.u1 < u0 - 0.05 || o.u0 > u1 + 0.05); openings[B.side].push({ u0, u1, v0: lf - 0.02, v1: lf + 2.6 }); }
   const doorOp = { u0: dX0 + 0.16, u1: dX1 - 0.16, v0: sink, v1: fy + doorH, door: true };
   // merge openings that would overlap the door
   const sOps = [...openings.s.filter((o) => o.u1 < doorOp.u0 - 0.05 || o.u0 > doorOp.u1 + 0.05), doorOp];
@@ -205,9 +207,20 @@ function building(mb, b) {
     for (let x = lx0 + Tl / 2; x < lx1; x += Tl) mb.box('timber', x, lf - 0.26, (lz0 + lz1) / 2, 0.18, 0.22, lz1 - lz0, '#5a3e24');
     mb.box('timber', (lx0 + lx1) / 2, lf - 0.3, lz1 - 0.1, lx1 - lx0, 0.3, 0.2, '#5a3e24');
     for (let x = lx0 + Tl * 1.5; x < lx1 - 0.2; x += Tl * 2) mb.boxB('timber', x, fy, lz1 - 0.12, 0.22, geo.LOFT_H - 0.3, 0.22, '#5a3e24');
-    const sx0 = L.col * Tl, sx1 = sx0 + Tl; const railA = sx0 - lx0 > 0.1 ? [lx0, sx0] : [sx1, lx1];
-    mb.box('timber', (railA[0] + railA[1]) / 2, lf + 0.95, lz1 - 0.06, railA[1] - railA[0], 0.1, 0.1, '#6a4a2a');
-    for (let x = railA[0] + 0.15; x < railA[1]; x += 0.42) mb.boxB('timber', x, lf, lz1 - 0.06, 0.06, 0.95, 0.06, '#6a4a2a');
+    const sx0 = L.col * Tl, sx1 = sx0 + Tl;
+    // a railing along the floor's open edge, on both sides of the stairhead (the floor may run out onto a balcony)
+    const rail = (ax, az, bx, bz) => { const len = Math.hypot(bx - ax, bz - az); if (len < 0.2) return; const ry = Math.atan2(bx - ax, bz - az);
+      mb.box('timber', (ax + bx) / 2, lf + 0.95, (az + bz) / 2, 0.1, 0.1, len, '#6a4a2a', ry);
+      for (let t = 0.15; t < len; t += 0.42) mb.boxB('timber', ax + (bx - ax) * t / len, lf, az + (bz - az) * t / len, 0.06, 0.95, 0.06, '#6a4a2a'); };
+    rail(lx0, lz1 - 0.06, sx0, lz1 - 0.06); rail(sx1, lz1 - 0.06, lx1, lz1 - 0.06);
+    if (b.balcony) {
+      // the balcony: rails round its three open sides, stout brackets under its edge, and a lantern at each corner
+      const B = b.balcony, ox = B.side === 'w' ? lx0 + 0.06 : lx1 - 0.06, wx = B.side === 'w' ? X0 : X1;
+      rail(ox, lz0 + 0.06, ox, lz1 - 0.06); rail(ox, lz0 + 0.06, wx, lz0 + 0.06);
+      const gy = Math.min(fy, geo.floorAt(((B.x0 + B.x1 + 1) / 2) * TS, ((B.y0 + B.y1 + 1) / 2) * TS));
+      for (const z of [lz0 + 0.2, (lz0 + lz1) / 2, lz1 - 0.2]) { mb.boxB('stone', ox, gy - 0.3, z, 0.4, lf - gy + 0.15, 0.4, wallCol); }
+      for (const z of [lz0 + 0.06, lz1 - 0.06]) { mb.cyl('metalv', ox, lf + 1.15, z, 0.09, 0.3, '#2e2e30', 8); mb.box('glow', ox, lf + 1.32, z, 0.12, 0.16, 0.12, '#ffcf80'); }
+    }
     // the steps, climbing toward the back wall
     for (const [i, s] of W.stairs || []) { if (s.loft !== b) continue; const ty = Math.floor(i / W.W);
       for (let q = 0; q < 4; q++) { const frac = (s.k + (q + 1) / 4) / s.n, h = geo.LOFT_H * frac; const z = (ty + 1 - (q + 0.5) / 4) * Tl;

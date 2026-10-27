@@ -565,7 +565,7 @@
     const act = Object.keys(c.quests.active).map((id) => Sys.QUESTS[id]).filter((q) => q && !Sys.questComplete(q));
     if (act.length) out.push(`You still have "${act[0].title}" to do. ${Sys.questProgText ? '' : ''}Open your journal with J to see where to go.`);
     if (avail) out.push(`${avail[0].name}${avail[0].title ? ' the ' + avail[0].title : ''} has work for you: "${avail[1].title}". Look for the gold ! above people's heads.`);
-    const kq = Sys.kingQuestFor(c); if (kq && c.level >= kq.lv - 2) out.push(`${F.king} has a task for you in the great hall. The king's quests give the most status for ${F.city}.`);
+    const kq = Sys.kingQuestFor(c); if (kq && c.level >= kq.lv - 2) out.push(`${F.king} has a task for you up in the King's Tower. The king's quests give the most status for ${F.city}.`);
     // where to hunt
     if (c.level <= 10 && !(c.bossKills && (c.bossKills.rattigan || c.bossKills.drainjaw))) out.push(f === 'crown' ? 'Those cutpurses outside the walls are the Rat Tail Gang. They hide in the Valenmoor Sewers, just east of the kingdom walls. Good hunting for a young hero, and I hear they keep a prisoner down there.' : 'The orc pawns sneak in through the Aelindor Sewers, just west of the kingdom walls. Clear them out, it is safe enough for a young hero. Folk say the orcs caught some poor fool down there, too.');
     let regs = D.REGIONS.filter((r) => r.mobs && r.lv && c.level >= r.lv[0] - 1 && c.level <= r.lv[1] && (!r.faction || r.faction === f) && (!r.home || r.home === f));

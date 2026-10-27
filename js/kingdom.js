@@ -359,7 +359,7 @@
     const out = ladv0 ? ladv0.apply(this, arguments) : []; const p = G.player; if (!p) return out; const c = p.c; const f = c.faction;
     const need = K.needFor(f); const ct = G.account.cities[f];
     if (need) { const hw = K.have(c, need.wood), hs = K.have(c, need.stone); const q = Sys.QUESTS[f + '_build' + ct.level];
-      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Speak to him in the great hall.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
+      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Speak to him up in the King's Tower.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
       out.splice(1, 0, line); }
     return out;
   };
@@ -796,4 +796,23 @@
   // ticking
   // =====================================================================
   if (KR.War) { const tick0 = KR.War.tick; KR.War.tick = function (dt) { tick0.apply(this, arguments); try { K.harvestTick(dt); } catch (e) { console.warn(e); } try { K.gameTick(dt); } catch (e) { console.warn(e); } try { riteTick(dt); } catch (e) { console.warn(e); } try { kingTick(dt); } catch (e) {} }; }
+
+  // ---------- the king's court, up in his tower ----------
+  // The world puts the king's and royal guards' places on the tower's upper floor (and its balcony). Anyone standing
+  // inside that floor's rectangle is upstairs: the 3D view draws them at the floor's height. Whoever steps off it
+  // (to chase an intruder, or to meet a war party at the door) comes down, and goes back up on returning.
+  const inLoft = (e, b) => { const L = b.loft, tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS); return tx >= L.x0 && tx <= L.x1 && ty >= L.y0 && ty <= L.y1; };
+  const courtOf = (f) => W.buildings.find((b) => b.city === f && b.type === 'kingtower' && b.court && b.loft);
+  const spawnCourt0 = Sys.spawnCity;
+  Sys.spawnCity = function (f) {
+    const r = spawnCourt0.apply(this, arguments);
+    try { const tw = courtOf(f); if (tw) for (const e of G.ents) if (e.faction === f && !e.removed && (e.type === 'king' || e.role === 'royalguard') && inLoft(e, tw)) { e.upB = tw; e.loftHome = tw; } } catch (err) { console.warn(err); }
+    return r;
+  };
+  const moveCourt0 = G.moveEnt;
+  G.moveEnt = function (e) {
+    const r = moveCourt0.apply(this, arguments);
+    if (e !== G.player && e.loftHome) { const up = inLoft(e, e.loftHome); if (up && !e.upB) e.upB = e.loftHome; else if (!up && e.upB === e.loftHome) e.upB = null; }
+    return r;
+  };
 })();

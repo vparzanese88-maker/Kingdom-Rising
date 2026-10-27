@@ -151,7 +151,7 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else showHud();
     if (opt.cine && K3.startCine) {} else if (newChar) {
-      UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`);
+      UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} up in the King's Tower to the north: climb the stairs inside. Look for the gold ! above townsfolk.`);
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else G.log('W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
     running = true; last = performance.now(); requestAnimationFrame(loop);

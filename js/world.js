@@ -76,7 +76,10 @@
       for (let y = cy - 46; y <= cy + 46; y++) for (let x = cx - 46; x <= cx + 46; x++) if (W.inb(x, y)) W.region[y * W.W + x] = ri;
     }
     W.realm = 'main'; W.portals = [];
-    const inOcean = (x, y) => x > OC.x0 + (U.fbm(x * 0.02, y * 0.02, 61, 3) - 0.5) * 50 && y > OC.y0 + (U.fbm(x * 0.02, y * 0.02, 67, 3) - 0.5) * 50;
+    // the south-east sea now leaves room for the Corsair Coast: land east of a bay that still laps the desert's
+    // coast (where Sunscour Docks stand) and runs out to open water along the southern edge
+    const coastLand = (x, y) => x > SE.x0 + (U.fbm(x * 0.025, y * 0.025, 71, 3) - 0.5) * 30 && y < SE.y1 + (U.fbm(x * 0.025, y * 0.025, 73, 3) - 0.5) * 26;
+    const inOcean = (x, y) => x > OC.x0 + (U.fbm(x * 0.02, y * 0.02, 61, 3) - 0.5) * 50 && y > OC.y0 + (U.fbm(x * 0.02, y * 0.02, 67, 3) - 0.5) * 50 && !coastLand(x, y);
     for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) if (inOcean(x, y) || W.portSea(x, y)) W.region[y * W.W + x] = RI.ocean;
     paintTerrain();
     shoreline();
@@ -114,6 +117,7 @@
       [[335, 262], [260, 225], [205, 215], [173, 214], [173, 226]],
       [[335, 262], [420, 300], [444, 340], [444, 351]],
       [[444, 340], [470, 390], [500, 425], [540, 410], [584, 386]],
+      [[500, 425], [508, 468], [522, 505], [548, 536], [578, 556]], // south into the Corsair Coast
       [[175, 380], [120, 352], [75, 318], [60, 260]],
       [[170, 440], [190, 520], [260, 585], [330, 560], [372, 548]],
       [[170, 440], [110, 515], [80, 570], [92, 580]],
@@ -188,7 +192,7 @@
     // ---- neutral hubs on the mainland: docks and the dragon roost ----
     buildHubs('main');
     for (const dg of D.DUNGEONS) if ((dg.parent || 'main') === 'main' && dg.type === 'sewer') carveSewerMouth(dg);
-    D.REGIONS[RI.ocean].label = [520, 590];
+    D.REGIONS[RI.ocean].label = [430, 600]; if (RI.corsair != null) D.REGIONS[RI.corsair].label = [548, 528];
     // ---- cities ----
     for (const f of D.FACTION_IDS) W.stampCity(f, (cityLevels && cityLevels[f]) || 1, true);
     W.makeSpawns(rnd);
@@ -197,6 +201,7 @@
 
   // ---------- shared terrain helpers (used by every realm) ----------
   const OC = D.OCEAN, SU = D.SUMMIT;
+  const SE = { x0: 452, y1: 610 }; // the Corsair Coast: land east of x0, north of y1, within the old south-east sea
   // the two capitals are sea ports: a northern sea whose coast swells into a harbour at Aelindor's north wall,
   // and a bay from the western edge right up to Valenmoor's west gate
   W.portSea = function (x, y) {

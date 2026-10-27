@@ -145,7 +145,7 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     const showHud = () => { document.getElementById('ui').hidden = false; hud3d.show(true); };
     if (opt.cine && K3.startCine) {
       // the opening film; the HUD and the welcome come up when it ends
-      const after = () => { showHud(); UI.banner(`Welcome home to ${D.FACTIONS[c.faction].city}`, `${D.FACTIONS[c.faction].king} must see you at once: the great hall is at the top of the city. Look for the gold ! above townsfolk.`); };
+      const after = () => { showHud(); UI.banner(`Welcome home to ${D.FACTIONS[c.faction].city}`, `${D.FACTIONS[c.faction].king} must see you at once: he holds court up in the King's Tower at the top of the city. Look for the gold ! above townsfolk.`); };
       // a homecoming by sea when the city has a harbour, else the flight over the land
       if (!(K3.startIntro && K3.startIntro(c, after))) K3.startCine(c, after);
       G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');

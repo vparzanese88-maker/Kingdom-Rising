@@ -19,28 +19,42 @@ function build(kind, opt) {
   const mb = new MB();
   const steel = '#d4d8de', dark = '#3a2a1e', gold = '#c8a040';
   switch (kind) {
-    case '1HS': case 'sword': blade(mb, 0.82, 0.07, 0.12, steel); mb.box('gold', 0, -0.01, 0, 0.24, 0.035, 0.05, gold); mb.cyl('leather', 0, -0.1, 0, 0.018, 0.17, dark, 8); mb.sph('gold', 0, -0.2, 0, 0.05, 0.05, 0.05, gold); break;
+    case '1HS': case 'sword': blade(mb, 0.82, 0.07, 0.12, steel);
+      for (const sx of [-1, 1]) mb.box('metalv', sx * 0.07, 0.0, 0, 0.15, 0.028, 0.04, '#8a8e96', 0, 0, sx * 0.18); mb.sph('metalv', 0, -0.005, 0, 0.035, 0.035, 0.05, '#8a8e96');
+      mb.cyl('leather', 0, -0.1, 0, 0.018, 0.17, dark, 10); for (let k = 0; k < 5; k++) mb.cyl('leather', 0, -0.03 - k * 0.032, 0, 0.0205, 0.008, '#1e140c', 10);
+      mb.cyl('metalv', 0, -0.205, 0, 0.042, 0.022, '#9a9ea6', 16, null, 0, Math.PI / 2, 0); break;
     case '2HS': blade(mb, 1.25, 0.09, 0.16, steel); mb.box('gold', 0, -0.01, 0, 0.34, 0.04, 0.06, gold); mb.cyl('leather', 0, -0.18, 0, 0.02, 0.32, dark, 8); mb.sph('gold', 0, -0.36, 0, 0.06, 0.06, 0.06, gold); break;
-    case 'axe': case '2HSaxe': { const L = kind === 'axe' ? 0.75 : 1.15; mb.cyl('timber', 0, L / 2 - 0.15, 0, 0.022, L, '#5a3a20', 8);
-      const s = new THREE.Shape([new THREE.Vector2(0, -0.11), new THREE.Vector2(0.2, -0.17), new THREE.Vector2(0.25, 0), new THREE.Vector2(0.2, 0.17), new THREE.Vector2(0, 0.1)]); const g = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.006, bevelSegments: 1 }); g.translate(0.01, 0, -0.01);
-      mb.add('metal', g, MB.mat(0, L - 0.24, 0), steel, 0.5); g.dispose(); mb.box('metalv', -0.03, L - 0.24, 0, 0.07, 0.12, 0.05, '#4a4a50'); break; }
-    case '1HB': case 'mace': mb.cyl('timber', 0, 0.22, 0, 0.022, 0.6, '#5a3a20', 8); mb.sph('metal', 0, 0.55, 0, 0.13, 0.15, 0.13, '#9a9ea6');
+    case 'axe': case '2HSaxe': { const L = kind === 'axe' ? 0.82 : 1.2; // a bearded war axe: ash haft, iron langets, leather grip
+      mb.cyl('haft', 0, L / 2 - 0.15, 0, 0.019, L, '#6a4e34', 10, 0.016);
+      for (const sx of [-1, 1]) mb.box('metalv', sx * 0.016, L - 0.4, 0, 0.006, 0.24, 0.02, '#5a5e66');
+      mb.cyl('leather', 0, -0.03, 0, 0.022, 0.22, '#3a2416', 10); mb.cyl('metalv', 0, -0.15, 0, 0.024, 0.03, '#6a6e76', 10);
+      const s = new THREE.Shape(); s.moveTo(0.02, 0.05); s.quadraticCurveTo(0.1, 0.06, 0.17, 0.13); s.quadraticCurveTo(0.26, 0.02, 0.24, -0.1); s.quadraticCurveTo(0.22, -0.2, 0.16, -0.25); s.quadraticCurveTo(0.12, -0.12, 0.02, -0.06); s.closePath();
+      const g = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.005, bevelSegments: 2, curveSegments: 10 }); g.translate(0, 0, -0.006);
+      mb.add('metal', g, MB.mat(0, L - 0.2, 0), steel, 0.5); g.dispose();
+      mb.cyl('metalv', 0, L - 0.2, 0, 0.032, 0.13, '#5a5e66', 12); mb.box('metalv', -0.045, L - 0.2, 0, 0.05, 0.05, 0.03, '#5a5e66'); break; }
+    case '1HB': case 'mace': mb.cyl('haft', 0, 0.22, 0, 0.022, 0.6, '#5a3a20', 8); mb.sph('metal', 0, 0.55, 0, 0.13, 0.15, 0.13, '#9a9ea6');
       for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; mb.box('metal', Math.cos(a) * 0.065, 0.55, Math.sin(a) * 0.065, 0.02, 0.17, 0.06, '#b8bcc4', -a); } break;
     case 'club': { const g = new THREE.CylinderGeometry(0.085, 0.03, 0.75, 10, 3); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const n = K3.hash(Math.round(p.getX(i) * 100), Math.round(p.getY(i) * 100), 3); p.setX(i, p.getX(i) * (0.85 + n * 0.3)); p.setZ(i, p.getZ(i) * (0.85 + n * 0.3)); } g.computeVertexNormals(); mb.add('bark', g, MB.mat(0, 0.3, 0), '#7a5530'); g.dispose(); break; }
     case '2HB': if (opt.staff) {
-        mb.cyl('timber', 0, 0.55, 0, 0.022, 1.7, '#6a4a2a', 8);
-        for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283; mb.rod('timber', V(0, 1.32, 0), V(Math.cos(a) * 0.07, 1.52, Math.sin(a) * 0.07), 0.012, '#8a6a3a', 5); }
+        mb.cyl('haft', 0, 0.55, 0, 0.022, 1.7, '#6a4a2a', 8);
+        for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283; mb.rod('haft', V(0, 1.32, 0), V(Math.cos(a) * 0.07, 1.52, Math.sin(a) * 0.07), 0.012, '#8a6a3a', 5); }
         mb.sph('glow', 0, 1.5, 0, 0.11, 0.11, 0.11, opt.orb || '#8ad0ff');
-      } else { mb.cyl('timber', 0, 0.45, 0, 0.025, 1.3, '#5a3a20', 8); mb.box('metal', 0, 1.08, 0, 0.3, 0.16, 0.14, '#8a8e96'); mb.box('metal', 0, 1.08, 0, 0.32, 0.05, 0.15, '#b4b8c0'); }
+      } else { mb.cyl('haft', 0, 0.45, 0, 0.025, 1.3, '#5a3a20', 8); mb.box('metal', 0, 1.08, 0, 0.3, 0.16, 0.14, '#8a8e96'); mb.box('metal', 0, 1.08, 0, 0.32, 0.05, 0.15, '#b4b8c0'); }
       break;
     case '1HP': case 'dagger': blade(mb, 0.3, 0.05, 0.08, steel); mb.box('gold', 0, -0.01, 0, 0.12, 0.025, 0.035, gold); mb.cyl('leather', 0, -0.06, 0, 0.015, 0.1, dark, 6); break;
-    case 'spear': mb.cyl('timber', 0, 0.55, 0, 0.022, 2.1, '#6a4a2a', 8); mb.g ? 0 : 0;
-      { const s = new THREE.Shape([new THREE.Vector2(-0.04, 0), new THREE.Vector2(0.04, 0), new THREE.Vector2(0.015, 0.26), new THREE.Vector2(0, 0.3), new THREE.Vector2(-0.015, 0.26)]); const g = new THREE.ExtrudeGeometry(s, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.005, bevelSegments: 1 }); mb.add('metal', g, MB.mat(0, 1.6, -0.005), steel, 0.5); g.dispose(); }
+    case 'spear': // an ash spear: tapered shaft, leather grip, iron socket and a leaf blade with a raised midrib, butt spike
+      mb.cyl('haft', 0, 0.55, 0, 0.018, 2.1, '#6e5236', 10, 0.015);
+      mb.cyl('leather', 0, 0.02, 0, 0.021, 0.3, '#3a2416', 10);
+      mb.cyl('metalv', 0, 1.62, 0, 0.022, 0.14, '#5a5e66', 10, 0.016); mb.cyl('metalv', 0, 1.56, 0, 0.026, 0.02, '#6a6e76', 10);
+      { const s = new THREE.Shape(); s.moveTo(-0.012, 0); s.quadraticCurveTo(-0.06, 0.08, -0.04, 0.2); s.quadraticCurveTo(-0.02, 0.29, 0, 0.34); s.quadraticCurveTo(0.02, 0.29, 0.04, 0.2); s.quadraticCurveTo(0.06, 0.08, 0.012, 0); s.closePath();
+        const g = new THREE.ExtrudeGeometry(s, { depth: 0.006, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, curveSegments: 10 }); g.translate(0, 0, -0.003); mb.add('metal', g, MB.mat(0, 1.68, 0), steel, 0.5); g.dispose();
+        mb.box('metal', 0, 1.83, 0, 0.012, 0.3, 0.016, '#b8bcc4'); }
+      mb.cyl('metalv', 0, -0.52, 0, 0.004, 0.1, '#4a4e56', 8, 0.016);
       break;
     case 'H2H': mb.box('leather', 0, 0.03, 0, 0.09, 0.07, 0.06, '#e8e0d0'); break;
     case 'ARC': { // a recurve bow, string along y
       const pts = []; for (let k = 0; k <= 12; k++) { const t = k / 12 * 2 - 1; pts.push(V(-0.08 * (1 - t * t) + 0.04 * Math.pow(Math.abs(t), 3), t * 0.62, 0)); }
-      for (let k = 0; k < 12; k++) mb.rod('timber', pts[k], pts[k + 1], 0.016 - Math.abs(k - 6) * 0.0012, '#6a4a2a', 5);
+      for (let k = 0; k < 12; k++) mb.rod('haft', pts[k], pts[k + 1], 0.016 - Math.abs(k - 6) * 0.0012, '#6a4a2a', 5);
       mb.rod('paint', pts[0], pts[12], 0.003, '#e8e0d0', 3); mb.cyl('leather', -0.07, 0, 0, 0.022, 0.14, '#3a2a1a', 6); break; }
     case 'THR': blade(mb, 0.18, 0.035, 0.06, steel); mb.cyl('leather', 0, -0.04, 0, 0.012, 0.07, dark, 6); break;
     case 'TOME': { // a proper grimoire: leather boards, page block, ridged spine, brass corners, clasp and a jewel
@@ -63,10 +77,10 @@ function build(kind, opt) {
       mb.sph('metalv', 0, 0.02, 0.04, 0.13, 0.13, 0.06, opt.shieldEmb || '#c8a040');
       mb.box('metalv', 0, 0.3, 0.035, 0.6, 0.03, 0.02, '#c8ccd2'); break; }
     case 'quiver': mb.cyl('leather', 0, 0, 0, 0.06, 0.55, '#5a3a20', 8); for (let k = 0; k < 5; k++) mb.cyl('paint', Math.cos(k) * 0.03, 0.33, Math.sin(k) * 0.03, 0.006, 0.2, '#e8e0d0', 4); break;
-    case 'pick': mb.cyl('timber', 0, 0.3, 0, 0.022, 0.8, '#5a3a20', 8); mb.box('metalv', 0, 0.68, 0, 0.5, 0.05, 0.05, '#5a5a60', 0, 0, 0.15); break;
-    case 'hammer': mb.cyl('timber', 0, 0.22, 0, 0.02, 0.5, '#5a3a20', 8); mb.box('metalv', 0, 0.48, 0, 0.16, 0.08, 0.08, '#3a3a40'); break;
-    case 'torch': mb.cyl('timber', 0, 0.2, 0, 0.025, 0.55, '#4a3220', 6); mb.cyl('metalv', 0, 0.47, 0, 0.04, 0.08, '#3a3a3e', 8); break;
-    case 'musket': mb.box('timber', 0, 0.35, 0, 0.05, 0.9, 0.07, '#4a2e1a'); mb.cyl('metalv', 0, 0.9, 0.01, 0.014, 0.9, '#2a2a30', 6); break;
+    case 'pick': mb.cyl('haft', 0, 0.3, 0, 0.022, 0.8, '#5a3a20', 8); mb.box('metalv', 0, 0.68, 0, 0.5, 0.05, 0.05, '#5a5a60', 0, 0, 0.15); break;
+    case 'hammer': mb.cyl('haft', 0, 0.22, 0, 0.02, 0.5, '#5a3a20', 8); mb.box('metalv', 0, 0.48, 0, 0.16, 0.08, 0.08, '#3a3a40'); break;
+    case 'torch': mb.cyl('haft', 0, 0.2, 0, 0.025, 0.55, '#4a3220', 6); mb.cyl('metalv', 0, 0.47, 0, 0.04, 0.08, '#3a3a3e', 8); break;
+    case 'musket': mb.box('haft', 0, 0.35, 0, 0.05, 0.9, 0.07, '#4a2e1a'); mb.cyl('metalv', 0, 0.9, 0.01, 0.014, 0.9, '#2a2a30', 6); break;
     default: return null;
   }
   const grp = mb.build({ castShadow: true });

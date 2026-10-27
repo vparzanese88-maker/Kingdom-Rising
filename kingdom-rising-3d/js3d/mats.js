@@ -21,6 +21,7 @@ export const mats = {
       m = new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, normalScale: new THREE.Vector2(1.1, 1.1), roughness: s.roughness != null ? s.roughness : 0.85, metalness: s.metalness || 0, vertexColors: true, color: s.color != null ? s.color : 0xffffff });
     } else switch (key) {
       case 'paint': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }); break;
+      case 'haft': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }); break; // polished wood: weapon shafts and bows (too thin for the timber texture)
       case 'gloss': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35 }); break;
       case 'metalv': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.9 }); break;
       case 'glow': m = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: true }); m.userData.noShadow = true; break;

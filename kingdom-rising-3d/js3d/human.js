@@ -51,6 +51,8 @@ const RACE = {
   woodelf: { h: 0.55, weight: 0.3, muscle: 0.55, ear: 'long', ideal: 0.9 }, darkelf: { h: 0.55, weight: 0.25, ear: 'long', ideal: 0.9 },
   dwarf: { h: 0.1, muscle: 0.95, weight: 0.85, leg: 0.8, arm: 0.94, head: 1.08, neck: 1.25 }, gnome: { h: 0.1, weight: 0.35, head: 1.22, leg: 0.84, nose: 0.8 },
   halfling: { h: 0.15, weight: 0.6, head: 1.14, leg: 0.88 }, barbarian: { h: 0.9, muscle: 1, weight: 0.6 }, erudite: { h: 0.6, weight: 0.35, head: 1.06, forehead: 1 },
+  highlander: { h: 0.75, muscle: 0.8, weight: 0.5 }, ogrin: { h: 1, muscle: 1, weight: 0.95, head: 0.96, neck: 1.35, arm: 1.06 },
+  seaelf: { h: 0.65, weight: 0.25, muscle: 0.5, ear: 'long', ideal: 0.9 }, firbolg: { h: 1, muscle: 0.85, weight: 0.8, head: 1.04, neck: 1.15, ear: 'half' },
 };
 const CLS_MUSCLE = { warrior: 0.8, paladin: 0.75, berserker: 0.95, monk: 0.75, ranger: 0.62, rogue: 0.58, beastlord: 0.7, shadowknight: 0.75, bard: 0.55, cleric: 0.5, druid: 0.5, shaman: 0.55, wizard: 0.35, enchanter: 0.38, magician: 0.38, necromancer: 0.32 };
 
@@ -746,7 +748,7 @@ function outfit(look, kind, sh, N, rest) {
   const armor = L.armor || { kind: 'none', col: '#7a6a5a', trim: '#5a4a3a' }; const ak = armor.kind || 'none';
   const ac = armor.col || '#7a6a5a', at = armor.trim || '#5a4a3a';
   const raceD = D.RACES[L.race] || {}; const fem = L.gender === 'f';
-  const robe = ak === 'cloth' || L.robe;
+  const robe = (ak === 'cloth' && !L.shirtOnly) || L.robe; // a cloth shirt or tunic is worn over trousers, not as a robe
   const bare = L.bare || (ak === 'none' && (kind === 'troll' || kind === 'ogre' || kind === 'goblin'));
   // heroes in 3D show exactly their gear: no shirt without a chest piece, a loincloth without leggings
   const torsoBare = bare || !!L.noShirt, legsBare = bare || !!L.noPants;
@@ -825,7 +827,7 @@ const cache = new Map();
 export const HUMAN_PARENT = (() => { const P = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', shL: 'chest', armL: 'shL', foreL: 'armL', handL: 'foreL', shR: 'chest', armR: 'shR', foreR: 'armR', handR: 'foreR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', capeA: 'chest', capeB: 'capeA', tail1: 'hips', tail2: 'tail1', tail3: 'tail2', wingL: 'chest', wingR: 'chest' }; for (const S of ['L', 'R']) for (const f of ['th', 'f1', 'f2', 'f3', 'f4']) { P[f + S + '1'] = 'hand' + S; P[f + S + '2'] = f + S + '1'; } return P; })();
 export function humanKey(look, kind) {
   const L = look || {}; const a = L.armor || {};
-  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.noPants, L.wrap, L.tall, JSON.stringify(L.morph || null), L.beardStyle, L.scar, L.tattoo, L.tatCol, L.iris].join('|');
+  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.shirtOnly, L.noPants, L.wrap, L.tall, JSON.stringify(L.morph || null), L.beardStyle, L.scar, L.tattoo, L.tatCol, L.iris].join('|');
 }
 function skinGeometry(sh, N, hidden) {
   const NS = A.NS, map = A.map;

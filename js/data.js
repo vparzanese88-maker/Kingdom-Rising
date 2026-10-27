@@ -30,7 +30,7 @@
   D.FACTIONS = {
     sylvan: {
       id: 'sylvan', name: 'Sylvan Throne', city: 'Aelindor', king: 'King Theron Valen', kingFirst: 'Theron', brother: 'Aldric',
-      races: ['human', 'highelf', 'woodelf', 'halfelf', 'darkelf'], color: '#8fd16f', banner: '#2e6a3c', trim: '#e7d48a',
+      races: ['human', 'highelf', 'woodelf', 'halfelf', 'darkelf', 'seaelf', 'firbolg'], color: '#8fd16f', banner: '#2e6a3c', trim: '#e7d48a',
       craftPrefix: 'Leafsteel', craftBias: ['AGI', 'WIS'], drink: 'Moonpetal Wine', food: 'honeyed acorn bread',
       blurb: 'The younger brother\'s kingdom. King Theron Valen was crowned in the elven city of Aelindor, and the elves, the half-elves and every human family that fled Aldric\'s rule followed him. Free, fierce, and certain the crown belongs to whoever deserves it.',
       enemyMobs: 'Orcs of the Greywood', crop: 'silverleaf berries',
@@ -44,7 +44,7 @@
     },
     crown: {
       id: 'crown', name: 'Crown of Valen', city: 'Valenmoor', king: 'King Aldric Valen', kingFirst: 'Aldric', brother: 'Theron',
-      races: ['human', 'dwarf', 'gnome', 'halfling', 'barbarian'], color: '#7fb0e8', banner: '#28457a', trim: '#f0c75e',
+      races: ['human', 'dwarf', 'gnome', 'halfling', 'barbarian', 'highlander', 'ogrin'], color: '#7fb0e8', banner: '#28457a', trim: '#f0c75e',
       craftPrefix: 'Valenguard', craftBias: ['DEX', 'CHA'], drink: 'Valen Gold Ale', food: 'roast pheasant',
       blurb: 'The firstborn\'s kingdom. King Aldric Valen holds the old capital on the western plains, with the old human houses, the halflings and the dwarves, gnomes and barbarians of the mountain clans behind him. Proud, disciplined, and certain the crown is his by right.',
       enemyMobs: 'Bandits of Thornfield', crop: 'golden wheat',
@@ -95,6 +95,26 @@
       stats: { STR: 60, STA: 70, AGI: 70, DEX: 70, WIS: 83, INT: 107, CHA: 70 },
       classes: ['cleric', 'paladin', 'shadowknight', 'necromancer', 'wizard', 'magician', 'enchanter'], weaponPref: ['1HB', '2HB', '1HP'], adj: 'Scholar\'s',
       desc: 'Scholars of the Valen academies with minds sharper than any blade. The greatest natural intellect.', headR: 7.9 },
+    highlander: { id: 'highlander', name: 'Highlander', faction: 'crown', scale: 1.07, width: 1.08,
+      stats: { STR: 88, STA: 88, AGI: 80, DEX: 78, WIS: 72, INT: 65, CHA: 72 },
+      classes: ['warrior', 'paladin', 'ranger', 'druid', 'bard', 'rogue', 'shaman', 'berserker'], weaponPref: ['2HS', '1HS', 'ARC'], adj: 'Clansman\'s',
+      desc: 'Red-haired hill clans of the Valen highlands, sworn to the firstborn since the first king. Tough, proud and fond of a song.', beard: true, hairDefault: 4,
+      skins: ['#f6d8c0', '#efc8a8', '#e2b090', '#c89068', '#a87048'] },
+    ogrin: { id: 'ogrin', name: 'Ogrin', faction: 'crown', scale: 1.22, width: 1.32,
+      stats: { STR: 110, STA: 102, AGI: 60, DEX: 60, WIS: 58, INT: 45, CHA: 40 },
+      classes: ['warrior', 'shadowknight', 'shaman', 'berserker', 'beastlord'], weaponPref: ['2HB', '2HS', '1HB'], adj: 'Ogrin',
+      desc: 'Half-ogre mercenaries who took the Valen king\'s coin and kept his oath. Huge, slow to anger, and terrible when angered.', tusk: true,
+      skins: ['#9aa08a', '#8a9478', '#7a8468', '#9a8a70', '#6a7458'] },
+    seaelf: { id: 'seaelf', name: 'Sea Elf', faction: 'sylvan', scale: 1.0, width: 0.9,
+      stats: { STR: 60, STA: 68, AGI: 92, DEX: 82, WIS: 88, INT: 84, CHA: 82 },
+      classes: ['cleric', 'ranger', 'druid', 'bard', 'rogue', 'monk', 'shaman', 'enchanter'], weaponPref: ['1HP', 'ARC', '1HS'], adj: 'Tidewrought',
+      desc: 'Harbour elves of the northern coast who sail Aelindor\'s ships. Graceful, quick and at home on the water.', ears: 'long', hairDefault: 6,
+      skins: ['#b8d8d8', '#a0c8cc', '#88b4bc', '#6a9aa8', '#4f7c8c'] },
+    firbolg: { id: 'firbolg', name: 'Firbolg', faction: 'sylvan', scale: 1.24, width: 1.24,
+      stats: { STR: 100, STA: 98, AGI: 62, DEX: 60, WIS: 96, INT: 60, CHA: 66 },
+      classes: ['warrior', 'cleric', 'paladin', 'druid', 'shaman', 'beastlord'], weaponPref: ['2HB', '2HS', '1HB'], adj: 'Grovewarden',
+      desc: 'Gentle giants of the deep forest who guard the great trees. Slow to fight, but nothing moves them once they do.', beard: true, ears: 'half',
+      skins: ['#9aa6b8', '#8a98ac', '#7a889c', '#a8a0b0', '#6a7890'] },
   };
 
   // ---------- Weapon types ----------

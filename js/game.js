@@ -193,7 +193,7 @@
   G.lookFor = function (c) {
     const chest = c.equip.chest, head = c.equip.head;
     const look = KR.S.classLook(c.cls, chest);
-    look.race = c.race; look.gender = c.gender; look.skin = KR.S.skinOf(c.race, c.skin); look.hair = KR.S.HAIRS[c.hair] || c.hair; look.hairStyle = c.hairStyle; look.cls = c.cls;
+    look.race = c.race; look.gender = c.gender; look.skin = KR.S.skinOf(c.race, c.skin); if (D.RACES[c.race] && D.RACES[c.race].tusk) look.tusk = true; look.hair = KR.S.HAIRS[c.hair] || c.hair; look.hairStyle = c.hairStyle; look.cls = c.cls;
     if (c.app) Object.assign(look, c.app); // height, face, beard, scars and tattoos chosen at creation (3D)
     if (chest) { look.armor.kind = chest.ak; if (chest.ak === 'cloth') look.robe = true; if (chest.ak !== 'cloth' && D.CLASSES[c.cls].armor !== 'cloth') look.robe = false; }
     else if (D.CLASSES[c.cls].armor === 'cloth') look.armor.kind = 'cloth';
@@ -244,6 +244,7 @@
     if (shirt && chest.col) look.armor.col = chest.col;
     if (legs && !legs.loin && legs.col) look.pants = legs.col;
     if (shirt && /silk shirt/i.test(chest.name || '')) look.sleeves = 'long';
+    look.shirtOnly = !!(shirt && chest.ak === 'cloth' && !look.robe && (chest.plainClothes || /shirt|tunic|blouse|doublet|jerkin/i.test(chest.name || '')));
     return look;
   };
 

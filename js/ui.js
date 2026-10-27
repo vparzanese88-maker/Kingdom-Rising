@@ -735,7 +735,7 @@
   function roleName(role) { const n = G.ents.find((e) => e.city === G.player.c.faction && e.role === role); return n ? `${n.name}${n.title ? ' (' + n.title + ')' : ''}` : role; }
 
   // ----- map -----
-  const mv = { z: 1, cx: 192, cy: 192 };
+  const mv = { z: 1, cx: 192, cy: 192 }; UI._mapView = mv;
   function renderMap(w) {
     const b = w.body; let cv = $('canvas', b);
     if (!cv) {

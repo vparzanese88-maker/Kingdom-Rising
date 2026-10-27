@@ -68,7 +68,7 @@ function proportions(look, kind) {
   if (look.race === 'dwarf') Object.assign(P, { head: 1.12, leg: 0.82, arm: 0.95, hand: 1.2 });
   if (look.race === 'gnome') Object.assign(P, { head: 1.28, leg: 0.85 });
   if (look.race === 'halfling') Object.assign(P, { head: 1.15, leg: 0.9 });
-  if (look.race === 'barbarian' || look.race === 'ogre' || look.race === 'troll') Object.assign(P, { hand: 1.15 });
+  if (look.race === 'barbarian' || look.race === 'ogrin' || look.race === 'firbolg' || look.race === 'ogre' || look.race === 'troll') Object.assign(P, { hand: 1.15 });
   return P;
 }
 function restPositions(P) {
@@ -244,19 +244,33 @@ function mitre(B, s, top, hz, hc, tr) {
   for (const sx of [-1, 1]) B.box('head', sx * s * 0.35, top - s * 1.25, hz - s * 1.02, s * 0.28, s * 1.6, s * 0.03, hc, 'cloth');
   for (const sx of [-1, 1]) B.box('head', sx * s * 0.35, top - s * 1.98, hz - s * 1.03, s * 0.3, s * 0.12, s * 0.035, tr, 'gold');
 }
+function shell(B, pts, cy, hz, s, col, mat, gap = 0, zs = 1.1) {
+  const P2 = pts.map(([r, y]) => new THREE.Vector2(r * s, y * s));
+  for (const pp of [P2, P2.slice().reverse().map((v) => new THREE.Vector2(v.x * 0.97, v.y))]) {
+    const g = new THREE.LatheGeometry(pp, 20, gap, Math.PI * 2 - gap * 2); B.geom('head', g, new THREE.Matrix4().compose(new THREE.Vector3(0, cy, hz), Q(0, 0, 0), new THREE.Vector3(1, 1, zs)), col, mat); g.dispose();
+  }
+}
 function headgear(B, look, P, H) {
   const { s, cy } = H; const hz = B.rest.head[2]; const c = look.helmCol || (look.armor && look.armor.col) || '#a8acb4';
-  if (look.helm === 'plate') {
-    const g = new THREE.SphereGeometry(1, 20, 14); B.geom('head', g, new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.06, hz + s * 0.02), Q(0, 0, 0), new THREE.Vector3(s * 1.08, s * 1.3, s * 1.14)), shade(c, 0.05), 'metal'); g.dispose();
-    B.box('head', 0, cy + s * 0.12, hz + s * 1.08, s * 1.3, s * 0.12, s * 0.15, '#0a0a0a', 'plain');
-    B.box('head', 0, cy - s * 0.2, hz + s * 1.06, s * 0.1, s * 0.7, s * 0.14, shade(c, 0.2), 'metal');
-    B.box('head', 0, cy + s * 0.95, hz, s * 0.12, s * 0.3, s * 1.8, shade(c, 0.15), 'metal');
-    if (look.helmPlume) for (let k = 0; k < 6; k++) B.ell('head', 0, cy + s * (1.35 + Math.sin(k / 5 * 2) * 0.15), hz + s * (0.5 - k * 0.32), s * 0.16, s * 0.32, s * 0.2, look.helmPlume, 'fur');
-    if (look.helmSpike) B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 1.6, hz), Q(0, 0, 0), new THREE.Vector3(s * 0.3, s * 0.9, s * 0.3)), shade(c, -0.2), 'metal');
+  if (look.helm === 'plate') { // a 1300s bascinet: pointed skull, open face, riveted brow band, mail aventail to the shoulders
+    const m = shade(c, 0.05), dk = shade(c, -0.22);
+    shell(B, [[0.001, 1.52], [0.3, 1.45], [0.6, 1.27], [0.82, 1.0], [0.95, 0.68], [1.0, 0.34]], cy, hz, s, m, 'metal');
+    shell(B, [[1.0, 0.36], [1.01, 0.05], [0.99, -0.3], [0.95, -0.6]], cy, hz, s, m, 'metal', 0.72);
+    shell(B, [[1.05, 0.42], [1.06, 0.26]], cy, hz, s, dk, 'metal');
+    for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; B.ell('head', Math.sin(a) * s * 1.07, cy + s * 0.34, hz + Math.cos(a) * s * 1.07 * 1.1, s * 0.05, s * 0.05, s * 0.05, shade(c, 0.25), 'metal'); }
+    B.box('head', 0, cy + s * 1.0, hz - s * 0.05, s * 0.07, s * 0.16, s * 1.9, shade(c, 0.15), 'metal', Q(0.25, 0, 0));
+    shell(B, [[0.95, -0.6], [1.06, -0.86], [1.3, -1.1], [1.62, -1.3]], cy, hz, s, '#7e828a', 'chain', 0.12, 1.08);
+    if (look.helmPlume) for (let k = 0; k < 7; k++) B.ell('head', 0, cy + s * (1.5 + Math.sin(k / 6 * 2.4) * 0.22), hz - s * (0.1 + k * 0.2), s * 0.09, s * 0.22, s * 0.16, k % 2 ? shade(look.helmPlume, 0.12) : look.helmPlume, 'fur', Q(-0.5 - k * 0.12, 0, 0));
+    if (look.helmSpike) B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 1.75, hz), Q(0, 0, 0), new THREE.Vector3(s * 0.22, s * 0.7, s * 0.22)), shade(c, -0.2), 'metal');
     if (look.horns) for (const sd of [-1, 1]) B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(sd * s * 1.1, cy + s * 0.8, hz), Q(0, 0, -sd * 0.7), new THREE.Vector3(s * 0.25, s * 1.1, s * 0.25)), '#e8dcc0', 'bone');
-  } else if (look.helm === 'chain') {
-    const g = new THREE.SphereGeometry(1, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.75); B.geom('head', g, new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.02, hz - s * 0.08), Q(-0.2, 0, 0), new THREE.Vector3(s * 1.08, s * 1.26, s * 1.12)), '#8a8a92', 'chain'); g.dispose();
-    B.ell('chest', 0, B.rest.neck[1] + 0.02, hz - 0.01, s * 1.4, s * 0.45, s * 1.25, '#8a8a92', 'chain');
+  } else if (look.helm === 'chain') { // a kettle hat with a broad brim over a mail coif
+    shell(B, [[0.001, 1.2], [0.5, 1.12], [0.86, 0.82], [1.02, 0.35], [1.04, -0.2], [1.0, -0.5]], cy, hz, s, '#858991', 'chain', 0.78, 1.04);
+    shell(B, [[1.0, -0.48], [1.06, -0.86], [1.25, -1.07], [1.55, -1.28]], cy, hz, s, '#858991', 'chain', 0.12, 1.1);
+    const k = shade(c === '#a8acb4' ? '#9a9ea6' : c, 0);
+    shell(B, [[0.001, 1.5], [0.4, 1.44], [0.78, 1.2], [1.0, 0.85], [1.1, 0.55]], cy, hz, s, k, 'metal');
+    shell(B, [[1.1, 0.55], [1.5, 0.43], [1.66, 0.33], [1.68, 0.28]], cy, hz, s, shade(k, -0.08), 'metal');
+    shell(B, [[1.1, 0.6], [1.12, 0.52]], cy, hz, s, shade(k, -0.3), 'metal');
+    for (let j = 0; j < 4; j++) { const a = j / 4 * 6.283 + 0.785; B.box('head', Math.sin(a) * s * 0.62, cy + s * 1.18, hz + Math.cos(a) * s * 0.62 * 1.08, s * 0.08, s * 0.6, s * 0.06, shade(k, 0.18), 'metal', Q(0, a, Math.sin(a) * 0.9)); }
   }
   if (look.helm) return;
   const hc = look.hatCol || '#3a3a6a', tr = look.hatTrim || '#e0c050';

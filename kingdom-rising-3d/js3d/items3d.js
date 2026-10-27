@@ -53,14 +53,14 @@ function weapon(it, R) {
     if (t >= 2 || it.q > 1.1) for (let k = 0; k < 3; k++) mb.box('glow', 0, len * (0.2 + k * 0.12), 0.017, w * 0.08, 0.03, 0.002, it.fx ? '#ffaa44' : '#88ccff');
     hilt(mb, R, m, gold, grip, len, big);
   } else if (wt === '2HS' || it.axe) {
-    mb.cyl('timber', 0, 0.45, 0, 0.022, 1.2, hueShift('#5a3a20', R), 8);
+    mb.cyl('haft', 0, 0.45, 0, 0.022, 1.2, hueShift('#5a3a20', R), 8);
     const head = new THREE.Shape(); const hw = 0.26 + R() * 0.08, hh = 0.2 + R() * 0.08; head.moveTo(0, -0.08); head.quadraticCurveTo(hw * 0.6, -hh * 0.7, hw, -hh); head.quadraticCurveTo(hw * 1.15, 0, hw, hh); head.quadraticCurveTo(hw * 0.6, hh * 0.7, 0, 0.08);
     for (const sd of pick(R, [[1], [1, -1]])) mb.add('metal', extrude(head, 0.02), M4(0, 0.92, 0, 0, sd > 0 ? 0 : Math.PI, 0), m);
     mb.box('metalv', 0, 0.92, 0, 0.07, 0.16, 0.06, K3.shade(m, -0.3)); for (let k = 0; k < 3; k++) mb.cyl('leather', 0, 0.05 + k * 0.08, 0, 0.026, 0.03, grip, 8);
   } else if (wt === '1HB') {
-    if (it.club || /club|cudgel/i.test(it.name || '')) { const g = new THREE.CylinderGeometry(0.075, 0.028, 0.7, 10, 4); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const n = R(); p.setX(i, p.getX(i) * (0.85 + n * 0.3)); p.setZ(i, p.getZ(i) * (0.85 + n * 0.3)); } g.computeVertexNormals(); mb.add('timber', g, M4(0, 0.3, 0), hueShift('#7a5530', R)); }
+    if (it.club || /club|cudgel/i.test(it.name || '')) { const g = new THREE.CylinderGeometry(0.075, 0.028, 0.7, 10, 4); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const n = R(); p.setX(i, p.getX(i) * (0.85 + n * 0.3)); p.setZ(i, p.getZ(i) * (0.85 + n * 0.3)); } g.computeVertexNormals(); mb.add('haft', g, M4(0, 0.3, 0), hueShift('#7a5530', R)); }
     else {
-      mb.cyl('timber', 0, 0.2, 0, 0.02, 0.56, hueShift('#4a3020', R), 8); for (let k = 0; k < 4; k++) mb.cyl('leather', 0, 0.02 + k * 0.035, 0, 0.024, 0.02, grip, 8);
+      mb.cyl('haft', 0, 0.2, 0, 0.02, 0.56, hueShift('#4a3020', R), 8); for (let k = 0; k < 4; k++) mb.cyl('leather', 0, 0.02 + k * 0.035, 0, 0.024, 0.02, grip, 8);
       const style = pick(R, ['flanged', 'spiked', 'hammer']);
       if (style === 'flanged') { mb.sph('metal', 0, 0.52, 0, 0.11, 0.13, 0.11, m); for (let k = 0; k < 7; k++) { const a = (k / 7) * 6.283; mb.add('metal', extrude(new THREE.Shape([V2(0, -0.07), V2(0.07, -0.04), V2(0.075, 0.05), V2(0, 0.08)]), 0.012, 0.003), M4(Math.cos(a) * 0.03, 0.52, Math.sin(a) * 0.03, 0, -a, 0), m); } }
       else if (style === 'spiked') { mb.sph('metal', 0, 0.54, 0, 0.15, 0.15, 0.15, m); for (let k = 0; k < 10; k++) { const a = R() * 6.283, b = (R() - 0.5) * 2.2; const d = new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)); mb.add('metal', new THREE.ConeGeometry(0.018, 0.07, 6), new THREE.Matrix4().compose(d.clone().multiplyScalar(0.085).add(new THREE.Vector3(0, 0.54, 0)), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d), new THREE.Vector3(1, 1, 1)), K3.shade(m, 0.1)); } }
@@ -68,10 +68,10 @@ function weapon(it, R) {
     }
   } else if (wt === '2HB') {
     const caster = it.staff || /staff|rod|stave|wand/i.test(it.name || '') || R() < 0.5;
-    if (caster) { mb.cyl('timber', 0, 0.55, 0, 0.022, 1.5, hueShift('#6a4a2a', R), 8); for (let k = 0; k < 3; k++) mb.cyl('gold', 0, 1.1 + k * 0.05, 0, 0.028, 0.015, gold, 8);
+    if (caster) { mb.cyl('haft', 0, 0.55, 0, 0.022, 1.5, hueShift('#6a4a2a', R), 8); for (let k = 0; k < 3; k++) mb.cyl('gold', 0, 1.1 + k * 0.05, 0, 0.028, 0.015, gold, 8);
       const g = pick(R, GEMS); if (R() < 0.5) mb.sph('glow', 0, 1.36, 0, 0.11, 0.11, 0.11, g); else mb.add('glow', new THREE.OctahedronGeometry(0.07, 0), M4(0, 1.37, 0, 0, 0, 0), g);
       for (let k = 0; k < 4; k++) { const a = (k / 4) * 6.283; mb.rod('gold', new THREE.Vector3(0, 1.22, 0), new THREE.Vector3(Math.cos(a) * 0.07, 1.42, Math.sin(a) * 0.07), 0.008, gold); } }
-    else { mb.cyl('timber', 0, 0.5, 0, 0.026, 1.2, hueShift('#4a3020', R), 8); mb.box('metal', 0, 1.08, 0, 0.32, 0.17, 0.17, m); mb.box('metalv', 0, 1.08, 0, 0.34, 0.04, 0.18, K3.shade(m, -0.3)); }
+    else { mb.cyl('haft', 0, 0.5, 0, 0.026, 1.2, hueShift('#4a3020', R), 8); mb.box('metal', 0, 1.08, 0, 0.32, 0.17, 0.17, m); mb.box('metalv', 0, 1.08, 0, 0.34, 0.04, 0.18, K3.shade(m, -0.3)); }
   } else if (wt === '1HP') {
     const len = 0.3 * (0.9 + R() * 0.3); mb.add('metal', extrude(bladeShape(pick(R, ['straight', 'leaf', 'kris']), len, 0.05, R), 0.01, 0.004), M4(0, 0, 0), m); hilt(mb, R, m, gold, grip, len, false);
   } else if (wt === 'H2H') {
@@ -80,7 +80,7 @@ function weapon(it, R) {
     if (R() < 0.5) for (let k = 0; k < 3; k++) mb.add('metal', new THREE.ConeGeometry(0.012, 0.14, 6), M4(-0.04 + k * 0.04, 0.13, 0, 0, 0, 0), K3.shade(m, 0.1));
   } else if (wt === 'ARC') {
     const pts = []; const L = 0.62 + R() * 0.12, curve = 0.1 + R() * 0.08; for (let i = 0; i <= 16; i++) { const y = -L + (2 * L * i) / 16; const tip = Math.abs(y / L); pts.push(new THREE.Vector3(-curve * (1 - y * y / (L * L)) + (tip > 0.8 ? 0.04 * (tip - 0.8) / 0.2 : 0), y, 0)); }
-    mb.add('timber', new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.016, 6), M4(0, 0, 0), hueShift(pick(R, ['#7a5530', '#5a3a20', '#3a2a1e', '#8a6a3a']), R));
+    mb.add('haft', new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.016, 6), M4(0, 0, 0), hueShift(pick(R, ['#7a5530', '#5a3a20', '#3a2a1e', '#8a6a3a']), R));
     mb.rod('leather', new THREE.Vector3(0.0, -L, 0), new THREE.Vector3(0.0, L, 0), 0.003, '#e8e0d0'); mb.cyl('leather', -curve, 0, 0, 0.022, 0.12, grip, 8);
   } else if (wt === 'THR') {
     if (/star/i.test(it.name || '') || R() < 0.33) { const s = new THREE.Shape(); for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.283, r = k % 2 ? 0.035 : 0.1; if (k) s.lineTo(Math.cos(a) * r, Math.sin(a) * r); else s.moveTo(r, 0); } mb.add('metal', extrude(s, 0.008, 0.003), M4(0, 0, 0), m); }
@@ -110,7 +110,7 @@ function shield(it, R) {
   else { s.moveTo(-0.27, 0.3); s.lineTo(0.27, 0.3); s.lineTo(0.27, 0.02); s.quadraticCurveTo(0.24, -0.25, 0, -0.36); s.quadraticCurveTo(-0.24, -0.25, -0.27, 0.02); s.lineTo(-0.27, 0.3); }
   const g = extrude(s, 0.03, 0.012); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) - (p.getX(i) ** 2) * 0.35); g.computeVertexNormals();
   mb.add(wood ? 'planks' : 'paint', g, M4(0, 0, 0), field);
-  if (wood) for (let k = -2; k <= 2; k++) mb.box('timber', k * 0.11, 0, 0.02 - (k * 0.11) ** 2 * 0.35, 0.006, 0.6, 0.006, K3.shade(field, -0.3));
+  if (wood) for (let k = -2; k <= 2; k++) mb.box('haft', k * 0.11, 0, 0.02 - (k * 0.11) ** 2 * 0.35, 0.006, 0.6, 0.006, K3.shade(field, -0.3));
   else {
     const dev = pick(R, ['cross', 'chevron', 'pale', 'bend', 'lion']); const z = 0.022;
     if (dev === 'cross') { mb.box('paint', 0, 0, z, 0.08, 0.55, 0.004, charge); mb.box('paint', 0, 0.08, z, 0.48, 0.08, 0.004, charge); }
@@ -201,11 +201,11 @@ function jewel(it, R) {
 function misc(it, R) {
   const mb = new MB(); const t = Math.min(5, it.tier || 0); const n = (it.name || '').toLowerCase();
   if (it.kind === 'gear' && it.tool) { const m = KR.Gear ? KR.Gear.TOOL_TIERS[it.ttier].col : '#9aa0a8';
-    mb.cyl('timber', 0, 0.3, 0, 0.02, 0.8, hueShift('#6a4a2a', R), 8);
+    mb.cyl('haft', 0, 0.3, 0, 0.02, 0.8, hueShift('#6a4a2a', R), 8);
     if (it.tool === 'axe') { const s = new THREE.Shape([V2(0, -0.06), V2(0.15, -0.11), V2(0.18, 0), V2(0.15, 0.1), V2(0, 0.05)]); mb.add('metal', extrude(s, 0.02), M4(0, 0.64, 0), m); mb.box('metalv', -0.02, 0.64, 0, 0.06, 0.11, 0.05, K3.shade(m, -0.3)); }
     else if (it.tool === 'pick') { const g = new THREE.TorusGeometry(0.22, 0.02, 6, 20, Math.PI * 0.75); mb.add('metal', g, M4(0, 0.46, 0, 0, 0, Math.PI * 0.125), m); for (const sx of [-1, 1]) mb.add('metal', new THREE.ConeGeometry(0.02, 0.06, 6), M4(sx * 0.21, 0.63, 0, 0, 0, sx * -1.2), m); }
     else { mb.clear && mb.clear(); }
-    if (it.tool === 'knife') { const m2 = new MB(); m2.add('metal', extrude(new THREE.Shape([V2(-0.022, 0), V2(0.03, 0), V2(0.04, 0.12), V2(0.0, 0.2), V2(-0.02, 0.1)]), 0.008, 0.003), M4(0, 0, 0), m); m2.cyl('timber', 0, -0.06, 0, 0.018, 0.12, hueShift('#5a3a20', R), 8); m2.cyl('metal', 0, -0.0, 0, 0.022, 0.012, '#c8a040', 8); return { mb: m2, pose: 'diag' }; }
+    if (it.tool === 'knife') { const m2 = new MB(); m2.add('metal', extrude(new THREE.Shape([V2(-0.022, 0), V2(0.03, 0), V2(0.04, 0.12), V2(0.0, 0.2), V2(-0.02, 0.1)]), 0.008, 0.003), M4(0, 0, 0), m); m2.cyl('haft', 0, -0.06, 0, 0.018, 0.12, hueShift('#5a3a20', R), 8); m2.cyl('metal', 0, -0.0, 0, 0.022, 0.012, '#c8a040', 8); return { mb: m2, pose: 'diag' }; }
     return { mb, pose: 'diag' };
   }
   if (it.kind === 'gear' && it.light) return { group: K3.lightModel ? K3.lightModel(it.light) : null, pose: 'stand' };
@@ -214,9 +214,9 @@ function misc(it, R) {
     if (ct === 'food' || ct === 'bread') { const f = ['bread', 'cheese', 'meat', 'pie', 'feast'][Math.min(4, t)]; if (f === 'bread') { mb.sph('paint', 0, 0, 0, 0.34, 0.16, 0.2, hueShift('#c8904a', R)); for (let k = 0; k < 3; k++) mb.box('paint', -0.08 + k * 0.08, 0.075, 0, 0.02, 0.01, 0.14, '#8a5a2a', 0.3); } else if (f === 'cheese') { mb.add('paint', new THREE.CylinderGeometry(0.15, 0.15, 0.1, 18, 1, false, 0, Math.PI * 1.6), M4(0, 0, 0), '#e8c850'); mb.cyl('paint', 0, 0.051, 0, 0.152, 0.004, '#d8a830', 18); } else if (f === 'meat') { mb.sph('paint', 0, 0, 0, 0.28, 0.16, 0.18, '#8a3a2a'); mb.cyl('paint', 0.18, 0, 0, 0.025, 0.14, '#efe6cc', 8, null, 0, 0, Math.PI / 2); mb.sph('paint', 0.25, 0, 0, 0.06, 0.06, 0.06, '#efe6cc'); } else { mb.cyl('paint', 0, 0, 0, 0.17, 0.08, '#c8904a', 18); mb.cyl('paint', 0, 0.045, 0, 0.155, 0.01, '#8a2a3a', 18); for (let k = 0; k < 4; k++) mb.box('paint', 0, 0.052, 0, 0.3, 0.008, 0.02, '#c8904a', (k * Math.PI) / 4); } return { mb, pose: 'stand' }; }
     if (ct === 'drink' || ct === 'heal' || ct === 'mana' || /potion|elixir|draught/.test(n)) { const col = ct === 'heal' ? '#ff3a3a' : ct === 'mana' ? '#3a7aff' : ['#8ac8ff', '#c8e8ff', '#9affc8', '#ffd84a', '#ff8ad8'][Math.min(4, t)];
       const shape = ct === 'drink' && t < 2 ? 'skin' : pick(R, ['round', 'tall', 'square']);
-      if (shape === 'skin') { mb.sph('leather', 0, -0.02, 0, 0.22, 0.26, 0.14, hueShift('#7a5532', R)); mb.cyl('timber', 0, 0.14, 0, 0.025, 0.06, '#5a3a20', 8); }
+      if (shape === 'skin') { mb.sph('leather', 0, -0.02, 0, 0.22, 0.26, 0.14, hueShift('#7a5532', R)); mb.cyl('haft', 0, 0.14, 0, 0.025, 0.06, '#5a3a20', 8); }
       else { const prof = shape === 'round' ? [[0.001, -0.14], [0.08, -0.13], [0.12, -0.06], [0.11, 0.02], [0.035, 0.07], [0.03, 0.14]] : shape === 'tall' ? [[0.001, -0.16], [0.06, -0.15], [0.065, 0.06], [0.03, 0.1], [0.028, 0.16]] : [[0.001, -0.14], [0.09, -0.14], [0.09, 0.04], [0.03, 0.08], [0.028, 0.14]];
-        mb.add('glass', lathe(prof, shape === 'square' ? 4 : 18), M4(0, 0, 0), '#e8f0ff'); mb.add('glow', lathe(prof.slice(0, -2).map(([r, y]) => [r * 0.88, Math.min(y, 0.02)]), shape === 'square' ? 4 : 18), M4(0, 0, 0), col); mb.cyl('timber', 0, prof[prof.length - 1][1] + 0.02, 0, 0.032, 0.05, '#8a6a3a', 8); }
+        mb.add('glass', lathe(prof, shape === 'square' ? 4 : 18), M4(0, 0, 0), '#e8f0ff'); mb.add('glow', lathe(prof.slice(0, -2).map(([r, y]) => [r * 0.88, Math.min(y, 0.02)]), shape === 'square' ? 4 : 18), M4(0, 0, 0), col); mb.cyl('haft', 0, prof[prof.length - 1][1] + 0.02, 0, 0.032, 0.05, '#8a6a3a', 8); }
       return { mb, pose: 'stand' }; }
     if (ct === 'ale') { mb.cylB('planks', 0, -0.12, 0, 0.1, 0.22, '#8a6a3a', 14); mb.cylB('gloss', 0, 0.08, 0, 0.095, 0.05, '#f4ead0', 14); mb.add('metal', new THREE.TorusGeometry(0.07, 0.015, 6, 14, Math.PI), M4(0.12, -0.01, 0, 0, 0, -Math.PI / 2), '#8a8e94'); return { mb, pose: 'stand' }; }
   }

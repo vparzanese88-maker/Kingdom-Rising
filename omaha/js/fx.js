@@ -172,6 +172,7 @@ function muzzleFX(p,dir,big){
 }
 // a single shell or grenade blast. power 1 = grenade, 2.2 = artillery
 function explosion(p,power,owner,weapon){
+  if(Net.host)Net.event(['boom',Math.round(p.x*100)/100,Math.round(p.y*100)/100,Math.round(p.z*100)/100,power]);
   const inWater=H(p.x,p.z)<-.05&&p.y<.4;
   const P=power;
   if(inWater){
@@ -192,7 +193,7 @@ function explosion(p,power,owner,weapon){
   }
   // blast damage and concussion
   const lethal=3.2*P,maxR=9*P;
-  for(const u of UNITS){if(!u.alive)continue;
+  if(!Net.client)for(const u of UNITS){if(!u.alive)continue;
     const d=Math.hypot(u.pos.x-p.x,u.pos.y+.9-p.y,u.pos.z-p.z);if(d>maxR)continue;
     // walls between the blast and the target soak it
     const eye=new V3(u.pos.x,u.pos.y+1.0,u.pos.z);if(!clearLine(new V3(p.x,p.y+.4,p.z),eye))continue;

@@ -178,7 +178,7 @@ const LINES={
      sniper:['Scharfschütze!'],mg:['Maschinengewehr! Runter!'],cap:['Stellung gesichert!'],medic:['Sanitäter!'],cover:['Feuerschutz!']}
 };
 function shout(u,kind,force){
-  if(!u||!u.alive||G.demo)return;const d=u.pos.distanceTo(camera.position);if(d>40&&!force)return;
+  if(!u||!u.alive||G.demo)return;if(Net.host)Net.event(['shout',u.id,kind]);const d=u.pos.distanceTo(camera.position);if(d>40&&!force)return;
   const L=LINES[u.team][kind];if(!L)return;say(pick(L),{de:u.team===1,vol:clamp(1.1-d/40,.15,1),pitch:u.voicePitch||1});
 }
 

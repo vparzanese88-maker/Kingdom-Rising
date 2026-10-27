@@ -526,3 +526,5 @@ const SPAWNS={
   axis:{x0:-34,x1:34,z0:-158,z1:-152},
   axisFwd:{x0:-24,x1:24,z0:-80,z1:-70}
 };
+// map building is done: back to real randomness
+Math.random=_realRandom;

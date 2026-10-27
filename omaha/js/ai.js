@@ -8,6 +8,7 @@ function spreadDir(dir,spread,out){
   const right=_v2.crossVectors(dir,up).normalize();const up2=_v3.crossVectors(right,dir).normalize();
   return out.copy(dir).addScaledVector(right,Math.cos(a)*r).addScaledVector(up2,Math.sin(a)*r).normalize();
 }
+const r2=v=>Math.round(v*100)/100;
 function fireBullet(u,o,dir,W,wid,isTracer){
   const maxT=420;
   const wh=rayWorld(o.x,o.y,o.z,dir.x,dir.y,dir.z,maxT);
@@ -20,8 +21,8 @@ function fireBullet(u,o,dir,W,wid,isTracer){
     if((W.type==='auto'||W.pistol)&&!W.mg)dmg*=clamp(1-(t-35)/170,.55,1);
     bloodFX(hp,dir);play('flesh',{pos:hp,vol:.45,maxD:40});
     if(Math.random()<.3)decalAt(hp.x,hp.z,.9,'blood');
-    const before=uh.u.alive;hurt(uh.u,dmg,u,wid,uh.zone,dir);
-    if(u.isPlayer&&before)hitMarker(!uh.u.alive,uh.zone==='head');
+    if(!Net.client){const before=uh.u.alive;hurt(uh.u,dmg,u,wid,uh.zone,dir);
+      if(before&&u.isPlayer)hitMarker(!uh.u.alive,uh.zone==='head');else if(before&&u.remote)Net.event(['hm',u.id,uh.u.alive?0:1,uh.zone==='head'?1:0]);}
   }else if(wh)impactFX(wh,dir);
   if(isTracer)tracer(_v1.copy(o).addScaledVector(dir,1.2),dir,t);
   // near misses: crack for the player, suppression for bots
@@ -32,6 +33,8 @@ function fireBullet(u,o,dir,W,wid,isTracer){
       FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}
     else if(v.brain&&d<2.6)v.brain.suppress+=(W.mg?.22:.12)*(1-d/2.6);
   }
+  if(Net.host)Net.event(['shot',u.id,r2(o.x),r2(o.y),r2(o.z),r2(dir.x),r2(dir.y),r2(dir.z),Math.round(t*10)/10,uh?2:wh?1:0,wid,isTracer?1:0,wh&&!uh?wh.mat:0]);
+  if(Net.client&&u===PL.u)Net.send({t:'fire',o:[r2(o.x),r2(o.y),r2(o.z)],d:[dir.x,dir.y,dir.z],w:wid,tr:isTracer?1:0});
   return t;
 }
 function gunSound(u,W,o){
@@ -40,11 +43,11 @@ function gunSound(u,W,o){
 }
 
 /* ================= Grenades ================= */
-const NADES=[];
+const NADES=[];let nadeSeq=0;
 const nadeMeshes={};
 function nadeMesh(id){const m=new THREE.Mesh(mergeGeos([...weaponModel(id).p]),SMAT);m.castShadow=true;scene.add(m);return m;}
 function throwNade(u,o,v,fuse,id){
-  const n={p:o.clone(),v:v.clone(),fuse,owner:u,id,mesh:nadeMesh(id),rest:false,held:null,rot:new V3(rand(-8,8),rand(-8,8),rand(-8,8))};
+  const n={nid:++nadeSeq,p:o.clone(),v:v.clone(),fuse,owner:u,id,mesh:nadeMesh(id),rest:false,held:null,rot:new V3(rand(-8,8),rand(-8,8),rand(-8,8))};
   NADES.push(n);
   if(u.team===0&&!u.isPlayer)shout(u,'nade');else if(!u.isPlayer)shout(u,'nade');
   return n;

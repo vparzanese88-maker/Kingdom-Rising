@@ -119,14 +119,17 @@ function rayUnits(o,d,maxT,skip,skipTeam){
 const CORPSES=[];
 function hurt(u,dmg,attacker,wid,zone,dir){
   if(!u.alive||u.spawnProt>0)return;
+  if(Net.client)return;// the host decides all damage
   if(attacker&&attacker!==u&&attacker.team===u.team)return;
   u.hp-=dmg;u.slowT=.6;u.lastHurt=GAME.time;u.lastAttacker=attacker;
+  if(u.remote)Net.event(['hurt',u.id,Math.round(dmg),Math.max(0,Math.round(u.hp)),attacker?attacker.id:-1,zone,dir?Math.round(dir.x*100)/100:0,dir?Math.round(dir.z*100)/100:0]);
   if(u.isPlayer)playerHurt(dmg,attacker,zone,dir);
   else{if(attacker&&u.brain)u.brain.onHurt(attacker);if(u.hp>0&&Math.random()<.5)painGrunt(u.pos.clone().setY(u.pos.y+1.5),.22);}
   if(zone==='head'&&wid!=='arty'&&wid!=='nade')play('helmet',{pos:u.pos.clone().setY(u.pos.y+1.7),vol:.5,maxD:70});
   if(u.hp<=0)killUnit(u,attacker,wid,zone,dir);
 }
 function killUnit(u,attacker,wid,zone,dir){
+  if(Net.host)Net.event(['kill',u.id,attacker?attacker.id:-1,wid,zone,dir?Math.round(dir.x*100)/100:0,dir?Math.round(dir.z*100)/100:0]);
   u.alive=false;u.hp=0;u.deaths++;u.deadAt=GAME.time;u.deployed=false;
   if(attacker&&attacker!==u){attacker.kills++;attacker.score+=1;}
   addFeed(attacker,u,wid,zone);

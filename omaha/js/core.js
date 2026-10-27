@@ -17,6 +17,10 @@ function vnoise(x,z){const xi=Math.floor(x),zi=Math.floor(z),xf=x-xi,zf=z-zi;con
 function fbm(x,z,o=4){let s=0,a=.5,f=1,n=0;for(let i=0;i<o;i++){s+=vnoise(x*f,z*f)*a;n+=a;a*=.5;f*=2.03;}return s/n;}
 
 const GAME={time:0,mode:'menu',quality:'high'};
+// Multiplayer state (filled in by net.js). The map is built with a fixed random seed so every player gets the same one.
+const Net={on:false,host:false,client:false,ev:[],applying:false,event(e){if(this.host)this.ev.push(e);},send(){}};
+const _realRandom=Math.random;
+{let s=0x2c1b3c6d;Math.random=function(){s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const SET={music:true,voice:true,sens:1.4,size:16,diff:1,team:0};
 try{const s=JSON.parse(localStorage.getItem('omaha.settings')||'null');if(s)Object.assign(SET,s);}catch(e){}
 function saveSettings(){try{localStorage.setItem('omaha.settings',JSON.stringify(SET));}catch(e){}}

@@ -37,7 +37,7 @@ function updateFlags(dt){
     const n=[0,0];const inside=[[],[]];
     for(const u of UNITS){if(!u.alive)continue;if(Math.hypot(u.pos.x-f.x,u.pos.z-f.z)<f.r&&Math.abs(u.pos.y-f.y)<6){n[u.team]++;inside[u.team].push(u);}}
     f.n=n;
-    if(G.mode==='play'||G.mode==='demo'){
+    if((G.mode==='play'||G.mode==='demo')&&!Net.client){
       const t=n[0]&&!n[1]?0:n[1]&&!n[0]?1:-1;
       if(t>=0&&f.owner!==t){
         if(f.capTeam!==t&&f.prog>0)f.prog=Math.max(0,f.prog-dt/4);
@@ -56,6 +56,7 @@ function updateFlags(dt){
   }
 }
 function captureFlag(f,t,who){
+  if(Net.host)Net.event(['cap',f.i,t,who.map(u=>u.id)]);
   const was=f.owner;f.owner=t;f.prog=0;f.capTeam=-1;setFlagTex(f,t);f.height=0;
   for(const u of who){u.caps++;u.score+=3;}
   const mine=PL.u&&who.includes(PL.u);
@@ -73,6 +74,7 @@ function playStab(good){if(!AU.ctx||!MUS.gain&&!AU.music)return;const ctx=AU.ctx
   (good?[60,64,67]:[60,63,66]).forEach((m,k)=>note(t+k*.12,m+12,.5,{vol:.05,cut:1600,brass:true,vib:3}));note(t+.36,good?72:66,1.2,{vol:.05,cut:1500,brass:true,vib:4});
   MUS.gain=prev;}
 function checkWin(){
+  if(Net.client)return;
   if(G.mode!=='play'&&G.mode!=='demo')return;
   if(G.flags.every(f=>f.owner===0))endRound(0,'The Allies hold every flag. The beachhead is secure.');
   else if(G.flags.every(f=>f.owner===1))endRound(1,'The Axis threw the landing back into the sea.');
@@ -90,12 +92,14 @@ function makeTeams(size,playerTeam,playerCls){
     const nb=playerTeam===t?size-1:size;
     for(let i=0;i<nb;i++){const u=new Unit(t,false,names[i%names.length]);u.cls=clsById(t,COMPOSITION[t][i%COMPOSITION[t].length]);new Brain(u);UNITS.push(u);}
   }
-  if(playerTeam>=0){const u=new Unit(playerTeam,true,'You');u.cls=playerCls;UNITS.push(u);PL.u=u;}else PL.u=null;
+  if(playerTeam>=0){const u=new Unit(playerTeam,true,SET.name||'You');u.cls=playerCls;UNITS.push(u);PL.u=u;}else PL.u=null;
 }
 function zonePoint(z){for(let k=0;k<40;k++){const x=rand(z.x0,z.x1),zz=rand(z.z0,z.z1);if(walkable(x,zz))return{x,z:zz};}return{x:(z.x0+z.x1)/2,z:(z.z0+z.z1)/2};}
 let boatSlot=0;
 function boatPos(i,k){const b=BOATS[i];const lx=-.8+(k%2)*1.6,lz=-4.2+Math.floor(k/2)*1.75;return{x:b.home.x+lx,z:b.home.z+lz,lx,lz,b:i};}
-function spawnUnit(u,initial){
+// at: a position chosen by the host (multiplayer clients only)
+function spawnUnit(u,initial,at){
+  if(at&&at.cls)u.cls=clsById(u.team,at.cls)||u.cls;
   if(u.nextCls){u.cls=u.nextCls;u.nextCls=null;}
   giveLoadout(u);u.hp=100;u.alive=true;u.stance='stand';u.deployed=false;u.vel.set(0,0,0);u.stam=100;u.slowT=0;u.reloadT=0;u.lastHurt=-99;
   u.spawnProt=G.mode==='intro'?999:2;
@@ -103,7 +107,8 @@ function spawnUnit(u,initial){
   if(u.model&&!CORPSES.includes(u.model))scene.remove(u.model.root);
   u.model=buildModel(u);
   let p;u.boat=null;
-  if(u.team===0){
+  if(at){p={x:at.x,z:at.z};u.yaw=at.yaw;if(at.b>=0)u.boat={b:at.b,lx:at.lx,lz:at.lz};}
+  else if(u.team===0){
     const fwd=(G.flags[1].owner===0||G.flags[2].owner===0)&&!initial;
     if(fwd)p=zonePoint(SPAWNS.alliesFwd);
     else{const i=boatSlot%4,k=(boatSlot>>2)%8;boatSlot++;p=boatPos(i,k);u.boat=p;}
@@ -112,10 +117,12 @@ function spawnUnit(u,initial){
     if(initial&&u.brain){u.brain.reset();u.brain.forceDefend=true;u.brain.chooseGoal();u.brain.forceDefend=false;const g=u.brain.goalPoint();
       p={x:g.x+rand(-.6,.6),z:g.z+rand(-.6,.6)};if(!walkable(p.x,p.z))p={x:g.x,z:g.z};}
     else p=zonePoint(G.flags[3].owner===1?SPAWNS.axisFwd:SPAWNS.axis);
-    if(initial&&u.isPlayer){const opts=PERCHES.filter(q=>q.team===1&&G.flags[q.flag].owner===1&&q.flag>0&&q.flag<3);const q=pick(opts.filter(o=>(u.cls.id.startsWith('mg'))===(o.role==='mg')))||pick(opts);p={x:q.x,z:q.z};}
+    if(initial&&(u.isPlayer||u.remote)){const opts=PERCHES.filter(q=>q.team===1&&G.flags[q.flag].owner===1&&q.flag>0&&q.flag<3);const q=pick(opts.filter(o=>(u.cls.id.startsWith('mg'))===(o.role==='mg')))||pick(opts);p={x:q.x,z:q.z};}
     u.yaw=rand(-.2,.2);
   }
-  u.pos.set(p.x,0,p.z);u.pos.y=u.boat?BOATS[u.boat.b].g.position.y-.1:groundAt(p.x,p.z,H(p.x,p.z)+.2,.3);
+  u.pos.set(p.x,0,p.z);u.pos.y=at&&at.b<0?at.y:u.boat?BOATS[u.boat.b].g.position.y-.1:groundAt(p.x,p.z,H(p.x,p.z)+.2,.3);
+  u.net={x:u.pos.x,y:u.pos.y,z:u.pos.z,yaw:u.yaw,pitch:0};u.pitch=0;
+  if(Net.host)Net.event(['sp',u.id,r2(u.pos.x),r2(u.pos.y),r2(u.pos.z),r2(u.yaw),u.cls.id,u.boat?u.boat.b:-1,u.boat?u.boat.lx:0,u.boat?u.boat.lz:0]);
   if(u.brain&&!initial)u.brain.reset();
   if(u.brain&&initial&&u.team===0)u.brain.reset();
   updateHitSpheres(u);
@@ -129,6 +136,7 @@ function updateUnits(dt){
   for(const u of UNITS){
     if(!u.alive){animModel(u,dt);continue;}
     if(u.spawnProt>0&&G.mode!=='intro')u.spawnProt-=dt;
+    if(u.remote||(Net.client&&!u.isPlayer)){netFollow(u,dt);updateHitSpheres(u);animModel(u,dt);continue;}
     if(G.mode==='intro'){
       if(u.boat){const b=BOATS[u.boat.b];u.pos.set(b.g.position.x+u.boat.lx,b.g.position.y-.1,b.g.position.z+u.boat.lz);u.vel.set(0,0,0);}
       else if(u.brain){u.brain.perceive();if(u.brain.target){const t=u.brain.target;u.yaw+=angDiff(u.yaw,Math.atan2(t.pos.x-u.pos.x,t.pos.z-u.pos.z))*Math.min(1,dt*3);}
@@ -141,26 +149,33 @@ function updateUnits(dt){
 }
 
 /* ================= Round flow ================= */
-function startRound(){
+function resetRoundVisuals(){
   clearNades();clearDecals();smoke.clear();chunks.clear();glow.clear();
   for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
-  resetFlags();boatSlot=0;
+  resetFlags();
+  for(const b of BOATS){b.g.position.copy(b.home);if(!G.demo)b.g.position.z+=70;b.rp.rotation.x=G.demo?-1.62:0;b.rampT=undefined;}
+  $('roundend').hidden=true;
+}
+function introCue(){
+  if(G.demo||!PL.u)return;
+  setLoop('engine',PL.u.team===0?.35:.05);
+  if(PL.u.team===0){say('Thirty seconds! Check your weapons. Clear the ramp and get off the beach!',{force:true,pitch:.7,rate:1.05});center('H-HOUR','The landing craft are going in',4);}
+  else{say('Achtung! Landungsboote! Alle Mann auf Gefechtsstation!',{de:true,force:true,pitch:.7});center('THEY ARE COMING','Hold your fire until they hit the beach',4);}
+  stopMusic(2);
+}
+function startRound(){
+  resetRoundVisuals();boatSlot=0;
   G.timeLeft=ROUND_TIME;G.waveT=[G.waveInt[0],G.waveInt[1]];G.winner=-1;G.artyT=rand(35,55);
   G.mode=G.demo?'demo':'intro';G.introT=G.demo?0:11;
-  for(const b of BOATS){b.g.position.copy(b.home);if(!G.demo)b.g.position.z+=70;b.rp.rotation.x=G.demo?-1.62:0;}
+  if(Net.host)Net.event(['rs',G.round]);
   for(const u of UNITS){u.alive=false;if(u.brain)u.brain.reset();}
   for(const u of UNITS)if(u.team===1)spawnUnit(u,true);
   for(const u of UNITS)if(u.team===0)spawnUnit(u,true);
   if(G.demo)for(const u of UNITS)u.spawnProt=0;
-  $('roundend').hidden=true;
-  if(!G.demo){
-    setLoop('engine',PL.u.team===0?.35:.05);
-    if(PL.u.team===0){say('Thirty seconds! Check your weapons. Clear the ramp and get off the beach!',{force:true,pitch:.7,rate:1.05});center('H-HOUR','The landing craft are going in',4);}
-    else{say('Achtung! Landungsboote! Alle Mann auf Gefechtsstation!',{de:true,force:true,pitch:.7});center('THEY ARE COMING','Hold your fire until they hit the beach',4);}
-    stopMusic(2);
-  }
+  introCue();
 }
 function endIntro(){
+  if(Net.host)Net.event(['ie']);
   G.mode='play';setLoop('engine',0,1.5);
   for(const b of BOATS)b.rampT=0;
   play('ramp',{vol:PL.u&&PL.u.team===0?1:.3});
@@ -170,6 +185,7 @@ function endIntro(){
 }
 function endRound(winner,why){
   if(G.mode==='roundEnd')return;
+  if(Net.host)Net.event(['re',winner,why]);
   G.winner=winner;G.score[winner]++;G.mode=G.demo?'demo':'roundEnd';G.endT=9;
   if(G.demo){setTimeout(()=>{if(G.demo)startRound();},6000);return;}
   const won=PL.u&&PL.u.team===winner;
@@ -181,7 +197,7 @@ function endRound(winner,why){
 
 /* ================= Waves ================= */
 function updateWaves(dt){
-  if(G.mode!=='play'&&G.mode!=='demo')return;
+  if(G.mode!=='play'&&G.mode!=='demo'||Net.client)return;
   for(let t=0;t<2;t++){G.waveT[t]-=dt;if(G.waveT[t]<=0){G.waveT[t]=G.waveInt[t];
     let n=0;for(const u of UNITS)if(u.team===t&&!u.alive&&GAME.time-u.deadAt>3){spawnUnit(u,false);n++;}
     if(n&&PL.u&&PL.u.alive&&PL.u.team===t&&t===0&&Math.random()<.4)setTimeout(()=>say(pick(LINES[0].move),{pitch:.8}),300);}}
@@ -199,7 +215,7 @@ function barrage(){
   const n=randi(6,10);
   if(PL.u&&PL.u.alive&&Math.hypot(PL.u.pos.x-cx,PL.u.pos.z-cz)<45){hint(naval?'Naval gunfire incoming! Take cover!':'Incoming artillery! Get down!',3);say(naval?'Incoming! Navy is shelling the bluff!':'Incoming!',{force:true,pitch:.8});}
   for(let k=0;k<n;k++){const t=1+k*rand(.4,.9);const x=cx+rand(-14,14),z=cz+rand(-12,12);
-    later(t,()=>{const y=H(x,z);play('whistle',{pos:new V3(x,y+20,z),vol:.75,travel:false,ref:25});later(1.75,()=>explosion(new V3(x,Math.max(y,-.2)+.2,z),2.2,null,'arty'));});}
+    later(t,()=>{const y=H(x,z);Net.event(['whis',r2(x),r2(y+20),r2(z)]);play('whistle',{pos:new V3(x,y+20,z),vol:.75,travel:false,ref:25});later(1.75,()=>explosion(new V3(x,Math.max(y,-.2)+.2,z),2.2,null,'arty'));});}
   if(naval)for(const s of FLEET)if(s.kind!=='lst'&&Math.random()<.5)s.next=rand(0,1);
 }
 const shipFlash=[];
@@ -248,6 +264,7 @@ function buildFlagHUD(){
 function updateHUD(dt){
   const u=PL.u;if(!u)return;
   for(const f of G.flags){const h=f.hc;for(const t of[0,1,-1])h.canv[t].hidden=t!==f.owner;h.pr.style.width=(f.prog*100)+'%';h.pr.style.background=f.capTeam===0?'#c9d48c':'#c0c8d2';h.el.classList.toggle('hot',f.prog>0);}
+  $('room').textContent=Net.on&&Net.code?`ROOM ${Net.code} · ${Net.host?Net.conns.filter(c=>c.unit).length+1:UNITS.filter(x=>x.human||x.isPlayer).length} PLAYERS`+(Net.host?' · ESC TO INVITE':''):'';
   const m=Math.max(0,Math.ceil(G.timeLeft));$('timer').innerHTML=`${(m/60|0)}:${String(m%60).padStart(2,'0')}<small>ROUND ${G.round} · ${G.score[0]}–${G.score[1]}</small>`;
   if(u.alive){
     const W=curWD(),w=curW();
@@ -287,6 +304,7 @@ function center(title,sub,dur){const el=$('center');el.innerHTML=`<b>${title}</b
 function hitMarker(kill,head){const el=$('hitm');el.classList.toggle('kill',kill);el.classList.add('on');setTimeout(()=>el.classList.remove('on'),kill?140:70);if(kill&&head)hint('Headshot',1);}
 function showDmgDir(ang){const el=document.createElement('div');el.className='dd';$('dmgdir').appendChild(el);PL.dmgDirs.push({el,ang,t:1.2});}
 function addFeed(k,v,wid,zone){
+  if(wid==='?')return;
   const W=WEAPONS[wid];const wn=wid==='arty'?'artillery':wid==='fall'?'fell':W?W.name:wid;
   const ks=k&&k!==v?`<span class="${k.team?'x':'a'}">${k.name}</span> `:'';
   const me=(k&&k.isPlayer)||v.isPlayer;
@@ -320,7 +338,7 @@ $('tVoice').onchange=$('pVoice').onchange=e=>{$('tVoice').checked=$('pVoice').ch
 $('tHigh').onchange=e=>{GAME.quality=e.target.checked?'high':'medium';renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GAME.quality==='high'?1.5:1));resize();sun.shadow.mapSize.set(GAME.quality==='high'?2048:1024,GAME.quality==='high'?2048:1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}};
 $('sens').oninput=()=>{SET.sens=$('sens').value/10;$('sensO').textContent=SET.sens.toFixed(1);saveSettings();};
 let classTeam=0,classFromGame=false;
-function classCount(team,id,except){let n=0;for(const u of UNITS){if(u.team!==team||u===except)continue;const c=u.nextCls||u.cls;if(c&&c.id===id)n++;}return n;}
+function classCount(team,id,except){if(Net.pendingRoster)return Net.pendingRoster.filter(r=>r[1]===team&&r[3]===id).length;let n=0;for(const u of UNITS){if(u.team!==team||u===except)continue;const c=u.nextCls||u.cls;if(c&&c.id===id)n++;}return n;}
 function openClasses(team,fromGame){
   classTeam=team;classFromGame=fromGame;
   $('cTitle').textContent=`${TEAM_NAME[team].toUpperCase()} · CHOOSE YOUR CLASS`;
@@ -345,17 +363,20 @@ function openClasses(team,fromGame){
   $('classes').hidden=false;$('menu').hidden=true;
 }
 $('go').onclick=()=>{initAudio();const t=pickTeam<0?(Math.random()<.5?0:1):pickTeam;openClasses(t,false);};
-$('cBack').onclick=()=>{$('classes').hidden=true;if(!classFromGame){$('menu').hidden=false;}else resumeGame();};
+$('cBack').onclick=()=>{if(Net.pendingJoin){netLeave(true);mpStatus('');}Net.wantHost=false;$('classes').hidden=true;if(!classFromGame){$('menu').hidden=false;}else resumeGame();};
 $('deploy').onclick=()=>{
   const c=clsById(classTeam,pickCls.id);
   // take a limited slot from a bot if needed
   if(c.limit&&classCount(classTeam,c.id,PL.u)>=c.limit){const bot=UNITS.find(u=>u.team===classTeam&&!u.isPlayer&&(u.nextCls||u.cls).id===c.id);if(bot)bot.nextCls=CLASSES[classTeam][0];}
   $('classes').hidden=true;
+  if(Net.pendingJoin){Net.joinTeam=classTeam;Net.joinCls=c;Net.send({t:'join',team:classTeam,cls:c.id});mpStatus('Joining…');$('menu').hidden=false;return;}
   if(classFromGame&&PL.u){
-    if(c.id!==PL.u.cls.id){PL.u.nextCls=c;if(PL.u.alive)hint(`You will respawn as ${c.name}`,3);}
+    if(c.id!==PL.u.cls.id){PL.u.nextCls=c;if(Net.client)Net.send({t:'cls',id:c.id});if(PL.u.alive)hint(`You will respawn as ${c.name}`,3);}
     resumeGame();return;
   }
+  const host=Net.wantHost;Net.wantHost=false;
   startGame(classTeam,c);
+  if(host)netHost();
 };
 document.addEventListener('keydown',e=>{if(!$('classes').hidden&&/^Digit[1-7]$/.test(e.code)){const i=+e.code.slice(5)-1;const cards=$('cgrid').children;if(cards[i])cards[i].click();}
   if(!$('classes').hidden&&e.code==='Enter')$('deploy').click();});
@@ -368,6 +389,7 @@ function startGame(team,cls){
   requestLock();canvas.focus();
 }
 function quitToMenu(){
+  netLeave(true);
   G.paused=false;$('pause').hidden=true;$('hud').hidden=true;$('roundend').hidden=true;$('scope').hidden=true;
   if(document.pointerLockElement)document.exitPointerLock();
   startDemo();$('menu').hidden=false;if(SET.music&&AU.ctx)playMusic('theme');
@@ -380,7 +402,7 @@ function startDemo(){
 /* ================= Input ================= */
 function requestLock(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{PL.lockOK=false;});}catch(e){PL.lockOK=false;}}
 function resumeGame(){G.paused=false;$('pause').hidden=true;if(PL.lockOK)requestLock();}
-function pauseGame(){if(G.demo||G.mode==='menu')return;G.paused=true;$('pause').hidden=false;for(const k in PL.keys)PL.keys[k]=false;PL.fireHeld=false;PL.rmb=false;$('board').hidden=true;}
+function pauseGame(){if(G.demo||G.mode==='menu')return;G.paused=true;$('pause').hidden=false;updateInvite();for(const k in PL.keys)PL.keys[k]=false;PL.fireHeld=false;PL.rmb=false;$('board').hidden=true;}
 document.addEventListener('pointerlockchange',()=>{PL.locked=document.pointerLockElement===canvas;if(!PL.locked&&!G.demo&&$('classes').hidden&&!G.paused)pauseGame();});
 document.addEventListener('pointerlockerror',()=>{PL.lockOK=false;});
 document.addEventListener('mousemove',e=>{
@@ -443,19 +465,20 @@ function update(dt){
     G.introT-=dt;const k=1-Math.max(0,G.introT)/11;const e=1-Math.pow(1-k,2);
     BOATS.forEach((b,i)=>{b.g.position.z=b.home.z+70*(1-e);b.g.position.y=b.home.y+Math.sin(GAME.time*1.6+i)*.12*(1-e*.7);b.g.rotation.x=Math.sin(GAME.time*1.3+i*2)*.025*(1-e);b.g.rotation.z=Math.sin(GAME.time*1.1+i)*.02*(1-e);
       if(Math.random()<dt*14)smoke.spawn(b.g.position.x+rand(-1.5,1.5),.3,b.g.position.z-5.5,rand(-2,2),rand(1.5,4),rand(-1,1),rand(.6,1.2),.3,1.4,.6,.85,.87,.88,1,9);});
-    if(Math.random()<dt*.9){const b=pick(BOATS);explosion(new V3(b.g.position.x+rand(-14,14),0,b.g.position.z+rand(-12,10)),1.6,null,'arty');}
-    if(G.introT<=0)endIntro();
+    if(!Net.client&&Math.random()<dt*.9){const b=pick(BOATS);explosion(new V3(b.g.position.x+rand(-14,14),0,b.g.position.z+rand(-12,10)),1.6,null,'arty');}
+    if(G.introT<=0&&!Net.client)endIntro();
   }
   if(G.mode==='play'||G.mode==='demo'||G.mode==='roundEnd'){
     for(const b of BOATS){if(b.rampT!==undefined&&b.rp.rotation.x>-1.62){b.rampT+=dt;b.rp.rotation.x=Math.max(-1.62,-Math.pow(b.rampT/.9,2)*1.62);}b.g.rotation.set(0,0,0);b.g.position.y=b.home.y;b.g.position.z=b.home.z;}
   }
-  if(G.mode==='play'){G.timeLeft-=dt;if(G.timeLeft<=0)endRound(1,'Time ran out. The Axis held the bluffs.');}
-  if(G.mode==='roundEnd'){G.endT-=dt;if(G.endT<=0){G.round++;startRound();}}
-  if(G.mode==='play'||G.mode==='demo'){G.artyT-=dt;if(G.artyT<=0){G.artyT=rand(40,75);barrage();}}
+  if(G.mode==='play'){G.timeLeft-=dt;if(G.timeLeft<=0&&!Net.client)endRound(1,'Time ran out. The Axis held the bluffs.');}
+  if(G.mode==='roundEnd'){G.endT-=dt;if(G.endT<=0&&!Net.client){G.round++;startRound();}}
+  if((G.mode==='play'||G.mode==='demo')&&!Net.client){G.artyT-=dt;if(G.artyT<=0){G.artyT=rand(40,75);barrage();}}
   updateWaves(dt);
   updateUnits(dt);
   updateFlags(dt);
-  updateNades(dt);
+  if(Net.client)netNades(dt);else updateNades(dt);
+  if(Net.on)netTick(dt);
 }
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=vmCam.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();vmCam.updateProjectionMatrix();makeRT();particleScale();}
 window.addEventListener('resize',resize);
@@ -468,9 +491,10 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(window.__freeze)return;
-  if(!G.paused)update(dt);
+  const live=!G.paused||Net.on;
+  if(live)update(dt);
   if(G.demo)demoCam(dt);
-  if(!G.paused){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
+  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
   FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);
   if(!G.demo)updateHUD(dt);
   if(AU.ctx){updateListener();musicTick();}

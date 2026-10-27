@@ -95,11 +95,18 @@ function playerFire(){
 function doMelee(W){
   const u=PL.u;W=W||WEAPONS[MELEE[u.team]];PL.meleeT=W.rof;PL.meleeAnim=1;play('swish',{vol:.5});
   camera.getWorldDirection(_f);
+  if(Net.client){Net.send({t:'melee',o:[camera.position.x,camera.position.y,camera.position.z],d:[_f.x,_f.y,_f.z]});return;}
+  meleeAttack(u,camera.position.clone(),_f.clone(),W);
+}
+// a knife or spade blow from eye position o along f (used for the local player and for remote players on the host)
+function meleeAttack(u,o,f,W){
   let best=null,bd=1e9;
-  for(const e of UNITS){if(!e.alive||e.team===u.team)continue;const c=e.center(_e);c.y+=.2;const dx=c.x-camera.position.x,dy=c.y-camera.position.y,dz=c.z-camera.position.z;const d=Math.hypot(dx,dy,dz);
-    if(d>W.range+.4)continue;const dot=(dx*_f.x+dy*_f.y+dz*_f.z)/d;if(dot<.75)continue;if(d<bd){bd=d;best=e;}}
-  if(best){setTimeout(()=>{if(!best.alive)return;play('stab',{vol:.7});const back=Math.cos(angDiff(best.yaw,PL.yaw+Math.PI))<-.5;
-    const before=best.alive;hurt(best,W.dmg*(back?2.5:1),u,W===WEAPONS.knife?'knife':'spade','melee',_f.clone());bloodFX(best.center(new V3()),_f);if(before)hitMarker(!best.alive,false);},120);}
+  for(const e of UNITS){if(!e.alive||e.team===u.team)continue;const c=e.center(new V3());c.y+=.2;const dx=c.x-o.x,dy=c.y-o.y,dz=c.z-o.z;const d=Math.hypot(dx,dy,dz);
+    if(d>W.range+.4)continue;const dot=(dx*f.x+dy*f.y+dz*f.z)/d;if(dot<.75)continue;if(d<bd){bd=d;best=e;}}
+  if(!u.isPlayer)play('swish',{pos:o.clone(),vol:.4});
+  if(best){setTimeout(()=>{if(!best.alive)return;play('stab',{pos:best.center(new V3()),vol:.7});const back=Math.cos(angDiff(best.yaw,Math.atan2(f.x,f.z)))>.5;
+    const before=best.alive;hurt(best,W.dmg*(back?2.5:1),u,W===WEAPONS.knife?'knife':'spade','melee',f);bloodFX(best.center(new V3()),f);
+    if(before&&u.isPlayer)hitMarker(!best.alive,false);else if(before&&u.remote)Net.event(['hm',u.id,best.alive?0:1,0]);},120);}
 }
 function pullPin(){
   const u=PL.u;const id=u.weps.nade.id;u.weps.nade.count--;play('pin',{vol:.6});
@@ -109,15 +116,17 @@ function releaseNade(){
   const u=PL.u;const h=PL.nadeHold;if(!h)return;PL.nadeHold=null;PL.throwAnim=1;
   camera.getWorldDirection(_f);const o=camera.position.clone().addScaledVector(_f,.4);o.y-=.1;
   const v=_f.clone().multiplyScalar(WEAPONS[h.id].throwV*(u.stance==='prone'?.6:1));v.y+=3.2;v.x+=u.vel.x*.5;v.z+=u.vel.z*.5;
-  if(h.nade){h.nade.held=null;h.nade.p.copy(o);h.nade.v.copy(v);h.nade.rest=false;h.nade.owner=u;}
+  if(Net.client)Net.send({t:'nade',o:[o.x,o.y,o.z],v:[v.x,v.y,v.z],fuse:h.fuse,id:h.id,nid:h.nid||0});
+  else if(h.nade){h.nade.held=null;h.nade.p.copy(o);h.nade.v.copy(v);h.nade.rest=false;h.nade.owner=u;}
   else throwNade(u,o,v,h.fuse,h.id);
   play('swish',{vol:.5});say(pick(LINES[u.team].nade),{de:u.team===1,vol:.6,force:false});
   setTimeout(()=>{if(PL.u.alive&&PL.u.cur==='nade'){if(PL.u.weps.nade.count>0)buildVM(PL.u.weps.nade.id,PL.u.team);else switchTo('primary');}},500);
 }
 function pickupNade(){
   const u=PL.u;if(!u.alive||PL.nadeHold)return;
+  if(Net.client){Net.send({t:'pick'});return;}
   for(const n of NADES){if(n.held)continue;const d=Math.hypot(n.p.x-u.pos.x,n.p.y-u.pos.y-.3,n.p.z-u.pos.z);
-    if(d<2.2){n.held=u;PL.nadeHold={fuse:n.fuse,id:n.id,nade:n};PL.prevSlot=u.cur;u.cur='nade';buildVM(n.id,u.team);play('clink',{vol:.5});hint('Throw it back! Left-click');return;}}
+    if(d<2.2){n.held=u;PL.nadeHold={fuse:n.fuse,id:n.id,nade:n,own:true};PL.prevSlot=u.cur;u.cur='nade';buildVM(n.id,u.team);play('clink',{vol:.5});hint('Throw it back! Left-click');return;}}
 }
 
 /* ---- per-frame update ---- */
@@ -164,7 +173,7 @@ function updatePlayer(dt){
       if(u.onGround&&u.pos.y-g<.6&&u.vel.y<=0){u.pos.y=g;}
       else{u.onGround=false;u.vel.y-=17*dt;u.pos.y+=u.vel.y*dt;
         if(u.pos.y<=g){const v=-u.vel.y;u.pos.y=g;u.vel.y=0;u.onGround=true;play('jumpLand',{vol:clamp(v/9,.2,.7)});PL.landV=Math.min(1,v/10);
-          if(v>11)hurt(u,(v-11)*9,null,'fall','limb',null);}}
+          if(v>11){if(Net.client)Net.send({t:'fall',dmg:(v-11)*9});else hurt(u,(v-11)*9,null,'fall','limb',null);}}}
     }
     if(u.onGround)u.pos.y=Math.max(u.pos.y,g);
   }
@@ -190,8 +199,8 @@ function updatePlayer(dt){
   const wantAds=PL.rmb&&!PL.sprinting&&PL.reloadT<=0&&PL.switchT===0&&W.adsFov&&!W.mg&&!(W.bipod&&u.deployed)&&W.type!=='nade'&&W.type!=='melee'&&w.boltT<=0;
   PL.ads=clamp(PL.ads+(wantAds?dt*(W.scope?4:6):-dt*7),0,1);
   // held grenade
-  if(PL.nadeHold){const h=PL.nadeHold;h.fuse-=dt;if(h.nade)h.fuse=h.nade.fuse;
-    if(h.fuse<=0&&!h.nade){PL.nadeHold=null;explosion(u.eye(new V3()),1,u,'nade');}
+  if(PL.nadeHold){const h=PL.nadeHold;h.fuse-=dt;if(h.nade)h.fuse=h.nade.fuse;if(h.nid&&h.fuse<-.5)PL.nadeHold=null;
+    if(h.fuse<=0&&!h.nade&&!h.nid){PL.nadeHold=null;if(Net.client){const e=u.eye(new V3());Net.send({t:'nade',o:[e.x,e.y,e.z],v:[0,0,0],fuse:0,id:h.id,nid:0});}else explosion(u.eye(new V3()),1,u,'nade');}
     else if(!PL.fireHeld&&h.own&&h.armed)releaseNade();
     if(PL.fireHeld)h.armed=true;}
   // automatic fire

@@ -87,7 +87,7 @@ const COMPOSITION={0:['rifleman','rifleman','rifleman','rifleman','rifleman','ri
 function clsById(team,id){return CLASSES[team].find(c=>c.id===id);}
 function makeTeams(size,playerTeam,playerCls){
   for(const u of UNITS)if(u.model)scene.remove(u.model.root);
-  UNITS.length=0;for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  UNITS.length=0;for(const m of CORPSES)removeCorpse(m);CORPSES.length=0;clearRagdolls();
   for(let t=0;t<2;t++){
     const names=NAMES[t].slice().sort(()=>Math.random()-.5);
     const nb=playerTeam===t?size-1:size;
@@ -137,6 +137,7 @@ function updateUnits(dt){
   for(const u of UNITS){
     if(!u.alive){animModel(u,dt);continue;}
     if(u.spawnProt>0&&!preRound())u.spawnProt-=dt;
+    bleedTick(u,dt);bandageTick(u,dt);woundTick(u,dt);
     if(u.remote||(Net.client&&!u.isPlayer)){netFollow(u,dt);updateHitSpheres(u);animModel(u,dt);continue;}
     if(preRound()){
       if(u.boat){const b=BOATS[u.boat.b];u.pos.set(b.g.position.x+u.boat.lx,b.g.position.y-.1,b.g.position.z+u.boat.lz);u.vel.set(0,0,0);}
@@ -152,7 +153,7 @@ function updateUnits(dt){
 /* ================= Round flow ================= */
 function resetRoundVisuals(){
   clearNades();clearDecals();smoke.clear();chunks.clear();glow.clear();
-  for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  for(const m of CORPSES)removeCorpse(m);CORPSES.length=0;clearRagdolls();
   resetFlags();
   for(const b of BOATS){b.g.position.copy(b.home);if(!G.demo)b.g.position.z+=70;b.rp.rotation.x=G.demo?-1.62:0;b.rampT=undefined;}
   $('roundend').hidden=true;
@@ -347,7 +348,7 @@ $('sens').value=Math.round(SET.sens*10);$('sensO').textContent=SET.sens.toFixed(
 $('sens').oninput=()=>{SET.sens=$('sens').value/10;$('sensO').textContent=SET.sens.toFixed(1);saveSettings();};
 $('tHigh').checked=SET.quality!=='medium';
 function applyQuality(){GAME.quality=SET.quality==='medium'?'medium':'high';renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GAME.quality==='high'?1.5:1));resize();
-  sun.shadow.mapSize.set(GAME.quality==='high'?2048:1024,GAME.quality==='high'?2048:1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
+  sun.shadow.mapSize.set(GAME.quality==='high'?4096:2048,GAME.quality==='high'?4096:2048);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
 $('tHigh').onchange=e=>{SET.quality=e.target.checked?'high':'medium';saveSettings();applyQuality();};
 // cover
 function leaveCover(){if($('cover').hidden)return;initAudio();if(SET.vol.music>.01&&!MUS.on)playMusic('theme');showScreen('menu');
@@ -468,7 +469,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Escape'&&!G.demo&&PL.u&&!$('classes').hidden&&classFromGame){showScreen(null);resumeGame();return;}
   if(e.code==='Escape'&&!G.demo&&PL.u&&$('classes').hidden&&!PL.locked){if(G.paused)resumeGame();else pauseGame();return;}
   if(G.demo||!PL.u||!$('classes').hidden)return;
-  if(['Space','KeyW','KeyA','KeyS','KeyD','KeyC','KeyZ','KeyQ','KeyE'].includes(e.code))e.preventDefault();
+  if(['Space','KeyW','KeyA','KeyS','KeyD','KeyC','KeyZ','KeyQ','KeyE','KeyH','ControlLeft','ControlRight'].includes(e.code))e.preventDefault();
   if(G.paused)return;
   PL.keys[e.code]=true;if(e.repeat)return;
   const u=PL.u;
@@ -481,6 +482,7 @@ document.addEventListener('keydown',e=>{
     case'KeyG':if(u.weps.nade.count>0&&!PL.nadeHold){const prev=u.cur;u.cur='nade';buildVM(u.weps.nade.id,u.team);pullPin();PL.nadeHold.armed=true;setTimeout(()=>{releaseNade();setTimeout(()=>{if(PL.u.alive&&PL.u.cur==='nade'){PL.u.cur=prev;buildVM(curW().id,PL.u.team);}},450);},250);}break;
     case'KeyF':doMelee();break;
     case'KeyE':pickupNade();break;
+    case'KeyH':bandageKey();break;
     case'KeyZ':setStance(u.stance==='prone'?'stand':'prone');break;
   }
 });
@@ -526,6 +528,7 @@ function update(dt){
   updateWaves(dt);
   updateUnits(dt);
   updateFlags(dt);
+  updateBullets(dt);updateRagdolls(dt);
   if(Net.client)netNades(dt);else updateNades(dt);
   if(Net.on)netTick(dt);
 }
@@ -543,12 +546,43 @@ function frame(now){
   const live=!G.paused||Net.on;
   if(live)update(dt);
   if(G.demo)demoCam(dt);
-  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
+  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
   FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);
-  if(!G.demo)updateHUD(dt);
+  if(!G.demo){updateHUD(dt);tipsTick(dt);}
   if(AU.ctx){updateListener();musicTick();}
   sky.position.copy(camera.position);placeSun(camera.position);
   vmSun.position.copy(sunDir);
   renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);
 }
 requestAnimationFrame(frame);
+
+/* ================= Tips ================= */
+const TIPS=['Hold Ctrl to duck behind cover. Press Z to go prone, and Z again to get up.',
+  'Wounds bleed. Press H to bandage before you bleed out.',
+  'Bullets drop over distance and take time to arrive. Aim a little high and lead moving targets far away.',
+  'Machine guns are useless from the hip. Go prone or rest the gun on sandbags or a wall, then right-click to deploy.',
+  'Sprinting drains stamina, and a hit slows you down. Catch your breath before you cross open ground.',
+  'Grenades bounce. Hold left-click to cook one, release to throw. Press E to grab an enemy grenade and throw it back.',
+  'Stand in a flag zone to capture it. More men capture faster. Any enemy in the zone stops the capture.',
+  'The Garand pings when its clip runs dry. The enemy hears it too.',
+  'Snipers: stay still and go prone. Your aim drifts while you breathe.',
+  'Reinforcements arrive in waves. The timer shows while you wait.',
+  'Hold the West or East Bunker and the Allies get a forward spawn at the seawall.',
+  'Press M to change class. During the 10-second freeze it switches right away.',
+  'Artillery comes with a whistle. When you hear it, get down or get moving.',
+  'Press Tab for the scores. Press Esc for volume, mouse speed and the invite link.'];
+let tipI=Math.random()*TIPS.length|0,tipNext=8,tipShowT=0;
+SET.tips=SET.tips!==false;SET.gore=SET.gore!==false;
+$('tTips').checked=SET.tips;$('tGore').checked=SET.gore;
+$('tTips').onchange=e=>{SET.tips=e.target.checked;saveSettings();if(!SET.tips)$('tips').hidden=true;};
+$('tGore').onchange=e=>{SET.gore=e.target.checked;saveSettings();};
+function showTip(text){if(!SET.tips)return;$('tipT').textContent=text||TIPS[tipI++%TIPS.length];$('tips').hidden=false;tipShowT=11;}
+$('tipX').onclick=()=>{$('tips').hidden=true;tipShowT=0;};
+$('tipOff').onclick=()=>{SET.tips=false;saveSettings();$('tTips').checked=false;$('tips').hidden=true;hint('Tips off. Turn them back on in Esc > Show tips.',3);};
+function tipsTick(dt){
+  if(!PL.u||G.demo)return;
+  $('bleed').hidden=!(PL.u.alive&&PL.u.bleed&&!(PL.u.bandT>0));
+  if(tipShowT>0){tipShowT-=dt;if(tipShowT<=0)$('tips').hidden=true;}
+  if(!SET.tips)return;
+  tipNext-=dt;if(tipNext<=0){tipNext=55;showTip();}
+}

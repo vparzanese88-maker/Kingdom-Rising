@@ -203,7 +203,7 @@ for(let x=-16;x<16;x+=2){if(x>=-2.5&&x<2.5)continue;const y=minH(x,19,x+2,20.2);
 for(const[x,z]of[[-7,-12],[7,-14],[-4,-26],[5,-28]]){const y=H(x,z);addBox(x-1.6,y-.2,z-.45,x+1.6,y+.95,z+.45,'sandbag',{col:0xc9bb93,ts:1.15});}
 
 /* ================= Hedgerows (bocage) ================= */
-const HEDGE_BLOBS=[];
+const HEDGE_SEGS=[];
 function hedge(x0,z0,x1,z1){
   const alongX=Math.abs(x1-x0)>Math.abs(z1-z0);const L=alongX?Math.abs(x1-x0):Math.abs(z1-z0);const th=1.8;
   for(let s=0;s<L-.01;s+=5){const e=Math.min(L,s+5);
@@ -212,9 +212,8 @@ function hedge(x0,z0,x1,z1){
     const y0=minH(X0,Z0,X1,Z1)-.4,y1=maxH(X0,Z0,X1,Z1)+2.5;
     // earth bank under the hedge
     addBox(X0,y0,Z0,X1,y0+1.4,Z1,'dirt',{col:0x8d7a5c,solid:false});
-    addBox(X0+.1,y0+1.0,Z0+.1,X1-.1,y1,Z1-.1,'hedge',{solid:false,col:0xa8b494});
     addSolid(X0,y0,Z0,X1,y1,Z1,'hedge');
-    for(let k=0;k<4;k++)HEDGE_BLOBS.push([lerp(X0,X1,Math.random()),y1-rand(0,.4),lerp(Z0,Z1,Math.random()),rand(1.1,1.8)]);
+    HEDGE_SEGS.push([X0,Z0,X1,Z1,y0,y1]);
   }
 }
 for(const sg of[1,-1]){
@@ -224,94 +223,9 @@ for(const sg of[1,-1]){
   hedge(sg*40,-62,sg*40,-50);hedge(sg*40,-40,sg*40,-28);hedge(sg*76,-62,sg*76,-28);
   hedge(sg*6,-40,sg*6,-28);hedge(sg*6,-62,sg*6,-51);
 }
-{
-  const g=new THREE.IcosahedronGeometry(1,1);const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:C(0x4c5a30),roughness:1,flatShading:true}),HEDGE_BLOBS.length);
-  const c=new THREE.Color();HEDGE_BLOBS.forEach(([x,y,z,s],i)=>{im.setMatrixAt(i,compose(x,y,z,rand(0,3),rand(0,3),0,s*1.2,s*.8,s));c.setHSL(rand(.18,.25),rand(.25,.4),rand(.22,.32));im.setColorAt(i,c);});
-  im.castShadow=true;im.receiveShadow=true;scene.add(im);
-}
 
-/* ================= Buildings ================= */
-function house(x0,z0,x1,z1,o={}){
-  const w=x1-x0,d=z1-z0,y=minH(x0,z0,x1,z1)-.3,top=maxH(x0,z0,x1,z1);const hh=(o.h||5.5)+(top-y)*.5;const mat=o.mat||'stone';const col=o.col||0xe6dccb;
-  if(!o.ruin){
-    addBox(x0,y,z0,x1,y+hh,z1,mat,{col});
-    // gable roof along the long side
-    const alongX=w>=d;const span=alongX?d:w,len=(alongX?w:d)+.6;const rise=span*.42;const sl=Math.hypot(span/2,rise)+.35,ang=Math.atan2(rise,span/2);
-    const cx=(x0+x1)/2,cz=(z0+z1)/2;
-    for(const s of[-1,1]){if(alongX)addPart('slate',len,.22,sl,cx,y+hh+rise/2,cz+s*span/4,s*ang,0,0,{col:0x9ea2a8});else addPart('slate',sl,.22,len,cx+s*span/4,y+hh+rise/2,cz,0,0,-s*ang,{col:0x9ea2a8});}
-    // gable ends
-    const sh=new THREE.Shape();sh.moveTo(-span/2,0);sh.lineTo(span/2,0);sh.lineTo(0,rise);sh.closePath();
-    const gg=new THREE.ExtrudeGeometry(sh,{depth:len-.6,bevelEnabled:false});const uv=gg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/3,uv.getY(i)/3);
-    addGeo(mat,gg,alongX?compose(x0,y+hh,cz,0,Math.PI/2,0):compose(cx,y+hh,z0),col);
-    // chimney
-    addBox(x0+.6,y+hh,z0+.6,x0+1.5,y+hh+rise+1.2,z0+1.5,'stone',{col:0xb8aa96,solid:false});
-    // windows and doors (dark insets with stone lintels)
-    const win=(px,pz,nx,nz,wy,ww,wh)=>{const t=.06;if(nx)addBox(px-t,wy,pz-ww/2,px+t,wy+wh,pz+ww/2,'wood',{solid:false,col:0x2a2219});else addBox(px-ww/2,wy,pz-t,px+ww/2,wy+wh,pz+t,'wood',{solid:false,col:0x2a2219});};
-    for(let k=1;k<Math.floor(w/3);k++){win(x0+k*3,z0,0,1,y+1+.8,1,1.3);win(x0+k*3,z1,0,1,y+1+.8,1,1.3);if(hh>5){win(x0+k*3,z0,0,1,y+4,1,1.1);win(x0+k*3,z1,0,1,y+4,1,1.1);}}
-    for(let k=1;k<Math.floor(d/3);k++){win(x0,z0+k*3,1,0,y+1.8,1,1.3);win(x1,z0+k*3,1,0,y+1.8,1,1.3);}
-    if(o.door)win(o.door[0],o.door[1],o.door[2],o.door[3],y+.3,1.4,2.4);
-  }else{
-    // ruined shell: broken walls of uneven height with gaps, open to the sky
-    const wall=(ax,az,bx,bz,gapAt)=>{const alongX=Math.abs(bx-ax)>.1;const L=alongX?bx-ax:bz-az;const t=.6;
-      for(let s=0;s<L-.01;s+=1.5){const e=Math.min(L,s+1.5);if(gapAt&&gapAt.some(g=>s+.75>g[0]&&s+.75<g[1]))continue;
-        const hgt=Math.max(.6,hh*(.35+.65*Math.abs(Math.sin(s*1.7+ax))))*(Math.random()<.15?.3:1);
-        if(alongX)addBox(ax+s,y,az-t/2,ax+e,y+hgt,az+t/2,mat,{col});else addBox(ax-t/2,y,az+s,ax+t/2,y+hgt,az+e,mat,{col});}};
-    wall(x0,z0,x1,z0,o.gS);wall(x0,z1,x1,z1,o.gN);wall(x0,z0,x0,z1,o.gW);wall(x1,z0,x1,z1,o.gE);
-    // rubble and a few charred beams
-    for(let k=0;k<14;k++){const rx=rand(x0+.8,x1-.8),rz=rand(z0+.8,z1-.8),s=rand(.3,.9);addPart(mat,s,s*.6,s*rand(.6,1.2),rx,H(rx,rz)+s*.2,rz,rand(-.4,.4),rand(0,3),rand(-.4,.4),{col});}
-    for(let k=0;k<3;k++)addPart('timber',.25,.25,rand(3,5),rand(x0+1,x1-1),y+rand(.3,1.4),rand(z0+1,z1-1),rand(-.3,.3),rand(0,3),rand(-.5,.5),{col:0x2b241d});
-  }
-  return y;
-}
-// crossroads farm
-house(-19,-60,-9,-51,{door:[-14,-51,0,1]});
-house(9,-40,19,-31,{ruin:true,gS:[[2,4]],gW:[[3,5]],gN:[[5,7.5]],mat:'stone',col:0xcfc3ad});
-for(const[a,b,z]of[[-30,-10,-49.2],[10,30,-41]]){for(let x=a;x<b;x+=2){if(Math.abs(x)<4)continue;const y=minH(x,z-.3,x+2,z+.3);addBox(x,y-.3,z-.35,x+2,y+1.1,z+.35,'stone',{col:0xc9bda6});}}
-// village
-const VH=[
-  [-16,-92,-7,-82,{mat:'plaster',door:[-7,-87,1,0]}],[-16,-126,-7,-113,{ruin:true,gE:[[3,5],[8,10]],gS:[[2,4]],mat:'stone'}],
-  [-34,-93,-23,-80,{mat:'stone',door:[-28,-93,0,1]}],[-32,-129,-21,-114,{mat:'plaster'}],[-52,-119,-40,-106,{mat:'stone',h:6.5}],
-  [7,-92,16,-82,{ruin:true,gW:[[3,6]],gN:[[2,4]],mat:'plaster'}],[7,-128,16,-116,{mat:'stone',door:[7,-122,1,0]}],
-  [24,-91,35,-80,{mat:'plaster'}],[24,-127,36,-112,{mat:'stone',h:6.5}],[44,-121,54,-107,{mat:'plaster'}],
-  [-50,-90,-41,-80,{ruin:true,gS:[[2,5]],mat:'stone'}],[42,-92,52,-81,{mat:'stone'}],
-  [-60,-150,-48,-138,{mat:'stone'}],[48,-150,60,-136,{mat:'plaster'}]
-];
-for(const v of VH)house(...v);
-// church: nave + tower + spire
-{
-  const y=minH(-6,-152,6,-122)-.3;const col=0xd6ccb8;
-  addBox(-6,y,-150,6,y+8,-128,'stone',{col});
-  const span=12,rise=5,sl=Math.hypot(6,rise)+.4,ang=Math.atan2(rise,6);
-  for(const s of[-1,1])addPart('slate',sl,.25,23,s*3,y+8+rise/2,-139,0,0,-s*ang,{col:0x8e949c});
-  const sh=new THREE.Shape();sh.moveTo(-6,0);sh.lineTo(6,0);sh.lineTo(0,rise);sh.closePath();
-  const gg=new THREE.ExtrudeGeometry(sh,{depth:22,bevelEnabled:false});const uv=gg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/3,uv.getY(i)/3);addGeo('stone',gg,compose(0,y+8,-150),col);
-  addBox(-3.2,y,-128,3.2,y+17,-121.6,'stone',{col});
-  addBox(-3.5,y+17,-128.3,3.5,y+17.6,-121.3,'stone',{col:0xc4baa6,solid:false});
-  const spire=new THREE.Mesh(new THREE.ConeGeometry(3.1,9,4),MAT.slate);spire.rotation.y=Math.PI/4;spire.position.set(0,y+17.6+4.5,-124.8);spire.castShadow=true;scene.add(spire);
-  // belfry openings and the door
-  for(const[px,pz,rx]of[[0,-121.55,0],[0,-128.05,0]])addBox(px-.8,y+13,pz-.06,px+.8,y+15.5,pz+.06,'wood',{solid:false,col:0x1c1814});
-  addBox(-1,y+.2,-121.62,1,y+3.4,-121.5,'wood',{solid:false,col:0x3a2b1e});
-  for(const z of[-132,-138,-144])for(const x of[-6.05,6.05])addBox(x-.06,y+3,z-.6,x+.06,y+6,z+.6,'wood',{solid:false,col:0x2a3240});
-  // graveyard wall
-  for(const[a,b,z]of[[-14,-6.5,-127],[6.5,14,-127]])addBox(a,y,z-.3,b,y+1.2,z+.3,'stone',{col:0xbdb29c});
-}
-// street barricades, carts and a well in the square
-for(const[x,z]of[[-3,-96],[3.5,-104],[-28,-100.5],[30,-99.5],[0,-70]]){const y=H(x,z);addBox(x-1.6,y-.2,z-.45,x+1.6,y+1.0,z+.45,'sandbag',{col:0xc9bb93,ts:1.15});}
-{const y=H(-4,-112);addBox(-4.9,y,-112.9,-3.1,y+.9,-111.1,'stone',{col:0xb0a690});}
-// Opel Blitz truck at the Axis assembly area
-{
-  const x=-22,z=-156,y=H(x,z);const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=.2;
-  const m=MAT.metal.clone();m.vertexColors=false;m.color=C(0x4e5246);const k=MAT.metal.clone();k.vertexColors=false;k.color=C(0x1d1d1b);
-  const cv=MAT.dirt.clone();cv.vertexColors=false;cv.color=C(0x8f8a6a);
-  const add=(geo,mat,px,py,pz)=>{const me=new THREE.Mesh(geo,mat);me.position.set(px,py,pz);me.castShadow=me.receiveShadow=true;g.add(me);};
-  add(boxGeo(2.2,1.6,1.8),m,0,1.5,-2.4);add(boxGeo(2.1,1,1.4),m,0,1.2,-3.6);add(boxGeo(2.3,2.2,3.8),cv,0,2.0,.6);add(boxGeo(2.3,.3,4.2),m,0,.8,.4);
-  for(const[wx,wz]of[[-1,-3.2],[1,-3.2],[-1,1.4],[1,1.4]]){const wh=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,.3,12),k);wh.rotation.z=Math.PI/2;wh.position.set(wx,.45,wz);g.add(wh);}
-  scene.add(g);addSolid(x-1.6,y,z-4.4,x+1.6,y+3.1,z+2.6,'metal');
-}
-// telegraph poles along the road
-for(let z=-30;z>-150;z-=16){const x=4.5,y=H(x,z);addPart('timber',.22,7,.22,x,y+3.5,z,0,0,0,{col:0x5b4a38});addPart('timber',1.6,.12,.12,x,y+6.6,z,0,0,0,{col:0x5b4a38});addSolid(x-.15,y,z-.15,x+.15,y+7,z+.15,'wood');}
-
-/* ================= Trees ================= */
+/* ================= Trees (drawn in vegetation.js) ================= */
+const TREES=[];
 {
   const trees=[];
   const add=(x,z,s,kind)=>{if(roadDist(x,z)<4)return;for(const so of solidsNear(x,z,1,[]))if(x>so.x0-1&&x<so.x1+1&&z>so.z0-1&&z<so.z1+1)return;trees.push([x,z,s,kind]);};
@@ -319,49 +233,12 @@ for(let z=-30;z>-150;z-=16){const x=4.5,y=H(x,z);addPart('timber',.22,7,.22,x,y+
   for(let z=-26;z>-80;z-=7){add(-5.5,z,rand(1,1.2),1);add(5.5,z-3,rand(1,1.2),1);}
   for(let i=0;i<40;i++)add(rand(-100,100),rand(-170,-80),rand(.9,1.4),0);
   for(let i=0;i<26;i++)add(rand(-30,-10),rand(-80,-68)+rand(-4,4),rand(.6,.8),2);// orchard
-  const trunkGeo=new THREE.CylinderGeometry(.18,.32,5,6);trunkGeo.translate(0,2.5,0);
-  const folGeo=new THREE.IcosahedronGeometry(1,1);
-  const trunk=new THREE.InstancedMesh(trunkGeo,new THREE.MeshStandardMaterial({color:C(0x463a2e),roughness:1}),trees.length);
-  const fol=new THREE.InstancedMesh(folGeo,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),trees.length*3);
-  const fc=[C(0x3d4a26),C(0x4a5629),C(0x55602c),C(0x36421f)];const tc=new THREE.Color();
-  trees.forEach(([x,z,s,k],i)=>{const y=H(x,z)-.2;
-    if(k===1){trunk.setMatrixAt(i,compose(x,y,z,0,0,0,s*.8,s*2.2,s*.8));for(let j=0;j<3;j++){tc.copy(fc[(i+j)%4]);fol.setMatrixAt(i*3+j,compose(x,y+5+j*3.2*s,z,0,rand(0,6),0,1.5*s,2.6*s,1.5*s));fol.setColorAt(i*3+j,tc);}}
-    else{const hs=k===2?.5:1;trunk.setMatrixAt(i,compose(x,y,z,rand(-.05,.05),rand(0,6),0,s,s*hs,s));
-      for(let j=0;j<3;j++){tc.copy(fc[(i+j)%4]).offsetHSL(0,0,rand(-.03,.03));fol.setMatrixAt(i*3+j,compose(x+rand(-1.4,1.4)*s,y+(k===2?3:5.5)*s+rand(0,2)*s*hs,z+rand(-1.4,1.4)*s,rand(0,3),rand(0,6),0,(k===2?2:3.2)*s,(k===2?1.6:2.8)*s,(k===2?2:3.2)*s));fol.setColorAt(i*3+j,tc);}}
-    addSolid(x-.3*s,y,z-.3*s,x+.3*s,y+5*s,z+.3*s,'wood');});
-  trunk.castShadow=fol.castShadow=true;scene.add(trunk,fol);
+  trees.forEach(([x,z,s,k])=>{const y=H(x,z)-.2;TREES.push([x,y,z,s,k,rand(0,TAU)]);addSolid(x-.3*s,y,z-.3*s,x+.3*s,y+5*s,z+.3*s,'wood');});
 }
 finalizeBuckets();
 
 /* ================= Grass ================= */
 const grassTime={value:0};
-{
-  const tex=canvasTex(128,128,(g)=>{for(let i=0;i<46;i++){const x=rand(8,120),hgt=rand(50,124),lean=rand(-26,26);
-    g.strokeStyle=`hsl(${rand(45,75)},${rand(22,42)}%,${rand(30,58)}%)`;g.lineWidth=rand(1.4,3.4);g.beginPath();g.moveTo(x,128);g.quadraticCurveTo(x+lean*.3,128-hgt*.6,x+lean,128-hgt);g.stroke();}});
-  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
-  const a=new THREE.PlaneGeometry(1,.8),b=a.clone();a.translate(0,.4,0);b.translate(0,.4,0);b.rotateY(Math.PI/2);
-  const geo=mergeGeos([{geo:a},{geo:b}]);const nrm=geo.attributes.normal;for(let i=0;i<nrm.count;i++)nrm.setXYZ(i,0,1,0);
-  const mat=new THREE.MeshLambertMaterial({map:tex,alphaTest:.45,side:THREE.DoubleSide});
-  mat.onBeforeCompile=sh=>{sh.uniforms.uTime=grassTime;
-    sh.fragmentShader=sh.fragmentShader.replace(/\( gl_FrontFacing \) \? vLightFront : vLightBack/g,'vLightFront').replace(/\( gl_FrontFacing \) \? vIndirectFront : vIndirectBack/g,'vIndirectFront');
-    sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
-    #ifdef USE_INSTANCING
-    vec2 ip=vec2(instanceMatrix[3][0],instanceMatrix[3][2]);
-    #else
-    vec2 ip=vec2(0.0);
-    #endif
-    float sw=sin(uTime*1.7+ip.x*0.21+ip.y*0.17)*0.16+sin(uTime*3.1+ip.x*0.7)*0.05;
-    transformed.x+=sw*position.y;transformed.z+=sw*0.5*position.y;`);};
-  const N=GAME.quality==='high'?26000:14000;const inst=new THREE.InstancedMesh(geo,mat,N);const col=new THREE.Color();let k=0;const tmp=[];
-  for(let i=0;i<N*2&&k<N;i++){
-    const x=rand(-100,100),z=rand(-165,31);if(roadDist(x,z)<3.2)continue;if(z>-14&&z<4&&trenchDist(x,z)<2)continue;
-    let blocked=false;for(const s of solidsNear(x,z,.5,tmp))if(x>s.x0-.2&&x<s.x1+.2&&z>s.z0-.2&&z<s.z1+.2&&s.mat!=='hedge'){blocked=true;break;}if(blocked)continue;
-    const bluff=z>4;const s=bluff?rand(.8,1.6):rand(.5,1.1);
-    inst.setMatrixAt(k,compose(x,H(x,z)-.04,z,0,rand(0,6.28),0,s,s*rand(.8,1.4),s));
-    if(bluff)col.setHSL(rand(.12,.16),rand(.25,.4),rand(.6,.85));else col.setHSL(rand(.17,.24),rand(.25,.45),rand(.45,.75));
-    inst.setColorAt(k,col);k++;}
-  inst.count=k;scene.add(inst);
-}
 
 /* ================= Physics helpers ================= */
 const STEP=.55;

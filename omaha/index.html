@@ -171,13 +171,19 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
 .tabs button{appearance:none;cursor:pointer;font-family:var(--stencil);font-size:18px;letter-spacing:.1em;padding:9px 18px;border:1px solid var(--line);background:rgba(230,220,194,.04);border-radius:2px}
 .tabs button[aria-pressed="true"]{border-color:var(--gold);background:rgba(214,178,94,.16)}
 #dirt{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0}
+#tips{position:absolute;left:18px;bottom:96px;max-width:min(430px,70vw);background:rgba(10,10,8,.72);border-left:3px solid var(--gold);padding:10px 34px 10px 12px;font-family:var(--type);font-size:14px;line-height:1.4;pointer-events:auto;transition:opacity .4s}
+#tips b{font-family:var(--stencil);color:var(--gold);letter-spacing:.14em;margin-right:8px}
+#tips #tipX{position:absolute;top:4px;right:6px;appearance:none;background:none;border:0;color:var(--dim);font-size:20px;cursor:pointer;line-height:1}
+#tips #tipOff{display:block;margin-top:6px;appearance:none;background:none;border:0;padding:0;color:var(--dim);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+#bleed{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);font-family:var(--stencil);letter-spacing:.14em;color:#e0563f;text-shadow:0 1px 3px #000;animation:blink 1s infinite}
+#blood{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0}
 #unsupported{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--ink)}
 @media (max-width:700px){.teams{grid-template-columns:1fr 1fr}.teams .opt:last-child{grid-column:span 2}#board{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <canvas id="c" tabindex="0"></canvas>
-<canvas id="dirt"></canvas><div id="red"></div><div id="white"></div><div id="scope" hidden></div>
+<canvas id="dirt"></canvas><canvas id="blood"></canvas><div id="red"></div><div id="white"></div><div id="scope" hidden></div>
 
 <div id="hud" hidden>
   <div id="flagsBar"></div>
@@ -190,6 +196,8 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
   <div id="name"></div>
   <div id="center"></div>
   <div id="msg"></div>
+  <div id="tips" hidden><b>TIP</b><span id="tipT"></span><button id="tipX" aria-label="Close tip">×</button><button id="tipOff">Turn tips off</button></div>
+  <div id="bleed" hidden>BLEEDING · PRESS <kbd>H</kbd> TO BANDAGE</div>
   <div id="cap" hidden><span id="capT">CAPTURING</span><div class="bar"><i id="capB"></i></div></div>
   <div id="vitals">
     <div><div id="hp">100<small>HP</small></div><div id="stance">STANDING</div></div>
@@ -252,7 +260,7 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
       <div class="vrow"><label for="vMusic">Music</label><input id="vMusic" type="range" min="0" max="100"><output id="vMusicO"></output></div>
       <div class="vrow"><label for="vVoice">Voices</label><input id="vVoice" type="range" min="0" max="100"><output id="vVoiceO"></output></div>
       <div class="vrow"><label for="sens">Mouse speed</label><input id="sens" type="range" min="2" max="40"><output id="sensO"></output></div>
-      <div class="toggles"><label><input type="checkbox" id="tHigh" checked> High graphics</label></div>
+      <div class="toggles"><label><input type="checkbox" id="tHigh" checked> High graphics</label><label><input type="checkbox" id="tTips" checked> Show tips</label><label><input type="checkbox" id="tGore" checked> Gore</label></div>
     </div>
   </div><button class="btn" id="setBack">BACK</button></div>
 </div>
@@ -261,7 +269,8 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
   <div class="pbox wide"><h2>CONTROLS</h2>
     <dl class="ctl">
       <dt><kbd>WASD</kbd> <kbd>Shift</kbd></dt><dd>Move, sprint (uses stamina; a hit slows you down)</dd>
-      <dt><kbd>C</kbd> <kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Crouch (hold), go prone, jump or climb over low walls</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Hold to duck (C works too), go prone or get up, jump or climb over low walls</dd>
+      <dt><kbd>H</kbd></dt><dd>Bandage. Wounds bleed until you do</dd>
       <dt>Left mouse</dt><dd>Fire. Hold with a grenade to cook it, release to throw</dd>
       <dt>Right mouse</dt><dd>Iron sights or scope. Machine guns deploy instead: go prone, or rest the gun on sandbags or a wall</dd>
       <dt><kbd>1</kbd>–<kbd>4</kbd> <kbd>Q</kbd></dt><dd>Knife or spade, pistol, main weapon, grenades · last weapon</dd>
@@ -307,10 +316,12 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
 <script src="js/audio.js"></script>
 <script src="js/terrain.js"></script>
 <script src="js/world.js"></script>
+<script src="js/vegetation.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/guns.js"></script>
 <script src="js/soldier.js"></script>
+<script src="js/ragdoll.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/player.js"></script>
 <script src="js/game.js"></script>

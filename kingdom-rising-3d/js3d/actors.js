@@ -16,7 +16,8 @@ const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
 const root = new THREE.Group(); root.name = 'actors'; K3.scene.add(root);
 const avatars = new Map(); // entity (or 'p:' + peer id for other players) -> avatar
 // other players' presence objects are replaced on every update, so they are keyed by their peer id
-const keyOf = (e) => (e && typeof e.peer === 'string' && !e.type ? 'p:' + e.peer : e);
+// (a targeted player is a stand-in with type 'peer' from group.js, and finds the same avatar)
+const keyOf = (e) => (e && typeof e.peer === 'string' && (!e.type || e.type === 'peer') ? 'p:' + e.peer : e);
 // the hero is drawn on layer 1 in first person: invisible to the camera but still casting a shadow
 K3.camera.layers.enable(0);
 
@@ -400,15 +401,16 @@ export const actors = {
     const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), K3.camera);
     const o = ray.ray.origin, d = ray.ray.direction; const p = G.player;
     let best = null, bt = 1e9;
-    for (const [e, av] of avatars) {
-      if (e === p || av.peer || e.noPick || !av.obj.visible) continue;
+    for (const [key, av] of avatars) {
+      const e = av.peer ? av.e : key; // other players can be clicked too (to heal, buff or invite them)
+      if (!e || e === p || (!av.peer && e.noPick) || !av.obj.visible) continue;
       const base = av.obj.position; const h = Math.max(0.6, av.height * av.scale) * (e.dead ? 0.25 : 1); const r = Math.max(0.45, ((e.r || 12) * (e.scale || 1)) * PX * 1.4);
       // closest approach between the ray and the vertical segment base..base+h
       const wx = o.x - base.x, wz = o.z - base.z; const a = d.x * d.x + d.z * d.z; if (a < 1e-6) continue;
       let t = -(wx * d.x + wz * d.z) / a; if (t < 0.2) continue;
       const cx = wx + d.x * t, cz = wz + d.z * t; const y = o.y + d.y * t - base.y;
       const dist = Math.hypot(cx, cz);
-      if (dist < r && y > -0.3 && y < h + 0.3 && t < bt) { bt = t; best = e; }
+      if (dist < r && y > -0.3 && y < h + 0.3 && t < bt) { bt = t; best = av.peer ? (KR.Sys.peerEnt ? KR.Sys.peerEnt(e) : null) : e; }
     }
     return best;
   },

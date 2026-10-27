@@ -189,7 +189,8 @@ function updateAvatar(av, dt, ctx) {
     if (e.harvest && !moving) { const h = e.harvest; const tg = h.corpse || (h.d ? { x: h.d.x, y: h.d.y - 8 } : null); if (tg) want = Math.atan2(tg.x - e.x, tg.y - e.y); }
     if (moving && !view.firstPerson() && (p.chase || p.moveTo) && dist > 0.002) want = Math.atan2(dx, dy);
     if (tgt && tgt !== p && (p.autoAttack || p.cast || p.atk > 0) && !(moving && view.firstPerson())) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
-  } else if (dist > 0.002 && dist < 3) want = Math.atan2(dx, dy);
+  } else if (e._talkTo && !e.dead) want = Math.atan2(e._talkTo.x - e.x, e._talkTo.y - e.y);
+  else if (dist > 0.002 && dist < 3) want = Math.atan2(dx, dy);
   else if (tgt && (e.inCombat || e.cast || e.atk > 0)) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   else if (e.type === 'npc' && UI_npcFacing(e)) want = Math.atan2(p.x - e.x, p.y - e.y);
   if (e.dead) want = av.yaw;

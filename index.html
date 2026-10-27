@@ -287,6 +287,7 @@ ul.tt-buff { margin: 4px 0 2px; padding-left: 16px; font-size: 14px; } .tip .tt-
 .ct-menu .ct-h { font-weight: 700; color: #ffe0a0; } .ct-cats { display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 40vh; overflow: auto; }
 .ct-menu label { display: flex; align-items: center; gap: 6px; cursor: pointer; } .ct-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .ct-row button { flex: 1; } .ct-row input.ct-name { flex: 2; min-width: 0; } .ct-row input[type=range] { width: 80px; } .ct-menu .bad { color: #ff9a8a; }
+.scene2d .scene-b { max-width: 560px; } .scene2d .sc-who { font: 700 12px var(--f-ui, sans-serif); letter-spacing: 0.2em; text-transform: uppercase; color: #e0b050; } .scene2d .sc-text { font-size: 17px; line-height: 1.5; }
 .chatlog { height: 150px; overflow-y: auto; font-size: 13px; line-height: 1.35; padding-right: 4px; overscroll-behavior: contain; } .chatlog .ln { padding: 1px 0; overflow-wrap: anywhere; }
 #chatin { width: 100%; box-sizing: border-box; font-size: 13px; padding: 4px 8px; }
 .hud-menu { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 3px; padding: 4px; }
@@ -509,30 +510,31 @@ body.layout-edit .hud-mercs { min-height: 48px; min-width: 180px; background: rg
 <div id="gate" hidden><div class="cv-click" id="gate-go">Click anywhere to continue</div></div>
 
 <script>
-window.KR_VERSION = 58;
+window.KR_VERSION = 59;
 window.addEventListener('error', function (e) { if (e.filename && e.filename.indexOf('/js/') < 0) return; if (window.KR && window.KR.Main && window.KR.Main.showFatal) window.KR.Main.showFatal(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { try { e.preventDefault(); } catch (x) {} console.warn('Ignored async error:', e.reason); });
 </script>
-<script src="js/data.js?v=58"></script>
-<script src="js/audio.js?v=58"></script>
-<script src="js/world.js?v=58"></script>
-<script src="js/sprites.js?v=58"></script>
-<script src="js/game.js?v=58"></script>
-<script src="js/systems.js?v=58"></script>
-<script src="js/mercs.js?v=58"></script>
-<script src="js/gear.js?v=58"></script>
-<script src="js/render.js?v=58"></script>
-<script src="js/ui.js?v=58"></script>
-<script src="js/mercui.js?v=58"></script>
-<script src="js/travel.js?v=58"></script>
-<script src="js/war.js?v=58"></script>
-<script src="js/kingdom.js?v=58"></script>
-<script src="js/tips.js?v=58"></script>
-<script src="js/story.js?v=58"></script>
-<script src="js/affinity.js?v=58"></script>
-<script src="js/group.js?v=58"></script>
-<script src="js/chat.js?v=58"></script>
-<script src="js/relay.js?v=58"></script>
-<script src="js/online.js?v=58"></script>
-<script src="js/menus.js?v=58"></script>
-<script src="js/main.js?v=58"></script>
+<script src="js/data.js?v=59"></script>
+<script src="js/audio.js?v=59"></script>
+<script src="js/world.js?v=59"></script>
+<script src="js/sprites.js?v=59"></script>
+<script src="js/game.js?v=59"></script>
+<script src="js/systems.js?v=59"></script>
+<script src="js/mercs.js?v=59"></script>
+<script src="js/gear.js?v=59"></script>
+<script src="js/render.js?v=59"></script>
+<script src="js/ui.js?v=59"></script>
+<script src="js/mercui.js?v=59"></script>
+<script src="js/travel.js?v=59"></script>
+<script src="js/war.js?v=59"></script>
+<script src="js/kingdom.js?v=59"></script>
+<script src="js/tips.js?v=59"></script>
+<script src="js/story.js?v=59"></script>
+<script src="js/affinity.js?v=59"></script>
+<script src="js/group.js?v=59"></script>
+<script src="js/chat.js?v=59"></script>
+<script src="js/kingstory.js?v=59"></script>
+<script src="js/relay.js?v=59"></script>
+<script src="js/online.js?v=59"></script>
+<script src="js/menus.js?v=59"></script>
+<script src="js/main.js?v=59"></script>

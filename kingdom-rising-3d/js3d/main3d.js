@@ -26,6 +26,7 @@ await import('./cine3d.js');
 await import('./heroview.js');
 await import('./wildlife.js');
 await import('./intro3d.js');
+await import('./scene3d.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;
@@ -226,8 +227,10 @@ function loopBody(now) {
   if (touch.move && !K3.cine) { const m2 = moveInput(-touch.my, touch.mx); mx = m2.mx; my = m2.my; }
   if (p.fear > 0 && p.fearFrom) { const dx = p.x - p.fearFrom.x, dy = p.y - p.fearFrom.y, d = Math.hypot(dx, dy) || 1; mx = dx / d; my = dy / d; }
   mk('input');
-  G.update(dt, { mx, my }); mk('game');
-  Sys.worldTick(dt); mk('worldTick');
+  // a filmed conversation holds the world still (nobody attacks you while the king talks)
+  const gdt = K3.cine && K3.cine.pause ? 0 : dt;
+  G.update(gdt, { mx, my }); mk('game');
+  Sys.worldTick(gdt); mk('worldTick');
   p.c.playTime = (p.c.playTime || 0) + dt;
   if (p.drunkUntil && p.drunkUntil < G.now) { p.drunkUntil = 0; p.drinks = 0; }
   R.cam.x = p.x; R.cam.y = p.y - 20;

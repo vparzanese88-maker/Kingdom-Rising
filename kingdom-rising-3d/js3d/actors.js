@@ -404,7 +404,7 @@ export const actors = {
     for (const [key, av] of avatars) {
       const e = av.peer ? av.e : key; // other players can be clicked too (to heal, buff or invite them)
       if (!e || e === p || (!av.peer && e.noPick) || !av.obj.visible) continue;
-      const base = av.obj.position; const h = Math.max(0.6, av.height * av.scale) * (e.dead ? 0.25 : 1); const r = Math.max(0.45, ((e.r || 12) * (e.scale || 1)) * PX * 1.4);
+      const base = av.obj.position; const h = Math.max(0.6, av.height * av.scale) * (e.dead ? 0.25 : 1); const r = av.peer ? 12 * PX * 1.4 : Math.max(0.45, ((e.r || 12) * (e.scale || 1)) * PX * 1.4); // a player's shared 'r' is their race, not a size
       // closest approach between the ray and the vertical segment base..base+h
       const wx = o.x - base.x, wz = o.z - base.z; const a = d.x * d.x + d.z * d.z; if (a < 1e-6) continue;
       let t = -(wx * d.x + wz * d.z) / a; if (t < 0.2) continue;

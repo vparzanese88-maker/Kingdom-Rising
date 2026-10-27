@@ -7,7 +7,7 @@ import { cardTex, TERRAIN_LAYERS } from './texgen.js';
 
 const L = Object.fromEntries(TERRAIN_LAYERS.map((n, i) => [n, i]));
 let mesh = null, mat = null, hTex = null, built = 0;
-function settings() { const q = K3.quality.grass; if (!q) return null; return { spacing: q >= 1.5 ? 0.42 : q >= 1 ? 0.52 : 0.7, radius: q >= 1.5 ? 52 : q >= 1 ? 40 : 28 }; }
+function settings() { const q = K3.quality.grass; if (!q) return null; return { spacing: q >= 1.5 ? 0.34 : q >= 1 ? 0.42 : 0.6, radius: q >= 1.5 ? 46 : q >= 1 ? 34 : 24 }; }
 
 function makeMaterial() {
   const m = new THREE.MeshStandardMaterial({ map: cardTex('grass'), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.95, metalness: 0 });
@@ -65,8 +65,8 @@ function makeMaterial() {
 function makeGeometry(spacing, radius) {
   // one clump: three crossed blades
   const base = new THREE.BufferGeometry(); const pos = [], uv = [], idx = [];
-  for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI; const cx = Math.cos(a) * 0.32, cz = Math.sin(a) * 0.32; const o = pos.length / 3;
-    pos.push(-cx, 0, -cz, cx, 0, cz, cx, 0.55, cz, -cx, 0.55, -cz); uv.push(0, 0, 1, 0, 1, 1, 0, 1); idx.push(o, o + 1, o + 2, o, o + 2, o + 3); }
+  for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI; const cx = Math.cos(a) * 0.24, cz = Math.sin(a) * 0.24; const o = pos.length / 3;
+    pos.push(-cx, 0, -cz, cx, 0, cz, cx, 0.42, cz, -cx, 0.42, -cz); uv.push(0, 0, 1, 0, 1, 1, 0, 1); idx.push(o, o + 1, o + 2, o, o + 2, o + 3); }
   base.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); base.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); base.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3)); base.setIndex(idx);
   const g = new THREE.InstancedBufferGeometry(); g.index = base.index; for (const k of ['position', 'uv', 'normal']) g.setAttribute(k, base.attributes[k]);
   const n = Math.ceil(radius / spacing); const off = [];

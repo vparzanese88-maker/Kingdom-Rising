@@ -38,6 +38,8 @@ function clearDist(from, dir, want, inside) {
     const c = geo.solidTileXZ(x, z);
     if (c === 5) { const top = geo.structTop ? geo.structTop(x, z) : g + 6; if (y < top + 0.3) return Math.max(0, d - step); }
     if (geo.dungeon && (c === 1)) return Math.max(0, d - step);
+    // trees and big rocks
+    { const tx = Math.floor(x / TILE), ty = Math.floor(z / TILE); if (tx >= 0 && ty >= 0 && tx < W.W && ty < W.H && W.block[ty * W.W + tx] && y < g + 7) { const cx = (tx + 0.5) * TILE, cz = (ty + 0.5) * TILE; if (Math.hypot(x - cx, z - cz) < 0.75) return Math.max(0, d - step); } }
     // roofs and walls of buildings
     if (geo.roofAt) { const r = geo.roofAt(x, z); if (r != null && y < r + 0.25) return Math.max(0, d - step); }
   }

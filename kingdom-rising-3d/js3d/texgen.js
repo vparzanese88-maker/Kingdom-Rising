@@ -78,10 +78,10 @@ void m_sand(vec2 uv, out vec3 c, out float h, out float r){
   c = mix(vec3(.78, .68, .48), vec3(.88, .79, .58), n); c *= .92 + .14 * g; c *= .94 + .08 * rip;
   h = rip * .5 + g * .15 + n * .2; r = .96; }
 void m_rock(vec2 uv, out vec3 c, out float h, out float r){
-  float rd = ridged(uv, 4., 6), n = fbm(uv, 6., 5); vec3 e = vorEdge(uv * 5., 5., 1.);
+  float rd = ridged(uv, 4., 6), n = fbm(uv, 6., 5); vec3 e = vorEdge(uv * 9., 9., 1.);
   float strata = sin(6.2831853 * (uv.y * 6. + n * .8)) * .5 + .5;
   c = mix(vec3(.36, .35, .33), vec3(.54, .52, .48), rd); c = mix(c, c * vec3(1.08, .98, .86), strata * .35);
-  float crack = smoothstep(.05, 0., e.x); c *= 1. - crack * .55; c *= .85 + .3 * vnoiseP(uv * 64., 64.);
+  float crack = smoothstep(.035, 0., e.x) * step(.45, vnoiseP(uv * 7., 7.)); c *= 1. - crack * .35; c *= .85 + .3 * vnoiseP(uv * 64., 64.);
   float lich = smoothstep(.72, .8, fbm(uv + 4.4, 10., 4)); c = mix(c, vec3(.5, .52, .32), lich * .6);
   h = rd * .7 + n * .2 - crack * .35 + .1; r = .85; }
 void m_snow(vec2 uv, out vec3 c, out float h, out float r){
@@ -190,8 +190,8 @@ void m_bark(vec2 uv, out vec3 c, out float h, out float r){
   c = mix(vec3(.16, .11, .07), vec3(.36, .28, .2), rd) * (.85 + .3 * n); c = mix(c, vec3(.27, .32, .16), smoothstep(.65, .8, fbm(uv + 3., 4., 3)) * .5);
   h = rd; r = .92; }
 void m_birch(vec2 uv, out vec3 c, out float h, out float r){
-  float n = fbm(uv, 6., 5); float mark = smoothstep(.62, .72, vnoiseP(vec2(uv.x * 8., uv.y * 40.), 40.)) * step(.4, vnoiseP(uv * vec2(14., 8.), 8.));
-  c = mix(vec3(.82, .8, .74), vec3(.92, .9, .85), n); c = mix(c, vec3(.12, .1, .09), mark); h = .6 - mark * .4 + n * .2; r = .8; }
+  float n = fbm(uv, 6., 5); float mark = smoothstep(.66, .74, vnoiseP(vec2(uv.x * 24., uv.y * 90.), 90.)) * step(.55, vnoiseP(uv * vec2(20., 12.), 12.)) * .8 + smoothstep(.8, .9, fbm(uv + 3., 6., 3)) * .5;
+  c = mix(vec3(.78, .76, .7), vec3(.9, .88, .83), n); c = mix(c, vec3(.16, .14, .12), mark); h = .6 - mark * .4 + n * .2; r = .8; }
 void m_pinebark(vec2 uv, out vec3 c, out float h, out float r){
   vec3 e = vorEdge(uv * vec2(6., 3.), 6., 1.); float n = fbm(uv, 8., 4);
   c = mix(vec3(.3, .16, .09), vec3(.48, .28, .16), e.y) * (.8 + .3 * n); float gap = smoothstep(.08, .02, e.x); c = mix(c, vec3(.1, .06, .04), gap); h = (1. - gap) * .8; r = .9; }
@@ -340,11 +340,11 @@ export function cardTex(kind) {
           for (let k = 1; k < 18; k++) { const u = k / 18; const px = S / 2 + (ex - S / 2) * u, py = S + (ey - S) * u - Math.sin(u * 3.14) * 10; const w = (1 - u) * 22 + 4; g.fillStyle = pal[1 + (k % 3)]; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(px + s * w * 0.5, py, w * 0.5, 3, s * 0.4, 0, 6.283); g.fill(); } }
         }
       } else {
-        const n = kind === 'reeds' ? 26 : kind === 'crop' ? 30 : 60;
+        const n = kind === 'reeds' ? 26 : kind === 'crop' ? 30 : kind === 'grass' ? 110 : 60;
         for (let i = 0; i < n; i++) {
-          const x = S * (0.08 + R() * 0.84), hgt = S * (kind === 'reeds' ? 0.75 + R() * 0.25 : 0.45 + R() * 0.55); const bend = (R() - 0.5) * S * 0.25; const w = kind === 'reeds' ? 4 : 2.5 + R() * 2.5;
+          const x = S * (0.08 + R() * 0.84), hgt = S * (kind === 'reeds' ? 0.75 + R() * 0.25 : 0.45 + R() * 0.55); const bend = (R() - 0.5) * S * 0.25; const w = kind === 'reeds' ? 4 : kind === 'grass' ? 1.2 + R() * 1.6 : 2.5 + R() * 2.5;
           const grd = g.createLinearGradient(0, S, 0, S - hgt); const c = pal[Math.floor(R() * pal.length)];
-          grd.addColorStop(0, '#1a2a10'); grd.addColorStop(0.35, c); grd.addColorStop(1, kind === 'snowgrass' ? '#e8eef0' : c);
+          grd.addColorStop(0, kind === 'grass' ? '#2a3a18' : '#1a2a10'); grd.addColorStop(0.35, c); grd.addColorStop(1, kind === 'snowgrass' ? '#e8eef0' : c);
           g.fillStyle = grd; g.beginPath(); g.moveTo(x - w, S); g.quadraticCurveTo(x - w * 0.3 + bend * 0.5, S - hgt * 0.6, x + bend, S - hgt); g.quadraticCurveTo(x + w * 0.3 + bend * 0.5, S - hgt * 0.6, x + w, S); g.fill();
           if (kind === 'reeds' && R() < 0.5) { g.fillStyle = '#5a3a20'; g.beginPath(); g.ellipse(x + bend, S - hgt + 10, 4, 12, 0, 0, 6.283); g.fill(); }
           if (kind === 'crop' && R() < 0.6) { g.fillStyle = pal[2 + Math.floor(R() * 2)]; g.beginPath(); g.ellipse(x + bend, S - hgt + 8, 5, 13, bend * 0.004, 0, 6.283); g.fill(); }

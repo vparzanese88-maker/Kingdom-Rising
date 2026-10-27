@@ -30,6 +30,8 @@ const inv0 = R.invalidateArea, clear0 = R.clear, reindex0 = R.reindex;
 R.invalidateArea = function (x0, y0, w, h) { dirty.areas.push([x0, y0, w, h]); return inv0.apply(this, arguments); };
 R.clear = function () { dirty.all = true; return clear0.apply(this, arguments); };
 R.reindex = function () { dirty.decor = true; return reindex0.apply(this, arguments); };
+// the minimap arrow points where the camera looks
+if (R.drawMinimap) { const dm = R.drawMinimap; R.drawMinimap = function (cv2, ...a) { const p = G.player; if (!p) return dm.call(this, cv2, ...a); const g = cv2.getContext('2d'); const d = p.dir; p.dir = -1; const rot = g.rotate; g.rotate = function (r) { return rot.call(this, r === 0 ? -view.yaw : r); }; try { return dm.call(this, cv2, ...a); } finally { g.rotate = rot; p.dir = d; } }; }
 function syncWorld(force) {
   if (!W.tiles) return;
   if (geo.tilesRef !== W.tiles || geo.realm !== (W.realm || 'main')) dirty.all = true;

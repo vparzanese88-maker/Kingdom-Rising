@@ -64,7 +64,7 @@ const QUAD = {
   bear: { L: 2.0, H: 1.22, br: 0.43, hr: 0.22, sn: 0.14, ear: 'round', tail: 0.08, tailR: 0.06, leg: 0.12, hump: true, eye: '#2a1a10' },
   boar: { L: 1.35, H: 0.82, br: 0.3, hr: 0.18, sn: 0.2, ear: 'point', tail: 0.18, tailR: 0.02, leg: 0.055, tusk: true, mane: true },
   croc: { L: 3.2, H: 0.42, br: 0.28, hr: 0.16, sn: 0.62, ear: null, tail: 1.6, tailR: 0.2, leg: 0.07, flat: true, sprawl: true, scales: true, eye: '#e8d040' },
-  drake: { L: 3.4, H: 1.35, br: 0.42, hr: 0.22, sn: 0.32, ear: null, tail: 2.2, tailR: 0.18, leg: 0.11, neck: 0.9, wings: 2.8, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
+  drake: { L: 3.4, H: 1.35, br: 0.42, hr: 0.22, sn: 0.32, ear: null, tail: 2.2, tailR: 0.18, leg: 0.11, neck: 0.55, wings: 2.8, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
   dragon: { L: 6.5, H: 2.5, br: 0.85, hr: 0.42, sn: 0.62, ear: null, tail: 4.5, tailR: 0.38, leg: 0.24, neck: 2.2, wings: 6.5, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
   griffon: { L: 2.3, H: 1.25, br: 0.34, hr: 0.2, sn: 0.12, ear: 'tuft', tail: 0.9, tailR: 0.04, leg: 0.08, neck: 0.35, wings: 2.5, beak: true, eye: '#1a1a1a' },
   horse: { L: 2.1, H: 1.5, br: 0.33, hr: 0.16, sn: 0.36, ear: 'point', tail: 0.8, tailR: 0.07, leg: 0.065, neck: 0.75, mane: true, eye: '#1a1a1a', long: true },

@@ -16,6 +16,7 @@ const root = new THREE.Group(); root.name = 'world'; K3.scene.add(root);
 fx.init();
 
 const chunks = new Map(); // key -> chunk
+let pending = [], pendingIdx = null;
 let anims = [], flagGroup = null, allFlames = [], torchFlames = null;
 const key = (cx, cy) => cx + ',' + cy;
 
@@ -79,7 +80,13 @@ export const world3d = {
     resetStructs();
     const idx = decorIndex();
     const ncx = Math.ceil(W.W / CH), ncy = Math.ceil(W.H / CH);
-    for (let cy = 0; cy < ncy; cy++) for (let cx = 0; cx < ncx; cx++) buildChunk(cx, cy, idx.get(key(cx, cy)));
+    // the areas around the hero now, the rest a few at a time over the next frames
+    const p = G.player; const pcx = p ? Math.floor(p.x / TS / CH) : ncx / 2, pcy = p ? Math.floor(p.y / TS / CH) : ncy / 2;
+    const all = []; for (let cy = 0; cy < ncy; cy++) for (let cx = 0; cx < ncx; cx++) all.push([cx, cy, Math.hypot(cx - pcx, cy - pcy)]);
+    all.sort((a, b) => a[2] - b[2]);
+    pending = [];
+    for (const [cx, cy, d] of all) { if (d <= 3.2) buildChunk(cx, cy, idx.get(key(cx, cy))); else pending.push([cx, cy]); }
+    pendingIdx = idx;
     this.finish();
     console.log(`3D buildings and props: ${Math.round(performance.now() - t0)} ms, ${chunks.size} areas`);
   },
@@ -113,6 +120,11 @@ export const world3d = {
     this.finish();
   },
   update(dt, ctx) {
+    if (pending.length) {
+      const t0 = performance.now();
+      while (pending.length && performance.now() - t0 < 7) { const [cx, cy] = pending.shift(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); }
+      if (!pending.length || K3.frame % 30 === 0) this.finish();
+    }
     const cam = ctx.cam; const view = K3.quality.view;
     const treeNear = 85, treeFar = K3.quality.treeFar;
     for (const c of chunks.values()) {

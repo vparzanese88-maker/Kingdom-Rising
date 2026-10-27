@@ -158,9 +158,9 @@ function updateAvatar(av, dt, ctx) {
   const tgt = e.target && !e.target.removed ? e.target : null;
   if (e === p) {
     // the hero faces where the camera looks when moving or fighting, otherwise where it walks
-    if (moving || p.autoAttack || p.cast || view.firstPerson()) want = view.yaw + Math.PI;
-    if (p.moveTo && moving && !view.look) want = Math.atan2(dx, dy);
-    if (tgt && (p.autoAttack || p.cast) && !moving) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
+    if (moving || view.firstPerson()) want = view.yaw + Math.PI;
+    if (moving && !view.firstPerson() && dist > 0.002) want = Math.atan2(dx, dy);
+    if (tgt && tgt !== p && (p.autoAttack || p.cast || p.atk > 0) && !(moving && view.firstPerson())) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   } else if (dist > 0.002 && dist < 3) want = Math.atan2(dx, dy);
   else if (tgt && (e.inCombat || e.cast || e.atk > 0)) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   else if (e.type === 'npc' && UI_npcFacing(e)) want = Math.atan2(p.x - e.x, p.y - e.y);

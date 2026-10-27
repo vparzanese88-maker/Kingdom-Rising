@@ -43,7 +43,7 @@ function buildArm(side, look) {
 function rebuild(look) {
   for (const c of [...holder.children]) holder.remove(c);
   const L = buildArm(1, look), R = buildArm(-1, look);
-  L.shoulder.position.set(-0.24, -0.3, 0.05); R.shoulder.position.set(0.24, -0.3, 0.05);
+  L.shoulder.position.set(0.3, -0.34, 0.05); R.shoulder.position.set(-0.3, -0.34, 0.05); // the holder is turned to face -z
   holder.add(L.shoulder); holder.add(R.shoulder);
   arms = { L, R, look };
   setHeld(look.weapon, look);
@@ -59,7 +59,7 @@ function setHeld(wt, look, tool) {
   }
   if (!tool && look.offhand) {
     const off = look.offhand === 'shield' ? weaponMesh('shield', { shieldCol: look.shieldCol, shieldEmb: look.shieldEmb }) : weaponMesh(look.offhand === 'sword' ? '1HS' : look.offhand, {});
-    if (off) { off.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); arms.L.grip.add(off); arms.L.held = off; if (look.offhand === 'shield') { off.position.set(0.05, 0.06, 0.04); off.rotation.set(0, -Math.PI / 2 + 0.3, 0); arms.shield = true; } else { off.rotation.set(Math.PI / 2, 0, 0); arms.shield = false; } }
+    if (off) { off.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); arms.L.grip.add(off); arms.L.held = off; if (look.offhand === 'shield') { off.position.set(0.06, 0.02, 0.06); off.rotation.set(-0.6, -Math.PI / 2 + 0.5, 0); off.scale.setScalar(0.6); arms.shield = true; } else { off.rotation.set(Math.PI / 2, 0, 0); arms.shield = false; } }
   } else arms.shield = false;
   arms.tool = tool || null;
 }
@@ -76,6 +76,7 @@ export const viewmodel = {
     const tool = p.harvest ? (p.harvest.tool === 'axe' ? 'axe' : 'pick') : null;
     if ((arms.tool || null) !== tool) setHeld(look.weapon, look, tool);
     // lighting follows the world
+    scene.environment = K3.scene.environment; scene.environmentIntensity = K3.scene.environmentIntensity != null ? K3.scene.environmentIntensity : 1;
     const sky = K3.sky; hemi.intensity = sky.hemi.intensity * 1.2 + 0.15; hemi.color.copy(sky.hemi.color); hemi.groundColor.copy(sky.hemi.groundColor); dir.intensity = sky.sun.intensity * 0.8; dir.color.copy(sky.sun.color);
     const ld = K3.shared.uSunDir.value; const q = K3.camera.quaternion.clone().invert(); dir.position.copy(ld).applyQuaternion(q);
     point.intensity = (sky.darkness || 0) * 0.6 + (p.cast ? 1.5 : 0);
@@ -87,12 +88,12 @@ export const viewmodel = {
     holder.position.set(swayX, -swayY - (1 - ready) * 0.55, 0);
     const L = arms.L, R = arms.R, k = arms.kind;
     // base pose: forearms forward, weapon up
-    E(R.shoulder, -1.05, 0.15, 0.1); E(R.elbow, -0.9, 0, 0); E(R.wrist, 0.2, 0, 0);
+    E(R.shoulder, -1.5, -0.15, 0.1); E(R.elbow, -0.35, 0, 0); E(R.wrist, 0.75, 0, -0.45);
     E(L.shoulder, -1.05, -0.15, -0.1); E(L.elbow, -0.9, 0, 0); E(L.wrist, 0.2, 0, 0);
     if (!k || k === 'H2H') { E(R.shoulder, -1.0, 0.2, 0.12); E(R.elbow, -1.5, 0, 0); E(L.shoulder, -1.0, -0.2, -0.12); E(L.elbow, -1.5, 0, 0); }
     if (k === '2HS' || k === '2HSaxe' || k === 'spear' || (k === '2HB' && !(look.staff || ['wizard', 'enchanter', 'magician', 'necromancer', 'druid', 'shaman', 'cleric'].includes(look.cls)))) { E(R.shoulder, -1.1, 0.35, 0.1); E(R.elbow, -0.8, 0, 0); E(L.shoulder, -1.15, -0.55, -0.35); E(L.elbow, -0.7, 0, 0.3); }
-    if (k === 'ARC') { E(L.shoulder, -1.45, -0.05, -0.05); E(L.elbow, -0.15, 0, 0); E(L.wrist, 0, 0, 0); E(R.shoulder, -1.2, 0.3, 0.2); E(R.elbow, -1.5, 0, 0); }
-    if (arms.shield) { E(L.shoulder, -0.95, -0.35, -0.25); E(L.elbow, -1.35, 0, 0); }
+    if (k === 'ARC') { E(L.shoulder, -1.4, 0.32, -0.1); E(L.elbow, -0.2, 0, 0); E(L.wrist, 0, 0, 0.35); E(R.shoulder, -1.25, -0.15, 0.15); E(R.elbow, -1.3, 0, 0); }
+    if (arms.shield) { E(L.shoulder, -1.15 - 0.2 * ready, 0.4, -0.25); E(L.elbow, -0.45, 0, 0); }
     if (!arms.shield && !arms.L.held && k !== 'ARC' && k && k !== 'H2H' && !(k === '2HS' || k === 'spear' || k === '2HSaxe')) { E(L.shoulder, -0.6, -0.1, -0.1); E(L.elbow, -0.4, 0, 0); }
     // casting: both hands up, glowing
     if (p.cast) {
@@ -106,15 +107,16 @@ export const viewmodel = {
     if (a > 0 && a < 1) {
       const wind = K3.smooth(0, 0.3, a), hit = K3.smooth(0.25, 0.55, a), rec = K3.smooth(0.55, 1, a);
       const mode = tool ? 'tool' : p.c && p.c.rangeMode === 'ranged' && look.rangeW === 'ARC' ? 'bow' : k === 'ARC' ? 'bow' : k === 'spear' || k === '1HP' || k === 'dagger' ? 'thrust' : k === '2HS' || k === '2HSaxe' || k === 'club' ? 'chop' : !k || k === 'H2H' ? 'punch' : k === '2HB' ? 'staff' : 'slash';
-      if (mode === 'slash') { R.shoulder.rotation.x += -0.6 * wind + 1.2 * hit - 0.6 * rec; R.shoulder.rotation.z += 0.7 * wind - 1.5 * hit + 0.8 * rec; R.shoulder.rotation.y += -0.5 * hit * (1 - rec); R.elbow.rotation.x += 0.5 * hit * (1 - rec); R.wrist.rotation.z = -0.8 * hit * (1 - rec); }
+      if (mode === 'slash') { R.shoulder.rotation.x += -0.6 * wind + 1.2 * hit - 0.6 * rec; R.shoulder.rotation.z += 0.45 * wind - 0.9 * hit + 0.45 * rec; R.shoulder.rotation.y += -0.3 * hit * (1 - rec); R.elbow.rotation.x += 0.5 * hit * (1 - rec); R.wrist.rotation.z = -0.8 * hit * (1 - rec); }
       else if (mode === 'chop' || mode === 'tool' || mode === 'staff') { const up = wind * (1 - hit); R.shoulder.rotation.x += -1.0 * up + 0.9 * hit * (1 - rec); L.shoulder.rotation.x += -1.0 * up + 0.9 * hit * (1 - rec); R.elbow.rotation.x += 0.4 * up; R.wrist.rotation.x += 0.8 * hit * (1 - rec); }
-      else if (mode === 'thrust') { const push = hit * (1 - rec); R.shoulder.position.z = -0.25 * push; R.shoulder.rotation.x += -0.35 * push; R.elbow.rotation.x += 0.7 * push; }
-      else if (mode === 'punch') { const side = (Math.floor(G.now / 700) % 2) ? L : R; const push = hit * (1 - rec); side.shoulder.position.z = -0.3 * push; side.elbow.rotation.x += 1.2 * push; }
-      else if (mode === 'bow') { const dr = K3.smooth(0, 0.5, a), rl = K3.smooth(0.5, 0.6, a); R.shoulder.position.z = 0.12 * dr * (1 - rl); R.elbow.rotation.x -= 0.4 * dr * (1 - rl); }
-    } else { R.shoulder.position.z = 0; L.shoulder.position.z = 0; }
+      else if (mode === 'thrust') { const push = hit * (1 - rec); R.shoulder.position.z = 0.05 + 0.25 * push; R.shoulder.rotation.x += -0.35 * push; R.elbow.rotation.x += 0.7 * push; }
+      else if (mode === 'punch') { const side = (Math.floor(G.now / 700) % 2) ? L : R; const push = hit * (1 - rec); side.shoulder.position.z = 0.05 + 0.3 * push; side.elbow.rotation.x += 1.2 * push; }
+      else if (mode === 'bow') { const dr = K3.smooth(0, 0.5, a), rl = K3.smooth(0.5, 0.6, a); R.shoulder.position.z = 0.05 - 0.12 * dr * (1 - rl); R.elbow.rotation.x -= 0.4 * dr * (1 - rl); }
+    } else { R.shoulder.position.z = 0.05; L.shoulder.position.z = 0.05; }
     // kicks (monks) and special moves
     if (p.animK && p.animT > G.now) { const pk = 1 - (p.animT - G.now) / (p.animDur || 400); const s1 = Math.sin(pk * Math.PI); if (p.animK === 'raise') { R.shoulder.rotation.x -= 1.0 * s1; L.shoulder.rotation.x -= 1.0 * s1; } else if (p.animK === 'slam') { R.shoulder.rotation.x += -1.2 * s1 + 0.6; L.shoulder.rotation.x += -1.2 * s1 + 0.6; } else if (p.animK === 'spin') { holder.rotation.z = pk * Math.PI * 2; } }
     else holder.rotation.z = 0;
+    holder.rotation.y = Math.PI;
     // enchanted blades shed sparks
     if (look.wfx && R.held && WFX[look.wfx] && Math.random() < 0.5) { const c = WFX[look.wfx]; const wp = new THREE.Vector3(0, (BLADE_LEN[k] || 0.7) * Math.random(), 0); R.held.localToWorld(wp); wp.applyMatrix4(K3.camera.matrixWorld); fx.add.emit({ x: wp.x, y: wp.y, z: wp.z, vy: 0.2, life: 0.3, s0: 0.04, s1: 0.01, r: c[0], g: c[1], b: c[2], kind: 1 }); }
     cam.fov = Math.min(70, K3.settings.fov * 0.85); cam.updateProjectionMatrix();

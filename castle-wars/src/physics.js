@@ -14,8 +14,6 @@ export function layoutCastles() {
   CASTLE_SITES.push(
     { x: 0, z: d, rot: Math.PI },
     { x: 0, z: -d, rot: 0 },
-    { x: d, z: 0, rot: -Math.PI / 2 },
-    { x: -d, z: 0, rot: Math.PI / 2 },
   );
 }
 layoutCastles();

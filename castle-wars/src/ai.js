@@ -40,7 +40,7 @@ export class LordAI {
     let guard = 0;
     while (g.troopCount(f.team) < f.troopCap && f.gold - reserve > 60 && guard++ < 6) {
       const r = Math.random();
-      let type = r < 0.38 ? 'swordsman' : r < 0.62 ? 'spearman' : 'archer';
+      let type = r < 0.3 ? 'swordsman' : r < 0.48 ? 'spearman' : r < 0.6 ? 'pikeman' : r < 0.85 ? 'archer' : 'crossbowman';
       if (f.gold > 450 && round >= 4 && Math.random() < 0.3) type = 'knight';
       else if (f.gold > 300 && round >= 3 && Math.random() < 0.22) type = 'horseman';
       else if (f.gold > 600 && round >= 6 && Math.random() < 0.15) type = 'lancer';

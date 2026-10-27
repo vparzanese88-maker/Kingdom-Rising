@@ -6,6 +6,7 @@ import { navigate, avoidCastles } from './nav.js';
 import { clamp } from './noise.js';
 import { attackDirsFor } from './combat.js';
 import { allied } from './teams.js';
+import { buffSum, useShout, healPulse } from './classes.js';
 
 const tmp = new THREE.Vector3();
 let NEXT_ID = 1;
@@ -21,6 +22,10 @@ export class Unit {
     this.name = stats.name || t.name;
     this.kind = t.kind;
     this.isHero = t.kind === 'hero';
+    this.isLord = type === 'lord' || !!t.heroClass;  // a house's hero
+    this.cls = t.heroClass || null;
+    this.shoutReady = game.time + 4 + Math.random() * 6;
+    this.healReady = 0;
     this.ranged = !!t.ranged;
     this.maxHp = stats.hp ?? t.hp;
     this.hp = this.maxHp;
@@ -191,7 +196,7 @@ export class Unit {
   }
 
   stagger(sec, from) {
-    if (this.isGiant) return;
+    if (this.isGiant || buffSum(this, 'steady')) return;
     this.staggerT = Math.max(this.staggerT, sec);
     this.staggerMax = this.staggerT;
     this.swingT = -1;
@@ -449,6 +454,7 @@ export class Unit {
     }
 
     if (this.swingT >= 0) this.updateAttack(dt);
+    if (this.cls && g.state === 'playing') this.useClassPowers();
 
     if (!moving && !this.post) {
       // idle: gentle separation and gravity
@@ -487,12 +493,26 @@ export class Unit {
     this.mesh.rotation.y = this.yaw;
   }
 
+  // AI heroes shout when a fight is on, and priests heal when their side is hurting.
+  useClassPowers() {
+    const g = this.game;
+    if (g.time >= this.shoutReady && this.target && this.target.alive && !this.target.isStructure && this.distTo(this.target) < 22) {
+      const aim = this.target.pos.clone();
+      if (!useShout(g, this, aim)) this.shoutReady = g.time + 3;
+      else this.shoutReady = g.time + (this.shoutReady - g.time) * 1.25; // a little slower than a person
+    }
+    if (this.cls === 'priest' && g.time >= this.healReady && this.hp < this.maxHp * 0.7) {
+      this.healReady = g.time + 6;
+      healPulse(g, this);
+    }
+  }
+
   moveToward(p, dt, stopDist) {
     const dx = p.x - this.pos.x, dz = p.z - this.pos.z;
     const d = Math.hypot(dx, dz);
     if (d < stopDist) return false;
     const fac = this.game.factions[this.team];
-    let sp = this.speed * (this.order === 'hold' && d < 3 ? 0.6 : 1);
+    let sp = this.speed * (this.order === 'hold' && d < 3 ? 0.6 : 1) * (1 + buffSum(this, 'haste'));
     if (this.slowT > 0) sp *= 0.5;
     if (fac && fac.formation === 'shieldwall' && this.order === 'follow' && !this.mounted) sp *= 0.7;
     const k = Math.min(1, dt * (this.mounted ? 2.2 : 8));
@@ -600,7 +620,9 @@ export class Unit {
           const aim = t.chest ? t.chest(new THREE.Vector3()) : t.pos.clone();
           const lead = from.distanceTo(aim) / 38;
           if (t.vel) aim.addScaledVector(t.vel, lead * 0.8);
-          this.game.magic.cast(this, this.def.spell, from, aim.sub(from).normalize(), 0, this.dmg / 55);
+          const spell = this.def.spell;
+          if (spell === 'hex') this.game.projectiles.fireSpell('hex', from, aim.sub(from).normalize().multiplyScalar(36), this.team, this.dmg, this);
+          else this.game.magic.cast(this, spell, from, aim.sub(from).normalize(), 0, this.dmg / 55);
         } else if (this.ranged && !t.isStructure) {
           const from = this.shotOrigin(new THREE.Vector3());
           // a head peeking over battlements is a small target: harder to hit

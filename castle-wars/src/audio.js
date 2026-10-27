@@ -92,6 +92,12 @@ export class Audio {
       case 'horn':
         this.tone(147, 1.6, 0.35, 'sawtooth', 1.0); this.tone(220, 1.6, 0.18, 'sawtooth', 1.0);
         this.tone(147, 1.2, 0.3, 'sawtooth', 1.02, 1.7); break;
+      case 'shout':
+        this.tone(196, 0.9, 0.3 * k, 'sawtooth', 1.0); this.tone(294, 0.9, 0.16 * k, 'sawtooth', 1.0);
+        this.noise(0.5, 700, 0.6, 0.3 * k, 'bandpass'); break;
+      case 'heal': [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.45, 0.09 * k, 'sine', 1, i * 0.06)); break;
+      case 'hex': this.tone(330, 0.35, 0.14 * k, 'triangle', 0.5); this.noise(0.25, 1800, 1, 0.2 * k, 'bandpass'); break;
+      case 'crossbow': this.tone(160, 0.12, 0.3 * k, 'square', 0.5); this.noise(0.12, 2500, 1, 0.35 * k); break;
       case 'order': this.tone(520, 0.12, 0.15, 'triangle'); this.tone(780, 0.12, 0.12, 'triangle', 1, 0.1); break;
       case 'hurt': this.noise(0.2, 400, 1, 0.6, 'lowpass'); this.tone(90, 0.2, 0.3, 'sine', 0.5); break;
       case 'victory': [392, 494, 587, 784].forEach((f, i) => this.tone(f, 0.6, 0.2, 'triangle', 1, i * 0.18)); break;

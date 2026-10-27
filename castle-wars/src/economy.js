@@ -1,6 +1,5 @@
 // Everything gold can buy. Shared by the player's shop and the rival lords' AI.
 import { UNIT_TYPES, SIEGE_TYPES, TROOP_CAP, CASTLE, PLAYER, SPELLS, MANA, PROMOTIONS, RANKS, GIANT_COST } from './config.js';
-import { SWORDS, SHIELDS, BOWS } from './player.js';
 
 const heroLv = (g, f) => (f.isPlayer ? f.player.lv : f.heroLv);
 
@@ -22,7 +21,7 @@ function recruit(type) {
 }
 
 export const SHOP = [
-  recruit('swordsman'), recruit('spearman'), recruit('archer'), recruit('knight'), recruit('horseman'), recruit('lancer'),
+  recruit('swordsman'), recruit('spearman'), recruit('pikeman'), recruit('archer'), recruit('crossbowman'), recruit('knight'), recruit('horseman'), recruit('lancer'),
   {
     id: 'barracks', tab: 'army', name: 'Expand Barracks',
     desc: (g, f) => `Troop limit ${f.troopCap} → ${Math.min(TROOP_CAP.max, f.troopCap + TROOP_CAP.step)}`,
@@ -42,7 +41,7 @@ export const SHOP = [
     id: 'promote', tab: 'army', name: 'Promote a Veteran',
     desc: (g, f) => {
       const n = g.promotable(f.team).length;
-      return `Raise a rank ${'★'.repeat(RANKS.promoteAt)} soldier to an elite (Swordsman/Spearman → Knight, Archer → Longbowman, Cavalry → Lancer), keeping their rank. ${n} ready.`;
+      return `Raise a rank ${'★'.repeat(RANKS.promoteAt)} soldier to an elite (Man-at-Arms/Spearman/Pikeman → Knight, Bowman/Crossbowman → Longbowman, Cavalry → Lancer), keeping their rank. ${n} ready.`;
     },
     cost: () => 70,
     can: (g, f) => (f.castle.fallen ? 'Castle has fallen' : g.promotable(f.team).length ? true : 'No veterans ready'),
@@ -129,30 +128,6 @@ export const SHOP = [
   },
 
   {
-    id: 'sword', tab: 'items', name: 'Better Sword', playerOnly: true,
-    desc: (g, f) => {
-      const lv = f.player.lv.sword;
-      return lv >= SWORDS.length - 1 ? `${SWORDS[lv].name} (${SWORDS[lv].dmg} dmg) – the finest blade` : `${SWORDS[lv].name} → ${SWORDS[lv + 1].name} (${SWORDS[lv + 1].dmg} dmg)`;
-    },
-    cost: (g, f) => [300, 800, 0][f.player.lv.sword],
-    can: (g, f) => (f.player.lv.sword >= SWORDS.length - 1 ? 'Best sword owned' : true),
-    apply: (g, f) => { f.player.lv.sword++; f.player.recalc(); },
-  },
-  {
-    id: 'shield', tab: 'items', name: SHIELDS[1].name, playerOnly: true,
-    desc: () => `Blocks ${Math.round(SHIELDS[1].block * 100)}% of frontal damage (round shield: ${Math.round(SHIELDS[0].block * 100)}%)`,
-    cost: () => 250,
-    can: (g, f) => (f.player.lv.shield >= 1 ? 'Owned' : true),
-    apply: (g, f) => { f.player.lv.shield = 1; f.player.recalc(); },
-  },
-  {
-    id: 'bow', tab: 'items', name: BOWS[1].name, playerOnly: true,
-    desc: () => `${BOWS[1].dmg} dmg and faster draw (hunting bow: ${BOWS[0].dmg})`,
-    cost: () => 300,
-    can: (g, f) => (f.player.lv.bow >= 1 ? 'Owned' : true),
-    apply: (g, f) => { f.player.lv.bow = 1; f.player.recalc(); },
-  },
-  {
     id: 'horse', tab: 'items', name: 'Warhorse', playerOnly: true,
     desc: () => 'A barded destrier. Press E to mount and dismount, or to whistle for it. Hold Shift to gallop; charging adds damage and tramples foes.',
     cost: () => 400,
@@ -160,11 +135,11 @@ export const SHOP = [
     apply: (g, f) => { f.player.giveHorse(); },
   },
   {
-    id: 'arrows', tab: 'items', name: 'Quiver of Arrows', playerOnly: true,
-    desc: (g, f) => `+20 arrows (${f.player.arrows}/${PLAYER.maxArrows})`,
+    id: 'arrows', tab: 'items', name: 'Quiver Refill', playerOnly: true,
+    desc: (g, f) => (f.player.maxArrows ? `+20 ${f.player.C.ranged.kind === 'crossbow' ? 'bolts' : 'arrows'} (${f.player.arrows}/${f.player.maxArrows})` : 'For bowmen and crossbowmen'),
     cost: () => 25,
-    can: (g, f) => (f.player.arrows >= PLAYER.maxArrows ? 'Quiver full' : true),
-    apply: (g, f) => { f.player.arrows = Math.min(PLAYER.maxArrows, f.player.arrows + 20); },
+    can: (g, f) => (!f.player.maxArrows ? 'Not for your class' : f.player.arrows >= f.player.maxArrows ? 'Quiver full' : true),
+    apply: (g, f) => { f.player.arrows = Math.min(f.player.maxArrows, f.player.arrows + 20); },
   },
   {
     id: 'potion', tab: 'items', name: 'Healing Draught', playerOnly: true,
@@ -175,45 +150,24 @@ export const SHOP = [
   },
 
   {
-    id: 'spell_fireball', tab: 'magic', name: SPELLS.fireball.name, playerOnly: true,
-    desc: () => `${SPELLS.fireball.desc} ${SPELLS.fireball.cost} mana.`,
-    cost: () => SPELLS.fireball.price,
-    can: (g, f) => (f.player.spells.includes('fireball') ? 'Learned' : true),
-    apply: (g, f) => f.player.learnSpell('fireball'),
-  },
-  {
-    id: 'spell_lightning', tab: 'magic', name: SPELLS.lightning.name, playerOnly: true,
-    desc: () => `${SPELLS.lightning.desc} ${SPELLS.lightning.cost} mana.`,
-    cost: () => SPELLS.lightning.price,
-    can: (g, f) => (f.player.spells.includes('lightning') ? 'Learned' : true),
-    apply: (g, f) => f.player.learnSpell('lightning'),
-  },
-  {
-    id: 'spell_ice', tab: 'magic', name: SPELLS.ice.name, playerOnly: true,
-    desc: () => `${SPELLS.ice.desc} ${SPELLS.ice.cost} mana.`,
-    cost: () => SPELLS.ice.price,
-    can: (g, f) => (f.player.spells.includes('ice') ? 'Learned' : true),
-    apply: (g, f) => f.player.learnSpell('ice'),
-  },
-  {
     id: 'arcane', tab: 'magic', name: 'Destruction Mastery', playerOnly: true,
-    desc: (g, f) => `All spells deal +25% damage (level ${f.player.lv.magic || 0}/4)`,
+    desc: (g, f) => `Wizard spells deal +25% damage (level ${f.player.lv.magic || 0}/4)`,
     cost: (g, f) => 250 * ((f.player.lv.magic || 0) + 1),
-    can: (g, f) => (!f.player.spells.length ? 'Learn a spell first' : (f.player.lv.magic || 0) >= 4 ? 'Maximum' : true),
+    can: (g, f) => (f.player.cls !== 'wizard' ? 'Wizards only' : (f.player.lv.magic || 0) >= 4 ? 'Maximum' : true),
     apply: (g, f) => { f.player.lv.magic = (f.player.lv.magic || 0) + 1; },
   },
   {
     id: 'mana_pool', tab: 'magic', name: 'Deep Mana Well', playerOnly: true,
     desc: (g, f) => `Max mana ${f.player.manaMax} → ${f.player.manaMax + MANA.perLevel} (level ${f.player.lv.mana || 0}/4)`,
     cost: (g, f) => 200 * ((f.player.lv.mana || 0) + 1),
-    can: (g, f) => ((f.player.lv.mana || 0) >= 4 ? 'Maximum' : true),
+    can: (g, f) => (!f.player.usesMana ? 'Spellcasters only' : (f.player.lv.mana || 0) >= 4 ? 'Maximum' : true),
     apply: (g, f) => { f.player.lv.mana = (f.player.lv.mana || 0) + 1; f.player.mana += MANA.perLevel; },
   },
   {
     id: 'mana_regen', tab: 'magic', name: 'Arcane Recovery', playerOnly: true,
     desc: (g, f) => `Mana regenerates ${Math.round(MANA.regenPerLevel * 100)}% faster (level ${f.player.lv.regen || 0}/3)`,
     cost: (g, f) => 200 * ((f.player.lv.regen || 0) + 1),
-    can: (g, f) => ((f.player.lv.regen || 0) >= 3 ? 'Maximum' : true),
+    can: (g, f) => (!f.player.usesMana ? 'Spellcasters only' : (f.player.lv.regen || 0) >= 3 ? 'Maximum' : true),
     apply: (g, f) => { f.player.lv.regen = (f.player.lv.regen || 0) + 1; },
   },
   {

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { SPELLS } from './config.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { allied } from './teams.js';
+import { addBuff } from './classes.js';
 
 const ARROW_SPEED = 52;
 const G_ARROW = 9.8;
@@ -44,12 +45,15 @@ export class Projectiles {
     this.fireMat = new THREE.MeshBasicMaterial({ color: 0xffb050, fog: false });
     this.iceGeo = new THREE.ConeGeometry(0.12, 0.9, 6);
     this.iceGeo.rotateX(Math.PI / 2);
+    this.hexGeo = new THREE.IcosahedronGeometry(0.2, 1);
+    this.hexMat = new THREE.MeshBasicMaterial({ color: 0xd090ff, fog: false });
     this.iceMat = new THREE.MeshStandardMaterial({ color: 0xcfefff, emissive: 0x4aa8ff, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.9 });
   }
 
-  // Straight-line magic projectile (no gravity). kind: 'fireball' | 'ice'
+  // Straight-line magic projectile (no gravity). kind: 'fireball' | 'ice' | 'hex'
   fireSpell(kind, from, vel, team, dmg, owner, radius = 0) {
-    const mesh = new THREE.Mesh(kind === 'fireball' ? this.fireGeo : this.iceGeo, kind === 'fireball' ? this.fireMat : this.iceMat);
+    const mesh = kind === 'hex' ? new THREE.Mesh(this.hexGeo, this.hexMat)
+      : new THREE.Mesh(kind === 'fireball' ? this.fireGeo : this.iceGeo, kind === 'fireball' ? this.fireMat : this.iceMat);
     mesh.position.copy(from);
     if (kind === 'fireball') mesh.scale.setScalar(0.8 + radius / 6);
     this.game.scene.add(mesh);
@@ -126,8 +130,19 @@ export class Projectiles {
             g.audio.play('ice', next);
             p.hitSet.add(hit);
             if (--p.pierce <= 0) { this.kill(i, p); done = true; break; }
+          } else if (hit && p.kind === 'hex') {
+            // the witch's curse: less damage dealt, more damage taken
+            const H = SPELLS.hex;
+            g.damage(hit, p.dmg, p.owner, { magic: true, ranged: true });
+            if (g.simulating) addBuff(g, hit, 'hex', { weak: H.weak, vuln: H.vuln }, H.dur);
+            g.fx.glow.burst(next, 16, HEX_COL, 3, 0.3, 0.6, { grav: -1, alpha: 1 });
+            g.audio.play('hex', next);
+            this.kill(i, p);
+            done = true;
+            break;
           } else if (hit || col || ground) {
             if (p.kind === 'fireball') this.explode(p, hit ? next : p.pos.clone(), col); // burst on the near side of walls
+            else if (p.kind === 'hex') g.fx.glow.burst(next, 10, HEX_COL, 2, 0.25, 0.5, { alpha: 0.9 });
             else { g.fx.frost(next, 18); g.audio.play('ice', next); }
             this.kill(i, p);
             done = true;
@@ -179,6 +194,10 @@ export class Projectiles {
       else p.mesh.rotation.x += dt * 3;
       if (p.kind === 'fireball') { g.fx.fireTrail(p.pos); g.fx.fireTrail(p.pos); }
       else if (p.kind === 'ice') g.fx.frostTrail(p.pos);
+      else if (p.kind === 'hex') {
+        p.mesh.rotation.y += dt * 9;
+        g.fx.glow.emit(p.pos, new THREE.Vector3((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6), HEX_COL, 0.45, 0.35, { grow: -1, alpha: 0.9 });
+      }
     }
   }
 
@@ -251,6 +270,8 @@ export class Projectiles {
     });
   }
 }
+
+const HEX_COL = new THREE.Color(0.72, 0.3, 1.0);
 
 function gauss() {
   return (Math.random() + Math.random() + Math.random() - 1.5) * 0.8;

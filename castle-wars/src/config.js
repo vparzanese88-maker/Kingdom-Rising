@@ -5,7 +5,7 @@ export const RAIDER_TEAM = 4;
 
 export const TEAM_COLORS = [0x2f62c8, 0xb8322a, 0x2c8a46, 0xd9a521, 0x4a3b2c];
 export const TEAM_CSS = ['#3f74e0', '#d0453b', '#38a957', '#e8b52c', '#8a6a4a'];
-export const TEAM_NAMES = ['Your Kingdom', 'House Varr', 'House Elden', 'House Sol', 'Raiders'];
+export const TEAM_NAMES = ['Blue Kingdom', 'Red Kingdom', 'House Elden', 'House Sol', 'Raiders'];
 export const LORD_NAMES = ['You', 'Lord Varr', 'Lady Elden', 'Lord Sol'];
 
 export const WORLD = {
@@ -17,9 +17,9 @@ export const WORLD = {
 };
 
 export const MAP_SIZES = {
-  small: { name: 'Small', half: 160, castleDist: 88, desc: 'Castles close together: early clashes.' },
-  medium: { name: 'Medium', half: 220, castleDist: 130, desc: 'Balanced distances.' },
-  large: { name: 'Large', half: 300, castleDist: 190, desc: 'Wide wilds between castles: long marches, more forest.' },
+  small: { name: 'Small', half: 140, castleDist: 62, desc: 'The castles stare at each other across a narrow field: constant clashes.' },
+  medium: { name: 'Medium', half: 190, castleDist: 90, desc: 'A battlefield between two castles, with a ruin in the middle.' },
+  large: { name: 'Large', half: 260, castleDist: 130, desc: 'Wide wilds between the castles: long marches, more forest.' },
 };
 
 // Switch map size. Must be called before a Game is built.
@@ -50,10 +50,10 @@ export const CASTLE = {
 };
 
 export const ROUNDS = {
-  firstPrep: 60,      // preparation time before the first wave (buy and upgrade before the match)
+  firstPrep: 45,      // preparation time before the first wave (buy and upgrade before the match)
   prep: 25,           // seconds between waves
   maxWaveTime: 210,   // a wave is force-ended after this long
-  warRound: 4,        // rival lords start assaulting castles from this round
+  warRound: 2,        // the enemy lord starts assaulting your castle from this round
   survivalBonus: (round) => 80 + round * 25,
 };
 
@@ -83,15 +83,22 @@ export const BODY_STYLES = {
   gambeson: [0x9d8862, 0.0, 0.95],
   leather:  [0x6b4a2f, 0.0, 0.85],
   fur:      [0x5a4634, 0.0, 1.0],
+  robeWhite:  [0xe8e2d2, 0.0, 0.9],
+  robePurple: [0x3d2450, 0.0, 0.9],
+  robeBlue:   [0x23347a, 0.0, 0.9],
 };
 
 export const UNIT_TYPES = {
-  swordsman: { name: 'Swordsman', hp: 100, dmg: 14, armor: 2, speed: 4.4, range: 1.9, cd: 1.1,
+  swordsman: { name: 'Man-at-Arms', hp: 100, dmg: 14, armor: 2, speed: 4.4, range: 1.9, cd: 1.1,
     weapon: 'sword', shield: 'round', helmet: 'kettle', body: 'mail', cost: 40, kind: 'infantry' },
   spearman: { name: 'Spearman', hp: 115, dmg: 16, armor: 3, speed: 4.2, range: 2.7, cd: 1.3,
     weapon: 'spear', shield: 'kite', helmet: 'nasal', body: 'mail', cost: 50, kind: 'infantry', siegeBonus: 2.5 },
-  archer: { name: 'Archer', hp: 70, dmg: 13, armor: 1, speed: 4.5, range: 44, cd: 2.2,
+  pikeman: { name: 'Pikeman', hp: 120, dmg: 20, armor: 3, speed: 4.0, range: 3.8, cd: 1.5,
+    weapon: 'pike', helmet: 'kettle', body: 'gambeson', cost: 55, kind: 'infantry', siegeBonus: 3 },
+  archer: { name: 'Bowman', hp: 70, dmg: 13, armor: 1, speed: 4.5, range: 44, cd: 2.2,
     weapon: 'bow', helmet: 'hood', body: 'gambeson', cost: 60, kind: 'archer', ranged: true },
+  crossbowman: { name: 'Crossbowman', hp: 85, dmg: 30, armor: 3, speed: 4.2, range: 48, cd: 3.4,
+    weapon: 'crossbow', helmet: 'kettle', body: 'mail', cost: 75, kind: 'archer', ranged: true },
   knight: { name: 'Knight', hp: 240, dmg: 26, armor: 7, speed: 4.1, range: 2.1, cd: 1.2,
     weapon: 'sword', shield: 'kite', helmet: 'great', body: 'plate', cost: 130, kind: 'infantry', scale: 1.08 },
   longbowman: { name: 'Longbowman', hp: 95, dmg: 20, armor: 3, speed: 4.5, range: 54, cd: 2.0,
@@ -150,7 +157,7 @@ export const FORMATIONS = {
 
 // Troop experience: XP needed for ranks 2..5, and what each rank adds.
 export const RANKS = { xp: [0, 30, 80, 160, 300], hp: 0.12, dmg: 0.1, armor: 1, promoteAt: 4 };
-export const PROMOTIONS = { swordsman: 'knight', spearman: 'knight', archer: 'longbowman', horseman: 'lancer' };
+export const PROMOTIONS = { swordsman: 'knight', spearman: 'knight', pikeman: 'knight', archer: 'longbowman', crossbowman: 'longbowman', horseman: 'lancer' };
 
 // Skyrim-style spells: they fly straight where you aim and are blocked by walls and hills.
 export const SPELLS = {
@@ -162,3 +169,118 @@ export const SPELLS = {
     desc: 'A fast shard that pierces up to three enemies and slows them.' },
 };
 export const MANA = { base: 100, perLevel: 25, regen: 7, regenPerLevel: 0.4, delay: 1.4 };
+
+// ---------------------------------------------------------------- hero classes
+// Every hero (you, other players, the enemy lord) picks one of these before the battle.
+// melee.time is the whole swing: small weapons are quick and light, big weapons slow and heavy.
+// Each class has a shout on R: a buff for nearby allies, a curse on nearby enemies, or a spell.
+export const CLASSES = {
+  knight: {
+    name: 'Knight', role: 'Two-handed greatsword. Slow, crushing blows that cleave through crowds.',
+    hp: 300, armor: 7, speed: 4.9, stats: { hp: 5, dmg: 5, speed: 2, range: 2 },
+    melee: { weapon: 'greatsword', dmg: 64, time: 1.0, reach: 2.6, cone: 0.25, targets: 3, stamina: 10, heavy: true },
+    block: 0.55,
+    look: { weapon: 'greatsword', helmet: 'great', body: 'plate' },
+    ai: { dmg: 46, cd: 1.5, range: 2.5 },
+    shout: { id: 'rally', name: 'Rallying Cry', cd: 30, radius: 16, dur: 10, color: 0xffb030,
+      desc: 'You and every ally within 16 m deal +30% damage for 10 s.' },
+  },
+  manatarms: {
+    name: 'Man-at-Arms', role: 'Arming sword and kite shield. Fast, light cuts and the best block.',
+    hp: 250, armor: 5, speed: 5.3, stats: { hp: 4, dmg: 3, speed: 4, range: 2 },
+    melee: { weapon: 'sword', dmg: 21, time: 0.42, reach: 2.0, cone: 0.4, targets: 2, stamina: 4 },
+    block: 0.85,
+    look: { weapon: 'sword', shield: 'kite', helmet: 'nasal', body: 'mail' },
+    ai: { dmg: 22, cd: 0.7, range: 2.1 },
+    shout: { id: 'shieldwall', name: 'Shield Wall', cd: 28, radius: 14, dur: 8, color: 0x5ab0ff,
+      desc: 'You and every ally within 14 m take 35% less damage for 8 s.' },
+  },
+  pikeman: {
+    name: 'Pikeman', role: 'A five-metre pike. Out-reaches everyone and skewers two at once.',
+    hp: 230, armor: 4, speed: 5.0, stats: { hp: 4, dmg: 4, speed: 3, range: 4 },
+    melee: { weapon: 'pike', dmg: 38, time: 0.85, reach: 4.4, cone: 0.88, targets: 2, stamina: 6, thrust: true },
+    block: 0.4,
+    look: { weapon: 'pike', helmet: 'kettle', body: 'gambeson' },
+    ai: { dmg: 34, cd: 1.3, range: 4.0 },
+    shout: { id: 'brace', name: 'Hold the Line', cd: 26, radius: 14, dur: 10, color: 0xc0c8d8,
+      desc: 'You and every ally within 14 m gain +5 armour and cannot be knocked back for 10 s.' },
+  },
+  spearman: {
+    name: 'Spearman', role: 'Spear and round shield. Quick thrusts with good reach.',
+    hp: 240, armor: 4, speed: 5.4, stats: { hp: 4, dmg: 3, speed: 4, range: 3 },
+    melee: { weapon: 'spear', dmg: 27, time: 0.58, reach: 3.1, cone: 0.8, targets: 1, stamina: 4, thrust: true },
+    block: 0.72,
+    look: { weapon: 'spear', shield: 'round', helmet: 'nasal', body: 'mail' },
+    ai: { dmg: 26, cd: 0.9, range: 3.0 },
+    shout: { id: 'charge', name: 'Charge!', cd: 24, radius: 16, dur: 8, color: 0xff6040,
+      desc: 'You and every ally within 16 m run 35% faster and hit 15% harder for 8 s.' },
+  },
+  bowman: {
+    name: 'Bowman', role: 'Longbow for quick, accurate arrows. A dagger for close work.',
+    hp: 180, armor: 2, speed: 5.5, stats: { hp: 2, dmg: 3, speed: 5, range: 5 },
+    melee: { weapon: 'dagger', dmg: 12, time: 0.32, reach: 1.8, cone: 0.45, targets: 1, stamina: 3 },
+    ranged: { kind: 'bow', dmg: 34, draw: 0.7, ammo: 60 },
+    block: 0.3,
+    look: { weapon: 'bow', helmet: 'hood', body: 'gambeson' },
+    ai: { dmg: 26, cd: 1.6, range: 44 },
+    shout: { id: 'volley', name: 'Volley!', cd: 25, radius: 20, dur: 10, color: 0x9be070,
+      desc: 'You and every ally within 20 m deal +40% ranged damage for 10 s.' },
+  },
+  crossbowman: {
+    name: 'Crossbowman', role: 'Crossbow bolts hit like a hammer, but reloading takes time.',
+    hp: 200, armor: 4, speed: 5.0, stats: { hp: 3, dmg: 5, speed: 3, range: 5 },
+    melee: { weapon: 'dagger', dmg: 12, time: 0.32, reach: 1.8, cone: 0.45, targets: 1, stamina: 3 },
+    ranged: { kind: 'crossbow', dmg: 78, reload: 1.7, ammo: 40 },
+    block: 0.3,
+    look: { weapon: 'crossbow', helmet: 'kettle', body: 'mail' },
+    ai: { dmg: 48, cd: 2.8, range: 48 },
+    shout: { id: 'mark', name: 'Mark Target', cd: 16, radius: 34, dur: 8, color: 0xff3030,
+      desc: 'The enemy under your crosshair (or the nearest one) takes +40% damage from everyone for 8 s.' },
+  },
+  priest: {
+    name: 'Priest', role: 'Healer and buffer. Right click heals everyone near you. Swings a mace.',
+    hp: 210, armor: 3, speed: 5.3, stats: { hp: 3, dmg: 2, speed: 4, range: 2 },
+    melee: { weapon: 'mace', dmg: 22, time: 0.55, reach: 2.0, cone: 0.45, targets: 2, stamina: 4 },
+    heal: { amount: 45, radius: 11, mana: 24, cd: 1.2 },
+    mana: true, block: 0.4,
+    look: { weapon: 'mace', helmet: 'mitre', body: 'robeWhite' },
+    ai: { dmg: 22, cd: 0.9, range: 2.1 },
+    shout: { id: 'bless', name: 'Blessing', cd: 22, radius: 16, dur: 10, color: 0xfff0a0,
+      desc: 'Heals you and every ally within 16 m for 60 and gives them +20% damage for 10 s.' },
+  },
+  witch: {
+    name: 'Witch', role: 'Hex bolts curse enemies so they deal less damage and take more.',
+    hp: 180, armor: 2, speed: 5.4, stats: { hp: 2, dmg: 3, speed: 5, range: 4 },
+    hex: { dmg: 20, time: 0.55, speed: 36, mana: 10 },
+    mana: true, block: 0,
+    look: { weapon: 'witchstaff', helmet: 'witchhat', body: 'robePurple' },
+    ai: { dmg: 24, cd: 1.4, range: 32 },
+    shout: { id: 'curse', name: 'Curse of Weakness', cd: 24, radius: 16, dur: 10, color: 0xb040ff,
+      desc: 'Every enemy within 16 m deals 40% less damage and takes 15% more for 10 s.' },
+  },
+  wizard: {
+    name: 'Wizard', role: 'Fireballs, chain lightning and ice. Huge area damage. Only one per battle.',
+    hp: 170, armor: 1, speed: 5.2, stats: { hp: 2, dmg: 5, speed: 3, range: 5 }, unique: true,
+    spells: ['fireball', 'lightning', 'ice'],
+    mana: true, block: 0,
+    look: { weapon: 'wizardstaff', helmet: 'wizardhat', body: 'robeBlue' },
+    ai: { dmg: 60, cd: 2.6, range: 36 },
+    shout: { id: 'meteor', name: 'Meteor', cd: 30, radius: 9, dmg: 170, color: 0xff5a10,
+      desc: 'Call a meteor down where you aim: 170 damage in a 9 m blast.' },
+  },
+};
+export const CLASS_IDS = Object.keys(CLASSES);
+export const DEFAULT_CLASS = 'manatarms';
+
+// The witch's curse bolt, alongside the wizard's spells.
+SPELLS.hex = { name: 'Hex Bolt', cost: 10, dmg: 20, speed: 36, color: 0xb040ff, weak: 0.3, vuln: 0.15, dur: 6, desc: '' };
+
+// Each class also exists as a soldier type, so AI lords and other people's heroes look the part.
+for (const [id, c] of Object.entries(CLASSES)) {
+  const ranged = !!(c.ranged || c.hex || c.spells);
+  UNIT_TYPES['hero_' + id] = {
+    name: c.name, hp: Math.round(c.hp * 1.35), dmg: c.ai.dmg, armor: c.armor + 2, speed: 5.0, range: c.ai.range, cd: c.ai.cd,
+    weapon: c.look.weapon, shield: c.look.shield, helmet: c.look.helmet, body: c.look.body, scale: 1.1, cape: true,
+    kind: 'hero', structMult: 1.2, ranged, spell: c.spells ? 'fireball' : c.hex ? 'hex' : undefined, heroClass: id,
+  };
+}

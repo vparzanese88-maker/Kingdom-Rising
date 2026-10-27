@@ -2,11 +2,12 @@
 import * as THREE from 'three';
 import { TEAM_CSS, PLAYER_TEAM, RAIDER_TEAM, WORLD, CASTLE, ROUNDS } from './config.js';
 import { SHOP } from './economy.js';
-import { dirFromAim, incomingSide } from './combat.js';
-import { SPELLS, FORMATIONS } from './config.js';
+import { SPELLS, FORMATIONS, CLASSES } from './config.js';
 import { allied } from './teams.js';
 
 const $ = (id) => document.getElementById(id);
+const BUFF_LABELS = { rally: '⚔ Rallying Cry', shieldwall: '🛡 Shield Wall', brace: '⛨ Hold the Line', charge: '» Charge', volley: '➶ Volley',
+  bless: '✚ Blessing', curse: '☠ Cursed', hex: '☠ Hexed', mark: '◎ Marked' };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export class UI {
@@ -110,33 +111,33 @@ export class UI {
     else this.toggleShop(true);
   }
 
-  // Direction chevrons: where you're aiming / winding up / guarding, and blows coming at you.
-  updateDirs() {
+  // Shout button and the buffs and curses currently on you.
+  updateClassHud() {
     const g = this.game;
     const p = g.player;
-    const els = this.dirEls || (this.dirEls = Object.fromEntries([...document.querySelectorAll('#dirs i')].map((e) => [e.dataset.d, e])));
-    const show = p.alive && p.weapon === 'sword';
-    $('dirs').style.display = show ? '' : 'none';
-    if (!show) return;
-    const state = { left: '', right: '', over: '', thrust: '' };
-    if (p.blocking) state[p.blockDir] = 'guard';
-    else if (p.atk) state[p.atk.dir] = p.atk.phase === 'wind' ? 'wind' : 'aim';
-    else state[dirFromAim(p.aim.x, p.aim.y, p.atkDir)] = 'aim';
-    // enemies close by, facing you and winding up
-    const check = (u) => {
-      if (!u.alive || allied(u.team, p.team) || u.ranged || u.weapon === 'bow' || u.swingT < 0 || u.swingT > 0.33) return;
-      const dx = p.pos.x - u.pos.x, dz = p.pos.z - u.pos.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 4.2) return;
-      const face = u.mounted ? u.heading ?? u.yaw : u.yaw;
-      if ((dx * Math.sin(face) + dz * Math.cos(face)) / (d || 1) < 0.55) return;
-      state[incomingSide(u.attackDir || 'over')] = 'threat';
-    };
-    g.grid.query(p.pos.x, p.pos.z, 5, check);
-    for (const h of g.humans) if (h !== p) check(h);
-    for (const d of ['left', 'right', 'over', 'thrust']) {
-      if (els[d].className !== state[d]) els[d].className = state[d];
+    const sh = p.C.shout;
+    const left = p.shoutLeft;
+    const key = `${p.cls}:${Math.ceil(left)}`;
+    if (key !== this.shoutKey) {
+      this.shoutKey = key;
+      const el = $('shout');
+      el.classList.toggle('ready', left <= 0);
+      el.style.setProperty('--shout', '#' + sh.color.toString(16).padStart(6, '0'));
+      $('shoutName').textContent = sh.name;
+      $('shoutCd').textContent = left > 0 ? `${Math.ceil(left)}s` : 'READY';
     }
+    $('shoutFill').style.transform = `scaleY(${left > 0 ? left / sh.cd : 0})`;
+    const list = [];
+    if (p.buffs) {
+      for (const id in p.buffs) {
+        const b = p.buffs[id];
+        const t = Math.max(0, Math.ceil(b.until - g.time));
+        if (t <= 0) continue;
+        list.push(`<span class="buff ${b.weak || b.vuln ? 'bad' : ''}">${esc(BUFF_LABELS[id] || id)} ${t}s</span>`);
+      }
+    }
+    const html = list.join('');
+    if (html !== this.buffHtml) { this.buffHtml = html; $('buffs').innerHTML = html; }
   }
 
   hitMarker() {
@@ -333,12 +334,12 @@ export class UI {
 
   renderLobby(players, myTeam = -1, coop = false) {
     $('lobbyMode').textContent = coop
-      ? 'Co-op: all players are allies against the AI lords and the raiders.'
-      : 'Versus: every castle for itself.';
+      ? 'Co-op: both castles are allies, holding out together against endless raider waves.'
+      : 'Versus: blue castle against red castle.';
     for (const b of document.querySelectorAll('#lobbyModes button')) b.classList.toggle('active', (b.dataset.mode === 'coop') === coop);
-    const slots = [0, 1, 2, 3].map((t) => players.find((p) => p.team === t));
+    const slots = [0, 1].map((t) => players.find((p) => p.team === t));
     $('lobbyList').innerHTML = slots.map((p, t) => `<li style="border-left-color:${TEAM_CSS[t]}">
-      <b style="color:${TEAM_CSS[t]}">${esc(['Blue', 'Red', 'Green', 'Gold'][t])} castle</b>
+      <b style="color:${TEAM_CSS[t]}">${esc(['Blue', 'Red'][t])} castle</b>
       <span>${p ? esc(p.name) + (p.team === myTeam ? ' (you)' : '') + (t === 0 ? ' · host' : '') : '<i>AI lord' + (coop ? ' (enemy)' : '') + '</i>'}</span></li>`).join('');
   }
 
@@ -387,13 +388,15 @@ export class UI {
     $('vignette').style.opacity = Math.min(0.8, p.hurtFlash * 0.7 + (p.alive && p.hp < p.maxHp * 0.3 ? 0.25 : 0));
     $('hpFill').style.width = `${(p.hp / p.maxHp) * 100}%`;
     $('stFill').style.width = `${p.stamina}%`;
-    $('mnbar').classList.toggle('hidden', !p.spells.length);
-    $('mnFill').style.width = `${(p.mana / p.manaMax) * 100}%`;
+    $('mnbar').classList.toggle('hidden', !p.usesMana);
+    if (p.usesMana) $('mnFill').style.width = `${(p.mana / p.manaMax) * 100}%`;
     $('crosshair').classList.toggle('block', p.blocking);
-    this.updateDirs();
     this.updatePrompt();
-    $('crosshair').classList.toggle('bow', p.weapon === 'bow');
-    $('drawFill').style.width = p.weapon === 'bow' ? `${Math.min(1, p.drawT / p.bow.draw) * 100}%` : '0%';
+    this.updateClassHud();
+    $('crosshair').classList.toggle('bow', p.weapon === 'bow' || p.weapon === 'crossbow');
+    const R = p.C.ranged;
+    $('drawFill').style.width = p.weapon === 'bow' ? `${Math.min(1, p.drawT / R.draw) * 100}%`
+      : p.weapon === 'crossbow' ? `${(1 - Math.min(1, p.reloadT / R.reload)) * 100}%` : '0%';
 
     this.hudT -= dt;
     if (this.hudT <= 0) {
@@ -407,10 +410,8 @@ export class UI {
         const left = g.units.filter((u) => u.alive && u.team === RAIDER_TEAM).length + g.spawnQueue.length;
         $('phase').textContent = `${left} raiders remain`;
       }
-      $('war').textContent = g.round < ROUNDS.warRound ? `Rival lords attack from round ${ROUNDS.warRound}` : 'War: rival lords are attacking!';
-      $('weapon').textContent = p.weapon === 'sword' ? `${p.sword.name} & ${p.shield.name}`
-        : p.weapon === 'bow' ? `${p.bow.name} · ${p.arrows} arrows`
-        : `${SPELLS[p.spell] ? SPELLS[p.spell].name : 'Magic'} · ${Math.floor(p.mana)}/${p.manaMax} mana${p.spells.length > 1 ? ' (R: next)' : ''}`;
+      $('war').textContent = g.round < ROUNDS.warRound ? `The enemy lord attacks from round ${ROUNDS.warRound}` : 'War: attack the enemy!';
+      $('weapon').textContent = this.weaponText(p);
       $('potions').textContent = `Potions ${p.potions} (Q)` + (p.hasHorse ? ` · Horse ${Math.ceil(p.horseHp)}/320 (E)` : '');
       const troops = g.troopCount(g.localTeam);
       const grp = { all: 'All troops', infantry: 'Infantry', archers: 'Archers', cavalry: 'Cavalry' }[p.group || 'all'];
@@ -432,6 +433,19 @@ export class UI {
     if (this.mapT <= 0) { this.mapT = 0.1; this.drawMinimap(); }
   }
 
+  weaponText(p) {
+    const c = p.C;
+    const W = { greatsword: 'Greatsword', sword: 'Arming sword & shield', pike: 'Pike', spear: 'Spear & shield', dagger: 'Dagger', mace: 'Mace' };
+    const mana = p.usesMana ? ` · ${Math.floor(p.mana)}/${p.manaMax} mana` : '';
+    switch (p.weapon) {
+      case 'bow': return `${c.name} · Longbow · ${p.arrows} arrows (2: dagger)`;
+      case 'crossbow': return `${c.name} · Crossbow · ${p.arrows} bolts${p.reloadT > 0 ? ' · reloading' : ''} (2: dagger)`;
+      case 'magic': return `${c.name} · ${SPELLS[p.spell].name}${mana} (1/2/3: spells)`;
+      case 'hex': return `${c.name} · Hex bolts${mana}`;
+      default: return `${c.name} · ${W[c.melee.weapon] || 'Weapon'}${c.heal ? ' · right click: heal' : ''}${mana}${c.ranged ? ' (1: ' + (c.ranged.kind === 'bow' ? 'bow' : 'crossbow') + ')' : ''}`;
+    }
+  }
+
   renderFactions() {
     const g = this.game;
     let html = '';
@@ -442,7 +456,7 @@ export class UI {
       const heroAlive = f.isPlayer && f.player ? f.player.alive : f.hero && f.hero.alive;
       const hero = f.eliminated ? '☠' : heroAlive ? '♚' : `⟳${Math.ceil(Math.max(0, f.respawnT))}`;
       html += `<div class="fac ${f.eliminated ? 'dead' : ''}">
-        <i style="background:${TEAM_CSS[f.team]}"></i><span class="n">${esc(f.team === g.localTeam ? 'You' : f.name)}${g.coop && f.team !== g.localTeam && allied(f.team, g.localTeam) ? ' <em class="ally">ally</em>' : ''}</span>
+        <i style="background:${TEAM_CSS[f.team]}"></i><span class="n">${esc(f.team === g.localTeam ? 'You' : f.name)}${f.cls && CLASSES[f.cls] ? ` <small>${esc(CLASSES[f.cls].name)}</small>` : ''}${g.coop && f.team !== g.localTeam && allied(f.team, g.localTeam) ? ' <em class="ally">ally</em>' : ''}</span>
         <span class="h" title="hero">${hero}</span>
         <span class="bar"><b style="width:${keep}%"></b></span>
         <span class="g" title="gate">${c.fallen ? 'FALLEN' : gate}</span>
@@ -492,7 +506,7 @@ export class UI {
     let name;
     if (o.kind === 'gate') name = `${fac.name} – Gate`;
     else if (o.isSiege) name = `${o.name}${team === RAIDER_TEAM ? ' (Raiders)' : ' – ' + fac.name}`;
-    else name = o.isHero ? `${o.name} – ${fac ? fac.name : 'Raiders'}` : `${o.name}${o.rank > 1 ? ' ' + '★'.repeat(o.rank) : ''}${team === RAIDER_TEAM ? '' : ' – ' + fac.name}`;
+    else name = o.isHero ? `${o.name}${o.cls && CLASSES[o.cls] && o.name !== CLASSES[o.cls].name ? ' (' + CLASSES[o.cls].name + ')' : ''} – ${fac ? fac.name : 'Raiders'}` : `${o.name}${o.rank > 1 ? ' ' + '★'.repeat(o.rank) : ''}${team === RAIDER_TEAM ? '' : ' – ' + fac.name}`;
     el.classList.remove('hidden');
     $('targetName').textContent = name;
     $('targetName').style.color = TEAM_CSS[team];

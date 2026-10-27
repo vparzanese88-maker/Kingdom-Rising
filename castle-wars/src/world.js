@@ -5,7 +5,7 @@ import { CASTLE_SITES } from './physics.js';
 import { mulberry32, smoothstep } from './noise.js';
 import { grassDetailTexture } from './textures.js';
 
-export const SUN_DIR = new THREE.Vector3(-0.55, 0.42, 0.45).normalize();
+export const SUN_DIR = new THREE.Vector3(-0.62, 0.34, 0.5).normalize(); // late afternoon: long shadows, golden light
 
 // Roads run from each castle gate to the centre of the map.
 export const ROADS = [];
@@ -39,8 +39,8 @@ export function createSky(scene, renderer = null) {
     depthWrite: false,
     fog: false,
     uniforms: {
-      top: { value: new THREE.Color(0x4472b0) },
-      horizon: { value: new THREE.Color(0xe2d8c4) },
+      top: { value: new THREE.Color(0x2f62b4) },
+      horizon: { value: new THREE.Color(0xf0d2a4) },
       sunDir: { value: SUN_DIR },
     },
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position.z = gl_Position.w; }`,
@@ -50,15 +50,16 @@ export function createSky(scene, renderer = null) {
         return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
       void main(){
         float h = clamp(vDir.y, -0.2, 1.0);
-        vec3 col = mix(horizon, top, pow(max(h,0.0), 0.55));
+        vec3 col = mix(horizon, top, pow(max(h,0.0), 0.45));
         float s = max(dot(vDir, sunDir), 0.0);
-        col += vec3(1.0,0.85,0.6) * pow(s, 9.0) * 0.35 + vec3(1.0,0.95,0.85) * pow(s, 900.0) * 4.0;
+        col += vec3(1.0,0.72,0.4) * pow(s, 6.0) * 0.45 + vec3(1.0,0.8,0.5) * pow(s, 60.0) * 0.6 + vec3(1.0,0.95,0.85) * pow(s, 900.0) * 6.0;
         // soft clouds
         if (vDir.y > 0.02) {
           vec2 uv = vDir.xz / (vDir.y + 0.15) * 2.0;
           float c = noise(uv*1.3) * 0.6 + noise(uv*3.1) * 0.3 + noise(uv*7.0) * 0.1;
           c = smoothstep(0.55, 0.85, c) * smoothstep(0.02, 0.25, vDir.y);
-          col = mix(col, vec3(1.0,0.98,0.96), c * 0.75);
+          vec3 cloud = mix(vec3(0.82,0.78,0.8), vec3(1.0,0.86,0.66), pow(s, 3.0));  // sunlit edges glow
+          col = mix(col, cloud, c * 0.8);
         }
         if (h < 0.0) col = mix(horizon, vec3(0.35,0.38,0.33), clamp(-h*6.0,0.0,1.0));
         gl_FragColor = vec4(col, 1.0);
@@ -80,15 +81,15 @@ export function createSky(scene, renderer = null) {
     scene.environment = pmrem.fromScene(envScene, 0.02).texture;
     pmrem.dispose();
   }
-  scene.fog = new THREE.FogExp2(0xd6d2c4, 0.0032);
-  scene.background = new THREE.Color(0xd6d2c4);
+  scene.fog = new THREE.FogExp2(0xd9c6a2, 0.0024);
+  scene.background = new THREE.Color(0xd9c6a2);
   return sky;
 }
 
 export function createLights(scene) {
-  const hemi = new THREE.HemisphereLight(0xc8d8f0, 0x5a5230, 0.6);
+  const hemi = new THREE.HemisphereLight(0xb0c8ee, 0x5a4a2c, 0.62);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffdcae, 2.9);
+  const sun = new THREE.DirectionalLight(0xffcf96, 3.3);
   sun.position.copy(SUN_DIR).multiplyScalar(120);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

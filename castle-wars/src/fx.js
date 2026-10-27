@@ -35,6 +35,8 @@ export class FX {
     this.points.frustumCulled = false;
     scene.add(this.points);
     this.geo = geo;
+    this.scene = scene;
+    this.rings = [];
   }
 
   setScale(h) { this.points.material.uniforms.scale.value = h * 0.7; if (this.glow) this.glow.setScale(h); }
@@ -94,10 +96,41 @@ export class FX {
   }
   frost(p, n = 14) { this.glow.burst(p, n, C.frost, 3, 0.25, 0.6, { grav: 3, alpha: 0.9 }); }
   zap(p, n = 10) { this.glow.burst(p, n, C.bolt, 4, 0.2, 0.3, { alpha: 1 }); }
+  // A glowing shock ring that sweeps out across the ground (shouts, heals, meteor target).
+  ring(p, radius, hex = 0xffc040) {
+    if (!this.ringGeo) {
+      this.ringGeo = new THREE.RingGeometry(0.86, 1, 64);
+      this.ringGeo.rotateX(-Math.PI / 2);
+    }
+    const mat = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    const m = new THREE.Mesh(this.ringGeo, mat);
+    m.position.set(p.x, p.y + 0.25, p.z);
+    m.renderOrder = 5;
+    this.scene.add(m);
+    this.rings.push({ m, t: 0, life: 0.75, r: radius });
+    const col = new THREE.Color(hex);
+    const glow = this.glow || this;
+    const q = new THREE.Vector3();
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2;
+      q.set(p.x + Math.cos(a) * radius * 0.25, p.y + 0.4, p.z + Math.sin(a) * radius * 0.25);
+      glow.emit(q, new THREE.Vector3(Math.cos(a) * radius * 1.1, 1.5 + Math.random() * 2, Math.sin(a) * radius * 1.1), col, 0.35, 0.6, { alpha: 0.9, grow: -0.3 });
+    }
+    glow.burst(new THREE.Vector3(p.x, p.y + 1.2, p.z), 14, col, 2.5, 0.5, 0.8, { grav: -3, alpha: 0.9 });
+  }
+
   orb(p, color, size) { this.glow.emit(p, new THREE.Vector3(0, 0.3, 0), color, size, 0.12, { grow: -size * 4, alpha: 0.9 }); }
 
   update(dt) {
     if (this.glow) this.glow.update(dt);
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i];
+      r.t += dt;
+      const k = Math.min(1, r.t / r.life);
+      r.m.scale.setScalar(Math.max(0.01, r.r * (0.15 + 0.85 * (1 - (1 - k) * (1 - k)))));
+      r.m.material.opacity = 1 - k;
+      if (k >= 1) { this.scene.remove(r.m); r.m.material.dispose(); this.rings.splice(i, 1); }
+    }
     for (let i = 0; i < MAX; i++) {
       if (this.life[i] <= 0) continue;
       this.life[i] -= dt;

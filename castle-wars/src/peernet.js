@@ -1,9 +1,9 @@
 // Online play with no game server: players' browsers connect straight to each other (WebRTC, via PeerJS).
 // A free public PeerJS broker is only used to introduce them, using the 4-letter room code.
 // It offers the same interface as Net (net.js), so the lobby and the sync code don't care which is used.
-//   host   -> registers as "cw-CODE" and accepts up to 3 connections
+//   host   -> registers as "cw-CODE" and accepts one other player (blue castle against red)
 //   client -> connects to "cw-CODE" and says hello with its name
-const MAX_CLIENTS = 3;
+const MAX_CLIENTS = 1;
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const prefix = 'cw-';
 const dbg = (...a) => { if (location.search.includes('dbg=1')) console.log('[peernet]', ...a); };
@@ -75,7 +75,7 @@ export class PeerNet {
       if (!m) return;
       if (m.t === 'hello' && id === null) {
         if (this.locked) { this.reject(conn, 'That game has already started.'); return; }
-        const free = [1, 2, 3].find((i) => !this.conns.has(i));
+        const free = [1].find((i) => !this.conns.has(i));
         if (free === undefined) { this.reject(conn, 'That game is full.'); return; }
         id = free;
         this.conns.set(id, conn);

@@ -97,6 +97,46 @@ function weaponGeo(kind) {
     parts.push(part(p.sphere, 0xff9a3a, [0, -1.36, 0], [0, 0, 0], [0.16, 0.16, 0.16]));
     parts.push(part(p.cone, 0xe8dcc0, [0.06, -1.25, 0], [0, 0, 2.6], [0.04, 0.2, 0.04]));
     parts.push(part(p.cone, 0xe8dcc0, [-0.06, -1.25, 0], [0, 0, -2.6], [0.04, 0.2, 0.04]));
+  } else if (kind === 'greatsword') {
+    parts.push(part(p.box, STEEL, [0, -0.86, 0], [0, 0, 0], [0.075, 1.38, 0.016]));
+    parts.push(part(p.box, 0xa8adb6, [0, -0.86, 0], [0, 0, 0], [0.016, 1.38, 0.02]));
+    parts.push(part(p.cone, STEEL, [0, -1.6, 0], [Math.PI, 0, 0], [0.075, 0.12, 0.016]));
+    parts.push(part(p.box, GOLD, [0, -0.15, 0], [0, 0, 0], [0.36, 0.045, 0.05]));
+    parts.push(part(p.cyl8, 0x2a1a10, [0, 0.06, 0], [0, 0, 0], [0.042, 0.34, 0.042]));
+    parts.push(part(p.lowSphere, GOLD, [0, 0.25, 0], [0, 0, 0], [0.07, 0.07, 0.07]));
+  } else if (kind === 'pike') {
+    parts.push(part(p.cyl8, WOOD, [0, -1.3, 0], [0, 0, 0], [0.045, 4.4, 0.045]));
+    parts.push(part(p.cone, STEEL, [0, -3.62, 0], [Math.PI, 0, 0], [0.07, 0.34, 0.03]));
+    parts.push(part(p.cyl8, IRON, [0, -3.42, 0], [0, 0, 0], [0.055, 0.12, 0.055]));
+  } else if (kind === 'mace') {
+    parts.push(part(p.cyl8, WOOD, [0, -0.3, 0], [0, 0, 0], [0.045, 0.75, 0.045]));
+    parts.push(part(p.sphere, IRON, [0, -0.72, 0], [0, 0, 0], [0.16, 0.18, 0.16]));
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      parts.push(part(p.box, STEEL, [Math.cos(a) * 0.08, -0.72, Math.sin(a) * 0.08], [0, -a, 0], [0.02, 0.2, 0.08]));
+    }
+    parts.push(part(p.lowSphere, GOLD, [0, 0.08, 0], [0, 0, 0], [0.06, 0.06, 0.06]));
+  } else if (kind === 'dagger') {
+    parts.push(part(p.box, STEEL, [0, -0.28, 0], [0, 0, 0], [0.04, 0.34, 0.012]));
+    parts.push(part(p.cone, STEEL, [0, -0.49, 0], [Math.PI, 0, 0], [0.04, 0.08, 0.012]));
+    parts.push(part(p.box, IRON, [0, -0.1, 0], [0, 0, 0], [0.14, 0.03, 0.04]));
+    parts.push(part(p.cyl8, 0x3a2617, [0, 0.0, 0], [0, 0, 0], [0.035, 0.16, 0.035]));
+  } else if (kind === 'crossbow') {
+    parts.push(part(p.box, WOOD, [0, -0.32, 0], [0, 0, 0], [0.07, 0.72, 0.08]));
+    parts.push(part(p.box, IRON, [0, -0.62, 0], [0, 0, 0], [0.62, 0.04, 0.05]));
+    parts.push(part(p.box, 0xddd5c0, [0, -0.5, 0], [0, 0, 0], [0.6, 0.008, 0.008]));
+    parts.push(part(p.box, IRON, [0, -0.7, 0], [0, 0, 0], [0.05, 0.08, 0.05]));
+  } else if (kind === 'witchstaff') {
+    parts.push(part(p.cyl8, 0x2a1c14, [0, -0.45, 0], [0, 0, 0.06], [0.045, 1.7, 0.045]));
+    parts.push(part(p.cyl8, 0x2a1c14, [0.06, -1.3, 0], [0, 0, 0.9], [0.035, 0.3, 0.035]));
+    parts.push(part(p.cyl8, 0x2a1c14, [-0.05, -1.32, 0], [0, 0, -0.8], [0.03, 0.26, 0.03]));
+    parts.push(part(p.sphere, 0x9a3cff, [0, -1.38, 0], [0, 0, 0], [0.13, 0.13, 0.13]));
+  } else if (kind === 'wizardstaff') {
+    parts.push(part(p.cyl8, 0x5a4028, [0, -0.45, 0], [0, 0, 0], [0.05, 1.8, 0.05]));
+    parts.push(part(p.cyl8, GOLD, [0, -1.3, 0], [0, 0, 0], [0.08, 0.06, 0.08]));
+    parts.push(part(p.sphere, 0x6ad0ff, [0, -1.44, 0], [0, 0, 0], [0.18, 0.18, 0.18]));
+    parts.push(part(p.cone, GOLD, [0.08, -1.36, 0], [0, 0, 2.6], [0.035, 0.18, 0.035]));
+    parts.push(part(p.cone, GOLD, [-0.08, -1.36, 0], [0, 0, -2.6], [0.035, 0.18, 0.035]));
   } else if (kind === 'greataxe') {
     parts.push(part(p.cyl8, WOOD, [0, -0.6, 0], [0, 0, 0], [0.055, 1.6, 0.055]));
     parts.push(part(p.box, IRON, [0, -1.25, 0.16], [0, 0, 0], [0.04, 0.42, 0.34]));
@@ -106,7 +146,9 @@ function weaponGeo(kind) {
   return parts.length ? mergeGeometries(parts) : null;
 }
 
-export const WEAPON_TILT = { sword: -1.15, spear: -1.5, lance: -1.55, axe: -1.0, greataxe: -0.9, staff: -2.6, club: -0.9, bow: 0 };
+export const WEAPON_TILT = { sword: -1.15, spear: -1.5, lance: -1.55, axe: -1.0, greataxe: -0.9, staff: -2.6, club: -0.9, bow: 0,
+  greatsword: -1.0, pike: -1.52, mace: -1.0, dagger: -1.2, crossbow: -1.5, witchstaff: -2.6, wizardstaff: -2.6 };
+const RANGED_WEAPONS = new Set(['bow', 'crossbow']);
 
 function shieldParts(kind, cloth, raider, out) {
   const p = prims();
@@ -178,6 +220,27 @@ function headParts(t, look, metal, mailCol, out) {
       out.push(part(p.cone, 0xe8dcc0, [0.16, y + 0.13, 0], [0, 0, -0.95], [0.055, 0.24, 0.055]));
       out.push(part(p.box, IRON, [0, y + 0.0, 0.125], [0, 0, 0], [0.03, 0.1, 0.012]));
       break;
+    case 'witchhat':
+      out.push(part(p.hemi, hair, [0, y + 0.03, -0.01], [0, 0, 0], [0.215, 0.2, 0.235]));
+      out.push(part(p.box, hair, [0, y - 0.12, -0.1], [0, 0, 0], [0.2, 0.3, 0.06]));
+      out.push(part(p.cyl, 0x1e1428, [0, y + 0.09, 0], [0, 0, 0], [0.62, 0.025, 0.62]));
+      out.push(part(p.cone, 0x1e1428, [0, y + 0.32, -0.04], [-0.25, 0, 0.1], [0.3, 0.5, 0.3]));
+      out.push(part(p.cyl, 0x7a2fb0, [0, y + 0.12, 0], [0, 0, 0], [0.3, 0.045, 0.3]));
+      break;
+    case 'wizardhat':
+      out.push(part(p.sphere, 0xd8d4cc, [0, y - 0.11, 0.06], [0, 0, 0], [0.19, 0.26, 0.16]));     // long white beard
+      out.push(part(p.cyl, 0x1c2a6a, [0, y + 0.09, 0], [0, 0, 0], [0.58, 0.025, 0.58]));
+      out.push(part(p.cone, 0x1c2a6a, [0, y + 0.36, -0.02], [-0.15, 0, 0], [0.3, 0.56, 0.3]));
+      out.push(part(p.box, GOLD, [0.05, y + 0.3, 0.07], [0, 0, 0.6], [0.06, 0.06, 0.01]));
+      out.push(part(p.box, GOLD, [-0.06, y + 0.2, 0.1], [0, 0, 0.2], [0.04, 0.04, 0.01]));
+      break;
+    case 'mitre':
+      out.push(part(p.sphere, 0xe8e2d2, [0, y + 0.02, -0.015], [0, 0, 0], [0.25, 0.27, 0.26]));
+      out.push(part(p.box, 0xf2eee4, [0, y + 0.25, 0], [0, 0, 0], [0.2, 0.3, 0.17]));
+      out.push(part(p.cone, 0xf2eee4, [0, y + 0.44, 0], [0, 0, 0], [0.22, 0.16, 0.18]));
+      out.push(part(p.box, GOLD, [0, y + 0.27, 0.088], [0, 0, 0], [0.035, 0.3, 0.01]));
+      out.push(part(p.box, GOLD, [0, y + 0.3, 0.088], [0, 0, 0], [0.14, 0.035, 0.01]));
+      break;
     case 'hood':
       out.push(part(p.sphere, 0x5e4c34, [0, y + 0.02, -0.015], [0, 0, 0], [0.26, 0.29, 0.27]));
       out.push(part(p.cone, 0x5e4c34, [0, y + 0.1, -0.12], [-0.9, 0, 0], [0.12, 0.2, 0.12]));
@@ -218,7 +281,12 @@ export function getModelGeos(type, team, variant = 0) {
   if (t.body === 'mail' || t.body === 'plate') {
     torso.push(part(p.skirt, mailCol, [0, 0.85, 0], [0, 0, 0], [0.38, 0.32, 0.27]));        // mail skirt
   }
-  if (t.body !== 'fur' && !(raider && t.body === 'leather')) {
+  if (t.body.startsWith('robe')) {
+    // robes: a long skirt to the ground, a stole in the house colour
+    torso.push(part(p.skirt, bodyCol, [0, 0.62, 0], [0, 0, 0], [0.42, 0.78, 0.32]));
+    torso.push(part(p.box, cloth, [0, 1.12, 0.128], [0, 0, 0], [0.16, 0.78, 0.02]));
+    torso.push(part(p.box, TRIM, [0, 1.38, 0.13], [0, 0, 0], [0.4, 0.04, 0.02]));
+  } else if (t.body !== 'fur' && !(raider && t.body === 'leather')) {
     // tabard (front + back panels with trim)
     torso.push(part(p.box, cloth, [0, 1.12, 0.128], [0, 0, 0], [0.38, 0.78, 0.02]));
     torso.push(part(p.box, cloth, [0, 1.12, -0.128], [0, 0, 0], [0.38, 0.78, 0.02]));
@@ -354,7 +422,7 @@ export function buildSoldier(type, team, variant = Math.floor(Math.random() * 6)
     weapon.add(mk(geos.weapon));
     elR.add(weapon);
   }
-  return { weaponTilt: WEAPON_TILT[t.weapon] ?? -1, root, body, torso, hipL, hipR, kneeL, kneeR, shL, shR, elL, elR, weapon, ranged: t.weapon === 'bow', lance: t.weapon === 'lance' };
+  return { weaponTilt: WEAPON_TILT[t.weapon] ?? -1, root, body, torso, hipL, hipR, kneeL, kneeR, shL, shR, elL, elR, weapon, ranged: RANGED_WEAPONS.has(t.weapon), lance: t.weapon === 'lance' || t.weapon === 'pike' };
 }
 
 // Arm keyframes per attack direction: [shoulder x, elbow x, shoulder z, torso twist, weapon tilt offset]

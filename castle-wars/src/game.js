@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import {
   PLAYER_TEAM, RAIDER_TEAM, TEAM_NAMES, LORD_NAMES, ROUNDS, START_GOLD, DIFFICULTY, BOUNTY,
-  UNIT_TYPES, TROOP_CAP, PLAYER, CASTLE, FORMATIONS, RANKS, PROMOTIONS, WORLD,
+  UNIT_TYPES, TROOP_CAP, PLAYER, CASTLE, FORMATIONS, RANKS, PROMOTIONS, WORLD, CLASSES, CLASS_IDS, DEFAULT_CLASS,
 } from './config.js';
 import { Physics, CASTLE_SITES } from './physics.js';
 import { createSky, createLights, createTerrain, createForest, createCentrePiece, followShadow } from './world.js';
@@ -18,7 +18,8 @@ import { FX } from './fx.js';
 import { LordAI } from './ai.js';
 import { buy, SHOP_BY_ID } from './economy.js';
 import { HostSync, ClientSync } from './netsync.js';
-import { incomingSide, PARRY_WINDOW } from './combat.js';
+import { PARRY_WINDOW } from './combat.js';
+import { tickBuffs, outgoingMult, incomingMult, buffSum } from './classes.js';
 import { Grass } from './grass.js';
 import { Magic } from './magic.js';
 import { prewarmSoldier } from './models.js';
@@ -88,6 +89,7 @@ export class Game {
     this.phase = 'prep';
     this.phaseT = 0;
     this.hitStop = 0;
+    this.buffed = new Set();  // characters with an active buff or curse
   }
 
   // Graphics quality: 'low' (no shadows or grass), 'medium', 'high'
@@ -129,14 +131,22 @@ export class Game {
 
     const lp = this.player;
     lp.team = setup.localTeam;
-    lp.rebuildWeapons();
     this.humans = [lp];
     const byTeam = new Map(setup.players.map((p) => [p.team, p]));
     lp.name = byTeam.get(lp.team)?.name || 'You';
+    lp.setClass(byTeam.get(lp.team)?.cls || DEFAULT_CLASS);
     for (const p of setup.players) {
       if (p.team === lp.team) continue;
-      this.humans.push(new Player(this, null, { remote: true, team: p.team, name: p.name, netId: p.netId }));
+      this.humans.push(new Player(this, null, { remote: true, team: p.team, name: p.name, netId: p.netId, cls: p.cls }));
     }
+    // AI lords pick a class too; there is only ever one wizard on the field
+    const taken = new Set(this.humans.map((h) => h.cls));
+    const aiClass = (team) => {
+      const pool = CLASS_IDS.filter((c) => !(CLASSES[c].unique && taken.has(c)));
+      const c = (setup.aiClasses && setup.aiClasses[team]) || pool[Math.floor(Math.random() * pool.length)];
+      taken.add(c);
+      return c;
+    };
 
     this.factions = this.castles.map((c, i) => {
       const human = this.humans.find((h) => h.team === i) || null;
@@ -144,7 +154,7 @@ export class Game {
         team: i, name: TEAM_NAMES[i], lord: human ? human.name : LORD_NAMES[i], isPlayer: !!human, player: human, castle: c,
         gold: START_GOLD, spent: 0, earned: 0, troopCap: TROOP_CAP.start, training: 0,
         heroLv: { vitality: 0, strength: 0, armor: 0 }, hero: human, heroDeaths: 0, respawnT: 0,
-        eliminated: false, kills: 0, siegeTarget: null, formation: 'line',
+        eliminated: false, kills: 0, siegeTarget: null, formation: 'line', cls: human ? human.cls : aiClass(i),
       };
     });
     if (this.mode !== 'single') {
@@ -168,17 +178,19 @@ export class Game {
     }
     if (this.mode === 'host') this.sync = new HostSync(this);
     if (this.mode === 'client') this.sync = new ClientSync(this);
-    this.localFaction.siegeTarget = this.castles[(lp.team + 2) % 4];
+    this.localFaction.siegeTarget = this.castles.find((c) => c.team !== lp.team) || null;
     this.warmup();
     // prepare every soldier look in the background (a few ms per frame) so new arrivals never stutter
     this.warmQueue = [];
-    const factionTypes = ['swordsman', 'spearman', 'archer', 'knight', 'horseman', 'lancer', 'longbowman', 'giant'];
+    const factionTypes = ['swordsman', 'spearman', 'pikeman', 'archer', 'crossbowman', 'knight', 'horseman', 'lancer', 'longbowman', 'giant'];
     const raiderTypes = ['raider', 'raiderArcher', 'brute', 'raiderRider', 'shaman', 'warlord', 'giant'];
     for (let v = 0; v < 6; v++) {
       for (const t of raiderTypes) this.warmQueue.push([t, RAIDER_TEAM, v]);
-      for (let team = 0; team < 4; team++) for (const t of factionTypes) this.warmQueue.push([t, team, v]);
+      for (let team = 0; team < this.castles.length; team++) for (const t of factionTypes) this.warmQueue.push([t, team, v]);
     }
     this.audio.play('horn');
+    const foe = this.factions.find((f) => f.team !== lp.team);
+    if (foe && !foe.isPlayer) this.announce(`${foe.lord} of the ${foe.name} fights as a ${CLASSES[foe.cls].name}.`, foe.team);
     this.ui.banner('Prepare for battle', `${ROUNDS.firstPrep} seconds to recruit and upgrade. B opens the shop${this.mode === 'client' ? '' : ', Enter starts early'}.`);
   }
 
@@ -199,8 +211,9 @@ export class Game {
 
   spawnLord(f) {
     const lv = f.heroLv;
-    const t = UNIT_TYPES.lord;
-    const u = new Unit(this, 'lord', f.team, f.castle.spawnPoint, {
+    const type = 'hero_' + (f.cls || DEFAULT_CLASS);
+    const t = UNIT_TYPES[type];
+    const u = new Unit(this, type, f.team, f.castle.spawnPoint, {
       name: f.lord,
       hp: t.hp + lv.vitality * 30,
       dmg: t.dmg * (1 + lv.strength * 0.12),
@@ -218,7 +231,7 @@ export class Game {
     if (f.isPlayer) { f.player.recalc(); return; }
     const h = f.hero;
     if (!h || !h.alive) return;
-    const t = UNIT_TYPES.lord;
+    const t = UNIT_TYPES['hero_' + (f.cls || DEFAULT_CLASS)];
     const lv = f.heroLv;
     const ratio = h.hp / h.maxHp;
     h.maxHp = t.hp + lv.vitality * 30;
@@ -420,7 +433,7 @@ export class Game {
   damage(target, amount, attacker, info = {}) {
     if (!this.simulating) return; // clients only show effects; the host decides damage
     if (!target || !target.alive) return;
-    let dmg = amount;
+    let dmg = amount * outgoingMult(attacker, info);
     if (target.isStructure) {
       if (attacker && allied(target.team, attacker.team)) return;
       target.takeDamage(dmg, attacker);
@@ -441,36 +454,34 @@ export class Game {
       if (attacker.isPlayer) this.deliver(attacker, { k: 'fb', text: 'Blocked' });
       return;
     }
-    // heroes guard with their shield; guarding the side the blow comes from stops it completely,
-    // and doing so just as it lands parries, leaving the attacker reeling
-    if (target.isPlayer && target.blocking && target.weapon === 'sword' && attacker && attacker.pos && !info.splash) {
+    // heroes guard with shield or weapon: a guard raised just as a blow lands parries it and
+    // leaves the attacker reeling; otherwise the guard soaks part of every blow from the front
+    if (target.isPlayer && target.blocking && target.weapon === 'melee' && attacker && attacker.pos && !info.splash) {
       const fx = Math.sin(target.yaw), fz = Math.cos(target.yaw);
       const dx = attacker.pos.x - target.pos.x, dz = attacker.pos.z - target.pos.z;
       const d = Math.hypot(dx, dz) || 1;
       if ((dx * fx + dz * fz) / d > 0.35) {
         const at = target.chest(new THREE.Vector3()).addScaledVector(new THREE.Vector3(fx, 0, fz), 0.6);
-        if (info.melee && info.attackDir && target.blockDir === incomingSide(info.attackDir)) {
+        if (info.melee && this.time - target.blockStart < PARRY_WINDOW && attacker.stagger) {
           target.stamina = Math.max(0, target.stamina - 4);
-          if (this.time - target.blockStart < PARRY_WINDOW && attacker.stagger) {
-            attacker.stagger(0.9, target);
-            this.fx.sparks(at, 22);
-            this.audio.play('parry', target.pos);
-            this.deliver(target, { k: 'fb', text: 'Parry!', good: true });
-          } else {
-            this.fx.sparks(at, 10);
-            this.audio.play('block', target.pos);
-            this.deliver(target, { k: 'fb', text: 'Blocked' });
-          }
+          attacker.stagger(0.9, target);
+          this.fx.sparks(at, 22);
+          this.audio.play('parry', target.pos);
+          this.deliver(target, { k: 'fb', text: 'Parry!', good: true });
           return;
         }
-        dmg *= 1 - target.shield.block;
-        target.stamina = Math.max(0, target.stamina - 8);
+        dmg *= 1 - (CLASSES[target.cls]?.block || 0.5) * (info.ranged ? 0.8 : 1);
+        target.stamina = Math.max(0, target.stamina - 6);
         this.fx.sparks(at, 8);
         this.audio.play('block', target.pos);
+        if (target.isLocal) this.ui.feedback('Blocked');
+        else this.deliver(target, { k: 'fb', text: 'Blocked' });
         if (dmg < 1) return;
       }
     }
-    dmg = Math.max(1, dmg - (target.armor || 0) * (info.splash ? 0.5 : 1));
+    dmg *= incomingMult(target);
+    const armor = target.isPlayer ? target.armor : (target.armor || 0) + buffSum(target, 'armor');
+    dmg = Math.max(1, dmg - armor * (info.splash ? 0.5 : 1));
     const p = target.chest(new THREE.Vector3());
     this.fx.blood(p, info.ranged ? 5 : 9);
     if (info.melee) this.audio.play(target.def && (target.def.body === 'plate' || target.def.body === 'mail') ? 'clang' : 'hit', target.pos);
@@ -480,7 +491,6 @@ export class Game {
   }
 
   credit(team, gold, at) {
-    if (team < 0 || team > 3) return;
     const f = this.factions[team];
     if (!f || f.eliminated) return;
     const g = Math.round(gold * (f.isPlayer ? 1 : this.diff.aiGold));
@@ -494,12 +504,12 @@ export class Game {
 
   onUnitKilled(u, attacker) {
     const by = attacker && attacker.team !== undefined ? attacker.team : -1;
-    const bounty = u.isHero && u.type === 'lord' ? BOUNTY.lord : (BOUNTY[u.type] || 10);
+    const bounty = u.isLord ? BOUNTY.lord : (BOUNTY[u.type] || 10);
     if (by >= 0 && !allied(by, u.team)) this.credit(by, u.team === RAIDER_TEAM ? Math.round(bounty * (1 + this.round * 0.08)) : bounty, u.chest(new THREE.Vector3()));
     if (attacker) attacker.kills = (attacker.kills || 0) + 1;
     if (attacker && attacker.gainXp && by !== u.team) attacker.gainXp(5 + bounty * 0.8);
-    if (by >= 0 && by <= 3) this.factions[by].kills++;
-    if (u.isHero && u.type === 'lord') {
+    if (this.factions[by]) this.factions[by].kills++;
+    if (u.isLord) {
       const f = this.factions[u.team];
       f.heroDeaths++;
       f.respawnT = PLAYER.respawnBase + PLAYER.respawnPerDeath * (f.heroDeaths - 1);
@@ -513,7 +523,7 @@ export class Game {
     f.heroDeaths++;
     f.respawnT = PLAYER.respawnBase + PLAYER.respawnPerDeath * (f.heroDeaths - 1);
     const by = attacker ? attacker.team : -1;
-    if (by >= 0 && by <= 3 && by !== p.team) this.credit(by, BOUNTY.hero);
+    if (this.factions[by] && by !== p.team) this.credit(by, BOUNTY.hero);
     this.killFeed(attacker, p);
     this.audio.play('death', p.pos);
     if (f.castle.fallen) p.notify('You have fallen, and your castle is gone.', true);
@@ -554,7 +564,7 @@ export class Game {
     this.audio.play('horn', this.camera.position);
     const r = this.round;
     const boss = r % 5 === 0;
-    this.bannerAll(`Round ${r}`, r % 10 === 0 ? 'The raiders have brought GIANTS!' : boss ? 'A Raider Warlord leads this horde!' : r === ROUNDS.warRound ? 'The rival lords declare war!' : 'Raiders approach!');
+    this.bannerAll(`Round ${r}`, r % 10 === 0 ? 'The raiders have brought GIANTS!' : boss ? 'A Raider Warlord leads this horde!' : r === ROUNDS.warRound ? 'The enemy lord declares war! Attack the enemy!' : 'Raiders approach!');
     for (const c of this.castles) {
       if (c.fallen) continue;
       const n = Math.round(Math.min(28, 3 + r * 2.2) * this.diff.wave);
@@ -612,7 +622,7 @@ export class Game {
     const bonus = ROUNDS.survivalBonus(this.round);
     for (const f of this.factions) if (!f.eliminated) this.credit(f.team, bonus);
     this.bannerAll(`Round ${this.round} survived`, `+${bonus} gold. Next wave in ${ROUNDS.prep}s`);
-    for (const h of this.humans) h.arrows = Math.min(PLAYER.maxArrows, h.arrows + 10);
+    for (const h of this.humans) h.arrows = Math.min(h.maxArrows, h.arrows + 10);
     // every soldier who lived through the wave learns from it
     for (const u of this.units) if (u.alive && u.team !== RAIDER_TEAM && !u.isHero) u.gainXp(10);
   }
@@ -954,6 +964,7 @@ export class Game {
       if (this.simulating) this.updateTowers(c, dt);
     }
     this.fx.update(dt);
+    tickBuffs(this, dt);
     this.magic.update(dt);
     this.grass.update(dt, this.camera.position);
 
@@ -1024,13 +1035,16 @@ export class Game {
     if (this.camera.fov !== 75) { this.camera.fov = 75; this.camera.updateProjectionMatrix(); }
   }
 
+  // Slow sweep along the battlefield with both castles in view.
   menuCamera(dt) {
-    this.menuCamT += dt * 0.05;
+    this.menuCamT += dt * 0.04;
     const t = this.menuCamT;
-    const c = this.castles[PLAYER_TEAM];
-    this.camera.position.set(c.center.x + Math.sin(t) * 70, 34, c.center.z - 40 + Math.cos(t) * 30);
-    this.camera.lookAt(c.center.x, 6, c.center.z);
-    followShadow(this.lights.sun, c.center);
+    const d = WORLD.castleDist;
+    const z = Math.sin(t) * d * 0.55;
+    this.camera.position.set(d * 0.95 + Math.cos(t * 0.7) * 10, 20 + Math.sin(t * 1.3) * 4, z);
+    this.camera.lookAt(0, 4, z * 0.35);
+    if (this.camera.fov !== 60) { this.camera.fov = 60; this.camera.updateProjectionMatrix(); }
+    followShadow(this.lights.sun, new THREE.Vector3(d * 0.4, 0, z * 0.5));
   }
 }
 

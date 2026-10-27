@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { UNIT_TYPES } from './config.js';
 import { Unit } from './units.js';
 import { SiegeEngine } from './siege.js';
-import { Player } from './player.js';
+import { Player, WEAPON_MODES } from './player.js';
 import { DIRS, DIR_IDX } from './combat.js';
+import { buffMask, useShout, healPulse } from './classes.js';
 
 const TYPE_NAMES = Object.keys(UNIT_TYPES);
 const TYPE_IDX = Object.fromEntries(TYPE_NAMES.map((t, i) => [t, i]));
@@ -66,7 +67,7 @@ export class HostSync {
   // Record effects, sounds and projectiles so clients can replay them.
   wrap() {
     const g = this.g;
-    for (const name of ['blood', 'sparks', 'dust', 'splinters']) {
+    for (const name of ['blood', 'sparks', 'dust', 'splinters', 'ring']) {
       const orig = g.fx[name].bind(g.fx);
       g.fx[name] = (p, ...a) => { orig(p, ...a); this.shared.push({ k: 'fx', f: name, p: v3(p), a }); };
     }
@@ -107,7 +108,6 @@ export class HostSync {
     switch (d.a) {
       case 'pose': p.netPose = d; break;
       case 'swing': p.swingT = 0; if (DIRS[d.d]) { p.attackDir = DIRS[d.d]; p.atkDir = p.attackDir; } break;
-      case 'feint': p.feintedAt = g.time; p.swingT = -1; break;
       case 'strike':
         if (!p.alive) break;
         p.netPose = d;
@@ -115,7 +115,7 @@ export class HostSync {
         p.yaw = d.yaw;
         p.mounted = !!d.m && p.hasHorse;
         p.rideSpeed = d.rs;
-        if (p.staggerT <= 0) p.meleeStrike(DIRS[d.d] || 'right', Math.max(0, Math.min(1, d.ch || 0)));
+        if (p.staggerT <= 0) p.meleeStrike(DIRS[d.d] || 'right');
         break;
       case 'shoot':
         if (p.alive && p.arrows > 0) p.fireFrom(vec(d.f), vec(d.d).normalize(), Math.max(0, Math.min(1, d.draw)));
@@ -126,6 +126,15 @@ export class HostSync {
           p.swingT = 0.25; p.attackDir = 'thrust';
           g.magic.cast(p, d.s, vec(d.f), vec(d.d).normalize(), Math.max(0, Math.min(1, d.ch || 0)), p.spellMult);
         }
+        break;
+      case 'hex':
+        if (p.alive && p.C.hex && p.staggerT <= 0) { p.swingT = 0.25; p.attackDir = 'thrust'; p.fireHex(vec(d.f), vec(d.d).normalize()); }
+        break;
+      case 'heal':
+        if (p.alive && p.C.heal && g.time >= p.healReady - 0.3) { p.healReady = g.time + p.C.heal.cd; healPulse(g, p); }
+        break;
+      case 'shout':
+        if (p.alive && Array.isArray(d.p)) useShout(g, p, vec(d.p));
         break;
       case 'formation': g.setFormation(p.team, String(d.f)); break;
       case 'gate': g.toggleGate(p.team); break;
@@ -149,7 +158,7 @@ export class HostSync {
       u: g.units.map((u) => {
         const a = [u.id, TYPE_IDX[u.type], u.team, r1(u.pos.x), r2(u.pos.y), r1(u.pos.z), r2(u.yaw), u.alive ? 1 : 0,
           u.swingT >= 0 ? r2(u.swingT) : -1, r1(Math.hypot(u.vel.x, u.vel.z)), u.variant, Math.round((u.hp / u.maxHp) * 100),
-          DIR_IDX[u.attackDir] || 0, u.staggerT > 0 ? 1 : 0, u.blockFlash > 0 || u.braced ? 1 : 0, u.rank];
+          DIR_IDX[u.attackDir] || 0, u.staggerT > 0 ? 1 : 0, u.blockFlash > 0 || u.braced ? 1 : 0, u.rank, u.buffs ? buffMask(u) : 0];
         if (u.isHero) a.push(u.name);
         return a;
       }),
@@ -158,11 +167,11 @@ export class HostSync {
       c: g.castles.map((c) => c.netState()),
       f: g.factions.map((f) => [Math.floor(f.gold), f.troopCap, f.training, f.eliminated ? 1 : 0, f.kills, f.heroDeaths,
         r1(f.respawnT), f.siegeTarget ? f.siegeTarget.team : -1, f.heroLv.vitality, f.heroLv.strength, f.heroLv.armor,
-        f.earned, f.isPlayer ? 1 : 0, f.lord, f.name, f.formation]),
+        f.earned, f.isPlayer ? 1 : 0, f.lord, f.name, f.formation, f.cls]),
       h: g.humans.map((h) => [h.team, r2(h.pos.x), r2(h.pos.y), r2(h.pos.z), r2(h.yaw), h.alive ? 1 : 0, Math.round(h.hp), h.maxHp,
-        h.blocking ? 1 : 0, h.swingT >= 0 ? r2(h.swingT) : -1, h.weapon === 'bow' ? 1 : 0, h.mounted ? 1 : 0, r2(h.heading),
+        h.blocking ? 1 : 0, h.swingT >= 0 ? r2(h.swingT) : -1, WEAPON_MODES.indexOf(h.weapon), h.mounted ? 1 : 0, r2(h.heading),
         r2(h.rideSpeed), h.hasHorse ? 1 : 0, r2(h.horsePos.x), r2(h.horsePos.y), r2(h.horsePos.z), r2(h.horseYaw), h.name, r2(h.pitch),
-        DIR_IDX[h.attackDir] || 0, DIR_IDX[h.blockDir] || 0, h.staggerT > 0 ? 1 : 0]),
+        DIR_IDX[h.attackDir] || 0, DIR_IDX[h.blockDir] || 0, h.staggerT > 0 ? 1 : 0, h.buffs ? buffMask(h) : 0, h.cls]),
       ev: this.shared,
     };
     this.shared = [];
@@ -172,6 +181,8 @@ export class HostSync {
         hp: r1(h.hp), maxHp: h.maxHp, alive: h.alive ? 1 : 0, arrows: h.arrows, potions: h.potions, lv: h.lv,
         hasHorse: h.hasHorse ? 1 : 0, horseHp: Math.round(h.horseHp), seq: h.spawnSeq, kills: h.kills, deaths: h.deaths,
         order: h.lastOrder || 'defend',
+        buffs: h.buffs ? Object.entries(h.buffs).map(([id, b]) => [id, { ...b, until: r1(b.until - g.time) }]) : [],
+        shout: r1(Math.max(0, (h.shoutReady || 0) - g.time)),
       };
       g.net.toClient(h.netId, { k: 'snap', s: shared, me, pev: this.priv.get(h.netId) || [] });
     }
@@ -209,7 +220,7 @@ export class ClientSync {
     // units
     const seen = new Set();
     for (const a of s.u) {
-      const [id, ti, team, x, y, z, yaw, alive, swingT, speed, variant, hpPct, dirIdx, stag, blk, rank, name] = a;
+      const [id, ti, team, x, y, z, yaw, alive, swingT, speed, variant, hpPct, dirIdx, stag, blk, rank, mask, name] = a;
       seen.add(id);
       let u = this.units.get(id);
       if (!u) {
@@ -232,6 +243,8 @@ export class ClientSync {
       if (stag && u.staggerT <= 0) { u.staggerT = 0.4; u.staggerMax = 0.5; }
       if (blk) u.blockFlash = 0.2;
       if (rank !== u.rank) u.setRankVisual(rank);
+      u.buffMask = mask;
+      if (mask) g.buffed.add(u);
       u.hp = (hpPct / 100) * u.maxHp;
     }
     for (const [id, u] of this.units) {
@@ -281,6 +294,7 @@ export class ClientSync {
       f.earned = a[11];
       f.lord = a[13]; f.name = a[14];
       if (i !== g.localTeam || !f.formation) f.formation = a[15];
+      f.cls = a[16];
       if (!a[12] && f.isPlayer && f.player !== g.player) {
         // that person left; an AI lord took over
         g.humans = g.humans.filter((h) => h !== f.player);
@@ -295,7 +309,7 @@ export class ClientSync {
       if (team === g.localTeam) continue;
       let h = g.humans.find((o) => o.team === team);
       if (!h) {
-        h = new Player(g, null, { remote: true, team, name: a[19] });
+        h = new Player(g, null, { remote: true, team, name: a[19], cls: a[25] });
         g.humans.push(h);
         g.factions[team].player = h; g.factions[team].isPlayer = true;
       }
@@ -317,6 +331,9 @@ export class ClientSync {
       h.attackDir = DIRS[a[21]] || 'right';
       h.blockDir = DIRS[a[22]] || 'right';
       h.staggerT = a[23] ? 0.3 : 0;
+      h.buffMask = a[24];
+      if (a[24]) g.buffed.add(h);
+      if (a[25] && a[25] !== h.cls) h.setClass(a[25]);
       if (a[14] && !h.hasHorse) { h.hasHorse = true; h.horseHp = 320; h.ensureHorseModel(); h.horseDeadT = undefined; }
       if (!a[14] && h.hasHorse) { h.hasHorse = false; h.mounted = false; h.horseDeadT = 0; }
     }
@@ -326,9 +343,7 @@ export class ClientSync {
     const me = d.me;
     if (me) {
       if (me.hp < p.hp - 0.5 && p.alive) { p.hurtFlash = Math.min(1, p.hurtFlash + 0.4 + (p.hp - me.hp) / 60); g.audio.play('hurt'); }
-      const lvChanged = JSON.stringify(me.lv) !== JSON.stringify(p.lv);
       p.lv = me.lv;
-      if (lvChanged) p.rebuildWeapons();
       p.maxHp = me.maxHp;
       p.hp = me.hp;
       p.arrows = me.arrows;
@@ -336,6 +351,10 @@ export class ClientSync {
       p.kills = me.kills;
       p.deaths = me.deaths;
       p.lastOrder = me.order;
+      // buffs from shouts land on the host; mirror them here so speed and the HUD match
+      p.buffs = me.buffs && me.buffs.length ? Object.fromEntries(me.buffs.map(([id, b]) => [id, { ...b, until: g.time + b.until }])) : null;
+      if (p.buffs) g.buffed.add(p);
+      if (Math.abs((p.shoutReady || 0) - g.time - me.shout) > 1.5) p.shoutReady = g.time + me.shout;
       if (me.hasHorse && !p.hasHorse) p.giveHorse();
       if (!me.hasHorse && p.hasHorse) p.loseHorse(true);
       p.horseHp = me.horseHp;

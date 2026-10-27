@@ -55,6 +55,21 @@ function hullGeom(S, wood, band, inner) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
+// a bluff-ended hull (the cog and the galleon) is open at the bow and the stern: close each end with a
+// planked board following the hull's cross-section from the keel up to the gunwale
+function endCapGeom(S, t, wood) {
+  const st = stations(S, t), N = 10, pos = [], col = [], idx = [];
+  const cy = (st.keel + st.gun) / 2; pos.push(0, cy, st.z); _c.set(wood).multiplyScalar(0.9); col.push(_c.r, _c.g, _c.b);
+  for (const side of [-1, 1]) for (let i = 0; i <= N; i++) {
+    const a = ((side < 0 ? N - i : i) / N) * Math.PI / 2;
+    const x = side * st.w * Math.pow(Math.sin(a), S.p) * 1.03, y = st.keel + (st.gun - st.keel) * (1 - Math.cos(a));
+    pos.push(x, y, st.z); _c.set(y < 0.04 ? '#2a2119' : wood).multiplyScalar(0.9); col.push(_c.r, _c.g, _c.b);
+  }
+  const n = pos.length / 3 - 1;
+  for (let i = 1; i < n; i++) idx.push(0, i, i + 1, 0, i + 1, i); // both faces: it is seen from outside and in
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
 // a planked floor following the hull at height y (relative to the gunwale) between t0..t1
 function deckGeom(S, drop, t0 = 0.04, t1 = 0.96) {
   const NS = 30, pos = [], idx = [], uv = [];
@@ -82,6 +97,8 @@ function sailGeom(w, h, belly, cols, stripes = 8) {
 const tube = (pts, r, seg = 16) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))), seg, r, 6);
 
 const cache = new Map();
+let hullDS = null;
+const hullMat = (m) => { if (!hullDS) { hullDS = m.clone(); hullDS.side = THREE.DoubleSide; hullDS.name = 'hull'; } return hullDS; };
 const lineMat = new THREE.LineBasicMaterial({ color: 0x241a12 });
 export function buildShip(size, v = 0) {
   const S = SIZES[size] || SIZES.sloop; const variant = Math.floor(v * 6) % 6; const key = size + ':' + variant;
@@ -92,6 +109,7 @@ export function buildShip(size, v = 0) {
   // hull, outside and in
   mb.add('hull', hullGeom(S, wood, band, false), M(0, 0, 0), null, 'world');
   mb.add('hull', hullGeom(S, wood, band, true), M(0, 0, 0), null, 'world');
+  if (S.shape === 'cog') for (const t of [0, 1]) mb.add('hull', endCapGeom(S, t, wood), M(0, 0, 0), null, 'world');
   // keel and the two posts
   const bowT = stations(S, 1), sternT = stations(S, 0);
   mb.add('haft', tube([[0, -S.D - 0.05, -S.L * 0.42], [0, -S.D - 0.08, 0], [0, -S.D - 0.05, S.L * 0.42]], 0.1, 8), M(0, 0, 0), dark);
@@ -172,7 +190,8 @@ export function buildShip(size, v = 0) {
   }
   const g = mb.build();
   if (lines.length) { const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3)); const ls = new THREE.LineSegments(lg, lineMat); g.add(ls); }
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  // the hull is seen from both sides: through the laps between its strakes you never look into the boat
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.name === 'hull') o.material = hullMat(o.material); } });
   g.userData.ship = size; g.userData.draft = S.D;
   cache.set(key, g);
   return g.clone();

@@ -395,7 +395,8 @@ export function garmentMaterial() {
 // eyes: a wet sclera, a fibrous iris with a dark limbal ring and a pupil, under a clear cornea
 const eyeGeoCache = new Map();
 function eyeMaterial(iris, glow) {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04, specularIntensity: 0.7, emissive: glow ? new THREE.Color(iris) : new THREE.Color(0), emissiveIntensity: glow ? 2.2 : 0 });
+  // a soft wet shine only: a mirror-sharp cornea caught the sun or your lantern head-on and the bloom turned it into a beam
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.45, clearcoat: 0.3, clearcoatRoughness: 0.3, specularIntensity: 0.25, emissive: glow ? new THREE.Color(iris) : new THREE.Color(0), emissiveIntensity: glow ? 1.4 : 0 });
   const u = { uIris: { value: new THREE.Color(iris) }, uGlow: { value: glow ? 1 : 0 } };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);

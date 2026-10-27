@@ -982,7 +982,11 @@
     }
     // farm fields outside the walls, east and west
     for (const side of [-1, 1]) {
-      const fx0 = side < 0 ? cx - R - 13 : cx + R + 4, fy0 = cy + 7;
+      let fx0 = side < 0 ? cx - R - 13 : cx + R + 4, fy0 = cy + 7;
+      // a field that would lie on the harbour's quay goes south of the walls instead
+      const H = W.cityData[f] && W.cityData[f].harbour;
+      if (H) { let hit = false; for (let ty = fy0; ty < fy0 + 8 && !hit; ty++) for (let tx = fx0; tx < fx0 + 9 && !hit; tx++) { const ox = tx - H.gx, oy = ty - H.gy; const i = ox * H.dx + oy * H.dy, sd = ox * H.px + oy * H.py; if (i >= -2 && i <= H.k + 4 && Math.abs(sd) <= H.half + 3) hit = true; }
+        if (hit) { fx0 = side < 0 ? cx - 15 : cx + 7; fy0 = cy + R + 4; } }
       for (let ty = fy0; ty < fy0 + 8; ty++) for (let tx = fx0; tx < fx0 + 9; tx++) {
         if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; if (SOLID[W.tiles[k]] && W.tiles[k] !== T.ROCK) continue;
         W.tiles[k] = T.FARM; W.block[k] = 0;

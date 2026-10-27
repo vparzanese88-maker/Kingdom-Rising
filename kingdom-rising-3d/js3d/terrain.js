@@ -188,6 +188,7 @@ function makeWaterMaterial() {
         vec3 body = mix(shallow, deep, smoothstep(0., 3.5, d)) * (.25 + .75 * max(uSunDir.y, .08)) * uSunCol;
         vec3 col = mix(body, sky, fres * .85) + uSunCol * spec * step(0., uSunDir.y);
         float foam = smoothstep(.28, .0, d) * (.55 + .45 * sin(uTime * 2. + vW.x * 2.1 + vW.z * 1.7 + n1.x * 3.));
+        foam *= smoothstep(.08, .13, vTint.b); // murky swamp and sewer water has no surf
         col = mix(col, vec3(.85, .9, .9) * (.3 + .7 * max(uSunDir.y, .1)), foam * .55);
         float a = clamp(.45 + smoothstep(0., 1.6, d) * .45 + fres * .3 + foam * .3, 0., .97);
         gl_FragColor = vec4(col, a);

@@ -125,18 +125,18 @@ function particleBox(n, lines) {
   const g = new THREE.BufferGeometry(); const p = new Float32Array(n * (lines ? 2 : 1) * 4);
   const r = K3.rng(lines ? 7 : 9);
   for (let i = 0; i < n; i++) { const x = r(), y = r(), z = r(), s = r(); if (lines) { p.set([x, y, z, 0], i * 8); p.set([x, y, z, 1], i * 8 + 4); } else p.set([x, y, z, s], i * 4); }
-  g.setAttribute('position', new THREE.BufferAttribute(p, 4));
+  g.setAttribute('position', new THREE.BufferAttribute(p, 4)); g.setAttribute('aP', g.attributes.position);
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
   return g;
 }
 const rainMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 }, uCam: { value: new THREE.Vector3() }, uAmt: { value: 0 }, uCol: { value: new THREE.Color(0.7, 0.75, 0.85) }, uWind: { value: new THREE.Vector2(2, 1) } },
-  vertexShader: `attribute vec4 position; uniform float uTime, uAmt; uniform vec3 uCam; uniform vec2 uWind; varying float vA;
-    void main(){ vec3 box = vec3(40., 26., 40.); vec3 p = position.xyz;
+  vertexShader: `attribute vec4 aP; uniform float uTime, uAmt; uniform vec3 uCam; uniform vec2 uWind; varying float vA;
+    void main(){ vec3 box = vec3(40., 26., 40.); vec3 p = aP.xyz;
       vec3 w = vec3(p.x * box.x, 0., p.z * box.z); float fall = mod(p.y * box.y - uTime * 14.5, box.y);
       w.y = fall - box.y * .5; w.xz += uWind * (fall / box.y) * .5;
       w = uCam + vec3(mod(w.x - uCam.x, box.x) - box.x * .5, w.y, mod(w.z - uCam.z, box.z) - box.z * .5);
-      if (position.w > .5) { w.y += .55; w.xz -= uWind * .04; }
+      if (aP.w > .5) { w.y += .55; w.xz -= uWind * .04; }
       vA = step(p.x, uAmt) * .45;
       gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.); }`,
   fragmentShader: 'uniform vec3 uCol; varying float vA; void main(){ if (vA < .01) discard; gl_FragColor = vec4(uCol, vA); }',
@@ -145,8 +145,8 @@ const rain = new THREE.LineSegments(particleBox(RAIN_N, true), rainMat); rain.fr
 scene.add(rain);
 const snowMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 }, uCam: { value: new THREE.Vector3() }, uAmt: { value: 0 }, uCol: { value: new THREE.Color(1, 1, 1) }, uRise: { value: 0 }, uSize: { value: 1 } },
-  vertexShader: `attribute vec4 position; uniform float uTime, uAmt, uRise, uSize; uniform vec3 uCam; varying float vA;
-    void main(){ vec3 box = vec3(36., 22., 36.); vec3 p = position.xyz; float spd = mix(1.1, 1.9, position.w) * (uRise > .5 ? -.6 : 1.);
+  vertexShader: `attribute vec4 aP; uniform float uTime, uAmt, uRise, uSize; uniform vec3 uCam; varying float vA;
+    void main(){ vec3 box = vec3(36., 22., 36.); vec3 p = aP.xyz; float spd = mix(1.1, 1.9, aP.w) * (uRise > .5 ? -.6 : 1.);
       float fall = mod(p.y * box.y - uTime * spd, box.y);
       vec3 w = vec3(p.x * box.x + sin(uTime * .7 + p.z * 20.) * .8, fall - box.y * .5, p.z * box.z + cos(uTime * .5 + p.x * 17.) * .8);
       w = uCam + vec3(mod(w.x - uCam.x, box.x) - box.x * .5, w.y, mod(w.z - uCam.z, box.z) - box.z * .5);

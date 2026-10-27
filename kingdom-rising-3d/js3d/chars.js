@@ -30,17 +30,17 @@ charMat.onBeforeCompile = (sh) => {
     else if (pat == 6.) { float n = mix(.5, cn(vec3(q.x * 220., q.y * 14., q.z * 220.)), aaF); gPat = n; diffuseColor.rgb *= .88 + .2 * n; }
     else if (pat == 7.) { vec2 g = fract(vec2(q.x + q.z, q.y) * 90.) - .5; float r = abs(length(g) - .32); gPat = mix(.35, smoothstep(.1, 0., r), aaF); diffuseColor.rgb *= .78 + .32 * gPat; }
     else if (pat == 9.) { gEm = 1.; }
-    else if (pat == 10.) { vec2 g = fract(vec2(q.x * 60. + q.z * 60., q.y * 60. + floor(q.x * 60. + q.z * 60.) * .5)) - .5; gPat = mix(.5, smoothstep(.5, .2, length(g)), aaM); diffuseColor.rgb *= .85 + .22 * gPat; }
+    else if (pat == 10.) { float n = cn(q * 30.) * .7 + cn(q * 75.) * .3; gPat = mix(.5, smoothstep(.3, .7, n), aaM); diffuseColor.rgb *= .92 + .12 * gPat; }
   `).replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vMat.x;')
     .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vMat.y;')
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
     if (pat == 7. || pat == 10.) { vec3 dpdx = dFdx(-vViewPosition), dpdy = dFdy(-vViewPosition); float dhx = dFdx(gPat), dhy = dFdy(gPat);
       vec3 r1 = cross(dpdy, normal), r2 = cross(normal, dpdx); float det = dot(dpdx, r1); vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
-      normal = normalize(abs(det) * normal - grad * (pat == 7. ? .5 : .2)); }`)
+      normal = normalize(abs(det) * normal - grad * (pat == 7. ? .5 : .03)); }`)
     .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * gEm * 2.5;');
 };
 charMat.customProgramCacheKey = () => 'krchar';
-const MATS = { plain: [0, 0.8, 0], cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.85, 0.32, 3], fur: [0, 1, 4], skin: [0, 0.6, 5], hair: [0, 0.55, 6], chain: [0.8, 0.45, 7], bone: [0, 0.7, 8], glow: [0, 1, 9], scales: [0.1, 0.45, 10], gold: [1, 0.25, 3], wood: [0, 0.8, 2], gem: [0.2, 0.1, 9] };
+const MATS = { plain: [0, 0.8, 0], cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.85, 0.32, 3], fur: [0, 1, 4], skin: [0, 0.6, 5], hair: [0, 0.55, 6], chain: [0.8, 0.45, 7], bone: [0, 0.7, 8], glow: [0, 1, 9], scales: [0.03, 0.55, 10], gold: [1, 0.25, 3], wood: [0, 0.8, 2], gem: [0.2, 0.1, 9] };
 
 // ---------- skeleton ----------
 const BONE_NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'shL', 'armL', 'foreL', 'handL', 'shR', 'armR', 'foreR', 'handR', 'thighL', 'shinL', 'footL', 'thighR', 'shinR', 'footR', 'capeA', 'capeB', 'tail1', 'tail2', 'tail3', 'wingL', 'wingR'];

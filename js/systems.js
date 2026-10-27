@@ -254,7 +254,7 @@
     // never wake up inside a rival kingdom: a bind point in an enemy kingdom is reset to home
     { const reg = c.bind && (!c.bind.realm || c.bind.realm === 'main') && (!W.realm || W.realm === 'main') ? D.REGIONS[W.regionAtPx(c.bind.x, c.bind.y)] : null; const enemyCity = reg && reg.city && reg.city !== c.faction;
       const nearEnemy = D.FACTION_IDS.some((f) => f !== c.faction && c.bind && Math.hypot(c.bind.x / TS - D.CITY_CENTER[f][0], c.bind.y / TS - D.CITY_CENTER[f][1]) < 50);
-      if (!c.bind || enemyCity || nearEnemy) { const [cx, cy] = D.CITY_CENTER[c.faction]; c.bind = { x: cx * TS + 16, y: (cy + 3) * TS + 16, realm: 'main' }; G.log('Your bind point was in enemy lands. You are returned to your own kingdom.', 'sys', '#e8d48a'); } }
+      if (!c.bind || enemyCity || nearEnemy) { c.bind = KR.Gear ? KR.Gear.healerBind(c) : { x: D.CITY_CENTER[c.faction][0] * TS + 16, y: (D.CITY_CENTER[c.faction][1] + 3) * TS + 16, realm: 'main' }; G.log('Your bind point was in enemy lands. You are returned to your own kingdom.', 'sys', '#e8d48a'); } }
     p.dead = false; p.x = c.bind.x; p.y = c.bind.y; p.hp = Math.round(p.hpMax * 0.5); p.mana = Math.round(p.manaMax * 0.5); p.buffs = []; p.stun = p.root = p.mez = p.fear = 0;
     G.addBuff(p, { name: 'Resurrection Sickness', icon: '💀', dur: 60, mods: { STR: -10, STA: -10, dmgMul: -0.2 }, debuff: true });
     G.recalc(p); Sys.mercsHome(); KR.Main && KR.Main.snapCamera && KR.Main.snapCamera();

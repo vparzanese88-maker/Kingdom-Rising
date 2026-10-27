@@ -603,6 +603,13 @@
     document.body.appendChild(ov); $('#cf-y', ov).onclick = () => { ov.remove(); yes(); }; $('#cf-n', ov).onclick = () => ov.remove(); $('#cf-n', ov).focus();
   };
 
+  // a question with a few answers: opts = [[label, fn], ...]; an answer without fn just closes it
+  UI.choice = function (text, opts) {
+    const ov = h('div', 'modal', `<div class="modal-b"><p>${esc(text)}</p><div class="col">${opts.map((o, i) => `<button class="btn${i === 0 ? ' gold' : ''}" data-i="${i}">${esc(o[0])}</button>`).join('')}</div></div>`);
+    document.body.appendChild(ov); ov.querySelectorAll('[data-i]').forEach((b) => (b.onclick = () => { ov.remove(); const f = opts[+b.dataset.i][1]; if (f) f(); }));
+    const first = ov.querySelector('[data-i]'); if (first) first.focus();
+  };
+
   // ----- character -----
   function renderChar(w) {
     const p = G.player, c = p.c, b = w.body; const R = D.RACES[c.race], C = D.CLASSES[c.cls];

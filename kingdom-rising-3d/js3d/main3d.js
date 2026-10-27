@@ -76,7 +76,7 @@ Main.toggleWalk = function () { move.walk = !move.walk; K3.settings.walkMode = m
 // ---------- boot ----------
 Main.boot = async function () {
   const boot = document.getElementById('boot3d');
-  try { G.ui_autoloot = JSON.parse(localStorage.getItem('kr_autoloot') || 'false'); } catch (e) {}
+  try { G.ui_autoloot = JSON.parse(localStorage.getItem('kr_autoloot') || 'true'); } catch (e) {}
   await Promise.race([Sys.Store.init(), new Promise((r) => setTimeout(r, 4000))]);
   await Sys.loadAccount();
   A.setVolumes(G.account.settings.music, G.account.settings.sfx);

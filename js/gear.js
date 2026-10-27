@@ -2,6 +2,7 @@
 // (woodcutting axes, mining picks, skinning knives), each in its own slot on the paper doll.
 (function () {
   const KR = window.KR; const { D, G, U } = KR; const Sys = KR.Sys;
+  const W = KR.W, TS = D.TS;
   const GEAR = (KR.Gear = {});
 
   // ---------- slots ----------
@@ -57,6 +58,66 @@
   };
   const use0 = Sys.useItem;
   Sys.useItem = function (it) { if (it && it.kind === 'gear') return Sys.equip(it); return use0.apply(this, arguments); };
+  // ---------- campsite kits: a bind point in the wilds, and a nap that leaves you Well Rested ----------
+  G.makeCampKit = () => ({ uid: U.uid(), kind: 'camp', name: 'Campsite Kit', icon: '⛺', value: 600, lore: 'A canvas tent, a bedroll and a fire kit. Pitch it in the wilds (E with the kit in hand, or use it from your bags) to bind your soul there. Sleep in it to wake Well Rested: +10% experience for an hour. Only one camp stands at a time; pack it up and your soul returns to the healer of your city.' });
+  GEAR.healerBind = (c) => { const [cx, cy] = D.CITY_CENTER[c.faction]; return { x: (cx + 4) * TS + 16, y: (cy + 2) * TS + 16, realm: 'main' }; };
+  const campDecor = () => W.decor.filter((d) => d.camp);
+  GEAR.clearCampDecor = function () {
+    const old = campDecor(); if (!old.length) return;
+    for (const d of old) { if (W.inb(d.tx, d.ty)) W.block[d.ty * W.W + d.tx] = 0; }
+    W.decor = W.decor.filter((d) => !d.camp); const d0 = old[0];
+    if (KR.R && KR.R.reindex) KR.R.reindex(); if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(d0.tx - 4, d0.ty - 4, 9, 9);
+  };
+  GEAR.raiseCamp = function (c) {
+    if (!c.camp || (W.realm && W.realm !== 'main')) return;
+    if (campDecor().length) return;
+    const { tx, ty } = c.camp;
+    W.addDecor('tent', tx + 1, ty - 1, { col: '#8a6a3a', camp: true }); W.addDecor('campfire', tx - 1, ty + 1, { camp: true }); W.addDecor('bedroll', tx, ty, { camp: true });
+    if (KR.R && KR.R.reindex) KR.R.reindex(); if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(tx - 4, ty - 4, 9, 9);
+  };
+  GEAR.pitchCamp = function (it) {
+    const p = G.player, c = p.c;
+    if (W.realm && W.realm !== 'main') { G.log('You can only make camp out in the open lands.', 'sys', '#ffb24a'); return false; }
+    const reg = D.REGIONS[W.regionAtPx(p.x, p.y)] || {};
+    if (reg.city || reg.dungeon || W.buildingAt(p.x, p.y)) { G.log('You cannot pitch a tent here. Find a spot out in the wilds.', 'sys', '#ffb24a'); return false; }
+    for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.hypot(p.x / TS - cx, p.y / TS - cy) < 40) { G.log('Too close to a city. Make camp out in the wilds.', 'sys', '#ffb24a'); return false; } }
+    if (G.inCombat && G.inCombat(p)) { G.log('Not while you are fighting!', 'sys', '#ffb24a'); return false; }
+    const tx = Math.floor(p.x / TS), ty = Math.floor(p.y / TS);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 2; dx++) if (W.isBlockedTile(tx + dx, ty + dy)) { G.log('There is no flat open ground here for a tent.', 'sys', '#ffb24a'); return false; }
+    GEAR.clearCampDecor();
+    c.camp = { tx, ty }; GEAR.raiseCamp(c);
+    c.bind = { x: tx * TS + 16, y: (ty + 1) * TS + 16, realm: 'main', camp: true };
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { const i = c.inv.indexOf(it); if (i >= 0) c.inv[i] = null; }
+    KR.A.sfx('craft', 0.6);
+    G.log('You pitch your tent and light a small fire. Your soul is bound to this camp. Rest here (E at the tent) to wake Well Rested.', 'sys', '#9ad8ff');
+    KR.UI && KR.UI.refresh(); Sys.save && Sys.save();
+    return true;
+  };
+  GEAR.breakCamp = function () {
+    const c = G.player.c; if (!c.camp) return;
+    GEAR.clearCampDecor(); c.camp = null; c.bind = GEAR.healerBind(c);
+    G.log('You pack up your camp. Your soul returns to the healer of your city.', 'sys', '#e8d48a'); Sys.save && Sys.save();
+  };
+  GEAR.nearCamp = (p) => { const c = p.c; if (!c.camp || (W.realm && W.realm !== 'main')) return false; return Math.hypot(p.x - (c.camp.tx * TS + 16), p.y - (c.camp.ty * TS + 16)) < 110; };
+  // a nap: sit by the fire for ten seconds, wake Well Rested (+10% experience for an hour of play)
+  GEAR.nap = function () {
+    const p = G.player; if (!GEAR.nearCamp(p)) return;
+    if (G.inCombat && G.inCombat(p)) { G.log('You cannot sleep with enemies nearby!', 'sys', '#ffb24a'); return; }
+    p.sit = true; p.napUntil = G.now + 10000; p.napX = p.x; p.napY = p.y; G.log('You lie down on your bedroll and close your eyes...', 'sys', '#9ad8ff');
+  };
+  GEAR.napTick = function () {
+    const p = G.player; if (!p || !p.napUntil) return;
+    if (Math.hypot(p.x - p.napX, p.y - p.napY) > 4 || (G.inCombat && G.inCombat(p)) || p.dead) { p.napUntil = 0; G.log('Your nap is interrupted.', 'sys', '#ffb24a'); return; }
+    if (G.now >= p.napUntil) { p.napUntil = 0; p.sit = false; p.buffs = (p.buffs || []).filter((b) => b.name !== 'Well Rested'); G.addBuff(p, { name: 'Well Rested', icon: '⛺', dur: 3600, mods: {}, xpBonus: 0.1 }); p.hp = p.hpMax; p.mana = p.manaMax; p.endur = p.endurMax; G.log('You wake Well Rested: +10% experience for the next hour.', 'xp', '#ffd84a'); KR.A.sfx('levelup', 0.3); }
+  };
+  // Well Rested adds a tenth to experience earned
+  const xp0 = G.giveXp;
+  G.giveXp = function (amt, why) { const p = G.player; if (p && amt > 0 && (p.buffs || []).some((b) => b.xpBonus)) amt *= 1.1; return xp0.call(this, amt, why); };
+  const tick0 = Sys.worldTick;
+  Sys.worldTick = function () { try { GEAR.napTick(); } catch (e) {} return tick0.apply(this, arguments); };
+  const use1 = Sys.useItem;
+  Sys.useItem = function (it) { if (it && it.kind === 'camp') return GEAR.pitchCamp(it); return use1.apply(this, arguments); };
+
   // older heroes had tool levels instead of tools: give them the real thing once
   GEAR.migrate = function (c) {
     if (!c || c._gearV) return; c._gearV = 1;
@@ -64,7 +125,14 @@
   };
 
   const start0 = Sys.startPlayer;
-  Sys.startPlayer = function (c) { try { GEAR.migrate(c); } catch (e) { console.warn(e); } return start0.apply(this, arguments); };
+  Sys.startPlayer = function (c) {
+    try { GEAR.migrate(c); } catch (e) { console.warn(e); }
+    // no camp: the soul is bound at the healer of the hero's own city
+    const r = start0.apply(this, arguments);
+    if (!c.camp && c.faction && D.CITY_CENTER[c.faction]) { const [cx, cy] = D.CITY_CENTER[c.faction]; const oldDefault = c.bind && c.bind.x === cx * TS + 16 && c.bind.y === (cy + 3) * TS + 16; if (!c.bind || oldDefault) c.bind = GEAR.healerBind(c); }
+    try { GEAR.raiseCamp(c); } catch (e) { console.warn(e); }
+    return r;
+  };
 
   // ---------- lights: lit or blown out ----------
   GEAR.lightOf = (c) => { const it = c && c.equip && c.equip.light; return it && it.light ? it : null; };
@@ -98,6 +166,7 @@
   Sys.vendorStock = function (kind, npc) {
     const out = stock0.apply(this, arguments);
     const L = npc && npc.city ? Sys.cityLevel(npc.city) : 1;
+    if (kind === 'outfitter') out.push(G.makeCampKit());
     if (kind === 'general' || kind === 'outfitter') {
       out.push(G.makeTool('axe', 1), G.makeTool('pick', 1), G.makeTool('knife', 1));
       out.push(G.makeLight('tallow'), G.makeLight('beeswax'));

@@ -16,7 +16,7 @@
   // ---------- boot ----------
   Main.boot = async function () {
     const loading = document.getElementById('loading');
-    try { G.ui_autoloot = JSON.parse(localStorage.getItem('kr_autoloot') || 'false'); R.cam.zoom = JSON.parse(localStorage.getItem('kr_zoom') || '1'); } catch (e) {}
+    try { G.ui_autoloot = JSON.parse(localStorage.getItem('kr_autoloot') || 'true'); R.cam.zoom = JSON.parse(localStorage.getItem('kr_zoom') || '1'); } catch (e) {}
     await Promise.race([Sys.Store.init(), new Promise((r) => setTimeout(r, 4000))]);
     await Sys.loadAccount();
     A.setVolumes(G.account.settings.music, G.account.settings.sfx);

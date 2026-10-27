@@ -115,7 +115,8 @@
   // everyone nearby gets a dice window (Need, Greed or Pass) and the highest Need roll wins, then Greed.
   const ROLL_TIME = 25000;
   const FINE = /^(Gleaming|Ancient|Runed|Blessed|Shadowed|Fabled) /;
-  const rollable = (it) => it.kind === 'weapon' || it.kind === 'mat' || it.unique || it.proc || it.sig || it.fx || it.kind === 'jewel' || FINE.test(it.name || '') || (it.value || 0) >= 2000;
+  // only rare and better are rolled for (named fine items, uniques, procs, glowing and costly ones); everything else goes round the group
+  const rollable = (it) => it.unique || it.proc || it.sig || it.fx || it.kind === 'jewel' || FINE.test(it.name || '') || (it.value || 0) >= 2000;
   const rolls = new Map(); // id -> { item, owner, eligible, picks, until, mine, done }
   const fresh = (it) => Object.assign(JSON.parse(JSON.stringify(it)), { uid: U.uid() });
   const giveMe = (it, how) => { const c = fresh(it); if (Sys.addItem(c, true)) { G.log(`You receive ${c.qty > 1 ? c.qty + ' x ' : ''}${c.name}${how ? ' ' + how : ''}.`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.5); KR.UI && KR.UI.refresh(); return true; } G.log(`Your bags are full, so ${c.name} was left behind.`, 'loot', '#ffb24a'); return false; };
@@ -129,10 +130,12 @@
   };
   Sys.groupLoot = function (e) {
     const near = nearMembers(XP_RANGE); if (!near.length || !e.loot) return false;
-    const order = [me()].concat(near.map((pp) => pp.peer));
+    // in group order, starting with the leader: one item to each member in turn (rare and better are rolled for)
+    const here = new Set([me()].concat(near.map((pp) => pp.peer)));
+    const order = Grp.members.filter((id) => here.has(id)); for (const id of here) if (!order.includes(id)) order.push(id);
     for (const it of e.loot.items.splice(0)) {
       if (rollable(it)) { startRoll(it, order); continue; }
-      const to = order[(Grp.rr = ((Grp.rr || 0) + 1) % order.length)];
+      const to = order[(Grp.rr || 0) % order.length]; Grp.rr = (Grp.rr || 0) + 1;
       if (to === me()) { if (!giveMe(it, 'as your share')) e.loot.items.push(it); }
       else { send('give', { gid: Grp.gid, to, item: it, mob: e.name }); G.log(`${nameOf(to)} receives ${it.name}.`, 'loot', GCOL); }
     }

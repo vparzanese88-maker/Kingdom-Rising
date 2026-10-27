@@ -1164,7 +1164,7 @@
   // ---------- extra dialog: donations to the crown, Vinny, Old Gil ----------
   const VINNY_DAY = 24 * 60000;
   const egg = () => { const c = G.player.c; c.eggs = c.eggs || {}; return c.eggs; };
-  const vinnyPay = (c) => Math.round(200 + c.level * c.level * 22);
+  const vinnyPay = (c) => Math.round(150 + Math.random() * 350 + c.level * 6); // a few silver: Vinny is broke too
   KR.UI.extraButtons = function (e, add, w) {
     const p = G.player, c = p.c;
     if (e.type === 'king' && e.faction === c.faction) {
@@ -1199,7 +1199,7 @@
     (a) => `Back already? Ha! Of course you are. Here's ${a}, pal. My hero. My wonderful, money-loving hero.`,
     (a) => `${a}. There. Say, did I ever tell you about my bunions? No? Well, the left one is shaped like a duck...`,
     (a) => `Money, money, money. That's all I am to you, isn't it? A walking purse. I have FEELINGS, you know. ${a}. Take it.`,
-    (a) => `Oh good, you're here! I wrote a song about you! "Ohhh the hero came, and took my gold, and took my gold, and took my gold..." There are forty more verses. Here's ${a}.`,
+    (a) => `Oh good, you're here! I wrote a song about you! "Ohhh the hero came, and took my silver, and took my silver, and took my silver..." There are forty more verses. Here's ${a}.`,
     (a) => `Take it. TAKE IT. ${a}. Also I told everyone at the tavern you cried in the sewer. You did. I heard you.`,
     (a) => `Hey! Hey. Hey. HEY. Did you know I can hold my breath for four minutes? Watch. ...Okay, three seconds. Here's ${a}. Hey. Hey.`,
     (a) => `I've been following you, by the way. Not in a creepy way. In a fan way. I watched you eat lunch. You chew with your mouth open. ${a}.`,

@@ -222,6 +222,8 @@
       const d = K.nearestHarvest(p.x, p.y, 70);
       const nearD = near.length ? Math.min(...near.map((x) => Math.hypot(x.x - p.x, x.y - p.y))) : 1e9;
       if (corpse && Math.hypot(corpse.x - p.x, corpse.y - p.y) < nearD) { K.startSkin(corpse); return; }
+      // your own camp: sleep, or pack it up
+      if (KR.Gear && KR.Gear.nearCamp(p) && nearD > 50 && !(d && Math.hypot(d.x - p.x, d.y - p.y) < 40)) { UI.choice('Your camp. The fire crackles and the bedroll looks inviting.', [['Sleep a while (wake Well Rested: +10% XP for 1 hour)', () => KR.Gear.nap()], ['Pack up camp (your soul returns to the city healer)', () => KR.Gear.breakCamp()], ['Leave it be']]); return; }
       if (d && Math.hypot(d.x - p.x, d.y - p.y) < nearD) { K.startHarvest(d); return; }
     }
     return interact0.apply(this, arguments);
@@ -616,7 +618,7 @@
     const a = G.account;
     for (const ch of a.chars.slice()) { try { await Sys.deleteChar(ch.id); } catch (e) {} }
     const def = Sys.defaultAccount();
-    a.chars = []; a.cities = def.cities; for (const f of D.FACTION_IDS) a.cities[f].built = 0; a.bank = def.bank; delete a.war; a.rivalT = 0; a.clock = 0;
+    a.chars = []; delete a.faction; a.cities = def.cities; for (const f of D.FACTION_IDS) a.cities[f].built = 0; a.bank = def.bank; delete a.war; a.rivalT = 0; a.clock = 0;
     try { ['kr_sel_hero', 'kr_intro_seen'].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
     Sys.saveAccount(true);
     KR.UI.toast && KR.UI.toast('The realm is reborn', 'Every hero is gone and both kingdoms are back at level 1.');

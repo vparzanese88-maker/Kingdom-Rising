@@ -384,6 +384,8 @@
   M.showCreate = function () {
     cs = { step: 0, faction: null, race: null, cls: null, gender: 'm', skin: 1, hair: 1, hairStyle: 0, name: '', bonus: {}, dir: 0 };
     D.STATS.forEach((s) => (cs.bonus[s] = 0));
+    // your first hero's kingdom is your kingdom for good (until a full reset of the game)
+    if (G.account.faction && D.FACTIONS[G.account.faction]) { cs.faction = G.account.faction; cs.step = 1; cs.locked = true; }
     renderCreate();
   };
   const BONUS = 20;
@@ -392,7 +394,7 @@
     const steps = ['Kingdom', 'Race', 'Class', 'Appearance', 'Name'];
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="cr"><header class="cr-h"><button class="btn ghost" id="cr-back">← Back</button><ol class="steps">${steps.map((s, i) => `<li class="${i === cs.step ? 'on' : i < cs.step ? 'done' : ''}">${s}</li>`).join('')}</ol></header><div class="cr-body"></div></div>`;
     bgLoop($('.bgcv', scr));
-    $('#cr-back').onclick = () => { if (cs.step === 0) M.showMenu(); else { cs.step--; renderCreate(); } };
+    $('#cr-back').onclick = () => { if (cs.step === 0 || (cs.locked && cs.step === 1)) M.showMenu(); else { cs.step--; renderCreate(); } };
     const body = $('.cr-body', scr);
     const next = () => { cs.step++; renderCreate(); };
     if (cs.step === 0) {
@@ -408,7 +410,7 @@
       });
     } else if (cs.step === 1) {
       const F = D.FACTIONS[cs.faction];
-      body.innerHTML = `<h2>Choose your race</h2><p class="lead">The peoples who serve ${F.king}. Each starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards three"></div>`;
+      body.innerHTML = `<h2>Choose your race</h2><p class="lead">${cs.locked ? `You are sworn to ${F.king} of ${F.city}: every hero you make serves the same kingdom (a full reset under Delete Hero frees you to choose again). ` : ''}The peoples who serve ${F.king}. Each starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards three"></div>`;
       const cards = $('.cards', body);
       F.races.forEach((r) => {
         const R = D.RACES[r];
@@ -469,6 +471,7 @@
         if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
         const name = nm[0].toUpperCase() + nm.slice(1).toLowerCase();
         cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} });
+        if (!G.account.faction) { G.account.faction = c.faction; Sys.saveAccount && Sys.saveAccount(); } // the kingdom is now chosen for good
         // invited players go back to the Multiplayer screen with their new hero to join the game
         if (INVITED && !inviteFailed && KR.Online && KR.Online.mode === 'solo') {
           const code = KR.Online.cleanCode(new URLSearchParams(location.search).get('join'));

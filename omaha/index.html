@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omaha 1944</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Special+Elite&family=Oswald:wght@400;600&display=swap">
+<style>
+:root{
+  --ink:#0f0f0c;--panel:rgba(18,18,14,.86);--paper:#e6dcc2;--dim:#a39a82;--khaki:#b9a875;--line:rgba(230,220,194,.18);
+  --allies:#7d8a4a;--axis:#7c8590;--red:#b8321f;--gold:#d6b25e;
+  --stencil:"Stardos Stencil",Impact,sans-serif;--type:"Special Elite","Courier New",monospace;--num:"Oswald","Arial Narrow",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--type)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+button{font:inherit;color:inherit}
+kbd{font-family:var(--num);font-size:.85em;border:1px solid var(--line);border-bottom-width:2px;padding:0 .4em;border-radius:3px;background:rgba(230,220,194,.06);white-space:nowrap}
+.ov{position:fixed;inset:0;z-index:20}
+[hidden]{display:none!important}
+
+/* ---------- menu ---------- */
+#menu{display:flex;background:linear-gradient(90deg,rgba(10,10,8,.95) 0%,rgba(10,10,8,.8) 36%,rgba(10,10,8,.1) 66%,rgba(10,10,8,0) 85%)}
+.panel{width:min(560px,100%);padding:clamp(18px,4.5vh,52px) 16px;margin-left:clamp(0px,4vw,60px);display:flex;flex-direction:column;gap:18px;overflow-y:auto}
+.eyebrow{font-family:var(--stencil);letter-spacing:.3em;font-size:13px;color:var(--gold);margin:0}
+h1{font-family:var(--stencil);font-weight:700;font-size:clamp(54px,8vw,104px);line-height:.86;margin:0;letter-spacing:.02em}
+h1 small{display:block;font-size:.3em;letter-spacing:.32em;color:var(--dim);margin-top:10px;font-weight:400}
+.lede{font-size:16px;line-height:1.55;color:var(--dim);max-width:46ch;margin:0}
+.lbl{font-family:var(--stencil);letter-spacing:.2em;font-size:13px;color:var(--dim);margin:0 0 -8px}
+.teams{display:grid;grid-template-columns:1fr 1fr 90px;gap:8px}
+.opt{appearance:none;text-align:left;border:1px solid var(--line);background:rgba(230,220,194,.04);padding:10px 12px;cursor:pointer;border-radius:2px;display:flex;flex-direction:column;gap:3px}
+.opt b{font-family:var(--stencil);font-size:22px;font-weight:700;letter-spacing:.06em}
+.opt small{color:var(--dim);font-size:12.5px;line-height:1.3}
+.opt:hover{border-color:rgba(230,220,194,.45)}
+.opt[aria-pressed="true"]{border-color:var(--gold);background:rgba(214,178,94,.12)}
+.opt:focus-visible,.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row .opt{flex:1;min-width:100px;align-items:center;text-align:center}
+.row .opt b{font-size:16px}
+.slider{display:flex;align-items:center;gap:14px}
+.slider input{flex:1;accent-color:var(--gold)}
+.slider output{font-family:var(--num);font-size:22px;min-width:84px}
+.toggles{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--dim)}
+.toggles label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.toggles input{accent-color:var(--gold)}
+.btn{appearance:none;cursor:pointer;border:1px solid var(--gold);background:var(--gold);color:#16130b;font-family:var(--stencil);font-weight:700;letter-spacing:.18em;font-size:20px;padding:14px 22px;border-radius:2px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--paper);border-color:var(--line)}
+.ctl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13.5px;color:var(--dim);margin:0}
+.ctl dt{text-align:right}.ctl dd{margin:0}
+.note{font-size:12.5px;color:var(--dim);margin:0}
+
+/* ---------- class picker ---------- */
+#classes{display:flex;align-items:center;justify-content:center;background:rgba(8,8,6,.78);backdrop-filter:blur(3px)}
+.cbox{width:min(980px,100%);max-height:100%;overflow-y:auto;padding:24px 16px}
+.cbox h2{font-family:var(--stencil);font-size:40px;margin:0 0 4px;letter-spacing:.06em}
+.cbox .sub{color:var(--dim);margin:0 0 16px}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.card{appearance:none;cursor:pointer;text-align:left;border:1px solid var(--line);background:rgba(230,220,194,.04);padding:12px 14px 14px;border-radius:2px;display:flex;flex-direction:column;gap:6px;position:relative}
+.card:hover{border-color:rgba(230,220,194,.5)}
+.card[aria-pressed="true"]{border-color:var(--gold);background:rgba(214,178,94,.12)}
+.card:disabled{opacity:.4;cursor:not-allowed}
+.card .k{position:absolute;top:10px;right:12px;font-family:var(--num);color:var(--dim);font-size:13px}
+.card b{font-family:var(--stencil);font-size:21px;letter-spacing:.04em}
+.card i{font-style:normal;color:var(--gold);font-size:14px}
+.card p{margin:0;color:var(--dim);font-size:12.5px;line-height:1.35}
+.bars{display:grid;grid-template-columns:62px 1fr;gap:3px 8px;font-family:var(--num);font-size:11px;color:var(--dim);align-items:center;margin-top:4px}
+.bars span{height:5px;background:rgba(230,220,194,.12);position:relative}
+.bars span::after{content:"";position:absolute;inset:0;width:var(--v);background:var(--khaki)}
+.card .cnt{font-family:var(--num);font-size:12px;color:var(--dim)}
+.cfoot{display:flex;gap:10px;margin-top:16px;align-items:center;flex-wrap:wrap}
+
+/* ---------- HUD ---------- */
+#hud{pointer-events:none;position:fixed;inset:0;z-index:10;font-family:var(--num)}
+#flagsBar{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:flex-start}
+.fl{width:66px;text-align:center;font-size:10.5px;letter-spacing:.06em;color:var(--paper);text-shadow:0 1px 2px #000}
+.fl .ic{width:44px;height:30px;margin:0 auto 3px;border:2px solid rgba(0,0,0,.6);background:#ddd;position:relative;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.fl .ic canvas{width:100%;height:100%;display:block}
+.fl .pr{position:absolute;left:0;bottom:0;height:5px;background:var(--gold);width:0}
+.fl.hot .ic{animation:pulse .6s infinite alternate}
+@keyframes pulse{to{box-shadow:0 0 12px 3px rgba(214,178,94,.9)}}
+#timer{position:absolute;top:12px;right:16px;font-size:28px;text-shadow:0 1px 3px #000;letter-spacing:.04em}
+#timer small{display:block;font-size:11px;color:var(--dim);text-align:right;letter-spacing:.12em}
+#feed{position:absolute;top:64px;right:16px;display:flex;flex-direction:column;gap:3px;align-items:flex-end;font-size:14px}
+#feed div{background:rgba(0,0,0,.45);padding:2px 8px;border-radius:2px;transition:opacity .6s}
+#feed .a{color:#c9d48c}#feed .x{color:#b8c3cf}#feed .me{outline:1px solid var(--gold)}
+#vitals{position:absolute;left:18px;bottom:16px;display:flex;align-items:flex-end;gap:14px;text-shadow:0 1px 3px #000}
+#hp{font-size:44px;line-height:1}#hp small{font-size:14px;color:var(--dim);margin-left:4px}
+.bar{width:150px;height:6px;background:rgba(0,0,0,.5);border:1px solid rgba(230,220,194,.25)}
+.bar i{display:block;height:100%;background:var(--khaki);width:100%}
+#stance{font-size:12px;color:var(--dim);letter-spacing:.14em;margin-top:4px}
+#ammo{position:absolute;right:18px;bottom:16px;text-align:right;text-shadow:0 1px 3px #000}
+#ammo .n{font-size:44px;line-height:1}#ammo .n small{font-size:20px;color:var(--dim)}
+#ammo .w{font-size:14px;letter-spacing:.06em;color:var(--paper)}
+#ammo .g{font-size:12px;color:var(--dim);letter-spacing:.1em}
+#xh{position:absolute;left:50%;top:50%;width:0;height:0}
+#xh i{position:absolute;background:rgba(240,235,220,.85);box-shadow:0 0 2px #000}
+#xh .t{width:2px;height:7px;left:-1px}#xh .b{width:2px;height:7px;left:-1px}
+#xh .l{height:2px;width:7px;top:-1px}#xh .r{height:2px;width:7px;top:-1px}
+#hitm{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px;opacity:0;transition:opacity .15s}
+#hitm.on{opacity:1;transition:none}
+#hitm::before,#hitm::after{content:"";position:absolute;left:50%;top:0;width:2px;height:100%;background:#fff;transform:rotate(45deg)}
+#hitm::after{transform:rotate(-45deg)}#hitm.kill::before,#hitm.kill::after{background:#e04a3a}
+#dmgdir{position:absolute;inset:0}
+.dd{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px;transition:opacity .9s}
+.dd::before{content:"";position:absolute;left:50%;top:-40px;margin-left:-26px;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:16px solid rgba(190,30,20,.75)}
+#center{position:absolute;left:50%;top:30%;transform:translateX(-50%);text-align:center;font-family:var(--stencil);text-shadow:0 2px 8px #000}
+#center b{display:block;font-size:clamp(28px,4vw,50px);letter-spacing:.08em}
+#center small{display:block;font-family:var(--type);font-size:16px;color:var(--paper);margin-top:6px}
+#msg{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:15px;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:2px;opacity:0;transition:opacity .4s;white-space:nowrap;font-family:var(--type)}
+#msg.on{opacity:1}
+#cap{position:absolute;left:50%;top:70%;transform:translateX(-50%);width:240px;text-align:center;font-size:13px;letter-spacing:.1em}
+#cap .bar{width:100%;height:8px;margin-top:4px}#cap .bar i{background:var(--gold)}
+#name{position:absolute;left:50%;top:54%;transform:translateX(-50%);font-size:14px;color:#c9d48c;text-shadow:0 1px 2px #000}
+#scope{position:fixed;inset:0;z-index:9;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 33vmin,#000 33.4vmin)}
+#scope::before{content:"";position:absolute;left:50%;top:50%;width:66.8vmin;height:66.8vmin;transform:translate(-50%,-50%);
+  background:linear-gradient(#000,#000) 50% 50%/2px 100% no-repeat,linear-gradient(#000,#000) 50% 50%/100% 2px no-repeat}
+#scope::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:33vmin;transform:translateX(-50%);background:#000}
+#red{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(120,0,0,.75) 100%)}
+#white{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0;background:#fff}
+#black{position:fixed;inset:0;z-index:15;pointer-events:none;opacity:0;background:#000}
+
+/* ---------- board / pause / round end ---------- */
+#board{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(900px,96vw);background:var(--panel);border:1px solid var(--line);padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;font-family:var(--num)}
+#board h3{font-family:var(--stencil);margin:0 0 6px;font-size:24px;letter-spacing:.08em;display:flex;justify-content:space-between}
+#board table{width:100%;border-collapse:collapse;font-size:13.5px}
+#board td,#board th{padding:2px 4px;text-align:left}#board th{color:var(--dim);font-weight:400;font-size:11.5px;letter-spacing:.1em}
+#board td.n,#board th.n{text-align:right}
+#board tr.me td{color:var(--gold)}#board tr.dead td{opacity:.5}
+#pause,#roundend{display:flex;align-items:center;justify-content:center;background:rgba(8,8,6,.74)}
+.pbox{background:var(--panel);border:1px solid var(--line);padding:24px;width:min(560px,94vw);display:flex;flex-direction:column;gap:14px;max-height:94vh;overflow-y:auto}
+.pbox h2{font-family:var(--stencil);margin:0;font-size:38px;letter-spacing:.08em}
+#roundend .pbox{text-align:center;align-items:center}
+#roundend h2{font-size:60px}
+#unsupported{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--ink)}
+@media (max-width:700px){.teams{grid-template-columns:1fr 1fr}.teams .opt:last-child{grid-column:span 2}#board{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="red"></div><div id="white"></div><div id="scope" hidden></div>
+
+<div id="hud" hidden>
+  <div id="flagsBar"></div>
+  <div id="timer">15:00<small>ROUND 1</small></div>
+  <div id="feed"></div>
+  <div id="xh"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
+  <div id="hitm"></div>
+  <div id="dmgdir"></div>
+  <div id="name"></div>
+  <div id="center"></div>
+  <div id="msg"></div>
+  <div id="cap" hidden><span id="capT">CAPTURING</span><div class="bar"><i id="capB"></i></div></div>
+  <div id="vitals">
+    <div><div id="hp">100<small>HP</small></div><div id="stance">STANDING</div></div>
+    <div><div class="note" style="font-family:var(--num);letter-spacing:.12em">STAMINA</div><div class="bar"><i id="stam"></i></div></div>
+  </div>
+  <div id="ammo"><div class="n" id="ammoN">8<small> / 80</small></div><div class="w" id="ammoW">M1 Garand</div><div class="g" id="ammoG">GRENADES 2</div></div>
+</div>
+<div id="black"></div>
+
+<div id="menu" class="ov">
+  <div class="panel">
+    <p class="eyebrow">NORMANDY · 6 JUNE 1944 · H-HOUR 06:30</p>
+    <h1>OMAHA<small>DOG SECTOR · FLAG CAPTURE</small></h1>
+    <p class="lede">The Allies come ashore from the landing craft and fight up through the wire, the bunkers and the draw into the village. The Axis hold the bluffs. Take every flag to win the round, or hold out until the clock runs down.</p>
+    <p class="lbl">TEAM</p>
+    <div class="teams">
+      <button class="opt" data-team="0" aria-pressed="true"><b>ALLIES</b><small>US 29th &amp; 1st Infantry. Land on the beach and attack.</small></button>
+      <button class="opt" data-team="1" aria-pressed="false"><b>AXIS</b><small>352nd Infantry. Hold the bluffs and the village.</small></button>
+      <button class="opt" data-team="-1" aria-pressed="false"><b>AUTO</b><small>Pick for me</small></button>
+    </div>
+    <p class="lbl">SOLDIERS PER SIDE</p>
+    <div class="slider"><input id="size" type="range" min="12" max="20" value="16" aria-label="Soldiers per side"><output id="sizeO">16 v 16</output></div>
+    <p class="lbl">ENEMY SKILL</p>
+    <div class="row" id="diff">
+      <button class="opt" data-d="0" aria-pressed="false"><b>RECRUIT</b></button>
+      <button class="opt" data-d="1" aria-pressed="true"><b>REGULAR</b></button>
+      <button class="opt" data-d="2" aria-pressed="false"><b>VETERAN</b></button>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="tMusic" checked> Music</label>
+      <label><input type="checkbox" id="tVoice" checked> Radio voices</label>
+      <label><input type="checkbox" id="tHigh" checked> High graphics</label>
+    </div>
+    <div class="row"><button class="btn" id="go">CHOOSE CLASS ›</button></div>
+    <dl class="ctl">
+      <dt><kbd>WASD</kbd> <kbd>Shift</kbd></dt><dd>Move, sprint (uses stamina)</dd>
+      <dt><kbd>C</kbd> <kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Crouch (hold), go prone, jump or climb over low walls</dd>
+      <dt>Left / Right mouse</dt><dd>Fire / aim, scope, or deploy a machine gun</dd>
+      <dt><kbd>1</kbd>–<kbd>4</kbd> <kbd>R</kbd> <kbd>G</kbd></dt><dd>Knife, pistol, main weapon, grenade · reload · quick grenade</dd>
+      <dt><kbd>E</kbd> <kbd>F</kbd> <kbd>M</kbd> <kbd>Tab</kbd></dt><dd>Throw back a live grenade · melee · change class · scores</dd>
+    </dl>
+    <p class="note">Built for a mouse and keyboard on a desktop browser.</p>
+  </div>
+</div>
+
+<div id="classes" class="ov" hidden>
+  <div class="cbox">
+    <h2 id="cTitle">CHOOSE YOUR CLASS</h2>
+    <p class="sub" id="cSub">Sniper and machine gun slots are limited.</p>
+    <div class="cgrid" id="cgrid"></div>
+    <div class="cfoot"><button class="btn" id="deploy">DEPLOY</button><button class="btn ghost" id="cBack">BACK</button><span class="note" id="cNote"></span></div>
+  </div>
+</div>
+
+<div id="board" hidden></div>
+
+<div id="pause" class="ov" hidden>
+  <div class="pbox">
+    <h2>PAUSED</h2>
+    <button class="btn" id="resume">RESUME</button>
+    <button class="btn ghost" id="pClass">CHANGE CLASS</button>
+    <button class="btn ghost" id="pQuit">QUIT TO MENU</button>
+    <div class="toggles">
+      <label><input type="checkbox" id="pMusic" checked> Music</label>
+      <label><input type="checkbox" id="pVoice" checked> Radio voices</label>
+    </div>
+    <div class="slider"><span class="note">Mouse</span><input id="sens" type="range" min="2" max="40" value="14" aria-label="Mouse sensitivity"><output id="sensO">1.4</output></div>
+    <dl class="ctl">
+      <dt><kbd>Shift</kbd></dt><dd>Sprint. A hit slows you down.</dd>
+      <dt>Right mouse</dt><dd>Iron sights, scope, or deploy a machine gun. The gun has to be prone, or resting on sandbags or a wall at chest height.</dd>
+      <dt><kbd>E</kbd></dt><dd>Pick up a live grenade near you, then left-click to throw it back</dd>
+      <dt><kbd>Q</kbd></dt><dd>Last weapon</dd>
+    </dl>
+  </div>
+</div>
+
+<div id="roundend" class="ov" hidden>
+  <div class="pbox"><p class="eyebrow" id="reEye">ROUND 1</p><h2 id="reTitle">ALLIES WIN</h2><p class="lede" id="reSub"></p><p class="note" id="reNext"></p></div>
+</div>
+
+<div id="unsupported" class="ov" hidden><p class="lede">This game needs WebGL. Try a recent desktop Chrome, Edge or Firefox.</p></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/world.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/soldier.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/player.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

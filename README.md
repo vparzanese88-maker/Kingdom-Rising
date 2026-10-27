@@ -13,6 +13,7 @@ It's plain HTML and JavaScript. There's no build step and nothing to install.
 ## More games in this repo
 Each one is a single self-contained HTML page:
 - `arcade.html`: a menu page linking to every game.
+- `omaha/`: Omaha 1944, a Day of Defeat-style WWII shooter on Omaha Beach (see below).
 - `line-of-battle/`: Line of Battle, a 3D Civil War infantry shooter.
 - `hold-aim-fire/`: Hold, Aim, Fire, a Civil War volley-timing game.
 - `dead-end-boulevard/`: Dead End Boulevard, a zombie street survival game.
@@ -45,3 +46,15 @@ With GitHub Pages on, they live at `https://<your-username>.github.io/<repo-name
 ## Saving and multiplayer
 - Outside claude.ai, heroes and kingdoms are saved in each player's own browser (localStorage).
 - The live multiplayer (seeing other players and grouping) and the cloud saves use claude.ai's artifact services, so they only work in the claude.ai version. Everything else plays the same on GitHub Pages.
+
+## Omaha 1944
+A first-person WWII flag-capture shooter in the style of Day of Defeat, set on Omaha Beach, Dog sector. Open `omaha/` the same way as the other games.
+
+- **Flags:** Seawall, West Bunker, East Bunker, Crossroads and Church Square. The Allies win by holding all five. The Axis win by holding all five or by running out the 15-minute clock.
+- **Classes:** the Day of Defeat 1.3 roster. Allies: Rifleman (M1 Garand), Staff Sergeant (M1 Carbine), Master Sergeant (Thompson), Sergeant (M3 Grease Gun), Sniper (Springfield), Support (BAR), Machine Gunner (.30 cal). Axis: Grenadier (K98k), Stosstruppe (Gewehr 43), Unteroffizier (MP40), Sturmtruppe (StG 44), Scharfschütze (scoped K98k), MG34 and MG42 gunners. Snipers and machine guns have slot limits.
+- **Realism:** stamina and sprinting, being slowed when hit, prone and crouch, machine guns that have to be deployed prone or on cover, artillery barrages with screen shake and ear ringing, and wave respawns.
+- **AI:** 12 to 20 soldiers a side, picked on the menu. Bots attack and defend flags, man MG nests and sniper perches, suppress each other, throw and throw back grenades, and call out in English or German.
+- Each round opens with a Higgins boat landing. When the game isn't running, an AI-only battle plays behind the menu.
+- Everything is built in code: models, textures, sound effects and music. Nothing is copied from Day of Defeat.
+
+Code lives in `omaha/js/`, loaded in this order: `core.js` (renderer, post-processing, textures), `audio.js`, `terrain.js` (heightfield, sea, sky), `world.js` (map structures, collision, ray casts, navigation), `fx.js`, `weapons.js`, `soldier.js`, `ai.js`, `player.js` and `game.js` (rounds, HUD, menus, main loop).

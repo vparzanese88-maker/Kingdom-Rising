@@ -47,7 +47,7 @@ function buildChunk(cx, cy, list, withStructs = true) {
   if (out.flags.length) buildFlags(out.flags, grp);
   const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb);
   c.flames = out.flames; c.smokes = out.smokes; c.emitters = out.emitters; c.list = list || []; c.sig = sig(list);
-  c.harvest = (list || []).filter((d) => d.kind === 'boulder' || ['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'palm'].includes(d.kind));
+  c.harvest = (list || []).filter((d) => d.kind === 'boulder' || d.kind === 'orevein' || ['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'palm'].includes(d.kind));
   c.stumps = new Map();
   for (const a of out.anim) { const o = makeAnimProp(a); K3.scene.add(o); anims.push(o); }
   grp.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { o.matrixAutoUpdate = false; o.updateMatrix(); } });
@@ -172,7 +172,7 @@ export const world3d = {
       if (Math.hypot(c.x - ray.origin.x, c.z - ray.origin.z) > 90) continue;
       for (const d of c.harvest) {
         const px = (d.tx + 0.5) * TS, py = (d.ty + 0.5) * TS; const x = px * PX, z = py * PX; const y0 = geo.floorAt(px, py);
-        const tree = d.kind !== 'boulder'; const top = y0 + (tree ? 4 : 1.4), rad = tree ? 0.8 : 1.0;
+        const tree = d.kind !== 'boulder' && d.kind !== 'orevein'; const top = y0 + (tree ? 4 : 1.4), rad = tree ? 0.8 : 1.0;
         // distance from the ray to the vertical segment
         const ox = ray.origin.x - x, oz = ray.origin.z - z; const dx = ray.direction.x, dz = ray.direction.z;
         const a = dx * dx + dz * dz; if (a < 1e-6) continue; const t = -(ox * dx + oz * dz) / a; if (t < 0 || t > 40) continue;

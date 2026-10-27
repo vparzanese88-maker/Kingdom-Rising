@@ -207,7 +207,7 @@ export function buildVeg(list, out) {
       const variant = Math.floor(d.v * VARIANTS) % VARIANTS; const key = k + ':' + variant;
       let g = groups.get(key); if (!g) groups.set(key, (g = { kind: k, variant, items: [] }));
       g.items.push(d);
-    } else if (k === 'boulder') rocks.push(d);
+    } else if (k === 'boulder' || k === 'orevein') rocks.push(d);
     else if (k === 'flowers' || k === 'fern' || k === 'reeds' || k === 'crop') { let a = plants.get(k); if (!a) plants.set(k, (a = [])); a.push(d); }
   }
   const meshes = [];
@@ -237,8 +237,17 @@ export function buildVeg(list, out) {
       const rm = new THREE.InstancedMesh(geom, mats.get('rock'), items.length); rm.castShadow = true; rm.receiveShadow = true;
       items.forEach((d, i) => { const reg = D.REGIONS[W.regionAt(d.tx, d.ty)] || {}; const s = 0.7 + d.v * 0.35; const m = place(d, s, false); rm.setMatrixAt(i, m);
         const c = reg.biome === 'desert' ? [1.25, 1.05, 0.8] : reg.biome === 'snow' || reg.biome === 'summit' ? [1.05, 1.08, 1.15] : reg.biome === 'volcanic' || reg.biome === 'scar' ? [0.5, 0.45, 0.42] : [1, 1, 1];
+        if (d.kind === 'orevein') { c[0] *= 0.42; c[1] *= 0.4; c[2] *= 0.4; }
         rm.setColorAt(i, _c4.setRGB(c[0], c[1], c[2])); d._inst = { tm: rm, i, s }; });
       rm.computeBoundingSphere(); if (rm.instanceColor) rm.instanceColor.needsUpdate = true; meshes.push(rm);
+    }
+    // ore veins: nuggets of the metal glinting out of the dark rock
+    for (let v = 0; v < 3; v++) {
+      const veins = rocks.filter((d) => d.kind === 'orevein' && Math.floor(d.v * 3) % 3 === v); if (!veins.length) continue;
+      const geom = TPL['nuggets' + v] || (TPL['nuggets' + v] = nuggetGeom(TPL['rock' + v]));
+      const om = new THREE.InstancedMesh(geom, oreMat(), veins.length); om.castShadow = false; om.receiveShadow = true;
+      veins.forEach((d, i) => { d._inst.tm.getMatrixAt(d._inst.i, _m4); om.setMatrixAt(i, _m4); const oc = ORE_RGB[d.ore || 0]; om.setColorAt(i, _c4.setRGB(oc[0], oc[1], oc[2])); d._inst.lm = om; d._inst.li = i; });
+      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; meshes.push(om);
     }
   }
   for (const [k, items] of plants) {
@@ -248,6 +257,26 @@ export function buildVeg(list, out) {
     pm.computeBoundingSphere(); pm.userData.small = true; meshes.push(pm);
   }
   return meshes;
+}
+// copper, iron, silver, mithril, adamantite, starmetal
+const ORE_RGB = [[0.95, 0.45, 0.2], [0.7, 0.36, 0.22], [0.9, 0.92, 0.96], [0.45, 0.8, 1.1], [0.4, 1.0, 0.6], [1.2, 0.95, 0.4]];
+let _oreMat = null;
+function oreMat() { return _oreMat || (_oreMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.85, roughness: 0.32, emissive: 0x111111, flatShading: true })); }
+// a ring of angular nuggets around the upper half of a rock (rock size 1)
+// nuggets sitting in the surface of one rock shape: picked from the rock's own vertices so they fit it exactly
+function nuggetGeom(rock) {
+  const r = K3.rng(4242); const pos = [], nor = []; const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3(), sc = new THREE.Vector3();
+  const RP = rock.attributes.position, RN = rock.attributes.normal; const cand = [];
+  for (let i = 0; i < RP.count; i++) if (RP.getY(i) > 0.08 && RN.getY(i) > -0.1) cand.push(i);
+  for (let k = 0; k < 24 && cand.length; k++) {
+    const vi = cand[Math.floor(r() * cand.length)]; const s = 0.1 + r() * 0.1;
+    const g = new THREE.OctahedronGeometry(s, 0); g.computeVertexNormals();
+    v.set(RP.getX(vi), RP.getY(vi), RP.getZ(vi)); n.set(RN.getX(vi), RN.getY(vi), RN.getZ(vi)); v.addScaledVector(n, -s * 0.25); // half sunk into the stone
+    m.compose(v, q.setFromEuler(e.set(r() * 3, r() * 3, 0)), sc.set(1, 1.3, 1)); nm.getNormalMatrix(m);
+    const P = g.attributes.position, N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z); n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor.push(n.x, n.y, n.z); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g;
 }
 // rock outcrops on lone rock tiles, so every blocking rock is visible
 export function buildOutcrops(x0, y0, x1, y1) {
@@ -270,14 +299,14 @@ export function buildOutcrops(x0, y0, x1, y1) {
 let stumpGeo = null, rubbleGeo = null;
 export function stumpFor(d) {
   if (!stumpGeo) { const mb = new MB(); mb.cylB('bark', 0, -0.2, 0, 0.42, 0.75, '#6a4a2a', 10); mb.cyl('planks', 0, 0.56, 0, 0.38, 0.02, '#c8a070', 12); stumpGeo = mb.build(); rubbleGeo = new MB(); for (let k = 0; k < 6; k++) rubbleGeo.add('rock', rockGeom(k + 90, 1, 0.6), MB.mat(Math.cos(k * 1.7) * 0.5, 0.1, Math.sin(k * 1.7) * 0.5, 0.35, 0.3, 0.35), '#8a8478', 'local'); rubbleGeo = rubbleGeo.build(); }
-  const g = (d.kind === 'boulder' ? rubbleGeo : stumpGeo).clone(); const px = (d.tx + 0.5) * TS, py = (d.ty + 0.5) * TS;
+  const g = (d.kind === 'boulder' || d.kind === 'orevein' ? rubbleGeo : stumpGeo).clone(); const px = (d.tx + 0.5) * TS, py = (d.ty + 0.5) * TS;
   g.position.set(px * PX, geo.floorAt(px, py), py * PX); g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.keepGeo = true; } });
   return g;
 }
 export function setHidden(d, hidden) {
   if (d._tree) { if (d._tree.hidden !== hidden) { d._tree.hidden = hidden; forest.dirty = true; } return; }
   const it = d._inst; if (!it) return;
-  for (const mesh of [it.tm, it.lm]) { if (!mesh) continue; mesh.getMatrixAt(it.i, _m4); _m4.decompose(_p4, _q4, _s4); _s4.setScalar(hidden ? 0.0001 : it.s); mesh.setMatrixAt(it.i, _m4.compose(_p4, _q4, _s4)); mesh.instanceMatrix.needsUpdate = true; }
+  for (const [mesh, idx] of [[it.tm, it.i], [it.lm, it.li != null ? it.li : it.i]]) { if (!mesh) continue; mesh.getMatrixAt(idx, _m4); _m4.decompose(_p4, _q4, _s4); _s4.setScalar(hidden ? 0.0001 : it.s); mesh.setMatrixAt(idx, _m4.compose(_p4, _q4, _s4)); mesh.instanceMatrix.needsUpdate = true; }
 }
 export function setVegLod(meshes, lod) {
   for (const m of meshes) { const l = m.userData.lods; if (l && l[lod] && m.geometry !== l[lod]) m.geometry = l[lod]; }

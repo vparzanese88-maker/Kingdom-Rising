@@ -1110,15 +1110,15 @@
     if (craft === 'smithing') {
       for (const ak of ['plate', 'chain']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: `${P.metal} ${CA[ak][sl][tier]}`, mats: [['metal', tier, matQ(sl === 'chest' || sl === 'legs')]] });
       for (const wt of ['1HS', '2HS', '1HB', '2HB', '1HP', 'H2H', 'THR']) out.push({ craft, tier, req, kind: 'weapon', wt, name: `${P.metal} ${D.WEAPON_BASES[wt][tier]}`, mats: [['metal', tier, matQ(D.WEAPON_TYPES[wt].hands === 2)]] });
-      out.push({ craft, tier, req, kind: 'shield', name: `${P.metal} ${CA.shield[tier]}`, mats: [['metal', tier, 4]] });
+      out.push({ craft, tier, req, kind: 'shield', name: `${P.metal} ${CA.shield[tier]}`, mats: [['metal', tier, 3], ['wood', tier, 2]] });
     } else if (craft === 'tailoring') {
       for (const ak of ['leather', 'cloth']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: `${ak === 'leather' ? P.hide : P.cloth} ${CA[ak][sl][tier]}`, mats: [[ak === 'leather' ? 'hide' : 'cloth', tier, matQ(sl === 'chest' || sl === 'legs')]] });
     } else if (craft === 'scribing') {
       out.push({ craft, tier, req, kind: 'weapon', wt: 'TOME', name: `${P.arcane} ${D.WEAPON_BASES.TOME[tier]}`, mats: [['arcane', tier, 4], ['cloth', tier, 1]] });
       out.push({ craft, tier, req, kind: 'weapon', wt: 'TOME', name: `${P.arcane} ${['Prayer Book', 'Hymnal', 'Psalter', 'Holy Codex', 'Book of Saints', 'Celestial Writ'][tier]}`, bias: ['WIS', 'STA'], mats: [['arcane', tier, 3], ['hide', tier, 1]] });
     } else if (craft === 'fletching') {
-      out.push({ craft, tier, req, kind: 'weapon', wt: 'ARC', name: `${P.hide} ${D.WEAPON_BASES.ARC[tier]}`, mats: [['hide', tier, 3], ['metal', tier, 1]] });
-      out.push({ craft, tier, req, kind: 'weapon', wt: 'ARC', name: `${P.hide} ${['Shortbow', 'Flatbow', 'Warbow', 'Hornbow', 'Siege Bow', 'Celestial Bow'][tier]}`, bias: ['STR', 'DEX'], mats: [['hide', tier, 4], ['metal', tier, 1]] });
+      out.push({ craft, tier, req, kind: 'weapon', wt: 'ARC', name: `${P.hide} ${D.WEAPON_BASES.ARC[tier]}`, mats: [['wood', tier, 3], ['hide', tier, 1], ['metal', tier, 1]] });
+      out.push({ craft, tier, req, kind: 'weapon', wt: 'ARC', name: `${P.hide} ${['Shortbow', 'Flatbow', 'Warbow', 'Hornbow', 'Siege Bow', 'Celestial Bow'][tier]}`, bias: ['STR', 'DEX'], mats: [['wood', tier, 4], ['hide', tier, 2], ['metal', tier, 1]] });
       out.push({ craft, tier, req, kind: 'weapon', wt: 'THR', name: `${P.metal} ${D.WEAPON_BASES.THR[tier]}`, mats: [['metal', tier, 2], ['hide', tier, 1]] });
     } else {
       out.push({ craft, tier, req, kind: 'jewel', slot: 'ring', name: `${P.arcane} ${CA.ring[tier]}`, mats: [['metal', tier, 2], ['arcane', tier, 2]] });

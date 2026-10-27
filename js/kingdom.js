@@ -32,6 +32,15 @@
     sandstone: { name: 'Sandstone', pl: 'Sandstone', kind: 'stone', tier: 3, col: '#e8c890', where: 'the rocks of the Sunscour Desert' },
     marble: { name: 'Marble', pl: 'Marble', kind: 'stone', tier: 4, col: '#f0f0f4', where: 'the boulders of the Ironspine Peaks' },
   };
+  // ore veins: one metal per tier, found in lands of the matching level, and only a good enough pick breaks them
+  const ORE_COL = ['#c87a4a', '#8a8e96', '#d8dce4', '#8ad0ff', '#7affa8', '#ffd86a'];
+  const ORE_WHERE = ['the rocky ground of the starter lands', 'the hills and crags beyond the farms', 'the deep woods and rocky marsh banks', 'the mountain passes and desert cliffs', 'the high peaks', 'the summit and the old dragon lands'];
+  D.MATERIALS.metal.forEach((nm, t) => { K.MATS['ore' + t] = { name: nm, pl: nm, kind: 'ore', ore: t, tier: [1, 1, 2, 3, 4, 5][t], col: ORE_COL[t], where: ORE_WHERE[t], vein: nm.replace(/ Ore$/, '') + ' Vein' }; });
+  // logs you chop count as the 'wood' crafting material (they are not carried as items)
+  const WOOD_BY_NAME = {}; for (const k in K.MATS) if (K.MATS[k].kind === 'wood') WOOD_BY_NAME[K.MATS[k].name] = k;
+  { const count0 = Sys.countItem, take0 = Sys.takeItem;
+    Sys.countItem = (name) => (WOOD_BY_NAME[name] && G.player ? K.have(G.player.c, WOOD_BY_NAME[name]) : count0(name));
+    Sys.takeItem = function (name, n) { const k = WOOD_BY_NAME[name]; if (k && G.player) { const c = G.player.c; K.gather(c)[k] = Math.max(0, K.have(c, k) - n); return true; } return take0.apply(this, arguments); }; }
   const TREE_MAT = { oak: 'oak', elmwood: 'oak', birch: 'oak', darkoak: 'darkoak', willow: 'willow', snowpine: 'frostpine' };
   const STONE_MAT = { plains: 'fieldstone', forest: 'fieldstone', cityplains: 'fieldstone', cityforest: 'fieldstone', mountain: 'granite', grass: 'granite', hills: 'granite', plains2: 'granite', desert: 'sandstone', island: 'sandstone', snow: 'marble', summit: 'marble' };
   // what each kingdom level needs (index = the level you are leaving)
@@ -49,6 +58,7 @@
   K.harvestOf = function (d) {
     if (!d || !d.kind) return null;
     if (TREE_MAT[d.kind]) return { mat: TREE_MAT[d.kind], tool: 'axe' };
+    if (d.kind === 'orevein') return { mat: 'ore' + (d.ore || 0), tool: 'pick' };
     if (d.kind === 'boulder') { const reg = D.REGIONS[W.regionAt(d.tx, d.ty)]; const m = reg && STONE_MAT[reg.biome]; return m ? { mat: m, tool: 'pick' } : null; }
     return null;
   };
@@ -58,6 +68,17 @@
     const r = gen0.apply(this, arguments);
     try {
       const rnd = U.mulberry((seed || 1) * 13 + 7); const want = { meadowrun: 70, sunleaf: 55, thornfield: 30, greywood: 20 };
+      // ore veins in every outdoor land: the metal matches the level of the land
+      { const veins = new Map(); const rv = U.mulberry((seed || 1) * 29 + 3);
+        for (let k = 0; k < 40000; k++) {
+          const x = 4 + Math.floor(rv() * (W.W - 8)), y = 4 + Math.floor(rv() * (W.H - 8)); const i = y * W.W + x; const reg = D.REGIONS[W.region[i]];
+          if (!reg || reg.city || reg.dungeon || !reg.lv || W.block[i] || KR.SOLID[W.tiles[i]] || [T.WATER, T.ROAD, T.BRIDGE, T.COBBLE].includes(W.tiles[i])) continue;
+          const n = veins.get(reg.id) || 0; const rocky = /mountain|hills|snow|summit|desert|crag|grass/.test(reg.biome) ? 26 : 14; if (n >= rocky) continue;
+          let near = false; for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < 48 && Math.abs(y - cy) < 48) near = true; } if (near) continue;
+          let crowd = false; for (let dy = -1; dy <= 1 && !crowd; dy++) for (let dx = -1; dx <= 1; dx++) if (W.block[(y + dy) * W.W + x + dx]) { crowd = true; break; } if (crowd) continue;
+          const ore = U.clamp(G.tierOfLevel(Math.round((reg.lv[0] + reg.lv[1]) / 2)) + (rv() < 0.12 ? 1 : 0), 0, 5);
+          W.decor.push({ kind: 'orevein', ore, tx: x, ty: y, x: x * TS + 16, y: y * TS + 24, v: U.hash(x, y, 9) }); W.block[i] = 1; veins.set(reg.id, n + 1);
+        } }
       for (const id in want) {
         const ri = D.REGION_BY_ID[id]; let placed = 0;
         for (let k = 0; k < 6000 && placed < want[id]; k++) {
@@ -106,7 +127,7 @@
   K.targetName = function (d) {
     if (d.dead) return d.name;
     const h = K.harvestOf(d); if (!h) return '';
-    return h.tool === 'axe' ? TREE_NAME[d.kind] || 'Tree' : `${K.MATS[h.mat].name} Boulder`;
+    return h.tool === 'axe' ? TREE_NAME[d.kind] || 'Tree' : K.MATS[h.mat].vein || `${K.MATS[h.mat].name} Boulder`;
   };
   // how long one gathering takes: better tools and more skill are faster, harder material slower
   const gatherTime = (c, tool, matTier) => { const tt = toolTier(c, tool); const T = KR.Gear.TOOL_TIERS[tt]; const sk = K.gskill(c, GS[tool]); return U.clamp((4.4 / (T.speed * (1 + sk / 180))) * (1 + (matTier - 1) * 0.15), 1.1, 7); };
@@ -177,6 +198,13 @@
     } else {
       const M = K.MATS[H.mat];
       const n = 1 + Math.floor(Math.random() * 2) + (tt > M.tier ? 1 : 0);
+      if (M.kind === 'ore') {
+        // ore goes in your bags, for the smith, the fletcher and the jeweler
+        const it = G.makeMat('metal', M.ore, n); Sys.addItem(it); H.d.cutUntil = G.now + 240000;
+        G.float(p, `+${n} ${M.name}`, M.col); G.log(`You mine ${n} ${M.name}.`, 'loot', M.col); KR.A.sfx('rockbreak', 0.5);
+        try { G.giveXp(Math.max(1, Math.round(D.mobXp(Math.max(1, Math.min(c.level, 10))) * 0.06)), ''); } catch (e) {}
+        UI.refresh && UI.refresh(); Sys.save && Sys.save(); return;
+      }
       K.gather(c)[H.mat] = K.have(c, H.mat) + n;
       H.d.cutUntil = G.now + (H.tool === 'axe' ? 150000 : 180000);
       G.float(p, `+${n} ${n > 1 ? M.pl : M.name}`, M.col);

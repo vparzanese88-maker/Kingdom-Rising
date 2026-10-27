@@ -1065,12 +1065,14 @@
 
   // ---------- Crafting ----------
   D.MATERIALS = {
-    metal: ['Copper Ore', 'Iron Ore', 'Steel Ingot', 'Mithril Ore', 'Adamantite', 'Starmetal'],
+    metal: ['Copper Ore', 'Iron Ore', 'Silver Ore', 'Mithril Ore', 'Adamantite Ore', 'Starmetal Ore'],
     hide: ['Rough Hide', 'Tanned Hide', 'Thick Leather', 'Wyvern Hide', 'Dragonscale', 'Shadowhide'],
     cloth: ['Linen Bolt', 'Silk Bolt', 'Spidersilk', 'Moonweave', 'Starweave', 'Voidcloth'],
+    // wood is counted from what you chop (it is not carried in bags): oak everywhere, darkoak in the Greywood, willow in the Dreadmire, frostpine in the peaks
+    wood: ['Oak Log', 'Darkoak Log', 'Willow Log', 'Frostpine Log', 'Frostpine Log', 'Frostpine Log'],
     arcane: ['Arcane Dust', 'Arcane Essence', 'Arcane Shard', 'Arcane Crystal', 'Arcane Prism', 'Astral Core'],
   };
-  D.MAT_ICON = { metal: '⛏', hide: '🟫', cloth: '🧵', arcane: '💎' };
+  D.MAT_ICON = { metal: '⛏', hide: '🟫', cloth: '🧵', arcane: '💎', wood: '🪵' };
   D.STAT_CAP = 255;
   // player stances (5 second cooldown between switches)
   D.PSTANCES = {

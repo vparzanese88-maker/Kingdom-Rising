@@ -928,7 +928,8 @@
     const list = $('.vlist', b);
     vend.stock.forEach((it) => {
       const can = ['weapon', 'armor', 'jewel'].includes(it.kind) ? G.canUse(c, it) : { ok: true };
-      const row = h('button', 'vrow' + (can.ok ? '' : ' nouse'), `<span class="ic">${UI.icHTML(it)}</span><span class="vn">${esc(it.name)}<small class="dim">${it.kind === 'weapon' ? D.WEAPON_TYPES[it.wt].name + ' · ' + it.dmg + '/' + it.delay.toFixed(1) : it.kind === 'armor' ? (it.shield ? 'Shield' : it.ak + ' ' + it.slot) + ' · AC ' + it.ac : it.kind === 'mat' ? 'Material tier ' + (it.tier + 1) : it.kind === 'jewel' ? D.SLOT_NAMES[it.slot] : ''}${it.req > 1 ? ' · L' + it.req : ''}</small></span><span class="vp">${G.fmtCoins(G.itemPrice(it))}</span>`);
+      const left = KR.Gear && it.stockKey ? KR.Gear.stockLeft(it) : null;
+      const row = h('button', 'vrow' + (can.ok ? '' : ' nouse') + (left === 0 ? ' nouse' : ''), `<span class="ic">${UI.icHTML(it)}</span><span class="vn">${esc(it.name)}${left != null ? ` <small class="${left ? 'dim' : 'bad'}">(${left ? left + ' left' : 'sold out'})</small>` : ''}<small class="dim">${it.kind === 'weapon' ? D.WEAPON_TYPES[it.wt].name + ' · ' + it.dmg + '/' + it.delay.toFixed(1) : it.kind === 'armor' ? (it.shield ? 'Shield' : it.ak + ' ' + it.slot) + ' · AC ' + it.ac : it.kind === 'mat' ? 'Material tier ' + (it.tier + 1) : it.kind === 'jewel' ? D.SLOT_NAMES[it.slot] : ''}${it.req > 1 ? ' · L' + it.req : ''}</small></span><span class="vp">${G.fmtCoins(G.itemPrice(it))}</span>`);
       UI.bindTip(row, () => UI.itemTip(it, 'buy') + (it.stack ? '<div class="dim">Click to choose how many</div>' : ''));
       row.onclick = () => { if (it.stack) UI.qtyPicker(it, 'buy'); else Sys.buy(it, 1); };
       list.appendChild(row);

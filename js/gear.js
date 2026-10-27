@@ -118,6 +118,25 @@
   const use1 = Sys.useItem;
   Sys.useItem = function (it) { if (it && it.kind === 'camp') return GEAR.pitchCamp(it); return use1.apply(this, arguments); };
 
+  // limited stock: what a merchant has left of a material (it comes back every half hour)
+  const RESTOCK = 30 * 60000;
+  GEAR.stockLeft = function (it) { if (!it || !it.stockKey) return Infinity; const S = (Sys.vendorSold = Sys.vendorSold || {}); const r = S[it.stockKey]; if (r && Date.now() - r.t > RESTOCK) delete S[it.stockKey]; return Math.max(0, it.limit - ((S[it.stockKey] || {}).n || 0)); };
+  const buy0 = Sys.buy;
+  Sys.buy = function (it, qty = 1) {
+    if (it && it.stockKey) {
+      const left = GEAR.stockLeft(it);
+      if (left <= 0) { const r = Sys.vendorSold[it.stockKey]; const min = Math.max(1, Math.ceil((RESTOCK - (Date.now() - r.t)) / 60000)); G.log(`Sold out of ${it.name}. More comes in about ${min} minute${min > 1 ? 's' : ''}. Better ore, wood and hides are found out in the world.`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return false; }
+      qty = Math.min(qty, left);
+      const ok = buy0.call(this, it, qty);
+      if (ok) { const S = Sys.vendorSold; const r = S[it.stockKey] || (S[it.stockKey] = { n: 0, t: Date.now() }); r.n += qty; KR.UI && KR.UI.refresh(); }
+      return ok;
+    }
+    return buy0.apply(this, arguments);
+  };
+  // the metal names changed (every tier is now an ore you can mine): rename what heroes already carry
+  const RENAME = { 'Steel Ingot': 'Silver Ore', Adamantite: 'Adamantite Ore', Starmetal: 'Starmetal Ore' };
+  GEAR.renameMats = function (list) { for (const it of list || []) if (it && it.kind === 'mat' && RENAME[it.name]) it.name = RENAME[it.name]; };
+
   // older heroes had tool levels instead of tools: give them the real thing once
   GEAR.migrate = function (c) {
     if (!c || c._gearV) return; c._gearV = 1;
@@ -126,7 +145,7 @@
 
   const start0 = Sys.startPlayer;
   Sys.startPlayer = function (c) {
-    try { GEAR.migrate(c); } catch (e) { console.warn(e); }
+    try { GEAR.migrate(c); GEAR.renameMats(c.inv); if (G.account && G.account.bank) GEAR.renameMats(G.account.bank.items); } catch (e) { console.warn(e); }
     // no camp: the soul is bound at the healer of the hero's own city
     const r = start0.apply(this, arguments);
     if (!c.camp && c.faction && D.CITY_CENTER[c.faction]) { const [cx, cy] = D.CITY_CENTER[c.faction]; const oldDefault = c.bind && c.bind.x === cx * TS + 16 && c.bind.y === (cy + 3) * TS + 16; if (!c.bind || oldDefault) c.bind = GEAR.healerBind(c); }
@@ -166,6 +185,11 @@
   Sys.vendorStock = function (kind, npc) {
     const out = stock0.apply(this, arguments);
     const L = npc && npc.city ? Sys.cityLevel(npc.city) : 1;
+    // materials: merchants only carry the basic kinds (copper, iron, rough and tanned hide, linen...), and only a few:
+    // anything better has to be mined, chopped, skinned or won out in the world
+    for (let i = out.length - 1; i >= 0; i--) { const it = out[i]; if (it.kind !== 'mat') continue; if (it.tier >= 2) { out.splice(i, 1); continue; } it.stockKey = `${kind}:${npc ? npc.id : 0}:${it.mat}:${it.tier}`; it.limit = it.tier === 0 ? 20 : 8; }
+    // the crafters sell the basic gathering tools too
+    if (['metal', 'cloth', 'fletcher', 'mats', 'jeweler'].includes(kind)) { const have = new Set(out.filter((x) => x.tool).map((x) => x.tool)); for (const k of ['axe', 'pick', 'knife']) if (!have.has(k)) out.push(G.makeTool(k, 1)); }
     if (kind === 'outfitter') out.push(G.makeCampKit());
     if (kind === 'general' || kind === 'outfitter') {
       out.push(G.makeTool('axe', 1), G.makeTool('pick', 1), G.makeTool('knife', 1));

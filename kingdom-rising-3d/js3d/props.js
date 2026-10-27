@@ -154,7 +154,7 @@ P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z:
 P.well2 = P.well;
 
 // trees, rocks and plants go to the instanced vegetation instead
-export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'flowers', 'fern', 'reeds', 'crop']);
+export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'orevein', 'flowers', 'fern', 'reeds', 'crop']);
 const AGAINST_WALL = new Set(['bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
 
 // build the non-vegetation decorations in a tile rectangle into mb; extra lists collect flames, smoke, emitters, signs, flags, animated props

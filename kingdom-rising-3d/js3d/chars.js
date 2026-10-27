@@ -31,7 +31,7 @@ charMat.onBeforeCompile = (sh) => {
     else if (pat == 6.) { float n = mix(.5, cn(vec3(q.x * 220., q.y * 14., q.z * 220.)), aaF); gPat = n; diffuseColor.rgb *= .88 + .2 * n; }
     else if (pat == 7.) { vec2 g = fract(vec2(q.x + q.z, q.y) * 90.) - .5; float r = abs(length(g) - .32); gPat = mix(.35, smoothstep(.1, 0., r), aaF); diffuseColor.rgb *= .78 + .32 * gPat; }
     else if (pat == 9.) { gEm = 1.; }
-    else if (pat == 10.) { float n = cn(q * 30.) * .7 + cn(q * 75.) * .3; gPat = mix(.5, smoothstep(.3, .7, n), aaM); diffuseColor.rgb *= .92 + .12 * gPat; }
+    else if (pat == 10.) { vec3 sq = q * 55.; vec3 si = floor(sq); vec3 sf = fract(sq) - .5; float cell = cn(si * 1.7); float bump = 1. - smoothstep(.15, .5, length(sf.xy + sf.z * .3)); gPat = mix(.5, bump * (.7 + .3 * cell), aaM); diffuseColor.rgb *= .94 + .1 * gPat + .06 * (cell - .5); }
   `).replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vMat.x;')
     .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vMat.y;')
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>

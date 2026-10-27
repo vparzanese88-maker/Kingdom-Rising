@@ -373,6 +373,8 @@ export const actors = {
     ctx = Object.assign({ cam: K3.camera.position }, ctx);
     const p = G.player; const cam = ctx.cam;
     const alive = new Set();
+    // new bodies take a moment to build: spend at most a few milliseconds a frame on them (nearest first come first)
+    const t0 = performance.now(); let built = 0;
     const consider = (e, peer) => {
       if (!e || e.removed || e.hidden) return;
       const d = Math.hypot(e.x * PX - cam.x, e.y * PX - cam.z);
@@ -381,7 +383,7 @@ export const actors = {
       alive.add(key);
       let av = avatars.get(key);
       try {
-        if (!av) { av = makeAvatar(e, peer); avatars.set(key, av); }
+        if (!av) { if (built > 0 && performance.now() - t0 > (d < 25 ? 14 : 6)) { alive.delete(key); return; } built++; av = makeAvatar(e, peer); avatars.set(key, av); }
         av.e = e;
         av.obj.visible = d < (peer ? 156 : 150);
         updateAvatar(av, dt, ctx);

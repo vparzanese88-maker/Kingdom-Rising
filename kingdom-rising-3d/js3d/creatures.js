@@ -4,13 +4,21 @@
 import { THREE, K3 } from './core.js';
 import { PRIM } from './mb.js';
 import { charMat } from './chars.js';
+import { sdfMesh } from './sdfmesh.js';
 
 const shade = (c, a) => K3.shade(c || '#777777', a);
 const Q = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
-const MATS = { plain: [0, 0.8, 0], fur: [0, 1, 4], skin: [0, 0.6, 5], scales: [0.1, 0.45, 10], bone: [0, 0.7, 8], glow: [0, 1, 9], shell: [0.2, 0.3, 3], rock: [0, 0.95, 2], wood: [0, 0.9, 2], leaf: [0, 0.9, 1], metal: [0.85, 0.32, 3] };
+// smooth bodies need the realistic-figures option (on unless the quality is low)
+const FUR_LEN = { wolf: 0.022, bear: 0.035, boar: 0.022, tiger: 0.012, rat: 0.01, griffon: 0.018, horse: 0.006 };
+const ORGANIC = () => K3.settings.quality !== 'low';
+const MATS = { gem: [0.2, 0.1, 0], plain: [0, 0.8, 0], fur: [0, 1, 4], skin: [0, 0.6, 5], scales: [0.1, 0.45, 10], bone: [0, 0.7, 8], glow: [0, 1, 9], shell: [0.2, 0.3, 3], rock: [0, 0.95, 2], wood: [0, 0.9, 2], leaf: [0, 0.9, 1], metal: [0.85, 0.32, 3] };
 
 class Rig {
-  constructor(defs) { this.defs = defs; this.names = defs.map((d) => d[0]); this.bi = Object.fromEntries(defs.map((d, i) => [d[0], i])); this.par = Object.fromEntries(defs.map((d) => [d[0], d[1]])); this.rest = Object.fromEntries(defs.map((d) => [d[0], d[2]])); this.pos = []; this.nor = []; this.col = []; this.mat = []; this.si = []; this.sw = []; this.idx = []; this.n = 0; }
+  constructor(defs) { this.defs = defs; this.names = defs.map((d) => d[0]); this.bi = Object.fromEntries(defs.map((d, i) => [d[0], i])); this.par = Object.fromEntries(defs.map((d) => [d[0], d[1]])); this.rest = Object.fromEntries(defs.map((d) => [d[0], d[2]])); this.pos = []; this.nor = []; this.col = []; this.mat = []; this.si = []; this.sw = []; this.idx = []; this.n = 0; this.prims = []; this.organic = false; this.hardD = 0; }
+  // parts drawn crisp (eyes, teeth, horns, claws) instead of melted into the body
+  hard(fn) { this.hardD++; try { fn(); } finally { this.hardD--; } }
+  soft(mat) { return this.organic && !this.hardD && !['glow', 'bone', 'shell', 'metal'].includes(mat); }
+  prim(o, bone, color, mat, bone2, w2) { o.col = K3.col(color || '#888888', new THREE.Color()); o.bone = this.bi[bone]; o.bone2 = bone2 ? this.bi[bone2] : null; o.w2 = w2 || 0; o.mat = MATS[mat] || MATS.plain; this.prims.push(o); }
   add(g, m, bone, color, mat = 'plain', bone2 = null, w2 = 0) {
     const pa = g.attributes.position, na = g.attributes.normal; const nm = new THREE.Matrix3().getNormalMatrix(m);
     const c = K3.col(color || '#888888', new THREE.Color()); const M = MATS[mat] || MATS.plain;
@@ -19,15 +27,16 @@ class Rig {
     if (g.index) { const ia = g.index.array; for (let i = 0; i < ia.length; i++) this.idx.push(base + ia[i]); } else for (let i = 0; i < pa.count; i++) this.idx.push(base + i);
     this.n += pa.count;
   }
-  ell(bone, p, r, color, mat, rot, bone2, w2) { const g = new THREE.SphereGeometry(1, 16, 12); this.add(g, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(...r)), bone, color, mat, bone2, w2); g.dispose(); }
+  ell(bone, p, r, color, mat, rot, bone2, w2) { if (this.soft(mat)) return this.prim({ t: 'e', p: [...p], r: [...r], q: rot }, bone, color, mat, bone2, w2); const g = new THREE.SphereGeometry(1, 16, 12); this.add(g, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(...r)), bone, color, mat, bone2, w2); g.dispose(); }
   seg(bone, a, b, r0, r1, color, mat, bone2, w2) {
     const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b); const L = A.distanceTo(B); if (L < 1e-4) return;
+    if (this.soft(mat)) return this.prim({ t: 's', a: [...a], b: [...b], r0, r1 }, bone, color, mat, bone2, w2);
     const g = new THREE.CylinderGeometry(r1, r0, L, 10, 2); const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
     this.add(g, new THREE.Matrix4().compose(A.clone().add(B).multiplyScalar(0.5), q, new THREE.Vector3(1, 1, 1)), bone, color, mat, bone2, w2); g.dispose();
     const s = new THREE.SphereGeometry(r0, 8, 6); this.add(s, new THREE.Matrix4().makeTranslation(A.x, A.y, A.z), bone, color, mat, bone2, w2); s.dispose();
   }
-  cone(bone, p, r, h, rot, color, mat) { this.add(PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(r * 2, h, r * 2)), bone, color, mat); }
-  box(bone, p, s, color, mat, rot) { this.add(PRIM.box, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(...s)), bone, color, mat); }
+  cone(bone, p, r, h, rot, color, mat) { if (this.soft(mat)) { const ax = new THREE.Vector3(0, 1, 0).applyQuaternion(rot || new THREE.Quaternion()); const P0 = new THREE.Vector3(...p).addScaledVector(ax, -h / 2), P1 = new THREE.Vector3(...p).addScaledVector(ax, h / 2); return this.prim({ t: 's', a: P0.toArray(), b: P1.toArray(), r0: r, r1: r * 0.12, k: r * 0.6 }, bone, color, mat); } this.add(PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(r * 2, h, r * 2)), bone, color, mat); }
+  box(bone, p, s, color, mat, rot) { if (this.soft(mat)) return this.prim({ t: 'b', p: [...p], h: [s[0] / 2, s[1] / 2, s[2] / 2], q: rot, round: Math.min(...s) * 0.25, k: Math.min(...s) * 0.6 }, bone, color, mat); this.add(PRIM.box, new THREE.Matrix4().compose(new THREE.Vector3(...p), rot || new THREE.Quaternion(), new THREE.Vector3(...s)), bone, color, mat); }
   // a two-sided membrane (wings): points P, triangles tris, verts in `outer` bound to bone2
   membrane(bone1, bone2, P, tris, outer, color, mat) {
     for (const flip of [false, true]) {
@@ -40,6 +49,18 @@ class Rig {
     }
   }
   geometry() {
+    if (this.prims.length) {
+      // one smooth body for all the soft parts, plus the crisp ones as they are
+      const body = sdfMesh(this.prims, this.k || 0.05, this.cell || 0.03);
+      if (this.paint) this.paint(body);
+      this.body = body;
+      if (!this.n) { body.computeBoundingSphere(); body.boundingSphere.radius *= 1.8; return body; }
+      this.prims = []; const hard = this.geometry();
+      const out = new THREE.BufferGeometry(); const nb = body.attributes.position.count;
+      for (const k of ['position', 'normal', 'color', 'aMat', 'skinIndex', 'skinWeight']) { const a = body.attributes[k], b = hard.attributes[k]; const arr = new a.array.constructor(a.array.length + b.array.length); arr.set(a.array); arr.set(b.array, a.array.length); out.setAttribute(k, new THREE.BufferAttribute(arr, a.itemSize)); }
+      const ia = body.index.array, ib = hard.index.array; const ix = new Uint32Array(ia.length + ib.length); ix.set(ia); for (let i = 0; i < ib.length; i++) ix[ia.length + i] = ib[i] + nb; out.setIndex(new THREE.BufferAttribute(ix, 1));
+      out.computeBoundingSphere(); out.boundingSphere.radius *= 1.8; return out;
+    }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3)); g.setAttribute('aMat', new THREE.Float32BufferAttribute(this.mat, 3));
@@ -47,6 +68,38 @@ class Rig {
     g.setIndex(this.n > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
     g.computeBoundingSphere(); g.boundingSphere.radius *= 1.8; return g;
   }
+}
+// fur: the body drawn again a few times, each layer pushed out a little, cut into strands that thin
+// toward the tips (only where the body is furry)
+const furMats = new Map();
+function furMaterial(len) {
+  const key = len.toFixed(3); let m = furMats.get(key); if (m) return m;
+  m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, alphaTest: 0.5 });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uLen = { value: len };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShell; attribute vec3 aMat; uniform float uLen; varying float vShell; varying vec3 vFR; varying float vFur;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvShell = aShell; vFur = step(3.5, aMat.z) * step(aMat.z, 4.5); vFR = position; transformed += normal * uLen * aShell * vFur; transformed.y -= uLen * aShell * aShell * .35 * vFur;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying float vShell; varying vec3 vFR; varying float vFur;
+      float fh(vec3 p){ p = fract(p * .1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        { if (vFur < .5) discard; vec3 q = floor(vFR * ${(1 / Math.max(0.0025, len * 0.12)).toFixed(1)}); float h = fh(q); if (h < vShell * 1.05 + .08) discard;
+          diffuseColor.rgb *= .55 + .55 * vShell; diffuseColor.a = 1.; }`);
+  };
+  m.customProgramCacheKey = () => 'krfur' + key;
+  furMats.set(key, m); return m;
+}
+function furGeometry(body, layers) {
+  const n = body.attributes.position.count; const out = new THREE.BufferGeometry();
+  for (const k of ['position', 'normal', 'color', 'aMat', 'skinIndex', 'skinWeight']) { const a = body.attributes[k]; const arr = new a.array.constructor(a.array.length * layers); for (let l = 0; l < layers; l++) arr.set(a.array, l * a.array.length); out.setAttribute(k, new THREE.BufferAttribute(arr, a.itemSize, a.normalized)); }
+  const sh = new Float32Array(n * layers); for (let l = 0; l < layers; l++) sh.fill((l + 1) / layers, l * n, (l + 1) * n); out.setAttribute('aShell', new THREE.BufferAttribute(sh, 1));
+  const ia = body.index.array; const ix = new Uint32Array(ia.length * layers); for (let l = 0; l < layers; l++) for (let i = 0; i < ia.length; i++) ix[l * ia.length + i] = ia[i] + l * n; out.setIndex(new THREE.BufferAttribute(ix, 1));
+  out.boundingSphere = body.boundingSphere; return out;
+}
+export function addFur(inst, body, len) {
+  const q = K3.settings.quality; const layers = q === 'ultra' ? 10 : q === 'high' ? 8 : q === 'medium' ? 5 : 0; if (!layers || !body || len <= 0) return;
+  if (!body.boundingSphere) body.computeBoundingSphere();
+  const m = new THREE.SkinnedMesh(furGeometry(body, layers), furMaterial(len)); m.bind(inst.mesh.skeleton, inst.mesh.bindMatrix); m.castShadow = false; m.receiveShadow = true; inst.mesh.add(m); inst.fur = m;
 }
 function instance(rig, geom) {
   const bones = rig.names.map((n) => { const b = new THREE.Bone(); b.name = n; return b; });
@@ -84,16 +137,84 @@ function quadRig(sp) {
   if (sp.wings) for (const s of [1, -1]) { const n = s > 0 ? 'WL' : 'WR'; defs.push([n + '1', 'chest', [s * sp.br * 0.6, legH + sp.br * 0.8, hx * 0.6]], [n + '2', n + '1', [s * (sp.br * 0.6 + sp.wings * 0.45), legH + sp.br * 0.8 + 0.1, hx * 0.4]]); }
   return defs;
 }
+// a believable animal: ribcage, shoulder blades, a tucked waist, haunches, a tapering neck, a skull
+// with muzzle and jaw, muscular upper legs over slim lower legs and paws; all melted into one body
+function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
+  const r = R.rest, br = sp.br, hr = sp.hr, sn = sp.sn, lg = sp.leg; const cat = kind === 'tiger', dog = kind === 'wolf' || kind === 'spiritwolf' || kind === 'rat';
+  const heavy = kind === 'bear' || kind === 'boar', rept = sp.scales, horse = kind === 'horse', fl = sp.flat;
+  const ch = r.chest, pv = r.pelvis, rt = r.root; const tuck = dog || cat || horse ? 1 : heavy ? 0.2 : 0.5;
+  // torso
+  R.ell('chest', [0, ch[1] + br * 0.12, ch[2]], [br * (heavy ? 1.0 : 0.78), br * (fl ? 0.6 : 1.05), br * 1.15], c, mat, null, 'root', 0.25);
+  R.ell('chest', [0, ch[1] - br * 0.35, ch[2] + br * 0.15], [br * 0.6, br * 0.55, br * 0.8], belly, mat, null, 'root', 0.2); // the brisket
+  for (const sx of [1, -1]) R.ell(sx > 0 ? 'FL1' : 'FR1', [sx * br * 0.42, ch[1] + br * 0.38, ch[2] - br * 0.05], [br * 0.32, br * 0.55, br * 0.55], c, mat, Q(0.35, 0, 0), 'chest', 0.6);
+  if (sp.hump) R.ell('chest', [0, ch[1] + br * 0.75, ch[2] - br * 0.1], [br * 0.7, br * 0.5, br * 0.7], dark, mat);
+  R.ell('root', [0, rt[1] + br * 0.12 * tuck, rt[2]], [br * (0.62 + 0.3 * (1 - tuck)), br * (0.85 - 0.25 * tuck) * (fl ? 0.65 : 1), Math.abs(ch[2] - pv[2]) * 0.55], c, mat);
+  R.ell('root', [0, rt[1] - br * (0.35 - 0.2 * tuck), rt[2]], [br * 0.5, br * 0.35, Math.abs(ch[2] - pv[2]) * 0.4], belly, mat);
+  R.ell('pelvis', [0, pv[1] + br * 0.1, pv[2]], [br * (heavy ? 0.95 : 0.72), br * (fl ? 0.55 : 0.85), br * 0.9], c, mat, null, 'root', 0.25);
+  for (const sx of [1, -1]) R.ell(sx > 0 ? 'BL1' : 'BR1', [sx * br * 0.38, pv[1] + br * 0.05, pv[2] - br * 0.05], [br * 0.36, br * 0.72, br * 0.66], c, mat, null, 'pelvis', 0.5);
+  // neck and head
+  const hd = r.head; const nk0 = [0, ch[1] + br * 0.4, ch[2] + br * 0.75], nk1 = [0, hd[1] - hr * 0.1, hd[2] - hr * 0.45];
+  R.seg('neck', nk0, nk1, br * (sp.neck ? 0.5 : 0.62), hr * 0.72, c, mat, 'chest', 0.3);
+  R.ell('head', [0, hd[1] + hr * 0.08, hd[2] - hr * 0.05], [hr * 0.82, hr * 0.78, hr * 0.92], c, mat);
+  R.ell('head', [0, hd[1] + hr * 0.32, hd[2] + hr * 0.42], [hr * 0.55, hr * 0.22, hr * 0.32], c, mat); // brow
+  for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.42, hd[1] - hr * 0.18, hd[2] + hr * 0.38], [hr * 0.32, hr * 0.32, hr * 0.38], c, mat); // cheeks
+  const tipZ = hd[2] + hr * 0.5 + sn * 1.05, tipY = hd[1] - hr * (fl ? 0.3 : 0.18);
+  if (!sp.beak) {
+    R.seg('head', [0, hd[1] - hr * 0.05, hd[2] + hr * 0.35], [0, tipY + hr * 0.08, tipZ], hr * (fl ? 0.62 : 0.5), hr * (cat ? 0.36 : fl ? 0.32 : 0.26), shade(c, -0.03), mat);
+    R.seg('jaw', [0, r.jaw[1] - hr * 0.05, r.jaw[2] - hr * 0.2], [0, r.jaw[1] - hr * 0.08, tipZ - hr * 0.12], hr * 0.42, hr * 0.2, belly, mat);
+    R.ell('head', [0, tipY + hr * 0.1, tipZ + hr * 0.02], [hr * 0.2, hr * 0.15, hr * 0.12], rept ? shade(c, -0.15) : '#1a1414', rept ? mat : 'skin'); // nose
+  } else R.ell('head', [0, hd[1], hd[2] + hr * 0.2], [hr * 0.95, hr * 0.9, hr * 1.0], '#f4efe0', 'fur');
+  // ears
+  for (const sx of [1, -1]) {
+    if (sp.ear === 'point') R.ell('head', [sx * hr * 0.48, hd[1] + hr * 0.82, hd[2] - hr * 0.15], [hr * 0.2, hr * (dog ? 0.42 : 0.3), hr * 0.07], dark, mat, Q(-0.15, 0, -sx * 0.28));
+    else if (sp.ear === 'round') R.ell('head', [sx * hr * 0.55, hd[1] + hr * 0.72, hd[2] - hr * 0.2], [hr * 0.22, hr * 0.2, hr * 0.07], sp.earCol || dark, mat);
+  }
+  // legs: a muscular upper leg, a slim lower leg and a paw or hoof
+  for (const n of ['FL', 'FR', 'BL', 'BR']) {
+    const a = r[n + '1'], b = r[n + '2'], f = r[n + '3']; const back = n[0] === 'B'; const L = lg * (back ? 1.1 : 1) * (heavy ? 1.25 : 1);
+    R.seg(n + '1', [a[0], a[1] + br * 0.15, a[2]], [b[0], b[1] + (a[1] - b[1]) * 0.1, b[2] + (back ? -0.02 : 0)], L * (back ? 1.9 : 1.55), L * 0.85, c, mat, back ? 'pelvis' : 'chest', 0);
+    R.seg(n + '2', b, [f[0], f[1] + L * 1.2, f[2] + (back ? -0.01 : 0.01)], L * 0.78, L * 0.56, c, mat);
+    if (horse) R.seg(n + '3', [f[0], f[1] + L * 1.1, f[2]], [f[0], f[1] - L * 0.2, f[2] + L * 0.2], L * 0.78, L * 0.95, '#2a2a2a', 'skin');
+    else if (!sp.beak || back) R.ell(n + '3', [f[0], f[1] + L * 0.15, f[2] + L * 0.7], [L * 1.15, L * 0.62, L * 1.5], shade(c, -0.08), mat);
+  }
+  // tail
+  if (sp.tail > 0.1) {
+    const bushy = dog && kind !== 'rat' ? 1.7 : 1; const tr = sp.tailR;
+    R.seg('tail1', [0, pv[1] + br * 0.35, pv[2] - br * 0.75], r.tail2, tr * (rept ? 1.6 : 0.9), tr * bushy * (rept ? 0.9 : 1), sp.tailCol || c, mat, 'pelvis', 0.3);
+    R.seg('tail2', r.tail2, r.tail3, tr * bushy * (rept ? 0.9 : 1), tr * (rept ? 0.45 : bushy * 0.8), sp.tailCol || c, mat);
+    R.seg('tail3', r.tail3, [0, r.tail3[1] - sp.tail * 0.15, r.tail3[2] - sp.tail * 0.28], tr * (rept ? 0.45 : bushy * 0.8), tr * 0.12, sp.tailCol || (bushy > 1 ? shade(c, 0.25) : c), mat);
+  } else R.ell('pelvis', [0, pv[1] + br * 0.45, pv[2] - br * 0.95], [br * 0.18, br * 0.18, br * 0.18], c, mat);
+  // crisp bits: eyes, teeth, tusks, horns, claws, beak, mane, spikes
+  R.hard(() => {
+    for (const sx of [-1, 1]) R.ell('head', [sx * hr * 0.45, hd[1] + hr * 0.2, hd[2] + hr * 0.58], [hr * 0.12, hr * 0.12, hr * 0.09], sp.eye || '#1a1a1a', sp.glowy || (sp.eye && sp.eye !== '#1a1a1a' && sp.eye !== '#2a1a10') ? 'glow' : 'gem');
+    if (fl) for (let k = 0; k < 12; k++) R.cone('jaw', [(k % 2 ? 1 : -1) * hr * 0.42, r.jaw[1] + hr * 0.1, r.jaw[2] + hr * 0.2 + (k >> 1) * sn * 0.2], hr * 0.045, hr * 0.2, null, '#f0ead8', 'bone');
+    else if (!sp.beak) for (const sx of [-1, 1]) R.cone('jaw', [sx * hr * 0.16, r.jaw[1] + hr * 0.06, tipZ - hr * 0.22], hr * 0.035, hr * 0.16, null, '#f0ead8', 'bone');
+    if (sp.tusk) for (const sx of [-1, 1]) R.cone('jaw', [sx * hr * 0.32, r.jaw[1] + hr * 0.25, tipZ - hr * 0.35], hr * 0.07, hr * 0.6, Q(0.6, 0, -sx * 0.5), '#f0ead8', 'bone');
+    if (sp.horns) for (const sx of [-1, 1]) R.cone('head', [sx * hr * 0.45, hd[1] + hr * 0.6, hd[2] - hr * 0.45], hr * 0.15, hr * 1.4, Q(-1.15, 0, -sx * 0.25), '#e8dcc0', 'bone');
+    if (sp.beak) R.cone('head', [0, hd[1] - hr * 0.15, hd[2] + hr * 1.2], hr * 0.36, hr * 1.0, Q(Math.PI / 2 + 0.45, 0, 0), '#e8c040', 'shell');
+    if (sp.ear === 'tuft') for (const sx of [-1, 1]) R.cone('head', [sx * hr * 0.45, hd[1] + hr * 0.8, hd[2] - hr * 0.4], hr * 0.14, hr * 0.7, Q(-0.8, 0, -sx * 0.3), '#f4efe0', 'shell');
+    for (const n of ['FL', 'FR', 'BL', 'BR']) { const f = r[n + '3']; const L = lg * (heavy ? 1.25 : 1); if (horse) continue; if (sp.beak && n[0] === 'F') { for (let k = -1; k <= 1; k++) R.cone(n + '3', [f[0] + k * L * 0.6, f[1], f[2] + L * 1.6], L * 0.3, L * 1.5, Q(Math.PI / 2, 0, 0), '#e8c040', 'shell'); continue; } if (dog || cat || heavy || rept) for (let k = -1; k <= 1; k++) R.cone(n + '3', [f[0] + k * L * 0.45, f[1] + L * 0.05, f[2] + L * 1.9], L * 0.12, L * 0.45, Q(Math.PI / 2 + 0.4, 0, 0), '#2a241e', 'bone'); }
+    if (sp.mane) for (let k = 0; k < 9; k++) R.cone('chest', [0, ch[1] + br * 1.0 - k * 0.01, ch[2] + br * 0.6 - k * br * 0.28], br * 0.1, br * 0.42, Q(-0.5, 0, 0), dark, 'shell');
+    if (sp.spikes) for (let k = 0; k < 11; k++) { const z = ch[2] + br * 0.4 - k * sp.L * 0.1; R.cone(k < 4 ? 'chest' : 'pelvis', [0, rt[1] + br * (fl ? 0.55 : 0.95) - Math.max(0, k - 6) * 0.06, z], br * 0.1, br * 0.5, Q(-0.35, 0, 0), dark, 'bone'); }
+  });
+}
 function buildQuad(kind, col, rnd) {
   const sp = QUAD[kind] || QUAD.wolf; const R = new Rig(quadRig(sp)); const r = R.rest;
+  R.organic = ORGANIC(); R.k = sp.br * 0.17; R.cell = K3.clamp(sp.L / 75, 0.012, 0.07);
+  if (R.organic) R.paint = (g) => { // darker along the back, lighter belly, tiger stripes
+    const P = g.attributes.position, N = g.attributes.normal, C = g.attributes.color; const top = r.root[1];
+    for (let i = 0; i < P.count; i++) { const ny = N.getY(i); let k = 1 + ny * 0.12 - Math.max(0, -ny) * 0.0; if (sp.stripes && P.getY(i) > top - sp.br * 0.5) { const st = Math.sin(P.getZ(i) * 26 + Math.sin(P.getX(i) * 18) * 1.2 + Math.sin(P.getY(i) * 9) * 0.8); if (st > 0.55) k *= 0.22; } C.setXYZ(i, C.getX(i) * k, C.getY(i) * k, C.getZ(i) * k); }
+  };
   const mat = sp.scales ? 'scales' : kind === 'spiritwolf' ? 'glow' : 'fur'; const c = col;
   const belly = shade(c, 0.18), dark = shade(c, -0.3);
+  if (R.organic) quadAnatomy(R, sp, kind, c, mat, belly, dark);
+  else {
   // body
   const bl = sp.L * 0.55;
   R.ell('pelvis', [0, r.pelvis[1] + sp.br * 0.05, r.pelvis[2]], [sp.br * 0.95, sp.br * (sp.flat ? 0.55 : 0.92), sp.br * 1.25], c, mat, null, 'root', 0.3);
   R.ell('chest', [0, r.chest[1] + (sp.hump ? sp.br * 0.25 : 0), r.chest[2]], [sp.br * 1.05, sp.br * (sp.flat ? 0.6 : 1.05), sp.br * 1.3], c, mat, null, 'root', 0.3);
   R.ell('root', [0, r.root[1] - sp.br * 0.15, 0], [sp.br * 0.92, sp.br * (sp.flat ? 0.5 : 0.85), bl * 0.62], sp.stripes ? c : belly, mat);
-  if (sp.stripes) for (let k = -3; k <= 3; k++) R.box('root', [0, r.root[1] + sp.br * 0.45, k * bl * 0.16], [sp.br * 1.9, sp.br * 0.3, 0.05], '#2a1a10', 'fur', Q(0, 0, 0));
+  if (sp.stripes && !R.organic) for (let k = -3; k <= 3; k++) R.box('root', [0, r.root[1] + sp.br * 0.45, k * bl * 0.16], [sp.br * 1.9, sp.br * 0.3, 0.05], '#2a1a10', 'fur', Q(0, 0, 0));
   if (sp.mane) for (let k = 0; k < 6; k++) R.cone('chest', [0, r.chest[1] + sp.br * 0.95, r.chest[2] - k * sp.br * 0.35 + sp.br * 0.4], sp.br * 0.12, sp.br * 0.5, Q(-0.3, 0, 0), dark, 'fur');
   if (sp.spikes) for (let k = 0; k < 9; k++) { const z = r.chest[2] + sp.br * 0.5 - k * sp.L * 0.12; R.cone(k < 4 ? 'chest' : 'pelvis', [0, r.root[1] + sp.br * 0.85 - Math.max(0, k - 5) * 0.05, z], sp.br * 0.12, sp.br * 0.55, Q(-0.35, 0, 0), dark, 'bone'); }
   // neck and head
@@ -112,7 +233,7 @@ function buildQuad(kind, col, rnd) {
   if (sp.tusk) for (const s of [-1, 1]) R.cone('jaw', [s * sp.hr * 0.4, r.jaw[1] + sp.hr * 0.3, r.jaw[2] + sp.sn * 0.6], sp.hr * 0.08, sp.hr * 0.65, Q(0.5, 0, -s * 0.5), '#f0ead8', 'bone');
   // eyes and ears
   for (const s of [-1, 1]) {
-    R.ell('head', [s * sp.hr * 0.55, r.head[1] + sp.hr * 0.25, r.head[2] + sp.hr * 0.65], [sp.hr * 0.14, sp.hr * 0.14, sp.hr * 0.1], sp.eye || '#1a1a1a', sp.eye && sp.eye !== '#1a1a1a' && sp.eye !== '#2a1a10' ? 'glow' : 'skin');
+    R.hard(() => R.ell('head', [s * sp.hr * 0.57, r.head[1] + sp.hr * 0.25, r.head[2] + sp.hr * 0.68], [sp.hr * 0.13, sp.hr * 0.13, sp.hr * 0.1], sp.eye || '#1a1a1a', sp.eye && sp.eye !== '#1a1a1a' && sp.eye !== '#2a1a10' ? 'glow' : 'gem'));
     if (sp.ear === 'point') R.cone('head', [s * sp.hr * 0.5, r.head[1] + sp.hr * 0.85, r.head[2] - sp.hr * 0.2], sp.hr * 0.22, sp.hr * 0.6, Q(-0.2, 0, -s * 0.3), dark, mat);
     else if (sp.ear === 'round') R.ell('head', [s * sp.hr * 0.6, r.head[1] + sp.hr * 0.75, r.head[2] - sp.hr * 0.15], [sp.hr * 0.24, sp.hr * 0.24, sp.hr * 0.1], sp.earCol || dark, mat);
     else if (sp.ear === 'tuft') R.cone('head', [s * sp.hr * 0.45, r.head[1] + sp.hr * 0.8, r.head[2] - sp.hr * 0.4], sp.hr * 0.15, sp.hr * 0.7, Q(-0.8, 0, -s * 0.3), '#f4efe0', 'fur');
@@ -129,6 +250,7 @@ function buildQuad(kind, col, rnd) {
     if (sp.beak && n[0] === 'F') { for (let k = -1; k <= 1; k++) R.cone(n + '3', [f[0] + k * lr * 0.6, f[1], f[2] + lr * 1.6], lr * 0.3, lr * 1.5, Q(Math.PI / 2, 0, 0), '#e8c040', 'shell'); }
     else R.ell(n + '3', [f[0], f[1], f[2] + lr * 0.6], [lr * 1.1, lr * 0.6, lr * 1.6], dark, mat);
   }
+  }
   // wings: a membrane on two bones
   if (sp.wings) for (const s of [1, -1]) {
     const n = s > 0 ? 'WL' : 'WR'; const a = r[n + '1'], b = r[n + '2'];
@@ -141,7 +263,8 @@ function buildQuad(kind, col, rnd) {
     R.seg(n + '1', a, b, sp.br * 0.12, sp.br * 0.08, dark, mat); R.seg(n + '2', b, [tipX, b[1] - span * 0.1, b[2] - span * 0.2], sp.br * 0.08, sp.br * 0.03, dark, mat);
   }
   const geom = R.geometry(); const inst = instance(R, geom);
-  return Object.assign(inst, { type: 'quad', sp, t: Math.random() * 10, phase: Math.random() * 6 });
+  const fl = R.organic && mat === 'fur' ? FUR_LEN[kind] ?? sp.br * 0.08 : 0; if (fl) addFur(inst, R.body, fl);
+  return Object.assign(inst, { _R: R, _body: fl ? R.body : null, _furLen: fl, type: 'quad', sp, t: Math.random() * 10, phase: Math.random() * 6 });
 }
 function animQuad(rig, st, dt) {
   const B = rig.bones, sp = rig.sp; const t = (rig.t += dt);
@@ -183,13 +306,15 @@ function buildBug(kind, col) {
   for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); const z = (0.12 - i * (spider ? 0.09 : 0.11)) * s; defs.push([n + '1', 'root', [sd * 0.12 * s, H, z]], [n + '2', n + '1', [sd * (spider ? 0.55 : 0.32) * s, H + (spider ? 0.32 : 0.08) * s, z + (i - legs / 2) * 0.08 * s]], [n + '3', n + '2', [sd * (spider ? 0.95 : 0.45) * s, 0.02, z + (i - legs / 2) * 0.14 * s]]); }
   if (bee) defs.push(['WL', 'root', [0.05, H + 0.08, 0]], ['WR', 'root', [-0.05, H + 0.08, 0]]);
   const R = new Rig(defs); const r = R.rest; const dark = shade(col, -0.25);
+  if (spider && ORGANIC()) { R.organic = true; R.k = 0.03; R.cell = 0.014; }
   if (spider) { R.ell('root', r.root, [0.24, 0.17, 0.26], col, 'fur'); R.ell('abd', [0, r.abd[1] + 0.08, r.abd[2] - 0.22], [0.36, 0.3, 0.44], dark, 'fur'); R.box('abd', [0, r.abd[1] + 0.33, r.abd[2] - 0.2], [0.1, 0.04, 0.2], '#c83a3a', 'skin'); R.ell('head', [0, r.head[1], r.head[2] + 0.06], [0.14, 0.12, 0.14], col, 'fur'); for (let k = 0; k < 6; k++) R.ell('head', [((k % 3) - 1) * 0.05, r.head[1] + 0.06 + Math.floor(k / 3) * 0.04, r.head[2] + 0.17], [0.025, 0.025, 0.02], '#ff4a3a', 'glow'); for (const sd of [-1, 1]) R.cone('head', [sd * 0.05, r.head[1] - 0.08, r.head[2] + 0.18], 0.025, 0.12, Q(Math.PI, 0, 0), '#1a1a1a', 'shell'); }
   else if (bee) { R.ell('root', r.root, [0.08, 0.08, 0.16], col, 'shell'); R.ell('abd', [0, r.abd[1], r.abd[2] - 0.2], [0.07, 0.07, 0.26], dark, 'shell'); R.ell('head', r.head, [0.07, 0.07, 0.07], col, 'shell'); R.seg('head', [0, r.head[1] - 0.02, r.head[2] + 0.05], [0, r.head[1] - 0.12, r.head[2] + 0.35], 0.008, 0.003, '#2a1a10', 'shell'); for (const sd of [-1, 1]) R.ell('head', [sd * 0.05, r.head[1] + 0.02, r.head[2] + 0.04], [0.035, 0.035, 0.03], '#8a2a1a', 'glow');
     for (const n of ['WL', 'WR']) { const sd = n === 'WL' ? 1 : -1; R.ell(n, [sd * 0.3, r.WL[1] + 0.02, -0.02], [0.3, 0.01, 0.1], '#dce6ff', 'shell'); } }
   else { R.ell('root', [0, r.root[1] + 0.04, -0.02], [0.3, 0.2, 0.42], col, 'shell'); R.box('root', [0, r.root[1] + 0.2, -0.02], [0.02, 0.02, 0.7], shade(col, -0.4), 'shell'); R.ell('head', [0, r.head[1] - 0.02, r.head[2] + 0.05], [0.14, 0.1, 0.12], '#2a1a10', 'shell'); R.cone('head', [0, r.head[1] + 0.06, r.head[2] + 0.14], 0.03, 0.2, Q(-0.6, 0, 0), '#2a1a10', 'shell'); for (const sd of [-1, 1]) R.ell('root', [sd * 0.14, r.root[1] + 0.16, 0.1 - (sd > 0 ? 0.2 : 0)], [0.04, 0.03, 0.04], '#ffd25a', 'glow'); }
   for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); R.seg(n + '1', r[n + '1'], r[n + '2'], spider ? 0.03 : 0.018, spider ? 0.025 : 0.014, dark, spider ? 'fur' : 'shell'); R.seg(n + '2', r[n + '2'], r[n + '3'], spider ? 0.025 : 0.014, 0.008, dark, spider ? 'fur' : 'shell'); }
   const inst = instance(R, R.geometry());
-  return Object.assign(inst, { type: 'bug', legs, spider, bee, t: Math.random() * 10, phase: 0, H });
+  if (R.organic && spider) addFur(inst, R.body, 0.012);
+  return Object.assign(inst, { _R: R, _body: R.organic && spider ? R.body : null, _furLen: 0.012, type: 'bug', legs, spider, bee, t: Math.random() * 10, phase: 0, H });
 }
 function animBug(rig, st, dt) {
   const B = rig.bones; const t = (rig.t += dt); rig.phase += st.dist * 9;
@@ -205,12 +330,12 @@ function animBug(rig, st, dt) {
 // ---------- snake ----------
 function buildSnake(col) {
   const N = 9; const defs = [['s0', null, [0, 0.12, 0.6]]]; for (let i = 1; i < N; i++) defs.push(['s' + i, 's' + (i - 1), [0, 0.1, 0.6 - i * 0.17]]);
-  const R = new Rig(defs); const r = R.rest;
+  const R = new Rig(defs); const r = R.rest; if (ORGANIC()) { R.organic = true; R.k = 0.04; R.cell = 0.012; }
   for (let i = 0; i < N - 1; i++) { const rr = 0.07 * (1 - i / N * 0.7); R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rr, rr * 0.92, i % 2 ? col : shade(col, -0.12), 'scales'); }
   R.ell('s0', [0, r.s0[1] + 0.02, r.s0[2] + 0.08], [0.085, 0.06, 0.13], shade(col, 0.1), 'scales');
   for (const sd of [-1, 1]) R.ell('s0', [sd * 0.05, r.s0[1] + 0.05, r.s0[2] + 0.13], [0.02, 0.02, 0.02], '#e8d040', 'glow');
-  R.seg('s0', [0, r.s0[1], r.s0[2] + 0.2], [0, r.s0[1], r.s0[2] + 0.3], 0.006, 0.002, '#c83a3a', 'skin');
-  const inst = instance(R, R.geometry()); return Object.assign(inst, { type: 'snake', N, t: Math.random() * 10, phase: 0 });
+  R.hard(() => R.seg('s0', [0, r.s0[1], r.s0[2] + 0.2], [0, r.s0[1], r.s0[2] + 0.3], 0.006, 0.002, '#c83a3a', 'skin'));
+  const inst = instance(R, R.geometry()); return Object.assign(inst, { _R: R, type: 'snake', N, t: Math.random() * 10, phase: 0 });
 }
 function animSnake(rig, st, dt) { const B = rig.bones; const t = (rig.t += dt); rig.phase += st.dist * 8 + dt * 1.2; for (let i = 0; i < rig.N; i++) { const b = B['s' + i]; b.rotation.set(0, Math.sin(rig.phase - i * 0.8) * (i ? 0.35 : 0.15), 0); } const a = st.atk || 0; B.s0.rotation.x = a > 0 && a < 1 ? -Math.sin(a * Math.PI) * 0.6 : -0.15; B.s1.rotation.x = a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.3 : 0.1; }
 
@@ -297,8 +422,20 @@ function animSpirit(rig, st, dt) {
 
 // ---------- the dispatcher ----------
 export const QUAD_KINDS = new Set(Object.keys(QUAD));
+// bodies are built once per kind and colour; each creature only gets its own bones
+const built = new Map();
+function cached(key, build) {
+  let c = built.get(key);
+  if (!c) { const inst = build(); c = { R: inst._R, geom: inst.mesh.geometry, body: inst._body, furLen: inst._furLen, extra: Object.fromEntries(Object.entries(inst).filter(([k]) => !['mesh', 'bones', 'rest', 'fur', '_R', '_body', '_furLen', 't', 'phase'].includes(k))) }; built.set(key, c); return inst; }
+  const inst = instance(c.R, c.geom); if (c.body) addFur(inst, c.body, c.furLen);
+  return Object.assign(inst, c.extra, { t: Math.random() * 10, phase: Math.random() * 6 });
+}
 export function makeCreature(kind, col, e) {
   col = col || '#777777';
+  if (QUAD_KINDS.has(kind) || kind === 'spider' || kind === 'snake') return cached(kind + '|' + col, () => buildCreature(kind, col));
+  return buildCreature(kind, col);
+}
+function buildCreature(kind, col) {
   if (QUAD_KINDS.has(kind)) return buildQuad(kind, col);
   if (kind === 'spider' || kind === 'beetle' || kind === 'mosquito') return buildBug(kind, col);
   if (kind === 'snake') return buildSnake(col);

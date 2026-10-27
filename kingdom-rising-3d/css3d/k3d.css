@@ -40,6 +40,7 @@
 body.k3-menu #gate.cover-on { background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.75) 100%); }
 body.k3-menu #screen { background: linear-gradient(90deg, rgba(6,5,8,0.55) 0%, rgba(6,5,8,0.12) 45%, rgba(6,5,8,0.12) 60%, rgba(6,5,8,0.5) 100%); }
 body.k3-menu #screen .bgcv { display: none; }
+body.k3-menu #screen .bgcv.cls-on { display: block; } /* a class's scene during hero creation */
 .k3-menufade { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 1; opacity: 1; transition: opacity 0.12s linear; }
 #game { z-index: 0; }
 canvas.k3-hero { cursor: grab; touch-action: none; }

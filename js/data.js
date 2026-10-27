@@ -30,7 +30,7 @@
   D.FACTIONS = {
     sylvan: {
       id: 'sylvan', name: 'Sylvan Throne', city: 'Aelindor', king: 'King Theron Valen', kingFirst: 'Theron', brother: 'Aldric',
-      races: ['human', 'highelf', 'woodelf', 'halfelf', 'darkelf', 'seaelf', 'firbolg'], color: '#8fd16f', banner: '#2e6a3c', trim: '#e7d48a',
+      races: ['human', 'highelf', 'woodelf', 'darkelf', 'gnome', 'halfling', 'dwarf', 'barbarian', 'ogrin'], color: '#8fd16f', banner: '#2e6a3c', trim: '#e7d48a',
       craftPrefix: 'Leafsteel', craftBias: ['AGI', 'WIS'], drink: 'Moonpetal Wine', food: 'honeyed acorn bread',
       blurb: 'The younger brother\'s kingdom. King Theron Valen was crowned in the elven city of Aelindor, and the elves, the half-elves and every human family that fled Aldric\'s rule followed him. Free, fierce, and certain the crown belongs to whoever deserves it.',
       enemyMobs: 'Orcs of the Greywood', crop: 'silverleaf berries',
@@ -44,7 +44,7 @@
     },
     crown: {
       id: 'crown', name: 'Crown of Valen', city: 'Valenmoor', king: 'King Aldric Valen', kingFirst: 'Aldric', brother: 'Theron',
-      races: ['human', 'dwarf', 'gnome', 'halfling', 'barbarian', 'highlander', 'ogrin'], color: '#7fb0e8', banner: '#28457a', trim: '#f0c75e',
+      races: ['human', 'highelf', 'woodelf', 'darkelf', 'gnome', 'halfling', 'dwarf', 'barbarian', 'ogrin'], color: '#7fb0e8', banner: '#28457a', trim: '#f0c75e',
       craftPrefix: 'Valenguard', craftBias: ['DEX', 'CHA'], drink: 'Valen Gold Ale', food: 'roast pheasant',
       blurb: 'The firstborn\'s kingdom. King Aldric Valen holds the old capital on the western plains, with the old human houses, the halflings and the dwarves, gnomes and barbarians of the mountain clans behind him. Proud, disciplined, and certain the crown is his by right.',
       enemyMobs: 'Bandits of Thornfield', crop: 'golden wheat',
@@ -85,11 +85,11 @@
     barbarian: { id: 'barbarian', name: 'Barbarian', faction: 'crown', scale: 1.14, width: 1.18,
       stats: { STR: 103, STA: 95, AGI: 82, DEX: 70, WIS: 70, INT: 60, CHA: 55 },
       classes: ['warrior', 'rogue', 'shaman', 'beastlord', 'berserker'], weaponPref: ['2HS', '2HB', '1HS'], adj: 'Northman',
-      desc: 'Towering clansmen of the frozen north who march under the Valen banner. The strongest race alive.', beard: true },
+      desc: 'Towering clansmen of the frozen north who sell their axes to whichever brother earns their respect. The strongest of the humans.', beard: true },
     darkelf: { id: 'darkelf', name: 'Dark Elf', faction: 'sylvan', scale: 0.98, width: 0.9,
       stats: { STR: 60, STA: 65, AGI: 90, DEX: 75, WIS: 83, INT: 99, CHA: 60 },
       classes: ['warrior', 'cleric', 'shadowknight', 'rogue', 'necromancer', 'wizard', 'magician', 'enchanter'], weaponPref: ['1HP', '1HS', '2HB'], adj: 'Shadowed',
-      desc: 'Exiles from the deep caverns, welcomed back into Aelindor in a time of war. Cunning, cold, and brilliant with dark magic.', ears: 'long',
+      desc: 'Exiles from the deep caverns, back on the surface in a time of war. Cunning, cold, and brilliant with dark magic.', ears: 'long',
       skins: ['#7a7498', '#666088', '#545078', '#423e64', '#33304e'], hairDefault: 4 },
     erudite: { id: 'erudite', name: 'Erudite', faction: 'crown', scale: 1.02, width: 0.95,
       stats: { STR: 60, STA: 70, AGI: 70, DEX: 70, WIS: 83, INT: 107, CHA: 70 },
@@ -100,10 +100,10 @@
       classes: ['warrior', 'paladin', 'ranger', 'druid', 'bard', 'rogue', 'shaman', 'berserker'], weaponPref: ['2HS', '1HS', 'ARC'], adj: 'Clansman\'s',
       desc: 'Red-haired hill clans of the Valen highlands, sworn to the firstborn since the first king. Tough, proud and fond of a song.', beard: true, hairDefault: 4,
       skins: ['#f6d8c0', '#efc8a8', '#e2b090', '#c89068', '#a87048'] },
-    ogrin: { id: 'ogrin', name: 'Ogrin', faction: 'crown', scale: 1.22, width: 1.32,
+    ogrin: { id: 'ogrin', name: 'Ogre', faction: 'crown', scale: 1.22, width: 1.32,
       stats: { STR: 110, STA: 102, AGI: 60, DEX: 60, WIS: 58, INT: 45, CHA: 40 },
-      classes: ['warrior', 'shadowknight', 'shaman', 'berserker', 'beastlord'], weaponPref: ['2HB', '2HS', '1HB'], adj: 'Ogrin',
-      desc: 'Half-ogre mercenaries who took the Valen king\'s coin and kept his oath. Huge, slow to anger, and terrible when angered.', tusk: true,
+      classes: ['warrior', 'shadowknight', 'shaman', 'berserker', 'beastlord'], weaponPref: ['2HB', '2HS', '1HB'], adj: 'Ogre',
+      desc: 'Hulking hill ogres who came down from the crags to fight for coin and glory. Huge, slow to anger, and terrible when angered.', tusk: true,
       skins: ['#9aa08a', '#8a9478', '#7a8468', '#9a8a70', '#6a7458'] },
     seaelf: { id: 'seaelf', name: 'Sea Elf', faction: 'sylvan', scale: 1.0, width: 0.9,
       stats: { STR: 60, STA: 68, AGI: 92, DEX: 82, WIS: 88, INT: 84, CHA: 82 },
@@ -116,6 +116,10 @@
       desc: 'Gentle giants of the deep forest who guard the great trees. Slow to fight, but nothing moves them once they do.', beard: true, ears: 'half',
       skins: ['#9aa6b8', '#8a98ac', '#7a889c', '#a8a0b0', '#6a7890'] },
   };
+
+  // the races a new hero can be. Any of them may pledge to either kingdom; the others only remain for heroes made before
+  D.RACE_IDS = ['human', 'highelf', 'woodelf', 'darkelf', 'gnome', 'halfling', 'dwarf', 'barbarian', 'ogrin'];
+  for (const id in D.RACES) { D.RACES[id].factions = D.FACTION_IDS.slice(); if (!D.RACE_IDS.includes(id)) D.RACES[id].legacy = true; }
 
   // ---------- Weapon types ----------
   D.WEAPON_TYPES = {

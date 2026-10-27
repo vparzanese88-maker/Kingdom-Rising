@@ -17,50 +17,50 @@ html, body { height: 100%; margin: 0; background: #07080b; overflow: hidden; }
 #boot3d { position: fixed; inset: 0; display: grid; place-items: center; color: #b9a989; font: 15px "Alegreya Sans", system-ui, sans-serif; background: radial-gradient(ellipse at center, #2a1f16 0%, #0b0a0f 70%); z-index: 90; text-align: center; padding: 16px; }
 #boot3d b { display: block; font: 400 clamp(34px, 6vw, 64px)/1 "IM Fell English SC", Georgia, serif; color: #f0d48a; margin-bottom: 14px; }
 </style>
-<link rel="stylesheet" href="css3d/k3d.css?v=39">
+<link rel="stylesheet" href="css3d/k3d.css?v=40">
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/build/three.module.min.js",
   "three/addons/": "./vendor/three/examples/jsm/",
-  "./js3d/actors.js": "./js3d/actors.js?v=39",
-  "./js3d/camera.js": "./js3d/camera.js?v=39",
-  "./js3d/chars.js": "./js3d/chars.js?v=39",
-  "./js3d/core.js": "./js3d/core.js?v=39",
-  "./js3d/cover3d.js": "./js3d/cover3d.js?v=39",
-  "./js3d/creatures.js": "./js3d/creatures.js?v=39",
-  "./js3d/fx.js": "./js3d/fx.js?v=39",
-  "./js3d/gait.js": "./js3d/gait.js?v=39",
-  "./js3d/geo.js": "./js3d/geo.js?v=39",
-  "./js3d/grass.js": "./js3d/grass.js?v=39",
-  "./js3d/hud3d.js": "./js3d/hud3d.js?v=39",
-  "./js3d/harvest3d.js": "./js3d/harvest3d.js?v=39",
-  "./js3d/herolight.js": "./js3d/herolight.js?v=39",
-  "./js3d/human.js": "./js3d/human.js?v=39",
-  "./js3d/items3d.js": "./js3d/items3d.js?v=39",
-  "./js3d/keys3d.js": "./js3d/keys3d.js?v=39",
-  "./js3d/lights.js": "./js3d/lights.js?v=39",
-  "./js3d/mats.js": "./js3d/mats.js?v=39",
-  "./js3d/mb.js": "./js3d/mb.js?v=39",
-  "./js3d/portrait3d.js": "./js3d/portrait3d.js?v=39",
-  "./js3d/props.js": "./js3d/props.js?v=39",
-  "./js3d/settings3d.js": "./js3d/settings3d.js?v=39",
-  "./js3d/sdfmesh.js": "./js3d/sdfmesh.js?v=39",
-  "./js3d/sky.js": "./js3d/sky.js?v=39",
-  "./js3d/structures.js": "./js3d/structures.js?v=39",
-  "./js3d/terrain.js": "./js3d/terrain.js?v=39",
-  "./js3d/texgen.js": "./js3d/texgen.js?v=39",
-  "./js3d/veg.js": "./js3d/veg.js?v=39",
-  "./js3d/viewmodel.js": "./js3d/viewmodel.js?v=39",
-  "./js3d/weapons.js": "./js3d/weapons.js?v=39",
-  "./js3d/world3d.js": "./js3d/world3d.js?v=39",
-  "./js3d/ships.js": "./js3d/ships.js?v=39",
-  "./js3d/wildlife.js": "./js3d/wildlife.js?v=39",
-  "./js3d/intro3d.js": "./js3d/intro3d.js?v=39",
-  "./js3d/scene3d.js": "./js3d/scene3d.js?v=39",
-  "./js3d/cine3d.js": "./js3d/cine3d.js?v=39",
-  "./js3d/heroview.js": "./js3d/heroview.js?v=39",
-  "./js3d/menu3d.js": "./js3d/menu3d.js?v=39",
-  "./js3d/crafthouses.js": "./js3d/crafthouses.js?v=39"
+  "./js3d/actors.js": "./js3d/actors.js?v=40",
+  "./js3d/camera.js": "./js3d/camera.js?v=40",
+  "./js3d/chars.js": "./js3d/chars.js?v=40",
+  "./js3d/core.js": "./js3d/core.js?v=40",
+  "./js3d/cover3d.js": "./js3d/cover3d.js?v=40",
+  "./js3d/creatures.js": "./js3d/creatures.js?v=40",
+  "./js3d/fx.js": "./js3d/fx.js?v=40",
+  "./js3d/gait.js": "./js3d/gait.js?v=40",
+  "./js3d/geo.js": "./js3d/geo.js?v=40",
+  "./js3d/grass.js": "./js3d/grass.js?v=40",
+  "./js3d/hud3d.js": "./js3d/hud3d.js?v=40",
+  "./js3d/harvest3d.js": "./js3d/harvest3d.js?v=40",
+  "./js3d/herolight.js": "./js3d/herolight.js?v=40",
+  "./js3d/human.js": "./js3d/human.js?v=40",
+  "./js3d/items3d.js": "./js3d/items3d.js?v=40",
+  "./js3d/keys3d.js": "./js3d/keys3d.js?v=40",
+  "./js3d/lights.js": "./js3d/lights.js?v=40",
+  "./js3d/mats.js": "./js3d/mats.js?v=40",
+  "./js3d/mb.js": "./js3d/mb.js?v=40",
+  "./js3d/portrait3d.js": "./js3d/portrait3d.js?v=40",
+  "./js3d/props.js": "./js3d/props.js?v=40",
+  "./js3d/settings3d.js": "./js3d/settings3d.js?v=40",
+  "./js3d/sdfmesh.js": "./js3d/sdfmesh.js?v=40",
+  "./js3d/sky.js": "./js3d/sky.js?v=40",
+  "./js3d/structures.js": "./js3d/structures.js?v=40",
+  "./js3d/terrain.js": "./js3d/terrain.js?v=40",
+  "./js3d/texgen.js": "./js3d/texgen.js?v=40",
+  "./js3d/veg.js": "./js3d/veg.js?v=40",
+  "./js3d/viewmodel.js": "./js3d/viewmodel.js?v=40",
+  "./js3d/weapons.js": "./js3d/weapons.js?v=40",
+  "./js3d/world3d.js": "./js3d/world3d.js?v=40",
+  "./js3d/ships.js": "./js3d/ships.js?v=40",
+  "./js3d/wildlife.js": "./js3d/wildlife.js?v=40",
+  "./js3d/intro3d.js": "./js3d/intro3d.js?v=40",
+  "./js3d/scene3d.js": "./js3d/scene3d.js?v=40",
+  "./js3d/cine3d.js": "./js3d/cine3d.js?v=40",
+  "./js3d/heroview.js": "./js3d/heroview.js?v=40",
+  "./js3d/menu3d.js": "./js3d/menu3d.js?v=40",
+  "./js3d/crafthouses.js": "./js3d/crafthouses.js?v=40"
 } }
 </script>
 
@@ -107,5 +107,5 @@ window.KR_READY = (async function () {
   msg('Raising the world...');
 })();
 </script>
-<script type="module" src="js3d/main3d.js?v=39"></script>
+<script type="module" src="js3d/main3d.js?v=40"></script>
 </html>

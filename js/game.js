@@ -206,6 +206,8 @@
     if (head && (head.ak === 'plate' || head.ak === 'chain')) { look.helm = head.ak; look.helmCol = look.armor.kind === 'plate' ? look.armor.col : '#9a9ea6'; look.hat = ['ranger', 'rogue'].includes(c.cls) ? look.hat : null; }
     if (head && head.ak === 'leather' && !look.hat) { look.hat = 'hood'; look.hatCol = '#6a4a2a'; }
     if (c.cls === 'berserker' && chest) look.bare = false;
+    // starting clothes keep their own colours, and only robes are drawn as robes
+    if (chest && chest.plainClothes && !window.KR3D) { look.robe = /robe|vestment|gown|habit/i.test(chest.name || ''); if (chest.col) look.armor.col = chest.col; if (c.equip.legs && c.equip.legs.col) look.pants = c.equip.legs.col; }
     const pw = c.equip.primary;
     look.weapon = pw ? (pw.wt === '2HS' && (pw.axe || /Axe|axe|Executioner|Cleaver/.test(pw.name)) ? 'axe' : pw.wt === '1HB' && (pw.club || /Club|Cudgel/.test(pw.name)) ? 'club' : pw.wt) : (c.cls === 'monk' ? 'H2H' : null);
     look.wfx = pw && pw.fx || null;
@@ -233,6 +235,7 @@
       else if (/wizard|pointed|conical/i.test(n)) { look.hat = 'wizard'; look.hatCol = D.CLASSES[c.cls].color; look.hatTrim = '#e2c55a'; }
       else if (/feather|cap|beret/i.test(n)) { look.hat = 'feather'; look.hatCol = D.CLASSES[c.cls].color; look.hatTrim = '#e3c04a'; }
       else { look.hat = 'hood'; look.hatCol = head.ak === 'leather' ? '#5a4030' : D.CLASSES[c.cls].color; }
+      if (head.plainClothes && head.col && look.hat) { if (look.hat === 'circlet') look.hatTrim = head.col; else if (look.hat !== 'mitre') look.hatCol = head.col; } // starting clothes keep their own colours
     }
     const bk = E.back; if (bk) look.cape = bk.fx === 'fire' ? '#b8401a' : bk.fx === 'storm' ? '#3a5aa0' : ['#6a5a4a', '#3a4a8a', '#6a3a8a', '#2a4a8a', '#8a2a4a', '#2a2458'][Math.min(5, bk.tier || 0)];
     const shirt = chest && !chest.wrap;

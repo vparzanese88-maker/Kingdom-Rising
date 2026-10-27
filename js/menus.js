@@ -185,34 +185,68 @@
   const lookOf = (ch) => Object.assign(window.KR3D && ch.look ? {} : S.classLook(ch.cls, null), ch.look || {}, ch.app || {}, { race: ch.race, gender: ch.gender, skin: S.skinOf(ch.race, ch.skin), hair: S.HAIRS[ch.hair], hairStyle: ch.hairStyle, cls: ch.cls });
   // 3D: a still render of a hero drawn into a small card canvas (falls back to the 2D figure)
   const snap3 = (cv, look) => { if (!(window.KR3D && KR.heroSnap)) return false; try { const img = new Image(); img.onload = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height); }; img.src = KR.heroSnap(look, cv.width, cv.height); return true; } catch (e) { console.warn(e); return false; } };
+  // a hero dressed the way the game will dress them (each class comes home in its own clothes)
+  const previewLook = (o) => {
+    try { const c = Sys.newChar({ name: 'Preview', faction: o.faction || null, race: o.race, cls: o.cls, gender: o.gender || 'm', skin: o.skin || 0, hair: o.hair || 0, hairStyle: o.hairStyle || 0, app: o.app || null }); return G.lookFor(c); }
+    catch (e) { console.warn(e); return Object.assign(S.classLook(o.cls, null), { race: o.race, gender: o.gender, skin: S.skinOf(o.race, o.skin || 0), hair: S.HAIRS[o.hair || 0], hairStyle: o.hairStyle || 0, cls: o.cls }); }
+  };
+  // each race is shown in a class that suits it, so the race cards do not all look alike
+  const RACE_SHOWCASE = { human: 'warrior', highelf: 'wizard', woodelf: 'ranger', darkelf: 'necromancer', gnome: 'enchanter', halfling: 'rogue', dwarf: 'cleric', barbarian: 'berserker', ogrin: 'shaman' };
+  // a still of a class's scene behind a small card figure (the figure canvas itself stays transparent)
+  const clsBackCache = {};
+  const clsBack = (cv, cls) => {
+    if (!KR.ClassBG) return;
+    const key = cls + ':' + cv.width + 'x' + cv.height;
+    if (!clsBackCache[key]) { const o = document.createElement('canvas'); o.width = cv.width * 2; o.height = cv.height * 2; KR.ClassBG.paint(o.getContext('2d'), o.width, o.height, cls, 2.5); clsBackCache[key] = o.toDataURL(); }
+    cv.style.background = `url(${clsBackCache[key]}) center / cover`;
+  };
+  // a class's living scene on a canvas (full screen in creation, the frame behind a hero in Choose Hero)
+  let clsRaf = 0;
+  function classBgLoop(cv, clsOf, fitTo) {
+    if (!fitTo) { cancelAnimationFrame(clsRaf); cancelAnimationFrame(bgRaf); cancelAnimationFrame(riseRaf); }
+    const g = cv.getContext('2d'); const t0 = performance.now(); if (!fitTo) cv.classList.add('cls-on');
+    const loop = () => {
+      if (!cv.isConnected) return;
+      const dpr = Math.min(2, devicePixelRatio || 1); const box = fitTo ? fitTo() : { w: innerWidth, h: innerHeight };
+      const W = Math.max(1, Math.round(box.w * dpr)), H = Math.max(1, Math.round(box.h * dpr)); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const cls = clsOf(); if (cls) KR.ClassBG.paint(g, W, H, cls, (performance.now() - t0) / 1000); else { g.fillStyle = '#0b0a0f'; g.fillRect(0, 0, W, H); }
+      const id = requestAnimationFrame(loop); if (!fitTo) clsRaf = id;
+    };
+    loop();
+  }
   const ago = (ts) => { if (!ts) return 'never'; const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
   M.showMenu = function (tab) {
     const scr = $('#screen'); scr.hidden = false; $('#ui').hidden = true; if (tab) mmTab = tab;
     KR.A.play('menu');
     const a = G.account; const chars = a.chars.slice().sort((x, y) => (y.updated || 0) - (x.updated || 0));
     let sel = LSg('kr_sel_hero', null); if (!chars.some((c) => c.id === sel)) sel = chars[0] ? chars[0].id : null;
-    if (!chars.length && mmTab !== 'history' && mmTab !== 'options' && mmTab !== 'guide') mmTab = 'guide';
-    if (mmTab === 'quit') mmTab = 'heroes';
-    const tabs = [['heroes', '🛡', 'Choose Hero'], ['online', '⚔', 'Multiplayer'], ['create', '✚', 'Create New Hero'], ['guide', '🧭', 'How to Play'], ['delete', '🗑', 'Delete Hero'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options'], ['quit', '⏻', 'Quit Game']];
+    if (!chars.length && mmTab === 'online') mmTab = 'heroes';
+    if (mmTab === 'quit' || mmTab === 'create') mmTab = 'heroes';
+    const tabs = [['heroes', '🛡', 'Choose Hero'], ['online', '⚔', 'Multiplayer'], ['guide', '🧭', 'How to Play'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options'], ['delete', '🗑', 'Delete Hero'], ['quit', '⏻', 'Quit Game']];
+    const createHero = () => { KR.A.sfx('click'); if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } M.showCreate(); };
+    const banner = (f) => { const F = D.FACTIONS[f]; return `<div class="mm-ban" style="--fb:${F.banner};--ft:${F.trim};--fc:${F.color}" title="${esc(F.city)}"><span>${f === 'sylvan' ? '❦' : '♜'}</span><small>${esc(F.city)}</small></div>`; };
     if (M.offLobby) M.offLobby();
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="mm">
-      <header class="mm-title"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><p>Two brothers. One crown. Build your kingdom and destroy his.</p></header>
+      <header class="mm-title">${banner(D.FACTION_IDS[0])}<div class="mm-tt"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><div class="mm-rule"><i></i><span>Two brothers · One crown</span><i></i></div></div>${banner(D.FACTION_IDS[1])}</header>
       <nav class="mm-nav">${tabs.map(([k, ic, n]) => `<button class="mm-tab ${mmTab === k ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
         <div class="mm-realm">${D.FACTION_IDS.map((f) => `<div style="--fc:${D.FACTIONS[f].color}"><b>${D.FACTIONS[f].city}</b><span>${'★'.repeat(a.cities[f].level)}${'☆'.repeat(5 - a.cities[f].level)}</span></div>`).join('')}<small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
       <section class="mm-panel"></section></div>`;
     riseLoop($('.bgcv', scr));
-    { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.appendChild(lab); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
-    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'create') { if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } return M.showCreate(); } if (b.dataset.t === 'quit') return M.quit(); mmTab = b.dataset.t; M.showMenu(); }));
+    { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.insertBefore(lab, nav.querySelector('.mm-realm')); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
+    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'quit') return M.quit(); mmTab = b.dataset.t; M.showMenu(); }));
     const P = $('.mm-panel', scr);
     if (mmTab === 'heroes') {
-      if (!chars.length) { P.innerHTML = `<div class="mm-empty"><h2>No heroes yet</h2><p>Every kingdom starts as a hamlet. Create a hero to begin raising yours.</p><button class="btn gold big" id="mm-first">Create your first hero</button></div>`; $('#mm-first').onclick = () => M.showCreate(); return; }
+      if (!chars.length) { P.innerHTML = `<div class="mm-empty"><h2>No heroes yet</h2><p>Every kingdom starts as a hamlet. Create a hero, choose any race and class, and pledge yourself to one of the two brothers.</p><button class="btn gold big" id="mm-first">✚ Create your first hero</button></div>`; $('#mm-first').onclick = createHero; return; }
       const ch = chars.find((c) => c.id === sel);
-      P.innerHTML = `<div class="mm-hero"><div class="mm-stage"><canvas width="380" height="440"></canvas><div class="mm-rot"><button class="btn small ghost" data-r="-1" aria-label="Turn left">⟲</button><button class="btn small ghost" data-r="1" aria-label="Turn right">⟳</button></div></div>
+      P.innerHTML = `<div class="mm-hero"><div class="mm-stage"><canvas class="mm-clsbg" aria-hidden="true"></canvas><canvas class="mm-fig" width="380" height="440"></canvas><div class="mm-rot"><button class="btn small ghost" data-r="-1" aria-label="Turn left">⟲</button><button class="btn small ghost" data-r="1" aria-label="Turn right">⟳</button></div></div>
         <div class="mm-info"><h2>${esc(ch.name)}</h2><div class="mm-cls">Level ${ch.level} ${esc(D.RACES[ch.race].name)} ${esc(D.CLASSES[ch.cls].name)}</div>
         <dl><dt>Kingdom</dt><dd style="color:${D.FACTIONS[ch.faction].color}">${esc(D.FACTIONS[ch.faction].city)}</dd><dt>Location</dt><dd>${esc(ch.zone || D.FACTIONS[ch.faction].city)}</dd><dt>Last played</dt><dd>${ago(ch.updated)}</dd></dl>
         <div class="mm-play"><button class="btn gold big mm-enter" id="mm-enter">Single Player</button><button class="btn big mm-enter" id="mm-multi">Multiplayer</button></div></div></div>
-        <div class="mm-roster"><h3>Your heroes <small>${chars.length} / 8</small></h3><div class="mm-list"></div></div>`;
-      const cv = $('.mm-stage canvas', P); const g = cv.getContext('2d'); const look = lookOf(ch); const t0 = performance.now();
+        <div class="mm-roster"><h3>Your heroes <small>${chars.length} / 8</small><button class="btn small gold mm-new" id="mm-new" ${chars.length >= 8 ? 'disabled title="Delete a hero to make room"' : ''}>✚ Create New Hero</button></h3><div class="mm-list"></div></div>`;
+      $('#mm-new', P).onclick = createHero;
+      const cv = $('.mm-stage canvas.mm-fig', P);
+      // the hero stands in front of their class's scene
+      if (KR.ClassBG) { const bg = $('.mm-clsbg', P); classBgLoop(bg, () => ch.cls, () => { const w = cv.offsetWidth, h = cv.offsetHeight; Object.assign(bg.style, { left: cv.offsetLeft + 'px', top: cv.offsetTop + 'px', width: w + 'px', height: h + 'px' }); return { w, h }; }); } const g = cv.getContext('2d'); const look = lookOf(ch); const t0 = performance.now();
       const draw = () => { if (!cv.isConnected) return; const t = (performance.now() - t0) / 1000; g.clearRect(0, 0, 380, 440);
         const gl = g.createRadialGradient(190, 380, 10, 190, 330, 220); gl.addColorStop(0, `${D.FACTIONS[ch.faction].color}55`); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gl; g.fillRect(0, 0, 380, 440);
         g.save(); g.translate(190, 400); g.scale(1, 0.32); g.strokeStyle = 'rgba(255,215,140,0.55)'; g.lineWidth = 4; g.beginPath(); g.arc(0, 0, 110, 0, 6.28); g.stroke(); g.strokeStyle = 'rgba(255,215,140,0.25)'; g.beginPath(); g.arc(0, 0, 130, t, t + 4); g.stroke(); g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.arc(0, 0, 80, 0, 6.28); g.fill(); g.restore();
@@ -229,6 +263,7 @@
       chars.forEach((c) => {
         const card = document.createElement('button'); card.className = 'mm-card' + (c.id === sel ? ' on' : '');
         card.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>${c.level} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small><small class="dim">${esc(c.zone || '')}</small></span>`;
+        clsBack(card.querySelector('canvas'), c.cls);
         if (!snap3(card.querySelector('canvas'), lookOf(c))) S.drawHumanoid(card.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
         card.onclick = () => { LSs('kr_sel_hero', c.id); KR.A.sfx('click'); M.showMenu(); };
         card.ondblclick = () => { LSs('kr_sel_hero', c.id); KR.Main.enterWorld(c.id); };
@@ -240,7 +275,7 @@
       P.innerHTML = `<div class="mm-del"><h2>Delete a hero</h2><p class="dim">Deleting a hero cannot be undone. Items and coin in the shared bank are kept for your other heroes.</p><div class="mm-list wide"></div></div>`;
       const list = $('.mm-list', P); if (!chars.length) list.innerHTML = '<p class="empty-note">You have no heroes.</p>';
       P.querySelector('.mm-del').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Start completely over</h3><p class="dim">Delete every hero and reset both kingdoms to level 1.</p><button class="btn danger" id="md-reset">Reset entire game</button></div>`);
-      $('#md-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('guide'); });
+      $('#md-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('heroes'); });
       chars.forEach((c) => {
         const row = document.createElement('div'); row.className = 'mm-card del';
         row.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>Level ${c.level} ${esc(D.RACES[c.race].name)} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small></span><button class="btn danger">Delete</button>`;
@@ -272,7 +307,7 @@
       P.innerHTML = `<div class="mm-opt"><h2>Options</h2><label class="slider">Music <input type="range" id="mo-mus" min="0" max="1" step="0.05" value="${st.music}"></label><label class="slider">Sound effects <input type="range" id="mo-sfx" min="0" max="1" step="0.05" value="${st.sfx}"></label><button class="btn" id="mo-fs">Toggle full screen</button><p class="dim small">More settings (hotbar, panels, zoom) are in the game's Settings window (Esc).</p></div>`;
       const apply = () => { st.music = +$('#mo-mus').value; st.sfx = +$('#mo-sfx').value; KR.A.setVolumes(st.music, st.sfx); Sys.saveAccount && Sys.saveAccount(); };
       P.querySelector('.mm-opt').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Reset the whole game</h3><p class="dim">Deletes every hero you have made, empties the shared bank and returns both kingdoms to Kingdom Level 1. This cannot be undone.</p><button class="btn danger" id="mo-reset">Reset entire game</button></div>`);
-      $('#mo-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('guide'); });
+      $('#mo-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('heroes'); });
       $('#mo-mus').oninput = apply; $('#mo-sfx').oninput = apply; $('#mo-fs').onclick = () => KR.UI.toggleFullscreen && KR.UI.toggleFullscreen();
     }
   };
@@ -385,62 +420,51 @@
     cs = { step: 0, faction: null, race: null, cls: null, gender: 'm', skin: 1, hair: 1, hairStyle: 0, name: '', bonus: {}, dir: 0 };
     D.STATS.forEach((s) => (cs.bonus[s] = 0));
     // your first hero's kingdom is your kingdom for good (until a full reset of the game)
-    if (G.account.faction && D.FACTIONS[G.account.faction]) { cs.faction = G.account.faction; cs.step = 1; cs.locked = true; }
+    if (G.account.faction && D.FACTIONS[G.account.faction]) { cs.sworn = G.account.faction; cs.locked = true; }
     renderCreate();
   };
   const BONUS = 20;
   function renderCreate() {
     const scr = $('#screen');
-    const steps = ['Kingdom', 'Race', 'Class', 'Appearance', 'Name'];
+    const steps = ['Race', 'Class', 'Appearance', 'Name', 'Pledge'];
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="cr"><header class="cr-h"><button class="btn ghost" id="cr-back">← Back</button><ol class="steps">${steps.map((s, i) => `<li class="${i === cs.step ? 'on' : i < cs.step ? 'done' : ''}">${s}</li>`).join('')}</ol></header><div class="cr-body"></div></div>`;
-    bgLoop($('.bgcv', scr));
-    $('#cr-back').onclick = () => { if (cs.step === 0 || (cs.locked && cs.step === 1)) M.showMenu(); else { cs.step--; renderCreate(); } };
+    // once a class is on the table, its scene fills the screen (on the class step it follows the card you point at)
+    cs.bgCls = cs.step >= 2 ? cs.cls : null;
+    if (cs.step >= 1 && KR.ClassBG) classBgLoop($('.bgcv', scr), () => cs.bgCls); else bgLoop($('.bgcv', scr));
+    $('#cr-back').onclick = () => { if (cs.step === 0) M.showMenu(); else { cs.step--; renderCreate(); } };
     const body = $('.cr-body', scr);
     const next = () => { cs.step++; renderCreate(); };
     if (cs.step === 0) {
-      body.innerHTML = `<h2>Choose your kingdom</h2><p class="lead">Old King Edric is dead, and his sons have split the land in two. Choose which brother you serve. Your kingdom decides your home, your people and your enemies, and the guards of the other brother will attack you on sight. Humans serve both kings.</p><div class="cards two"></div>`;
+      body.innerHTML = `<h2>Choose your race</h2><p class="lead">Every people of the realm can be found in both kingdoms: you choose which brother to serve at the end. Each race starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards"></div>`;
       const cards = $('.cards', body);
-      D.FACTION_IDS.forEach((f) => {
-        const F = D.FACTIONS[f];
-        const c = document.createElement('button'); c.className = 'card fac' + (cs.faction === f ? ' sel' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
-        c.innerHTML = `<canvas width="300" height="150"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name}</div><p>${F.blurb}</p><div class="dim small">${F.races.map((r) => D.RACES[r].name).join(' · ')} · Rivals: ${F.enemyMobs}</div></div>`;
-        const g = c.querySelector('canvas').getContext('2d'); g.scale(300 / 860, 150 / 430); M.paintCity(g, 860, 430, f, 3);
-        c.onclick = () => { cs.faction = f; cs.race = null; cs.cls = null; next(); };
-        cards.appendChild(c);
-      });
-    } else if (cs.step === 1) {
-      const F = D.FACTIONS[cs.faction];
-      body.innerHTML = `<h2>Choose your race</h2><p class="lead">${cs.locked ? `You are sworn to ${F.king} of ${F.city}: every hero you make serves the same kingdom (a full reset under Delete Hero frees you to choose again). ` : ''}The peoples who serve ${F.king}. Each starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards three"></div>`;
-      const cards = $('.cards', body);
-      F.races.forEach((r) => {
-        const R = D.RACES[r];
+      D.RACE_IDS.forEach((r) => {
+        const R = D.RACES[r]; const sig = RACE_SHOWCASE[r] && R.classes.includes(RACE_SHOWCASE[r]) ? RACE_SHOWCASE[r] : R.classes[0];
         const c = document.createElement('button'); c.className = 'card race' + (cs.race === r ? ' sel' : '');
-        c.innerHTML = `<canvas width="120" height="140"></canvas><div class="card-b"><h3>${R.name}</h3><p>${R.desc}</p><table class="mini-stats">${D.STATS.map((s) => `<tr><th>${s}</th><td><span class="sb"><i style="width:${R.stats[s]}%"></i></span>${R.stats[s]}</td></tr>`).join('')}</table><div class="dim small">${R.classes.length} classes available</div></div>`;
-        const look = Object.assign(S.classLook(R.classes[0], null), { race: r, gender: cs.gender, skin: S.skinOf(r, 1), hair: S.HAIRS[R.hairDefault != null ? R.hairDefault : r === 'gnome' ? 5 : r === 'highelf' ? 3 : 1], hairStyle: 1, cls: R.classes[0] });
-        look.hat = null; look.helm = null;
-        if (!snap3(c.querySelector('canvas'), look)) S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 60, 132, Object.assign(look, { scale: 2.0 * R.scale }), 0);
+        c.innerHTML = `<canvas width="120" height="140"></canvas><div class="card-b"><h3>${R.name}</h3><p>${R.desc}</p><table class="mini-stats">${D.STATS.map((s) => `<tr><th>${s}</th><td><span class="sb"><i style="width:${R.stats[s]}%"></i></span>${R.stats[s]}</td></tr>`).join('')}</table><div class="dim small">${R.classes.length} classes · shown as a ${D.CLASSES[sig].name.toLowerCase()}</div></div>`;
+        const cv = c.querySelector('canvas'); clsBack(cv, sig);
+        const look = previewLook({ race: r, cls: sig, gender: cs.gender, skin: 1, hair: R.hairDefault != null ? R.hairDefault : r === 'gnome' ? 5 : r === 'highelf' ? 3 : 1, hairStyle: 1 });
+        if (!snap3(cv, look)) S.drawHumanoid(cv.getContext('2d'), 60, 132, Object.assign(look, { scale: 2.0 * R.scale }), 0);
         c.onclick = () => { cs.race = r; cs.cls = null; if (R.hairDefault != null) cs.hair = R.hairDefault; next(); };
         cards.appendChild(c);
       });
-    } else if (cs.step === 2) {
+    } else if (cs.step === 1) {
       const R = D.RACES[cs.race];
-      body.innerHTML = `<h2>Choose your class</h2><p class="lead">Melee classes earn new techniques as they level. Hybrids mix steel with nearly 40 spells. Casters master over 75 spells across the schools of magic.</p><div class="cards cls"></div>`;
+      body.innerHTML = `<h2>Choose your class</h2><p class="lead">Melee classes earn new techniques as they level. Hybrids mix steel with nearly 40 spells. Casters master over 75 spells across the schools of magic. Every class comes home in its own clothes.</p><div class="cards cls"></div>`;
       const cards = $('.cards', body);
       R.classes.forEach((k) => {
         const C = D.CLASSES[k];
         const c = document.createElement('button'); c.className = 'card clsc' + (cs.cls === k ? ' sel' : ''); c.style.setProperty('--fc', C.color);
         c.innerHTML = `<canvas width="90" height="104"></canvas><div class="card-b"><h3>${C.name}</h3><div class="tags"><span>${C.role === 'melee' ? 'Melee' : C.role === 'hybrid' ? 'Hybrid · 38 spells' : 'Caster · 75+ spells'}</span><span>${C.armor} armor</span></div><p>${C.desc}</p></div>`;
-        const look = Object.assign(S.classLook(k, { kind: C.armor === 'cloth' ? 'cloth' : C.armor, ak: C.armor }), { race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, 1), hair: S.HAIRS[1], hairStyle: 0, cls: k });
-        look.armor.kind = C.armor; if (C.armor === 'plate') { look.armor.col = k === 'shadowknight' ? '#3a3440' : k === 'paladin' ? '#d8d4c8' : '#a8acb4'; look.helm = k === 'warrior' || k === 'shadowknight' || k === 'paladin' ? 'plate' : null; if (look.helm) look.hat = null; }
-        if (C.armor === 'chain') look.armor.col = '#8e9298';
-        look.weapon = C.role === 'caster' ? '2HB' : C.weapons[0] === '2HS' ? 'axe' : C.weapons[0]; if (k === 'ranger') look.back = 'bow'; if (C.shield && C.role !== 'caster') look.offhand = 'shield'; look.shieldCol = D.FACTIONS[cs.faction].banner;
-        if (!snap3(c.querySelector('canvas'), look)) S.drawHumanoid(c.querySelector('canvas').getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * D.RACES[cs.race].scale }), 0);
+        const cv = c.querySelector('canvas'); clsBack(cv, k);
+        const look = previewLook({ race: cs.race, cls: k, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle });
+        if (!snap3(cv, look)) S.drawHumanoid(cv.getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * R.scale }), 0);
+        c.onmouseenter = c.onfocus = () => { cs.bgCls = k; };
         c.onclick = () => { cs.cls = k; next(); };
         cards.appendChild(c);
       });
-    } else if (cs.step === 3 && window.KR3D && KR.heroView3D) {
+    } else if (cs.step === 2 && window.KR3D && KR.heroView3D) {
       appearance3D(body, next);
-    } else if (cs.step === 3) {
+    } else if (cs.step === 2) {
       body.innerHTML = `<h2>Your appearance</h2><div class="app"><div class="app-prev"><canvas id="ap-cv" width="220" height="260"></canvas><div class="row"><button class="btn ghost" id="ap-rot" aria-label="Turn">↻ Turn</button></div></div><div class="app-opts">
         <div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
         <div class="opt"><label>Skin</label><div class="sw">${S.skinsFor(cs.race).map((c, i) => `<button data-skin="${i}" style="background:${c}" class="${cs.skin === i ? 'on' : ''}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div></div>
@@ -448,7 +472,7 @@
         <div class="opt"><label>Hair style</label><div class="seg">${['Short', 'Long', 'Crest', 'Flowing', 'Shaved'].map((n, i) => `<button data-hs="${i}" class="${cs.hairStyle === i ? 'on' : ''}">${n}</button>`).join('')}</div></div>
         <button class="btn gold big" id="ap-next">Continue</button></div></div>`;
       const cv = $('#ap-cv'); let raf;
-      const draw = () => { if (!cv.isConnected) return cancelAnimationFrame(raf); const g = cv.getContext('2d'); g.clearRect(0, 0, 220, 260); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(110, 240, 60, 14, 0, 0, 6.28); g.fill(); const look = Object.assign(S.classLook(cs.cls, null), { race: cs.race, gender: cs.gender, skin: S.skinOf(cs.race, cs.skin), hair: S.HAIRS[cs.hair], hairStyle: cs.hairStyle, cls: cs.cls, hat: null, helm: null, mask: null }); S.drawHumanoid(g, 110, 238, Object.assign(look, { dir: cs.dir, scale: 3.6 * D.RACES[cs.race].scale, walk: performance.now() / 160, moving: false }), performance.now() / 1000); raf = requestAnimationFrame(draw); };
+      const draw = () => { if (!cv.isConnected) return cancelAnimationFrame(raf); const g = cv.getContext('2d'); g.clearRect(0, 0, 220, 260); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(110, 240, 60, 14, 0, 0, 6.28); g.fill(); const look = Object.assign(previewLook(cs), { hat: null, helm: null, mask: null }); S.drawHumanoid(g, 110, 238, Object.assign(look, { dir: cs.dir, scale: 3.6 * D.RACES[cs.race].scale, walk: performance.now() / 160, moving: false }), performance.now() / 1000); raf = requestAnimationFrame(draw); };
       draw();
       body.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => { cs.gender = b.dataset.g; renderCreate(); }));
       body.querySelectorAll('[data-skin]').forEach((b) => (b.onclick = () => { cs.skin = +b.dataset.skin; renderCreate(); }));
@@ -456,33 +480,52 @@
       body.querySelectorAll('[data-hs]').forEach((b) => (b.onclick = () => { cs.hairStyle = +b.dataset.hs; renderCreate(); }));
       $('#ap-rot').onclick = () => { cs.dir = [0, 2, 3, 1][(([0, 2, 3, 1].indexOf(cs.dir)) + 1) % 4]; };
       $('#ap-next').onclick = next;
-    } else {
-      const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
-      const used = D.STATS.reduce((a, s) => a + cs.bonus[s], 0);
-      body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(D.NAMES[cs.faction][cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
-        <div class="summary"><b>${R.name} ${C.name}</b><span>${D.FACTIONS[cs.faction].city} · ${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">You come home from the sea in plain sailor's clothes (no armour), with a weapon suited to a ${C.name.toLowerCase()}, 16 bag slots and 3 abilities. Everything else you earn.</span></div></div>
+    } else if (cs.step === 3) {
+      const R = D.RACES[cs.race], C = D.CLASSES[cs.cls]; const fit = Sys.CLASS_OUTFITS[cs.cls];
+      const names = D.NAMES[cs.sworn || R.faction] || D.NAMES[D.FACTION_IDS[0]];
+      body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(names[cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
+        <div class="summary"><b>${R.name} ${C.name}</b><span>${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">You come home from the sea dressed as a ${C.name.toLowerCase()}${fit ? ` (${[fit.head, fit.chest].filter(Boolean).map((x) => x[0].toLowerCase()).join(' and ')})` : ''}, with a weapon suited to your calling, 16 bag slots and 3 abilities. The clothes give no armour: everything else you earn.</span></div></div>
         <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
-        <button class="btn gold big" id="cr-go">Begin your journey</button>`;
+        <button class="btn gold big" id="cr-go">Continue to your pledge</button>`;
       const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
-      $('#cr-rand').onclick = () => { const N = D.NAMES[cs.faction]; cs.name = U.pick(N[cs.gender]) + U.pick(['', 'a', 'en', 'ric', 'wyn', 'dor', 'ix']); inp.value = cs.name; };
-      $('#cr-go').onclick = () => { if (cs.busy) return;
+      $('#cr-rand').onclick = () => { cs.name = U.pick(names[cs.gender]) + U.pick(['', 'a', 'en', 'ric', 'wyn', 'dor', 'ix']); inp.value = cs.name; };
+      const go = () => {
         const nm = cs.name.trim();
         if (!/^[A-Za-z]{3,14}$/.test(nm)) { $('#cr-err').textContent = 'Use 3 to 14 letters, no spaces or numbers.'; inp.focus(); return; }
         if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
-        const name = nm[0].toUpperCase() + nm.slice(1).toLowerCase();
-        cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} });
+        cs.name = nm[0].toUpperCase() + nm.slice(1).toLowerCase(); next();
+      };
+      $('#cr-go').onclick = go; inp.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+      setTimeout(() => inp.focus(), 50);
+    } else {
+      // the last step: kneel before one of the two brothers
+      const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
+      body.innerHTML = `<h2>Pledge your allegiance</h2><p class="lead">${esc(cs.name)} the ${R.name} ${C.name} is home, and the land is split between two brothers. Kneel before one of them: your kingdom decides your home, your people and your enemies, and the guards of the other brother will attack you on sight.${cs.locked ? ` Your heroes are already sworn to ${D.FACTIONS[cs.sworn].king} (a full reset under Delete Hero frees you to choose again).` : ''}</p><div class="cards two"></div><p class="err" id="pl-err" aria-live="polite"></p>`;
+      const cards = $('.cards', body);
+      const pledgeBtns = (off) => body.querySelectorAll('.pledge-go').forEach((b) => { b.disabled = off || b.dataset.locked === '1'; });
+      D.FACTION_IDS.forEach((f) => {
+        const F = D.FACTIONS[f]; const barred = cs.locked && cs.sworn !== f;
+        const c = document.createElement('div'); c.className = 'card fac pledge' + (barred ? ' barred' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
+        c.innerHTML = `<canvas width="300" height="150"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name} · ${F.king}</div><p>${F.blurb}</p><div class="dim small">Rivals: ${F.enemyMobs}</div>
+          <button class="btn gold pledge-go" data-locked="${barred ? 1 : 0}" ${barred ? 'disabled' : ''}>${barred ? `Your heroes serve ${esc(D.FACTIONS[cs.sworn].kingFirst || D.FACTIONS[cs.sworn].king)}` : `Pledge to ${esc(F.king)}`}</button></div>`;
+        const g = c.querySelector('canvas').getContext('2d'); g.scale(300 / 860, 150 / 430); M.paintCity(g, 860, 430, f, 3);
+        c.querySelector('.pledge-go').onclick = () => { if (cs.busy || barred) return; cs.faction = f; KR.A.sfx('quest', 0.6); create(); };
+        cards.appendChild(c);
+      });
+      const create = () => {
+        const name = cs.name;
+        cs.busy = true; const c = cs.made || (cs.made = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} })); // made once, even if joining fails and you pledge again
         if (!G.account.faction) { G.account.faction = c.faction; Sys.saveAccount && Sys.saveAccount(); } // the kingdom is now chosen for good
         // invited players go back to the Multiplayer screen with their new hero to join the game
         if (INVITED && !inviteFailed && KR.Online && KR.Online.mode === 'solo') {
           const code = KR.Online.cleanCode(new URLSearchParams(location.search).get('join'));
-          $('#cr-err').textContent = `Joining game ${code}...`; $('#cr-go').disabled = true;
+          $('#pl-err').textContent = `Joining game ${code}...`; pledgeBtns(true);
           KR.Online.join(code, '').then(() => { LSs('kr_sel_hero', c.id); return KR.Main.enterWorld(null, c); }).then(() => G.log(`You joined "${KR.Online.name}".`, 'status', '#9ad8ff'))
-            .catch((err) => { cs.busy = false; inviteFailed = true; $('#cr-go').disabled = false; $('#cr-err').textContent = `${(err && err.message) || err} Press "Begin your journey" again to start on your own; you can join from Multiplayer later.`; });
+            .catch((err) => { cs.busy = false; inviteFailed = true; pledgeBtns(false); $('#pl-err').textContent = `${(err && err.message) || err} Pledge again to start on your own; you can join from Multiplayer later.`; });
         }
         else if (window.KR3D && KR.K3cine) KR.Main.enterWorld(null, c, { cine: true }); // 3D: the opening film plays in the real world
         else if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
       };
-      setTimeout(() => inp.focus(), 50);
     }
   }
   // ---------------- 3D appearance: a live model you can turn, with face, body, hair and marks ----------------
@@ -503,7 +546,7 @@
     const tabs = [['body', 'Body'], ['face', 'Face'], ['hair', 'Hair'], ['marks', 'Scars & Tattoos']];
     body.innerHTML = `<h2>Your appearance</h2><div class="app app3"><div class="app-prev3"><canvas id="ap-cv3" class="k3-hero"></canvas><div class="ap-cam"><button class="btn small ghost" id="ap-rand">🎲 Surprise me</button><span class="dim small">Drag to turn</span></div></div>
       <div class="app-opts3"><nav class="ap-tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${apTab === k ? 'on' : ''}">${n}</button>`).join('')}</nav><div class="ap-pane"></div><button class="btn gold big" id="ap-next">Continue</button></div></div>`;
-    const view = KR.heroView3D($('#ap-cv3'), { ring: D.FACTIONS[cs.faction].color, yaw: 0.25 });
+    const view = KR.heroView3D($('#ap-cv3'), { ring: D.CLASSES[cs.cls].color, yaw: 0.25 });
     const refresh = () => view.set(lookNow());
     const pane = $('.ap-pane', body);
     const paint = () => {

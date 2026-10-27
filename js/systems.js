@@ -6,6 +6,27 @@
   const TS = D.TS;
 
   // =============== CHARACTER CREATION ===============
+  // every class comes home in its own clothes. The names shape the 3D model: hood, mitre, circlet, headband,
+  // pointed hat and feathered cap become those hats; robe, vestment and gown become robes; jerkins are leather.
+  // [name, colour, icon] for head and feet, [name, colour, leather?, icon] for the chest, [name, colour] for legs
+  Sys.CLASS_OUTFITS = {
+    warrior: { chest: ['Studded Brigandine', '#7a2a22', 'leather', '🦺'], legs: ['Wool Breeches', '#4a3a2a'], feet: ['Hobnailed Boots', '#2a1e16'] },
+    paladin: { head: ["Squire's Circlet", '#e0c060', '👑'], chest: ['White Templar Tabard', '#ece6d2'], legs: ['Grey Hose', '#8a8c9a'], feet: ['Riding Boots', '#5a4a3a'] },
+    shadowknight: { head: ['Black Hood', '#1a1420'], chest: ['Black Leather Jerkin', '#2a1e30', 'leather', '🦺'], legs: ['Black Breeches', '#1a1420'], feet: ['Spurred Boots', '#141018'] },
+    ranger: { head: ['Forest Hood', '#3f6b35'], chest: ['Green Leather Jerkin', '#3f6b35', 'leather', '🦺'], legs: ['Buckskin Leggings', '#6a5236'], feet: ['Soft Hunting Boots', '#3a2a1e'] },
+    bard: { head: ['Feathered Cap', '#b8462e'], chest: ["Minstrel's Doublet", '#b8462e'], legs: ['Striped Hose', '#3a2a5a'], feet: ['Pointed Shoes', '#5a3a1e', '👞'] },
+    beastlord: { head: ['Wolfskin Hood', '#8a6a3a'], chest: ['Hide Jerkin', '#8a6a3a', 'leather', '🦺'], legs: ['Fur Leggings', '#5a4028'], feet: ['Fur Boots', '#6a5038'] },
+    rogue: { head: ['Shadow Hood', '#2a2e30'], chest: ['Charcoal Jerkin', '#2a2e30', 'leather', '🦺'], legs: ['Dark Leggings', '#1e2224'], feet: ['Soft Boots', '#1a1a1a'] },
+    monk: { head: ['Red Headband', '#c8302a'], chest: ["Monk's Tunic", '#d9822b'], legs: ['Saffron Trousers', '#c87020'], feet: ['Straw Sandals', '#c8a060', '🩴'] },
+    berserker: { chest: ['Bearskin Jerkin', '#6a4a2e', 'leather', '🦺'], legs: ['Fur Breeches', '#4a3424'], feet: ['Fur Boots', '#3a2a1e'] },
+    cleric: { head: ['Linen Mitre', '#f1efe6', '⛪'], chest: ['White Acolyte Vestment', '#efe9d8'], legs: ['Linen Trousers', '#c8c0a8'], feet: ['Temple Sandals', '#8a6a4a', '🩴'] },
+    druid: { head: ['Leaf Circlet', '#6a9a3a', '🌿'], chest: ['Moss Green Robe', '#4e7d2f'], legs: ['Bark Brown Trousers', '#5a4a30'], feet: ['Bark Sandals', '#6a4a2a', '🩴'] },
+    shaman: { head: ['Spirit Hood', '#2d7b78'], chest: ['Painted Hide Vestment', '#2d7b78'], legs: ['Hide Leggings', '#4a3a2a'], feet: ['Hide Boots', '#3a2a1e'] },
+    necromancer: { head: ['Bone Hood', '#1d1a22'], chest: ['Black Funeral Robe', '#1d1a22'], legs: ['Grave Black Trousers', '#2a2430'], feet: ['Grave Boots', '#141018'] },
+    wizard: { head: ['Pointed Hat', '#2b4fa3', '🎩'], chest: ['Blue Apprentice Robe', '#2b4fa3'], legs: ['Midnight Trousers', '#1e2a4a'], feet: ['Velvet Slippers', '#2a2a4a', '🥿'] },
+    magician: { head: ['Crimson Hood', '#b03a2e'], chest: ['Crimson Summoner Robe', '#b03a2e'], legs: ['Ash Grey Trousers', '#4a4448'], feet: ['Ember Boots', '#3a1e16'] },
+    enchanter: { head: ['Silver Circlet', '#c8c8e0', '👑'], chest: ['Violet Silk Gown', '#6a3fa0'], legs: ['Lilac Trousers', '#8a6ab0'], feet: ['Velvet Slippers', '#3a2a4a', '🥿'] },
+  };
   Sys.newChar = function (o) {
     const R = D.RACES[o.race], C = D.CLASSES[o.cls];
     const c = { id: U.uid() + U.uid(), name: o.name, race: o.race, cls: o.cls, gender: o.gender, skin: o.skin, hair: o.hair, hairStyle: o.hairStyle, app: o.app || null, faction: (o.faction && (R.factions || [R.faction]).includes(o.faction)) ? o.faction : R.faction,
@@ -21,9 +42,11 @@
     if (C.shield) c.wskill.SHIELD = 1;
     if (C.ranged.length) { const rt = kit.range && C.ranged.includes(kit.range) ? kit.range : C.ranged[0]; c.wskill[rt] = 1; if (o.cls === 'warrior' || o.cls === 'paladin') c.rangeMode = 'melee'; }
     // everyone starts with nothing but the clothes on their back and the weapon of their calling
-    // a sailor home from the sea: plain clothes with no armour and no stats (everything else is earned)
-    const plain = (slot, name, col, icon) => { const it = G.makeArmor('cloth', slot, 0, { ilvl: 1, q: 0.6 }); Object.assign(it, { name, stats: {}, mana: 0, ac: 0, req: 1, value: 2, col, plainClothes: true }); if (icon) it.icon = icon; c.equip[slot] = it; };
-    plain('head', "Sailor's Cap", '#1e2a4a', '🧢'); plain('chest', 'Loose Silk Shirt', '#efe6d2', '👕'); plain('legs', 'Baggy Sailor Trousers', '#2a3a5a', '👖'); plain('feet', 'Sea Boots', '#3a2a1e', '🥾');
+    // home from the sea in the plain clothes of your calling: no armour and no stats (everything else is earned)
+    const plain = (slot, name, col, icon, ak) => { const it = G.makeArmor('cloth', slot, 0, { ilvl: 1, q: 0.6 }); Object.assign(it, { name, stats: {}, mana: 0, ac: 0, req: 1, value: 2, col, plainClothes: true }); if (ak && C.armor !== 'cloth') it.ak = ak; if (icon) it.icon = icon; c.equip[slot] = it; };
+    const fit = Sys.CLASS_OUTFITS[c.cls] || Sys.CLASS_OUTFITS.warrior;
+    if (fit.head) plain('head', fit.head[0], fit.head[1], fit.head[2] || '🧢');
+    plain('chest', fit.chest[0], fit.chest[1], fit.chest[3] || '👕', fit.chest[2]); plain('legs', fit.legs[0], fit.legs[1], '👖'); plain('feet', fit.feet[0], fit.feet[1], fit.feet[2] || '🥾');
     if (G.makeLight) c.equip.light = G.makeLight('tallow'); // a tallow candle for the dark
     // spells known at level 1
     c.trained = [];

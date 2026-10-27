@@ -18,6 +18,7 @@ const { settings3d } = await import('./settings3d.js');
 const { actionOf, held, pressed } = await import('./keys3d.js');
 await import('./portrait3d.js');
 await import('./herolight.js');
+await import('./harvest3d.js');
 const { grass } = await import('./grass.js');
 
 const KR = window.KR;

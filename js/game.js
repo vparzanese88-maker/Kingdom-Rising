@@ -1182,7 +1182,7 @@
     let coins = Math.round(lv * (3 + Math.random() * 9) * (e.coinMul || 1) * (e.named ? 3 : 1));
     if (['rat', 'snake', 'beetle', 'bat', 'wolf', 'bear', 'boar', 'spider', 'wisp', 'croc', 'mosquito', 'drake', 'griffon', 'elemental', 'golem', 'treant'].includes(e.kind) && !e.boss) coins = Math.round(coins * 0.15);
     if (e.drop && Math.random() < 0.45) loot.push(G.makeTrophy(e.drop, lv));
-    if (e.mat && Math.random() < (e.boss ? 1 : 0.22)) loot.push(G.makeMat(e.mat, G.tierOfLevel(lv), e.boss ? 3 : 1));
+    if (e.mat && (e.mat !== 'hide' || e.boss) && Math.random() < (e.boss ? 1 : 0.22)) loot.push(G.makeMat(e.mat, G.tierOfLevel(lv), e.boss ? 3 : 1));
     const gearChance = e.boss ? 1 : e.named ? 0.6 : 0.06;
     const n = e.boss ? 2 : 1;
     for (let i = 0; i < n; i++) if (Math.random() < gearChance) loot.push(G.randomGear(lv + (e.boss ? 3 : 0), e.boss ? 1.3 : e.named ? 1.12 : 0.92));

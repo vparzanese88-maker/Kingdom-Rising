@@ -925,6 +925,7 @@
     if (spec.k === 'weapon') { const wt = G.weaponType(c) !== 'H2H' || c.cls === 'monk' ? G.weaponType(c) : C.weapons[0]; return G.makeWeapon(wt, tier, { ilvl, q }); }
     if (spec.k === 'armor') return G.makeArmor(C.armor, spec.slot, tier, { ilvl, q });
     if (spec.k === 'jewel') return G.makeJewel(spec.slot, tier, { ilvl, q });
+    if (spec.k === 'tool' && G.makeTool) return spec.kinds.map((k) => G.makeTool(k, spec.tier));
     if (spec.k === 'potion') { const a = G.makePotion('food', Math.min(4, tier)), b = G.makePotion('drink', Math.min(4, tier)); a.qty = b.qty = (spec.n || 3) * 2; return [a, b]; }
     return null;
   };

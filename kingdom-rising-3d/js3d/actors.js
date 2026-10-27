@@ -184,6 +184,7 @@ function updateAvatar(av, dt, ctx) {
     // EverQuest style: the hero faces where the camera points (backpedals and sidesteps with its legs),
     // except when it is being steered for you (auto follow)
     if (moving || view.firstPerson() || view.turning) want = view.yaw + Math.PI;
+    if (e.harvest && !moving) { const h = e.harvest; const tg = h.corpse || (h.d ? { x: h.d.x, y: h.d.y - 8 } : null); if (tg) want = Math.atan2(tg.x - e.x, tg.y - e.y); }
     if (moving && !view.firstPerson() && (p.chase || p.moveTo) && dist > 0.002) want = Math.atan2(dx, dy);
     if (tgt && tgt !== p && (p.autoAttack || p.cast || p.atk > 0) && !(moving && view.firstPerson())) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   } else if (dist > 0.002 && dist < 3) want = Math.atan2(dx, dy);
@@ -213,7 +214,7 @@ function updateAvatar(av, dt, ctx) {
   // far away people move less often: nobody can see it, and it saves a lot of work
   if ((near > 90 && K3.frame % 4) || (near > 45 && K3.frame % 2)) return;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
-  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving ? dist / sc : 0, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
+  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving ? dist / sc : 0, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
   if (av.peer) { st.move = e.m ? 1 : 0; st.dist = dist > 0.0005 ? dist / sc : e.m ? dt * 3.2 : 0; }

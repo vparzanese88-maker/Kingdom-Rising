@@ -522,6 +522,9 @@ export function animateHumanoid(rig, st, dt) {
     B.hips.rotation.z = -Math.sin(ph * 2) * 0.03 * m * (1 - run);
     if (!st.combat) { B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
   }
+  // ---- kneeling to skin an animal ----
+  rig.crouchK = (rig.crouchK || 0) + ((st.crouch ? 1 : 0) - (rig.crouchK || 0)) * Math.min(1, dt * 5);
+  if (rig.crouchK > 0.01) { B.hips.position.y -= rig.rest.hips[1] * 0.38 * rig.crouchK; B.spine.rotation.x += 0.45 * rig.crouchK; B.head.rotation.x += 0.35 * rig.crouchK; }
   // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
   if (!st.mounted && !st.dead) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
@@ -552,6 +555,26 @@ export function animateHumanoid(rig, st, dt) {
     else if (k === 'raise') { B.armL.rotation.x = -2.8 * s1; B.armR.rotation.x = -2.8 * s1; B.chest.rotation.x = -0.2 * s1; B.head.rotation.x = -0.4 * s1; }
     else if (k === 'thrust') { B.armR.rotation.x = -1.6 * s1; B.foreR.rotation.x = -0.1; B.thighL.rotation.x -= 0.6 * s1; B.thighR.rotation.x += 0.4 * s1; }
     else if (k === 'spin') { B.hips.rotation.y = p * Math.PI * 4; B.armR.rotation.z = -1.4; B.armL.rotation.z = 1.4; }
+    // gathering: an axe swung across into a trunk, a pick brought down on rock, a knife working a hide
+    else if (k === 'chop') {
+      const up = K3.smooth(0, 0.48, p), hit = K3.smooth(0.48, 0.6, p), back = K3.smooth(0.62, 1, p);
+      const raise = up * (1 - hit), strike = hit * (1 - back);
+      B.armR.rotation.x = -0.6 - 1.9 * raise - 0.8 * strike; B.armR.rotation.z = -0.15 - 0.7 * raise + 0.55 * strike; B.foreR.rotation.x = -0.5 - 0.7 * raise;
+      B.armL.rotation.x = -0.75 - 1.5 * raise - 0.7 * strike; B.armL.rotation.z = 0.35 - 0.4 * raise + 0.5 * strike; B.foreL.rotation.x = -1.0 - 0.4 * raise;
+      B.chest.rotation.y = 0.55 * raise - 0.55 * strike; B.spine.rotation.y = 0.2 * raise - 0.25 * strike; B.spine.rotation.x += 0.12 + 0.2 * strike;
+    }
+    else if (k === 'mine') {
+      const up = K3.smooth(0, 0.5, p), hit = K3.smooth(0.5, 0.6, p), back = K3.smooth(0.65, 1, p);
+      const raise = up * (1 - hit), strike = hit * (1 - back);
+      B.armR.rotation.x = -0.6 - 2.5 * raise - 0.4 * strike; B.armL.rotation.x = -0.7 - 2.3 * raise - 0.4 * strike; B.armR.rotation.z = -0.1; B.armL.rotation.z = 0.25;
+      B.foreR.rotation.x = -0.4 - 0.6 * raise; B.foreL.rotation.x = -0.8 - 0.5 * raise;
+      B.chest.rotation.x = -0.3 * raise + 0.4 * strike; B.spine.rotation.x += 0.1 + 0.35 * strike; B.head.rotation.x += 0.2 * strike;
+    }
+    else if (k === 'skin') {
+      const saw = Math.sin(p * Math.PI * 4);
+      B.armR.rotation.x = -1.05 + saw * 0.22; B.foreR.rotation.x = -0.55 - saw * 0.2; B.armR.rotation.z = -0.15;
+      B.armL.rotation.x = -0.9; B.foreL.rotation.x = -0.6; B.armL.rotation.z = 0.2;
+    }
   }
   // ---- status ----
   if (st.stun) { B.head.rotation.z = Math.sin(t * 3) * 0.2; B.chest.rotation.z = Math.sin(t * 3 + 1) * 0.08; B.armL.rotation.z = 0.3; B.armR.rotation.z = -0.3; }

@@ -92,41 +92,122 @@
     if (!hvBar) { hvBar = document.createElement('div'); hvBar.className = 'hv-bar'; hvBar.innerHTML = '<span></span><i><b></b></i>'; document.body.appendChild(hvBar); }
     hvBar.hidden = !txt; if (!txt) return; hvBar.querySelector('span').textContent = txt; hvBar.querySelector('b').style.width = Math.round(frac * 100) + '%';
   };
+  // ---------- gathering: you need the right tool in the right slot, and practice makes you faster ----------
+  const TREE_NAME = { oak: 'Oak Tree', elmwood: 'Elm Tree', birch: 'Birch Tree', darkoak: 'Darkoak Tree', willow: 'Willow Tree', snowpine: 'Frost Pine' };
+  const GS = { axe: 'woodcutting', pick: 'mining', knife: 'skinning' };
+  const GS_NAME = { woodcutting: 'Woodcutting', mining: 'Mining', skinning: 'Skinning' };
+  K.gskill = (c, sk) => ((c.gskill = c.gskill || { woodcutting: 0, mining: 0, skinning: 0 })[sk] || 0);
+  K.gskillCap = (c) => Math.min(300, 20 + c.level * 6);
+  const toolTier = (c, k) => (KR.Gear ? KR.Gear.toolTier(c, k) : 0);
+  const toolName = (k) => (KR.Gear ? KR.Gear.TOOL_KINDS[k].name : k);
+  // animals that can be skinned for hides (not people, undead, spirits, insects or stone)
+  K.BEASTS = new Set(['wolf', 'spiritwolf', 'bear', 'tiger', 'boar', 'croc', 'lizard', 'snake', 'rat', 'bat', 'drake', 'griffon', 'dragon']);
+  K.skinnable = (e) => !!(e && e.dead && e.type === 'mob' && !e.skinned && !e.boss && (K.BEASTS.has(e.kind) || e.mat === 'hide'));
+  K.targetName = function (d) {
+    if (d.dead) return d.name;
+    const h = K.harvestOf(d); if (!h) return '';
+    return h.tool === 'axe' ? TREE_NAME[d.kind] || 'Tree' : `${K.MATS[h.mat].name} Boulder`;
+  };
+  // how long one gathering takes: better tools and more skill are faster, harder material slower
+  const gatherTime = (c, tool, matTier) => { const tt = toolTier(c, tool); const T = KR.Gear.TOOL_TIERS[tt]; const sk = K.gskill(c, GS[tool]); return U.clamp((4.4 / (T.speed * (1 + sk / 180))) * (1 + (matTier - 1) * 0.15), 1.1, 7); };
+  // can this hero gather this thing right now? returns null when yes, else the reason
+  K.whyNot = function (c, d) {
+    if (d.dead) { const need = Math.max(1, G.tierOfLevel(d.level)); const tt = toolTier(c, 'knife'); if (!tt) return `You need a ${toolName('knife')} in your Skinning slot.`; if (tt < need) return `You need a better skinning knife (tier ${need}) for this hide.`; return null; }
+    const h = K.harvestOf(d); if (!h) return 'Nothing to gather.'; const M = K.MATS[h.mat]; const tt = toolTier(c, h.tool);
+    if (!tt) return `You need a ${toolName(h.tool)} in your ${h.tool === 'axe' ? 'Woodcutting' : 'Mining'} slot. General goods merchants sell copper ones.`;
+    if (tt < M.tier) return `You need a tier ${M.tier} ${h.tool === 'axe' ? 'axe' : 'pick'} for ${M.name}. Your kingdom's smith can make you one.`;
+    return null;
+  };
+  const begin = function (p, target, tool, matTier, extra) {
+    p.moveTo = null; p.harvestGoal = null; G.faceTo(p, target);
+    p.harvest = Object.assign({ t: 0, dur: gatherTime(p.c, tool, matTier), tool, swing: 0.25 }, extra);
+    p.sit = false; p.autoAttack = false;
+  };
   K.startHarvest = function (d) {
     const p = G.player; if (!p || p.dead) return false; const c = p.c; const h = K.harvestOf(d); if (!h) return false; const M = K.MATS[h.mat];
     if (d.cutUntil && d.cutUntil > G.now) { G.log(h.tool === 'axe' ? 'Only a stump is left. It will grow back in a while.' : 'This rock has been quarried. Try another.', 'sys', '#aaa'); return true; }
-    const tier = K.tools(c)[h.tool];
-    if (tier < M.tier) { G.log(`You need at least a ${K.TOOLS[M.tier].name} ${TOOL_NAME[h.tool]} for ${M.name}. Your Outfitter sells better tools.`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return true; }
-    if (Math.hypot(d.x - p.x, d.y - 8 - p.y) > 64) { p.moveTo = { x: d.x, y: d.y + 22 }; p.chase = null; p.harvestGoal = d; return true; }
+    const why = K.whyNot(c, d); if (why) { G.log(why, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return true; }
+    if (Math.hypot(d.x - p.x, d.y - 8 - p.y) > 70) { G.log(`Walk up to the ${K.targetName(d).toLowerCase()} first.`, 'sys', '#aaa'); return true; }
     if (p.inCombat) { G.log('You cannot gather while fighting.', 'sys', '#ffb24a'); return true; }
-    p.moveTo = null; p.harvestGoal = null; G.faceTo(p, { x: d.x, y: d.y - 8 });
-    p.harvest = { d, t: 0, dur: Math.max(1.2, 2.6 - (tier - M.tier) * 0.35), mat: h.mat, tool: h.tool, swing: 0 };
+    begin(p, { x: d.x, y: d.y - 8 }, h.tool, M.tier, { d, mat: h.mat });
     return true;
   };
+  K.startSkin = function (e) {
+    const p = G.player; if (!p || p.dead || !K.skinnable(e)) return false;
+    const why = K.whyNot(p.c, e); if (why) { G.log(why, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return true; }
+    if (Math.hypot(e.x - p.x, e.y - p.y) > 80) { G.log(`Walk up to the ${e.name} first.`, 'sys', '#aaa'); return true; }
+    if (p.inCombat) { G.log('You cannot skin while fighting.', 'sys', '#ffb24a'); return true; }
+    begin(p, e, 'knife', Math.max(1, G.tierOfLevel(e.level)), { corpse: e });
+    return true;
+  };
+  const SWING = { axe: 0.95, pick: 1.05, knife: 0.8 };
   K.harvestTick = function (dt) {
     const p = G.player; if (!p) return;
-    if (p.harvestGoal && !p.harvest) { const d = p.harvestGoal; if (!p.moveTo) { if (Math.hypot(d.x - p.x, d.y - 8 - p.y) < 70) K.startHarvest(d); else p.harvestGoal = null; } }
+    promptTick(p);
     const H = p.harvest; if (!H) return;
-    if (p.dead || p.moving || p.inCombat || (p.cast && p.cast.spell)) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
+    if (p.dead || p.moving || p.inCombat || (p.cast && p.cast.spell) || (H.corpse && (H.corpse.removed || H.corpse.skinned))) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
     H.t += dt; H.swing -= dt;
-    const M = K.MATS[H.mat];
-    if (H.swing <= 0) { H.swing = 0.62; p.atk = 0.01; const d = H.d; const near = 1;
-      if (H.tool === 'axe') { KR.A.sfx('blunt', 0.35 * near); for (let k = 0; k < 4; k++) G.fxAdd({ k: 'ring', x: d.x + (Math.random() - 0.5) * 14, y: d.y - 6, r: 6, col: '#d8b07a', life: 0.35 }); }
-      else { KR.A.sfx('block', 0.3 * near); G.fxAdd({ k: 'sparks', x: d.x, y: d.y - 12, life: 0.4 }); } }
-    showBar(`${H.tool === 'axe' ? 'Chopping' : 'Mining'} ${M.name}...`, Math.min(1, H.t / H.dur));
-    if (H.t >= H.dur) {
-      p.harvest = null; showBar(null); const c = p.c; const tier = K.tools(c)[H.tool];
-      const n = 1 + Math.floor(Math.random() * 2) + (tier > M.tier ? 1 : 0);
+    const c = p.c; const verb = H.tool === 'axe' ? 'Chopping' : H.tool === 'pick' ? 'Mining' : 'Skinning';
+    const what = H.corpse ? H.corpse.name : K.targetName(H.d);
+    if (H.swing <= 0) {
+      H.swing = SWING[H.tool];
+      // the swing itself (the 3D body plays it from animK)
+      p.animK = H.tool === 'axe' ? 'chop' : H.tool === 'pick' ? 'mine' : 'skin'; p.animT = G.now + SWING[H.tool] * 1000; p.animDur = SWING[H.tool] * 1000;
+      const at = H.corpse || H.d; const hitIn = H.tool === 'knife' ? 380 : 520;
+      setTimeout(() => {
+        if (p.harvest !== H) return;
+        if (H.tool === 'axe') { KR.A.sfx('chop', 0.55); for (let k = 0; k < 5; k++) G.fxAdd({ k: 'ring', x: at.x + (Math.random() - 0.5) * 12, y: at.y - 10, r: 5, col: '#e8c08a', life: 0.35 }); }
+        else if (H.tool === 'pick') { KR.A.sfx('pickaxe', 0.5); G.fxAdd({ k: 'sparks', x: at.x, y: at.y - 12, life: 0.4 }); }
+        else KR.A.sfx('skin', 0.5);
+      }, hitIn * 0.9);
+    }
+    showBar(`${verb} ${what}...`, Math.min(1, H.t / H.dur));
+    if (H.t < H.dur) return;
+    p.harvest = null; showBar(null);
+    // skill: practice makes you faster, quickly at first, slowly later
+    const sk = GS[H.tool]; const cur = K.gskill(c, sk); const cap = K.gskillCap(c);
+    if (cur < cap && Math.random() < 0.08 + 0.75 * (1 - cur / Math.max(cap, 1))) { c.gskill[sk] = cur + 1; if ((cur + 1) % 5 === 0 || cur < 10) G.log(`You have become better at ${GS_NAME[sk]}! (${cur + 1})`, 'skill', '#9ad8ff'); }
+    const tt = toolTier(c, H.tool);
+    if (H.corpse) {
+      const e = H.corpse; e.skinned = true; const ht = G.tierOfLevel(e.level); const n = 1 + (tt > Math.max(1, ht) ? 1 : 0) + (Math.random() < 0.25 ? 1 : 0);
+      const hide = G.makeMat('hide', ht, n); Sys.addItem(hide);
+      G.log(`You skin the ${e.name} and take ${n > 1 ? n + ' ' : ''}${hide.name}${n > 1 ? 's' : ''}.`, 'loot', '#d8b07a'); G.float(p, `+${n} ${hide.name}`, '#d8b07a');
+      try { if (e.loot && !e.loot.items.length) e.lootT = Math.min(e.lootT || 1e9, G.now + 1500); } catch (er) {}
+      KR.A.sfx('skin', 0.6);
+    } else {
+      const M = K.MATS[H.mat];
+      const n = 1 + Math.floor(Math.random() * 2) + (tt > M.tier ? 1 : 0);
       K.gather(c)[H.mat] = K.have(c, H.mat) + n;
       H.d.cutUntil = G.now + (H.tool === 'axe' ? 150000 : 180000);
       G.float(p, `+${n} ${n > 1 ? M.pl : M.name}`, M.col);
       const need = K.needFor(c.faction); const goal = need && (need.wood === H.mat || need.stone === H.mat) ? ` (${K.have(c, H.mat)} / ${need.n} for the king)` : ` (${K.have(c, H.mat)})`;
       G.log(`You gather ${n} ${n > 1 ? M.pl : M.name}${goal}.`, 'loot', M.col);
-      KR.A.sfx(H.tool === 'axe' ? 'creak' : 'rumble', 0.4);
-      try { G.giveXp(Math.round(D.mobXp(Math.max(1, Math.min(c.level, M.tier * 10))) * 0.18), ''); } catch (e) {}
-      UI.refresh && UI.refresh(); Sys.save && Sys.save();
+      KR.A.sfx(H.tool === 'axe' ? 'treefall' : 'rockbreak', 0.5);
     }
+    // a little experience for honest work
+    try { G.giveXp(Math.max(1, Math.round(D.mobXp(Math.max(1, Math.min(c.level, 10))) * 0.06)), ''); } catch (e) {}
+    UI.refresh && UI.refresh(); Sys.save && Sys.save();
   };
+  // "Press E to chop Birch Tree": what is in reach, and whether you have the tool for it
+  let prompt = null, promptT = 0, promptFor = null;
+  function promptTick(p) {
+    const now = performance.now(); if (now - promptT < 150) return; promptT = now;
+    if (!prompt) { prompt = document.createElement('div'); prompt.className = 'hv-prompt'; prompt.hidden = true; document.body.appendChild(prompt); }
+    let tgt = null;
+    if (!p.dead && !p.harvest && !p.moving) {
+      const corpse = G.ents.filter((e) => K.skinnable(e) && (!e.loot || !e.loot.items.length) && Math.hypot(e.x - p.x, e.y - p.y) < 80).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+      const d = K.nearestHarvest(p.x, p.y, 70);
+      tgt = corpse || (d && !(d.cutUntil && d.cutUntil > G.now) ? d : null);
+    }
+    if (!tgt) { prompt.hidden = true; promptFor = null; return; }
+    const key = window.K3 && window.K3.keys ? window.K3.keys.keyName(window.K3.keys.bindingsOf('interact')[0]) : 'E';
+    const tool = tgt.dead ? 'knife' : K.harvestOf(tgt).tool; const verb = KR.Gear.TOOL_KINDS[tool].verb;
+    const why = K.whyNot(p.c, tgt);
+    const yieldTxt = tgt.dead ? D.MATERIALS.hide[G.tierOfLevel(tgt.level)] : K.MATS[K.harvestOf(tgt).mat].name;
+    const html = `<span><kbd>${key}</kbd> to ${verb} <b>${esc(K.targetName(tgt))}</b></span><small>${why ? `<span class="bad">${esc(why)}</span>` : `${esc(yieldTxt)} · ${GS_NAME[GS[tool]]} ${K.gskill(p.c, GS[tool])}`}</small>`;
+    if (promptFor !== html) { prompt.innerHTML = html; promptFor = html; }
+    prompt.hidden = false; prompt.classList.toggle('cant', !!why);
+  }
   // the next building project the player's kingdom needs, if any
   K.needFor = function (f) { const ct = G.account && G.account.cities[f]; if (!ct || ct.level >= 5) return null; const lv = ct.level; if ((ct.built || 0) >= lv) return null; return K.BUILD[lv]; };
 
@@ -137,8 +218,11 @@
     const p = G.player;
     if (!target && p && !p.dead) {
       const near = G.ents.filter((x) => x !== p && !x.removed && !x.noPick && Math.hypot(x.x - p.x, x.y - p.y) < 90 && ((x.dead && x.loot && x.loot.items.length) || (!x.dead && (x.type === 'npc' || x.type === 'king' || (x.type === 'guard' && x.faction === p.c.faction)))));
-      const d = K.nearestHarvest(p.x, p.y, 64);
-      if (d && (!near.length || Math.hypot(d.x - p.x, d.y - p.y) < Math.min(...near.map((x) => Math.hypot(x.x - p.x, x.y - p.y))))) { K.startHarvest(d); return; }
+      const corpse = G.ents.filter((e) => K.skinnable(e) && (!e.loot || !e.loot.items.length) && Math.hypot(e.x - p.x, e.y - p.y) < 80).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+      const d = K.nearestHarvest(p.x, p.y, 70);
+      const nearD = near.length ? Math.min(...near.map((x) => Math.hypot(x.x - p.x, x.y - p.y))) : 1e9;
+      if (corpse && Math.hypot(corpse.x - p.x, corpse.y - p.y) < nearD) { K.startSkin(corpse); return; }
+      if (d && Math.hypot(d.x - p.x, d.y - p.y) < nearD) { K.startHarvest(d); return; }
     }
     return interact0.apply(this, arguments);
   }; });
@@ -153,20 +237,8 @@
   UI.extraButtons = function (e, add, w) {
     if (extra0) extra0(e, add, w);
     const p = G.player, c = p.c;
-    if (e.role === 'outfitter' && e.city === c.faction) {
-      const tl = K.tools(c);
-      for (const kind of ['axe', 'pick']) {
-        const nt = tl[kind] + 1; const Tn = K.TOOLS[nt]; if (!Tn) continue;
-        const label = `🛠 ${Tn.name} ${TOOL_NAME[kind]} (${G.fmtCoins(Tn.cost)}${c.level < Tn.lv ? `, level ${Tn.lv}` : ''})`;
-        add(label, () => {
-          if (c.level < Tn.lv) { G.say(e, `Come back at level ${Tn.lv}. A ${Tn.name.toLowerCase()} ${kind === 'axe' ? 'axe' : 'pick'} would take your arm off.`, 4); return; }
-          if (c.coins < Tn.cost) { G.say(e, 'You can\'t afford that, friend.', 3); KR.A.sfx('fail', 0.4); return; }
-          c.coins -= Tn.cost; tl[kind] = nt; KR.A.sfx('coin'); KR.A.sfx('equip', 0.6);
-          G.log(`You buy a ${Tn.name} ${TOOL_NAME[kind]}. You can now gather ${Object.values(K.MATS).filter((m) => m.kind === (kind === 'axe' ? 'wood' : 'stone') && m.tier <= nt).map((m) => m.name).join(', ')}.`, 'loot', '#ffe08a');
-          UI.refresh(); KR.UI.open('npc'); Sys.save();
-        });
-      }
-    }
+    // gathering tools are items now: copper ones are sold by general goods merchants and outfitters,
+    // better ones come from the smith (axes and picks) and the tailor (skinning knives) as quests
   };
 
   // =====================================================================
@@ -187,6 +259,33 @@
           reward: { coin: B.coin, status: B.status }, req: i > 1 ? f + '_build' + (i - 1) : null };
       }
     }
+  };
+  // better gathering tools are earned from the crafters: bring the smith timber and stone of the tier
+  // below and he forges an axe and a pick; bring the tailor hides and she makes a skinning knife
+  const tq0 = Sys.buildQuests;
+  Sys.buildQuests = function () {
+    tq0.apply(this, arguments);
+    if (!KR.Gear) return;
+    const Q = Sys.QUESTS; const TT = KR.Gear.TOOL_TIERS;
+    const WOOD = [null, 'oak', 'darkoak', 'willow', 'frostpine'], STONE = [null, 'fieldstone', 'granite', 'sandstone', 'marble'];
+    for (const f of D.FACTION_IDS) for (let t = 2; t <= 5; t++) {
+      const T = TT[t], wm = WOOD[Math.min(4, t - 1)], sm = STONE[Math.min(4, t - 1)], n = 6 + t * 3;
+      Q[f + '_tools' + t] = { id: f + '_tools' + t, f, giver: 'smith', lv: T.lv, type: 'gather', wood: wm, stone: sm, n, title: `${T.adj} Tools`,
+        text: `Bring me ${n} ${K.MATS[wm].pl} and ${n} ${K.MATS[sm].pl} and I will forge you a ${T.adj.toLowerCase()} axe and pick from them. Better tools bite deeper and cut faster, and only the best can work the hard woods and stones of the far lands.`,
+        reward: { coin: 0, item: { k: 'tool', tier: t, kinds: ['axe', 'pick'] } }, req: t > 2 ? f + '_tools' + (t - 1) : null };
+      const ht = t - 2, hide = D.MATERIALS.hide[ht], hn = 4 + t;
+      Q[f + '_knife' + t] = { id: f + '_knife' + t, f, giver: 'tailor', lv: T.lv, type: 'collect', item: hide, n: hn, title: `A ${T.adj} Skinning Knife`,
+        text: `A hunter's knife is only as good as the hides it has opened. Bring me ${hn} ${hide}s and I will give you a ${T.adj.toLowerCase()} skinning knife, keen enough for tougher beasts.`,
+        reward: { coin: 0, item: { k: 'tool', tier: t, kinds: ['knife'] } }, req: t > 2 ? f + '_knife' + (t - 1) : null };
+    }
+  };
+  const qp1 = Sys.questProgress, qg1 = Sys.questGoal, ti1 = Sys.turnIn;
+  Sys.questProgress = function (q) { if (q.type === 'gather') { const c = G.player.c; return Math.min(K.have(c, q.wood), q.n) + Math.min(K.have(c, q.stone), q.n); } return qp1.apply(this, arguments); };
+  Sys.questGoal = function (q) { return q.type === 'gather' ? q.n * 2 : qg1.apply(this, arguments); };
+  Sys.turnIn = function (q) {
+    if (q.type !== 'gather') return ti1.apply(this, arguments);
+    if (!Sys.questComplete(q)) return;
+    const c = G.player.c; ti1.apply(this, arguments); K.gather(c)[q.wood] -= q.n; K.gather(c)[q.stone] -= q.n;
   };
   Sys.kingQuestFor = function (c) { for (let i = 1; i <= 4; i++) { const q = Sys.QUESTS[c.faction + '_build' + i]; if (q && !c.quests.done[q.id]) return q; } return null; };
   const qp0 = Sys.questProgress, qg0 = Sys.questGoal, ti0 = Sys.turnIn;

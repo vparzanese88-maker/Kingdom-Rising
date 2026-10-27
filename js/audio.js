@@ -567,6 +567,12 @@
       case 'click': tone(d, 1200, t, 0.04, 'square', 0.03, { release: 0.04 }); break;
       case 'open': noise(d, t, 0.12, 0.06, { f: 2500, q: 0.8 }); break;
       case 'alarmbell': I.bell(d, 79, t, 0.22, 2.4); I.bell(d, 72, t + 0.02, 0.14, 2.6); noise(d, t, 0.04, 0.15, { f: 3500 }); break;
+      // ----- gathering -----
+      case 'chop': tone(d, 210, t, 0.12, 'triangle', 0.45, { slide: 0.55, release: 0.12 }); noise(d, t, 0.09, 0.4, { f: 1100, q: 1.4 }); noise(d, t + 0.01, 0.22, 0.1, { f: 380, q: 4 }); tone(d, 92, t + 0.02, 0.25, 'sine', 0.25, { slide: 0.8, release: 0.25 }); break;
+      case 'treefall': noise(d, t, 1.4, 0.18, { f: 300, f2: 120, q: 2 }); voice(d, 140, t, 1.0, { type: 'sawtooth', v: 0.06, a: 0.2, r: 0.4, slide: 0.6, lp: 600, q: 6 }); tone(d, 60, t + 1.1, 0.6, 'sine', 0.55, { slide: 0.5, release: 0.6 }); noise(d, t + 1.1, 0.5, 0.35, { f: 260, q: 0.8 }); break;
+      case 'pickaxe': tone(d, 1850, t, 0.22, 'square', 0.05, { release: 0.22, lp: 5200 }); tone(d, 2740, t, 0.16, 'sine', 0.06, { release: 0.16 }); noise(d, t, 0.06, 0.35, { f: 3200, q: 1 }); noise(d, t + 0.03, 0.25, 0.12, { f: 700, q: 2 }); break;
+      case 'rockbreak': noise(d, t, 0.5, 0.35, { f: 500, f2: 180, q: 1 }); tone(d, 70, t, 0.4, 'sine', 0.4, { slide: 0.6, release: 0.4 }); for (let k = 0; k < 4; k++) noise(d, t + 0.08 + k * 0.07, 0.05, 0.12, { f: 2000 + k * 400, q: 2 }); break;
+      case 'skin': noise(d, t, 0.22, 0.18, { f: 1800, f2: 900, q: 3 }); noise(d, t + 0.12, 0.18, 0.12, { f: 1200, f2: 700, q: 3 }); break;
       case 'anvil': tone(d, 1500, t, 0.7, 'square', 0.05, { release: 0.7, lp: 4000 }); tone(d, 2230, t, 0.5, 'sine', 0.06, { release: 0.5 }); noise(d, t, 0.05, 0.2, { f: 3000 }); break;
       case 'craft': tone(d, midi(72), t, 0.3, 'triangle', 0.08, { release: 0.3 }); tone(d, midi(79), t + 0.1, 0.4, 'triangle', 0.08, { release: 0.4 }); break;
       case 'fail': tone(d, midi(60), t, 0.3, 'square', 0.05, { release: 0.3, lp: 1000 }); tone(d, midi(55), t + 0.12, 0.4, 'square', 0.05, { release: 0.4, lp: 1000 }); break;

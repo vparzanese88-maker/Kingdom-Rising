@@ -185,7 +185,9 @@
     const a = G.account; const chars = a.chars.slice().sort((x, y) => (y.updated || 0) - (x.updated || 0));
     let sel = LSg('kr_sel_hero', null); if (!chars.some((c) => c.id === sel)) sel = chars[0] ? chars[0].id : null;
     if (!chars.length && mmTab !== 'history' && mmTab !== 'options' && mmTab !== 'guide') mmTab = 'guide';
-    const tabs = [['heroes', '🛡', 'Choose Hero'], ['create', '✚', 'Create New Hero'], ['guide', '🧭', 'How to Play'], ['delete', '🗑', 'Delete Hero'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options']];
+    if (mmTab === 'quit') mmTab = 'heroes';
+    const tabs = [['heroes', '🛡', 'Choose Hero'], ['online', '⚔', 'Multiplayer'], ['create', '✚', 'Create New Hero'], ['guide', '🧭', 'How to Play'], ['delete', '🗑', 'Delete Hero'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options'], ['quit', '⏻', 'Quit Game']];
+    if (M.offLobby) M.offLobby();
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="mm">
       <header class="mm-title"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><p>Two brothers. One crown. Build your kingdom and destroy his.</p></header>
       <nav class="mm-nav">${tabs.map(([k, ic, n]) => `<button class="mm-tab ${mmTab === k ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
@@ -193,7 +195,7 @@
       <section class="mm-panel"></section></div>`;
     riseLoop($('.bgcv', scr));
     { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.appendChild(lab); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
-    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'create') { if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } return M.showCreate(); } mmTab = b.dataset.t; M.showMenu(); }));
+    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'create') { if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } return M.showCreate(); } if (b.dataset.t === 'quit') return M.quit(); mmTab = b.dataset.t; M.showMenu(); }));
     const P = $('.mm-panel', scr);
     if (mmTab === 'heroes') {
       if (!chars.length) { P.innerHTML = `<div class="mm-empty"><h2>No heroes yet</h2><p>Every kingdom starts as a hamlet. Create a hero to begin raising yours.</p><button class="btn gold big" id="mm-first">Create your first hero</button></div>`; $('#mm-first').onclick = () => M.showCreate(); return; }
@@ -201,7 +203,7 @@
       P.innerHTML = `<div class="mm-hero"><div class="mm-stage"><canvas width="380" height="440"></canvas><div class="mm-rot"><button class="btn small ghost" data-r="-1" aria-label="Turn left">⟲</button><button class="btn small ghost" data-r="1" aria-label="Turn right">⟳</button></div></div>
         <div class="mm-info"><h2>${esc(ch.name)}</h2><div class="mm-cls">Level ${ch.level} ${esc(D.RACES[ch.race].name)} ${esc(D.CLASSES[ch.cls].name)}</div>
         <dl><dt>Kingdom</dt><dd style="color:${D.FACTIONS[ch.faction].color}">${esc(D.FACTIONS[ch.faction].city)}</dd><dt>Location</dt><dd>${esc(ch.zone || D.FACTIONS[ch.faction].city)}</dd><dt>Last played</dt><dd>${ago(ch.updated)}</dd></dl>
-        <button class="btn gold big mm-enter" id="mm-enter">Enter World</button></div></div>
+        <div class="mm-play"><button class="btn gold big mm-enter" id="mm-enter">Single Player</button><button class="btn big mm-enter" id="mm-multi">Multiplayer</button></div></div></div>
         <div class="mm-roster"><h3>Your heroes <small>${chars.length} / 8</small></h3><div class="mm-list"></div></div>`;
       const cv = $('.mm-stage canvas', P); const g = cv.getContext('2d'); const look = lookOf(ch); const t0 = performance.now();
       const draw = () => { if (!cv.isConnected) return; const t = (performance.now() - t0) / 1000; g.clearRect(0, 0, 380, 440);
@@ -214,6 +216,7 @@
       P.querySelectorAll('.mm-rot [data-r]').forEach((b) => (b.onclick = () => { heroDir += +b.dataset.r; }));
       const enter = () => { LSs('kr_sel_hero', ch.id); cancelAnimationFrame(riseRaf); KR.Main.enterWorld(ch.id); };
       $('#mm-enter', P).onclick = enter;
+      $('#mm-multi', P).onclick = () => { KR.A.sfx('click'); mmTab = 'online'; M.showMenu(); };
       const list = $('.mm-list', P);
       chars.forEach((c) => {
         const card = document.createElement('button'); card.className = 'mm-card' + (c.id === sel ? ' on' : '');
@@ -223,6 +226,8 @@
         card.ondblclick = () => { LSs('kr_sel_hero', c.id); KR.Main.enterWorld(c.id); };
         list.appendChild(card);
       });
+    } else if (mmTab === 'online') {
+      M.showOnline(P, chars.find((c) => c.id === sel));
     } else if (mmTab === 'delete') {
       P.innerHTML = `<div class="mm-del"><h2>Delete a hero</h2><p class="dim">Deleting a hero cannot be undone. Items and coin in the shared bank are kept for your other heroes.</p><div class="mm-list wide"></div></div>`;
       const list = $('.mm-list', P); if (!chars.length) list.innerHTML = '<p class="empty-note">You have no heroes.</p>';
@@ -262,6 +267,97 @@
       $('#mo-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('guide'); });
       $('#mo-mus').oninput = apply; $('#mo-sfx').oninput = apply; $('#mo-fs').onclick = () => KR.UI.toggleFullscreen && KR.UI.toggleFullscreen();
     }
+  };
+
+  // ---------------- multiplayer: host or join a game ----------------
+  M.showOnline = function (P, ch) {
+    const O = KR.Online, a = G.account;
+    const lv = (n) => Math.max(1, Math.min(5, Math.round(+n) || 1));
+    P.innerHTML = `<div class="mm-online">
+      <h2>Multiplayer</h2>
+      <p class="mo-as">Playing as <b>${esc(ch.name)}</b>, level ${ch.level} ${esc(D.CLASSES[ch.cls].name)} of ${esc(D.FACTIONS[ch.faction].city)}. <button class="btn small ghost" id="mo-hero">Change hero</button></p>
+      ${O.available() ? '' : '<p class="mo-msg bad">Multiplayer only works in the claude.ai version of the game. Here you can play Single Player.</p>'}
+      <p class="mo-msg" id="mo-msg" role="status"></p>
+      <div class="mo-grid">
+        <section class="mo-box"><h3>Open games</h3><div class="mo-list" id="mo-list"><p class="empty-note">Looking for games...</p></div></section>
+        <section class="mo-box"><h3>Join a game</h3>
+          <label>Game code<input id="mo-jcode" maxlength="12" autocomplete="off" spellcheck="false"></label>
+          <label>Password<input id="mo-jpass" type="password" maxlength="40" autocomplete="off" placeholder="Leave empty if there is none"></label>
+          <button class="btn gold" id="mo-join">Join game</button></section>
+        <section class="mo-box"><h3>Host a new game</h3>
+          <label>Game name<input id="mo-hname" maxlength="40" value="${esc(ch.name)}'s realm"></label>
+          <label>Password<input id="mo-hpass" type="password" maxlength="40" autocomplete="new-password" placeholder="Optional"></label>
+          <button class="btn gold" id="mo-host">Host game</button>
+          <p class="dim small">Your page runs the game and saves it as you play. Give friends the game code and password.</p></section>
+        <section class="mo-box"><h3>Saved games</h3><div class="mo-list" id="mo-mine"></div>
+          <p class="dim small">Host a saved game to carry on where it left off, even one someone else started. You need its code and password.</p>
+          <label>Game code<input id="mo-ccode" maxlength="12" autocomplete="off" spellcheck="false"></label>
+          <label>Password<input id="mo-cpass" type="password" maxlength="40" autocomplete="off" placeholder="Leave empty if there is none"></label>
+          <button class="btn" id="mo-cont">Host saved game</button></section>
+      </div></div>`;
+    const msg = (t, bad) => { const m = $('#mo-msg', P); if (m) { m.textContent = t; m.className = 'mo-msg' + (bad ? ' bad' : ''); } };
+    const busy = (on) => P.querySelectorAll('button, input').forEach((el) => (el.disabled = on));
+    let offL = null; M.offLobby = () => { if (offL) { offL(); offL = null; } };
+    const go = async (label, fn) => {
+      if (!O.available()) return msg('Multiplayer only works in the claude.ai version of the game.', true);
+      KR.A.sfx('click'); busy(true); msg(label);
+      try { await fn(); } catch (e) { busy(false); msg((e && e.message) || String(e), true); return; }
+      M.offLobby(); LSs('kr_sel_hero', ch.id); cancelAnimationFrame(riseRaf);
+      await KR.Main.enterWorld(ch.id);
+      if (O.mode === 'host') O.advertise();
+      if (O.mode === 'host' && KR.UI.banner) {
+        KR.UI.banner(`You are hosting ${O.name}`, `Game code: ${O.code}${O.pass ? ' (password set)' : ''}. Share it with your friends.`);
+        G.log(`You are hosting "${O.name}". Game code: ${O.code}${O.pass ? '. Friends also need the password you chose.' : '.'}`, 'status', '#ffd84a');
+      } else if (O.mode === 'join') G.log(`You joined "${O.name}". The host's world decides both kingdoms.`, 'status', '#9ad8ff');
+    };
+    $('#mo-hero', P).onclick = () => { mmTab = 'heroes'; M.showMenu(); };
+    $('#mo-join', P).onclick = () => go('Looking for the host...', () => O.join($('#mo-jcode', P).value, $('#mo-jpass', P).value));
+    $('#mo-host', P).onclick = () => go('Opening your game...', () => O.host({ fresh: true, name: $('#mo-hname', P).value, pass: $('#mo-hpass', P).value }));
+    $('#mo-cont', P).onclick = () => go('Loading the saved game...', () => O.host({ code: $('#mo-ccode', P).value, pass: $('#mo-cpass', P).value }));
+    const mine = $('#mo-mine', P); const games = a.games || [];
+    if (!games.length) mine.innerHTML = '<p class="empty-note">Games you host or join are listed here.</p>';
+    games.forEach((gm) => {
+      const row = document.createElement('div'); row.className = 'mo-row';
+      row.innerHTML = `<span><b>${esc(gm.name || gm.code)}</b><small>Code ${esc(gm.code)}${gm.pass ? ' · 🔒' : ''}</small></span><button class="btn small" data-a="join">Join</button><button class="btn small" data-a="host">Host</button>`;
+      row.querySelector('[data-a=join]').onclick = () => go('Looking for the host...', () => O.join(gm.code, gm.pass));
+      row.querySelector('[data-a=host]').onclick = () => go('Loading the saved game...', () => O.host({ code: gm.code, pass: gm.pass }));
+      mine.appendChild(row);
+    });
+    const renderList = () => {
+      const box = $('#mo-list', P); if (!box) return;
+      const hs = O.listHosts();
+      box.innerHTML = hs.length ? '' : '<p class="empty-note">No open games right now. Host one, or join with a code.</p>';
+      hs.forEach((h) => {
+        const code = O.cleanCode(h.code); const lvs = Array.isArray(h.lv) ? h.lv : [];
+        const row = document.createElement('div'); row.className = 'mo-row';
+        row.innerHTML = `<span><b>${h.lock ? '🔒 ' : ''}${esc(String(h.name || code).slice(0, 40))}</b><small>Host ${esc(String(h.hero || 'unknown').slice(0, 24))} · ${Math.max(1, Math.round(+h.n) || 1)} playing · ${D.FACTION_IDS.map((f, i) => `${esc(D.FACTIONS[f].city)} ${'★'.repeat(lv(lvs[i]))}`).join(' · ')}</small></span><button class="btn small">Join</button>`;
+        row.querySelector('button').onclick = () => {
+          $('#mo-jcode', P).value = code;
+          if (h.lock) { $('#mo-jpass', P).focus(); msg(`Enter the password for ${String(h.name || code).slice(0, 40)}, then press Join game.`); }
+          else go('Looking for the host...', () => O.join(code, ''));
+        };
+        box.appendChild(row);
+      });
+    };
+    if (!O.available()) { $('#mo-list', P).innerHTML = '<p class="empty-note">Not available in this version.</p>'; busy(true); $('#mo-hero', P).disabled = false; return; }
+    O.getLobby().then((l) => {
+      if (!P.isConnected) return;
+      if (!l) { $('#mo-list', P).innerHTML = '<p class="empty-note">Could not reach other players. Make sure you are signed in to claude.ai.</p>'; return; }
+      renderList(); offL = l.onPeers(() => { if (!P.isConnected) return M.offLobby(); renderList(); });
+    });
+  };
+
+  // ---------------- quit ----------------
+  M.quit = function () {
+    KR.UI.confirm('Quit Kingdom Rising? Your heroes and kingdoms are saved.', () => {
+      Sys.saveAccount && Sys.saveAccount(true);
+      cancelAnimationFrame(riseRaf); if (M.offLobby) M.offLobby();
+      KR.A.play('silence');
+      const scr = $('#screen');
+      scr.innerHTML = `<div class="mm-quit"><div class="mm-crest">♛</div><h1>Farewell, hero</h1><p>Your heroes and kingdoms are saved. You can close this tab now.</p><button class="btn gold big" id="mq-back">Back to the main menu</button></div>`;
+      $('#mq-back').onclick = () => { mmTab = 'heroes'; M.showMenu(); };
+      try { window.close(); } catch (e) {}
+    });
   };
 
   // ---------------- creation ----------------

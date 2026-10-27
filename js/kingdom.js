@@ -663,11 +663,13 @@
   K.cover = function (gate, onGo) {
     gate.classList.add('cover-on'); gate.innerHTML = `<canvas class="cv-bg"></canvas><canvas class="cv-title"></canvas><div class="cv-sub">Two brothers. One crown.</div><div class="cv-click" id="gate-go">Click anywhere to continue to the main menu</div><button class="cv-snd" title="Sound">🔊</button>`;
     const bg = gate.querySelector('.cv-bg'), g = bg.getContext('2d'); const tc = gate.querySelector('.cv-title'), tg = tc.getContext('2d');
+    // the real kings of the game, drawn in over the painting when the renderer is there (else the painted silhouettes)
+    let kings3 = null; if (KR.coverKings) { const kc = document.createElement('canvas'); kc.className = 'cv-kings'; kc.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; bg.after(kc); try { kings3 = KR.coverKings(kc); } catch (e) { console.warn('cover kings', e); kings3 = null; } if (!kings3) kc.remove(); }
     const t0 = performance.now(); let alive = true;
     const startMusic = () => { try { KR.A.init(); KR.A.play('cover'); K.coverMusicUntil = performance.now() + 30000; } catch (e) {} };
     startMusic();
     gate.querySelector('.cv-snd').onclick = (ev) => { ev.stopPropagation(); startMusic(); gate.querySelector('.cv-snd').classList.add('on'); };
-    const go = () => { if (!alive) return; alive = false; startMusic(); gate.classList.add('out'); setTimeout(() => { gate.hidden = true; gate.classList.remove('out'); onGo(); }, 450); };
+    const go = () => { if (!alive) return; alive = false; startMusic(); if (kings3) setTimeout(() => kings3.stop(), 500); gate.classList.add('out'); setTimeout(() => { gate.hidden = true; gate.classList.remove('out'); onGo(); }, 450); };
     // the first click (or key) takes the cover full screen and starts the music; the next one continues.
     // Browsers only allow full screen after the player does something, so it cannot happen on its own.
     let fsTried = false; const fsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -715,7 +717,7 @@
       for (let i = embers.length - 1; i >= 0; i--) { const e = embers[i]; e.t += 1 / 60; if (e.t > e.life) { embers.splice(i, 1); continue; } e.x += (e.vx + Math.sin(e.t * 3 + i) * 20) / 60; e.y += e.vy / 60; g.fillStyle = `rgba(255,${150 + Math.random() * 80},60,${1 - e.t / e.life})`; g.fillRect(e.x, e.y, 2, 2); }
       g.restore();
       // the brothers, both hands on the crown
-      drawBrothers(g, W2, H2, t);
+      if (!kings3) drawBrothers(g, W2, H2, t);
       // vignette
       const vg = g.createRadialGradient(W2 / 2, H2 / 2, H2 * 0.3, W2 / 2, H2 / 2, H2 * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)'); g.fillStyle = vg; g.fillRect(0, 0, W2, H2);
       }

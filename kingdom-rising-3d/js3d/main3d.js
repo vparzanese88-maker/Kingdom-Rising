@@ -27,6 +27,7 @@ await import('./heroview.js');
 await import('./wildlife.js');
 await import('./intro3d.js');
 await import('./scene3d.js');
+await import('./cover3d.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;

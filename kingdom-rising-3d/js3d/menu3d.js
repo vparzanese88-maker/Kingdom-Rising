@@ -43,9 +43,11 @@ function frame(now) {
   if (!menu.on) return;
   requestAnimationFrame(frame);
   if (KR.Main.isRunning() || !W.tiles) return;
-  if (now - lastDraw < 1000 / 40 - 1.5) return; // the menus don't need more than 40 frames a second
+  // the menus are a backdrop: 30 frames a second, and only 8 while a 3D hero is on screen (it gets the time)
+  const fps = document.querySelector('canvas.k3-hero') ? 8 : 30;
+  if (now - lastDraw < 1000 / fps - 1.5) return;
   lastDraw = now;
-  const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
+  const dt = Math.min(0.15, (now - (last || now)) / 1000); last = now;
   K3.dt = dt; K3.time += dt; K3.frame++; K3.frameTick(dt);
   K3.syncWorld();
   if (!menu.list) { menu.list = shots(); menu.i = 0; menu.t = 0; }

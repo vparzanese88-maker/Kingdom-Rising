@@ -318,13 +318,13 @@ export const forest = {
   update(cam, chunks, CHR) {
     const q = K3.quality; this.age++;
     K3.camera.getWorldDirection(_fw); let fx = _fw.x, fz = _fw.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
-    const moved = Math.hypot(cam.x - this.lx, cam.z - this.lz) > 3, turned = fx * this.lfx + fz * this.lfz < 0.97;
+    const moved = Math.hypot(cam.x - this.lx, cam.z - this.lz) > 3, turned = fx * this.lfx + fz * this.lfz < 0.9; // the margin below leaves room to turn ~25 degrees before a refill
     if (!this.dirty && !moved && !turned && this.age < 120) return;
     this.dirty = false; this.lx = cam.x; this.lz = cam.z; this.lfx = fx; this.lfz = fz; this.age = 0;
     const far = q.treeFar, near = q.treeNear || 60, shd = q.shadows ? q.shadowDist || 0 : 0;
     // what the camera can see sideways, plus room to turn before the next refill
     const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(K3.camera.fov) / 2) * K3.camera.aspect);
-    const minDot = Math.cos(Math.min(Math.PI, halfH + 0.5));
+    const minDot = Math.cos(Math.min(Math.PI, halfH + 0.6));
     for (const b of batches.values()) for (const k of b.buckets) k.n = 0;
     const lists = new Map();
     for (const c of chunks.values()) {

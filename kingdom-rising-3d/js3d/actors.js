@@ -395,10 +395,11 @@ export const actors = {
       alive.add(key);
       let av = avatars.get(key);
       try {
-        if (!av) { if (built > 0 && performance.now() - t0 > (d < 25 ? 14 : 6)) { alive.delete(key); return; } built++; av = makeAvatar(e, peer); avatars.set(key, av); }
+        const tb = performance.now();
+        if (!av) { if (built > 0 && performance.now() - t0 > (d < 25 ? 14 : 6)) { alive.delete(key); return; } built++; av = makeAvatar(e, peer); avatars.set(key, av); if (K3.prof) { const bt = performance.now() - tb; K3.prof.acc.actBuild = (K3.prof.acc.actBuild || 0) + bt; if (bt > 25 && K3.settings.showFps) console.log('slow build', Math.round(bt), e.name, e.type, e.kind, av.kind); } }
         av.e = e;
         av.obj.visible = d < (peer ? 156 : 150);
-        updateAvatar(av, dt, ctx);
+        const ta = performance.now(); updateAvatar(av, dt, ctx); if (K3.prof) { const k = av.kind === 'human' ? 'actHuman' : 'actOther'; K3.prof.acc[k] = (K3.prof.acc[k] || 0) + performance.now() - ta; K3.prof.acc.nAv = (K3.prof.acc.nAv || 0) + 1; }
       } catch (err) { if (av && !av._err) { av._err = true; console.warn('actor', e.name, err); } else if (!av) { console.warn('actor build', e.name, e.kind, err); const dummy = { e, obj: new THREE.Group(), height: 1.8, scale: 1, _err: true }; avatars.set(e, dummy); } }
     };
     for (const e of G.ents) consider(e, false);
@@ -408,6 +409,31 @@ export const actors = {
     updateGameFx(dt);
     updateDecals(dt);
     updateRings(dt);
+  },
+  // dress everyone near the hero ahead of time (behind the loading screen), so nobody has to be built
+  // mid-game when they walk into view: a new face and outfit takes tens of milliseconds to make
+  prewarm(maxMs = 4000, radius = 170) {
+    const p = G.player; if (!p) return 0; const t0 = performance.now(); let n = 0;
+    const list = G.ents.filter((e) => e && !e.removed && !e.hidden && !e.siege && !e.bell && !e.raidBoard && !e.barracks && lookOf(e)).map((e) => [e, Math.hypot(e.x - p.x, e.y - p.y) * PX]).filter((a) => a[1] < radius).sort((a, b) => a[1] - b[1]);
+    for (const [e] of list) { if (performance.now() - t0 > maxMs) break; try { let kind = kindOf(e); const look = lookOf(e); if (look.kind === 'skeleton' || look.kind === 'lich') kind = look.kind; makeHumanoid(look, kind); n++; } catch (er) {} }
+    return n;
+  },
+  // the monsters that live in the land are built once per kind and colour: do the ones near the hero now,
+  // and the rest a few at a time while the game has time to spare
+  prewarmCreatures(maxMs = 2500, radius = 260) {
+    const p = G.player; if (!p) return 0; const t0 = performance.now(); let n = 0;
+    const seen = new Set(), list = [];
+    for (const s of W.spawns || []) { const M = KR.D.MOBS[s.mob]; if (!M || !M.kind) continue; const key = M.kind + '|' + (M.col || ''); if (seen.has(key)) continue; seen.add(key); list.push([M, Math.hypot(s.tx * TS - p.x, s.ty * TS - p.y) * PX]); }
+    // humanoid monsters (orcs, goblins, skeletons...) get a dressed body, the rest a creature body
+    const build = (M) => { const fake = { kind: M.kind, col: M.col, name: M.name, type: 'mob', scale: M.scale || 1, ranged: M.ranged, boss: M.boss }; const lk = S.mobLook ? S.mobLook(fake) : null; if (lk) { let kind = M.kind; if (lk.kind === 'skeleton' || lk.kind === 'lich') kind = lk.kind; makeHumanoid(lk, kind); } else makeCreature(M.kind, M.col, null); };
+    list.sort((a, b) => a[1] - b[1]);
+    const later = [];
+    for (const [M, d] of list) { if (d < radius && performance.now() - t0 < maxMs) { try { build(M); n++; } catch (e) {} } else later.push(M); }
+    // the rest: one per idle moment
+    const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 20 }), 200));
+    const next = (dl) => { while (later.length && dl.timeRemaining() > 12) { const M = later.shift(); try { build(M); } catch (e) {} break; } if (later.length) idle(next, { timeout: 4000 }); };
+    if (later.length) idle(next, { timeout: 4000 });
+    return n;
   },
   // the entity under a screen point
   pickScreen(sx, sy) {

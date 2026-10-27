@@ -31,8 +31,8 @@ const QUALITY = {
   // shadowEvery: redraw the shadows every n frames
   low: { name: 'Low', pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 4, grade: false, treeNear: 32, shadowDist: 0, shadowBox: 35, shadowEvery: 3 },
   medium: { name: 'Medium', pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 6, grade: true, treeNear: 42, shadowDist: 24, shadowBox: 38, shadowEvery: 3 },
-  high: { name: 'High', pr: 1.25, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2 },
-  ultra: { name: 'Ultra', pr: 1.5, shadows: 1, shadowSize: 4096, msaa: 4, bloom: true, grass: 1.6, view: 640, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
+  high: { name: 'High', pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2 },
+  ultra: { name: 'Ultra', pr: 1.25, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.3, view: 600, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
 };
 K3.QUALITY = QUALITY;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -46,8 +46,10 @@ function autoQuality() {
   return 'high';
 }
 K3.settings = Object.assign({ quality: autoQuality(), fov: 72, sens: 1, sensY: 1, invertY: false, fpArms: true, headBob: true, shake: true,
-  turnSpeed: 1.9, moveSpeed: 'realistic', walkMode: false, renderScale: 1, dynRes: true, targetFps: 60, fpsCap: 0, showFps: false, exposure: 1, gfx: {} }, lsGet('kr3d_settings', {}));
+  turnSpeed: 1.9, moveSpeed: 'brisk', walkMode: false, renderScale: 1, dynRes: true, targetFps: 60, fpsCap: 0, showFps: false, exposure: 1, gfx: {} }, lsGet('kr3d_settings', {}));
 K3.saveSettings = () => lsSet('kr3d_settings', K3.settings);
+// settings version 2: a quicker run by default (the old 'realistic' jog felt sluggish)
+if ((K3.settings.v || 1) < 2) { K3.settings.v = 2; if (K3.settings.moveSpeed === 'realistic') K3.settings.moveSpeed = 'brisk'; K3.saveSettings(); }
 // a preset plus whatever the player changed by hand (Settings → Graphics)
 function composeQuality() {
   const q = Object.assign({}, QUALITY[K3.settings.quality] || QUALITY.high, K3.settings.gfx || {});
@@ -141,6 +143,18 @@ function resize() {
   for (const f of K3.onResize) try { f(); } catch (e) { console.error(e); }
 }
 K3.onResize = [];
+// a resolution change from the automatic scaler: resize the existing buffers rather than building the whole
+// post-processing chain again (that rebuild compiled shaders and stalled a frame every time)
+function rescale() {
+  const q = K3.quality;
+  const pr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, q.pr) * (K3.settings.renderScale || 1) * K3.dynScale);
+  renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
+  if (!composer) return buildComposer();
+  composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  if (fxaa) fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
+  if (bloom) bloom.setSize(Math.ceil(size.x / 2), Math.ceil(size.y / 2));
+}
 addEventListener('resize', resize);
 K3.resize = resize;
 K3.dynScale = 1;
@@ -169,14 +183,14 @@ K3.frameTick = function (dt) {
   perf.fps = perf.n / perf.t; perf.n = 0; perf.t = 0;
   if (K3.settings.showFps) { if (!perf.el) { perf.el = document.createElement('div'); perf.el.className = 'k3-fps'; document.body.appendChild(perf.el); } perf.el.hidden = false; perf.el.textContent = Math.round(perf.fps) + ' fps' + (K3.dynScale < 1 ? ' · ' + Math.round(K3.dynScale * 100) + '% res' : ''); }
   else if (perf.el) perf.el.hidden = true;
-  if (!K3.settings.dynRes) { if (K3.dynScale !== 1) { K3.dynScale = 1; resize(); } return; }
+  if (!K3.settings.dynRes) { if (K3.dynScale !== 1) { K3.dynScale = 1; rescale(); } return; }
   const target = Math.min(K3.settings.targetFps || 60, K3.settings.fpsCap || 999);
   if (perf.fps < target * 0.86 && K3.dynScale > 0.55) {
     K3.dynScale = Math.max(0.55, K3.dynScale - (perf.fps < target * 0.6 ? 0.15 : 0.08)); perf.good = 0;
     if (perf.tried) { perf.wait = 30; perf.tried = false; }
-    resize();
+    rescale();
   } else if (perf.fps >= target * 0.95 && K3.dynScale < 1 && perf.wait <= 0) {
-    if (++perf.good >= 3) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 6; resize(); }
+    if (++perf.good >= 3) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 6; rescale(); }
   } else perf.good = 0;
 };
 

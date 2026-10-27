@@ -683,35 +683,52 @@ function catOf(v, P, rest) {
   if (b === 'thighL' || b === 'thighR') return 'thigh'; if (b === 'shinL' || b === 'shinR') return 'shin'; if (b === 'footL' || b === 'footR') return 'foot';
   return 'torso';
 }
-function adjacency(tris, NV) { const adj = new Map(); const add = (a, b) => { let s = adj.get(a); if (!s) adj.set(a, (s = new Set())); s.add(b); }; for (let i = 0; i < tris.length; i += 3) { const a = tris[i], b = tris[i + 1], c = tris[i + 2]; add(a, b); add(b, a); add(b, c); add(c, b); add(a, c); add(c, a); } return adj; }
+// neighbours of each vertex as flat arrays (start[i]..start[i+1] in list): far quicker than maps of sets
+function adjacency(tris, NV) {
+  const deg = new Int32Array(NV + 1); for (let i = 0; i < tris.length; i++) deg[tris[i] + 1] += 2;
+  for (let i = 0; i < NV; i++) deg[i + 1] += deg[i];
+  const list = new Int32Array(deg[NV]); const fill = deg.slice(0, NV);
+  for (let i = 0; i < tris.length; i += 3) { const a = tris[i], b = tris[i + 1], c = tris[i + 2]; list[fill[a]++] = b; list[fill[a]++] = c; list[fill[b]++] = a; list[fill[b]++] = c; list[fill[c]++] = a; list[fill[c]++] = b; }
+  return { start: deg, list };
+}
+const _loc = { a: null };
 // one piece: the triangles of `src` whose vertices pass `test`, pushed out along the normals
-function shellPiece(sh, N, src, field, o) {
-  const P = sh.P; const all = A.tri[src]; const tris = []; const F = new Map(); const f = (v) => { let x = F.get(v); if (x === undefined) { x = field(v); F.set(v, x); } return x; };
+function shellPiece(sh, N, src, field, o, FV) {
+  const P = sh.P; const all = A.tri[src];
+  // the field, worked out at most once per vertex (NaN = not yet)
+  if (!FV) FV = new Float32Array(A.NV).fill(NaN);
+  const f = (v) => { let x = FV[v]; if (x !== x) { x = field(v); FV[v] = x; } return x; };
   // a triangle is kept when any corner is inside, then outside corners slide back to where the field crosses zero
+  const tris = [];
   for (let i = 0; i < all.length; i += 3) { const a = f(all[i]), b = f(all[i + 1]), c = f(all[i + 2]); if (a >= 0 || b >= 0 || c >= 0) { if ((a < -0.5 || b < -0.5 || c < -0.5) && !(a >= 0 && b >= 0 && c >= 0)) continue; tris.push(all[i], all[i + 1], all[i + 2]); } }
   if (!tris.length) return null;
-  const verts = [...new Set(tris)]; const loc = new Map(verts.map((v, i) => [v, i]));
-  let pos = new Float32Array(verts.length * 3); verts.forEach((v, i) => { pos[i * 3] = P[v * 3]; pos[i * 3 + 1] = P[v * 3 + 1]; pos[i * 3 + 2] = P[v * 3 + 2]; });
-  const ltris = tris.map((v) => loc.get(v));
-  const adj = adjacency(ltris, verts.length);
-  { const snap = new Float32Array(pos); for (let i = 0; i < verts.length; i++) { const fv = f(verts[i]); if (fv >= 0) continue; let x = 0, y = 0, z = 0, n = 0; for (const j of adj.get(i) || []) { const fj = f(verts[j]); if (fj < 0) continue; const t = fj / (fj - fv); x += pos[j * 3] + (pos[i * 3] - pos[j * 3]) * t; y += pos[j * 3 + 1] + (pos[i * 3 + 1] - pos[j * 3 + 1]) * t; z += pos[j * 3 + 2] + (pos[i * 3 + 2] - pos[j * 3 + 2]) * t; n++; } if (n) { snap[i * 3] = x / n; snap[i * 3 + 1] = y / n; snap[i * 3 + 2] = z / n; } } pos = snap; }
+  if (!_loc.a || _loc.a.length < A.NV) _loc.a = new Int32Array(A.NV);
+  const loc = _loc.a; loc.fill(-1); const verts = [];
+  for (let i = 0; i < tris.length; i++) { const v = tris[i]; if (loc[v] < 0) { loc[v] = verts.length; verts.push(v); } }
+  const NVl = verts.length;
+  let pos = new Float32Array(NVl * 3); for (let i = 0; i < NVl; i++) { const v = verts[i]; pos[i * 3] = P[v * 3]; pos[i * 3 + 1] = P[v * 3 + 1]; pos[i * 3 + 2] = P[v * 3 + 2]; }
+  const ltris = new Uint32Array(tris.length); for (let i = 0; i < tris.length; i++) ltris[i] = loc[tris[i]];
+  const fv = new Float32Array(NVl); for (let i = 0; i < NVl; i++) fv[i] = FV[verts[i]];
+  const { start, list } = adjacency(ltris, NVl);
+  { const snap = new Float32Array(pos); for (let i = 0; i < NVl; i++) { const fi = fv[i]; if (fi >= 0) continue; let x = 0, y = 0, z = 0, n = 0; for (let q = start[i]; q < start[i + 1]; q++) { const j = list[q]; const fj = fv[j]; if (fj < 0) continue; const t = fj / (fj - fi); x += pos[j * 3] + (pos[i * 3] - pos[j * 3]) * t; y += pos[j * 3 + 1] + (pos[i * 3 + 1] - pos[j * 3 + 1]) * t; z += pos[j * 3 + 2] + (pos[i * 3 + 2] - pos[j * 3 + 2]) * t; n++; } if (n) { snap[i * 3] = x / n; snap[i * 3 + 1] = y / n; snap[i * 3 + 2] = z / n; } } pos = snap; }
   // boundary (edges used once) for trims and to keep the edges in place while smoothing
   const ec = new Map(); for (let i = 0; i < ltris.length; i += 3) for (let k = 0; k < 3; k++) { const a = ltris[i + k], b = ltris[i + (k + 1) % 3]; const key = a < b ? a * 65536 + b : b * 65536 + a; ec.set(key, (ec.get(key) || 0) + 1); }
-  const edge = new Uint8Array(verts.length); for (const [key, c] of ec) if (c === 1) { edge[Math.floor(key / 65536)] = 1; edge[key % 65536] = 1; }
+  const edge = new Uint8Array(NVl); for (const [key, c] of ec) if (c === 1) { edge[Math.floor(key / 65536)] = 1; edge[key % 65536] = 1; }
   // smooth away fine anatomy (plate armour is smooth, cloth a little)
   // smoothing never moves a point inward (so cloth and plate stay outside the skin)
-  if (o.smooth) { const n0 = normalsFor(pos, ltris); const p0 = new Float32Array(pos);
-    for (let it = 0; it < o.smooth; it++) { const np = new Float32Array(pos); for (let i = 0; i < verts.length; i++) { const nb = adj.get(i); if (!nb) continue; let x = 0, y = 0, z = 0; for (const j of nb) { x += pos[j * 3]; y += pos[j * 3 + 1]; z += pos[j * 3 + 2]; } const k = edge[i] ? 0.25 : 0.55; np[i * 3] += (x / nb.size - pos[i * 3]) * k; np[i * 3 + 1] += (y / nb.size - pos[i * 3 + 1]) * k; np[i * 3 + 2] += (z / nb.size - pos[i * 3 + 2]) * k;
-      const dx = np[i * 3] - p0[i * 3], dy = np[i * 3 + 1] - p0[i * 3 + 1], dz = np[i * 3 + 2] - p0[i * 3 + 2]; const dn = dx * n0[i * 3] + dy * n0[i * 3 + 1] + dz * n0[i * 3 + 2]; if (dn < 0) { np[i * 3] -= n0[i * 3] * dn; np[i * 3 + 1] -= n0[i * 3 + 1] * dn; np[i * 3 + 2] -= n0[i * 3 + 2] * dn; } } pos = np; } }
+  if (o.smooth) { const n0 = normalsFor(pos, ltris); const p0 = new Float32Array(pos); let np = new Float32Array(pos.length);
+    for (let it = 0; it < o.smooth; it++) { np.set(pos); for (let i = 0; i < NVl; i++) { const s0 = start[i], s1 = start[i + 1]; if (s0 === s1) continue; let x = 0, y = 0, z = 0; for (let q = s0; q < s1; q++) { const j = list[q] * 3; x += pos[j]; y += pos[j + 1]; z += pos[j + 2]; } const cnt = s1 - s0, k = edge[i] ? 0.25 : 0.55, i3 = i * 3; np[i3] += (x / cnt - pos[i3]) * k; np[i3 + 1] += (y / cnt - pos[i3 + 1]) * k; np[i3 + 2] += (z / cnt - pos[i3 + 2]) * k;
+      const dx = np[i3] - p0[i3], dy = np[i3 + 1] - p0[i3 + 1], dz = np[i3 + 2] - p0[i3 + 2]; const dn = dx * n0[i3] + dy * n0[i3 + 1] + dz * n0[i3 + 2]; if (dn < 0) { np[i3] -= n0[i3] * dn; np[i3 + 1] -= n0[i3 + 1] * dn; np[i3 + 2] -= n0[i3 + 2] * dn; } } const t = pos; pos = np; np = t; } }
   const nrm = normalsFor(pos, ltris);
-  for (let i = 0; i < verts.length; i++) { const off = typeof o.off === 'function' ? o.off(verts[i], pos[i * 3 + 1]) : o.off; pos[i * 3] += nrm[i * 3] * off; pos[i * 3 + 1] += nrm[i * 3 + 1] * off; pos[i * 3 + 2] += nrm[i * 3 + 2] * off; }
+  const offFn = typeof o.off === 'function';
+  for (let i = 0; i < NVl; i++) { const off = offFn ? o.off(verts[i], pos[i * 3 + 1]) : o.off; pos[i * 3] += nrm[i * 3] * off; pos[i * 3 + 1] += nrm[i * 3 + 1] * off; pos[i * 3 + 2] += nrm[i * 3 + 2] * off; }
   const nrm2 = normalsFor(pos, ltris);
   // distance from the edge, for trims
   let dist = null;
-  if (o.trim) { dist = new Float32Array(verts.length).fill(1e9); const q = []; for (let i = 0; i < verts.length; i++) if (edge[i]) { dist[i] = 0; q.push(i); } while (q.length) { const i = q.shift(); for (const j of adj.get(i) || []) { const d = dist[i] + Math.hypot(pos[i * 3] - pos[j * 3], pos[i * 3 + 1] - pos[j * 3 + 1], pos[i * 3 + 2] - pos[j * 3 + 2]); if (d < dist[j] && d < 0.06) { dist[j] = d; q.push(j); } } } }
-  const col = new Float32Array(verts.length * 3), mat = new Float32Array(verts.length * 3), si = new Uint8Array(verts.length * 4), sw = new Uint8Array(verts.length * 4);
+  if (o.trim) { dist = new Float32Array(NVl).fill(1e9); const q = []; for (let i = 0; i < NVl; i++) if (edge[i]) { dist[i] = 0; q.push(i); } for (let h = 0; h < q.length; h++) { const i = q[h]; for (let r = start[i]; r < start[i + 1]; r++) { const j = list[r]; const d = dist[i] + Math.hypot(pos[i * 3] - pos[j * 3], pos[i * 3 + 1] - pos[j * 3 + 1], pos[i * 3 + 2] - pos[j * 3 + 2]); if (d < dist[j] && d < 0.06) { dist[j] = d; q.push(j); } } } }
+  const col = new Float32Array(NVl * 3), mat = new Float32Array(NVl * 3), si = new Uint8Array(NVl * 4), sw = new Uint8Array(NVl * 4);
   const C = new THREE.Color(o.col), T = o.trim ? new THREE.Color(o.trim) : null; const M = MATP[o.mat] || MATP.cloth, MT = MATP[o.trimMat || o.mat] || M;
-  for (let i = 0; i < verts.length; i++) {
+  for (let i = 0; i < NVl; i++) {
     const v = verts[i]; const tr = T && dist[i] < (o.trimW || 0.014);
     const c = tr ? T : o.colFn ? o.colFn(v, pos[i * 3 + 1], C) : C; col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     const m = tr ? MT : M; mat[i * 3] = m[0]; mat[i * 3 + 1] = m[1]; mat[i * 3 + 2] = m[2];
@@ -720,7 +737,7 @@ function shellPiece(sh, N, src, field, o) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nrm2, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aMat', new THREE.BufferAttribute(mat, 3));
-  g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); g.setIndex(ltris);
+  g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); g.setIndex(Array.from(ltris));
   return g;
 }
 // what someone wears, as shells cut along smooth lines, and which parts of the skin they hide
@@ -739,11 +756,11 @@ function outfit(look, kind, sh, N, rest) {
   const shY = rest.shL[1], elbowY = rest.foreL[1], wristY = rest.handL[1], kneeY = rest.shinL[1], hipY = rest.hips[1], ankleY = rest.footL[1], neckY = rest.neck[1];
   const bootTop = ankleY + (kneeY - ankleY) * (ak === 'plate' ? 0.55 : 0.62);
   const cl = (x) => Math.max(-0.45, Math.min(0.45, x));
-  const IN = (v, ...cs) => cs.includes(cat[v]);
+  const IN = (v, a, b, c, d, e) => { const k = cat[v]; return k === a || k === b || k === c || k === d || k === e; };
   const min = Math.min;
   // a round neckline, lower at the front
   const neckCut = (v, drop = 0) => shY + 0.035 - drop - (Z(v) > 0 ? 0.045 * Math.exp(-((X(v) / 0.075) ** 2)) : 0.01);
-  const add = (src, field, o, cover = true) => { const g = shellPiece(sh, N, src, field, o); if (g) pieces.push(g); if (cover && src === 'body') covers.push(field); };
+  const add = (src, field, o, cover = true) => { const FV = new Float32Array(A.NV).fill(NaN); const g = shellPiece(sh, N, src, field, o, FV); if (g) pieces.push(g); if (cover && src === 'body') covers.push({ field, FV }); };
   const pants = ak === 'plate' ? K3.shade(ac, -0.3) : ak === 'chain' ? '#4a4a52' : ak === 'leather' ? '#4a3424' : L.pants || '#4a4a5a';
   const bootC = ak === 'plate' ? K3.shade(ac, -0.1) : '#3a2a1e';
   // ---- legs and feet ----
@@ -799,7 +816,7 @@ function outfit(look, kind, sh, N, rest) {
   else if (ak === 'leather' || (ak === 'none' && !torsoBare && L.tunic !== false && !fem)) skirt(hipY - (hipY - kneeY) * 0.38, { off: 0.008, col: ak === 'leather' ? K3.shade(ac, -0.08) : ac, mat: ak === 'leather' ? 'leather' : 'cloth', trim: K3.shade(ac, -0.3), trimW: 0.01 });
   else if (fem && ak === 'none' && !torsoBare && !legsBare) skirt(ankleY + 0.12, { off: 0.01, col: ac, mat: 'cloth', trim: at, trimW: 0.02 });
   // the skin under a covering piece is not drawn (it never shows and cannot poke through)
-  const hidden = new Uint8Array(A.NV); for (let v = 0; v < A.NV; v++) for (const f of covers) if (f(v) >= 0.012) { hidden[v] = 1; break; }
+  const hidden = new Uint8Array(A.NV); for (const { field, FV } of covers) for (let v = 0; v < A.NV; v++) { if (hidden[v]) continue; let x = FV[v]; if (x !== x) x = field(v); if (x >= 0.012) hidden[v] = 1; }
   return { pieces, hidden, cat };
 }
 // ---------------------------------------------------------------- one person, ready to animate

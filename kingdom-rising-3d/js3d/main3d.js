@@ -64,10 +64,10 @@ K3.syncWorld = syncWorld;
 // ---------- how fast people move ----------
 // The 2D map is drawn small, so its speeds (128 px/s = 6.4 m/s for a hero) look like sprinting in 3D.
 // Realistic: a jog of 3.2 m/s, walking 1.4 m/s; everyone else slows by the same amount so chases stay fair.
-const SPEEDS = { realistic: 0.5, brisk: 0.7, classic: 1 };
+const SPEEDS = { realistic: 0.5, brisk: 0.78, fast: 0.9, classic: 1 };
 const move = { walk: !!K3.settings.walkMode, back: false, autorun: false };
 G.moveScale = (e) => {
-  const k = SPEEDS[K3.settings.moveSpeed] || SPEEDS.realistic;
+  const k = SPEEDS[K3.settings.moveSpeed] || SPEEDS.brisk;
   if (e !== G.player) return k;
   return k * (move.walk ? 0.44 : 1) * (move.back ? 0.65 : 1);
 };
@@ -81,9 +81,9 @@ Main.boot = async function () {
   await Sys.loadAccount();
   A.setVolumes(G.account.settings.music, G.account.settings.sfx);
   // build the world now, behind the loading screen, so the cover and the menus can fly over it
-  try { const bm = document.getElementById('boot3d-msg'); if (bm) bm.textContent = 'Raising the realm...'; await new Promise((r) => setTimeout(r, 30)); Main.ensureWorld(); syncWorld(true); menu3d.start(); } catch (e) { console.error('menu world', e); }
+  try { const bm = document.getElementById('boot3d-msg'); if (bm) bm.textContent = 'Raising the realm...'; await new Promise((r) => setTimeout(r, 30)); Main.ensureWorld(); syncWorld(true); } catch (e) { console.error('menu world', e); }
   if (boot) boot.remove();
-  const start = () => { A.init(); A.setVolumes(G.account.settings.music, G.account.settings.sfx); KR.Menus.showMenu(); setTimeout(() => { try { if (worldKey !== G.account.seed && !running) Main.ensureWorld(); } catch (e) { console.error(e); } }, 700); };
+  const start = () => { menu3d.start(); A.init(); A.setVolumes(G.account.settings.music, G.account.settings.sfx); KR.Menus.showMenu(); setTimeout(() => { try { if (worldKey !== G.account.seed && !running) Main.ensureWorld(); } catch (e) { console.error(e); } }, 700); };
   const gate = document.getElementById('gate'); gate.hidden = false;
   if (KR.Kingdom && KR.Kingdom.cover) KR.Kingdom.cover(gate, () => { Main.autoFullscreen(); start(); });
   else document.getElementById('gate-go').onclick = () => { Main.autoFullscreen(); gate.hidden = true; start(); };
@@ -128,6 +128,9 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     if (G.player._resumeRealm) { const [rid, rx, ry] = G.player._resumeRealm; await step('Entering ' + (W.REALMS[rid] ? W.REALMS[rid].name : rid) + '...'); Sys.enterRealm(rid, rx, ry, { instant: true }); }
     await step('Raising mountains, castles and forests in three dimensions...');
     syncWorld(true);
+    { const t0 = performance.now(); const n = world3d.flush(2500); console.log(`built ${n} more areas in ${Math.round(performance.now() - t0)} ms`); }
+    await step('Dressing the townsfolk...');
+    { const t0 = performance.now(); const n = actors.prewarm(4000); const m = actors.prewarmCreatures(2500); console.log(`prepared ${n} people and ${m} kinds of creature in ${Math.round(performance.now() - t0)} ms`); }
     await step('Opening your journal...');
     console.log(`Entered world in ${Math.round(performance.now() - t0)} ms`);
     if (newChar) { G.clock = 9 * 60; Sys.save(true); } else if (G.account.clock != null) G.clock = G.account.clock;
@@ -188,8 +191,12 @@ function loop(now) {
   if (running) requestAnimationFrame(loop);
 }
 const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); };
+// a per-section timer (Settings → Show FPS shows the slowest parts), also used for testing: K3.prof
+const PF = (K3.prof = { acc: {}, n: 0, t: 0 }); let pfT = 0;
+const mk = (k) => { const t = performance.now(); PF.acc[k] = (PF.acc[k] || 0) + (t - pfT); pfT = t; };
 function loopBody(now) {
   if (!running) return;
+  pfT = performance.now(); PF.n++;
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   K3.dt = dt; K3.time += dt; K3.frame++; K3.frameTick(dt);
   const p = G.player;
@@ -214,27 +221,29 @@ function loopBody(now) {
   let { mx, my } = moveInput(f, s);
   if (touch.move && !K3.cine) { const m2 = moveInput(-touch.my, touch.mx); mx = m2.mx; my = m2.my; }
   if (p.fear > 0 && p.fearFrom) { const dx = p.x - p.fearFrom.x, dy = p.y - p.fearFrom.y, d = Math.hypot(dx, dy) || 1; mx = dx / d; my = dy / d; }
-  G.update(dt, { mx, my });
-  Sys.worldTick(dt);
+  mk('input');
+  G.update(dt, { mx, my }); mk('game');
+  Sys.worldTick(dt); mk('worldTick');
   p.c.playTime = (p.c.playTime || 0) + dt;
   if (p.drunkUntil && p.drunkUntil < G.now) { p.drunkUntil = 0; p.drinks = 0; }
   R.cam.x = p.x; R.cam.y = p.y - 20;
-  syncWorld();
+  syncWorld(); mk('sync');
   // camera, world and actors
   updateCamera(dt, p);
   if (K3.cine) K3.updateCine(dt);
   const inside = W.buildingAt(p.x, p.y);
-  world3d.update(dt, { inside, cam: K3.camera.position });
-  actors.update(dt, { inside });
-  updateSky(dt, K3.camera.position, { inside, focus: view.focus });
-  updateTerrain(K3.camera.position);
-  grass.update(K3.camera.position);
-  viewmodel.update(dt, p);
-  for (const u of K3.updaters) u(dt, K3.time);
-  K3.render();
-  hud3d.draw(dt);
-  UI.tick();
-  Sys.Net.tick();
+  mk('camera');
+  world3d.update(dt, { inside, cam: K3.camera.position }); mk('world');
+  actors.update(dt, { inside }); mk('actors');
+  updateSky(dt, K3.camera.position, { inside, focus: view.focus }); mk('sky');
+  updateTerrain(K3.camera.position); mk('terrain');
+  grass.update(K3.camera.position); mk('grass');
+  viewmodel.update(dt, p); mk('viewmodel');
+  for (const u of K3.updaters) u(dt, K3.time); mk('updaters');
+  K3.render(); mk('render');
+  hud3d.draw(dt); mk('hud');
+  UI.tick(); mk('ui');
+  Sys.Net.tick(); mk('net');
   // music director
   combatT -= dt;
   const inCombat = combatT > 0 && G.inCombat(p);

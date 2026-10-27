@@ -49,7 +49,7 @@ const pages = {
     </div><div>
       <h4>Keyboard and movement</h4>
       ${rng('c-turn', 'Turn speed (A and D)', 0.8, 4, 0.1, S().turnSpeed || 1.9, (v) => Math.round((v * 180) / Math.PI) + '° / s')}
-      ${sel('c-speed', 'Movement speed', [['realistic', 'Realistic (jog 3.2 m/s, walk 1.4 m/s)'], ['brisk', 'Brisk'], ['classic', 'Classic (fast, like the 2D game)']], S().moveSpeed || 'realistic', 'Monsters and townsfolk slow down by the same amount, so fights stay fair.')}
+      ${sel('c-speed', 'Movement speed', [['realistic', 'Realistic (jog 3.2 m/s)'], ['brisk', 'Brisk run (5 m/s, default)'], ['fast', 'Fast (5.8 m/s)'], ['classic', 'Classic (fast, like the 2D game)']], S().moveSpeed || 'brisk', 'Monsters and townsfolk slow down by the same amount, so fights stay fair.')}
       ${chk('c-walk', 'Walk instead of run (or press the Walk / run key)', S().walkMode)}
       <p class="k3s-note">A and D turn you, like EverQuest. Hold the right mouse button and they sidestep instead. Change any key in the Key Bindings tab.</p>
     </div></div>`;
@@ -148,7 +148,7 @@ function make() {
   el.querySelector('#k3-reset').onclick = () => {
     const s = S();
     if (tab === 'graphics') { s.renderScale = 1; s.dynRes = true; s.targetFps = 60; s.fpsCap = 0; s.showFps = false; s.exposure = 1; K3.renderer.toneMappingExposure = 1; K3.setQuality(s.quality); }
-    else if (tab === 'controls') { s.sens = 1; s.sensY = 1; s.invertY = false; s.turnSpeed = 1.9; s.moveSpeed = 'realistic'; if (s.walkMode && KR.Main.toggleWalk) KR.Main.toggleWalk(); }
+    else if (tab === 'controls') { s.sens = 1; s.sensY = 1; s.invertY = false; s.turnSpeed = 1.9; s.moveSpeed = 'brisk'; if (s.walkMode && KR.Main.toggleWalk) KR.Main.toggleWalk(); }
     else if (tab === 'keys') resetKeys();
     else if (tab === 'camera') { s.fov = 72; s.headBob = true; s.shake = true; s.fpArms = true; }
     else if (tab === 'sound') { const st = KR.G.account.settings; st.music = 0.5; st.sfx = 0.7; KR.A.setVolumes(0.5, 0.7); }

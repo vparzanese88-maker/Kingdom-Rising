@@ -93,6 +93,8 @@ export const world3d = {
     this.finish();
     console.log(`3D buildings and props: ${Math.round(performance.now() - t0)} ms, ${chunks.size} areas`);
   },
+  // build the waiting areas now (behind a loading screen) instead of a few per frame during play
+  flush(maxMs = 2500) { const t0 = performance.now(); let n = 0; while (pending.length && performance.now() - t0 < maxMs) { const [cx, cy] = pending.shift(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); n++; } if (n) this.finish(); return n; },
   // flags, wall torches and lights for everything built so far
   finish() {
     if (flagGroup) { root.remove(flagGroup); dispose(flagGroup); }
@@ -131,7 +133,7 @@ export const world3d = {
       const t0 = performance.now();
       // build the areas nearest the camera first (the menus and the opening film fly far and fast)
       if (ctx.cam && K3.frame % 20 === 0) { const cx = ctx.cam.x / (CH * TILE), cz = ctx.cam.z / (CH * TILE); pending.sort((a, b) => Math.hypot(a[0] + 0.5 - cx, a[1] + 0.5 - cz) - Math.hypot(b[0] + 0.5 - cx, b[1] + 0.5 - cz)); }
-      while (pending.length && performance.now() - t0 < (ctx.budget || 7)) { const [cx, cy] = pending.shift(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); }
+      while (pending.length && performance.now() - t0 < (ctx.budget || 5)) { const [cx, cy] = pending.shift(); const tc = performance.now(); buildChunk(cx, cy, pendingIdx.get(key(cx, cy))); const bt = performance.now() - tc; if (K3.prof) { K3.prof.acc.chunkMs = (K3.prof.acc.chunkMs || 0) + bt; K3.prof.acc.chunkN = (K3.prof.acc.chunkN || 0) + 1; K3.prof.acc.chunkMax = Math.max(K3.prof.acc.chunkMax || 0, bt) * K3.prof.n; } }
       if (!pending.length || K3.frame % 30 === 0) this.finish();
     }
     const cam = ctx.cam; const view = K3.quality.view;
@@ -145,7 +147,9 @@ export const world3d = {
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
       for (const m of c.veg) if (!m.userData.small) m.visible = d < treeFar + 80;
     }
-    forest.update(cam, chunks, CH * TILE * 0.71);
+    const PFa = K3.prof && K3.prof.acc; let pt = performance.now(); const mk = (k) => { if (!PFa) return; const t = performance.now(); PFa['w.' + k] = (PFa['w.' + k] || 0) + t - pt; pt = t; };
+    mk('chunks');
+    forest.update(cam, chunks, CH * TILE * 0.71); mk('forest');
     // doors swing open as you walk up
     for (const dr of structs.doors) { const a = dr.door.open * 1.45; if (dr.obj.rotation.y !== a) { dr.obj.rotation.y = a; dr.obj.updateMatrix(); dr.obj.updateMatrixWorld(true); } }
     mats.setNight(K3.sky ? K3.sky.darkness : 0);
@@ -154,11 +158,12 @@ export const world3d = {
     // boats bob on the water, the balloon floats
     for (const o of anims) { const a = o.userData.anim; if (a.kind === 'boat') { o.position.y = a.y + Math.sin(K3.time * 1.3 + a.v * 9) * 0.12 - 0.35; o.rotation.z = Math.sin(K3.time * 1.1 + a.v * 5) * 0.03; o.rotation.x = Math.sin(K3.time * 0.9 + a.v * 3) * 0.02; } else { o.position.y = a.y + Math.sin(K3.time * 0.8) * 0.25; } o.updateMatrixWorld(true); }
     // smoke, sparks, fountains and drips near the camera
-    emitTick(dt, cam);
+    mk('misc');
+    emitTick(dt, cam); mk('emit');
     // felled trees and quarried rocks
-    harvestTick(cam);
-    updateLights(dt, cam, ctx);
-    fx.update(dt);
+    harvestTick(cam); mk('harvest');
+    updateLights(dt, cam, ctx); mk('lights');
+    fx.update(dt); mk('fx');
   },
   // the tree or rock under a ray (for gathering)
   pickDecor(ray) {

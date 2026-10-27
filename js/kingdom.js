@@ -659,8 +659,7 @@
     try { document.fonts && document.fonts.ready.then(() => { buildTitle(); out = null; lastProg = -1; }); } catch (e) {}
     const frame = (now) => {
       if (!alive && gate.hidden) return; const t = (now - t0) / 1000;
-      // in 3D the real world is behind the cover (kingdom-rising-3d/js3d/menu3d.js): only the title is drawn here
-      const W2 = window.KR3D ? 0 : (bg.width = innerWidth), H2 = window.KR3D ? 0 : (bg.height = innerHeight); if (!window.KR3D) {
+      const W2 = (bg.width = innerWidth), H2 = (bg.height = innerHeight); {
       // sky: smoke-red night
       const sk = g.createLinearGradient(0, 0, 0, H2); sk.addColorStop(0, '#0a0406'); sk.addColorStop(0.55, '#3a0c08'); sk.addColorStop(0.8, '#8a2a0c'); sk.addColorStop(1, '#1a0604'); g.fillStyle = sk; g.fillRect(0, 0, W2, H2);
       // smoke plumes
@@ -727,6 +726,11 @@
       // the angry eye
       g.fillStyle = `rgba(255,${80 + Math.sin(t * 6) * 30},40,0.95)`; g.beginPath(); g.ellipse(58, -392, 5, 2.2, -0.25, 0, 6.28); g.fill();
       g.strokeStyle = 'rgba(255,120,40,0.85)'; g.lineWidth = 3; g.beginPath(); g.moveTo(44, -404); g.lineTo(70, -396); g.stroke(); // furrowed brow
+      // each wears his own crown: a dark circlet edged with gold by the firelight
+      g.save(); g.translate(30, -428); g.rotate(-0.12); g.fillStyle = '#120806'; g.shadowColor = 'rgba(255,150,40,0.9)'; g.shadowBlur = 14;
+      g.beginPath(); g.moveTo(-34, 0); g.lineTo(-34, -22); g.lineTo(-22, -10); g.lineTo(-12, -32); g.lineTo(0, -12); g.lineTo(12, -36); g.lineTo(22, -12); g.lineTo(32, -28); g.lineTo(34, 0); g.closePath(); g.fill(); g.shadowBlur = 0;
+      g.strokeStyle = `rgba(255,${190 + Math.sin(t * 4 + side) * 30},90,0.95)`; g.lineWidth = 3; g.stroke();
+      g.fillStyle = col; g.beginPath(); g.arc(0, -6, 4.5, 0, 6.28); g.fill(); g.restore();
       // cloak trim in their colours
       g.strokeStyle = col; g.lineWidth = 4; g.beginPath(); g.moveTo(-40, -250); g.quadraticCurveTo(-30, -330, 20, -335); g.stroke();
       g.restore();

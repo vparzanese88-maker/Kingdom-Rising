@@ -12,7 +12,8 @@ K3.sky = sky;
 // ---------- lights ----------
 const sun = new THREE.DirectionalLight(0xfff2dd, 3);
 sun.castShadow = true;
-sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.06;
+const _ld = new THREE.Vector3(), _rx = new THREE.Vector3(), _uy = new THREE.Vector3(), _fp = new THREE.Vector3(), _lastLd = new THREE.Vector3();
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 600;
 scene.add(sun); scene.add(sun.target);
 const hemi = new THREE.HemisphereLight(0xbcd4f0, 0x5a4a38, 0.9);
@@ -226,15 +227,19 @@ export function updateSky(dt, camPos, ctx) {
   hemi.groundColor.setRGB(0.36, 0.3, 0.24).multiplyScalar(0.4 + 0.6 * dayK);
   if (dungeon) { hemi.color.setRGB(0.5, 0.55, 0.7); hemi.groundColor.setRGB(0.25, 0.2, 0.16); if (geo.dgnId === 'frostfang') hemi.color.setRGB(0.5, 0.7, 0.95); if (geo.dgnId === 'abyss') hemi.color.setRGB(0.8, 0.35, 0.3); }
   // shadow box follows the camera
-  const sh = K3.quality.shadowSize >= 4096 ? 70 : 55;
+  const sh = K3.quality.shadowBox || 55;
   const sc = sun.shadow.camera;
   if (sc.right !== sh) { sc.left = -sh; sc.right = sh; sc.top = sh; sc.bottom = -sh; sc.updateProjectionMatrix(); }
   const tgt = ctx.focus || camPos;
-  // snap to shadow texels to stop shimmering
+  // snap the shadow area to whole shadow texels, measured across the light, so shadow edges on roofs and
+  // walls stay put as you move instead of crawling and flickering
   const texel = (sh * 2) / sun.shadow.mapSize.x;
-  const fx = Math.round(tgt.x / texel) * texel, fz = Math.round(tgt.z / texel) * texel;
-  sun.target.position.set(fx, tgt.y, fz);
-  sun.position.set(fx + lightDir.x * 200, tgt.y + lightDir.y * 200, fz + lightDir.z * 200);
+  const ld = _ld.copy(lightDir).normalize(); const rx = _rx.set(0, 1, 0).cross(ld); if (rx.lengthSq() < 1e-6) rx.set(1, 0, 0); rx.normalize(); const uy = _uy.copy(ld).cross(rx).normalize();
+  const sa = Math.round(tgt.dot(rx) / texel) * texel, b2 = Math.round(tgt.dot(uy) / texel) * texel, c2 = tgt.dot(ld);
+  const fp = _fp.copy(rx).multiplyScalar(sa).addScaledVector(uy, b2).addScaledVector(ld, c2);
+  sun.target.position.copy(fp);
+  sun.position.copy(fp).addScaledVector(ld, 200);
+  if (Math.abs(_lastLd.dot(ld) - 1) > 1e-5) { _lastLd.copy(ld); K3.shadowNow(); }
   sun.target.updateMatrixWorld(); sun.updateMatrixWorld();
   sun.castShadow = !!K3.quality.shadows && !dungeon && sun.intensity > 0.05;
   // fog

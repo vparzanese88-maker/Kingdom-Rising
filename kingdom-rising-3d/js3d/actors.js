@@ -210,7 +210,8 @@ function updateAvatar(av, dt, ctx) {
   if (av._hidden !== hideSelf) { av._hidden = hideSelf; av.obj.traverse((o) => { if (o.isMesh) o.layers.set(hideSelf ? 1 : 0); }); }
   // animation
   const near = Math.hypot(av.obj.position.x - ctx.cam.x, av.obj.position.z - ctx.cam.z);
-  if (near > 90 && K3.frame % 4) return;
+  // far away people move less often: nobody can see it, and it saves a lot of work
+  if ((near > 90 && K3.frame % 4) || (near > 45 && K3.frame % 2)) return;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
   const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving ? dist / sc : 0, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }

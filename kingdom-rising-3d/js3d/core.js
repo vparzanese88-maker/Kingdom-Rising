@@ -27,10 +27,12 @@ window.K3 = K3;
 
 // ---------- settings ----------
 const QUALITY = {
-  low: { name: 'Low', pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 4, grade: false },
-  medium: { name: 'Medium', pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 6, grade: true },
-  high: { name: 'High', pr: 1.5, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true },
-  ultra: { name: 'Ultra', pr: 2, shadows: 1, shadowSize: 4096, msaa: 4, bloom: true, grass: 1.6, view: 640, treeFar: 460, texSize: 1024, lights: 10, grade: true },
+  // treeNear: full-detail trees; shadowDist: how far trees throw shadows; shadowBox: half size of the sun's shadow area;
+  // shadowEvery: redraw the shadows every n frames
+  low: { name: 'Low', pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 4, grade: false, treeNear: 32, shadowDist: 0, shadowBox: 35, shadowEvery: 3 },
+  medium: { name: 'Medium', pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 6, grade: true, treeNear: 42, shadowDist: 24, shadowBox: 38, shadowEvery: 3 },
+  high: { name: 'High', pr: 1.25, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2 },
+  ultra: { name: 'Ultra', pr: 1.5, shadows: 1, shadowSize: 4096, msaa: 4, bloom: true, grass: 1.6, view: 640, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
 };
 K3.QUALITY = QUALITY;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -117,7 +119,7 @@ function buildComposer() {
   renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
   bloom = null; fxaa = null; grade = null;
-  if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 0.86); composer.addPass(bloom); }
+  if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(Math.ceil(size.x / 2), Math.ceil(size.y / 2)), 0.32, 0.55, 0.86); composer.addPass(bloom); } // glow worked out at half resolution: same look, a quarter of the cost
   composer.addPass(new OutputPass());
   if (q.grade) { grade = new ShaderPass(GradeShader); composer.addPass(grade); }
   if (!q.msaa && q.aa !== 'off') { fxaa = new ShaderPass(FXAAShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(fxaa); }
@@ -183,8 +185,12 @@ K3.vmScene = new THREE.Scene();
 K3.vmCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 10);
 K3.onResize.push(() => { K3.vmCamera.aspect = innerWidth / innerHeight; K3.vmCamera.updateProjectionMatrix(); });
 
+// shadows are redrawn every few frames (or at once when asked, e.g. after a teleport)
+renderer.shadowMap.autoUpdate = false;
+K3.shadowNow = () => { renderer.shadowMap.needsUpdate = true; };
 K3.render = function () {
   if (grade) { grade.uniforms.uTime.value = K3.time % 100; }
+  if (K3.frame % (K3.quality.shadowEvery || 1) === 0) renderer.shadowMap.needsUpdate = true;
   composer.render();
   if (K3.vmVisible) {
     renderer.autoClear = false; renderer.clearDepth();

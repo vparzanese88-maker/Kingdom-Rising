@@ -126,7 +126,7 @@ Main.enterWorld = async function (id, newChar) {
     scr.hidden = true; scr.innerHTML = '';
     document.getElementById('ui').hidden = false;
     UI.buildHUD();
-    hud3d.show(true); settings3d.showButton(true);
+    hud3d.show(true);
     Main.snapCamera();
     if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`);
@@ -151,7 +151,7 @@ Main.exitToMenu = function (create) {
   if (Sys.Grp && Sys.Grp.gid) Sys.groupLeave();
   Sys.save(true); Sys.Net.leave(); if (KR.Online) KR.Online.exit(); running = false; if (KR.UI.toast) KR.UI.toast('Game saved');
   for (const id in UI.wins) UI.close(id);
-  document.getElementById('ui').hidden = true; hud3d.show(false); settings3d.showButton(false); settings3d.toggle(false); endLook();
+  document.getElementById('ui').hidden = true; hud3d.show(false); settings3d.toggle(false); endLook();
   G.player = null; G.ents = [];
   KR.Menus.showMenu(); if (create === true) KR.Menus.showCreate();
 };

@@ -6,13 +6,14 @@ import { MB, dispose } from './mb.js';
 import { mats } from './mats.js';
 import { buildStructuresIn, buildFlags, structs, resetStructs } from './structures.js';
 import { buildProps, makeAnimProp, VEG_KINDS } from './props.js';
-import { buildVeg, buildOutcrops, setVegLod, stumpFor, setHidden } from './veg.js';
+import { buildVeg, buildOutcrops, setVegLod, stumpFor, setHidden, forest } from './veg.js';
 import { staticBillboards, fx } from './fx.js';
 import { buildLights, updateLights } from './lights.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G;
 const CH = 32;
 const root = new THREE.Group(); root.name = 'world'; K3.scene.add(root);
+K3.scene.add(forest.root);
 fx.init();
 
 const chunks = new Map(); // key -> chunk
@@ -39,6 +40,7 @@ function buildChunk(cx, cy, list, withStructs = true) {
   buildProps(mb, list || [], out);
   const pg = mb.build(); grp.add(pg);
   c.veg = buildVeg(list || [], out); for (const m of c.veg) grp.add(m);
+  c.trees = out.trees || []; forest.dirty = true;
   const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m);
   // signposts with names on them
   for (const s of out.signs) grp.add(signpost(s));
@@ -77,6 +79,7 @@ export const world3d = {
     if (flagGroup) { root.remove(flagGroup); dispose(flagGroup); flagGroup = null; }
     if (torchFlames) { root.remove(torchFlames); torchFlames = null; }
     fx.clear();
+    forest.reset();
     resetStructs();
     const idx = decorIndex();
     const ncx = Math.ceil(W.W / CH), ncy = Math.ceil(W.H / CH);
@@ -126,17 +129,17 @@ export const world3d = {
       if (!pending.length || K3.frame % 30 === 0) this.finish();
     }
     const cam = ctx.cam; const view = K3.quality.view;
-    const treeNear = 85, treeFar = K3.quality.treeFar;
+    const treeNear = K3.quality.treeNear || 60, treeFar = K3.quality.treeFar, shadowDist = K3.quality.shadowDist || 0;
     for (const c of chunks.values()) {
       const d = Math.hypot(c.x - cam.x, c.z - cam.z) - CH * TILE * 0.71;
       const vis = d < view; if (c.group.visible !== vis) c.group.visible = vis;
       if (!vis) continue;
-      const lod = d < treeNear ? 0 : 1;
-      if (lod !== c.lod) { c.lod = lod; setVegLod(c.veg, lod); for (const m of c.veg) { m.castShadow = lod === 0 && !m.userData.small; } }
+      // only nearby rocks throw shadows: far ones are lost in the shadow map anyway (trees: see the forest in veg.js)
+      const sh = d < shadowDist; if (sh !== c.vegShadow) { c.vegShadow = sh; for (const m of c.veg) m.castShadow = sh && !m.userData.small; }
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
-      for (const m of c.veg) if (!m.userData.small && !m.userData.lods) m.visible = d < treeFar + 80;
-      if (c.veg) for (const m of c.veg) if (m.userData.lods) m.visible = d < treeFar;
+      for (const m of c.veg) if (!m.userData.small) m.visible = d < treeFar + 80;
     }
+    forest.update(cam, chunks, CH * TILE * 0.71);
     // doors swing open as you walk up
     for (const dr of structs.doors) { const a = dr.door.open * 1.45; if (dr.obj.rotation.y !== a) { dr.obj.rotation.y = a; dr.obj.updateMatrix(); dr.obj.updateMatrixWorld(true); } }
     mats.setNight(K3.sky ? K3.sky.darkness : 0);

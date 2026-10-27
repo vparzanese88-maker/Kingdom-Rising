@@ -758,7 +758,8 @@
   // ----- menu -----
   function renderMenu(w) {
     const b = w.body; const a = G.account; const s = a.settings;
-    b.innerHTML = `<div class="col"><button class="btn" id="mn-res">Resume</button><button class="btn" id="mn-save">Save game</button><button class="btn gold mn-exit" id="mn-exit" title="Saves your character and returns to character select">💾 Save &amp; Exit</button><button class="btn" id="mn-new">🏰 Main menu</button><button class="btn" id="mn-help">How to play</button>
+    setTimeout(() => { const g3 = b.querySelector('#mn-3d'); if (g3) g3.onclick = () => { UI.close('menu'); if (window.K3 && K3.settings3d) K3.settings3d.open('graphics'); }; }, 0);
+    b.innerHTML = `<div class="col"><button class="btn" id="mn-res">Resume</button><button class="btn" id="mn-save">Save game</button><button class="btn gold mn-exit" id="mn-exit" title="Saves your character and returns to character select">💾 Save &amp; Exit</button><button class="btn" id="mn-new">🏰 Main menu</button><button class="btn" id="mn-help">How to play</button>${window.KR3D ? '<button class="btn gold" id="mn-3d">⚙ Graphics, controls &amp; key bindings</button>' : ''}
       <div class="row"><span class="dim">Display</span><button class="btn small ${UI.isFullscreen() ? '' : 'gold'}" id="mn-win">Window mode</button><button class="btn small ${UI.isFullscreen() ? 'gold' : ''}" id="mn-fs">Full screen</button></div>
       <label class="slider">Hotbar size <input type="range" id="mn-hb" min="36" max="76" step="2" value="${LSget('kr_hb_size', 46)}"></label>
       <label class="check"><input type="checkbox" id="mn-afs" ${(() => { try { return localStorage.getItem('kr_auto_fs') !== '0'; } catch (e) { return true; } })() ? 'checked' : ''}> Go full screen when entering the world</label>

@@ -217,19 +217,17 @@ export function buildVeg(list, out) {
     _q4.setFromAxisAngle(_p4.set(0, 1, 0), d.v * 40); _p4.set(px * PX, y, py * PX); _s4.set(scale, scale, scale);
     return _m4.compose(_p4, _q4, _s4);
   };
+  // trees are not drawn per area: they go into the forest, which draws each tree shape in one batch
+  const trees = out.trees || (out.trees = []);
   for (const g of groups.values()) {
-    const n = g.items.length;
-    const lods = [template(g.kind, 0, g.variant), template(g.kind, 1, g.variant)];
-    const trunkMat = mats.get(lods[0].trunkKey);
-    const tm = lods[0].trunk ? new THREE.InstancedMesh(lods[0].trunk, trunkMat, n) : null; if (tm) { tm.castShadow = true; tm.receiveShadow = true; }
-    const lm = lods[0].leaves ? new THREE.InstancedMesh(lods[0].leaves, leafMat(lods[0].leafKind), n) : null; if (lm) { lm.castShadow = true; lm.receiveShadow = true; }
-    g.items.forEach((d, i) => {
-      const big = g.kind === 'elmwood' ? 1.1 : 1; const s = (0.82 + d.v * 0.4) * big;
-      const m = place(d, s, false); if (tm) tm.setMatrixAt(i, m); if (lm) { lm.setMatrixAt(i, m); const tint = 0.85 + K3.hash(d.tx, d.ty, 6) * 0.3; lm.setColorAt(i, _c4.setRGB(tint, tint * (0.95 + K3.hash(d.tx, d.ty, 7) * 0.1), tint * 0.92)); }
-      d._inst = { tm, lm, i, s };
-    });
-    if (tm) { tm.computeBoundingSphere(); tm.userData.lods = [lods[0].trunk, lods[1].trunk]; meshes.push(tm); }
-    if (lm) { lm.computeBoundingSphere(); if (lm.instanceColor) lm.instanceColor.needsUpdate = true; lm.userData.lods = [lods[0].leaves, lods[1].leaves]; meshes.push(lm); }
+    const key = g.kind + ':' + g.variant;
+    for (const d of g.items) {
+      const big = g.kind === 'elmwood' ? 1.1 : 1; const sc = (0.82 + d.v * 0.4) * big;
+      const m = new Float32Array(16); place(d, sc, false).toArray(m);
+      const tint = 0.85 + K3.hash(d.tx, d.ty, 6) * 0.3;
+      const t = { d, key, kind: g.kind, variant: g.variant, m, col: [tint, tint * (0.95 + K3.hash(d.tx, d.ty, 7) * 0.1), tint * 0.92], hidden: false };
+      d._tree = t; delete d._inst; trees.push(t);
+    }
   }
   if (rocks.length) {
     // three rock shapes, each its own instanced mesh
@@ -277,6 +275,7 @@ export function stumpFor(d) {
   return g;
 }
 export function setHidden(d, hidden) {
+  if (d._tree) { if (d._tree.hidden !== hidden) { d._tree.hidden = hidden; forest.dirty = true; } return; }
   const it = d._inst; if (!it) return;
   for (const mesh of [it.tm, it.lm]) { if (!mesh) continue; mesh.getMatrixAt(it.i, _m4); _m4.decompose(_p4, _q4, _s4); _s4.setScalar(hidden ? 0.0001 : it.s); mesh.setMatrixAt(it.i, _m4.compose(_p4, _q4, _s4)); mesh.instanceMatrix.needsUpdate = true; }
 }
@@ -284,3 +283,76 @@ export function setVegLod(meshes, lod) {
   for (const m of meshes) { const l = m.userData.lods; if (l && l[lod] && m.geometry !== l[lod]) m.geometry = l[lod]; }
 }
 export { TREE_KINDS };
+
+// ---------- the forest ----------
+// Every tree of one shape is drawn in a single batch (instead of one batch per area), in three bands:
+// near trees in full detail that throw shadows, middle trees in full detail, far trees in low detail.
+// The batches are refilled only when the camera has moved or turned a fair way, and trees well behind
+// the camera are left out. This turned hundreds of draw calls into a few dozen.
+const forestRoot = new THREE.Group(); forestRoot.name = 'forest';
+const batches = new Map();
+function bucketMesh(geom, mat, cap, shadow, colors) {
+  const m = new THREE.InstancedMesh(geom, mat, cap); m.count = 0; m.frustumCulled = false; m.castShadow = shadow; m.receiveShadow = true;
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  if (colors) { m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3); m.instanceColor.setUsage(THREE.DynamicDrawUsage); }
+  forestRoot.add(m); return m;
+}
+function batchFor(t) {
+  let b = batches.get(t.key); if (b) return b;
+  const lods = [template(t.kind, 0, t.variant), template(t.kind, 1, t.variant)];
+  b = { lods, kind: t.kind, buckets: [0, 1, 2].map(() => ({ trunk: null, leaves: null, cap: 0, n: 0 })) };
+  batches.set(t.key, b); return b;
+}
+function ensure(b, i, need) {
+  const k = b.buckets[i]; if (k.cap >= need) return k;
+  const cap = Math.max(16, Math.ceil(need * 1.5)); const tpl = b.lods[i === 2 ? 1 : 0];
+  for (const part of ['trunk', 'leaves']) { if (k[part]) { forestRoot.remove(k[part]); k[part].dispose(); k[part] = null; } }
+  if (tpl.trunk) k.trunk = bucketMesh(tpl.trunk, mats.get(b.lods[0].trunkKey), cap, i === 0, false);
+  if (tpl.leaves) k.leaves = bucketMesh(tpl.leaves, leafMat(b.lods[0].leafKind), cap, i === 0, true);
+  k.cap = cap; return k;
+}
+const _fw = new THREE.Vector3();
+export const forest = {
+  root: forestRoot, dirty: true, lx: 1e9, lz: 1e9, lfx: 0, lfz: 0, age: 0,
+  reset() { for (const b of batches.values()) for (const k of b.buckets) { k.n = 0; for (const part of ['trunk', 'leaves']) if (k[part]) k[part].count = 0; } this.dirty = true; },
+  update(cam, chunks, CHR) {
+    const q = K3.quality; this.age++;
+    K3.camera.getWorldDirection(_fw); let fx = _fw.x, fz = _fw.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
+    const moved = Math.hypot(cam.x - this.lx, cam.z - this.lz) > 3, turned = fx * this.lfx + fz * this.lfz < 0.97;
+    if (!this.dirty && !moved && !turned && this.age < 120) return;
+    this.dirty = false; this.lx = cam.x; this.lz = cam.z; this.lfx = fx; this.lfz = fz; this.age = 0;
+    const far = q.treeFar, near = q.treeNear || 60, shd = q.shadows ? q.shadowDist || 0 : 0;
+    // what the camera can see sideways, plus room to turn before the next refill
+    const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(K3.camera.fov) / 2) * K3.camera.aspect);
+    const minDot = Math.cos(Math.min(Math.PI, halfH + 0.5));
+    for (const b of batches.values()) for (const k of b.buckets) k.n = 0;
+    const lists = new Map();
+    for (const c of chunks.values()) {
+      if (!c.trees || !c.trees.length) continue;
+      if (Math.hypot(c.x - cam.x, c.z - cam.z) - CHR > far) continue;
+      for (const t of c.trees) {
+        if (t.hidden) continue;
+        const dx = t.m[12] - cam.x, dz = t.m[14] - cam.z, d = Math.hypot(dx, dz);
+        if (d > far) continue;
+        const band = d < shd ? 0 : d < near ? 1 : 2;
+        if (band !== 0 && d > 14 && (dx * fx + dz * fz) / d < minDot) continue; // behind the camera
+        let L = lists.get(t.key); if (!L) lists.set(t.key, (L = [[], [], []]));
+        L[band].push(t);
+      }
+    }
+    for (const [key, L] of lists) {
+      const b = batchFor(L[0][0] || L[1][0] || L[2][0]);
+      for (let i = 0; i < 3; i++) {
+        const arr = L[i]; if (!arr.length && !b.buckets[i].cap) continue;
+        const k = ensure(b, i, arr.length); k.n = arr.length;
+        for (const part of ['trunk', 'leaves']) {
+          const m = k[part]; if (!m) continue;
+          const A = m.instanceMatrix.array; arr.forEach((t, j) => A.set(t.m, j * 16)); m.count = arr.length; m.instanceMatrix.needsUpdate = true;
+          if (m.instanceColor) { const C = m.instanceColor.array; arr.forEach((t, j) => { C[j * 3] = t.col[0]; C[j * 3 + 1] = t.col[1]; C[j * 3 + 2] = t.col[2]; }); m.instanceColor.needsUpdate = true; }
+        }
+      }
+    }
+    for (const [key, b] of batches) if (!lists.has(key)) for (const k of b.buckets) for (const part of ['trunk', 'leaves']) if (k[part]) k[part].count = 0;
+  },
+};
+K3.forest = forest;

@@ -5,6 +5,7 @@ import { THREE, K3, TILE, TS, PX } from './core.js';
 import { geo, T } from './geo.js';
 import { MB, PRIM } from './mb.js';
 import { mats } from './mats.js';
+import { craftFront } from './crafthouses.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
 const Tl = TILE;
@@ -19,7 +20,7 @@ const HEIGHT = { house: 3.6, hall: 8.2, inn: 5.4, outpost: 4.6, bank: 5, chamber
 const SIGN = { inn: '🍺', outpost: '🍺', bank: '💰', smithy: '⚒', forge: '⚒', tailor: '🧵', guild: '📜', store: '🛍', armorer: '🛡', weaponsmith: '⚔', scribe: '📖', fletcher: '🏹', armory: '🛡', exchange: '💎', heroes: '🏆', hall: '👑', chamber: '💀', barracks: '⚔', jeweler: '💍', gemcutter: '💎', bowyer: '🏹' };
 const CHIMNEY = new Set(['house', 'inn', 'smithy', 'forge', 'outpost', 'barracks', 'tailor']);
 
-export const structs = { doors: [], signs: [], roofs: [], flags: [], chimneys: [], windows: [], torches: [] };
+export const structs = { doors: [], signs: [], roofs: [], flags: [], chimneys: [], windows: [], torches: [], fires: [] };
 K3.structs = structs;
 
 // ---------- small geometry helpers ----------
@@ -198,6 +199,8 @@ function building(mb, b) {
   if (isHall) hallRoof(mb, b, st, X0, X1, Z0, Z1, y0, top);
   else if (isLair) battlements(mb, X0, X1, Z0, Z1, top, 'darkstone', '#6a625c', 0.6);
   else gableRoof(mb, b, st, X0, X1, Z0, Z1, top, wallKey, wallCol);
+  // crafting houses show their trade at the street front (crafthouses.js)
+  if (!isHall && !isLair) try { craftFront(mb, b, st, X0, X1, Z0, Z1, y0, dX0, dX1, top, structs); } catch (e) { console.warn('craft front failed', b.type, e); }
   // chimney with smoke
   if (CHIMNEY.has(b.type)) {
     const cx = X1 - Tl * 0.9, cz = (Z0 + Z1) / 2 + ((b.w >= b.h) ? Tl * 0.3 : 0);
@@ -253,7 +256,7 @@ function gableRoof(mb, b, st, X0, X1, Z0, Z1, top, wallKey, wallCol) {
   if (alongX) mb.box(st.roofMat, (U0 + U1) / 2, ridgeY + 0.05, vc, U1 - U0, 0.2, 0.32, K3.shade(rc, -0.25)); else mb.box(st.roofMat, vc, ridgeY + 0.05, (U0 + U1) / 2, 0.32, 0.2, U1 - U0, K3.shade(rc, -0.25));
   if (st.curve) for (const u of [U0 + 0.1, U1 - 0.1]) { const p = P(u, ridgeY + 0.15, vc); mb.cone('gold', p.x, p.y, p.z, 0.12, 0.7, st.trim, 8); }
   // gable ends: fill the triangle on top of the end walls
-  const poly = [[-half, 0], [half, 0]]; const side = prof.filter(([d]) => d <= half + 1e-3).map(([d, y]) => [d, Math.max(0, y)]);
+  const poly = [[-half, 0], [half, 0]]; const side = prof.filter(([d]) => d <= half + 1e-3).map(([d, y]) => [d, Math.max(0, y - 0.24 - (st.curve ? 0.12 : 0))]); // kept under the roof's underside so the two never fight (that flickered)
   for (const [d, y] of side) poly.push([d, y]); for (const [d, y] of [...side].reverse()) poly.push([-d, y]);
   const clean = poly.filter((p, i) => i === 0 || Math.abs(p[0] - poly[i - 1][0]) > 1e-3 || Math.abs(p[1] - poly[i - 1][1]) > 1e-3);
   for (const endU of [alongX ? X0 : Z0, alongX ? X1 - Tl : Z1 - Tl]) {

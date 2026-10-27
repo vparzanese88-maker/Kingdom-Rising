@@ -8,7 +8,7 @@ import { buildStructuresIn, buildFlags, structs, resetStructs } from './structur
 import { buildProps, makeAnimProp, VEG_KINDS } from './props.js';
 import { buildVeg, buildOutcrops, setVegLod, stumpFor, setHidden, forest } from './veg.js';
 import { staticBillboards, fx } from './fx.js';
-import { buildLights, updateLights } from './lights.js';
+import { buildLights, updateLights, lights } from './lights.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G;
 const CH = 32;
@@ -98,13 +98,17 @@ export const world3d = {
     if (flagGroup) { root.remove(flagGroup); dispose(flagGroup); }
     flagGroup = new THREE.Group(); flagGroup.name = 'flags'; buildFlags(structs.flags, flagGroup); root.add(flagGroup);
     if (torchFlames) root.remove(torchFlames);
-    const tf = []; for (const t of structs.torches) { tf.push({ x: t.x, y: t.y, z: t.z, w: 0.34, h: 0.66, r: 3.2, g: 1.6, b: 0.55, kind: 0 }); tf.push({ x: t.x, y: t.y + 0.2, z: t.z, w: 1.1, h: 1.1, r: 2.2, g: 1.2, b: 0.5, a: 0.35, kind: 1 }); }
+    const tf = [];
+    // open fires and lamps at the crafting houses
+    for (const f of structs.fires) { if (f.big) { tf.push({ x: f.x, y: f.y + 0.3, z: f.z, w: f.w, h: f.h, r: 3.4, g: 1.5, b: 0.45, kind: 0 }); tf.push({ x: f.x, y: f.y + 0.45, z: f.z, w: f.w * 2.4, h: f.h * 1.8, r: 2.6, g: 1.2, b: 0.4, a: 0.4, kind: 1 }); } else tf.push({ x: f.x, y: f.y, z: f.z, w: f.w * 2.4, h: f.h * 2.4, r: f.gem ? 1.6 : 2.6, g: f.gem ? 1.8 : 1.7, b: f.gem ? 2.6 : 0.8, a: 0.5, kind: 1 }); }
+    for (const t of structs.torches) { tf.push({ x: t.x, y: t.y, z: t.z, w: 0.34, h: 0.66, r: 3.2, g: 1.6, b: 0.55, kind: 0 }); tf.push({ x: t.x, y: t.y + 0.2, z: t.z, w: 1.1, h: 1.1, r: 2.2, g: 1.2, b: 0.5, a: 0.35, kind: 1 }); }
     torchFlames = staticBillboards(tf, true); if (torchFlames) root.add(torchFlames);
     // torch brackets
     const mb = new MB(); for (const t of structs.torches) { mb.cyl('timber', t.x, t.y - 0.25, t.z, 0.05, 0.6, '#4a3220', 6); mb.cyl('metalv', t.x, t.y - 0.02, t.z, 0.08, 0.14, '#3a3a3e', 8); }
     const tg = mb.build(); flagGroup.add(tg);
     allFlames = []; for (const c of chunks.values()) allFlames.push(...c.flames); allFlames.push(...tf);
     buildLights(allFlames);
+    for (const f of structs.fires) lights.cands.push({ x: f.x, y: f.y + (f.big ? 0.8 : 0.1), z: f.z, r: f.big ? 14 : 7, col: new THREE.Color(f.gem ? 0x9ab8ff : 0xff9a4a).convertSRGBToLinear(), fl: f.big ? 0.22 : 0.06, base: f.big ? 26 : 8, b: null, ph: Math.random() * 10, k: 'fire' });
   },
   rebuildArea(x0, y0, w, h) {
     const idx = decorIndex();
@@ -188,6 +192,8 @@ function emitTick(dt, cam) {
       else if (e.kind === 'portal') { for (let k = 0; k < 2; k++) { const a = Math.random() * 6.283; fx.add.emit({ x: e.p.x + Math.cos(a) * 1.4, y: e.p.y + Math.sin(a) * 1.7, z: e.p.z, vx: -Math.cos(a) * 0.8, vy: -Math.sin(a) * 0.9, life: 1.4, s0: 0.12, s1: 0.03, r: 2.4, g: 2, b: 1.2, kind: 3 }); } }
     }
   }
+  // sparks rising from the open forges
+  for (const f of structs.fires) { if (!f.big || Math.abs(f.x - cam.x) > 60 || Math.abs(f.z - cam.z) > 60) continue; if (Math.random() < step * 6) fx.add.emit({ x: f.x + (Math.random() - 0.5) * 0.5, y: f.y + 0.2, z: f.z + (Math.random() - 0.5) * 0.3, vx: (Math.random() - 0.5) * 0.6, vy: 1.6 + Math.random() * 1.6, vz: (Math.random() - 0.5) * 0.4, life: 0.9 + Math.random() * 0.6, s0: 0.05, s1: 0.01, r: 3, g: 1.4, b: 0.35, kind: 3 }); }
   // chimney smoke for buildings close by
   for (const ch of structs.chimneys) { if (Math.abs(ch.x - cam.x) > 90 || Math.abs(ch.z - cam.z) > 90) continue; if (Math.random() < step * 2.2) fx.smoke.emit({ x: ch.x, y: ch.y, z: ch.z, vx: 0.35 + Math.random() * 0.2, vy: 0.8 + Math.random() * 0.4, vz: (Math.random() - 0.5) * 0.25, life: 5 + Math.random() * 2, s0: 0.6, s1: 3.2, r: ch.forge ? 0.35 : 0.62, g: ch.forge ? 0.33 : 0.62, b: ch.forge ? 0.32 : 0.66, a: 0.38, kind: 2, drag: 0.12 }); }
 }

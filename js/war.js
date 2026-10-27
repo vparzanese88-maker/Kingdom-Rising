@@ -633,7 +633,7 @@
     if (ros.length >= D.WAR.rosterMax(tier) || c.coins < cost || tier < D.SOLDIERS[cls].tier) { KR.A.sfx('fail', 0.5); return; }
     const F = D.FACTIONS[f]; const gender = Math.random() < 0.5 ? 'm' : 'f'; const NM = D.NAMES[f];
     c.coins -= cost;
-    const h = { id: Math.random().toString(36).slice(2, 8), cls, gender, race: U.pick(F.races), name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, owner: c.name, raids: 0 };
+    const h = { id: Math.random().toString(36).slice(2, 8), cls, gender, race: 'human', name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, owner: c.name, raids: 0 };
     ros.push(h); War.addGarrison(f, { cls, hired: h }); KR.A.sfx('coin'); G.log(`${h.name} the ${D.SOLDIERS[cls].name} joins your war party for ${G.fmtCoins(cost)}.`, 'sys', '#9affb8');
     Sys.saveAccount && Sys.saveAccount(true); Sys.save && Sys.save(true);
     if (KR.UI.isOpen('barracks')) War.renderBarracks(KR.UI.wins.barracks); KR.UI.refresh && KR.UI.refresh();
@@ -812,7 +812,7 @@
     if (ros.length >= War.maxRecruits(f) || tier < D.SOLDIERS[cls].tier) { if (isPlayer) KR.A.sfx('fail', 0.5); return false; }
     if (isPlayer) { if (p.c.coins < cost) { KR.A.sfx('fail', 0.5); return false; } p.c.coins -= cost; }
     const F = D.FACTIONS[f]; const gender = Math.random() < 0.5 ? 'm' : 'f'; const NM = D.NAMES[f];
-    const h = { id: Math.random().toString(36).slice(2, 8), cls, gender, race: U.pick(F.races), name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, owner: owner || p.c.name, raids: 0 };
+    const h = { id: Math.random().toString(36).slice(2, 8), cls, gender, race: 'human', name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, owner: owner || p.c.name, raids: 0 };
     ros.push(h); if (!W.realm || W.realm === 'main') War.addGarrison(f, { cls, hired: h });
     if (isPlayer && !quiet) { KR.A.sfx('coin'); G.log(`${h.name} the ${D.SOLDIERS[cls].name} joins the barracks for ${G.fmtCoins(cost)}.`, 'sys', '#9affb8'); }
     Sys.saveAccount && Sys.saveAccount(true); if (isPlayer) { Sys.save && Sys.save(true); if (KR.UI.isOpen('barracks')) War.renderBarracks(KR.UI.wins.barracks); KR.UI.refresh && KR.UI.refresh(); }

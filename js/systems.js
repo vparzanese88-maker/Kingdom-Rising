@@ -526,7 +526,7 @@
     const races = F.races;
     const mk = (role, x, y, opt = {}) => {
       const gender = opt.gender || (rnd() < 0.5 ? 'm' : 'f');
-      const race = opt.race || races[Math.floor(rnd() * races.length)];
+      const race = opt.race || 'human'; // both kingdoms are ruled and peopled by men: the brothers' realm is human (lore)
       const nm = opt.name || `${NM[gender][Math.floor(rnd() * NM[gender].length)]}${role === 'townsfolk' || role === 'drunk' || role === 'child' ? '' : ' ' + NM.last[Math.floor(rnd() * NM.last.length)]}`;
       const e = G.makeEnt({ type: opt.type || 'npc', role, city: f, faction: f, name: nm, title: opt.title != null ? opt.title : roleDefs[role] ? roleDefs[role].title : '', x, y, homeX: x, homeY: y, level: opt.level || 30, gender, race,
         skin: KR.S.skinOf(race, Math.floor(rnd() * 4)), hair: race === 'darkelf' ? KR.S.HAIRS[4] : KR.S.HAIRS[Math.floor(rnd() * 7)], hairStyle: Math.floor(rnd() * 4), speed: role === 'child' ? 120 : 70 + rnd() * 20, services: (roleDefs[role] || {}).services || [], hostile: false, seed: rnd() });
@@ -561,7 +561,7 @@
     const [bx, by] = P(inn, 'stage'); const bard = mk('bard', bx, by); bard.static = true; bard.work = 'lute';
     const bank = bOf('bank'); const [bkx, bky] = P(bank, 'banker'); mk('banker', bkx, bky).static = true;
     const store = bOf('store'); const [sx, sy] = P(store, 'vendor'); mk('merchant', sx, sy).static = true;
-    const sm = bOf('smithy'); const [smx, smy] = P(sm, 'smith'); const smith = mk('smith', smx, smy, { race: races[f === 'iron' ? 0 : 0] }); smith.static = true; smith.work = 'smith';
+    const sm = bOf('smithy'); const [smx, smy] = P(sm, 'smith'); const smith = mk('smith', smx, smy); smith.static = true; smith.work = 'smith';
     const tl = bOf('tailor'); const [tx, ty] = P(tl, 'tailor'); const tailor = mk('tailor', tx, ty); tailor.static = true; tailor.work = 'loom';
     const gd = bOf('guild'); const [gmx, gmy] = P(gd, 'trainer'); mk('guildmaster', gmx, gmy).static = true;
     const sch = mk('scholar', gmx - 64, gmy + 20); sch.static = true; sch.work = 'read';

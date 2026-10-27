@@ -144,11 +144,13 @@ function atkKindFor(av, e) {
   if (w === '2HB') return 'staff'; if (w === 'H2H' || !w) return e.kind === 'troll' || e.kind === 'zombie' || e.kind === 'ogre' ? 'claw' : 'punch';
   return 'slash';
 }
+// where someone stands: the ground, a floor, a deck, the wall-walk, or an upper floor they climbed to
+const floorOf = (e) => (e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : geo.floorAt(e.x, e.y));
 export function actorY(e) {
-  const av = avatars.get(keyOf(e)); const base = geo.floorAt(e.x, e.y);
+  const av = avatars.get(keyOf(e)); const base = floorOf(e);
   return base + (av ? av.hoverNow || 0 : 0);
 }
-K3.actorY = (e) => geo.floorAt(e.x, e.y);
+K3.actorY = (e) => floorOf(e);
 // group mates shine: a glowing shell around the body that also shows faintly through walls
 let glowMat = null, glowBack = null;
 function makeGlowMats() {
@@ -173,7 +175,7 @@ function updateAvatar(av, dt, ctx) {
   if (av.peer) mateGlow(av, KR.Sys.isMate && KR.Sys.isMate(e));
   if (!av.peer && e.type === 'player' && e === p) { const s = lookSig(e.look); if (s !== av.sig) build(av); }
   else if (av.peer) { const s = lookSig(peerLook(e)); if (s !== av.sig) build(av); }
-  const fy = geo.floorAt(e.x, e.y);
+  const fy = floorOf(e);
   // how far it moved (for the walk cycle) and which way it is going
   const dx = e.x - av.lx, dy = e.y - av.ly; const dist = Math.hypot(dx, dy) * PX; av.lx = e.x; av.ly = e.y;
   const moving = av.peer ? !!e.m : !!e.moving && dist > 0.0005;
@@ -223,7 +225,7 @@ function updateAvatar(av, dt, ctx) {
     const cy = Math.cos(av.yaw), sy = Math.sin(av.yaw);
     if (dist > 0.0005) { const l = Math.hypot(dx, dy); const lx = (dx * cy - dy * sy) / l, lz = (dx * sy + dy * cy) / l; av.mdir = av.mdir || [0, 1]; av.mdir[0] += (lx - av.mdir[0]) * Math.min(1, dt * 12); av.mdir[1] += (lz - av.mdir[1]) * Math.min(1, dt * 12); const n = Math.hypot(av.mdir[0], av.mdir[1]) || 1; av.mdir[0] /= n; av.mdir[1] /= n; }
     st.dir = av.mdir || [0, 1];
-    if (near < 32 && !hover) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
+    if (near < 32 && !hover && !e.upB) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
   }
   if (tgt && av.kind === 'human' && !moving) st.lookYaw = K3.dampAngle(0, Math.atan2(tgt.x - e.x, tgt.y - e.y) - av.yaw, 1);
   if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }

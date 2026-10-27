@@ -176,7 +176,7 @@ export function buildProps(mb, list, out) {
       else if (['lamp', 'torch', 'stall', 'statue', 'cavesign', 'fountain', 'monument', 'crypt', 'well', 'exitportal', 'grate'].includes(d.kind)) ry = d.kind === 'statue' ? Math.PI * (d.v > 0.5 ? 0 : 0) : d.kind === 'lamp' ? Math.floor(d.v * 4) * Math.PI / 2 : 0;
       else ry = d.v * Math.PI * 2;
     }
-    const y = geo.floorAt(px, py);
+    const y = geo.floorAt(px, py) + (d.up && f.b ? geo.LOFT_H : 0); // furniture on an upper floor
     const ctx = { ceil: f.b ? f.b._ceil3 : null, faction: f.b ? f.b.faction || f.b.style : null, flags: out.flags, signs: out.signs, anim: out.anim };
     try { fn(new Put(mb, x, y, z, ry, out), d, ctx); } catch (e) { console.warn('prop', d.kind, e); }
   }

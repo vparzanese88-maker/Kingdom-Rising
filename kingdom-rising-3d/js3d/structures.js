@@ -189,9 +189,26 @@ function building(mb, b) {
   const ix0 = X0 + Tl, ix1 = X1 - Tl, iz0 = Z0 + Tl, iz1 = Z1 - Tl;
   const stoneFloor = ['hall', 'bank', 'chamber', 'heroes', 'exchange'].includes(b.type);
   mb.box(stoneFloor ? 'stone' : 'planks', (ix0 + ix1) / 2, fy - 0.5, (iz0 + iz1) / 2, ix1 - ix0, 1.0, iz1 - iz0, stoneFloor ? (isLair ? '#6a625a' : '#b8b0a2') : '#a8805a');
-  const ceil = isHall ? top - 0.5 : Math.min(top - 0.25, fy + (upper ? 2.75 : 3.2));
+  const ceil = isHall ? top - 0.5 : b.loft ? top - 0.3 : Math.min(top - 0.25, fy + (upper ? 2.75 : 3.2));
   b._ceil3 = ceil;
   mb.box(isHall || isLair ? 'stone' : 'planks', (ix0 + ix1) / 2, ceil + 0.08, (iz0 + iz1) / 2, ix1 - ix0, 0.16, iz1 - iz0, isHall ? '#a8a090' : '#8a6a4a');
+  // an upper floor over the back of the room: planked floor on beams, a railing along its edge, and a staircase
+  if (b.loft) {
+    const L = b.loft, lf = fy + geo.LOFT_H; const lz0 = L.y0 * Tl, lz1 = (L.y1 + 1) * Tl, lx0 = L.x0 * Tl, lx1 = (L.x1 + 1) * Tl;
+    mb.box('planks', (lx0 + lx1) / 2, lf - 0.08, (lz0 + lz1) / 2, lx1 - lx0, 0.16, lz1 - lz0, '#a8805a');
+    for (let x = lx0 + Tl / 2; x < lx1; x += Tl) mb.box('timber', x, lf - 0.26, (lz0 + lz1) / 2, 0.18, 0.22, lz1 - lz0, '#5a3e24');
+    mb.box('timber', (lx0 + lx1) / 2, lf - 0.3, lz1 - 0.1, lx1 - lx0, 0.3, 0.2, '#5a3e24');
+    for (let x = lx0 + Tl * 1.5; x < lx1 - 0.2; x += Tl * 2) mb.boxB('timber', x, fy, lz1 - 0.12, 0.22, geo.LOFT_H - 0.3, 0.22, '#5a3e24');
+    const sx0 = L.col * Tl, sx1 = sx0 + Tl; const railA = sx0 - lx0 > 0.1 ? [lx0, sx0] : [sx1, lx1];
+    mb.box('timber', (railA[0] + railA[1]) / 2, lf + 0.95, lz1 - 0.06, railA[1] - railA[0], 0.1, 0.1, '#6a4a2a');
+    for (let x = railA[0] + 0.15; x < railA[1]; x += 0.42) mb.boxB('timber', x, lf, lz1 - 0.06, 0.06, 0.95, 0.06, '#6a4a2a');
+    // the steps, climbing toward the back wall
+    for (const [i, s] of W.stairs || []) { if (s.loft !== b) continue; const ty = Math.floor(i / W.W);
+      for (let q = 0; q < 4; q++) { const frac = (s.k + (q + 1) / 4) / s.n, h = geo.LOFT_H * frac; const z = (ty + 1 - (q + 0.5) / 4) * Tl;
+        mb.boxB('planks', (sx0 + sx1) / 2, fy - 0.05, z, Tl - 0.1, h + 0.05, Tl / 4 + 0.02, '#8a6440'); }
+      const inner = L.col === L.x0 ? sx1 - 0.05 : sx0 + 0.05; const zc = (ty + 0.5) * Tl, hc = fy + geo.LOFT_H * (s.k + 0.5) / s.n;
+      mb.box('timber', inner, hc + 0.95, zc, 0.08, 0.08, Tl * 1.02, '#6a4a2a', 0, Math.atan2(geo.LOFT_H / s.n, Tl), 0); mb.boxB('timber', inner, fy, zc, 0.08, hc - fy + 0.95, 0.08, '#6a4a2a'); }
+  }
   if (!isLair) { const alongX = (ix1 - ix0) < (iz1 - iz0); const n = Math.floor((alongX ? iz1 - iz0 : ix1 - ix0) / Tl); for (let k = 1; k < n + 1; k++) { if (alongX) mb.box('timber', (ix0 + ix1) / 2, ceil - 0.12, iz0 + k * Tl - Tl / 2, ix1 - ix0, 0.24, 0.2, '#4a3220'); else mb.box('timber', ix0 + k * Tl - Tl / 2, ceil - 0.12, (iz0 + iz1) / 2, 0.2, 0.24, iz1 - iz0, '#4a3220'); } }
   // wainscot inside wooden houses
   if (!isHall && !isLair && !st.stone) for (const [x, z, sx, sz] of [[(ix0 + ix1) / 2, iz0 + 0.03, ix1 - ix0, 0.06], [(ix0 + ix1) / 2, iz1 - 0.03, ix1 - ix0, 0.06], [ix0 + 0.03, (iz0 + iz1) / 2, 0.06, iz1 - iz0], [ix1 - 0.03, (iz0 + iz1) / 2, 0.06, iz1 - iz0]]) mb.box('planks', x, fy + 0.5, z, sx, 1.0, sz, '#8a6440');
@@ -345,17 +362,17 @@ function cityWalls(mb, f, cd) {
   }
   // gatehouses: a tower on each side of the opening, an arch with a raised portcullis between them
   for (const g of cd.gates || []) {
-    const [gx, gy] = g; const south = gy === cy + R;
+    const [gx, gy] = g; const north = gy === cy - R; const south = gy === cy + R || north; const sgn = north ? -1 : 1;
     const tw = Tl * 1.6, td = Tl * 2.2, tH = H + 3;
     if (south) {
-      const z = (gy + 0.5) * Tl, x0 = (gx - 1) * Tl, x1 = (gx + 2) * Tl;
+      const z = (gy + 0.5) * Tl, x0 = (gx - (north ? 2 : 1)) * Tl, x1 = (gx + (north ? 3 : 2)) * Tl;
       for (const xc of [x0 - tw / 2, x1 + tw / 2]) { mb.boxB('stone', xc, y0 - 1.5, z, tw, tH + 1.5, td, K3.shade(col, -0.04)); battlements(mb, xc - tw / 2 - 0.15, xc + tw / 2 + 0.15, z - td / 2 - 0.15, z + td / 2 + 0.15, y0 + tH, 'stone', col, 0.8); structs.torches.push({ x: xc + (xc < x0 ? tw / 2 - 0.3 : -tw / 2 + 0.3), y: y0 + 3.2, z: z + td / 2 + 0.12 }); }
       mb.box('stone', (x0 + x1) / 2, y0 + 5.6 + (tH - 5.6) / 2, z, x1 - x0, tH - 5.6, Tl * 1.6, col);
       for (let k = 0; k <= 10; k++) { const a = Math.PI * k / 10; mb.box('stone', (x0 + x1) / 2 + Math.cos(a) * (x1 - x0) / 2, y0 + 4.4 + Math.sin(a) * 1.2, z + Tl * 0.8, 0.5, 0.5, 0.4, K3.shade(col, -0.1), 0, 0, a); }
       for (let k = 0; k < 9; k++) mb.boxB('metalv', x0 + 0.25 + k * ((x1 - x0 - 0.5) / 8), y0 + 4.8, z, 0.07, 0.9, 0.07, '#2a2a2e');
       mb.box('metalv', (x0 + x1) / 2, y0 + 5.15, z, x1 - x0, 0.08, 0.08, '#2a2a2e');
       battlements(mb, x0, x1, z - Tl * 0.8, z + Tl * 0.8, y0 + tH, 'stone', col, 0.7);
-      structs.flags.push({ kind: 'hang', x: (x0 + x1) / 2, y: y0 + tH - 0.4, z: z + Tl * 0.82, w: 1.6, h: 3.0, f, rot: 0 });
+      structs.flags.push({ kind: 'hang', x: (x0 + x1) / 2, y: y0 + tH - 0.4, z: z + sgn * Tl * 0.82, w: 1.6, h: 3.0, f, rot: north ? Math.PI : 0 });
     } else {
       const side = gx > cx ? 1 : -1; const x = (gx + 0.5) * Tl, z0 = (gy - 1) * Tl, z1 = (gy + 2) * Tl;
       for (const zc of [z0 - tw / 2, z1 + tw / 2]) { mb.boxB('stone', x, y0 - 1.5, zc, td, tH + 1.5, tw, K3.shade(col, -0.04)); battlements(mb, x - td / 2 - 0.15, x + td / 2 + 0.15, zc - tw / 2 - 0.15, zc + tw / 2 + 0.15, y0 + tH, 'stone', col, 0.8); structs.torches.push({ x: x + side * (td / 2 + 0.12), y: y0 + 3.2, z: zc + (zc < z0 ? tw / 2 - 0.3 : -tw / 2 + 0.3) }); }
@@ -367,6 +384,17 @@ function cityWalls(mb, f, cd) {
     }
   }
   cd._wallTop3 = y0 + H;
+  // stone stairs up the inside of the wall: a solid flight of steps with a low parapet on the open side
+  if (W.stairs) for (const [i, s] of W.stairs) {
+    if (s.f !== f) continue; const tx = i % W.W, ty = Math.floor(i / W.W);
+    for (let q = 0; q < 4; q++) {
+      const frac = (s.k + (q + 1) / 4) / s.n, top = y0 + H * frac; const o = (q + 0.5) / 4 - 0.5;
+      const x = (tx + 0.5 + (s.dir[0] ? o : 0)) * Tl, z = (ty + 0.5 + (s.dir[1] ? o : 0)) * Tl;
+      mb.boxB('stone', x, y0 - 0.5, z, s.dir[0] ? Tl / 4 + 0.02 : Tl, top - y0 + 0.5, s.dir[1] ? Tl / 4 + 0.02 : Tl, K3.shade(col, -0.06 - q * 0.01));
+      const px = x - s.wall[0] * (Tl / 2 - 0.12), pz = z - s.wall[1] * (Tl / 2 - 0.12);
+      mb.boxB('stone', px, top, pz, s.wall[0] ? 0.24 : (s.dir[0] ? Tl / 4 + 0.02 : 0.24), 0.75, s.wall[1] ? 0.24 : (s.dir[1] ? Tl / 4 + 0.02 : 0.24), K3.shade(col, -0.12));
+    }
+  }
 }
 
 // ---------- other walls: sewer outflows, crypt and sewer halls ----------

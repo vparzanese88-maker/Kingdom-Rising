@@ -926,11 +926,43 @@
 
   G.moveEnt = function (e, dx, dy, opts) {
     if (G.moveScale) { const k = G.moveScale(e); dx *= k; dy *= k; } // the 3D view slows everyone to real walking and running speeds
-    const r = Math.min(e.r, 12);
-    const blocked = (x, y) => W.solidAtPx(x - r, y - 4, opts) || W.solidAtPx(x + r, y - 4, opts) || W.solidAtPx(x - r, y + 6, opts) || W.solidAtPx(x + r, y + 6, opts);
+    let r = Math.min(e.r, 12);
+    let blocked = (x, y) => W.solidAtPx(x - r, y - 4, opts) || W.solidAtPx(x + r, y - 4, opts) || W.solidAtPx(x - r, y + 6, opts) || W.solidAtPx(x + r, y + 6, opts);
+    // the wall-walk: up the stairs inside a city wall you can step onto the wall and walk along its top;
+    // from the top you can only go along the wall or back down the stairs
+    const WT = e === G.player && W.wallTop && (!W.realm || W.realm === 'main') ? W.wallTop : null;
+    if (WT) {
+      const ti = (x, y) => Math.floor(y / TS) * W.W + Math.floor(x / TS);
+      const st = (i) => W.stairs && W.stairs.get(i);
+      const cur = ti(e.x, e.y); const atTop = !!(st(cur) && st(cur).top);
+      if (e.onWall) r = 3;
+      const tb = (x, y) => { const i = ti(x, y); if (WT[i]) return !(e.onWall || atTop); if (e.onWall) return !(st(i) && st(i).top); return W.solidAtPx(x, y, opts); };
+      if (e.onWall || atTop || WT[ti(e.x + dx * 8, e.y + dy * 8)]) blocked = (x, y) => tb(x - r, y - 4) || tb(x + r, y - 4) || tb(x - r, y + 6) || tb(x + r, y + 6);
+    }
+    // upper floors: up the stairs you step onto the loft (and the furniture of the room below no longer matters)
+    const LS = e === G.player && W.stairs && (!W.realm || W.realm === 'main') ? W.stairs : null;
+    const tiL = (x, y) => Math.floor(y / TS) * W.W + Math.floor(x / TS);
+    const inLoft = (i, b) => { const L = b.loft; const tx = i % W.W, ty = Math.floor(i / W.W); return tx >= L.x0 && tx <= L.x1 && ty >= L.y0 && ty <= L.y1; };
+    const csL = LS ? LS.get(tiL(e.x, e.y)) : null;
+    if (LS && (e.upB || (csL && csL.loft && csL.top))) {
+      const B = e.upB || csL.loft; if (e.upB) r = 6;
+      const tb = (x, y) => { const i = tiL(x, y); if (inLoft(i, B)) return !e.upB && !(csL && csL.top) ? W.solidAtPx(x, y, opts) : false; if (e.upB) { const s2 = LS.get(i); return !(s2 && s2.loft === B && s2.top); } return W.solidAtPx(x, y, opts); };
+      blocked = (x, y) => tb(x - r, y - 4) || tb(x + r, y - 4) || tb(x - r, y + 6) || tb(x + r, y + 6);
+    }
     if (e.fly && e.type === 'mob') { e.x += dx; e.y += dy; if (blocked(e.x, e.y) && W.tile(Math.floor(e.x / TS), Math.floor(e.y / TS)) !== T.WATER) { e.x -= dx; e.y -= dy; } return; }
     if (!blocked(e.x + dx, e.y)) e.x += dx; else if (Math.abs(dy) < 0.01 && !blocked(e.x + dx, e.y + Math.sign(dx) * 0)) {}
     if (!blocked(e.x, e.y + dy)) e.y += dy;
+    if (LS) {
+      const ni = tiL(e.x, e.y);
+      if (!e.upB && csL && csL.loft && csL.top && inLoft(ni, csL.loft)) { e.upB = csL.loft; if (e === G.player) G.log('You climb up to the upper floor.', 'sys', '#aaa'); }
+      else if (e.upB) { const s2 = LS.get(ni); if (s2 && s2.loft === e.upB) { e.upB = null; } else if (!inLoft(ni, e.upB)) e.upB = null; }
+    }
+    if (WT) {
+      const i = Math.floor(e.y / TS) * W.W + Math.floor(e.x / TS); const was = e.onWall; e.onWall = !!WT[i];
+      // keep to the middle of the walkway
+      if (e.onWall) { const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS); const alongX = WT[i - 1] || WT[i + 1]; if (alongX) e.y += ((ty + 0.5) * TS + 2 - e.y) * 0.2; else e.x += ((tx + 0.5) * TS - e.x) * 0.2; }
+      if (e.onWall !== was && e === G.player) G.log(e.onWall ? 'You step out onto the city wall.' : 'You step back onto the stairs.', 'sys', '#aaa');
+    }
     // door auto open
     const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS);
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const d = W.doorAt[(ty + j) * W.W + tx + i]; if (d && (!d.locked || (opts && opts.key && opts.key(d.locked)))) { if (d.open < 0.1 && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 600) KR.A.sfx('door', 0.4); d.want = 1; d.last = G.now; } }

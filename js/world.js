@@ -58,7 +58,7 @@
     const N = W.W * W.H;
     W.tiles = new Uint8Array(N); W.region = new Uint8Array(N); W.vari = new Uint8Array(N); W.block = new Uint8Array(N);
     W.doorAt = {}; W.decor = []; W.buildings = []; W.lights = []; W.spawns = []; W.camps = []; W.chambers = {}; W.dungeons = {}; W.explored = new Uint8Array((W.W >> 2) * (W.H >> 2));
-    W.cityData = {};
+    W.cityData = {}; W.wallTop = null; W.stairs = new Map();
     const RI = D.REGION_BY_ID;
     // ---- regions: warped voronoi over the mainland seeds (grid-bucketed for speed) ----
     const seeds = [];
@@ -298,13 +298,14 @@
   }
 
   // ---------- realms: separate maps for the island, the summit, and every dungeon ----------
-  W.REALM_KEYS = ['W', 'H', 'tiles', 'region', 'vari', 'block', 'doorAt', 'decor', 'buildings', 'lights', 'spawns', 'camps', 'chambers', 'dungeons', 'explored', 'cityData', 'cityBase', 'roads', 'mapCanvas', 'realm', 'portals', 'present', 'seed'];
+  W.REALM_KEYS = ['wallTop', 'stairs', 'W', 'H', 'tiles', 'region', 'vari', 'block', 'doorAt', 'decor', 'buildings', 'lights', 'spawns', 'camps', 'chambers', 'dungeons', 'explored', 'cityData', 'cityBase', 'roads', 'mapCanvas', 'realm', 'portals', 'present', 'seed'];
   W.realms = {};
   W.snapshot = function () { const o = {}; for (const k of W.REALM_KEYS) o[k] = W[k]; return o; };
   W.restore = function (o) { for (const k of W.REALM_KEYS) W[k] = o[k]; };
   function presentRegions() { const set = new Set(); for (let i = 0; i < W.region.length; i += 7) set.add(W.region[i]); return set; }
   W.presentRegions = presentRegions;
   function blankRealm(id, size, ri, tile) {
+    W.wallTop = null; W.stairs = null;
     W.realm = id; W.W = W.H = size; const N = size * size;
     W.tiles = new Uint8Array(N).fill(tile); W.region = new Uint8Array(N).fill(ri); W.vari = new Uint8Array(N); W.block = new Uint8Array(N);
     for (let i = 0; i < N; i++) W.vari[i] = Math.floor(U.hash(i % size, (i / size) | 0, 5) * 255);
@@ -519,6 +520,53 @@
     for (let k = 0; k < 9; k += 3) for (const w of [-2, 2]) { const tx = x + dx * k, ty = y + w; if (W.inb(tx, ty)) addDecor('post', tx, ty, { nb: true }); }
   }
 
+  // ---- a sewer grate in a back street: climb down into the city's sewers from inside the walls ----
+  function cityGrate(f, R, cx, cy) {
+    const id = 'sewer_' + f; if (!W.REALMS || !W.REALMS[id]) return;
+    W.portals = (W.portals || []).filter((p) => p.cityGrate !== f); W.decor = W.decor.filter((d) => !d.cityGrate);
+    const free = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) { const t = W.tile(x + i, y + j); if (t == null || SOLID[t] || t === T.DOOR || t === T.WATER || W.block[(y + j) * W.W + x + i] || W.buildingAt((x + i) * TS + 16, (y + j) * TS + 16)) return false; } return true; };
+    for (let r = 6; r < R - 3; r++) for (let a = 0; a < 16; a++) {
+      const x = Math.round(cx + Math.cos(a / 16 * 6.283 + 0.7) * r), y = Math.round(cy + 4 + Math.sin(a / 16 * 6.283 + 0.7) * r);
+      if (!free(x, y)) continue;
+      W.tiles[y * W.W + x] = T.STONE; addDecor('grate', x, y, { nb: true, cityGrate: true });
+      W.portals.push({ x, y, to: id, label: W.REALMS[id].name, out: [x, y + 2], sewer: true, cityGrate: f });
+      return;
+    }
+  }
+  // ---- the wall-walk: the top of the city wall can be walked, reached by stone stairs inside the wall ----
+  // W.wallTop marks walkable wall tiles (not the corner towers or the gatehouses); W.stairs maps a tile to its step
+  function wallWalks(f, R, cx, cy) {
+    if (!W.wallTop || W.wallTop.length !== W.W * W.H) W.wallTop = new Uint8Array(W.W * W.H);
+    if (!W.stairs) W.stairs = new Map();
+    // clear this city's old wall-walk (the wall may have moved outward with a new level)
+    for (let ty = cy - 46; ty <= cy + 46; ty++) for (let tx = cx - 46; tx <= cx + 46; tx++) if (W.inb(tx, ty)) W.wallTop[ty * W.W + tx] = 0;
+    const gates = W.cityData[f].gates;
+    const nearGate = (tx, ty) => gates.some(([gx, gy]) => Math.abs(tx - gx) <= 3 && Math.abs(ty - gy) <= 3);
+    for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
+      const dx = tx - cx, dy = ty - cy; if (Math.abs(dx) !== R && Math.abs(dy) !== R) continue;
+      if (Math.abs(dx) >= R - 1 && Math.abs(dy) >= R - 1) continue; // corner towers
+      if (W.tile(tx, ty) !== T.CWALL || nearGate(tx, ty)) continue;
+      W.wallTop[ty * W.W + tx] = 1;
+    }
+    // one flight of stairs per side, running along the inside of the wall, six steps of a tile each
+    const LEN = 6;
+    const sides = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    for (const [nx, ny] of sides) {
+      const ax = ny ? 1 : 0, ay = nx ? 1 : 0; // along the wall
+      for (const start of [-R + 3, R - 3 - LEN, -10, 4]) {
+        const tiles = []; let ok = true;
+        for (let k = 0; k < LEN; k++) {
+          const tx = cx + nx * (R - 1) + ax * (start + k), ty = cy + ny * (R - 1) + ay * (start + k);
+          const wx = tx + nx, wy = ty + ny; const i = ty * W.W + tx;
+          if (!W.inb(tx, ty) || W.buildingAt(tx * TS + 16, ty * TS + 16) || SOLID[W.tiles[i]] || W.tiles[i] === T.DOOR || (k === LEN - 1 && !W.wallTop[wy * W.W + wx])) { ok = false; break; }
+          tiles.push([tx, ty, i]);
+        }
+        if (!ok) continue;
+        tiles.forEach(([tx, ty, i], k) => { W.tiles[i] = T.STONE; W.block[i] = 0; W.decor = W.decor.filter((d) => !(d.tx === tx && d.ty === ty)); W.stairs.set(i, { f, k, n: LEN, dir: [ax, ay], wall: [nx, ny], top: k === LEN - 1 }); });
+        break;
+      }
+    }
+  }
   // ---- the harbour outside a capital's sea gate: a paved quay, three wooden piers and ships of every size ----
   function harbour(f, R, cx, cy) {
     // from the sea gate straight out to the water
@@ -675,6 +723,27 @@
       case 'house': D_('bed', x0, y0); D_('table', x1, y1); D_('chest', x1, y0); spot(b, 'home', x0 + 1, y0 + 1); lightIn(mx, y0, 110, '255,190,120'); break;
       case 'chamber': D_('brazier', x0, y0); D_('brazier', x1, y0); D_('bones', x0 + 2, y1, { nb: true }); D_('bones', x1 - 1, y1 - 1, { nb: true }); lightIn(x0, y0, 170, '255,110,60'); lightIn(x1, y0, 170, '255,110,60'); spot(b, 'boss', mx, y0 + 2); break;
     }
+    if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) makeLoft(b, x0, y0, x1, y1);
+  }
+  // an upper floor over the back half of a building, reached by a staircase along a side wall:
+  // b.loft is the floor's tile rectangle; its steps go in W.stairs (climbing north, toward the back wall)
+  function makeLoft(b, x0, y0, x1, y1) {
+    if (!W.stairs) W.stairs = new Map();
+    const ym = y0 + Math.floor((y1 - y0 + 1) / 2) - 1, n = y1 - ym;
+    if (n < 2) return;
+    const busy = (x, y) => W.decor.some((d) => d.tx === x && d.ty === y) || Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y));
+    const cost = (col) => { let c = 0; for (let y = ym; y <= y1; y++) if (busy(col, y)) c++; return c; };
+    const col = cost(x0) <= cost(x1) ? x0 : x1;
+    for (let y = ym; y <= y1; y++) { W.decor = W.decor.filter((d) => !(d.tx === col && d.ty === y)); W.block[y * W.W + col] = 0; for (const k in b.spots || {}) b.spots[k] = b.spots[k].filter(([px, py]) => !(Math.floor(px / TS) === col && Math.floor(py / TS) === y)); }
+    W.block[ym * W.W + col] = 1; // the landing is under the stairs' top: on the ground floor you cannot stand there
+    b.loft = { x0, y0, x1, y1: ym, col, city: b.city || b.faction || null };
+    for (let k = 0; k < n; k++) { const y = y1 - k; W.stairs.set(y * W.W + col, { loft: b, k, n, dir: [0, -1], top: k === n - 1 }); }
+    // upstairs: beds for the inn's guests, books for the guild, strongboxes for the bank
+    const other = col === x0 ? x1 : x0, step = col === x0 ? -1 : 1;
+    const up = (k, tx, ty, o = {}) => addDecor(k, tx, ty, Object.assign({ nb: true, up: true }, o));
+    if (b.type === 'inn') { up('bed', other, y0); up('bed', other + step * 2, y0); up('chest', other, ym); up('table', other + step * 4, y0); up('rug', other + step * 2, ym, { flat: true }); }
+    else if (b.type === 'guild' || b.type === 'heroes') { up('bookshelf', other, y0); up('bookshelf', other + step, y0); up('table', other + step * 2, ym); up('lectern', other, ym); }
+    else { up('chest', other, y0); up('chest', other + step, y0); up('vault', other + step * 2, y0); }
   }
 
   // ---------- city layout ----------
@@ -730,6 +799,7 @@
     for (let y = 0; y < bw; y++) for (let x = 0; x < bw; x++) { const tx = x0 + x, ty = y0 + y; if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; W.tiles[k] = base.tiles[y * bw + x]; W.block[k] = 0; }
     const inArea = (tx, ty) => tx >= x0 && ty >= y0 && tx < x0 + bw && ty < y0 + bw;
     W.buildings = W.buildings.filter((b) => { if (b.city === f) { delete W.doorAt[b.door.ty * W.W + b.door.tx]; return false; } return true; });
+    if (W.stairs) for (const [i, st] of [...W.stairs]) if (st.f === f || (st.loft && st.loft.city === f)) W.stairs.delete(i);
     W.decor = W.decor.filter((d) => !inArea(d.tx, d.ty));
     W.lights = W.lights.filter((l) => !inArea(Math.floor(l.x / TS), Math.floor(l.y / TS)));
     // re-add wild decor around (outside walls) deterministically
@@ -829,7 +899,9 @@
       W.cityData[f] = W.cityData[f] || {}; (W.cityData[f].fields = W.cityData[f].fields || [])[side < 0 ? 0 : 1] = [fx0, fy0, 9, 8];
     }
     W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy;
-    W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]];
+    W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
+    wallWalks(f, R, cx, cy);
+    cityGrate(f, R, cx, cy);
     // invalidate chunk caches
     if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(x0, y0, bw, bw);
     if (!initial) W.buildMinimap();

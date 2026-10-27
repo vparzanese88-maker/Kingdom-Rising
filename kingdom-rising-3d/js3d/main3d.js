@@ -9,6 +9,8 @@ const { buildTerrain, updateTerrain, refreshTerrainArea } = await import('./terr
 const { updateSky, sky } = await import('./sky.js');
 const { view, updateCamera, moveInput, screenRay, rayGround, eyeHeight } = await import('./camera.js');
 const { world3d } = await import('./world3d.js');
+// the realistic human body (MakeHuman, CC0) is loaded before anyone is built
+{ const { loadHuman } = await import('./human.js'); try { await loadHuman(); } catch (e) { console.warn('human body not loaded, using the classic figures', e); } }
 const { actors } = await import('./actors.js');
 const { hud3d } = await import('./hud3d.js');
 const { viewmodel } = await import('./viewmodel.js');

@@ -1,0 +1,3 @@
+The human base mesh, skeleton weights and morph targets in mh.bin / mh.json come from MakeHuman
+(www.makehumancommunity.org) and were released under CC0 1.0 (public domain) by Data Collection AB,
+Joel Palmius and Jonas Hauquier. Converted for Kingdom Rising 3D by tools/makehuman/build.mjs.

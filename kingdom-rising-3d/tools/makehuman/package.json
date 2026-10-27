@@ -1,0 +1,1 @@
+{ "name": "kr3d-makehuman-tool", "private": true, "type": "module", "dependencies": { "meshoptimizer": "0.21.0" } }

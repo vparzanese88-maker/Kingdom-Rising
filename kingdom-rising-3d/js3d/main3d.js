@@ -15,14 +15,14 @@ const { actors } = await import('./actors.js');
 const { hud3d } = await import('./hud3d.js');
 const { viewmodel } = await import('./viewmodel.js');
 const { settings3d } = await import('./settings3d.js');
+const { actionOf, held, pressed } = await import('./keys3d.js');
 const { grass } = await import('./grass.js');
 
 const KR = window.KR;
 const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys, R = KR.R, UI = KR.UI, A = KR.A, T = KR.T;
 const Main = (KR.Main = KR.Main || {});
 const cv = document.getElementById('game');
-let running = false, last = 0;
-const keys = {};
+let running = false, last = 0, lastDraw = 0;
 let musicOverride = null, combatT = 0, saveT = 0, worldKey = null;
 
 // ---------- keeping the 3D world in step with the game's world ----------
@@ -53,6 +53,18 @@ function syncWorld(force) {
   if (dirty.decor) { world3d.refreshDecor(); dirty.decor = false; }
 }
 K3.syncWorld = syncWorld;
+
+// ---------- how fast people move ----------
+// The 2D map is drawn small, so its speeds (128 px/s = 6.4 m/s for a hero) look like sprinting in 3D.
+// Realistic: a jog of 3.2 m/s, walking 1.4 m/s; everyone else slows by the same amount so chases stay fair.
+const SPEEDS = { realistic: 0.5, brisk: 0.7, classic: 1 };
+const move = { walk: !!K3.settings.walkMode, back: false, autorun: false };
+G.moveScale = (e) => {
+  const k = SPEEDS[K3.settings.moveSpeed] || SPEEDS.realistic;
+  if (e !== G.player) return k;
+  return k * (move.walk ? 0.44 : 1) * (move.back ? 0.65 : 1);
+};
+Main.toggleWalk = function () { move.walk = !move.walk; K3.settings.walkMode = move.walk; K3.saveSettings(); G.log(move.walk ? 'You are now walking.' : 'You are now running.', 'sys', '#ccc'); };
 
 // ---------- boot ----------
 Main.boot = async function () {
@@ -118,8 +130,8 @@ Main.enterWorld = async function (id, newChar) {
     Main.snapCamera();
     if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in the great hall to the north. Look for the gold ! above townsfolk.`);
-      G.log('Tip: WASD to move, hold the right mouse button to look around, scroll the wheel to zoom out to third person. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press Esc for help.', 'sys', '#e8d48a');
-    } else G.log('3D view: hold the right mouse button to look around, scroll to switch between first and third person.', 'sys', '#e8d48a');
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
+    } else G.log('3D view: W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
     running = true; last = performance.now(); requestAnimationFrame(loop);
   } catch (err) {
     console.error(err); running = false; document.getElementById('ui').hidden = true;
@@ -154,6 +166,10 @@ Main.isRunning = () => running;
 
 // ---------- loop ----------
 function loop(now) {
+  // frame rate limit (Settings → Graphics)
+  const cap = K3.settings.fpsCap || 0;
+  if (cap && running && now - lastDraw < 1000 / cap - 1.5) { requestAnimationFrame(loop); return; }
+  lastDraw = now;
   try { loopBody(now); } catch (err) { console.error(err); if (!Main._loopErr) { Main._loopErr = true; G.log('A game error occurred: ' + (err && err.message) + '. The game will keep running; please tell Claude what you were doing.', 'sys', '#ff8a6a'); } }
   if (running) requestAnimationFrame(loop);
 }
@@ -161,14 +177,24 @@ const typing = () => { const a = document.activeElement; return a && (a.tagName 
 function loopBody(now) {
   if (!running) return;
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-  K3.dt = dt; K3.time += dt; K3.frame++;
+  K3.dt = dt; K3.time += dt; K3.frame++; K3.frameTick(dt);
   const p = G.player;
-  // keyboard turning
-  if (!typing()) { if (keys.arrowleft) view.yaw += dt * 2.2; if (keys.arrowright) view.yaw -= dt * 2.2; }
-  let f = 0, s = 0;
-  if (!typing()) { if (keys.w || keys.arrowup) f += 1; if (keys.s || keys.arrowdown) f -= 1; if (keys.a) s -= 1; if (keys.d) s += 1; }
+  // keyboard: forward and back move, A and D turn the hero and the camera (EverQuest style);
+  // while the right mouse button is held they sidestep instead
+  let f = 0, s = 0, turn = 0;
+  if (!typing()) {
+    if (held('forward')) f += 1; if (held('back')) f -= 1;
+    if (held('turnLeft')) turn += 1; if (held('turnRight')) turn -= 1;
+    if (held('strafeLeft')) s -= 1; if (held('strafeRight')) s += 1;
+  }
+  if (f) move.autorun = false;
+  if (move.autorun) f = 1;
+  if (mouse.r && turn) { s -= turn; turn = 0; }
+  view.yaw += turn * dt * (K3.settings.turnSpeed || 1.9);
+  view.turning = !!turn;
   // both mouse buttons held: walk forward (like most 3D RPGs)
   if (mouse.l && mouse.r) f = 1;
+  move.back = f < 0;
   let { mx, my } = moveInput(f, s);
   if (touch.move) { const m2 = moveInput(-touch.my, touch.mx); mx = m2.mx; my = m2.my; }
   if (p.fear > 0 && p.fearFrom) { const dx = p.x - p.fearFrom.x, dy = p.y - p.fearFrom.y, d = Math.hypot(dx, dy) || 1; mx = dx / d; my = dy / d; }
@@ -219,41 +245,59 @@ function loopBody(now) {
 // ---------- keyboard ----------
 addEventListener('keydown', (e) => {
   if (!running) return;
-  const k = e.key.toLowerCase();
   if (typing()) { if (e.key === 'Escape') document.activeElement.blur(); return; }
+  if (settings3d.capturing && settings3d.capturing()) return; // the key bindings window is listening for a new key
   if (e.key === 'Enter') { e.preventDefault(); const ci = document.getElementById('chatin'); if (ci) ci.focus(); return; }
   if (e.key === '/') { e.preventDefault(); const ci = document.getElementById('chatin'); if (ci) { ci.value = '/'; ci.focus(); } return; }
-  keys[k] = true;
-  const p = G.player; if (!p || p.dead) { if (k === 'escape') UI.closeAll() || UI.toggle('menu'); return; }
-  if (e.key === 'Tab') { e.preventDefault(); Main.targetNearest(true); return; }
-  if (/^[0-9]$/.test(k)) { const i = k === '0' ? 9 : +k - 1; if (i < D.slotsForLevel(p.c.level)) { const a = Sys.bar()[i]; if (a) G.useAction(a); } return; }
-  switch (k) {
-    case 'q': case '`': Main.toggleAuto(); break;
-    case 'r': Main.cycleRange(); break;
-    case 'x': Main.toggleSit(); break;
-    case 'e': Main.interact(); break;
-    case 'm': UI.toggle('map'); break;
-    case 'z': UI.toggleMinimap(); break;
-    case 'f': UI.toggleFullscreen(); break;
-    case 'i': case 'b': UI.toggle('inv'); break;
-    case 'c': UI.toggle('char'); break;
-    case 'p': UI.toggle('spells'); break;
-    case 'k': UI.toggle('abil'); break;
-    case 'j': case 'l': UI.toggle('journal'); break;
-    case 'n': UI.toggle('kingdom'); break;
-    case 'u': UI.toggle('macros'); break;
-    case 'y': UI.toggle('mercs'); break;
-    case 'g': UI.toggle('group'); break;
-    case 'v': Main.toggleView(); break;
-    case 'o': settings3d.toggle(); break;
-    case 'f1': e.preventDefault(); UI.toggle('help'); break;
-    case 'escape': if (settings3d.isOpen()) { settings3d.toggle(false); break; } if (!UI.closeAll()) { if (p.target) p.target = null; else UI.toggle('menu'); } break;
-    case '=': case '+': zoomBy(-1.5); break;
-    case '-': zoomBy(1.5); break;
+  const code = e.code || e.key;
+  const repeat = e.repeat || pressed.has(code);
+  pressed.add(code);
+  const p = G.player;
+  if (e.key === 'Escape') {
+    if (settings3d.isOpen()) { settings3d.toggle(false); return; }
+    if (!p || p.dead) { UI.closeAll() || UI.toggle('menu'); return; }
+    if (!UI.closeAll()) { if (p.target) p.target = null; else UI.toggle('menu'); }
+    return;
   }
+  const act = actionOf(code); if (!act) return;
+  if (act === 'target' || act === 'help' || /^hot/.test(act)) e.preventDefault();
+  if (repeat) return;
+  runAction(act, p);
 });
-addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; endLook(); mouse.l = mouse.r = false; });
+function runAction(act, p) {
+  if (!p || p.dead) { if (act === 'settings') settings3d.toggle(); return; }
+  const hot = /^hot(\d+)$/.exec(act);
+  if (hot) { const i = +hot[1] - 1; if (i < D.slotsForLevel(p.c.level)) { const a = Sys.bar()[i]; if (a) G.useAction(a); } return; }
+  switch (act) {
+    case 'target': Main.targetNearest(true); break;
+    case 'autoAttack': Main.toggleAuto(); break;
+    case 'range': Main.cycleRange(); break;
+    case 'sit': Main.toggleSit(); break;
+    case 'interact': Main.interact(); break;
+    case 'autorun': move.autorun = !move.autorun; break;
+    case 'walk': Main.toggleWalk(); break;
+    case 'map': UI.toggle('map'); break;
+    case 'minimap': UI.toggleMinimap(); break;
+    case 'fullscreen': UI.toggleFullscreen(); break;
+    case 'inv': UI.toggle('inv'); break;
+    case 'char': UI.toggle('char'); break;
+    case 'spells': UI.toggle('spells'); break;
+    case 'abil': UI.toggle('abil'); break;
+    case 'journal': UI.toggle('journal'); break;
+    case 'kingdom': UI.toggle('kingdom'); break;
+    case 'macros': UI.toggle('macros'); break;
+    case 'mercs': UI.toggle('mercs'); break;
+    case 'group': UI.toggle('group'); break;
+    case 'view': Main.toggleView(); break;
+    case 'settings': settings3d.toggle(); break;
+    case 'help': UI.toggle('help'); break;
+    case 'zoomIn': zoomBy(-1.5); break;
+    case 'zoomOut': zoomBy(1.5); break;
+  }
+}
+Main.runAction = (act) => runAction(act, G.player);
+addEventListener('keyup', (e) => { pressed.delete(e.code || e.key); });
+addEventListener('blur', () => { pressed.clear(); endLook(); mouse.l = mouse.r = false; });
 
 function zoomBy(d) {
   let w = view.want + d * (view.want < 3 ? 0.6 : 1);
@@ -316,6 +360,7 @@ cv.addEventListener('pointerdown', (ev) => {
   mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0;
   if (ev.button === 2) { mouse.r = true; startLook(); ev.preventDefault(); }
   else if (ev.button === 0) { mouse.l = true; }
+  else { const code = 'Mouse' + (ev.button + 2); pressed.add(code); const act = actionOf(code); if (act) { ev.preventDefault(); runAction(act, G.player); } }
   try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
 });
 addEventListener('pointermove', (ev) => {
@@ -326,13 +371,14 @@ addEventListener('pointermove', (ev) => {
   const rot = (mouse.r || (mouse.l && mouse.moved > 6));
   if (rot) {
     const s = 0.0026 * (K3.settings.sens || 1);
-    view.yaw -= mxv * s; view.pitch -= myv * s * (K3.settings.invertY ? -1 : 1);
+    view.yaw -= mxv * s; view.pitch -= myv * s * (K3.settings.sensY || 1) * (K3.settings.invertY ? -1 : 1);
   }
 });
 addEventListener('pointerup', (ev) => {
   if (!running) return;
   if (ev.pointerType === 'touch') return onTouchEnd(ev);
   const click = performance.now() - mouse.downT < 350 && mouse.moved < 7;
+  if (ev.button !== 0 && ev.button !== 2) pressed.delete('Mouse' + (ev.button + 2));
   if (ev.button === 2 && mouse.r) { mouse.r = false; endLook(); if (click) rightClick(mouse.downX, mouse.downY); }
   else if (ev.button === 0 && mouse.l) { mouse.l = false; if (click && ev.target === cv) leftClick(ev.clientX, ev.clientY); }
 });
@@ -352,9 +398,7 @@ function leftClick(sx, sy) {
   // trees and rocks to gather
   const d = world3d.pickDecor(screenRay(sx, sy));
   if (d && KR.Kingdom && KR.Kingdom.harvestOf && KR.Kingdom.harvestOf(d)) { KR.Kingdom.startHarvest(d); return; }
-  // otherwise walk there
-  const g = rayGround(screenRay(sx, sy));
-  if (g && Math.hypot(g.x / PX - p.x, g.z / PX - p.y) > 20) { p.moveTo = { x: g.x / PX, y: g.z / PX }; p.chase = null; G.fxAdd({ k: 'ring', x: p.moveTo.x, y: p.moveTo.y, r: 14, col: '#ffffff', life: 0.5 }); }
+  // clicking the ground does nothing in 3D: you steer with the keys and the mouse
 }
 function rightClick(sx, sy) {
   const p = G.player; if (!p || p.dead) return;
@@ -378,7 +422,7 @@ function onTouchStart(ev) {
 }
 function onTouchMove(ev) {
   if (touch.move && ev.pointerId === touch.id) { const dx = ev.clientX - touch.sx, dy = ev.clientY - touch.sy, d = Math.hypot(dx, dy); touch.mx = d > 10 ? dx / Math.max(d, 50) : 0; touch.my = d > 10 ? dy / Math.max(d, 50) : 0; return; }
-  const l = looks.get(ev.pointerId); if (!l) return; view.yaw -= (ev.clientX - l.x) * 0.006; view.pitch -= (ev.clientY - l.y) * 0.006; l.x = ev.clientX; l.y = ev.clientY;
+  const l = looks.get(ev.pointerId); if (!l) return; const ts = 0.006 * (K3.settings.sens || 1); view.yaw -= (ev.clientX - l.x) * ts; view.pitch -= (ev.clientY - l.y) * ts * (K3.settings.sensY || 1) * (K3.settings.invertY ? -1 : 1); l.x = ev.clientX; l.y = ev.clientY;
 }
 function onTouchEnd(ev) {
   if (touch.move && ev.pointerId === touch.id) { touch.move = false; touch.mx = touch.my = 0; return; }

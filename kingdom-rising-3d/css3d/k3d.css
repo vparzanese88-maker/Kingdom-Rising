@@ -16,3 +16,22 @@
 .k3-settings .k3s-chk input { accent-color: #d8a84a; }
 .k3-settings .k3s-note { color: #b9a989; font-size: 13px; margin: 6px 0; }
 .k3-settings .k3s-link { color: #ffd84a; }
+
+.k3-fps { position: fixed; left: 50%; top: 8px; transform: translateX(-250px); z-index: 30; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.55); color: #b8f0a8; font: 700 12px/1.4 ui-monospace, Menlo, monospace; pointer-events: none; }
+.k3-settings.wide { width: min(640px, calc(100vw - 24px)); height: min(640px, calc(100vh - 32px)); display: flex; flex-direction: column; padding: 14px 16px 12px; overflow: hidden; }
+.k3-settings .k3s-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; border-bottom: 1px solid rgba(240, 200, 120, 0.3); padding-bottom: 8px; }
+.k3-settings .k3s-tab { padding: 6px 12px; border-radius: 6px; border: 1px solid #6a5434; background: #1a130d; color: #e8dcc0; cursor: pointer; font: 600 14px "Alegreya Sans", sans-serif; }
+.k3-settings .k3s-tab.on { background: linear-gradient(#d6ad5c, #8e6a2a); color: #1a1208; border-color: #f0d48a; }
+.k3-settings .k3s-body { flex: 1; overflow: auto; padding-right: 6px; }
+.k3-settings .k3s-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 18px; }
+@media (max-width: 560px) { .k3-settings .k3s-grid { grid-template-columns: minmax(0, 1fr); } }
+.k3-settings h4 { margin: 12px 0 2px; font: 400 17px "IM Fell English SC", Georgia, serif; color: #f0d48a; }
+.k3-settings .k3s-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(240, 200, 120, 0.3); }
+.k3-keys { width: 100%; border-collapse: collapse; font-size: 14px; }
+.k3-keys th { text-align: left; color: #f0d48a; font: 400 16px "IM Fell English SC", Georgia, serif; padding: 10px 0 4px; }
+.k3-keys td { padding: 3px 4px; border-top: 1px solid rgba(240, 200, 120, 0.12); }
+.k3-keys td:first-child { color: #e8dcc0; }
+.k3-keys button { min-width: 96px; padding: 3px 8px; border-radius: 5px; border: 1px solid #6a5434; background: #120e0a; color: #ffe6a8; cursor: pointer; font: 600 13px "Alegreya Sans", sans-serif; }
+.k3-keys button.wait { border-color: #ffd84a; background: #3a2c10; animation: cvPulse 1s ease-in-out infinite; }
+.k3-keys button.none { color: #7a6a52; }
+.k3-settings input[type="range"] { box-sizing: border-box; padding: 0; border: 0; background: none; }

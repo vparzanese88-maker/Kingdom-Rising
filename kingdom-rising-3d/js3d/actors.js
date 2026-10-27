@@ -181,8 +181,10 @@ function updateAvatar(av, dt, ctx) {
   const tgt = e.target && !e.target.removed ? e.target : null;
   if (e === p) {
     // the hero faces where the camera looks when moving or fighting, otherwise where it walks
-    if (moving || view.firstPerson()) want = view.yaw + Math.PI;
-    if (moving && !view.firstPerson() && dist > 0.002) want = Math.atan2(dx, dy);
+    // EverQuest style: the hero faces where the camera points (backpedals and sidesteps with its legs),
+    // except when it is being steered for you (auto follow)
+    if (moving || view.firstPerson() || view.turning) want = view.yaw + Math.PI;
+    if (moving && !view.firstPerson() && (p.chase || p.moveTo) && dist > 0.002) want = Math.atan2(dx, dy);
     if (tgt && tgt !== p && (p.autoAttack || p.cast || p.atk > 0) && !(moving && view.firstPerson())) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   } else if (dist > 0.002 && dist < 3) want = Math.atan2(dx, dy);
   else if (tgt && (e.inCombat || e.cast || e.atk > 0)) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
@@ -213,9 +215,16 @@ function updateAvatar(av, dt, ctx) {
   const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving ? dist / sc : 0, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
-  if (av.peer) { st.move = e.m ? 1 : 0; st.dist = e.m ? dt * 6 : 0; }
+  if (av.peer) { st.move = e.m ? 1 : 0; st.dist = dist > 0.0005 ? dist / sc : e.m ? dt * 3.2 : 0; }
+  if (av.kind === 'human') {
+    // direction of travel in the body's own frame, for the steps; the ground under each foot
+    const cy = Math.cos(av.yaw), sy = Math.sin(av.yaw);
+    if (dist > 0.0005) { const l = Math.hypot(dx, dy); const lx = (dx * cy - dy * sy) / l, lz = (dx * sy + dy * cy) / l; av.mdir = av.mdir || [0, 1]; av.mdir[0] += (lx - av.mdir[0]) * Math.min(1, dt * 12); av.mdir[1] += (lz - av.mdir[1]) * Math.min(1, dt * 12); const n = Math.hypot(av.mdir[0], av.mdir[1]) || 1; av.mdir[0] /= n; av.mdir[1] /= n; }
+    st.dir = av.mdir || [0, 1];
+    if (near < 32 && !hover) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
+  }
   if (tgt && av.kind === 'human' && !moving) st.lookYaw = K3.dampAngle(0, Math.atan2(tgt.x - e.x, tgt.y - e.y) - av.yaw, 1);
-  if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
+  if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
   else if (av.kind === 'creature') animateCreature(av.rig, st, dt);
   if (av.horse) animateCreature(av.horse, { move: st.move, dist: st.dist * 1.5, atk: 0 }, dt);
   if (av.archer) { av.archer.mesh.rotation.y = (e.aimAng != null ? Math.PI / 2 - e.aimAng : 0) - av.yaw; animateHumanoid(av.archer, { move: 0, dist: 0, atk: (e.fireK || 0) > 0.05 ? 1 - e.fireK : 0, atkKind: 'bow', combat: true }, dt); }

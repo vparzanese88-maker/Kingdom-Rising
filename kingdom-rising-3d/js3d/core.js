@@ -43,16 +43,24 @@ function autoQuality() {
   if (cores <= 4) return 'medium';
   return 'high';
 }
-K3.settings = Object.assign({ quality: autoQuality(), fov: 72, sens: 1, invertY: false, fpArms: true, headBob: true }, lsGet('kr3d_settings', {}));
+K3.settings = Object.assign({ quality: autoQuality(), fov: 72, sens: 1, sensY: 1, invertY: false, fpArms: true, headBob: true, shake: true,
+  turnSpeed: 1.9, moveSpeed: 'realistic', walkMode: false, renderScale: 1, dynRes: true, targetFps: 60, fpsCap: 0, showFps: false, exposure: 1, gfx: {} }, lsGet('kr3d_settings', {}));
 K3.saveSettings = () => lsSet('kr3d_settings', K3.settings);
-K3.quality = QUALITY[K3.settings.quality] || QUALITY.high;
+// a preset plus whatever the player changed by hand (Settings → Graphics)
+function composeQuality() {
+  const q = Object.assign({}, QUALITY[K3.settings.quality] || QUALITY.high, K3.settings.gfx || {});
+  if (q.aa === 'msaa') q.msaa = 4; else if (q.aa === 'fxaa' || q.aa === 'off') q.msaa = 0;
+  q.treeFar = Math.round(q.view * 0.72);
+  K3.quality = q;
+}
+composeQuality();
 
 // ---------- renderer ----------
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = K3.settings.exposure || 1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = true;
@@ -112,14 +120,15 @@ function buildComposer() {
   if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 0.86); composer.addPass(bloom); }
   composer.addPass(new OutputPass());
   if (q.grade) { grade = new ShaderPass(GradeShader); composer.addPass(grade); }
-  if (!q.msaa) { fxaa = new ShaderPass(FXAAShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(fxaa); }
+  if (!q.msaa && q.aa !== 'off') { fxaa = new ShaderPass(FXAAShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(fxaa); }
   K3.composer = composer; K3.bloom = bloom; K3.grade = grade;
 }
 K3.post = { get bloom() { return bloom; }, get grade() { return grade; } };
 
 function resize() {
   const q = K3.quality;
-  const pr = Math.min(window.devicePixelRatio || 1, q.pr);
+  // render resolution: the preset's cap, the player's render scale, and the automatic scale that keeps the frame rate up
+  const pr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, q.pr) * (K3.settings.renderScale || 1) * K3.dynScale);
   renderer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight, false);
   canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
@@ -132,13 +141,42 @@ function resize() {
 K3.onResize = [];
 addEventListener('resize', resize);
 K3.resize = resize;
+K3.dynScale = 1;
 K3.setQuality = function (id) {
   if (!QUALITY[id]) return;
-  K3.settings.quality = id; K3.quality = QUALITY[id]; K3.saveSettings();
+  K3.settings.quality = id; K3.settings.gfx = {}; K3.saveSettings(); composeQuality(); K3.dynScale = 1;
+  resize();
+  for (const f of K3.onQuality) try { f(); } catch (e) { console.error(e); }
+};
+// change one graphics option by hand
+K3.setGfx = function (key, val) {
+  K3.settings.gfx = Object.assign({}, K3.settings.gfx, { [key]: val }); K3.saveSettings(); composeQuality();
   resize();
   for (const f of K3.onQuality) try { f(); } catch (e) { console.error(e); }
 };
 K3.onQuality = [];
+
+// ---------- frame rate: counter and automatic resolution ----------
+// Every two seconds, if the game runs below the target, draw fewer pixels (down to 55%); when it has
+// kept up for a while, try a little more. A failed try waits longer before the next one.
+const perf = { n: 0, t: 0, fps: 0, good: 0, wait: 0, tried: false, el: null };
+K3.perf = perf;
+K3.frameTick = function (dt) {
+  perf.n++; perf.t += dt; perf.wait -= dt;
+  if (perf.t < 2) return;
+  perf.fps = perf.n / perf.t; perf.n = 0; perf.t = 0;
+  if (K3.settings.showFps) { if (!perf.el) { perf.el = document.createElement('div'); perf.el.className = 'k3-fps'; document.body.appendChild(perf.el); } perf.el.hidden = false; perf.el.textContent = Math.round(perf.fps) + ' fps' + (K3.dynScale < 1 ? ' · ' + Math.round(K3.dynScale * 100) + '% res' : ''); }
+  else if (perf.el) perf.el.hidden = true;
+  if (!K3.settings.dynRes) { if (K3.dynScale !== 1) { K3.dynScale = 1; resize(); } return; }
+  const target = Math.min(K3.settings.targetFps || 60, K3.settings.fpsCap || 999);
+  if (perf.fps < target * 0.86 && K3.dynScale > 0.55) {
+    K3.dynScale = Math.max(0.55, K3.dynScale - (perf.fps < target * 0.6 ? 0.15 : 0.08)); perf.good = 0;
+    if (perf.tried) { perf.wait = 30; perf.tried = false; }
+    resize();
+  } else if (perf.fps >= target * 0.95 && K3.dynScale < 1 && perf.wait <= 0) {
+    if (++perf.good >= 3) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 6; resize(); }
+  } else perf.good = 0;
+};
 
 // the first-person arms are drawn in their own scene on top of the world
 K3.vmScene = new THREE.Scene();

@@ -898,6 +898,7 @@
   G.faceTo = function (e, t) { const dx = t.x - e.x, dy = t.y - e.y; if (Math.abs(dx) > Math.abs(dy)) { e.dir = dx < 0 ? 1 : 2; e.face = dx < 0 ? -1 : 1; } else e.dir = dy < 0 ? 3 : 0; if (Math.abs(dx) > 4) e.face = dx < 0 ? -1 : 1; };
 
   G.moveEnt = function (e, dx, dy, opts) {
+    if (G.moveScale) { const k = G.moveScale(e); dx *= k; dy *= k; } // the 3D view slows everyone to real walking and running speeds
     const r = Math.min(e.r, 12);
     const blocked = (x, y) => W.solidAtPx(x - r, y - 4, opts) || W.solidAtPx(x + r, y - 4, opts) || W.solidAtPx(x - r, y + 6, opts) || W.solidAtPx(x + r, y + 6, opts);
     if (e.fly && e.type === 'mob') { e.x += dx; e.y += dy; if (blocked(e.x, e.y) && W.tile(Math.floor(e.x / TS), Math.floor(e.y / TS)) !== T.WATER) { e.x -= dx; e.y -= dy; } return; }

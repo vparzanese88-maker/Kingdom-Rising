@@ -6,6 +6,7 @@ import { MB, PRIM } from './mb.js';
 import { weaponMesh } from './weapons.js';
 
 import { humanAsset, makeHumanRig } from './human.js';
+import { legs, handsOnKnees } from './gait.js';
 const KR = window.KR, D = KR.D;
 
 // ---------- the material: vertex colours plus per-vertex metal/roughness and procedural detail ----------
@@ -468,11 +469,9 @@ const E = (b, x, y, z) => { b.rotation.set(x, y, z); };
 export function animateHumanoid(rig, st, dt) {
   const B = rig.bones; const t = (rig.t += dt);
   const P = rig.P;
-  // walk phase advances with the distance covered
-  const stride = 1.35 * P.leg * (P.h || 1);
-  rig.phase += (st.dist / stride) * Math.PI;
-  const mv = K3.clamp(st.move, 0, 1); rig.mv = (rig.mv || 0) + (mv - (rig.mv || 0)) * Math.min(1, dt * 8); const m = rig.mv;
-  const ph = rig.phase; const s = Math.sin(ph), c = Math.cos(ph);
+  const mv = K3.clamp(st.move, 0, 1); rig.mv = (rig.mv || 0) + (mv - (rig.mv || 0)) * Math.min(1, dt * 6); const m = rig.mv;
+  // the walk cycle (gait.js) advances with the distance covered; cos(ph) = 1 when the left foot lands
+  const ph = (rig.phase = (rig.gp || 0) * Math.PI * 2); const c = Math.cos(ph);
   // reset
   for (const k in B) B[k].rotation.set(0, 0, 0);
   B.hips.position.set(rig.rest.hips[0], rig.rest.hips[1], rig.rest.hips[2]);
@@ -488,21 +487,19 @@ export function animateHumanoid(rig, st, dt) {
     // fighting stance: weapon up, knees bent
     B.armR.rotation.x = -0.35; B.foreR.rotation.x = -1.0; B.armR.rotation.z = -0.25;
     if (rig.wtype === '2HS' || rig.wtype === '2HB' && !rig.staffy || rig.wtype === 'axe' && rig.twoHand || rig.wtype === 'spear') { B.armL.rotation.x = -0.6; B.foreL.rotation.x = -1.15; B.armL.rotation.z = -0.2; }
-    B.thighL.rotation.x = -0.15; B.thighR.rotation.x = 0.1; B.shinL.rotation.x = 0.25; B.shinR.rotation.x = 0.2;
-    B.hips.position.y -= 0.04;
   }
   // ---- walking / running ----
   if (m > 0.02) {
-    const A = 0.55 * m, K = 0.85 * m;
-    B.thighL.rotation.x += -s * A; B.thighR.rotation.x += s * A;
-    B.shinL.rotation.x += Math.max(0, c) * K + 0.1 * m; B.shinR.rotation.x += Math.max(0, -c) * K + 0.1 * m;
-    B.footL.rotation.x = -Math.max(0, -s) * 0.3 * m; B.footR.rotation.x = -Math.max(0, s) * 0.3 * m;
-    B.hips.position.y += -Math.abs(c) * 0.045 * m + 0.02 * m;
-    B.hips.rotation.y = s * 0.12 * m; B.chest.rotation.y = -s * 0.18 * m; B.spine.rotation.x += 0.08 * m;
-    if (!st.combat) { B.armL.rotation.x = s * 0.5 * m; B.armR.rotation.x = -s * 0.5 * m; B.foreL.rotation.x = -0.2 - Math.max(0, -s) * 0.35 * m; B.foreR.rotation.x = -0.2 - Math.max(0, s) * 0.35 * m; }
+    // pelvis turns with the stepping leg, shoulders counter it, arms swing against the legs
+    const run = K3.smooth(2.3, 5.0, rig.gv || 0), A = (0.32 + 0.3 * run) * m;
+    B.hips.rotation.y = -c * (0.08 + 0.04 * run) * m; B.chest.rotation.y = c * (0.1 + 0.08 * run) * m; B.spine.rotation.x += (0.04 + 0.14 * run) * m;
+    B.hips.rotation.z = -Math.sin(ph * 2) * 0.03 * m * (1 - run);
+    if (!st.combat) { B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
   }
-  // ---- sitting ----
-  if (st.sit) { B.hips.position.y = rig.rest.hips[1] * 0.52; B.thighL.rotation.x = -1.45; B.thighR.rotation.x = -1.45; B.shinL.rotation.x = 1.45; B.shinR.rotation.x = 1.45; B.armL.rotation.x = -0.5; B.armR.rotation.x = -0.5; B.foreL.rotation.x = -0.6; B.foreR.rotation.x = -0.6; }
+  // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
+  if (!st.mounted && !st.dead) legs(rig, st, dt, m);
+  else { rig.sitK = 0; rig.sitHands = 0; }
+  if (rig.sitK > 0.01) { const k = K3.smooth(0, 1, rig.sitK); B.armL.rotation.x = K3.lerp(B.armL.rotation.x, -0.5, k); B.armR.rotation.x = K3.lerp(B.armR.rotation.x, -0.5, k); }
   // ---- casting: hands raised and glowing ----
   if (st.cast) { const w = Math.sin(t * 8) * 0.08; B.armL.rotation.x = -1.25 + w; B.armR.rotation.x = -1.25 - w; B.armL.rotation.z = -0.25; B.armR.rotation.z = 0.25; B.foreL.rotation.x = -0.5; B.foreR.rotation.x = -0.5; B.chest.rotation.x -= 0.1; }
   // ---- attacks ----
@@ -545,6 +542,7 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
   if (st.lookYaw) { B.head.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.6; B.neck.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.3; }
+  if (!st.cast && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
   // fingers: a fist around a weapon, open while casting, loosely curled otherwise
   if (rig.hands) for (const S of ['L', 'R']) {
     const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;

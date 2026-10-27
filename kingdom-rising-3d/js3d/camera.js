@@ -52,28 +52,37 @@ export function updateCamera(dt, p) {
   if (Math.abs(view.dist - view.want) < 0.01) view.dist = view.want;
   view.pitch = K3.clamp(view.pitch, -1.45, 1.35);
   const ex = p.x * PX, ez = p.y * PX; const fy = K3.actorY ? K3.actorY(p) : geo.floorAt(p.x, p.y);
-  const eh = eyeHeight(p) * (p.sit ? 0.62 : 1) * (p.dead ? 0.3 : 1);
-  // head bob while walking in first person
-  if (p.moving && view.firstPerson() && K3.settings.headBob) view.bob += dt * 9.5; else view.bob *= 0.9;
-  const bob = Math.sin(view.bob * 2) * 0.035 * (p.moving ? 1 : 0);
-  const sway = Math.cos(view.bob) * 0.02 * (p.moving ? 1 : 0);
+  // eyes lower slowly as the hero sits down cross-legged (the body's own sit animation drives it)
+  const rig = K3.playerRig; const sitK = rig && rig.sitK != null ? K3.smooth(0, 1, rig.sitK) : p.sit ? 1 : 0;
+  const eh = eyeHeight(p) * (1 - 0.47 * sitK) * (p.dead ? 0.3 : 1);
+  // head bob in first person, in step with the feet: down as each foot lands, sway toward the planted foot
+  const gp = rig && rig.gp != null ? rig.gp : 0;
+  const bobOn = p.moving && view.firstPerson() && K3.settings.headBob ? 1 : 0;
+  view.bobK = (view.bobK || 0) + (bobOn - (view.bobK || 0)) * Math.min(1, dt * 6);
+  view.bob = gp * Math.PI * 2;
+  const run = rig ? K3.smooth(2.3, 5.0, rig.gv || 0) : 0;
+  const bob = -Math.cos(view.bob * 2) * (0.018 + 0.02 * run) * view.bobK;
+  const sway = Math.cos(view.bob) * 0.012 * view.bobK;
   view.focus.set(ex, fy + eh * 0.92, ez);
-  const fwd = view.fwd.set(-Math.sin(view.yaw) * Math.cos(view.pitch), Math.sin(view.pitch), -Math.cos(view.yaw) * Math.cos(view.pitch));
+  // hold the "look behind" key to glance back without turning
+  const yaw = view.yaw + (K3.keys && K3.keys.held('lookBack') ? Math.PI : 0);
+  const fwd = view.fwd.set(-Math.sin(yaw) * Math.cos(view.pitch), Math.sin(view.pitch), -Math.cos(yaw) * Math.cos(view.pitch));
   const inside = W.buildingAt(p.x, p.y);
   if (view.firstPerson()) {
-    cam.position.set(ex + Math.cos(view.yaw) * sway, fy + eh + bob, ez - Math.sin(view.yaw) * sway);
+    cam.position.set(ex + Math.cos(yaw) * sway, fy + eh + bob, ez - Math.sin(yaw) * sway);
     // lean the eye slightly forward so you can see your feet without seeing inside your own head
-    cam.position.x += -Math.sin(view.yaw) * 0.12; cam.position.z += -Math.cos(view.yaw) * 0.12;
+    cam.position.x += -Math.sin(yaw) * 0.12; cam.position.z += -Math.cos(yaw) * 0.12;
   } else {
-    const right = _v2.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
+    const right = _v2.set(Math.cos(yaw), 0, -Math.sin(yaw));
     const pivot = _v.set(ex, fy + eh * 0.95, ez).addScaledVector(right, 0.42 * Math.min(1, view.dist / 4));
     const back = _v2.copy(fwd).multiplyScalar(-1);
     const d = clearDist(pivot, back, view.dist, inside);
     cam.position.copy(pivot).addScaledVector(back, Math.max(0.3, d));
   }
+  if (K3.settings.shake === false) view.shake = 0;
   if (view.shake > 0) { cam.position.x += (Math.random() - 0.5) * view.shake * 0.15; cam.position.y += (Math.random() - 0.5) * view.shake * 0.15; view.shake = Math.max(0, view.shake - dt * 2.5); }
   if (G.shake > 0) { view.shake = Math.max(view.shake, G.shake * 1.5); G.shake = Math.max(0, G.shake - dt); }
-  cam.rotation.set(view.pitch, view.yaw, 0, 'YXZ');
+  cam.rotation.set(view.pitch, yaw, 0, 'YXZ');
   const fov = K3.settings.fov; if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
   cam.updateMatrixWorld();
   view.eye.copy(cam.position);

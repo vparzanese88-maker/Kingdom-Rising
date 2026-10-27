@@ -809,6 +809,36 @@
     try { const tw = courtOf(f); if (tw) for (const e of G.ents) if (e.faction === f && !e.removed && (e.type === 'king' || e.role === 'royalguard') && inLoft(e, tw)) { e.upB = tw; e.loftHome = tw; } } catch (err) { console.warn(err); }
     return r;
   };
+  // gate guards stand just inside each gate, beside the way through: clear of the gatehouse towers (which reach a
+  // tile into the town), off the wall and off the road, facing out. Recomputed whenever the city is peopled, so the
+  // posts follow the walls outward as the kingdom grows.
+  Sys.gatePosts = function (f) {
+    const cd = W.cityData[f]; if (!cd || !cd.gates) return [];
+    const { cx, cy, R } = cd; const out = [];
+    const free = (tx, ty) => { if (!W.inb(tx, ty)) return false; const t = W.tile(tx, ty); if (KR.SOLID[t] || t === T.WATER || t === T.DOOR || W.isBlockedTile(tx, ty)) return false;
+      if (Math.max(Math.abs(tx - cx), Math.abs(ty - cy)) >= R) return false; // inside the walls
+      if (W.stairs && W.stairs.get(ty * W.W + tx)) return false; if (W.buildingAt(tx * TS + 16, ty * TS + 16)) return false; return true; };
+    for (const [gx, gy] of cd.gates) {
+      const vert = gy === cy + R || gy === cy - R; // a gate in the north or south wall
+      const [nx, ny] = vert ? [0, gy > cy ? -1 : 1] : [gx > cx ? -1 : 1, 0]; // inward
+      const half = vert ? (gy === cy - R ? 2 : 1) : 1; const lat = vert ? [1, 0] : [0, 1];
+      for (const s of [-1, 1]) {
+        let pick = null;
+        for (let d = 2; d <= 5 && !pick; d++) for (let l = half + 2; l <= half + 4 && !pick; l++) { const tx = gx + nx * d + lat[0] * s * l, ty = gy + ny * d + lat[1] * s * l; if (free(tx, ty)) pick = [tx, ty]; }
+        if (pick) out.push({ x: pick[0] * TS + 16, y: pick[1] * TS + 20, look: [pick[0] * TS - nx * 200, pick[1] * TS - ny * 200] });
+      }
+    }
+    return out;
+  };
+  const spawnGate0 = Sys.spawnCity;
+  Sys.spawnCity = function (f) {
+    const r = spawnGate0.apply(this, arguments);
+    try {
+      const posts = Sys.gatePosts(f); const gs = G.ents.filter((e) => e.faction === f && e.type === 'guard' && e.title === 'Gate Guard' && !e.removed);
+      gs.forEach((g, i) => { const p = posts[i]; if (!p) return; g.x = g.homeX = p.x; g.y = g.homeY = p.y; if (G.faceTo) G.faceTo(g, { x: p.look[0], y: p.look[1] }); });
+    } catch (err) { console.warn(err); }
+    return r;
+  };
   const moveCourt0 = G.moveEnt;
   G.moveEnt = function (e) {
     const r = moveCourt0.apply(this, arguments);

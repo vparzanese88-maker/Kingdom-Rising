@@ -2,6 +2,12 @@
 (function () {
   const KR = (window.KR = window.KR || {});
   const D = KR.D;
+  // the Corsair Coast: new land in what was the empty south-east sea, a palm-fringed shore of coves and smugglers'
+  // beaches (levels 36-46, between the desert and Gloamreach), peopled by the same creatures as the Isle of Tidesong
+  if (D.REGIONS && D.REGION_BY_ID && D.REGION_BY_ID.corsair == null) {
+    D.REGIONS.push({ id: 'corsair', name: 'Corsair Coast', biome: 'island', seeds: [[520, 520], [585, 545], [500, 585], [600, 595], [560, 495]], lv: [36, 46], dark: 0, mobs: ['shore_crab', 'island_tiger', 'pirate', 'pirate', 'pirate_mage', 'sea_harpy', 'coral_golem', 'reef_croc'], music: 'island' });
+    D.REGION_BY_ID.corsair = D.REGIONS.length - 1;
+  }
   const U = (KR.U = {});
   // ---------- utils ----------
   U.mulberry = function (a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
@@ -233,7 +239,8 @@
         case 'scar': t = n > 0.74 ? T.LAVA : n > 0.67 ? T.ROCK : n2 > 0.55 ? T.ASH : T.SCAR; break;
         case 'desert': t = n > 0.78 ? T.ROCK : n2 > 0.7 ? T.GRAVEL : T.SAND; break;
         case 'ocean': t = T.DEEP; break;
-        case 'island': { const d = islandD(x, y); t = d > 0.9 ? T.SAND : n2 > 0.58 ? T.FOREST : n > 0.78 ? T.ROCK : T.GRASS; break; }
+        // (the mainland's Corsair Coast gets its beaches from shoreline())
+        case 'island': { const d = reg.id === 'corsair' ? 0 : islandD(x, y); t = d > 0.9 ? T.SAND : n2 > 0.58 ? T.FOREST : n > 0.78 ? T.ROCK : T.GRASS; break; }
         case 'summit': { const sd = Math.hypot(x - SU.cx, y - SU.cy) + (U.fbm(x * 0.05, y * 0.05, 73, 3) - 0.5) * 10; t = sd > SU.r ? T.ROCK : n > 0.72 ? T.ROCK : n2 > 0.52 ? T.SNOW : T.GRASS; break; }
         case 'cave': case 'crypt': case 'icecave': case 'abyss': t = T.ROCK; break;
         case 'citystone': t = n > 0.6 ? T.GRAVEL : T.DGRASS; break;

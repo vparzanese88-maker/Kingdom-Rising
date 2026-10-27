@@ -657,6 +657,8 @@ function outfit(look, kind, sh, N, rest) {
   const raceD = D.RACES[L.race] || {}; const fem = L.gender === 'f';
   const robe = ak === 'cloth' || L.robe;
   const bare = L.bare || (ak === 'none' && (kind === 'troll' || kind === 'ogre' || kind === 'goblin'));
+  // heroes in 3D show exactly their gear: no shirt without a chest piece, a loincloth without leggings
+  const torsoBare = bare || !!L.noShirt, legsBare = bare || !!L.noPants;
   const barefoot = L.barefoot || raceD.barefoot || kind === 'troll' || kind === 'ogre' || kind === 'goblin' || kind === 'zombie';
   const cat = new Array(A.NV); for (let v = 0; v < A.NV; v++) cat[v] = catOf(v, P, rest);
   const X = (v) => P[v * 3], Y = (v) => P[v * 3 + 1], Z = (v) => P[v * 3 + 2];
@@ -672,17 +674,22 @@ function outfit(look, kind, sh, N, rest) {
   const bootC = ak === 'plate' ? K3.shade(ac, -0.1) : '#3a2a1e';
   // ---- legs and feet ----
   const pantsBottom = barefoot ? ankleY + 0.03 : bootTop - 0.04;
-  if (!bare || kind === 'giant') add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh', 'shin') ? cl(min(hipY + 0.07 - Y(v), Y(v) - pantsBottom)) : -1, { off: 0.0045, smooth: 2, col: pants, mat: ak === 'plate' ? 'chain' : 'cloth' });
+  if (!legsBare || kind === 'giant') add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh', 'shin') ? cl(min(hipY + 0.07 - Y(v), Y(v) - pantsBottom)) : -1, { off: 0.0045, smooth: 2, col: pants, mat: ak === 'plate' ? 'chain' : 'cloth' });
+  else if (L.noPants) {
+    // a linen loincloth: a band round the hips with a flap hanging front and back
+    add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh') ? cl(min(hipY + 0.03 - Y(v), Y(v) - (hipY - 0.1))) : -1, { off: 0.005, smooth: 3, col: '#d8ccb0', mat: 'cloth', trim: '#8a7a5a', trimW: 0.008 });
+    add('body', (v) => IN(v, 'pelvis', 'thigh') && Math.abs(X(v)) < 0.075 ? cl(min(0.075 - Math.abs(X(v)), Y(v) - (hipY - 0.27), hipY - 0.02 - Y(v))) : -1, { off: 0.009, smooth: 2, col: '#cfc2a4', mat: 'cloth', trim: '#8a7a5a', trimW: 0.006 }, false);
+  }
   else add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh') ? cl(min(hipY + 0.045 - Y(v), Y(v) - (hipY - 0.14))) : -1, { off: 0.006, smooth: 3, col: '#5a4030', mat: 'leather', trim: '#3a2818', trimW: 0.01 });
   if (!barefoot) add('body', (v) => IN(v, 'foot', 'shin') ? cl(bootTop - Y(v)) : -1, { off: (v, y) => (ak === 'plate' ? 0.012 : 0.0075) + (y < 0.025 ? 0.004 : 0), smooth: ak === 'plate' ? 6 : 4, col: bootC, mat: ak === 'plate' ? 'metal' : 'leather', trim: ak === 'plate' ? at : K3.shade(bootC, -0.35), trimW: 0.014, trimMat: ak === 'plate' ? 'gold' : 'leather' });
   // ---- torso and arms ----
   const sleeves = robe || ak === 'chain' || ak === 'plate' || ak === 'leather' || L.sleeves !== 'short';
   const cuffY = sleeves ? wristY + 0.025 : elbowY + 0.07;
-  if (!bare) {
+  if (!torsoBare) {
     const shirtC = ak === 'none' ? ac : ak === 'leather' ? (L.shirt || '#8a7a5a') : ac;
     const shirt = (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, robe ? 0 : 0.005) - Y(v), Y(v) - (hipY - 0.045))) : IN(v, 'uarm', 'farm') ? cl(Y(v) - cuffY) : -1;
     if (ak !== 'plate') add('body', shirt, { off: (v, y) => (fem ? 0.007 : 0.005) + (robe && cat[v] === 'farm' ? 0.04 * smooth(elbowY, wristY, y) : 0), smooth: fem ? 8 : 4, col: robe ? ac : shirtC, mat: ak === 'chain' ? 'chain' : 'cloth', trim: robe ? at : K3.shade(shirtC, -0.2), trimW: robe ? 0.02 : 0.008 });
-    if (fem && ak === 'none' && L.bare) add('body', (v) => IN(v, 'torso') ? cl(0.07 - Math.abs(Y(v) - (rest.chest[1] + 0.02))) : -1, { off: 0.004, smooth: 2, col: '#6a4a3a', mat: 'leather' });
+    if (false) add('body', (v) => IN(v, 'torso') ? cl(0.07 - Math.abs(Y(v) - (rest.chest[1] + 0.02))) : -1, { off: 0.004, smooth: 2, col: '#6a4a3a', mat: 'leather' });
     if (ak === 'leather') {
       add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.02) - Y(v), Y(v) - (hipY - 0.03))) : -1, { off: 0.012, smooth: fem ? 10 : 6, col: ac, mat: 'leather', trim: K3.shade(ac, -0.35), trimW: 0.012 });
       add('body', (v) => IN(v, 'uarm', 'torso') && Math.abs(X(v)) > 0.11 ? cl(Y(v) - (shY - 0.1)) : -1, { off: 0.016, smooth: 6, col: K3.shade(ac, -0.1), mat: 'leather', trim: K3.shade(ac, -0.35), trimW: 0.01 }, false);
@@ -703,16 +710,20 @@ function outfit(look, kind, sh, N, rest) {
       add('body', (v) => IN(v, 'thigh') ? cl(min(hipY - 0.07 - Y(v), Y(v) - (kneeY - 0.01))) : -1, { off: 0.016, smooth: 8, col: K3.shade(ac, 0.02), mat: 'metal', trim: at, trimW: 0.012, trimMat: 'gold' }, false);
       add('body', (v) => IN(v, 'shin', 'thigh') ? cl(min(kneeY + 0.05 - Y(v), Y(v) - (ankleY + 0.04))) : -1, { off: 0.014, smooth: 8, col: K3.shade(ac, 0.02), mat: 'metal', trim: at, trimW: 0.01, trimMat: 'gold' }, false);
     }
+  }
+  // a linen wrap over the breasts
+  if (fem && torsoBare && (L.wrap || L.bare)) add('body', (v) => IN(v, 'torso') ? cl(min(0.065 - Math.abs(Y(v) - (rest.chest[1] + 0.035)), 1)) : -1, { off: 0.0055, smooth: 3, col: '#d8ccb0', mat: 'cloth', trim: '#8a7a5a', trimW: 0.006 });
+  if (!torsoBare) {
     // a belt at the waist
     if (!robe || ak === 'chain') add('body', (v) => IN(v, 'torso', 'pelvis') ? cl(0.02 - Math.abs(Y(v) - (hipY + 0.035))) : -1, { off: ak === 'plate' ? 0.031 : 0.012, smooth: 3, col: ak === 'plate' ? at : '#3a2618', mat: 'leather', trim: '#c8a040', trimW: 0.0035, trimMat: 'gold' }, false);
   }
   // ---- skirts: robes, mail skirts, tassets and tunics ----
   const skirt = (bottom, o) => add('skirt', (v) => cl(P[v * 3 + 1] - bottom), Object.assign({ smooth: 2, bind: (v, y, si, sw, i) => { const t = K3.clamp((hipY - y) / (hipY - ankleY), 0, 1); const side = P[v * 3] >= 0 ? A.BI.thighL : A.BI.thighR; si[i * 4] = A.BI.hips; si[i * 4 + 1] = side; si[i * 4 + 2] = 0; si[i * 4 + 3] = 0; const w2 = Math.round(t * 0.6 * 255); sw[i * 4] = 255 - w2; sw[i * 4 + 1] = w2; sw[i * 4 + 2] = 0; sw[i * 4 + 3] = 0; } }, o), false);
-  if (robe && !bare) skirt(ankleY + 0.02, { off: 0.012, col: ac, mat: 'cloth', trim: at, trimW: 0.03 });
+  if (robe && !torsoBare) skirt(ankleY + 0.02, { off: 0.012, col: ac, mat: 'cloth', trim: at, trimW: 0.03 });
   else if (ak === 'chain') skirt(kneeY + 0.06, { off: 0.008, col: '#8e9298', mat: 'chain', trim: '#6a6e74', trimW: 0.01 });
   else if (ak === 'plate') skirt(hipY - (hipY - kneeY) * 0.45, { off: 0.018, smooth: 4, col: K3.shade(ac, -0.05), mat: 'metal', trim: at, trimW: 0.012, trimMat: 'gold', colFn: (v, y, C) => (Math.floor((hipY - y) / 0.045) % 2 ? C.clone().multiplyScalar(0.85) : C) });
-  else if (ak === 'leather' || (ak === 'none' && !bare && L.tunic !== false && !fem)) skirt(hipY - (hipY - kneeY) * 0.38, { off: 0.008, col: ak === 'leather' ? K3.shade(ac, -0.08) : ac, mat: ak === 'leather' ? 'leather' : 'cloth', trim: K3.shade(ac, -0.3), trimW: 0.01 });
-  else if (fem && ak === 'none' && !bare) skirt(ankleY + 0.12, { off: 0.01, col: ac, mat: 'cloth', trim: at, trimW: 0.02 });
+  else if (ak === 'leather' || (ak === 'none' && !torsoBare && L.tunic !== false && !fem)) skirt(hipY - (hipY - kneeY) * 0.38, { off: 0.008, col: ak === 'leather' ? K3.shade(ac, -0.08) : ac, mat: ak === 'leather' ? 'leather' : 'cloth', trim: K3.shade(ac, -0.3), trimW: 0.01 });
+  else if (fem && ak === 'none' && !torsoBare && !legsBare) skirt(ankleY + 0.12, { off: 0.01, col: ac, mat: 'cloth', trim: at, trimW: 0.02 });
   // the skin under a covering piece is not drawn (it never shows and cannot poke through)
   const hidden = new Uint8Array(A.NV); for (let v = 0; v < A.NV; v++) for (const f of covers) if (f(v) >= 0.012) { hidden[v] = 1; break; }
   return { pieces, hidden, cat };
@@ -723,7 +734,7 @@ const cache = new Map();
 export const HUMAN_PARENT = (() => { const P = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', shL: 'chest', armL: 'shL', foreL: 'armL', handL: 'foreL', shR: 'chest', armR: 'shR', foreR: 'armR', handR: 'foreR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', capeA: 'chest', capeB: 'capeA', tail1: 'hips', tail2: 'tail1', tail3: 'tail2', wingL: 'chest', wingR: 'chest' }; for (const S of ['L', 'R']) for (const f of ['th', 'f1', 'f2', 'f3', 'f4']) { P[f + S + '1'] = 'hand' + S; P[f + S + '2'] = f + S + '1'; } return P; })();
 export function humanKey(look, kind) {
   const L = look || {}; const a = L.armor || {};
-  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face].join('|');
+  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.noPants, L.wrap].join('|');
 }
 function skinGeometry(sh, N, hidden) {
   const NS = A.NS, map = A.map;

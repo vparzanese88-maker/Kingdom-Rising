@@ -218,6 +218,32 @@ function hair(B, look, P, kind, H) {
     B.box('head', 0, cy - s * 0.36, hz + s * 0.92, s * 0.6, s * 0.1, s * 0.12, bc, 'hair');
   }
 }
+// a bishop's mitre: two stiff embroidered panels rising to a pointed arch, gold bands, a jewel and two ribbons behind
+function mitre(B, s, top, hz, hc, tr) {
+  top -= s * 0.32; // sits down on the brow
+  const w = s * 1.02, h = s * 2.2;
+  const sh = new THREE.Shape(); sh.moveTo(-w, 0); sh.lineTo(-w * 0.98, h * 0.42); sh.quadraticCurveTo(-w * 0.86, h * 0.86, 0, h); sh.quadraticCurveTo(w * 0.86, h * 0.86, w * 0.98, h * 0.42); sh.lineTo(w, 0); sh.lineTo(-w, 0);
+  const panel = new THREE.ExtrudeGeometry(sh, { depth: s * 0.05, bevelEnabled: true, bevelThickness: s * 0.012, bevelSize: s * 0.012, bevelSegments: 1, curveSegments: 10 });
+  // curve each panel round the head
+  const p = panel.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, p.getZ(i) - (x * x) / (w * 1.6)); }
+  panel.computeVertexNormals();
+  for (const sd of [1, -1]) {
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(0, top - s * 0.42, hz + sd * s * 0.62), Q(sd * -0.16, sd > 0 ? 0 : Math.PI, 0), new THREE.Vector3(1, 1, 1));
+    B.geom('head', panel, m, hc, 'cloth');
+    // orphrey: a gold band up the middle and one across the bottom (titulus and circulus)
+    const tilt = Q(sd * -0.16, 0, 0), zc = hz + sd * s * 0.7;
+    B.geom('head', PRIM.box || new THREE.BoxGeometry(1, 1, 1), new THREE.Matrix4().compose(new THREE.Vector3(0, top - s * 0.42 + h * 0.48, zc + sd * s * 0.02 - sd * Math.sin(0.16) * h * 0.48), tilt, new THREE.Vector3(s * 0.2, h * 0.94, s * 0.03)), tr, 'gold');
+    B.geom('head', PRIM.box || new THREE.BoxGeometry(1, 1, 1), new THREE.Matrix4().compose(new THREE.Vector3(0, top - s * 0.3, zc + sd * s * 0.0), tilt, new THREE.Vector3(w * 2.02, s * 0.2, s * 0.03)), tr, 'gold');
+  }
+  panel.dispose();
+  // the band round the brow joining the two panels, a jewel at the front, a cross at the tips
+  B.geom('head', new THREE.CylinderGeometry(s * 1.04, s * 1.04, s * 0.32, 22, 1, true), new THREE.Matrix4().makeTranslation(0, top - s * 0.3, hz), tr, 'gold');
+  B.ell('head', 0, top - s * 0.05, hz + s * 0.95, s * 0.13, s * 0.17, s * 0.08, '#c03030', 'glow');
+  for (const sd of [1, -1]) { B.box('head', 0, top - s * 0.42 + h * 0.97, hz + sd * s * 0.42, s * 0.06, s * 0.3, s * 0.05, tr, 'gold'); B.box('head', 0, top - s * 0.42 + h * 0.99, hz + sd * s * 0.42, s * 0.2, s * 0.06, s * 0.05, tr, 'gold'); }
+  // lappets: two ribbons hanging down the back
+  for (const sx of [-1, 1]) B.box('head', sx * s * 0.35, top - s * 1.25, hz - s * 1.02, s * 0.28, s * 1.6, s * 0.03, hc, 'cloth');
+  for (const sx of [-1, 1]) B.box('head', sx * s * 0.35, top - s * 1.98, hz - s * 1.03, s * 0.3, s * 0.12, s * 0.035, tr, 'gold');
+}
 function headgear(B, look, P, H) {
   const { s, cy } = H; const hz = B.rest.head[2]; const c = look.helmCol || (look.armor && look.armor.col) || '#a8acb4';
   if (look.helm === 'plate') {
@@ -249,7 +275,7 @@ function headgear(B, look, P, H) {
       B.geom('head', PRIM.sph12, new THREE.Matrix4().compose(new THREE.Vector3(s * 0.9, top + s * 0.4, hz - s * 0.3), Q(-0.6, 0, -0.5), new THREE.Vector3(s * 0.18, s * 1.5, s * 0.06)), '#f4f0e8', 'fur'); break;
     case 'circlet': B.geom('head', new THREE.TorusGeometry(s * 0.9, s * 0.05, 6, 24), new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.42, hz), Q(Math.PI / 2 + 0.15, 0, 0), new THREE.Vector3(1, 1, 1)), tr, 'gold'); B.ell('head', 0, cy + s * 0.4, hz + s * 0.9, s * 0.1, s * 0.1, s * 0.06, '#c06aff', 'glow'); break;
     case 'headband': B.geom('head', new THREE.TorusGeometry(s * 0.92, s * 0.08, 6, 24), new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.38, hz), Q(Math.PI / 2 + 0.1, 0, 0), new THREE.Vector3(1, 1, 1)), hc, 'cloth'); break;
-    case 'mitre': { const g = new THREE.CylinderGeometry(s * 0.3, s * 0.95, s * 2.0, 4, 1); B.geom('head', g, new THREE.Matrix4().compose(new THREE.Vector3(0, top + s * 0.8, hz), Q(0, Math.PI / 4, 0), new THREE.Vector3(1, 1, 0.75)), hc, 'cloth'); g.dispose(); B.box('head', 0, top + s * 0.8, hz + s * 0.52, s * 0.18, s * 1.6, s * 0.04, tr, 'gold'); B.box('head', 0, top + s * 1.1, hz + s * 0.5, s * 0.7, s * 0.16, s * 0.04, tr, 'gold'); break; }
+    case 'mitre': mitre(B, s, top, hz, hc, tr); break;
     case 'leafcrown': for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283; B.ell('head', Math.cos(a) * s * 0.92, cy + s * 0.55, hz + Math.sin(a) * s * 0.92, s * 0.18, s * 0.32, s * 0.06, k % 2 ? '#5a9a3a' : '#3a7a2a', 'cloth', Q(0, -a, 0.3)); } break;
     case 'skullmask': B.geom('head', new THREE.SphereGeometry(1, 18, 12), new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.1, hz - s * 0.05), Q(0, 0, 0), new THREE.Vector3(s * 1.22, s * 1.35, s * 1.28)), hc, 'cloth'); B.ell('head', 0, cy - s * 0.05, hz + s * 0.95, s * 0.7, s * 0.8, s * 0.35, '#e8e2cc', 'bone'); for (const sd of [-1, 1]) B.ell('head', sd * s * 0.3, cy + s * 0.12, hz + s * 1.15, s * 0.14, s * 0.14, s * 0.06, look.eyesCol || '#111111', look.eyesCol ? 'glow' : 'plain'); break;
     case 'fur': B.geom('head', new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.Matrix4().compose(new THREE.Vector3(0, cy + s * 0.15, hz - s * 0.05), Q(-0.2, 0, 0), new THREE.Vector3(s * 1.2, s * 1.25, s * 1.25)), hc, 'fur'); for (const sd of [-1, 1]) B.ell('head', sd * s * 0.7, cy + s * 1.15, hz - s * 0.2, s * 0.25, s * 0.3, s * 0.15, shade(hc, -0.15), 'fur'); if (look.horns) for (const sd of [-1, 1]) B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(sd * s * 1.15, cy + s * 0.75, hz), Q(0, 0, -sd * 0.8), new THREE.Vector3(s * 0.25, s * 1.1, s * 0.25)), '#e8dcc0', 'bone'); break;

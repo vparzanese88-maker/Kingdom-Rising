@@ -212,6 +212,32 @@
     const rg = c.equip.range;
     if (rg && rg.wt === 'ARC') look.back = 'bow';
     look.rangeW = rg ? rg.wt : null;
+    if (window.KR3D) G.strictLook(look, c);
+    return look;
+  };
+  // 3D: a hero looks exactly like what they wear: no class hats, capes or robes that are not in the gear
+  G.strictLook = function (look, c) {
+    const E = c.equip, head = E.head, chest = E.chest, legs = E.legs;
+    for (const k of ['hat', 'hatCol', 'hatTrim', 'hoodPoint', 'mask', 'horns', 'helmPlume', 'helmSpike', 'helm', 'helmCol', 'orb', 'cape', 'sash']) delete look[k];
+    if (head) {
+      const n = head.name || '';
+      if (head.ak === 'plate' || head.ak === 'chain') { look.helm = head.ak; look.helmCol = head.ak === 'plate' ? (look.armor.col || '#a8acb4') : '#9a9ea6'; if (head.ak === 'plate') look.helmPlume = head.tier >= 2 ? D.CLASSES[c.cls].color : null; }
+      else if (/mitre/i.test(n)) { look.hat = 'mitre'; look.hatCol = '#f1efe6'; look.hatTrim = '#c8a040'; }
+      else if (/circlet|diadem|crown|tiara/i.test(n)) { look.hat = 'circlet'; look.hatTrim = '#e0c060'; }
+      else if (/headband|band/i.test(n)) { look.hat = 'headband'; look.hatCol = D.CLASSES[c.cls].color; }
+      else if (/wizard|pointed|conical/i.test(n)) { look.hat = 'wizard'; look.hatCol = D.CLASSES[c.cls].color; look.hatTrim = '#e2c55a'; }
+      else if (/feather|cap|beret/i.test(n)) { look.hat = 'feather'; look.hatCol = D.CLASSES[c.cls].color; look.hatTrim = '#e3c04a'; }
+      else { look.hat = 'hood'; look.hatCol = head.ak === 'leather' ? '#5a4030' : D.CLASSES[c.cls].color; }
+    }
+    const bk = E.back; if (bk) look.cape = bk.fx === 'fire' ? '#b8401a' : bk.fx === 'storm' ? '#3a5aa0' : ['#6a5a4a', '#3a4a8a', '#6a3a8a', '#2a4a8a', '#8a2a4a', '#2a2458'][Math.min(5, bk.tier || 0)];
+    const shirt = chest && !chest.wrap;
+    look.armor.kind = shirt ? chest.ak : 'none';
+    look.robe = !!(shirt && chest.ak === 'cloth' && /robe|vestment|gown|habit/i.test(chest.name || 'robe'));
+    if (shirt && chest.ak === 'cloth' && !look.robe) look.armor.col = D.CLASSES[c.cls].color;
+    look.noShirt = !shirt; look.wrap = !!(chest && chest.wrap) || (!shirt && c.gender === 'f');
+    look.noPants = !legs || !!legs.loin;
+    look.barefoot = !E.feet;
+    look.bare = false;
     return look;
   };
 

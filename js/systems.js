@@ -18,20 +18,11 @@
     const w = G.makeWeapon(wt, 0, { ilvl: 2, q: 0.85 }); w.name = kit.name; w.req = 1; w.stats = {}; if (kit.axe) w.axe = true; if (kit.club) w.club = true;
     c.equip.primary = w;
     c.wskill[wt] = 1;
-    if (kit.off) { const o2 = G.makeWeapon(wt, 0, { ilvl: 1, q: 0.8 }); o2.name = kit.off; o2.req = 1; o2.stats = {}; c.equip.secondary = o2; }
-    if (kit.shield && C.shield) { const sh = G.makeShield(0, { ilvl: 1, q: 0.8 }); sh.name = kit.shield; sh.stats = {}; sh.req = 1; if (kit.wood) sh.wood = true; c.equip.secondary = sh; c.wskill.SHIELD = 1; }
-    if (C.ranged.length) {
-      const rt = kit.range && C.ranged.includes(kit.range) ? kit.range : C.ranged.includes('TOME') ? 'TOME' : C.ranged.includes('THR') ? 'THR' : C.ranged[0];
-      const r = G.makeWeapon(rt, 0, { ilvl: 1, q: 0.8 }); r.name = rt === 'TOME' ? "Apprentice's Tome" : `${R.adj} ${D.WEAPON_BASES[rt][0]}`; r.req = 1; c.equip.range = r; c.wskill[rt] = 1;
-      if (o.cls === 'warrior' || o.cls === 'paladin') c.rangeMode = 'melee';
-    }
-    const ak = C.armor === 'cloth' ? 'cloth' : C.armor === 'plate' ? 'leather' : C.armor === 'chain' ? 'leather' : 'leather';
-    const chest = G.makeArmor(ak, 'chest', 0, { ilvl: 1, q: 0.8 }); chest.name = ak === 'cloth' ? 'Apprentice Robe' : 'Patched Tunic'; chest.stats = {}; chest.req = 1; c.equip.chest = chest;
-    const legs = G.makeArmor(ak, 'legs', 0, { ilvl: 1, q: 0.8 }); legs.name = ak === 'cloth' ? 'Woven Pantaloons' : 'Worn Leggings'; legs.stats = {}; legs.req = 1; c.equip.legs = legs;
-    // bag contents
-    const add = (it) => { const i = c.inv.indexOf(null); if (i >= 0) c.inv[i] = it; };
-    const b = G.makePotion('food', 0); b.qty = 20; add(b);
-    const wtr = G.makePotion('drink', 0); wtr.qty = 20; add(wtr);
+    if (C.shield) c.wskill.SHIELD = 1;
+    if (C.ranged.length) { const rt = kit.range && C.ranged.includes(kit.range) ? kit.range : C.ranged[0]; c.wskill[rt] = 1; if (o.cls === 'warrior' || o.cls === 'paladin') c.rangeMode = 'melee'; }
+    // everyone starts with nothing but the clothes on their back and the weapon of their calling
+    const loin = G.makeArmor('cloth', 'legs', 0, { ilvl: 1, q: 0.6 }); loin.name = 'Linen Loincloth'; loin.stats = {}; loin.mana = 0; loin.ac = 1; loin.req = 1; loin.loin = true; loin.value = 1; c.equip.legs = loin;
+    if (o.gender === 'f') { const wrap = G.makeArmor('cloth', 'chest', 0, { ilvl: 1, q: 0.6 }); wrap.name = 'Linen Breast Wrap'; wrap.stats = {}; wrap.mana = 0; wrap.ac = 1; wrap.req = 1; wrap.wrap = true; wrap.value = 1; c.equip.chest = wrap; }
     // spells known at level 1
     if (D.CLASS_SPELLS[o.cls]) c.spells = D.CLASS_SPELLS[o.cls].filter((id) => D.SPELLS[id].level <= (C.role === 'caster' ? 2 : 1));
     // starting hotbar (3 slots)

@@ -150,6 +150,40 @@ P.sewermouth = (o, d) => { // a brick arch in the outflow wall with a bent grate
   o.box('glow', 0, 0.05, 0.3, 1.4, 0.03, 1.8, '#3a5a2a'); };
 P.drainpipe = (o, d) => { o.cyl('metalv', 0, 1.4, -0.2, 0.28, 0.7, '#5a5a58', 12, Math.PI / 2).cyl('dark', 0, 1.4, 0.16, 0.2, 0.02, null, 12, Math.PI / 2); o.out.emitters.push({ kind: 'drip', p: o.w(0, 1.3, 0.2) }); };
 P.flagpole = (o, d, ctx) => { o.cylB('metalv', 0, 0, 0, 0.09, 11, '#d8d0c0', 8).cylB('stone', 0, 0, 0, 0.35, 0.5, '#8a8478', 8).sph('gold', 0, 11.1, 0, 0.26, 0.26, 0.26, '#e0c050'); ctx.flags.push({ kind: 'pole', x: o.x, y: o.y + 10.6, z: o.z, w: 3.4, h: 2.1, f: d.f }); };
+// ---------- homes of the 1300s: seats, rugs, chests and cupboards, stoves, candles, a king's bedchamber ----------
+const RUGS = [['#7a1e1e', '#d8b060', '#2a3a6a'], ['#2a4a7a', '#e0c070', '#7a2a2a'], ['#3a5a2a', '#d8c890', '#6a3a1a'], ['#6a3a6a', '#e0b860', '#2a2a4a']];
+P.rug = (o, d) => { const [a, b, c] = RUGS[Math.floor(d.v * 4) % 4]; const w = 2.2, l = 1.5;
+  o.box('cloth2', 0, 0.015, 0, w, 0.02, l, a).box('cloth2', 0, 0.025, 0, w - 0.25, 0.02, l - 0.25, b).box('cloth2', 0, 0.035, 0, w - 0.45, 0.02, l - 0.45, a);
+  for (let k = -2; k <= 2; k++) o.box('cloth2', k * 0.32, 0.045, 0, 0.12, 0.02, 0.12, c).box('cloth2', 0, 0.045, k * 0.2, 0.12, 0.02, 0.06, c);
+  for (const sd of [-1, 1]) for (let k = 0; k < 9; k++) o.box('cloth2', (k - 4) * 0.24, 0.012, sd * (l / 2 + 0.05), 0.03, 0.01, 0.1, '#e8dcc0'); };
+P.stool = (o, d) => { o.cylB('planks', 0, 0.42, 0, 0.2, 0.06, '#8a6440', 10); for (let k = 0; k < 3; k++) { const a = k * 2.09 + d.v; o.cyl('timber', Math.cos(a) * 0.12, 0.21, Math.sin(a) * 0.12, 0.025, 0.44, '#5a3e24', 6, Math.sin(a) * 0.15, -Math.cos(a) * 0.15); } };
+P.bench = (o, d) => { o.box('planks', 0, 0.44, 0, 1.6, 0.06, 0.32, '#8a6440'); for (const x of [-0.65, 0.65]) o.boxB('planks', x, 0, 0, 0.06, 0.42, 0.28, '#6a4a2a'); o.box('timber', 0, 0.2, 0, 1.3, 0.05, 0.05, '#5a3e24'); };
+P.chair = (o, d) => { o.box('planks', 0, 0.46, 0, 0.46, 0.05, 0.44, '#7a5530'); for (const [x, z] of [[0.2, 0.18], [-0.2, 0.18], [0.2, -0.18], [-0.2, -0.18]]) o.boxB('timber', x, 0, z, 0.05, 0.45, 0.05, '#5a3e24');
+  for (const x of [-0.2, 0.2]) o.boxB('timber', x, 0.46, -0.2, 0.05, 0.6, 0.05, '#5a3e24'); o.box('planks', 0, 0.82, -0.2, 0.42, 0.18, 0.03, '#7a5530'); o.box('planks', 0, 0.62, -0.2, 0.42, 0.06, 0.03, '#7a5530'); };
+P.wardrobe = (o, d) => { o.boxB('planks', 0, 0, 0, 1.2, 2.0, 0.6, '#6a4424').box('timber', 0, 2.03, 0, 1.3, 0.08, 0.66, '#4a2e18');
+  for (const x of [-0.29, 0.29]) o.box('planks', x, 1.05, 0.31, 0.54, 1.7, 0.03, '#7a5530').box('metalv', x * 0.2, 1.05, 0.34, 0.04, 0.16, 0.03, '#c8a040');
+  o.boxB('timber', 0, 0, 0.3, 1.2, 0.12, 0.04, '#4a2e18'); };
+P.dresser = (o, d) => { o.boxB('planks', 0, 0, 0, 1.1, 0.95, 0.5, '#7a5028'); for (let k = 0; k < 3; k++) o.box('planks', 0, 0.18 + k * 0.28, 0.26, 1.0, 0.24, 0.02, '#8a6038').box('metalv', 0, 0.18 + k * 0.28, 0.28, 0.12, 0.03, 0.02, '#c8a040');
+  o.cylB('paint', 0.3, 0.95, 0, 0.09, 0.26, '#c8b8a0', 10).cylB('paint', 0.3, 0.95, 0, 0.17, 0.06, '#d8d0c0', 12).cylB('metalv', -0.32, 0.95, 0, 0.04, 0.22, '#c8a040', 8).flame(-0.32, 1.24, 0, 0.06, 0.12).glow(-0.32, 1.25, 0, 0.5, [2.4, 1.6, 0.7], 0.3); };
+P.tapestry = (o, d) => { const [a, b, c] = RUGS[Math.floor(d.v * 4 + 1) % 4]; o.box('timber', 0, 2.75, 0, 1.7, 0.06, 0.06, '#4a2e18').box('cloth2', 0, 1.9, 0.02, 1.5, 1.7, 0.03, a).box('cloth2', 0, 1.9, 0.04, 1.3, 1.5, 0.02, b);
+  o.box('cloth2', 0, 2.05, 0.055, 0.3, 0.6, 0.01, c).box('cloth2', 0, 2.05, 0.06, 0.7, 0.14, 0.01, c).box('cloth2', 0, 1.35, 0.055, 0.9, 0.08, 0.01, c); };
+P.candle = (o, d) => { o.cylB('metalv', 0, 0, 0, 0.16, 0.05, '#3a3a3e', 8).cylB('metalv', 0, 0, 0, 0.03, 1.25, '#3a3a3e', 6).cylB('metalv', 0, 1.25, 0, 0.12, 0.04, '#3a3a3e', 8);
+  for (const [x, z] of [[0, 0], [0.08, 0.04], [-0.07, 0.05]]) o.cylB('paint', x, 1.29, z, 0.022, 0.16 - x, '#efe6cc', 6).flame(x, 1.47 - x, z, 0.05, 0.1); o.glow(0, 1.5, 0, 1.2, [2.4, 1.6, 0.7], 0.35); };
+P.cauldron = (o, d) => { for (let k = 0; k < 3; k++) { const a = k * 2.09; o.cyl('metalv', Math.cos(a) * 0.45, 0.6, Math.sin(a) * 0.45, 0.025, 1.3, '#2a2a2e', 6, Math.sin(a) * 0.35, -Math.cos(a) * 0.35); }
+  o.sph('metalv', 0, 0.55, 0, 0.7, 0.55, 0.7, '#2a2a2e').cyl('paint', 0, 0.78, 0, 0.3, 0.02, '#6a8a3a', 12).box('glow', 0, 0.05, 0, 0.4, 0.04, 0.4, '#ff6a1a').flame(0, 0.08, 0, 0.35, 0.5).smoke(0, 1.0, 0, 'camp'); };
+P.washtub = (o, d) => { o.cylB('planks', 0, 0, 0, 0.42, 0.42, '#8a6440', 14).cyl('metalv', 0, 0.12, 0, 0.43, 0.04, '#3a3a3a', 14).cyl('metalv', 0, 0.34, 0, 0.43, 0.04, '#3a3a3a', 14).cyl('water', 0, 0.36, 0, 0.38, 0.01, '#6a8aa0', 14); };
+P.desk = (o, d) => { o.box('planks', 0, 0.76, 0, 1.3, 0.06, 0.7, '#6a4424'); for (const x of [-0.58, 0.58]) o.boxB('planks', x, 0, 0, 0.08, 0.74, 0.62, '#5a3a20');
+  o.box('paint', -0.2, 0.8, 0.05, 0.42, 0.01, 0.3, '#efe6cc').box('paint', -0.15, 0.81, 0.02, 0.3, 0.01, 0.22, '#e8dcc0').cyl('dark', 0.3, 0.83, -0.1, 0.05, 0.08, '#1a1a1e', 8).cyl('paint', 0.33, 0.93, -0.12, 0.006, 0.25, '#f4f0e8', 4, 0.3, 0.2)
+  .cylB('metalv', 0.5, 0.79, 0.2, 0.03, 0.04, '#c8a040', 8).cylB('paint', 0.5, 0.83, 0.2, 0.02, 0.12, '#efe6cc', 6).flame(0.5, 0.98, 0.2, 0.05, 0.1).glow(0.5, 1.0, 0.2, 0.8, [2.4, 1.6, 0.7], 0.3); };
+P.kingbed = (o, d) => { o.boxB('timber', 0, 0, -0.1, 1.7, 0.5, 2.3, '#4a2e18').boxB('cloth', 0, 0.5, -0.1, 1.6, 0.18, 2.2, '#efe6d6').boxB('cloth', 0, 0.62, 0.35, 1.64, 0.14, 1.3, '#6a1a2a').boxB('cloth', 0, 0.68, -0.95, 1.2, 0.16, 0.4, '#f4f0e8');
+  for (const [x, z] of [[0.8, 1.0], [-0.8, 1.0], [0.8, -1.2], [-0.8, -1.2]]) o.cylB('timber', x, 0, z, 0.06, 2.5, '#4a2e18', 8);
+  o.box('cloth', 0, 2.5, -0.1, 1.75, 0.06, 2.35, '#5a1a2a'); for (const sd of [-1, 1]) o.box('cloth', sd * 0.86, 1.5, -0.1, 0.03, 1.9, 2.3, '#6a1a2a'); o.box('cloth', 0, 1.5, -1.24, 1.7, 1.9, 0.03, '#6a1a2a').box('gold', 0, 2.45, 1.08, 1.75, 0.12, 0.03, '#d8b050'); };
+// a chest bound in black iron with a skull and crossed bones burned into its front
+P.poisonchest = (o, d) => { o.boxB('planks', 0, 0, 0, 1.05, 0.6, 0.66, '#3a2a1e').g('planks', PRIM.cyl12, 0, 0.6, 0, 1.05, 0.66, 0.66, '#3a2a1e', 0, 0, Math.PI / 2);
+  for (const x of [-0.42, 0, 0.42]) o.box('metalv', x, 0.45, 0, 0.07, 0.95, 0.7, '#1a1a1e'); o.box('metalv', 0, 0.42, 0.34, 0.16, 0.2, 0.03, '#4a4a4e');
+  const z = 0.345; o.sph('bone', 0.24, 0.32, z, 0.17, 0.17, 0.04, '#e8e2cc').box('bone', 0.24, 0.22, z, 0.1, 0.06, 0.03, '#e8e2cc').sph('dark', 0.2, 0.33, z + 0.02, 0.045, 0.045, 0.02, '#100808').sph('dark', 0.28, 0.33, z + 0.02, 0.045, 0.045, 0.02, '#100808');
+  o.box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, 0.7).box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, -0.7);
+  o.cylB('paint', -0.25, 0.92, 0.05, 0.05, 0.14, '#3a5a2a', 8).cylB('paint', -0.25, 1.06, 0.05, 0.02, 0.05, '#2a3a1a', 6).box('paint', -0.05, 0.93, -0.05, 0.16, 0.02, 0.12, '#d8d0b8'); };
 P.grate = (o, d) => { o.box('dark', 0, 0.01, 0, 1.2, 0.02, 0.8, null); for (let k = -2; k <= 2; k++) o.box('metalv', k * 0.24, 0.03, 0, 0.05, 0.04, 0.8, '#4a4440'); o.box('metalv', 0, 0.03, 0, 1.2, 0.04, 0.06, '#4a4440'); };
 P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry }); };
 P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z: o.z, v: d.v }); };
@@ -157,7 +191,7 @@ P.well2 = P.well;
 
 // trees, rocks and plants go to the instanced vegetation instead
 export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'orevein', 'flowers', 'fern', 'reeds', 'crop']);
-const AGAINST_WALL = new Set(['bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
+const AGAINST_WALL = new Set(['wardrobe', 'dresser', 'tapestry', 'kingbed', 'poisonchest', 'desk', 'bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
 
 // build the non-vegetation decorations in a tile rectangle into mb; extra lists collect flames, smoke, emitters, signs, flags, animated props
 export function buildProps(mb, list, out) {

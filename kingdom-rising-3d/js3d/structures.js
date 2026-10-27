@@ -16,7 +16,7 @@ const STYLE = {
   iron: { plinth: '#7a756c', wall: '#a8a298', beam: '#4a443c', roofMat: 'slate', roof: '#a0aab8', trim: '#c98b3a', shutter: '#7a3e1c', frame: false, stone: true, curve: false, pitch: 0.62, inner: '#d8d0c0' },
   chamber: { plinth: '#4a4440', wall: '#6a625c', beam: '#2e2a26', roofMat: 'darkstone', roof: '#6a625c', trim: '#8a2a2a', shutter: '#3a1a1a', frame: false, stone: true, curve: false, pitch: 0, inner: '#5a524c' },
 };
-const HEIGHT = { house: 3.6, hall: 8.2, inn: 5.4, outpost: 4.6, bank: 5, chamber: 4.8, barracks: 4.6, guild: 5, heroes: 5.4, exchange: 5.4, smithy: 4.2, forge: 4.6, tailor: 4.2, store: 4.2, armorer: 4.4, weaponsmith: 4.4, scribe: 4.6, fletcher: 4.4, jeweler: 4.2, gemcutter: 4.2, bowyer: 4.4, armory: 4.8 };
+const HEIGHT = { kingtower: 10.4, house: 3.6, hall: 8.2, inn: 5.4, outpost: 4.6, bank: 5, chamber: 4.8, barracks: 4.6, guild: 5, heroes: 5.4, exchange: 5.4, smithy: 4.2, forge: 4.6, tailor: 4.2, store: 4.2, armorer: 4.4, weaponsmith: 4.4, scribe: 4.6, fletcher: 4.4, jeweler: 4.2, gemcutter: 4.2, bowyer: 4.4, armory: 4.8 };
 const SIGN = { inn: '🍺', outpost: '🍺', bank: '💰', smithy: '⚒', forge: '⚒', tailor: '🧵', guild: '📜', store: '🛍', armorer: '🛡', weaponsmith: '⚔', scribe: '📖', fletcher: '🏹', armory: '🛡', exchange: '💎', heroes: '🏆', hall: '👑', chamber: '💀', barracks: '⚔', jeweler: '💍', gemcutter: '💎', bowyer: '🏹' };
 const CHIMNEY = new Set(['house', 'inn', 'smithy', 'forge', 'outpost', 'barracks', 'tailor']);
 
@@ -70,12 +70,12 @@ function building(mb, b) {
   const st = STYLE[b.style] || STYLE.crown;
   const X0 = b.x * Tl, X1 = (b.x + b.w) * Tl, Z0 = b.y * Tl, Z1 = (b.y + b.h) * Tl;
   const y0 = b._y3 != null ? b._y3 : 0, fy = b._floor3 != null ? b._floor3 : y0 + 0.16;
-  const isHall = b.type === 'hall', isLair = b.type === 'chamber';
+  const isHall = b.type === 'hall', isLair = b.type === 'chamber', isTower = b.type === 'kingtower';
   const Hw = HEIGHT[b.type] || 4.2;
   const top = y0 + Hw;
   const outT = 0.34;
-  const wallKey = st.stone || isHall || isLair ? (isLair ? 'darkstone' : 'stone') : 'plaster';
-  const wallCol = st.stone || isHall || isLair ? (isLair ? '#8a8078' : isHall ? (b.style === 'sylvan' ? '#e8e2d4' : '#cdc6b8') : st.wall) : st.wall;
+  const wallKey = st.stone || isHall || isLair || isTower ? (isLair ? 'darkstone' : 'stone') : 'plaster';
+  const wallCol = isTower ? (b.style === 'sylvan' ? '#e2dccc' : '#c8c0b2') : st.stone || isHall || isLair ? (isLair ? '#8a8078' : isHall ? (b.style === 'sylvan' ? '#e8e2d4' : '#cdc6b8') : st.wall) : st.wall;
   const inKey = isHall || isLair || b.type === 'bank' ? (isLair ? 'darkstone' : 'stone') : 'plaster';
   const inCol = isHall ? '#c8c0b0' : isLair ? '#6a625a' : st.inner;
   const door = b.door; const dX0 = door.tx * Tl, dX1 = dX0 + Tl;
@@ -214,6 +214,17 @@ function building(mb, b) {
   if (!isHall && !isLair && !st.stone) for (const [x, z, sx, sz] of [[(ix0 + ix1) / 2, iz0 + 0.03, ix1 - ix0, 0.06], [(ix0 + ix1) / 2, iz1 - 0.03, ix1 - ix0, 0.06], [ix0 + 0.03, (iz0 + iz1) / 2, 0.06, iz1 - iz0], [ix1 - 0.03, (iz0 + iz1) / 2, 0.06, iz1 - iz0]]) mb.box('planks', x, fy + 0.5, z, sx, 1.0, sz, '#8a6440');
   // roof
   if (isHall) hallRoof(mb, b, st, X0, X1, Z0, Z1, y0, top);
+  else if (isTower) {
+    // the king's tower: a flat battlemented top, round turrets at the corners and a tall spire with the king's flag
+    mb.box('stone', (X0 + X1) / 2, top + 0.1, (Z0 + Z1) / 2, X1 - X0 + 0.3, 0.3, Z1 - Z0 + 0.3, K3.shade(wallCol, -0.06));
+    battlements(mb, X0 - 0.15, X1 + 0.15, Z0 - 0.15, Z1 + 0.15, top + 0.25, 'stone', wallCol, 0.9);
+    for (const [cx, cz] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) tower(mb, cx, cz, 1.05, top - 3.2, 5.6, st, 'cone', b.faction || b.style);
+    const kx = (X0 + X1) / 2, kz = (Z0 + Z1) / 2;
+    mb.cylB('stone', kx, top + 0.25, kz, 1.6, 3.4, wallCol, 16); battlements(mb, kx - 1.7, kx + 1.7, kz - 1.7, kz + 1.7, top + 3.65, 'stone', wallCol, 0.6);
+    mb.cone(st.stone ? 'rooftile' : 'shingle', kx, top + 3.7, kz, 2.0, 6.5, st.roof || '#3a5a8a', 16);
+    mb.cyl('gold', kx, top + 10.6, kz, 0.05, 1.6, '#e0c050', 6);
+    structs.flags.push({ kind: 'pole', x: kx, y: top + 11.1, z: kz, w: 2.6, h: 1.6, f: b.faction || b.style });
+  }
   else if (isLair) battlements(mb, X0, X1, Z0, Z1, top, 'darkstone', '#6a625c', 0.6);
   else gableRoof(mb, b, st, X0, X1, Z0, Z1, top, wallKey, wallCol);
   // crafting houses show their trade at the street front (crafthouses.js)

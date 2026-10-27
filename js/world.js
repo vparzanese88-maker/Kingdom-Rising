@@ -723,15 +723,40 @@
         spot(b, 'recruiter', mx + 2 <= x1 ? mx + 2 : x1, y1); spot(b, 'spawn', mx, y1 - 1);
         lightIn(mx, y0 + 1, 170); lightIn(x0 + 1, y1, 130); break; }
       case 'house': D_('bed', x0, y0); D_('table', x1, y1); D_('chest', x1, y0); spot(b, 'home', x0 + 1, y0 + 1); lightIn(mx, y0, 110, '255,190,120'); break;
+      case 'kingtower': D_('banner', mx, y0, { nb: true }); D_('weaponrack', x1, y0); D_('table', mx, y0 + 2); D_('chair', mx - 1, y0 + 2, { nb: true }); D_('chair', mx + 1, y0 + 2, { nb: true }); D_('candle', x1, y1 - 1, { nb: true }); spot(b, 'guard', x1 - 1, y1 - 1); lightIn(mx, y0 + 1, 150); break;
       case 'chamber': D_('brazier', x0, y0); D_('brazier', x1, y0); D_('bones', x0 + 2, y1, { nb: true }); D_('bones', x1 - 1, y1 - 1, { nb: true }); lightIn(x0, y0, 170, '255,110,60'); lightIn(x1, y0, 170, '255,110,60'); spot(b, 'boss', mx, y0 + 2); break;
     }
     if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) makeLoft(b, x0, y0, x1, y1);
+    if (b.type === 'kingtower') makeLoft(b, x0, y0, x1, y1, y1 - 2);
+    dress(b, x0, y0, x1, y1);
+  }
+  // the things people of the 1300s had at home, added around what each building already has:
+  // rugs, stools and benches by the tables, a wood stove, cupboards, candles, tapestries on the walls
+  function dress(b, x0, y0, x1, y1) {
+    const door = b.door; const taken = (x, y) => x < x0 || x > x1 || y < y0 || y > y1 || W.block[y * W.W + x] || W.decor.some((d) => d.tx === x && d.ty === y && !d.flat && !d.up) || (W.stairs && W.stairs.get(y * W.W + x)) || (Math.abs(x - door.tx) <= 1 && y >= y1 - 1) || Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y));
+    const put = (k, x, y, o = {}) => { if (taken(x, y)) return false; addDecor(k, x, y, o); return true; };
+    const mx = Math.floor((x0 + x1) / 2), my = Math.floor((y0 + y1) / 2);
+    const rugAt = (x, y) => { if (!W.decor.some((d) => d.tx === x && d.ty === y && d.kind === 'rug')) addDecor('rug', x, y, { nb: true, flat: true }); };
+    // seats where people sit at the tables
+    for (const s of (b.spots && b.spots.seat) || []) { const x = Math.floor(s[0] / TS), y = Math.floor(s[1] / TS); if (!W.decor.some((d) => d.tx === x && d.ty === y)) addDecor('stool', x, y, { nb: true }); }
+    for (const d of W.decor.filter((d) => d.kind === 'table' && d.tx >= x0 && d.tx <= x1 && d.ty >= y0 && d.ty <= y1 && !d.up)) { put('stool', d.tx - 1, d.ty, { nb: true }) || put('bench', d.tx, d.ty + 1, { nb: true }); put('stool', d.tx + 1, d.ty, { nb: true }); }
+    const corners = [[x0, y1 - 1], [x1, y1 - 1], [x0, y0], [x1, y0]];
+    switch (b.type) {
+      case 'house': rugAt(mx, my); put('stove', x0, y1 - 1) || put('stove', x1, y1 - 1); put('wardrobe', mx, y0) || put('dresser', mx + 1, y0); put('washtub', x1, my, { nb: true }); put('candle', x0 + 1, y0, { nb: true }); put('tapestry', mx - 1, y0, { nb: true }); break;
+      case 'inn': case 'outpost': rugAt(mx, y1 - 1); put('cauldron', x1 - 1, y0 + 2); for (const [x, y] of corners) put('candle', x, y, { nb: true }); put('tapestry', mx, y0, { nb: true }); break;
+      case 'barracks': put('candle', x0, my, { nb: true }); put('stool', mx - 1, y1 - 1, { nb: true }); put('stove', x1, my); break;
+      case 'hall': for (let x = x0 + 2; x <= x1 - 2; x += 3) { put('tapestry', x, y0, { nb: true }); } put('candle', x0, y1 - 1, { nb: true }); put('candle', x1, y1 - 1, { nb: true }); break;
+      case 'kingtower': rugAt(mx, y1); put('tapestry', mx - 1, y0, { nb: true }); break;
+      case 'bank': case 'guild': case 'heroes': case 'exchange': rugAt(mx, my + 1); put('candle', x0, y1 - 1, { nb: true }); put('candle', x1, y1 - 1, { nb: true }); put('tapestry', mx + 1, y0, { nb: true }); put('bench', mx, y1 - 1, { nb: true }); break;
+      case 'chamber': break;
+      default: rugAt(mx, y1 - 1); put('stool', mx + 1, y0 + 1, { nb: true }); put('candle', x0, y1 - 1, { nb: true }); put(b.type === 'smithy' || b.type === 'forge' ? 'washtub' : 'stove', x1, y1 - 1, b.type === 'smithy' || b.type === 'forge' ? { nb: true } : {}); break;
+    }
   }
   // an upper floor over the back half of a building, reached by a staircase along a side wall:
   // b.loft is the floor's tile rectangle; its steps go in W.stairs (climbing north, toward the back wall)
-  function makeLoft(b, x0, y0, x1, y1) {
+  function makeLoft(b, x0, y0, x1, y1, ymOver) {
     if (!W.stairs) W.stairs = new Map();
-    const ym = y0 + Math.floor((y1 - y0 + 1) / 2) - 1, n = y1 - ym;
+    const ym = ymOver != null ? ymOver : y0 + Math.floor((y1 - y0 + 1) / 2) - 1, n = y1 - ym;
     if (n < 2) return;
     const busy = (x, y) => W.decor.some((d) => d.tx === x && d.ty === y) || Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y));
     const cost = (col) => { let c = 0; for (let y = ym; y <= y1; y++) if (busy(col, y)) c++; return c; };
@@ -743,7 +768,11 @@
     // upstairs: beds for the inn's guests, books for the guild, strongboxes for the bank
     const other = col === x0 ? x1 : x0, step = col === x0 ? -1 : 1;
     const up = (k, tx, ty, o = {}) => addDecor(k, tx, ty, Object.assign({ nb: true, up: true }, o));
-    if (b.type === 'inn') { up('bed', other, y0); up('bed', other + step * 2, y0); up('chest', other, ym); up('table', other + step * 4, y0); up('rug', other + step * 2, ym, { flat: true }); }
+    if (b.type === 'kingtower') {
+      // the king's bedchamber: a canopied bed, a writing desk, a wardrobe, a rug... and in the corner, an iron-bound chest with a skull and crossed bones on its front
+      up('kingbed', other + step, y0); up('poisonchest', other, ym); up('desk', other + step * 3, y0); up('chair', other + step * 3, y0 + 1); up('wardrobe', col - step, y0); up('rug', other + step * 2, ym - 1, { flat: true }); up('candle', col - step, ym); up('tapestry', other + step * 2, y0);
+    }
+    else if (b.type === 'inn') { up('bed', other, y0); up('bed', other + step * 2, y0); up('chest', other, ym); up('table', other + step * 4, y0); up('rug', other + step * 2, ym, { flat: true }); }
     else if (b.type === 'guild' || b.type === 'heroes') { up('bookshelf', other, y0); up('bookshelf', other + step, y0); up('table', other + step * 2, ym); up('lectern', other, ym); }
     else { up('chest', other, y0); up('chest', other + step, y0); up('vault', other + step * 2, y0); }
   }
@@ -752,16 +781,16 @@
   // [type, x, y, w, h, minLevel, name]
   const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel] — at least 2 open tiles between buildings
     ['hall', -7, -18, 15, 9, 1], ['inn', -18, -7, 10, 7, 1], ['bank', 9, -7, 8, 6, 1], ['guild', 11, 6, 8, 7, 1], ['smithy', -18, 7, 7, 6, 1], ['tailor', -9, 7, 6, 5, 1], ['store', 3, 7, 6, 5, 1],
-    ['house', 3, 14, 5, 4, 1], ['house', 11, 15, 6, 4, 1], ['house', -18, -18, 6, 5, 1], ['house', 13, -18, 6, 5, 1],
+    ['house', 3, 14, 5, 4, 1], ['house', 11, 15, 6, 4, 1], ['house', -18, -18, 6, 5, 1], ['kingtower', 12, -18, 7, 7, 1],
     ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 6, 4, 5, 2], ['house', 21, 6, 4, 5, 2], ['house', -14, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -7, 21, 5, 4, 2], ['house', 3, 21, 5, 4, 2],
     ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -22, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -16, 27, 6, 4, 3], ['house', 11, 27, 6, 4, 3],
     ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -8, -36, 6, 4, 4], ['bowyer', 3, -36, 6, 4, 4], ['house', -26, 33, 6, 4, 4], ['house', 21, 33, 6, 4, 4],
     ['exchange', 39, -9, 4, 8, 5], ['heroes', -42, -9, 4, 8, 5], ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -30, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -8, 39, 5, 4, 5], ['house', 4, 39, 5, 4, 5],
   ];
   const BNAMES = {
-    sylvan: { hall: 'Starbough Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
-    iron: { hall: 'Anvilheart Throne Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
-    crown: { hall: 'Valen Keep', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
+    sylvan: { kingtower: "Theron's Tower", hall: 'Starbough Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
+    iron: { kingtower: "The King's Tower", hall: 'Anvilheart Throne Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
+    crown: { kingtower: "Aldric's Tower", hall: 'Valen Keep', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
   };
 
   const BARRACKS_SIZES = [[9, 6], [11, 6], [13, 7], [15, 7], [17, 8]];

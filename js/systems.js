@@ -24,8 +24,10 @@
     // a sailor home from the sea: plain clothes with no armour and no stats (everything else is earned)
     const plain = (slot, name, col, icon) => { const it = G.makeArmor('cloth', slot, 0, { ilvl: 1, q: 0.6 }); Object.assign(it, { name, stats: {}, mana: 0, ac: 0, req: 1, value: 2, col, plainClothes: true }); if (icon) it.icon = icon; c.equip[slot] = it; };
     plain('head', "Sailor's Cap", '#1e2a4a', '🧢'); plain('chest', 'Loose Silk Shirt', '#efe6d2', '👕'); plain('legs', 'Baggy Sailor Trousers', '#2a3a5a', '👖'); plain('feet', 'Sea Boots', '#3a2a1e', '🥾');
+    if (G.makeLight) c.equip.light = G.makeLight('tallow'); // a tallow candle for the dark
     // spells known at level 1
-    if (D.CLASS_SPELLS[o.cls]) c.spells = D.CLASS_SPELLS[o.cls].filter((id) => D.SPELLS[id].level <= (C.role === 'caster' ? 2 : 1));
+    c.trained = [];
+    if (D.CLASS_SPELLS[o.cls]) c.spells = D.CLASS_SPELLS[o.cls].filter((id) => D.SPELLS[id].level <= 1); // only first-circle spells; the rest are bought and scribed
     // starting hotbar (3 slots)
     const bar = new Array(10).fill(null);
     const startSkills = C.skills.filter((s) => s[1] <= 1 && !D.SKILLS[s[0]].passive).map((s) => ({ k: 'skill', id: s[0] }));
@@ -204,7 +206,7 @@
     G.log(`You have reached level ${c.level}! Your health, mana and endurance grow.`, 'xp', '#ffd84a');
     KR.UI && KR.UI.toast(`Level ${c.level}!`, 'Better gear is the way to raise your stats.');
     const C = D.CLASSES[c.cls];
-    for (const [sk, lv] of C.skills) if (lv === c.level) { const placed = !D.SKILLS[sk].passive && Sys.autoBar({ k: 'skill', id: sk }); G.log(`You have learned ${D.SKILLS[sk].name}! ${D.SKILLS[sk].passive ? '' : placed ? 'It is on your hotbar.' : 'Your hotbar is full: open Abilities (K) to place it.'}`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`New ability: ${D.SKILLS[sk].name}`); }
+    for (const [sk, lv] of C.skills) if (lv === c.level) { G.log(`You are ready to learn ${D.SKILLS[sk].name}. Your guildmaster can train you (${G.fmtCoins(G.skillPrice(lv))}).`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`Ready to train: ${D.SKILLS[sk].name}`, 'Visit your guildmaster'); }
     for (const P of D.classPassives(c.cls)) if (P.level === c.level) { G.log(`New passive ability: ${P.name}. ${P.desc}`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`Passive: ${P.name}`, P.desc); }
     if (D.CLASS_SPELLS[c.cls]) { const n = D.CLASS_SPELLS[c.cls].filter((id) => D.SPELLS[id].level === c.level).length; if (n) G.log(`${n} new spell${n > 1 ? 's are' : ' is'} available from your guildmaster.`, 'skill', '#c8a8ff'); }
     Sys.syncMercLevels();
@@ -392,8 +394,8 @@
     // pick target: owner's target if owner fighting, or whoever attacks owner
     if (pet.target && pet.target.mez > 0) pet.target = null;
     if (o && (!pet.target || pet.target.dead) && !pet.backOff) {
-      if (o.target && !o.target.dead && !(o.target.mez > 0) && G.isHostile(o, o.target) && (o.autoAttack || o.type === 'merc' || o.target.hate && o.target.hate.has(o))) pet.target = o.target;
-      else { const att = G.ents.find((m) => m.type === 'mob' && !m.dead && !(m.mez > 0) && m.hate.has(o) && Math.hypot(m.x - o.x, m.y - o.y) < 400); if (att) pet.target = att; }
+      if (o.target && !o.target.dead && !(o.target.mez > 0) && G.isHostile(o, o.target) && (o.type === 'merc' || (o.target._hurtBy && o.target._hurtBy.has(o)))) pet.target = o.target;
+      else { const att = G.ents.find((m) => m.type === 'mob' && !m.dead && !(m.mez > 0) && m.target === o && m.inCombat && m.hate.has(o) && Math.hypot(m.x - o.x, m.y - o.y) < 400); if (att) pet.target = att; } // or defends its owner from whatever is attacking them
     }
     const t = pet.target;
     if (t && !t.dead && !pet.backOff) {
@@ -1004,9 +1006,10 @@
   };
   Sys.sell = function (it, n) {
     const c = G.player.c; if (it.kind === 'quest' || it.kind === 'key') { G.log('You cannot sell that.', 'sys', '#aaa'); return; }
+    const idx = c.inv.indexOf(it); if (idx < 0) return; // already sold (a second click on a stale slot while the game was busy)
     const have = it.qty || 1; const q = Math.max(1, Math.min(have, n || have)); const price = G.itemPrice(it, true) * q;
     let sold = it;
-    if (q < have) { it.qty = have - q; sold = JSON.parse(JSON.stringify(it)); sold.uid = U.uid(); sold.qty = q; } else c.inv[c.inv.indexOf(it)] = null;
+    if (q < have) { it.qty = have - q; sold = JSON.parse(JSON.stringify(it)); sold.uid = U.uid(); sold.qty = q; } else c.inv[idx] = null;
     c.coins += price; KR.A.sfx('coin', 0.6);
     G.log(`You sell ${q > 1 ? q + ' ' : ''}${it.name} for ${G.fmtCoins(price)}.`, 'loot', '#f0d070');
     (Sys.buyback = Sys.buyback || []).unshift(sold); Sys.buyback.length = Math.min(8, Sys.buyback.length);
@@ -1055,6 +1058,12 @@
 
   // =============== TRAINING ===============
   Sys.trainable = function () { const c = G.player.c; return (D.CLASS_SPELLS[c.cls] || []).map((id) => D.SPELLS[id]); };
+  Sys.trainSkill = function (id) {
+    const c = G.player.c; const s = D.CLASSES[c.cls].skills.find((x) => x[0] === id); if (!s || G.hasSkill(c, id)) return; if (s[1] > c.level) { G.log('You are not ready to learn that.', 'sys', '#ff8a6a'); return; }
+    const price = G.skillPrice(s[1]); if (c.coins < price) { G.log("You can't afford that.", 'sys', '#ff8a6a'); KR.A.sfx('fail', 0.5); return; }
+    c.coins -= price; G.trainedSkills(c).push(id); KR.A.sfx('skillup'); const sk = D.SKILLS[id];
+    G.log(`Your trainer teaches you ${sk ? sk.name : id}.${sk && !sk.passive && Sys.autoBar({ k: 'skill', id }) ? ' It is on your hotbar.' : ''}`, 'skill', '#9affb8'); KR.UI && KR.UI.refresh();
+  };
   Sys.learnSpell = function (sp) {
     const c = G.player.c; if (c.spells.includes(sp.id)) return; if (sp.level > c.level) { G.log('You are not ready for that spell.', 'sys', '#ff8a6a'); return; }
     if (c.coins < sp.price) { G.log("You can't afford that.", 'sys', '#ff8a6a'); KR.A.sfx('fail', 0.5); return; }

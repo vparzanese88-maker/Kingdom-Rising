@@ -874,7 +874,7 @@
       case 'lure': sp.effects = [{ t: 'dmg', amt: m((16 + lvl * 9.5) * pw), res: line.r, lure: true }]; sp.mana = mana(10, 5); sp.cast = 3; sp.cd = 6; break;
       case 'undead': sp.effects = [{ t: 'dmg', amt: m((14 + lvl * 9) * pw), res: 'magic', undead: 2.2 }]; sp.mana = mana(6, 3); sp.cast = 2; sp.cd = 4; break;
       case 'dot': sp.effects = [{ t: 'dot', amt: m((3 + lvl * 2.6) * pw), dur: 18, res: line.r }]; sp.mana = mana(6, 2.1); sp.cast = 2.4; sp.cd = 2; break;
-      case 'tap': sp.effects = [{ t: 'tap', amt: m((10 + lvl * 7) * pw), res: 'magic' }]; sp.mana = mana(6, 2.4); sp.cast = 2.2; sp.cd = 4; break;
+      case 'tap': sp.effects = [{ t: 'tap', amt: m((10 + lvl * 7) * pw), res: 'magic' }]; sp.mana = mana(6, 2.4); sp.cast = 1.6; sp.cd = 1.5; break;
       case 'heal': sp.effects = [{ t: 'heal', amt: m(22 + lvl * 15) }]; sp.mana = mana(8, 3.3); sp.cast = 2.5; sp.target = 'ally'; sp.icon = '✚'; break;
       case 'hot': sp.effects = [{ t: 'hot', amt: m(4 + lvl * 2.8), dur: 18 }]; sp.mana = mana(10, 3.2); sp.cast = 1.5; sp.target = 'ally'; sp.cd = 6; break;
       case 'buff_ac': sp.effects = [{ t: 'buff', mods: { ac: m(4 + lvl * 1.3), hp: m(8 + lvl * 5) }, dur: 1500, name }]; sp.mana = mana(10, 2.5); sp.cast = 3; sp.target = 'ally'; break;
@@ -1096,13 +1096,10 @@
   D.STAT_CAP = 255;
   // player stances (5 second cooldown between switches)
   D.PSTANCES = {
-    fighter: { name: 'Fighter Stance', icon: '⚔', mods: { dmgMul: 0.12, haste: 0.08, dmgTaken: 0.05 }, desc: 'Hit harder and faster, but take a little more damage.' },
-    defensive: { name: 'Defensive Stance', icon: '🛡', mods: { dmgTaken: -0.2, acMul: 0.15, threat: 0.6, dmgMul: -0.12 }, desc: 'Take much less damage and hold enemy attention, but deal less.' },
-    mage: { name: 'Mage Stance', icon: '✦', mods: { spellMul: 0.15, manaRegen: 1.5, dmgMul: -0.15, dmgTaken: 0.05 }, desc: 'Stronger damage spells and better mana regen, weaker in melee.' },
-    healer: { name: 'Healer Stance', icon: '✚', mods: { healMul: 0.2, manaRegen: 1.2, spellMul: -0.1 }, desc: 'Stronger heals and better mana regen, weaker damage spells.' },
-    oak: { name: 'Heartwood Vigil', icon: '🌳', neutral: true, mods: { regen: 3 }, desc: 'Root yourself like the old oaks and let the forest mend you. Your health returns much faster. No combat bonuses or penalties.' },
-    lake: { name: 'Moonwell Serenity', icon: '🌙', neutral: true, mods: { manaRegen: 3 }, desc: 'Still the mind like moonlight on deep water. Your mana returns much faster. No combat bonuses or penalties.' },
-    wind: { name: 'Galeborn Stride', icon: '🌬', neutral: true, mods: { endRegen: 5 }, desc: 'Breathe with the wind, loose shoulders and light feet. Your endurance returns much faster. No combat bonuses or penalties.' },
+    fighter: { name: 'Fighter Stance', icon: '⚔', mods: { dmgMul: 0.12, haste: 0.08 }, desc: 'Hit harder and swing faster.' },
+    defensive: { name: 'Defensive Stance', icon: '🛡', mods: { dmgTaken: -0.2, acMul: 0.15, threat: 0.6 }, desc: 'Take much less damage and hold enemy attention.' },
+    mage: { name: 'Mage Stance', icon: '✦', mods: { spellMul: 0.15, spellHaste: 0.15, manaRegen: 1.5 }, desc: 'Stronger damage spells, 15% faster casting and better mana regen.' },
+    healer: { name: 'Healer Stance', icon: '✚', mods: { healMul: 0.2, manaRegen: 1.2 }, desc: 'Stronger heals and better mana regen.' },
   };
   D.SONG_PULSE = 16; D.SONG_DUR = 20;
   // unique worn haste items (EverQuest style: worn haste does not stack, the best one counts)

@@ -28,18 +28,20 @@ function bladeShape(kind, len, w, R) {
   else { s.moveTo(-w / 2, 0); s.lineTo(-w * 0.43, len * 0.86); s.lineTo(0, len); s.lineTo(w * 0.43, len * 0.86); s.lineTo(w / 2, 0); }
   return s;
 }
-function hilt(mb, R, m, gold, grip, len, big) {
-  const gs = pick(R, ['bar', 'curved', 'disk', 'wing']); const gw = (big ? 0.34 : 0.22) * (0.9 + R() * 0.3);
+function hilt(mb, R, m, gold, grip, len, big, k = 1) { // k < 1: a dagger's smaller guard, grip and pommel
+  const gs = pick(R, ['bar', 'curved', 'disk', 'wing']); const gw = (big ? 0.34 : 0.22) * (0.9 + R() * 0.3) * k;
   if (gs === 'bar') mb.box('metal', 0, -0.012, 0, gw, 0.035, 0.05, gold);
   else if (gs === 'curved') for (const sx of [-1, 1]) mb.box('metal', sx * gw * 0.28, 0.005 + 0.02, 0, gw * 0.55, 0.03, 0.045, gold, 0, 0, sx * 0.35);
   else if (gs === 'disk') mb.cyl('metal', 0, -0.012, 0, gw * 0.32, 0.03, gold, 16);
   else { for (const sx of [-1, 1]) mb.add('metal', extrude(new THREE.Shape([V2(0, -0.02), V2(gw * 0.5, 0.05), V2(gw * 0.45, -0.01), V2(0.02, -0.04)]), 0.03, 0.004), M4(0, 0, 0, 0, sx > 0 ? 0 : Math.PI, 0), gold); }
-  const gl = (big ? 0.3 : 0.17) * (0.9 + R() * 0.2); mb.cyl('leather', 0, -0.03 - gl / 2, 0, big ? 0.022 : 0.018, gl, grip, 10);
-  for (let k = 0; k < 5; k++) mb.cyl('leather', 0, -0.04 - (k + 0.5) * gl / 5.5, 0, (big ? 0.024 : 0.02), 0.008, K3.shade(grip, -0.3), 10);
+  const gl = (big ? 0.3 : 0.17) * (0.9 + R() * 0.2) * (k < 1 ? 0.7 : 1); mb.cyl('leather', 0, -0.03 - gl / 2, 0, big ? 0.022 : 0.016, gl, grip, 10);
+  for (let j = 0; j < 5; j++) mb.cyl('leather', 0, -0.04 - (j + 0.5) * gl / 5.5, 0, (big ? 0.024 : 0.018), 0.008, K3.shade(grip, -0.3), 10);
   const ps = pick(R, ['ball', 'disk', 'gem', 'claw']); const py = -0.05 - gl;
-  if (ps === 'ball') mb.sph('metal', 0, py, 0, 0.055, 0.055, 0.055, gold);
-  else if (ps === 'disk') mb.cyl('metal', 0, py, 0, 0.035, 0.022, gold, 14, null, 0, Math.PI / 2, 0);
-  else { mb.sph('metal', 0, py, 0, 0.045, 0.05, 0.045, gold); mb.sph('glow', 0, py - 0.01, 0.0, 0.035, 0.035, 0.035, pick(R, GEMS)); }
+  const pk = Math.min(1, k * 1.2);
+  if (ps === 'ball') mb.sph('metal', 0, py, 0, 0.055 * pk, 0.055 * pk, 0.055 * pk, gold);
+  else if (ps === 'disk') mb.cyl('metal', 0, py, 0, 0.035 * pk, 0.022, gold, 14, null, 0, Math.PI / 2, 0);
+  else { mb.sph('metal', 0, py, 0, 0.045 * pk, 0.05 * pk, 0.045 * pk, gold); mb.sph('glow', 0, py - 0.01, 0.0, 0.035 * pk, 0.035 * pk, 0.035 * pk, pick(R, GEMS)); }
+  return -0.03 - gl / 2; // the middle of the grip, where the hand closes
 }
 function weapon(it, R) {
   const mb = new MB(); const t = Math.min(5, it.tier || 0); const m = hueShift(METAL[t], R, 0.02, 0.08); const gold = t >= 3 ? '#e2c25a' : pick(R, ['#8a7a5a', '#a08040', '#6a6e74', '#c8a040']);
@@ -51,7 +53,7 @@ function weapon(it, R) {
     mb.add('metal', extrude(bladeShape(kind, len, w, R), 0.012, 0.006), M4(0, 0, 0), m);
     if (kind !== 'falchion' && kind !== 'sabre') mb.box('metalv', 0, len * 0.42, 0, w * 0.16, len * 0.72, 0.028, K3.shade(m, -0.25));
     if (t >= 2 || it.q > 1.1) for (let k = 0; k < 3; k++) mb.box('glow', 0, len * (0.2 + k * 0.12), 0.017, w * 0.08, 0.03, 0.002, it.fx ? '#ffaa44' : '#88ccff');
-    hilt(mb, R, m, gold, grip, len, big);
+    mb.gripY = hilt(mb, R, m, gold, grip, len, big);
   } else if (wt === '2HS' || it.axe) {
     mb.cyl('haft', 0, 0.45, 0, 0.022, 1.2, hueShift('#5a3a20', R), 8);
     const head = new THREE.Shape(); const hw = 0.26 + R() * 0.08, hh = 0.2 + R() * 0.08; head.moveTo(0, -0.08); head.quadraticCurveTo(hw * 0.6, -hh * 0.7, hw, -hh); head.quadraticCurveTo(hw * 1.15, 0, hw, hh); head.quadraticCurveTo(hw * 0.6, hh * 0.7, 0, 0.08);
@@ -73,7 +75,7 @@ function weapon(it, R) {
       for (let k = 0; k < 4; k++) { const a = (k / 4) * 6.283; mb.rod('gold', new THREE.Vector3(0, 1.22, 0), new THREE.Vector3(Math.cos(a) * 0.07, 1.42, Math.sin(a) * 0.07), 0.008, gold); } }
     else { mb.cyl('haft', 0, 0.5, 0, 0.026, 1.2, hueShift('#4a3020', R), 8); mb.box('metal', 0, 1.08, 0, 0.32, 0.17, 0.17, m); mb.box('metalv', 0, 1.08, 0, 0.34, 0.04, 0.18, K3.shade(m, -0.3)); }
   } else if (wt === '1HP') {
-    const len = 0.3 * (0.9 + R() * 0.3); mb.add('metal', extrude(bladeShape(pick(R, ['straight', 'leaf', 'kris']), len, 0.05, R), 0.01, 0.004), M4(0, 0, 0), m); hilt(mb, R, m, gold, grip, len, false);
+    const len = 0.24 * (0.9 + R() * 0.25); mb.add('metal', extrude(bladeShape(pick(R, ['straight', 'leaf', 'kris']), len, 0.042, R), 0.008, 0.003), M4(0, 0, 0), m); mb.gripY = hilt(mb, R, m, gold, grip, len, false, 0.5);
   } else if (wt === 'H2H') {
     for (let k = 0; k < 4; k++) mb.cyl('metal', -0.06 + k * 0.04, 0.05, 0, 0.022, 0.03, m, 12, null, 0, Math.PI / 2, 0);
     mb.box('metal', 0, 0.02, 0, 0.17, 0.03, 0.03, m); mb.box('leather', 0, -0.03, 0, 0.14, 0.06, 0.04, grip);
@@ -249,7 +251,9 @@ export function itemModel(it) {
   else if (it.kind === 'armor') r = armour(it, R);
   else if (it.kind === 'jewel') r = jewel(it, R);
   else r = misc(it, R);
-  const g = r.group || (r.mb ? r.mb.build({ castShadow: false }) : new THREE.Group());
+  let g = r.group || (r.mb ? r.mb.build({ castShadow: false }) : new THREE.Group());
+  // bladed weapons are built with the guard at the origin: shift them so the hand holds the middle of the grip
+  if (r.mb && r.mb.gripY) { const o = new THREE.Group(); g.position.y = -r.mb.gripY; o.add(g); g = o; }
   return { group: g, pose: r.pose };
 }
 

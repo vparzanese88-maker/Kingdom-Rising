@@ -6,7 +6,7 @@ import { MB, dispose } from './mb.js';
 import { mats } from './mats.js';
 import { buildStructuresIn, buildFlags, structs, resetStructs } from './structures.js';
 import { buildProps, makeAnimProp, VEG_KINDS } from './props.js';
-import { buildVeg, buildOutcrops, setVegLod, stumpFor, setHidden, forest } from './veg.js';
+import { buildVeg, buildOutcrops, setVegLod, stumpFor, setHidden, forest, fellTree } from './veg.js';
 import { staticBillboards, fx } from './fx.js';
 import { buildLights, updateLights, lights } from './lights.js';
 
@@ -206,12 +206,16 @@ function emitTick(dt, cam) {
 }
 let harvestT = 0;
 function harvestTick(cam) {
-  harvestT -= K3.dt; if (harvestT > 0) return; harvestT = 0.5;
+  harvestT -= K3.dt; if (harvestT > 0) return; harvestT = 0.15;
   for (const c of chunks.values()) {
     if (Math.hypot(c.x - cam.x, c.z - cam.z) > 120) continue;
     for (const d of c.harvest) {
       const cut = !!(d.cutUntil && d.cutUntil > G.now);
-      if (cut && !c.stumps.has(d)) { setHidden(d, true); const s = stumpFor(d); c.group.add(s); c.stumps.set(d, s); }
+      if (cut && !c.stumps.has(d)) {
+        setHidden(d, true); const s = stumpFor(d); c.group.add(s); c.stumps.set(d, s);
+        // just cut down by someone nearby: it falls
+        const p = G.player; if (d._tree && p && d._fellBy !== d.cutUntil && Math.hypot(d.x - p.x, d.y - p.y) < 900 && G.now - (d.cutAt || 0) < 4000) { d._fellBy = d.cutUntil; fellTree(d, p.x * PX, p.y * PX, (f) => { KR.A.sfx('treefall', 0.6); for (let k = 0; k < 4; k++) fx.burst(f.base.x + f.axis.z * -(2 + k * 2), f.base.y + 0.4, f.base.z - f.axis.x * -(2 + k * 2), 12, '#8a7a5a', { speed: 2 }); }); }
+      }
       else if (!cut && c.stumps.has(d)) { setHidden(d, false); c.group.remove(c.stumps.get(d)); c.stumps.delete(d); }
     }
   }

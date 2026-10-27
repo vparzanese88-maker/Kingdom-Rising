@@ -303,6 +303,32 @@ export function stumpFor(d) {
   g.position.set(px * PX, geo.floorAt(px, py), py * PX); g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.keepGeo = true; } });
   return g;
 }
+// a felled tree: a one-off copy of its shape swings over away from the woodcutter, bounces, settles, then sinks away
+const falling = []; K3.fallingTrees = falling;
+const _fm = new THREE.Matrix4(), _fq = new THREE.Quaternion(), _fax = new THREE.Vector3(), _fb = new THREE.Vector3(), _fT = new THREE.Matrix4(), _fTi = new THREE.Matrix4(), _fR = new THREE.Matrix4();
+export function fellTree(d, fromX, fromZ, onLand) {
+  const t = d._tree; if (!t) return false;
+  const tpl = template(t.kind, 0, t.variant); const M = new THREE.Matrix4().fromArray(t.m); const base = new THREE.Vector3().setFromMatrixPosition(M);
+  let dx = base.x - fromX, dz = base.z - fromZ; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L; // falls away from the cutter
+  const parts = [];
+  for (const [g, m] of [[tpl.trunk, mats.get(tpl.trunkKey)], [tpl.leaves, tpl.leaves ? leafMat(tpl.leafKind) : null]]) { if (!g) continue; const im = new THREE.InstancedMesh(g, m, 1); im.castShadow = true; im.frustumCulled = false; if (m === leafMats[tpl.leafKind] || g === tpl.leaves) { im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(t.col), 3); } im.setMatrixAt(0, M); forestRoot.add(im); parts.push(im); }
+  falling.push({ parts, M, base, axis: new THREE.Vector3(dz, 0, -dx).normalize(), t: 0, onLand, landed: false });
+  return true;
+}
+K3.updaters.push((dt) => {
+  for (let i = falling.length - 1; i >= 0; i--) {
+    const f = falling[i]; f.t += dt; const T = 2.4;
+    // a slow lean, then gathering speed, a bounce on the ground, a rest, then down into the earth
+    let a; if (f.t < T) { const k = f.t / T; a = Math.pow(k, 2.6) * 1.5; } else { const k = f.t - T; a = 1.5 - Math.abs(Math.sin(k * 9)) * 0.1 * Math.exp(-k * 5); }
+    if (f.t >= T && !f.landed) { f.landed = true; if (f.onLand) f.onLand(f); }
+    const sink = f.t > T + 2.2 ? Math.min(1, (f.t - T - 2.2) / 1.6) : 0;
+    _fq.setFromAxisAngle(f.axis, a); _fR.makeRotationFromQuaternion(_fq); _fT.makeTranslation(f.base.x, f.base.y - sink * 1.4, f.base.z); _fTi.makeTranslation(-f.base.x, -f.base.y, -f.base.z);
+    _fm.copy(_fT).multiply(_fR).multiply(_fTi).multiply(f.M);
+    if (sink > 0) { _fm.decompose(_fb, _fq, _fax); _fax.multiplyScalar(1 - sink * 0.6); _fm.compose(_fb, _fq, _fax); }
+    for (const im of f.parts) { im.setMatrixAt(0, _fm); im.instanceMatrix.needsUpdate = true; }
+    if (sink >= 1) { for (const im of f.parts) { forestRoot.remove(im); im.dispose(); } falling.splice(i, 1); }
+  }
+});
 export function setHidden(d, hidden) {
   if (d._tree) { if (d._tree.hidden !== hidden) { d._tree.hidden = hidden; forest.dirty = true; } return; }
   const it = d._inst; if (!it) return;

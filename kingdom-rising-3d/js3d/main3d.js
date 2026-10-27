@@ -43,7 +43,7 @@ R.invalidateArea = function (x0, y0, w, h) { dirty.areas.push([x0, y0, w, h]); r
 R.clear = function () { dirty.all = true; return clear0.apply(this, arguments); };
 R.reindex = function () { dirty.decor = true; return reindex0.apply(this, arguments); };
 // the minimap arrow points where the camera looks
-if (R.drawMinimap) { const dm = R.drawMinimap; R.drawMinimap = function (cv2, ...a) { const p = G.player; if (!p) return dm.call(this, cv2, ...a); const g = cv2.getContext('2d'); const d = p.dir; p.dir = -1; const rot = g.rotate; g.rotate = function (r) { return rot.call(this, r === 0 ? -view.yaw : r); }; try { return dm.call(this, cv2, ...a); } finally { g.rotate = rot; p.dir = d; } }; }
+if (R.drawMinimap) { const dm = R.drawMinimap; R.drawMinimap = function (cv2, ...a) { const p = G.player; if (!p) return dm.call(this, cv2, ...a); const g = cv2.getContext('2d'); const d = p.dir; p.dir = -1; const rot = g.rotate; g.rotate = function (r) { return rot.call(this, r === 0 ? Math.PI - view.yaw : r); }; try { return dm.call(this, cv2, ...a); } finally { g.rotate = rot; p.dir = d; } }; }
 function syncWorld(force) {
   if (!W.tiles) return;
   if (geo.tilesRef !== W.tiles || geo.realm !== (W.realm || 'main')) dirty.all = true;
@@ -87,7 +87,7 @@ Main.boot = async function () {
   try { const bm = document.getElementById('boot3d-msg'); if (bm) bm.textContent = 'Raising the realm...'; await new Promise((r) => setTimeout(r, 30)); Main.ensureWorld(); syncWorld(true); } catch (e) { console.error('menu world', e); }
   if (boot) boot.remove();
   const start = () => { menu3d.start(); A.init(); A.setVolumes(G.account.settings.music, G.account.settings.sfx); KR.Menus.showMenu(); setTimeout(() => { try { if (worldKey !== G.account.seed && !running) Main.ensureWorld(); } catch (e) { console.error(e); } }, 700); };
-  const gate = document.getElementById('gate'); gate.hidden = false;
+  const gate = document.getElementById('gate'); gate.hidden = false; window.KR_BOOTED = true;
   if (KR.Kingdom && KR.Kingdom.cover) KR.Kingdom.cover(gate, () => { Main.autoFullscreen(); start(); });
   else document.getElementById('gate-go').onclick = () => { Main.autoFullscreen(); gate.hidden = true; start(); };
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) try { window.claude.hot.snapshot(() => { if (running) Sys.save(true); return {}; }); } catch (e) {}
@@ -156,11 +156,12 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
     running = true; last = performance.now(); requestAnimationFrame(loop);
   } catch (err) {
     console.error(err); running = false; document.getElementById('ui').hidden = true;
-    Main.showFatal(err);
+    Main.showFatal(err, true);
     return;
   }
 };
-Main.showFatal = function (err) {
+Main.showFatal = function (err, hard) {
+  if (!hard && window.KR_BOOTED) { console.error(err); try { KR.UI && KR.UI.toast ? KR.UI.toast('A small error was caught; the game carries on.') : 0; } catch (e) {} return; } // after start-up a stray error must never blank the cover or the menus
   if (running) { console.error(err); return; }
   const scr = document.getElementById('screen'); if (!scr) return;
   const msg = (err && (err.stack || err.message)) || String(err);

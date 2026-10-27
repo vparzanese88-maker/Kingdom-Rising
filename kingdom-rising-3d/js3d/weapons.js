@@ -83,8 +83,10 @@ function build(kind, opt) {
     case 'musket': mb.box('haft', 0, 0.35, 0, 0.05, 0.9, 0.07, '#4a2e1a'); mb.cyl('metalv', 0, 0.9, 0.01, 0.014, 0.9, '#2a2a30', 6); break;
     default: return null;
   }
-  const grp = mb.build({ castShadow: true });
+  let grp = mb.build({ castShadow: true });
   grp.traverse((o) => { if (o.isMesh) { o.userData.keepGeo = true; } });
+  // blades are built guard-at-origin: shift them so the hand closes round the middle of the grip
+  const GRIP = { '1HS': 0.1, sword: 0.1, '2HS': 0.18, '1HP': 0.06, dagger: 0.06, THR: 0.04 }; if (GRIP[kind]) { const o = new THREE.Group(); grp.position.y = GRIP[kind]; o.add(grp); grp = o; }
   return grp;
 }
 // a weapon model (shared geometry) for a weapon type

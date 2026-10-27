@@ -175,7 +175,10 @@
   G.passiveMods = function (c) { const key = c.cls + '|' + c.level; let m = passCache.get(key); if (!m) { m = {}; for (const P of D.classPassives(c.cls)) if (P.level <= c.level) for (const k in P.mods) m[k] = (m[k] || 0) + P.mods[k]; passCache.set(key, m); } return m; };
   G.buffMods = function (e) { const m = {}; for (const b of e.buffs) { if (!b.mods) continue; for (const k in b.mods) m[k] = (m[k] || 0) + b.mods[k]; }
     if (e.c && e.c.cls && (e.type === 'player' || e.type === 'merc')) { const pm = G.passiveMods(e.c); for (const k in pm) m[k] = (m[k] || 0) + pm[k]; } if (e.c && e.type === 'player' && e.c.pstance && D.PSTANCES[e.c.pstance]) { const sm = D.PSTANCES[e.c.pstance].mods; for (const k in sm) m[k] = (m[k] || 0) + sm[k]; } return m; };
-  G.hasSkill = (c, id) => { const C = D.CLASSES[c.cls]; const s = C.skills.find((x) => x[0] === id); return s && c.level >= s[1]; };
+  // class abilities: level-1 ones come with the class; the rest are trained at your guild for coin once you reach their level
+  G.skillPrice = (lvl) => Math.round(40 + lvl * lvl * 24);
+  G.trainedSkills = (c) => { if (!c.trained) { const C = D.CLASSES[c.cls]; c.trained = C.skills.filter((x) => x[1] > 1 && c.level >= x[1]).map((x) => x[0]); } return c.trained; }; // heroes from before keep what they had
+  G.hasSkill = (c, id) => { const C = D.CLASSES[c.cls]; const s = C.skills.find((x) => x[0] === id); return !!s && c.level >= s[1] && (s[1] <= 1 || G.trainedSkills(c).includes(id)); };
   G.weaponType = (c) => { const w = c.equip.primary; return w ? w.wt : 'H2H'; };
   G.rangedType = (c) => { const w = c.equip.range; return w ? w.wt : null; };
   G.wtName = (wt) => (wt === 'SHIELD' ? 'Block' : D.WEAPON_TYPES[wt] ? D.WEAPON_TYPES[wt].name : wt);
@@ -291,8 +294,9 @@
   };
   G.topHate = function (mob) {
     let best = null, bv = -1;
-    for (const [e, v] of mob.hate) { if (e.dead || e.removed || e.fd) { mob.hate.delete(e); continue; } if (v > bv) { bv = v; best = e; } }
-    return best;
+    let pet = null, pv = -1; // a pet with taunt off is ignored while anyone else is in the fight
+    for (const [e, v] of mob.hate) { if (e.dead || e.removed || e.fd) { mob.hate.delete(e); continue; } if (e.type === 'pet' && e.owner && e.owner.c && e.owner.c.petTaunt === false) { if (v > pv) { pv = v; pet = e; } continue; } if (v > bv) { bv = v; best = e; } }
+    return best || pet;
   };
   // creature voices: growls, groans, hisses... by creature kind, panned and pitched by size
   const SMALL = { rat: 1.35, bat: 1.4, beetle: 1.3, mosquito: 1.2, spider: 1.1, wisp: 1.2, goblin: 1.15, snake: 1.1 };
@@ -345,6 +349,7 @@
     if (tgt.sit) { tgt.sit = false; }
     const pcol = tgt === G.player ? '#ff6a5a' : opt.crit ? '#ffd84a' : opt.spell ? '#c8a8ff' : '#ffffff';
     G.float(tgt, (opt.crit ? '★' : '') + amt, pcol, opt.crit);
+    if (src && amt > 0) (tgt._hurtBy || (tgt._hurtBy = new Set())).add(src); // pets only join a fight their owner has actually drawn blood in
     if (tgt.type === 'mob' || tgt.type === 'guard' || tgt.type === 'king') { G.addHate(tgt, src, amt * (opt.hateMul || 1)); if (tgt.hp > 0) G.mobVoice(tgt, 'hurt', opt.crit ? 0.8 : 0.25); }
     if (tgt === G.player) { KR.A.sfx('hurt', 0.4); KR.Main && KR.Main.onCombat && KR.Main.onCombat(); if (src && !G.player.target && src.hostile && !src.dead) G.player.target = src; }
     if ((tgt.type === 'pet' || tgt.type === 'merc') && src && src.hostile && !tgt.target) tgt.target = src;
@@ -529,7 +534,7 @@
     if (!calm && (tt === 'enemy' || tt === 'tae' || (tt === 'pbae' && p.target && G.isHostile(p, p.target))) && !p.autoAttack) { p.autoAttack = true; p.sit = false; }
     if (def.kind === 'spell' && def.cast > 0) {
       if (p.moving) { G.log('You must stand still to cast.', 'sys', '#ffb24a'); return; }
-      p.cast = { spell: def, a, t: 0, dur: def.cast * (1 - Math.min(0.3, (p.c.school[def.school] || 0) / 1000)), tgt };
+      p.cast = { spell: def, a, t: 0, dur: def.cast * (1 - Math.min(0.3, (p.c.school[def.school] || 0) / 1000)) / (1 + (G.buffMods(p).spellHaste || 0)), tgt };
       p.sit = false;
       KR.A.sfx(def.school === 'Song' ? 'songcast' : D.SCHOOLS.includes(def.school) ? 'cast_' + def.school : 'cast', 0.5);
       return;

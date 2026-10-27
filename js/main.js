@@ -22,7 +22,7 @@
     A.setVolumes(G.account.settings.music, G.account.settings.sfx);
     loading.hidden = true;
     const start = () => { A.init(); A.setVolumes(G.account.settings.music, G.account.settings.sfx); let seen = false; try { seen = !!localStorage.getItem('kr_intro_seen'); } catch (e) {} KR.Menus.showMenu(); /* the full story now plays when a new hero is created */ setTimeout(() => { try { if (worldKey !== G.account.seed && !running) Main.ensureWorld(); } catch (e) { console.error(e); } }, 700); };
-    const gate = document.getElementById('gate'); gate.hidden = false;
+    const gate = document.getElementById('gate'); gate.hidden = false; window.KR_BOOTED = true;
     if (KR.Kingdom && KR.Kingdom.cover) KR.Kingdom.cover(gate, () => { Main.autoFullscreen(); start(); });
     else document.getElementById('gate-go').onclick = () => { Main.autoFullscreen(); gate.hidden = true; start(); };
     if (window.claude && window.claude.hot && window.claude.hot.snapshot) try { window.claude.hot.snapshot(() => { if (running) Sys.save(true); return {}; }); } catch (e) {}
@@ -81,11 +81,12 @@
       running = true; last = performance.now(); requestAnimationFrame(loop);
     } catch (err) {
       console.error(err); running = false; document.getElementById('ui').hidden = true;
-      Main.showFatal(err);
+      Main.showFatal(err, true);
       return;
     }
   };
-  Main.showFatal = function (err) {
+  Main.showFatal = function (err, hard) {
+    if (!hard && window.KR_BOOTED) { console.error(err); try { KR.UI && KR.UI.toast ? KR.UI.toast('A small error was caught; the game carries on.') : 0; } catch (e) {} return; } // after start-up a stray error must never blank the cover or the menus
     if (running) { console.error(err); return; }
     const scr = document.getElementById('screen'); if (!scr) return;
     const msg = (err && (err.stack || err.message)) || String(err);

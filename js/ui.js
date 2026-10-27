@@ -80,9 +80,17 @@
 
   // ---------------- tooltip ----------------
   const tip = () => $('#tip');
-  UI.showTip = function (html, ev) { const t = tip(); t.innerHTML = html; t.hidden = false; UI.moveTip(ev); };
-  UI.moveTip = function (ev) { const t = tip(); if (t.hidden) return; const x = Math.min(ev.clientX + 16, innerWidth - t.offsetWidth - 8), y = Math.min(ev.clientY + 16, innerHeight - t.offsetHeight - 8); t.style.left = Math.max(4, x) + 'px'; t.style.top = Math.max(4, y) + 'px'; };
-  UI.hideTip = () => { tip().hidden = true; };
+  // descriptions wait a second under the pointer before they appear, so moving across the screen stays clean
+  let tipTimer = null, tipHtml = null, tipEv = null;
+  UI.showTip = function (html, ev) {
+    const t = tip(); tipEv = ev;
+    if (!t.hidden) { t.innerHTML = html; UI.moveTip(ev); return; }
+    if (tipTimer && tipHtml === html) return;
+    clearTimeout(tipTimer); tipHtml = html;
+    tipTimer = setTimeout(() => { tipTimer = null; t.innerHTML = tipHtml; t.hidden = false; UI.moveTip(tipEv); }, 1000);
+  };
+  UI.moveTip = function (ev) { tipEv = ev; const t = tip(); if (t.hidden) return; const x = Math.min(ev.clientX + 16, innerWidth - t.offsetWidth - 8), y = Math.min(ev.clientY + 16, innerHeight - t.offsetHeight - 8); t.style.left = Math.max(4, x) + 'px'; t.style.top = Math.max(4, y) + 'px'; };
+  UI.hideTip = () => { clearTimeout(tipTimer); tipTimer = null; tipHtml = null; tip().hidden = true; };
   UI.bindTip = function (el, fn) { el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') UI.showTip(fn(), e); }); el.addEventListener('pointermove', UI.moveTip); el.addEventListener('pointerleave', UI.hideTip); };
 
   UI.itemTip = function (it, ctx, who) {
@@ -878,7 +886,7 @@
       if (s.startsWith('vendor:') && crS) continue; // crafters trade from their crafting window
       if (s.startsWith('vendor:')) add('Browse wares', () => { UI.openVendor(e, s.split(':')[1]); });
       if (s === 'bank') add('Open bank', () => { UI.close('npc'); UI.open('bank'); UI.open('inv'); });
-      if (s === 'train') add('Learn spells', () => { UI.close('npc'); UI.open('trainer'); });
+      if (s === 'train') add('Train abilities and spells', () => { UI.close('npc'); UI.open('trainer'); });
       if (s.startsWith('craft:')) { const vs = (e.services || []).find((x) => x.startsWith('vendor:')); add(vs ? `${D.CRAFTS[s.split(':')[1]].name} & trade` : D.CRAFTS[s.split(':')[1]].name, () => { UI.openCraft(s.split(':')[1], vs ? e : null, vs ? vs.split(':')[1] : null); }); if (vs) add('Buy & sell', () => { UI.openCraft(s.split(':')[1], e, vs.split(':')[1], 'shop'); }); }
       if (s === 'bind') add('Rent a room (bind here)', () => { Sys.bind(); });
       if (s === 'kingdom') add('Kingdom report', () => UI.open('kingdom'));
@@ -935,15 +943,22 @@
       list.appendChild(row);
     });
     const grid = $('.vd-r .grid', b); c.inv.forEach((it) => grid.appendChild(itemCell(it, (x) => { UI.sellItem(x); })));
-    const bb = $('.bb', b); if (bb) Sys.buyback.forEach((it) => bb.appendChild(itemCell(it, (x) => { const price = G.itemPrice(x, true) * (x.qty || 1); if (c.coins < price) return; if (Sys.addItem(x, true)) { c.coins -= price; Sys.buyback.splice(Sys.buyback.indexOf(x), 1); UI.refresh(); } })));
+    const bb = $('.bb', b); if (bb) Sys.buyback.forEach((it) => bb.appendChild(itemCell(it, (x) => { const bi = Sys.buyback.indexOf(x); if (bi < 0) return; const price = G.itemPrice(x, true) * (x.qty || 1); if (c.coins < price) return; if (Sys.addItem(x, true)) { c.coins -= price; Sys.buyback.splice(bi, 1); UI.refresh(); } })));
   }
 
   // ----- trainer -----
   function renderTrainer(w) {
     const c = G.player.c, b = w.body; const sp = Sys.trainable();
-    if (!sp.length) { b.innerHTML = `<p class="empty-note">"Your path is the blade, not the book. Train your weapons in battle and your class skills will come with experience."</p>`; return; }
-    b.innerHTML = `<p class="hint">You have <b>${G.fmtCoins(c.coins)}</b>. Every ${D.CLASSES[c.cls].name === 'Bard' ? 'song' : 'spell'} costs coin to learn, and higher ranks cost more. ${sp.filter((s) => s.target === 'group').length ? '<span style="color:#9affb8">Group</span> spells affect everyone in your group nearby.' : ''}</p><div class="list"></div>`;
-    const list = $('.list', b);
+    const sks = D.CLASSES[c.cls].skills.filter((x) => x[1] > 1).sort((a, b2) => a[1] - b2[1]);
+    b.innerHTML = `<p class="hint">You have <b>${G.fmtCoins(c.coins)}</b>. Your first abilities${sp.length ? ' and spells' : ''} come with your class; everything after must be learned here once you reach its level. ${sp.filter((s) => s.target === 'group').length ? '<span style="color:#9affb8">Group</span> spells affect everyone in your group nearby.' : ''}</p>${sks.length ? '<h4>Abilities</h4><div class="list sk"></div>' : ''}${sp.length ? `<h4>${D.CLASSES[c.cls].name === 'Bard' ? 'Songs' : 'Spells'}</h4>` : ''}<div class="list"></div>`;
+    const skl = $('.list.sk', b);
+    for (const [id, lv] of sks) {
+      const sk = D.SKILLS[id] || { name: id.replace(/^./, (m) => m.toUpperCase()), icon: '✦', desc: 'A passive skill.' }; const known = G.hasSkill(c, id), can = lv <= c.level, price = G.skillPrice(lv);
+      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(sk.icon || '✦')}</span><div class="ri-m"><b>${esc(sk.name)}</b><small>Level ${lv}${!known ? ` · <span style="color:${c.coins >= price ? '#e8d48a' : '#ff8a6a'}">${G.fmtCoins(price)}</span>` : ''}</small><small class="dim">${esc(sk.desc || '')}</small></div>`);
+      if (!known && can) { const bt = h('button', 'btn small', `Train · ${G.fmtCoins(price)}`); if (c.coins < price) bt.disabled = true; bt.onclick = () => { Sys.trainSkill(id); renderTrainer(w); }; row.appendChild(bt); } else if (known) row.appendChild(h('span', 'pill', 'Known'));
+      skl.appendChild(row);
+    }
+    const list = $('.list:not(.sk)', b);
     sp.forEach((s) => {
       const known = c.spells.includes(s.id); const can = s.level <= c.level;
       const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(s.icon)}</span><div class="ri-m"><b>${esc(s.name)}</b><small>Level ${s.level} · ${esc(s.school)} · ${s.mana} mana${s.target === 'group' ? ' · <span style="color:#9affb8">Group</span>' : ''}${!known ? ` · <span style="color:${c.coins >= s.price ? '#e8d48a' : '#ff8a6a'}">${G.fmtCoins(s.price)}</span>` : ''}</small><small class="dim">${esc(s.desc)}</small></div>`);

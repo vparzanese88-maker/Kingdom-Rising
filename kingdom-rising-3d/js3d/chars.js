@@ -304,6 +304,59 @@ function headgear(B, look, P, H) {
   if (look.crown) { for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(new THREE.Vector3(Math.cos(a) * s * 0.85, cy + s * 0.95, hz + Math.sin(a) * s * 0.85), Q(0, 0, 0), new THREE.Vector3(s * 0.22, s * 0.5, s * 0.22)), '#f0c040', 'gold'); } B.geom('head', new THREE.CylinderGeometry(s * 0.95, s * 0.95, s * 0.3, 20, 1, true), new THREE.Matrix4().makeTranslation(0, cy + s * 0.78, hz), '#f0c040', 'gold'); B.ell('head', 0, cy + s * 0.8, hz + s * 0.93, s * 0.12, s * 0.12, s * 0.06, '#c8302a', 'glow'); }
 }
 
+// ---------- a real skeleton: skull and jaw, vertebrae, ribcage, collarbones, shoulder blades, pelvis, paired forearm and shin bones, fingers and toes ----------
+function skeletonFrame(B, R, P) {
+  const C = '#d6cbad', J = '#c2b591', DK = '#17110b'; const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const tube = (bone, pts, r, col = C) => { const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((q) => V(...q))), 10, r, 6); B.geom(bone, g, new THREE.Matrix4(), col, 'bone'); g.dispose(); };
+  const longBone = (bone, a, b, r, knob = 1.9) => { B.seg(bone, a, b, r, r * 0.85, C, 'bone', 0.12); B.ell(bone, b[0], b[1], b[2], r * knob, r * knob * 0.9, r * knob, J, 'bone'); };
+  const hipY = R.hips[1], chestY = R.chest[1], shY = R.shL[1], w = P.w;
+  // spine: a curved column of vertebrae with their back spines
+  const n = 17, y0 = hipY - 0.04, y1 = R.head[1] + 0.02;
+  for (let k = 0; k <= n; k++) { const t = k / n, y = y0 + (y1 - y0) * t, z = -0.045 - Math.sin(t * Math.PI * 1.6) * 0.018; const bone = y < hipY + 0.06 ? 'hips' : y < chestY - 0.04 ? 'spine' : y < shY + 0.04 ? 'chest' : 'neck'; const r = t > 0.82 ? 0.016 : 0.022 - t * 0.006;
+    B.ell(bone, 0, y, z, r * 1.25, r * 0.62, r, k % 2 ? C : J, 'bone'); B.box(bone, 0, y - 0.004, z - r * 1.4, r * 0.35, r * 0.5, r * 1.3, C, 'bone', Q(0.5, 0, 0)); for (const sx of [-1, 1]) B.box(bone, sx * r * 1.3, y, z - r * 0.2, r * 1.1, r * 0.3, r * 0.4, C, 'bone'); }
+  // ribcage: seven pairs sloping down from the spine round to the breastbone, widest in the middle
+  for (let k = 0; k < 7; k++) { const y = shY - 0.035 - k * 0.04, wd = (0.075 + Math.sin((k + 1) / 8 * Math.PI) * 0.055) * w, fz = 0.085 - Math.abs(k - 3) * 0.006;
+    for (const sx of [-1, 1]) tube('chest', [[sx * 0.018, y, -0.06], [sx * wd * 0.85, y - 0.005, -0.045], [sx * wd, y - 0.025, 0.012], [sx * wd * 0.7, y - 0.05, fz - 0.01], [sx * (k < 5 ? 0.022 : 0.05), y - (k < 5 ? 0.07 : 0.085), fz]], 0.0075); }
+  B.box('chest', 0, shY - 0.13, 0.09, 0.028, 0.19, 0.012, C, 'bone', Q(-0.18, 0, 0)); B.box('chest', 0, shY - 0.025, 0.08, 0.045, 0.04, 0.014, C, 'bone');
+  for (const sx of [-1, 1]) {
+    const S = sx > 0 ? 'L' : 'R';
+    // collarbone and shoulder blade
+    tube('chest', [[sx * 0.022, shY - 0.02, 0.075], [sx * 0.08 * w, shY + 0.004, 0.05], [R['arm' + S][0], R['arm' + S][1] + 0.02, 0.0]], 0.008);
+    B.ell('chest', sx * 0.085 * w, shY - 0.07, -0.085, 0.048, 0.07, 0.01, C, 'bone', Q(0.12, sx * 0.35, sx * 0.1)); B.box('chest', sx * 0.085 * w, shY - 0.04, -0.093, 0.07, 0.01, 0.012, J, 'bone', Q(0, sx * 0.35, sx * 0.25));
+    // arm: humerus, then radius and ulna side by side, the wrist and five fingers
+    const a0 = R['arm' + S], a1 = R['fore' + S], a2 = R['hand' + S];
+    B.ell('arm' + S, a0[0], a0[1], a0[2], 0.026, 0.026, 0.026, J, 'bone'); longBone('arm' + S, a0, a1, 0.014);
+    for (const dz of [-0.011, 0.011]) B.seg('fore' + S, [a1[0], a1[1] - 0.01, a1[2] + dz], [a2[0], a2[1] + 0.01, a2[2] + dz * 0.8], 0.0085, 0.007, C, 'bone', 0);
+    B.ell('hand' + S, a2[0], a2[1] - 0.012, a2[2], 0.014, 0.016, 0.026, J, 'bone');
+    for (let f = 0; f < 4; f++) { const z = a2[2] - 0.022 + f * 0.015; const b0 = [a2[0], a2[1] - 0.025, z], b1 = [a2[0] + sx * 0.004, a2[1] - 0.065, z + 0.002], b2 = [a2[0] + sx * 0.012, a2[1] - 0.1 + Math.abs(f - 1.5) * 0.008, z + 0.01]; B.seg('hand' + S, b0, b1, 0.0055, 0.005, C, 'bone', 0); B.seg('hand' + S, b1, b2, 0.0048, 0.0035, C, 'bone', 0); }
+    B.seg('hand' + S, [a2[0], a2[1] - 0.02, a2[2] + 0.03], [a2[0] + sx * 0.015, a2[1] - 0.06, a2[2] + 0.05], 0.006, 0.004, C, 'bone', 0);
+    // pelvis wing, hip socket, femur with its ball, kneecap, tibia and fibula, ankle and the foot bones
+    B.ell('hips', sx * 0.075 * w, hipY + 0.035, -0.012, 0.07 * w, 0.06, 0.018, C, 'bone', Q(0.15, sx * 0.55, sx * 0.25));
+    tube('hips', [[sx * 0.03, hipY - 0.07, 0.06], [sx * 0.075 * w, hipY - 0.06, 0.035], [sx * 0.1 * w, hipY - 0.025, 0.0]], 0.011);
+    const th = R['thigh' + S], sh = R['shin' + S], ft = R['foot' + S];
+    B.ell('thigh' + S, th[0], th[1] + 0.005, th[2], 0.022, 0.022, 0.022, J, 'bone'); B.ell('thigh' + S, th[0] + sx * 0.022, th[1] - 0.04, th[2], 0.016, 0.02, 0.016, J, 'bone');
+    longBone('thigh' + S, th, sh, 0.017, 1.75); B.ell('shin' + S, sh[0], sh[1] + 0.012, sh[2] + 0.03, 0.018, 0.022, 0.01, C, 'bone');
+    const ank = [ft[0], ft[1] - 0.02, ft[2]]; B.seg('shin' + S, sh, ank, 0.015, 0.011, C, 'bone', 0.1); B.seg('shin' + S, [sh[0] + sx * 0.02, sh[1] - 0.02, sh[2] - 0.006], [ft[0] + sx * 0.018, ft[1] - 0.01, ft[2] - 0.006], 0.006, 0.006, C, 'bone', 0);
+    B.ell('foot' + S, ft[0], ft[1] - 0.04, ft[2] - 0.01, 0.022, 0.02, 0.03, J, 'bone'); B.ell('foot' + S, ft[0], ft[1] - 0.06, ft[2] - 0.04, 0.016, 0.016, 0.022, C, 'bone');
+    for (let t = 0; t < 5; t++) { const x = ft[0] + (t - 2) * 0.012 * sx * -1; B.seg('foot' + S, [x * 0.6 + ft[0] * 0.4, ft[1] - 0.045, ft[2] + 0.01], [x, ft[1] - 0.07, ft[2] + 0.1], 0.0055, 0.0045, C, 'bone', 0); B.seg('foot' + S, [x, ft[1] - 0.07, ft[2] + 0.1], [x, ft[1] - 0.078, ft[2] + 0.135 - Math.abs(t - 1) * 0.006], 0.0045, 0.0035, C, 'bone', 0); }
+  }
+  B.ell('hips', 0, hipY - 0.01, -0.05, 0.032, 0.05, 0.02, C, 'bone', Q(-0.35, 0, 0)); // the sacrum
+  // the skull: cranium, brow, cheekbones, dark sockets and nose, upper teeth, and a jaw hanging a little open
+  const s = 0.126 * P.head * 0.94, [hx, hy, hz] = R.head, cy = hy + s * 1.05;
+  B.ell('head', hx, cy + s * 0.12, hz - s * 0.1, s * 0.8, s * 0.88, s * 0.98, C, 'bone', null, 0, 22);
+  B.ell('head', hx, cy - s * 0.28, hz + s * 0.32, s * 0.6, s * 0.44, s * 0.56, C, 'bone');
+  B.ell('head', hx, cy + s * 0.14, hz + s * 0.66, s * 0.66, s * 0.14, s * 0.24, J, 'bone');
+  for (const sx of [-1, 1]) { B.ell('head', hx + sx * s * 0.29, cy - s * 0.04, hz + s * 0.74, s * 0.2, s * 0.19, s * 0.13, DK, 'plain'); B.ell('head', hx + sx * s * 0.29, cy - s * 0.05, hz + s * 0.78, s * 0.035, s * 0.035, s * 0.02, '#8affc0', 'glow');
+    B.ell('head', hx + sx * s * 0.46, cy - s * 0.26, hz + s * 0.56, s * 0.17, s * 0.11, s * 0.2, J, 'bone'); B.box('head', hx + sx * s * 0.62, cy - s * 0.22, hz + s * 0.18, s * 0.08, s * 0.1, s * 0.5, C, 'bone'); }
+  B.geom('head', PRIM.cone8, new THREE.Matrix4().compose(V(hx, cy - s * 0.27, hz + s * 0.82), Q(Math.PI, 0, 0), V(s * 0.17, s * 0.24, s * 0.08)), DK, 'plain');
+  for (let k = -3; k <= 3; k++) { const a = k * 0.2; B.box('head', hx + Math.sin(a) * s * 0.38, cy - s * 0.58, hz + s * 0.36 + Math.cos(a) * s * 0.42, s * 0.085, s * 0.13, s * 0.07, '#ece4cc', 'bone', Q(0, a, 0)); }
+  const jw = Q(0.16, 0, 0);
+  B.box('head', hx, cy - s * 0.86, hz + s * 0.64, s * 0.42, s * 0.16, s * 0.2, C, 'bone', jw);
+  for (const sx of [-1, 1]) { B.box('head', hx + sx * s * 0.36, cy - s * 0.78, hz + s * 0.36, s * 0.12, s * 0.14, s * 0.52, C, 'bone', Q(0.16, -sx * 0.45, 0)); B.box('head', hx + sx * s * 0.54, cy - s * 0.48, hz + s * 0.08, s * 0.1, s * 0.5, s * 0.14, C, 'bone', Q(-0.2, 0, 0)); }
+  for (let k = -2; k <= 2; k++) { const a = k * 0.22; B.box('head', hx + Math.sin(a) * s * 0.34, cy - s * 0.74, hz + s * 0.34 + Math.cos(a) * s * 0.38, s * 0.08, s * 0.1, s * 0.06, '#ece4cc', 'bone', Q(0.16, a, 0)); }
+  return { s, cy, top: cy + s * 1.05 };
+}
+
 // ---------- the whole humanoid ----------
 const geoCache = new Map();
 function lookKey(look, kind) {
@@ -313,6 +366,7 @@ function lookKey(look, kind) {
 export function humanoidGeometry(look, kind) {
   const key = lookKey(look, kind); let g = geoCache.get(key); if (g) return g;
   const P = proportions(look, kind); const rest = restPositions(P); const B = new Body(rest);
+  if (kind === 'skeleton') { const H = skeletonFrame(B, rest, P); headgear(B, look, P, H); g = B.build(); g.userData = { rest, P, top: H.top, headS: H.s }; geoCache.set(key, g); return g; }
   const armor = look.armor || { kind: 'none', col: '#7a6a5a', trim: '#5a4a3a' };
   const ak = armor.kind || 'none'; const ac = armor.col || '#7a6a5a', at = armor.trim || '#5a4a3a';
   const robe = ak === 'cloth' || look.robe;

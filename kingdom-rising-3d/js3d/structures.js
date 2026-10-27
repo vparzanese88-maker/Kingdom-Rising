@@ -395,6 +395,21 @@ function cityWalls(mb, f, cd) {
     }
   }
   cd._wallTop3 = y0 + H;
+  // the harbour walls: two curtain walls from the city down to the sea, each ending in a sea tower
+  const hb = cd.harbour;
+  if (hb && hb.half) for (const sd of [-hb.half - 1, hb.half + 1]) {
+    let last = null;
+    for (let i = -1; i <= hb.k + 1; i++) {
+      const tx = hb.gx + hb.dx * i + hb.px * sd, ty = hb.gy + hb.dy * i + hb.py * sd; if (!isWall(tx, ty)) continue;
+      const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl; const ix = tx - hb.px * Math.sign(sd), iy = ty - hb.py * Math.sign(sd);
+      const g = Math.min(y0, geo.floorAt((ix + 0.5) * TS, (iy + 0.5) * TS)); const top = y0 + H - 1.2;
+      mb.boxB('stone', x, g - 2.5, z, Tl, top - g + 2.5, Tl, col);
+      const ox = Math.sign(sd) * hb.px, oz = Math.sign(sd) * hb.py; // outward, away from the docks
+      for (const side of [1, -1]) { const ex = x + ox * side * (Tl / 2 - 0.2), ez = z + oz * side * (Tl / 2 - 0.2); mb.boxB('stone', ex, top, ez, ox ? 0.4 : Tl, 0.5, oz ? 0.4 : Tl, col); if ((tx + ty) % 2 === 0) mb.boxB('stone', ex, top + 0.5, ez, ox ? 0.4 : Tl * 0.6, 0.65, oz ? 0.4 : Tl * 0.6, col); }
+      last = [x, z, g];
+    }
+    if (last) tower(mb, last[0], last[1], 2.4, Math.min(y0, last[2]), H + 3.4 + (y0 - Math.min(y0, last[2])), st, 'cone', f);
+  }
   // stone stairs up the inside of the wall: a solid flight of steps with a low parapet on the open side
   if (W.stairs) for (const [i, s] of W.stairs) {
     if (s.f !== f) continue; const tx = i % W.W, ty = Math.floor(i / W.W);

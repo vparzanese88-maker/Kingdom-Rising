@@ -72,7 +72,7 @@
       { const veins = new Map(); const rv = U.mulberry((seed || 1) * 29 + 3);
         for (let k = 0; k < 40000; k++) {
           const x = 4 + Math.floor(rv() * (W.W - 8)), y = 4 + Math.floor(rv() * (W.H - 8)); const i = y * W.W + x; const reg = D.REGIONS[W.region[i]];
-          if (!reg || reg.city || reg.dungeon || !reg.lv || W.block[i] || KR.SOLID[W.tiles[i]] || [T.WATER, T.ROAD, T.BRIDGE, T.COBBLE].includes(W.tiles[i])) continue;
+          if (!reg || reg.city || reg.dungeon || !reg.lv || W.block[i] || KR.SOLID[W.tiles[i]] || [T.WATER, T.DEEP, T.ROAD, T.BRIDGE, T.COBBLE, T.STONE, T.WOOD, T.CWALL, T.WALL].includes(W.tiles[i])) continue;
           const n = veins.get(reg.id) || 0; const rocky = /mountain|hills|snow|summit|desert|crag|grass/.test(reg.biome) ? 26 : 14; if (n >= rocky) continue;
           let near = false; for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < 48 && Math.abs(y - cy) < 48) near = true; } if (near) continue;
           let crowd = false; for (let dy = -1; dy <= 1 && !crowd; dy++) for (let dx = -1; dx <= 1; dx++) if (W.block[(y + dy) * W.W + x + dx]) { crowd = true; break; } if (crowd) continue;
@@ -83,7 +83,7 @@
         const ri = D.REGION_BY_ID[id]; let placed = 0;
         for (let k = 0; k < 6000 && placed < want[id]; k++) {
           const x = 4 + Math.floor(rnd() * (W.W - 8)), y = 4 + Math.floor(rnd() * (W.H - 8)); const i = y * W.W + x;
-          if (W.region[i] !== ri || W.block[i] || KR.SOLID[W.tiles[i]] || [T.WATER, T.ROAD, T.BRIDGE, T.COBBLE].includes(W.tiles[i])) continue;
+          if (W.region[i] !== ri || W.block[i] || KR.SOLID[W.tiles[i]] || [T.WATER, T.DEEP, T.ROAD, T.BRIDGE, T.COBBLE, T.STONE, T.WOOD, T.CWALL, T.WALL].includes(W.tiles[i])) continue;
           let near = false; for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < 62 && Math.abs(y - cy) < 62) near = true; } if (near) continue;
           let crowd = false; for (let dy = -1; dy <= 1 && !crowd; dy++) for (let dx = -1; dx <= 1; dx++) if (W.block[(y + dy) * W.W + x + dx]) { crowd = true; break; } if (crowd) continue;
           W.decor.push({ kind: 'boulder', tx: x, ty: y, x: x * TS + 16, y: y * TS + 24, v: U.hash(x, y, 9) }); W.block[i] = 1; placed++;
@@ -149,7 +149,6 @@
     if (d.cutUntil && d.cutUntil > G.now) { G.log(h.tool === 'axe' ? 'Only a stump is left. It will grow back in a while.' : 'This rock has been quarried. Try another.', 'sys', '#aaa'); return true; }
     const why = K.whyNot(c, d); if (why) { G.log(why, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return true; }
     if (Math.hypot(d.x - p.x, d.y - 8 - p.y) > 70) { G.log(`Walk up to the ${K.targetName(d).toLowerCase()} first.`, 'sys', '#aaa'); return true; }
-    if (p.inCombat) { G.log('You cannot gather while fighting.', 'sys', '#ffb24a'); return true; }
     begin(p, { x: d.x, y: d.y - 8 }, h.tool, M.tier, { d, mat: h.mat });
     return true;
   };
@@ -157,7 +156,6 @@
     const p = G.player; if (!p || p.dead || !K.skinnable(e)) return false;
     const why = K.whyNot(p.c, e); if (why) { G.log(why, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.4); return true; }
     if (Math.hypot(e.x - p.x, e.y - p.y) > 80) { G.log(`Walk up to the ${e.name} first.`, 'sys', '#aaa'); return true; }
-    if (p.inCombat) { G.log('You cannot skin while fighting.', 'sys', '#ffb24a'); return true; }
     begin(p, e, 'knife', Math.max(1, G.tierOfLevel(e.level)), { corpse: e });
     return true;
   };
@@ -166,7 +164,7 @@
     const p = G.player; if (!p) return;
     promptTick(p);
     const H = p.harvest; if (!H) return;
-    if (p.dead || p.moving || p.inCombat || (p.cast && p.cast.spell) || (H.corpse && (H.corpse.removed || H.corpse.skinned))) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
+    if (p.dead || p.moving || (p.cast && p.cast.spell) || (H.corpse && (H.corpse.removed || H.corpse.skinned))) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
     H.t += dt; H.swing -= dt;
     const c = p.c; const verb = H.tool === 'axe' ? 'Chopping' : H.tool === 'pick' ? 'Mining' : 'Skinning';
     const what = H.corpse ? H.corpse.name : K.targetName(H.d);
@@ -189,15 +187,17 @@
     const sk = GS[H.tool]; const cur = K.gskill(c, sk); const cap = K.gskillCap(c);
     if (cur < cap && Math.random() < 0.08 + 0.75 * (1 - cur / Math.max(cap, 1))) { c.gskill[sk] = cur + 1; if ((cur + 1) % 5 === 0 || cur < 10) G.log(`You have become better at ${GS_NAME[sk]}! (${cur + 1})`, 'skill', '#9ad8ff'); }
     const tt = toolTier(c, H.tool);
+    // how much you take: practice (skill against what you could have) and the tool (each tier above the material helps)
+    const yieldOf = (mt) => { const sf = (c.gskill[sk] || 0) / Math.max(1, cap); return 1 + (sf >= 0.4 ? 1 : 0) + (sf >= 0.85 ? 1 : 0) + Math.min(2, Math.max(0, tt - mt)) + (Math.random() < 0.15 + sf * 0.2 ? 1 : 0); };
     if (H.corpse) {
-      const e = H.corpse; e.skinned = true; const ht = G.tierOfLevel(e.level); const n = 1 + (tt > Math.max(1, ht) ? 1 : 0) + (Math.random() < 0.25 ? 1 : 0);
+      const e = H.corpse; e.skinned = true; const ht = G.tierOfLevel(e.level); const n = yieldOf(Math.max(1, ht));
       const hide = G.makeMat('hide', ht, n); Sys.addItem(hide);
       G.log(`You skin the ${e.name} and take ${n > 1 ? n + ' ' : ''}${hide.name}${n > 1 ? 's' : ''}.`, 'loot', '#d8b07a'); G.float(p, `+${n} ${hide.name}`, '#d8b07a');
       try { if (e.loot && !e.loot.items.length) e.lootT = Math.min(e.lootT || 1e9, G.now + 1500); } catch (er) {}
       KR.A.sfx('skin', 0.6);
     } else {
       const M = K.MATS[H.mat];
-      const n = 1 + Math.floor(Math.random() * 2) + (tt > M.tier ? 1 : 0);
+      const n = yieldOf(M.tier);
       if (M.kind === 'ore') {
         // ore goes in your bags, for the smith, the fletcher and the jeweler
         const it = G.makeMat('metal', M.ore, n); Sys.addItem(it); H.d.cutUntil = G.now + 240000;
@@ -206,7 +206,7 @@
         UI.refresh && UI.refresh(); Sys.save && Sys.save(); return;
       }
       K.gather(c)[H.mat] = K.have(c, H.mat) + n;
-      H.d.cutUntil = G.now + (H.tool === 'axe' ? 150000 : 180000);
+      H.d.cutUntil = G.now + (H.tool === 'axe' ? 150000 : 180000); H.d.cutAt = G.now;
       G.float(p, `+${n} ${n > 1 ? M.pl : M.name}`, M.col);
       const need = K.needFor(c.faction); const goal = need && (need.wood === H.mat || need.stone === H.mat) ? ` (${K.have(c, H.mat)} / ${need.n} for the king)` : ` (${K.have(c, H.mat)})`;
       G.log(`You gather ${n} ${n > 1 ? M.pl : M.name}${goal}.`, 'loot', M.col);

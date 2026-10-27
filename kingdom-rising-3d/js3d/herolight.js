@@ -6,13 +6,13 @@ import { MB } from './mb.js';
 
 const KR = window.KR, G = KR.G;
 // one light that is always in the scene (switching lights on and off would make every material recompile)
-const light = new THREE.PointLight(0xffb060, 0, 10, 2); light.castShadow = false; K3.scene.add(light);
+const light = new THREE.PointLight(0xffb060, 0, 10, 1); // gentle falloff: no blinding hot spot right beside the flame light.castShadow = false; K3.scene.add(light);
 let model = null, modelFor = '', boundRig = null, flame = null;
 const glowMat = (hex, k = 3) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), toneMapped: false });
 
 function build(id) {
   const mb = new MB(); const g = new THREE.Group(); let f = null;
-  const flameAt = (x, y, z, s = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.012 * s, 8, 6), glowMat('#ffb050', 4)); m.scale.set(1, 2.2, 1); m.position.set(x, y, z); g.add(m); f = f || []; f.push(m); };
+  const flameAt = (x, y, z, s = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.012 * s, 8, 6), glowMat('#ffb050', 1.5)); m.scale.set(1, 2.2, 1); m.position.set(x, y, z); g.add(m); f = f || []; f.push(m); };
   switch (id) {
     case 'tallow': case 'beeswax': { const wax = id === 'tallow' ? '#e8dcb8' : '#f0d070';
       mb.cylB('metalv', 0, 0, 0, 0.05, 0.012, '#5a4a3a', 12); mb.cylB('plaster', 0, 0.012, 0, 0.018, 0.11, wax, 10); flameAt(0, 0.14, 0); break; }
@@ -61,10 +61,10 @@ K3.updaters.push((dt, t) => {
   const dark = K3.sky && Number.isFinite(K3.sky.darkness) ? K3.sky.darkness : 0.5;
   const steady = id === 'phial' || id === 'sunstone' || id === 'glowcap';
   flick += dt; const fl = steady ? 1 + Math.sin(t * 1.3) * 0.04 : 1 + Math.sin(t * 13) * 0.07 + Math.sin(t * 29.3) * 0.05 + (Math.random() - 0.5) * 0.05;
-  const want = lit ? L.lum * (1.4 + 13 * dark) * fl : 0;
+  const want = lit ? L.lum * (0.35 + 2.6 * dark) * fl : 0;
   light.intensity += (want - light.intensity) * Math.min(1, dt * (lit ? 6 : 14));
   light.color.set(L.col); light.distance = L.r * 1.6;
   // where the light sits: at the model if we can see it, else at the hip in front of the eyes
-  if (model && model.g.parent) { model.g.getWorldPosition(light.position); light.position.y += 0.12; }
-  else { const P = 0.05; light.position.set(p.x * P, K3.camera.position.y - 0.6, p.y * P); }
+  // the light itself sits a little above and ahead of the head, so nothing is lit from a hand's breadth away
+  { const P = 0.05, yaw = K3.view ? K3.view.yaw : 0; const fy = model && model.g.parent ? model.g.getWorldPosition(light.position).y + 1.0 : K3.camera.position.y + 0.25; light.position.set(p.x * P - Math.sin(yaw) * 0.4, fy, p.y * P - Math.cos(yaw) * 0.4); }
 });

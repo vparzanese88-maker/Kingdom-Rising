@@ -578,23 +578,37 @@
     W.decor = W.decor.filter((d) => d.harbour !== f);
     const deco = (kind, x, y, o = {}) => addDecor(kind, x, y, Object.assign({ harbour: f }, o));
     const px = -dy, py = dx; // along the shore
-    // the road from the gate, and a broad stone quay along the water's edge
-    for (let i = 0; i < k; i++) for (let w = -2; w <= 2; w++) { const x = gx + dx * i + px * w, y = gy + dy * i + py * w; if (W.inb(x, y) && !isW(x, y)) { W.tiles[y * W.W + x] = T.COBBLE; W.block[y * W.W + x] = 0; } }
-    for (let s = -26; s <= 26; s++) for (let d = -3; d <= 1; d++) { const x = gx + dx * (k + d) + px * s, y = gy + dy * (k + d) + py * s; if (!W.inb(x, y)) continue; const i = y * W.W + x; if (d < 0 || !isW(x, y)) { if (W.tiles[i] !== T.CWALL) { W.tiles[i] = d === 1 ? T.WOOD : T.STONE; W.block[i] = 0; } } else { W.tiles[i] = T.WOOD; W.block[i] = 0; } }
+    const half = Math.min(R + 1, 11), P2 = (i, sd) => [gx + dx * i + px * sd, gy + dy * i + py * sd];
+    // the dock district: everything from the sea wall down to the water is paved, the road through it cobbled,
+    // and two curtain walls run from the city's corners down to the sea, so the harbour lies inside the walls
+    for (let i = 0; i < k + 1; i++) for (let sd = -half; sd <= half; sd++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; const t = W.tiles[y * W.W + x]; if (isW(x, y) || t === T.CWALL) continue; W.tiles[y * W.W + x] = Math.abs(sd) <= 2 ? T.COBBLE : T.STONE; W.block[y * W.W + x] = 0; }
+    for (const sd of [-half - 1, half + 1]) for (let i = -1; i <= k + 1; i++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; W.tiles[y * W.W + x] = T.CWALL; W.block[y * W.W + x] = 1; }
+    // a broad stone quay along the water's edge, between the two walls
+    for (let sd = -half; sd <= half; sd++) for (let d = -3; d <= 1; d++) { const [x, y] = P2(k + d, sd); if (!W.inb(x, y)) continue; const i = y * W.W + x; if (W.tiles[i] === T.CWALL) continue; W.tiles[i] = d === 1 || isW(x, y) ? T.WOOD : T.STONE; W.block[i] = 0; }
     // three piers out into the deep water
     const piers = [[0, 18], [-14, 14], [14, 14]];
     for (const [off, len] of piers) for (let i = 0; i < len; i++) for (let w = -1; w <= 1; w++) { const x = gx + dx * (k + 1 + i) + px * (off + w), y = gy + dy * (k + 1 + i) + py * (off + w); if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WOOD; W.block[y * W.W + x] = 0; } }
     const at = (i, s) => [gx + dx * (k + 1 + i) + px * s, gy + dy * (k + 1 + i) + py * s];
     const ry = Math.atan2(dx, dy); // ships lie along the piers, bows out to sea
     const ship = (i, s, size, v) => { const [x, y] = at(i, s); if (isW(x, y)) deco('boat', x, y, { nb: true, size, ry, v }); };
-    ship(14, 4, 'galleon', 0.3); ship(9, -4, 'cog', 0.6); ship(10, -10, 'cog', 0.1); ship(9, 18, 'sloop', 0.8); ship(5, 10, 'sloop', 0.45);
-    ship(2, -18, 'rowboat', 0.2); ship(3, 4, 'rowboat', 0.7); ship(1, -9, 'rowboat', 0.9); ship(12, 24, 'sloop', 0.15); ship(22, -6, 'cog', 0.5);
+    // each ship has its own water: the east basin's inner berth (s 3.5) is kept free for the ship that brings new heroes home
+    ship(14, 9, 'galleon', 0.3); ship(9, -5, 'cog', 0.6); ship(10, -10.5, 'sloop', 0.1); ship(9, 18, 'sloop', 0.8); ship(14, 24, 'sloop', 0.45);
+    ship(2, -18, 'rowboat', 0.2); ship(1.5, 6.5, 'rowboat', 0.7); ship(1, -9, 'rowboat', 0.9); ship(23, -6, 'cog', 0.5); ship(4, -19, 'sloop', 0.15);
     // posts, crates, barrels, nets and lamps
     for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }
     for (let s = -24; s <= 24; s += 6) { const x = gx + dx * (k - 2) + px * s, y = gy + dy * (k - 2) + py * s; if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 4); deco(h < 0.35 ? 'crate' : h < 0.7 ? 'barrel' : 'lamp', x, y, h >= 0.7 ? {} : { nb: true }); if (h >= 0.7) W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
     // tall flags along the quay
     for (let s = -24; s <= 24; s += 8) { const x = gx + dx * (k - 3) + px * s, y = gy + dy * (k - 3) + py * s; if (W.inb(x, y) && W.tiles[y * W.W + x] === T.STONE) deco('flagpole', x, y, { nb: true, f }); }
-    W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py };
+    // the market of the docks: stalls along the road, cargo stacked against the walls, lamps and benches
+    const stallCols = ['#b84a3a', '#3a6ab8', '#c9a23a', '#3a8a5a', '#8a4ab8', '#c86a2a'];
+    for (let i = 3; i < k - 5; i += 4) for (const sd of [-5, 5]) { const [x, y] = P2(i, sd); if (W.inb(x, y) && W.tiles[y * W.W + x] === T.STONE) deco('stall', x, y, { col: stallCols[(i + (sd > 0 ? 1 : 0)) % stallCols.length] }); }
+    for (let i = 1; i < k - 3; i += 3) for (const sd of [-half + 1, half - 1, -half + 2, half - 2]) { const [x, y] = P2(i, sd); if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 11); if (h < 0.55) deco(h < 0.2 ? 'crate' : h < 0.4 ? 'barrel' : 'keg', x, y, { nb: true }); }
+    for (let i = 2; i < k; i += 6) for (const sd of [-3, 3]) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; deco('lamp', x, y, {}); W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp', harbour: f }); }
+    for (let i = 5; i < k - 4; i += 8) for (const sd of [-8, 8]) { const [x, y] = P2(i, sd); if (W.inb(x, y) && W.tiles[y * W.W + x] === T.STONE) deco('bench', x, y, { nb: true, ry: sd > 0 ? -Math.PI / 2 : Math.PI / 2 }); }
+    // nothing wild grows on the docks: trees, rocks and ore veins on paving, planks or walls go
+    const dock = new Set([T.STONE, T.COBBLE, T.WOOD, T.CWALL]);
+    W.decor = W.decor.filter((d) => { if (d.harbour === f) return true; const ox = d.tx - gx, oy = d.ty - gy; const i = ox * dx + oy * dy, sd = ox * px + oy * py; if (i < -2 || i > k + 26 || Math.abs(sd) > half + 30) return true; const t = W.tile(d.tx, d.ty); return !(dock.has(t) || t === T.WATER || t === T.DEEP) || ['lamp', 'flagpole', 'post', 'crate', 'barrel', 'boat'].includes(d.kind) && d.harbour === f; });
+    W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py, half };
   }
   function nearCity(x, y, r) { for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) return true; } return false; }
   function areaFree(x, y, w, h) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { if (!W.inb(i, j)) return false; const t = W.tile(i, j); if (SOLID[t] || t === T.WATER || t === T.ROAD || t === T.WOOD || t === T.STONE) return false; } return true; }

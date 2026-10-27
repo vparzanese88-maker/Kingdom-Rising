@@ -37,12 +37,12 @@ export class MB {
     const pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
     const base = p.n; const nm = _nm.getNormalMatrix(m);
     const col = color == null ? null : (color.isColor ? color : K3.col(color, _c));
-    const r = col ? col.r : 1, gg = col ? col.g : 1, b = col ? col.b : 1;
+    const r = col ? col.r : 1, gg = col ? col.g : 1, b = col ? col.b : 1; const ca = col ? null : g.attributes.color; // no tint given: use the geometry's own vertex colours
     const sc = typeof uv === 'number' ? uv : MAT_UV[key] || 2;
     for (let i = 0; i < pa.count; i++) {
       _p.fromBufferAttribute(pa, i).applyMatrix4(m);
       _n.fromBufferAttribute(na, i).applyMatrix3(nm).normalize();
-      p.pos.push(_p.x, _p.y, _p.z); p.nor.push(_n.x, _n.y, _n.z); p.col.push(r, gg, b);
+      p.pos.push(_p.x, _p.y, _p.z); p.nor.push(_n.x, _n.y, _n.z); if (ca) p.col.push(ca.getX(i), ca.getY(i), ca.getZ(i)); else p.col.push(r, gg, b);
       if (uv === 'local' || typeof uv === 'number') { p.uv.push(ua.getX(i) * uvScale * (typeof uv === 'number' ? uv : 1), ua.getY(i) * uvScale * (typeof uv === 'number' ? uv : 1)); }
       else { // project from world space along the dominant normal axis
         const ax = Math.abs(_n.x), ay = Math.abs(_n.y), az = Math.abs(_n.z);

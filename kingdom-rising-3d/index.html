@@ -17,49 +17,49 @@ html, body { height: 100%; margin: 0; background: #07080b; overflow: hidden; }
 #boot3d { position: fixed; inset: 0; display: grid; place-items: center; color: #b9a989; font: 15px "Alegreya Sans", system-ui, sans-serif; background: radial-gradient(ellipse at center, #2a1f16 0%, #0b0a0f 70%); z-index: 90; text-align: center; padding: 16px; }
 #boot3d b { display: block; font: 400 clamp(34px, 6vw, 64px)/1 "IM Fell English SC", Georgia, serif; color: #f0d48a; margin-bottom: 14px; }
 </style>
-<link rel="stylesheet" href="css3d/k3d.css?v=36">
+<link rel="stylesheet" href="css3d/k3d.css?v=37">
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/build/three.module.min.js",
   "three/addons/": "./vendor/three/examples/jsm/",
-  "./js3d/actors.js": "./js3d/actors.js?v=36",
-  "./js3d/camera.js": "./js3d/camera.js?v=36",
-  "./js3d/chars.js": "./js3d/chars.js?v=36",
-  "./js3d/core.js": "./js3d/core.js?v=36",
-  "./js3d/creatures.js": "./js3d/creatures.js?v=36",
-  "./js3d/fx.js": "./js3d/fx.js?v=36",
-  "./js3d/gait.js": "./js3d/gait.js?v=36",
-  "./js3d/geo.js": "./js3d/geo.js?v=36",
-  "./js3d/grass.js": "./js3d/grass.js?v=36",
-  "./js3d/hud3d.js": "./js3d/hud3d.js?v=36",
-  "./js3d/harvest3d.js": "./js3d/harvest3d.js?v=36",
-  "./js3d/herolight.js": "./js3d/herolight.js?v=36",
-  "./js3d/human.js": "./js3d/human.js?v=36",
-  "./js3d/items3d.js": "./js3d/items3d.js?v=36",
-  "./js3d/keys3d.js": "./js3d/keys3d.js?v=36",
-  "./js3d/lights.js": "./js3d/lights.js?v=36",
-  "./js3d/mats.js": "./js3d/mats.js?v=36",
-  "./js3d/mb.js": "./js3d/mb.js?v=36",
-  "./js3d/portrait3d.js": "./js3d/portrait3d.js?v=36",
-  "./js3d/props.js": "./js3d/props.js?v=36",
-  "./js3d/settings3d.js": "./js3d/settings3d.js?v=36",
-  "./js3d/sdfmesh.js": "./js3d/sdfmesh.js?v=36",
-  "./js3d/sky.js": "./js3d/sky.js?v=36",
-  "./js3d/structures.js": "./js3d/structures.js?v=36",
-  "./js3d/terrain.js": "./js3d/terrain.js?v=36",
-  "./js3d/texgen.js": "./js3d/texgen.js?v=36",
-  "./js3d/veg.js": "./js3d/veg.js?v=36",
-  "./js3d/viewmodel.js": "./js3d/viewmodel.js?v=36",
-  "./js3d/weapons.js": "./js3d/weapons.js?v=36",
-  "./js3d/world3d.js": "./js3d/world3d.js?v=36",
-  "./js3d/ships.js": "./js3d/ships.js?v=36",
-  "./js3d/wildlife.js": "./js3d/wildlife.js?v=36",
-  "./js3d/intro3d.js": "./js3d/intro3d.js?v=36",
-  "./js3d/scene3d.js": "./js3d/scene3d.js?v=36",
-  "./js3d/cine3d.js": "./js3d/cine3d.js?v=36",
-  "./js3d/heroview.js": "./js3d/heroview.js?v=36",
-  "./js3d/menu3d.js": "./js3d/menu3d.js?v=36",
-  "./js3d/crafthouses.js": "./js3d/crafthouses.js?v=36"
+  "./js3d/actors.js": "./js3d/actors.js?v=37",
+  "./js3d/camera.js": "./js3d/camera.js?v=37",
+  "./js3d/chars.js": "./js3d/chars.js?v=37",
+  "./js3d/core.js": "./js3d/core.js?v=37",
+  "./js3d/creatures.js": "./js3d/creatures.js?v=37",
+  "./js3d/fx.js": "./js3d/fx.js?v=37",
+  "./js3d/gait.js": "./js3d/gait.js?v=37",
+  "./js3d/geo.js": "./js3d/geo.js?v=37",
+  "./js3d/grass.js": "./js3d/grass.js?v=37",
+  "./js3d/hud3d.js": "./js3d/hud3d.js?v=37",
+  "./js3d/harvest3d.js": "./js3d/harvest3d.js?v=37",
+  "./js3d/herolight.js": "./js3d/herolight.js?v=37",
+  "./js3d/human.js": "./js3d/human.js?v=37",
+  "./js3d/items3d.js": "./js3d/items3d.js?v=37",
+  "./js3d/keys3d.js": "./js3d/keys3d.js?v=37",
+  "./js3d/lights.js": "./js3d/lights.js?v=37",
+  "./js3d/mats.js": "./js3d/mats.js?v=37",
+  "./js3d/mb.js": "./js3d/mb.js?v=37",
+  "./js3d/portrait3d.js": "./js3d/portrait3d.js?v=37",
+  "./js3d/props.js": "./js3d/props.js?v=37",
+  "./js3d/settings3d.js": "./js3d/settings3d.js?v=37",
+  "./js3d/sdfmesh.js": "./js3d/sdfmesh.js?v=37",
+  "./js3d/sky.js": "./js3d/sky.js?v=37",
+  "./js3d/structures.js": "./js3d/structures.js?v=37",
+  "./js3d/terrain.js": "./js3d/terrain.js?v=37",
+  "./js3d/texgen.js": "./js3d/texgen.js?v=37",
+  "./js3d/veg.js": "./js3d/veg.js?v=37",
+  "./js3d/viewmodel.js": "./js3d/viewmodel.js?v=37",
+  "./js3d/weapons.js": "./js3d/weapons.js?v=37",
+  "./js3d/world3d.js": "./js3d/world3d.js?v=37",
+  "./js3d/ships.js": "./js3d/ships.js?v=37",
+  "./js3d/wildlife.js": "./js3d/wildlife.js?v=37",
+  "./js3d/intro3d.js": "./js3d/intro3d.js?v=37",
+  "./js3d/scene3d.js": "./js3d/scene3d.js?v=37",
+  "./js3d/cine3d.js": "./js3d/cine3d.js?v=37",
+  "./js3d/heroview.js": "./js3d/heroview.js?v=37",
+  "./js3d/menu3d.js": "./js3d/menu3d.js?v=37",
+  "./js3d/crafthouses.js": "./js3d/crafthouses.js?v=37"
 } }
 </script>
 
@@ -76,6 +76,13 @@ html, body { height: 100%; margin: 0; background: #07080b; overflow: hidden; }
 window.KR3D = true;
 window.addEventListener('error', function (e) { if (e.filename && e.filename.indexOf('/js') < 0) return; if (window.KR && window.KR.Main && window.KR.Main.showFatal) window.KR.Main.showFatal(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { try { e.preventDefault(); } catch (x) {} console.warn('Ignored async error:', e.reason); });
+// if the world has not come up after a minute (a half-finished site update, or no WebGL), reload once with fresh files, then explain
+setTimeout(function () {
+  if (window.KR_BOOTED) return; let tried = false; try { tried = sessionStorage.getItem('kr_boot_retry') === '1'; sessionStorage.setItem('kr_boot_retry', '1'); } catch (e) {}
+  if (!tried) { location.replace(location.pathname + '?fresh=' + Date.now()); return; }
+  const el = document.getElementById('boot3d-msg'); if (el) el.innerHTML = 'The 3D world could not start on this device (no WebGL, or the files did not load).<br><br><button onclick="location.replace(location.pathname + \'?fresh=\' + Date.now())" class="btn gold">Try again</button> &nbsp; <a class="btn" href="../">Play the 2D version</a>';
+}, 60000);
+window.addEventListener('load', function () { setTimeout(function () { if (window.KR_BOOTED) try { sessionStorage.removeItem('kr_boot_retry'); } catch (e) {} }, 65000); });
 window.KR_READY = (async function () {
   const msg = (t) => { const el = document.getElementById('boot3d-msg'); if (el) el.textContent = t; };
   let html;
@@ -92,12 +99,12 @@ window.KR_READY = (async function () {
     srcs.forEach((src, i) => {
       const s = document.createElement('script'); s.src = '../' + src; s.async = false;
       s.onload = () => { msg('Loading the game files... ' + Math.round(((srcs.length - --left) / srcs.length) * 100) + '%'); if (!left) resolve(); };
-      s.onerror = () => reject(new Error('Failed to load ' + src));
+      s.onerror = () => reject(new Error('Failed to load ' + src + '. The site may be updating: reload in a moment.'));
       document.body.appendChild(s);
     });
   });
   msg('Raising the world in three dimensions...');
 })();
 </script>
-<script type="module" src="js3d/main3d.js?v=36"></script>
+<script type="module" src="js3d/main3d.js?v=37"></script>
 </html>

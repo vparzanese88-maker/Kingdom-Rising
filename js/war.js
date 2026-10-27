@@ -916,21 +916,22 @@
     const rf = War.enemyOf(p.c.faction); let R = a.war.rival;
     if (!R || R.f !== rf) {
       const F = D.FACTIONS[rf]; const race = U.pick(F.races); const cls = U.pick(Object.keys(D.CLASSES)); const gender = Math.random() < 0.5 ? 'm' : 'f'; const NM = D.NAMES[rf];
-      R = a.war.rival = { f: rf, race, cls, gender, name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, level: Math.max(1, p.c.level - 1), xp: 0, nextRecruit: Date.now() + 4 * 60000, nextRaid: Date.now() + (20 + Math.random() * 20) * 60000, nextDeed: Date.now() + 90000, skin: Math.floor(Math.random() * 4), hair: Math.floor(Math.random() * 7), hairStyle: Math.floor(Math.random() * 4) };
+      R = a.war.rival = { f: rf, race, cls, gender, name: `${U.pick(NM[gender])} ${U.pick(NM.last)}`, level: Math.max(1, p.c.level - 1), xp: 0, nextRecruit: Date.now() + 4 * 60000, nextRaid: Date.now() + (40 + Math.random() * 30) * 60000, nextDeed: Date.now() + 90000, skin: Math.floor(Math.random() * 4), hair: Math.floor(Math.random() * 7), hairStyle: Math.floor(Math.random() * 4) };
     }
     return R;
   };
   War.rivalActive = function () { const p = G.player; if (!p) return false; const rf = War.enemyOf(p.c.faction); return !(Sys.Net && Sys.Net.peers && Sys.Net.peers.some((pp) => pp.f === rf)); };
-  // runs once a second of real play time; paced like an ordinary player, never above your level + 2
+  // runs once a second of real play time; paced like an ordinary player, never above your own level
   War.rivalTick = function () {
     const p = G.player; if (!p || !War.rivalActive()) return; const R = War.rival(); if (!R) return;
     const now = Date.now(); const rf = R.f; const F = D.FACTIONS[rf];
-    const cap = Math.min(D.MAX_LEVEL, Math.max(5, p.c.level + 2));
-    // experience: a level every few minutes early on, slower later
-    if (R.level < cap) { R.xp += 1 / 60; const need = 5 + R.level * 0.7; if (R.xp >= need) { R.xp = 0; R.level++; War.updateRivalAvatar(); if (R.level % 5 === 0) G.log(`Word from the front: ${R.name}, the ${D.CLASSES[R.cls].name} of ${F.city}, has reached level ${R.level}.`, 'status', '#ffb0a0'); } }
+    const cap = Math.min(D.MAX_LEVEL, Math.max(2, p.c.level));
+    // experience: about a quarter of an hour a level early on, much slower later
+    if (R.level > cap) R.level = cap;
+    if (R.level < cap) { R.xp += 1 / 60; const need = 14 + R.level * 2; if (R.xp >= need) { R.xp = 0; R.level++; War.updateRivalAvatar(); if (R.level % 5 === 0) G.log(`Word from the front: ${R.name}, the ${D.CLASSES[R.cls].name} of ${F.city}, has reached level ${R.level}.`, 'status', '#ffb0a0'); } }
     // deeds: quests, the king's tasks and bosses earn status for the rival's city
     if (now >= R.nextDeed) {
-      R.nextDeed = now + (90 + Math.random() * 150) * 1000;
+      R.nextDeed = now + (200 + Math.random() * 250) * 1000;
       const boss = D.BOSSES.filter((b) => b.lv <= R.level - 1).sort((a, b) => b.lv - a.lv)[0];
       if (boss && Math.random() < 0.18) { Sys.addStatus(rf, Math.round(boss.lv * 3), `slaying ${boss.name}`); G.log(`Rumor: ${R.name} of ${F.city} has slain ${boss.name}! ${F.city} grows stronger.`, 'status', '#ffb0a0'); }
       else Sys.addStatus(rf, Math.round(8 + R.level * 1.2 + Math.random() * 10), 'a quest');
@@ -938,10 +939,10 @@
     // the rival recruits soldiers and sends them at random times, like a live player would
     if (W.realm && W.realm !== 'main') return;
     const ros = War.roster(rf);
-    if (now >= R.nextRecruit) { R.nextRecruit = now + (150 + Math.random() * 210) * 1000; if (ros.length < War.maxRecruits(rf)) { const tier = U.clamp(Sys.cityLevel(rf), 1, 5); const opts = Object.keys(D.SOLDIERS).filter((k) => D.SOLDIERS[k].tier <= tier); War.hire(U.pick(opts), rf, R.name, true); } }
+    if (now >= R.nextRecruit) { R.nextRecruit = now + (300 + Math.random() * 300) * 1000; if (ros.length < War.maxRecruits(rf)) { const tier = U.clamp(Sys.cityLevel(rf), 1, 5); const opts = Object.keys(D.SOLDIERS).filter((k) => D.SOLDIERS[k].tier <= tier); War.hire(U.pick(opts), rf, R.name, true); } }
     const home = ros.filter((h) => !h.out).length; const away = War.squads.some((s) => s.f === rf && s.members.some((m) => !m.dead));
     if (now >= R.nextRaid && !away && home >= Math.max(3, Math.ceil(War.maxRecruits(rf) * 0.6))) {
-      R.nextRaid = now + (18 + Math.random() * 30) * 60000;
+      R.nextRaid = now + (45 + Math.random() * 45) * 60000;
       War.launchRaid(rf);
     } else if (now >= R.nextRaid && away) R.nextRaid = now + 5 * 60000;
   };

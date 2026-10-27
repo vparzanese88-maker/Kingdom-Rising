@@ -929,7 +929,15 @@
       if (Math.max(Math.abs(tx - cx), Math.abs(ty - cy)) <= R + 2) continue;
       const t = W.tiles[ty * W.W + tx]; if (SOLID[t] || t === T.ROAD || t === T.WATER || t === T.BRIDGE) continue;
       const h = U.hash(tx, ty, 77), h2 = U.hash(tx, ty, 91);
-      const dens = f === 'sylvan' ? 0.09 : f === 'iron' ? 0.03 : 0.012;
+      let dens = f === 'sylvan' ? 0.09 : f === 'iron' ? 0.03 : 0.012;
+      if (f === 'sylvan') {
+        // Aelindor's woods open out near the city: open glades under the walls, clear ground along the roads and before
+        // the gates, and the trees thinning in to about a third of the wild wood's density (back to full by the edge)
+        const d = Math.max(Math.abs(tx - cx), Math.abs(ty - cy)) - R;
+        let road = false; for (let j = -2; j <= 2 && !road; j++) for (let i = -2; i <= 2 && !road; i++) { const t2 = W.tile(tx + i, ty + j); if (t2 === T.ROAD || t2 === T.BRIDGE) road = true; }
+        const byGate = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3], [cx, cy - R]].some(([gx, gy]) => Math.abs(tx - gx) <= 8 && Math.abs(ty - gy) <= 8);
+        dens = d < 6 || road || byGate ? 0 : dens * Math.min(1, 0.3 + ((d - 6) / 45) * 0.7);
+      }
       if (h < dens) addDecor(f === 'sylvan' ? (h2 < 0.6 ? 'elmwood' : 'oak') : f === 'iron' ? (h2 < 0.6 ? 'pine' : 'boulder') : 'oak', tx, ty, {});
       else if (h < dens + 0.05 && h2 < 0.5) addDecor(f === 'iron' ? 'pebbles' : 'flowers', tx, ty, { nb: true });
     }

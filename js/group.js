@@ -18,6 +18,10 @@
   const peerOf = (id) => Net.peers.find((p) => p.peer === id);
   const nameOf = (id) => (id === me() ? myName() : (peerOf(id) || {}).n || Grp.names[id] || 'Someone');
   Sys.inGroup = inGroup;
+  // group mates are drawn in their own colour everywhere (world, minimap, map, edge arrows)
+  Sys.GROUP_COL = '#3cf0ff';
+  Sys.isMate = (pp) => { const id = pp && (pp.peer || pp); return inGroup() && id !== me() && Grp.members.includes(id); };
+  Sys.mates = () => (inGroup() ? Net.peers.filter((pp) => Grp.members.includes(pp.peer) && (pp.rm || 'main') === (W.realm || 'main')) : []);
 
   function send(op, data = {}) { if (!Net.room) return; Net.room.emit('grp', Object.assign({ op, fn: myName() }, data)).catch(() => {}); }
   function zoneName() { const p = G.player; if (!p) return ''; const reg = D.REGIONS[W.regionAtPx(p.x, p.y)]; const R = W.REALMS && W.REALMS[W.realm || 'main']; return W.realm && W.realm !== 'main' && R ? R.name : reg ? reg.name : ''; }
@@ -93,6 +97,93 @@
     send('buff', { gid: Grp.gid, sp: def.id, lvl: src.level, song: def.school === 'Song' ? 1 : 0, rm: W.realm || 'main', x: Math.round(src.x), y: Math.round(src.y) });
   };
 
+  // ---------- group loot ----------
+  // In a group, kills are looted automatically. Coins are split evenly between the members nearby and
+  // ordinary drops are handed out in turn; weapons, ingredients and anything rare are rolled for:
+  // everyone nearby gets a dice window (Need, Greed or Pass) and the highest Need roll wins, then Greed.
+  const ROLL_TIME = 25000;
+  const FINE = /^(Gleaming|Ancient|Runed|Blessed|Shadowed|Fabled) /;
+  const rollable = (it) => it.kind === 'weapon' || it.kind === 'mat' || it.unique || it.proc || it.sig || it.fx || it.kind === 'jewel' || FINE.test(it.name || '') || (it.value || 0) >= 2000;
+  const rolls = new Map(); // id -> { item, owner, eligible, picks, until, mine, done }
+  const fresh = (it) => Object.assign(JSON.parse(JSON.stringify(it)), { uid: U.uid() });
+  const giveMe = (it, how) => { const c = fresh(it); if (Sys.addItem(c, true)) { G.log(`You receive ${c.qty > 1 ? c.qty + ' x ' : ''}${c.name}${how ? ' ' + how : ''}.`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.5); KR.UI && KR.UI.refresh(); return true; } G.log(`Your bags are full, so ${c.name} was left behind.`, 'loot', '#ffb24a'); return false; };
+  Sys.groupCoins = function (amt, e) {
+    const near = nearMembers(XP_RANGE); if (!near.length || amt <= 0) return false;
+    const n = 1 + near.length, share = Math.floor(amt / n), mine = amt - share * (n - 1);
+    const c = G.player.c; c.coins += mine;
+    G.log(`You loot ${G.fmtCoins(amt)} from ${e.name} and split it ${n} ways (${G.fmtCoins(mine)} for you).`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.8);
+    if (share > 0) for (const pp of near) send('coin', { gid: Grp.gid, to: pp.peer, amt: share, mob: e.name });
+    return true;
+  };
+  Sys.groupLoot = function (e) {
+    const near = nearMembers(XP_RANGE); if (!near.length || !e.loot) return false;
+    const order = [me()].concat(near.map((pp) => pp.peer));
+    for (const it of e.loot.items.splice(0)) {
+      if (rollable(it)) { startRoll(it, order); continue; }
+      const to = order[(Grp.rr = ((Grp.rr || 0) + 1) % order.length)];
+      if (to === me()) { if (!giveMe(it, 'as your share')) e.loot.items.push(it); }
+      else { send('give', { gid: Grp.gid, to, item: it, mob: e.name }); G.log(`${nameOf(to)} receives ${it.name}.`, 'loot', GCOL); }
+    }
+    return true;
+  };
+  function startRoll(it, order) {
+    const id = me() + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const r = { id, item: it, owner: me(), eligible: order, picks: {}, until: Date.now() + ROLL_TIME, mine: null };
+    rolls.set(id, r); send('roll', { gid: Grp.gid, id, item: it, eligible: order, ms: ROLL_TIME });
+    G.log(`Rolling for ${it.name}...`, 'loot', GCOL); renderRolls();
+    r.timer = setTimeout(() => resolveRoll(id), ROLL_TIME + 500);
+  }
+  Sys.groupPick = function (id, choice) {
+    const r = rolls.get(id); if (!r || r.mine) return; r.mine = choice;
+    if (r.owner === me()) gotPick(r, me(), choice); else send('pick', { gid: Grp.gid, id, to: r.owner, choice });
+    if (choice === 'pass') G.log(`You pass on ${r.item.name}.`, 'loot', '#bba');
+    renderRolls();
+  };
+  function gotPick(r, who, choice) {
+    if (r.done || !r.eligible.includes(who) || r.picks[who]) return;
+    r.picks[who] = { choice: ['need', 'greed'].includes(choice) ? choice : 'pass', roll: 1 + Math.floor(Math.random() * 100) };
+    if (r.eligible.every((x) => r.picks[x])) resolveRoll(r.id);
+  }
+  function resolveRoll(id) {
+    const r = rolls.get(id); if (!r || r.done || r.owner !== me()) return; r.done = true; clearTimeout(r.timer);
+    const res = Object.entries(r.picks).filter(([, v]) => v.choice !== 'pass').map(([who, v]) => ({ who, n: nameOf(who), c: v.choice, r: v.roll }));
+    const best = (c) => res.filter((x) => x.c === c).sort((a, b) => b.r - a.r)[0];
+    const win = best('need') || best('greed');
+    const winner = win ? win.who : me(); // if everyone passes, whoever made the kill keeps it
+    send('won', { gid: Grp.gid, id, winner, item: winner === me() ? null : r.item, name: r.item.name, res });
+    announce(r.item.name, res, winner);
+    if (winner === me()) giveMe(r.item, win ? 'from the roll' : '(everyone passed)');
+    rolls.delete(id); renderRolls();
+  }
+  function announce(name, res, winner) {
+    for (const x of res) G.log(`${x.n} rolls ${x.r} (${x.c === 'need' ? 'Need' : 'Greed'}) for ${name}.`, 'loot', '#cfe');
+    G.log(`${winner === me() ? 'You win' : nameOf(winner) + ' wins'} ${name}.`, 'loot', GCOL);
+  }
+  function renderRolls() {
+    let box = $('.groll-box'); if (!box) { box = h('div', 'groll-box'); $('#ui').appendChild(box); }
+    box.innerHTML = '';
+    for (const r of rolls.values()) {
+      if (r.mine) continue;
+      const it = r.item, left = Math.max(0, r.until - Date.now());
+      const card = h('div', 'groll', `<div class="groll-i">${UI.icHTML(it)}</div><div class="groll-m"><b>${esc(it.name)}</b><small>Roll for it: Need if you will use it, Greed to sell it.</small><div class="groll-t"><i style="width:${(left / ROLL_TIME) * 100}%"></i></div>
+        <div class="groll-b"><button class="btn small gold" data-c="need">🎲 Need</button><button class="btn small" data-c="greed">💰 Greed</button><button class="btn small ghost" data-c="pass">Pass</button></div></div>`);
+      card.querySelectorAll('button').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); Sys.groupPick(r.id, b.dataset.c); }));
+      if (UI.bindTip) UI.bindTip(card.querySelector('.groll-i'), () => UI.itemTip(it));
+      box.appendChild(card);
+    }
+    box.hidden = !box.children.length;
+  }
+  // timers on the dice windows, and passing automatically when time runs out
+  setInterval(() => {
+    let any = false; const now = Date.now();
+    for (const r of rolls.values()) {
+      if (r.mine) continue; any = true;
+      if (now > r.until) { if (r.owner === me()) { r.mine = 'pass'; gotPick(r, me(), 'pass'); } else Sys.groupPick(r.id, 'pass'); }
+    }
+    if (any) for (const el of document.querySelectorAll('.groll-t i')) { const r = [...rolls.values()].filter((x) => !x.mine)[[...document.querySelectorAll('.groll-t i')].indexOf(el)]; if (r) el.style.width = (Math.max(0, r.until - now) / ROLL_TIME) * 100 + '%'; }
+    for (const [id, r] of rolls) if (r.owner !== me() && now > r.until + 15000) rolls.delete(id); // the roll's owner went away
+  }, 500);
+
   // ---------- network ----------
   Sys.onNetReady = function (room) {
     Net.on('grp', (m) => {
@@ -134,6 +225,15 @@
           for (const t of G.party(p)) if (Math.hypot(t.x - p.x, t.y - p.y) < BUFF_RANGE) G.applyEffects(src, t, d2);
           if (d.song) G.noteFx(p, def, 2); else G.fxAdd({ k: 'aura', x: p.x, y: p.y, col: '#9affb8', life: 0.9, ent: p });
           break; }
+        case 'coin': if (Grp.gid !== d.gid || d.to !== me()) return; { const amt = Math.max(0, Math.min(Math.round(+d.amt || 0), 1e7)); if (!amt) return; p.c.coins += amt; G.log(`You receive ${G.fmtCoins(amt)} as your share${d.mob ? ' from ' + String(d.mob).slice(0, 30) : ''}.`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.5); KR.UI.refresh && KR.UI.refresh(); } break;
+        case 'give': if (Grp.gid !== d.gid || d.to !== me() || !d.item || typeof d.item !== 'object') return; giveMe(d.item, `from ${Grp.names[from]}'s kill`); break;
+        case 'roll': if (Grp.gid !== d.gid || !d.item || typeof d.item !== 'object' || !Array.isArray(d.eligible) || !d.eligible.includes(me())) return;
+          rolls.set(d.id, { id: d.id, item: d.item, owner: from, eligible: d.eligible, picks: {}, until: Date.now() + Math.min(+d.ms || ROLL_TIME, 60000), mine: null });
+          KR.A.sfx('open', 0.5); renderRolls(); break;
+        case 'pick': if (Grp.gid !== d.gid || d.to !== me()) return; { const r = rolls.get(d.id); if (r && r.owner === me()) gotPick(r, from, d.choice); } break;
+        case 'won': if (Grp.gid !== d.gid) return; { const r = rolls.get(d.id); if (!r && d.winner !== me()) return; rolls.delete(d.id); renderRolls();
+          announce(String(d.name || 'the item').slice(0, 60), Array.isArray(d.res) ? d.res.slice(0, 6).map((x) => ({ n: String(x.n || '').slice(0, 24), c: x.c === 'need' ? 'need' : 'greed', r: Math.max(1, Math.min(100, Math.round(+x.r) || 1)) })) : [], d.winner);
+          if (d.winner === me() && d.item && typeof d.item === 'object') giveMe(d.item, 'from the roll'); } break;
       }
     });
   };
@@ -158,7 +258,7 @@
     const m = /^\/(\w+)\s*(.*)$/.exec(ln.trim());
     if (m) {
       const cmd = m[1].toLowerCase(), arg = m[2].trim();
-      if (cmd === 'invite' || cmd === 'inv') { if (arg) Sys.groupInvite(arg); else if (G.player.target && G.player.target.type === 'peer') Sys.groupInvite(G.player.target.peer); else G.log('Usage: /invite <name>', 'sys', '#ccc'); return; }
+      if (cmd === 'invite' || cmd === 'inv') { if (arg) Sys.groupInvite(arg); else if (G.player.target && G.player.target.type === 'peer') Sys.groupInvite(G.player.target.peer); else if (KR.Online && KR.Online.mode !== 'solo') { const O = KR.Online; G.log(`Invite friends to "${O.name}" with this link: ${O.inviteLink()} (game code ${O.code}${O.pass ? ', plus the password' : ''}). To invite a player who is already here into your group: /invite <name>.`, 'status', '#ffd84a'); try { navigator.clipboard && navigator.clipboard.writeText(O.inviteLink()).catch(() => {}); } catch (e) {} } else G.log('Usage: /invite <name>', 'sys', '#ccc'); return; }
       if (cmd === 'g' || cmd === 'gsay' || cmd === 'gs') { Sys.groupChat(arg); return; }
       if (cmd === 'disband') { Sys.groupDisband(); return; }
       if (cmd === 'leavegroup') { Sys.groupLeave(); return; }

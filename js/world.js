@@ -721,6 +721,36 @@
     const outRoad = (sx, sy, dx, dy, n) => { for (let i = 0; i < n; i++) for (let w = -1; w <= 1; w++) { const tx = sx + dx * i + (dy ? w : 0), ty = sy + dy * i + (dx ? w : 0); if (W.inb(tx, ty)) { const k = ty * W.W + tx; if (!SOLID[W.tiles[k]] || W.tiles[k] === T.ROCK) W.tiles[k] = T.ROAD; W.block[k] = 0; } } };
     outRoad(cx, cy + R + 1, 0, 1, 12);
     for (const [lx, ly] of [[cx - 3, cy + R + 4], [cx + 3, cy + R + 9], [cx + R + 5, cy + 1], [cx - R - 5, cy + 1]]) if (W.inb(lx, ly) && !SOLID[W.tiles[ly * W.W + lx]]) { addDecor('lamp', lx, ly, {}); W.lights.push({ x: lx * TS + 16, y: ly * TS - 20, r: 190, col: '255,196,110', fl: 0.08, k: 'lamp' }); } outRoad(cx + R + 1, cy + 3, 1, 0, 10); outRoad(cx - R - 1, cy + 3, -1, 0, 10);
+    // roads that reached the wall away from a gate: cut them short of the wall and run them along the walls to the nearest gate
+    {
+      const ringD = (tx, ty) => Math.max(Math.abs(tx - cx), Math.abs(ty - cy));
+      const nearGate = (tx, ty) => { const dx = tx - cx, dy = ty - cy; return (dy > R && Math.abs(dx) <= 1) || (Math.abs(dx) > R && dy >= 2 && dy <= 4); };
+      const isRoad = (t) => t === T.ROAD || t === T.BRIDGE;
+      const fillFor = (tx, ty) => { const n = new Map(); for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const t = W.tile(tx + i, ty + j); if (t == null || isRoad(t) || SOLID[t] || t === T.COBBLE || t === T.STONE || t === T.WATER) continue; n.set(t, (n.get(t) || 0) + 1); } let best = T.GRASS, bn = 0; for (const [t, c] of n) if (c > bn) { best = t; bn = c; } return best; };
+      const L = R + 3, P = 8 * L; // the walk around the walls runs on the square ring at distance L
+      const ringAt = (i) => { i = ((i % P) + P) % P; const side = Math.floor(i / (2 * L)), o = (i % (2 * L)) - L; return side === 0 ? [cx + o, cy + L] : side === 1 ? [cx + L, cy - o] : side === 2 ? [cx - o, cy - L] : [cx - L, cy + o]; };
+      const ringIndex = (tx, ty) => { let best = 0, bd = 1e9; for (let i = 0; i < P; i++) { const [x, y] = ringAt(i); const d = Math.abs(x - tx) + Math.abs(y - ty); if (d < bd) { bd = d; best = i; } } return best; };
+      const gates = [ringIndex(cx, cy + L), ringIndex(cx + L, cy + 3), ringIndex(cx - L, cy + 3)];
+      const contacts = [];
+      for (let ty = cy - R - 2; ty <= cy + R + 2; ty++) for (let tx = cx - R - 2; tx <= cx + R + 2; tx++) {
+        if (!W.inb(tx, ty) || ringD(tx, ty) <= R || nearGate(tx, ty)) continue;
+        const k = ty * W.W + tx; if (!isRoad(W.tiles[k])) continue;
+        if (ringD(tx, ty) === R + 1) contacts.push([tx, ty]);
+        W.tiles[k] = W.tiles[k] === T.BRIDGE ? T.WATER : fillFor(tx, ty);
+      }
+      const paint = (tx, ty) => { if (!W.inb(tx, ty) || ringD(tx, ty) <= R + 1) return; const k = ty * W.W + tx, t = W.tiles[k]; if (t === T.DEEP || t === T.LAVA || t === T.CWALL || t === T.WALL) return; W.tiles[k] = t === T.WATER ? T.BRIDGE : T.ROAD; W.block[k] = 0; };
+      const done = new Set();
+      for (const [tx, ty] of contacts) {
+        const s0 = ringIndex(tx, ty); if (done.has(s0)) continue; done.add(s0);
+        // from where the old road met the wall, walk out to the ring, then around it the short way to a gate
+        const ox = Math.sign(tx - cx) * (Math.abs(tx - cx) > R ? 1 : 0), oy = Math.sign(ty - cy) * (Math.abs(ty - cy) > R ? 1 : 0);
+        for (let d = 0; d <= 3; d++) for (let w = -1; w <= 1; w++) paint(tx + ox * d + (oy ? w : 0), ty + oy * d + (ox ? w : 0));
+        let bestG = null, bestSteps = 1e9;
+        for (const g of gates) for (const dir of [1, -1]) { const st = (((g - s0) * dir) % P + P) % P; if (st < bestSteps) { bestSteps = st; bestG = dir; } }
+        for (let i = 0; i <= bestSteps; i++) { const [x, y] = ringAt(s0 + i * bestG); for (let j = -1; j <= 1; j++) for (let k2 = -1; k2 <= 1; k2++) if (Math.abs(j) + Math.abs(k2) <= 1) paint(x + j, y + k2); }
+      }
+      W.decor = W.decor.filter((d) => !(ringD(d.tx, d.ty) > R && isRoad(W.tile(d.tx, d.ty)) && !['lamp', 'signpost'].includes(d.kind)));
+    }
     // plaza
     for (let ty = cy - 5; ty <= cy + 1; ty++) for (let tx = cx - 5; tx <= cx + 5; tx++) W.tiles[ty * W.W + tx] = T.STONE;
     addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});

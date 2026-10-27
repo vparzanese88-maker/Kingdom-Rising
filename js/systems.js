@@ -232,10 +232,12 @@
     if (Sys.groupXp) Sys.groupXp(Math.max(1, xp), e); else G.giveXp(Math.max(1, xp));
     c.kills = (c.kills || 0) + 1;
     e.loot = G.genLoot(e);
+    if (e.loot.coins && Sys.groupCoins && Sys.groupCoins(e.loot.coins, e)) e.loot.coins = 0;
     if (e.loot.coins) { c.coins += e.loot.coins; G.log(`You loot ${G.fmtCoins(e.loot.coins)} from ${e.name}.`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.8); e.loot.coins = 0; }
     // quest items auto loot
     for (let i = e.loot.items.length - 1; i >= 0; i--) { const it = e.loot.items[i]; if (it.kind === 'trophy' && Sys.questNeeds(it.name)) { if (Sys.addItem(it)) e.loot.items.splice(i, 1); } }
-    if (e.loot.items.length && G.ui_autoloot) Sys.lootAll(e);
+    if (e.loot.items.length && Sys.groupLoot && Sys.groupLoot(e)) { /* in a group: shared out automatically */ }
+    else if (e.loot.items.length && G.ui_autoloot) Sys.lootAll(e);
     Sys.questKill(e);
     if (e.boss) {
       const B = D.BOSS_BY_ID[e.boss];
@@ -251,8 +253,7 @@
     const p = G.player, c = p.c;
     KR.A.sfx('death');
     G.log(`You have been slain by ${src ? src.name : 'something'}!`, 'combat', '#ff4a3a');
-    const loss = Math.min(c.xp, Math.round(D.xpNeeded(c.level) * 0.06));
-    c.xp -= loss;
+    const loss = 0; // dying never costs experience
     for (const m of G.ents) if (m.hate) { m.hate.delete(p); if (!m.hate.size) m.inCombat = false; }
     p.autoAttack = false; p.target = null; p.cast = null;
     KR.UI && KR.UI.showDeath(loss);

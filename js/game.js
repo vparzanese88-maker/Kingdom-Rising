@@ -83,7 +83,22 @@
   function wIcon(wt) { return { '1HS': '🗡', '2HS': '⚔', '1HB': '🔨', '2HB': '🪄', '1HP': '🔪', 'H2H': '🥊', 'ARC': '🏹', 'THR': '🌟', 'TOME': '📕' }[wt]; }
   function aIcon(slot) { return { head: '⛑', chest: '🥋', hands: '🧤', legs: '👖', feet: '🥾' }[slot] || '🛡'; }
   G.makeMat = function (type, tier, qty = 1) { const name = D.MATERIALS[type][tier]; return { uid: U.uid(), kind: 'mat', mat: type, tier, name, icon: D.MAT_ICON[type], stack: true, qty, value: Math.round(6 + tier * tier * 18) }; };
-  G.makeTrophy = function (name, lv, qty = 1) { return { uid: U.uid(), kind: 'trophy', name, icon: '🦴', stack: true, qty, value: Math.round(2 + lv * 2.5) }; };
+  // each kind of monster part gets its own icon (only real bones look like bones)
+  const TROPHY_ICONS = { 'Wolf Pelt': '🐺', 'Dire Wolf Pelt': '🐺', 'Frost Pelt': '🐺', 'Tiger Pelt': '🐯', 'Yeti Fur': '❄️', 'Troll Hide': '🧌', 'Jackal Hide': '🐕', 'Bear Claw': '🐻', 'Ghoul Claw': '🐾', 'Scorpion Stinger': '🦂',
+    'Ogre Tusk': '🦷', 'Orc Tooth': '🦷', 'Croc Tooth': '🐊', 'Dragonkin Fang': '🐲', 'Ravager Horn': '🦬', 'Lizard Scale': '🦎', 'Drake Scale': '🐉', 'Wyvern Scale': '🐉', 'Snake Scale': '🐍', 'Harpy Feather': '🪶', 'Griffon Feather': '🪶',
+    'Bat Wing': '🦇', 'Spider Silk': '🕸️', 'Venom Sac': '🧪', 'Glowing Gland': '🧪', 'Proboscis': '🦟', 'Ectoplasm': '👻', 'Wailing Essence': '👻', 'Wisp Essence': '✨', 'Void Essence': '🌑', 'Ember Essence': '🔥', 'Fiend Ember': '🔥',
+    'Storm Crystal': '💎', 'Golem Core': '🪨', 'Phylactery Shard': '🔮', 'Stolen Coin Purse': '💰', 'Pirate Doubloon': '🪙', 'Pearl': '🦪', 'Orc Warband Badge': '🎖️', 'Cult Sigil': '🕯️', 'Goblin Totem': '🗿', 'Goblin Ear': '👂',
+    'Rat Whisker': '🐀', 'Bandit Bandana': '🧣', 'Nomad Scarf': '🧣', 'Ancient Wrappings': '🩹', 'Straw Bundle': '🌾', 'Swamp Lily': '🪷', 'Heartwood': '🪵', 'Living Coral': '🪸', 'Crab Shell': '🦀', 'Scarab Shell': '🪲',
+    'Boar Meat': '🍖', 'Giant Toe': '🦶', 'Cursed Plate Shard': '🛡️', 'Bone Chips': '🦴', 'Rotting Bone': '🦴' };
+  G.trophyIcon = function (name) {
+    const n = String(name || ''); if (TROPHY_ICONS[n]) return TROPHY_ICONS[n];
+    const rules = [[/bone|skull/i, '🦴'], [/pelt|fur|hide|wool/i, '🧶'], [/tooth|fang|tusk/i, '🦷'], [/claw|talon/i, '🐾'], [/horn|antler/i, '🦬'], [/scale/i, '🦎'], [/feather|plume/i, '🪶'], [/wing/i, '🦇'], [/silk|web/i, '🕸️'],
+      [/venom|gland|sac|ichor|blood/i, '🧪'], [/essence|ember|spirit|soul/i, '✨'], [/crystal|gem|shard|core/i, '💎'], [/coin|purse|doubloon|gold/i, '🪙'], [/shell|carapace/i, '🐚'], [/meat|flesh|haunch/i, '🍖'], [/eye/i, '👁️'],
+      [/totem|idol|sigil|badge|emblem/i, '🗿'], [/cloth|bandana|scarf|wrap|rag/i, '🧣'], [/lily|flower|herb|root|leaf|moss/i, '🌿'], [/wood|bark|branch/i, '🪵'], [/stinger/i, '🦂'], [/ear/i, '👂']];
+    for (const [re, ic] of rules) if (re.test(n)) return ic;
+    return '👜';
+  };
+  G.makeTrophy = function (name, lv, qty = 1) { return { uid: U.uid(), kind: 'trophy', name, icon: G.trophyIcon(name), stack: true, qty, value: Math.round(2 + lv * 2.5) }; };
   // Food restores health over time, drink restores mana over time. Better quality = faster regeneration.
   G.FOOD = ["Traveler's Bread", 'Cheese Wedge', 'Roast Meat Pie', "Hunter's Stew", 'Royal Feast'];
   G.DRINK = ['Water Flask', 'Spring Water', 'Honeyed Milk', 'Elven Nectar', 'Starwell Tonic'];
@@ -289,7 +304,10 @@
     if (tgt.fd) tgt.fd = false;
     if (tgt.cast && tgt.cast.spell && !opt.dot) {
       const chan = (tgt.type === 'player' || tgt.type === 'merc') && G.hasSkill(tgt.c, 'channeling') ? 0.55 : tgt.type === 'merc' ? 0.7 : 0.85;
-      if (Math.random() < chan * 0.45) { G.interrupt(tgt, 'Your spell is interrupted!'); }
+      let odds = chan * 0.45;
+      // players: light hits rarely break a spell, heavy ones more often, and new heroes get extra leeway
+      if (tgt.type === 'player') odds = (0.1 + 0.2 * Math.min(1, amt / Math.max(1, tgt.hpMax * 0.25))) * (chan / 0.85) * (tgt.level <= 10 ? 0.6 : tgt.level <= 20 ? 0.8 : 1);
+      if (Math.random() < odds) { G.interrupt(tgt, 'Your spell is interrupted!'); }
     }
     if (tgt.sit) { tgt.sit = false; }
     const pcol = tgt === G.player ? '#ff6a5a' : opt.crit ? '#ffd84a' : opt.spell ? '#c8a8ff' : '#ffffff';

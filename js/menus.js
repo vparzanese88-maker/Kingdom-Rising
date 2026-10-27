@@ -176,7 +176,9 @@
   }
   const LSg = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const LSs = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-  let mmTab = 'heroes', heroDir = 0;
+  // an invite link (?join=code) opens straight onto the Multiplayer screen
+  const INVITED = !!new URLSearchParams(location.search).get('join');
+  let mmTab = INVITED ? 'online' : 'heroes', heroDir = 0, inviteFailed = false;
   const lookOf = (ch) => Object.assign(S.classLook(ch.cls, null), ch.look || {}, { race: ch.race, gender: ch.gender, skin: S.skinOf(ch.race, ch.skin), hair: S.HAIRS[ch.hair], hairStyle: ch.hairStyle, cls: ch.cls });
   const ago = (ts) => { if (!ts) return 'never'; const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
   M.showMenu = function (tab) {
@@ -278,22 +280,22 @@
       <p class="mo-as">Playing as <b>${esc(ch.name)}</b>, level ${ch.level} ${esc(D.CLASSES[ch.cls].name)} of ${esc(D.FACTIONS[ch.faction].city)}. <button class="btn small ghost" id="mo-hero">Change hero</button></p>
       ${O.available() ? '' : '<p class="mo-msg bad">Multiplayer only works in the claude.ai version of the game. Here you can play Single Player.</p>'}
       <p class="mo-msg" id="mo-msg" role="status"></p>
+      <section class="mo-box mo-main">
+        <ol class="mo-how"><li>One of you presses <b>Host a game</b>.</li><li>Send your friends the invite link (or the game code).</li><li>They open it, pick a hero and press <b>Join</b>.</li></ol>
+        <div class="mo-actions">
+          <button class="btn gold big" id="mo-host">Host a game</button>
+          <div class="mo-or">or</div>
+          <div class="mo-joinrow"><input id="mo-jcode" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Game code" aria-label="Game code"><button class="btn gold big" id="mo-join">Join</button></div>
+        </div>
+        <details class="mo-more" id="mo-more"><summary>Password and game name (optional)</summary>
+          <label>Password<input id="mo-pass" type="password" maxlength="40" autocomplete="off" placeholder="Leave empty for an open game"></label>
+          <label>Game name (when hosting)<input id="mo-hname" maxlength="40" value="${esc(ch.name)}'s realm"></label>
+        </details>
+      </section>
       <div class="mo-grid">
         <section class="mo-box"><h3>Open games</h3><div class="mo-list" id="mo-list"><p class="empty-note">Looking for games...</p></div></section>
-        <section class="mo-box"><h3>Join a game</h3>
-          <label>Game code<input id="mo-jcode" maxlength="12" autocomplete="off" spellcheck="false"></label>
-          <label>Password<input id="mo-jpass" type="password" maxlength="40" autocomplete="off" placeholder="Leave empty if there is none"></label>
-          <button class="btn gold" id="mo-join">Join game</button></section>
-        <section class="mo-box"><h3>Host a new game</h3>
-          <label>Game name<input id="mo-hname" maxlength="40" value="${esc(ch.name)}'s realm"></label>
-          <label>Password<input id="mo-hpass" type="password" maxlength="40" autocomplete="new-password" placeholder="Optional"></label>
-          <button class="btn gold" id="mo-host">Host game</button>
-          <p class="dim small">Your page runs the game and saves it as you play. Give friends the game code and password.</p></section>
-        <section class="mo-box"><h3>Saved games</h3><div class="mo-list" id="mo-mine"></div>
-          <p class="dim small">Host a saved game to carry on where it left off, even one someone else started. You need its code and password.</p>
-          <label>Game code<input id="mo-ccode" maxlength="12" autocomplete="off" spellcheck="false"></label>
-          <label>Password<input id="mo-cpass" type="password" maxlength="40" autocomplete="off" placeholder="Leave empty if there is none"></label>
-          <button class="btn" id="mo-cont">Host saved game</button></section>
+        <section class="mo-box"><h3>Your games</h3><div class="mo-list" id="mo-mine"></div>
+          <p class="dim small">Join a game you played before, or host it again to carry on where it left off.</p></section>
       </div></div>`;
     const msg = (t, bad) => { const m = $('#mo-msg', P); if (m) { m.textContent = t; m.className = 'mo-msg' + (bad ? ' bad' : ''); } };
     const busy = (on) => P.querySelectorAll('button, input').forEach((el) => (el.disabled = on));
@@ -306,14 +308,25 @@
       await KR.Main.enterWorld(ch.id);
       if (O.mode === 'host') O.advertise();
       if (O.mode === 'host' && KR.UI.banner) {
-        KR.UI.banner(`You are hosting ${O.name}`, `Game code: ${O.code}${O.pass ? ' (password set)' : ''}. Share it with your friends.`);
+        const link = O.inviteLink(); let copied = false;
+        try { if (navigator.clipboard) { await navigator.clipboard.writeText(link); copied = true; } } catch (e) {}
+        KR.UI.banner(`You are hosting ${O.name}`, `Game code: ${O.code}${O.pass ? ' (password set)' : ''}. ${copied ? 'Invite link copied: paste it to your friends.' : 'Send your friends the invite link from the chat.'}`);
         G.log(`You are hosting "${O.name}". Game code: ${O.code}${O.pass ? '. Friends also need the password you chose.' : '.'}`, 'status', '#ffd84a');
+        G.log(`Invite link: ${link}${copied ? ' (copied)' : ''}. Type /invite to see it again.`, 'status', '#ffd84a');
       } else if (O.mode === 'join') G.log(`You joined "${O.name}". The host's world decides both kingdoms.`, 'status', '#9ad8ff');
     };
     $('#mo-hero', P).onclick = () => { mmTab = 'heroes'; M.showMenu(); };
-    $('#mo-join', P).onclick = () => go('Looking for the host...', () => O.join($('#mo-jcode', P).value, $('#mo-jpass', P).value));
-    $('#mo-host', P).onclick = () => go('Opening your game...', () => O.host({ fresh: true, name: $('#mo-hname', P).value, pass: $('#mo-hpass', P).value }));
-    $('#mo-cont', P).onclick = () => go('Loading the saved game...', () => O.host({ code: $('#mo-ccode', P).value, pass: $('#mo-cpass', P).value }));
+    const pass = () => $('#mo-pass', P).value;
+    const join = () => go('Looking for the host...', async () => {
+      try { await O.join($('#mo-jcode', P).value, pass()); }
+      catch (e) { if (!pass() && /No host answered/.test(e.message || '')) throw new Error('No host answered. If the game has a password, open "Password and game name" and enter it. Otherwise check the code and that the host is still playing.'); throw e; }
+    });
+    $('#mo-join', P).onclick = join;
+    $('#mo-jcode', P).onkeydown = (e) => { if (e.key === 'Enter') join(); };
+    $('#mo-host', P).onclick = () => go('Opening your game...', () => O.host({ fresh: true, name: $('#mo-hname', P).value, pass: pass() }));
+    // an invite link (?join=code) fills in the code
+    const inv = O.cleanCode(new URLSearchParams(location.search).get('join') || '');
+    if (inv) { $('#mo-jcode', P).value = inv; msg(`You were invited to game ${inv}. Press Join.`); }
     const mine = $('#mo-mine', P); const games = a.games || [];
     if (!games.length) mine.innerHTML = '<p class="empty-note">Games you host or join are listed here.</p>';
     games.forEach((gm) => {
@@ -333,8 +346,8 @@
         row.innerHTML = `<span><b>${h.lock ? '🔒 ' : ''}${esc(String(h.name || code).slice(0, 40))}</b><small>Host ${esc(String(h.hero || 'unknown').slice(0, 24))} · ${Math.max(1, Math.round(+h.n) || 1)} playing · ${D.FACTION_IDS.map((f, i) => `${esc(D.FACTIONS[f].city)} ${'★'.repeat(lv(lvs[i]))}`).join(' · ')}</small></span><button class="btn small">Join</button>`;
         row.querySelector('button').onclick = () => {
           $('#mo-jcode', P).value = code;
-          if (h.lock) { $('#mo-jpass', P).focus(); msg(`Enter the password for ${String(h.name || code).slice(0, 40)}, then press Join game.`); }
-          else go('Looking for the host...', () => O.join(code, ''));
+          if (h.lock && !pass()) { $('#mo-more', P).open = true; $('#mo-pass', P).focus(); msg(`${String(h.name || code).slice(0, 40)} has a password. Enter it, then press Join.`); }
+          else go('Looking for the host...', () => O.join(code, pass()));
         };
         box.appendChild(row);
       });
@@ -448,7 +461,14 @@
         if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
         const name = nm[0].toUpperCase() + nm.slice(1).toLowerCase();
         cs.busy = true; const c = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, bonus: {} });
-        if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
+        // invited players go back to the Multiplayer screen with their new hero to join the game
+        if (INVITED && !inviteFailed && KR.Online && KR.Online.mode === 'solo') {
+          const code = KR.Online.cleanCode(new URLSearchParams(location.search).get('join'));
+          $('#cr-err').textContent = `Joining game ${code}...`; $('#cr-go').disabled = true;
+          KR.Online.join(code, '').then(() => { LSs('kr_sel_hero', c.id); return KR.Main.enterWorld(null, c); }).then(() => G.log(`You joined "${KR.Online.name}".`, 'status', '#9ad8ff'))
+            .catch((err) => { cs.busy = false; inviteFailed = true; $('#cr-go').disabled = false; $('#cr-err').textContent = `${(err && err.message) || err} Press "Begin your journey" again to start on your own; you can join from Multiplayer later.`; });
+        }
+        else if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
       };
       setTimeout(() => inp.focus(), 50);
     }

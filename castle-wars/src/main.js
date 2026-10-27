@@ -178,6 +178,7 @@ function ensureMap(size) {
 
 function begin(diff, setup = null, map = mapSize) {
   $('fsBtn').classList.add('hidden');
+  input.pressed.clear(); // the Enter or number key that picked a class must not also act in the battle
   ensureMap(map);
   if (net) game.net = net;
   audio.init();

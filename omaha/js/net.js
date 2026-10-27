@@ -1,0 +1,281 @@
+'use strict';
+/* ================= Multiplayer =================
+   One player hosts: their page runs the whole battle (bots, flags, damage) and streams it to everyone.
+   Friends connect straight to the host's browser over WebRTC (PeerJS), using a 4-letter room code.
+   Each friend takes over a bot's slot on their side; when they leave, a bot takes the slot back.
+   Clients move their own soldier locally and tell the host where they are; the host checks every
+   shot, grenade and knife blow and sends back what happened.                                      */
+const NET_VER=1,ROOM_PREFIX='omaha1944-',SNAP_HZ=15,ST_HZ=20,MAX_HUMANS=12;
+Object.assign(Net,{peer:null,conns:[],conn:null,code:'',myId:-1,snapT:0,stT:0,sbT:0,nadeMesh:{},pendingRoster:null,pendingJoin:false,welcome:null,status:''});
+const STANCE=['stand','crouch','prone'],SLOTS=['primary','pistol','melee','nade'];
+const q=new URLSearchParams(location.search);
+function peerOpts(){
+  const o={debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},
+    {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+    {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
+  // ?peerhost=... points at a private PeerJS server (used for local testing)
+  if(q.get('peerhost')){o.host=q.get('peerhost');o.port=+q.get('peerport')||9000;o.path=q.get('peerpath')||'/';o.secure=location.protocol==='https:';o.config={iceServers:[]};}
+  return o;
+}
+function mpStatus(t,bad){Net.status=t;const el=$('mpStatus');if(el){el.textContent=t;el.style.color=bad?'#e07a5f':'';}}
+function inviteLink(){const u=new URL(location.href);u.search='';for(const k of['peerhost','peerport','peerpath'])if(q.get(k))u.searchParams.set(k,q.get(k));u.searchParams.set('join',Net.code);return u.toString();}
+function newCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ';let c='';for(let i=0;i<4;i++)c+=s[Math.random()*s.length|0];return c;}
+function peerAvailable(){if(window.Peer)return true;mpStatus('Online play could not load. Check your internet connection and reload the page.',true);return false;}
+function playerName(){return(String($('pname').value||SET.name||'').trim().replace(/[<>&"]/g,'').slice(0,16))||'Soldier';}
+
+/* ---------------- host ---------------- */
+function netHost(){
+  if(!peerAvailable())return;
+  Object.assign(Net,{on:true,host:true,client:false,conns:[],ev:[]});
+  const tryOpen=(n)=>{
+    Net.code=newCode();const peer=new Peer(ROOM_PREFIX+Net.code,peerOpts());Net.peer=peer;
+    peer.on('open',()=>{mpStatus('Hosting room '+Net.code);center('ROOM '+Net.code,'Press Esc to copy the invite link for your friends',6);updateInvite();});
+    peer.on('error',e=>{if(e.type==='unavailable-id'&&n<5){peer.destroy();tryOpen(n+1);return;}
+      if(Net.host)hint('Online: '+(e.type==='network'||e.type==='server-error'?'lost the connection to the matchmaking server. Friends already in can keep playing.':e.type),5);});
+    peer.on('disconnected',()=>{if(Net.host&&!peer.destroyed)setTimeout(()=>{try{peer.reconnect();}catch(e){}},2000);});
+    peer.on('connection',c=>hostAccept(c));
+  };
+  tryOpen(0);
+}
+function hostAccept(c){
+  c.on('open',()=>{
+    if(Net.conns.length>=MAX_HUMANS-1){c.send({t:'full',why:'The room is full.'});setTimeout(()=>c.close(),500);return;}
+    Net.conns.push(c);
+  });
+  c.on('data',m=>{try{hostData(c,m);}catch(e){console.warn('net',e);}});
+  c.on('close',()=>hostDrop(c));c.on('error',()=>hostDrop(c));
+}
+function rosterMsg(){return{t:'roster',r:UNITS.map(u=>[u.id,u.team,u.name,(u.nextCls||u.cls).id,u.variant,u.human||u.isPlayer?1:0])};}
+function hostData(c,m){
+  const u=c.unit;
+  switch(m.t){
+    case'hello':
+      if(m.v!==NET_VER){c.send({t:'full',why:'Your friend has a different version of the game. Both of you reload the page.'});return;}
+      c.name=String(m.name||'Soldier').replace(/[<>&"]/g,'').slice(0,16);
+      c.send(Object.assign(rosterMsg(),{t:'welcome',size:SET.size,diff:SET.diff,host:PL.u?PL.u.name:'Host'}));break;
+    case'join':{
+      if(c.unit)return;let team=m.team;if(team!==0&&team!==1)team=humanCount(0)<=humanCount(1)?0:1;
+      let bot=pickBot(team);if(!bot){team=1-team;bot=pickBot(team);}
+      if(!bot){c.send({t:'full',why:'Both teams are full of players.'});return;}
+      const cls=clsById(team,m.cls)||CLASSES[team][0];
+      if(cls.limit&&classCount(team,cls.id,bot)>=cls.limit){const other=UNITS.find(x=>x.team===team&&x.brain&&x!==bot&&(x.nextCls||x.cls).id===cls.id);if(other)other.nextCls=CLASSES[team][0];}
+      // take over the bot's slot: it leaves quietly and the player deploys with the next wave
+      if(bot.alive&&bot.model){scene.remove(bot.model.root);bot.model=null;}
+      bot.alive=false;bot.deadAt=GAME.time-10;bot.brain=null;bot.remote=c;bot.human=true;bot.botName=bot.name;bot.name=c.name;bot.nextCls=cls;bot.kills=bot.deaths=bot.caps=bot.score=0;
+      c.unit=bot;
+      c.send(Object.assign(stateMsg(),{t:'you',id:bot.id}));
+      broadcast(rosterMsg());
+      feedMsg(`${c.name} joined the ${TEAM_NAME[team]}`,team);hint(`${c.name} joined the ${TEAM_NAME[team]}`,3);
+      if(G.mode==='intro')spawnUnit(bot,true);
+      break;}
+    case'st':if(u&&u.alive){u.net={x:m.p[0],y:m.p[1],z:m.p[2],yaw:m.y,pitch:m.pi};u.stance=STANCE[m.s]||'stand';
+      const sl=SLOTS[m.w]||'primary';if(u.weps[sl])u.cur=sl;u.deployed=!!m.d;u.firing=!!m.f;}break;
+    case'fire':{if(!u||!u.alive)return;const W=WEAPONS[m.w];if(!W||W.type==='melee'||W.type==='nade')return;
+      const o=new V3(...m.o),d=new V3(...m.d).normalize();
+      fireBullet(u,o,d,W,m.w,!!m.tr);muzzleFX(o,d,!!W.mg);gunSound(u,W,o);u.lastShot=GAME.time;if(u.model)u.model.kick=1;break;}
+    case'melee':if(u&&u.alive)meleeAttack(u,new V3(...m.o),new V3(...m.d).normalize(),WEAPONS[MELEE[u.team]]);break;
+    case'nade':{if(!u||!u.alive&&m.fuse>0)return;const o=new V3(...m.o),v=new V3(...m.v);
+      if(m.nid){const n=NADES.find(x=>x.nid===m.nid&&x.held===u);if(n){n.held=null;n.p.copy(o);n.v.copy(v);n.rest=false;n.owner=u;}}
+      else if(u.weps.nade.count>0||m.fuse<=0){if(m.fuse>0)u.weps.nade.count--;throwNade(u,o,v,clamp(+m.fuse||0,0,5),NADE[u.team]);}
+      break;}
+    case'pick':{if(!u||!u.alive)return;const n=NADES.find(x=>!x.held&&Math.hypot(x.p.x-u.pos.x,x.p.y-u.pos.y-.3,x.p.z-u.pos.z)<2.4);
+      if(n){n.held=u;n.owner=u;c.send({t:'picked',nid:n.nid,fuse:n.fuse,id:n.id});}break;}
+    case'cls':{if(!u)return;const cls=clsById(u.team,m.id);if(cls){u.nextCls=cls;broadcast(rosterMsg());}break;}
+    case'fall':if(u&&u.alive)hurt(u,clamp(+m.dmg||0,0,200),null,'fall','limb',null);break;
+  }
+}
+function humanCount(t){return UNITS.filter(u=>u.team===t&&(u.human||u.isPlayer)).length;}
+function pickBot(t){const bots=UNITS.filter(u=>u.team===t&&u.brain&&!u.isPlayer);return bots.find(u=>!u.alive)||bots[bots.length-1]||null;}
+function hostDrop(c){
+  const i=Net.conns.indexOf(c);if(i>=0)Net.conns.splice(i,1);
+  const u=c.unit;if(!u)return;c.unit=null;
+  feedMsg(`${u.name} left`,u.team);hint(`${u.name} left the game. A bot takes their place.`,3);
+  u.remote=null;u.human=false;u.name=u.botName||pick(NAMES[u.team]);new Brain(u);
+  if(u.alive)u.brain.chooseGoal();
+  broadcast(rosterMsg());
+}
+function broadcast(m){for(const c of Net.conns)if(c.open)try{c.send(m);}catch(e){}}
+const R=v=>Math.round(v*100)/100;
+function stateMsg(){
+  return{t:'s',m:G.mode,it:R(G.introT),tl:Math.round(G.timeLeft),w:[R(G.waveT[0]),R(G.waveT[1])],r:G.round,sc:G.score,
+    f:G.flags.map(f=>[f.owner,R(f.prog),f.capTeam]),
+    u:UNITS.map(u=>[u.id,u.alive?1:0,R(u.pos.x),R(u.pos.y),R(u.pos.z),R(u.yaw),R(u.pitch),STANCE.indexOf(u.stance),SLOTS.indexOf(u.cur),u.deployed?1:0,(u.cls||{}).id]),
+    n:NADES.map(n=>[n.nid,R(n.p.x),R(n.p.y),R(n.p.z),n.id==='stick'?1:0,n.held?n.held.id:-1])};
+}
+function netTick(dt){
+  if(Net.host){
+    if(Net.ev.length){if(Net.conns.length)broadcast({t:'e',e:Net.ev});Net.ev=[];}
+    if(!Net.conns.length)return;
+    Net.snapT-=dt;if(Net.snapT<=0){Net.snapT=1/SNAP_HZ;broadcast(stateMsg());}
+    Net.sbT-=dt;if(Net.sbT<=0){Net.sbT=2;broadcast({t:'sb',s:UNITS.map(u=>[u.id,u.kills,u.deaths,u.score])});}
+  }else if(Net.client&&PL.u){
+    Net.stT-=dt;if(Net.stT<=0&&PL.u.alive){Net.stT=1/ST_HZ;const u=PL.u;
+      Net.send({t:'st',p:[R(u.pos.x),R(u.pos.y),R(u.pos.z)],y:R(u.yaw),pi:R(u.pitch),s:STANCE.indexOf(u.stance),w:SLOTS.indexOf(u.cur),d:u.deployed?1:0,f:PL.fireHeld?1:0});}
+  }
+}
+
+/* ---------------- client ---------------- */
+function netJoin(code){
+  if(!peerAvailable())return;
+  code=String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+  if(code.length!==4){mpStatus('Room codes are 4 letters.',true);return;}
+  initAudio();SET.name=playerName();saveSettings();
+  netLeave(true);
+  mpStatus('Connecting to room '+code+'…');
+  Object.assign(Net,{on:false,host:false,client:false,code});
+  const peer=new Peer(undefined,peerOpts());Net.peer=peer;
+  let opened=false;
+  const fail=t=>{if(Net.client&&G.mode!=='menu'){quitToMenu();}mpStatus(t,true);netLeave(true);};
+  const to=setTimeout(()=>{if(!opened)fail('Could not reach room '+code+'. Check the code and that your friend is still hosting.');},15000);
+  peer.on('open',()=>{
+    const c=peer.connect(ROOM_PREFIX+code,{serialization:'json',reliable:true});Net.conn=c;
+    c.on('open',()=>{opened=true;clearTimeout(to);c.send({t:'hello',v:NET_VER,name:SET.name});});
+    c.on('data',m=>{try{clientData(m);}catch(e){console.warn('net',e);}});
+    c.on('close',()=>{if(Net.client||Net.pendingJoin){fail('The host closed the game.');}});
+  });
+  peer.on('error',e=>{clearTimeout(to);fail(e.type==='peer-unavailable'?'No game with code '+code+'. Check the code.':'Connection problem: '+e.type);});
+}
+Net.send=function(m){if(Net.conn&&Net.conn.open)try{Net.conn.send(m);}catch(e){}};
+function clientData(m){
+  switch(m.t){
+    case'full':mpStatus(m.why||'Could not join.',true);netLeave(true);break;
+    case'welcome':{
+      Net.pendingRoster=m.r;Net.pendingJoin=true;Net.welcome=m;mpStatus(`Connected to ${m.host}'s game. Pick your class.`);
+      let team=SET.team;const humans=t=>m.r.filter(r=>r[1]===t&&r[5]).length+(t===0?0:0);
+      if(team!==0&&team!==1)team=humans(0)<=humans(1)?0:1;
+      openClasses(team,false);break;}
+    case'you':clientBegin(m.id,m);break;
+    case'roster':applyRoster(m.r);break;
+    case's':if(Net.client)applySnap(m);break;
+    case'e':if(Net.client){Net.applying=true;try{for(const e of m.e)applyEvent(e);}finally{Net.applying=false;}}break;
+    case'sb':for(const[id,k,d,s]of m.s){const u=unitById(id);if(u){u.kills=k;u.deaths=d;u.score=s;}}break;
+    case'picked':{const u=PL.u;if(!u||!u.alive||PL.nadeHold)return;PL.nadeHold={fuse:m.fuse,id:m.id,nid:m.nid,own:true};PL.prevSlot=u.cur;u.cur='nade';buildVM(m.id,u.team);play('clink',{vol:.5});hint('Throw it back! Left-click');break;}
+  }
+}
+function unitById(id){for(const u of UNITS)if(u.id===id)return u;return null;}
+function applyRoster(r){
+  const keep=new Set();
+  for(const[id,team,name,clsId,variant,human]of r){
+    keep.add(id);let u=unitById(id);
+    if(!u){u=new Unit(team,id===Net.myId,name);u.id=id;u.variant=variant;u.cls=clsById(team,clsId);giveLoadout(u);UNITS.push(u);}
+    u.name=id===Net.myId?(SET.name||'You'):name;u.human=!!human;u.variant=variant;
+    if(!u.alive||id!==Net.myId){const c=clsById(team,clsId);if(c&&c!==u.cls){if(u.alive)u.nextCls=c;else u.cls=c;}}
+  }
+  for(let i=UNITS.length-1;i>=0;i--)if(!keep.has(UNITS[i].id)){if(UNITS[i].model)scene.remove(UNITS[i].model.root);UNITS.splice(i,1);}
+}
+function clientBegin(id,snap){
+  Net.myId=id;Net.pendingJoin=false;Net.pendingRoster=null;
+  Object.assign(Net,{on:true,client:true,host:false});
+  // clear the menu battle and build the host's armies
+  for(const u of UNITS)if(u.model)scene.remove(u.model.root);UNITS.length=0;for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  clearNades();clearDecals();
+  G.demo=false;G.paused=false;
+  applyRoster(Net.welcome.r);
+  let me=unitById(id);
+  if(!me){me=new Unit(Net.joinTeam,true,SET.name);me.id=id;me.cls=Net.joinCls;UNITS.push(me);}
+  me.isPlayer=true;me.team=Net.joinTeam;me.cls=Net.joinCls;me.name=SET.name||'You';giveLoadout(me);me.alive=false;me.deadAt=GAME.time;
+  PL.u=me;PL.deathT=3;PL.killer=null;PL.deathYaw=me.team?0:Math.PI;
+  const s=me.team?SPAWNS.axis:SPAWNS.alliesFwd;me.pos.set((s.x0+s.x1)/2,0,me.team?s.z0:110);me.pos.y=H(me.pos.x,me.pos.z);
+  G.round=snap.r;G.score=snap.sc.slice();G.mode=snap.m;G.introT=snap.it;
+  resetRoundVisuals();
+  if(G.mode!=='intro')for(const b of BOATS){b.g.position.copy(b.home);b.rp.rotation.x=-1.62;}
+  $('menu').hidden=true;$('classes').hidden=true;$('hud').hidden=false;$('roundend').hidden=true;
+  buildFlagHUD();applySnap(snap);
+  center('JOINING','You deploy with the next wave',4);
+  mpStatus('');requestLock();canvas.focus();updateInvite();
+  if(SET.music&&G.mode==='play')playMusic('tension');else stopMusic(1);
+}
+const STEPS={water:'stWater',sand:'stSand',hard:'stHard',wood:'stWood',grass:'stGrass'};
+function applySnap(m){
+  G.mode=m.m;G.timeLeft=m.tl;G.waveT=m.w;G.round=m.r;G.score=m.sc;
+  if(G.mode==='intro'&&Math.abs(G.introT-m.it)>.5)G.introT=m.it;
+  m.f.forEach(([o,p,c],i)=>{const f=G.flags[i];if(!f)return;if(f.owner!==o){f.owner=o;setFlagTex(f,o);}f.prog=p;f.capTeam=c;});
+  for(const[id,alive,x,y,z,yaw,pitch,st,sl,dep,cls]of m.u){
+    const u=unitById(id);if(!u)continue;
+    if(u.isPlayer){if(!alive&&u.alive){Net.applying=true;killUnit(u,null,'arty','chest',null);Net.applying=false;}continue;}
+    if(alive&&!u.alive)spawnUnit(u,false,{x,y,z,yaw,b:-1,cls});
+    else if(!alive&&u.alive){Net.applying=true;killUnit(u,null,'?','chest',null);Net.applying=false;}
+    if(!u.alive)continue;
+    u.net={x,y,z,yaw,pitch};u.stance=STANCE[st]||'stand';const s=SLOTS[sl];if(u.weps&&u.weps[s])u.cur=s;u.deployed=!!dep;
+  }
+  // grenades in flight
+  const seen=new Set();
+  for(const[nid,x,y,z,stick,held]of m.n){seen.add(nid);let me=Net.nadeMesh[nid];if(!me){me=Net.nadeMesh[nid]={mesh:nadeMesh(stick?'stick':'mk2'),p:new V3(x,y,z)};me.mesh.position.set(x,y,z);}
+    me.p.set(x,y,z);me.held=held;}
+  for(const k in Net.nadeMesh)if(!seen.has(+k)){scene.remove(Net.nadeMesh[k].mesh);delete Net.nadeMesh[k];}
+}
+function netNades(dt){
+  for(const k in Net.nadeMesh){const n=Net.nadeMesh[k];n.mesh.position.lerp(n.p,1-Math.exp(-dt*20));n.mesh.rotation.x+=dt*6;n.mesh.visible=!(PL.u&&n.held===PL.u.id);}
+  // the client's own cooked grenade still runs in updatePlayer
+}
+function clearNetNades(){for(const k in Net.nadeMesh){scene.remove(Net.nadeMesh[k].mesh);delete Net.nadeMesh[k];}}
+function applyEvent(e){
+  const k=e[0];
+  if(k==='shot'){const[,sid,ox,oy,oz,dx,dy,dz,len,kind,wid,tr,mat]=e;netShot(sid,new V3(ox,oy,oz),new V3(dx,dy,dz).normalize(),len,kind,wid,tr,mat);}
+  else if(k==='boom')explosion(new V3(e[1],e[2],e[3]),e[4],null,'arty');
+  else if(k==='whis')play('whistle',{pos:new V3(e[1],e[2],e[3]),vol:.75,travel:false,ref:25});
+  else if(k==='kill'){const v=unitById(e[1]);if(v&&v.alive){const kk=unitById(e[2]);killUnit(v,kk,e[3],e[4],new V3(e[5],0,e[6]));}}
+  else if(k==='hurt'){if(e[1]!==Net.myId)return;const u=PL.u;if(!u||!u.alive)return;u.hp=e[3];u.lastHurt=GAME.time;u.slowT=.6;const a=unitById(e[4]);playerHurt(e[2],a,e[5],new V3(e[6],0,e[7]));
+    if(e[5]==='head')play('helmet',{vol:.6});}
+  else if(k==='hm'){if(e[1]===Net.myId)hitMarker(!!e[2],!!e[3]);}
+  else if(k==='sp'){const[,id,x,y,z,yaw,cls,b,lx,lz]=e;const u=unitById(id);if(u)spawnUnit(u,false,{x,y,z,yaw,cls,b,lx,lz});}
+  else if(k==='rs'){G.round=e[1];resetRoundVisuals();clearNetNades();G.mode='intro';G.introT=11;
+    for(const u of UNITS){if(u.model&&!CORPSES.includes(u.model))scene.remove(u.model.root);u.model=null;u.alive=false;}introCue();}
+  else if(k==='ie')endIntro();
+  else if(k==='re')endRound(e[1],e[2]);
+  else if(k==='cap'){const f=G.flags[e[1]];if(f)captureFlag(f,e[2],(e[3]||[]).map(unitById).filter(Boolean));}
+  else if(k==='shout'){const u=unitById(e[1]);if(u)shout(u,e[2]);}
+}
+// another soldier's shot, replayed for the eyes and ears
+function netShot(sid,o,d,len,kind,wid,tr,mat){
+  if(sid===Net.myId)return;
+  const u=unitById(sid);const W=WEAPONS[wid];if(!W)return;
+  if(u){u.lastShot=GAME.time;if(u.model)u.model.kick=1;gunSound(u,W,o);}
+  muzzleFX(o,d,!!W.mg);if(o.distanceTo(camera.position)<60)flashAt(o,1.5,.05,8);
+  if(tr)tracer(new V3().copy(o).addScaledVector(d,1.2),d,len);
+  const hp=new V3(o.x+d.x*len,o.y+d.y*len,o.z+d.z*len);
+  if(kind===2){bloodFX(hp,d);play('flesh',{pos:hp,vol:.45,maxD:40});}
+  else if(kind===1)impactFX({x:hp.x,y:hp.y,z:hp.z,nx:-d.x,ny:-d.y,nz:-d.z,mat:mat||'sand'},d);
+  // near miss on me
+  const me=PL.u;if(me&&me.alive&&u&&u.team!==me.team){const ex=me.pos.x-o.x,ey=me.pos.y+1.2-o.y,ez=me.pos.z-o.z;const al=ex*d.x+ey*d.y+ez*d.z;
+    if(al>2&&al<len){const px=ex-d.x*al,py=ey-d.y*al,pz=ez-d.z*al;if(Math.hypot(px,py,pz)<3.2&&kind!==2){play(al>25?'crack':'whiz',{pos:new V3(o.x+d.x*al,o.y+d.y*al,o.z+d.z*al),vol:.5,travel:false,ref:3});
+      FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}}
+}
+// smooth another soldier toward where the network says they are
+function netFollow(u,dt){
+  const n=u.net;if(!n||dt<=0)return;
+  const ox=u.pos.x,oz=u.pos.z;const dx=n.x-u.pos.x,dy=n.y-u.pos.y,dz=n.z-u.pos.z;
+  if(dx*dx+dz*dz>64)u.pos.set(n.x,n.y,n.z);else{const k=1-Math.exp(-dt*12);u.pos.x+=dx*k;u.pos.y+=dy*k;u.pos.z+=dz*k;}
+  u.vel.x=lerp(u.vel.x,(u.pos.x-ox)/dt,.3);u.vel.z=lerp(u.vel.z,(u.pos.z-oz)/dt,.3);
+  u.yaw+=angDiff(u.yaw,n.yaw)*Math.min(1,dt*15);u.pitch=lerp(u.pitch,n.pitch,Math.min(1,dt*15));
+  const sp=Math.hypot(u.vel.x,u.vel.z);
+  if(sp>1.5&&u.stance!=='prone'){u.stepD=(u.stepD||0)+sp*dt;if(u.stepD>2.1){u.stepD=0;const d=u.pos.distanceTo(camera.position);if(d<26)play(STEPS[surfaceAt(u.pos.x,u.pos.z,u.pos.y)]||'stGrass',{pos:u.pos.clone(),vol:.32*Math.min(1,sp/5),maxD:26,ref:3});}}
+}
+function netLeave(quiet){
+  try{if(Net.conn)Net.conn.close();}catch(e){}
+  try{for(const c of Net.conns)c.close();}catch(e){}
+  try{if(Net.peer)Net.peer.destroy();}catch(e){}
+  clearNetNades();
+  Object.assign(Net,{on:false,host:false,client:false,peer:null,conn:null,conns:[],ev:[],pendingJoin:false,pendingRoster:null,myId:-1});
+  updateInvite();
+}
+function updateInvite(){
+  const box=$('invite');if(!box)return;
+  box.hidden=!Net.on;
+  if(Net.host&&Net.code){$('invLink').value=inviteLink();$('mpPlayers').textContent=`Room ${Net.code} · ${Net.conns.filter(c=>c.unit).length+1} players. Send your friends the link, or tell them the code.`;$('copyInv').hidden=false;$('invLink').hidden=false;}
+  else if(Net.client){$('invLink').value=inviteLink();$('mpPlayers').textContent=`In room ${Net.code}. Invite more friends with this link.`;}
+}
+
+/* ---------------- menu wiring ---------------- */
+$('pname').value=SET.name||'';
+$('pname').onchange=()=>{SET.name=playerName();saveSettings();};
+$('host').onclick=()=>{
+  if(!peerAvailable())return;initAudio();SET.name=playerName();saveSettings();
+  Net.wantHost=true;const t=pickTeam<0?(Math.random()<.5?0:1):pickTeam;openClasses(t,false);
+};
+$('join').onclick=()=>netJoin($('jcode').value);
+$('jcode').onkeydown=e=>{if(e.key==='Enter')netJoin($('jcode').value);};
+$('copyInv').onclick=()=>{const v=$('invLink').value;(navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>hint('Invite link copied',2)).catch(()=>{$('invLink').select();document.execCommand&&document.execCommand('copy');hint('Invite link copied',2);});};
+if(q.get('join')){$('jcode').value=q.get('join').toUpperCase().slice(0,4);mpStatus('You were invited to room '+$('jcode').value+'. Enter your name and press JOIN.');
+  setTimeout(()=>{const p=$('pname');p.scrollIntoView({block:'center'});p.focus();},300);}
+setInterval(()=>{if(Net.host)updateInvite();},2000);

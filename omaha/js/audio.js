@@ -76,6 +76,7 @@ function buildBuffers(){
   const step=(lo,hi,a,b,tail)=>[0,1,2,3].map(()=>mkbuf(.22,(d,sr,n)=>{const L=filt(n,0,lo,sr),Hh=filt(n,hi,0,sr);const k=rand(.3,.8);for(let i=0;i<n;i++){const t=i/sr;d[i]=L[i]*a*Math.min(1,t/.004)*Math.exp(-t/tail)+Hh[i]*Math.exp(-t/.02)*b*k;}},.5));
   B.stSand=step(500,2500,5,1.2,.06);B.stGrass=step(700,3000,4,1.6,.05);B.stHard=step(900,3500,5,.8,.03);B.stWood=step(600,2000,6,.5,.05);
   B.stWater=[0,1,2].map(()=>mkbuf(.45,(d,sr,n)=>{const h=filt(n,500,5000,sr),lo=filt(n,0,400,sr);for(let i=0;i<n;i++){const t=i/sr;const e=Math.sin(Math.PI*Math.min(1,t/.4));d[i]=h[i]*e*Math.exp(-t/.15)*2+lo[i]*Math.exp(-t/.05)*3;}},.5));
+  B.flap=mkbuf(.5,(d,sr,n)=>{const h=filt(n,700,4000,sr);for(let i=0;i<n;i++){const t=i/sr;d[i]=h[i]*Math.sin(Math.PI*t/.5)*(.6+.4*Math.sin(t*60));}},.4);
   B.jumpLand=mkbuf(.3,(d,sr,n)=>{const lo=filt(n,0,400,sr);for(let i=0;i<n;i++){const t=i/sr;d[i]=lo[i]*Math.exp(-t/.05)*6;}},.6);
   B.heart=mkbuf(.9,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr;let v=0;for(const t0 of[0,.22]){const u=t-t0;if(u>0)v+=Math.sin(TAU*48*u)*Math.exp(-u/.07)*(t0?.7:1);}d[i]=v;}},.9);
   B.breath=mkbuf(1.2,(d,sr,n)=>{const h=filt(n,400,2500,sr);for(let i=0;i<n;i++){const t=i/sr;const e=t<.45?Math.sin(Math.PI*t/.45):t>.55?Math.sin(Math.PI*(t-.55)/.6)*.8:0;d[i]=h[i]*e;}},.4);

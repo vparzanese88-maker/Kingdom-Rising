@@ -94,10 +94,8 @@ function tracer(o,dir,dist,speed=520){
   tr.o.copy(o);tr.d.copy(dir);tr.max=dist;tr.t=0;tr.speed=speed;tr.m.visible=true;
   tr.m.position.copy(o);tr.m.lookAt(o.x-dir.x,o.y-dir.y,o.z-dir.z);
 }
-function updateTracers(dt){
-  for(const tr of tracers){if(!tr.m.visible)continue;tr.t+=dt*tr.speed;if(tr.t>tr.max){tr.m.visible=false;continue;}
-    const len=Math.min(tr.t,7,tr.max-tr.t+.5);tr.m.position.copy(tr.o).addScaledVector(tr.d,tr.t);tr.m.scale.set(1,1,Math.max(.3,len));}
-}
+function updateTracers(dt){}
+
 
 /* ================= Debris (physical chunks) ================= */
 const debris=[];
@@ -128,18 +126,29 @@ function updateDebris(dt){
 const decals=[];
 {
   const scorchMat=new THREE.MeshBasicMaterial({map:TEX.crater,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,opacity:.85});
-  const bloodTex=canvasTex(64,64,(g)=>{for(let i=0;i<14;i++){const x=32+rand(-14,14),y=32+rand(-14,14),r=rand(3,12);g.fillStyle=`rgba(90,8,4,${rand(.5,.9)})`;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}});
+  const bloodTex=canvasTex(64,64,(g)=>{for(let i=0;i<14;i++){const x=32+rand(-14,14),y=32+rand(-14,14),r=rand(3,12);g.fillStyle=`rgba(${rand(110,140)|0},6,4,${rand(.6,.92)})`;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}});
   bloodTex.wrapS=bloodTex.wrapT=THREE.ClampToEdgeWrapping;
-  const bloodMat=new THREE.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,color:C(0x8a8a8a)});
-  decals.scorch=scorchMat;decals.blood=bloodMat;decals.list=[];
+  const bloodMat=new THREE.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,fog:true,color:C(0xc0c0c0)});
+  const poolMat=new THREE.MeshStandardMaterial({map:bloodTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-5,color:C(0x6a1010),roughness:.15,metalness:.1});
+  decals.scorch=scorchMat;decals.blood=bloodMat;decals.pool=poolMat;decals.list=[];
 }
 function decalAt(x,z,size,kind){
   // conformed to the terrain: a small grid draped over H
   const n=6,geo=new THREE.PlaneGeometry(size,size,n,n);geo.rotateX(-Math.PI/2);const p=geo.attributes.position;const a=rand(0,TAU),ca=Math.cos(a),sa=Math.sin(a);
   for(let i=0;i<p.count;i++){const lx=p.getX(i),lz=p.getZ(i);const wx=x+lx*ca-lz*sa,wz=z+lx*sa+lz*ca;p.setXYZ(i,wx,H(wx,wz)+.04,wz);}
   geo.computeBoundingSphere();
-  const m=new THREE.Mesh(geo,kind==='blood'?decals.blood:decals.scorch);m.renderOrder=0;scene.add(m);decals.list.push(m);
-  if(decals.list.length>90){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  if(kind==='pool'){geo.translate(-x,0,-z);}
+  const m=new THREE.Mesh(geo,kind==='blood'?decals.blood:kind==='pool'?decals.pool:decals.scorch);if(kind==='pool')m.position.set(x,0,z);m.renderOrder=0;scene.add(m);decals.list.push(m);
+  if(decals.list.length>260){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  return m;
+}
+// a blood splash on a wall: a small quad facing out of the surface
+function wallDecal(h,size){
+  const geo=new THREE.PlaneGeometry(size,size*rand(1,1.6));geo.translate(0,-size*.25,0);
+  const m=new THREE.Mesh(geo,decals.blood);m.position.set(h.x+h.nx*.02,h.y+h.ny*.02,h.z+h.nz*.02);m.lookAt(h.x+h.nx,h.y+h.ny,h.z+h.nz);m.rotateZ(rand(-.3,.3));
+  scene.add(m);decals.list.push(m);
+  if(decals.list.length>260){const o=decals.list.shift();scene.remove(o);o.geometry.dispose();}
+  return m;
 }
 function clearDecals(){for(const m of decals.list){scene.remove(m);m.geometry.dispose();}decals.list.length=0;}
 
@@ -203,7 +212,9 @@ function explosion(p,power,owner,weapon){
     // walls between the blast and the target soak it
     const eye=new V3(u.pos.x,u.pos.y+1.0,u.pos.z);if(!clearLine(new V3(p.x,p.y+.4,p.z),eye))continue;
     const dmg=d<lethal?200:120*Math.pow(1-(d-lethal)/(maxR-lethal),1.5);
+    u.blast={c:p.clone(),P};
     if(dmg>3)hurt(u,dmg,owner,weapon||'arty','blast',new V3(u.pos.x-p.x,0,u.pos.z-p.z).normalize());
+    if(u.alive)u.blast=null;
   }
   const dc=p.distanceTo(camera.position);
   FX.trauma=Math.min(1.6,FX.trauma+clamp((P*18)/(dc+3),0,1.3));

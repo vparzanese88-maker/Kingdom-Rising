@@ -81,11 +81,11 @@ gridEdit(-96,-162,96,40,(x,z,h)=>{const d=roadDist(x,z);return d<3.2?h-.12*(1-ss
 
 /* ================= Lights & sky ================= */
 const sunDir=new V3(.55,.62,.3).normalize();
-const hemi=new THREE.HemisphereLight(C(0xb4bcc6),C(0x5a5242),.95);scene.add(hemi);
-const sun=new THREE.DirectionalLight(C(0xfff2dc),1.7);
-sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,near:1,far:400});
-sun.shadow.bias=-0.0005;sun.shadow.normalBias=0.04;
+const hemi=new THREE.HemisphereLight(C(0xb4bcc6),C(0x5a5242),.78);scene.add(hemi);
+const sun=new THREE.DirectionalLight(C(0xffeed2),2.5);
+sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);
+Object.assign(sun.shadow.camera,{left:-85,right:85,top:85,bottom:-85,near:1,far:420});
+sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.035;sun.shadow.radius=2.5;
 scene.add(sun);scene.add(sun.target);
 function placeSun(p){sun.target.position.set(Math.round(p.x/4)*4,0,Math.round(p.z/4)*4);sun.position.copy(sun.target.position).addScaledVector(sunDir,180);}
 
@@ -162,49 +162,71 @@ buildTerrainMesh(-760,-760,760,230,8,true);
 const depthTex=(()=>{const w=256,h=512,d=new Uint8Array(w*h*4);
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){const x=lerp(HG.x0,HG.x1,i/(w-1)),z=lerp(HG.z0,HG.z1,j/(h-1));const hh=H(x,z);const v=clamp((hh+4)/8,0,1)*255;const k=(j*w+i)*4;d[k]=v;d[k+1]=v;d[k+2]=v;d[k+3]=255;}
   const t=new THREE.DataTexture(d,w,h,THREE.RGBAFormat);t.magFilter=t.minFilter=THREE.LinearFilter;t.needsUpdate=true;return t;})();
-const waterU=Object.assign(THREE.UniformsUtils.clone(THREE.UniformsLib.fog),{time:{value:0},dT:{value:depthTex},sunDir:{value:sunDir},
-  deep:{value:C(0x22302f)},shallow:{value:C(0x51604f)},skyC:{value:C(0x9aa2a6)},foamC:{value:C(0xe4e2d8)},
+// tileable ripple normal map and foam texture for the sea
+const waterNrm=(()=>{const S=256,h=new Float32Array(S*S);for(let y=0;y<S;y++)for(let x=0;x<S;x++)h[y*S+x]=tfbm(x/32,y/32,8,5)*.7+tfbm(x/8,y/8,32,3)*.3;return normalTex(S,S,h,7);})();
+const foamTex=canvasTex(256,256,(g,w,h)=>{const img=g.createImageData(w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const n=tfbm(x/16,y/16,16,5),m=tfbm(x/5,y/5,51,3);
+  const v=Math.max(0,Math.min(1,(n*1.3-.45)*2.2))*(.6+.4*m);const i=(y*w+x)*4;img.data[i]=img.data[i+1]=img.data[i+2]=v*255;img.data[i+3]=255;}g.putImageData(img,0,0);},false);
+const waterU=Object.assign(THREE.UniformsUtils.clone(THREE.UniformsLib.fog),{time:{value:0},dT:{value:depthTex},sunDir:{value:sunDir},nT:{value:waterNrm},fT:{value:foamTex},
+  deep:{value:C(0x1b2b30)},mid:{value:C(0x2f4d4a)},shallow:{value:C(0x6f8a6c)},skyTop:{value:C(0x6d7782)},skyHor:{value:C(0xb9bcb9)},sunC:{value:new THREE.Color(1.0,.92,.78)},
   box:{value:new THREE.Vector4(HG.x0,HG.z0,HG.x1-HG.x0,HG.z1-HG.z0)}});
 const waterMat=new THREE.ShaderMaterial({uniforms:waterU,transparent:true,fog:true,
-  vertexShader:`uniform float time;uniform sampler2D dT;uniform vec4 box;varying vec3 vP;varying float vDepth;varying vec3 vN;
+  vertexShader:`uniform float time;uniform sampler2D dT;uniform vec4 box;varying vec3 vP;varying float vDepth;varying vec3 vN;varying float vCrest;
   #include <fog_pars_vertex>
-  float ground(vec2 p){vec2 uv=(p-box.xy)/box.zw;if(uv.x<0.0||uv.y<0.0||uv.x>1.0||uv.y>1.0)return -6.0;return texture2D(dT,uv).r*8.0-4.0;}
-  void main(){vec3 p=position;vec4 wp=modelMatrix*vec4(p,1.0);
-    float g=ground(wp.xz);float dep=max(0.0,-g);float amp=clamp(dep*0.12,0.03,0.45);
-    float w1=sin(wp.z*0.22-time*1.5+sin(wp.x*0.03)*2.0),w2=sin(wp.x*0.13+wp.z*0.17-time*1.1),w3=sin(wp.x*-0.31+wp.z*0.27-time*2.3);
-    wp.y+=(w1*0.6+w2*0.3+w3*0.12)*amp;
-    float dz=(cos(wp.z*0.22-time*1.5)*0.22*0.6+cos(wp.x*0.13+wp.z*0.17-time*1.1)*0.17*0.3)*amp,dx=(cos(wp.x*0.13+wp.z*0.17-time*1.1)*0.13*0.3-cos(wp.x*-0.31+wp.z*0.27-time*2.3)*0.31*0.12)*amp;
-    vN=normalize(vec3(-dx,1.0,-dz));vP=wp.xyz;vDepth=wp.y-g;
+  float ground(vec2 p){vec2 uv=(p-box.xy)/box.zw;if(uv.x<0.0||uv.y<0.0||uv.x>1.0||uv.y>1.0)return -8.0;return texture2D(dT,uv).r*8.0-4.0;}
+  // one Gerstner wave: adds displacement and accumulates the normal terms
+  void wave(vec2 D,float L,float A,float Q,vec2 p,inout vec3 disp,inout vec3 nrm){float k=6.2832/L,c=sqrt(9.8/k),f=k*(dot(D,p)-c*time);float ca=cos(f),sa=sin(f);
+    disp.x+=Q*A*D.x*ca;disp.z+=Q*A*D.y*ca;disp.y+=A*sa;nrm.x-=D.x*k*A*ca;nrm.z-=D.y*k*A*ca;nrm.y-=Q*k*A*sa;}
+  void main(){vec4 wp=modelMatrix*vec4(position,1.0);vec2 p=wp.xz;
+    float g=ground(p);float dep=max(0.0,-g);
+    float amp=clamp(dep*0.09,0.03,0.55)*(1.0+0.6*smoothstep(3.0,0.6,dep)*smoothstep(0.0,0.6,dep));
+    vec3 disp=vec3(0.0),nrm=vec3(0.0,1.0,0.0);
+    wave(normalize(vec2(0.1,-1.0)),22.0,amp*0.55,0.75,p,disp,nrm);
+    wave(normalize(vec2(-0.35,-1.0)),13.0,amp*0.3,0.7,p,disp,nrm);
+    wave(normalize(vec2(0.55,-0.8)),7.5,amp*0.17,0.6,p,disp,nrm);
+    wave(normalize(vec2(-0.8,-0.5)),4.2,amp*0.08,0.5,p,disp,nrm);
+    wp.xyz+=disp;vN=normalize(nrm);vP=wp.xyz;vDepth=wp.y-g;vCrest=disp.y/max(amp,0.001);
     vec4 mvPosition=viewMatrix*wp;gl_Position=projectionMatrix*mvPosition;
     #include <fog_vertex>
   }`,
-  fragmentShader:`uniform float time;uniform vec3 deep,shallow,skyC,foamC,sunDir;varying vec3 vP;varying float vDepth;varying vec3 vN;
+  fragmentShader:`uniform float time;uniform vec3 deep,mid,shallow,skyTop,skyHor,sunC,sunDir;uniform sampler2D nT,fT;varying vec3 vP;varying float vDepth;varying vec3 vN;varying float vCrest;
   #include <fog_pars_fragment>
-  float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-  float ns(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}
+  vec3 sky(vec3 r){float h=max(r.y,0.0);vec3 c=mix(skyHor,skyTop,pow(h,0.55));float s=max(dot(r,sunDir),0.0);return c+sunC*(pow(s,12.0)*0.25);}
   void main(){
-    vec2 q=vP.xz;float n1=ns(q*0.9+vec2(time*0.3,time*0.5)),n2=ns(q*2.3-vec2(time*0.4,-time*0.2));
-    vec3 N=normalize(vN+vec3(n1-0.5,0.0,n2-0.5)*0.35);
+    vec2 q=vP.xz;
+    vec3 n1=texture2D(nT,q*0.045+vec2(time*0.012,time*0.02)).xyz*2.0-1.0;
+    vec3 n2=texture2D(nT,q*0.11-vec2(time*0.018,-time*0.009)).xyz*2.0-1.0;
+    vec3 n3=texture2D(nT,q*0.37+vec2(-time*0.03,time*0.04)).xyz*2.0-1.0;
+    vec3 dn=n1*0.55+n2*0.35+n3*0.25;
+    vec3 N=normalize(vN+vec3(dn.x,0.0,dn.y)*0.42);
     vec3 V=normalize(cameraPosition-vP);
-    float fr=pow(1.0-max(dot(N,V),0.0),4.0)*0.7+0.1;
-    float d=clamp(vDepth,0.0,8.0);
-    vec3 col=mix(shallow,deep,smoothstep(0.0,4.0,d));
-    col=mix(col,skyC,fr);
-    vec3 H=normalize(sunDir+V);col+=vec3(1.0,0.95,0.85)*pow(max(dot(N,H),0.0),120.0)*0.5;
-    float band=sin(d*5.0-time*1.8+n1*2.0)*0.5+0.5;
-    float foam=smoothstep(0.45,0.0,d)*0.85+smoothstep(1.3,0.25,d)*smoothstep(0.8,1.0,band)*smoothstep(0.4,0.7,n2)*0.6;
-    foam+=smoothstep(0.92,1.0,n1*n2*1.5)*0.08;
-    col=mix(col,foamC,clamp(foam,0.0,1.0));
-    float a=mix(0.35,0.96,smoothstep(0.0,1.2,d));a=max(a,foam);
+    float NV=max(dot(N,V),0.0);
+    float F=0.02+0.98*pow(1.0-NV,5.0);
+    vec3 R=reflect(-V,N);R.y=abs(R.y);
+    vec3 refl=sky(R);
+    float d=max(vDepth,0.0);
+    vec3 body=mix(shallow,mid,1.0-exp(-d*0.9));body=mix(body,deep,1.0-exp(-d*0.22));
+    // light through wave crests
+    body+=vec3(0.06,0.13,0.1)*clamp(vCrest,0.0,1.0)*max(dot(normalize(vec3(-sunDir.x,0.4,-sunDir.z)),V),0.0);
+    vec3 col=mix(body,refl,F);
+    vec3 Hh=normalize(sunDir+V);float sp=pow(max(dot(N,Hh),0.0),900.0)*6.0+pow(max(dot(N,Hh),0.0),90.0)*0.35;
+    col+=sunC*sp;
+    // foam: the wash on the sand, breaking bands, and whitecaps on crests
+    float fm=texture2D(fT,q*0.18+vec2(0.0,time*0.05)).r,fm2=texture2D(fT,q*0.5-vec2(time*0.03,0.0)).r;
+    float wash=smoothstep(0.5,0.0,d);
+    float band=smoothstep(0.82,1.0,sin(d*3.2-time*1.7+fm*2.5)*0.5+0.5)*smoothstep(1.8,0.25,d);
+    float cap=smoothstep(0.65,1.0,vCrest)*smoothstep(1.5,4.0,d)*0.7;
+    float foam=clamp(wash*(0.55+0.6*fm2)+band*fm*1.4+cap*fm*fm2*1.6,0.0,1.0);
+    col=mix(col,vec3(0.92,0.93,0.9),foam);
+    float a=mix(0.18,0.97,smoothstep(0.0,1.6,d));a=max(a,foam*0.95);a=max(a,F*0.8);
     gl_FragColor=vec4(col,a);
     #include <tonemapping_fragment>
     #include <encodings_fragment>
     #include <fog_fragment>
   }`});
-const water=new THREE.Mesh((()=>{const g=new THREE.PlaneGeometry(700,420,350,210);g.rotateX(-Math.PI/2);g.translate(0,0,300);return g;})(),waterMat);
+const water=new THREE.Mesh((()=>{const g=new THREE.PlaneGeometry(700,420,420,252);g.rotateX(-Math.PI/2);g.translate(0,0,300);return g;})(),waterMat);
 water.renderOrder=1;scene.add(water);
 for(const[w,d,x,z]of[[5000,3000,0,2010],[2150,420,-1425,300],[2150,420,1425,300]]){
-  const m=new THREE.Mesh((()=>{const g=new THREE.PlaneGeometry(w,d,Math.ceil(w/60),Math.ceil(d/60));g.rotateX(-Math.PI/2);g.translate(x,0,z);return g;})(),waterMat);m.renderOrder=1;scene.add(m);}
+  const m=new THREE.Mesh((()=>{const g=new THREE.PlaneGeometry(w,d,Math.ceil(w/40),Math.ceil(d/40));g.rotateX(-Math.PI/2);g.translate(x,0,z);return g;})(),waterMat);m.renderOrder=1;scene.add(m);}
 
 /* ================= The fleet on the horizon ================= */
 const FLEET=[];

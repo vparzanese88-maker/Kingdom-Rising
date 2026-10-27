@@ -9,34 +9,53 @@ function spreadDir(dir,spread,out){
   return out.copy(dir).addScaledVector(right,Math.cos(a)*r).addScaledVector(up2,Math.sin(a)*r).normalize();
 }
 const r2=v=>Math.round(v*100)/100;
-function fireBullet(u,o,dir,W,wid,isTracer){
-  const maxT=420;
-  const wh=rayWorld(o.x,o.y,o.z,dir.x,dir.y,dir.z,maxT);
-  const endT=wh?wh.t:maxT;
-  const uh=rayUnits(o,dir,endT,u,u.team);
-  let t=endT;
-  if(uh){
-    t=uh.t;const hp=new V3(o.x+dir.x*t,o.y+dir.y*t,o.z+dir.z*t);
-    let dmg=W.dmg*ZONE_MUL[uh.zone];
-    if((W.type==='auto'||W.pistol)&&!W.mg)dmg*=clamp(1-(t-35)/170,.55,1);
-    bloodFX(hp,dir);play('flesh',{pos:hp,vol:.45,maxD:40});
-    if(Math.random()<.3)decalAt(hp.x,hp.z,.9,'blood');
-    if(!Net.client){const before=uh.u.alive;hurt(uh.u,dmg,u,wid,uh.zone,dir);
-      if(before&&u.isPlayer)hitMarker(!uh.u.alive,uh.zone==='head');else if(before&&u.remote)Net.event(['hm',u.id,uh.u.alive?0:1,uh.zone==='head'?1:0]);}
-  }else if(wh)impactFX(wh,dir);
-  if(isTracer)tracer(_v1.copy(o).addScaledVector(dir,1.2),dir,t);
-  // near misses: crack for the player, suppression for bots
-  for(const v of UNITS){if(!v.alive||v.team===u.team)continue;
-    const ex=v.pos.x-o.x,ey=v.pos.y+1.2-o.y,ez=v.pos.z-o.z;const along=ex*dir.x+ey*dir.y+ez*dir.z;if(along<2||along>t)continue;
-    const px=ex-dir.x*along,py=ey-dir.y*along,pz=ez-dir.z*along;const d=Math.sqrt(px*px+py*py+pz*pz);
-    if(v.isPlayer){if(d<3.2&&!(uh&&uh.u===v)){const at=new V3(o.x+dir.x*along,o.y+dir.y*along,o.z+dir.z*along);play(along>25?'crack':'whiz',{pos:at,vol:.5,travel:false,ref:3});
-      FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}
-    else if(v.brain&&d<2.6)v.brain.suppress+=(W.mg?.22:.12)*(1-d/2.6);
-  }
-  if(Net.host)Net.event(['shot',u.id,r2(o.x),r2(o.y),r2(o.z),r2(dir.x),r2(dir.y),r2(dir.z),Math.round(t*10)/10,uh?2:wh?1:0,wid,isTracer?1:0,wh&&!uh?wh.mat:0]);
-  if(Net.client&&u===PL.u)Net.send({t:'fire',o:[r2(o.x),r2(o.y),r2(o.z)],d:[dir.x,dir.y,dir.z],w:wid,tr:isTracer?1:0});
-  return t;
+// muzzle velocities (m/s): bullets fly, drop and take time to arrive
+const MUZZLE_V={garand:853,carbine:600,thompson:285,greasegun:280,springfield:853,bar:850,m1919:850,k98:760,g43:745,mp40:400,mp44:685,k98s:760,mg34:755,mg42:755,colt:253,luger:350};
+const GRAV=9.81;
+const BULLETS=[];
+// fire a round. On the host and offline it does damage; on a client it is only seen and heard.
+function fireBullet(u,o,dir,W,wid,isTracer,visual){
+  const sp=MUZZLE_V[wid]||700;
+  const b={u,p:o.clone(),v:dir.clone().multiplyScalar(sp),W,wid,dmg:!Net.client&&!visual,team:u.team,dist:0,age:0,cracked:new Set(),tr:null};
+  if(isTracer){const tr=tracers[tracerI];tracerI=(tracerI+1)%tracers.length;tr.m.visible=true;tr.owner=b;b.tr=tr;}
+  BULLETS.push(b);
+  if(Net.host&&!visual)Net.event(['shot',u.id,r2(o.x),r2(o.y),r2(o.z),Math.round(dir.x*1e4)/1e4,Math.round(dir.y*1e4)/1e4,Math.round(dir.z*1e4)/1e4,wid,isTracer?1:0]);
+  if(Net.client&&u===PL.u&&!visual)Net.send({t:'fire',o:[r2(o.x),r2(o.y),r2(o.z)],d:[dir.x,dir.y,dir.z],w:wid,tr:isTracer?1:0});
 }
+const _bd=new V3();
+function updateBullets(dt){
+  for(let i=BULLETS.length-1;i>=0;i--){const b=BULLETS[i];
+    let done=false,left=dt;
+    while(left>0&&!done){const h=Math.min(left,1/60);left-=h;
+      const p=b.p,v=b.v;const sp=v.length();_bd.copy(v).divideScalar(sp);const L=sp*h;
+      const wh=rayWorld(p.x,p.y,p.z,_bd.x,_bd.y,_bd.z,L);
+      const uh=rayUnits(p,_bd,wh?wh.t:L,b.u,b.team);
+      // near misses: crack overhead for the player, suppression for bots
+      const segT=uh?uh.t:wh?wh.t:L;
+      for(const t of UNITS){if(!t.alive||t.team===b.team||b.cracked.has(t))continue;
+        const ex=t.pos.x-p.x,ey=t.pos.y+1.2-p.y,ez=t.pos.z-p.z;const al=ex*_bd.x+ey*_bd.y+ez*_bd.z;if(al<0||al>segT)continue;
+        const px=ex-_bd.x*al,py=ey-_bd.y*al,pz=ez-_bd.z*al;const d=Math.sqrt(px*px+py*py+pz*pz);if(d>3.2)continue;b.cracked.add(t);
+        if(t.isPlayer){if(!(uh&&uh.u===t)){play(sp>343&&b.dist>20?'crack':'whiz',{pos:new V3(p.x+_bd.x*al,p.y+_bd.y*al,p.z+_bd.z*al),vol:.5,travel:false,ref:3});
+          FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}
+        else if(t.brain&&d<2.6&&b.dmg)t.brain.suppress+=(b.W.mg?.22:.12)*(1-d/2.6);}
+      if(uh){
+        const hp=new V3(p.x+_bd.x*uh.t,p.y+_bd.y*uh.t,p.z+_bd.z*uh.t);const dist=b.dist+uh.t;
+        let dmg=b.W.dmg*ZONE_MUL[uh.zone];
+        if((b.W.type==='auto'||b.W.pistol)&&!b.W.mg)dmg*=clamp(1-(dist-35)/170,.55,1);
+        goreHit(hp,_bd,uh.zone,uh.u,dmg);
+        if(b.dmg){const before=uh.u.alive;hurt(uh.u,dmg,b.u,b.wid,uh.zone,_bd.clone());
+          if(before&&b.u.isPlayer)hitMarker(!uh.u.alive,uh.zone==='head');else if(before&&b.u.remote)Net.event(['hm',b.u.id,uh.u.alive?0:1,uh.zone==='head'?1:0]);}
+        done=true;p.copy(hp);
+      }else if(wh){impactFX(wh,_bd);done=true;p.set(wh.x,wh.y,wh.z);}
+      else{p.addScaledVector(v,h);v.y-=GRAV*h;v.multiplyScalar(1-h*.12);b.dist+=L;}
+      b.age+=h;if(b.age>3||b.dist>900||p.y<-30)done=true;
+    }
+    if(b.tr){const tr=b.tr;if(tr.owner!==b)b.tr=null;else{const len=Math.min(7,b.dist+.5);_bd.copy(b.v).normalize();tr.m.position.copy(b.p);tr.m.lookAt(b.p.x-_bd.x,b.p.y-_bd.y,b.p.z-_bd.z);tr.m.scale.set(1,1,len);if(done){tr.m.visible=false;tr.owner=null;}}}
+    if(done)BULLETS.splice(i,1);
+  }
+}
+// aim above a target far away so the round drops onto it (skill decides how well)
+function dropComp(dir,dist,wid,skill){const sp=MUZZLE_V[wid]||700;const t=dist/sp;dir.y+=.5*GRAV*t*t/dist*skill;return dir.normalize();}
 function gunSound(u,W,o){
   if(u.isPlayer)play('g_'+W.snd,{vol:.75,rev:.18,jit:.04});
   else play('g_'+W.snd,{pos:o,vol:.9,ref:7,jit:.05});
@@ -303,6 +322,7 @@ class Brain{
     if(tg.stance!=='prone')aim.y+=Math.random()<(W.scope?.35:.12)*D.acc?.5:.18;
     const dir=aim.sub(e).normalize();const fx=Math.sin(u.yaw),fz=Math.cos(u.yaw);
     if(dir.x*fx+dir.z*fz<.9)return;// not facing yet
+    dropComp(dir,d,w.id,[.75,.92,1][SET.diff]);
     spreadDir(dir,err,dir);
     const spread=u.deployed?(W.dep||W.ads):Math.hypot(u.vel.x,u.vel.z)>1?W.hip*.6:W.ads;
     spreadDir(dir,spread,dir);
@@ -340,6 +360,9 @@ function moveUnit(u,mx,mz,speed,dt){
 }
 function updateBot(u,dt){
   const b=u.brain;
+  // bandage when bleeding and nobody is shooting at us
+  if(u.bleed&&!(u.bandT>0)&&!b.target&&GAME.time-(u.lastHurt||0)>1.5){startBandage(u);if(Math.random()<.3)shout(u,'medic');}
+  if(u.bandT>0){u.stance='crouch';u.vel.x*=.8;u.vel.z*=.8;moveUnit(u,0,0,0,dt);return;}
   const m=b.think(dt);
   // stance changes take a moment
   if(b.wantStance!==u.stance){b.stanceT=(b.stanceT||0)+dt;if(b.stanceT>(b.wantStance==='prone'||u.stance==='prone'?.6:.2)){u.stance=b.wantStance;b.stanceT=0;}}else b.stanceT=0;

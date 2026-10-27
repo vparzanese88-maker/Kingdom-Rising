@@ -79,6 +79,7 @@ function hostData(c,m){
       if(n){n.held=u;n.owner=u;c.send({t:'picked',nid:n.nid,fuse:n.fuse,id:n.id});}break;}
     case'cls':{if(!u)return;const cls=clsById(u.team,m.id);if(cls){u.nextCls=cls;if(G.mode==='freeze'&&u.alive)spawnUnit(u,true);broadcast(rosterMsg());}break;}
     case'fall':if(u&&u.alive)hurt(u,clamp(+m.dmg||0,0,200),null,'fall','limb',null);break;
+    case'band':if(u)startBandage(u);break;
   }
 }
 function humanCount(t){return UNITS.filter(u=>u.team===t&&(u.human||u.isPlayer)).length;}
@@ -96,7 +97,7 @@ const R=v=>Math.round(v*100)/100;
 function stateMsg(){
   return{t:'s',m:G.mode,it:R(G.introT),fz:R(G.freezeT||0),tl:Math.round(G.timeLeft),w:[R(G.waveT[0]),R(G.waveT[1])],r:G.round,sc:G.score,
     f:G.flags.map(f=>[f.owner,R(f.prog),f.capTeam]),
-    u:UNITS.map(u=>[u.id,u.alive?1:0,R(u.pos.x),R(u.pos.y),R(u.pos.z),R(u.yaw),R(u.pitch),STANCE.indexOf(u.stance),SLOTS.indexOf(u.cur),u.deployed?1:0,(u.cls||{}).id]),
+    u:UNITS.map(u=>[u.id,u.alive?1:0,R(u.pos.x),R(u.pos.y),R(u.pos.z),R(u.yaw),R(u.pitch),STANCE.indexOf(u.stance),SLOTS.indexOf(u.cur),u.deployed?1:0,(u.cls||{}).id,Math.max(0,Math.ceil(u.hp)),u.bleed?1:0]),
     n:NADES.map(n=>[n.nid,R(n.p.x),R(n.p.y),R(n.p.z),n.id==='stick'?1:0,n.held?n.held.id:-1])};
 }
 function netTick(dt){
@@ -167,7 +168,7 @@ function clientBegin(id,snap){
   Net.myId=id;Net.pendingJoin=false;Net.pendingRoster=null;Net.joining=false;Net.sentJoin=false;
   Object.assign(Net,{on:true,client:true,host:false});
   // clear the menu battle and build the host's armies
-  for(const u of UNITS)if(u.model)scene.remove(u.model.root);UNITS.length=0;for(const m of CORPSES)scene.remove(m.root);CORPSES.length=0;
+  for(const u of UNITS)if(u.model)scene.remove(u.model.root);UNITS.length=0;for(const m of CORPSES)removeCorpse(m);CORPSES.length=0;clearRagdolls();
   clearNades();clearDecals();
   G.demo=false;G.paused=false;
   applyRoster(Net.welcome.r);
@@ -191,12 +192,14 @@ function applySnap(m){
   if(G.mode==='intro'&&Math.abs(G.introT-m.it)>.5)G.introT=m.it;
   if(G.mode==='freeze'&&Math.abs((G.freezeT||0)-m.fz)>.5)G.freezeT=m.fz;
   m.f.forEach(([o,p,c],i)=>{const f=G.flags[i];if(!f)return;if(f.owner!==o){f.owner=o;setFlagTex(f,o);}f.prog=p;f.capTeam=c;});
-  for(const[id,alive,x,y,z,yaw,pitch,st,sl,dep,cls]of m.u){
+  for(const[id,alive,x,y,z,yaw,pitch,st,sl,dep,cls,hp,bl]of m.u){
     const u=unitById(id);if(!u)continue;
+    if(u.isPlayer&&u.alive&&alive){if(hp!=null)u.hp=hp;if(!(u.bandT>0))u.bleed=!!bl;}
     if(u.isPlayer){if(!alive&&u.alive){Net.applying=true;killUnit(u,null,'arty','chest',null);Net.applying=false;}continue;}
     if(alive&&!u.alive)spawnUnit(u,false,{x,y,z,yaw,b:-1,cls});
     else if(!alive&&u.alive){Net.applying=true;killUnit(u,null,'?','chest',null);Net.applying=false;}
     if(!u.alive)continue;
+    u.bleed=!!bl;
     u.net={x,y,z,yaw,pitch};u.stance=STANCE[st]||'stand';const s=SLOTS[sl];if(u.weps&&u.weps[s])u.cur=s;u.deployed=!!dep;
   }
   // grenades in flight
@@ -212,12 +215,13 @@ function netNades(dt){
 function clearNetNades(){for(const k in Net.nadeMesh){scene.remove(Net.nadeMesh[k].mesh);delete Net.nadeMesh[k];}}
 function applyEvent(e){
   const k=e[0];
-  if(k==='shot'){const[,sid,ox,oy,oz,dx,dy,dz,len,kind,wid,tr,mat]=e;netShot(sid,new V3(ox,oy,oz),new V3(dx,dy,dz).normalize(),len,kind,wid,tr,mat);}
+  if(k==='shot'){const[,sid,ox,oy,oz,dx,dy,dz,wid,tr]=e;netShot(sid,new V3(ox,oy,oz),new V3(dx,dy,dz).normalize(),wid,tr);}
   else if(k==='boom')explosion(new V3(e[1],e[2],e[3]),e[4],null,'arty');
   else if(k==='whis')play('whistle',{pos:new V3(e[1],e[2],e[3]),vol:.75,travel:false,ref:25});
   else if(k==='kill'){const v=unitById(e[1]);if(v&&v.alive){const kk=unitById(e[2]);killUnit(v,kk,e[3],e[4],new V3(e[5],0,e[6]));}}
   else if(k==='hurt'){if(e[1]!==Net.myId)return;const u=PL.u;if(!u||!u.alive)return;u.hp=e[3];u.lastHurt=GAME.time;u.slowT=.6;const a=unitById(e[4]);playerHurt(e[2],a,e[5],new V3(e[6],0,e[7]));
-    if(e[5]==='head')play('helmet',{vol:.6});}
+    if(e[5]==='head')play('helmet',{vol:.6});if(e[2]>=8&&u.hp>0){if(!u.bleed)hint('You are bleeding! Press H to bandage',3);u.bleed=true;}}
+  else if(k==='hp'){if(e[1]===Net.myId&&PL.u)PL.u.hp=e[2];}
   else if(k==='hm'){if(e[1]===Net.myId)hitMarker(!!e[2],!!e[3]);}
   else if(k==='sp'){const[,id,x,y,z,yaw,cls,b,lx,lz]=e;const u=unitById(id);if(u)spawnUnit(u,false,{x,y,z,yaw,cls,b,lx,lz});}
   else if(k==='rs'){G.round=e[1];resetRoundVisuals();clearNetNades();G.mode='freeze';G.freezeT=FREEZE_T;G.introT=INTRO_T;
@@ -229,19 +233,12 @@ function applyEvent(e){
   else if(k==='shout'){const u=unitById(e[1]);if(u)shout(u,e[2]);}
 }
 // another soldier's shot, replayed for the eyes and ears
-function netShot(sid,o,d,len,kind,wid,tr,mat){
+function netShot(sid,o,d,wid,tr){
   if(sid===Net.myId)return;
-  const u=unitById(sid);const W=WEAPONS[wid];if(!W)return;
-  if(u){u.lastShot=GAME.time;if(u.model)u.model.kick=1;gunSound(u,W,o);}
+  const u=unitById(sid);const W=WEAPONS[wid];if(!W||!u)return;
+  u.lastShot=GAME.time;if(u.model)u.model.kick=1;gunSound(u,W,o);
   muzzleFX(o,d,!!W.mg);if(o.distanceTo(camera.position)<60)flashAt(o,1.5,.05,8);
-  if(tr)tracer(new V3().copy(o).addScaledVector(d,1.2),d,len);
-  const hp=new V3(o.x+d.x*len,o.y+d.y*len,o.z+d.z*len);
-  if(kind===2){bloodFX(hp,d);play('flesh',{pos:hp,vol:.45,maxD:40});}
-  else if(kind===1)impactFX({x:hp.x,y:hp.y,z:hp.z,nx:-d.x,ny:-d.y,nz:-d.z,mat:mat||'sand'},d);
-  // near miss on me
-  const me=PL.u;if(me&&me.alive&&u&&u.team!==me.team){const ex=me.pos.x-o.x,ey=me.pos.y+1.2-o.y,ez=me.pos.z-o.z;const al=ex*d.x+ey*d.y+ez*d.z;
-    if(al>2&&al<len){const px=ex-d.x*al,py=ey-d.y*al,pz=ez-d.z*al;if(Math.hypot(px,py,pz)<3.2&&kind!==2){play(al>25?'crack':'whiz',{pos:new V3(o.x+d.x*al,o.y+d.y*al,o.z+d.z*al),vol:.5,travel:false,ref:3});
-      FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}}
+  fireBullet(u,o,d,W,wid,!!tr,true);
 }
 // smooth another soldier toward where the network says they are
 function netFollow(u,dt){

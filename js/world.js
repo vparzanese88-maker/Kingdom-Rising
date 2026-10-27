@@ -77,7 +77,7 @@
     }
     W.realm = 'main'; W.portals = [];
     const inOcean = (x, y) => x > OC.x0 + (U.fbm(x * 0.02, y * 0.02, 61, 3) - 0.5) * 50 && y > OC.y0 + (U.fbm(x * 0.02, y * 0.02, 67, 3) - 0.5) * 50;
-    for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) if (inOcean(x, y)) W.region[y * W.W + x] = RI.ocean;
+    for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) if (inOcean(x, y) || W.portSea(x, y)) W.region[y * W.W + x] = RI.ocean;
     paintTerrain();
     shoreline();
     // ---- mountain ridges between regions whose levels differ a lot ----
@@ -91,7 +91,7 @@
     }
     for (let i = 0; i < N; i++) if (ridge[i]) W.tiles[i] = U.hash(i % W.W, (i / W.W) | 0, 13) < 0.08 ? T.GRAVEL : T.ROCK;
     // ---- river from the peaks down to the sea ----
-    for (let y = 0; y < OC.y0 + 10; y++) {
+    for (let y = 118; y < OC.y0 + 10; y++) {
       const rx = 398 + Math.sin(y * 0.03) * 16 + Math.sin(y * 0.011 + 1) * 10;
       const ford = (y % 70) > 60;
       for (let dx = -4; dx <= 4; dx++) {
@@ -102,6 +102,8 @@
         if (a <= 1 && !ford) W.tiles[i] = T.DEEP; else if (a <= 3) W.tiles[i] = T.WATER; else if (cur !== T.ROCK) W.tiles[i] = T.SAND;
       }
     }
+    // the river's spring: a small lake in the hills
+    { const y = 118, rx = Math.round(398 + Math.sin(y * 0.03) * 16 + Math.sin(y * 0.011 + 1) * 10); for (let dy = -6; dy <= 2; dy++) for (let dx = -7; dx <= 7; dx++) { const d = Math.hypot(dx, dy * 1.2); if (d > 6.5) continue; const x = rx + dx, yy = y + dy; if (!W.inb(x, yy)) continue; const i = yy * W.W + x; W.tiles[i] = d < 3 ? T.DEEP : d < 5.5 ? T.WATER : T.SAND; } }
     // ---- dungeons: carve caves and crypts out of solid rock ----
     for (const dg of D.DUNGEONS) if ((dg.parent || 'main') === 'main' && dg.type !== 'sewer') carveEntrance(dg);
     // ---- roads ----
@@ -112,7 +114,7 @@
       [[335, 262], [260, 225], [205, 215], [173, 214], [173, 226]],
       [[335, 262], [420, 300], [444, 340], [444, 351]],
       [[444, 340], [470, 390], [500, 425], [540, 410], [584, 386]],
-      [[170, 440], [110, 420], [70, 360], [60, 260]],
+      [[175, 380], [120, 352], [75, 318], [60, 260]],
       [[170, 440], [190, 520], [260, 585], [330, 560], [372, 548]],
       [[170, 440], [110, 515], [80, 570], [92, 580]],
       [[500, 95], [580, 150], [575, 235], [605, 300], [605, 340]],
@@ -195,6 +197,15 @@
 
   // ---------- shared terrain helpers (used by every realm) ----------
   const OC = D.OCEAN, SU = D.SUMMIT;
+  // the two capitals are sea ports: a northern sea whose coast swells into a harbour at Aelindor's north wall,
+  // and a bay from the western edge right up to Valenmoor's west gate
+  W.portSea = function (x, y) {
+    const n = (U.fbm(x * 0.03, y * 0.03, 81, 3) - 0.5) * 16;
+    const [sx, sy] = D.CITY_CENTER.sylvan, [cx, cy] = D.CITY_CENTER.crown;
+    if (x > 345 + n * 2) { let coast = 24 + n; const dxs = Math.abs(x - sx); if (dxs < 85) coast = Math.max(coast, sy - 46 - Math.pow(dxs / 85, 2) * 22 + n * 0.25); if (y < coast) return true; }
+    const dyc = Math.abs(y - cy - 2); if (dyc < 72) { const coast = cx - 47 - Math.pow(dyc / 72, 2) * 82 + n * 0.5; if (x < coast) return true; }
+    return false;
+  };
   let islandD = () => 9;
   function paintTerrain() {
     const RI = D.REGION_BY_ID;
@@ -508,6 +519,33 @@
     for (let k = 0; k < 9; k += 3) for (const w of [-2, 2]) { const tx = x + dx * k, ty = y + w; if (W.inb(tx, ty)) addDecor('post', tx, ty, { nb: true }); }
   }
 
+  // ---- the harbour outside a capital's sea gate: a paved quay, three wooden piers and ships of every size ----
+  function harbour(f, R, cx, cy) {
+    // from the sea gate straight out to the water
+    const [gx, gy, dx, dy] = f === 'sylvan' ? [cx, cy - R - 1, 0, -1] : [cx - R - 1, cy + 3, -1, 0];
+    const isW = (x, y) => { const t = W.tile(x, y); return t === T.WATER || t === T.DEEP; };
+    let k = 0; while (k < 40 && !isW(gx + dx * k, gy + dy * k)) k++;
+    if (k >= 40) return;
+    // a rebuilt city rebuilds its harbour: clear the old one first (some of it lies outside the city's own area)
+    W.decor = W.decor.filter((d) => d.harbour !== f);
+    const deco = (kind, x, y, o = {}) => addDecor(kind, x, y, Object.assign({ harbour: f }, o));
+    const px = -dy, py = dx; // along the shore
+    // the road from the gate, and a broad stone quay along the water's edge
+    for (let i = 0; i < k; i++) for (let w = -2; w <= 2; w++) { const x = gx + dx * i + px * w, y = gy + dy * i + py * w; if (W.inb(x, y) && !isW(x, y)) { W.tiles[y * W.W + x] = T.COBBLE; W.block[y * W.W + x] = 0; } }
+    for (let s = -26; s <= 26; s++) for (let d = -3; d <= 1; d++) { const x = gx + dx * (k + d) + px * s, y = gy + dy * (k + d) + py * s; if (!W.inb(x, y)) continue; const i = y * W.W + x; if (d < 0 || !isW(x, y)) { if (W.tiles[i] !== T.CWALL) { W.tiles[i] = d === 1 ? T.WOOD : T.STONE; W.block[i] = 0; } } else { W.tiles[i] = T.WOOD; W.block[i] = 0; } }
+    // three piers out into the deep water
+    const piers = [[0, 18], [-14, 14], [14, 14]];
+    for (const [off, len] of piers) for (let i = 0; i < len; i++) for (let w = -1; w <= 1; w++) { const x = gx + dx * (k + 1 + i) + px * (off + w), y = gy + dy * (k + 1 + i) + py * (off + w); if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WOOD; W.block[y * W.W + x] = 0; } }
+    const at = (i, s) => [gx + dx * (k + 1 + i) + px * s, gy + dy * (k + 1 + i) + py * s];
+    const ry = Math.atan2(dx, dy); // ships lie along the piers, bows out to sea
+    const ship = (i, s, size, v) => { const [x, y] = at(i, s); if (isW(x, y)) deco('boat', x, y, { nb: true, size, ry, v }); };
+    ship(14, 4, 'galleon', 0.3); ship(9, -4, 'cog', 0.6); ship(10, -10, 'cog', 0.1); ship(9, 18, 'sloop', 0.8); ship(5, 10, 'sloop', 0.45);
+    ship(2, -18, 'rowboat', 0.2); ship(3, 4, 'rowboat', 0.7); ship(1, -9, 'rowboat', 0.9); ship(12, 24, 'sloop', 0.15); ship(22, -6, 'cog', 0.5);
+    // posts, crates, barrels, nets and lamps
+    for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }
+    for (let s = -24; s <= 24; s += 6) { const x = gx + dx * (k - 2) + px * s, y = gy + dy * (k - 2) + py * s; if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 4); deco(h < 0.35 ? 'crate' : h < 0.7 ? 'barrel' : 'lamp', x, y, h >= 0.7 ? {} : { nb: true }); if (h >= 0.7) W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
+    W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py };
+  }
   function nearCity(x, y, r) { for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) return true; } return false; }
   function areaFree(x, y, w, h) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { if (!W.inb(i, j)) return false; const t = W.tile(i, j); if (SOLID[t] || t === T.WATER || t === T.ROAD || t === T.WOOD || t === T.STONE) return false; } return true; }
   function clearArea(x, y, w, h, floor) {
@@ -708,7 +746,7 @@
     for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
       const k = ty * W.W + tx, dx = tx - cx, dy = ty - cy;
       const wall = Math.abs(dx) === R || Math.abs(dy) === R;
-      const gate = (dy === R && Math.abs(dx) <= 1) || (Math.abs(dx) === R && dy >= 2 && dy <= 4);
+      const gate = (dy === R && Math.abs(dx) <= 1) || (Math.abs(dx) === R && dy >= 2 && dy <= 4) || (f === 'sylvan' && dy === -R && Math.abs(dx) <= 2); // Aelindor's sea gate opens north onto the harbour
       if (wall && !gate) W.tiles[k] = T.CWALL;
       else {
         let g = T.COBBLE;
@@ -751,6 +789,7 @@
       }
       W.decor = W.decor.filter((d) => !(ringD(d.tx, d.ty) > R && isRoad(W.tile(d.tx, d.ty)) && !['lamp', 'signpost'].includes(d.kind)));
     }
+    harbour(f, R, cx, cy);
     // plaza
     for (let ty = cy - 5; ty <= cy + 1; ty++) for (let tx = cx - 5; tx <= cx + 5; tx++) W.tiles[ty * W.W + tx] = T.STONE;
     addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});

@@ -9,6 +9,8 @@ const D = KR.D, W = KR.W;
 
 // relief (meters of hills) per biome
 const RELIEF = { hills: 7, mountain: 9, forest: 3.6, darkforest: 4.5, plains: 1.8, plains2: 2.6, grass: 3.4, swamp: 0.7, ash: 3.2, snow: 8, gloom: 3.2, volcanic: 5.5, scar: 4, desert: 4.2, ocean: 0, island: 3.4, summit: 6, citystone: 1.2, cityforest: 1.2, cityplains: 1.0, cave: 0, crypt: 0, icecave: 0, abyss: 0, sewer: 0 };
+// ridged mountain ranges (0..1.2) per biome, on top of the hills
+const PEAKS = { mountain: 1, snow: 1.2, summit: 0.9, volcanic: 0.7, hills: 0.32, darkforest: 0.22, gloom: 0.3, scar: 0.45, ash: 0.35 };
 const MOUNTAIN = { hills: 0.8, mountain: 1.35, snow: 1.5, summit: 1.3, volcanic: 1.1, scar: 1.0, desert: 0.75, swamp: 0.6 };
 // snow on the ground and on peaks (0..1) per biome
 const SNOWY = { snow: 1, summit: 0.75, mountain: 0.35, icecave: 0.8 };
@@ -123,12 +125,24 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
   const dOcean = distField(Wd, Hd, (i) => ocean[i] === 1);
   const summit = realm === 'summit', SU = D.SUMMIT;
   // ---- base land heights ----
+  // The land is low and flat by the sea and the rivers and climbs as you go inland: a broad swell of high
+  // ground, rolling hills (taller in hilly country), and ridged mountains in the mountain lands.
+  const dSea = summit ? null : distField(Wd, Hd, (i) => ocean[i] === 1 || cls[i] === 3);
+  const pk = new Float32Array(N); for (let i = 0; i < N; i++) pk[i] = PEAKS[biomeOf(i)] || 0;
+  const pkB = blur(pk, Wd, Hd, 8, 2);
   const B = new Float32Array(NV);
   for (let vy = 0; vy < VH; vy++) for (let vx = 0; vx < VW; vx++) {
     const tx = Math.min(Wd - 1, vx), ty = Math.min(Hd - 1, vy); const ti = ty * Wd + tx;
     const r = relB[ti];
-    const n1 = fbm(vx * 0.016, vy * 0.016, 4), n2 = fbm(vx * 0.05 + 40, vy * 0.05 - 20, 3), n3 = fbm(vx * 0.16 - 9, vy * 0.16 + 4, 2);
-    let h = r * (0.55 + 1.25 * (n1 - 0.5) + 0.45 * (n2 - 0.5)) + 0.08 * r * (n3 - 0.5) + 0.7;
+    const n0 = fbm(vx * 0.006 + 11, vy * 0.006 - 7, 3), n1 = fbm(vx * 0.016, vy * 0.016, 4), n2 = fbm(vx * 0.05 + 40, vy * 0.05 - 20, 3), n3 = fbm(vx * 0.16 - 9, vy * 0.16 + 4, 2);
+    let h;
+    if (dSea) {
+      const inland = K3.smooth(3, 150, dSea[ti]);
+      h = 0.7 + inland * (12 + 30 * n0);
+      const hillA = (3.2 + r * 2.6) * (0.45 + 0.55 * inland);
+      h += hillA * (n1 - 0.45) * 2 + hillA * 0.35 * (n2 - 0.5) + 0.08 * r * (n3 - 0.5);
+      const pkv = pkB[ti]; if (pkv > 0.01) { const rg = ridge(vx * 0.011 + 3, vy * 0.011 - 5, 5); h += pkv * Math.pow(rg, 2.2) * 95 * (0.25 + 0.75 * inland); }
+    } else h = r * (0.55 + 1.25 * (n1 - 0.5) + 0.45 * (n2 - 0.5)) + 0.08 * r * (n3 - 0.5) + 0.7;
     if (biomeOf(ti) === 'desert') { const dn = Math.sin(vx * 0.11 + vy * 0.03 + n2 * 5) * 0.5 + 0.5; h += dn * dn * 2.2; }
     // gently slope the land down to the sea
     const dO = dOcean[ti]; if (dO < 24) h = h * K3.smooth(0, 24, dO) + 0.6 * (1 - K3.smooth(0, 24, dO));
@@ -166,10 +180,10 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
     const cd = W.cityData[f]; if (!cd || cd.cx == null) continue; const R = cd.R + 1;
     let s = 0, n = 0; for (let y = cd.cy - R; y <= cd.cy + R + 1; y++) for (let x = cd.cx - R; x <= cd.cx + R + 1; x++) if (x >= 0 && y >= 0 && x < VW && y < VH) { s += H[y * VW + x]; n++; }
     const base = s / n; cd._y3 = base;
-    for (let y = cd.cy - R - 10; y <= cd.cy + R + 11; y++) for (let x = cd.cx - R - 10; x <= cd.cx + R + 11; x++) {
+    for (let y = cd.cy - R - 26; y <= cd.cy + R + 27; y++) for (let x = cd.cx - R - 26; x <= cd.cx + R + 27; x++) {
       if (x < 0 || y < 0 || x >= VW || y >= VH) continue; const v = y * VW + x;
       const d = Math.max(Math.abs(x - cd.cx - 0.5), Math.abs(y - cd.cy - 0.5)) - (R + 0.5);
-      if (d <= 0) H[v] = base + (H[v] - base) * 0.1; else if (d < 10) H[v] = K3.lerp(base + (H[v] - base) * 0.1, H[v], K3.smooth(0, 10, d));
+      if (d <= 0) H[v] = base + (H[v] - base) * 0.1; else if (d < 26) H[v] = K3.lerp(base + (H[v] - base) * 0.1, H[v], K3.smooth(0, 26, d));
     }
   }
   W.buildings.forEach((b) => {

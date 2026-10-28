@@ -24,7 +24,7 @@ const M4 = (x, y, z, rx = 0, ry = 0, rz = 0, s = 1) => new THREE.Matrix4().compo
 // Built flat in the x-y plane, edge or bit along +x, so the icon shows the face (held weapons are turned in weapons.js).
 // Steel shows the tier: rusty iron, iron, steel, blued steel, mithril, adamant; fittings go from iron to brass to gold.
 const STEEL = [
-  { flat: '#7c6c60', edge: '#c0b4a6', dark: '#3e3028', rust: '#8a4a26' },
+  { flat: '#a09489', edge: '#dcd4c8', dark: '#5e5044', rust: '#8e6448' }, // old iron: grey-brown and dull, with a little rust (it read as black with blood spots)
   { flat: '#8e9298', edge: '#dde1e6', dark: '#45484e' },
   { flat: '#aeb4bc', edge: '#f2f5f8', dark: '#565a62' },
   { flat: '#8ea4c4', edge: '#eef4ff', dark: '#36465e' },
@@ -42,7 +42,7 @@ function edgeRim(mb, pts, dy, col, r, skipBase = true) {
 }
 // rust blooms on low-tier steel, glowing runes on enchanted or high-tier steel, nicks and scratches everywhere
 function wear(mb, R, S, t, it, x0, x1, y0, y1, z) {
-  if (t === 0 && S.rust) for (let k = 0; k < 6; k++) { const x = x0 + (x1 - x0) * R(), y = y0 + (y1 - y0) * R(); for (const sz of [-1, 1]) mb.sph('paint', x, y, sz * z, 0.02 + R() * 0.03, 0.025 + R() * 0.03, 0.003, hueShift(S.rust, R, 0.04, 0.1)); }
+  if (t === 0 && S.rust) for (let k = 0; k < 3; k++) { const x = x0 + (x1 - x0) * R(), y = y0 + (y1 - y0) * R(); for (const sz of [-1, 1]) mb.sph('paint', x, y, sz * (z - 0.0015), 0.012 + R() * 0.016, 0.016 + R() * 0.02, 0.0015, hueShift(S.rust, R, 0.03, 0.06)); }
   for (let k = 0; k < 3; k++) { const x = x0 + (x1 - x0) * R(), y = y0 + (y1 - y0) * R(); mb.box('metalv', x, y, (R() < 0.5 ? -1 : 1) * z, 0.002, 0.03 + R() * 0.05, 0.001, S.edge, 0, 0, (R() - 0.5) * 1.2); }
   const glow = it.fx ? FX_GLOW[it.fx] || '#c8a8ff' : t >= 4 ? (t === 5 ? '#7affd0' : '#9ad8ff') : null;
   if (glow) { const n = 4 + Math.floor(R() * 3); for (let k = 0; k < n; k++) for (const sz of [-1, 1]) { const y = y0 + (y1 - y0) * (0.15 + 0.7 * k / n); mb.box('glow', (x0 + x1) / 2, y, sz * (z + 0.001), 0.012, 0.022, 0.002, glow, 0, 0, (k % 2 ? 0.5 : -0.5) * R()); mb.box('glow', (x0 + x1) / 2 + 0.008, y + 0.008, sz * (z + 0.001), 0.012, 0.004, 0.002, glow); } }

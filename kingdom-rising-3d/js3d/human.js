@@ -805,7 +805,9 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
   const kind = L.helm, st = L.helmStyle || (kind === 'chain' ? 'coif' : kind === 'leather' ? 'cap' : 'nasal'), t = L.helmTier || 0;
   const wear = kind === 'leather' ? 0 : t <= 0 ? 2 : t <= 2 ? 1 : t >= 4 ? 3 : 0;
   const base = L.helmCol || '#a8acb4'; const mcol = kind === 'plate' ? K3.shade(base, [-0.32, -0.2, -0.1, -0.02, 0.04, 0.08][Math.min(5, t)]) : base;
-  const trimC = t >= 3 ? '#c8a040' : K3.shade(mcol, -0.3), trimM = t >= 3 ? 'gold' : matW('metal', wear);
+  // edges round the face openings stay dark metal (a gold line there looked jagged); the gold goes on the brow band and crest ridge
+  const trimC = K3.shade(mcol, -0.3), trimM = matW('metal', wear);
+  const goldC = t >= 3 ? '#c8a040' : trimC, goldM = t >= 3 ? 'gold' : trimM;
   const H = (v) => cat[v] === 'head' || cat[v] === 'neck';
   const back = (v) => K3.clamp((hc.z - Z(v)) / HR.z, 0, 1), side = (v) => K3.clamp(Math.abs(X(v)) / HR.x, 0, 1);
   const front = (v) => Z(v) - (hc.z + HR.z * 0.15);
@@ -854,8 +856,8 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
   }
   add('body', (v) => cl(field(v)), { off, hull: hullOf(typeof off === 'number' ? off : offM, faceCovered), smooth: smoothMetal, col: mcol, mat: matW(st === 'great' || st === 'barbute' ? 'metal' : 'bands', wear), trim: trimC, trimW: 0.006, trimMat: trimM, colFn: breaths }, false);
   // a raised brow band and a ridge over the crown
-  if (st !== 'great') add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (rim(v) + 0.004), rim(v) + 0.022 - Y(v))) : -1), { off: off === offM ? offM + 0.006 : (v, y) => off(v, y) + 0.006, hull: hullOf(offM + 0.006, false), smooth: smoothMetal, col: K3.shade(mcol, 0.06), mat: matW('metal', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
-  add('body', (v) => (H(v) && Y(v) > browY ? cl(0.009 - Math.abs(X(v))) : -1), { off: (typeof off === 'function' ? 0.02 : off + 0.0055), hull: hullOf((typeof off === 'function' ? 0.02 : off + 0.0055), faceCovered), smooth: smoothMetal, col: K3.shade(mcol, 0.1), mat: matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
+  if (st !== 'great') add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (rim(v) + 0.004), rim(v) + 0.022 - Y(v))) : -1), { off: off === offM ? offM + 0.006 : (v, y) => off(v, y) + 0.006, hull: hullOf(offM + 0.006, false), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.06), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
+  add('body', (v) => (H(v) && Y(v) > browY ? cl(0.009 - Math.abs(X(v))) : -1), { off: (typeof off === 'function' ? 0.02 : off + 0.0055), hull: hullOf((typeof off === 'function' ? 0.02 : off + 0.0055), faceCovered), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.1), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
   if (st === 'nasal') { // the nasal bar, from the brow band down over the nose
     let z = lm.nose.z; for (let v = 0; v < A.NV; v++) if (cat[v] === 'head' && Math.abs(X(v)) < 0.006 && Y(v) < browY && Y(v) > noseY) z = Math.max(z, Z(v));
     solid(RG.box, TRS(0, (browY + noseY) / 2 + 0.004, z + 0.012, 0.016, browY - noseY + 0.02, 0.006, -0.12), mcol, matW('metal', wear), A.BI.head);

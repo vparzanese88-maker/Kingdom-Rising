@@ -177,7 +177,7 @@
   // each one clears a guard in about the same time for its role (damage dealers fastest, healers a little slower)
   D.GUARD_HP = 2.4; D.GUARD_DMG = 3.2;
   D.KING_STATS = { hp: 26000, dmg: 240, delay: 1.8, lvl: 22 };
-  D.CLASS_POWER = { rogue: 0.78, berserker: 0.8, monk: 1.14, ranger: 1.32, wizard: 2.98, magician: 3.52, necromancer: 3.93, arquebusier: 0.85, beastlord: 1.6, warrior: 0.88, paladin: 2.17, shadowknight: 2.04, bard: 1.68, trollcaller: 1.9, cleric: 1.98, druid: 2.0, shaman: 1.95, enchanter: 2.12 };
+  D.CLASS_POWER = { rogue: 0.9, berserker: 0.79, monk: 1.1, ranger: 1.46, wizard: 3.12, magician: 2.99, necromancer: 3.6, arquebusier: 0.94, beastlord: 1.51, warrior: 0.97, paladin: 1.91, shadowknight: 2.08, bard: 1.58, trollcaller: 1.71, cleric: 2.37, druid: 2.17, shaman: 2.05, enchanter: 2.14 };
   // ---- the top-tier class sets: one per class, from the world's greatest bosses (rare: about one piece in ten kills,
   // and not always for your own class). Each has five armour pieces, its signature weapon (and shield) and set bonuses
   // for 2, 4 and 5 armour pieces worn.

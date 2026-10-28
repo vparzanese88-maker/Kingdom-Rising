@@ -62,8 +62,9 @@ export function chamferBox(fx, fy, fz) {
 
 // materials that must stay crisp: glowing panes, light sprites, black voids, glass and water
 const CRISP = new Set(['glow', 'window', 'dark', 'lightpool', 'shaft', 'glass', 'water', 'sewage']);
-// the cut for a box of size sx, sy, sz in metres: about 4 cm on big pieces, never more than a sixth of the thinnest side
-const CUT = 0.045, MIN_SIDE = 0.05;
+// the cut for a box of size sx, sy, sz in metres: about 4 cm on big pieces, never more than a sixth of the thinnest side;
+// thin planks, rails and trims (under 10 cm) stay square: a chamfer there doesn't show and would only cost triangles
+const CUT = 0.045, MIN_SIDE = 0.1;
 // the geometry to use instead of the plain unit box for a box scaled (sx, sy, sz), or null to keep it square
 const OFF = typeof location !== 'undefined' && /[?&]nobevel/.test(location.search); // ?nobevel: square boxes, to compare
 export function bevelFor(key, sx, sy, sz) {

@@ -1243,6 +1243,21 @@
         const k = ty * W.W + tx; if (!SOLID[W.tiles[k]]) W.block[k] = 0;
       }
     }
+    // the open-air front of a craft house (the smithy's forge, the tailor's stall...) stands on the street beside the
+    // door: those tiles are blocked (an invisible 'yard' marker) so nobody walks through it in 3D, and b.yard tells the
+    // 3D builder exactly where it may build. Only where the street stays at least two tiles wide past it.
+    const YARD = new Set(['smithy', 'forge', 'tailor', 'armorer', 'armory', 'weaponsmith', 'fletcher', 'bowyer', 'scribe', 'jeweler', 'gemcutter', 'store']);
+    for (const b of bs) {
+      b.yard = null; if (!YARD.has(b.type) || !b.door) continue; const d = b.door, ty = b.y + b.h;
+      const left = d.tx - b.x, right = b.x + b.w - 1 - d.tx; const side = right >= left ? 1 : -1;
+      const xs = []; for (let x = d.tx + side * 2; side > 0 ? x <= b.x + b.w - 1 : x >= b.x; x += side) xs.push(x);
+      const ok = (x) => { const k = ty * W.W + x; if (!W.inb(x, ty + 2) || SOLID[W.tiles[k]] || W.block[k] || W.tiles[k] === T.WATER || W.buildingAt(x * TS + 16, ty * TS + 16) || W.stairs && W.stairs.get(k) || W.decor.some((o) => o.tx === x && o.ty === ty && !o.flat)) return false;
+        for (const dy of [1, 2]) { const k2 = (ty + dy) * W.W + x; if (SOLID[W.tiles[k2]] || W.block[k2] || W.buildingAt(x * TS + 16, (ty + dy) * TS + 16)) return false; } return true; };
+      const use = []; for (const x of xs) { if (!ok(x)) break; use.push(x); }
+      if (use.length < 1) continue;
+      for (const x of use) { addDecor('yard', x, ty, {}); }
+      b.yard = { x0: Math.min(...use), x1: Math.max(...use), ty };
+    }
   }
   // when a city is rebuilt (a kingdom level-up, often handed in to the king while you stand in his castle) everyone in
   // it keeps their footing: whoever was upstairs stays on the new building's upper floor, and anyone left inside a wall,

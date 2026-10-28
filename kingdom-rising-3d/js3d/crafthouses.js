@@ -31,8 +31,11 @@ function freeDepth(b, u0, u1) {
   return rows * TL;
 }
 export function craftFront(mb, b, st, X0, X1, Z0, Z1, y0, dX0, dX1, top, structs) {
-  const f = frame(b, X0, X1, Z1, y0, dX0, dX1); if (f.w < 1.2) return;
-  const room = freeDepth(b, f.u0, f.u1); // the street in front can be narrow: everything is fitted to it
+  // only on the street tiles the city set aside for it (b.yard, blocked to walkers): one tile deep beside the door
+  const Y = b.yard; if (!Y) return; const TL = 1.6;
+  const f = { u0: Y.x0 * TL + 0.1, u1: (Y.x1 + 1) * TL - 0.1, z: Z1, y: y0, side: (Y.x0 * TL > dX1 ? 1 : -1) }; f.uc = (f.u0 + f.u1) / 2; f.w = f.u1 - f.u0;
+  if (f.w < 1.2) return;
+  const room = Math.min(TL - 0.1, freeDepth(b, f.u0, f.u1)); // the display stays within its tile, clear of the walkers
   if (room < 0.8) return;
   const D = (v) => Math.min(v, room - 0.25); // clamp a distance from the wall to the free ground
   const g = y0 + 0.02, z = Z1;
@@ -56,7 +59,7 @@ export function craftFront(mb, b, st, X0, X1, Z0, Z1, y0, dX0, dX1, top, structs
         mb.box('planks', (rx0 + rx1) / 2, g + 2.75, z + (rz - z) / 2, rx1 - rx0 + 0.3, 0.07, rz - z + 0.35, '#6a4a2a', 0, 0.3, 0);
       }
       // anvil on a stump, quench barrel, bellows, coal pile, tools on the wall
-      const ax = deep ? hx + f.side * -0.2 : hx - f.side * (hw / 2 + 0.55), az = deep ? z + D(1.75) : z + D(0.6);
+      const ax = Math.min(f.u1 - 0.3, Math.max(f.u0 + 0.3, deep ? hx + f.side * -0.2 : hx - f.side * (hw / 2 + 0.55))), az = deep ? z + D(1.75) : z + D(0.6);
       mb.cylB('bark', ax, g, az, 0.3, 0.5, '#5a3a20', 10); mb.boxB('metalv', ax, g + 0.5, az, 0.52, 0.18, 0.2, '#2e2e32'); mb.box('metalv', ax + 0.3, g + 0.62, az, 0.18, 0.08, 0.12, '#2e2e32', 0, 0, 0.3);
       if (deep) { mb.cylB('planks', hx - f.side * (hw / 2 + 0.45), g, hz + 0.6, 0.32, 0.75, '#6a4a2a', 12); mb.cyl('water', hx - f.side * (hw / 2 + 0.45), g + 0.7, hz + 0.6, 0.29, 0.02, '#2a4a5a', 12); }
       mb.box('leather', hx + f.side * (hw / 2 + 0.3), g + 0.75, hz + 0.1, 0.55, 0.2, 0.42, '#5a3a22', 0, 0, f.side * 0.25);

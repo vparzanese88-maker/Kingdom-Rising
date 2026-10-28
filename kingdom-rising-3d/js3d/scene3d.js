@@ -1,8 +1,8 @@
 // Kingdom Rising 3D — conversations filmed like a cutscene: letterbox bars, subtitles, and a camera that
 // cuts between an over-the-shoulder shot, a close-up of the speaker, a two-shot from the side and a low
 // heroic angle, drifting slowly through each. The 'death' style circles low around a fallen king, with
-// embers rising and the light going red. Scenes cannot be skipped or hurried: each line stays up long enough to
-// read, and the camera stays close on the faces (a soft key light on the speaker, the jaw moving, the eyes blinking).
+// embers rising and the light going red. Space, Enter or a click moves to the next line; Esc or the Skip button ends
+// the scene (its outcome still happens). The camera stays close on the faces (a soft key light on the speaker, the jaw moving, the eyes blinking).
 // A line may carry options: { by: who speaks it (the camera moves to them), g: a gesture ('raise', 'thrust'
 // to point, 'hop', 'slam'...), gby: who makes it (default the speaker), shot: a fixed shot ('wide', 'close'...) }.
 import { THREE, K3, PX } from './core.js';
@@ -26,19 +26,21 @@ export function playScene(o) {
   if (sc) finish(true);
   const p = G.player; const speaker = o.speaker || p;
   const ov = document.createElement('div'); ov.className = 'k3-cine k3-scene' + (o.style === 'death' ? ' death' : '');
-  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><div class="k3i-sub"><b></b><span></span></div>`;
+  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><div class="k3i-sub"><b></b><span></span></div><button class="btn small ghost k3c-skip">Skip ›</button>`;
   document.body.appendChild(ov);
-  const lines = o.lines.map((l) => [l[0], l[1], Math.max(l[2] || 0, 4, Math.min(15, 2.4 + l[1].length * 0.065)), l[3] || {}]); // long enough to read every line
+  const lines = o.lines.map((l) => [l[0], l[1], Math.max(l[2] || 0, 2.5, Math.min(7, 1.6 + l[1].length * 0.05)), l[3] || {}]); // long enough to read, no longer
   sc = { o, p, speaker, speaker0: speaker, lines, i: -1, t: 0, lt: 0, ov, done: o.done, style: o.style || 'talk', camS: null, update, look: false, pause: true, gest: null, talkers: new Set([speaker]) };
   p.harvest = null; p.autoAttack = false; p.moveTo = null; p.chase = null; p.moving = false; // the scene holds you still: nothing carries on behind it
   const ui = document.getElementById('ui'), hud = document.getElementById('hud3d'); sc.uiWas = ui ? ui.hidden : true; if (ui) ui.hidden = true; if (hud) hud.style.visibility = 'hidden';
   sc.view = { want: view.want, dist: view.dist, yaw: view.yaw, pitch: view.pitch };
   view.want = view.dist = 3; // the hero is seen in every shot
   speaker._talkTo = p; p._talkTo = speaker !== p ? speaker : null;
-  // no skipping and no hurrying: keys and clicks are swallowed until the scene ends by itself
-  sc.key = (e) => { e.preventDefault(); e.stopImmediatePropagation(); };
+  // Esc skips the scene; Space, Enter or a click moves on a line. Every other key is swallowed: nobody walks off mid-scene
+  sc.key = (e) => { e.preventDefault(); e.stopImmediatePropagation(); if (e.repeat || sc !== me) return;
+    if (e.key === 'Escape') finish(true); else if (e.key === ' ' || e.key === 'Enter') next(); };
+  const me = sc;
   addEventListener('keydown', sc.key, true);
-  ov.onclick = (e) => { e.stopPropagation(); };
+  ov.onclick = (e) => { e.stopPropagation(); if (sc !== me) return; if (e.target.closest && e.target.closest('.k3c-skip')) finish(true); else next(); };
   ov.style.pointerEvents = 'auto';
   sc.fov0 = cam.fov; sc.blink = { [0]: 2 + Math.random() * 2 };
   if (sc.style === 'death') { try { KR.Main.setMusicOverride('boss'); } catch (e) {} G.shake = 1.5; }

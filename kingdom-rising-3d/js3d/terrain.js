@@ -80,7 +80,7 @@ function makeTerrainMaterial(ceiling) {
       else {
         vec4 a0 = texture(tAlb, vec3(uv, l00)), a1 = texture(tAlb, vec3(uv, l10)), a2 = texture(tAlb, vec3(uv, l01)), a3 = texture(tAlb, vec3(uv, l11));
         vec2 fs = f * f * (3. - 2. * f); vec4 w = vec4((1. - fs.x) * (1. - fs.y), fs.x * (1. - fs.y), (1. - fs.x) * fs.y, fs.x * fs.y);
-        vec4 hw = w + vec4(a0.a, a1.a, a2.a, a3.a) * .35; float ma = max(max(hw.x, hw.y), max(hw.z, hw.w)) - .3; // a soft, height-aware blend: pebbles and grass tufts poke through vec4 bw = max(hw - ma, 0.); bw /= dot(bw, vec4(1.)) + 1e-4;
+        vec4 hw = w + vec4(a0.a, a1.a, a2.a, a3.a) * .35; float ma = max(max(hw.x, hw.y), max(hw.z, hw.w)) - .3; /* a soft, height-aware blend: pebbles and grass tufts poke through */ vec4 bw = max(hw - ma, 0.); bw /= dot(bw, vec4(1.)) + 1e-4;
         alb = a0 * bw.x + a1 * bw.y + a2 * bw.z + a3 * bw.w;
         nrm = texture(tNrm, vec3(uv, l00)) * bw.x + texture(tNrm, vec3(uv, l10)) * bw.y + texture(tNrm, vec3(uv, l01)) * bw.z + texture(tNrm, vec3(uv, l11)) * bw.w;
         if (l00 == ${L.lava}.) gEmis += a0.rgb * bw.x * (1. - a0.a) * 5.; if (l10 == ${L.lava}.) gEmis += a1.rgb * bw.y * (1. - a1.a) * 5.; if (l01 == ${L.lava}.) gEmis += a2.rgb * bw.z * (1. - a2.a) * 5.; if (l11 == ${L.lava}.) gEmis += a3.rgb * bw.w * (1. - a3.a) * 5.;

@@ -247,8 +247,127 @@ function catModel(e) {
   P.anim = (av, ent, dt) => { if (engineTurn(P, av, ent, dt)) engineArm(P, ent, dt); };
   return { obj: holder, parts: P, height: 5.6 };
 }
+// ---------- faction armies (warmarch.js): Aelindor's troll giants, Valenmoor's cannons and bombards, the elven ballistas ----------
+// a giant troll, three times a man's height: grey-green hide, tusks, a tree-trunk club. At a shut gate it pounds in
+// time with the ram rules (wind-up, then the blow on the beat); once the gate is down it fights like any soldier.
+const TROLL_S = 2.4;
+function trollModel(e) {
+  const holder = new THREE.Group(); const k = Math.floor((e.seed || 0.5) * 3);
+  const look = { race: 'ogrin', gender: 'm', skin: ['#6e7f5a', '#7a8466', '#5e6e52'][k], hair: '#2a2a22', hairStyle: 3, eyesCol: '#e0c040', tusk: true, width: 1.5, noShirt: true, armor: { kind: 'leather', col: '#4a3a28', trim: '#3a2a1a' }, pants: '#4a3a28', barefoot: true, weapon: 'club', helm: null, hat: null, cape: null };
+  let rig = null; try { rig = makeHumanoid(look, 'human'); } catch (er) { rig = null; }
+  if (rig) { rig.mesh.scale.setScalar(TROLL_S); holder.add(rig.mesh); if (rig.setLod) rig.setLod(0); }
+  // a log of a club in the right fist, and a hide strap with the kingdom's colours
+  const F = D.FACTIONS[e.faction] || {}; const mb = new MB();
+  mb.cyl('bark', 0, 0.55, 0, 0.11, 1.25, '#5a4028', 10, 0.06); for (let i = 0; i < 6; i++) mb.cyl('metalv', Math.cos(i) * 0.09, 0.95 + (i % 3) * 0.1, Math.sin(i) * 0.09, 0.012, 0.09, '#4a4a50', 6);
+  const club = mb.build(); if (rig && rig.bones.handR) { rig.bones.handR.add(club); club.position.set(0, -0.08, 0.02); club.rotation.x = 0.2; if (rig.held && rig.held.R) rig.held.R.visible = false; }
+  const sm2 = new MB(); sm2.box('cloth2', 0, 0.02, 0.1, 0.36, 0.06, 0.04, F.banner || '#2e6a3c', 0, 0, 0.6); const strap = sm2.build(); if (rig && rig.bones.chest) rig.bones.chest.add(strap);
+  const P = { holder, rig, lx: null, ly: null };
+  P.anim = (av, ent, dt) => trollAnim(P, av, ent, dt);
+  return { obj: holder, parts: P, height: 2.15 * TROLL_S };
+}
+function trollAnim(P, av, e, dt) {
+  av.obj.rotation.x = 0; av.obj.rotation.z = 0;
+  const dx = e.x - (P.lx == null ? e.x : P.lx), dy = e.y - (P.ly == null ? e.y : P.ly); P.lx = e.x; P.ly = e.y;
+  const dist = Math.hypot(dx, dy) * PX; const moving = dist > 0.0004 && !e.dead;
+  let want = 0; if (e.ramAim && !e.dead) want = K3.dampAngle(0, Math.atan2(e.ramAim.x - e.x, e.ramAim.y - e.y) - av.yaw, 1);
+  P.holder.rotation.y = K3.dampAngle(P.holder.rotation.y, want, Math.min(1, dt * 3));
+  const ph = e.dead || e.trollFree ? 0 : e.ramPh || 0;
+  const st = { move: moving ? 1 : 0, dist: moving ? dist / TROLL_S : 0, dir: [0, 1], combat: !!(ph || e.inCombat), atkKind: 'chop', atk: 0, wind: null };
+  if (ph > 0) { if (ph < 0.75) st.wind = ph / 0.75; else st.atk = Math.min(1, (ph - 0.75) / 0.25 + 0.01); }
+  else if (e.trollFree) { st.atk = e.atk || 0; st.wind = e.wind != null ? e.wind : null; }
+  if (P.rig) { try { animateHumanoid(P.rig, st, dt); } catch (er) {} }
+  // the blow lands: splinters, dust and a thud you can feel
+  if (P.lastPh != null && P.lastPh < 0.75 && ph >= 0.75) {
+    av.obj.getWorldPosition(_v); const a = av.yaw + P.holder.rotation.y; const fx3 = _v.x + Math.sin(a) * 2.6, fz3 = _v.z + Math.cos(a) * 2.6;
+    dust(fx3, _v.y + 0.4, fz3, 18, { speed: 2.4, up: 1, col: '#8a7a62' }); chips(fx3, _v.y + 1.8, fz3, 16, '#6a4a2c', { speed: 3.5, up: 3, s: 0.1 });
+    fx.burst(fx3, _v.y + 1.8, fz3, 12, '#ffd090', { speed: 3, life: 0.3 });
+  }
+  P.lastPh = ph;
+  if (moving && Math.random() < dt * 3) { av.obj.getWorldPosition(_v); dust(_v.x, _v.y + 0.05, _v.z, 2, { speed: 0.5, up: 0.2, s0: 0.5, s1: 1.6, a: 0.25 }); }
+  if (e.dead) { P.dk = Math.min(1, (P.dk || 0) + dt * 0.8); if (P.rig) { P.rig.mesh.rotation.x = -Math.PI / 2 * sm(0, 1, P.dk); P.rig.mesh.position.y = 0.3 * P.dk; } }
+  else if (P.dk) { P.dk = 0; if (P.rig) { P.rig.mesh.rotation.x = 0; P.rig.mesh.position.y = 0; } }
+  if (P.rig && P.rig.setLod) P.rig.setLod(av.obj.position.distanceTo(K3.camera.position));
+}
+// turn the turret onto the aim, recoil after a shot, slump when destroyed
+function gunTurn(P, av, e, dt) {
+  av.obj.rotation.x = 0; av.obj.rotation.z = 0;
+  P.turret.rotation.y = Math.PI / 2 - (e.aimAng || 0) - av.yaw;
+  if (e.turning && Math.random() < dt * 5) { P.holder.getWorldPosition(_v); const a = Math.random() * TAU; dust(_v.x + Math.cos(a) * P.foot, _v.y + 0.1, _v.z + Math.sin(a) * P.foot, 1, { speed: 0.3, up: 0.2, s0: 0.3, s1: 1, a: 0.3 }); }
+  const since = (G.now - (e.fireAt || -1e9)) / 1000; const def = D.SIEGE[e.siege] || {}; const delay = e.delay || def.delay || 6;
+  if (P.barrel) { const rc = since < 0.08 ? since / 0.08 : since < 1.6 ? Math.exp(-(since - 0.08) * 3.2) : 0; P.barrel.position.z = P.bz - P.kick * rc; }
+  if (P.string) { // ballista: the cord snaps forward on the shot, then is winched back as it reloads
+    const back = since < 0.12 ? 1 - since / 0.12 : K3.clamp((since - 0.6) / Math.max(0.5, delay * 0.7), 0, 1);
+    P.string.forEach((g) => (g.position.z = P.sz - P.pull * back)); if (P.bolt) P.bolt.visible = back > 0.95; P.arms.forEach((a) => (a.rotation.y = a.userData.s * 0.28 * back));
+    if (back > 0.02 && back < 0.98 && P.winch) P.winch.rotation.x -= dt * 4;
+  }
+  if (e.dead) { if (!P.wreck) { P.wreck = 1; P.turret.rotation.z = 0.14; P.turret.position.y -= 0.3; P.holder.getWorldPosition(_v); dust(_v.x, _v.y + 1.5, _v.z, 26, { speed: 3, spread: 2.5, col: '#5a5048', up: 1.4 }); } }
+  else if (P.wreck) { P.wreck = 0; P.turret.rotation.z = 0; P.turret.position.y += 0.3; }
+}
+// Valenmoor's cannon: a bronze barrel on a red-painted, iron-bound wheeled carriage. The bombard: a monstrous
+// hooped iron gun on a timber bed, chocked with wedges, its mouth a yard across.
+function gunModel(e, big) {
+  const F = D.FACTIONS[e.faction] || {}; const ban = F.banner || '#7a1e1e';
+  const holder = new THREE.Group(); const turret = new THREE.Group(); holder.add(turret); holder.scale.setScalar(big ? 1.35 : 1.15);
+  const base = new MB(); base.cylB('stone', 0, -0.2, 0, big ? 3.0 : 2.4, 0.32, '#857e72', 18); base.cylB('planks', 0, 0.1, 0, big ? 2.7 : 2.1, 0.08, '#6a4a2c', 18); holder.add(base.build());
+  const m = new MB(); const L = big ? 4.6 : 3.2, R0 = big ? 0.62 : 0.3;
+  if (big) { // the bed: two great beams, cross ties, wedges, a shot pile
+    for (const sx of [-1, 1]) m.box('timber', sx * 0.85, 0.5, 0, 0.42, 0.5, 5.2, '#4e3520');
+    for (const z of [-2.2, -0.8, 0.8, 2.2]) m.box('timber', 0, 0.42, z, 2.1, 0.3, 0.32, '#43301c');
+    for (const sx of [-1, 1]) { m.box('timber', sx * 0.55, 0.95, -0.4, 0.3, 0.4, 0.5, '#5a3e24'); m.box('metalv', sx * 1.1, 0.9, 2.4, 0.12, 0.8, 0.12, '#3a3a40'); }
+    for (let i = 0; i < 6; i++) m.sph('metalv', -1.6 + (i % 3) * 0.36, 0.3 + Math.floor(i / 3) * 0.3, -2.4 + (i % 2) * 0.1, 0.17, 0.17, 0.17, '#2a2a2e', 0, 8);
+  } else { // the carriage: cheeks, axle, two big spoked wheels, trail and handspike
+    for (const sx of [-1, 1]) { m.box('paint', sx * 0.36, 0.72, -0.3, 0.12, 0.62, 2.2, '#7a2a1e'); m.box('metalv', sx * 0.43, 0.98, -0.2, 0.02, 0.06, 2.0, '#2e2e34'); }
+    m.cyl('metalv', 0, 0.62, 0.2, 0.06, 1.5, '#2e2e34', 8, null, 0, 0, Math.PI / 2);
+    for (const sx of [-1, 1]) { m.cyl('planks', sx * 0.68, 0.62, 0.2, 0.62, 0.12, '#5a3e24', 16, null, 0, 0, Math.PI / 2); m.cyl('metalv', sx * 0.68, 0.62, 0.2, 0.64, 0.06, '#2e2e34', 18, null, 0, 0, Math.PI / 2); for (let k = 0; k < 6; k++) m.box('timber', sx * 0.68, 0.62, 0.2, 0.05, 1.18, 0.07, '#43301c', 0, k * Math.PI / 6 * 2); }
+    m.beam('paint', V(0, 0.55, -1.2), V(0, 0.08, -2.4), 0.3, 0.16, '#7a2a1e'); m.cyl('timber', 0.25, 0.4, -2.2, 0.03, 1.2, '#5a3a20', 6, null, 0, 0.5);
+    for (let i = 0; i < 5; i++) m.sph('metalv', 1.0 + (i % 2) * 0.22, 0.12 + (i > 2 ? 0.2 : 0), -1.1 + (i % 3) * 0.22, 0.11, 0.11, 0.11, '#2a2a2e', 0, 8);
+  }
+  m.box('cloth2', 0, big ? 0.55 : 0.4, big ? 2.7 : 1.0, 0.8, 0.5, 0.02, ban);
+  turret.add(m.build());
+  // the barrel (recoils along -z)
+  const barrel = new THREE.Group(); const by = big ? 1.4 : 1.02, bz = big ? 0.4 : 0.2; barrel.position.set(0, by, bz); turret.add(barrel);
+  const bm = new MB(); const metal = big ? '#3a3a40' : '#9a6a32';
+  bm.cyl('metalv', 0, 0, L * 0.4, R0, L, metal, 18, R0 * 0.82, 0, Math.PI / 2, 0);
+  bm.cyl('metalv', 0, 0, L * 0.9, R0 * 1.12, 0.22, metal, 18, null, 0, Math.PI / 2, 0); bm.cyl('dark', 0, 0, L * 0.9 + 0.12, R0 * 0.62, 0.02, '#050505', 16, null, 0, Math.PI / 2, 0);
+  bm.sph('metalv', 0, 0, -L * 0.1, R0 * 1.05, R0 * 1.05, R0 * 0.9, metal, 0, 12); bm.sph('metalv', 0, 0, -L * 0.1 - R0, R0 * 0.32, R0 * 0.32, R0 * 0.32, metal, 0, 8);
+  for (const k of (big ? [0, 0.18, 0.36, 0.54, 0.72] : [0.1, 0.45])) bm.cyl('metalv', 0, 0, -L * 0.05 + L * k, R0 * 1.08, 0.12, big ? '#2a2a2e' : '#7a5228', 18, null, 0, Math.PI / 2, 0);
+  if (!big) for (const sx of [-1, 1]) bm.cyl('metalv', sx * R0, 0, 0.15, 0.07, 0.18, metal, 8, null, 0, 0, Math.PI / 2); // trunnions
+  barrel.add(bm.build());
+  const P = { holder, turret, barrel, bz, kick: big ? 0.55 : 0.45, foot: big ? 2.8 : 2.2, muzzle: (L * 0.9 + 0.2) * (big ? 1.35 : 1.15), mh: by * (big ? 1.35 : 1.15) };
+  P.anim = (av, ent, dt) => gunTurn(P, av, ent, dt);
+  return { obj: holder, parts: P, height: big ? 3.2 : 2.4 };
+}
+// Aelindor's ballistas: a giant elven war bow on a carved turntable; the great ballista has two bows, one above the other
+function ballistaModel(e, big) {
+  const F = D.FACTIONS[e.faction] || {}; const ban = F.banner || '#2e6a3c', trim = F.trim || '#e7d48a';
+  const holder = new THREE.Group(); const turret = new THREE.Group(); holder.add(turret); holder.scale.setScalar(big ? 1.45 : 1.2);
+  const base = new MB(); base.cylB('stone', 0, -0.2, 0, big ? 2.6 : 2.1, 0.3, '#8a8a7a', 16); for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; base.box('gold', Math.cos(a) * (big ? 2.45 : 1.95), 0.12, Math.sin(a) * (big ? 2.45 : 1.95), 0.3, 0.06, 0.12, '#c8a040', -a); } holder.add(base.build());
+  const m = new MB(); const L = big ? 4.6 : 3.6, H = 1.25;
+  // a carved pedestal like a tree trunk, roots spreading, and the long stock on top
+  m.cyl('bark', 0, 0.55, 0, 0.32, 1.1, '#6a5a3a', 10, 0.24); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; m.beam('bark', V(Math.cos(a) * 0.2, 0.5, Math.sin(a) * 0.2), V(Math.cos(a) * 0.9, 0.05, Math.sin(a) * 0.9), 0.14, 0.12, '#5e4e32'); }
+  m.box('timber', 0, H, 0.2, 0.34, 0.26, L, '#8a6a3a'); m.box('gold', 0, H + 0.14, 0.2, 0.08, 0.03, L * 0.9, '#c8a040');
+  m.box('cloth2', 0, H - 0.3, -L * 0.3, 0.02, 0.5, 0.9, ban); m.box('cloth2', 0, H - 0.05, -L * 0.3, 0.025, 0.06, 0.9, trim);
+  turret.add(m.build());
+  const winch = new THREE.Group(); { const w = new MB(); w.cyl('timber', 0, 0, 0, 0.12, 0.9, '#5a3e24', 10, null, 0, 0, Math.PI / 2); for (const sx of [-1, 1]) for (let k = 0; k < 2; k++) w.box('timber', sx * 0.45, 0, 0, 0.05, 0.6, 0.05, '#43301c', 0, k * Math.PI / 2); winch.add(w.build()); } winch.position.set(0, H, -L / 2 + 0.3); turret.add(winch);
+  // the bow arms (they flex back as the cord is drawn) and the cord
+  const arms = [], strings = []; const span = big ? 2.6 : 2.0; const rows = big ? [H + 0.05, H + 0.5] : [H + 0.05];
+  for (const y of rows) for (const sx of [-1, 1]) {
+    const a = new THREE.Group(); a.position.set(sx * 0.16, y, L / 2 - 0.1); a.userData.s = -sx; const am = new MB();
+    const pts = []; for (let k = 0; k <= 8; k++) { const t = k / 8; pts.push(V(sx * t * span, 0, -0.35 * t * t + 0.08 * Math.sin(t * Math.PI))); }
+    for (let k = 0; k < 8; k++) am.rod('haft', pts[k], pts[k + 1], 0.09 - k * 0.008, '#a88a58', 6);
+    am.sph('gold', sx * span, 0, -0.35, 0.07, 0.07, 0.07, '#c8a040', 0, 8); a.add(am.build()); turret.add(a); arms.push(a);
+    const sg = new THREE.Group(); sg.position.set(0, y, L / 2 - 0.45); const sm3 = new MB(); for (const s2 of [-1, 1]) sm3.rod('paint', V(s2 * span, 0, 0), V(0, 0, 0), 0.012, '#e8e0d0', 3); sg.add(sm3.build()); turret.add(sg); strings.push(sg);
+  }
+  const bolt = new THREE.Group(); { const b2 = new MB(); b2.cyl('timber', 0, 0, 0, 0.06, L * 0.85, '#6a4a2a', 8, null, 0, Math.PI / 2, 0); b2.sph('metalv', 0, 0, L * 0.43, 0.1, 0.1, 0.26, '#8e9a90', 0, 8); bolt.add(b2.build()); } bolt.position.set(0, H + 0.2, 0.2); turret.add(bolt);
+  const P = { holder, turret, arms, string: strings, sz: L / 2 - 0.45, pull: big ? 1.4 : 1.1, bolt, winch, foot: big ? 2.4 : 2.0 };
+  P.anim = (av, ent, dt) => gunTurn(P, av, ent, dt);
+  return { obj: holder, parts: P, height: big ? 3.4 : 2.6 };
+}
 // the ram, and the catapults and trebuchets inside the walls; anything else keeps the older engine models (actors.js)
 export function siegeModel(e) {
+  if (e.troll) return trollModel(e);
+  if (e.big && (e.siege === 'bigcannon' || e.siege === 'bombard')) return gunModel(e, e.siege === 'bombard');
+  if (e.big && (e.siege === 'bigballista' || e.siege === 'greatballista')) return ballistaModel(e, e.siege === 'greatballista');
   if (e.ram) return ramModel(e);
   if (e.big && e.siege === 'trebuchet') return trebModel(e);
   if (e.big && e.siege === 'catapult') return catModel(e);
@@ -391,6 +510,15 @@ function drainEvents() {
       dust(x, y + 0.2, z, e.big ? 40 : 26, { speed: e.big ? 4 : 3, spread: 1.5, up: 1.2, col: '#8a7a66', life: 2 });
       chips(x, y + 0.3, z, e.big ? 30 : 18, '#7a7268', { speed: 4.5, up: 4, s: 0.12 });
       fx.burst(x, y + 0.4, z, 14, '#ffd090', { speed: 3, life: 0.35 });
+    } else if (e.k === 'fire' && (e.kind === 'bigcannon' || e.kind === 'bombard')) {
+      // flame and a great bank of smoke from the muzzle, rolling forward and up
+      const big = e.kind === 'bombard'; const L = big ? 6.6 : 3.9, h = big ? 1.9 : 1.2; const ca = Math.cos(e.ang || 0), sa = Math.sin(e.ang || 0);
+      const x = e.x * PX + ca * L, z = e.y * PX + sa * L, y = geo.floorAt(e.x, e.y) + h;
+      fx.burst(x, y, z, big ? 40 : 24, '#ffb040', { speed: big ? 6 : 4.5, life: 0.25 });
+      for (let i = 0; i < (big ? 34 : 20); i++) fx.smoke.emit({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, z: z + (Math.random() - 0.5) * 0.4, vx: ca * (2 + Math.random() * 4) + (Math.random() - 0.5), vy: 0.4 + Math.random() * 0.8, vz: sa * (2 + Math.random() * 4) + (Math.random() - 0.5), drag: 1.3, life: 2.5 + Math.random() * 2, s0: big ? 0.9 : 0.6, s1: big ? 4 : 2.6, r: 0.78, g: 0.76, b: 0.72, a: 0.5, kind: 2 });
+      dust(e.x * PX, geo.floorAt(e.x, e.y) + 0.1, e.y * PX, big ? 16 : 8, { speed: 2, spread: 2, up: 0.4, a: 0.3 });
+    } else if (e.k === 'fire' && (e.kind === 'bigballista' || e.kind === 'greatballista')) {
+      const x = e.x * PX, z = e.y * PX, y = geo.floorAt(e.x, e.y); dust(x, y + 0.1, z, 6, { speed: 1, spread: 1.5, up: 0.3, a: 0.25 });
     } else if (e.k === 'ramdie') {
       const x = e.x * PX, z = e.y * PX, y = geo.floorAt(e.x, e.y);
       for (let i = 0; i < 30; i++) fx.add.emit({ x: x + (Math.random() - 0.5) * 2, y: y + 0.8 + Math.random() * 1.5, z: z + (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 2, life: 0.9, s0: 0.9, s1: 0.2, r: 3, g: 1.4, b: 0.4, kind: 0 });

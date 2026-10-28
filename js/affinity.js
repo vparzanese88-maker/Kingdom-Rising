@@ -85,8 +85,8 @@
   const sb0 = G.spawnBoss; G.spawnBoss = function (sp, b) { const e = sb0.apply(this, arguments); try { apply(e, b.id, b.kind, b.name); } catch (er) {} return e; };
 
   // damage type of a hit, when the caller didn't say
-  const WT = { '1HS': 'slash', '2HS': 'slash', '1HP': 'pierce', '1HB': 'blunt', '2HB': 'blunt', H2H: 'blunt', ARC: 'pierce', THR: 'pierce', TOME: 'magic' };
-  const SHOT = { ARC: 'pierce', THR: 'pierce', TOME: 'magic', fire: 'fire', cold: 'cold', magic: 'magic', poison: 'poison', disease: 'disease' };
+  const WT = { '1HS': 'slash', '2HS': 'slash', '1HP': 'pierce', '1HB': 'blunt', '2HB': 'blunt', H2H: 'blunt', ARC: 'pierce', THR: 'pierce', TOME: 'magic', GUN: 'pierce' };
+  const SHOT = { ARC: 'pierce', THR: 'pierce', TOME: 'magic', GUN: 'pierce', fire: 'fire', cold: 'cold', magic: 'magic', poison: 'poison', disease: 'disease' };
   const shoot0 = G.shoot; G.shoot = function (src, tgt, kind, dmg, opt = {}) { if (!opt.dtype && SHOT[kind]) opt.dtype = SHOT[kind]; return shoot0.call(this, src, tgt, kind, dmg, opt); };
   const dmg0 = G.damage;
   G.damage = function (src, tgt, amt, opt = {}) {

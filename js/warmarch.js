@@ -415,7 +415,7 @@
   };
   const upd1 = War.updateRaider;
   War.updateRaider = function (r, dt) {
-    if (!r.dead && r.ram) return War.ramTick(r, dt);
+    if (!r.dead && r.ram && !r.trollFree) return War.ramTick(r, dt); // a troll giant fights on once the gate is down
     const sq = r.squad;
     if (!r.dead && sq && !r.nonCombat && r.warState === 'assault' && sq.arrived) {
       const g = War.blockingGate(sq);
@@ -488,7 +488,7 @@
     kinds.forEach((kind, i) => {
       const s = spots[i]; if (!s) return; const def = D.SIEGE[kind];
       const t = mk('tower', s[0] * TS + 16, s[1] * TS + 16, { type: 'guard', title: 'City defense', level: lv, name: `${D.FACTIONS[f].city} ${def.name}` });
-      War.makeSiege(t, kind); t.big = true; t.r = kind === 'trebuchet' ? 46 : 38; t.h = kind === 'trebuchet' ? 230 : 120; t.aggroR = def.range;
+      War.makeSiege(t, kind); t.big = true; t.r = def.bigR || (kind === 'trebuchet' ? 46 : 38); t.h = def.bigH || (kind === 'trebuchet' ? 230 : 120); t.aggroR = def.range;
       // at rest each engine faces the nearest gate
       const gs = cd.gates.map(([gx, gy]) => [gx, gy, Math.hypot(gx - s[0], gy - s[1])]).sort((a, b) => a[2] - b[2])[0];
       t.aimAng = gs ? Math.atan2(gs[1] - s[1], gs[0] - s[0]) : -Math.PI / 2;
@@ -518,16 +518,25 @@
     if (t.turning) { t.creakT = (t.creakT || 0) - dt; if (t.creakT <= 0) { t.creakT = 1.4; sfx('creak', near(t.x, t.y, 900) * 0.5); } }
     t.fireT -= dt; if (t.fireT > 0 || Math.abs(diff) > 0.05) return;
     t.fireT = def.delay * (0.9 + Math.random() * 0.2); t.fireK = 1; t.fireAt = G.now;
-    const v = near(t.x, t.y, 1100); sfx('whoosh', v * 0.8); sfx('creak', v * 0.6);
+    const v = near(t.x, t.y, 1100); const gun = def.vis === 'ironball', bolt = def.vis === 'bigbolt';
+    if (gun) { sfx('heavy', v); sfx('rumble', v * 0.9); const pp = G.player; if (pp && Math.hypot(t.x - pp.x, t.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
+    else if (bolt) { sfx('bow', v); sfx('whoosh', v * 0.7); sfx('creak', v * 0.5); }
+    else { sfx('whoosh', v * 0.8); sfx('creak', v * 0.6); }
+    War.ev({ k: 'fire', f: t.faction, x: t.x, y: t.y, ang: t.aimAng, kind: t.siege, id: t.id });
     const dmg = () => Math.round(t.dmg * (0.75 + Math.random() * 0.5));
     const d = Math.hypot(tg.x - t.x, tg.y - t.y);
-    G.shoot(t, tg, 'boulder', -1, { arc: U.clamp(d * 0.05 * 0.42, 5, 26), onHit: () => {
+    const sx0 = t.x, sy0 = t.y;
+    G.shoot(t, tg, def.vis || 'boulder', -1, { arc: bolt ? 0.25 : U.clamp(d * 0.05 * 0.42 * (def.arcK || 1), gun ? 1.2 : 5, 26), onHit: () => {
+      if (def.pierce) { // the great bolt goes through a whole file of men
+        const x0 = sx0, y0 = sy0, dx = tg.x - x0, dy = tg.y - y0, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+        for (const e of G.ents.concat(G.player ? [G.player] : [])) { if (e === tg || !War.isFoe(t.faction, e)) continue; const ax = e.x - x0, ay = e.y - y0; const along = ax * ux + ay * uy; if (along < L * 0.5 || along > L + 260) continue; if (Math.abs(ax * uy - ay * ux) < 26 + (e.r || 12)) G.damage(t, e, Math.round(G.mitigate(t, e, dmg()) * 0.8), {}); }
+      }
       const x = tg.x, y = tg.y; G.fxAdd({ k: 'ring', x, y, r: def.aoe, col: '#c8b090', life: 0.8 });
       War.ev({ k: 'impact', x, y, r: def.aoe, big: t.siege === 'trebuchet' });
       const w = near(x, y, 1200); sfx('heavy', w); sfx('rockbreak', w * 0.8); const pp = G.player; if (pp && Math.hypot(x - pp.x, y - pp.y) < 600) G.shake = Math.max(G.shake || 0, 0.7);
       for (const e of G.ents.concat(G.player ? [G.player] : [])) if (War.isFoe(t.faction, e) && Math.hypot(e.x - x, e.y - y) < def.aoe + (e.r || 12)) G.damage(t, e, Math.round(G.mitigate(t, e, dmg()) * (e === tg ? 1 : 0.6)), {});
     } });
-    const pr = G.proj[G.proj.length - 1]; if (pr && pr.src === t) pr.speed = Math.max(300, d / 2.6);
+    const pr = G.proj[G.proj.length - 1]; if (pr && pr.src === t) pr.speed = Math.max(300, d / (def.flight || 2.6));
   };
 
   // ---- townsfolk hide in different houses, a spot each ----
@@ -767,7 +776,7 @@
   War.setGuards = function (f, n) {
     n = U.clamp(Math.round(n), 0, War.guardMax(f)); let have = War.guardCount(f);
     while (have > n) { const h = roster(f).filter((x) => x.guard).pop(); War.dismiss(f, h.id); have--; }
-    let k = 0; while (have < n && hireOne(f, 'guard', null, k > 0)) { have++; k++; }
+    let k = 0; while (have < n && hireOne(f, War.guardId ? War.guardId(f) : 'guard', null, k > 0)) { have++; k++; }
     return War.guardCount(f);
   };
   War.army = function (f) {
@@ -856,8 +865,9 @@
   const sdR = War.spawnDefenses;
   War.spawnDefenses = function (f, mk) {
     const df = War.defenses(f); const E = engines(f);
-    const towerKind = ['archer', 'ballista', 'heavyballista'][U.clamp(df.towerLvl || 0, 0, 2)];
-    const inside = []; for (let i = 0; i < (E.trebuchet || 0); i++) inside.push('trebuchet'); for (let i = 0; i < (E.catapult || 0); i++) inside.push('catapult');
+    const towerKind = (War.towerKinds ? War.towerKinds(f) : ['archer', 'ballista', 'heavyballista'])[U.clamp(df.towerLvl || 0, 0, 2)];
+    let inside = []; for (let i = 0; i < (E.trebuchet || 0); i++) inside.push('trebuchet'); for (let i = 0; i < (E.catapult || 0); i++) inside.push('catapult');
+    if (War.insideKinds) inside = War.insideKinds(f, E); // each kingdom's own engines (faction armies, below)
     const byT = D.SIEGE_BY_TIER, ins = D.SIEGE_INSIDE;
     D.SIEGE_BY_TIER = [0, 1, 2, 3, 4].map(() => [towerKind, towerKind]); D.SIEGE_INSIDE = [0, 1, 2, 3, 4].map(() => inside);
     const before = new Set(G.ents);
@@ -950,7 +960,7 @@
       if (cs.hireT <= 0) {
         cs.hireT = 40 / k;
         const opts = War.recruitTypes(cs.f).filter((r) => r.unlocked && r.have < r.max && r.cost <= cs.gold);
-        const pick = opts.find((r) => r.id === 'ram' && !r.have) || opts.find((r) => r.kind === 'guard' && r.have < Math.min(r.max, 4)) || opts.find((r) => r.kind === 'siege' && r.id !== 'ram' && !r.have && cs.t > 40 * 60)
+        const pick = opts.find((r) => (r.id === 'ram' || r.ramLike) && !r.have) || opts.find((r) => r.kind === 'guard' && r.have < Math.min(r.max, 4)) || opts.find((r) => r.kind === 'siege' && r.id !== 'ram' && !r.ramLike && !r.have && cs.t > 40 * 60)
           || U.pick(opts.filter((r) => r.kind === 'soldier')) || null;
         if (pick) hireOne(cs.f, pick.id, D.FACTIONS[cs.f].king, true);
       }
@@ -1154,5 +1164,212 @@
     const home = () => { const [hx, hy] = D.CITY_CENTER[c.faction]; p.x = hx * TS + 16; p.y = (hy + 3) * TS + 16; p.dead = false; p.hp = p.hpMax; c.bind = { x: p.x, y: p.y, realm: 'main' }; KR.Main.snapCamera && KR.Main.snapCamera(); };
     ov.querySelector('#def-again').onclick = () => { cp.losses++; ov.remove(); KR.Main.setMusicOverride && KR.Main.setMusicOverride(null); War.newAge(); home(); Sys.save && Sys.save(true); G.log(`The war begins again on ${D.DIFFICULTY[cp.difficulty].name}.`, 'status', '#ffd84a'); };
     ov.querySelector('#def-stay').onclick = () => { cp.losses++; ov.remove(); KR.Main.setMusicOverride && KR.Main.setMusicOverride(null); Sys.save && Sys.save(true); };
+  };
+})();
+
+// =====================================================================
+// Faction armies: Valenmoor fights like a medieval kingdom with black powder (halberdier guards, men-at-arms,
+// pikemen, crossbowmen, handgunners, knights; battering rams, cannons and great bombards), Aelindor with elven
+// wild might (warden guards, elven blades, spearmen, longbows, druids; troll giants that pound the gates down,
+// ballistas and great ballistas). Big units march out on a wide lane so nothing scrapes walls, houses or lamps.
+// =====================================================================
+(function () {
+  const KR = window.KR; const { D, G, U, W } = KR; const Sys = KR.Sys, War = KR.War;
+  if (!War || !D.RECRUITS || !D.SOLDIERS) return;
+  const TS = D.TS;
+  const pf = () => (G.player && G.player.c ? G.player.c.faction : null);
+  const acct = () => { const a = G.account; if (!a) return null; a.war = a.war || {}; return a.war; };
+
+  // ---- soldiers ----
+  Object.assign(D.SOLDIERS.musketeer, { name: 'Handgunner', plural: 'Handgunners', icon: '🔥', desc: 'Fires a matchlock handgun: smoke and flame, slow to reload, and every ball hits hard.' });
+  Object.assign(D.SOLDIERS, {
+    crossbowman: { name: 'Crossbowman', plural: 'Crossbowmen', icon: '🎯', hp: 2.6, dmg: 1.25, ranged: true, proj: 'ARC', delay: 3.0, kit: 'Archer', tier: 1, cost: 1.1, desc: 'A heavy crossbow behind a pavise. Slow, but each bolt punches through mail.' },
+    halberdier: { name: 'Halberdier', plural: 'Halberdiers', icon: '🪓', hp: 3.6, dmg: 1.1, kit: 'Pike', tier: 1, cost: 1, antiSiege: 1.4, desc: 'Steel, a tabard and a halberd: the city watch of Valenmoor.' },
+    warden: { name: 'Elven Warden', plural: 'Elven Wardens', icon: '🍃', hp: 3.6, dmg: 1.1, kit: 'Warrior', tier: 1, cost: 1, desc: 'Leaf-steel armour and a long glaive: the guardians of Aelindor.' },
+    royalwarden: { name: 'Royal Warden', plural: 'Royal Wardens', icon: '👑', hp: 5.0, dmg: 1.3, kit: 'Warrior', tier: 2, cost: 1.7, desc: 'The king\'s own wardens, in gilded leaf-steel.' },
+    elvenblade: { name: 'Elven Blade', plural: 'Elven Blades', icon: '🗡', hp: 3.0, dmg: 1.25, kit: 'Warrior', tier: 1, cost: 1, desc: 'Two curved blades and no fear. Fast and deadly up close.' },
+    spearman: { name: 'Elven Spearman', plural: 'Elven Spearmen', icon: '🔱', hp: 3.2, dmg: 1.1, kit: 'Pike', tier: 1, cost: 1, antiSiege: 1.6, desc: 'A long leaf-bladed spear and a tall shield. Extra damage to towers, engines and riders.' },
+    elvenbow: { name: 'Elven Longbow', plural: 'Elven Longbows', icon: '🏹', hp: 2.4, dmg: 1.15, ranged: true, proj: 'ARC', delay: 2.2, kit: 'Archer', tier: 1, cost: 1.1, desc: 'Elven archers: the longest, quickest bows in the land.' },
+    druid: { name: 'Druid', icon: '🌿', hp: 2.2, dmg: 0.6, kit: 'Priest', tier: 1, cost: 1.3, healer: true, desc: 'Mends the wounded with the green magic of the grove.' },
+  });
+  D.MOB_CLASS_KITS.Pike = D.MOB_CLASS_KITS.Pike || ['trip', 'kick', 'bash', 'cleave'];
+
+  // ---- the engines inside the walls ----
+  Object.assign(D.SIEGE, {
+    bigcannon: { name: 'Cannon', range: 1700, minRange: 150, delay: 5.5, turn: 0.38, aoe: 70, mul: 2.8, proj: 'ironball', hpMul: 14, vis: 'ironball', arcK: 0.16, flight: 1.0 },
+    bombard: { name: 'Bombard', range: 2100, minRange: 300, delay: 9, turn: 0.16, aoe: 120, mul: 3.6, proj: 'ironball', hpMul: 20, vis: 'ironball', arcK: 0.3, flight: 1.6, bigR: 46, bigH: 150 },
+    bigballista: { name: 'Ballista', range: 1500, minRange: 100, delay: 4.5, turn: 0.45, aoe: 40, mul: 2.4, proj: 'bigbolt', hpMul: 13, vis: 'bigbolt', flight: 0.7, pierce: true },
+    greatballista: { name: 'Great Ballista', range: 1900, minRange: 150, delay: 6.5, turn: 0.3, aoe: 55, mul: 3.2, proj: 'bigbolt', hpMul: 18, vis: 'bigbolt', flight: 0.9, pierce: true, bigR: 46, bigH: 140 },
+  });
+
+  // ---- what each kingdom raises ----
+  D.FACTION_ARMY = {
+    crown: { guard: 'guard', guardCls: 'halberdier', royal: 'knight', ram: 'ram', stable: 'Stable', engines: { cannon: 'bigcannon', bombard: 'bombard' }, towers: ['archer', 'cannon', 'cannon'],
+      list: ['guard', 'manatarms', 'pikeman', 'priest', 'knight', 'crossbowman', 'musketeer', 'cavalry', 'ram', 'cannon', 'bombard'],
+      soldier: { longbowman: 'crossbowman', elvenbow: 'crossbowman', elvenblade: 'manatarms', spearman: 'pikeman', druid: 'priest', warden: 'halberdier' },
+      guardMap: { manatarms: 'halberdier', pikeman: 'halberdier', warden: 'halberdier' } },
+    sylvan: { guard: 'sguard', guardCls: 'warden', royal: 'royalwarden', ram: 'troll', stable: 'Troll Den', engines: { ballista: 'bigballista', greatballista: 'greatballista' }, towers: ['archer', 'ballista', 'heavyballista'],
+      list: ['sguard', 'elvenblade', 'spearman', 'druid', 'elvenbow', 'troll', 'ballista', 'greatballista'],
+      soldier: { longbowman: 'elvenbow', crossbowman: 'elvenbow', musketeer: 'elvenbow', manatarms: 'elvenblade', knight: 'elvenblade', cavalry: 'elvenblade', pikeman: 'spearman', priest: 'druid', halberdier: 'warden' },
+      guardMap: { manatarms: 'warden', pikeman: 'warden', halberdier: 'warden', knight: 'royalwarden' } },
+  };
+  const ARMY = (f) => D.FACTION_ARMY[f] || D.FACTION_ARMY.crown;
+  Object.assign(D.RECRUITS, {
+    crossbowman: { need: 'range', cost: 2000 },
+    elvenblade: { need: 'barracks', cost: 2200 },
+    spearman: { need: 'barracks', cost: 2200 },
+    druid: { need: 'barracks', cost: 2600 },
+    elvenbow: { need: 'range', cost: 2400 },
+    sguard: { name: 'Elven Warden', icon: '🍃', need: 'barracks', cost: 1500, cls: 'warden', guard: true, desc: 'Stands watch at your gates with a glaive and fights anyone who attacks the town. Never leaves on a raid.' },
+    troll: { name: 'Troll Giant', icon: '👹', need: 'stable', cost: 9000, siege: 'ram', desc: 'A giant three times the height of a man. Marches at the head of your war party, pounds the enemy gate to splinters, then fights on inside.' },
+    cannon: { name: 'Cannon', icon: '💣', need: 'workshop', cost: 12000, siege: 'engine', desc: 'A bronze cannon on a wheeled carriage inside your walls: flame, smoke and an iron ball that flies flat and fast.' },
+    bombard: { name: 'Bombard', icon: '🧨', need: 'workshop', cost: 18000, siege: 'engine', desc: 'A monstrous iron siege gun. Slow to turn and slower to load, but nothing hits harder or reaches further.' },
+    ballista: { name: 'Ballista', icon: '🏹', need: 'workshop', cost: 12000, siege: 'engine', desc: 'A giant bolt thrower inside your walls. Its bolts fly straight and pierce whole files of men.' },
+    greatballista: { name: 'Great Ballista', icon: '🎯', need: 'workshop', cost: 18000, siege: 'engine', desc: 'A double-armed elven war bow the size of a house. The longest reach of any elven engine.' },
+  });
+  Object.assign(D.RECRUITS.guard, { name: 'Halberdier Guard', cls: 'halberdier', desc: 'Stands watch at your gates with a halberd and fights anyone who attacks the town. Never leaves on a raid.' });
+  Object.assign(D.RECRUITS.ram, { desc: 'Rolls at the head of your next war party and breaks the enemy gate in five blows.' });
+  for (const k of ['crossbowman', 'elvenblade', 'spearman', 'druid', 'elvenbow', 'musketeer']) { const S = D.SOLDIERS[k], R = D.RECRUITS[k]; Object.assign(R, { name: S.name, icon: S.icon, desc: S.desc, cls: k }); }
+  Object.assign(D.ENGINE_MAX, { cannon: 2, bombard: 2, ballista: 2, greatballista: 2 });
+  War.guardId = (f) => ARMY(f).guard;
+  War.towerKinds = (f) => ARMY(f).towers;
+  War.ramName = (f) => D.RECRUITS[ARMY(f).ram].name;
+
+  // old saves: the generic catapults and trebuchets become each kingdom's own engines
+  const migrate = (f) => {
+    const w = acct(); if (!w || !w.engines || !w.engines[f]) return; const E = w.engines[f]; const ids = Object.keys(ARMY(f).engines);
+    if (E.catapult) { E[ids[0]] = (E[ids[0]] || 0) + E.catapult; E.catapult = 0; }
+    if (E.trebuchet) { E[ids[1]] = (E[ids[1]] || 0) + E.trebuchet; E.trebuchet = 0; }
+  };
+  War.insideKinds = function (f, E) {
+    migrate(f); const out = []; const A = ARMY(f).engines; const w = acct(); const cur = (w && w.engines && w.engines[f]) || E || {};
+    const ids = Object.keys(A); for (const id of ids.slice().reverse()) for (let i = 0; i < Math.min(D.ENGINE_MAX[id] || 2, cur[id] || 0); i++) out.push(A[id]);
+    return out;
+  };
+
+  // ---- the recruiter offers only the kingdom's own troops ----
+  const rt0 = War.recruitTypes;
+  War.recruitTypes = function (f) {
+    f = f || pf(); migrate(f); const A = ARMY(f); const list = rt0.apply(this, arguments).filter((r) => A.list.includes(r.id));
+    for (const r of list) {
+      const R = D.RECRUITS[r.id];
+      if (R.siege === 'ram') { r.ramLike = true; r.kind = r.kind || 'siege'; }
+      if (r.building === 'stable') { r.buildingName = A.stable; if (r.why) r.why = r.why.replace('the Stable', `the ${A.stable}`).replace('the undefined', `the ${A.stable}`); }
+    }
+    return list.sort((a, b) => A.list.indexOf(a.id) - A.list.indexOf(b.id));
+  };
+  // a soldier or guard of the other kingdom's kind is turned into this kingdom's nearest equivalent
+  War.factionCls = function (f, cls, guard) { const A = ARMY(f); return (guard ? A.guardMap[cls] : null) || A.soldier[cls] || cls; };
+  const gw0 = War.garrisonWanted;
+  War.garrisonWanted = function (f) { return gw0.apply(this, arguments).map((w) => Object.assign({}, w, { cls: War.factionCls(f, w.cls, w.hired && w.hired.guard) })); };
+  const dr0 = War.dress;
+  const LOOKS = (f) => {
+    const F = D.FACTIONS[f] || {}; const ban = F.banner || '#7a1e1e', trim = F.trim || '#e0c060';
+    return {
+      halberdier: { armor: { kind: 'plate', col: '#a8acb4', trim: ban }, helm: 'plate', helmStyle: 'sallet', helmPlume: ban, hat: null, weapon: 'halberd', offhand: null, sash: ban, cape: null, tabard: ban },
+      crossbowman: { armor: { kind: 'chain', col: '#8a8e96', trim: ban }, helm: 'plate', helmStyle: 'skull', hat: null, weapon: 'xbow', offhand: null, cape: null, back: 'quiver', sash: ban },
+      musketeer: { armor: { kind: 'leather', col: '#5a3a2a', trim: ban }, helm: 'plate', helmStyle: 'skull', hat: null, weapon: null, offhand: null, cape: null, sash: ban },
+      warden: { race: 'highelf', armor: { kind: 'chain', col: '#9cb894', trim: trim }, helm: 'plate', helmStyle: 'sallet', helmCol: '#a8c4a0', helmPlume: '#3a7a3a', hat: null, weapon: 'glaive', offhand: null, cape: '#2e5a2e' },
+      royalwarden: { race: 'highelf', armor: { kind: 'plate', col: '#d8c890', trim: '#3a7a3a' }, helm: 'plate', helmStyle: 'barbute', helmCol: '#e0cc8a', helmPlume: '#2e6a2e', hat: null, weapon: 'glaive', offhand: null, cape: '#1e4a1e' },
+      elvenblade: { race: 'woodelf', armor: { kind: 'leather', col: '#3e5a32', trim: trim }, helm: null, hat: 'hood', hatCol: '#2e4a26', weapon: '1HS', offhand: 'sword', cape: '#2e4a26' },
+      spearman: { race: 'highelf', armor: { kind: 'chain', col: '#94b08c', trim: trim }, helm: 'plate', helmStyle: 'nasal', helmCol: '#a8c4a0', hat: null, weapon: 'spear', offhand: 'shield', shieldCol: '#2e5a2e', shieldEmb: trim, cape: null },
+      elvenbow: { race: 'woodelf', armor: { kind: 'leather', col: '#4a6b35', trim: trim }, helm: null, hat: 'hood', hatCol: '#3a5a2a', weapon: 'ARC', offhand: null, cape: '#3a5a2a', back: 'quiver' },
+      druid: { race: 'woodelf', armor: { kind: 'cloth', col: '#4a6a32', trim: '#c8a040' }, robe: true, helm: null, hat: 'hood', hatCol: '#3a5a26', weapon: '2HB', staff: true, orb: '#9aff8a', offhand: null, cape: null },
+    };
+  };
+  War.dress = function (e, cls) {
+    const f = e.faction; if (f && D.FACTION_ARMY[f]) cls = War.factionCls(f, cls, !e.raider);
+    if (!D.SOLDIERS[cls]) return dr0.call(this, e, cls);
+    const L0 = LOOKS(f)[cls];
+    // dress with the stats of the class (the base knows the old classes; new ones borrow the nearest look then get their own)
+    const base = { halberdier: 'pikeman', warden: 'manatarms', royalwarden: 'knight', elvenblade: 'manatarms', spearman: 'pikeman', elvenbow: 'longbowman', druid: 'priest', crossbowman: 'longbowman' }[cls];
+    if (base) { const S0 = D.SOLDIERS[base]; D.SOLDIERS[base] = D.SOLDIERS[cls]; try { dr0.call(this, e, base); } finally { D.SOLDIERS[base] = S0; } e.soldier = cls; if (e.title === S0.name) e.title = D.SOLDIERS[cls].name; }
+    else dr0.call(this, e, cls);
+    if (L0) { e.look = Object.assign(e.look || {}, L0); if (L0.race) e.race = L0.race; }
+    return e;
+  };
+
+  // ---- troll giants: Aelindor's battering rams. They march at the head, pound the gate, then fight on ----
+  D.TROLL = { hpMul: 22, speed: 128 * 0.78, dmgMul: 3.4, r: 26, h: 170 };
+  const lr0 = War.launchRaid;
+  War.launchRaid = function (f) {
+    const n0 = War.squads.length; const n = lr0.apply(this, arguments);
+    const sq = War.squads.length > n0 ? War.squads[War.squads.length - 1] : null;
+    if (n && sq && sq.f === f) {
+      if (sq.ram && ARMY(f).ram === 'troll') {
+        const e = sq.ram; e.troll = true; e.name = `${D.FACTIONS[f].city} Troll Giant`; e.title = 'Smashes the enemy gates';
+        e.hpMax = e.hp = Math.round(G.mobHp(e.level) * D.TROLL.hpMul); e.r = D.TROLL.r; e.h = D.TROLL.h; e.speed = D.TROLL.speed; e.ac = 1300;
+        e.res = { fire: 0, cold: 40, magic: 30, poison: 60, disease: 60 };
+      }
+      if (sq.ram) War.widenPath(sq);
+    }
+    return n;
+  };
+  const rtk0 = War.ramTick;
+  War.ramTick = function (r, dt) {
+    if (r.troll && !r.dead) {
+      const sq = r.squad; const g = sq && sq.arrived ? War.blockingGate(sq) : null;
+      // the gate is down (or there was none to break): the giant wades in and fights
+      if (sq && sq.arrived && r.warState !== 'march' && r.warState !== 'home' && !g) { freeTroll(r); return; }
+      const say0 = G.say; G.say = (e, txt, t) => say0.call(G, e, e === r ? U.pick(['RRAAAGH!', 'SMASH!', 'Troll break door!', 'HRRNNGH!', 'Little door. Big troll.']) : txt, t);
+      try { return rtk0.apply(this, arguments); } finally { G.say = say0; }
+    }
+    return rtk0.apply(this, arguments);
+  };
+  function freeTroll(r) {
+    r.trollFree = true; r.passive = false; r.aggroR = 300; r.ramAim = null; r.swingT = 0; r.ramPh = 0;
+    r.dmg = Math.round((3 + r.level * 2.6) * D.TROLL.dmgMul); r.delay = 3.2; r.mclass = 'Warrior'; r.mabil = ['bash', 'cleave']; r.abCd = {}; r.abT = 2;
+    G.say(r, 'SMASH LITTLE MEN!', 2.5); A2('bellow', r, 1);
+  }
+  const A2 = (n, e, v) => { try { const p = G.player; const d = p ? Math.hypot(e.x - p.x, e.y - p.y) : 1e9; if (d < 1400) KR.A.sfx(n, v * (1 - d / 1400)); } catch (er) {} };
+  const killed1 = War.onRaiderKilled;
+  War.onRaiderKilled = function (r) {
+    if (r.troll) { const p = G.player; if (p && r.squad && mineF(r.squad.ef)) G.log('The troll giant crashes to the ground!', 'status', '#9affb8'); else if (mineF(r.faction)) G.log('Your troll giant has fallen!', 'status', '#ff6a5a'); }
+    return killed1.apply(this, arguments);
+  };
+  const mineF = (f) => !!(G.player && G.player.c && G.player.c.faction === f);
+  const army1 = War.army;
+  War.army = function (f) {
+    f = f || pf(); const v = army1.apply(this, arguments); const A = ARMY(f);
+    if (A.ram === 'troll' && 'Battering rams' in v) { const d = Object.getOwnPropertyDescriptors(v); const n = v['Battering rams']; delete v['Battering rams']; v['Troll giants'] = n; for (const k in d) if (!d[k].enumerable) Object.defineProperty(v, k, d[k]); }
+    if ('Siege engines' in v) { const w = acct(); const E = (w && w.engines && w.engines[f]) || {}; v['Siege engines'] = Object.keys(A.engines).reduce((s, id) => s + (E[id] || 0), 0); }
+    return v;
+  };
+
+  // ---- room to march out: big units keep a tile of clear ground on every side ----
+  const TALL = /lamp|lantern|post|tree|banner|flag|statue|well|cart|wagon|stall|crate|barrel|sign|fence|pillar|column|bench|rack|cauldron|anvil|forge|pile|logs|hay|keg|board|torch|brazier|fountain|pole/i;
+  let decorSet = null, decorFor = null;
+  const decorAt = (tx, ty) => {
+    if (decorFor !== W.decor || !decorSet) { decorFor = W.decor; decorSet = new Set(); for (const d of W.decor || []) if (d && d.kind && TALL.test(d.kind)) decorSet.add(d.ty * W.W + d.tx); }
+    return decorSet.has(ty * W.W + tx);
+  };
+  War.wideBlocked = function (tx, ty, rad) {
+    for (let j = -rad; j <= rad; j++) for (let i = -rad; i <= rad; i++) { const x = tx + i, y = ty + j; if (!W.inb(x, y)) return true; if ((i || j) && (W.isBlockedTile(x, y) || decorAt(x, y))) return true; if (!i && !j && decorAt(x, y)) return true; }
+    return false;
+  };
+  War.decorAt = decorAt;
+  // the nearest tile with room on every side, near (sx, sy)
+  War.wideSpot = function (sx, sy, rad, maxR) {
+    for (let r = 0; r <= (maxR || 8); r++) { let best = null; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = sx + dx, y = sy + dy; if (W.inb(x, y) && !W.isBlockedTile(x, y) && !War.wideBlocked(x, y, rad)) { const d = Math.hypot(dx, dy); if (!best || d < best[2]) best = [x, y, d]; } } if (best) return best; }
+    return null;
+  };
+  War.widenPath = function (sq) {
+    try {
+      const bk = sq.bk || sq.path[0]; const end = sq.path[sq.path.length - 1];
+      const s = War.wideSpot(bk[0], bk[1], 1, 10); const g = War.wideSpot(end[0], end[1], 1, 6) || end; if (!s) return false;
+      const p = W.findPathLong(s[0], s[1], g[0], g[1], 600000, { door: 'pass', roads: true, clear: 1 }); if (!p) return false;
+      const lead = []; if (s[0] !== bk[0] || s[1] !== bk[1]) { const q = W.findPathLong(bk[0], bk[1], s[0], s[1], 20000); if (q) lead.push(...q.slice(0, -1)); }
+      sq.path = [bk.slice()].concat(lead, [[s[0], s[1]]], p); sq.wideFrom = 1 + lead.length; // the soldiers walk out of the barracks door; the big unit starts on open ground
+      if (sq.ram) { sq.ram.x = s[0] * TS + 16; sq.ram.y = s[1] * TS + 16; sq.ram.homeX = sq.ram.x; sq.ram.homeY = sq.ram.y; }
+      sq.wide = true; return true;
+    } catch (er) { console.warn('widenPath', er); return false; }
+  };
+  // the big engines inside the walls also stand where they have room all round
+  const is0 = War.insideSpots;
+  War.insideSpots = function (f, n) {
+    if (!n) return [];
+    const many = is0.call(this, f, n * 4); const res = many.filter((s) => !War.wideBlocked(s[0], s[1], 2)).slice(0, n);
+    for (const s of many) { if (res.length >= n) break; if (!res.includes(s)) res.push(s); }
+    return res;
   };
 })();

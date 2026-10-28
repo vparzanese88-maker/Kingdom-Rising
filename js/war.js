@@ -61,6 +61,7 @@
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue; const nx = x + dx, ny = y + dy;
         if (W.isBlockedTile(nx, ny, opts)) continue;
+        if (opts && opts.clear && War.wideBlocked && War.wideBlocked(nx, ny, opts.clear)) continue; // big siege units need room on every side (warmarch.js)
         if (dx && dy && (W.isBlockedTile(x + dx, y, opts) || W.isBlockedTile(x, y + dy, opts))) continue;
         if (W.edge && W.edgeBlk(x, y, dx, dy)) continue; // the castle's balustrades: round by the stairs
         const nk = ny * WW + nx; if (closed[nk]) continue;
@@ -243,7 +244,7 @@
   };
   const gatesOf = (f) => { const cd = W.cityData[f]; return [[[cd.cx, cd.cy + cd.R + 2], [0, 1]], [[cd.cx + cd.R + 2, cd.cy + 3], [1, 0]], [[cd.cx - cd.R - 2, cd.cy + 3], [-1, 0]]].map(([p]) => p); };
   War.roster = function (f) { const a = G.account; a.war = a.war || {}; a.war.roster = a.war.roster || {}; return (a.war.roster[f] = a.war.roster[f] || []); };
-  const RANK = { knight: 0, cavalry: 0, manatarms: 1, pikeman: 1, priest: 2, musketeer: 3, longbowman: 3 };
+  const RANK = { knight: 0, cavalry: 0, manatarms: 1, pikeman: 1, priest: 2, musketeer: 3, longbowman: 3, elvenblade: 0, spearman: 1, druid: 2, crossbowman: 3, elvenbow: 3 };
   War.launchRaid = function (f, quiet) {
     if (W.realm && W.realm !== 'main') return 0;
     const ef = War.enemyOf(f); const best = War.bestGates(f, ef); if (!best) return 0;

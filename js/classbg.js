@@ -239,6 +239,51 @@
       rise(g, w, h, t, 30, 'rgba(255,90,50,A)', 0.12, 1.3, 30);
       vignette(g, w, h, 0.65);
     },
+    // a dawn battle line: muzzle flashes along a field, powder smoke drifting, a banner on the rise
+    arquebusier(g, w, h, t) {
+      sky(g, w, h, ['#1a1612', '#4a3a2a', '#a07040', '#d8a060']);
+      glow(g, w * 0.7, h * 0.62, Math.max(w, h) * 0.4, '255,190,110', 0.35);
+      hills(g, w, h, h * 0.66, h * 0.05, '#2a2018', 3); hills(g, w, h, h * 0.76, h * 0.03, '#1a140e', 6);
+      // a rank of musketeers in silhouette, firing in turn
+      const n = 9, base = h * 0.8, sc = Math.min(w, h) * 0.0016;
+      for (let i = 0; i < n; i++) {
+        const x = w * (0.08 + i * 0.105), fire = fr(t * 0.45 + i * 0.137) < 0.05;
+        g.save(); g.translate(x, base); g.scale(sc * 100, sc * 100); g.fillStyle = '#0c0906';
+        g.beginPath(); g.ellipse(0, -0.62, 0.07, 0.08, 0, 0, TAU); g.fill(); // head
+        g.beginPath(); g.moveTo(-0.13, -0.66); g.lineTo(0.14, -0.66); g.lineTo(0.05, -0.74); g.lineTo(-0.05, -0.74); g.fill(); // brimmed hat
+        g.fillRect(-0.08, -0.54, 0.16, 0.3); g.fillRect(-0.07, -0.24, 0.05, 0.24); g.fillRect(0.02, -0.24, 0.05, 0.24); // body and legs
+        g.save(); g.translate(0.02, -0.5); g.rotate(-0.08); g.fillRect(0, -0.02, 0.62, 0.035); g.restore(); // the arquebus levelled
+        g.restore();
+        if (fire) { const mx = x + 0.62 * sc * 100, my = base - 0.52 * sc * 100; glow(g, mx, my, w * 0.03, '255,230,150', 0.95); }
+        // a smoke puff that drifts and grows after each shot
+        const ph = fr(t * 0.45 + i * 0.137); const sx = x + 0.62 * sc * 100 + ph * w * 0.06, sy = base - 0.52 * sc * 100 - ph * h * 0.05, sr = w * (0.012 + ph * 0.05);
+        const gr = g.createRadialGradient(sx, sy, 0, sx, sy, sr); gr.addColorStop(0, `rgba(210,200,185,${0.55 * (1 - ph)})`); gr.addColorStop(1, 'rgba(210,200,185,0)'); g.fillStyle = gr; g.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+      }
+      // the Valen banner on the rise
+      const bx = w * 0.86, by = h * 0.5; g.fillStyle = '#100c08'; g.fillRect(bx, by, w * 0.004, h * 0.3);
+      g.fillStyle = '#7a1a1a'; g.beginPath(); g.moveTo(bx, by); for (let k = 0; k <= 8; k++) g.lineTo(bx + (k / 8) * w * 0.07, by + Math.sin(t * 3 + k) * h * 0.006); g.lineTo(bx + w * 0.07, by + h * 0.05); g.lineTo(bx, by + h * 0.05); g.fill();
+      rise(g, w, h, t, 30, 'rgba(220,210,190,A)', 0.03, 2.6, 60, 0.9);
+      vignette(g, w, h, 0.6);
+    },
+    // a mossy forest at dusk, fireflies, and the great shape of a troll among the trees
+    trollcaller(g, w, h, t) {
+      sky(g, w, h, ['#06100a', '#0e2214', '#1e3a20', '#2a4a24']);
+      for (let i = 0; i < 6; i++) tree(g, w * (0.02 + i * 0.19 + hash(i, 1) * 0.05), h * 0.86, h * (0.5 + hash(i, 2) * 0.3), '#0a1a0e');
+      // the troll: hunched, long-armed, eyes catching the light
+      const tx = w * 0.56, ty = h * 0.86, s = Math.min(w, h) * 0.0042, br = Math.sin(t * 0.9) * 0.02;
+      g.save(); g.translate(tx, ty); g.scale(s * 100, s * 100); g.fillStyle = '#071008';
+      g.beginPath(); g.moveTo(-0.55, 0); g.quadraticCurveTo(-0.62, -0.6, -0.35, -0.95 - br); g.quadraticCurveTo(0, -1.25 - br, 0.32, -0.98 - br); g.quadraticCurveTo(0.62, -0.62, 0.55, 0); g.fill(); // hunched back
+      g.beginPath(); g.ellipse(0.02, -1.08 - br, 0.2, 0.17, 0, 0, TAU); g.fill(); // head
+      g.beginPath(); g.moveTo(-0.45, -0.75); g.quadraticCurveTo(-0.85, -0.4, -0.78, 0.02); g.lineTo(-0.62, 0.02); g.quadraticCurveTo(-0.62, -0.4, -0.3, -0.7); g.fill(); // long arms
+      g.beginPath(); g.moveTo(0.45, -0.75); g.quadraticCurveTo(0.85, -0.4, 0.8, 0.02); g.lineTo(0.64, 0.02); g.quadraticCurveTo(0.64, -0.4, 0.3, -0.7); g.fill();
+      g.restore();
+      const blink = Math.sin(t * 0.5) > -0.92; if (blink) for (const ex of [-0.07, 0.09]) glow(g, tx + ex * s * 100, ty - (1.1 + br) * s * 100, w * 0.012, '200,255,120', 0.95);
+      hills(g, w, h, h * 0.86, h * 0.025, '#040a05', 5);
+      // fireflies and drifting spores
+      for (let i = 0; i < 40; i++) { const x = w * fr(hash(i, 3) + Math.sin(t * 0.2 + i) * 0.02), y = h * (0.35 + hash(i, 4) * 0.5) + Math.sin(t * 0.8 + i * 2) * h * 0.02; const a = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.7); if (a > 0.3) glow(g, x, y, w * 0.008, '210,255,130', a * 0.8); }
+      rise(g, w, h, t, 25, 'rgba(160,220,120,A)', 0.04, 1.2, 40, 0.9);
+      vignette(g, w, h, 0.62);
+    },
     // the title screen: the kingdom burns while the brothers fight over the crown
     burning(g, w, h, t) {
       sky(g, w, h, ['#08040a', '#2a0a08', '#6a1e0a', '#b8461a']); stars(g, w, h, t, 30, 0.35);

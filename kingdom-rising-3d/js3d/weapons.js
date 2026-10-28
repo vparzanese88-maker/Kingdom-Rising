@@ -80,7 +80,30 @@ function build(kind, opt) {
     case 'pick': mb.cyl('haft', 0, 0.3, 0, 0.022, 0.8, '#5a3a20', 8); mb.box('metalv', 0, 0.68, 0, 0.5, 0.05, 0.05, '#5a5a60', 0, 0, 0.15); break;
     case 'hammer': mb.cyl('haft', 0, 0.22, 0, 0.02, 0.5, '#5a3a20', 8); mb.box('metalv', 0, 0.48, 0, 0.16, 0.08, 0.08, '#3a3a40'); break;
     case 'torch': mb.cyl('haft', 0, 0.2, 0, 0.025, 0.55, '#4a3220', 6); mb.cyl('metalv', 0, 0.47, 0, 0.04, 0.08, '#3a3a3e', 8); break;
-    case 'musket': mb.box('haft', 0, 0.35, 0, 0.05, 0.9, 0.07, '#4a2e1a'); mb.cyl('metalv', 0, 0.9, 0.01, 0.014, 0.9, '#2a2a30', 6); break;
+    case 'musket': { // a matchlock handgun: walnut stock with a fishtail butt, octagonal barrel, brass bands, the serpentine and its smouldering match
+      mb.box('haft', 0, 0.1, 0, 0.045, 0.62, 0.06, '#4a2e1a'); mb.box('haft', 0, -0.26, -0.012, 0.05, 0.16, 0.11, '#43291a', 0, 0.25); // butt
+      mb.box('haft', 0, 0.62, 0.008, 0.036, 0.5, 0.042, '#4e301c'); // fore-stock
+      mb.cyl('metalv', 0, 0.82, 0.03, 0.016, 1.0, '#2c2c32', 8); mb.cyl('metalv', 0, 1.31, 0.03, 0.021, 0.04, '#2c2c32', 8); // barrel and muzzle
+      for (const y of [0.5, 0.78, 1.02]) mb.cyl('gold', 0, y, 0.03, 0.022, 0.018, '#b08a3a', 8);
+      mb.box('metalv', 0.026, 0.3, 0.02, 0.012, 0.11, 0.05, '#4a4a52'); mb.box('metalv', 0.03, 0.36, 0.048, 0.01, 0.07, 0.012, '#3a3a40', 0, 0.6); // lock plate and serpentine
+      mb.box('cloth', 0.04, 0.42, 0.06, 0.008, 0.14, 0.008, '#a8906a'); mb.sph('glow', 0.04, 0.495, 0.06, 0.012, 0.012, 0.012, '#ff8a3a', 0, 8); // the match
+      mb.cyl('timber', 0, 0.7, -0.015, 0.005, 0.6, '#5a3a20', 6); break; } // ramrod
+    case 'xbow': { // a heavy crossbow: oak tiller, steel prod, cord, stirrup and trigger lever
+      mb.box('haft', 0, 0.2, 0, 0.05, 0.72, 0.06, '#5a3a20'); mb.box('haft', 0, -0.17, -0.01, 0.055, 0.14, 0.08, '#4a2e1a');
+      mb.box('metalv', 0, 0.56, 0.01, 0.62, 0.03, 0.035, '#8a8e96'); for (const sx of [-1, 1]) mb.rod('paint', V(sx * 0.31, 0.56, 0.02), V(0, 0.32, 0.03), 0.004, '#e8e0d0', 3);
+      mb.box('metalv', 0, 0.62, 0.01, 0.1, 0.06, 0.012, '#5a5e66'); mb.box('metalv', 0, 0.02, -0.035, 0.012, 0.12, 0.012, '#3a3a40');
+      mb.cyl('timber', 0, 0.42, 0.04, 0.006, 0.3, '#7a5a3a', 6); break; } // a bolt in the groove
+    case 'halberd': { // a halberd: long ash pole, axe blade, back hook and top spike
+      mb.cyl('haft', 0, 0.6, 0, 0.02, 2.3, '#6e5236', 10, 0.017); mb.cyl('leather', 0, 0.02, 0, 0.023, 0.3, '#3a2416', 10);
+      { const s2 = new THREE.Shape(); s2.moveTo(0.02, 0); s2.lineTo(0.2, -0.08); s2.quadraticCurveTo(0.27, 0.08, 0.2, 0.26); s2.lineTo(0.02, 0.2); s2.closePath();
+        const g = new THREE.ExtrudeGeometry(s2, { depth: 0.008, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1 }); g.translate(0, 0, -0.004); mb.add('metal', g, MB.mat(0, 1.5, 0), steel, 0.5); g.dispose(); }
+      mb.box('metal', -0.08, 1.63, 0, 0.14, 0.03, 0.016, '#b8bcc4', 0, 0, -0.5); mb.cyl('metalv', 0, 1.88, 0, 0.004, 0.32, '#c8ccd4', 6, 0.018);
+      mb.cyl('metalv', 0, 1.6, 0, 0.026, 0.2, '#5a5e66', 8); break; }
+    case 'glaive': { // an elven glaive: slender pale shaft and a long curved leaf blade
+      mb.cyl('haft', 0, 0.55, 0, 0.017, 2.1, '#c8b896', 10, 0.015); for (const y of [0.05, 0.75]) mb.cyl('gold', 0, y, 0, 0.021, 0.05, '#c8a040', 10);
+      { const s2 = new THREE.Shape(); s2.moveTo(-0.02, 0); s2.quadraticCurveTo(-0.07, 0.25, -0.01, 0.62); s2.quadraticCurveTo(0.06, 0.3, 0.05, 0.08); s2.quadraticCurveTo(0.03, 0.02, 0.02, 0); s2.closePath();
+        const g = new THREE.ExtrudeGeometry(s2, { depth: 0.006, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, curveSegments: 10 }); g.translate(0, 0, -0.003); mb.add('metal', g, MB.mat(0, 1.62, 0), '#d8e4d8', 0.5); g.dispose(); }
+      mb.cyl('gold', 0, 1.6, 0, 0.03, 0.06, '#c8a040', 10); break; }
     default: return null;
   }
   let grp = mb.build({ castShadow: true });
@@ -92,10 +115,10 @@ function build(kind, opt) {
 // Models are built flat in the x-y plane (edges and axe heads along +x) so icons show their face. In the hand
 // that put every edge and axe head out to the side; held weapons are turned a quarter about their shaft so the
 // edge, axe bit, hammer face and spear blade lead the swing (+z of the weapon is the knuckle side of the grip).
-const EDGED = new Set(['1HS', 'sword', '2HS', 'axe', '2HSaxe', '1HB', 'mace', 'club', '2HB', '1HP', 'dagger', 'THR', 'spear']);
+const EDGED = new Set(['1HS', 'sword', '2HS', 'axe', '2HSaxe', '1HB', 'mace', 'club', '2HB', '1HP', 'dagger', 'THR', 'spear', 'halberd', 'glaive']);
 function turned(kind, g) { if (!g || !EDGED.has(kind)) return g; const o = new THREE.Group(); g.rotation.y -= Math.PI / 2; o.add(g); return o; }
 // NPCs carry the same detailed models as the hero's own items: a fixed stand-in item per weapon kind
-const NPC_ITEM = { '1HS': ['1HS', 1, 'Longsword'], sword: ['1HS', 1, 'Longsword'], '2HS': ['2HS', 1, 'Greatsword'], axe: ['1HS', 1, 'Hand Axe', true], '2HSaxe': ['2HS', 1, 'Greataxe', true], '1HB': ['1HB', 1, 'Mace'], mace: ['1HB', 1, 'Flanged Mace'], club: ['1HB', 0, 'Club'], '1HP': ['1HP', 1, 'Dirk'], dagger: ['1HP', 1, 'Dirk'], THR: ['THR', 1, 'Throwing Knives'] };
+const NPC_ITEM = { GUN: ['GUN', 1, 'Matchlock Arquebus'], '1HS': ['1HS', 1, 'Longsword'], sword: ['1HS', 1, 'Longsword'], '2HS': ['2HS', 1, 'Greatsword'], axe: ['1HS', 1, 'Hand Axe', true], '2HSaxe': ['2HS', 1, 'Greataxe', true], '1HB': ['1HB', 1, 'Mace'], mace: ['1HB', 1, 'Flanged Mace'], club: ['1HB', 0, 'Club'], '1HP': ['1HP', 1, 'Dirk'], dagger: ['1HP', 1, 'Dirk'], THR: ['THR', 1, 'Throwing Knives'] };
 // a weapon model (shared geometry) for a weapon type
 export function weaponMesh(kind, opt = {}) {
   if (!kind) return null;
@@ -115,4 +138,4 @@ export function weaponMesh(kind, opt = {}) {
   return g ? g.clone() : null;
 }
 // how long the business end is (for effects along a blade)
-export const BLADE_LEN = { '1HS': 0.82, sword: 0.82, '2HS': 1.25, axe: 0.75, '2HSaxe': 1.15, '1HB': 0.6, mace: 0.6, club: 0.7, '2HB': 1.5, '1HP': 0.3, dagger: 0.3, spear: 1.9, H2H: 0.05, ARC: 0.6, THR: 0.18, TOME: 0.2 };
+export const BLADE_LEN = { '1HS': 0.82, sword: 0.82, '2HS': 1.25, axe: 0.75, '2HSaxe': 1.15, '1HB': 0.6, mace: 0.6, club: 0.7, '2HB': 1.5, '1HP': 0.3, dagger: 0.3, spear: 1.9, H2H: 0.05, ARC: 0.6, THR: 0.18, TOME: 0.2, halberd: 2.0, glaive: 2.1 };

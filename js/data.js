@@ -141,6 +141,8 @@
     'ARC': { name: 'Archery', delay: 3.0, mul: 1.1, hands: 2, sfx: 'bow', ranged: true, range: 520 },
     'THR': { name: 'Throwing', delay: 2.2, mul: 0.95, hands: 1, sfx: 'throw', ranged: true, range: 400 },
     'TOME': { name: 'Magic Tome', delay: 2.8, mul: 0.9, hands: 1, sfx: 'magicbolt', ranged: true, range: 460 },
+    // black powder (Valenmoor's Arquebusiers): slow to reload, heavy hits, long range
+    'GUN': { name: 'Firearms', delay: 3.8, mul: 1.4, hands: 2, sfx: 'heavy', ranged: true, range: 560 },
   };
   D.WEAPON_BASES = {
     '1HS': ['Short Sword', 'Longsword', 'Broadsword', 'Bastard Sword', 'Runeblade', 'Kingsblade'],
@@ -152,6 +154,7 @@
     'ARC': ['Short Bow', 'Hunting Bow', 'Recurve Bow', 'Longbow', 'Composite Bow', 'Starwood Bow'],
     'THR': ['Throwing Knives', 'Throwing Axes', 'Shuriken', 'Hurlbats', 'Chakrams', 'Starblades'],
     'TOME': ["Apprentice's Tome", 'Codex', 'Grimoire', 'Arcane Folio', 'Tome of Ages', 'Starbound Codex'],
+    'GUN': ['Matchlock Arquebus', 'Wheellock Arquebus', 'Long Arquebus', 'Caliver', 'Royal Arquebus', 'Valen Thunderlock'],
   };
   D.ARMOR_KINDS = ['plate', 'chain', 'leather', 'cloth'];
   D.ARMOR_RANK = { cloth: 0, leather: 1, chain: 2, plate: 3 };
@@ -219,8 +222,20 @@
     enchanter: { name: 'Enchanter', role: 'caster', armor: 'cloth', hpMul: 0.78, manaStat: 'INT', weapons: ['1HP', '2HB'], ranged: ['TOME'],
       color: '#6a3fa0', trim: '#e0b7ff', desc: 'Mind mage. Mesmerizes, slows, hastes and shields with runes.',
       skills: [['meditation', 1], ['channeling', 10], ['mindovermatter', 22], ['arcanesurge', 40]] },
+    // ---- the kingdoms' own classes: only heroes pledged to that kingdom can take them (only: faction) ----
+    arquebusier: { name: 'Arquebusier', role: 'melee', armor: 'chain', hpMul: 1.12, manaStat: null, weapons: ['1HS', '1HP'], ranged: ['GUN'], only: 'crown',
+      color: '#5a3a24', trim: '#c8a040', desc: 'Valenmoor\'s black-powder marksman. A long matchlock arquebus, a bayonet, powder charges and smoke: every shot hits like a hammer, and each one takes a moment to reload.',
+      skills: [] },
+    trollcaller: { name: 'Trollcaller', role: 'hybrid', armor: 'leather', hpMul: 1.1, manaStat: 'WIS', weapons: ['2HB', '1HB', '1HP'], ranged: ['THR'], only: 'sylvan',
+      color: '#4a6a2a', trim: '#9ac86a', desc: 'An elven shaman-warrior of Aelindor bound to a young forest troll. The troll takes the blows at the front; you lash with thorns, bind with roots and mend with moss.',
+      skills: [] },
   };
   D.CLASS_IDS = Object.keys(D.CLASSES);
+  // a kingdom's own class, if any (D.CLASSES[cls].only)
+  D.SPECIAL_CLASS = { crown: 'arquebusier', sylvan: 'trollcaller' };
+  D.classOpen = (cls, faction) => !D.CLASSES[cls].only || D.CLASSES[cls].only === faction;
+  // any race may answer its kingdom's own calling
+  for (const r in D.RACES) for (const k of ['arquebusier', 'trollcaller']) if (!D.RACES[r].classes.includes(k)) D.RACES[r].classes.push(k);
   D.ARMOR_ALLOWED = (cls) => {
     const k = D.CLASSES[cls].armor;
     return D.ARMOR_KINDS.filter((a) => D.ARMOR_RANK[a] <= D.ARMOR_RANK[k]);
@@ -371,6 +386,21 @@
     manafont: { name: 'Mana Font', icon: '⛲', cd: 120, target: 'group', effects: [{ t: 'buff', name: 'Mana Font', mods: { manaRegen: 3 }, dur: 60 }], sfx: 'buff', desc: 'Your group regains 3 extra mana per second for 1 minute.' },
     mirrorimage: { name: 'Mirror Image', icon: '🪞', cd: 90, target: 'self', effects: [{ t: 'rune', amt: [30, 12], dur: 120 }], sfx: 'buff', desc: 'Illusory copies absorb damage for 2 minutes.' },
     languidgaze: { name: 'Languid Gaze', icon: '🐌', cd: 20, range: 400, target: 'enemy', effects: [{ t: 'debuff', name: 'Languid', mods: { slow: 0.3 }, dur: 30, res: 'magic' }], sfx: 'magic', desc: 'The target attacks 30% slower for 30 seconds.' },
+  });
+  // ---- the Arquebusier (Valenmoor) and the Trollcaller (Aelindor) ----
+  Object.assign(D.SKILLS, {
+    aq_aimed: { name: 'Aimed Shot', icon: '🎯', cd: 10, range: 560, target: 'enemy', ranged: true, effects: [{ t: 'rdmg', mult: 2.4 }], sfx: 'heavy', desc: 'Brace, sight down the barrel and fire: a heavy ball at long range.' },
+    aq_bayonet: { name: 'Bayonet Lunge', icon: '🗡', cd: 12, range: 220, target: 'enemy', effects: [{ t: 'lunge' }, { t: 'wdmg', mult: 1.5 }, { t: 'stun', dur: 1 }], sfx: 'pierce', desc: 'Charge in with the bayonet, striking and staggering the enemy for 1 second.' },
+    aq_scatter: { name: 'Scattershot', icon: '🌧', cd: 16, range: 420, target: 'tae', radius: 110, ranged: true, effects: [{ t: 'rdmg', mult: 1.1 }], sfx: 'heavy', desc: 'A charge of shot that hits every enemy around your target.' },
+    aq_powder: { name: 'Powder Charge', icon: '💣', cd: 22, range: 380, target: 'tae', radius: 130, effects: [{ t: 'hit', amt: [10, 3.0] }, { t: 'stun', dur: 1.5 }], sfx: 'heavy', desc: 'Hurl a lit powder charge: it blasts and stuns everything around your target.' },
+    aq_smoke: { name: 'Smoke Bomb', icon: '💨', cd: 45, target: 'self', effects: [{ t: 'dropaggro', pct: 0.8 }, { t: 'buff', name: 'Smoke Bomb', mods: { dmgTaken: -0.2 }, dur: 6 }], sfx: 'whoosh', desc: 'Vanish in a cloud of powder smoke: enemies lose most of their anger and you take 20% less damage for 6 seconds.' },
+    aq_reload: { name: 'Rapid Reload', icon: '⏩', cd: 60, target: 'self', effects: [{ t: 'buff', name: 'Rapid Reload', mods: { haste: 0.4, rangedMul: 0.15 }, dur: 15 }], sfx: 'buff', desc: 'Pre-measured cartridges: reload and shoot 40% faster with 15% stronger shots for 15 seconds.' },
+    aq_incendiary: { name: 'Incendiary Round', icon: '🔥', cd: 18, range: 560, target: 'enemy', ranged: true, effects: [{ t: 'rdmg', mult: 1.3 }, { t: 'dot', amt: [6, 2.4], dur: 12, res: 'fire' }], sfx: 'fire', desc: 'A burning ball that sets the target alight for 12 seconds.' },
+    aq_volley: { name: 'Volley Command', icon: '📯', cd: 120, target: 'group', effects: [{ t: 'buff', name: 'Volley Command', mods: { rangedMul: 0.3, dmgMul: 0.1 }, dur: 30 }], sfx: 'warcry', desc: '"Present... FIRE!" Your group shoots 30% harder and strikes 10% harder for 30 seconds.' },
+    tc_smash: { name: 'Troll Smash', icon: '👊', cd: 12, range: 450, target: 'enemy', effects: [{ t: 'petstrike', mult: 2.2, stun: 1.5 }], sfx: 'heavy', desc: 'Your troll brings both fists down on your target: a huge blow that stuns it for 1.5 seconds.' },
+    tc_stoneskin: { name: 'Stoneskin', icon: '🪨', cd: 60, target: 'pet', effects: [{ t: 'buff', name: 'Stoneskin', mods: { dmgTaken: -0.35, ac: 40 }, dur: 20 }], sfx: 'buff', desc: 'Your troll\'s hide turns to stone: it takes 35% less damage for 20 seconds.' },
+    tc_roar: { name: 'Primal Roar', icon: '🦍', cd: 20, target: 'self', effects: [{ t: 'pettaunt', radius: 170 }], sfx: 'roar', desc: 'Your troll roars: every enemy near it turns to fight the troll instead.' },
+    tc_frenzy: { name: 'Wild Frenzy', icon: '😡', cd: 90, target: 'pet', effects: [{ t: 'buff', name: 'Wild Frenzy', mods: { dmgMul: 0.4, haste: 0.3 }, dur: 20 }], sfx: 'rage', desc: 'Drive your troll into a frenzy: it hits 40% harder and 30% faster for 20 seconds.' },
   });
   // each class: exactly 10 hotbar abilities (unlocking 1, 3, 6, 10, 14, 18, 23, 28, 34, 40) plus its passive skills
   D.ACTIVE_LEVELS = [1, 3, 6, 10, 14, 18, 23, 28, 34, 40];
@@ -557,6 +587,15 @@
       { name: 'Snipe', icon: '🎯', cd: 25, ranged: true, desc: 'A carefully aimed long shot for heavy damage.', effects: [{ t: 'rdmg', mult: 2.6 }] },
       { name: 'Volley of Thorns', icon: '🌧', cd: 30, ranged: true, target: 'tae', radius: 120, desc: 'Arrows rain down around your target.', effects: [{ t: 'rdmg', mult: 1.4 }] },
       { name: 'Eagle\'s Eye', icon: '🦅', cd: 90, target: 'self', desc: '+40% ranged damage for 20 seconds.', effects: [{ t: 'buff', name: 'Eagle\'s Eye', mods: { rangedMul: 0.4 }, dur: 20 }] },
+    ],
+    'GUN': [
+      { name: 'Snap Shot', icon: '💥', cd: 8, ranged: true, effects: [{ t: 'rdmg', mult: 1.5 }] },
+      { name: 'Hobbling Shot', icon: '🦵', cd: 18, ranged: true, effects: [{ t: 'rdmg', mult: 1.0 }, { t: 'snare', pct: 0.5, dur: 8 }] },
+      { name: 'Double Load', icon: '🎯', cd: 16, ranged: true, effects: [{ t: 'rmulti', n: 2, mult: 1.0, same: true }] },
+      { name: 'Point Blank', icon: '💥', cd: 20, ranged: true, effects: [{ t: 'rdmg', mult: 2.4 }] },
+      { name: 'Grapeshot', icon: '🌧', cd: 24, ranged: true, target: 'tae', radius: 110, effects: [{ t: 'rdmg', mult: 1.2 }] },
+      { name: 'Deadeye', icon: '👁', cd: 30, ranged: true, effects: [{ t: 'rdmg', mult: 3.0 }] },
+      { name: 'Thunderclap Round', icon: '⚡', cd: 45, ranged: true, effects: [{ t: 'rdmg', mult: 3.6, crit: true }, { t: 'stun', dur: 1.5 }] },
     ],
     'THR': [
       { name: 'Quick Toss', icon: '🔪', cd: 6, ranged: true, effects: [{ t: 'rdmg', mult: 1.4 }] },
@@ -864,6 +903,12 @@
       L('buff_stat', 'Alteration', null, ['Spiritual Vigor', 'Furious Strength II'], 18),
       L('pethaste', 'Alteration', null, ["Sha's Ferocity", 'Spiritual Ascendance'], 22),
     ],
+    trollcaller: [
+      L('pet', 'Conjuration', null, ['Call Young Troll', 'Call Forest Troll', 'Call Elder Troll', 'Call Ancient Troll'], 1),
+      L('nuke', 'Evocation', 'poison', ['Thornlash', 'Bramble Lash', 'Briar Scourge', 'Heartwood Scourge']),
+      L('root', 'Alteration', 'magic', ['Rootbind', 'Grasping Roots', 'Heartwood Snare']),
+      L('heal', 'Alteration', null, ['Mending Moss', 'Healing Moss', 'Elder Moss', 'Mother Moss']),
+    ],
   };
   const DEFAULT_START = { nuke: 1, dot: 2, heal: 1, hot: 12, buff_ac: 3, buff_hp: 8, buff_stat: 7, ds: 6, haste: 15, slow: 9, root: 5, snare: 4, stun: 8, mez: 3, fear: 6,
     rune: 3, tap: 1, pet: 4, pbae: 12, tae: 18, regen: 14, clarity: 10, sow: 10, gate: 4, bind: 12, lure: 30, fd: 16, resistdebuff: 12, pethl: 6, pethaste: 20, undead: 5, dmgbuff: 9 };
@@ -872,7 +917,7 @@
     pethaste: '⚡', undead: '☀', dmgbuff: '⚔', charm: '💞', stat: '✦' };
   const STAT_ICON = { STR: '💪', DEX: '🎯', AGI: '🪶', STA: '❤', INT: '🧠', WIS: '🦉', CHA: '🌹' };
   const RES_ICON = { fire: '🔥', cold: '❄', magic: '⚡', poison: '☠', disease: '🦠' };
-  const CLASS_POWER = { wizard: 1.3, magician: 0.8, druid: 0.88, shaman: 1.28, necromancer: 0.55, enchanter: 1.3, cleric: 0.88, paladin: 0.82, shadowknight: 0.55, ranger: 0.85, bard: 0.55, beastlord: 0.95 };
+  const CLASS_POWER = { wizard: 1.3, magician: 0.8, druid: 0.88, shaman: 1.28, necromancer: 0.55, enchanter: 1.3, cleric: 0.88, paladin: 0.82, shadowknight: 0.55, ranger: 0.85, bard: 0.55, beastlord: 0.95, trollcaller: 1.0 };
 
   const BUFF_LINES = ['buff_ac', 'buff_hp', 'buff_stat', 'dmgbuff', 'ds', 'haste', 'pethaste', 'regen', 'clarity', 'sow', 'stat'];
   const GROUPABLE = ['buff_ac', 'buff_hp', 'buff_stat', 'ds', 'haste', 'regen', 'clarity', 'sow', 'stat'];
@@ -944,6 +989,7 @@
       if (/Bear/.test(name)) return 'bear'; if (/Tiger|Lynx/.test(name)) return 'tiger'; if (/Wyvern/.test(name)) return 'drake'; return 'wolf';
     }
     if (cls === 'shaman') return 'spiritwolf';
+    if (cls === 'trollcaller') return 'troll';
     if (cls === 'enchanter') return 'animsword';
     return 'skeleton';
   }
@@ -1010,6 +1056,12 @@
     WIS: { name: 'Wisdom of the Ages', icon: '🦉', mods: { WIS: 8 }, desc: '+8 Wisdom.' },
     INT: { name: 'Sharp Intellect', icon: '📘', mods: { INT: 8 }, desc: '+8 Intelligence.' },
     CHA: { name: 'Silver Tongue', icon: '🌹', mods: { CHA: 8 }, desc: '+8 Charisma.' },
+    aq_steady: { name: 'Steady Aim', icon: '🎯', mods: { rangedMul: 0.15 }, desc: '+15% ranged damage.' },
+    aq_mastery: { name: 'Powder Mastery', icon: '💥', mods: { rangedMul: 0.08, dmgMul: 0.06 }, desc: '+8% ranged and +6% ability damage: finer powder, tighter wadding.' },
+    aq_surgeon: { name: 'Field Surgeon', icon: '🩹', mods: { regen: 1.5, hpPct: 0.06 }, desc: '+6% maximum health and faster health regeneration.' },
+    tc_bond: { name: 'Troll Bond', icon: '🤝', mods: { petBond: 1 }, desc: 'Your troll has 30% more health and hits 15% harder.' },
+    tc_bark: { name: 'Barkskin', icon: '🌳', mods: { acMul: 0.08, dmgTaken: -0.04 }, desc: '+8% armor and 4% less damage from every source.' },
+    tc_oldways: { name: 'Old Ways', icon: '🌿', mods: { manaRegen: 0.8, WIS: 6 }, desc: '+6 Wisdom and faster mana regeneration.' },
   };
   const OLD_PASSIVES = {
     warrior: ['STA', 'stability', 'durability', 'fury', 'threat', 'defense', 'ambidex', 'stamina', 'STR', 'durability'],
@@ -1028,10 +1080,12 @@
     wizard: ['INT', 'spellfury', 'arcane', 'clarity', 'spellfury', 'fleet', 'arcane', 'defense', 'clarity', 'spellfury'],
     magician: ['INT', 'spellfury', 'clarity', 'arcane', 'durability', 'spellfury', 'arcane', 'clarity', 'defense', 'spellfury'],
     enchanter: ['CHA', 'INT', 'clarity', 'arcane', 'spellfury', 'defense', 'clarity', 'arcane', 'CHA', 'spellfury'],
+    arquebusier: ['DEX', 'archery', 'stamina', 'durability', 'fury', 'AGI', 'archery', 'stamina', 'defense', 'DEX'],
+    trollcaller: ['WIS', 'durability', 'regen', 'clarity', 'STA', 'healer', 'fury', 'clarity', 'durability', 'spellfury'],
   };
   // the general passives classes used to list one by one now come with the class as quiet training that grows with
   // your level (same bonuses, same old schedule), so heroes are as strong as before with three passives to show
-  const OLD_OWN = { ranger: 4, beastlord: 4, cleric: 2, druid: 2, shaman: 2, necromancer: 2, wizard: 2, magician: 2, enchanter: 2 };
+  const OLD_OWN = { ranger: 4, beastlord: 4, trollcaller: 2, cleric: 2, druid: 2, shaman: 2, necromancer: 2, wizard: 2, magician: 2, enchanter: 2 };
   const OLD_PLV = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
   const trainCache = {};
   D.classTraining = (cls) => {
@@ -1077,12 +1131,14 @@
     wizard: { act: ['s:0', 's:1', 's:4', 's:5', 's:2', 'blink', 's:3', 's:15'], pas: ['meditation', 'channeling', 'spellfury'] },
     magician: { act: ['s:0', 's:1', 's:7', 's:2', 's:3', 's:5', 's:4', 's:12'], pas: ['meditation', 'channeling', 'spellfury'] },
     enchanter: { act: ['s:0', 's:1', 's:3', 's:5', 's:2', 's:6', 's:9', 's:4'], pas: ['meditation', 'channeling', 'clarity'] },
+    arquebusier: { act: ['aq_aimed', 'aq_bayonet', 'aq_scatter', 'aq_powder', 'aq_smoke', 'aq_reload', 'aq_incendiary', 'aq_volley'], pas: ['aq_steady', 'aq_mastery', 'aq_surgeon'] },
+    trollcaller: { act: ['s:0', 'tc_smash', 's:1', 'tc_stoneskin', 's:2', 'tc_roar', 's:3', 'tc_frenzy'], pas: ['tc_bond', 'tc_bark', 'tc_oldways'] },
   };
   D.SPELLS = {};
   D.CLASS_SPELLS = {};
   D.SPELL_MAX = 50; // no spells or songs above level 50
   for (const cls of Object.keys(SPELL_LINES)) {
-    const target = D.CLASSES[cls].role === 'caster' ? 75 : cls === 'bard' ? 57 : 38;
+    const target = D.CLASSES[cls].role === 'caster' ? 75 : cls === 'bard' ? 57 : D.CLASSES[cls].only ? 0 : 38; // a kingdom's own class keeps just its own lines
     let lines = SPELL_LINES[cls].map((l) => ({ ...l, names: l.names.slice() }));
     let total = lines.reduce((a, l) => a + l.names.length, 0);
     // trim from the longest lines, pad on the first line with ranked names
@@ -1252,6 +1308,8 @@
     wizard: { wt: '1HP', name: 'Worn Dagger' },
     magician: { wt: '1HP', name: 'Summoned Dagger' },
     enchanter: { wt: '1HP', name: 'Ornate Dagger' },
+    arquebusier: { wt: '1HS', name: 'Worn Hanger', range: 'GUN', rangeItem: 'Battered Matchlock' },
+    trollcaller: { wt: '2HB', name: 'Mossy Troll Staff', wood: true },
   };
   // (crafting is gone: no crafts, refining benches or class sets)
   // ---------- Mobs ----------

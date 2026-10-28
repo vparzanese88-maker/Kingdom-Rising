@@ -202,6 +202,22 @@ function weapon(it, R) {
     const em = pick(R, ['disk', 'star', 'eye']); if (em === 'star') { const s = new THREE.Shape(); for (let k = 0; k < 10; k++) { const a = (k / 10) * 6.283 + 1.57, r = k % 2 ? 0.02 : 0.05; if (k) s.lineTo(Math.cos(a) * r, Math.sin(a) * r); else s.moveTo(Math.cos(a) * r, Math.sin(a) * r); } mb.add('gold', extrude(s, 0.004, 0.001), M4(0.01, 0.09, 0.034), gold); }
     else { mb.cyl('gold', 0.01, 0.09, 0.033, 0.05, 0.004, gold, 16, null, 0, Math.PI / 2, 0); if (em === 'eye') mb.sph('glow', 0.01, 0.09, 0.037, 0.04, 0.022, 0.01, pick(R, GEMS)); }
     mb.sph('glow', 0.01, 0.09, 0.04, 0.022, 0.022, 0.012, pick(R, GEMS));
+  } else if (wt === 'GUN') {
+    // a matchlock arquebus: walnut stock and fore-end, an octagonal iron barrel bound with bands, the lock with its
+    // serpentine holding a glowing match, a trigger guard, and a bayonet at the muzzle (barrel along +y)
+    const wood = woodOf(R), iron = t >= 3 ? K3.shade(S.flat, -0.1) : '#34343a', L = 1.0 + t * 0.03;
+    mb.box('haft', 0, -0.2, 0.012, 0.05, 0.3, 0.085, wood, 0, -0.12); mb.box('haft', 0, -0.37, 0.03, 0.058, 0.08, 0.12, K3.shade(wood, -0.1), 0, -0.18); // the butt
+    mb.box('metalv', 0, -0.415, 0.035, 0.06, 0.012, 0.125, fit, 0, -0.18); // butt plate
+    mb.box('haft', 0, 0.02, 0, 0.044, 0.22, 0.06, wood); mb.box('haft', 0, 0.42, 0.006, 0.04, 0.6, 0.044, wood); // wrist and fore-end
+    mb.cyl('metalv', 0, 0.12 + L / 2, 0.032, 0.0165, L, iron, 8); mb.cyl('metalv', 0, 0.12 + L, 0.032, 0.021, 0.035, K3.shade(iron, 0.15), 10); // barrel and muzzle swell
+    for (const y of [0.3, 0.52, 0.7]) mb.cyl('metalv', 0, y, 0.022, 0.03, 0.02, fit, 10); // barrel bands
+    mb.box('metalv', 0.026, 0.08, 0.02, 0.008, 0.13, 0.05, K3.shade(iron, 0.1)); // lock plate
+    mb.box('metalv', 0.033, 0.13, 0.05, 0.008, 0.012, 0.03, fit); mb.box('metalv', 0.036, 0.165, 0.062, 0.008, 0.07, 0.01, '#6a4a22', 0, 0.5); // pan and serpentine
+    mb.sph('glow', 0.036, 0.2, 0.08, 0.009, 0.009, 0.009, '#ff8a2a'); // the lit match
+    mb.box('metalv', 0, -0.02, -0.045, 0.01, 0.07, 0.008, fit); mb.box('metalv', 0, -0.06, -0.035, 0.01, 0.01, 0.03, fit); // trigger guard
+    mb.cyl('metalv', 0, 0.12 + L - 0.02, -0.004, 0.012, 0.05, iron, 8); mb.box('metal', 0, 0.12 + L + 0.13, -0.004, 0.014, 0.26, 0.004, S.edge || '#d4d8de'); // bayonet socket and blade
+    mb.cone('metal', 0, 0.12 + L + 0.26, -0.004, 0.007, 0.05, S.edge || '#d4d8de', 4);
+    if (t >= 4) for (const y of [-0.12, 0.25]) mb.box('gold', 0.026, y, 0.012, 0.004, 0.05, 0.04, fit); // inlay on the better guns
   } else mb.box('metal', 0, 0.3, 0, 0.05, 0.6, 0.02, S.flat);
   return { mb, pose: wt === 'ARC' ? 'bow' : wt === 'TOME' || wt === 'H2H' || wt === 'THR' ? 'flat' : 'diag' };
 }

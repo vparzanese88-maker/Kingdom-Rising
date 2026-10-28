@@ -54,7 +54,7 @@ const RACE = {
   highlander: { h: 0.75, muscle: 0.8, weight: 0.5 }, ogrin: { h: 1, muscle: 1, weight: 0.95, head: 0.96, neck: 1.35, arm: 1.06 },
   seaelf: { h: 0.65, weight: 0.25, muscle: 0.5, ear: 'long', ideal: 0.9 }, firbolg: { h: 1, muscle: 0.85, weight: 0.8, head: 1.04, neck: 1.15, ear: 'half' },
 };
-const CLS_MUSCLE = { warrior: 0.8, paladin: 0.75, berserker: 0.95, monk: 0.75, ranger: 0.62, rogue: 0.58, beastlord: 0.7, shadowknight: 0.75, bard: 0.55, cleric: 0.5, druid: 0.5, shaman: 0.55, wizard: 0.35, enchanter: 0.38, magician: 0.38, necromancer: 0.32 };
+const CLS_MUSCLE = { warrior: 0.8, paladin: 0.75, berserker: 0.95, monk: 0.75, ranger: 0.62, rogue: 0.58, beastlord: 0.7, shadowknight: 0.75, bard: 0.55, cleric: 0.5, druid: 0.5, shaman: 0.55, wizard: 0.35, enchanter: 0.38, magician: 0.38, necromancer: 0.32, arquebusier: 0.6, trollcaller: 0.62 };
 
 // every look gets a body and a face of its own, the same each time
 export function bodySpec(look, kind) {

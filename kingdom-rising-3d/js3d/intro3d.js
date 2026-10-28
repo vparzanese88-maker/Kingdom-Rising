@@ -27,7 +27,7 @@ export function startIntro(c, done) {
   const ship = buildShip('cog', 0.45); K3.scene.add(ship);
   // the overlay: letterbox bars
   const ov = document.createElement('div'); ov.className = 'k3-cine k3-intro';
-  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div>`;
+  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><button class="btn small ghost k3c-skip">Skip ›</button>`;
   document.body.appendChild(ov);
   const ui = document.getElementById('ui'), hud = document.getElementById('hud3d'); const uiWas = ui ? ui.hidden : true; if (ui) ui.hidden = true; if (hud) hud.style.visibility = 'hidden';
   // the ships moored in the marina: if one ever comes between the camera and the hero, the camera rises over it
@@ -36,9 +36,9 @@ export function startIntro(c, done) {
   // a fine sunny morning
   G.clock = 9.5 * 60; if (G.weather) { G.weather.type = 'clear'; G.weather.t = Math.max(G.weather.t || 0, 200); }
   p.sit = false; p.moving = false;
-  // nothing ends it early: keys and clicks are swallowed until the shot is over
-  intro.key = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
-  intro.click = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
+  // Esc, Space, Enter, a click or the Skip button cut to the dock; other keys are swallowed until the shot is over
+  intro.key = (e) => { e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat && (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')) finish(); };
+  intro.click = (e) => { e.stopImmediatePropagation(); e.preventDefault(); finish(); };
   addEventListener('keydown', intro.key, true); addEventListener('pointerdown', intro.click, true);
   try { A.play('harbor'); } catch (e) {}
   K3.cine = intro;

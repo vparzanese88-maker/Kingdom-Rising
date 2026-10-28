@@ -185,7 +185,7 @@
   G.wtName = (wt) => (wt === 'SHIELD' ? 'Block' : D.WEAPON_TYPES[wt] ? D.WEAPON_TYPES[wt].name : wt);
   // abilities use weapon damage per second (normalized to a 2.6s swing) so slow two-handers don't make every technique hit for huge numbers
   G.abilWeapon = function (p, hand) { const wd = G.weaponDmg(p, hand); if (!wd) return null; return Object.assign({}, wd, { dmg: (wd.dmg / wd.delay) * 2.6 }); };
-  G.CLASS_MELEE = { warrior: 1.8, monk: 1.8, rogue: 1.75, berserker: 1.3, paladin: 1.25, shadowknight: 0.85, ranger: 1.35, bard: 1.65, beastlord: 1.55 };
+  G.CLASS_MELEE = { warrior: 1.8, monk: 1.8, rogue: 1.75, berserker: 1.3, paladin: 1.25, shadowknight: 0.85, ranger: 1.35, bard: 1.65, beastlord: 1.55, arquebusier: 1.35, trollcaller: 1.0 };
   G.weaponDmg = function (p, hand) {
     if (!p.c) { if (hand === 'off' || hand === 'range') return null; return { dmg: Math.round(p.dmg || 5), delay: p.delay || 2.2, wt: p.wt || 'H2H' }; }
     const c = p.c; const w = hand === 'range' ? c.equip.range : hand === 'off' ? c.equip.secondary : c.equip.primary;
@@ -220,6 +220,8 @@
     if (rg && rg.wt === 'ARC') look.back = 'bow';
     look.rangeW = rg ? rg.wt : null;
     if (window.KR3D) { look.wItem = pw || null; look.oItem = sec || null; G.strictLook(look, c); } // 3D draws the actual items
+    // a firearm is carried in both hands (its bayonet does the close work); the sword stays at the hip
+    if (rg && rg.wt === 'GUN') { look.weapon = 'GUN'; look.wfx = rg.fx || null; look.offhand = null; if (window.KR3D) look.wItem = rg; }
     return look;
   };
   // which helmet a head piece is: the style follows its tier (open nasal helms for the crude ones, closed great
@@ -442,9 +444,10 @@
 
   // ---------- projectiles ----------
   G.shoot = function (src, tgt, kind, dmg, opt = {}) {
-    const vis = { ARC: 'arrow', THR: 'knife', TOME: 'tome', fire: 'fire', cold: 'cold', magic: 'magic', poison: 'poison', disease: 'disease', bolt: 'magic', heal: 'heal' }[kind] || kind;
-    G.proj.push({ x: src.x, y: src.y - 24, src, tgt, vis, dmg, opt, speed: vis === 'arrow' ? 720 : vis === 'knife' ? 600 : 460, t: 0 });
-    if (src === G.player || (src && Math.hypot(src.x - G.player.x, src.y - G.player.y) < 500)) KR.A.sfx(kind === 'shot' ? 'heavy' : kind === 'ARC' ? 'bow' : kind === 'THR' ? 'throw' : kind === 'TOME' ? 'magicbolt' : vis === 'arrow' ? 'bow' : 'magicbolt', 0.4);
+    if (kind === 'GUN') { G.fxAdd({ k: 'burst', x: src.x, y: src.y - 26, col: '#fff2b0', life: 0.18, r: 16 }); G.fxAdd({ k: 'burst', x: src.x, y: src.y - 30, col: '#b8b0a4', life: 0.9, r: 26 }); }
+    const vis = { ARC: 'arrow', THR: 'knife', TOME: 'tome', GUN: 'shot', fire: 'fire', cold: 'cold', magic: 'magic', poison: 'poison', disease: 'disease', bolt: 'magic', heal: 'heal' }[kind] || kind;
+    G.proj.push({ x: src.x, y: src.y - 24, src, tgt, vis, dmg, opt, speed: vis === 'arrow' ? 720 : vis === 'knife' ? 600 : vis === 'shot' ? 1500 : 460, t: 0 });
+    if (src === G.player || (src && Math.hypot(src.x - G.player.x, src.y - G.player.y) < 500)) KR.A.sfx(kind === 'shot' || kind === 'GUN' ? 'heavy' : kind === 'ARC' ? 'bow' : kind === 'THR' ? 'throw' : kind === 'TOME' ? 'magicbolt' : vis === 'arrow' ? 'bow' : 'magicbolt', 0.4);
   };
   function updateProj(dt) {
     for (let i = G.proj.length - 1; i >= 0; i--) {
@@ -802,6 +805,19 @@
         case 'cannibal': { const amt = Math.round(src.hpMax * 0.08); if (src.hp > amt + 5) { src.hp -= amt; src.mana = Math.min(src.manaMax, src.mana + amt * 0.9); G.float(src, '-' + amt + ' hp → mana', '#7ab8ff'); } break; }
         case 'lunge': { const d = Math.hypot(tgt.x - src.x, tgt.y - src.y); if (d > 40) { const nx = tgt.x - (tgt.x - src.x) / d * (tgt.r + src.r + 6), ny = tgt.y - (tgt.y - src.y) / d * (tgt.r + src.r + 6); if (!W.solidAtPx(nx, ny)) { G.fxAdd({ k: 'dash', x0: src.x, y0: src.y, x1: nx, y1: ny, life: 0.3 }); src.x = nx; src.y = ny; } } break; }
         case 'pet': KR.Sys.summonPet(src, e, def); break;
+        case 'petstrike': { // the troll brings both fists down on your target
+          const pet = src.pet; if (!pet || pet.dead) { if (src === G.player) G.log('Your troll is not with you. Call it first.', 'sys', '#ffb24a'); break; }
+          pet.target = tgt; pet.backOff = false;
+          const dmg = Math.round(G.mitigate(pet, tgt, pet.dmg * e.mult * (1 + (G.buffMods(pet).dmgMul || 0))));
+          G.damage(pet, tgt, dmg, { crit: true }); pet.atk = 0.01; KR.A.sfx('heavy', 0.7);
+          if (e.stun && !tgt.boss) tgt.stun = Math.max(tgt.stun || 0, e.stun);
+          G.fxAdd({ k: 'ring', x: tgt.x, y: tgt.y, r: 55, col: '#9ab86a', life: 0.5 });
+          break; }
+        case 'pettaunt': { // the troll roars: everything near it turns on the troll
+          const pet = src.pet; if (!pet || pet.dead) { if (src === G.player) G.log('Your troll is not with you. Call it first.', 'sys', '#ffb24a'); break; }
+          for (const m of G.ents) if (m.type === 'mob' && !m.dead && m.hate && Math.hypot(m.x - pet.x, m.y - pet.y) < (e.radius || 170)) { const top = Math.max(0, ...m.hate.values()); m.hate.set(pet, top + 80 + lv * 6); m.target = pet; m.inCombat = true; }
+          G.float(pet, 'ROAR!', '#ffb24a'); KR.A.sfx('roar', 0.8); G.fxAdd({ k: 'ring', x: pet.x, y: pet.y, r: e.radius || 170, col: '#c8a060', life: 0.6 });
+          break; }
         case 'gate': KR.Sys.gate(src); break;
         case 'bind': { if (src !== G.player) break; const why = KR.Sys.canBindHere(src); if (why) { G.log(why, 'sys', '#ffb24a'); break; } src.c.bind = { x: src.x, y: src.y, realm: W.realm || 'main' }; G.fxAdd({ k: 'ring', x: src.x, y: src.y, r: 50, col: '#c8a8ff', life: 0.9 }); G.log('You feel yourself bind to the area. You will return here when you Gate or fall.', 'spell', '#c8a8ff'); KR.Sys.save(); break; }
       }

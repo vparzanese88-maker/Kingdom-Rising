@@ -907,8 +907,8 @@
     for (let guard = 0; guard < 12; guard++) {
       const seen = new Set([(dy - 1) * W.W + dx]); const q = [[dx, dy - 1]];
       while (q.length) { const [x, y] = q.pop(); for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ox, ny = y + oy; if (!inside(nx, ny)) continue; const k = ny * W.W + nx; if (seen.has(k) || W.block[k] || !floorOk(nx, ny)) continue; seen.add(k); q.push([nx, ny]); } }
-      let total = 0; for (let y = b.y + 1; y < b.y + b.h - 1; y++) for (let x = b.x + 1; x < b.x + b.w - 1; x++) if (floorOk(x, y)) total++;
-      if (seen.size >= total * 0.6) break;
+      let total = 0; for (let y = b.y + 1; y < b.y + b.h - 1; y++) for (let x = b.x + 1; x < b.x + b.w - 1; x++) if (floorOk(x, y) && !W.block[y * W.W + x]) total++;
+      if (seen.size >= total) break; // every open tile can be walked to (a small room may be well furnished)
       // remove a blocking prop that touches the reachable area
       let done = false;
       for (const k of seen) { const x = k % W.W, y = Math.floor(k / W.W); for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ox, ny = y + oy; if (inside(nx, ny) && W.block[ny * W.W + nx]) { unblock(nx, ny); done = true; break; } } if (done) break; }
@@ -919,7 +919,7 @@
   // sets furniture out in a room so that it all fits: nothing in the lane from the door, nothing on the stairs, and every
   // piece that is used from the front (a forge, a loom, a counter, a shelf, a bed...) keeps a free tile before it.
   // Pieces against a wall face away from it; opts.face fixes the facing, opts.free lets a piece stand out in the room.
-  const NEEDS_FRONT = new Set(['workbench', 'forge', 'anvil', 'loom', 'hearth', 'stove', 'counter', 'lectern', 'bookshelf', 'shelf', 'vault', 'weaponrack', 'clothrack', 'cauldron', 'bed', 'kingbed', 'throne', 'wardrobe', 'dresser', 'chest', 'desk', 'keg', 'armorstand', 'statue']);
+  const NEEDS_FRONT = new Set(['workbench', 'forge', 'loom', 'hearth', 'stove', 'counter', 'lectern', 'bookshelf', 'shelf', 'vault', 'weaponrack', 'clothrack', 'cauldron', 'bed', 'kingbed', 'throne', 'wardrobe', 'dresser', 'chest', 'desk', 'keg', 'armorstand', 'statue']);
   const FACE_D = { n: [0, 1], s: [0, -1], w: [1, 0], e: [-1, 0] }; // a piece facing 's' stands against the north wall... (see front())
   function placer(b, x0, y0, x1, y1) {
     const door = b.door; const hold = new Set(); const K = (x, y) => y * W.W + x;
@@ -937,13 +937,13 @@
         if (!free(x, y) || lane(x, y)) return false;
         const face = o.face || null; const opts = Object.assign({}, o); delete opts.free;
         if (!o.free && !face && ['s'].includes(wallOf(x, y)) && NEEDS_FRONT.has(kind)) return false; // never with its back to the door wall
-        if (NEEDS_FRONT.has(kind)) { const [fx, fy] = front(x, y, face); if (!free(fx, fy) && !(inR(fx, fy) && hold.has(K(fx, fy)) && kind === 'counter')) return false; if (!o.free && !face) { const m = Math.min(y - b.y, b.y + b.h - 1 - y, x - b.x, b.x + b.w - 1 - x); if (m !== 1) return false; } hold.add(K(fx, fy)); if (kind === 'bed') { W.block[K(fx, fy)] = 1; } }
+        if (NEEDS_FRONT.has(kind)) { const [fx, fy] = front(x, y, face); if (occ(fx, fy)) return false; /* two pieces may share the tile they are used from */ if (!o.free && !face) { const m = Math.min(y - b.y, b.y + b.h - 1 - y, x - b.x, b.x + b.w - 1 - x); if (m !== 1) return false; } hold.add(K(fx, fy)); if (kind === 'bed') { W.block[K(fx, fy)] = 1; } }
         if (face) opts.face = face;
         addDecor(kind, x, y, opts); return true;
       },
       first(kind, list, o = {}) { for (const [x, y] of list) if (P.put(kind, x, y, o)) return [x, y]; return null; },
       // a tile to post someone on: free and out of the door lane if possible, else at least not inside furniture
-      anyFree(list) { for (const [x, y] of list) if (free(x, y) && !lane(x, y)) return [x, y]; for (const [x, y] of list) if (inR(x, y) && !occ(x, y)) return [x, y]; return null; },
+      anyFree(list) { for (const [x, y] of list) if (free(x, y) && !lane(x, y)) return [x, y]; for (const [x, y] of list) if (!occ(x, y) && !lane(x, y)) return [x, y]; for (const [x, y] of list) if (!occ(x, y)) return [x, y]; return null; },
     };
     b._hold = hold;
     return P;
@@ -997,7 +997,7 @@
         P.first('weaponrack', [[x1, y0 + 2], [x1, y0 + 1], [x0, y0 + 2], [x0, y0 + 3]]);
         carpenter(x0, y0, x1, y1);
         P.first('washtub', [[x0, y0 + 2], [x0, y1 - 1], [x1, y1 - 1]], { nb: true });
-        const sp = ap ? P.anyFree([[ap[0] + 1, ap[1]], [ap[0] - 1, ap[1]], [ap[0], ap[1] + 1]]) : null; spot(b, 'smith', ...(sp || [mx, y0 + 1]));
+        const sp = ap ? P.anyFree([[ap[0] + 1, ap[1]], [ap[0] - 1, ap[1]], [ap[0], ap[1] - 1], [ap[0], ap[1] + 1]]) : null; spot(b, 'smith', ...(sp || [mx, y0 + 1]));
         spot(b, 'vendor', ...(P.anyFree([[x1 - 1, y0 + 1], [mx + 1, y0 + 1], [mx, y0 + 1]]) || [mx, y1 - 1])); break; }
       case 'tailor': {
         const lp = P.first('loom', [[x0, y0], [x0 + 1, y0], [x1, y0]]);
@@ -1119,7 +1119,7 @@
     const frontFree = (k, x, y) => { if (!NEEDS_FRONT.has(k)) return true; const n = y - b.y, s = b.y + b.h - 1 - y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, s, w, e); if (m !== 1 || m === s) return false; const [fx, fy] = m === n ? [x, y + 1] : m === w ? [x + 1, y] : [x - 1, y]; return !taken(fx, fy) && !held(fx, fy); };
     const put = (k, x, y, o = {}) => { if (taken(x, y) || held(x, y) || !frontFree(k, x, y)) return false; addDecor(k, x, y, o); if (NEEDS_FRONT.has(k) && b._hold) { const n = y - b.y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, w, e); b._hold.add(m === n ? (y + 1) * W.W + x : m === w ? y * W.W + x + 1 : y * W.W + x - 1); } return true; };
     const mx = Math.floor((x0 + x1) / 2), my = Math.floor((y0 + y1) / 2);
-    const rugAt = (x, y) => { if (!W.decor.some((d) => d.tx === x && d.ty === y && d.kind === 'rug')) addDecor('rug', x, y, { nb: true, flat: true }); };
+    const rugAt = (x, y) => { if (!W.block[y * W.W + x] && !W.decor.some((d) => d.tx === x && d.ty === y && (d.kind === 'rug' || (!d.flat && !d.up)))) addDecor('rug', x, y, { nb: true, flat: true }); };
     // seats where people sit at the tables
     for (const s of (b.spots && b.spots.seat) || []) { const x = Math.floor(s[0] / TS), y = Math.floor(s[1] / TS); if (!W.decor.some((d) => d.tx === x && d.ty === y)) addDecor('stool', x, y, { nb: true }); }
     for (const d of W.decor.filter((d) => d.kind === 'table' && d.tx >= x0 && d.tx <= x1 && d.ty >= y0 && d.ty <= y1 && !d.up)) { put('stool', d.tx - 1, d.ty, { nb: true }) || put('bench', d.tx, d.ty + 1, { nb: true }); put('stool', d.tx + 1, d.ty, { nb: true }); }

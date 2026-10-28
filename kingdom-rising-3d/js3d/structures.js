@@ -93,7 +93,7 @@ function building(mb, b) {
   // windows: every other tile, away from corners and the door
   const winRow = (len, t0, skip) => { const out = []; for (let k = 1; k < len - 1; k++) { if (skip && skip(k)) continue; if ((k + (len > 5 ? 0 : 1)) % 2 === 0 || len <= 4) out.push(k); } return out; };
   const winV0 = fy + (keep ? geo.CASTLE_FH * 3 + 1.5 : isHall ? 3.6 : 1.05), winV1 = winV0 + (isHall ? 2.6 : 1.05), winW = isHall ? 0.62 : 0.72;
-  const upper = Hw >= 4.9 && !isHall; const upV0 = fy + 2.95, upV1 = upV0 + 0.95;
+  const upper = Hw >= 4.9 && !isHall; const upV0 = fy + 3.55, upV1 = Math.min(upV0 + 0.9, fy + Hw - 0.5);
   const openings = { n: [], s: [], w: [], e: [] };
   const addWin = (side, u0, u1) => { openings[side].push({ u0, u1, v0: winV0, v1: winV1, win: true }); if (upper) openings[side].push({ u0, u1, v0: upV0, v1: upV1, win: true }); };
   // north and south walls (along x)
@@ -136,11 +136,11 @@ function building(mb, b) {
       for (let k = 0; k <= n; k++) { const u = s.a0 + k * Tl; put(u, (baseV + top) / 2, bw, top - baseV); }
       put((s.a0 + s.a1) / 2, top - bw / 2, L + 0.1, bw);
       put((s.a0 + s.a1) / 2, baseV + bw / 2, L + 0.1, bw);
-      if (Hw >= 4.6) put((s.a0 + s.a1) / 2, fy + 2.75, L + 0.1, bw);
+      if (Hw >= 4.6) put((s.a0 + s.a1) / 2, fy + 3.4, L + 0.1, bw);
       // diagonal braces in panels without windows or the door
       for (let k = 0; k < n; k++) {
         const u0 = s.a0 + k * Tl, u1 = u0 + Tl; if (s.ops.some((o) => o.u1 > u0 && o.u0 < u1)) continue;
-        const vTop = Hw >= 4.6 ? fy + 2.75 : top; const dv = vTop - baseV, du = Tl; const ang = Math.atan2(dv, du) * ((k % 2) ? 1 : -1);
+        const vTop = Hw >= 4.6 ? fy + 3.4 : top; const dv = vTop - baseV, du = Tl; const ang = Math.atan2(dv, du) * ((k % 2) ? 1 : -1);
         const len = Math.hypot(du, dv);
         if (s.axis === 'x') mb.box(bk, (u0 + u1) / 2, (baseV + vTop) / 2, s.c, len, bw * 0.6, bw * 0.45, bc, 0, 0, ang);
         else mb.box(bk, s.c, (baseV + vTop) / 2, (u0 + u1) / 2, bw * 0.45, bw * 0.6, len, bc, 0, -ang, 0);
@@ -206,7 +206,7 @@ function building(mb, b) {
   const stoneFloor = ['hall', 'bank', 'chamber', 'heroes', 'exchange'].includes(b.type);
   mb.box(stoneFloor ? 'stone' : 'planks', (ix0 + ix1) / 2, fy - 0.5, (iz0 + iz1) / 2, ix1 - ix0, 1.0, iz1 - iz0, stoneFloor ? (isLair ? '#6a625a' : '#b8b0a2') : '#a8805a');
   if (keep) castleFloors(mb, b, fy);
-  const ceil = isHall ? top - 0.5 : b.loft ? top - 0.3 : Math.min(top - 0.25, fy + (upper ? 2.75 : 3.2));
+  const ceil = isHall ? top - 0.5 : b.loft ? top - 0.3 : Math.min(top - 0.25, fy + 3.35); // room to stand tall under the beams (ogres too), and for the camera
   b._ceil3 = ceil;
   mb.box(isHall || isLair ? 'stone' : 'planks', (ix0 + ix1) / 2, ceil + 0.08, (iz0 + iz1) / 2, ix1 - ix0, 0.16, iz1 - iz0, isHall ? '#a8a090' : '#8a6a4a');
   // an upper floor over the back of the room: planked floor on beams, a railing along its edge, and a staircase

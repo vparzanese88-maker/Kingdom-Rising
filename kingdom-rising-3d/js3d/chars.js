@@ -633,6 +633,8 @@ export function animateHumanoid(rig, st, dt) {
   rig.swimK = (rig.swimK || 0) + ((st.swim ? 1 : 0) - (rig.swimK || 0)) * Math.min(1, dt * 4);
   if (!st.mounted && !st.dead && rig.swimK < 0.5) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
+  // weapons are stowed while swimming, and come back out on dry land
+  { const hide = rig.swimK > 0.5; if (!!rig.swimHid !== hide) { rig.swimHid = hide; for (const h of [rig.held.R, rig.held.L]) if (h) h.visible = !hide; } }
   // ---- swimming: treading water when still; laid out along the surface with a breaststroke and a kick when moving ----
   if (rig.swimK > 0.01) {
     const k = rig.swimK; rig.swimMv = (rig.swimMv || 0) + ((st.swim && st.move > 0 ? 1 : 0) - (rig.swimMv || 0)) * Math.min(1, dt * 3); const sm = rig.swimMv;

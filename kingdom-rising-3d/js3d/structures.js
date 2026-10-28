@@ -668,8 +668,10 @@ function decks(mb, x0, y0, x1, y1) {
       if (dx) mb.box('timber', ex, y - 0.2, ez, 0.12, 0.32, Tl, '#4e3420'); else mb.box('timber', ex, y - 0.2, ez, Tl, 0.32, 0.12, '#4e3420');
     }
     // railings on the open sides of bridges: corner posts with turned caps, a rounded handrail, a mid-rail, balusters
+    // (a bridge that steps diagonally keeps the side it steps through open: no railing across its own path)
+    const diag = (dx, dy) => (dx ? isDeck(tx + dx, ty - 1) || isDeck(tx + dx, ty + 1) : isDeck(tx - 1, ty + dy) || isDeck(tx + 1, ty + dy));
     if (bridge) for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-      const nx = tx + dx, ny = ty + dy; if (isDeck(nx, ny) || W.tile(nx, ny) === T.ROAD) continue;
+      const nx = tx + dx, ny = ty + dy; if (isDeck(nx, ny) || W.tile(nx, ny) === T.ROAD || diag(dx, dy)) continue;
       const t2 = W.tile(nx, ny); if (t2 !== T.WATER && t2 !== T.DEEP) continue;
       const rx = x + dx * (Tl / 2 - 0.1), rz = z + dy * (Tl / 2 - 0.1);
       const along = (o) => (dx ? [rx, rz + o] : [rx + o, rz]);

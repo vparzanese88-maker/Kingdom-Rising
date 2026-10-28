@@ -2520,11 +2520,16 @@
   // a battering ram (or troll) wedged in a narrow gateway on the march edges forward along its route, so the whole
   // column (which waits for its leader) doesn't stand still forever
   if (War.ramTick) { const rt0 = War.ramTick; War.ramTick = function (r, dt) {
-    const x0 = r.x, y0 = r.y; const out = rt0.apply(this, arguments);
+    const out = rt0.apply(this, arguments);
     try {
       if (r && !r.dead && r.warState === 'march') {
-        if (Math.hypot(r.x - x0, r.y - y0) > 0.5 * dt * 10) r._wedgedT = 0; else r._wedgedT = (r._wedgedT || 0) + dt;
-        if (r._wedgedT > 6) { const T = War.formationTarget(r); if (T) { const d = Math.hypot(T.x - r.x, T.y - r.y); if (d > 4) { const st = Math.min(d, (D.RAM ? D.RAM.speed : 100) * dt); r.x += (T.x - r.x) / d * st; r.y += (T.y - r.y) / d * st; r.moving = true; } } }
+        // judged by progress toward its mark, not by movement: a ram jostling against a wall moves without getting anywhere
+        const T = War.formationTarget(r); const d = T ? Math.hypot(T.x - r.x, T.y - r.y) : 0;
+        if (d < 8 || r._wedgeD == null || d < r._wedgeD - 8 || d > r._wedgeD + 40) { r._wedgeD = d; r._wedgedT = 0; } else r._wedgedT = (r._wedgedT || 0) + dt;
+        // the troops crowding its mark (at the start every slot folds onto the first waypoint) can hold it off for good:
+        // then the column's head steps on to the next waypoint
+        const sq = r.squad; if (r._wedgedT > 6 && sq && sq.path && !sq.arrived && sq.order && sq.order[0] === r) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); r._wedgedT = 3; r._wedgeD = null; }
+        else if (r._wedgedT > 6 && d > 4) { const st = Math.min(d, (D.RAM ? D.RAM.speed : 100) * dt); r.x += (T.x - r.x) / d * st; r.y += (T.y - r.y) / d * st; r.moving = true; }
       }
     } catch (e) {}
     return out;

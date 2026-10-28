@@ -2494,7 +2494,9 @@
   const KR = window.KR, G = KR.G, War = KR.War; if (!War || !War.orderAttack || !War.closeGates) return;
   War.sallyUntil = War.sallyUntil || {};
   const close0 = War.closeGates;
-  War.closeGates = function (f) { if (War.sallyUntil[f] && G.now < War.sallyUntil[f]) return 0; return close0.apply(this, arguments); };
+  // ...and they stay up while the column you sent out is still inside your walls (for up to five minutes)
+  const leaving = (f) => War.squads.some((s) => s.f === f && !s.hunt && G.now - (s.startedAt || s.started || 0) < 300000 && s.members.some((m) => !m.dead && !m.removed && (m.warState === 'march' || m.warState === 'mustering') && War.insideWalls && War.insideWalls(f, m.x, m.y)));
+  War.closeGates = function (f) { if ((War.sallyUntil[f] && G.now < War.sallyUntil[f]) || leaving(f)) return 0; return close0.apply(this, arguments); };
   // a soldier on the march who can't get at what it is fighting (behind a wall, across water) lets it go after a few
   // seconds, so the whole column doesn't stand still forever (the squad only moves on when nobody is in combat)
   const ur0 = War.updateRaider;
@@ -2515,7 +2517,9 @@
   const order0 = War.orderAttack;
   War.orderAttack = function (f) {
     const ff = f || (G.player && G.player.c.faction);
-    if (ff) { War.sallyUntil[ff] = G.now + 60000; if (War.gatesDown(ff)) { War.openGates(ff, true); if (G.player && G.player.c.faction === ff) G.log('The gates swing open to let your army march out.', 'status', '#9affb8'); } }
-    return order0.apply(this, arguments);
+    if (ff) { War.sallyUntil[ff] = G.now + 90000; if (War.gatesDown(ff)) { War.openGates(ff, true); if (G.player && G.player.c.faction === ff) G.log('The gates swing open to let your army march out.', 'status', '#9affb8'); } }
+    const r = order0.apply(this, arguments);
+    if (ff) for (const sq of War.squads) if (sq.f === ff && !sq.hunt && !sq.startedAt) sq.startedAt = G.now;
+    return r;
   };
 })();

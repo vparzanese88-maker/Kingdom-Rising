@@ -70,7 +70,7 @@ export function createHeroView(cv, opt = {}) {
 }
 // a still picture of a hero (for small cards): renders once into an image
 let snapR = null, snapScene, snapCam, snapHolder;
-export function heroSnap(look, w = 120, h = 150) {
+export function heroSnap(look, w = 120, h = 150, yaw = 0.35, zoom = 1) {
   if (!snapR) {
     snapR = sharedRenderer();
     snapScene = new THREE.Scene(); snapScene.environment = snapR.env; snapScene.environmentIntensity = 0.8;
@@ -78,10 +78,10 @@ export function heroSnap(look, w = 120, h = 150) {
     snapCam = new THREE.PerspectiveCamera(22, 240 / 300, 0.05, 40); snapHolder = new THREE.Group(); snapScene.add(snapHolder);
   }
   snapR.setSize(w * 2, h * 2, false); snapCam.aspect = w / h; snapCam.updateProjectionMatrix();
-  snapHolder.clear(); const rig = makeHumanoid(look, 'player'); if (rig.setLod) rig.setLod(0); rig.mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); snapHolder.add(rig.mesh); snapHolder.rotation.y = 0.35;
+  snapHolder.clear(); const rig = makeHumanoid(look, 'player'); if (rig.setLod) rig.setLod(0); rig.mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); snapHolder.add(rig.mesh); snapHolder.rotation.y = yaw;
   animateHumanoid(rig, { move: 0, dist: 0, atk: 0, combat: true }, 0.016);
   const H = 1.85 * ((D.RACES[look.race] || {}).scale || 1);
-  snapCam.position.set(0, H * 0.55, H * 2.5 / Math.min(1, snapCam.aspect * 1.4)); snapCam.lookAt(0, H * 0.5, 0);
+  snapCam.position.set(0, H * (zoom > 1 ? 0.88 : 0.55), H * 2.5 / Math.min(1, snapCam.aspect * 1.4) / zoom); snapCam.lookAt(0, H * (zoom > 1 ? 0.86 : 0.5), 0); // zoom > 1: a close-up of the head and shoulders
   snapR.render(snapScene, snapCam);
   return snapR.domElement.toDataURL('image/png');
 }

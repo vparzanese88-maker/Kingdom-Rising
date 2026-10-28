@@ -207,7 +207,7 @@ K3.actorY = (e) => floorOf(e) + heroJump(e);
   };
 }
 // how long the wind-up before an auto-attack lasts, by swing (heavier swings take longer)
-const WIND = { thrust: 0.13, punch: 0.1, slash: 0.2, staff: 0.24, chop: 0.32, claw: 0.2 };
+const WIND = { thrust: 0.13, punch: 0.1, slash: 0.2, staff: 0.24, chop: 0.32, claw: 0.2, bite: 0.3 }; // bite: a beast's crouch, rear or coil before it strikes
 // the state motion.js needs: wind-up, hit-stop, flinch, casting, releases, acceleration and turning
 function motionState(av, e, st, tgt, dt) {
   const now = G.now;
@@ -230,6 +230,7 @@ function motionState(av, e, st, tgt, dt) {
   if (e._relAt && now - e._relAt < 700) st.rel = (now - e._relAt) / 1000;
   if (e._fizAt && now - e._fizAt < 500) st.fizzle = (now - e._fizAt) / 1000;
   // acceleration and turning, from the body's own motion (for leaning, banking and the cape)
+  if (st.far) { st.acc = 0; st.yawRate = 0; return; }
   const v = dt > 0 ? (st.dist || 0) * (av.scale || 1) / dt : 0;
   av.vS = (av.vS || 0) + (v - (av.vS || 0)) * Math.min(1, dt * 10);
   const acc = dt > 0 ? (av.vS - (av.vPrev == null ? av.vS : av.vPrev)) / dt : 0; av.vPrev = av.vS;
@@ -318,11 +319,14 @@ function updateAvatar(av, dt, ctx) {
   // animation
   const near = Math.hypot(av.obj.position.x - ctx.cam.x, av.obj.position.z - ctx.cam.z);
   // far away people move less often: nobody can see it, and it saves a lot of work
-  if ((near > 90 && K3.frame % 4) || (near > 45 && K3.frame % 2)) return;
+  // (by time, not frames: beyond 30 m a pose 15 times a second, beyond 70 m 8 times; the body still glides every frame)
+  const rate = e === p ? 0 : near > 70 ? 8 : near > 30 ? 15 : 0;
+  if (rate) { av.animAcc = (av.animAcc || 0) + dt; if (av.animAcc < 1 / rate) return; av.animAcc = 0; }
   const adt = av.accT || dt, adist = av.accD || 0; av.accD = 0; av.accT = 0; dt = adt;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
   const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
-  if (av.kind === 'human') motionState(av, e, st, tgt, dt);
+  st.far = near > 30 && e !== p; // far people skip the fine motion (leaning, breathing, looking, fingers)
+  if (av.kind === 'human' || av.kind === 'creature') motionState(av, e, st, tgt, dt); // beasts wind up, freeze on a hit and flinch too (creatures.js)
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
   if (av.peer) { st.move = moving ? 1 : 0; st.dist = air != null ? 0 : adist > 0.0005 ? adist / sc : moving ? dt * 3.2 : 0; }

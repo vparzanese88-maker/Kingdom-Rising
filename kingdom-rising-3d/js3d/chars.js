@@ -628,7 +628,7 @@ export function animateHumanoid(rig, st, dt) {
   rig.crouchK = (rig.crouchK || 0) + ((st.crouch ? 1 : 0) - (rig.crouchK || 0)) * Math.min(1, dt * 5);
   if (rig.crouchK > 0.01) { B.hips.position.y -= rig.rest.hips[1] * 0.38 * rig.crouchK; B.spine.rotation.x += 0.45 * rig.crouchK; B.head.rotation.x += 0.35 * rig.crouchK; }
   // ---- leaning into starts and turns, rocking back on stops, breathing (motion.js) ----
-  if (!st.mounted && !st.dead) bodyLean(rig, B, st, dt);
+  if (!st.mounted && !st.dead && !st.far) bodyLean(rig, B, st, dt);
   // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
   if (!st.mounted && !st.dead) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
@@ -698,10 +698,10 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.bow && rig.held.L) { rig.held.L.rotation.x = (Math.PI / 2) * rig.ready; }
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
-  look(rig, B, st, dt);
+  if (!st.far) look(rig, B, st, dt);
   if (!st.cast && !rig.sw && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
   // fingers: a fist around a weapon, open while casting, loosely curled otherwise
-  if (rig.hands) for (const S of ['L', 'R']) {
+  if (rig.hands && !st.far) for (const S of ['L', 'R']) {
     const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;
     const want = st.cast ? 0.08 : held ? 1.35 : grip ? 1.1 : st.dead ? 0.6 : 0.32 + Math.sin(t * 0.7 + (S === 'L' ? 1 : 0)) * 0.03;
     const k = 'curl' + S; rig[k] = rig[k] == null ? want : rig[k] + (want - rig[k]) * Math.min(1, dt * 10); const c = rig[k]; const h = rig.hands[S];

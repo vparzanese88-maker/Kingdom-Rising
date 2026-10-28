@@ -7,6 +7,8 @@ import { charMat } from './chars.js';
 import { sdfMesh } from './sdfmesh.js';
 
 const shade = (c, a) => K3.shade(c || '#777777', a);
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const decay = (t, k) => Math.exp(-t * k);
 const Q = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
 // smooth bodies need the realistic-figures option (on unless the quality is low)
 const FUR_LEN = { wolf: 0.024, bear: 0.035, boar: 0.014, tiger: 0.012, rat: 0.01, griffon: 0.018, horse: 0.006 };
@@ -290,36 +292,115 @@ function buildQuad(kind, col, rnd) {
   const fl = R.organic && mat === 'fur' ? FUR_LEN[kind] ?? sp.br * 0.08 : 0; if (fl) addFur(inst, R.body, fl);
   return Object.assign(inst, { _R: R, _body: fl ? R.body : null, _furLen: fl, type: 'quad', sp, t: Math.random() * 10, phase: Math.random() * 6 });
 }
+// gait tables (leg phase offsets FL, FR, BL, BR and how long each foot stays down), from the motion spec:
+// a lateral-sequence walk, a diagonal trot and a rotary gallop; blended by speed so gaits melt into each other
+const GAITS = { walk: { off: [0.25, 0.75, 0, 0.5], duty: 0.65, stride: 0.85 }, trot: { off: [0, 0.5, 0.5, 0], duty: 0.45, stride: 1.25 }, gallop: { off: [0.1, 0.2, 0.6, 0.7], duty: 0.3, stride: 2.1 } };
+// how each beast attacks: a telegraphed wind-up, then the strike that lands with the game's blow
+const STYLE = { rat: 'bite', wolf: 'leap', spiritwolf: 'leap', tiger: 'pounce', bear: 'rear', boar: 'gore', croc: 'snap', drake: 'neck', dragon: 'neck', griffon: 'pounce', horse: 'rear' };
 function animQuad(rig, st, dt) {
-  const B = rig.bones, sp = rig.sp; const t = (rig.t += dt);
-  const stride = sp.L * 0.9; rig.phase += (st.dist / stride) * Math.PI * 2 * 0.5;
-  rig.mv = (rig.mv || 0) + (K3.clamp(st.move, 0, 1) - (rig.mv || 0)) * Math.min(1, dt * 8); const m = rig.mv;
+  const B = rig.bones, sp = rig.sp; const R0 = rig.rest;
+  // a moment's freeze when a blow lands: the pose holds, then carries on
+  if (st.freeze) dt = 0;
+  const t = (rig.t += dt);
+  // speed in body lengths per second picks the gait; the cycle advances by distance so feet don't slide
+  const v = dt > 0 ? (st.dist || 0) / dt : rig.vS || 0; rig.vS = (rig.vS || 0) + (v - (rig.vS || 0)) * Math.min(1, dt * 6);
+  const rel = rig.vS / sp.L; const heavy = sp.hump || rig.kind === 'boar';
+  const gt = K3.clamp((rel - 1.0) / 0.8, 0, 1), gg = K3.clamp((rel - 2.6) / 1.2, 0, 1) * (heavy ? 0.6 : 1); // trot, gallop weights
+  const mix = (k) => GAITS.walk[k] * (1 - gt) + GAITS.trot[k] * gt * (1 - gg) + GAITS.gallop[k] * gt * gg;
+  const stride = sp.L * mix('stride'), duty = mix('duty');
+  rig.phase = ((rig.phase || 0) + (st.dist || 0) / stride) % 1; const ph = rig.phase;
+  rig.mv = (rig.mv || 0) + ((st.dist > 0 ? 1 : 0) - (rig.mv || 0)) * Math.min(1, dt * 7); const m = rig.mv;
   for (const k in B) B[k].rotation.set(0, 0, 0);
-  B.root.position.set(rig.rest.root[0], rig.rest.root[1], rig.rest.root[2]);
-  const ph = rig.phase; const A = 0.55 * m;
-  const leg = (n, p) => { B[n + '1'].rotation.x = Math.sin(p) * A; B[n + '2'].rotation.x = (n[0] === 'F' ? -1 : 1) * Math.max(0, Math.cos(p)) * 0.6 * m; };
-  leg('FL', ph); leg('BR', ph); leg('FR', ph + Math.PI); leg('BL', ph + Math.PI);
-  B.root.position.y += Math.abs(Math.sin(ph)) * 0.04 * m * sp.H;
-  B.chest.rotation.x = Math.sin(ph * 2) * 0.03 * m;
-  B.neck.rotation.x = Math.sin(t * 1.5) * 0.04 + Math.sin(ph * 2) * 0.05 * m;
-  B.head.rotation.y = Math.sin(t * 0.7) * 0.15 * (1 - m);
-  if (B.tail1) { B.tail1.rotation.x = 0.25 - m * 0.2; B.tail1.rotation.y = Math.sin(t * 3 + ph) * 0.2; B.tail2.rotation.y = Math.sin(t * 3 + ph - 0.7) * 0.25; B.tail3.rotation.y = Math.sin(t * 3 + ph - 1.4) * 0.3; }
-  // flying: wings beat, legs tucked, body lifted
-  const fly = st.fly;
-  if (B.WL1) {
-    const beat = fly ? Math.sin(t * (sp.L > 5 ? 3 : 6)) : Math.sin(t * 1.2) * 0.15 - 0.9;
-    B.WL1.rotation.z = fly ? beat * 0.9 : -0.2; B.WR1.rotation.z = fly ? -beat * 0.9 : 0.2;
-    B.WL2.rotation.z = fly ? beat * 0.5 : -1.6; B.WR2.rotation.z = fly ? -beat * 0.5 : 1.6;
-    B.WL1.rotation.y = fly ? 0 : 0.9; B.WR1.rotation.y = fly ? 0 : -0.9;
-    if (fly) for (const n of ['FL', 'FR', 'BL', 'BR']) { B[n + '1'].rotation.x = n[0] === 'F' ? -0.9 : 0.9; B[n + '2'].rotation.x = n[0] === 'F' ? 1.2 : -1.0; }
+  B.root.position.set(R0.root[0], R0.root[1], R0.root[2]);
+  const reach = (0.32 + 0.22 * gt + 0.18 * gg) * m; const fly = st.fly;
+  const offs = ['FL', 'FR', 'BL', 'BR'];
+  offs.forEach((n, i) => {
+    const off = GAITS.walk.off[i] * (1 - gt) + GAITS.trot.off[i] * gt * (1 - gg) + GAITS.gallop.off[i] * gt * gg;
+    const u = (ph + off) % 1; let sw, lift = 0;
+    if (u < duty) sw = 1 - 2 * (u / duty); // planted: the foot sweeps back under the body
+    else { const s1 = (u - duty) / (1 - duty); sw = -1 + 2 * ease(s1); lift = Math.sin(s1 * Math.PI); } // swinging forward, lifted
+    const front = n[0] === 'F';
+    B[n + '1'].rotation.x = -sw * reach;
+    B[n + '2'].rotation.x = (front ? -1 : 1) * (lift * (0.75 + 0.4 * gg) + 0.08) * m;
+    if (B[n + '3']) B[n + '3'].rotation.x = (front ? 1 : -1) * lift * 0.5 * m - B[n + '1'].rotation.x * 0.3;
+  });
+  // the body: a bob twice a stride (once at the gallop), a flexing spine at speed, a rolling heavy gait
+  const bob = gg > 0.3 ? Math.sin(ph * Math.PI * 2) * 0.06 : Math.abs(Math.sin(ph * Math.PI * 2)) * 0.03;
+  B.root.position.y += bob * m * sp.H * (heavy ? 0.7 : 1);
+  const flex = Math.sin(ph * Math.PI * 2) * (heavy ? 0.05 : 0.17) * gg * m;
+  B.chest.rotation.x = flex + Math.sin(ph * Math.PI * 4) * 0.02 * m; B.pelvis.rotation.x = -flex;
+  if (heavy) { B.chest.rotation.z = Math.sin(ph * Math.PI * 2) * 0.1 * m; B.pelvis.rotation.z = -Math.sin(ph * Math.PI * 2) * 0.06 * m; }
+  // breathing, and the head held steady against the body's motion (wolves carry it low and level at a run)
+  const breathe = Math.sin(t * (1.6 + (1 - m) * 0.4) + (rig.seed || 0)) * 0.015;
+  B.chest.rotation.x += breathe;
+  B.neck.rotation.x = -B.chest.rotation.x * 0.8 + (rig.kind === 'wolf' || rig.kind === 'spiritwolf' ? 0.12 * gt : 0);
+  if (heavy) B.neck.rotation.z = -B.chest.rotation.z * 1.2;
+  // idles: look around, sniff the ground, flick the ears, wag
+  const idle = 1 - m; const sd = rig.seed || 0;
+  const sniff = idle * K3.clamp(Math.sin(t * 0.21 + sd) * 3 - 2, 0, 1);
+  B.head.rotation.y = Math.sin(t * 0.55 + sd) * 0.35 * idle * (1 - sniff);
+  B.neck.rotation.x += sniff * 0.55; B.head.rotation.x = sniff * (0.25 + Math.sin(t * 9) * 0.06);
+  if (B.tail1) {
+    const wag = (rig.kind === 'wolf' || rig.kind === 'spiritwolf') ? 1.5 : rig.kind === 'tiger' ? 0.6 : 1.0;
+    B.tail1.rotation.x = 0.3 - m * 0.25 - gg * 0.2; const w = t * wag * Math.PI * 2 + ph * 6;
+    B.tail1.rotation.y = Math.sin(w) * (0.22 + 0.1 * idle); B.tail2.rotation.y = Math.sin(w - 0.8) * 0.3; B.tail3.rotation.y = Math.sin(w - 1.6) * 0.38;
+    if (rig.kind === 'croc' || rig.kind === 'drake' || rig.kind === 'dragon') { B.tail1.rotation.y += Math.sin(ph * Math.PI * 2) * 0.2 * m; B.tail2.rotation.y += Math.sin(ph * Math.PI * 2 - 0.7) * 0.25 * m; }
   }
-  // attack: lunge and bite
-  const a = st.atk || 0;
-  if (a > 0 && a < 1) { const s1 = Math.sin(a * Math.PI); B.root.position.z += s1 * sp.L * 0.12; B.neck.rotation.x += s1 * 0.4; B.head.rotation.x = -s1 * 0.25; if (B.jaw) B.jaw.rotation.x = s1 * 0.6; if (!fly) { B.FL1.rotation.x -= s1 * 0.6; B.FR1.rotation.x -= s1 * 0.5; } }
-  if (st.breath) { B.neck.rotation.x -= 0.25; B.head.rotation.x = -0.2; if (B.jaw) B.jaw.rotation.x = 0.7; }
+  // wings: a strong downstroke (60%) and a slower upstroke; folded on the ground
+  if (B.WL1) {
+    const big = sp.L > 5; const f = (t * (big ? 0.7 : 1.4)) % 1; const beat = f < 0.6 ? Math.cos(f / 0.6 * Math.PI) : -Math.cos((f - 0.6) / 0.4 * Math.PI);
+    B.WL1.rotation.z = fly ? beat * 0.9 : -0.2; B.WR1.rotation.z = fly ? -beat * 0.9 : 0.2;
+    B.WL2.rotation.z = fly ? beat * 0.5 - 0.1 : -1.6; B.WR2.rotation.z = fly ? -beat * 0.5 + 0.1 : 1.6;
+    B.WL1.rotation.y = fly ? 0 : 0.9; B.WR1.rotation.y = fly ? 0 : -0.9;
+    if (fly) { B.root.position.y += -beat * sp.H * 0.06; for (const n of offs) { B[n + '1'].rotation.x = n[0] === 'F' ? -0.9 : 0.9; B[n + '2'].rotation.x = n[0] === 'F' ? 1.2 : -1.0; } }
+  }
+  // attacks: wind up before the blow (st.wind), strike as it lands (st.atk), then recover with a little overshoot
+  const style = STYLE[rig.kind] || 'bite'; const w = ease(st.wind || 0); const a = st.atk || 0;
+  const hit = a > 0 && a < 1 ? (a < 0.15 ? ease(a / 0.15) : 1 - ease((a - 0.15) / 0.85) * 1.08 + Math.sin(K3.clamp((a - 0.15) / 0.85, 0, 1) * Math.PI) * 0.08) : 0;
+  const L = sp.L, H = sp.H; const jaw = (o) => { if (B.jaw) B.jaw.rotation.x = Math.max(B.jaw.rotation.x, o); };
+  if (!fly && (w > 0 || hit > 0)) {
+    if (style === 'leap' || style === 'bite') { // crouch, front low and ears back; spring forward and bite, shaking the head
+      B.root.position.y -= w * H * 0.12 * (1 - hit); B.chest.rotation.x += w * 0.22 * (1 - hit); B.FL1.rotation.x += w * 0.5; B.FR1.rotation.x += w * 0.5; B.BL2.rotation.x += w * 0.4; B.BR2.rotation.x += w * 0.4;
+      B.root.position.z += hit * L * (style === 'leap' ? 0.28 : 0.15); B.root.position.y += hit * H * (style === 'leap' ? 0.15 : 0.04);
+      B.FL1.rotation.x -= hit * 0.9; B.FR1.rotation.x -= hit * 0.8; B.neck.rotation.x += hit * 0.25 - w * 0.2; jaw(Math.max(w * 0.5, hit * 0.75));
+      if (a > 0.15 && a < 0.6) B.head.rotation.z = Math.sin((a - 0.15) * 8 * Math.PI * 2 * 0.25 * 4) * 0.25 * (1 - (a - 0.15) / 0.45);
+    } else if (style === 'pounce') { // hind legs coil, then an arc with the claws out
+      B.pelvis.rotation.x -= w * 0.25; B.BL1.rotation.x -= w * 0.5; B.BR1.rotation.x -= w * 0.5; B.root.position.y -= w * H * 0.15 * (1 - hit);
+      B.root.position.z += hit * L * 0.35; B.root.position.y += Math.sin(hit * Math.PI) * H * 0.35; B.root.rotation.x -= hit * 0.25 * (1 - a);
+      B.FL1.rotation.x -= hit * 1.3; B.FR1.rotation.x -= hit * 1.2; B.FL2.rotation.x -= hit * 0.6; B.FR2.rotation.x -= hit * 0.6; jaw(hit * 0.8);
+    } else if (style === 'rear') { // rear onto the hind legs, then slam down with the forepaws
+      const up = Math.max(w, hit * (1 - K3.clamp((a - 0.1) / 0.35, 0, 1)));
+      B.root.rotation.x -= up * 0.75; B.root.position.y += up * H * 0.35; B.root.position.z -= up * L * 0.1;
+      B.FL1.rotation.x -= up * 1.4 + Math.sin(t * 6) * 0.1 * w; B.FR1.rotation.x -= up * 1.1; B.FL2.rotation.x -= up * 0.8; B.FR2.rotation.x -= up * 0.7;
+      B.BL1.rotation.x += up * 0.7; B.BR1.rotation.x += up * 0.7; B.neck.rotation.x -= up * 0.35; jaw(up * 0.7);
+      if (a > 0 && a < 0.35) { B.FL1.rotation.x += 0.6 * Math.sin(a / 0.35 * Math.PI); B.root.position.z += Math.sin(a / 0.35 * Math.PI) * L * 0.12; }
+    } else if (style === 'gore') { // head down, a charge, then a toss of the tusks
+      B.neck.rotation.x += w * 0.45; B.head.rotation.x += w * 0.25; B.root.position.z -= w * L * 0.06; B.BL1.rotation.x -= w * 0.3; B.BR1.rotation.x -= w * 0.3;
+      B.root.position.z += hit * L * 0.3; B.neck.rotation.x += 0.45 * (1 - hit) * w - hit * 0.7 * Math.sin(K3.clamp(a / 0.4, 0, 1) * Math.PI); B.head.rotation.x -= hit * 0.4;
+    } else if (style === 'snap') { // jaws gape wide, then the head lunges and snaps shut with a twist
+      jaw(w * 1.1 * (1 - hit) + (a > 0 && a < 0.12 ? 1.1 * (1 - a / 0.12) : 0)); B.neck.rotation.x -= w * 0.15;
+      B.root.position.z += hit * L * 0.12; B.head.rotation.x += hit * 0.2; B.root.rotation.z = Math.sin(K3.clamp(a / 0.6, 0, 1) * Math.PI * 2) * 0.25 * hit;
+    } else { // the long neck draws back into an S and strikes
+      B.neck.rotation.x -= w * 0.55; B.head.rotation.x += w * 0.4; jaw(w * 0.6);
+      B.neck.rotation.x += hit * 0.75; B.head.rotation.x -= hit * 0.3; B.root.position.z += hit * L * 0.08; jaw(hit * 0.9);
+      if (B.WL1 && w > 0) { B.WL1.rotation.z += w * 0.5; B.WR1.rotation.z -= w * 0.5; B.WL1.rotation.y -= w * 0.4; B.WR1.rotation.y += w * 0.4; }
+    }
+  } else if (fly && hit > 0) { B.root.position.z += hit * L * 0.15; B.neck.rotation.x += hit * 0.4; jaw(hit * 0.7); }
+  if (st.breath) { B.neck.rotation.x -= 0.25; B.head.rotation.x = -0.2; jaw(0.7); B.chest.rotation.x -= 0.1; }
   if (st.animK === 'slam' && st.animP > 0 && st.animP < 1) { const s1 = Math.sin(st.animP * Math.PI); B.root.position.y += s1 * sp.H * 0.5; B.FL1.rotation.x = -1.2 * s1; B.FR1.rotation.x = -1.2 * s1; B.root.rotation.x = -0.4 * s1; }
+  // a blow taken: the body flinches away from it and settles back (stronger for bigger hits)
+  if (st.hurt && !st.dead) {
+    const h = st.hurt; const k = Math.sin(Math.min(1, h.t / 0.08) * Math.PI * 0.5) * decay(Math.max(0, h.t - 0.08), 7) * Math.min(1.5, 0.5 + h.mag * 6);
+    B.root.position.x += h.fx * L * 0.06 * k; B.root.position.z += h.fz * L * 0.06 * k; B.root.rotation.z += h.fx * 0.12 * k; B.neck.rotation.x -= 0.25 * k; B.head.rotation.y += h.fx * 0.3 * k; jaw(0.4 * k);
+  }
   if (st.stun) B.head.rotation.z = Math.sin(t * 3) * 0.25;
   if (st.sit) { B.root.position.y *= 0.55; for (const n of ['BL', 'BR']) { B[n + '1'].rotation.x = -1.1; B[n + '2'].rotation.x = 1.6; } }
+  // dying: legs go limp and draw in as the body falls on its side, a last kick, then still
+  if (st.dead) {
+    rig.deadT = (rig.deadT || 0) + dt; const d = ease(Math.min(1, rig.deadT / 0.8)); const kick = rig.deadT > 0.5 && rig.deadT < 1.1 ? Math.sin((rig.deadT - 0.5) / 0.6 * Math.PI) * 0.4 : 0;
+    offs.forEach((n, i) => { B[n + '1'].rotation.x = (n[0] === 'F' ? -0.35 : 0.3) * d + (i === 3 ? kick : 0); B[n + '2'].rotation.x = (n[0] === 'F' ? -0.5 : 0.5) * d; });
+    B.neck.rotation.x = 0.35 * d; B.head.rotation.x = 0.2 * d; if (B.jaw) B.jaw.rotation.x = 0.35 * d; if (B.tail1) { B.tail1.rotation.set(0.2 * d, 0, 0); B.tail2.rotation.set(0, 0, 0); B.tail3.rotation.set(0, 0, 0); }
+  } else rig.deadT = 0;
 }
 
 // ---------- many-legged things ----------
@@ -450,14 +531,30 @@ function buildBrute(kind, col) {
   const inst = instance(R, R.geometry()); return Object.assign(inst, { type: 'brute', t: Math.random() * 10, phase: 0, S });
 }
 function animBrute(rig, st, dt) {
-  const B = rig.bones; const t = (rig.t += dt); rig.phase += st.dist / (1.6 * rig.S) * Math.PI; const m = K3.clamp(st.move, 0, 1);
+  // a giant's walk: everything slow and heavy, the whole body rolling over each planted foot
+  if (st.freeze) dt = 0;
+  const B = rig.bones; const t = (rig.t += dt); rig.phase = (rig.phase || 0) + st.dist / (1.7 * rig.S) * Math.PI;
+  rig.mv = (rig.mv || 0) + ((st.dist > 0 ? 1 : 0) - (rig.mv || 0)) * Math.min(1, dt * 5); const m = rig.mv;
   for (const k in B) B[k].rotation.set(0, 0, 0); B.hips.position.set(rig.rest.hips[0], rig.rest.hips[1], rig.rest.hips[2]);
-  const s = Math.sin(rig.phase);
-  B.thighL.rotation.x = -s * 0.45 * m; B.thighR.rotation.x = s * 0.45 * m; B.shinL.rotation.x = Math.max(0, Math.cos(rig.phase)) * 0.5 * m; B.shinR.rotation.x = Math.max(0, -Math.cos(rig.phase)) * 0.5 * m;
-  B.armL.rotation.x = s * 0.35 * m; B.armR.rotation.x = -s * 0.35 * m; B.armL.rotation.z = 0.15; B.armR.rotation.z = -0.15;
-  B.hips.position.y -= Math.abs(Math.cos(rig.phase)) * 0.06 * m; B.chest.rotation.y = s * 0.1 * m; B.chest.rotation.x = 0.1 + Math.sin(t * 1.3) * 0.02;
-  const a = st.atk || 0; if (a > 0 && a < 1) { const w = K3.smooth(0, 0.4, a), h = K3.smooth(0.35, 0.65, a), r = K3.smooth(0.65, 1, a); B.armR.rotation.x = -0.3 - w * 2.2 + h * 2.3 - r * 0.1; B.armL.rotation.x = -0.3 - w * 1.8 + h * 2.0; B.chest.rotation.x = 0.1 + h * 0.4 * (1 - r); }
+  const s = Math.sin(rig.phase), c = Math.cos(rig.phase);
+  B.thighL.rotation.x = -s * 0.42 * m; B.thighR.rotation.x = s * 0.42 * m; B.shinL.rotation.x = Math.max(0, c) * 0.6 * m; B.shinR.rotation.x = Math.max(0, -c) * 0.6 * m;
+  B.armL.rotation.x = s * 0.3 * m + 0.1; B.armR.rotation.x = -s * 0.3 * m + 0.1; B.armL.rotation.z = 0.18; B.armR.rotation.z = -0.18; B.foreL.rotation.x = -0.25; B.foreR.rotation.x = -0.25;
+  B.hips.position.y -= Math.abs(c) * 0.09 * m * rig.S; B.hips.rotation.z = s * 0.06 * m; B.chest.rotation.z = -s * 0.08 * m; B.chest.rotation.y = s * 0.12 * m;
+  B.chest.rotation.x = 0.14 + Math.sin(t * 0.9 + (rig.seed || 0)) * 0.03; B.head.rotation.x = -0.1 + Math.sin(t * 0.9 + 0.6) * 0.02; B.head.rotation.y = Math.sin(t * 0.3 + (rig.seed || 0)) * 0.3 * (1 - m);
+  // a two-armed overhead smash: raised slowly (the wind-up), brought down hard as the blow lands, a heavy recovery
+  const w = ease(st.wind || 0), a = st.atk || 0;
+  const down = a > 0 && a < 1 ? (a < 0.12 ? ease(a / 0.12) : 1 - ease(K3.clamp((a - 0.4) / 0.6, 0, 1))) : 0;
+  const up = w * (1 - (a > 0 ? 1 : 0));
+  if (up > 0 || down > 0) {
+    B.armL.rotation.x += -2.5 * up + 0.9 * down; B.armR.rotation.x += -2.6 * up + 0.9 * down; B.foreL.rotation.x += -0.3 * up; B.foreR.rotation.x += -0.3 * up;
+    B.chest.rotation.x += -0.25 * up + 0.4 * down; B.hips.position.y -= 0.12 * down * rig.S; B.head.rotation.x += 0.2 * down;
+  }
   if (st.animK === 'slam' && st.animP > 0 && st.animP < 1) { const s1 = Math.sin(st.animP * Math.PI); B.armR.rotation.x = -2.8 * s1; B.armL.rotation.x = -2.8 * s1; B.hips.position.y += s1 * 0.4; }
+  // struck: a slow, heavy rock backward
+  if (st.hurt && !st.dead) { const h = st.hurt; const k = Math.sin(Math.min(1, h.t / 0.12) * Math.PI * 0.5) * decay(Math.max(0, h.t - 0.12), 5) * Math.min(1.2, 0.4 + h.mag * 5); B.chest.rotation.x -= 0.2 * k; B.chest.rotation.z += h.fx * 0.15 * k; B.head.rotation.x -= 0.25 * k; }
+  // falling: knees buckle, then the body topples (actors.js tips it over)
+  if (st.dead) { rig.deadT = (rig.deadT || 0) + dt; const d = ease(Math.min(1, rig.deadT / 0.9)); B.thighL.rotation.x = -0.9 * d; B.thighR.rotation.x = -0.7 * d; B.shinL.rotation.x = 1.3 * d; B.shinR.rotation.x = 1.1 * d; B.chest.rotation.x = 0.5 * d; B.armL.rotation.x = 0.4 * d; B.armR.rotation.x = 0.2 * d; B.hips.position.y -= 0.35 * d * rig.S; }
+  else rig.deadT = 0;
 }
 
 // ---------- glowing beings (no rig: a mesh that wobbles, plus particles from actors.js) ----------
@@ -497,6 +594,11 @@ function buildSpirit(kind, col) {
 }
 function animSpirit(rig, st, dt) {
   const t = (rig.t += dt); const g = rig.mesh;
+  // spirits recoil from a blow by squashing and flaring, and shrink away when they die
+  let sq = 0; if (st.hurt && !st.dead) { const h = st.hurt; sq = Math.sin(Math.min(1, h.t / 0.06) * Math.PI * 0.5) * decay(Math.max(0, h.t - 0.06), 9) * Math.min(1, 0.4 + h.mag * 5); }
+  if (st.dead) { rig.deadT = (rig.deadT || 0) + dt; } else rig.deadT = 0;
+  const fade = st.dead ? Math.max(0.05, 1 - rig.deadT / 1.2) : 1;
+  g.scale.set((1 + sq * 0.25) * fade, (1 - sq * 0.2) * fade, (1 + sq * 0.25) * fade); if (rig.kind === 'wisp') g.rotation.y = t * 1.5;
   g.children.forEach((c, i) => { if (c.name === 'armL' || c.name === 'armR') { const a = st.atk || 0; const s1 = a > 0 && a < 1 ? Math.sin(a * Math.PI) : 0; c.rotation.x = -0.4 - s1 * 1.2 + Math.sin(t * 2 + i) * 0.1; } });
   if (rig.kind === 'wisp') g.children[1].scale.setScalar(1 + Math.sin(t * 5) * 0.15);
 }

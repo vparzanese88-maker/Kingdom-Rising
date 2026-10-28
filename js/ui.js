@@ -886,7 +886,7 @@
       if (s.startsWith('vendor:') && crS) continue; // crafters trade from their crafting window
       if (s.startsWith('vendor:')) add('Browse wares', () => { UI.openVendor(e, s.split(':')[1]); });
       if (s === 'bank') add('Open bank', () => { UI.close('npc'); UI.open('bank'); UI.open('inv'); });
-      if (s === 'train') add('Train abilities and spells', () => { UI.close('npc'); UI.open('trainer'); });
+      if (s === 'train') add((D.CLASS_SPELLS[G.player.c.cls] || []).length ? 'Learn spells (abilities come with your level)' : 'Your class abilities (they come with your level)', () => { UI.close('npc'); UI.open('trainer'); });
       if (s.startsWith('craft:')) { const vs = (e.services || []).find((x) => x.startsWith('vendor:')); add(vs ? `${D.CRAFTS[s.split(':')[1]].name} & trade` : D.CRAFTS[s.split(':')[1]].name, () => { UI.openCraft(s.split(':')[1], vs ? e : null, vs ? vs.split(':')[1] : null); }); if (vs) add('Buy & sell', () => { UI.openCraft(s.split(':')[1], e, vs.split(':')[1], 'shop'); }); }
       if (s === 'bind') add('Rent a room (bind here)', () => { Sys.bind(); });
       if (s === 'kingdom') add('Kingdom report', () => UI.open('kingdom'));
@@ -950,12 +950,12 @@
   function renderTrainer(w) {
     const c = G.player.c, b = w.body; const sp = Sys.trainable();
     const sks = D.CLASSES[c.cls].skills.filter((x) => x[1] > 1).sort((a, b2) => a[1] - b2[1]);
-    b.innerHTML = `<p class="hint">You have <b>${G.fmtCoins(c.coins)}</b>. Your first abilities${sp.length ? ' and spells' : ''} come with your class; everything after must be learned here once you reach its level. ${sp.filter((s) => s.target === 'group').length ? '<span style="color:#9affb8">Group</span> spells affect everyone in your group nearby.' : ''}</p>${sks.length ? '<h4>Abilities</h4><div class="list sk"></div>' : ''}${sp.length ? `<h4>${D.CLASSES[c.cls].name === 'Bard' ? 'Songs' : 'Spells'}</h4>` : ''}<div class="list"></div>`;
+    b.innerHTML = `<p class="hint">You have <b>${G.fmtCoins(c.coins)}</b>. Class abilities and passives come to you on their own as you level.${sp.length ? ' Spells must be learned here for coin once you reach their level.' : ''} ${sp.filter((s) => s.target === 'group').length ? '<span style="color:#9affb8">Group</span> spells affect everyone in your group nearby.' : ''}</p>${sks.length ? '<h4>Abilities</h4><div class="list sk"></div>' : ''}${sp.length ? `<h4>${D.CLASSES[c.cls].name === 'Bard' ? 'Songs' : 'Spells'}</h4>` : ''}<div class="list"></div>`;
     const skl = $('.list.sk', b);
     for (const [id, lv] of sks) {
       const sk = D.SKILLS[id] || { name: id.replace(/^./, (m) => m.toUpperCase()), icon: '✦', desc: 'A passive skill.' }; const known = G.hasSkill(c, id), can = lv <= c.level, price = G.skillPrice(lv);
-      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(sk.icon || '✦')}</span><div class="ri-m"><b>${esc(sk.name)}</b><small>Level ${lv}${!known ? ` · <span style="color:${c.coins >= price ? '#e8d48a' : '#ff8a6a'}">${G.fmtCoins(price)}</span>` : ''}</small><small class="dim">${esc(sk.desc || '')}</small></div>`);
-      if (!known && can) { const bt = h('button', 'btn small', `Train · ${G.fmtCoins(price)}`); if (c.coins < price) bt.disabled = true; bt.onclick = () => { Sys.trainSkill(id); renderTrainer(w); }; row.appendChild(bt); } else if (known) row.appendChild(h('span', 'pill', 'Known'));
+      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(sk.icon || '✦')}</span><div class="ri-m"><b>${esc(sk.name)}</b><small>Level ${lv} · ${sk.passive ? 'passive' : 'class ability'} · free</small><small class="dim">${esc(sk.desc || '')}</small></div>`);
+      if (!known) row.appendChild(h('span', 'pill', `Learned at level ${lv}`)); else if (known) row.appendChild(h('span', 'pill', 'Known'));
       skl.appendChild(row);
     }
     const list = $('.list:not(.sk)', b);

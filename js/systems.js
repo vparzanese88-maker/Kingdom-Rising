@@ -231,9 +231,9 @@
     G.log(`You have reached level ${c.level}! Your health, mana and endurance grow.`, 'xp', '#ffd84a');
     KR.UI && KR.UI.toast(`Level ${c.level}!`, 'Better gear is the way to raise your stats.');
     const C = D.CLASSES[c.cls];
-    for (const [sk, lv] of C.skills) if (lv === c.level) { G.log(`You are ready to learn ${D.SKILLS[sk].name}. Your guildmaster can train you (${G.fmtCoins(G.skillPrice(lv))}).`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`Ready to train: ${D.SKILLS[sk].name}`, 'Visit your guildmaster'); }
+    for (const [sk, lv] of C.skills) if (lv === c.level) { const S = D.SKILLS[sk]; const onBar = !S.passive && Sys.autoBar && Sys.autoBar({ k: 'skill', id: sk }); G.log(`You have learned ${S.name}!${S.passive ? ' It works on its own.' : onBar ? ' It is on your hotbar.' : ' Find it in your abilities (K).'}`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`New ability: ${S.name}`, S.desc || ''); }
     for (const P of D.classPassives(c.cls)) if (P.level === c.level) { G.log(`New passive ability: ${P.name}. ${P.desc}`, 'skill', '#ffd84a'); KR.UI && KR.UI.toast(`Passive: ${P.name}`, P.desc); }
-    if (D.CLASS_SPELLS[c.cls]) { const n = D.CLASS_SPELLS[c.cls].filter((id) => D.SPELLS[id].level === c.level).length; if (n) G.log(`${n} new spell${n > 1 ? 's are' : ' is'} available from your guildmaster.`, 'skill', '#c8a8ff'); }
+    if (D.CLASS_SPELLS[c.cls]) { const n = D.CLASS_SPELLS[c.cls].filter((id) => D.SPELLS[id].level === c.level).length; if (n) G.log(`${n} new spell${n > 1 ? 's are' : ' is'} available to learn from your guildmaster (spells cost coin).`, 'skill', '#c8a8ff'); }
     Sys.syncMercLevels();
     const kq = Sys.kingQuestFor(c);
     if (kq && c.level >= kq.lv - 2) G.log(`${D.FACTIONS[c.faction].king} may have a task worthy of you now.`, 'sys', '#e8d48a');

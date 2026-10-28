@@ -431,16 +431,33 @@
   const BONUS = 20;
   function renderCreate() {
     const scr = $('#screen');
-    const steps = ['Race', 'Class', 'Appearance', 'Name', 'Pledge'];
+    // your pledge comes first: each kingdom has its own class, and the player should know before choosing
+    const steps = ['Pledge', 'Race', 'Class', 'Appearance', 'Name'];
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="cr"><header class="cr-h"><button class="btn ghost" id="cr-back">← Back</button><ol class="steps">${steps.map((s, i) => `<li class="${i === cs.step ? 'on' : i < cs.step ? 'done' : ''}">${s}</li>`).join('')}</ol></header><div class="cr-body"></div></div>`;
     // once a class is on the table, its scene fills the screen (on the class step it follows the card you point at)
-    cs.bgCls = cs.step >= 2 ? cs.cls : null;
-    if (cs.step >= 1 && KR.ClassBG) classBgLoop($('.bgcv', scr), () => cs.bgCls); else bgLoop($('.bgcv', scr));
+    cs.bgCls = cs.step >= 3 ? cs.cls : null;
+    if (cs.step >= 2 && KR.ClassBG) classBgLoop($('.bgcv', scr), () => cs.bgCls); else bgLoop($('.bgcv', scr));
     $('#cr-back').onclick = () => { if (cs.step === 0) M.showMenu(); else { cs.step--; renderCreate(); } };
     const body = $('.cr-body', scr);
     const next = () => { cs.step++; renderCreate(); };
     if (cs.step === 0) {
-      body.innerHTML = `<h2>Choose your race</h2><p class="lead">Every people of the realm can be found in both kingdoms: you choose which brother to serve at the end. Each race starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards"></div>`;
+      // the first step: kneel before one of the two brothers
+      body.innerHTML = `<h2>Pledge your allegiance</h2><p class="lead">The land is split between two brothers. Kneel before one of them: your kingdom decides your home, your people and your enemies, and it opens one class no one else can take. The other brother's guards will attack you on sight.${cs.locked ? ` Your heroes already serve ${esc(D.FACTIONS[cs.sworn].king)}.` : ''}</p><div class="cards fac-cards"></div>`;
+      const cards = $('.cards', body);
+      const PITCH = { crown: 'Steel and black powder: knights, musketeers and cannons hold the walls of Valenmoor.', sylvan: 'Elven wild magic: troll giants, ballistas and the old ways of the forest guard Aelindor.' };
+      D.FACTION_IDS.forEach((f) => {
+        const F = D.FACTIONS[f]; const barred = cs.locked && cs.sworn !== f; const sp = D.CLASSES[D.SPECIAL_CLASS[f]];
+        const c = document.createElement('div'); c.className = 'card fac pledge' + (barred ? ' barred' : '') + (cs.faction === f ? ' sel' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
+        c.innerHTML = `<canvas width="300" height="150" style="width:100%;height:120px;object-fit:cover;display:block"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name} · ${F.king}</div><p>${PITCH[f] || ''} ${F.blurb}</p>
+          ${sp ? `<div class="fac-sp" style="border:1px solid ${sp.trim};border-radius:6px;padding:6px 8px;margin:6px 0;background:rgba(0,0,0,.3)"><b style="color:${sp.trim}">Kingdom class: ${sp.name}</b><div class="small">${esc(sp.desc)}</div></div>` : ''}
+          <div class="dim small">Rivals: ${F.enemyMobs}</div>
+          <button class="btn gold pledge-go" ${barred ? 'disabled' : ''}>${barred ? `Your heroes serve ${esc(D.FACTIONS[cs.sworn].kingFirst || D.FACTIONS[cs.sworn].king)}` : `Pledge to ${esc(F.king)}`}</button></div>`;
+        const g = c.querySelector('canvas').getContext('2d'); g.scale(300 / 860, 150 / 430); M.paintCity(g, 860, 430, f, 3);
+        c.querySelector('.pledge-go').onclick = () => { if (barred) return; if (cs.faction !== f && cs.cls && !D.classOpen(cs.cls, f)) cs.cls = null; cs.faction = f; KR.A.sfx('quest', 0.6); next(); };
+        cards.appendChild(c);
+      });
+    } else if (cs.step === 1) {
+      body.innerHTML = `<h2>Choose your race</h2><p class="lead">Every people of the realm can be found in both kingdoms. Each race starts with different natural strengths. Every other stat comes from the gear you earn.</p><div class="cards"></div>`;
       const cards = $('.cards', body);
       D.RACE_IDS.forEach((r) => {
         const R = D.RACES[r]; const sig = RACE_SHOWCASE[r] && R.classes.includes(RACE_SHOWCASE[r]) ? RACE_SHOWCASE[r] : R.classes[0];
@@ -452,24 +469,29 @@
         c.onclick = () => { cs.race = r; cs.cls = null; if (R.hairDefault != null) cs.hair = R.hairDefault; next(); };
         cards.appendChild(c);
       });
-    } else if (cs.step === 1) {
-      const R = D.RACES[cs.race];
-      body.innerHTML = `<h2>Choose your class</h2><p class="lead">Melee classes earn new techniques as they level. Hybrids mix steel with nearly 40 spells. Casters master over 75 spells across the schools of magic. Every class comes home in its own clothes.</p><div class="cards cls"></div>`;
+    } else if (cs.step === 2) {
+      const R = D.RACES[cs.race]; const F = D.FACTIONS[cs.faction];
+      body.innerHTML = `<h2>Choose your class</h2><p class="lead">Every class learns 8 abilities and 3 passives on the way to level 20, and comes home in its own clothes. ${F ? `Your pledge to ${esc(F.king)} opens ${esc(F.city)}'s own class.` : ''}</p><div class="cards cls"></div>`;
       const cards = $('.cards', body);
-      R.classes.forEach((k) => {
-        const C = D.CLASSES[k];
-        const c = document.createElement('button'); c.className = 'card clsc' + (cs.cls === k ? ' sel' : ''); c.style.setProperty('--fc', C.color);
-        c.innerHTML = `<canvas width="90" height="104"></canvas><div class="card-b"><h3>${C.name}</h3><div class="tags"><span>${C.role === 'melee' ? 'Melee' : C.role === 'hybrid' ? 'Hybrid · 38 spells' : 'Caster · 75+ spells'}</span><span>${C.armor} armor</span></div><p>${C.desc}</p></div>`;
+      // the kingdom's own class first, the other kingdom's class last and closed
+      const list = R.classes.slice().sort((a, b) => (D.CLASSES[b].only === cs.faction) - (D.CLASSES[a].only === cs.faction) || (!!D.CLASSES[a].only && D.CLASSES[a].only !== cs.faction) - (!!D.CLASSES[b].only && D.CLASSES[b].only !== cs.faction));
+      list.forEach((k) => {
+        const C = D.CLASSES[k]; const own = C.only && C.only === cs.faction, shut = C.only && C.only !== cs.faction;
+        const c = document.createElement('button'); c.className = 'card clsc' + (cs.cls === k ? ' sel' : '') + (shut ? ' barred' : ''); c.style.setProperty('--fc', C.color);
+        if (own) { c.style.outline = `2px solid ${C.trim}`; c.style.boxShadow = `0 0 18px ${C.trim}`; }
+        if (shut) { c.disabled = true; c.style.opacity = '0.45'; c.style.filter = 'grayscale(0.7)'; }
+        const badge = C.only ? `<span style="background:${C.trim};color:#1a120a;font-weight:700;border-radius:4px;padding:1px 6px">${esc(D.FACTIONS[C.only].city)} only</span>` : '';
+        c.innerHTML = `<canvas width="90" height="104"></canvas><div class="card-b"><h3>${C.name}</h3><div class="tags">${badge}<span>${C.role === 'melee' ? 'Melee' : C.role === 'hybrid' ? 'Hybrid' : 'Caster'}</span><span>${C.armor} armor</span></div><p>${C.desc}</p>${shut ? `<p class="dim small">Only heroes pledged to ${esc(D.FACTIONS[C.only].king)} can take this class.</p>` : ''}</div>`;
         const cv = c.querySelector('canvas'); clsBack(cv, k);
         const look = previewLook({ race: cs.race, cls: k, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle });
         if (!snap3(cv, look)) S.drawHumanoid(cv.getContext('2d'), 45, 98, Object.assign(look, { scale: 1.55 * R.scale }), 0);
-        c.onmouseenter = c.onfocus = () => { cs.bgCls = k; };
-        c.onclick = () => { cs.cls = k; next(); };
+        c.onmouseenter = c.onfocus = () => { if (!shut) cs.bgCls = k; };
+        c.onclick = () => { if (shut) return; cs.cls = k; next(); };
         cards.appendChild(c);
       });
-    } else if (cs.step === 2 && window.KR3D && KR.heroView3D) {
+    } else if (cs.step === 3 && window.KR3D && KR.heroView3D) {
       appearance3D(body, next);
-    } else if (cs.step === 2) {
+    } else if (cs.step === 3) {
       body.innerHTML = `<h2>Your appearance</h2><div class="app"><div class="app-prev"><canvas id="ap-cv" width="220" height="260"></canvas><div class="row"><button class="btn ghost" id="ap-rot" aria-label="Turn">↻ Turn</button></div></div><div class="app-opts">
         <div class="opt"><label>Body</label><div class="seg"><button data-g="m" class="${cs.gender === 'm' ? 'on' : ''}">Male</button><button data-g="f" class="${cs.gender === 'f' ? 'on' : ''}">Female</button></div></div>
         <div class="opt"><label>Skin</label><div class="sw">${S.skinsFor(cs.race).map((c, i) => `<button data-skin="${i}" style="background:${c}" class="${cs.skin === i ? 'on' : ''}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div></div>
@@ -485,39 +507,26 @@
       body.querySelectorAll('[data-hs]').forEach((b) => (b.onclick = () => { cs.hairStyle = +b.dataset.hs; renderCreate(); }));
       $('#ap-rot').onclick = () => { cs.dir = [0, 2, 3, 1][(([0, 2, 3, 1].indexOf(cs.dir)) + 1) % 4]; };
       $('#ap-next').onclick = next;
-    } else if (cs.step === 3) {
+    } else {
       const R = D.RACES[cs.race], C = D.CLASSES[cs.cls]; const fit = Sys.CLASS_OUTFITS[cs.cls];
-      const names = D.NAMES[cs.sworn || R.faction] || D.NAMES[D.FACTION_IDS[0]];
+      const names = D.NAMES[cs.faction || cs.sworn || R.faction] || D.NAMES[D.FACTION_IDS[0]];
       body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(names[cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
         <div class="summary"><b>${R.name} ${C.name}</b><span>${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">You come home from the sea dressed as a ${C.name.toLowerCase()}${fit ? ` (${[fit.head, fit.chest].filter(Boolean).map((x) => x[0].toLowerCase()).join(' and ')})` : ''}, with a weapon suited to your calling, 16 bag slots and 3 abilities. The clothes give no armour: everything else you earn.</span></div></div>
         <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
-        <button class="btn gold big" id="cr-go">Continue to your pledge</button>`;
+        <button class="btn gold big" id="cr-go">Swear to ${esc(D.FACTIONS[cs.faction].king)} and begin</button><p class="err" id="pl-err"></p>`;
       const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
       $('#cr-rand').onclick = () => { cs.name = U.pick(names[cs.gender]) + U.pick(['', 'a', 'en', 'ric', 'wyn', 'dor', 'ix']); inp.value = cs.name; };
       const go = () => {
         const nm = cs.name.trim();
         if (!/^[A-Za-z]{3,14}$/.test(nm)) { $('#cr-err').textContent = 'Use 3 to 14 letters, no spaces or numbers.'; inp.focus(); return; }
         if (G.account.chars.some((c) => c.name.toLowerCase() === nm.toLowerCase())) { $('#cr-err').textContent = 'You already have a hero with that name.'; return; }
-        cs.name = nm[0].toUpperCase() + nm.slice(1).toLowerCase(); next();
+        cs.name = nm[0].toUpperCase() + nm.slice(1).toLowerCase(); if (!cs.busy) create();
       };
       $('#cr-go').onclick = go; inp.onkeydown = (e) => { if (e.key === 'Enter') go(); };
       setTimeout(() => inp.focus(), 50);
-    } else {
-      // the last step: kneel before one of the two brothers
-      const R = D.RACES[cs.race], C = D.CLASSES[cs.cls];
-      body.innerHTML = `<h2>Pledge your allegiance</h2><p class="lead">${esc(cs.name)} the ${R.name} ${C.name} is home, and the land is split between two brothers. Kneel before one of them: your kingdom decides your home, your people and your enemies, and the guards of the other brother will attack you on sight.${cs.locked ? ` Your heroes are already sworn to ${D.FACTIONS[cs.sworn].king} (a full reset under Delete Hero frees you to choose again).` : ''}</p><div class="cards two"></div><p class="err" id="pl-err" aria-live="polite"></p>`;
-      const cards = $('.cards', body);
-      const pledgeBtns = (off) => body.querySelectorAll('.pledge-go').forEach((b) => { b.disabled = off || b.dataset.locked === '1'; });
-      D.FACTION_IDS.forEach((f) => {
-        const F = D.FACTIONS[f]; const barred = cs.locked && cs.sworn !== f;
-        const c = document.createElement('div'); c.className = 'card fac pledge' + (barred ? ' barred' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
-        c.innerHTML = `<canvas width="300" height="150"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name} · ${F.king}</div><p>${F.blurb}</p><div class="dim small">Rivals: ${F.enemyMobs}</div>
-          <button class="btn gold pledge-go" data-locked="${barred ? 1 : 0}" ${barred ? 'disabled' : ''}>${barred ? `Your heroes serve ${esc(D.FACTIONS[cs.sworn].kingFirst || D.FACTIONS[cs.sworn].king)}` : `Pledge to ${esc(F.king)}`}</button></div>`;
-        const g = c.querySelector('canvas').getContext('2d'); g.scale(300 / 860, 150 / 430); M.paintCity(g, 860, 430, f, 3);
-        c.querySelector('.pledge-go').onclick = () => { if (cs.busy || barred) return; cs.faction = f; KR.A.sfx('quest', 0.6); create(); };
-        cards.appendChild(c);
-      });
-      const create = () => {
+    }
+    function pledgeBtns(off) { const b = $('#cr-go'); if (b) b.disabled = off; }
+    function create() {
         const name = cs.name;
         cs.busy = true; const c = cs.made || (cs.made = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} })); // made once, even if joining fails and you pledge again
         if (!G.account.faction) { G.account.faction = c.faction; Sys.saveAccount && Sys.saveAccount(); } // the kingdom is now chosen for good
@@ -530,7 +539,6 @@
         }
         else if (window.KR3D && KR.K3cine) KR.Main.enterWorld(null, c, { cine: true }); // 3D: the opening film plays in the real world
         else if (KR.Story) KR.Story.play(c, () => KR.Main.enterWorld(null, c)); else KR.Main.enterWorld(null, c);
-      };
     }
   }
   // ---------------- 3D appearance: a live model you can turn, with face, body, hair and marks ----------------

@@ -148,6 +148,7 @@ function peerLook(pp) {
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function atkKindFor(av, e) {
   const l = av.rig && av.rig.look || {}; const w = l.weapon;
+  if (w === 'GUN' && av.kind === 'human') return 'thrust'; // the arquebus: shoulder, fire and kick back (the bayonet thrusts the same way)
   if (e.type === 'player' && e.c && e.c.rangeMode === 'ranged' && l.rangeW) return 'bow';
   if (av.kind !== 'human') return 'bite';
   if (w === 'ARC') return 'bow'; if (w === 'spear' || w === '1HP' || w === 'dagger') return 'thrust'; if (w === '2HS' || w === 'axe' && l.cls === 'berserker' || w === 'club' || w === '2HSaxe') return 'chop';
@@ -409,6 +410,9 @@ function projObj(pr) {
   if (v === 'arrow' || v === 'bolt' || v === 'shot') { const mb = new MB(); const L = v === 'bolt' ? 1.4 : 0.8; mb.cyl('timber', 0, 0, 0, v === 'bolt' ? 0.03 : 0.012, L, v === 'shot' ? '#ffe0a0' : '#8a6a3a', 6, null, 0, Math.PI / 2); mb.cone('metalv', 0, -0.05, L / 2, v === 'bolt' ? 0.06 : 0.025, 0.12, '#cccccc', 6); g.add(mb.build({ castShadow: false })); g.children[0].children.forEach((m) => { m.rotation.x = Math.PI / 2; }); }
   else if (v === 'knife') { const w = weaponMesh('THR'); if (w) { w.rotation.x = Math.PI / 2; g.add(w); } }
   else if (v === 'boulder' || v === 'ball') { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(v === 'ball' ? 0.18 : 0.45, 1), mats.get(v === 'ball' ? 'metalv' : 'rock')); m.castShadow = true; g.add(m); }
+  // faction armies (warmarch.js): iron cannon balls, and the great bolts of the elven ballistas
+  else if (v === 'ironball') { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 2), mats.get('metalv')); m.material = m.material.clone(); m.material.color.set('#2a2a2e'); m.castShadow = true; g.add(m); }
+  else if (v === 'bigbolt') { const mb = new MB(); mb.cyl('timber', 0, 0, 0, 0.07, 3.0, '#6a4a2a', 8); mb.cone('metalv', 0, 1.5, 0, 0.16, 0.5, '#8e9a90', 8); for (const a of [0, 2.09, 4.19]) mb.box('cloth2', Math.cos(a) * 0.1, -1.3, Math.sin(a) * 0.1, 0.02, 0.5, 0.18, '#3a7a3a', a); const inner = mb.build(); inner.rotation.x = Math.PI / 2; g.add(inner); } // built along y, turned to point forward
   else { const c = rgb(G.projCol ? G.projCol(v) : '#ffffff', 3); const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(c[0], c[1], c[2]) })); g.add(m); g.userData.col = c; }
   root.add(g); projObjs.set(pr, o = g); return g;
 }
@@ -420,11 +424,17 @@ function updateProjectiles(dt) {
     const sy = pr.src ? srcY(pr.src) : 1.4, ty = pr.tgt ? srcY(pr.tgt) : 1.2;
     const sx = pr.src ? pr.src.x : pr.x, sz = pr.src ? pr.src.y : pr.y; const tx = pr.tgt ? pr.tgt.x : pr.x, tz = pr.tgt ? pr.tgt.y : pr.y;
     const total = Math.hypot(tx - sx, tz - sz) || 1; const done = Math.hypot(pr.x - sx, pr.y - sz); const k = K3.clamp(done / total, 0, 1);
-    const arc = pr.vis === 'boulder' ? Math.sin(k * Math.PI) * ((pr.opt && pr.opt.arc) || Math.min(8, total * PX * 0.3)) : pr.vis === 'arrow' ? Math.sin(k * Math.PI) * total * PX * 0.04 : 0;
+    const arc = pr.vis === 'boulder' || pr.vis === 'ironball' || pr.vis === 'bigbolt' ? Math.sin(k * Math.PI) * ((pr.opt && pr.opt.arc) || Math.min(8, total * PX * 0.3)) : pr.vis === 'arrow' ? Math.sin(k * Math.PI) * total * PX * 0.04 : 0;
     const y = geo.floorAt(pr.x, pr.y) * 0 + K3.lerp(geo.floorAt(sx, sz) + sy, geo.floorAt(tx, tz) + ty, k) + arc;
     o.position.set(pr.x * PX, y, pr.y * PX);
     const ang = Math.atan2(tx - sx, tz - sz); o.rotation.set(0, ang, 0);
     if (pr.vis === 'boulder' || pr.vis === 'ball') o.rotation.x += K3.time * 6;
+    if (pr.vis === 'bigbolt') o.rotation.x = -Math.atan2((pr.opt && pr.opt.arc || 0) * Math.PI * Math.cos(k * Math.PI), total * PX); // nose follows the flight
+    if (pr.vis === 'ironball' && Math.random() < 0.6) fx.smoke.emit({ x: o.position.x, y: o.position.y, z: o.position.z, vy: 0.2, life: 0.9, s0: 0.25, s1: 0.9, r: 0.6, g: 0.58, b: 0.55, a: 0.35, kind: 2 });
+    // a handgun shot: flame and a puff of smoke at the muzzle when it leaves
+    if (pr.vis === 'shot' && !pr._flash) { pr._flash = 1; const sx3 = sx * PX, sz3 = sz * PX, sy3 = geo.floorAt(sx, sz) + sy; const dx = Math.sin(ang) * 0.6, dz = Math.cos(ang) * 0.6;
+      fx.burst(sx3 + dx, sy3, sz3 + dz, 10, '#ffc060', { speed: 2.5, life: 0.18 });
+      for (let i = 0; i < 6; i++) fx.smoke.emit({ x: sx3 + dx, y: sy3, z: sz3 + dz, vx: dx * 1.5 + (Math.random() - 0.5) * 0.4, vy: 0.3 + Math.random() * 0.3, vz: dz * 1.5 + (Math.random() - 0.5) * 0.4, drag: 1.6, life: 1.6 + Math.random(), s0: 0.25, s1: 1.2, r: 0.82, g: 0.8, b: 0.76, a: 0.45, kind: 2 }); }
     if (o.userData.col && Math.random() < 0.8) { const c = o.userData.col; fx.add.emit({ x: o.position.x, y: o.position.y, z: o.position.z, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, life: 0.35, s0: 0.32, s1: 0.05, r: c[0], g: c[1], b: c[2], kind: 1 }); }
   }
 }

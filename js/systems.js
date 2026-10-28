@@ -26,9 +26,12 @@
     wizard: { head: ['Pointed Hat', '#2b4fa3', '🎩'], chest: ['Blue Apprentice Robe', '#2b4fa3'], legs: ['Midnight Trousers', '#1e2a4a'], feet: ['Velvet Slippers', '#2a2a4a', '🥿'] },
     magician: { head: ['Crimson Hood', '#b03a2e'], chest: ['Crimson Summoner Robe', '#b03a2e'], legs: ['Ash Grey Trousers', '#4a4448'], feet: ['Ember Boots', '#3a1e16'] },
     enchanter: { head: ['Silver Circlet', '#c8c8e0', '👑'], chest: ['Violet Silk Gown', '#6a3fa0'], legs: ['Lilac Trousers', '#8a6ab0'], feet: ['Velvet Slippers', '#3a2a4a', '🥿'] },
+    arquebusier: { head: ["Arquebusier's Feathered Cap", '#5a3a24'], chest: ['Buff Leather Coat', '#8a6a3a', 'leather', '🦺'], legs: ['Slashed Breeches', '#6a2a22'], feet: ['Bucket-Top Boots', '#2a1e16'] },
+    trollcaller: { head: ['Moss Hood', '#4a6a2a'], chest: ['Troll-Hide Jerkin', '#5a6a3a', 'leather', '🦺'], legs: ['Bark Leggings', '#4a3a24'], feet: ['Root-Bound Boots', '#3a2a1a'] },
   };
   Sys.newChar = function (o) {
     const R = D.RACES[o.race], C = D.CLASSES[o.cls];
+    if (C.only) o = Object.assign({}, o, { faction: C.only }); // a kingdom's own class belongs to that kingdom
     const c = { id: U.uid() + U.uid(), name: o.name, race: o.race, cls: o.cls, gender: o.gender, skin: o.skin, hair: o.hair, hairStyle: o.hairStyle, app: o.app || null, faction: (o.faction && (R.factions || [R.faction]).includes(o.faction)) ? o.faction : R.faction,
       level: 1, xp: 0, statPoints: 0, alloc: {}, bonus: {}, coins: 200, inv: new Array(16).fill(null), worldV: 3, heroV: 20, equip: {}, spells: [], bars: {}, wskill: {}, school: {},
       quests: { active: {}, done: {} }, rangeMode: 'both', macros: [{ id: 'm1', name: 'Attack', icon: '⚔', lines: '/attack on' }], playTime: 0, created: Date.now(), updated: Date.now(), pos: null, bind: null, explored: null, kills: 0 };
@@ -41,6 +44,7 @@
     c.wskill[wt] = 1;
     if (C.shield) c.wskill.SHIELD = 1;
     if (C.ranged.length) { const rt = kit.range && C.ranged.includes(kit.range) ? kit.range : C.ranged[0]; c.wskill[rt] = 1; if (o.cls === 'warrior' || o.cls === 'paladin') c.rangeMode = 'melee'; }
+    if (kit.rangeItem) { const g = G.makeWeapon(kit.range, 0, { ilvl: 2, q: 0.85 }); g.name = kit.rangeItem; g.req = 1; g.stats = {}; c.equip.range = g; c.rangeMode = 'both'; } // the arquebusier's matchlock
     // everyone starts with nothing but the clothes on their back and the weapon of their calling
     // home from the sea in the plain clothes of your calling: no armour and no stats (everything else is earned)
     const plain = (slot, name, col, icon, ak) => { const it = G.makeArmor('cloth', slot, 0, { ilvl: 1, q: 0.6 }); Object.assign(it, { name, stats: {}, mana: 0, ac: 0, req: 1, value: 2, col, plainClothes: true }); if (ak && C.armor !== 'cloth') it.ak = ak; if (icon) it.icon = icon; c.equip[slot] = it; };
@@ -57,8 +61,8 @@
     const wAb = { k: 'weapon', id: (C.role === 'caster' && c.equip.range ? c.equip.range.wt : wt) + ':0' };
     const spells = c.spells.slice().sort((a, b2) => { const pa = /nuke|tap|dot|pet/.test(D.SPELLS[a].type) ? 0 : 1, pb = /nuke|tap|dot|pet/.test(D.SPELLS[b2].type) ? 0 : 1; return pa - pb; }).map((id) => ({ k: 'spell', id }));
     let pick;
-    if (C.role === 'melee') pick = [...startSkills.slice(0, 2), { k: 'weapon', id: wt + ':0' }];
-    else if (C.role === 'hybrid') pick = [startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }, spells[0]];
+    if (C.role === 'melee') pick = [...startSkills.slice(0, 2), { k: 'weapon', id: (kit.rangeItem ? kit.range : wt) + ':0' }];
+    else if (C.role === 'hybrid') pick = spells[0] && D.SPELLS[spells[0].id].type === 'pet' && C.only ? [spells[0], startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }] : [startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }, spells[0]]; // the Trollcaller calls the troll first
     else pick = [spells[0], spells[1] || wAb, spells[2] || wAb];
     const seenA = new Set(); pick = pick.filter((a) => a && !seenA.has(a.k + a.id) && seenA.add(a.k + a.id));
     for (const a of [...spells, wAb, ...startSkills]) if (pick.length < 3 && !seenA.has(a.k + a.id)) { seenA.add(a.k + a.id); pick.push(a); }
@@ -321,11 +325,18 @@
     const lv = Math.min(owner.level + 1, e.lv);
     const name = U.pick(PET_SYL) + U.pick(PET_SYL).toLowerCase() + U.pick(['n', 'er', 'ab', 'ober', 'ekn', 'tik']);
     const kind = e.petKind;
-    const pet = G.makeEnt({ type: 'pet', owner, name, level: lv, kind: kind === 'skeleton' ? 'skeleton' : kind, col: { skeleton: '#e6dfc8', spiritwolf: '#9ad8ff', wolf: '#8a8a88', bear: '#5a4232', tiger: '#d88a3a', drake: '#5a7a8a', animsword: '#c8a8ff', fire_elemental: '#ff7a2a', water_elemental: '#3a8ad8', earth_elemental: '#7a6a4a', air_elemental: '#c8d8e8' }[kind] || '#aaa',
+    const pet = G.makeEnt({ type: 'pet', owner, name, level: lv, kind: kind === 'skeleton' ? 'skeleton' : kind, col: { skeleton: '#e6dfc8', spiritwolf: '#9ad8ff', wolf: '#8a8a88', bear: '#5a4232', tiger: '#d88a3a', drake: '#5a7a8a', animsword: '#c8a8ff', fire_elemental: '#ff7a2a', water_elemental: '#3a8ad8', earth_elemental: '#7a6a4a', air_elemental: '#c8d8e8', troll: '#5a7a46' }[kind] || '#aaa',
       x: owner.x + 30, y: owner.y + 10, r: 12, hostile: false });
     pet.baseHp = Math.round(G.mobHp(lv) * (owner.c.cls === 'magician' ? 1.45 : owner.c.cls === 'necromancer' ? 1.25 : owner.c.cls === 'beastlord' ? 1.7 : 1.45));
     pet.baseDmg = Math.round((4 + lv * 2.3) * (owner.c.cls === 'beastlord' || owner.c.cls === 'magician' ? 1.15 : 1.0)); pet.delay = 2.1; pet.speed = 165; pet.baseAc = lv * 10;
     if (owner.c.cls === 'beastlord') pet.name = owner.name.split(' ')[0] + "'s warder";
+    if (owner.c.cls === 'trollcaller') {
+      // the bound troll: the tank of the pair; it grows with its caller (Troll Bond: tougher and harder hitting)
+      const bond = (G.passiveMods(owner.c).petBond || 0) > 0;
+      pet.name = U.pick(['Mossback', 'Grumblestone', 'Barkjaw', 'Old Thud', 'Rootknuckle', 'Bramblehide']); pet.troll = true;
+      pet.baseHp = Math.round(G.mobHp(lv) * 2.1 * (bond ? 1.3 : 1)); pet.baseDmg = Math.round((4 + lv * 2.3) * 1.05 * (bond ? 1.15 : 1)); pet.baseAc = lv * 14; pet.delay = 2.6; pet.speed = 150;
+      pet.scale = 0.78 + Math.min(0.5, lv * 0.011); pet.r = 14; pet.regen = true;
+    }
     owner.pet = pet;
     Sys.applyPetGear(pet); pet.hp = pet.hpMax;
     if (owner === G.player) G.log(`${pet.name} answers your call.`, 'spell', '#c8ffc8');

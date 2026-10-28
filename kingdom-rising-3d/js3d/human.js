@@ -54,7 +54,7 @@ const RACE = {
   highlander: { h: 0.75, muscle: 0.8, weight: 0.5 }, ogrin: { h: 1, muscle: 1, weight: 0.95, head: 0.96, neck: 1.35, arm: 1.06 },
   seaelf: { h: 0.65, weight: 0.25, muscle: 0.5, ear: 'long', ideal: 0.9 }, firbolg: { h: 1, muscle: 0.85, weight: 0.8, head: 1.04, neck: 1.15, ear: 'half' },
 };
-const CLS_MUSCLE = { warrior: 0.8, paladin: 0.75, berserker: 0.95, monk: 0.75, ranger: 0.62, rogue: 0.58, beastlord: 0.7, shadowknight: 0.75, bard: 0.55, cleric: 0.5, druid: 0.5, shaman: 0.55, wizard: 0.35, enchanter: 0.38, magician: 0.38, necromancer: 0.32 };
+const CLS_MUSCLE = { warrior: 0.8, paladin: 0.75, berserker: 0.95, monk: 0.75, ranger: 0.62, rogue: 0.58, beastlord: 0.7, shadowknight: 0.75, bard: 0.55, cleric: 0.5, druid: 0.5, shaman: 0.55, wizard: 0.35, enchanter: 0.38, magician: 0.38, necromancer: 0.32, arquebusier: 0.6, trollcaller: 0.62 };
 
 // every look gets a body and a face of its own, the same each time
 export function bodySpec(look, kind) {
@@ -1170,7 +1170,11 @@ export function makeHumanRig(look, kind, accessories, charMat) {
   extra(G.tusks, gm);
   if (G.acc) extra(G.acc, gm);
   const rig = { mesh, bones: Object.fromEntries(bones.map((b) => [b.name, b])), rest: G.rest, P: G.P, top: G.top, kind, look, held: {}, t: Math.random() * 10, phase: 0, deadT: 0, atkPrev: 0, swing: 0, swingKind: null, hands: G.hands, human: true, lods, eyes, hair, lod: 0 };
-  rig.setLod = (d) => { const l = d < 14 ? 0 : d < 38 ? 1 : 2; if (l === rig.lod) return; rig.lod = l; lods.forEach((m, i) => (m.visible = i === l)); if (eyes) eyes.visible = l < 2; if (hair) hair.visible = l < 2 || !!G.hair; };
+  rig.setLod = (d) => {
+    // people throw shadows only within ~30 m: a crowd further off adds a shadow-pass draw call per body part, held item
+    // and helmet, for shadows a texel or two wide (held items and armour hang off the bones, so a walk covers them all)
+    const sh = d < (rig.lod ? 28 : 32); if (sh !== rig.shOn) { rig.shOn = sh; mesh.traverse((o) => { if (o.isMesh && o !== eyes) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = sh && o.userData.sh0; } }); }
+    const l = d < 14 ? 0 : d < 38 ? 1 : 2; if (l === rig.lod) return; rig.lod = l; lods.forEach((m, i) => (m.visible = i === l)); if (eyes) eyes.visible = l < 2; if (hair) hair.visible = l < 2 || !!G.hair; };
   return rig;
 }
 

@@ -27,7 +27,7 @@
     if (!c.mercOffers || c.mercOffers.day !== day) {
       const rnd = U.mulberry((day + 1) * 7919 + c.id.length * 31 + c.created % 1000);
       const F = D.FACTIONS[c.faction];
-      const classes = D.CLASS_IDS.slice().sort(() => rnd() - 0.5).slice(0, 5);
+      const classes = D.CLASS_IDS.filter((k) => !D.CLASSES[k].only).sort(() => rnd() - 0.5).slice(0, 5);
       const used = new Set((c.mercs || []).map((m) => m.name));
       const list = classes.map((cls) => {
         let races = F.races.filter((r) => D.RACES[r].classes.includes(cls));

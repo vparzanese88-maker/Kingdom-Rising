@@ -12,7 +12,9 @@
     master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.3; comp.connect(master);
     musicBus = ctx.createGain(); musicBus.gain.value = A.musicVol * 0.6; musicBus.connect(comp);
-    sfxBus = ctx.createGain(); sfxBus.gain.value = A.sfxVol; sfxBus.connect(master);
+    // effects go through a brick-wall limiter, so a siege with a hundred swords and a battery of cannon never clips
+    const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -9; lim.knee.value = 4; lim.ratio.value = 14; lim.attack.value = 0.002; lim.release.value = 0.25; lim.connect(master);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = A.sfxVol; sfxBus.connect(lim);
     // smooth hall reverb shared by music and effects
     reverb = ctx.createConvolver();
     const len = Math.floor(ctx.sampleRate * 2.8), ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -395,6 +397,24 @@
         // the theme on horns, doubled by brass and strings
         if (m) { I.horn(d, m, t, ml * 0.95, big ? 0.08 : 0.07); I.brass(d, m - 12, t, ml * 0.95, 0.04); I.strings(d, m + 12, t, ml * 0.95, big ? 0.026 : 0.02); if (big) I.choir(d, m + 12, t, ml * 0.95, 0.02, 'a'); }
       } }),
+    // battle: the war is on. Relentless taiko on every beat, low brass hammering the chords, a driving string
+    // ostinato, the full choir and horns crying the theme; built to sit under cannon fire and clashing steel
+    battle: song({ key: 50, bpm: 148, scale: 'hminor', order: ['A', 'A2', 'B', 'C', 'A2'], gain: 1.25, sec: {
+      A: { prog: ['i', 'VI', 'iv', 'V'], mel: '5:3 4:1 3:2 4:2 | 3:4 1:4 | 4:2 5:2 6:2 8:2 | 7:8' },
+      A2: { prog: ['i', 'VI', 'bII', 'V'], mel: '8:3 7:1 6:2 5:2 | 6:4 3:4 | 6:2 5:2 4:2 3:2 | 2:4 5:4' },
+      B: { prog: ['iv', 'i', 'VI', 'V'], mel: '8:4 10:4 | 9:3 8:1 7:4 | 6:2 7:2 8:2 10:2 | 9:8' },
+      C: { prog: ['VI', 'VII', 'i', 'V'], mel: '10:4 9:2 8:2 | 9:4 7:4 | 8:6 7:1 6:1 | 5:8' } },
+      arr(x) { const { d, t, b, st, ch, root, m, ml, B, sec } = x; const big = sec === 'B' || sec === 'C';
+        const os = [root, root + 12, ch[2], root + 12, ch[1], root + 12, ch[2], root + 12][st];
+        I.stac(d, os, t, b * 0.45, 0.026); I.stac(d, os - 12, t, b * 0.4, 0.016); I.stac(d, os + 12, t + b / 2, b * 0.3, 0.012);
+        I.taiko(d, t, st === 0 ? 0.62 : st === 4 ? 0.48 : 0.3); if (st % 2 === 1 || big) I.taiko(d, t + b / 2, 0.16);
+        if (st === 0 || st === 4) I.timp(d, t, 0.24, root - 12);
+        if (st === 2 || st === 6) I.snare(d, t, 0.08); if (B.last && st >= 4) { I.snare(d, t + b / 4, 0.06); I.snare(d, t + b / 2, 0.08); I.snare(d, t + 3 * b / 4, 0.1); }
+        if (B.first && st === 0) I.cymbal(d, t, big ? 0.14 : 0.1);
+        if (st === 0) { I.brass(d, root - 12, t, b * 1.2, 0.08); I.brass(d, ch[2] - 12, t, b * 1.2, 0.06); ch.forEach((n, k) => I.choir(d, n + 12, t, b * 8, 0.024 - k * 0.003, 'a')); I.cello(d, root - 12, t, b * 7.8, 0.08); I.bass(d, root - 24, t, b * 7.5, 0.06); }
+        if (st === 3 || st === 6) I.brass(d, root - 12, t, b * 0.6, big ? 0.07 : 0.055);
+        if (m) { I.horn(d, m, t, ml * 0.95, big ? 0.09 : 0.075); I.brass(d, m - 12, t, ml * 0.95, 0.045); I.strings(d, m + 12, t, ml * 0.95, big ? 0.03 : 0.022); if (big) I.choir(d, m + 12, t, ml * 0.95, 0.022, 'a'); }
+      } }),
     // main menu: heroic overture
     menu: song({ key: 50, bpm: 76, order: ['A', 'A2', 'B', 'A2'], sec: {
       A: { prog: ['I', 'V', 'vi', 'IV'], mel: '1:2 5:2 8:4 | 7:2 5:2 2:4 | 3:2 6:2 8:4 | 6:6 -:2' },
@@ -598,5 +618,241 @@
       case 'gate': for (let i = 0; i < 8; i++) tone(d, midi(60 + i * 3), t + i * 0.05, 0.4, 'sine', 0.05, { release: 0.4 }); break;
       case 'bagfull': tone(d, midi(64), t, 0.18, 'triangle', 0.07, { release: 0.18 }); tone(d, midi(60), t + 0.12, 0.25, 'triangle', 0.07, { release: 0.25 }); break;
     }
+  };
+  // =====================================================================
+  // the war bank: realistic battle sounds, synthesized once into sample buffers and replayed (cheap, no clipping)
+  // Every sound here is made from scratch in code (no recordings), so the game can ship it freely.
+  //   cannon / bombard: supersonic crack, the blast, a chest-thumping body and a long rolling rumble that echoes off
+  //     the land; musket: a sharp crack and a powder whump; ballista: the bow-arm twang, a wooden thunk and the
+  //     bolt's whoosh; clash: sword on sword, modal synthesis of a ringing steel blade (inharmonic partials that
+  //     beat against each other); armorhit, shieldblock, arrowthud, trollsmash; battlecry (a crowd of voices);
+  //     warhorn; the battle roar (a loop that swells with the number of fighters around you)
+  // =====================================================================
+  const BANK = {}; let bankSR = 44100;
+  const rng = (() => { let s = 1234567; return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
+  const R = (a, b) => a + (b - a) * rng();
+  function lp1(x, fc, sr) { const a = Math.exp(-2 * Math.PI * fc / sr); let y = 0; for (let i = 0; i < x.length; i++) { y = (1 - a) * x[i] + a * y; x[i] = y; } return x; }
+  function hp1(x, fc, sr) { const a = Math.exp(-2 * Math.PI * fc / sr); let y = 0, px = 0; for (let i = 0; i < x.length; i++) { const v = x[i]; y = a * (y + v - px); px = v; x[i] = y; } return x; }
+  // a resonant band-pass (biquad, RBJ cookbook), for formants and body resonances
+  function bp(x, f, q, sr) { const w = 2 * Math.PI * f / sr, al = Math.sin(w) / (2 * q), c = Math.cos(w); const b0 = al, b2 = -al, a0 = 1 + al, a1 = -2 * c, a2 = 1 - al; let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = x[i]; const y = (b0 * v + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = v; y2 = y1; y1 = y; x[i] = y; } return x; }
+  const noiseArr = (n) => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = rng() * 2 - 1; return a; };
+  const brown = (n) => { const a = new Float32Array(n); let v = 0; for (let i = 0; i < n; i++) { v = (v + (rng() * 2 - 1) * 0.02) * 0.998; a[i] = v * 8; } return a; };
+  function mixInto(dst, src, at, g = 1) { for (let i = 0; i < src.length && at + i < dst.length; i++) if (at + i >= 0) dst[at + i] += src[i] * g; }
+  function env(a, fn, sr) { const fo = Math.min(Math.floor(0.006 * sr), a.length >> 2); for (let i = 0; i < a.length; i++) a[i] *= fn(i / sr) * (i > a.length - fo ? (a.length - i) / fo : 1); return a; } // with a short fade at the end: no clicks
+  function norm(chs, peak = 0.92) { let m = 1e-6; for (const c of chs) for (let i = 0; i < c.length; i++) m = Math.max(m, Math.abs(c[i])); for (const c of chs) for (let i = 0; i < c.length; i++) c[i] *= peak / m; }
+  function toBuf(L, Rr) { const b = ctx.createBuffer(2, L.length, bankSR); b.copyToChannel(L, 0); b.copyToChannel(Rr || L, 1); return b; }
+  // stereo from mono with a few early reflections, so a single shot sounds like it happened somewhere
+  function space(mono, refl, sr) {
+    const L = Float32Array.from(mono), Rr = Float32Array.from(mono);
+    for (const [dt, g] of refl) { const s = Math.round(dt * sr); const dl = Math.round(R(0, 0.012) * sr); const tmp = lp1(Float32Array.from(mono), 2200, sr); mixInto(L, tmp, s, g * R(0.7, 1)); mixInto(Rr, tmp, s + dl, g * R(0.7, 1)); }
+    return [L, Rr];
+  }
+  const MAKE = {
+    cannon(big) {
+      const sr = bankSR, n = Math.floor((big ? 5.2 : 3.8) * sr), out = new Float32Array(n);
+      const crack = env(hp1(noiseArr(Math.floor(0.03 * sr)), 900, sr), (t) => Math.exp(-t / 0.0045), sr); mixInto(out, crack, 0, 1.0);
+      const blast = env(lp1(noiseArr(Math.floor(0.5 * sr)), big ? 900 : 1300, sr), (t) => Math.exp(-t / (big ? 0.11 : 0.075)), sr); mixInto(out, blast, 0, 1.4);
+      // the body: a pressure wave you feel, a low sine that drops in pitch, driven into soft saturation
+      const bodyN = Math.floor(1.2 * sr), body = new Float32Array(bodyN); let ph = 0; const f0 = big ? 52 : 66;
+      for (let i = 0; i < bodyN; i++) { const t = i / sr; const f = f0 * (0.55 + 0.45 * Math.exp(-t / 0.12)); ph += 2 * Math.PI * f / sr; body[i] = Math.tanh(Math.sin(ph) * 2.6) * Math.exp(-t / (big ? 0.45 : 0.32)) * Math.min(1, t / 0.003); }
+      mixInto(out, body, 0, big ? 1.5 : 1.25);
+      // the rumble rolling away across the land
+      const rum = lp1(lp1(brown(n), big ? 160 : 210, sr), big ? 160 : 210, sr); env(rum, (t) => Math.min(1, t / 0.03) * Math.exp(-t / (big ? 1.7 : 1.15)), sr); mixInto(out, rum, 0, big ? 1.3 : 1.0);
+      // debris and air crackle in the first moments
+      for (let k = 0; k < 18; k++) { const at = Math.floor(R(0.01, 0.35) * sr); const g = env(hp1(noiseArr(Math.floor(0.004 * sr)), 2500, sr), (t) => Math.exp(-t / 0.0012), sr); mixInto(out, g, at, R(0.05, 0.18)); }
+      const st = space(out, [[0.21, 0.32], [0.48, 0.22], [0.93, 0.14], [1.6, 0.08]], sr); norm(st); return st;
+    },
+    musket() {
+      const sr = bankSR, n = Math.floor(1.5 * sr), out = new Float32Array(n);
+      mixInto(out, env(hp1(noiseArr(Math.floor(0.015 * sr)), 1800, sr), (t) => Math.exp(-t / 0.0022), sr), 0, 1.2);
+      mixInto(out, env(lp1(noiseArr(Math.floor(0.3 * sr)), 2400, sr), (t) => Math.exp(-t / 0.035), sr), 0, 1.0);
+      const b = new Float32Array(Math.floor(0.25 * sr)); let ph = 0; for (let i = 0; i < b.length; i++) { const t = i / sr; ph += 2 * Math.PI * (140 * (0.5 + 0.5 * Math.exp(-t / 0.03))) / sr; b[i] = Math.tanh(Math.sin(ph) * 2) * Math.exp(-t / 0.06); } mixInto(out, b, 0, 0.8);
+      const tail = env(lp1(brown(n), 380, sr), (t) => Math.min(1, t / 0.02) * Math.exp(-t / 0.4), sr); mixInto(out, tail, 0, 0.5);
+      // the powder hiss of the pan
+      mixInto(out, env(bp(noiseArr(Math.floor(0.12 * sr)), 5200, 1.2, sr), (t) => Math.min(1, t / 0.01) * Math.exp(-t / 0.05), sr), Math.floor(0.004 * sr), 0.2);
+      const st = space(out, [[0.18, 0.25], [0.41, 0.15], [0.8, 0.07]], sr); norm(st, 0.9); return st;
+    },
+    ballista() {
+      const sr = bankSR, n = Math.floor(1.3 * sr), out = new Float32Array(n);
+      // the bow-arms released: a low, buzzing string twang (Karplus-Strong)
+      // a heavy twisted-sinew string: harmonics that die away faster the higher they are, a little pitch drop as it slackens
+      const f = R(82, 104); const tw = new Float32Array(Math.floor(0.9 * sr));
+      for (let hN = 1; hN <= 18; hN++) { let ph = rng() * 6.28; const dec = 0.45 / (1 + hN * 0.45), amp = 1 / Math.pow(hN, 1.1); for (let i = 0; i < tw.length; i++) { const t = i / sr; ph += 2 * Math.PI * f * hN * (1 + 0.0015 * hN) * (1 - 0.04 * Math.min(1, t / 0.4)) / sr; tw[i] += Math.sin(ph) * amp * Math.exp(-t / dec); } }
+      mixInto(out, tw, 0, 0.55);
+      // the arms slamming into their stops: a hard wooden thunk
+      const th = env(bp(noiseArr(Math.floor(0.12 * sr)), 260, 2.5, sr), (t) => Math.exp(-t / 0.03), sr); mixInto(out, th, Math.floor(0.008 * sr), 2.4);
+      const tb = new Float32Array(Math.floor(0.2 * sr)); let ph = 0; for (let i = 0; i < tb.length; i++) { const t = i / sr; ph += 2 * Math.PI * 150 * (0.6 + 0.4 * Math.exp(-t / 0.04)) / sr; tb[i] = Math.sin(ph) * Math.exp(-t / 0.05); } mixInto(out, tb, 0, 0.7);
+      // the bolt tearing away
+      const wh = noiseArr(Math.floor(0.5 * sr)); let ff = 1800; const o = new Float32Array(wh.length); let y1 = 0, y2 = 0, x1 = 0, x2 = 0;
+      for (let i = 0; i < wh.length; i++) { const t = i / sr; ff = 1900 - 1300 * Math.min(1, t / 0.5); const w = 2 * Math.PI * ff / sr, al = Math.sin(w) / 3, c = Math.cos(w); const v = wh[i]; const y = (al * v - al * x2 + 2 * c * y1 - (1 - al) * y2) / (1 + al); x2 = x1; x1 = v; y2 = y1; y1 = y; o[i] = y * Math.sin(Math.PI * Math.min(1, t / 0.5)); }
+      mixInto(out, o, Math.floor(0.02 * sr), 0.9);
+      const st = space(out, [[0.15, 0.2], [0.37, 0.1]], sr); norm(st, 0.85); return st;
+    },
+    // sword on sword: a ringing steel blade. Inharmonic partials (a free bar's modes), each with its own decay,
+    // doubled a hair apart so they beat, over a hard bright contact transient and a short grinding scrape
+    clash() {
+      const sr = bankSR, n = Math.floor(1.4 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      const f0 = R(620, 1250); const modes = [1, 2.76, 5.40, 8.93, 13.3, 18.6];
+      modes.forEach((m, k) => { const f = f0 * m * R(0.985, 1.015); if (f > 15000) return; const dec = R(0.25, 0.7) / (1 + k * 0.55); const amp = R(0.6, 1) / (1 + k * 0.7);
+        for (const det of [1, 1 + R(0.002, 0.006)]) { let ph = rng() * 6.28; const pan = R(-0.5, 0.5); for (let i = 0; i < n; i++) { const t = i / sr; ph += 2 * Math.PI * f * det / sr; const v = Math.sin(ph) * amp * Math.exp(-t / dec); L[i] += v * (1 - pan) * 0.5; Rr[i] += v * (1 + pan) * 0.5; } } });
+      const hit = env(hp1(noiseArr(Math.floor(0.012 * sr)), 3000, sr), (t) => Math.exp(-t / 0.0018), sr); mixInto(L, hit, 0, 1.6); mixInto(Rr, hit, 0, 1.6);
+      if (rng() < 0.6) { const sc = env(bp(noiseArr(Math.floor(0.14 * sr)), R(3500, 6000), 3, sr), (t) => Math.min(1, t / 0.01) * Math.exp(-t / 0.04), sr); mixInto(L, sc, Math.floor(0.01 * sr), 0.5); mixInto(Rr, sc, Math.floor(0.014 * sr), 0.5); }
+      norm([L, Rr], 0.85); return [L, Rr];
+    },
+    // a blade on plate or mail: duller, shorter ring and a body thud
+    armorhit() {
+      const sr = bankSR, n = Math.floor(0.6 * sr), out = new Float32Array(n); const f0 = R(330, 620);
+      [1, 2.4, 4.1, 6.3].forEach((m, k) => { let ph = 0; const f = f0 * m * R(0.97, 1.03), dec = R(0.06, 0.18) / (1 + k * 0.4); for (let i = 0; i < n; i++) { ph += 2 * Math.PI * f / sr; out[i] += Math.sin(ph) * Math.exp(-i / sr / dec) / (1 + k); } });
+      mixInto(out, env(lp1(noiseArr(Math.floor(0.08 * sr)), 900, sr), (t) => Math.exp(-t / 0.02), sr), 0, 2.2);
+      mixInto(out, env(hp1(noiseArr(Math.floor(0.01 * sr)), 2500, sr), (t) => Math.exp(-t / 0.002), sr), 0, 1.2);
+      const st = space(out, [[0.06, 0.12]], sr); norm(st, 0.8); return st;
+    },
+    shieldblock() {
+      const sr = bankSR, n = Math.floor(0.7 * sr), out = new Float32Array(n);
+      mixInto(out, env(bp(noiseArr(Math.floor(0.2 * sr)), R(180, 260), 1.8, sr), (t) => Math.exp(-t / 0.045), sr), 0, 3);
+      const b = new Float32Array(Math.floor(0.25 * sr)); let ph = 0; for (let i = 0; i < b.length; i++) { const t = i / sr; ph += 2 * Math.PI * 120 * (0.7 + 0.3 * Math.exp(-t / 0.03)) / sr; b[i] = Math.sin(ph) * Math.exp(-t / 0.07); } mixInto(out, b, 0, 0.9);
+      // the iron boss and rim ringing
+      [1, 2.9, 5.1].forEach((m, k) => { let ph2 = 0; const f = R(900, 1300) * m; for (let i = 0; i < n; i++) { ph2 += 2 * Math.PI * f / sr; out[i] += Math.sin(ph2) * 0.25 * Math.exp(-i / sr / (0.18 / (1 + k))) / (1 + k); } });
+      const st = space(out, [[0.07, 0.12]], sr); norm(st, 0.85); return st;
+    },
+    arrowthud() {
+      const sr = bankSR, n = Math.floor(0.35 * sr), out = new Float32Array(n);
+      mixInto(out, env(bp(noiseArr(Math.floor(0.08 * sr)), R(500, 800), 2, sr), (t) => Math.exp(-t / 0.018), sr), 0, 2.5);
+      const tw = new Float32Array(Math.floor(0.25 * sr)); let ph = 0; const f = R(180, 260); for (let i = 0; i < tw.length; i++) { const t = i / sr; ph += 2 * Math.PI * f / sr; tw[i] = Math.sin(ph) * Math.exp(-t / 0.06) * (1 + 0.5 * Math.sin(2 * Math.PI * 28 * t)); } mixInto(out, tw, Math.floor(0.004 * sr), 0.35);
+      norm([out], 0.8); return [out, out];
+    },
+    trollsmash() {
+      const sr = bankSR, n = Math.floor(2.4 * sr), out = new Float32Array(n);
+      const b = new Float32Array(Math.floor(1.0 * sr)); let ph = 0; for (let i = 0; i < b.length; i++) { const t = i / sr; ph += 2 * Math.PI * 46 * (0.6 + 0.4 * Math.exp(-t / 0.1)) / sr; b[i] = Math.tanh(Math.sin(ph) * 3) * Math.exp(-t / 0.3); } mixInto(out, b, 0, 1.6);
+      mixInto(out, env(lp1(noiseArr(Math.floor(0.4 * sr)), 700, sr), (t) => Math.exp(-t / 0.06), sr), 0, 2);
+      // splintering wood and earth falling back
+      for (let k = 0; k < 40; k++) { const at = Math.floor(R(0.0, 1.0) * sr * Math.pow(rng(), 1.6)); const g = env(bp(noiseArr(Math.floor(0.03 * sr)), R(600, 3500), 4, sr), (t) => Math.exp(-t / 0.008), sr); mixInto(out, g, at, R(0.2, 0.9) * (1 - at / n)); }
+      mixInto(out, env(lp1(brown(n), 140, sr), (t) => Math.exp(-t / 0.9), sr), 0, 1);
+      const st = space(out, [[0.2, 0.25], [0.5, 0.15]], sr); norm(st, 0.92); return st;
+    },
+    // a battle cry: a crowd of throats, each a sawtooth with "aah" formants, staggered, rising and swelling
+    battlecry() {
+      const sr = bankSR, n = Math.floor(2.4 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      for (let v = 0; v < 12; v++) {
+        const start = Math.floor(R(0, 0.35) * sr), len = Math.floor(R(1.2, 1.9) * sr), f0 = R(105, 210), pan = R(-0.8, 0.8); const src = new Float32Array(len); let ph = 0; const vr = R(4.5, 6.5);
+        for (let i = 0; i < len; i++) { const t = i / sr; const f = f0 * (1 + 0.12 * Math.min(1, t / 0.4)) * (1 + 0.012 * Math.sin(2 * Math.PI * vr * t)) * (1 + 0.004 * (rng() - 0.5)); ph += f / sr; const saw = 2 * (ph - Math.floor(ph)) - 1; src[i] = saw * Math.min(1, t / 0.15) * Math.min(1, (len / sr - t) / 0.35); }
+        const a = bp(Float32Array.from(src), R(700, 820), 5, sr), b2 = bp(Float32Array.from(src), R(1100, 1250), 6, sr), c = bp(Float32Array.from(src), 2800, 8, sr), br = env(bp(noiseArr(len), 1200, 1, sr), (t) => Math.min(1, t / 0.15), sr);
+        for (let i = 0; i < len; i++) { const s = a[i] * 1.3 + b2[i] * 0.9 + c[i] * 0.35 + br[i] * 0.06; L[start + i] += s * (1 - pan) * 0.5; Rr[start + i] += s * (1 + pan) * 0.5; }
+      }
+      norm([L, Rr], 0.8); return [L, Rr];
+    },
+    // the war horn: a great brass horn, low note swelling up a fifth and back, with breath and a long hall
+    warhorn() {
+      const sr = bankSR, n = Math.floor(4.2 * sr), out = new Float32Array(n); const notes = [[0, 1.5, 98], [1.45, 1.6, 147], [2.95, 1.2, 98]];
+      for (const [t0, dur, f] of notes) { const s0 = Math.floor(t0 * sr), len = Math.floor(dur * sr); let ph = 0;
+        for (let i = 0; i < len; i++) { const t = i / sr; const a = Math.min(1, t / 0.18) * Math.min(1, (dur - t) / 0.25); const bright = 0.25 + 0.75 * Math.min(1, t / 0.5); const ff = f * (1 + 0.01 * Math.sin(2 * Math.PI * 5 * t) * Math.min(1, t / 0.6)) * (t < 0.08 ? 0.97 + t * 0.375 : 1); ph += 2 * Math.PI * ff / sr;
+          let v = 0; for (let h = 1; h <= 14; h++) v += Math.sin(ph * h) / h * Math.pow(bright, h * 0.35); out[s0 + i] += v * a; } }
+      mixInto(out, env(bp(noiseArr(n), 900, 0.8, sr), (t) => 0.04, sr), 0, 1);
+      const st = space(lp1(out, 2800, sr), [[0.11, 0.3], [0.33, 0.25], [0.7, 0.2], [1.2, 0.12]], sr); norm(st, 0.85); return st;
+    },
+    // the din of battle: a crowd roar and distant steel, made loopable
+    battleloop() {
+      const sr = bankSR, n = Math.floor(7 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      const roar = bp(brown(n), 550, 0.7, sr); for (let i = 0; i < n; i++) { const t = i / sr; const m = 0.65 + 0.35 * Math.sin(2 * Math.PI * 0.21 * t) * Math.sin(2 * Math.PI * 0.53 * t + 1); L[i] += roar[i] * m * 0.9; Rr[i] += roar[(i + 977) % n] * m * 0.9; }
+      // far clanks, thuds and yells scattered across the field
+      const far = [0, 1, 2].map(() => lp1(Float32Array.from(MAKE.clash()[0].subarray(0, Math.floor(0.5 * sr))), 3500, sr)); // three far blades, reused
+      for (let k = 0; k < 46; k++) { const at = Math.floor(R(0, 6.6) * sr); const pan = R(-0.9, 0.9); const g = R(0.08, 0.3);
+        let snd; if (k % 3) snd = far[k % 3]; else snd = env(lp1(noiseArr(Math.floor(0.12 * sr)), 600, sr), (t) => Math.exp(-t / 0.03), sr);
+        for (let i = 0; i < snd.length; i++) { const j = (at + i) % n; L[j] += snd[i] * g * (1 - pan) * 0.5; Rr[j] += snd[i] * g * (1 + pan) * 0.5; } }
+      // seam: crossfade the end into the start
+      const xf = Math.floor(0.4 * sr); for (let i = 0; i < xf; i++) { const k = i / xf; L[i] = L[i] * k + L[n - xf + i] * (1 - k); Rr[i] = Rr[i] * k + Rr[n - xf + i] * (1 - k); }
+      const L2 = L.subarray(0, n - xf), R2 = Rr.subarray(0, n - xf); norm([L2, R2], 0.6); return [Float32Array.from(L2), Float32Array.from(R2)];
+    },
+  };
+  // how many takes of each (a random one plays each time, at a slightly random pitch)
+  const TAKES = { cannon: 3, bombard: 2, musket: 3, ballista: 2, clash: 8, armorhit: 4, shieldblock: 3, arrowthud: 3, trollsmash: 2, battlecry: 2, warhorn: 1, battleloop: 1 };
+  function bank(name) {
+    if (BANK[name]) return BANK[name];
+    const n = TAKES[name] || 1; const out = [];
+    for (let i = 0; i < n; i++) { try { const st = name === 'bombard' ? MAKE.cannon(true) : name === 'cannon' ? MAKE.cannon(false) : MAKE[name](); out.push(toBuf(st[0], st[1])); } catch (e) { console.warn('audio bank', name, e); break; } }
+    return (BANK[name] = out);
+  }
+  const init0 = A.init; A.init = function () { const had = !!ctx; const r = init0.apply(this, arguments); if (!had && ctx) A.warmBank(); return r; };
+  A.warmBank = function () { // build the bank in idle moments, a few takes at a time, so the first cannon shot doesn't stall
+    if (!ctx) return; const names = Object.keys(TAKES); let i = 0; // one sound per idle moment (the din, the dearest, last)
+    const step = () => { if (i >= names.length) return; bank(names[i++]); (window.requestIdleCallback || setTimeout)(step, { timeout: 400 }); };
+    (window.requestIdleCallback || setTimeout)(step, { timeout: 800 });
+  };
+  // at most this many bank voices at once; a quieter new sound yields to the loud ones already playing
+  const live = []; const MAX_VOICES = 22;
+  A.voices = () => live.length;
+  function playBank(name, vol = 1, pan = 0, o = {}) {
+    if (!ctx || !A.enabled || vol < 0.02) return null;
+    const takes = bank(name); if (!takes.length) return null;
+    const now = ctx.currentTime;
+    for (let i = live.length - 1; i >= 0; i--) if (live[i].end < now) live.splice(i, 1);
+    if (live.length >= MAX_VOICES) { let q = 0; for (let i = 1; i < live.length; i++) if (live[i].vol < live[q].vol) q = i; if (live[q].vol >= vol) return null; try { live[q].g.gain.setTargetAtTime(0, now, 0.02); live[q].src.stop(now + 0.1); } catch (e) {} live.splice(q, 1); }
+    const src = ctx.createBufferSource(); src.buffer = takes[Math.floor(Math.random() * takes.length)]; src.playbackRate.value = (o.rate || 1) * (1 + (Math.random() - 0.5) * (o.vary == null ? 0.1 : o.vary));
+    const g = ctx.createGain(); g.gain.value = vol; src.connect(g);
+    let dst = g; if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); dst = p; }
+    dst.connect(sfxBus); if (o.rev && revIn) { const s = ctx.createGain(); s.gain.value = o.rev; dst.connect(s); s.connect(revIn); }
+    if (o.delay) src.start(now + o.delay); else src.start(now);
+    const end = now + (o.delay || 0) + src.buffer.duration / src.playbackRate.value; live.push({ src, g, vol, end }); src.onended = () => { const k = live.findIndex((v) => v.src === src); if (k >= 0) live.splice(k, 1); };
+    return src;
+  }
+  A.playBank = playBank;
+  // where a sound is: volume falls with distance from the hero and it pans to the side it came from
+  A.place = function (x, y, range = 1600) {
+    const KRg = window.KR && KR.G, p = KRg && KRg.player; if (!p || x == null) return { v: 1, pan: 0 };
+    const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy); const v = Math.max(0, 1 - d / range); if (d < 20) return { v: 1, pan: 0 };
+    const yaw = (window.K3 && K3.view) ? K3.view.yaw + (K3.view.oyaw || 0) : null; let pan = 0;
+    if (yaw != null) { const rx = Math.cos(yaw) * dx - Math.sin(yaw) * dy; pan = Math.max(-0.9, Math.min(0.9, rx / Math.max(200, d))); } else pan = Math.max(-0.9, Math.min(0.9, dx / Math.max(200, d)));
+    return { v: v * v * 0.85 + v * 0.15, pan };
+  };
+  A.sfxAt = function (name, x, y, vol = 1, range) { const P = A.place(x, y, range || (name === 'cannon' || name === 'bombard' ? 3200 : 1500)); if (P.v * vol > 0.02) A.sfx(name, P.v * vol, P.pan); };
+
+  // the bank names, and the old ones that now use it
+  const sfx0 = A.sfx;
+  A.sfx = function (name, vol = 1, pan = 0) {
+    if (!ctx || !A.enabled) return;
+    switch (name) {
+      case 'cannon': case 'boom': playBank('cannon', Math.min(1.2, vol * 1.15), pan, { rev: 0.18, vary: 0.08 }); return;
+      case 'bombard': playBank('bombard', Math.min(1.3, vol * 1.25), pan, { rev: 0.22, vary: 0.06 }); return;
+      case 'rumble': playBank('cannon', vol * 0.5, pan, { rate: 0.6, vary: 0.05 }); return; // a far gun, or the ground shaking
+      case 'musket': case 'gunshot': playBank('musket', vol, pan, { rev: 0.12 }); return;
+      case 'ballista': playBank('ballista', vol, pan, { rev: 0.1 }); return;
+      case 'clash': playBank('clash', vol, pan, { rev: 0.12, vary: 0.16 }); return;
+      case 'armorhit': playBank('armorhit', vol, pan, { vary: 0.14 }); return;
+      case 'shieldblock': playBank('shieldblock', vol, pan, { vary: 0.12 }); return;
+      case 'arrowthud': playBank('arrowthud', vol, pan); return;
+      case 'trollsmash': playBank('trollsmash', vol, pan, { rev: 0.15 }); return;
+      case 'battlecry': playBank('battlecry', vol, pan, { rev: 0.3, vary: 0.12 }); return;
+      case 'warhorn': case 'horn': playBank('warhorn', vol, pan, { rev: 0.4, vary: 0.02 }); return;
+      case 'warcry': if (vol >= 0.45) { playBank('battlecry', vol * 0.9, pan, { rev: 0.3, vary: 0.12 }); return; } break;
+      case 'block': playBank(Math.random() < 0.5 ? 'clash' : 'shieldblock', vol * 0.9, pan, { vary: 0.14 }); return;
+      case 'bellow': A.voice('troll', 'aggro', 0.7, vol, pan); return;
+      case 'creak': { const d = out(vol, pan), t = ctx.currentTime; voice(d, 120, t, 0.45, { type: 'sawtooth', v: 0.05, a: 0.05, r: 0.2, slide: 1.4, slideT: 0.45, lp: 700, q: 7 }); noise(d, t, 0.4, 0.05, { f: 500, f2: 900, q: 8 }); return; }
+      case 'chime': case 'wail': break;
+    }
+    // melee hits now ring of steel now and then: the clatter of a real fight
+    if ((name === 'slash' || name === 'heavy' || name === 'stab') && Math.random() < 0.35) playBank(Math.random() < 0.6 ? 'clash' : 'armorhit', vol * 0.55, pan, { vary: 0.16 });
+    return sfx0.apply(this, arguments);
+  };
+
+  // ---------- battle mode: the battle music and the din of the fight ----------
+  // A.battle(seconds) keeps the battle score playing at least that long (an attack ordered, a raid on your town);
+  // A.battleDin(n) sets how many fighters are near you, which swells the roar of the field and scatters clashes
+  let battleUntil = 0, din = null, dinN = 0;
+  A.battle = function (secs = 90) { battleUntil = Math.max(battleUntil, performance.now() + secs * 1000); if (ctx && curTrack !== 'battle') { const keep = curTrack; curTrack = null; A.play(keep || 'battle'); } };
+  A.inBattle = () => performance.now() < battleUntil;
+  // the battle score's own level (Settings → Sound), on top of the music volume
+  A.setBattleVol = function (v) { A.battleVol = Math.max(0, +v); TRACKS.battle.gain = 1.25 * A.battleVol; if (ctx && curTrack === 'battle' && trackGain) trackGain.gain.setTargetAtTime(Math.max(0.0001, TRACKS.battle.gain), ctx.currentTime, 0.2); };
+  const play0 = A.play;
+  A.play = function (name) {
+    if (performance.now() < battleUntil && !/^(victory|defeat|silence|menu|cover|epic)$/.test(name)) name = 'battle';
+    return play0.call(this, name);
+  };
+  A.battleDin = function (n) {
+    if (!ctx || !A.enabled) return; dinN = n;
+    const want = n <= 0 ? 0 : Math.min(0.55, 0.12 + Math.sqrt(n) * 0.07);
+    if (want > 0 && !din) { if (!BANK.battleloop) { if (!A._dinQ) { A._dinQ = 1; (window.requestIdleCallback || setTimeout)(() => bank('battleloop'), { timeout: 2000 }); } return; } const takes = BANK.battleloop; if (!takes.length) return; const src = ctx.createBufferSource(); src.buffer = takes[0]; src.loop = true; const g = ctx.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(sfxBus); src.start(); din = { src, g }; }
+    if (din) { din.g.gain.setTargetAtTime(Math.max(0.0001, want), ctx.currentTime, want > 0 ? 0.8 : 1.5); if (!want) { const d0 = din; din = null; setTimeout(() => { try { d0.src.stop(); } catch (e) {} }, 6000); } }
+    // scattered steel near you, more of it the bigger the fight
+    if (n > 1 && Math.random() < Math.min(0.9, n * 0.06)) playBank(Math.random() < 0.7 ? 'clash' : Math.random() < 0.5 ? 'armorhit' : 'shieldblock', R(0.12, 0.35), R(-0.8, 0.8), { delay: Math.random() * 0.4, vary: 0.2 });
   };
 })();

@@ -519,8 +519,8 @@
     t.fireT -= dt; if (t.fireT > 0 || Math.abs(diff) > 0.05) return;
     t.fireT = def.delay * (0.9 + Math.random() * 0.2); t.fireK = 1; t.fireAt = G.now;
     const v = near(t.x, t.y, 1100); const gun = def.vis === 'ironball', bolt = def.vis === 'bigbolt';
-    if (gun) { sfx('heavy', v); sfx('rumble', v * 0.9); const pp = G.player; if (pp && Math.hypot(t.x - pp.x, t.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
-    else if (bolt) { sfx('bow', v); sfx('whoosh', v * 0.7); sfx('creak', v * 0.5); }
+    if (gun) { sfx(def.bigR ? 'bombard' : 'cannon', v); const pp = G.player; if (pp && Math.hypot(t.x - pp.x, t.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
+    else if (bolt) { sfx('ballista', v); sfx('creak', v * 0.5); }
     else { sfx('whoosh', v * 0.8); sfx('creak', v * 0.6); }
     War.ev({ k: 'fire', f: t.faction, x: t.x, y: t.y, ang: t.aimAng, kind: t.siege, id: t.id });
     const dmg = () => Math.round(t.dmg * (0.75 + Math.random() * 0.5));
@@ -1629,8 +1629,8 @@
     e.fireT = (e.fireT || 0) - dt; if (e.fireT > 0 || Math.abs(diff) > 0.05) return;
     e.fireT = (def.delay || 6) * (0.9 + Math.random() * 0.2); e.fireK = 1; e.fireAt = G.now;
     const v = near(e.x, e.y, 1300); const gun = def.vis === 'ironball';
-    if (gun) { sfx('heavy', v); sfx('rumble', v * 0.9); const pp = G.player; if (pp && Math.hypot(e.x - pp.x, e.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
-    else { sfx('bow', v); sfx('whoosh', v * 0.7); sfx('creak', v * 0.5); }
+    if (gun) { sfx(def.bigR ? 'bombard' : 'cannon', v); const pp = G.player; if (pp && Math.hypot(e.x - pp.x, e.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
+    else { sfx('ballista', v); sfx('creak', v * 0.5); }
     War.ev({ k: 'fire', f: e.faction, x: e.x, y: e.y, ang: e.aimAng, kind: e.siege, id: e.id });
     const d = Math.hypot(b.x - e.x, b.y - e.y);
     const aim = { x: b.x + b.out[0] * 12 + (Math.random() - 0.5) * 20 * Math.abs(b.along[0]), y: b.y + b.out[1] * 12 + 24 + (Math.random() - 0.5) * 20 * Math.abs(b.along[1]), r: 16, hate: new Map(), buffs: [] };
@@ -2236,7 +2236,7 @@
   N.fire = function (t, tg, def) {
     const d = Math.hypot(tg.x - t.x, tg.y - t.y); t.fireAt = G.now; t.fireK = 1; t.aimAng = Math.atan2(tg.y - t.y, tg.x - t.x);
     const gun = def.vis === 'ironball'; const v = near(t.x, t.y, 2200);
-    if (gun) { sfx('boom', v * 1.1); const p = G.player; if (p && Math.hypot(t.x - p.x, t.y - p.y) < 700) G.shake = Math.max(G.shake || 0, 0.45); } else { sfx('bow', v); sfx('whoosh', v * 0.8); }
+    if (gun) { sfx('cannon', v * 1.1); const p = G.player; if (p && Math.hypot(t.x - p.x, t.y - p.y) < 700) G.shake = Math.max(G.shake || 0, 0.45); } else { sfx('bow', v); sfx('whoosh', v * 0.8); }
     N.ev({ k: 'muzzle', id: t.id, x: t.x, y: t.y, ang: t.aimAng, gun, ship: !!t.ship });
     // a long shot scatters: the farther, the wider (ships never miss by much at close range)
     const sc = (tg.bld ? 70 : 34) * (0.3 + d / (def.range || 2000)); const miss = !tg.bld && Math.random() < 0.18 + d / 9000;

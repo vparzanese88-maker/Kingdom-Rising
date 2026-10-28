@@ -78,7 +78,8 @@ const pages = {
   sound() {
     const st = (KR.G.account && KR.G.account.settings) || { music: 0.5, sfx: 0.7 };
     return `${rng('s-mus', 'Music', 0, 1, 0.05, st.music, (v) => Math.round(v * 100) + '%')}
-      ${rng('s-sfx', 'Sound effects', 0, 1, 0.05, st.sfx, (v) => Math.round(v * 100) + '%')}`;
+      ${rng('s-sfx', 'Sound effects', 0, 1, 0.05, st.sfx, (v) => Math.round(v * 100) + '%')}
+      ${rng('s-bat', 'Battle music (when the war is on)', 0, 1.5, 0.05, st.battle == null ? 1 : st.battle, (v) => Math.round(v * 100) + '%')}`;
   },
 };
 const TABS = [['graphics', 'Graphics'], ['controls', 'Controls'], ['keys', 'Key Bindings'], ['camera', 'Camera'], ['sound', 'Sound']];
@@ -127,6 +128,7 @@ function wire(b) {
   const vol = () => { const st = KR.G.account.settings; st.music = +$('s-mus').value; st.sfx = +$('s-sfx').value; KR.A.setVolumes(st.music, st.sfx); };
   onRange('s-mus', (v) => Math.round(v * 100) + '%', (v, done) => { vol(); if (done && KR.Sys.saveAccount) KR.Sys.saveAccount(); });
   onRange('s-sfx', (v) => Math.round(v * 100) + '%', (v, done) => { vol(); if (done) { KR.A.sfx('click'); if (KR.Sys.saveAccount) KR.Sys.saveAccount(); } });
+  onRange('s-bat', (v) => Math.round(v * 100) + '%', (v, done) => { const st = KR.G.account.settings; st.battle = +v; if (KR.A.setBattleVol) KR.A.setBattleVol(st.battle); if (done && KR.Sys.saveAccount) KR.Sys.saveAccount(); });
   // key bindings
   b.querySelectorAll('.k3-keys button').forEach((x) => (x.onclick = () => { waiting = { id: x.dataset.id, slot: +x.dataset.slot }; render(); }));
 }

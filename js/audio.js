@@ -629,6 +629,7 @@
   //     warhorn; the battle roar (a loop that swells with the number of fighters around you)
   // =====================================================================
   const BANK = {}; let bankSR = 44100;
+  const REC_BUF = {}, REC_RATE = { bombard: 0.78 }; // recorded takes (audio/rec), filled in by A.loadRec below
   const rng = (() => { let s = 1234567; return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
   const R = (a, b) => a + (b - a) * rng();
   function lp1(x, fc, sr) { const a = Math.exp(-2 * Math.PI * fc / sr); let y = 0; for (let i = 0; i < x.length; i++) { y = (1 - a) * x[i] + a * y; x[i] = y; } return x; }
@@ -783,11 +784,11 @@
   A.voices = () => live.length;
   function playBank(name, vol = 1, pan = 0, o = {}) {
     if (!ctx || !A.enabled || vol < 0.02) return null;
-    const takes = bank(name); if (!takes.length) return null;
+    const rec = REC_BUF[name], takes = rec && rec.length ? rec : bank(name); if (!takes.length) return null;
     const now = ctx.currentTime;
     for (let i = live.length - 1; i >= 0; i--) if (live[i].end < now) live.splice(i, 1);
     if (live.length >= MAX_VOICES) { let q = 0; for (let i = 1; i < live.length; i++) if (live[i].vol < live[q].vol) q = i; if (live[q].vol >= vol) return null; try { live[q].g.gain.setTargetAtTime(0, now, 0.02); live[q].src.stop(now + 0.1); } catch (e) {} live.splice(q, 1); }
-    const src = ctx.createBufferSource(); src.buffer = takes[Math.floor(Math.random() * takes.length)]; src.playbackRate.value = (o.rate || 1) * (1 + (Math.random() - 0.5) * (o.vary == null ? 0.1 : o.vary));
+    const src = ctx.createBufferSource(); src.buffer = takes[Math.floor(Math.random() * takes.length)]; src.playbackRate.value = (o.rate || 1) * (rec && rec.length ? REC_RATE[name] || 1 : 1) * (1 + (Math.random() - 0.5) * (o.vary == null ? 0.1 : o.vary));
     const g = ctx.createGain(); g.gain.value = vol; src.connect(g);
     let dst = g; if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); dst = p; }
     dst.connect(sfxBus); if (o.rev && revIn) { const s = ctx.createGain(); s.gain.value = o.rev; dst.connect(s); s.connect(revIn); }
@@ -816,6 +817,7 @@
       case 'rumble': playBank('cannon', vol * 0.5, pan, { rate: 0.6, vary: 0.05 }); return; // a far gun, or the ground shaking
       case 'musket': case 'gunshot': playBank('musket', vol, pan, { rev: 0.12 }); return;
       case 'ballista': playBank('ballista', vol, pan, { rev: 0.1 }); return;
+      case 'swing': case 'slash': if (REC_BUF.swing) { playBank('swing', vol * (name === 'slash' ? 0.75 : 0.6), pan, { vary: 0.14 }); if (name === 'swing') return; } break;
       case 'clash': playBank('clash', vol, pan, { rev: 0.12, vary: 0.16 }); return;
       case 'armorhit': playBank('armorhit', vol, pan, { vary: 0.14 }); return;
       case 'shieldblock': playBank('shieldblock', vol, pan, { vary: 0.12 }); return;
@@ -850,9 +852,40 @@
   A.battleDin = function (n) {
     if (!ctx || !A.enabled) return; dinN = n;
     const want = n <= 0 ? 0 : Math.min(0.55, 0.12 + Math.sqrt(n) * 0.07);
-    if (want > 0 && !din) { if (!BANK.battleloop) { if (!A._dinQ) { A._dinQ = 1; (window.requestIdleCallback || setTimeout)(() => bank('battleloop'), { timeout: 2000 }); } return; } const takes = BANK.battleloop; if (!takes.length) return; const src = ctx.createBufferSource(); src.buffer = takes[0]; src.loop = true; const g = ctx.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(sfxBus); src.start(); din = { src, g }; }
+    if (want > 0 && !din) { if (!REC_BUF.battlecrowd && !BANK.battleloop) { if (!A._dinQ) { A._dinQ = 1; (window.requestIdleCallback || setTimeout)(() => bank('battleloop'), { timeout: 2000 }); } return; } const takes = REC_BUF.battlecrowd || BANK.battleloop; if (!takes.length) return; const src = ctx.createBufferSource(); src.buffer = takes[0]; src.loop = true; const g = ctx.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(sfxBus); src.start(); din = { src, g }; }
     if (din) { din.g.gain.setTargetAtTime(Math.max(0.0001, want), ctx.currentTime, want > 0 ? 0.8 : 1.5); if (!want) { const d0 = din; din = null; setTimeout(() => { try { d0.src.stop(); } catch (e) {} }, 6000); } }
     // scattered steel near you, more of it the bigger the fight
     if (n > 1 && Math.random() < Math.min(0.9, n * 0.06)) playBank(Math.random() < 0.7 ? 'clash' : Math.random() < 0.5 ? 'armorhit' : 'shieldblock', R(0.12, 0.35), R(-0.8, 0.8), { delay: Math.random() * 0.4, vary: 0.2 });
+  };
+  // ---------- recorded sounds and music (audio/rec; every file is CC0, listed in audio/CREDITS.md) ----------
+  // Each is fetched once sound starts. Until a recording has loaded (or if it can't be), the synthesized sound plays.
+  const REC_BASE = (() => { const sc = document.currentScript || [...document.scripts].find((e) => /js\/audio\.js/.test(e.src)); return sc && sc.src ? sc.src.replace(/js\/audio\.js.*$/, 'audio/rec/') : 'audio/rec/'; })();
+  const nums = (pre, n) => Array.from({ length: n }, (_, i) => pre + (i + 1));
+  const REC = { clash: nums('clash', 10), swing: nums('swing', 10), cannon: ['cannon1'], battlecrowd: ['battlecrowd'] };
+  const REC_MUSIC = { battle: 'battle-music', MUSIC_GAIN: 0.9 }; // the recorded score's level against the synthesized tracks
+  async function recLoad(file) { const r = await fetch(REC_BASE + file + '.mp3'); if (!r.ok) throw new Error(file + ' ' + r.status); return await ctx.decodeAudioData(await r.arrayBuffer()); }
+  // a loop with its end crossfaded into its start, so it never clicks at the seam
+  function seamless(buf, xfs = 0.6) {
+    const n = buf.length, xf = Math.min(Math.floor(xfs * buf.sampleRate), n >> 2), out = ctx.createBuffer(buf.numberOfChannels, n - xf, buf.sampleRate);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const a = buf.getChannelData(c), o = out.getChannelData(c); o.set(a.subarray(0, n - xf)); for (let i = 0; i < xf; i++) { const k = i / xf; o[i] = a[i] * k + a[n - xf + i] * (1 - k); } }
+    return out;
+  }
+  let recMusic = null; const recMusicBuf = {};
+  A.loadRec = function () {
+    if (!ctx || A._recLoading) return; A._recLoading = 1;
+    for (const name in REC) Promise.all(REC[name].map((f) => recLoad(f).catch((e) => { console.warn('audio rec', e.message); return null; })))
+      .then((bufs) => { bufs = bufs.filter(Boolean); if (!bufs.length) return; if (name === 'battlecrowd') bufs = [seamless(bufs[0])]; REC_BUF[name] = bufs; if (name === 'cannon') REC_BUF.bombard = bufs; });
+    for (const tr in REC_MUSIC) if (tr !== 'MUSIC_GAIN') recLoad(REC_MUSIC[tr]).then((b) => { recMusicBuf[tr] = seamless(b, 1.5); if (curTrack === tr && !recMusic) { curTrack = null; A.play(tr); } }).catch((e) => console.warn('audio rec', e.message));
+  };
+  const init1 = A.init; A.init = function () { const had = !!ctx; const r = init1.apply(this, arguments); if (!had && ctx) A.loadRec(); return r; };
+  // a track with a recording plays it, looped, in place of the synthesized score
+  const play1 = A.play;
+  A.play = function (name) {
+    const before = curTrack; const r = play1.apply(this, arguments);
+    if (!ctx || curTrack === before) return r;
+    if (recMusic) { const old = recMusic; recMusic = null; setTimeout(() => { try { old.stop(); } catch (e) {} }, 4000); } // its gain is already fading out
+    const buf = recMusicBuf[curTrack];
+    if (buf && trackGain) { A.track = null; const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; const g = ctx.createGain(); g.gain.value = REC_MUSIC.MUSIC_GAIN; src.connect(g); g.connect(trackGain); src.start(ctx.currentTime + 0.1); recMusic = src; }
+    return r;
   };
 })();

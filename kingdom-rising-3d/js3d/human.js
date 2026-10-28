@@ -612,7 +612,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
     const G = S.gather === 'pony' ? new V3(c.x, c.y + rad.y * 0.12, c.z - rad.z * 1.02) : S.gather === 'bun' ? new V3(c.x, c.y + rad.y * 0.72, c.z - rad.z * 0.78) : null;
     for (const r of roots) {
       if (S.strip && Math.abs(r.p.x) > S.strip) continue;
-      if (covered && r.p.y > c.y - 0.01) continue; // under a hat only the hair below the brim shows
+      if (covered && r.p.y > (hatOnly ? c.y + rad.y * 0.45 : c.y - 0.01)) continue; // under a helmet or hood only the hair below the rim shows; a hat's crown hides the top, the rest still falls round the face
       const hd = r.p.clone().sub(c).normalize(); const layer = rnd();
       // which way it is combed: away from the crown, swept back at the front for short styles, from the part for longer ones
       let flow = r.p.clone().sub(crown); if (short && hd.z > 0.1) flow = new V3((r.p.x - partX) * 0.6, 0.2, -1);

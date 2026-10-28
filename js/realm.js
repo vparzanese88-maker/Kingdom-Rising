@@ -36,9 +36,9 @@
   const c2 = (wood, stone) => ({ wood, stone });
   R.DEFS = {
     townhall: { name: 'Town Hall', max: 1, cost: [c2(0, 0)], time: [0], needs: () => [], desc: 'The king\'s seat. The court works from here.' },
-    sawmill: { name: 'Sawmill', max: 3, cost: [c2(100, 40), c2(260, 140), c2(600, 360)], time: [60, 120, 180], needs: () => [],
+    sawmill: { name: 'Sawmill', max: 3, cost: [c2(80, 30), c2(260, 140), c2(600, 360)], time: [60, 120, 180], needs: () => [],
       desc: 'Saws the arborist\'s logs. Every level adds a mill hand and 10% more wood per load.' },
-    cutter: { name: 'Stone Cutter', max: 3, cost: [c2(60, 80), c2(200, 240), c2(480, 560)], time: [60, 120, 180], needs: () => [],
+    cutter: { name: 'Stone Cutter', max: 3, cost: [c2(50, 60), c2(200, 240), c2(480, 560)], time: [60, 120, 180], needs: () => [],
       desc: 'Dresses the miner\'s stone. Every level adds a mason and 10% more stone per load.' },
     barracks: { name: 'Barracks', max: 1, cost: [c2(300, 250)], time: [150], needs: () => [['sawmill', 1], ['cutter', 1]],
       desc: 'The Recruiter trains guards and raiders.' },
@@ -52,8 +52,8 @@
   };
   R.ORDER = ['sawmill', 'cutter', 'barracks', 'range', 'stable', 'workshop'];
   R.WORKER = {
-    arborist: { name: 'Arborist', res: 'wood', tool: 'axe', base: 12, mill: 'sawmill', icon: '🪵' },
-    miner: { name: 'Miner', res: 'stone', tool: 'pick', base: 10, mill: 'cutter', icon: '🪨' },
+    arborist: { name: 'Arborist', res: 'wood', tool: 'axe', base: 20, mill: 'sawmill', icon: '🪵' },
+    miner: { name: 'Miner', res: 'stone', tool: 'pick', base: 18, mill: 'cutter', icon: '🪨' },
   };
   R.YIELD_UP = [0, 0.25, 0.5, 1]; // +25 / +50 / +100% per load
   R.WORKER_GOLD = [2000, 8000, 25000]; // copper: 20s, 80s, 2g 50s
@@ -133,6 +133,8 @@
     for (const k of ['wood', 'stone']) if (amt[k]) { st[k] = Math.max(0, st[k] + amt[k]); if (amt[k] > 0 && R.WORKER[why]) { st.earned[k] = (st.earned[k] || 0) + amt[k]; rateLog(f, k, amt[k]); } }
     R.emit('resources', f, amt, why);
   };
+  // the hero's own gathering (kingdom.js / the HERO fork) adds straight to the stores
+  R.gain = (f, res, n) => { if ((res === 'wood' || res === 'stone') && n > 0) R.add(f, { [res]: n }, 'hero'); };
   R.spend = function (f, cost) { if (!R.afford(f, cost)) return false; R.add(f, { wood: -(cost.wood || 0), stone: -(cost.stone || 0) }, 'spent'); return true; };
   // a rolling five-minute record of what came in, for the "per minute" rates
   const rl = {};
@@ -209,6 +211,24 @@
   };
   // the King's Works (timber and stone carried to the king for each Kingdom Level) are gone: the workers gather now
   if (KR.Kingdom) { KR.Kingdom.needFor = () => null; KR.Kingdom.checkRise = () => {}; }
+  Sys.kingQuestFor = () => null; // (the King's Works quests are retired; the main quest line takes over)
+  Sys.unlockText = () => ''; Sys.cityUpgrades = () => [];
+  const qf0 = Sys.questsFor;
+  Sys.questsFor = function () { const r = qf0.apply(this, arguments); if (r) for (const k of ['avail', 'ready', 'active']) if (Array.isArray(r[k])) r[k] = r[k].filter((q) => q.type !== 'build'); return r; };
+  // advice: the court's next step first; nothing about status or Kingdom Levels any more
+  const adv0 = Sys.advice;
+  Sys.advice = function () {
+    const out = (adv0 ? adv0.apply(this, arguments) : []).filter((t) => !/status|Kingdom Level|King's Works|timber and stone/i.test(String(t)));
+    const f = myF(); const st = f && R.state(f); if (!st) return out;
+    const tips = [];
+    if (!st.liaison) tips.push('Hire the Court Liaison, just inside the Town Hall gate. The king has already paid: it costs you nothing.');
+    else {
+      for (const k of ['arborist', 'miner']) if (!st.workers[k].hired) tips.push(`Hire the ${R.WORKER[k].name} from the Court Liaison: free, and they gather ${R.WORKER[k].res} on their own.`);
+      const next = R.ORDER.find((id) => !st.buildings[id] && !R.building(f, id));
+      if (next) { const c = R.can(f, next); tips.push(c.ok ? `You can build the ${R.DEFS[next].name} now: open the kingdom (N).` : `Next: the ${R.DEFS[next].name}. ${c.why}`); }
+    }
+    return tips.concat(out);
+  };
 
   // ---------------- the court: the liaison and the workers ----------------
   const myF = () => (G.player && G.player.c ? G.player.c.faction : null);
@@ -326,6 +346,8 @@
         G.ents.filter((e) => (e.realmWorker || e.liaison || e.millHand) && e.city === f).forEach((e) => G.remove(e));
         const st = R.state(f); if (st) {
           spawnLiaison(f);
+          const king = G.ents.find((e) => e.type === 'king' && e.city === f && !e.removed);
+          if (king && !king.greetFn) king.greetFn = () => { const pf = myF(); if (pf !== f) return `You stand in the Town Hall of ${D.FACTIONS[f].city}. Choose your next words carefully.`; const s2 = R.state(f); return s2.liaison ? `${G.player.c.name}. ${Math.floor(s2.wood)} wood and ${Math.floor(s2.stone)} stone in our stores. Raise the walls, raise an army: my brother will not wait.` : `Welcome, ${G.player.c.name}. My Court Liaison waits just inside the gate below; I have paid for their service. Put them to work.`; };
           for (const k of ['arborist', 'miner']) if (st.workers[k].hired) spawnWorker(f, k);
           respawnHands(f);
         }

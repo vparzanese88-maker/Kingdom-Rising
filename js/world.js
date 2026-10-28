@@ -1263,6 +1263,9 @@
   const PLOTS = [['barracks', 10, 6], ['sawmill', 8, 6], ['cutter', 8, 6], ['range', 9, 6], ['stable', 8, 5], ['workshop', 9, 6]];
   const PLOT_MIN = { barracks: [8, 5], sawmill: [6, 5], cutter: [6, 5], range: [7, 5], stable: [6, 4], workshop: [7, 5] };
   W.realmMode = () => !!(KR.Realm && typeof KR.Realm.state === 'function');
+  // the kingdom's town keeps one size from the start (walls are upgraded, not moved out): at least the old level-4
+  // walls, so every building plot fits and none of them moves as the town fills up
+  { const cr0 = D.cityRadius; if (cr0 && !cr0._realm) { D.cityRadius = (lvl) => cr0(W.realmMode() ? Math.max(4, lvl) : lvl); D.cityRadius._realm = true; } }
   W.realmHas = (f, id) => { const R2 = KR.Realm; if (!R2 || typeof R2.has !== 'function') return id === 'barracks'; try { return !!R2.has(f, id); } catch (e) { return id === 'barracks'; } };
   // the level of a kingdom building (0 = not built), from KR.Realm
   W.realmLevel = (f, id) => { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); const v = st && st.buildings && st.buildings[id]; return typeof v === 'number' ? v : v ? 1 : 0; } catch (e) { return 0; } };
@@ -1292,6 +1295,9 @@
       }
       if (y0 <= cy + 5 && y0 + h >= cy + 1) return false; // the east and west gate roads (rows 1..5)
       for (const b of W.buildings) if (b.city === f && !(x0 + w + M <= b.x || b.x + b.w + M <= x0 || y0 + h + M + 1 <= b.y || b.y + b.h + M <= y0)) return false;
+      // ...nor where a building of a later town level will stand, so a plot keeps its place as the town grows
+      const rm = W.realmMode();
+      for (const [type, bx, by, bw, bh, minL] of CITY_LAYOUT) { if (type === 'house' && (rm ? minL > 2 : true)) continue; const X = cx + bx, Y = cy + by; if (!(x0 + w + M <= X || X + bw + M <= x0 || y0 + h + M + 1 <= Y || Y + bh + M <= y0)) return false; }
       return !taken(x0, y0, w, h, M);
     };
     for (const [id, w0, h0] of PLOTS) {

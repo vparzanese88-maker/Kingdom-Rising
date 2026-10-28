@@ -1023,6 +1023,8 @@
     if (sent && f === pf()) { const seen = War.spotted(f).some((s) => s.hunt); if (seen) G.log(`Enemy soldiers have been seen heading for your ${tgt.role === 'miner' || tgt.miner ? 'miner' : 'workers'}!`, 'status', '#ff9a6a'); }
     return sent;
   };
+  // doors on the way stand open for them (doors far from the hero are not animated)
+  const openDoor = (tx, ty) => { const d = W.doorAt && W.doorAt[ty * W.W + tx]; if (d && !d.locked) { d.want = 1; d.last = G.now; if (G.player && Math.hypot(tx * TS - G.player.x, ty * TS - G.player.y) > 900) d.open = 1; } };
   function huntTick(r, dt) {
     const H = r.hunt;
     if (r.delayT > 0) { r.delayT -= dt; return; }
@@ -1034,12 +1036,12 @@
     if (!H.back) {
       if (G.now > H.until) backHome();
       else {
-        if (!H.tgt || !War.isWorker(H.tgt)) { let best = null, bd = 30 * TS; for (const w of War.workersOf(War.enemyOf(r.faction))) { const d = Math.hypot(w.x - r.x, w.y - r.y); if (d < bd) { bd = d; best = w; } } H.tgt = best; if (!best && H.i >= H.path.length - 2) backHome(); }
+        if (!H.tgt || !War.isWorker(H.tgt)) { let best = null, bd = 30 * TS; for (const w of War.workersOf(War.enemyOf(r.faction))) { const d = Math.hypot(w.x - r.x, w.y - r.y); if (d < bd) { bd = d; best = w; } } H.tgt = best; if (!best) backHome(); }
         if (H.tgt) {
           const d = Math.hypot(H.tgt.x - r.x, H.tgt.y - r.y);
           if (d < 8 * TS) { G.addHate(r, H.tgt, 10); G.chase(r, H.tgt, dt, 1); return; }
           while (H.i < H.path.length - 1 && Math.hypot(H.path[H.i][0] * TS + 16 - r.x, H.path[H.i][1] * TS + 16 - r.y) < 22) H.i++;
-          const [px, py] = H.path[Math.min(H.i, H.path.length - 1)]; G.chase(r, { x: px * TS + 16, y: py * TS + 16 }, dt, 1); return;
+          const [px, py] = H.path[Math.min(H.i, H.path.length - 1)]; openDoor(px, py); G.chase(r, { x: px * TS + 16, y: py * TS + 16 }, dt, 1); return;
         }
       }
     }
@@ -1047,7 +1049,7 @@
       const rp = H.rpath || [];
       while (H.ri < rp.length - 1 && Math.hypot(rp[H.ri][0] * TS + 16 - r.x, rp[H.ri][1] * TS + 16 - r.y) < 22) H.ri++;
       if (!rp.length || (H.ri >= rp.length - 1 && Math.hypot(H.home[0] - r.x, H.home[1] - r.y) < 40)) { r.hunt = null; r.warState = 'garrison'; r.moving = false; const h = roster(r.faction).find((x) => x.id === r.hiredId); if (h) h.out = false; return; }
-      const [px, py] = rp[Math.min(H.ri, rp.length - 1)]; G.chase(r, { x: px * TS + 16, y: py * TS + 16 }, dt, 1);
+      const [px, py] = rp[Math.min(H.ri, rp.length - 1)]; openDoor(px, py); G.chase(r, { x: px * TS + 16, y: py * TS + 16 }, dt, 1);
     }
   }
   // the enemy hero fights what it came for, then goes back to its streets
@@ -1063,7 +1065,7 @@
       <div class="row bk-send"><button class="btn gold" id="bk-go" ${A2.home && !A2.atWar ? '' : 'disabled'}>⚔ Order the attack (${A2.home})</button>${A2.atWar ? '<button class="btn" id="bk-recall">Sound the retreat</button>' : ''}</div>
       <h4 class="abh">Your army <small class="dim">${A2.total} of ${A2.max} soldiers · ${A2.guards} of ${A2.guardMax} guards · ${A2.rams} ram${A2.rams === 1 ? '' : 's'}</small></h4><div class="bk-ros"></div>
       <h4 class="abh">Recruit <small class="dim">you have ${G.fmtCoins(c.coins)}</small></h4><div class="bk-hire"></div>
-      ${R ? `<h4 class="abh">Your rival</h4><p class="hint"><b>${esc(R.name)}</b>, level ${R.level} ${D.CLASSES[R.cls].name}, fights for ${esc(E.city)}. Difficulty: <b>${War.diff().name}</b>.</p>` : ''}
+      ${R ? `<h4 class="abh">Your rival</h4><p class="hint"><b>${esc(R.name)}</b>, level ${D.shown(R.level)} ${D.CLASSES[R.cls].name}, fights for ${esc(E.city)}. Difficulty: <b>${War.diff().name}</b>.</p>` : ''}
       <h4 class="abh">Victory</h4><p class="hint">Slay ${esc(E.king)} in the Town Hall of ${esc(E.city)}, yourself or with your war party, to win the war.</p>`;
     const go = b.querySelector('#bk-go'); if (go) go.onclick = () => { War.orderAttack(f); KR.UI.close('barracks'); };
     const rc = b.querySelector('#bk-recall'); if (rc) rc.onclick = () => { War.recall(f); War.renderBarracks(w); };
@@ -1127,7 +1129,7 @@
     const ov = document.createElement('div'); ov.className = 'vic-scene def-scene';
     ov.innerHTML = `<canvas class="vic-bg"></canvas><div class="vic-wrap"><div class="vic-text"><div class="vic-kicker">The war is lost</div><h1>Defeat</h1>
       <h2>${esc(F.city)} has fallen</h2><p class="vic-lead">${esc(k.name)} is slain in his own Town Hall, and the banners of ${esc(E.city)} fly over the ruins.</p>
-      <p class="vic-lead vic-speech"></p><p class="vic-note">Lost on ${D.DIFFICULTY[cp.difficulty].name}. You keep your hero at level ${c.level}, with your gear and gold.</p>
+      <p class="vic-lead vic-speech"></p><p class="vic-note">Lost on ${D.DIFFICULTY[cp.difficulty].name}. You keep your hero at level ${D.shown(c.level)}, with your gear and gold.</p>
       <div class="row vic-choice" style="display:none;gap:10px"><button class="btn gold big" id="def-again">Try again</button><button class="btn big" id="def-stay">Fight on</button></div></div></div>`;
     document.body.appendChild(ov);
     const bg = ov.querySelector('.vic-bg'), g = bg.getContext('2d'); const embers = []; const t0 = performance.now();

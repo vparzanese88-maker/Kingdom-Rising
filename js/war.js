@@ -267,7 +267,7 @@
     G.say(sq.order[0], U.pick(['Form up! We march!', 'For the kingdom! Move out!', 'To war!']), 3);
     const n = members.length;
     if (!quiet) {
-      G.log(`War horns sound! ${n} soldier${n > 1 ? 's' : ''} (level ${lv}) march out of the ${F.city} barracks together to attack ${E.city}.`, 'status', mine ? '#9affb8' : '#ff9a6a');
+      G.log(`War horns sound! ${n} soldier${n > 1 ? 's' : ''} (level ${D.shown(lv)}) march out of the ${F.city} barracks together to attack ${E.city}.`, 'status', mine ? '#9affb8' : '#ff9a6a');
       if (KR.UI && KR.UI.toast) KR.UI.toast(theirs ? `${E.city} will be attacked!` : `${F.city} marches to war`, theirs ? `${n} soldiers from ${F.city} are on their way. Defend your kingdom.` : `${n} soldiers march on ${E.city}. Join them to tear down its defenses.`);
       KR.A.sfx('warcry', 0.5);
     }
@@ -578,16 +578,16 @@
     else out.push(`${F.city} is a capital at Kingdom Level 5. Now march on ${E.city} and bring down ${E.king} to win the war.`);
     // bosses near the hero's level
     const boss = D.BOSSES.filter((b) => b.lv >= c.level - 3 && b.lv <= c.level + 6).sort((a, b) => Math.abs(a.lv - c.level) - Math.abs(b.lv - c.level))[0];
-    if (boss) { const reg = D.REGIONS[D.REGION_BY_ID[boss.region]]; out.push(`${boss.name} (level ${boss.lv}) lurks in ${reg ? reg.name : 'the wilds'}. Slaying it gives a lot of status. Bring good gear, mercenaries or friends.`); }
+    if (boss) { const reg = D.REGIONS[D.REGION_BY_ID[boss.region]]; out.push(`${boss.name} (level ${D.shown(boss.lv)}) lurks in ${reg ? reg.name : 'the wilds'}. Slaying it gives a lot of status. Bring good gear, mercenaries or friends.`); }
     // gear holes
     const empty = ['head', 'chest', 'legs', 'feet', 'hands'].filter((s) => !c.equip[s]);
-    if (empty.length >= 2) out.push(`You have nothing on your ${empty.slice(0, 2).join(' or ')}. Your stats come only from gear: visit the merchants, or craft your own at the smithy.`);
+    if (empty.length >= 2) out.push(`You have nothing on your ${empty.slice(0, 2).join(' or ')}. Your stats come only from gear: visit the merchants, take on quests, or win it from named foes and bosses.`);
     // mercenaries
     if ((c.mercs || []).length < Sys.mercSlots()) out.push(`You can lead ${Sys.mercSlots()} mercenar${Sys.mercSlots() > 1 ? 'ies' : 'y'} and have ${(c.mercs || []).length}. The Mercenary Trader in the plaza hires companions who fight at your level.`);
     // war
     const ros = War.roster(f).length;
     { const max = War.maxRecruits(f); const home = War.garrison(f).length; out.push(ros < max ? `Our barracks has room for ${max - ros} more soldier${max - ros > 1 ? 's' : ''}. Talk to the recruiter in the barracks to sign them up, then send the war party against ${E.city} when you are ready.` : `The barracks is full: ${home} soldiers are waiting for your order to march on ${E.city}.`); }
-    if (War.rivalActive && War.rivalActive()) { const R = War.rival(); out.push(`They say ${R.name}, a level ${R.level} ${D.CLASSES[R.cls].name}, leads ${E.city} now. Expect their soldiers at our gates when we least expect it.`); }
+    if (War.rivalActive && War.rivalActive()) { const R = War.rival(); out.push(`They say ${R.name}, a level ${D.shown(R.level)} ${D.CLASSES[R.cls].name}, leads ${E.city} now. Expect their soldiers at our gates when we least expect it.`); }
     out.push(`When the alarm bell rings, ${E.city}'s soldiers are attacking. Help the guards defend the towers at the gates.`);
     out.push(`The war is won when ${E.king} of ${E.city} falls, to you or to our war parties. Raise our city first: a stronger kingdom sends more soldiers and better ones.`);
     return out;
@@ -929,7 +929,7 @@
     const cap = Math.min(D.MAX_LEVEL, Math.max(2, p.c.level));
     // experience: about a quarter of an hour a level early on, much slower later
     if (R.level > cap) R.level = cap;
-    if (R.level < cap) { R.xp += 1 / 60; const need = 14 + R.level * 2; if (R.xp >= need) { R.xp = 0; R.level++; War.updateRivalAvatar(); if (R.level % 5 === 0) G.log(`Word from the front: ${R.name}, the ${D.CLASSES[R.cls].name} of ${F.city}, has reached level ${R.level}.`, 'status', '#ffb0a0'); } }
+    if (R.level < cap) { R.xp += 1 / 60; const need = 14 + R.level * 2; if (R.xp >= need) { R.xp = 0; R.level++; War.updateRivalAvatar(); if (R.level % 5 === 0) G.log(`Word from the front: ${R.name}, the ${D.CLASSES[R.cls].name} of ${F.city}, has reached level ${D.shown(R.level)}.`, 'status', '#ffb0a0'); } }
     // deeds: quests, the king's tasks and bosses earn status for the rival's city
     if (now >= R.nextDeed) {
       R.nextDeed = now + (200 + Math.random() * 250) * 1000;
@@ -960,7 +960,7 @@
       Sys.makeGuard(e, false); e.look = Object.assign(KR.S.classLook(R.cls, null), { race: R.race, gender: R.gender, skin: e.skin, hair: e.hair, hairStyle: e.hairStyle, cls: R.cls });
       War.makePatrol(e, 1);
     }
-    e.level = R.level; e.title = `Level ${R.level} ${D.RACES[R.race] ? D.RACES[R.race].name : ''} ${D.CLASSES[R.cls].name} · Rival hero`;
+    e.level = R.level; e.title = `Level ${D.shown(R.level)} ${D.RACES[R.race] ? D.RACES[R.race].name : ''} ${D.CLASSES[R.cls].name} · Rival hero`;
     e.hpMax = Math.round(G.mobHp(R.level) * 2.4); if (e.hp > e.hpMax || !e.hp) e.hp = e.hpMax; e.dmg = Math.round(3 + R.level * 2.2); e.delay = 2.2;
   };
 
@@ -1434,7 +1434,7 @@
       <div class="vic-text"><div class="vic-kicker">The war is won</div><h1>Victory</h1>
       <h2>${esc(c.name)}, Conqueror of ${esc(E.city)}</h2>
       <p class="vic-lead">${esc(k.name)} has fallen${byYou ? ' by your hand' : ''}. The banners of ${esc(F.city)} fly over ${esc(E.city)}, and every bard in the realm is already singing your name.</p>
-      <div class="vic-stats"><div><b>${c.level}</b><span>Level</span></div><div><b>${(c.kills || 0).toLocaleString()}</b><span>Foes slain</span></div><div><b>${mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm'}</b><span>Time at war</span></div><div><b>${c.victories}</b><span>${c.victories > 1 ? 'Victories' : 'Victory'}</span></div></div>
+      <div class="vic-stats"><div><b>${D.shown(c.level)}</b><span>Level</span></div><div><b>${(c.kills || 0).toLocaleString()}</b><span>Foes slain</span></div><div><b>${mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm'}</b><span>Time at war</span></div><div><b>${c.victories}</b><span>${c.victories > 1 ? 'Victories' : 'Victory'}</span></div></div>
       <p class="vic-note">${c.victories > 1 ? `Your ${ord(c.victories)} conquest. ` : ''}You keep your hero, your gear and your coin. A new age now begins: both kingdoms rebuild from Kingdom Level 1, and the war starts again.</p>
       <button class="btn gold big vic-go">Begin the new age</button></div></div>`;
     document.body.appendChild(ov);

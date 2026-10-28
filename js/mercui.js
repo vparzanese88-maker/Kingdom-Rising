@@ -42,7 +42,7 @@
     const p = G.player, c = p.c; const b = w.body; b.innerHTML = ''; c.petGear = c.petGear || {};
     const who = { cls: 'warrior', level: p.level };
     const pet = p.pet && !p.pet.dead ? p.pet : null;
-    b.appendChild(h('p', 'hint', pet ? `<b>${esc(pet.name)}</b> · Level ${pet.level} · HP ${pet.hpMax} · Hits for ~${pet.dmg} · Armor ${pet.ac}` : 'No pet is summoned. Gear given here stays with your pets and is worn by every pet you summon.'));
+    b.appendChild(h('p', 'hint', pet ? `<b>${esc(pet.name)}</b> · Level ${D.shown(pet.level)} · HP ${pet.hpMax} · Hits for ~${pet.dmg} · Armor ${pet.ac}` : 'No pet is summoned. Gear given here stays with your pets and is worn by every pet you summon.'));
     b.appendChild(h('h4', null, 'Equipped <small class="dim">click to take back</small>'));
     const doll = h('div', 'doll'); b.appendChild(doll);
     for (const sl of Sys.PET_SLOTS) { const box = h('div', 'eq'); box.appendChild(h('label', null, PET_NAMES[sl])); box.appendChild(UI.itemCell(c.petGear[sl], () => { Sys.petUnequip(sl); renderPetGear(w); }, 'equip', who)); doll.appendChild(box); }
@@ -104,7 +104,7 @@
     let m = ms.find((x) => x.c.id === sel) || ms[0]; sel = m.c.id;
     const st = m.c.stance || 'standard';
     b.innerHTML = `<div class="tabs">${ms.map((x) => `<button class="tab ${x === m ? 'on' : ''}" data-id="${x.c.id}">${esc(x.name.split(' ')[0])}</button>`).join('')}<span class="dim small" style="margin-left:auto">${ms.length} / ${Sys.mercSlots()} slots</span></div>
-      <div class="mc-head"><canvas width="84" height="100"></canvas><div class="mc-i"><b>${esc(m.name)}</b><span>Level ${m.c.level} ${D.RACES[m.c.race].name} ${D.CLASSES[m.c.cls].name} · ${Sys.mercRole(m.c.cls)}</span>
+      <div class="mc-head"><canvas width="84" height="100"></canvas><div class="mc-i"><b>${esc(m.name)}</b><span>Level ${D.shown(m.c.level)} ${D.RACES[m.c.race].name} ${D.CLASSES[m.c.cls].name} · ${Sys.mercRole(m.c.cls)}</span>
       <div class="bar hp"><i style="width:${(m.hp / m.hpMax) * 100}%"></i><span>${m.dead ? 'Recovering' : Math.ceil(m.hp) + ' / ' + m.hpMax}</span></div>${m.manaMax ? `<div class="bar mana"><i style="width:${(m.mana / m.manaMax) * 100}%"></i><span>${Math.floor(m.mana)} / ${m.manaMax}</span></div>` : ''}
       <small class="dim">Armor ${m.ac} · Weapon ${G.weaponDmg(m, 'main').dmg} dmg</small></div><div class="col"><button class="btn small" id="mc-call">Call to me</button><button class="btn small danger" id="mc-dis">Dismiss</button></div></div>
       <h4>Stance</h4><div class="stances">${Object.entries(Sys.STANCES).map(([k, s]) => `<button class="stance ${k === st ? 'on' : ''}" data-s="${k}"><b>${s.name}</b><small>${s.desc}</small></button>`).join('')}</div>

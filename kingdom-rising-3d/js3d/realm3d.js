@@ -18,10 +18,11 @@ const realmState = (f) => { try { const R = KR.Realm; return R && typeof R.state
 const levelOf = (f, id) => (W.realmLevel ? W.realmLevel(f, id) : 0);
 // how far along a building is (0..1), or null when nothing is being built on the plot
 function progressOf(f, id) {
+  try { if (KR.Realm && typeof KR.Realm.progress === 'function') { const v = KR.Realm.progress(f, id); return v == null ? null : Math.max(0, Math.min(1, v)); } } catch (e) {}
   const st = realmState(f); const list = st && st.construction; if (!list || !list.length) return null;
   const c = list.find((q) => q.id === id || q.plot === id); if (!c) return null;
   let p = c.p != null ? c.p : c.progress != null ? c.progress : c.dur ? c.t / c.dur : 0;
-  if (c.start != null && c.end != null) { const now = KR.G && KR.G.now != null ? KR.G.now : Date.now(); p = (now - c.start) / Math.max(1, c.end - c.start); }
+  if (c.start != null && c.end != null) p = (Date.now() - c.start) / Math.max(1, c.end - c.start); // realm.js times building in wall-clock ms
   return Math.max(0, Math.min(1, p || 0));
 }
 const banner = (f) => ((D.FACTIONS[f] || {}).banner || '#7a1e1e');
@@ -50,8 +51,10 @@ function logPile(mb, x, z, n, len, ry = 0) {
   const c = Math.cos(ry), s = Math.sin(ry); let k = 0;
   for (let row = 0; k < n; row++) for (let i = 0; i < n - row * 2 && k < n; i++, k++) {
     const o = (i - (n - row * 2 - 1) / 2) * 0.42; const r = 0.19 + ((i * 7 + row * 3) % 5) * 0.012;
-    mb.cyl('bark', x + c * o, 0.2 + row * 0.36, z - s * o, r, len, '#6a4a30', 8, null, ry, 0, Math.PI / 2);
-    mb.cyl('planks', x + c * o + s * len / 2, 0.2 + row * 0.36, z - s * o + c * len / 2, r * 0.92, 0.03, '#c8a070', 8, null, ry, 0, Math.PI / 2);
+    // a log lies along (-c, 0, s) (rolled onto its side, then turned by ry); the pile spreads across it, along (s, 0, c)
+    const lx = x + s * o, lz = z + c * o;
+    mb.cyl('bark', lx, 0.2 + row * 0.36, lz, r, len, '#6a4a30', 8, null, ry, 0, Math.PI / 2);
+    for (const e of [-1, 1]) mb.cyl('planks', lx - e * c * (len / 2 + 0.01), 0.2 + row * 0.36, lz + e * s * (len / 2 + 0.01), r * 0.92, 0.03, '#c8a070', 8, null, ry, 0, Math.PI / 2);
   }
 }
 function plankStack(mb, x, z, w, d, h, ry = 0) { for (let i = 0; i < Math.round(h / 0.12); i++) mb.boxB('planks', x, i * 0.12, z, w, 0.1, d, i % 2 ? '#c09060' : '#b08050', ry + (i % 3 - 1) * 0.02); mb.boxB('timber', x, 0, z, w + 0.1, 0.08, 0.16, '#4e3520', ry); }
@@ -365,20 +368,26 @@ function animWorkers(e, dt) {
 // e.worker: 'arborist' | 'miner'; e.carry: true on the way home with a load; e.working: chopping / mining now
 export function workerPose(av, e, st) {
   const rig = av.rig; if (!rig) return;
-  const job = e.worker === 'miner' ? 'miner' : 'arborist';
+  // realm.js: e.realmWorker 'arborist' | 'miner' walking out to gather, e.millHand 'sawmill' | 'cutter' at work in town
+  const kind = e.realmWorker || e.worker || (e.millHand === 'cutter' ? 'miner' : e.millHand ? 'arborist' : null);
+  const job = kind === 'miner' ? 'miner' : 'arborist';
   if (!av.wTool || av.wJob !== job) {
-    if (av.wTool && av.wTool.parent) av.wTool.parent.remove(av.wTool); if (av.wLoad && av.wLoad.parent) av.wLoad.parent.remove(av.wLoad);
-    for (const k of ['R', 'L']) { const h = rig.held[k]; if (h) h.visible = false; }
-    av.wTool = attach(rig, job === 'miner' ? 'pick' : 'axe'); av.wJob = job;
+    if (av.wTool && av.wTool.parent && av.wOwn) av.wTool.parent.remove(av.wTool); if (av.wLoad && av.wLoad.parent) av.wLoad.parent.remove(av.wLoad);
+    // the tool in hand: the axe or pick its look already carries, or one we give it
+    const own = rig.held.R && (rig.wtype === 'axe' || rig.wtype === 'pick');
+    if (own) { av.wTool = rig.held.R; av.wOwn = false; } else { for (const k of ['R', 'L']) { const h = rig.held[k]; if (h) h.visible = false; } av.wTool = attach(rig, job === 'miner' ? (e.millHand ? 'hammer' : 'pick') : 'axe'); av.wOwn = true; }
+    av.wJob = job;
     av.wLoad = loadMesh(job === 'miner' ? 'stone' : 'logs'); rig.bones.chest.add(av.wLoad); av.wLoad.position.set(0.18, 0.34, -0.06); av.wLoad.rotation.set(0, Math.PI / 2, 0.15);
   }
   const carry = !!e.carry; av.wLoad.visible = carry;
-  // the tool rides on the shoulder while carrying, in the hands while working
+  // the tool is put away while carrying, in the hands while working
   if (av.wTool) av.wTool.visible = !carry;
-  if (e.working && !carry) { av.wPh = ((av.wPh || 0) + K3.dt / (job === 'miner' ? 1.3 : 1.5)) % 1.25; if (av.wPh < 1) { st.animK = job === 'miner' ? 'mine' : 'chop'; st.animP = Math.min(0.999, av.wPh); } st.combat = false; }
+  if ((e.chopping || e.working || (e.millHand && !e.moving)) && !carry) { av.wPh = ((av.wPh || 0) + K3.dt / (job === 'miner' ? 1.3 : 1.5)) % 1.25; if (av.wPh < 1) { st.animK = job === 'miner' ? 'mine' : 'chop'; st.animP = Math.min(0.999, av.wPh); } st.combat = false; }
   if (carry) { st.combat = false; st.carryK = 1; }
 }
 
+// realm.js stands its own mill hands at the sawmill and the stone cutter: then the scripted ones stay away
+function hasMillHands(e) { const id = e.grp.name.split(' ')[2]; if (id !== 'sawmill' && id !== 'cutter') return false; const G = KR.G; return !!(G && G.ents && G.ents.some((n) => n.millHand === id && (n.city === e.f || n.faction === e.f) && !n.removed)); }
 // ---------- the updater: watch the plots and the camera ----------
 let acc = 0;
 function sync() {
@@ -407,7 +416,7 @@ K3.updaters.push((dt, t) => {
       if (e.wheel && d < 120) e.wheel.rotation.z -= dt * 0.6;
       if (e.pennants) for (const m of e.pennants) m.rotation.y = Math.sin(t * 1.7 + m.position.x) * 0.25;
       // workers are only made (and moved) when you are close enough to see them work
-      if (!e.workers && e.work.length && d < 75) makeWorkers(e, e.f);
+      if (!e.workers && e.work.length && d < 75) { if (e.millHands == null) e.millHands = hasMillHands(e); if (!e.millHands) makeWorkers(e, e.f); else e.workers = []; }
       else if (e.workers && d > 110) dropWorkers(e);
       if (e.workers) animWorkers(e, dt);
     }

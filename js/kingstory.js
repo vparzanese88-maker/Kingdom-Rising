@@ -25,80 +25,64 @@
   const SCN = {};
   SCN.crown = {
     home: { offer: [
-      ['King Aldric', 'There you are. Three months at sea, and you come home to a kingdom torn in half. Sit. Listen.'],
-      ['King Aldric', 'Two weeks after you sailed, my father raised his cup at the midwinter feast and drank poison. He died before dawn, in my arms.'],
-      ['King Aldric', 'And my brother? Theron ran. That same night, into the elven forests, with half the court at his heels. Now the elves call him king.'],
-      ['King Aldric', 'Valenmoor is a hamlet with a wall. I need it to be a kingdom. I need every soldier, every smith, every healer working, and I need you.'],
-      ['King Aldric', 'Go to my captain, my smith and the healer. See what they need. Then come back to me. We have a war to win.'],
+      ['King Aldric', 'My father was poisoned at the feast. My brother Theron fled to the elves.'],
+      ['King Aldric', 'See my captain, my smith and the healer, then come back.'],
     ], done: [
-      ['King Aldric', 'Good. You have seen it with your own eyes: we are thin, but we are not broken.'],
-      ['King Aldric', 'Now we build. Timber and stone first. A king without walls is just a man with a crown.'],
+      ['King Aldric', 'We are thin, but not broken. Now we build.'],
     ] },
     rats: { offer: [
-      ['King Aldric', 'Something is rotten beneath our streets. The Rat Tail Gang has been passing letters out through the sewer grates.'],
-      ['King Aldric', 'Letters to the elves. To Theron. Go down there, find the gang\'s leader, Fingers Fenwick, and bring me whatever he carries. Every scrap of it.'],
+      ['King Aldric', 'The Rat Tail Gang passes letters to Theron through the sewers.'],
+      ['King Aldric', 'Find their leader, Fingers Fenwick, and bring me what he carries.'],
     ], done: [
-      ['King Aldric', 'Give it here. A wax seal... a leaf. Theron\'s own leaf.'],
-      ['King Aldric', '"Nightshade, as before, from the alchemist of the marsh. Payment on delivery." As before. AS BEFORE! He poisoned Father, and now he means to poison me!'],
-      ['King Aldric', 'Burn the sewers if you must. No more letters leave this city.'],
+      ['King Aldric', 'Theron\'s seal. "Nightshade, as before." He poisoned Father.'],
+      ['King Aldric', 'No more letters leave this city.'],
     ] },
     cupbearer: { offer: [
-      ['King Aldric', 'There was a cupbearer at the feast. Old Wendel. He poured the wine, and he vanished the same night as my brother.'],
-      ['King Aldric', 'Word is he hides at the Wayfarer\'s Rest, at the crossroads. Find him. Make him tell you what he saw. Gently, if he lets you.'],
+      ['King Aldric', 'Old Wendel poured the wine that night, then vanished.'],
+      ['King Aldric', 'He hides at the Wayfarer\'s Rest. Hear what he saw.'],
     ], done: [
-      ['King Aldric', 'Theron\'s hand over the cask. A small green vial. Wendel saw it all, and kept silent out of fear.'],
-      ['King Aldric', 'I knew it. In my bones I knew it. Thank you. You have given me the truth, and the truth is a weapon.'],
+      ['King Aldric', 'Theron at the cask with a green vial. Now I know the truth.'],
     ] },
     ledger: { offer: [
-      ['King Aldric', 'The alchemist of the marsh. The one in the letter. The lizardfolk of the Dreadmire guard her shack and trade in her poisons.'],
-      ['King Aldric', 'She keeps a ledger: every buyer, every vial. Bring it to me, and the whole realm will read my brother\'s name in it.'],
+      ['King Aldric', 'The marsh alchemist sold the poison. Lizardfolk guard her.'],
+      ['King Aldric', 'Bring me her ledger.'],
     ], done: [
-      ['King Aldric', '"Midwinter. Nightshade, three drams. Paid in gold, sealed with the leaf." There it is, in ink.'],
-      ['King Aldric', 'I will have this read in every square of Valenmoor. Let them see who their true king is, and who is a murderer.'],
+      ['King Aldric', '"Nightshade, sealed with the leaf." Let every square read it.'],
     ] },
     war: { offer: [
-      ['King Aldric', 'Enough. We are strong now. The walls are high, the barracks are full, and the people know the truth.'],
-      ['King Aldric', 'Order the attack. March on Aelindor with our soldiers behind you. Cut down whatever stands between you and my brother.'],
-      ['King Aldric', 'And when you find him, look him in the eye. I want him to know whose son sent you.'],
+      ['King Aldric', 'We are strong now. Order the attack on Aelindor.'],
+      ['King Aldric', 'When you find my brother, tell him whose son sent you.'],
     ], done: [] },
   };
   SCN.sylvan = {
     home: { offer: [
-      ['King Theron', 'You made it home. Good. Sit with me a moment, before the world starts shouting again.'],
-      ['King Theron', 'At the midwinter feast my father drank to his sons, and the cup was poisoned. By dawn he was gone.'],
-      ['King Theron', 'Aldric had the feast-hall records burned that same morning, and his guards came for anyone who asked questions. So I ran. The elves took me in, and crowned me.'],
-      ['King Theron', 'Aelindor shelters everyone fleeing him now, and it is barely a village. I need it strong. I need you.'],
-      ['King Theron', 'Go and see my captain, my smith and the healer. They will tell you what we lack. Then come back, and we will begin.'],
+      ['King Theron', 'My father was poisoned at the feast. Aldric\'s guards came for me, so I fled.'],
+      ['King Theron', 'See my captain, my smith and the healer, then come back.'],
     ], done: [
-      ['King Theron', 'Now you know how thin we are spread. But these people chose us, and that is worth more than any wall.'],
-      ['King Theron', 'Still, walls help. Timber and stone, my friend. Let us build.'],
+      ['King Theron', 'These people chose us. Now we build.'],
     ] },
     rats: { offer: [
-      ['King Theron', 'There are rats in our sewers, and not the four-legged kind. Someone is passing letters out through the grates.'],
-      ['King Theron', 'Their leader is an orc they call Skulk the Drowned. Go down through the grate, bring me what he carries.'],
+      ['King Theron', 'Someone in our sewers passes letters to Aldric.'],
+      ['King Theron', 'Find the orc Skulk the Drowned and bring me what he carries.'],
     ], done: [
-      ['King Theron', 'Aldric\'s lion on the seal. Of course.'],
-      ['King Theron', '"Nightshade, as before, from the alchemist of the marsh." As before... He did it. My own brother poured death into our father\'s cup, and now he wants mine!'],
-      ['King Theron', 'Seal the grates. Nothing else leaves this city without my knowing.'],
+      ['King Theron', 'Aldric\'s lion. "Nightshade, as before." He killed our father.'],
+      ['King Theron', 'Seal the grates.'],
     ] },
     cupbearer: { offer: [
-      ['King Theron', 'Old Wendel, Father\'s cupbearer, poured the wine that night. He fled and has not been seen since.'],
-      ['King Theron', 'A trader swears he is hiding at the Wayfarer\'s Rest, at the crossroads. Find him, calm him, and hear what he saw.'],
+      ['King Theron', 'Old Wendel poured the wine that night and fled.'],
+      ['King Theron', 'He hides at the Wayfarer\'s Rest. Hear what he saw.'],
     ], done: [
-      ['King Theron', 'Aldric at the cask, before the toast. A green vial. Wendel saw it, and kept silent for fear of the king\'s guards.'],
-      ['King Theron', 'Then it is true. I never wanted it to be true.'],
+      ['King Theron', 'Aldric at the cask with a green vial. So it is true.'],
     ] },
     ledger: { offer: [
-      ['King Theron', 'The alchemist of the marsh sells to anyone with gold. The lizardfolk of the Dreadmire guard her trade.'],
-      ['King Theron', 'She keeps a ledger. If my brother bought nightshade, his seal is in it. Bring it to me.'],
+      ['King Theron', 'The marsh alchemist sold the poison. Lizardfolk guard her.'],
+      ['King Theron', 'Bring me her ledger.'],
     ], done: [
-      ['King Theron', '"Midwinter. Nightshade, three drams. Paid in gold, sealed with the lion." There it is, in her own hand.'],
-      ['King Theron', 'Let every elf and every man in Aelindor read it. The true king is the one who did not murder his father.'],
+      ['King Theron', '"Nightshade, sealed with the lion." Let Aelindor read it.'],
     ] },
     war: { offer: [
-      ['King Theron', 'We have the truth. We have the walls. We have the people.'],
-      ['King Theron', 'Order the attack, and march on Valenmoor with our soldiers behind you. End this.'],
-      ['King Theron', 'If you find him... let him speak, before the end. I want to know why.'],
+      ['King Theron', 'We have the truth and the walls. Order the attack on Valenmoor.'],
+      ['King Theron', 'If you find him, let him speak before the end.'],
     ], done: [] },
   };
   // what the king says when he sets you to his works, and when they are done
@@ -124,13 +108,13 @@
       Q[f + '_story0'] = { id: f + '_story0', f, giver: 'king', lv: 1, type: 'visit', roles: ['captain', 'smith', 'healer'], scene: 'home', title: 'Home from the Sea',
         text: `${kingOf(f)} wants you to see the city with your own eyes: speak with the captain of the guard, the smith and the healer, then return to him.`, reward: { coin: 150, status: 10 } };
       Q[f + '_story1'] = { id: f + '_story1', f, giver: 'king', lv: 4, type: 'collect', item: 'Sealed Letter', storyDrop: [leader], mobs: [leader], n: 1, scene: 'rats', title: 'Rats Beneath the Streets', req: f + '_build1',
-        text: `Someone in the sewers is passing letters to ${E.king}. Go down through the sewer outflow outside the city walls, find ${D.MOBS[leader].name} and bring the king whatever he carries.`, reward: { coin: 800, status: 30, item: { k: 'weapon', tier: 0, q: 1.25 } } };
+        text: `Enter the sewer outflow outside the walls, kill ${D.MOBS[leader].name} and bring the king what he carries.`, reward: { coin: 800, status: 30, item: { k: 'weapon', tier: 0, q: 1.25 } } };
       Q[f + '_story2'] = { id: f + '_story2', f, giver: 'king', lv: 12, type: 'visit', roles: ['cupbearer'], scene: 'cupbearer', title: 'The Cupbearer', req: f + '_story1',
-        text: 'Old Wendel, who poured the wine at the midwinter feast, is hiding at the Wayfarer\'s Rest at the crossroads. Find him and hear what he saw.', reward: { coin: 2500, status: 50 } };
+        text: 'Find old Wendel at the Wayfarer\'s Rest and hear what he saw.', reward: { coin: 2500, status: 50 } };
       Q[f + '_story3'] = { id: f + '_story3', f, giver: 'king', lv: 26, type: 'collect', item: "Alchemist's Ledger", storyDrop: ['lizard_shaman', 'lizard_warrior', 'lizardman'], mobs: ['lizard_shaman', 'lizard_warrior', 'lizardman'], n: 1, scene: 'ledger', title: "The Alchemist's Ledger", req: f + '_story2',
-        text: 'The lizardfolk of the Dreadmire guard the marsh alchemist who sold the nightshade. Take her ledger from them and bring it to the king.', reward: { coin: 12000, status: 90, item: { k: 'jewel', slot: 'neck', tier: 3, q: 1.2 } } };
+        text: 'Take the alchemist\'s ledger from the Dreadmire lizardfolk and bring it to the king.', reward: { coin: 12000, status: 90, item: { k: 'jewel', slot: 'neck', tier: 3, q: 1.2 } } };
       Q[f + '_story4'] = { id: f + '_story4', f, giver: 'king', lv: 35, type: 'warking', scene: 'war', title: `The Fall of ${E.city}`, req: f + '_story3',
-        text: `Order the attack from the Status tab of the kingdom (N), march on ${E.city} with your war party and bring down ${E.king}. Let him speak before the end.`, reward: { coin: 0, status: 0 } };
+        text: `Order the attack (N, then Status), march on ${E.city} and bring down ${E.king}.`, reward: { coin: 0, status: 0 } };
       for (let i = 1; i <= 4; i++) { const q = Q[f + '_build' + i]; if (q) { q.buildScene = i; if (i === 1) q.req = f + '_story0'; } }
     }
   };
@@ -254,73 +238,50 @@
     return { f, F, E, K: kingOf(f), bro: F.brother, broK: E.king, city: F.city, ecity: E.city, cls: clsName(c), me: c.name }; };
   const SCENE = {
     arrive: (c, e) => { const w = words(c); return [
-      L(e.name, `Ahoy there! Welcome back, ${w.cls}! Three months at sea and you come home in one piece. Mostly in one piece.`, { g: 'raise', shot: 'wide' }),
-      L(w.me, 'Good to be home. Why does everyone on this dock look like someone died?'),
-      L(e.name, `No time for ale and gossip, I'm afraid. The king must speak with you at once. It's urgent. He said "at once" twice, and ${w.K.replace(/^King /, '')} never says anything twice.`),
-      L(e.name, `Up through the town to the Town Hall, then all the way up the great stairs to the throne room. Big chair, bigger crown. You can't miss him.`, { g: 'thrust' }),
-      L(e.name, `Go on, ${w.cls}. And keep your wits about you: a lot has changed while you were away.`),
+      L(e.name, `Welcome back, ${w.cls}. The king must see you at once.`, { g: 'raise', shot: 'wide' }),
+      L(e.name, 'Go to the Town Hall and climb to the throne room.', { g: 'thrust' }),
     ]; },
-    arriveDone: (c, e) => { const w = words(c); const mine = w.f === 'crown'; return [
-      L(w.K, `Welcome home, sailor. ${w.me}, isn't it? The ${w.cls} from the spring fleet. Come closer. I don't bite. Not before supper.`, { g: 'raise', shot: 'wide' }),
-      L(w.K, 'I will be plain, because there is no time to be anything else. I need your help.'),
-      L(w.K, mine ? `While you were at sea, my father drank poison at his own feast. My brother ${w.bro} fled that same night to ${w.ecity}, and the elves put a crown on his head.` : `While you were at sea, my father drank poison at his own feast. My brother ${w.bro} blamed me, and his guards came for me, so I fled here, to ${w.city}.`),
-      L(w.K, `And now my spies tell me ${w.bro} is building an army in ${w.ecity}. Soldiers, siege engines, all of it. He is planning an attack, and he means to finish it in this hall.`, { g: 'thrust' }),
-      L(w.me, 'Then we had better be ready for him.'),
-      L(w.K, `We had better be more than ready. We need to raise these walls and build an army: one to defend ${w.city}, and one to march out and destroy ${w.broK}.`, { g: 'slam', gd: 1.1 }),
-      L(w.K, `Understand this: ${w.city} is not just a town. It is the kingdom. Everything we build, we build from wood and stone. You will see our stores at the top of your sight, always. When they run low, so does our future.`, { g: 'raise' }),
-      L(w.K, 'Wood and stone raise the buildings. Gold hires the soldiers. And the gold, I am afraid, will mostly come from you.'),
-      L(w.K, `Downstairs, by the doors of this hall, waits my Court Liaison. Take them into your service: I have paid their fee in advance, so it costs you nothing. They will run the court for you.`, { g: 'thrust' }),
-      L(w.K, `Off you go. And ${w.me}... welcome home. I mean it.`),
+    arriveDone: (c, e) => { const w = words(c); return [
+      L(w.K, `Welcome home, sailor. My brother ${w.bro} is raising an army to attack us.`, { g: 'raise', shot: 'wide' }),
+      L(w.K, `Raise the walls and build an army, then march on ${w.ecity}.`, { g: 'slam', gd: 1.1 }),
+      L(w.K, 'Wood and stone build. Gold hires soldiers.'),
+      L(w.K, 'My Court Liaison waits downstairs. Their fee is paid. Go.', { g: 'thrust' }),
     ]; },
     k1meet: (c, e) => { const w = words(c); return [
-      L(e.name, `Ah. You must be the one the king keeps sighing about. ${w.cls}, yes? I'm ${firstName(e.name)}, Court Liaison. I count things. Wood, stone, soldiers, the king's patience.`, { g: 'raise', shot: 'wide' }),
-      L(w.me, 'The king says you work for me now.'),
-      L(e.name, 'I will, the moment you say so. My fee is already paid: the king paid in advance. Every liaison dreams of that. Most of us are paid in promises.'),
-      L(e.name, 'Take me on, and I will keep the kingdom\'s ledgers for you wherever you wander. Say the word.', { g: 'thrust' }),
+      L(e.name, `I'm ${firstName(e.name)}, the Court Liaison. The king paid my fee.`, { g: 'raise', shot: 'wide' }),
+      L(e.name, 'Take me on and I run the kingdom for you.', { g: 'thrust' }),
     ]; },
     k1done: (c, e) => { const w = words(c); return [
-      L(e.name, 'Splendid. I am yours. Now, pay attention, because I will only explain this twice.', { g: 'raise', shot: 'wide' }),
-      L(e.name, 'Press N, wherever you are, and the kingdom opens before you. No need to run back up here for every little thing.'),
-      L(e.name, 'Status shows our stores, our workers, our army and every threat I hear of. From there you order the attack, when the day comes.'),
-      L(e.name, 'Build: the plots in town where new buildings rise. Workers: their tools and their yields. Army: soldiers for gold. Defenses: walls and towers.', { g: 'thrust' }),
-      L(e.name, `But a kingdom with no hands is a kingdom of paper. We need an Arborist and a Miner. Their wages are paid too. Shall I send for them?`),
+      L(e.name, 'Press N anywhere to open the kingdom.', { g: 'raise', shot: 'wide' }),
+      L(e.name, 'Status, Build, Workers, Army, Defenses: it is all there.'),
+      L(e.name, 'First, hire an Arborist and a Miner. Their wages are paid too.', { g: 'thrust' }),
     ]; },
     k2done: (c, e) => { const w = words(c); return [
-      L(e.name, 'There they go: an axe, a pick, and two very determined faces.', { g: 'raise', shot: 'wide' }),
-      L(e.name, `They'll walk out through the gates to the nearest trees and rocks, work, and carry every load home to the stores. Watch the numbers at the top of your sight climb.`),
-      L(e.name, `The monsters out there leave them alone: they're not worth eating, apparently. Only ${w.bro}'s raiders and his heroes will go after them. If one falls, they're back on their feet within the minute.`),
-      L(e.name, 'And you can help. Any tree or boulder you right-click and work goes straight into the kingdom\'s stores, not your pockets.', { g: 'chop', gd: 1.0 }),
-      L(e.name, 'Our first works: a Sawmill and a Stone Cutter. Open the kingdom with N, look at the Build tab, and build them the moment we can afford them.', { g: 'thrust' }),
+      L(e.name, 'They gather outside the walls and bring loads home.', { g: 'raise', shot: 'wide' }),
+      L(e.name, `Only ${w.bro}'s raiders hunt them. The fallen return in a minute.`),
+      L(e.name, 'Build the Sawmill and the Stone Cutter next.', { g: 'thrust' }),
     ]; },
     k3done: (c, e) => { const w = words(c); return [
-      L(e.name, 'Mind the sawdust, friend. Oh, it\'s you! The one who built us a mill. Welcome to the loudest building in town.', { g: 'hop', shot: 'wide' }),
-      L(e.name, 'The Sawmill takes the arborist\'s logs and the Stone Cutter dresses the miner\'s stone. Every load counts for more now.'),
-      L(e.name, 'Build them up, three levels each. Every level, a bigger building, one more pair of hands like mine, and more wood and stone in every load.', { g: 'raise' }),
-      L(e.name, 'And if you\'ve gold to spare, the Workers tab sells the arborist and the miner better tools: bigger yields, three upgrades each. Gold well spent, I promise.'),
-      L(e.name, `Now, the king will want soldiers. With a mill and a cutter standing, the Barracks can go up. Off you go: I've planks to cut.`, { g: 'thrust' }),
+      L(e.name, 'Mill and cutter both upgrade three times: more hands, bigger loads.', { g: 'raise', shot: 'wide' }),
+      L(e.name, 'Better tools are in the Workers tab, for gold.'),
+      L(e.name, 'Now build the Barracks.', { g: 'thrust' }),
     ]; },
     k4done: (c, e) => { const w = words(c); return [
-      L(e.name, 'So you are the one who built me a roof. Stand up straight. Hm. You\'ll do.', { shot: 'wide' }),
-      L(e.name, 'I\'m the Recruiter. I raise guards to hold our walls and raiders to march on our enemies. Wood and stone built these walls. Soldiers want gold.'),
-      L(e.name, 'Gold comes from you: quests done, loot sold, and the purses of anyone with a weapon and a grudge. Bandits, orcs, named brutes and bosses pay best.', { g: 'thrust' }),
-      L(e.name, `Hire three raiders for a start. That's the beginning of an army. ${w.bro} won't be impressed, but he'll notice.`),
+      L(e.name, "I'm the Recruiter. Guards hold the walls, raiders march. Both cost gold.", { shot: 'wide' }),
+      L(e.name, 'Earn gold from quests, loot, and killing named foes and bosses.', { g: 'thrust' }),
+      L(e.name, `Hire ${RAIDERS} raiders to start.`),
     ]; },
     k5done: (c, e) => { const w = words(c); return [
-      L(e.name, 'Look at them. Shiny boots, sharp blades, absolutely no idea what\'s coming. Perfect.', { g: 'hop', shot: 'wide' }),
-      L(e.name, 'There\'s more to an army than swords. Build an Archery Range for archers and towers on the walls. Then a Stable for cavalry, and a Siege Workshop.'),
-      L(e.name, `The Workshop builds the battering ram. When ${w.ecity}'s bells ring, its gates slam shut, and the ram knocks them down: five good blows. Catapults and trebuchets for the long reach.`, { g: 'slam', gd: 1.1 }),
-      L(e.name, 'Walls and archer towers you buy in Defenses: a palisade becomes stone walls, then fortified gates. Every wall you raise, I can post more guards on it.'),
-      L(e.name, 'And go and see the king. He\'s been pacing.', { g: 'thrust' }),
+      L(e.name, 'Next: Archery Range, Stable, then the Siege Workshop.', { g: 'raise', shot: 'wide' }),
+      L(e.name, 'The Workshop builds the ram. Walls and towers are in Defenses.', { g: 'slam', gd: 1.1 }),
+      L(e.name, 'Now report to the king.', { g: 'thrust' }),
     ]; },
     k6meet: (c, e) => { const w = words(c); return [
-      L(w.K, `So. A kingdom that saws its own timber, cuts its own stone and drills its own soldiers. My father would have wept. Well. He would have nodded, which was the same thing.`, { g: 'raise', shot: 'wide' }),
-      L(w.K, `${w.bro} will not sit and wait for us. Neither will we. It is time to show ${w.ecity} that we are no hamlet.`),
-      L(w.K, 'When you are ready, open the kingdom and order the attack from the Status tab. The war party marches; walk with them, or trust them and stay. Bring a ram if you have one.', { g: 'thrust' }),
-      L(w.K, `Whatever happens out there, come home. ${w.city} needs you more than it needs a victory.`),
+      L(w.K, `It is time to march on ${w.ecity}.`, { g: 'raise', shot: 'wide' }),
+      L(w.K, 'Order the attack from the Status tab. Bring a ram if you have one.', { g: 'thrust' }),
     ]; },
     k6done: (c, e) => { const w = words(c); return [
-      L(w.K, `There they go. The first march of ${w.city} in a generation. Listen to the drums.`, { g: 'raise' }),
-      L(w.K, `Go with them, or guard the walls. Either way, the war has begun. May it end with ${w.broK} on his knees.`, { g: 'thrust' }),
+      L(w.K, `The war has begun. Bring ${w.broK} to his knees.`, { g: 'thrust' }),
     ]; },
   };
   // ---- the quests ----
@@ -337,19 +298,19 @@
       const F = D.FACTIONS[f], E = D.FACTIONS[enemyOf(f)], K = kingOf(f), id = (k) => f + '_' + k;
       const base = { f, lv: 1, main: true };
       Q[id('arrive')] = Object.assign({ id: id('arrive'), giver: 'harbor', turnin: 'king', type: 'meet', meet: 'king', title: 'An Urgent Summons', next: [id('k1')], scDone: 'arriveDone', noGear: true, reward: { coin: 25 },
-        get text() { const c = G.player && G.player.c; return `Welcome back, ${c ? clsName(c) : 'sailor'}. The king must speak with you at once: it's urgent. Climb the great stairs of the Town Hall in ${F.city} to the throne room and speak with ${K}.`; } }, base);
+        get text() { return `See ${K} in the throne room of the ${F.city} Town Hall.`; } }, base);
       Q[id('k1')] = Object.assign({ id: id('k1'), giver: 'king', turnin: 'liaison', type: 'realm', cond: 'liaison', meet: 'liaison', req: id('arrive'), title: 'The Court Liaison', next: [id('k2')], scMeet: 'k1meet', scDone: 'k1done', noGear: true, reward: { coin: 40 },
-        text: `${K} has paid for a Court Liaison in advance. Find them by the doors of the Town Hall in ${F.city} and take them into your service.` }, base);
+        text: `Hire the Court Liaison by the Town Hall doors (free).` }, base);
       Q[id('k2')] = Object.assign({ id: id('k2'), giver: 'liaison', turnin: 'liaison', type: 'realm', cond: 'workers', req: id('k1'), title: 'Hands for the Work', next: [id('k3')], scDone: 'k2done', noGear: true, reward: { coin: 40, wood: 30, stone: 30 },
-        text: `A kingdom needs hands. Hire the Arborist and the Miner through the Court Liaison (their wages are paid) and send them out for wood and stone.` }, base);
+        text: `Hire the Arborist and the Miner through the Court Liaison (free).` }, base);
       Q[id('k3')] = Object.assign({ id: id('k3'), giver: 'liaison', turnin: 'sawyer', type: 'realm', cond: 'mills', req: id('k2'), title: 'Mill and Quarry', next: [id('k4')], scDone: 'k3done', reward: { coin: 120, wood: 60, stone: 60 },
-        text: `Gather enough wood and stone to build the Sawmill and the Stone Cutter (press N, then Build). Your workers bring it in, and anything you chop or mine with a right-click goes to the stores too. Then visit the sawmill.` }, base);
+        text: `Build the Sawmill and the Stone Cutter (N, then Build). Then visit the sawmill.` }, base);
       Q[id('k4')] = Object.assign({ id: id('k4'), giver: 'sawyer', turnin: 'recruiter', type: 'realm', cond: 'barracks', req: id('k3'), title: 'The Barracks', next: [id('k5')], scDone: 'k4done', noGear: true, reward: { coin: 150, wood: 80, stone: 80 },
-        text: `With a Sawmill and a Stone Cutter standing, ${F.city} can raise a Barracks. Build it (N, then Build) and meet the Recruiter there.` }, base);
+        text: `Build the Barracks (N, then Build) and meet the Recruiter.` }, base);
       Q[id('k5')] = Object.assign({ id: id('k5'), giver: 'recruiter', turnin: 'recruiter', type: 'realm', cond: 'raiders', req: id('k4'), title: 'Steel and Wheels', next: [id('k6')], scDone: 'k5done', reward: { coin: 250 },
-        text: `Hire ${RAIDERS} raiders with gold (N, then Army, or at the Barracks). Gold comes from quests, selling loot, and humanoids, named monsters and bosses. Then report to the Recruiter.` }, base);
+        text: `Hire ${RAIDERS} raiders with gold (N, then Army). Then report to the Recruiter.` }, base);
       Q[id('k6')] = Object.assign({ id: id('k6'), giver: 'recruiter', turnin: 'king', type: 'realm', cond: 'march', meet: 'king', auto: true, req: id('k5'), title: 'The First March', next: [], scMeet: 'k6meet', scDone: 'k6done', reward: { coin: 400 },
-        text: `Go up to ${K} in the Town Hall, then order the attack on ${E.city} from the Status tab of the kingdom (N). March with them if you dare.` }, base);
+        text: `See ${K}, then order the attack on ${E.city} (N, then Status).` }, base);
       // the old opening errands stay only for heroes already on them; the story continues after the first march
       if (Q[id('story0')]) Q[id('story0')].req = id('retired');
       if (Q[id('story1')]) Q[id('story1')].req = id('k6');

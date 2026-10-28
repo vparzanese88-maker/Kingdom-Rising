@@ -12,6 +12,7 @@ import { fx, rgb } from './fx.js';
 import { view } from './camera.js';
 import { cardTex } from './texgen.js';
 import { buildFlags } from './structures.js';
+import { siegeModel } from './siege3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
 const root = new THREE.Group(); root.name = 'actors'; K3.scene.add(root);
@@ -105,6 +106,7 @@ function clearAvatar(av) {
 function build(av) {
   const e = av.e; clearAvatar(av);
   if (av.peer) { const look = peerLook(e); av.sig = lookSig(look); av.rig = makeHumanoid(look, 'human'); av.kind = 'human'; av.obj.add(av.rig.mesh); av.height = av.rig.top; return; }
+  if (e.ram || e.big) { const m = siegeModel(e); if (m) { av.model = m; av.kind = 'war'; av.obj.add(m.obj); av.height = m.height; return; } } // siege3d.js: the ram and the great engines
   if (e.siege) { av.model = warModel(e); av.kind = 'war'; av.obj.add(av.model.obj); av.height = e.siege === 'archer' ? 9 : 3.2; if (e.siege === 'archer') { const ar = makeHumanoid({ race: 'human', gender: 'm', skin: '#d8b090', hair: '#3a2a1a', armor: { kind: 'leather', col: '#4a6b35', trim: '#3a2618' }, hat: 'hood', hatCol: '#4a6b35', weapon: 'ARC', rangeW: 'ARC' }, 'human'); ar.mesh.position.set(0, 6.7 * 1.25, 0); av.model.obj.add(ar.mesh); av.archer = ar; } return; }
   if (e.bell) { av.model = bellModel(e); av.kind = 'war'; av.obj.add(av.model.obj); av.height = 4.6; return; }
   if (e.raidBoard) { av.model = boardModel(e); av.kind = 'war'; av.obj.add(av.model.obj); av.height = 2.6; return; }
@@ -355,6 +357,7 @@ function updateAvatar(av, dt, ctx) {
 function UI_npcFacing(e) { const u = KR.UI; return u && u._npc === e && u.wins && u.wins.npc && !u.wins.npc.el.hidden; }
 function warAnim(av, e) {
   const P = av.model.parts;
+  if (P.anim) return P.anim(av, e, K3.dt);
   if (P.turret) { const ang = e.aimAng || 0; P.turret.rotation.y = Math.PI / 2 - ang - av.yaw; }
   if (P.arm) { const rec = e.fireK || 0; P.arm.rotation.x = rec > 0 ? -0.9 + (1 - rec) * 2.2 : 1.1; }
   if (P.barrel) { const rec = e.fireK || 0; P.barrel.position.z = -rec * 0.3; }
@@ -415,7 +418,7 @@ function updateProjectiles(dt) {
     const sy = pr.src ? srcY(pr.src) : 1.4, ty = pr.tgt ? srcY(pr.tgt) : 1.2;
     const sx = pr.src ? pr.src.x : pr.x, sz = pr.src ? pr.src.y : pr.y; const tx = pr.tgt ? pr.tgt.x : pr.x, tz = pr.tgt ? pr.tgt.y : pr.y;
     const total = Math.hypot(tx - sx, tz - sz) || 1; const done = Math.hypot(pr.x - sx, pr.y - sz); const k = K3.clamp(done / total, 0, 1);
-    const arc = pr.vis === 'boulder' ? Math.sin(k * Math.PI) * Math.min(8, total * PX * 0.3) : pr.vis === 'arrow' ? Math.sin(k * Math.PI) * total * PX * 0.04 : 0;
+    const arc = pr.vis === 'boulder' ? Math.sin(k * Math.PI) * ((pr.opt && pr.opt.arc) || Math.min(8, total * PX * 0.3)) : pr.vis === 'arrow' ? Math.sin(k * Math.PI) * total * PX * 0.04 : 0;
     const y = geo.floorAt(pr.x, pr.y) * 0 + K3.lerp(geo.floorAt(sx, sz) + sy, geo.floorAt(tx, tz) + ty, k) + arc;
     o.position.set(pr.x * PX, y, pr.y * PX);
     const ang = Math.atan2(tx - sx, tz - sz); o.rotation.set(0, ang, 0);

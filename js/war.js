@@ -62,6 +62,7 @@
         if (!dx && !dy) continue; const nx = x + dx, ny = y + dy;
         if (W.isBlockedTile(nx, ny, opts)) continue;
         if (dx && dy && (W.isBlockedTile(x + dx, y, opts) || W.isBlockedTile(x, y + dy, opts))) continue;
+        if (W.edge && W.edgeBlk(x, y, dx, dy)) continue; // the castle's balustrades: round by the stairs
         const nk = ny * WW + nx; if (closed[nk]) continue;
         // stay a little away from walls and props so wide soldiers don't scrape corners
         const step = dx && dy ? 1.414 : 1; const tn = W.tile(nx, ny); const offRoad = opts && opts.roads && tn !== KR.T.ROAD && tn !== KR.T.BRIDGE && tn !== KR.T.COBBLE && tn !== KR.T.STONE ? step * 2.6 : 0; // armies keep to the roads

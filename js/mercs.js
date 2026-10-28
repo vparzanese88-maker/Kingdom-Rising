@@ -198,7 +198,12 @@
       // 1. healing
       const heals = ab.filter((x) => (x.cat === 'heal' || x.cat === 'bigheal' || x.cat === 'selfheal') && ready(m, x));
       if (heals.length) {
-        const hurt = party.filter((e) => e.hp / e.hpMax < st.healAt).sort((a, b) => a.hp / a.hpMax - b.hp / b.hpMax)[0];
+        // in Focus healing the hero always comes first; with the group healthy, a healer tends the wounded soldiers of your war party nearby
+        let hurt = st.healFirst && !p.dead && p.hp / p.hpMax < st.healAt ? p : party.filter((e) => e.hp / e.hpMax < st.healAt).sort((a, b) => a.hp / a.hpMax - b.hp / b.hpMax)[0];
+        if (!hurt && heals.some((x) => x.cat === 'heal' || x.cat === 'bigheal')) {
+          const cut = Math.min(st.healAt, 0.7); let bs = cut;
+          for (const o of G.ents) { if (!o.raider || o.dead || o.removed || o.ram || o.nonCombat || o.faction !== p.c.faction || o.warState === 'garrison') continue; const k = o.hp / o.hpMax; if (k < bs && Math.hypot(o.x - m.x, o.y - m.y) < 450) { bs = k; hurt = o; } }
+        }
         if (hurt) {
           const ratio = hurt.hp / hurt.hpMax;
           let pick = null;

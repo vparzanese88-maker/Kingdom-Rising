@@ -165,7 +165,7 @@ function swimY(e) { const wl = geo.waterAt(e.x, e.y), g = geo.floorAt(e.x, e.y);
 // a jump: up and down in a parabola over JUMP_T seconds (cosmetic: the game itself stays on the ground)
 export const JUMP_T = 0.62, JUMP_H = 0.75;
 export const jumpHeight = (t) => (t == null || t < 0 || t >= JUMP_T ? 0 : 4 * JUMP_H * (t / JUMP_T) * (1 - t / JUMP_T));
-const heroJump = (e) => (e === G.player && K3.jumpT != null ? jumpHeight(K3.jumpT) : 0);
+const heroJump = (e) => (e === G.player ? (K3.jumpT != null ? jumpHeight(K3.jumpT) : 0) + (K3.leapY || 0) : 0); // a hop, or a leap aboard or ashore (boarding3d.js)
 export function actorY(e) {
   const av = avatars.get(keyOf(e)); const base = floorOf(e) + heroJump(e) + (av ? av.jumpY || 0 : 0);
   return base + (av ? av.hoverNow || 0 : 0);
@@ -580,7 +580,7 @@ function updateBlobs(cam) {
   for (const [, av] of avatars) {
     if (n >= 192) break; const e = av.e; if (!e || !av.obj.visible || av._err || av.kind === 'board' || av.kind === 'war' || e.dead) continue;
     const o = av.obj.position; if (Math.abs(o.x - cam.x) > 40 || Math.abs(o.z - cam.z) > 40) continue;
-    const up = (av.hoverNow || 0) + (av.jumpY || 0) + (e === G.player && K3.jumpT != null ? jumpHeight(K3.jumpT) : 0);
+    const up = (av.hoverNow || 0) + (av.jumpY || 0) + heroJump(e);
     const gy = o.y - up; const r = Math.max(0.5, ((av.peer ? 12 : e.r || 12) * (typeof e.scale === 'number' ? e.scale : 1)) * PX * 2.4) * (1 - Math.min(0.5, up * 0.4)); // a player's shared 'r' is their race
     _bp.set(o.x, gy + 0.03, o.z); _bs.set(r * 2, r * 2, 1); _bm.compose(_bp, _bq, _bs); blobs.setMatrixAt(n++, _bm);
   }
@@ -620,6 +620,7 @@ export const actors = {
     const t0 = performance.now(); let built = 0;
     const consider = (e, peer) => {
       if (!e || e.removed || e.hidden) return;
+      if (K3.introOn && e !== G.player && !peer && G.isHostile && G.isHostile(G.player, e)) return; // the homecoming film shows no monsters
       const d = Math.hypot(e.x * PX - cam.x, e.y * PX - cam.z);
       const key = keyOf(e);
       if (d > 160) { const av = avatars.get(key); if (av) { root.remove(av.obj); avatars.delete(key); } return; }

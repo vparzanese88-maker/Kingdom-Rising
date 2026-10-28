@@ -76,6 +76,10 @@ canvas.k3-hero:active { cursor: grabbing; }
 .k3c-flash { position: absolute; inset: 0; background: radial-gradient(circle, #fff6e0, #ffd080 60%, #a86020); opacity: 0; }
 .k3c-skip { position: absolute; right: 18px; bottom: calc(11vh + 14px); pointer-events: auto; }
 .k3-cine.out { opacity: 0; transition: opacity 0.9s; }
+.k3i-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 1.3s ease-in; }
+.k3-intro.fade .k3i-fade { opacity: 1; }
+.k3-intro .k3i-title { bottom: auto; top: 13vh; transition: opacity 2.2s, transform 2.6s; }
+.k3-intro .k3i-title h2 { letter-spacing: 0.06em; }
 
 /* the homecoming by sea: subtitles with the speaker's name, and tips at the side */
 .k3i-sub { position: absolute; left: 50%; bottom: calc(11vh + 22px); transform: translate(-50%, 10px); width: min(820px, 90vw); text-align: center; opacity: 0; transition: opacity 0.7s, transform 0.7s; text-shadow: 0 2px 8px #000, 0 0 20px rgba(0,0,0,0.9); }

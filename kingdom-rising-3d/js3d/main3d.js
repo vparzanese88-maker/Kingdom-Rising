@@ -26,6 +26,7 @@ await import('./cine3d.js');
 await import('./heroview.js');
 await import('./wildlife.js');
 await import('./intro3d.js');
+await import('./boarding3d.js');
 await import('./scene3d.js');
 await import('./cover3d.js');
 
@@ -248,6 +249,7 @@ function loopBody(now) {
   if (K3.jumpT != null) { K3.jumpT += dt; if (K3.jumpT >= JUMP_T || p.dead) K3.jumpT = null; }
   G.update(gdt, { mx, my }); mk('game');
   Sys.worldTick(gdt); mk('worldTick');
+  if (K3.leapUpdate) K3.leapUpdate(dt); // a leap aboard a ship or over her side
   p.c.playTime = (p.c.playTime || 0) + dt;
   if (p.drunkUntil && p.drunkUntil < G.now) { p.drunkUntil = 0; p.drinks = 0; }
   R.cam.x = p.x; R.cam.y = p.y - 20;

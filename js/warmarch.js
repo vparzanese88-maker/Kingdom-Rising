@@ -2388,6 +2388,7 @@
   const clampDeck = (s, along, across) => { const d = DIM[s.navalKind] || DIM.galleon; const half = d.L / 2 - 30; along = U.clamp(along, -half, half);
     const k = Math.pow(Math.max(0, 1 - Math.pow(along / (d.L / 2), 2)), 0.4); const w = (d.B / 2) * 0.78 * k; return [along, U.clamp(across, -w, w)]; };
   const toWorld = (s, a, c) => { const h = s.heading || 0, ch = Math.cos(h), sh = Math.sin(h); return [s.x + ch * a - sh * c, s.y + sh * a + ch * c]; };
+  R.DIM = DIM; R.clampDeck = clampDeck; R.toWorld = toWorld; // (3D: jumping aboard and over the side, js3d/boarding3d.js)
   const place = (p) => { const s = p.onShip; const [x, y] = toWorld(s, p.deckPos[0], p.deckPos[1]); p.x = x; p.y = y; p.homeX = x; p.homeY = y; p.moveTo = null; R.placed = [x, y]; };
   // walking the deck: the step turned into her frame, kept inside the bulwarks
   G.deckMove = function (p, dx, dy) {
@@ -2413,7 +2414,7 @@
     if (!opts.far && Math.hypot(s.x - p.x, s.y - p.y) - (s.r || 70) > R.reach(s)) { G.log('Get closer to her first: walk out along the pier.', 'sys', '#ffb24a'); return false; }
     if (p.cast) G.interrupt && G.interrupt(p, 'You climb aboard and your spell fizzles.');
     p.boardFrom = R.landNear(p.x, p.y, 20) || [p.x, p.y]; p.onShip = s; p.deckPos = clampDeck(s, -40, 0); p.swim = false; place(p);
-    G.log(`You climb aboard the ${s.name}. A free ride: walk her deck, and go ashore when she lies off the enemy's coast. (/disembark)`, 'status', '#9ad8ff'); sfx('door', 0.5);
+    if (!opts.quiet) G.log(`You climb aboard the ${s.name}. Walk her deck, and go ashore when she lies off the enemy's coast. (/disembark)`, 'status', '#9ad8ff'); sfx('door', 0.5);
     return true;
   };
   R.leave = function (why) {
@@ -2469,11 +2470,13 @@
     if (p.onShip) {
       const s = p.onShip; const where = ({ moor: 'at anchor in harbour', out: 'under sail', siege: 'lying off the enemy coast', home: 'sailing home' })[s.state] || s.state;
       txt = `⚓ Aboard the ${s.name}, ${where}`;
+      if (R.jumpable) txt += ': jump over the side to leave (Space at her rail)';
       if (s.state === 'moor' || s.state === 'siege') btns.push([s.state === 'siege' ? 'Row ashore' : 'Go ashore', () => R.leave()]);
       else btns.push(['Jump overboard', () => R.leave('jump')]);
     } else {
       const s = R.near(); const offer = R.offerUntil > G.now && N.alive(pf()).some((x) => x.state === 'out');
-      if (s) { txt = `⚓ The ${s.name}`; btns.push(['Board (free ride)', () => R.board(s)]); }
+      if (s && R.jumpable && R.jumpable(s)) txt = `⚓ The ${s.name}: jump aboard (Space)`;
+      else if (s && !R.jumpable) { txt = `⚓ The ${s.name}`; btns.push(['Climb aboard', () => R.board(s)]); }
       else if (offer) { const lead = N.alive(pf()).find((x) => x.state === 'out'); if (lead) { txt = '⚓ The fleet sails'; btns.push([`Ride with the ${lead.name}`, () => { if (R.board(lead, { far: true })) R.offerUntil = 0; }]); } }
     }
     const key = txt + btns.map((b) => b[0]).join('|');

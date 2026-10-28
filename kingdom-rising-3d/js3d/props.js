@@ -194,7 +194,7 @@ P.poisonchest = (o, d) => { o.boxB('planks', 0, 0, 0, 1.05, 0.6, 0.66, '#3a2a1e'
   o.box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, 0.7).box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, -0.7);
   o.cylB('paint', -0.25, 0.92, 0.05, 0.05, 0.14, '#3a5a2a', 8).cylB('paint', -0.25, 1.06, 0.05, 0.02, 0.05, '#2a3a1a', 6).box('paint', -0.05, 0.93, -0.05, 0.16, 0.02, 0.12, '#d8d0b8'); };
 P.grate = (o, d) => { o.box('dark', 0, 0.01, 0, 1.2, 0.02, 0.8, null); for (let k = -2; k <= 2; k++) o.box('metalv', k * 0.24, 0.03, 0, 0.05, 0.04, 0.8, '#4a4440'); o.box('metalv', 0, 0.03, 0, 1.2, 0.04, 0.06, '#4a4440'); };
-P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry, arrival: !!d.arrival }); };
+P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', style: d.harbour || null, x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry, arrival: !!d.arrival }); };
 P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z: o.z, v: d.v }); };
 P.well2 = P.well;
 // ---------- village life (world.js growTown): fences, haystacks, woodpiles, troughs, livestock, houses going up ----------
@@ -266,7 +266,7 @@ export function buildProps(mb, list, out) {
 export function makeAnimProp(a) {
   const mb = new MB();
   const o = new Put(mb, 0, 0, 0, 0, { flames: [], smokes: [], emitters: [] });
-  if (a.kind === 'boat' && a.size) { const g = buildShip(a.size, a.v); g.userData.anim = a; g.position.set(a.x, a.y, a.z); g.rotation.y = a.ry || 0; g.traverse((m) => { if (m.isMesh || m.isLineSegments) m.matrixAutoUpdate = false; }); return g; }
+  if (a.kind === 'boat' && a.size) { const g = buildShip(a.size, a.v, { style: a.style }); g.userData.anim = a; g.position.set(a.x, a.y, a.z); g.rotation.y = a.ry || 0; g.traverse((m) => { if (m.isMesh || m.isLineSegments) m.matrixAutoUpdate = false; }); return g; }
   if (a.kind === 'boat') {
     const hull = (z, w, h) => o.box('planks', 0, 0.35 + h / 2 - 0.4, z, w, h, 1.05, '#6a4424');
     hull(-2.6, 0.8, 0.8); hull(-1.6, 1.7, 1.0); hull(-0.5, 2.1, 1.05); hull(0.6, 2.1, 1.05); hull(1.7, 1.8, 1.0); hull(2.6, 1.0, 0.9);

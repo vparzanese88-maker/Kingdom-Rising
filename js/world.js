@@ -792,7 +792,7 @@
     }
   }
   // ---- the harbour outside a capital's sea gate: a paved quay, three wooden piers and ships of every size ----
-  function harbour(f, R, cx, cy) {
+  function harbour(f, R, cx, cy, walled = true) {
     // from the sea gate straight out to the water
     const [gx, gy, dx, dy] = f === 'sylvan' ? [cx, cy - R - 1, 0, -1] : [cx - R - 1, cy + 3, -1, 0];
     const isW = (x, y) => { const t = W.tile(x, y); return t === T.WATER || t === T.DEEP; };
@@ -824,7 +824,8 @@
     // the dock district: everything from the sea wall down to the water is paved, the road through it cobbled,
     // and two curtain walls run from the city's corners down to the sea, so the harbour lies inside the walls
     for (let i = 0; i < k + 1; i++) for (let sd = -half; sd <= half; sd++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; const t = W.tiles[y * W.W + x]; if (isW(x, y) || t === T.CWALL) continue; W.tiles[y * W.W + x] = Math.abs(sd) <= 2 ? T.COBBLE : T.STONE; W.block[y * W.W + x] = 0; }
-    for (const sd of [-half - 1, half + 1]) for (let i = -1; i <= k + 1; i++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; W.tiles[y * W.W + x] = T.CWALL; W.block[y * W.W + x] = 1; }
+    // (an open town has no walls yet: the curtain walls come with the first wall upgrade)
+    if (walled) for (const sd of [-half - 1, half + 1]) for (let i = -1; i <= k + 1; i++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; W.tiles[y * W.W + x] = T.CWALL; W.block[y * W.W + x] = 1; }
     // a broad stone quay along the water's edge, between the two walls
     for (let sd = -half; sd <= half; sd++) for (let d = -3; d <= 1; d++) { const [x, y] = P2(k + d, sd); if (!W.inb(x, y)) continue; const i = y * W.W + x; if (W.tiles[i] === T.CWALL) continue; W.tiles[i] = d === 1 || isW(x, y) ? T.WOOD : T.STONE; W.block[i] = 0; }
     // one pier out into the deep water (the ship that brings heroes home ties up beside it, a rowboat at its foot)
@@ -1395,10 +1396,23 @@
       const h = U.hash(x, y, 13);
       W.tiles[k] = stage >= 4 ? (h < 0.15 ? T.GRASS : T.COBBLE) : stage === 3 ? (h < 0.55 ? T.GRASS : T.COBBLE) : (U.fbm(x * 0.2, y * 0.2, 57) > 0.62 ? T.DGRASS : T.GRASS);
     }
+    // the docks grow with the town: a village's waterfront is a dirt landing with a timber wharf; gravel at stage 3,
+    // and the paved quay of the stone city from stage 4
+    const hb = cd.harbour;
+    if (hb) for (let i = -1; i <= hb.k + 1; i++) for (let sd = -hb.half; sd <= hb.half; sd++) {
+      const x = hb.gx + hb.dx * i + hb.px * sd, y = hb.gy + hb.dy * i + hb.py * sd; if (!W.inb(x, y)) continue; const k = y * W.W + x, t = W.tiles[k];
+      if (t !== T.STONE && t !== T.COBBLE) continue;
+      const quay = i >= hb.k - 3; // the strip along the water
+      if (stage >= 4) continue;
+      if (quay) W.tiles[k] = stage >= 3 ? T.STONE : T.WOOD;
+      else if (Math.abs(sd) <= 2) W.tiles[k] = stage >= 3 ? T.GRAVEL : T.ROAD;
+      else W.tiles[k] = stage >= 3 ? T.GRAVEL : (U.fbm(x * 0.25, y * 0.25, 61) > 0.55 ? T.ROAD : U.hash(x, y, 9) < 0.5 ? T.DGRASS : T.GRASS);
+    }
     // street furniture follows: lamps from stage 3 (the plaza's own from stage 2), fountains from 3, statues from 4;
     // a village draws its water from a well on the green before the hall
     const gone = new Set();
     W.decor = W.decor.filter((d) => {
+      if (d.harbour === f && ((d.kind === 'lamp' && stage < 3) || (d.kind === 'flagpole' && stage < 3) || (d.kind === 'stall' && stage < 2))) { gone.add(d.tx + ',' + d.ty); return false; } // a village landing: no lamps, flags or market yet
       if (!inRing(d.tx, d.ty)) return true; const pz = inPlaza(d.tx, d.ty);
       const drop = (d.kind === 'lamp' && (stage < 2 || (stage < 3 && !pz))) || (d.kind === 'fountain' && stage < 3) || (d.kind === 'statue' && stage < 4 && pz) || (d.kind === 'flagpole' && stage < 2 && pz && Math.abs(d.ty - (cy - 6)) > 0);
       if (drop) gone.add(d.tx + ',' + d.ty); return !drop;
@@ -1638,7 +1652,7 @@
       }
       W.decor = W.decor.filter((d) => !(ringD(d.tx, d.ty) > R && isRoad(W.tile(d.tx, d.ty)) && !['lamp', 'signpost'].includes(d.kind)));
     }
-    harbour(f, R, cx, cy);
+    harbour(f, R, cx, cy, walled);
     // the grand plaza before the Town Hall: the main avenue runs from the south gate straight across it to the hall's gate
     for (let ty = cy - 6; ty <= cy + 1; ty++) for (let tx = cx - 7; tx <= cx + 7; tx++) W.tiles[ty * W.W + tx] = T.STONE;
     // the two avenues (paved, gate to gate) and the lanes behind the rows of buildings

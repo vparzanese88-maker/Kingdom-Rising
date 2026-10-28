@@ -535,7 +535,7 @@ function cityWalls(mb, f, cd) {
   const H = 7.4, col = f === 'sylvan' ? '#ddd6c4' : '#bbb3a4';
   const isWall = (tx, ty) => W.tile(tx, ty) === T.CWALL;
   // the kingdom's walls are built and upgraded through the court (KR.Realm): 0 none (an open town), 1 a wooden
-  // palisade, 2 stone walls, 3 fortified; the harbour's curtain walls stand whatever the town has
+  // palisade, 2 stone walls, 3 fortified; the harbour's curtain walls follow (none, timber, then stone with sea towers)
   const wl = cd.walled === false ? 0 : wallLevel(f);
   if (wl <= 1) { if (wl === 1) palisade(mb, f, cd, y0, H, isWall); cd._wallTop3 = y0 + H; harbourWalls(); return; }
   // plain wall tiles with a walkway and merlons on the outer edge
@@ -603,12 +603,17 @@ function cityWalls(mb, f, cd) {
       const tx = hb.gx + hb.dx * i + hb.px * sd, ty = hb.gy + hb.dy * i + hb.py * sd; if (!isWall(tx, ty)) continue;
       const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl; const ix = tx - hb.px * Math.sign(sd), iy = ty - hb.py * Math.sign(sd);
       const g = Math.min(y0, geo.floorAt((ix + 0.5) * TS, (iy + 0.5) * TS)); const top = y0 + H - 1.2;
+      if (wl < 2) { // a timber palisade down to the water, like the town's own: sharpened logs on an earth bank
+        mb.boxB('rock', x, g - 1.5, z, Tl, 1.9, Tl, '#6a5a44');
+        for (let q = 0; q < 4; q++) { const o = (q + 0.5) / 4 - 0.5; const lx = x + (hb.dx ? o * Tl : 0), lz = z + (hb.dy ? o * Tl : 0); const hh = H + 1.0 + K3.hash(tx * 4 + q, ty, 7) * 0.6, r = 0.19 + K3.hash(tx, ty * 4 + q, 3) * 0.04; mb.cylB('bark', lx, g - 0.3, lz, r, hh, '#6e5236', 8); mb.cone('bark', lx, g - 0.3 + hh, lz, r, 0.5, '#4e3a24', 8); }
+        continue;
+      }
       mb.boxB('stone', x, g - 2.5, z, Tl, top - g + 2.5, Tl, col);
       const ox = Math.sign(sd) * hb.px, oz = Math.sign(sd) * hb.py; // outward, away from the docks
       for (const side of [1, -1]) { const ex = x + ox * side * (Tl / 2 - 0.2), ez = z + oz * side * (Tl / 2 - 0.2); mb.boxB('stone', ex, top, ez, ox ? 0.4 : Tl, 0.5, oz ? 0.4 : Tl, col); if ((tx + ty) % 2 === 0) mb.boxB('stone', ex, top + 0.5, ez, ox ? 0.4 : Tl * 0.6, 0.65, oz ? 0.4 : Tl * 0.6, col); }
       last = [x, z, g];
     }
-    if (last) tower(mb, last[0], last[1], 2.4, Math.min(y0, last[2]), H + 3.4 + (y0 - Math.min(y0, last[2])), st, 'cone', f);
+    if (last && wl >= 2) tower(mb, last[0], last[1], 2.4, Math.min(y0, last[2]), H + 3.4 + (y0 - Math.min(y0, last[2])), st, 'cone', f);
   }
   }
   // stone stairs up the inside of the wall: a solid flight of steps with a low parapet on the open side

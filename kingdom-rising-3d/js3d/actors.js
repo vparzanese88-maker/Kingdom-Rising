@@ -68,6 +68,7 @@ function warModel(e) {
   }
   return { obj: holder, parts };
 }
+K3.warModel = warModel; // (the model viewer, viewer.html)
 function bellModel(e) { const mb = new MB(); for (const s of [-1, 1]) mb.cylB('bark', s * 1.0, 0, 0, 0.13, 4.2, '#5a3e24', 8); mb.box('timber', 0, 4.1, 0, 2.4, 0.22, 0.3, '#4a3220'); mb.cone('rooftile', 0, 4.25, 0, 1.6, 0.9, '#7a3a2a', 4, Math.PI / 4); const g = mb.build(); const bell = new MB(); bell.add('gold', new THREE.LatheGeometry([[0, 0], [0.28, 0], [0.36, -0.05], [0.42, -0.55], [0.5, -0.65], [0, -0.65]].map(([x, y]) => new THREE.Vector2(x, y)), 16), new THREE.Matrix4(), '#c8a040', 'local'); const bg = bell.build(); const pivot = new THREE.Group(); pivot.position.set(0, 3.95, 0); pivot.add(bg); g.add(pivot); return { obj: g, parts: { bell: pivot } }; }
 function boardModel(e) { const mb = new MB(); const F = D.FACTIONS[e.faction] || {}; for (const s of [-1, 1]) mb.cylB('bark', s * 0.9, 0, 0, 0.08, 2.3, '#5a3e24', 6); mb.box('planks', 0, 1.6, 0, 2.0, 1.2, 0.08, '#8a6440'); for (let k = 0; k < 6; k++) mb.box('paint', -0.7 + (k % 3) * 0.7, 1.35 + Math.floor(k / 3) * 0.5, 0.05, 0.42, 0.32, 0.01, k === 2 ? F.banner || '#7a1e1e' : '#efe3c8'); mb.cone('rooftile', 0, 2.25, 0, 1.4, 0.5, '#6a3a2a', 4, Math.PI / 4); return { obj: mb.build(), parts: {} }; }
 function horseModel(e) {

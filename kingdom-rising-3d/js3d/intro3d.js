@@ -75,7 +75,7 @@ export function startIntro(c, done) {
   const tile = (i, s) => [(H.gx + H.dx * (H.k + 1 + i) + H.px * s + 0.5) * TILE, (H.gy + H.dy * (H.k + 1 + i) + H.py * s + 0.5) * TILE];
   const isSea = (x, z) => { const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE); if (!W.inb(tx, tz)) return false; const t = W.tile(tx, tz); return t === KR.T.WATER || t === KR.T.DEEP; };
   const C = course(tile, isSea);
-  const ship = buildShip('cog', 0.45, { warship: true }); K3.scene.add(ship);
+  const ship = buildShip('cog', 0.45, { warship: true, style: c.faction }); // her kingdom's own kind of ship K3.scene.add(ship);
   const sails = []; ship.traverse((o) => { if (o.userData && o.userData.sail) sails.push(o); });
   // her crew: a helmsman aft and two hands at the mast, who haul the sail up to its yard as she comes in
   const crew = [];

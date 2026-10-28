@@ -1,5 +1,5 @@
 // Kingdom Rising 3D — the kingdom's buildings (js/realm.js, KR.Realm). Each building has its own plot in town
-// (W.cityData[f].plots, laid out in js/world.js): an empty plot is staked out with ropes and a sign; while a
+// (W.cityData[f].plots, laid out in js/world.js): an empty plot is left as open ground; while a
 // building goes up, scaffolding rises around half-built walls and builders hammer away; a finished building stands
 // in its level's form (the sawmill and the stone cutter grow bigger and grander at levels 2 and 3, with a worker
 // for each level). The arborist and the miner who walk out to gather carry their axe or pick, and a bundle of logs
@@ -243,17 +243,8 @@ function workshop(mb, out, f, lv, w, d) {
 }
 const BUILD = { sawmill, cutter, range, stable, workshop };
 
-// staked-out ground with ropes and a sign at the front
-function emptyPlot(mb, out, p, w, d) {
-  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { mb.cylB('timber', sx * w / 2, 0, sz * d / 2, 0.06, 0.8, '#6a4a2e', 6); mb.cone('timber', sx * w / 2, 0.8, sz * d / 2, 0.06, 0.12, '#6a4a2e', 6); }
-  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-  for (let i = 0; i < 4; i++) { const [ax, az] = corners[i], [bx, bz] = corners[(i + 1) % 4]; mb.rod('cloth2', V(ax * w / 2, 0.62, az * d / 2), V(bx * w / 2, 0.62, bz * d / 2), 0.018, '#d8c890'); }
-  for (let i = 0; i < 3; i++) mb.box('cloth2', (i - 1) * w / 3, 0.55, d / 2, 0.12, 0.16, 0.02, banner(out.f)); // pennants on the front rope
-  mb.cylB('timber', -w / 2 + 0.9, 0, d / 2 + 0.3, 0.07, 1.6, '#5a3e24', 6); mb.cylB('timber', -w / 2 + 2.3, 0, d / 2 + 0.3, 0.07, 1.6, '#5a3e24', 6);
-  out.sign = { x: -w / 2 + 1.6, y: 1.25, z: d / 2 + 0.36, w: 1.6, h: 0.6, text: NAMES[p.id] || p.id };
-  // a few marker pegs and a pile of surveyor's stakes
-  for (let i = 0; i < 4; i++) mb.cylB('timber', (i - 1.5) * 0.12 + w * 0.3, 0, -d * 0.3, 0.03, 0.4 + i * 0.05, '#7a5a38', 5);
-}
+// an empty plot is just the ground it stands on: no ropes, stakes or signs (you choose what to build in the realm window)
+function emptyPlot() {}
 // scaffolding round a rising frame; k = 0..1 of the way built
 function construction(mb, out, p, w, d, k, h0) {
   const H = Math.max(1.2, h0 * k), fw = w * 0.82, fd = d * 0.76;

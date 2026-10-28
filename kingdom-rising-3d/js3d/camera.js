@@ -1,4 +1,4 @@
-// Kingdom Rising 3D — first and third person camera: mouse look (hold right button), orbit (left drag),
+// Kingdom Rising 3D — first and third person camera: mouse look that steers the hero (hold right button), free look round the hero (left drag),
 // scroll to zoom out to third person and back in to first person, collision with ground, walls and roofs
 import { THREE, K3, PX, TS, TILE } from './core.js';
 import { geo } from './geo.js';
@@ -7,7 +7,8 @@ const KR = window.KR, D = KR.D, W = KR.W, G = KR.G;
 const cam = K3.camera;
 
 export const view = {
-  yaw: 0, pitch: -0.08, dist: 0, want: 0, // dist 0 = first person
+  yaw: 0, pitch: -0.08, dist: 0, want: 0, // dist 0 = first person; yaw is where the hero faces and walks
+  oyaw: 0, // the camera swung round the hero by a left-button drag (EverQuest free look), on top of yaw
   maxDist: 14, look: false, drag: null, bob: 0, shake: 0,
   eye: new THREE.Vector3(), focus: new THREE.Vector3(), fwd: new THREE.Vector3(),
 };
@@ -65,7 +66,7 @@ export function updateCamera(dt, p) {
   const sway = Math.cos(view.bob) * 0.012 * view.bobK;
   view.focus.set(ex, fy + eh * 0.92, ez);
   // hold the "look behind" key to glance back without turning
-  const yaw = view.yaw + (K3.keys && K3.keys.held('lookBack') ? Math.PI : 0);
+  const yaw = view.yaw + view.oyaw + (K3.keys && K3.keys.held('lookBack') ? Math.PI : 0);
   const fwd = view.fwd.set(-Math.sin(yaw) * Math.cos(view.pitch), Math.sin(view.pitch), -Math.cos(yaw) * Math.cos(view.pitch));
   const inside = W.buildingAt(p.x, p.y);
   if (view.firstPerson()) {

@@ -91,7 +91,7 @@
   let campT = 0;
   const HELP = [
     'Chat: /say /s, /g /gsay (group), /general /gen /ooc /world /shout /auction (everyone), /tell /t <name> <text>, /reply /r, /emote /em /me <text>',
-    'Actions: /sit [on|off], /stand, /camp (sit and log out), /quit, /attack [on|off], /target /tar <name>, /assist, /follow, /consider /con, /hail, /loot',
+    'Actions: /sit [on|off], /stand, /camp (sit and log out), /quit, /stuck (free yourself, once a minute), /attack [on|off], /target /tar <name>, /assist, /follow, /consider /con, /hail, /loot',
     'Info: /loc, /time, /who, /played, /exp, /roll /random [max], /afk [message], /clear, /help',
     'Emotes: ' + Object.keys(EMOTES).map((k) => '/' + k).join(' '),
     'Group: /invite <name>, /accept, /decline, /disband, /kick <name>, /lfg. Pets: /pet attack|back. Spells: /cast <spell>, /use <ability>',

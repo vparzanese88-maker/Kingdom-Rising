@@ -44,7 +44,7 @@
   W.isBlockedTile = function (tx, ty, opts) {
     if (!W.inb(tx, ty)) return true;
     const i = ty * W.W + tx, t = W.tiles[i];
-    if (SOLID[t]) return true;
+    if (SOLID[t] && !(t === T.DEEP && opts && opts.swim && W.swimmable(tx, ty))) return true; // the hero can swim out into deep water
     if (W.block[i]) return true;
     if (t === T.DOOR) {
       const d = W.doorAt[i];
@@ -55,7 +55,52 @@
     if (t === T.WATER && opts && opts.noWater) return true;
     return false;
   };
+  // deep water you can swim in: anywhere within 8 tiles of land, a pier or shallows (the open sea is too rough: take a ship)
+  let swimC = null, swimFor = null;
+  W.swimmable = function (tx, ty) {
+    if (swimFor !== W.tiles) { swimC = new Map(); swimFor = W.tiles; }
+    const i = ty * W.W + tx; let v = swimC.get(i); if (v != null) return v;
+    // nobody swims through a ship's hull
+    const HULL = { rowboat: 1, sloop: 1.6, cog: 2.2, galleon: 3 };
+    for (const d of W.decor) if (d.kind === 'boat' && Math.abs(d.tx - tx) < 5 && Math.abs(d.ty - ty) < 5 && Math.hypot(d.tx - tx, d.ty - ty) <= (HULL[d.size] || 1.6)) { swimC.set(i, false); return false; }
+    v = false; const R = 8;
+    for (let y = ty - R; y <= ty + R && !v; y++) for (let x = tx - R; x <= tx + R; x++) { if (!W.inb(x, y)) continue; if (W.tiles[y * W.W + x] !== T.DEEP) { v = true; break; } }
+    swimC.set(i, v); return v;
+  };
+  // rails: thin stone balustrades along tile edges (the castle's raised floors and the sides of its stairs). W.edge holds,
+  // per tile, which of its sides are railed (1 north, 2 east, 4 south, 8 west); nobody walks across a railed side and the
+  // pathfinders go round by the stairs
+  W.edge = null;
   W.solidAtPx = (px, py, opts) => W.isBlockedTile(Math.floor(px / TS), Math.floor(py / TS), opts);
+  const RAIL = 10; // px: how close anyone's middle comes to a balustrade
+  const SIDE = (dx, dy) => (dy < 0 ? 1 : dy > 0 ? 4 : dx > 0 ? 2 : 8);
+  // a step can never carry anyone's middle across a rail, however long it is (a far walker's big step, a dash, a shove),
+  // nor closer to one than RAIL (stepping away from it is always allowed, so nobody can get wedged against it):
+  // G.moveEnt is wrapped once, the first time a city with rails is built, and undoes the part of a step that broke that
+  function railMoves() {
+    const G = KR.G; if (!G || !G.moveEnt || G.moveEnt._rails) return;
+    const mv0 = G.moveEnt;
+    G.moveEnt = function (e, dx, dy, opts) {
+      const ox = e.x, oy = e.y; const r = mv0.apply(this, arguments);
+      const E = W.edge; if (!E || E.length !== W.W * W.H || (W.realm && W.realm !== 'main') || e.fly) return r;
+      const otx = Math.floor(ox / TS), oty = Math.floor(oy / TS);
+      let ntx = Math.floor(e.x / TS);
+      if (ntx !== otx && W.edgeBlk(otx, oty, Math.sign(ntx - otx), 0)) { e.x = ox; ntx = otx; }
+      { const m = E[oty * W.W + ntx], fx = e.x - ntx * TS; if ((m & 8 && fx < RAIL && e.x < ox) || (m & 2 && fx > TS - RAIL && e.x > ox)) e.x = ox; }
+      const tx2 = Math.floor(e.x / TS); let nty = Math.floor(e.y / TS);
+      if (nty !== oty && W.edgeBlk(tx2, oty, 0, Math.sign(nty - oty))) { e.y = oy; nty = oty; }
+      { const m = E[nty * W.W + tx2], fy = e.y - nty * TS; if ((m & 1 && fy < RAIL && e.y < oy) || (m & 4 && fy > TS - RAIL && e.y > oy)) e.y = oy; }
+      return r;
+    };
+    G.moveEnt._rails = true;
+  }
+  W.railMoves = railMoves;
+  // is the step from tile (x, y) to (x + dx, y + dy) across a rail? (a diagonal step must clear both corners)
+  W.edgeBlk = function (x, y, dx, dy) {
+    const E = W.edge; if (!E || E.length !== W.W * W.H) return false; const i = y * W.W + x;
+    if (!dx || !dy) return !!(E[i] & SIDE(dx, dy));
+    return !!((E[i] & (SIDE(dx, 0) | SIDE(0, dy))) || (E[i + dx] & SIDE(0, dy)) || (E[i + dy * W.W] & SIDE(dx, 0)));
+  };
 
   // ---------- generation ----------
   W.generate = function (seed, cityLevels) {

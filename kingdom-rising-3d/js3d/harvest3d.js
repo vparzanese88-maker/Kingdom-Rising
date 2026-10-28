@@ -25,14 +25,14 @@ function start(p, rig) {
   if (view.firstPerson()) { a.wantBefore = view.want; view.want = 3.4; }
   // swing the camera round to a three-quarter view of the work
   const tg = H.corpse || (H.d ? { x: H.d.x, y: H.d.y - 8 } : null);
-  if (tg) { const face = Math.atan2(tg.x - p.x, tg.y - p.y); a.yawBefore = view.yaw; view.yaw = face + Math.PI + 0.95; view.pitch = Math.min(view.pitch, -0.12); }
+  if (tg) { const face = Math.atan2(tg.x - p.x, tg.y - p.y); a.oyawBefore = view.oyaw; view.oyaw = K3.dampAngle(0, face + Math.PI + 0.95 - view.yaw, 1); view.pitch = Math.min(view.pitch, -0.12); }
   active = a;
 }
 function stop() {
   const a = active; active = null; if (!a) return;
   if (a.mesh && a.mesh.parent) a.mesh.parent.remove(a.mesh);
   for (const h of a.hidden) h.visible = true;
-  if (a.wantBefore != null && Math.abs(view.want - 3.4) < 0.01) { view.want = a.wantBefore; if (a.yawBefore != null) view.yaw = a.yawBefore; }
+  if (a.wantBefore != null && Math.abs(view.want - 3.4) < 0.01) { view.want = a.wantBefore; if (a.oyawBefore != null) view.oyaw = a.oyawBefore; }
 }
 K3.updaters.push(() => {
   const p = G.player; const rig = K3.playerRig;

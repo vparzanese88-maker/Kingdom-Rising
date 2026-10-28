@@ -99,6 +99,7 @@
     const qcol = it.sig ? '#ffb84a' : it.crafted ? '#7affc8' : it.name.startsWith('Mythic') || it.q > 1.15 ? '#ffb84a' : it.up ? '#9ad8ff' : '#efe3c8';
     const qc = it.unique ? '#d08aff' : qcol;
     let s = `<div class="tt-n" style="color:${qc}">${UI.icHTML(it, true)} ${esc(it.name)}${it.qty > 1 ? ' ×' + it.qty : ''}</div>`;
+    if (it.set) s += `<div style="color:#ffb84a">${esc(it.set)} · ${(it.classes || []).map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ')} only · level ${it.req || 50}</div>`;
     if (it.unique) s += `<div style="color:#d08aff">Unique${it.classes && it.classes.length ? ' · ' + it.classes.map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ') + ' only' : ' · any class'}</div>`;
     if (it.kind === 'weapon') s += `<div>${D.WEAPON_TYPES[it.wt].name}${it.twoHand ? ' (two-handed)' : ''}</div><div>Damage <b>${Math.round(it.dmg * G.upMul(it))}</b> · Delay ${it.delay.toFixed(1)}s · <span class="dim">${(it.dmg * G.upMul(it) / it.delay).toFixed(1)} dps</span></div>`;
     if (it.kind === 'armor') s += `<div>${it.shield ? 'Shield' : it.ak === 'misc' ? D.SLOT_NAMES[it.slot] + ' · any class' : esc(it.ak[0].toUpperCase() + it.ak.slice(1)) + ' · ' + D.SLOT_NAMES[it.slot]}</div><div>Armor <b>${Math.round(it.ac * G.upMul(it))}</b></div>`;
@@ -204,6 +205,8 @@
     return li.length ? '<ul class="tt-eff">' + li.map((x) => '<li>' + x + '</li>').join('') + '</ul>' : '';
   };
   UI.matSourceHTML = function (type, tier) {
+    if (D.REFINED[type]) { const R = D.REFINED[type]; const bk = Object.keys(D.BENCHES).find((k) => D.BENCHES[k].out.includes(type)); const B = D.BENCHES[bk];
+      return `<div class="tt-src"><b>How to make it</b><div>Refine ${esc(D.MATERIALS[R.from][tier])} at the ${esc(B.name)} (${esc(D.CRAFTS[B.craft].name)} ${Math.max(0, tier * 45 - 20)}): two raw make one.</div><div class="dim">Right-click the bench, or open the crafter's Refine tab.</div></div>`; }
     const s = Sys.matSources(type, tier);
     let o = '<div class="tt-src"><b>Where to find it</b>';
     if (s.mobs.length) o += '<div>Dropped by (about 1 in 5 kills):</div><ul>' + s.mobs.slice(0, 6).map((m) => `<li>${esc(m)}</li>`).join('') + (s.mobs.length > 6 ? `<li class="dim">…and ${s.mobs.length - 6} more</li>` : '') + '</ul>';
@@ -437,11 +440,12 @@
     let body = el.querySelector('.tr-body'); if (!body) { body = h('div', 'tr-body'); el.prepend(body); }
     if (!act.length) { body.innerHTML = ''; el.hidden = true; return; }
     el.hidden = false;
-    body.innerHTML = `<div class="tr-h">Quests</div>` + act.slice(0, 5).map((q) => { const st = c.quests.active[q.id]; const done = Sys.questComplete(q); return `<div class="tr-q ${st.tracked ? 'trk' : ''} ${done ? 'done' : ''}" data-id="${q.id}"><b>${esc(q.title)}</b><span>${done ? 'Return to ' + esc(giverName(q)) : questProgText(q)}</span></div>`; }).join('');
-    el.querySelectorAll('.tr-q').forEach((d) => (d.onclick = () => { for (const id in c.quests.active) c.quests.active[id].tracked = id === d.dataset.id; UI.refresh(); }));
+    act.sort((a, b) => (c.quests.active[b.id].tracked ? 1 : 0) - (c.quests.active[a.id].tracked ? 1 : 0)); // tracked quests first
+    body.innerHTML = `<div class="tr-h">Quests <small class="dim">(click to track)</small></div>` + act.slice(0, 6).map((q) => { const st = c.quests.active[q.id]; const done = Sys.questComplete(q); return `<div class="tr-q ${st.tracked ? 'trk' : ''} ${done ? 'done' : ''}" data-id="${q.id}"><b>${esc(q.title)}</b><span>${done ? 'Return to ' + esc(giverName(q)) : questProgText(q)}</span></div>`; }).join('');
+    el.querySelectorAll('.tr-q').forEach((d) => (d.onclick = () => { const st = c.quests.active[d.dataset.id]; if (st) st.tracked = !st.tracked; UI.refresh(); })); // each one toggles on its own
   };
   function giverName(q) { const role = q.turnin || q.giver; const n = G.ents.find((e) => e.city === G.player.c.faction && e.role === role); return n ? n.name : role; }
-  function questProgText(q) { if (q.type === 'build' && KR.Kingdom) return KR.Kingdom.progText(q); if (q.type === 'deliver') return `Deliver to ${giverName(q)}`; if (q.type === 'boss') return `Slay ${D.BOSS_BY_ID[q.boss].name}`; return `${Sys.questProgress(q)} / ${q.n} ${q.type === 'collect' ? q.item : q.region ? 'in ' + D.REGIONS[D.REGION_BY_ID[q.region]].name : (q.mobs || []).map((m) => D.MOBS[m].name).join(', ')}`; }
+  function questProgText(q) { if (q.main && KR.Story && KR.Story.progText) return KR.Story.progText(q); if (q.type === 'build' && KR.Kingdom) return KR.Kingdom.progText(q); if (q.type === 'deliver') return `Deliver to ${giverName(q)}`; if (q.type === 'boss') return `Slay ${D.BOSS_BY_ID[q.boss].name}`; return `${Sys.questProgress(q)} / ${q.n} ${q.type === 'collect' ? q.item : q.region ? 'in ' + D.REGIONS[D.REGION_BY_ID[q.region]].name : (q.mobs || []).map((m) => D.MOBS[m].name).join(', ')}`; }
   UI.questProgText = questProgText;
 
   // ---------------- windows ----------------
@@ -462,6 +466,7 @@
     UI.win('trainer', 'Guildmaster', { w: 520, h: 520, y: 60, render: renderTrainer });
     UI.win('bank', 'Shared Bank', { w: 640, h: 520, y: 60, render: renderBank });
     UI.win('craft', 'Crafting', { w: 640, h: 560, y: 60, render: renderCraft, onClose: () => KR.Main.setMusicOverride(null) });
+    UI.win('refine', 'Refining', { w: 560, h: 460, y: 80, render: renderRefine, onClose: () => { rf.queue = []; } });
     UI.win('loot', 'Loot', { w: 300, y: 160, render: renderLoot });
     UI.buildMercWindows && UI.buildMercWindows(); UI.buildGroupUI && UI.buildGroupUI();
     UI.win('help', 'How to Play', { w: 520, h: 520, y: 60, render: renderHelp });
@@ -727,8 +732,9 @@
     if (!act.length) list.appendChild(h('p', 'empty-note', 'No active quests. Look for ! above townsfolk, and visit your king.'));
     act.forEach((q) => {
       const st = c.quests.active[q.id]; const done = Sys.questComplete(q);
-      const el = h('button', 'jq' + (q.id === jSel ? ' sel' : '') + (done ? ' done' : ''), `<span class="trk" title="Tracked on map">${st.tracked ? '◉' : '○'}</span><span><b>${esc(q.title)}</b><small>${done ? 'Complete' : questProgText(q)}</small></span>`);
-      el.onclick = () => { jSel = q.id; for (const id in c.quests.active) c.quests.active[id].tracked = id === q.id; UI.refresh(); };
+      const el = h('button', 'jq' + (q.id === jSel ? ' sel' : '') + (done ? ' done' : ''), `<span class="trk" title="Track on the map and in the quest list (as many as you like)">${st.tracked ? '◉' : '○'}</span><span><b>${esc(q.title)}</b><small>${done ? 'Complete' : questProgText(q)}</small></span>`);
+      // the circle tracks or untracks it (several at once); the rest of the row shows it
+      el.onclick = (ev) => { if (ev.target.closest('.trk')) st.tracked = !st.tracked; jSel = q.id; UI.refresh(); };
       list.appendChild(el);
     });
     list.appendChild(h('div', 'dim small', `${Object.keys(c.quests.done).length} quests completed`));
@@ -736,7 +742,7 @@
     if (q) {
       const r = q.reward;
       d.innerHTML = `<h3>${esc(q.title)}</h3><p class="giver">From ${esc(roleName(q.giver))}${q.turnin ? ' · Deliver to ' + esc(roleName(q.turnin)) : ''} · Level ${q.bossLv || q.lv}</p><p>${esc(q.text)}</p><p><b>Progress:</b> ${Sys.questComplete(q) ? 'Complete. Return to ' + esc(giverName(q)) + '.' : questProgText(q)}</p><p><b>Rewards:</b> ${G.fmtCoins(r.coin || 0)}${r.status ? ` · <span class="gold">+${r.status} kingdom status</span>` : ''}${r.item ? ' · an item' : ''} · experience</p><div class="row"><button class="btn" id="jq-map">Show on map</button><button class="btn danger" id="jq-ab">Abandon</button></div>`;
-      $('#jq-map', d).onclick = () => { for (const id in c.quests.active) c.quests.active[id].tracked = id === q.id; UI.open('map'); };
+      $('#jq-map', d).onclick = () => { c.quests.active[q.id].tracked = true; UI.open('map'); };
       $('#jq-ab', d).onclick = () => UI.confirm(`Abandon ${q.title}?`, () => { delete c.quests.active[q.id]; if (q.type === 'deliver') Sys.takeItem(q.item, 1); UI.refresh(); });
     }
   }
@@ -985,34 +991,56 @@
     const c = G.player.c, b = w.body; const sk = c.craft[cr.craft] || 0; const C = D.CRAFTS[cr.craft];
     w.title.textContent = C.name;
     if (cr.tab === 'shop' && !cr.vk) cr.tab = 'craft';
-    b.innerHTML = `<div class="tabs"><button class="tab ${cr.tab === 'craft' ? 'on' : ''}" data-t="craft">Craft</button><button class="tab ${cr.tab === 'up' ? 'on' : ''}" data-t="up">Upgrade</button>${cr.vk ? `<button class="tab ${cr.tab === 'shop' ? 'on' : ''}" data-t="shop">Buy & sell</button>` : ''}<span class="sk inline">${C.name} ${skillBar(sk, 250)}</span></div><div class="pane"></div>`;
+    const bench = D.CRAFT_BENCH[cr.craft], sets = cr.craft === 'smithing' || cr.craft === 'tailoring';
+    if ((cr.tab === 'refine' && !bench) || (cr.tab === 'sets' && !sets)) cr.tab = 'craft';
+    b.innerHTML = `<div class="tabs"><button class="tab ${cr.tab === 'craft' ? 'on' : ''}" data-t="craft">Craft</button><button class="tab ${cr.tab === 'up' ? 'on' : ''}" data-t="up">Upgrade</button>${bench ? `<button class="tab ${cr.tab === 'refine' ? 'on' : ''}" data-t="refine">Refine</button>` : ''}${sets ? `<button class="tab ${cr.tab === 'sets' ? 'on' : ''}" data-t="sets">Class sets</button>` : ''}${cr.vk ? `<button class="tab ${cr.tab === 'shop' ? 'on' : ''}" data-t="shop">Buy & sell</button>` : ''}<span class="sk inline">${C.name} ${skillBar(sk, 250)}</span></div><div class="pane"></div>`;
     b.querySelectorAll('.tabs > .tab').forEach((t) => (t.onclick = () => { cr.tab = t.dataset.t; if (cr.tab === 'shop') { UI.open('inv'); KR.Main.setMusicOverride('shop'); } else KR.Main.setMusicOverride(null); renderCraft(w); }));
     const pane = $('.pane', b);
     if (cr.tab === 'shop') { w.title.textContent = `${C.name} · ${cr.npc ? cr.npc.name : ''}`; renderVendor({ body: pane, title: { set textContent(v) {} } }); return; }
+    if (cr.tab === 'refine') { if (rf.kind !== bench) rf.queue = []; rf.kind = bench; refinePane(pane, () => renderCraft(w)); return; }
+    if (cr.tab === 'sets') {
+      const lock = c.level < Sys.SET_LEVEL || sk < Sys.SET_SKILL;
+      pane.appendChild(h('p', 'hint', `Masters of ${C.name} can make a full set of class gear: every piece, plus the class's own weapons, staffs and books. Needs level ${Sys.SET_LEVEL} and ${C.name} ${Sys.SET_SKILL}${lock ? ` <span class="bad">(you: level ${c.level}, skill ${sk})</span>` : ''}. Made from refined tier 6 materials: refine them in the Refine tab.`));
+      const list = h('div', 'list'); pane.appendChild(list); let last = '';
+      Sys.classSetRecipes(cr.craft).forEach((r) => {
+        if (r.setCls !== last) { last = r.setCls; list.appendChild(h('h4', null, `${esc(r.set)} <small class="dim">${D.CLASSES[r.setCls].name}${r.setCls === c.cls ? ' · yours' : ''}</small>`)); }
+        list.appendChild(craftRow(r, w, sk));
+      });
+      return;
+    }
     if (cr.tab === 'craft') {
       pane.appendChild(h('div', 'tiers', [0, 1, 2, 3, 4, 5].map((t) => `<button class="tab ${t === cr.tier ? 'on' : ''}" data-t="${t}">Tier ${t + 1}</button>`).join('')));
       pane.querySelectorAll('.tiers .tab').forEach((t) => (t.onclick = () => { cr.tier = +t.dataset.t; renderCraft(w); }));
-      pane.appendChild(h('p', 'hint', `${D.FACTIONS[c.faction].craftPrefix} gear is unique to ${D.FACTIONS[c.faction].city}: stronger than shop gear, with ${D.FACTIONS[c.faction].craftBias.join(' and ')} bonuses. Tier ${cr.tier + 1} needs skill ${cr.tier * 45}. Materials drop from monsters and are sold by merchants as your kingdom grows.`));
+      pane.appendChild(h('p', 'hint', `Gear crafted in ${D.FACTIONS[c.faction].city} is stronger than shop gear. Each piece leans toward the stats its wearers need (chain and leather boots also restore endurance); extra bonuses lean ${D.FACTIONS[c.faction].craftBias.join(' and ')}. Tier ${cr.tier + 1} needs skill ${cr.tier * 45}. Signature pieces need refined materials. Materials drop from monsters and are sold by merchants as your kingdom grows.`));
       const list = h('div', 'list'); pane.appendChild(list);
       const recs = Sys.recipes(cr.craft, cr.tier);
       const groups = [['Signature pieces', recs.filter((r) => r.sig)], ['Armor', recs.filter((r) => !r.sig && (r.kind === 'armor' || r.kind === 'shield'))], ['Weapons', recs.filter((r) => !r.sig && r.kind === 'weapon')], ['Jewelry', recs.filter((r) => !r.sig && r.kind === 'jewel')]];
       for (const [gname, rs] of groups) {
         if (!rs.length) continue;
         list.appendChild(h('h4', null, gname + (gname === 'Signature pieces' ? ' <small class="dim">rare, much stronger</small>' : '')));
-        rs.forEach((r) => {
-          const has = Sys.hasMats(r.mats); const pv = Sys.craftPreview(r);
-          const mats = r.mats.map(([m, t, q]) => { const n = Sys.countItem(D.MATERIALS[m][t]); return `<span class="${n >= q ? 'good' : 'bad'}">${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ${n}/${q}</span>`; }).join(' ');
-          const label = r.kind === 'armor' ? `${r.ak[0].toUpperCase() + r.ak.slice(1)} ${D.SLOT_NAMES[r.slot]}` : r.kind === 'weapon' ? D.WEAPON_TYPES[r.wt].name : r.kind === 'shield' ? 'Shield' : D.SLOT_NAMES[r.slot];
-          const key = pv.kind === 'weapon' ? `${Math.round(pv.dmg)} dmg / ${pv.delay.toFixed(1)}s` : pv.ac ? `${pv.ac} AC` : '';
-          const st = Object.entries(pv.stats).map(([k, v]) => `+${v} ${k}`).concat(pv.hp ? [`+${pv.hp} HP`] : [], pv.mana ? [`+${pv.mana} Mana`] : []).join(' ');
-          const can = G.canUse(c, pv).ok;
-          const row = h('div', 'row-item craft-r' + (r.sig ? ' sig' : '') + (sk + 20 < r.req ? ' locked' : ''), `<span class="ic">${UI.icHTML(pv)}</span><div class="ri-m"><b>${esc(r.name)}</b><small>${esc(label)} · <span class="tt-st">${key}</span> ${st ? '· ' + st : ''}${can ? '' : ' · <span class="bad">not for your class</span>'}</small><small>${mats} · fee ${G.fmtCoins(r.cost)} · skill ${r.req}</small></div>`);
-          UI.bindTip(row, () => UI.itemTip(pv, 'craft') + '<div class="dim">Preview of a typical result. Higher skill makes slightly better pieces.</div>' + r.mats.map(([m, t, q]) => `<div class="tt-sec"><b>${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ×${q}</b> (you have ${Sys.countItem(D.MATERIALS[m][t])})</div>` + UI.matSourceHTML(m, t)).join(''));
-          const bt = h('button', 'btn small', 'Craft'); bt.disabled = !has || sk + 20 < r.req; bt.onclick = () => { Sys.craft(r); renderCraft(w); };
-          row.appendChild(bt); list.appendChild(row);
-        });
+        rs.forEach((r) => list.appendChild(craftRow(r, w, sk)));
       }
     } else {
+      upgradePane(pane, w);
+    }
+  }
+  function craftRow(r, w, sk) {
+    const c = G.player.c;
+    const has = Sys.hasMats(r.mats); const pv = Sys.craftPreview(r); const lock = Sys.setLocked(r);
+    const mats = r.mats.map(([m, t, q]) => { const n = Sys.countItem(D.MATERIALS[m][t]); return `<span class="${n >= q ? 'good' : 'bad'}">${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ${n}/${q}</span>`; }).join(' ');
+    const label = r.kind === 'armor' ? `${r.ak[0].toUpperCase() + r.ak.slice(1)} ${D.SLOT_NAMES[r.slot]}` : r.kind === 'weapon' ? D.WEAPON_TYPES[r.wt].name : r.kind === 'shield' ? 'Shield' : D.SLOT_NAMES[r.slot];
+    const key = pv.kind === 'weapon' ? `${Math.round(pv.dmg)} dmg / ${pv.delay.toFixed(1)}s` : pv.ac ? `${pv.ac} AC` : '';
+    const st = Object.entries(pv.stats).map(([k, v]) => `+${v} ${k}`).concat(pv.hp ? [`+${pv.hp} HP`] : [], pv.mana ? [`+${pv.mana} Mana`] : []).join(' ');
+    const can = G.canUse(c, pv).ok;
+    const regen = [pv.regen ? `+${pv.regen} HP regen` : '', pv.manaRegen ? `+${pv.manaRegen} mana regen` : '', pv.endRegen ? `+${pv.endRegen} endurance regen` : ''].filter(Boolean).join(' ');
+    const row = h('div', 'row-item craft-r' + (r.sig || r.set ? ' sig' : '') + (sk + 20 < r.req || lock ? ' locked' : ''), `<span class="ic">${UI.icHTML(pv)}</span><div class="ri-m"><b>${esc(r.name)}</b><small>${esc(label)} · <span class="tt-st">${key}</span> ${st ? '· ' + st : ''}${regen ? ' · ' + regen : ''}${can ? '' : ' · <span class="bad">not for your class</span>'}</small><small>${mats} · fee ${G.fmtCoins(r.cost)} · skill ${r.req}${lock ? ` · <span class="bad">${esc(lock)}</span>` : ''}</small></div>`);
+    UI.bindTip(row, () => UI.itemTip(pv, 'craft') + '<div class="dim">Preview of a typical result. Higher skill makes slightly better pieces.</div>' + r.mats.map(([m, t, q]) => `<div class="tt-sec"><b>${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ×${q}</b> (you have ${Sys.countItem(D.MATERIALS[m][t])})</div>` + UI.matSourceHTML(m, t)).join(''));
+    const bt = h('button', 'btn small', 'Craft'); bt.disabled = !has || sk + 20 < r.req || !!lock; bt.onclick = () => { Sys.craft(r); renderCraft(w); };
+    row.appendChild(bt); return row;
+  }
+  function upgradePane(pane, w) {
+    const c = G.player.c; const C = D.CRAFTS[cr.craft];
+    {
       pane.appendChild(h('p', 'hint', 'Upgrade gear up to +5. Each level adds 10% to all of its stats. Failure only loses the materials.'));
       const list = h('div', 'list'); pane.appendChild(list);
       const items = D.EQUIP_SLOTS.map((s) => c.equip[s]).concat(c.inv).filter((it) => it && Sys.craftOf(it) === cr.craft);
@@ -1025,6 +1053,31 @@
         list.appendChild(row);
       });
     }
+  }
+
+  // ----- refining: right-click a bench, put materials in (any stacks), press Refine -----
+  const rf = { kind: 'forge', queue: [] };
+  UI.openRefine = function (kind) { if (!D.BENCHES[kind]) return; if (rf.kind !== kind) rf.queue = []; rf.kind = kind; UI.close('npc'); UI.open('refine'); };
+  UI.refineQueue = () => rf.queue;
+  function renderRefine(w) { w.title.textContent = D.BENCHES[rf.kind].name; refinePane(w.body, () => renderRefine(w)); }
+  function refinePane(b, again) {
+    const B = D.BENCHES[rf.kind]; const c = G.player.c; const sk = c.craft[B.craft] || 0;
+    const have = Sys.refinables(rf.kind);
+    // drop anything from the bench that is no longer in your bags
+    rf.queue = rf.queue.filter((q) => { const hv = have.find((x) => x.mat === q.mat && x.tier === q.tier); if (hv) q.qty = Math.min(q.qty, hv.qty); return hv && q.qty > 0; });
+    const left = have.map((x) => Object.assign({}, x, { qty: x.qty - ((rf.queue.find((q) => q.mat === x.mat && q.tier === x.tier) || {}).qty || 0) })).filter((x) => x.qty > 0);
+    const out = rf.queue.map((q) => { const o = Sys.refineOut(q.mat, q.tier); return `${Math.floor(q.qty / 2)} ${esc(o.name)}`; }).filter((t) => !t.startsWith('0 '));
+    b.innerHTML = `<p class="hint">${esc(B.desc)} Click a material to put the whole stack in; click it on the bench to take it back. Two raw make one refined. <span class="sk inline">${D.CRAFTS[B.craft].name} ${skillBar(sk, 250)}</span></p>
+      <div class="vd"><div class="vd-l"><h4>On the bench</h4><div class="list rf-in"></div><p class="dim small rf-out">${out.length ? 'You will get: ' + out.join(', ') : 'Nothing on the bench yet.'}</p><div class="row"><button class="btn gold" id="rf-go">Refine</button><button class="btn small" id="rf-all">Put all in</button></div></div>
+      <div class="vd-r"><h4>Your materials</h4><div class="list rf-have"></div></div></div>`;
+    const row = (x, fn, tag) => { const need = x.tier * 45 - 20; const bad = sk < need; const r = h('button', 'vrow' + (bad ? ' locked' : ''), `<span class="ic">${esc(x.icon)}</span><span class="vn">${esc(x.name)} ×${x.qty}</span><small class="dim">${tag}${bad ? ` · needs skill ${need}` : ''}</small>`); r.onclick = fn; return r; };
+    const li = $('.rf-in', b), lh = $('.rf-have', b);
+    rf.queue.forEach((q) => li.appendChild(row(Object.assign({ icon: D.MAT_ICON[q.mat], name: D.MATERIALS[q.mat][q.tier] }, q), () => { rf.queue.splice(rf.queue.indexOf(q), 1); again(); }, '→ ' + Sys.refineOut(q.mat, q.tier).name)));
+    if (!left.length) lh.appendChild(h('p', 'empty-note', rf.queue.length ? 'Everything is on the bench.' : `You have nothing this bench can refine. It takes ${B.out.map((o) => D.REFINED[o].from === 'wood' ? 'logs you chop' : D.REFINED[o].from).join(' and ')}.`));
+    const put = (x) => { const q = rf.queue.find((y) => y.mat === x.mat && y.tier === x.tier); if (q) q.qty += x.qty; else rf.queue.push({ mat: x.mat, tier: x.tier, qty: x.qty }); };
+    left.forEach((x) => lh.appendChild(row(x, () => { put(x); KR.A.sfx('click', 0.4); again(); }, '→ ' + Sys.refineOut(x.mat, x.tier).name)));
+    $('#rf-all', b).onclick = () => { left.forEach(put); again(); };
+    const go = $('#rf-go', b); go.disabled = !out.length; go.onclick = () => { Sys.refine(rf.kind, rf.queue); rf.queue = []; again(); };
   }
 
   // ----- loot -----

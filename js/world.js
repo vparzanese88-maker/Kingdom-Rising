@@ -189,9 +189,11 @@
           const rgn = D.REGIONS[W.regionAt(Math.round(px), Math.round(py))];
           if (rgn.dungeon) continue;
           roadPts.push([px, py, ri]);
-          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+          // the King's Road between the two cities (routes 0 and 1, meeting at the crossroads) is twice as wide
+          const RR = ri <= 1 ? 4 : 2, R2 = ri <= 1 ? 14.5 : 3.2;
+          for (let dy = -RR; dy <= RR; dy++) for (let dx = -RR; dx <= RR; dx++) {
             const tx = Math.round(px + dx), ty = Math.round(py + dy); if (!W.inb(tx, ty)) continue;
-            if (dx * dx + dy * dy > 3.2) continue;
+            if (dx * dx + dy * dy > R2) continue;
             const i = ty * W.W + tx, cur = W.tiles[i];
             if (D.REGIONS[W.region[i]].dungeon) continue;
             if (cur === T.WATER || cur === T.DEEP) W.tiles[i] = T.BRIDGE;
@@ -202,17 +204,19 @@
     });
     let lampCount = 0;
     for (let k = 0; k < roadPts.length; k += 22) {
-      const [px, py] = roadPts[k];
+      const [px, py, ri] = roadPts[k];
       const reg = D.REGIONS[W.regionAt(Math.round(px), Math.round(py))];
       if (reg.city) continue;
       const side = lampCount++ % 2 ? 1 : -1;
       const k2 = Math.min(roadPts.length - 1, k + 2);
       const dx = roadPts[k2][0] - px, dy = roadPts[k2][1] - py, l = Math.hypot(dx, dy) || 1;
-      const lx = Math.round(px + (-dy / l) * 2.6 * side), ly = Math.round(py + (dx / l) * 2.6 * side);
+      let off = ri <= 1 ? 5.2 : 2.6; let lx = Math.round(px + (-dy / l) * off * side), ly = Math.round(py + (dx / l) * off * side);
+      // a lamp stands beside the road, never on it (where roads meet, the King's Road is wide)
+      while (off < 9 && W.inb(lx, ly) && (W.tile(lx, ly) === T.ROAD || W.tile(lx, ly) === T.BRIDGE)) { off += 1; lx = Math.round(px + (-dy / l) * off * side); ly = Math.round(py + (dx / l) * off * side); }
       if (!W.inb(lx, ly) || SOLID[W.tile(lx, ly)] || W.tile(lx, ly) === T.WATER) continue;
       const broken = reg.dark > 0.6 && U.hash(lx, ly, 3) < 0.6;
-      addDecor('lamp', lx, ly, { broken });
-      if (!broken) W.lights.push({ x: lx * TS + 16, y: ly * TS - 20, r: 190, col: '255,196,110', fl: 0.08, k: 'lamp' });
+      addDecor('lamp', lx, ly, { broken, roadLamp: true });
+      if (!broken) W.lights.push({ x: lx * TS + 16, y: ly * TS - 20, r: 190, col: '255,196,110', fl: 0.08, k: 'lamp', roadLamp: true });
     }
     // ---- outpost at the crossroads ----
     clearArea(338, 255, 12, 10, null);
@@ -245,6 +249,11 @@
     D.REGIONS[RI.ocean].label = [430, 600]; if (RI.corsair != null) D.REGIONS[RI.corsair].label = [548, 528];
     // ---- cities ----
     for (const f of D.FACTION_IDS) W.stampCity(f, (cityLevels && cityLevels[f]) || 1, true);
+    // roadside lamps that later paving (gate roads, the crossroads) left standing in the road come down
+    { const onRoad = (tx, ty) => { const t = W.tile(tx, ty); return t === T.ROAD || t === T.BRIDGE; };
+      const gone = new Set(W.decor.filter((d) => d.roadLamp && onRoad(d.tx, d.ty)).map((d) => d.tx + ',' + d.ty));
+      if (gone.size) { W.decor = W.decor.filter((d) => !(d.roadLamp && gone.has(d.tx + ',' + d.ty))); W.lights = W.lights.filter((l) => !(l.roadLamp && gone.has(Math.floor(l.x / TS) + ',' + Math.floor((l.y + 20) / TS))));
+        for (const k of gone) { const [tx, ty] = k.split(',').map(Number); if (!W.decor.some((d) => d.tx === tx && d.ty === ty && !d.nb)) W.block[ty * W.W + tx] = 0; } } }
     W.makeSpawns(rnd);
     W.mapCanvas = null; W.buildMinimap(); W.present = presentRegions();
   };

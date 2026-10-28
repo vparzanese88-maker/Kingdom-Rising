@@ -112,7 +112,7 @@ function building(mb, b) {
   wallRun(mb, { ...common, axis: 'z', a0: Z0 + Tl, a1: Z1 - Tl, c0: X0, c1: X0 + Tl, outerAtC0: true, open: openings.w });
   wallRun(mb, { ...common, axis: 'z', a0: Z0 + Tl, a1: Z1 - Tl, c0: X1 - Tl, c1: X1, outerAtC0: false, open: openings.e });
   // the passage through the doorway gets a floor
-  mb.box(b.style === 'crown' || b.style === 'sylvan' ? 'planks' : 'stone', (dX0 + dX1) / 2, fy - 0.08, Z1 - Tl / 2, Tl - 0.3, 0.16, Tl, isHall ? '#b8b0a0' : '#a07a52');
+  mb.box(b.style === 'crown' || b.style === 'sylvan' ? 'planks' : 'stone', (dX0 + dX1) / 2, fy - 0.08, Z1 - Tl / 2, dX1 - dX0 - 0.3, 0.16, Tl, isHall ? '#b8b0a0' : '#a07a52');
   // stone plinth around the base
   if (!st.stone && !isHall && !isLair) {
     const pH = y0 + 0.85, ph = pH - sink, pm = (pH + sink) / 2;
@@ -150,8 +150,13 @@ function building(mb, b) {
   // stone halls and lairs: buttresses and a string course
   if (st.stone || isHall || isLair) {
     const pk = isLair ? 'darkstone' : 'stone', pc = isLair ? '#6a625c' : isHall ? '#b8b0a2' : '#8a857c';
-    for (let x = X0; x <= X1 + 0.01; x += Tl * 2) { mb.boxB(pk, x, sink, Z1 + 0.18, 0.6, top - sink - 0.6, 0.36, pc); mb.boxB(pk, x, sink, Z0 - 0.18, 0.6, top - sink - 0.6, 0.36, pc); }
-    mb.box(pk, (X0 + X1) / 2, fy + 2.6, Z1 + 0.06, X1 - X0, 0.22, 0.16, pc); mb.box(pk, (X0 + X1) / 2, fy + 2.6, Z0 - 0.06, X1 - X0, 0.22, 0.16, pc);
+    // on the door side, no buttress stands in the doorway and the string course stops at the door frame
+    // (they used to cross in the middle of the castle gate)
+    const inDoor = (x) => x > doorOp.u0 - 0.45 && x < doorOp.u1 + 0.45;
+    for (let x = X0; x <= X1 + 0.01; x += Tl * 2) { if (!inDoor(x)) mb.boxB(pk, x, sink, Z1 + 0.18, 0.6, top - sink - 0.6, 0.36, pc); mb.boxB(pk, x, sink, Z0 - 0.18, 0.6, top - sink - 0.6, 0.36, pc); }
+    if (fy + doorH > fy + 2.5) { const a = doorOp.u0 - 0.3, bb = doorOp.u1 + 0.3; if (a > X0) mb.box(pk, (X0 + a) / 2, fy + 2.6, Z1 + 0.06, a - X0, 0.22, 0.16, pc); if (bb < X1) mb.box(pk, (bb + X1) / 2, fy + 2.6, Z1 + 0.06, X1 - bb, 0.22, 0.16, pc); }
+    else mb.box(pk, (X0 + X1) / 2, fy + 2.6, Z1 + 0.06, X1 - X0, 0.22, 0.16, pc);
+    mb.box(pk, (X0 + X1) / 2, fy + 2.6, Z0 - 0.06, X1 - X0, 0.22, 0.16, pc);
   }
   // windows: frame, glass, shutters
   const winSides = [['n', 'x', Z0, -1], ['s', 'x', Z1, 1], ['w', 'z', X0, -1], ['e', 'z', X1, 1]];

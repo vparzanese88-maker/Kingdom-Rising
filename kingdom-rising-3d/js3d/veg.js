@@ -247,7 +247,7 @@ export function buildVeg(list, out) {
       const geom = TPL['nuggets' + v] || (TPL['nuggets' + v] = nuggetGeom(TPL['rock' + v]));
       const om = new THREE.InstancedMesh(geom, oreMat(), veins.length); om.castShadow = false; om.receiveShadow = true;
       veins.forEach((d, i) => { d._inst.tm.getMatrixAt(d._inst.i, _m4); om.setMatrixAt(i, _m4); const oc = ORE_RGB[d.ore || 0]; om.setColorAt(i, _c4.setRGB(oc[0], oc[1], oc[2])); d._inst.lm = om; d._inst.li = i; });
-      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; om.userData.mid = true; meshes.push(om);
+      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; om.userData.mid = true; om.userData.nug = true; meshes.push(om);
     }
   }
   for (const [k, items] of plants) {

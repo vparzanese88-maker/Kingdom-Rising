@@ -148,7 +148,7 @@ export const world3d = {
       // only nearby rocks throw shadows: far ones are lost in the shadow map anyway (trees: see the forest in veg.js)
       const sh = d < shadowDist; if (sh !== c.vegShadow) { c.vegShadow = sh; for (const m of c.veg) m.castShadow = sh && !m.userData.small; }
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
-      for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < Math.min(propsFar, 150) : d < treeFar + 80; // boulders and ore veins: a draw call per shape per area, gone in the distance (by 150 m they are specks in the haze)
+      for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < (m.userData.nug ? 60 : Math.min(propsFar, 105)) : d < treeFar + 80; // boulders (a draw call per shape per area) end where they are specks in the haze; the ore glints in them sooner
       // props and building fittings throw shadows only close by: past ~45 m their shadows are a few texels each,
       // and every caster is another draw call in the shadow pass
       const psh = d < 45; if (psh !== c.propSh) { c.propSh = psh; if (c.props) c.props.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); if (c.structs) for (const m of c.structs.children) if (m.isMesh && DETAIL_KEYS.has(m.name)) { if (m.userData.sh0 == null) m.userData.sh0 = m.castShadow; m.castShadow = psh && m.userData.sh0; } else if (m.isGroup) m.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); }

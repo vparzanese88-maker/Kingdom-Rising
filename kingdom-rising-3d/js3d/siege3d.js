@@ -255,6 +255,38 @@ const TROLL_S = 2.3;
 // away (their bones scaled to nothing) and replaced by a troll head (underbite jaw, tusks, hooked nose, deep-set
 // glowing eyes, long ears, a scraggly mane), three-fingered hands and big flat feet. Stone-grey hide with moss,
 // mushrooms and bark plates; a loincloth on a belt of bones; an uprooted tree for a club.
+// a tapered cone from a (base, radius r) to b (the point), for ears, locks of hair, tusks and claws
+const _up = new THREE.Vector3(0, 1, 0), _q = new THREE.Quaternion(), _m4 = new THREE.Matrix4(), _sc = new THREE.Vector3(1, 1, 1);
+function taper(mb, key, a, b, r, color, seg = 7) {
+  const d = new THREE.Vector3().subVectors(b, a); const L = d.length(); if (L < 1e-5) return;
+  const g = new THREE.ConeGeometry(r, L, seg, 1); _q.setFromUnitVectors(_up, d.normalize()); _m4.compose(new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5), _q, _sc);
+  mb.add(key, g, _m4, color); g.dispose();
+}
+// an irregular, flattened shard (bark, stone): a jittered dodecahedron
+function shard(mb, key, pos, scl, rot, color, seed) {
+  const g = new THREE.DodecahedronGeometry(1, 0); const pa = g.attributes.position;
+  for (let i = 0; i < pa.count; i++) { const h = Math.sin((i + 1) * 12.9898 + seed * 78.233) * 43758.5453; const j = 0.75 + (h - Math.floor(h)) * 0.5; pa.setXYZ(i, pa.getX(i) * j, pa.getY(i) * j, pa.getZ(i) * j); }
+  g.computeVertexNormals(); _m4.compose(pos, _q.setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2])), new THREE.Vector3(scl[0], scl[1], scl[2])); mb.add(key, g, _m4, color); g.dispose();
+}
+// the troll's hide: grey-green stone mottled with moss, from a procedural noise in the skin shader
+function trollSkin(m0) {
+  const m = m0.clone(); m.color = new THREE.Color('#ffffff'); if ('sheen' in m) m.sheen = 0; m.roughness = 0.92;
+  m.onBeforeCompile = (sh, r) => {
+    if (m0.onBeforeCompile) m0.onBeforeCompile(sh, r);
+    if (!/#include <color_fragment>/.test(sh.fragmentShader) || !/#include <begin_vertex>/.test(sh.vertexShader)) return;
+    sh.vertexShader = 'varying vec3 vTrollP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vTrollP = position;');
+    sh.fragmentShader = 'varying vec3 vTrollP;\nfloat trH(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }\n'
+      + 'float trN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(mix(trH(i), trH(i + vec3(1, 0, 0)), f.x), mix(trH(i + vec3(0, 1, 0)), trH(i + vec3(1, 1, 0)), f.x), f.y), mix(mix(trH(i + vec3(0, 0, 1)), trH(i + vec3(1, 0, 1)), f.x), mix(trH(i + vec3(0, 1, 1)), trH(i + vec3(1, 1, 1)), f.x), f.y), f.z); }\n'
+      + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+  { float n1 = trN(vTrollP * 9.0) * 0.6 + trN(vTrollP * 23.0) * 0.4, n2 = trN(vTrollP * 70.0);
+    vec3 stone = mix(vec3(0.2, 0.23, 0.18), vec3(0.13, 0.15, 0.12), n2);
+    float moss = smoothstep(0.5, 0.68, n1);
+    vec3 hide = mix(stone, vec3(0.12, 0.2, 0.05), moss) * (0.8 + 0.4 * n2);
+    diffuseColor.rgb = hide; }`); // (the skin shader lifts what it is given, so the base tones are kept dark)
+  };
+  const k0 = m0.customProgramCacheKey ? m0.customProgramCacheKey.bind(m0) : null; m.customProgramCacheKey = () => 'trollhide|' + (k0 ? k0() : '');
+  return m;
+}
 function trollModel(e) {
   const holder = new THREE.Group(); const k = Math.floor((e.seed || 0.5) * 3);
   const skin = ['#6f7a5e', '#767c66', '#626e58'][k], moss = '#4e6a2a', hairC = '#2a2c22', bone = '#d8ccb0';
@@ -267,8 +299,7 @@ function trollModel(e) {
   const B = rig.bones;
   // the body keeps its own skin shader, tinted a mossy grey-green (a copy of the material, so other people keep their skin);
   // warts, moss and bark plates give it the texture of stone and forest
-  rig.mesh.traverse((o) => { if (!o.isSkinnedMesh || o.geometry.attributes.position.count < 5000) return; const m0 = o.material; const m = m0.clone();
-    m.onBeforeCompile = m0.onBeforeCompile; if (m0.customProgramCacheKey) m.customProgramCacheKey = m0.customProgramCacheKey; m.color = new THREE.Color(skin).multiplyScalar(1.5); if ('sheen' in m) m.sheen = 0; o.material = m; });
+  rig.mesh.traverse((o) => { if (o.isSkinnedMesh && o.geometry.attributes.position.count >= 5000) o.material = trollSkin(o.material); });
   // the troll's proportions: massive shoulders and arms, short thick legs (the hips come down to meet them)
   B.chest.scale.setScalar(1.2); for (const S of ['L', 'R']) { B['sh' + S].scale.setScalar(1.22); B['thigh' + S].scale.setScalar(0.8); }
   // fold away the human head, hands and feet
@@ -277,19 +308,23 @@ function trollModel(e) {
   const at = (parent, child, from) => { const g = new THREE.Group(); g.position.copy(child.position); parent.add(g); return g; };
   // ---- the head ----
   const hm = new MB();
-  hm.sph('rock', 0, 0.075, -0.01, 0.13, 0.11, 0.14, skin, 0, 12); // a low, wide skull
-  hm.sph('rock', 0, 0.112, 0.105, 0.11, 0.028, 0.045, K3.shade(skin, -0.08), 0, 10); // the heavy brow ridge
-  hm.sph('rock', 0, 0.0, 0.08, 0.15, 0.075, 0.12, skin, 0, 12); // cheeks and muzzle
-  hm.sph('rock', 0, -0.04, 0.11, 0.105, 0.05, 0.085, K3.shade(skin, -0.04), 0, 12); // the jutting lower jaw
-  hm.box('dark', 0, -0.012, 0.165, 0.15, 0.012, 0.012, '#1a1410'); // the mouth line
+  hm.sph('rock', 0, 0.075, -0.01, 0.13, 0.11, 0.14, skin, 0, 16); // a low, wide skull
+  for (const sx of [-1, 1]) hm.sph('rock', sx * 0.05, 0.108, 0.1, 0.065, 0.034, 0.05, K3.shade(skin, -0.06), 0, 12); // a heavy, rounded brow over each eye
+  for (const sx of [-1, 1]) hm.sph('rock', sx * 0.075, 0.03, 0.085, 0.075, 0.065, 0.075, skin, 0, 12); // fat cheeks
+  hm.sph('rock', 0, 0.015, 0.1, 0.1, 0.06, 0.09, skin, 0, 14); // the muzzle
+  hm.sph('rock', 0, -0.04, 0.11, 0.11, 0.052, 0.09, K3.shade(skin, -0.04), 0, 14); // the jutting lower jaw
+  hm.sph('dark', 0, -0.01, 0.17, 0.075, 0.009, 0.02, '#1a1410', 0, 10); // the mouth
   for (const sx of [-1, 1]) { hm.cone('gloss', sx * 0.055, -0.03, 0.16, 0.017, 0.1, bone, 8); hm.cone('gloss', sx * 0.025, -0.005, 0.17, 0.007, 0.03, bone, 6); } // tusks and teeth jutting up from the underbite
-  hm.sph('rock', 0, 0.06, 0.17, 0.045, 0.055, 0.05, K3.shade(skin, 0.05), 0, 10); hm.beam('rock', V(0, 0.06, 0.2), V(0, 0.005, 0.235), 0.035, 0.03, K3.shade(skin, 0.05)); // the hooked nose
+  hm.sph('rock', 0, 0.065, 0.165, 0.04, 0.05, 0.045, K3.shade(skin, 0.05), 0, 12); hm.sph('rock', 0, 0.045, 0.2, 0.03, 0.035, 0.035, K3.shade(skin, 0.05), 0, 10); taper(hm, 'rock', V(0, 0.04, 0.215), V(0, 0.0, 0.232), 0.022, K3.shade(skin, 0.05), 8); // a big hooked nose
   for (const sx of [-1, 1]) {
     hm.sph('dark', sx * 0.045, 0.085, 0.125, 0.03, 0.022, 0.02, '#120c08', 0, 8); hm.sph('glow', sx * 0.045, 0.085, 0.133, 0.011, 0.011, 0.008, '#ffc030', 0, 8); // deep-set, glowing
-    hm.beam('rock', V(sx * 0.11, 0.08, 0), V(sx * 0.19, 0.12, -0.05), 0.045, 0.014, skin); hm.beam('rock', V(sx * 0.19, 0.12, -0.05), V(sx * 0.28, 0.17, -0.1), 0.02, 0.01, skin); // long pointed ears, tapering
+    taper(hm, 'rock', V(sx * 0.11, 0.085, -0.005), V(sx * 0.2, 0.09, -0.06), 0.032, skin, 9); taper(hm, 'rock', V(sx * 0.19, 0.09, -0.055), V(sx * 0.3, 0.05, -0.12), 0.019, skin, 8); taper(hm, 'rock', V(sx * 0.29, 0.054, -0.115), V(sx * 0.36, 0.0, -0.16), 0.01, skin, 6); // long ears, tapering and drooping
     for (let w = 0; w < 4; w++) hm.sph('rock', sx * (0.06 + w * 0.025), 0.03 + (w % 2) * 0.05, 0.09 - w * 0.02, 0.012, 0.012, 0.012, K3.shade(skin, -0.12), 0, 6); // warts
   }
-  for (let j = 0; j < 11; j++) { const a = (j / 10 - 0.5) * 2.2, r0 = V(Math.sin(a) * 0.11, 0.15, -0.05 - Math.cos(a) * 0.07); hm.rod('cloth', r0, V(r0.x * 1.5, r0.y - 0.16 - (j % 3) * 0.05, r0.z - 0.1), 0.005, hairC, 4); } // a scraggly mane
+  for (let j = 0; j < 22; j++) { // a mane of matted locks hanging from the crown over the neck and shoulders
+    const a = (j / 21 - 0.5) * 3.0 + Math.sin(j * 5.3) * 0.08, ring = j % 2 ? 0.12 : 0.1, r0 = V(Math.sin(a) * ring, 0.15 - (j % 3) * 0.02, -0.03 - Math.cos(a) * 0.08);
+    const len = 0.26 + ((j * 37) % 11) / 11 * 0.2, out = 1.25 + (j % 4) * 0.08; const mid = V(r0.x * out, r0.y - len * 0.45, r0.z - 0.07); const tip = V(r0.x * (out + 0.15), r0.y - len, r0.z - 0.1 + Math.sin(j) * 0.03);
+    hm.rod('cloth', r0, mid, 0.017, hairC, 5); taper(hm, 'cloth', mid, tip, 0.016, K3.shade(hairC, (j % 3) * 0.05), 5); }
   const head = at(B.neck, B.head); head.add(hm.build()); P.head = head;
   // ---- three-fingered hands with claws, big flat feet ----
   for (const S of ['L', 'R']) {
@@ -305,7 +340,8 @@ function trollModel(e) {
   // ---- belly, bark plates, moss and mushrooms, a loincloth on a belt of bones ----
   const bm = new MB(); bm.sph('rock', 0, -0.02, 0.1, 0.17, 0.16, 0.14, skin, 0, 12); const belly = bm.build(); B.spine.add(belly);
   const cm = new MB();
-  for (const sx of [-1, 1]) { cm.box('bark', sx * 0.1, 0.12, 0.12, 0.13, 0.17, 0.03, '#5a4a30', 0.2 * sx, -0.2); cm.box('bark', sx * 0.2, 0.2, 0, 0.12, 0.05, 0.18, '#4e3e28', 0, 0, 0.5 * sx); // bark plates
+  for (const sx of [-1, 1]) { for (let b2 = 0; b2 < 6; b2++) { const ang = -0.6 + b2 * 0.28; shard(cm, 'bark', V(sx * (0.15 + Math.cos(ang) * 0.07), 0.2 + Math.sin(ang + 0.6) * 0.04, -0.1 + b2 * 0.04), [0.055, 0.016, 0.045 + (b2 % 2) * 0.012], [0.3 * (b2 % 3 - 1), b2 * 0.7, sx * (0.55 + b2 * 0.06)], b2 % 2 ? '#5a4a30' : '#4a3c26', b2 + (sx > 0 ? 10 : 0)); } // shards of bark hugging each shoulder
+    shard(cm, 'bark', V(sx * 0.09, 0.12, 0.12), [0.05, 0.07, 0.014], [-0.2, sx * 0.25, 0.1 * sx], '#54442c', sx > 0 ? 3 : 4); // and one over the heart
     cm.sph('cloth', sx * 0.19, 0.26, -0.02, 0.09, 0.03, 0.11, moss, 0, 8); cm.sph('cloth', sx * 0.08, 0.2, -0.13, 0.08, 0.06, 0.03, moss, 0, 8); // moss
     for (let m2 = 0; m2 < 2; m2++) { const x = sx * (0.16 + m2 * 0.05), z = -0.04 + m2 * 0.05; cm.cyl('cloth', x, 0.285, z, 0.008, 0.035, '#e8dcc0', 6); cm.sph('cloth', x, 0.305, z, 0.026, 0.014, 0.026, m2 ? '#b8402a' : '#c8a060', 0, 8); } } // mushrooms
   for (let v = 0; v < 3; v++) cm.rod('cloth', V(-0.15 + v * 0.13, 0.25, -0.1), V(-0.1 + v * 0.1, 0.0, 0.13), 0.006, '#3e5a22', 4); // vines

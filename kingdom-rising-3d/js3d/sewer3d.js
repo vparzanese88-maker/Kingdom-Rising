@@ -1,7 +1,7 @@
 // Kingdom Rising 3D — the sewers: the brick outflow pipe under each city wall, the daylight at its far end seen
 // from inside, and the tunnel network below the city (brick barrel vaults over a channel of foul water, kerbs and
 // walkways, pipes along the walls, chambers with ribbed ceilings, cisterns, and shafts of daylight with ladders)
-import { K3, TILE } from './core.js';
+import { K3, TILE, PX } from './core.js';
 import { MB, PRIM } from './mb.js';
 import { geo, T } from './geo.js';
 
@@ -14,6 +14,7 @@ export function outflowPipe(o, d) {
   const r = 1.35, yS = 1.9; // opening: 2.7 m wide, 3.25 m to the crown of the arch
   const z0 = -0.8, z1 = 0.75; // from the wall face out to the lip of the pipe
   const L = z1 - z0, zc = (z0 + z1) / 2;
+  const zd = -0.3; // the black inside of the pipe stands just in front of the wall's sloping foot
   const tint = (k) => K3.shade(BRICK, (K3.hash(k, d.tx || 0, 7) - 0.5) * 0.12);
   // the barrel of the pipe sticking out of the wall: straight brick sides, then the arched roof
   for (const sd of [-1, 1]) {
@@ -29,11 +30,13 @@ export function outflowPipe(o, d) {
   }
   o.box('stone', 0, yS + r + 0.58, z1 + 0.08, 0.5, 0.62, 0.32, '#8a7a68'); // keystone
   // the dark inside of the pipe, and its floor: a worn invert with a trickle of filth running out
-  o.box('dark', 0, yS * 0.5, z0 + 0.03, r * 2 + 0.05, yS, 0.04, null);
-  for (let k = 0; k < 8; k++) { const a = Math.PI * (k + 0.5) / 8; o.box('dark', Math.cos(a) * r * 0.5, yS + Math.sin(a) * r * 0.5 - 0.02, z0 + 0.03, r * 1.02 * Math.abs(Math.cos(a)) + 0.6, r * Math.sin(Math.PI / 8) * 1.2 + 0.25, 0.04, null); }
-  o.box('dark', 0, yS + r * 0.55, z0 + 0.03, r * 1.5, r * 0.9, 0.04, null);
+  o.box('dark', 0, (yS - 1.4) * 0.5, zd, r * 2 + 0.05, yS + 1.4, 0.04, null);
+  for (let k = 0; k < 8; k++) { const a = Math.PI * (k + 0.5) / 8; o.box('dark', Math.cos(a) * r * 0.5, yS + Math.sin(a) * r * 0.5 - 0.02, zd, r * 1.02 * Math.abs(Math.cos(a)) + 0.6, r * Math.sin(Math.PI / 8) * 1.2 + 0.25, 0.04, null); }
+  o.box('dark', 0, yS + r * 0.55, zd, r * 1.5, r * 0.9, 0.04, null);
   o.box('stone', 0, 0.02, zc, r * 2 + 0.1, 0.1, L, '#5a5048');
   o.box('glow', 0, 0.075, zc + 0.2, 0.9, 0.02, L + 0.4, SLIME).box('glow', 0, 0.06, z1 + 0.7, 1.3, 0.02, 1.2, '#3e4a24');
+  // the ditch runs with murky brown sewage
+  for (let k = 1; k < (d.ditchLen || 0); k++) { const p = o.w(0, 0, k * Tl); const wl = geo.waterAt(p.x / PX, p.z / PX); if (Number.isFinite(wl)) o.box('gloss', 0, wl - o.y + 0.03, k * Tl, Tl * 1.1, 0.02, Tl + 0.04, K3.hash(k, 3, 7) < 0.5 ? '#3a2c18' : '#332614'); }
   // the headwall: brick facing on the city wall around the pipe, with wing walls stepping down either side
   const HW = 2.5, HH = 4.2;
   for (let y = yS + r + 0.4; y < HH; y += 0.5) o.box('brick', 0, y + 0.25, z0 + 0.2, HW * 2, 0.5, 0.4, tint(Math.round(y * 3)));
@@ -83,7 +86,7 @@ export function sewerExit(o) {
 // ---------- the tunnel network, built a chunk of tiles at a time ----------
 // baked light: a soft additive glow on a floor (flat) or a wall (upright, facing along x or z)
 const pool = (mb, x, y, z, w, h, col, how) => mb.add(how === 'shaft' ? 'shaft' : 'lightpool', PRIM.plane, MB.mat(x, y, z, w, h, 1, how === 'wallx' || how === 'shaftx' ? Math.PI / 2 : 0, how === 'floor' ? -Math.PI / 2 : 0, 0), col, 'local');
-const TORCH_FLOOR = '#9a5a22', TORCH_WALL = '#7a4418', DAY_SHAFT = '#4a5866', DAY_FLOOR = '#5e6c7a';
+const TORCH_FLOOR = '#9a5a22', TORCH_WALL = '#4e2c10', DAY_SHAFT = '#4a5866', DAY_FLOOR = '#5e6c7a';
 function dayShaft(mb, x, z, H, w) { // a pale shaft of daylight from a grate down to a lit patch on the floor
   mb.add('shaft', PRIM.plane, MB.mat(x, H / 2, z, w, H, 1, Math.PI / 4), DAY_SHAFT, 'local').add('shaft', PRIM.plane, MB.mat(x, H / 2, z, w, H, 1, -Math.PI / 4), DAY_SHAFT, 'local');
   pool(mb, x, 0.04, z, w * 2.2, w * 2.2, DAY_FLOOR, 'floor');

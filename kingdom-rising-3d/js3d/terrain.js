@@ -200,7 +200,7 @@ function makeWaterMaterial() {
 }
 function finalizeWaterUniforms(m) { m.uniforms.tN.value = propTex('water', 512).normalMap; m.uniforms.uTime = shared.uTime; m.uniforms.uSunDir = shared.uSunDir; m.uniforms.uSunCol = shared.uSunCol; m.uniforms.uSkyCol = shared.uSkyCol; m.uniforms.uHorCol = shared.uHorCol; }
 
-const TINTS = { ditch: [0.15, 0.1, 0.045], swamp: [0.12, 0.15, 0.07], sewer: [0.13, 0.15, 0.08], ocean: [0.04, 0.13, 0.18], island: [0.04, 0.2, 0.22], icecave: [0.12, 0.2, 0.28], crypt: [0.06, 0.12, 0.14], cave: [0.07, 0.1, 0.1], abyss: [0.12, 0.04, 0.04], gloom: [0.06, 0.07, 0.1], ash: [0.08, 0.09, 0.09], default: [0.06, 0.14, 0.16] };
+const TINTS = { ditch: [0.085, 0.06, 0.03], swamp: [0.12, 0.15, 0.07], sewer: [0.13, 0.15, 0.08], ocean: [0.04, 0.13, 0.18], island: [0.04, 0.2, 0.22], icecave: [0.12, 0.2, 0.28], crypt: [0.06, 0.12, 0.14], cave: [0.07, 0.1, 0.1], abyss: [0.12, 0.04, 0.04], gloom: [0.06, 0.07, 0.1], ash: [0.08, 0.09, 0.09], default: [0.06, 0.14, 0.16] };
 function ditchTiles() { let set = null; for (const f in W.cityData || {}) for (const i of (W.cityData[f] && W.cityData[f].ditch) || []) (set || (set = new Set())).add(i); return set; }
 function waterGeom(cx, cy) {
   const VW = geo.VW, Wd = geo.W; const pos = [], dep = [], tint = [], idx = [];

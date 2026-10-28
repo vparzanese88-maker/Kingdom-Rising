@@ -490,7 +490,7 @@
     }
     if (pond) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const d2 = Math.hypot(i, j); if (d2 > 2.4) continue; const x = mx + ox * (len + 1 + j) + pxv * i, y = my + oy * (len + 1 + j) + pyv * i; if (!bad(x, y)) { setT(x, y, d2 < 1.2 ? T.DEEP : T.WATER); wet(x, y); } }
     const ry = Math.atan2(ox, oy); // the mouth's front faces out, away from the wall
-    addDecor('sewermouth', mx, my, { nb: true, px: mx * TS + 16, py: my * TS + 24, ry, sewerOut: f });
+    addDecor('sewermouth', mx, my, { nb: true, px: mx * TS + 16, py: my * TS + 24, ry, sewerOut: f, ditchLen: pond ? 0 : len });
     W.lights.push({ x: (mx + pxv * 1.2) * TS + 16 + ox * 10, y: (my + pyv * 1.2) * TS + 16 + oy * 10, r: 150, col: '255,176,96', fl: 0.12, k: 'fire', sewerOut: f });
     const sx = mx + ox * 2 + pxv * 2, sy = my + oy * 2 + pyv * 2;
     if (!bad(sx, sy) && !isW(sx, sy)) addDecor('cavesign', sx, sy, { name: W.REALMS[dg.id].name, nb: true, sewerOut: f });
@@ -1111,7 +1111,7 @@
     const lit = (c, r, rad = 200, col = '255,176,96') => W.lights.push({ x: (X0 + c) * TS + 16, y: (Y0 + r) * TS + 10, r: rad, col, fl: 0.06, k: 'fire', b: b.id });
     const solid = (c, r) => { W.block[(Y0 + r) * W.W + X0 + c] = 1; };
     const mid = Math.floor(w / 2);
-    D_('throne', mid, 0); D_('carpet', mid, 1, { len: rL3 });
+    D_('throne', mid, 0); D_('carpet', mid, 1, { len: rL3 - 0.4 }); // the runner stops short of the hall's front edge
     for (const c of [mid - 2, mid + 2]) { D_('brazier', c, 0); solid(c, 0); lit(c, 0, 230); }
     D_('banner', mid - 4, 0, { nb: true }); D_('banner', mid + 4, 0, { nb: true });
     D_('tapestry', 0, 2, { nb: true }); D_('tapestry', w - 1, 2, { nb: true });

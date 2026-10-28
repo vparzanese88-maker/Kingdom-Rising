@@ -257,7 +257,7 @@
       L(e.name, `Ahoy there! Welcome back, ${w.cls}! Three months at sea and you come home in one piece. Mostly in one piece.`, { g: 'raise', shot: 'wide' }),
       L(w.me, 'Good to be home. Why does everyone on this dock look like someone died?'),
       L(e.name, `No time for ale and gossip, I'm afraid. The king must speak with you at once. It's urgent. He said "at once" twice, and ${w.K.replace(/^King /, '')} never says anything twice.`),
-      L(e.name, `Up through the town to the castle, then all the way up the King's Tower to the top floor. Big chair, bigger crown. You can't miss him.`, { g: 'thrust' }),
+      L(e.name, `Up through the town to the castle, then all the way up the great stairs to the throne hall. Big chair, bigger crown. You can't miss him.`, { g: 'thrust' }),
       L(e.name, `Go on, ${w.cls}. And keep your wits about you: a lot has changed while you were away.`),
     ]; },
     m1meet: (c, e) => { const w = words(c); return [
@@ -328,7 +328,7 @@
       const F = D.FACTIONS[f], E = D.FACTIONS[enemyOf(f)], K = kingOf(f), id = (k) => f + '_' + k;
       const base = { f, lv: 1, main: true };
       Q[id('arrive')] = Object.assign({ id: id('arrive'), giver: 'harbor', turnin: 'king', type: 'meet', meet: 'king', title: 'An Urgent Summons', next: [id('m1')], scDone: 'arriveDone', reward: { coin: 25, status: 5 },
-        get text() { const c = G.player && G.player.c; return `Welcome back, ${c ? clsName(c) : 'sailor'}. The king must speak with you at once: it's urgent. Climb to the top floor of the King's Tower in ${F.city} and speak with ${K}.`; } }, base);
+        get text() { const c = G.player && G.player.c; return `Welcome back, ${c ? clsName(c) : 'sailor'}. The king must speak with you at once: it's urgent. Climb the great stairs of the castle in ${F.city} to the throne hall and speak with ${K}.`; } }, base);
       Q[id('m1')] = Object.assign({ id: id('m1'), giver: 'king', turnin: 'smith', type: 'tools', meet: 'smith', req: id('arrive'), title: 'Tools of the Trade', next: [id('m2')], scMeet: 'm1meet', scDone: 'm1done', reward: { coin: 60, status: 3 },
         text: `${K} wants his walls raised, and that starts with tools. See the blacksmith of ${F.city}, buy a woodcutting axe and a mining pick, and wear them in your Woodcutting and Mining slots.` }, base);
       Q[id('m2')] = Object.assign({ id: id('m2'), giver: 'smith', turnin: 'king', type: 'mgather', req: id('m1'), title: 'Timber and Stone', next: [id('build1'), id('m3')], scDone: 'm2done', reward: { coin: 80, status: 5 },

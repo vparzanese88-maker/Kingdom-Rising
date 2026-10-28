@@ -12,17 +12,17 @@
   Sys.CLASS_OUTFITS = {
     warrior: { chest: ['Studded Brigandine', '#7a2a22', 'leather', '🦺'], legs: ['Wool Breeches', '#4a3a2a'], feet: ['Hobnailed Boots', '#2a1e16'] },
     paladin: { head: ["Squire's Circlet", '#e0c060', '👑'], chest: ['White Templar Tabard', '#ece6d2'], legs: ['Grey Hose', '#8a8c9a'], feet: ['Riding Boots', '#5a4a3a'] },
-    shadowknight: { head: ['Black Hood', '#1a1420'], chest: ['Black Leather Jerkin', '#2a1e30', 'leather', '🦺'], legs: ['Black Breeches', '#1a1420'], feet: ['Spurred Boots', '#141018'] },
+    shadowknight: { head: ['Dark Iron Circlet', '#8a8e9a', '👑'], chest: ['Black Leather Jerkin', '#2a1e30', 'leather', '🦺'], legs: ['Black Breeches', '#1a1420'], feet: ['Spurred Boots', '#141018'] },
     ranger: { head: ['Forest Hood', '#3f6b35'], chest: ['Green Leather Jerkin', '#3f6b35', 'leather', '🦺'], legs: ['Buckskin Leggings', '#6a5236'], feet: ['Soft Hunting Boots', '#3a2a1e'] },
     bard: { head: ['Feathered Cap', '#b8462e'], chest: ["Minstrel's Doublet", '#b8462e'], legs: ['Striped Hose', '#3a2a5a'], feet: ['Pointed Shoes', '#5a3a1e', '👞'] },
     beastlord: { head: ['Wolfskin Hood', '#8a6a3a'], chest: ['Hide Jerkin', '#8a6a3a', 'leather', '🦺'], legs: ['Fur Leggings', '#5a4028'], feet: ['Fur Boots', '#6a5038'] },
-    rogue: { head: ['Shadow Hood', '#2a2e30'], chest: ['Charcoal Jerkin', '#2a2e30', 'leather', '🦺'], legs: ['Dark Leggings', '#1e2224'], feet: ['Soft Boots', '#1a1a1a'] },
+    rogue: { head: ['Shadow Hood', '#4a5058'], chest: ['Charcoal Jerkin', '#2a2e30', 'leather', '🦺'], legs: ['Dark Leggings', '#1e2224'], feet: ['Soft Boots', '#1a1a1a'] },
     monk: { head: ['Red Headband', '#c8302a'], chest: ["Monk's Tunic", '#d9822b'], legs: ['Saffron Trousers', '#c87020'], feet: ['Straw Sandals', '#c8a060', '🩴'] },
     berserker: { chest: ['Bearskin Jerkin', '#6a4a2e', 'leather', '🦺'], legs: ['Fur Breeches', '#4a3424'], feet: ['Fur Boots', '#3a2a1e'] },
     cleric: { head: ['Linen Mitre', '#f1efe6', '⛪'], chest: ['White Acolyte Vestment', '#efe9d8'], legs: ['Linen Trousers', '#c8c0a8'], feet: ['Temple Sandals', '#8a6a4a', '🩴'] },
     druid: { head: ['Leaf Circlet', '#6a9a3a', '🌿'], chest: ['Moss Green Robe', '#4e7d2f'], legs: ['Bark Brown Trousers', '#5a4a30'], feet: ['Bark Sandals', '#6a4a2a', '🩴'] },
     shaman: { head: ['Spirit Hood', '#2d7b78'], chest: ['Painted Hide Vestment', '#2d7b78'], legs: ['Hide Leggings', '#4a3a2a'], feet: ['Hide Boots', '#3a2a1e'] },
-    necromancer: { head: ['Bone Hood', '#1d1a22'], chest: ['Black Funeral Robe', '#1d1a22'], legs: ['Grave Black Trousers', '#2a2430'], feet: ['Grave Boots', '#141018'] },
+    necromancer: { head: ['Bone Circlet', '#e8e0cc', '💀'], chest: ['Black Funeral Robe', '#1d1a22'], legs: ['Grave Black Trousers', '#2a2430'], feet: ['Grave Boots', '#141018'] },
     wizard: { head: ['Pointed Hat', '#2b4fa3', '🎩'], chest: ['Blue Apprentice Robe', '#2b4fa3'], legs: ['Midnight Trousers', '#1e2a4a'], feet: ['Velvet Slippers', '#2a2a4a', '🥿'] },
     magician: { head: ['Crimson Hood', '#b03a2e'], chest: ['Crimson Summoner Robe', '#b03a2e'], legs: ['Ash Grey Trousers', '#4a4448'], feet: ['Ember Boots', '#3a1e16'] },
     enchanter: { head: ['Silver Circlet', '#c8c8e0', '👑'], chest: ['Violet Silk Gown', '#6a3fa0'], legs: ['Lilac Trousers', '#8a6ab0'], feet: ['Velvet Slippers', '#3a2a4a', '🥿'] },
@@ -1339,7 +1339,11 @@
     let local = null; try { local = JSON.parse(LS.get('kr_char_' + id) || 'null'); } catch (e) {}
     let remote = null;
     if (Store.db && !(local && Sys._remoteChecked && Sys._remoteChecked[id])) { try { const s = await Sys.withTimeout(Store.col().doc('char_' + id).get(), 3000); if (s && s.exists) remote = JSON.parse(JSON.stringify(s.data())); (Sys._remoteChecked = Sys._remoteChecked || {})[id] = 1; } catch (e) {} }
-    return remote && (!local || (remote.updated || 0) >= (local.updated || 0)) ? remote : local;
+    const c = remote && (!local || (remote.updated || 0) >= (local.updated || 0)) ? remote : local;
+    // starting hoods that read as a black blob were replaced: swap them on heroes made before
+    const hd = c && c.equip && c.equip.head; const swap = hd && hd.plainClothes && { 'Bone Hood': 'necromancer', 'Black Hood': 'shadowknight' }[hd.name];
+    if (swap && Sys.CLASS_OUTFITS[swap] && Sys.CLASS_OUTFITS[swap].head) { const [n2, col, icon] = Sys.CLASS_OUTFITS[swap].head; Object.assign(hd, { name: n2, col, icon: icon || hd.icon }); }
+    return c;
   };
   let saveTimer = null, lastRemote = 0;
   Sys.charSummary = (c) => ({ id: c.id, name: c.name, race: c.race, cls: c.cls, level: c.level, faction: c.faction, gender: c.gender, skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, app: c.app || null, updated: c.updated, zone: c.zone || '', look: c.lookSaved || null });

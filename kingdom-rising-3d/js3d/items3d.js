@@ -7,6 +7,9 @@ import { MB } from './mb.js';
 const KR = window.KR, D = KR.D;
 const V2 = (x, y) => new THREE.Vector2(x, y);
 // metal by tier: iron, steel, blued steel, gilded, mithril, adamant
+// accents for trims, stripes and emblems, and a floor on lightness so dark gear stays visible as an icon
+const ACCENTS = ['#e2c25a', '#c83a2a', '#3a7ac8', '#3aa85a', '#e8e0cc', '#8a4ac8', '#e87a2a', '#2ab8b8', '#d84a8a', '#9aa0a8', '#c8a040', '#6ac8ff'];
+function readable(hex, minL = 0.26) { const c = new THREE.Color(hex); const hsl = {}; c.getHSL(hsl); if (hsl.l < minL) c.setHSL(hsl.h, Math.min(1, hsl.s * 0.9 + 0.05), minL + hsl.l * 0.25); return '#' + c.getHexString(); }
 const METAL = ['#8a8e94', '#c4c9d1', '#9ab4d8', '#e2c25a', '#cfe8ff', '#9affd0'];
 const GEMS = ['#ff3a5a', '#3a8aff', '#3aff8a', '#c87aff', '#ffd84a', '#ff8a3a', '#7affff'];
 function seedOf(it) { const s = String(it.uid || '') + (it.name || '') + (it.tier || 0); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -129,10 +132,23 @@ function shield(it, R) {
 function armour(it, R) {
   const mb = new MB(); const t = Math.min(5, it.tier || 0); const ak = it.ak;
   const plate = ak === 'plate', chain = ak === 'chain', leather = ak === 'leather', cloth = ak === 'cloth' || ak === 'misc';
-  const m = plate ? hueShift(METAL[t], R, 0.02, 0.08) : chain ? hueShift(['#7a7e84', '#8e9298', '#a0a8b4', '#c8b070', '#b8d8ee', '#a8e8c8'][t], R, 0.02) : leather ? hueShift(['#6a4a2a', '#7a5532', '#5a3a2a', '#3a2a1e', '#2a3a4a', '#4a2a3a'][t], R, 0.05) : hueShift(it.fx === 'fire' ? '#b8401a' : it.fx === 'storm' ? '#3a5aa0' : ['#7a6a5a', '#3a4a8a', '#6a3a8a', '#2a6a5a', '#8a2a4a', '#2a2458'][t], R, 0.08);
+  const nm = (it.name || '').toLowerCase();
+  const m0 = it.col ? hueShift(it.col, R, 0.03, 0.06) : plate ? hueShift(METAL[t], R, 0.02, 0.08) : chain ? hueShift(['#7a7e84', '#8e9298', '#a0a8b4', '#c8b070', '#b8d8ee', '#a8e8c8'][t], R, 0.02) : leather ? hueShift(['#8a6038', '#9a6a3a', '#7a4a2e', '#6a4a32', '#4a6a8a', '#7a3a5a'][t], R, 0.08) : hueShift(it.fx === 'fire' ? '#c8501e' : it.fx === 'storm' ? '#4a6ac0' : ['#9a8a7a', '#4a6ac8', '#8a4ac8', '#3a9a8a', '#b83a5a', '#4a42a8'][t], R, 0.12);
+  const m = readable(m0); // a black robe still has to show up on a dark bag slot
+  // every item gets its own accent colour and pattern, so two pieces of the same kind never look the same
+  const acc = readable(pick(R, ACCENTS), 0.45); const pat = pick(R, ['plain', 'stripes', 'band', 'studs', 'checks', 'emblem']);
   const trim = t >= 3 ? '#e2c25a' : plate ? K3.shade(m, -0.25) : leather ? '#2a1a10' : hueShift('#c8a040', R);
   const key = plate ? 'metal' : chain ? 'metal' : leather ? 'leather' : 'cloth2';
   const rivets = (pts) => { for (const [x, y, z] of pts) mb.sph('metal', x, y, z, 0.016, 0.016, 0.01, trim); };
+  // pattern on a flat-ish front: x0..x1 wide, y0..y1 tall, at depth z
+  const deco = (x0, x1, y0, y1, z, mat = key) => {
+    const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2;
+    if (pat === 'stripes') for (let k = 0; k < 3; k++) mb.box(mat, cx, y0 + h * (0.25 + k * 0.25), z, w, h * 0.06, 0.012, acc);
+    else if (pat === 'band') mb.box(mat, cx, y0 + h * (0.35 + R() * 0.3), z, w * 1.02, h * 0.12, 0.014, acc);
+    else if (pat === 'studs') for (let k = 0; k < 6; k++) mb.sph('metal', x0 + w * (0.2 + (k % 3) * 0.3), y0 + h * (0.3 + Math.floor(k / 3) * 0.4), z, 0.016, 0.016, 0.01, acc);
+    else if (pat === 'checks') for (let k = 0; k < 6; k++) mb.box(mat, x0 + w * (0.2 + (k % 3) * 0.3), y0 + h * (0.35 + Math.floor(k / 3) * 0.3), z, w * 0.18, h * 0.16, 0.012, (k + Math.floor(k / 3)) % 2 ? acc : K3.shade(m, -0.2));
+    else if (pat === 'emblem') { const sh = pick(R, ['disc', 'diamond', 'cross']); if (sh === 'disc') mb.cyl(mat, cx, y0 + h * 0.55, z, Math.min(w, h) * 0.2, 0.012, acc, 16, null, 0, Math.PI / 2, 0); else if (sh === 'diamond') mb.box(mat, cx, y0 + h * 0.55, z, Math.min(w, h) * 0.26, Math.min(w, h) * 0.26, 0.012, acc, 0, 0, Math.PI / 4); else { mb.box(mat, cx, y0 + h * 0.55, z, w * 0.12, h * 0.5, 0.012, acc); mb.box(mat, cx, y0 + h * 0.62, z, w * 0.42, h * 0.1, 0.012, acc); } }
+  };
   switch (it.slot) {
     case 'head': {
       if (plate) { const style = pick(R, ['great', 'sallet', 'nasal']);
@@ -142,47 +158,66 @@ function armour(it, R) {
         if (R() < 0.6) for (let k = 0; k < 6; k++) mb.sph('fur', 0, 0.36 + Math.sin((k / 5) * 2) * 0.03, 0.08 - k * 0.04, 0.05, 0.07, 0.05, pick(R, ['#b8302a', '#e8d070', '#e8e8e8', '#28457a']));
       } else if (chain) { mb.add('metal', lathe([[0.001, 0.3], [0.1, 0.28], [0.15, 0.2], [0.16, 0.05], [0.18, -0.12], [0.22, -0.18]], 18), M4(0, 0, 0), m); mb.box('dark', 0, 0.06, 0.16, 0.18, 0.14, 0.02, '#120e0a'); }
       else if (leather) { mb.add('leather', lathe([[0.001, 0.26], [0.1, 0.25], [0.15, 0.17], [0.16, 0.03], [0.17, 0.0]], 16), M4(0, 0, 0), m); mb.cyl('leather', 0, 0.02, 0, 0.17, 0.04, K3.shade(m, -0.3), 16); rivets([[0.12, 0.12, 0.1], [-0.12, 0.12, 0.1], [0, 0.18, 0.13]]); }
-      else { const style = /mitre/i.test(it.name || '') ? 'mitre' : /circlet|crown|diadem/i.test(it.name || '') ? 'circlet' : pick(R, ['hood', 'wizard', 'cap']);
-        if (style === 'circlet') { mb.add('gold', new THREE.TorusGeometry(0.14, 0.012, 8, 32), M4(0, 0.1, 0, Math.PI / 2 + 0.1, 0, 0), '#e2c25a'); mb.sph('glow', 0, 0.12, 0.14, 0.04, 0.04, 0.02, pick(R, GEMS)); }
+      else { const style = /mitre/.test(nm) ? 'mitre' : /circlet|crown|diadem|tiara/.test(nm) ? 'circlet' : /headband|band\b|bandana/.test(nm) ? 'headband' : /pointed|wizard|conical/.test(nm) ? 'wizard' : /hood|cowl/.test(nm) ? 'hood' : /cap|beret|hat/.test(nm) ? 'cap' : pick(R, ['hood', 'wizard', 'cap']);
+        if (style === 'headband') { const g = new THREE.TorusGeometry(0.15, 0.03, 8, 28); g.scale(1, 1, 0.9); mb.add('cloth2', g, M4(0, 0.08, 0, Math.PI / 2, 0, 0), m); for (const sx of [-1, 1]) mb.box('cloth2', sx * 0.03, -0.02, -0.15, 0.04, 0.16, 0.012, m, 0, 0, sx * 0.3); }
+        else if (style === 'circlet') { mb.add('gold', new THREE.TorusGeometry(0.14, 0.012, 8, 32), M4(0, 0.1, 0, Math.PI / 2 + 0.1, 0, 0), '#e2c25a'); mb.sph('glow', 0, 0.12, 0.14, 0.04, 0.04, 0.02, pick(R, GEMS)); }
         else if (style === 'wizard') { const g = new THREE.ConeGeometry(0.15, 0.45, 18, 6); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) / 0.45 + 0.5; p.setZ(i, p.getZ(i) - y * y * 0.12); } g.computeVertexNormals(); mb.add('cloth2', g, M4(0, 0.26, 0), m); mb.cyl('cloth2', 0, 0.03, 0, 0.28, 0.02, m, 24); mb.cyl('cloth2', 0, 0.06, 0, 0.152, 0.04, trim, 18); }
         else if (style === 'mitre') { const s = new THREE.Shape(); s.moveTo(-0.14, 0); s.lineTo(-0.14, 0.12); s.quadraticCurveTo(-0.12, 0.26, 0, 0.32); s.quadraticCurveTo(0.12, 0.26, 0.14, 0.12); s.lineTo(0.14, 0); for (const sd of [1, -1]) mb.add('cloth2', extrude(s, 0.012, 0.004), M4(0, 0, sd * 0.05, sd * -0.12, 0, 0), m); mb.box('gold', 0, 0.15, 0.065, 0.03, 0.28, 0.006, '#e2c25a'); mb.cyl('gold', 0, 0.03, 0, 0.145, 0.05, '#e2c25a', 18); }
         else if (style === 'cap') { mb.add('cloth2', lathe([[0.001, 0.16], [0.1, 0.15], [0.15, 0.08], [0.16, 0.0]], 16), M4(0, 0, 0), m); mb.add('fur', new THREE.SphereGeometry(0.5, 8, 6), M4(0.12, 0.16, -0.04, 0, 0, 0.6, 0.06), '#f4f0e8'); }
-        else { mb.add('cloth2', new THREE.SphereGeometry(0.17, 18, 12, Math.PI * 0.2, Math.PI * 1.6), M4(0, 0.06, 0, 0, Math.PI, 0), m); mb.add('cloth2', new THREE.ConeGeometry(0.06, 0.14, 8), M4(0, 0.12, -0.17, -1.2, 0, 0), m); }
+        else { mb.sph('dark', 0, 0.03, 0.02, 0.27, 0.3, 0.26, '#120c0a'); mb.add('cloth2', new THREE.SphereGeometry(0.17, 18, 12, Math.PI * 0.3, Math.PI * 1.4, 0, Math.PI * 0.78), M4(0, 0.06, 0, 0, Math.PI / 2, 0), m); mb.add('cloth2', new THREE.CylinderGeometry(0.16, 0.2, 0.08, 18, 1, true, 0, Math.PI * 2), M4(0, -0.08, -0.02), K3.shade(m, -0.1)); mb.add('cloth2', new THREE.ConeGeometry(0.06, 0.14, 8), M4(0, 0.12, -0.17, -1.2, 0, 0), m); } // a cowl seen from the front, with a shadowed face
       }
       return { mb, pose: 'face' };
     }
     case 'chest': {
-      const style = cloth ? 'robe' : leather ? 'jerkin' : chain ? 'mail' : 'cuirass';
+      const style = cloth ? (/tabard|surcoat/.test(nm) ? 'tabard' : /tunic|doublet|shirt|blouse|gi\b/.test(nm) ? 'tunic' : 'robe') : leather ? 'jerkin' : chain ? 'mail' : 'cuirass';
       const torso = (top, bot, depth) => { const pts = [[0.001, top], [0.12, top - 0.01], [0.2, top - 0.06], [0.21, top - 0.2], [0.17, (top + bot) / 2], [0.19, bot]]; const g = lathe(pts, 20); g.scale(1, 1, depth); return g; };
-      if (style === 'robe') { const g = lathe([[0.001, 0.32], [0.11, 0.31], [0.19, 0.26], [0.18, 0.05], [0.2, -0.25], [0.25, -0.42]], 22); g.scale(1, 1, 0.6); mb.add('cloth2', g, M4(0, 0, 0), m); mb.box('cloth2', 0, -0.05, 0.12, 0.05, 0.7, 0.02, trim); mb.cyl('cloth2', 0, 0.0, 0, 0.19, 0.04, trim, 20); for (const sx of [-1, 1]) mb.add('cloth2', new THREE.CylinderGeometry(0.06, 0.1, 0.26, 12), M4(sx * 0.26, 0.16, 0, 0, 0, sx * 0.7), m); }
+      if (style === 'tabard' || style === 'tunic') { mb.add('cloth2', torso(0.3, style === 'tabard' ? -0.3 : -0.2, 0.6), M4(0, 0, 0), style === 'tabard' ? K3.shade(m, -0.25) : m); for (const sx of [-1, 1]) mb.add('cloth2', new THREE.CylinderGeometry(0.06, 0.075, style === 'tunic' ? 0.2 : 0.14, 12), M4(sx * 0.25, 0.18, 0, 0, 0, sx * 0.75), style === 'tabard' ? K3.shade(m, -0.25) : m);
+        if (style === 'tabard') { mb.box('cloth2', 0, -0.02, 0.125, 0.24, 0.62, 0.012, m); mb.box('cloth2', 0, -0.33, 0.128, 0.24, 0.03, 0.012, acc); deco(-0.1, 0.1, -0.2, 0.2, 0.135, 'cloth2'); }
+        else { mb.box('cloth2', 0, 0.24, 0.12, 0.14, 0.05, 0.012, acc); for (let k = 0; k < 3; k++) mb.sph('metal', 0, 0.18 - k * 0.07, 0.13, 0.012, 0.012, 0.008, acc); deco(-0.17, 0.17, -0.18, 0.12, 0.128, 'cloth2'); } }
+      else if (style === 'robe') { const g = lathe([[0.001, 0.32], [0.11, 0.31], [0.19, 0.26], [0.18, 0.05], [0.2, -0.25], [0.25 + R() * 0.06, -0.42 - R() * 0.06]], 22); g.scale(1, 1, 0.6); mb.add('cloth2', g, M4(0, 0, 0), m); mb.box('cloth2', 0, -0.05, 0.12, 0.05, 0.7, 0.02, trim); mb.cyl('cloth2', 0, 0.0, 0, 0.19, 0.04, trim, 20); for (const sx of [-1, 1]) mb.add('cloth2', new THREE.CylinderGeometry(0.06, 0.1, 0.26, 12), M4(sx * 0.26, 0.16, 0, 0, 0, sx * 0.7), m); mb.box('cloth2', 0, 0.27, 0.105, 0.2, 0.04, 0.02, acc); deco(-0.16, 0.16, -0.36, -0.12, 0.13, 'cloth2'); }
       else { mb.add(key, torso(0.3, -0.18, 0.62), M4(0, 0, 0), m);
         if (style === 'cuirass') { mb.box('metal', 0, 0.06, 0.13, 0.02, 0.36, 0.02, K3.shade(m, 0.15)); for (let k = 0; k < 3; k++) mb.box('metal', 0, -0.12 - k * 0.055, 0.11, 0.38, 0.05, 0.03, K3.shade(m, -0.05 * k)); for (const sx of [-1, 1]) { mb.add('metal', new THREE.SphereGeometry(0.11, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), M4(sx * 0.22, 0.26, 0, 0, 0, sx * -0.4), m); mb.add('metal', new THREE.SphereGeometry(0.12, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), M4(sx * 0.24, 0.22, 0, 0, 0, sx * -0.55, 0.95), K3.shade(m, -0.1)); } if (t >= 2) mb.add('gold', new THREE.TorusGeometry(0.05, 0.008, 6, 20), M4(0, 0.1, 0.135), '#e2c25a'); }
         if (style === 'mail') { mb.box('cloth2', 0, 0.02, 0.125, 0.16, 0.45, 0.012, hueShift(pick(R, ['#7a2a2a', '#28457a', '#2e6a3c', '#e8d8a8']), R)); mb.cyl('leather', 0, -0.14, 0, 0.2, 0.035, '#3a2618', 20); }
         if (style === 'jerkin') { for (let k = 0; k < 5; k++) mb.sph('metal', 0.02, 0.22 - k * 0.08, 0.13, 0.018, 0.018, 0.01, '#c8a040'); mb.box('leather', 0, 0.02, 0.125, 0.012, 0.45, 0.01, K3.shade(m, -0.3)); for (const sx of [-1, 1]) mb.add('leather', new THREE.SphereGeometry(0.09, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M4(sx * 0.22, 0.25, 0, 0, 0, sx * -0.5), K3.shade(m, -0.1)); }
+        deco(-0.16, 0.16, -0.1, 0.2, 0.135, key);
       }
       return { mb, pose: 'face' };
     }
     case 'hands': {
-      for (const sx of [-1, 1]) { const x = sx * 0.11; mb.add(key, new THREE.CylinderGeometry(0.06, 0.07, 0.16, 12), M4(x, -0.04, 0, 0, 0, sx * 0.1), plate ? m : K3.shade(m, -0.05)); mb.box(key, x, 0.07, 0.01, 0.1, 0.09, 0.05, m); for (let k = 0; k < 4; k++) mb.box(key, x - 0.035 + k * 0.024, 0.15, 0.01 + (plate ? 0.004 : 0), 0.018, 0.08, 0.03, plate ? K3.shade(m, 0.1) : m, 0, 0.2, 0); mb.box(key, x - sx * 0.06, 0.08, 0.03, 0.022, 0.06, 0.025, m, 0, 0, sx * 0.6); if (plate || t >= 2) mb.cyl('metal', x, -0.11, 0, 0.074, 0.025, trim, 12); }
+      const flare = plate || /gauntlet/.test(nm) ? 0.035 + R() * 0.03 : R() * 0.015; const cuff = pick(R, [m, acc, trim]);
+      for (const sx of [-1, 1]) { const x = sx * 0.11; mb.cyl(key, x, -0.13, 0, 0.07 + flare, 0.05, cuff, 12, 0.07); mb.add(key, new THREE.CylinderGeometry(0.06, 0.07, 0.16, 12), M4(x, -0.04, 0, 0, 0, sx * 0.1), plate ? m : K3.shade(m, -0.05)); mb.box(key, x, 0.07, 0.01, 0.1, 0.09, 0.05, m); for (let k = 0; k < 4; k++) mb.box(key, x - 0.035 + k * 0.024, 0.15, 0.01 + (plate ? 0.004 : 0), 0.018, 0.08, 0.03, plate ? K3.shade(m, 0.1) : m, 0, 0.2, 0); mb.box(key, x - sx * 0.06, 0.08, 0.03, 0.022, 0.06, 0.025, m, 0, 0, sx * 0.6); if (plate || t >= 2) mb.cyl('metal', x, -0.11, 0, 0.074, 0.025, trim, 12); }
       return { mb, pose: 'face' };
     }
     case 'legs': {
-      for (const sx of [-1, 1]) { mb.add(key, new THREE.CylinderGeometry(0.085, 0.065, 0.5, 14), M4(sx * 0.09, -0.12, 0, 0, 0, sx * -0.04), m); if (plate) { mb.sph('metal', sx * 0.09, -0.09, 0.05, 0.12, 0.1, 0.09, K3.shade(m, 0.1)); } }
-      mb.add(key, new THREE.CylinderGeometry(0.19, 0.17, 0.14, 18), M4(0, 0.15, 0), m); mb.cyl(plate ? 'metal' : 'leather', 0, 0.21, 0, 0.192, 0.035, trim, 18);
+      const cut = /kilt|skirt/.test(nm) ? 'kilt' : /breeches|shorts/.test(nm) ? 'breeches' : /hose|tights|legging/.test(nm) ? 'tight' : /trouser|pants|slacks/.test(nm) ? 'loose' : pick(R, ['loose', 'tight', 'breeches']);
+      const top = cut === 'tight' ? 0.075 : 0.09 + R() * 0.02, bot = cut === 'loose' ? 0.085 + R() * 0.02 : cut === 'breeches' ? 0.07 : 0.055, len = cut === 'breeches' ? 0.32 : 0.5;
+      for (const sx of [-1, 1]) { mb.add(key, new THREE.CylinderGeometry(top, bot, len, 14), M4(sx * 0.09, -0.12 + (0.5 - len) / 2, 0, 0, 0, sx * -0.04), m); if (plate) { mb.sph('metal', sx * 0.09, -0.09, 0.05, 0.12, 0.1, 0.09, K3.shade(m, 0.1)); }
+        if (cut === 'breeches') mb.cyl(key, sx * 0.09, -0.21, 0, 0.072, 0.035, acc, 12); else if (pat !== 'plain') mb.box(key, sx * 0.09 + sx * 0.05, -0.12, 0.02, 0.014, 0.46, 0.02, acc);
+        if (leather && R() < 0.6) mb.sph('leather', sx * 0.09, -0.12, 0.07, 0.06, 0.05, 0.03, K3.shade(m, -0.2)); }
+      if (cut === 'kilt') { const g = lathe([[0.17, 0.12], [0.2, 0.0], [0.24, -0.14]], 20); mb.add('cloth2', g, M4(0, 0, 0), m); for (let k = 0; k < 4; k++) mb.box('cloth2', -0.15 + k * 0.1, -0.03, 0.2, 0.02, 0.2, 0.01, acc); }
+      mb.add(key, new THREE.CylinderGeometry(0.19, 0.17, 0.14, 18), M4(0, 0.15, 0), m); mb.cyl(plate ? 'metal' : 'leather', 0, 0.21, 0, 0.192, 0.035, pat === 'band' || pat === 'emblem' ? acc : trim, 18);
       return { mb, pose: 'face' };
     }
     case 'feet': {
-      for (const sx of [-1, 1]) { const x = sx * 0.1; mb.add(key, new THREE.CylinderGeometry(0.06, 0.065, 0.22, 12), M4(x, 0.05, 0), m); mb.add(key, new THREE.SphereGeometry(0.5, 14, 10), M4(x, -0.07, 0.06, 0, 0, 0, 1), K3.shade(m, -0.05)); mb.box(key, x, -0.09, 0.03, 0.12, 0.05, 0.26, K3.shade(m, -0.1)); mb.box('leather', x, -0.12, 0.03, 0.125, 0.02, 0.27, '#1e140c'); if (plate) mb.cyl('metal', x, 0.15, 0, 0.068, 0.025, trim, 12); }
+      const fk = /sandal/.test(nm) ? 'sandal' : /slipper/.test(nm) ? 'slipper' : /shoe/.test(nm) ? 'shoe' : 'boot'; const shaft = fk === 'boot' ? 0.16 + R() * 0.12 : 0;
+      for (const sx of [-1, 1]) { const x = sx * 0.1;
+        if (fk === 'boot') { mb.add(key, new THREE.CylinderGeometry(0.06 + R() * 0.012, 0.065, shaft, 12), M4(x, -0.06 + shaft / 2, 0), m); mb.cyl(key, x, -0.06 + shaft - 0.02, 0, 0.068, 0.03, pat === 'plain' ? K3.shade(m, -0.2) : acc, 12); }
+        if (fk === 'sandal') { mb.box('leather', x, -0.11, 0.03, 0.12, 0.025, 0.27, K3.shade(m, -0.15)); for (let k = 0; k < 3; k++) mb.box('leather', x, -0.08, -0.05 + k * 0.08, 0.125, 0.018, 0.022, acc); }
+        else { mb.sph(key, x, -0.07, 0.08, 0.13, 0.1, 0.18, K3.shade(m, -0.05)); mb.box(key, x, -0.09, 0.03, 0.12, fk === 'slipper' ? 0.035 : 0.05, 0.26, K3.shade(m, -0.1)); mb.box('leather', x, -0.12, 0.03, 0.125, 0.02, 0.27, fk === 'slipper' ? acc : '#3a2a1e'); }
+        if (fk === 'slipper' && R() < 0.7) mb.sph('fur', x, -0.06, 0.16, 0.03, 0.03, 0.03, acc); if (fk === 'shoe') mb.box('metal', x, -0.05, 0.1, 0.05, 0.03, 0.01, acc);
+        if (plate) mb.cyl('metal', x, -0.06 + shaft, 0, 0.068, 0.025, trim, 12); }
       return { mb, pose: 'side' };
     }
     case 'back': {
-      const s = new THREE.Shape(); s.moveTo(-0.16, 0.28); s.lineTo(0.16, 0.28); s.quadraticCurveTo(0.26, -0.1, 0.24, -0.34); s.lineTo(0.08, -0.3); s.lineTo(0, -0.36); s.lineTo(-0.08, -0.3); s.lineTo(-0.24, -0.34); s.quadraticCurveTo(-0.26, -0.1, -0.16, 0.28);
+      const L = 0.3 + R() * 0.14, hem = pick(R, ['points', 'straight', 'round']), W = 0.22 + R() * 0.06;
+      const s = new THREE.Shape(); s.moveTo(-0.16, 0.28); s.lineTo(0.16, 0.28); s.quadraticCurveTo(W + 0.02, -0.1, W, -L);
+      if (hem === 'points') { s.lineTo(0.08, -L + 0.04); s.lineTo(0, -L - 0.02); s.lineTo(-0.08, -L + 0.04); } else if (hem === 'round') s.quadraticCurveTo(0, -L - 0.1, -W, -L); s.lineTo(-W, -L); s.quadraticCurveTo(-W - 0.02, -0.1, -0.16, 0.28);
       const g = extrude(s, 0.012, 0.004); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) + Math.sin(p.getX(i) * 22) * 0.012 - (p.getX(i) ** 2) * 0.5); g.computeVertexNormals();
-      mb.add('cloth2', g, M4(0, 0, 0), m); mb.box('cloth2', 0, 0.28, 0.01, 0.34, 0.035, 0.02, trim); for (const sx of [-1, 1]) mb.sph('gold', sx * 0.15, 0.27, 0.025, 0.04, 0.04, 0.02, '#e2c25a');
+      mb.add('cloth2', g, M4(0, 0, 0), m); mb.box('cloth2', 0, 0.28, 0.01, 0.34, 0.035, 0.02, pat === 'plain' ? trim : acc); for (const sx of [-1, 1]) mb.sph(R() < 0.5 ? 'gold' : 'glow', sx * 0.15, 0.27, 0.025, 0.04, 0.04, 0.02, R() < 0.5 ? '#e2c25a' : pick(R, GEMS)); deco(-0.14, 0.14, -0.2, 0.12, 0.035, 'cloth2');
       return { mb, pose: 'face' };
     }
     case 'waist': {
-      const g = new THREE.TorusGeometry(0.18, 0.025, 6, 32); g.scale(1, 1, 0.55); mb.add('leather', g, M4(0, 0, 0, Math.PI / 2 - 0.5, 0, 0), leather || cloth ? m : '#3a2618');
+      const g = new THREE.TorusGeometry(0.18, 0.025, 6, 32); g.scale(1, 1, 0.55); mb.add('leather', g, M4(0, 0, 0, Math.PI / 2 - 0.5, 0, 0), leather || cloth ? m : readable(pick(R, ['#5a3a20', '#3a2618', '#6a4a2a', '#2a2a2a']))); if (pat !== 'plain') { const g2 = new THREE.TorusGeometry(0.182, 0.008, 4, 32); g2.scale(1, 1, 0.55); mb.add('leather', g2, M4(0, 0.012, 0, Math.PI / 2 - 0.5, 0, 0), acc); }
       const bk = pick(R, ['square', 'round', 'plate']); if (bk === 'round') mb.add('gold', new THREE.TorusGeometry(0.04, 0.01, 6, 16), M4(0, -0.04, 0.1, 0.5, 0, 0), t >= 2 ? '#e2c25a' : '#9aa0a8'); else mb.box('metal', 0, -0.04, 0.1, bk === 'plate' ? 0.1 : 0.07, 0.07, 0.015, t >= 2 ? '#e2c25a' : '#9aa0a8', 0, 0.5, 0);
       if (R() < 0.5) mb.box('leather', 0.12, -0.08, 0.06, 0.06, 0.08, 0.04, K3.shade(m, -0.2)); // a pouch
       return { mb, pose: 'face' };
@@ -290,6 +325,16 @@ function setup() {
 }
 const POSE = { diag: [0.35, 0.5, -Math.PI / 4], bow: [0.2, 0.25, -Math.PI / 4], flat: [0.25, -0.35, -0.2], face: [0.2, -0.45, 0], side: [0.3, -1.0, 0], stand: [0.35, -0.5, 0] };
 function sigOf(it) { return it.uid ? it.uid + '|' + (it.up || 0) + (it.lit === false ? 'u' : '') : JSON.stringify([it.kind, it.name, it.tier, it.wt, it.ak, it.slot, it.mat, it.ctype]); }
+const iconMats = new Map();
+function iconMat(src) { let m = iconMats.get(src); if (!m) { m = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xb0b0b0, roughness: src.roughness != null ? src.roughness : 0.85, metalness: src.metalness || 0, side: src.side }); iconMats.set(src, m); } return m; }
+// draw the render twice: a blurred pale silhouette first, then the item on top
+let haloCv = null;
+function haloed(src) {
+  if (!haloCv) { haloCv = document.createElement('canvas'); haloCv.width = haloCv.height = src.width; }
+  const g = haloCv.getContext('2d'); g.clearRect(0, 0, haloCv.width, haloCv.height);
+  g.save(); g.shadowColor = 'rgba(255,236,200,0.85)'; g.shadowBlur = 7; g.drawImage(src, 0, 0); g.shadowBlur = 3; g.shadowColor = 'rgba(255,245,225,0.6)'; g.drawImage(src, 0, 0); g.restore();
+  return haloCv.toDataURL('image/png');
+}
 export function itemIcon(it) {
   const k = sigOf(it); const hit = cache.get(k); if (hit) return hit;
   try {
@@ -297,13 +342,16 @@ export function itemIcon(it) {
     const { group, pose } = itemModel(it); if (!group) return null;
     const [rx, ry, rz] = POSE[pose] || POSE.face;
     holder.clear(); holder.rotation.set(0, 0, 0); holder.add(group);
+    // icons draw textured materials (cloth, leather...) as plain tinted surfaces: their textures could still be
+    // loading (or belong to the world renderer) and then cloth and leather came out black or navy
+    group.traverse((o) => { if (o.isMesh && o.material && o.material.map) o.material = iconMat(o.material); });
     group.rotation.set(rx, ry, rz); group.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(group); const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());
     group.position.sub(c);
     const r = Math.max(sz.x, sz.y, sz.z * 0.6) * 0.5 * (pose === 'diag' || pose === 'bow' ? 0.98 : 1.12); const d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     cam.position.set(0, 0, d); cam.lookAt(0, 0, 0); cam.near = d / 20; cam.far = d * 4; cam.updateProjectionMatrix();
     rr.render(scene, cam);
-    const url = rr.domElement.toDataURL('image/png');
+    const url = haloed(rr.domElement);
     group.traverse((o) => { if (o.geometry && !o.userData.keepGeo) o.geometry.dispose(); });
     holder.clear();
     if (cache.size > 600) cache.delete(cache.keys().next().value);

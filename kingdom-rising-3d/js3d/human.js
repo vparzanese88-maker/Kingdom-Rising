@@ -602,7 +602,8 @@ function strandCards(look, kind, sh, spec, N, rest) {
   const style = closedHelm ? null : styleFor(look, kind, spec.fem);
   const push = (pts, side, width, nrm, chest, col, uw = 0.18, vlen = 1, shade = true) => cards.push({ pts, side, width, nrm, chest, col, u0: rnd() * (1 - uw), uw, vlen, shade });
   // ---- scalp hair: cards that lie along the head, layered, then fall below the ears ----
-  if (style && !(covered && style !== 'long' && style !== 'vlong' && style !== 'shoulder')) {
+  const hatOnly = covered && !look.helm && !look.hood; // under a hat the hair below the brim still shows, whatever the style
+  if (style && !(covered && !hatOnly && style !== 'long' && style !== 'vlong' && style !== 'shoulder')) {
     const S = HAIR_STYLE[style]; const crown = new V3(c.x, c.y + rad.y * 0.95, c.z - rad.z * 0.35);
     const fallY = c.y - rad.y * 0.35; const faceZ = c.z + rad.z * 0.45, browY = lm.browIn.y + 0.012;
     const roots = sampleSurface(P, N, A.tri.body, (v) => fr.isScalp[v] && (!S.strip || Math.abs(P[v * 3]) < S.strip * 1.8), Math.round(S.n * (K3.quality && K3.quality.grass >= 1.5 ? 1 : 0.7)), rnd);
@@ -615,7 +616,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
       const hd = r.p.clone().sub(c).normalize(); const layer = rnd();
       // which way it is combed: away from the crown, swept back at the front for short styles, from the part for longer ones
       let flow = r.p.clone().sub(crown); if (short && hd.z > 0.1) flow = new V3((r.p.x - partX) * 0.6, 0.2, -1);
-      if (!short && hd.z > 0.15) flow = new V3(Math.sign(r.p.x - partX || 1), -0.4, 0.15);
+      if (!short && hd.z > 0.15) flow = new V3(Math.sign(r.p.x - partX || 1), -0.15, -0.35); // hair at the front sweeps aside and back, off the face
       flow.sub(r.n.clone().multiplyScalar(flow.dot(r.n))).normalize();
       const len = S.len[0] + rnd() * (S.len[1] - S.len[0]);
       let dir = S.strip ? r.n.clone().lerp(new V3(0, 0.3, -1), 0.3).normalize() : r.n.clone().multiplyScalar(0.25).add(flow).normalize();
@@ -641,11 +642,11 @@ function strandCards(look, kind, sh, spec, N, rest) {
           const o2 = p.clone().sub(c).normalize(); dir.addScaledVector(new V3(0, -1, 0), S.grav * 0.22); dir.sub(o2.clone().multiplyScalar(dir.dot(o2))).normalize();
         } else { dir.y -= S.grav * 0.5; dir.normalize(); }
         // keep the face clear and fall behind the shoulders
-        if (p.z > faceZ && p.y < browY && Math.abs(p.x) < Math.abs(lm.eyeL.c.x) + 0.035) { p.x = Math.sign(p.x || 1) * (Math.abs(lm.eyeL.c.x) + 0.035); dir.x += Math.sign(p.x) * 0.5; dir.normalize(); }
+        if (p.z > faceZ && p.y < browY + 0.01 && Math.abs(p.x) < Math.abs(lm.eyeL.c.x) + 0.035) { if (k > 0 && Math.abs(lm.eyeL.c.x) + 0.035 - Math.abs(p.x) > 0.012) { pts.pop(); side.pop(); width.pop(); nrm.pop(); chest.pop(); break; } p.x = Math.sign(p.x || 1) * (Math.abs(lm.eyeL.c.x) + 0.035); dir.x += Math.sign(p.x) * 0.5; dir.normalize(); } // no strand ever hangs across the eyes: one that would is cut at the hairline
         if (p.y < neckY + 0.03 && p.z > backZ - 0.012 - Math.max(0, shY - p.y) * 0.1 && Math.abs(p.x) < 0.15) p.z = Math.min(p.z, backZ - 0.012 - Math.max(0, shY - p.y) * 0.1);
         if (p.y < shY + 0.03 && Math.abs(p.x) > 0.09) { p.x *= 0.96; if (p.z > backZ + 0.02) p.z = backZ + 0.02; }
       }
-      push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.35), 0.2, Math.min(1, len / 0.2 + 0.35));
+      if (pts.length >= 2) push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.35), 0.2, Math.min(1, len / 0.2 + 0.35));
     }
     if (G && S.gather === 'pony') {
       // the tail: a thick bundle from the tie down the back

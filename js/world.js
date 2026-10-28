@@ -1213,16 +1213,16 @@
   const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel]
   ['hall', -18, -19, 15, 14, 1], ['inn', 8, -19, 9, 8, 1], ['bank', 8, -7, 8, 6, 1],
   ['smithy', -18, 7, 7, 5, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 5, 1],
-  ['house', -18, 14, 6, 4, 1], ['house', -10, 14, 6, 4, 1], ['house', 4, 14, 6, 4, 1], ['house', 12, 14, 6, 4, 1],
+  ['house', -18, 14, 6, 4, 1], ['house', 12, 14, 6, 4, 1], // (the middle pair of this row made way for the kingdom's building plots)
   ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -15, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
   ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
   ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -10, -36, 6, 4, 4], ['bowyer', 4, -36, 6, 4, 4], ['house', -27, 32, 6, 4, 4], ['house', 21, 32, 6, 4, 4],
   ['exchange', 39, -9, 4, 8, 5], ['heroes', -42, -9, 4, 8, 5], ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -31, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -9, 38, 5, 4, 5], ['house', 4, 38, 5, 4, 5],
   ];
   const BNAMES = {
-    sylvan: { kingtower: "Theron's Tower", hall: 'Starbough Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
-    iron: { kingtower: "The King's Tower", hall: 'Anvilheart Throne Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
-    crown: { kingtower: "Aldric's Tower", hall: 'Valen Keep', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
+    sylvan: { kingtower: 'Aelindor Town Hall', hall: 'Aelindor Town Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
+    iron: { kingtower: 'Khar Duum Town Hall', hall: 'Khar Duum Town Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
+    crown: { kingtower: 'Valenmoor Town Hall', hall: 'Valenmoor Town Hall', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
   };
 
   const BARRACKS_SIZES = [[9, 6], [11, 6], [13, 7], [15, 7], [17, 8]];
@@ -1256,6 +1256,65 @@
       return b;
     }
     return null;
+  }
+  // ---------- the kingdom's building plots (realm.js builds on them; realm3d.js draws them) ----------
+  // Each kingdom building has its own fixed, marked plot of open ground off the streets: [id, w, h] in tiles. The sawmill
+  // and the stone cutter reserve the footprint of their grandest (level 3) form; the rest are about the size of a house.
+  const PLOTS = [['barracks', 10, 6], ['sawmill', 8, 6], ['cutter', 8, 6], ['range', 9, 6], ['stable', 8, 5], ['workshop', 9, 6]];
+  const PLOT_MIN = { barracks: [8, 5], sawmill: [6, 5], cutter: [6, 5], range: [7, 5], stable: [6, 4], workshop: [7, 5] };
+  W.realmMode = () => !!(KR.Realm && typeof KR.Realm.state === 'function');
+  W.realmHas = (f, id) => { const R2 = KR.Realm; if (!R2 || typeof R2.has !== 'function') return id === 'barracks'; try { return !!R2.has(f, id); } catch (e) { return id === 'barracks'; } };
+  // the level of a kingdom building (0 = not built), from KR.Realm
+  W.realmLevel = (f, id) => { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); const v = st && st.buildings && st.buildings[id]; return typeof v === 'number' ? v : v ? 1 : 0; } catch (e) { return 0; } };
+  // the solid footprint of a building on its plot (tile rect): it stands at the back of the plot, growing with its level,
+  // and always leaves the plot's front row (the side toward the street) and a tile at each side open to walk round
+  W.plotFootprint = function (p, lvl) {
+    const k = lvl >= 3 ? 1 : lvl === 2 ? 0.85 : 0.7;
+    const w = Math.max(3, Math.round((p.w - 2) * k)), h = Math.max(3, Math.round((p.h - 1) * k));
+    return { x: p.x + Math.floor((p.w - w) / 2), y: p.front === 'n' ? p.y + p.h - h : p.y, w, h };
+  };
+  const LANES = [-10, -9, 13, 14, 18, 19];
+  function placePlots(f, cx, cy, R) {
+    const cd = W.cityData[f] = W.cityData[f] || {}; const out = []; cd.plots = out;
+    const taken = (x0, y0, w, h, M) => out.some((p) => !(x0 + w + M <= p.x || p.x + p.w + M <= x0 || y0 + h + M <= p.y || p.y + p.h + M <= y0));
+    const free = (x0, y0, w, h, M) => {
+      for (let y = y0 - M; y < y0 + h + M + 1; y++) for (let x = x0 - M; x < x0 + w + M; x++) {
+        const dx = x - cx, dy = y - cy;
+        if (Math.abs(dx) > R - 2 || Math.abs(dy) > R - 2) return false;
+        if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // the plaza
+        if (Math.abs(dx) <= 3) return false; // the north-south avenue
+        if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
+        if (dx >= -19 && dx <= -3 && dy >= -6 && dy <= 0) return false; // the castle's courtyard (the siege yard)
+        if (LANES.includes(dy)) return false; // the lanes behind the rows of buildings
+        const k = y * W.W + x, t = W.tiles[k];
+        if (t === T.WALL || t === T.DOOR || t === T.CWALL || t === T.WATER || t === T.DEEP || t === T.STONE) return false;
+        if (W.stairs && W.stairs.get(k)) return false;
+      }
+      if (y0 <= cy + 5 && y0 + h >= cy + 1) return false; // the east and west gate roads (rows 1..5)
+      for (const b of W.buildings) if (b.city === f && !(x0 + w + M <= b.x || b.x + b.w + M <= x0 || y0 + h + M + 1 <= b.y || b.y + b.h + M <= y0)) return false;
+      return !taken(x0, y0, w, h, M);
+    };
+    for (const [id, w0, h0] of PLOTS) {
+      const [wm, hm] = PLOT_MIN[id]; let got = null;
+      for (const M of [2, 1]) { for (let w = w0, h = h0; !got && w >= wm && h >= hm; w > wm ? w-- : h--) {
+        const c = []; for (let y = cy - R + 2; y <= cy + R - 2 - h; y++) for (let x = cx - R + 2; x <= cx + R - 2 - w; x++) if (free(x, y, w, h, M)) c.push([x, y]);
+        if (c.length) { c.sort((a, b2) => Math.hypot(a[0] + w / 2 - cx, a[1] + h / 2 - cy) - Math.hypot(b2[0] + w / 2 - cx, b2[1] + h / 2 - cy)); got = { id, x: c[0][0], y: c[0][1], w, h }; }
+      } if (got) break; }
+      if (!got) continue;
+      out.push(got);
+      // the plot is bare ground, cleared of decor; its front edge faces the nearest street
+      W.decor = W.decor.filter((d) => !(d.tx >= got.x - 1 && d.tx <= got.x + got.w && d.ty >= got.y - 1 && d.ty <= got.y + got.h));
+      for (let y = got.y; y < got.y + got.h; y++) for (let x = got.x; x < got.x + got.w; x++) { const k = y * W.W + x; W.tiles[k] = T.GRAVEL; W.block[k] = 0; }
+      // which side faces the street: the side with the most paved tiles just outside it
+      const paved = (x, y) => { const t = W.tile(x, y); return t === T.STONE || t === T.COBBLE || t === T.ROAD; };
+      let sN = 0, sS = 0; for (let x = got.x; x < got.x + got.w; x++) { if (paved(x, got.y - 1) || paved(x, got.y - 2)) sN++; if (paved(x, got.y + got.h) || paved(x, got.y + got.h + 1)) sS++; }
+      got.front = sN > sS ? 'n' : 's';
+    }
+    // finished buildings (other than the barracks, a real building) are solid where they stand
+    for (const q of out) { if (q.id === 'barracks') continue; const lv = W.realmLevel(f, q.id); q.level = lv; if (!lv) continue;
+      const fp = W.plotFootprint(q, lv); q.fp = fp;
+      for (let y = fp.y; y < fp.y + fp.h; y++) for (let x = fp.x; x < fp.x + fp.w; x++) W.block[y * W.W + x] = 1; }
+    return out;
   }
   // the last touches to a city once everything stands
   function cityFinish(f) {
@@ -1436,11 +1495,18 @@
     const names = BNAMES[f];
     for (const [type, bx, by, bw2, bh, minL] of CITY_LAYOUT) {
       if (minL > level) continue;
+      if (type === 'house' && minL > 2 && W.realmMode()) continue; // the kingdom (KR.Realm) keeps a small town: its open ground goes to building plots
       const b = stampBuilding({ x: cx + bx, y: cy + by, w: bw2, h: bh, doorX: type === 'hall' ? cx + bx + bw2 - 4 : undefined, type, name: type === 'house' ? names.house : names[type], faction: f, city: f, style: f, minLevel: minL });
       b.city = f;
     }
-    // the barracks grows with the city: it houses every soldier of the kingdom's war parties
-    placeBarracks(f, level, cx, cy, R, names);
+    // the kingdom's building plots; the barracks stands on its plot only once it has been built (KR.Realm)
+    W.cityData[f] = W.cityData[f] || {}; W.cityData[f].barracksB = null;
+    const plots = placePlots(f, cx, cy, R);
+    if (W.realmHas(f, 'barracks')) {
+      const pb = plots.find((q) => q.id === 'barracks');
+      if (pb) { const b = stampBuilding({ x: pb.x, y: pb.y, w: pb.w, h: pb.h, type: 'barracks', name: `${D.FACTIONS[f] ? D.FACTIONS[f].city : ''} Barracks`, faction: f, city: f, style: f, minLevel: 1 }); b.city = f; b.plot = 'barracks'; W.cityData[f].barracksB = b; }
+      else placeBarracks(f, level, cx, cy, R, names);
+    }
     // no dead-end slivers: one-tile gaps behind buildings and along the wall, where walkers wander in and jam,
     // are filled with stacked crates and barrels (through-passages stay open)
     {

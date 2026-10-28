@@ -91,13 +91,13 @@ function update(dt) {
   let pos, look, fov = 50;
   switch (s.shot) {
     // over the hero's shoulder onto the speaker's face, at eye height
-    case 'shoulder': pos = PE.clone().addScaledVector(d, -0.62 + drift * 0.12).addScaledVector(side, 0.34).add(new THREE.Vector3(0, 0.05, 0)); look = E.clone(); fov = 40; break;
+    case 'shoulder': pos = PE.clone().addScaledVector(d, -0.62 + drift * 0.12).addScaledVector(side, 0.34).add(new THREE.Vector3(0, 0.05, 0)); look = E.clone().add(new THREE.Vector3(0, -0.08, 0)); fov = 40; break;
     // a close-up of the speaker: head and shoulders, from just off the line between them
-    case 'close': pos = E.clone().addScaledVector(d, -0.95 + drift * 0.15).addScaledVector(side, -0.22).add(new THREE.Vector3(0, -0.02, 0)); look = E.clone().add(new THREE.Vector3(0, -0.05, 0)); fov = 36; break;
+    case 'close': pos = E.clone().addScaledVector(d, -0.95 + drift * 0.15).addScaledVector(side, -0.22).add(new THREE.Vector3(0, -0.02, 0)); look = E.clone().add(new THREE.Vector3(0, -0.11, 0)); fov = 36; break; // aimed below the eyes, so the face sits above the subtitle
     // the face alone
-    case 'face': pos = E.clone().addScaledVector(d, -0.62 + drift * 0.08).addScaledVector(side, 0.12); look = E.clone().add(new THREE.Vector3(0, -0.03, 0)); fov = 34; break;
+    case 'face': pos = E.clone().addScaledVector(d, -0.78 + drift * 0.08).addScaledVector(side, 0.12).add(new THREE.Vector3(0, -0.01, 0)); look = E.clone().add(new THREE.Vector3(0, -0.085, 0)); fov = 34; break;
     // the reverse: over the speaker's shoulder onto the hero's face as they listen
-    case 'reverse': pos = E.clone().addScaledVector(d, 0.6 - drift * 0.1).addScaledVector(side, -0.34).add(new THREE.Vector3(0, 0.04, 0)); look = PE.clone(); fov = 40; break;
+    case 'reverse': pos = E.clone().addScaledVector(d, 0.6 - drift * 0.1).addScaledVector(side, -0.34).add(new THREE.Vector3(0, 0.04, 0)); look = PE.clone().add(new THREE.Vector3(0, -0.08, 0)); fov = 40; break;
     case 'side': { const mid = PH.clone().lerp(H, 0.5); const b2 = KR.W.buildingAt(sp.x, sp.y); let sgn = 1;
       if (b2) { const cxm = (b2.x + b2.w / 2) * 1.6, czm = (b2.y + b2.h / 2) * 1.6; sgn = (side.x * (cxm - mid.x) + side.z * (czm - mid.z)) >= 0 ? 1 : -1; }
       pos = mid.clone().addScaledVector(side, sgn * (Math.max(3.2, L * 0.9) - drift)).add(new THREE.Vector3(0, 0.3, 0)); look = mid; break; }

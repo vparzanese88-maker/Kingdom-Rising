@@ -33,7 +33,7 @@
 
   // ---------- gathering tools ----------
   GEAR.TOOL_KINDS = { axe: { name: 'Woodcutting Axe', skill: 'woodcutting', icon: '🪓', verb: 'chop' }, pick: { name: 'Mining Pick', skill: 'mining', icon: '⛏', verb: 'mine' }, knife: { name: 'Skinning Knife', skill: 'skinning', icon: '🔪', verb: 'skin' } };
-  // tier 1 is sold everywhere; 2 to 5 are earned from the crafters (smith for axes and picks, tanner for knives)
+  // tier 1 is sold everywhere; the smith and the outfitter sell the better ones once you reach their level
   GEAR.TOOL_TIERS = [null,
     { adj: 'Copper', lv: 1, speed: 1.0, value: 25, col: '#c87a4a' },
     { adj: 'Iron', lv: 8, speed: 1.25, value: 300, col: '#9aa0a8' },
@@ -53,7 +53,7 @@
   // ---------- equipping ----------
   const canUse0 = G.canUse;
   G.canUse = function (c, it) {
-    if (it && it.kind === 'gear') { if ((it.req || 1) > c.level) return { ok: false, why: `Requires level ${it.req}.` }; return { ok: true }; }
+    if (it && it.kind === 'gear') { if (D.shown(it.req || 1) > D.shown(c.level)) return { ok: false, why: `Requires level ${D.shown(it.req)}.` }; return { ok: true }; }
     return canUse0.apply(this, arguments);
   };
   const use0 = Sys.useItem;
@@ -184,15 +184,12 @@
   const stock0 = Sys.vendorStock;
   Sys.vendorStock = function (kind, npc) {
     const out = stock0.apply(this, arguments);
-    const L = npc && npc.city ? Sys.cityLevel(npc.city) : 1;
-    // materials: merchants only carry the basic kinds (copper, iron, rough and tanned hide, linen...), and only a few:
-    // anything better has to be mined, chopped, skinned or won out in the world
-    for (let i = out.length - 1; i >= 0; i--) { const it = out[i]; if (it.kind !== 'mat') continue; if (it.tier >= 2) { out.splice(i, 1); continue; } it.stockKey = `${kind}:${npc ? npc.id : 0}:${it.mat}:${it.tier}`; it.limit = it.tier === 0 ? 20 : 8; }
-    // the crafters sell the basic gathering tools too
-    if (['metal', 'cloth', 'fletcher', 'mats', 'jeweler'].includes(kind)) { const have = new Set(out.filter((x) => x.tool).map((x) => x.tool)); for (const k of ['axe', 'pick', 'knife']) if (!have.has(k)) out.push(G.makeTool(k, 1)); }
+    // lights by your level band (1-5, 6-10, 11-15, 16-20)
+    const L = Math.min(5, (Sys.levelBand ? Sys.levelBand(G.player.c) : 0) + 2);
+    // axes and picks (the hero's gathering feeds the kingdom): every tier your level allows, from the smith and outfitter
+    if (['metal', 'mats', 'general', 'outfitter'].includes(kind)) for (const k of ['axe', 'pick']) for (let t = 1; t < GEAR.TOOL_TIERS.length; t++) if (GEAR.TOOL_TIERS[t].lv <= G.player.c.level) out.push(G.makeTool(k, t));
     if (kind === 'outfitter') out.push(G.makeCampKit());
     if (kind === 'general' || kind === 'outfitter') {
-      out.push(G.makeTool('axe', 1), G.makeTool('pick', 1), G.makeTool('knife', 1));
       out.push(G.makeLight('tallow'), G.makeLight('beeswax'));
       if (L >= 2) out.push(G.makeLight('candelabrum'), G.makeLight('hooded'));
       if (L >= 3) out.push(G.makeLight('brass'));

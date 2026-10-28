@@ -84,7 +84,7 @@
     const p = G.player, c = p.c; const b = w.body;
     const offers = Sys.mercOffers(); const slots = Sys.mercSlots(), have = (c.mercs || []).length;
     const hrs = Sys.hoursToNewMercs();
-    b.innerHTML = `${Sys.cityLevel(c.faction) < Sys.MERC_MIN_KL ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign with a hamlet. Raise ${esc(D.FACTIONS[c.faction].city)} to Kingdom Level ${Sys.MERC_MIN_KL} and they will take your coin.</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
+    b.innerHTML = `${!Sys.mercsOpen(c.faction) ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign until ${esc(D.FACTIONS[c.faction].city)} has a Barracks.</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
     const list = $('.mt-list', b);
     if (!offers.length) list.appendChild(h('p', 'empty-note', 'Everyone here has already been hired today. Come back tomorrow.'));
     offers.forEach((o) => {
@@ -92,7 +92,7 @@
       const card = h('div', 'mt-card', `<canvas width="80" height="96"></canvas><div class="mt-i"><b>${esc(o.name)}</b><span>${R.name} ${C.name}</span><span class="tags"><span>${role}</span><span>${C.armor} armor</span>${Sys.MERC_TANKS.includes(o.cls) ? '<span>Taunts</span>' : ''}${['cleric', 'druid', 'shaman', 'paladin', 'ranger', 'beastlord'].includes(o.cls) ? '<span>Heals</span>' : ''}</span><small class="dim">${esc(C.desc)}</small></div>`);
       const data = Object.assign({}, o, { faction: c.faction, level: c.level, equip: {} });
       portrait($('canvas', card), Object.assign(data, { equip: {} }));
-      const bt = h('button', 'btn gold small', 'Hire'); bt.disabled = have >= slots || c.coins < Sys.mercCost(c.level); bt.title = !slots ? `Raise your kingdom to level ${Sys.MERC_MIN_KL} to hire mercenaries` : have >= slots ? 'All your mercenary slots are full' : c.coins < Sys.mercCost(c.level) ? `The contract costs ${G.fmtCoins(Sys.mercCost(c.level))}` : '';
+      const bt = h('button', 'btn gold small', 'Hire'); bt.disabled = have >= slots || c.coins < Sys.mercCost(c.level); bt.title = !slots ? 'Build a Barracks to hire mercenaries' : have >= slots ? 'All your mercenary slots are full' : c.coins < Sys.mercCost(c.level) ? `The contract costs ${G.fmtCoins(Sys.mercCost(c.level))}` : '';
       bt.onclick = () => { Sys.hireMerc(o); renderTrader(w); };
       card.appendChild(bt); list.appendChild(card);
     });

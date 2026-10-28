@@ -1,4 +1,4 @@
-// Kingdom Rising — interface: HUD, movable/resizable windows, inventory, spellbook, abilities, journal, map, vendors, bank, crafting, macros
+// Kingdom Rising — interface: HUD, movable/resizable windows, inventory, spellbook, abilities, journal, map, vendors, bank, macros
 (function () {
   const KR = (window.KR = window.KR || {});
   const D = KR.D, U = KR.U, W = KR.W, G = KR.G, Sys = KR.Sys;
@@ -99,7 +99,7 @@
     const qcol = it.sig ? '#ffb84a' : it.crafted ? '#7affc8' : it.name.startsWith('Mythic') || it.q > 1.15 ? '#ffb84a' : it.up ? '#9ad8ff' : '#efe3c8';
     const qc = it.unique ? '#d08aff' : qcol;
     let s = `<div class="tt-n" style="color:${qc}">${UI.icHTML(it, true)} ${esc(it.name)}${it.qty > 1 ? ' ×' + it.qty : ''}</div>`;
-    if (it.set) s += `<div style="color:#ffb84a">${esc(it.set)} · ${(it.classes || []).map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ')} only · level ${it.req || 50}</div>`;
+    if (it.set) s += `<div style="color:#ffb84a">${esc(it.set)} · ${(it.classes || []).map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ')} only · level ${D.shown(it.req || 50)}</div>`;
     if (it.unique) s += `<div style="color:#d08aff">Unique${it.classes && it.classes.length ? ' · ' + it.classes.map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ') + ' only' : ' · any class'}</div>`;
     if (it.kind === 'weapon') s += `<div>${D.WEAPON_TYPES[it.wt].name}${it.twoHand ? ' (two-handed)' : ''}</div><div>Damage <b>${Math.round(it.dmg * G.upMul(it))}</b> · Delay ${it.delay.toFixed(1)}s · <span class="dim">${(it.dmg * G.upMul(it) / it.delay).toFixed(1)} dps</span></div>`;
     if (it.kind === 'armor') s += `<div>${it.shield ? 'Shield' : it.ak === 'misc' ? D.SLOT_NAMES[it.slot] + ' · any class' : esc(it.ak[0].toUpperCase() + it.ak.slice(1)) + ' · ' + D.SLOT_NAMES[it.slot]}</div><div>Armor <b>${Math.round(it.ac * G.upMul(it))}</b></div>`;
@@ -117,7 +117,7 @@
     if (it.proc) { const P = D.PROCS[it.proc]; const who = G.player; const ch = G.procChance(who, it); s += `<div class="tt-proc">${P.icon} <b>Effect: ${esc(P.name)}</b> · ${esc(P.desc)}<br>${UI.effText(P.effects, who.level)}<br><span class="dim">Proc chance ${(ch * 100).toFixed(1)}% per hit (rises with Dexterity ${who.stats.DEX}${it.delay > 2.6 ? ', and slow weapons proc more often' : ''})</span></div>`; }
     if (it.fx && !it.proc) s += `<div class="tt-proc">${esc(D.FX_NAMES[it.fx] || it.fx)}</div>`;
     if (it.lore) s += `<div class="tt-lore">“${esc(it.lore)}”</div>`;
-    if (it.kind === 'mat') { s += `<div>Crafting material · tier ${it.tier + 1}</div>`; s += UI.matSourceHTML(it.mat, it.tier); }
+    if (it.kind === 'mat') s += '<div class="dim">An old crafting material. Merchants will buy it.</div>';
     if (it.kind === 'consumable') s += `<div>${it.ctype === 'food' ? `Food, quality ${it.tier + 1} of 5. +${G.foodRegen(it.tier, G.player.c.level)} health per second for 20 min.` : it.ctype === 'drink' ? `Drink, quality ${it.tier + 1} of 5. +${G.drinkRegen(it.tier, G.player.c.level)} mana per second for 20 min.` : 'Liquid courage. Careful.'}</div>${it.ctype === 'food' || it.ctype === 'drink' ? '<div class="dim">Eaten automatically when the last one wears off.</div>' : ''}`;
     if (it.kind === 'trophy') s += `<div class="dim">Trophy. Some quests need these, merchants buy them.</div>`;
     if (it.kind === 'key') s += `<div class="dim">Opens a sealed boss lair.</div>`;
@@ -133,11 +133,11 @@
     let s = `<div class="tt-n">${esc(d.icon || '')} ${esc(d.name)}</div>`;
     const lvl = G.player.level; const tgtTxt = { enemy: 'Single enemy', self: 'Yourself', ally: 'Friendly target', pet: 'Your pet', pbae: `All enemies around you (${d.radius || 110} range)`, tae: 'Enemies around the target', group: 'Your group' }[d.target || 'enemy'] || '';
     const healTo = (d.target === 'ally' || d.target === 'self') && G.isHealDef(d) ? 'Your friendly target, or yourself on a monster or no target' : null;
-    if (d.kind === 'spell') s += `<div>${d.hymn ? 'Hymn · auto-casts from your hotbar' : d.school === 'Song' ? 'Song' : esc(d.school)} · Level ${d.level} · ${d.hymn ? 'no mana' : d.mana + ' mana'} · ${d.hymn ? 'every 16s' : d.cast ? d.cast.toFixed(1) + 's cast' : 'instant'}${d.cd ? ' · ' + d.cd + 's cooldown' : ''}</div><div class="tt-desc">${esc(d.desc)}</div>`
+    if (d.kind === 'spell') s += `<div>${d.hymn ? 'Hymn · auto-casts from your hotbar' : d.school === 'Song' ? 'Song' : esc(d.school)} · Level ${D.shown(d.level)} · ${d.hymn ? 'no mana' : d.mana + ' mana'} · ${d.hymn ? 'every 16s' : d.cast ? d.cast.toFixed(1) + 's cast' : 'instant'}${d.cd ? ' · ' + d.cd + 's cooldown' : ''}</div><div class="tt-desc">${esc(d.desc)}</div>`
     if (d.kind === 'spell') { const tg = { group: 'Group (you and nearby group members)', ally: 'Single friendly target', self: 'Self only', enemy: 'Enemy', pbae: 'All enemies around you', tae: 'All enemies around your target', pet: 'Your pet' }[d.target || 'enemy']; s += `<div class="dim small">Target: ${healTo || tg}</div>`; const ln = d.effects.find((e) => e.line); if (ln) s += `<div class="dim small">Does not stack with other ${ln.line.replace('buff_', '').replace('dmgbuff', 'damage').replace('sow', 'movement').replace('ds', 'damage shield')} buffs. The strongest one wins.</div>`; if (G.isToggleSong(d)) s += `<div class="dim small">Sings itself every ${D.SONG_PULSE}s while on your hotbar. Click it there to pause.</div>`; if (G.player && !G.player.c.spells.includes(d.id)) s += `<div style="color:#e8d48a">Costs ${G.fmtCoins(d.price)} to learn from your guildmaster.</div>`; }
     else if (d.kind === 'skill') s += `<div>${d.passive ? 'Passive' : 'Class ability · ' + G.endCost(G.player, d) + ' endurance · ' + (d.cd || 0) + 's cooldown'}</div><div>${esc(d.desc)}</div>`;
     else if (d.kind === 'weapon') s += `<div>${G.wtName(d.wt)} technique · skill ${D.WEAPON_UNLOCKS[d.idx]} · ${G.endCost(G.player, d)} endurance · ${d.cd}s cooldown</div><div>${esc(d.desc || weaponAbDesc(d))}</div>`;
-    if (d.effects && d.effects.length) s += `<div class="tt-sec"><b>Effects</b> <span class="dim">(at your level ${lvl})</span>${UI.effText(d.effects, lvl, d)}</div>${tgtTxt && !d.passive ? `<div class="dim">Target: ${healTo || tgtTxt}${d.range && d.range !== 'melee' ? ' · range ' + d.range : d.range === 'melee' || (!d.range && d.kind !== 'spell') ? ' · melee range' : ''}</div>` : ''}`;
+    if (d.effects && d.effects.length) s += `<div class="tt-sec"><b>Effects</b> <span class="dim">(at your level ${D.shown(lvl)})</span>${UI.effText(d.effects, lvl, d)}</div>${tgtTxt && !d.passive ? `<div class="dim">Target: ${healTo || tgtTxt}${d.range && d.range !== 'melee' ? ' · range ' + d.range : d.range === 'melee' || (!d.range && d.kind !== 'spell') ? ' · melee range' : ''}</div>` : ''}`;
     else if (d.kind === 'macro') s += `<div class="dim">Macro</div><pre class="mac">${esc((G.player.c.macros.find((m) => m.id === d.id) || {}).lines || '')}</pre>`;
     const u = G.actionUsable(G.player, a); if (!u.ok && !u.cd) s += `<div class="bad">${esc(u.why)}</div>`; else if (u.weak) s += `<div class="bad" style="color:#ffb24a">${esc(u.why)}</div>`;
     return s;
@@ -195,7 +195,7 @@
         case 'fd': return 'Feign death: enemies forget you';
         case 'mana': return `Restores ${Math.round(e.pct * 100)}% of your mana`;
         case 'cannibal': return 'Converts health into mana';
-        case 'pet': return `Summons a level ${Math.min(lv + 1, e.lv || lv)} ${esc(e.petKind || 'pet')}`;
+        case 'pet': return `Summons a level ${D.shown(Math.min(lv + 1, e.lv || lv))} ${esc(e.petKind || 'pet')}`;
         case 'gate': return 'Teleports you to your bind point';
         case 'bind': return 'Binds your soul to this spot (not in dungeons or rival kingdoms)';
         case 'lunge': return 'Leaps to the target';
@@ -203,16 +203,6 @@
       return e.name ? esc(e.name) : '';
     }).filter(Boolean);
     return li.length ? '<ul class="tt-eff">' + li.map((x) => '<li>' + x + '</li>').join('') + '</ul>' : '';
-  };
-  UI.matSourceHTML = function (type, tier) {
-    if (D.REFINED[type]) { const R = D.REFINED[type]; const bk = Object.keys(D.BENCHES).find((k) => D.BENCHES[k].out.includes(type)); const B = D.BENCHES[bk];
-      return `<div class="tt-src"><b>How to make it</b><div>Refine ${esc(D.MATERIALS[R.from][tier])} at the ${esc(B.name)} (${esc(D.CRAFTS[B.craft].name)} ${Math.max(0, tier * 45 - 20)}): two raw make one.</div><div class="dim">Right-click the bench, or open the crafter's Refine tab.</div></div>`; }
-    const s = Sys.matSources(type, tier);
-    let o = '<div class="tt-src"><b>Where to find it</b>';
-    if (s.mobs.length) o += '<div>Dropped by (about 1 in 5 kills):</div><ul>' + s.mobs.slice(0, 6).map((m) => `<li>${esc(m)}</li>`).join('') + (s.mobs.length > 6 ? `<li class="dim">…and ${s.mobs.length - 6} more</li>` : '') + '</ul>';
-    if (s.bosses.length) o += `<div>Bosses (always drop several): ${s.bosses.map(esc).join(', ')}</div>`;
-    o += `<div>Sold by: ${s.sellers.join(', ')} once your kingdom reaches level ${s.cityLevel}.</div></div>`;
-    return o;
   };
   UI.icHTML = function (it, small) {
     if (!it) return '';
@@ -354,13 +344,13 @@
     const p = G.player; if (!p) return; const c = p.c;
     const set = (id, v) => { const e = document.getElementById(id); if (e && e.textContent !== v) e.textContent = v; };
     const wid = (id, f) => { const e = document.getElementById(id); if (e) e.style.width = U.clamp(f * 100, 0, 100) + '%'; };
-    set('pf-name', c.name); set('pf-lv', `${c.level} ${D.CLASSES[c.cls].name}`);
+    set('pf-name', c.name); set('pf-lv', `${D.shown(c.level)} ${D.CLASSES[c.cls].name}`);
     wid('pf-hp', p.hp / p.hpMax); set('pf-hpt', `${Math.ceil(p.hp)} / ${p.hpMax}`);
     if (p.endurMax) { wid('pf-end', p.endur / p.endurMax); set('pf-endt', `${Math.floor(p.endur)} / ${p.endurMax}`); }
     $('#pf-manawrap').hidden = !p.manaMax; if (p.manaMax) { wid('pf-mana', p.mana / p.manaMax); set('pf-manat', `${Math.floor(p.mana)} / ${p.manaMax}`); }
     const rr = p.regenRates || { hp: 0, mana: 0, end: 0 }; const fr = (v) => '+' + (v >= 10 ? Math.round(v) : v.toFixed(1)) + '/s';
     set('pf-hprg', p.hp >= p.hpMax ? '' : fr(rr.hp)); set('pf-manarg', !p.manaMax || p.mana >= p.manaMax ? '' : fr(rr.mana)); set('pf-endrg', p.endur >= p.endurMax ? '' : fr(rr.end));
-    const need = D.xpNeeded(c.level); wid('pf-xp', c.level >= D.MAX_LEVEL ? 1 : c.xp / need); set('pf-xpt', c.level >= D.MAX_LEVEL ? 'Max level' : `${Math.floor((c.xp / need) * 100)}% to ${c.level + 1}`);
+    const need = D.xpNeeded(c.level); wid('pf-xp', c.level >= D.MAX_LEVEL ? 1 : c.xp / need); set('pf-xpt', c.level >= D.MAX_LEVEL ? 'Max level' : `${Math.floor((c.xp / need) * 100)}% to ${D.shown(c.level) + 1}`);
     // buffs
     const bEl = $('#buffs'); const bSig = p.buffs.map((b) => b.name + Math.ceil((b.until - G.now) / 1000)).join('|');
     if (bEl.dataset.sig !== bSig) { bEl.dataset.sig = bSig; bEl.innerHTML = p.buffs.map((b, i) => `<span class="bf ${b.debuff ? 'deb' : ''}" data-i="${i}">${esc(b.icon || '✦')}<small>${fmtT((b.until - G.now) / 1000)}</small></span>`).join(''); }
@@ -373,7 +363,7 @@
       const nm = $('#tf-name'); nm.textContent = t.name + (t.dead ? ' (dead)' : ''); nm.style.color = con ? D.CON_COLORS[con] : hostile ? '#ff6a5a' : '#a8e0ff';
       wid('tf-hp', t.hp / t.hpMax); set('tf-hpt', `${Math.max(0, Math.round((t.hp / t.hpMax) * 100))}%`);
       const conTxt = { gray: 'Too weak to matter', green: 'An easy fight', lblue: 'Should be easy', blue: 'A fair fight, slightly in your favor', white: 'An even match', yellow: 'A tough fight', red: 'Very dangerous' };
-      set('tf-sub', t.type === 'mob' ? `Level ${t.level}${t.mclass && !t.boss ? ' ' + t.mclass : ''}${t.boss ? ' · Boss' : t.named ? ' · Named' : ''} · ${conTxt[con]}` : t.type === 'npc' ? t.title || 'Citizen' : t.type === 'pet' ? `Level ${t.level} pet` : t.type === 'player' ? `Level ${t.level}` : `Level ${t.level} ${t.title || ''}`);
+      set('tf-sub', t.type === 'mob' ? `Level ${D.shown(t.level)}${t.mclass && !t.boss ? ' ' + t.mclass : ''}${t.boss ? ' · Boss' : t.named ? ' · Named' : ''} · ${conTxt[con]}` : t.type === 'npc' ? t.title || 'Citizen' : t.type === 'pet' ? `Level ${D.shown(t.level)} pet` : t.type === 'player' ? `Level ${D.shown(t.level)}` : `Level ${D.shown(t.level)} ${t.title || ''}`);
       const tb = $('#tbuffs'); const ts = (t.buffs || []).map((b) => b.name).join('|'); if (tb.dataset.sig !== ts) { tb.dataset.sig = ts; tb.innerHTML = (t.buffs || []).slice(0, 8).map((b, i) => `<span class="bf ${b.debuff ? 'deb' : ''}" data-i="${i}">${esc(b.icon || '✦')}</span>`).join(''); }
     } else tf.hidden = !document.body.classList.contains('layout-edit');
     // pet
@@ -465,8 +455,6 @@
     UI.win('vendor', 'Merchant', { w: 640, h: 520, y: 60, render: renderVendor, onClose: () => KR.Main.setMusicOverride(null) });
     UI.win('trainer', 'Guildmaster', { w: 520, h: 520, y: 60, render: renderTrainer });
     UI.win('bank', 'Shared Bank', { w: 640, h: 520, y: 60, render: renderBank });
-    UI.win('craft', 'Crafting', { w: 640, h: 560, y: 60, render: renderCraft, onClose: () => KR.Main.setMusicOverride(null) });
-    UI.win('refine', 'Refining', { w: 560, h: 460, y: 80, render: renderRefine, onClose: () => { rf.queue = []; } });
     UI.win('loot', 'Loot', { w: 300, y: 160, render: renderLoot });
     UI.buildMercWindows && UI.buildMercWindows(); UI.buildGroupUI && UI.buildGroupUI();
     UI.win('help', 'How to Play', { w: 520, h: 520, y: 60, render: renderHelp });
@@ -492,7 +480,7 @@
     const p = G.player, c = p.c, R = D.RACES[c.race], C = D.CLASSES[c.cls]; const wd = G.weaponDmg(p, 'main');
     const rows = D.STATS.map((s2) => { const base = R.stats[s2]; const gear = p.stats[s2] - base; return `<tr><th>${D.STAT_NAMES[s2]}</th><td><b>${p.stats[s2]}</b></td><td class="dim">${base}${gear ? ` <span class="${gear > 0 ? 'good' : 'bad'}">${gear > 0 ? '+' : ''}${gear}</span>` : ''}</td><td class="dim small">${esc(D.STAT_HELP[s2].split('.')[0])}</td></tr>`; }).join('');
     const res = p.res ? Object.entries(p.res).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
-    return `<div class="tt-n">${esc(c.name)}</div><div>Level ${c.level} ${R.name} ${C.name}</div><div class="dim">${D.FACTIONS[c.faction].name} · played ${Math.floor((c.playTime || 0) / 3600)}h ${Math.floor(((c.playTime || 0) % 3600) / 60)}m · ${c.kills || 0} kills</div>
+    return `<div class="tt-n">${esc(c.name)}</div><div>Level ${D.shown(c.level)} ${R.name} ${C.name}</div><div class="dim">${D.FACTIONS[c.faction].name} · played ${Math.floor((c.playTime || 0) / 3600)}h ${Math.floor(((c.playTime || 0) % 3600) / 60)}m · ${c.kills || 0} kills</div>
       <table class="stats tt-stats">${rows}</table>
       <div class="tt-sec">Armor <b>${p.ac}</b> · Weapon <b>${wd.dmg}</b> dmg / ${wd.delay.toFixed(1)}s${p.haste ? ` · Haste <b>${Math.round(p.haste * 100)}%</b>` : ''}${p.spellCrit ? ` · Spell crit ${Math.round(p.spellCrit * 100)}%` : ''}</div>
       ${res ? `<div class="dim small">Resists: ${esc(res)}</div>` : ''}<div class="dim small">Stats come from your race and your gear (max ${D.STAT_CAP}).</div>`;
@@ -514,7 +502,7 @@
     const colR = h('div', 'inv2-col'); INV_RIGHT.forEach((sl) => colR.appendChild(slotBox(sl)));
     const pv = h('div', 'eq-pv inv2-hero');
     const R = D.RACES[c.race], C = D.CLASSES[c.cls];
-    pv.innerHTML = `<div class="inv2-name"><b>${esc(c.name)}</b><small>Level ${c.level} ${esc(R.name)} ${esc(C.name)}</small></div><div class="eq-rot"><button class="mini" data-r="-1" aria-label="Turn left">⟲</button><button class="mini" data-r="1" aria-label="Turn right">⟳</button></div><div class="inv2-hint">Hover for stats</div>`;
+    pv.innerHTML = `<div class="inv2-name"><b>${esc(c.name)}</b><small>Level ${D.shown(c.level)} ${esc(R.name)} ${esc(C.name)}</small></div><div class="eq-rot"><button class="mini" data-r="-1" aria-label="Turn left">⟲</button><button class="mini" data-r="1" aria-label="Turn right">⟳</button></div><div class="inv2-hint">Hover for stats</div>`;
     // one canvas for the hero, kept between redraws so the 3D view does not restart
     if (!UI._invCv) { UI._invCv = document.createElement('canvas'); UI._invCv.width = 220; UI._invCv.height = 300; UI._invCv.className = 'inv2-cv'; }
     pv.insertBefore(UI._invCv, pv.firstChild);
@@ -599,7 +587,7 @@
   }
   function invClick(it, e, rc) {
     const p = G.player;
-    if ((UI.isOpen('vendor') || UI.craftShopOpen()) && !rc) { UI.sellItem(it); return; }
+    if (UI.isOpen('vendor') && !rc) { UI.sellItem(it); return; }
     if (UI.isOpen('bank') && !rc) { Sys.deposit(it); return; }
     if (rc) { UI.menu(e, [['Use / Equip', () => Sys.useItem(it)], it.kind === 'weapon' && !it.twoHand && !D.WEAPON_TYPES[it.wt].ranged ? ['Equip in secondary hand', () => { it._toSecondary = true; Sys.equip(it); }] : null, ['Put on hotbar', () => { const bar = Sys.bar(); const i = bar.findIndex((x, k) => !x && k < D.slotsForLevel(p.c.level)); if (i >= 0 && it.kind === 'consumable') { bar[i] = { k: 'item', id: it.name, icon: it.icon, name: it.name }; UI.renderBar(); } }], ['Destroy', () => UI.confirm(`Destroy ${it.name}?`, () => { p.c.inv[p.c.inv.indexOf(it)] = null; UI.refresh(); })]].filter(Boolean)); return; }
     if (e.shiftKey && it.kind === 'weapon' && !it.twoHand) it._toSecondary = true;
@@ -627,7 +615,7 @@
   function renderChar(w) {
     const p = G.player, c = p.c, b = w.body; const R = D.RACES[c.race], C = D.CLASSES[c.cls];
     const wd = G.weaponDmg(p, 'main');
-    b.innerHTML = `<div class="ch-head"><canvas id="ch-portrait" width="96" height="110"></canvas><div><div class="ch-name">${esc(c.name)}</div><div>Level ${c.level} ${R.name} ${C.name}</div><div class="dim">${D.FACTIONS[c.faction].name} · ${D.FACTIONS[c.faction].city}</div><div class="dim">Played ${Math.floor((c.playTime || 0) / 3600)}h ${Math.floor(((c.playTime || 0) % 3600) / 60)}m · ${c.kills || 0} kills</div></div></div>
+    b.innerHTML = `<div class="ch-head"><canvas id="ch-portrait" width="96" height="110"></canvas><div><div class="ch-name">${esc(c.name)}</div><div>Level ${D.shown(c.level)} ${R.name} ${C.name}</div><div class="dim">${D.FACTIONS[c.faction].name} · ${D.FACTIONS[c.faction].city}</div><div class="dim">Played ${Math.floor((c.playTime || 0) / 3600)}h ${Math.floor(((c.playTime || 0) % 3600) / 60)}m · ${c.kills || 0} kills</div></div></div>
       <div class="stat-pts">Stats come from your race and your gear. Better gear is the only way to raise them (max ${D.STAT_CAP}).</div>
       <table class="stats">${D.STATS.map((s) => { const base = R.stats[s]; const gear = p.stats[s] - base; return `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${p.stats[s]}</td><td class="dim">${base} race${gear ? ` <span class="${gear > 0 ? 'good' : 'bad'}">${gear > 0 ? '+' : ''}${gear} gear</span>` : ''}</td><td class="dim small">${esc(D.STAT_HELP[s].split('.')[0])}</td></tr>`; }).join('')}</table>
       <table class="stats derived"><tr><th>Health</th><td>${Math.ceil(p.hp)} / ${p.hpMax}</td></tr>${p.manaMax ? `<tr><th>Mana</th><td>${Math.floor(p.mana)} / ${p.manaMax}</td></tr>` : ''}<tr><th>Armor</th><td>${p.ac}</td></tr><tr><th>Weapon</th><td>${wd.dmg} dmg / ${wd.delay.toFixed(1)}s</td></tr><tr><th>Endurance</th><td>${Math.floor(p.endur)} / ${p.endurMax}</td></tr><tr><th>Regen /s</th><td>${(p.regenRates ? [`<span style="color:#7fe08a">${p.regenRates.hp.toFixed(1)} HP</span>`, p.manaMax ? `<span style="color:#7fb8ff">${p.regenRates.mana.toFixed(1)} mana</span>` : '', `<span style="color:#ffd07a">${p.regenRates.end.toFixed(1)} end</span>`].filter(Boolean).join(' · ') : '')}${p.gearRegen && (p.gearRegen.hp || p.gearRegen.mana || p.gearRegen.end) ? ' <span class="dim">(gear adds some)</span>' : ''}<div class="dim small">Sit to regenerate 3× faster. Combat slows it.</div></td></tr><tr><th>Haste</th><td>${Math.round(p.haste * 100)}%${p.wornHaste ? ` <span class="dim">(${Math.round(p.wornHaste * 100)}% from gear)</span>` : ''}</td></tr><tr><th>Run speed</th><td>${Math.round(p.speed / 1.28)}%</td></tr><tr><th>Bag slots</th><td>${c.inv.length}</td></tr></table>`;
@@ -648,7 +636,7 @@
     b.querySelectorAll('.tab').forEach((t) => (t.onclick = () => { spSchool = t.dataset.s; renderSpells(w); }));
     const list = $('.list', b);
     known.filter((s) => spSchool === 'All' || s.school === spSchool).forEach((sp) => {
-      const row = h('div', 'row-item', `<span class="ic">${esc(sp.icon)}</span><div class="ri-m"><b>${esc(sp.name)}</b><small>${esc(sp.school)} · L${sp.level} · ${sp.mana} mana · ${sp.cast ? sp.cast.toFixed(1) + 's' : 'instant'}</small><small class="dim">${esc(sp.desc)}</small></div>`);
+      const row = h('div', 'row-item', `<span class="ic">${esc(sp.icon)}</span><div class="ri-m"><b>${esc(sp.name)}</b><small>${esc(sp.school)} · L${D.shown(sp.level)} · ${sp.mana} mana · ${sp.cast ? sp.cast.toFixed(1) + 's' : 'instant'}</small><small class="dim">${esc(sp.desc)}</small></div>`);
       UI.draggable(row, { k: 'spell', id: sp.id }, sp.icon); UI.bindTip(row, () => UI.actionTip({ k: 'spell', id: sp.id }));
       row.ondblclick = () => G.useAction({ k: 'spell', id: sp.id });
       list.appendChild(row);
@@ -666,7 +654,7 @@
     const list = $('.list', b); const onBar = new Set(Sys.bar().filter((a) => a && a.k === 'spell').map((a) => a.id));
     (bardTab === 'hymns' ? hymns : songs).forEach((sp) => {
       const st = sp.hymn ? (onBar.has(sp.id) ? (c.hymnOff && c.hymnOff[sp.id] ? '<span class="pill">Paused</span>' : '<span class="pill on">Singing</span>') : '<span class="pill dim">Not on hotbar</span>') : '';
-      const row = h('div', 'row-item', `<span class="ic">${esc(sp.icon)}</span><div class="ri-m"><span class="ri-top"><b>${esc(sp.name)}</b>${st}</span><small>Level ${sp.level}${sp.hymn ? ' · free · whole group' : ' · ' + sp.mana + ' mana'}</small><span class="ri-eff">${esc(sp.desc)}</span></div>`);
+      const row = h('div', 'row-item', `<span class="ic">${esc(sp.icon)}</span><div class="ri-m"><span class="ri-top"><b>${esc(sp.name)}</b>${st}</span><small>Level ${D.shown(sp.level)}${sp.hymn ? ' · free · whole group' : ' · ' + sp.mana + ' mana'}</small><span class="ri-eff">${esc(sp.desc)}</span></div>`);
       UI.draggable(row, { k: 'spell', id: sp.id }, sp.icon); UI.bindTip(row, () => UI.actionTip({ k: 'spell', id: sp.id }));
       row.ondblclick = () => G.useAction({ k: 'spell', id: sp.id });
       list.appendChild(row);
@@ -679,14 +667,14 @@
   let abTab = 'class';
   function renderAbil(w) {
     const p = G.player, c = p.c, b = w.body; const C = D.CLASSES[c.cls];
-    b.innerHTML = `<div class="tabs"><button class="tab ${abTab === 'class' ? 'on' : ''}" data-t="class">Class abilities</button><button class="tab ${abTab === 'passive' ? 'on' : ''}" data-t="passive">Class passives</button><button class="tab ${abTab === 'weapon' ? 'on' : ''}" data-t="weapon">Weapon skills</button><button class="tab ${abTab === 'craft' ? 'on' : ''}" data-t="craft">Crafting</button></div><div class="pane"></div>`;
+    b.innerHTML = `<div class="tabs"><button class="tab ${abTab === 'class' ? 'on' : ''}" data-t="class">Class abilities</button><button class="tab ${abTab === 'passive' ? 'on' : ''}" data-t="passive">Class passives</button><button class="tab ${abTab === 'weapon' ? 'on' : ''}" data-t="weapon">Weapon skills</button></div><div class="pane"></div>`;
     b.querySelectorAll('.tab').forEach((t) => (t.onclick = () => { abTab = t.dataset.t; renderAbil(w); }));
     const pane = $('.pane', b);
     if (abTab === 'passive') {
       pane.appendChild(h('h4', 'abh', `Class passives <small class="dim">${D.classPassives(c.cls).filter((P) => P.level <= c.level).length} of 10 · always active, unlock as you level</small>`));
       for (const P of D.classPassives(c.cls)) {
         const has = c.level >= P.level;
-        const row = h('div', 'row-item passive' + (has ? '' : ' locked'), `<span class="ic">${esc(P.icon)}</span><div class="ri-m"><b>${esc(P.name)}</b><small>Passive · ${has ? 'Active' : 'Unlocks at level ' + P.level}</small><small class="dim">${esc(P.desc)}</small></div>`);
+        const row = h('div', 'row-item passive' + (has ? '' : ' locked'), `<span class="ic">${esc(P.icon)}</span><div class="ri-m"><b>${esc(P.name)}</b><small>Passive · ${has ? 'Active' : 'Unlocks at level ' + D.shown(P.level)}</small><small class="dim">${esc(P.desc)}</small></div>`);
         pane.appendChild(row);
       }
     } else if (abTab === 'class') {
@@ -694,12 +682,12 @@
       pane.appendChild(h('h4', 'abh', `Class abilities <small class="dim">${C.skills.filter(([sid]) => !D.SKILLS[sid].passive && c.level >= C.skills.find((x) => x[0] === sid)[1]).length} of ${C.skills.filter(([sid]) => !D.SKILLS[sid].passive).length} learned · drag them to your hotbar</small>`));
       for (const [id, lv] of C.skills.filter(([sid]) => !D.SKILLS[sid].passive)) {
         const s = D.SKILLS[id]; const has = c.level >= lv;
-        const row = h('div', 'row-item' + (has ? '' : ' locked'), `<span class="ic">${esc(s.icon)}</span><div class="ri-m"><b>${esc(s.name)}</b><small>${s.passive ? 'Passive' : 'Active · ' + s.cd + 's cooldown'} · ${has ? 'Learned' : 'Unlocks at level ' + lv}</small><small class="dim">${esc(s.desc)}</small></div>`);
+        const row = h('div', 'row-item' + (has ? '' : ' locked'), `<span class="ic">${esc(s.icon)}</span><div class="ri-m"><b>${esc(s.name)}</b><small>${s.passive ? 'Passive' : 'Active · ' + s.cd + 's cooldown'} · ${has ? 'Learned' : 'Unlocks at level ' + D.shown(lv)}</small><small class="dim">${esc(s.desc)}</small></div>`);
         if (has && !s.passive) { UI.draggable(row, { k: 'skill', id }, s.icon); row.ondblclick = () => G.useAction({ k: 'skill', id }); }
         pane.appendChild(row);
       }
     } else if (abTab === 'weapon') {
-      pane.appendChild(h('p', 'hint', 'Fighting with a weapon type trains its skill by one point at a time. Each type unlocks 10 techniques. Your hotbar is remembered for each weapon type, and you need 5 seconds to readjust after swapping.'));
+      pane.appendChild(h('p', 'hint', 'Fighting with a weapon type trains its skill by one point at a time. Each type unlocks 3 techniques. Your hotbar is remembered for each weapon type, and you need 5 seconds to readjust after swapping.'));
       const types = C.weapons.concat(C.ranged).concat(C.weapons.includes('H2H') ? [] : ['H2H']).concat(C.shield ? ['SHIELD'] : []);
       for (const wt of types) {
         const v = c.wskill[wt] || 0; const cur = G.weaponType(c) === wt || G.rangedType(c) === wt || (wt === 'SHIELD' && c.equip.secondary && c.equip.secondary.shield);
@@ -715,9 +703,6 @@
         });
         pane.appendChild(sec);
       }
-    } else {
-      pane.appendChild(h('p', 'hint', 'Craft at an anvil (Smithing), loom (Tailoring) or with the Arcane Scribe (Arcane Binding). Crafting also upgrades gear up to +5. Each kingdom crafts its own unique line of gear.'));
-      for (const k in D.CRAFTS) pane.appendChild(h('div', 'sk', `<span title="${esc(D.CRAFTS[k].makes)}">${D.CRAFTS[k].name}</span>${skillBar(c.craft[k] || 0, 250)}`));
     }
   }
 
@@ -741,7 +726,7 @@
     const q = jSel && Sys.QUESTS[jSel]; const d = $('.jr-d', b);
     if (q) {
       const r = q.reward;
-      d.innerHTML = `<h3>${esc(q.title)}</h3><p class="giver">From ${esc(roleName(q.giver))}${q.turnin ? ' · Deliver to ' + esc(roleName(q.turnin)) : ''} · Level ${q.bossLv || q.lv}</p><p>${esc(q.text)}</p><p><b>Progress:</b> ${Sys.questComplete(q) ? 'Complete. Return to ' + esc(giverName(q)) + '.' : questProgText(q)}</p><p><b>Rewards:</b> ${G.fmtCoins(r.coin || 0)}${r.status ? ` · <span class="gold">+${r.status} kingdom status</span>` : ''}${r.item ? ' · an item' : ''} · experience</p><div class="row"><button class="btn" id="jq-map">Show on map</button><button class="btn danger" id="jq-ab">Abandon</button></div>`;
+      d.innerHTML = `<h3>${esc(q.title)}</h3><p class="giver">From ${esc(roleName(q.giver))}${q.turnin ? ' · Deliver to ' + esc(roleName(q.turnin)) : ''} · Level ${D.shown(q.bossLv || q.lv)}</p><p>${esc(q.text)}</p><p><b>Progress:</b> ${Sys.questComplete(q) ? 'Complete. Return to ' + esc(giverName(q)) + '.' : questProgText(q)}</p><p><b>Rewards:</b> ${G.fmtCoins(r.coin || 0)}${r.status ? ` · <span class="gold">+${r.status} kingdom status</span>` : ''}${r.item ? ' · an item' : ''} · experience</p><div class="row"><button class="btn" id="jq-map">Show on map</button><button class="btn danger" id="jq-ab">Abandon</button></div>`;
       $('#jq-map', d).onclick = () => { c.quests.active[q.id].tracked = true; UI.open('map'); };
       $('#jq-ab', d).onclick = () => UI.confirm(`Abandon ${q.title}?`, () => { delete c.quests.active[q.id]; if (q.type === 'deliver') Sys.takeItem(q.item, 1); UI.refresh(); });
     }
@@ -883,17 +868,14 @@
     }
     const qd = $('.npc-q', b);
     qs.ready.forEach((q) => { const d = h('div', 'qbox ready', `<b>? ${esc(q.title)}</b><p>${q.type === 'deliver' ? 'Ah, the delivery! Thank you.' : 'You have done it! Here is your reward.'}</p>`); const bt = h('button', 'btn gold', 'Complete quest'); bt.onclick = () => { Sys.turnIn(q); renderNPC(w); }; d.appendChild(bt); qd.appendChild(d); });
-    qs.avail.forEach((q) => { const d = h('div', 'qbox', `<b>! ${esc(q.title)}</b> <span class="dim">level ${q.bossLv || q.lv}</span><p>${esc(q.text)}</p><p class="dim small">Reward: ${G.fmtCoins(q.reward.coin)}${q.reward.status ? ` · <span class="gold">+${q.reward.status} status</span>` : ''}${q.reward.item ? ' · an item' : ''}</p>`); const bt = h('button', 'btn', 'Accept'); bt.onclick = () => { Sys.acceptQuest(q); renderNPC(w); }; d.appendChild(bt); qd.appendChild(d); });
+    qs.avail.forEach((q) => { const d = h('div', 'qbox', `<b>! ${esc(q.title)}</b> <span class="dim">level ${D.shown(q.bossLv || q.lv)}</span><p>${esc(q.text)}</p><p class="dim small">Reward: ${G.fmtCoins(q.reward.coin)}${q.reward.status ? ` · <span class="gold">+${q.reward.status} status</span>` : ''}${q.reward.item ? ' · an item' : ''}</p>`); const bt = h('button', 'btn', 'Accept'); bt.onclick = () => { Sys.acceptQuest(q); renderNPC(w); }; d.appendChild(bt); qd.appendChild(d); });
     qs.active.forEach((q) => qd.appendChild(h('div', 'qbox act', `<b>${esc(q.title)}</b><p class="dim">${questProgText(q)}</p>`)));
     const sv = $('.npc-s', b);
     const add = (label, fn) => { const bt = h('button', 'btn', label); bt.onclick = fn; sv.appendChild(bt); };
     for (const s of e.services || []) {
-      const crS = (e.services || []).find((x) => x.startsWith('craft:'));
-      if (s.startsWith('vendor:') && crS) continue; // crafters trade from their crafting window
       if (s.startsWith('vendor:')) add('Browse wares', () => { UI.openVendor(e, s.split(':')[1]); });
       if (s === 'bank') add('Open bank', () => { UI.close('npc'); UI.open('bank'); UI.open('inv'); });
       if (s === 'train') add((D.CLASS_SPELLS[G.player.c.cls] || []).length ? 'Learn spells (abilities come with your level)' : 'Your class abilities (they come with your level)', () => { UI.close('npc'); UI.open('trainer'); });
-      if (s.startsWith('craft:')) { const vs = (e.services || []).find((x) => x.startsWith('vendor:')); add(vs ? `${D.CRAFTS[s.split(':')[1]].name} & trade` : D.CRAFTS[s.split(':')[1]].name, () => { UI.openCraft(s.split(':')[1], vs ? e : null, vs ? vs.split(':')[1] : null); }); if (vs) add('Buy & sell', () => { UI.openCraft(s.split(':')[1], e, vs.split(':')[1], 'shop'); }); }
       if (s === 'bind') add('Rent a room (bind here)', () => { Sys.bind(); });
       if (s === 'kingdom') add('Kingdom report', () => UI.open('kingdom'));
       if (s === 'mercs') add('Hire mercenaries', () => { UI.close('npc'); UI.open('mtrader'); });
@@ -937,8 +919,7 @@
   function renderVendor(w) {
     const c = G.player.c, b = w.body; if (!vend.npc) return;
     w.title.textContent = `${vend.npc.name} · ${vend.npc.title || 'Merchant'}`;
-    const lvl = vend.npc.city ? Sys.cityLevel(vend.npc.city) : 1;
-    b.innerHTML = `<div class="vd"><div class="vd-l"><h4>For sale <small class="dim">${vend.npc.city ? `Kingdom level ${lvl} stock` : ''}</small></h4><div class="vlist"></div></div><div class="vd-r"><h4>Your bag <span class="coins">${G.fmtCoins(c.coins)}</span></h4><div class="grid"></div><p class="hint">Click an item in your bag to sell it.</p>${Sys.buyback && Sys.buyback.length ? '<h4>Buy back</h4><div class="grid bb"></div>' : ''}</div></div>`;
+    b.innerHTML = `<div class="vd"><div class="vd-l"><h4>For sale <small class="dim">${(() => { const b = Sys.levelBand(G.player.c); return `Gear for levels ${b * 5 + 1}–${b * 5 + 5}`; })()}</small></h4><div class="vlist"></div></div><div class="vd-r"><h4>Your bag <span class="coins">${G.fmtCoins(c.coins)}</span></h4><div class="grid"></div><p class="hint">Click an item in your bag to sell it.</p>${Sys.buyback && Sys.buyback.length ? '<h4>Buy back</h4><div class="grid bb"></div>' : ''}</div></div>`;
     const list = $('.vlist', b);
     vend.stock.forEach((it) => {
       const can = ['weapon', 'armor', 'jewel'].includes(it.kind) ? G.canUse(c, it) : { ok: true };
@@ -960,14 +941,14 @@
     const skl = $('.list.sk', b);
     for (const [id, lv] of sks) {
       const sk = D.SKILLS[id] || { name: id.replace(/^./, (m) => m.toUpperCase()), icon: '✦', desc: 'A passive skill.' }; const known = G.hasSkill(c, id), can = lv <= c.level, price = G.skillPrice(lv);
-      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(sk.icon || '✦')}</span><div class="ri-m"><b>${esc(sk.name)}</b><small>Level ${lv} · ${sk.passive ? 'passive' : 'class ability'} · free</small><small class="dim">${esc(sk.desc || '')}</small></div>`);
-      if (!known) row.appendChild(h('span', 'pill', `Learned at level ${lv}`)); else if (known) row.appendChild(h('span', 'pill', 'Known'));
+      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(sk.icon || '✦')}</span><div class="ri-m"><b>${esc(sk.name)}</b><small>Level ${D.shown(lv)} · ${sk.passive ? 'passive' : 'class ability'} · free</small><small class="dim">${esc(sk.desc || '')}</small></div>`);
+      if (!known) row.appendChild(h('span', 'pill', `Learned at level ${D.shown(lv)}`)); else if (known) row.appendChild(h('span', 'pill', 'Known'));
       skl.appendChild(row);
     }
     const list = $('.list:not(.sk)', b);
     sp.forEach((s) => {
       const known = c.spells.includes(s.id); const can = s.level <= c.level;
-      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(s.icon)}</span><div class="ri-m"><b>${esc(s.name)}</b><small>Level ${s.level} · ${esc(s.school)} · ${s.mana} mana${s.target === 'group' ? ' · <span style="color:#9affb8">Group</span>' : ''}${!known ? ` · <span style="color:${c.coins >= s.price ? '#e8d48a' : '#ff8a6a'}">${G.fmtCoins(s.price)}</span>` : ''}</small><small class="dim">${esc(s.desc)}</small></div>`);
+      const row = h('div', 'row-item' + (known ? ' known' : can ? '' : ' locked'), `<span class="ic">${esc(s.icon)}</span><div class="ri-m"><b>${esc(s.name)}</b><small>Level ${D.shown(s.level)} · ${esc(s.school)} · ${s.mana} mana${s.target === 'group' ? ' · <span style="color:#9affb8">Group</span>' : ''}${!known ? ` · <span style="color:${c.coins >= s.price ? '#e8d48a' : '#ff8a6a'}">${G.fmtCoins(s.price)}</span>` : ''}</small><small class="dim">${esc(s.desc)}</small></div>`);
       if (!known && can) { const bt = h('button', 'btn small', `Learn · ${G.fmtCoins(s.price)}`); if (c.coins < s.price) { bt.disabled = true; bt.title = 'Not enough coin'; } bt.onclick = () => { Sys.learnSpell(s); }; row.appendChild(bt); }
       else if (known) row.appendChild(h('span', 'pill', 'Known'));
       list.appendChild(row);
@@ -981,103 +962,6 @@
     const bg = $('.grid.bank', b); a.bank.items.forEach((it) => bg.appendChild(itemCell(it, (x) => Sys.withdraw(x))));
     const ig = $('.grid.inv', b); c.inv.forEach((it) => ig.appendChild(itemCell(it, (x) => Sys.deposit(x))));
     $('#bk-d', b).onclick = () => Sys.depositCoins(c.coins); $('#bk-w', b).onclick = () => Sys.withdrawCoins(a.bank.coins);
-  }
-
-  // ----- crafting -----
-  let cr = { craft: 'smithing', tier: 0, tab: 'craft', npc: null, vk: null };
-  UI.openCraft = function (craft, npc, vk, tab) { cr.craft = craft; cr.npc = npc || null; cr.vk = vk || null; if (tab) cr.tab = tab; else if (cr.tab === 'shop' && !cr.vk) cr.tab = 'craft'; if (cr.vk) vend = { npc, kind: vk, stock: Sys.vendorStock(vk, npc) }; UI.close('npc'); UI.close('vendor'); UI.open('craft'); if (cr.tab === 'shop') { UI.open('inv'); KR.Main.setMusicOverride('shop'); } };
-  UI.craftShopOpen = () => UI.isOpen('craft') && cr.tab === 'shop' && !!cr.vk;
-  function renderCraft(w) {
-    const c = G.player.c, b = w.body; const sk = c.craft[cr.craft] || 0; const C = D.CRAFTS[cr.craft];
-    w.title.textContent = C.name;
-    if (cr.tab === 'shop' && !cr.vk) cr.tab = 'craft';
-    const bench = D.CRAFT_BENCH[cr.craft], sets = cr.craft === 'smithing' || cr.craft === 'tailoring';
-    if ((cr.tab === 'refine' && !bench) || (cr.tab === 'sets' && !sets)) cr.tab = 'craft';
-    b.innerHTML = `<div class="tabs"><button class="tab ${cr.tab === 'craft' ? 'on' : ''}" data-t="craft">Craft</button><button class="tab ${cr.tab === 'up' ? 'on' : ''}" data-t="up">Upgrade</button>${bench ? `<button class="tab ${cr.tab === 'refine' ? 'on' : ''}" data-t="refine">Refine</button>` : ''}${sets ? `<button class="tab ${cr.tab === 'sets' ? 'on' : ''}" data-t="sets">Class sets</button>` : ''}${cr.vk ? `<button class="tab ${cr.tab === 'shop' ? 'on' : ''}" data-t="shop">Buy & sell</button>` : ''}<span class="sk inline">${C.name} ${skillBar(sk, 250)}</span></div><div class="pane"></div>`;
-    b.querySelectorAll('.tabs > .tab').forEach((t) => (t.onclick = () => { cr.tab = t.dataset.t; if (cr.tab === 'shop') { UI.open('inv'); KR.Main.setMusicOverride('shop'); } else KR.Main.setMusicOverride(null); renderCraft(w); }));
-    const pane = $('.pane', b);
-    if (cr.tab === 'shop') { w.title.textContent = `${C.name} · ${cr.npc ? cr.npc.name : ''}`; renderVendor({ body: pane, title: { set textContent(v) {} } }); return; }
-    if (cr.tab === 'refine') { if (rf.kind !== bench) rf.queue = []; rf.kind = bench; refinePane(pane, () => renderCraft(w)); return; }
-    if (cr.tab === 'sets') {
-      const lock = c.level < Sys.SET_LEVEL || sk < Sys.SET_SKILL;
-      pane.appendChild(h('p', 'hint', `Masters of ${C.name} can make a full set of class gear: every piece, plus the class's own weapons, staffs and books. Needs level ${Sys.SET_LEVEL} and ${C.name} ${Sys.SET_SKILL}${lock ? ` <span class="bad">(you: level ${c.level}, skill ${sk})</span>` : ''}. Made from refined tier 6 materials: refine them in the Refine tab.`));
-      const list = h('div', 'list'); pane.appendChild(list); let last = '';
-      Sys.classSetRecipes(cr.craft).forEach((r) => {
-        if (r.setCls !== last) { last = r.setCls; list.appendChild(h('h4', null, `${esc(r.set)} <small class="dim">${D.CLASSES[r.setCls].name}${r.setCls === c.cls ? ' · yours' : ''}</small>`)); }
-        list.appendChild(craftRow(r, w, sk));
-      });
-      return;
-    }
-    if (cr.tab === 'craft') {
-      pane.appendChild(h('div', 'tiers', [0, 1, 2, 3, 4, 5].map((t) => `<button class="tab ${t === cr.tier ? 'on' : ''}" data-t="${t}">Tier ${t + 1}</button>`).join('')));
-      pane.querySelectorAll('.tiers .tab').forEach((t) => (t.onclick = () => { cr.tier = +t.dataset.t; renderCraft(w); }));
-      pane.appendChild(h('p', 'hint', `Gear crafted in ${D.FACTIONS[c.faction].city} is stronger than shop gear. Each piece leans toward the stats its wearers need (chain and leather boots also restore endurance); extra bonuses lean ${D.FACTIONS[c.faction].craftBias.join(' and ')}. Tier ${cr.tier + 1} needs skill ${cr.tier * 45}. Signature pieces need refined materials. Materials drop from monsters and are sold by merchants as your kingdom grows.`));
-      const list = h('div', 'list'); pane.appendChild(list);
-      const recs = Sys.recipes(cr.craft, cr.tier);
-      const groups = [['Signature pieces', recs.filter((r) => r.sig)], ['Armor', recs.filter((r) => !r.sig && (r.kind === 'armor' || r.kind === 'shield'))], ['Weapons', recs.filter((r) => !r.sig && r.kind === 'weapon')], ['Jewelry', recs.filter((r) => !r.sig && r.kind === 'jewel')]];
-      for (const [gname, rs] of groups) {
-        if (!rs.length) continue;
-        list.appendChild(h('h4', null, gname + (gname === 'Signature pieces' ? ' <small class="dim">rare, much stronger</small>' : '')));
-        rs.forEach((r) => list.appendChild(craftRow(r, w, sk)));
-      }
-    } else {
-      upgradePane(pane, w);
-    }
-  }
-  function craftRow(r, w, sk) {
-    const c = G.player.c;
-    const has = Sys.hasMats(r.mats); const pv = Sys.craftPreview(r); const lock = Sys.setLocked(r);
-    const mats = r.mats.map(([m, t, q]) => { const n = Sys.countItem(D.MATERIALS[m][t]); return `<span class="${n >= q ? 'good' : 'bad'}">${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ${n}/${q}</span>`; }).join(' ');
-    const label = r.kind === 'armor' ? `${r.ak[0].toUpperCase() + r.ak.slice(1)} ${D.SLOT_NAMES[r.slot]}` : r.kind === 'weapon' ? D.WEAPON_TYPES[r.wt].name : r.kind === 'shield' ? 'Shield' : D.SLOT_NAMES[r.slot];
-    const key = pv.kind === 'weapon' ? `${Math.round(pv.dmg)} dmg / ${pv.delay.toFixed(1)}s` : pv.ac ? `${pv.ac} AC` : '';
-    const st = Object.entries(pv.stats).map(([k, v]) => `+${v} ${k}`).concat(pv.hp ? [`+${pv.hp} HP`] : [], pv.mana ? [`+${pv.mana} Mana`] : []).join(' ');
-    const can = G.canUse(c, pv).ok;
-    const regen = [pv.regen ? `+${pv.regen} HP regen` : '', pv.manaRegen ? `+${pv.manaRegen} mana regen` : '', pv.endRegen ? `+${pv.endRegen} endurance regen` : ''].filter(Boolean).join(' ');
-    const row = h('div', 'row-item craft-r' + (r.sig || r.set ? ' sig' : '') + (sk + 20 < r.req || lock ? ' locked' : ''), `<span class="ic">${UI.icHTML(pv)}</span><div class="ri-m"><b>${esc(r.name)}</b><small>${esc(label)} · <span class="tt-st">${key}</span> ${st ? '· ' + st : ''}${regen ? ' · ' + regen : ''}${can ? '' : ' · <span class="bad">not for your class</span>'}</small><small>${mats} · fee ${G.fmtCoins(r.cost)} · skill ${r.req}${lock ? ` · <span class="bad">${esc(lock)}</span>` : ''}</small></div>`);
-    UI.bindTip(row, () => UI.itemTip(pv, 'craft') + '<div class="dim">Preview of a typical result. Higher skill makes slightly better pieces.</div>' + r.mats.map(([m, t, q]) => `<div class="tt-sec"><b>${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ×${q}</b> (you have ${Sys.countItem(D.MATERIALS[m][t])})</div>` + UI.matSourceHTML(m, t)).join(''));
-    const bt = h('button', 'btn small', 'Craft'); bt.disabled = !has || sk + 20 < r.req || !!lock; bt.onclick = () => { Sys.craft(r); renderCraft(w); };
-    row.appendChild(bt); return row;
-  }
-  function upgradePane(pane, w) {
-    const c = G.player.c; const C = D.CRAFTS[cr.craft];
-    {
-      pane.appendChild(h('p', 'hint', 'Upgrade gear up to +5. Each level adds 10% to all of its stats. Failure only loses the materials.'));
-      const list = h('div', 'list'); pane.appendChild(list);
-      const items = D.EQUIP_SLOTS.map((s) => c.equip[s]).concat(c.inv).filter((it) => it && Sys.craftOf(it) === cr.craft);
-      if (!items.length) list.appendChild(h('p', 'empty-note', `You have nothing that ${C.name} can improve.`));
-      items.forEach((it) => {
-        const u = Sys.upgradeInfo(it);
-        const row = h('div', 'row-item', `<span class="ic">${UI.icHTML(it)}</span><div class="ri-m"><b>${esc(it.name)}</b>${u.max ? '<small class="good">Fully upgraded</small>' : `<small>To +${(it.up || 0) + 1}: skill ${u.req} · ${Math.round(u.chance * 100)}% chance · fee ${G.fmtCoins(u.cost)}</small><small>${u.mats.map(([m, t, q]) => { const n = Sys.countItem(D.MATERIALS[m][t]); return `<span class="${n >= q ? 'good' : 'bad'}">${D.MAT_ICON[m]} ${D.MATERIALS[m][t]} ${n}/${q}</span>`; }).join(' ')}</small>`}</div>`);
-        UI.bindTip(row, () => UI.itemTip(it, 'equip'));
-        if (!u.max) { const bt = h('button', 'btn small', 'Upgrade'); bt.disabled = !Sys.hasMats(u.mats); bt.onclick = () => { Sys.upgrade(it); renderCraft(w); }; row.appendChild(bt); }
-        list.appendChild(row);
-      });
-    }
-  }
-
-  // ----- refining: right-click a bench, put materials in (any stacks), press Refine -----
-  const rf = { kind: 'forge', queue: [] };
-  UI.openRefine = function (kind) { if (!D.BENCHES[kind]) return; if (rf.kind !== kind) rf.queue = []; rf.kind = kind; UI.close('npc'); UI.open('refine'); };
-  UI.refineQueue = () => rf.queue;
-  function renderRefine(w) { w.title.textContent = D.BENCHES[rf.kind].name; refinePane(w.body, () => renderRefine(w)); }
-  function refinePane(b, again) {
-    const B = D.BENCHES[rf.kind]; const c = G.player.c; const sk = c.craft[B.craft] || 0;
-    const have = Sys.refinables(rf.kind);
-    // drop anything from the bench that is no longer in your bags
-    rf.queue = rf.queue.filter((q) => { const hv = have.find((x) => x.mat === q.mat && x.tier === q.tier); if (hv) q.qty = Math.min(q.qty, hv.qty); return hv && q.qty > 0; });
-    const left = have.map((x) => Object.assign({}, x, { qty: x.qty - ((rf.queue.find((q) => q.mat === x.mat && q.tier === x.tier) || {}).qty || 0) })).filter((x) => x.qty > 0);
-    const out = rf.queue.map((q) => { const o = Sys.refineOut(q.mat, q.tier); return `${Math.floor(q.qty / 2)} ${esc(o.name)}`; }).filter((t) => !t.startsWith('0 '));
-    b.innerHTML = `<p class="hint">${esc(B.desc)} Click a material to put the whole stack in; click it on the bench to take it back. Two raw make one refined. <span class="sk inline">${D.CRAFTS[B.craft].name} ${skillBar(sk, 250)}</span></p>
-      <div class="vd"><div class="vd-l"><h4>On the bench</h4><div class="list rf-in"></div><p class="dim small rf-out">${out.length ? 'You will get: ' + out.join(', ') : 'Nothing on the bench yet.'}</p><div class="row"><button class="btn gold" id="rf-go">Refine</button><button class="btn small" id="rf-all">Put all in</button></div></div>
-      <div class="vd-r"><h4>Your materials</h4><div class="list rf-have"></div></div></div>`;
-    const row = (x, fn, tag) => { const need = x.tier * 45 - 20; const bad = sk < need; const r = h('button', 'vrow' + (bad ? ' locked' : ''), `<span class="ic">${esc(x.icon)}</span><span class="vn">${esc(x.name)} ×${x.qty}</span><small class="dim">${tag}${bad ? ` · needs skill ${need}` : ''}</small>`); r.onclick = fn; return r; };
-    const li = $('.rf-in', b), lh = $('.rf-have', b);
-    rf.queue.forEach((q) => li.appendChild(row(Object.assign({ icon: D.MAT_ICON[q.mat], name: D.MATERIALS[q.mat][q.tier] }, q), () => { rf.queue.splice(rf.queue.indexOf(q), 1); again(); }, '→ ' + Sys.refineOut(q.mat, q.tier).name)));
-    if (!left.length) lh.appendChild(h('p', 'empty-note', rf.queue.length ? 'Everything is on the bench.' : `You have nothing this bench can refine. It takes ${B.out.map((o) => D.REFINED[o].from === 'wood' ? 'logs you chop' : D.REFINED[o].from).join(' and ')}.`));
-    const put = (x) => { const q = rf.queue.find((y) => y.mat === x.mat && y.tier === x.tier); if (q) q.qty += x.qty; else rf.queue.push({ mat: x.mat, tier: x.tier, qty: x.qty }); };
-    left.forEach((x) => lh.appendChild(row(x, () => { put(x); KR.A.sfx('click', 0.4); again(); }, '→ ' + Sys.refineOut(x.mat, x.tier).name)));
-    $('#rf-all', b).onclick = () => { left.forEach(put); again(); };
-    const go = $('#rf-go', b); go.disabled = !out.length; go.onclick = () => { Sys.refine(rf.kind, rf.queue); rf.queue = []; again(); };
   }
 
   // ----- loot -----

@@ -243,7 +243,7 @@
       const ch = chars.find((c) => c.id === sel);
       P.innerHTML = `<div class="mm-hero"><div class="mm-stage"><canvas class="mm-clsbg" aria-hidden="true"></canvas><canvas class="mm-fig" width="380" height="440"></canvas><div class="mm-rot"><button class="btn small ghost" data-r="-1" aria-label="Turn left">⟲</button><button class="btn small ghost" data-r="1" aria-label="Turn right">⟳</button></div></div>
         <div class="mm-info"><h2>${esc(ch.name)}</h2><div class="mm-cls">Level ${ch.level} ${esc(D.RACES[ch.race].name)} ${esc(D.CLASSES[ch.cls].name)}</div>
-        <dl><dt>Kingdom</dt><dd style="color:${D.FACTIONS[ch.faction].color}">${esc(D.FACTIONS[ch.faction].city)}</dd><dt>Location</dt><dd>${esc(ch.zone || D.FACTIONS[ch.faction].city)}</dd><dt>Last played</dt><dd>${ago(ch.updated)}</dd></dl>
+        <dl><dt>Kingdom</dt><dd style="color:${D.FACTIONS[ch.faction].color}">${esc(D.FACTIONS[ch.faction].city)}</dd><dt>Location</dt><dd>${esc(ch.zone || D.FACTIONS[ch.faction].city)}</dd><dt>Last played</dt><dd>${ago(ch.updated)}</dd><dt>Difficulty</dt><dd class="mm-diff">${['easy', 'normal', 'hard'].map((d) => `<button class="btn small ${(ch.diff || 'normal') === d ? 'gold' : 'ghost'}" data-diff="${d}" title="${{ easy: 'Your brother builds slowly and rarely raids', normal: 'Your brother builds and raids as fast as you', hard: 'Your brother builds fast and raids often, with big armies' }[d]}">${{ easy: 'Easy', normal: 'Normal', hard: 'Hard' }[d]}</button>`).join(' ')}</dd></dl>
         <div class="mm-play"><button class="btn gold big mm-enter" id="mm-enter">Single Player</button><button class="btn big mm-enter" id="mm-multi">Multiplayer</button></div></div></div>
         <div class="mm-roster"><h3>Your heroes <small>${chars.length} / 8</small><button class="btn small gold mm-new" id="mm-new" ${chars.length >= 8 ? 'disabled title="Delete a hero to make room"' : ''}>✚ Create New Hero</button></h3><div class="mm-list"></div></div>`;
       $('#mm-new', P).onclick = createHero;
@@ -261,11 +261,13 @@
       P.querySelectorAll('.mm-rot [data-r]').forEach((b) => (b.onclick = () => { heroDir += +b.dataset.r; if (hv) hv.yaw += +b.dataset.r * Math.PI / 2; }));
       const enter = () => { LSs('kr_sel_hero', ch.id); cancelAnimationFrame(riseRaf); KR.Main.enterWorld(ch.id); };
       $('#mm-enter', P).onclick = enter;
+      // the enemy kingdom's difficulty for this hero's campaign (monsters are the same on every setting)
+      P.querySelectorAll('.mm-diff [data-diff]').forEach((bt) => (bt.onclick = () => { KR.A.sfx('click'); ch.diff = bt.dataset.diff; try { localStorage.setItem('kr_diff_' + ch.id, ch.diff); } catch (e) {} Sys.saveAccount && Sys.saveAccount(); M.showMenu(); }));
       $('#mm-multi', P).onclick = () => { KR.A.sfx('click'); mmTab = 'online'; M.showMenu(); };
       const list = $('.mm-list', P);
       chars.forEach((c) => {
         const card = document.createElement('button'); card.className = 'mm-card' + (c.id === sel ? ' on' : '');
-        card.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>${c.level} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)}</small><small class="dim">${esc(c.zone || '')}</small></span>`;
+        card.innerHTML = `<canvas width="56" height="66"></canvas><span><b>${esc(c.name)}</b><small>${c.level} ${esc(D.CLASSES[c.cls].name)} · ${esc(D.FACTIONS[c.faction].city)} · ${{ easy: 'Easy', normal: 'Normal', hard: 'Hard' }[c.diff || 'normal']}</small><small class="dim">${esc(c.zone || '')}</small></span>`;
         clsBack(card.querySelector('canvas'), c.cls);
         if (!snap3(card.querySelector('canvas'), lookOf(c))) S.drawHumanoid(card.querySelector('canvas').getContext('2d'), 28, 62, Object.assign(lookOf(c), { scale: 1.15 }), 0);
         card.onclick = () => { LSs('kr_sel_hero', c.id); KR.A.sfx('click'); M.showMenu(); };

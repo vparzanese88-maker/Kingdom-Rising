@@ -421,15 +421,76 @@ function castleFloors(mb, b, fy) {
   }
 }
 
+// the kingdom's wall level (KR.Realm, 0..2); stone walls when there is no kingdom state
+function wallLevel(f) { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); return st && typeof st.walls === 'number' ? Math.max(0, Math.min(2, st.walls)) : 1; } catch (e) { return 1; } }
+// a wooden palisade: sharpened logs lashed side by side on a packed-earth bank, a plank walk behind them, timber
+// gate towers with a roof, and a log gate frame
+function palisade(mb, f, cd, y0, H, isWall) {
+  const { cx, cy, R } = cd; const log = '#6e5236', dark = '#4e3a24';
+  for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
+    if (!isWall(tx, ty)) continue;
+    const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl; const dx = tx - cx, dy = ty - cy;
+    const nx = Math.abs(dx) === R ? Math.sign(dx) : 0, nz = Math.abs(dy) === R ? Math.sign(dy) : 0;
+    // the earth bank and the plank infill that carries the walk (solid, so nobody sees through the wall)
+    mb.boxB('rock', x, y0 - 1.5, z, Tl, 1.9, Tl, '#6a5a44');
+    mb.boxB('planks', x - nx * 0.25, y0 + 0.4, z - nz * 0.25, nx ? Tl - 0.5 : Tl, H - 0.4, nz ? Tl - 0.5 : Tl, '#5a4630');
+    mb.boxB('planks', x, y0 + H - 0.12, z, Tl, 0.12, Tl, '#7a5e3e'); // the walk
+    // the logs on the outer face, each sharpened to a point, a little uneven
+    const n = 4; for (let i = 0; i < n; i++) {
+      const o = (i + 0.5) / n - 0.5; const lx = x + (nz ? o * Tl : nx * (Tl / 2 - 0.2)), lz = z + (nx ? o * Tl : nz * (Tl / 2 - 0.2));
+      const hh = H + 1.0 + K3.hash(tx * 4 + i, ty, 7) * 0.6; const r = 0.19 + K3.hash(tx, ty * 4 + i, 3) * 0.04;
+      if (!nx && !nz) { mb.cylB('bark', x + (i - 1.5) * 0.36, y0 - 0.3, z, r, hh, log, 8); mb.cone('bark', x + (i - 1.5) * 0.36, y0 - 0.3 + hh, z, r, 0.5, dark, 8); continue; }
+      mb.cylB('bark', lx, y0 - 0.3, lz, r, hh, K3.shade(log, (K3.hash(i, tx + ty, 2) - 0.5) * 0.12), 8);
+      mb.cone('bark', lx, y0 - 0.3 + hh, lz, r, 0.5, dark, 8);
+    }
+    // a rail lashing the logs together, and a low plank parapet on the inside of the walk
+    if (nx || nz) { mb.box('timber', x + nx * (Tl / 2 + 0.02), y0 + H * 0.6, z + nz * (Tl / 2 + 0.02), nx ? 0.14 : Tl, 0.16, nz ? 0.14 : Tl, dark);
+      mb.boxB('planks', x - nx * (Tl / 2 - 0.1), y0 + H, z - nz * (Tl / 2 - 0.1), nx ? 0.12 : Tl, 0.7, nz ? 0.12 : Tl, '#6a5034'); }
+  }
+  // timber gate towers either side of each gate, roofed, with a log beam over the opening
+  for (const g of cd.gates || []) {
+    const [gx, gy] = g; const ns = gy === cy + R || gy === cy - R; const north = gy === cy - R;
+    const pts = ns ? [[gx - (north ? 2.5 : 1.5) - 0.8, gy + 0.5], [gx + (north ? 3.5 : 2.5) + 0.8, gy + 0.5]] : [[gx + 0.5, gy - 1 - 0.8], [gx + 0.5, gy + 2 + 0.8]];
+    for (const [px, pz] of pts) {
+      const x = px * Tl, z = pz * Tl, tH = H + 2.6;
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) mb.cylB('bark', x + ox * 1.1, y0 - 0.3, z + oz * 1.1, 0.22, tH, log, 8);
+      mb.boxB('planks', x, y0 + tH - 3, z, 2.5, 0.14, 2.5, '#7a5e3e'); mb.boxB('planks', x, y0 + tH - 3, z, 2.45, 1.1, 2.45, '#5a4630');
+      mb.cone('shingle', x, y0 + tH, z, 2.0, 1.8, '#5a3a24', 4, Math.PI / 4);
+    }
+    const [a, b] = pts; mb.beam('timber', new THREE.Vector3(a[0] * Tl, y0 + H + 0.6, a[1] * Tl), new THREE.Vector3(b[0] * Tl, y0 + H + 0.6, b[1] * Tl), 0.42, 0.42, dark);
+    structs.flags.push({ kind: 'hang', x: (a[0] + b[0]) / 2 * Tl, y: y0 + H + 0.3, z: (a[1] + b[1]) / 2 * Tl + (ns ? (north ? -0.3 : 0.3) : 0), w: 1.4, h: 2.4, f, rot: ns ? (north ? Math.PI : 0) : (gx > cx ? Math.PI / 2 : -Math.PI / 2) });
+  }
+  // stairs up the inside: a timber flight
+  if (W.stairs) for (const [i, s] of W.stairs) {
+    if (s.f !== f) continue; const tx = i % W.W, ty = Math.floor(i / W.W);
+    for (let q = 0; q < 4; q++) {
+      const frac = (s.k + (q + 1) / 4) / s.n, top = y0 + H * frac; const o = ((q + 0.5) / 4 - 0.5) * ((s.dir[0] || s.dir[1]) < 0 ? -1 : 1);
+      const x = (tx + 0.5 + (s.dir[0] ? o : 0)) * Tl, z = (ty + 0.5 + (s.dir[1] ? o : 0)) * Tl;
+      mb.boxB('planks', x, y0 - 0.5, z, s.dir[0] ? Tl / 4 + 0.02 : Tl, top - y0 + 0.5, s.dir[1] ? Tl / 4 + 0.02 : Tl, K3.shade('#6a5034', -q * 0.02));
+    }
+  }
+}
+
 // ---------- city walls, towers and gatehouses ----------
 function cityWalls(mb, f, cd) {
   const { cx, cy, R } = cd; const y0 = cd._y3 != null ? cd._y3 : 0; const st = STYLE[f] || STYLE.crown;
   const H = 7.4, col = f === 'sylvan' ? '#ddd6c4' : '#bbb3a4';
   const isWall = (tx, ty) => W.tile(tx, ty) === T.CWALL;
+  // the kingdom's walls are upgraded through the court (KR.Realm): 0 a wooden palisade, 1 stone walls, 2 fortified
+  const wl = wallLevel(f);
+  if (wl === 0) { palisade(mb, f, cd, y0, H, isWall); cd._wallTop3 = y0 + H; return; }
   // plain wall tiles with a walkway and merlons on the outer edge
   for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
     if (!isWall(tx, ty)) continue;
     const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl;
+    if (wl >= 2) { // fortified: a thicker, taller curtain with a string course, arrow slits and iron-capped merlons
+      const dx2 = tx - cx, dy2 = ty - cy; const nx2 = Math.abs(dx2) === R ? Math.sign(dx2) : 0, nz2 = Math.abs(dy2) === R ? Math.sign(dy2) : 0;
+      if (nx2 || nz2) {
+        mb.box('stone', x + nx2 * (Tl / 2 + 0.06), y0 + 3.2, z + nz2 * (Tl / 2 + 0.06), nx2 ? 0.18 : Tl, 0.22, nz2 ? 0.18 : Tl, K3.shade(col, -0.14));
+        if ((tx + ty) % 3 === 0) mb.box('dark', x + nx2 * (Tl / 2 + 0.01), y0 + 4.6, z + nz2 * (Tl / 2 + 0.01), nx2 ? 0.05 : 0.12, 0.9, nz2 ? 0.05 : 0.12);
+        if ((tx + ty) % 2 === 0) mb.boxB('metalv', x + nx2 * (Tl / 2 - 0.22), y0 + H + 1.25, z + nz2 * (Tl / 2 - 0.22), nx2 ? 0.48 : Tl * 0.66, 0.08, nz2 ? 0.48 : Tl * 0.66, '#3a3a40');
+      }
+    }
     mb.boxB('stone', x, y0 - 1.5, z, Tl, H + 1.5, Tl, col);
     // battered foot
     const dx = tx - cx, dy = ty - cy; const nx = Math.abs(dx) === R ? Math.sign(dx) : 0, nz = Math.abs(dy) === R ? Math.sign(dy) : 0;

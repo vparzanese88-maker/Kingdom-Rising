@@ -84,7 +84,7 @@
     const p = G.player, c = p.c; const b = w.body;
     const offers = Sys.mercOffers(); const slots = Sys.mercSlots(), have = (c.mercs || []).length;
     const hrs = Sys.hoursToNewMercs();
-    b.innerHTML = `${!Sys.mercsOpen(c.faction) ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign until ${esc(D.FACTIONS[c.faction].city)} has a Barracks.</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
+    b.innerHTML = `${!Sys.mercsOpen(c.faction) ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign until ${esc(D.FACTIONS[c.faction].city)} has a Pub (build it through the court).</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
     const list = $('.mt-list', b);
     if (!offers.length) list.appendChild(h('p', 'empty-note', 'Everyone here has already been hired today. Come back tomorrow.'));
     offers.forEach((o) => {
@@ -100,7 +100,7 @@
 
   function renderMercs(w) {
     const p = G.player, c = p.c; const b = w.body; const ms = p.mercs || [];
-    if (!ms.length) { b.innerHTML = `<p class="empty-note">You have no mercenaries. Visit the Mercenary Trader in your kingdom plaza to hire one. You can lead ${Sys.mercSlots()} right now (one per kingdom level).</p>`; return; }
+    if (!ms.length) { b.innerHTML = `<p class="empty-note">You have no mercenaries. Visit the Mercenary Trader in your kingdom's pub to hire one. You can lead ${Sys.mercSlots()} right now (one per kingdom level).</p>`; return; }
     let m = ms.find((x) => x.c.id === sel) || ms[0]; sel = m.c.id;
     const st = m.c.stance || 'standard';
     b.innerHTML = `<div class="tabs">${ms.map((x) => `<button class="tab ${x === m ? 'on' : ''}" data-id="${x.c.id}">${esc(x.name.split(' ')[0])}</button>`).join('')}<span class="dim small" style="margin-left:auto">${ms.length} / ${Sys.mercSlots()} slots</span></div>

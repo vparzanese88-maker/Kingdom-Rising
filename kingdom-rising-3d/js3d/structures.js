@@ -17,9 +17,9 @@ const STYLE = {
   iron: { plinth: '#7a756c', wall: '#a8a298', beam: '#4a443c', roofMat: 'slate', roof: '#a0aab8', trim: '#c98b3a', shutter: '#7a3e1c', frame: false, stone: true, curve: false, pitch: 0.62, inner: '#d8d0c0' },
   chamber: { plinth: '#4a4440', wall: '#6a625c', beam: '#2e2a26', roofMat: 'darkstone', roof: '#6a625c', trim: '#8a2a2a', shutter: '#3a1a1a', frame: false, stone: true, curve: false, pitch: 0, inner: '#5a524c' },
 };
-const HEIGHT = { kingtower: 10.4, house: 3.6, hall: 8.2, inn: 5.4, outpost: 4.6, bank: 5, chamber: 4.8, barracks: 4.6, guild: 5, heroes: 5.4, exchange: 5.4, smithy: 4.2, forge: 4.6, tailor: 4.2, store: 4.2, armorer: 4.4, weaponsmith: 4.4, scribe: 4.6, fletcher: 4.4, jeweler: 4.2, gemcutter: 4.2, bowyer: 4.4, armory: 4.8 };
-const SIGN = { inn: '🍺', outpost: '🍺', bank: '💰', smithy: '⚒', forge: '⚒', tailor: '🧵', guild: '📜', store: '🛍', armorer: '🛡', weaponsmith: '⚔', scribe: '📖', fletcher: '🏹', armory: '🛡', exchange: '💎', heroes: '🏆', hall: '👑', chamber: '💀', barracks: '⚔', jeweler: '💍', gemcutter: '💎', bowyer: '🏹' };
-const CHIMNEY = new Set(['house', 'inn', 'smithy', 'forge', 'outpost', 'barracks', 'tailor']);
+const HEIGHT = { pub: 5.2, arms: 4.4, alchemist: 4.2, kingtower: 10.4, house: 3.6, hall: 8.2, inn: 5.4, outpost: 4.6, bank: 5, chamber: 4.8, barracks: 4.6, guild: 5, heroes: 5.4, exchange: 5.4, smithy: 4.2, forge: 4.6, tailor: 4.2, store: 4.2, armorer: 4.4, weaponsmith: 4.4, scribe: 4.6, fletcher: 4.4, jeweler: 4.2, gemcutter: 4.2, bowyer: 4.4, armory: 4.8 };
+const SIGN = { pub: '🍻', arms: '⚔', alchemist: '⚗', inn: '🍺', outpost: '🍺', bank: '💰', smithy: '⚒', forge: '⚒', tailor: '🧵', guild: '📜', store: '👛', armorer: '🛡', weaponsmith: '⚔', scribe: '📖', fletcher: '🏹', armory: '🛡', exchange: '💎', heroes: '🏆', hall: '👑', chamber: '💀', barracks: '⚔', jeweler: '💍', gemcutter: '💎', bowyer: '🏹' };
+const CHIMNEY = new Set(['pub', 'alchemist', 'house', 'inn', 'smithy', 'forge', 'outpost', 'barracks', 'tailor']);
 
 export const structs = { doors: [], signs: [], roofs: [], flags: [], chimneys: [], windows: [], torches: [], fires: [] };
 K3.structs = structs;
@@ -421,8 +421,8 @@ function castleFloors(mb, b, fy) {
   }
 }
 
-// the kingdom's wall level (KR.Realm, 0..2); stone walls when there is no kingdom state
-function wallLevel(f) { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); const v = st && (st.buildings && typeof st.buildings.walls === 'number' ? st.buildings.walls : st.walls); return typeof v === 'number' ? Math.max(0, Math.min(2, v)) : 1; } catch (e) { return 1; } }
+// the kingdom's wall level (KR.Realm, 0..3); stone walls when there is no kingdom state
+function wallLevel(f) { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); const v = st && (st.buildings && typeof st.buildings.walls === 'number' ? st.buildings.walls : st.walls); return typeof v === 'number' ? Math.max(0, Math.min(3, v)) : 2; } catch (e) { return 2; } } // 0 none, 1 palisade, 2 stone, 3 fortified
 // a wooden palisade: sharpened logs lashed side by side on a packed-earth bank, a plank walk behind them, timber
 // gate towers with a roof, and a log gate frame
 function palisade(mb, f, cd, y0, H, isWall) {
@@ -476,14 +476,15 @@ function cityWalls(mb, f, cd) {
   const { cx, cy, R } = cd; const y0 = cd._y3 != null ? cd._y3 : 0; const st = STYLE[f] || STYLE.crown;
   const H = 7.4, col = f === 'sylvan' ? '#ddd6c4' : '#bbb3a4';
   const isWall = (tx, ty) => W.tile(tx, ty) === T.CWALL;
-  // the kingdom's walls are upgraded through the court (KR.Realm): 0 a wooden palisade, 1 stone walls, 2 fortified
-  const wl = wallLevel(f);
-  if (wl === 0) { palisade(mb, f, cd, y0, H, isWall); cd._wallTop3 = y0 + H; return; }
+  // the kingdom's walls are built and upgraded through the court (KR.Realm): 0 none (an open town), 1 a wooden
+  // palisade, 2 stone walls, 3 fortified; the harbour's curtain walls stand whatever the town has
+  const wl = cd.walled === false ? 0 : wallLevel(f);
+  if (wl <= 1) { if (wl === 1) palisade(mb, f, cd, y0, H, isWall); cd._wallTop3 = y0 + H; harbourWalls(); return; }
   // plain wall tiles with a walkway and merlons on the outer edge
   for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
     if (!isWall(tx, ty)) continue;
     const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl;
-    if (wl >= 2) { // fortified: a thicker, taller curtain with a string course, arrow slits and iron-capped merlons
+    if (wl >= 3) { // fortified: a thicker, taller curtain with a string course, arrow slits and iron-capped merlons
       const dx2 = tx - cx, dy2 = ty - cy; const nx2 = Math.abs(dx2) === R ? Math.sign(dx2) : 0, nz2 = Math.abs(dy2) === R ? Math.sign(dy2) : 0;
       if (nx2 || nz2) {
         mb.box('stone', x + nx2 * (Tl / 2 + 0.06), y0 + 3.2, z + nz2 * (Tl / 2 + 0.06), nx2 ? 0.18 : Tl, 0.22, nz2 ? 0.18 : Tl, K3.shade(col, -0.14));
@@ -534,6 +535,8 @@ function cityWalls(mb, f, cd) {
     }
   }
   cd._wallTop3 = y0 + H;
+  harbourWalls();
+  function harbourWalls() {
   // the harbour walls: two curtain walls from the city down to the sea, each ending in a sea tower
   const hb = cd.harbour;
   if (hb && hb.half) for (const sd of [-hb.half - 1, hb.half + 1]) {
@@ -548,6 +551,7 @@ function cityWalls(mb, f, cd) {
       last = [x, z, g];
     }
     if (last) tower(mb, last[0], last[1], 2.4, Math.min(y0, last[2]), H + 3.4 + (y0 - Math.min(y0, last[2])), st, 'cone', f);
+  }
   }
   // stone stairs up the inside of the wall: a solid flight of steps with a low parapet on the open side
   if (W.stairs) for (const [i, s] of W.stairs) {

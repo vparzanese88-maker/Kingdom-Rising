@@ -138,7 +138,7 @@
   // ---- the gates ----
   const GS = {};
   function buildGates(f) {
-    const cd = W.cityData[f]; if (!cd || !cd.gates) return [];
+    const cd = W.cityData[f]; if (!cd || !cd.gates || cd.walled === false) return []; // an open town (no walls yet) has no gates to shut or break
     const { cx, cy, R } = cd;
     return cd.gates.map(([gx, gy], i) => {
       let tiles = [], o;
@@ -157,9 +157,9 @@
   }
   War.gateList = function (f) {
     const cd = W.cityData[f]; let s = GS[f];
-    if (!s || s.cd !== cd || !cd || s.R !== cd.R || s.cx !== cd.cx || s.block !== W.block) {
+    if (!s || s.cd !== cd || !cd || s.R !== cd.R || s.cx !== cd.cx || s.block !== W.block || s.walled !== cd.walled) {
       if (s) for (const g of s.list) if (g.closed) setBlock(g, false);
-      s = GS[f] = { cd, R: cd && cd.R, cx: cd && cd.cx, block: W.block, list: mainRealm() ? buildGates(f) : [] };
+      s = GS[f] = { cd, R: cd && cd.R, cx: cd && cd.cx, walled: cd && cd.walled, block: W.block, list: mainRealm() ? buildGates(f) : [] };
     }
     return s.list;
   };

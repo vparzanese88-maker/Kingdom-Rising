@@ -84,12 +84,12 @@
   }
 
   // ----- Status -----
-  function workerLine(f, k) {
-    const st = R.state(f); const wd = st.workers[k]; const W2 = R.WORKER[k];
-    if (!wd.hired) return 'Not hired. Ask the Court Liaison.';
-    if (wd.deadUntil > Date.now()) return `Killed! Back in ${secs(wd.deadUntil - Date.now())}.`;
-    const e = R.workers(f).find((x) => x.realmWorker === k);
-    if (!e || !e.wk) return W.realm && W.realm !== 'main' ? `At work (about ${R.yieldOf(f, k)} ${W2.res} a load).` : 'Getting ready.';
+  // what one worker is doing right now
+  function stateLine(e, k) {
+    const W2 = R.WORKER[k];
+    if (!e || !e.wk) return W.realm && W.realm !== 'main' ? `At work (about ${R.yieldOf(f0(), k)} ${W2.res} a load).` : 'Getting ready.';
+    if (e.dead) return 'Killed.';
+    if (e.fighting) return 'Fighting off an attacker!';
     switch (e.wk.st) {
       case 'go': return `Heading out to ${k === 'arborist' ? 'the trees' : 'the rocks'}.`;
       case 'work': return k === 'arborist' ? 'Chopping wood.' : 'Breaking stone.';
@@ -98,6 +98,14 @@
       case 'wait': return `Looking for ${k === 'arborist' ? 'trees' : 'rocks'} to work.`;
       default: return 'Back in town.';
     }
+  }
+  const f0 = () => myF();
+  function workerLine(f, k) {
+    const crew = R.crew ? R.crew(f, k) : []; const W2 = R.WORKER[k];
+    if (!crew.length) return `None hired. ${R.state(f).workers[k].freeUsed ? 'Hire another from the Court Liaison.' : 'Ask the Court Liaison: the first one is free.'}`;
+    const ents = R.workers(f).filter((x) => x.realmWorker === k);
+    const busy = ents.filter((e) => e.wk && (e.wk.st === 'work' || e.wk.st === 'go' || e.wk.st === 'back')).length; const fight = ents.some((e) => e.fighting);
+    return `${crew.length} at work${busy ? `, ${busy} out gathering` : ''}${fight ? '. One is under attack!' : ''}`;
   }
   function armyCounts(f) {
     const Wr = KR.War;
@@ -122,7 +130,7 @@
       <div class="rm-card"><h4>Army</h4><div class="rm-kv">${Object.keys(army).length ? Object.entries(army).map(([k, v]) => `<b>${esc(String(k))}</b><span>${esc(String(typeof v === 'object' ? v.n != null ? v.n : JSON.stringify(v) : v))}</span>`).join('') : '<span class="dim">No troops yet.</span>'}</div></div>
       <div class="rm-card"><h4>Threats</h4><div class="rm-kv"><b>Bells</b><span>${alarm ? 'Ringing! The gates are shut.' : 'Quiet.'}</span><b>Enemy raiders seen</b><span>${foes.length || 'none'}</span></div></div>`;
     pane.appendChild(g);
-    const mc = h('div', 'rm-card'); mc.innerHTML = `<h4>The realm <small>your raiders in gold, foes seen in red</small></h4>`;
+    const mc = h('div', 'rm-card'); mc.innerHTML = `<h4>The realm <small>raiders gold, guards blue, workers green, foes seen red</small></h4>`;
     const cv = h('canvas', 'rm-map'); cv.width = cv.height = 300; mc.appendChild(cv); pane.appendChild(mc);
     drawMap(cv, f, foes);
     const atk = h('div', 'rm-card');
@@ -130,7 +138,10 @@
     atk.innerHTML = `<h4>War</h4><p>${can ? `Send your raiders against ${esc(D.FACTIONS[D.FACTION_IDS.find((x) => x !== f)].city)}. They march behind the battering ram if you have one; you can ride with them or not.` : 'Raiders and the order to attack come with the Barracks.'}</p>`;
     const bt = h('button', 'btn gold', '⚔ Order the attack'); bt.disabled = !can;
     bt.onclick = () => { try { KR.War.orderAttack(f); } catch (e) { console.warn(e); } UI.refresh(); };
-    atk.appendChild(bt); pane.appendChild(atk);
+    atk.appendChild(bt);
+    const out = KR.War && KR.War.squads && KR.War.squads.some((s0) => s0.f === f && s0.members.some((m) => !m.dead && m.warState !== 'home'));
+    if (KR.War && typeof KR.War.retreat === 'function') { const rb = h('button', 'btn', '🏳 Order a retreat'); rb.disabled = !out; rb.title = out ? 'Your soldiers turn back for home, fighting only whoever blocks their way.' : 'Nobody is out on a raid.'; rb.onclick = () => { try { KR.War.retreat(f); } catch (e) { console.warn(e); } UI.refresh(); }; atk.appendChild(rb); }
+    pane.appendChild(atk);
   }
   function drawMap(cv, f, foes) {
     const g = cv.getContext('2d'); const ef = D.FACTION_IDS.find((x) => x !== f);
@@ -142,7 +153,14 @@
     const T = (px, py) => [(px / D.TS - x0) * s, (py / D.TS - y0) * s];
     for (const [ff, [cx, cy]] of [[f, a], [ef, b]]) { const [X, Y] = [(cx - x0) * s, (cy - y0) * s]; g.strokeStyle = D.FACTIONS[ff].color || '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 9, 0, 6.283); g.stroke(); g.fillStyle = '#fff'; g.font = '11px sans-serif'; g.textAlign = 'center'; g.fillText(D.FACTIONS[ff].city, X, Y - 13); }
     const dot = (e, col, r = 3) => { const [X, Y] = T(e.x, e.y); g.fillStyle = col; g.beginPath(); g.arc(X, Y, r, 0, 6.283); g.fill(); };
-    for (const e of G.ents) if (!e.dead && !e.removed && e.faction === f && (e.raider || e.realmWorker)) dot(e, e.raider ? '#ffd84a' : '#9ad870', e.raider ? 3 : 2.4);
+    for (const e of G.ents) {
+      if (e.dead || e.removed || e.faction !== f) continue;
+      if (e.ship) dot(e, '#7ac8ff', 4.2);
+      else if (e.raider && e.bodyguard) dot(e, '#8ab8ff', 2.6);
+      else if (e.raider && e.warState !== 'garrison' && e.warState !== 'parked') dot(e, '#ffd84a', 3);
+      else if (e.realmWorker) dot(e, '#9ad870', 2.4);
+      else if ((e.type === 'guard' && !e.siege) || (e.raider && e.guardPost)) dot(e, '#6aa8ff', 2);
+    }
     for (const e of foes) if (e && !e.dead) dot(e, '#ff5a4a', 3);
     if (G.player) dot(G.player, '#ffffff', 3.4);
   }
@@ -167,15 +185,25 @@
   }
   // ----- Workers -----
   function paneWorkers(pane, f, st) {
-    pane.appendChild(h('p', 'hint', 'The Arborist and the Miner go out on their own and bring wood and stone home. Better tools mean bigger loads; gold pays for them. Only enemy raiders and heroes will harm them, and a fallen worker is replaced in a minute.'));
+    pane.appendChild(h('p', 'hint', `Arborists and Miners go out on their own and bring wood and stone home. You can keep ${R.MAX_CREW} of each: the first is free, more cost gold. A worker killed by enemy raiders or heroes is gone for good, so hire a bodyguard to walk with the ones in danger. Better tools mean bigger loads for the whole crew.`));
+    const c = G.player.c;
     for (const k of ['arborist', 'miner']) {
-      const wd = st.workers[k], W2 = R.WORKER[k]; const card = h('div', 'rm-card');
-      const next = wd.lvl < 3 ? R.workerCost(k, wd.lvl + 1) : null;
-      card.innerHTML = `<h4>${W2.icon} ${W2.name} <small>tools ${wd.lvl}/3</small></h4><p>${esc(workerLine(f, k))} ${R.yieldOf(f, k)} ${W2.res} a load${wd.lvl ? ` (+${Math.round(R.YIELD_UP[wd.lvl] * 100)}%)` : ''}${st.buildings[W2.mill] ? `, +${st.buildings[W2.mill] * 10}% from the ${R.DEFS[W2.mill].name}` : ''}.</p><div class="rm-row"></div>`;
-      const row = $('.rm-row', card);
-      if (!wd.hired) { const bt = h('button', 'btn small gold', `Hire the ${W2.name} (free)`); bt.onclick = () => { R.hireWorker(f, k); UI.refresh(); }; row.appendChild(bt); }
-      else if (next) { row.innerHTML = `<span>Next: +${Math.round(R.YIELD_UP[wd.lvl + 1] * 100)}% a load for <b>${G.fmtCoins(next)}</b></span>`; const bt = h('button', 'btn small' + (G.player.c.coins >= next ? ' gold' : ''), 'Upgrade tools'); bt.disabled = G.player.c.coins < next; bt.onclick = () => { R.upgradeWorker(f, k); UI.refresh(); }; row.appendChild(bt); }
-      else row.innerHTML = '<span class="dim">The finest tools in the land.</span>';
+      const wd = st.workers[k], W2 = R.WORKER[k]; const crew = R.crew(f, k); const card = h('div', 'rm-card');
+      const next = wd.lvl < 3 ? R.workerCost(k, wd.lvl + 1) : null; const hire = R.crewCost(f, k);
+      card.innerHTML = `<h4>${W2.icon} ${W2.name}s <small>${crew.length}/${R.MAX_CREW} · tools ${wd.lvl}/3</small></h4><p>${R.yieldOf(f, k)} ${W2.res} a load each${wd.lvl ? ` (+${Math.round(R.YIELD_UP[wd.lvl] * 100)}% tools)` : ''}${st.buildings[W2.mill] ? `, +${st.buildings[W2.mill] * 10}% from the ${esc(R.DEFS[W2.mill].name)}` : ''}.</p><div class="rm-kv"></div><div class="rm-row"></div>`;
+      const kv = $('.rm-kv', card); const row = $('.rm-row', card);
+      const ents = R.workers(f);
+      for (const m of crew) {
+        const e = ents.find((x) => x.crewId === m.id);
+        const b = h('b', '', `${esc(m.name)}${m.guard ? ' 🛡' : ''}`); const sp = h('span', '', `${esc(stateLine(e, k))} `);
+        if (!m.guard) { const bg = h('button', 'btn small' + (c.coins >= R.GUARD_GOLD ? ' gold' : ''), `Hire bodyguard (${G.fmtCoins(R.GUARD_GOLD)})`); bg.disabled = c.coins < R.GUARD_GOLD; bg.onclick = () => { R.hireBodyguard(f, k, m.id); UI.refresh(); }; sp.appendChild(bg); }
+        else sp.appendChild(h('small', 'dim', 'A bodyguard walks with them.'));
+        kv.appendChild(b); kv.appendChild(sp);
+      }
+      if (!crew.length) kv.appendChild(h('span', 'dim', 'Nobody on this work.'));
+      if (hire != null) { const bt = h('button', 'btn small' + (!hire || c.coins >= hire ? ' gold' : ''), `Hire ${crew.length ? 'another' : 'an'} ${W2.name} (${hire ? G.fmtCoins(hire) : 'free'})`); bt.disabled = !!hire && c.coins < hire; bt.onclick = () => { R.hireWorker(f, k); UI.refresh(); }; row.appendChild(bt); }
+      if (next) { const sp = h('span', '', `Tools: +${Math.round(R.YIELD_UP[wd.lvl + 1] * 100)}% a load for <b>${G.fmtCoins(next)}</b>`); row.appendChild(sp); const bt = h('button', 'btn small' + (c.coins >= next ? ' gold' : ''), 'Upgrade tools'); bt.disabled = c.coins < next; bt.onclick = () => { R.upgradeWorker(f, k); UI.refresh(); }; row.appendChild(bt); }
+      else row.appendChild(h('span', 'dim', 'The finest tools in the land.'));
       pane.appendChild(card);
     }
   }

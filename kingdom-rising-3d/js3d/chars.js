@@ -682,6 +682,11 @@ export function animateHumanoid(rig, st, dt) {
     const k = st.animK, p = st.animP, s1 = Math.sin(p * Math.PI);
     if (k === 'slam' || k === 'hop') { B.hips.position.y += s1 * (k === 'slam' ? 0.7 : 0.45); B.thighL.rotation.x -= s1 * 0.6; B.thighR.rotation.x -= s1 * 0.6; B.shinL.rotation.x += s1 * 1.0; B.shinR.rotation.x += s1 * 1.0; if (k === 'slam') { B.armR.rotation.x = -2.6 * s1; B.armL.rotation.x = -2.6 * s1; } }
     else if (k === 'raise') { B.armL.rotation.x = -2.8 * s1; B.armR.rotation.x = -2.8 * s1; B.chest.rotation.x = -0.2 * s1; B.head.rotation.x = -0.4 * s1; }
+    // the pub (systems.js 'drink' / 'pour' work): a mug raised to the lips and the head tipped back, a talker's open
+    // hands and a nod, the trader tipping a jug
+    else if (k === 'drink') { const u = K3.smooth(0, 0.3, p) * (1 - K3.smooth(0.75, 1, p)); B.armR.rotation.x = -1.35 * u; B.armR.rotation.z = -0.25 * u; B.foreR.rotation.x = -1.7 * u; B.head.rotation.x = -0.35 * u * K3.smooth(0.35, 0.5, p); }
+    else if (k === 'chat') { B.armL.rotation.x = -0.7 * s1; B.foreL.rotation.x = -0.9 * s1; B.armL.rotation.z = 0.35 * s1 + Math.sin(p * 12) * 0.08; B.armR.rotation.x = -0.45 * s1; B.foreR.rotation.x = -0.8 * s1; B.head.rotation.x = Math.sin(p * 9) * 0.12; B.chest.rotation.y = Math.sin(p * 4) * 0.12; }
+    else if (k === 'pour') { B.armR.rotation.x = -1.0 * s1; B.foreR.rotation.x = -0.6 * s1; B.armR.rotation.y = 0.5 * s1; B.armL.rotation.x = -0.8 * s1; B.foreL.rotation.x = -1.2 * s1; B.chest.rotation.x = 0.15 * s1; }
     else if (k === 'thrust') { B.armR.rotation.x = -1.6 * s1; B.foreR.rotation.x = -0.1; B.thighL.rotation.x -= 0.6 * s1; B.thighR.rotation.x += 0.4 * s1; }
     else if (k === 'spin') { B.hips.rotation.y = p * Math.PI * 4; B.armR.rotation.z = -1.4; B.armL.rotation.z = 1.4; }
     // gathering: an axe swung across into a trunk, a pick brought down on rock, a knife working a hide

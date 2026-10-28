@@ -50,7 +50,7 @@ function facing(d) {
 }
 // how far a piece of furniture is pushed back toward its wall: until its back stands flush with the wall's face
 // (a tile's middle is 0.8 m from the wall; BACK is how far each model reaches behind its middle)
-const BACK = { forge: 0.72, loom: 0.27, bed: 1.13, kingbed: 1.26, shelf: 0.31, bookshelf: 0.32, counter: 0.42, keg: 0.33, stove: 0.37, hearth: 0.75, wardrobe: 0.34, dresser: 0.26, tapestry: 0.06, poisonchest: 0.34, desk: 0.36, vault: 0.41, weaponrack: 0.21, clothrack: 0.06, armorstand: 0.26, throne: 1.12, banner: 0.06 };
+const BACK = { workbench: 0.36, forge: 0.72, loom: 0.27, bed: 1.13, kingbed: 1.26, shelf: 0.31, bookshelf: 0.32, counter: 0.42, keg: 0.33, stove: 0.37, hearth: 0.75, wardrobe: 0.34, dresser: 0.26, tapestry: 0.06, poisonchest: 0.34, desk: 0.36, vault: 0.41, weaponrack: 0.21, clothrack: 0.06, armorstand: 0.26, throne: 1.12, banner: 0.06 };
 const wallOff = (f, kind) => (f.b ? Math.max(-0.4, 0.8 - (BACK[kind] != null ? BACK[kind] : 0.38) - 0.04) : 0);
 
 const WOOD = '#7a5530', DWOOD = '#4a3220', IRON = '#3a3a3e', GOLD = '#d8a838', STONE = '#9a948a', CLOTHR = '#8a2a2a';
@@ -115,6 +115,14 @@ P.orepile = (o, d) => { const cols = ['#7a6a5a', '#9a5a3a', '#6a6a7a', '#c8a050'
 P.weaponrack = (o, d) => { o.boxB('timber', 0, 0, 0, 1.4, 0.08, 0.4, DWOOD).boxB('timber', -0.62, 0, -0.15, 0.08, 1.5, 0.08, DWOOD).boxB('timber', 0.62, 0, -0.15, 0.08, 1.5, 0.08, DWOOD).box('timber', 0, 1.3, -0.15, 1.32, 0.08, 0.08, DWOOD);
   for (let k = -1; k <= 1; k++) { o.box('metalv', k * 0.38, 0.85, -0.05, 0.07, 1.3, 0.025, '#c8ccd2', 0, 0.12).box('metalv', k * 0.38, 0.32, -0.04, 0.25, 0.04, 0.05, GOLD, 0, 0.12); } };
 P.armorstand = (o, d) => { o.cylB('timber', 0, 0, 0, 0.04, 1.55, DWOOD, 6).boxB('timber', 0, 0, 0, 0.5, 0.06, 0.5, DWOOD).g('metal', PRIM.cyl12, 0, 1.25, 0, 0.62, 0.7, 0.4, '#b4b8c0').sph('metal', 0, 1.7, 0, 0.3, 0.32, 0.3, '#a8acb4').sph('metal', -0.34, 1.5, 0, 0.22, 0.18, 0.22, '#a8acb4').sph('metal', 0.34, 1.5, 0, 0.22, 0.18, 0.22, '#a8acb4'); };
+// the carpenter's bench: a thick top on stout legs, a wooden vice at one end, planks on the shelf below and a saw hung on the back
+P.workbench = (o, d) => { o.box('planks', 0, 0.86, 0, 1.5, 0.1, 0.68, '#9a7448'); for (const [x, z] of [[0.66, 0.26], [-0.66, 0.26], [0.66, -0.26], [-0.66, -0.26]]) o.boxB('timber', x, 0, z, 0.1, 0.82, 0.1, DWOOD);
+  o.box('timber', 0, 0.2, 0, 1.36, 0.05, 0.56, DWOOD).box('planks', -0.1, 0.27, 0.02, 1.1, 0.06, 0.2, '#b08a58').box('planks', 0.05, 0.33, -0.1, 1.0, 0.06, 0.18, '#a07a4a');
+  o.box('timber', 0.62, 0.78, 0.36, 0.22, 0.22, 0.08, '#6a4a2a').cyl('metalv', 0.62, 0.74, 0.46, 0.025, 0.2, IRON, 6, Math.PI / 2).box('timber', 0.62, 0.74, 0.58, 0.04, 0.04, 0.22, DWOOD, Math.PI / 2);
+  o.box('metalv', -0.25, 1.15, -0.33, 0.62, 0.16, 0.01, '#b8bcc4').box('timber', 0.1, 1.16, -0.32, 0.14, 0.12, 0.03, '#6a4a2a');
+  o.box('planks', -0.3, 0.92, 0.05, 0.5, 0.03, 0.14, '#c8a070').box('metalv', 0.2, 0.93, 0.1, 0.12, 0.04, 0.04, '#3a3a3e'); };
+P.sawhorse = (o, d) => { o.box('timber', 0, 0.72, 0, 1.1, 0.1, 0.12, '#8a6440'); for (const x of [-0.42, 0.42]) for (const z of [-1, 1]) o.box('timber', x, 0.36, z * 0.12, 0.07, 0.78, 0.07, DWOOD, 0, z * 0.3, 0);
+  o.box('planks', 0.1, 0.8, 0, 0.9, 0.05, 0.24, '#c8a070', 0.15); };
 P.loom = (o, d) => { for (const x of [-0.62, 0.62]) o.boxB('timber', x, 0, 0, 0.08, 1.6, 0.5, WOOD); o.box('timber', 0, 1.55, 0, 1.3, 0.08, 0.08, WOOD).box('timber', 0, 0.55, 0.15, 1.3, 0.08, 0.08, WOOD).box('cloth', 0, 1.05, 0, 1.15, 0.85, 0.02, '#b84a6a'); };
 P.clothrack = (o, d) => { o.cylB('timber', -0.62, 0, 0, 0.04, 1.7, DWOOD, 6).cylB('timber', 0.62, 0, 0, 0.04, 1.7, DWOOD, 6).cyl('timber', 0, 1.65, 0, 0.03, 1.3, DWOOD, 6, 0, Math.PI / 2);
   ['#3a6ab8', '#c8a03a', '#6a3a8a', '#3a8a5a'].forEach((c, k) => o.box('cloth', -0.45 + k * 0.3, 1.1, 0, 0.26, 1.0, 0.08, c)); };
@@ -192,7 +200,7 @@ P.well2 = P.well;
 
 // trees, rocks and plants go to the instanced vegetation instead
 export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'orevein', 'flowers', 'fern', 'reeds', 'crop']);
-const AGAINST_WALL = new Set(['wardrobe', 'dresser', 'tapestry', 'kingbed', 'poisonchest', 'desk', 'bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
+const AGAINST_WALL = new Set(['workbench', 'wardrobe', 'dresser', 'tapestry', 'kingbed', 'poisonchest', 'desk', 'bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
 
 // build the non-vegetation decorations in a tile rectangle into mb; extra lists collect flames, smoke, emitters, signs, flags, animated props
 export function buildProps(mb, list, out) {

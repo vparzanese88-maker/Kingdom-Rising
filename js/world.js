@@ -901,7 +901,7 @@
   // sets furniture out in a room so that it all fits: nothing in the lane from the door, nothing on the stairs, and every
   // piece that is used from the front (a forge, a loom, a counter, a shelf, a bed...) keeps a free tile before it.
   // Pieces against a wall face away from it; opts.face fixes the facing, opts.free lets a piece stand out in the room.
-  const NEEDS_FRONT = new Set(['forge', 'anvil', 'loom', 'hearth', 'stove', 'counter', 'lectern', 'bookshelf', 'shelf', 'vault', 'weaponrack', 'clothrack', 'cauldron', 'bed', 'kingbed', 'throne', 'wardrobe', 'dresser', 'chest', 'desk', 'keg', 'armorstand', 'statue']);
+  const NEEDS_FRONT = new Set(['workbench', 'forge', 'anvil', 'loom', 'hearth', 'stove', 'counter', 'lectern', 'bookshelf', 'shelf', 'vault', 'weaponrack', 'clothrack', 'cauldron', 'bed', 'kingbed', 'throne', 'wardrobe', 'dresser', 'chest', 'desk', 'keg', 'armorstand', 'statue']);
   const FACE_D = { n: [0, 1], s: [0, -1], w: [1, 0], e: [-1, 0] }; // a piece facing 's' stands against the north wall... (see front())
   function placer(b, x0, y0, x1, y1) {
     const door = b.door; const hold = new Set(); const K = (x, y) => y * W.W + x;
@@ -938,6 +938,8 @@
     let loftCol = null;
     if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) { makeLoft(b, x0, y0, x1, y1); if (b.loft) loftCol = b.loft.col; }
     const P = placer(b, x0, y0, x1, y1);
+    // the carpenter's bench (for refining wood) against a side wall, its sawhorse beside it
+    const carpenter = () => { const wb = P.first('workbench', [[x0, y0 + 2], [x0, y0 + 3], [x1, y0 + 1], [x1, y0 + 3], [x0, y0 + 1], [x1, y1 - 1], [x0, y1 - 1]]); if (wb) P.first('sawhorse', [[wb[0], wb[1] + 1], [wb[0], wb[1] - 1], [wb[0] + (wb[0] === x0 ? 1 : -1), wb[1] + 1]], { free: true }); };
     switch (b.type) {
       case 'hall':
         if (b.city && b.w >= 15 && b.h >= 14) { castleKeep(b); break; }
@@ -975,6 +977,7 @@
         const ax = fp ? fp[0] : x0 + 1, ap = P.first('anvil', [[ax, y0 + 2], [ax + 1, y0 + 2], [ax, y0 + 3], [ax + 1, y0 + 1]], { free: true });
         P.first('orepile', [[x1, y0], [x0, y0]], { free: true });
         P.first('weaponrack', [[x1, y0 + 2], [x1, y0 + 1], [x0, y0 + 2], [x0, y0 + 3]]);
+        carpenter(x0, y0, x1, y1);
         P.first('washtub', [[x0, y0 + 2], [x0, y1 - 1], [x1, y1 - 1]], { nb: true });
         const sp = ap ? P.anyFree([[ap[0] + 1, ap[1]], [ap[0] - 1, ap[1]], [ap[0], ap[1] + 1]]) : null; spot(b, 'smith', ...(sp || [mx, y0 + 1]));
         spot(b, 'vendor', ...(P.anyFree([[x1 - 1, y0 + 1], [mx + 1, y0 + 1], [mx, y0 + 1]]) || [mx, y1 - 1])); break; }
@@ -995,7 +998,7 @@
         P.first('shelf', [[x0, y0]]); P.first('shelf', [[x1, y0], [x1, y0 + 1]]);
         if (b.type === 'weaponsmith' || b.type === 'armory') P.first('weaponrack', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
         if (b.type === 'armorer') P.first('armorstand', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
-        if (b.type === 'fletcher') P.first('weaponrack', [[x0, y0 + 2], [x1, y0 + 2]]);
+        if (b.type === 'fletcher') { P.first('weaponrack', [[x0, y0 + 2], [x1, y0 + 2]]); carpenter(x0, y0, x1, y1); }
         P.first('barrel', [[x0, y1], [x0, y1 - 1]], { free: true }); P.first('crate', [[x1, y1], [x1, y1 - 1]], { free: true });
         spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1], [mx + 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0 + 1, 150); break;
       case 'scribe': P.first('bookshelf', [[x0, y0]]); P.first('bookshelf', [[x1, y0]]); P.first('lectern', [[mx, y0 + 1], [x0, y0 + 2], [x1, y0 + 2]], { free: true });

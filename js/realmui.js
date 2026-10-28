@@ -133,14 +133,18 @@
     const mc = h('div', 'rm-card'); mc.innerHTML = `<h4>The realm <small>raiders gold, guards blue, workers green, foes seen red</small></h4>`;
     const cv = h('canvas', 'rm-map'); cv.width = cv.height = 300; mc.appendChild(cv); pane.appendChild(mc);
     drawMap(cv, f, foes);
-    const atk = h('div', 'rm-card');
-    const can = KR.War && typeof KR.War.orderAttack === 'function';
-    atk.innerHTML = `<h4>War</h4><p>${can ? `Send your raiders against ${esc(D.FACTIONS[D.FACTION_IDS.find((x) => x !== f)].city)}. They march behind the battering ram if you have one; you can ride with them or not.` : 'Raiders and the order to attack come with the Barracks.'}</p>`;
-    const bt = h('button', 'btn gold', '⚔ Order the attack'); bt.disabled = !can;
-    bt.onclick = () => { try { KR.War.orderAttack(f); } catch (e) { console.warn(e); } UI.refresh(); };
-    atk.appendChild(bt);
-    const out = KR.War && KR.War.squads && KR.War.squads.some((s0) => s0.f === f && s0.members.some((m) => !m.dead && m.warState !== 'home'));
-    if (KR.War && typeof KR.War.retreat === 'function') { const rb = h('button', 'btn', '🏳 Order a retreat'); rb.disabled = !out; rb.title = out ? 'Your soldiers turn back for home, fighting only whoever blocks their way.' : 'Nobody is out on a raid.'; rb.onclick = () => { try { KR.War.retreat(f); } catch (e) { console.warn(e); } UI.refresh(); }; atk.appendChild(rb); }
+    const atk = h('div', 'rm-card'); const Wr = KR.War;
+    const can = Wr && typeof Wr.orderAttack === 'function';
+    const out = Wr && Wr.squads && Wr.squads.some((s0) => s0.f === f && s0.members.some((m) => !m.dead && m.warState !== 'home'));
+    const ships = G.ents.filter((e) => e.ship && e.faction === f && !e.dead && !e.removed).length;
+    atk.innerHTML = `<h4>War <small>${out ? 'your army is out' : 'your army is home'}${ships ? ` · ${ships} warship${ships > 1 ? 's' : ''}` : ''}</small></h4><p>${can ? `Send your raiders (behind the ram and the siege guns, if you have them) or your warships against ${esc(D.FACTIONS[D.FACTION_IDS.find((x) => x !== f)].city)}, or call them home. You can ride with them or not.` : 'Raiders and the order to attack come with the Barracks.'}</p><div class="rm-row rm-orders"></div><div class="rm-row rm-orders2"></div>`;
+    const cmd = (what) => { try { if (Wr.command) Wr.command(f, what); else if (what === 'army') Wr.orderAttack(f); else if (what === 'retreat-army' && Wr.retreat) Wr.retreat(f); } catch (e) { console.warn(e); } UI.refresh(); };
+    const row1 = $('.rm-orders', atk), row2 = $('.rm-orders2', atk);
+    for (const [what, label, row, gold] of [['army', '⚔ Attack with army', row1, true], ['fleet', '⛵ Attack with fleet', row1, false], ['all', '🔥 All-out attack', row1, true], ['retreat-army', '🏳 Retreat army', row2, false], ['retreat-fleet', '🏳 Retreat fleet', row2, false], ['retreat-all', '🏳 Retreat all', row2, false]]) {
+      const bt = h('button', 'btn small' + (gold ? ' gold' : ''), label);
+      bt.disabled = !can || (what === 'retreat-army' && !out) || ((what === 'fleet' || what === 'retreat-fleet') && !ships);
+      bt.onclick = () => cmd(what); row.appendChild(bt);
+    }
     pane.appendChild(atk);
   }
   function drawMap(cv, f, foes) {
@@ -222,6 +226,7 @@
       if (!t.locked) for (const n of [1, 5]) { const bt = h('button', 'btn small', `Hire ${n}`); bt.disabled = t.cost != null && G.player.c.coins < t.cost * n; bt.onclick = () => { try { Wr.hire(f, id, n); } catch (e) { console.warn(e); } UI.refresh(); }; $('.rm-row', card).appendChild(bt); }
       pane.appendChild(card);
     }
+    if (typeof Wr.fleetCard === 'function') { try { Wr.fleetCard(pane, f); } catch (e) { console.warn(e); } } // the navy (warmarch.js): attack with / recall the fleet
   }
   // ----- Defenses -----
   function paneDefenses(pane, f) {

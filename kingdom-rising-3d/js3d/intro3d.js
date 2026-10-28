@@ -33,6 +33,8 @@ export function startIntro(c, done) {
   // the ships moored in the marina: if one ever comes between the camera and the hero, the camera rises over it
   const boats = []; K3.scene.traverse((o) => { if (o.userData && o.userData.anim && o.userData.anim.kind === 'boat') boats.push(o); });
   intro = { uiWas, c, p, t: 0, ship, ov, done, tile, S: [Sx, Sz], Dp: [Dx, Dz], yaw, out: [H.dx, H.dy], lat: [H.px, H.py], update: updateIntro, boats, lift: 0, hidden: [] };
+  // the same ship lies moored at the berth once you are ashore (world.js harbour): it stays out of sight while this one sails in
+  for (const b of boats) { const a = b.userData.anim; if (a.size && Math.hypot(a.x - Dx, a.z - Dz) < TILE * 3) { b.visible = false; intro.hidden.push(b); } }
   // a fine sunny morning
   G.clock = 9.5 * 60; if (G.weather) { G.weather.type = 'clear'; G.weather.t = Math.max(G.weather.t || 0, 200); }
   p.sit = false; p.moving = false;

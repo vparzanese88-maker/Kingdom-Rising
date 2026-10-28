@@ -239,7 +239,8 @@ export function updateSky(dt, camPos, ctx) {
   // walls stay put as you move instead of crawling and flickering
   const texel = (sh * 2) / sun.shadow.mapSize.x;
   const ld = _ld.copy(lightDir).normalize(); const rx = _rx.set(0, 1, 0).cross(ld); if (rx.lengthSq() < 1e-6) rx.set(1, 0, 0); rx.normalize(); const uy = _uy.copy(ld).cross(rx).normalize();
-  if (Math.abs(_lastLd.dot(ld) - 1) > 1e-5) { _lastLd.copy(ld); K3.shadowNow(); }
+  // the sun creeps a little every frame and the regular redraws follow it; only a jump (a time skip, a new realm) redraws at once
+  if (Math.abs(_lastLd.dot(ld) - 1) > 1e-3) { _lastLd.copy(ld); K3.shadowNow(); }
   if (!K3.shadowDue || K3.shadowDue() || !sun._placed) {
     const sa = Math.round(tgt.dot(rx) / texel) * texel, b2 = Math.round(tgt.dot(uy) / texel) * texel, c2 = tgt.dot(ld);
     const fp = _fp.copy(rx).multiplyScalar(sa).addScaledVector(uy, b2).addScaledVector(ld, c2);

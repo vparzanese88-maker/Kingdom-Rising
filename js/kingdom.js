@@ -143,7 +143,7 @@
     if (d.dead) { const need = Math.max(1, G.tierOfLevel(d.level)); const tt = toolTier(c, 'knife'); if (!tt) return `You need a ${toolName('knife')} in your Skinning slot.`; if (tt < need) return `You need a better skinning knife (tier ${need}) for this hide.`; return null; }
     const h = K.harvestOf(d); if (!h) return 'Nothing to gather.'; const M = K.MATS[h.mat]; const tt = toolTier(c, h.tool);
     if (!tt) return `You need a ${toolName(h.tool)} in your ${h.tool === 'axe' ? 'Woodcutting' : 'Mining'} slot. General goods merchants sell copper ones.`;
-    if (tt < M.tier) return `You need a tier ${M.tier} ${h.tool === 'axe' ? 'axe' : 'pick'} for ${M.name}. Your kingdom's smith can make you one.`;
+    if (tt < M.tier) return `You need a tier ${M.tier} ${h.tool === 'axe' ? 'axe' : 'pick'} for ${M.name}. The arms merchant, the general store and the outfitter sell them.`;
     return null;
   };
   const begin = function (p, target, tool, matTier, extra) {

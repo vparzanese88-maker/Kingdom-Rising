@@ -427,4 +427,4 @@ K3.updaters.push((dt, t) => {
 });
 // rebuild at once when a building is finished or upgraded
 try { if (KR.Realm && typeof KR.Realm.on === 'function') KR.Realm.on('built', () => { acc = 1; }); } catch (e) {}
-export const _realmTest = { buildPlot, plots, sync, makeWorkers, animWorkers };
+export const _realmTest = { buildPlot, plots, sync, makeWorkers, animWorkers, BUILD }; // BUILD: naval3d.js adds the shipyard

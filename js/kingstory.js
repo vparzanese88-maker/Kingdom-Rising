@@ -26,7 +26,7 @@
   SCN.crown = {
     home: { offer: [
       ['King Aldric', 'My father was poisoned at the feast. My brother Theron fled to the elves.'],
-      ['King Aldric', 'See my captain, my smith and the healer, then come back.'],
+      ['King Aldric', 'See my captain, my arms merchant and the healer, then come back.'],
     ], done: [
       ['King Aldric', 'We are thin, but not broken. Now we build.'],
     ] },
@@ -57,7 +57,7 @@
   SCN.sylvan = {
     home: { offer: [
       ['King Theron', 'My father was poisoned at the feast. Aldric\'s guards came for me, so I fled.'],
-      ['King Theron', 'See my captain, my smith and the healer, then come back.'],
+      ['King Theron', 'See my captain, my arms merchant and the healer, then come back.'],
     ], done: [
       ['King Theron', 'These people chose us. Now we build.'],
     ] },
@@ -105,8 +105,8 @@
     for (const f of ['crown', 'sylvan']) {
       const enemy = f === 'crown' ? 'sylvan' : 'crown', E = D.FACTIONS[enemy];
       const leader = f === 'crown' ? 'n_fingers' : 'n_skulk';
-      Q[f + '_story0'] = { id: f + '_story0', f, giver: 'king', lv: 1, type: 'visit', roles: ['captain', 'smith', 'healer'], scene: 'home', title: 'Home from the Sea',
-        text: `${kingOf(f)} wants you to see the city with your own eyes: speak with the captain of the guard, the smith and the healer, then return to him.`, reward: { coin: 150, status: 10 } };
+      Q[f + '_story0'] = { id: f + '_story0', f, giver: 'king', lv: 1, type: 'visit', roles: ['captain', 'armsdealer', 'healer'], scene: 'home', title: 'Home from the Sea',
+        text: `${kingOf(f)} wants you to see the city with your own eyes: speak with the captain of the guard, the arms merchant and the healer, then return to him.`, reward: { coin: 150, status: 10 } };
       Q[f + '_story1'] = { id: f + '_story1', f, giver: 'king', lv: 4, type: 'collect', item: 'Sealed Letter', storyDrop: [leader], mobs: [leader], n: 1, scene: 'rats', title: 'Rats Beneath the Streets', req: f + '_build1',
         text: `Enter the sewer outflow outside the walls, kill ${D.MOBS[leader].name} and bring the king what he carries.`, reward: { coin: 800, status: 30, item: { k: 'weapon', tier: 0, q: 1.25 } } };
       Q[f + '_story2'] = { id: f + '_story2', f, giver: 'king', lv: 12, type: 'visit', roles: ['cupbearer'], scene: 'cupbearer', title: 'The Cupbearer', req: f + '_story1',

@@ -847,6 +847,42 @@
     W.decor = W.decor.filter((d) => { if (d.harbour === f) return true; const ox = d.tx - gx, oy = d.ty - gy; const i = ox * dx + oy * dy, sd = ox * px + oy * py; if (i < -2 || i > k + 26 || Math.abs(sd) > half + 30) return true; const t = W.tile(d.tx, d.ty); return !(dock.has(t) || t === T.WATER || t === T.DEEP) || ['lamp', 'flagpole', 'post', 'crate', 'barrel', 'boat'].includes(d.kind) && d.harbour === f; });
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py, half };
   }
+  // ---- the shipyard's plot: on the quay beside the pier, across from the arrival berth, its slipway running into
+  // the water. Published as W.cityData[f].shipyardPlot (KR.Realm.plotOf(f, 'shipyard') finds it); the 3D building is
+  // naval3d.js's. Once built it is solid, all but the quay's edge
+  function harbourYard(f) {
+    const cd = W.cityData[f]; const H = cd && cd.harbour; if (!H) { if (cd) cd.shipyardPlot = null; return; }
+    const P = (i, sd) => [H.gx + H.dx * i + H.px * sd, H.gy + H.dy * i + H.py * sd];
+    const pts = [P(1, -10), P(H.k - 1, -10), P(1, -4), P(H.k - 1, -4)];
+    const x0 = Math.min(...pts.map((q) => q[0])), x1 = Math.max(...pts.map((q) => q[0])), y0 = Math.min(...pts.map((q) => q[1])), y1 = Math.max(...pts.map((q) => q[1]));
+    const front = H.dx < 0 ? 'w' : H.dx > 0 ? 'e' : H.dy < 0 ? 'n' : 's';
+    const slip = P(H.k + 5, -7), moor = [P(H.k + 12, -6), P(H.k + 16, -10), P(H.k + 14, -2), P(H.k + 20, -6)];
+    const sea = { out: [H.dx, H.dy], lat: [H.px, H.py], slip, moor, quay: P(H.k, -7) };
+    // the town's own plot for the shipyard (placePlots, near the sea gate) when it has one: the yard stands there and
+    // its ships lie in the harbour basin
+    const town = (cd.plots || []).find((q) => q.id === 'shipyard');
+    if (town) { cd.shipyardPlot = Object.assign(town, sea); W.shipyardBlock(f); return; }
+    const pl = Object.assign({ id: 'shipyard', x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, front, quayPlot: true }, sea);
+    cd.shipyardPlot = pl;
+    W.decor = W.decor.filter((d) => d.kind === 'boat' || !(d.tx >= x0 && d.tx <= x1 && d.ty >= y0 && d.ty <= y1));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = y * W.W + x; if (W.tiles[k] === T.CWALL) continue; W.tiles[k] = T.STONE; W.block[k] = 0; }
+    W.shipyardBlock(f);
+  }
+  // a finished shipyard is solid where its sheds stand (its quayside row stays open to walk along)
+  W.shipyardBlock = function (f) {
+    const cd = W.cityData[f]; const pl = cd && cd.shipyardPlot; if (!pl || (W.realm && W.realm !== 'main')) return;
+    const lv = W.realmLevel(f, 'shipyard'); const H = cd.harbour;
+    if (!pl.quayPlot) { // a plot in town: its footprint grows with the level, like every building's (placePlots leaves the shipyard to us)
+      if (pl.fp) for (let y = pl.fp.y; y < pl.fp.y + pl.fp.h; y++) for (let x = pl.fp.x; x < pl.fp.x + pl.fp.w; x++) W.block[y * W.W + x] = 0;
+      pl.level = lv; pl.fp = lv && W.plotFootprint ? W.plotFootprint(pl, lv) : null;
+      if (pl.fp) for (let y = pl.fp.y; y < pl.fp.y + pl.fp.h; y++) for (let x = pl.fp.x; x < pl.fp.x + pl.fp.w; x++) W.block[y * W.W + x] = 1;
+      return;
+    }
+    for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) {
+      const i = (x - H.gx) * H.dx + (y - H.gy) * H.dy; // how far out toward the water
+      const k = y * W.W + x; if (W.tiles[k] === T.CWALL) continue; W.block[k] = lv && i < H.k - 1 ? 1 : 0;
+    }
+  };
   function nearCity(x, y, r) { for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) return true; } return false; }
   function areaFree(x, y, w, h) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { if (!W.inb(i, j)) return false; const t = W.tile(i, j); if (SOLID[t] || t === T.WATER || t === T.ROAD || t === T.WOOD || t === T.STONE) return false; } return true; }
   function clearArea(x, y, w, h, floor) {
@@ -1018,7 +1054,7 @@
         const cyB = y0, bx0 = x0 + 1, bx1 = Math.max(bx0, x1 - 2); // the keeper's row between the kegs, the counter before it (a gap at its east end leads behind it)
         for (let x = bx0; x <= bx1; x++) P.put('counter', x, cyB + 1, { face: 's', free: true });
         spot(b, 'keeper', Math.floor((bx0 + bx1) / 2), cyB); P.hold(Math.floor((bx0 + bx1) / 2), cyB);
-        for (let x = bx0; x <= bx1; x += 2) { if (P.free(x, cyB + 2)) { spot(b, 'bar', x, cyB + 2); P.hold(x, cyB + 2); } }
+        for (let x = bx0; x <= bx1; x += 2) if (!W.block[(cyB + 2) * W.W + x] && !P.lane(x, cyB + 2)) { spot(b, 'bar', x, cyB + 2); P.hold(x, cyB + 2); } // leaning on the counter (its front tiles stay clear)
         const hx = P.first('hearth', [[x1, y1 - 1], [x0, y1 - 1], [x1, y1]]); if (hx) lightIn(hx[0], hx[1], 190, '255,160,80');
         let nt = 0;
         for (let y = y1 - 1; y >= cyB + 3 && nt < 3; y--) for (let x = x0 + 1; x <= x1 - 1 && nt < 3; x++) {
@@ -1546,6 +1582,7 @@
     // the kingdom's building plots; the barracks stands on its plot only once it has been built (KR.Realm)
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].barracksB = null;
     const plots = placePlots(f, cx, cy, R);
+    harbourYard(f); // the shipyard's plot on the quay (warmarch.js naval section)
     if (W.realmHas(f, 'barracks')) {
       const pb = plots.find((q) => q.id === 'barracks');
       if (pb) { const b = stampBuilding({ x: pb.x, y: pb.y, w: pb.w, h: pb.h, type: 'barracks', name: `${D.FACTIONS[f] ? D.FACTIONS[f].city : ''} Barracks`, faction: f, city: f, style: f, minLevel: 1 }); b.city = f; b.plot = 'barracks'; W.cityData[f].barracksB = b; }

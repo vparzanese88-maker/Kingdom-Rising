@@ -215,6 +215,7 @@
     const lv0 = G.account && G.account.cities[f] ? G.account.cities[f].level : null;
     syncLevel(f);
     if (done.some((c) => c.id === 'walls' || c.id === 'pub') && G.account && G.account.cities[f] && G.account.cities[f].level === lv0) Sys.cityChanged(f);
+    else if (done.some((c) => c.id === 'towers') && (!W.realm || W.realm === 'main')) { try { Sys.spawnCity(f); } catch (e) { console.warn(e); } } // a bought tower takes its post at once
     save();
   }
 

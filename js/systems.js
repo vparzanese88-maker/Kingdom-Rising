@@ -880,8 +880,8 @@
       const F = D.FACTIONS[f], [z1, z2] = ZONES[f];
       const zn = (z) => D.REGIONS[D.REGION_BY_ID[z]].name;
       add({ id: f + '_rats', f, giver: 'farmer', lv: 1, type: 'kill', mobs: ['rat'], n: 6, title: 'Rats in the Grain', text: `The giant rats are eating our seed grain. Kill 6 of them in ${zn(z1)}.`, reward: { coin: 40, status: 2 } });
-      add({ id: f + '_crate', f, giver: 'merchant', turnin: 'smith', lv: 1, type: 'deliver', item: 'Sealed Crate of Nails', title: 'A Crate of Nails', text: 'Take this crate of nails to the blacksmith, would you? My legs are not what they were.', reward: { coin: 25, status: 1 } });
-      add({ id: f + '_pelts', f, giver: 'tailor', lv: 3, type: 'collect', item: 'Wolf Pelt', mobs: ['wolf'], n: 4, title: 'Fine Pelts', text: 'Winter is coming and I need pelts. Bring me 4 Wolf Pelts.', reward: { coin: 90, status: 3, item: { k: 'armor', slot: 'hands', tier: 0 } } });
+      add({ id: f + '_crate', f, giver: 'merchant', turnin: 'armsdealer', lv: 1, type: 'deliver', item: 'Sealed Crate of Nails', title: 'A Crate of Nails', text: 'Take this crate of nails to the arms merchant, would you? My legs are not what they were.', reward: { coin: 25, status: 1 } });
+      add({ id: f + '_pelts', f, giver: 'alchemist', lv: 3, type: 'collect', item: 'Wolf Pelt', mobs: ['wolf'], n: 4, title: 'Fine Pelts', text: 'My salves need wolf fat and the pelts sell well. Bring me 4 Wolf Pelts.', reward: { coin: 90, status: 3, item: { k: 'armor', slot: 'hands', tier: 0 } } });
       add({ id: f + '_crit', f, giver: CRIT[f][2], lv: 3, type: 'collect', item: CRIT[f][1], mobs: [CRIT[f][0]], n: 5, title: CRIT[f][3], text: CRIT[f][4], reward: { coin: 80, status: 3 } });
       add({ id: f + '_scouts', f, giver: 'captain', lv: 4, type: 'kill', mobs: [ENEMY1[f]], n: 8, title: `${D.MOBS[ENEMY1[f]].name}s`, text: `${F.enemyMobs} send their young to scout our walls. Kill 8 ${D.MOBS[ENEMY1[f]].name}s in ${zn(z1)}.`, reward: { coin: 120, status: 5, item: { k: 'weapon', tier: 0 } } });
       if (D.REGION_BY_ID['sewer_' + f] != null) {

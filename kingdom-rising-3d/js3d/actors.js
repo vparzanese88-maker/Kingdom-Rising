@@ -13,6 +13,7 @@ import { view } from './camera.js';
 import { cardTex } from './texgen.js';
 import { buildFlags } from './structures.js';
 import { siegeModel } from './siege3d.js';
+import './naval3d.js'; // the navy's ships, harbour guns and shipyard (K3.navalModel)
 import { workerPose } from './realm3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
@@ -107,6 +108,7 @@ function clearAvatar(av) {
 function build(av) {
   const e = av.e; clearAvatar(av);
   if (av.peer) { const look = peerLook(e); av.sig = lookSig(look); av.rig = makeHumanoid(look, 'human'); av.kind = 'human'; av.obj.add(av.rig.mesh); av.height = av.rig.top; return; }
+  if (e.navalKind && K3.navalModel) { const m = K3.navalModel(e); if (m) { av.model = m; av.kind = 'war'; av.obj.add(m.obj); av.height = m.height; return; } } // naval3d.js: warships and harbour guns
   if (e.ram || e.big) { const m = siegeModel(e); if (m) { av.model = m; av.kind = 'war'; av.obj.add(m.obj); av.height = m.height; return; } } // siege3d.js: the ram and the great engines
   if (e.siege) { av.model = warModel(e); av.kind = 'war'; av.obj.add(av.model.obj); av.height = e.siege === 'archer' ? 9 : 3.2; if (e.siege === 'archer') { const ar = makeHumanoid({ race: 'human', gender: 'm', skin: '#d8b090', hair: '#3a2a1a', armor: { kind: 'leather', col: '#4a6b35', trim: '#3a2618' }, hat: 'hood', hatCol: '#4a6b35', weapon: 'ARC', rangeW: 'ARC' }, 'human'); ar.mesh.position.set(0, 6.7 * 1.25, 0); av.model.obj.add(ar.mesh); av.archer = ar; } return; }
   if (e.bell) { av.model = bellModel(e); av.kind = 'war'; av.obj.add(av.model.obj); av.height = 4.6; return; }

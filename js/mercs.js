@@ -56,7 +56,8 @@
     for (const e of have) if (!ids.has(e.pubPatron) || e.city !== f || e.pubB !== pub) G.remove(e);
     const seats = (pub.spots.seat || []).map((s, j) => ({ x: s[0], y: s[1], sit: true, face: { x: s[0] + (j % 2 ? -TS : TS), y: s[1] } })); // seats come in pairs either side of a table
     const bar = (pub.spots.bar || []).map((s) => ({ x: s[0], y: s[1], sit: false, face: { x: s[0], y: s[1] - TS } }));
-    const spots = seats.concat(bar); const used = new Set(G.ents.filter((e) => e.pubPatron && !e.removed).map((e) => e.pubSpot));
+    const spots = []; for (let i = 0; i < Math.max(seats.length, bar.length * 2); i++) { if (seats[i]) spots.push(seats[i]); if (i % 2 === 1 && bar[(i - 1) / 2]) spots.push(bar[(i - 1) / 2]); } // a pair at a table, one at the bar, and so on
+    const used = new Set(G.ents.filter((e) => e.pubPatron && !e.removed).map((e) => e.pubSpot));
     for (const o of offers) {
       if (G.ents.some((e) => e.pubPatron === o.oid && !e.removed)) continue;
       const k = spots.findIndex((sp, i) => !used.has(i)); if (k < 0) break; used.add(k); const sp = spots[k];

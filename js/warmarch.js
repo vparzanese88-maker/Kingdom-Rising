@@ -1373,3 +1373,993 @@
     return res;
   };
 })();
+
+// =====================================================================
+// War and workers. Battering rams (and Aelindor's troll giants) only ever break gates; the kingdom's cannons,
+// bombards and ballistas wait in the siege yard, march with the war party and blow a breach in the enemy's walls
+// (a city with no walls is simply walked into). Up to three Arborists and three Miners, each with a bodyguard if
+// you pay for one; war parties of the two kingdoms that meet on the road fight it out; the player can sound the
+// retreat; the maps show your guards, raiders, workers and ships, and enemies only once they have been seen.
+// =====================================================================
+(function () {
+  const KR = window.KR; const { D, G, U, W } = KR; const Sys = KR.Sys, War = KR.War, A = KR.A;
+  if (!War) return;
+  const TS = D.TS; const T = KR.T;
+  const mainRealm = () => !W.realm || W.realm === 'main';
+  const pf = () => (G.player && G.player.c ? G.player.c.faction : null);
+  const mineF = (f) => !!f && f === pf();
+  const acct = () => { const a = G.account; if (!a) return null; a.war = a.war || {}; return a.war; };
+  const sfx = (n, v) => { try { A && A.sfx && v > 0.02 && A.sfx(n, Math.min(1, v)); } catch (e) {} };
+  const near = (x, y, R) => { const p = G.player; if (!p) return 0; const d = Math.hypot(x - p.x, y - p.y); return d < R ? 1 - d / R : 0; };
+  const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const live = (m) => m && !m.dead && !m.removed;
+  const ARMY = (f) => (D.FACTION_ARMY && D.FACTION_ARMY[f]) || { engines: {} };
+
+  // ---------- walls: does the city have any? ----------
+  const wallCache = {};
+  // any rebuild of a city (new walls, a new level) clears what we knew about its walls
+  if (W.stampCity) { const sc9 = W.stampCity; W.stampCity = function (f) { wallCache[f] = null; if (BR && BR[f]) BR[f].list = []; return sc9.apply(this, arguments); }; }
+  War.hasWalls = function (f) {
+    const cd = W.cityData[f]; if (!cd || !mainRealm() || cd.R == null) return false;
+    const c = wallCache[f]; if (c && c.tiles === W.tiles && c.R === cd.R && c.cx === cd.cx && G.now - c.t < 2000) return c.v;
+    const { cx, cy, R } = cd; let n = 0;
+    for (const [x, y] of [[cx - R, cy - R + 6], [cx + R, cy - R + 6], [cx - R + 6, cy + R], [cx + R - 6, cy + R], [cx - R + 6, cy - R], [cx + R - 6, cy - R], [cx - R, cy + R - 6], [cx + R, cy + R - 6]]) if (W.tile(x, y) === T.CWALL) n++;
+    const v = n >= 2; wallCache[f] = { tiles: W.tiles, R, cx, t: G.now, v }; return v;
+  };
+  // no walls, no gates to shut: the bells still ring, but there is nothing to keep anyone out
+  const cg0 = War.closeGates;
+  War.closeGates = function (f) { if (!War.hasWalls(f)) return 0; return cg0.apply(this, arguments); };
+
+  // ---------- breaching the walls ----------
+  D.BREACH = { hp: 8 }; // a cannon or ballista shot is one, a bombard or great ballista shot two
+  const BR = {};
+  const brState = (f) => { let s = BR[f]; if (!s || s.tiles !== W.tiles) s = BR[f] = { tiles: W.tiles, list: [] }; return s; };
+  const isRubble = (b) => b.broken && W.tiles[b.ty * W.W + b.tx] === T.MUD;
+  War.breaches = (f) => brState(f).list.slice();
+  War.breachOf = (f) => brState(f).list.find(isRubble) || null;
+  // a war party that cannot get in (gates shut, no breach yet) waits; with a breach it goes through
+  const bg0 = War.blockingGate;
+  War.blockingGate = function (sq) {
+    if (!War.hasWalls(sq.ef) || War.breachOf(sq.ef)) return null;
+    return bg0.apply(this, arguments);
+  };
+  // the stretch of wall the siege guns aim at: three tiles of plain wall nearest the column, clear of gates and stairs
+  War.wallTarget = function (sq) {
+    const s = brState(sq.ef);
+    if (sq.wall && s.list.includes(sq.wall)) return sq.wall;
+    const cd = W.cityData[sq.ef]; if (!cd || !War.hasWalls(sq.ef) || !sq.path || !sq.path.length) return null;
+    const ref = sq.path[sq.path.length - 1]; const gates = War.gateList(sq.ef); const { cx, cy, R } = cd;
+    let best = null, bd = 1e9;
+    for (let i = -R + 5; i <= R - 5; i++) for (const [x, y, ox, oy] of [[cx + i, cy - R, 0, -1], [cx + i, cy + R, 0, 1], [cx - R, cy + i, -1, 0], [cx + R, cy + i, 1, 0]]) {
+      if (W.tile(x, y) !== T.CWALL) continue;
+      if (gates.some((g) => Math.hypot(g.gx - x, g.gy - y) < 6)) continue;
+      const ax = oy ? 1 : 0, ay = ox ? 1 : 0;
+      if (W.tile(x - ax, y - ay) !== T.CWALL || W.tile(x + ax, y + ay) !== T.CWALL) continue;
+      if (W.isBlockedTile(x + ox * 2, y + oy * 2) || W.isBlockedTile(x - ox * 2, y - oy * 2)) continue;
+      if (W.stairs && [-1, 0, 1].some((k) => W.stairs.get((y + ay * k - oy) * W.W + (x + ax * k - ox)) || W.stairs.get((y + ay * k) * W.W + (x + ax * k)))) continue;
+      const d = Math.hypot(x - ref[0], y - ref[1]); if (d < bd) { bd = d; best = { x, y, ox, oy, ax, ay }; }
+    }
+    if (!best) return null;
+    const id = sq.ef + ':' + best.x + ',' + best.y;
+    let b = s.list.find((q) => q.id === id);
+    if (!b) {
+      b = { id, f: sq.ef, tx: best.x, ty: best.y, out: [best.ox, best.oy], along: [best.ax, best.ay], tiles: [[best.x - best.ax, best.y - best.ay], [best.x, best.y], [best.x + best.ax, best.y + best.ay]],
+        x: (best.x + 0.5) * TS, y: (best.y + 0.5) * TS, hits: 0, max: D.BREACH.hp, broken: false };
+      s.list.push(b);
+    }
+    sq.wall = b; return b;
+  };
+  function invalidate(b) {
+    const xs = b.tiles.map((t) => t[0]), ys = b.tiles.map((t) => t[1]); const x0 = Math.min(...xs) - 2, y0 = Math.min(...ys) - 2;
+    try { KR.R && KR.R.invalidateArea && KR.R.invalidateArea(x0, y0, Math.max(...xs) - x0 + 3, Math.max(...ys) - y0 + 3); } catch (e) { console.warn(e); }
+  }
+  function breakWall(b, src) {
+    b.broken = true; b.prev = []; b.tilesRef = W.tiles;
+    for (const [x, y] of b.tiles) { const i = y * W.W + x; b.prev.push([i, W.tiles[i], W.block[i], W.wallTop ? W.wallTop[i] : 0]); W.tiles[i] = T.MUD; W.block[i] = 0; if (W.wallTop) W.wallTop[i] = 0; }
+    wallCache[b.f] = null; invalidate(b);
+    // anyone standing up on that stretch of wall comes down with it
+    for (const e of G.ents.concat(G.player ? [G.player] : [])) if (e && e.onWall && b.tiles.some(([x, y]) => Math.floor(e.x / TS) === x && Math.floor(e.y / TS) === y)) e.onWall = false;
+    const F = D.FACTIONS[b.f];
+    if (mineF(b.f)) { G.log(`The wall of ${F.city} has been breached! The enemy is coming through the rubble!`, 'status', '#ff6a5a'); KR.UI && KR.UI.banner && KR.UI.banner('The wall is breached!', 'Enemy soldiers are coming through the gap. Defend the king!'); }
+    else if (src && mineF(src.faction)) G.log(`The wall of ${F.city} comes crashing down! Your soldiers charge through the breach.`, 'status', '#9affb8');
+    const v = near(b.x, b.y, 2600); sfx('treefall', v); setTimeout(() => sfx('rockbreak', v), 180); setTimeout(() => sfx('heavy', v * 0.8), 420);
+    for (const sq of War.squads) if (sq.ef === b.f) { sq.slots = null; for (const m of sq.members) if (live(m) && !m.nonCombat && !m.fieldGun && !m.ram && Math.random() < 0.35) { G.say(m, U.pick(['Through the breach!', 'The wall is down! Go!', 'CHARGE!']), 2.5); break; } }
+  }
+  // a hit from a siege gun: dust and stone fly, the wall cracks a little more, and at the end it falls
+  War.hitWall = function (b, src, power) {
+    if (!b || b.broken) return false;
+    b.hits = Math.min(b.max, b.hits + (power || 1)); b.hitAt = G.now; const last = b.hits >= b.max;
+    const v = near(b.x, b.y, 2400); sfx('rockbreak', v); sfx('heavy', v * 0.9);
+    const p = G.player; const dd = p ? Math.hypot(p.x - b.x, p.y - b.y) : 1e9; if (dd < 1100) G.shake = Math.max(G.shake || 0, (last ? 1.5 : 0.5) * (1 - dd / 1100) + 0.1);
+    G.fxAdd({ k: 'ring', x: b.x + b.out[0] * 14, y: b.y + b.out[1] * 14, r: last ? 110 : 50, col: '#a89c88', life: 0.8 });
+    War.ev({ k: last ? 'wallbreak' : 'wallhit', f: b.f, id: b.id, x: b.x, y: b.y, n: b.hits, max: b.max, out: b.out, along: b.along });
+    const F = D.FACTIONS[b.f]; const pct = Math.round(b.hits / b.max * 100);
+    if (last) breakWall(b, src);
+    else if (mineF(b.f) && (b.hits <= (power || 1) || b.hits % 3 === 0)) G.log(`Enemy siege guns are battering the walls of ${F.city}! (${pct}% breached)`, 'status', '#ff9a6a');
+    else if (src && mineF(src.faction) && (b.hits <= (power || 1) || b.hits % 3 === 0)) G.log(`Your siege guns hammer the wall of ${F.city}. (${pct}% breached)`, 'status', '#e8d48a');
+    return true;
+  };
+  // after the war the masons fill the gap (a rebuilt city has whole walls anyway)
+  War.repairWalls = function (f, quiet) {
+    const s = BR[f]; if (!s) return 0; let n = 0;
+    for (const b of s.list) {
+      if (b.broken && b.prev && b.tilesRef === W.tiles) { for (const [i, t, bl, wt] of b.prev) { if (W.tiles[i] !== T.MUD) continue; W.tiles[i] = t; W.block[i] = bl; if (W.wallTop) W.wallTop[i] = wt; } invalidate(b); n++; }
+      War.ev({ k: 'wallrepair', f, id: b.id });
+    }
+    s.list = []; wallCache[f] = null;
+    if (n && !quiet && mineF(f)) G.log(`Masons fill the breach in the walls of ${D.FACTIONS[f].city}.`, 'status', '#9affb8');
+    return n;
+  };
+  const repairT = {};
+  function repairTick(dt) {
+    for (const f of D.FACTION_IDS) {
+      const s = BR[f]; if (!s || !s.list.length) { repairT[f] = 0; continue; }
+      const st = War.alarm && War.alarm[f]; const attacked = War.squads.some((q) => q.ef === f && q.members.some((m) => live(m) && m.warState !== 'home'));
+      if (attacked || (st && st.state)) { repairT[f] = 0; continue; }
+      repairT[f] = (repairT[f] || 0) + dt; if (repairT[f] > 30) { repairT[f] = 0; War.repairWalls(f); }
+    }
+  }
+
+  // ---------- the siege guns: cannons and bombards (Valenmoor), ballistas and great ballistas (Aelindor) ----------
+  // They no longer stand inside the walls shooting at people: they wait in the siege yard and only ever fire at walls.
+  War.insideKinds = function () { return []; };
+  for (const id of ['cannon', 'bombard', 'ballista', 'greatballista']) if (D.RECRUITS[id]) {
+    const nm = D.RECRUITS[id].name;
+    D.RECRUITS[id].desc = { cannon: 'A bronze cannon on a wheeled carriage. It rolls out with your war party and blows a breach in the enemy walls (it is no use against men or gates).',
+      bombard: 'A monstrous siege gun: every ball takes a great bite out of the enemy walls. Marches with your war party; only for walls.',
+      ballista: 'A giant bolt thrower on wheels. It marches with your war party and splits the enemy walls open, bolt by bolt (not for men or gates).',
+      greatballista: 'The great elven war bow: its bolts crack stone like a hammer. Marches with your war party; only for walls.' }[id] || D.RECRUITS[id].desc;
+    D.RECRUITS[id].name = nm;
+  }
+  if (D.RECRUITS.ram) D.RECRUITS.ram.desc = 'Rolls at the head of your next war party and breaks the enemy gate in five blows (gates only: the siege guns breach the walls).';
+  if (D.RECRUITS.troll) D.RECRUITS.troll.desc = 'A giant three times the height of a man. Marches at the head of your war party and pounds the enemy gate to splinters (gates only), then fights on inside.';
+  const enginesOf = (f) => { const w = acct(); if (!w) return {}; w.engines = w.engines || {}; return (w.engines[f] = w.engines[f] || {}); };
+  // where the guns wait: the siege yard before the Town Hall, or open ground in town
+  function parkSpot(f, i) {
+    const cd = W.cityData[f]; if (!cd) return null; const y = cd.siegeYard; let sx, sy;
+    if (y) { const per = Math.max(1, Math.floor((y[2] - 2) / 4)); sx = y[0] + 2 + (i % per) * 4; sy = y[1] + 1 + Math.floor(i / per) * 3; }
+    else { sx = cd.cx - 8 + i * 4; sy = cd.cy + 8; }
+    const s = War.wideSpot ? War.wideSpot(sx, sy, 1, 8) : null;
+    return s ? [s[0], s[1]] : [sx, sy];
+  }
+  function makeFieldGun(f, id, kind, tx, ty) {
+    const F = D.FACTIONS[f]; const def = D.SIEGE[kind]; const lv = Sys.cityTierLevel(f);
+    const e = G.makeEnt({ type: 'guard', faction: f, city: null, name: `${F.city} ${def.name}`, title: 'Breaches enemy walls', x: tx * TS + 16, y: ty * TS + 16, homeX: tx * TS + 16, homeY: ty * TS + 16, level: lv, hostile: true, seed: Math.random() });
+    War.makeSiege(e, kind);
+    e.static = false; e.big = true; e.raider = true; e.fieldGun = id; e.noLoot = true; e.passive = true; e.dmg = 0;
+    e.r = def.bigR || 38; e.h = def.bigH || 120; e.speed = 128 * 0.66; e.leash = 1e9; e.aggroR = 0;
+    e.aimAng = Math.PI / 2; e.warState = 'parked'; e.park = [tx, ty];
+    return e;
+  }
+  function ensureGuns() {
+    if (!mainRealm()) return;
+    for (const f of D.FACTION_IDS) {
+      if (!W.cityData[f]) continue;
+      const E = enginesOf(f); const AE = ARMY(f).engines || {}; let k = 0;
+      const have = G.ents.filter((e) => e.fieldGun && e.faction === f && !e.removed && !e.dead);
+      for (const id in AE) {
+        const want = Math.min(D.ENGINE_MAX[id] || 2, E[id] || 0); const mine = have.filter((e) => e.fieldGun === id);
+        for (let h = mine.length; h < want; h++) { const s = parkSpot(f, k + h); if (s) makeFieldGun(f, id, AE[id], s[0], s[1]); }
+        // fewer than we have (sold or old save): the parked ones go first
+        for (let h = mine.length; h > want; h--) { const e = mine.find((x) => x.warState === 'parked') || null; if (!e) break; G.remove(e); mine.splice(mine.indexOf(e), 1); }
+        k += want;
+      }
+    }
+  }
+  // city rebuilds clear out the big engines of a kingdom: the guns are not that sort of engine
+  const sd9 = War.spawnDefenses;
+  War.spawnDefenses = function () { const fg = G.ents.filter((e) => e.fieldGun); fg.forEach((e) => (e.big = false)); try { return sd9.apply(this, arguments); } finally { fg.forEach((e) => (e.big = true)); } };
+  // the guns join the war party (when the enemy has walls to breach)
+  const lr9 = War.launchRaid;
+  War.launchRaid = function (f) {
+    const n0 = War.squads.length; const n = lr9.apply(this, arguments);
+    const sq = War.squads.length > n0 ? War.squads[War.squads.length - 1] : null;
+    if (n && sq && sq.f === f) {
+      const guns = G.ents.filter((e) => e.fieldGun && e.faction === f && live(e) && e.warState === 'parked');
+      if (guns.length && War.hasWalls(sq.ef)) {
+        sq.guns = [];
+        guns.forEach((e, i) => { e.squad = sq; e.warState = 'march'; e.gunI = i; e.pi = 0; e.fp = null; e.fireSpot = null; e.hate.clear(); sq.members.push(e); sq.guns.push(e); });
+        if (mineF(f)) G.log(`${guns.length > 1 ? guns.length + ' siege guns roll' : 'Your siege gun rolls'} out behind the column to breach the walls of ${D.FACTIONS[sq.ef].city}.`, 'status', '#9affb8');
+        else if (mineF(sq.ef)) G.log(`Scouts report siege guns with the ${D.FACTIONS[f].city} column. They will try to breach our walls.`, 'status', '#ffb24a');
+      }
+    }
+    return n;
+  };
+  // a war party with guns at work is not stuck at the gate: it is waiting for the breach
+  const ss9 = War.siegeStall;
+  War.siegeStall = function () {
+    const lent = [];
+    for (const sq of War.squads) { if (sq.ram && live(sq.ram)) continue; const g = (sq.guns || []).find(live); const b = sq.wall; if (g && !(b && b.broken)) { lent.push([sq, sq.ram]); sq.ram = g; } }
+    try { return ss9.apply(this, arguments); } finally { for (const [sq, r] of lent) sq.ram = r; }
+  };
+  // walk a big gun along a path (or a fresh one to the goal), true when there
+  function gunWalk(e, gx, gy, dt, pace) {
+    const d = Math.hypot(gx - e.x, gy - e.y); if (d < 8) { e.moving = false; return true; }
+    if (!e.fp || e.fpG !== gx + ',' + gy || G.now > (e.fpT || 0)) {
+      e.fpG = gx + ',' + gy; e.fpT = G.now + 5000; e.fpi = 0;
+      e.fp = d < 60 ? null : W.findPathLong(Math.floor(e.x / TS), Math.floor(e.y / TS), Math.floor(gx / TS), Math.floor(gy / TS), 60000, { door: 'pass', roads: true });
+    }
+    let tx = gx, ty = gy;
+    if (e.fp && e.fp.length) { while (e.fpi < e.fp.length - 1 && Math.hypot(e.fp[e.fpi][0] * TS + 16 - e.x, e.fp[e.fpi][1] * TS + 16 - e.y) < 18) e.fpi++; tx = e.fp[e.fpi][0] * TS + 16; ty = e.fp[e.fpi][1] * TS + 16; }
+    const ox = e.x, oy = e.y; G.chase(e, { x: tx, y: ty }, dt, Math.min(pace || 1, d / Math.max(dt * e.speed, 1e-3)));
+    if (e.moving !== false) e.aimAng = K_turn(e.aimAng, Math.atan2(e.y - oy, e.x - ox), Math.hypot(e.x - ox, e.y - oy) > 0.2 ? dt * 2.5 : 0);
+    return false;
+  }
+  const K_turn = (a, b, k) => (k ? wrapA(a + wrapA(b - a) * Math.min(1, k)) : a);
+  function leaveSquad(e) { const sq = e.squad; if (sq) { sq.members = sq.members.filter((m) => m !== e); if (sq.guns) sq.guns = sq.guns.filter((m) => m !== e); if (!sq.members.length) War.squads = War.squads.filter((s) => s !== sq); } e.squad = null; }
+  function fieldGunTick(e, dt) {
+    if (e.dead) { if (!e.goneAt) e.goneAt = G.now + 15000; if (G.now > e.goneAt) { leaveSquad(e); G.remove(e); } return; }
+    G.statusTick(e, dt); e.hate.clear(); e.inCombat = false; e.target = null; e.fireK = Math.max(0, (e.fireK || 0) - dt * 1.2); e.turning = 0;
+    const sq = e.squad; const def = D.SIEGE[e.siege] || {};
+    if (e.warState === 'parked' || !sq || !sq.path) {
+      e.warState = 'parked'; if (sq && !sq.path) leaveSquad(e);
+      if (e.park) { const gx = e.park[0] * TS + 16, gy = e.park[1] * TS + 16; if (Math.hypot(gx - e.x, gy - e.y) > 10) gunWalk(e, gx, gy, dt, 0.8); else e.moving = false; }
+      return;
+    }
+    if (e.warState === 'march') {
+      const troops = sq.order ? sq.order.filter((m) => live(m) && m.warState === 'march').length : 4;
+      const back = 3.5 + Math.ceil(troops / 2) * 1.35 + (e.gunI || 0) * 3.2;
+      const i = Math.max(0, Math.min(sq.path.length - 1, Math.round(sq.hi - back)));
+      const [tx, ty] = sq.path[i]; gunWalk(e, tx * TS + 16, ty * TS + 16, dt, 1.15); return;
+    }
+    if (e.warState === 'home') {
+      if (e.pi == null || e.pi > sq.path.length - 1) e.pi = nearestIdx(sq.path, e);
+      const [tx, ty] = sq.path[Math.max(0, e.pi)];
+      if (gunWalk(e, tx * TS + 16, ty * TS + 16, dt, 1) || Math.hypot(tx * TS + 16 - e.x, ty * TS + 16 - e.y) < 30) { e.pi -= 3; if (e.pi <= 0) { leaveSquad(e); e.warState = 'parked'; e.fp = null; } }
+      return;
+    }
+    // at the enemy's walls: roll up to a firing spot in front of the target stretch, turn onto it slowly, fire
+    const allHome = sq.members.every((m) => !live(m) || m === e || m.fieldGun || m.nonCombat || m.warState === 'home');
+    if (allHome && sq.arrived) { e.warState = 'home'; e.pi = null; return; }
+    const b = War.wallTarget(sq);
+    if (!b || b.broken) { // nothing (left) to shoot at: wait behind the fighting
+      const i = Math.max(0, sq.path.length - 14 - (e.gunI || 0) * 3); const [tx, ty] = sq.path[i]; gunWalk(e, tx * TS + 16, ty * TS + 16, dt, 1); return;
+    }
+    if (!e.fireSpot || e.fireSpot.id !== b.id) {
+      const n = (sq.guns || []).length || 1; const lat = ((e.gunI || 0) - (n - 1) / 2) * 3.2 * TS;
+      const dist = (e.siege === 'bombard' || e.siege === 'greatballista' ? 12 : 9) * TS;
+      let px = b.x + b.out[0] * dist + b.along[0] * lat, py = b.y + b.out[1] * dist + b.along[1] * lat;
+      const s = War.wideSpot ? War.wideSpot(Math.floor(px / TS), Math.floor(py / TS), 1, 7) : null; if (s) { px = s[0] * TS + 16; py = s[1] * TS + 16; }
+      e.fireSpot = { id: b.id, x: px, y: py };
+    }
+    if (!gunWalk(e, e.fireSpot.x, e.fireSpot.y, dt, 1)) { e.fireT = Math.max(e.fireT || 0, 1.2); return; }
+    const want = Math.atan2(b.y - e.y, b.x - e.x); const diff = wrapA(want - e.aimAng); const step = U.clamp(diff, -(def.turn || 0.3) * dt, (def.turn || 0.3) * dt);
+    e.aimAng = wrapA(e.aimAng + step); e.turning = Math.abs(diff) > 0.01 ? Math.sign(diff) : 0;
+    if (e.turning) { e.creakT = (e.creakT || 0) - dt; if (e.creakT <= 0) { e.creakT = 1.4; sfx('creak', near(e.x, e.y, 900) * 0.5); } }
+    e.fireT = (e.fireT || 0) - dt; if (e.fireT > 0 || Math.abs(diff) > 0.05) return;
+    e.fireT = (def.delay || 6) * (0.9 + Math.random() * 0.2); e.fireK = 1; e.fireAt = G.now;
+    const v = near(e.x, e.y, 1300); const gun = def.vis === 'ironball';
+    if (gun) { sfx('heavy', v); sfx('rumble', v * 0.9); const pp = G.player; if (pp && Math.hypot(e.x - pp.x, e.y - pp.y) < 500) G.shake = Math.max(G.shake || 0, 0.35); }
+    else { sfx('bow', v); sfx('whoosh', v * 0.7); sfx('creak', v * 0.5); }
+    War.ev({ k: 'fire', f: e.faction, x: e.x, y: e.y, ang: e.aimAng, kind: e.siege, id: e.id });
+    const d = Math.hypot(b.x - e.x, b.y - e.y);
+    const aim = { x: b.x + b.out[0] * 12 + (Math.random() - 0.5) * 20 * Math.abs(b.along[0]), y: b.y + b.out[1] * 12 + 24 + (Math.random() - 0.5) * 20 * Math.abs(b.along[1]), r: 16, hate: new Map(), buffs: [] };
+    const power = e.siege === 'bombard' || e.siege === 'greatballista' ? 2 : 1;
+    G.shoot(e, aim, def.vis || 'boulder', -1, { arc: gun ? U.clamp(d * 0.05 * 0.42 * (def.arcK || 1), 1.2, 26) : 0.25, onHit: () => {
+      War.ev({ k: 'impact', x: aim.x, y: aim.y - 24, r: def.aoe || 60, big: power > 1 });
+      if (sq.ef && War.squads.includes(sq)) War.hitWall(b, e, power);
+    } });
+    const pr = G.proj[G.proj.length - 1]; if (pr && pr.src === e) pr.speed = Math.max(300, d / (def.flight || 1.2));
+  }
+  const us9 = War.updateSiege;
+  War.updateSiege = function (t, dt) { if (t.fieldGun) return fieldGunTick(t, dt); return us9.apply(this, arguments); };
+  function nearestIdx(path, e) { let bi = path.length - 1, bd = 1e9; for (let i = 0; i < path.length; i++) { const d = Math.hypot(path[i][0] * TS + 16 - e.x, path[i][1] * TS + 16 - e.y); if (d < bd) { bd = d; bi = i; } } return bi; }
+
+  // ---------- bodyguards: a soldier walks with a worker and fights whoever comes for them ----------
+  const workerEnt = (id) => G.ents.find((x) => x.realmWorker && x.crewId === id && !x.removed);
+  function ensureBodyguards() {
+    const R = KR.Realm; if (!R || !R.crew || !mainRealm()) return;
+    for (const f of D.FACTION_IDS) for (const k of ['arborist', 'miner']) {
+      let crew = []; try { crew = R.crew(f, k) || []; } catch (er) { continue; }
+      for (const m of crew) {
+        if (!m.guard) continue;
+        if (G.ents.some((e) => e.bodyguard && e.bodyguard.id === m.id && !e.removed && !e.dead)) continue;
+        const w = workerEnt(m.id); if (!w || w.dead) continue;
+        const e = War.makeSoldier(f, ARMY(f).guardCls || 'manatarms', w.x + 24, w.y + 12, Sys.cityTierLevel(f), null);
+        e.bodyguard = { f, kind: k, id: m.id }; e.warState = 'bodyguard'; e.squad = null; e.title = `${m.name}'s Bodyguard`; e.sit = false; e.aggroR = 0;
+      }
+    }
+  }
+  function bgWalk(r, gx, gy, dt, mul) {
+    const d = Math.hypot(gx - r.x, gy - r.y);
+    if (d > 110 && (!r.bp || G.now > (r.bpT || 0))) { r.bpT = G.now + 2500; r.bpi = 0; r.bp = W.findPathLong(Math.floor(r.x / TS), Math.floor(r.y / TS), Math.floor(gx / TS), Math.floor(gy / TS), 30000, { door: 'pass' }); }
+    if (d <= 110) r.bp = null;
+    let tx = gx, ty = gy;
+    if (r.bp && r.bp.length) { while (r.bpi < r.bp.length - 1 && Math.hypot(r.bp[r.bpi][0] * TS + 16 - r.x, r.bp[r.bpi][1] * TS + 16 - r.y) < 16) r.bpi++; tx = r.bp[r.bpi][0] * TS + 16; ty = r.bp[r.bpi][1] * TS + 16; }
+    G.chase(r, { x: tx, y: ty }, dt, mul);
+  }
+  function bodyguardTick(r, dt) {
+    const B = r.bodyguard; const w = workerEnt(B.id); const R = KR.Realm;
+    let m = null; try { m = R && R.crew(B.f, B.kind).find((x) => x.id === B.id); } catch (er) {}
+    if (!w || w.dead || !m || !m.guard) { G.remove(r); return; } // their worker is gone: back to the barracks
+    G.statusTick(r, dt); if (r.stun > 0 || r.root > 0 || r.mez > 0) { r.moving = false; return; }
+    r.leash = 1e9; r.returning = false; r.homeX = r.x; r.homeY = r.y;
+    r.scanT = (r.scanT || Math.random() * 0.5) - dt;
+    if (r.scanT <= 0) {
+      r.scanT = 0.5; let best = live(w.foe) && w.foe !== r ? w.foe : null; let bd = 320;
+      if (!best) for (const o of G.ents.concat(G.player ? [G.player] : [])) {
+        if (!live(o) || o === r || o.fieldGun || o.ram || o.nonCombat || o.bldg) continue;
+        if (o.type === 'mob' ? !(o.hate && (o.hate.has(w) || o.hate.has(r))) : !War.isFoe(B.f, o)) continue;
+        const d = Math.hypot(o.x - w.x, o.y - w.y); if (d < bd) { bd = d; best = o; }
+      }
+      if (best) { G.addHate(r, best, 10); r.inCombat = true; }
+    }
+    const t = r.inCombat ? G.topHate(r) : null;
+    if (live(t) && Math.hypot(t.x - w.x, t.y - w.y) < 560) {
+      const d = Math.hypot(t.x - r.x, t.y - r.y); const reach = r.ranged ? 300 : G.meleeRange(r, t) + 2;
+      if (d > reach + 20) { bgWalk(r, t.x, t.y, dt, 1.1); return; }
+      G.updateMob(r, dt); r.returning = false; r.leash = 1e9; return;
+    }
+    if (t) { r.hate.clear(); r.inCombat = false; r.target = null; }
+    // at the worker's shoulder
+    const gx = w.x - 22, gy = w.y + 16; const d = Math.hypot(gx - r.x, gy - r.y);
+    if (d > 640) { r.x = gx; r.y = gy; r.bp = null; return; } // they were far apart (out of sight): catch up
+    if (d > 16) bgWalk(r, gx, gy, dt, U.clamp(d / 70, 0.6, 1.3)); else { r.moving = false; G.faceTo(r, live(w.foe) ? w.foe : { x: w.x + 1, y: w.y }); }
+  }
+
+  // ---------- war parties of the two kingdoms that meet on the road fight it out ----------
+  function engage(us, them) {
+    const foes = them.filter((m) => live(m) && !m.nonCombat);
+    for (const m of us) {
+      if (!live(m) || m.nonCombat || m.ram || m.fieldGun || (m.inCombat && live(G.topHate(m)))) continue;
+      let best = null, bd = 1e9; for (const o of foes) { const d = Math.hypot(o.x - m.x, o.y - m.y); if (d < bd) { bd = d; best = o; } }
+      if (best && bd < 22 * TS) { G.addHate(m, best, 8); m.inCombat = true; }
+    }
+  }
+  function clashTick() {
+    if (!mainRealm()) return;
+    const sqs = War.squads.filter((s) => s.path && !s.arrived && s.members.some((m) => live(m) && m.warState === 'march'));
+    for (let i = 0; i < sqs.length; i++) for (let j = i + 1; j < sqs.length; j++) {
+      const a = sqs[i], b = sqs[j]; if (a.f === b.f) continue;
+      const A1 = a.members.filter(live), B1 = b.members.filter(live); if (!A1.length || !B1.length) continue;
+      let md = 1e9; for (const x of A1) for (const y of B1) { const d = Math.hypot(x.x - y.x, x.y - y.y); if (d < md) md = d; }
+      if (md > 12 * TS) continue;
+      if (!a.clash || a.clash !== b.id) {
+        a.clash = b.id; b.clash = a.id;
+        const p = G.player; const mine = mineF(a.f) ? a : mineF(b.f) ? b : null;
+        if (mine) { G.log(`Your war party has run into the ${D.FACTIONS[mine === a ? b.f : a.f].city} column on the road! They clash!`, 'status', '#ffb24a'); KR.UI && KR.UI.toast && KR.UI.toast('The armies meet!', 'Your raiders and the enemy\'s have run into each other on the road.'); }
+        const lead = A1.find((m) => !m.nonCombat && !m.ram && !m.fieldGun); if (lead) G.say(lead, U.pick(['Enemy column! Form up!', 'There they are! At them!', 'For the king! Charge!']), 2.5);
+        const v = p ? near(A1[0].x, A1[0].y, 1600) : 0; if (v > 0.05) { sfx('warcry', v); setTimeout(() => sfx('charge', v * 0.7), 300); }
+      }
+      engage(A1, B1); engage(B1, A1);
+    }
+  }
+
+  // ---------- the retreat ----------
+  War.retreat = function (f, quiet) {
+    f = f || pf(); let n = 0;
+    for (const sq of War.squads) {
+      if (sq.f !== f || !sq.path) continue;
+      for (const m of sq.members) {
+        if (!live(m)) continue;
+        if (m.hunt) { m.hunt.until = 0; n++; continue; }
+        m.warState = 'home'; m.retreating = true; m.hate.clear(); m.inCombat = false; m.focus = null; m.want = null; m.target = null;
+        m.pi = nearestIdx(sq.path, m); if (m.fieldGun) m.fp = null; n++;
+      }
+      sq.arrived = true; sq.giveUp = true; sq.retreat = true;
+    }
+    for (const e of G.ents) if (e.raider && e.faction === f && e.hunt && live(e) && e.hunt.until) { e.hunt.until = 0; n++; }
+    if (!quiet && mineF(f)) {
+      G.log(n ? 'You sound the retreat! Your soldiers turn for home, fighting only whoever blocks their way.' : 'Nobody is out on a raid to call back.', 'status', n ? '#e8d48a' : '#ffb24a');
+      if (n) sfx('horn', 0.6);
+    }
+    if (n) War.emit && War.emit('army', { f });
+    return n;
+  };
+  War.recall = function (f) { return War.retreat(f); };
+
+  // ---------- who runs what: bodyguards, retreating soldiers ----------
+  const ur9 = War.updateRaider;
+  War.updateRaider = function (r, dt) {
+    if (r.bodyguard && !r.dead) return bodyguardTick(r, dt);
+    if (r.retreating && !r.dead && r.warState === 'home') {
+      // on the way home they only fight whoever stands in their way (or is hitting them up close)
+      r.scanT = Math.max(r.scanT || 0, 0.6);
+      const t = r.inCombat ? G.topHate(r) : null;
+      if (t && (r.ranged || Math.hypot(t.x - r.x, t.y - r.y) > 70)) { r.hate.delete(t); if (!r.hate.size) { r.inCombat = false; r.target = null; } }
+    }
+    return ur9.apply(this, arguments);
+  };
+  const ork9 = War.onRaiderKilled;
+  War.onRaiderKilled = function (r) {
+    if (r.fieldGun) {
+      const E = enginesOf(r.faction); if (E[r.fieldGun] > 0) E[r.fieldGun]--;
+      const sq = r.squad; const F = D.FACTIONS[r.faction];
+      if (mineF(r.faction)) G.log(`Your ${D.SIEGE[r.siege] ? D.SIEGE[r.siege].name : 'siege gun'} has been destroyed!`, 'status', '#ff6a5a');
+      else if (sq && mineF(sq.ef)) G.log(`We destroyed a ${F.city} ${D.SIEGE[r.siege] ? D.SIEGE[r.siege].name : 'siege gun'}!`, 'status', '#9affb8');
+      War.ev({ k: 'ramdie', x: r.x, y: r.y }); Sys.saveAccount && Sys.saveAccount(true); War.emit && War.emit('army', { f: r.faction });
+      return;
+    }
+    if (r.bodyguard) {
+      const B = r.bodyguard; const R = KR.Realm; let m = null; try { m = R && R.crew(B.f, B.kind).find((x) => x.id === B.id); } catch (er) {}
+      if (m) { m.guard = false; Sys.saveAccount && Sys.saveAccount(true); }
+      if (mineF(B.f)) G.log(`${m ? m.name + "'s" : 'A'} bodyguard has fallen. Hire another in the kingdom's Workers tab.`, 'status', '#ff9a6a');
+      r.bodyguard = null;
+    }
+    return ork9.apply(this, arguments);
+  };
+
+  // ---------- the enemy kingdom keeps a crew too (and pays for bodyguards once it has a barracks) ----------
+  const cpu9 = War.cpuStep;
+  War.cpuStep = function (dt) {
+    const r = cpu9.apply(this, arguments);
+    try {
+      const cs = War.cpu && War.cpu(); const R = KR.Realm; if (!cs || !R || !R.crew || !R.state(cs.f)) return r;
+      cs.crewT = (cs.crewT || 0) - dt; if (cs.crewT > 0) return r; cs.crewT = 20;
+      for (const k of ['arborist', 'miner']) {
+        const n = R.crew(cs.f, k).length; const cost = R.crewCost(cs.f, k);
+        if (n < R.MAX_CREW && cost != null && (cost === 0 || cs.gold >= cost * 2)) R.hireWorker(cs.f, k, { cpu: cs, quiet: true });
+        if (War.hasB(cs.f, 'barracks') && cs.gold >= R.GUARD_GOLD * 4) { const m = R.crew(cs.f, k).find((x) => !x.guard); if (m) R.hireBodyguard(cs.f, k, m.id, { cpu: cs, quiet: true }); }
+      }
+    } catch (e) { console.warn('cpu crew', e); }
+    return r;
+  };
+
+  // ---------- buildings take damage, burn, and fall ----------
+  // Every kingdom building has a body in the world (e.bldg) that the other kingdom's soldiers and heroes can attack. Its
+  // health follows its size (footprint and level). The more it is hurt the more it burns (ruin3d.js); at nothing it falls
+  // to rubble and is lost from the kingdom (it can be built again). Walls and gates are not among them: only siege
+  // engines break those. The Town Hall burns but never falls, and nobody can target it: the king inside still has to die.
+  D.HALL_FLOOR = 0.15;
+  const bodies = {}; // f -> Map(key -> entity)
+  const RL = () => KR.Realm;
+  const hallOf = (f) => W.buildings.find((b) => b.city === f && b.type === 'hall' && b.terr) || W.buildings.find((b) => b.city === f && b.type === 'hall');
+  function footprint(f, id, lvl) {
+    const R = RL(); const pl = R && R.plotOf ? R.plotOf(f, id) : null; if (!pl) return null;
+    try { if (W.plotFootprint) { const fp = W.plotFootprint(pl, lvl); if (fp && fp.w) return fp; } } catch (e) {}
+    return pl;
+  }
+  function wantedBodies(f) {
+    const R = RL(); const out = []; if (!R || !R.state || !R.state(f)) return out;
+    for (const id in R.DEFS) {
+      if (id === 'townhall' || id === 'walls' || id === 'towers') continue;
+      const lvl = R.level ? R.level(f, id) : (R.state(f).buildings[id] || 0); if (!lvl) continue;
+      if (R.building && R.building(f, id) && lvl <= 1) continue; // still going up
+      const fp = footprint(f, id, lvl); if (!fp) continue;
+      out.push({ key: `${f}:${id}`, id, lvl, b: fp, name: R.DEFS[id].name });
+    }
+    const h = hallOf(f); if (h) out.push({ key: `${f}:hall`, id: 'hall', lvl: 1, b: { x: h.x, y: h.y, w: h.w, h: h.h }, name: 'Town Hall' });
+    return out;
+  }
+  function makeBody(f, w) {
+    const F = D.FACTIONS[f]; const { b, id, lvl } = w; const cx = (b.x + b.w / 2) * TS, cy = (b.y + b.h / 2) * TS; const lv = Sys.cityTierLevel(f);
+    const e = G.makeEnt({ type: 'guard', faction: f, city: f, name: `${F.city} ${w.name}`, title: id === 'hall' ? 'The seat of the king' : 'Kingdom building', x: cx, y: cy, homeX: cx, homeY: cy, level: lv, hostile: true, seed: 0 });
+    e.bldg = id; e.hall = id === 'hall'; e.bkey = w.key; e.blvl = lvl; e.static = true; e.passive = true; e.speed = 0; e.aggroR = 0; e.leash = 0; e.noLoot = true; e.big = true; e.look = null; e.dmg = 0; e.mute = true;
+    e.bw = b.w * TS; e.bd = b.h * TS; e.r = Math.max(14, Math.min(b.w, b.h) * TS / 2); e.h = e.hall ? 320 : 100 + lvl * 30;
+    e.hpMax = e.hp = Math.round(G.mobHp(lv) * b.w * b.h * 0.55 * (1 + 0.5 * (lvl - 1)) * (e.hall ? 2.5 : 1));
+    e.ac = 900; e.res = { fire: -20, cold: 80, magic: 50, poison: 100, disease: 100 };
+    return e;
+  }
+  function ensureBodies() {
+    if (!mainRealm() || !RL()) return;
+    for (const f of D.FACTION_IDS) {
+      if (!W.cityData[f]) continue;
+      const map = bodies[f] || (bodies[f] = new Map());
+      for (const [k, e] of map) if (e.removed || !G.ents.includes(e)) map.delete(k);
+      const want = wantedBodies(f); const keys = new Set(want.map((w) => w.key));
+      for (const w of want) {
+        const e = map.get(w.key);
+        if (e && (e.razed || e.blvl !== w.lvl)) { const keepHp = !e.razed && e.hpMax ? e.hp / e.hpMax : 1; G.remove(e); map.delete(w.key); const n = makeBody(f, w); n.hp = Math.round(n.hpMax * keepHp); map.set(w.key, n); continue; }
+        if (!e) map.set(w.key, makeBody(f, w));
+      }
+      // a building no longer standing (razed, or the city rebuilt): its rubble stays until it is built again
+      for (const [k, e] of map) if (!keys.has(k) && !e.razed) { G.remove(e); map.delete(k); }
+    }
+  }
+  function raze(e) {
+    e.razed = true; e.razedAt = G.now; e.respawnAt = null; e.hate && e.hate.clear();
+    const f = e.faction, F = D.FACTIONS[f]; const R = RL();
+    if (!e.hall && R && R.state) {
+      const st = R.state(f); if (st && st.buildings[e.bldg] != null) { st.buildings[e.bldg] = 0; st.construction = st.construction.filter((c) => c.id !== e.bldg); }
+      try { R.emit && R.emit('destroyed', f, e.bldg); R.emit && R.emit('built', f, e.bldg, 0); } catch (er) { console.warn(er); }
+      Sys.saveAccount && Sys.saveAccount(true);
+    }
+    const v = near(e.x, e.y, 2600); sfx('treefall', v); setTimeout(() => sfx('rockbreak', v), 220); setTimeout(() => sfx('heavy', v), 520);
+    War.ev({ k: 'impact', x: e.x, y: e.y, r: 120, big: true });
+    if (mineF(f)) { G.log(`The ${e.name.replace(F.city + ' ', '')} of ${F.city} has been destroyed! Rebuild it from the kingdom's Build tab.`, 'status', '#ff6a5a'); KR.UI && KR.UI.toast && KR.UI.toast('A building has fallen', `${e.name} lies in ruins.`); }
+    else if (pf()) G.log(`The ${e.name} burns to the ground!`, 'status', '#9affb8');
+    War.emit && War.emit('army', { f });
+  }
+  function bodyTick(e, dt) {
+    if (e.razed) { e.dead = true; e.moving = false; return; }
+    if (e.dead) { raze(e); return; }
+    e.hate.clear(); e.inCombat = false; e.target = null; e.moving = false;
+    if (e.hall && e.hp < e.hpMax * D.HALL_FLOOR) e.hp = Math.round(e.hpMax * D.HALL_FLOOR);
+    // the fires go out and the carpenters patch it up once the fighting is over
+    const quiet = G.now - (e.hitAt || 0) > 60000 && !War.squads.some((q) => q.ef === e.faction && q.members.some((m) => live(m) && m.warState !== 'home'));
+    if (quiet && e.hp < e.hpMax) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * 0.01 * dt);
+  }
+  const ugB = Sys.updateGuard;
+  Sys.updateGuard = function (g, dt) { if (g && g.bldg) return bodyTick(g, dt); return ugB.apply(this, arguments); };
+  // nobody shouts or screams when a building is hit
+  const mv0 = G.mobVoice; if (mv0) G.mobVoice = function (m) { if (m && m.bldg) return; return mv0.apply(this, arguments); };
+  // the Town Hall can't be targeted by heroes, and it never falls
+  const hostB = G.isHostile;
+  G.isHostile = function (a, b) {
+    if (b && b.bldg && (b.razed || (b.hall && a && (a.type === 'player' || a.type === 'pet' || a.type === 'merc')))) return false;
+    if (a && a.bldg) return false;
+    return hostB.apply(this, arguments);
+  };
+  const dmgB = G.damage;
+  G.damage = function (src, tgt, amt) {
+    if (tgt && tgt.bldg) {
+      if (tgt.razed || (tgt.hall && src && (src.type === 'player' || src.type === 'pet' || src.type === 'merc'))) return 0;
+      if (tgt.hall) { const floor = tgt.hpMax * D.HALL_FLOOR; if (tgt.hp <= floor + 1) return 0; arguments[2] = Math.min(amt, tgt.hp - floor); }
+    }
+    const r = dmgB.apply(this, arguments);
+    if (tgt && tgt.bldg && r > 0) {
+      if (tgt.hall && (tgt.dead || tgt.hp < tgt.hpMax * D.HALL_FLOOR)) { tgt.dead = false; tgt.hp = Math.round(tgt.hpMax * D.HALL_FLOOR); const i = G.corpses.indexOf(tgt); if (i >= 0) G.corpses.splice(i, 1); }
+      tgt.hitAt = G.now;
+      if (mineF(tgt.faction) && G.now - (tgt.warnAt || 0) > 25000) { tgt.warnAt = G.now; G.log(`The ${tgt.name} is under attack! (${Math.round(tgt.hp / tgt.hpMax * 100)}%)`, 'status', '#ff9a6a'); }
+    }
+    return r;
+  };
+  // soldiers fight the people first, then pull down the buildings; the Town Hall last of all, and once it is
+  // burning it is the king they want
+  const pt0 = War.pickTarget;
+  War.pickTarget = function (r) {
+    const t = pt0.apply(this, arguments); if (!t || !t.bldg) return t;
+    const ef = r.squad && r.squad.ef; const cd = W.cityData[ef]; if (!cd) return t;
+    const inCity = (o) => Math.max(Math.abs(o.x / TS - cd.cx), Math.abs(o.y / TS - cd.cy)) <= cd.R + 2;
+    let alt = null, bd = 1e9;
+    for (const o of G.ents) { if (!live(o) || o.faction !== ef || o.bldg || o.raider || o.siege || o.type !== 'guard' || !inCity(o)) continue; const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; alt = o; } }
+    if (alt) return alt;
+    if (!t.hall) return t;
+    let b2 = null; bd = 1e9;
+    for (const o of G.ents) { if (!live(o) || !o.bldg || o.hall || o.razed || o.faction !== ef) continue; const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; b2 = o; } }
+    if (b2) return b2;
+    const king = G.ents.find((o) => o.type === 'king' && o.faction === ef && live(o));
+    return t.hp <= t.hpMax * D.HALL_FLOOR + 1 && king ? king : t;
+  };
+  War.buildingBodies = (f) => [...(bodies[f] || new Map()).values()].filter((e) => !e.removed);
+
+  // ---------- orders: army, fleet, or everything ----------
+  const fleetCall = (f, what) => {
+    const N = KR.Naval || {};
+    const fn = what === 'attack' ? (War.sendFleet || War.fleetAttack || War.orderFleet || N.attack || N.sendFleet) : (War.recallFleet || War.fleetRetreat || N.recall || N.retreat || N.recallFleet);
+    if (typeof fn === 'function') { try { const own = Object.values(N).includes(fn) ? N : War; const r = fn.call(own, f, what); return typeof r === 'number' ? r : r ? 1 : 0; } catch (e) { console.warn('fleet order', e); return 0; } }
+    // no fleet code: tell any warships we have where to go
+    const ships = G.ents.filter((e) => e.ship && e.faction === f && live(e)); for (const s of ships) s.shipOrder = what;
+    if (mineF(f)) G.log(ships.length ? `Your warships ${what === 'attack' ? 'set sail for the enemy' : 'turn back for harbour'}.` : 'You have no warships. Build a Shipyard first.', 'status', ships.length ? '#9affb8' : '#ffb24a');
+    return ships.length;
+  };
+  War.command = function (f, what) {
+    f = f || pf(); let n = 0;
+    switch (what) {
+      case 'army': n = War.orderAttack(f) || 0; break;
+      case 'fleet': n = fleetCall(f, 'attack'); break;
+      case 'all': n = (War.orderAttack(f, { quiet: false }) || 0) + fleetCall(f, 'attack'); if (mineF(f)) G.log('All-out attack! Every soldier and every ship marches on the enemy.', 'status', '#ffd84a'); break;
+      case 'retreat-army': n = War.retreat(f); break;
+      case 'retreat-fleet': n = fleetCall(f, 'retreat'); break;
+      case 'retreat-all': n = War.retreat(f, true) + fleetCall(f, 'retreat'); if (mineF(f)) G.log(n ? 'You sound the retreat for everyone: soldiers and ships make for home.' : 'Nobody is out to call back.', 'status', n ? '#e8d48a' : '#ffb24a'); break;
+    }
+    War.emit && War.emit('army', { f }); KR.UI && KR.UI.refresh && KR.UI.refresh();
+    return n;
+  };
+  const cmdB = Sys.command;
+  if (cmdB) Sys.command = function (ln) {
+    const t = String(ln || '').trim().toLowerCase().split(/\s+/); const f = pf();
+    if (t[0] === '/retreat' || t[0] === '/fallback') { War.command(f, t[1] === 'fleet' || t[1] === 'ships' ? 'retreat-fleet' : t[1] === 'all' || t[1] === 'everything' ? 'retreat-all' : 'retreat-army'); return; }
+    if (t[0] === '/march' || t[0] === '/raid') { War.command(f, 'army'); return; }
+    if (t[0] === '/fleet') { War.command(f, t[1] === 'retreat' || t[1] === 'home' ? 'retreat-fleet' : 'fleet'); return; }
+    if (t[0] === '/allout' || t[0] === '/charge') { War.command(f, 'all'); return; }
+    return cmdB.apply(this, arguments);
+  };
+
+  // ---------- the clock ----------
+  let acc9 = 0, slow9 = 0;
+  const tick9 = War.tick;
+  War.tick = function (dt) {
+    tick9.apply(this, arguments);
+    acc9 += dt; if (acc9 < 0.5) return; const step = acc9; acc9 = 0;
+    try { clashTick(); } catch (e) { console.warn('clash', e); }
+    slow9 += step; if (slow9 < 2) return; const s2 = slow9; slow9 = 0;
+    try { ensureGuns(); ensureBodyguards(); ensureBodies(); repairTick(s2); } catch (e) { console.warn('war & workers', e); }
+  };
+
+  // ---------- the maps: your guards, raiders, workers and ships; enemies only once seen ----------
+  const ICON = { raider: '#ffd84a', guard: '#6aa8ff', body: '#8ad0ff', worker: '#9ad870', ship: '#7ac8ff', gun: '#ffb070', foe: '#ff4a3a' };
+  function unitsFor(f) {
+    const out = [];
+    for (const e of G.ents) {
+      if (!live(e) || e.faction !== f || e.bldg) continue;
+      if (e.ship) out.push([e, 'ship']);
+      else if (e.fieldGun || e.ram) out.push([e, 'gun']);
+      else if (e.bodyguard) out.push([e, 'body']);
+      else if (e.raider && (e.guardPost || e.warState === 'garrison')) out.push([e, 'guard']);
+      else if (e.raider) out.push([e, 'raider']);
+      else if (e.realmWorker) out.push([e, 'worker']);
+      else if (e.type === 'guard' && !e.siege) out.push([e, 'guard']);
+    }
+    return out;
+  }
+  function plot(g, list, toMap, s, w, h) {
+    g.save();
+    for (const [e, k] of list) {
+      const [x, y] = toMap(e.x / TS, e.y / TS); if (x < -4 || y < -4 || x > w + 4 || y > h + 4) continue;
+      g.fillStyle = ICON[k]; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.lineWidth = 1;
+      if (k === 'ship') { g.font = `${Math.max(11, Math.min(18, s * 3))}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⛵', x, y); continue; }
+      const r = k === 'raider' || k === 'gun' || k === 'foe' ? Math.max(2.2, Math.min(4, s * 0.9)) : Math.max(1.6, Math.min(3.2, s * 0.7));
+      g.beginPath();
+      if (k === 'raider' || k === 'foe') { g.moveTo(x, y - r - 1); g.lineTo(x + r + 1, y + r); g.lineTo(x - r - 1, y + r); g.closePath(); } // a little triangle
+      else if (k === 'gun') g.rect(x - r, y - r, r * 2, r * 2);
+      else g.arc(x, y, r, 0, 6.283);
+      g.fill(); g.stroke();
+    }
+    g.restore();
+  }
+  function foesFor(f) { try { return (War.spotted(f) || []).map((s) => [s.e || s, 'foe']).filter(([e]) => live(e)); } catch (e) { return []; } }
+  const UI = KR.UI;
+  if (UI && UI.drawWorldMap) {
+    const wm0 = UI.drawWorldMap;
+    UI.drawWorldMap = function (cv) {
+      const r = wm0.apply(this, arguments);
+      try {
+        const f = pf(); if (!f || !mainRealm()) return r; const v = UI._mapView || { z: 1, cx: W.W / 2, cy: W.H / 2 };
+        const span = W.W / v.z; const s = cv.width / span; const x0 = v.cx - span / 2, y0 = v.cy - span / 2;
+        const g = cv.getContext('2d'); const toMap = (x, y) => [(x - x0) * s, (y - y0) * s];
+        plot(g, unitsFor(f), toMap, s, cv.width, cv.height); plot(g, foesFor(f), toMap, s, cv.width, cv.height);
+      } catch (e) { console.warn('map units', e); }
+      return r;
+    };
+  }
+  const Rd = KR.R;
+  if (Rd && Rd.drawMinimap) {
+    const mm9 = Rd.drawMinimap;
+    Rd.drawMinimap = function (cv, scale = 3) {
+      const r = mm9.apply(this, arguments);
+      try {
+        const p = G.player; const f = pf(); if (!p || !f || !mainRealm()) return r;
+        const g = cv.getContext('2d'); const w = cv.width, h = cv.height; const ptx = p.x / TS, pty = p.y / TS;
+        const toMap = (x, y) => [(x - ptx) * scale + w / 2, (y - pty) * scale + h / 2];
+        plot(g, unitsFor(f).filter(([, k]) => k !== 'worker' || scale < 4), toMap, scale, w, h); plot(g, foesFor(f), toMap, scale, w, h);
+      } catch (e) { console.warn('minimap units', e); }
+      return r;
+    };
+  }
+})();
+
+// =====================================================================================================================
+// The navy: the shipyard on the quay, its harbour guns and the warships of the Encircling Sea (world.js). A warship is
+// bought with gold once the shipyard stands (one berth per shipyard level). Sent out, it sails round the sea to the
+// enemy harbour and lays siege: long range broadsides (Valenmoor's galleons fire cannon, Aelindor's longships great
+// bolts) at ships, harbour guns, towers and the buildings near the shore. Harbour guns (shipyard level 2 and 3) shoot
+// back with a high, booming arc. API: War.sendFleet(f), War.recallFleet(f), War.fleet(f), War.naval (internals).
+// 3D: kingdom-rising-3d/js3d/naval3d.js draws the shipyard, the guns and the ships (K3.navalModel) from War.naval.
+// =====================================================================================================================
+(function () {
+  const KR = window.KR, D = KR.D, G = KR.G, W = KR.W, Sys = KR.Sys, U = KR.U, War = KR.War; const TS = D.TS;
+  const pf = () => (G.player && G.player.c ? G.player.c.faction : null);
+  const mainRealm = () => !W.realm || W.realm === 'main';
+  const near = (x, y, r) => { const p = G.player; if (!p || !mainRealm()) return 0; const d = Math.hypot(x - p.x, y - p.y); return d > r ? 0 : 1 - d / r; };
+  const sfx = (n, v) => { if (v > 0.02) { try { KR.A.sfx(n, Math.min(1, v)); } catch (e) {} } };
+  const N = (War.naval = { events: [], seq: 0 });
+  N.ev = (o) => { N.events.push(o); if (N.events.length > 80) N.events.splice(0, N.events.length - 80); };
+  const enemyOf = (f) => (War.enemyOf ? War.enemyOf(f) : D.FACTION_IDS.find((x) => x !== f));
+  const isWater = (tx, ty) => { const t = W.tile(tx, ty); return t === KR.T.WATER || t === KR.T.DEEP; };
+
+  // ---------------- the ships and guns ----------------
+  D.WARSHIP = {
+    crown: { name: 'Galleon', kind: 'galleon', icon: '⛵', vis: 'ironball', shots: 3, gap: 0.28, delay: 6.5, mul: 3.0, aoe: 70, hpMul: 42, range: 3000, speed: 150, arcK: 3.0, flight: 2.5,
+      desc: 'A great galleon with a broadside of cannon. Sails round the sea to the enemy harbour and bombards ships, guns and buildings from far off.' },
+    sylvan: { name: 'Elven Longship', kind: 'longship', icon: '⛵', vis: 'bigbolt', shots: 2, gap: 0.35, delay: 5.2, mul: 3.4, aoe: 50, hpMul: 34, range: 3000, speed: 165, arcK: 1.4, flight: 2.2, pierce: true,
+      desc: 'A swift elven longship carrying great bolt throwers. Sails round the sea to the enemy harbour and shoots ships, guns and buildings from far off.' },
+  };
+  D.WARSHIP_COST = 30000; // 3 gold
+  D.HARBOUR_GUN = {
+    crown: { name: 'Harbour Cannon', vis: 'ironball', delay: 5.5, mul: 8, aoe: 80, hpMul: 26, range: 1500, turn: 0.45, arcK: 3.4, flight: 2.4 },
+    sylvan: { name: 'Harbour Ballista', vis: 'bigbolt', delay: 4.4, mul: 8.5, aoe: 55, hpMul: 24, range: 1500, turn: 0.55, arcK: 1.6, flight: 2.0, pierce: true },
+  };
+  for (const f in D.HARBOUR_GUN) D.SIEGE['harbour_' + f] = Object.assign({ minRange: 100 }, D.HARBOUR_GUN[f]);
+  D.SIEGE.warship = { name: 'Warship', range: 3000, delay: 6, mul: 3, hpMul: 40 };
+
+  // ---------------- the shipyard: a building of the realm (KR.Realm loads after this file) ----------------
+  D.SHIPYARD = { cost: [{ wood: 400, stone: 300 }, { wood: 750, stone: 650 }, { wood: 1200, stone: 1100 }], time: [180, 240, 300] };
+  if (D.CPU_PLAN && !D.CPU_PLAN.includes('shipyard')) { const i = D.CPU_PLAN.indexOf('workshop'); D.CPU_PLAN.splice(i >= 0 ? i + 1 : D.CPU_PLAN.length, 0, 'shipyard', 'shipyard'); }
+  N.hooked = false;
+  N.hookRealm = function () {
+    const R = KR.Realm; if (!R || !R.DEFS) return false; if (N.hooked) return true; N.hooked = true;
+    R.DEFS.shipyard = { name: 'Shipyard', max: 3, cost: D.SHIPYARD.cost, time: D.SHIPYARD.time, needs: (lv) => (lv ? [] : [['barracks', 1]]),
+      levels: ['Shipyard', 'Shipyard', 'Shipyard with a harbour gun', 'Great Shipyard with two harbour guns'],
+      get desc() { const f = pf() || 'crown'; return `Builds ${D.WARSHIP[f].name}s on the quay (one berth per level). Levels 2 and 3 add ${D.HARBOUR_GUN[f].name.toLowerCase()} towers to guard the harbour.`; } };
+    if (!R.ORDER.includes('shipyard')) R.ORDER.push('shipyard');
+    const st0 = R.state; R.state = function (f) { const st = st0.apply(this, arguments); if (st && st.buildings && st.buildings.shipyard == null) st.buildings.shipyard = 0; if (st && st.army && !st.army.navy) st.army.navy = { n: 0 }; return st; };
+    const sz0 = R.sanitize; if (sz0) R.sanitize = function (s) { const d = sz0.apply(this, arguments); const v = +(s && s.buildings && s.buildings.shipyard); d.buildings.shipyard = Number.isFinite(v) ? U.clamp(Math.round(v), 0, 3) : 0; return d; };
+    const po0 = R.plotOf; R.plotOf = function (f, id) { if (id === 'shipyard') { const cd = W.cityData && W.cityData[f]; return (cd && cd.shipyardPlot) || null; } return po0.apply(this, arguments); };
+    R.on('built', (f, id) => { if (id !== 'shipyard') return; try { W.shipyardBlock && W.shipyardBlock(f); N.refreshGuns(f); N.ev({ k: 'yard', f }); } catch (e) { console.warn('naval', e); } });
+    return true;
+  };
+  setTimeout(() => N.hookRealm(), 0);
+  N.yardLevel = (f) => { try { return (KR.Realm && KR.Realm.level(f, 'shipyard')) || 0; } catch (e) { return 0; } };
+  const navyState = (f) => { try { const st = KR.Realm && KR.Realm.state(f); if (!st) return null; st.army = st.army || {}; st.army.navy = st.army.navy || { n: 0 }; return st.army.navy; } catch (e) { return null; } };
+  const save = () => { try { Sys.saveAccount && Sys.saveAccount(); } catch (e) {} };
+
+  // ---------------- the harbour guns ----------------
+  N.guns = (f) => G.ents.filter((e) => e.harbourGun && e.faction === f && !e.removed);
+  N.refreshGuns = function (f) {
+    if (!mainRealm()) return; const cd = W.cityData[f]; const H = cd && cd.harbour; if (!H) return;
+    const want = Math.max(0, N.yardLevel(f) - 1);
+    const have = N.guns(f); for (const g of have.slice(want)) G.remove(g);
+    const spots = [[H.k - 1, -H.half], [H.k - 1, H.half]];
+    for (let i = N.guns(f).length; i < want; i++) {
+      const [ii, sd] = spots[i]; const tx = H.gx + H.dx * ii + H.px * sd, ty = H.gy + H.dy * ii + H.py * sd;
+      const lv = Sys.cityTierLevel ? Sys.cityTierLevel(f) : D.LV(20); const def = D.SIEGE['harbour_' + f];
+      const t = G.makeEnt({ type: 'guard', faction: f, city: f, name: `${D.FACTIONS[f].city} ${def.name}`, title: 'Harbour defense', x: tx * TS + 16, y: ty * TS + 16, level: lv, hostile: true });
+      t.homeX = t.x; t.homeY = t.y; War.makeSiege(t, 'harbour_' + f); t.harbourGun = true; t.navalKind = 'harbourgun'; t.r = 30; t.h = 260; t.aimAng = Math.atan2(H.dy, H.dx); t.fireT = 2 + i;
+      t.hpMax = t.hp = Math.round(G.mobHp(t.level) * def.hpMul); t.dmg = Math.round((3 + t.level * 2.4) * def.mul); t.delay = def.delay;
+    }
+  };
+
+  // ---------------- the sea lanes: a coarse grid of open water (3x3 tiles a cell) ----------------
+  let nav = null;
+  N.nav = function () {
+    if (nav && nav.tiles === W.tiles && nav.W === W.W) return nav;
+    const C = 3, gw = Math.floor(W.W / C), gh = Math.floor(W.H / C); const ok = new Uint8Array(gw * gh);
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) { let n = 0; for (let y = 0; y < C; y++) for (let x = 0; x < C; x++) if (isWater(cx * C + x, cy * C + y)) n++; ok[cy * gw + cx] = n === C * C ? 1 : 0; }
+    // keep a little off the shore: cells next to land cost more
+    const edge = new Uint8Array(gw * gh);
+    for (let cy = 1; cy < gh - 1; cy++) for (let cx = 1; cx < gw - 1; cx++) { const i = cy * gw + cx; if (!ok[i]) continue; let land = 0; for (let j = -1; j <= 1; j++) for (let k = -1; k <= 1; k++) if (!ok[i + j * gw + k]) land++; edge[i] = land; }
+    nav = { tiles: W.tiles, W: W.W, C, gw, gh, ok, edge }; return nav;
+  };
+  const cellOf = (n, px, py) => [U.clamp(Math.floor(px / TS / n.C), 0, n.gw - 1), U.clamp(Math.floor(py / TS / n.C), 0, n.gh - 1)];
+  const cellPx = (n, cx, cy) => [(cx * n.C + n.C / 2) * TS, (cy * n.C + n.C / 2) * TS];
+  N.nearestOpen = function (px, py, maxR = 12) {
+    const n = N.nav(); const [cx, cy] = cellOf(n, px, py);
+    for (let r = 0; r <= maxR; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = cx + i, y = cy + j; if (x < 0 || y < 0 || x >= n.gw || y >= n.gh) continue; if (n.ok[y * n.gw + x]) return [x, y]; }
+    return null;
+  };
+  // A* over the open-water cells, then straightened (a ship sails straight while the water allows)
+  N.route = function (sx, sy, gx, gy) {
+    const n = N.nav(); const a = N.nearestOpen(sx, sy), b = N.nearestOpen(gx, gy); if (!a || !b) return null;
+    const gw = n.gw, start = a[1] * gw + a[0], goal = b[1] * gw + b[0];
+    const g = new Float32Array(n.ok.length).fill(1e9), came = new Int32Array(n.ok.length).fill(-1), closed = new Uint8Array(n.ok.length);
+    const heap = []; const push = (k, f) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    g[start] = 0; push(start, 0); const bx = goal % gw, by = (goal / gw) | 0;
+    while (heap.length) {
+      const [, k] = pop(); if (closed[k]) continue; closed[k] = 1; if (k === goal) break;
+      const x = k % gw, y = (k / gw) | 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        if (!i && !j) continue; const nx = x + i, ny = y + j; if (nx < 0 || ny < 0 || nx >= gw || ny >= n.gh) continue; const nk = ny * gw + nx; if (!n.ok[nk] || closed[nk]) continue;
+        if (i && j && (!n.ok[y * gw + nx] || !n.ok[ny * gw + x])) continue;
+        const ng = g[k] + (i && j ? 1.414 : 1) + n.edge[nk] * 0.35; if (ng >= g[nk]) continue; g[nk] = ng; came[nk] = k; push(nk, ng + Math.hypot(bx - nx, by - ny));
+      }
+    }
+    if (came[goal] < 0 && goal !== start) return null;
+    const cells = []; for (let k = goal; k >= 0; k = came[k]) { cells.push(k); if (k === start) break; } cells.reverse();
+    const clear = (k0, k1) => { const x0 = k0 % gw, y0 = (k0 / gw) | 0, x1 = k1 % gw, y1 = (k1 / gw) | 0; const L = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2; for (let s = 1; s < L; s++) { const x = Math.round(x0 + (x1 - x0) * s / L), y = Math.round(y0 + (y1 - y0) * s / L); if (!n.ok[y * gw + x] || n.edge[y * gw + x] > 2) return false; } return true; };
+    const out = []; let i = 0; while (i < cells.length - 1) { let j = cells.length - 1; while (j > i + 1 && !clear(cells[i], cells[j])) j--; out.push(cells[j]); i = j; }
+    return out.map((k) => cellPx(n, k % gw, (k / gw) | 0));
+  };
+
+  // ---------------- warships ----------------
+  N.ships = (f) => G.ents.filter((e) => e.ship && !e.removed && (!f || e.faction === f));
+  N.alive = (f) => N.ships(f).filter((e) => !e.dead && !e.sinking);
+  N.maxShips = (f) => N.yardLevel(f);
+  // a ship's moorings: in its own harbour basin, off the shipyard's slipway
+  N.mooring = function (f, i) {
+    const cd = W.cityData[f]; const pl = cd && cd.shipyardPlot; const H = cd && cd.harbour; if (!H) return null;
+    const m = (pl && pl.moor && pl.moor[i % pl.moor.length]) || [H.gx + H.dx * (H.k + 12), H.gy + H.dy * (H.k + 12)];
+    const c = N.nearestOpen(m[0] * TS + 16, m[1] * TS + 16, 10); return c ? cellPx(N.nav(), c[0], c[1]) : [m[0] * TS + 16, m[1] * TS + 16];
+  };
+  // where a fleet lies to bombard a city: just off the enemy's harbour, spread along the shore
+  N.siegeSpot = function (ef, i) {
+    const cd = W.cityData[ef]; const H = cd && cd.harbour; if (!H) return null;
+    const sd = [-8, 8, -18, 18][i % 4], out = H.k + 24 + Math.floor(i / 4) * 5;
+    const tx = H.gx + H.dx * out + H.px * sd, ty = H.gy + H.dy * out + H.py * sd;
+    const c = N.nearestOpen(tx * TS + 16, ty * TS + 16, 10); return c ? cellPx(N.nav(), c[0], c[1]) : null;
+  };
+  N.launch = function (f, opts = {}) {
+    if (!mainRealm()) return null; const S = D.WARSHIP[f]; const cd = W.cityData[f]; if (!cd || !cd.harbour) return null;
+    const idx = N.ships(f).length; const at = N.mooring(f, idx); if (!at) return null;
+    const lv = Sys.cityTierLevel ? Sys.cityTierLevel(f) : D.LV(20);
+    const F = D.FACTIONS[f]; const names = f === 'crown' ? ['Valen\'s Pride', 'Iron Maiden', 'Thunderer', 'Royal Oak', 'Sea Lion', 'Defiant'] : ['Silverwing', 'Moonwake', 'Thornprow', 'Leafsong', 'Starfall', 'Greenwind'];
+    const used = new Set(N.ships(f).map((x) => x.name)); const free = names.filter((x) => !used.has(x)); const s = G.makeEnt({ type: 'guard', faction: f, city: null, name: opts.name || U.pick(free.length ? free : names), title: `${F.city} ${S.name}`, x: at[0], y: at[1], level: lv, hostile: true });
+    s.ship = true; s.siege = 'warship'; s.navalKind = S.kind; s.static = true; s.passive = true; s.look = null; s.r = 70; s.h = 300; s.speed = 0; s.leash = 0;
+    s.hpMax = s.hp = Math.round(G.mobHp(lv) * S.hpMul); s.ac = 1500; s.dmg = Math.round((3 + lv * 2.4) * S.mul); s.delay = S.delay;
+    s.res = { fire: 10, cold: 60, magic: 50, poison: 100, disease: 100 };
+    s.heading = Math.atan2(cd.harbour.dy, cd.harbour.dx); s.vel = 0; s.state = 'moor'; s.path = null; s.pi = 0; s.fireT = 2 + Math.random() * 2; s.salvo = 0; s.slot = idx; s.aimAng = s.heading;
+    return s;
+  };
+  // the fleet comes back into being in the harbour whenever the city is set up (a saved count)
+  N.spawnFleet = function (f) {
+    if (!mainRealm()) return; const ns = navyState(f); if (!ns) return;
+    const want = Math.min(ns.n || 0, N.maxShips(f)); ns.n = want;
+    for (let i = N.alive(f).length; i < want; i++) N.launch(f);
+  };
+  const go = (s, to, state) => { const r = to && N.route(s.x, s.y, to[0], to[1]); if (!r || !r.length) { s.state = state === 'out' ? 'moor' : state; return false; } s.path = r; s.pi = 0; s.state = state; return true; };
+  War.sendFleet = function (f) {
+    f = f || pf(); const ef = enemyOf(f); const list = N.alive(f).filter((s) => s.state !== 'out' && s.state !== 'siege'); if (!list.length) { if (f === pf()) G.log(N.alive(f).length ? 'Your fleet is already at sea.' : 'You have no warships. Build a Shipyard and buy one in the Army tab.', 'sys', '#ffb24a'); return 0; }
+    let k = 0; list.forEach((s, i) => { if (go(s, N.siegeSpot(ef, i), 'out')) k++; });
+    if (k && f === pf()) { G.log(`${k} warship${k > 1 ? 's' : ''} weigh anchor and sail for ${D.FACTIONS[ef].city}.`, 'status', '#f0d48a'); sfx('horn', 0.5); }
+    if (k && pf() === ef) { KR.UI && KR.UI.banner && KR.UI.banner('Enemy warships!', `${D.FACTIONS[f].city}'s fleet has put to sea. It will reach our harbour within minutes.`); }
+    War.emit && War.emit('army', { f }); return k;
+  };
+  War.recallFleet = function (f) {
+    f = f || pf(); let k = 0; N.alive(f).forEach((s, i) => { if (s.state === 'moor') return; if (go(s, N.mooring(f, i), 'home')) k++; });
+    if (k && f === pf()) G.log(`The fleet turns for home (${k} ship${k > 1 ? 's' : ''}).`, 'status', '#f0d48a');
+    return k;
+  };
+  War.fleet = (f) => { f = f || pf(); const a = N.alive(f); return { ships: a.length, max: N.maxShips(f), atSea: a.filter((s) => s.state !== 'moor').length, siege: a.filter((s) => s.state === 'siege').length, list: a.map((s) => ({ name: s.name, hp: s.hp / s.hpMax, state: s.state })) }; };
+
+  // what a ship (or a harbour gun) shoots at: ships first, then guns and engines, then buildings, then soldiers
+  const buildingsOf = function (ef) {
+    const R = KR.Realm; if (!R || !R.state) return []; const st = R.state(ef); if (!st) return []; const out = []; const cd = W.cityData[ef] || {};
+    for (const id of ['barracks', 'shipyard', 'workshop', 'range', 'stable', 'sawmill', 'cutter']) {
+      const lv = st.buildings[id] || 0; if (!lv) continue;
+      let r = id === 'barracks' && cd.barracksB ? cd.barracksB : R.plotOf(ef, id); if (!r) continue;
+      const x = (r.x + r.w / 2) * TS, y = (r.y + r.h / 2) * TS; out.push({ id, x, y, lv });
+    }
+    return out;
+  };
+  N.pickTarget = function (s, range) {
+    const f = s.faction, ef = enemyOf(f); let best = null, bs = 1e18; const p = G.player;
+    const consider = (e, w) => { const d = Math.hypot(e.x - s.x, e.y - s.y); if (d > range) return; const sc = d * w; if (sc < bs) { bs = sc; best = e; } };
+    // first what shoots back: ships, harbour guns, engines
+    for (const e of G.ents) {
+      if (e === s || e.dead || e.removed || e.sinking || e.faction === f) continue;
+      if (e.ship) consider(e, 0.25); else if (e.harbourGun) consider(e, 0.4); else if (e.siege && e.faction === ef) consider(e, 0.7);
+    }
+    if (best) return best;
+    // then (laying siege) the buildings: the barracks and the shipyard before the rest
+    if (s.ship && s.state === 'siege') { for (const b of buildingsOf(ef)) { const d = Math.hypot(b.x - s.x, b.y - s.y) * (b.id === 'barracks' || b.id === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = { bld: b.id, f: ef, x: b.x, y: b.y }; } } if (best) return best; }
+    // then soldiers and the enemy hero
+    for (const e of G.ents) { if (e.dead || e.removed || e.faction !== ef || e.static) continue; if (e.raider || e.type === 'guard') consider(e, 1.6); }
+    if (p && !p.dead && War.isFoe(f, p)) consider(p, 1.8);
+    return best;
+  };
+
+  // ---------------- buildings take damage (the WAR & WORKERS fork's API when there is one; otherwise our own) ----------------
+  N.bhp = {};
+  N.damageBuilding = function (f, id, amt, src) {
+    if (typeof War.damageBuilding === 'function' && War.damageBuilding !== N.damageBuilding) { try { return War.damageBuilding(f, id, amt, src); } catch (e) { console.warn(e); } }
+    const R = KR.Realm; if (!R || !R.state) return false; const st = R.state(f); if (!st || !(st.buildings[id] > 0)) return false;
+    const key = f + ':' + id; const max = 6000 * st.buildings[id]; if (N.bhp[key] == null) N.bhp[key] = max;
+    N.bhp[key] -= amt; if (N.bhp[key] > 0) return false;
+    // wrecked: the building falls back a level (a one-level building is razed)
+    delete N.bhp[key]; st.buildings[id] = Math.max(0, st.buildings[id] - 1); st.walls = st.buildings.walls; st.towers = st.buildings.towers;
+    const nm = R.DEFS[id] ? R.DEFS[id].name : id; const me = pf();
+    if (me === f) { G.log(`Enemy warships have wrecked your ${nm}!`, 'status', '#ff6a5a'); KR.UI && KR.UI.banner && KR.UI.banner(`The ${nm} is wrecked`, 'Rebuild it in the kingdom panel (N).'); }
+    else if (me) G.log(`Your warships have wrecked the enemy's ${nm}!`, 'status', '#9affb8');
+    R.emit && R.emit('built', f, id, st.buildings[id]);
+    try { const ct = G.account && G.account.cities && G.account.cities[f]; const want = R.cityLevel(f); if (ct && ct.level !== want) { ct.level = want; Sys.cityChanged(f, false); } else if (id === 'shipyard') { W.shipyardBlock && W.shipyardBlock(f); N.refreshGuns(f); } } catch (e) { console.warn(e); }
+    save(); return true;
+  };
+
+  // ---------------- firing: a cannonball in a high arc, or a great bolt ----------------
+  N.fire = function (t, tg, def) {
+    const d = Math.hypot(tg.x - t.x, tg.y - t.y); t.fireAt = G.now; t.fireK = 1; t.aimAng = Math.atan2(tg.y - t.y, tg.x - t.x);
+    const gun = def.vis === 'ironball'; const v = near(t.x, t.y, 2200);
+    if (gun) { sfx('boom', v * 1.1); const p = G.player; if (p && Math.hypot(t.x - p.x, t.y - p.y) < 700) G.shake = Math.max(G.shake || 0, 0.45); } else { sfx('bow', v); sfx('whoosh', v * 0.8); }
+    N.ev({ k: 'muzzle', id: t.id, x: t.x, y: t.y, ang: t.aimAng, gun, ship: !!t.ship });
+    // a long shot scatters: the farther, the wider (ships never miss by much at close range)
+    const sc = (tg.bld ? 70 : 34) * (0.3 + d / (def.range || 2000)); const miss = !tg.bld && Math.random() < 0.18 + d / 9000;
+    const ax = tg.x + (Math.random() - 0.5) * sc * (miss ? 5 : 1), ay = tg.y + (Math.random() - 0.5) * sc * (miss ? 5 : 1);
+    const dummy = { id: 'naval' + (N.seq++), type: 'mob', x: ax, y: ay, h: 0, r: 1, dead: false, naval: true };
+    G.shoot(t, dummy, def.vis, -1, { arc: U.clamp(d * 0.05 * 0.42 * (def.arcK || 1), gun ? 4 : 1.5, 48), onHit: () => N.impact(t, ax, ay, def, tg) });
+    const pr = G.proj[G.proj.length - 1]; if (pr && pr.src === t) pr.speed = Math.max(320, d / (def.flight || 2.4));
+  };
+  N.impact = function (t, x, y, def, tg) {
+    const tx = Math.floor(x / TS), ty = Math.floor(y / TS); const wet = isWater(tx, ty); const v = near(x, y, 1800);
+    const dmg = () => Math.round(t.dmg * (0.75 + Math.random() * 0.5));
+    let hitShip = false;
+    for (const e of G.ents.concat(G.player ? [G.player] : [])) {
+      if (e === t || e.dead || e.removed || e.sinking || e.faction === t.faction || (e.c && e.c.faction === t.faction)) continue;
+      if (!(e.ship || e.harbourGun || War.isFoe(t.faction, e))) continue;
+      const rr = def.aoe + (e.ship ? 60 : e.r || 12); if (Math.hypot(e.x - x, e.y - y) > rr) continue;
+      if (e.ship) hitShip = true;
+      G.damage(t, e, Math.round(G.mitigate(t, e, dmg()) * (e === tg ? 1 : 0.6)), {});
+    }
+    if (tg && tg.bld && !wet) N.damageBuilding(tg.f, tg.bld, dmg() * 1.2, t);
+    if (hitShip) { N.ev({ k: 'splinters', x, y }); sfx('rockbreak', v); sfx('heavy', v * 0.7); }
+    else if (wet) { N.ev({ k: 'splash', x, y, big: def.vis === 'ironball' }); sfx('splash', v); }
+    else { War.ev({ k: 'impact', x, y, r: def.aoe, big: true }); sfx('heavy', v); sfx('rockbreak', v * 0.8); }
+    const p = G.player; if (p && Math.hypot(x - p.x, y - p.y) < 500) G.shake = Math.max(G.shake || 0, 0.6);
+  };
+
+  // ---------------- every frame: sail, aim, fire; the guns aim and fire ----------------
+  const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  N.shipTick = function (s, dt) {
+    const S = D.WARSHIP[s.faction];
+    if (s.dead && !s.sinkT) { s.dead = false; s.sinking = true; s.invuln = true; s.hp = 0; s.inCombat = false; s.tgt = null; s.salvo = 0; const ci = G.corpses ? G.corpses.indexOf(s) : -1; if (ci >= 0) G.corpses.splice(ci, 1); if (G.player && G.player.target === s) G.player.target = null; }
+    if (s.sinking) { // a sinking ship is no longer dead or alive: it settles by the stern and goes under (naval3d.js)
+      if (!s.sinkT) { s.sinkT = 0.001; const ns = navyState(s.faction); if (ns) ns.n = Math.max(0, (ns.n || 0) - 1); save(); N.ev({ k: 'sink', x: s.x, y: s.y, id: s.id }); sfx('rockbreak', near(s.x, s.y, 2000)); sfx('splash', near(s.x, s.y, 2000));
+        const me = pf(); if (me === s.faction) G.log(`The ${s.name} is sinking!`, 'status', '#ff6a5a'); else if (me) G.log(`The enemy ship ${s.name} goes down!`, 'status', '#9affb8'); }
+      s.sinkT += dt; if (s.sinkT > 10) G.remove(s); return;
+    }
+    // sailing: steer for the next point of the route, slow in the turns
+    if (s.path && s.pi < s.path.length) {
+      const [wx, wy] = s.path[s.pi]; const dx = wx - s.x, dy = wy - s.y, d = Math.hypot(dx, dy);
+      if (d < 50) { s.pi++; } else {
+        const want = Math.atan2(dy, dx); const diff = wrapA(want - s.heading); s.heading = wrapA(s.heading + U.clamp(diff, -0.6 * dt, 0.6 * dt));
+        const targetV = S.speed * (Math.abs(diff) > 0.9 ? 0.35 : 1) * (s.pi === s.path.length - 1 ? Math.min(1, d / 260) + 0.15 : 1);
+        s.vel += (targetV - s.vel) * Math.min(1, dt * 0.8);
+        const nx = s.x + Math.cos(s.heading) * s.vel * dt, ny = s.y + Math.sin(s.heading) * s.vel * dt;
+        if (isWater(Math.floor(nx / TS), Math.floor(ny / TS))) { s.x = nx; s.y = ny; } else { s.heading = wrapA(s.heading + 0.8 * dt * (diff >= 0 ? 1 : -1)); s.vel *= 0.5; }
+      }
+      s.moving = s.vel > 5;
+      if (s.pi >= s.path.length) { s.path = null; s.state = s.state === 'out' ? 'siege' : 'moor'; if (s.state === 'siege' && pf() === s.faction) G.log(`The ${s.name} has reached ${D.FACTIONS[enemyOf(s.faction)].city} and opens fire.`, 'status', '#f0d48a'); }
+    } else { s.vel *= Math.max(0, 1 - dt * 1.5); s.moving = false; }
+    s.homeX = s.x; s.homeY = s.y;
+    // fighting: a broadside of shots, a moment apart, then a long reload
+    s.fireT -= dt;
+    if (s.salvo > 0 && s.fireT <= 0) { const tg = s.tgt; if (tg && !(tg.dead || tg.removed)) N.fire(s, tg, S); s.salvo--; s.fireT = s.salvo > 0 ? S.gap : S.delay * (0.9 + Math.random() * 0.2); }
+    else if (s.fireT <= 0) { const tg = N.pickTarget(s, S.range); s.tgt = tg; s.inCombat = !!tg; if (tg) { s.salvo = S.shots; s.fireT = 0; } else s.fireT = 1; }
+  };
+  N.gunTick = function (t, dt) {
+    const def = D.SIEGE[t.siege];
+    if (t.dead) { // a wrecked gun is rebuilt after five minutes
+      if (!t.respawnAt) t.respawnAt = G.now + 300000;
+      if (G.now > t.respawnAt) { t.dead = false; t.hp = t.hpMax; t.respawnAt = null; t.hate && t.hate.clear(); t.inCombat = false; const i = G.corpses.indexOf(t); if (i >= 0) G.corpses.splice(i, 1); if (pf() === t.faction) G.log(`The ${t.name} has been rebuilt.`, 'sys', '#cccccc'); }
+      return;
+    }
+    t.scanT = (t.scanT || 0) - dt; if (t.scanT <= 0) { t.scanT = 0.8; t.tgt = N.pickTarget(t, def.range); t.inCombat = !!t.tgt; }
+    const tg = t.tgt; if (!tg || tg.dead || tg.removed) { t.tgt = null; t.turning = 0; t.fireT = Math.max(t.fireT || 0, 1.2); return; }
+    const want = Math.atan2(tg.y - t.y, tg.x - t.x); const diff = wrapA(want - t.aimAng); t.aimAng = wrapA(t.aimAng + U.clamp(diff, -def.turn * dt, def.turn * dt)); t.turning = Math.abs(diff) > 0.01 ? Math.sign(diff) : 0;
+    t.fireT -= dt; if (t.fireT > 0 || Math.abs(diff) > 0.06) return;
+    t.fireT = def.delay * (0.9 + Math.random() * 0.2); N.fire(t, tg, def);
+  };
+  const us0 = War.updateSiege;
+  War.updateSiege = function (t, dt) { if (t.ship || t.harbourGun) return; return us0.apply(this, arguments); }; // the naval tick drives these, near or far
+
+  // ---------------- the army API: the warship in the Army tab ----------------
+  const rt0 = War.recruitTypes;
+  War.recruitTypes = function (f) {
+    f = f || pf(); const list = rt0.apply(this, arguments) || []; const S = D.WARSHIP[f]; if (!S) return list;
+    const lv = N.yardLevel(f), have = N.alive(f).length, max = N.maxShips(f);
+    list.push({ id: 'warship', name: S.name, icon: S.icon, desc: S.desc, building: 'shipyard', buildingName: 'Shipyard', unlocked: lv > 0, locked: !lv, why: lv ? (have >= max ? (lv < 3 ? 'Every berth is taken. Upgrade the Shipyard for another.' : 'Every berth is taken.') : '') : 'Build the Shipyard first.', cost: D.WARSHIP_COST, have, max, kind: 'siege' });
+    return list;
+  };
+  const hire0 = War.hire;
+  War.hire = function (a, b, c, d) {
+    const f = D.FACTION_IDS.includes(a) ? a : null; if (!(f && b === 'warship')) return hire0.apply(this, arguments);
+    const n = Math.max(1, Math.round(+c || 1)); let k = 0;
+    for (let i = 0; i < n; i++) {
+      const p = G.player; const mine = !!(p && p.c.faction === f); const fail = (m) => { if (mine && i === 0) { G.log(m, 'sys', '#ffb24a'); sfx('fail', 0.5); } return false; };
+      if (!N.yardLevel(f)) { fail('Build the Shipyard first.'); break; }
+      if (N.alive(f).length >= N.maxShips(f)) { fail('Every berth in the shipyard is taken. Upgrade the Shipyard for another warship.'); break; }
+      if (!mainRealm()) { fail('Warships are launched from the shipyard: be in the kingdom lands.'); break; }
+      if (mine) { if (p.c.coins < D.WARSHIP_COST) { fail(`Not enough gold: a ${D.WARSHIP[f].name} costs ${G.fmtCoins(D.WARSHIP_COST)}.`); break; } p.c.coins -= D.WARSHIP_COST; }
+      else { const cs = War.cpu && War.cpu(); if (cs && cs.f === f) { if ((cs.gold || 0) < D.WARSHIP_COST) break; cs.gold -= D.WARSHIP_COST; } }
+      const s = N.launch(f); if (!s) break; const ns = navyState(f); if (ns) ns.n = (ns.n || 0) + 1; k++;
+      if (mine) { G.log(`The ${s.name} slides down the slipway: a ${D.WARSHIP[f].name} joins your fleet (${G.fmtCoins(D.WARSHIP_COST)}).`, 'status', '#9affb8'); sfx('coin', 0.6); }
+    }
+    if (k) { save(); Sys.save && pf() === f && Sys.save(true); KR.UI && KR.UI.refresh && KR.UI.refresh(); War.emit && War.emit('army', { f }); }
+    return k;
+  };
+  const army0 = War.army;
+  War.army = function (f) { f = f || pf(); const v = army0.apply(this, arguments); try { const a = N.alive(f); if (N.yardLevel(f) || a.length) v['Warships'] = `${a.length} / ${N.maxShips(f)}${a.some((s) => s.state !== 'moor') ? ` (${a.filter((s) => s.state !== 'moor').length} at sea)` : ''}`; } catch (e) {} return v; };
+  // the fleet's own card in the kingdom panel's Army tab (realmui.js calls it)
+  War.fleetCard = function (pane, f) {
+    const S = D.WARSHIP[f]; if (!S || !N.yardLevel(f)) return; const fl = War.fleet(f);
+    const card = document.createElement('div'); card.className = 'rm-card';
+    card.innerHTML = `<h4>⚓ The fleet <small>${fl.ships} / ${fl.max}</small></h4><p>${fl.ships ? fl.list.map((s) => `${s.name}: ${({ moor: 'in harbour', out: 'under sail', siege: 'bombarding the enemy', home: 'sailing home' })[s.state] || s.state} (${Math.round(s.hp * 100)}%)`).join('<br>') : `No warships yet. Buy a ${S.name} above.`}</p><div class="rm-row"></div>`;
+    const row = card.querySelector('.rm-row');
+    const b1 = document.createElement('button'); b1.className = 'btn small gold'; b1.textContent = '⚓ Attack with the fleet'; b1.disabled = !fl.ships; b1.onclick = () => { War.sendFleet(f); KR.UI.refresh && KR.UI.refresh(); };
+    const b2 = document.createElement('button'); b2.className = 'btn small'; b2.textContent = '↩ Retreat the fleet'; b2.disabled = !fl.atSea; b2.onclick = () => { War.recallFleet(f); KR.UI.refresh && KR.UI.refresh(); };
+    row.appendChild(b1); row.appendChild(b2); pane.appendChild(card);
+  };
+
+  // ---------------- the computer's navy ----------------
+  let cpuT = 0;
+  N.cpuTick = function (dt) {
+    cpuT += dt; if (cpuT < 15) return; cpuT = 0;
+    if (!War.cpuActive || !War.cpuActive()) return; const cs = War.cpu && War.cpu(); if (!cs) return; const f = cs.f;
+    if (cs.queue && !cs.queue.includes('shipyard') && N.yardLevel(f) < 2 && KR.Realm && KR.Realm.has(f, 'workshop')) cs.queue.push('shipyard');
+    if (N.yardLevel(f) && N.alive(f).length < N.maxShips(f) && (cs.gold || 0) > D.WARSHIP_COST * 1.4) War.hire(f, 'warship', 1);
+    const Df = War.diff ? War.diff() : { build: 1 }; cs.nextFleet = cs.nextFleet || (G.now + 600000 / (Df.build || 1));
+    if (G.now > cs.nextFleet && N.alive(f).some((s) => s.state === 'moor')) { cs.nextFleet = G.now + (720000 + Math.random() * 360000) / (Df.build || 1); War.sendFleet(f); }
+    // a battered fleet goes home
+    for (const s of N.alive(f)) if (s.state === 'siege' && s.hp < s.hpMax * 0.25) { War.recallFleet(f); break; }
+  };
+  const tk0 = War.tick;
+  War.tick = function (dt) {
+    tk0.apply(this, arguments);
+    if (!mainRealm()) return; N.hookRealm();
+    try { for (const s of N.ships()) N.shipTick(s, dt); for (const g of G.ents) if (g.harbourGun && !g.removed) N.gunTick(g, dt); } catch (e) { if (!N._w1) { N._w1 = true; console.warn('naval', e); } }
+    try { N.cpuTick(dt); } catch (e) { if (!N._w2) { N._w2 = true; console.warn('naval cpu', e); } }
+  };
+  // the city is set up (new world, a rebuilt town): its guns and its fleet come back
+  const sd0 = War.spawnDefenses;
+  War.spawnDefenses = function (f) { const r = sd0.apply(this, arguments); try { N.hookRealm(); N.refreshGuns(f); N.spawnFleet(f); } catch (e) { console.warn('naval', e); } return r; };
+})();

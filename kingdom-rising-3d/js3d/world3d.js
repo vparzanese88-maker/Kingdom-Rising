@@ -47,7 +47,7 @@ function buildChunk(cx, cy, list, withStructs = true) {
   // signposts with names on them
   for (const s of out.signs) { const sp = signpost(s); grp.add(sp); c.small.push(sp); }
   if (out.flags.length) buildFlags(out.flags, grp);
-  const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb);
+  const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb); c.bb = bb;
   c.flames = out.flames; c.smokes = out.smokes; c.emitters = out.emitters; c.list = list || []; c.sig = sig(list);
   c.harvest = (list || []).filter((d) => d.kind === 'boulder' || d.kind === 'orevein' || ['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'palm'].includes(d.kind));
   c.stumps = new Map();
@@ -151,6 +151,7 @@ export const world3d = {
       for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < (m.userData.nug ? 60 : Math.min(propsFar, 105)) : d < treeFar + 80; // boulders (a draw call per shape per area) end where they are specks in the haze; the ore glints in them sooner
       // props and building fittings throw shadows only close by: past ~45 m their shadows are a few texels each,
       // and every caster is another draw call in the shadow pass
+      if (c.bb) { const bv = d < 300; if (c.bb.visible !== bv) c.bb.visible = bv; } // far lamp flames: one draw call per area for a pin-prick of light
       if (c.outcrops) for (const m of c.outcrops) { const ov = d < 200; if (m.visible !== ov) m.visible = ov; m.castShadow = d < shadowDist; }
       const psh = d < 45; if (psh !== c.propSh) { c.propSh = psh; if (c.props) c.props.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); if (c.structs) for (const m of c.structs.children) if (m.isMesh && DETAIL_KEYS.has(m.name)) { if (m.userData.sh0 == null) m.userData.sh0 = m.castShadow; m.castShadow = psh && m.userData.sh0; } else if (m.isGroup) m.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); }
       // barrels, crates, fences, lamps and signposts are lost in the distance long before buildings and trees:

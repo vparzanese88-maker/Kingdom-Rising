@@ -222,7 +222,7 @@ float fbm3(vec3 p){ return vn(p) * .5 + vn(p * 2.03 + 7.1) * .3 + vn(p * 4.1 + 3
 `;
 // skin: base tone with blotches, blush, lips, brows, stubble and a painted scalp, pores and fine wrinkles
 function skinMaterial(u) {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.52, metalness: 0, sheen: 0.35, sheenRoughness: 0.55, sheenColor: new THREE.Color(0.55, 0.16, 0.1), specularIntensity: 0.45 });
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.52, metalness: 0, sheen: 0.45, sheenRoughness: 0.5, sheenColor: new THREE.Color(0.62, 0.2, 0.12), specularIntensity: 0.45 });
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
@@ -244,7 +244,7 @@ function skinMaterial(u) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vRest;
       uniform vec3 uSkin, uLip, uBrow, uHairC, uEye, uMouth, uNose, uChin, uBrowIn, uBrowOut, uHead;
-      uniform float uCorner, uStub, uScalp, uFem, uAge, uBrowW, uPaint, uGrime, uTalk;
+      uniform float uCorner, uStub, uScalp, uFem, uAge, uBrowW, uPaint, uGrime, uTalk, uEyeR;
       uniform vec3 uPaintC, uTatC, uChestP, uShP; uniform float uScar, uTat;
       float seg2(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.); return length(pa - ba * h); }
       float gBump; float gRough; float gBumpScar = 0.;
@@ -274,13 +274,35 @@ function skinMaterial(u) {
         // eyebrows: an arch of fine hairs from the inner to the outer end
         float t = (q.x - uBrowIn.x) / (uBrowOut.x - uBrowIn.x);
         float yc = mix(uBrowIn.y, uBrowOut.y, t) + .006 * sin(3.1416 * clamp(t, 0., 1.) * .95);
-        float th = mix(.0068, .0026, clamp(t, 0., 1.)) * uBrowW;
+        float th = mix(.0072, .0028, clamp(t, 0., 1.)) * uBrowW;
         float bz = smoothstep(uEye.z - .01, uEye.z + .002, p.z);
-        float brow = bz * smoothstep(-.06, .04, t) * smoothstep(1.08, .95, t) * smoothstep(th, th * .3, abs(p.y - yc));
+        float brow = bz * smoothstep(-.08, .06, t) * smoothstep(1.1, .88, t) * smoothstep(th, th * .05, abs(p.y - yc + th * .25 * (1. - t)));
         vec2 bs = vec2(q.x * cos(.5 - t * .4) - p.y * sin(.5 - t * .4), q.x * sin(.5 - t * .4) + p.y * cos(.5 - t * .4));
         float hairs = smoothstep(.35, .75, vn(vec3(bs.x * 1400., bs.y * 160., 1.)));
-        col = mix(col, uBrow, brow * (.45 + .55 * hairs));
+        col = mix(col, uBrow, brow * (.62 + .18 * hairs)); // a soft painted brow, the hair's colour, never spiky
         gRough = mix(gRough, .65, brow);
+        // the eyes: a thin dark lash line along the upper lid with a soft shadow, a fainter one below, and the lid crease
+        {
+          vec2 el = vec2((q.x - abs(uEye.x)) / (uEyeR * 1.3), (p.y - uEye.y) / uEyeR); float er = length(el);
+          float ez = smoothstep(uEye.z - .014, uEye.z - .003, p.z);
+          float upLine = exp(-pow((er - .98) / .13, 2.)) * smoothstep(-.35, .2, el.y) * ez;
+          float loLine = exp(-pow((er - 1.) / .1, 2.)) * smoothstep(.1, -.4, el.y) * ez;
+          float crease = exp(-pow((er - 1.55) / .3, 2.)) * smoothstep(0., .5, el.y) * ez;
+          col *= 1. - .78 * upLine - .22 * loLine - .14 * crease;
+          gRough = mix(gRough, .35, upLine * .5);
+        }
+        // nose and mouth with some form: a philtrum groove, shaded nostrils and wings, a lit bridge, a highlight on the lower lip
+        {
+          float ph = smoothstep(uNose.y - .005, uNose.y - .011, p.y) * smoothstep(uMouth.y + uCorner * .35, uMouth.y + uCorner * .7, p.y) * front;
+          col *= 1. - .12 * ph * exp(-pow(q.x / .0034, 2.)); col *= 1. + .05 * ph * exp(-pow((q.x - .0052) / .0016, 2.));
+          vec2 ns = vec2(q.x - .0085, p.y - (uNose.y - .0065)); float nz = smoothstep(uNose.z - .03, uNose.z - .012, p.z);
+          col *= 1. - .5 * exp(-dot(ns, ns) / .000014) * nz;
+          col *= 1. - .14 * exp(-pow((length(vec2(q.x - .006, p.y - uNose.y + .002)) - .012) / .0022, 2.)) * nz * smoothstep(uNose.y - .012, uNose.y + .004, p.y);
+          col *= 1. + .07 * exp(-pow(q.x / .0042, 2.)) * smoothstep(uEye.y + .005, uEye.y - .01, p.y) * smoothstep(uNose.y - .002, uNose.y + .01, p.y) * nz;
+          float lh = lip * exp(-pow((m.y + .32) / .17, 2.)) * exp(-pow(m.x / .45, 2.));
+          col *= 1. + .2 * lh; gRough = mix(gRough, .2, lh);
+        }
+        col *= vec3(1.035, 1., .965); // a touch warmer, as if lit through the skin
         // stubble / beard shadow on the jaw, chin and upper lip
         float jaw = smoothstep(uNose.y - .002, uNose.y - .012, p.y) * smoothstep(uChin.y - .045, uChin.y - .015, p.y);
         float side = smoothstep(uEye.x + .05, uEye.x + .035, q.x) * smoothstep(uMouth.z - .085, uMouth.z - .05, p.z);
@@ -692,7 +714,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
     const browCol = hairCol.clone().multiplyScalar(0.62); const surf = (x, y) => { // the nearest face vertex to (x, y) on the front of the head
       let best = -1, bd = 1e9; for (const v of fr.scalpFace || (fr.scalpFace = (() => { const o = []; for (let i = 0; i < A.NV; i++) if (A.B[A.region[i]] === 'head' && P[i * 3 + 2] > lm.eyeL.c.z - 0.02) o.push(i); return o; })())) { const d = (P[v * 3] - x) ** 2 + (P[v * 3 + 1] - y) ** 2; if (d < bd) { bd = d; best = v; } }
       return { p: new V3(P[best * 3], P[best * 3 + 1], P[best * 3 + 2]), n: new V3(N[best * 3], N[best * 3 + 1], N[best * 3 + 2]) }; };
-    const bi = lm.browIn, bo = lm.browOut; const nB = spec.fem ? 34 : 44;
+    const bi = lm.browIn, bo = lm.browOut; const nB = 0; // the brows are painted in the skin shader (strand cards read as spikes in close-ups)
     for (const sx of [1, -1]) for (let i = 0; i < nB; i++) {
       const t = rnd(); const x = (bi.x + (bo.x - bi.x) * t) * sx, y = bi.y + (bo.y - bi.y) * t + 0.006 * Math.sin(Math.PI * t * 0.95) + (rnd() - 0.5) * 0.008 * (1 - t * 0.6) * (spec.fem ? 0.6 : 1);
       const s = surf(x, y); const along = new V3(sx * (0.9 - 0.5 * (1 - t)), 0.55 * (1 - t) + 0.1, 0); along.sub(s.n.clone().multiplyScalar(along.dot(s.n))).normalize();
@@ -712,7 +734,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
         const bins = new Map();
         for (const v of lv) { const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2]; if (Math.sign(x) !== sx || (y > e.c.y) !== upper) continue; const ang = Math.atan2(y - e.c.y, (x - e.c.x) * sx); const b = Math.round(ang * 12); const d = Math.hypot(x - e.c.x, y - e.c.y); const cur = bins.get(b); if (!cur || d < cur.d) bins.set(b, { d, p: new V3(x, y, z) }); }
         const edge = [...bins.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1].p);
-        const n = upper ? 44 : 22;
+        const n = 0; // the lash line is painted in the skin shader (separate lashes read as stitches up close)
         for (let i = 0; i < n && edge.length > 1; i++) {
           const f = (i + 0.5) / n * (edge.length - 1); const a = edge[Math.floor(f)], b = edge[Math.min(edge.length - 1, Math.floor(f) + 1)]; const p0 = a.clone().lerp(b, f - Math.floor(f));
           const out = p0.clone().sub(e.c); out.z = 0; out.normalize(); const fwd = new V3(0, 0, 1);

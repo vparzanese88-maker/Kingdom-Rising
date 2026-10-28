@@ -81,7 +81,13 @@
   function railMoves() {
     const G = KR.G; if (!G || !G.moveEnt || G.moveEnt._rails) return;
     const mv0 = G.moveEnt;
+    // checked in short steps, like the walls (game.js): undoing part of one long step could leave someone in a wall
     G.moveEnt = function (e, dx, dy, opts) {
+      const len = Math.hypot(dx, dy);
+      if (len > 6 && !e.fly) { const n = Math.min(64, Math.ceil(len / 6)); for (let i = 0; i < n; i++) railStep.call(this, e, dx / n, dy / n, opts); return; }
+      return railStep.apply(this, arguments);
+    };
+    const railStep = function (e, dx, dy, opts) {
       const ox = e.x, oy = e.y; const r = mv0.apply(this, arguments);
       const E = W.edge; if (!E || E.length !== W.W * W.H || (W.realm && W.realm !== 'main') || e.fly) return r;
       const otx = Math.floor(ox / TS), oty = Math.floor(oy / TS);
@@ -472,7 +478,7 @@
       const pxv = -oy, pyv = ox; // along the wall
       for (let t = -(R - 5); t <= R - 5; t++) {
         const wx = ox ? cx + ox * R : cx + t, wy = oy ? cy + oy * R : cy + t;
-        if (W.tile(wx, wy) !== T.CWALL) continue;
+        if (cd.walled !== false && W.tile(wx, wy) !== T.CWALL) continue; // an open town (no walls yet): the culvert sits where the wall will run
         if (gates.some(([gx, gy]) => Math.max(Math.abs(gx - wx), Math.abs(gy - wy)) <= 6)) continue;
         const mx = wx + ox, my = wy + oy;
         let ok = true; for (let l = -2; l <= 2 && ok; l++) for (let k = 0; k <= 2 && ok; k++) { const x = mx + ox * k + pxv * l, y = my + oy * k + pyv * l; if (bad(x, y) || inHarbour(x, y) || inField(x, y) || (k === 0 && isW(x, y))) ok = false; }
@@ -1495,11 +1501,29 @@
       if (h < dens) addDecor(f === 'sylvan' ? (h2 < 0.6 ? 'elmwood' : 'oak') : f === 'iron' ? (h2 < 0.6 ? 'pine' : 'boulder') : 'oak', tx, ty, {});
       else if (h < dens + 0.05 && h2 < 0.5) addDecor(f === 'iron' ? 'pebbles' : 'flowers', tx, ty, { nb: true });
     }
+    // the gates: south, east and west (and Aelindor's sea gate north onto the harbour), plus one wherever a road from
+    // outside reaches the wall away from those, so a road always ends at a gate, never at a blank wall
+    const GL = [{ gx: cx, gy: cy + R, ox: 0, oy: 1, half: 1 }, { gx: cx + R, gy: cy + 3, ox: 1, oy: 0, half: 1 }, { gx: cx - R, gy: cy + 3, ox: -1, oy: 0, half: 1 }];
+    if (f === 'sylvan') GL.push({ gx: cx, gy: cy - R, ox: 0, oy: -1, half: 2 });
+    if (walled) {
+      const isRd = (t) => t === T.ROAD || t === T.BRIDGE;
+      for (const [ox, oy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        // along this side, the offsets where a road lies just outside the wall
+        const hit = []; for (let o = -R + 4; o <= R - 4; o++) { let road = false; for (let d = 1; d <= 2 && !road; d++) { const tx = ox ? cx + ox * (R + d) : cx + o, ty = oy ? cy + oy * (R + d) : cy + o; road = isRd(W.tile(tx, ty)); } hit.push(road ? o : null); }
+        const runs = []; let run = null; for (const o of hit) { if (o != null) { if (run && o === run[1] + 1) run[1] = o; else runs.push((run = [o, o])); } else run = null; }
+        for (const [a0, a1] of runs) {
+          const c = Math.round((a0 + a1) / 2); const half = oy < 0 ? 2 : 1;
+          if (GL.some((g) => g.ox === ox && g.oy === oy && Math.abs((ox ? g.gy - cy : g.gx - cx) - c) <= 12)) continue; // close to a gate: the road just joins it along the wall
+          GL.push({ gx: ox ? cx + ox * R : cx + c, gy: oy ? cy + oy * R : cy + c, ox, oy, half });
+        }
+      }
+    }
+    const isGate = (tx, ty) => GL.some((g) => (g.oy ? ty === g.gy && Math.abs(tx - g.gx) <= g.half : tx === g.gx && Math.abs(ty - g.gy) <= g.half));
     // ground + walls
     for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
       const k = ty * W.W + tx, dx = tx - cx, dy = ty - cy;
       const wall = Math.abs(dx) === R || Math.abs(dy) === R;
-      const gate = (dy === R && Math.abs(dx) <= 1) || (Math.abs(dx) === R && dy >= 2 && dy <= 4) || (f === 'sylvan' && dy === -R && Math.abs(dx) <= 2); // Aelindor's sea gate opens north onto the harbour
+      const gate = isGate(tx, ty);
       if (wall && !gate && walled) W.tiles[k] = T.CWALL;
       else {
         let g = T.COBBLE;
@@ -1515,13 +1539,13 @@
     // roads that reached the wall away from a gate: cut them short of the wall and run them along the walls to the nearest gate
     if (walled) {
       const ringD = (tx, ty) => Math.max(Math.abs(tx - cx), Math.abs(ty - cy));
-      const nearGate = (tx, ty) => { const dx = tx - cx, dy = ty - cy; return (dy > R && Math.abs(dx) <= 1) || (Math.abs(dx) > R && dy >= 2 && dy <= 4); };
+      const nearGate = (tx, ty) => GL.some((g) => (g.oy ? (ty - cy) * g.oy > R && Math.abs(tx - g.gx) <= g.half : (tx - cx) * g.ox > R && Math.abs(ty - g.gy) <= g.half));
       const isRoad = (t) => t === T.ROAD || t === T.BRIDGE;
       const fillFor = (tx, ty) => { const n = new Map(); for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const t = W.tile(tx + i, ty + j); if (t == null || isRoad(t) || SOLID[t] || t === T.COBBLE || t === T.STONE || t === T.WATER) continue; n.set(t, (n.get(t) || 0) + 1); } let best = T.GRASS, bn = 0; for (const [t, c] of n) if (c > bn) { best = t; bn = c; } return best; };
       const L = R + 3, P = 8 * L; // the walk around the walls runs on the square ring at distance L
       const ringAt = (i) => { i = ((i % P) + P) % P; const side = Math.floor(i / (2 * L)), o = (i % (2 * L)) - L; return side === 0 ? [cx + o, cy + L] : side === 1 ? [cx + L, cy - o] : side === 2 ? [cx - o, cy - L] : [cx - L, cy + o]; };
       const ringIndex = (tx, ty) => { let best = 0, bd = 1e9; for (let i = 0; i < P; i++) { const [x, y] = ringAt(i); const d = Math.abs(x - tx) + Math.abs(y - ty); if (d < bd) { bd = d; best = i; } } return best; };
-      const gates = [ringIndex(cx, cy + L), ringIndex(cx + L, cy + 3), ringIndex(cx - L, cy + 3)];
+      const gates = GL.map((g) => ringIndex(g.gx + g.ox * 3, g.gy + g.oy * 3));
       const contacts = [];
       for (let ty = cy - R - 2; ty <= cy + R + 2; ty++) for (let tx = cx - R - 2; tx <= cx + R + 2; tx++) {
         if (!W.inb(tx, ty) || ringD(tx, ty) <= R || nearGate(tx, ty)) continue;
@@ -1628,7 +1652,7 @@
     }
     W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy; W.cityData[f].walled = walled;
     W.cityData[f].siegeYard = [cx - 18, cy - 5, 13, 5]; // [x, y, w, h] tiles: the open courtyard before the castle gate
-    W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
+    W.cityData[f].gates = GL.map((g) => [g.gx, g.gy]); W.cityData[f].gateInfo = GL; // [x, y] tiles; gateInfo adds each gate's outward side and half-width
     wallWalks(f, R, cx, cy);
     cityGrate(f, R, cx, cy);
     cityFinish(f);

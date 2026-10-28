@@ -597,8 +597,8 @@
     const TL = D.LV(20);
     const dress = (g, cls) => KR.War && KR.War.dress(g, cls);
     const patrolPool = ['manatarms', 'pikeman']; // the streets are walked by city guards only; soldiers wait in the barracks
-    const king = mk('king', kx, ky, { type: 'king', name: F.king, title: `King of ${F.city}`, level: D.LV(24), gender: 'm', race: 'human' });
-    king.hpMax = king.hp = 60000; king.dmg = 420; king.delay = 1.8; king.ac = 2000; king.static = true; king.r = 14; king.speed = 120; king.leash = 500; king.passive = true; king.aggroR = 0; king.scale = 1.2; king.res = { fire: 80, cold: 80, magic: 80, poison: 80, disease: 80 };
+    const king = mk('king', kx, ky, { type: 'king', name: F.king, title: `King of ${F.city}`, level: D.LV((D.KING_STATS && D.KING_STATS.lvl) || 24), gender: 'm', race: 'human' });
+    const KS = D.KING_STATS || { hp: 60000, dmg: 420, delay: 1.8 }; king.hpMax = king.hp = KS.hp; king.dmg = KS.dmg; king.delay = KS.delay; king.ac = 2000; king.static = true; king.r = 14; king.speed = 120; king.leash = 500; king.passive = true; king.aggroR = 0; king.scale = 1.2; king.res = { fire: 80, cold: 80, magic: 80, poison: 80, disease: 80 };
     for (let i = 0; i < 4; i++) { const [gx, gy] = P(hall, 'guard', i); const g = mk('royalguard', gx, gy, { type: 'guard', title: 'Royal Guard', level: D.LV(22), gender: 'm' }); Sys.makeGuard(g, true); dress(g, 'knight'); }
     // City guards at gates
     const gates = cd.gates;
@@ -640,9 +640,9 @@
     const fields = cd.fields;
     for (let i = 0; i < 2; i++) { const fl = fields[i % 2]; const fm = mk('farmer', (fl[0] + 2) * TS, (fl[1] + 2) * TS); fm.work = 'farm'; fm.field = fl; fm.home = U.pick(bs.filter((b) => b.type === 'house'), rnd); }
     const houses = bs.filter((b) => b.type === 'house');
-    const nTown = 2 + lvl; // (half as many idlers as before: the town has work to show instead)
-    for (let i = 0; i < nTown; i++) { const h = houses[i % houses.length]; const role = i % 4 === 3 ? 'drunk' : 'townsfolk'; const t = mk(role, (cx + (rnd() - 0.5) * 16) * TS, (cy + (rnd() - 0.5) * 8) * TS); t.home = h; t.inn = inn; if (role === 'drunk') t.drunkLvl = 0; }
-    for (let i = 0; i < 1 + Math.floor(lvl / 4); i++) { const ch = mk('child', (cx + (rnd() - 0.5) * 8) * TS, (cy - 2) * TS); ch.home = houses[i % houses.length]; ch.scale = 0.7; }
+    // no idle townsfolk, drunks or children wandering about: everyone in town has a job (vendors, the inn, the farms,
+    // the court, the workers and mill hands, the guards); the town shows its work instead
+    void houses; void inn;
     // Outpost (neutral) is spawned once with Iron (any)
     if (f === 'crown' && !G.ents.some((e) => e.role === 'outpost')) {
       const ob = W.buildings.find((b) => b.type === 'outpost');
@@ -653,7 +653,7 @@
   };
   Sys.makeGuard = function (g, post) {
     const F = D.FACTIONS[g.faction];
-    g.hpMax = g.hp = Math.round(G.mobHp(g.level) * 3); g.dmg = Math.round(3 + g.level * 3.2); g.delay = 2.0; g.speed = 135; g.ac = 900; g.r = 12; g.static = post; g.passive = true; g.aggroR = 260; g.leash = 900;
+    g.hpMax = g.hp = Math.round(G.mobHp(g.level) * (D.GUARD_HP || 3)); g.dmg = Math.round(3 + g.level * (D.GUARD_DMG || 3.2)); g.delay = 2.0; g.speed = 135; g.ac = 900; g.r = 12; g.static = post; g.passive = true; g.aggroR = 260; g.leash = 900;
     g.res = { fire: 40, cold: 40, magic: 40, poison: 40, disease: 40 };
     g.look = Object.assign(g.look || {}, { armor: { kind: 'plate', col: g.role === 'royalguard' ? '#d8c890' : '#9ea2aa', trim: F.banner }, helm: 'plate', helmPlume: F.banner, weapon: g.faction === 'iron' ? 'axe' : g.faction === 'sylvan' ? 'spear' : '1HS', offhand: g.faction === 'sylvan' ? null : 'shield', shieldCol: F.banner, shieldEmb: F.trim, cape: g.role === 'royalguard' ? F.banner : null, hat: null });
   };

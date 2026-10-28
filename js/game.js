@@ -76,9 +76,15 @@
   };
   function addStats(it, ilvl, q, bias) {
     const n = 1 + Math.floor(ilvl / 18) + (q > 1.05 ? 1 : 0) + (q > 1.25 ? 1 : 0);
-    const pool = bias ? bias.concat(D.STATS) : D.STATS;
+    // armour and weapons roll the stats their wearers use (no Intelligence on a warrior's plate); jewels roll anything
+    const kp = it.kind === 'armor' && D.KIND_STATS && D.KIND_STATS[it.ak] ? D.KIND_STATS[it.ak] : it.kind === 'weapon' && D.WEAPON_STATS ? D.WEAPON_STATS[it.wt] || ['STR', 'STA', 'AGI', 'DEX'] : null;
+    if (kp && !bias) bias = kp.slice().sort(() => Math.random() - 0.5);
+    const pool = kp ? bias.concat(kp) : bias ? bias.concat(D.STATS) : D.STATS;
     for (let i = 0; i < n; i++) { const s = bias && i < 2 ? bias[i] : pool[Math.floor(Math.random() * pool.length)]; it.stats[s] = (it.stats[s] || 0) + Math.max(1, Math.round((1 + ilvl / 4.2) * q * (0.75 + Math.random() * 0.4))); }
-    if (ilvl > 10 && Math.random() < 0.5) it.hp += Math.round(ilvl * 1.2 * q);
+    // heavy armour carries health; plate, chain and leather sometimes steady breathing (endurance) too
+    const heavy = it.kind === 'armor' && (it.ak === 'plate' || it.ak === 'chain');
+    if (ilvl > 10 && (heavy || Math.random() < 0.5)) it.hp += Math.round(ilvl * (it.ak === 'plate' ? 1.8 : heavy ? 1.4 : 1.2) * q);
+    if (it.kind === 'armor' && ['plate', 'chain', 'leather'].includes(it.ak) && ilvl > 10 && Math.random() < 0.35) it.endRegen = +((it.endRegen || 0) + 0.2 + ilvl * 0.012 * q).toFixed(1);
   }
   function wIcon(wt) { return { '1HS': '🗡', '2HS': '⚔', '1HB': '🔨', '2HB': '🪄', '1HP': '🔪', 'H2H': '🥊', 'ARC': '🏹', 'THR': '🌟', 'TOME': '📕' }[wt]; }
   function aIcon(slot) { return { head: '⛑', chest: '🥋', hands: '🧤', legs: '👖', feet: '🥾' }[slot] || '🛡'; }
@@ -157,7 +163,7 @@
     if (mods.hpPct) p.hpMax = Math.round(p.hpMax * (1 + mods.hpPct)); if (mods.manaPct && p.manaMax) p.manaMax = Math.round(p.manaMax * (1 + mods.manaPct));
     if (p.hp == null) p.hp = p.hpMax; else if (p.hpMax !== oldMax) p.hp = Math.min(p.hpMax, p.hp);
     if (p.mana == null) p.mana = p.manaMax; else p.mana = Math.min(p.manaMax, p.mana);
-    p.endurMax = Math.round((60 + c.level * 6 + st.STA * 0.3 + st.AGI * 0.2) * (1 + (mods.endPct || 0)));
+    p.endurMax = Math.round((60 + c.level * 7 + st.STA * 0.35 + st.AGI * 0.2) * (1 + (mods.endPct || 0)));
     if (p.endur == null) p.endur = p.endurMax; else p.endur = Math.min(p.endurMax, p.endur);
     p.level = c.level;
     p.speed = 128 * (1 + Math.max(mods.speed || 0, 0)) * (1 - (p.snare || 0));
@@ -174,6 +180,7 @@
   const passCache = new Map();
   G.passiveMods = function (c) { const key = c.cls + '|' + c.level; let m = passCache.get(key); if (!m) { m = {}; for (const P of D.classPassives(c.cls)) if (P.level <= c.level) for (const k in P.mods) m[k] = (m[k] || 0) + P.mods[k]; if (D.classTraining) for (const [pk, lv] of D.classTraining(c.cls)) if (lv <= c.level && D.PASSIVES[pk]) for (const k in D.PASSIVES[pk].mods) m[k] = (m[k] || 0) + D.PASSIVES[pk].mods[k]; passCache.set(key, m); } return m; };
   G.buffMods = function (e) { const m = {}; for (const b of e.buffs) { if (!b.mods) continue; for (const k in b.mods) m[k] = (m[k] || 0) + b.mods[k]; }
+    if (e.c && e.c.equip && (e.type === 'player' || e.type === 'merc') && G.setMods) { const sm = G.setMods(e.c); for (const k in sm) m[k] = (m[k] || 0) + sm[k]; }
     if (e.c && e.c.cls && (e.type === 'player' || e.type === 'merc')) { const pm = G.passiveMods(e.c); for (const k in pm) m[k] = (m[k] || 0) + pm[k]; } if (e.c && e.type === 'player' && e.c.pstance && D.PSTANCES[e.c.pstance]) { const sm = D.PSTANCES[e.c.pstance].mods; for (const k in sm) m[k] = (m[k] || 0) + sm[k]; } return m; };
   // class abilities: level-1 ones come with the class; the rest are trained at your guild for coin once you reach their level
   G.skillPrice = (lvl) => Math.round(40 + lvl * lvl * 24);
@@ -267,6 +274,7 @@
     look.bare = false;
     // plain clothes keep their own colours (a white silk shirt, navy trousers)
     if (shirt && chest.col) look.armor.col = chest.col;
+    if (shirt && chest.cset && chest.trim) look.armor.trim = chest.trim; // a class set shows its own colours
     if (legs && !legs.loin && legs.col) look.pants = legs.col;
     if (shirt && /silk shirt/i.test(chest.name || '')) look.sleeves = 'long';
     look.shirtOnly = !!(shirt && chest.ak === 'cloth' && !look.robe && (chest.plainClothes || /shirt|tunic|blouse|doublet|jerkin/i.test(chest.name || '')));
@@ -352,6 +360,8 @@
   G.damage = function (src, tgt, amt, opt = {}) {
     if (!tgt || tgt.dead || amt <= 0) return 0;
     if (tgt.invuln || (tgt.type === 'npc' && !(src && src.raider))) { G.float(tgt, 'IMMUNE', '#ccc'); return 0; }
+    // every class hits with its balance weight (D.CLASS_POWER), heroes, their pets and class mercenaries alike
+    { const ow = src && (src.c ? src : src.owner && src.owner.c ? src.owner : null); if (ow && D.CLASS_POWER && !tgt.c && tgt.type !== 'player') { const P = D.CLASS_POWER[ow.c.cls] || 1; amt *= 1 + (P - 1) * Math.pow(U.clamp(((ow.c.level || 1) - 1) / 49, 0, 1), 0.8); } } // the weight grows in with level: low levels stay as they were
     amt = Math.round(amt * (tgt.dmgTaken || 1) * G.lvlScale(src, tgt));
     // rune
     const rune = tgt.buffs.find((b) => b.rune > 0);
@@ -480,7 +490,7 @@
     if (a.k === 'item') return { id: a.id, kind: 'item', name: a.name, icon: a.icon };
     return null;
   };
-  G.endCost = (p, def) => (!def || def.kind === 'spell' || def.passive || (def.kind !== 'skill' && def.kind !== 'weapon')) ? 0 : Math.round(Math.min(5 + (def.cd || 0) * 0.6, 25) * (1 + (p.level || 1) / 40));
+  G.endCost = (p, def) => (!def || def.kind === 'spell' || def.passive || (def.kind !== 'skill' && def.kind !== 'weapon')) ? 0 : Math.round(Math.min(5 + (def.cd || 0) * 0.6, 25) * (1 + (p.level || 1) / 90)); // costs grow far slower than the pool and regeneration
   // low on mana or endurance: the action still works at half strength
   G.LOW_MIN = 0.25;
   const WEAK_KEEP = ['pet', 'gate', 'bind', 'fd', 'lunge', 'taunt'];
@@ -803,7 +813,10 @@
         case 'fd': src.fd = true; src.cast = null; for (const m of G.ents) if (m.hate && m.hate.has(src)) { m.hate.delete(src); if (!m.hate.size) m.inCombat = false; } if (src === G.player) { G.player.autoAttack = false; G.log('You fall to the ground, feigning death.', 'spell', '#cccccc'); } break;
         case 'mana': src.mana = Math.min(src.manaMax, src.mana + src.manaMax * e.pct); G.float(src, '+mana', '#7ab8ff'); break;
         case 'cannibal': { const amt = Math.round(src.hpMax * 0.08); if (src.hp > amt + 5) { src.hp -= amt; src.mana = Math.min(src.manaMax, src.mana + amt * 0.9); G.float(src, '-' + amt + ' hp → mana', '#7ab8ff'); } break; }
-        case 'lunge': { const d = Math.hypot(tgt.x - src.x, tgt.y - src.y); if (d > 40) { const nx = tgt.x - (tgt.x - src.x) / d * (tgt.r + src.r + 6), ny = tgt.y - (tgt.y - src.y) / d * (tgt.r + src.r + 6); if (!W.solidAtPx(nx, ny)) { G.fxAdd({ k: 'dash', x0: src.x, y0: src.y, x1: nx, y1: ny, life: 0.3 }); src.x = nx; src.y = ny; } } break; }
+        case 'lunge': { const d = Math.hypot(tgt.x - src.x, tgt.y - src.y); if (d > 40) { const nx = tgt.x - (tgt.x - src.x) / d * (tgt.r + src.r + 6), ny = tgt.y - (tgt.y - src.y) / d * (tgt.r + src.r + 6); { // dash along the line in short steps and stop at the first wall: never through one
+          const L = Math.hypot(nx - src.x, ny - src.y), n = Math.ceil(L / 6); let x = src.x, y = src.y; const solid = (px, py) => W.solidAtPx(px - 8, py - 4) || W.solidAtPx(px + 8, py - 4) || W.solidAtPx(px - 8, py + 6) || W.solidAtPx(px + 8, py + 6);
+          for (let i = 1; i <= n; i++) { const x2 = src.x + (nx - src.x) * i / n, y2 = src.y + (ny - src.y) * i / n; if (solid(x2, y2)) break; x = x2; y = y2; }
+          if (x !== src.x || y !== src.y) { G.fxAdd({ k: 'dash', x0: src.x, y0: src.y, x1: x, y1: y, life: 0.3 }); src.x = x; src.y = y; } } } break; }
         case 'pet': KR.Sys.summonPet(src, e, def); break;
         case 'petstrike': { // the troll brings both fists down on your target
           const pet = src.pet; if (!pet || pet.dead) { if (src === G.player) G.log('Your troll is not with you. Call it first.', 'sys', '#ffb24a'); break; }
@@ -983,7 +996,8 @@
     const med = G.hasSkill(c, 'meditation') ? (p.sit ? 1.6 : 1.15) : 1;
     const rHp = (0.1 + c.level * 0.035 + p.stats.STA / 350 + p.regenB) * sitM * (inCombat ? 0.35 : 1) * (1 + (p.regenPct || 0));
     const rMana = p.manaMax ? (0.15 + c.level * 0.02 + p.manaRegenB) * sitM * med * (inCombat ? 0.4 : 0.8) : 0;
-    const rEnd = p.endurMax ? (0.6 + c.level * 0.04 + p.stats.STA / 300 + (p.endRegenB || 0)) * sitM * (inCombat ? 0.5 : 1.1) * (1 + (p.endRegenPct || 0)) : 0;
+    // a fighter catches their breath between blows: endurance keeps coming back in combat, if more slowly
+    const rEnd = p.endurMax ? (0.8 + c.level * 0.07 + p.stats.STA / 250 + (p.endRegenB || 0)) * sitM * (inCombat ? 0.85 : 1.2) * (1 + (p.endRegenPct || 0)) : 0;
     p.regenRates = { hp: rHp, mana: rMana, end: rEnd };
     p.hp = Math.min(p.hpMax, p.hp + rHp * dt);
     if (p.manaMax) p.mana = Math.min(p.manaMax, p.mana + rMana * dt);
@@ -998,6 +1012,13 @@
 
   G.moveEnt = function (e, dx, dy, opts) {
     if (G.moveScale) { const k = G.moveScale(e); dx *= k; dy *= k; } // the 3D view slows everyone to real walking and running speeds
+    // walls are solid whatever the speed: a long step (a lag spike, a dash, a far walker's catch-up step) is taken as
+    // short ones, each checked against the walls, so nobody can skip through a wall in a single stride
+    const len = Math.hypot(dx, dy);
+    if (len > 6 && !(e.fly && e.type === 'mob')) { const n = Math.min(64, Math.ceil(len / 6)); for (let i = 0; i < n; i++) moveStep(e, dx / n, dy / n, opts); return; }
+    moveStep(e, dx, dy, opts);
+  };
+  function moveStep(e, dx, dy, opts) {
     let r = Math.min(e.r, 12);
     let blocked = (x, y) => W.solidAtPx(x - r, y - 4, opts) || W.solidAtPx(x + r, y - 4, opts) || W.solidAtPx(x - r, y + 6, opts) || W.solidAtPx(x + r, y + 6, opts);
     // the wall-walk: up the stairs inside a city wall you can step onto the wall and walk along its top;
@@ -1041,7 +1062,7 @@
     // door auto open
     const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS);
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const d = W.doorAt[(ty + j) * W.W + tx + i]; if (d && (!d.locked || (opts && opts.key && opts.key(d.locked)))) { if (d.open < 0.1 && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 600) KR.A.sfx('door', 0.4); d.want = 1; d.last = G.now; } }
-  };
+  }
 
   G.statusTick = function (e, dt) {
     if (e.stun > 0) e.stun -= dt; if (e.root > 0) e.root -= dt; if (e.mez > 0) e.mez -= dt; if (e.fear > 0) e.fear -= dt;
@@ -1299,6 +1320,8 @@
     const uq = G.rollUnique(lv, e.boss ? 0.4 : e.named ? 0.1 : 0.004); if (uq) loot.push(uq);
     if (e.boss || e.named) { const wn = D.UNIQUE_WORN.filter((u) => Math.abs(u.lvl - lv) <= 8); if (wn.length && Math.random() < (e.boss ? 0.3 : 0.06)) loot.push(G.makeUniqueWorn(e.boss === 'ignaroth' ? D.UNIQUE_WORN.find((u) => u.id === 'w_wyrmmantle') : e.boss === 'aerathos' ? D.UNIQUE_WORN.find((u) => u.id === 'w_titanbelt') : U.pick(wn))); }
     if (Math.random() < 0.05) loot.push(G.makePotion(Math.random() < 0.5 ? 'food' : 'drink', Math.min(4, G.tierOfLevel(lv))));
+    // the class sets: about one piece in ten kills of the greatest bosses, a better chance from the enemy king
+    if (D.SET_DROP && ((e.boss && lv >= D.SET_DROP.minBossLv) || e.type === 'king')) { const sp = G.rollClassSet(e.type === 'king' ? D.SET_DROP.kingChance : D.SET_DROP.chance); if (sp) loot.push(sp); }
     return { coins, items: loot };
   };
   G.randomGear = function (lv, q) {
@@ -1307,8 +1330,9 @@
     // bias toward usable gear for the player
     const useful = Math.random() < 0.65;
     let it;
-    if (r < 0.38) { const wts = useful ? C.weapons.concat(C.ranged) : Object.keys(D.WEAPON_TYPES); it = G.makeWeapon(U.pick(wts), tier, { ilvl: lv, q }); }
-    else if (r < 0.85) { const aks = useful ? D.ARMOR_ALLOWED(p.c.cls) : D.ARMOR_KINDS; it = G.makeArmor(U.pick(aks), U.pick(D.ARMOR_SLOTS), tier, { ilvl: lv, q }); }
+    const cb = useful && D.CLASS_STATS ? D.CLASS_STATS[p.c.cls] : null; // gear meant for you leans to your class's stats
+    if (r < 0.38) { const wts = useful ? C.weapons.concat(C.ranged) : Object.keys(D.WEAPON_TYPES); it = G.makeWeapon(U.pick(wts), tier, { ilvl: lv, q, bias: cb }); }
+    else if (r < 0.85) { const aks = useful ? [C.armor || D.ARMOR_ALLOWED(p.c.cls)[0]].concat(D.ARMOR_ALLOWED(p.c.cls)) : D.ARMOR_KINDS; it = G.makeArmor(U.pick(aks), U.pick(D.ARMOR_SLOTS), tier, { ilvl: lv, q, bias: cb }); }
     else if (r < 0.92 && C.shield) it = G.makeShield(tier, { ilvl: lv, q });
     else if (r < 0.96) it = G.makeWorn(Math.random() < 0.5 ? 'back' : 'waist', tier, { ilvl: lv, q });
     else it = G.makeJewel(Math.random() < 0.5 ? 'ring' : 'neck', tier, { ilvl: lv, q });
@@ -1356,6 +1380,32 @@
     const mine = near.filter((u) => u.classes.includes(p.c.cls));
     const u = mine.length && Math.random() < 0.7 ? U.pick(mine) : U.pick(near);
     return G.makeUnique(u);
+  };
+  // ---------- the top-tier class sets (D.CLASS_GEAR_SETS): rare drops from the greatest bosses ----------
+  G.makeSetPiece = function (cls, what) {
+    const S = D.CLASS_GEAR_SETS && D.CLASS_GEAR_SETS[cls]; const C = D.CLASSES[cls]; if (!S || !C) return null;
+    const opt = { ilvl: D.MAX_LEVEL + 2, q: 1.5, bias: D.CLASS_STATS[cls] };
+    let it;
+    if (D.ARMOR_SLOTS.includes(what)) { const ak = C.armor || 'cloth'; it = G.makeArmor(ak, what, 5, Object.assign({ name: `${S.pre} ${D.SET_SLOT_NAMES[ak][what]}` }, opt)); it.cset = cls; }
+    else if (what === 'shield' && S.shield) it = G.makeShield(5, Object.assign({ name: S.shield }, opt));
+    else { const w = S.weapons[+what || 0] || S.weapons[0]; it = G.makeWeapon(w[0], 5, Object.assign({ name: w[1] }, opt)); if (Math.random() < 0.6) G.addProc(it); it.name = w[1]; }
+    it.set = S.set; it.classes = [cls]; it.lore = S.lore; it.col = S.col; it.trim = S.trim; it.req = D.LV(18); it.unique = it.unique || 'set_' + cls + '_' + what; it.tier = 5;
+    it.value = Math.round((it.value || 100) * 3.5);
+    return it;
+  };
+  G.setPieces = (cls) => { const S = D.CLASS_GEAR_SETS[cls]; if (!S) return []; return D.ARMOR_SLOTS.slice().concat(S.weapons.map((w, i) => String(i)), S.shield ? ['shield'] : []); };
+  // one piece, for a class picked half the time from the heroes in the fight (you and your mercenaries), else any class
+  G.rollClassSet = function (chance) {
+    if (!D.CLASS_GEAR_SETS || Math.random() >= chance) return null;
+    const p = G.player; const party = [p.c.cls].concat((p.mercs || []).filter((m) => m.c).map((m) => m.c.cls));
+    const cls = Math.random() < D.SET_DROP.partyBias ? U.pick(party) : U.pick(Object.keys(D.CLASS_GEAR_SETS));
+    return G.makeSetPiece(cls, U.pick(G.setPieces(cls)));
+  };
+  // set bonuses for the armour pieces worn (2, 4 and all 5)
+  G.setMods = function (c) {
+    const n = {}; for (const sl of D.ARMOR_SLOTS) { const it = c.equip && c.equip[sl]; if (it && it.cset) n[it.cset] = (n[it.cset] || 0) + 1; }
+    const m = {}; for (const cls in n) { const S = D.CLASS_GEAR_SETS[cls]; if (!S) continue; for (const k of [2, 4, 5]) if (n[cls] >= k && S.bonus[k]) for (const key in S.bonus[k]) m[key] = (m[key] || 0) + S.bonus[k][key]; }
+    return m;
   };
   G.tryBlock = function (tgt, att) {
     const c = tgt.c; if (!c || !c.equip || !c.equip.secondary || !c.equip.secondary.shield) return false;

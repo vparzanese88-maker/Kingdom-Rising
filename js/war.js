@@ -157,8 +157,8 @@
   War.dress = function (e, cls) {
     const S = D.SOLDIERS[cls]; if (!S) return e; const F = D.FACTIONS[e.faction];
     e.soldier = cls; e.title = e.title === 'Patrol' ? 'Kingdom Guard' : e.title && e.title !== 'Guard' ? e.title : S.name;
-    const base = e.raider ? G.mobHp(e.level) * S.hp : G.mobHp(e.level) * 3 * (S.hp / 3.2);
-    e.hpMax = e.hp = Math.round(base); e.dmg = Math.round((3 + e.level * (e.raider ? 2.6 : 3.2)) * S.dmg);
+    const base = e.raider ? G.mobHp(e.level) * S.hp : G.mobHp(e.level) * (D.GUARD_HP || 3) * (S.hp / 3.2);
+    e.hpMax = e.hp = Math.round(base); e.dmg = Math.round((3 + e.level * (e.raider ? 2.6 : D.GUARD_DMG || 3.2)) * S.dmg);
     e.ranged = S.ranged ? 'archer' : null; e.proj = S.proj || null; e.delay = S.delay || 2.2; e.healer = false; e.priest = !!S.healer; e.mounted = !!S.mounted;
     if (S.speed) e.speed = S.speed; e.antiSiege = S.antiSiege || 1;
     e.mclass = S.kit; e.mabil = (D.MOB_CLASS_KITS[S.kit] || []).slice(0, Math.min(4, D.mobAbilityCount(e.level) + 1)); e.abCd = {}; e.abT = 2 + Math.random() * 3;

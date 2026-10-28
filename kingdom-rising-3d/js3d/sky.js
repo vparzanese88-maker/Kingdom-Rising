@@ -219,14 +219,17 @@ export function updateSky(dt, camPos, ctx) {
   const lightDir = sunUp ? sd : md;
   const overcast = 1 - cloudK * 0.55;
   const darkMul = 1 - regDark * 0.62;
-  let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.6 * nightK * (1 - cloudK * 0.5) * darkMul; // moonlight you can see by
-  let hemiI = (0.34 + 0.69 * dayK) * (0.85 + cloudK * 0.25) * darkMul; // nights stay dark but readable
+  // nights stay readable: the moon is bright enough to see the road and an enemy 30-40 m off, and rain or cloud only
+  // dims it a little (night already takes away most of the light); gloomy regions darken nights less than days
+  const darkN = 1 - regDark * (0.62 - 0.3 * nightK);
+  let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.95 * nightK * (1 - cloudK * 0.25) * darkN; // moonlight you can see by
+  let hemiI = (0.52 + 0.51 * dayK) * (0.9 + cloudK * 0.2) * (dayK > 0.5 ? darkMul : darkN); // the same by day; a brighter floor of skylight at night
   if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.62 : 0.13; } // sewers: grey daylight leaks down through the street grates
   hemiI *= 1 - insideK * 0.42; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
   sun.color.copy(sunUp ? u.uSunCol.value : C(0.55, 0.65, 0.95));
   hemi.intensity = hemiI + flash * 3;
-  hemi.color.copy(zen).lerp(C(0.8, 0.85, 0.95), 0.35).multiplyScalar(1.4);
+  hemi.color.copy(zen).lerp(C(0.78, 0.84, 0.98), 0.35 + 0.35 * nightK).multiplyScalar(1.4); // moonlit blue-grey at night, not the near-black night sky
   hemi.groundColor.setRGB(0.36, 0.3, 0.24).multiplyScalar(0.4 + 0.6 * dayK);
   if (insideK > 0.01 && !dungeon) { hemi.color.lerp(WARM_IN, insideK * 0.45); hemi.groundColor.lerp(WARM_IN_G, insideK * 0.5); } // indoors: firelight warmth
   if (dungeon) { hemi.color.setRGB(0.5, 0.55, 0.7); hemi.groundColor.setRGB(0.25, 0.2, 0.16); if (geo.dgnId === 'frostfang') hemi.color.setRGB(0.5, 0.7, 0.95); if (geo.dgnId === 'abyss') hemi.color.setRGB(0.8, 0.35, 0.3); }
@@ -296,5 +299,5 @@ export function updateSky(dt, camPos, ctx) {
   sky.darkness = dungeon ? 1 : K3.clamp(Math.max(1 - sky.lightLevel, insideK * 0.8), 0, 1);
   // a touch more bloom at night when the fires glow
   if (K3.bloom) { K3.bloom.strength = 0.2 + sky.darkness * 0.08; K3.bloom.threshold = 0.9; } // a soft glow around lamps at night, never a glare
-  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.4 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
+  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.65 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
 }

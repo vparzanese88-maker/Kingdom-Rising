@@ -26,6 +26,8 @@
     const p = G.player; if (!p) return; const c = p.c;
     n = U.clamp(Math.round(n), 1, D.MAX_SHOWN); const lv = Math.min(D.MAX_LEVEL, D.LV(n));
     c.level = lv; c.xp = 0;
+    // a hero who got here by playing has trained their weapons and spell schools to the level's cap: so does this one
+    { const wc = D.weaponSkillCap(lv); for (const wt in D.WEAPON_TYPES) c.wskill[wt] = Math.max(c.wskill[wt] || 0, wc); c.wskill.SHIELD = Math.max(c.wskill.SHIELD || 0, wc); for (const sc of D.SCHOOLS || []) c.school[sc] = Math.max(c.school[sc] || 0, D.schoolSkillCap(lv)); }
     // spells: every one of the class's spells up to this level is known (as if bought); none above it
     if (D.CLASS_SPELLS[c.cls]) { const all = D.CLASS_SPELLS[c.cls]; c.spells = all.filter((id) => D.SPELLS[id] && D.SPELLS[id].level <= lv); }
     G.recalc(p); p.hp = p.hpMax; p.mana = p.manaMax; p.endur = p.endurMax;
@@ -40,7 +42,7 @@
   Ch.heal = function () { const p = G.player; if (!p) return; p.hp = p.hpMax; p.mana = p.manaMax; p.endur = p.endurMax; if (p.pet && !p.pet.dead) p.pet.hp = p.pet.hpMax || p.pet.hp; say('Fully restored.'); };
   // the best tier of everything the hero's class can wear, at level 20
   Ch.endGameKit = function () {
-    const p = G.player; if (!p) return; const c = p.c; const C = D.CLASSES[c.cls]; const T = 5, opt = { ilvl: D.MAX_LEVEL, q: 1.4 };
+    const p = G.player; if (!p) return; const c = p.c; const C = D.CLASSES[c.cls]; const T = 5, opt = { ilvl: D.MAX_LEVEL, q: 1.4, bias: D.CLASS_STATS && D.CLASS_STATS[c.cls] };
     if (D.shown(c.level) < D.MAX_SHOWN) Ch.setLevel(D.MAX_SHOWN);
     const put = (it) => { if (!it) return; if (G.canUse && !G.canUse(c, it)) return; it.req = 1; const old = c.equip[it.slot]; c.equip[it.slot] = it; if (old && Sys.addItem) Sys.addItem(old); };
     const ak = C.armor || 'cloth';

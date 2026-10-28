@@ -6,7 +6,8 @@ import { MB } from './mb.js';
 
 const KR = window.KR, G = KR.G;
 // one light that is always in the scene (switching lights on and off would make every material recompile)
-const light = new THREE.PointLight(0xffb060, 0, 10, 1); // gentle falloff: no blinding hot spot right beside the flame light.castShadow = false; K3.scene.add(light);
+// gentle falloff: no blinding hot spot right beside the flame
+const light = new THREE.PointLight(0xffb060, 0, 11, 1); light.castShadow = false; K3.scene.add(light);
 let model = null, modelFor = '', boundRig = null, flame = null;
 const glowMat = (hex, k = 3) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), toneMapped: false });
 
@@ -45,6 +46,7 @@ function build(id) {
 K3.lightModel = (id) => { const m = build(id); return m.g; };
 let flick = 0;
 K3.updaters.push((dt, t) => {
+  if (light.parent !== K3.scene) K3.scene.add(light); // the light you carry is always in the world
   // a cutscene borrows this light as a soft key light on the speaker's face (scene3d.js sets K3.sceneKey)
   const sk = K3.sceneKey; if (sk) { light.position.copy(sk.pos); light.color.set(0xffe4cc); light.distance = 3.5; light.intensity += (sk.i - light.intensity) * Math.min(1, dt * 5); light._keyed = true; return; }
   if (light._keyed) { light._keyed = false; light.distance = 10; light.color.set(0xffb060); light.intensity = 0; }
@@ -65,9 +67,9 @@ K3.updaters.push((dt, t) => {
   const steady = id === 'phial' || id === 'sunstone' || id === 'glowcap';
   flick += dt; const fl = steady ? 1 + Math.sin(t * 1.3) * 0.04 : 1 + Math.sin(t * 13) * 0.07 + Math.sin(t * 29.3) * 0.05 + (Math.random() - 0.5) * 0.05;
   // lights are measured in candela: a candle needs a lamp's strength to light the ground around you at night
-  const want = lit ? L.lum * (2 + 14 * dark) * fl : 0;
+  const want = lit ? L.lum * (3 + 24 * dark) * fl : 0; // a cheap candle still lights the ground and walls around you
   light.intensity += (want - light.intensity) * Math.min(1, dt * (lit ? 6 : 14));
-  light.color.set(L.col); light.distance = L.r * 1.6;
+  light.color.set(L.col); light.distance = Math.max(11, L.r * 1.6); // reaches 10-12 m, more for better lights
   // where the light sits: at the model if we can see it, else at the hip in front of the eyes
   // the light itself sits a little above and ahead of the head, so nothing is lit from a hand's breadth away
   { const P = 0.05, yaw = K3.view ? K3.view.yaw : 0; const fy = model && model.g.parent ? model.g.getWorldPosition(light.position).y + 1.0 : K3.camera.position.y + 0.25; light.position.set(p.x * P - Math.sin(yaw) * 0.4, fy, p.y * P - Math.cos(yaw) * 0.4); }

@@ -34,6 +34,33 @@ export function buildLights(flames) {
     cands.push({ x, y, z, r: Math.max(8, (L.r || 160) * PX * 1.7), col: new THREE.Color(c[0], c[1], c[2]).convertSRGBToLinear(), fl: L.fl || 0.1, base: KIND_I[k] || 16, b: L.b || null, ph: Math.random() * 10, k });
   }
   lights.cands = cands;
+  buildPools();
+}
+// every lamp, torch and brazier also throws a soft warm pool of light on the ground around it, drawn as one additive
+// mesh for the whole realm: towns stay lit at night on any preset, however few real lights it can afford
+let pools = null; const poolU = { uK: { value: 0 } };
+function poolTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+let poolT = null;
+function buildPools() {
+  if (pools) { K3.scene.remove(pools); pools.geometry.dispose(); pools = null; }
+  const list = cands.filter((c) => c.k !== 'ghost'); if (!list.length) return;
+  poolT = poolT || poolTex();
+  const geom = new THREE.PlaneGeometry(1, 1); geom.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ map: poolT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  mat.onBeforeCompile = (sh) => { sh.uniforms.uK = poolU.uK; sh.fragmentShader = 'uniform float uK;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= uK;'); };
+  const m = new THREE.InstancedMesh(geom, mat, list.length); const M = new THREE.Matrix4(), col = new THREE.Color();
+  list.forEach((c, i) => {
+    const gy = geo.floorAt(c.x / PX, c.z / PX); const rad = Math.min(14, c.r * (c.k === 'lamp' ? 0.75 : 0.6));
+    M.makeScale(rad * 2, 1, rad * 2); M.setPosition(c.x, gy + 0.06, c.z); m.setMatrixAt(i, M);
+    m.setColorAt(i, col.copy(c.col).multiplyScalar(c.k === 'fire' ? 0.9 : 0.75));
+  });
+  m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  m.frustumCulled = false; m.renderOrder = 2; m.castShadow = m.receiveShadow = false; m.userData.lightPools = true;
+  K3.scene.add(m); pools = m;
 }
 const _v = new THREE.Vector3();
 let tick = 0, chosen = [];
@@ -62,6 +89,9 @@ export function updateLights(dt, camPos, ctx) {
     let k = 0; for (let i = 0; i < pool.length; i++) if (!chosen[i]) { while (k < want.length && keep.has(want[k])) k++; chosen[i] = want[k++] || null; }
   }
   const t = K3.time;
+  // the ground pools fade in with the dark (none by day)
+  poolU.uK.value += ((geo.dungeon ? 0.35 : 0.55) * K3.smooth(0.25, 0.8, darkness) - poolU.uK.value) * Math.min(1, dt * 2);
+  if (pools) pools.visible = poolU.uK.value > 0.01;
   for (let i = 0; i < pool.length; i++) {
     const p = pool[i], c = chosen[i];
     if (!c || p.c !== c) { p.l.intensity = Math.max(0, p.l.intensity - dt * 20); if (!c) { if (p.l.intensity <= 0) p.c = null; continue; } if (p.l.intensity > 0.05) continue; p.c = c; p.l.position.set(c.x, c.y, c.z); p.l.color.copy(c.col); p.l.distance = c.r; }

@@ -167,6 +167,50 @@
   };
   D.SLOT_AC = { head: 0.8, chest: 1.5, hands: 0.6, legs: 1.1, feet: 0.6, secondary: 1.2 };
   D.KIND_AC = { plate: 1.0, chain: 0.8, leather: 0.62, cloth: 0.42 };
+  // the stats each kind of armour rolls (plate never rolls caster stats on its own) and the ones each class wants most
+  D.KIND_STATS = { plate: ['STR', 'STA', 'AGI'], chain: ['AGI', 'STR', 'STA', 'DEX'], leather: ['AGI', 'DEX', 'STA', 'WIS'], cloth: ['INT', 'WIS', 'STA', 'CHA'] };
+  D.CLASS_STATS = { warrior: ['STR', 'STA', 'AGI'], paladin: ['STR', 'STA', 'WIS'], shadowknight: ['STR', 'STA', 'INT'], ranger: ['DEX', 'AGI', 'STR'], bard: ['CHA', 'DEX', 'STA'], beastlord: ['AGI', 'STA', 'WIS'],
+    rogue: ['DEX', 'AGI', 'STR'], monk: ['AGI', 'STR', 'STA'], berserker: ['STR', 'STA', 'AGI'], cleric: ['WIS', 'STA', 'STR'], druid: ['WIS', 'STA', 'INT'], shaman: ['WIS', 'STA', 'STR'],
+    necromancer: ['INT', 'STA', 'WIS'], wizard: ['INT', 'STA', 'WIS'], magician: ['INT', 'STA', 'WIS'], enchanter: ['CHA', 'INT', 'STA'], arquebusier: ['DEX', 'AGI', 'STA'], trollcaller: ['WIS', 'STA', 'STR'] };
+  // ---- balance (from the level-20 duel simulation: scratchpad balance report) ----
+  // city guards: health and hit per level (x mobHp, x level); the king's own numbers; every class's damage weight, so
+  // each one clears a guard in about the same time for its role (damage dealers fastest, healers a little slower)
+  D.GUARD_HP = 2.4; D.GUARD_DMG = 3.2;
+  D.KING_STATS = { hp: 26000, dmg: 240, delay: 1.8, lvl: 22 };
+  D.CLASS_POWER = { rogue: 0.78, berserker: 0.8, monk: 1.14, ranger: 1.32, wizard: 2.98, magician: 3.52, necromancer: 3.93, arquebusier: 0.73, beastlord: 1.6, warrior: 0.88, paladin: 2.17, shadowknight: 2.04, bard: 1.68, trollcaller: 2.16, cleric: 1.98, druid: 2.0, shaman: 1.95, enchanter: 2.12 };
+  // ---- the top-tier class sets: one per class, from the world's greatest bosses (rare: about one piece in ten kills,
+  // and not always for your own class). Each has five armour pieces, its signature weapon (and shield) and set bonuses
+  // for 2, 4 and 5 armour pieces worn.
+  D.SET_SLOT_NAMES = {
+    plate: { head: 'Greathelm', chest: 'Cuirass', hands: 'Gauntlets', legs: 'Greaves', feet: 'Sabatons' },
+    chain: { head: 'Coif', chest: 'Hauberk', hands: 'Mailgloves', legs: 'Chausses', feet: 'Warboots' },
+    leather: { head: 'Hood', chest: 'Jerkin', hands: 'Grips', legs: 'Leggings', feet: 'Treads' },
+    cloth: { head: 'Cowl', chest: 'Robe', hands: 'Handwraps', legs: 'Trousers', feet: 'Slippers' },
+  };
+  D.CLASS_GEAR_SETS = {
+    warrior: { set: 'Bulwark of the Unbroken', pre: 'Unbroken', col: '#8f949c', trim: '#b8302a', weapons: [['1HS', 'Oathkeeper']], shield: 'Wall of the Unbroken', lore: 'Worn by the last shield-wall of the old kingdom, who never once gave ground.', bonus: { 2: { hp: 450 }, 4: { acMul: 0.08, endRegen: 2 }, 5: { dmgMul: 0.08, hpPct: 0.08 } } },
+    paladin: { set: 'Raiment of the Dawnward', pre: 'Dawnward', col: '#e8e2d0', trim: '#e0b84a', weapons: [['1HB', 'Lightbringer']], shield: 'Aegis of First Light', lore: 'Forged at sunrise and blessed before the altar of the dawn.', bonus: { 2: { healMul: 0.08 }, 4: { WIS: 20, manaRegen: 2 }, 5: { dmgMul: 0.08, hpPct: 0.06 } } },
+    shadowknight: { set: 'Mantle of the Gravelord', pre: 'Gravelord', col: '#2e2a36', trim: '#8a1a2a', weapons: [['2HS', 'Soulreaver']], lore: 'Black iron quenched in grave water; it is never quite warm.', bonus: { 2: { hp: 450 }, 4: { spellMul: 0.1 }, 5: { dmgMul: 0.1, regen: 3 } } },
+    ranger: { set: "Wildstalker's Garb", pre: 'Wildstalker', col: '#4a6a3a', trim: '#c8b070', weapons: [['1HS', 'Thornfang'], ['ARC', 'Windwhisper Longbow']], lore: 'Mail woven with leaves that never wither.', bonus: { 2: { DEX: 20 }, 4: { rangedMul: 0.12 }, 5: { dmgMul: 0.08, haste: 0.06 } } },
+    bard: { set: 'Regalia of the Songweaver', pre: 'Songweaver', col: '#b8902a', trim: '#3a5ab8', weapons: [['1HS', 'Cantor, the Singing Blade']], lore: 'Every plate hums a different note; together they make a chord.', bonus: { 2: { CHA: 20 }, 4: { manaRegen: 2, spellMul: 0.08 }, 5: { dmgMul: 0.08, haste: 0.06 } } },
+    beastlord: { set: 'Hides of the Packfather', pre: 'Packfather', col: '#6a4a2a', trim: '#c87a3a', weapons: [['H2H', 'Claws of the Packfather']], lore: 'Stitched from the pelt of the first wolf to answer a beastlord\'s call.', bonus: { 2: { AGI: 20 }, 4: { endRegen: 2, regen: 2 }, 5: { dmgMul: 0.1 } } },
+    rogue: { set: 'Nightblade Leathers', pre: 'Nightblade', col: '#2a2a32', trim: '#6a6a7a', weapons: [['1HP', 'Whisper'], ['THR', 'Last Breath Knives']], lore: 'Dyed in squid ink; it drinks the light around it.', bonus: { 2: { DEX: 20 }, 4: { haste: 0.06 }, 5: { dmgMul: 0.1 } } },
+    monk: { set: 'Vestments of the Ironpalm', pre: 'Ironpalm', col: '#d9822b', trim: '#3a2a1a', weapons: [['H2H', 'Fists of the Ironpalm']], lore: 'The wraps of a master who broke a mountain gate with his bare hands.', bonus: { 2: { AGI: 20 }, 4: { endRegen: 2 }, 5: { dmgMul: 0.08, haste: 0.06 } } },
+    berserker: { set: 'Bloodrage Warplate', pre: 'Bloodrage', col: '#6a2a22', trim: '#c8c0b0', weapons: [['2HS', 'Ruin, the Red Axe']], lore: 'Rings of mail that tighten as the wearer\'s fury rises.', bonus: { 2: { STR: 20 }, 4: { hp: 550 }, 5: { dmgMul: 0.1 } } },
+    cleric: { set: 'Vestments of the Lightbearer', pre: 'Lightbearer', col: '#f0ecdc', trim: '#e0c060', weapons: [['1HB', 'Mace of Mercy']], shield: 'Ward of the Faithful', lore: 'A relic of the first temple, still warm with old prayers.', bonus: { 2: { healMul: 0.08 }, 4: { manaRegen: 3 }, 5: { healMul: 0.1, spellMul: 0.1 } } },
+    druid: { set: 'Thornwarden Regalia', pre: 'Thornwarden', col: '#4a6a2a', trim: '#a8c060', weapons: [['2HB', 'Staff of the Old Grove']], lore: 'Grown, not made: the leather still puts out leaves each spring.', bonus: { 2: { WIS: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.1, healMul: 0.08 } } },
+    shaman: { set: 'Spiritcaller Mail', pre: 'Spiritcaller', col: '#3a5a6a', trim: '#c0a060', weapons: [['1HB', 'Totem of the Ancestors']], shield: 'Spirit-Hide Ward', lore: 'Each link is etched with the name of an ancestor who still answers.', bonus: { 2: { WIS: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.1, healMul: 0.06 } } },
+    necromancer: { set: 'Deathweaver Regalia', pre: 'Deathweaver', col: '#2a2430', trim: '#7a8a5a', weapons: [['2HB', 'Staff of Unmaking']], lore: 'Silk spun by spiders that nest in tombs.', bonus: { 2: { INT: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.12 } } },
+    wizard: { set: 'Stormweave Vestments', pre: 'Stormweave', col: '#2a3a8a', trim: '#c0d0ff', weapons: [['2HB', 'Stormcaller']], lore: 'The hem crackles when the air is dry.', bonus: { 2: { INT: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.12 } } },
+    magician: { set: 'Embercall Robes', pre: 'Embercall', col: '#8a2a1a', trim: '#ffb040', weapons: [['2HB', 'Staff of the Living Flame']], lore: 'Woven with fire-salamander thread; it is never cold.', bonus: { 2: { INT: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.12 } } },
+    enchanter: { set: 'Mindweave Raiment', pre: 'Mindweave', col: '#6a3a8a', trim: '#e0c0ff', weapons: [['1HP', "Mesmer's Needle"]], lore: 'Its patterns shift when you are not looking straight at them.', bonus: { 2: { CHA: 20 }, 4: { manaRegen: 3 }, 5: { spellMul: 0.1, haste: 0.05 } } },
+    arquebusier: { set: 'Thunderlock Harness', pre: 'Thunderlock', col: '#5a4a3a', trim: '#c8a040', weapons: [['GUN', 'Valen Thunderlock Royal'], ['1HS', 'Kingsguard Hanger']], lore: 'Powder-blackened mail of the king\'s own marksmen.', bonus: { 2: { DEX: 20 }, 4: { rangedMul: 0.12 }, 5: { dmgMul: 0.08, haste: 0.06 } } },
+    trollcaller: { set: 'Mossbound Hides', pre: 'Mossbound', col: '#4a5a32', trim: '#8ab060', weapons: [['2HB', 'Rootheart Staff']], lore: 'Troll-hide bound with living moss; trolls take its wearer for kin.', bonus: { 2: { WIS: 20 }, 4: { regen: 3, manaRegen: 2 }, 5: { spellMul: 0.1, dmgMul: 0.06 } } },
+  };
+  // where they drop: the top bosses (and, rarely, the enemy king)
+  D.SET_DROP = { minBossLv: 46, chance: 0.1, kingChance: 0.25, partyBias: 0.5 };
+  // weapons roll what their wielders need: staves and tomes for casters, bows and guns for marksmen
+  D.WEAPON_STATS = { '2HB': ['INT', 'WIS', 'STA', 'STR'], TOME: ['INT', 'WIS', 'CHA'], ARC: ['DEX', 'AGI', 'STR'], GUN: ['DEX', 'AGI', 'STA'], THR: ['DEX', 'AGI'], '1HP': ['DEX', 'AGI', 'STR'], H2H: ['AGI', 'STR', 'STA'] };
   D.TIER_ADJ = ['Crude', 'Fine', 'Sturdy', 'Masterwork', 'Exalted', 'Mythic'];
   D.EQUIP_SLOTS = ['head', 'neck', 'back', 'chest', 'hands', 'waist', 'legs', 'feet', 'ring', 'primary', 'secondary', 'range'];
   D.SLOT_NAMES = { head: 'Head', neck: 'Neck', back: 'Cape', chest: 'Chest', hands: 'Hands', waist: 'Belt', legs: 'Legs', feet: 'Feet', ring: 'Ring', primary: 'Primary', secondary: 'Secondary', range: 'Range' };

@@ -100,6 +100,9 @@
     const qc = it.unique ? '#d08aff' : qcol;
     let s = `<div class="tt-n" style="color:${qc}">${UI.icHTML(it, true)} ${esc(it.name)}${it.qty > 1 ? ' ×' + it.qty : ''}</div>`;
     if (it.set) s += `<div style="color:#ffb84a">${esc(it.set)} · ${(it.classes || []).map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ')} only · level ${D.shown(it.req || 50)}</div>`;
+    if (it.cset && D.CLASS_GEAR_SETS && D.CLASS_GEAR_SETS[it.cset]) { const S = D.CLASS_GEAR_SETS[it.cset]; const worn = D.ARMOR_SLOTS.filter((sl) => c.equip[sl] && c.equip[sl].cset === it.cset).length; const nm = { hp: 'health', hpPct: '% health', acMul: '% armour', dmgMul: '% damage', spellMul: '% spell power', healMul: '% healing', rangedMul: '% ranged damage', haste: '% attack speed', regen: ' health per second', manaRegen: ' mana per second', endRegen: ' endurance per second' };
+      const fmt = (o) => Object.entries(o).map(([k, v]) => (/Mul|Pct|haste/.test(k) ? `+${Math.round(v * 100)}${nm[k]}` : `+${v}${nm[k] || ' ' + k}`)).join(', ');
+      s += [2, 4, 5].map((k) => `<div style="color:${worn >= k ? '#8aff9a' : '#8a8478'}">(${k}) ${fmt(S.bonus[k])}</div>`).join('') + `<div class="dim">${worn} of 5 worn</div>`; }
     if (it.unique) s += `<div style="color:#d08aff">Unique${it.classes && it.classes.length ? ' · ' + it.classes.map((k) => (D.CLASSES[k] ? D.CLASSES[k].name : k)).join(', ') + ' only' : ' · any class'}</div>`;
     if (it.kind === 'weapon') s += `<div>${D.WEAPON_TYPES[it.wt].name}${it.twoHand ? ' (two-handed)' : ''}</div><div>Damage <b>${Math.round(it.dmg * G.upMul(it))}</b> · Delay ${it.delay.toFixed(1)}s · <span class="dim">${(it.dmg * G.upMul(it) / it.delay).toFixed(1)} dps</span></div>`;
     if (it.kind === 'armor') s += `<div>${it.shield ? 'Shield' : it.ak === 'misc' ? D.SLOT_NAMES[it.slot] + ' · any class' : esc(it.ak[0].toUpperCase() + it.ak.slice(1)) + ' · ' + D.SLOT_NAMES[it.slot]}</div><div>Armor <b>${Math.round(it.ac * G.upMul(it))}</b></div>`;

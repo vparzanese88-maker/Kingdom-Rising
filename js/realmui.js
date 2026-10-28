@@ -1,4 +1,4 @@
-// Kingdom Rising — the Kingdom panel (Status / Build / Workers / Army / Defenses) and the wood and stone bar on the HUD
+// Kingdom Rising — the Kingdom panel (Overview / Build / Army) and the wood and stone bar on the HUD
 (function () {
   const KR = window.KR;
   const D = KR.D, G = KR.G, W = KR.W, UI = KR.UI, R = KR.Realm;
@@ -35,6 +35,10 @@
 .rm-map { width: 100%; max-width: 300px; aspect-ratio: 1; border-radius: 8px; border: 1px solid rgba(201,164,92,0.45); image-rendering: pixelated; background: #0a0810; }
 .rm-kv { font-size: 12px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
 .rm-kv b { color: #f0d48a; font-weight: 700; }
+.rm-next { border-color: #f0d48a; background: rgba(240,212,138,0.08); } .rm-next h4 { font-size: 16px; }
+.rm-fold { border: 1px solid rgba(201,164,92,0.45); border-radius: 8px; padding: 4px 10px; } .rm-fold summary { cursor: pointer; padding: 6px 0; color: #f0d48a; font-weight: 700; } .rm-fold[open] { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+.rm-sub { margin: 8px 0 0; color: #f0d48a; }
+.rm-card p, .rm-kv, .rm-card .rm-row { font-size: 13px; }
 @media (max-width: 560px) { .rm-grid { grid-template-columns: 1fr; } #realm-bar { transform: translateX(-50%); top: 40px; } }
 `;
   const st0 = document.createElement('style'); st0.textContent = css; document.head.appendChild(st0);
@@ -75,11 +79,12 @@
     w.title.textContent = `Kingdom of ${F.city}`;
     const sc = w.body.querySelector('.rm-pane'); const keep = sc ? sc.scrollTop : 0;
     w.body.innerHTML = `<div class="rm"><div class="rm-res"><span>🪵 Wood ${fmt(st.wood)}<small>+${rt.wood}/min</small></span><span>🪨 Stone ${fmt(st.stone)}<small>+${rt.stone}/min</small></span><span>🪙 ${G.fmtCoins(c.coins)}</span></div>
-      <div class="tabs">${[['status', 'Status'], ['build', 'Build'], ['workers', 'Workers'], ['army', 'Army'], ['defenses', 'Defenses']].map(([k, l]) => `<button class="tab ${tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('')}</div>
+      <div class="tabs">${[['status', '🏰 Overview'], ['build', '🔨 Build'], ['army', '⚔ Army']].map(([k, l]) => `<button class="tab ${tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('')}</div>
       <div class="rm-pane"></div></div>`;
     w.body.querySelectorAll('.tab').forEach((b) => (b.onclick = () => { tab = b.dataset.t; renderRealm(w); }));
     const pane = $('.rm-pane', w.body);
-    ({ status: paneStatus, build: paneBuild, workers: paneWorkers, army: paneArmy, defenses: paneDefenses }[tab] || paneStatus)(pane, f, st, w);
+    if (tab === 'workers') tab = 'status'; if (tab === 'defenses') tab = 'build'; // the old tabs live on inside Overview and Build
+    ({ status: paneOverview, build: paneBuild, army: paneArmy }[tab] || paneOverview)(pane, f, st, w);
     pane.scrollTop = keep;
   }
 
@@ -117,6 +122,27 @@
     const Wr = KR.War; if (!Wr || typeof Wr.spotted !== 'function') return [];
     try { const s = Wr.spotted(f); if (Array.isArray(s)) return s; if (s instanceof Set) return [...s]; } catch (e) {}
     return [];
+  }
+  // ----- Overview: what to do next, your workers, your army (the old Status and Workers tabs together) -----
+  function nextBuild(f) {
+    const ids = R.ORDER.concat(['walls', 'towers']).filter((id) => R.DEFS[id]);
+    let best = null;
+    for (const id of ids) { const c0 = R.can(f, id); if (c0.max || c0.locked || R.building(f, id)) continue; if (!R.has(f, id)) return id; if (!best) best = id; }
+    return best;
+  }
+  function paneOverview(pane, f, st) {
+    const nb = nextBuild(f);
+    if (nb) {
+      const box = h('div', 'rm-card rm-next'); const d = R.DEFS[nb]; const cur = st.buildings[nb] || 0; const can = R.can(f, nb);
+      box.innerHTML = `<h4>Next: ${esc(cur ? R.levelName(nb, cur + 1) || d.name : d.name)} <small>${costHtml(f, can.cost || R.cost(nb, cur + 1))}</small></h4><p>${esc(d.desc)}</p><div class="rm-row"></div>`;
+      const bt = h('button', 'btn gold', cur ? '🔨 Upgrade' : '🔨 Build'); bt.disabled = !can.ok; if (!can.ok) bt.title = can.why || ''; bt.onclick = () => { R.build(f, nb); UI.refresh(); };
+      $('.rm-row', box).appendChild(bt); if (!can.ok && can.why) $('.rm-row', box).appendChild(h('span', 'dim', esc(can.why)));
+      const all = h('button', 'btn small', 'All buildings'); all.onclick = () => { tab = 'build'; UI.refresh(); }; $('.rm-row', box).appendChild(all);
+      pane.appendChild(box);
+    }
+    paneStatus(pane, f, st);
+    const wk = h('details', 'rm-fold'); wk.innerHTML = '<summary>👷 Workers: hire, bodyguards and tools</summary>'; pane.appendChild(wk);
+    paneWorkers(wk, f, st);
   }
   function paneStatus(pane, f, st) {
     const b = st.buildings; const built = R.ORDER.filter((id) => b[id]).map((id) => R.levelName(id, b[id]));
@@ -186,6 +212,8 @@
   function paneBuild(pane, f) {
     pane.appendChild(h('p', 'hint', 'Buildings cost wood and stone. Each goes up on its own plot in town. The Sawmill and Stone Cutter come first; they open the way to the Barracks and everything after.'));
     for (const id of R.ORDER) buildCard(pane, f, id);
+    pane.appendChild(h('h4', 'rm-sub', 'Defences'));
+    paneDefenses(pane, f);
   }
   // ----- Workers -----
   function paneWorkers(pane, f, st) {

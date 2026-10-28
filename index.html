@@ -548,6 +548,17 @@ body.layout-edit .hud-mercs { min-height: 48px; min-width: 180px; background: rg
 body.hud-quiet .hud-menu, body.hud-quiet .hud-chat, body.hud-quiet .hud-bottom, body.hud-quiet .hud-tracker, body.hud-quiet .hud-mercs, body.hud-quiet .hud-group { opacity: .12; transition: opacity .8s; }
 body.hud-quiet .hud-menu:hover, body.hud-quiet .hud-chat:hover, body.hud-quiet .hud-bottom:hover, body.hud-quiet .hud-tracker:hover, body.hud-quiet .hud-mercs:hover, body.hud-quiet .hud-group:hover, body.hud-quiet .hud-chat:focus-within { opacity: 1; transition: opacity .2s; }
 .hud-menu, .hud-chat, .hud-bottom, .hud-tracker { transition: opacity .3s; }
+.mm-continue { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 14px 18px; margin-bottom: 6px; border-radius: 10px; border: 1px solid var(--brass-hi); cursor: pointer; text-align: left;
+  background: linear-gradient(180deg, rgba(240,200,110,.32), rgba(150,100,40,.28)); box-shadow: 0 0 22px rgba(240,190,90,.25); }
+.mm-continue span { font: 400 24px var(--f-disp); color: #fff3cf; } .mm-continue small { color: var(--parch-dim); font-size: 13px; }
+.mm-continue:hover { box-shadow: 0 0 30px rgba(240,190,90,.45); }
+.mm-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.mm-back { margin-bottom: 8px; }
+.cr-diff { margin: 12px 0; } .cr-diff h3 { margin: 0 0 6px; } .cr-diff h3 small { font: 13px var(--f-body); }
+.cr-diff > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.cr-dbtn { flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 8px; border: 1px solid #6a5434; background: var(--ink); cursor: pointer; text-align: left; }
+.cr-dbtn b { font-size: 16px; } .cr-dbtn small { color: var(--parch-dim); font-size: 12px; }
+.cr-dbtn.on { border-color: var(--brass-hi); background: rgba(201,164,92,.22); }
 </style>
 
 <canvas id="game" aria-label="Kingdom Rising game world"></canvas>

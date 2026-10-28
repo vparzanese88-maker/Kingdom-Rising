@@ -22,12 +22,16 @@ const pages = {
     const shadow = !g.shadows ? 'off' : g.shadowSize >= 4096 ? 'high' : g.shadowSize >= 2048 ? 'medium' : 'low';
     const aa = g.aa || (g.msaa ? 'msaa' : 'fxaa');
     return `<div class="k3s-grid"><div>
-      ${sel('g-q', 'Quality preset', Object.entries(K3.QUALITY).map(([k, v]) => [k, v.name]), S().quality, 'Picking a preset resets the options below.')}
+      ${sel('g-q', 'Quality preset', Object.entries(K3.QUALITY).map(([k, v]) => [k, v.name]), S().quality, 'Picking a preset resets the advanced options.')}
+      ${rng('g-exp', 'Brightness', 0.6, 1.6, 0.05, S().exposure || 1, (v) => Math.round(v * 100) + '%')}
+    </div><div>
+      ${chk('g-fps', 'Show frame rate', S().showFps)}
+      ${chk('g-dyn', 'Automatic resolution (keeps the game smooth)', S().dynRes)}
+    </div></div>
+    <details class="k3s-adv"${advOpen ? ' open' : ''}><summary>Advanced graphics</summary><div class="k3s-grid"><div>
       ${rng('g-scale', 'Render resolution', 0.5, 1.5, 0.05, S().renderScale || 1, (v) => Math.round(v * 100) + '%')}
-      ${chk('g-dyn', 'Automatic resolution: lowers the resolution when the game slows down so it never lags', S().dynRes)}
       ${sel('g-target', 'Frame rate to hold', [[30, '30 fps'], [45, '45 fps'], [60, '60 fps'], [90, '90 fps'], [120, '120 fps'], [144, '144 fps']], S().targetFps || 60)}
       ${sel('g-cap', 'Frame rate limit', [[0, 'Unlimited (screen refresh)'], [30, '30 fps'], [60, '60 fps'], [90, '90 fps'], [120, '120 fps']], S().fpsCap || 0)}
-      ${chk('g-fps', 'Show frame rate', S().showFps)}
     </div><div>
       ${sel('g-shadow', 'Shadows', [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], shadow)}
       ${rng('g-view', 'View distance', 150, 700, 10, g.view, (v) => v + ' m')}
@@ -35,8 +39,7 @@ const pages = {
       ${sel('g-aa', 'Anti-aliasing (smooth edges)', [['off', 'Off'], ['fxaa', 'FXAA (fast)'], ['msaa', 'MSAA 4x (best)']], aa)}
       ${chk('g-bloom', 'Glow around bright lights (bloom)', g.bloom)}
       ${chk('g-grade', 'Film look (colour grading and vignette)', g.grade)}
-      ${rng('g-exp', 'Brightness', 0.6, 1.6, 0.05, S().exposure || 1, (v) => Math.round(v * 100) + '%')}
-    </div></div>
+    </div></div></details>
     <p class="k3s-note">If the game stutters on a laptop, pick the Medium preset and a shorter View distance first: those cut the work for the processor and graphics chip the most. Keep Automatic resolution on: if the game still cannot keep up it lowers the preset one step by itself.${K3.gpu ? ` Graphics chip: ${String(K3.gpu).replace(/[<>&]/g, '').slice(0, 80)}.` : ''}${K3.perf && K3.perf.fps ? ` Now running at <b>${Math.round(K3.perf.fps)} fps</b>${K3.dynScale < 1 ? ` at ${Math.round(K3.dynScale * 100)}% resolution` : ''}.` : ''}</p>`;
   },
   controls() {
@@ -51,8 +54,10 @@ const pages = {
       ${rng('c-turn', 'Turn speed (A and D)', 0.8, 4, 0.1, S().turnSpeed || 1.9, (v) => Math.round((v * 180) / Math.PI) + '° / s')}
       ${sel('c-speed', 'Movement speed', [['realistic', 'Realistic (jog 3.2 m/s)'], ['brisk', 'Brisk run (5 m/s, default)'], ['fast', 'Fast (5.8 m/s)'], ['classic', 'Classic (fast, like the 2D game)']], S().moveSpeed || 'brisk', 'Monsters and townsfolk slow down by the same amount, so fights stay fair.')}
       ${chk('c-walk', 'Walk instead of run (or press the Walk / run key)', S().walkMode)}
-      <p class="k3s-note">A and D turn you, like EverQuest. Hold the right mouse button and they sidestep instead. Change any key in the Key Bindings tab.</p>
-    </div></div>`;
+      <p class="k3s-note">A and D turn you, like EverQuest. Hold the right mouse button and they sidestep instead. Change any key under Key bindings below.</p>
+    </div></div>
+    <h4>Camera</h4>${pages.camera()}
+    <details class="k3s-adv"${keysOpen || waiting ? ' open' : ''}><summary>Key bindings</summary>${pages.keys()}<div class="k3s-row k3s-btns"><button class="btn small" id="k-reset">Reset all keys</button></div></details>`;
   },
   keys() {
     let h = '<p class="k3s-note">Click a key, then press the new key (or a mouse side button). Esc cancels, Backspace clears. A key can only do one thing, so using it here takes it off anything else.</p><table class="k3-keys">';
@@ -77,14 +82,19 @@ const pages = {
   },
   sound() {
     const st = (KR.G.account && KR.G.account.settings) || { music: 0.5, sfx: 0.7 };
-    return `${rng('s-mus', 'Music', 0, 1, 0.05, st.music, (v) => Math.round(v * 100) + '%')}
+    return `${rng('s-mas', 'Master volume', 0, 1, 0.05, st.master == null ? 1 : st.master, (v) => Math.round(v * 100) + '%')}
+      ${rng('s-mus', 'Music', 0, 1, 0.05, st.music, (v) => Math.round(v * 100) + '%')}
       ${rng('s-sfx', 'Sound effects', 0, 1, 0.05, st.sfx, (v) => Math.round(v * 100) + '%')}
       ${rng('s-bat', 'Battle music (when the war is on)', 0, 1.5, 0.05, st.battle == null ? 1 : st.battle, (v) => Math.round(v * 100) + '%')}`;
   },
 };
-const TABS = [['graphics', 'Graphics'], ['controls', 'Controls'], ['keys', 'Key Bindings'], ['camera', 'Camera'], ['sound', 'Sound']];
+const TABS = [['graphics', 'Graphics'], ['sound', 'Sound'], ['controls', 'Controls']];
+let advOpen = false, keysOpen = false; // folded sections stay open while you work in them
+// the master volume scales music and effects everywhere (any caller of setVolumes goes through it)
+{ const A = KR.A; if (A && A.setVolumes && !A._masterWrap) { const sv0 = A.setVolumes; A._masterWrap = true; A.setVolumes = function (m, s2) { const st = KR.G.account && KR.G.account.settings; const M = st && st.master != null ? st.master : 1; return sv0.call(this, m * M, s2 * M); }; } }
 
 function render() {
+  if (tab === 'keys' || tab === 'camera') { if (tab === 'keys') keysOpen = true; tab = 'controls'; }
   const body = el.querySelector('.k3s-body'); const top = body.scrollTop;
   el.querySelectorAll('.k3s-tab').forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
   body.innerHTML = pages[tab]();
@@ -124,8 +134,12 @@ function wire(b) {
   const fp = $('v-fp'), tp = $('v-tp');
   if (fp) fp.onclick = () => { view.want = 0; K3.lsSet('kr3d_dist', 0); };
   if (tp) tp.onclick = () => { view.want = 4.5; K3.lsSet('kr3d_dist', 4.5); };
+  // folded sections
+  b.querySelectorAll('details.k3s-adv').forEach((d) => (d.ontoggle = () => { if (/Key/.test(d.querySelector('summary').textContent)) keysOpen = d.open; else advOpen = d.open; }));
+  const kr = $('k-reset'); if (kr) kr.onclick = () => { resetKeys(); render(); };
   // sound
   const vol = () => { const st = KR.G.account.settings; st.music = +$('s-mus').value; st.sfx = +$('s-sfx').value; KR.A.setVolumes(st.music, st.sfx); };
+  onRange('s-mas', (v) => Math.round(v * 100) + '%', (v, done) => { const st = KR.G.account.settings; st.master = v; KR.A.setVolumes(st.music, st.sfx); if (done && KR.Sys.saveAccount) KR.Sys.saveAccount(); });
   onRange('s-mus', (v) => Math.round(v * 100) + '%', (v, done) => { vol(); if (done && KR.Sys.saveAccount) KR.Sys.saveAccount(); });
   onRange('s-sfx', (v) => Math.round(v * 100) + '%', (v, done) => { vol(); if (done) { KR.A.sfx('click'); if (KR.Sys.saveAccount) KR.Sys.saveAccount(); } });
   onRange('s-bat', (v) => Math.round(v * 100) + '%', (v, done) => { const st = KR.G.account.settings; st.battle = +v; if (KR.A.setBattleVol) KR.A.setBattleVol(st.battle); if (done && KR.Sys.saveAccount) KR.Sys.saveAccount(); });
@@ -150,10 +164,10 @@ function make() {
   el.querySelector('#k3-reset').onclick = () => {
     const s = S();
     if (tab === 'graphics') { s.renderScale = 1; s.dynRes = true; s.targetFps = 60; s.fpsCap = 0; s.showFps = false; s.exposure = 1; K3.renderer.toneMappingExposure = 1; K3.setQuality(s.quality); }
-    else if (tab === 'controls') { s.sens = 1; s.sensY = 1; s.invertY = false; s.turnSpeed = 1.9; s.moveSpeed = 'brisk'; if (s.walkMode && KR.Main.toggleWalk) KR.Main.toggleWalk(); }
+    else if (tab === 'controls') { s.sens = 1; s.sensY = 1; s.invertY = false; s.turnSpeed = 1.9; s.moveSpeed = 'brisk'; if (s.walkMode && KR.Main.toggleWalk) KR.Main.toggleWalk(); s.fov = 72; s.headBob = true; s.shake = true; s.fpArms = true; }
     else if (tab === 'keys') resetKeys();
     else if (tab === 'camera') { s.fov = 72; s.headBob = true; s.shake = true; s.fpArms = true; }
-    else if (tab === 'sound') { const st = KR.G.account.settings; st.music = 0.5; st.sfx = 0.7; KR.A.setVolumes(0.5, 0.7); }
+    else if (tab === 'sound') { const st = KR.G.account.settings; st.master = 1; st.music = 0.5; st.sfx = 0.7; KR.A.setVolumes(0.5, 0.7); }
     save(); render();
   };
   // choosing a key: catch it before the game does

@@ -223,20 +223,23 @@
     const a = G.account; const chars = a.chars.slice().sort((x, y) => (y.updated || 0) - (x.updated || 0));
     let sel = LSg('kr_sel_hero', null); if (!chars.some((c) => c.id === sel)) sel = chars[0] ? chars[0].id : null;
     if (!chars.length && mmTab === 'online') mmTab = 'heroes';
-    if (mmTab === 'quit' || mmTab === 'create') mmTab = 'heroes';
-    const tabs = [['heroes', '🛡', 'Choose Hero'], ['online', '⚔', 'Multiplayer'], ['guide', '🧭', 'How to Play'], ['history', '📜', 'History of the Realm'], ['options', '⚙', 'Options'], ['delete', '🗑', 'Delete Hero'], ['quit', '⏻', 'Quit Game']];
+    if (mmTab === 'quit' || mmTab === 'create' || mmTab === 'new') mmTab = 'heroes';
+    // the title menu: Continue first, then a few clear choices (How to Play, History and Delete live under Settings)
+    const tabs = [['heroes', '🛡', 'Heroes'], ['new', '✚', 'New Hero'], ['online', '⚔', 'Multiplayer'], ['options', '⚙', 'Settings'], ['quit', '⏻', 'Quit']];
+    const under = { guide: 'options', history: 'options', delete: 'options' };
     const createHero = () => { KR.A.sfx('click'); if (chars.length >= 8) { KR.UI.toast && KR.UI.toast('Hero limit reached', 'Delete a hero to make room.'); return; } M.showCreate(); };
     const banner = (f) => { const F = D.FACTIONS[f]; return `<div class="mm-ban" style="--fb:${F.banner};--ft:${F.trim};--fc:${F.color}" title="${esc(F.city)}"><span>${f === 'sylvan' ? '❦' : '♜'}</span><small>${esc(F.city)}</small></div>`; };
     if (M.offLobby) M.offLobby();
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="mm">
       <header class="mm-title">${banner(D.FACTION_IDS[0])}<div class="mm-tt"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><div class="mm-rule"><i></i><span>Two brothers · One crown</span><i></i></div></div>${banner(D.FACTION_IDS[1])}</header>
-      <nav class="mm-nav">${tabs.map(([k, ic, n]) => `<button class="mm-tab ${mmTab === k ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
-        <div class="mm-realm">${D.FACTION_IDS.map((f) => `<div style="--fc:${D.FACTIONS[f].color}"><b>${D.FACTIONS[f].city}</b><span>${'★'.repeat(a.cities[f].level)}${'☆'.repeat(5 - a.cities[f].level)}</span></div>`).join('')}<small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
+      <nav class="mm-nav">${chars.length ? `<button class="mm-continue" id="mm-cont"><span>▶ Continue</span><small>${esc(chars[0].name)} · level ${D.shown(chars[0].level)} ${esc(D.CLASSES[chars[0].cls].name)}</small></button>` : ''}${tabs.map(([k, ic, n]) => `<button class="mm-tab ${(mmTab === k || under[mmTab] === k) ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
+        <div class="mm-realm"><small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
       <section class="mm-panel"></section></div>`;
     // the title screen: the kingdom burns behind the title
     if (KR.ClassBG) classBgLoop($('.bgcv', scr), () => 'burning'); else riseLoop($('.bgcv', scr));
-    { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.insertBefore(lab, nav.querySelector('.mm-realm')); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
-    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'quit') return M.quit(); mmTab = b.dataset.t; M.showMenu(); }));
+    { const cont = $('#mm-cont', scr); if (cont) cont.onclick = () => { KR.A.sfx('click'); LSs('kr_sel_hero', chars[0].id); cancelAnimationFrame(riseRaf); KR.Main.enterWorld(chars[0].id); }; }
+    { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; lab.hidden = true; nav.insertBefore(lab, nav.querySelector('.mm-realm')); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
+    scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'quit') return M.quit(); if (b.dataset.t === 'new') return createHero(); mmTab = b.dataset.t; M.showMenu(); }));
     const P = $('.mm-panel', scr);
     if (mmTab === 'heroes') {
       if (!chars.length) { P.innerHTML = `<div class="mm-empty"><h2>No heroes yet</h2><p>Every kingdom starts as a hamlet. Create a hero, choose any race and class, and pledge yourself to one of the two brothers.</p><button class="btn gold big" id="mm-first">✚ Create your first hero</button></div>`; $('#mm-first').onclick = createHero; return; }
@@ -277,7 +280,7 @@
     } else if (mmTab === 'online') {
       M.showOnline(P, chars.find((c) => c.id === sel));
     } else if (mmTab === 'delete') {
-      P.innerHTML = `<div class="mm-del"><h2>Delete a hero</h2><p class="dim">Deleting a hero cannot be undone. Items and coin in the shared bank are kept for your other heroes.</p><div class="mm-list wide"></div></div>`;
+      P.innerHTML = `<div class="mm-del"><button class="btn small ghost mm-back" onclick="KR.Menus && KR.Menus.showMenu ? KR.Menus.showMenu('options') : null">← Settings</button><h2>Delete a hero</h2><p class="dim">Deleting a hero cannot be undone. Items and coin in the shared bank are kept for your other heroes.</p><div class="mm-list wide"></div></div>`;
       const list = $('.mm-list', P); if (!chars.length) list.innerHTML = '<p class="empty-note">You have no heroes.</p>';
       P.querySelector('.mm-del').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Start completely over</h3><p class="dim">Delete every hero and reset both kingdoms to level 1.</p><button class="btn danger" id="md-reset">Reset entire game</button></div>`);
       $('#md-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('heroes'); });
@@ -290,29 +293,31 @@
       });
     } else if (mmTab === 'guide') {
       const T = D.CITY_THRESHOLDS;
-      P.innerHTML = `<div class="mm-guide">
+      P.innerHTML = `<div class="mm-guide"><button class="btn small ghost mm-back" onclick="KR.Menus && KR.Menus.showMenu ? KR.Menus.showMenu('options') : null">← Settings</button>
         <h2>How to Play</h2>
         <p class="mg-goal"><b>The story:</b> Old King Edric Valen is dead, and his two sons have split his kingdom. Aldric, the firstborn, rules Valenmoor. Theron, the younger, rules Aelindor. <b>Your goal:</b> build your king's kingdom from a hamlet into a mighty capital, then <b>destroy the other kingdom by slaying its king</b>.</p>
         <div class="mg-steps">
-          <div class="mg-step"><span>1</span><div><b>Level up your hero</b><p>Hunt monsters in the wilds around your kingdom. White and blue monsters are fair fights, yellow ones hurt, red ones will kill you. Your stats come only from gear, so buy, loot and craft better equipment as you go.</p></div></div>
-          <div class="mg-step"><span>2</span><div><b>Earn status</b><p>Townsfolk with a gold <b>!</b> over their heads have work for you. Quests, <b>bosses</b> and <b>named monsters</b> earn status for your kingdom. Bosses give the most.</p></div></div>
-          <div class="mg-step"><span>3</span><div><b>Gather timber and stone</b><p>You carry a woodcutter's axe and a miner's pick. Walk up to a tree or a boulder and press <b>E</b> (or click it) to harvest. Each kingdom level needs a different wood and stone, found in harder lands: Oak and Fieldstone, then Darkoak and Granite, Willow and Sandstone, and finally Frostpine and Marble. Better tools are sold by the Outfitter.</p></div></div>
-          <div class="mg-step"><span>4</span><div><b>Build your kingdom</b><p>Your king, in his castle's throne hall, asks for the timber and stone for each new level. A kingdom rises when it has <b>both</b> the materials and the status: ${T[1]} status for level 2, ${T[2]} for 3, ${T[3]} for 4 and ${T[4]} for 5. Each level brings new merchants, more guards and heavier defenses at the gates.</p></div></div>
-          <div class="mg-step"><span>5</span><div><b>Go to war</b><p>Recruit soldiers from the recruiter in your barracks (6 more places every Kingdom Level) and send the war party whenever you are ready. Their goal is the enemy king. When your alarm bell rings, the enemy is at your gates: defend the towers. Playing alone? A rival hero serves the other brother, levels up and sends raids of their own.</p></div></div>
-          <div class="mg-step"><span>6</span><div><b>Win the war</b><p>When the other king falls, to you or to your war party, you win. You keep your hero, and a new age begins with both kingdoms back at level 1.</p></div></div>
+          <div class="mg-step"><span>1</span><div><b>Come home and meet your king</b><p>You arrive by ship. The harbourmaster sends you to the king at the top of the Town Hall. Follow the main quest: it walks you through everything below.</p></div></div>
+          <div class="mg-step"><span>2</span><div><b>Run the kingdom</b><p>Hire the Court Liaison in the Town Hall, then press <b>N</b> to open the kingdom anywhere. Arborists and Miners gather wood and stone for you; buildings cost wood and stone.</p></div></div>
+          <div class="mg-step"><span>3</span><div><b>Build</b><p>Sawmill and Stone Cutter first, then the Barracks, Archery Range, Stable and Siege Workshop. Add walls, towers, a Pub (mercenaries) and a Shipyard (warships).</p></div></div>
+          <div class="mg-step"><span>4</span><div><b>Grow your hero</b><p>Quest, hunt and loot up to level 20. Gold from quests, loot and humanoid foes hires soldiers and better tools.</p></div></div>
+          <div class="mg-step"><span>5</span><div><b>Go to war</b><p>When soldiers are ready the <b>⚔ Attack</b> button sends your army or fleet. Rams break gates, cannons and ballistas break walls. When your bells ring, defend your town.</p></div></div>
+          <div class="mg-step"><span>6</span><div><b>Win</b><p>Kill the enemy king in his Town Hall. Then play again on a harder difficulty with the same hero.</p></div></div>
         </div>
         <p class="dim">Not sure what to do next? Talk to the townsfolk of your kingdom: they will tell you which quests are waiting, where to hunt and gather at your level, and what your king still needs.</p>
         ${chars.length ? '' : '<button class="btn gold big" id="mm-first">Create your first hero</button>'}</div>`;
       const fb = $('#mm-first', P); if (fb) fb.onclick = () => M.showCreate();
     } else if (mmTab === 'history') {
-      P.innerHTML = `<div class="mm-hist"><h2>History of the Realm</h2><p>For forty years King Edric Valen ruled one kingdom from the plains to the old forests. Then, at his own midwinter feast, someone poisoned his wine. The poisoner was never found. Each of his sons, Aldric and Theron, accused the other, and the kingdom tore in two before the snow had melted.</p><p>Aldric, the firstborn, holds the old capital of Valenmoor with the mountain clans and the halflings. Theron, the younger, was crowned by the elves in Aelindor, and many human families followed him there. Aldric calls his brother a thief in a borrowed crown. Theron calls Aldric a tyrant. Both swear the whole land is theirs by right.</p><p>Every boss you slay, every named beast you hunt and every quest you finish earns status for your kingdom. Bring your king timber and stone and he will build it higher, from hamlet to village, town, city and finally capital.</p><button class="btn gold" id="mm-intro">Watch the history</button></div>`;
+      P.innerHTML = `<div class="mm-hist"><button class="btn small ghost mm-back" onclick="KR.Menus && KR.Menus.showMenu ? KR.Menus.showMenu('options') : null">← Settings</button><h2>History of the Realm</h2><p>For forty years King Edric Valen ruled one kingdom from the plains to the old forests. Then, at his own midwinter feast, someone poisoned his wine. The poisoner was never found. Each of his sons, Aldric and Theron, accused the other, and the kingdom tore in two before the snow had melted.</p><p>Aldric, the firstborn, holds the old capital of Valenmoor with the mountain clans and the halflings. Theron, the younger, was crowned by the elves in Aelindor, and many human families followed him there. Aldric calls his brother a thief in a borrowed crown. Theron calls Aldric a tyrant. Both swear the whole land is theirs by right.</p><p>Every boss you slay, every named beast you hunt and every quest you finish earns status for your kingdom. Bring your king timber and stone and he will build it higher, from hamlet to village, town, city and finally capital.</p><button class="btn gold" id="mm-intro">Watch the history</button></div>`;
       $('#mm-intro', P).onclick = () => M.playIntro(() => M.showMenu());
     } else if (mmTab === 'options') {
       const st = a.settings;
-      P.innerHTML = `<div class="mm-opt"><h2>Options</h2><label class="slider">Music <input type="range" id="mo-mus" min="0" max="1" step="0.05" value="${st.music}"></label><label class="slider">Sound effects <input type="range" id="mo-sfx" min="0" max="1" step="0.05" value="${st.sfx}"></label><button class="btn" id="mo-fs">Toggle full screen</button><p class="dim small">More settings (hotbar, panels, zoom) are in the game's Settings window (Esc).</p></div>`;
+      P.innerHTML = `<div class="mm-opt"><h2>Settings</h2><div class="mm-links"><button class="btn" data-go="guide">🧭 How to Play</button><button class="btn" data-go="history">📜 History of the Realm</button><button class="btn" data-go="delete">🗑 Delete a hero</button></div><label class="check"><input type="checkbox" id="mo-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> Show tips to newly created heroes</label><label class="slider">Music <input type="range" id="mo-mus" min="0" max="1" step="0.05" value="${st.music}"></label><label class="slider">Sound effects <input type="range" id="mo-sfx" min="0" max="1" step="0.05" value="${st.sfx}"></label><button class="btn" id="mo-fs">Toggle full screen</button><p class="dim small">More settings (hotbar, panels, zoom) are in the game's Settings window (Esc).</p></div>`;
       const apply = () => { st.music = +$('#mo-mus').value; st.sfx = +$('#mo-sfx').value; KR.A.setVolumes(st.music, st.sfx); Sys.saveAccount && Sys.saveAccount(); };
       P.querySelector('.mm-opt').insertAdjacentHTML('beforeend', `<div class="mm-danger"><h3>Reset the whole game</h3><p class="dim">Deletes every hero you have made, empties the shared bank and returns both kingdoms to Kingdom Level 1. This cannot be undone.</p><button class="btn danger" id="mo-reset">Reset entire game</button></div>`);
       $('#mo-reset').onclick = () => KR.UI.confirm('Reset the entire game? Every hero, the bank and both kingdoms\' levels will be wiped. This cannot be undone.', async () => { await Sys.fullReset(); M.showMenu('heroes'); });
+      P.querySelectorAll('[data-go]').forEach((bt) => (bt.onclick = () => { KR.A.sfx('click'); mmTab = bt.dataset.go; M.showMenu(); }));
+      $('#mo-tips').onchange = (e) => { a.settings.tipsNew = e.target.checked; const t = $('#mm-tips'); if (t) { t.checked = e.target.checked; t.dispatchEvent(new Event('change')); } Sys.saveAccount && Sys.saveAccount(); };
       $('#mo-mus').oninput = apply; $('#mo-sfx').oninput = apply; $('#mo-fs').onclick = () => KR.UI.toggleFullscreen && KR.UI.toggleFullscreen();
     }
   };
@@ -513,7 +518,9 @@
       body.innerHTML = `<h2>Name your hero</h2><div class="nm"><div class="nm-l"><label for="cr-name">Name</label><input id="cr-name" maxlength="14" autocomplete="off" value="${esc(cs.name)}" placeholder="${esc(names[cs.gender][0])}"><button class="btn ghost small" id="cr-rand">Suggest a name</button><p class="err" id="cr-err" aria-live="polite"></p>
         <div class="summary"><b>${R.name} ${C.name}</b><span>${C.role === 'melee' ? 'melee' : C.role}</span><span class="dim">You come home from the sea dressed as a ${C.name.toLowerCase()}${fit ? ` (${[fit.head, fit.chest].filter(Boolean).map((x) => x[0].toLowerCase()).join(' and ')})` : ''}, with a weapon suited to your calling, 16 bag slots and 3 abilities. The clothes give no armour: everything else you earn.</span></div></div>
         <div class="nm-r"><h3>Starting stats</h3><table class="stats">${D.STATS.map((s) => `<tr><th title="${esc(D.STAT_HELP[s])}">${D.STAT_NAMES[s]}</th><td>${R.stats[s]}</td></tr>`).join('')}</table><p class="dim small">These are your race's natural stats. From here on, stats only come from gear: weapons, armor, jewelry, capes and belts.</p></div></div>
+        <div class="cr-diff"><h3>Difficulty <small class="dim">how fast your rival brother builds and how often he raids; monsters are the same on every setting</small></h3><div>${[['easy', 'Easy', 'A slow rival, rare raids'], ['normal', 'Normal', 'An even race'], ['hard', 'Hard', 'He builds fast and raids often']].map(([k, n, d]) => `<button class="cr-dbtn ${(cs.diff || 'normal') === k ? 'on' : ''}" data-diff="${k}"><b>${n}</b><small>${d}</small></button>`).join('')}</div></div>
         <button class="btn gold big" id="cr-go">Swear to ${esc(D.FACTIONS[cs.faction].king)} and begin</button><p class="err" id="pl-err"></p>`;
+      body.querySelectorAll('.cr-dbtn').forEach((bt) => (bt.onclick = () => { KR.A.sfx('click'); cs.diff = bt.dataset.diff; body.querySelectorAll('.cr-dbtn').forEach((x) => x.classList.toggle('on', x === bt)); }));
       const inp = $('#cr-name'); inp.oninput = () => { cs.name = inp.value; $('#cr-err').textContent = ''; };
       $('#cr-rand').onclick = () => { cs.name = U.pick(names[cs.gender]) + U.pick(['', 'a', 'en', 'ric', 'wyn', 'dor', 'ix']); inp.value = cs.name; };
       const go = () => {
@@ -529,6 +536,7 @@
     function create() {
         const name = cs.name;
         cs.busy = true; const c = cs.made || (cs.made = Sys.newChar({ name, faction: cs.faction, race: cs.race, cls: cs.cls, gender: cs.gender, skin: cs.skin, hair: cs.hair, hairStyle: cs.hairStyle, app: cs.app || null, bonus: {} })); // made once, even if joining fails and you pledge again
+        { const d = cs.diff || 'normal'; c.diff = d; try { if (KR.War && KR.War.setDifficulty) KR.War.setDifficulty(c, d); else localStorage.setItem('kr_diff_' + c.id, d); } catch (e) {} } // the campaign's difficulty, chosen at the start
         if (!G.account.faction) { G.account.faction = c.faction; Sys.saveAccount && Sys.saveAccount(); } // the kingdom is now chosen for good
         // invited players go back to the Multiplayer screen with their new hero to join the game
         if (INVITED && !inviteFailed && KR.Online && KR.Online.mode === 'solo') {

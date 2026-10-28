@@ -94,3 +94,9 @@ canvas.k3-hero:active { cursor: grabbing; }
 .k3s-next { position: absolute; right: 18px; bottom: calc(11vh + 52px); font: 600 12px 'Alegreya Sans', sans-serif; color: rgba(244,230,192,0.7); text-shadow: 0 2px 6px #000; }
 .k3-scene.death .k3c-bar { background: #0a0000; }
 .k3-scene.death::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(90,0,0,0.45) 100%); }
+/* folded sections in the settings window (menus fork) */
+.k3-settings details.k3s-adv { margin: 10px 0; border: 1px solid rgba(201,164,92,0.4); border-radius: 8px; padding: 4px 12px; }
+.k3-settings details.k3s-adv summary { cursor: pointer; padding: 6px 0; color: #f0d48a; font-weight: 700; }
+.k3-settings details.k3s-adv[open] { padding-bottom: 10px; }
+.k3-settings .k3s-body { font-size: 15px; }
+body.hud-quiet .k3-gear, body.hud-quiet #realm-bar { opacity: .15; transition: opacity .8s; } body.hud-quiet .k3-gear:hover, body.hud-quiet #realm-bar:hover { opacity: 1; }

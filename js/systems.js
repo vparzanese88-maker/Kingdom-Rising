@@ -844,7 +844,7 @@
       const st = KR.War.alarm[f] || (KR.War.alarm[f] = {}); st.lastSeen = G.now; st.where = { x: foe.x, y: foe.y };
       if (st.state) continue; // the bell is already ringing, or someone is already running for it
       const F = D.FACTIONS[foe.faction] || {};
-      G.say(spot, foe.raider ? U.pick(['Raiders! To your homes!', 'Raiders! Ring the bell!', 'They are coming! Run!']) : U.pick([`A ${F.city || 'foreign'} spy! Ring the bell!`, 'An enemy in the streets! Guards!', 'Enemy! Sound the alarm!']), 3);
+      G.say(spot, foe.raider ? U.pick(['Raiders! To your homes!', 'Raiders! Ring the bell!', 'They are coming! Run!']) : U.pick([`A spy from ${F.city || 'over the border'}! Ring the bell!`, 'An enemy in the streets! Guards!', 'Enemy! Sound the alarm!']), 3);
       if (p && p.c && p.c.faction === f) G.log(`${spot.name} sees ${foe.raider ? 'enemy raiders' : foe.name || 'an enemy'} and runs for the alarm bell!`, 'status', '#ffb24a');
       st.state = 'running'; st.since = G.now; st.runner = spot;
       const bell = KR.War.bellOf && KR.War.bellOf(f);

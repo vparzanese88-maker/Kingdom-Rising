@@ -377,9 +377,9 @@ export function garmentMaterial() {
         } else if (pat == 7.) { // mail: rows of rings
           vec2 q = vec2((p.x + p.z) * 150., p.y * 170.); q.x += floor(q.y) * .5; vec2 f = fract(q) - .5; float ring = smoothstep(.13, 0., abs(length(f) - .32));
           float aaR = 1. - smoothstep(.0006, .0022, px); // rings stay visible a few metres out
-          float rows = .5 + .5 * sin(p.y * 170. * 6.283); // further away: the rows still glint
-          col *= mix(.62 + .3 * rows, .4 + .85 * ring, aaR); col *= .85 + .3 * big;
-          gB = mix(rows * .6, ring * 1.2, aaR); gR = mix(.5 - .12 * rows, mix(.62, .32, ring), aaR); gM = mix(.7, mix(.25, .9, ring), aaR);
+          float rows = .5 + .5 * sin(p.y * 170. * 6.283) * (1. - smoothstep(.0012, .003, px)); // further away the rows fade to an even sheen (no stripes)
+          col *= mix(.72 + .12 * rows, .4 + .85 * ring, aaR); col *= .85 + .3 * big;
+          gB = mix(rows * .2, ring * 1.2, aaR); gR = mix(.5 - .12 * rows, mix(.62, .32, ring), aaR); gM = mix(.7, mix(.25, .9, ring), aaR);
         } else if (pat == 4.) { // fur
           float fh = vn(vec3(p.x * 300., p.y * 60., p.z * 300.)); col *= .75 + .4 * fh; gB = fh; gR = 1.; gCloth = .6;
         } else if (pat == 8.) { gR = .45; col *= .9 + .15 * mid; }
@@ -870,7 +870,7 @@ function outfit(look, kind, sh, N, rest) {
   const armor = L.armor || { kind: 'none', col: '#7a6a5a', trim: '#5a4a3a' }; const ak = armor.kind || 'none';
   const tier = armor.tier != null ? armor.tier : 1; const wear = ak === 'plate' || ak === 'chain' ? (tier <= 0 ? 2 : tier <= 2 ? 1 : tier >= 4 ? 3 : 0) : 0;
   const ac = ak === 'plate' ? K3.shade(armor.col || '#a8acb4', [-0.3, -0.18, -0.08, 0, 0.05, 0.08][Math.min(5, tier)]) : armor.col || '#7a6a5a', at = armor.trim || '#5a4a3a';
-  const fine = tier >= 3; const trimM = fine ? 'gold' : matW('metal', wear), trimC = fine ? '#c8a040' : K3.shade(ac, -0.32);
+  const fine = tier >= 3; const trimM = matW('metal', fine ? 0 : wear), trimC = fine ? K3.shade(ac, 0.16) : K3.shade(ac, -0.32);
   const raceD = D.RACES[L.race] || {}; const fem = L.gender === 'f';
   const robe = (ak === 'cloth' && !L.shirtOnly) || L.robe; // a cloth shirt or tunic is worn over trousers, not as a robe
   const bare = L.bare || (ak === 'none' && (kind === 'troll' || kind === 'ogre' || kind === 'goblin'));

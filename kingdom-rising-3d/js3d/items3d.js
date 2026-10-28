@@ -166,9 +166,20 @@ function weapon(it, R) {
       wear(mb, R, S, t, it, -0.1, 0.1, hy - 0.06, hy + 0.06, 0.081);
     }
   } else if (wt === 'H2H') {
-    for (let k = 0; k < 4; k++) mb.cyl('metalv', -0.06 + k * 0.04, 0.05, 0, 0.022, 0.03, S.flat, 12, null, 0, Math.PI / 2, 0);
-    mb.box('metalv', 0, 0.02, 0, 0.17, 0.03, 0.03, S.dark); mb.box('leather', 0, -0.03, 0, 0.14, 0.06, 0.04, grip);
-    if (R() < 0.5) for (let k = 0; k < 3; k++) mb.add('metalv', new THREE.ConeGeometry(0.012, 0.14, 6), M4(-0.04 + k * 0.04, 0.13, 0, 0, 0, 0), S.edge);
+    const wraps = /wrap|band|tape/.test(nm), claws = /claw|blade|talon/.test(nm) || (!wraps && R() < 0.35);
+    if (wraps) {
+      // cloth hand wraps: a strip wound round the knuckles and palm, with a loose tail
+      const cloth = hueShift(pick(R, ['#e8dcc0', '#c8b898', '#8a3a2a', '#2a3a5a', '#3a3a3a']), R, 0.04, 0.08);
+      for (let j = 0; j < 7; j++) mb.add('cloth2', new THREE.TorusGeometry(0.052 - Math.abs(j - 3) * 0.003, 0.011, 6, 18), M4(0, -0.06 + j * 0.022, 0, Math.PI / 2, 0, (j % 2 ? 0.25 : -0.25)), K3.shade(cloth, j % 2 ? -0.12 : 0.04));
+      mb.box('cloth2', 0.05, -0.1, 0.02, 0.022, 0.09, 0.004, K3.shade(cloth, -0.08), 0, 0, -0.5);
+    } else {
+      // iron knuckles: four rings on a bar, a palm grip, and sometimes claws
+      for (let k = 0; k < 4; k++) mb.add('metalv', new THREE.TorusGeometry(0.019, 0.007, 8, 16), M4(-0.06 + k * 0.04, 0.05, 0), S.flat);
+      for (let k = 0; k < 4; k++) mb.sph('metalv', -0.06 + k * 0.04, 0.075, 0, 0.016, 0.012, 0.012, S.edge); // studs on the striking face
+      mb.box('metalv', 0, 0.025, 0, 0.17, 0.014, 0.018, S.dark); mb.cyl('leather', 0, -0.025, 0, 0.018, 0.13, grip, 10, null, 0, 0, Math.PI / 2);
+      if (claws) for (let k = 0; k < 3; k++) { const sh = new THREE.Shape(); sh.moveTo(-0.009, 0); sh.quadraticCurveTo(-0.004, 0.09, 0.012, 0.16); sh.quadraticCurveTo(0.01, 0.08, 0.009, 0); mb.add('metal', extrude(sh, 0.004, 0.001), M4(-0.04 + k * 0.04, 0.08, 0), S.flat); }
+      wear(mb, R, S, t, it, -0.06, 0.06, 0.02, 0.07, 0.012);
+    }
   } else if (wt === 'ARC') {
     // a recurve bow: tapered limbs that flick forward at the tips, a leather-wrapped riser, nocks and a taut string
     const L = 0.62 + R() * 0.1, curve = 0.08 + R() * 0.05; const wood = woodOf(R);

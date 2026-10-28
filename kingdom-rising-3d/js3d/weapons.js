@@ -99,6 +99,9 @@ const NPC_ITEM = { '1HS': ['1HS', 1, 'Longsword'], sword: ['1HS', 1, 'Longsword'
 // a weapon model (shared geometry) for a weapon type
 export function weaponMesh(kind, opt = {}) {
   if (!kind) return null;
+  // cloth hand wraps are worn, not held: no object floating in the fist
+  if (kind === 'H2H' && opt.item && /wrap|band|tape/i.test(opt.item.name || '')) return null;
+  if (kind === 'H2H' && opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { const o = new THREE.Group(); m.group.scale.setScalar(0.75); o.add(m.group); o.traverse((x) => { if (x.isMesh) x.castShadow = true; }); return o; } } catch (e) { console.warn(e); } }
   // the hero's own items are drawn with the same detailed, one-of-a-kind model as their inventory icon
   if (opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { m.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.matrixAutoUpdate = true; } }); return turned(kind, m.group); } } catch (e) { console.warn(e); } }
   const key = kind + '|' + (opt.staff ? 's' : '') + (opt.orb || '') + (opt.shieldCol || '') + (opt.shieldEmb || '') + (opt.tomeCol || '') + (opt.wood ? 'w' : '') + (opt.steel || '');

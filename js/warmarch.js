@@ -487,7 +487,7 @@
     const spots = War.insideSpots(f, kinds.length); const cd = W.cityData[f];
     kinds.forEach((kind, i) => {
       const s = spots[i]; if (!s) return; const def = D.SIEGE[kind];
-      const t = mk('tower', s[0] * TS + 16, s[1] * TS + 16, { type: 'guard', title: `Tier ${tier} defense`, level: lv, name: `${D.FACTIONS[f].city} ${def.name}` });
+      const t = mk('tower', s[0] * TS + 16, s[1] * TS + 16, { type: 'guard', title: 'City defense', level: lv, name: `${D.FACTIONS[f].city} ${def.name}` });
       War.makeSiege(t, kind); t.big = true; t.r = kind === 'trebuchet' ? 46 : 38; t.h = kind === 'trebuchet' ? 230 : 120; t.aggroR = def.range;
       // at rest each engine faces the nearest gate
       const gs = cd.gates.map(([gx, gy]) => [gx, gy, Math.hypot(gx - s[0], gy - s[1])]).sort((a, b) => a[2] - b[2])[0];

@@ -86,7 +86,7 @@
     offs.forEach((o, i) => { spots.push([[cx + o, cy + R + 1], [0, 1], i]); spots.push([[cx + R + 1, cy + 3 + o], [1, 0], i]); spots.push([[cx - R - 1, cy + 3 + o], [-1, 0], i]); });
     spots.forEach(([[tx, ty], [ix, iy], ki]) => {
       const kind = kinds[ki]; const def = D.SIEGE[kind];
-      const t = mk('tower', tx * TS + 16, ty * TS + 16, { type: 'guard', title: `Tier ${tier} defense`, level: lv, name: `${D.FACTIONS[f].city} ${def.name}` });
+      const t = mk('tower', tx * TS + 16, ty * TS + 16, { type: 'guard', title: 'City defense', level: lv, name: `${D.FACTIONS[f].city} ${def.name}` });
       War.makeSiege(t, kind);
       const g = mk('guard', (tx + ix) * TS + 16, (ty + iy) * TS + 16, { type: 'guard', title: 'Tower Guard', level: lv }); Sys.makeGuard(g, true); War.dress(g, 'pikeman'); g.towerGuard = true;
     });
@@ -562,23 +562,24 @@
     const roles = {}; for (const e of G.ents) if (e.city === f && e.type === 'npc' && !e.dead) roles[e.role] = e;
     let ready = null, avail = null;
     for (const r in roles) { const q = Sys.questsFor(roles[r]); if (!ready && q.ready.length) ready = [roles[r], q.ready[0]]; if (!avail && q.avail.length) avail = [roles[r], q.avail[0]]; }
-    if (ready) out.push(`${ready[0].name} is waiting for you to finish "${ready[1].title}". Hand it in for coin, experience${ready[1].reward && ready[1].reward.status ? ' and status for the kingdom' : ''}.`);
+    if (ready) out.push(`${ready[0].name} is waiting for you to finish "${ready[1].title}". Hand it in for gold and experience.`);
     const act = Object.keys(c.quests.active).map((id) => Sys.QUESTS[id]).filter((q) => q && !Sys.questComplete(q));
     if (act.length) out.push(`You still have "${act[0].title}" to do. ${Sys.questProgText ? '' : ''}Open your journal with J to see where to go.`);
     if (avail) out.push(`${avail[0].name}${avail[0].title ? ' the ' + avail[0].title : ''} has work for you: "${avail[1].title}". Look for the gold ! above people's heads.`);
-    const kq = Sys.kingQuestFor(c); if (kq && c.level >= kq.lv - 2) out.push(`${F.king} has a task for you in his castle's throne hall, at the top of the great stairs. The king's quests give the most status for ${F.city}.`);
+    const kq = Sys.kingQuestFor(c); if (kq && c.level >= kq.lv - 2) out.push(`${F.king} has a task for you in the Town Hall, at the top of the great stairs.`);
     // where to hunt
     if (c.level <= 10 && !(c.bossKills && (c.bossKills.rattigan || c.bossKills.drainjaw))) out.push(f === 'crown' ? 'Those cutpurses outside the walls are the Rat Tail Gang. They hide in the Valenmoor Sewers, just east of the kingdom walls. Good hunting for a young hero, and I hear they keep a prisoner down there.' : 'The orc pawns sneak in through the Aelindor Sewers, just west of the kingdom walls. Clear them out, it is safe enough for a young hero. Folk say the orcs caught some poor fool down there, too.');
     let regs = D.REGIONS.filter((r) => r.mobs && r.lv && c.level >= r.lv[0] - 1 && c.level <= r.lv[1] && (!r.faction || r.faction === f) && (!r.home || r.home === f));
     if (!regs.length) regs = D.REGIONS.filter((r) => r.mobs && r.lv && c.level >= r.lv[0] - 1 && c.level <= r.lv[1]);
-    if (regs.length) { const r = regs.sort((a, b) => Math.abs((a.lv[0] + a.lv[1]) / 2 - c.level) - Math.abs((b.lv[0] + b.lv[1]) / 2 - c.level))[0]; out.push(`At your level, hunt in ${r.name} (levels ${r.lv[0]} to ${r.lv[1]}). White and blue monsters are fair fights; yellow hurt; red will kill you.`); }
-    // status and the next kingdom level
-    const need = D.statusToNext(lvl);
-    if (need !== Infinity) out.push(`${F.city} has ${city.status} of ${need} status needed for Kingdom Level ${lvl + 1}. Quests, the king's tasks and slaying bosses all add status. Level ${lvl + 1} brings ${(Sys.unlockText ? Sys.unlockText(lvl + 1) : 'new merchants and stronger defenses').replace(/\.$/, '')}.`);
-    else out.push(`${F.city} is a capital at Kingdom Level 5. Now march on ${E.city} and bring down ${E.king} to win the war.`);
+    if (regs.length) { const r = regs.sort((a, b) => Math.abs((a.lv[0] + a.lv[1]) / 2 - c.level) - Math.abs((b.lv[0] + b.lv[1]) / 2 - c.level))[0]; out.push(`At your level, hunt in ${r.name} (levels ${D.shown(r.lv[0])} to ${D.shown(r.lv[1])}). White and blue monsters are fair fights; yellow hurt; red will kill you.`); }
+    // the kingdom: the next building to raise (wood and stone from the arborist and the miner)
+    { const nb = ['barracks', 'range', 'stable', 'workshop'].find((b) => !War.hasB(f, b)); const nm = { barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' };
+      if (!War.hasB(f, 'sawmill') || !War.hasB(f, 'cutter')) out.push(`Your arborist and miner bring in wood and stone. Build a Sawmill and a Stone Cutter first: the Court Liaison in the Town Hall opens the kingdom panel (N).`);
+      else if (nb) out.push(`Next for ${F.city}: the ${nm[nb]}. Build it from the kingdom panel (N) with wood and stone; it lets the Recruiter train ${{ barracks: 'guards and soldiers', range: 'archers', stable: 'cavalry', workshop: 'battering rams, catapults and trebuchets' }[nb]}.`);
+      else out.push(`${F.city} has every building of war. Raise the walls and towers in the Defenses tab, then march on ${E.city} and bring down ${E.king}.`); }
     // bosses near the hero's level
     const boss = D.BOSSES.filter((b) => b.lv >= c.level - 3 && b.lv <= c.level + 6).sort((a, b) => Math.abs(a.lv - c.level) - Math.abs(b.lv - c.level))[0];
-    if (boss) { const reg = D.REGIONS[D.REGION_BY_ID[boss.region]]; out.push(`${boss.name} (level ${D.shown(boss.lv)}) lurks in ${reg ? reg.name : 'the wilds'}. Slaying it gives a lot of status. Bring good gear, mercenaries or friends.`); }
+    if (boss) { const reg = D.REGIONS[D.REGION_BY_ID[boss.region]]; out.push(`${boss.name} (level ${D.shown(boss.lv)}) lurks in ${reg ? reg.name : 'the wilds'}. It drops fine gear. Bring mercenaries or friends.`); }
     // gear holes
     const empty = ['head', 'chest', 'legs', 'feet', 'hands'].filter((s) => !c.equip[s]);
     if (empty.length >= 2) out.push(`You have nothing on your ${empty.slice(0, 2).join(' or ')}. Your stats come only from gear: visit the merchants, take on quests, or win it from named foes and bosses.`);
@@ -586,10 +587,10 @@
     if ((c.mercs || []).length < Sys.mercSlots()) out.push(`You can lead ${Sys.mercSlots()} mercenar${Sys.mercSlots() > 1 ? 'ies' : 'y'} and have ${(c.mercs || []).length}. The Mercenary Trader in the plaza hires companions who fight at your level.`);
     // war
     const ros = War.roster(f).length;
-    { const max = War.maxRecruits(f); const home = War.garrison(f).length; out.push(ros < max ? `Our barracks has room for ${max - ros} more soldier${max - ros > 1 ? 's' : ''}. Talk to the recruiter in the barracks to sign them up, then send the war party against ${E.city} when you are ready.` : `The barracks is full: ${home} soldiers are waiting for your order to march on ${E.city}.`); }
+    { const max = War.maxRecruits(f); const home = War.garrison(f).length; out.push(ros < max ? `Our barracks has room for ${max - ros} more soldier${max - ros > 1 ? 's' : ''}. The Recruiter signs them up for gold; order the attack on ${E.city} from the kingdom panel (N) when you are ready.` : `The barracks is full: ${home} soldiers are waiting for your order to march on ${E.city}.`); }
     if (War.rivalActive && War.rivalActive()) { const R = War.rival(); out.push(`They say ${R.name}, a level ${D.shown(R.level)} ${D.CLASSES[R.cls].name}, leads ${E.city} now. Expect their soldiers at our gates when we least expect it.`); }
     out.push(`When the alarm bell rings, ${E.city}'s soldiers are attacking. Help the guards defend the towers at the gates.`);
-    out.push(`The war is won when ${E.king} of ${E.city} falls, to you or to our war parties. Raise our city first: a stronger kingdom sends more soldiers and better ones.`);
+    out.push(`The war is won when ${E.king} of ${E.city} falls, to you or to our war parties. Build up the town first: every building of war lets us field more soldiers, and better ones.`);
     return out;
   };
   // ---------- barracks: hire permanent soldiers for your kingdom's war parties ----------
@@ -667,8 +668,8 @@
     if (W.buildMinimap) W.buildMinimap();
     // keep the hero out of any rubble left by the rebuilt walls
     if (p && W.isBlockedTile(Math.floor(p.x / TS), Math.floor(p.y / TS))) { const cd = W.cityData[p.c.faction]; p.x = cd.cx * TS + 16; p.y = (cd.cy + 2) * TS + 16; }
-    G.log(`A new age begins (Age ${a.war.age}). Both kingdoms start again at Kingdom Level 1.`, 'status', '#ffd84a');
-    KR.UI && KR.UI.banner && KR.UI.banner(`Age ${a.war.age} begins`, 'Both kingdoms rebuild from level 1. Raise your kingdom and march to war again.');
+    G.log(`A new war begins (war ${a.war.age}). Both kingdoms start again with only their Town Halls.`, 'status', '#ffd84a');
+    KR.UI && KR.UI.banner && KR.UI.banner('A new war begins', 'Both kingdoms start over from their Town Halls. Build, recruit and march again.');
     Sys.saveAccount && Sys.saveAccount(true); Sys.save && Sys.save(true);
   };
 
@@ -1172,7 +1173,7 @@
     const p = G.player, c = p.c;
     if (e.type === 'king' && e.faction === c.faction) {
       const gifts = [[10000, 3], [100000, 25], [1000000, 200]];
-      for (const [amt, st] of gifts) if (c.coins >= amt) add(`Donate ${G.fmtCoins(amt)} to the crown (+${st} status)`, () => { c.coins -= amt; Sys.addStatus(c.faction, st, 'your donation to the crown'); KR.A.sfx('coin'); G.say(e, U.pick(['The realm thanks you.', 'Your generosity will be remembered.', 'Every coin builds a stronger wall.']), 3); KR.UI.refresh(); KR.UI.open('npc'); });
+      for (const [amt, st] of gifts) if (c.coins >= amt) add(`Donate ${G.fmtCoins(amt)} to the crown (+${st} renown)`, () => { c.coins -= amt; Sys.addStatus(c.faction, st, 'your donation to the crown'); KR.A.sfx('coin'); G.say(e, U.pick(['The realm thanks you.', 'Your generosity will be remembered.', 'Every coin builds a stronger wall.']), 3); KR.UI.refresh(); KR.UI.open('npc'); });
     }
     if (e.vinny && !e.vinnyGone && !e.vanished && !e.dead && !e.executing) {
       const V = egg().vinny || (egg().vinny = { state: 'captive' });

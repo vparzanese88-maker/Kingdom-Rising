@@ -959,7 +959,7 @@
     if (r.coin) { c.coins += r.coin; G.log(`You receive ${G.fmtCoins(r.coin)}.`, 'loot', '#f0d070'); KR.A.sfx('coin', 0.8); }
     if (r.item) { const it = Sys.rewardItem(r.item, qlv); if (Array.isArray(it)) it.forEach((x) => Sys.addItem(x)); else Sys.addItem(it); }
     // the king's, the bosses' and the main story's quests always pay in gear for your class when they name none
-    else if (q.king != null || q.type === 'boss' || q.main) { const k = Math.random() < 0.3 ? 'weapon' : 'armor'; Sys.addItem(Sys.rewardItem({ k, slot: U.pick(D.ARMOR_SLOTS), tier: G.tierOfLevel(Math.min(qlv, c.level)), q: 1.12 }, qlv)); }
+    else if (q.king != null || q.type === 'boss' || (q.main && !q.noGear)) { const k = Math.random() < 0.3 ? 'weapon' : 'armor'; Sys.addItem(Sys.rewardItem({ k, slot: U.pick(D.ARMOR_SLOTS), tier: G.tierOfLevel(Math.min(qlv, c.level)), q: 1.12 }, qlv)); }
     G.giveXp(xp, 'for completing the quest');
     if (r.status) Sys.addStatus(c.faction, r.status, q.title);
     KR.UI && KR.UI.refresh(); Sys.save();

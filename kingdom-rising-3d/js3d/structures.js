@@ -422,7 +422,7 @@ function castleFloors(mb, b, fy) {
 }
 
 // the kingdom's wall level (KR.Realm, 0..2); stone walls when there is no kingdom state
-function wallLevel(f) { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); return st && typeof st.walls === 'number' ? Math.max(0, Math.min(2, st.walls)) : 1; } catch (e) { return 1; } }
+function wallLevel(f) { const R2 = KR.Realm; try { const st = R2 && typeof R2.state === 'function' && R2.state(f); const v = st && (st.buildings && typeof st.buildings.walls === 'number' ? st.buildings.walls : st.walls); return typeof v === 'number' ? Math.max(0, Math.min(2, v)) : 1; } catch (e) { return 1; } }
 // a wooden palisade: sharpened logs lashed side by side on a packed-earth bank, a plank walk behind them, timber
 // gate towers with a roof, and a log gate frame
 function palisade(mb, f, cd, y0, H, isWall) {

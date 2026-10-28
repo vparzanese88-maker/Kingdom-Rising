@@ -717,7 +717,8 @@
       else if (R.siege === 'engine') { have = engines(f)[id] || 0; max = D.ENGINE_MAX[id]; }
       else { have = soldiersOf(f).filter((h) => h.cls === id).length; max = War.maxRecruits(f); }
       const S = D.SOLDIERS[R.cls] || {};
-      out.push({ id, name: R.name, icon: R.icon, desc: R.desc, building: R.need, unlocked, cost: R.cost, have, max, kind: R.guard ? 'guard' : R.siege ? 'siege' : 'soldier', role: S.ranged ? 'ranged' : S.healer ? 'healer' : S.mounted ? 'mounted' : R.siege ? 'siege' : 'melee' });
+      const bname = { barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' }[R.need];
+      out.push({ id, name: R.name, icon: R.icon, desc: R.desc, building: R.need, unlocked, locked: !unlocked, why: unlocked ? (have >= max ? 'No room for more.' : '') : `Build the ${bname} first.`, cost: R.cost, have, max, kind: R.guard ? 'guard' : R.siege ? 'siege' : 'soldier', role: S.ranged ? 'ranged' : S.healer ? 'healer' : S.mounted ? 'mounted' : R.siege ? 'siege' : 'melee' });
     }
     return out;
   };
@@ -774,7 +775,12 @@
     for (const h of ros) { if (h.guard) continue; const s = (sol[h.cls] = sol[h.cls] || { home: 0, out: 0 }); if (h.out) s.out++; else s.home++; }
     const out = ros.filter((h) => !h.guard && h.out).length, total = ros.filter((h) => !h.guard).length;
     const atWar = War.squads.some((s) => s.f === f && s.members.some((m) => !m.dead));
-    return { soldiers: sol, total, home: total - out, out, max: War.maxRecruits(f), guards: War.guardCount(f), guardMax: War.guardMax(f), rams: War.ramCount(f), engines: War.engines(f), defenses: War.defenses(f), atWar, upkeep: 0, tier: War.powerTier(f), level: Sys.cityTierLevel(f) };
+    const E2 = War.engines(f);
+    // the readable lines show in the Kingdom panel's Status card; the details are there for code (not listed)
+    const view = { 'Soldiers ready': `${total - out} / ${War.maxRecruits(f)}`, 'At war': out, 'Town guards': `${War.guardCount(f)} / ${War.guardMax(f)}`, 'Battering rams': War.ramCount(f), 'Siege engines': (E2.catapult || 0) + (E2.trebuchet || 0) };
+    const data = { soldiers: sol, total, home: total - out, out, max: War.maxRecruits(f), guards: War.guardCount(f), guardMax: War.guardMax(f), rams: War.ramCount(f), engines: E2, defenses: War.defenses(f), atWar, upkeep: 0, tier: War.powerTier(f), level: Sys.cityTierLevel(f) };
+    for (const k in data) Object.defineProperty(view, k, { value: data[k], enumerable: false });
+    return view;
   };
   // the Status panel's order: the war party marches (behind the ram, if you have one). You may go with them or not.
   War.orderAttack = function (f, opts) {
@@ -832,6 +838,7 @@
   const ur0 = War.updateRaider;
   War.updateRaider = function (r, dt) {
     if (r.hunt && !r.dead) return huntTick(r, dt);
+    if (!r.dead && !r.squad && r.warState !== 'garrison' && r.warState !== 'mustering') r.warState = 'garrison'; // a soldier with no orders waits where he stands
     if (r.guardPost && !r.dead && r.warState === 'garrison') {
       r.gScan = (r.gScan || Math.random()) - dt;
       if (r.gScan <= 0) { r.gScan = 0.7; let best = null, bd = 300; for (const o of G.ents) { if (o === r || !War.isFoe(r.faction, o) || o.siege) continue; const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; best = o; } } const p = G.player; if (p && War.isFoe(r.faction, p) && Math.hypot(p.x - r.x, p.y - r.y) < bd) best = p; if (best) G.addHate(r, best, 5); }
@@ -1061,7 +1068,7 @@
     const p = G.player, c = p.c, f = c.faction, b = w.body; const A2 = War.army(f); const ef = War.enemyOf(f), E = D.FACTIONS[ef];
     const bn = { barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' };
     const R = War.rivalActive() ? War.rival() : null;
-    b.innerHTML = `<p class="hint">Recruit with gold. Soldiers wait in the barracks until you order an attack on ${esc(E.city)} (here or in the Kingdom panel). Guards stay at your gates. Soldiers fight at <b>level ${A2.level}</b>.</p>
+    b.innerHTML = `<p class="hint">Recruit with gold. Soldiers wait in the barracks until you order an attack on ${esc(E.city)} (here or in the Kingdom panel). Guards stay at your gates. Soldiers fight at <b>level ${D.shown(A2.level)}</b>.</p>
       <div class="row bk-send"><button class="btn gold" id="bk-go" ${A2.home && !A2.atWar ? '' : 'disabled'}>⚔ Order the attack (${A2.home})</button>${A2.atWar ? '<button class="btn" id="bk-recall">Sound the retreat</button>' : ''}</div>
       <h4 class="abh">Your army <small class="dim">${A2.total} of ${A2.max} soldiers · ${A2.guards} of ${A2.guardMax} guards · ${A2.rams} ram${A2.rams === 1 ? '' : 's'}</small></h4><div class="bk-ros"></div>
       <h4 class="abh">Recruit <small class="dim">you have ${G.fmtCoins(c.coins)}</small></h4><div class="bk-hire"></div>

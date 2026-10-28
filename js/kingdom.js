@@ -406,6 +406,8 @@
     G.ents.filter((e) => e.kgame && e.city === f).forEach((e) => G.remove(e));
     const cd = W.cityData[f]; if (!cd) return; const lvl = cd.level || Sys.cityLevel(f); const taken = [];
     const games = (K.games[f] = []);
+    // no town games any more (kickball, archery and axe throwing): no idle players standing about, only townsfolk with work
+    if (!K.townGames) return;
     // kickball: children (and a grown-up or two) on a chalked pitch
     const kb = findSpot(f, 12, 7, taken);
     if (kb) {

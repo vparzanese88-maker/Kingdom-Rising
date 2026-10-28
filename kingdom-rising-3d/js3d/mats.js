@@ -30,6 +30,16 @@ export const mats = {
       case 'cloth2': { const t = propTex('cloth'); m = new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, vertexColors: true, roughness: 0.97, side: THREE.DoubleSide }); break; }
       case 'dark': m = new THREE.MeshBasicMaterial({ color: 0x050403 }); m.userData.noShadow = true; break;
       case 'water': m = new THREE.MeshStandardMaterial({ color: 0x2a5a6a, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.8 }); m.userData.noShadow = true; break;
+      // baked light: soft additive pools of torchlight and shafts of daylight (no real lights; tinted by vertex colour)
+      case 'lightpool': case 'shaft': {
+        const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+        if (key === 'lightpool') { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }
+        else { for (let x = 0; x < 64; x++) { const k = Math.pow(Math.sin(Math.PI * (x + 0.5) / 64), 2); const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, `rgba(255,255,255,${0.9 * k})`); gr.addColorStop(0.75, `rgba(255,255,255,${0.35 * k})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, 0, 1, 64); } }
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+        m = new THREE.MeshBasicMaterial({ map: t, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true });
+        m.userData.noShadow = true; break; }
+      // sewage: a dark green, wet, slightly mirror-like skin on the sewer channels
+      case 'sewage': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.12, metalness: 0.35, transparent: true, opacity: 0.9 }); m.userData.noShadow = true; break;
       default: m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
     }
     m.name = key;

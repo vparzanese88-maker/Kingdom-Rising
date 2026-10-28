@@ -221,7 +221,7 @@ export function updateSky(dt, camPos, ctx) {
   const darkMul = 1 - regDark * 0.62;
   let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.6 * nightK * (1 - cloudK * 0.5) * darkMul; // moonlight you can see by
   let hemiI = (0.34 + 0.69 * dayK) * (0.85 + cloudK * 0.25) * darkMul; // nights stay dark but readable
-  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.24 : 0.13; } // sewers: grey daylight leaks down through the street grates
+  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.62 : 0.13; } // sewers: grey daylight leaks down through the street grates
   hemiI *= 1 - insideK * 0.42; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
   sun.color.copy(sunUp ? u.uSunCol.value : C(0.55, 0.65, 0.95));
@@ -288,7 +288,7 @@ export function updateSky(dt, camPos, ctx) {
   envT -= dt;
   const envKey = [zen.r, zen.g, zen.b, hor.r, hor.g, hor.b].map((v) => Math.round(v * 30)).join(',') + '|' + Math.round(cloudK * 8) + '|' + (dungeon ? 1 : 0);
   if (!envRT || (envT <= 0 && envKey !== envKeyLast)) { envT = 8; envKeyLast = envKey; try { refreshEnv(); } catch (e) { console.warn(e); envT = 1e9; } }
-  const envI = (dungeon ? 0.12 : 0.25 + 0.75 * dayK) * (1 - insideK * 0.5) * (1 - regDark * 0.5);
+  const envI = (dungeon ? (geo.dtype === 'sewer' ? 0.3 : 0.12) : 0.25 + 0.75 * dayK) * (1 - insideK * 0.5) * (1 - regDark * 0.5);
   K3.scene.environmentIntensity = envI;
   // how dark it is for the torches (0 bright day .. 1 black)
   sky.lightLevel = dungeon ? 0 : K3.clamp(dayK * (1 - regDark * 0.6) * (1 - cloudK * 0.25), 0, 1);

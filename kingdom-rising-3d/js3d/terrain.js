@@ -200,14 +200,16 @@ function makeWaterMaterial() {
 }
 function finalizeWaterUniforms(m) { m.uniforms.tN.value = propTex('water', 512).normalMap; m.uniforms.uTime = shared.uTime; m.uniforms.uSunDir = shared.uSunDir; m.uniforms.uSunCol = shared.uSunCol; m.uniforms.uSkyCol = shared.uSkyCol; m.uniforms.uHorCol = shared.uHorCol; }
 
-const TINTS = { swamp: [0.12, 0.15, 0.07], sewer: [0.13, 0.15, 0.08], ocean: [0.04, 0.13, 0.18], island: [0.04, 0.2, 0.22], icecave: [0.12, 0.2, 0.28], crypt: [0.06, 0.12, 0.14], cave: [0.07, 0.1, 0.1], abyss: [0.12, 0.04, 0.04], gloom: [0.06, 0.07, 0.1], ash: [0.08, 0.09, 0.09], default: [0.06, 0.14, 0.16] };
+const TINTS = { ditch: [0.15, 0.1, 0.045], swamp: [0.12, 0.15, 0.07], sewer: [0.13, 0.15, 0.08], ocean: [0.04, 0.13, 0.18], island: [0.04, 0.2, 0.22], icecave: [0.12, 0.2, 0.28], crypt: [0.06, 0.12, 0.14], cave: [0.07, 0.1, 0.1], abyss: [0.12, 0.04, 0.04], gloom: [0.06, 0.07, 0.1], ash: [0.08, 0.09, 0.09], default: [0.06, 0.14, 0.16] };
+function ditchTiles() { let set = null; for (const f in W.cityData || {}) for (const i of (W.cityData[f] && W.cityData[f].ditch) || []) (set || (set = new Set())).add(i); return set; }
 function waterGeom(cx, cy) {
   const VW = geo.VW, Wd = geo.W; const pos = [], dep = [], tint = [], idx = [];
   const WL = geo.WL, H = geo.HV;
   const wlAt = (x, y) => { x = K3.clamp(x, 0, geo.W); y = K3.clamp(y, 0, geo.H); let v = WL[y * VW + x]; if (!isNaN(v)) return v; let s = 0, n = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx > geo.W || yy > geo.H) continue; const w = WL[yy * VW + xx]; if (!isNaN(w)) { s += w; n++; } } return n ? s / n : NaN; };
   const vmap = new Map();
+  const DT = ditchTiles(); // the sewer outflow ditches run murky brown
   const vert = (x, y) => { const k = y * VW + x; let i = vmap.get(k); if (i != null) return i; const wl = wlAt(x, y); i = pos.length / 3; pos.push(x * TILE, wl, y * TILE); dep.push(wl - H[Math.min(geo.VH - 1, y) * VW + Math.min(geo.VW - 1, x)]);
-    const ti = Math.min(geo.H - 1, y) * Wd + Math.min(geo.W - 1, x); const b = (D.REGIONS[W.region[ti]] || {}).biome; const tc = TINTS[b] || TINTS.default; tint.push(tc[0], tc[1], tc[2]); vmap.set(k, i); return i; };
+    const ti = Math.min(geo.H - 1, y) * Wd + Math.min(geo.W - 1, x); const b = (D.REGIONS[W.region[ti]] || {}).biome; const tc = (DT && DT.has(ti) && TINTS.ditch) || TINTS[b] || TINTS.default; tint.push(tc[0], tc[1], tc[2]); vmap.set(k, i); return i; };
   for (let y = cy * CH; y < Math.min(geo.H, (cy + 1) * CH); y++) for (let x = cx * CH; x < Math.min(geo.W, (cx + 1) * CH); x++) {
     // any tile that touches water gets a quad (the land hides the edges)
     let wet = false; for (let dy = -1; dy <= 1 && !wet; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= geo.H) continue; const c = geo.cls[yy * Wd + xx]; if (c === 2 || c === 3 || c === 6 || (c === 7 && (geo.cls[yy * Wd + xx] === 7))) { wet = c !== 7 || !isNaN(WL[yy * VW + xx]); if (wet) break; } }

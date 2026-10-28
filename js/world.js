@@ -477,6 +477,7 @@
     const setT = (x, y, t, blk = 0) => { if (!W.inb(x, y)) return; const k = y * W.W + x; W.tiles[k] = t; W.block[k] = blk; };
     // nothing grows or stands on the culvert, its wings, the ditch and its banks
     const pond = !len; if (pond) len = 7;
+    const ditch = []; const wet = (x, y) => { for (const [a, c] of [[0, 0], [1, 0], [0, 1], [1, 1]]) ditch.push((y + c) * W.W + x + a); }; // for the murky brown water in 3D
     W.decor = W.decor.filter((d) => { const ax = d.tx - mx, ay = d.ty - my; const i = ax * ox + ay * oy, sd = ax * pxv + ay * pyv; return !(i >= -1 && i <= len + (pond ? 3 : 1) && Math.abs(sd) <= (i <= 2 ? 3 : 2)); });
     // the culvert mouth (walk in here) between two wing walls of brick
     setT(mx, my, T.STONE);
@@ -484,10 +485,10 @@
     // a ditch of sewer water from the mouth to the sea, with muddy banks; a road it crosses gets a little bridge
     for (let k = 1; k < len; k++) {
       const x = mx + ox * k, y = my + oy * k; const tt = W.tile(x, y);
-      if (tt === T.ROAD || tt === T.BRIDGE) setT(x, y, T.BRIDGE); else setT(x, y, T.WATER);
+      if (tt === T.ROAD || tt === T.BRIDGE) setT(x, y, T.BRIDGE); else setT(x, y, T.WATER); wet(x, y);
       for (const l of [-1, 1]) { const bx = x + pxv * l, by = y + pyv * l; const bt = W.tile(bx, by); if (bt == null || bt === T.ROAD || bt === T.BRIDGE || isW(bx, by) || bad(bx, by)) continue; setT(bx, by, k <= 2 ? T.GRAVEL : T.MUD); }
     }
-    if (pond) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const d2 = Math.hypot(i, j); if (d2 > 2.4) continue; const x = mx + ox * (len + 1 + j) + pxv * i, y = my + oy * (len + 1 + j) + pyv * i; if (!bad(x, y)) setT(x, y, d2 < 1.2 ? T.DEEP : T.WATER); }
+    if (pond) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const d2 = Math.hypot(i, j); if (d2 > 2.4) continue; const x = mx + ox * (len + 1 + j) + pxv * i, y = my + oy * (len + 1 + j) + pyv * i; if (!bad(x, y)) { setT(x, y, d2 < 1.2 ? T.DEEP : T.WATER); wet(x, y); } }
     const ry = Math.atan2(ox, oy); // the mouth's front faces out, away from the wall
     addDecor('sewermouth', mx, my, { nb: true, px: mx * TS + 16, py: my * TS + 24, ry, sewerOut: f });
     W.lights.push({ x: (mx + pxv * 1.2) * TS + 16 + ox * 10, y: (my + pyv * 1.2) * TS + 16 + oy * 10, r: 150, col: '255,176,96', fl: 0.12, k: 'fire', sewerOut: f });
@@ -495,7 +496,7 @@
     if (!bad(sx, sy) && !isW(sx, sy)) addDecor('cavesign', sx, sy, { name: W.REALMS[dg.id].name, nb: true, sewerOut: f });
     const ex = mx + ox * 2 - pxv, ey = my + oy * 2 - pyv; // where you come out: on the bank beside the ditch
     if (W.inb(ex, ey) && !isW(ex, ey)) { setT(ex, ey, T.GRAVEL); }
-    dg.at = [mx, my]; dg.out = [ex, ey]; dg.outDir = [ox, oy];
+    dg.at = [mx, my]; dg.out = [ex, ey]; dg.outDir = [ox, oy]; cd.ditch = ditch;
     W.portals.push({ x: mx, y: my, to: dg.id, label: W.REALMS[dg.id].name, out: [ex, ey], sewer: true });
   }
 

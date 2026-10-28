@@ -36,7 +36,11 @@ export function outflowPipe(o, d) {
   o.box('stone', 0, 0.02, zc, r * 2 + 0.1, 0.1, L, '#5a5048');
   o.box('glow', 0, 0.075, zc + 0.2, 0.9, 0.02, L + 0.4, SLIME).box('glow', 0, 0.06, z1 + 0.7, 1.3, 0.02, 1.2, '#3e4a24');
   // the ditch runs with murky brown sewage
-  for (let k = 1; k < (d.ditchLen || 0); k++) { const p = o.w(0, 0, k * Tl); const wl = geo.waterAt(p.x / PX, p.z / PX); if (Number.isFinite(wl)) o.box('gloss', 0, wl - o.y + 0.03, k * Tl, Tl * 1.1, 0.02, Tl + 0.04, K3.hash(k, 3, 7) < 0.5 ? '#3a2c18' : '#332614'); }
+  const wlAt = (lz) => { const p = o.w(0, 0, lz); return geo.waterAt(p.x / PX, p.z / PX); };
+  for (let k = 1; k < (d.ditchLen || 0); k++) { // each stretch tilted to follow the water down the ditch
+    const wa = wlAt((k - 0.5) * Tl), wb = wlAt((k + 0.5) * Tl); if (!Number.isFinite(wa) || !Number.isFinite(wb)) continue;
+    o.box('gloss', 0, (wa + wb) / 2 - o.y + 0.03, k * Tl, Tl * 1.1, 0.02, Math.hypot(Tl, wa - wb) + 0.04, K3.hash(k, 3, 7) < 0.5 ? '#4a3418' : '#3e2c14', 0, Math.atan2(wa - wb, Tl));
+  }
   // the headwall: brick facing on the city wall around the pipe, with wing walls stepping down either side
   const HW = 2.5, HH = 4.2;
   for (let y = yS + r + 0.4; y < HH; y += 0.5) o.box('brick', 0, y + 0.25, z0 + 0.2, HW * 2, 0.5, 0.4, tint(Math.round(y * 3)));
@@ -86,7 +90,7 @@ export function sewerExit(o) {
 // ---------- the tunnel network, built a chunk of tiles at a time ----------
 // baked light: a soft additive glow on a floor (flat) or a wall (upright, facing along x or z)
 const pool = (mb, x, y, z, w, h, col, how) => mb.add(how === 'shaft' ? 'shaft' : 'lightpool', PRIM.plane, MB.mat(x, y, z, w, h, 1, how === 'wallx' || how === 'shaftx' ? Math.PI / 2 : 0, how === 'floor' ? -Math.PI / 2 : 0, 0), col, 'local');
-const TORCH_FLOOR = '#9a5a22', TORCH_WALL = '#4e2c10', DAY_SHAFT = '#4a5866', DAY_FLOOR = '#5e6c7a';
+const TORCH_FLOOR = '#9a5a22', TORCH_WALL = '#40240c', DAY_SHAFT = '#4a5866', DAY_FLOOR = '#5e6c7a';
 function dayShaft(mb, x, z, H, w) { // a pale shaft of daylight from a grate down to a lit patch on the floor
   mb.add('shaft', PRIM.plane, MB.mat(x, H / 2, z, w, H, 1, Math.PI / 4), DAY_SHAFT, 'local').add('shaft', PRIM.plane, MB.mat(x, H / 2, z, w, H, 1, -Math.PI / 4), DAY_SHAFT, 'local');
   pool(mb, x, 0.04, z, w * 2.2, w * 2.2, DAY_FLOOR, 'floor');
@@ -183,7 +187,10 @@ export function sewerHalls(mb, x0, y0, x1, y1, torches, fires) {
       for (let k = -r; k <= r; k++) mb.boxB('metalv', mx + k * Tl * 0.5, 0, mz + half - 0.1, 0.06, 2.6, 0.06, IRON);
     }
   }
-  for (const d of W.decor) if (d.kind === 'torch' && inChunk(d.tx, d.ty)) pool(mb, (d.tx + 0.5) * Tl, 0.05, (d.ty + 0.5) * Tl, 4.4, 4.4, TORCH_FLOOR, 'floor');
+  for (const d of W.decor) if (d.kind === 'torch' && inChunk(d.tx, d.ty)) {
+    const x = (d.tx + 0.5) * Tl, z = (d.ty + 0.5) * Tl; pool(mb, x, 0.05, z, 4.4, 4.4, TORCH_FLOOR, 'floor');
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!open(d.tx + dx, d.ty + dy)) pool(mb, x + dx * (Tl / 2 - 0.02), 1.9, z + dy * (Tl / 2 - 0.02), 3.8, 3.6, TORCH_WALL, dx ? 'wallx' : 'wallz');
+  }
   if (dd.entry && inChunk(dd.entry.x, dd.entry.y)) for (let k = 0; k < 3; k++) pool(mb, (dd.entry.x + 0.5) * Tl, 0.05, (dd.entry.y - k + 0.2) * Tl, 4.6 - k, 3.6 - k, DAY_FLOOR, 'floor');
   // cisterns: a stone parapet round the deep water, a column at each corner up to the ceiling
   for (const [ax, ay, bx, by] of sw.pools) {

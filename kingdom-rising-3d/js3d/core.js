@@ -35,7 +35,7 @@ const QUALITY = {
   medium: { name: 'Medium', detailFar: 130, propsFar: 110, pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 3, grade: true, treeNear: 42, shadowDist: 20, shadowBox: 34, shadowEvery: 3, softShadows: false, bloomDiv: 4 },
   high: { name: 'High', detailFar: 190, propsFar: 160, pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 4, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2, softShadows: true, bloomDiv: 3 },
   // ultra: native resolution with 4x MSAA (drawing 1.25x the pixels on high-DPI screens cost far more than it showed)
-  ultra: { name: 'Ultra', detailFar: 270, propsFar: 230, pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 6, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2, softShadows: true, bloomDiv: 2 },
+  ultra: { name: 'Ultra', detailFar: 270, propsFar: 230, pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 6, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 52, shadowEvery: 2, softShadows: true, bloomDiv: 3 },
 };
 K3.QUALITY = QUALITY;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -48,6 +48,9 @@ function gpuName() {
 K3.gpu = gpuName();
 // built-in (integrated) graphics: Intel, AMD's APU graphics, Apple's, phone chips and software renderers
 K3.weakGpu = /Intel|UHD|Iris|HD Graphics|Mesa|llvmpipe|SwiftShader|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Apple GPU|Apple M\d|Adreno|Mali|PowerVR|Microsoft Basic/i.test(K3.gpu) && !/RTX|GTX|Radeon RX|Arc A\d/i.test(K3.gpu);
+// built-in graphics: Ultra keeps everything but draws 2x instead of 4x multisampling (the samples are what such a chip
+// pays for most, in memory bandwidth, while 2x already smooths the edges)
+if (K3.weakGpu) QUALITY.ultra.msaa = 2;
 function autoQuality() {
   const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   const cores = navigator.hardwareConcurrency || 4;
@@ -63,7 +66,7 @@ if ((K3.settings.v || 1) < 2) { K3.settings.v = 2; if (K3.settings.moveSpeed ===
 // a preset plus whatever the player changed by hand (Settings → Graphics)
 function composeQuality() {
   const q = Object.assign({}, QUALITY[K3.settings.quality] || QUALITY.high, K3.settings.gfx || {});
-  if (q.aa === 'msaa') q.msaa = 4; else if (q.aa === 'fxaa' || q.aa === 'off') q.msaa = 0;
+  if (q.aa === 'msaa') q.msaa = K3.weakGpu ? 2 : 4; else if (q.aa === 'fxaa' || q.aa === 'off') q.msaa = 0;
   q.treeFar = Math.round(q.view * 0.72);
   K3.quality = q;
 }
@@ -214,13 +217,18 @@ K3.perf = perf;
 // average milliseconds per frame: "· actors 9.1 · render 7.4 · game 5.2 ms". Read as differences, so the timer
 // itself is never reset (tests read it too).
 let profLast = null, profLastN = 0;
+const SECTIONS = ['input', 'game', 'worldTick', 'sync', 'camera', 'world', 'actors', 'sky', 'terrain', 'grass', 'viewmodel', 'updaters', 'render', 'hud', 'ui', 'net'];
 function slowest() {
   const P = K3.prof; if (!P || !P.acc) return '';
   const frames = P.n - profLastN; const prev = profLast || {}; profLast = Object.assign({}, P.acc); profLastN = P.n;
   if (frames <= 0) return '';
-  const rows = []; for (const k in P.acc) if (k.indexOf('.') < 0) rows.push([k, (P.acc[k] - (prev[k] || 0)) / frames]);
+  // only the frame's own sections (main3d.js): sub-timers and counters such as nAv, the number of people drawn, are
+  // not milliseconds and must not be listed as if they were
+  const rows = []; for (const k of SECTIONS) if (P.acc[k] != null) rows.push([k, (P.acc[k] - (prev[k] || 0)) / frames]);
   rows.sort((a, b) => b[1] - a[1]);
-  return rows.length ? ' · ' + rows.slice(0, 3).map(([k, v]) => k + ' ' + v.toFixed(1)).join(' · ') + ' ms' : '';
+  const nAv = P.acc.nAv != null ? Math.round((P.acc.nAv - (prev.nAv || 0)) / frames) : null;
+  const fi = K3.frameInfo;
+  return (rows.length ? ' · ' + rows.slice(0, 3).map(([k, v]) => k + ' ' + v.toFixed(1)).join(' · ') + ' ms' : '') + (nAv != null ? ' · ' + nAv + ' people' : '') + (fi && fi.calls ? ' · ' + fi.calls + ' draws' : '');
 }
 K3.frameTick = function (dt) {
   perf.n++; perf.t += dt; perf.wait -= dt;
@@ -232,9 +240,13 @@ K3.frameTick = function (dt) {
   const target = Math.min(K3.settings.targetFps || 60, K3.settings.fpsCap || 999);
   // every change rebuilds the render buffers (a hitch), so change only when it is clearly needed: two slow
   // readings in a row to go down, a longer good run to go back up
-  if (perf.fps < target * 0.86 && K3.dynScale > 0.55) {
+  // High and Ultra are chosen for their sharpness: the scaler only takes them down to 75% and only below ~40 fps
+  // (at 60 target), never just because the game runs at 45-55
+  const floor = K3.settings.quality === 'ultra' || K3.settings.quality === 'high' ? 0.75 : 0.55;
+  const low = floor > 0.6 ? 0.68 : 0.86;
+  if (perf.fps < target * low && K3.dynScale > floor) {
     perf.good = 0;
-    if (++perf.bad >= 2 || perf.fps < target * 0.6) { perf.bad = 0; K3.dynScale = Math.max(0.55, K3.dynScale - (perf.fps < target * 0.6 ? 0.15 : 0.08)); if (perf.tried) { perf.wait = 40; perf.tried = false; } rescale(); }
+    if (++perf.bad >= 2 || perf.fps < target * 0.5) { perf.bad = 0; K3.dynScale = Math.max(floor, K3.dynScale - (perf.fps < target * 0.5 ? 0.12 : 0.06)); if (perf.tried) { perf.wait = 40; perf.tried = false; } rescale(); }
   } else if (perf.fps >= target * 0.95 && K3.dynScale < 1 && perf.wait <= 0) {
     perf.bad = 0;
     if (++perf.good >= 4) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 10; rescale(); }
@@ -242,7 +254,7 @@ K3.frameTick = function (dt) {
   // still well below the target at the lowest automatic resolution for ~10 seconds while playing: the pixels are
   // not the problem, so step down one graphics preset (once per step, never back up by itself) and say so
   const ORDER = ['low', 'medium', 'high', 'ultra'];
-  if (K3.dynScale <= 0.56 && perf.fps < target * 0.6 && KR.Main && KR.Main.isRunning && KR.Main.isRunning()) {
+  if (K3.dynScale <= floor + 0.01 && perf.fps < Math.min(target * 0.6, 30) && KR.Main && KR.Main.isRunning && KR.Main.isRunning()) {
     if (++perf.slow >= 5) { perf.slow = 0; const i = ORDER.indexOf(K3.settings.quality);
       if (i > 0) { const to = ORDER[i - 1]; K3.setQuality(to); K3.dynScale = 0.8; rescale(); if (KR.UI && KR.UI.toast) KR.UI.toast('Graphics lowered to ' + QUALITY[to].name, 'For a smoother game. You can change it in Settings (Esc) → Graphics.'); } }
   } else perf.slow = 0;

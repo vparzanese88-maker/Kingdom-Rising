@@ -1170,7 +1170,11 @@ export function makeHumanRig(look, kind, accessories, charMat) {
   extra(G.tusks, gm);
   if (G.acc) extra(G.acc, gm);
   const rig = { mesh, bones: Object.fromEntries(bones.map((b) => [b.name, b])), rest: G.rest, P: G.P, top: G.top, kind, look, held: {}, t: Math.random() * 10, phase: 0, deadT: 0, atkPrev: 0, swing: 0, swingKind: null, hands: G.hands, human: true, lods, eyes, hair, lod: 0 };
-  rig.setLod = (d) => { const l = d < 14 ? 0 : d < 38 ? 1 : 2; if (l === rig.lod) return; rig.lod = l; lods.forEach((m, i) => (m.visible = i === l)); if (eyes) eyes.visible = l < 2; if (hair) hair.visible = l < 2 || !!G.hair; };
+  rig.setLod = (d) => {
+    // people throw shadows only within ~30 m: a crowd further off adds a shadow-pass draw call per body part, held item
+    // and helmet, for shadows a texel or two wide (held items and armour hang off the bones, so a walk covers them all)
+    const sh = d < (rig.lod ? 28 : 32); if (sh !== rig.shOn) { rig.shOn = sh; mesh.traverse((o) => { if (o.isMesh && o !== eyes) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = sh && o.userData.sh0; } }); }
+    const l = d < 14 ? 0 : d < 38 ? 1 : 2; if (l === rig.lod) return; rig.lod = l; lods.forEach((m, i) => (m.visible = i === l)); if (eyes) eyes.visible = l < 2; if (hair) hair.visible = l < 2 || !!G.hair; };
   return rig;
 }
 

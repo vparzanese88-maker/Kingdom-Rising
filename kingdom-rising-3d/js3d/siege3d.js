@@ -265,7 +265,10 @@ function trollModel(e) {
   if (!rig) return { obj: holder, parts: P, height: 2 * TROLL_S };
   rig.mesh.scale.setScalar(TROLL_S); holder.add(rig.mesh); if (rig.setLod) rig.setLod(0);
   const B = rig.bones;
-  // (the body keeps its own skin shader, tinted grey-green; warts, moss and bark plates give it the texture of stone and forest)
+  // the body keeps its own skin shader, tinted a mossy grey-green (a copy of the material, so other people keep their skin);
+  // warts, moss and bark plates give it the texture of stone and forest
+  rig.mesh.traverse((o) => { if (!o.isSkinnedMesh || o.geometry.attributes.position.count < 5000) return; const m0 = o.material; const m = m0.clone();
+    m.onBeforeCompile = m0.onBeforeCompile; if (m0.customProgramCacheKey) m.customProgramCacheKey = m0.customProgramCacheKey; m.color = new THREE.Color(skin).multiplyScalar(1.5); if ('sheen' in m) m.sheen = 0; o.material = m; });
   // the troll's proportions: massive shoulders and arms, short thick legs (the hips come down to meet them)
   B.chest.scale.setScalar(1.2); for (const S of ['L', 'R']) { B['sh' + S].scale.setScalar(1.22); B['thigh' + S].scale.setScalar(0.8); }
   // fold away the human head, hands and feet
@@ -286,7 +289,7 @@ function trollModel(e) {
     hm.beam('rock', V(sx * 0.11, 0.08, 0), V(sx * 0.19, 0.12, -0.05), 0.045, 0.014, skin); hm.beam('rock', V(sx * 0.19, 0.12, -0.05), V(sx * 0.28, 0.17, -0.1), 0.02, 0.01, skin); // long pointed ears, tapering
     for (let w = 0; w < 4; w++) hm.sph('rock', sx * (0.06 + w * 0.025), 0.03 + (w % 2) * 0.05, 0.09 - w * 0.02, 0.012, 0.012, 0.012, K3.shade(skin, -0.12), 0, 6); // warts
   }
-  for (let j = 0; j < 16; j++) { const a = (j / 15 - 0.5) * 2.4, r0 = V(Math.sin(a) * 0.1, 0.16, -0.02 - Math.cos(a) * 0.06); hm.rod('cloth', r0, V(r0.x * 1.4, r0.y - 0.22 - (j % 3) * 0.05, r0.z - 0.12), 0.009, hairC, 4); } // a scraggly mane
+  for (let j = 0; j < 11; j++) { const a = (j / 10 - 0.5) * 2.2, r0 = V(Math.sin(a) * 0.11, 0.15, -0.05 - Math.cos(a) * 0.07); hm.rod('cloth', r0, V(r0.x * 1.5, r0.y - 0.16 - (j % 3) * 0.05, r0.z - 0.1), 0.005, hairC, 4); } // a scraggly mane
   const head = at(B.neck, B.head); head.add(hm.build()); P.head = head;
   // ---- three-fingered hands with claws, big flat feet ----
   for (const S of ['L', 'R']) {

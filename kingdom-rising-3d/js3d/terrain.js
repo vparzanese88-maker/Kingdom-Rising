@@ -134,6 +134,34 @@ function chunkIndex() {
   for (let y = 0; y < CH; y++) for (let x = 0; x < CH; x++) { const a = y * n + x, b = a + 1, c = a + n, d = c + 1; if ((x + y) & 1) idx.push(a, c, b, b, c, d); else idx.push(a, c, d, a, d, b); }
   return (sharedIndex = new THREE.BufferAttribute(new Uint16Array(idx), 1));
 }
+// distant chunks draw every 2nd or 4th vertex inside, but keep every vertex along their borders, so neighbours at
+// any detail always meet exactly (no cracks): each border cell is a fan from its centre over the full-detail edge
+const lodIndexes = new Map();
+function lodIndex(s) {
+  if (s === 1) return chunkIndex();
+  if (lodIndexes.has(s)) return lodIndexes.get(s);
+  const idx = []; const n = CH + 1; const v = (x, y) => y * n + x;
+  for (let y = 0; y < CH; y += s) for (let x = 0; x < CH; x += s) {
+    const x1 = x + s, y1 = y + s; const edge = x === 0 || y === 0 || x1 === CH || y1 === CH;
+    if (!edge) { if (((x + y) / s) & 1) idx.push(v(x, y), v(x, y1), v(x1, y), v(x1, y), v(x, y1), v(x1, y1)); else idx.push(v(x, y), v(x, y1), v(x1, y1), v(x, y), v(x1, y1), v(x1, y)); continue; }
+    // the ring round the cell, corner to corner, with every vertex on a side that lies on the chunk's border
+    const c = v(x + s / 2, y + s / 2); const ring = [];
+    const side = (ax, ay, bx, by, full) => { const st = full ? 1 : s; const dx = Math.sign(bx - ax), dy = Math.sign(by - ay); for (let k = 0; k < s; k += st) ring.push(v(ax + dx * k, ay + dy * k)); };
+    side(x, y, x, y1, x === 0); side(x, y1, x1, y1, y1 === CH); side(x1, y1, x1, y, x1 === CH); side(x1, y, x, y, y === 0);
+    for (let k = 0; k < ring.length; k++) idx.push(c, ring[k], ring[(k + 1) % ring.length]);
+  }
+  const a = new THREE.BufferAttribute(new Uint16Array(idx), 1); lodIndexes.set(s, a); return a;
+}
+// the same vertices with a coarser index: geometries share the vertex buffers, so a detail switch costs nothing
+function lodGeom(c, l) {
+  c.lods = c.lods || [];
+  if (c.lods[l]) return c.lods[l];
+  const g0 = c.lods[0] || (c.lods[0] = c.ground.geometry);
+  if (l === 0) return g0;
+  const g = new THREE.BufferGeometry(); for (const k in g0.attributes) g.setAttribute(k, g0.attributes[k]);
+  g.setIndex(lodIndex(l === 1 ? 2 : 4)); g.boundingBox = g0.boundingBox; g.boundingSphere = g0.boundingSphere;
+  return (c.lods[l] = g);
+}
 function heightGeom(field, cx, cy, flip) {
   const n = CH + 1, VW = geo.VW; const pos = new Float32Array(n * n * 3), nor = new Float32Array(n * n * 3), snow = new Float32Array(n * n);
   const hAt = (x, y) => field[K3.clamp(y, 0, geo.VH - 1) * VW + K3.clamp(x, 0, geo.VW - 1)];
@@ -336,7 +364,8 @@ export function refreshTerrainArea(x0, y0, w, h) {
   buildTileTex();
   for (const c of terrain.chunks) {
     if ((c.cx + 1) * CH < x0 - 6 || c.cx * CH > x0 + w + 6 || (c.cy + 1) * CH < y0 - 6 || c.cy * CH > y0 + h + 6) continue;
-    const old = c.ground.geometry; c.ground.geometry = heightGeom(geo.HV, c.cx, c.cy, false); old.dispose();
+    const old = c.lods ? c.lods[0] : c.ground.geometry; for (const g of c.lods || []) if (g && g !== old) g.dispose(); c.lods = null; c.lod = 0;
+    c.ground.geometry = heightGeom(geo.HV, c.cx, c.cy, false); old.dispose();
   }
 }
 
@@ -350,5 +379,9 @@ export function updateTerrain(camPos) {
     const vis = d < view;
     for (const m of c.meshes) m.visible = vis;
     c.ground.castShadow = d < 60;
+    // ground detail by distance (with a little give, so a chunk at the boundary doesn't flip back and forth)
+    if (vis && !geo.dungeon) { const cur = c.lod || 0; const far1 = 150, far2 = 300, g = 12;
+      const l = d > far2 + (cur === 2 ? -g : g) ? 2 : d > far1 + (cur >= 1 ? -g : g) ? 1 : 0;
+      if (l !== cur) { c.lod = l; c.ground.geometry = lodGeom(c, l); } }
   }
 }

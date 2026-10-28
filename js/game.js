@@ -221,13 +221,29 @@
     if (window.KR3D) { look.wItem = pw || null; look.oItem = sec || null; G.strictLook(look, c); } // 3D draws the actual items
     return look;
   };
+  // which helmet a head piece is: the style follows its tier (open nasal helms for the crude ones, closed great
+  // helms for the best) with some variety from the item itself; northern fighters wear horns or antlers
+  G.helmStyleFor = function (head, c) {
+    const t = Math.min(5, head.tier || 0); let h = 0; const id = String(head.uid || head.name || ''); for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    const pick = (a) => a[h % a.length];
+    if (head.ak === 'leather') return { helmStyle: 'cap' };
+    if (head.ak === 'chain') return { helmStyle: t >= 2 ? 'coifcap' : 'coif' };
+    const style = pick([['nasal', 'skull'], ['nasal', 'barbute'], ['barbute', 'sallet', 'nasal'], ['great', 'sallet', 'barbute'], ['great', 'barbute'], ['great'] ][t]);
+    const north = c && (['berserker', 'beastlord', 'shaman'].includes(c.cls) || ['barbarian', 'ogrin'].includes(c.race));
+    const crest = north ? ((h >> 3) % 2 ? 'antlers' : 'horns') : t >= 5 ? 'wings' : t >= 4 && (h >> 5) % 2 ? 'horns' : null;
+    return { helmStyle: style, helmCrest: crest };
+  };
   // 3D: a hero looks exactly like what they wear: no class hats, capes or robes that are not in the gear
   G.strictLook = function (look, c) {
     const E = c.equip, head = E.head, chest = E.chest, legs = E.legs;
-    for (const k of ['hat', 'hatCol', 'hatTrim', 'hoodPoint', 'mask', 'horns', 'helmPlume', 'helmSpike', 'helm', 'helmCol', 'orb', 'cape', 'sash']) delete look[k];
+    for (const k of ['hat', 'hatCol', 'hatTrim', 'hoodPoint', 'mask', 'horns', 'helmPlume', 'helmSpike', 'helm', 'helmCol', 'helmStyle', 'helmCrest', 'helmTier', 'orb', 'cape', 'sash']) delete look[k];
     if (head) {
       const n = head.name || '';
-      if (head.ak === 'plate' || head.ak === 'chain') { look.helm = head.ak; look.helmCol = head.ak === 'plate' ? (look.armor.col || '#a8acb4') : '#9a9ea6'; if (head.ak === 'plate') look.helmPlume = head.tier >= 2 ? D.CLASSES[c.cls].color : null; }
+      if (head.ak === 'plate' || head.ak === 'chain' || (head.ak === 'leather' && !head.plainClothes)) {
+        look.helm = head.ak; look.helmTier = head.tier || 0; Object.assign(look, G.helmStyleFor(head, c));
+        look.helmCol = head.ak === 'plate' ? (look.armor.col || '#a8acb4') : head.ak === 'leather' ? '#6a4a2e' : '#9a9ea6';
+        if (head.ak === 'plate' && !look.helmCrest && head.tier >= 2 && /sallet|barbute/.test(look.helmStyle)) look.helmPlume = D.CLASSES[c.cls].color;
+      }
       else if (/sailor/i.test(n)) { look.hat = 'sailor'; look.hatCol = head.col || '#1e2a4a'; }
       else if (/mitre/i.test(n)) { look.hat = 'mitre'; look.hatCol = '#f1efe6'; look.hatTrim = '#c8a040'; }
       else if (/circlet|diadem|crown|tiara/i.test(n)) { look.hat = 'circlet'; look.hatTrim = '#e0c060'; }
@@ -239,7 +255,7 @@
     }
     const bk = E.back; if (bk) look.cape = bk.fx === 'fire' ? '#b8401a' : bk.fx === 'storm' ? '#3a5aa0' : ['#6a5a4a', '#3a4a8a', '#6a3a8a', '#2a4a8a', '#8a2a4a', '#2a2458'][Math.min(5, bk.tier || 0)];
     const shirt = chest && !chest.wrap;
-    look.armor.kind = shirt ? chest.ak : 'none';
+    look.armor.kind = shirt ? chest.ak : 'none'; look.armor.tier = shirt ? chest.tier || 0 : 0;
     look.robe = !!(shirt && chest.ak === 'cloth' && /robe|vestment|gown|habit/i.test(chest.name || 'robe'));
     if (shirt && chest.ak === 'cloth' && !look.robe) look.armor.col = D.CLASSES[c.cls].color;
     look.noShirt = !shirt; look.wrap = !!(chest && chest.wrap) || (!shirt && c.gender === 'f');

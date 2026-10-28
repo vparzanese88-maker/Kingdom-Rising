@@ -616,9 +616,9 @@
     if (vic) b.insertBefore(sec, vic); else b.appendChild(sec);
   };
   // what each kingdom level brings to the defenses
-  const ut0 = Sys.unlockText;
-  if (ut0) Sys.unlockText = function (lvl) {
-    const out = ut0.apply(this, arguments).map((s) => (/Catapults guard every gate/.test(s) ? s.replace('🪨 Catapults guard every gate', '🪨 Two great catapults stand inside the walls') : /Trebuchets and cannons defend the walls/.test(s) ? s.replace('💣 Trebuchets and cannons defend the walls', '💣 Trebuchets inside the walls, cannons at the gates') : s));
+  const ut0 = Sys.cityUpgrades;
+  if (ut0) Sys.cityUpgrades = function (lvl) {
+    const out = (ut0.apply(this, arguments) || []).map((s) => (/Catapults guard every gate/.test(s) ? s.replace('🪨 Catapults guard every gate', '🪨 Two great catapults stand inside the walls') : /Trebuchets and cannons defend the walls/.test(s) ? s.replace('💣 Trebuchets and cannons defend the walls', '💣 Trebuchets inside the walls, cannons at the gates') : s));
     if (lvl === D.RAM.tier) out.push('🐏 Battering rams can be built at the barracks: your war parties need one to break the enemy\'s gates');
     return out;
   };

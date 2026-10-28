@@ -1170,7 +1170,7 @@
   // the sea gate stays open.
   const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel]
   ['hall', -18, -19, 15, 14, 1], ['inn', 8, -19, 9, 8, 1], ['bank', 8, -7, 8, 6, 1],
-  ['smithy', -18, 7, 7, 6, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 6, 1],
+  ['smithy', -18, 7, 7, 5, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 5, 1],
   ['house', -18, 14, 6, 4, 1], ['house', -10, 14, 6, 4, 1], ['house', 4, 14, 6, 4, 1], ['house', 12, 14, 6, 4, 1],
   ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -15, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
   ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
@@ -1194,6 +1194,7 @@
         if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // plaza
         if (Math.abs(dx) <= 3) return false; // the north-south avenue
         if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
+        if (dx >= -19 && dx <= -3 && dy >= -6 && dy <= 0) return false; // the castle's courtyard (room for siege engines)
         const t = W.tiles[y * W.W + x]; if (t === T.WALL || t === T.DOOR || t === T.CWALL || t === T.WATER) return false;
       }
       for (const b of W.buildings) if (b.city === f && !(x0 + w + M <= b.x || b.x + b.w + M <= x0 || y0 + h + M + 1 <= b.y || b.y + b.h + M <= y0)) return false;
@@ -1377,7 +1378,7 @@
     for (const [ox, oy] of [[-4, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
     W.lights.push({ x: cx * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 260 : 170, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' });
     if (level >= 2) { addDecor('stall', cx - 3, cy - 3, { col: '#b84a3a' }); addDecor('stall', cx + 5, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 5, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 5, cy - 1, { col: '#3a8a5a' }); }
-    if (level >= 3) { addDecor('statue', cx - 6, cy + 0, {}); addDecor('statue', cx + 6, cy - 6, {}); }
+    if (level >= 3) { addDecor('statue', cx - 3, cy - 8, {}); addDecor('statue', cx + 6, cy - 6, {}); }
     // towers + torches on walls
     // (the old stone guard towers on the wall corners are gone: the gates are guarded by archer towers and siege engines)
     for (let i = -R + 4; i <= R - 4; i += 6) {
@@ -1431,6 +1432,7 @@
       W.cityData[f] = W.cityData[f] || {}; (W.cityData[f].fields = W.cityData[f].fields || [])[side < 0 ? 0 : 1] = [fx0, fy0, 9, 8];
     }
     W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy;
+    W.cityData[f].siegeYard = [cx - 18, cy - 5, 13, 5]; // [x, y, w, h] tiles: the open courtyard before the castle gate
     W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
     wallWalks(f, R, cx, cy);
     cityGrate(f, R, cx, cy);

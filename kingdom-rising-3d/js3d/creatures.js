@@ -13,7 +13,7 @@ const Q = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y,
 // smooth bodies need the realistic-figures option (on unless the quality is low)
 const FUR_LEN = { wolf: 0.024, bear: 0.035, boar: 0.014, tiger: 0.012, rat: 0.01, griffon: 0.018, horse: 0.006 };
 const ORGANIC = () => K3.settings.quality !== 'low';
-const MATS = { gem: [0.2, 0.1, 0], plain: [0, 0.8, 0], fur: [0, 1, 4], skin: [0, 0.6, 5], scales: [0.1, 0.45, 10], bone: [0, 0.7, 8], glow: [0, 1, 9], shell: [0.2, 0.3, 3], rock: [0, 0.95, 2], wood: [0, 0.9, 2], leaf: [0, 0.9, 1], metal: [0.85, 0.32, 3] };
+const MATS = { gem: [0.2, 0.1, 0], plain: [0, 0.8, 0], fur: [0, 1, 4], skin: [0, 0.6, 5], scales: [0.1, 0.45, 10], bone: [0, 0.7, 8], snake: [0.04, 0.38, 5], glow: [0, 1, 9], shell: [0.2, 0.3, 3], rock: [0, 0.95, 2], wood: [0, 0.9, 2], leaf: [0, 0.9, 1], metal: [0.85, 0.32, 3] };
 
 class Rig {
   constructor(defs) { this.defs = defs; this.names = defs.map((d) => d[0]); this.bi = Object.fromEntries(defs.map((d, i) => [d[0], i])); this.par = Object.fromEntries(defs.map((d) => [d[0], d[1]])); this.rest = Object.fromEntries(defs.map((d) => [d[0], d[2]])); this.pos = []; this.nor = []; this.col = []; this.mat = []; this.si = []; this.sw = []; this.idx = []; this.n = 0; this.prims = []; this.organic = false; this.hardD = 0; }
@@ -234,7 +234,7 @@ function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
 }
 function buildQuad(kind, col, rnd) {
   const sp = QUAD[kind] || QUAD.wolf; const R = new Rig(quadRig(sp)); const r = R.rest;
-  R.organic = ORGANIC(); R.k = sp.br * 0.095; R.cell = K3.clamp(sp.L / (sp.stripes ? 100 : 80), 0.012, 0.07);
+  R.organic = ORGANIC(); R.k = sp.br * 0.095; R.cell = K3.clamp(sp.L / (sp.stripes ? 90 : 80), 0.012, 0.07);
   if (R.organic) R.paint = (g) => { // darker along the back, lighter belly, tiger stripes
     const P = g.attributes.position, N = g.attributes.normal, C = g.attributes.color; const top = r.root[1];
     const hz = r.head[2], ch = r.chest[2], pv = r.pelvis[2]; const legH = r.FL1[1];
@@ -547,8 +547,8 @@ function buildSnake(col) {
   const R = new Rig(defs); const r = R.rest; if (ORGANIC()) { R.organic = true; R.k = 0.02; R.cell = 0.011; }
   // thin behind the head, thickest a third of the way back, then a long taper to a fine tail tip
   const rad = (u) => 0.1 * (u < 0.38 ? 0.5 + 0.5 * Math.sin(Math.min(1, (u + 0.02) / 0.4) * Math.PI / 2) : Math.max(0.06, 1 - ((u - 0.38) / 0.62) ** 1.4 * 0.94));
-  for (let i = 0; i < N - 1; i++) R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rad(i / N), rad((i + 1) / N), col, 'scales');
-  const e = r['s' + (N - 1)]; R.seg('s' + (N - 1), e, [0, 0.05, e[2] - 0.22], rad((N - 1) / N), 0.004, col, 'scales');
+  for (let i = 0; i < N - 1; i++) R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rad(i / N), rad((i + 1) / N), col, 'snake');
+  const e = r['s' + (N - 1)]; R.seg('s' + (N - 1), e, [0, 0.05, e[2] - 0.22], rad((N - 1) / N), 0.004, col, 'snake');
   // a dark saddle of blotches down the back, edged pale; a cream belly; the marks are soft-edged so they read
   // at any distance without crawling
   if (R.organic) R.paint = (g) => { const P = g.attributes.position, Nn = g.attributes.normal, C = g.attributes.color; const sm = (a, b, v) => { const t = K3.clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -560,9 +560,9 @@ function buildSnake(col) {
       let cr = C.getX(i) * k, cg = C.getY(i) * k, cb = C.getZ(i) * k; cr += (0.86 - cr) * belly * 0.75; cg += (0.8 - cg) * belly * 0.75; cb += (0.6 - cb) * belly * 0.75;
       C.setXYZ(i, cr, cg, cb); } };
   // a broad, flat, arrow-shaped viper head, clearly wider than the slim neck, with a brow ridge and a pale lip
-  R.ell('s0', [0, r.s0[1] + 0.015, r.s0[2] + 0.02], [0.105, 0.055, 0.08], shade(col, 0.05), 'scales'); R.ell('s0', [0, r.s0[1] + 0.01, r.s0[2] + 0.11], [0.075, 0.048, 0.1], shade(col, 0.05), 'scales');
-  for (const sd of [-1, 1]) R.ell('s0', [sd * 0.055, r.s0[1] + 0.045, r.s0[2] + 0.09], [0.03, 0.018, 0.06], shade(col, -0.2), 'scales'); // brow ridges
-  R.ell('s0', [0, r.s0[1] - 0.015, r.s0[2] + 0.08], [0.085, 0.025, 0.12], shade(col, 0.4), 'scales');
+  R.ell('s0', [0, r.s0[1] + 0.015, r.s0[2] + 0.02], [0.105, 0.055, 0.08], shade(col, 0.05), 'snake'); R.ell('s0', [0, r.s0[1] + 0.01, r.s0[2] + 0.11], [0.075, 0.048, 0.1], shade(col, 0.05), 'snake');
+  for (const sd of [-1, 1]) R.ell('s0', [sd * 0.055, r.s0[1] + 0.045, r.s0[2] + 0.09], [0.03, 0.018, 0.06], shade(col, -0.2), 'snake'); // brow ridges
+  R.ell('s0', [0, r.s0[1] - 0.015, r.s0[2] + 0.08], [0.085, 0.025, 0.12], shade(col, 0.4), 'snake');
   R.hard(() => { for (const sd of [-1, 1]) { R.ell('s0', [sd * 0.068, r.s0[1] + 0.035, r.s0[2] + 0.1], [0.02, 0.02, 0.018], '#e8d040', 'glow'); R.ell('s0', [sd * 0.08, r.s0[1] + 0.036, r.s0[2] + 0.104], [0.006, 0.015, 0.008], '#120c08', 'gem'); }
     R.seg('s0', [0, r.s0[1], r.s0[2] + 0.19], [0, r.s0[1], r.s0[2] + 0.27], 0.006, 0.002, '#c83a3a', 'skin'); for (const sd of [-1, 1]) R.seg('s0', [0, r.s0[1], r.s0[2] + 0.26], [sd * 0.025, r.s0[1], r.s0[2] + 0.31], 0.003, 0.001, '#c83a3a', 'skin'); });
   const inst = instance(R, R.geometry()); return Object.assign(inst, { _R: R, type: 'snake', N, t: Math.random() * 10, phase: 0 });

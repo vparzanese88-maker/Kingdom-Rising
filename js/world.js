@@ -931,15 +931,28 @@
     // the side a piece is used from: away from the nearest wall (ties go to the back wall, then the front, west, east)
     const wallOf = (x, y) => { const n = y - b.y, s = b.y + b.h - 1 - y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, s, w, e); return m === n ? 'n' : m === s ? 's' : m === w ? 'w' : 'e'; };
     const front = (x, y, face) => { const f = face ? { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[face] : FACE_D[wallOf(x, y)]; return [x + f[0], y + f[1]]; };
+    const connected = () => {
+      const open = (x, y) => inR(x, y) && !W.block[K(x, y)] && !SOLID[W.tiles[K(x, y)]];
+      const sx = door.tx, sy = door.ty - 1; if (!open(sx, sy)) return false;
+      const seen = new Set([K(sx, sy)]); const q = [[sx, sy]];
+      while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = K(nx, ny); if (!seen.has(k) && open(nx, ny)) { seen.add(k); q.push([nx, ny]); } } }
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (open(x, y) && !seen.has(K(x, y))) return false;
+      return true;
+    };
     const P = {
       lane, free, front: (x, y) => front(x, y), hold: (x, y) => hold.add(K(x, y)),
       put(kind, x, y, o = {}) {
         if (!free(x, y) || lane(x, y)) return false;
         const face = o.face || null; const opts = Object.assign({}, o); delete opts.free;
         if (!o.free && !face && ['s'].includes(wallOf(x, y)) && NEEDS_FRONT.has(kind)) return false; // never with its back to the door wall
-        if (NEEDS_FRONT.has(kind)) { const [fx, fy] = front(x, y, face); if (occ(fx, fy)) return false; /* two pieces may share the tile they are used from */ if (!o.free && !face) { const m = Math.min(y - b.y, b.y + b.h - 1 - y, x - b.x, b.x + b.w - 1 - x); if (m !== 1) return false; } hold.add(K(fx, fy)); if (kind === 'bed') { W.block[K(fx, fy)] = 1; } }
+        let fk = -1, foot = -1;
+        if (NEEDS_FRONT.has(kind)) { const [fx, fy] = front(x, y, face); if (occ(fx, fy)) return false; /* two pieces may share the tile they are used from */ if (!o.free && !face) { const m = Math.min(y - b.y, b.y + b.h - 1 - y, x - b.x, b.x + b.w - 1 - x); if (m !== 1) return false; } fk = K(fx, fy); if (kind === 'bed') foot = fk; }
         if (face) opts.face = face;
-        addDecor(kind, x, y, opts); return true;
+        const d = addDecor(kind, x, y, opts); if (foot >= 0) W.block[foot] = 1;
+        // never wall off a corner of the room: every open tile must still be reachable from the door
+        if (!connected()) { W.decor.splice(W.decor.indexOf(d), 1); W.block[K(x, y)] = 0; if (foot >= 0) W.block[foot] = 0; return false; }
+        if (fk >= 0) hold.add(fk);
+        return true;
       },
       first(kind, list, o = {}) { for (const [x, y] of list) if (P.put(kind, x, y, o)) return [x, y]; return null; },
       // a tile to post someone on: free and out of the door lane if possible, else at least not inside furniture
@@ -957,7 +970,7 @@
     if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) { makeLoft(b, x0, y0, x1, y1); if (b.loft) loftCol = b.loft.col; }
     const P = placer(b, x0, y0, x1, y1);
     // the carpenter's bench (for refining wood) against a side wall, its sawhorse beside it
-    const carpenter = () => { const wb = P.first('workbench', [[x0, y0 + 2], [x0, y0 + 3], [x1, y0 + 1], [x1, y0 + 3], [x0, y0 + 1], [x1, y1 - 1], [x0, y1 - 1]]); if (wb) P.first('sawhorse', [[wb[0], wb[1] + 1], [wb[0], wb[1] - 1], [wb[0] + (wb[0] === x0 ? 1 : -1), wb[1] + 1]], { free: true }); };
+    const carpenter = () => { const wb = P.first('workbench', [[x0, y0 + 2], [x0, y0 + 3], [x1 - 1, y0], [x0 + 2, y0], [x1, y0 + 1], [x1, y0 + 3], [x0, y0 + 1], [x1, y1 - 1], [x0, y1 - 1]]); if (wb) P.first('sawhorse', [[wb[0], wb[1] + 1], [wb[0], wb[1] - 1], [wb[0] + (wb[0] === x0 ? 1 : -1), wb[1] + 1]], { free: true }); };
     switch (b.type) {
       case 'hall':
         if (b.city && b.w >= 15 && b.h >= 14) { castleKeep(b); break; }

@@ -60,6 +60,9 @@
   W.swimmable = function (tx, ty) {
     if (swimFor !== W.tiles) { swimC = new Map(); swimFor = W.tiles; }
     const i = ty * W.W + tx; let v = swimC.get(i); if (v != null) return v;
+    // nobody swims through a ship's hull
+    const HULL = { rowboat: 1, sloop: 1.6, cog: 2.2, galleon: 3 };
+    for (const d of W.decor) if (d.kind === 'boat' && Math.abs(d.tx - tx) < 5 && Math.abs(d.ty - ty) < 5 && Math.hypot(d.tx - tx, d.ty - ty) <= (HULL[d.size] || 1.6)) { swimC.set(i, false); return false; }
     v = false; const R = 8;
     for (let y = ty - R; y <= ty + R && !v; y++) for (let x = tx - R; x <= tx + R; x++) { if (!W.inb(x, y)) continue; if (W.tiles[y * W.W + x] !== T.DEEP) { v = true; break; } }
     swimC.set(i, v); return v;

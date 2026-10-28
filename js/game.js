@@ -338,7 +338,7 @@
   };
 
   // ---------- damage / healing ----------
-  G.cheat = Object.freeze({ god: false, oneshot: false }); // test cheats are switched off for players
+  G.cheat = { god: false, oneshot: false }; // test cheats: off unless switched on in the Cheats window (cheats.js, F8)
   // level gap: monsters above you hit harder and shrug off more of your damage; monsters below you are easier.
   G.LVL_UP_DMG = 0.1; G.LVL_UP_DEF = 0.11;
   G.lvlScale = function (src, tgt) {

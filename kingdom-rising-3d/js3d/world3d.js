@@ -174,7 +174,7 @@ export const world3d = {
     // the wind picks up in the rain
     K3.shared.uWind.value += ((G.weather && G.weather.type === 'rain' ? 1.9 : 1) - K3.shared.uWind.value) * Math.min(1, dt * 0.3);
     // boats bob on the water, the balloon floats
-    for (const o of anims) { const a = o.userData.anim; if (a.kind === 'boat') { o.position.y = a.y + Math.sin(K3.time * 1.3 + a.v * 9) * (a.size === 'galleon' ? 0.05 : a.size === 'cog' ? 0.08 : 0.12) - (a.size ? 0 : 0.35); o.rotation.z = Math.sin(K3.time * 1.1 + a.v * 5) * 0.03; o.rotation.x = Math.sin(K3.time * 0.9 + a.v * 3) * 0.02; } else { o.position.y = a.y + Math.sin(K3.time * 0.8) * 0.25; } o.updateMatrixWorld(true); }
+    for (const o of anims) { const a = o.userData.anim; if (a.kind === 'boat') { if (a.arrival) o.visible = !K3.introOn; /* the ship that brought you home: out of sight while the arrival shot sails it in (intro3d.js) */ o.position.y = a.y + Math.sin(K3.time * 1.3 + a.v * 9) * (a.size === 'galleon' ? 0.05 : a.size === 'cog' ? 0.08 : 0.12) - (a.size ? 0 : 0.35); o.rotation.z = Math.sin(K3.time * 1.1 + a.v * 5) * 0.03; o.rotation.x = Math.sin(K3.time * 0.9 + a.v * 3) * 0.02; } else { o.position.y = a.y + Math.sin(K3.time * 0.8) * 0.25; } o.updateMatrixWorld(true); }
     // smoke, sparks, fountains and drips near the camera
     mk('misc');
     emitTick(dt, cam); mk('emit');

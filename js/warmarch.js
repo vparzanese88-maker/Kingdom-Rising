@@ -2202,7 +2202,13 @@
     }
     if (best) return best;
     // then (laying siege) the buildings: the barracks and the shipyard before the rest
-    if (s.ship && s.state === 'siege') { for (const b of buildingsOf(ef)) { const d = Math.hypot(b.x - s.x, b.y - s.y) * (b.id === 'barracks' || b.id === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = { bld: b.id, f: ef, x: b.x, y: b.y }; } } if (best) return best; }
+    // the kingdom's buildings have bodies of their own (War.buildingBodies): the Town Hall only when nothing else stands
+    if (s.ship && s.state === 'siege') {
+      let hall = null;
+      for (const e of G.ents) { if (!e.bldg || e.faction !== ef || e.dead || e.removed || e.razed) continue; if (e.hall) { hall = e; continue; } const d = Math.hypot(e.x - s.x, e.y - s.y) * (e.bldg === 'barracks' || e.bldg === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = e; } }
+      if (best) return best; if (hall && Math.hypot(hall.x - s.x, hall.y - s.y) < range) return hall;
+    }
+    if (s.ship && s.state === 'siege' && !G.ents.some((e) => e.bldg)) { for (const b of buildingsOf(ef)) { const d = Math.hypot(b.x - s.x, b.y - s.y) * (b.id === 'barracks' || b.id === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = { bld: b.id, f: ef, x: b.x, y: b.y }; } } if (best) return best; }
     // then soldiers and the enemy hero
     for (const e of G.ents) { if (e.dead || e.removed || e.faction !== ef || e.static) continue; if (e.raider || e.type === 'guard') consider(e, 1.6); }
     if (p && !p.dead && War.isFoe(f, p)) consider(p, 1.8);

@@ -106,18 +106,21 @@ function shipModel(e) {
   if (galleon) { // a row of cannon run out through the ports on each side
     for (const s of [-1, 1]) for (let i = 0; i < 5; i++) {
       const z = -6 + i * 3; const t = 0.5 + z / S.L; const half = (S.B / 2) * Math.pow(Math.sin(Math.PI * Math.max(0.05, Math.min(0.95, t))), 0.42) * 0.97;
-      m.box('dark', s * (half + 0.02), 1.25, z, 0.05, 0.6, 0.6, '#140e0a');
-      m.cyl('metalv', s * (half + 0.45), 1.25, z, 0.17, 1.2, '#2e2e34', 10, 0.14, 0, 0, Math.PI / 2);
-      guns.push([s * (half + 1.0), 1.25, z]);
+      m.box('dark', s * (half + 0.02), 1.25, z, 0.05, 0.75, 0.75, '#140e0a');
+      m.box('paint', s * (half + 0.06), 1.25, z, 0.04, 0.95, 0.95, '#c8a040'); // a gilded port frame
+      m.cyl('metalv', s * (half + 0.75), 1.25, z, 0.26, 1.6, '#55565c', 12, 0.2, 0, 0, Math.PI / 2); // the gun run out
+      m.cyl('metalv', s * (half + 1.52), 1.25, z, 0.29, 0.14, '#3a3b40', 12, null, 0, 0, Math.PI / 2); // its muzzle ring
+      guns.push([s * (half + 1.6), 1.25, z]);
     }
     m.box('cloth2', 0, 2.2, -S.L / 2 + 0.6, 2.4, 1.4, 0.05, banner(e.faction));
   } else { // two great bolt throwers on turntables, fore and aft
-    for (const z of [-4.6, 4.2]) {
-      m.cylB('timber', 0, S.G - 0.1, z, 0.55, 0.3, '#5a3e24', 12);
-      m.box('timber', 0, S.G + 0.55, z, 0.3, 0.24, 2.6, '#8a6a3a');
-      for (const sx of [-1, 1]) m.beam('timber', V(0, S.G + 0.6, z + 1.0), V(sx * 1.4, S.G + 0.75, z + 0.4), 0.12, 0.14, '#6a4a2a');
-      m.box('gold', 0, S.G + 0.72, z, 0.06, 0.04, 2.4, trimOf(e.faction));
-      guns.push([0, S.G + 0.6, z]);
+    for (const z of [-4.4, 4.0]) { // a carved post standing up out of the hull, the long stock on top and the great bow across it
+      const y0 = S.G + 0.2, y1 = S.G + 1.7;
+      m.cylB('timber', 0, y0, z, 0.6, 0.25, '#5a3e24', 12); m.cylB('bark', 0, y0 + 0.25, z, 0.22, y1 - y0 - 0.25, '#6a5a3a', 10);
+      m.box('timber', 0, y1 + 0.12, z, 0.36, 0.28, 3.2, '#8a6a3a'); m.box('gold', 0, y1 + 0.3, z, 0.08, 0.05, 3.0, trimOf(e.faction));
+      for (const sx of [-1, 1]) { m.beam('timber', V(0, y1 + 0.2, z + 1.3), V(sx * 1.2, y1 + 0.35, z + 0.9), 0.14, 0.16, '#6a4a2a'); m.beam('timber', V(sx * 1.2, y1 + 0.35, z + 0.9), V(sx * 2.0, y1 + 0.45, z + 0.2), 0.12, 0.14, '#6a4a2a'); m.rod('rope', V(sx * 2.0, y1 + 0.45, z + 0.2), V(0, y1 + 0.3, z - 0.4), 0.025, '#e8dcb8'); }
+      m.sph('metalv', 0, y1 + 0.32, z + 1.7, 0.09, 0.09, 0.32, '#9aa0a6', 0, 8); // the bolt's head
+      guns.push([0, y1 + 0.2, z]);
     }
   }
   inner.add(m.build());

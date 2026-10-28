@@ -826,10 +826,11 @@
     for (const [off, len] of piers) for (let i = 0; i < len; i++) for (let w = -1; w <= 1; w++) { const x = gx + dx * (k + 1 + i) + px * (off + w), y = gy + dy * (k + 1 + i) + py * (off + w); if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WOOD; W.block[y * W.W + x] = 0; } }
     const at = (i, s) => [gx + dx * (k + 1 + i) + px * s, gy + dy * (k + 1 + i) + py * s];
     const ry = Math.atan2(dx, dy); // ships lie along the piers, bows out to sea
-    const ship = (i, s, size, v) => { const [x, y] = at(i, s); if (isW(x, y)) deco('boat', x, y, { nb: true, size, ry, v }); };
+    // a ship's spot can fall between tiles: it is tested on its tile and placed exactly
+    const ship = (i, s, size, v, o = {}) => { const [x, y] = at(i, s); const tx = Math.round(x), ty = Math.round(y); if (isW(tx, ty)) deco('boat', tx, ty, Object.assign({ nb: true, size, ry, v, px: x * TS + 16, py: y * TS + 16 }, o)); };
     // the ship that brought you home lies at the pier's inner berth (s 3.5: intro3d.js sails it in along that lane), and
     // a rowboat is tied up at the foot of the pier on the other side
-    { const [x, y] = at(9, 3.5); if (isW(x, y)) deco('boat', x, y, { nb: true, size: 'cog', ry: ry + Math.PI, v: 0.45, arrival: true }); }
+    ship(9, 3.5, 'cog', 0.45, { ry: ry + Math.PI, arrival: true });
     ship(1.5, -2.6, 'rowboat', 0.7);
     // posts, crates, barrels, nets and lamps
     for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }

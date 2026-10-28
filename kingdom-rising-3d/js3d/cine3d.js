@@ -1,6 +1,6 @@
 // Kingdom Rising 3D — the opening film for a new hero: the story of the poisoned king told over a flight
 // across the real land, down over the walls of your city, a full turn round the hero you just made, and
-// then into your hero's own eyes as the game begins. Esc or "Skip" ends it at any time.
+// then into your hero's own eyes as the game begins. It cannot be skipped.
 import { THREE, K3, PX, TS, TILE } from './core.js';
 import { geo } from './geo.js';
 import { view, eyeHeight } from './camera.js';
@@ -37,14 +37,12 @@ export function startCine(c, done) {
   const near = new THREE.Vector3(cx + dx * ((cd.R || 12) + 14) * TILE, 0, cz + dz * ((cd.R || 12) + 14) * TILE);
   const side = new THREE.Vector3(-dz, 0, dx);
   const ov = document.createElement('div'); ov.className = 'k3-cine';
-  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><div class="k3c-cap"><div class="k3c-k"></div><h2></h2><p></p></div><div class="k3c-flash"></div><button class="btn small ghost k3c-skip">Skip ›</button>`;
+  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><div class="k3c-cap"><div class="k3c-k"></div><h2></h2><p></p></div><div class="k3c-flash"></div>`;
   document.body.appendChild(ov);
   const lines = LORE.concat([FINAL[c.faction] || FINAL.crown]);
   cine = { c, p, t: 0, ov, done, start, near, side, cx, cz, lines, line: -1, yS: null, prevWant: view.want };
   view.want = view.dist = 5; // third person, so the hero is there to be seen
-  const skip = () => end();
-  ov.querySelector('.k3c-skip').onclick = (e) => { e.stopPropagation(); skip(); };
-  cine.key = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); skip(); } };
+  cine.key = (e) => { e.preventDefault(); e.stopImmediatePropagation(); }; // it plays through: no skipping
   addEventListener('keydown', cine.key, true);
   try { A.play('epic'); } catch (e) {}
   if (G.weather) { G.weather.type = 'clear'; G.weather.t = Math.max(G.weather.t || 0, 120); } // the first sight of the land should be a fine one

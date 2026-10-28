@@ -602,6 +602,7 @@ export const actors = {
     return best;
   },
   // world-space head position of an entity (for name plates)
+  rigOf(e) { const av = avatars.get(keyOf(e)); return av ? av.rig : null; }, // the speaker's face in a cutscene (scene3d.js)
   headPos(e, out) { const av = avatars.get(keyOf(e)); if (!av) return null; out.copy(av.obj.position); out.y += (e.dead ? 0.6 : av.height * av.scale + 0.25); return out; },
 };
 K3.actors = actors;

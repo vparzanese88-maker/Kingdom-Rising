@@ -1,7 +1,7 @@
 // Kingdom Rising 3D — a new hero's homecoming: a short aerial shot of your ship sailing straight into your
 // capital's marina, down a clear lane between the moored ships, filmed from out ahead of the bow so the sails
 // are always behind you, then you stand on the dock and the harbourmaster comes to meet you.
-// No talk on the way in. Esc, a click or "Skip" ends it at once.
+// No talk on the way in, and no skipping: it plays through, then the harbourmaster's scene follows.
 import { THREE, K3, PX, TILE } from './core.js';
 import { view } from './camera.js';
 import { buildShip } from './ships.js';
@@ -25,9 +25,9 @@ export function startIntro(c, done) {
   const [Sx, Sz] = tile(far, LANE), [Dx, Dz] = tile(BERTH, LANE);
   const yaw = Math.atan2(Dx - Sx, Dz - Sz); // bow toward the city
   const ship = buildShip('cog', 0.45); K3.scene.add(ship);
-  // the overlay: letterbox and a skip button
+  // the overlay: letterbox bars
   const ov = document.createElement('div'); ov.className = 'k3-cine k3-intro';
-  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div><button class="btn small ghost k3c-skip">Skip ›</button>`;
+  ov.innerHTML = `<div class="k3c-bar top"></div><div class="k3c-bar bot"></div>`;
   document.body.appendChild(ov);
   const ui = document.getElementById('ui'), hud = document.getElementById('hud3d'); const uiWas = ui ? ui.hidden : true; if (ui) ui.hidden = true; if (hud) hud.style.visibility = 'hidden';
   // the ships moored in the marina: if one ever comes between the camera and the hero, the camera rises over it
@@ -36,10 +36,9 @@ export function startIntro(c, done) {
   // a fine sunny morning
   G.clock = 9.5 * 60; if (G.weather) { G.weather.type = 'clear'; G.weather.t = Math.max(G.weather.t || 0, 200); }
   p.sit = false; p.moving = false;
-  const skip = () => finish();
-  ov.querySelector('.k3c-skip').onclick = (e) => { e.stopPropagation(); skip(); };
-  intro.key = (e) => { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.stopImmediatePropagation(); e.preventDefault(); skip(); } };
-  intro.click = (e) => { if (e.target && e.target.closest && e.target.closest('.k3c-skip')) return; skip(); };
+  // nothing ends it early: keys and clicks are swallowed until the shot is over
+  intro.key = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
+  intro.click = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
   addEventListener('keydown', intro.key, true); addEventListener('pointerdown', intro.click, true);
   try { A.play('harbor'); } catch (e) {}
   K3.cine = intro;

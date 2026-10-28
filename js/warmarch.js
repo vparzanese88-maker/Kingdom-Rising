@@ -2369,3 +2369,20 @@
   const sd0 = War.spawnDefenses;
   War.spawnDefenses = function (f) { const r = sd0.apply(this, arguments); try { N.hookRealm(); N.refreshGuns(f); N.spawnFleet(f); } catch (e) { console.warn('naval', e); } return r; };
 })();
+
+// ---- sallying out: your own gates open for your own army ----
+// (found by the balance simulation: enemy hunting parties near the town kept the alarm ringing, the portcullis stayed
+// down, and a war party ordered out could never leave its own walls.) Ordering an attack raises your gates and keeps
+// them up for a minute while the column marches out; then the alarm works as before.
+(function () {
+  const KR = window.KR, G = KR.G, War = KR.War; if (!War || !War.orderAttack || !War.closeGates) return;
+  War.sallyUntil = War.sallyUntil || {};
+  const close0 = War.closeGates;
+  War.closeGates = function (f) { if (War.sallyUntil[f] && G.now < War.sallyUntil[f]) return 0; return close0.apply(this, arguments); };
+  const order0 = War.orderAttack;
+  War.orderAttack = function (f) {
+    const ff = f || (G.player && G.player.c.faction);
+    if (ff) { War.sallyUntil[ff] = G.now + 60000; if (War.gatesDown(ff)) { War.openGates(ff, true); if (G.player && G.player.c.faction === ff) G.log('The gates swing open to let your army march out.', 'status', '#9affb8'); } }
+    return order0.apply(this, arguments);
+  };
+})();

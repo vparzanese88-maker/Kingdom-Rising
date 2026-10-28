@@ -208,7 +208,7 @@
     trollcaller: { set: 'Mossbound Hides', pre: 'Mossbound', col: '#4a5a32', trim: '#8ab060', weapons: [['2HB', 'Rootheart Staff']], lore: 'Troll-hide bound with living moss; trolls take its wearer for kin.', bonus: { 2: { WIS: 20 }, 4: { regen: 3, manaRegen: 2 }, 5: { spellMul: 0.1, dmgMul: 0.06 } } },
   };
   // where they drop: the top bosses (and, rarely, the enemy king)
-  D.SET_DROP = { minBossLv: 46, chance: 0.11, kingChance: 0.2, partyBias: 0.5 };
+  D.SET_DROP = { minBossLv: 46, chance: 0.15, kingChance: 0.2, partyBias: 0.5 };
   // weapons roll what their wielders need: staves and tomes for casters, bows and guns for marksmen
   D.WEAPON_STATS = { '2HB': ['INT', 'WIS', 'STA', 'STR'], TOME: ['INT', 'WIS', 'CHA'], ARC: ['DEX', 'AGI', 'STR'], GUN: ['DEX', 'AGI', 'STA'], THR: ['DEX', 'AGI'], '1HP': ['DEX', 'AGI', 'STR'], H2H: ['AGI', 'STR', 'STA'] };
   D.TIER_ADJ = ['Crude', 'Fine', 'Sturdy', 'Masterwork', 'Exalted', 'Mythic'];

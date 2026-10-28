@@ -220,6 +220,7 @@
   let prompt = null, promptT = 0, promptFor = null;
   function promptTick(p) {
     const now = performance.now(); if (now - promptT < 150) return; promptT = now;
+    if (prompt) prompt.hidden = true; return; // the mouse cursor turns into the tool instead (main3d.js)
     if (!prompt) { prompt = document.createElement('div'); prompt.className = 'hv-prompt'; prompt.hidden = true; document.body.appendChild(prompt); }
     let tgt = null;
     if (!p.dead && !p.harvest && !p.moving) {

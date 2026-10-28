@@ -223,9 +223,9 @@ export function updateSky(dt, camPos, ctx) {
   // dims it a little (night already takes away most of the light); gloomy regions darken nights less than days
   const darkN = 1 - regDark * (0.62 - 0.3 * nightK);
   let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.95 * nightK * (1 - cloudK * 0.25) * darkN; // moonlight you can see by
-  let hemiI = (0.52 + 0.51 * dayK) * (0.9 + cloudK * 0.2) * (dayK > 0.5 ? darkMul : darkN); // the same by day; a brighter floor of skylight at night
-  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.62 : 0.13; } // sewers: grey daylight leaks down through the street grates
-  hemiI *= 1 - insideK * 0.42; // rooms keep a warm fill of light from their windows and fires, never gloomy
+  let hemiI = (0.6 + 0.62 * dayK) * (0.92 + cloudK * 0.22) * (dayK > 0.5 ? 1 - regDark * 0.45 : darkN); // bright, readable skylight; gloomy lands only dim it // the same by day; a brighter floor of skylight at night
+  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.34 : geo.dtype === 'sewer' ? 0.7 : 0.38; } // dark and moody, but you can see where you're going // sewers: grey daylight leaks down through the street grates
+  hemiI *= 1 - insideK * 0.22; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
   sun.color.copy(sunUp ? u.uSunCol.value : C(0.55, 0.65, 0.95));
   hemi.intensity = hemiI + flash * 3;
@@ -255,13 +255,13 @@ export function updateSky(dt, camPos, ctx) {
   // fog
   const fog = K3.scene.fog;
   let dens = 0.0016 + fogK * 0.011 + regFog * 0.006 + cloudK * 0.0006;
-  if (dungeon) dens = 0.03;
+  if (dungeon) dens = 0.018;
   if (W.realm === 'summit') dens *= 0.6;
   dens = dens + insideK * 0.004;
   fog.density += (dens - fog.density) * Math.min(1, dt * 1.5);
   const fc = tmp.copy(hor).lerp(zen, 0.15);
   if (regFog > 0.1) fc.lerp(reg.biome === 'swamp' ? C(0.3, 0.34, 0.26).multiplyScalar(0.2 + 0.8 * dayK) : C(0.22, 0.2, 0.26).multiplyScalar(0.3 + 0.7 * dayK), regFog * 0.7);
-  if (dungeon) fc.setRGB(0.012, 0.012, 0.016);
+  if (dungeon) fc.setRGB(0.035, 0.034, 0.042);
   fog.color.copy(fc);
   // shared uniforms for water and the like
   const sh2 = K3.shared;
@@ -299,5 +299,5 @@ export function updateSky(dt, camPos, ctx) {
   sky.darkness = dungeon ? 1 : K3.clamp(Math.max(1 - sky.lightLevel, insideK * 0.8), 0, 1);
   // a touch more bloom at night when the fires glow
   if (K3.bloom) { K3.bloom.strength = 0.2 + sky.darkness * 0.08; K3.bloom.threshold = 0.9; } // a soft glow around lamps at night, never a glare
-  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.5 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
+  if (K3.renderer) K3.renderer.toneMappingExposure = (1.1 + sky.darkness * 0.5 + (dungeon ? 0.45 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
 }

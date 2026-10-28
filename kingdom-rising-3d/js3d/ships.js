@@ -105,7 +105,7 @@ const lineMat = new THREE.LineBasicMaterial({ color: 0x241a12 });
 export function buildShip(size, v = 0, opts = {}) {
   const S = SIZES[size] || SIZES.sloop; const variant = Math.floor(v * 6) % 6; const key = size + ':' + variant + (opts.warship ? ':w' : '');
   const sailObjs = [];
-  const addSail = (geom, x, y, z, extra) => { if (!opts.warship) { mb.add('cloth2', geom, M(x, y, z), null, 'world'); if (extra) extra((ex, ey, ez) => M(ex, ey, ez), mb); return; } const sm = new MB(); sm.add('cloth2', geom, M(0, 0, 0), null, 'world'); if (extra) extra((ex, ey, ez) => M(ex - x, ey - y, ez - z), sm); const o = sm.build(); o.position.set(x, y, z); o.userData.sail = true; sailObjs.push(o); };
+  const addSail = (geom, x, y, z, extra) => { if (!opts.warship) { mb.add('cloth2', geom, M(x, y, z), null, 'world'); if (extra) extra((ex, ey, ez, ...r) => M(ex, ey, ez, ...r), mb); return; } const sm = new MB(); sm.add('cloth2', geom, M(0, 0, 0), null, 'world'); if (extra) extra((ex, ey, ez, ...r) => M(ex - x, ey - y, ez - z, ...r), sm); const o = sm.build(); o.position.set(x, y, z); o.userData.sail = true; sailObjs.push(o); };
   let c = cache.get(key); if (c) return c.clone();
   const r = K3.rng(variant * 977 + size.length);
   const mb = new MB(); const M = (x, y, z, sx = 1, sy = 1, sz = 1, ry = 0, rx = 0, rz = 0) => MB.mat(x, y, z, sx, sy, sz, ry, rx, rz);

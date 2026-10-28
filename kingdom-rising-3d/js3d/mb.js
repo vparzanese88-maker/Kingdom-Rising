@@ -2,6 +2,7 @@
 // into one merged mesh per material, with world-projected texture coordinates and colour tints
 import { THREE, K3 } from './core.js';
 import { mats, MAT_UV } from './mats.js';
+import { bevelFor } from './bevel.js';
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
 const _c = new THREE.Color();
@@ -33,6 +34,8 @@ export class MB {
   }
   // add geometry g (indexed or not) transformed by matrix m, tinted by color (hex/Color), uv: 'world' | 'local' | number (local uv scale)
   add(key, g, m, color, uv = 'world', uvScale = 1) {
+    // boxes get chamfered edges (bevel.js), a few centimetres whatever their proportions: no Minecraft blocks
+    if (g === PRIM.box && uv === 'world' && !this.square) { const e = m.elements; const bg = bevelFor(key, Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10])); if (bg) g = bg; }
     const p = this.part(key);
     const pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
     const base = p.n; const nm = _nm.getNormalMatrix(m);

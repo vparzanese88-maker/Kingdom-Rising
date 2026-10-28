@@ -906,7 +906,7 @@
     // where you last stood freely (/stuck searches from here, so it never takes you through a wall)
     if (!W.solidAtPx(p.x, p.y, { door: 'pass', swim: true })) { const lg = p.lastGood || (p.lastGood = {}); lg.x = p.x; lg.y = p.y; }
     // on a pier, a bridge or a ship's deck you are out of the water, whatever is under it
-    const was = !!p.swim; p.swim = !p.upB && !p.onWall && W.tile(tx, ty) === T.DEEP && (!G.deepWaterAt || G.deepWaterAt(p.x, p.y)) && !(W.realm && W.realm !== 'main' && !W.swimmable(tx, ty));
+    const was = !!p.swim; p.swim = !p.onShip && !p.upB && !p.onWall && W.tile(tx, ty) === T.DEEP && (!G.deepWaterAt || G.deepWaterAt(p.x, p.y)) && !(W.realm && W.realm !== 'main' && !W.swimmable(tx, ty));
     if (p.swim !== was) {
       if (p.swim) { p.sit = false; p.autoAttack = false; p.chase = null; if (p.cast) G.interrupt(p, 'You plunge into the water and lose your spell.'); G.log('You are swimming.', 'sys', '#9ad8ff'); KR.A && KR.A.sfx && KR.A.sfx('splash', 0.5); }
       else G.log('You wade out of the deep water.', 'sys', '#aaa');
@@ -946,7 +946,8 @@
       if (p.cast) G.interrupt(p, 'You moved and your spell fizzles.');
       const inWater = W.tile(Math.floor(p.x / TS), Math.floor(p.y / TS)) === T.WATER;
       const sp = p.speed * (p.swim ? G.swimSpeed(p) : inWater ? 0.55 : 1) * dt;
-      G.moveEnt(p, mx / len * sp, my / len * sp, { key: (k) => c.inv.some((it) => it && it.key === k), swim: p === G.player });
+      if (p.onShip && G.deckMove) G.deckMove(p, mx / len * sp, my / len * sp); // aboard a warship: walk her deck (warmarch.js, naval ride)
+      else G.moveEnt(p, mx / len * sp, my / len * sp, { key: (k) => c.inv.some((it) => it && it.key === k), swim: p === G.player });
       p.walk += dt * 11;
       if (Math.abs(mx) > Math.abs(my)) { p.dir = mx < 0 ? 1 : 2; p.face = mx < 0 ? -1 : 1; } else p.dir = my < 0 ? 3 : 0;
     }

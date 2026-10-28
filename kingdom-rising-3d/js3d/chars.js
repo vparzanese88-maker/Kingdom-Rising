@@ -7,7 +7,7 @@ import { weaponMesh } from './weapons.js';
 
 import { humanAsset, makeHumanRig } from './human.js';
 import { legs, handsOnKnees } from './gait.js';
-import { spring, bodyLean, melee, hurt, casting, look, cape } from './motion.js';
+import { spring, bodyLean, melee, hurt, casting, look, cape, knockdown, limp, panic } from './motion.js';
 const KR = window.KR, D = KR.D;
 
 // ---------- the material: vertex colours plus per-vertex metal/roughness and procedural detail ----------
@@ -673,8 +673,11 @@ export function animateHumanoid(rig, st, dt) {
     else if (k === 'claw') { B.armR.rotation.x = -0.4 - wind * 2.0 + hit * 2.0; B.armL.rotation.x = -0.4 - wind * 1.6 + hit * 1.7; B.armR.rotation.z = 0.3 * hit; B.armL.rotation.z = -0.3 * hit; B.chest.rotation.x = 0.3 * hit * (1 - rec); }
     else if (k === 'spin') { B.hips.rotation.y = a * Math.PI * 4; B.armR.rotation.z = -1.4; B.armL.rotation.z = 1.4; }
   }
-  // ---- struck: a flinch, or a stagger from a heavy blow (motion.js) ----
+  // ---- struck: a flinch, or a stagger from a heavy blow; stunned: down on a knee; fleeing in terror; dead and slack (motion.js) ----
   hurt(rig, B, st);
+  knockdown(rig, B, st, dt);
+  if (!st.far || st.panic) panic(rig, B, st, dt);
+  limp(rig, B, st, dt);
   // ---- kick ----
   if (st.kick > 0 && st.kick < 1) { const k = Math.sin(st.kick * Math.PI); B.thighR.rotation.x = -1.6 * k; B.shinR.rotation.x = 0.3 * (1 - k); B.chest.rotation.x = 0.2 * k; B.armL.rotation.z = 0.6 * k; B.armR.rotation.z = -0.6 * k; }
   // ---- special moves ----
@@ -725,7 +728,7 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
   if (!st.far) look(rig, B, st, dt);
-  if (!st.cast && !rig.sw && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
+  if (!st.cast && !rig.sw && !(st.atk > 0 && st.atk < 1) && !(st.animK && st.animP > 0 && st.animP < 1)) handsOnKnees(rig); // a seated drinker keeps the mug
   // fingers: a fist around a weapon, open while casting, loosely curled otherwise
   if (rig.hands && !st.far) for (const S of ['L', 'R']) {
     const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;

@@ -6,6 +6,9 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+// ambient occlusion (Super Ultra only) is loaded on demand: no cost for anyone else
+let GTAOPass = null, gtaoLoading = false;
+function loadGTAO() { if (GTAOPass || gtaoLoading) return; gtaoLoading = true; import('three/addons/postprocessing/GTAOPass.js').then((m) => { GTAOPass = m.GTAOPass; if (K3.quality && K3.quality.ao) buildComposer(); }).catch((e) => { console.warn('GTAO', e); }); }
 
 export { THREE };
 const KR = window.KR;
@@ -35,6 +38,9 @@ const QUALITY = {
   medium: { name: 'Medium', detailFar: 130, propsFar: 110, pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 3, grade: true, treeNear: 42, shadowDist: 20, shadowBox: 34, shadowEvery: 3, softShadows: false, bloomDiv: 4 },
   high: { name: 'High', detailFar: 190, propsFar: 160, pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 4, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2, softShadows: true, bloomDiv: 3 },
   // ultra: native resolution with 4x MSAA (drawing 1.25x the pixels on high-DPI screens cost far more than it showed)
+  // super ultra: for strong graphics cards: the screen's full sharpness, 4096 soft shadows redrawn every frame, ambient
+  // occlusion (GTAO), more real lights, the longest view, the densest grass and the sharpest textures
+  superultra: { name: 'Super Ultra (strong graphics cards)', detailFar: 360, propsFar: 300, pr: 2, shadows: 1, shadowSize: 4096, msaa: 4, bloom: true, grass: 1.4, view: 800, treeFar: 600, texSize: 1024, lights: 10, grade: true, treeNear: 95, shadowDist: 64, shadowBox: 64, shadowEvery: 1, softShadows: true, bloomDiv: 2, ao: true, aniso: 16 },
   ultra: { name: 'Ultra', detailFar: 270, propsFar: 230, pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 6, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 52, shadowEvery: 2, softShadows: true, bloomDiv: 3 },
 };
 K3.QUALITY = QUALITY;
@@ -106,13 +112,15 @@ scene.add(camera);
 let composer = null, bloom = null, fxaa = null, grade = null, renderPass = null;
 const GradeShader = {
   // a livelier grade: a touch more colour and contrast, cool shadows and warm highlights, a lighter vignette
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.24 }, uSat: { value: 1.06 }, uCon: { value: 1.09 }, uTint: { value: new THREE.Vector3(1.0, 0.995, 0.98) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.18 }, uSat: { value: 1.1 }, uCon: { value: 1.06 }, uTint: { value: new THREE.Vector3(1.025, 1.0, 0.965) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uHurt, uTime, uFade; uniform vec3 uTint; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
       vec3 col = c.rgb;
+      // lift the shadows a little (dark corners stay readable) before the colour work
+      col = col + (1.0 - col) * 0.035 + col * (1.0 - smoothstep(0.0, 0.35, dot(col, vec3(0.299,0.587,0.114)))) * 0.22;
       float l = dot(col, vec3(0.299,0.587,0.114));
       col = mix(vec3(l), col, uSat);
       col = mix(col, col * vec3(0.96, 0.99, 1.05), (1.0 - smoothstep(0.0, 0.45, l)) * 0.55);
@@ -150,6 +158,8 @@ function buildComposer() {
   renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
   bloom = null; fxaa = null; grade = null;
+  // ambient occlusion: soft contact shadows where walls meet floors, in corners and under eaves
+  if (q.ao) { if (GTAOPass) { try { const ao = new GTAOPass(scene, camera, size.x, size.y); ao.output = GTAOPass.OUTPUT.Default; ao.blendIntensity = 0.85; ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 12 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 }); composer.addPass(ao); K3.ao = ao; } catch (e) { console.warn('GTAO', e); K3.ao = null; } } else loadGTAO(); } else K3.ao = null;
   // the softer shadow filter costs several extra lookups per pixel: only High and Ultra use it
   const st = q.softShadows === false ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; if (renderer.shadowMap.type !== st) renderer.shadowMap.type = st;
   const bd = q.bloomDiv || 2; if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(Math.ceil(size.x / bd), Math.ceil(size.y / bd)), 0.32, 0.55, 0.86); composer.addPass(bloom); } // glow worked out at half resolution: same look, a quarter of the cost
@@ -242,7 +252,7 @@ K3.frameTick = function (dt) {
   // readings in a row to go down, a longer good run to go back up
   // High and Ultra are chosen for their sharpness: the scaler only takes them down to 75% and only below ~40 fps
   // (at 60 target), never just because the game runs at 45-55
-  const floor = K3.settings.quality === 'ultra' || K3.settings.quality === 'high' ? 0.75 : 0.55;
+  const floor = K3.settings.quality === 'superultra' || K3.settings.quality === 'ultra' || K3.settings.quality === 'high' ? 0.75 : 0.55;
   const low = floor > 0.6 ? 0.68 : 0.86;
   if (perf.fps < target * low && K3.dynScale > floor) {
     perf.good = 0;
@@ -253,7 +263,7 @@ K3.frameTick = function (dt) {
   } else { perf.good = 0; perf.bad = 0; }
   // still well below the target at the lowest automatic resolution for ~10 seconds while playing: the pixels are
   // not the problem, so step down one graphics preset (once per step, never back up by itself) and say so
-  const ORDER = ['low', 'medium', 'high', 'ultra'];
+  const ORDER = ['low', 'medium', 'high', 'ultra', 'superultra'];
   if (K3.dynScale <= floor + 0.01 && perf.fps < Math.min(target * 0.6, 30) && KR.Main && KR.Main.isRunning && KR.Main.isRunning()) {
     if (++perf.slow >= 5) { perf.slow = 0; const i = ORDER.indexOf(K3.settings.quality);
       if (i > 0) { const to = ORDER[i - 1]; K3.setQuality(to); K3.dynScale = 0.8; rescale(); if (KR.UI && KR.UI.toast) KR.UI.toast('Graphics lowered to ' + QUALITY[to].name, 'For a smoother game. You can change it in Settings (Esc) → Graphics.'); } }

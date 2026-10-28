@@ -206,6 +206,33 @@ function building(mb, b) {
     structs.doors.push({ obj: leaf, door, b });
     }
   }
+  // grounding: rough foundation stones half sunk along the foot of the walls (no building sits on the ground like a
+  // box set down on a table), a worn doorstep, and over the doors of houses and shops a little shingled porch roof
+  if (!keep && !isLair) {
+    const fc = st.plinth || '#8a8478'; const gy = (x, z) => geo.floorAt(x / PX, z / PX);
+    const edge = (ax, a0, a1, c, out) => { for (let u = a0 + 0.35; u < a1 - 0.2; u += 0.95 + K3.hash(Math.round(u * 7), Math.round(c * 7), 41) * 0.6) {
+      if (ax === 'x' && out > 0 && u > doorOp.u0 - 0.5 && u < doorOp.u1 + 0.5) continue;
+      const h1 = K3.hash(Math.round(u * 13), Math.round(c * 11), 43), w = 0.45 + h1 * 0.5, d = 0.32 + h1 * 0.22, hh = 0.22 + h1 * 0.18;
+      const x = ax === 'x' ? u : c + out * (0.1 + d * 0.3), z = ax === 'x' ? c + out * (0.1 + d * 0.3) : u; const y = gy(x, z);
+      mb.box('stone', x, y + hh * 0.25, z, ax === 'x' ? w : d, hh, ax === 'x' ? d : w, K3.shade(fc, -0.1 + h1 * 0.18), (h1 - 0.5) * 0.5, (h1 - 0.5) * 0.12, 0); } };
+    edge('x', X0, X1, Z0, -1); edge('x', X0, X1, Z1, 1); edge('z', Z0, Z1, X0, -1); edge('z', Z0, Z1, X1, 1);
+    // the doorstep: a broad, slightly worn slab before the door
+    if (!b.gate) { const sx = (dX0 + dX1) / 2, sz = Z1 + 0.42; mb.box('stone', sx, Math.max(gy(sx, sz), fy - 0.3) + 0.04, sz, dX1 - dX0 + 0.5, 0.18, 0.62, K3.shade(fc, 0.06)); }
+    if (!isHall && !isTower && !b.gate && !st.stone) {
+      // the porch roof: two brackets from the wall and a little lean-to of shingles over the door
+      const pw = dX1 - dX0 + 0.9, px = (dX0 + dX1) / 2, py = fy + doorH + 0.32, pd = 0.85;
+      for (const sx of [-1, 1]) { const bx = px + sx * (pw / 2 - 0.12); mb.box('timber', bx, py - 0.18, Z1 + pd / 2, 0.1, 0.1, pd, st.beam, 0, -0.55, 0); }
+      const m = new THREE.Matrix4().makeRotationX(0.42).setPosition(px, py + 0.05, Z1 + pd / 2 + 0.05);
+      mb.add(st.roofMat, PRIM.box, m.multiply(new THREE.Matrix4().makeScale(pw, 0.07, pd + 0.2)), st.roof);
+      mb.box('timber', px, py - 0.12, Z1 + pd + 0.02, pw, 0.12, 0.07, st.beam, 0, 0.42, 0);
+    }
+  }
+  // stone buildings: a dressed arch of voussoirs over every window
+  if (st.stone || isHall || isTower) for (const [side, axis, c, dir] of [['n', 'x', Z0, -1], ['s', 'x', Z1, 1], ['w', 'z', X0, -1], ['e', 'z', X1, 1]]) for (const op of (side === 's' ? sOps : openings[side])) {
+    if (!op.win) continue; const um = (op.u0 + op.u1) / 2, r = (op.u1 - op.u0) / 2 + 0.12;
+    for (let k = 0; k <= 4; k++) { const ang = Math.PI * k / 4; const u = um + Math.cos(ang) * r, v = op.v1 + 0.12 + Math.sin(ang) * r * 0.6, cc = c + dir * 0.07;
+      if (axis === 'x') mb.box('stone', u, v, cc, 0.22, 0.24, 0.16, '#d8d0c0', 0, 0, ang - Math.PI / 2); else mb.box('stone', cc, v, u, 0.16, 0.24, 0.22, '#d8d0c0', 0, -(ang - Math.PI / 2), 0); }
+  }
   // floor, ceiling and beams
   const ix0 = X0 + Tl, ix1 = X1 - Tl, iz0 = Z0 + Tl, iz1 = Z1 - Tl;
   const stoneFloor = ['hall', 'bank', 'chamber', 'heroes', 'exchange'].includes(b.type);
@@ -295,26 +322,57 @@ function gableRoof(mb, b, st, X0, X1, Z0, Z1, top, wallKey, wallCol) {
   prof[0][1] += eaveDrop;
   const ridgeY = top + rise; b._ridge3 = ridgeY;
   const rc = st.roof;
+  // an old roof is never quite straight: the ridge sags a little between the gables (the eaves half as much), and the
+  // tiles or shingles lie in courses, each lapping the one below, a little uneven in line and colour
+  const hs = K3.hash(b.x, b.y, 21), sag = st.curve ? 0.04 : 0.05 + hs * 0.08;
+  const SEG = Math.max(3, Math.round((U1 - U0) / 1.6));
+  const sagAt = (u, s) => -sag * Math.sin(Math.PI * Math.min(1, Math.max(0, (u - U0) / (U1 - U0)))) * (0.4 + 0.6 * s);
+  const uAx = alongX ? V(1, 0, 0) : V(0, 0, 1);
+  const course = (u0, u1, pa, pb, y0, y1, vA, vB, s0, s1, tint) => {
+    // one lapped course: a thin strip lying on the roof along u, its lower lip proud of the tiles below
+    const um = (u0 + u1) / 2; const a = P(um, top + y0 + sagAt(um, s0), vA), d = P(um, top + y1 + sagAt(um, s1), vB);
+    const sdir = new THREE.Vector3().subVectors(d, a).normalize(); const nrm = new THREE.Vector3().crossVectors(sdir, uAx); if (nrm.y < 0) nrm.negate();
+    const c = a.clone().addScaledVector(sdir, 0.04).addScaledVector(nrm, 0.035);
+    const m = new THREE.Matrix4().makeBasis(uAx, nrm, sdir).scale(V(u1 - u0, 0.05, 0.09)).setPosition(c);
+    mb.add(st.roofMat, PRIM.box, m, K3.shade(rc, tint));
+  };
   for (const sd of [-1, 1]) {
     for (let k = 0; k < N; k++) {
       const [d0, y0] = prof[k], [d1, y1] = prof[k + 1];
       const vA = vc + sd * d0, vB = vc + sd * d1; const len = Math.hypot(d0 - d1, y1 - y0);
+      const s0 = k / N, s1 = (k + 1) / N;
       const sOff = prof.slice(0, k).reduce((s, p, i) => s + Math.hypot(prof[i][0] - prof[i + 1][0], prof[i + 1][1] - prof[i][1]), 0);
-      const uvU0 = U0 / 1.6, uvU1 = U1 / 1.6, uvV0 = sOff / 1.6, uvV1 = (sOff + len) / 1.6;
-      const a = P(U0, top + y0, vA), bb = P(U1, top + y0, vA), c = P(U1, top + y1, vB), d = P(U0, top + y1, vB);
-      // top surface faces outward/up; flip winding on one side
-      quad(mb, st.roofMat, a, bb, c, d, [uvU0, uvV0, uvU1, uvV0, uvU1, uvV1, uvU0, uvV1], rc, true);
-      // underside (seen from below the eaves)
-      const dn = -0.14;
-      const a2 = P(U0, top + y0 + dn, vA), b2 = P(U1, top + y0 + dn, vA), c2 = P(U1, top + y1 + dn, vB), d2 = P(U0, top + y1 + dn, vB);
-      quad(mb, 'timber', a2, b2, c2, d2, [0, 0, (U1 - U0) / 1.2, 0, (U1 - U0) / 1.2, len / 1.2, 0, len / 1.2], '#5a3e28', false);
+      for (let q = 0; q < SEG; q++) {
+        const ua = U0 + (U1 - U0) * q / SEG, ub = U0 + (U1 - U0) * (q + 1) / SEG;
+        const uvU0 = ua / 1.6, uvU1 = ub / 1.6, uvV0 = sOff / 1.6, uvV1 = (sOff + len) / 1.6;
+        const ya0 = top + y0 + sagAt(ua, s0), yb0 = top + y0 + sagAt(ub, s0), yb1 = top + y1 + sagAt(ub, s1), ya1 = top + y1 + sagAt(ua, s1);
+        const a = P(ua, ya0, vA), bb = P(ub, yb0, vA), c = P(ub, yb1, vB), d = P(ua, ya1, vB);
+        // top surface faces outward/up; flip winding on one side
+        quad(mb, st.roofMat, a, bb, c, d, [uvU0, uvV0, uvU1, uvV0, uvU1, uvV1, uvU0, uvV1], rc, true);
+        // underside (seen from below the eaves)
+        const dn = -0.14;
+        const a2 = P(ua, ya0 + dn, vA), b2 = P(ub, yb0 + dn, vA), c2 = P(ub, yb1 + dn, vB), d2 = P(ua, ya1 + dn, vB);
+        quad(mb, 'timber', a2, b2, c2, d2, [ua / 1.2, 0, ub / 1.2, 0, ub / 1.2, len / 1.2, ua / 1.2, len / 1.2], '#5a3e28', false);
+      }
+      // the courses: every 0.34 m up the slope, broken into lengths that don't quite line up
+      const nC = Math.max(1, Math.floor(len / 0.34)); mb.square = true;
+      for (let j = 0; j < nC; j++) {
+        const f = j / nC; const yy0 = y0 + (y1 - y0) * f, dd0 = d0 + (d1 - d0) * f; const vv = vc + sd * dd0; const ss = s0 + (s1 - s0) * f;
+        const yy1 = y0 + (y1 - y0) * Math.min(1, f + 0.5 / nC), vv1 = vc + sd * (d0 + (d1 - d0) * Math.min(1, f + 0.5 / nC)), ss1 = s0 + (s1 - s0) * Math.min(1, f + 0.5 / nC);
+        const pieces = 2 + Math.floor(K3.hash(b.x + j, b.y + k, 31) * 3); let u = U0;
+        for (let q = 0; q < pieces; q++) { const un = q === pieces - 1 ? U1 : u + (U1 - U0) / pieces * (0.75 + K3.hash(b.x + q, b.y + j, 33) * 0.5);
+          course(u, un, null, null, yy0, yy1, vv, vv1, ss, ss1, -0.06 - K3.hash(b.x * 3 + q, j * 7 + k, 35) * 0.16); u = un; }
+      }
+      mb.square = false;
     }
-    // fascia board along the eave
-    const ev = vc + sd * (half + oh); const ey = top + prof[0][1] - 0.07;
-    if (alongX) mb.box('timber', (U0 + U1) / 2, ey, ev, U1 - U0, 0.2, 0.08, st.beam); else mb.box('timber', ev, ey, (U0 + U1) / 2, 0.08, 0.2, U1 - U0, st.beam);
+    // fascia board along the eave, following the sag
+    const ev = vc + sd * (half + oh);
+    for (let q = 0; q < SEG; q++) { const ua = U0 + (U1 - U0) * q / SEG, ub = U0 + (U1 - U0) * (q + 1) / SEG, um = (ua + ub) / 2; const ey = top + prof[0][1] - 0.07 + sagAt(um, 0);
+      if (alongX) mb.box('timber', um, ey, ev, ub - ua + 0.02, 0.2, 0.08, st.beam); else mb.box('timber', ev, ey, um, 0.08, 0.2, ub - ua + 0.02, st.beam); }
   }
-  // ridge cap
-  if (alongX) mb.box(st.roofMat, (U0 + U1) / 2, ridgeY + 0.05, vc, U1 - U0, 0.2, 0.32, K3.shade(rc, -0.25)); else mb.box(st.roofMat, vc, ridgeY + 0.05, (U0 + U1) / 2, 0.32, 0.2, U1 - U0, K3.shade(rc, -0.25));
+  // ridge cap: rounded ridge tiles following the sag
+  for (let q = 0; q < SEG * 2; q++) { const ua = U0 + (U1 - U0) * q / (SEG * 2), ub = U0 + (U1 - U0) * (q + 1) / (SEG * 2), um = (ua + ub) / 2; const ry = ridgeY + 0.05 + sagAt(um, 1);
+    const pc = P(um, ry, vc); mb.cyl(st.roofMat, pc.x, pc.y, pc.z, 0.17, ub - ua + 0.03, K3.shade(rc, -0.22 - K3.hash(q, b.y, 37) * 0.1), 8, null, alongX ? 0 : Math.PI / 2, 0, Math.PI / 2); }
   if (st.curve) for (const u of [U0 + 0.1, U1 - 0.1]) { const p = P(u, ridgeY + 0.15, vc); mb.cone('gold', p.x, p.y, p.z, 0.12, 0.7, st.trim, 8); }
   // gable ends: fill the triangle on top of the end walls
   const poly = [[-half, 0], [half, 0]]; const side = prof.filter(([d]) => d <= half + 1e-3).map(([d, y]) => [d, Math.max(0, y - 0.24 - (st.curve ? 0.12 : 0))]); // kept under the roof's underside so the two never fight (that flickered)

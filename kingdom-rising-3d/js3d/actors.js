@@ -150,15 +150,16 @@ function peerLook(pp) {
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function atkKindFor(av, e) {
   const l = av.rig && av.rig.look || {}; const w = l.weapon;
-  if (w === 'GUN' && av.kind === 'human') return 'thrust'; // the arquebus: shoulder, fire and kick back (the bayonet thrusts the same way)
+  if (w === 'GUN' && av.kind === 'human') return 'gun'; // the arquebus or handgun: shouldered, a kick on each shot, then the rammer (motion.js)
   if (e.type === 'player' && e.c && e.c.rangeMode === 'ranged' && l.rangeW) return 'bow';
   if (av.kind !== 'human') return 'bite';
-  if (w === 'ARC') return 'bow'; if (w === 'spear' || w === '1HP' || w === 'dagger') return 'thrust'; if (w === '2HS' || w === 'axe' && l.cls === 'berserker' || w === 'club' || w === '2HSaxe') return 'chop';
+  if (w === 'ARC') return 'bow'; if (w === 'spear') return 'spear'; if (av.rig && av.rig.dual) return 'dual'; if (w === '1HP' || w === 'dagger') return 'thrust';
+  if (w === '2HS') return 'great'; if (w === 'axe' && l.cls === 'berserker' || w === 'club' || w === '2HSaxe') return 'chop';
   if (w === '2HB') return 'staff'; if (w === 'H2H' || !w) return e.kind === 'troll' || e.kind === 'zombie' || e.kind === 'ogre' ? 'claw' : 'punch';
   return 'slash';
 }
 // where someone stands: the ground, a floor, a deck, the wall-walk, or an upper floor they climbed to
-const floorOf = (e) => (e.introY != null ? e.introY : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : e.swim || e.sw ? swimY(e) : geo.floorAt(e.x, e.y));
+const floorOf = (e) => (e.introY != null ? e.introY : e.onShip && K3.shipDeckY ? K3.shipDeckY(e) /* riding a warship (naval3d.js) */ : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : e.swim || e.sw ? swimY(e) : geo.floorAt(e.x, e.y));
 // a swimmer floats with head and shoulders out of the water (never below the sea bed), bobbing a little with each stroke
 function swimY(e) { const wl = geo.waterAt(e.x, e.y), g = geo.floorAt(e.x, e.y); if (isNaN(wl)) return g; const sc = e.scale || (D.RACES[e.c ? e.c.race : e.race] || {}).scale || 1; return Math.max(g, wl - 1.18 * sc + Math.sin(K3.time * 3.4) * 0.03); }
 // a jump: up and down in a parabola over JUMP_T seconds (cosmetic: the game itself stays on the ground)
@@ -171,6 +172,30 @@ export function actorY(e) {
 }
 K3.actorY = (e) => floorOf(e) + heroJump(e);
 
+// what a blow lands on, for its sound and its spray: steel (plate and mail), bone, stone, timber, or flesh
+function matOf(e) {
+  if (!e) return 'flesh';
+  if (e.bldg || e.ram || e.siege || e.ship) return 'wood';
+  const k = e.kind || '';
+  if (/skeleton|lich|bone/.test(k)) return 'bone';
+  if (/golem|stone|gargoyle|statue|elemental/.test(k)) return 'stone';
+  if (/wisp|spirit|ghost|shade/.test(k)) return 'magic';
+  const ak = (e.c && e.c.equip && e.c.equip.chest && e.c.equip.chest.ak) || (e.look && e.look.armor && e.look.armor.kind);
+  if (ak === 'plate' || ak === 'chain') return 'metal';
+  return 'flesh';
+}
+// the spray of a blow, scaled by how hard it landed: sparks off steel, dark blood from flesh (not glowing: it goes in the
+// normally blended pool), chips of bone and stone, splinters of timber; thrown along the blow, falling under gravity
+function impactFx(tgt, x, y, z, ux, uy, mag, heavy) {
+  const m = matOf(tgt), n = Math.round(Math.min(26, (heavy ? 12 : 6) + mag * 60));
+  const spray = (pool, cnt, col, o) => { for (let i = 0; i < cnt; i++) { const a = Math.random() * 6.283, sp = o.speed * (0.4 + Math.random() * 0.9); pool.emit({ x, y, z, vx: (ux * 1.6 + Math.cos(a) * 0.8) * sp, vy: (0.6 + Math.random() * 1.1) * sp * o.up, vz: (uy * 1.6 + Math.sin(a) * 0.8) * sp, life: o.life * (0.6 + Math.random() * 0.6), s0: o.s0, s1: o.s1 == null ? o.s0 * 0.6 : o.s1, r: col[0], g: col[1], b: col[2], a: o.a == null ? 1 : o.a, grav: o.grav, drag: o.drag || 0.5, kind: o.kind }); } };
+  if (m === 'metal') { spray(fx.add, n, [3.2, 2.3, 1.0], { speed: heavy ? 3.6 : 2.6, up: 0.8, life: 0.32, s0: 0.06, grav: 7, kind: 3 }); if (heavy) spray(fx.add, 3, [2.4, 2.0, 1.4], { speed: 0.3, up: 0.2, life: 0.12, s0: 0.45, s1: 0.1, grav: 0, kind: 1 }); }
+  else if (m === 'flesh') { spray(fx.smoke, n, [0.32, 0.02, 0.02], { speed: heavy ? 2.6 : 1.8, up: 0.7, life: 0.55, s0: 0.07, s1: 0.04, grav: 9, a: 0.95, kind: 1 }); if (heavy) spray(fx.add, 4, [2.6, 2.2, 1.6], { speed: 1.5, up: 0.6, life: 0.2, s0: 0.05, grav: 4, kind: 3 }); }
+  else if (m === 'bone') spray(fx.smoke, n, [0.85, 0.82, 0.72], { speed: 2.2, up: 0.8, life: 0.5, s0: 0.06, grav: 8, kind: 1 });
+  else if (m === 'stone') { spray(fx.smoke, n, [0.55, 0.53, 0.5], { speed: 2.2, up: 0.9, life: 0.6, s0: 0.07, grav: 8, kind: 1 }); spray(fx.smoke, 4, [0.6, 0.58, 0.55], { speed: 0.4, up: 0.5, life: 1.0, s0: 0.3, s1: 0.7, a: 0.5, grav: -0.2, kind: 2 }); }
+  else if (m === 'wood') spray(fx.smoke, n, [0.45, 0.3, 0.16], { speed: 2.6, up: 1.0, life: 0.7, s0: 0.08, grav: 8, kind: 1 });
+  else spray(fx.add, n, [1.2, 1.6, 3.0], { speed: 1.8, up: 0.8, life: 0.5, s0: 0.1, grav: -0.5, kind: 1 });
+}
 // ---------- combat feel: hit-stop, flinches, sparks, spell releases and fizzles ----------
 // the game applies a blow at once; these hooks remember it so the bodies can react (motion.js)
 {
@@ -187,7 +212,8 @@ K3.actorY = (e) => floorOf(e) + heroJump(e);
         src._hs = now + stop; tgt._hs = now + stop;
         const dx = tgt.x - src.x, dy = tgt.y - src.y, l = Math.hypot(dx, dy) || 1;
         tgt._hurt = { at: now + stop, dx: dx / l, dy: dy / l, mag };
-        const P = at3(tgt); fx.burst(P.x - dx / l * 0.25, P.y, P.z - dy / l * 0.25, heavy ? 16 : 9, heavy ? [3.2, 2.4, 1.2] : [2.6, 2.2, 1.6], { speed: heavy ? 3.4 : 2.4, life: 0.35, grav: 5, s0: 0.07, kind: 3 });
+        const P = at3(tgt); impactFx(tgt, P.x - dx / l * 0.25, P.y, P.z - dy / l * 0.25, dx / l, dy / l, mag, heavy);
+        if (KR.A && KR.A.impact && Math.hypot(tgt.x - G.player.x, tgt.y - G.player.y) < 1100) KR.A.impact(matOf(tgt), heavy, tgt.x, tgt.y);
         if ((src === G.player || tgt === G.player) && K3.shakeHit) K3.shakeHit(heavy ? 0.07 : tgt === G.player ? 0.045 : 0.03, heavy ? 0.26 : 0.17);
       }
     } catch (err) { /* effects must never break combat */ }
@@ -214,15 +240,57 @@ K3.actorY = (e) => floorOf(e) + heroJump(e);
     return r;
   };
 }
+// a death: the knees give first, then the body topples away from the killing blow, gathering speed, and bounces once
+// as it hits the ground (no blow on record: it falls back). Rising again (feign death, a rez) just reverses it.
+function deathFall(av, e, fy, sc) {
+  const o = av.obj; o.rotation.order = 'YXZ';
+  if (e.dead || e.fd) {
+    if (av.deathAt == null) {
+      av.deathAt = K3.time; const h = e._hurt && G.now - e._hurt.at < 2500 ? e._hurt : null; let fx = 0, fz = -1;
+      if (h) { const cy = Math.cos(av.yaw), sy = Math.sin(av.yaw); fx = h.dx * cy - h.dy * sy; fz = h.dx * sy + h.dy * cy; }
+      av.fallAx = Math.abs(fx) > Math.abs(fz) * 1.2 ? 'z' : 'x'; av.fallSg = av.fallAx === 'x' ? (fz >= 0 ? 1 : -1) : (fx >= 0 ? -1 : 1);
+      av.fallSp = h && h.mag > 0.2 ? 1.35 : 1; // a heavy blow throws them down faster
+    }
+    const p = (K3.time - av.deathAt) / 0.95 * av.fallSp;
+    const buck = Math.min(1, p / 0.22), f = p < 0.22 ? 0.1 * buck * buck : p < 0.7 ? 0.1 + 0.9 * Math.pow((p - 0.22) / 0.48, 2) : 1 - 0.07 * Math.sin(Math.min(1, (p - 0.7) / 0.35) * Math.PI) * Math.exp(-(p - 0.7) * 3);
+    av.fallF = f;
+    o.rotation.x = av.fallAx === 'x' ? av.fallSg * f * Math.PI / 2 : 0; o.rotation.z = av.fallAx === 'z' ? av.fallSg * f * Math.PI / 2 : 0;
+    o.position.y = fy - Math.sin(Math.PI * Math.min(1, p / 0.5)) * 0.22 * sc * (1 - f) + f * 0.12;
+  } else if (av.deathAt != null || (av.fallF || 0) > 0.001) {
+    av.deathAt = null; av.fallF = Math.max(0, (av.fallF || 0) - K3.dt * 2.2); const f = av.fallF;
+    o.rotation.x = av.fallAx === 'x' ? av.fallSg * f * Math.PI / 2 : 0; o.rotation.z = av.fallAx === 'z' ? av.fallSg * f * Math.PI / 2 : 0;
+    o.position.y = fy + f * 0.12;
+  }
+}
+// footsteps: a sound each time a foot plants (twice per stride), by what is underfoot and what the walker wears; the
+// hero always, others close by only, a few a second at most
+const T_ = KR.T || {};
+const SURF = {}; for (const [k, v] of Object.entries({ GRASS: 'grass', DGRASS: 'grass', FOREST: 'grass', PLAINS: 'grass', FARM: 'grass', ROAD: 'stone', COBBLE: 'stone', STONE: 'stone', ROCK: 'stone', GRAVEL: 'gravel', CWALL: 'stone', CAVE: 'stone', VOLC: 'gravel', SAND: 'sand', SNOW: 'sand', ASH: 'sand', MUD: 'mud', GLOOM: 'mud', WOOD: 'wood', BRIDGE: 'wood', CARPET: 'wood', DOOR: 'wood', WATER: 'water' })) if (T_[k] != null) SURF[T_[k]] = v;
+let stepBudget = 0, stepFrame = -1;
+function surfaceAt(e) {
+  if (e.swim || e.sw) return 'water';
+  if (e.upB || e.onWall) return e.onWall ? 'stone' : 'wood';
+  const b = W.buildingAt && W.buildingAt(e.x, e.y); if (b) return b.type === 'hall' || b.type === 'bank' ? 'stone' : 'wood';
+  if (W.realm && W.realm !== 'main' && !/^(tidesong|summit)$/.test(W.realm)) return 'stone';
+  const tx = Math.floor(e.x / D.TS), ty = Math.floor(e.y / D.TS); return SURF[W.tile ? W.tile(tx, ty) : -1] || 'grass';
+}
+function footfall(av, e, p) {
+  const k = Math.floor(((av.rig.gp || 0) * 2) % 2); if (k === av.stepK) return; av.stepK = k;
+  if (!KR.A || !KR.A.step) return;
+  if (e !== p) { if (stepFrame !== K3.frame) { stepFrame = K3.frame; stepBudget = 3; } if (stepBudget-- <= 0) return; }
+  const ak = (e.c && e.c.equip && e.c.equip.chest && e.c.equip.chest.ak) || (av.rig.look && av.rig.look.armor && av.rig.look.armor.kind) || 'cloth';
+  const run = Math.min(1, (av.rig.gv || 0) / 5);
+  KR.A.step(surfaceAt(e), ak, run, e === p ? null : e.x, e === p ? null : e.y, (e.scale || 1) * (av.rig.dims ? av.rig.dims.scale : 1));
+}
 // how long the wind-up before an auto-attack lasts, by swing (heavier swings take longer)
-const WIND = { thrust: 0.13, punch: 0.1, slash: 0.2, staff: 0.24, chop: 0.32, claw: 0.2, bite: 0.3 }; // bite: a beast's crouch, rear or coil before it strikes
+const WIND = { thrust: 0.13, punch: 0.1, slash: 0.2, staff: 0.24, chop: 0.32, claw: 0.2, bite: 0.3, dual: 0.15, great: 0.4, spear: 0.18, bow: 0.6 }; // bite: a beast's crouch, rear or coil before it strikes
 // the state motion.js needs: wind-up, hit-stop, flinch, casting, releases, acceleration and turning
 function motionState(av, e, st, tgt, dt) {
   const now = G.now;
   // the next swing lands when the attack timer runs out: wind up just before it, with a short hold at the top
   const wd = WIND[st.atkKind];
   if (wd && tgt && !tgt.dead && e.atkT > 0 && !e.cast && !e.dead && (e === G.player ? e.autoAttack : e.inCombat)) {
-    const reach = (G.meleeRange ? G.meleeRange(e, tgt) : 40) * 1.05;
+    const reach = st.atkKind === 'bow' ? 1e9 : (G.meleeRange ? G.meleeRange(e, tgt) : 40) * 1.05; // a bow draws at any range
     if (Math.hypot(tgt.x - e.x, tgt.y - e.y) <= reach) st.wind = Math.max(0, Math.min(1, 1 - (e.atkT - 0.04) / wd));
   }
   st.freeze = (e._hs || 0) > now;
@@ -319,7 +387,8 @@ function updateAvatar(av, dt, ctx) {
   av.scale = sc;
   av.obj.position.set(ex * PX, fy + av.hoverNow, ey * PX);
   av.obj.rotation.set(0, av.yaw, 0);
-  if (av.deadK > 0.001) { av.obj.rotation.x = -av.deadK * Math.PI / 2 * (av.kind === 'creature' ? 0 : 1); av.obj.rotation.z = av.kind === 'creature' ? av.deadK * Math.PI / 2 : 0; av.obj.position.y = fy + (av.kind === 'creature' ? av.deadK * 0.15 * sc : av.deadK * 0.12); }
+  if (av.kind === 'human') deathFall(av, e, fy, sc);
+  else if (av.deadK > 0.001) { av.obj.rotation.x = 0; av.obj.rotation.z = av.deadK * Math.PI / 2; av.obj.position.y = fy + av.deadK * 0.15 * sc; }
   av.obj.scale.setScalar(sc);
   // the hero is invisible to the camera in first person (but still casts a shadow)
   const hideSelf = e === p && view.firstPerson();
@@ -332,7 +401,8 @@ function updateAvatar(av, dt, ctx) {
   if (rate) { av.animAcc = (av.animAcc || 0) + dt; if (av.animAcc < 1 / rate) return; av.animAcc = 0; }
   const adt = av.accT || dt, adist = av.accD || 0; av.accD = 0; av.accT = 0; dt = adt;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
-  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), swim: !!(e.swim || e.sw) && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
+  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), swim: !!(e.swim || e.sw) && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0,
+    panic: !!(e.panic || e.fleeing) && !e.dead, chair: e.sit && (e.pubPatron || e.seatH) ? (e.seatH || 0.46) : 0 }; // terror (fleeing home), and seated on a chair or bench
   st.far = near > 30 && e !== p; // far people skip the fine motion (leaning, breathing, looking, fingers)
   if (av.kind === 'human' || av.kind === 'creature') motionState(av, e, st, tgt, dt); // beasts wind up, freeze on a hit and flinch too (creatures.js)
   if ((e.realmWorker || e.millHand || e.worker) && av.kind === 'human') workerPose(av, e, st); // the kingdom's arborist and miner: tool in hand, a load home (realm3d.js)
@@ -348,7 +418,7 @@ function updateAvatar(av, dt, ctx) {
   }
   const lookAt = tgt && tgt !== e ? tgt : e.type === 'npc' && !moving && p && !p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 190 ? p : null;
   if (lookAt && av.kind === 'human') st.lookYaw = K3.dampAngle(0, Math.atan2(lookAt.x - e.x, lookAt.y - e.y) - av.yaw, 1);
-  if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
+  if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); if (st.move > 0.05 && air == null && near < 16) footfall(av, e, p); }
   else if (av.kind === 'creature') animateCreature(av.rig, st, dt);
   if (av.horse) animateCreature(av.horse, { move: st.move, dist: st.dist * 1.5, atk: 0 }, dt);
   if (av.archer) { av.archer.mesh.rotation.y = (e.aimAng != null ? Math.PI / 2 - e.aimAng : 0) - av.yaw; animateHumanoid(av.archer, { move: 0, dist: 0, atk: (e.fireK || 0) > 0.05 ? 1 - e.fireK : 0, atkKind: 'bow', combat: true }, dt); }

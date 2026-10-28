@@ -755,7 +755,10 @@
     if (e.bell || e.raidBoard) return;
     if (e.dead) { if (e.respawnAt && G.now > e.respawnAt) { e.dead = false; e.hp = e.hpMax; e.x = e.homeX; e.y = e.homeY; e.path = null; e.respawnAt = null; } return; }
     // the alarm bell sends townsfolk and merchants running indoors until the attack is over
-    if (KR.War && e.city && !e.recruiter && !e.barracks) { const st = KR.War.alarm[e.city]; const on = !!(st && st.state); if (on && !e.fleeing) KR.War.npcFlee(e); else if (!on && e.fleeing) KR.War.npcReturn(e); }
+    Sys.townWatch();
+    if (e.bellRun) { if (!e.path || !e.path.length) Sys.bellReached(e); }
+    else if (KR.War && e.city && !e.recruiter && !e.barracks) { const st = KR.War.alarm[e.city]; const on = !!(st && st.state); if (on && !e.fleeing) KR.War.npcFlee(e); else if (!on && e.fleeing) KR.War.npcReturn(e); }
+    e.panic = !!(e.bellRun || (e.fleeing && e.path && e.path.length)); // arms up, looking back: running in terror (chars.js)
     const p = G.player;
     if (e.atk > 0) { e.atk += dt * 3; if (e.atk > 1) e.atk = 0; }
     const h = hour();
@@ -805,6 +808,51 @@
         else { const l = Sys.npcLine(e, true); if (l) G.say(e, l); }
       }
     }
+  };
+  // ---------- the town keeps watch: whoever sees the enemy runs for the alarm bell ----------
+  // a townsperson or merchant who sees enemy raiders or an enemy hero (a hero of the other kingdom, you included) in
+  // or by the town shouts and runs for the bell; it rings when they get there (the gates shut if the town has walls),
+  // the guards rally to where the enemy was seen and everyone else runs in terror for home until the danger is past
+  let watchT = 0;
+  Sys.townWatch = function () {
+    if (G.now - watchT < 700 || !KR.War || !KR.War.alarm || !KR.War.ringBell) return; watchT = G.now;
+    if (W.realm && W.realm !== 'main') return;
+    const p = G.player;
+    for (const f of D.FACTION_IDS) {
+      const cd = W.cityData[f]; if (!cd || !cd.R) continue;
+      const near = (e, m) => Math.max(Math.abs(e.x / TS - cd.cx), Math.abs(e.y / TS - cd.cy)) < cd.R + m;
+      const foes = [];
+      for (const e of G.ents) if (!e.dead && !e.removed && e.faction && e.faction !== f && D.FACTIONS[e.faction] && (e.raider || e.rivalHero) && near(e, 6)) foes.push(e);
+      if (p && !p.dead && p.c && p.c.faction !== f && !p.invis && !p.sneak && near(p, 4)) foes.push(p);
+      if (!foes.length) continue;
+      let spot = null, foe = null, bd = 14 * TS;
+      for (const e of G.ents) {
+        if (e.city !== f || e.type !== 'npc' || e.dead || e.removed || e.bell || e.raidBoard || e.pubPatron || !e.look) continue;
+        for (const o of foes) { const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < bd && (!W.lineClear || W.lineClear(e.x, e.y, o.x, o.y))) { bd = d; spot = e; foe = o; } }
+      }
+      if (!spot) continue;
+      const st = KR.War.alarm[f] || (KR.War.alarm[f] = {}); st.lastSeen = G.now; st.where = { x: foe.x, y: foe.y };
+      if (st.state) continue; // the bell is already ringing, or someone is already running for it
+      const F = D.FACTIONS[foe.faction] || {};
+      G.say(spot, foe.raider ? U.pick(['Raiders! To your homes!', 'Raiders! Ring the bell!', 'They are coming! Run!']) : U.pick([`A ${F.city || 'foreign'} spy! Ring the bell!`, 'An enemy in the streets! Guards!', 'Enemy! Sound the alarm!']), 3);
+      if (p && p.c && p.c.faction === f) G.log(`${spot.name} sees ${foe.raider ? 'enemy raiders' : foe.name || 'an enemy'} and runs for the alarm bell!`, 'status', '#ffb24a');
+      st.state = 'running'; st.since = G.now; st.runner = spot;
+      const bell = KR.War.bellOf && KR.War.bellOf(f);
+      const path = bell && W.findPathLong(Math.floor(spot.x / TS), Math.floor(spot.y / TS), Math.floor((bell.x + 26) / TS), Math.floor(bell.y / TS), 20000);
+      if (!path) { KR.War.ringBell(f, spot); continue; }
+      if (spot.static) { spot.wasStatic = true; spot.static = false; }
+      if (!spot.fleeSpeed) spot.fleeSpeed = spot.speed; spot.speed = Math.max(spot.speed || 100, 110) * 1.5;
+      spot.bellRun = true; spot.path = path; spot.task = 'bell'; spot.taskDur = 9999; spot.doing = null; spot.idleT = 0;
+    }
+  };
+  // the runner reaches the bell: it rings (the old alarm: gates, guards rallying, everyone indoors), then they run home too
+  Sys.bellReached = function (e) {
+    e.bellRun = false; const st = KR.War.alarm[e.city]; if (st && st.runner === e) st.runner = null;
+    const bell = KR.War.bellOf && KR.War.bellOf(e.city); if (bell) G.faceTo(e, bell);
+    if (!st || st.state !== 'ringing') KR.War.ringBell(e.city, e);
+    G.anim && G.anim(e, 'pour', 1400);
+    if (e.fleeSpeed) { e.speed = e.fleeSpeed; e.fleeSpeed = null; } // npcFlee sets its own run speed from the normal one
+    e.fleeing = false; KR.War.npcFlee(e);
   };
   Sys.npcChooseTask = function (e, h) {
     if (e.fleeing) { e.idleT = 4; e.moving = false; return; }

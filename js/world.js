@@ -1351,6 +1351,78 @@
     return { x: p.x + Math.floor((p.w - w) / 2), y: p.front === 'n' ? p.y + p.h - h : p.y, w, h };
   };
   const LANES = [-10, -9, 13, 14, 18, 19];
+  // ---------- the kingdom grows: a village round the Town Hall becomes the stone city ----------
+  // stage 1-5 follows the kingdom's level (KR.Realm.cityLevel: its buildings). Stage 1 is a village: grass and dirt
+  // tracks, a packed-earth green before the hall with a well, cottages with gardens, fences, haystacks, woodpiles and
+  // livestock. Each stage paves more (gravel, then cobbles, then flagstones), lights the streets, raises fountains and
+  // statues, and new houses go up, first as timber frames in scaffolding, then finished. The Town Hall, its plaza and
+  // the plots keep their places at every stage (this runs after them and only repaints ground and decor around them).
+  W.townStage = (f) => (W.cityData[f] && W.cityData[f].stage) || 5;
+  function growTown(f, level, cx, cy, R) {
+    const stage = Math.max(1, Math.min(5, level | 0)); const cd = W.cityData[f]; cd.stage = stage;
+    const plots = cd.plots || []; const sy = cd.siegeYard || [cx - 18, cy - 5, 13, 5];
+    const inPlot = (x, y, m = 0) => plots.some((q) => x >= q.x - m && x < q.x + q.w + m && y >= q.y - m && y < q.y + q.h + m);
+    const inBld = (x, y) => W.buildings.some((b) => b.city === f && x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h);
+    const inRing = (x, y) => Math.abs(x - cx) < R && Math.abs(y - cy) < R;
+    const onAvenue = (x, y) => (Math.abs(x - cx) <= 2 && Math.abs(y - cy) < R) || (y - cy >= 1 && y - cy <= 5 && Math.abs(x - cx) < R);
+    const inPlaza = (x, y) => x - cx >= -7 && x - cx <= 7 && y - cy >= -6 && y - cy <= 1;
+    // new houses as the kingdom grows: the later rows of cottages, wherever they don't touch a plot or a building
+    const fits = (X, Y, w, h) => { for (let y = Y - 1; y <= Y + h; y++) for (let x = X - 1; x <= X + w; x++) { if (!inRing(x, y) || Math.abs(x - cx) > R - 2 || Math.abs(y - cy) > R - 2) return false; if (inPlot(x, y, 1) || inBld(x, y) || inPlaza(x, y) || (x >= sy[0] && x < sy[0] + sy[2] && y >= sy[1] && y < sy[1] + sy[3])) return false; const t = W.tile(x, y); if (t === T.CWALL || t === T.WATER || t === T.DEEP || t === T.DOOR || (W.stairs && W.stairs.get(y * W.W + x))) return false; } return true; };
+    const names = BNAMES[f] || BNAMES.crown; const frames = [];
+    for (const [type, bx, by, bw2, bh, minL] of CITY_LAYOUT) {
+      if (type !== 'house' || minL <= 2 || minL > stage + 1) continue;
+      const X = cx + bx, Y = cy + by; if (!fits(X, Y, bw2, bh)) continue;
+      if (minL <= stage) { const b = stampBuilding({ x: X, y: Y, w: bw2, h: bh, type: 'house', name: names.house, faction: f, city: f, style: f, minLevel: minL }); b.city = f; b.grown = true; }
+      else frames.push([X, Y, bw2, bh]);
+    }
+    // the next stage's cottages are going up: a timber frame in scaffolding on a gravel footing (solid, like a house)
+    if (stage < 5) for (const [type, bx, by, bw2, bh, minL] of CITY_LAYOUT) if (type === 'house' && minL === stage + 1 && minL <= 2 && fits(cx + bx, cy + by, bw2, bh)) frames.push([cx + bx, cy + by, bw2, bh]);
+    for (const [X, Y, w, h] of frames) {
+      for (let y = Y; y < Y + h; y++) for (let x = X; x < X + w; x++) { const k = y * W.W + x; W.tiles[k] = T.GRAVEL; W.block[k] = 1; }
+      W.decor = W.decor.filter((d) => !(d.tx >= X - 1 && d.tx <= X + w && d.ty >= Y - 1 && d.ty <= Y + h));
+      addDecor('houseframe', X, Y, { nb: true, px: (X + w / 2) * TS, py: (Y + h / 2) * TS + 8, bw: w, bh: h, done: 0.25 + U.hash(X, Y, 5) * 0.55 });
+      addDecor('woodpile', X + w, Y + h, {});
+    }
+    if (stage >= 5) return;
+    // the ground: a village is grass and dirt tracks; it gets gravel, then cobbles, as it grows
+    const lane = (y) => LANES.includes(y - cy);
+    for (let y = cy - R + 1; y < cy + R; y++) for (let x = cx - R + 1; x < cx + R; x++) {
+      const k = y * W.W + x, t = W.tiles[k]; if (inBld(x, y) || inPlot(x, y) || (W.stairs && W.stairs.get(k))) continue;
+      if (inPlaza(x, y)) { if (t === T.STONE) W.tiles[k] = stage >= 3 ? T.STONE : stage === 2 ? T.GRAVEL : T.ROAD; continue; }
+      if (onAvenue(x, y) && (t === T.STONE || t === T.COBBLE)) { W.tiles[k] = stage >= 4 ? T.STONE : stage === 3 ? T.COBBLE : T.ROAD; continue; }
+      if (t !== T.COBBLE) continue;
+      if (lane(y)) { W.tiles[k] = stage >= 3 ? T.COBBLE : T.ROAD; continue; }
+      const h = U.hash(x, y, 13);
+      W.tiles[k] = stage >= 4 ? (h < 0.15 ? T.GRASS : T.COBBLE) : stage === 3 ? (h < 0.55 ? T.GRASS : T.COBBLE) : (U.fbm(x * 0.2, y * 0.2, 57) > 0.62 ? T.DGRASS : T.GRASS);
+    }
+    // street furniture follows: lamps from stage 3 (the plaza's own from stage 2), fountains from 3, statues from 4;
+    // a village draws its water from a well on the green before the hall
+    const gone = new Set();
+    W.decor = W.decor.filter((d) => {
+      if (!inRing(d.tx, d.ty)) return true; const pz = inPlaza(d.tx, d.ty);
+      const drop = (d.kind === 'lamp' && (stage < 2 || (stage < 3 && !pz))) || (d.kind === 'fountain' && stage < 3) || (d.kind === 'statue' && stage < 4 && pz) || (d.kind === 'flagpole' && stage < 2 && pz && Math.abs(d.ty - (cy - 6)) > 0);
+      if (drop) gone.add(d.tx + ',' + d.ty); return !drop;
+    });
+    if (gone.size) W.lights = W.lights.filter((l) => !gone.has(Math.floor(l.x / TS) + ',' + Math.floor(l.y / TS)) && !gone.has(Math.floor(l.x / TS) + ',' + Math.floor((l.y + 20) / TS)) && !gone.has(Math.floor(l.x / TS) + ',' + Math.floor((l.y - 8) / TS)));
+    if (stage < 3) addDecor('well', cx + 6, cy - 2, {});
+    // village life on the open grass: kitchen gardens, fenced pens with livestock, haystacks and woodpiles (fewer as
+    // the streets fill in)
+    const open = (x, y) => { const t = W.tile(x, y); return (t === T.GRASS || t === T.DGRASS || t === T.FOREST) && !W.block[y * W.W + x] && !inPlot(x, y, 1) && !inBld(x, y) && !W.doorAt[y * W.W + x] && !W.decor.some((d) => d.tx === x && d.ty === y); };
+    const area = (X, Y, w, h) => { for (let y = Y - 1; y <= Y + h; y++) for (let x = X - 1; x <= X + w; x++) { if (!inRing(x, y) || Math.abs(x - cx) > R - 3 || Math.abs(y - cy) > R - 3 || !open(x, y) || onAvenue(x, y) || lane(y) || inPlaza(x, y)) return false; for (const [dx, dy] of [[0, -2], [0, 2], [-2, 0], [2, 0]]) if (W.doorAt[(y + dy) * W.W + x + dx]) return false; } return true; };
+    const want = [0, 9, 7, 4, 2][stage]; let n = 0; const ANIM = f === 'sylvan' ? ['sheep', 'goat', 'sheep'] : ['pig', 'sheep', 'cow'];
+    for (let i = 0; i < 900 && n < want; i++) {
+      const X = cx - R + 3 + Math.floor(U.hash(i, stage, 41 + f.length) * (2 * R - 8)), Y = cy - R + 3 + Math.floor(U.hash(stage, i, 43 + f.length) * (2 * R - 8));
+      const kind = n % 3;
+      if (kind === 0 && area(X, Y, 4, 3)) { // a kitchen garden of crops, fenced
+        for (let y = Y; y < Y + 3; y++) for (let x = X; x < X + 4; x++) { W.tiles[y * W.W + x] = T.FARM; if ((y - Y) % 2 === 0) addDecor('crop', x, y, { nb: true, crop: f }); }
+        addDecor('fence', X, Y - 1, { nb: true, px: (X + 2) * TS, py: (Y - 1) * TS + 28, len: 4, ry: 0 }); n++;
+      } else if (kind === 1 && area(X, Y, 4, 4)) { // a pen with a few animals
+        for (const [px, py, len, ry] of [[X + 2, Y - 0.5, 4, 0], [X + 2, Y + 3.5, 4, 0], [X - 0.5, Y + 1.5, 4, Math.PI / 2], [X + 3.5, Y + 1.5, 4, Math.PI / 2]]) addDecor('fence', Math.floor(px), Math.floor(py), { nb: true, px: px * TS + 16, py: py * TS + 16, len, ry });
+        for (let a = 0; a < 3; a++) addDecor(ANIM[(a + i) % 3], X + 1 + (a % 2), Y + 1 + (a > 1 ? 1 : 0), { nb: true });
+        addDecor('trough', X + 3, Y + 3, { nb: true }); n++;
+      } else if (kind === 2 && area(X, Y, 2, 2)) { addDecor(U.hash(X, Y, 7) < 0.5 ? 'haystack' : 'woodpile', X, Y, {}); addDecor('chicken', X + 1, Y + 1, { nb: true }); n++; }
+    }
+  }
   function placePlots(f, cx, cy, R) {
     const cd = W.cityData[f] = W.cityData[f] || {}; const out = []; cd.plots = out;
     const taken = (x0, y0, w, h, M) => out.some((p) => !(x0 + w + M <= p.x || p.x + p.w + M <= x0 || y0 + h + M <= p.y || p.y + p.h + M <= y0));
@@ -1650,6 +1722,7 @@
       addDecor('scarecrowpost', fx0 + 4, fy0 + 3, { nb: true });
       W.cityData[f] = W.cityData[f] || {}; (W.cityData[f].fields = W.cityData[f].fields || [])[side < 0 ? 0 : 1] = [fx0, fy0, 9, 8];
     }
+    if (W.realmMode()) growTown(f, level, cx, cy, R); // a village round the Town Hall that grows into the stone city (after the plots, which never move)
     W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy; W.cityData[f].walled = walled;
     W.cityData[f].siegeYard = [cx - 18, cy - 5, 13, 5]; // [x, y, w, h] tiles: the open courtyard before the castle gate
     W.cityData[f].gates = GL.map((g) => [g.gx, g.gy]); W.cityData[f].gateInfo = GL; // [x, y] tiles; gateInfo adds each gate's outward side and half-width

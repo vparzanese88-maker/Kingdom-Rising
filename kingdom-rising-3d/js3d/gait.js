@@ -85,7 +85,9 @@ export function legs(rig, st, dt, m) {
   // sitting cross-legged blends in slowly; standing up a little faster
   const sitWant = st.sit ? 1 : 0;
   rig.sitK = rig.sitK == null ? sitWant : rig.sitK + K3.clamp(sitWant - rig.sitK, -dt / 0.75, dt / 1.25);
-  const sk = rig.sitK, seat = sm(0, 1, sk), cross = sm(0.35, 1, sk);
+  // st.chair: the seat's height in metres (a chair or bench: feet on the floor, knees forward); otherwise cross-legged
+  const chair = st.chair || 0;
+  const sk = rig.sitK, seat = sm(0, 1, sk), cross = chair ? 0 : sm(0.35, 1, sk), onChair = chair ? seat : 0;
   const hipsQ = B.hips.quaternion;
   // ---- feet ----
   const feet = {};
@@ -123,6 +125,8 @@ export function legs(rig, st, dt, m) {
       fx = lerp(fx, cx, cross); fz = lerp(fz, cz, cross); fy = lerp(fy + gy, cy, cross);
       pitch = lerp(pitch, 0.15, cross);
     } else fy += gy;
+    // on a chair: the feet a little apart on the floor in front of the seat, flat
+    if (onChair > 0) { fx = lerp(fx, L.foot.x * 1.2, onChair); fz = lerp(fz, 0.36 * D.scale, onChair); fy = lerp(fy, D.ankle + gy, onChair); pitch = lerp(pitch, 0, onChair); }
     // jumping: knees tuck up at the top of the arc (the leading foot a little higher and further forward)
     if (st.air != null) { const tuck = Math.sin(Math.PI * K3.clamp(st.air, 0, 1)); fy += tuck * (S === 'L' ? 0.3 : 0.2) * D.scale; fz += tuck * (S === 'L' ? 0.1 : -0.05) * D.scale; pitch += tuck * 0.35; }
     feet[S] = { x: fx, y: fy, z: fz, pitch, yaw: -sx * 1.25 * cross, roll: -sx * 0.85 * cross };
@@ -136,9 +140,9 @@ export function legs(rig, st, dt, m) {
   const bobPh = Math.cos(Math.PI * 4 * (gp - duty * 0.5));
   const bob = m * bobPh * lerp(0.018, -0.03, run) * D.scale;
   const standY = D.hipY - drop + bob - (st.combat ? 0.05 * D.scale : 0) + Math.min(0, lowest);
-  const seatY = 0.12 * D.scale - D.legL.hip.y; // thigh joints about 12 cm off the ground
+  const seatY = (chair ? chair : 0.12) * D.scale - D.legL.hip.y; // thigh joints about 12 cm off the ground (or on the chair seat)
   B.hips.position.y = lerp(standY, seatY, seat) + (B.hips.position.y - D.hipY); // keep any extra offsets
-  if (seat > 0) { B.hips.rotation.x -= 0.18 * seat; B.spine.rotation.x += 0.2 * seat; B.chest.rotation.x += 0.08 * seat; B.neck.rotation.x += 0.12 * seat; }
+  if (seat > 0) { const up = chair ? 0.25 : 1; B.hips.rotation.x -= 0.18 * seat * up; B.spine.rotation.x += 0.2 * seat * up; B.chest.rotation.x += 0.08 * seat * up; B.neck.rotation.x += 0.12 * seat * up; } // on a chair, sit up
   // ---- solve each leg ----
   const hp = B.hips.position;
   for (const S of ['L', 'R']) {

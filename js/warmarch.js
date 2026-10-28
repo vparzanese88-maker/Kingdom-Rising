@@ -2370,6 +2370,122 @@
   War.spawnDefenses = function (f) { const r = sd0.apply(this, arguments); try { N.hookRealm(); N.refreshGuns(f); N.spawnFleet(f); } catch (e) { console.warn('naval', e); } return r; };
 })();
 
+// ---- riding the warships: a free ride with your own fleet (naval ride) ----
+// Walk up to one of your kingdom's warships (or answer the call when the fleet sails) and climb aboard: you stand on her
+// deck and sail with her, free to walk the deck and to shoot or cast from it. Go ashore by the gangplank in harbour, or
+// by the ship's boat at the enemy's coast when she lays siege. If she sinks under you, you swim for it (or wash ashore
+// far out at sea). Nobody boards the other kingdom's ships. p.onShip: the ship; p.deckPos: [along, across] in pixels
+// from her middle (along toward the bow); 3D: actors.js floorOf → K3.shipDeckY (naval3d.js) for the deck height.
+(function () {
+  const KR = window.KR, D = KR.D, G = KR.G, W = KR.W, Sys = KR.Sys, U = KR.U, War = KR.War; const TS = D.TS;
+  const N = War && War.naval; if (!N) return;
+  const DIM = { galleon: { L: 440, B: 132 }, longship: { L: 300, B: 68 } }; // her length and beam in pixels (20 px a metre)
+  const pf = () => (G.player && G.player.c ? G.player.c.faction : null);
+  const sfx = (n, v) => { try { KR.A.sfx(n, v); } catch (e) {} };
+  const mainRealm = () => !W.realm || W.realm === 'main';
+  const R = (N.ride = {});
+  // the deck: a lens shape inside the bulwarks
+  const clampDeck = (s, along, across) => { const d = DIM[s.navalKind] || DIM.galleon; const half = d.L / 2 - 30; along = U.clamp(along, -half, half);
+    const k = Math.pow(Math.max(0, 1 - Math.pow(along / (d.L / 2), 2)), 0.4); const w = (d.B / 2) * 0.78 * k; return [along, U.clamp(across, -w, w)]; };
+  const toWorld = (s, a, c) => { const h = s.heading || 0, ch = Math.cos(h), sh = Math.sin(h); return [s.x + ch * a - sh * c, s.y + sh * a + ch * c]; };
+  const place = (p) => { const s = p.onShip; const [x, y] = toWorld(s, p.deckPos[0], p.deckPos[1]); p.x = x; p.y = y; p.homeX = x; p.homeY = y; p.moveTo = null; R.placed = [x, y]; };
+  // walking the deck: the step turned into her frame, kept inside the bulwarks
+  G.deckMove = function (p, dx, dy) {
+    const s = p.onShip; if (!s) return; const h = s.heading || 0, ch = Math.cos(h), sh = Math.sin(h);
+    p.deckPos = clampDeck(s, p.deckPos[0] + dx * ch + dy * sh, p.deckPos[1] - dx * sh + dy * ch); place(p);
+  };
+  // the nearest dry, open ground to a point (a beach, a quay), searched outward in rings
+  R.landNear = function (px, py, maxR = 60) {
+    const cx = Math.floor(px / TS), cy = Math.floor(py / TS); const T = KR.T;
+    for (let r = 0; r <= maxR; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+      if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = cx + i, y = cy + j; if (!W.inb(x, y)) continue;
+      const t = W.tile(x, y); if (t === T.WATER || t === T.DEEP) continue; if (W.isBlockedTile(x, y)) continue;
+      return [x * TS + 16, y * TS + 16];
+    }
+    return null;
+  };
+  R.canBoard = function (s) { const p = G.player; return !!(p && s && s.ship && !s.dead && !s.removed && !s.sinking && s.faction === pf() && !p.onShip && !p.dead && mainRealm()); };
+  // close by her side, or (in harbour) anywhere along the waterfront: the ship's boat comes in to fetch you
+  R.reach = (s) => (s.state === 'moor' ? 1000 : 260);
+  R.near = function () { const p = G.player; if (!p || p.onShip || !mainRealm()) return null; let best = null, bd = 1e9; for (const s of N.alive(pf())) { const d = Math.hypot(s.x - p.x, s.y - p.y) - (s.r || 70) - R.reach(s); if (d < bd) { bd = d; best = s; } } return best && bd < 0 ? best : null; };
+  R.board = function (s, opts = {}) {
+    const p = G.player; if (!R.canBoard(s)) return false;
+    if (!opts.far && Math.hypot(s.x - p.x, s.y - p.y) - (s.r || 70) > R.reach(s)) { G.log('Get closer to her first: walk out along the pier.', 'sys', '#ffb24a'); return false; }
+    if (p.cast) G.interrupt && G.interrupt(p, 'You climb aboard and your spell fizzles.');
+    p.boardFrom = R.landNear(p.x, p.y, 20) || [p.x, p.y]; p.onShip = s; p.deckPos = clampDeck(s, -40, 0); p.swim = false; place(p);
+    G.log(`You climb aboard the ${s.name}. A free ride: walk her deck, and go ashore when she lies off the enemy's coast. (/disembark)`, 'status', '#9ad8ff'); sfx('door', 0.5);
+    return true;
+  };
+  R.leave = function (why) {
+    const p = G.player; const s = p && p.onShip; if (!s) return false;
+    const st = s.state;
+    if (why !== 'sink' && why !== 'force' && st !== 'moor' && st !== 'siege') {
+      // under way: you may only jump over the side close enough to land to swim for it
+      const tx = Math.floor(p.x / TS), ty = Math.floor(p.y / TS);
+      if (!(W.swimmable && W.swimmable(tx, ty))) { G.log('Not out here in open water: wait until she drops anchor off the coast or in harbour.', 'sys', '#ffb24a'); return false; }
+      p.onShip = null; p.deckPos = null; G.log('You leap over the side into the sea!', 'status', '#9ad8ff'); sfx('splash', 0.8); return true;
+    }
+    const at = R.landNear(s.x, s.y, 80) || p.boardFrom;
+    p.onShip = null; p.deckPos = null;
+    if (why === 'sink') { const tx = Math.floor(p.x / TS), ty = Math.floor(p.y / TS); if (W.swimmable && W.swimmable(tx, ty)) { G.log(`The ${s.name} goes down beneath you: swim for the shore!`, 'status', '#ff8a6a'); sfx('splash', 0.9); return true; }
+      G.log(`The ${s.name} goes down. You cling to the wreckage and wash up on the shore.`, 'status', '#ff8a6a'); }
+    else G.log(st === 'siege' ? 'The ship\'s boat rows you through the surf and runs up on the beach.' : 'You walk down the gangplank onto the quay.', 'status', '#9ad8ff');
+    if (at) { p.x = at[0]; p.y = at[1]; p.homeX = p.x; p.homeY = p.y; }
+    sfx('door', 0.4); return true;
+  };
+  // every tick, after the ships have sailed: carry the rider along; let go if she sinks or the hero is moved off her
+  const tk0 = War.tick;
+  War.tick = function (dt) {
+    tk0.apply(this, arguments);
+    const p = G.player; const s = p && p.onShip; if (!s) return;
+    if (!mainRealm() || p.dead) { p.onShip = null; p.deckPos = null; return; }
+    if (s.removed || s.sinking || s.dead) { R.leave('sink'); return; }
+    if (R.placed && Math.hypot(p.x - R.placed[0], p.y - R.placed[1]) > 220) { p.onShip = null; p.deckPos = null; return; } // a teleport, a gate spell: off the ship
+    place(p);
+  };
+  // the call to sail: when you send the fleet out from home, you may go with it
+  const send0 = War.sendFleet;
+  War.sendFleet = function (f) {
+    const k = send0.apply(this, arguments); const p = G.player;
+    if (k && p && (f || pf()) === pf() && !p.onShip && mainRealm()) R.offerUntil = G.now + 90000;
+    return k;
+  };
+  // saves never keep you out at sea: they keep the ground you boarded from
+  for (const fn of ['save', 'saveAccount']) { const o = Sys[fn]; if (!o) continue; Sys[fn] = function () { const p = G.player; if (!p || !p.onShip || !p.boardFrom) return o.apply(this, arguments); const x = p.x, y = p.y; p.x = p.boardFrom[0]; p.y = p.boardFrom[1]; try { return o.apply(this, arguments); } finally { p.x = x; p.y = y; } }; }
+  // chat: /board, /disembark (/ashore, /overboard)
+  const cmd0 = Sys.command;
+  if (cmd0) Sys.command = function (ln) {
+    const t = String(ln || '').trim().toLowerCase().split(/\s+/)[0];
+    if (t === '/board' || t === '/embark') { const s = R.near() || (R.offerUntil > G.now && N.alive(pf())[0]); if (!s) G.log('None of your warships is close enough to board.', 'sys', '#ffb24a'); else R.board(s, { far: R.offerUntil > G.now }); return; }
+    if (t === '/disembark' || t === '/ashore' || t === '/overboard') { if (!G.player || !G.player.onShip) G.log('You are not aboard a ship.', 'sys', '#ffb24a'); else R.leave(t === '/overboard' ? 'jump' : null); return; }
+    return cmd0.apply(this, arguments);
+  };
+  // the prompt: a small button above the hotbar when a ride is on offer, while aboard, and to go ashore
+  let el = null, lastTxt = '';
+  const css = '#ride-prompt{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:40;display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:10px;background:rgba(14,20,30,.82);border:1px solid #6a8aa8;color:#d8e8f8;font:600 14px/1.3 system-ui,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.5)}#ride-prompt button{font:700 14px system-ui,sans-serif;padding:6px 12px;border-radius:8px;border:1px solid #9ac0e0;background:linear-gradient(#2a4a6a,#1a3048);color:#eaf4ff;cursor:pointer}#ride-prompt button:hover{filter:brightness(1.25)}#ride-prompt button[disabled]{opacity:.45;cursor:default}';
+  function ui() {
+    const p = G.player; if (!p || !p.c || document.body.classList.contains('k3-menu')) { if (el) el.hidden = true; return; }
+    let txt = '', btns = [];
+    if (p.onShip) {
+      const s = p.onShip; const where = ({ moor: 'at anchor in harbour', out: 'under sail', siege: 'lying off the enemy coast', home: 'sailing home' })[s.state] || s.state;
+      txt = `⚓ Aboard the ${s.name}, ${where}`;
+      if (s.state === 'moor' || s.state === 'siege') btns.push([s.state === 'siege' ? 'Row ashore' : 'Go ashore', () => R.leave()]);
+      else btns.push(['Jump overboard', () => R.leave('jump')]);
+    } else {
+      const s = R.near(); const offer = R.offerUntil > G.now && N.alive(pf()).some((x) => x.state === 'out');
+      if (s) { txt = `⚓ The ${s.name}`; btns.push(['Board (free ride)', () => R.board(s)]); }
+      else if (offer) { const lead = N.alive(pf()).find((x) => x.state === 'out'); if (lead) { txt = '⚓ The fleet sails'; btns.push([`Ride with the ${lead.name}`, () => { if (R.board(lead, { far: true })) R.offerUntil = 0; }]); } }
+    }
+    const key = txt + btns.map((b) => b[0]).join('|');
+    if (!txt) { if (el) el.hidden = true; return; }
+    if (!el) { const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); el = document.createElement('div'); el.id = 'ride-prompt'; document.body.appendChild(el); }
+    el.hidden = false; if (key === lastTxt) return; lastTxt = key;
+    el.innerHTML = ''; const sp = document.createElement('span'); sp.textContent = txt; el.appendChild(sp);
+    for (const [label, fn] of btns) { const b = document.createElement('button'); b.textContent = label; b.onclick = (ev) => { ev.stopPropagation(); fn(); lastTxt = ''; ui(); }; el.appendChild(b); }
+  }
+  setInterval(() => { try { ui(); } catch (e) {} }, 250);
+})();
+
 // ---- sallying out: your own gates open for your own army ----
 // (found by the balance simulation: enemy hunting parties near the town kept the alarm ringing, the portcullis stayed
 // down, and a war party ordered out could never leave its own walls.) Ordering an attack raises your gates and keeps

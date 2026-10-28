@@ -248,7 +248,7 @@ function texParams(t, aniso) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.minFi
 // terrain: two array textures, one layer per terrain material
 export function makeTerrainArrays(size) {
   const r = K3.renderer; const n = TERRAIN_LAYERS.length;
-  const mk = (srgb) => { const rt = new THREE.WebGLArrayRenderTarget(size, size, n, { depthBuffer: false }); texParams(rt.texture, Math.min(8, K3.maxAniso)); if (srgb) rt.texture.colorSpace = THREE.SRGBColorSpace; return rt; };
+  const mk = (srgb) => { const rt = new THREE.WebGLArrayRenderTarget(size, size, n, { depthBuffer: false }); texParams(rt.texture, Math.min(K3.quality.aniso || 8, K3.maxAniso)); if (srgb) rt.texture.colorSpace = THREE.SRGBColorSpace; return rt; };
   const alb = mk(true), nrm = mk(false);
   const prev = r.getRenderTarget();
   for (let i = 0; i < n; i++) {
@@ -267,7 +267,7 @@ export function propTex(name, size) {
   const key = name + size; if (propCache[key]) return propCache[key];
   const i = ALL.indexOf(name); if (i < 0) throw new Error('unknown material ' + name);
   const r = K3.renderer; const m = gen(name);
-  const mk = (srgb) => { const rt = new THREE.WebGLRenderTarget(size, size, { depthBuffer: false }); texParams(rt.texture, Math.min(8, K3.maxAniso)); if (srgb) rt.texture.colorSpace = THREE.SRGBColorSpace; return rt; };
+  const mk = (srgb) => { const rt = new THREE.WebGLRenderTarget(size, size, { depthBuffer: false }); texParams(rt.texture, Math.min(K3.quality.aniso || 8, K3.maxAniso)); if (srgb) rt.texture.colorSpace = THREE.SRGBColorSpace; return rt; };
   const a = mk(true), b = mk(false);
   m.uniforms.uTexel.value = 1 / size;
   const prev = r.getRenderTarget();

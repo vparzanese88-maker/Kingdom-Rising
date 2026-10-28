@@ -68,7 +68,9 @@ function makeTerrainMaterial(ceiling) {
     `).replace('#include <map_fragment>', `
       vec3 N0 = normalize(vWNrm);
       vec2 tc = vWPos.xz / uTileM;
-      vec2 jit = (vec2(tn(vWPos.xz * 1.3), tn(vWPos.zx * 1.3 + 7.1)) - .5) * .7 + (vec2(tn(vWPos.xz * 4.1 + 3.), tn(vWPos.zx * 4.1 - 2.)) - .5) * .2;
+      // a wide, many-scaled warp of where each tile's ground lies: borders between grass, dirt, road and sand wander in
+      // natural curves instead of following the tile grid (no stepped, blocky edges)
+      vec2 jit = (vec2(tn(vWPos.xz * .42 + 11.), tn(vWPos.zx * .42 - 5.3)) - .5) * 1.25 + (vec2(tn(vWPos.xz * 1.3), tn(vWPos.zx * 1.3 + 7.1)) - .5) * .55 + (vec2(tn(vWPos.xz * 4.1 + 3.), tn(vWPos.zx * 4.1 - 2.)) - .5) * .18;
       vec2 pp = tc - .5 + jit; ivec2 i0 = ivec2(floor(pp)); vec2 f = fract(pp);
       vec4 d00 = tdat(i0), d10 = tdat(i0 + ivec2(1, 0)), d01 = tdat(i0 + ivec2(0, 1)), d11 = tdat(i0 + ivec2(1, 1));
       float l00 = floor(d00.r * 255. + .5), l10 = floor(d10.r * 255. + .5), l01 = floor(d01.r * 255. + .5), l11 = floor(d11.r * 255. + .5);
@@ -77,8 +79,8 @@ function makeTerrainMaterial(ceiling) {
       if (l00 == l10 && l00 == l01 && l00 == l11) { alb = texture(tAlb, vec3(uv, l00)); nrm = texture(tNrm, vec3(uv, l00)); }
       else {
         vec4 a0 = texture(tAlb, vec3(uv, l00)), a1 = texture(tAlb, vec3(uv, l10)), a2 = texture(tAlb, vec3(uv, l01)), a3 = texture(tAlb, vec3(uv, l11));
-        vec4 w = vec4((1. - f.x) * (1. - f.y), f.x * (1. - f.y), (1. - f.x) * f.y, f.x * f.y);
-        vec4 hw = w + vec4(a0.a, a1.a, a2.a, a3.a) * .45; float ma = max(max(hw.x, hw.y), max(hw.z, hw.w)) - .18; vec4 bw = max(hw - ma, 0.); bw /= dot(bw, vec4(1.)) + 1e-4;
+        vec2 fs = f * f * (3. - 2. * f); vec4 w = vec4((1. - fs.x) * (1. - fs.y), fs.x * (1. - fs.y), (1. - fs.x) * fs.y, fs.x * fs.y);
+        vec4 hw = w + vec4(a0.a, a1.a, a2.a, a3.a) * .35; float ma = max(max(hw.x, hw.y), max(hw.z, hw.w)) - .3; // a soft, height-aware blend: pebbles and grass tufts poke through vec4 bw = max(hw - ma, 0.); bw /= dot(bw, vec4(1.)) + 1e-4;
         alb = a0 * bw.x + a1 * bw.y + a2 * bw.z + a3 * bw.w;
         nrm = texture(tNrm, vec3(uv, l00)) * bw.x + texture(tNrm, vec3(uv, l10)) * bw.y + texture(tNrm, vec3(uv, l01)) * bw.z + texture(tNrm, vec3(uv, l11)) * bw.w;
         if (l00 == ${L.lava}.) gEmis += a0.rgb * bw.x * (1. - a0.a) * 5.; if (l10 == ${L.lava}.) gEmis += a1.rgb * bw.y * (1. - a1.a) * 5.; if (l01 == ${L.lava}.) gEmis += a2.rgb * bw.z * (1. - a2.a) * 5.; if (l11 == ${L.lava}.) gEmis += a3.rgb * bw.w * (1. - a3.a) * 5.;

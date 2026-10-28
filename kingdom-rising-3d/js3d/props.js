@@ -197,6 +197,42 @@ P.grate = (o, d) => { o.box('dark', 0, 0.01, 0, 1.2, 0.02, 0.8, null); for (let 
 P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry, arrival: !!d.arrival }); };
 P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z: o.z, v: d.v }); };
 P.well2 = P.well;
+// ---------- village life (world.js growTown): fences, haystacks, woodpiles, troughs, livestock, houses going up ----------
+const vh = (a, b, c) => { const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return x - Math.floor(x); };
+// a split-rail fence d.len tiles long along local x
+P.fence = (o, d) => { const L = (d.len || 3) * 1.6; const n = Math.max(2, Math.round(L / 1.6) + 1);
+  for (let i = 0; i < n; i++) { const x = -L / 2 + (L * i) / (n - 1); o.box('timber', x, 0.5, 0, 0.14, 1.0, 0.14, '#6a4a2a', 0, (vh(i, n, 3) - 0.5) * 0.08, 0); }
+  for (const y of [0.42, 0.82]) o.box('timber', 0, y, 0, L, 0.08, 0.07, '#7a5530', 0, 0, (vh(n, y * 10, 5) - 0.5) * 0.03); };
+P.haystack = (o) => { o.g('cloth', PRIM.sph12, 0, 0.55, 0, 1.9, 1.3, 1.7, '#c9a548').cone('cloth', 0, 0.95, 0, 0.75, 0.7, '#d4b257', 12).box('timber', 0.5, 0.9, 0.55, 0.05, 1.6, 0.05, '#5a3e22', 0, 0.5, 0.3); };
+P.woodpile = (o) => { for (let r = 0; r < 3; r++) for (let i = 0; i < 4 - r; i++) o.cyl('bark', -0.55 + i * 0.36 + r * 0.18, 0.17 + r * 0.31, 0, 0.16, 1.1, i % 2 ? '#6a4a2a' : '#5a3e22', 8, Math.PI / 2, 0);
+  o.box('timber', 0.95, 0.35, 0, 0.5, 0.7, 0.05, '#4a3220', 0, 0, 0.25).box('metalv', 0.95, 0.75, 0.05, 0.2, 0.12, 0.04, '#5a5a5e', 0, 0, 0.25); };
+P.trough = (o) => { o.box('planks', 0, 0.3, 0, 1.4, 0.45, 0.5, '#5a3e22').box('water', 0, 0.48, 0, 1.25, 0.04, 0.38, '#3a5a5a'); };
+// livestock: plain, low-poly beasts with a little variety in coat
+const beast = (o, d, s, coat, head, legs, horn) => { const c = d.v < 0.5 ? coat[0] : coat[1];
+  o.g('cloth', PRIM.sph12, 0, 0.62 * s, 0, 0.75 * s, 0.6 * s, 1.15 * s, c).g('cloth', PRIM.sph12, 0, 0.78 * s, 0.62 * s, 0.32 * s, 0.32 * s, 0.42 * s, head);
+  for (const [x, z] of [[-0.22, -0.35], [0.22, -0.35], [-0.22, 0.35], [0.22, 0.35]]) o.cyl('dark', x * s, 0.18 * s, z * s, 0.06 * s, 0.36 * s, legs, 6);
+  o.sph('dark', -0.09 * s, 0.86 * s, 0.82 * s, 0.05 * s, 0.05 * s, 0.05 * s, '#111').sph('dark', 0.09 * s, 0.86 * s, 0.82 * s, 0.05 * s, 0.05 * s, 0.05 * s, '#111');
+  if (horn) for (const x of [-0.12, 0.12]) o.cone('bone', x * s, 0.98 * s, 0.55 * s, 0.04 * s, 0.22 * s, '#d8ccb0', 6); };
+P.sheep = (o, d) => beast(o, d, 1, ['#ece6d8', '#d8d0c0'], '#2a2622', '#2a2622');
+P.goat = (o, d) => beast(o, d, 0.9, ['#d8d0c4', '#8a7a64'], '#a89a84', '#4a4038', true);
+P.pig = (o, d) => { beast(o, d, 0.95, ['#e8b0a4', '#c8907e'], '#e8b0a4', '#c8907e'); o.cyl('cloth', 0, 0.74, 0.86, 0.1, 0.06, '#d89888', 10, Math.PI / 2, 0); };
+P.cow = (o, d) => { beast(o, d, 1.5, ['#f0ece4', '#6a4a32'], '#f0ece4', '#3a2a22', true); if (d.v < 0.5) for (let i = 0; i < 3; i++) o.g('cloth', PRIM.sph12, (vh(i, 1, d.v * 9) - 0.5) * 0.7, 1.05, (i - 1) * 0.45, 0.4, 0.3, 0.4, '#2a2420'); };
+P.chicken = (o, d) => { const c = d.v < 0.5 ? '#f2ece0' : '#a8642e'; o.g('cloth', PRIM.sph12, 0, 0.22, 0, 0.26, 0.24, 0.32, c).g('cloth', PRIM.sph12, 0, 0.38, 0.14, 0.14, 0.15, 0.14, c).cone('gold', 0, 0.38, 0.24, 0.03, 0.07, '#e0a030', 6).box('paint', 0, 0.47, 0.13, 0.03, 0.07, 0.08, '#c8302a').cyl('gold', -0.05, 0.05, 0, 0.015, 0.1, '#e0a030', 6).cyl('gold', 0.05, 0.05, 0, 0.015, 0.1, '#e0a030', 6); };
+// a cottage going up: footing, timber frame, part-built walls (d.done of the height) and scaffolding with a ladder
+P.houseframe = (o, d) => { const W2 = (d.bw || 5) * 1.6 - 0.4, D2 = (d.bh || 4) * 1.6 - 0.4, H = 3.2, done = d.done || 0.5;
+  o.box('stone', 0, 0.15, 0, W2 + 0.2, 0.3, D2 + 0.2, '#8a8478');
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) o.box('timber', sx * W2 / 2, H / 2 + 0.3, sz * D2 / 2, 0.24, H, 0.24, '#6a4a2a');
+  for (const sx of [-1, 1]) o.box('timber', sx * W2 / 2, 0.3 + H, 0, 0.2, 0.2, D2, '#6a4a2a').box('timber', 0, 0.3 + H * 0.5, sx * D2 / 2, W2, 0.16, 0.16, '#6a4a2a');
+  for (const sz of [-1, 1]) o.box('timber', 0, 0.3 + H, sz * D2 / 2, W2, 0.2, 0.2, '#6a4a2a');
+  for (let i = 1; i < 4; i++) { const x = -W2 / 2 + (W2 * i) / 4; o.box('timber', x, 0.3 + H * 0.5, -D2 / 2, 0.14, H, 0.14, '#7a5530'); }
+  const wh = H * done; for (const sz of [-1, 1]) o.box('planks', 0, 0.3 + wh / 2, sz * D2 / 2, W2 - 0.3, wh, 0.12, '#c8b08a'); o.box('planks', -W2 / 2, 0.3 + wh * 0.4, 0, 0.12, wh * 0.8, D2 - 0.3, '#c8b08a');
+  if (done > 0.5) for (let i = 0; i < 5; i++) { const t = -W2 / 2 + (W2 * i) / 4; o.box('timber', t, 0.3 + H + 0.9, 0, 0.12, 0.12, D2 * 0.62, '#6a4a2a', 0, 0.9, 0).box('timber', t, 0.3 + H + 0.9, 0, 0.12, 0.12, D2 * 0.62, '#6a4a2a', 0, -0.9, 0); }
+  // scaffolding along the front: poles, two plank decks and a ladder
+  const fz = D2 / 2 + 0.7; for (let i = 0; i <= 3; i++) o.box('timber', -W2 / 2 + (W2 * i) / 3, 2.1, fz, 0.1, 4.2, 0.1, '#8a6a40');
+  for (const y of [1.6, 3.2]) o.box('planks', 0, y, fz - 0.25, W2, 0.06, 0.6, '#9a7a4a');
+  o.box('timber', W2 / 2 + 0.4, 1.7, fz + 0.2, 0.06, 3.4, 0.06, '#8a6a40', 0, 0.12, 0).box('timber', W2 / 2 + 0.8, 1.7, fz + 0.2, 0.06, 3.4, 0.06, '#8a6a40', 0, 0.12, 0);
+  for (let r = 0; r < 8; r++) o.box('timber', W2 / 2 + 0.6, 0.3 + r * 0.42, fz + 0.2 - r * 0.05, 0.4, 0.05, 0.05, '#8a6a40');
+  o.box('planks', -W2 / 2 - 0.6, 0.12, fz + 0.4, 1.4, 0.24, 0.6, '#c8b08a').box('stone', W2 / 2 - 0.2, 0.25, -D2 / 2 - 0.7, 0.8, 0.5, 0.6, '#9a948a'); };
 
 // trees, rocks and plants go to the instanced vegetation instead
 export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'orevein', 'flowers', 'fern', 'reeds', 'crop']);
@@ -216,7 +252,7 @@ export function buildProps(mb, list, out) {
     if (!f.b) {
       // outdoors: some things look along the road, tents face their fire, the rest get a random turn
       if (d.kind === 'cavemouth') { const dir = d.dir || 'n'; ry = dir === 'n' ? Math.PI : dir === 's' ? 0 : dir === 'w' ? -Math.PI / 2 : Math.PI / 2; }
-      else if (d.kind === 'sewermouth' || d.kind === 'drainpipe' || d.kind === 'sewerexit') ry = d.ry != null ? d.ry : 0;
+      else if (d.kind === 'sewermouth' || d.kind === 'drainpipe' || d.kind === 'sewerexit' || d.kind === 'fence' || d.kind === 'houseframe') ry = d.ry != null ? d.ry : 0;
       else if (['lamp', 'torch', 'stall', 'statue', 'cavesign', 'fountain', 'monument', 'crypt', 'well', 'exitportal', 'grate'].includes(d.kind)) ry = d.kind === 'statue' ? Math.PI * (d.v > 0.5 ? 0 : 0) : d.kind === 'lamp' ? Math.floor(d.v * 4) * Math.PI / 2 : 0;
       else ry = d.v * Math.PI * 2;
     }

@@ -13,6 +13,7 @@ const RELIEF = { hills: 7, mountain: 9, forest: 3.6, darkforest: 4.5, plains: 1.
 const PEAKS = { mountain: 1, snow: 1.2, summit: 0.9, volcanic: 0.7, hills: 0.32, darkforest: 0.22, gloom: 0.3, scar: 0.45, ash: 0.35 };
 const MOUNTAIN = { hills: 0.8, mountain: 1.35, snow: 1.5, summit: 1.3, volcanic: 1.1, scar: 1.0, desert: 0.75, swamp: 0.6 };
 // snow on the ground and on peaks (0..1) per biome
+const DOCK_Y = 0.8; // a port city's ground: the level of its quay and piers, just above the sea
 const SNOWY = { snow: 1, summit: 0.75, mountain: 0.35, icecave: 0.8 };
 
 // fast value noise (own table so it is quick to call half a million times)
@@ -185,11 +186,20 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
   for (const f in W.cityData) {
     const cd = W.cityData[f]; if (!cd || cd.cx == null) continue; const R = cd.R + 1;
     let s = 0, n = 0; for (let y = cd.cy - R; y <= cd.cy + R + 1; y++) for (let x = cd.cx - R; x <= cd.cx + R + 1; x++) if (x >= 0 && y >= 0 && x < VW && y < VH) { s += H[y * VW + x]; n++; }
-    const base = s / n; cd._y3 = base;
-    for (let y = cd.cy - R - 26; y <= cd.cy + R + 27; y++) for (let x = cd.cx - R - 26; x <= cd.cx + R + 27; x++) {
+    // a port city sits right down at its quay: the whole city on the level of the docks (just above the sea), so the
+    // streets, the sea gate, the quay and the piers are one level, with no steps or ramps between them
+    const avg = s / n, hb = cd.harbour, base = hb ? DOCK_Y : avg; cd._y3 = base;
+    const blend = hb ? 40 : 26; // a lowered city's surroundings come down to it over a longer, gentler slope
+    for (let y = cd.cy - R - blend; y <= cd.cy + R + blend + 1; y++) for (let x = cd.cx - R - blend; x <= cd.cx + R + blend + 1; x++) {
       if (x < 0 || y < 0 || x >= VW || y >= VH) continue; const v = y * VW + x;
       const d = Math.max(Math.abs(x - cd.cx - 0.5), Math.abs(y - cd.cy - 0.5)) - (R + 0.5);
-      if (d <= 0) H[v] = base + (H[v] - base) * 0.1; else if (d < 26) H[v] = K3.lerp(base + (H[v] - base) * 0.1, H[v], K3.smooth(0, 26, d));
+      const flat = base + (H[v] - avg) * (hb ? 0.04 : 0.1);
+      if (d <= 0) H[v] = flat; else if (d < blend) H[v] = K3.lerp(flat, H[v], K3.smooth(0, blend, d));
+    }
+    // the dock district outside the sea gate (and the quay along the water): dead level with the city and the piers
+    if (hb) for (let i = -2; i <= hb.k + 2; i++) for (let sd = -hb.half - 2; sd <= hb.half + 2; sd++) {
+      const tx = hb.gx + hb.dx * i + hb.px * sd, ty = hb.gy + hb.dy * i + hb.py * sd;
+      for (const [ox, oy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const x = tx + ox, y = ty + oy; if (x < 0 || y < 0 || x >= VW || y >= VH) continue; H[y * VW + x] = base; }
     }
   }
   W.buildings.forEach((b) => {
@@ -201,6 +211,14 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
       if (d === 0) H[v] = base; else H[v] = K3.lerp(base, H[v], K3.smooth(0, 4.5, d));
     }
   });
+  // ---- a harbour's basin is the sea itself: its water lies at sea level, below the quay ----
+  for (const f in W.cityData) {
+    const hb = W.cityData[f] && W.cityData[f].harbour; if (!hb) continue;
+    for (let i = -2; i <= hb.k + 70; i++) for (let sd = -hb.half - 34; sd <= hb.half + 34; sd++) {
+      const x = hb.gx + hb.dx * i + hb.px * sd, y = hb.gy + hb.dy * i + hb.py * sd; if (x < 0 || y < 0 || x >= VW || y >= VH) continue;
+      const v = y * VW + x; if (!isNaN(WL[v]) && WL[v] > 0) { H[v] -= WL[v]; WL[v] = 0; }
+    }
+  }
   // ---- the water near a city (its harbour basin) stays water: flattening the city plot must not lift the bed of a
   // water tile above the water's surface, or heroes would walk where the map has them swim ----
   for (const f in W.cityData) {

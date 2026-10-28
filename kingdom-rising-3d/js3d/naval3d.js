@@ -296,6 +296,7 @@ K3.shipDeckY = function (e) {
   return P.av.obj.position.y + P.inner.position.y + deck + Math.sin(P.inner.rotation.z) * (lp[1] / 20) * -1;
 };
 
+K3.navalSailor = sailor; // (intro3d.js: the crew of the ship that brings a new hero home)
 K3.navalModel = function (e) {
   if (e.navalKind === 'harbourgun') return towerModel(e);
   if (e.navalKind === 'galleon' || e.navalKind === 'longship') return shipModel(e);

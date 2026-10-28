@@ -75,7 +75,10 @@ export function staticBillboards(list, additive = true) {
   g.setAttribute('iPos', new THREE.InstancedBufferAttribute(pos, 3)); g.setAttribute('iSize', new THREE.InstancedBufferAttribute(size, 2)); g.setAttribute('iCol', new THREE.InstancedBufferAttribute(col, 4)); g.setAttribute('iMisc', new THREE.InstancedBufferAttribute(misc, 2));
   g.instanceCount = n;
   const m = additive ? matAdd : matNorm; finalize(m);
-  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 6; mesh.name = 'billboards';
+  // a bounding sphere around every flame (plus its size), so areas behind the camera skip the draw
+  let mx = 0; const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; list.forEach((b) => { mx = Math.max(mx, b.w || 0, b.h || 0); const p = [b.x, b.y, b.z]; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } });
+  g.boundingSphere = new THREE.Sphere(new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2), Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2 + mx + 1);
+  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = true; mesh.renderOrder = 6; mesh.name = 'billboards';
   return mesh;
 }
 

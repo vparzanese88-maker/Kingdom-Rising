@@ -6,6 +6,7 @@ import { geo, T } from './geo.js';
 import { MB, PRIM } from './mb.js';
 import { mats } from './mats.js';
 import { craftFront } from './crafthouses.js';
+import { sewerHalls } from './sewer3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
 const Tl = TILE;
@@ -77,24 +78,26 @@ function building(mb, b) {
   const X0 = b.x * Tl, X1 = (b.x + b.w) * Tl, Z0 = b.y * Tl, Z1 = (b.y + b.h) * Tl;
   const y0 = b._y3 != null ? b._y3 : 0, fy = b._floor3 != null ? b._floor3 : y0 + 0.16;
   const isHall = b.type === 'hall', isLair = b.type === 'chamber', isTower = b.type === 'kingtower';
-  const Hw = (HEIGHT[b.type] || 4.2) * (TALLER.has(b.type) && hv3 > 0.45 ? 1.42 : 1); b._H3 = Hw;
+  const keep = !!b.terr; // the king's castle: its floors climb to a throne hall three flights up
+  // a building with an upper floor is tall enough to stand up straight on both floors (2.7 m and more, for ogres too)
+  const Hw = keep ? geo.CASTLE_FH * 3 + 5.6 : Math.max(b.loft ? geo.LOFT_H + 3.3 : 0, (HEIGHT[b.type] || 4.2) * (TALLER.has(b.type) && hv3 > 0.45 ? 1.42 : 1)); b._H3 = Hw;
   const top = y0 + Hw;
   const outT = 0.34;
   const wallKey = st.stone || isHall || isLair || isTower ? (isLair ? 'darkstone' : 'stone') : 'plaster';
   const wallCol = isTower ? (b.style === 'sylvan' ? '#e2dccc' : '#c8c0b2') : st.stone || isHall || isLair ? (isLair ? '#8a8078' : isHall ? (b.style === 'sylvan' ? '#e8e2d4' : '#cdc6b8') : st.wall) : st.wall;
   const inKey = isHall || isLair || b.type === 'bank' ? (isLair ? 'darkstone' : 'stone') : 'plaster';
   const inCol = isHall ? '#c8c0b0' : isLair ? '#6a625a' : st.inner;
-  const door = b.door; const dX0 = door.tx * Tl, dX1 = dX0 + Tl;
-  const doorH = isHall ? 3.2 : 2.35;
+  const door = b.door; const dX0 = b.gate ? b.gate.x0 * Tl : door.tx * Tl, dX1 = b.gate ? (b.gate.x1 + 1) * Tl : dX0 + Tl;
+  const doorH = b.gate ? 4.6 : isHall ? 3.2 : 2.35;
   const sink = y0 - 1.2;
   // windows: every other tile, away from corners and the door
   const winRow = (len, t0, skip) => { const out = []; for (let k = 1; k < len - 1; k++) { if (skip && skip(k)) continue; if ((k + (len > 5 ? 0 : 1)) % 2 === 0 || len <= 4) out.push(k); } return out; };
-  const winV0 = fy + (isHall ? 3.6 : 1.05), winV1 = winV0 + (isHall ? 2.6 : 1.05), winW = isHall ? 0.62 : 0.72;
+  const winV0 = fy + (keep ? geo.CASTLE_FH * 3 + 1.5 : isHall ? 3.6 : 1.05), winV1 = winV0 + (isHall ? 2.6 : 1.05), winW = isHall ? 0.62 : 0.72;
   const upper = Hw >= 4.9 && !isHall; const upV0 = fy + 2.95, upV1 = upV0 + 0.95;
   const openings = { n: [], s: [], w: [], e: [] };
   const addWin = (side, u0, u1) => { openings[side].push({ u0, u1, v0: winV0, v1: winV1, win: true }); if (upper) openings[side].push({ u0, u1, v0: upV0, v1: upV1, win: true }); };
   // north and south walls (along x)
-  for (const k of winRow(b.w, 0, (k) => Math.abs(b.x + k - door.tx) <= 1)) { const cx = (b.x + k + 0.5) * Tl; addWin('s', cx - winW / 2, cx + winW / 2); }
+  for (const k of winRow(b.w, 0, (k) => (b.gate ? b.x + k >= b.gate.x0 - 1 && b.x + k <= b.gate.x1 + 1 : Math.abs(b.x + k - door.tx) <= 1))) { const cx = (b.x + k + 0.5) * Tl; addWin('s', cx - winW / 2, cx + winW / 2); }
   for (const k of winRow(b.w)) { const cx = (b.x + k + 0.5) * Tl; addWin('n', cx - winW / 2, cx + winW / 2); }
   for (const k of winRow(b.h)) { const cz = (b.y + k + 0.5) * Tl; addWin('w', cz - winW / 2, cz + winW / 2); addWin('e', cz - winW / 2, cz + winW / 2); }
   if (isLair) { openings.n = []; openings.w = []; openings.e = []; openings.s = openings.s.filter(() => false); }
@@ -180,10 +183,14 @@ function building(mb, b) {
       const r = (doorOp.u1 - doorOp.u0) / 2 + 0.25; const cx = (doorOp.u0 + doorOp.u1) / 2;
       for (let k = 0; k <= 8; k++) { const a = Math.PI * k / 8; mb.box('stone', cx + Math.cos(a) * r, fy + doorH + 0.2 + Math.sin(a) * r * 0.7, Z1 + 0.1, 0.34, 0.34, 0.26, '#e0d8c8', 0, 0, a); }
       // stone steps
-      mb.box('stone', (dX0 + dX1) / 2, fy - 0.12, Z1 + 0.45, Tl * 2.2, 0.24, 0.7, '#b8b0a0');
-      mb.box('stone', (dX0 + dX1) / 2, fy - 0.3, Z1 + 0.95, Tl * 2.6, 0.3, 0.6, '#a8a090');
+      mb.box('stone', (dX0 + dX1) / 2, fy - 0.12, Z1 + 0.45, dX1 - dX0 + Tl * 1.2, 0.24, 0.7, '#b8b0a0');
+      mb.box('stone', (dX0 + dX1) / 2, fy - 0.3, Z1 + 0.95, dX1 - dX0 + Tl * 1.6, 0.3, 0.6, '#a8a090');
+      if (b.gate) { // the portcullis, raised into the arch: its spiked foot just shows under the lintel
+        const gw = doorOp.u1 - doorOp.u0; for (let k = 0; k <= 8; k++) mb.box('metalv', doorOp.u0 + gw * k / 8, fy + doorH - 0.25, Z1 - Tl / 2, 0.08, 0.5, 0.08, '#2a2a2e');
+        mb.box('metalv', (doorOp.u0 + doorOp.u1) / 2, fy + doorH - 0.08, Z1 - Tl / 2, gw, 0.1, 0.1, '#2a2a2e'); }
     }
-    // the door leaf itself is a separate, animated object
+    // the door leaf itself is a separate, animated object (the castle gate stands open)
+    if (!b.gate) {
     const dmb = new MB(); const dw = doorOp.u1 - doorOp.u0, dh = fy + doorH - fy - 0.02;
     const leafCol = door.locked ? '#4a3a30' : isHall ? '#6a4424' : '#7a5530';
     dmb.box('planks', dw / 2, dh / 2, 0, dw, dh, 0.09, leafCol);
@@ -192,11 +199,13 @@ function building(mb, b) {
     if (door.locked) dmb.box('metalv', dw - 0.18, dh * 0.42, 0.06, 0.14, 0.2, 0.04, '#c0a040');
     const leaf = dmb.build(); leaf.position.set(doorOp.u0, fy, Z1 - 0.12); leaf.userData.b = b;
     structs.doors.push({ obj: leaf, door, b });
+    }
   }
   // floor, ceiling and beams
   const ix0 = X0 + Tl, ix1 = X1 - Tl, iz0 = Z0 + Tl, iz1 = Z1 - Tl;
   const stoneFloor = ['hall', 'bank', 'chamber', 'heroes', 'exchange'].includes(b.type);
   mb.box(stoneFloor ? 'stone' : 'planks', (ix0 + ix1) / 2, fy - 0.5, (iz0 + iz1) / 2, ix1 - ix0, 1.0, iz1 - iz0, stoneFloor ? (isLair ? '#6a625a' : '#b8b0a2') : '#a8805a');
+  if (keep) castleFloors(mb, b, fy);
   const ceil = isHall ? top - 0.5 : b.loft ? top - 0.3 : Math.min(top - 0.25, fy + (upper ? 2.75 : 3.2));
   b._ceil3 = ceil;
   mb.box(isHall || isLair ? 'stone' : 'planks', (ix0 + ix1) / 2, ceil + 0.08, (iz0 + iz1) / 2, ix1 - ix0, 0.16, iz1 - iz0, isHall ? '#a8a090' : '#8a6a4a');
@@ -349,17 +358,61 @@ function hallRoof(mb, b, st, X0, X1, Z0, Z1, y0, top) {
   const rmb = { x0: X0 + inset, x1: X1 - inset, z0: Z0 + inset, z1: Z1 - inset };
   gableRoof(mb, fakeB, rst, rmb.x0, rmb.x1, rmb.z0, rmb.z1, top + 0.2, 'stone', '#bdb5a6');
   b._ridge3 = fakeB._ridge3;
-  const r = Tl * 0.82, th = 8.2 + 4.8;
+  const r = Tl * 0.82, th = Math.max(8.2 + 4.8, top - y0 + 3.5);
   const corners = [[X0 + Tl * 0.5, Z0 + Tl * 0.5], [X1 - Tl * 0.5, Z0 + Tl * 0.5], [X0 + Tl * 0.5, Z1 - Tl * 0.5], [X1 - Tl * 0.5, Z1 - Tl * 0.5]];
   for (const [x, z] of corners) tower(mb, x, z, r, y0, th, st, st === STYLE.sylvan ? 'spire' : 'cone', b.faction);
   // the keep: a square tower over the back wall
-  const kx = (X0 + X1) / 2, kz = Z0 + Tl, kw = Tl * 2.6, kh = 19;
+  const kx = (X0 + X1) / 2, kz = Z0 + Tl, kw = Tl * 2.6, kh = Math.max(19, top - y0 + 6);
   mb.boxB('stone', kx, y0 - 1, kz, kw, kh + 1, kw, b.style === 'sylvan' ? '#e8e2d4' : '#c8c0b2');
   for (let k = 0; k < 3; k++) for (const sx of [-1, 1]) mb.boxB('window', kx + sx * kw * 0.25, y0 + 9 + k * 3, kz + kw / 2 + 0.02, 0.42, 1.2, 0.05, '#ffffff');
   battlements(mb, kx - kw / 2 - 0.25, kx + kw / 2 + 0.25, kz - kw / 2 - 0.25, kz + kw / 2 + 0.25, y0 + kh, 'stone', '#b8b0a2', 1);
   if (st === STYLE.sylvan) { mb.cone('shingle', kx, y0 + kh + 0.3, kz, kw * 0.62, 9, st.roof, 16); mb.cyl('gold', kx, y0 + kh + 9.6, kz, 0.06, 1.2, st.trim, 6); structs.flags.push({ kind: 'pole', x: kx, y: y0 + kh + 10.1, z: kz, w: 2.2, h: 1.3, f: b.faction }); }
   else { mb.cyl('timber', kx, y0 + kh + 3, kz, 0.07, 6, '#4a3220', 6); structs.flags.push({ kind: 'pole', x: kx, y: y0 + kh + 5.6, z: kz, w: 2.6, h: 1.5, f: b.faction }); }
   b._keepTop = y0 + kh + 1;
+}
+
+// ---------- the castle's floors: raised stone floors, wide stairs and balustrades (see castleKeep in world.js) ----------
+function castleFloors(mb, b, fy) {
+  const T3 = b.terr, FH = geo.CASTLE_FH, lv = W.terrLv, E = W.edge;
+  const sideC = b.style === 'sylvan' ? '#b4ae9e' : '#a69e90', topC = b.style === 'sylvan' ? '#cfc8b6' : '#bdb4a4', railC = b.style === 'sylvan' ? '#e2dccc' : '#d2cabb';
+  const cellAt = (c, r) => (c >= 0 && r >= 0 && c < T3.w && r < T3.h ? T3.cells[r * T3.w + c] : null);
+  // the raised floors, a row at a time: a solid block of masonry with a paler slab on top
+  for (let r = 0; r < T3.h; r++) for (let c = 0; c < T3.w;) {
+    const cell = cellAt(c, r); if (cell.st || !cell.lv) { c++; continue; }
+    let e = c; while (e + 1 < T3.w) { const n = cellAt(e + 1, r); if (n.st || n.lv !== cell.lv) break; e++; }
+    const x0 = (T3.x0 + c) * Tl, x1 = (T3.x0 + e + 1) * Tl, zc = (T3.y0 + r + 0.5) * Tl, h = cell.lv * FH;
+    mb.boxB('stone', (x0 + x1) / 2, fy - 0.05, zc, x1 - x0, h - 0.03, Tl, sideC);
+    mb.boxB('stone', (x0 + x1) / 2, fy + h - 0.08, zc, x1 - x0, 0.08, Tl, topC);
+    c = e + 1;
+  }
+  // the stairs: four broad steps to a tile
+  for (let r = 0; r < T3.h; r++) for (let c = 0; c < T3.w; c++) {
+    const cell = cellAt(c, r); if (!cell.st) continue; const s = cell.st;
+    for (let q = 0; q < 4; q++) {
+      const top = fy + FH * (s.a + (s.k + (q + 1) / 4) / s.n), f = (q + 0.5) / 4;
+      const zc = (T3.y0 + r + (s.dir[1] < 0 ? 1 - f : f)) * Tl, xc = (T3.x0 + c + 0.5) * Tl;
+      mb.boxB('stone', xc, fy - 0.05, zc, Tl + 0.01, top - fy + 0.05, Tl / 4 + 0.02, q % 2 ? sideC : topC);
+    }
+  }
+  // balustrades along every railed edge, on its higher side: a low stone parapet with a coping (stepped up the stairs)
+  const sides = [[1, 0, -1, 0.5, 0], [2, 1, 0, 1, 0.5], [4, 0, 1, 0.5, 1], [8, -1, 0, 0, 0.5]];
+  for (let r = 0; r < T3.h; r++) for (let c = 0; c < T3.w; c++) {
+    const cell = cellAt(c, r), i = (T3.y0 + r) * W.W + T3.x0 + c; const m = E ? E[i] : 0; if (!m) continue;
+    for (const [bit, dx, dy, u, v] of sides) {
+      if (!(m & bit)) continue; const nb = cellAt(c + dx, r + dy);
+      const own = lv(cell, u, v), oth = nb ? lv(nb, dx ? 1 - u : u, dy ? 1 - v : v) : own; if (own <= oth + 0.05) continue;
+      const inset = 0.13, n = cell.st ? 4 : 1;
+      for (let q = 0; q < n; q++) {
+        const a0 = q / n, a1 = (q + 1) / n; // along the edge
+        const h = cell.st ? fy + FH * (cell.st.a + (cell.st.k + (cell.st.dir[1] < 0 ? 1 - (a0 + a1) / 2 : (a0 + a1) / 2) + 0.125) / cell.st.n) : fy + own * FH;
+        let x, z, sx, sz;
+        if (dx) { x = (T3.x0 + c + (dx > 0 ? 1 : 0)) * Tl - dx * inset; z = (T3.y0 + r + (a0 + a1) / 2) * Tl; sx = 0.24; sz = Tl * (a1 - a0) + 0.02; }
+        else { z = (T3.y0 + r + (dy > 0 ? 1 : 0)) * Tl - dy * inset; x = (T3.x0 + c + (a0 + a1) / 2) * Tl; sz = 0.24; sx = Tl * (a1 - a0) + 0.02; }
+        mb.boxB('stone', x, h - 0.02, z, sx, 0.92, sz, railC);
+        mb.box('stone', x, h + 0.95, z, sx + (dx ? 0.1 : 0.02), 0.1, sz + (dy ? 0.1 : 0.02), K3.shade(railC, -0.08));
+      }
+    }
+  }
 }
 
 // ---------- city walls, towers and gatehouses ----------
@@ -433,7 +486,7 @@ function cityWalls(mb, f, cd) {
   if (W.stairs) for (const [i, s] of W.stairs) {
     if (s.f !== f) continue; const tx = i % W.W, ty = Math.floor(i / W.W);
     for (let q = 0; q < 4; q++) {
-      const frac = (s.k + (q + 1) / 4) / s.n, top = y0 + H * frac; const o = (q + 0.5) / 4 - 0.5;
+      const frac = (s.k + (q + 1) / 4) / s.n, top = y0 + H * frac; const o = ((q + 0.5) / 4 - 0.5) * ((s.dir[0] || s.dir[1]) < 0 ? -1 : 1);
       const x = (tx + 0.5 + (s.dir[0] ? o : 0)) * Tl, z = (ty + 0.5 + (s.dir[1] ? o : 0)) * Tl;
       mb.boxB('stone', x, y0 - 0.5, z, s.dir[0] ? Tl / 4 + 0.02 : Tl, top - y0 + 0.5, s.dir[1] ? Tl / 4 + 0.02 : Tl, K3.shade(col, -0.06 - q * 0.01));
       const px = x - s.wall[0] * (Tl / 2 - 0.12), pz = z - s.wall[1] * (Tl / 2 - 0.12);
@@ -555,6 +608,7 @@ export function buildStructuresIn(x0, y0, x1, y1, ownsBuilding) {
     try { cityWalls(mb, f, cd); } catch (e) { console.warn('walls failed', e); }
   }
   looseWalls(mb, x0, y0, x1, y1);
+  sewerHalls(mb, x0, y0, x1, y1); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
   decks(mb, x0, y0, x1, y1);
   const grp = mb.build();
   grp.add(extra);

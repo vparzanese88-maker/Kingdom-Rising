@@ -5,7 +5,9 @@ import { geo, T, fbm } from './geo.js';
 import { makeTerrainArrays, propTex, TERRAIN_LAYERS, NOISE_GLSL } from './texgen.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
-const CH = 32; // tiles per chunk side
+// tiles per terrain piece side: 64 makes a quarter as many ground and water meshes (each one a draw call, plus
+// its shadow) as 32 did, at 65x65 vertices a piece (still within 16-bit indices); culling is coarser but cheap
+const CH = 64;
 const L = Object.fromEntries(TERRAIN_LAYERS.map((n, i) => [n, i]));
 
 function layerOf(t, biome) {

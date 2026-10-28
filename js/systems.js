@@ -762,7 +762,7 @@
           const sp = e.speed * (e.drunk ? 0.6 : 1) * dt;
           const ox = e.x, oy = e.y;
           G.moveEnt(e, dx / d * sp + (e.drunk ? Math.sin(G.now / 300) * 0.8 : 0), dy / d * sp, { door: 'npc' });
-          if (Math.abs(e.x - ox) + Math.abs(e.y - oy) < sp * 0.2) { e.stuckT = (e.stuckT || 0) + dt; if (e.stuckT > 1.5) { e.x = gx; e.y = gy; e.stuckT = 0; } }
+          if (Math.abs(e.x - ox) + Math.abs(e.y - oy) < sp * 0.2) { e.stuckT = (e.stuckT || 0) + dt; if (e.stuckT > 1.5) { e.stuckT = 0; if (d < 20 && !W.isBlockedTile(tx, ty)) { e.x = gx; e.y = gy; } else { e.path = null; e.idleT = 0.3 + Math.random(); e.moving = false; } } } // never through a wall or a shut gate: give up and choose again
           e.moving = true; e.walk += dt * 9; G.faceTo(e, { x: gx, y: gy });
         }
       }
@@ -859,8 +859,8 @@
       add({ id: f + '_crit', f, giver: CRIT[f][2], lv: 3, type: 'collect', item: CRIT[f][1], mobs: [CRIT[f][0]], n: 5, title: CRIT[f][3], text: CRIT[f][4], reward: { coin: 80, status: 3 } });
       add({ id: f + '_scouts', f, giver: 'captain', lv: 4, type: 'kill', mobs: [ENEMY1[f]], n: 8, title: `${D.MOBS[ENEMY1[f]].name}s`, text: `${F.enemyMobs} send their young to scout our walls. Kill 8 ${D.MOBS[ENEMY1[f]].name}s in ${zn(z1)}.`, reward: { coin: 120, status: 5, item: { k: 'weapon', tier: 0 } } });
       if (D.REGION_BY_ID['sewer_' + f] != null) {
-        const gang = f === 'crown' ? ['The Rat Tail Gang', 'Those cutpurses lurking in Meadowrun are the Rat Tail Gang, and they have made a den in the sewers beneath our streets. The outflow is just east of the walls. Go down and kill 8 of them.', 'rattigan', 'The Gutter King', 'Rattigan, the Gutter King, runs the Rat Tail Gang from the deepest tunnel of the sewers. Every purse cut outside our walls ends up in his pocket. End his little kingdom.']
-          : ['Orcs in the Drains', 'The orc pawns in Sunleaf Glade keep turning up inside our walls. They are crawling in through the old sewers. The outflow is just west of the kingdom walls. Go down and kill 8 of them.', 'drainjaw', 'Drainjaw', 'An orc called Gorruk Drainjaw leads the pawns that crawl through our sewers. Find him in the deepest tunnel and put an end to the sneaking.'];
+        const gang = f === 'crown' ? ['The Rat Tail Gang', 'Those cutpurses lurking in Meadowrun are the Rat Tail Gang, and they have made a den in the sewers beneath our streets. Their way in is the big brick outflow pipe under our west wall, where the drains run out to the bay. Go down and kill 8 of them.', 'rattigan', 'The Gutter King', 'Rattigan, the Gutter King, runs the Rat Tail Gang from the deepest tunnel of the sewers. Every purse cut outside our walls ends up in his pocket. End his little kingdom.']
+          : ['Orcs in the Drains', 'The orc pawns in Sunleaf Glade keep turning up inside our walls. They are crawling in through the old sewers. Their way in is the old outflow pipe under our north wall, where the drains run out to the sea. Go down and kill 8 of them.', 'drainjaw', 'Drainjaw', 'An orc called Gorruk Drainjaw leads the pawns that crawl through our sewers. Find him in the deepest tunnel and put an end to the sneaking.'];
         add({ id: f + '_sewer', f, giver: 'captain', lv: 3, type: 'kill', region: 'sewer_' + f, n: 8, title: gang[0], text: gang[1], reward: { coin: 160, status: 6 } });
         add({ id: f + '_sewerboss', f, giver: 'bounty', lv: 8, type: 'boss', boss: gang[2], title: gang[3], text: gang[4], reward: { coin: 650, status: 15, item: { k: 'weapon', tier: 0, q: 1.2 } } });
       }
@@ -923,7 +923,8 @@
   Sys.acceptQuest = function (q) {
     const c = G.player.c;
     c.quests.active[q.id] = { n: 0, tracked: true };
-    for (const id in c.quests.active) if (id !== q.id) c.quests.active[id].tracked = false;
+    // several quests can be tracked at once; the oldest tracked one drops off past five
+    { const tr = Object.keys(c.quests.active).filter((id) => id !== q.id && c.quests.active[id].tracked); while (tr.length > 4) c.quests.active[tr.shift()].tracked = false; }
     if (q.type === 'deliver') Sys.addItem({ uid: U.uid(), kind: 'quest', name: q.item, icon: '📦', value: 0 });
     if (q.key) Sys.addItem({ uid: U.uid(), kind: 'key', key: q.key, name: `Key to ${D.BOSS_BY_ID[q.boss].name}'s Lair`, icon: '🗝', value: 0 });
     G.log(`Quest accepted: ${q.title}`, 'quest', '#ffd84a'); KR.A.sfx('quest', 0.6);
@@ -1139,15 +1140,19 @@
     ],
   };
   const FPRE = { sylvan: { metal: 'Leafsteel', hide: 'Thornhide', cloth: 'Glimmerweave', arcane: 'Starbough' }, iron: { metal: 'Runeforged', hide: 'Stonehide', cloth: 'Deepweave', arcane: 'Runebound' }, crown: { metal: 'Valenguard', hide: 'Royal', cloth: 'Courtly', arcane: 'Crownsealed' } };
+  // "Riveted Leafmail Hauberk", "Tanned Thornhide Jerkin", "Woven Glimmerweave Linen Robe": every kind reads differently
+  Sys.craftName = (ak, sl, tier, f) => `${D.CRAFT_ADJ[ak][tier]} ${(D.CRAFT_KIND_PRE[f] || D.CRAFT_KIND_PRE.crown)[ak]} ${CA[ak][sl][tier]}`;
+  // special pieces are made from refined materials (two raw for one refined, at the crafter's bench)
+  const REFINED_OF = { metal: 'ingot', hide: 'cured', cloth: 'thread', arcane: 'rune' };
   Sys.recipes = function (craft, tier) {
     const out = []; const req = tier * 45; const f = G.player.c.faction; const P = FPRE[f];
     const matQ = (big) => (big ? 5 : 3);
     if (craft === 'smithing') {
-      for (const ak of ['plate', 'chain']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: `${P.metal} ${CA[ak][sl][tier]}`, mats: [['metal', tier, matQ(sl === 'chest' || sl === 'legs')]] });
+      for (const ak of ['plate', 'chain']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: Sys.craftName(ak, sl, tier, f), mats: [['metal', tier, matQ(sl === 'chest' || sl === 'legs')]] });
       for (const wt of ['1HS', '2HS', '1HB', '2HB', '1HP', 'H2H', 'THR']) out.push({ craft, tier, req, kind: 'weapon', wt, name: `${P.metal} ${D.WEAPON_BASES[wt][tier]}`, mats: [['metal', tier, matQ(D.WEAPON_TYPES[wt].hands === 2)]] });
       out.push({ craft, tier, req, kind: 'shield', name: `${P.metal} ${CA.shield[tier]}`, mats: [['metal', tier, 3], ['wood', tier, 2]] });
     } else if (craft === 'tailoring') {
-      for (const ak of ['leather', 'cloth']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: `${ak === 'leather' ? P.hide : P.cloth} ${CA[ak][sl][tier]}`, mats: [[ak === 'leather' ? 'hide' : 'cloth', tier, matQ(sl === 'chest' || sl === 'legs')]] });
+      for (const ak of ['leather', 'cloth']) for (const sl of D.ARMOR_SLOTS) out.push({ craft, tier, req, kind: 'armor', ak, slot: sl, name: Sys.craftName(ak, sl, tier, f), mats: [[ak === 'leather' ? 'hide' : 'cloth', tier, matQ(sl === 'chest' || sl === 'legs')]] });
     } else if (craft === 'scribing') {
       out.push({ craft, tier, req, kind: 'weapon', wt: 'TOME', name: `${P.arcane} ${D.WEAPON_BASES.TOME[tier]}`, mats: [['arcane', tier, 4], ['cloth', tier, 1]] });
       out.push({ craft, tier, req, kind: 'weapon', wt: 'TOME', name: `${P.arcane} ${['Prayer Book', 'Hymnal', 'Psalter', 'Holy Codex', 'Book of Saints', 'Celestial Writ'][tier]}`, bias: ['WIS', 'STA'], mats: [['arcane', tier, 3], ['hide', tier, 1]] });
@@ -1162,21 +1167,49 @@
     }
     for (const sg of SIG[craft]) {
       const main = craft === 'smithing' ? 'metal' : craft === 'tailoring' ? (sg.ak === 'cloth' ? 'cloth' : 'hide') : craft === 'fletching' ? 'hide' : craft === 'jewelcrafting' ? 'metal' : 'arcane';
-      out.push(Object.assign({ craft, tier, req: req + 20, sig: true, name: sg.names[tier], bias: sg.bias, mats: [[main, tier, 6], [main === 'arcane' ? 'metal' : 'arcane', tier, 2]] }, sg, { names: undefined, proc: sg.proc ? sg.proc[tier] : null }));
+      out.push(Object.assign({ craft, tier, req: req + 20, sig: true, name: sg.names[tier], bias: sg.bias, mats: [[REFINED_OF[main], tier, 3], [main === 'arcane' ? 'metal' : 'arcane', tier, 2]] }, sg, { names: undefined, proc: sg.proc ? sg.proc[tier] : null }));
     }
     out.forEach((r) => (r.cost = Math.round((20 + tier * tier * 150) * (r.sig ? 2 : 1))));
     return out;
   };
+  // level 50 and a maxed craft: a full set for one class from the crafter of its armor, staffs and books included
+  Sys.SET_LEVEL = 50; Sys.SET_SKILL = 250;
+  Sys.setCraftOf = (cls) => { const ak = D.CLASSES[cls].armor; return ak === 'plate' || ak === 'chain' ? 'smithing' : 'tailoring'; };
+  Sys.classSetRecipes = function (craft) {
+    const out = [];
+    for (const cls of D.CLASS_IDS) {
+      const S = D.CLASS_SETS[cls]; if (!S || Sys.setCraftOf(cls) !== craft) continue; const ak = D.CLASSES[cls].armor; const main = REFINED_OF[ak === 'plate' || ak === 'chain' ? 'metal' : ak === 'leather' ? 'hide' : 'cloth'];
+      const base = { craft, tier: 5, req: Sys.SET_SKILL, set: S.set, setCls: cls, classes: [cls], cost: 60000 };
+      D.ARMOR_SLOTS.forEach((sl, i) => { const big = sl === 'chest' || sl === 'legs'; out.push(Object.assign({}, base, { kind: 'armor', ak, slot: sl, name: `${S.pre} ${D.SET_SLOT_NAMES[ak][sl]}`, bias: [S.stats[i % 3], S.stats[(i + 1) % 3]].concat(S.stats), mats: [[main, 5, big ? 6 : 4], ['rune', 5, big ? 2 : 1]] })); });
+      for (const [wt, name] of S.wpn) {
+        let mats;
+        if (wt === 'shield') mats = [['ingot', 5, 4], ['plank', 3, 2]];
+        else if (wt === 'TOME') mats = [['rune', 5, 3], [craft === 'smithing' ? 'ingot' : 'thread', 5, 2], ['cured', 5, 1]];
+        else if (wt === 'ARC') mats = [['plank', 3, 4], ['ingot', 5, 1], ['cured', 5, 1]];
+        else if (wt === '2HB' && craft === 'tailoring') mats = [['plank', 3, 4], ['thread', 5, 2], ['rune', 5, 2]];
+        else mats = [[main, 5, D.WEAPON_TYPES[wt].hands === 2 ? 6 : 5], ['rune', 5, 2]];
+        out.push(Object.assign({}, base, wt === 'shield' ? { kind: 'shield' } : { kind: 'weapon', wt }, { name, bias: S.stats.slice(), mats, cost: 80000 }));
+      }
+    }
+    return out;
+  };
+  Sys.setLocked = (r) => { const c = G.player.c; return r.set && (c.level < Sys.SET_LEVEL || (c.craft[r.craft] || 0) < Sys.SET_SKILL) ? `Needs level ${Sys.SET_LEVEL} and ${D.CRAFTS[r.craft].name} ${Sys.SET_SKILL}.` : ''; };
   Sys.hasMats = (mats) => mats.every(([m, t, q]) => Sys.countItem(D.MATERIALS[m][t]) >= q);
   Sys.makeCrafted = function (r, sk, faction) {
     const F = D.FACTIONS[faction];
-    const opt = { q: (r.sig ? 1.35 : 1.15) + Math.min(0.1, Math.max(0, sk - r.req) / 600), bias: r.bias || F.craftBias, ilvl: r.tier * 9 + 6 + (r.sig ? 2 : 0) };
+    // a plain armor piece leans toward the two stats its wearers need most; the kingdom's own bias fills any extra rolls
+    const prof = !r.bias && r.kind === 'armor' && D.CRAFT_PROFILE[r.ak] && D.CRAFT_PROFILE[r.ak][r.slot];
+    const opt = { q: (r.set ? 1.45 : r.sig ? 1.35 : 1.15) + Math.min(0.1, Math.max(0, sk - r.req) / 600), bias: prof ? prof.concat(F.craftBias) : r.bias || F.craftBias, ilvl: r.set ? 56 : r.tier * 9 + 6 + (r.sig ? 2 : 0) };
     let it;
     if (r.kind === 'armor') it = G.makeArmor(r.ak, r.slot, r.tier, opt);
     else if (r.kind === 'weapon') it = G.makeWeapon(r.wt, r.tier, opt);
     else if (r.kind === 'shield') it = G.makeShield(r.tier, opt);
     else it = G.makeJewel(r.slot, r.tier, opt);
-    it.name = r.name; it.crafted = faction; it.sig = !!r.sig; it.value = Math.round(it.value * (r.sig ? 1.8 : 1.3));
+    it.name = r.name; it.crafted = faction; it.sig = !!r.sig; it.value = Math.round(it.value * (r.set ? 2.5 : r.sig ? 1.8 : 1.3));
+    // one piece of each kind trades its random health roll for steady regeneration (chain and leather boots: endurance)
+    const rg = prof && D.CRAFT_REGEN[r.ak] && D.CRAFT_REGEN[r.ak][r.slot];
+    if (rg) { it.hp = 0; it[rg] = +((rg === 'manaRegen' ? 0.1 + opt.ilvl * 0.015 : 0.2 + opt.ilvl * 0.02) * (opt.q / 1.15)).toFixed(1); }
+    if (r.set) { it.set = r.set; it.classes = r.classes.slice(); it.req = Sys.SET_LEVEL; it.lore = D.CLASS_SETS[r.setCls].lore; it.sig = true; if (r.setCls === 'berserker' && r.wt === '2HS') it.axe = true; G.uniqueRegen(it, { bias: D.CLASS_SETS[r.setCls].stats, lvl: 50 }); }
     if (r.proc) { it.proc = r.proc; it.fx = D.PROCS[r.proc].fx; }
     if (r.kind === 'armor') it.icon = { head: '⛑', chest: r.ak === 'cloth' ? '👘' : r.ak === 'leather' ? '🦺' : '🥋', hands: '🧤', legs: '👖', feet: '🥾' }[r.slot];
     return it;
@@ -1192,19 +1225,71 @@
     if (c.coins < r.cost) { G.log("You can't afford the fee.", 'sys', '#ff8a6a'); return; }
     const sk = c.craft[r.craft] || 0;
     if (sk < r.req - 20) { G.log(`Your ${D.CRAFTS[r.craft].name} skill is too low (${sk}/${r.req}).`, 'sys', '#ff8a6a'); return; }
+    const lock = Sys.setLocked(r); if (lock) { G.log(`${r.set}: ${lock}`, 'sys', '#ff8a6a'); KR.A.sfx('fail', 0.5); return; }
     const chance = U.clamp(0.6 + (sk - r.req) / 120, 0.25, 0.97);
     Sys.craftSkillUp(r.craft, r.req);
     // a failed attempt keeps your materials and fee: you only learn from it
     if (Math.random() > chance) { G.log(`You lacked the skill to fashion the item this time. Your materials are safe; try again. (${Math.round(chance * 100)}% chance at your skill)`, 'craft', '#ffb24a'); KR.A.sfx('fail'); KR.UI && KR.UI.refresh(); return; }
     c.coins -= r.cost; r.mats.forEach(([m, t, q]) => Sys.takeItem(D.MATERIALS[m][t], q));
     const it = Sys.makeCrafted(r, sk, c.faction);
-    Sys.addItem(it); KR.A.sfx('craft'); if (r.sig) KR.A.sfx('quest', 0.6); G.log(`You created ${it.name}!`, 'craft', r.sig ? '#ffb84a' : '#bfe8a0'); if (r.sig || (r.req || 0) >= 100) Sys.addStatus(c.faction, r.sig ? 6 : 2, `crafting ${it.name}`);
+    Sys.addItem(it); KR.A.sfx('craft'); if (r.sig) KR.A.sfx('quest', 0.6); G.log(`You created ${it.name}!`, 'craft', r.sig ? '#ffb84a' : '#bfe8a0'); if (r.sig || r.set || (r.req || 0) >= 100) Sys.addStatus(c.faction, r.set ? 10 : r.sig ? 6 : 2, `crafting ${it.name}`);
     KR.UI && KR.UI.refresh();
   };
   Sys.craftSkillUp = function (craft, req) {
     const c = G.player.c; const sk = c.craft[craft] || 0; if (sk >= 250) return;
     const ch = sk < req + 30 ? 0.7 : sk < req + 60 ? 0.3 : 0.05;
     if (Math.random() < ch) { c.craft[craft] = sk + 1; G.log(`You have become better at ${D.CRAFTS[craft].name}! (${c.craft[craft]})`, 'skill', '#9ad8ff'); KR.A.sfx('skillup', 0.6); }
+  };
+  // =============== REFINING ===============
+  // put any raw material in (any number of stacks), press Refine: two raw become one refined, and you learn from it
+  Sys.benchOf = function (d) {
+    if (!d || !d.kind) return null;
+    for (const k in D.BENCHES) if (D.BENCHES[k].decor.includes(d.kind)) return k;
+    // the bowyer and fletcher work at their tables until the city has a proper carpenter's bench
+    if (d.kind === 'table' || d.kind === 'weaponrack') { const b = W.buildings && W.buildings.find((o) => d.tx >= o.x && d.ty >= o.y && d.tx < o.x + o.w && d.ty < o.y + o.h); if (b && (b.type === 'bowyer' || b.type === 'fletcher')) return 'carpentry'; }
+    return null;
+  };
+  Sys.benchNear = function (x, y, r = 70) {
+    let best = null, bd = r;
+    for (const d of W.decor) { if (Math.abs(d.x - x) > r || Math.abs(d.y - y) > r) continue; const k = Sys.benchOf(d); if (!k) continue; const dd = Math.hypot(d.x - x, d.y - y); if (dd < bd) { bd = dd; best = d; } }
+    return best ? { d: best, kind: Sys.benchOf(best) } : null;
+  };
+  // the 3D view: the bench a mouse ray passes over (ray in world units, PX = world units per game pixel)
+  Sys.benchOnRay = function (ray, PX) {
+    const o = ray.origin, v = ray.direction; const a = v.x * v.x + v.z * v.z; if (a < 1e-6) return null;
+    let best = null, bt = 30;
+    for (const d of W.decor) {
+      const x = d.x * PX, z = d.y * PX; const ox = o.x - x, oz = o.z - z; if (ox * ox + oz * oz > 1600) continue;
+      const k = Sys.benchOf(d); if (!k) continue;
+      const t = -(ox * v.x + oz * v.z) / a; if (t < 0 || t > bt) continue;
+      if (Math.hypot(ox + v.x * t, oz + v.z * t) < 0.9) { bt = t; best = { d, kind: k }; }
+    }
+    return best;
+  };
+  // what you could put into this bench: every raw stack in your bags (and the logs you have chopped, for the carpenter)
+  Sys.refinables = function (kind) {
+    const B = D.BENCHES[kind]; if (!B) return []; const c = G.player.c; const out = [];
+    const froms = B.out.map((o) => D.REFINED[o].from);
+    for (const it of c.inv) if (it && it.kind === 'mat' && froms.includes(it.mat)) { const ex = out.find((x) => x.mat === it.mat && x.tier === it.tier); if (ex) ex.qty += it.qty || 1; else out.push({ mat: it.mat, tier: it.tier, name: it.name, qty: it.qty || 1, icon: D.MAT_ICON[it.mat] }); }
+    if (froms.includes('wood')) D.MATERIALS.wood.forEach((nm, t) => { if (D.MATERIALS.wood.indexOf(nm) !== t) return; const n = Sys.countItem(nm); if (n > 0) out.push({ mat: 'wood', tier: t, name: nm, qty: n, icon: D.MAT_ICON.wood }); });
+    return out;
+  };
+  Sys.refineOut = (mat, tier) => { for (const k in D.REFINED) if (D.REFINED[k].from === mat) return { type: k, tier, name: D.REFINED[k].names[tier] }; return null; };
+  // queue: [{ mat, tier, qty }] — everything put into the bench; odd leftovers stay in your bags
+  Sys.refine = function (kind, queue) {
+    const B = D.BENCHES[kind]; const c = G.player.c; if (!B || !queue || !queue.length) return 0;
+    const sk = c.craft[B.craft] || 0; let made = 0; const got = [];
+    for (const q of queue) {
+      const name = D.MATERIALS[q.mat][q.tier]; const have = Math.min(q.qty, Sys.countItem(name)); const n = Math.floor(have / 2); if (!n) continue;
+      const need = q.tier * 45 - 20; if (sk < need) { G.log(`You need ${D.CRAFTS[B.craft].name} ${need} to refine ${name}.`, 'sys', '#ff8a6a'); continue; }
+      const out = Sys.refineOut(q.mat, q.tier); if (!out) continue;
+      const raw = q.mat !== 'wood' && have === n * 2 && c.inv.some((x) => x && x.name === name && (x.qty || 1) <= n * 2); // a stack used up frees its own slot
+      if (!raw && !c.inv.includes(null) && !c.inv.some((x) => x && x.name === out.name && (x.qty || 1) < 99)) { G.log('Your bags are full.', 'sys', '#ff8a6a'); break; }
+      Sys.takeItem(name, n * 2); Sys.addItem(G.makeMat(out.type, out.tier, n), true); made += n; got.push(`${n} ${out.name}`); Sys.craftSkillUp(B.craft, q.tier * 45);
+    }
+    if (made) { G.log(`You refine your materials into ${got.join(', ')}.`, 'craft', '#bfe8a0'); KR.A.sfx(kind === 'forge' ? 'anvil' : 'craft'); }
+    else KR.A.sfx('fail', 0.4);
+    KR.UI && KR.UI.refresh(); return made;
   };
   Sys.upgradeInfo = function (it) {
     const craft = Sys.craftOf(it); if (!craft) return null;
@@ -1241,6 +1326,57 @@
       setTimeout(() => Sys.command(ln), delay);
     }
   };
+  // /stuck: step out of a wall, a rock or a snag to the nearest open ground close by. It only searches ground you could
+  // walk to from where you last stood freely (never through a wall, a closed gate or into another building), and
+  // when a city has shut its gates you stay on the side of the walls you were on.
+  Sys.STUCK_CD = 60;
+  Sys.unstick = function () {
+    const p = G.player; if (!p || p.dead) return false;
+    if (G.inCombat(p)) { G.log('You cannot use /stuck in combat.', 'sys', '#ffb24a'); return false; }
+    const left = (p.stuckCd || 0) - G.now / 1000; if (left > 0) { G.log(`You can use /stuck again in ${Math.ceil(left)} seconds.`, 'sys', '#ffb24a'); return false; }
+    const from = p.onWall || p.upB ? p : p.lastGood && Math.hypot(p.lastGood.x - p.x, p.lastGood.y - p.y) < TS * 6 ? p.lastGood : p;
+    const sx = Math.floor(from.x / TS), sy = Math.floor(from.y / TS);
+    const home = W.buildingAt(from.x, from.y);
+    const WT = W.wallTop && (!W.realm || W.realm === 'main') ? W.wallTop : null;
+    const loft = p.upB && p.upB.loft ? p.upB.loft : null;
+    const inLoft = (x, y) => loft && x >= loft.x0 && x <= loft.x1 && y >= loft.y0 && y <= loft.y1;
+    // which side of each city's walls you are on, for cities whose gates are shut
+    const shut = KR.War && KR.War.gatesClosed ? D.FACTION_IDS.filter((f) => { try { return KR.War.gatesClosed(f); } catch (e) { return false; } }) : [];
+    const inside = (f, x, y) => { const cd = W.cityData && W.cityData[f]; return !!cd && Math.abs(x - cd.cx) < cd.R && Math.abs(y - cd.cy) < cd.R; };
+    const side0 = shut.map((f) => inside(f, sx, sy));
+    const opts = { door: 'pass', swim: true, key: (k) => p.c.inv.some((it) => it && it.key === k) };
+    const free = (x, y) => {
+      if (!W.inb(x, y)) return false;
+      if (p.onWall) return !!(WT && WT[y * W.W + x]);
+      if (loft) return inLoft(x, y);
+      if (WT && WT[y * W.W + x]) return false;
+      if (W.isBlockedTile(x, y, opts) || W.buildingAt(x * TS + TS / 2, y * TS + TS / 2) !== home) return false;
+      for (let k = 0; k < shut.length; k++) if (inside(shut[k], x, y) !== side0[k]) return false;
+      return true;
+    };
+    // a spot with room around it: free itself, and no wall or rock in the eight tiles around
+    const roomy = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!free(x + i, y + j)) return false; return true; };
+    const R = 12, seen = new Set([sy * W.W + sx]); let q = free(sx, sy) ? [[sx, sy]] : []; let best = null, fallback = null;
+    if (!q.length) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (free(sx + i, sy + j)) { q.push([sx + i, sy + j]); seen.add((sy + j) * W.W + sx + i); }
+    while (q.length && !best) {
+      const nq = [];
+      for (const [x, y] of q) {
+        if (roomy(x, y)) { best = [x, y]; break; }
+        if (!fallback) fallback = [x, y];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy, k = ny * W.W + nx; if (seen.has(k) || Math.abs(nx - sx) > R || Math.abs(ny - sy) > R) continue;
+          seen.add(k); if (free(nx, ny) && !(W.edgeBlk && W.edgeBlk(x, y, dx, dy))) nq.push([nx, ny]);
+        }
+      }
+      q = nq;
+    }
+    const to = best || fallback;
+    if (!to) { G.log('There is no safe ground near you. Try walking back the way you came, or use a Gate spell or a teleport stone.', 'sys', '#ffb24a'); return false; }
+    p.x = (to[0] + 0.5) * TS; p.y = (to[1] + 0.5) * TS; p.moveTo = null; p.chase = null; p.harvest = null; p.sit = false;
+    p.lastGood = { x: p.x, y: p.y }; p.stuckCd = G.now / 1000 + Sys.STUCK_CD;
+    G.log('You work yourself free and find your footing.', 'sys', '#9ad8ff');
+    return true;
+  };
   Sys.command = function (ln) {
     const p = G.player; if (!p) return;
     const [cmd, ...rest] = ln.trim().split(/\s+/); const arg = rest.join(' ');
@@ -1256,9 +1392,10 @@
       case '/range': if (['melee', 'ranged', 'both'].includes(arg)) { p.c.rangeMode = arg; G.log(`Combat mode: ${arg}.`, 'sys', '#ccc'); KR.UI.refresh(); } break;
       case '/say': G.say(p, arg, 4); Net.chat(arg); break;
       case '/ooc': case '/world': Net.chat(arg); G.log(`[World] ${p.name}: ${arg}`, 'world', '#9ad8ff'); break;
+      case '/stuck': case '/unstuck': Sys.unstick(); break;
       case '/loc': G.log(`Your location is ${Math.floor(p.x / TS)}, ${Math.floor(p.y / TS)}.`, 'sys', '#ccc'); break;
       case '/who': G.log(`Players online here: ${Net.peers.length + 1}.`, 'sys', '#ccc'); Net.peers.forEach((pp) => G.log(` ${pp.n} — level ${pp.l} ${D.RACES[pp.r] ? D.RACES[pp.r].name : ''} ${D.CLASSES[pp.c] ? D.CLASSES[pp.c].name : ''}`, 'sys', '#ccc')); break;
-      case '/help': G.log('Commands: /attack [on|off], /cast <spell>, /use <ability>, /target [name|nearest], /pet attack|back, /sit, /range melee|ranged|both, /say <text>, /world <text>, /loc, /who, /pause <sec> (macros only)', 'sys', '#ccc'); break;
+      case '/help': G.log('Commands: /attack [on|off], /cast <spell>, /use <ability>, /target [name|nearest], /pet attack|back, /sit, /range melee|ranged|both, /say <text>, /world <text>, /loc, /stuck, /who, /pause <sec> (macros only)', 'sys', '#ccc'); break;
       default: if (!ln.startsWith('/')) { G.say(p, ln, 4); Net.chat(ln); } else G.log(`Unknown command ${cmd}. Type /help.`, 'sys', '#ffb24a');
     }
   };

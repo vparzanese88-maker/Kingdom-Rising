@@ -1181,6 +1181,72 @@
     fletching: { name: 'Fletching', station: 'workbench', mats: ['hide', 'metal'], makes: 'Bows and throwing weapons' },
     jewelcrafting: { name: 'Jewelcrafting', station: 'gem bench', mats: ['metal', 'arcane'], makes: 'Rings and necklaces' },
   };
+  // every kind of armor reads differently: hammered plate, riveted mail, tanned leather, woven cloth
+  D.CRAFT_ADJ = {
+    plate: ['Hammered', 'Forged', 'Tempered', 'Burnished', 'Masterforged', 'Exalted'],
+    chain: ['Riveted', 'Linked', 'Double-Linked', 'Blackened', 'Masterlinked', 'Exalted'],
+    leather: ['Tanned', 'Stitched', 'Boiled', 'Oiled', 'Masterstitched', 'Exalted'],
+    cloth: ['Woven', 'Embroidered', 'Spun', 'Enchanted', 'Masterwoven', 'Exalted'],
+  };
+  // each kingdom's own name for each kind of armor it crafts
+  D.CRAFT_KIND_PRE = {
+    sylvan: { plate: 'Leafsteel', chain: 'Leafmail', leather: 'Thornhide', cloth: 'Glimmerweave' },
+    iron: { plate: 'Runeforged', chain: 'Runelinked', leather: 'Stonehide', cloth: 'Deepweave' },
+    crown: { plate: 'Valenguard', chain: 'Kingsmail', leather: "Huntsman's", cloth: 'Courtly' },
+  };
+  // which two stats each crafted piece leans toward, by who wears it (the kingdom's own bias fills any extra rolls):
+  // plate: warriors, paladins, shadow knights, bards, clerics · chain: rangers, rogues, berserkers, shamans
+  // leather: monks, beastlords, druids · cloth: necromancers, wizards, magicians, enchanters
+  D.CRAFT_PROFILE = {
+    plate: { head: ['STA', 'WIS'], chest: ['STA', 'STR'], hands: ['STR', 'DEX'], legs: ['STA', 'AGI'], feet: ['AGI', 'CHA'] },
+    chain: { head: ['WIS', 'STA'], chest: ['STR', 'STA'], hands: ['DEX', 'STR'], legs: ['AGI', 'STA'], feet: ['AGI', 'STA'] },
+    leather: { head: ['WIS', 'INT'], chest: ['AGI', 'STA'], hands: ['STR', 'DEX'], legs: ['STA', 'WIS'], feet: ['AGI', 'DEX'] },
+    cloth: { head: ['INT', 'WIS'], chest: ['INT', 'STA'], hands: ['DEX', 'INT'], legs: ['STA', 'CHA'], feet: ['AGI', 'INT'] },
+  };
+  // one piece of each kind trades its random health roll for a steady regeneration
+  D.CRAFT_REGEN = { plate: { chest: 'regen' }, chain: { feet: 'endRegen' }, leather: { feet: 'endRegen', hands: 'endRegen' }, cloth: { head: 'manaRegen' } };
+  // refining: raw materials go in, refined ones come out (two for one) at the right bench
+  D.REFINED = {
+    ingot: { from: 'metal', names: ['Copper Ingot', 'Iron Ingot', 'Silver Ingot', 'Mithril Ingot', 'Adamantite Ingot', 'Starmetal Ingot'], icon: '🧱' },
+    thread: { from: 'cloth', names: ['Linen Thread', 'Silk Thread', 'Spidersilk Thread', 'Moonweave Thread', 'Starweave Thread', 'Void Thread'], icon: '🪡' },
+    cured: { from: 'hide', names: ['Cured Rawhide', 'Supple Leather', 'Hardened Leather', 'Cured Wyvern Leather', 'Cured Dragonscale', 'Cured Shadowhide'], icon: '🟤' },
+    rune: { from: 'arcane', names: ['Refined Dust', 'Distilled Essence', 'Polished Shard', 'Flawless Crystal', 'Radiant Prism', 'Awakened Core'], icon: '🔷' },
+    plank: { from: 'wood', names: ['Seasoned Oak Plank', 'Seasoned Darkoak Plank', 'Seasoned Willow Plank', 'Seasoned Frostpine Plank', 'Frostpine Beam', 'Heartpine Beam'], icon: '🪵' },
+  };
+  D.BENCHES = {
+    forge: { name: "Smelter's Forge", craft: 'smithing', out: ['ingot'], decor: ['anvil', 'forge', 'orepile'], desc: 'Smelt ore into ingots.' },
+    loom: { name: "Tailor's Loom", craft: 'tailoring', out: ['thread', 'cured'], decor: ['loom', 'clothrack'], desc: 'Spin cloth into thread and cure hides into leather.' },
+    lectern: { name: 'Arcane Lectern', craft: 'scribing', out: ['rune'], decor: ['lectern'], desc: 'Refine arcane reagents.' },
+    carpentry: { name: "Carpenter's Bench", craft: 'fletching', out: ['plank'], decor: ['workbench', 'sawhorse'], desc: 'Season logs into planks and beams.' },
+  };
+  D.CRAFT_BENCH = { smithing: 'forge', tailoring: 'loom', scribing: 'lectern', fletching: 'carpentry' };
+  // refined materials join the material table so they stack and sell like any other
+  for (const k in D.REFINED) { D.MATERIALS[k] = D.REFINED[k].names; D.MAT_ICON[k] = D.REFINED[k].icon; }
+  // level 50 with a maxed craft: a full named set for one class, made by the crafter of its armor (staffs and books too)
+  D.SET_SLOT_NAMES = {
+    plate: { head: 'Helm', chest: 'Cuirass', hands: 'Gauntlets', legs: 'Greaves', feet: 'Sabatons' },
+    chain: { head: 'Coif', chest: 'Hauberk', hands: 'Mail Gloves', legs: 'Chausses', feet: 'Mail Boots' },
+    leather: { head: 'Hood', chest: 'Jerkin', hands: 'Grips', legs: 'Leggings', feet: 'Boots' },
+    cloth: { head: 'Cowl', chest: 'Robe', hands: 'Gloves', legs: 'Trousers', feet: 'Slippers' },
+  };
+  D.CLASS_SETS = {
+    warrior: { set: 'Ironwall Battlegear', pre: 'Ironwall', stats: ['STA', 'STR', 'AGI'], wpn: [['1HS', 'Ironwall Longblade'], ['shield', 'Ironwall Bulwark']], lore: 'Forged for the one who stands in the gate when the gate is gone.' },
+    paladin: { set: 'Dawnsworn Raiment', pre: 'Dawnsworn', stats: ['STR', 'WIS', 'STA'], wpn: [['1HS', 'Dawnsworn Blade'], ['shield', 'Dawnsworn Aegis']], lore: 'Each plate is blessed at sunrise and never sees a dusk unburnished.' },
+    shadowknight: { set: 'Gravecaller Plate', pre: 'Gravecaller', stats: ['STR', 'INT', 'STA'], wpn: [['2HS', 'Gravecaller Greatsword']], lore: 'Cold to the touch. The dead hear it coming.' },
+    bard: { set: 'Songweaver Plate', pre: 'Songweaver', stats: ['CHA', 'DEX', 'STR'], wpn: [['1HS', 'Songweaver Saber']], lore: 'Every plate rings a different note when struck.' },
+    cleric: { set: 'Lightbringer Vestments', pre: 'Lightbringer', stats: ['WIS', 'STA', 'CHA'], wpn: [['1HB', 'Lightbringer Mace'], ['TOME', 'Lightbringer Psalter'], ['shield', 'Lightbringer Ward']], lore: 'Plate inlaid with prayers, worn by the healers of the old crown.' },
+    ranger: { set: 'Wildstalker Mail', pre: 'Wildstalker', stats: ['DEX', 'STR', 'WIS'], wpn: [['ARC', 'Wildstalker Longbow'], ['1HS', 'Wildstalker Blade']], lore: 'Mail dulled with ash so it never glints in the trees.' },
+    rogue: { set: 'Nightblade Mail', pre: 'Nightblade', stats: ['DEX', 'AGI', 'STR'], wpn: [['1HP', 'Nightblade Dagger']], lore: 'Rings oiled so fine they make no sound at all.' },
+    berserker: { set: 'Bloodrage Mail', pre: 'Bloodrage', stats: ['STR', 'STA', 'AGI'], wpn: [['2HS', 'Bloodrage Greataxe']], lore: 'Heavy rings for a heavy temper. It drinks the sweat of battle.' },
+    shaman: { set: 'Spiritcaller Mail', pre: 'Spiritcaller', stats: ['WIS', 'STA', 'AGI'], wpn: [['1HB', 'Spiritcaller Totem'], ['TOME', 'Spiritcaller Fetish']], lore: 'Each link is knotted with a spirit-thread from the far side.' },
+    monk: { set: 'Windfist Wraps', pre: 'Windfist', stats: ['AGI', 'STR', 'DEX'], wpn: [['H2H', 'Windfist Knuckles']], lore: 'Light as breath. The monastery cuts only one set a year.' },
+    beastlord: { set: 'Packmaster Hides', pre: 'Packmaster', stats: ['AGI', 'WIS', 'STA'], wpn: [['H2H', 'Packmaster Claws']], lore: 'Your beast knows this smell, and will follow it anywhere.' },
+    druid: { set: 'Thornwarden Leathers', pre: 'Thornwarden', stats: ['WIS', 'STA', 'INT'], wpn: [['2HB', 'Thornwarden Staff'], ['TOME', 'Thornwarden Almanac']], lore: 'Leather that still remembers the forest it came from.' },
+    necromancer: { set: 'Deathweaver Regalia', pre: 'Deathweaver', stats: ['INT', 'STA', 'WIS'], wpn: [['2HB', 'Deathweaver Staff'], ['TOME', 'Deathweaver Grimoire']], lore: 'Woven from grave-silk by candlelight. The thread never breaks.' },
+    wizard: { set: 'Stormweave Vestments', pre: 'Stormweave', stats: ['INT', 'STA', 'DEX'], wpn: [['2HB', 'Stormweave Staff'], ['TOME', 'Stormweave Codex']], lore: 'The hem crackles before every storm.' },
+    magician: { set: 'Embercall Robes', pre: 'Embercall', stats: ['INT', 'STA', 'WIS'], wpn: [['2HB', 'Embercall Staff'], ['TOME', 'Embercall Tome']], lore: 'Warm to wear in any winter, and never once singed.' },
+    enchanter: { set: 'Mindweave Finery', pre: 'Mindweave', stats: ['INT', 'CHA', 'STA'], wpn: [['2HB', 'Mindweave Staff'], ['TOME', 'Mindweave Folio']], lore: 'The patterns shift when you are not looking at them.' },
+  };
 
   // ---------- Mobs ----------
   // kind -> sprite family; ranged: archer/caster behavior; heal: heals allies; undead flag
@@ -1443,6 +1509,8 @@
   D.WORLD_SIZE = 640;
   D.OCEAN = { x0: 392, y0: 470 }; // sea fills the south-east corner
   D.ISLAND = { cx: 150, cy: 150, rx: 118, ry: 82 }; // in the Tidesong realm
+  // swimming (game.js): the skill rises as you swim, up to 10 + 5 per level; better swimmers go faster and tire less
+  D.SWIM = { name: 'Swimming', max: 200, cap: (lv) => Math.min(200, 10 + lv * 5), speed0: 0.42, speed1: 0.78 };
   D.SUMMIT = { cx: 100, cy: 100, r: 84 }; // in the Summit realm
   D.DUNGEONS = [ // each dungeon is its own realm; 'at' is the cave mouth in the parent realm
     { id: 'sewer_crown', type: 'sewer', parent: 'main', near: 'valenmoor', home: 'crown', at: [238, 396], pool: -1, w: 46, h: 34, entry: 's', rooms: 8, named: ['n_fingers', 'n_gnawbone'], bosses: ['squeak_crown', 'rattigan'] },

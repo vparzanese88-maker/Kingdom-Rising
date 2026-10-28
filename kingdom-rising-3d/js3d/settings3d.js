@@ -45,7 +45,7 @@ const pages = {
       ${rng('c-sens', 'Mouse look speed', 0.1, 3, 0.05, S().sens || 1, (v) => (+v).toFixed(2))}
       ${rng('c-sensy', 'Up and down speed (compared with left and right)', 0.3, 2, 0.05, S().sensY || 1, (v) => Math.round(v * 100) + '%')}
       ${chk('c-inv', 'Invert mouse look (up and down)', S().invertY)}
-      <p class="k3s-note">Hold the right mouse button to look around. Hold both buttons to walk forward. Click someone to target them, right-click an enemy to attack.</p>
+      <p class="k3s-note">Like EverQuest: hold the right mouse button to look and steer (your hero turns with the mouse), hold the left button and drag to look around your hero without turning. Hold both to run forward. Click someone to target them; right-click an enemy to attack, or a tree, rock or carcass to gather.</p>
     </div><div>
       <h4>Keyboard and movement</h4>
       ${rng('c-turn', 'Turn speed (A and D)', 0.8, 4, 0.1, S().turnSpeed || 1.9, (v) => Math.round((v * 180) / Math.PI) + '° / s')}

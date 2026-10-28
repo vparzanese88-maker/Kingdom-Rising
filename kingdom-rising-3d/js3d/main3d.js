@@ -159,12 +159,12 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
       const after = () => { showHud(); UI.banner(`Welcome home to ${D.FACTIONS[c.faction].city}`, `${D.FACTIONS[c.faction].king} must see you at once: he holds court up in the King's Tower at the top of the city. Look for the gold ! above townsfolk.`); };
       // a homecoming by sea when the city has a harbour, else the flight over the land
       if (!(K3.startIntro && K3.startIntro(c, after))) K3.startCine(c, after);
-      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), drag with the left to look around you, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else showHud();
     if (opt.cine && K3.startCine) {} else if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} up in the King's Tower to the north: climb the stairs inside. Look for the gold ! above townsfolk.`);
-      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look around (A and D then sidestep), scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks. Press O for settings and key bindings.', 'sys', '#e8d48a');
-    } else G.log('W and S move, A and D turn, hold the right mouse button to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), drag with the left to look around you, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
+    } else G.log('W and S move, A and D turn, hold the right mouse button to look and steer, drag with the left to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
     running = true; last = performance.now(); requestAnimationFrame(loop);
   } catch (err) {
     console.error(err); running = false; document.getElementById('ui').hidden = true;
@@ -231,7 +231,10 @@ function loopBody(now) {
   if (mouse.r && turn) { s -= turn; turn = 0; }
   if (K3.cine) turn = 0;
   view.yaw += turn * dt * (K3.settings.turnSpeed || 1.9);
-  view.turning = !!turn;
+  view.turning = !!turn || (mouse.r && !K3.cine); // holding the right button steers: the hero turns with the mouse
+  // a camera swung round with the left button drifts back behind the hero once you move or turn (EverQuest)
+  if (K3.cine) view.oyaw = 0;
+  else if (view.oyaw && !mouse.l && (f || s || turn || (p && p.moving))) { view.oyaw = K3.dampAngle(view.oyaw, 0, Math.min(1, dt * 5)); if (Math.abs(view.oyaw) < 0.002) view.oyaw = 0; }
   // both mouse buttons held: walk forward (like most 3D RPGs)
   if (mouse.l && mouse.r) f = 1;
   if (K3.cine) f = s = 0; // the opening film is playing
@@ -361,16 +364,16 @@ Main.cycleRange = function () { const c = G.player.c; if (!c.equip.range) { G.lo
 K3.jumpT = null; K3.jumpN = 0;
 Main.jump = function () {
   const p = G.player; if (!p || p.dead || K3.cine || K3.jumpT != null) return;
-  if (p.stun > 0 || p.mez > 0 || p.root > 0) return;
+  if (p.stun > 0 || p.mez > 0 || p.root > 0 || p.swim) return; // no jumping out of deep water
   if (p.sit) { Main.toggleSit(); return; } // stand up first
   K3.jumpT = 0; K3.jumpN++;
 };
-{ const pe0 = Sys.presenceExtra; Sys.presenceExtra = function () { const o = pe0 ? pe0.apply(this, arguments) : {}; o.jmp = K3.jumpN; return o; }; }
+{ const pe0 = Sys.presenceExtra; Sys.presenceExtra = function () { const o = pe0 ? pe0.apply(this, arguments) : {}; o.jmp = K3.jumpN; o.sw = G.player && G.player.swim ? 1 : 0; return o; }; }
 Main.toggleSit = function () { const p = G.player; if (p.moving) return; p.sit = !p.sit; if (p.sit) { p.autoAttack = false; p.cast = null; } G.log(p.sit ? 'You sit down.' : 'You stand up.', 'sys', '#ccc'); };
 Main.targetNearest = function (cycle) {
   const p = G.player;
   // prefer enemies in front of the camera, nearest first
-  const fx = -Math.sin(view.yaw), fz = -Math.cos(view.yaw);
+  const fx = -Math.sin(view.yaw + view.oyaw), fz = -Math.cos(view.yaw + view.oyaw);
   const score = (e) => { const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1; const front = (dx * fx + dy * fz) / d; return d * (front > 0.3 ? 1 : 2.2); };
   const cands = G.ents.filter((e) => !e.dead && !e.removed && G.isHostile(p, e) && Math.hypot(e.x - p.x, e.y - p.y) < 650 && !(W.buildingAt(e.x, e.y) && W.buildingAt(e.x, e.y) !== W.buildingAt(p.x, p.y))).sort((a, b) => score(a) - score(b));
   if (!cands.length) { if (!cycle) return; G.log('No enemies nearby.', 'sys', '#aaa'); return; }
@@ -427,22 +430,32 @@ function hoverTool(sx, sy) {
 function syncButtons(ev) {
   if (ev.pointerType === 'touch' || K3.cine || typeof ev.buttons !== 'number') return;
   const l = !!(ev.buttons & 1), r = !!(ev.buttons & 2);
-  if (r !== mouse.r) { mouse.r = r; if (r) startLook(); else endLook(); }
+  if (r !== mouse.r) { mouse.r = r; if (r) steerFromCamera(); }
   if (l !== mouse.l) mouse.l = l;
+  syncLook();
 }
+// EverQuest mouse: hold the right button to look and steer (the hero turns left and right with the mouse, the view
+// tilts up and down); hold the left button and drag to look round the hero without turning it. While either is held
+// the cursor is hidden and locked; it comes back the moment you let go (or switch away, or a window opens).
+const dragging = () => mouse.r || (mouse.l && mouse.moved > 6);
+function syncLook() { const want = running && dragging(); if (want && !view.look) startLook(); else if (!want && view.look) endLook(); }
+// pressing the right button after a free look turns the hero to face where the camera looks
+function steerFromCamera() { if (view.oyaw) { view.yaw += view.oyaw; view.oyaw = 0; } }
+// the first move after the pointer locks can carry a jump of hundreds of pixels; real moves never come in that big
+const tame = (v) => (Math.abs(v) > 260 ? 0 : K3.clamp(v, -90, 90));
 let lastClick = 0;
 function wantLock() { return cv.requestPointerLock && !('ontouchstart' in window && navigator.maxTouchPoints > 0 && !matchMedia('(pointer:fine)').matches); }
 function startLook() { view.look = true; if (wantLock()) { try { const pr = cv.requestPointerLock({ unadjustedMovement: true }); if (pr && pr.catch) pr.catch(() => { try { cv.requestPointerLock(); } catch (e) {} }); } catch (e) { try { cv.requestPointerLock(); } catch (e2) {} } } }
-function endLook() { view.look = false; if (document.pointerLockElement === cv) try { document.exitPointerLock(); } catch (e) {} }
+function endLook() { view.look = false; if (document.pointerLockElement === cv) try { document.exitPointerLock(); } catch (e) {} if (cv.style.cursor === 'none') cv.style.cursor = hoverCur; }
 K3.endLook = endLook;
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
 cv.addEventListener('pointerdown', (ev) => {
   if (!running || (K3.cine && !K3.cine.look)) return;
-  if (K3.cine) { mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0; if (ev.button === 2) { mouse.r = true; startLook(); ev.preventDefault(); } else if (ev.button === 0) mouse.l = true; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} return; }
+  if (K3.cine) { mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0; if (ev.button === 2) { mouse.r = true; ev.preventDefault(); } else if (ev.button === 0) mouse.l = true; syncLook(); try { cv.setPointerCapture(ev.pointerId); } catch (e) {} return; }
   A.init();
   if (ev.pointerType === 'touch') return onTouchStart(ev);
   mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0;
-  if (ev.button === 2) { mouse.r = true; startLook(); ev.preventDefault(); }
+  if (ev.button === 2) { mouse.r = true; steerFromCamera(); syncLook(); ev.preventDefault(); }
   else if (ev.button === 0) { mouse.l = true; }
   else { const code = 'Mouse' + (ev.button + 2); pressed.add(code); const act = actionOf(code); if (act) { ev.preventDefault(); runAction(act, G.player); } }
   try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -450,14 +463,16 @@ cv.addEventListener('pointerdown', (ev) => {
 addEventListener('pointermove', (ev) => {
   if (!running) return;
   if (ev.pointerType === 'touch') return onTouchMove(ev);
-  const mxv = ev.movementX || 0, myv = ev.movementY || 0;
+  const mxv = tame(ev.movementX || 0), myv = tame(ev.movementY || 0);
   syncButtons(ev);
   if (!mouse.r && !mouse.l && ev.target === cv) hoverTool(ev.clientX, ev.clientY);
   if (mouse.r || mouse.l) mouse.moved += Math.abs(mxv) + Math.abs(myv);
-  const rot = (mouse.r || (mouse.l && mouse.moved > 6));
-  if (rot) {
+  syncLook();
+  if (dragging() && (!K3.cine || K3.cine.look)) {
     const s = 0.0026 * (K3.settings.sens || 1);
-    view.yaw -= mxv * s; view.pitch -= myv * s * (K3.settings.sensY || 1) * (K3.settings.invertY ? -1 : 1);
+    // right button (alone or with the left): steer the hero; left button alone: swing the camera round it
+    if (mouse.r) view.yaw -= mxv * s; else view.oyaw -= mxv * s;
+    view.pitch -= myv * s * (K3.settings.sensY || 1) * (K3.settings.invertY ? -1 : 1);
   }
 });
 addEventListener('pointerup', (ev) => {
@@ -465,11 +480,25 @@ addEventListener('pointerup', (ev) => {
   if (ev.pointerType === 'touch') return onTouchEnd(ev);
   const click = performance.now() - mouse.downT < 350 && mouse.moved < 7;
   if (ev.button !== 0 && ev.button !== 2) pressed.delete('Mouse' + (ev.button + 2));
-  if (K3.cine) { if (ev.button === 2) { mouse.r = false; endLook(); } else if (ev.button === 0) mouse.l = false; return; }
-  if (ev.button === 2 && mouse.r) { mouse.r = false; endLook(); if (click) rightClick(mouse.downX, mouse.downY); }
-  else if (ev.button === 0 && mouse.l) { mouse.l = false; if (click && ev.target === cv) leftClick(ev.clientX, ev.clientY); }
+  if (K3.cine) { if (ev.button === 2) mouse.r = false; else if (ev.button === 0) mouse.l = false; syncLook(); return; }
+  // under pointer lock the click lands where the cursor was when the button went down
+  const onCv = ev.target === cv || document.pointerLockElement === cv;
+  if (ev.button === 2 && mouse.r) { mouse.r = false; syncLook(); if (click) rightClick(mouse.downX, mouse.downY); }
+  else if (ev.button === 0 && mouse.l) { mouse.l = false; syncLook(); if (click && onCv) leftClick(mouse.downX, mouse.downY); }
+  if (typeof ev.buttons === 'number' && !ev.buttons) { mouse.l = mouse.r = false; syncLook(); } // a chord let go at once
 });
-document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== cv && view.look && !mouse.r) view.look = false; });
+// the cursor must always come back: a lock granted after the button was already released is handed straight back,
+// and losing the lock (Esc, switching windows) ends the look
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === cv && (!view.look || !running || !dragging())) { view.look = false; try { document.exitPointerLock(); } catch (e) {} }
+  else if (document.pointerLockElement !== cv && view.look) { view.look = false; mouse.l = mouse.r = false; }
+  if (document.pointerLockElement !== cv && cv.style.cursor === 'none') cv.style.cursor = hoverCur;
+});
+document.addEventListener('pointerlockerror', () => { if (view.look && !dragging()) view.look = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { mouse.l = mouse.r = false; pressed.clear(); endLook(); } });
+cv.addEventListener('lostpointercapture', (ev) => { if (ev.pointerType !== 'touch' && document.pointerLockElement !== cv && typeof ev.buttons === 'number' && !ev.buttons && (mouse.l || mouse.r)) { mouse.l = mouse.r = false; syncLook(); } });
+// a window opening (loot, a merchant, the map) gives the cursor back at once
+{ const open0 = UI.open; if (open0) UI.open = function () { if (view.look) { mouse.l = mouse.r = false; endLook(); } return open0.apply(this, arguments); }; }
 
 function pickAt(sx, sy) { return actors.pickScreen(sx, sy); }
 function leftClick(sx, sy) {
@@ -482,12 +511,11 @@ function leftClick(sx, sy) {
     else if (dbl || (!G.isHostile(p, e) && Math.hypot(e.x - p.x, e.y - p.y) < 100) || (e.dead && e.loot && Math.hypot(e.x - p.x, e.y - p.y) < 100)) Main.interact(e);
     return;
   }
-  // trees and rocks to gather
   const d = world3d.pickDecor(screenRay(sx, sy));
   // a sewer grate in the street: click it (when close) to climb down
   { const ray = screenRay(sx, sy); const gp = rayGround ? rayGround(ray) : null; const gr = W.portals && W.portals.find((pt) => pt.cityGrate && !pt.back && ((d && d.cityGrate && d.tx === pt.x && d.ty === pt.y) || (gp && Math.hypot(gp.x / TILE - (pt.x + 0.5), gp.z / TILE - (pt.y + 0.5)) < 1.2)));
     if (gr) { if (Math.hypot(p.x / TS - (gr.x + 0.5), p.y / TS - (gr.y + 0.5)) <= 3) Sys.useGrate(gr); else G.log('Walk up to the grate first.', 'sys', '#aaa'); return; } }
-  if (d && KR.Kingdom && KR.Kingdom.harvestOf && KR.Kingdom.harvestOf(d)) { KR.Kingdom.startHarvest(d); return; }
+  // trees, rocks and hides are gathered with the right button (rightClick); a left click only selects
   // clicking the ground does nothing in 3D: you steer with the keys and the mouse
 }
 function rightClick(sx, sy) {

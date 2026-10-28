@@ -239,7 +239,7 @@ export function buildVeg(list, out) {
         const c = reg.biome === 'desert' ? [1.25, 1.05, 0.8] : reg.biome === 'snow' || reg.biome === 'summit' ? [1.05, 1.08, 1.15] : reg.biome === 'volcanic' || reg.biome === 'scar' ? [0.5, 0.45, 0.42] : [1, 1, 1];
         if (d.kind === 'orevein') { c[0] *= 0.42; c[1] *= 0.4; c[2] *= 0.4; }
         rm.setColorAt(i, _c4.setRGB(c[0], c[1], c[2])); d._inst = { tm: rm, i, s }; });
-      rm.computeBoundingSphere(); if (rm.instanceColor) rm.instanceColor.needsUpdate = true; meshes.push(rm);
+      rm.computeBoundingSphere(); if (rm.instanceColor) rm.instanceColor.needsUpdate = true; rm.userData.mid = true; meshes.push(rm); // boulders stop at the props range (world3d.js)
     }
     // ore veins: nuggets of the metal glinting out of the dark rock
     for (let v = 0; v < 3; v++) {
@@ -247,7 +247,7 @@ export function buildVeg(list, out) {
       const geom = TPL['nuggets' + v] || (TPL['nuggets' + v] = nuggetGeom(TPL['rock' + v]));
       const om = new THREE.InstancedMesh(geom, oreMat(), veins.length); om.castShadow = false; om.receiveShadow = true;
       veins.forEach((d, i) => { d._inst.tm.getMatrixAt(d._inst.i, _m4); om.setMatrixAt(i, _m4); const oc = ORE_RGB[d.ore || 0]; om.setColorAt(i, _c4.setRGB(oc[0], oc[1], oc[2])); d._inst.lm = om; d._inst.li = i; });
-      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; meshes.push(om);
+      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; om.userData.mid = true; meshes.push(om);
     }
   }
   for (const [k, items] of plants) {

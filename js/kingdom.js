@@ -164,7 +164,8 @@
     const p = G.player; if (!p) return;
     promptTick(p);
     const H = p.harvest; if (!H) return;
-    if (p.dead || p.moving || (p.cast && p.cast.spell) || (H.corpse && (H.corpse.removed || H.corpse.skinned))) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
+    if (p.dead || p.moving || p.swim || (p.cast && p.cast.spell) || (H.corpse && (H.corpse.removed || H.corpse.skinned))) { p.harvest = null; showBar(null); if (!p.dead) G.log('You stop gathering.', 'sys', '#aaa'); return; }
+    if (p.autoAttack || p.atk > 0 || (p.cast && !p.cast.spell)) { p.harvest = null; showBar(null); G.log('You stop gathering to fight.', 'sys', '#aaa'); return; } // no fighting with an axe in your hands
     H.t += dt; H.swing -= dt;
     const c = p.c; const verb = H.tool === 'axe' ? 'Chopping' : H.tool === 'pick' ? 'Mining' : 'Skinning';
     const what = H.corpse ? H.corpse.name : K.targetName(H.d);
@@ -255,10 +256,9 @@
       const d = K.nearestHarvest(p.x, p.y, 70);
       const nearD = near.length ? Math.min(...near.map((x) => Math.hypot(x.x - p.x, x.y - p.y))) : 1e9;
       const gr = Sys.nearGrate && Sys.nearGrate(p); if (gr && nearD > 50 && !corpse) { Sys.useGrate(gr); return; }
-      if (corpse && Math.hypot(corpse.x - p.x, corpse.y - p.y) < nearD) { K.startSkin(corpse); return; }
+      // gathering and skinning are right-click only (main3d.js): E talks, loots and uses
       // your own camp: sleep, or pack it up
       if (KR.Gear && KR.Gear.nearCamp(p) && nearD > 50 && !(d && Math.hypot(d.x - p.x, d.y - p.y) < 40)) { UI.choice('Your camp. The fire crackles and the bedroll looks inviting.', [['Sleep a while (wake Well Rested: +10% XP for 1 hour)', () => KR.Gear.nap()], ['Pack up camp (your soul returns to the city healer)', () => KR.Gear.breakCamp()], ['Leave it be']]); return; }
-      if (d && Math.hypot(d.x - p.x, d.y - p.y) < nearD) { K.startHarvest(d); return; }
     }
     return interact0.apply(this, arguments);
   }; });
@@ -360,7 +360,7 @@
     const out = ladv0 ? ladv0.apply(this, arguments) : []; const p = G.player; if (!p) return out; const c = p.c; const f = c.faction;
     const need = K.needFor(f); const ct = G.account.cities[f];
     if (need) { const hw = K.have(c, need.wood), hs = K.have(c, need.stone); const q = Sys.QUESTS[f + '_build' + ct.level];
-      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Speak to him up in the King's Tower.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
+      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Climb the great stairs of his castle to the throne hall and speak to him.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
       out.splice(1, 0, line); }
     return out;
   };

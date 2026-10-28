@@ -630,8 +630,27 @@ export function animateHumanoid(rig, st, dt) {
   // ---- leaning into starts and turns, rocking back on stops, breathing (motion.js) ----
   if (!st.mounted && !st.dead && !st.far) bodyLean(rig, B, st, dt);
   // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
-  if (!st.mounted && !st.dead) legs(rig, st, dt, m);
+  rig.swimK = (rig.swimK || 0) + ((st.swim ? 1 : 0) - (rig.swimK || 0)) * Math.min(1, dt * 4);
+  if (!st.mounted && !st.dead && rig.swimK < 0.5) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
+  // ---- swimming: treading water when still; laid out along the surface with a breaststroke and a kick when moving ----
+  if (rig.swimK > 0.01) {
+    const k = rig.swimK; rig.swimMv = (rig.swimMv || 0) + ((st.swim && st.move > 0 ? 1 : 0) - (rig.swimMv || 0)) * Math.min(1, dt * 3); const sm = rig.swimMv;
+    rig.swimPh = (rig.swimPh || 0) + dt * (0.55 + 0.45 * sm); const a = rig.swimPh * Math.PI * 2, s1 = Math.sin(a), pull = 0.5 + 0.5 * s1;
+    const L = (b, ax, v) => { b.rotation[ax] = K3.lerp(b.rotation[ax], v, k); };
+    L(B.hips, 'x', 0.25 + 1.05 * sm); L(B.spine, 'x', -0.12 * sm); L(B.chest, 'x', -0.1 * sm);
+    L(B.neck, 'x', -0.15 - 0.75 * sm); L(B.head, 'x', -0.1 - 0.3 * sm); L(B.hips, 'y', 0); L(B.chest, 'y', 0);
+    // arms: reach forward together, sweep out and back, tuck and shoot forward again; treading water they scull at the sides
+    L(B.armL, 'x', K3.lerp(-0.45 + 0.25 * s1, -2.7 + 1.3 * pull, sm)); L(B.armR, 'x', K3.lerp(-0.45 + 0.25 * s1, -2.7 + 1.3 * pull, sm));
+    L(B.armL, 'z', K3.lerp(0.7 + 0.25 * s1, 0.15 + 0.9 * pull, sm)); L(B.armR, 'z', -K3.lerp(0.7 + 0.25 * s1, 0.15 + 0.9 * pull, sm));
+    L(B.foreL, 'x', K3.lerp(-0.6, -0.15 - 1.1 * pull, sm)); L(B.foreR, 'x', K3.lerp(-0.6, -0.15 - 1.1 * pull, sm));
+    // legs: a frog kick timed against the arms, a slow bicycle while treading water
+    const kick = 0.5 + 0.5 * Math.sin(a + 1.6), bike = Math.sin(a * 1.4);
+    L(B.thighL, 'x', K3.lerp(-0.35 + 0.35 * bike, -0.15 - 0.55 * kick, sm)); L(B.thighR, 'x', K3.lerp(-0.35 - 0.35 * bike, -0.15 - 0.55 * kick, sm));
+    L(B.thighL, 'z', 0.15 + 0.25 * kick * sm); L(B.thighR, 'z', -0.15 - 0.25 * kick * sm);
+    L(B.shinL, 'x', K3.lerp(0.6 - 0.3 * bike, 0.2 + 1.2 * kick, sm)); L(B.shinR, 'x', K3.lerp(0.6 + 0.3 * bike, 0.2 + 1.2 * kick, sm));
+    L(B.footL, 'x', 0.6 * sm); L(B.footR, 'x', 0.6 * sm);
+  }
   if (rig.sitK > 0.01) { const k = K3.smooth(0, 1, rig.sitK); B.armL.rotation.x = K3.lerp(B.armL.rotation.x, -0.5, k); B.armR.rotation.x = K3.lerp(B.armR.rotation.x, -0.5, k); }
   // ---- casting: a looping gesture by school, or a quick hand charge, then a release thrust (motion.js) ----
   casting(rig, B, st, dt);

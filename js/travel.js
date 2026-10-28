@@ -107,14 +107,17 @@
     const p = G.player; if (!p) return; const c = p.c;
     const go = () => {
       if (W.realm !== id) {
-        W.realms[W.realm] = W.snapshot();
+        W.realms[W.realm] = W.snapshot(); W.realms[W.realm].leftAt = G.now;
         if (W.realms[id]) W.restore(W.realms[id]); else { W.genRealm(id); W.realms[id] = W.snapshot(); }
         KR.R.clear(); KR.R.reindex();
       }
       const keep = new Set([p, p.pet, ...(p.mercs || []), ...(p.mercs || []).map((m) => m.pet)].filter(Boolean));
       G.ents = G.ents.filter((e) => keep.has(e)); G.proj = []; G.fx = []; G.corpses = [];
       for (const e of G.ents) { if (e.hate) e.hate.clear(); e.target = null; e.cast = null; }
-      for (const sp of W.spawns) { sp.ent = null; sp.timer = Math.min(sp.timer || 0, 2); }
+      // out in the wild everything is back when you return; in a dungeon the dead stay dead until their time is up
+      // (time spent outside counts), so walking out and back in is no way to make a boss come back sooner
+      const inDgn = D.DUNGEONS.some((d) => d.id === id), away = W.realms[id] && W.realms[id].leftAt ? Math.max(0, (G.now - W.realms[id].leftAt) / 1000) : 0;
+      for (const sp of W.spawns) { const dead = !sp.ent || sp.ent.dead; sp.ent = null; sp.timer = inDgn ? (dead ? Math.max(0, (sp.timer || 0) - away) : 0) : Math.min(sp.timer || 0, 2); }
       if (id === 'main') for (const f of D.FACTION_IDS) { const lv = Sys.cityLevel(f); if (W.cityData[f] && W.cityData[f].level !== lv) W.stampCity(f, lv); Sys.spawnCity(f); }
       Sys.spawnHubs();
       if (tx == null) { const dd = W.dungeons[id]; const a = dd && dd.arrive; tx = a ? a[0] : W.W / 2; ty = a ? a[1] : W.H / 2; }
@@ -144,7 +147,7 @@
       if (Math.hypot(p.x / TS - (pt.x + 0.5), p.y / TS - (pt.y + 0.5)) > 1.1) continue;
       if (pt.cityGrate && !pt.back) continue; // a street grate is only entered on purpose (E or click), never by walking over it
       if (pt.back && p._grate && p._grate.realm === W.realm) { const g = p._grate; p._grate = null; Sys.enterRealm('main', g.out[0], g.out[1], { text: 'You climb up out of the sewer grate...' }); p.portalCd = G.now + 4000; return; }
-      if (pt.back) { const dg = D.DUNGEONS.find((d) => d.id === W.realm); const ins = dg.entry === 'n' ? [0, 1] : dg.entry === 's' ? [0, -1] : dg.entry === 'w' ? [1, 0] : [-1, 0]; Sys.enterRealm(dg.parent || 'main', dg.at[0] - ins[0] * 3, dg.at[1] - ins[1] * 3, { text: `You climb out of ${W.REALMS[dg.id].name}...` }); }
+      if (pt.back) { const dg = D.DUNGEONS.find((d) => d.id === W.realm); const ins = dg.entry === 'n' ? [0, 1] : dg.entry === 's' ? [0, -1] : dg.entry === 'w' ? [1, 0] : [-1, 0]; const out = dg.out || [dg.at[0] - ins[0] * 3, dg.at[1] - ins[1] * 3]; Sys.enterRealm(dg.parent || 'main', out[0], out[1], { text: dg.type === 'sewer' ? `You wade out of the outflow pipe beneath the walls...` : `You climb out of ${W.REALMS[dg.id].name}...` }); }
       else { p._grate = pt.cityGrate ? { realm: pt.to, out: pt.out } : null; Sys.enterRealm(pt.to, null, null, { text: pt.cityGrate ? `You lift the grate and climb down into ${pt.label}...` : `You enter ${pt.label}...` }); }
       p.portalCd = G.now + 4000; return;
     }

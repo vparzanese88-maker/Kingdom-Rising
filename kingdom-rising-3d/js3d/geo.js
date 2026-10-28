@@ -51,6 +51,9 @@ export const geo = { ready: false };
 // an upper floor stands this far above the building's ground floor
 export const LOFT_H = 2.91;
 geo.LOFT_H = LOFT_H;
+// each floor of the king's castle stands this far above the one below (three flights up to the throne hall)
+export const CASTLE_FH = 2.8;
+geo.CASTLE_FH = CASTLE_FH;
 K3.geo = geo;
 
 export function buildGeo() {
@@ -242,9 +245,9 @@ geo.floorAt = function (px, py) {
       if (W.wallTop[i]) { for (const f in W.cityData) { const cd = W.cityData[f]; if (cd && cd._wallTop3 != null && Math.abs(tx - cd.cx) <= cd.R && Math.abs(ty - cd.cy) <= cd.R) return cd._wallTop3; } }
       const s = W.stairs && W.stairs.get(i);
       if (s && s.loft) { const b = s.loft; if (b._floor3 != null) { const u = 1 - (py / TS - ty); return b._floor3 + LOFT_H * Math.min(1, (s.k + u) / s.n); } }
-      if (s && !s.loft) { const cd = W.cityData[s.f]; if (cd && cd._wallTop3 != null) { const u = s.dir[0] ? px / TS - tx : py / TS - ty; const g = geo.groundT(px / TS, py / TS); return g + (cd._wallTop3 - g) * Math.min(1, (s.k + u) / s.n); } }
+      if (s && !s.loft) { const cd = W.cityData[s.f]; if (cd && cd._wallTop3 != null) { let u = s.dir[0] ? px / TS - tx : py / TS - ty; if ((s.dir[0] || s.dir[1]) < 0) u = 1 - u; /* flights climb either way along the wall */ const g = geo.groundT(px / TS, py / TS); return g + (cd._wallTop3 - g) * Math.min(1, (s.k + u) / s.n); } }
     }
-    if (bi >= 0) { const b = W.buildings[bi]; if (b && b._floor3 != null) return b._floor3; }
+    if (bi >= 0) { const b = W.buildings[bi]; if (b && b._floor3 != null) return b.terr && W.terrAt ? b._floor3 + CASTLE_FH * W.terrAt(b, px, py) : b._floor3; } // the castle's raised floors
     const dk = geo.deck[i]; if (!isNaN(dk)) return dk;
   }
   return geo.groundT(px / TS, py / TS);

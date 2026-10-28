@@ -5,6 +5,7 @@ import { THREE, K3, TILE, TS, PX } from './core.js';
 import { geo, T } from './geo.js';
 import { MB, PRIM } from './mb.js';
 import { buildShip } from './ships.js';
+import { outflowPipe, sewerExit } from './sewer3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
 const Tl = TILE;
@@ -43,10 +44,14 @@ function facing(d) {
   if (!b) return { ry: (Math.floor(d.v * 4)) * Math.PI / 2 * 0, b: null };
   const n = d.ty - b.y, s = b.y + b.h - 1 - d.ty, w = d.tx - b.x, e = b.x + b.w - 1 - d.tx;
   const m = Math.min(n, s, w, e);
-  if (m === n) return { ry: 0, b, wall: 'n' }; if (m === s) return { ry: Math.PI, b, wall: 's' }; if (m === w) return { ry: Math.PI / 2, b, wall: 'w' }; return { ry: -Math.PI / 2, b, wall: 'e' };
+  // a piece set out in the room with a fixed facing (a bar counter, a bunk) faces that way and is not pushed to a wall
+  if (d.face) { const ry = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[d.face]; const wall = { s: 'n', n: 's', e: 'w', w: 'e' }[d.face]; return { ry, b, wall, m: (wall === 'n' ? n : wall === 's' ? s : wall === 'w' ? w : e) }; }
+  if (m === n) return { ry: 0, b, wall: 'n', m }; if (m === s) return { ry: Math.PI, b, wall: 's', m }; if (m === w) return { ry: Math.PI / 2, b, wall: 'w', m }; return { ry: -Math.PI / 2, b, wall: 'e', m };
 }
-// how far a piece of furniture can be pushed back toward its wall
-const wallOff = (f) => (f.b ? 0.42 : 0);
+// how far a piece of furniture is pushed back toward its wall: until its back stands flush with the wall's face
+// (a tile's middle is 0.8 m from the wall; BACK is how far each model reaches behind its middle)
+const BACK = { forge: 0.72, loom: 0.27, bed: 1.13, kingbed: 1.26, shelf: 0.31, bookshelf: 0.32, counter: 0.42, keg: 0.33, stove: 0.37, hearth: 0.75, wardrobe: 0.34, dresser: 0.26, tapestry: 0.06, poisonchest: 0.34, desk: 0.36, vault: 0.41, weaponrack: 0.21, clothrack: 0.06, armorstand: 0.26, throne: 1.12, banner: 0.06 };
+const wallOff = (f, kind) => (f.b ? Math.max(-0.4, 0.8 - (BACK[kind] != null ? BACK[kind] : 0.38) - 0.04) : 0);
 
 const WOOD = '#7a5530', DWOOD = '#4a3220', IRON = '#3a3a3e', GOLD = '#d8a838', STONE = '#9a948a', CLOTHR = '#8a2a2a';
 const P = {};
@@ -142,12 +147,8 @@ P.cavemouth = (o, d) => { // an arch of boulders around a black opening; it open
   for (let k = 0; k <= 9; k++) { const a = Math.PI * k / 9; o.rock('stone', Math.cos(a) * 2.2, Math.sin(a) * 2.6, 0.3, 1.3 + (k % 3) * 0.3, 1.2, 1.6, c, k); }
   o.rock('stone', 0, 3.4, 0.8, 4.2, 1.6, 2.4, K3.shade(c, -0.1)); o.box('dark', 0, 1.2, 0.9, 3.2, 2.8, 0.1, null).box('dark', 0, 0.02, 1.6, 3.0, 0.04, 3.0, null); };
 P.exitportal = (o, d, ctx) => { o.out.emitters.push({ kind: 'portal', p: o.w(0, 1.3, 0) }); o.glow(0, 1.3, 0, 3.4, [2.6, 2.2, 1.4], 0.55).glow(0, 1.3, 0, 1.6, [3, 3, 2.4], 0.6); o.g('stone', PRIM.torus, 0, 1.3, 0, 3.2, 3.8, 1.2, '#8a8070'); };
-P.sewermouth = (o, d) => { // a brick arch in the outflow wall with a bent grate
-  for (let k = 0; k <= 10; k++) { const a = Math.PI * k / 10; o.box('stone', Math.cos(a) * 1.25, 1.25 + Math.sin(a) * 1.25, -0.55, 0.42, 0.42, 0.5, '#5a5248', 0, 0, a); }
-  o.box('dark', 0, 1.0, -0.6, 2.1, 2.3, 0.05, null);
-  for (let k = -3; k <= 3; k++) { if (k === 1) continue; o.box('metalv', k * 0.3, 1.2, -0.45, 0.05, 2.3, 0.05, '#6a4a32'); }
-  o.box('metalv', 0, 0.7, -0.45, 2.1, 0.05, 0.05, '#6a4a32').box('metalv', 0, 1.6, -0.45, 2.1, 0.05, 0.05, '#6a4a32').box('metalv', 0.35, 1.1, -0.42, 0.05, 2.0, 0.05, '#6a4a32', 0, 0, -0.25);
-  o.box('glow', 0, 0.05, 0.3, 1.4, 0.03, 1.8, '#3a5a2a'); };
+P.sewermouth = outflowPipe; // the brick outflow pipe under a city wall (sewer3d.js)
+P.sewerexit = sewerExit; // ...and its daylight, seen from inside the sewer
 P.drainpipe = (o, d) => { o.cyl('metalv', 0, 1.4, -0.2, 0.28, 0.7, '#5a5a58', 12, Math.PI / 2).cyl('dark', 0, 1.4, 0.16, 0.2, 0.02, null, 12, Math.PI / 2); o.out.emitters.push({ kind: 'drip', p: o.w(0, 1.3, 0.2) }); };
 P.flagpole = (o, d, ctx) => { o.cylB('metalv', 0, 0, 0, 0.09, 11, '#d8d0c0', 8).cylB('stone', 0, 0, 0, 0.35, 0.5, '#8a8478', 8).sph('gold', 0, 11.1, 0, 0.26, 0.26, 0.26, '#e0c050'); ctx.flags.push({ kind: 'pole', x: o.x, y: o.y + 10.6, z: o.z, w: 3.4, h: 2.1, f: d.f }); };
 // ---------- homes of the 1300s: seats, rugs, chests and cupboards, stoves, candles, a king's bedchamber ----------
@@ -203,11 +204,11 @@ export function buildProps(mb, list, out) {
     let px = nb ? d.x : (d.tx + 0.5) * TS + (d.x - (d.tx * TS + 16)) * 0.5, py = nb ? d.y - 8 : (d.ty + 0.5) * TS;
     let x = px * PX, z = py * PX;
     let ry = f.ry;
-    if (f.b && AGAINST_WALL.has(d.kind)) { const o2 = wallOff(f); if (f.wall === 'n') z -= o2; else if (f.wall === 's') z += o2; else if (f.wall === 'w') x -= o2; else x += o2; }
+    if (f.b && AGAINST_WALL.has(d.kind) && f.m === 1) { const o2 = wallOff(f, d.kind); if (f.wall === 'n') z -= o2; else if (f.wall === 's') z += o2; else if (f.wall === 'w') x -= o2; else x += o2; }
     if (!f.b) {
       // outdoors: some things look along the road, tents face their fire, the rest get a random turn
       if (d.kind === 'cavemouth') { const dir = d.dir || 'n'; ry = dir === 'n' ? Math.PI : dir === 's' ? 0 : dir === 'w' ? -Math.PI / 2 : Math.PI / 2; }
-      else if (d.kind === 'sewermouth' || d.kind === 'drainpipe') ry = 0;
+      else if (d.kind === 'sewermouth' || d.kind === 'drainpipe' || d.kind === 'sewerexit') ry = d.ry != null ? d.ry : 0;
       else if (['lamp', 'torch', 'stall', 'statue', 'cavesign', 'fountain', 'monument', 'crypt', 'well', 'exitportal', 'grate'].includes(d.kind)) ry = d.kind === 'statue' ? Math.PI * (d.v > 0.5 ? 0 : 0) : d.kind === 'lamp' ? Math.floor(d.v * 4) * Math.PI / 2 : 0;
       else ry = d.v * Math.PI * 2;
     }

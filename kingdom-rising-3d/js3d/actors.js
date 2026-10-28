@@ -152,9 +152,11 @@ function atkKindFor(av, e) {
   return 'slash';
 }
 // where someone stands: the ground, a floor, a deck, the wall-walk, or an upper floor they climbed to
-const floorOf = (e) => (e.introY != null ? e.introY : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : geo.floorAt(e.x, e.y));
+const floorOf = (e) => (e.introY != null ? e.introY : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : e.swim || e.sw ? swimY(e) : geo.floorAt(e.x, e.y));
+// a swimmer floats with head and shoulders out of the water (never below the sea bed), bobbing a little with each stroke
+function swimY(e) { const wl = geo.waterAt(e.x, e.y), g = geo.floorAt(e.x, e.y); if (isNaN(wl)) return g; const sc = e.scale || (D.RACES[e.c ? e.c.race : e.race] || {}).scale || 1; return Math.max(g, wl - 1.18 * sc + Math.sin(K3.time * 3.4) * 0.03); }
 // a jump: up and down in a parabola over JUMP_T seconds (cosmetic: the game itself stays on the ground)
-export const JUMP_T = 0.56, JUMP_H = 0.55;
+export const JUMP_T = 0.62, JUMP_H = 0.75;
 export const jumpHeight = (t) => (t == null || t < 0 || t >= JUMP_T ? 0 : 4 * JUMP_H * (t / JUMP_T) * (1 - t / JUMP_T));
 const heroJump = (e) => (e === G.player && K3.jumpT != null ? jumpHeight(K3.jumpT) : 0);
 export function actorY(e) {
@@ -324,7 +326,7 @@ function updateAvatar(av, dt, ctx) {
   if (rate) { av.animAcc = (av.animAcc || 0) + dt; if (av.animAcc < 1 / rate) return; av.animAcc = 0; }
   const adt = av.accT || dt, adist = av.accD || 0; av.accD = 0; av.accT = 0; dt = adt;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
-  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
+  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), swim: !!(e.swim || e.sw) && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   st.far = near > 30 && e !== p; // far people skip the fine motion (leaning, breathing, looking, fingers)
   if (av.kind === 'human' || av.kind === 'creature') motionState(av, e, st, tgt, dt); // beasts wind up, freeze on a hit and flinch too (creatures.js)
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }

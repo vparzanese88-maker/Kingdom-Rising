@@ -167,7 +167,7 @@
     p.spellCrit = p.c && p.c.cls === 'wizard' ? 0.12 + Math.min(0.08, p.level / 600) : 0;
     p.spellMul = 1 + (mods.spellMul || 0); p.healMul = 1 + (mods.healMul || 0); p.threatMul = 1 + (mods.threat || 0);
     p.rangedMul = 1 + (mods.rangedMul || 0);
-    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.regenPct = mods.regenPct || 0; p.endRegenPct = mods.endRegenPct || 0; // stances: a share of your whole regeneration, so it scales with level p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln;
+    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.regenPct = mods.regenPct || 0; p.endRegenPct = mods.endRegenPct || 0; p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln; // stance regen is a share of your whole regeneration, so it scales with level
     p.look = G.lookFor(c);
     if (p.type === 'merc') KR.Sys.applyStance(p);
   };
@@ -532,6 +532,7 @@
     const def = u.def;
     if (p.stun > 0 || p.mez > 0) { G.log('You cannot act right now!', 'sys', '#ffb24a'); return; }
     if (p.cast) { G.log('You are already casting.', 'sys', '#ffb24a'); return; }
+    if (p.swim) { G.log('You cannot fight or cast while swimming. Get your feet on the ground first.', 'sys', '#ffb24a'); return; }
     // target resolution
     let tgt = null;
     const tt = def.target || 'enemy';
@@ -867,6 +868,29 @@
       G.useAction(a); return;
     }
   };
+  // ---------- swimming: deep water is swum, slowly at first; the Swimming skill rises with use ----------
+  G.swimSkill = (c) => c.swim || 0;
+  G.swimCap = (c) => D.SWIM.cap(c.level);
+  G.swimSpeed = (p) => { const k = Math.min(1, G.swimSkill(p.c) / D.SWIM.max); return (D.SWIM.speed0 + (D.SWIM.speed1 - D.SWIM.speed0) * k) * (p.endurMax && p.endur <= 0 ? 0.6 : 1); };
+  G.swimTick = function (p, dt) {
+    const c = p.c; const tx = Math.floor(p.x / TS), ty = Math.floor(p.y / TS);
+    // where you last stood freely (/stuck searches from here, so it never takes you through a wall)
+    if (!W.solidAtPx(p.x, p.y, { door: 'pass', swim: true })) { const lg = p.lastGood || (p.lastGood = {}); lg.x = p.x; lg.y = p.y; }
+    // on a pier, a bridge or a ship's deck you are out of the water, whatever is under it
+    const was = !!p.swim; p.swim = !p.upB && !p.onWall && W.tile(tx, ty) === T.DEEP && !(W.realm && W.realm !== 'main' && !W.swimmable(tx, ty));
+    if (p.swim !== was) {
+      if (p.swim) { p.sit = false; p.autoAttack = false; p.chase = null; if (p.cast) G.interrupt(p, 'You plunge into the water and lose your spell.'); G.log('You are swimming.', 'sys', '#9ad8ff'); KR.A && KR.A.sfx && KR.A.sfx('splash', 0.5); }
+      else G.log('You wade out of the deep water.', 'sys', '#aaa');
+    }
+    if (!p.swim) return;
+    const cap = G.swimCap(c), cur = G.swimSkill(c), frac = cur / Math.max(1, D.SWIM.max);
+    if (p.moving) {
+      // tiring: swimming uses up endurance, less as you get better at it
+      if (p.endurMax) { const was0 = p.endur > 0; p.endur = Math.max(0, p.endur - (0.9 + c.level * 0.04) * (1 - 0.6 * frac) * dt); if (was0 && p.endur <= 0) G.log('You are exhausted! You can barely keep swimming. Head for the shore.', 'sys', '#ffb24a'); }
+      p.swimT = (p.swimT || 0) + dt;
+      if (p.swimT >= 1.6) { p.swimT = 0; if (cur < cap && Math.random() < 0.06 + 0.5 * (1 - cur / Math.max(cap, 1))) { c.swim = cur + 1; if ((cur + 1) % 5 === 0 || cur < 10) G.log(`You have become better at Swimming! (${cur + 1})`, 'skill', '#9ad8ff'); } }
+    }
+  };
   G.updatePlayer = function (p, dt, input) {
     if (p.dead) return;
     const c = p.c;
@@ -892,11 +916,12 @@
       if (p.sit) p.sit = false; if (p.fd) p.fd = false;
       if (p.cast) G.interrupt(p, 'You moved and your spell fizzles.');
       const inWater = W.tile(Math.floor(p.x / TS), Math.floor(p.y / TS)) === T.WATER;
-      const sp = p.speed * (inWater ? 0.55 : 1) * dt;
-      G.moveEnt(p, mx / len * sp, my / len * sp, { key: (k) => c.inv.some((it) => it && it.key === k) });
+      const sp = p.speed * (p.swim ? G.swimSpeed(p) : inWater ? 0.55 : 1) * dt;
+      G.moveEnt(p, mx / len * sp, my / len * sp, { key: (k) => c.inv.some((it) => it && it.key === k), swim: p === G.player });
       p.walk += dt * 11;
       if (Math.abs(mx) > Math.abs(my)) { p.dir = mx < 0 ? 1 : 2; p.face = mx < 0 ? -1 : 1; } else p.dir = my < 0 ? 3 : 0;
     }
+    if (p === G.player) G.swimTick(p, dt);
     // auto attack stays on while anything is still fighting you or your party
     if (p.autoAttack && (!p.target || p.target.dead || p.target.removed)) { const nx = G.nextAttacker(p); if (nx) p.target = nx; else { p.autoAttack = false; G.log('Combat is over. Auto attack is off.', 'sys', '#ccc'); } }
     // face target while fighting
@@ -916,7 +941,7 @@
     // auto attack
     const t = p.target;
     if (p.autoAttack && t && !t.dead && t.mez > 0) { p.autoAttack = false; G.log(`${t.name} is mesmerized. Auto attack paused so you don't break it.`, 'sys', '#ffb0ff'); }
-    if (p.autoAttack && t && !t.dead && G.isHostile(p, t) && !p.cast && p.stun <= 0 && !p.fd) {
+    if (p.autoAttack && t && !t.dead && G.isHostile(p, t) && !p.cast && p.stun <= 0 && !p.fd && !p.harvest && !p.swim) {
       const d = Math.hypot(t.x - p.x, t.y - p.y);
       const mr = G.meleeRange(p, t);
       const mode = c.rangeMode || 'both';
@@ -946,7 +971,7 @@
     p.regenRates = { hp: rHp, mana: rMana, end: rEnd };
     p.hp = Math.min(p.hpMax, p.hp + rHp * dt);
     if (p.manaMax) p.mana = Math.min(p.manaMax, p.mana + rMana * dt);
-    if (p.endurMax) p.endur = Math.min(p.endurMax, p.endur + rEnd * dt);
+    if (p.endurMax && !p.swim) p.endur = Math.min(p.endurMax, p.endur + rEnd * dt);
     if (p.atk > 0) { p.atk += dt * 4; if (p.atk > 1) p.atk = 0; }
   };
   G.party = (p) => { const out = [p, p.pet]; for (const m of p.mercs || []) out.push(m, m.pet); return out.filter((e) => e && !e.dead && !e.removed); };
@@ -1233,7 +1258,9 @@
     }
     if (e.kind || e.type === 'guard' || e.type === 'king') G.mobVoice(e, 'die'); else if (Math.hypot(e.x - G.player.x, e.y - G.player.y) < 700) KR.A.sfx('mobdie', 0.5);
     for (const m of G.ents) if (m.hate && m.hate.has(e)) { m.hate.delete(e); }
-    if (e.spawn) { e.spawn.ent = null; e.spawn.timer = e.boss ? 600 : e.spawn.named ? 420 + Math.random() * 300 : 90 + Math.random() * 90; }
+    if (e.spawn) { e.spawn.ent = null; e.spawn.timer = e.boss ? 600 : e.spawn.named ? 420 + Math.random() * 300 : 90 + Math.random() * 90;
+      // dungeons fill back up slowly: monsters take twice as long, named ones three times, the bosses four times
+      if (KR.W.realm && KR.W.realm !== 'main' && KR.D.DUNGEONS.some((d) => d.id === KR.W.realm)) e.spawn.timer *= e.boss ? 4 : e.spawn.named ? 3 : 2; }
     if (killer === G.player || e.tagged || (e.hate && e.hate.has(G.player))) KR.Sys.onKill(e);
     if (e.type === 'king') KR.Sys.kingSlain(e, killer);
     if (e.raider) { KR.War.onRaiderKilled(e); }
@@ -1335,18 +1362,28 @@
     G.now += dt * 1000;
     const p = G.player;
     G.updatePlayer(p, dt, input);
-    for (const e of G.ents.slice()) {
+    // one reused list (no copy of every entity each frame); spawns and removals during the loop are still safe
+    const list = G._iterEnts || (G._iterEnts = []); list.length = 0; for (let i = 0; i < G.ents.length; i++) list.push(G.ents[i]);
+    const warOn = KR.War && KR.War.active;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
       if (e.kickT > 0) { e.kickT += dt * 3; if (e.kickT > 1) e.kickT = 0; }
       if (e === p || e.removed) continue;
       const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
       e.near = d < 2600;
-      if (!e.near && !e.inCombat && e.type !== 'merc' && !e.raider && !(KR.War && KR.War.active && (e.type === 'guard' || e.type === 'king'))) continue;
-      if (e.type === 'mob' || e.type === 'guard' || e.type === 'king') { if (e.type === 'mob') G.updateMob(e, dt); else KR.Sys.updateGuard(e, dt); }
-      else if (e.type === 'pet') KR.Sys.updatePet(e, dt);
-      else if (e.type === 'merc') KR.Sys.updateMerc(e, dt);
-      else if (e.type === 'npc') KR.Sys.updateNPC(e, dt);
-      if (e.bubble) { e.bubble.t -= dt; if (e.bubble.t <= 0) e.bubble = null; }
+      const urgent = e.inCombat || e.type === 'merc' || e.raider || (warOn && (e.type === 'guard' || e.type === 'king'));
+      if (!e.near && !urgent) continue;
+      // far from the player and not fighting: think 10 times a second with the time that has passed (nothing slows down)
+      let edt = dt;
+      if (d > 1200 && !urgent && e.type !== 'pet' && !(e.hate && e.hate.size)) { e._aiAcc = (e._aiAcc || 0) + dt; if (e._aiAcc < 0.1) continue; edt = Math.min(0.15, e._aiAcc); e._aiAcc = 0; }
+      else e._aiAcc = 0;
+      if (e.type === 'mob' || e.type === 'guard' || e.type === 'king') { if (e.type === 'mob') G.updateMob(e, edt); else KR.Sys.updateGuard(e, edt); }
+      else if (e.type === 'pet') KR.Sys.updatePet(e, edt);
+      else if (e.type === 'merc') KR.Sys.updateMerc(e, edt);
+      else if (e.type === 'npc') KR.Sys.updateNPC(e, edt);
+      if (e.bubble) { e.bubble.t -= edt; if (e.bubble.t <= 0) e.bubble = null; }
     }
+    list.length = 0;
     if (p.bubble) { p.bubble.t -= dt; if (p.bubble.t <= 0) p.bubble = null; }
     updateProj(dt);
     for (let i = G.fx.length - 1; i >= 0; i--) { const f = G.fx[i]; f.t += dt; if (f.vx) { f.x += f.vx * dt; f.y += f.vy * dt; } if (f.t > f.life) G.fx.splice(i, 1); }

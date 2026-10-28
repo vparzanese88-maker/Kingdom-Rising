@@ -522,6 +522,7 @@
     if (lastSfx[name] && now - lastSfx[name] < 0.04) return; lastSfx[name] = now;
     const d = out(vol, pan); const t = now;
     switch (name) {
+      case 'splash': noise(d, t, 0.45, 0.4, { f: 700, f2: 2600, q: 0.9 }); noise(d, t + 0.05, 0.3, 0.2, { f: 2400, q: 1.5 }); break; // into the water
       // ----- melee -----
       case 'slash': noise(d, t, 0.16, 0.35, { f: 2500, f2: 6000, q: 2 }); noise(d, t + 0.02, 0.1, 0.15, { f: 900 }); break;
       case 'blunt': tone(d, 120, t, 0.18, 'sine', 0.5, { slide: 0.5, release: 0.18 }); noise(d, t, 0.12, 0.25, { f: 400, q: 1 }); break;

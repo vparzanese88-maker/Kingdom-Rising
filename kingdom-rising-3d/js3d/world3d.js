@@ -148,7 +148,7 @@ export const world3d = {
       // only nearby rocks throw shadows: far ones are lost in the shadow map anyway (trees: see the forest in veg.js)
       const sh = d < shadowDist; if (sh !== c.vegShadow) { c.vegShadow = sh; for (const m of c.veg) m.castShadow = sh && !m.userData.small; }
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
-      for (const m of c.veg) if (!m.userData.small) m.visible = d < treeFar + 80;
+      for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < propsFar : d < treeFar + 80; // boulders and ore veins: a draw call per shape per area, gone in the distance
       // barrels, crates, fences, lamps and signposts are lost in the distance long before buildings and trees:
       // each area's props are one or two dozen draw calls, so they stop at a shorter range
       const pv = d < propsFar; if (c.props && c.props.visible !== pv) c.props.visible = pv;

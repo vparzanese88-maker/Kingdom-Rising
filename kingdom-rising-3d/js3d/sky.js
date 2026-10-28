@@ -97,6 +97,7 @@ const pmrem = new THREE.PMREMGenerator(K3.renderer);
 const envScene = new THREE.Scene();
 const envDome = new THREE.Mesh(dome.geometry, skyMat); envDome.frustumCulled = false; envScene.add(envDome);
 let envRT = null, envT = 0;
+let envKeyLast = '';
 function refreshEnv() {
   const old = envRT; envRT = pmrem.fromScene(envScene, 0.02, 1, 4000);
   K3.scene.environment = envRT.texture; if (old) old.dispose();
@@ -280,7 +281,11 @@ export function updateSky(dt, camPos, ctx) {
   if (cloudSea.visible) { cloudSea.position.set(camPos.x, -16, camPos.z); cloudSea.material.uniforms.uTime.value = t; cloudSea.material.uniforms.uCol.value.setRGB(1, 1, 1).multiplyScalar(0.15 + 0.85 * dayK).lerp(C(1, 0.6, 0.45), duskK * 0.6); }
   dome.visible = !dungeon;
   // re-capture the sky for reflections every few seconds
-  envT -= dt; if (envT <= 0 || !envRT) { envT = 6; try { refreshEnv(); } catch (e) { console.warn(e); envT = 1e9; } }
+  // (a capture renders and filters a cube of the sky and allocates new buffers: a hitch on laptop graphics, so it
+  // only happens when the sky's colours have visibly changed, and at most every 8 seconds)
+  envT -= dt;
+  const envKey = [zen.r, zen.g, zen.b, hor.r, hor.g, hor.b].map((v) => Math.round(v * 30)).join(',') + '|' + Math.round(cloudK * 8) + '|' + (dungeon ? 1 : 0);
+  if (!envRT || (envT <= 0 && envKey !== envKeyLast)) { envT = 8; envKeyLast = envKey; try { refreshEnv(); } catch (e) { console.warn(e); envT = 1e9; } }
   const envI = (dungeon ? 0.12 : 0.25 + 0.75 * dayK) * (1 - insideK * 0.7) * (1 - regDark * 0.5);
   K3.scene.environmentIntensity = envI;
   // how dark it is for the torches (0 bright day .. 1 black)

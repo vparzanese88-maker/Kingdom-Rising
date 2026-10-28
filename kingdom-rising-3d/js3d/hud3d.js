@@ -28,6 +28,21 @@ function bubble(x, y, text) {
   g.beginPath(); g.moveTo(x - 6, by + h); g.lineTo(x, by + h + 7); g.lineTo(x + 6, by + h); g.fillStyle = 'rgba(250,244,228,0.95)'; g.fill();
   g.fillStyle = '#3a2a18'; g.textAlign = 'center'; lines.forEach((l, i) => g.fillText(l, x, by + 16 + i * 15));
 }
+// outlined text is costly to draw (a stroke and a fill per word, every frame, for dozens of name plates), so each
+// distinct label is drawn once into a small canvas and stamped from there afterwards
+const txtCache = new Map();
+if (document.fonts) document.fonts.addEventListener('loadingdone', () => txtCache.clear()); // redraw once the game fonts arrive
+function txt(font, text, x, y, fill, stroke, lw) {
+  const dpr = K3.hudDpr || 1; const key = font + '|' + text + '|' + fill + '|' + stroke + '|' + lw + '|' + dpr;
+  let c = txtCache.get(key);
+  if (!c) {
+    const size = +(/(\d+)px/.exec(font) || [0, 14])[1]; g.font = font; const w = Math.ceil(g.measureText(text).width + lw + 4), h = Math.ceil(size * 1.5 + lw + 2);
+    c = document.createElement('canvas'); c.width = Math.max(1, w * dpr); c.height = Math.max(1, h * dpr); c.asc = Math.ceil(size * 1.1 + lw / 2 + 1);
+    const t = c.getContext('2d'); t.scale(dpr, dpr); t.font = font; t.textAlign = 'center'; t.lineJoin = g.lineJoin; t.lineWidth = lw; t.strokeStyle = stroke; t.strokeText(text, w / 2, c.asc); t.fillStyle = fill; t.fillText(text, w / 2, c.asc);
+    c.cw = w; c.ch = h; if (txtCache.size > 400) txtCache.delete(txtCache.keys().next().value); txtCache.set(key, c);
+  }
+  g.drawImage(c, x - c.cw / 2, y - c.asc, c.cw, c.ch);
+}
 function label(e, sx, sy, dist, p, peer) {
   const near = dist < 34 || e === p.target || peer;
   if (e.bubble) bubble(sx, sy - 22, e.bubble.text);
@@ -47,9 +62,9 @@ function label(e, sx, sy, dist, p, peer) {
   const big = e.boss || e.type === 'king';
   g.font = `600 ${big ? 15 : 13}px "Alegreya Sans", system-ui, sans-serif`; g.textAlign = 'center';
   let name = peer ? `${String(e.n).slice(0, 24)} (${e.l || 1})` : e.name; if (e.dead) name += "'s corpse";
-  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.78)'; g.strokeText(name, sx, sy); g.fillStyle = e.dead ? '#bbb' : col; g.fillText(name, sx, sy);
-  if (e.title && !e.dead) { g.font = 'italic 11px "Alegreya Sans", system-ui, sans-serif'; g.strokeText(`<${e.title}>`, sx, sy + 13); g.fillStyle = '#e8d8a8'; g.fillText(`<${e.title}>`, sx, sy + 13); }
-  if ((e.type === 'npc' || e.type === 'king') && KR.Sys.npcMarker) { const m = KR.Sys.npcMarker(e); if (m) { const bob = Math.sin(G.now / 250) * 3; g.font = '800 26px "IM Fell English SC", serif'; g.lineWidth = 4; g.strokeStyle = '#2a1a00'; g.strokeText(m, sx, sy - 18 + bob); g.fillStyle = m === '?' ? '#ffe23a' : '#ffcf2a'; g.fillText(m, sx, sy - 18 + bob); } }
+  const nf = g.font; txt(nf, name, sx, sy, e.dead ? '#bbb' : col, 'rgba(0,0,0,0.78)', 3);
+  if (e.title && !e.dead) { txt('italic 11px "Alegreya Sans", system-ui, sans-serif', `<${e.title}>`, sx, sy + 13, '#e8d8a8', 'rgba(0,0,0,0.78)', 3); }
+  if ((e.type === 'npc' || e.type === 'king') && KR.Sys.npcMarker) { const m = KR.Sys.npcMarker(e); if (m) { const bob = Math.sin(G.now / 250) * 3; txt('800 26px "IM Fell English SC", serif', m, sx, sy - 18 + bob, m === '?' ? '#ffe23a' : '#ffcf2a', '#2a1a00', 4); } }
   if (!e.dead && !peer && (e.type === 'mob' || e.type === 'pet' || e.type === 'merc' || (e.type !== 'npc' && e.hp < e.hpMax) || e.siege)) {
     const w = e.boss || e.siege ? 70 : 42; g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(sx - w / 2 - 1, sy + 4, w + 2, 6);
     g.fillStyle = e.type === 'pet' ? '#5ad86a' : '#d8443a'; g.fillRect(sx - w / 2, sy + 5, w * Math.max(0, e.hp / e.hpMax), 4);

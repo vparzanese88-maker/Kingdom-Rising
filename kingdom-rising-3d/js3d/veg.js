@@ -239,7 +239,7 @@ export function buildVeg(list, out) {
         const c = reg.biome === 'desert' ? [1.25, 1.05, 0.8] : reg.biome === 'snow' || reg.biome === 'summit' ? [1.05, 1.08, 1.15] : reg.biome === 'volcanic' || reg.biome === 'scar' ? [0.5, 0.45, 0.42] : [1, 1, 1];
         if (d.kind === 'orevein') { c[0] *= 0.42; c[1] *= 0.4; c[2] *= 0.4; }
         rm.setColorAt(i, _c4.setRGB(c[0], c[1], c[2])); d._inst = { tm: rm, i, s }; });
-      rm.computeBoundingSphere(); if (rm.instanceColor) rm.instanceColor.needsUpdate = true; meshes.push(rm);
+      rm.computeBoundingSphere(); if (rm.instanceColor) rm.instanceColor.needsUpdate = true; rm.userData.mid = true; meshes.push(rm); // boulders stop at the props range (world3d.js)
     }
     // ore veins: nuggets of the metal glinting out of the dark rock
     for (let v = 0; v < 3; v++) {
@@ -247,7 +247,7 @@ export function buildVeg(list, out) {
       const geom = TPL['nuggets' + v] || (TPL['nuggets' + v] = nuggetGeom(TPL['rock' + v]));
       const om = new THREE.InstancedMesh(geom, oreMat(), veins.length); om.castShadow = false; om.receiveShadow = true;
       veins.forEach((d, i) => { d._inst.tm.getMatrixAt(d._inst.i, _m4); om.setMatrixAt(i, _m4); const oc = ORE_RGB[d.ore || 0]; om.setColorAt(i, _c4.setRGB(oc[0], oc[1], oc[2])); d._inst.lm = om; d._inst.li = i; });
-      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; meshes.push(om);
+      om.computeBoundingSphere(); if (om.instanceColor) om.instanceColor.needsUpdate = true; om.userData.mid = true; meshes.push(om);
     }
   }
   for (const [k, items] of plants) {
@@ -373,8 +373,10 @@ export const forest = {
   update(cam, chunks, CHR) {
     const q = K3.quality; this.age++;
     K3.camera.getWorldDirection(_fw); let fx = _fw.x, fz = _fw.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
-    const moved = Math.hypot(cam.x - this.lx, cam.z - this.lz) > 3, turned = fx * this.lfx + fz * this.lfz < 0.9; // the margin below leaves room to turn ~25 degrees before a refill
-    if (!this.dirty && !moved && !turned && this.age < 120) return;
+    const moved = Math.hypot(cam.x - this.lx, cam.z - this.lz) > 6, turned = fx * this.lfx + fz * this.lfz < 0.9; // the margin below leaves room to turn ~25 degrees before a refill
+    // a refill walks every tree in range and re-uploads them all: new areas being built ask for one each, so
+    // those are gathered into at most one refill every 12 frames
+    if (!moved && !turned && this.age < 120 && !(this.dirty && this.age >= 12)) return;
     this.dirty = false; this.lx = cam.x; this.lz = cam.z; this.lfx = fx; this.lfz = fz; this.age = 0;
     const far = q.treeFar, near = q.treeNear || 60, shd = q.shadows ? q.shadowDist || 0 : 0;
     // what the camera can see sideways, plus room to turn before the next refill

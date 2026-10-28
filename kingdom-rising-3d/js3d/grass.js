@@ -7,7 +7,8 @@ import { cardTex, TERRAIN_LAYERS } from './texgen.js';
 
 const L = Object.fromEntries(TERRAIN_LAYERS.map((n, i) => [n, i]));
 let mesh = null, mat = null, hTex = null, built = 0;
-function settings() { const q = K3.quality.grass; if (!q) return null; return { spacing: q >= 1.5 ? 0.34 : q >= 1 ? 0.42 : 0.6, radius: q >= 1.5 ? 46 : q >= 1 ? 34 : 24 }; }
+// clumps drawn = about pi * (radius / spacing)^2: Ultra ~20k, High ~14k, Medium ~5k (each clump is 6 alpha-tested triangles)
+function settings() { const q = K3.quality.grass; if (!q) return null; return { spacing: q >= 1.5 ? 0.34 : q > 1.05 ? 0.42 : q >= 1 ? 0.45 : 0.6, radius: q >= 1.5 ? 46 : q > 1.05 ? 34 : q >= 1 ? 30 : 24 }; }
 
 function makeMaterial() {
   const m = new THREE.MeshStandardMaterial({ map: cardTex('grass'), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.95, metalness: 0 });

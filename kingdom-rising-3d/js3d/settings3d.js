@@ -37,7 +37,7 @@ const pages = {
       ${chk('g-grade', 'Film look (colour grading and vignette)', g.grade)}
       ${rng('g-exp', 'Brightness', 0.6, 1.6, 0.05, S().exposure || 1, (v) => Math.round(v * 100) + '%')}
     </div></div>
-    <p class="k3s-note">If the game stutters, lower the render resolution or shadows first, or keep Automatic resolution on.${K3.perf && K3.perf.fps ? ` Now running at <b>${Math.round(K3.perf.fps)} fps</b>${K3.dynScale < 1 ? ` at ${Math.round(K3.dynScale * 100)}% resolution` : ''}.` : ''}</p>`;
+    <p class="k3s-note">If the game stutters on a laptop, pick the Medium preset and a shorter View distance first: those cut the work for the processor and graphics chip the most. Keep Automatic resolution on: if the game still cannot keep up it lowers the preset one step by itself.${K3.gpu ? ` Graphics chip: ${String(K3.gpu).replace(/[<>&]/g, '').slice(0, 80)}.` : ''}${K3.perf && K3.perf.fps ? ` Now running at <b>${Math.round(K3.perf.fps)} fps</b>${K3.dynScale < 1 ? ` at ${Math.round(K3.dynScale * 100)}% resolution` : ''}.` : ''}</p>`;
   },
   controls() {
     return `<div class="k3s-grid"><div>

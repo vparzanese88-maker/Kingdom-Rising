@@ -253,8 +253,8 @@ function catModel(e) {
 const TROLL_S = 2.4;
 function trollModel(e) {
   const holder = new THREE.Group(); const k = Math.floor((e.seed || 0.5) * 3);
-  const look = { race: 'ogrin', gender: 'm', skin: ['#6e7f5a', '#7a8466', '#5e6e52'][k], hair: '#2a2a22', hairStyle: 3, eyesCol: '#e0c040', tusk: true, width: 1.5, noShirt: true, armor: { kind: 'leather', col: '#4a3a28', trim: '#3a2a1a' }, pants: '#4a3a28', barefoot: true, weapon: 'club', helm: null, hat: null, cape: null };
-  let rig = null; try { rig = makeHumanoid(look, 'human'); } catch (er) { rig = null; }
+  const look = { kind: 'troll', race: 'human', gender: 'm', skin: ['#6e7f5a', '#7a8466', '#5e6e52'][k], hair: '#2a2a22', hairStyle: 3, eyesCol: '#e0c040', tusk: true, width: 1.4, noShirt: true, armor: { kind: 'leather', col: '#4a3a28', trim: '#3a2a1a' }, pants: '#4a3a28', barefoot: true, weapon: 'club', helm: null, hat: null, cape: null };
+  let rig = null; try { rig = makeHumanoid(look, 'troll'); } catch (er) { try { rig = makeHumanoid(look, 'human'); } catch (er2) { rig = null; } } // the hunched, long-armed troll build (human.js)
   if (rig) { rig.mesh.scale.setScalar(TROLL_S); holder.add(rig.mesh); if (rig.setLod) rig.setLod(0); }
   // a log of a club in the right fist, and a hide strap with the kingdom's colours
   const F = D.FACTIONS[e.faction] || {}; const mb = new MB();
@@ -309,7 +309,7 @@ function gunModel(e, big) {
   const F = D.FACTIONS[e.faction] || {}; const ban = F.banner || '#7a1e1e';
   const holder = new THREE.Group(); const turret = new THREE.Group(); holder.add(turret); holder.scale.setScalar(big ? 1.35 : 1.15);
   const base = new MB(); base.cylB('stone', 0, -0.2, 0, big ? 3.0 : 2.4, 0.32, '#857e72', 18); base.cylB('planks', 0, 0.1, 0, big ? 2.7 : 2.1, 0.08, '#6a4a2c', 18); holder.add(base.build());
-  const m = new MB(); const L = big ? 4.6 : 3.2, R0 = big ? 0.62 : 0.3;
+  const m = new MB(); const L = big ? 3.9 : 3.2, R0 = big ? 0.55 : 0.3;
   if (big) { // the bed: two great beams, cross ties, wedges, a shot pile
     for (const sx of [-1, 1]) m.box('timber', sx * 0.85, 0.5, 0, 0.42, 0.5, 5.2, '#4e3520');
     for (const z of [-2.2, -0.8, 0.8, 2.2]) m.box('timber', 0, 0.42, z, 2.1, 0.3, 0.32, '#43301c');
@@ -326,11 +326,11 @@ function gunModel(e, big) {
   turret.add(m.build());
   // the barrel (recoils along -z)
   const barrel = new THREE.Group(); const by = big ? 1.4 : 1.02, bz = big ? 0.4 : 0.2; barrel.position.set(0, by, bz); turret.add(barrel);
-  const bm = new MB(); const metal = big ? '#3a3a40' : '#9a6a32';
+  const bm = new MB(); const metal = big ? '#7a7c84' : '#9a6a32';
   bm.cyl('metalv', 0, 0, L * 0.4, R0, L, metal, 18, R0 * 0.82, 0, Math.PI / 2, 0);
   bm.cyl('metalv', 0, 0, L * 0.9, R0 * 1.12, 0.22, metal, 18, null, 0, Math.PI / 2, 0); bm.cyl('dark', 0, 0, L * 0.9 + 0.12, R0 * 0.62, 0.02, '#050505', 16, null, 0, Math.PI / 2, 0);
   bm.sph('metalv', 0, 0, -L * 0.1, R0 * 1.05, R0 * 1.05, R0 * 0.9, metal, 0, 12); bm.sph('metalv', 0, 0, -L * 0.1 - R0, R0 * 0.32, R0 * 0.32, R0 * 0.32, metal, 0, 8);
-  for (const k of (big ? [0, 0.18, 0.36, 0.54, 0.72] : [0.1, 0.45])) bm.cyl('metalv', 0, 0, -L * 0.05 + L * k, R0 * 1.08, 0.12, big ? '#2a2a2e' : '#7a5228', 18, null, 0, Math.PI / 2, 0);
+  for (const k of (big ? [0, 0.18, 0.36, 0.54, 0.72] : [0.1, 0.45])) bm.cyl('metalv', 0, 0, -L * 0.05 + L * k, R0 * 1.08, 0.12, big ? '#55575e' : '#7a5228', 18, null, 0, Math.PI / 2, 0);
   if (!big) for (const sx of [-1, 1]) bm.cyl('metalv', sx * R0, 0, 0.15, 0.07, 0.18, metal, 8, null, 0, 0, Math.PI / 2); // trunnions
   barrel.add(bm.build());
   const P = { holder, turret, barrel, bz, kick: big ? 0.55 : 0.45, foot: big ? 2.8 : 2.2, muzzle: (L * 0.9 + 0.2) * (big ? 1.35 : 1.15), mh: by * (big ? 1.35 : 1.15) };
@@ -512,7 +512,7 @@ function drainEvents() {
       fx.burst(x, y + 0.4, z, 14, '#ffd090', { speed: 3, life: 0.35 });
     } else if (e.k === 'fire' && (e.kind === 'bigcannon' || e.kind === 'bombard')) {
       // flame and a great bank of smoke from the muzzle, rolling forward and up
-      const big = e.kind === 'bombard'; const L = big ? 6.6 : 3.9, h = big ? 1.9 : 1.2; const ca = Math.cos(e.ang || 0), sa = Math.sin(e.ang || 0);
+      const big = e.kind === 'bombard'; const L = big ? 5.6 : 3.9, h = big ? 1.9 : 1.2; const ca = Math.cos(e.ang || 0), sa = Math.sin(e.ang || 0);
       const x = e.x * PX + ca * L, z = e.y * PX + sa * L, y = geo.floorAt(e.x, e.y) + h;
       fx.burst(x, y, z, big ? 40 : 24, '#ffb040', { speed: big ? 6 : 4.5, life: 0.25 });
       for (let i = 0; i < (big ? 34 : 20); i++) fx.smoke.emit({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, z: z + (Math.random() - 0.5) * 0.4, vx: ca * (2 + Math.random() * 4) + (Math.random() - 0.5), vy: 0.4 + Math.random() * 0.8, vz: sa * (2 + Math.random() * 4) + (Math.random() - 0.5), drag: 1.3, life: 2.5 + Math.random() * 2, s0: big ? 0.9 : 0.6, s1: big ? 4 : 2.6, r: 0.78, g: 0.76, b: 0.72, a: 0.5, kind: 2 });

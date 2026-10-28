@@ -167,7 +167,7 @@
     p.spellCrit = p.c && p.c.cls === 'wizard' ? 0.12 + Math.min(0.08, p.level / 600) : 0;
     p.spellMul = 1 + (mods.spellMul || 0); p.healMul = 1 + (mods.healMul || 0); p.threatMul = 1 + (mods.threat || 0);
     p.rangedMul = 1 + (mods.rangedMul || 0);
-    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.regenPct = mods.regenPct || 0; p.endRegenPct = mods.endRegenPct || 0; // stances: a share of your whole regeneration, so it scales with level p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln;
+    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.regenPct = mods.regenPct || 0; p.endRegenPct = mods.endRegenPct || 0; p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln; // stance regen is a share of your whole regeneration, so it scales with level
     p.look = G.lookFor(c);
     if (p.type === 'merc') KR.Sys.applyStance(p);
   };

@@ -43,7 +43,7 @@ function buildChunk(cx, cy, list, withStructs = true) {
   const pg = mb.build(); grp.add(pg); c.props = pg; c.small = [];
   c.veg = buildVeg(list || [], out); for (const m of c.veg) grp.add(m);
   c.trees = out.trees || []; forest.dirty = true;
-  const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m);
+  const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m); c.outcrops = oc; // one draw call per area: shown out to 200 m (update)
   // signposts with names on them
   for (const s of out.signs) { const sp = signpost(s); grp.add(sp); c.small.push(sp); }
   if (out.flags.length) buildFlags(out.flags, grp);
@@ -151,6 +151,7 @@ export const world3d = {
       for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < (m.userData.nug ? 60 : Math.min(propsFar, 105)) : d < treeFar + 80; // boulders (a draw call per shape per area) end where they are specks in the haze; the ore glints in them sooner
       // props and building fittings throw shadows only close by: past ~45 m their shadows are a few texels each,
       // and every caster is another draw call in the shadow pass
+      if (c.outcrops) for (const m of c.outcrops) { const ov = d < 200; if (m.visible !== ov) m.visible = ov; m.castShadow = d < shadowDist; }
       const psh = d < 45; if (psh !== c.propSh) { c.propSh = psh; if (c.props) c.props.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); if (c.structs) for (const m of c.structs.children) if (m.isMesh && DETAIL_KEYS.has(m.name)) { if (m.userData.sh0 == null) m.userData.sh0 = m.castShadow; m.castShadow = psh && m.userData.sh0; } else if (m.isGroup) m.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); }
       // barrels, crates, fences, lamps and signposts are lost in the distance long before buildings and trees:
       // each area's props are one or two dozen draw calls, so they stop at a shorter range

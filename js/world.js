@@ -33,6 +33,7 @@
 
   const W = (KR.W = {});
   W.W = D.WORLD_SIZE || 640; W.H = W.W;
+  W.RING = 16; // tiles of open sea round the edge of the world
   const TS = D.TS;
 
   W.idx = (x, y) => y * W.W + x;
@@ -132,6 +133,9 @@
     const coastLand = (x, y) => x > SE.x0 + (U.fbm(x * 0.025, y * 0.025, 71, 3) - 0.5) * 30 && y < SE.y1 + (U.fbm(x * 0.025, y * 0.025, 73, 3) - 0.5) * 26;
     const inOcean = (x, y) => x > OC.x0 + (U.fbm(x * 0.02, y * 0.02, 61, 3) - 0.5) * 50 && y > OC.y0 + (U.fbm(x * 0.02, y * 0.02, 67, 3) - 0.5) * 50 && !coastLand(x, y);
     for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) if (inOcean(x, y) || W.portSea(x, y)) W.region[y * W.W + x] = RI.ocean;
+    // the Encircling Sea: a wide ocean all round the edge of the land, joining both capitals' harbours, so warships
+    // can sail from one kingdom to the other (warmarch.js naval section)
+    for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) { const e = Math.min(x, y, W.W - 1 - x, W.H - 1 - y) + (U.fbm(x * 0.035, y * 0.035, 83, 3) - 0.5) * 9; if (e < W.RING) W.region[y * W.W + x] = RI.ocean; }
     paintTerrain();
     shoreline();
     // ---- mountain ridges between regions whose levels differ a lot ----
@@ -817,15 +821,16 @@
     for (const sd of [-half - 1, half + 1]) for (let i = -1; i <= k + 1; i++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; W.tiles[y * W.W + x] = T.CWALL; W.block[y * W.W + x] = 1; }
     // a broad stone quay along the water's edge, between the two walls
     for (let sd = -half; sd <= half; sd++) for (let d = -3; d <= 1; d++) { const [x, y] = P2(k + d, sd); if (!W.inb(x, y)) continue; const i = y * W.W + x; if (W.tiles[i] === T.CWALL) continue; W.tiles[i] = d === 1 || isW(x, y) ? T.WOOD : T.STONE; W.block[i] = 0; }
-    // three piers out into the deep water
-    const piers = [[0, 18], [-14, 14], [14, 14]];
+    // one pier out into the deep water (the ship that brings heroes home ties up beside it, a rowboat at its foot)
+    const piers = [[0, 16]];
     for (const [off, len] of piers) for (let i = 0; i < len; i++) for (let w = -1; w <= 1; w++) { const x = gx + dx * (k + 1 + i) + px * (off + w), y = gy + dy * (k + 1 + i) + py * (off + w); if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WOOD; W.block[y * W.W + x] = 0; } }
     const at = (i, s) => [gx + dx * (k + 1 + i) + px * s, gy + dy * (k + 1 + i) + py * s];
     const ry = Math.atan2(dx, dy); // ships lie along the piers, bows out to sea
     const ship = (i, s, size, v) => { const [x, y] = at(i, s); if (isW(x, y)) deco('boat', x, y, { nb: true, size, ry, v }); };
-    // each ship has its own water: the east basin's inner berth (s 3.5) is kept free for the ship that brings new heroes home
-    ship(14, 9, 'galleon', 0.3); ship(9, -5, 'cog', 0.6); ship(10, -10.5, 'sloop', 0.1); ship(9, 18, 'sloop', 0.8); ship(14, 24, 'sloop', 0.45);
-    ship(2, -18, 'rowboat', 0.2); ship(1.5, 6.5, 'rowboat', 0.7); ship(1, -9, 'rowboat', 0.9); ship(23, -6, 'cog', 0.5); ship(4, -19, 'sloop', 0.15);
+    // the ship that brought you home lies at the pier's inner berth (s 3.5: intro3d.js sails it in along that lane), and
+    // a rowboat is tied up at the foot of the pier on the other side
+    { const [x, y] = at(9, 3.5); if (isW(x, y)) deco('boat', x, y, { nb: true, size: 'cog', ry: ry + Math.PI, v: 0.45, arrival: true }); }
+    ship(1.5, -2.6, 'rowboat', 0.7);
     // posts, crates, barrels, nets and lamps
     for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }
     for (let s = -24; s <= 24; s += 6) { const x = gx + dx * (k - 2) + px * s, y = gy + dy * (k - 2) + py * s; if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 4); deco(h < 0.35 ? 'crate' : h < 0.7 ? 'barrel' : 'lamp', x, y, h >= 0.7 ? {} : { nb: true }); if (h >= 0.7) W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }

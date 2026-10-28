@@ -252,7 +252,7 @@ P.chandelier = (o, d, ctx) => { const top = ctx.ceil ? ctx.ceil - o.y : 3.3, y =
   for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * 6.283, a2 = (i + 1) / (n * 2) * 6.283; const mx = (Math.cos(a) + Math.cos(a2)) / 2 * r, mz = (Math.sin(a) + Math.sin(a2)) / 2 * r; o.box('metalv', mx, y, mz, 0.04, 0.04, 2 * r * Math.sin(Math.PI / (n * 2)) + 0.01, '#2a2622', -(a + a2) / 2); }
   for (let i = 0; i < n; i++) { const a = i / n * 6.283, x = Math.cos(a) * r, z = Math.sin(a) * r; o.cylB('paint', x, y + 0.02, z, 0.025, 0.13, '#f2ead0', 6); o.flame(x, y + 0.2, z, 0.05, 0.1); }
   for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283; o.cyl('metalv', Math.cos(a) * r / 2, y + 0.25, Math.sin(a) * r / 2, 0.008, 0.6, '#2a2622', 4, Math.sin(a) * 0.7, -Math.cos(a) * 0.7); }
-  o.glow(0, y + 0.15, 0, d.big ? 2.6 : 1.8, [2.4, 1.6, 0.7], 0.4); };
+  o.glow(0, y + 0.1, 0, d.big ? 1.1 : 0.8, [2.4, 1.6, 0.7], 0.3); };
 // a pot plant: a terracotta pot and a mound of leaves
 P.plant = (o, d) => { o.g('paint', lathe('pot', [[0, 0], [0.17, 0], [0.22, 0.32], [0.25, 0.36], [0.22, 0.38], [0, 0.36]], 12), 0, 0, 0, 1, 1, 1, '#b8643a');
   const R = K3.rng(Math.floor(d.v * 1e5) + 11); for (let i = 0; i < 9; i++) { const a = R() * 6.283, t = R() * 0.5; o.g('paint', PRIM.cone8, Math.cos(a) * 0.1, 0.55 + t * 0.3, Math.sin(a) * 0.1, 0.12, 0.42 + R() * 0.2, 0.05, i % 3 ? '#3e6a2e' : '#5a8a3a', a, Math.sin(a) * (0.5 + t), Math.cos(a) * (0.5 + t)); } };

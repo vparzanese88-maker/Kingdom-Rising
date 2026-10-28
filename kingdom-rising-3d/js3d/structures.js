@@ -673,7 +673,9 @@ function decks(mb, x0, y0, x1, y1) {
       const t2 = W.tile(nx, ny); if (t2 !== T.WATER && t2 !== T.DEEP) continue;
       const rx = x + dx * (Tl / 2 - 0.1), rz = z + dy * (Tl / 2 - 0.1);
       const along = (o) => (dx ? [rx, rz + o] : [rx + o, rz]);
-      for (const o of [-Tl / 2 + 0.07, Tl / 2 - 0.07]) { const [px, pz] = along(o); mb.boxB('timber', px, y, pz, 0.14, 1.02, 0.14, '#5a3a20'); mb.sph('timber', px, y + 1.08, pz, 0.16, 0.13, 0.16, '#5a3a20'); }
+      // one post per tile, and a closing post where the railing ends
+      const runEnd = dx ? !isDeck(tx, ty + 1) : !isDeck(tx + 1, ty);
+      for (const o of runEnd ? [-Tl / 2 + 0.07, Tl / 2 - 0.07] : [-Tl / 2 + 0.07]) { const [px, pz] = along(o); mb.boxB('timber', px, y, pz, 0.14, 1.02, 0.14, '#5a3a20'); mb.sph('timber', px, y + 1.08, pz, 0.16, 0.13, 0.16, '#5a3a20'); }
       if (dx) { mb.cyl('timber', rx, y + 0.94, rz, 0.055, Tl, '#6a4a2a', 8, null, 0, Math.PI / 2, 0); mb.box('timber', rx, y + 0.5, rz, 0.06, 0.07, Tl, '#5a3a20'); }
       else { mb.cyl('timber', rx, y + 0.94, rz, 0.055, Tl, '#6a4a2a', 8, null, 0, 0, Math.PI / 2); mb.box('timber', rx, y + 0.5, rz, Tl, 0.07, 0.06, '#5a3a20'); }
       for (let k = 1; k < 4; k++) { const [px, pz] = along(-Tl / 2 + k * Tl / 4); mb.cylB('timber', px, y + 0.02, pz, 0.025, 0.9, '#5a3a20', 8); }

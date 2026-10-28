@@ -244,8 +244,16 @@ function buildDungeon(dg, Wd, Hd, VW, VH, cls, H, WL, CEIL, around, tiles) {
 geo.groundT = function (u, v) {
   if (!geo.ready) return 0; const VW = geo.VW;
   u = K3.clamp(u, 0, geo.W - 0.001); v = K3.clamp(v, 0, geo.H - 0.001);
-  return sampleH(geo.HV, VW, u, v);
+  return sampleTri(geo.HV, VW, u, v);
 };
+// the height on the terrain mesh itself: each cell is two triangles split along alternating diagonals (terrain.js
+// chunkIndex), so feet, the camera and the ground line up exactly instead of a bilinear guess that floats or sinks
+function sampleTri(H, VW, u, v) {
+  const x = Math.floor(u), y = Math.floor(v), fx = u - x, fy = v - y; const i = y * VW + x;
+  const a = H[i], b = H[i + 1], c = H[i + VW], d = H[i + VW + 1];
+  if ((x + y) & 1) return fx + fy <= 1 ? a + (b - a) * fx + (c - a) * fy : d + (c - d) * (1 - fx) + (b - d) * (1 - fy);
+  return fx >= fy ? a + (b - a) * fx + (d - b) * fy : a + (c - a) * fy + (d - c) * fx;
+}
 // where an entity stands, from 2D pixel coordinates
 geo.floorAt = function (px, py) {
   if (!geo.ready) return 0;

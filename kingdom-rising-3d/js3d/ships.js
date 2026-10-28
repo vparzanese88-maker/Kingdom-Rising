@@ -100,8 +100,12 @@ const cache = new Map();
 let hullDS = null;
 const hullMat = (m) => { if (!hullDS) { hullDS = m.clone(); hullDS.side = THREE.DoubleSide; hullDS.name = 'hull'; } return hullDS; };
 const lineMat = new THREE.LineBasicMaterial({ color: 0x241a12 });
-export function buildShip(size, v = 0) {
-  const S = SIZES[size] || SIZES.sloop; const variant = Math.floor(v * 6) % 6; const key = size + ':' + variant;
+// opts.warship (naval3d.js): no oars in the merged hull (the warship rows its own) and every sail its own object, so it
+// can fill with the wind (tagged userData.sail; its yard at the object's origin)
+export function buildShip(size, v = 0, opts = {}) {
+  const S = SIZES[size] || SIZES.sloop; const variant = Math.floor(v * 6) % 6; const key = size + ':' + variant + (opts.warship ? ':w' : '');
+  const sailObjs = [];
+  const addSail = (geom, x, y, z, extra) => { if (!opts.warship) { mb.add('cloth2', geom, M(x, y, z), null, 'world'); if (extra) extra((ex, ey, ez) => M(ex, ey, ez), mb); return; } const sm = new MB(); sm.add('cloth2', geom, M(0, 0, 0), null, 'world'); if (extra) extra((ex, ey, ez) => M(ex - x, ey - y, ez - z), sm); const o = sm.build(); o.position.set(x, y, z); o.userData.sail = true; sailObjs.push(o); };
   let c = cache.get(key); if (c) return c.clone();
   const r = K3.rng(variant * 977 + size.length);
   const mb = new MB(); const M = (x, y, z, sx = 1, sy = 1, sz = 1, ry = 0, rx = 0, rz = 0) => MB.mat(x, y, z, sx, sy, sz, ry, rx, rz);
@@ -138,7 +142,7 @@ export function buildShip(size, v = 0) {
     for (const side of [-1, 1]) for (let i = 0; i < 13; i++) { const t = 0.2 + i * 0.047, st = stations(S, t); const ry = Math.atan2(stations(S, t + 0.01).w - st.w, 0.15) * side;
       mb.add('paint', PRIM.cyl16, M(side * (st.w + 0.08), st.gun - 0.08, st.z, 0.82, 0.05, 0.82, 0, 0, Math.PI / 2), SH[(i + (side > 0 ? 0 : 1)) % 3]);
       mb.add('metal', PRIM.sph8, M(side * (st.w + 0.12), st.gun - 0.08, st.z, 0.14, 0.14, 0.1), '#8a8a90');
-      if (i % 2 === 0) mb.add('haft', tube([[side * (st.w - 0.4), st.gun - 0.3, st.z], [side * (st.w + 1.6), 0.3, st.z - 0.5], [side * (st.w + 3.2), -0.12, st.z - 0.9]], 0.045, 4), M(0, 0, 0), '#8a6440'); }
+      if (i % 2 === 0 && !opts.warship) mb.add('haft', tube([[side * (st.w - 0.4), st.gun - 0.3, st.z], [side * (st.w + 1.6), 0.3, st.z - 0.5], [side * (st.w + 3.2), -0.12, st.z - 0.9]], 0.045, 4), M(0, 0, 0), '#8a6440'); }
     // a few chests for rowing benches
     for (let i = 0; i < 6; i++) { const z = -4.5 + i * 1.8; mb.add('planks', PRIM.box, M(0, S.G - deckDrop + 0.22, z, 0.5, 0.4, 0.55), '#7a5634', 'local'); }
   }
@@ -177,9 +181,10 @@ export function buildShip(size, v = 0) {
     mb.add('haft', PRIM.cyl12, M(0, base + m.h / 2, m.z, mr * 2, m.h, mr * 2), '#5a3a20');
     const [sw, sh] = m.sail; const yy = topY - (m.top ? m.top[1] + 1.6 : 0.9);
     mb.add('haft', PRIM.cyl8, M(0, yy, m.z + 0.25, 0.12, sw + 1.0, 0.12, 0, 0, Math.PI / 2), '#5a3a20');
-    mb.add('cloth2', sailGeom(sw, sh, sw * 0.13, sailCols, S.longship ? 6 : 5), M(0, yy - 0.1, m.z + 0.36), null, 'world');
-    if (!S.longship && !m.top && S.castles) { mb.add('paint', PRIM.box, M(0, yy - sh * 0.5, m.z + 0.36 + sw * 0.13 + 0.03, 0.5, sh * 0.7, 0.02), band); mb.add('paint', PRIM.box, M(0, yy - sh * 0.42, m.z + 0.36 + sw * 0.13 + 0.03, sw * 0.6, 0.5, 0.02), band); }
-    if (m.top) { const ty = topY - 0.4; mb.add('haft', PRIM.cyl8, M(0, ty, m.z + 0.2, 0.09, m.top[0] + 0.6, 0.09, 0, 0, Math.PI / 2), '#5a3a20'); mb.add('cloth2', sailGeom(m.top[0], m.top[1], m.top[0] * 0.1, sailCols, 4), M(0, ty - 0.1, m.z + 0.3), null, 'world'); mb.add('planks', PRIM.cyl12, M(0, yy + 1.0, m.z, 1.3, 0.16, 1.3), '#5a3a20', 'local'); mb.add('hull', PRIM.cyl12, M(0, yy + 1.35, m.z, 1.4, 0.55, 1.4), wood); }
+    const emblem = !S.longship && !m.top && S.castles;
+    addSail(sailGeom(sw, sh, sw * 0.13, sailCols, S.longship ? 6 : 5), 0, yy - 0.1, m.z + 0.36, emblem && opts.warship ? (MM, into) => { into.add('paint', PRIM.box, MM(0, yy - sh * 0.5, m.z + 0.36 + sw * 0.13 + 0.03, 0.5, sh * 0.7, 0.02), band); into.add('paint', PRIM.box, MM(0, yy - sh * 0.42, m.z + 0.36 + sw * 0.13 + 0.03, sw * 0.6, 0.5, 0.02), band); } : null);
+    if (emblem && !opts.warship) { mb.add('paint', PRIM.box, M(0, yy - sh * 0.5, m.z + 0.36 + sw * 0.13 + 0.03, 0.5, sh * 0.7, 0.02), band); mb.add('paint', PRIM.box, M(0, yy - sh * 0.42, m.z + 0.36 + sw * 0.13 + 0.03, sw * 0.6, 0.5, 0.02), band); }
+    if (m.top) { const ty = topY - 0.4; mb.add('haft', PRIM.cyl8, M(0, ty, m.z + 0.2, 0.09, m.top[0] + 0.6, 0.09, 0, 0, Math.PI / 2), '#5a3a20'); addSail(sailGeom(m.top[0], m.top[1], m.top[0] * 0.1, sailCols, 4), 0, ty - 0.1, m.z + 0.3); mb.add('planks', PRIM.cyl12, M(0, yy + 1.0, m.z, 1.3, 0.16, 1.3), '#5a3a20', 'local'); mb.add('hull', PRIM.cyl12, M(0, yy + 1.35, m.z, 1.4, 0.55, 1.4), wood); }
     mb.add('cloth2', PRIM.box, M(0, topY + 0.3, m.z - 1.0, 0.03, 0.32, 2.0), band);
     const bowZ = S.bowsprit ? bowT.z + 4.2 : bowT.z, bowY = S.bowsprit ? S.castles.fore + 1.4 : bowT.gun + (S.longship ? 1.2 : 0.4);
     lines.push(0, topY, m.z, 0, bowY, Math.min(bowZ, m.z + S.L * 0.65));
@@ -188,7 +193,7 @@ export function buildShip(size, v = 0) {
     // braces and sheets to the yard ends
     for (const side of [-1, 1]) { lines.push(side * (sw / 2 + 0.4), yy, m.z + 0.25, side * stations(S, 0.15).w, sternT.gun + 0.4, stations(S, 0.15).z); lines.push(side * sw / 2, yy - sh, m.z + 0.5, side * stations(S, Math.min(0.9, m.z / S.L + 0.72)).w, S.G + 0.1, m.z + S.L * 0.22); }
   }
-  const g = mb.build();
+  const g = mb.build(); for (const o of sailObjs) g.add(o);
   if (lines.length) { const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3)); const ls = new THREE.LineSegments(lg, lineMat); g.add(ls); }
   // the hull is seen from both sides: through the laps between its strakes you never look into the boat
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.name === 'hull') o.material = hullMat(o.material); } });

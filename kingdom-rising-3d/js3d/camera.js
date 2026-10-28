@@ -22,30 +22,61 @@ export function eyeHeight(p) {
 view.firstPerson = () => view.dist < 0.6;
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
-// how far the camera can pull back before hitting something
-function clearDist(from, dir, want, inside) {
-  if (want <= 0.01) return 0;
-  const step = 0.18; let d = 0.25;
-  for (; d < want; d += step) {
-    const x = from.x + dir.x * d, y = from.y + dir.y * d, z = from.z + dir.z * d;
-    if (inside) {
-      // stay inside the room: between its walls and under its ceiling
-      const b = inside; const x0 = (b.x + 1) * TILE + 0.25, x1 = (b.x + b.w - 1) * TILE - 0.25, z0 = (b.y + 1) * TILE + 0.25, z1 = (b.y + b.h - 1) * TILE - 0.25;
-      if (x < x0 || x > x1 || z < z0 || z > z1 || y > (b._ceil3 || b._floor3 + 3.2) - 0.3) return Math.max(0, d - step);
-      continue;
+// is a point inside something solid? The camera is a small ball (R), not a point, so its near plane never pokes
+// through a wall it is pressed against. `inside` is the building the hero is in (the camera stays in its room);
+// `hero` lets a loft keep the camera on the hero's own floor.
+const CAM_R = 0.28;
+function solidAt(x, y, z, inside, hero) {
+  if (inside) {
+    // stay inside the room: between its walls, under its ceiling, above its floor (the castle's terraces too)
+    const b = inside; const x0 = (b.x + 1) * TILE + CAM_R, x1 = (b.x + b.w - 1) * TILE - CAM_R, z0 = (b.y + 1) * TILE + CAM_R, z1 = (b.y + b.h - 1) * TILE - CAM_R;
+    if (x < x0 || x > x1 || z < z0 || z > z1) return true;
+    if (y > (b._ceil3 || (b._floor3 || 0) + 3.2) - CAM_R) return true;
+    if (y < geo.floorAt(x / PX, z / PX) + CAM_R) return true;
+    // a loft: from up there the camera stays above its boards; from below it stays under them
+    const L = b.loft; if (L && b._floor3 != null && geo.LOFT_H) {
+      const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE);
+      if (tx >= L.x0 && tx <= L.x1 && tz >= L.y0 && tz <= L.y1) { const lf = b._floor3 + geo.LOFT_H; if (hero && hero.upB === b ? y < lf + CAM_R : y > lf - 0.16 - CAM_R) return true; }
     }
-    const g = geo.groundXZ(x, z); if (y < g + 0.35) return Math.max(0, d - step);
-    if (geo.dungeon && geo.ceilAt && y > geo.ceilAt(x, z) - 0.3) return Math.max(0, d - step);
-    const c = geo.solidTileXZ(x, z);
-    if (c === 5) { const top = geo.structTop ? geo.structTop(x, z) : g + 6; if (y < top + 0.3) return Math.max(0, d - step); }
-    if (geo.dungeon && (c === 1)) return Math.max(0, d - step);
-    // trees and big rocks
-    { const tx = Math.floor(x / TILE), ty = Math.floor(z / TILE); if (tx >= 0 && ty >= 0 && tx < W.W && ty < W.H && W.block[ty * W.W + tx] && y < g + 7) { const cx = (tx + 0.5) * TILE, cz = (ty + 0.5) * TILE; if (Math.hypot(x - cx, z - cz) < 0.75) return Math.max(0, d - step); } }
-    // roofs and walls of buildings
-    if (geo.roofAt) { const r = geo.roofAt(x, z); if (r != null && y < r + 0.25) return Math.max(0, d - step); }
+    return false;
+  }
+  const g = geo.groundXZ(x, z); if (y < g + CAM_R + 0.05) return true;
+  if (geo.dungeon && geo.ceilAt && y > geo.ceilAt(x, z) - CAM_R) return true;
+  const tx = Math.floor(x / TILE), ty = Math.floor(z / TILE);
+  if (tx < 0 || ty < 0 || tx >= W.W || ty >= W.H) return true;
+  const c = geo.solidTileXZ(x, z);
+  if (geo.dungeon && c === 1) return true;
+  if (c === 5) { const top = geo.structTop ? geo.structTop(x, z) : g + 6; if (y < top + CAM_R) return true; }
+  // another building: its walls, rooms and roof are all solid from outside
+  const bi = geo.bmap ? geo.bmap[ty * W.W + tx] : -1;
+  if (bi >= 0) { const top = geo.structTop ? geo.structTop(x, z) : g + 6; if (y < top) return true; }
+  // the deck or stairs you are standing over (bridges, the wall walk): not under them
+  const fl = geo.floorAt(x / PX, z / PX); if (fl > g + 0.5 && y < fl + CAM_R && y > fl - 1.4) return true;
+  // trees and big rocks: a trunk-sized column
+  if (W.block[ty * W.W + tx] && y < g + 7) { const cx = (tx + 0.5) * TILE, cz = (ty + 0.5) * TILE; if (Math.hypot(x - cx, z - cz) < 0.55 + CAM_R) return true; }
+  // roofs
+  if (geo.roofAt) { const r = geo.roofAt(x, z); if (r != null && y < r + CAM_R) return true; }
+  return false;
+}
+// the ball: its centre and four points round it at the same height, plus one below (the near plane's lower edge)
+function ballHit(x, y, z, inside, hero) {
+  return solidAt(x, y, z, inside, hero) || solidAt(x + CAM_R, y, z, inside, hero) || solidAt(x - CAM_R, y, z, inside, hero)
+    || solidAt(x, y, z + CAM_R, inside, hero) || solidAt(x, y, z - CAM_R, inside, hero) || solidAt(x, y - CAM_R * 0.6, z, inside, hero);
+}
+// how far the camera can pull back from `from` along `dir` before the ball touches something
+function clearDist(from, dir, want, inside, hero) {
+  if (want <= 0.01) return 0;
+  const step = 0.12; let d = 0.2;
+  for (; d < want; d += step) {
+    if (ballHit(from.x + dir.x * d, from.y + dir.y * d, from.z + dir.z * d, inside, hero)) {
+      // refine between the last clear spot and the hit, so the pull-in is smooth rather than stepped
+      let lo = d - step, hi = d; for (let k = 0; k < 4; k++) { const m = (lo + hi) / 2; if (ballHit(from.x + dir.x * m, from.y + dir.y * m, from.z + dir.z * m, inside, hero)) hi = m; else lo = m; }
+      return Math.max(0, lo);
+    }
   }
   return want;
 }
+K3.camSolidAt = (x, y, z) => solidAt(x, y, z, G.player ? W.buildingAt(G.player.x, G.player.y) : null, G.player); // for tests
 
 export function updateCamera(dt, p) {
   // smooth zoom
@@ -71,14 +102,21 @@ export function updateCamera(dt, p) {
   const inside = W.buildingAt(p.x, p.y);
   if (view.firstPerson()) {
     cam.position.set(ex + Math.cos(yaw) * sway, fy + eh + bob, ez - Math.sin(yaw) * sway);
-    // lean the eye slightly forward so you can see your feet without seeing inside your own head
-    cam.position.x += -Math.sin(yaw) * 0.12; cam.position.z += -Math.cos(yaw) * 0.12;
+    // lean the eye slightly forward so you can see your feet without seeing inside your own head; never into a wall
+    const lx = cam.position.x - Math.sin(yaw) * 0.12, lz = cam.position.z - Math.cos(yaw) * 0.12;
+    if (!solidAt(lx, cam.position.y, lz, inside, p)) { cam.position.x = lx; cam.position.z = lz; }
+    view.camD = 0;
   } else {
     const right = _v2.set(Math.cos(yaw), 0, -Math.sin(yaw));
     const pivot = _v.set(ex, fy + eh * 0.95, ez).addScaledVector(right, 0.42 * Math.min(1, view.dist / 4));
     const back = _v2.copy(fwd).multiplyScalar(-1);
-    const d = clearDist(pivot, back, view.dist, inside);
-    cam.position.copy(pivot).addScaledVector(back, Math.max(0.3, d));
+    // the pivot itself must be clear (a hero squeezed against a wall): pull it back over the hero's head if not
+    if (ballHit(pivot.x, pivot.y, pivot.z, inside, p)) pivot.set(ex, fy + eh * 0.95, ez);
+    const d = clearDist(pivot, back, view.dist, inside, p);
+    // in at once when something comes between (never a frame through a wall), back out gently when it clears
+    if (view.camD == null || d < view.camD) view.camD = d; else view.camD += (d - view.camD) * Math.min(1, dt * 3.5);
+    view.camD = Math.min(view.camD, view.dist);
+    cam.position.copy(pivot).addScaledVector(back, Math.max(0.12, view.camD));
   }
   if (K3.settings.shake === false) view.shake = 0;
   if (view.shake > 0) { cam.position.x += (Math.random() - 0.5) * view.shake * 0.15; cam.position.y += (Math.random() - 0.5) * view.shake * 0.15; view.shake = Math.max(0, view.shake - dt * 2.5); }

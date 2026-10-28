@@ -2379,6 +2379,21 @@
   War.sallyUntil = War.sallyUntil || {};
   const close0 = War.closeGates;
   War.closeGates = function (f) { if (War.sallyUntil[f] && G.now < War.sallyUntil[f]) return 0; return close0.apply(this, arguments); };
+  // a soldier on the march who can't get at what it is fighting (behind a wall, across water) lets it go after a few
+  // seconds, so the whole column doesn't stand still forever (the squad only moves on when nobody is in combat)
+  const ur0 = War.updateRaider;
+  War.updateRaider = function (r, dt) {
+    const out = ur0.apply(this, arguments);
+    try {
+      if (r && !r.dead && r.warState === 'march' && r.inCombat) {
+        const t = G.topHate(r); const d = t ? Math.hypot(t.x - r.x, t.y - r.y) : 0;
+        const hitRecently = (r.lastHit && G.now - r.lastHit < 4000) || (t && t.lastHit && G.now - t.lastHit < 4000 && t._hurtBy && t._hurtBy.has(r));
+        if (!t || hitRecently || r._stallD == null || d < r._stallD - 12) { r._stallD = d; r._stallAt = G.now; }
+        else if (G.now - r._stallAt > 8000) { if (t) r.hate.delete(t); r.inCombat = false; r.scanT = 20; r._stallD = null; }
+      } else if (r) r._stallD = null;
+    } catch (e) {}
+    return out;
+  };
   const order0 = War.orderAttack;
   War.orderAttack = function (f) {
     const ff = f || (G.player && G.player.c.faction);

@@ -681,6 +681,11 @@ export function animateHumanoid(rig, st, dt) {
   // ---- kick ----
   if (st.kick > 0 && st.kick < 1) { const k = Math.sin(st.kick * Math.PI); B.thighR.rotation.x = -1.6 * k; B.shinR.rotation.x = 0.3 * (1 - k); B.chest.rotation.x = 0.2 * k; B.armL.rotation.z = 0.6 * k; B.armR.rotation.z = -0.6 * k; }
   // ---- special moves ----
+  // running in terror (systems.js: a townsperson fleeing raiders, or racing for the alarm bell): hands up by the head,
+  // flailing, a glance back over the shoulder now and then
+  if (st.panic && st.move > 0 && !st.dead) { const t2 = rig.t; const fl = Math.sin(t2 * 13);
+    B.armL.rotation.x = -2.2 + fl * 0.35; B.armR.rotation.x = -2.2 - fl * 0.35; B.armL.rotation.z = 0.55; B.armR.rotation.z = -0.55; B.foreL.rotation.x = -1.2; B.foreR.rotation.x = -1.2;
+    B.chest.rotation.x += 0.18; B.head.rotation.y = Math.sin(t2 * 1.7) > 0.6 ? 1.1 * Math.sin(t2 * 1.7) : 0; }
   if (st.animK && st.animP > 0 && st.animP < 1) {
     const k = st.animK, p = st.animP, s1 = Math.sin(p * Math.PI);
     if (k === 'slam' || k === 'hop') { B.hips.position.y += s1 * (k === 'slam' ? 0.7 : 0.45); B.thighL.rotation.x -= s1 * 0.6; B.thighR.rotation.x -= s1 * 0.6; B.shinL.rotation.x += s1 * 1.0; B.shinR.rotation.x += s1 * 1.0; if (k === 'slam') { B.armR.rotation.x = -2.6 * s1; B.armL.rotation.x = -2.6 * s1; } }

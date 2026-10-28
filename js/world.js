@@ -1223,6 +1223,54 @@
       case 'chamber': break;
       default: rugAt(mx, y1 - 1); put('stool', mx + 1, y0 + 1, { nb: true }); put('candle', x0, y1 - 1, { nb: true }); put(b.type === 'smithy' || b.type === 'forge' ? 'washtub' : 'stove', x1, y1 - 1, b.type === 'smithy' || b.type === 'forge' ? { nb: true } : {}); break;
     }
+    trinkets(b, x0, y0, x1, y1);
+  }
+  // the little things that make a room somebody's: pictures, sconces, shelves and trophies on the walls, herbs and pans
+  // by the fire, a candle wheel under the beams of a big room, a pot plant, a broom by the door, crates in a corner.
+  // Wall pieces hang above anything low (a bed, a chest, a table) but never behind tall furniture; nothing that blocks
+  // goes anywhere that would cut a corner of the room off from the door.
+  const TALL = new Set(['wardrobe', 'bookshelf', 'shelf', 'hearth', 'forge', 'weaponrack', 'clothrack', 'armorstand', 'loom', 'keg', 'vault', 'tapestry', 'banner', 'stove', 'counter', 'throne', 'brazier', 'statue', 'dummy', 'cauldron', 'kingbed', 'workbench', 'painting', 'sconce', 'wallshelf', 'herbs', 'potrack', 'trophy', 'antlers', 'lectern', 'pillar', 'orepile', 'cratepile']);
+  const THEMES = {
+    house: ['painting', 'herbs', 'wallshelf', 'sconce', 'painting'], inn: ['antlers', 'painting', 'sconce', 'trophy', 'wallshelf', 'painting', 'sconce'], pub: ['trophy', 'sconce', 'antlers', 'painting', 'sconce', 'wallshelf'],
+    outpost: ['antlers', 'sconce', 'wallshelf'], bank: ['painting', 'sconce', 'painting', 'sconce'], guild: ['painting', 'sconce', 'trophy', 'wallshelf'], exchange: ['painting', 'sconce'], heroes: ['trophy', 'painting', 'sconce'],
+    barracks: ['trophy', 'sconce', 'trophy', 'wallshelf', 'sconce'], hall: ['painting', 'sconce', 'trophy', 'sconce'], alchemist: ['herbs', 'wallshelf', 'sconce', 'herbs'], store: ['wallshelf', 'sconce', 'painting', 'wallshelf'], arms: ['trophy', 'sconce', 'trophy', 'wallshelf'],
+  };
+  function trinkets(b, x0, y0, x1, y1) {
+    if (b.type === 'chamber' || b.type === 'kingtower') return;
+    const theme = THEMES[b.type] || ['wallshelf', 'sconce', 'painting']; const grand = ['bank', 'guild', 'hall', 'heroes', 'exchange'].includes(b.type);
+    const K = (x, y) => y * W.W + x; const door = b.door;
+    const at = (x, y) => W.decor.filter((d) => d.tx === x && d.ty === y && !d.up);
+    const stair = (x, y) => !!(W.stairs && W.stairs.get(K(x, y)));
+    const underLoft = (x, y) => b.loft && x >= b.loft.x0 && x <= b.loft.x1 && y >= b.loft.y0 && y <= b.loft.y1;
+    // the castle keeps its hangings on its throne hall walls (the top floor) only
+    const floorOk = (x, y) => !b.terr || (W.terrLv && W.terrLv(b.terr.cells[(y - b.terr.y0) * b.terr.w + (x - b.terr.x0)], 0.5, 0.5) >= 3);
+    const wallFree = (x, y) => !stair(x, y) && floorOk(x, y) && !at(x, y).some((d) => TALL.has(d.kind)) && !(Math.abs(x - door.tx) <= 1 && y >= y1 - 1);
+    // the wall tiles, round the room: back wall, then the side walls, then the front either side of the door
+    const ring = []; for (let x = x0 + 1; x < x1; x++) ring.push([x, y0]); for (let y = y0 + 1; y < y1; y++) { ring.push([x0, y]); ring.push([x1, y]); } for (let x = x0 + 1; x < x1; x++) ring.push([x, y1]);
+    const hungAt = new Set(); let ti = Math.floor(U.hash(b.x, b.y, 7) * theme.length);
+    const nearFire = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy).some((d) => d.kind === 'stove' || d.kind === 'hearth'));
+    for (const [x, y] of ring) {
+      if (!wallFree(x, y) || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => hungAt.has(K(x + dx, y + dy)))) continue;
+      let kind = theme[ti % theme.length];
+      if (nearFire(x, y)) kind = U.hash(x, y, 3) < 0.5 ? 'herbs' : 'potrack'; else if (kind === 'herbs' && b.type !== 'alchemist' && b.type !== 'house') kind = 'painting';
+      addDecor(kind, x, y, { nb: true, px: x * TS + 16, py: y * TS + 24, gilt: grand }); hungAt.add(K(x, y)); ti++;
+    }
+    // a wheel of candles under the beams of any room big enough to want one
+    const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (area >= 16 && !b.terr) { const cx = Math.floor((x0 + x1) / 2), cy = b.loft ? Math.min(y1 - 1, b.loft.y1 + 2) : Math.floor((y0 + y1) / 2);
+      if (!stair(cx, cy) && !underLoft(cx, cy)) addDecor('chandelier', cx, cy, { nb: true, px: cx * TS + 16, py: cy * TS + 24, big: area >= 30 }); }
+    // the floor: a pot plant in a spare corner, a broom by the door, crates where a shop keeps its stock
+    const corners = [[x0, y1], [x1, y1], [x0, y0], [x1, y0]].filter(([x, y]) => !stair(x, y) && floorOk(x, y) && !W.block[K(x, y)] && !at(x, y).some((d) => !d.flat) && !(Math.abs(x - door.tx) <= 1 && y >= y1 - 1));
+    const open = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1 && !W.block[K(x, y)] && !SOLID[W.tiles[K(x, y)]];
+    const reachAll = () => { const sx = door.tx, sy = door.ty - 1; if (!open(sx, sy)) return true; const seen = new Set([K(sx, sy)]); const q = [[sx, sy]];
+      while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = K(nx, ny); if (!seen.has(k) && open(nx, ny)) { seen.add(k); q.push([nx, ny]); } } }
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (open(x, y) && !seen.has(K(x, y))) return false; return true; };
+    const spotTaken = (x, y) => Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y)) || (b._hold && b._hold.has(K(x, y)));
+    const solid = (kind, x, y) => { if (spotTaken(x, y)) return false; const d = addDecor(kind, x, y, {}); if (!reachAll()) { W.decor.splice(W.decor.indexOf(d), 1); W.block[K(x, y)] = 0; return false; } return true; };
+    let c = 0;
+    if (['store', 'arms', 'alchemist', 'inn', 'pub', 'barracks', 'outpost'].includes(b.type) && corners[c]) { if (solid('cratepile', ...corners[c])) c++; else c++; }
+    if (corners[c] && !b.terr) { const [x, y] = corners[c]; if (!spotTaken(x, y)) addDecor('plant', x, y, { nb: true, px: x * TS + 16 + (x === x0 ? -6 : 6), py: y * TS + 24 + (y === y0 ? -6 : 4) }); c++; }
+    if (['house', 'inn', 'pub', 'store', 'barracks'].includes(b.type)) { const bx = door.tx + (U.hash(b.x, b.y, 3) < 0.5 ? -2 : 2); if (bx >= x0 && bx <= x1 && !W.block[K(bx, y1)] && !at(bx, y1).some((d) => !d.flat) && !spotTaken(bx, y1)) addDecor('broom', bx, y1, { nb: true, px: bx * TS + 16, py: y1 * TS + 30, face: 'n' }); }
   }
   // an upper floor over the back half of a building, reached by a staircase along a side wall:
   // b.loft is the floor's tile rectangle; its steps go in W.stairs (climbing north, toward the back wall)
@@ -1678,7 +1726,7 @@
     }
     // the kingdom's building plots; the barracks stands on its plot only once it has been built (KR.Realm)
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].barracksB = null;
-    const plots = placePlots(f, cx, cy, R);
+    const plots = placePlots(f, cx, cy, W.realmMode() ? Math.min(R, D.cityRadius(4)) : R); // laid out in the level-4 town, so no plot moves when the walls go out at level 5
     harbourYard(f); // the shipyard's plot on the quay (warmarch.js naval section)
     if (W.realmHas(f, 'barracks')) {
       const pb = plots.find((q) => q.id === 'barracks');

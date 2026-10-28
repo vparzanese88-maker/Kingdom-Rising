@@ -2503,8 +2503,10 @@
     try {
       if (r && !r.dead && r.warState === 'march' && r.inCombat) {
         const t = G.topHate(r); const d = t ? Math.hypot(t.x - r.x, t.y - r.y) : 0;
-        const hitRecently = (r.lastHit && G.now - r.lastHit < 4000) || (t && t.lastHit && G.now - t.lastHit < 4000 && t._hurtBy && t._hurtBy.has(r));
-        if (!t || hitRecently || r._stallD == null || d < r._stallD - 12) { r._stallD = d; r._stallAt = G.now; }
+        // only what is within reach stops the column: archers on a wall or a foe across water don't
+        if (t && d > (r.ranged ? 340 : 240)) { r.hate.delete(t); r.inCombat = false; r.scanT = 6; r._stallD = null; return out; }
+        const dealt = t && t.lastHit && G.now - t.lastHit < 4000 && t._hurtBy && t._hurtBy.has(r);
+        if (!t || dealt || r._stallD == null || d < r._stallD - 12) { r._stallD = d; r._stallAt = G.now; }
         else if (G.now - r._stallAt > 8000) { if (t) r.hate.delete(t); r.inCombat = false; r.scanT = 20; r._stallD = null; }
       } else if (r) r._stallD = null;
     } catch (e) {}

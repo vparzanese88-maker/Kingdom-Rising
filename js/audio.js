@@ -790,7 +790,7 @@
     const src = ctx.createBufferSource(); src.buffer = takes[Math.floor(Math.random() * takes.length)]; src.playbackRate.value = (o.rate || 1) * (1 + (Math.random() - 0.5) * (o.vary == null ? 0.1 : o.vary));
     const g = ctx.createGain(); g.gain.value = vol; src.connect(g);
     let dst = g; if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); dst = p; }
-    dst.connect(sfxBus); if (o.rev && revIn) { const s = ctx.createGain(); s.gain.value = o.rev; dst.connect(s); s.connect(revIn); }
+    dst.connect(sfxBus); const rv = (o.rev || 0) + (A.indoor && o.rev == null ? 0.18 : 0); if (rv && revIn) { const s = ctx.createGain(); s.gain.value = rv; dst.connect(s); s.connect(revIn); } // indoors, everything rings off the walls
     if (o.delay) src.start(now + o.delay); else src.start(now);
     const end = now + (o.delay || 0) + src.buffer.duration / src.playbackRate.value; live.push({ src, g, vol, end }); src.onended = () => { const k = live.findIndex((v) => v.src === src); if (k >= 0) live.splice(k, 1); };
     return src;
@@ -855,4 +855,192 @@
     // scattered steel near you, more of it the bigger the fight
     if (n > 1 && Math.random() < Math.min(0.9, n * 0.06)) playBank(Math.random() < 0.7 ? 'clash' : Math.random() < 0.5 ? 'armorhit' : 'shieldblock', R(0.12, 0.35), R(-0.8, 0.8), { delay: Math.random() * 0.4, vary: 0.2 });
   };
+  // =====================================================================
+  // the living world: footsteps by surface and armour, blows by what they land on, swings by weight, and a layered
+  // soundscape (wind, birds by day, crickets and owls at night, rain, the sea, a town at work, a tavern, a hearth)
+  // that follows where the hero is. All synthesized once into buffers (cheap to replay); none of it is recorded.
+  // =====================================================================
+  const loopSeam = (L, Rr, sr, xfS = 0.6) => { const n = L.length, xf = Math.floor(xfS * sr); for (let i = 0; i < xf; i++) { const k = i / xf; L[i] = L[i] * k + L[n - xf + i] * (1 - k); Rr[i] = Rr[i] * k + Rr[n - xf + i] * (1 - k); } return [Float32Array.from(L.subarray(0, n - xf)), Float32Array.from(Rr.subarray(0, n - xf))]; };
+  const sine = (f, dur, dec, sr, slide = 0) => { const a = new Float32Array(Math.floor(dur * sr)); let ph = 0; for (let i = 0; i < a.length; i++) { const t = i / sr; ph += 2 * Math.PI * f * (1 + slide * t) / sr; a[i] = Math.sin(ph) * Math.exp(-t / dec); } return a; };
+  const modes = (f0, ratios, dur, dec, sr) => { const a = new Float32Array(Math.floor(dur * sr)); ratios.forEach((m, k) => { let ph = rng() * 6.28; const f = f0 * m * R(0.97, 1.03), d = dec / (1 + k * 0.5), amp = 1 / (1 + k * 0.6); for (let i = 0; i < a.length; i++) { ph += 2 * Math.PI * f / sr; a[i] += Math.sin(ph) * amp * Math.exp(-i / sr / d); } }); return a; };
+  const burstN = (dur, dec, sr) => env(noiseArr(Math.floor(dur * sr)), (t) => Math.exp(-t / dec), sr);
+  const stereo = (m, w = 0.15) => { const L = Float32Array.from(m), Rr = Float32Array.from(m); const d = Math.floor(R(0, w) * 0.004 * bankSR); for (let i = Rr.length - 1; i >= d; i--) Rr[i] = m[i - d]; return [L, Rr]; };
+  const STEP = {
+    grass(sr) { const o = new Float32Array(Math.floor(0.22 * sr)); mixInto(o, env(bp(noiseArr(o.length), R(1400, 2400), 0.9, sr), (t) => Math.min(1, t / 0.012) * Math.exp(-t / 0.05), sr), 0, 0.9); mixInto(o, sine(R(70, 95), 0.1, 0.03, sr, -2), 0, 0.5); return o; },
+    stone(sr) { const o = new Float32Array(Math.floor(0.2 * sr)); mixInto(o, env(hp1(noiseArr(Math.floor(0.02 * sr)), 1800, sr), (t) => Math.exp(-t / 0.004), sr), 0, 0.9); mixInto(o, env(lp1(noiseArr(Math.floor(0.12 * sr)), 700, sr), (t) => Math.exp(-t / 0.025), sr), 0, 0.9); mixInto(o, sine(R(110, 150), 0.08, 0.02, sr, -3), 0, 0.5); return o; },
+    gravel(sr) { const o = new Float32Array(Math.floor(0.22 * sr)); for (let k = 0; k < 22; k++) mixInto(o, env(bp(noiseArr(Math.floor(0.006 * sr)), R(2000, 6000), 2, sr), (t) => Math.exp(-t / 0.0015), sr), Math.floor(R(0, 0.11) * sr), R(0.2, 0.6)); mixInto(o, sine(R(85, 110), 0.08, 0.025, sr, -2), 0, 0.5); return o; },
+    wood(sr) { const o = new Float32Array(Math.floor(0.25 * sr)); mixInto(o, modes(R(150, 210), [1, 2.3, 4.1], 0.2, 0.05, sr), 0, 0.8); mixInto(o, env(hp1(noiseArr(Math.floor(0.015 * sr)), 1500, sr), (t) => Math.exp(-t / 0.003), sr), 0, 0.6); return o; },
+    mud(sr) { const n = Math.floor(0.3 * sr), w = noiseArr(n), o = new Float32Array(n); let y1 = 0, y2 = 0, x1 = 0, x2 = 0; for (let i = 0; i < n; i++) { const t = i / sr, f = 280 + 900 * Math.min(1, t / 0.18), ww = 2 * Math.PI * f / sr, al = Math.sin(ww) / 6, c = Math.cos(ww); const v = w[i]; const y = (al * v - al * x2 + 2 * c * y1 - (1 - al) * y2) / (1 + al); x2 = x1; x1 = v; y2 = y1; y1 = y; o[i] = y * Math.min(1, t / 0.02) * Math.exp(-t / 0.08); } mixInto(o, sine(75, 0.1, 0.04, sr), 0, 0.4); return o; },
+    sand(sr) { const o = new Float32Array(Math.floor(0.22 * sr)); mixInto(o, env(lp1(noiseArr(o.length), 2200, sr), (t) => Math.min(1, t / 0.02) * Math.exp(-t / 0.06), sr), 0, 0.8); return o; },
+    water(sr) { const o = new Float32Array(Math.floor(0.4 * sr)); mixInto(o, env(bp(noiseArr(Math.floor(0.25 * sr)), R(900, 1500), 0.8, sr), (t) => Math.min(1, t / 0.01) * Math.exp(-t / 0.07), sr), 0, 1); for (let k = 0; k < 4; k++) mixInto(o, sine(R(500, 1300), 0.06, 0.02, sr, R(4, 12)), Math.floor(R(0.03, 0.2) * sr), R(0.15, 0.35)); return o; },
+  };
+  Object.keys(STEP).forEach((s) => { MAKE['step_' + s] = () => { const st = stereo(STEP[s](bankSR)); norm(st, 0.8); return st; }; TAKES['step_' + s] = 4; });
+  // armour as you walk: mail's fine metal jingle, plate's dull clank and rattle
+  MAKE.jingle = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.2 * sr)); for (let k = 0; k < 16; k++) mixInto(o, sine(R(3500, 8000), 0.05, R(0.008, 0.02), sr), Math.floor(R(0, 0.09) * sr), R(0.2, 0.5)); const st = stereo(o); norm(st, 0.6); return st; };
+  MAKE.clank = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.25 * sr)); mixInto(o, modes(R(320, 520), [1, 2.6, 4.4, 6.9], 0.22, 0.05, sr), 0, 0.8); for (let k = 0; k < 4; k++) mixInto(o, modes(R(700, 1300), [1, 2.7], 0.05, 0.012, sr), Math.floor(R(0.02, 0.1) * sr), 0.3); const st = stereo(o); norm(st, 0.65); return st; };
+  TAKES.jingle = 4; TAKES.clank = 4;
+  // what a blow lands on (steel uses the armour hit already in the bank)
+  MAKE.imp_flesh = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.3 * sr)); mixInto(o, env(lp1(noiseArr(Math.floor(0.12 * sr)), 900, sr), (t) => Math.exp(-t / 0.03), sr), 0, 1.2); mixInto(o, sine(R(80, 110), 0.18, 0.05, sr, -1.5), 0, 0.9); mixInto(o, env(bp(noiseArr(Math.floor(0.1 * sr)), R(600, 900), 3, sr), (t) => Math.min(1, t / 0.01) * Math.exp(-t / 0.035), sr), Math.floor(0.008 * sr), 0.35); const st = stereo(o); norm(st, 0.85); return st; };
+  MAKE.imp_wood = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.45 * sr)); mixInto(o, modes(R(180, 260), [1, 2.45, 4.6, 7.1], 0.4, 0.09, sr), 0, 0.8); mixInto(o, env(hp1(noiseArr(Math.floor(0.03 * sr)), 1200, sr), (t) => Math.exp(-t / 0.006), sr), 0, 0.9); for (let k = 0; k < 6; k++) mixInto(o, burstN(0.01, 0.002, sr), Math.floor(R(0.01, 0.12) * sr), R(0.1, 0.3)); const st = stereo(o); norm(st, 0.85); return st; };
+  MAKE.imp_stone = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.45 * sr)); mixInto(o, env(hp1(noiseArr(Math.floor(0.04 * sr)), 2200, sr), (t) => Math.exp(-t / 0.005), sr), 0, 1); mixInto(o, env(lp1(noiseArr(Math.floor(0.3 * sr)), 500, sr), (t) => Math.exp(-t / 0.06), sr), 0, 0.8); for (let k = 0; k < 10; k++) mixInto(o, env(bp(noiseArr(Math.floor(0.008 * sr)), R(2500, 6000), 2, sr), (t) => Math.exp(-t / 0.002), sr), Math.floor(R(0.02, 0.25) * sr), R(0.1, 0.3)); const st = stereo(o); norm(st, 0.85); return st; };
+  MAKE.imp_bone = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.25 * sr)); mixInto(o, modes(R(900, 1500), [1, 2.1, 3.7], 0.12, 0.018, sr), 0, 0.8); for (let k = 0; k < 5; k++) mixInto(o, modes(R(1200, 2600), [1, 2.4], 0.04, 0.008, sr), Math.floor(R(0.01, 0.12) * sr), 0.4); const st = stereo(o); norm(st, 0.8); return st; };
+  MAKE.imp_magic = () => { const sr = bankSR, o = new Float32Array(Math.floor(0.6 * sr)); for (let k = 0; k < 6; k++) mixInto(o, sine(R(600, 1800), 0.5, 0.18, sr, R(-0.4, 0.4)), Math.floor(R(0, 0.05) * sr), 0.25); mixInto(o, env(bp(noiseArr(o.length), 3000, 1, sr), (t) => Math.exp(-t / 0.12), sr), 0, 0.3); const st = stereo(o, 0.6); norm(st, 0.7); return st; };
+  // the air a swing moves: a light blade's swish, a great weapon's deep, slow whoom
+  const swish = (heavy) => { const sr = bankSR, n = Math.floor((heavy ? 0.5 : 0.28) * sr), w = noiseArr(n), o = new Float32Array(n); let y1 = 0, y2 = 0, x1 = 0, x2 = 0; const f0 = heavy ? R(250, 380) : R(700, 1100), f1 = heavy ? R(700, 1000) : R(2200, 3400); for (let i = 0; i < n; i++) { const t = i / n, f = f0 + (f1 - f0) * Math.sin(Math.PI * t), ww = 2 * Math.PI * f / sr, al = Math.sin(ww) / (heavy ? 3 : 4), c = Math.cos(ww); const v = w[i]; const y = (al * v - al * x2 + 2 * c * y1 - (1 - al) * y2) / (1 + al); x2 = x1; x1 = v; y2 = y1; y1 = y; o[i] = y * Math.pow(Math.sin(Math.PI * t), 1.6); } const st = stereo(o, 0.4); norm(st, heavy ? 0.75 : 0.6); return st; };
+  MAKE.whoosh_light = () => swish(false); MAKE.whoosh_heavy = () => swish(true); TAKES.whoosh_light = 4; TAKES.whoosh_heavy = 3;
+  ['imp_flesh', 'imp_wood', 'imp_stone', 'imp_bone', 'imp_magic'].forEach((k) => (TAKES[k] = k === 'imp_flesh' ? 4 : 3));
+
+  // ---------- the soundscape: long seamless loops, made only when first needed ----------
+  const AMB = {
+    wind() { const sr = bankSR, n = Math.floor(10 * sr); const a = lp1(lp1(brown(n), 420, sr), 420, sr), b = bp(noiseArr(n), 650, 2.5, sr); const L = new Float32Array(n), Rr = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const t = i / sr, g = 0.55 + 0.45 * Math.sin(t * 0.63 + Math.sin(t * 0.21) * 2), w = 0.3 + 0.7 * Math.max(0, Math.sin(t * 0.41 + 1)); L[i] = a[i] * g + b[i] * 0.08 * w; Rr[i] = a[(i + 911) % n] * g + b[(i + 4000) % n] * 0.08 * w; }
+      const st = loopSeam(L, Rr, sr); norm(st, 0.5); return st; },
+    birds() { const sr = bankSR, n = Math.floor(12 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      const bed = lp1(brown(n), 300, sr); for (let i = 0; i < n; i++) { L[i] = bed[i] * 0.05; Rr[i] = bed[(i + 777) % n] * 0.05; }
+      for (let k = 0; k < 34; k++) { const at = Math.floor(R(0.2, 11.2) * sr), f = R(2400, 5600), notes = 1 + Math.floor(rng() * 5), pan = R(-0.8, 0.8), g = R(0.08, 0.28);
+        for (let j = 0; j < notes; j++) { const dur = R(0.04, 0.12), c = new Float32Array(Math.floor(dur * sr)); let ph = 0; const sl = R(-0.5, 0.6), vib = R(20, 60);
+          for (let i = 0; i < c.length; i++) { const t = i / sr; ph += 2 * Math.PI * f * (1 + sl * t / dur) * (1 + 0.04 * Math.sin(2 * Math.PI * vib * t)) / sr; c[i] = Math.sin(ph) * Math.sin(Math.PI * t / dur); }
+          const s0 = at + Math.floor(j * R(0.07, 0.16) * sr); mixInto(L, c, s0, g * (1 - pan) * 0.5); mixInto(Rr, c, s0, g * (1 + pan) * 0.5); } }
+      const st = loopSeam(L, Rr, sr, 0.4); norm(st, 0.55); return st; },
+    night() { const sr = bankSR, n = Math.floor(12 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      // crickets: each a carrier pulsed in chirps, at its own pitch and rhythm, placed around you
+      for (let c = 0; c < 4; c++) { const f = R(3800, 5200), pr = R(0.55, 1.1), pulses = 2 + Math.floor(rng() * 3), pan = R(-0.9, 0.9), g = R(0.06, 0.16), off = R(0, pr); let ph = 0;
+        for (let i = 0; i < n; i++) { const t = i / sr, ct = (t + off) % pr, inChirp = ct < pulses * 0.045 ? 1 : 0, pu = inChirp ? Math.max(0, Math.sin(Math.PI * ((ct % 0.045) / 0.045))) : 0; ph += 2 * Math.PI * f / sr; const v = Math.sin(ph) * pu * pu; L[i] += v * g * (1 - pan) * 0.5; Rr[i] += v * g * (1 + pan) * 0.5; } }
+      // an owl far off, once in a while: a soft two-note hoot
+      const owl = (at, pan) => { for (const [dt, f, d] of [[0, 400, 0.35], [0.5, 360, 0.6]]) { const h = new Float32Array(Math.floor(d * sr)); let ph = 0; for (let i = 0; i < h.length; i++) { const t = i / sr; ph += 2 * Math.PI * f * (1 + 0.02 * Math.sin(t * 30)) / sr; h[i] = (Math.sin(ph) + 0.2 * Math.sin(ph * 2)) * Math.sin(Math.PI * t / d); } const s0 = Math.floor((at + dt) * sr); mixInto(L, h, s0, 0.09 * (1 - pan)); mixInto(Rr, h, s0, 0.09 * (1 + pan)); } };
+      owl(R(2, 4), R(-0.7, 0.7)); owl(R(8, 9.5), R(-0.7, 0.7));
+      const bed = lp1(brown(n), 250, sr); for (let i = 0; i < n; i++) { L[i] += bed[i] * 0.04; Rr[i] += bed[(i + 500) % n] * 0.04; }
+      const st = loopSeam(L, Rr, sr, 0.4); norm(st, 0.5); return st; },
+    rain() { const sr = bankSR, n = Math.floor(8 * sr), L = hp1(lp1(noiseArr(n), 5500, sr), 350, sr), Rr = hp1(lp1(noiseArr(n), 5500, sr), 350, sr);
+      for (let i = 0; i < n; i++) { L[i] *= 0.35; Rr[i] *= 0.35; }
+      for (let k = 0; k < 900; k++) { const d = env(bp(noiseArr(Math.floor(0.012 * sr)), R(1500, 5000), 3, sr), (t) => Math.exp(-t / 0.003), sr); const at = Math.floor(R(0, 7.9) * sr), pan = R(-1, 1), g = R(0.1, 0.5); mixInto(L, d, at, g * (1 - pan) * 0.5); mixInto(Rr, d, at, g * (1 + pan) * 0.5); }
+      const st = loopSeam(L, Rr, sr); norm(st, 0.6); return st; },
+    sea() { const sr = bankSR, n = Math.floor(14 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      const body = lp1(lp1(noiseArr(n), 520, sr), 520, sr), hiss = bp(noiseArr(n), 2200, 0.7, sr);
+      // two waves per loop: a swell that rises, breaks with a hiss, and drains back
+      const wave = (t) => { const u = (t % 7) / 7; return Math.pow(Math.sin(Math.PI * Math.min(1, u / 0.55)), 2) * (u < 0.55 ? 1 : 1 - (u - 0.55) / 0.45 * 0.6); };
+      for (let i = 0; i < n; i++) { const t = i / sr, w = wave(t), w2 = wave(t + 2.3); L[i] = body[i] * (0.4 + 0.6 * w) + hiss[i] * 0.25 * w * w; Rr[i] = body[(i + 1200) % n] * (0.4 + 0.6 * w2) + hiss[(i + 3000) % n] * 0.25 * w2 * w2; }
+      const st = loopSeam(L, Rr, sr, 1.0); norm(st, 0.6); return st; },
+    town() { const sr = bankSR, n = Math.floor(16 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      // the murmur of voices: noise shaped through vowel formants, opening and closing with the syllables
+      for (let v = 0; v < 7; v++) { const f1 = R(380, 820), f2 = R(1000, 2200), pan = R(-0.8, 0.8), g = R(0.1, 0.2), rate = R(3, 5.5); const a = bp(noiseArr(n), f1, 4, sr), b = bp(noiseArr(n), f2, 6, sr);
+        let talk = 1, tt = R(0, 3); for (let i = 0; i < n; i++) { const t = i / sr; if (t > tt) { talk = rng() < 0.65 ? 1 : 0; tt = t + R(0.8, 3); } const syl = Math.max(0, Math.sin(2 * Math.PI * rate * t + v)) ** 2 * talk; const x = (a[i] + b[i] * 0.6) * syl * g; L[i] += x * (1 - pan) * 0.5; Rr[i] += x * (1 + pan) * 0.5; } }
+      // work going on: a hammer on wood, a cart, a dog now and then
+      for (let k = 0; k < 9; k++) { const at = R(0.5, 15), pan = R(-0.8, 0.8); for (let j = 0; j < 3; j++) { const h = modes(R(180, 320), [1, 2.4, 4.3], 0.15, 0.03, sr); mixInto(L, h, Math.floor((at + j * 0.45) * sr), 0.12 * (1 - pan)); mixInto(Rr, h, Math.floor((at + j * 0.45) * sr), 0.12 * (1 + pan)); } }
+      const bark = (at, pan) => { for (let j = 0; j < 2; j++) { const bk = new Float32Array(Math.floor(0.14 * sr)); let ph = 0; for (let i = 0; i < bk.length; i++) { const t = i / sr; ph += 2 * Math.PI * (520 - 900 * t) / sr; bk[i] = Math.tanh(Math.sin(ph) * 3) * Math.sin(Math.PI * t / 0.14); } const b2 = bp(bk, 900, 1.5, sr); mixInto(L, b2, Math.floor((at + j * 0.28) * sr), 0.12 * (1 - pan)); mixInto(Rr, b2, Math.floor((at + j * 0.28) * sr), 0.12 * (1 + pan)); } };
+      bark(R(4, 6), R(-0.8, 0.8));
+      const bed = lp1(brown(n), 220, sr); for (let i = 0; i < n; i++) { L[i] += bed[i] * 0.06; Rr[i] += bed[(i + 900) % n] * 0.06; }
+      const st = loopSeam(L, Rr, sr, 0.8); norm(st, 0.55); return st; },
+    tavern() { const sr = bankSR, n = Math.floor(14 * sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      for (let v = 0; v < 10; v++) { const f1 = R(350, 800), f2 = R(1000, 2300), pan = R(-0.9, 0.9), g = R(0.12, 0.24), rate = R(3.2, 5.5); const a = bp(noiseArr(n), f1, 4, sr), b = bp(noiseArr(n), f2, 6, sr);
+        let talk = 1, tt = R(0, 2); for (let i = 0; i < n; i++) { const t = i / sr; if (t > tt) { talk = rng() < 0.75 ? 1 : 0; tt = t + R(0.6, 2.5); } const syl = Math.max(0, Math.sin(2 * Math.PI * rate * t + v * 1.7)) ** 2 * talk; const x = (a[i] + b[i] * 0.6) * syl * g; L[i] += x * (1 - pan) * 0.5; Rr[i] += x * (1 + pan) * 0.5; } }
+      // mugs on tables, a laugh going up
+      for (let k = 0; k < 14; k++) { const c = modes(R(1800, 3200), [1, 2.7, 5.1], 0.25, 0.06, sr), at = Math.floor(R(0.2, 13.5) * sr), pan = R(-0.9, 0.9); mixInto(L, c, at, 0.07 * (1 - pan)); mixInto(Rr, c, at, 0.07 * (1 + pan)); }
+      for (let k = 0; k < 3; k++) { const at = R(1, 12.5), pan = R(-0.6, 0.6); for (let j = 0; j < 4; j++) { const hh = bp(env(noiseArr(Math.floor(0.12 * sr)), (t) => Math.sin(Math.PI * t / 0.12), sr), R(700, 1100), 3, sr); mixInto(L, hh, Math.floor((at + j * 0.16) * sr), 0.25 * (1 - pan)); mixInto(Rr, hh, Math.floor((at + j * 0.16) * sr), 0.25 * (1 + pan)); } }
+      const st = loopSeam(L, Rr, sr, 0.6); norm(st, 0.55); return st; },
+    hearth() { const sr = bankSR, n = Math.floor(8 * sr), roar = lp1(lp1(brown(n), 180, sr), 180, sr), L = new Float32Array(n), Rr = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const t = i / sr, fl = 0.7 + 0.3 * Math.sin(t * 1.3) * Math.sin(t * 0.7); L[i] = roar[i] * 0.5 * fl; Rr[i] = roar[(i + 300) % n] * 0.5 * fl; }
+      for (let k = 0; k < 260; k++) { const p = env(hp1(noiseArr(Math.floor(R(0.002, 0.012) * sr)), R(1500, 4000), sr), (t) => Math.exp(-t / 0.0025), sr); const at = Math.floor(R(0, 7.9) * sr), pan = R(-0.4, 0.4), g = R(0.05, 0.5) * (rng() < 0.1 ? 2 : 1); mixInto(L, p, at, g * (1 - pan) * 0.5); mixInto(Rr, p, at, g * (1 + pan) * 0.5); }
+      const st = loopSeam(L, Rr, sr); norm(st, 0.55); return st; },
+    cave() { const sr = bankSR, n = Math.floor(10 * sr), L = lp1(lp1(brown(n), 160, sr), 160, sr), Rr = new Float32Array(n);
+      for (let i = 0; i < n; i++) Rr[i] = L[(i + 2000) % n]; for (let i = 0; i < n; i++) { L[i] *= 0.4; Rr[i] *= 0.4; }
+      // drips in the dark, ringing off the stone
+      for (let k = 0; k < 9; k++) { const d = sine(R(900, 1700), 0.4, 0.09, sr, R(0.5, 1.5)); const at = Math.floor(R(0, 9.5) * sr), pan = R(-0.8, 0.8); mixInto(L, d, at, 0.15 * (1 - pan)); mixInto(Rr, d, at, 0.15 * (1 + pan)); const e1 = Math.floor(0.18 * sr); mixInto(L, d, at + e1, 0.05 * (1 + pan)); mixInto(Rr, d, at + e1, 0.05 * (1 - pan)); }
+      const st = loopSeam(L, Rr, sr); norm(st, 0.5); return st; },
+  };
+  for (const k in AMB) { MAKE['amb_' + k] = AMB[k]; }
+  // layers heard through the walls when you are indoors (muffled), and layers that only exist inside
+  const OUTDOOR = ['wind', 'birds', 'night', 'rain', 'sea', 'town', 'cave'], INDOOR = ['tavern', 'hearth'];
+  let ambOut = null, ambIn = null, occl = null; const layers = {};
+  function ambBus() {
+    if (ambOut || !ctx) return;
+    occl = ctx.createBiquadFilter(); occl.type = 'lowpass'; occl.frequency.value = 18000; occl.Q.value = 0.5; occl.connect(sfxBus);
+    ambOut = ctx.createGain(); ambOut.gain.value = 0.85; ambOut.connect(occl);
+    ambIn = ctx.createGain(); ambIn.gain.value = 0.85; ambIn.connect(sfxBus);
+  }
+  function setLayer(name, want) {
+    let L = layers[name];
+    if (want > 0.005 && !L) {
+      if (!BANK['amb_' + name]) { if (!A['_aq' + name]) { A['_aq' + name] = 1; (window.requestIdleCallback || setTimeout)(() => { try { bank('amb_' + name); } catch (e) {} }, { timeout: 1500 }); } return; }
+      const takes = BANK['amb_' + name]; if (!takes || !takes.length) return;
+      const src = ctx.createBufferSource(); src.buffer = takes[0]; src.loop = true; src.playbackRate.value = R(0.97, 1.03);
+      const g = ctx.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(INDOOR.includes(name) ? ambIn : ambOut);
+      src.start(ctx.currentTime, Math.random() * takes[0].duration); L = layers[name] = { src, g, cur: 0, idle: 0 };
+    }
+    if (!L) return;
+    L.g.gain.setTargetAtTime(Math.max(0.0001, want), ctx.currentTime, want > L.cur ? 1.2 : 1.8); L.cur = want;
+    if (want <= 0.005) { L.idle += 1; if (L.idle > 20) { try { L.src.stop(); } catch (e) {} delete layers[name]; } } else L.idle = 0;
+  }
+  // what is around the hero: indoors or out, which building, how much sea is near, whether in a town, the hour and the weather
+  let seaK = 0, seaAt = 0, townK = 0;
+  A.indoor = 0;
+  function ambTick() {
+    if (!ctx || !A.enabled || ctx.state !== 'running') return;
+    const G = window.KR && KR.G, W = KR.W, D = KR.D, p = G && G.player; if (!p || !W || !D) return;
+    ambBus();
+    const realm = W.realm || 'main', under = realm !== 'main' && !/^(tidesong|summit)$/.test(realm);
+    const b = W.buildingAt && W.buildingAt(p.x, p.y), inside = !!(b || p.upB);
+    const tavern = !!(b && /inn|pub|tavern/.test(b.type)), hearth = inside && !!(b && /inn|pub|house|home|hall|guild|bank/.test(b.type));
+    const hr = ((G.clock || 540) / 60) % 24, day = hr > 5.5 && hr < 20.5 ? Math.min(1, Math.min(hr - 5.5, 20.5 - hr) / 1.2) : 0;
+    const rain = G.weather && G.weather.type === 'rain' ? 1 : 0;
+    const now = performance.now();
+    if (now - seaAt > 2000 && W.tile && KR.T) { seaAt = now; const T = KR.T, tx = Math.floor(p.x / D.TS), ty = Math.floor(p.y / D.TS); let w = 0, c = 0; for (let dy = -14; dy <= 14; dy += 3) for (let dx = -14; dx <= 14; dx += 3) { c++; const t = W.tile(tx + dx, ty + dy); if (t === T.WATER || t === T.DEEP) w++; } seaK = under ? 0 : Math.min(1, (w / c) * 2.2);
+      townK = 0; if (!under && W.cityData && D.CITY_CENTER) for (const f in W.cityData) { const cc = D.CITY_CENTER[f]; if (!cc) continue; const r = (D.cityRadius ? D.cityRadius(KR.Sys && KR.Sys.cityLevel ? KR.Sys.cityLevel(f) : 3) : 30) + 6; const d = Math.hypot(tx - cc[0], ty - cc[1]); townK = Math.max(townK, Math.min(1, Math.max(0, (r - d) / 8))); } }
+    A.indoor = inside || under ? 1 : 0;
+    const m = (inside ? 0.45 : 1);
+    if (under) { for (const k of ['wind', 'birds', 'night', 'rain', 'sea', 'town']) setLayer(k, 0); setLayer('cave', 0.5); }
+    else {
+      setLayer('cave', 0);
+      setLayer('wind', (0.22 + 0.25 * rain + 0.1 * (1 - day)) * m);
+      setLayer('birds', day * (1 - rain * 0.85) * (1 - townK * 0.5) * 0.4 * m);
+      setLayer('night', (1 - day) * (1 - rain * 0.7) * 0.45 * m);
+      setLayer('rain', rain * (inside ? 0.6 : 0.65));
+      setLayer('sea', seaK * 0.6 * m);
+      setLayer('town', townK * (0.12 + 0.36 * day) * m * (tavern ? 0.4 : 1));
+    }
+    setLayer('tavern', tavern ? 0.55 : 0); setLayer('hearth', hearth ? 0.32 : 0);
+    if (occl) occl.frequency.setTargetAtTime(inside ? 650 : under ? 4000 : 18000, ctx.currentTime, 0.25);
+  }
+  setInterval(() => { try { ambTick(); } catch (e) { if (!A._ambErr) { A._ambErr = 1; console.warn('ambience', e); } } }, 400);
+  A.ambience = () => Object.fromEntries(Object.entries(layers).map(([k, v]) => [k, +v.cur.toFixed(2)]));
+
+  // ---------- the music steps back for a moment under a big blow or a gun ----------
+  let duckUntil = 0;
+  A.duck = function (amt = 0.4, hold = 0.25) {
+    if (!ctx || !musicBus) return; const t = ctx.currentTime, base = A.musicVol * 0.6;
+    if (t < duckUntil - 0.05) return; duckUntil = t + hold + 0.6;
+    musicBus.gain.cancelScheduledValues(t); musicBus.gain.setTargetAtTime(base * (1 - amt), t, 0.02); musicBus.gain.setTargetAtTime(base, t + hold, 0.35);
+  };
+
+  // ---------- the calls the game makes ----------
+  // a foot planting: surface, armour (plate / chain / anything else), how fast (0 walk .. 1 run), where (null: the hero)
+  A.step = function (surf, armour, run = 0, x = null, y = null, scale = 1) {
+    if (!ctx || !A.enabled) return; let v = 0.16 + 0.14 * run, pan = 0;
+    if (x != null) { const P = A.place(x, y, 900); v *= P.v * 0.8; pan = P.pan; if (v < 0.03) return; }
+    const rate = 1 / Math.sqrt(Math.max(0.5, scale)); const rv = A.indoor ? 0.12 : 0;
+    playBank('step_' + (STEP[surf] ? surf : 'grass'), v * (armour === 'plate' ? 1.15 : 1), pan, { vary: 0.14, rate, rev: rv });
+    if (armour === 'plate') playBank('clank', v * 0.55, pan, { vary: 0.12, rate });
+    else if (armour === 'chain' && Math.random() < 0.8) playBank('jingle', v * 0.6, pan, { vary: 0.15 });
+  };
+  // a blow landing: on steel, flesh, wood, stone, bone or magic, heavy or not, where it happened
+  A.impact = function (mat, heavy, x, y) {
+    if (!ctx || !A.enabled) return; const P = A.place(x, y, 1400); const v = P.v * (heavy ? 0.75 : 0.5); if (v < 0.03) return;
+    const name = mat === 'metal' ? 'armorhit' : 'imp_' + (MAKE['imp_' + mat] ? mat : 'flesh');
+    playBank(name, v, P.pan, { vary: 0.18, rev: A.indoor ? 0.2 : 0.05, rate: heavy ? 0.85 : 1 });
+    if (heavy && mat !== 'metal') playBank('imp_flesh', v * 0.5, P.pan, { vary: 0.2, rate: 0.7 }); // the weight of it
+    if (heavy) A.duck(0.3, 0.18);
+  };
+  A.whoosh = function (heavy, vol = 0.4, pan = 0) { playBank(heavy ? 'whoosh_heavy' : 'whoosh_light', vol, pan, { vary: 0.15 }); };
+  // swings, misses and the big guns use the new sounds; the guns also make the music step back
+  const sfx1 = A.sfx;
+  A.sfx = function (name, vol = 1, pan = 0) {
+    if (!ctx || !A.enabled) return;
+    if (name === 'swing' || name === 'whoosh' || name === 'miss') { A.whoosh(vol > 0.5, Math.min(0.6, vol * 1.2), pan); return; }
+    if ((name === 'cannon' || name === 'bombard' || name === 'boom') && vol > 0.4) A.duck(0.5, 0.4);
+    return sfx1.apply(this, arguments);
+  };
+  // the new sounds are made in idle moments after the first ones, footsteps and blows first
+  const warm0 = A.warmBank;
+  A.warmBank = function () { warm0.apply(this, arguments); const names = ['step_grass', 'step_stone', 'imp_flesh', 'whoosh_light', 'step_wood', 'jingle', 'clank', 'whoosh_heavy', 'imp_wood', 'step_gravel', 'step_water', 'step_mud', 'step_sand', 'imp_stone', 'imp_bone', 'imp_magic']; let i = 0; const go = () => { if (i >= names.length) return; try { bank(names[i++]); } catch (e) {} (window.requestIdleCallback || setTimeout)(go, { timeout: 600 }); }; setTimeout(go, 2500); };
+
 })();

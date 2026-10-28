@@ -643,6 +643,16 @@
     // no idle townsfolk, drunks or children wandering about: everyone in town has a job (vendors, the inn, the farms,
     // the court, the workers and mill hands, the guards); the town shows its work instead
     void houses; void inn;
+    // daily life with work to do, more of it as the kingdom grows (KR.Realm stages): water carriers between the well
+    // (later the fountains) and the houses, porters carrying goods between the market and the shops and the inn, and,
+    // once the village is a town, children who play by day; they eat at the inn at midday and go home at night
+    { const nW = 1 + (lvl >= 3 ? 1 : 0), nP = Math.max(0, lvl - 1), nC = lvl >= 3 ? lvl - 2 : 0;
+      for (let i = 0; i < nW + nP + nC; i++) {
+        const job = i < nW ? 'water' : i < nW + nP ? 'porter' : null; const hb = houses.length ? houses[i % houses.length] : null;
+        const sx = hb && hb.door ? hb.door.tx : cx + 2, sy = hb && hb.door ? hb.door.ty + (hb.door.ty >= hb.y + hb.h - 1 ? 1 : -1) : cy + 3;
+        const e = mk(job ? 'townsfolk' : 'child', sx * TS + 16, sy * TS + 16, { title: job === 'water' ? 'Water Carrier' : job === 'porter' ? 'Porter' : '' });
+        e.job = job; e.home = hb; e.idleT = 1 + rnd() * 6;
+      } }
     // Outpost (neutral) is spawned once with Iron (any)
     if (f === 'crown' && !G.ents.some((e) => e.role === 'outpost')) {
       const ob = W.buildings.find((b) => b.type === 'outpost');
@@ -865,6 +875,19 @@
       if (night && homeSpot) { goal = homeSpot; task = 'sleep'; dur = 60; }
       else if (evening && e.inn !== undefined) { goal = Sys.seatIn(e); task = 'drink'; dur = 30; }
       else { const f = e.field; goal = [(f[0] + 1 + Math.floor(Math.random() * (f[2] - 2))) * TS + 16, (f[1] + 1 + Math.floor(Math.random() * (f[3] - 2))) * TS + 16]; task = 'farm'; dur = 6 + Math.random() * 6; }
+    } else if (e.job && e.role === 'townsfolk') {
+      // a job: back and forth all day, a meal at the inn at midday, home at night
+      const noon = h >= 12 && h < 13;
+      const doorOf = (b) => (b && b.door ? [b.door.tx * TS + 16, b.door.ty * TS + 16] : null);
+      if (night && homeSpot) { goal = homeSpot; task = 'sleep'; dur = 60; }
+      else if (noon || evening) { goal = Sys.seatIn(e); task = 'eat'; dur = 30 + Math.random() * 20; }
+      else {
+        const shops = W.buildings.filter((b) => b.city === e.city && ['inn', 'store', 'arms', 'alchemist', 'pub', 'house'].includes(b.type) && b.door);
+        e.leg = !e.leg;
+        if (e.job === 'water') goal = e.leg ? [(cx + 6) * TS + 16, (cy - 1) * TS + 16] : doorOf(U.pick(shops.filter((b) => b.type === 'house').concat(shops.filter((b) => b.type === 'inn'))));
+        else goal = e.leg ? [(cx + (Math.random() < 0.5 ? -6 : 6)) * TS + 16, (cy - 3) * TS + 16] : doorOf(U.pick(shops.filter((b) => b.type !== 'house')));
+        task = e.job; dur = 4 + Math.random() * 6;
+      }
     } else if (e.role === 'townsfolk' || e.role === 'drunk') {
       if (night && homeSpot && e.role !== 'drunk') { goal = homeSpot; task = 'sleep'; dur = 60; }
       else if (evening || e.role === 'drunk' && h >= 16) { goal = Sys.seatIn(e); task = 'drink'; dur = 25 + Math.random() * 20; }

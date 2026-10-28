@@ -50,9 +50,27 @@ function facing(d) {
 }
 // how far a piece of furniture is pushed back toward its wall: until its back stands flush with the wall's face
 // (a tile's middle is 0.8 m from the wall; BACK is how far each model reaches behind its middle)
-const BACK = { workbench: 0.36, forge: 0.72, loom: 0.27, bed: 1.13, kingbed: 1.26, shelf: 0.31, bookshelf: 0.32, counter: 0.42, keg: 0.33, stove: 0.37, hearth: 0.75, wardrobe: 0.34, dresser: 0.26, tapestry: 0.06, poisonchest: 0.34, desk: 0.36, vault: 0.41, weaponrack: 0.21, clothrack: 0.06, armorstand: 0.26, throne: 1.12, banner: 0.06 };
+const BACK = { painting: 0.05, sconce: 0.06, wallshelf: 0.14, herbs: 0.14, potrack: 0.14, trophy: 0.06, antlers: 0.06, workbench: 0.36, forge: 0.72, loom: 0.27, bed: 1.13, kingbed: 1.26, shelf: 0.31, bookshelf: 0.32, counter: 0.42, keg: 0.33, stove: 0.37, hearth: 0.75, wardrobe: 0.34, dresser: 0.26, tapestry: 0.06, poisonchest: 0.34, desk: 0.36, vault: 0.41, weaponrack: 0.21, clothrack: 0.06, armorstand: 0.26, throne: 1.12, banner: 0.06 };
 const wallOff = (f, kind) => (f.b ? Math.max(-0.4, 0.8 - (BACK[kind] != null ? BACK[kind] : 0.38) - 0.04) : 0);
 
+// what lies on a table: a meal, a round of ale and dice, a map under a candle, or a cloth with bread and a fruit bowl
+function tableTop(o, d) {
+  const k = Math.floor(d.v * 4) % 4, y = 0.815;
+  const plate = (x, z) => o.cyl('paint', x, y + 0.01, z, 0.13, 0.02, '#e8e0d0', 12);
+  const mug = (x, z, c = '#8a5e34') => { o.cylB('planks', x, y, z, 0.06, 0.15, c, 8); o.box('planks', x + 0.07, y + 0.08, z, 0.03, 0.08, 0.02, c); };
+  const candle = (x, z) => { o.cylB('metalv', x, y, z, 0.06, 0.02, '#8a7a5a', 8).cylB('paint', x, y + 0.02, z, 0.025, 0.14, '#f2ead0', 6); o.flame(x, y + 0.2, z, 0.05, 0.1); o.glow(x, y + 0.2, z, 0.5, [2.4, 1.6, 0.7], 0.35); };
+  if (k === 0) { plate(-0.35, 0.12); plate(0.35, -0.12); o.sph('paint', -0.35, y + 0.05, 0.12, 0.16, 0.07, 0.12, '#c8803a').sph('paint', 0.35, y + 0.04, -0.12, 0.12, 0.06, 0.1, '#a8642a'); mug(0.05, 0.22); mug(-0.1, -0.24, '#c8c8c8'); o.box('metalv', 0.5, y + 0.01, 0.1, 0.02, 0.01, 0.18, '#c8c8c8'); }
+  else if (k === 1) { mug(-0.4, 0.15); mug(-0.2, -0.2); mug(0.3, 0.2, '#7a5028'); mug(0.45, -0.15); for (let i = 0; i < 2; i++) o.box('paint', 0.05 + i * 0.08, y + 0.025, 0.02 + i * 0.05, 0.05, 0.05, 0.05, '#efe8d8', i * 0.6); candle(0, -0.28); }
+  else if (k === 2) { o.box('paint', -0.05, y + 0.006, 0, 0.75, 0.01, 0.5, '#d8c89a', 0.12); for (const [x, z] of [[-0.3, 0.1], [0.15, -0.12], [0.25, 0.15]]) o.box('paint', x - 0.05, y + 0.012, z, 0.12, 0.004, 0.03, '#6a4a2a', x * 2);
+    o.cylB('paint', 0.42, y, 0.22, 0.04, 0.06, '#2a2a2a', 8).box('paint', 0.42, y + 0.12, 0.2, 0.01, 0.18, 0.01, '#f4f0e8', 0, 0.4, 0); candle(-0.45, -0.25); o.box('paint', -0.42, y + 0.04, 0.24, 0.22, 0.07, 0.3, '#6a1e1e', 0.2); }
+  else { o.box('cloth', 0, y + 0.004, 0, 1.25, 0.008, 0.7, '#e8e0cc'); for (const sx of [-1, 1]) o.box('cloth', sx * 0.62, y - 0.12, 0, 0.012, 0.24, 0.7, '#e8e0cc');
+    o.g('paint', bowlG(), 0, y + 0.01, 0, 0.55, 0.3, 0.55, '#8a5e34'); for (const [x, z, c] of [[-0.05, 0.03, '#c83a2a'], [0.06, -0.02, '#e0a030'], [0.0, -0.07, '#7aa040'], [0.08, 0.06, '#c83a2a']]) o.sph('paint', x, y + 0.13, z, 0.09, 0.09, 0.09, c);
+    o.sph('paint', -0.4, y + 0.05, 0.15, 0.28, 0.12, 0.16, '#c8904a'); o.g('paint', urnG(), 0.4, y, -0.15, 0.5, 0.5, 0.5, '#9a6a4a'); candle(0.42, 0.22); }
+}
+// the painting atlas: eight cells of 4 x 2 (mats.js 'painting'); a plane per cell, its uv mapped to that cell
+const PAINT_G = [];
+function paintCell(k) { if (PAINT_G[k]) return PAINT_G[k]; const g = new THREE.PlaneGeometry(1, 1); const uv = g.attributes.uv; const u0 = (k % 4) / 4, v0 = 1 - (Math.floor(k / 4) + 1) / 2;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) / 4, v0 + uv.getY(i) / 2); return (PAINT_G[k] = g); }
 const WOOD = '#7a5530', DWOOD = '#4a3220', IRON = '#3a3a3e', GOLD = '#d8a838', STONE = '#9a948a', CLOTHR = '#8a2a2a';
 const P = {};
 P.lamp = (o, d) => { const tilt = d.broken ? 0.18 : 0; o.box('metalv', 0, 1.55, 0, 0.12, 3.1, 0.12, '#2a2622', 0, tilt, 0).box('metalv', 0, 0.06, 0, 0.42, 0.12, 0.42, '#2a2622').box('metalv', 0.32, 3.0, 0, 0.66, 0.07, 0.07, '#2a2622');
@@ -101,7 +119,7 @@ P.brazier = (o, d) => { for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283; o
 P.banner = (o, d, ctx) => { const p = o.w(0, 0, -0.55); ctx.flags.push({ kind: 'hang', x: p.x, y: (ctx.ceil || o.y + 3.2) - 0.2, z: p.z, w: 1.0, h: 2.4, f: ctx.faction || 'crown', rot: o.ry }); };
 P.counter = (o, d) => { o.boxB('timber', 0, 0, 0, 1.62, 1.0, 0.7, '#5a3a20').box('planks', 0, 1.04, 0, 1.66, 0.08, 0.82, '#8a6440'); if (d.v > 0.5) o.cylB('metalv', -0.3, 1.08, 0.1, 0.07, 0.18, '#a8a8a8', 8); if (d.v < 0.4) o.cylB('planks', 0.35, 1.08, -0.05, 0.08, 0.2, '#8a5e34', 8); };
 P.table = (o, d) => { o.box('planks', 0, 0.78, 0, 1.4, 0.07, 0.85, '#7a5530'); for (const [x, z] of [[0.6, 0.34], [-0.6, 0.34], [0.6, -0.34], [-0.6, -0.34]]) o.boxB('timber', x, 0, z, 0.08, 0.76, 0.08, DWOOD);
-  o.cylB('metalv', -0.3, 0.82, 0.1, 0.06, 0.15, '#c8c8c8', 8).cylB('planks', 0.25, 0.82, -0.1, 0.07, 0.17, '#8a5e34', 8).cyl('paint', 0.05, 0.83, 0.18, 0.16, 0.02, '#e8e0d0', 12).sph('paint', 0.05, 0.87, 0.18, 0.18, 0.08, 0.14, '#c8803a');
+  tableTop(o, d);
   for (const x of [-0.95, 0.95]) { o.cylB('planks', x, 0, 0, 0.2, 0.46, '#6a4a2a', 10); } };
 P.stove = (o, d) => { o.boxB('metalv', 0, 0, 0, 0.9, 0.85, 0.7, '#2a2624').box('glow', 0, 0.35, 0.36, 0.42, 0.2, 0.02, '#ff7a2a').cylB('metalv', -0.2, 0.85, -0.1, 0.09, 2.4, '#2a2624', 8).cylB('metalv', 0.2, 0.86, 0.05, 0.2, 0.18, '#5a524a', 10).glow(0, 0.4, 0.45, 0.8, [2.2, 1.0, 0.4], 0.35); };
 P.hearth = (o, d, ctx) => { const top = ctx.ceil ? ctx.ceil - o.y : 3.2; o.boxB('stone', 0, 0, -0.25, 1.7, 1.45, 0.75, '#7a6a5a').boxB('stone', 0, 1.45, -0.32, 1.85, 0.16, 0.85, '#8a7a6a').boxB('stone', 0, 1.6, -0.4, 1.2, top - 1.6, 0.6, '#7a6a5a');
@@ -194,14 +212,60 @@ P.poisonchest = (o, d) => { o.boxB('planks', 0, 0, 0, 1.05, 0.6, 0.66, '#3a2a1e'
   o.box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, 0.7).box('bone', 0.24, 0.27, z - 0.005, 0.32, 0.04, 0.02, '#e8e2cc', 0, 0, -0.7);
   o.cylB('paint', -0.25, 0.92, 0.05, 0.05, 0.14, '#3a5a2a', 8).cylB('paint', -0.25, 1.06, 0.05, 0.02, 0.05, '#2a3a1a', 6).box('paint', -0.05, 0.93, -0.05, 0.16, 0.02, 0.12, '#d8d0b8'); };
 P.grate = (o, d) => { o.box('dark', 0, 0.01, 0, 1.2, 0.02, 0.8, null); for (let k = -2; k <= 2; k++) o.box('metalv', k * 0.24, 0.03, 0, 0.05, 0.04, 0.8, '#4a4440'); o.box('metalv', 0, 0.03, 0, 1.2, 0.04, 0.06, '#4a4440'); };
-P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: d.size ? (isNaN(wl) ? o.y : wl) : o.y, z: o.z, v: d.v, size: d.size || null, ry: d.ry, arrival: !!d.arrival }); };
+// a boat without a stated size (the hub jetties) is a proper clinker rowboat now, never the old stack of boxes
+P.boat = (o, d, ctx) => { const wl = geo.waterAt(o.x / PX, o.z / PX); ctx.anim.push({ kind: 'boat', x: o.x, y: isNaN(wl) ? o.y : wl, z: o.z, v: d.v, size: d.size || 'rowboat', ry: d.ry != null ? d.ry : d.v * Math.PI * 2, arrival: !!d.arrival }); };
 P.balloon = (o, d, ctx) => { ctx.anim.push({ kind: 'balloon', x: o.x, y: o.y, z: o.z, v: d.v }); };
 P.well2 = P.well;
+// ---------- the little things on the walls and in the corners that make a room somebody's ----------
+// a painting in a moulded frame (gilt in grand rooms, dark oak in homes), at eye height
+P.painting = (o, d) => {
+  const k = Math.floor(d.v * 8) % 8, tall = k === 2 || k === 7, sc = 0.8 + (d.v * 7 % 1) * 0.35;
+  const w = (tall ? 0.62 : 0.95) * sc, h = (tall ? 0.85 : 0.68) * sc, y = 1.75, gilt = d.gilt || d.v > 0.62, fc = gilt ? '#c89a3a' : '#4a2e18', fk = gilt ? 'gold' : 'timber';
+  o.box(fk, 0, y + h / 2 + 0.04, 0.03, w + 0.16, 0.09, 0.06, fc).box(fk, 0, y - h / 2 - 0.04, 0.03, w + 0.16, 0.09, 0.06, fc).box(fk, -w / 2 - 0.04, y, 0.03, 0.09, h, 0.06, fc).box(fk, w / 2 + 0.04, y, 0.03, 0.09, h, 0.06, fc);
+  o.box('timber', 0, y, 0.005, w, h, 0.01, '#2a1a10');
+  o.mb.add('painting', paintCell(k), o.m(0, y, 0.016, w, h, 1), null, 'local');
+};
+// an iron wall sconce with a burning candle
+P.sconce = (o, d) => { o.box('metalv', 0, 1.85, 0.01, 0.1, 0.22, 0.02, '#2a2622').box('metalv', 0, 1.8, 0.09, 0.03, 0.03, 0.16, '#2a2622').cylB('metalv', 0, 1.8, 0.17, 0.06, 0.03, '#3a3430', 8).cylB('paint', 0, 1.83, 0.17, 0.025, 0.12, '#f2ead0', 6);
+  o.flame(0, 2.0, 0.17, 0.06, 0.12); o.glow(0, 2.0, 0.17, 0.9, [2.4, 1.6, 0.7], 0.4); };
+// a shelf on brackets: jars, a few books, a mug and a candle stub
+P.wallshelf = (o, d) => { const R = K3.rng(Math.floor(d.v * 1e6) + 3); o.box('planks', 0, 1.55, 0.13, 1.25, 0.05, 0.26, '#6a4a2a'); for (const x of [-0.45, 0.45]) o.box('timber', x, 1.45, 0.08, 0.05, 0.18, 0.14, DWOOD, 0, 0.5, 0);
+  let x = -0.55; while (x < 0.5) { const r = R(); if (r < 0.4) { o.g('gloss', urnG(), x + 0.06, 1.575, 0.13, 0.42, 0.42 + R() * 0.2, 0.42, ['#6a8a5a', '#9a5a3a', '#4a6a9a', '#c8b07a'][Math.floor(R() * 4)]); x += 0.16; }
+    else if (r < 0.75) { const n = 2 + Math.floor(R() * 3); for (let i = 0; i < n; i++) o.boxB('cloth', x + i * 0.05, 1.575, 0.13, 0.045, 0.16 + R() * 0.08, 0.17, ['#6a1e1e', '#1e3a6a', '#3a5a2a', '#5a3a1a'][Math.floor(R() * 4)], (i === n - 1 ? 0.25 : 0)); x += n * 0.05 + 0.06; }
+    else { o.cylB('planks', x + 0.06, 1.575, 0.13, 0.05, 0.11, '#8a5e34', 8); x += 0.14; } } };
+// bunches of herbs hung up to dry from a pole
+P.herbs = (o, d) => { o.cyl('timber', 0, 2.25, 0.12, 0.025, 1.2, DWOOD, 6, 0, Math.PI / 2); for (let i = 0; i < 6; i++) { const x = -0.5 + i * 0.2, l = 0.3 + ((i * 37) % 5) * 0.04; o.box('cloth', x, 2.2, 0.12, 0.01, 0.1, 0.01, '#c8b890');
+  o.g('paint', PRIM.cone8, x, 2.12 - l / 2, 0.12, 0.12, l, 0.12, ['#5a7a3a', '#7a8a4a', '#8a6a3a', '#6a7a5a'][i % 4], 0, Math.PI); } };
+// a rail of pots and pans on hooks by the hearth
+P.potrack = (o, d) => { o.box('metalv', 0, 2.05, 0.1, 1.1, 0.04, 0.04, '#2a2622'); for (let i = 0; i < 4; i++) { const x = -0.4 + i * 0.27; o.box('metalv', x, 1.95, 0.1, 0.015, 0.18, 0.015, '#2a2622');
+  if (i % 2) o.cylB('metalv', x, 1.62, 0.12, 0.13, 0.2, '#5a4a3a', 12).box('metalv', x, 1.8, 0.12, 0.2, 0.02, 0.02, '#3a3430'); else o.cyl('metalv', x, 1.72, 0.12, 0.14, 0.03, '#3a3430', 12, Math.PI / 2, 0).box('metalv', x, 1.86, 0.12, 0.03, 0.2, 0.02, '#3a3430'); } };
+// a painted shield over two crossed swords
+P.trophy = (o, d) => { const c = d.col || ['#7a1a1a', '#1e3a6a', '#2e5a3a', '#c89a3a'][Math.floor(d.v * 4)];
+  for (const s of [-1, 1]) o.box('metalv', 0, 2.0, 0.03, 0.06, 1.1, 0.02, '#c8c8c8', 0, 0, s * 0.7).box('timber', s * 0.3, 1.62, 0.03, 0.05, 0.16, 0.04, DWOOD, 0, 0, s * 0.7);
+  o.cyl('paint', 0, 2.0, 0.07, 0.34, 0.06, c, 16, Math.PI / 2, 0); o.cyl('metalv', 0, 2.0, 0.1, 0.09, 0.04, '#d8b040', 12, Math.PI / 2, 0); };
+// a stag's antlers on an oak plaque
+P.antlers = (o, d) => { o.box('timber', 0, 2.15, 0.02, 0.32, 0.4, 0.04, '#5a3a20'); o.sph('paint', 0, 2.12, 0.1, 0.16, 0.2, 0.2, '#8a6a4a');
+  for (const s of [-1, 1]) { o.cyl('paint', s * 0.18, 2.35, 0.12, 0.022, 0.5, '#d8c8a8', 6, 0, -s * 0.8); for (let i = 0; i < 3; i++) o.cyl('paint', s * (0.25 + i * 0.08), 2.42 + i * 0.08, 0.12, 0.015, 0.22, '#d8c8a8', 6, 0, s * 0.2); } };
+// a wheel of candles hung on a chain from the ceiling beam
+P.chandelier = (o, d, ctx) => { const top = ctx.ceil ? ctx.ceil - o.y : 3.3, y = Math.max(2.35, top - 0.95), r = d.big ? 0.75 : 0.5, n = d.big ? 8 : 6;
+  o.cyl('metalv', 0, (y + top) / 2, 0, 0.012, top - y, '#2a2622', 6);
+  for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * 6.283, a2 = (i + 1) / (n * 2) * 6.283; const mx = (Math.cos(a) + Math.cos(a2)) / 2 * r, mz = (Math.sin(a) + Math.sin(a2)) / 2 * r; o.box('metalv', mx, y, mz, 0.04, 0.04, 2 * r * Math.sin(Math.PI / (n * 2)) + 0.01, '#2a2622', -(a + a2) / 2); }
+  for (let i = 0; i < n; i++) { const a = i / n * 6.283, x = Math.cos(a) * r, z = Math.sin(a) * r; o.cylB('paint', x, y + 0.02, z, 0.025, 0.13, '#f2ead0', 6); o.flame(x, y + 0.2, z, 0.05, 0.1); }
+  for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283; o.cyl('metalv', Math.cos(a) * r / 2, y + 0.25, Math.sin(a) * r / 2, 0.008, 0.6, '#2a2622', 4, Math.sin(a) * 0.7, -Math.cos(a) * 0.7); }
+  o.glow(0, y + 0.15, 0, d.big ? 2.6 : 1.8, [2.4, 1.6, 0.7], 0.4); };
+// a pot plant: a terracotta pot and a mound of leaves
+P.plant = (o, d) => { o.g('paint', lathe('pot', [[0, 0], [0.17, 0], [0.22, 0.32], [0.25, 0.36], [0.22, 0.38], [0, 0.36]], 12), 0, 0, 0, 1, 1, 1, '#b8643a');
+  const R = K3.rng(Math.floor(d.v * 1e5) + 11); for (let i = 0; i < 9; i++) { const a = R() * 6.283, t = R() * 0.5; o.g('paint', PRIM.cone8, Math.cos(a) * 0.1, 0.55 + t * 0.3, Math.sin(a) * 0.1, 0.12, 0.42 + R() * 0.2, 0.05, i % 3 ? '#3e6a2e' : '#5a8a3a', a, Math.sin(a) * (0.5 + t), Math.cos(a) * (0.5 + t)); } };
+// crates stacked in a corner with a sack leaning on them
+P.cratepile = (o, d) => { const s = 0.62; o.boxB('planks', -0.12, 0, -0.1, s, s, s, '#8a6440', d.v).boxB('planks', 0.42, 0, 0.05, s * 0.8, s * 0.8, s * 0.8, '#7a5a38', -d.v).boxB('planks', 0.0, s, -0.05, s * 0.75, s * 0.7, s * 0.75, '#9a7448', d.v * 2);
+  o.sph('cloth', -0.32, 0.3, 0.32, 0.42, 0.62, 0.38, '#c8b088'); o.box('cloth', -0.32, 0.6, 0.32, 0.1, 0.06, 0.1, '#8a7050'); };
+// a broom against the wall by the door
+P.broom = (o, d) => { o.cyl('haft', 0, 0.75, 0.1, 0.022, 1.45, '#8a6a40', 6, -0.12, 0); o.g('paint', PRIM.cone8, 0, 0.12, 0.02, 0.26, 0.32, 0.08, '#c8a860', 0, Math.PI - 0.12); };
 // ---------- village life (world.js growTown): fences, haystacks, woodpiles, troughs, livestock, houses going up ----------
 const vh = (a, b, c) => { const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return x - Math.floor(x); };
 // a split-rail fence d.len tiles long along local x
 P.fence = (o, d) => { const L = (d.len || 3) * 1.6; const n = Math.max(2, Math.round(L / 1.6) + 1);
-  for (let i = 0; i < n; i++) { const x = -L / 2 + (L * i) / (n - 1); o.box('timber', x, 0.5, 0, 0.14, 1.0, 0.14, '#6a4a2a', 0, (vh(i, n, 3) - 0.5) * 0.08, 0); }
+  for (let i = 0; i < n; i++) { const x = -L / 2 + (L * i) / (n - 1); o.cyl('bark', x, 0.52, 0, 0.075, 1.04, '#6a4a2a', 8, (vh(i, n, 3) - 0.5) * 0.08, 0).sph('timber', x, 1.05, 0, 0.15, 0.08, 0.15, '#5a3e22'); } // round split posts with a weathered cap
   for (const y of [0.42, 0.82]) o.box('timber', 0, y, 0, L, 0.08, 0.07, '#7a5530', 0, 0, (vh(n, y * 10, 5) - 0.5) * 0.03); };
 P.haystack = (o) => { o.g('cloth', PRIM.sph12, 0, 0.55, 0, 1.9, 1.3, 1.7, '#c9a548').cone('cloth', 0, 0.95, 0, 0.75, 0.7, '#d4b257', 12).box('timber', 0.5, 0.9, 0.55, 0.05, 1.6, 0.05, '#5a3e22', 0, 0.5, 0.3); };
 P.woodpile = (o) => { for (let r = 0; r < 3; r++) for (let i = 0; i < 4 - r; i++) o.cyl('bark', -0.55 + i * 0.36 + r * 0.18, 0.17 + r * 0.31, 0, 0.16, 1.1, i % 2 ? '#6a4a2a' : '#5a3e22', 8, Math.PI / 2, 0);
@@ -236,7 +300,7 @@ P.houseframe = (o, d) => { const W2 = (d.bw || 5) * 1.6 - 0.4, D2 = (d.bh || 4) 
 
 // trees, rocks and plants go to the instanced vegetation instead
 export const VEG_KINDS = new Set(['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'deadtree', 'charred', 'palm', 'cactus', 'bramble', 'boulder', 'orevein', 'flowers', 'fern', 'reeds', 'crop']);
-const AGAINST_WALL = new Set(['workbench', 'wardrobe', 'dresser', 'tapestry', 'kingbed', 'poisonchest', 'desk', 'bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
+const AGAINST_WALL = new Set(['painting', 'sconce', 'wallshelf', 'herbs', 'potrack', 'trophy', 'antlers', 'workbench', 'wardrobe', 'dresser', 'tapestry', 'kingbed', 'poisonchest', 'desk', 'bookshelf', 'shelf', 'hearth', 'forge', 'stove', 'vault', 'weaponrack', 'loom', 'clothrack', 'bed', 'counter', 'keg', 'banner', 'armorstand', 'throne']);
 
 // build the non-vegetation decorations in a tile rectangle into mb; extra lists collect flames, smoke, emitters, signs, flags, animated props
 export function buildProps(mb, list, out) {

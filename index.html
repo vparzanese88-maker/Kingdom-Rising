@@ -528,6 +528,26 @@ body.layout-edit .hud-mercs { min-height: 48px; min-width: 180px; background: rg
   .hud-menu { left: 50%; right: auto; top: auto; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); flex-direction: row; } .hud-menu button { width: 32px; height: 32px; font-size: 15px; }
   .hud-cast { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---- simplified menus (menus fork) ---- */
+.win-b { font-size: 15px; } .win .hint { font-size: 14px; }
+.hud-menu button { width: 40px; height: 40px; font-size: 20px; }
+.hud-menu button[data-w="more"] { font-size: 22px; color: var(--brass-hi); }
+.hud-more { position: absolute; z-index: 60; min-width: 250px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: linear-gradient(rgba(42,31,22,.97), rgba(24,18,12,.97)); border: 1px solid var(--brass); border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.6); pointer-events: auto; }
+.hud-more[hidden] { display: none; }
+.hud-more button { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; cursor: pointer; text-align: left; font-size: 15px; }
+.hud-more button:hover, .hud-more button:focus-visible { background: rgba(201,164,92,.18); outline: none; }
+.hud-more .hm-i { width: 24px; text-align: center; font-size: 18px; } .hud-more .hm-n { flex: 1; } .hud-more kbd { opacity: .8; }
+.win-switch { display: flex; gap: 6px; margin: -2px 0 10px; }
+.win-switch button { flex: 1; padding: 8px; border: 1px solid #6a5434; border-radius: 8px; background: var(--ink); cursor: pointer; font-size: 15px; }
+.win-switch button.on { border-color: var(--brass-hi); background: rgba(201,164,92,.22); color: var(--brass-hi); }
+.mn-main { gap: 8px; } .mn-main > .btn { font-size: 16px; padding: 10px 14px; }
+.mn-more { border: 1px solid #5a4430; border-radius: 8px; padding: 4px 10px; }
+.mn-more summary { cursor: pointer; padding: 6px 0; color: var(--brass-hi); }
+.mn-more[open] { padding-bottom: 10px; } .mn-more[open] > * + * { margin-top: 6px; display: block; }
+body.hud-quiet .hud-menu, body.hud-quiet .hud-chat, body.hud-quiet .hud-bottom, body.hud-quiet .hud-tracker, body.hud-quiet .hud-mercs, body.hud-quiet .hud-group { opacity: .12; transition: opacity .8s; }
+body.hud-quiet .hud-menu:hover, body.hud-quiet .hud-chat:hover, body.hud-quiet .hud-bottom:hover, body.hud-quiet .hud-tracker:hover, body.hud-quiet .hud-mercs:hover, body.hud-quiet .hud-group:hover, body.hud-quiet .hud-chat:focus-within { opacity: 1; transition: opacity .2s; }
+.hud-menu, .hud-chat, .hud-bottom, .hud-tracker { transition: opacity .3s; }
 </style>
 
 <canvas id="game" aria-label="Kingdom Rising game world"></canvas>

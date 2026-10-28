@@ -652,14 +652,38 @@ function decks(mb, x0, y0, x1, y1) {
     const n = 5; for (let k = 0; k < n; k++) { const o = (k + 0.5) / n * Tl - Tl / 2; const tint = K3.hash(tx * 7 + k, ty, 3) * 0.25; if (alongX) mb.box('planks', x + o, y - 0.06, z, Tl / n - 0.02, 0.1, Tl, K3.shade(bridge ? '#8a6440' : '#7a5a38', -tint)); else mb.box('planks', x, y - 0.06, z + o, Tl, 0.1, Tl / n - 0.02, K3.shade(bridge ? '#8a6440' : '#7a5a38', -tint)); }
     // beams underneath and posts down into the water
     if (alongX) { for (const s2 of [-0.6, 0.6]) mb.box('timber', x, y - 0.22, z + s2, Tl, 0.18, 0.16, '#4a3220'); } else { for (const s2 of [-0.6, 0.6]) mb.box('timber', x + s2, y - 0.22, z, 0.16, 0.18, Tl, '#4a3220'); }
-    const bed = geo.groundT(tx + 0.5, ty + 0.5); if ((tx + ty) % 2 === 0) for (const s2 of [-0.65, 0.65]) { const px = alongX ? x : x + s2, pz = alongX ? z + s2 : z; mb.cyl('bark', px, (y + bed) / 2 - 0.3, pz, 0.12, y - bed + 0.6, '#5a3a20', 8); }
-    // railings on the open sides of bridges
+    const bed = geo.groundT(tx + 0.5, ty + 0.5);
+    if ((tx + ty) % 2 === 0) {
+      // piles down into the water, tied with a pair of crossed braces below the deck
+      const ps = [-0.65, 0.65].map((s2) => (alongX ? [x, z + s2] : [x + s2, z]));
+      for (const [px, pz] of ps) mb.cyl('bark', px, (y + bed) / 2 - 0.3, pz, 0.12, y - bed + 0.6, '#5a3a20', 8);
+      const lo = Math.max(bed + 0.2, y - 1.6), hi = y - 0.35; if (hi - lo > 0.3) for (const sgn of [-1, 1]) {
+        const a = alongX ? V(x, sgn > 0 ? lo : hi, z - 0.65) : V(x - 0.65, sgn > 0 ? lo : hi, z), b2 = alongX ? V(x, sgn > 0 ? hi : lo, z + 0.65) : V(x + 0.65, sgn > 0 ? hi : lo, z);
+        mb.beam('timber', a, b2, 0.09, 0.09, '#4a3220'); }
+    }
+    // a stringer along each open edge, so the deck reads as a thick timber span rather than loose boards
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = tx + dx, ny = ty + dy; if (isDeck(nx, ny) || W.tile(nx, ny) === T.ROAD) continue;
+      const ex = x + dx * (Tl / 2 - 0.05), ez = z + dy * (Tl / 2 - 0.05);
+      if (dx) mb.box('timber', ex, y - 0.2, ez, 0.12, 0.32, Tl, '#4e3420'); else mb.box('timber', ex, y - 0.2, ez, Tl, 0.32, 0.12, '#4e3420');
+    }
+    // railings on the open sides of bridges: corner posts with turned caps, a rounded handrail, a mid-rail, balusters
     if (bridge) for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
       const nx = tx + dx, ny = ty + dy; if (isDeck(nx, ny) || W.tile(nx, ny) === T.ROAD) continue;
       const t2 = W.tile(nx, ny); if (t2 !== T.WATER && t2 !== T.DEEP) continue;
-      const rx = x + dx * (Tl / 2 - 0.08), rz = z + dy * (Tl / 2 - 0.08);
-      if (dx) { mb.box('timber', rx, y + 0.85, rz, 0.1, 0.1, Tl, '#6a4a2a'); mb.boxB('timber', rx, y, rz - Tl / 2 + 0.06, 0.12, 0.95, 0.12, '#5a3a20'); }
-      else { mb.box('timber', rx, y + 0.85, rz, Tl, 0.1, 0.1, '#6a4a2a'); mb.boxB('timber', rx - Tl / 2 + 0.06, y, rz, 0.12, 0.95, 0.12, '#5a3a20'); }
+      const rx = x + dx * (Tl / 2 - 0.1), rz = z + dy * (Tl / 2 - 0.1);
+      const along = (o) => (dx ? [rx, rz + o] : [rx + o, rz]);
+      for (const o of [-Tl / 2 + 0.07, Tl / 2 - 0.07]) { const [px, pz] = along(o); mb.boxB('timber', px, y, pz, 0.14, 1.02, 0.14, '#5a3a20'); mb.sph('timber', px, y + 1.08, pz, 0.16, 0.13, 0.16, '#5a3a20'); }
+      if (dx) { mb.cyl('timber', rx, y + 0.94, rz, 0.055, Tl, '#6a4a2a', 8, null, 0, Math.PI / 2, 0); mb.box('timber', rx, y + 0.5, rz, 0.06, 0.07, Tl, '#5a3a20'); }
+      else { mb.cyl('timber', rx, y + 0.94, rz, 0.055, Tl, '#6a4a2a', 8, null, 0, 0, Math.PI / 2); mb.box('timber', rx, y + 0.5, rz, Tl, 0.07, 0.06, '#5a3a20'); }
+      for (let k = 1; k < 4; k++) { const [px, pz] = along(-Tl / 2 + k * Tl / 4); mb.cylB('timber', px, y + 0.02, pz, 0.025, 0.9, '#5a3a20', 8); }
+    }
+    // docks: a stout mooring bollard with a coil of rope on every other tile along the water
+    if (!bridge && (tx * 3 + ty) % 2 === 0) for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = tx + dx, ny = ty + dy; if (isDeck(nx, ny)) continue; const t2 = W.tile(nx, ny); if (t2 !== T.WATER && t2 !== T.DEEP) continue;
+      const bx = x + dx * (Tl / 2 - 0.16), bz = z + dy * (Tl / 2 - 0.16);
+      mb.cylB('bark', bx, y - 0.02, bz, 0.13, 0.55, '#4a3220', 10); mb.cyl('bark', bx, y + 0.56, bz, 0.16, 0.08, '#3a2618', 10);
+      mb.cyl('cloth', bx, y + 0.3, bz, 0.17, 0.12, '#b89a6a', 10); break;
     }
   }
 }

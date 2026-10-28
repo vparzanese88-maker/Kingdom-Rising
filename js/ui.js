@@ -267,10 +267,11 @@
     $('#hb-auto').onclick = () => KR.Main.toggleAuto(); $('#hb-range').onclick = () => KR.Main.cycleRange(); $('#hb-sit').onclick = () => KR.Main.toggleSit();
     ui.appendChild(h('div', 'hud-chat', `<div id="chatlog" class="chatlog" aria-live="polite"></div><form id="chatform"><input id="chatin" autocomplete="off" maxlength="200" placeholder="Press Enter to chat. /help for commands"></form>`));
     $('#chatform').onsubmit = (e) => { e.preventDefault(); const v = $('#chatin').value.trim(); $('#chatin').value = ''; $('#chatin').blur(); if (v) Sys.command(v); };
+    // the toolbar keeps only what you reach for all the time; everything else lives under the ☰ button
     ui.appendChild(h('nav', 'hud-menu', [
-      ['inv', '🎒', 'Inventory and character (I)'], ['spells', '📖', 'Spellbook (P)'], ['abil', '⚔', 'Abilities & Skills (K)'], ['journal', '📜', 'Journal (J)'], ['map', '🗺', 'Map (M)'], ['kingdom', '👑', 'Kingdom (N)'], ['macros', '⌨', 'Macros (U)'], ['mercs', '🤝', 'Mercenaries (Y)'], ['group', '👥', 'Group: invite players and find others online (G)'], ['minimap', '🧭', 'Show / hide minimap (Z)'], ['fullscreen', '⛶', 'Full screen (F)'], ['menu', '⚙', 'Settings, Save & Exit (Esc)'],
+      ['inv', '🎒', 'Inventory and character (I)'], ['abil', '⚔', 'Abilities and spells (K, P)'], ['journal', '📜', 'Journal (J)'], ['map', '🗺', 'Map (M)'], ['kingdom', '👑', 'Kingdom (N)'], ['more', '☰', 'Menu: settings, group, mercenaries, macros, save and exit'],
     ].map(([id, ic, t]) => `<button data-w="${id}" title="${t}" aria-label="${t}">${ic}</button>`).join('')));
-    $('.hud-menu').querySelectorAll('button').forEach((b) => (b.onclick = () => (b.dataset.w === 'minimap' ? UI.toggleMinimap() : b.dataset.w === 'layout' ? UI.toggleLayout() : b.dataset.w === 'fullscreen' ? UI.toggleFullscreen() : UI.toggle(b.dataset.w))));
+    $('.hud-menu').querySelectorAll('button').forEach((b) => (b.onclick = (ev) => (b.dataset.w === 'more' ? UI.toggleMore(b) : UI.toggle(b.dataset.w))));
     ui.appendChild(h('div', 'toasts', '')); ui.appendChild(h('div', 'banner', '')); $('.banner').hidden = true;
     const tipEl = h('div', 'tip'); tipEl.id = 'tip'; tipEl.hidden = true; ui.appendChild(tipEl);
     UI.buildMercHUD && UI.buildMercHUD(); UI.buildGroupHUD && UI.buildGroupHUD();
@@ -282,6 +283,43 @@
     UI.toggleMinimap(!LSget('kr_mm_hidden', false), true); UI.applyHotbarSize();
     UI.renderBar(); UI.renderTracker();
     G.msgs.slice(-40).forEach(UI.onLog);
+  };
+  // ---------- a quiet HUD: out of combat the bars fade so the world fills the screen ----------
+  UI.setQuietHud = function (on) { LSset('kr_hud_quiet', !!on); quietTick(); };
+  function quietTick() {
+    const p = G.player; const on = LSget('kr_hud_quiet', false);
+    const busy = !p || p.dead || (G.inCombat && G.inCombat(p)) || !!p.target || !!p.cast || !!p.harvest;
+    document.body.classList.toggle('hud-quiet', !!on && !busy);
+  }
+  setInterval(() => { try { quietTick(); } catch (e) {} }, 500);
+  // ---------- the ☰ menu: the rarely used windows and switches, each with its key ----------
+  UI.moreItems = function () {
+    const k3 = window.K3 && K3.settings3d;
+    const items = [
+      ['📖', 'Spellbook', 'P', () => UI.toggle('spells')],
+      ['⌨', 'Macros', 'U', () => UI.toggle('macros')],
+      ['🤝', 'Mercenaries', 'Y', () => UI.toggle('mercs')],
+      ['👥', 'Group and online players', 'G', () => UI.toggle('group')],
+      ['🧭', 'Show or hide the minimap', 'Z', () => UI.toggleMinimap()],
+      ['⛶', 'Full screen', 'F', () => UI.toggleFullscreen()],
+      ['⚙', 'Settings', 'O', () => (k3 ? k3.toggle(true) : UI.toggle('menu'))],
+      ['❔', 'How to play', '', () => UI.toggle('help')],
+    ];
+    if (KR.Cheats && KR.Cheats.toggle) items.push(['✨', 'Cheats', 'F8', () => KR.Cheats.toggle()]);
+    items.push(['🚪', 'Game menu: save and exit', 'Esc', () => UI.toggle('menu')]);
+    return items;
+  };
+  UI.toggleMore = function (anchorEl) {
+    let pop = $('.hud-more');
+    if (pop && !pop.hidden) { pop.hidden = true; return; }
+    if (!pop) { pop = h('div', 'hud-more'); pop.setAttribute('role', 'menu'); $('#ui').appendChild(pop); document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.hud-menu [data-w="more"]')) pop.hidden = true; }, true); }
+    pop.innerHTML = UI.moreItems().map(([ic, n, k], i) => `<button data-i="${i}" role="menuitem"><span class="hm-i">${ic}</span><span class="hm-n">${esc(n)}</span>${k ? `<kbd>${esc(k)}</kbd>` : ''}</button>`).join('');
+    const items = UI.moreItems();
+    pop.querySelectorAll('button').forEach((b) => (b.onclick = () => { pop.hidden = true; items[+b.dataset.i][3](); }));
+    pop.hidden = false;
+    const r = (anchorEl || $('.hud-menu')).getBoundingClientRect(); const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    pop.style.left = Math.max(8, Math.min(innerWidth - pw - 8, r.left - pw - 8 < 8 ? r.left : r.left - pw - 8)) + 'px';
+    pop.style.top = Math.max(8, Math.min(innerHeight - ph - 8, r.top + r.height / 2 - ph / 2)) + 'px';
   };
   const CORE = ['menu', 'bar', 'player', 'chat', 'cast'];
   let hudLocks = LSget('kr_hud_locks', {}); let hudClosed = LSget('kr_hud_closed', {});
@@ -447,8 +485,8 @@
     const vw = innerWidth;
     UI.win('inv', 'Inventory', { w: 700, x: -12, y: 40, render: renderInv });
     UI.win('char', 'Character', { w: 380, x: 12, y: 120, render: renderChar });
-    UI.win('spells', 'Spellbook', { w: 460, h: 520, x: 60, y: 80, render: renderSpells });
-    UI.win('abil', 'Abilities & Skills', { w: 520, h: 560, x: 80, y: 70, render: renderAbil });
+    UI.win('spells', 'Spellbook', { w: 520, h: 560, x: 80, y: 70, render: (w) => { renderSpells(w); skillSwitch(w, 'spells'); } });
+    UI.win('abil', 'Abilities & Skills', { w: 520, h: 560, x: 80, y: 70, render: (w) => { renderAbil(w); skillSwitch(w, 'abil'); } });
     UI.win('journal', 'Journal', { w: 560, h: 460, x: 100, y: 90, render: renderJournal });
     const mw = UI.win('map', 'World Map', { w: Math.min(640, vw - 20), h: Math.min(640, innerHeight - 40), y: 40, render: renderMap, min: [240, 240] }); mw.onResize = () => renderMap(mw);
     UI.win('kingdom', 'Kingdoms', { w: 520, h: 520, y: 70, render: renderKingdom });
@@ -668,6 +706,13 @@
 
   // ----- abilities -----
   let abTab = 'class';
+  // abilities and spells are one place: a switch at the top of both windows (K and P still open each directly)
+  function skillSwitch(w, cur) {
+    const c = G.player && G.player.c; if (!c || !D.CLASS_SPELLS[c.cls]) return;
+    const bar = h('div', 'win-switch', [['abil', '⚔ Abilities & skills'], ['spells', '📖 Spellbook']].map(([k, n]) => `<button class="${k === cur ? 'on' : ''}" data-k="${k}">${n}</button>`).join(''));
+    bar.querySelectorAll('button').forEach((x) => (x.onclick = () => { if (x.dataset.k === cur) return; const r = w.el.getBoundingClientRect(); UI.close(cur); UI.open(x.dataset.k); const o = UI.wins[x.dataset.k]; if (o && o.el) { o.el.style.left = r.left + 'px'; o.el.style.top = r.top + 'px'; } }));
+    w.body.insertBefore(bar, w.body.firstChild);
+  }
   function renderAbil(w) {
     const p = G.player, c = p.c, b = w.body; const C = D.CLASSES[c.cls];
     b.innerHTML = `<div class="tabs"><button class="tab ${abTab === 'class' ? 'on' : ''}" data-t="class">Class abilities</button><button class="tab ${abTab === 'passive' ? 'on' : ''}" data-t="passive">Class passives</button><button class="tab ${abTab === 'weapon' ? 'on' : ''}" data-t="weapon">Weapon skills</button></div><div class="pane"></div>`;
@@ -815,7 +860,8 @@
   function renderMenu(w) {
     const b = w.body; const a = G.account; const s = a.settings;
     setTimeout(() => { const g3 = b.querySelector('#mn-3d'); if (g3) g3.onclick = () => { UI.close('menu'); if (window.K3 && K3.settings3d) K3.settings3d.open('graphics'); }; }, 0);
-    b.innerHTML = `<div class="col"><button class="btn" id="mn-res">Resume</button><button class="btn" id="mn-save">Save game</button><button class="btn gold mn-exit" id="mn-exit" title="Saves your character and returns to character select">💾 Save &amp; Exit</button><button class="btn" id="mn-new">🏰 Main menu</button><button class="btn" id="mn-help">How to play</button>${window.KR3D ? '<button class="btn gold" id="mn-3d">⚙ Graphics, controls &amp; key bindings</button>' : ''}
+    b.innerHTML = `<div class="col mn-main"><button class="btn gold big" id="mn-res">▶ Resume</button>${window.KR3D ? '<button class="btn" id="mn-3d">⚙ Settings</button>' : ''}<button class="btn" id="mn-help">❔ How to play</button><button class="btn" id="mn-save">💾 Save game</button><button class="btn mn-exit" id="mn-exit" title="Saves your character and returns to the main menu">🚪 Save &amp; exit to the main menu</button>
+      <details class="mn-more"><summary>Interface and display</summary>
       <div class="row"><span class="dim">Display</span><button class="btn small ${UI.isFullscreen() ? '' : 'gold'}" id="mn-win">Window mode</button><button class="btn small ${UI.isFullscreen() ? 'gold' : ''}" id="mn-fs">Full screen</button></div>
       <label class="slider">Hotbar size <input type="range" id="mn-hb" min="36" max="76" step="2" value="${LSget('kr_hb_size', 46)}"></label>
       <label class="check"><input type="checkbox" id="mn-afs" ${(() => { try { return localStorage.getItem('kr_auto_fs') !== '0'; } catch (e) { return true; } })() ? 'checked' : ''}> Go full screen when entering the world</label>
@@ -827,12 +873,14 @@
       <label class="slider">Zoom <input type="range" id="mn-zoom" min="0.7" max="1.6" step="0.05" value="${KR.R.cam.zoom}"></label>
       <label class="check"><input type="checkbox" id="mn-al" ${G.ui_autoloot ? 'checked' : ''}> Auto-loot items from corpses</label>
       <label class="check"><input type="checkbox" id="mn-tips" ${G.player && G.player.c.tipsOn !== false ? 'checked' : ''}> Show tips</label> <button class="btn small" id="mn-tipsre">Show all tips again</button>
-      <p class="dim small">${Sys.Store.db ? 'Saves follow your Claude account.' : 'Saves are kept in this browser.'} ${Sys.Net.ok ? `Multiplayer: ${Sys.Net.peers.length} other player${Sys.Net.peers.length === 1 ? '' : 's'} here.` : ''} Last saved ${G.lastSave ? new Date(G.lastSave).toLocaleTimeString() : 'never'}.</p><button class="btn gold mn-exit" id="mn-exit2">💾 Save &amp; Exit</button></div>`;
+      <label class="check"><input type="checkbox" id="mn-quiet" ${LSget('kr_hud_quiet', false) ? 'checked' : ''}> Fade the bars out of combat (for immersion; they come back when you fight or point at them)</label>
+      </details>
+      <p class="dim small">${Sys.Store.db ? 'Saves follow your Claude account.' : 'Saves are kept in this browser.'} ${Sys.Net.ok ? `Multiplayer: ${Sys.Net.peers.length} other player${Sys.Net.peers.length === 1 ? '' : 's'} here.` : ''} Last saved ${G.lastSave ? new Date(G.lastSave).toLocaleTimeString() : 'never'}.</p></div>`;
     $('#mn-res', b).onclick = () => UI.close('menu');
     $('#mn-save', b).onclick = () => { Sys.save(true); UI.toast('Game saved'); renderMenu(w); };
-    $('#mn-exit', b).onclick = () => KR.Main.exitToMenu(); $('#mn-exit2', b).onclick = () => KR.Main.exitToMenu();
+    $('#mn-exit', b).onclick = () => KR.Main.exitToMenu();
     $('#mn-help', b).onclick = () => UI.open('help');
-    $('#mn-new', b).onclick = () => KR.Main.exitToMenu();
+    $('#mn-quiet', b).onchange = (e) => UI.setQuietHud(e.target.checked);
     $('#mn-win', b).onclick = () => { UI.toggleFullscreen(false); setTimeout(() => renderMenu(w), 300); };
     $('#mn-fs', b).onclick = () => { UI.toggleFullscreen(true); setTimeout(() => renderMenu(w), 300); };
     $('#mn-hb', b).oninput = (e) => { LSset('kr_hb_size', +e.target.value); UI.applyHotbarSize(); };
@@ -849,10 +897,10 @@
     $('#mn-tipsre', b).onclick = () => { if (KR.Tips) { KR.Tips.resetSeen(); UI.toast && UI.toast('Tips reset', 'You will see every tip again as it becomes useful.'); renderMenu(w); } };
   }
   function renderHelp(w) {
-    w.body.innerHTML = `<div class="help"><h4>Moving and fighting</h4><ul><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move. Click the ground to walk there.</li><li><kbd>Tab</kbd> targets the nearest enemy. Click anything to target it.</li><li><kbd>Q</kbd> toggles auto attack. Combat is real time, like the old classics.</li><li><kbd>1</kbd>–<kbd>8</kbd> use hotbar slots. You start with 3; more open at 10, 20, 30, 40 and 50.</li><li><kbd>R</kbd> cycles melee, ranged or both when you carry a bow, thrown weapon or tome.</li><li><kbd>X</kbd> sits to regain health and mana faster. <kbd>E</kbd> talks, loots and opens doors.</li></ul>
-      <h4>Windows</h4><ul><li><kbd>I</kbd> inventory · <kbd>C</kbd> character · <kbd>P</kbd> spellbook · <kbd>K</kbd> abilities · <kbd>J</kbd> journal · <kbd>M</kbd> map · <kbd>N</kbd> kingdoms · <kbd>U</kbd> macros · <kbd>Y</kbd> mercenaries · <kbd>G</kbd> group · <kbd>Z</kbd> minimap · <kbd>F</kbd> full screen · <kbd>Esc</kbd> settings, Save &amp; Exit</li><li>Drag items from your bag onto a gear slot to equip them, and drag gear back to your bag to take it off.</li><li>Drag a window by its title, drag its corner to resize, and use – to shrink it. Frames on the screen move with their ⠿ handle. Positions are remembered.</li></ul><h4>Mercenaries</h4><ul><li>Hire them from the Mercenary Trader in your kingdom plaza. You can lead one mercenary per kingdom level (five at kingdom level 5). They always match your level.</li><li>Open Mercenaries (Y) to change their stance, gear and which abilities they use.</li></ul>
-      <h4>Grouping</h4><ul><li>Open Group (G) to see everyone online: their level, class, kingdom and zone. Filter by Looking for Group, near your level, or your zone, then click Invite.</li><li>Groups hold up to 6. Members nearby split experience from kills with a 20% bonus per extra member.</li><li>Group spells and bard songs reach everyone in your group within range. Type /g to talk to your group.</li></ul><h4>Growing</h4><ul><li>Stats come only from gear: weapons, armor, jewelry, capes and belts. Levels raise health, mana and endurance.</li><li>Buy more bag space from the Outfitter in your kingdom plaza: 8 slots per kingdom level.</li><li>The Isle of Tidesong, Skyreach Summit and every cave and dungeon are separate zones. Ferries sail from the Sunscour Docks; slay Ignaroth in Dragonfall Crags and his captive dragon flies you to the Summit. Walk into a cave mouth to zone in.</li><li>Weapon skills rise one point at a time as you fight and unlock 10 techniques per weapon type. Every class also earns 10 passive abilities by level 45.</li><li>Spells and songs cost coin to learn from your guildmaster. Buffs of the same kind do not stack: the strongest one wins. Each school of magic trains with use.</li><li>Health, mana and endurance regenerate slowly; the rate per second shows on each bar. Sit, eat, drink, or wear gear with regeneration to recover faster.</li><li>Con colors: gray and green are trivial, blue is fair, white even, yellow tough, red deadly.</li></ul>
-      <h4>Your kingdom</h4><ul><li>Your king asks for timber and stone for each new kingdom level. Bosses, named monsters and quests earn status. A kingdom rises when it has both.</li><li>Status raises your kingdom from level 1 to 5. New merchants bring better gear and materials.</li><li>Other kingdoms' guards attack you on sight. Killing their king drops their kingdom a level.</li><li>The bank is shared by all your characters.</li></ul></div>`;
+    w.body.innerHTML = `<div class="help"><h4>Moving and fighting</h4><ul><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move. Click the ground to walk there.</li><li><kbd>Tab</kbd> targets the nearest enemy. Click anything to target it.</li><li><kbd>Q</kbd> toggles auto attack. Combat is real time, like the old classics.</li><li><kbd>1</kbd>–<kbd>0</kbd> use hotbar slots.</li><li><kbd>R</kbd> cycles melee, ranged or both when you carry a bow, thrown weapon or tome.</li><li><kbd>X</kbd> sits to regain health and mana faster. <kbd>E</kbd> talks, loots and opens doors.</li></ul>
+      <h4>Windows</h4><ul><li><kbd>I</kbd> inventory · <kbd>C</kbd> character · <kbd>K</kbd> abilities · <kbd>P</kbd> spellbook · <kbd>J</kbd> journal · <kbd>M</kbd> map · <kbd>N</kbd> kingdom · <kbd>O</kbd> settings · <kbd>Esc</kbd> game menu. The ☰ button holds the rest: macros (<kbd>U</kbd>), mercenaries (<kbd>Y</kbd>), group (<kbd>G</kbd>), minimap (<kbd>Z</kbd>), full screen (<kbd>F</kbd>).</li><li>Drag items from your bag onto a gear slot to equip them, and drag gear back to your bag to take it off.</li><li>Drag a window by its title, drag its corner to resize, and use – to shrink it. Frames on the screen move with their ⠿ handle. Positions are remembered.</li></ul><h4>Mercenaries</h4><ul><li>Build a Pub: the Mercenary Trader works behind its bar and his sellswords drink at the tables. They always match your level.</li><li>Open Mercenaries (Y) to change their stance, gear and which abilities they use.</li></ul>
+      <h4>Grouping</h4><ul><li>Open Group (G) to see everyone online: their level, class, kingdom and zone. Filter by Looking for Group, near your level, or your zone, then click Invite.</li><li>Groups hold up to 6. Members nearby split experience from kills with a 20% bonus per extra member.</li><li>Group spells and bard songs reach everyone in your group within range. Type /g to talk to your group.</li></ul><h4>Growing</h4><ul><li>Stats come only from gear: weapons, armor, jewelry, capes and belts. Levels raise health, mana and endurance.</li><li>The Isle of Tidesong, Skyreach Summit and every cave and dungeon are separate zones. Ferries sail from the Sunscour Docks; slay Ignaroth in Dragonfall Crags and his captive dragon flies you to the Summit. Walk into a cave mouth to zone in.</li><li>Weapon skills rise as you fight and unlock new techniques. Every class learns 8 abilities and 3 passives on the way to level 20.</li><li>Spells and songs cost coin to learn from your guildmaster. Buffs of the same kind do not stack: the strongest one wins. Each school of magic trains with use.</li><li>Health, mana and endurance regenerate slowly; the rate per second shows on each bar. Sit, eat, drink, or wear gear with regeneration to recover faster.</li><li>Con colors: gray and green are trivial, blue is fair, white even, yellow tough, red deadly.</li></ul>
+      <h4>Your kingdom</h4><ul><li>Hire the Court Liaison in the Town Hall, then open the kingdom with <kbd>N</kbd>. Wood and stone (top of the screen) pay for buildings; gold pays for soldiers.</li><li>Your Arborists and Miners gather on their own. Build the Sawmill and Stone Cutter first, then the Barracks, Archery Range, Stable and Siege Workshop. Walls, towers, the Pub and the Shipyard are in the Build tab too.</li><li>When soldiers are ready, the ⚔ Attack button sends them (or your fleet) against the enemy city. Kill the enemy king in his Town Hall to win.</li><li>The bank is shared by all your characters.</li></ul></div>`;
   }
 
   // ----- NPC dialog -----

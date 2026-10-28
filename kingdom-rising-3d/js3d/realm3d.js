@@ -13,7 +13,10 @@ import { weaponMesh } from './weapons.js';
 const KR = window.KR, W = KR.W, D = KR.D;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const TAU = Math.PI * 2;
-const NAMES = { sawmill: 'Sawmill', cutter: 'Stone Cutter', barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' };
+const NAMES = { sawmill: 'Sawmill', cutter: 'Stone Cutter', barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop', pub: 'Pub', shipyard: 'Shipyard' };
+// the barracks and the pub are real buildings (js/world.js stamps them on their plots once built): until then, a bare plot
+const stampedB = (f, id) => { const cd = W.cityData[f]; return !!(cd && (id === 'barracks' ? cd.barracksB : id === 'pub' ? cd.pubB : null)); };
+const STAMPED = new Set(['barracks', 'pub']);
 const realmState = (f) => { try { const R = KR.Realm; return R && typeof R.state === 'function' ? R.state(f) : null; } catch (e) { return null; } };
 const levelOf = (f, id) => (W.realmLevel ? W.realmLevel(f, id) : 0);
 // how far along a building is (0..1), or null when nothing is being built on the plot
@@ -281,7 +284,7 @@ const plots = new Map(); // key -> { grp, sig, workers: [], work: [], f, wheel }
 let root = null;
 function disposeGrp(g) { g.traverse((o) => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); if (o.material && o.material.map && o.material.userData.own) { o.material.map.dispose(); o.material.dispose(); } }); }
 function buildPlot(f, p) {
-  const lv = p.id === 'barracks' ? 0 : levelOf(f, p.id); const prog = progressOf(f, p.id);
+  const lv = STAMPED.has(p.id) ? 0 : levelOf(f, p.id); const prog = progressOf(f, p.id);
   const fp = lv && W.plotFootprint ? W.plotFootprint(p, lv) : p;
   const w = (prog != null ? p.w : fp.w) * TILE, d = (prog != null ? p.h : fp.h) * TILE;
   const cxT = (prog != null ? p.x + p.w / 2 : fp.x + fp.w / 2), czT = (prog != null ? p.y + p.h / 2 : fp.y + fp.h / 2);
@@ -289,7 +292,7 @@ function buildPlot(f, p) {
   grp.position.set(cxT * TILE, geo.floorAt(cxT * TS, czT * TS), czT * TILE); grp.rotation.y = p.front === 'n' ? Math.PI : 0;
   const mb = new MB(); const out = { work: [], flags: [], f, sign: null, wheel: null };
   if (prog != null) construction(mb, out, p, w, d, prog, p.id === 'sawmill' || p.id === 'cutter' ? 3.4 : 4.2);
-  else if (p.id === 'barracks') { if (!(W.cityData[f] && W.cityData[f].barracksB)) emptyPlot(mb, out, p, w, d); }
+  else if (STAMPED.has(p.id)) { if (!stampedB(f, p.id)) emptyPlot(mb, out, p, w, d); }
   else if (lv && BUILD[p.id]) BUILD[p.id](mb, out, f, lv, w, d);
   else emptyPlot(mb, out, p, w, d);
   if (!mb.isEmpty()) grp.add(mb.build());
@@ -307,7 +310,7 @@ function buildPlot(f, p) {
   grp.traverse((o) => { if (o.isMesh) { o.matrixAutoUpdate = true; } });
   return { grp, work: out.work, pennants: out.pennants || [], wheel: wheelObj };
 }
-function sigOf(f, p) { const prog = progressOf(f, p.id); return [p.x, p.y, p.w, p.h, p.front, p.id === 'barracks' ? (W.cityData[f] && W.cityData[f].barracksB ? 1 : 0) : levelOf(f, p.id), prog == null ? 'x' : Math.round(prog * 10)].join(','); }
+function sigOf(f, p) { const prog = progressOf(f, p.id); return [p.x, p.y, p.w, p.h, p.front, STAMPED.has(p.id) ? (stampedB(f, p.id) ? 1 : 0) : levelOf(f, p.id), prog == null ? 'x' : Math.round(prog * 10)].join(','); }
 
 // ---------- the workers at a building ----------
 const SKIN = ['#e0b896', '#c8966e', '#a8714a', '#f0caa8'], HAIR = ['#3a2a1a', '#6a4a2a', '#1e1a16', '#8a6a3a', '#a8a29a'];
@@ -424,4 +427,4 @@ K3.updaters.push((dt, t) => {
 });
 // rebuild at once when a building is finished or upgraded
 try { if (KR.Realm && typeof KR.Realm.on === 'function') KR.Realm.on('built', () => { acc = 1; }); } catch (e) {}
-export const _realmTest = { buildPlot, plots, sync, makeWorkers, animWorkers };
+export const _realmTest = { buildPlot, plots, sync, makeWorkers, animWorkers, BUILD }; // BUILD: naval3d.js adds the shipyard

@@ -33,6 +33,7 @@
 
   const W = (KR.W = {});
   W.W = D.WORLD_SIZE || 640; W.H = W.W;
+  W.RING = 16; // tiles of open sea round the edge of the world
   const TS = D.TS;
 
   W.idx = (x, y) => y * W.W + x;
@@ -132,6 +133,9 @@
     const coastLand = (x, y) => x > SE.x0 + (U.fbm(x * 0.025, y * 0.025, 71, 3) - 0.5) * 30 && y < SE.y1 + (U.fbm(x * 0.025, y * 0.025, 73, 3) - 0.5) * 26;
     const inOcean = (x, y) => x > OC.x0 + (U.fbm(x * 0.02, y * 0.02, 61, 3) - 0.5) * 50 && y > OC.y0 + (U.fbm(x * 0.02, y * 0.02, 67, 3) - 0.5) * 50 && !coastLand(x, y);
     for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) if (inOcean(x, y) || W.portSea(x, y)) W.region[y * W.W + x] = RI.ocean;
+    // the Encircling Sea: a wide ocean all round the edge of the land, joining both capitals' harbours, so warships
+    // can sail from one kingdom to the other (warmarch.js naval section)
+    for (let y = 0; y < W.H; y++) for (let x = 0; x < W.W; x++) { const e = Math.min(x, y, W.W - 1 - x, W.H - 1 - y) + (U.fbm(x * 0.035, y * 0.035, 83, 3) - 0.5) * 9; if (e < W.RING) W.region[y * W.W + x] = RI.ocean; }
     paintTerrain();
     shoreline();
     // ---- mountain ridges between regions whose levels differ a lot ----
@@ -817,15 +821,17 @@
     for (const sd of [-half - 1, half + 1]) for (let i = -1; i <= k + 1; i++) { const [x, y] = P2(i, sd); if (!W.inb(x, y)) continue; W.tiles[y * W.W + x] = T.CWALL; W.block[y * W.W + x] = 1; }
     // a broad stone quay along the water's edge, between the two walls
     for (let sd = -half; sd <= half; sd++) for (let d = -3; d <= 1; d++) { const [x, y] = P2(k + d, sd); if (!W.inb(x, y)) continue; const i = y * W.W + x; if (W.tiles[i] === T.CWALL) continue; W.tiles[i] = d === 1 || isW(x, y) ? T.WOOD : T.STONE; W.block[i] = 0; }
-    // three piers out into the deep water
-    const piers = [[0, 18], [-14, 14], [14, 14]];
+    // one pier out into the deep water (the ship that brings heroes home ties up beside it, a rowboat at its foot)
+    const piers = [[0, 16]];
     for (const [off, len] of piers) for (let i = 0; i < len; i++) for (let w = -1; w <= 1; w++) { const x = gx + dx * (k + 1 + i) + px * (off + w), y = gy + dy * (k + 1 + i) + py * (off + w); if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WOOD; W.block[y * W.W + x] = 0; } }
     const at = (i, s) => [gx + dx * (k + 1 + i) + px * s, gy + dy * (k + 1 + i) + py * s];
     const ry = Math.atan2(dx, dy); // ships lie along the piers, bows out to sea
-    const ship = (i, s, size, v) => { const [x, y] = at(i, s); if (isW(x, y)) deco('boat', x, y, { nb: true, size, ry, v }); };
-    // each ship has its own water: the east basin's inner berth (s 3.5) is kept free for the ship that brings new heroes home
-    ship(14, 9, 'galleon', 0.3); ship(9, -5, 'cog', 0.6); ship(10, -10.5, 'sloop', 0.1); ship(9, 18, 'sloop', 0.8); ship(14, 24, 'sloop', 0.45);
-    ship(2, -18, 'rowboat', 0.2); ship(1.5, 6.5, 'rowboat', 0.7); ship(1, -9, 'rowboat', 0.9); ship(23, -6, 'cog', 0.5); ship(4, -19, 'sloop', 0.15);
+    // a ship's spot can fall between tiles: it is tested on its tile and placed exactly
+    const ship = (i, s, size, v, o = {}) => { const [x, y] = at(i, s); const tx = Math.round(x), ty = Math.round(y); if (isW(tx, ty)) deco('boat', tx, ty, Object.assign({ nb: true, size, ry, v, px: x * TS + 16, py: y * TS + 16 }, o)); };
+    // the ship that brought you home lies at the pier's inner berth (s 3.5: intro3d.js sails it in along that lane), and
+    // a rowboat is tied up at the foot of the pier on the other side
+    ship(9, 3.5, 'cog', 0.45, { ry: ry + Math.PI, arrival: true });
+    ship(1.5, -2.6, 'rowboat', 0.7);
     // posts, crates, barrels, nets and lamps
     for (const [off, len] of piers) for (let i = 2; i < len; i += 4) for (const w of [-2, 2]) { const [x, y] = at(i, off + w); if (W.inb(x, y)) deco('post', x, y, { nb: true }); }
     for (let s = -24; s <= 24; s += 6) { const x = gx + dx * (k - 2) + px * s, y = gy + dy * (k - 2) + py * s; if (!W.inb(x, y) || W.tiles[y * W.W + x] !== T.STONE) continue; const h = U.hash(x, y, 4); deco(h < 0.35 ? 'crate' : h < 0.7 ? 'barrel' : 'lamp', x, y, h >= 0.7 ? {} : { nb: true }); if (h >= 0.7) W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
@@ -842,6 +848,42 @@
     W.decor = W.decor.filter((d) => { if (d.harbour === f) return true; const ox = d.tx - gx, oy = d.ty - gy; const i = ox * dx + oy * dy, sd = ox * px + oy * py; if (i < -2 || i > k + 26 || Math.abs(sd) > half + 30) return true; const t = W.tile(d.tx, d.ty); return !(dock.has(t) || t === T.WATER || t === T.DEEP) || ['lamp', 'flagpole', 'post', 'crate', 'barrel', 'boat'].includes(d.kind) && d.harbour === f; });
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].harbour = { gx, gy, dx, dy, k, px, py, half };
   }
+  // ---- the shipyard's plot: on the quay beside the pier, across from the arrival berth, its slipway running into
+  // the water. Published as W.cityData[f].shipyardPlot (KR.Realm.plotOf(f, 'shipyard') finds it); the 3D building is
+  // naval3d.js's. Once built it is solid, all but the quay's edge
+  function harbourYard(f) {
+    const cd = W.cityData[f]; const H = cd && cd.harbour; if (!H) { if (cd) cd.shipyardPlot = null; return; }
+    const P = (i, sd) => [H.gx + H.dx * i + H.px * sd, H.gy + H.dy * i + H.py * sd];
+    const pts = [P(1, -10), P(H.k - 1, -10), P(1, -4), P(H.k - 1, -4)];
+    const x0 = Math.min(...pts.map((q) => q[0])), x1 = Math.max(...pts.map((q) => q[0])), y0 = Math.min(...pts.map((q) => q[1])), y1 = Math.max(...pts.map((q) => q[1]));
+    const front = H.dx < 0 ? 'w' : H.dx > 0 ? 'e' : H.dy < 0 ? 'n' : 's';
+    const slip = P(H.k + 5, -7), moor = [P(H.k + 12, -6), P(H.k + 16, -10), P(H.k + 14, -2), P(H.k + 20, -6)];
+    const sea = { out: [H.dx, H.dy], lat: [H.px, H.py], slip, moor, quay: P(H.k, -7) };
+    // the town's own plot for the shipyard (placePlots, near the sea gate) when it has one: the yard stands there and
+    // its ships lie in the harbour basin
+    const town = (cd.plots || []).find((q) => q.id === 'shipyard');
+    if (town) { cd.shipyardPlot = Object.assign(town, sea); W.shipyardBlock(f); return; }
+    const pl = Object.assign({ id: 'shipyard', x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, front, quayPlot: true }, sea);
+    cd.shipyardPlot = pl;
+    W.decor = W.decor.filter((d) => d.kind === 'boat' || !(d.tx >= x0 && d.tx <= x1 && d.ty >= y0 && d.ty <= y1));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = y * W.W + x; if (W.tiles[k] === T.CWALL) continue; W.tiles[k] = T.STONE; W.block[k] = 0; }
+    W.shipyardBlock(f);
+  }
+  // a finished shipyard is solid where its sheds stand (its quayside row stays open to walk along)
+  W.shipyardBlock = function (f) {
+    const cd = W.cityData[f]; const pl = cd && cd.shipyardPlot; if (!pl || (W.realm && W.realm !== 'main')) return;
+    const lv = W.realmLevel(f, 'shipyard'); const H = cd.harbour;
+    if (!pl.quayPlot) { // a plot in town: its footprint grows with the level, like every building's (placePlots leaves the shipyard to us)
+      if (pl.fp) for (let y = pl.fp.y; y < pl.fp.y + pl.fp.h; y++) for (let x = pl.fp.x; x < pl.fp.x + pl.fp.w; x++) W.block[y * W.W + x] = 0;
+      pl.level = lv; pl.fp = lv && W.plotFootprint ? W.plotFootprint(pl, lv) : null;
+      if (pl.fp) for (let y = pl.fp.y; y < pl.fp.y + pl.fp.h; y++) for (let x = pl.fp.x; x < pl.fp.x + pl.fp.w; x++) W.block[y * W.W + x] = 1;
+      return;
+    }
+    for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) {
+      const i = (x - H.gx) * H.dx + (y - H.gy) * H.dy; // how far out toward the water
+      const k = y * W.W + x; if (W.tiles[k] === T.CWALL) continue; W.block[k] = lv && i < H.k - 1 ? 1 : 0;
+    }
+  };
   function nearCity(x, y, r) { for (const f of D.FACTION_IDS) { const [cx, cy] = D.CITY_CENTER[f]; if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) return true; } return false; }
   function areaFree(x, y, w, h) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { if (!W.inb(i, j)) return false; const t = W.tile(i, j); if (SOLID[t] || t === T.WATER || t === T.ROAD || t === T.WOOD || t === T.STONE) return false; } return true; }
   function clearArea(x, y, w, h, floor) {
@@ -1006,6 +1048,22 @@
         const st = P.anyFree([[x1 - 1, y1], [x0 + 1, y1], [mx + 2, y1 - 1]]); if (st) spot(b, 'stage', st[0], st[1]);
         lightIn(bx + bs, cy0 - 1, 170, '255,170,90');
         break; }
+      case 'pub': {
+        // the mercenaries' pub: kegs on the back wall, the bar in front of them (the Mercenary Trader serves behind it),
+        // a hearth, and tables with a seat at each end; sellswords lean at the bar or drink at the tables
+        P.put('keg', x0, y0, { face: 's' }); P.put('keg', x1, y0, { face: 's' });
+        const cyB = y0, bx0 = x0 + 1, bx1 = Math.max(bx0, x1 - 2); // the keeper's row between the kegs, the counter before it (a gap at its east end leads behind it)
+        for (let x = bx0; x <= bx1; x++) P.put('counter', x, cyB + 1, { face: 's', free: true });
+        spot(b, 'keeper', Math.floor((bx0 + bx1) / 2), cyB); P.hold(Math.floor((bx0 + bx1) / 2), cyB);
+        for (let x = bx0; x <= bx1; x += 2) if (!W.block[(cyB + 2) * W.W + x] && !P.lane(x, cyB + 2)) { spot(b, 'bar', x, cyB + 2); P.hold(x, cyB + 2); } // leaning on the counter (its front tiles stay clear)
+        const hx = P.first('hearth', [[x1, y1 - 1], [x0, y1 - 1], [x1, y1]]); if (hx) lightIn(hx[0], hx[1], 190, '255,160,80');
+        let nt = 0;
+        for (let y = y1 - 1; y >= cyB + 3 && nt < 3; y--) for (let x = x0 + 1; x <= x1 - 1 && nt < 3; x++) {
+          if (!P.free(x, y) || !P.free(x - 1, y) || !P.free(x + 1, y) || P.lane(x - 1, y) || P.lane(x + 1, y)) continue;
+          if (P.put('table', x, y, { free: true })) { spot(b, 'seat', x - 1, y); spot(b, 'seat', x + 1, y); P.hold(x - 1, y); P.hold(x + 1, y); nt++; x += 2; }
+        }
+        lightIn(Math.floor((bx0 + bx1) / 2), cyB + 1, 180, '255,170,90'); lightIn(mx, y1 - 1, 150, '255,180,110');
+        break; }
       case 'bank': {
         // the vault and a strongbox against the back wall, the tellers' counter in front of them with a gap at each end
         P.put('vault', x0, y0, { face: 's' }); P.put('chest', x1, y0, { face: 's' });
@@ -1034,11 +1092,13 @@
         spot(b, 'trainer', ...(P.anyFree([[mx, y0 + 2], [mx - 1, y0 + 2], [mx + 1, y0 + 2]]) || [mx, y1 - 1])); lightIn(mx, y0 + 1, 170, '210,200,255'); break; }
       case 'jeweler': case 'gemcutter': P.first('desk', [[x0, y0], [x0 + 1, y0]]); P.first('chest', [[x1, y0], [x1 - 1, y0]]); spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0, 150, '210,225,255'); break;
       case 'bowyer': P.first('weaponrack', [[x0, y0], [x0 + 1, y0]]); P.first('table', [[x1, y0], [x1 - 1, y0]], { free: true }); spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0, 140); break;
-      case 'store': case 'armorer': case 'weaponsmith': case 'fletcher': case 'armory': case 'exchange':
+      case 'store': case 'armorer': case 'weaponsmith': case 'fletcher': case 'armory': case 'exchange': case 'arms': case 'alchemist':
         // shelves and racks along the back and side walls, barrels and crates in the front corners away from the door
         P.first('shelf', [[x0, y0]]); P.first('shelf', [[x1, y0], [x1, y0 + 1]]);
         if (b.type === 'weaponsmith' || b.type === 'armory') P.first('weaponrack', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
         if (b.type === 'armorer') P.first('armorstand', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
+        if (b.type === 'arms') { P.first('weaponrack', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]); P.first('armorstand', [[x1 - 1, y0], [x1, y0 + 2], [x0, y0 + 3]]); }
+        if (b.type === 'alchemist') { P.first('cauldron', [[x0 + 1, y0], [x0, y0 + 1]]); P.first('bookshelf', [[x1 - 1, y0], [x1, y0 + 2]]); }
         if (b.type === 'fletcher') { P.first('weaponrack', [[x0, y0 + 2], [x1, y0 + 2]]); carpenter(x0, y0, x1, y1); }
         P.first('barrel', [[x0, y1], [x0, y1 - 1]], { free: true }); P.first('crate', [[x1, y1], [x1, y1 - 1]], { free: true });
         spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1], [mx + 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0 + 1, 150); break;
@@ -1211,18 +1271,21 @@
   // courtyard before its gate (room for the siege engines), the inn and the green east of the north avenue, so the way to
   // the sea gate stays open.
   const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel]
-  ['hall', -18, -19, 15, 14, 1], ['inn', 8, -19, 9, 8, 1], ['bank', 8, -7, 8, 6, 1],
-  ['smithy', -18, 7, 7, 5, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 5, 1],
+  // the Town Hall closes the north end of the main avenue: its gate (the east lane of the keep, four tiles) lies right
+  // on the avenue's line, across the grand plaza from the south gate; the smiths and crafters are gone: a general
+  // merchant, an arms merchant and an alchemist keep shop, and the inn (and the pub, once built) keep the tables
+  ['hall', -11, -20, 15, 14, 1], ['inn', 8, -19, 9, 8, 1], ['bank', 8, -7, 8, 6, 1],
+  ['arms', -18, 7, 7, 5, 1], ['alchemist', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 5, 1],
   ['house', -18, 14, 6, 4, 1], ['house', 12, 14, 6, 4, 1], // (the middle pair of this row made way for the kingdom's building plots)
-  ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -15, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
-  ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
-  ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -10, -36, 6, 4, 4], ['bowyer', 4, -36, 6, 4, 4], ['house', -27, 32, 6, 4, 4], ['house', 21, 32, 6, 4, 4],
-  ['exchange', 39, -9, 4, 8, 5], ['heroes', -42, -9, 4, 8, 5], ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -31, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -9, 38, 5, 4, 5], ['house', 4, 38, 5, 4, 5],
+  ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -22, -25, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
+  ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
+  ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['house', -27, 32, 6, 4, 4], ['house', 21, 32, 6, 4, 4],
+  ['house', -42, 8, 4, 5, 5], ['house', 39, 8, 4, 5, 5], ['house', -31, -42, 6, 4, 5], ['house', 25, -42, 6, 4, 5], ['house', -9, 38, 5, 4, 5], ['house', 4, 38, 5, 4, 5],
   ];
   const BNAMES = {
-    sylvan: { kingtower: 'Aelindor Town Hall', hall: 'Aelindor Town Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
-    iron: { kingtower: 'Khar Duum Town Hall', hall: 'Khar Duum Town Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
-    crown: { kingtower: 'Valenmoor Town Hall', hall: 'Valenmoor Town Hall', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
+    sylvan: { arms: 'Thornedge Arms', alchemist: 'Dewleaf Remedies', pub: 'The Laughing Troll', kingtower: 'Aelindor Town Hall', hall: 'Aelindor Town Hall', inn: 'The Moonlit Bough', bank: 'Silverleaf Vault', guild: 'Hall of the Old Ways', smithy: 'Leafsteel Forge', tailor: 'Threadwhisper Looms', store: 'Glade Provisions', armorer: 'Bark & Mail', weaponsmith: 'Thornedge Arms', scribe: 'Library of Leaves', fletcher: 'Feather & Yew', jeweler: 'Dewdrop Gems', gemcutter: 'Starlight Lapidary', bowyer: 'Yewheart Bowyers', forge: 'Elderforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Cottage' },
+    iron: { arms: 'Axe & Anvil', alchemist: 'Bitterroot Apothecary', pub: 'The Rusty Pick', kingtower: 'Khar Duum Town Hall', hall: 'Khar Duum Town Hall', inn: 'The Foaming Tankard', bank: 'Deepvault Bank', guild: 'Guild of the Hammer', smithy: 'Runeforge', tailor: 'Hide & Bolt', store: 'Delver Supplies', armorer: 'Stonemail Outfitters', weaponsmith: 'Axe & Anvil', scribe: 'Gearwright Scriptorium', fletcher: 'Bolt & Barrel', jeweler: 'Gemvein Jewelers', gemcutter: 'Deepstone Lapidary', bowyer: 'Crossbow Works', forge: 'Magma Forge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'Stonehome' },
+    crown: { arms: 'Sword & Shield', alchemist: 'The Green Phial', pub: 'The Drunken Sellsword', kingtower: 'Valenmoor Town Hall', hall: 'Valenmoor Town Hall', inn: 'The Gilded Goose', bank: 'Crown Treasury', guild: 'Valen Academy', smithy: "Hammersmith's", tailor: 'Needle & Thimble', store: 'Market Hall', armorer: 'Shield & Mail', weaponsmith: 'Swordsmith Row', scribe: 'Royal Scriptorium', fletcher: "Bowyer's Lodge", jeweler: 'Crown Jewelers', gemcutter: 'Royal Lapidary', bowyer: 'Longbow Hall', forge: 'Kingsforge', armory: 'Royal Armory', exchange: 'Grand Exchange', heroes: 'Hall of Heroes', house: 'House' },
   };
 
   const BARRACKS_SIZES = [[9, 6], [11, 6], [13, 7], [15, 7], [17, 8]];
@@ -1233,9 +1296,10 @@
       for (let y = y0 - M; y < y0 + h + M + 1; y++) for (let x = x0 - M; x < x0 + w + M; x++) {
         const dx = x - cx, dy = y - cy;
         if (Math.abs(dx) > R - 1 - (M > 1 ? 1 : 0) || Math.abs(dy) > R - 1 - (M > 1 ? 1 : 0)) return false;
-        if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // plaza
+        if (dx >= -8 && dx <= 8 && dy >= -7 && dy <= 2) return false; // plaza
         if (Math.abs(dx) <= 3) return false; // the north-south avenue
-        if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
+        if (dx >= -12 && dx <= 4 && dy >= -21 && dy <= -6) return false; // the Town Hall
+        if (dx >= -20 && dx <= -13 && dy >= -19 && dy <= -11) return false; // the green
         if (dx >= -19 && dx <= -3 && dy >= -6 && dy <= 0) return false; // the castle's courtyard (room for siege engines)
         const t = W.tiles[y * W.W + x]; if (t === T.WALL || t === T.DOOR || t === T.CWALL || t === T.WATER) return false;
       }
@@ -1260,8 +1324,12 @@
   // ---------- the kingdom's building plots (realm.js builds on them; realm3d.js draws them) ----------
   // Each kingdom building has its own fixed, marked plot of open ground off the streets: [id, w, h] in tiles. The sawmill
   // and the stone cutter reserve the footprint of their grandest (level 3) form; the rest are about the size of a house.
-  const PLOTS = [['barracks', 10, 6], ['sawmill', 8, 6], ['cutter', 8, 6], ['range', 9, 6], ['stable', 8, 5], ['workshop', 9, 6]];
-  const PLOT_MIN = { barracks: [8, 5], sawmill: [6, 5], cutter: [6, 5], range: [7, 5], stable: [6, 4], workshop: [7, 5] };
+  // the pub is a real building on its plot (like the barracks); the shipyard plot lies by the sea gate, for the
+  // shipyard and its ships (the naval work builds on W.cityData[f].plots' 'shipyard' entry and cd.harbour)
+  const PLOTS = [['barracks', 10, 6], ['sawmill', 8, 6], ['cutter', 8, 6], ['range', 9, 6], ['stable', 8, 5], ['workshop', 9, 6], ['pub', 10, 8], ['shipyard', 9, 7]];
+  const PLOT_MIN = { barracks: [8, 5], sawmill: [6, 5], cutter: [6, 5], range: [7, 5], stable: [6, 4], workshop: [7, 5], pub: [9, 7], shipyard: [8, 6] };
+  // where each plot would rather be: by default near the plaza; the shipyard as near the sea gate as it can
+  const plotAnchor = (id, f, cx, cy, R) => id === 'shipyard' ? (f === 'sylvan' ? [cx, cy - R + 2] : [cx - R + 2, cy + 3]) : [cx, cy];
   W.realmMode = () => !!(KR.Realm && typeof KR.Realm.state === 'function');
   // the kingdom's town keeps one size from the start (walls are upgraded, not moved out): at least the old level-4
   // walls, so every building plot fits and none of them moves as the town fills up
@@ -1284,9 +1352,10 @@
       for (let y = y0 - M; y < y0 + h + M + 1; y++) for (let x = x0 - M; x < x0 + w + M; x++) {
         const dx = x - cx, dy = y - cy;
         if (Math.abs(dx) > R - 2 || Math.abs(dy) > R - 2) return false;
-        if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // the plaza
+        if (dx >= -8 && dx <= 8 && dy >= -7 && dy <= 2) return false; // the plaza
         if (Math.abs(dx) <= 3) return false; // the north-south avenue
-        if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
+        if (dx >= -12 && dx <= 4 && dy >= -21 && dy <= -6) return false; // the Town Hall
+        if (dx >= -20 && dx <= -13 && dy >= -19 && dy <= -11) return false; // the green
         if (dx >= -19 && dx <= -3 && dy >= -6 && dy <= 0) return false; // the castle's courtyard (the siege yard)
         if (LANES.includes(dy)) return false; // the lanes behind the rows of buildings
         const k = y * W.W + x, t = W.tiles[k];
@@ -1304,7 +1373,7 @@
       const [wm, hm] = PLOT_MIN[id]; let got = null;
       for (const M of [2, 1]) { for (let w = w0, h = h0; !got && w >= wm && h >= hm; w > wm ? w-- : h--) {
         const c = []; for (let y = cy - R + 2; y <= cy + R - 2 - h; y++) for (let x = cx - R + 2; x <= cx + R - 2 - w; x++) if (free(x, y, w, h, M)) c.push([x, y]);
-        if (c.length) { c.sort((a, b2) => Math.hypot(a[0] + w / 2 - cx, a[1] + h / 2 - cy) - Math.hypot(b2[0] + w / 2 - cx, b2[1] + h / 2 - cy)); got = { id, x: c[0][0], y: c[0][1], w, h }; }
+        if (c.length) { const [ax, ay] = plotAnchor(id, f, cx, cy, R); c.sort((a, b2) => Math.hypot(a[0] + w / 2 - ax, a[1] + h / 2 - ay) - Math.hypot(b2[0] + w / 2 - ax, b2[1] + h / 2 - ay)); got = { id, x: c[0][0], y: c[0][1], w, h }; }
       } if (got) break; }
       if (!got) continue;
       out.push(got);
@@ -1317,7 +1386,7 @@
       got.front = sN > sS ? 'n' : 's';
     }
     // finished buildings (other than the barracks, a real building) are solid where they stand
-    for (const q of out) { if (q.id === 'barracks') continue; const lv = W.realmLevel(f, q.id); q.level = lv; if (!lv) continue;
+    for (const q of out) { if (q.id === 'barracks' || q.id === 'pub' || q.id === 'shipyard') continue; const lv = W.realmLevel(f, q.id); q.level = lv; if (!lv) continue;
       const fp = W.plotFootprint(q, lv); q.fp = fp;
       for (let y = fp.y; y < fp.y + fp.h; y++) for (let x = fp.x; x < fp.x + fp.w; x++) W.block[y * W.W + x] = 1; }
     return out;
@@ -1397,6 +1466,9 @@
   }
   W.stampCity = function (f, level, initial) {
     const [cx, cy] = D.CITY_CENTER[f]; const base = W.cityBase[f]; const R = D.cityRadius(level);
+    // a kingdom's town starts open: no walls, gates or wall stairs until the court builds them (KR.Realm walls 1..3:
+    // a wooden palisade, stone walls, fortified gates); without the economy the old stone walls stand
+    const walled = !W.realmMode() || W.realmLevel(f, 'walls') >= 1;
     // restore base terrain & remove old city content
     const x0 = base.x0, y0 = base.y0, bw = base.w;
     for (let y = 0; y < bw; y++) for (let x = 0; x < bw; x++) { const tx = x0 + x, ty = y0 + y; if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; W.tiles[k] = base.tiles[y * bw + x]; W.block[k] = 0; if (W.edge) W.edge[k] = 0; }
@@ -1428,7 +1500,7 @@
       const k = ty * W.W + tx, dx = tx - cx, dy = ty - cy;
       const wall = Math.abs(dx) === R || Math.abs(dy) === R;
       const gate = (dy === R && Math.abs(dx) <= 1) || (Math.abs(dx) === R && dy >= 2 && dy <= 4) || (f === 'sylvan' && dy === -R && Math.abs(dx) <= 2); // Aelindor's sea gate opens north onto the harbour
-      if (wall && !gate) W.tiles[k] = T.CWALL;
+      if (wall && !gate && walled) W.tiles[k] = T.CWALL;
       else {
         let g = T.COBBLE;
         if (f === 'sylvan' && U.fbm(tx * 0.15, ty * 0.15, 31) > 0.55) g = T.FOREST;
@@ -1441,7 +1513,7 @@
     outRoad(cx, cy + R + 1, 0, 1, 12);
     for (const [lx, ly] of [[cx - 3, cy + R + 4], [cx + 3, cy + R + 9], [cx + R + 5, cy + 1], [cx - R - 5, cy + 1]]) if (W.inb(lx, ly) && !SOLID[W.tiles[ly * W.W + lx]]) { addDecor('lamp', lx, ly, {}); W.lights.push({ x: lx * TS + 16, y: ly * TS - 20, r: 190, col: '255,196,110', fl: 0.08, k: 'lamp' }); } outRoad(cx + R + 1, cy + 3, 1, 0, 10); outRoad(cx - R - 1, cy + 3, -1, 0, 10);
     // roads that reached the wall away from a gate: cut them short of the wall and run them along the walls to the nearest gate
-    {
+    if (walled) {
       const ringD = (tx, ty) => Math.max(Math.abs(tx - cx), Math.abs(ty - cy));
       const nearGate = (tx, ty) => { const dx = tx - cx, dy = ty - cy; return (dy > R && Math.abs(dx) <= 1) || (Math.abs(dx) > R && dy >= 2 && dy <= 4); };
       const isRoad = (t) => t === T.ROAD || t === T.BRIDGE;
@@ -1471,24 +1543,27 @@
       W.decor = W.decor.filter((d) => !(ringD(d.tx, d.ty) > R && isRoad(W.tile(d.tx, d.ty)) && !['lamp', 'signpost'].includes(d.kind)));
     }
     harbour(f, R, cx, cy);
-    // plaza
-    for (let ty = cy - 5; ty <= cy + 1; ty++) for (let tx = cx - 5; tx <= cx + 5; tx++) W.tiles[ty * W.W + tx] = T.STONE;
+    // the grand plaza before the Town Hall: the main avenue runs from the south gate straight across it to the hall's gate
+    for (let ty = cy - 6; ty <= cy + 1; ty++) for (let tx = cx - 7; tx <= cx + 7; tx++) W.tiles[ty * W.W + tx] = T.STONE;
     // the two avenues (paved, gate to gate) and the lanes behind the rows of buildings
     for (let d = -R + 1; d <= R - 1; d++) { for (let w = -2; w <= 2; w++) { W.tiles[(cy + d) * W.W + cx + w] = T.STONE; } for (let w = 1; w <= 5; w++) W.tiles[(cy + w) * W.W + cx + d] = T.STONE; }
     for (const ly of [-10, -9, 13, 14, 18, 19]) if (Math.abs(ly) < R - 1) for (let d = -R + 1; d <= R - 1; d++) { const k = (cy + ly) * W.W + cx + d; if (W.tiles[k] !== T.STONE) W.tiles[k] = T.COBBLE; }
-    // the green between the north avenue and the inn, with trees and a bench
-    for (let ty = cy - 18; ty <= cy - 12; ty++) for (let tx = cx + 3; tx <= cx + 6; tx++) W.tiles[ty * W.W + tx] = T.GRASS;
-    for (const [ox, oy] of [[5, -17], [5, -13]]) addDecor('oak', cx + ox, cy + oy, { garden: true });
-    addDecor('bench', cx + 5, cy - 15, { nb: true, ry: Math.PI / 2 });
-    for (let d = -R + 3; d <= R - 3; d += 6) for (const [x, y] of [[cx - 3, cy + d], [cx + 3, cy + d], [cx + d, cy], [cx + d, cy + 6]]) { if (Math.abs(x - cx) <= 6 && y - cy >= -6 && y - cy <= 1) continue; const k = y * W.W + x; if (W.tiles[k] !== T.STONE && W.tiles[k] !== T.COBBLE) continue; addDecor('lamp', x, y, {}); W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
-    addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});
-    for (const [ox, oy] of [[-4, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
-    W.lights.push({ x: cx * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 260 : 170, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' });
-    if (level >= 2) { addDecor('stall', cx - 3, cy - 3, { col: '#b84a3a' }); addDecor('stall', cx + 5, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 5, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 5, cy - 1, { col: '#3a8a5a' }); }
-    if (level >= 3) { addDecor('statue', cx - 3, cy - 8, {}); addDecor('statue', cx + 6, cy - 6, {}); }
+    // the green, west of the Town Hall, with trees and a bench
+    for (let ty = cy - 18; ty <= cy - 12; ty++) for (let tx = cx - 19; tx <= cx - 14; tx++) W.tiles[ty * W.W + tx] = T.GRASS;
+    for (const [ox, oy] of [[-18, -17], [-15, -13]]) addDecor('oak', cx + ox, cy + oy, { garden: true });
+    addDecor('bench', cx - 16, cy - 15, { nb: true, ry: Math.PI / 2 });
+    const inHallRect = (x, y) => x >= cx - 11 && x <= cx + 3 && y >= cy - 20 && y <= cy - 7; // the Town Hall's footprint
+    for (let d = -R + 3; d <= R - 3; d += 6) for (const [x, y] of [[cx - 3, cy + d], [cx + 3, cy + d], [cx + d, cy], [cx + d, cy + 6]]) { if (Math.abs(x - cx) <= 8 && y - cy >= -7 && y - cy <= 1) continue; if (inHallRect(x, y)) continue; const k = y * W.W + x; if (W.tiles[k] !== T.STONE && W.tiles[k] !== T.COBBLE) continue; addDecor('lamp', x, y, {}); W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
+    // two fountains either side of the avenue (the way to the hall's gate stays straight and clear), statues flanking
+    // the gate, the kingdom's banners round the plaza and lamps along the way in
+    for (const ox of [-5, 6]) { addDecor(level >= 5 ? 'monument' : 'fountain', cx + ox, cy - 2, {}); W.lights.push({ x: (cx + ox) * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 220 : 160, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' }); }
+    for (const ox of [-5, 6]) addDecor('statue', cx + ox, cy - 6, {});
+    for (const [ox, oy] of [[-7, -6], [7, -6], [-7, 1], [7, 1], [-3, -6], [4, -6]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
+    for (const [ox, oy] of [[-3, -4], [4, -4], [-3, 0], [4, 0]]) { addDecor('lamp', cx + ox, cy + oy, {}); W.lights.push({ x: (cx + ox) * TS + 16, y: (cy + oy) * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
+    if (level >= 2) { addDecor('stall', cx - 7, cy - 5, { col: '#b84a3a' }); addDecor('stall', cx + 7, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 7, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 7, cy - 1, { col: '#3a8a5a' }); }
     // towers + torches on walls
     // (the old stone guard towers on the wall corners are gone: the gates are guarded by archer towers and siege engines)
-    for (let i = -R + 4; i <= R - 4; i += 6) {
+    if (walled) for (let i = -R + 4; i <= R - 4; i += 6) {
       for (const [tx, ty] of [[cx + i, cy - R + 1], [cx + i, cy + R - 1], [cx - R + 1, cy + i], [cx + R - 1, cy + i]]) {
         if (W.tiles[ty * W.W + tx] === T.CWALL) continue;
         addDecor('torch', tx, ty, {});
@@ -1496,7 +1571,7 @@
       }
     }
     // gate torches
-    for (const [tx, ty] of [[cx - 2, cy + R], [cx + 2, cy + R], [cx + R, cy + 1], [cx + R, cy + 5], [cx - R, cy + 1], [cx - R, cy + 5]]) W.lights.push({ x: tx * TS + 16, y: ty * TS - 10, r: 200, col: '255,175,95', fl: 0.12, k: 'fire' });
+    if (walled) for (const [tx, ty] of [[cx - 2, cy + R], [cx + 2, cy + R], [cx + R, cy + 1], [cx + R, cy + 5], [cx - R, cy + 1], [cx - R, cy + 5]]) W.lights.push({ x: tx * TS + 16, y: ty * TS - 10, r: 200, col: '255,175,95', fl: 0.12, k: 'fire' });
     // buildings
     const names = BNAMES[f];
     for (const [type, bx, by, bw2, bh, minL] of CITY_LAYOUT) {
@@ -1508,10 +1583,16 @@
     // the kingdom's building plots; the barracks stands on its plot only once it has been built (KR.Realm)
     W.cityData[f] = W.cityData[f] || {}; W.cityData[f].barracksB = null;
     const plots = placePlots(f, cx, cy, R);
+    harbourYard(f); // the shipyard's plot on the quay (warmarch.js naval section)
     if (W.realmHas(f, 'barracks')) {
       const pb = plots.find((q) => q.id === 'barracks');
       if (pb) { const b = stampBuilding({ x: pb.x, y: pb.y, w: pb.w, h: pb.h, type: 'barracks', name: `${D.FACTIONS[f] ? D.FACTIONS[f].city : ''} Barracks`, faction: f, city: f, style: f, minLevel: 1 }); b.city = f; b.plot = 'barracks'; W.cityData[f].barracksB = b; }
       else placeBarracks(f, level, cx, cy, R, names);
+    }
+    W.cityData[f].pubB = null;
+    if (W.realmMode() && W.realmHas(f, 'pub')) {
+      const pp = plots.find((q) => q.id === 'pub');
+      if (pp) { const b = stampBuilding({ x: pp.x, y: pp.y, w: pp.w, h: pp.h, type: 'pub', name: names.pub || 'The Pub', faction: f, city: f, style: f, minLevel: 1 }); b.city = f; b.plot = 'pub'; W.cityData[f].pubB = b; }
     }
     // no dead-end slivers: one-tile gaps behind buildings and along the wall, where walkers wander in and jam,
     // are filled with stacked crates and barrels (through-passages stay open)
@@ -1545,7 +1626,7 @@
       addDecor('scarecrowpost', fx0 + 4, fy0 + 3, { nb: true });
       W.cityData[f] = W.cityData[f] || {}; (W.cityData[f].fields = W.cityData[f].fields || [])[side < 0 ? 0 : 1] = [fx0, fy0, 9, 8];
     }
-    W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy;
+    W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy; W.cityData[f].walled = walled;
     W.cityData[f].siegeYard = [cx - 18, cy - 5, 13, 5]; // [x, y, w, h] tiles: the open courtyard before the castle gate
     W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
     wallWalks(f, R, cx, cy);

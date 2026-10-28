@@ -7,6 +7,7 @@ import { geo } from './geo.js';
 import { MB } from './mb.js';
 import { makeHumanoid, animateHumanoid } from './chars.js';
 import { fx, rgb } from './fx.js';
+import { bldgModel } from './ruin3d.js';
 
 const KR = window.KR, G = KR.G, D = KR.D, W = KR.W;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -473,6 +474,7 @@ function ballistaModel(e, big) {
 }
 // the ram, and the catapults and trebuchets inside the walls; anything else keeps the older engine models (actors.js)
 export function siegeModel(e) {
+  if (e.bldg) return bldgModel(e); // a building's body under attack: smoke, flames and rubble (ruin3d.js)
   if (e.troll) return trollModel(e);
   if (e.big && (e.siege === 'bigcannon' || e.siege === 'bombard')) return gunModel(e, e.siege === 'bombard');
   if (e.big && (e.siege === 'bigballista' || e.siege === 'greatballista')) return ballistaModel(e, e.siege === 'greatballista');
@@ -609,6 +611,38 @@ function updGates(dt) {
   }
 }
 // boulders landing, a ram going up in flames
+// ---------- the walls under the siege guns: cracks spread with every hit, then a heap of rubble in the gap ----------
+const breachRoot = new THREE.Group(); breachRoot.name = 'breaches'; K3.scene.add(breachRoot);
+const bviz = new Map();
+function wallFx(e) {
+  const cd = W.cityData[e.f] || {}; const y0 = cd._y3 != null ? cd._y3 : geo.floorAt(e.x, e.y);
+  const fx0 = (e.x + e.out[0] * 16) * PX, fz0 = (e.y + e.out[1] * 16) * PX; const H = 7.2;
+  let v = bviz.get(e.id);
+  if (!v) { v = { grp: new THREE.Group(), n: 0 }; v.grp.position.set(fx0, y0, fz0); v.grp.rotation.y = Math.atan2(e.out[0], e.out[1]); breachRoot.add(v.grp); bviz.set(e.id, v); }
+  const W3 = TILE * 3;
+  if (e.k === 'wallhit') {
+    // a few more cracks and scorch on the outer face, spreading from where the shots land
+    const mb = new MB(); const k = e.n || 1; let s = (k * 7919 + e.id.length * 31) | 0; const rnd = () => { s = (s * 16807) % 2147483647; return ((s & 0x7fffffff) % 10000) / 10000; };
+    for (let i = 0; i < 5; i++) { const x = (rnd() - 0.5) * W3 * 0.8, y = 1 + rnd() * (H - 2), L = 0.6 + rnd() * 1.6 * (k / e.max + 0.3); mb.box('dark', x, y, 0.06, L, 0.06 + rnd() * 0.05, 0.04, '#141210', 0, 0, (rnd() - 0.5) * 2.6); }
+    if (k / e.max > 0.4) for (let i = 0; i < 2; i++) mb.box('dark', (rnd() - 0.5) * W3 * 0.5, 2 + rnd() * 3, 0.05, 0.5 + rnd() * 0.7, 0.4 + rnd() * 0.6, 0.06, '#0a0908', 0, 0, rnd()); // holes punched through
+    const m = mb.build(); v.grp.add(m); v.n++;
+    dust(fx0, y0 + 2 + Math.random() * 3, fz0, 26, { speed: 3.5, spread: 2.2, up: 1.4, col: '#9a907e', life: 2.2, vx: e.out[0] * 1.5 });
+    chips(fx0, y0 + 3, fz0, 22, '#8a8278', { speed: 4, up: 3, vx: e.out[0], vz: e.out[1], s: 0.14 });
+    fx.burst(fx0, y0 + 3, fz0, 12, '#ffd8a0', { speed: 3, life: 0.3 });
+    return;
+  }
+  // the wall comes down: a great cloud, a shower of stone, and a heap of rubble where it stood
+  for (const c of v.grp.children.slice()) v.grp.remove(c);
+  const mb = new MB(); let s = 12345;
+  const rnd = () => { s = (s * 16807) % 2147483647; return ((s & 0x7fffffff) % 10000) / 10000; };
+  for (let i = 0; i < 40; i++) { const x = (rnd() - 0.5) * W3, z = -TILE * 0.5 + (rnd() - 0.5) * TILE * 2.2; const r = 0.3 + rnd() * 0.7; const mound = 1 - Math.abs(z / (TILE * 1.6));
+    mb.box('stone', x, Math.max(0, mound) * 1.4 + r * 0.3, z, r * 1.3, r * 0.8, r, K3.shade(cd && cd.R ? '#b4ac9c' : '#a09888', (rnd() - 0.5) * 0.3), rnd() * 3, rnd() * 0.6, rnd() * 0.6); }
+  for (const sx of [-1, 1]) mb.box('stone', sx * W3 * 0.5, H * 0.35, -TILE * 0.5, 0.6, H * 0.7, TILE * 0.9, '#9a9284', 0, 0, sx * 0.2); // the broken ends of the wall
+  v.grp.add(mb.build());
+  dust(fx0, y0 + 2, fz0, 90, { speed: 6, spread: 4, up: 2.4, col: '#a09684', life: 4.5, s1: 4 });
+  chips(fx0, y0 + 4, fz0, 70, '#8a8278', { speed: 6, up: 5, vx: e.out[0] * 0.5, vz: e.out[1] * 0.5, s: 0.2 });
+  fx.burst(fx0, y0 + 3, fz0, 30, '#ffd8a0', { speed: 5, life: 0.4 });
+}
 function drainEvents() {
   const War = KR.War; if (!War || !War.events || !War.events.length) return;
   const evs = War.events.splice(0, War.events.length);
@@ -627,7 +661,9 @@ function drainEvents() {
       dust(e.x * PX, geo.floorAt(e.x, e.y) + 0.1, e.y * PX, big ? 16 : 8, { speed: 2, spread: 2, up: 0.4, a: 0.3 });
     } else if (e.k === 'fire' && (e.kind === 'bigballista' || e.kind === 'greatballista')) {
       const x = e.x * PX, z = e.y * PX, y = geo.floorAt(e.x, e.y); dust(x, y + 0.1, z, 6, { speed: 1, spread: 1.5, up: 0.3, a: 0.25 });
-    } else if (e.k === 'ramdie') {
+    } else if (e.k === 'wallhit' || e.k === 'wallbreak') wallFx(e);
+    else if (e.k === 'wallrepair') { const v = bviz.get(e.id); if (v) { breachRoot.remove(v.grp); bviz.delete(e.id); } }
+    else if (e.k === 'ramdie') {
       const x = e.x * PX, z = e.y * PX, y = geo.floorAt(e.x, e.y);
       for (let i = 0; i < 30; i++) fx.add.emit({ x: x + (Math.random() - 0.5) * 2, y: y + 0.8 + Math.random() * 1.5, z: z + (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 2, life: 0.9, s0: 0.9, s1: 0.2, r: 3, g: 1.4, b: 0.4, kind: 0 });
     }

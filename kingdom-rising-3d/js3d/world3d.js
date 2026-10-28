@@ -43,11 +43,11 @@ function buildChunk(cx, cy, list, withStructs = true) {
   const pg = mb.build(); grp.add(pg); c.props = pg; c.small = [];
   c.veg = buildVeg(list || [], out); for (const m of c.veg) grp.add(m);
   c.trees = out.trees || []; forest.dirty = true;
-  const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m);
+  const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m); c.outcrops = oc; // one draw call per area: shown out to 200 m (update)
   // signposts with names on them
   for (const s of out.signs) { const sp = signpost(s); grp.add(sp); c.small.push(sp); }
   if (out.flags.length) buildFlags(out.flags, grp);
-  const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb);
+  const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb); c.bb = bb;
   c.flames = out.flames; c.smokes = out.smokes; c.emitters = out.emitters; c.list = list || []; c.sig = sig(list);
   c.harvest = (list || []).filter((d) => d.kind === 'boulder' || d.kind === 'orevein' || ['oak', 'elmwood', 'darkoak', 'birch', 'willow', 'pine', 'snowpine', 'palm'].includes(d.kind));
   c.stumps = new Map();
@@ -148,7 +148,12 @@ export const world3d = {
       // only nearby rocks throw shadows: far ones are lost in the shadow map anyway (trees: see the forest in veg.js)
       const sh = d < shadowDist; if (sh !== c.vegShadow) { c.vegShadow = sh; for (const m of c.veg) m.castShadow = sh && !m.userData.small; }
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
-      for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < propsFar : d < treeFar + 80; // boulders and ore veins: a draw call per shape per area, gone in the distance
+      for (const m of c.veg) if (!m.userData.small) m.visible = m.userData.mid ? d < (m.userData.nug ? 60 : Math.min(propsFar, 105)) : d < treeFar + 80; // boulders (a draw call per shape per area) end where they are specks in the haze; the ore glints in them sooner
+      // props and building fittings throw shadows only close by: past ~45 m their shadows are a few texels each,
+      // and every caster is another draw call in the shadow pass
+      if (c.bb) { const bv = d < 300; if (c.bb.visible !== bv) c.bb.visible = bv; } // far lamp flames: one draw call per area for a pin-prick of light
+      if (c.outcrops) for (const m of c.outcrops) { const ov = d < 200; if (m.visible !== ov) m.visible = ov; m.castShadow = d < shadowDist; }
+      const psh = d < 45; if (psh !== c.propSh) { c.propSh = psh; if (c.props) c.props.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); if (c.structs) for (const m of c.structs.children) if (m.isMesh && DETAIL_KEYS.has(m.name)) { if (m.userData.sh0 == null) m.userData.sh0 = m.castShadow; m.castShadow = psh && m.userData.sh0; } else if (m.isGroup) m.traverse((o) => { if (o.isMesh) { if (o.userData.sh0 == null) o.userData.sh0 = o.castShadow; o.castShadow = psh && o.userData.sh0; } }); }
       // barrels, crates, fences, lamps and signposts are lost in the distance long before buildings and trees:
       // each area's props are one or two dozen draw calls, so they stop at a shorter range
       const pv = d < propsFar; if (c.props && c.props.visible !== pv) c.props.visible = pv;
@@ -169,7 +174,7 @@ export const world3d = {
     // the wind picks up in the rain
     K3.shared.uWind.value += ((G.weather && G.weather.type === 'rain' ? 1.9 : 1) - K3.shared.uWind.value) * Math.min(1, dt * 0.3);
     // boats bob on the water, the balloon floats
-    for (const o of anims) { const a = o.userData.anim; if (a.kind === 'boat') { o.position.y = a.y + Math.sin(K3.time * 1.3 + a.v * 9) * (a.size === 'galleon' ? 0.05 : a.size === 'cog' ? 0.08 : 0.12) - (a.size ? 0 : 0.35); o.rotation.z = Math.sin(K3.time * 1.1 + a.v * 5) * 0.03; o.rotation.x = Math.sin(K3.time * 0.9 + a.v * 3) * 0.02; } else { o.position.y = a.y + Math.sin(K3.time * 0.8) * 0.25; } o.updateMatrixWorld(true); }
+    for (const o of anims) { const a = o.userData.anim; if (a.kind === 'boat') { if (a.arrival) o.visible = !K3.introOn; /* the ship that brought you home: out of sight while the arrival shot sails it in (intro3d.js) */ o.position.y = a.y + Math.sin(K3.time * 1.3 + a.v * 9) * (a.size === 'galleon' ? 0.05 : a.size === 'cog' ? 0.08 : 0.12) - (a.size ? 0 : 0.35); o.rotation.z = Math.sin(K3.time * 1.1 + a.v * 5) * 0.03; o.rotation.x = Math.sin(K3.time * 0.9 + a.v * 3) * 0.02; } else { o.position.y = a.y + Math.sin(K3.time * 0.8) * 0.25; } o.updateMatrixWorld(true); }
     // smoke, sparks, fountains and drips near the camera
     mk('misc');
     emitTick(dt, cam); mk('emit');

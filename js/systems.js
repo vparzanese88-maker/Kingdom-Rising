@@ -533,6 +533,9 @@
     innkeeper: { services: ['vendor:inn', 'bind'], title: 'Innkeeper' },
     banker: { services: ['bank'], title: 'Banker' },
     merchant: { services: ['vendor:general'], title: 'Merchant' },
+    armsdealer: { services: ['vendor:arms'], title: 'Arms Merchant' },
+    alchemist: { services: ['vendor:alchemist'], title: 'Alchemist' },
+    mercpatron: { services: [], title: 'Sellsword' },
     smith: { services: ['vendor:metal'], title: 'Blacksmith' },
     tailor: { services: ['vendor:cloth'], title: 'Tailor' },
     guildmaster: { services: ['train'], title: 'Guildmaster' },
@@ -614,13 +617,15 @@
     const [bx, by] = P(inn, 'stage'); const bard = mk('bard', bx, by); bard.static = true; bard.work = 'lute';
     const bank = bOf('bank'); const [bkx, bky] = P(bank, 'banker'); mk('banker', bkx, bky).static = true;
     const store = bOf('store'); const [sx, sy] = P(store, 'vendor'); mk('merchant', sx, sy).static = true;
-    const sm = bOf('smithy'); const [smx, smy] = P(sm, 'smith'); const smith = mk('smith', smx, smy); smith.static = true; smith.work = 'smith';
-    const tl = bOf('tailor'); const [tx, ty] = P(tl, 'tailor'); const tailor = mk('tailor', tx, ty); tailor.static = true; tailor.work = 'loom';
+    // the smiths and crafters are gone: an arms merchant (armour, weapons, shields) and an alchemist keep shop
+    const ab = bOf('arms'); if (ab) { const [ax, ay] = P(ab, 'vendor'); mk('armsdealer', ax, ay).static = true; }
+    const alb = bOf('alchemist'); if (alb) { const [ax, ay] = P(alb, 'vendor'); mk('alchemist', ax, ay).static = true; }
     const gd = bOf('guild'); const [gmx, gmy] = P(gd, 'trainer'); mk('guildmaster', gmx, gmy).static = true;
     const sch = mk('scholar', gmx - 64, gmy + 20); sch.static = true; sch.work = 'read';
     // plaza quest givers
     mk('captain', (cx + 3) * TS + 16, (cy - 6) * TS + 16, { gender: 'm' }).static = true;
-    mk('mercmaster', (cx - 3) * TS + 16, (cy - 6) * TS + 16).static = true;
+    // the Mercenary Trader keeps the pub, once it is built (the sellswords he has for hire drink there: Sys.pubPatrons)
+    const pub = bOf('pub'); if (pub) { const [mx2, my2] = P(pub, 'keeper'); const mm = mk('mercmaster', mx2, my2); mm.static = true; mm.work = 'pour'; }
     mk('outfitter', (cx + 6) * TS + 16, (cy + 1) * TS + 16).static = true;
     mk('bounty', (cx - 4) * TS + 16, (cy + 1) * TS + 16).static = true;
     mk('healer', (cx + 4) * TS + 16, (cy + 1) * TS + 16).static = true;
@@ -631,13 +636,6 @@
     // market stall vendors
     if (lvl >= 2) { mk('grocer', (cx - 4) * TS + 16, (cy - 3) * TS + 16).static = true; }
     if (lvl >= 3) { mk('tinker', (cx + 4) * TS + 16, (cy - 3) * TS + 16).static = true; }
-    if (lvl >= 2) { const jb = bOf('jeweler'); if (jb) { const [jx, jy] = P(jb, 'vendor'); mk('jeweler', jx, jy).static = true; } }
-    if (lvl >= 4) { const gb = bOf('gemcutter'); if (gb) { const [jx, jy] = P(gb, 'vendor'); mk('gemcutter', jx, jy).static = true; } const bb = bOf('bowyer'); if (bb) { const [jx, jy] = P(bb, 'vendor'); mk('bowyer', jx, jy).static = true; } }
-    if (lvl >= 5) { const hb = bOf('heroes'); if (hb) { const [rx, ry] = P(hb, 'vendor'); mk('relics', rx + 64, ry).static = true; } }
-    if (lvl >= 2) { const a = bOf('armorer'); const [ax, ay] = P(a, 'vendor'); mk('armorer', ax, ay).static = true; const w = bOf('weaponsmith'); const [wx, wy] = P(w, 'vendor'); mk('weaponsmith', wx, wy).static = true; }
-    if (lvl >= 3) { const a = bOf('scribe'); const [ax, ay] = P(a, 'vendor'); mk('scribe', ax, ay).static = true; const w = bOf('fletcher'); const [wx, wy] = P(w, 'vendor'); mk('fletcher', wx, wy).static = true; }
-    if (lvl >= 4) { const a = bOf('forge'); const [ax, ay] = P(a, 'smith'); const ms = mk('mastersmith', ax, ay); ms.static = true; ms.work = 'smith'; const w = bOf('armory'); const [wx, wy] = P(w, 'vendor'); mk('quartermaster', wx, wy).static = true; }
-    if (lvl >= 5) { const a = bOf('exchange'); const [ax, ay] = P(a, 'vendor'); mk('exchange', ax, ay).static = true; const w = bOf('heroes'); const [wx, wy] = P(w, 'vendor'); mk('herald', wx, wy).static = true; }
     // Life: farmers, townsfolk, drunks, children
     const fields = cd.fields;
     for (let i = 0; i < 2; i++) { const fl = fields[i % 2]; const fm = mk('farmer', (fl[0] + 2) * TS, (fl[1] + 2) * TS); fm.work = 'farm'; fm.field = fl; fm.home = U.pick(bs.filter((b) => b.type === 'house'), rnd); }
@@ -770,6 +768,9 @@
         else e.workT = 2 + Math.random() * 2;
         if (e.work === 'smith') { e.atk = 0.01; G.fxAdd({ k: 'sparks', x: e.x + 40, y: e.y - 10, life: 0.5 }); const dd = Math.hypot(p.x - e.x, p.y - e.y); if (dd < 260) KR.A.sfx('anvil', 0.12 * (1 - dd / 260)); }
         if (e.work === 'cook') { e.atk = 0.01; }
+        // the pub: sellswords raise a mug or talk with their hands now and then; the trader pours behind the bar
+        if (e.work === 'drink') { e.workT = 3 + Math.random() * 6; G.anim(e, Math.random() < 0.6 ? 'drink' : 'chat', 1700); }
+        if (e.work === 'pour') { e.workT = 5 + Math.random() * 6; G.anim(e, 'pour', 1500); }
         if (e.work === 'loom') { e.atk = 0.01; }
         if (e.work === 'lute') { e.atk = 0.01; G.fxAdd({ k: 'note', x: e.x + 8, y: e.y - 40, vx: 10 - Math.random() * 20, vy: -25, life: 1.6 }); }
       }
@@ -879,8 +880,8 @@
       const F = D.FACTIONS[f], [z1, z2] = ZONES[f];
       const zn = (z) => D.REGIONS[D.REGION_BY_ID[z]].name;
       add({ id: f + '_rats', f, giver: 'farmer', lv: 1, type: 'kill', mobs: ['rat'], n: 6, title: 'Rats in the Grain', text: `The giant rats are eating our seed grain. Kill 6 of them in ${zn(z1)}.`, reward: { coin: 40, status: 2 } });
-      add({ id: f + '_crate', f, giver: 'merchant', turnin: 'smith', lv: 1, type: 'deliver', item: 'Sealed Crate of Nails', title: 'A Crate of Nails', text: 'Take this crate of nails to the blacksmith, would you? My legs are not what they were.', reward: { coin: 25, status: 1 } });
-      add({ id: f + '_pelts', f, giver: 'tailor', lv: 3, type: 'collect', item: 'Wolf Pelt', mobs: ['wolf'], n: 4, title: 'Fine Pelts', text: 'Winter is coming and I need pelts. Bring me 4 Wolf Pelts.', reward: { coin: 90, status: 3, item: { k: 'armor', slot: 'hands', tier: 0 } } });
+      add({ id: f + '_crate', f, giver: 'merchant', turnin: 'armsdealer', lv: 1, type: 'deliver', item: 'Sealed Crate of Nails', title: 'A Crate of Nails', text: 'Take this crate of nails to the arms merchant, would you? My legs are not what they were.', reward: { coin: 25, status: 1 } });
+      add({ id: f + '_pelts', f, giver: 'alchemist', lv: 3, type: 'collect', item: 'Wolf Pelt', mobs: ['wolf'], n: 4, title: 'Fine Pelts', text: 'My salves need wolf fat and the pelts sell well. Bring me 4 Wolf Pelts.', reward: { coin: 90, status: 3, item: { k: 'armor', slot: 'hands', tier: 0 } } });
       add({ id: f + '_crit', f, giver: CRIT[f][2], lv: 3, type: 'collect', item: CRIT[f][1], mobs: [CRIT[f][0]], n: 5, title: CRIT[f][3], text: CRIT[f][4], reward: { coin: 80, status: 3 } });
       add({ id: f + '_scouts', f, giver: 'captain', lv: 4, type: 'kill', mobs: [ENEMY1[f]], n: 8, title: `${D.MOBS[ENEMY1[f]].name}s`, text: `${F.enemyMobs} send their young to scout our walls. Kill 8 ${D.MOBS[ENEMY1[f]].name}s in ${zn(z1)}.`, reward: { coin: 120, status: 5, item: { k: 'weapon', tier: 0 } } });
       if (D.REGION_BY_ID['sewer_' + f] != null) {
@@ -1035,6 +1036,10 @@
         // the blacksmith: plate, mail, shields and melee weapons; the tailor: cloth and leather
         case 'metal': armor(['plate', 'chain'], tiers, 0.88); for (const t of tiers) { for (const wt of C.weapons) out.push(G.makeWeapon(wt, t, { q: 0.88 })); out.push(G.makeShield(t, { q: 0.88 })); } break;
         case 'cloth': armor(['cloth', 'leather'], tiers, 0.88); break;
+        // the arms merchant: armour your class can wear, your weapons (and ranged ones) and a shield if you carry one
+        case 'arms': armor(D.ARMOR_ALLOWED(c.cls), tiers, 0.88); for (const t of tiers) { for (const wt of C.weapons.concat(C.ranged || [])) out.push(G.makeWeapon(wt, t, { q: 0.88 })); if (C.shield) out.push(G.makeShield(t, { q: 0.88 })); } break;
+        // the alchemist: food and drink of every grade you can use, a grade beyond, and a few charms
+        case 'alchemist': for (let t = 0; t <= Math.min(4, maxT + 1); t++) out.push(G.makePotion('food', t), G.makePotion('drink', t)); for (const t of tiers) out.push(G.makeJewel('neck', t, { q: 0.85 })); break;
         case 'mats': armor(['plate', 'chain'], top, 0.95); for (const wt of C.weapons) out.push(G.makeWeapon(wt, maxT, { q: 0.95 })); break;
         case 'scribe': for (const t of tiers) { out.push(G.makeWeapon('TOME', t)); out.push(G.makeWeapon('2HB', t, { q: 0.88 })); } break;
         case 'armorer': armor(D.ARMOR_ALLOWED(c.cls), tiers, 0.88); if (C.shield) for (const t of tiers) out.push(G.makeShield(t, { q: 0.88 })); break;
@@ -1052,7 +1057,7 @@
       }
     } finally { Math.random = oldR; }
     out.forEach((it) => (it.uid = U.uid()));
-    if (F && ['armorer', 'weaponsmith', 'armory', 'exchange', 'metal', 'cloth', 'mats'].includes(kind)) out.forEach((it) => { if (it.kind !== 'consumable') it.fmark = F.id; });
+    if (F && ['armorer', 'weaponsmith', 'armory', 'exchange', 'metal', 'cloth', 'mats', 'arms'].includes(kind)) out.forEach((it) => { if (it.kind !== 'consumable') it.fmark = F.id; });
     return out;
   };
   Sys.buy = function (it, qty = 1) {

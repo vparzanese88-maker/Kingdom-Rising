@@ -534,6 +534,8 @@
       case 'bash': tone(d, 380, t, 0.5, 'square', 0.06, { release: 0.5, lp: 2500 }); tone(d, 570, t, 0.4, 'sine', 0.08, { release: 0.4 }); tone(d, 90, t, 0.2, 'sine', 0.45, { slide: 0.5, release: 0.2 }); noise(d, t, 0.1, 0.3, { f: 1200 }); break;
       case 'block': tone(d, 900, t, 0.3, 'square', 0.04, { release: 0.3, lp: 3000 }); tone(d, 1350, t, 0.25, 'sine', 0.06, { release: 0.25 }); noise(d, t, 0.05, 0.2, { f: 2500 }); break;
       case 'stab': noise(d, t, 0.05, 0.2, { f: 5000, q: 2 }); tone(d, 200, t + 0.04, 0.15, 'sine', 0.35, { slide: 0.6, release: 0.15 }); noise(d, t + 0.04, 0.15, 0.15, { f: 700, q: 2 }); break;
+      // a great gun: the crack, a deep thump you feel in your chest, a long rolling rumble and its echo off the shore
+      case 'boom': noise(d, t, 0.09, 0.9, { f: 2400, f2: 600, q: 0.7 }); tone(d, 62, t, 0.9, 'sine', 1.0, { slide: 0.45, release: 0.8 }); noise(d, t + 0.02, 1.6, 0.85, { f: 180, type: 'lowpass', attack: 0.01 }); noise(d, t + 0.05, 0.6, 0.5, { f: 420, f2: 160, q: 0.6 }); noise(d, t + 0.38, 1.4, 0.32, { f: 140, type: 'lowpass', attack: 0.15 }); break;
       case 'heavy': noise(d, t, 0.18, 0.2, { f: 500, f2: 2500, q: 1.5 }); tone(d, 75, t + 0.15, 0.4, 'sine', 0.6, { slide: 0.5, release: 0.4 }); noise(d, t + 0.15, 0.25, 0.35, { f: 300, q: 0.8 }); break;
       case 'flurry': for (let i = 0; i < 4; i++) { noise(d, t + i * 0.08, 0.1, 0.12, { f: 900, f2: 3000, q: 1.5 }); noise(d, t + i * 0.08 + 0.06, 0.05, 0.15, { f: 3000, q: 2 }); } break;
       case 'wardrum': tone(d, 64, t, 0.6, 'sine', 0.95, { slide: 0.55, release: 0.55 }); tone(d, 118, t, 0.14, 'triangle', 0.25, { slide: 0.6, release: 0.14 }); noise(d, t, 0.1, 0.4, { f: 220, q: 0.7 }); noise(d, t, 0.03, 0.15, { f: 2400, q: 1 }); break;

@@ -15,8 +15,9 @@
   Sys.mercRole = (cls) => (TANKS.includes(cls) ? 'Tank' : ['cleric', 'druid', 'shaman'].includes(cls) ? 'Healer' : ['enchanter', 'bard', 'beastlord'].includes(cls) ? 'Support' : 'Damage');
   // mercenaries are for hire from Kingdom Level 2: one slot then, and one more each level after (4 at level 5)
   Sys.MERC_MIN_KL = 2;
-  // mercenaries sign once your kingdom has a Barracks: two to start, one more each for the Archery Range and the Stable
-  Sys.mercsOpen = (f) => !KR.War || !KR.War.hasB || KR.War.hasB(f, 'barracks');
+  // mercenaries sign once your kingdom has built its Pub (the Mercenary Trader keeps it): two to start, one more each
+  // for the Archery Range and the Stable
+  Sys.mercsOpen = (f) => (KR.Realm && typeof KR.Realm.has === 'function' && KR.Realm.state && KR.Realm.state(f) ? KR.Realm.has(f, 'pub') : !KR.War || !KR.War.hasB || KR.War.hasB(f, 'barracks'));
   Sys.mercSlots = () => { if (!G.player) return 0; const f = G.player.c.faction; if (!Sys.mercsOpen(f)) return 0; return Math.min(4, 2 + (KR.War && KR.War.hasB ? ['range', 'stable'].filter((x) => KR.War.hasB(f, x)).length : 2)); };
   // a contract costs more as you level, and each mercenary you already lead makes the next one dearer (+50%)
   Sys.mercCost = (lv, have) => { if (have == null) have = G.player ? (G.player.c.mercs || []).length : 0; return Math.round((100 + lv * lv * 30) * (1 + 0.5 * have)); };
@@ -43,6 +44,32 @@
   };
   Sys.hoursToNewMercs = () => (1440 - G.clock) / 60;
 
+  // ---------- the pub: the sellswords the Mercenary Trader has for hire drink there ----------
+  // one NPC per offer in his window: at a table (seated, facing it) or leaning on the bar; hiring one takes them out of
+  // the pub (they join you), and a new day's offers bring new faces. Clicking one opens the trader's window.
+  Sys.pubPatrons = function () {
+    const p = G.player; if (!p || !p.c || (W.realm && W.realm !== 'main')) return;
+    const f = p.c.faction, cd = W.cityData[f], pub = cd && cd.pubB;
+    const have = G.ents.filter((e) => e.pubPatron && !e.removed);
+    if (!pub || !Sys.mercsOpen(f)) { have.forEach((e) => G.remove(e)); return; }
+    const offers = Sys.mercOffers(); const ids = new Set(offers.map((o) => o.oid));
+    for (const e of have) if (!ids.has(e.pubPatron) || e.city !== f || e.pubB !== pub) G.remove(e);
+    const seats = (pub.spots.seat || []).map((s, j) => ({ x: s[0], y: s[1], sit: true, face: { x: s[0] + (j % 2 ? -TS : TS), y: s[1] } })); // seats come in pairs either side of a table
+    const bar = (pub.spots.bar || []).map((s) => ({ x: s[0], y: s[1], sit: false, face: { x: s[0], y: s[1] - TS } }));
+    const spots = []; for (let i = 0; i < Math.max(seats.length, bar.length * 2); i++) { if (seats[i]) spots.push(seats[i]); if (i % 2 === 1 && bar[(i - 1) / 2]) spots.push(bar[(i - 1) / 2]); } // a pair at a table, one at the bar, and so on
+    const used = new Set(G.ents.filter((e) => e.pubPatron && !e.removed).map((e) => e.pubSpot));
+    for (const o of offers) {
+      if (G.ents.some((e) => e.pubPatron === o.oid && !e.removed)) continue;
+      const k = spots.findIndex((sp, i) => !used.has(i)); if (k < 0) break; used.add(k); const sp = spots[k];
+      const C = D.CLASSES[o.cls] || {};
+      const e = G.makeEnt({ type: 'npc', role: 'mercpatron', city: f, faction: f, name: o.name, title: `${C.name || 'Sellsword'} for hire`, x: sp.x, y: sp.y, homeX: sp.x, homeY: sp.y, level: p.c.level, gender: o.gender, race: o.race, speed: 70, services: ['mercs'], hostile: false, seed: Math.random() });
+      e.hpMax = e.hp = 500; e.static = true; e.pubPatron = o.oid; e.pubSpot = k; e.pubB = pub; e.sit = sp.sit; e.work = 'drink'; e.qkey = 'mercpatron';
+      try { e.look = G.lookFor({ race: o.race, gender: o.gender, skin: o.skin, hair: o.hair, hairStyle: o.hairStyle, cls: o.cls, equip: {} }); } catch (er) { e.look = Sys.npcLook(e, {}); }
+      if (G.faceTo) G.faceTo(e, sp.face);
+    }
+  };
+  { let sig = ''; setInterval(() => { try { const p = G.player; if (!p || !p.c || !G.account) return; const cd = W.cityData[p.c.faction]; const s2 = [cd && cd.pubB ? cd.pubB.id : '-', (p.c.mercOffers && p.c.mercOffers.day) || 0, ((p.c.mercOffers && p.c.mercOffers.list) || []).length, G.ents.length > 0].join(); if (s2 !== sig) { sig = s2; Sys.pubPatrons(); } } catch (e) {} }, 2500); }
+
   function starterGear(data) {
     const C = D.CLASSES[data.cls], lv = data.level, tier = G.tierOfLevel(lv);
     let wt = C.role === 'caster' ? (C.weapons.includes('2HB') ? '2HB' : C.weapons[0]) : TANKS.includes(data.cls) ? '1HS' : data.cls === 'monk' ? 'H2H' : data.cls === 'rogue' ? '1HP' : C.weapons[0];
@@ -58,7 +85,7 @@
 
   Sys.hireMerc = function (offer) {
     const p = G.player, c = p.c; c.mercs = c.mercs || [];
-    if (!Sys.mercsOpen(c.faction)) { G.log(`No mercenary will sign until ${D.FACTIONS[c.faction].city} has a Barracks.`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
+    if (!Sys.mercsOpen(c.faction)) { G.log(`No mercenary will sign until ${D.FACTIONS[c.faction].city} has a Pub.`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
     if (c.mercs.length >= Sys.mercSlots()) { G.log(`You can lead ${Sys.mercSlots()} mercenar${Sys.mercSlots() > 1 ? 'ies' : 'y'}. ${Sys.mercSlots() < 4 ? 'Build an Archery Range and a Stable for more.' : ''}`, 'sys', '#ffb24a'); KR.A.sfx('fail', 0.5); return; }
     const cost = Sys.mercCost(c.level);
     if (c.coins < cost) { G.log("You can't afford that mercenary's contract.", 'sys', '#ff8a6a'); KR.A.sfx('fail', 0.5); return; }
@@ -69,6 +96,7 @@
     data.equip = starterGear(data);
     c.mercs.push(data);
     c.mercOffers.list = c.mercOffers.list.filter((o) => o.oid !== offer.oid);
+    for (const e of G.ents) if (e.pubPatron === offer.oid && !e.removed) G.remove(e); // the hired one leaves the pub with you
     Sys.spawnMerc(data);
     KR.A.sfx('coin', 0.6); KR.A.sfx('quest', 0.6);
     G.log(`${data.name} the ${D.RACES[data.race].name} ${D.CLASSES[data.cls].name} joins you for ${G.fmtCoins(cost)}.`, 'sys', '#9affb8');

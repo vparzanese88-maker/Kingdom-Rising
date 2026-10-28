@@ -187,7 +187,7 @@
     // lights by your level band (1-5, 6-10, 11-15, 16-20)
     const L = Math.min(5, (Sys.levelBand ? Sys.levelBand(G.player.c) : 0) + 2);
     // axes and picks (the hero's gathering feeds the kingdom): every tier your level allows, from the smith and outfitter
-    if (['metal', 'mats', 'general', 'outfitter'].includes(kind)) for (const k of ['axe', 'pick']) for (let t = 1; t < GEAR.TOOL_TIERS.length; t++) if (GEAR.TOOL_TIERS[t].lv <= G.player.c.level) out.push(G.makeTool(k, t));
+    if (['metal', 'mats', 'general', 'outfitter', 'arms'].includes(kind)) for (const k of ['axe', 'pick']) for (let t = 1; t < GEAR.TOOL_TIERS.length; t++) if (GEAR.TOOL_TIERS[t].lv <= G.player.c.level) out.push(G.makeTool(k, t));
     if (kind === 'outfitter') out.push(G.makeCampKit());
     if (kind === 'general' || kind === 'outfitter') {
       out.push(G.makeLight('tallow'), G.makeLight('beeswax'));

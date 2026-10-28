@@ -259,10 +259,14 @@ K3.shadowNow = () => { renderer.shadowMap.needsUpdate = true; };
 // is the shadow map redrawn this frame? The sun's shadow area only moves on those frames: moving it between
 // redraws projected an old map from a new place, and shadows jittered as you walked
 K3.shadowDue = () => renderer.shadowMap.needsUpdate || K3.frame % (K3.quality.shadowEvery || 1) === 0;
+// whole-frame totals (every pass and the shadow map), for the FPS readout and tests: K3.frameInfo
+renderer.info.autoReset = false; K3.frameInfo = { calls: 0, tris: 0, shadow: 0 };
 K3.render = function () {
   if (grade) { grade.uniforms.uTime.value = K3.time % 100; }
   if (K3.frame % (K3.quality.shadowEvery || 1) === 0) renderer.shadowMap.needsUpdate = true;
+  const sh = renderer.shadowMap.needsUpdate; renderer.info.reset();
   composer.render();
+  const fi = K3.frameInfo; fi.calls = renderer.info.render.calls; fi.tris = renderer.info.render.triangles; fi.shadow = sh ? 1 : 0;
   if (K3.vmVisible) {
     renderer.autoClear = false; renderer.clearDepth();
     renderer.toneMapping = THREE.ACESFilmicToneMapping;

@@ -111,8 +111,8 @@ scene.add(camera);
 // ---------- post-processing ----------
 let composer = null, bloom = null, fxaa = null, grade = null, renderPass = null;
 const GradeShader = {
-  // a livelier grade: a touch more colour and contrast, cool shadows and warm highlights, a lighter vignette
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.18 }, uSat: { value: 1.1 }, uCon: { value: 1.06 }, uTint: { value: new THREE.Vector3(1.025, 1.0, 0.965) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
+  // a northern, film-like grade: colour a touch muted, firmer contrast, cool shadows and warm highlights, a soft vignette
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.24 }, uSat: { value: 0.93 }, uCon: { value: 1.1 }, uTint: { value: new THREE.Vector3(1.0, 1.0, 1.0) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uHurt, uTime, uFade; uniform vec3 uTint; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -120,10 +120,10 @@ const GradeShader = {
       vec4 c = texture2D(tDiffuse, vUv);
       vec3 col = c.rgb;
       // lift the shadows a little (dark corners stay readable) before the colour work
-      col = col + (1.0 - col) * 0.035 + col * (1.0 - smoothstep(0.0, 0.35, dot(col, vec3(0.299,0.587,0.114)))) * 0.22;
+      col = col + (1.0 - col) * 0.02 + col * (1.0 - smoothstep(0.0, 0.35, dot(col, vec3(0.299,0.587,0.114)))) * 0.12;
       float l = dot(col, vec3(0.299,0.587,0.114));
       col = mix(vec3(l), col, uSat);
-      col = mix(col, col * vec3(0.96, 0.99, 1.05), (1.0 - smoothstep(0.0, 0.45, l)) * 0.55);
+      col = mix(col, col * vec3(0.92, 0.98, 1.07), (1.0 - smoothstep(0.0, 0.45, l)) * 0.7); // cool, northern shadows
       col = mix(col, col * vec3(1.04, 1.01, 0.95), smoothstep(0.55, 1.0, l) * 0.55);
       col = (col - 0.5) * uCon + 0.5;
       col = max(col, 0.0);

@@ -12,8 +12,8 @@ const KR = window.KR, D = KR.D, W = KR.W;
 const Tl = TILE;
 
 const STYLE = {
-  crown: { plinth: '#9e978a', wall: '#ece3cf', beam: '#9a6a44', roofMat: 'rooftile', roof: '#c06a50', trim: '#f0c75e', shutter: '#28457a', frame: true, stone: false, curve: false, pitch: 0.72, inner: '#e8dcc4' },
-  sylvan: { plinth: '#cfc6ad', wall: '#e4dcc2', beam: '#a8804c', roofMat: 'shingle', roof: '#8fd08a', trim: '#e7d48a', shutter: '#2e6a3c', frame: true, stone: false, curve: true, pitch: 0.98, inner: '#ebe2c8' },
+  crown: { plinth: '#8a8478', wall: '#d6ccb6', beam: '#4e3826', roofMat: 'rooftile', roof: '#8a4e3c', trim: '#f0c75e', shutter: '#28457a', frame: true, stone: false, curve: false, pitch: 0.72, inner: '#e8dcc4' },
+  sylvan: { plinth: '#a8a08a', wall: '#d2cab2', beam: '#6a5236', roofMat: 'shingle', roof: '#5e7a52', trim: '#e7d48a', shutter: '#2e6a3c', frame: true, stone: false, curve: true, pitch: 0.98, inner: '#ebe2c8' },
   iron: { plinth: '#7a756c', wall: '#a8a298', beam: '#4a443c', roofMat: 'slate', roof: '#a0aab8', trim: '#c98b3a', shutter: '#7a3e1c', frame: false, stone: true, curve: false, pitch: 0.62, inner: '#d8d0c0' },
   chamber: { plinth: '#4a4440', wall: '#6a625c', beam: '#2e2a26', roofMat: 'darkstone', roof: '#6a625c', trim: '#8a2a2a', shutter: '#3a1a1a', frame: false, stone: true, curve: false, pitch: 0, inner: '#5a524c' },
 };
@@ -68,8 +68,9 @@ function wallRun(mb, o) {
 
 // ---------- one building ----------
 // every house a little different: wall wash, roof colour and pitch, and some shops and houses a storey taller
-const WASH = { crown: ['#ece3cf', '#e8d6b0', '#f2ebe0', '#dcc8a8', '#e8d2c2', '#d8d0bc'], sylvan: ['#e4dcc2', '#dde4cc', '#ece4d0', '#d8d2b8', '#e6dccc'], iron: null };
-const ROOFS = { crown: ['#c06a50', '#a85a40', '#8a5a48', '#b4744c', '#7a6a62', '#9a4a3a'], sylvan: ['#8fd08a', '#6aa878', '#7ab8a0', '#9ac87a', '#5a9a6a'], iron: null };
+// weathered limewash and old timber: no fresh paint in a northern town
+const WASH = { crown: ['#d6ccb6', '#cfc0a0', '#dad2c4', '#c4b496', '#d0bcac', '#c2baa6'], sylvan: ['#d2cab2', '#cad0b8', '#d8d0bc', '#c4bea4', '#d2c8b8'], iron: null };
+const ROOFS = { crown: ['#8a4e3c', '#7a4a3a', '#6e5246', '#8a5c44', '#5e5450', '#7a3e32'], sylvan: ['#5e7a52', '#4e6a4a', '#62806a', '#6e8452', '#4a6450'], iron: null };
 const TALLER = new Set(['house', 'tailor', 'store', 'smithy', 'armorer', 'weaponsmith', 'jeweler', 'scribe', 'fletcher', 'bowyer', 'gemcutter', 'armory', 'forge']);
 function building(mb, b) {
   let st = STYLE[b.style] || STYLE.crown;
@@ -647,10 +648,82 @@ function looseWalls(mb, x0, y0, x1, y1) {
 }
 
 // ---------- bridges over rivers and docks over the sea ----------
+// A bridge is built whole, as a stone arch bridge in the old northern way: arches over the water carried on piers with
+// cutwaters, solid spandrels, a cobbled roadway that rises over the river, parapet walls with a coping, and its ends
+// running out onto the land. (Its tiles are found once per map; it is built by the chunk that holds its first tile.)
+let bridgeCache = null;
+function bridgeList() {
+  if (bridgeCache && bridgeCache.v === geo.version) return bridgeCache.list;
+  const Wd = W.W, Hd = W.H, seen = new Uint8Array(Wd * Hd), list = [];
+  for (let i = 0; i < Wd * Hd; i++) {
+    if (geo.cls[i] !== 6 || seen[i]) continue; const q = [i], tiles = []; seen[i] = 1;
+    while (q.length) { const j = q.pop(); tiles.push(j); const x = j % Wd, y = (j / Wd) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) continue; const k = yy * Wd + xx; if (!seen[k] && geo.cls[k] === 6) { seen[k] = 1; q.push(k); } } }
+    let minx = 1e9, maxx = -1, miny = 1e9, maxy = -1; for (const j of tiles) { const x = j % Wd, y = (j / Wd) | 0; minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }
+    list.push({ tiles, minx, maxx, miny, maxy, alongX: maxx - minx >= maxy - miny, ax: i % Wd, ay: (i / Wd) | 0 });
+  }
+  bridgeCache = { v: geo.version, list };
+  for (const br of list) { try { stoneBridge(null, br); } catch (e) { console.warn('bridge', e); } } // (just the roadway's heights)
+  return list;
+}
+// a strip of quads through rows of points (each row the same length): the faces of a bridge's walls and vaults
+function stripGeom(rows) {
+  const pos = [], idx = []; const n = rows[0].length;
+  for (const r of rows) for (const p of r) pos.push(p[0], p[1], p[2]);
+  for (let i = 0; i < rows.length - 1; i++) for (let j = 0; j < n - 1; j++) { const a = i * n + j, b = a + n; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+function stoneBridge(mb, br) {
+  const ax = br.alongX, s0 = (ax ? br.minx : br.miny) - 0.6, s1 = (ax ? br.maxx : br.maxy) + 1.6, c0 = ax ? br.miny : br.minx, c1 = (ax ? br.maxy : br.maxx) + 1;
+  const P = (s, c, y) => (ax ? [s * Tl, y, c * Tl] : [c * Tl, y, s * Tl]);
+  const tileAt = (s, c) => (ax ? [Math.floor(s), Math.floor(c)] : [Math.floor(c), Math.floor(s)]);
+  // the roadway's height along the bridge: the deck, smoothed into one even rise and fall, meeting the land at its ends
+  const N = Math.max(8, Math.round((s1 - s0) * 4)), S = [], raw = [];
+  let wl = Infinity;
+  for (let i = 0; i <= N; i++) { const sv = s0 + (s1 - s0) * (i / N); S.push(sv); let h = -Infinity, bed = Infinity;
+    for (let c = c0 + 0.5; c < c1; c += 1) { const [tx, ty] = tileAt(sv, c); if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; if (geo.cls[k] === 6 && !isNaN(geo.deck[k])) h = Math.max(h, geo.deck[k]); bed = Math.min(bed, geo.groundT(tx + 0.5, ty + 0.5)); const w = geo.waterAt((tx + 0.5) * TS, (ty + 0.5) * TS); if (!isNaN(w)) wl = Math.min(wl, w); }
+    if (h === -Infinity) { const [tx, ty] = tileAt(sv, (c0 + c1) / 2); h = geo.floorAt((tx + 0.5) * TS, (ty + 0.5) * TS) + 0.05; }
+    raw.push({ h, bed: bed === Infinity ? h - 1 : bed });
+  }
+  const top = raw.map((_, i) => { let a = 0, n = 0; for (let k = -6; k <= 6; k++) { const r = raw[Math.max(0, Math.min(N, i + k))]; a += r.h; n++; } return a / n; });
+  // walkers follow the same roadway: each bridge tile's deck height becomes the smoothed road over it
+  for (const k of br.tiles) { const tx = k % W.W, ty = (k / W.W) | 0; const sv = (ax ? tx : ty) + 0.5; const i = Math.max(0, Math.min(N, Math.round((sv - s0) / (s1 - s0) * N))); geo.deck[k] = top[i] + 0.02; }
+  if (wl === Infinity) wl = Math.min(...raw.map((r) => r.bed)) + 0.3;
+  // the arches: one every ~8 m of span, on piers 1.1 m thick; the vault's crown sits 0.7 m under the roadway
+  const L = (s1 - s0) * Tl, nA = Math.max(1, Math.round((L - 3) / 8)), seg = (L - 2.4) / nA, pw = 1.1;
+  const under = S.map((sv, i) => { const u = (sv - s0) * Tl - 1.2; if (u <= 0 || u >= L - 2.4) return raw[i].bed - 0.4;
+    const k = Math.min(nA - 1, Math.floor(u / seg)), a = k * seg + (k > 0 ? pw / 2 : 0), b = (k + 1) * seg - (k < nA - 1 ? pw / 2 : 0);
+    if (u <= a || u >= b) return raw[i].bed - 0.4; const t = (u - a) / (b - a) * 2 - 1; const spring = wl + 0.1, crown = Math.max(spring + 0.6, top[i] - 0.7);
+    return spring + (crown - spring) * Math.sqrt(Math.max(0, 1 - t * t)); });
+  if (!mb) return; // heights only
+  const W0 = c0, W1 = c1, stone = '#9a9284', road = '#7e776c', cope = '#b0a898';
+  // the two faces (spandrel walls), the vault's underside, the roadway and the ends
+  for (const c of [W0, W1]) mb.add('stone', stripGeom([S.map((sv, i) => P(sv, c, under[i])), S.map((sv, i) => P(sv, c, top[i]))]), new THREE.Matrix4(), stone, 'world');
+  mb.add('stone', stripGeom([S.map((sv, i) => P(sv, W1, under[i])), S.map((sv, i) => P(sv, W0, under[i]))]), new THREE.Matrix4(), K3.shade(stone, -0.15), 'world');
+  mb.add('stone', stripGeom([S.map((sv, i) => P(sv, W0 + 0.25, top[i] + 0.02)), S.map((sv, i) => P(sv, W1 - 0.25, top[i] + 0.02))]), new THREE.Matrix4(), road, 'world');
+  for (const i of [0, N]) mb.add('stone', stripGeom([[P(S[i], W0, under[i]), P(S[i], W1, under[i])], [P(S[i], W0, top[i]), P(S[i], W1, top[i])]]), new THREE.Matrix4(), stone, 'world');
+  // the arch rings: a band of dressed voussoirs round each opening, standing a hand proud of the face
+  for (const c of [W0, W1]) { const o = c === W0 ? -0.06 : 0.06;
+    for (let i = 0; i < N; i++) { if (under[i] < wl - 0.05 && under[i + 1] < wl - 0.05) continue; if (raw[i].bed - 0.4 === under[i]) continue;
+      const a = P(S[i], c + o / Tl, under[i]), b = P(S[i + 1], c + o / Tl, under[i + 1]); const ring = [[a, b], [[a[0], a[1] + 0.45, a[2]], [b[0], b[1] + 0.45, b[2]]]];
+      mb.add('stone', stripGeom(ring), new THREE.Matrix4(), cope, 'world'); } }
+  // parapet walls with a coping, following the roadway, and posts at the ends where the road comes onto it
+  for (const [c, dir] of [[W0, 1], [W1, -1]]) {
+    const inner = c + dir * 0.28;
+    mb.add('stone', stripGeom([S.map((sv, i) => P(sv, c, top[i])), S.map((sv, i) => P(sv, c, top[i] + 0.95))]), new THREE.Matrix4(), stone, 'world');
+    mb.add('stone', stripGeom([S.map((sv, i) => P(sv, inner, top[i] + 0.95)), S.map((sv, i) => P(sv, inner, top[i]))]), new THREE.Matrix4(), stone, 'world');
+    mb.add('stone', stripGeom([S.map((sv, i) => P(sv, c - dir * 0.06, top[i] + 1.08)), S.map((sv, i) => P(sv, inner + dir * 0.06, top[i] + 1.08))]), new THREE.Matrix4(), cope, 'world');
+    for (const side of [-1, 1]) mb.add('stone', stripGeom([S.map((sv, i) => P(sv, side < 0 ? c - dir * 0.06 : inner + dir * 0.06, top[i] + 0.95)), S.map((sv, i) => P(sv, side < 0 ? c - dir * 0.06 : inner + dir * 0.06, top[i] + 1.08))]), new THREE.Matrix4(), cope, 'world');
+    for (const i of [0, N]) { const p = P(S[i], c + dir * 0.14, top[i]); mb.boxB('stone', p[0], p[1], p[2], 0.6, 1.5, 0.6, cope); mb.box('stone', p[0], p[1] + 1.6, p[2], 0.7, 0.18, 0.7, K3.shade(cope, -0.08)); }
+  }
+  // the piers' cutwaters, pointed upstream and down, from the riverbed to above the water
+  for (let k = 1; k < nA; k++) { const u = 1.2 + k * seg, sv = s0 + u / Tl; const i = Math.round((sv - s0) / (s1 - s0) * N); const bed = raw[Math.max(0, Math.min(N, i))].bed - 0.4;
+    for (const c of [W0, W1]) { const p = P(sv, c, bed); const h = wl + 0.9 - bed; mb.box('stone', p[0], bed + h / 2, p[2], pw * 0.78, h, pw * 0.78, stone, Math.PI / 4); mb.cone('stone', p[0], bed + h, p[2], pw * 0.55, 0.6, cope, 4, Math.PI / 4); } }
+}
 function decks(mb, x0, y0, x1, y1) {
+  for (const br of bridgeList()) if (br.ax >= x0 && br.ax < x1 && br.ay >= y0 && br.ay < y1) { try { stoneBridge(mb, br); } catch (e) { console.warn('bridge', e); } }
   const isDeck = (tx, ty) => { if (!W.inb(tx, ty)) return false; const c = geo.cls[ty * W.W + tx]; return c === 6 || c === 7; };
   for (let ty = y0; ty < y1; ty++) for (let tx = x0; tx < x1; tx++) {
-    if (!isDeck(tx, ty)) continue; const i = ty * W.W + tx; const y = geo.deck[i]; if (isNaN(y)) continue;
+    if (!isDeck(tx, ty) || geo.cls[ty * W.W + tx] === 6) continue; // (bridges are built whole, above) const i = ty * W.W + tx; const y = geo.deck[i]; if (isNaN(y)) continue;
     const bridge = geo.cls[i] === 6; const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl;
     // which way the planks run: across the direction of travel
     const alongX = isDeck(tx - 1, ty) || isDeck(tx + 1, ty) || W.tile(tx - 1, ty) === T.ROAD || W.tile(tx + 1, ty) === T.ROAD;

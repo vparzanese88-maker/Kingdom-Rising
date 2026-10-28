@@ -164,7 +164,7 @@ const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const WARM_IN = C(1.0, 0.86, 0.66), WARM_IN_G = C(0.42, 0.32, 0.22);
 const PAL = {
-  day: { zen: C(0.16, 0.34, 0.72), hor: C(0.58, 0.7, 0.84), gnd: C(0.32, 0.31, 0.3), sun: C(1.0, 0.93, 0.82) },
+  day: { zen: C(0.13, 0.3, 0.67), hor: C(0.5, 0.63, 0.8), gnd: C(0.32, 0.31, 0.3), sun: C(1.0, 0.93, 0.82) },
   dusk: { zen: C(0.2, 0.24, 0.45), hor: C(0.98, 0.5, 0.26), gnd: C(0.2, 0.15, 0.12), sun: C(1.0, 0.55, 0.25) },
   night: { zen: C(0.006, 0.01, 0.028), hor: C(0.03, 0.04, 0.07), gnd: C(0.01, 0.01, 0.015), sun: C(0.4, 0.5, 0.8) },
 };
@@ -222,8 +222,10 @@ export function updateSky(dt, camPos, ctx) {
   // nights stay readable: the moon is bright enough to see the road and an enemy 30-40 m off, and rain or cloud only
   // dims it a little (night already takes away most of the light); gloomy regions darken nights less than days
   const darkN = 1 - regDark * (0.62 - 0.3 * nightK);
-  let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.95 * nightK * (1 - cloudK * 0.25) * darkN; // moonlight you can see by
-  let hemiI = (0.6 + 0.62 * dayK) * (0.92 + cloudK * 0.22) * (dayK > 0.5 ? 1 - regDark * 0.45 : darkN); // bright, readable skylight; gloomy lands only dim it // the same by day; a brighter floor of skylight at night
+  let sunI = sunUp ? (0.3 + 3.6 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.95 * nightK * (1 - cloudK * 0.25) * darkN; // moonlight you can see by
+  // the fill from the sky is kept low by day: the sky's own light (the environment map) does the rest, and the sun
+  // and shadows give everything its shape
+  let hemiI = (0.42 + 0.2 * dayK) * (0.92 + cloudK * 0.5) * (dayK > 0.5 ? 1 - regDark * 0.45 : darkN); // bright, readable skylight; gloomy lands only dim it // the same by day; a brighter floor of skylight at night
   if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.34 : geo.dtype === 'sewer' ? 0.7 : 0.38; } // dark and moody, but you can see where you're going // sewers: grey daylight leaks down through the street grates
   hemiI *= 1 - insideK * 0.22; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
@@ -254,12 +256,12 @@ export function updateSky(dt, camPos, ctx) {
   sun.castShadow = !!K3.quality.shadows && !dungeon && sun.intensity > 0.05;
   // fog
   const fog = K3.scene.fog;
-  let dens = 0.0016 + fogK * 0.011 + regFog * 0.006 + cloudK * 0.0006;
+  let dens = 0.0027 + fogK * 0.011 + regFog * 0.006 + cloudK * 0.0006;
   if (dungeon) dens = 0.018;
   if (W.realm === 'summit') dens *= 0.6;
   dens = dens + insideK * 0.004;
   fog.density += (dens - fog.density) * Math.min(1, dt * 1.5);
-  const fc = tmp.copy(hor).lerp(zen, 0.15);
+  const fc = tmp.copy(hor).lerp(zen, 0.3).lerp(C(0.62, 0.7, 0.8).multiplyScalar(0.25 + 0.75 * dayK), 0.25 * dayK); // a cool blue-grey distance haze
   if (regFog > 0.1) fc.lerp(reg.biome === 'swamp' ? C(0.3, 0.34, 0.26).multiplyScalar(0.2 + 0.8 * dayK) : C(0.22, 0.2, 0.26).multiplyScalar(0.3 + 0.7 * dayK), regFog * 0.7);
   if (dungeon) fc.setRGB(0.035, 0.034, 0.042);
   fog.color.copy(fc);

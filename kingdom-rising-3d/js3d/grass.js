@@ -32,7 +32,7 @@ function makeMaterial() {
       ivec2 ti = ivec2(floor(tc));
       float layer = floor(texelFetch(tTile, clamp(ti, ivec2(0), ivec2(uTileN) - 1), 0).r * 255. + .5);
       float dens = 0.; vec3 tint = vec3(1.);
-      if (layer == ${L.grass}.) { dens = 1.; tint = vec3(1.); }
+      if (layer == ${L.grass}.) { dens = 1.; tint = vec3(.92, .94, .8); }
       else if (layer == ${L.darkgrass}.) { dens = .9; tint = vec3(.7, .78, .62); }
       else if (layer == ${L.plains}.) { dens = .95; tint = vec3(1.35, 1.18, .6); }
       else if (layer == ${L.forest}.) { dens = .3; tint = vec3(.75, .85, .62); }

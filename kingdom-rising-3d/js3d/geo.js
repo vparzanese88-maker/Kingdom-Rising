@@ -74,6 +74,13 @@ export function buildGeo() {
     const t = tiles[i];
     cls[i] = t === T.ROCK ? 1 : t === T.WATER ? 2 : t === T.DEEP ? 3 : t === T.LAVA ? 4 : (t === T.WALL || t === T.CWALL || t === T.DOOR) ? 5 : t === T.BRIDGE ? 6 : (t === T.WOOD && bmap[i] < 0) ? 7 : 0;
   }
+  // a bridge stands only over water: a bridge tile with no water within two tiles (a stream that ran dry, a road laid
+  // over a filled-in ford) is plain road, never a deck of planks lying on dry ground
+  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) {
+    const i = y * Wd + x; if (cls[i] !== 6) continue; let wet = false;
+    for (let dy = -2; dy <= 2 && !wet; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) continue; const c = cls[yy * Wd + xx]; if (c === 2 || c === 3) { wet = true; break; } }
+    if (!wet) { cls[i] = 0; tiles[i] = T.ROAD; }
+  }
   // docks over water count as water for the ground below them
   geo.bmap = bmap; geo.cls = cls;
   const isWet = (c) => c === 2 || c === 3 || c === 6;
@@ -193,8 +200,11 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
     for (let y = cd.cy - R - blend; y <= cd.cy + R + blend + 1; y++) for (let x = cd.cx - R - blend; x <= cd.cx + R + blend + 1; x++) {
       if (x < 0 || y < 0 || x >= VW || y >= VH) continue; const v = y * VW + x;
       const d = Math.max(Math.abs(x - cd.cx - 0.5), Math.abs(y - cd.cy - 0.5)) - (R + 0.5);
-      const flat = base + (H[v] - avg) * (hb ? 0.04 : 0.1);
-      if (d <= 0) H[v] = flat; else if (d < blend) H[v] = K3.lerp(flat, H[v], K3.smooth(0, blend, d));
+      const k = d <= 0 ? 0 : d < blend ? K3.smooth(0, blend, d) : 1; const fl = (h) => K3.lerp(base + (h - avg) * (hb ? 0.04 : 0.1), h, k);
+      if (isNaN(WL[v])) { H[v] = fl(H[v]); continue; }
+      if (WL[v] === 0) continue; // the open sea never moves
+      // a river or a pond moves with its banks: its bed and its surface shift as much as the land beside it does
+      const bank = WL[v] + 0.3, dl = fl(bank) - bank; H[v] += dl; WL[v] += dl;
     }
     // the dock district outside the sea gate (and the quay along the water): dead level with the city and the piers
     if (hb) for (let i = -2; i <= hb.k + 2; i++) for (let sd = -hb.half - 2; sd <= hb.half + 2; sd++) {

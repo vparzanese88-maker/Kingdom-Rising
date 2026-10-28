@@ -1404,7 +1404,7 @@
       if (t !== T.STONE && t !== T.COBBLE) continue;
       const quay = i >= hb.k - 3; // the strip along the water
       if (stage >= 4) continue;
-      if (quay) W.tiles[k] = stage >= 3 ? T.STONE : T.WOOD;
+      if (quay) W.tiles[k] = stage >= 3 ? T.STONE : T.ROAD; // a beaten-earth landing (the timber wharf is only the edge over the water)
       else if (Math.abs(sd) <= 2) W.tiles[k] = stage >= 3 ? T.GRAVEL : T.ROAD;
       else W.tiles[k] = stage >= 3 ? T.GRAVEL : (U.fbm(x * 0.25, y * 0.25, 61) > 0.55 ? T.ROAD : U.hash(x, y, 9) < 0.5 ? T.DGRASS : T.GRASS);
     }

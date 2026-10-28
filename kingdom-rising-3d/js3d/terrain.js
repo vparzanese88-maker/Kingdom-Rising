@@ -2,7 +2,7 @@
 // water (lakes, rivers, sea, sewers), lava, cave ceilings and the far horizon beyond the map edge
 import { THREE, K3, TS, TILE } from './core.js';
 import { geo, T, fbm } from './geo.js';
-import { makeTerrainArrays, propTex, TERRAIN_LAYERS, NOISE_GLSL } from './texgen.js';
+import { makeTerrainArrays, loadTerrainPhotos, propTex, TERRAIN_LAYERS, NOISE_GLSL } from './texgen.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
 // tiles per terrain piece side: 64 makes a quarter as many ground and water meshes (each one a draw call, plus
@@ -63,6 +63,10 @@ function makeTerrainMaterial(ceiling) {
       varying vec3 vWPos; varying vec3 vWNrm; varying float vSnow;
       float th(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
       float tn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3. - 2. * f); return mix(mix(th(i), th(i + vec2(1, 0)), u.x), mix(th(i + vec2(0, 1)), th(i + vec2(1, 1)), u.x), u.y); }
+      // two samples of a layer, the second larger and turned, blended: no visible repeat across a field
+      vec2 uvB(vec2 uv){ return mat2(.8, -.6, .6, .8) * uv * .43 + vec2(.31, .17); }
+      vec4 tAl(vec2 uv, float l){ return mix(texture(tAlb, vec3(uv, l)), texture(tAlb, vec3(uvB(uv), l)), .38); }
+      vec4 tNo(vec2 uv, float l){ return mix(texture(tNrm, vec3(uv, l)), texture(tNrm, vec3(uvB(uv), l)), .38); }
       vec4 tdat(ivec2 c){ c = clamp(c, ivec2(0), ivec2(uTileN) - 1); return texelFetch(tTile, c, 0); }
       vec3 gN; float gRough; vec3 gEmis;
     `).replace('#include <map_fragment>', `
@@ -76,13 +80,13 @@ function makeTerrainMaterial(ceiling) {
       float l00 = floor(d00.r * 255. + .5), l10 = floor(d10.r * 255. + .5), l01 = floor(d01.r * 255. + .5), l11 = floor(d11.r * 255. + .5);
       vec2 uv = vWPos.xz / 3.2;
       vec4 alb; vec4 nrm;
-      if (l00 == l10 && l00 == l01 && l00 == l11) { alb = texture(tAlb, vec3(uv, l00)); nrm = texture(tNrm, vec3(uv, l00)); }
+      if (l00 == l10 && l00 == l01 && l00 == l11) { alb = tAl(uv, l00); nrm = tNo(uv, l00); }
       else {
-        vec4 a0 = texture(tAlb, vec3(uv, l00)), a1 = texture(tAlb, vec3(uv, l10)), a2 = texture(tAlb, vec3(uv, l01)), a3 = texture(tAlb, vec3(uv, l11));
+        vec4 a0 = tAl(uv, l00), a1 = tAl(uv, l10), a2 = tAl(uv, l01), a3 = tAl(uv, l11);
         vec2 fs = f * f * (3. - 2. * f); vec4 w = vec4((1. - fs.x) * (1. - fs.y), fs.x * (1. - fs.y), (1. - fs.x) * fs.y, fs.x * fs.y);
         vec4 hw = w + vec4(a0.a, a1.a, a2.a, a3.a) * .35; float ma = max(max(hw.x, hw.y), max(hw.z, hw.w)) - .3; /* a soft, height-aware blend: pebbles and grass tufts poke through */ vec4 bw = max(hw - ma, 0.); bw /= dot(bw, vec4(1.)) + 1e-4;
         alb = a0 * bw.x + a1 * bw.y + a2 * bw.z + a3 * bw.w;
-        nrm = texture(tNrm, vec3(uv, l00)) * bw.x + texture(tNrm, vec3(uv, l10)) * bw.y + texture(tNrm, vec3(uv, l01)) * bw.z + texture(tNrm, vec3(uv, l11)) * bw.w;
+        nrm = tNo(uv, l00) * bw.x + tNo(uv, l10) * bw.y + tNo(uv, l01) * bw.z + tNo(uv, l11) * bw.w;
         if (l00 == ${L.lava}.) gEmis += a0.rgb * bw.x * (1. - a0.a) * 5.; if (l10 == ${L.lava}.) gEmis += a1.rgb * bw.y * (1. - a1.a) * 5.; if (l01 == ${L.lava}.) gEmis += a2.rgb * bw.z * (1. - a2.a) * 5.; if (l11 == ${L.lava}.) gEmis += a3.rgb * bw.w * (1. - a3.a) * 5.;
       }
       if (l00 == l10 && l00 == l01 && l00 == l11 && l00 == ${L.lava}.) gEmis += alb.rgb * (1. - alb.a) * 5.;
@@ -213,16 +217,16 @@ function makeWaterMaterial() {
         vec3 V = normalize(cameraPosition - vW);
         float fres = .03 + .97 * pow(1. - max(dot(N, V), 0.), 5.);
         vec3 R = reflect(-V, N);
-        vec3 sky = mix(uHorCol, uSkyCol, clamp(R.y * 1.6, 0., 1.));
+        vec3 sky = mix(uHorCol * .78, uSkyCol * .9, clamp(R.y * 1.6, 0., 1.));
         float spec = pow(max(dot(R, normalize(uSunDir)), 0.), 220.) * 6. + pow(max(dot(R, normalize(uSunDir)), 0.), 24.) * .25;
         float d = clamp(vDepth, 0., 6.);
         vec3 shallow = vTint * 1.6, deep = vTint * .35;
         vec3 body = mix(shallow, deep, smoothstep(0., 3.5, d)) * (.25 + .75 * max(uSunDir.y, .08)) * uSunCol;
-        vec3 col = mix(body, sky, fres * .85) + uSunCol * spec * step(0., uSunDir.y);
+        vec3 col = mix(body, sky, fres * .62) + uSunCol * spec * step(0., uSunDir.y);
         float foam = smoothstep(.28, .0, d) * (.55 + .45 * sin(uTime * 2. + vW.x * 2.1 + vW.z * 1.7 + n1.x * 3.));
         foam *= smoothstep(.08, .13, vTint.b); // murky swamp and sewer water has no surf
         col = mix(col, vec3(.85, .9, .9) * (.3 + .7 * max(uSunDir.y, .1)), foam * .55);
-        float a = clamp(.45 + smoothstep(0., 1.6, d) * .45 + fres * .3 + foam * .3, 0., .97);
+        float a = clamp(.16 + smoothstep(0., 1.8, d) * .66 + fres * .26 + foam * .3, 0., .97); // clear in the shallows: you see the bed
         gl_FragColor = vec4(col, a);
         #include <fog_fragment>
       }`,
@@ -318,7 +322,7 @@ function horizonGeom() {
 // ---------- build / rebuild ----------
 export function buildTerrain() {
   const t0 = performance.now();
-  if (!arrays) arrays = makeTerrainArrays(K3.quality.texSize);
+  if (!arrays) { arrays = makeTerrainArrays(K3.quality.texSize); loadTerrainPhotos(arrays, new URL('../assets/tex/terrain/', import.meta.url).href); } // painted at once, then the photographed ground as it loads
   buildTileTex();
   // a new material per realm so uniforms like the map size are right
   for (const m of [terrainMat, ceilMat]) if (m) m.dispose();

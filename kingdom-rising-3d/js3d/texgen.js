@@ -257,8 +257,27 @@ export function makeTerrainArrays(size) {
     m.uniforms.uMode.value = 1; r.setRenderTarget(nrm, i); quad.render(r);
   }
   r.setRenderTarget(prev);
-  return { albedo: alb.texture, normal: nrm.texture, layers: TERRAIN_LAYERS };
+  return { albedo: alb.texture, normal: nrm.texture, layers: TERRAIN_LAYERS, rt: { alb, nrm, size } };
 }
+
+// ---------- photographed ground (assets/tex/terrain, CC0 scans from ambientCG): replaces the painted layers ----------
+// Each layer has a colour map (_a), a normal map (_n) and a packed map (_rh: R roughness, G height, B ambient occlusion).
+// They are drawn into the same array layers once loaded, so the ground sharpens into real dirt, grass and stone.
+const COPY_FRAG = `
+precision highp float;
+uniform sampler2D tA, tN, tRH; uniform int uMode; varying vec2 vUv;
+void main(){
+  vec4 rh = texture2D(tRH, vUv);
+  if (uMode == 0) { vec3 c = texture2D(tA, vUv).rgb * mix(1., rh.b, .65); gl_FragColor = vec4(c, rh.g); return; }
+  gl_FragColor = vec4(texture2D(tN, vUv).rgb, rh.r);
+}`;
+let copyMat = null, copyQuad = null;
+export function loadTerrainPhotos(arrays, base) {
+  if (!arrays || !arrays.rt || arrays.photos) return arrays && arrays.photos; const { alb, nrm } = arrays.rt;
+  arrays.photos = Promise.all(TERRAIN_LAYERS.map((name, i) => photoInto(base + name, alb, nrm, i))).then((ok) => (K3.terrainPhotos = ok.filter(Boolean).length));
+  return arrays.photos;
+}
+
 
 // props: a plain texture pair per material, cached
 const propCache = {};
@@ -274,7 +293,24 @@ export function propTex(name, size) {
   m.uniforms.uMode.value = 0; r.setRenderTarget(a); quad.render(r);
   m.uniforms.uMode.value = 1; r.setRenderTarget(b); quad.render(r);
   r.setRenderTarget(prev);
+  if (PROP_PHOTOS.includes(name)) photoInto(PROP_BASE + name, a, b); // the photographed material, once it has loaded
   return (propCache[key] = { map: a.texture, normalMap: b.texture });
+}
+// building and prop materials with a photographed version (assets/tex/props, CC0 scans from ambientCG)
+const PROP_PHOTOS = ['stonebrick', 'darkstone', 'plaster', 'timber', 'planks', 'rooftile', 'slate', 'shingle', 'bark', 'birch', 'pinebark', 'metal', 'cloth', 'leather', 'marble'];
+const PROP_BASE = new URL('../assets/tex/props/', import.meta.url).href;
+const photoLoader = new THREE.TextureLoader();
+const loadTex = (u, srgb) => new Promise((ok) => photoLoader.load(u, (t) => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; ok(t); }, undefined, () => ok(null)));
+function copyShader() { if (!copyMat) { copyMat = new THREE.ShaderMaterial({ vertexShader: GEN_VERT, fragmentShader: COPY_FRAG, uniforms: { tA: { value: null }, tN: { value: null }, tRH: { value: null }, uMode: { value: 0 } }, depthTest: false, depthWrite: false }); copyQuad = new FullScreenQuad(copyMat); } }
+// draw a photographed material (base_a / _n / _rh) into a colour target and a normal target, layer `layer` for arrays
+async function photoInto(base, alb, nrm, layer) {
+  const [a, n, rh] = await Promise.all([loadTex(base + '_a.jpg', true), loadTex(base + '_n.jpg', false), loadTex(base + '_rh.jpg', false)]);
+  if (!a || !n || !rh) return false; copyShader(); const r = K3.renderer;
+  copyMat.uniforms.tA.value = a; copyMat.uniforms.tN.value = n; copyMat.uniforms.tRH.value = rh;
+  const prev = r.getRenderTarget();
+  copyMat.uniforms.uMode.value = 0; r.setRenderTarget(alb, layer); copyQuad.render(r);
+  copyMat.uniforms.uMode.value = 1; r.setRenderTarget(nrm, layer); copyQuad.render(r);
+  r.setRenderTarget(prev); a.dispose(); n.dispose(); rh.dispose(); return true;
 }
 
 // ---------- canvas-painted cards with alpha: leaves, needles, grass, flames ----------
@@ -329,7 +365,7 @@ export function cardTex(kind) {
     });
   } else if (kind === 'grass' || kind === 'drygrass' || kind === 'darkgrass' || kind === 'flowers' || kind === 'reeds' || kind === 'fern' || kind === 'snowgrass' || kind === 'ashgrass' || kind === 'crop') {
     const R = rnd(kind.length * 31 + 7);
-    const pal = { grass: ['#3e6a24', '#4f7f2c', '#5e8f34', '#6f9a3a'], drygrass: ['#8a8238', '#9a9046', '#7a7a34', '#a89a4e'], darkgrass: ['#2a4220', '#355228', '#3e5e2c', '#2e4a24'], flowers: ['#3e6a24', '#4f7f2c', '#5e8f34', '#6f9a3a'], reeds: ['#5a6a2a', '#6a7a3a', '#7a8a44', '#4a5a24'], fern: ['#2f6a2a', '#3f7a34', '#4f8a3a', '#356e2e'], snowgrass: ['#7a8a6a', '#8a9a7a', '#a8b4a0', '#c8d0c8'], ashgrass: ['#4a4840', '#5a5850', '#3a3832', '#6a665a'], crop: ['#6a8a2a', '#7a9a34', '#c8a848', '#d8b850'] }[kind];
+    const pal = { grass: ['#47552a', '#566532', '#69743a', '#7c8044'], drygrass: ['#8a8238', '#9a9046', '#7a7a34', '#a89a4e'], darkgrass: ['#2a4220', '#355228', '#3e5e2c', '#2e4a24'], flowers: ['#47552a', '#566532', '#69743a', '#7c8044'], reeds: ['#5a6a2a', '#6a7a3a', '#7a8a44', '#4a5a24'], fern: ['#2f6a2a', '#3f7a34', '#4f8a3a', '#356e2e'], snowgrass: ['#7a8a6a', '#8a9a7a', '#a8b4a0', '#c8d0c8'], ashgrass: ['#4a4840', '#5a5850', '#3a3832', '#6a665a'], crop: ['#5e6e2c', '#6c7a34', '#b49a52', '#c4a85a'] }[kind];
     t = canvasTex(S, S, (g) => {
       g.clearRect(0, 0, S, S);
       if (kind === 'fern') {

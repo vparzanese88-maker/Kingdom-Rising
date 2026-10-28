@@ -638,7 +638,7 @@
   const noiseArr = (n) => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = rng() * 2 - 1; return a; };
   const brown = (n) => { const a = new Float32Array(n); let v = 0; for (let i = 0; i < n; i++) { v = (v + (rng() * 2 - 1) * 0.02) * 0.998; a[i] = v * 8; } return a; };
   function mixInto(dst, src, at, g = 1) { for (let i = 0; i < src.length && at + i < dst.length; i++) if (at + i >= 0) dst[at + i] += src[i] * g; }
-  function env(a, fn, sr) { for (let i = 0; i < a.length; i++) a[i] *= fn(i / sr); return a; }
+  function env(a, fn, sr) { const fo = Math.min(Math.floor(0.006 * sr), a.length >> 2); for (let i = 0; i < a.length; i++) a[i] *= fn(i / sr) * (i > a.length - fo ? (a.length - i) / fo : 1); return a; } // with a short fade at the end: no clicks
   function norm(chs, peak = 0.92) { let m = 1e-6; for (const c of chs) for (let i = 0; i < c.length; i++) m = Math.max(m, Math.abs(c[i])); for (const c of chs) for (let i = 0; i < c.length; i++) c[i] *= peak / m; }
   function toBuf(L, Rr) { const b = ctx.createBuffer(2, L.length, bankSR); b.copyToChannel(L, 0); b.copyToChannel(Rr || L, 1); return b; }
   // stereo from mono with a few early reflections, so a single shot sounds like it happened somewhere
@@ -675,9 +675,10 @@
     ballista() {
       const sr = bankSR, n = Math.floor(1.3 * sr), out = new Float32Array(n);
       // the bow-arms released: a low, buzzing string twang (Karplus-Strong)
-      const f = R(82, 104), N = Math.round(sr / f); const ring = noiseArr(N); let idx = 0; const tw = new Float32Array(Math.floor(0.9 * sr));
-      for (let i = 0; i < tw.length; i++) { const a = ring[idx], b2 = ring[(idx + 1) % N]; ring[idx] = (a + b2) * 0.4985; tw[i] = a; idx = (idx + 1) % N; }
-      env(tw, (t) => Math.exp(-t / 0.35), sr); mixInto(out, lp1(tw, 2600, sr), 0, 0.9);
+      // a heavy twisted-sinew string: harmonics that die away faster the higher they are, a little pitch drop as it slackens
+      const f = R(82, 104); const tw = new Float32Array(Math.floor(0.9 * sr));
+      for (let hN = 1; hN <= 18; hN++) { let ph = rng() * 6.28; const dec = 0.45 / (1 + hN * 0.45), amp = 1 / Math.pow(hN, 1.1); for (let i = 0; i < tw.length; i++) { const t = i / sr; ph += 2 * Math.PI * f * hN * (1 + 0.0015 * hN) * (1 - 0.04 * Math.min(1, t / 0.4)) / sr; tw[i] += Math.sin(ph) * amp * Math.exp(-t / dec); } }
+      mixInto(out, tw, 0, 0.55);
       // the arms slamming into their stops: a hard wooden thunk
       const th = env(bp(noiseArr(Math.floor(0.12 * sr)), 260, 2.5, sr), (t) => Math.exp(-t / 0.03), sr); mixInto(out, th, Math.floor(0.008 * sr), 2.4);
       const tb = new Float32Array(Math.floor(0.2 * sr)); let ph = 0; for (let i = 0; i < tb.length; i++) { const t = i / sr; ph += 2 * Math.PI * 150 * (0.6 + 0.4 * Math.exp(-t / 0.04)) / sr; tb[i] = Math.sin(ph) * Math.exp(-t / 0.05); } mixInto(out, tb, 0, 0.7);

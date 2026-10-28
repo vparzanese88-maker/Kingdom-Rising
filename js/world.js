@@ -68,17 +68,12 @@
   // per tile, which of its sides are railed (1 north, 2 east, 4 south, 8 west); nobody walks across a railed side and the
   // pathfinders go round by the stairs
   W.edge = null;
-  const RAIL = 3; // px on either side of a railed edge: keeps bodies off the balustrade (walkers still fit a tile's middle)
-  W.solidAtPx = (px, py, opts) => {
-    const tx = Math.floor(px / TS), ty = Math.floor(py / TS);
-    if (W.isBlockedTile(tx, ty, opts)) return true;
-    const E = W.edge; if (!E) return false; const m = E[ty * W.W + tx]; if (!m) return false;
-    const fx = px - tx * TS, fy = py - ty * TS;
-    return !!((m & 1 && fy < RAIL) || (m & 4 && fy > TS - RAIL) || (m & 8 && fx < RAIL) || (m & 2 && fx > TS - RAIL));
-  };
+  W.solidAtPx = (px, py, opts) => W.isBlockedTile(Math.floor(px / TS), Math.floor(py / TS), opts);
+  const RAIL = 10; // px: how close anyone's middle comes to a balustrade
   const SIDE = (dx, dy) => (dy < 0 ? 1 : dy > 0 ? 4 : dx > 0 ? 2 : 8);
-  // a step can never carry anyone's middle across a rail, however long it is (a far walker's big step, a dash, a shove):
-  // G.moveEnt is wrapped once, the first time a city with rails is built, and undoes the part of a step that crossed one
+  // a step can never carry anyone's middle across a rail, however long it is (a far walker's big step, a dash, a shove),
+  // nor closer to one than RAIL (stepping away from it is always allowed, so nobody can get wedged against it):
+  // G.moveEnt is wrapped once, the first time a city with rails is built, and undoes the part of a step that broke that
   function railMoves() {
     const G = KR.G; if (!G || !G.moveEnt || G.moveEnt._rails) return;
     const mv0 = G.moveEnt;
@@ -88,8 +83,10 @@
       const otx = Math.floor(ox / TS), oty = Math.floor(oy / TS);
       let ntx = Math.floor(e.x / TS);
       if (ntx !== otx && W.edgeBlk(otx, oty, Math.sign(ntx - otx), 0)) { e.x = ox; ntx = otx; }
-      const nty = Math.floor(e.y / TS);
-      if (nty !== oty && W.edgeBlk(ntx, oty, 0, Math.sign(nty - oty))) e.y = oy;
+      { const m = E[oty * W.W + ntx], fx = e.x - ntx * TS; if ((m & 8 && fx < RAIL && e.x < ox) || (m & 2 && fx > TS - RAIL && e.x > ox)) e.x = ox; }
+      const tx2 = Math.floor(e.x / TS); let nty = Math.floor(e.y / TS);
+      if (nty !== oty && W.edgeBlk(tx2, oty, 0, Math.sign(nty - oty))) { e.y = oy; nty = oty; }
+      { const m = E[nty * W.W + tx2], fy = e.y - nty * TS; if ((m & 1 && fy < RAIL && e.y < oy) || (m & 4 && fy > TS - RAIL && e.y > oy)) e.y = oy; }
       return r;
     };
     G.moveEnt._rails = true;

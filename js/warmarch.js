@@ -377,7 +377,7 @@
     }
     // at the enemy kingdom: up to the gate, then swing
     const g = sq.gate || War.blockingGate(sq); if (!g) { r.moving = false; return; }
-    const [ox, oy] = g.out; const front = { x: g.x + ox * (TS * 0.5 + 62), y: g.y + oy * (TS * 0.5 + 62) };
+    const [ox, oy] = g.out; const front = { x: g.x + ox * (TS * 0.5 + 80), y: g.y + oy * (TS * 0.5 + 80) }; // the swinging head just reaches the portcullis (siege3d.js)
     r.ramAim = { x: g.x, y: g.y };
     if (!go(front, D.RAM.speed)) { r.swingT = 0; r.ramPh = 0; if (Math.hypot(front.x - r.x, front.y - r.y) > 120) r.ramAim = null; return; }
     if (!g.closed || g.broken) { r.ramPh = 0; r.swingT = 0; return; }

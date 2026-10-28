@@ -89,14 +89,29 @@ function build(kind, opt) {
   const GRIP = { '1HS': 0.1, sword: 0.1, '2HS': 0.18, '1HP': 0.06, dagger: 0.06, THR: 0.04 }; if (GRIP[kind]) { const o = new THREE.Group(); grp.position.y = GRIP[kind]; o.add(grp); grp = o; }
   return grp;
 }
+// Models are built flat in the x-y plane (edges and axe heads along +x) so icons show their face. In the hand
+// that put every edge and axe head out to the side; held weapons are turned a quarter about their shaft so the
+// edge, axe bit, hammer face and spear blade lead the swing (+z of the weapon is the knuckle side of the grip).
+const EDGED = new Set(['1HS', 'sword', '2HS', 'axe', '2HSaxe', '1HB', 'mace', 'club', '2HB', '1HP', 'dagger', 'THR', 'spear']);
+function turned(kind, g) { if (!g || !EDGED.has(kind)) return g; const o = new THREE.Group(); g.rotation.y -= Math.PI / 2; o.add(g); return o; }
+// NPCs carry the same detailed models as the hero's own items: a fixed stand-in item per weapon kind
+const NPC_ITEM = { '1HS': ['1HS', 1, 'Longsword'], sword: ['1HS', 1, 'Longsword'], '2HS': ['2HS', 1, 'Greatsword'], axe: ['1HS', 1, 'Hand Axe', true], '2HSaxe': ['2HS', 1, 'Greataxe', true], '1HB': ['1HB', 1, 'Mace'], mace: ['1HB', 1, 'Flanged Mace'], club: ['1HB', 0, 'Club'], '1HP': ['1HP', 1, 'Dirk'], dagger: ['1HP', 1, 'Dirk'], THR: ['THR', 1, 'Throwing Knives'] };
 // a weapon model (shared geometry) for a weapon type
 export function weaponMesh(kind, opt = {}) {
   if (!kind) return null;
+  // cloth hand wraps are worn, not held: no object floating in the fist
+  if (kind === 'H2H' && opt.item && /wrap|band|tape/i.test(opt.item.name || '')) return null;
+  if (kind === 'H2H' && opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { const o = new THREE.Group(); m.group.scale.setScalar(0.75); o.add(m.group); o.traverse((x) => { if (x.isMesh) x.castShadow = true; }); return o; } } catch (e) { console.warn(e); } }
   // the hero's own items are drawn with the same detailed, one-of-a-kind model as their inventory icon
-  if (opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { m.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.matrixAutoUpdate = true; } }); return m.group; } } catch (e) { console.warn(e); } }
-  const key = kind + '|' + (opt.staff ? 's' : '') + (opt.orb || '') + (opt.shieldCol || '') + (opt.shieldEmb || '') + (opt.tomeCol || '') + (opt.wood ? 'w' : '');
+  if (opt.item && K3.itemModel) { try { const m = K3.itemModel(opt.item); if (m && m.group) { m.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.matrixAutoUpdate = true; } }); return turned(kind, m.group); } } catch (e) { console.warn(e); } }
+  const key = kind + '|' + (opt.staff ? 's' : '') + (opt.orb || '') + (opt.shieldCol || '') + (opt.shieldEmb || '') + (opt.tomeCol || '') + (opt.wood ? 'w' : '') + (opt.steel || '');
   let g = cache.get(key);
-  if (g === undefined) { g = build(kind, opt); cache.set(key, g); }
+  if (g === undefined) {
+    const ni = !opt.steel && NPC_ITEM[kind]; g = null;
+    if (ni && K3.itemModel) { try { const [wt, tier, name, axe] = ni; const m = K3.itemModel({ kind: 'weapon', wt, tier, name, axe: !!axe, uid: 'npc-' + kind, q: 1 }); if (m && m.group) { g = m.group; g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.keepGeo = true; } }); } } catch (e) { console.warn(e); g = null; } }
+    if (!g) g = build(kind, opt);
+    g = turned(kind, g); cache.set(key, g);
+  }
   return g ? g.clone() : null;
 }
 // how long the business end is (for effects along a blade)

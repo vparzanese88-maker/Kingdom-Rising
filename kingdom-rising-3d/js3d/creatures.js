@@ -254,7 +254,7 @@ function bearAnatomy(R, sp, c, mat, belly, dark) {
   R.ell('head', [0, hd[1] + hr * 0.42, hd[2] + hr * 0.12], [hr * 0.6, hr * 0.32, hr * 0.5], c, mat); // the domed forehead
   for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.62, hd[1] - hr * 0.12, hd[2] - hr * 0.15], [hr * 0.4, hr * 0.52, hr * 0.55], shade(c, 0.04), mat); // heavy cheeks
   const tipZ = hd[2] + hr * 0.75 + sp.sn, tipY = hd[1] - hr * 0.22;
-  R.seg('head', [0, hd[1] - hr * 0.05, hd[2] + hr * 0.5], [0, tipY + hr * 0.05, tipZ], hr * 0.5, hr * 0.33, shade(c, 0.12), mat); // the muzzle, below a dished brow
+  R.seg('head', [0, hd[1] - hr * 0.05, hd[2] + hr * 0.5], [0, tipY + hr * 0.05, tipZ], hr * 0.5, hr * 0.33, shade(c, 0.05), mat); // the muzzle, below a dished brow
   R.seg('jaw', [0, r.jaw[1] + hr * 0.05, hd[2] + hr * 0.2], [0, tipY - hr * 0.2, tipZ - hr * 0.18], hr * 0.4, hr * 0.22, shade(c, 0.08), mat);
   R.ell('head', [0, tipY + hr * 0.1, tipZ + hr * 0.04], [hr * 0.24, hr * 0.17, hr * 0.13], '#1a1414', 'skin'); // nose
   for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.62, hd[1] + hr * 0.68, hd[2] - hr * 0.3], [hr * 0.2, hr * 0.19, hr * 0.1], dark, mat, Q(0, sx * 0.3, 0)); // small round ears
@@ -293,7 +293,7 @@ function boarAnatomy(R, sp, c, mat, belly, dark) {
   R.seg('neck', [0, ch[1] + br * 0.25, ch[2] + br * 0.55], [0, hd[1] + hr * 0.1, hd[2] - hr * 0.5], br * 0.82, hr * 0.95, c, mat, 'chest', 0.4);
   R.ell('head', [0, hd[1] + hr * 0.1, hd[2] - hr * 0.1], [hr * 0.78, hr * 0.85, hr * 1.0], c, mat);
   for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.55, hd[1] - hr * 0.25, hd[2] + hr * 0.1], [hr * 0.35, hr * 0.42, hr * 0.6], shade(c, -0.05), mat); // jowls
-  const tipZ = hd[2] + hr * 0.6 + sp.sn * 1.2, tipY = hd[1] - hr * 0.35;
+  const tipZ = hd[2] + hr * 0.5 + sp.sn * 0.95, tipY = hd[1] - hr * 0.3;
   R.seg('head', [0, hd[1] + hr * 0.15, hd[2] + hr * 0.4], [0, tipY + hr * 0.08, tipZ - hr * 0.05], hr * 0.55, hr * 0.3, shade(c, -0.04), mat); // the long, sloping snout
   R.seg('jaw', [0, r.jaw[1] - hr * 0.1, hd[2] + hr * 0.25], [0, tipY - hr * 0.12, tipZ - hr * 0.3], hr * 0.38, hr * 0.2, belly, mat);
   R.ell('head', [0, tipY + hr * 0.06, tipZ + hr * 0.01], [hr * 0.31, hr * 0.27, hr * 0.08], '#7a4a42', 'skin'); // the disc
@@ -308,8 +308,8 @@ function boarAnatomy(R, sp, c, mat, belly, dark) {
   R.hard(() => {
     quadEyes(R, hd, hr, sp, hr * 0.5, hr * 0.32, hr * 0.42, 0.75);
     // tusks: three short curved pieces, out of the lips then up and back
-    for (const sx of [-1, 1]) { let p = [sx * hr * 0.28, tipY - hr * 0.08, tipZ - hr * 0.4]; let d = [sx * 0.6, 0.2, 0.75]; let rr = hr * 0.075;
-      for (let k = 0; k < 4; k++) { const ln = Math.hypot(...d); const q = [p[0] + d[0] / ln * hr * 0.17, p[1] + d[1] / ln * hr * 0.17, p[2] + d[2] / ln * hr * 0.17]; R.seg('jaw', p, q, rr, rr * 0.72, '#f0e6d0', 'bone'); p = q; rr *= 0.72; d = [d[0] * 0.8, d[1] + 0.55, d[2] - 0.35]; } }
+    for (const sx of [-1, 1]) { let p = [sx * hr * 0.28, tipY - hr * 0.08, tipZ - hr * 0.4]; let d = [sx * 0.6, 0.2, 0.75]; let rr = hr * 0.1;
+      for (let k = 0; k < 4; k++) { const ln = Math.hypot(...d); const q = [p[0] + d[0] / ln * hr * 0.22, p[1] + d[1] / ln * hr * 0.22, p[2] + d[2] / ln * hr * 0.22]; R.seg('jaw', p, q, rr, rr * 0.72, '#f0e6d0', 'bone'); p = q; rr *= 0.72; d = [d[0] * 0.8, d[1] + 0.55, d[2] - 0.35]; } }
     // the crest: two staggered rows of stiff bristles from the crown down the spine
     for (let k = 0; k < 22; k++) { const u = k / 21; const z = hd[2] - hr * 0.5 + (pv[2] - (hd[2] - hr * 0.5)) * u; const bone = u < 0.12 ? 'neck' : u < 0.55 ? 'chest' : 'pelvis';
       const y = u < 0.25 ? hd[1] + hr * 0.85 + (ch[1] + br * 1.2 - hd[1] - hr * 0.85) * (u / 0.25) : ch[1] + br * 1.22 - (ch[1] + br * 1.22 - pv[1] - br * 0.7) * ((u - 0.25) / 0.75);

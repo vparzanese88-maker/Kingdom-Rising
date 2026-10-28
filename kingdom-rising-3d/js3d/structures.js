@@ -608,7 +608,7 @@ export function buildStructuresIn(x0, y0, x1, y1, ownsBuilding) {
     try { cityWalls(mb, f, cd); } catch (e) { console.warn('walls failed', e); }
   }
   looseWalls(mb, x0, y0, x1, y1);
-  sewerHalls(mb, x0, y0, x1, y1); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
+  sewerHalls(mb, x0, y0, x1, y1, structs.torches); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
   decks(mb, x0, y0, x1, y1);
   const grp = mb.build();
   grp.add(extra);

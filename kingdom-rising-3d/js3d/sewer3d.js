@@ -16,13 +16,13 @@ export function outflowPipe(o, d) {
   const tint = (k) => K3.shade(BRICK, (K3.hash(k, d.tx || 0, 7) - 0.5) * 0.12);
   // the barrel of the pipe sticking out of the wall: straight brick sides, then the arched roof
   for (const sd of [-1, 1]) {
-    o.boxB('stone', sd * (r + 0.2), 0, zc, 0.4, yS, L, tint(sd));
+    o.boxB('brick', sd * (r + 0.2), 0, zc, 0.4, yS, L, tint(sd));
     o.boxB('stone', sd * (r + 0.2), -0.6, zc, 0.5, 0.6, L + 0.1, BRICK_D);
   }
   const N = 12;
   for (let k = 0; k <= N; k++) {
     const a = Math.PI * k / N, cx = Math.cos(a) * (r + 0.2), cy = yS + Math.sin(a) * (r + 0.2);
-    o.box('stone', cx, cy, zc, 0.42, Math.PI * (r + 0.2) / N * 1.12, L, tint(k), 0, 0, a);
+    o.box('brick', cx, cy, zc, 0.42, Math.PI * (r + 0.2) / N * 1.12, L, tint(k), 0, 0, a);
     // a ring of bigger voussoirs at the lip, slightly proud of the barrel
     o.box('stone', Math.cos(a) * (r + 0.28), yS + Math.sin(a) * (r + 0.28), z1 + 0.06, 0.62, Math.PI * (r + 0.3) / N * 1.0, 0.26, K3.shade(BRICK, -0.08 + (k % 2) * 0.05), 0, 0, a);
   }
@@ -35,9 +35,9 @@ export function outflowPipe(o, d) {
   o.box('glow', 0, 0.075, zc + 0.2, 0.9, 0.02, L + 0.4, SLIME).box('glow', 0, 0.06, z1 + 0.7, 1.3, 0.02, 1.2, '#3e4a24');
   // the headwall: brick facing on the city wall around the pipe, with wing walls stepping down either side
   const HW = 2.5, HH = 4.2;
-  for (let y = yS + r + 0.4; y < HH; y += 0.5) o.box('stone', 0, y + 0.25, z0 + 0.2, HW * 2, 0.5, 0.4, tint(Math.round(y * 3)));
+  for (let y = yS + r + 0.4; y < HH; y += 0.5) o.box('brick', 0, y + 0.25, z0 + 0.2, HW * 2, 0.5, 0.4, tint(Math.round(y * 3)));
   for (const sd of [-1, 1]) {
-    o.boxB('stone', sd * (r + 0.4 + (HW - r - 0.4) / 2), -0.3, z0 + 0.2, HW - r - 0.4 + 0.02, HH + 0.3, 0.4, tint(sd * 3));
+    o.boxB('brick', sd * (r + 0.4 + (HW - r - 0.4) / 2), -0.3, z0 + 0.2, HW - r - 0.4 + 0.02, HH + 0.3, 0.4, tint(sd * 3));
     // wing walls: low retaining walls angled out along the ditch banks
     for (let k = 0; k < 3; k++) o.boxB('stone', sd * (HW - 0.2), -0.3, z0 + 0.65 + k * 0.6, 0.45, 2.4 - k * 0.7, 0.62, tint(k + sd * 5));
     o.box('stone', sd * (HW - 0.2), 2.15, z0 + 0.65, 0.55, 0.12, 0.7, '#8a7a68');
@@ -81,11 +81,11 @@ export function sewerExit(o) {
 
 // ---------- the tunnel network, built a chunk of tiles at a time ----------
 const open = (x, y) => { const t = W.tile(x, y); return t != null && t !== T.WALL && t !== T.ROCK; };
-export function sewerHalls(mb, x0, y0, x1, y1) {
+export function sewerHalls(mb, x0, y0, x1, y1, torches) {
   if (!geo.dungeon || !geo.dgnId || !geo.dgnId.startsWith('sewer')) return;
   const dd = W.dungeons && W.dungeons[geo.dgnId]; const sw = dd && dd.sewer; if (!sw) return;
   const inChunk = (x, y) => x >= x0 && x < x1 && y >= y0 && y < y1;
-  const R = 2.35, yS = 2.15, N = 12, TH = 0.42; // the barrel vault: springs at 2.15 m, crown at 4.5 m
+  const R = 2.35, yS = 2.15, N = 16, TH = 0.42; // the barrel vault: springs at 2.15 m, crown at 4.5 m
   const tint = (a, b, k) => K3.shade(BRICK, (K3.hash(a, b, k) - 0.5) * 0.14);
   for (const sg of sw.segs) {
     for (let t = sg.a; t <= sg.b; t++) {
@@ -98,8 +98,8 @@ export function sewerHalls(mb, x0, y0, x1, y1) {
       const mx = (cx + 0.5) * Tl, mz = (cy + 0.5) * Tl;
       for (let k = 0; k <= N; k++) {
         const a = Math.PI * k / N, off = Math.cos(a) * R, y = yS + Math.sin(a) * R, al = Math.PI * R / N * 1.1;
-        if (sg.horiz) mb.box('stone', mx, y, mz + off, Tl + 0.02, TH, al, tint(t, k, 3), 0, Math.PI / 2 - a, 0);
-        else mb.box('stone', mx + off, y, mz, al, TH, Tl + 0.02, tint(t, k, 3), 0, 0, a - Math.PI / 2);
+        if (sg.horiz) mb.box('brick', mx, y, mz + off, Tl + 0.02, TH, al, tint(t, k, 3), 0, Math.PI / 2 - a, 0);
+        else mb.box('brick', mx + off, y, mz, al, TH, Tl + 0.02, tint(t, k, 3), 0, 0, a - Math.PI / 2);
       }
       // a heavier rib every third tile
       if (t % 3 === 0) for (let k = 0; k <= N; k++) {
@@ -116,6 +116,8 @@ export function sewerHalls(mb, x0, y0, x1, y1) {
         if (K3.hash(t, s, 19) < 0.55) { if (sg.horiz) mb.box('paint', mx, 0.3, mz + wo, Tl * (0.5 + K3.hash(t, s, 4) * 0.5), 0.6, 0.04, MOSS); else mb.box('paint', mx + wo, 0.3, mz, 0.04, 0.6, Tl * (0.5 + K3.hash(t, s, 4) * 0.5), MOSS); }
         if (K3.hash(t, s, 23) < 0.18) { if (sg.horiz) mb.box('paint', mx, 1.4, mz + wo, 0.25, 1.6, 0.03, SLIME); else mb.box('paint', mx + wo, 1.4, mz, 0.03, 1.6, 0.25, SLIME); }
       }
+      // a torch on the wall every few paces, on alternate sides
+      if (torches && (t - sg.a) % 8 === 4) { const s = (t + sg.c) % 2 ? 1 : -1, wo = s * (Tl * 1.5 - 0.16); torches.push(sg.horiz ? { x: mx, y: 2.0, z: mz + wo } : { x: mx + wo, y: 2.0, z: mz }); }
       // an old iron pipe along one wall of some tunnels, on brackets
       const pipeSide = (sg.c + sg.a) % 3 === 0 ? 1 : (sg.c + sg.a) % 3 === 1 ? -1 : 0;
       if (pipeSide) {

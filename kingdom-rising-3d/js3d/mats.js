@@ -3,11 +3,11 @@ import { THREE, K3 } from './core.js';
 import { propTex } from './texgen.js';
 
 // metres per texture repeat when texture coordinates are projected from world space
-export const MAT_UV = { stone: 2.4, darkstone: 2.4, plaster: 3.2, timber: 1.2, planks: 1.9, rooftile: 1.6, slate: 1.8, shingle: 1.6, bark: 1.2, birch: 1.4, pinebark: 1.2, metal: 0.8, cloth: 1.2, leather: 0.8, marble: 2.2, fur: 0.6, cobble: 2.4, gold: 0.6, rock: 3.2 };
+export const MAT_UV = { brick: 1.1, stone: 2.4, darkstone: 2.4, plaster: 3.2, timber: 1.2, planks: 1.9, rooftile: 1.6, slate: 1.8, shingle: 1.6, bark: 1.2, birch: 1.4, pinebark: 1.2, metal: 0.8, cloth: 1.2, leather: 0.8, marble: 2.2, fur: 0.6, cobble: 2.4, gold: 0.6, rock: 3.2 };
 
-const TEX = { stone: 'stonebrick', darkstone: 'darkstone', plaster: 'plaster', timber: 'timber', planks: 'planks', rooftile: 'rooftile', slate: 'slate', shingle: 'shingle', bark: 'bark', birch: 'birch', pinebark: 'pinebark', metal: 'metal', cloth: 'cloth', leather: 'leather', marble: 'marble', fur: 'fur', gold: 'metal', rock: 'rock', snowrock: 'snow' };
+const TEX = { brick: 'stonebrick', stone: 'stonebrick', darkstone: 'darkstone', plaster: 'plaster', timber: 'timber', planks: 'planks', rooftile: 'rooftile', slate: 'slate', shingle: 'shingle', bark: 'bark', birch: 'birch', pinebark: 'pinebark', metal: 'metal', cloth: 'cloth', leather: 'leather', marble: 'marble', fur: 'fur', gold: 'metal', rock: 'rock', snowrock: 'snow' };
 const SPEC = {
-  stone: { roughness: 0.88 }, darkstone: { roughness: 0.9 }, plaster: { roughness: 0.95 }, timber: { roughness: 0.82 }, planks: { roughness: 0.8 },
+  brick: { roughness: 0.92 }, stone: { roughness: 0.88 }, darkstone: { roughness: 0.9 }, plaster: { roughness: 0.95 }, timber: { roughness: 0.82 }, planks: { roughness: 0.8 },
   rooftile: { roughness: 0.75 }, slate: { roughness: 0.6 }, shingle: { roughness: 0.8 }, bark: { roughness: 0.95 }, birch: { roughness: 0.85 }, pinebark: { roughness: 0.92 },
   metal: { roughness: 0.38, metalness: 0.85 }, gold: { roughness: 0.3, metalness: 1, color: 0xe8b84a }, cloth: { roughness: 0.98 }, leather: { roughness: 0.7 }, marble: { roughness: 0.32 }, fur: { roughness: 1 }, rock: { roughness: 0.9 }, snowrock: { roughness: 0.75 },
 };

@@ -177,7 +177,7 @@
   // each one clears a guard in about the same time for its role (damage dealers fastest, healers a little slower)
   D.GUARD_HP = 2.4; D.GUARD_DMG = 3.2;
   D.KING_STATS = { hp: 26000, dmg: 240, delay: 1.8, lvl: 22 };
-  D.CLASS_POWER = { rogue: 0.78, berserker: 0.8, monk: 1.14, ranger: 1.32, wizard: 2.98, magician: 3.52, necromancer: 3.93, arquebusier: 0.73, beastlord: 1.6, warrior: 0.88, paladin: 2.17, shadowknight: 2.04, bard: 1.68, trollcaller: 2.16, cleric: 1.98, druid: 2.0, shaman: 1.95, enchanter: 2.12 };
+  D.CLASS_POWER = { rogue: 0.78, berserker: 0.8, monk: 1.14, ranger: 1.32, wizard: 2.98, magician: 3.52, necromancer: 3.93, arquebusier: 0.85, beastlord: 1.6, warrior: 0.88, paladin: 2.17, shadowknight: 2.04, bard: 1.68, trollcaller: 1.9, cleric: 1.98, druid: 2.0, shaman: 1.95, enchanter: 2.12 };
   // ---- the top-tier class sets: one per class, from the world's greatest bosses (rare: about one piece in ten kills,
   // and not always for your own class). Each has five armour pieces, its signature weapon (and shield) and set bonuses
   // for 2, 4 and 5 armour pieces worn.
@@ -208,7 +208,7 @@
     trollcaller: { set: 'Mossbound Hides', pre: 'Mossbound', col: '#4a5a32', trim: '#8ab060', weapons: [['2HB', 'Rootheart Staff']], lore: 'Troll-hide bound with living moss; trolls take its wearer for kin.', bonus: { 2: { WIS: 20 }, 4: { regen: 3, manaRegen: 2 }, 5: { spellMul: 0.1, dmgMul: 0.06 } } },
   };
   // where they drop: the top bosses (and, rarely, the enemy king)
-  D.SET_DROP = { minBossLv: 46, chance: 0.1, kingChance: 0.25, partyBias: 0.5 };
+  D.SET_DROP = { minBossLv: 46, chance: 0.11, kingChance: 0.2, partyBias: 0.5 };
   // weapons roll what their wielders need: staves and tomes for casters, bows and guns for marksmen
   D.WEAPON_STATS = { '2HB': ['INT', 'WIS', 'STA', 'STR'], TOME: ['INT', 'WIS', 'CHA'], ARC: ['DEX', 'AGI', 'STR'], GUN: ['DEX', 'AGI', 'STA'], THR: ['DEX', 'AGI'], '1HP': ['DEX', 'AGI', 'STR'], H2H: ['AGI', 'STR', 'STA'] };
   D.TIER_ADJ = ['Crude', 'Fine', 'Sturdy', 'Masterwork', 'Exalted', 'Mythic'];

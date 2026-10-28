@@ -1315,9 +1315,9 @@
     if (e.drop && Math.random() < 0.45) loot.push(G.makeTrophy(e.drop, lv));
     // gear drops EverQuest-style (no crafting materials any more): named monsters often, bosses always, dungeon bosses more
     const gearChance = e.boss ? 1 : e.named ? 0.75 : 0.08;
-    const n = e.boss ? (W.realm && W.realm !== 'main' ? 3 : 2) : 1;
+    const n = e.boss ? (W.realm && W.realm !== 'main' ? 2 : 1) + (Math.random() < 0.35 ? 1 : 0) : 1;
     for (let i = 0; i < n; i++) if (Math.random() < gearChance) loot.push(G.randomGear(lv + (e.boss ? 3 : 0), e.boss ? 1.3 : e.named ? 1.12 : 0.92));
-    const uq = G.rollUnique(lv, e.boss ? 0.4 : e.named ? 0.1 : 0.004); if (uq) loot.push(uq);
+    const uq = G.rollUnique(lv, e.boss ? 0.25 : e.named ? 0.1 : 0.004); if (uq) loot.push(uq);
     if (e.boss || e.named) { const wn = D.UNIQUE_WORN.filter((u) => Math.abs(u.lvl - lv) <= 8); if (wn.length && Math.random() < (e.boss ? 0.3 : 0.06)) loot.push(G.makeUniqueWorn(e.boss === 'ignaroth' ? D.UNIQUE_WORN.find((u) => u.id === 'w_wyrmmantle') : e.boss === 'aerathos' ? D.UNIQUE_WORN.find((u) => u.id === 'w_titanbelt') : U.pick(wn))); }
     if (Math.random() < 0.05) loot.push(G.makePotion(Math.random() < 0.5 ? 'food' : 'drink', Math.min(4, G.tierOfLevel(lv))));
     // the class sets: about one piece in ten kills of the greatest bosses, a better chance from the enemy king
@@ -1325,7 +1325,9 @@
     return { coins, items: loot };
   };
   G.randomGear = function (lv, q) {
-    const tier = G.tierOfLevel(lv); const r = Math.random();
+    let tier = G.tierOfLevel(lv); const r = Math.random();
+    // the top tier is rare: most drops from the greatest monsters are a tier below it
+    if (tier >= 5 && Math.random() < 0.7) { tier = 4; lv = Math.min(lv, 44); }
     const p = G.player; const C = D.CLASSES[p.c.cls];
     // bias toward usable gear for the player
     const useful = Math.random() < 0.65;

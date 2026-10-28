@@ -299,5 +299,5 @@ export function updateSky(dt, camPos, ctx) {
   sky.darkness = dungeon ? 1 : K3.clamp(Math.max(1 - sky.lightLevel, insideK * 0.8), 0, 1);
   // a touch more bloom at night when the fires glow
   if (K3.bloom) { K3.bloom.strength = 0.2 + sky.darkness * 0.08; K3.bloom.threshold = 0.9; } // a soft glow around lamps at night, never a glare
-  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.65 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
+  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.5 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
 }

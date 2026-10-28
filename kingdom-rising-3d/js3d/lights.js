@@ -54,7 +54,7 @@ function buildPools() {
   mat.onBeforeCompile = (sh) => { sh.uniforms.uK = poolU.uK; sh.fragmentShader = 'uniform float uK;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= uK;'); };
   const m = new THREE.InstancedMesh(geom, mat, list.length); const M = new THREE.Matrix4(), col = new THREE.Color();
   list.forEach((c, i) => {
-    const gy = geo.floorAt(c.x / PX, c.z / PX); const rad = Math.min(14, c.r * (c.k === 'lamp' ? 0.75 : 0.6));
+    const gy = geo.floorAt(c.x / PX, c.z / PX); const rad = Math.min(9, c.r * (c.k === 'lamp' ? 0.5 : 0.42));
     M.makeScale(rad * 2, 1, rad * 2); M.setPosition(c.x, gy + 0.06, c.z); m.setMatrixAt(i, M);
     m.setColorAt(i, col.copy(c.col).multiplyScalar(c.k === 'fire' ? 0.9 : 0.75));
   });
@@ -90,7 +90,7 @@ export function updateLights(dt, camPos, ctx) {
   }
   const t = K3.time;
   // the ground pools fade in with the dark (none by day)
-  poolU.uK.value += ((geo.dungeon ? 0.35 : 0.55) * K3.smooth(0.25, 0.8, darkness) - poolU.uK.value) * Math.min(1, dt * 2);
+  poolU.uK.value += ((geo.dungeon ? 0.2 : 0.26) * K3.smooth(0.25, 0.8, darkness) - poolU.uK.value) * Math.min(1, dt * 2);
   if (pools) pools.visible = poolU.uK.value > 0.01;
   for (let i = 0; i < pool.length; i++) {
     const p = pool[i], c = chosen[i];

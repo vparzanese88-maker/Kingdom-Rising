@@ -119,9 +119,9 @@ const GradeShader = {
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
       vec3 col = c.rgb;
-      // lift the shadows a little (dark corners stay readable) before the colour work
-      col = col + (1.0 - col) * 0.035 + col * (1.0 - smoothstep(0.0, 0.35, dot(col, vec3(0.299,0.587,0.114)))) * 0.22;
       float l = dot(col, vec3(0.299,0.587,0.114));
+      // lift the shadows a little (dark corners stay readable) before the colour work
+      col = col + (1.0 - col) * 0.035 + col * (1.0 - smoothstep(0.0, 0.35, l)) * 0.22; l = dot(col, vec3(0.299,0.587,0.114));
       col = mix(vec3(l), col, uSat);
       col = mix(col, col * vec3(0.96, 0.99, 1.05), (1.0 - smoothstep(0.0, 0.45, l)) * 0.55);
       col = mix(col, col * vec3(1.04, 1.01, 0.95), smoothstep(0.55, 1.0, l) * 0.55);

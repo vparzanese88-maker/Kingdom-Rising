@@ -81,7 +81,7 @@ export function sewerExit(o) {
 
 // ---------- the tunnel network, built a chunk of tiles at a time ----------
 const open = (x, y) => { const t = W.tile(x, y); return t != null && t !== T.WALL && t !== T.ROCK; };
-export function sewerHalls(mb, x0, y0, x1, y1, torches) {
+export function sewerHalls(mb, x0, y0, x1, y1, torches, fires) {
   if (!geo.dungeon || !geo.dgnId || !geo.dgnId.startsWith('sewer')) return;
   const dd = W.dungeons && W.dungeons[geo.dgnId]; const sw = dd && dd.sewer; if (!sw) return;
   const inChunk = (x, y) => x >= x0 && x < x1 && y >= y0 && y < y1;
@@ -107,11 +107,8 @@ export function sewerHalls(mb, x0, y0, x1, y1, torches) {
         if (sg.horiz) mb.box('stone', mx, y, mz + off, 0.5, 0.36, al, BRICK_D, 0, Math.PI / 2 - a, 0);
         else mb.box('stone', mx + off, y, mz, al, 0.36, 0.5, BRICK_D, 0, 0, a - Math.PI / 2);
       }
-      // kerbs either side of the channel, and the walls' wet, mossy foot
-      const wet = W.tile(cx, cy) === T.WATER;
+      // the walls' wet, mossy foot and streaks of slime
       for (const s of [-1, 1]) {
-        const ko = s * (Tl / 2 + 0.06);
-        if (wet) { if (sg.horiz) mb.box('stone', mx, 0.02, mz + ko, Tl + 0.02, 0.22, 0.2, '#6a625a'); else mb.box('stone', mx + ko, 0.02, mz, 0.2, 0.22, Tl + 0.02, '#6a625a'); }
         const wo = s * (Tl * 1.5 - 0.04);
         if (K3.hash(t, s, 19) < 0.55) { if (sg.horiz) mb.box('paint', mx, 0.3, mz + wo, Tl * (0.5 + K3.hash(t, s, 4) * 0.5), 0.6, 0.04, MOSS); else mb.box('paint', mx + wo, 0.3, mz, 0.04, 0.6, Tl * (0.5 + K3.hash(t, s, 4) * 0.5), MOSS); }
         if (K3.hash(t, s, 23) < 0.18) { if (sg.horiz) mb.box('paint', mx, 1.4, mz + wo, 0.25, 1.6, 0.03, SLIME); else mb.box('paint', mx + wo, 1.4, mz, 0.03, 1.6, 0.25, SLIME); }
@@ -127,8 +124,17 @@ export function sewerHalls(mb, x0, y0, x1, y1, torches) {
       }
     }
   }
-  // the channels: a bed of black muck under the shallow water, so it reads as foul and deep, not clear
-  for (let ty = y0; ty < y1; ty++) for (let tx = x0; tx < x1; tx++) if (W.tile(tx, ty) === T.WATER) mb.box('paint', (tx + 0.5) * Tl, -0.255, (ty + 0.5) * Tl, Tl + 0.02, 0.02, Tl + 0.02, K3.hash(tx, ty, 31) < 0.3 ? '#1c2212' : '#161a10');
+  // the channels run with thick, glistening sewage (a dark wet skin over the shallow water)
+  // and a stone kerb along every edge where a walkway meets a channel (it also hides where the floor dips to the water)
+  for (let ty = y0; ty < y1; ty++) for (let tx = x0; tx < x1; tx++) {
+    if (W.tile(tx, ty) !== T.WATER) continue; const mx = (tx + 0.5) * Tl, mz = (ty + 0.5) * Tl;
+    mb.box('gloss', mx, -0.2, mz, Tl + 0.02, 0.02, Tl + 0.02, K3.hash(tx, ty, 31) < 0.3 ? '#2e3418' : '#262c14');
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const t2 = W.tile(tx + dx, ty + dy); if (t2 == null || t2 === T.WATER || t2 === T.DEEP || t2 === T.WALL || t2 === T.ROCK) continue;
+      const o = Tl / 2 + 0.17;
+      mb.box('stone', mx + dx * o, -0.09, mz + dy * o, dx ? 0.36 : Tl + 0.02, 0.44, dy ? 0.36 : Tl + 0.02, K3.shade('#6a625a', (K3.hash(tx, ty, dx + dy * 3) - 0.5) * 0.1));
+    }
+  }
   // junctions and chambers: corner piers, ribs across the ceiling, and a grate of daylight in the middle
   const nodes = []; for (const x of sw.cols) for (const y of sw.rows) nodes.push({ x, y, r: 2 });
   const rooms = dd.rooms || [];

@@ -363,8 +363,9 @@ function hallRoof(mb, b, st, X0, X1, Z0, Z1, y0, top) {
   for (const [x, z] of corners) tower(mb, x, z, r, y0, th, st, st === STYLE.sylvan ? 'spire' : 'cone', b.faction);
   // the keep: a square tower over the back wall
   const kx = (X0 + X1) / 2, kz = Z0 + Tl, kw = Tl * 2.6, kh = Math.max(19, top - y0 + 6);
-  mb.boxB('stone', kx, y0 - 1, kz, kw, kh + 1, kw, b.style === 'sylvan' ? '#e8e2d4' : '#c8c0b2');
-  for (let k = 0; k < 3; k++) for (const sx of [-1, 1]) mb.boxB('window', kx + sx * kw * 0.25, y0 + 9 + k * 3, kz + kw / 2 + 0.02, 0.42, 1.2, 0.05, '#ffffff');
+  // it rises from the roof over the back wall: nothing of it stands inside the hall, in front of the throne
+  const kb = top - 0.3; mb.boxB('stone', kx, kb, kz, kw, y0 + kh - kb, kw, b.style === 'sylvan' ? '#e8e2d4' : '#c8c0b2');
+  for (let k = 0; k < 3; k++) { const wy = kb + 2.2 + k * 2.6; if (wy + 1.2 > y0 + kh - 0.6) break; for (const sx of [-1, 1]) mb.boxB('window', kx + sx * kw * 0.25, wy, kz + kw / 2 + 0.02, 0.42, 1.2, 0.05, '#ffffff'); }
   battlements(mb, kx - kw / 2 - 0.25, kx + kw / 2 + 0.25, kz - kw / 2 - 0.25, kz + kw / 2 + 0.25, y0 + kh, 'stone', '#b8b0a2', 1);
   if (st === STYLE.sylvan) { mb.cone('shingle', kx, y0 + kh + 0.3, kz, kw * 0.62, 9, st.roof, 16); mb.cyl('gold', kx, y0 + kh + 9.6, kz, 0.06, 1.2, st.trim, 6); structs.flags.push({ kind: 'pole', x: kx, y: y0 + kh + 10.1, z: kz, w: 2.2, h: 1.3, f: b.faction }); }
   else { mb.cyl('timber', kx, y0 + kh + 3, kz, 0.07, 6, '#4a3220', 6); structs.flags.push({ kind: 'pole', x: kx, y: y0 + kh + 5.6, z: kz, w: 2.6, h: 1.5, f: b.faction }); }
@@ -608,7 +609,7 @@ export function buildStructuresIn(x0, y0, x1, y1, ownsBuilding) {
     try { cityWalls(mb, f, cd); } catch (e) { console.warn('walls failed', e); }
   }
   looseWalls(mb, x0, y0, x1, y1);
-  sewerHalls(mb, x0, y0, x1, y1, structs.torches); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
+  sewerHalls(mb, x0, y0, x1, y1, structs.torches, structs.fires); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
   decks(mb, x0, y0, x1, y1);
   const grp = mb.build();
   grp.add(extra);

@@ -398,3 +398,4 @@ function drainEvents() {
   }
 }
 K3.updaters.push((dt) => { try { drainEvents(); updGates(dt); } catch (er) { if (!updGates._warned) { updGates._warned = true; console.warn('siege3d', er); } } });
+export const _siegeTest = { buildGate, updGate }; // used by the render checks

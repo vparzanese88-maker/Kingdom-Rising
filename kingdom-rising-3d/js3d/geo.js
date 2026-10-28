@@ -201,6 +201,18 @@ function buildSurface(realm, Wd, Hd, VW, VH, cls, H, WL, SNOW, around, biomeOf, 
       if (d === 0) H[v] = base; else H[v] = K3.lerp(base, H[v], K3.smooth(0, 4.5, d));
     }
   });
+  // ---- the water near a city (its harbour basin) stays water: flattening the city plot must not lift the bed of a
+  // water tile above the water's surface, or heroes would walk where the map has them swim ----
+  for (const f in W.cityData) {
+    const cd = W.cityData[f]; if (!cd || cd.cx == null) continue; const R = cd.R + 30;
+    for (let y = cd.cy - R; y <= cd.cy + R + 1; y++) for (let x = cd.cx - R; x <= cd.cx + R + 1; x++) {
+      if (x < 0 || y < 0 || x >= VW || y >= VH) continue; const v = y * VW + x; if (isNaN(WL[v])) continue;
+      let nT = 0, nWet = 0, nDeep = 0; around(x, y, (i) => { nT++; if (isWet(cls[i])) { nWet++; if (cls[i] === 3) nDeep++; } });
+      if (!nWet) continue;
+      const bed = nWet === nT ? WL[v] - (nDeep >= 3 ? 2.6 : nDeep ? 1.6 : 0.75) : WL[v] - 0.18;
+      if (H[v] > bed) H[v] = bed;
+    }
+  }
   // ---- smooth the roads ----
   const isRoadV = new Uint8Array(NV);
   for (let vy = 1; vy < VH - 1; vy++) for (let vx = 1; vx < VW - 1; vx++) { let r = 0; around(vx, vy, (i) => { if (tiles[i] === T.ROAD) r++; }); if (r >= 2) isRoadV[vy * VW + vx] = 1; }

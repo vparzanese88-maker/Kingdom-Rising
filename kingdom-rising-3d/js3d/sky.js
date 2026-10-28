@@ -221,7 +221,7 @@ export function updateSky(dt, camPos, ctx) {
   const darkMul = 1 - regDark * 0.62;
   let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.6 * nightK * (1 - cloudK * 0.5) * darkMul; // moonlight you can see by
   let hemiI = (0.34 + 0.69 * dayK) * (0.85 + cloudK * 0.25) * darkMul; // nights stay dark but readable
-  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.2 : 0.13; } // sewers: grey daylight leaks down through the street grates
+  if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : geo.dtype === 'sewer' ? 0.24 : 0.13; } // sewers: grey daylight leaks down through the street grates
   hemiI *= 1 - insideK * 0.42; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
   sun.color.copy(sunUp ? u.uSunCol.value : C(0.55, 0.65, 0.95));

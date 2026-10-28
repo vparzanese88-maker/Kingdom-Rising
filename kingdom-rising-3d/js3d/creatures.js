@@ -185,7 +185,10 @@ function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
     if (cat) { for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.19, tipY - hr * 0.02, tipZ - hr * 0.14], [hr * 0.22, hr * 0.18, hr * 0.18], '#efe6d8', mat); R.ell('jaw', [0, r.jaw[1] - hr * 0.02, tipZ - hr * 0.3], [hr * 0.28, hr * 0.16, hr * 0.22], '#efe6d8', mat); } // whisker pads and a white chin
     R.seg('jaw', [0, r.jaw[1] + hr * 0.02, r.jaw[2] - hr * 0.2], [0, r.jaw[1] + hr * 0.05, tipZ - hr * 0.14], hr * 0.4 * mz, hr * 0.18 * mz, belly, mat);
     R.ell('head', [0, tipY + hr * 0.1, tipZ + hr * 0.02], [hr * (cat ? 0.16 : 0.2), hr * (cat ? 0.11 : 0.15), hr * 0.12], rept ? shade(c, -0.15) : cat ? '#9a5a50' : '#1a1414', rept ? mat : 'skin'); // nose
-  } else R.ell('head', [0, hd[1], hd[2] + hr * 0.2], [hr * 0.95, hr * 0.9, hr * 1.0], '#f4efe0', 'fur');
+  } else { // an eagle's head: narrow and long, a heavy brow over the eyes, white feathering down the neck
+    R.ell('head', [0, hd[1] + hr * 0.05, hd[2] + hr * 0.15], [hr * 0.7, hr * 0.78, hr * 0.98], '#f4efe0', 'fur');
+    for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.36, hd[1] + hr * 0.42, hd[2] + hr * 0.42], [hr * 0.26, hr * 0.14, hr * 0.42], '#e8e0cc', 'fur', Q(0.15, sx * 0.2, 0));
+    R.seg('neck', [0, hd[1] - hr * 0.2, hd[2] - hr * 0.3], [0, (nk0[1] + nk1[1]) / 2, (nk0[2] + nk1[2]) / 2], hr * 0.7, br * 0.5, '#efe7d4', 'fur', 'head', 0.4); }
   // ears
   for (const sx of [1, -1]) {
     if (sp.ear === 'point') R.ell('head', [sx * hr * 0.44, hd[1] + hr * (dog ? 0.95 : 0.82), hd[2] - hr * 0.12], [hr * (dog ? 0.24 : 0.2), hr * (dog ? 0.55 : 0.3), hr * 0.08], dark, mat, Q(-0.1, 0, -sx * 0.22));

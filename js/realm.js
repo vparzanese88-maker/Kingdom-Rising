@@ -34,6 +34,7 @@
 
   // ---------------- buildings ----------------
   const c2 = (wood, stone) => ({ wood, stone });
+  const elvish = () => !!(KR.G && KR.G.player && KR.G.player.c && KR.G.player.c.faction === 'sylvan');
   R.DEFS = {
     townhall: { name: 'Town Hall', max: 1, cost: [c2(0, 0)], time: [0], needs: () => [], desc: 'The king\'s seat. The court works from here.' },
     sawmill: { name: 'Sawmill', max: 3, cost: [c2(80, 30), c2(260, 140), c2(600, 360)], time: [60, 120, 180], needs: () => [],
@@ -43,8 +44,9 @@
     barracks: { name: 'Barracks', max: 1, cost: [c2(300, 250)], time: [150], needs: () => [['sawmill', 1], ['cutter', 1]],
       desc: 'The Recruiter trains guards and raiders.' },
     range: { name: 'Archery Range', max: 1, cost: [c2(450, 250)], time: [180], needs: () => [['barracks', 1]], desc: 'Archers, and the archer towers on the walls.' },
-    stable: { name: 'Stable', max: 1, cost: [c2(550, 400)], time: [210], needs: () => [['range', 1]], desc: 'Cavalry.' },
-    workshop: { name: 'Siege Workshop', max: 1, cost: [c2(700, 650)], time: [240], needs: () => [['stable', 1]], desc: 'The battering ram, catapults and trebuchets.' },
+    // Aelindor keeps troll giants where Valenmoor keeps horses (warmarch.js faction armies): the labels follow your kingdom
+    stable: { get name() { return elvish() ? 'Troll Den' : 'Stable'; }, max: 1, cost: [c2(550, 400)], time: [210], needs: () => [['range', 1]], get desc() { return elvish() ? 'Troll giants: they pound enemy gates to splinters.' : 'Cavalry.'; } },
+    workshop: { name: 'Siege Workshop', max: 1, cost: [c2(700, 650)], time: [240], needs: () => [['stable', 1]], get desc() { return elvish() ? 'Ballistas and great ballistas.' : 'The battering ram, cannons and bombards.'; } },
     walls: { name: 'Walls', max: 2, cost: [c2(200, 600), c2(300, 900)], time: [180, 300], needs: (lv) => [['cutter', lv + 1]],
       levels: ['Wooden palisade', 'Stone walls', 'Fortified gates'], desc: 'From a wooden palisade to stone walls, then fortified gates.' },
     towers: { name: 'Archer Towers', max: 4, cost: [c2(120, 180), c2(140, 220), c2(160, 260), c2(180, 300)], time: [90, 90, 90, 90], needs: () => [['range', 1]],

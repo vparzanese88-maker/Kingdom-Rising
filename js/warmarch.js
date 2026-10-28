@@ -738,7 +738,7 @@
     if (!R) return false;
     const p = G.player; const isPlayer = !!(p && p.c.faction === f && !owner);
     const fail = (msg) => { if (isPlayer && !quiet) { if (msg) G.log(msg, 'sys', '#ffb24a'); sfx('fail', 0.5); } return false; };
-    if (!War.hasB(f, R.need)) return fail(`${R.name}: build the ${({ barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' })[R.need]} first.`);
+    if (!War.hasB(f, R.need)) return fail(`${R.name}: build the ${({ barracks: 'Barracks', range: 'Archery Range', stable: (D.FACTION_ARMY && D.FACTION_ARMY[f] ? D.FACTION_ARMY[f].stable : 'Stable'), workshop: 'Siege Workshop' })[R.need]} first.`);
     let full = false;
     if (R.guard) full = War.guardCount(f) >= War.guardMax(f);
     else if (R.siege === 'ram') full = War.ramCount(f) >= D.RAM.max;
@@ -982,7 +982,7 @@
     }
   }
   function note(cs, id, lvl) {
-    if (id === 'towers') id = 'tower'; const nm = { sawmill: 'Sawmill', cutter: 'Stone Cutter', barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop', walls: 'walls', tower: 'archer tower', towerUp: 'towers' }[id] || id;
+    if (id === 'towers') id = 'tower'; const nm = { sawmill: 'Sawmill', cutter: 'Stone Cutter', barracks: 'Barracks', range: 'Archery Range', stable: (D.FACTION_ARMY && D.FACTION_ARMY[cs.f] ? D.FACTION_ARMY[cs.f].stable : 'Stable'), workshop: 'Siege Workshop', walls: 'walls', tower: 'archer tower', towerUp: 'towers' }[id] || id;
     cs.log.push({ id, lvl, t: Math.round(cs.t) }); if (cs.log.length > 40) cs.log.shift();
     const E = D.FACTIONS[cs.f]; const msg = id === 'tower' ? `Scouts report a new archer tower on the walls of ${E.city}.` : id === 'walls' ? `${E.city} is raising stronger walls.` : id === 'towerUp' ? `${E.city} has strengthened its towers.` : lvl > 1 ? `${E.city} has upgraded its ${nm} (level ${lvl}).` : `${E.city} has built a ${nm}.`;
     if (['barracks', 'range', 'stable', 'workshop'].includes(id) || id === 'walls') G.log(`Word from the front: ${msg}`, 'status', '#ffb0a0');
@@ -1076,7 +1076,7 @@
   // ---------- the barracks window: everything this kingdom can raise ----------
   War.renderBarracks = function (w) {
     const p = G.player, c = p.c, f = c.faction, b = w.body; const A2 = War.army(f); const ef = War.enemyOf(f), E = D.FACTIONS[ef];
-    const bn = { barracks: 'Barracks', range: 'Archery Range', stable: 'Stable', workshop: 'Siege Workshop' };
+    const bn = { barracks: 'Barracks', range: 'Archery Range', stable: (D.FACTION_ARMY && D.FACTION_ARMY[f] ? D.FACTION_ARMY[f].stable : 'Stable'), workshop: 'Siege Workshop' };
     const R = War.rivalActive() ? War.rival() : null;
     b.innerHTML = `<p class="hint">Recruit with gold. Soldiers wait in the barracks until you order an attack on ${esc(E.city)} (here or in the Kingdom panel). Guards stay at your gates. Soldiers fight at <b>level ${D.shown(A2.level)}</b>.</p>
       <div class="row bk-send"><button class="btn gold" id="bk-go" ${A2.home && !A2.atWar ? '' : 'disabled'}>⚔ Order the attack (${A2.home})</button>${A2.atWar ? '<button class="btn" id="bk-recall">Sound the retreat</button>' : ''}</div>

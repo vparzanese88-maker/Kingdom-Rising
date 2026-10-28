@@ -62,7 +62,7 @@
     const spells = c.spells.slice().sort((a, b2) => { const pa = /nuke|tap|dot|pet/.test(D.SPELLS[a].type) ? 0 : 1, pb = /nuke|tap|dot|pet/.test(D.SPELLS[b2].type) ? 0 : 1; return pa - pb; }).map((id) => ({ k: 'spell', id }));
     let pick;
     if (C.role === 'melee') pick = [...startSkills.slice(0, 2), { k: 'weapon', id: (kit.rangeItem ? kit.range : wt) + ':0' }];
-    else if (C.role === 'hybrid') pick = [startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }, spells[0]];
+    else if (C.role === 'hybrid') pick = spells[0] && D.SPELLS[spells[0].id].type === 'pet' && C.only ? [spells[0], startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }] : [startSkills[0] || wAb, { k: 'weapon', id: wt + ':0' }, spells[0]]; // the Trollcaller calls the troll first
     else pick = [spells[0], spells[1] || wAb, spells[2] || wAb];
     const seenA = new Set(); pick = pick.filter((a) => a && !seenA.has(a.k + a.id) && seenA.add(a.k + a.id));
     for (const a of [...spells, wAb, ...startSkills]) if (pick.length < 3 && !seenA.has(a.k + a.id)) { seenA.add(a.k + a.id); pick.push(a); }

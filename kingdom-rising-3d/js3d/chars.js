@@ -275,7 +275,7 @@ function headgear(B, look, P, H) {
   }
   if (look.helm) return;
   const hc = look.hatCol || '#3a3a6a', tr = look.hatTrim || '#e0c050';
-  const top = cy + s * 0.9;
+  const top = H.hatTop != null ? H.hatTop : cy + s * 0.9; // human heads give the real brow height
   switch (look.hat) {
     case 'wizard': B.geom('head', new THREE.CylinderGeometry(s * 1.9, s * 1.9, s * 0.08, 20), new THREE.Matrix4().makeTranslation(0, top - s * 0.15, hz), hc, 'cloth');
       { const g = new THREE.ConeGeometry(s * 1.0, s * 2.8, 16, 6); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) / (s * 2.8) + 0.5; p.setZ(i, p.getZ(i) - y * y * s * 0.9); } g.computeVertexNormals(); B.geom('head', g, new THREE.Matrix4().makeTranslation(0, top + s * 1.25, hz), hc, 'cloth'); g.dispose(); }
@@ -525,7 +525,7 @@ function helmCrest(B, L, f) {
 function humanAccessories(look, kind) {
   return (c) => {
     const f = c.headFrame; const rest = Object.assign({}, c.rest); rest.head = [rest.head[0], rest.head[1], f.c.z];
-    const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top };
+    const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top, hatTop: f.c.y + f.rad.y * 0.42 + s * 0.15 }; // brimmed hats sit down to the brow
     const L = Object.assign({}, look);
     // helmets on a real head are shells of that head (human.js); here only what rises from them: horns, antlers, wings, plumes
     if (L.helm === 'chain' || L.helm === 'plate' || L.helm === 'leather') { helmCrest(B, L, f); L.helm = null; L.helmPlume = null; L.helmSpike = null; L.horns = null; }

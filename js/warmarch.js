@@ -2517,6 +2517,18 @@
     } catch (e) {}
     return out;
   };
+  // a battering ram (or troll) wedged in a narrow gateway on the march edges forward along its route, so the whole
+  // column (which waits for its leader) doesn't stand still forever
+  if (War.ramTick) { const rt0 = War.ramTick; War.ramTick = function (r, dt) {
+    const x0 = r.x, y0 = r.y; const out = rt0.apply(this, arguments);
+    try {
+      if (r && !r.dead && r.warState === 'march') {
+        if (Math.hypot(r.x - x0, r.y - y0) > 0.5 * dt * 10) r._wedgedT = 0; else r._wedgedT = (r._wedgedT || 0) + dt;
+        if (r._wedgedT > 6) { const T = War.formationTarget(r); if (T) { const d = Math.hypot(T.x - r.x, T.y - r.y); if (d > 4) { const st = Math.min(d, (D.RAM ? D.RAM.speed : 100) * dt); r.x += (T.x - r.x) / d * st; r.y += (T.y - r.y) / d * st; r.moving = true; } } }
+      }
+    } catch (e) {}
+    return out;
+  }; }
   const order0 = War.orderAttack;
   War.orderAttack = function (f) {
     const ff = f || (G.player && G.player.c.faction);

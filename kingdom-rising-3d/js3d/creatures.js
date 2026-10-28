@@ -344,9 +344,9 @@ function buildBug(kind, col) {
     for (const n of ['WL', 'WR']) { const sd = n === 'WL' ? 1 : -1; R.ell(n, [sd * 0.17, r.WL[1] + 0.01, -0.06], [0.17, 0.004, 0.05], '#c8d4e8', 'shell', Q(0, sd * 0.35, 0)); } }
   else {
     // a beetle: a domed pronotum, two wing cases split down the middle, a head with mandibles and antennae
-    const sh = shade(col, 0.12); R.ell('root', [0, r.root[1] + 0.05, 0.08], [0.17, 0.12, 0.13], sh, 'shell');
+    const sh = shade(col, -0.1); R.ell('root', [0, r.root[1] + 0.05, 0.08], [0.17, 0.12, 0.13], sh, 'shell');
     for (const sd of [-1, 1]) R.ell('root', [sd * 0.085, r.root[1] + 0.07, -0.13], [0.11, 0.13, 0.25], col, 'shell', Q(0, sd * 0.05, 0));
-    R.box('root', [0, r.root[1] + 0.2, -0.13], [0.012, 0.012, 0.48], shade(col, -0.45), 'shell');
+    R.box('root', [0, r.root[1] + 0.195, -0.13], [0.01, 0.012, 0.44], shade(col, -0.45), 'shell', Q(0.04, 0, 0));
     R.ell('root', [0, r.root[1] - 0.03, -0.06], [0.16, 0.06, 0.3], shade(col, -0.35), 'shell'); // the underside
     R.ell('head', [0, r.head[1] - 0.02, r.head[2] + 0.02], [0.1, 0.075, 0.09], shade(col, -0.25), 'shell');
     for (const sd of [-1, 1]) { R.cone('head', [sd * 0.05, r.head[1] - 0.04, r.head[2] + 0.13], 0.025, 0.14, Q(Math.PI / 2, sd * 0.5, 0), '#1a120c', 'shell'); R.ell('head', [sd * 0.07, r.head[1] + 0.02, r.head[2] + 0.07], [0.025, 0.025, 0.02], '#ffd25a', 'glow'); R.seg('head', [sd * 0.05, r.head[1] + 0.02, r.head[2] + 0.08], [sd * 0.16, r.head[1] + 0.14, r.head[2] + 0.28], 0.007, 0.004, '#1a120c', 'shell'); }
@@ -361,38 +361,75 @@ function buildBug(kind, col) {
   return Object.assign(inst, { _R: R, _body: R.organic && spider ? R.body : null, _furLen: 0.012, type: 'bug', legs, spider, bee, t: Math.random() * 10, phase: 0, H });
 }
 function animBug(rig, st, dt) {
-  const B = rig.bones; const t = (rig.t += dt); rig.phase += st.dist * 9;
-  const m = K3.clamp(st.move, 0, 1);
+  // spiders walk on alternating tetrapods (L1 R2 L3 R4 against the rest), beetles on alternating tripods;
+  // a swinging leg lifts and reaches forward, a planted one sweeps back; the cycle follows distance
+  const B = rig.bones; const t = (rig.t += dt); rig.phase = ((rig.phase || 0) + st.dist / (rig.spider ? 0.42 : 0.3)) % 1;
+  rig.mv = (rig.mv || 0) + ((st.dist > 0 ? 1 : 0) - (rig.mv || 0)) * Math.min(1, dt * 8); const m = rig.mv;
   for (const k in B) B[k].rotation.set(0, 0, 0);
-  B.root.position.y = rig.rest.root[1] + (rig.bee ? Math.sin(t * 3) * 0.12 : 0);
-  for (let i = 0; i < rig.legs; i++) for (const sd of ['l', 'r']) { const n = 'L' + i + sd; const p = rig.phase + i * 1.7 + (sd === 'l' ? 0 : Math.PI); B[n + '1'].rotation.y = Math.sin(p) * 0.35 * m; B[n + '1'].rotation.z = (sd === 'l' ? 1 : -1) * Math.max(0, Math.cos(p)) * 0.25 * m; if (rig.bee) { B[n + '1'].rotation.z = (sd === 'l' ? -1 : 1) * 0.6; } }
-  if (rig.bee) { B.WL.rotation.z = Math.sin(t * 60) * 0.6; B.WR.rotation.z = -Math.sin(t * 60) * 0.6; }
-  if (B.abd) B.abd.rotation.x = Math.sin(t * 2) * 0.04;
-  const a = st.atk || 0; if (a > 0 && a < 1) { const s1 = Math.sin(a * Math.PI); B.root.rotation.x = -s1 * 0.3; B.head.rotation.x = s1 * 0.4; B.root.position.z = s1 * 0.15; }
+  B.root.position.set(rig.rest.root[0], rig.rest.root[1] + (rig.bee ? Math.sin(t * 3) * 0.12 : 0), rig.rest.root[2]);
+  for (let i = 0; i < rig.legs; i++) for (const sd of ['l', 'r']) {
+    const n = 'L' + i + sd; const grp = (i + (sd === 'l' ? 0 : 1)) % 2; const u = (rig.phase + grp * 0.5) % 1; const S = sd === 'l' ? 1 : -1;
+    if (rig.bee) { B[n + '1'].rotation.z = -S * (0.5 + Math.sin(t * 2 + i) * 0.08); B[n + '1'].rotation.x = 0.3 + i * 0.12; continue; }
+    let sw, lift; if (u < 0.5) { sw = 1 - 4 * u; lift = 0; } else { const s1 = (u - 0.5) * 2; sw = -1 + 2 * ease(s1); lift = Math.sin(s1 * Math.PI); }
+    B[n + '1'].rotation.y = -S * sw * 0.32 * m; B[n + '1'].rotation.z = S * lift * 0.35 * m;
+    // an idle spider twitches a leg now and then
+    if (rig.spider && m < 0.5 && Math.sin(t * 0.7 + i * 2.3 + (sd === 'l' ? 0 : 1.7)) > 0.97) B[n + '1'].rotation.z += S * 0.25;
+  }
+  if (rig.bee) { const w = Math.sin(t * 70); B.WL.rotation.z = w * 0.7; B.WR.rotation.z = -w * 0.7; B.root.rotation.x = 0.15; }
+  B.root.position.y += Math.abs(Math.sin(rig.phase * Math.PI * 4)) * 0.012 * m;
+  if (B.abd) B.abd.rotation.x = Math.sin(t * 2) * 0.04 + (rig.spider ? Math.sin(rig.phase * Math.PI * 4) * 0.03 * m : 0);
+  const a = st.atk || 0;
+  if (a > 0 && a < 1) {
+    const rear = ease(K3.clamp(a / 0.4, 0, 1)) * (1 - K3.clamp((a - 0.55) / 0.3, 0, 1)), strike = Math.sin(K3.clamp((a - 0.4) / 0.25, 0, 1) * Math.PI);
+    B.root.rotation.x = -rear * (rig.spider ? 0.5 : 0.3) + strike * 0.25; B.root.position.z = strike * 0.15; B.head.rotation.x = strike * 0.4;
+    if (rig.spider) for (const sd of ['l', 'r']) { B['L0' + sd + '1'].rotation.z += (sd === 'l' ? 1 : -1) * rear * 0.9; B['L0' + sd + '1'].rotation.y += (sd === 'l' ? -1 : 1) * strike * 0.5; B['L1' + sd + '1'].rotation.z += (sd === 'l' ? 1 : -1) * rear * 0.5; }
+  }
+  if (st.dead) for (let i = 0; i < rig.legs; i++) for (const sd of ['l', 'r']) { const n = 'L' + i + sd; B[n + '1'].rotation.set(0, 0, (sd === 'l' ? 1 : -1) * 0.9); if (B[n + '2']) B[n + '2'].rotation.z = (sd === 'l' ? 1 : -1) * 1.2; } // legs curl up
+
 }
 
 // ---------- snake ----------
 function buildSnake(col) {
-  const N = 9; const defs = [['s0', null, [0, 0.12, 0.6]]]; for (let i = 1; i < N; i++) defs.push(['s' + i, 's' + (i - 1), [0, 0.1, 0.6 - i * 0.17]]);
-  const R = new Rig(defs); const r = R.rest; if (ORGANIC()) { R.organic = true; R.k = 0.04; R.cell = 0.012; }
-  for (let i = 0; i < N - 1; i++) { const rr = 0.07 * (1 - i / N * 0.7); R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rr, rr * 0.92, i % 2 ? col : shade(col, -0.12), 'scales'); }
-  R.ell('s0', [0, r.s0[1] + 0.02, r.s0[2] + 0.08], [0.085, 0.06, 0.13], shade(col, 0.1), 'scales');
-  for (const sd of [-1, 1]) R.ell('s0', [sd * 0.05, r.s0[1] + 0.05, r.s0[2] + 0.13], [0.02, 0.02, 0.02], '#e8d040', 'glow');
-  R.hard(() => R.seg('s0', [0, r.s0[1], r.s0[2] + 0.2], [0, r.s0[1], r.s0[2] + 0.3], 0.006, 0.002, '#c83a3a', 'skin'));
+  const N = 13; const defs = [['s0', null, [0, 0.13, 0.9]]]; for (let i = 1; i < N; i++) defs.push(['s' + i, 's' + (i - 1), [0, 0.09, 0.9 - i * 0.16]]);
+  const R = new Rig(defs); const r = R.rest; if (ORGANIC()) { R.organic = true; R.k = 0.035; R.cell = 0.012; }
+  for (let i = 0; i < N - 1; i++) { const u = i / (N - 1); const rr = 0.085 * (u < 0.2 ? 0.75 + u * 1.25 : 1 - Math.max(0, u - 0.55) * 1.9); R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rr, rr * 0.95, col, 'scales'); }
+  if (R.organic) R.paint = (g) => { const P = g.attributes.position, Nn = g.attributes.normal, C = g.attributes.color; for (let i = 0; i < P.count; i++) { const ny = Nn.getY(i), z = P.getZ(i), x = P.getX(i); let k = 1; if (ny < -0.2) k = 1.6; else { const d = Math.abs(((z * 6.5) % 1 + 1) % 1 - 0.5) * 2 + Math.abs(x) * 9; if (ny > 0.2 && d < 0.75) k = 0.45; else if (ny > 0.2 && d < 0.95) k = 1.25; } C.setXYZ(i, C.getX(i) * k, C.getY(i) * k, C.getZ(i) * k); } };
+  // a broad, flat viper head with heat pits, a brow and a lighter lip
+  R.ell('s0', [0, r.s0[1] + 0.02, r.s0[2] + 0.07], [0.105, 0.06, 0.13], shade(col, 0.05), 'scales'); R.ell('s0', [0, r.s0[1] - 0.015, r.s0[2] + 0.09], [0.09, 0.03, 0.11], shade(col, 0.4), 'scales');
+  R.hard(() => { for (const sd of [-1, 1]) { R.ell('s0', [sd * 0.07, r.s0[1] + 0.04, r.s0[2] + 0.12], [0.022, 0.022, 0.02], '#e8d040', 'glow'); R.ell('s0', [sd * 0.072, r.s0[1] + 0.045, r.s0[2] + 0.13], [0.008, 0.016, 0.006], '#120c08', 'gem'); }
+    R.seg('s0', [0, r.s0[1], r.s0[2] + 0.19], [0, r.s0[1], r.s0[2] + 0.27], 0.006, 0.002, '#c83a3a', 'skin'); for (const sd of [-1, 1]) R.seg('s0', [0, r.s0[1], r.s0[2] + 0.26], [sd * 0.025, r.s0[1], r.s0[2] + 0.31], 0.003, 0.001, '#c83a3a', 'skin'); });
   const inst = instance(R, R.geometry()); return Object.assign(inst, { _R: R, type: 'snake', N, t: Math.random() * 10, phase: 0 });
 }
-function animSnake(rig, st, dt) { const B = rig.bones; const t = (rig.t += dt); rig.phase += st.dist * 8 + dt * 1.2; for (let i = 0; i < rig.N; i++) { const b = B['s' + i]; b.rotation.set(0, Math.sin(rig.phase - i * 0.8) * (i ? 0.35 : 0.15), 0); } const a = st.atk || 0; B.s0.rotation.x = a > 0 && a < 1 ? -Math.sin(a * Math.PI) * 0.6 : -0.15; B.s1.rotation.x = a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.3 : 0.1; }
+function animSnake(rig, st, dt) {
+  // a travelling S-wave down the body, faster and wider when moving; the head stays pointed at its goal
+  const B = rig.bones; const t = (rig.t += dt); rig.mv = (rig.mv || 0) + ((st.dist > 0 ? 1 : 0) - (rig.mv || 0)) * Math.min(1, dt * 6); const m = rig.mv;
+  rig.phase = (rig.phase || 0) + st.dist / 0.7 * Math.PI * 2 + dt * (0.6 + 0.4 * (1 - m));
+  let acc = 0; for (let i = 0; i < rig.N; i++) { const b2 = B['s' + i]; const amp = (0.12 + 0.3 * m) * Math.min(1, 0.4 + i * 0.15); const y = Math.sin(rig.phase - i * 0.75) * amp; b2.rotation.set(0, i ? y : 0, 0); acc += i ? y : 0; }
+  B.s0.rotation.y = -B.s1.rotation.y * 0.8; // head held steady
+  const a = st.atk || 0; const coil = ease(K3.clamp(a / 0.45, 0, 1)) * (1 - K3.clamp((a - 0.5) / 0.1, 0, 1)), strike = Math.sin(K3.clamp((a - 0.5) / 0.3, 0, 1) * Math.PI);
+  B.s0.rotation.x = -0.15 - coil * 0.5 + strike * 0.7 - (1 - m) * 0.25 * (0.5 + 0.5 * Math.sin(t * 0.8)); B.s1.rotation.x = 0.1 + coil * 0.7 - strike * 0.6; B.s2.rotation.x = coil * 0.3 - strike * 0.2;
+  if (st.dead) for (let i = 0; i < rig.N; i++) B['s' + i].rotation.set(0, Math.sin(i * 1.3) * 0.25, 0);
+}
 
 // ---------- bats ----------
 function buildBat(col) {
   const defs = [['root', null, [0, 1.6, 0]], ['WL', 'root', [0.07, 1.62, 0]], ['WL2', 'WL', [0.32, 1.64, 0]], ['WR', 'root', [-0.07, 1.62, 0]], ['WR2', 'WR', [-0.32, 1.64, 0]]];
   const R = new Rig(defs); const r = R.rest;
-  R.ell('root', r.root, [0.08, 0.09, 0.12], col, 'fur'); R.ell('root', [0, r.root[1] + 0.06, 0.08], [0.06, 0.06, 0.06], col, 'fur');
-  for (const sd of [-1, 1]) { R.cone('root', [sd * 0.035, r.root[1] + 0.13, 0.06], 0.02, 0.07, null, col, 'fur'); R.ell('root', [sd * 0.025, r.root[1] + 0.07, 0.13], [0.012, 0.012, 0.01], '#ff5a3a', 'glow'); }
-  for (const sd of [1, -1]) { const n = sd > 0 ? 'WL' : 'WR'; const P = [sd * 0.05, 1.62, 0.04, sd * 0.32, 1.64, 0.02, sd * 0.55, 1.58, -0.06, sd * 0.3, 1.5, -0.12, sd * 0.06, 1.55, -0.08]; R.membrane(n, n + '2', P, [0, 1, 4, 1, 3, 4, 1, 2, 3], [1, 2, 3], shade(col, -0.15), 'skin'); }
+  R.ell('root', [0, r.root[1] - 0.01, -0.02], [0.075, 0.085, 0.12], col, 'fur'); R.ell('root', [0, r.root[1] + 0.06, 0.07], [0.058, 0.055, 0.058], shade(col, 0.1), 'fur'); R.ell('root', [0, r.root[1] + 0.045, 0.125], [0.03, 0.025, 0.03], shade(col, -0.2), 'skin'); // body, head, snout
+  for (const sd of [-1, 1]) { R.cone('root', [sd * 0.04, r.root[1] + 0.13, 0.05], 0.028, 0.1, Q(-0.2, 0, -sd * 0.35), shade(col, -0.1), 'skin'); R.ell('root', [sd * 0.026, r.root[1] + 0.075, 0.115], [0.013, 0.013, 0.01], '#ff5a3a', 'glow'); R.cone('root', [sd * 0.012, r.root[1] + 0.025, 0.14], 0.005, 0.02, Q(Math.PI, 0, 0), '#f0ead8', 'bone'); }
+  for (const sd of [1, -1]) { const n = sd > 0 ? 'WL' : 'WR'; const P = [sd * 0.05, 1.62, 0.04, sd * 0.32, 1.66, 0.03, sd * 0.6, 1.6, -0.04, sd * 0.42, 1.5, -0.12, sd * 0.24, 1.48, -0.13, sd * 0.06, 1.53, -0.09];
+    R.membrane(n, n + '2', P, [0, 1, 5, 1, 4, 5, 1, 3, 4, 1, 2, 3], [1, 2, 3, 4], shade(col, -0.05), 'skin');
+    R.seg(n, [sd * 0.05, 1.62, 0.04], [sd * 0.32, 1.66, 0.03], 0.012, 0.009, shade(col, -0.2), 'skin'); for (const [x, y, z] of [[0.6, 1.6, -0.04], [0.42, 1.5, -0.12], [0.24, 1.48, -0.13]]) R.seg(n + '2', [sd * 0.32, 1.66, 0.03], [sd * x, y, z], 0.006, 0.003, shade(col, -0.25), 'skin'); }
   const inst = instance(R, R.geometry()); return Object.assign(inst, { type: 'bat', t: Math.random() * 10 });
 }
-function animBat(rig, st, dt) { const B = rig.bones; const t = (rig.t += dt); const f = Math.sin(t * 16); B.WL.rotation.z = f * 0.8; B.WR.rotation.z = -f * 0.8; B.WL2.rotation.z = f * 0.5; B.WR2.rotation.z = -f * 0.5; B.root.position.y = rig.rest.root[1] + Math.sin(t * 3) * 0.15; const a = st.atk || 0; B.root.rotation.x = a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.6 : 0.1; }
+function animBat(rig, st, dt) {
+  // a quick downstroke and a slower recovery, with the odd glide on spread wings
+  const B = rig.bones; const t = (rig.t += dt); const glide = Math.sin(t * 0.6 + (rig.seed || 0)) > 0.8;
+  const ph = (t * 7) % 1; const beat = glide ? 0.15 : ph < 0.55 ? Math.cos(ph / 0.55 * Math.PI) : -Math.cos((ph - 0.55) / 0.45 * Math.PI);
+  B.WL.rotation.z = beat * 0.85; B.WR.rotation.z = -beat * 0.85; B.WL2.rotation.z = beat * 0.55 + (glide ? 0 : 0.15); B.WR2.rotation.z = -beat * 0.55 - (glide ? 0 : 0.15);
+  B.root.position.y = rig.rest.root[1] + Math.sin(t * 3) * 0.12 - beat * 0.03; const a = st.atk || 0;
+  B.root.rotation.x = a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.7 : 0.1 + beat * 0.05;
+}
 
 // ---------- golems and treants: heavy humanoids ----------
 function buildBrute(kind, col) {
@@ -476,8 +513,13 @@ function cached(key, build) {
 }
 export function makeCreature(kind, col, e) {
   col = col || '#777777';
-  if (QUAD_KINDS.has(kind) || kind === 'spider' || kind === 'snake') return cached(kind + '|' + col, () => buildCreature(kind, col));
-  return buildCreature(kind, col);
+  // individuals differ: one of three coat shades, a size within about 7%, and their own idle rhythm
+  const id = e && e.id != null ? Math.abs(Math.round(e.id)) : Math.floor(Math.random() * 1000); const vr = id % 3;
+  const c2 = vr === 1 ? shade(col, 0.07) : vr === 2 ? shade(col, -0.07) : col;
+  const rig = QUAD_KINDS.has(kind) || kind === 'spider' || kind === 'snake' ? cached(kind + '|' + c2, () => buildCreature(kind, c2)) : buildCreature(kind, c2);
+  rig.kind = kind; rig.seed = (id * 0.618) % 6.28;
+  if (rig.mesh && rig.type !== 'spirit' && kind !== 'horse') rig.mesh.scale.setScalar(0.93 + ((id * 37) % 15) / 100);
+  return rig;
 }
 function buildCreature(kind, col) {
   if (QUAD_KINDS.has(kind)) return buildQuad(kind, col);

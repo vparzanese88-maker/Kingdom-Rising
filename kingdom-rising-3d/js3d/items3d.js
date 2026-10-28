@@ -21,6 +21,32 @@ function lathe(pts, seg = 16) { return new THREE.LatheGeometry(pts.map(([r, y]) 
 const M4 = (x, y, z, rx = 0, ry = 0, rz = 0, s = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(s, s, s));
 
 // ---------------------------------------------------------------- weapons (grip at the origin, blade along +y)
+// Built flat in the x-y plane, edge or bit along +x, so the icon shows the face (held weapons are turned in weapons.js).
+// Steel shows the tier: rusty iron, iron, steel, blued steel, mithril, adamant; fittings go from iron to brass to gold.
+const STEEL = [
+  { flat: '#7c6c60', edge: '#c0b4a6', dark: '#3e3028', rust: '#8a4a26' },
+  { flat: '#8e9298', edge: '#dde1e6', dark: '#45484e' },
+  { flat: '#aeb4bc', edge: '#f2f5f8', dark: '#565a62' },
+  { flat: '#8ea4c4', edge: '#eef4ff', dark: '#36465e' },
+  { flat: '#c8dcec', edge: '#ffffff', dark: '#5e7690' },
+  { flat: '#7ad2b4', edge: '#effff8', dark: '#28584a' },
+];
+const FX_GLOW = { fire: '#ff8a2a', frost: '#9ad8ff', storm: '#9ab8ff', poison: '#8aff4a', shadow: '#b07aff', holy: '#ffe08a', nature: '#8aff8a' };
+const steelOf = (t, R) => { const s = STEEL[Math.min(5, t)]; return { flat: hueShift(s.flat, R, 0.02, 0.06), edge: s.edge, dark: s.dark, rust: s.rust }; };
+const fittingsOf = (t, R) => (t >= 3 ? pick(R, ['#e2c25a', '#d8b048', '#c8a040']) : t === 2 ? pick(R, ['#a8acb4', '#b8925a', '#9a9ea6']) : pick(R, ['#6a5a48', '#5a5e66', '#7a6a50']));
+const woodOf = (R) => hueShift(pick(R, ['#6e5236', '#5a3e26', '#7a5a3a', '#4a3222', '#8a6a44']), R, 0.04, 0.1);
+const V3 = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+// a honed edge: a thin bright rod along the outline, so the flat reads darker and worn against it
+function edgeRim(mb, pts, dy, col, r, skipBase = true) {
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; if (skipBase && a.y < 0.004 && b.y < 0.004) continue; mb.rod('metalv', V3(a.x, a.y + dy), V3(b.x, b.y + dy), r, col, 5); }
+}
+// rust blooms on low-tier steel, glowing runes on enchanted or high-tier steel, nicks and scratches everywhere
+function wear(mb, R, S, t, it, x0, x1, y0, y1, z) {
+  if (t === 0 && S.rust) for (let k = 0; k < 6; k++) { const x = x0 + (x1 - x0) * R(), y = y0 + (y1 - y0) * R(); for (const sz of [-1, 1]) mb.sph('paint', x, y, sz * z, 0.02 + R() * 0.03, 0.025 + R() * 0.03, 0.003, hueShift(S.rust, R, 0.04, 0.1)); }
+  for (let k = 0; k < 3; k++) { const x = x0 + (x1 - x0) * R(), y = y0 + (y1 - y0) * R(); mb.box('metalv', x, y, (R() < 0.5 ? -1 : 1) * z, 0.002, 0.03 + R() * 0.05, 0.001, S.edge, 0, 0, (R() - 0.5) * 1.2); }
+  const glow = it.fx ? FX_GLOW[it.fx] || '#c8a8ff' : t >= 4 ? (t === 5 ? '#7affd0' : '#9ad8ff') : null;
+  if (glow) { const n = 4 + Math.floor(R() * 3); for (let k = 0; k < n; k++) for (const sz of [-1, 1]) { const y = y0 + (y1 - y0) * (0.15 + 0.7 * k / n); mb.box('glow', (x0 + x1) / 2, y, sz * (z + 0.001), 0.012, 0.022, 0.002, glow, 0, 0, (k % 2 ? 0.5 : -0.5) * R()); mb.box('glow', (x0 + x1) / 2 + 0.008, y + 0.008, sz * (z + 0.001), 0.012, 0.004, 0.002, glow); } }
+}
 function bladeShape(kind, len, w, R) {
   const s = new THREE.Shape();
   if (kind === 'leaf') { s.moveTo(-w * 0.45, 0); s.quadraticCurveTo(-w * 0.75, len * 0.55, 0, len); s.quadraticCurveTo(w * 0.75, len * 0.55, w * 0.45, 0); }
@@ -28,70 +54,136 @@ function bladeShape(kind, len, w, R) {
   else if (kind === 'sabre') { s.moveTo(-w * 0.4, 0); s.quadraticCurveTo(-w * 0.1, len * 0.6, w * 0.6, len); s.quadraticCurveTo(w * 0.7, len * 0.55, w * 0.5, 0); }
   else if (kind === 'flame') { s.moveTo(-w / 2, 0); const n = 6; for (let i = 1; i <= n; i++) s.lineTo((i % 2 ? -0.62 : -0.42) * w * (1 - i / (n + 2)), (len * 0.88 * i) / n); s.lineTo(0, len); for (let i = n; i >= 1; i--) s.lineTo((i % 2 ? 0.62 : 0.42) * w * (1 - i / (n + 2)), (len * 0.88 * i) / n); s.lineTo(w / 2, 0); }
   else if (kind === 'kris') { s.moveTo(-w / 2, 0); for (let i = 1; i <= 5; i++) s.quadraticCurveTo((i % 2 ? -0.9 : 0.1) * w, len * (i - 0.5) / 5.5, (i % 2 ? -0.2 : -0.5) * w * (1 - i / 7), len * i / 5.5); s.lineTo(0, len); for (let i = 5; i >= 1; i--) s.lineTo((i % 2 ? 0.2 : 0.5) * w * (1 - i / 7), len * i / 5.5 - len * 0.05); s.lineTo(w / 2, 0); }
+  else if (kind === 'clip') { s.moveTo(-w / 2, 0); s.lineTo(-w * 0.5, len * 0.62); s.quadraticCurveTo(-w * 0.2, len * 0.8, 0, len); s.lineTo(w * 0.45, len * 0.8); s.lineTo(w / 2, 0); }
   else { s.moveTo(-w / 2, 0); s.lineTo(-w * 0.43, len * 0.86); s.lineTo(0, len); s.lineTo(w * 0.43, len * 0.86); s.lineTo(w / 2, 0); }
   return s;
 }
-function hilt(mb, R, m, gold, grip, len, big, k = 1) { // k < 1: a dagger's smaller guard, grip and pommel
-  const gs = pick(R, ['bar', 'curved', 'disk', 'wing']); const gw = (big ? 0.34 : 0.22) * (0.9 + R() * 0.3) * k;
-  if (gs === 'bar') mb.box('metal', 0, -0.012, 0, gw, 0.035, 0.05, gold);
-  else if (gs === 'curved') for (const sx of [-1, 1]) mb.box('metal', sx * gw * 0.28, 0.005 + 0.02, 0, gw * 0.55, 0.03, 0.045, gold, 0, 0, sx * 0.35);
-  else if (gs === 'disk') mb.cyl('metal', 0, -0.012, 0, gw * 0.32, 0.03, gold, 16);
-  else { for (const sx of [-1, 1]) mb.add('metal', extrude(new THREE.Shape([V2(0, -0.02), V2(gw * 0.5, 0.05), V2(gw * 0.45, -0.01), V2(0.02, -0.04)]), 0.03, 0.004), M4(0, 0, 0, 0, sx > 0 ? 0 : Math.PI, 0), gold); }
-  const gl = (big ? 0.3 : 0.17) * (0.9 + R() * 0.2) * (k < 1 ? 0.7 : 1); mb.cyl('leather', 0, -0.03 - gl / 2, 0, big ? 0.022 : 0.016, gl, grip, 10);
-  for (let j = 0; j < 5; j++) mb.cyl('leather', 0, -0.04 - (j + 0.5) * gl / 5.5, 0, (big ? 0.024 : 0.018), 0.008, K3.shade(grip, -0.3), 10);
-  const ps = pick(R, ['ball', 'disk', 'gem', 'claw']); const py = -0.05 - gl;
-  const pk = Math.min(1, k * 1.2);
-  if (ps === 'ball') mb.sph('metal', 0, py, 0, 0.055 * pk, 0.055 * pk, 0.055 * pk, gold);
-  else if (ps === 'disk') mb.cyl('metal', 0, py, 0, 0.035 * pk, 0.022, gold, 14, null, 0, Math.PI / 2, 0);
-  else { mb.sph('metal', 0, py, 0, 0.045 * pk, 0.05 * pk, 0.045 * pk, gold); mb.sph('glow', 0, py - 0.01, 0.0, 0.035 * pk, 0.035 * pk, 0.035 * pk, pick(R, GEMS)); }
-  return -0.03 - gl / 2; // the middle of the grip, where the hand closes
+// guard, wrapped grip, ferrule and pommel; returns the middle of the grip, where the hand closes
+function hilt(mb, R, S, fit, grip, t, big, k = 1) {
+  const gw = (big ? 0.32 : 0.21) * (0.9 + R() * 0.3) * k; const gh = 0.026 * Math.max(0.7, k);
+  const gs = pick(R, k < 1 ? ['quillon', 'curved', 'disk', 'stub'] : ['quillon', 'quillon', 'curved', 'disk', 'wing', 'cross']);
+  if (gs === 'quillon' || gs === 'cross') { mb.box('metalv', 0, 0, 0, gw, gh, 0.038 * Math.max(0.7, k), fit); for (const sx of [-1, 1]) { mb.sph('metalv', sx * gw / 2, 0.004, 0, 0.034 * k + 0.008, 0.034 * k + 0.008, 0.034 * k + 0.008, K3.shade(fit, 0.1)); } mb.box('metalv', 0, 0.026 * k, 0, 0.026 * k, 0.04 * k, 0.03 * k, K3.shade(fit, -0.15)); if (gs === 'cross') for (const sz of [-1, 1]) mb.box('metalv', 0, 0.0, sz * 0.03 * k, 0.03 * k, 0.03 * k, 0.03 * k, fit); }
+  else if (gs === 'curved') { for (const sx of [-1, 1]) { let prev = V3(0, 0); for (let j = 1; j <= 4; j++) { const u = j / 4; const p = V3(sx * gw * 0.5 * u, 0.045 * u * u * (big ? 1.3 : 1)); mb.rod('metalv', prev, p, (0.013 - 0.003 * u) * Math.max(0.7, k), fit, 6); prev = p; } mb.sph('metalv', prev.x, prev.y, 0, 0.026 * k, 0.026 * k, 0.026 * k, K3.shade(fit, 0.1)); } mb.box('metalv', 0, 0, 0, 0.05 * k, gh * 1.2, 0.04 * k, fit); }
+  else if (gs === 'disk') { mb.cyl('metalv', 0, 0, 0, gw * 0.3, gh, fit, 16); mb.cyl('metalv', 0, gh * 0.6, 0, gw * 0.24, gh * 0.4, K3.shade(fit, -0.15), 16); }
+  else if (gs === 'stub') mb.box('metalv', 0, 0, 0, gw * 0.7, gh, 0.034 * k, fit);
+  else { for (const sx of [-1, 1]) mb.add('metalv', extrude(new THREE.Shape([V2(0, -0.02), V2(gw * 0.5, 0.05), V2(gw * 0.45, -0.01), V2(0.02, -0.035)]), 0.026, 0.004), M4(0, 0, 0, 0, sx > 0 ? 0 : Math.PI, 0), fit); }
+  const gl = (big ? 0.28 : 0.16) * (0.9 + R() * 0.2) * (k < 1 ? 0.72 : 1), gr = (big ? 0.021 : 0.0165) * Math.max(0.82, k);
+  mb.cyl('leather', 0, -gh / 2 - gl / 2, 0, gr, gl, grip, 10);
+  const n = Math.max(4, Math.round(gl / 0.017)); for (let j = 0; j < n; j++) mb.cyl('leather', 0, -gh / 2 - (j + 0.5) * gl / n, 0, gr * 1.1, gl / n * 0.62, K3.shade(grip, j % 2 ? -0.28 : 0.06), 10, null, 0, 0, 0.32); // a spiral wrap
+  if (t >= 3) for (let j = 0; j < n; j += 2) mb.cyl('gold', 0, -gh / 2 - (j + 1) * gl / n, 0, gr * 1.14, 0.004, fit, 10, null, 0, 0, -0.32); // gilt wire over the wrap
+  const fy = -gh / 2 - gl; mb.cyl('metalv', 0, fy - 0.008, 0, gr * 1.3, 0.016, fit, 12);
+  const ps = pick(R, ['wheel', 'stopper', 'faceted', 'gem', 'ball']); const pk = Math.min(1, k * 1.15), py = fy - 0.016 - 0.03 * pk;
+  if (ps === 'wheel') { mb.cyl('metalv', 0, py, 0, 0.036 * pk, 0.024 * pk, fit, 18, null, 0, Math.PI / 2, 0); mb.cyl('metalv', 0, py, 0, 0.018 * pk, 0.03 * pk, K3.shade(fit, -0.2), 12, null, 0, Math.PI / 2, 0); }
+  else if (ps === 'stopper') { mb.sph('metalv', 0, py + 0.006, 0, 0.05 * pk, 0.04 * pk, 0.05 * pk, fit); mb.add('metalv', new THREE.ConeGeometry(0.025 * pk, 0.05 * pk, 10), M4(0, py - 0.03 * pk, 0, Math.PI, 0, 0), fit); }
+  else if (ps === 'faceted') mb.add('metalv', new THREE.OctahedronGeometry(0.034 * pk, 0), M4(0, py, 0, 0, R() * 3, 0, 1), fit);
+  else if (ps === 'gem') { mb.sph('metalv', 0, py, 0, 0.05 * pk, 0.055 * pk, 0.05 * pk, fit); mb.sph('glow', 0, py - 0.004, 0.02 * pk, 0.03 * pk, 0.03 * pk, 0.02 * pk, pick(R, GEMS)); }
+  else mb.sph('metalv', 0, py, 0, 0.052 * pk, 0.052 * pk, 0.052 * pk, fit);
+  return -gh / 2 - gl / 2;
+}
+// a blade above the guard: bevelled core, ricasso, fullers on both faces, honed edges, wear and runes
+function blade(mb, R, S, t, it, len, w, th, kind) {
+  const shape = bladeShape(kind, len, w, R); const dy = 0.034;
+  mb.add('metal', extrude(shape, th, 0.0055), M4(0, dy, 0), S.flat);
+  mb.box('metalv', 0, 0.017, 0, w * 0.92, 0.034, th + 0.006, S.dark); // the ricasso
+  const straight = kind === 'straight' || kind === 'leaf' || kind === 'flame' || kind === 'clip';
+  if (straight) for (const sz of [-1, 1]) mb.box('metalv', 0, dy + len * 0.36, sz * (th / 2 + 0.0042), w * 0.2, len * 0.58, 0.0016, K3.shade(S.flat, -0.35));
+  edgeRim(mb, shape.getPoints(kind === 'straight' ? 1 : 6), dy, S.edge, Math.max(0.0032, th * 0.42));
+  wear(mb, R, S, t, it, -w * 0.25, w * 0.25, dy + len * 0.12, dy + len * 0.75, th / 2 + 0.0052);
 }
 function weapon(it, R) {
-  const mb = new MB(); const t = Math.min(5, it.tier || 0); const m = hueShift(METAL[t], R, 0.02, 0.08); const gold = t >= 3 ? '#e2c25a' : pick(R, ['#8a7a5a', '#a08040', '#6a6e74', '#c8a040']);
-  const grip = hueShift(pick(R, ['#3a2a1e', '#5a2a1a', '#2a2a3a', '#4a3a2a', '#1e2a1e']), R);
-  const wt = it.wt;
-  if (wt === '1HS' || (wt === '2HS' && !it.axe && !/axe|cleaver|executioner/i.test(it.name || ''))) {
-    const big = wt === '2HS'; const len = (big ? 1.2 : 0.8) * (0.92 + R() * 0.16), w = (big ? 0.1 : 0.072) * (0.9 + R() * 0.3);
-    const kind = big ? pick(R, ['straight', 'straight', 'flame', 'leaf']) : pick(R, ['straight', 'straight', 'leaf', 'falchion', 'sabre']);
-    mb.add('metal', extrude(bladeShape(kind, len, w, R), 0.012, 0.006), M4(0, 0, 0), m);
-    if (kind !== 'falchion' && kind !== 'sabre') mb.box('metalv', 0, len * 0.42, 0, w * 0.16, len * 0.72, 0.028, K3.shade(m, -0.25));
-    if (t >= 2 || it.q > 1.1) for (let k = 0; k < 3; k++) mb.box('glow', 0, len * (0.2 + k * 0.12), 0.017, w * 0.08, 0.03, 0.002, it.fx ? '#ffaa44' : '#88ccff');
-    mb.gripY = hilt(mb, R, m, gold, grip, len, big);
-  } else if (wt === '2HS' || it.axe) {
-    mb.cyl('haft', 0, 0.45, 0, 0.022, 1.2, hueShift('#5a3a20', R), 8);
-    const head = new THREE.Shape(); const hw = 0.26 + R() * 0.08, hh = 0.2 + R() * 0.08; head.moveTo(0, -0.08); head.quadraticCurveTo(hw * 0.6, -hh * 0.7, hw, -hh); head.quadraticCurveTo(hw * 1.15, 0, hw, hh); head.quadraticCurveTo(hw * 0.6, hh * 0.7, 0, 0.08);
-    for (const sd of pick(R, [[1], [1, -1]])) mb.add('metal', extrude(head, 0.02), M4(0, 0.92, 0, 0, sd > 0 ? 0 : Math.PI, 0), m);
-    mb.box('metalv', 0, 0.92, 0, 0.07, 0.16, 0.06, K3.shade(m, -0.3)); for (let k = 0; k < 3; k++) mb.cyl('leather', 0, 0.05 + k * 0.08, 0, 0.026, 0.03, grip, 8);
+  const mb = new MB(); const t = Math.min(5, it.tier || 0); const S = steelOf(t, R); const fit = fittingsOf(t, R);
+  const grip = hueShift(pick(R, ['#3a2a1e', '#5a2a1a', '#2a2a3a', '#4a3a2a', '#1e2a1e', '#6a4a2a']), R);
+  const wt = it.wt, nm = (it.name || '').toLowerCase();
+  const isAxe = !!it.axe || /axe|cleaver|executioner|hatchet|bardiche/.test(nm);
+  if ((wt === '1HS' || wt === '2HS') && !isAxe) {
+    const big = wt === '2HS'; const len = (big ? 1.12 : 0.76) * (0.92 + R() * 0.16), w = (big ? 0.086 : 0.064) * (0.9 + R() * 0.28), th = big ? 0.013 : 0.01;
+    const kind = big ? pick(R, ['straight', 'straight', 'flame', 'leaf']) : pick(R, ['straight', 'straight', 'leaf', 'falchion', 'sabre', 'clip']);
+    blade(mb, R, S, t, it, len, w, th, kind);
+    mb.gripY = hilt(mb, R, S, fit, grip, t, big);
+  } else if (wt === '1HP') {
+    const len = 0.25 * (0.9 + R() * 0.25), w = 0.045 * (0.9 + R() * 0.3);
+    blade(mb, R, S, t, it, len, w, 0.008, pick(R, ['straight', 'leaf', 'kris', 'clip']));
+    mb.gripY = hilt(mb, R, S, fit, grip, t, false, 0.58);
+  } else if (isAxe) {
+    // a bearded axe: tapered haft, wrapped grip and butt cap, iron socket and langets, a wedge-section head with a honed edge
+    const big = wt === '2HS'; const L = big ? 1.18 : 0.76; const hr = big ? 0.024 : 0.019; const wood = woodOf(R);
+    mb.cyl('haft', 0, L / 2 - 0.16, 0, hr, L, wood, 10, hr * 0.82);
+    for (let k = 0; k < 3; k++) mb.box('haft', hr * 0.55, L * (0.12 + k * 0.25) - 0.16, hr * 0.5, 0.003, L * 0.18, 0.003, K3.shade(wood, -0.25)); // grain
+    const gl = big ? 0.3 : 0.2; for (let j = 0; j < 9; j++) mb.cyl('leather', 0, -0.13 + j * gl / 9, 0, hr * 1.18, gl / 9 * 0.62, K3.shade(grip, j % 2 ? -0.25 : 0.05), 10, null, 0, 0, 0.3);
+    mb.cyl('metalv', 0, -0.16 - 0.01, 0, hr * 1.25, 0.03, S.dark, 10); mb.sph('metalv', 0, -0.19, 0, hr * 2.2, hr * 1.6, hr * 2.2, S.dark);
+    const hy = L - 0.26; const sock = hr * 1.75;
+    mb.cyl('metalv', 0, hy, 0, sock, big ? 0.15 : 0.11, S.dark, 12); mb.cyl('metalv', 0, hy + (big ? 0.08 : 0.06), 0, sock * 0.9, 0.012, S.flat, 12);
+    for (const sz of [-1, 1]) mb.box('metalv', 0, hy - (big ? 0.17 : 0.12), sz * hr * 1.02, hr * 0.9, big ? 0.22 : 0.16, 0.004, S.dark); // langets
+    const hw = (big ? 0.25 : 0.16) * (0.9 + R() * 0.25), hh = (big ? 0.15 : 0.1) * (0.9 + R() * 0.3), beard = 1 + R() * 0.5;
+    const head = new THREE.Shape(); head.moveTo(sock * 0.8, hh * 0.32); head.quadraticCurveTo(hw * 0.45, hh * 0.35, hw * 0.92, hh); head.quadraticCurveTo(hw * 1.16, 0, hw * 0.9, -hh * beard); head.quadraticCurveTo(hw * 0.55, -hh * beard * 0.8, hw * 0.38, -hh * 0.5); head.quadraticCurveTo(hw * 0.25, -hh * 0.3, sock * 0.8, -hh * 0.35); head.closePath();
+    const hg = extrude(head, big ? 0.024 : 0.018, 0.004); const p = hg.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) * (1 - 0.72 * Math.min(1, Math.max(0, p.getX(i) / hw)))); hg.computeVertexNormals(); // a wedge: thick at the socket, thin at the edge
+    const poll = pick(R, big ? ['spike', 'hammer', 'double', 'none'] : ['spike', 'hammer', 'none', 'none']);
+    mb.add('metal', hg, M4(0, hy, 0), S.flat);
+    edgeRim(mb, new THREE.QuadraticBezierCurve(V2(hw * 0.92, hh), V2(hw * 1.16, 0), V2(hw * 0.9, -hh * beard)).getPoints(10), hy, S.edge, big ? 0.0045 : 0.0036, false);
+    if (poll === 'double') { const hg2 = hg.clone(); mb.add('metal', hg2, M4(0, hy, 0, 0, Math.PI, 0), S.flat); edgeRim(mb, new THREE.QuadraticBezierCurve(V2(-hw * 0.92, hh), V2(-hw * 1.16, 0), V2(-hw * 0.9, -hh * beard)).getPoints(10), hy, S.edge, 0.0045, false); }
+    else if (poll === 'spike') mb.add('metalv', new THREE.ConeGeometry(sock * 0.75, hw * 0.55, 8), M4(-sock - hw * 0.25, hy, 0, 0, 0, Math.PI / 2), S.dark);
+    else if (poll === 'hammer') mb.box('metalv', -sock - 0.03, hy, 0, 0.06, hh * 0.55, sock * 1.6, S.dark);
+    wear(mb, R, S, t, it, hw * 0.35, hw * 0.75, hy - hh * 0.4, hy + hh * 0.5, (big ? 0.012 : 0.009) * 0.6);
   } else if (wt === '1HB') {
-    if (it.club || /club|cudgel/i.test(it.name || '')) { const g = new THREE.CylinderGeometry(0.075, 0.028, 0.7, 10, 4); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const n = R(); p.setX(i, p.getX(i) * (0.85 + n * 0.3)); p.setZ(i, p.getZ(i) * (0.85 + n * 0.3)); } g.computeVertexNormals(); mb.add('haft', g, M4(0, 0.3, 0), hueShift('#7a5530', R)); }
-    else {
-      mb.cyl('haft', 0, 0.2, 0, 0.02, 0.56, hueShift('#4a3020', R), 8); for (let k = 0; k < 4; k++) mb.cyl('leather', 0, 0.02 + k * 0.035, 0, 0.024, 0.02, grip, 8);
-      const style = pick(R, ['flanged', 'spiked', 'hammer']);
-      if (style === 'flanged') { mb.sph('metal', 0, 0.52, 0, 0.11, 0.13, 0.11, m); for (let k = 0; k < 7; k++) { const a = (k / 7) * 6.283; mb.add('metal', extrude(new THREE.Shape([V2(0, -0.07), V2(0.07, -0.04), V2(0.075, 0.05), V2(0, 0.08)]), 0.012, 0.003), M4(Math.cos(a) * 0.03, 0.52, Math.sin(a) * 0.03, 0, -a, 0), m); } }
-      else if (style === 'spiked') { mb.sph('metal', 0, 0.54, 0, 0.15, 0.15, 0.15, m); for (let k = 0; k < 10; k++) { const a = R() * 6.283, b = (R() - 0.5) * 2.2; const d = new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)); mb.add('metal', new THREE.ConeGeometry(0.018, 0.07, 6), new THREE.Matrix4().compose(d.clone().multiplyScalar(0.085).add(new THREE.Vector3(0, 0.54, 0)), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d), new THREE.Vector3(1, 1, 1)), K3.shade(m, 0.1)); } }
-      else { mb.box('metal', 0.03, 0.5, 0, 0.2, 0.08, 0.08, m); mb.add('metal', new THREE.ConeGeometry(0.035, 0.12, 6), M4(-0.12, 0.5, 0, 0, 0, Math.PI / 2), m); mb.cyl('metal', 0.14, 0.5, 0, 0.045, 0.02, K3.shade(m, -0.2), 10, null, 0, 0, Math.PI / 2); }
+    if (it.club || /club|cudgel|branch/.test(nm)) {
+      const wood = woodOf(R); const g = new THREE.CylinderGeometry(0.075, 0.028, 0.7, 10, 6); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const n = 0.82 + R() * 0.32; p.setX(i, p.getX(i) * n); p.setZ(i, p.getZ(i) * n); } g.computeVertexNormals(); mb.add('haft', g, M4(0, 0.3, 0), wood);
+      for (let k = 0; k < 7; k++) { const a = R() * 6.283, y = 0.42 + R() * 0.2; mb.add('metalv', new THREE.ConeGeometry(0.012, 0.04, 6), new THREE.Matrix4().compose(V3(Math.cos(a) * 0.062, y, Math.sin(a) * 0.062), new THREE.Quaternion().setFromUnitVectors(V3(0, 1, 0), V3(Math.cos(a), 0.2, Math.sin(a)).normalize()), V3(1, 1, 1)), S.dark); }
+      for (let j = 0; j < 6; j++) mb.cyl('leather', 0, 0.02 + j * 0.03, 0, 0.032, 0.018, K3.shade(grip, j % 2 ? -0.25 : 0.05), 10, null, 0, 0, 0.3);
+    } else {
+      const wood = woodOf(R); mb.cyl('haft', 0, 0.22, 0, 0.019, 0.56, wood, 10, 0.017);
+      for (let j = 0; j < 8; j++) mb.cyl('leather', 0, -0.04 + j * 0.024, 0, 0.022, 0.015, K3.shade(grip, j % 2 ? -0.25 : 0.05), 10, null, 0, 0, 0.3);
+      mb.sph('metalv', 0, -0.07, 0, 0.05, 0.045, 0.05, fit); for (const y of [0.18, 0.36]) mb.cyl('metalv', 0, y, 0, 0.023, 0.016, fit, 10);
+      const style = /hammer|maul/.test(nm) ? 'hammer' : /star/.test(nm) ? 'spiked' : pick(R, ['flanged', 'spiked', 'hammer', 'flanged']);
+      if (style === 'flanged') { mb.cyl('metalv', 0, 0.52, 0, 0.034, 0.16, S.dark, 10); for (let k = 0; k < 7; k++) { const a = (k / 7) * 6.283; mb.add('metal', extrude(new THREE.Shape([V2(0, -0.08), V2(0.06, -0.05), V2(0.075, 0.03), V2(0.05, 0.08), V2(0, 0.09)]), 0.012, 0.003), M4(Math.cos(a) * 0.025, 0.52, Math.sin(a) * 0.025, 0, -a, 0), S.flat); }
+        mb.add('metalv', new THREE.ConeGeometry(0.03, 0.06, 8), M4(0, 0.63, 0), S.flat); }
+      else if (style === 'spiked') { mb.sph('metal', 0, 0.54, 0, 0.15, 0.15, 0.15, S.flat); mb.cyl('metalv', 0, 0.455, 0, 0.03, 0.04, S.dark, 10);
+        const n = 14; for (let k = 0; k < n; k++) { const yy = 1 - (2 * (k + 0.5)) / n, rr = Math.sqrt(1 - yy * yy), a = k * 2.39996; const d = V3(Math.cos(a) * rr, yy, Math.sin(a) * rr); if (d.y < -0.75) continue; mb.add('metalv', new THREE.ConeGeometry(0.016, 0.075, 6), new THREE.Matrix4().compose(d.clone().multiplyScalar(0.095).add(V3(0, 0.54, 0)), new THREE.Quaternion().setFromUnitVectors(V3(0, 1, 0), d), V3(1, 1, 1)), S.edge); } }
+      else { mb.box('metal', 0.02, 0.52, 0, 0.17, 0.075, 0.075, S.flat); mb.box('metalv', 0.11, 0.52, 0, 0.012, 0.085, 0.085, S.edge); for (let k = 0; k < 4; k++) mb.box('metalv', 0.118, 0.5 + (k % 2) * 0.04, -0.02 + (k >> 1) * 0.04, 0.004, 0.03, 0.03, S.dark); // a checked striking face
+        const beak = new THREE.ConeGeometry(0.03, 0.15, 6); beak.translate(0, 0.075, 0); mb.add('metalv', beak, M4(-0.065, 0.52, 0, 0, 0, Math.PI / 2 + 0.25), S.flat); mb.add('metalv', new THREE.ConeGeometry(0.02, 0.08, 6), M4(0.02, 0.6, 0), S.flat); }
+      wear(mb, R, S, t, it, -0.04, 0.04, 0.48, 0.58, 0.04);
     }
   } else if (wt === '2HB') {
-    const caster = it.staff || /staff|rod|stave|wand/i.test(it.name || '') || R() < 0.5;
-    if (caster) { mb.cyl('haft', 0, 0.55, 0, 0.022, 1.5, hueShift('#6a4a2a', R), 8); for (let k = 0; k < 3; k++) mb.cyl('gold', 0, 1.1 + k * 0.05, 0, 0.028, 0.015, gold, 8);
-      const g = pick(R, GEMS); if (R() < 0.5) mb.sph('glow', 0, 1.36, 0, 0.11, 0.11, 0.11, g); else mb.add('glow', new THREE.OctahedronGeometry(0.07, 0), M4(0, 1.37, 0, 0, 0, 0), g);
-      for (let k = 0; k < 4; k++) { const a = (k / 4) * 6.283; mb.rod('gold', new THREE.Vector3(0, 1.22, 0), new THREE.Vector3(Math.cos(a) * 0.07, 1.42, Math.sin(a) * 0.07), 0.008, gold); } }
-    else { mb.cyl('haft', 0, 0.5, 0, 0.026, 1.2, hueShift('#4a3020', R), 8); mb.box('metal', 0, 1.08, 0, 0.32, 0.17, 0.17, m); mb.box('metalv', 0, 1.08, 0, 0.34, 0.04, 0.18, K3.shade(m, -0.3)); }
-  } else if (wt === '1HP') {
-    const len = 0.24 * (0.9 + R() * 0.25); mb.add('metal', extrude(bladeShape(pick(R, ['straight', 'leaf', 'kris']), len, 0.042, R), 0.008, 0.003), M4(0, 0, 0), m); mb.gripY = hilt(mb, R, m, gold, grip, len, false, 0.5);
+    const caster = it.staff || /staff|rod|stave|wand|crook/.test(nm) || (!/hammer|maul/.test(nm) && R() < 0.5);
+    const wood = woodOf(R);
+    if (caster) {
+      // a gnarled staff: a slightly crooked shaft, rune bands, a leather grip and a carved head holding a stone
+      const pts = []; for (let i = 0; i <= 8; i++) pts.push(V3((R() - 0.5) * 0.02, -0.2 + i * 0.19, (R() - 0.5) * 0.02)); const top = pts[8];
+      const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.021, 8); const tp = tg.attributes.position; for (let i = 0; i < tp.count; i++) { const k = 1 - 0.25 * ((tp.getY(i) + 0.2) / 1.52); tp.setX(i, tp.getX(i) * k); tp.setZ(i, tp.getZ(i) * k); } tg.computeVertexNormals(); mb.add('haft', tg, M4(0, 0, 0), wood);
+      for (let j = 0; j < 10; j++) mb.cyl('leather', pts[3].x, 0.42 + j * 0.022, pts[3].z, 0.023, 0.014, K3.shade(grip, j % 2 ? -0.25 : 0.05), 10, null, 0, 0, 0.3);
+      for (const y of [0.98, 1.06, 1.14]) mb.cyl('gold', top.x, y, top.z, 0.021, 0.012, fit, 10);
+      const gem = it.fx ? FX_GLOW[it.fx] || pick(R, GEMS) : pick(R, GEMS); const head = pick(R, ['claw', 'ring', 'crystal', 'crook']); const hy = top.y;
+      if (head === 'claw') { mb.sph('glow', top.x, hy + 0.1, top.z, 0.1, 0.1, 0.1, gem); for (let k = 0; k < 4; k++) { const a = (k / 4) * 6.283 + 0.4; let prev = V3(top.x, hy - 0.02, top.z); for (let j = 1; j <= 3; j++) { const u = j / 3; const p = V3(top.x + Math.cos(a) * (0.03 + 0.045 * Math.sin(u * 2.4)), hy + u * 0.17, top.z + Math.sin(a) * (0.03 + 0.045 * Math.sin(u * 2.4))); mb.rod('haft', prev, p, 0.011 - u * 0.004, K3.shade(wood, -0.1), 5); prev = p; } } }
+      else if (head === 'ring') { mb.add('gold', new THREE.TorusGeometry(0.085, 0.013, 8, 24), M4(top.x, hy + 0.1, top.z), fit); mb.sph('glow', top.x, hy + 0.1, top.z, 0.075, 0.075, 0.075, gem); for (let k = 0; k < 4; k++) { const a = (k / 4) * 6.283; mb.sph('gold', top.x + Math.cos(a) * 0.085, hy + 0.1 + Math.sin(a) * 0.085, top.z, 0.022, 0.022, 0.022, fit); } }
+      else if (head === 'crystal') { for (let k = 0; k < 5; k++) { const a = (k / 5) * 6.283; mb.add('glow', new THREE.OctahedronGeometry(0.03 + R() * 0.02, 0), M4(top.x + Math.cos(a) * 0.03, hy + 0.08 + R() * 0.06, top.z + Math.sin(a) * 0.03, 0, a, 0.3, 1), gem); } mb.add('glow', new THREE.OctahedronGeometry(0.055, 0), M4(top.x, hy + 0.15, top.z, 0, 0, 0, 1), gem); mb.cyl('gold', top.x, hy + 0.02, top.z, 0.04, 0.03, fit, 10); }
+      else { let prev = V3(top.x, hy, top.z); for (let j = 1; j <= 8; j++) { const a = (j / 8) * Math.PI * 1.25; const p = V3(top.x + 0.09 - Math.cos(a) * 0.09, hy + Math.sin(a) * 0.12, top.z); mb.rod('haft', prev, p, 0.018, wood, 6); prev = p; } mb.sph('glow', top.x + 0.12, hy + 0.04, top.z, 0.06, 0.06, 0.06, gem); }
+      if (t >= 3 || it.fx) for (let k = 0; k < 5; k++) mb.box('glow', top.x, 0.7 + k * 0.05, top.z + 0.021, 0.008, 0.02, 0.002, gem);
+    } else {
+      // a great maul: iron-banded haft and a heavy head with chamfered faces and spikes
+      mb.cyl('haft', 0, 0.48, 0, 0.026, 1.3, wood, 10, 0.022); for (const y of [0.3, 0.7, 0.98]) mb.cyl('metalv', 0, y, 0, 0.03, 0.02, S.dark, 10);
+      for (let j = 0; j < 12; j++) mb.cyl('leather', 0, -0.12 + j * 0.026, 0, 0.03, 0.016, K3.shade(grip, j % 2 ? -0.25 : 0.05), 10, null, 0, 0, 0.3);
+      const hy = 1.1; mb.box('metal', 0, hy, 0, 0.3, 0.16, 0.16, S.flat); for (const sx of [-1, 1]) { mb.box('metalv', sx * 0.158, hy, 0, 0.018, 0.13, 0.13, S.edge); mb.box('metalv', sx * 0.13, hy, 0, 0.03, 0.17, 0.17, S.dark); }
+      if (R() < 0.6) mb.add('metalv', new THREE.ConeGeometry(0.025, 0.1, 6), M4(0, hy + 0.12, 0), S.flat);
+      wear(mb, R, S, t, it, -0.1, 0.1, hy - 0.06, hy + 0.06, 0.081);
+    }
   } else if (wt === 'H2H') {
-    for (let k = 0; k < 4; k++) mb.cyl('metal', -0.06 + k * 0.04, 0.05, 0, 0.022, 0.03, m, 12, null, 0, Math.PI / 2, 0);
-    mb.box('metal', 0, 0.02, 0, 0.17, 0.03, 0.03, m); mb.box('leather', 0, -0.03, 0, 0.14, 0.06, 0.04, grip);
-    if (R() < 0.5) for (let k = 0; k < 3; k++) mb.add('metal', new THREE.ConeGeometry(0.012, 0.14, 6), M4(-0.04 + k * 0.04, 0.13, 0, 0, 0, 0), K3.shade(m, 0.1));
+    for (let k = 0; k < 4; k++) mb.cyl('metalv', -0.06 + k * 0.04, 0.05, 0, 0.022, 0.03, S.flat, 12, null, 0, Math.PI / 2, 0);
+    mb.box('metalv', 0, 0.02, 0, 0.17, 0.03, 0.03, S.dark); mb.box('leather', 0, -0.03, 0, 0.14, 0.06, 0.04, grip);
+    if (R() < 0.5) for (let k = 0; k < 3; k++) mb.add('metalv', new THREE.ConeGeometry(0.012, 0.14, 6), M4(-0.04 + k * 0.04, 0.13, 0, 0, 0, 0), S.edge);
   } else if (wt === 'ARC') {
-    const pts = []; const L = 0.62 + R() * 0.12, curve = 0.1 + R() * 0.08; for (let i = 0; i <= 16; i++) { const y = -L + (2 * L * i) / 16; const tip = Math.abs(y / L); pts.push(new THREE.Vector3(-curve * (1 - y * y / (L * L)) + (tip > 0.8 ? 0.04 * (tip - 0.8) / 0.2 : 0), y, 0)); }
-    mb.add('haft', new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.016, 6), M4(0, 0, 0), hueShift(pick(R, ['#7a5530', '#5a3a20', '#3a2a1e', '#8a6a3a']), R));
-    mb.rod('leather', new THREE.Vector3(0.0, -L, 0), new THREE.Vector3(0.0, L, 0), 0.003, '#e8e0d0'); mb.cyl('leather', -curve, 0, 0, 0.022, 0.12, grip, 8);
+    // a recurve bow: tapered limbs that flick forward at the tips, a leather-wrapped riser, nocks and a taut string
+    const L = 0.62 + R() * 0.1, curve = 0.08 + R() * 0.05; const wood = woodOf(R);
+    const at = (u) => { const y = u * L, a = Math.abs(u); return V3(-curve * (1 - u * u) + (a > 0.78 ? 0.07 * ((a - 0.78) / 0.22) ** 2 : 0), y); };
+    for (let k = 0; k < 20; k++) { const u0 = -1 + k / 10, u1 = u0 + 0.1; const r = 0.017 - Math.abs((u0 + u1) / 2) * 0.008; mb.rod('haft', at(u0), at(u1), r, k % 5 === 0 ? K3.shade(wood, -0.15) : wood, 6); }
+    mb.box('haft', -curve, 0, 0, 0.034, 0.2, 0.026, K3.shade(wood, -0.1)); for (let j = 0; j < 7; j++) mb.cyl('leather', -curve - 0.002, -0.06 + j * 0.02, 0, 0.022, 0.012, K3.shade(grip, j % 2 ? -0.25 : 0.05), 8, null, 0, 0, 0.3);
+    mb.box('metalv', -curve + 0.02, 0.07, 0, 0.012, 0.012, 0.01, fit);
+    const tipA = at(-1), tipB = at(1); for (const tp of [tipA, tipB]) mb.sph('metalv', tp.x, tp.y, 0, 0.022, 0.022, 0.022, fit);
+    mb.rod('paint', tipA, tipB, 0.0025, '#ece6d6', 4);
+    if (it.fx || t >= 4) for (let k = 0; k < 6; k++) { const u = -0.7 + k * 0.28; const p = at(u); mb.box('glow', p.x + 0.012, p.y, 0, 0.004, 0.025, 0.012, it.fx ? FX_GLOW[it.fx] || '#9ad8ff' : '#9ad8ff'); }
   } else if (wt === 'THR') {
-    if (/star/i.test(it.name || '') || R() < 0.33) { const s = new THREE.Shape(); for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.283, r = k % 2 ? 0.035 : 0.1; if (k) s.lineTo(Math.cos(a) * r, Math.sin(a) * r); else s.moveTo(r, 0); } mb.add('metal', extrude(s, 0.008, 0.003), M4(0, 0, 0), m); }
-    else for (let k = 0; k < 3; k++) { mb.add('metal', extrude(bladeShape('leaf', 0.16, 0.035, R), 0.006, 0.002), M4(-0.04 + k * 0.04, 0, k * 0.012, 0, 0, (k - 1) * 0.25), m); mb.cyl('leather', -0.04 + k * 0.04, -0.03, k * 0.012, 0.01, 0.06, grip, 6); }
+    if (/star|shuriken|chakram/.test(nm) || R() < 0.33) { const s = new THREE.Shape(); for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.283, r = k % 2 ? 0.035 : 0.1; if (k) s.lineTo(Math.cos(a) * r, Math.sin(a) * r); else s.moveTo(r, 0); } s.closePath(); mb.add('metal', extrude(s, 0.008, 0.003), M4(0, 0, 0), S.flat); edgeRim(mb, s.getPoints(1).concat([s.getPoints(1)[0]]), 0, S.edge, 0.003, false); mb.cyl('metalv', 0, 0, 0, 0.018, 0.012, S.dark, 12, null, 0, Math.PI / 2, 0); }
+    else for (let k = 0; k < 3; k++) { const sh = bladeShape('leaf', 0.15, 0.034, R); mb.add('metal', extrude(sh, 0.006, 0.002), M4(-0.04 + k * 0.04, 0, k * 0.012, 0, 0, (k - 1) * 0.25), S.flat); mb.cyl('leather', -0.04 + k * 0.04, -0.03, k * 0.012, 0.01, 0.06, grip, 6); mb.sph('metalv', -0.04 + k * 0.04, -0.065, k * 0.012, 0.018, 0.018, 0.018, fit); }
   } else if (wt === 'TOME') {
-    const c = hueShift(['#6a3a8a', '#3a5a9a', '#8a2a2a', '#2a6a5a', '#9a7a2a', '#2a2a4a'][t], R, 0.06);
+    const c = hueShift(['#6a3a8a', '#3a5a9a', '#8a2a2a', '#2a6a5a', '#9a7a2a', '#2a2a4a'][t], R, 0.06); const gold = fit;
     for (const sz of [-1, 1]) mb.box('leather', 0, 0.08, sz * 0.026, 0.2, 0.27, 0.011, c);
     mb.box('paint', 0.006, 0.08, 0, 0.188, 0.258, 0.042, '#eadfc4'); mb.cyl('leather', -0.1, 0.08, 0, 0.032, 0.27, K3.shade(c, -0.25), 10);
     for (const k of [-0.36, -0.12, 0.12, 0.36]) mb.cyl('gold', -0.1, 0.08 + k * 0.27, 0, 0.035, 0.01, gold, 10);
@@ -99,32 +191,48 @@ function weapon(it, R) {
     const em = pick(R, ['disk', 'star', 'eye']); if (em === 'star') { const s = new THREE.Shape(); for (let k = 0; k < 10; k++) { const a = (k / 10) * 6.283 + 1.57, r = k % 2 ? 0.02 : 0.05; if (k) s.lineTo(Math.cos(a) * r, Math.sin(a) * r); else s.moveTo(Math.cos(a) * r, Math.sin(a) * r); } mb.add('gold', extrude(s, 0.004, 0.001), M4(0.01, 0.09, 0.034), gold); }
     else { mb.cyl('gold', 0.01, 0.09, 0.033, 0.05, 0.004, gold, 16, null, 0, Math.PI / 2, 0); if (em === 'eye') mb.sph('glow', 0.01, 0.09, 0.037, 0.04, 0.022, 0.01, pick(R, GEMS)); }
     mb.sph('glow', 0.01, 0.09, 0.04, 0.022, 0.022, 0.012, pick(R, GEMS));
-  } else mb.box('metal', 0, 0.3, 0, 0.05, 0.6, 0.02, m);
-  if (it.fx || it.proc) mb.sph('glow', 0, wt === 'ARC' ? 0 : 0.35, 0.03, 0.03, 0.03, 0.03, it.fx === 'fire' ? '#ff7a2a' : it.fx === 'storm' ? '#8ab0ff' : '#c8a8ff');
+  } else mb.box('metal', 0, 0.3, 0, 0.05, 0.6, 0.02, S.flat);
   return { mb, pose: wt === 'ARC' ? 'bow' : wt === 'TOME' || wt === 'H2H' || wt === 'THR' ? 'flat' : 'diag' };
 }
 
 // ---------------------------------------------------------------- shields
+// a curved board with a metal rim and rivets, a domed boss, painted heraldry (or iron-strapped planks), scuffs
 function shield(it, R) {
-  const mb = new MB(); const t = Math.min(5, it.tier || 0); const wood = it.wood || t === 0;
-  const field = hueShift(wood ? '#8a5a2e' : pick(R, ['#7a2a2a', '#28457a', '#2e6a3c', '#5a2a6a', '#c8a040', '#2a2a2a']), R); const charge = pick(R, ['#e8d8a8', '#e0c060', '#e8e8e8', '#1a1a1a']); const rim = METAL[Math.min(5, t + 1)];
-  const shape = pick(R, wood ? ['round', 'heater'] : ['heater', 'heater', 'kite', 'round']);
+  const mb = new MB(); const t = Math.min(5, it.tier || 0); const wood = it.wood || t === 0; const S = steelOf(Math.max(1, t), R); const fit = fittingsOf(t, R);
+  const field = hueShift(wood ? '#8a5a2e' : pick(R, ['#7a2a2a', '#28457a', '#2e6a3c', '#5a2a6a', '#b8902e', '#2a2a2e']), R); const charge = pick(R, ['#e8d8a8', '#e0c060', '#e8e8e8', '#1a1a1a', '#b83a2a']);
+  const shape = pick(R, wood ? ['round', 'round', 'heater'] : ['heater', 'heater', 'kite', 'round']);
   const s = new THREE.Shape();
   if (shape === 'round') { s.absarc(0, 0, 0.3, 0, Math.PI * 2, false); }
   else if (shape === 'kite') { s.moveTo(-0.24, 0.3); s.lineTo(0.24, 0.3); s.quadraticCurveTo(0.26, -0.05, 0, -0.42); s.quadraticCurveTo(-0.26, -0.05, -0.24, 0.3); }
   else { s.moveTo(-0.27, 0.3); s.lineTo(0.27, 0.3); s.lineTo(0.27, 0.02); s.quadraticCurveTo(0.24, -0.25, 0, -0.36); s.quadraticCurveTo(-0.24, -0.25, -0.27, 0.02); s.lineTo(-0.27, 0.3); }
-  const g = extrude(s, 0.03, 0.012); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) - (p.getX(i) ** 2) * 0.35); g.computeVertexNormals();
+  const bow = (x) => -(x * x) * 0.35; // the board curves back towards the arm
+  const g = extrude(s, 0.03, 0.01); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) + bow(p.getX(i))); g.computeVertexNormals();
   mb.add(wood ? 'planks' : 'paint', g, M4(0, 0, 0), field);
-  if (wood) for (let k = -2; k <= 2; k++) mb.box('haft', k * 0.11, 0, 0.02 - (k * 0.11) ** 2 * 0.35, 0.006, 0.6, 0.006, K3.shade(field, -0.3));
-  else {
-    const dev = pick(R, ['cross', 'chevron', 'pale', 'bend', 'lion']); const z = 0.022;
-    if (dev === 'cross') { mb.box('paint', 0, 0, z, 0.08, 0.55, 0.004, charge); mb.box('paint', 0, 0.08, z, 0.48, 0.08, 0.004, charge); }
-    else if (dev === 'chevron') for (const sd of [-1, 1]) mb.box('paint', sd * 0.1, 0.02, z, 0.3, 0.07, 0.004, charge, 0, 0, sd * 0.6);
-    else if (dev === 'pale') mb.box('paint', 0, -0.02, z, 0.16, 0.6, 0.004, charge);
-    else if (dev === 'bend') mb.box('paint', 0, 0, z, 0.08, 0.7, 0.004, charge, 0, 0, 0.7);
-    else { const l = new THREE.Shape([V2(-0.08, -0.12), V2(0.08, -0.12), V2(0.1, 0.05), V2(0.04, 0.14), V2(-0.02, 0.1), V2(-0.1, 0.12), V2(-0.06, 0.02)]); mb.add('paint', extrude(l, 0.004, 0.001), M4(0, 0.02, z), charge); }
+  const front = (x) => 0.026 + bow(x);
+  // the rim: a metal band round the edge, studded with rivets
+  const out = s.getPoints(shape === 'round' ? 14 : 6); const rim = t === 0 ? S.dark : t >= 3 ? fit : S.flat;
+  for (let i = 0; i < out.length - 1; i++) { const a = out[i], b = out[i + 1]; mb.rod('metalv', V3(a.x, a.y, bow(a.x) + 0.004), V3(b.x, b.y, bow(b.x) + 0.004), 0.021, rim, 6); }
+  for (let i = 0; i < out.length - 1; i += 2) { const a = out[i]; const x = a.x * 0.9, y = a.y * 0.9 + (shape === 'round' ? 0 : 0.0); mb.sph('metalv', x, y, front(x) + 0.004, 0.022, 0.022, 0.012, K3.shade(rim, 0.15)); }
+  if (wood) {
+    for (let k = -2; k <= 2; k++) mb.box('haft', k * 0.11, 0, front(k * 0.11) + 0.001, 0.005, 0.56, 0.004, K3.shade(field, -0.32));
+    for (const y of [0.13, -0.13]) for (let k = -2; k <= 2; k++) { const x = k * 0.1; mb.box('metalv', x, y, front(x) + 0.006, 0.105, 0.04, 0.006, S.dark); mb.sph('metalv', x, y, front(x) + 0.01, 0.016, 0.016, 0.008, S.flat); }
+  } else {
+    const dev = pick(R, ['cross', 'chevron', 'pale', 'bend', 'lion', 'quarters']);
+    const P = (x, y, w, h, rz = 0) => mb.box('paint', x, y, front(x) + 0.004, w, h, 0.004, charge, 0, 0, rz);
+    if (dev === 'cross') { P(0, 0, 0.08, 0.55); P(0, 0.08, 0.46, 0.08); }
+    else if (dev === 'chevron') for (const sd of [-1, 1]) P(sd * 0.1, 0.02, 0.3, 0.07, sd * 0.6);
+    else if (dev === 'pale') P(0, -0.02, 0.16, 0.6);
+    else if (dev === 'bend') P(0, 0, 0.08, 0.7, 0.7);
+    else if (dev === 'quarters') { P(-0.12, 0.13, 0.22, 0.24); P(0.12, -0.12, 0.22, 0.3); }
+    else { const l = new THREE.Shape([V2(-0.08, -0.12), V2(0.08, -0.12), V2(0.1, 0.05), V2(0.04, 0.14), V2(-0.02, 0.1), V2(-0.1, 0.12), V2(-0.06, 0.02)]); mb.add('paint', extrude(l, 0.004, 0.001), M4(0, 0.02, front(0) + 0.004), charge); }
+    // an inner border band in the charge colour
+    for (let i = 0; i < out.length - 1; i++) { const a = out[i], b = out[i + 1]; mb.rod('paint', V3(a.x * 0.86, a.y * 0.86, front(a.x * 0.86) + 0.002), V3(b.x * 0.86, b.y * 0.86, front(b.x * 0.86) + 0.002), 0.006, charge, 4); }
   }
-  mb.sph('metal', 0, 0.02, 0.035, 0.09, 0.09, 0.05, rim);
+  // the boss: a domed iron centre on a flange, sometimes spiked
+  mb.cyl('metalv', 0, 0.02, front(0), 0.07, 0.012, K3.shade(rim, -0.15), 16, null, 0, Math.PI / 2, 0);
+  mb.add('metal', new THREE.SphereGeometry(0.058, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M4(0, 0.02, front(0) + 0.004, Math.PI / 2, 0, 0), rim);
+  if (R() < 0.3) mb.add('metalv', new THREE.ConeGeometry(0.02, 0.07, 8), M4(0, 0.02, front(0) + 0.08, Math.PI / 2, 0, 0), S.edge);
+  for (let k = 0; k < 6; k++) { const x = (R() - 0.5) * 0.4, y = (R() - 0.5) * 0.4; mb.box('paint', x, y, front(x) + 0.0055, 0.003, 0.04 + R() * 0.05, 0.001, K3.shade(field, 0.3), 0, 0, (R() - 0.5) * 2); } // scuffs and sword cuts
   return { mb, pose: 'face' };
 }
 

@@ -164,6 +164,9 @@ export function casting(rig, B, st, dt) {
   const c = st.cast; const on = c ? 1 : 0;
   rig.castK = (rig.castK || 0) + (on - (rig.castK || 0)) * Math.min(1, dt * (on ? 7 : (st.fizzle != null && st.fizzle < 0.3 ? 14 : 5)));
   if (c) { rig.castSchool = c.school; rig.castStyle = c.dur <= 1.25 ? 'charge' : 'loop'; rig.castP = c.p; }
+  // the release takes over from the gesture at once (both together threw the arms up instead of forward)
+  const r = st.rel; const relOut = r != null && r >= 0 && r < 0.6 ? (r < 0.09 ? easeOut2(r / 0.09) : 1) : 0;
+  if (relOut > 0) rig.castK = Math.min(rig.castK, 1 - relOut);
   const k = sm(0, 1, rig.castK);
   if (k > 0.005) {
     const p = rig.castP || 0;
@@ -172,7 +175,6 @@ export function casting(rig, B, st, dt) {
     if (rig.castStyle === 'charge') charge(B, p, rig.t, k); else gesture(B, rig.castSchool, rig.castW, k, p);
   }
   // release: a fast thrust toward the target, a lean into it, and a spring back
-  const r = st.rel;
   if (r != null && r >= 0 && r < 0.6) {
     const out = r < 0.09 ? easeOut2(r / 0.09) : 1; const back = sm(0.12, 0.6, r); const over = Math.sin(Math.PI * clamp((r - 0.09) / 0.25, 0, 1)) * 0.25 * (1 - back);
     const amt = out * (1 - back) + over;

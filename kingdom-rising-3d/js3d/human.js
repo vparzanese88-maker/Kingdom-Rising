@@ -843,7 +843,13 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
   }
   const breaths = st === 'great' ? (v, y, C, x, z) => { if (z < lm.eyeL.c.z - 0.01 || x > -0.012 || y > noseY || y < mouthY - 0.02) return C; const gx = (x * 1000) % 9, gy = (y * 1000) % 9; return Math.abs(gx) < 2.6 && Math.abs(gy) < 2.6 ? C.clone().multiplyScalar(0.08) : C; } : null;
   const faceCovered = st === 'great' || st === 'barbute';
-  add('body', (v) => cl(field(v)), { off, hull: hullOf(typeof off === 'number' ? off : offM, faceCovered), smooth: smoothMetal, col: mcol, mat: matW(st === 'great' || st === 'barbute' ? 'metal' : 'bands', wear), trim: trimC, trimW: 0.009, trimMat: trimM, colFn: breaths }, false);
+  // darkness behind eye slits: you see shadow through a visor, not skin
+  if (st === 'great' || st === 'sallet') add('body', (v) => (cat[v] === 'head' && Z(v) > lm.eyeL.c.z - 0.04 ? cl(Math.min(eyeX + eyeR * 2.2 - Math.abs(X(v)), eyeR * 1.4 - Math.abs(Y(v) - eyeY))) : -1), { off: 0.004, smooth: 6, col: '#070504', mat: 'plain' }, false);
+  if (st === 'great') { // a riveted band across the brow and a strip down the face
+    add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (eyeY + eyeR * 0.55), eyeY + eyeR * 0.55 + 0.018 - Y(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.05), mat: matW('bands', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
+    add('body', (v) => (cat[v] === 'head' && Z(v) > hc.z && Y(v) < eyeY - eyeR * 0.6 ? cl(0.011 - Math.abs(X(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.08), mat: matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
+  }
+  add('body', (v) => cl(field(v)), { off, hull: hullOf(typeof off === 'number' ? off : offM, faceCovered), smooth: smoothMetal, col: mcol, mat: matW(st === 'great' || st === 'barbute' ? 'metal' : 'bands', wear), trim: trimC, trimW: 0.006, trimMat: trimM, colFn: breaths }, false);
   // a raised brow band and a ridge over the crown
   if (st !== 'great') add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (rim(v) + 0.004), rim(v) + 0.022 - Y(v))) : -1), { off: off === offM ? offM + 0.006 : (v, y) => off(v, y) + 0.006, hull: hullOf(offM + 0.006, false), smooth: smoothMetal, col: K3.shade(mcol, 0.06), mat: matW('metal', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
   add('body', (v) => (H(v) && Y(v) > browY ? cl(0.009 - Math.abs(X(v))) : -1), { off: (typeof off === 'function' ? 0.02 : off + 0.0055), hull: hullOf((typeof off === 'function' ? 0.02 : off + 0.0055), faceCovered), smooth: smoothMetal, col: K3.shade(mcol, 0.1), mat: matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);

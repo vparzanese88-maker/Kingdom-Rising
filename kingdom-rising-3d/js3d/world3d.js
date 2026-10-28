@@ -12,6 +12,8 @@ import { buildLights, updateLights, lights } from './lights.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G;
 const CH = 32;
+// small fittings on buildings that only show up close by (see update)
+const DETAIL_KEYS = new Set(['metal', 'metalv', 'gold', 'glass', 'cloth', 'cloth2', 'leather', 'fur', 'gloss', 'haft']);
 const root = new THREE.Group(); root.name = 'world'; K3.scene.add(root);
 K3.scene.add(forest.root);
 fx.init();
@@ -38,12 +40,12 @@ function buildChunk(cx, cy, list, withStructs = true) {
   // decorations
   const mb = new MB();
   buildProps(mb, list || [], out);
-  const pg = mb.build(); grp.add(pg);
+  const pg = mb.build(); grp.add(pg); c.props = pg; c.small = [];
   c.veg = buildVeg(list || [], out); for (const m of c.veg) grp.add(m);
   c.trees = out.trees || []; forest.dirty = true;
   const oc = buildOutcrops(x0, y0, x1, y1); for (const m of oc) grp.add(m);
   // signposts with names on them
-  for (const s of out.signs) grp.add(signpost(s));
+  for (const s of out.signs) { const sp = signpost(s); grp.add(sp); c.small.push(sp); }
   if (out.flags.length) buildFlags(out.flags, grp);
   const bb = staticBillboards(out.flames, true); if (bb) grp.add(bb);
   c.flames = out.flames; c.smokes = out.smokes; c.emitters = out.emitters; c.list = list || []; c.sig = sig(list);
@@ -53,7 +55,7 @@ function buildChunk(cx, cy, list, withStructs = true) {
   grp.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { o.matrixAutoUpdate = false; o.updateMatrix(); } });
   grp.updateMatrixWorld(true);
   if (c.group) { root.remove(c.group); disposeGroup(c.group, c.structs); }
-  c.group = grp; c.lod = -1;
+  c.group = grp; c.lod = -1; c.detailOn = undefined;
   root.add(grp);
   chunks.set(key(cx, cy), c);
   return c;
@@ -119,7 +121,7 @@ export const world3d = {
       const cx0 = c.cx * CH, cy0 = c.cy * CH;
       const touched = !(cx0 + CH < x0 - 2 || cx0 > x0 + w + 2 || cy0 + CH < y0 - 2 || cy0 > y0 + h + 2);
       if (touched) buildChunk(c.cx, c.cy, idx.get(key(c.cx, c.cy)), true);
-      else { const old = c.structs; c.structs = buildStructuresIn(cx0, cy0, cx0 + CH, cy0 + CH); if (old) { c.group.remove(old); disposeGroup(old); } c.group.add(c.structs); c.structs.updateMatrixWorld(true); }
+      else { const old = c.structs; c.structs = buildStructuresIn(cx0, cy0, cx0 + CH, cy0 + CH); if (old) { c.group.remove(old); disposeGroup(old); } c.group.add(c.structs); c.structs.updateMatrixWorld(true); c.detailOn = undefined; }
     }
     this.finish();
   },
@@ -138,6 +140,7 @@ export const world3d = {
     }
     const cam = ctx.cam; const view = K3.quality.view;
     const treeNear = K3.quality.treeNear || 60, treeFar = K3.quality.treeFar, shadowDist = K3.quality.shadowDist || 0;
+    const propsFar = K3.quality.propsFar || Math.min(view, 160), detailFar = K3.quality.detailFar || Math.min(view, 200);
     for (const c of chunks.values()) {
       const d = Math.hypot(c.x - cam.x, c.z - cam.z) - CH * TILE * 0.71;
       const vis = d < view; if (c.group.visible !== vis) c.group.visible = vis;
@@ -146,8 +149,18 @@ export const world3d = {
       const sh = d < shadowDist; if (sh !== c.vegShadow) { c.vegShadow = sh; for (const m of c.veg) m.castShadow = sh && !m.userData.small; }
       for (const m of c.veg) if (m.userData.small) m.visible = d < 60;
       for (const m of c.veg) if (!m.userData.small) m.visible = d < treeFar + 80;
+      // barrels, crates, fences, lamps and signposts are lost in the distance long before buildings and trees:
+      // each area's props are one or two dozen draw calls, so they stop at a shorter range
+      const pv = d < propsFar; if (c.props && c.props.visible !== pv) c.props.visible = pv;
+      if (c.small) for (const m of c.small) m.visible = pv;
+      // buildings far away keep their walls, roofs and lit windows; the fittings (metal, glass, cloth, leather,
+      // gilding) are a draw call each per area and cannot be told apart at that range
+      const dv = d < detailFar; if (c.structs && c.detailOn !== dv) { c.detailOn = dv; for (const m of c.structs.children) { if (m.isGroup) m.visible = pv; else if (DETAIL_KEYS.has(m.name)) m.visible = dv; } }
+      else if (c.structs && c.structs.children.length) { const ex = c.structs.children[c.structs.children.length - 1]; if (ex.isGroup && ex.visible !== pv) ex.visible = pv; }
     }
     const PFa = K3.prof && K3.prof.acc; let pt = performance.now(); const mk = (k) => { if (!PFa) return; const t = performance.now(); PFa['w.' + k] = (PFa['w.' + k] || 0) + t - pt; pt = t; };
+    // flags (every one a draw call, plus its pole) only within the building-detail range, checked every 10 frames
+    if (flagGroup && K3.frame % 10 === 0) { const fr = detailFar * 1.3; for (const m of flagGroup.children) if (m.isMesh) { const v = Math.abs(m.position.x - cam.x) < fr && Math.abs(m.position.z - cam.z) < fr && Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < fr; if (m.visible !== v) m.visible = v; } }
     mk('chunks');
     forest.update(cam, chunks, CH * TILE * 0.71); mk('forest');
     // doors swing open as you walk up

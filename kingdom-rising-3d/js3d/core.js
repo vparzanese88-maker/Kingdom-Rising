@@ -28,22 +28,31 @@ window.K3 = K3;
 // ---------- settings ----------
 const QUALITY = {
   // treeNear: full-detail trees; shadowDist: how far trees throw shadows; shadowBox: half size of the sun's shadow area;
-  // shadowEvery: redraw the shadows every n frames
-  low: { name: 'Low', pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 4, grade: false, treeNear: 32, shadowDist: 0, shadowBox: 35, shadowEvery: 3 },
-  medium: { name: 'Medium', pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 6, grade: true, treeNear: 42, shadowDist: 24, shadowBox: 38, shadowEvery: 3 },
-  high: { name: 'High', pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2 },
+  // shadowEvery: redraw the shadows every n frames; lights: real-time point lights (every lit pixel pays for each
+  // one, so they stay few: flames still glow on their own); softShadows: the softer, dearer shadow filter;
+  // bloomDiv: the glow is worked out at 1/n resolution
+  low: { name: 'Low', detailFar: 90, propsFar: 70, pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 2, grade: false, treeNear: 32, shadowDist: 0, shadowBox: 35, shadowEvery: 3, softShadows: false, bloomDiv: 4 },
+  medium: { name: 'Medium', detailFar: 130, propsFar: 110, pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 3, grade: true, treeNear: 42, shadowDist: 20, shadowBox: 34, shadowEvery: 3, softShadows: false, bloomDiv: 4 },
+  high: { name: 'High', detailFar: 190, propsFar: 160, pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 4, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2, softShadows: true, bloomDiv: 3 },
   // ultra: native resolution with 4x MSAA (drawing 1.25x the pixels on high-DPI screens cost far more than it showed)
-  ultra: { name: 'Ultra', pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
+  ultra: { name: 'Ultra', detailFar: 270, propsFar: 230, pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 6, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2, softShadows: true, bloomDiv: 2 },
 };
 K3.QUALITY = QUALITY;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 K3.lsGet = lsGet; K3.lsSet = lsSet;
+// the graphics chip's name, if the browser tells us (laptops with built-in graphics start on a lighter preset)
+function gpuName() {
+  try { const c = document.createElement('canvas'); const gl = c.getContext('webgl2') || c.getContext('webgl'); if (!gl) return ''; const ext = gl.getExtension('WEBGL_debug_renderer_info'); const n = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); return String(n || ''); } catch (e) { return ''; }
+}
+K3.gpu = gpuName();
+// built-in (integrated) graphics: Intel, AMD's APU graphics, Apple's, phone chips and software renderers
+K3.weakGpu = /Intel|UHD|Iris|HD Graphics|Mesa|llvmpipe|SwiftShader|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Apple GPU|Apple M\d|Adreno|Mali|PowerVR|Microsoft Basic/i.test(K3.gpu) && !/RTX|GTX|Radeon RX|Arc A\d/i.test(K3.gpu);
 function autoQuality() {
   const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   const cores = navigator.hardwareConcurrency || 4;
   if (mobile) return 'low';
-  if (cores <= 4) return 'medium';
+  if (K3.weakGpu || cores <= 4) return 'medium';
   return 'high';
 }
 K3.settings = Object.assign({ quality: autoQuality(), fov: 72, sens: 1, sensY: 1, invertY: false, fpArms: true, headBob: true, shake: true,
@@ -117,6 +126,18 @@ const GradeShader = {
       gl_FragColor = vec4(col, c.a);
     }`,
 };
+// the grade as a function of a colour, appended to FXAA's shader for the combined pass
+const GradeFxaaShader = (() => {
+  const body = GradeShader.fragmentShader;
+  const fn = body.slice(body.indexOf('float h(vec2 p)'), body.indexOf('void main(){'))
+    + 'vec4 krGrade(vec4 c){ vec3 col = c.rgb;' + body.slice(body.indexOf('float l = dot(col'), body.indexOf('gl_FragColor')) + 'return vec4(col, c.a); }\n';
+  const uni = 'uniform float uVig, uSat, uCon, uHurt, uTime, uFade; uniform vec3 uTint;\n';
+  let fs = FXAAShader.fragmentShader; const at = fs.lastIndexOf('void main()');
+  fs = fs.slice(0, at) + uni + fn + fs.slice(at);
+  fs = fs.replace('gl_FragColor = ApplyFXAA( tDiffuse, resolution.xy, vUv );', 'gl_FragColor = krGrade( ApplyFXAA( tDiffuse, resolution.xy, vUv ) );');
+  const uniforms = Object.assign({}, THREE.UniformsUtils.clone(FXAAShader.uniforms), THREE.UniformsUtils.clone(GradeShader.uniforms));
+  return { name: 'GradeFxaaShader', uniforms, vertexShader: FXAAShader.vertexShader, fragmentShader: fs };
+})();
 function buildComposer() {
   const q = K3.quality;
   if (composer) { composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); }
@@ -126,10 +147,17 @@ function buildComposer() {
   renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
   bloom = null; fxaa = null; grade = null;
-  if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(Math.ceil(size.x / 2), Math.ceil(size.y / 2)), 0.32, 0.55, 0.86); composer.addPass(bloom); } // glow worked out at half resolution: same look, a quarter of the cost
+  // the softer shadow filter costs several extra lookups per pixel: only High and Ultra use it
+  const st = q.softShadows === false ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; if (renderer.shadowMap.type !== st) renderer.shadowMap.type = st;
+  const bd = q.bloomDiv || 2; if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(Math.ceil(size.x / bd), Math.ceil(size.y / bd)), 0.32, 0.55, 0.86); composer.addPass(bloom); } // glow worked out at half resolution: same look, a quarter of the cost
   composer.addPass(new OutputPass());
-  if (q.grade) { grade = new ShaderPass(GradeShader); composer.addPass(grade); }
-  if (!q.msaa && q.aa !== 'off') { fxaa = new ShaderPass(FXAAShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(fxaa); }
+  const wantFxaa = !q.msaa && q.aa !== 'off';
+  // grade and FXAA together are one full-screen pass (smooth the edges, then grade), not two
+  if (q.grade && wantFxaa) { grade = fxaa = new ShaderPass(GradeFxaaShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(grade); }
+  else {
+    if (q.grade) { grade = new ShaderPass(GradeShader); composer.addPass(grade); }
+    if (wantFxaa) { fxaa = new ShaderPass(FXAAShader); fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y); composer.addPass(fxaa); }
+  }
   K3.composer = composer; K3.bloom = bloom; K3.grade = grade;
 }
 K3.post = { get bloom() { return bloom; }, get grade() { return grade; } };
@@ -158,7 +186,7 @@ function rescale() {
   composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   if (fxaa) fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
-  if (bloom) bloom.setSize(Math.ceil(size.x / 2), Math.ceil(size.y / 2));
+  if (bloom) { const bd = K3.quality.bloomDiv || 2; bloom.setSize(Math.ceil(size.x / bd), Math.ceil(size.y / bd)); }
 }
 addEventListener('resize', resize);
 K3.resize = resize;
@@ -180,7 +208,7 @@ K3.onQuality = [];
 // ---------- frame rate: counter and automatic resolution ----------
 // Every two seconds, if the game runs below the target, draw fewer pixels (down to 55%); when it has
 // kept up for a while, try a little more. A failed try waits longer before the next one.
-const perf = { n: 0, t: 0, fps: 0, good: 0, bad: 0, wait: 0, tried: false, el: null };
+const perf = { n: 0, t: 0, fps: 0, good: 0, bad: 0, slow: 0, wait: 0, tried: false, el: null };
 K3.perf = perf;
 K3.frameTick = function (dt) {
   perf.n++; perf.t += dt; perf.wait -= dt;
@@ -199,6 +227,13 @@ K3.frameTick = function (dt) {
     perf.bad = 0;
     if (++perf.good >= 4) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 10; rescale(); }
   } else { perf.good = 0; perf.bad = 0; }
+  // still well below the target at the lowest automatic resolution for ~10 seconds while playing: the pixels are
+  // not the problem, so step down one graphics preset (once per step, never back up by itself) and say so
+  const ORDER = ['low', 'medium', 'high', 'ultra'];
+  if (K3.dynScale <= 0.56 && perf.fps < target * 0.6 && KR.Main && KR.Main.isRunning && KR.Main.isRunning()) {
+    if (++perf.slow >= 5) { perf.slow = 0; const i = ORDER.indexOf(K3.settings.quality);
+      if (i > 0) { const to = ORDER[i - 1]; K3.setQuality(to); K3.dynScale = 0.8; rescale(); if (KR.UI && KR.UI.toast) KR.UI.toast('Graphics lowered to ' + QUALITY[to].name, 'For a smoother game. You can change it in Settings (Esc) → Graphics.'); } }
+  } else perf.slow = 0;
 };
 
 // the first-person arms are drawn in their own scene on top of the world

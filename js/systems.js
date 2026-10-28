@@ -640,9 +640,9 @@
     const fields = cd.fields;
     for (let i = 0; i < 2; i++) { const fl = fields[i % 2]; const fm = mk('farmer', (fl[0] + 2) * TS, (fl[1] + 2) * TS); fm.work = 'farm'; fm.field = fl; fm.home = U.pick(bs.filter((b) => b.type === 'house'), rnd); }
     const houses = bs.filter((b) => b.type === 'house');
-    const nTown = 2 + lvl; // (half as many idlers as before: the town has work to show instead)
-    for (let i = 0; i < nTown; i++) { const h = houses[i % houses.length]; const role = i % 4 === 3 ? 'drunk' : 'townsfolk'; const t = mk(role, (cx + (rnd() - 0.5) * 16) * TS, (cy + (rnd() - 0.5) * 8) * TS); t.home = h; t.inn = inn; if (role === 'drunk') t.drunkLvl = 0; }
-    for (let i = 0; i < 1 + Math.floor(lvl / 4); i++) { const ch = mk('child', (cx + (rnd() - 0.5) * 8) * TS, (cy - 2) * TS); ch.home = houses[i % houses.length]; ch.scale = 0.7; }
+    // no idle townsfolk, drunks or children wandering about: everyone in town has a job (vendors, the inn, the farms,
+    // the court, the workers and mill hands, the guards); the town shows its work instead
+    void houses; void inn;
     // Outpost (neutral) is spawned once with Iron (any)
     if (f === 'crown' && !G.ents.some((e) => e.role === 'outpost')) {
       const ob = W.buildings.find((b) => b.type === 'outpost');

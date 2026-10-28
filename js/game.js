@@ -803,7 +803,10 @@
         case 'fd': src.fd = true; src.cast = null; for (const m of G.ents) if (m.hate && m.hate.has(src)) { m.hate.delete(src); if (!m.hate.size) m.inCombat = false; } if (src === G.player) { G.player.autoAttack = false; G.log('You fall to the ground, feigning death.', 'spell', '#cccccc'); } break;
         case 'mana': src.mana = Math.min(src.manaMax, src.mana + src.manaMax * e.pct); G.float(src, '+mana', '#7ab8ff'); break;
         case 'cannibal': { const amt = Math.round(src.hpMax * 0.08); if (src.hp > amt + 5) { src.hp -= amt; src.mana = Math.min(src.manaMax, src.mana + amt * 0.9); G.float(src, '-' + amt + ' hp → mana', '#7ab8ff'); } break; }
-        case 'lunge': { const d = Math.hypot(tgt.x - src.x, tgt.y - src.y); if (d > 40) { const nx = tgt.x - (tgt.x - src.x) / d * (tgt.r + src.r + 6), ny = tgt.y - (tgt.y - src.y) / d * (tgt.r + src.r + 6); if (!W.solidAtPx(nx, ny)) { G.fxAdd({ k: 'dash', x0: src.x, y0: src.y, x1: nx, y1: ny, life: 0.3 }); src.x = nx; src.y = ny; } } break; }
+        case 'lunge': { const d = Math.hypot(tgt.x - src.x, tgt.y - src.y); if (d > 40) { const nx = tgt.x - (tgt.x - src.x) / d * (tgt.r + src.r + 6), ny = tgt.y - (tgt.y - src.y) / d * (tgt.r + src.r + 6); { // dash along the line in short steps and stop at the first wall: never through one
+          const L = Math.hypot(nx - src.x, ny - src.y), n = Math.ceil(L / 6); let x = src.x, y = src.y; const solid = (px, py) => W.solidAtPx(px - 8, py - 4) || W.solidAtPx(px + 8, py - 4) || W.solidAtPx(px - 8, py + 6) || W.solidAtPx(px + 8, py + 6);
+          for (let i = 1; i <= n; i++) { const x2 = src.x + (nx - src.x) * i / n, y2 = src.y + (ny - src.y) * i / n; if (solid(x2, y2)) break; x = x2; y = y2; }
+          if (x !== src.x || y !== src.y) { G.fxAdd({ k: 'dash', x0: src.x, y0: src.y, x1: x, y1: y, life: 0.3 }); src.x = x; src.y = y; } } } break; }
         case 'pet': KR.Sys.summonPet(src, e, def); break;
         case 'petstrike': { // the troll brings both fists down on your target
           const pet = src.pet; if (!pet || pet.dead) { if (src === G.player) G.log('Your troll is not with you. Call it first.', 'sys', '#ffb24a'); break; }
@@ -998,6 +1001,13 @@
 
   G.moveEnt = function (e, dx, dy, opts) {
     if (G.moveScale) { const k = G.moveScale(e); dx *= k; dy *= k; } // the 3D view slows everyone to real walking and running speeds
+    // walls are solid whatever the speed: a long step (a lag spike, a dash, a far walker's catch-up step) is taken as
+    // short ones, each checked against the walls, so nobody can skip through a wall in a single stride
+    const len = Math.hypot(dx, dy);
+    if (len > 6 && !(e.fly && e.type === 'mob')) { const n = Math.min(64, Math.ceil(len / 6)); for (let i = 0; i < n; i++) moveStep(e, dx / n, dy / n, opts); return; }
+    moveStep(e, dx, dy, opts);
+  };
+  function moveStep(e, dx, dy, opts) {
     let r = Math.min(e.r, 12);
     let blocked = (x, y) => W.solidAtPx(x - r, y - 4, opts) || W.solidAtPx(x + r, y - 4, opts) || W.solidAtPx(x - r, y + 6, opts) || W.solidAtPx(x + r, y + 6, opts);
     // the wall-walk: up the stairs inside a city wall you can step onto the wall and walk along its top;
@@ -1041,7 +1051,7 @@
     // door auto open
     const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS);
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const d = W.doorAt[(ty + j) * W.W + tx + i]; if (d && (!d.locked || (opts && opts.key && opts.key(d.locked)))) { if (d.open < 0.1 && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 600) KR.A.sfx('door', 0.4); d.want = 1; d.last = G.now; } }
-  };
+  }
 
   G.statusTick = function (e, dt) {
     if (e.stun > 0) e.stun -= dt; if (e.root > 0) e.root -= dt; if (e.mez > 0) e.mez -= dt; if (e.fear > 0) e.fear -= dt;

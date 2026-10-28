@@ -368,6 +368,8 @@ Main.jump = function () {
   if (p.sit) { Main.toggleSit(); return; } // stand up first
   K3.jumpT = 0; K3.jumpN++;
 };
+// swimming only where the water is really deep enough to swim in (game.js swimTick asks)
+G.deepWaterAt = (px, py) => { if (!geo.ready) return true; const wl = geo.waterAt(px, py); return !isNaN(wl) && wl - geo.groundT(px / TS, py / TS) > 0.9; };
 { const pe0 = Sys.presenceExtra; Sys.presenceExtra = function () { const o = pe0 ? pe0.apply(this, arguments) : {}; o.jmp = K3.jumpN; o.sw = G.player && G.player.swim ? 1 : 0; return o; }; }
 Main.toggleSit = function () { const p = G.player; if (p.moving) return; p.sit = !p.sit; if (p.sit) { p.autoAttack = false; p.cast = null; } G.log(p.sit ? 'You sit down.' : 'You stand up.', 'sys', '#ccc'); };
 Main.targetNearest = function (cycle) {

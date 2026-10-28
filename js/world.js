@@ -68,7 +68,7 @@
   // per tile, which of its sides are railed (1 north, 2 east, 4 south, 8 west); nobody walks across a railed side and the
   // pathfinders go round by the stairs
   W.edge = null;
-  const RAIL = 5; // px on either side of a railed edge
+  const RAIL = 3; // px on either side of a railed edge: keeps bodies off the balustrade (walkers still fit a tile's middle)
   W.solidAtPx = (px, py, opts) => {
     const tx = Math.floor(px / TS), ty = Math.floor(py / TS);
     if (W.isBlockedTile(tx, ty, opts)) return true;
@@ -77,6 +77,24 @@
     return !!((m & 1 && fy < RAIL) || (m & 4 && fy > TS - RAIL) || (m & 8 && fx < RAIL) || (m & 2 && fx > TS - RAIL));
   };
   const SIDE = (dx, dy) => (dy < 0 ? 1 : dy > 0 ? 4 : dx > 0 ? 2 : 8);
+  // a step can never carry anyone's middle across a rail, however long it is (a far walker's big step, a dash, a shove):
+  // G.moveEnt is wrapped once, the first time a city with rails is built, and undoes the part of a step that crossed one
+  function railMoves() {
+    const G = KR.G; if (!G || !G.moveEnt || G.moveEnt._rails) return;
+    const mv0 = G.moveEnt;
+    G.moveEnt = function (e, dx, dy, opts) {
+      const ox = e.x, oy = e.y; const r = mv0.apply(this, arguments);
+      const E = W.edge; if (!E || E.length !== W.W * W.H || (W.realm && W.realm !== 'main') || e.fly) return r;
+      const otx = Math.floor(ox / TS), oty = Math.floor(oy / TS);
+      let ntx = Math.floor(e.x / TS);
+      if (ntx !== otx && W.edgeBlk(otx, oty, Math.sign(ntx - otx), 0)) { e.x = ox; ntx = otx; }
+      const nty = Math.floor(e.y / TS);
+      if (nty !== oty && W.edgeBlk(ntx, oty, 0, Math.sign(nty - oty))) e.y = oy;
+      return r;
+    };
+    G.moveEnt._rails = true;
+  }
+  W.railMoves = railMoves;
   // is the step from tile (x, y) to (x + dx, y + dy) across a rail? (a diagonal step must clear both corners)
   W.edgeBlk = function (x, y, dx, dy) {
     const E = W.edge; if (!E || E.length !== W.W * W.H) return false; const i = y * W.W + x;
@@ -1064,6 +1082,7 @@
     b.terr = { x0: X0, y0: Y0, w, h, cells, lanes: [lw, mE], rL3 };
     // rails wherever two floors meet (not across the ends of a flight)
     if (!W.edge || W.edge.length !== W.W * W.H) W.edge = new Uint8Array(W.W * W.H);
+    railMoves();
     for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
       const A = cells[r * w + c], i = (Y0 + r) * W.W + X0 + c;
       if (c + 1 < w && Math.abs(terrLv(A, 1, 0.5) - terrLv(cells[r * w + c + 1], 0, 0.5)) > 0.1) { W.edge[i] |= 2; W.edge[i + 1] |= 8; }
@@ -1438,7 +1457,7 @@
     cityGrate(f, R, cx, cy);
     cityFinish(f);
     // invalidate chunk caches
-    keepFooting(f, cx, cy, R);
+    railMoves(); keepFooting(f, cx, cy, R);
     if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(x0, y0, bw, bw);
     if (!initial) W.buildMinimap();
   };

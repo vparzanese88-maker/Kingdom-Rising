@@ -877,7 +877,7 @@
     // where you last stood freely (/stuck searches from here, so it never takes you through a wall)
     if (!W.solidAtPx(p.x, p.y, { door: 'pass', swim: true })) { const lg = p.lastGood || (p.lastGood = {}); lg.x = p.x; lg.y = p.y; }
     // on a pier, a bridge or a ship's deck you are out of the water, whatever is under it
-    const was = !!p.swim; p.swim = !p.upB && !p.onWall && W.tile(tx, ty) === T.DEEP && !(W.realm && W.realm !== 'main' && !W.swimmable(tx, ty));
+    const was = !!p.swim; p.swim = !p.upB && !p.onWall && W.tile(tx, ty) === T.DEEP && (!G.deepWaterAt || G.deepWaterAt(p.x, p.y)) && !(W.realm && W.realm !== 'main' && !W.swimmable(tx, ty));
     if (p.swim !== was) {
       if (p.swim) { p.sit = false; p.autoAttack = false; p.chase = null; if (p.cast) G.interrupt(p, 'You plunge into the water and lose your spell.'); G.log('You are swimming.', 'sys', '#9ad8ff'); KR.A && KR.A.sfx && KR.A.sfx('splash', 0.5); }
       else G.log('You wade out of the deep water.', 'sys', '#aaa');

@@ -699,9 +699,10 @@ function animBat(rig, st, dt) {
   rig.idleT = busy ? 0 : (rig.idleT || 0) + dt; rig.land = (rig.land || 0) + ((rig.idleT > 2.5 ? 1 : 0) - (rig.land || 0)) * Math.min(1, dt * (rig.idleT > 2.5 ? 1.2 : 4)); const L = ease(rig.land);
   const ph = (t * 7) % 1; const beat = (glide ? 0.15 : ph < 0.55 ? Math.cos(ph / 0.55 * Math.PI) : -Math.cos((ph - 0.55) / 0.45 * Math.PI)) * (1 - L);
   for (const k in B) B[k].rotation.set(0, 0, 0);
-  // folded: arm down and back along the flank, the fingers folded back along the arm
-  B.WL.rotation.z = beat * 0.85 - 1.15 * L; B.WR.rotation.z = -beat * 0.85 + 1.15 * L; B.WL.rotation.y = 0.55 * L; B.WR.rotation.y = -0.55 * L;
-  B.WL2.rotation.z = beat * 0.55 + (glide ? 0 : 0.15) * (1 - L) - 0.3 * L; B.WR2.rotation.z = -beat * 0.55 - (glide ? 0 : 0.15) * (1 - L) + 0.3 * L; B.WL2.rotation.y = 2.5 * L; B.WR2.rotation.y = -2.5 * L;
+  // folded: the arm swept back along the flank and the fingers folded forward along the arm, the wing a
+  // narrow bundle lying along the back, clear of the ground
+  B.WL.rotation.z = beat * 0.85 + 0.15 * L; B.WR.rotation.z = -beat * 0.85 - 0.15 * L; B.WL.rotation.y = 1.3 * L; B.WR.rotation.y = -1.3 * L;
+  B.WL2.rotation.z = beat * 0.55 + (glide ? 0 : 0.15) * (1 - L) + 0.1 * L; B.WR2.rotation.z = -beat * 0.55 - (glide ? 0 : 0.15) * (1 - L) - 0.1 * L; B.WL2.rotation.y = 2.9 * L; B.WR2.rotation.y = -2.9 * L;
   const fly = rig.rest.root[1] + Math.sin(t * 3) * 0.12 - beat * 0.03; B.root.position.y = fly * (1 - L) + 0.1 * L; const a = st.atk || 0;
   B.root.rotation.x = (a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.7 : 0.1 + beat * 0.05) * (1 - L) + 0.35 * L;
   B.head.rotation.x = -0.3 * L + Math.sin(t * 1.3) * 0.08 * L; B.head.rotation.y = Math.sin(t * 0.7 + (rig.seed || 0)) * 0.4 * L;

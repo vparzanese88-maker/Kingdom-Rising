@@ -127,6 +127,8 @@ export function sewerHalls(mb, x0, y0, x1, y1, torches) {
       }
     }
   }
+  // the channels: a bed of black muck under the shallow water, so it reads as foul and deep, not clear
+  for (let ty = y0; ty < y1; ty++) for (let tx = x0; tx < x1; tx++) if (W.tile(tx, ty) === T.WATER) mb.box('paint', (tx + 0.5) * Tl, -0.255, (ty + 0.5) * Tl, Tl + 0.02, 0.02, Tl + 0.02, K3.hash(tx, ty, 31) < 0.3 ? '#1c2212' : '#161a10');
   // junctions and chambers: corner piers, ribs across the ceiling, and a grate of daylight in the middle
   const nodes = []; for (const x of sw.cols) for (const y of sw.rows) nodes.push({ x, y, r: 2 });
   const rooms = dd.rooms || [];

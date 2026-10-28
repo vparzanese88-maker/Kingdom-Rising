@@ -499,12 +499,35 @@ export function humanoidGeometry(look, kind) {
 // kinds still built the classic way (no human body underneath)
 const CLASSIC = new Set(['skeleton', 'lich', 'lizard', 'scarecrow']);
 export const useHumanBody = (look, kind) => !!humanAsset() && !CLASSIC.has(kind) && !(look && (look.snout || look.wings || look.classic));
+// crests on a fitted helmet: f is the head frame (centre c, radii rad); the shell sits about 1.5 cm out
+const _up = new THREE.Vector3(0, 1, 0);
+function rod(B, a, b, r0, r1, col, mat) { const d = new THREE.Vector3().subVectors(b, a); const len = d.length(); if (len < 1e-4) return; const g = new THREE.CylinderGeometry(r1, r0, len, 7); B.geom('head', g, new THREE.Matrix4().compose(a.clone().addScaledVector(d, 0.5), new THREE.Quaternion().setFromUnitVectors(_up, d.normalize()), new THREE.Vector3(1, 1, 1)), col, mat); g.dispose(); }
+function helmCrest(B, L, f) {
+  const c = f.c, R = f.rad; const top = c.y + R.y + 0.012; const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  if (L.helmCrest === 'horns') for (const sd of [-1, 1]) { // curved horns sweeping out, up and forward from the temples
+    let p = V(sd * R.x * 0.92, c.y + R.y * 0.42, c.z + R.z * 0.05); let d = V(sd * 1, 0.35, 0.15).normalize(); let r = 0.024;
+    for (let k = 0; k < 7; k++) { const q = p.clone().addScaledVector(d, 0.03); rod(B, p, q, r, r * 0.8, k < 1 ? '#3a2a1e' : '#e2d6b8', 'bone'); p = q; r *= 0.8; d.y += 0.28; d.x -= sd * 0.08; d.z += 0.1; d.normalize(); }
+  }
+  if (L.helmCrest === 'antlers') for (const sd of [-1, 1]) { // branching antlers, like a stag's
+    const br = (p, d, len, r, depth) => { const q = p.clone().addScaledVector(d, len); rod(B, p, q, r, r * 0.75, '#5a4632', 'bone'); if (depth <= 0) return;
+      br(q, d.clone().add(V(sd * 0.25, 0.5, -0.1)).normalize(), len * 0.8, r * 0.75, depth - 1); br(q, d.clone().add(V(-sd * 0.2, 0.7, 0.35)).normalize(), len * 0.55, r * 0.6, depth - 2); };
+    br(V(sd * R.x * 0.7, c.y + R.y * 0.75, c.z), V(sd * 0.8, 0.6, -0.1).normalize(), 0.055, 0.009, 3);
+  }
+  if (L.helmCrest === 'wings') for (const sd of [-1, 1]) { // gilded wings rising from the sides
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.03, 0.09, 0.02, 0.16); sh.lineTo(0.0, 0.11); sh.lineTo(-0.012, 0.13); sh.lineTo(-0.02, 0.08); sh.lineTo(-0.03, 0.09); sh.quadraticCurveTo(-0.03, 0.03, 0, 0);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }); B.geom('head', g, new THREE.Matrix4().compose(V(sd * (R.x + 0.012), c.y + R.y * 0.35, c.z - R.z * 0.15), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, sd * Math.PI / 2, sd * -0.35)), V(1, 1, 1)), '#d8b048', 'gold'); g.dispose();
+  }
+  if (L.helmPlume) for (let k = 0; k < 8; k++) { const a = -0.3 + k * 0.32; B.ell('head', 0, c.y + Math.cos(a) * (R.y + 0.03) + 0.01, c.z + Math.sin(-a) * (R.z + 0.03), 0.012, 0.03, 0.024, k % 2 ? shade(L.helmPlume, 0.12) : L.helmPlume, 'fur', Q(-a - 0.3, 0, 0)); }
+  void top;
+}
 // hats, helmets, crowns, capes and plumes placed on a realistic head (the classic builders, re-aimed)
 function humanAccessories(look, kind) {
   return (c) => {
     const f = c.headFrame; const rest = Object.assign({}, c.rest); rest.head = [rest.head[0], rest.head[1], f.c.z];
     const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top };
-    const L = Object.assign({}, look); if (L.helm === 'chain' || L.helm === 'plate') { /* helmets keep their classic shapes for now */ }
+    const L = Object.assign({}, look);
+    // helmets on a real head are shells of that head (human.js); here only what rises from them: horns, antlers, wings, plumes
+    if (L.helm === 'chain' || L.helm === 'plate' || L.helm === 'leather') { helmCrest(B, L, f); L.helm = null; L.helmPlume = null; L.helmSpike = null; L.horns = null; }
     headgear(B, L, c.P, H);
     if (look.cape) {
       const cw = 0.4, chh = rest.capeA[1] - 0.14;

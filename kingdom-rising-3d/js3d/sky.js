@@ -236,12 +236,14 @@ export function updateSky(dt, camPos, ctx) {
   // walls stay put as you move instead of crawling and flickering
   const texel = (sh * 2) / sun.shadow.mapSize.x;
   const ld = _ld.copy(lightDir).normalize(); const rx = _rx.set(0, 1, 0).cross(ld); if (rx.lengthSq() < 1e-6) rx.set(1, 0, 0); rx.normalize(); const uy = _uy.copy(ld).cross(rx).normalize();
-  const sa = Math.round(tgt.dot(rx) / texel) * texel, b2 = Math.round(tgt.dot(uy) / texel) * texel, c2 = tgt.dot(ld);
-  const fp = _fp.copy(rx).multiplyScalar(sa).addScaledVector(uy, b2).addScaledVector(ld, c2);
-  sun.target.position.copy(fp);
-  sun.position.copy(fp).addScaledVector(ld, 200);
   if (Math.abs(_lastLd.dot(ld) - 1) > 1e-5) { _lastLd.copy(ld); K3.shadowNow(); }
-  sun.target.updateMatrixWorld(); sun.updateMatrixWorld();
+  if (!K3.shadowDue || K3.shadowDue() || !sun._placed) {
+    const sa = Math.round(tgt.dot(rx) / texel) * texel, b2 = Math.round(tgt.dot(uy) / texel) * texel, c2 = tgt.dot(ld);
+    const fp = _fp.copy(rx).multiplyScalar(sa).addScaledVector(uy, b2).addScaledVector(ld, c2);
+    sun.target.position.copy(fp);
+    sun.position.copy(fp).addScaledVector(ld, 200);
+    sun.target.updateMatrixWorld(); sun.updateMatrixWorld(); sun._placed = true;
+  }
   sun.castShadow = !!K3.quality.shadows && !dungeon && sun.intensity > 0.05;
   // fog
   const fog = K3.scene.fog;

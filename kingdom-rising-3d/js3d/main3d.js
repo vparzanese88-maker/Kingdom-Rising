@@ -11,7 +11,7 @@ const { view, updateCamera, moveInput, screenRay, rayGround, eyeHeight } = await
 const { world3d } = await import('./world3d.js');
 // the realistic human body (MakeHuman, CC0) is loaded before anyone is built
 { const { loadHuman } = await import('./human.js'); try { await loadHuman(); } catch (e) { console.warn('human body not loaded, using the classic figures', e); } }
-const { actors } = await import('./actors.js');
+const { actors, JUMP_T } = await import('./actors.js');
 const { hud3d } = await import('./hud3d.js');
 const { viewmodel } = await import('./viewmodel.js');
 const { settings3d } = await import('./settings3d.js');
@@ -231,6 +231,7 @@ function loopBody(now) {
   mk('input');
   // a filmed conversation holds the world still (nobody attacks you while the king talks)
   const gdt = K3.cine && K3.cine.pause ? 0 : dt;
+  if (K3.jumpT != null) { K3.jumpT += dt; if (K3.jumpT >= JUMP_T || p.dead) K3.jumpT = null; }
   G.update(gdt, { mx, my }); mk('game');
   Sys.worldTick(gdt); mk('worldTick');
   p.c.playTime = (p.c.playTime || 0) + dt;
@@ -295,7 +296,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   const act = actionOf(code); if (!act) return;
-  if (act === 'target' || act === 'help' || /^hot/.test(act)) e.preventDefault();
+  if (act === 'target' || act === 'help' || act === 'jump' || /^hot/.test(act)) e.preventDefault(); // Space must not press a focused button or scroll
   if (repeat) return;
   runAction(act, p);
 });
@@ -308,6 +309,7 @@ function runAction(act, p) {
     case 'autoAttack': Main.toggleAuto(); break;
     case 'range': Main.cycleRange(); break;
     case 'sit': Main.toggleSit(); break;
+    case 'jump': Main.jump(); break;
     case 'interact': Main.interact(); break;
     case 'autorun': move.autorun = !move.autorun; break;
     case 'walk': Main.toggleWalk(); break;
@@ -343,6 +345,16 @@ function zoomBy(d) {
 Main.toggleView = function () { view.want = view.want > 0 ? 0 : 4.5; K3.lsSet('kr3d_dist', view.want); A.sfx('click', 0.4); };
 Main.toggleAuto = function () { const p = G.player; p.autoAttack = !p.autoAttack; if (p.autoAttack) { if (!p.target || !G.isHostile(p, p.target) || p.target.dead) Main.targetNearest(); if (!p.target) p.autoAttack = false; p.sit = false; } G.log(p.autoAttack ? 'Auto attack is on.' : 'Auto attack is off.', 'sys', '#ccc'); A.sfx('click'); };
 Main.cycleRange = function () { const c = G.player.c; if (!c.equip.range) { G.log('You have no ranged weapon equipped.', 'sys', '#aaa'); return; } const order = ['both', 'melee', 'ranged']; c.rangeMode = order[(order.indexOf(c.rangeMode || 'both') + 1) % 3]; G.log(`Combat mode: ${c.rangeMode === 'both' ? 'melee and ranged' : c.rangeMode + ' only'}.`, 'sys', '#ccc'); A.sfx('click'); };
+// jump (Space): a hop in place or on the run, one at a time. Cosmetic: the game itself keeps you on the ground,
+// so it never changes where you can walk. Other players see it through a counter in your presence.
+K3.jumpT = null; K3.jumpN = 0;
+Main.jump = function () {
+  const p = G.player; if (!p || p.dead || K3.cine || K3.jumpT != null) return;
+  if (p.stun > 0 || p.mez > 0 || p.root > 0) return;
+  if (p.sit) { Main.toggleSit(); return; } // stand up first
+  K3.jumpT = 0; K3.jumpN++;
+};
+{ const pe0 = Sys.presenceExtra; Sys.presenceExtra = function () { const o = pe0 ? pe0.apply(this, arguments) : {}; o.jmp = K3.jumpN; return o; }; }
 Main.toggleSit = function () { const p = G.player; if (p.moving) return; p.sit = !p.sit; if (p.sit) { p.autoAttack = false; p.cast = null; } G.log(p.sit ? 'You sit down.' : 'You stand up.', 'sys', '#ccc'); };
 Main.targetNearest = function (cycle) {
   const p = G.player;

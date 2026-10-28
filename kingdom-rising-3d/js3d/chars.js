@@ -566,7 +566,8 @@ const E = (b, x, y, z) => { b.rotation.set(x, y, z); };
 export function animateHumanoid(rig, st, dt) {
   const B = rig.bones; const t = (rig.t += dt);
   const P = rig.P;
-  const mv = K3.clamp(st.move, 0, 1); rig.mv = (rig.mv || 0) + (mv - (rig.mv || 0)) * Math.min(1, dt * 6); const m = rig.mv;
+  // walking blends in quickly (a slow blend read as a delay before the legs answered the keys)
+  const mv = K3.clamp(st.move, 0, 1); rig.mv = (rig.mv || 0) + (mv - (rig.mv || 0)) * Math.min(1, dt * (mv > (rig.mv || 0) ? 14 : 9)); const m = rig.mv;
   // the walk cycle (gait.js) advances with the distance covered; cos(ph) = 1 when the left foot lands
   const ph = (rig.phase = (rig.gp || 0) * Math.PI * 2); const c = Math.cos(ph);
   // reset
@@ -591,8 +592,13 @@ export function animateHumanoid(rig, st, dt) {
     const run = K3.smooth(2.3, 5.0, rig.gv || 0), A = (0.32 + 0.3 * run) * m;
     B.hips.rotation.y = -c * (0.08 + 0.04 * run) * m; B.chest.rotation.y = c * (0.1 + 0.08 * run) * m; B.spine.rotation.x += (0.04 + 0.14 * run) * m;
     B.hips.rotation.z = -Math.sin(ph * 2) * 0.03 * m * (1 - run);
-    if (!st.combat) { B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
+    // the head stays steady over the twisting shoulders and leans less than the body, as a runner's does
+    B.neck.rotation.y -= c * (0.1 + 0.08 * run) * m * 0.85; B.neck.rotation.x -= (0.03 + 0.1 * run) * m;
+    if (!st.combat) { B.armL.rotation.z += 0.08 * run * m; B.armR.rotation.z -= 0.08 * run * m; B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
   }
+  // ---- jumping: arms lift for balance in the air, and the knees give a little on landing ----
+  if (st.air != null) { const k = Math.sin(Math.PI * K3.clamp(st.air, 0, 1)); B.armL.rotation.x -= 0.55 * k; B.armR.rotation.x -= 0.55 * k; B.armL.rotation.z += 0.35 * k; B.armR.rotation.z -= 0.35 * k; B.spine.rotation.x += 0.12 * k; rig.landK = 1; }
+  else if (rig.landK > 0) { rig.landK = Math.max(0, rig.landK - dt / 0.2); const k = Math.sin(Math.PI * (1 - rig.landK)) * 0.5; B.hips.position.y -= 0.07 * k * (rig.dims ? rig.dims.scale : 1); B.spine.rotation.x += 0.1 * k; }
   // ---- kneeling to skin an animal ----
   rig.crouchK = (rig.crouchK || 0) + ((st.crouch ? 1 : 0) - (rig.crouchK || 0)) * Math.min(1, dt * 5);
   if (rig.crouchK > 0.01) { B.hips.position.y -= rig.rest.hips[1] * 0.38 * rig.crouchK; B.spine.rotation.x += 0.45 * rig.crouchK; B.head.rotation.x += 0.35 * rig.crouchK; }

@@ -153,11 +153,15 @@ function atkKindFor(av, e) {
 }
 // where someone stands: the ground, a floor, a deck, the wall-walk, or an upper floor they climbed to
 const floorOf = (e) => (e.introY != null ? e.introY : e.upB && e.upB._floor3 != null ? e.upB._floor3 + geo.LOFT_H : geo.floorAt(e.x, e.y));
+// a jump: up and down in a parabola over JUMP_T seconds (cosmetic: the game itself stays on the ground)
+export const JUMP_T = 0.56, JUMP_H = 0.55;
+export const jumpHeight = (t) => (t == null || t < 0 || t >= JUMP_T ? 0 : 4 * JUMP_H * (t / JUMP_T) * (1 - t / JUMP_T));
+const heroJump = (e) => (e === G.player && K3.jumpT != null ? jumpHeight(K3.jumpT) : 0);
 export function actorY(e) {
-  const av = avatars.get(keyOf(e)); const base = floorOf(e);
+  const av = avatars.get(keyOf(e)); const base = floorOf(e) + heroJump(e) + (av ? av.jumpY || 0 : 0);
   return base + (av ? av.hoverNow || 0 : 0);
 }
-K3.actorY = (e) => floorOf(e);
+K3.actorY = (e) => floorOf(e) + heroJump(e);
 // group mates shine: a glowing shell around the body that also shows faintly through walls
 let glowMat = null, glowBack = null;
 function makeGlowMats() {
@@ -182,10 +186,26 @@ function updateAvatar(av, dt, ctx) {
   if (av.peer) mateGlow(av, KR.Sys.isMate && KR.Sys.isMate(e));
   if (!av.peer && e.type === 'player' && e === p) { const s = lookSig(e.look); if (s !== av.sig) build(av); }
   else if (av.peer) { const s = lookSig(peerLook(e)); if (s !== av.sig) build(av); }
-  const fy = floorOf(e);
+  // other players' positions arrive a few times a second: glide between them instead of hopping
+  let ex = e.x, ey = e.y;
+  if (av.peer) {
+    if (av.sx == null || Math.hypot(e.x - av.sx, e.y - av.sy) > 320) { av.sx = e.x; av.sy = e.y; }
+    const k = Math.min(1, dt * 9); av.sx += (e.x - av.sx) * k; av.sy += (e.y - av.sy) * k; ex = av.sx; ey = av.sy;
+    // they jumped (a counter in their presence): play the same jump here
+    if (e.jmp != null && e.jmp !== av.jmpSeen) { if (av.jmpSeen != null) av.jt = 0; av.jmpSeen = e.jmp; }
+  }
+  if (av.jt != null) { av.jt += dt; if (av.jt >= JUMP_T) av.jt = null; }
+  av.jumpY = av.peer ? jumpHeight(av.jt) : 0;
+  const air = av.peer ? (av.jt != null ? av.jt / JUMP_T : null) : e === p && K3.jumpT != null ? K3.jumpT / JUMP_T : null;
+  const fy = floorOf(e) + heroJump(e) + av.jumpY;
   // how far it moved (for the walk cycle) and which way it is going
-  const dx = e.x - av.lx, dy = e.y - av.ly; const dist = Math.hypot(dx, dy) * PX; av.lx = e.x; av.ly = e.y;
-  const moving = av.peer ? !!e.m : !!e.moving && dist > 0.0005;
+  const dx = ex - av.lx, dy = ey - av.ly; const dist = Math.hypot(dx, dy) * PX; av.lx = ex; av.ly = ey;
+  // steps taken on frames that were not animated still count (or far walkers would slide)
+  av.accD = (av.accD || 0) + dist; av.accT = (av.accT || 0) + dt;
+  // moving: a short grace so a walker who stalls for a frame does not flicker into the idle pose
+  const movingNow = av.peer ? !!e.m : !!e.moving && dist > 0.0005;
+  if (movingNow) av.movT = 0.12; else av.movT = Math.max(0, (av.movT || 0) - dt);
+  const moving = movingNow || av.movT > 0;
   let want = av.yaw;
   const tgt = e.target && !e.target.removed ? e.target : null;
   if (e === p) {
@@ -201,7 +221,8 @@ function updateAvatar(av, dt, ctx) {
   else if (tgt && (e.inCombat || e.cast || e.atk > 0)) want = Math.atan2(tgt.x - e.x, tgt.y - e.y);
   else if (e.type === 'npc' && UI_npcFacing(e)) want = Math.atan2(p.x - e.x, p.y - e.y);
   if (e.dead) want = av.yaw;
-  av.yaw = K3.dampAngle(av.yaw, want, Math.min(1, dt * (e === p ? 14 : 8)));
+  // the hero turns with the camera at once (a soft ease here felt like input lag); others turn smoothly
+  av.yaw = K3.dampAngle(av.yaw, want, Math.min(1, dt * (e === p ? (view.turning || moving ? 30 : 16) : 9)));
   // death: fall over
   av.deadK += ((e.dead || e.fd ? 1 : 0) - av.deadK) * Math.min(1, dt * (e.dead || e.fd ? 3.2 : 6));
   // hover for fliers and floaters
@@ -212,7 +233,7 @@ function updateAvatar(av, dt, ctx) {
   av.hoverNow = (av.hoverNow || 0) + (hover * (1 - av.deadK) - (av.hoverNow || 0)) * Math.min(1, dt * 4);
   const sc = (e.scale && !(av.rig && av.rig.look && av.rig.look.scale) ? e.scale : 1) * (av.rig && av.rig.look && av.rig.look.scale ? av.rig.look.scale : 1);
   av.scale = sc;
-  av.obj.position.set(e.x * PX, fy + av.hoverNow, e.y * PX);
+  av.obj.position.set(ex * PX, fy + av.hoverNow, ey * PX);
   av.obj.rotation.set(0, av.yaw, 0);
   if (av.deadK > 0.001) { av.obj.rotation.x = -av.deadK * Math.PI / 2 * (av.kind === 'creature' ? 0 : 1); av.obj.rotation.z = av.kind === 'creature' ? av.deadK * Math.PI / 2 : 0; av.obj.position.y = fy + (av.kind === 'creature' ? av.deadK * 0.15 * sc : av.deadK * 0.12); }
   av.obj.scale.setScalar(sc);
@@ -223,17 +244,18 @@ function updateAvatar(av, dt, ctx) {
   const near = Math.hypot(av.obj.position.x - ctx.cam.x, av.obj.position.z - ctx.cam.z);
   // far away people move less often: nobody can see it, and it saves a lot of work
   if ((near > 90 && K3.frame % 4) || (near > 45 && K3.frame % 2)) return;
+  const adt = av.accT || dt, adist = av.accD || 0; av.accD = 0; av.accT = 0; dt = adt;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
-  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving ? dist / sc : 0, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
+  const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
-  if (av.peer) { st.move = e.m ? 1 : 0; st.dist = dist > 0.0005 ? dist / sc : e.m ? dt * 3.2 : 0; }
+  if (av.peer) { st.move = moving ? 1 : 0; st.dist = air != null ? 0 : adist > 0.0005 ? adist / sc : moving ? dt * 3.2 : 0; }
   if (av.kind === 'human') {
     // direction of travel in the body's own frame, for the steps; the ground under each foot
     const cy = Math.cos(av.yaw), sy = Math.sin(av.yaw);
     if (dist > 0.0005) { const l = Math.hypot(dx, dy); const lx = (dx * cy - dy * sy) / l, lz = (dx * sy + dy * cy) / l; av.mdir = av.mdir || [0, 1]; av.mdir[0] += (lx - av.mdir[0]) * Math.min(1, dt * 12); av.mdir[1] += (lz - av.mdir[1]) * Math.min(1, dt * 12); const n = Math.hypot(av.mdir[0], av.mdir[1]) || 1; av.mdir[0] /= n; av.mdir[1] /= n; }
     st.dir = av.mdir || [0, 1];
-    if (near < 32 && !hover && !e.upB) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
+    if (near < 32 && !hover && !e.upB && air == null) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
   }
   if (tgt && av.kind === 'human' && !moving) st.lookYaw = K3.dampAngle(0, Math.atan2(tgt.x - e.x, tgt.y - e.y) - av.yaw, 1);
   if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
@@ -367,6 +389,30 @@ function updateDecals(dt) {
   }
 }
 
+// ---------- contact shadows ----------
+// a soft dark patch on the ground under each body: grounds people even where the sun's shadow map is coarse
+let blobs = null; const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), _bp = new THREE.Vector3(), _bs = new THREE.Vector3();
+function ensureBlobs() {
+  if (blobs) return;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false, fog: true });
+  blobs = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, 192); blobs.frustumCulled = false; blobs.count = 0; blobs.renderOrder = 1; root.add(blobs);
+}
+function updateBlobs(cam) {
+  ensureBlobs(); let n = 0;
+  for (const [, av] of avatars) {
+    if (n >= 192) break; const e = av.e; if (!e || !av.obj.visible || av._err || av.kind === 'board' || av.kind === 'war' || e.dead) continue;
+    const o = av.obj.position; if (Math.abs(o.x - cam.x) > 40 || Math.abs(o.z - cam.z) > 40) continue;
+    const up = (av.hoverNow || 0) + (av.jumpY || 0) + (e === G.player && K3.jumpT != null ? jumpHeight(K3.jumpT) : 0);
+    const gy = o.y - up; const r = Math.max(0.5, ((av.peer ? 12 : e.r || 12) * (typeof e.scale === 'number' ? e.scale : 1)) * PX * 2.4) * (1 - Math.min(0.5, up * 0.4)); // a player's shared 'r' is their race
+    _bp.set(o.x, gy + 0.03, o.z); _bs.set(r * 2, r * 2, 1); _bm.compose(_bp, _bq, _bs); blobs.setMatrixAt(n++, _bm);
+  }
+  blobs.count = n; blobs.instanceMatrix.needsUpdate = true;
+}
+
 // ---------- cast circle and target ring ----------
 let targetRing = null, castRings = new Map();
 function ensureRings() {
@@ -420,6 +466,7 @@ export const actors = {
     updateGameFx(dt);
     updateDecals(dt);
     updateRings(dt);
+    updateBlobs(cam);
   },
   // dress everyone near the hero ahead of time (behind the loading screen), so nobody has to be built
   // mid-game when they walk into view: a new face and outfit takes tens of milliseconds to make

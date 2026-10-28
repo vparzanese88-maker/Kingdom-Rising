@@ -400,7 +400,7 @@
   function mkFolk(f, x, y, role, opt = {}) {
     const F = D.FACTIONS[f]; const gender = opt.gender || (Math.random() < 0.5 ? 'm' : 'f'); const race = opt.race || U.pick(F.races);
     const name = opt.name || U.pick(NM(f)[gender]);
-    const e = G.makeEnt({ type: 'npc', role, city: f, faction: f, name, title: opt.title || '', x, y, homeX: x, homeY: y, level: 20, gender, race, skin: S.skinOf(race, Math.floor(Math.random() * 4)), hair: race === 'darkelf' ? S.HAIRS[4] : S.HAIRS[Math.floor(Math.random() * 7)], hairStyle: Math.floor(Math.random() * 4), speed: 80, services: [], seed: Math.random() });
+    const e = G.makeEnt({ type: 'npc', role, city: f, faction: f, name, title: opt.title || '', x, y, homeX: x, homeY: y, level: 20, gender, race, skin: S.skinOf(race, Math.floor(Math.random() * 4)), hair: race === 'darkelf' ? S.HAIRS[4] : S.HAIRS[Math.floor(Math.random() * 7)], hairStyle: Math.floor(Math.random() * 4), speed: 36, services: [], seed: Math.random() });
     e.hpMax = e.hp = 500; e.static = true; e.kgame = true; e.look = Sys.npcLook(e, {}); if (opt.scale) { e.scale = opt.scale; }
     return e;
   }
@@ -700,7 +700,7 @@
       // sky: smoke-red night
       const sk = g.createLinearGradient(0, 0, 0, H2); sk.addColorStop(0, '#0a0406'); sk.addColorStop(0.55, '#3a0c08'); sk.addColorStop(0.8, '#8a2a0c'); sk.addColorStop(1, '#1a0604'); g.fillStyle = sk; g.fillRect(0, 0, W2, H2);
       // smoke plumes
-      for (let i = 0; i < 7; i++) { const sx = W2 * (0.08 + i * 0.14) + Math.sin(t * 0.2 + i) * 30; for (let k = 0; k < 6; k++) { const ph = ((t * 0.05 + k / 6 + i * 0.13) % 1); g.fillStyle = `rgba(20,10,10,${0.22 * (1 - ph)})`; g.beginPath(); g.arc(sx + ph * 120 * Math.sin(i), H2 * (0.62 - ph * 0.6), 40 + ph * 140, 0, 6.28); g.fill(); } }
+      for (let i = 0; i < 7; i++) { const sx = W2 * (0.08 + i * 0.14) + Math.sin(t * 0.2 + i) * 30; for (let k = 0; k < 6; k++) { const ph = (((t * 0.05 + k / 6 + i * 0.13) % 1) + 1) % 1; g.fillStyle = `rgba(20,10,10,${0.22 * (1 - ph)})`; g.beginPath(); g.arc(sx + ph * 120 * Math.sin(i), H2 * (0.62 - ph * 0.6), 40 + ph * 140, 0, 6.28); g.fill(); } }
       // glow on the horizon
       const hz = g.createRadialGradient(W2 / 2, H2 * 0.78, 10, W2 / 2, H2 * 0.78, W2 * 0.7); hz.addColorStop(0, `rgba(255,120,30,${0.45 + Math.sin(t * 3) * 0.05})`); hz.addColorStop(1, 'rgba(255,80,20,0)'); g.fillStyle = hz; g.fillRect(0, 0, W2, H2);
       // the burning city

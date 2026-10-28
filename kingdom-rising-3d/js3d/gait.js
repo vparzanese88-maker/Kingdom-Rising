@@ -66,7 +66,9 @@ export function legs(rig, st, dt, m) {
   if (!B.thighL || !B.footR) return;
   // speed and the step it calls for: cadence rises with speed, long legs take slower, longer steps
   const v = dt > 0 ? (st.dist || 0) / dt : 0;
-  rig.gv = lerp(rig.gv || 0, v, Math.min(1, dt * (v > (rig.gv || 0) ? 5 : 3)));
+  // the step settles on the real speed within a few frames: a slow ramp left the legs behind the body (feet skating
+  // for half a second after every start, which felt like input lag). In the air the speed is held.
+  if (st.air == null) rig.gv = lerp(rig.gv || 0, v, Math.min(1, dt * (v > (rig.gv || 0) ? 16 : 9)));
   const sp = rig.gv;
   const run = sm(2.3, 5.0, sp); // a light jog at 3 m/s, a full run only when much faster
   const cadence = K3.clamp((1.72 + 0.34 * sp) / Math.sqrt(D.scale), 1.5, 3.3); // steps per second
@@ -121,6 +123,8 @@ export function legs(rig, st, dt, m) {
       fx = lerp(fx, cx, cross); fz = lerp(fz, cz, cross); fy = lerp(fy + gy, cy, cross);
       pitch = lerp(pitch, 0.15, cross);
     } else fy += gy;
+    // jumping: knees tuck up at the top of the arc (the leading foot a little higher and further forward)
+    if (st.air != null) { const tuck = Math.sin(Math.PI * K3.clamp(st.air, 0, 1)); fy += tuck * (S === 'L' ? 0.3 : 0.2) * D.scale; fz += tuck * (S === 'L' ? 0.1 : -0.05) * D.scale; pitch += tuck * 0.35; }
     feet[S] = { x: fx, y: fy, z: fz, pitch, yaw: -sx * 1.25 * cross, roll: -sx * 0.85 * cross };
   }
   // ---- hips: low enough for the longest reach, bobbing with each step, down on the ground to sit ----

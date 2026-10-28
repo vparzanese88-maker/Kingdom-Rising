@@ -64,6 +64,8 @@
     for (const a of [...spells, wAb, ...startSkills]) if (pick.length < 3 && !seenA.has(a.k + a.id)) { seenA.add(a.k + a.id); pick.push(a); }
     pick.slice(0, 3).forEach((a, i) => (bar[i] = a));
     c.bars[wt] = bar;
+    // provisions for the road: 20 bread and 20 water to start with
+    { const food = G.makePotion('food', 0), drink = G.makePotion('drink', 0); food.qty = 20; drink.qty = 20; const free = () => c.inv.findIndex((x) => !x); c.inv[free()] = food; c.inv[free()] = drink; }
     return c;
   };
 

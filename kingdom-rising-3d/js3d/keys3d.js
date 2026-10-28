@@ -9,6 +9,7 @@ export const ACTIONS = [
   { group: 'Movement', id: 'turnRight', name: 'Turn right (strafe while holding right mouse)', def: ['KeyD', 'ArrowRight'] },
   { group: 'Movement', id: 'strafeLeft', name: 'Strafe left', def: [] },
   { group: 'Movement', id: 'strafeRight', name: 'Strafe right', def: [] },
+  { group: 'Movement', id: 'jump', name: 'Jump', def: ['Space'] },
   { group: 'Movement', id: 'autorun', name: 'Auto run', def: ['NumLock', 'KeyT'] },
   { group: 'Movement', id: 'walk', name: 'Walk / run toggle', def: ['KeyH'] },
   { group: 'Movement', id: 'sit', name: 'Sit / stand', def: ['KeyX'] },

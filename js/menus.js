@@ -204,12 +204,14 @@
   let clsRaf = 0;
   function classBgLoop(cv, clsOf, fitTo) {
     if (!fitTo) { cancelAnimationFrame(clsRaf); cancelAnimationFrame(bgRaf); cancelAnimationFrame(riseRaf); }
-    const g = cv.getContext('2d'); const t0 = performance.now(); if (!fitTo) cv.classList.add('cls-on');
+    const g = cv.getContext('2d'); const t0 = performance.now(); let last = 0; if (!fitTo) cv.classList.add('cls-on');
     const loop = () => {
       if (!cv.isConnected) return;
-      const dpr = Math.min(2, devicePixelRatio || 1); const box = fitTo ? fitTo() : { w: innerWidth, h: innerHeight };
-      const W = Math.max(1, Math.round(box.w * dpr)), H = Math.max(1, Math.round(box.h * dpr)); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-      const cls = clsOf(); if (cls) KR.ClassBG.paint(g, W, H, cls, (performance.now() - t0) / 1000); else { g.fillStyle = '#0b0a0f'; g.fillRect(0, 0, W, H); }
+      // a soft backdrop: drawn at reduced resolution (the browser scales it up) and at most 30 times a second
+      const now = performance.now(); if (now - last < 32) { const id = requestAnimationFrame(loop); if (!fitTo) clsRaf = id; return; } last = now;
+      const k = fitTo ? Math.min(1.5, devicePixelRatio || 1) : 0.6; const box = fitTo ? fitTo() : { w: innerWidth, h: innerHeight };
+      const W = Math.max(1, Math.round(box.w * k)), H = Math.max(1, Math.round(box.h * k)); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const cls = clsOf(); if (cls) KR.ClassBG.paint(g, W, H, cls, (now - t0) / 1000); else { g.fillStyle = '#0b0a0f'; g.fillRect(0, 0, W, H); }
       const id = requestAnimationFrame(loop); if (!fitTo) clsRaf = id;
     };
     loop();
@@ -231,7 +233,8 @@
       <nav class="mm-nav">${tabs.map(([k, ic, n]) => `<button class="mm-tab ${mmTab === k ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
         <div class="mm-realm">${D.FACTION_IDS.map((f) => `<div style="--fc:${D.FACTIONS[f].color}"><b>${D.FACTIONS[f].city}</b><span>${'★'.repeat(a.cities[f].level)}${'☆'.repeat(5 - a.cities[f].level)}</span></div>`).join('')}<small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
       <section class="mm-panel"></section></div>`;
-    riseLoop($('.bgcv', scr));
+    // the title screen: the kingdom burns behind the title
+    if (KR.ClassBG) classBgLoop($('.bgcv', scr), () => 'burning'); else riseLoop($('.bgcv', scr));
     { const nav = $('.mm-nav', scr); const lab = document.createElement('label'); lab.className = 'mm-tipchk'; lab.innerHTML = `<input type="checkbox" id="mm-tips" ${a.settings.tipsNew === false ? '' : 'checked'}> <span>Show me tool tips for newly created characters</span>`; nav.insertBefore(lab, nav.querySelector('.mm-realm')); $('#mm-tips', lab).onchange = (e) => { a.settings.tipsNew = e.target.checked; Sys.saveAccount && Sys.saveAccount(); }; }
     scr.querySelectorAll('.mm-tab').forEach((b) => (b.onclick = () => { KR.A.sfx('click'); if (b.dataset.t === 'quit') return M.quit(); mmTab = b.dataset.t; M.showMenu(); }));
     const P = $('.mm-panel', scr);

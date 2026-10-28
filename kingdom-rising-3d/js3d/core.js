@@ -32,7 +32,8 @@ const QUALITY = {
   low: { name: 'Low', pr: 0.75, shadows: 0, shadowSize: 1024, msaa: 0, bloom: false, grass: 0, view: 230, treeFar: 170, texSize: 256, lights: 4, grade: false, treeNear: 32, shadowDist: 0, shadowBox: 35, shadowEvery: 3 },
   medium: { name: 'Medium', pr: 1, shadows: 1, shadowSize: 1024, msaa: 0, bloom: true, grass: 0.45, view: 330, treeFar: 240, texSize: 512, lights: 6, grade: true, treeNear: 42, shadowDist: 24, shadowBox: 38, shadowEvery: 3 },
   high: { name: 'High', pr: 1, shadows: 1, shadowSize: 2048, msaa: 0, bloom: true, grass: 1, view: 460, treeFar: 330, texSize: 512, lights: 8, grade: true, treeNear: 55, shadowDist: 34, shadowBox: 48, shadowEvery: 2 },
-  ultra: { name: 'Ultra', pr: 1.25, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.3, view: 600, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
+  // ultra: native resolution with 4x MSAA (drawing 1.25x the pixels on high-DPI screens cost far more than it showed)
+  ultra: { name: 'Ultra', pr: 1, shadows: 1, shadowSize: 2048, msaa: 4, bloom: true, grass: 1.15, view: 600, treeFar: 460, texSize: 1024, lights: 10, grade: true, treeNear: 70, shadowDist: 46, shadowBox: 60, shadowEvery: 2 },
 };
 K3.QUALITY = QUALITY;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -92,7 +93,8 @@ scene.add(camera);
 // ---------- post-processing ----------
 let composer = null, bloom = null, fxaa = null, grade = null, renderPass = null;
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uSat: { value: 0.9 }, uCon: { value: 1.06 }, uTint: { value: new THREE.Vector3(1.0, 0.99, 0.97) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
+  // a livelier grade: a touch more colour and contrast, cool shadows and warm highlights, a lighter vignette
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.24 }, uSat: { value: 1.06 }, uCon: { value: 1.09 }, uTint: { value: new THREE.Vector3(1.0, 0.995, 0.98) }, uHurt: { value: 0 }, uTime: { value: 0 }, uFade: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uHurt, uTime, uFade; uniform vec3 uTint; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -101,7 +103,10 @@ const GradeShader = {
       vec3 col = c.rgb;
       float l = dot(col, vec3(0.299,0.587,0.114));
       col = mix(vec3(l), col, uSat);
+      col = mix(col, col * vec3(0.96, 0.99, 1.05), (1.0 - smoothstep(0.0, 0.45, l)) * 0.55);
+      col = mix(col, col * vec3(1.04, 1.01, 0.95), smoothstep(0.55, 1.0, l) * 0.55);
       col = (col - 0.5) * uCon + 0.5;
+      col = max(col, 0.0);
       col *= uTint;
       vec2 d = vUv - 0.5; float v = smoothstep(0.85, 0.2, length(d * vec2(1.0, 0.9)));
       col *= mix(1.0 - uVig, 1.0, v);
@@ -175,7 +180,7 @@ K3.onQuality = [];
 // ---------- frame rate: counter and automatic resolution ----------
 // Every two seconds, if the game runs below the target, draw fewer pixels (down to 55%); when it has
 // kept up for a while, try a little more. A failed try waits longer before the next one.
-const perf = { n: 0, t: 0, fps: 0, good: 0, wait: 0, tried: false, el: null };
+const perf = { n: 0, t: 0, fps: 0, good: 0, bad: 0, wait: 0, tried: false, el: null };
 K3.perf = perf;
 K3.frameTick = function (dt) {
   perf.n++; perf.t += dt; perf.wait -= dt;
@@ -185,13 +190,15 @@ K3.frameTick = function (dt) {
   else if (perf.el) perf.el.hidden = true;
   if (!K3.settings.dynRes) { if (K3.dynScale !== 1) { K3.dynScale = 1; rescale(); } return; }
   const target = Math.min(K3.settings.targetFps || 60, K3.settings.fpsCap || 999);
+  // every change rebuilds the render buffers (a hitch), so change only when it is clearly needed: two slow
+  // readings in a row to go down, a longer good run to go back up
   if (perf.fps < target * 0.86 && K3.dynScale > 0.55) {
-    K3.dynScale = Math.max(0.55, K3.dynScale - (perf.fps < target * 0.6 ? 0.15 : 0.08)); perf.good = 0;
-    if (perf.tried) { perf.wait = 30; perf.tried = false; }
-    rescale();
+    perf.good = 0;
+    if (++perf.bad >= 2 || perf.fps < target * 0.6) { perf.bad = 0; K3.dynScale = Math.max(0.55, K3.dynScale - (perf.fps < target * 0.6 ? 0.15 : 0.08)); if (perf.tried) { perf.wait = 40; perf.tried = false; } rescale(); }
   } else if (perf.fps >= target * 0.95 && K3.dynScale < 1 && perf.wait <= 0) {
-    if (++perf.good >= 3) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 6; rescale(); }
-  } else perf.good = 0;
+    perf.bad = 0;
+    if (++perf.good >= 4) { K3.dynScale = Math.min(1, K3.dynScale + 0.05); perf.good = 0; perf.tried = true; perf.wait = 10; rescale(); }
+  } else { perf.good = 0; perf.bad = 0; }
 };
 
 // the first-person arms are drawn in their own scene on top of the world
@@ -202,6 +209,9 @@ K3.onResize.push(() => { K3.vmCamera.aspect = innerWidth / innerHeight; K3.vmCam
 // shadows are redrawn every few frames (or at once when asked, e.g. after a teleport)
 renderer.shadowMap.autoUpdate = false;
 K3.shadowNow = () => { renderer.shadowMap.needsUpdate = true; };
+// is the shadow map redrawn this frame? The sun's shadow area only moves on those frames: moving it between
+// redraws projected an old map from a new place, and shadows jittered as you walked
+K3.shadowDue = () => renderer.shadowMap.needsUpdate || K3.frame % (K3.quality.shadowEvery || 1) === 0;
 K3.render = function () {
   if (grade) { grade.uniforms.uTime.value = K3.time % 100; }
   if (K3.frame % (K3.quality.shadowEvery || 1) === 0) renderer.shadowMap.needsUpdate = true;

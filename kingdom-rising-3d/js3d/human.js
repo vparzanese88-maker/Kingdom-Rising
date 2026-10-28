@@ -375,13 +375,16 @@ export function garmentMaterial() {
           col *= .9 + .12 * brush; col = mix(col, col * .55 + vec3(.04, .035, .02), smoothstep(.55, .8, big) * .35);
           gR = clamp(vMat.y + .1 + .1 * (brush - .5) + .25 * smoothstep(.55, .8, big) - scratch * .12, .2, .9); gB = brush * .05 + scratch * .2;
         } else if (pat == 7.) { // mail: rows of rings
-          vec2 q = vec2((p.x + p.z) * 260., p.y * 300.); q.x += floor(q.y) * .5; vec2 f = fract(q) - .5; float ring = smoothstep(.12, 0., abs(length(f) - .33));
-          col *= mix(.55, .45 + .75 * ring, aa); gB = ring * aa; gR = mix(.6, .35, ring); gM = mix(.3, .85, ring * aa + (1. - aa) * .6);
+          vec2 q = vec2((p.x + p.z) * 150., p.y * 170.); q.x += floor(q.y) * .5; vec2 f = fract(q) - .5; float ring = smoothstep(.13, 0., abs(length(f) - .32));
+          float aaR = 1. - smoothstep(.0006, .0022, px); // rings stay visible a few metres out
+          float rows = .5 + .5 * sin(p.y * 170. * 6.283); // further away: the rows still glint
+          col *= mix(.62 + .3 * rows, .4 + .85 * ring, aaR); col *= .85 + .3 * big;
+          gB = mix(rows * .6, ring * 1.2, aaR); gR = mix(.5 - .12 * rows, mix(.62, .32, ring), aaR); gM = mix(.7, mix(.25, .9, ring), aaR);
         } else if (pat == 4.) { // fur
           float fh = vn(vec3(p.x * 300., p.y * 60., p.z * 300.)); col *= .75 + .4 * fh; gB = fh; gR = 1.; gCloth = .6;
         } else if (pat == 8.) { gR = .45; col *= .9 + .15 * mid; }
         else if (pat == 9.) { // lamellar: staggered rows of riveted plates, dark seams, bright worn edges
-          float rowH = .058, plW = .088; float row = floor(p.y / rowH), fy = fract(p.y / rowH);
+          float rowH = .082, plW = .125; float row = floor(p.y / rowH), fy = fract(p.y / rowH);
           float uu = uA / plW + mod(row, 2.) * .5; float ci = floor(uu), fx = fract(uu);
           float edge = min(min(fx, 1. - fx) * plW, min(fy, 1. - fy) * rowH);
           float seam = 1. - smoothstep(.0012, .0035, edge); float bevel = smoothstep(.0, .007, edge);
@@ -392,7 +395,7 @@ export function garmentMaterial() {
         } else if (pat == 10.) { // banded lames: each band overlaps the one below, rivets along the top
           float bh = .032; float fy = fract(p.y / bh); float lap = smoothstep(.0, .3, fy); float lip = smoothstep(.86, 1., fy);
           col *= .62 + .42 * lap; col = mix(col, col * 1.3 + .04, lip * .6);
-          vec2 q = vec2((fract(uA / .05) - .5) * .05, (fy - .78) * bh); float riv = smoothstep(.0038, .002, length(q)); col = mix(col, col * 1.4 + .06, riv);
+          vec2 q = vec2((fract(uA / .11) - .5) * .11, (fy - .78) * bh); float riv = smoothstep(.0034, .0018, length(q)) * step(.5, fract(floor(p.y / bh) * .5)); col = mix(col, col * 1.4 + .06, riv);
           float scratch = smoothstep(.93, .99, vn(vec3(p.x * 90., p.y * 1500., p.z * 90.) + big * 4.)); col = mix(col, col * 1.35, scratch * .4);
           gB = lap * .9 + riv * .8; gR = clamp(vMat.y + .22 * (1. - lap) + .1 * (big - .5), .18, .95); gM = vMat.x * (.55 + .45 * lap);
         } else if (pat == 11.) { // studded leather: grain, stitched panels and rows of round studs
@@ -408,8 +411,8 @@ export function garmentMaterial() {
         }
         // wear by tier on metal: rust and grime on crude gear, scuffs on used gear, engraving on the finest
         if (pat == 3. || pat == 7. || pat == 9. || pat == 10.) {
-          float rn = fbm3(p * 9. + 3.1); float rust = wear == 2. ? smoothstep(.42, .7, rn) * .8 : wear == 1. ? smoothstep(.62, .82, rn) * .35 : 0.;
-          vec3 rc = vec3(.34, .15, .07) * (.65 + .6 * vn(p * 90.)); col = mix(col, rc, rust); gR = mix(gR, .92, rust); gM = mix(gM, .12, rust);
+          float rn = fbm3(p * 9. + 3.1); float rust = wear == 2. ? smoothstep(.5, .78, rn) * .55 : wear == 1. ? smoothstep(.66, .86, rn) * .25 : 0.;
+          vec3 rc = vec3(.5, .27, .13) * (.75 + .45 * vn(p * 90.)); col = mix(col, rc, rust); gR = mix(gR, .92, rust); gM = mix(gM, .12, rust);
           if (wear == 2.) col *= .82 + .18 * fbm3(p * 4.);
           if (wear == 3.) { float e = vn(vec3(p.x * 40., p.y * 40., p.z * 40.)); float eng = 1. - smoothstep(.0, .02, abs(e - .5)); col = mix(col, vec3(.86, .66, .3), eng * .12); gR = max(.16, gR - .08); }
         }
@@ -710,7 +713,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
 }
 
 // ---------------------------------------------------------------- clothes and armour: shells around the body
-const MATP = { cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.9, 0.3, 3], chain: [0.8, 0.45, 7], gold: [1, 0.25, 3], fur: [0, 1, 4], plain: [0, 0.8, 0], lamellar: [0.88, 0.34, 9], bands: [0.88, 0.32, 10], studded: [0, 0.6, 11], quilted: [0, 0.95, 12] };
+const MATP = { cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.85, 0.4, 3], chain: [0.8, 0.45, 7], gold: [1, 0.25, 3], fur: [0, 1, 4], plain: [0, 0.8, 0], lamellar: [0.82, 0.46, 9], bands: [0.82, 0.44, 10], studded: [0, 0.6, 11], quilted: [0, 0.95, 12] };
 // a material with wear (0 clean, 1 used, 2 rusty, 3 engraved): the shader reads it from the pattern id
 const matW = (name, wear) => { const m = MATP[name] || MATP.cloth; return wear ? [m[0], m[1], m[2] + 20 * wear] : m; };
 const matOf = (m) => (Array.isArray(m) ? m : MATP[m] || MATP.cloth);
@@ -817,7 +820,7 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
   const hullOf = (o, faceCovered) => ({ c: hc, n: st === 'great' ? 2.9 : st === 'barbute' ? 2.4 : 2, rx: HR.x + o, ryT: HR.y + o, ryB: HR.y * 1.25 + o, rzF: (faceCovered ? noseZ + 0.006 : foreZ) - hc.z + o, rzB: HR.z + o });
   if (st === 'coif' || st === 'coifcap') {
     // mail coif: over the head, round the chin and throat, and out over the shoulders
-    add('body', (v) => { const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const mant = (cat[v] === 'torso' || cat[v] === 'uarm') ? Math.min(Y(v) - (shY - 0.06), 0.2 - sd) : -1; return K3.clamp(Math.min(Math.max(H(v) ? 0.04 : -1, mant), -faceHole(v)), -0.45, 0.45); }, { off: 0.0065, smooth: 7, col: '#8a8e96', mat: matW('chain', wear), trim: '#5a5e66', trimW: 0.006 }, false);
+    add('body', (v) => { const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const mant = (cat[v] === 'torso' || cat[v] === 'uarm') ? Math.min(Y(v) - (shY - 0.06), 0.2 - sd) : -1; return K3.clamp(Math.min(Math.max(H(v) ? 0.04 : -1, mant), -faceHole(v)), -0.45, 0.45); }, { off: 0.0095, smooth: 9, col: '#8a8e96', mat: matW('chain', wear), trim: '#5a5e66', trimW: 0.006 }, false);
     if (st === 'coifcap') add('body', (v) => cl(cap(v) + 0.012), { off: 0.016, hull: hullOf(0.016, false), smooth: smoothMetal, col: mcol, mat: matW('bands', wear), trim: trimC, trimW: 0.008, trimMat: trimM }, false);
     return { closed: true, top: 0.016 };
   }
@@ -841,7 +844,7 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
     const slit = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.min(eyeX + eyeR * 1.8 - Math.abs(X(v)), eyeR * 0.42 - Math.abs(Y(v) - eyeY)) : -0.03);
     field = (v) => Math.min(H(v) ? Y(v) - (neckY - 0.03) : -1, -slit(v)); off = 0.017;
   }
-  const breaths = st === 'great' ? (v, y, C, x, z) => { if (z < lm.eyeL.c.z - 0.01 || x > -0.012 || y > noseY || y < mouthY - 0.02) return C; const gx = (x * 1000) % 9, gy = (y * 1000) % 9; return Math.abs(gx) < 2.6 && Math.abs(gy) < 2.6 ? C.clone().multiplyScalar(0.08) : C; } : null;
+  const breaths = st === 'great' ? (v, y, C, x, z) => { if (z < lm.eyeL.c.z - 0.01 || x > -0.016 || x < -0.046 || y > noseY + 0.004 || y < mouthY - 0.012) return C; const gx = Math.abs(((x + 0.016) * 1000) % 8), gy = Math.abs(((y - noseY) * 1000) % 8); return gx > 2.5 && gx < 5.5 && gy > 2.5 && gy < 5.5 ? C.clone().multiplyScalar(0.12) : C; } : null;
   const faceCovered = st === 'great' || st === 'barbute';
   // darkness behind eye slits: you see shadow through a visor, not skin
   if (st === 'great' || st === 'sallet') add('body', (v) => (cat[v] === 'head' && Z(v) > lm.eyeL.c.z - 0.04 ? cl(Math.min(eyeX + eyeR * 2.2 - Math.abs(X(v)), eyeR * 1.4 - Math.abs(Y(v) - eyeY))) : -1), { off: 0.004, smooth: 6, col: '#070504', mat: 'plain' }, false);
@@ -898,7 +901,7 @@ function outfit(look, kind, sh, N, rest) {
   }
   else add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh') ? cl(min(hipY + 0.045 - Y(v), Y(v) - (hipY - 0.14))) : -1, { off: 0.006, smooth: 3, col: '#5a4030', mat: 'leather', trim: '#3a2818', trimW: 0.01 });
   if (!barefoot) {
-    add('body', (v) => IN(v, 'foot', 'shin') ? cl(bootTop - Y(v)) : -1, { off: (v, y) => (ak === 'plate' ? 0.013 : 0.009) + (y < 0.025 ? 0.005 : 0) + (ak !== 'plate' ? 0.007 * smooth(bootTop - 0.035, bootTop - 0.005, y) : 0), smooth: 18, col: bootC, mat: ak === 'plate' ? matW('bands', wear) : 'leather', trim: ak === 'plate' ? trimC : K3.shade(bootC, -0.35), trimW: 0.014, trimMat: ak === 'plate' ? trimM : 'leather' });
+    add('body', (v) => IN(v, 'foot', 'shin') ? cl(bootTop - Y(v)) : -1, { off: (v, y) => (ak === 'plate' ? 0.013 : 0.009) + (y < 0.025 ? 0.005 : 0) + (ak !== 'plate' ? 0.007 * smooth(bootTop - 0.035, bootTop - 0.005, y) : 0), smooth: 18, col: bootC, mat: ak === 'plate' ? matW('metal', wear) : 'leather', trim: ak === 'plate' ? trimC : K3.shade(bootC, -0.35), trimW: 0.014, trimMat: ak === 'plate' ? trimM : 'leather' });
     add('body', (v) => IN(v, 'foot') ? cl(0.016 - Y(v)) : -1, { off: (ak === 'plate' ? 0.016 : 0.012), smooth: 18, col: '#1e140c', mat: 'leather' }, false); // the sole
   }
   // ---- torso and arms ----
@@ -918,7 +921,7 @@ function outfit(look, kind, sh, N, rest) {
     }
     if (ak === 'chain') {
       add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.02), (elbowY + wristY) / 2 - Y(v))) : -1, { off: 0.009, smooth: 4, col: '#3a2a1e', mat: 'leather', trim: at, trimW: 0.008 }, false);
-      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.01) - Y(v), Y(v) - (hipY - 0.04), 0.16 - Math.abs(X(v)))) : -1, { off: 0.016, smooth: 10, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012 }, false); // a tabard over the mail
+      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.01) - Y(v), Y(v) - (hipY - 0.04), 0.16 - Math.abs(X(v)))) : -1, { off: 0.016, smooth: 10, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012, colFn: (v, y, C, x) => (Math.abs(x) < 0.022 || Math.abs((y - rest.chest[1] - 0.03) - Math.abs(x) * 0.7) < 0.012 ? C.clone().lerp(new THREE.Color('#e8d8a0'), 0.75) : C) }, false); // a tabard over the mail, with a pale stripe and chevron
       add('skirt', (v) => cl(min(0.13 - Math.abs(X(v)), Y(v) - (hipY - (hipY - kneeY) * 0.7))), { off: 0.016, smooth: 3, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012, bind: (v, y, si, sw, i) => { const t = K3.clamp((hipY - y) / (hipY - ankleY), 0, 1); const sd = P[v * 3] >= 0 ? A.BI.thighL : A.BI.thighR; si[i * 4] = A.BI.hips; si[i * 4 + 1] = sd; si[i * 4 + 2] = 0; si[i * 4 + 3] = 0; const w2 = Math.round(t * 0.5 * 255); sw[i * 4] = 255 - w2; sw[i * 4 + 1] = w2; sw[i * 4 + 2] = 0; sw[i * 4 + 3] = 0; } }, false);
       for (let k = 0; k < 2; k++) add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.11) ? cl(Y(v) - (shY - 0.045 - k * 0.045)) : -1, { off: 0.024 - k * 0.006, smooth: 8, col: K3.shade('#5a3a24', -k * 0.12), mat: 'studded', trim: '#2a1a10', trimW: 0.008, trimMat: 'leather' }, false);
     }
@@ -933,11 +936,11 @@ function outfit(look, kind, sh, N, rest) {
       add('body', (v) => IN(v, 'neck', 'torso', 'head') ? cl(min(neckY + 0.035 - Y(v), Y(v) - (shY - 0.02), 0.1 - Math.abs(X(v)))) : -1, { off: 0.02, smooth: 6, col: K3.shade(ac, -0.08), mat: matW('bands', wear), trim: trimC, trimW: 0.008, trimMat: trimM });
       // pauldrons: three overlapping lames over each shoulder, the top one outermost
       for (let k = 0; k < 3; k++) add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.1 + k * 0.006) ? cl(Y(v) - (shY - 0.035 - k * 0.05)) : -1, { off: (v, y) => 0.046 - k * 0.008 + 0.006 * smooth(shY - 0.08, shY, y), smooth: 10, col: K3.shade(ac, 0.06 - k * 0.05), mat: matW('bands', wear), trim: trimC, trimW: 0.011, trimMat: trimM }, false);
-      add('body', (v) => IN(v, 'uarm') ? cl(Y(v) - (elbowY - 0.02)) : -1, { off: 0.013, smooth: 6, col: K3.shade(ac, -0.06), mat: matW('bands', wear) });
+      add('body', (v) => IN(v, 'uarm') ? cl(Y(v) - (elbowY - 0.02)) : -1, { off: 0.013, smooth: 6, col: K3.shade(ac, -0.06), mat: matW('metal', wear) });
       // a couter over the elbow and vambraces flaring at the wrist
       add('body', (v) => IN(v, 'uarm', 'farm') ? cl(0.035 - Math.abs(Y(v) - elbowY)) : -1, { off: 0.022, smooth: 8, col: K3.shade(ac, 0.04), mat: matW('metal', wear), trim: trimC, trimW: 0.006, trimMat: trimM }, false);
       add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.012), elbowY - 0.02 - Y(v))) : -1, { off: (v, y) => 0.013 + 0.012 * smooth(wristY + 0.06, wristY + 0.015, y), smooth: 6, col: K3.shade(ac, -0.04), mat: matW('bands', wear), trim: trimC, trimW: 0.01, trimMat: trimM });
-      add('body', (v) => IN(v, 'hand') ? 1 : IN(v, 'farm') ? cl(wristY + 0.04 - Y(v)) : -1, { off: 0.004, smooth: 1, col: K3.shade(ac, -0.15), mat: matW('bands', wear) });
+      add('body', (v) => IN(v, 'hand') ? 1 : IN(v, 'farm') ? cl(wristY + 0.04 - Y(v)) : -1, { off: 0.004, smooth: 1, col: K3.shade(ac, -0.15), mat: matW('metal', wear) });
       if (fine) add('body', (v) => IN(v, 'thigh') ? cl(min(hipY - 0.07 - Y(v), Y(v) - (kneeY - 0.01))) : -1, { off: 0.016, smooth: 8, col: K3.shade(ac, 0.02), mat: matW('bands', wear), trim: trimC, trimW: 0.012, trimMat: trimM }, false);
       // knee cops and greaves over the shins
       add('body', (v) => IN(v, 'shin', 'thigh') ? cl(0.04 - Math.abs(Y(v) - (kneeY + 0.01))) : -1, { off: 0.024, smooth: 10, col: K3.shade(ac, 0.06), mat: matW('metal', wear), trim: trimC, trimW: 0.006, trimMat: trimM }, false);

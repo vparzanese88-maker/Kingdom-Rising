@@ -360,9 +360,9 @@ function animQuad(rig, st, dt) {
   const L = sp.L, H = sp.H; const jaw = (o) => { if (B.jaw) B.jaw.rotation.x = Math.max(B.jaw.rotation.x, o); };
   if (!fly && (w > 0 || hit > 0)) {
     if (style === 'leap' || style === 'bite') { // crouch, front low and ears back; spring forward and bite, shaking the head
-      B.root.position.y -= w * H * 0.12 * (1 - hit); B.chest.rotation.x += w * 0.22 * (1 - hit); B.FL1.rotation.x += w * 0.5; B.FR1.rotation.x += w * 0.5; B.BL2.rotation.x += w * 0.4; B.BR2.rotation.x += w * 0.4;
+      B.root.position.y -= w * H * 0.1 * (1 - hit); B.chest.rotation.x += w * 0.14 * (1 - hit); B.FL2.rotation.x -= w * 0.35; B.FR2.rotation.x -= w * 0.35; B.BL2.rotation.x += w * 0.35; B.BR2.rotation.x += w * 0.35; B.neck.rotation.x -= w * 0.15;
       B.root.position.z += hit * L * (style === 'leap' ? 0.28 : 0.15); B.root.position.y += hit * H * (style === 'leap' ? 0.15 : 0.04);
-      B.FL1.rotation.x -= hit * 0.9; B.FR1.rotation.x -= hit * 0.8; B.neck.rotation.x += hit * 0.25 - w * 0.2; jaw(Math.max(w * 0.5, hit * 0.75));
+      B.FL1.rotation.x -= hit * 0.45; B.FR1.rotation.x -= hit * 0.35; B.chest.rotation.x -= hit * 0.12; B.neck.rotation.x += hit * 0.12; jaw(Math.max(w * 0.5, hit * 0.75));
       if (a > 0.15 && a < 0.6) B.head.rotation.z = Math.sin((a - 0.15) * 8 * Math.PI * 2 * 0.25 * 4) * 0.25 * (1 - (a - 0.15) / 0.45);
     } else if (style === 'pounce') { // hind legs coil, then an arc with the claws out
       B.pelvis.rotation.x -= w * 0.25; B.BL1.rotation.x -= w * 0.5; B.BR1.rotation.x -= w * 0.5; B.root.position.y -= w * H * 0.15 * (1 - hit);

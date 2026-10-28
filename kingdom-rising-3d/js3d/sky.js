@@ -217,8 +217,8 @@ export function updateSky(dt, camPos, ctx) {
   const lightDir = sunUp ? sd : md;
   const overcast = 1 - cloudK * 0.55;
   const darkMul = 1 - regDark * 0.62;
-  let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.32 * nightK * (1 - cloudK * 0.6) * darkMul;
-  let hemiI = (0.18 + 0.85 * dayK) * (0.85 + cloudK * 0.25) * darkMul;
+  let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.6 * nightK * (1 - cloudK * 0.5) * darkMul; // moonlight you can see by
+  let hemiI = (0.34 + 0.69 * dayK) * (0.85 + cloudK * 0.25) * darkMul; // nights stay dark but readable
   if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : 0.13; }
   hemiI *= 1 - insideK * 0.62;
   sun.intensity = sunI * (1 - insideK * 0.15);
@@ -287,6 +287,6 @@ export function updateSky(dt, camPos, ctx) {
   sky.lightLevel = dungeon ? 0 : K3.clamp(dayK * (1 - regDark * 0.6) * (1 - cloudK * 0.25), 0, 1);
   sky.darkness = dungeon ? 1 : K3.clamp(Math.max(1 - sky.lightLevel, insideK * 0.8), 0, 1);
   // a touch more bloom at night when the fires glow
-  if (K3.bloom) { K3.bloom.strength = 0.22 + sky.darkness * 0.22; K3.bloom.threshold = 0.9 - sky.darkness * 0.12; }
-  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.35 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
+  if (K3.bloom) { K3.bloom.strength = 0.2 + sky.darkness * 0.08; K3.bloom.threshold = 0.9; } // a soft glow around lamps at night, never a glare
+  if (K3.renderer) K3.renderer.toneMappingExposure = (1.0 + sky.darkness * 0.4 + (dungeon ? 0.4 : 0)) * (K3.settings.exposure || 1); // Settings → Brightness
 }

@@ -61,7 +61,8 @@ K3.updaters.push((dt, t) => {
   const dark = K3.sky && Number.isFinite(K3.sky.darkness) ? K3.sky.darkness : 0.5;
   const steady = id === 'phial' || id === 'sunstone' || id === 'glowcap';
   flick += dt; const fl = steady ? 1 + Math.sin(t * 1.3) * 0.04 : 1 + Math.sin(t * 13) * 0.07 + Math.sin(t * 29.3) * 0.05 + (Math.random() - 0.5) * 0.05;
-  const want = lit ? L.lum * (0.35 + 2.6 * dark) * fl : 0;
+  // lights are measured in candela: a candle needs a lamp's strength to light the ground around you at night
+  const want = lit ? L.lum * (2 + 14 * dark) * fl : 0;
   light.intensity += (want - light.intensity) * Math.min(1, dt * (lit ? 6 : 14));
   light.color.set(L.col); light.distance = L.r * 1.6;
   // where the light sits: at the model if we can see it, else at the hip in front of the eyes

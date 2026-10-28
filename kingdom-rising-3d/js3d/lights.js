@@ -52,22 +52,24 @@ export function updateLights(dt, camPos, ctx) {
       // lights inside a building only matter when you are in it (or right by its door)
       if (c.b && (!inside || inside.id !== c.b) && d > 14) continue;
       if (!c.b && inside && d > 16) continue;
-      const front = (dx * fwd.x + dz * fwd.z) / (d || 1);
-      sc.push([d * (front > -0.2 ? 1 : 1.6), c]);
+      // lights already burning get a head start, so they don't swap back and forth as you walk
+      sc.push([d * (pool.some((p) => p.c === c) ? 0.8 : 1), c]);
     }
     sc.sort((a, b) => a[0] - b[0]);
-    chosen = sc.slice(0, pool.length).map((s) => s[1]);
+    const want = sc.slice(0, pool.length).map((s) => s[1]);
+    // keep every light on the lamp it already lights; only free slots take new lamps
+    const keep = new Set(); chosen = pool.map((p) => (p.c && want.includes(p.c) ? (keep.add(p.c), p.c) : null));
+    let k = 0; for (let i = 0; i < pool.length; i++) if (!chosen[i]) { while (k < want.length && keep.has(want[k])) k++; chosen[i] = want[k++] || null; }
   }
   const t = K3.time;
   for (let i = 0; i < pool.length; i++) {
     const p = pool[i], c = chosen[i];
-    if (!c) { p.l.intensity = Math.max(0, p.l.intensity - dt * 40); continue; }
-    if (p.c !== c) { p.c = c; p.l.position.set(c.x, c.y, c.z); p.l.color.copy(c.col); p.l.distance = c.r; }
-    const fl = 1 + Math.sin(t * 11 + c.ph) * c.fl * 0.6 + Math.sin(t * 23.7 + c.ph * 2) * c.fl * 0.4;
+    if (!c || p.c !== c) { p.l.intensity = Math.max(0, p.l.intensity - dt * 20); if (!c) { if (p.l.intensity <= 0) p.c = null; continue; } if (p.l.intensity > 0.05) continue; p.c = c; p.l.position.set(c.x, c.y, c.z); p.l.color.copy(c.col); p.l.distance = c.r; }
+    const fl = 1 + Math.sin(t * 2.1 + c.ph) * Math.min(0.05, c.fl * 0.3) + Math.sin(t * 5.3 + c.ph * 2) * Math.min(0.03, c.fl * 0.15);
     const d = Math.hypot(c.x - camPos.x, c.z - camPos.z);
-    const fade = 1 - K3.smooth(45, 68, d);
-    const want = c.base * (0.18 + 0.82 * darkness) * fl * fade * (c.b ? 1 : 1);
-    p.l.intensity += (want - p.l.intensity) * Math.min(1, dt * 12);
+    const fade = 1 - K3.smooth(40, 64, d);
+    const want = c.base * 0.5 * (0.15 + 0.85 * darkness) * fl * fade; // warm pools of light, not a glare
+    p.l.intensity += (want - p.l.intensity) * Math.min(1, dt * 3);
     if (!Number.isFinite(p.l.intensity)) p.l.intensity = 0;
   }
 }

@@ -405,7 +405,7 @@
       const dd = W.dungeons[id]; const ins = local.entry === 'n' ? [0, 1] : local.entry === 's' ? [0, -1] : local.entry === 'w' ? [1, 0] : [-1, 0];
       W.portals.push({ x: dd.entry.x, y: dd.entry.y, to: dg.parent || 'main', back: true, label: 'Exit to ' + (dg.parent === 'tidesong' ? 'the Isle of Tidesong' : D.REGIONS[RI[dg.near]] ? D.REGIONS[RI[dg.near]].name : 'the surface') });
       dd.arrive = dd.arrive || [dd.entry.x + ins[0] * 3, dd.entry.y + ins[1] * 3];
-      addDecor(dg.type === 'sewer' ? 'sewerexit' : 'exitportal', dd.entry.x, dd.entry.y, { nb: true });
+      if (dg.type === 'sewer') addDecor('sewerexit', dd.entry.x, dd.entry.y, { nb: true, px: dd.entry.x * TS + 16, py: dd.entry.y * TS + 24 }); else addDecor('exitportal', dd.entry.x, dd.entry.y, { nb: true });
       D.REGIONS[RI[id]].label = [dd.entry.x, dd.entry.y + ins[1] * 6 - 2];
     }
     for (const b of D.BOSSES) if (b.realm === id && !b.dungeon) clearArea(b.at[0] - 3, b.at[1] - 3, 7, 7, null);

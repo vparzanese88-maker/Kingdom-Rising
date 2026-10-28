@@ -69,9 +69,9 @@ export function outflowPipe(o, d) {
 // ---------- inside, at the way out: daylight at the end of the pipe (front faces +z, toward the outside) ----------
 export function sewerExit(o) {
   const r = 1.6, yS = 1.8;
-  o.box('glow', 0, yS * 0.5, 0.75, r * 2, yS, 0.04, '#e8eedc');
-  for (let k = 0; k < 8; k++) { const a = Math.PI * (k + 0.5) / 8; o.box('glow', 0, yS + Math.sin(a) * r * 0.5, 0.75, Math.abs(Math.cos(a)) * r * 2 * 0.9 + 0.5, r * 0.45, 0.04, '#dfe8d4'); }
-  o.box('glow', 0, yS + r * 0.62, 0.75, r * 1.3, r * 0.75, 0.04, '#d8e4d0');
+  o.box('glow', 0, yS * 0.5, 0.72, r * 2, yS, 0.04, '#e8eedc');
+  for (let k = 0; k < 8; k++) { const a = Math.PI * (k + 0.5) / 8; o.box('glow', 0, yS + Math.sin(a) * r * 0.5, 0.72, Math.abs(Math.cos(a)) * r * 2 * 0.9 + 0.5, r * 0.45, 0.04, '#dfe8d4'); }
+  o.box('glow', 0, yS + r * 0.62, 0.72, r * 1.3, r * 0.75, 0.04, '#d8e4d0');
   o.glow(0, 1.6, 0.6, 4.2, [1.6, 1.8, 1.7], 0.35);
   for (let k = 0; k <= 12; k++) { const a = Math.PI * k / 12; o.box('stone', Math.cos(a) * (r + 0.2), yS + Math.sin(a) * (r + 0.2), 0.6, 0.45, 0.5, 0.4, K3.shade(BRICK, (k % 2) * 0.05 - 0.05), 0, 0, a); }
   for (const sd of [-1, 1]) o.boxB('stone', sd * (r + 0.2), 0, 0.6, 0.45, yS, 0.4, BRICK);

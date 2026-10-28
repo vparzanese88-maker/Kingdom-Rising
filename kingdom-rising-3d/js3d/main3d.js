@@ -159,12 +159,12 @@ Main.enterWorld = async function (id, newChar, opt = {}) {
       const after = () => { showHud(); UI.banner(`Welcome home to ${D.FACTIONS[c.faction].city}`, `${D.FACTIONS[c.faction].king} must see you at once: he holds court in his castle's throne hall, at the top of the great stairs. Look for the gold ! above townsfolk.`); };
       // a homecoming by sea when the city has a harbour, else the flight over the land
       if (!(K3.startIntro && K3.startIntro(c, after))) K3.startCine(c, after);
-      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), drag with the left to look around you, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), the left button clicks, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
     } else showHud();
     if (opt.cine && K3.startCine) {} else if (newChar) {
       UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in his castle's throne hall, at the top of the great stairs. Look for the gold ! above townsfolk.`);
-      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), drag with the left to look around you, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
-    } else G.log('W and S move, A and D turn, hold the right mouse button to look and steer, drag with the left to look around. Press O for settings and key bindings.', 'sys', '#e8d48a');
+      G.log('Tip: W and S move, A and D turn, hold the right mouse button to look and steer (A and D then sidestep), the left button clicks, T or Num Lock runs on its own, scroll the wheel to zoom out to third person. H walks or runs, X sits. Tab targets, Q auto attacks, 1-3 use abilities, E talks, right-click a tree, rock or carcass to gather, /stuck frees you. Press O for settings and key bindings.', 'sys', '#e8d48a');
+    } else G.log('W and S move, A and D turn, hold the right mouse button to look and steer, the left button clicks. Press O for settings and key bindings.', 'sys', '#e8d48a');
     running = true; last = performance.now(); requestAnimationFrame(loop);
   } catch (err) {
     console.error(err); running = false; document.getElementById('ui').hidden = true;
@@ -432,22 +432,27 @@ function hoverTool(sx, sy) {
 function syncButtons(ev) {
   if (ev.pointerType === 'touch' || K3.cine || typeof ev.buttons !== 'number') return;
   const l = !!(ev.buttons & 1), r = !!(ev.buttons & 2);
-  if (r !== mouse.r) { mouse.r = r; if (r) steerFromCamera(); }
-  if (l !== mouse.l) mouse.l = l;
+  // only ever adds a button here: some browsers report no buttons on moves while the mouse is locked, and that must
+  // not end a right drag halfway (releases come from pointerup, which always arrives)
+  if (r && !mouse.r) { mouse.r = true; steerFromCamera(); }
+  if (l && !mouse.l) mouse.l = true;
   syncLook();
 }
-// EverQuest mouse: hold the right button to look and steer (the hero turns left and right with the mouse, the view
-// tilts up and down); hold the left button and drag to look round the hero without turning it. While either is held
-// the cursor is hidden and locked; it comes back the moment you let go (or switch away, or a window opens).
-const dragging = () => mouse.r || (mouse.l && mouse.moved > 6);
+// EverQuest mouse: hold the right button and drag to look and steer (the hero turns left and right with the mouse, the
+// view tilts up and down). The left button only ever clicks, dragged or not. The cursor hides and locks only once a
+// right drag really starts (a plain right-click never locks, so the browser's cooldown between locks never bites),
+// and it comes back the moment you let go (or switch away, or a window opens).
+const dragging = () => mouse.r && mouse.moved > 3;
 function syncLook() { const want = running && dragging(); if (want && !view.look) startLook(); else if (!want && view.look) endLook(); }
 // pressing the right button after a free look turns the hero to face where the camera looks
 function steerFromCamera() { if (view.oyaw) { view.yaw += view.oyaw; view.oyaw = 0; } }
 // the first move after the pointer locks can carry a jump of hundreds of pixels; real moves never come in that big
-const tame = (v) => (Math.abs(v) > 260 ? 0 : K3.clamp(v, -90, 90));
+let skipMove = 0; // the first move or two after the lock lands can carry the jump to the screen centre
+const tame = (v) => (Math.abs(v) > 250 ? 0 : K3.clamp(v, -120, 120)); // a real flick never moves 250 px in one event: those are the browser's lock jumps
 let lastClick = 0;
 function wantLock() { return cv.requestPointerLock && !('ontouchstart' in window && navigator.maxTouchPoints > 0 && !matchMedia('(pointer:fine)').matches); }
-function startLook() { view.look = true; if (wantLock()) { try { const pr = cv.requestPointerLock({ unadjustedMovement: true }); if (pr && pr.catch) pr.catch(() => { try { cv.requestPointerLock(); } catch (e) {} }); } catch (e) { try { cv.requestPointerLock(); } catch (e2) {} } } }
+// the ordinary (accelerated) mouse feel, like the desktop cursor; if the browser won't lock, the drag still works
+function startLook() { view.look = true; cv.style.cursor = 'none'; if (wantLock()) { try { const pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} } }
 function endLook() { view.look = false; if (document.pointerLockElement === cv) try { document.exitPointerLock(); } catch (e) {} if (cv.style.cursor === 'none') cv.style.cursor = hoverCur; }
 K3.endLook = endLook;
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -457,7 +462,7 @@ cv.addEventListener('pointerdown', (ev) => {
   A.init();
   if (ev.pointerType === 'touch') return onTouchStart(ev);
   mouse.downX = ev.clientX; mouse.downY = ev.clientY; mouse.downT = performance.now(); mouse.moved = 0;
-  if (ev.button === 2) { mouse.r = true; steerFromCamera(); syncLook(); ev.preventDefault(); }
+  if (ev.button === 2) { mouse.r = true; steerFromCamera(); ev.preventDefault(); }
   else if (ev.button === 0) { mouse.l = true; }
   else { const code = 'Mouse' + (ev.button + 2); pressed.add(code); const act = actionOf(code); if (act) { ev.preventDefault(); runAction(act, G.player); } }
   try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -470,33 +475,35 @@ addEventListener('pointermove', (ev) => {
   if (!mouse.r && !mouse.l && ev.target === cv) hoverTool(ev.clientX, ev.clientY);
   if (mouse.r || mouse.l) mouse.moved += Math.abs(mxv) + Math.abs(myv);
   syncLook();
+  if (skipMove > 0) { skipMove--; return; }
   if (dragging() && (!K3.cine || K3.cine.look)) {
     const s = 0.0026 * (K3.settings.sens || 1);
-    // right button (alone or with the left): steer the hero; left button alone: swing the camera round it
-    if (mouse.r) view.yaw -= mxv * s; else view.oyaw -= mxv * s;
+    // the right button (alone or with the left) steers the hero and tilts the view
+    view.yaw -= mxv * s;
     view.pitch -= myv * s * (K3.settings.sensY || 1) * (K3.settings.invertY ? -1 : 1);
   }
 });
 addEventListener('pointerup', (ev) => {
   if (!running) return;
   if (ev.pointerType === 'touch') return onTouchEnd(ev);
-  const click = performance.now() - mouse.downT < 350 && mouse.moved < 7;
+  const click = performance.now() - mouse.downT < 400 && mouse.moved < 6;
   if (ev.button !== 0 && ev.button !== 2) pressed.delete('Mouse' + (ev.button + 2));
   if (K3.cine) { if (ev.button === 2) mouse.r = false; else if (ev.button === 0) mouse.l = false; syncLook(); return; }
   // under pointer lock the click lands where the cursor was when the button went down
   const onCv = ev.target === cv || document.pointerLockElement === cv;
   if (ev.button === 2 && mouse.r) { mouse.r = false; syncLook(); if (click) rightClick(mouse.downX, mouse.downY); }
-  else if (ev.button === 0 && mouse.l) { mouse.l = false; syncLook(); if (click && onCv) leftClick(mouse.downX, mouse.downY); }
+  else if (ev.button === 0 && mouse.l) { mouse.l = false; syncLook(); if (onCv && !mouse.r) leftClick(mouse.downX, mouse.downY); } // a left press is always a click, dragged or not
   if (typeof ev.buttons === 'number' && !ev.buttons) { mouse.l = mouse.r = false; syncLook(); } // a chord let go at once
 });
 // the cursor must always come back: a lock granted after the button was already released is handed straight back,
 // and losing the lock (Esc, switching windows) ends the look
 document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === cv) skipMove = 2;
   if (document.pointerLockElement === cv && (!view.look || !running || !dragging())) { view.look = false; try { document.exitPointerLock(); } catch (e) {} }
   else if (document.pointerLockElement !== cv && view.look) { view.look = false; mouse.l = mouse.r = false; }
   if (document.pointerLockElement !== cv && cv.style.cursor === 'none') cv.style.cursor = hoverCur;
 });
-document.addEventListener('pointerlockerror', () => { if (view.look && !dragging()) view.look = false; });
+document.addEventListener('pointerlockerror', () => { if (view.look && !dragging()) endLook(); }); // a refused lock: the drag carries on with the cursor hidden
 document.addEventListener('visibilitychange', () => { if (document.hidden) { mouse.l = mouse.r = false; pressed.clear(); endLook(); } });
 cv.addEventListener('lostpointercapture', (ev) => { if (ev.pointerType !== 'touch' && document.pointerLockElement !== cv && typeof ev.buttons === 'number' && !ev.buttons && (mouse.l || mouse.r)) { mouse.l = mouse.r = false; syncLook(); } });
 // a window opening (loot, a merchant, the map) gives the cursor back at once

@@ -979,6 +979,8 @@ function outfit(look, kind, sh, N, rest) {
 const EYE_COLS = ['#5a3a22', '#6a4a2a', '#4a6a8a', '#5a7a5a', '#7a6a4a', '#3a2a1e', '#6a7a8a'];
 const cache = new Map();
 export const HUMAN_PARENT = (() => { const P = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', shL: 'chest', armL: 'shL', foreL: 'armL', handL: 'foreL', shR: 'chest', armR: 'shR', foreR: 'armR', handR: 'foreR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', capeA: 'chest', capeB: 'capeA', tail1: 'hips', tail2: 'tail1', tail3: 'tail2', wingL: 'chest', wingR: 'chest' }; for (const S of ['L', 'R']) for (const f of ['th', 'f1', 'f2', 'f3', 'f4']) { P[f + S + '1'] = 'hand' + S; P[f + S + '2'] = f + S + '1'; } return P; })();
+// townsfolk come in a handful of body-and-face variants per outfit (picked by name), so most of them share a
+// built body from the cache instead of each costing ~100 ms to make; heroes with a chosen face keep their own
 const BODY_VARIANTS = 6;
 function nameVariant(L) { if (L.face != null || L.app || L.hero) return L.name || ''; return 'v' + (hashStr(L.name || '') % BODY_VARIANTS); }
 export function humanKey(look, kind) {

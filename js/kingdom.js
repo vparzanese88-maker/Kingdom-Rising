@@ -360,7 +360,7 @@
     const out = ladv0 ? ladv0.apply(this, arguments) : []; const p = G.player; if (!p) return out; const c = p.c; const f = c.faction;
     const need = K.needFor(f); const ct = G.account.cities[f];
     if (need) { const hw = K.have(c, need.wood), hs = K.have(c, need.stone); const q = Sys.QUESTS[f + '_build' + ct.level];
-      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Speak to him up in the King's Tower.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
+      const line = !c.quests.active[q.id] && !c.quests.done[q.id] ? `${D.FACTIONS[f].king} wants timber and stone to build. Climb the great stairs of his castle to the throne hall and speak to him.` : `The king still needs ${Math.max(0, need.n - hw)} more ${K.MATS[need.wood].pl} and ${Math.max(0, need.n - hs)} more ${K.MATS[need.stone].pl}. ${K.MATS[need.wood].pl} come from ${K.MATS[need.wood].where}.`;
       out.splice(1, 0, line); }
     return out;
   };

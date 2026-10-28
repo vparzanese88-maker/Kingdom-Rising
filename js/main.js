@@ -75,7 +75,7 @@
       UI.buildHUD();
       Main.snapCamera();
       if (newChar) {
-        UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} up in the King's Tower to the north: climb the stairs inside. Look for the gold ! above townsfolk.`);
+        UI.banner(`Welcome to ${D.FACTIONS[c.faction].city}`, `Speak to ${D.FACTIONS[c.faction].king} in his castle's throne hall, at the top of the great stairs. Look for the gold ! above townsfolk.`);
         G.log('Tip: WASD to move, Tab to target, Q to auto attack, 1-3 for abilities, E to talk. Press Esc for help.', 'sys', '#e8d48a');
       }
       running = true; last = performance.now(); requestAnimationFrame(loop);

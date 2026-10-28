@@ -992,7 +992,9 @@
       const st = (i) => W.stairs && W.stairs.get(i);
       const cur = ti(e.x, e.y); const atTop = !!(st(cur) && st(cur).top);
       if (e.onWall) r = 3;
-      const tb = (x, y) => { const i = ti(x, y); if (WT[i]) return !(e.onWall || atTop); if (e.onWall) return !(st(i) && st(i).top); return W.solidAtPx(x, y, opts); };
+      // jumping, you can leap off the wall walk onto open ground on either side: out over the battlements or down into town
+      const jumpOff = e.onWall && window.K3 && window.K3.jumpT != null;
+      const tb = (x, y) => { const i = ti(x, y); if (WT[i]) return !(e.onWall || atTop); if (e.onWall) return !(st(i) && st(i).top) && !(jumpOff && !W.solidAtPx(x, y, opts)); return W.solidAtPx(x, y, opts); };
       if (e.onWall || atTop || WT[ti(e.x + dx * 8, e.y + dy * 8)]) blocked = (x, y) => tb(x - r, y - 4) || tb(x + r, y - 4) || tb(x - r, y + 6) || tb(x + r, y + 6);
     }
     // upper floors: up the stairs you step onto the loft (and the furniture of the room below no longer matters)
@@ -1017,7 +1019,8 @@
       const i = Math.floor(e.y / TS) * W.W + Math.floor(e.x / TS); const was = e.onWall; e.onWall = !!WT[i];
       // keep to the middle of the walkway
       if (e.onWall) { const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS); const alongX = WT[i - 1] || WT[i + 1]; if (alongX) e.y += ((ty + 0.5) * TS + 2 - e.y) * 0.2; else e.x += ((tx + 0.5) * TS - e.x) * 0.2; }
-      if (e.onWall !== was && e === G.player) G.log(e.onWall ? 'You step out onto the city wall.' : 'You step back onto the stairs.', 'sys', '#aaa');
+      if (e.onWall !== was && e === G.player) { const down = was && !(W.stairs && W.stairs.get(i)); G.log(e.onWall ? 'You step out onto the city wall.' : down ? 'You leap down from the wall.' : 'You step back onto the stairs.', 'sys', '#aaa');
+        if (down) { e.hp = Math.max(1, e.hp - Math.round((e.hpMax || e.hp) * 0.08)); KR.A && KR.A.sfx && KR.A.sfx('heavy', 0.5); } }
     }
     // door auto open
     const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS);

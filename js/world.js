@@ -109,7 +109,7 @@
     const N = W.W * W.H;
     W.tiles = new Uint8Array(N); W.region = new Uint8Array(N); W.vari = new Uint8Array(N); W.block = new Uint8Array(N);
     W.doorAt = {}; W.decor = []; W.buildings = []; W.lights = []; W.spawns = []; W.camps = []; W.chambers = {}; W.dungeons = {}; W.explored = new Uint8Array((W.W >> 2) * (W.H >> 2));
-    W.cityData = {}; W.wallTop = null; W.stairs = new Map();
+    W.cityData = {}; W.wallTop = null; W.stairs = new Map(); W.edge = null;
     const RI = D.REGION_BY_ID;
     // ---- regions: warped voronoi over the mainland seeds (grid-bucketed for speed) ----
     const seeds = [];
@@ -242,7 +242,6 @@
     for (const b of D.BOSSES) if (!b.chamber && !b.dungeon && (b.realm || 'main') === 'main') clearArea(b.at[0] - 3, b.at[1] - 3, 7, 7, null);
     // ---- neutral hubs on the mainland: docks and the dragon roost ----
     buildHubs('main');
-    for (const dg of D.DUNGEONS) if ((dg.parent || 'main') === 'main' && dg.type === 'sewer') carveSewerMouth(dg);
     D.REGIONS[RI.ocean].label = [430, 600]; if (RI.corsair != null) D.REGIONS[RI.corsair].label = [548, 528];
     // ---- cities ----
     for (const f of D.FACTION_IDS) W.stampCity(f, (cityLevels && cityLevels[f]) || 1, true);
@@ -355,14 +354,14 @@
   }
 
   // ---------- realms: separate maps for the island, the summit, and every dungeon ----------
-  W.REALM_KEYS = ['wallTop', 'stairs', 'W', 'H', 'tiles', 'region', 'vari', 'block', 'doorAt', 'decor', 'buildings', 'lights', 'spawns', 'camps', 'chambers', 'dungeons', 'explored', 'cityData', 'cityBase', 'roads', 'mapCanvas', 'realm', 'portals', 'present', 'seed'];
+  W.REALM_KEYS = ['wallTop', 'stairs', 'W', 'H', 'tiles', 'region', 'vari', 'block', 'doorAt', 'decor', 'buildings', 'lights', 'spawns', 'camps', 'chambers', 'dungeons', 'explored', 'cityData', 'cityBase', 'roads', 'mapCanvas', 'realm', 'portals', 'present', 'seed', 'edge'];
   W.realms = {};
   W.snapshot = function () { const o = {}; for (const k of W.REALM_KEYS) o[k] = W[k]; return o; };
   W.restore = function (o) { for (const k of W.REALM_KEYS) W[k] = o[k]; };
   function presentRegions() { const set = new Set(); for (let i = 0; i < W.region.length; i += 7) set.add(W.region[i]); return set; }
   W.presentRegions = presentRegions;
   function blankRealm(id, size, ri, tile) {
-    W.wallTop = null; W.stairs = null;
+    W.wallTop = null; W.stairs = null; W.edge = null;
     W.realm = id; W.W = W.H = size; const N = size * size;
     W.tiles = new Uint8Array(N).fill(tile); W.region = new Uint8Array(N).fill(ri); W.vari = new Uint8Array(N); W.block = new Uint8Array(N);
     for (let i = 0; i < N; i++) W.vari[i] = Math.floor(U.hash(i % size, (i / size) | 0, 5) * 255);
@@ -399,13 +398,14 @@
       D.REGIONS[RI.summit].label = [D.SUMMIT.cx, D.SUMMIT.cy - 60];
     } else {
       const dg = D.DUNGEONS.find((x) => x.id === id);
-      const S = Math.max(dg.w, dg.h) + 18; blankRealm(id, S, RI[id], T.ROCK);
-      const local = Object.assign({}, dg, { x: Math.floor((S - dg.w) / 2), y: Math.floor((S - dg.h) / 2) });
+      const dw = dg.type === 'sewer' ? 60 : dg.w, dh = dg.type === 'sewer' ? 46 : dg.h; // sewers: a wider net of tunnels
+      const S = Math.max(dw, dh) + 18; blankRealm(id, S, RI[id], T.ROCK);
+      const local = Object.assign({}, dg, { w: dw, h: dh, x: Math.floor((S - dw) / 2), y: Math.floor((S - dh) / 2) });
       carveDungeon(local, rnd);
       const dd = W.dungeons[id]; const ins = local.entry === 'n' ? [0, 1] : local.entry === 's' ? [0, -1] : local.entry === 'w' ? [1, 0] : [-1, 0];
       W.portals.push({ x: dd.entry.x, y: dd.entry.y, to: dg.parent || 'main', back: true, label: 'Exit to ' + (dg.parent === 'tidesong' ? 'the Isle of Tidesong' : D.REGIONS[RI[dg.near]] ? D.REGIONS[RI[dg.near]].name : 'the surface') });
-      dd.arrive = [dd.entry.x + ins[0] * 3, dd.entry.y + ins[1] * 3];
-      addDecor('exitportal', dd.entry.x, dd.entry.y, { nb: true });
+      dd.arrive = dd.arrive || [dd.entry.x + ins[0] * 3, dd.entry.y + ins[1] * 3];
+      if (dg.type === 'sewer') addDecor('sewerexit', dd.entry.x, dd.entry.y, { nb: true, px: dd.entry.x * TS + 16, py: dd.entry.y * TS + 24 }); else addDecor('exitportal', dd.entry.x, dd.entry.y, { nb: true });
       D.REGIONS[RI[id]].label = [dd.entry.x, dd.entry.y + ins[1] * 6 - 2];
     }
     for (const b of D.BOSSES) if (b.realm === id && !b.dungeon) clearArea(b.at[0] - 3, b.at[1] - 3, 7, 7, null);
@@ -430,39 +430,180 @@
     W.portals.push({ x: ex, y: ey, to: dg.id, label: W.REALMS[dg.id].name, out: [ox, oy] });
   }
 
-  // a brick sewer outflow beside a city: a grated arch that spills into a pool and drains toward the nearest water
-  function carveSewerMouth(dg) {
-    const [ex, ey] = dg.at; const px = dg.pool || -1;
-    const inA = (x, y) => W.inb(x, y);
-    const setT = (x, y, t) => { if (!inA(x, y)) return; const k = y * W.W + x; W.tiles[k] = t; W.block[k] = 0; };
-    // clear the site: brick wall behind, cobbled apron in front
-    W.decor = W.decor.filter((d) => !(Math.abs(d.tx - ex) <= 9 && d.ty >= ey - 5 && d.ty <= ey + 6));
-    for (let y = ey - 4; y <= ey + 5; y++) for (let x = ex - 8; x <= ex + 8; x++) if (inA(x, y)) setT(x, y, T.GRASS);
-    for (let y = ey - 3; y <= ey - 1; y++) for (let x = ex - 3; x <= ex + 3; x++) setT(x, y, T.WALL);
-    for (let y = ey; y <= ey + 4; y++) for (let x = ex - 3; x <= ex + 3; x++) setT(x, y, T.COBBLE);
-    setT(ex, ey, T.STONE);
-    // the outflow pool and a channel that runs on to the nearest open water
-    const pcx = ex + px * 6, pcy = ey + 2;
-    for (let y = pcy - 4; y <= pcy + 4; y++) for (let x = pcx - 4; x <= pcx + 4; x++) { const d = Math.hypot(x - pcx, (y - pcy) * 1.15) + (U.hash(x, y, 77) - 0.5) * 0.8; if (d < 2.2) setT(x, y, T.DEEP); else if (d < 3.6) setT(x, y, T.WATER); else if (d < 4.4 && W.tile(x, y) !== T.COBBLE) setT(x, y, T.SAND); }
-    for (let x = ex + px; x !== pcx; x += px) setT(x, ey + 1, T.WATER);
-    let x = pcx + px * 4, y = pcy;
-    for (let k = 0; k < 40; k++) {
-      const t0 = W.tile(x, y); if (k > 2 && (t0 === T.WATER || t0 === T.DEEP)) break;
-      const rg = D.REGIONS[W.region[y * W.W + x]]; if (!inA(x, y) || (rg && (rg.city || rg.dungeon))) break;
-      setT(x, y, T.WATER); if (W.tile(x, y + 1) !== T.WATER) setT(x, y + 1, k % 3 ? T.WATER : T.SAND);
-      x += px; if (k % 5 === 4) y += (U.hash(x, y, 5) < 0.5 ? 1 : -1);
+  // ---- the sewer outflow: a brick culvert through the foot of the city wall, on the side that faces the sea ----
+  // Each city's sewer drains out through its own wall: an arched pipe big enough to walk into, its grate broken
+  // open, and a ditch of foul water running from it down to the nearest open water. It is rebuilt with the city
+  // (the walls move out as the kingdom grows), so it always sits right under the wall, a short walk from a gate.
+  const OUTFLOW_SIDE = { crown: [-1, 0], sylvan: [0, -1] }; // Valenmoor's west wall faces the bay, Aelindor's north wall the sea
+  function placeOutflow(f, R, cx, cy) {
+    const dg = D.DUNGEONS.find((d) => d.type === 'sewer' && d.home === f && (d.parent || 'main') === 'main'); if (!dg || W.realm !== 'main') return;
+    W.portals = (W.portals || []).filter((p) => p.to !== dg.id); W.decor = W.decor.filter((d) => d.sewerOut !== f); W.lights = W.lights.filter((l) => l.sewerOut !== f);
+    const cd = W.cityData[f] || {}; const gates = cd.gates || []; const hb = cd.harbour; const fields = cd.fields || [];
+    const isW = (x, y) => { const t = W.tile(x, y); return t === T.WATER || t === T.DEEP; };
+    const bad = (x, y) => { if (!W.inb(x, y)) return true; const t = W.tile(x, y); return t === T.CWALL || t === T.WALL || t === T.DOOR || t === T.WOOD || t === T.LAVA || t === T.FARM || !!W.buildingAt(x * TS + 16, y * TS + 16); };
+    const inHarbour = (x, y) => { if (!hb) return false; const ox = x - hb.gx, oy = y - hb.gy; const i = ox * hb.dx + oy * hb.dy, sd = ox * hb.px + oy * hb.py; return i >= -3 && i <= hb.k + 3 && Math.abs(sd) <= hb.half + 3; };
+    const inField = (x, y) => fields.some((r) => r && x >= r[0] - 2 && y >= r[1] - 2 && x < r[0] + r[2] + 2 && y < r[1] + r[3] + 2);
+    const pref = OUTFLOW_SIDE[f] || [0, 1];
+    // how far you walk from the nearest gate, outside the walls, to each spot (the harbour walls and the sea cut
+    // some stretches of shore off completely)
+    const B0 = cx - R - 16, B1 = cy - R - 16, BW2 = 2 * R + 33; const walk = new Int16Array(BW2 * BW2).fill(-1);
+    const wIdx = (x, y) => (x < B0 || y < B1 || x >= B0 + BW2 || y >= B1 + BW2 ? -1 : (y - B1) * BW2 + (x - B0));
+    { const Q = [];
+      for (const [gx, gy] of gates) { const ox = Math.abs(gx - cx) === R ? Math.sign(gx - cx) : 0, oy = Math.abs(gy - cy) === R ? Math.sign(gy - cy) : 0; const sx = gx + ox, sy = gy + oy, i = wIdx(sx, sy); if (i >= 0 && walk[i] < 0 && !W.isBlockedTile(sx, sy)) { walk[i] = 0; Q.push(sx, sy); } }
+      for (let q = 0; q < Q.length; q += 2) { const x = Q[q], y = Q[q + 1], d0 = walk[wIdx(x, y)];
+        for (const [a, c] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + a, ny = y + c, i = wIdx(nx, ny); if (i < 0 || walk[i] >= 0 || Math.max(Math.abs(nx - cx), Math.abs(ny - cy)) <= R || !W.inb(nx, ny) || W.isBlockedTile(nx, ny)) continue; walk[i] = d0 + 1; Q.push(nx, ny); } } }
+    const walkTo = (x, y) => { const i = wIdx(x, y); return i < 0 ? -1 : walk[i]; };
+    const sides = [pref, [0, 1], [1, 0], [-1, 0], [0, -1]].filter((s2, i, a2) => a2.findIndex((q) => q[0] === s2[0] && q[1] === s2[1]) === i);
+    let best = null;
+    sides.forEach(([ox, oy], si) => {
+      const pxv = -oy, pyv = ox; // along the wall
+      for (let t = -(R - 5); t <= R - 5; t++) {
+        const wx = ox ? cx + ox * R : cx + t, wy = oy ? cy + oy * R : cy + t;
+        if (W.tile(wx, wy) !== T.CWALL) continue;
+        if (gates.some(([gx, gy]) => Math.max(Math.abs(gx - wx), Math.abs(gy - wy)) <= 6)) continue;
+        const mx = wx + ox, my = wy + oy;
+        let ok = true; for (let l = -2; l <= 2 && ok; l++) for (let k = 0; k <= 2 && ok; k++) { const x = mx + ox * k + pxv * l, y = my + oy * k + pyv * l; if (bad(x, y) || inHarbour(x, y) || inField(x, y) || (k === 0 && isW(x, y))) ok = false; }
+        if (!ok) continue;
+        let len = 0, roads = 0;
+        for (let k = 2; k <= 14; k++) { const x = mx + ox * k, y = my + oy * k; if (isW(x, y)) { len = k; break; } if (bad(x, y) || inHarbour(x, y) || inField(x, y)) break; const tt = W.tile(x, y); if (tt === T.ROAD || tt === T.BRIDGE) roads++; }
+        let wk = 1e9; for (let k = 1; k <= 2; k++) for (let l = -1; l <= 1; l++) { const v = walkTo(mx + ox * k + pxv * l, my + oy * k + pyv * l); if (v >= 0) wk = Math.min(wk, v); }
+        if (wk > 1e8) continue; // can't be reached on foot from any gate
+        const score = (len ? len * 0.8 : 30) + si * 3 + roads * 5 + wk * 0.6 + (len ? 0 : 40);
+        if (!best || score < best.score) best = { score, wx, wy, mx, my, ox, oy, pxv, pyv, len };
+      }
+    });
+    if (!best) return;
+    const { mx, my, ox, oy, pxv, pyv } = best; let len = best.len;
+    const setT = (x, y, t, blk = 0) => { if (!W.inb(x, y)) return; const k = y * W.W + x; W.tiles[k] = t; W.block[k] = blk; };
+    // nothing grows or stands on the culvert, its wings, the ditch and its banks
+    const pond = !len; if (pond) len = 7;
+    const ditch = []; const wet = (x, y) => { for (const [a, c] of [[0, 0], [1, 0], [0, 1], [1, 1]]) ditch.push((y + c) * W.W + x + a); }; // for the murky brown water in 3D
+    W.decor = W.decor.filter((d) => { const ax = d.tx - mx, ay = d.ty - my; const i = ax * ox + ay * oy, sd = ax * pxv + ay * pyv; return !(i >= -1 && i <= len + (pond ? 3 : 1) && Math.abs(sd) <= (i <= 2 ? 3 : 2)); });
+    // the culvert mouth (walk in here) between two wing walls of brick
+    setT(mx, my, T.STONE);
+    for (const l of [-1, 1]) setT(mx + pxv * l, my + pyv * l, T.STONE, 1);
+    // a ditch of sewer water from the mouth to the sea, with muddy banks; a road it crosses gets a little bridge
+    for (let k = 1; k < len; k++) {
+      const x = mx + ox * k, y = my + oy * k; const tt = W.tile(x, y);
+      if (tt === T.ROAD || tt === T.BRIDGE) setT(x, y, T.BRIDGE); else setT(x, y, T.WATER); wet(x, y);
+      for (const l of [-1, 1]) { const bx = x + pxv * l, by = y + pyv * l; const bt = W.tile(bx, by); if (bt == null || bt === T.ROAD || bt === T.BRIDGE || isW(bx, by) || bad(bx, by)) continue; setT(bx, by, k <= 2 ? T.GRAVEL : T.MUD); }
     }
-    W.decor = W.decor.filter((d) => !(W.tile(d.tx, d.ty) === T.WATER || W.tile(d.tx, d.ty) === T.DEEP));
-    addDecor('sewermouth', ex, ey, { nb: true, px: ex * TS + 16, py: ey * TS + 6 });
-    addDecor('torch', ex - 2, ey, {}); addDecor('torch', ex + 2, ey, {});
-    W.lights.push({ x: (ex - 2) * TS + 16, y: ey * TS, r: 150, col: '255,170,90', fl: 0.15, k: 'fire' }); W.lights.push({ x: (ex + 2) * TS + 16, y: ey * TS, r: 150, col: '255,170,90', fl: 0.15, k: 'fire' });
-    addDecor('cavesign', ex - px * 3, ey + 2, { name: W.REALMS[dg.id].name, nb: true, px: (ex - px * 3) * TS + 16, py: (ey + 2) * TS + 20 });
-    addDecor('barrel', ex - px * 3, ey + 4, {}); addDecor('crate', ex - px * 4, ey + 4, {});
-    W.portals.push({ x: ex, y: ey, to: dg.id, label: W.REALMS[dg.id].name, out: [ex, ey + 3], sewer: true });
+    if (pond) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const d2 = Math.hypot(i, j); if (d2 > 2.4) continue; const x = mx + ox * (len + 1 + j) + pxv * i, y = my + oy * (len + 1 + j) + pyv * i; if (!bad(x, y)) { setT(x, y, d2 < 1.2 ? T.DEEP : T.WATER); wet(x, y); } }
+    const ry = Math.atan2(ox, oy); // the mouth's front faces out, away from the wall
+    addDecor('sewermouth', mx, my, { nb: true, px: mx * TS + 16, py: my * TS + 24, ry, sewerOut: f, ditchLen: pond ? 0 : len });
+    W.lights.push({ x: (mx + pxv * 1.2) * TS + 16 + ox * 10, y: (my + pyv * 1.2) * TS + 16 + oy * 10, r: 150, col: '255,176,96', fl: 0.12, k: 'fire', sewerOut: f });
+    const sx = mx + ox * 2 + pxv * 2, sy = my + oy * 2 + pyv * 2;
+    if (!bad(sx, sy) && !isW(sx, sy)) addDecor('cavesign', sx, sy, { name: W.REALMS[dg.id].name, nb: true, sewerOut: f });
+    const ex = mx + ox * 2 - pxv, ey = my + oy * 2 - pyv; // where you come out: on the bank beside the ditch
+    if (W.inb(ex, ey) && !isW(ex, ey)) { setT(ex, ey, T.GRAVEL); }
+    dg.at = [mx, my]; dg.out = [ex, ey]; dg.outDir = [ox, oy]; cd.ditch = ditch;
+    W.portals.push({ x: mx, y: my, to: dg.id, label: W.REALMS[dg.id].name, out: [ex, ey], sewer: true });
   }
 
+  // ---------- sewers: a net of brick tunnels ----------
+  // Straight vaulted tunnels on a grid, each three tiles wide: a walkway either side of a channel of foul water.
+  // Where tunnels meet there are junctions; some of the crossings are chambers (the gang's dens, two cisterns with
+  // deep pools, Vinny's cell and the boss's hall at the far end), and short dead-end side passages end under a
+  // shaft of daylight with a ladder up to a grate. Every tunnel connects: the grid is a spanning tree plus loops.
+  function carveSewer(dg, rnd) {
+    const fl = T.STONE;
+    const X0 = dg.x + 2, Y0 = dg.y + 2, X1 = dg.x + dg.w - 3, Y1 = dg.y + dg.h - 3;
+    for (let y = dg.y; y < dg.y + dg.h; y++) for (let x = dg.x; x < dg.x + dg.w; x++) if (W.inb(x, y)) { W.tiles[y * W.W + x] = T.WALL; W.block[y * W.W + x] = 0; }
+    W.decor = W.decor.filter((d) => !(d.tx >= dg.x && d.tx < dg.x + dg.w && d.ty >= dg.y && d.ty < dg.y + dg.h));
+    const inA = (x, y) => x >= X0 && y >= Y0 && x <= X1 && y <= Y1;
+    const set = (x, y, t = fl) => { if (inA(x, y)) W.tiles[y * W.W + x] = t; };
+    const ent = [dg.x + (dg.w >> 1), dg.y + dg.h - 1]; // the outflow: south edge
+    // the grid of junctions
+    const NX = 5, NY = 4;
+    const colX = [], rowY = [];
+    for (let i = 0; i < NX; i++) colX.push(Math.round(X0 + 4 + i * (X1 - X0 - 8) / (NX - 1)));
+    for (let j = 0; j < NY; j++) rowY.push(Math.round(Y0 + 4 + j * (Y1 - Y0 - 8) / (NY - 1)));
+    const midI = NX >> 1; colX[midI] = ent[0]; // the trunk runs straight in from the outflow
+    const node = (i, j) => ({ i, j, x: colX[i], y: rowY[j] });
+    const key = (i, j) => i + ',' + j;
+    // a spanning tree by random depth-first walk from the junction above the outflow, then a few loops
+    const edges = new Set(), seen = new Set([key(midI, NY - 1)]); const stack = [[midI, NY - 1]];
+    const eKey = (a, b) => (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])) ? key(...a) + '|' + key(...b) : key(...b) + '|' + key(...a);
+    while (stack.length) {
+      const [i, j] = stack[stack.length - 1];
+      const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([a, b]) => [i + a, j + b]).filter(([a, b]) => a >= 0 && b >= 0 && a < NX && b < NY && !seen.has(key(a, b)));
+      if (!nb.length) { stack.pop(); continue; }
+      const n = nb[Math.floor(rnd() * nb.length)]; seen.add(key(...n)); edges.add(eKey([i, j], n)); stack.push(n);
+    }
+    const all = []; for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) { if (i + 1 < NX) all.push([[i, j], [i + 1, j]]); if (j + 1 < NY) all.push([[i, j], [i, j + 1]]); }
+    let loops = 0; for (let t = 0; t < 40 && loops < 4; t++) { const e = all[Math.floor(rnd() * all.length)]; const k = eKey(e[0], e[1]); if (!edges.has(k)) { edges.add(k); loops++; } }
+    const deg = new Map(); for (const e of edges) for (const n of e.split('|')) deg.set(n, (deg.get(n) || 0) + 1);
+    // which junctions are chambers: the one by the outflow, then dead ends and far crossings, spread out
+    const dist = (n) => Math.hypot(n.x - ent[0], n.y - ent[1]);
+    const nodes = []; for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) nodes.push(node(i, j));
+    const start = node(midI, NY - 1);
+    const pick = [start];
+    const cand = nodes.filter((n) => n !== start && !(n.i === start.i && n.j === start.j)).sort((a, b) => ((deg.get(key(a.i, a.j)) === 1 ? -1 : 0) - (deg.get(key(b.i, b.j)) === 1 ? -1 : 0)) || (rnd() - 0.5));
+    for (const n of cand) { if (pick.length >= dg.rooms) break; if (pick.some((o) => Math.abs(o.i - n.i) + Math.abs(o.j - n.j) < 2)) continue; pick.push(n); }
+    for (const n of cand) { if (pick.length >= dg.rooms) break; if (!pick.includes(n)) pick.push(n); }
+    pick.sort((a, b) => dist(a) - dist(b));
+    // the far hall must be the farthest of all, Vinny's cell next to it
+    const rooms = pick.map((n, k) => ({ x: n.x, y: n.y, r: k === 0 ? 2 : k === pick.length - 1 ? 4 : 3, i: n.i, j: n.j }));
+    const L = rooms.length;
+    rooms[L - 2].r = 2; // Vinny's cell is a small vault
+    // tunnels: three wide, a channel down the middle
+    const segs = [], chan = [];
+    const carveSeg = (a, b) => {
+      const horiz = a.y === b.y; const s0 = horiz ? Math.min(a.x, b.x) : Math.min(a.y, b.y), s1 = horiz ? Math.max(a.x, b.x) : Math.max(a.y, b.y);
+      for (let t = s0; t <= s1; t++) for (let w = -1; w <= 1; w++) { const x = horiz ? t : a.x + w, y = horiz ? a.y + w : t; set(x, y); if (w === 0) chan.push([x, y]); }
+      segs.push({ horiz, a: s0, b: s1, c: horiz ? a.y : a.x });
+    };
+    for (const e of edges) { const [p, q] = e.split('|').map((k) => k.split(',').map(Number)); carveSeg(node(...p), node(...q)); }
+    // the way in from the outflow
+    carveSeg({ x: ent[0], y: ent[1] }, start);
+    // junctions are a little wider than the tunnels; chambers are vaulted halls
+    const roomAt = (x, y) => rooms.find((o) => Math.abs(x - o.x) <= o.r && Math.abs(y - o.y) <= o.r);
+    for (const n of nodes) if (deg.get(key(n.i, n.j)) || n === start) for (let y = n.y - 2; y <= n.y + 2; y++) for (let x = n.x - 2; x <= n.x + 2; x++) if (Math.abs(x - n.x) + Math.abs(y - n.y) <= 3) set(x, y);
+    for (const o of rooms) for (let y = o.y - o.r; y <= o.y + o.r; y++) for (let x = o.x - o.r; x <= o.x + o.r; x++) set(x, y);
+    // the channels: water down the middle of every tunnel and through the junctions, but not across the chambers
+    for (const [x, y] of chan) if (!roomAt(x, y) && inA(x, y)) W.tiles[y * W.W + x] = T.WATER;
+    // cisterns: two of the middle chambers hold a deep pool with a walk around it; the far hall has one at its back
+    const pools = [];
+    const cisterns = [2, 4].filter((k) => k < L - 3);
+    for (const k of cisterns) { const o = rooms[k]; o.cistern = true; pools.push([o.x - 1, o.y - 1, o.x + 1, o.y + 1]); }
+    { const o = rooms[L - 1]; pools.push([o.x - 2, o.y - o.r, o.x + 2, o.y - o.r + 2]); o.hall = true; }
+    for (const [ax, ay, bx, by] of pools) for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++) if (inA(x, y)) W.tiles[y * W.W + x] = (x === ax || x === bx || y === ay || y === by) && bx - ax > 2 ? T.WATER : T.DEEP;
+    // side passages: short dead ends off the tunnels, each ending under a shaft of daylight with a ladder
+    const spurs = [];
+    const solidRun = (x, y, dx, dy, n) => { for (let k = 1; k <= n; k++) for (let w = -2; w <= 2; w++) { const tx = x + dx * k + (dx ? 0 : w), ty = y + dy * k + (dy ? 0 : w); if (!inA(tx, ty) || W.tile(tx, ty) !== T.WALL) return false; } return true; };
+    for (let t = 0; t < 80 && spurs.length < 6; t++) {
+      const sg = segs[Math.floor(rnd() * segs.length)]; if (sg.b - sg.a < 7) continue;
+      const along = sg.a + 3 + Math.floor(rnd() * (sg.b - sg.a - 6)); const side = rnd() < 0.5 ? -1 : 1; const len = 3 + Math.floor(rnd() * 2);
+      const [dx, dy] = sg.horiz ? [0, side] : [side, 0]; const bx = sg.horiz ? along : sg.c + side * 1, by = sg.horiz ? sg.c + side * 1 : along;
+      if (spurs.some((q) => Math.abs(q.x - bx) + Math.abs(q.y - by) < 6) || !solidRun(bx, by, dx, dy, len + 1)) continue;
+      for (let k = 1; k <= len; k++) set(bx + dx * k, by + dy * k);
+      spurs.push({ x: bx + dx * len, y: by + dy * len, dir: [dx, dy], len });
+    }
+    // Vinny's cell: no monsters spawn in it
+    const cell = rooms[L - 2];
+    W.dungeonsCell = W.dungeonsCell || {}; W.dungeonsCell[dg.id] = { x: cell.x, y: cell.y, r: cell.r };
+    // the outflow mouth: open the edge tile so the exit sits in the tunnel
+    for (let k = 0; k < 3; k++) for (let w = -1; w <= 1; w++) { const x = ent[0] + w, y = ent[1] - k; if (W.inb(x, y)) W.tiles[y * W.W + x] = w === 0 ? T.WATER : fl; }
+    W.tiles[ent[1] * W.W + ent[0]] = fl;
+    // furnishings: rubbish heaps in the dens, pipes spilling into the halls, grates of light, torches
+    const deco = { sewer_crown: ['barrel', 'crate', 'bones', 'pebbles'], sewer_sylvan: ['barrel', 'bones', 'crate', 'mushroom'] }[dg.id] || ['barrel', 'bones'];
+    const free = (x, y) => W.tile(x, y) === fl && !W.decor.some((d) => d.tx === x && d.ty === y);
+    for (const o of rooms) {
+      if (o.y - o.r - 1 >= Y0) addDecor('drainpipe', o.x + (o.cistern ? 0 : 2), o.y - o.r - 1, { nb: true, px: (o.x + (o.cistern ? 0 : 2)) * TS + 16, py: (o.y - o.r) * TS - 4 });
+      if (!o.cistern && !o.hall && o !== cell && o !== rooms[0]) addDecor('grate', o.x, o.y + 1, { nb: true, px: o.x * TS + 16, py: (o.y + 1) * TS + 16 }).flat = true;
+      W.lights.push({ x: o.x * TS + 16, y: o.y * TS, r: 120 + o.r * 22, col: '255,170,90', fl: 0.15, k: 'fire' });
+      for (const [cx2, cy2] of [[-1, -1], [1, 1], [1, -1], [-1, 1]]) { const tx = o.x + cx2 * o.r, ty = o.y + cy2 * o.r; if (free(tx, ty) && rnd() < 0.8) addDecor('torch', tx, ty, {}); }
+      for (let k = 0; k < (o.hall ? 6 : 3); k++) { const a = rnd() * 6.28, rr = o.r - 0.5; const tx = Math.round(o.x + Math.cos(a) * rr), ty = Math.round(o.y + Math.sin(a) * rr); if (free(tx, ty) && Math.hypot(tx - ent[0], ty - ent[1]) > 4) addDecor(deco[k % deco.length], tx, ty, { nb: k > 0 }); }
+    }
+    for (const sp of spurs) { W.lights.push({ x: sp.x * TS + 16, y: sp.y * TS + 16, r: 130, col: '190,210,235', fl: 0.02, k: 'lamp' }); if (rnd() < 0.6) addDecor(deco[Math.floor(rnd() * deco.length)], sp.x - sp.dir[0], sp.y - sp.dir[1], { nb: true }); }
+    // a lamp now and then along the long tunnels (on the walkway, against the wall)
+    for (const sg of segs) for (let t = sg.a + 4; t < sg.b - 3; t += 9) { const side = ((t + sg.c) % 2) ? 1 : -1; const x = sg.horiz ? t : sg.c + side, y = sg.horiz ? sg.c + side : t; if (!roomAt(x, y) && free(x, y)) W.lights.push({ x: x * TS + 16, y: y * TS + 16, r: 110, col: '255,160,80', fl: 0.18, k: 'fire' }); }
+    W.dungeons[dg.id] = { rooms, entry: { x: ent[0], y: ent[1] }, floor: fl, def: dg, cell: W.dungeonsCell[dg.id], sewer: { segs, spurs, pools, cols: colX, rows: rowY }, arrive: [ent[0] + 1, ent[1] - 3] }; // arrive on the walkway, not in the channel
+    for (const bid of dg.bosses) { const b = D.BOSS_BY_ID[bid]; const room = rooms[rooms.length + (b.room || -1)] || rooms[rooms.length - 1]; b.at = [room.x, room.y + (room.hall ? 1 : 0)]; }
+  }
   // ---------- dungeons ----------
   function carveDungeon(dg, rnd) {
+    if (dg.type === 'sewer') return carveSewer(dg, rnd);
     const sewer = dg.type === 'sewer';
     const floor = { cave: T.CAVE, crypt: T.STONE, sewer: T.STONE }[dg.type] || T.CAVE;
     const fl = dg.id === 'frostfang' ? T.ICE : dg.id === 'abyss' ? T.SCAR : dg.id === 'sunken' ? T.STONE : floor;
@@ -579,8 +720,9 @@
 
   // ---- no way down into the sewers from inside a city: they are reached only by the outflow outside the walls ----
   // (this clears any grate an older version of the world left in the streets)
-  function cityGrate(f) {
+  function cityGrate(f, R, cx, cy) {
     W.portals = (W.portals || []).filter((p) => p.cityGrate !== f); W.decor = W.decor.filter((d) => !(d.cityGrate && (d.cityGrate === true || d.cityGrate === f)));
+    if (R != null) placeOutflow(f, R, cx, cy); // ...but by the brick outflow under the city wall
   }
   // ---- the wall-walk: the top of the city wall can be walked, reached by stone stairs inside the wall ----
   // W.wallTop marks walkable wall tiles (not the corner towers or the gatehouses); W.stairs maps a tile to its step
@@ -597,23 +739,37 @@
       if (W.tile(tx, ty) !== T.CWALL || nearGate(tx, ty)) continue;
       W.wallTop[ty * W.W + tx] = 1;
     }
-    // one flight of stairs per side, running along the inside of the wall, six steps of a tile each
+    // stairs run along the inside of the wall, six steps of a tile each: one flight on each side of every gate, climbing
+    // toward the gate (from the top you shoot down on whoever attacks it), and one more on a side with no gate
     const LEN = 6;
     const sides = [[0, -1], [0, 1], [-1, 0], [1, 0]];
-    for (const [nx, ny] of sides) {
+    // a flight along side (nx, ny) over wall offsets o0..o0+LEN-1, climbing in direction sg (+1 or -1 along the wall)
+    const flight = (nx, ny, o0, sg) => {
       const ax = ny ? 1 : 0, ay = nx ? 1 : 0; // along the wall
-      for (const start of [-R + 3, R - 3 - LEN, -10, 4]) {
-        const tiles = []; let ok = true;
-        for (let k = 0; k < LEN; k++) {
-          const tx = cx + nx * (R - 1) + ax * (start + k), ty = cy + ny * (R - 1) + ay * (start + k);
-          const wx = tx + nx, wy = ty + ny; const i = ty * W.W + tx;
-          if (!W.inb(tx, ty) || W.buildingAt(tx * TS + 16, ty * TS + 16) || SOLID[W.tiles[i]] || W.tiles[i] === T.DOOR || (k === LEN - 1 && !W.wallTop[wy * W.W + wx])) { ok = false; break; }
-          tiles.push([tx, ty, i]);
-        }
-        if (!ok) continue;
-        tiles.forEach(([tx, ty, i], k) => { W.tiles[i] = T.STONE; W.block[i] = 0; W.decor = W.decor.filter((d) => !(d.tx === tx && d.ty === ty)); W.stairs.set(i, { f, k, n: LEN, dir: [ax, ay], wall: [nx, ny], top: k === LEN - 1 }); });
-        break;
+      const tiles = [];
+      for (let k = 0; k < LEN; k++) {
+        const o = sg > 0 ? o0 + k : o0 + LEN - 1 - k; // k counts up the flight
+        const tx = cx + nx * (R - 1) + ax * o, ty = cy + ny * (R - 1) + ay * o;
+        const wx = tx + nx, wy = ty + ny; const i = ty * W.W + tx;
+        if (!W.inb(tx, ty) || W.stairs.get(i) || W.buildingAt(tx * TS + 16, ty * TS + 16) || SOLID[W.tiles[i]] || W.tiles[i] === T.DOOR || W.tiles[i] === T.WATER || (k === LEN - 1 && !W.wallTop[wy * W.W + wx])) return false;
+        tiles.push([tx, ty, i]);
       }
+      // the foot of the flight must open onto the street
+      const [fx, fy] = tiles[0], bx = fx - ax * sg, by = fy - ay * sg; if (!W.inb(bx, by) || SOLID[W.tile(bx, by)] || W.buildingAt(bx * TS + 16, by * TS + 16)) return false;
+      tiles.forEach(([tx, ty, i], k) => { W.tiles[i] = T.STONE; W.block[i] = 0; W.decor = W.decor.filter((d) => !(d.tx === tx && d.ty === ty)); W.stairs.set(i, { f, k, n: LEN, dir: [ax * sg, ay * sg], wall: [nx, ny], top: k === LEN - 1 }); });
+      return true;
+    };
+    for (const [nx, ny] of sides) {
+      let n = 0;
+      for (const [gx, gy] of gates) {
+        if ((nx && gx - cx !== nx * R) || (ny && gy - cy !== ny * R)) continue; // a gate in this side
+        const g = nx ? gy - cy : gx - cx; // the gate's middle along the wall
+        const off = nx ? 5 : ny < 0 ? 5 : 4; // the top step just clear of the gatehouse and the gate guards
+        if (flight(nx, ny, g + off, -1)) n++; // east / south of the gate, climbing back toward it
+        if (flight(nx, ny, g - off - LEN + 1, 1)) n++;
+      }
+      if (n) continue;
+      for (const start of [-R + 3, R - 3 - LEN, -10, 4]) if (flight(nx, ny, start, 1)) break;
     }
   }
   // ---- the harbour outside a capital's sea gate: a paved quay, three wooden piers and ships of every size ----
@@ -727,6 +883,7 @@
       W.tiles[k] = edge ? T.WALL : floor; W.block[k] = 0;
     }
     if (!b.city) W.decor = W.decor.filter((d) => !(d.tx >= b.x - 1 && d.tx <= b.x + b.w && d.ty >= b.y - 1 && d.ty <= b.y + b.h));
+    else W.decor = W.decor.filter((d) => !(d.tx >= b.x && d.tx < b.x + b.w && d.ty >= b.y && d.ty < b.y + b.h)); // no street lamp or wall torch left inside a city building
     const dx = b.doorX != null ? b.doorX : b.x + Math.floor(b.w / 2), dy = b.y + b.h - 1;
     W.tiles[dy * W.W + dx] = T.DOOR;
     // clear tile in front of door
@@ -751,8 +908,8 @@
     for (let guard = 0; guard < 12; guard++) {
       const seen = new Set([(dy - 1) * W.W + dx]); const q = [[dx, dy - 1]];
       while (q.length) { const [x, y] = q.pop(); for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ox, ny = y + oy; if (!inside(nx, ny)) continue; const k = ny * W.W + nx; if (seen.has(k) || W.block[k] || !floorOk(nx, ny)) continue; seen.add(k); q.push([nx, ny]); } }
-      let total = 0; for (let y = b.y + 1; y < b.y + b.h - 1; y++) for (let x = b.x + 1; x < b.x + b.w - 1; x++) if (floorOk(x, y)) total++;
-      if (seen.size >= total * 0.6) break;
+      let total = 0; for (let y = b.y + 1; y < b.y + b.h - 1; y++) for (let x = b.x + 1; x < b.x + b.w - 1; x++) if (floorOk(x, y) && !W.block[y * W.W + x]) total++;
+      if (seen.size >= total) break; // every open tile can be walked to (a small room may be well furnished)
       // remove a blocking prop that touches the reachable area
       let done = false;
       for (const k of seen) { const x = k % W.W, y = Math.floor(k / W.W); for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ox, ny = y + oy; if (inside(nx, ny) && W.block[ny * W.W + nx]) { unblock(nx, ny); done = true; break; } } if (done) break; }
@@ -760,12 +917,64 @@
     }
   }
   const spot = (b, key, tx, ty) => { (b.spots[key] = b.spots[key] || []).push([tx * TS + 16, ty * TS + 20]); };
+  // sets furniture out in a room so that it all fits: nothing in the lane from the door, nothing on the stairs, and every
+  // piece that is used from the front (a forge, a loom, a counter, a shelf, a bed...) keeps a free tile before it.
+  // Pieces against a wall face away from it; opts.face fixes the facing, opts.free lets a piece stand out in the room.
+  const NEEDS_FRONT = new Set(['workbench', 'forge', 'loom', 'hearth', 'stove', 'counter', 'lectern', 'bookshelf', 'shelf', 'vault', 'weaponrack', 'clothrack', 'cauldron', 'bed', 'kingbed', 'throne', 'wardrobe', 'dresser', 'chest', 'desk', 'keg', 'armorstand', 'statue']);
+  const FACE_D = { n: [0, 1], s: [0, -1], w: [1, 0], e: [-1, 0] }; // a piece facing 's' stands against the north wall... (see front())
+  function placer(b, x0, y0, x1, y1) {
+    const door = b.door; const hold = new Set(); const K = (x, y) => y * W.W + x;
+    const inR = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    const lane = (x, y) => x === door.tx && y >= y1 - 1; // the two tiles inside the door
+    const stairAt = (x, y) => !!(W.stairs && W.stairs.get(K(x, y)));
+    const occ = (x, y) => !inR(x, y) || W.block[K(x, y)] || stairAt(x, y) || W.decor.some((d) => d.tx === x && d.ty === y && !d.flat && !d.up && !d.nb);
+    const free = (x, y) => !occ(x, y) && !hold.has(K(x, y));
+    // the side a piece is used from: away from the nearest wall (ties go to the back wall, then the front, west, east)
+    const wallOf = (x, y) => { const n = y - b.y, s = b.y + b.h - 1 - y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, s, w, e); return m === n ? 'n' : m === s ? 's' : m === w ? 'w' : 'e'; };
+    const front = (x, y, face) => { const f = face ? { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[face] : FACE_D[wallOf(x, y)]; return [x + f[0], y + f[1]]; };
+    const connected = () => {
+      const open = (x, y) => inR(x, y) && !W.block[K(x, y)] && !SOLID[W.tiles[K(x, y)]];
+      const sx = door.tx, sy = door.ty - 1; if (!open(sx, sy)) return false;
+      const seen = new Set([K(sx, sy)]); const q = [[sx, sy]];
+      while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = K(nx, ny); if (!seen.has(k) && open(nx, ny)) { seen.add(k); q.push([nx, ny]); } } }
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (open(x, y) && !seen.has(K(x, y))) return false;
+      return true;
+    };
+    const P = {
+      lane, free, front: (x, y) => front(x, y), hold: (x, y) => hold.add(K(x, y)),
+      put(kind, x, y, o = {}) {
+        if (!free(x, y) || lane(x, y)) return false;
+        const face = o.face || null; const opts = Object.assign({}, o); delete opts.free;
+        if (!o.free && !face && ['s'].includes(wallOf(x, y)) && NEEDS_FRONT.has(kind)) return false; // never with its back to the door wall
+        let fk = -1, foot = -1;
+        if (NEEDS_FRONT.has(kind)) { const [fx, fy] = front(x, y, face); if (occ(fx, fy)) return false; /* two pieces may share the tile they are used from */ if (!o.free && !face) { const m = Math.min(y - b.y, b.y + b.h - 1 - y, x - b.x, b.x + b.w - 1 - x); if (m !== 1) return false; } fk = K(fx, fy); if (kind === 'bed') foot = fk; }
+        if (face) opts.face = face;
+        const d = addDecor(kind, x, y, opts); if (foot >= 0) W.block[foot] = 1;
+        // never wall off a corner of the room: every open tile must still be reachable from the door
+        if (!connected()) { W.decor.splice(W.decor.indexOf(d), 1); W.block[K(x, y)] = 0; if (foot >= 0) W.block[foot] = 0; return false; }
+        if (fk >= 0) hold.add(fk);
+        return true;
+      },
+      first(kind, list, o = {}) { for (const [x, y] of list) if (P.put(kind, x, y, o)) return [x, y]; return null; },
+      // a tile to post someone on: free and out of the door lane if possible, else at least not inside furniture
+      anyFree(list) { for (const [x, y] of list) if (free(x, y) && !lane(x, y)) return [x, y]; for (const [x, y] of list) if (!occ(x, y) && !lane(x, y)) return [x, y]; for (const [x, y] of list) if (!occ(x, y)) return [x, y]; return null; },
+    };
+    b._hold = hold;
+    return P;
+  }
   function furnish(b) {
     const x0 = b.x + 1, y0 = b.y + 1, x1 = b.x + b.w - 2, y1 = b.y + b.h - 2, mx = b.x + Math.floor(b.w / 2);
     const lightIn = (tx, ty, r = 150, col = '255,180,100') => W.lights.push({ x: tx * TS + 16, y: ty * TS + 10, r, col, fl: 0.12, k: 'fire', b: b.id });
     const D_ = (k, tx, ty, o = {}) => addDecor(k, tx, ty, o);
+    // the stairs to an upper floor go in first, so the furniture is set out around them
+    let loftCol = null;
+    if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) { makeLoft(b, x0, y0, x1, y1); if (b.loft) loftCol = b.loft.col; }
+    const P = placer(b, x0, y0, x1, y1);
+    // the carpenter's bench (for refining wood) against a side wall, its sawhorse beside it
+    const carpenter = () => { const wb = P.first('workbench', [[x0, y0 + 2], [x0, y0 + 3], [x1 - 1, y0], [x0 + 2, y0], [x1, y0 + 1], [x1, y0 + 3], [x0, y0 + 1], [x1, y1 - 1], [x0, y1 - 1]]); if (wb) P.first('sawhorse', [[wb[0], wb[1] + 1], [wb[0], wb[1] - 1], [wb[0] + (wb[0] === x0 ? 1 : -1), wb[1] + 1]], { free: true }); };
     switch (b.type) {
       case 'hall':
+        if (b.city && b.w >= 15 && b.h >= 14) { castleKeep(b); break; }
         D_('throne', mx, y0, {}); D_('carpet', mx, y0 + 1, { len: b.h - 3 });
         for (let j = y0 + 1; j <= y1; j += 2) { D_('pillar', x0 + 1, j); D_('pillar', x1 - 1, j); }
         D_('brazier', mx - 2, y0); D_('brazier', mx + 2, y0); lightIn(mx - 2, y0, 200); lightIn(mx + 2, y0, 200);
@@ -773,60 +982,167 @@
         spot(b, 'king', mx, y0 + 1); spot(b, 'guard', mx - 2, y0 + 2); spot(b, 'guard', mx + 2, y0 + 2); spot(b, 'guard', mx - 2, y1 - 1); spot(b, 'guard', mx + 2, y1 - 1);
         break;
       case 'inn': case 'outpost': {
-        // bar counter along top
-        for (let i = x0; i <= Math.min(x1, x0 + 4); i++) D_('counter', i, y0 + 1);
-        D_('keg', x0, y0); D_('keg', x0 + 1, y0);
-        D_('stove', x1, y0); lightIn(x1, y0, 170, '255,150,80');
-        D_('hearth', x1, y0 + 2 < y1 ? y0 + 2 : y0); lightIn(x1, y0 + 2, 190, '255,160,80');
-        const tables = b.type === 'outpost' ? [[x0 + 1, y1]] : [[x0 + 1, y1 - 1], [x0 + 4, y1 - 1], [x1 - 2, y1 - 2]];
-        tables.forEach(([tx, ty]) => { D_('table', tx, ty); spot(b, 'seat', tx - 1, ty); spot(b, 'seat', tx + 1, ty); });
-        spot(b, 'keeper', x0 + 2, y0); spot(b, 'cook', x1 - 1, y0); spot(b, 'stage', x1 - 1, y1);
+        // the bar in the back corner opposite the stairs: kegs on the back wall, the keeper behind a counter that faces
+        // the room, the hearth on the side wall, and tables wherever two stools fit beside them
+        const bx = loftCol === x0 ? x1 : x0, bs = bx === x0 ? 1 : -1, bw = Math.min(3, x1 - x0); const cy0 = y1 - y0 >= 4 ? y0 + 2 : y0 + 1;
+        P.put('keg', bx, y0, { face: 's' }); P.put('keg', bx + bs, y0, { face: 's' });
+        for (let k = 0; k < bw; k++) P.put('counter', bx + bs * k, cy0, { face: 's', free: true });
+        spot(b, 'keeper', bx + bs, cy0 - 1);
+        const hx = P.first('hearth', [[bx, y1 - 1], [bx, y1], [x0 + Math.floor((x1 - x0) / 2) + 1, y0]]); if (hx) { lightIn(hx[0], hx[1], 190, '255,160,80'); spot(b, 'cook', ...P.front(hx[0], hx[1])); }
+        const nT = b.type === 'outpost' ? 1 : 3; let nt = 0;
+        for (let y = y1 - 1; y >= cy0 + 1 && nt < nT; y--) for (let x = x0 + 1; x <= x1 - 1 && nt < nT; x++) {
+          if (!P.free(x, y) || !P.free(x - 1, y) || !P.free(x + 1, y) || P.lane(x - 1, y) || P.lane(x + 1, y)) continue;
+          if (P.put('table', x, y, { free: true })) { spot(b, 'seat', x - 1, y); spot(b, 'seat', x + 1, y); P.hold(x - 1, y); P.hold(x + 1, y); nt++; x += 2; }
+        }
+        const st = P.anyFree([[x1 - 1, y1], [x0 + 1, y1], [mx + 2, y1 - 1]]); if (st) spot(b, 'stage', st[0], st[1]);
+        lightIn(bx + bs, cy0 - 1, 170, '255,170,90');
         break; }
-      case 'bank': for (let i = x0; i <= x1; i++) D_('counter', i, y0 + 1); D_('vault', x0, y0); D_('chest', x1, y0); spot(b, 'banker', mx, y0); lightIn(mx, y0 + 2, 140); break;
-      case 'smithy': case 'forge': D_('forge', x0, y0); lightIn(x0, y0, 200, '255,120,50'); D_('anvil', Math.min(x0 + 2, x1), y0 + 2); D_('orepile', x1, y0); D_('weaponrack', x1, y1); spot(b, 'smith', Math.min(x0 + 2, x1), Math.min(y0 + 3, y1)); spot(b, 'vendor', x1 - 1, y0 + 1); break;
-      case 'tailor': D_('loom', x0, y0); D_('clothrack', x1, y0); D_('table', x1, y1); spot(b, 'tailor', x0 + 1, y0 + 1); spot(b, 'vendor', x0 + 1, y0 + 1); lightIn(mx, y0 + 1, 130); break;
-      case 'guild': D_('bookshelf', x0, y0); D_('bookshelf', x0 + 1, y0); D_('lectern', mx, y0 + 1); D_('dummy', x1, y1); D_('dummy', x1 - 2, y1); D_('bookshelf', x1, y0); spot(b, 'trainer', mx, y0 + 2); lightIn(mx, y0 + 1, 160, '200,190,255'); break;
-      case 'jeweler': case 'gemcutter': D_('table', x0, y0); D_('chest', x1, y0); spot(b, 'vendor', mx, y0 + 1); lightIn(mx, y0, 140, '200,220,255'); break;
-      case 'bowyer': D_('weaponrack', x0, y0); D_('table', x1, y0); spot(b, 'vendor', mx, y0 + 1); lightIn(mx, y0, 130); break;
+      case 'bank': {
+        // the vault and a strongbox against the back wall, the tellers' counter in front of them with a gap at each end
+        P.put('vault', x0, y0, { face: 's' }); P.put('chest', x1, y0, { face: 's' });
+        for (let i = x0 + 1; i <= x1 - 1; i++) if (i !== loftCol) P.put('counter', i, y0 + 1, { face: 's', free: true });
+        spot(b, 'banker', mx === loftCol ? mx - 1 : mx, y0); lightIn(mx, y0 + 2, 160); break; }
+      case 'smithy': case 'forge': {
+        // the forge on the back wall a step from the corner, the anvil two paces in front of it, ore in the corner and
+        // the weapon rack on the side wall: every one of them with room to work in front
+        const fp = P.first('forge', [[x0 + 1, y0], [x0, y0], [x1, y0]]); if (fp) lightIn(fp[0], fp[1], 210, '255,120,50');
+        const ax = fp ? fp[0] : x0 + 1, ap = P.first('anvil', [[ax, y0 + 2], [ax + 1, y0 + 2], [ax, y0 + 3], [ax + 1, y0 + 1]], { free: true });
+        P.first('orepile', [[x1, y0], [x0, y0]], { free: true });
+        P.first('weaponrack', [[x1, y0 + 2], [x1, y0 + 1], [x0, y0 + 2], [x0, y0 + 3]]);
+        carpenter(x0, y0, x1, y1);
+        P.first('washtub', [[x0, y0 + 2], [x0, y1 - 1], [x1, y1 - 1]], { nb: true });
+        const sp = ap ? P.anyFree([[ap[0] + 1, ap[1]], [ap[0] - 1, ap[1]], [ap[0], ap[1] - 1], [ap[0], ap[1] + 1]]) : null; spot(b, 'smith', ...(sp || [mx, y0 + 1]));
+        spot(b, 'vendor', ...(P.anyFree([[x1 - 1, y0 + 1], [mx + 1, y0 + 1], [mx, y0 + 1]]) || [mx, y1 - 1])); break; }
+      case 'tailor': {
+        const lp = P.first('loom', [[x0, y0], [x0 + 1, y0], [x1, y0]]);
+        P.first('clothrack', [[x1, y0], [x1, y0 + 1], [x0, y0 + 1]]);
+        P.first('table', [[x1, y1], [x0, y1], [x1, y1 - 1]], { free: true });
+        const tp = lp ? P.front(lp[0], lp[1]) : [x0, y0 + 1]; spot(b, 'tailor', ...tp); spot(b, 'vendor', ...tp); lightIn(mx, y0 + 1, 150); break; }
+      case 'guild': {
+        P.first('bookshelf', [[x0, y0]]); P.first('bookshelf', [[x0 + 1, y0]]); P.first('bookshelf', [[x1, y0], [x1 - 1, y0]]);
+        P.first('lectern', [[mx, y0 + 1], [mx + 1, y0 + 1]], { free: true });
+        P.first('dummy', [[x1, y1], [x1, y1 - 1]], { free: true }); P.first('dummy', [[x1 - 2, y1], [x0, y1]], { free: true });
+        spot(b, 'trainer', ...(P.anyFree([[mx, y0 + 2], [mx - 1, y0 + 2], [mx + 1, y0 + 2]]) || [mx, y1 - 1])); lightIn(mx, y0 + 1, 170, '210,200,255'); break; }
+      case 'jeweler': case 'gemcutter': P.first('desk', [[x0, y0], [x0 + 1, y0]]); P.first('chest', [[x1, y0], [x1 - 1, y0]]); spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0, 150, '210,225,255'); break;
+      case 'bowyer': P.first('weaponrack', [[x0, y0], [x0 + 1, y0]]); P.first('table', [[x1, y0], [x1 - 1, y0]], { free: true }); spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0, 140); break;
       case 'store': case 'armorer': case 'weaponsmith': case 'fletcher': case 'armory': case 'exchange':
-        D_('shelf', x0, y0); D_('shelf', x1, y0); D_('crate', x1, y1); D_('barrel', x0, y1);
-        if (b.type === 'weaponsmith' || b.type === 'armory') D_('weaponrack', x0 + 1, y0); if (b.type === 'armorer') D_('armorstand', x0 + 1, y0);
-        spot(b, 'vendor', mx, y0 + 1); lightIn(mx, y0 + 1, 130); break;
-      case 'scribe': D_('bookshelf', x0, y0); D_('bookshelf', x1, y0); D_('lectern', mx, y0 + 1); spot(b, 'vendor', mx, y0 + 2); spot(b, 'scribe', mx, y0 + 2); lightIn(mx, y0 + 1, 150, '190,170,255'); break;
-      case 'heroes': D_('statue', mx, y0, {}); D_('banner', x0, y0, { nb: true }); D_('banner', x1, y0, { nb: true }); D_('brazier', x0, y1); D_('brazier', x1, y1); lightIn(x0, y1, 160); lightIn(x1, y1, 160); spot(b, 'vendor', mx, y0 + 2); break;
+        // shelves and racks along the back and side walls, barrels and crates in the front corners away from the door
+        P.first('shelf', [[x0, y0]]); P.first('shelf', [[x1, y0], [x1, y0 + 1]]);
+        if (b.type === 'weaponsmith' || b.type === 'armory') P.first('weaponrack', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
+        if (b.type === 'armorer') P.first('armorstand', [[x0 + 1, y0], [x0, y0 + 1], [x0, y0 + 2]]);
+        if (b.type === 'fletcher') { P.first('weaponrack', [[x0, y0 + 2], [x1, y0 + 2]]); carpenter(x0, y0, x1, y1); }
+        P.first('barrel', [[x0, y1], [x0, y1 - 1]], { free: true }); P.first('crate', [[x1, y1], [x1, y1 - 1]], { free: true });
+        spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 1], [mx - 1, y0 + 1], [mx + 1, y0 + 1]]) || [mx, y1 - 1])); lightIn(mx, y0 + 1, 150); break;
+      case 'scribe': P.first('bookshelf', [[x0, y0]]); P.first('bookshelf', [[x1, y0]]); P.first('lectern', [[mx, y0 + 1], [x0, y0 + 2], [x1, y0 + 2]], { free: true });
+        { const v = P.anyFree([[mx, y0 + 2], [mx - 1, y0 + 2], [mx, y0 + 3]]) || [mx, y1 - 1]; spot(b, 'vendor', ...v); spot(b, 'scribe', ...v); } lightIn(mx, y0 + 1, 160, '200,180,255'); break;
+      case 'heroes': P.first('statue', [[mx, y0], [mx - 1, y0]]); D_('banner', x0, y0, { nb: true }); D_('banner', x1, y0, { nb: true }); D_('brazier', x0, y1); D_('brazier', x1, y1); lightIn(x0, y1, 170); lightIn(x1, y1, 170); spot(b, 'vendor', ...(P.anyFree([[mx, y0 + 2], [mx, y0 + 1]]) || [mx, y1 - 1])); break;
       case 'barracks': {
-        // rows of bunks along the back wall, an armory corner, a training dummy and the recruiter's desk by the door
-        for (let i = x0; i <= x1; i += 2) D_('bed', i, y0);
-        if (y1 - y0 >= 4) for (let i = x0 + 2; i <= x1 - 2; i += 2) D_('bed', i, y0 + 2);
-        D_('weaponrack', x0, y1); D_('armorstand', x0 + 1, y1); D_('dummy', x1, y1); D_('chest', x1, y0 + 1 <= y1 ? y0 + 1 : y0);
-        D_('table', mx + 2 <= x1 ? mx + 2 : x1, y1 - 1);
+        // bunks along the back wall (a bed takes its tile and the one at its foot), the armoury corner and the recruiter's
+        // desk by the door, a training dummy in the far corner
+        for (let i = x0; i <= x1; i += 2) P.put('bed', i, y0);
+        P.first('weaponrack', [[x0, y1], [x0, y1 - 1]]); P.first('armorstand', [[x0 + 1, y1], [x0, y1 - 2]]); P.first('dummy', [[x1, y1], [x1, y1 - 1]], { free: true });
+        P.first('chest', [[x1, y0 + 2], [x1, y0 + 3]]);
+        const tp = P.first('table', [[mx + 2, y1 - 1], [mx - 2, y1 - 1], [mx + 2, y1]], { free: true });
         D_('banner', x0, y0, { nb: true });
-        spot(b, 'recruiter', mx + 2 <= x1 ? mx + 2 : x1, y1); spot(b, 'spawn', mx, y1 - 1);
-        lightIn(mx, y0 + 1, 170); lightIn(x0 + 1, y1, 130); break; }
-      case 'house': D_('bed', x0, y0); D_('table', x1, y1); D_('chest', x1, y0); spot(b, 'home', x0 + 1, y0 + 1); lightIn(mx, y0, 110, '255,190,120'); break;
+        spot(b, 'recruiter', ...(P.anyFree(tp ? [[tp[0], tp[1] + 1], [tp[0] + 1, tp[1]], [tp[0] - 1, tp[1]]] : []) || [mx + 1, y1])); spot(b, 'spawn', ...(P.anyFree([[mx, y1 - 1], [mx - 1, y1 - 1], [mx + 1, y1 - 2]]) || [mx, y1]));
+        lightIn(mx, y0 + 2, 180); lightIn(x0 + 1, y1, 140); break; }
+      case 'house': {
+        // a bed in a back corner, the stove in the other, a wardrobe or a chest between them, a table if there is room
+        const bp = P.first('bed', [[x0, y0], [x1, y0]]);
+        const sp = P.first('stove', bp && bp[0] === x0 ? [[x1, y0], [x1, y0 + 1]] : [[x0, y0], [x0, y0 + 1]]); if (sp) lightIn(sp[0], sp[1], 150, '255,170,100');
+        P.first(y1 - y0 >= 2 ? 'wardrobe' : 'chest', [[x0 + 2, y0], [x1 - 2, y0], [x0 + 1, y0]]);
+        if (y1 - y0 >= 2) P.first('table', [[x1 - 1, y1 - 1], [x0 + 1, y1 - 1], [x1, y1]], { free: true });
+        spot(b, 'home', ...(P.anyFree([[x0 + 1, y0 + 1], [mx, y0 + 1], [mx, y1]]) || [mx, y1])); lightIn(mx, y0, 150, '255,195,125'); break; }
       case 'kingtower': D_('banner', mx, y0, { nb: true }); D_('weaponrack', x1, y0); D_('table', mx, y0 + 2); D_('chair', mx - 1, y0 + 2, { nb: true }); D_('chair', mx + 1, y0 + 2, { nb: true }); D_('candle', x1, y1 - 1, { nb: true }); spot(b, 'guard', x1 - 1, y1 - 1); lightIn(mx, y0 + 1, 150); break;
       case 'chamber': D_('brazier', x0, y0); D_('brazier', x1, y0); D_('bones', x0 + 2, y1, { nb: true }); D_('bones', x1 - 1, y1 - 1, { nb: true }); lightIn(x0, y0, 170, '255,110,60'); lightIn(x1, y0, 170, '255,110,60'); spot(b, 'boss', mx, y0 + 2); break;
     }
-    if (['inn', 'guild', 'bank', 'heroes', 'exchange'].includes(b.type) && y1 - y0 >= 4 && x1 - x0 >= 3) makeLoft(b, x0, y0, x1, y1);
     if (b.type === 'kingtower') { makeLoft(b, x0, y0, x1, y1, y1 - 2); if (b.loft) towerBalcony(b); }
     dress(b, x0, y0, x1, y1);
+  }
+  // ---------- the castle: the king's throne hall on the fourth floor, three wide flights up ----------
+  // One great keep. Its floor is terraced: the gate (four tiles wide) opens into a stone vestibule on the ground floor,
+  // and three flights four tiles abreast climb in switchbacks by two long landings to the throne hall, which fills the
+  // whole back of the keep. No floor lies over another, so everyone (the player, the guards, the king and a raiding
+  // party) simply walks it: the 3D view raises every tile to its floor (b.terr, W.terrAt) and the stone balustrades
+  // (W.edge) keep walkers from stepping off a floor anywhere but at the stairs.
+  const CASTLE_N = 3; // tiles per flight
+  // the floor (0 ground .. 3 throne hall) at fraction (u, v) across a castle tile
+  const terrLv = (cell, u, v) => {
+    if (!cell) return 0;
+    if (cell.st) { const s = cell.st; const t = s.dir[1] < 0 ? 1 - v : s.dir[1] > 0 ? v : s.dir[0] > 0 ? u : 1 - u; return s.a + (s.k + t) / s.n; }
+    return cell.lv;
+  };
+  W.terrAt = function (b, px, py) {
+    const T3 = b.terr; if (!T3) return 0; const fx = px / TS - T3.x0, fy = py / TS - T3.y0; const c = Math.floor(fx), r = Math.floor(fy);
+    if (c < 0 || r < 0 || c >= T3.w || r >= T3.h) return 0;
+    return terrLv(T3.cells[r * T3.w + c], fx - c, fy - r);
+  };
+  W.terrLv = terrLv;
+  function castleKeep(b) {
+    const X0 = b.x + 1, Y0 = b.y + 1, w = b.w - 2, h = b.h - 2;
+    const lw = 4, mE = w - lw, rL3 = h - 8; // lanes: west 0..3, middle 4..w-5, east w-4..w-1; the throne hall is rows 0..h-8
+    const lane = (c) => (c < lw ? 'W' : c >= mE ? 'E' : 'M');
+    const cells = new Array(w * h);
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+      const L = lane(c); let cell;
+      if (r <= rL3) cell = { lv: 3 };
+      else if (r <= rL3 + 2) cell = { lv: L === 'W' ? 3 : 1 }; // the north landing (second floor); in the west, the throne hall's stairhead
+      else if (r <= rL3 + 2 + CASTLE_N) { // the three flights, side by side: up north in the east, back south in the middle, up north in the west
+        const k = r - rL3 - 3;
+        cell = { st: L === 'E' ? { a: 0, k: CASTLE_N - 1 - k, n: CASTLE_N, dir: [0, -1] } : L === 'M' ? { a: 1, k, n: CASTLE_N, dir: [0, 1] } : { a: 2, k: CASTLE_N - 1 - k, n: CASTLE_N, dir: [0, -1] } };
+      } else cell = { lv: L === 'E' ? 0 : 2 }; // the vestibule inside the gate, and the south landing (third floor)
+      cells[r * w + c] = cell;
+    }
+    b.terr = { x0: X0, y0: Y0, w, h, cells, lanes: [lw, mE], rL3 };
+    // rails wherever two floors meet (not across the ends of a flight)
+    if (!W.edge || W.edge.length !== W.W * W.H) W.edge = new Uint8Array(W.W * W.H);
+    railMoves();
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+      const A = cells[r * w + c], i = (Y0 + r) * W.W + X0 + c;
+      if (c + 1 < w && Math.abs(terrLv(A, 1, 0.5) - terrLv(cells[r * w + c + 1], 0, 0.5)) > 0.1) { W.edge[i] |= 2; W.edge[i + 1] |= 8; }
+      if (r + 1 < h && Math.abs(terrLv(A, 0.5, 1) - terrLv(cells[(r + 1) * w + c], 0.5, 0)) > 0.1) { W.edge[i] |= 4; W.edge[i + W.W] |= 1; }
+    }
+    // the gate: the whole width of the vestibule, always open (a raised portcullis, no door leaf)
+    const gy = b.y + b.h - 1; b.gate = { x0: X0 + mE, x1: X0 + w - 1, ty: gy };
+    delete W.doorAt[b.door.ty * W.W + b.door.tx];
+    for (let x = b.gate.x0; x <= b.gate.x1; x++) { const k = gy * W.W + x; W.tiles[k] = T.STONE; W.block[k] = 0; if (W.inb(x, gy + 1)) { W.block[k + W.W] = 0; if (SOLID[W.tiles[k + W.W]]) W.tiles[k + W.W] = T.STONE; } }
+    // the throne against the back wall, a red carpet to it, braziers and banners; armour stands down the side walls
+    const D_ = (k, c, r, o = {}) => addDecor(k, X0 + c, Y0 + r, o);
+    const lit = (c, r, rad = 200, col = '255,176,96') => W.lights.push({ x: (X0 + c) * TS + 16, y: (Y0 + r) * TS + 10, r: rad, col, fl: 0.06, k: 'fire', b: b.id });
+    const solid = (c, r) => { W.block[(Y0 + r) * W.W + X0 + c] = 1; };
+    const mid = Math.floor(w / 2);
+    D_('throne', mid, 0); D_('carpet', mid, 1, { len: rL3 - 0.4 }); // the runner stops short of the hall's front edge
+    for (const c of [mid - 2, mid + 2]) { D_('brazier', c, 0); solid(c, 0); lit(c, 0, 230); }
+    D_('banner', mid - 4, 0, { nb: true }); D_('banner', mid + 4, 0, { nb: true });
+    D_('tapestry', 0, 2, { nb: true }); D_('tapestry', w - 1, 2, { nb: true });
+    D_('armorstand', 0, 1); D_('armorstand', w - 1, 1); D_('armorstand', w - 1, 3);
+    for (const [c, r] of [[0, 0], [w - 1, 0], [w - 1, rL3]]) { D_('brazier', c, r); solid(c, r); lit(c, r, 210); }
+    // a brazier in a far corner of each landing, out of the way of the stairs; the vestibule is lit from the walls
+    D_('brazier', w - 1, rL3 + 1); solid(w - 1, rL3 + 1); lit(w - 1, rL3 + 1, 220);
+    D_('brazier', 0, h - 1); solid(0, h - 1); lit(0, h - 1, 220);
+    lit(mE, h - 2, 170); lit(w - 1, h - 2, 170);
+    // the king before his throne, two royal guards beside him and two holding the head of the stairs
+    spot(b, 'king', X0 + mid, Y0 + 1);
+    for (const [c, r] of [[mid - 2, 1], [mid + 2, 1], [0, rL3], [lw - 1, rL3]]) spot(b, 'guard', X0 + c, Y0 + r);
   }
   // the things people of the 1300s had at home, added around what each building already has:
   // rugs, stools and benches by the tables, a wood stove, cupboards, candles, tapestries on the walls
   function dress(b, x0, y0, x1, y1) {
     const door = b.door; const taken = (x, y) => x < x0 || x > x1 || y < y0 || y > y1 || W.block[y * W.W + x] || W.decor.some((d) => d.tx === x && d.ty === y && !d.flat && !d.up) || (W.stairs && W.stairs.get(y * W.W + x)) || (Math.abs(x - door.tx) <= 1 && y >= y1 - 1) || Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y));
-    const put = (k, x, y, o = {}) => { if (taken(x, y)) return false; addDecor(k, x, y, o); return true; };
+    const held = (x, y) => !!(b._hold && b._hold.has(y * W.W + x));
+    const frontFree = (k, x, y) => { if (!NEEDS_FRONT.has(k)) return true; const n = y - b.y, s = b.y + b.h - 1 - y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, s, w, e); if (m !== 1 || m === s) return false; const [fx, fy] = m === n ? [x, y + 1] : m === w ? [x + 1, y] : [x - 1, y]; return !taken(fx, fy) && !held(fx, fy); };
+    const put = (k, x, y, o = {}) => { if (taken(x, y) || held(x, y) || !frontFree(k, x, y)) return false; addDecor(k, x, y, o); if (NEEDS_FRONT.has(k) && b._hold) { const n = y - b.y, w = x - b.x, e = b.x + b.w - 1 - x; const m = Math.min(n, w, e); b._hold.add(m === n ? (y + 1) * W.W + x : m === w ? y * W.W + x + 1 : y * W.W + x - 1); } return true; };
     const mx = Math.floor((x0 + x1) / 2), my = Math.floor((y0 + y1) / 2);
-    const rugAt = (x, y) => { if (!W.decor.some((d) => d.tx === x && d.ty === y && d.kind === 'rug')) addDecor('rug', x, y, { nb: true, flat: true }); };
+    const rugAt = (x, y) => { if (!W.block[y * W.W + x] && !W.decor.some((d) => d.tx === x && d.ty === y && (d.kind === 'rug' || (!d.flat && !d.up)))) addDecor('rug', x, y, { nb: true, flat: true }); };
     // seats where people sit at the tables
     for (const s of (b.spots && b.spots.seat) || []) { const x = Math.floor(s[0] / TS), y = Math.floor(s[1] / TS); if (!W.decor.some((d) => d.tx === x && d.ty === y)) addDecor('stool', x, y, { nb: true }); }
     for (const d of W.decor.filter((d) => d.kind === 'table' && d.tx >= x0 && d.tx <= x1 && d.ty >= y0 && d.ty <= y1 && !d.up)) { put('stool', d.tx - 1, d.ty, { nb: true }) || put('bench', d.tx, d.ty + 1, { nb: true }); put('stool', d.tx + 1, d.ty, { nb: true }); }
     const corners = [[x0, y1 - 1], [x1, y1 - 1], [x0, y0], [x1, y0]];
     switch (b.type) {
       case 'house': rugAt(mx, my); put('stove', x0, y1 - 1) || put('stove', x1, y1 - 1); put('wardrobe', mx, y0) || put('dresser', mx + 1, y0); put('washtub', x1, my, { nb: true }); put('candle', x0 + 1, y0, { nb: true }); put('tapestry', mx - 1, y0, { nb: true }); break;
-      case 'inn': case 'outpost': rugAt(mx, y1 - 1); put('cauldron', x1 - 1, y0 + 2); for (const [x, y] of corners) put('candle', x, y, { nb: true }); put('tapestry', mx, y0, { nb: true }); break;
+      case 'inn': case 'outpost': rugAt(mx, y1 - 1); for (const [x, y] of corners) put('candle', x, y, { nb: true }); put('tapestry', mx, y0, { nb: true }); break;
       case 'barracks': put('candle', x0, my, { nb: true }); put('stool', mx - 1, y1 - 1, { nb: true }); put('stove', x1, my); break;
-      case 'hall': for (let x = x0 + 2; x <= x1 - 2; x += 3) { put('tapestry', x, y0, { nb: true }); } put('candle', x0, y1 - 1, { nb: true }); put('candle', x1, y1 - 1, { nb: true }); break;
+      case 'hall': if (b.terr) break; for (let x = x0 + 2; x <= x1 - 2; x += 3) { put('tapestry', x, y0, { nb: true }); } put('candle', x0, y1 - 1, { nb: true }); put('candle', x1, y1 - 1, { nb: true }); break;
       case 'kingtower': rugAt(mx, y1); put('tapestry', mx - 1, y0, { nb: true }); break;
       case 'bank': case 'guild': case 'heroes': case 'exchange': rugAt(mx, my + 1); put('candle', x0, y1 - 1, { nb: true }); put('candle', x1, y1 - 1, { nb: true }); put('tapestry', mx + 1, y0, { nb: true }); put('bench', mx, y1 - 1, { nb: true }); break;
       case 'chamber': break;
@@ -837,15 +1153,17 @@
   // b.loft is the floor's tile rectangle; its steps go in W.stairs (climbing north, toward the back wall)
   function makeLoft(b, x0, y0, x1, y1, ymOver) {
     if (!W.stairs) W.stairs = new Map();
-    const ym = ymOver != null ? ymOver : y0 + Math.floor((y1 - y0 + 1) / 2) - 1, n = y1 - ym;
+    // the flight climbs north along a side wall and stops a tile short of the front wall, so its foot opens onto the room
+    const foot = ymOver != null ? y1 : y1 - 1;
+    const ym = ymOver != null ? ymOver : Math.max(y0 + 1, foot - 3), n = foot - ym;
     if (n < 2) return;
     const busy = (x, y) => W.decor.some((d) => d.tx === x && d.ty === y) || Object.values(b.spots || {}).some((l) => l.some(([px, py]) => Math.floor(px / TS) === x && Math.floor(py / TS) === y));
     const cost = (col) => { let c = 0; for (let y = ym; y <= y1; y++) if (busy(col, y)) c++; return c; };
-    const col = cost(x0) <= cost(x1) ? x0 : x1;
+    const col = Math.abs(x1 - b.door.tx) <= 0 ? x0 : cost(x1) <= cost(x0) ? x1 : x0;
     for (let y = ym; y <= y1; y++) { W.decor = W.decor.filter((d) => !(d.tx === col && d.ty === y)); W.block[y * W.W + col] = 0; for (const k in b.spots || {}) b.spots[k] = b.spots[k].filter(([px, py]) => !(Math.floor(px / TS) === col && Math.floor(py / TS) === y)); }
     W.block[ym * W.W + col] = 1; // the landing is under the stairs' top: on the ground floor you cannot stand there
     b.loft = { x0, y0, x1, y1: ym, col, city: b.city || b.faction || null };
-    for (let k = 0; k < n; k++) { const y = y1 - k; W.stairs.set(y * W.W + col, { loft: b, k, n, dir: [0, -1], top: k === n - 1 }); }
+    for (let k = 0; k < n; k++) { const y = foot - k; W.stairs.set(y * W.W + col, { loft: b, k, n, dir: [0, -1], top: k === n - 1 }); }
     // upstairs: beds for the inn's guests, books for the guild, strongboxes for the bank
     const other = col === x0 ? x1 : x0, step = col === x0 ? -1 : 1;
     const up = (k, tx, ty, o = {}) => addDecor(k, tx, ty, Object.assign({ nb: true, up: true }, o));
@@ -880,12 +1198,13 @@
   // [type, x, y, w, h, minLevel, name]
   // The city is laid out around two paved avenues that run gate to gate through the plaza (north-south and
   // east-west), with a lane behind each row of houses. Every building faces a street (doors are on the south
-  // side), alleys between them are at least two tiles wide, and the throne hall and the king's tower stand on
-  // either side of the green at the head of the north avenue, so the way to the sea gate stays open.
+  // side), alleys between them are at least two tiles wide. The king's castle stands in the north-west with an open
+  // courtyard before its gate (room for the siege engines), the inn and the green east of the north avenue, so the way to
+  // the sea gate stays open.
   const CITY_LAYOUT = [ // [type, x, y, w, h, minLevel]
-  ['hall', -18, -19, 12, 8, 1], ['kingtower', 9, -19, 7, 7, 1], ['inn', -18, -8, 10, 7, 1], ['bank', 8, -7, 8, 6, 1],
-  ['smithy', -18, 7, 7, 6, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 6, 1],
-  ['house', -18, 15, 5, 3, 1], ['house', -10, 15, 5, 3, 1], ['house', 5, 15, 5, 3, 1], ['house', 12, 15, 5, 3, 1],
+  ['hall', -18, -19, 15, 14, 1], ['inn', 8, -19, 9, 8, 1], ['bank', 8, -7, 8, 6, 1],
+  ['smithy', -18, 7, 7, 5, 1], ['tailor', -8, 7, 5, 5, 1], ['store', 4, 7, 5, 5, 1], ['guild', 11, 7, 7, 5, 1],
+  ['house', -18, 14, 6, 4, 1], ['house', -10, 14, 6, 4, 1], ['house', 4, 14, 6, 4, 1], ['house', 12, 14, 6, 4, 1],
   ['armorer', -24, -12, 4, 7, 2], ['weaponsmith', 21, -12, 4, 7, 2], ['house', -24, 7, 4, 5, 2], ['house', 21, 7, 4, 5, 2], ['house', -15, -24, 6, 4, 2], ['jeweler', 9, -24, 6, 4, 2], ['house', -9, 20, 5, 4, 2], ['house', 4, 20, 5, 4, 2],
   ['scribe', -30, -8, 4, 7, 3], ['fletcher', 27, -8, 4, 7, 3], ['house', -30, 7, 4, 5, 3], ['house', 27, 7, 4, 5, 3], ['house', -23, -30, 6, 4, 3], ['house', 17, -30, 6, 4, 3], ['house', -17, 26, 6, 4, 3], ['house', 11, 26, 6, 4, 3],
   ['forge', -36, -9, 4, 8, 4], ['armory', 33, -9, 4, 8, 4], ['house', -36, 8, 4, 5, 4], ['house', 33, 8, 4, 5, 4], ['gemcutter', -10, -36, 6, 4, 4], ['bowyer', 4, -36, 6, 4, 4], ['house', -27, 32, 6, 4, 4], ['house', 21, 32, 6, 4, 4],
@@ -908,6 +1227,7 @@
         if (dx >= -6 && dx <= 6 && dy >= -6 && dy <= 2) return false; // plaza
         if (Math.abs(dx) <= 3) return false; // the north-south avenue
         if (dx >= -6 && dx <= 7 && dy >= -19 && dy <= -11) return false; // the green
+        if (dx >= -19 && dx <= -3 && dy >= -6 && dy <= 0) return false; // the castle's courtyard (room for siege engines)
         const t = W.tiles[y * W.W + x]; if (t === T.WALL || t === T.DOOR || t === T.CWALL || t === T.WATER) return false;
       }
       for (const b of W.buildings) if (b.city === f && !(x0 + w + M <= b.x || b.x + b.w + M <= x0 || y0 + h + M + 1 <= b.y || b.y + b.h + M <= y0)) return false;
@@ -957,12 +1277,55 @@
         const k = ty * W.W + tx; if (!SOLID[W.tiles[k]]) W.block[k] = 0;
       }
     }
+    // the open-air front of a craft house (the smithy's forge, the tailor's stall...) stands on the street beside the
+    // door: those tiles are blocked (an invisible 'yard' marker) so nobody walks through it in 3D, and b.yard tells the
+    // 3D builder exactly where it may build. Only where the street stays at least two tiles wide past it.
+    const YARD = new Set(['smithy', 'forge', 'tailor', 'armorer', 'armory', 'weaponsmith', 'fletcher', 'bowyer', 'scribe', 'jeweler', 'gemcutter', 'store']);
+    for (const b of bs) {
+      b.yard = null; if (!YARD.has(b.type) || !b.door) continue; const d = b.door, ty = b.y + b.h;
+      const left = d.tx - b.x, right = b.x + b.w - 1 - d.tx; const side = right >= left ? 1 : -1;
+      const xs = []; for (let x = d.tx + side * 2; side > 0 ? x <= b.x + b.w - 1 : x >= b.x; x += side) xs.push(x);
+      const ok = (x) => { const k = ty * W.W + x; if (!W.inb(x, ty + 2) || SOLID[W.tiles[k]] || W.block[k] || W.tiles[k] === T.WATER || W.buildingAt(x * TS + 16, ty * TS + 16) || W.stairs && W.stairs.get(k) || W.decor.some((o) => o.tx === x && o.ty === ty && !o.flat)) return false;
+        for (const dy of [1, 2]) { const k2 = (ty + dy) * W.W + x; if (SOLID[W.tiles[k2]] || W.block[k2] || W.buildingAt(x * TS + 16, (ty + dy) * TS + 16)) return false; } return true; };
+      const use = []; for (const x of xs) { if (!ok(x)) break; use.push(x); }
+      if (use.length < 1) continue;
+      for (const x of use) { addDecor('yard', x, ty, {}); }
+      b.yard = { x0: Math.min(...use), x1: Math.max(...use), ty };
+    }
+  }
+  // when a city is rebuilt (a kingdom level-up, often handed in to the king while you stand in his castle) everyone in
+  // it keeps their footing: whoever was upstairs stays on the new building's upper floor, and anyone left inside a wall,
+  // a prop or a balustrade steps to the nearest open tile on the same floor
+  function keepFooting(f, cx, cy, R) {
+    const G = KR.G; if (!G || !G.ents) return;
+    const lvOf = (px, py) => { const b = W.buildingAt(px, py); return b && b.terr ? Math.round(W.terrAt(b, px, py) * 4) / 4 : 0; };
+    for (const e of G.ents) {
+      if (e.dead || e.removed || e.x == null || Math.max(Math.abs(e.x / TS - cx), Math.abs(e.y / TS - cy)) > R + 3) continue;
+      const lv0 = lvOf(e.x, e.y); // the castle stands the same at every level, so its floors are where they were
+      if (e.upB) { // the old building object is gone: hand over to the one that replaced it, if its upper floor is here
+        const o = e.upB; const nb = W.buildings.find((b) => b.city === o.city && b.type === o.type && b.x === o.x && b.y === o.y);
+        const L = nb && nb.loft; const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS);
+        const up = L && tx >= L.x0 && tx <= L.x1 && ty >= L.y0 && ty <= L.y1;
+        if (o !== nb) { e.upB = up ? nb : null; if (e.loftHome === o) e.loftHome = up ? nb : null; }
+        if (e.upB) continue;
+      }
+      const stuck = (px, py) => W.solidAtPx(px - 8, py - 4) || W.solidAtPx(px + 8, py - 4) || W.solidAtPx(px - 8, py + 6) || W.solidAtPx(px + 8, py + 6);
+      if (!stuck(e.x, e.y)) continue;
+      const tx = Math.floor(e.x / TS), ty = Math.floor(e.y / TS); let best = null;
+      for (let r = 1; r <= 8 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const px = (tx + dx) * TS + 16, py = (ty + dy) * TS + 16;
+        if (stuck(px, py) || W.isBlockedTile(tx + dx, ty + dy)) continue;
+        const sameFloor = lv0 == null || Math.abs(lvOf(px, py) - lv0) < 0.3; const d = Math.hypot(dx, dy) + (sameFloor ? 0 : 50);
+        if (!best || d < best[2]) best = [px, py, d];
+      }
+      if (best) { e.x = best[0]; e.y = best[1]; }
+    }
   }
   W.stampCity = function (f, level, initial) {
     const [cx, cy] = D.CITY_CENTER[f]; const base = W.cityBase[f]; const R = D.cityRadius(level);
     // restore base terrain & remove old city content
     const x0 = base.x0, y0 = base.y0, bw = base.w;
-    for (let y = 0; y < bw; y++) for (let x = 0; x < bw; x++) { const tx = x0 + x, ty = y0 + y; if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; W.tiles[k] = base.tiles[y * bw + x]; W.block[k] = 0; }
+    for (let y = 0; y < bw; y++) for (let x = 0; x < bw; x++) { const tx = x0 + x, ty = y0 + y; if (!W.inb(tx, ty)) continue; const k = ty * W.W + tx; W.tiles[k] = base.tiles[y * bw + x]; W.block[k] = 0; if (W.edge) W.edge[k] = 0; }
     const inArea = (tx, ty) => tx >= x0 && ty >= y0 && tx < x0 + bw && ty < y0 + bw;
     W.buildings = W.buildings.filter((b) => { if (b.city === f) { delete W.doorAt[b.door.ty * W.W + b.door.tx]; return false; } return true; });
     if (W.stairs) for (const [i, st] of [...W.stairs]) if (st.f === f || (st.loft && st.loft.city === f)) W.stairs.delete(i);
@@ -1039,16 +1402,16 @@
     // the two avenues (paved, gate to gate) and the lanes behind the rows of buildings
     for (let d = -R + 1; d <= R - 1; d++) { for (let w = -2; w <= 2; w++) { W.tiles[(cy + d) * W.W + cx + w] = T.STONE; } for (let w = 1; w <= 5; w++) W.tiles[(cy + w) * W.W + cx + d] = T.STONE; }
     for (const ly of [-10, -9, 13, 14, 18, 19]) if (Math.abs(ly) < R - 1) for (let d = -R + 1; d <= R - 1; d++) { const k = (cy + ly) * W.W + cx + d; if (W.tiles[k] !== T.STONE) W.tiles[k] = T.COBBLE; }
-    // the green between the throne hall and the king's tower, with trees and benches
-    for (let ty = cy - 18; ty <= cy - 12; ty++) for (let tx = cx - 5; tx <= cx + 6; tx++) if (Math.abs(tx - cx) > 2) W.tiles[ty * W.W + tx] = T.GRASS;
-    for (const [ox, oy] of [[-4, -17], [5, -17], [-4, -13], [5, -13]]) addDecor('oak', cx + ox, cy + oy, { garden: true });
-    for (const [ox, oy] of [[-4, -15], [5, -15]]) addDecor('bench', cx + ox, cy + oy, { nb: true, ry: ox < 0 ? -Math.PI / 2 : Math.PI / 2 });
+    // the green between the north avenue and the inn, with trees and a bench
+    for (let ty = cy - 18; ty <= cy - 12; ty++) for (let tx = cx + 3; tx <= cx + 6; tx++) W.tiles[ty * W.W + tx] = T.GRASS;
+    for (const [ox, oy] of [[5, -17], [5, -13]]) addDecor('oak', cx + ox, cy + oy, { garden: true });
+    addDecor('bench', cx + 5, cy - 15, { nb: true, ry: Math.PI / 2 });
     for (let d = -R + 3; d <= R - 3; d += 6) for (const [x, y] of [[cx - 3, cy + d], [cx + 3, cy + d], [cx + d, cy], [cx + d, cy + 6]]) { if (Math.abs(x - cx) <= 6 && y - cy >= -6 && y - cy <= 1) continue; const k = y * W.W + x; if (W.tiles[k] !== T.STONE && W.tiles[k] !== T.COBBLE) continue; addDecor('lamp', x, y, {}); W.lights.push({ x: x * TS + 16, y: y * TS - 20, r: 170, col: '255,196,110', fl: 0.08, k: 'lamp' }); }
     addDecor(level >= 5 ? 'monument' : 'fountain', cx, cy - 2, {});
-    for (const [ox, oy] of [[-5, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
+    for (const [ox, oy] of [[-4, -5], [5, -5], [-5, 1], [5, 1]]) addDecor('flagpole', cx + ox, cy + oy, { nb: true, f });
     W.lights.push({ x: cx * TS + 16, y: (cy - 2) * TS, r: level >= 5 ? 260 : 170, col: level >= 5 ? '255,220,140' : '170,210,255', fl: 0.05, k: 'magic' });
-    if (level >= 2) { addDecor('stall', cx - 5, cy - 5, { col: '#b84a3a' }); addDecor('stall', cx + 5, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 5, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 5, cy - 1, { col: '#3a8a5a' }); }
-    if (level >= 3) { addDecor('statue', cx - 6, cy - 6, {}); addDecor('statue', cx + 6, cy - 6, {}); }
+    if (level >= 2) { addDecor('stall', cx - 3, cy - 3, { col: '#b84a3a' }); addDecor('stall', cx + 5, cy - 5, { col: '#3a6ab8' }); addDecor('stall', cx - 5, cy - 1, { col: '#c9a23a' }); addDecor('stall', cx + 5, cy - 1, { col: '#3a8a5a' }); }
+    if (level >= 3) { addDecor('statue', cx - 3, cy - 8, {}); addDecor('statue', cx + 6, cy - 6, {}); }
     // towers + torches on walls
     // (the old stone guard towers on the wall corners are gone: the gates are guarded by archer towers and siege engines)
     for (let i = -R + 4; i <= R - 4; i += 6) {
@@ -1064,7 +1427,7 @@
     const names = BNAMES[f];
     for (const [type, bx, by, bw2, bh, minL] of CITY_LAYOUT) {
       if (minL > level) continue;
-      const b = stampBuilding({ x: cx + bx, y: cy + by, w: bw2, h: bh, type, name: type === 'house' ? names.house : names[type], faction: f, city: f, style: f, minLevel: minL });
+      const b = stampBuilding({ x: cx + bx, y: cy + by, w: bw2, h: bh, doorX: type === 'hall' ? cx + bx + bw2 - 4 : undefined, type, name: type === 'house' ? names.house : names[type], faction: f, city: f, style: f, minLevel: minL });
       b.city = f;
     }
     // the barracks grows with the city: it houses every soldier of the kingdom's war parties
@@ -1102,11 +1465,13 @@
       W.cityData[f] = W.cityData[f] || {}; (W.cityData[f].fields = W.cityData[f].fields || [])[side < 0 ? 0 : 1] = [fx0, fy0, 9, 8];
     }
     W.cityData[f].R = R; W.cityData[f].level = level; W.cityData[f].cx = cx; W.cityData[f].cy = cy;
+    W.cityData[f].siegeYard = [cx - 18, cy - 5, 13, 5]; // [x, y, w, h] tiles: the open courtyard before the castle gate
     W.cityData[f].gates = [[cx, cy + R], [cx + R, cy + 3], [cx - R, cy + 3]].concat(f === 'sylvan' ? [[cx, cy - R]] : []);
     wallWalks(f, R, cx, cy);
     cityGrate(f, R, cx, cy);
     cityFinish(f);
     // invalidate chunk caches
+    railMoves(); keepFooting(f, cx, cy, R);
     if (KR.R && KR.R.invalidateArea) KR.R.invalidateArea(x0, y0, bw, bw);
     if (!initial) W.buildMinimap();
   };
@@ -1213,6 +1578,7 @@
         if (!dx && !dy) continue; const nx = x + dx, ny = y + dy;
         if (W.isBlockedTile(nx, ny, opts)) continue;
         if (dx && dy && (W.isBlockedTile(x + dx, y, opts) || W.isBlockedTile(x, y + dy, opts))) continue;
+        if (W.edge && W.edgeBlk(x, y, dx, dy)) continue;
         const nk = key(nx, ny), ng = gc + (dx && dy ? 1.41 : 1) + (W.tile(nx, ny) === T.WATER ? 2 : 0);
         if (g.has(nk) && g.get(nk) <= ng) continue;
         g.set(nk, ng); came.set(nk, key(x, y)); open.push([nx, ny, ng, ng + Math.hypot(gx - nx, gy - ny)]);

@@ -415,7 +415,6 @@ const svgCur = (body, hx, hy) => `url("data:image/svg+xml,${encodeURIComponent(`
 const TOOL_CURSOR = {
   pick: svgCur(`<path d='M6 4 Q16 1 27 9 Q17 6 9 8 Z' fill='#cfd6de' stroke='#222' stroke-width='1.2'/><rect x='14.5' y='5' width='3.2' height='24' rx='1.2' transform='rotate(18 16 17)' fill='#8a5a2e' stroke='#222' stroke-width='1.1'/>`, 6, 4),
   axe: svgCur(`<rect x='14' y='6' width='3.2' height='24' rx='1.2' transform='rotate(-20 16 18)' fill='#8a5a2e' stroke='#222' stroke-width='1.1'/><path d='M8 4 Q4 9 7 15 L15 11 L14 6 Z' fill='#cfd6de' stroke='#222' stroke-width='1.2'/>`, 6, 6),
-  bench: svgCur(`<path d='M5 10 H25 Q25 14 20 15 L19 19 H23 V23 H9 V19 H13 L12 15 Q6 14 5 10 Z' fill='#9aa0a8' stroke='#222' stroke-width='1.2'/><path d='M25 10 L30 12 L25 13 Z' fill='#9aa0a8' stroke='#222' stroke-width='1'/>`, 16, 16),
   knife: svgCur(`<path d='M4 4 L20 20 L22 18 Q12 6 4 4 Z' fill='#e2e6ea' stroke='#222' stroke-width='1.1'/><rect x='19' y='19' width='3' height='11' rx='1.2' transform='rotate(-45 20.5 24.5)' fill='#5a3a20' stroke='#222' stroke-width='1.1'/>`, 4, 4),
 };
 let hoverT = 0, hoverCur = '';
@@ -425,7 +424,6 @@ function hoverTool(sx, sy) {
   if (K && p && !p.dead && !view.look) {
     const e = pickAt(sx, sy);
     if (e) { if (K.skinnable && K.skinnable(e) && (!e.loot || !e.loot.items.length)) tool = 'knife'; }
-    else if (Sys.benchOnRay && Sys.benchOnRay(screenRay(sx, sy), PX)) tool = 'bench';
     else { const d = world3d.pickDecor(screenRay(sx, sy)); const h = d && K.harvestOf && K.harvestOf(d); if (h && !(d.cutUntil && d.cutUntil > G.now)) tool = h.tool; }
   }
   const cur = (tool && TOOL_CURSOR[tool]) || ''; if (cur !== hoverCur) { hoverCur = cur; cv.style.cursor = cur; }
@@ -526,9 +524,6 @@ function rightClick(sx, sy) {
   const p = G.player; if (!p || p.dead) return;
   const e = pickAt(sx, sy); const K = KR.Kingdom;
   if (!e) {
-    // a refining bench: open it (put materials in, press Refine)
-    const bn = Sys.benchOnRay && Sys.benchOnRay(screenRay(sx, sy), PX);
-    if (bn && UI.openRefine) { if (Math.hypot(bn.d.x - p.x, bn.d.y - p.y) > 110) G.log('Walk up to the bench first.', 'sys', '#aaa'); else UI.openRefine(bn.kind); return; }
     const d = world3d.pickDecor(screenRay(sx, sy)); if (d && K && K.harvestOf && K.harvestOf(d)) K.startHarvest(d); return;
   }
   if (K && K.skinnable && K.skinnable(e) && (!e.loot || !e.loot.items.length) && K.startSkin) { p.target = e; K.startSkin(e); return; }

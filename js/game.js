@@ -172,7 +172,7 @@
     if (p.type === 'merc') KR.Sys.applyStance(p);
   };
   const passCache = new Map();
-  G.passiveMods = function (c) { const key = c.cls + '|' + c.level; let m = passCache.get(key); if (!m) { m = {}; for (const P of D.classPassives(c.cls)) if (P.level <= c.level) for (const k in P.mods) m[k] = (m[k] || 0) + P.mods[k]; passCache.set(key, m); } return m; };
+  G.passiveMods = function (c) { const key = c.cls + '|' + c.level; let m = passCache.get(key); if (!m) { m = {}; for (const P of D.classPassives(c.cls)) if (P.level <= c.level) for (const k in P.mods) m[k] = (m[k] || 0) + P.mods[k]; if (D.classTraining) for (const [pk, lv] of D.classTraining(c.cls)) if (lv <= c.level && D.PASSIVES[pk]) for (const k in D.PASSIVES[pk].mods) m[k] = (m[k] || 0) + D.PASSIVES[pk].mods[k]; passCache.set(key, m); } return m; };
   G.buffMods = function (e) { const m = {}; for (const b of e.buffs) { if (!b.mods) continue; for (const k in b.mods) m[k] = (m[k] || 0) + b.mods[k]; }
     if (e.c && e.c.cls && (e.type === 'player' || e.type === 'merc')) { const pm = G.passiveMods(e.c); for (const k in pm) m[k] = (m[k] || 0) + pm[k]; } if (e.c && e.type === 'player' && e.c.pstance && D.PSTANCES[e.c.pstance]) { const sm = D.PSTANCES[e.c.pstance].mods; for (const k in sm) m[k] = (m[k] || 0) + sm[k]; } return m; };
   // class abilities: level-1 ones come with the class; the rest are trained at your guild for coin once you reach their level
@@ -1276,9 +1276,9 @@
     let coins = Math.round(lv * (3 + Math.random() * 9) * (e.coinMul || 1) * (e.named ? 3 : 1));
     if (['rat', 'snake', 'beetle', 'bat', 'wolf', 'bear', 'boar', 'spider', 'wisp', 'croc', 'mosquito', 'drake', 'griffon', 'elemental', 'golem', 'treant'].includes(e.kind) && !e.boss) coins = Math.round(coins * 0.15);
     if (e.drop && Math.random() < 0.45) loot.push(G.makeTrophy(e.drop, lv));
-    if (e.mat && (e.mat !== 'hide' || e.boss) && Math.random() < (e.boss ? 1 : 0.22)) loot.push(G.makeMat(e.mat, G.tierOfLevel(lv), e.boss ? 3 : 1));
-    const gearChance = e.boss ? 1 : e.named ? 0.6 : 0.06;
-    const n = e.boss ? 2 : 1;
+    // gear drops EverQuest-style (no crafting materials any more): named monsters often, bosses always, dungeon bosses more
+    const gearChance = e.boss ? 1 : e.named ? 0.75 : 0.08;
+    const n = e.boss ? (W.realm && W.realm !== 'main' ? 3 : 2) : 1;
     for (let i = 0; i < n; i++) if (Math.random() < gearChance) loot.push(G.randomGear(lv + (e.boss ? 3 : 0), e.boss ? 1.3 : e.named ? 1.12 : 0.92));
     const uq = G.rollUnique(lv, e.boss ? 0.4 : e.named ? 0.1 : 0.004); if (uq) loot.push(uq);
     if (e.boss || e.named) { const wn = D.UNIQUE_WORN.filter((u) => Math.abs(u.lvl - lv) <= 8); if (wn.length && Math.random() < (e.boss ? 0.3 : 0.06)) loot.push(G.makeUniqueWorn(e.boss === 'ignaroth' ? D.UNIQUE_WORN.find((u) => u.id === 'w_wyrmmantle') : e.boss === 'aerathos' ? D.UNIQUE_WORN.find((u) => u.id === 'w_titanbelt') : U.pick(wn))); }

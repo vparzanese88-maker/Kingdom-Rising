@@ -104,7 +104,7 @@
   // ---------- rooms ----------
   function snapshot() {
     const a = G.account; const cities = {};
-    for (const f of D.FACTION_IDS) { const c = a.cities[f]; cities[f] = { level: c.level, status: c.status, built: c.built || 0 }; }
+    for (const f of D.FACTION_IDS) { const c = a.cities[f]; cities[f] = { level: c.level, status: c.status, built: c.built || 0, realm: KR.Realm ? KR.Realm.snapshot(f) : undefined }; }
     return { host: true, code: O.code, name: O.name, cities, clock: Math.round(G.clock), day: a.day || 0, seed: a.seed, worldV: a.worldV };
   }
   O.sendWorld = function () { if (O.mode !== 'host' || !O.room) return; O.lastWorld = Date.now(); O.room.emit('world', snapshot()).catch(() => {}); };
@@ -186,7 +186,7 @@
   };
   function worldFromSnap(d) {
     const cities = {};
-    for (const f of D.FACTION_IDS) { const s = (d.cities && d.cities[f]) || {}; cities[f] = { level: int(s.level, 1, 5), status: Math.max(0, +s.status || 0), built: int(s.built, 0, 5) }; }
+    for (const f of D.FACTION_IDS) { const s = (d.cities && d.cities[f]) || {}; cities[f] = { level: int(s.level, 1, 5), status: Math.max(0, +s.status || 0), built: int(s.built, 0, 5) , realm: KR.Realm && s.realm ? KR.Realm.sanitize(s.realm) : null }; }
     return { cities, seed: Number.isFinite(+d.seed) ? +d.seed : G.account.seed, worldV: 4, clock: int(d.clock, 0, 1439), day: int(d.day, 0, 1e6) };
   }
   function applyWorld(d) {
@@ -194,7 +194,7 @@
     const a = G.account; const w = worldFromSnap(d);
     for (const f of D.FACTION_IDS) {
       const c = a.cities[f], s = w.cities[f]; const old = c.level;
-      c.level = s.level; c.status = s.status; c.built = s.built;
+      c.level = s.level; c.status = s.status; c.built = s.built; if (s.realm) c.realm = s.realm; // the host's kingdom: stores, buildings, workers
       if (G.player && c.level !== old) Sys.cityChanged(f, c.level > old);
     }
     if (G.player) { const diff = Math.abs(w.clock - G.clock); if (diff > 3 && diff < 1437) G.clock = w.clock; }

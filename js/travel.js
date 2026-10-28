@@ -14,7 +14,7 @@
     tidesong: [
       { role: 'innkeeper', dx: -1, dy: -7, name: 'Marla Saltwhistle', title: 'Innkeeper', services: ['vendor:inn', 'bind'], race: 'halfling', g: 'f', look: { armor: garb('#e8e0d0', '#3a6a8a'), sash: '#3a6a8a' }, lines: ['Fresh fish stew tonight. Caught this morning, mostly.', 'Rooms are cheap, the sea air is free.', 'Pirates? Aye, Blackfin\'s crew raid the north shore. Keep your coin close.'] },
       { role: 'trader', dx: 7, dy: -6, name: 'Osric Brine', title: 'Island Trader', services: ['vendor:island'], race: 'human', g: 'm', look: { armor: garb('#6a8aa0', '#e0c060'), hat: 'feather', hatCol: '#3a5a7a' }, lines: ['Coral, pearls, rope and rum. What do you need?', 'Everything costs a little more on an island. Shipping, you see.'] },
-      { role: 'smith', dx: 7, dy: 5, name: 'Torvald Anchorhand', title: 'Blacksmith', services: ['craft:smithing', 'vendor:metal'], race: 'dwarf', g: 'm', look: { armor: garb('#5a3e28', '#3a2618', 'leather'), weapon: '1HB', bare: true }, work: 'smith', lines: ['Salt eats steel. I spend half my days fighting rust.'] },
+      { role: 'smith', dx: 7, dy: 5, name: 'Torvald Anchorhand', title: 'Blacksmith', services: ['vendor:metal'], race: 'dwarf', g: 'm', look: { armor: garb('#5a3e28', '#3a2618', 'leather'), weapon: '1HB', bare: true }, work: 'smith', lines: ['Salt eats steel. I spend half my days fighting rust.'] },
       { role: 'harbormaster', dx: 2, dy: 3, name: 'Harbormaster Quell', title: 'Harbormaster', services: [], race: 'human', g: 'm', look: { armor: garb('#2a3a5a', '#e0c060', 'cloth'), hat: 'feather', hatCol: '#2a3a5a', weapon: '1HS' }, lines: ['Every ship that docks here pays me a coin. Every pirate that sinks one costs me ten.'] },
       { role: 'tidepriest', dx: 0, dy: -3, name: 'Sister Coralie', title: 'Tide Priestess', services: ['vendor:healer'], race: 'erudite', g: 'f', look: { armor: garb('#3a7a9a', '#e8f0ff', 'cloth'), robe: true, hat: 'mitre', hatCol: '#3a7a9a', hatTrim: '#e8f0ff' }, lines: ['The old temple sank beneath the waves three hundred years ago. Its priests did not all drown.'] },
       { role: 'islander', dx: 4, dy: 7, name: 'Kaia Reedwind', title: 'Island Hunter', services: [], race: 'woodelf', g: 'f', look: { armor: garb('#4a7a3a', '#c8a060', 'leather'), back: 'bow' }, lines: ['The tigers here are bigger than any on the mainland. Something in the water.'] },
@@ -59,9 +59,9 @@
   const stock0 = Sys.vendorStock;
   Sys.vendorStock = function (kind, npc) {
     const c = G.player.c;
-    if (kind === 'island') { const out = []; for (let t = 2; t <= 3; t++) { out.push(G.makePotion('food', t), G.makePotion('drink', t)); } for (const m of ['metal', 'hide', 'cloth', 'arcane']) out.push(G.makeMat(m, 3)); out.push(G.makeShield(3, { q: 0.95 })); for (const wt of D.CLASSES[c.cls].weapons.slice(0, 2)) out.push(G.makeWeapon(wt, 3, { q: 0.95 })); out.forEach((it) => (it.uid = U.uid())); return out; }
-    if (kind === 'nomad') { const out = [G.makePotion('food', 2), G.makePotion('drink', 2), G.makePotion('drink', 3)]; for (const m of ['hide', 'cloth']) out.push(G.makeMat(m, 2)); out.forEach((it) => (it.uid = U.uid())); return out; }
-    if (kind === 'eyrie') { const out = [G.makePotion('food', 4), G.makePotion('drink', 4)]; for (const m of ['metal', 'hide', 'cloth', 'arcane']) out.push(G.makeMat(m, 5)); out.forEach((it) => (it.uid = U.uid())); return out; }
+    if (kind === 'island') { const out = []; for (let t = 2; t <= 3; t++) { out.push(G.makePotion('food', t), G.makePotion('drink', t)); } out.push(G.makeShield(3, { q: 0.95 })); for (const wt of D.CLASSES[c.cls].weapons.slice(0, 2)) out.push(G.makeWeapon(wt, 3, { q: 0.95 })); out.forEach((it) => (it.uid = U.uid())); return out; }
+    if (kind === 'nomad') { const out = [G.makePotion('food', 2), G.makePotion('drink', 2), G.makePotion('drink', 3)]; out.forEach((it) => (it.uid = U.uid())); return out; }
+    if (kind === 'eyrie') { const out = [G.makePotion('food', 4), G.makePotion('drink', 4)]; out.forEach((it) => (it.uid = U.uid())); return out; }
     return stock0(kind, npc);
   };
 

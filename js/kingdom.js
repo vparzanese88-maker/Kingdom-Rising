@@ -123,7 +123,14 @@
   const toolName = (k) => (KR.Gear ? KR.Gear.TOOL_KINDS[k].name : k);
   // animals that can be skinned for hides (not people, undead, spirits, insects or stone)
   K.BEASTS = new Set(['wolf', 'spiritwolf', 'bear', 'tiger', 'boar', 'croc', 'lizard', 'snake', 'rat', 'bat', 'drake', 'griffon', 'dragon']);
-  K.skinnable = (e) => !!(e && e.dead && e.type === 'mob' && !e.skinned && !e.boss && (K.BEASTS.has(e.kind) || e.mat === 'hide'));
+  K.skinnable = () => false; // hides only fed crafting, which is gone
+  // the kingdom's wood and stone (KR.Realm, js/realm.js); false while that module isn't loaded
+  K.toRealm = function (f, res, amt) {
+    const R = KR.Realm; if (!R) return false;
+    if (typeof R.gain === 'function') { R.gain(f, res, amt); return true; }
+    const st = typeof R.state === 'function' && R.state(f); if (!st) return false;
+    st[res] = (st[res] || 0) + amt; return true;
+  };
   K.targetName = function (d) {
     if (d.dead) return d.name;
     const h = K.harvestOf(d); if (!h) return '';
@@ -199,13 +206,16 @@
     } else {
       const M = K.MATS[H.mat];
       const n = yieldOf(M.tier);
-      if (M.kind === 'ore') {
-        // ore goes in your bags, for the smith, the fletcher and the jeweler
-        const it = G.makeMat('metal', M.ore, n); Sys.addItem(it); H.d.cutUntil = G.now + 240000;
-        G.float(p, `+${n} ${M.name}`, M.col); G.log(`You mine ${n} ${M.name}.`, 'loot', M.col); KR.A.sfx('rockbreak', 0.5);
+      // what you gather goes to your kingdom's stockpile (better wood and stone count for more; ore veins give stone)
+      const res = M.kind === 'wood' ? 'wood' : 'stone', amt = n * Math.max(1, M.tier || 1);
+      if (K.toRealm(c.faction, res, amt)) {
+        H.d.cutUntil = G.now + (M.kind === 'ore' ? 240000 : H.tool === 'axe' ? 150000 : 180000); H.d.cutAt = G.now;
+        G.float(p, `+${amt} ${res}`, M.col); G.log(`You gather ${n} ${n > 1 ? M.pl : M.name}: +${amt} ${res} for ${D.FACTIONS[c.faction].city}.`, 'loot', M.col);
+        KR.A.sfx(H.tool === 'axe' ? 'treefall' : 'rockbreak', 0.5);
         try { G.giveXp(Math.max(1, Math.round(D.mobXp(Math.max(1, Math.min(c.level, 10))) * 0.06)), ''); } catch (e) {}
         UI.refresh && UI.refresh(); Sys.save && Sys.save(); return;
       }
+      if (M.kind === 'ore') { H.d.cutUntil = G.now + 240000; G.float(p, `+${n} ${M.name}`, M.col); KR.A.sfx('rockbreak', 0.5); UI.refresh && UI.refresh(); return; }
       K.gather(c)[H.mat] = K.have(c, H.mat) + n;
       H.d.cutUntil = G.now + (H.tool === 'axe' ? 150000 : 180000); H.d.cutAt = G.now;
       G.float(p, `+${n} ${n > 1 ? M.pl : M.name}`, M.col);
@@ -296,25 +306,7 @@
       }
     }
   };
-  // better gathering tools are earned from the crafters: bring the smith timber and stone of the tier
-  // below and he forges an axe and a pick; bring the tailor hides and she makes a skinning knife
-  const tq0 = Sys.buildQuests;
-  Sys.buildQuests = function () {
-    tq0.apply(this, arguments);
-    if (!KR.Gear) return;
-    const Q = Sys.QUESTS; const TT = KR.Gear.TOOL_TIERS;
-    const WOOD = [null, 'oak', 'darkoak', 'willow', 'frostpine'], STONE = [null, 'fieldstone', 'granite', 'sandstone', 'marble'];
-    for (const f of D.FACTION_IDS) for (let t = 2; t <= 5; t++) {
-      const T = TT[t], wm = WOOD[Math.min(4, t - 1)], sm = STONE[Math.min(4, t - 1)], n = 6 + t * 3;
-      Q[f + '_tools' + t] = { id: f + '_tools' + t, f, giver: 'smith', lv: T.lv, type: 'gather', wood: wm, stone: sm, n, title: `${T.adj} Tools`,
-        text: `Bring me ${n} ${K.MATS[wm].pl} and ${n} ${K.MATS[sm].pl} and I will forge you a ${T.adj.toLowerCase()} axe and pick from them. Better tools bite deeper and cut faster, and only the best can work the hard woods and stones of the far lands.`,
-        reward: { coin: 0, item: { k: 'tool', tier: t, kinds: ['axe', 'pick'] } }, req: t > 2 ? f + '_tools' + (t - 1) : null };
-      const ht = t - 2, hide = D.MATERIALS.hide[ht], hn = 4 + t;
-      Q[f + '_knife' + t] = { id: f + '_knife' + t, f, giver: 'tailor', lv: T.lv, type: 'collect', item: hide, n: hn, title: `A ${T.adj} Skinning Knife`,
-        text: `A hunter's knife is only as good as the hides it has opened. Bring me ${hn} ${hide}s and I will give you a ${T.adj.toLowerCase()} skinning knife, keen enough for tougher beasts.`,
-        reward: { coin: 0, item: { k: 'tool', tier: t, kinds: ['knife'] } }, req: t > 2 ? f + '_knife' + (t - 1) : null };
-    }
-  };
+  // (better gathering tools used to be earned from the crafters; the smith and the outfitter sell them now, see gear.js)
   const qp1 = Sys.questProgress, qg1 = Sys.questGoal, ti1 = Sys.turnIn;
   Sys.questProgress = function (q) { if (q.type === 'gather') { const c = G.player.c; return Math.min(K.have(c, q.wood), q.n) + Math.min(K.have(c, q.stone), q.n); } return qp1.apply(this, arguments); };
   Sys.questGoal = function (q) { return q.type === 'gather' ? q.n * 2 : qg1.apply(this, arguments); };

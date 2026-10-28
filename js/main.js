@@ -221,7 +221,7 @@
     if (e.type === 'merc') { UI.openMerc(e); return; }
     if (e.treasureX && KR.War) { KR.War.digTreasure(e); return; }
     if (e.raidBoard && KR.War) { const s = KR.War.raidStatus(e.faction); G.log(`War Board of ${D.FACTIONS[e.faction].city}: ${s.big} ${s.small}. Garrison ${KR.War.garrison(e.faction).length} soldiers.`, 'sys', '#e8d48a'); return; }
-    if ((e.barracks || e.recruiter) && KR.War) { G.faceTo && G.faceTo(e, p); if (e.recruiter) G.say(e, e.faction === p.c.faction ? 'Looking to strengthen our war parties? Every soldier I sign up marches on every raid.' : 'Not for your kind.', 3); KR.War.openBarracks(e); return; }
+    if ((e.barracks || e.recruiter) && KR.War) { G.faceTo && G.faceTo(e, p); if (e.recruiter) G.say(e, e.faction === p.c.faction ? 'Soldiers cost gold. A Barracks lets me train guards and men-at-arms; an Archery Range, a Stable and a Siege Workshop let me train archers, cavalry and siege. Walls and towers are raised from the kingdom panel (N).' : 'Not for your kind.', 3); KR.War.openBarracks(e); return; }
     if (e.bell) { G.log(e.ringUntil > G.now ? 'The alarm bell is ringing: the kingdom is under attack!' : 'The alarm bell hangs quiet. A guard will ring it if enemy soldiers reach the kingdom.', 'sys', '#e8d48a'); return; }
     if (e.type === 'npc' || e.type === 'king' || e.type === 'guard') { UI._npc = e; Sys.hail(e); }
   };

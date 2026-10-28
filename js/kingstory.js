@@ -57,8 +57,8 @@
       ['King Aldric', 'I will have this read in every square of Valenmoor. Let them see who their true king is, and who is a murderer.'],
     ] },
     war: { offer: [
-      ['King Aldric', 'Enough. We are strong now. The walls are high and the people know the truth.'],
-      ['King Aldric', 'Raise a war party at the barracks. March on Aelindor. Cut down whatever stands between you and my brother.'],
+      ['King Aldric', 'Enough. We are strong now. The walls are high, the barracks are full, and the people know the truth.'],
+      ['King Aldric', 'Order the attack. March on Aelindor with our soldiers behind you. Cut down whatever stands between you and my brother.'],
       ['King Aldric', 'And when you find him, look him in the eye. I want him to know whose son sent you.'],
     ], done: [] },
   };
@@ -97,7 +97,7 @@
     ] },
     war: { offer: [
       ['King Theron', 'We have the truth. We have the walls. We have the people.'],
-      ['King Theron', 'Raise a war party at the barracks and march on Valenmoor. End this.'],
+      ['King Theron', 'Order the attack, and march on Valenmoor with our soldiers behind you. End this.'],
       ['King Theron', 'If you find him... let him speak, before the end. I want to know why.'],
     ], done: [] },
   };
@@ -130,7 +130,7 @@
       Q[f + '_story3'] = { id: f + '_story3', f, giver: 'king', lv: 26, type: 'collect', item: "Alchemist's Ledger", storyDrop: ['lizard_shaman', 'lizard_warrior', 'lizardman'], mobs: ['lizard_shaman', 'lizard_warrior', 'lizardman'], n: 1, scene: 'ledger', title: "The Alchemist's Ledger", req: f + '_story2',
         text: 'The lizardfolk of the Dreadmire guard the marsh alchemist who sold the nightshade. Take her ledger from them and bring it to the king.', reward: { coin: 12000, status: 90, item: { k: 'jewel', slot: 'neck', tier: 3, q: 1.2 } } };
       Q[f + '_story4'] = { id: f + '_story4', f, giver: 'king', lv: 35, type: 'warking', scene: 'war', title: `The Fall of ${E.city}`, req: f + '_story3',
-        text: `Raise a war party at the barracks, march on ${E.city} and bring down ${E.king}. Let him speak before the end.`, reward: { coin: 0, status: 0 } };
+        text: `Order the attack from the Status tab of the kingdom (N), march on ${E.city} with your war party and bring down ${E.king}. Let him speak before the end.`, reward: { coin: 0, status: 0 } };
       for (let i = 1; i <= 4; i++) { const q = Q[f + '_build' + i]; if (q) { q.buildScene = i; if (i === 1) q.req = f + '_story0'; } }
     }
   };
@@ -235,18 +235,18 @@
 
   // =====================================================================================================
   // the homecoming: the main quest line. The harbourmaster meets you on the dock, the king tells you what
-  // is coming, and his people show you how a kingdom is raised: tools from the smith, timber and stone,
-  // the recruiter and his soldiers, the mercenaries, the walls of Kingdom Level 2, and the battering ram.
+  // is coming, and the court shows you how a kingdom is raised (js/realm.js): the Court Liaison, the Arborist
+  // and the Miner, the Sawmill and the Stone Cutter, the Barracks and its raiders, and the first march.
   // Every step opens with a filmed scene that plays by itself as you walk up (or click), before anything else.
   // =====================================================================================================
   const Story = (KR.Story = {});
   const clsName = (c) => D.CLASSES[c.cls].name;
+  const firstName = (n) => { const w = String(n || '').split(' '); return /^(Lord|Lady|Sir|Dame|Master|Mistress|Captain)$/.test(w[0]) && w[1] ? w[1] : w[0]; };
   const enemyOf = (f) => (f === 'crown' ? 'sylvan' : 'crown');
   const npcOf = (f, role) => G.ents.find((e) => e.role === role && e.city === f && !e.removed && !e.dead);
   const nameOf = (f, role, fb) => { const e = npcOf(f, role); return e ? e.name.split(' ')[0] : fb; };
-  const ownTool = (c, k) => !!((c.equip[k] && c.equip[k].tool === k) || c.inv.some((x) => x && x.tool === k));
-  const MG = { wood: 'oak', stone: 'fieldstone', n: 5 };
-  const MAIN = (f) => ['arrive', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((k) => f + '_' + k);
+  const MAIN = (f) => ['arrive', 'k1', 'k2', 'k3', 'k4', 'k5', 'k6'].map((k) => f + '_' + k);
+  const OLD_MAIN = (f) => ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((k) => f + '_' + k);
   let quiet = 0; // our own accept / turn-in: no extra scene from the wrappers above
   // ---- the lines: L(who, text, opt) ----
   const L = (who, text, opt) => [who, text, 0, opt || {}];
@@ -257,20 +257,8 @@
       L(e.name, `Ahoy there! Welcome back, ${w.cls}! Three months at sea and you come home in one piece. Mostly in one piece.`, { g: 'raise', shot: 'wide' }),
       L(w.me, 'Good to be home. Why does everyone on this dock look like someone died?'),
       L(e.name, `No time for ale and gossip, I'm afraid. The king must speak with you at once. It's urgent. He said "at once" twice, and ${w.K.replace(/^King /, '')} never says anything twice.`),
-      L(e.name, `Up through the town to the castle, then all the way up the great stairs to the throne hall. Big chair, bigger crown. You can't miss him.`, { g: 'thrust' }),
+      L(e.name, `Up through the town to the Town Hall, then all the way up the great stairs to the throne room. Big chair, bigger crown. You can't miss him.`, { g: 'thrust' }),
       L(e.name, `Go on, ${w.cls}. And keep your wits about you: a lot has changed while you were away.`),
-    ]; },
-    m1meet: (c, e) => { const w = words(c); return [
-      L(e.name, `Hah! Another one the king sent down. Let me guess: "Go and see the smith, the smith will sort you out."`, { g: 'hop', shot: 'wide' }),
-      L(w.me, 'He said you would sell me a woodcutting axe and a pick.'),
-      L(e.name, `That I will. Copper, cheap and honest. They won't fell a darkoak, but they'll do for the oaks around ${w.city}.`),
-      L(e.name, 'Buy them from me and wear them: they go in their own slots on your character sheet, Woodcutting and Mining, and leave your hands free for that weapon.'),
-      L(e.name, 'Then out past the walls. Hold your mouse over a tree and the cursor turns into a little axe: right-click it and chop. A boulder turns it into a pick. Right-click, and swing.', { g: 'chop', gd: 1.0 }),
-      L(e.name, 'Now, what will it be? Take your time. Actually, don\'t: the king is in a hurry, and when the king is in a hurry, so am I.'),
-    ]; },
-    m1done: (c, e) => { const w = words(c); return [
-      L(e.name, 'There. Now you look like someone who works for a living.', { g: 'raise' }),
-      L(e.name, `Oaks grow all around the city, and fieldstone boulders lie out in the fields past the gates. Bring the king five oak logs and five fieldstone. He'll want a mountain of it later. Kings always do.`, { g: 'thrust' }),
     ]; },
     arriveDone: (c, e) => { const w = words(c); const mine = w.f === 'crown'; return [
       L(w.K, `Welcome home, sailor. ${w.me}, isn't it? The ${w.cls} from the spring fleet. Come closer. I don't bite. Not before supper.`, { g: 'raise', shot: 'wide' }),
@@ -279,47 +267,68 @@
       L(w.K, `And now my spies tell me ${w.bro} is building an army in ${w.ecity}. Soldiers, siege engines, all of it. He is planning an attack, and he means to finish it in this hall.`, { g: 'thrust' }),
       L(w.me, 'Then we had better be ready for him.'),
       L(w.K, `We had better be more than ready. We need to raise these walls and build an army: one to defend ${w.city}, and one to march out and destroy ${w.broK}.`, { g: 'slam', gd: 1.1 }),
-      L(w.K, `Walls need timber and stone, and timber and stone need tools. Go down to the smithy first: ${nameOf(w.f, 'smith', 'my smith')} will sell you an axe and a pick.`, { g: 'thrust' }),
-      L(w.K, 'Then the barracks, where my recruiter will teach you how an army is raised. And the mercenaries in the plaza. You will need every blade we can buy.'),
+      L(w.K, `Understand this: ${w.city} is not just a town. It is the kingdom. Everything we build, we build from wood and stone. You will see our stores at the top of your sight, always. When they run low, so does our future.`, { g: 'raise' }),
+      L(w.K, 'Wood and stone raise the buildings. Gold hires the soldiers. And the gold, I am afraid, will mostly come from you.'),
+      L(w.K, `Downstairs, by the doors of this hall, waits my Court Liaison. Take them into your service: I have paid their fee in advance, so it costs you nothing. They will run the court for you.`, { g: 'thrust' }),
       L(w.K, `Off you go. And ${w.me}... welcome home. I mean it.`),
     ]; },
-    m2done: (c, e) => { const w = words(c); return [
-      L(w.K, 'Oak and fieldstone, cut with your own hands. Good. Keep them: they are the first stones of our new walls.', { shot: 'wide' }),
-      L(w.K, `Here is how a kingdom grows. Every quest you finish for our people earns ${w.city} status. With enough status, and the timber and stone for my masons, ${w.city} rises a Kingdom Level.`),
-      L(w.K, `Thirty oak logs and thirty fieldstone, and we become a walled village: Kingdom Level 2. I have set it down as The King's Works. It is in your journal.`, { g: 'thrust' }),
-      L(w.K, 'Every level brings more: new shops, better guards, engines on the walls, more soldiers in the barracks. And sharper teeth for us.', { g: 'raise' }),
-      L(w.K, `Now go to the barracks and find the recruiter. ${w.bro} will not wait for us to be ready.`),
+    k1meet: (c, e) => { const w = words(c); return [
+      L(e.name, `Ah. You must be the one the king keeps sighing about. ${w.cls}, yes? I'm ${firstName(e.name)}, Court Liaison. I count things. Wood, stone, soldiers, the king's patience.`, { g: 'raise', shot: 'wide' }),
+      L(w.me, 'The king says you work for me now.'),
+      L(e.name, 'I will, the moment you say so. My fee is already paid: the king paid in advance. Every liaison dreams of that. Most of us are paid in promises.'),
+      L(e.name, 'Take me on, and I will keep the kingdom\'s ledgers for you wherever you wander. Say the word.', { g: 'thrust' }),
     ]; },
-    m3meet: (c, e) => { const w = words(c); return [
-      L(e.name, 'So you are the one the king keeps going on about. Stand up straight. Hm. You\'ll do.', { shot: 'wide' }),
-      L(e.name, 'This is the barracks. I sign up soldiers: footmen, archers, knights, healers. You pay their wages in coin, and they wait right here until you give the order.'),
-      L(e.name, 'The bigger the kingdom, the more soldiers these barracks can hold. A Level 1 kingdom gets a handful. A capital gets a host.'),
-      L(e.name, `When you are ready, come back and send the war party: they march on ${w.ecity} and fight their way to ${w.broK}'s throne. You can march with them. I recommend it. It's more fun from the front.`, { g: 'thrust' }),
-      L(e.name, `And when ${w.bro}'s raiders come for us, the bells ring and the gates slam shut. Nobody gets in, nobody gets out. Get up on the walls and make them regret it.`, { g: 'raise' }),
-      L(e.name, 'One more thing. Soldiers follow orders. Mercenaries follow coin, and they follow you. Go and see the Mercenary Trader in the plaza.'),
+    k1done: (c, e) => { const w = words(c); return [
+      L(e.name, 'Splendid. I am yours. Now, pay attention, because I will only explain this twice.', { g: 'raise', shot: 'wide' }),
+      L(e.name, 'Press N, wherever you are, and the kingdom opens before you. No need to run back up here for every little thing.'),
+      L(e.name, 'Status shows our stores, our workers, our army and every threat I hear of. From there you order the attack, when the day comes.'),
+      L(e.name, 'Build: the plots in town where new buildings rise. Workers: their tools and their yields. Army: soldiers for gold. Defenses: walls and towers.', { g: 'thrust' }),
+      L(e.name, `But a kingdom with no hands is a kingdom of paper. We need an Arborist and a Miner. Their wages are paid too. Shall I send for them?`),
     ]; },
-    m4meet: (c, e) => { const w = words(c); return [
-      L(e.name, 'Looking for blades? You found the right man. My mercenaries walk at your side and fight whatever you fight, and the ones who can heal will keep you breathing.', { shot: 'wide' }),
-      L(e.name, `The bad news: my lads don't work for a hamlet. Get ${w.city} to Kingdom Level 2 and I'll open my book to you. The price climbs with their level, and with every extra blade you hire.`),
-      L(e.name, `And trust me, you'll want them. When you storm ${w.ecity} to get at ${w.bro}, the war party fights the guards. My mercenaries keep you alive long enough to reach the king.`, { g: 'thrust' }),
-      L(w.me, 'So I should start saving my coin.'),
-      L(e.name, 'Now you\'re thinking like a mercenary.', { g: 'hop' }),
+    k2done: (c, e) => { const w = words(c); return [
+      L(e.name, 'There they go: an axe, a pick, and two very determined faces.', { g: 'raise', shot: 'wide' }),
+      L(e.name, `They'll walk out through the gates to the nearest trees and rocks, work, and carry every load home to the stores. Watch the numbers at the top of your sight climb.`),
+      L(e.name, `The monsters out there leave them alone: they're not worth eating, apparently. Only ${w.bro}'s raiders and his heroes will go after them. If one falls, they're back on their feet within the minute.`),
+      L(e.name, 'And you can help. Any tree or boulder you right-click and work goes straight into the kingdom\'s stores, not your pockets.', { g: 'chop', gd: 1.0 }),
+      L(e.name, 'Our first works: a Sawmill and a Stone Cutter. Open the kingdom with N, look at the Build tab, and build them the moment we can afford them.', { g: 'thrust' }),
     ]; },
-    m5done: (c, e) => { const w = words(c); return [
-      L(w.K, `Do you hear that? Hammers. Masons. A city that believes in itself again. ${w.city} is a Level 2 kingdom, and that is your doing.`, { g: 'raise', shot: 'wide' }),
-      L(w.K, `Now, about breaking things. When raiders come, the bells ring and our gates close. ${w.bro}'s gates close too, and you cannot climb an army over a wall.`),
-      L(w.K, 'So you bring a battering ram. Now that we are Level 2, the barracks can build you one. The war party marches behind it, it rolls up to their gate, and it knocks. Hard.', { g: 'slam', gd: 1.1 }),
-      L(w.K, 'Go and see the recruiter about it. And hire those mercenaries: you will need them when you reach my brother.', { g: 'thrust' }),
+    k3done: (c, e) => { const w = words(c); return [
+      L(e.name, 'Mind the sawdust, friend. Oh, it\'s you! The one who built us a mill. Welcome to the loudest building in town.', { g: 'hop', shot: 'wide' }),
+      L(e.name, 'The Sawmill takes the arborist\'s logs and the Stone Cutter dresses the miner\'s stone. Every load counts for more now.'),
+      L(e.name, 'Build them up, three levels each. Every level, a bigger building, one more pair of hands like mine, and more wood and stone in every load.', { g: 'raise' }),
+      L(e.name, 'And if you\'ve gold to spare, the Workers tab sells the arborist and the miner better tools: bigger yields, three upgrades each. Gold well spent, I promise.'),
+      L(e.name, `Now, the king will want soldiers. With a mill and a cutter standing, the Barracks can go up. Off you go: I've planks to cut.`, { g: 'thrust' }),
     ]; },
-    m6meet: (c, e) => { const w = words(c); return [
-      L(e.name, 'The king wants a ram? Finally, someone in this city who understands doors.', { g: 'hop', shot: 'wide' }),
-      L(e.name, 'You buy it here, before you send the war party. It\'s heavy and slow, slower than a man can run, so the soldiers march behind it and keep it safe.'),
-      L(e.name, 'At their gate it swings: five good blows, a few seconds each, and the gate comes down in splinters. Then it\'s through the courtyard and up to the king.', { g: 'slam', gd: 1.1 }),
-      L(e.name, `If they break the ram before it breaks the gate, the war party is stuck outside, so guard it. Same for us: if ${w.bro} brings a ram to our gate, smash it before it smashes us.`),
-      L(e.name, 'That\'s the lesson. Now go and make yourself useful. I hear the king has another errand for you.'),
+    k4done: (c, e) => { const w = words(c); return [
+      L(e.name, 'So you are the one who built me a roof. Stand up straight. Hm. You\'ll do.', { shot: 'wide' }),
+      L(e.name, 'I\'m the Recruiter. I raise guards to hold our walls and raiders to march on our enemies. Wood and stone built these walls. Soldiers want gold.'),
+      L(e.name, 'Gold comes from you: quests done, loot sold, and the purses of anyone with a weapon and a grudge. Bandits, orcs, named brutes and bosses pay best.', { g: 'thrust' }),
+      L(e.name, `Hire three raiders for a start. That's the beginning of an army. ${w.bro} won't be impressed, but he'll notice.`),
+    ]; },
+    k5done: (c, e) => { const w = words(c); return [
+      L(e.name, 'Look at them. Shiny boots, sharp blades, absolutely no idea what\'s coming. Perfect.', { g: 'hop', shot: 'wide' }),
+      L(e.name, 'There\'s more to an army than swords. Build an Archery Range for archers and towers on the walls. Then a Stable for cavalry, and a Siege Workshop.'),
+      L(e.name, `The Workshop builds the battering ram. When ${w.ecity}'s bells ring, its gates slam shut, and the ram knocks them down: five good blows. Catapults and trebuchets for the long reach.`, { g: 'slam', gd: 1.1 }),
+      L(e.name, 'Walls and archer towers you buy in Defenses: a palisade becomes stone walls, then fortified gates. Every wall you raise, I can post more guards on it.'),
+      L(e.name, 'And go and see the king. He\'s been pacing.', { g: 'thrust' }),
+    ]; },
+    k6meet: (c, e) => { const w = words(c); return [
+      L(w.K, `So. A kingdom that saws its own timber, cuts its own stone and drills its own soldiers. My father would have wept. Well. He would have nodded, which was the same thing.`, { g: 'raise', shot: 'wide' }),
+      L(w.K, `${w.bro} will not sit and wait for us. Neither will we. It is time to show ${w.ecity} that we are no hamlet.`),
+      L(w.K, 'When you are ready, open the kingdom and order the attack from the Status tab. The war party marches; walk with them, or trust them and stay. Bring a ram if you have one.', { g: 'thrust' }),
+      L(w.K, `Whatever happens out there, come home. ${w.city} needs you more than it needs a victory.`),
+    ]; },
+    k6done: (c, e) => { const w = words(c); return [
+      L(w.K, `There they go. The first march of ${w.city} in a generation. Listen to the drums.`, { g: 'raise' }),
+      L(w.K, `Go with them, or guard the walls. Either way, the war has begun. May it end with ${w.broK} on his knees.`, { g: 'thrust' }),
     ]; },
   };
   // ---- the quests ----
+  const R_ = () => KR.Realm;
+  const hasB = (f, id, lv = 1) => !!(R_() && R_().has && R_().has(f, id, lv));
+  const realmSt = (f) => (R_() && R_().state ? R_().state(f) : null);
+  const raiders = (f) => { try { return KR.War && KR.War.army ? KR.War.army(f).total : 0; } catch (e) { return 0; } };
+  const RAIDERS = 3;
   const bq2 = Sys.buildQuests;
   Sys.buildQuests = function () {
     bq2.apply(this, arguments);
@@ -327,27 +336,46 @@
     for (const f of ['crown', 'sylvan']) {
       const F = D.FACTIONS[f], E = D.FACTIONS[enemyOf(f)], K = kingOf(f), id = (k) => f + '_' + k;
       const base = { f, lv: 1, main: true };
-      Q[id('arrive')] = Object.assign({ id: id('arrive'), giver: 'harbor', turnin: 'king', type: 'meet', meet: 'king', title: 'An Urgent Summons', next: [id('m1')], scDone: 'arriveDone', reward: { coin: 25, status: 5 },
-        get text() { const c = G.player && G.player.c; return `Welcome back, ${c ? clsName(c) : 'sailor'}. The king must speak with you at once: it's urgent. Climb the great stairs of the castle in ${F.city} to the throne hall and speak with ${K}.`; } }, base);
-      Q[id('m1')] = Object.assign({ id: id('m1'), giver: 'king', turnin: 'smith', type: 'tools', meet: 'smith', req: id('arrive'), title: 'Tools of the Trade', next: [id('m2')], scMeet: 'm1meet', scDone: 'm1done', reward: { coin: 60, status: 3 },
-        text: `${K} wants his walls raised, and that starts with tools. See the blacksmith of ${F.city}, buy a woodcutting axe and a mining pick, and wear them in your Woodcutting and Mining slots.` }, base);
-      Q[id('m2')] = Object.assign({ id: id('m2'), giver: 'smith', turnin: 'king', type: 'mgather', req: id('m1'), title: 'Timber and Stone', next: [id('build1'), id('m3')], scDone: 'm2done', reward: { coin: 80, status: 5 },
-        text: `Go out past the walls and gather ${MG.n} Oak Logs and ${MG.n} Fieldstone: hold the mouse over a tree or a boulder (the cursor becomes the tool) and right-click it. Then bring them up to ${K}.` }, base);
-      Q[id('m3')] = Object.assign({ id: id('m3'), giver: 'king', turnin: 'recruiter', type: 'meet', meet: 'recruiter', req: id('m2'), title: 'The Recruiter', next: [id('m4')], scMeet: 'm3meet', reward: { coin: 40, status: 3 },
-        text: `${K} wants an army. Find the recruiter in the barracks of ${F.city} and learn how soldiers are raised and sent to war.` }, base);
-      Q[id('m4')] = Object.assign({ id: id('m4'), giver: 'recruiter', turnin: 'mercmaster', type: 'meet', meet: 'mercmaster', req: id('m3'), title: 'Swords for Hire', next: [id('m5')], scMeet: 'm4meet', reward: { coin: 40, status: 3 },
-        text: `Soldiers follow orders; mercenaries follow you. Speak with the Mercenary Trader in the plaza of ${F.city}.` }, base);
-      Q[id('m5')] = Object.assign({ id: id('m5'), giver: 'king', turnin: 'king', type: 'klevel', n: 2, req: id('m4'), title: 'Raise the Walls', next: [id('m6')], scDone: 'm5done', reward: { coin: 300, status: 10 },
-        text: `Raise ${F.city} to Kingdom Level 2: finish The King's Works (Oak Logs and Fieldstone for the masons) and earn status by doing quests for its people. Then return to ${K}.` }, base);
-      Q[id('m6')] = Object.assign({ id: id('m6'), giver: 'king', turnin: 'recruiter', type: 'meet', meet: 'recruiter', req: id('m5'), title: 'The Battering Ram', next: [], scMeet: 'm6meet', reward: { coin: 150, status: 8 },
-        text: `${E.city}'s gates close when its bells ring. Ask the recruiter in the barracks how a battering ram breaks a gate.` }, base);
-      // the old opening errand stays only for heroes already on it; the King's Works follow the tools
+      Q[id('arrive')] = Object.assign({ id: id('arrive'), giver: 'harbor', turnin: 'king', type: 'meet', meet: 'king', title: 'An Urgent Summons', next: [id('k1')], scDone: 'arriveDone', noGear: true, reward: { coin: 25 },
+        get text() { const c = G.player && G.player.c; return `Welcome back, ${c ? clsName(c) : 'sailor'}. The king must speak with you at once: it's urgent. Climb the great stairs of the Town Hall in ${F.city} to the throne room and speak with ${K}.`; } }, base);
+      Q[id('k1')] = Object.assign({ id: id('k1'), giver: 'king', turnin: 'liaison', type: 'realm', cond: 'liaison', meet: 'liaison', req: id('arrive'), title: 'The Court Liaison', next: [id('k2')], scMeet: 'k1meet', scDone: 'k1done', noGear: true, reward: { coin: 40 },
+        text: `${K} has paid for a Court Liaison in advance. Find them by the doors of the Town Hall in ${F.city} and take them into your service.` }, base);
+      Q[id('k2')] = Object.assign({ id: id('k2'), giver: 'liaison', turnin: 'liaison', type: 'realm', cond: 'workers', req: id('k1'), title: 'Hands for the Work', next: [id('k3')], scDone: 'k2done', noGear: true, reward: { coin: 40, wood: 30, stone: 30 },
+        text: `A kingdom needs hands. Hire the Arborist and the Miner through the Court Liaison (their wages are paid) and send them out for wood and stone.` }, base);
+      Q[id('k3')] = Object.assign({ id: id('k3'), giver: 'liaison', turnin: 'sawyer', type: 'realm', cond: 'mills', req: id('k2'), title: 'Mill and Quarry', next: [id('k4')], scDone: 'k3done', reward: { coin: 120, wood: 60, stone: 60 },
+        text: `Gather enough wood and stone to build the Sawmill and the Stone Cutter (press N, then Build). Your workers bring it in, and anything you chop or mine with a right-click goes to the stores too. Then visit the sawmill.` }, base);
+      Q[id('k4')] = Object.assign({ id: id('k4'), giver: 'sawyer', turnin: 'recruiter', type: 'realm', cond: 'barracks', req: id('k3'), title: 'The Barracks', next: [id('k5')], scDone: 'k4done', noGear: true, reward: { coin: 150, wood: 80, stone: 80 },
+        text: `With a Sawmill and a Stone Cutter standing, ${F.city} can raise a Barracks. Build it (N, then Build) and meet the Recruiter there.` }, base);
+      Q[id('k5')] = Object.assign({ id: id('k5'), giver: 'recruiter', turnin: 'recruiter', type: 'realm', cond: 'raiders', req: id('k4'), title: 'Steel and Wheels', next: [id('k6')], scDone: 'k5done', reward: { coin: 250 },
+        text: `Hire ${RAIDERS} raiders with gold (N, then Army, or at the Barracks). Gold comes from quests, selling loot, and humanoids, named monsters and bosses. Then report to the Recruiter.` }, base);
+      Q[id('k6')] = Object.assign({ id: id('k6'), giver: 'recruiter', turnin: 'king', type: 'realm', cond: 'march', meet: 'king', auto: true, req: id('k5'), title: 'The First March', next: [], scMeet: 'k6meet', scDone: 'k6done', reward: { coin: 400 },
+        text: `Go up to ${K} in the Town Hall, then order the attack on ${E.city} from the Status tab of the kingdom (N). March with them if you dare.` }, base);
+      // the old opening errands stay only for heroes already on them; the story continues after the first march
       if (Q[id('story0')]) Q[id('story0')].req = id('retired');
-      if (Q[id('build1')]) Q[id('build1')].req = id('m2');
-      if (Q[id('story1')]) Q[id('story1')].req = id('m6');
-      // gathering is a right-click now
-      for (let i = 1; i <= 4; i++) { const q = Q[id('build' + i)]; if (q && q.text) q.text = q.text.replace('walk up and press E', 'hold the mouse over a tree or a boulder and right-click it'); }
+      if (Q[id('story1')]) Q[id('story1')].req = id('k6');
     }
+  };
+  // what each step waits for in the kingdom
+  const COND = {
+    liaison: (f) => !!(realmSt(f) && realmSt(f).liaison),
+    workers: (f) => { const s = realmSt(f); return !!(s && s.workers && s.workers.arborist.hired && s.workers.miner.hired); },
+    mills: (f) => hasB(f, 'sawmill') && hasB(f, 'cutter'),
+    barracks: (f) => hasB(f, 'barracks'),
+    raiders: (f) => raiders(f) >= RAIDERS,
+    march: (f) => { const st = G.player && G.player.c.quests.active[f + '_k6']; return !!(st && st.marched); },
+  };
+  // an attack ordered while the last step is open completes it
+  if (KR.War && typeof KR.War.orderAttack === 'function') {
+    const oa0 = KR.War.orderAttack;
+    KR.War.orderAttack = function (f) { const r = oa0.apply(this, arguments); try { const p = G.player; const ff = f || (p && p.c.faction); if (r && p && ff === p.c.faction) { const st = p.c.quests.active[ff + '_k6']; if (st && st.met) { st.marched = 1; Sys.save && Sys.save(); } } } catch (er) { console.warn(er); } return r; };
+  }
+  // the extra stores a step pays in, and gear only on the bigger steps
+  const turnIn9 = Sys.turnIn;
+  Sys.turnIn = function (q) {
+    const c = G.player.c; const was = !!c.quests.done[q.id];
+    const r = turnIn9.apply(this, arguments);
+    try { if (isMain(q) && !was && c.quests.done[q.id] && q.reward && (q.reward.wood || q.reward.stone) && R_() && R_().add) { R_().add(q.f, { wood: q.reward.wood || 0, stone: q.reward.stone || 0 }, 'quest'); G.log(`The stores of ${D.FACTIONS[q.f].city} receive ${q.reward.wood || 0} wood and ${q.reward.stone || 0} stone.`, 'loot', '#d8c890'); } } catch (er) { console.warn(er); }
+    return r;
   };
   const isMain = (q) => !!(q && q.main);
   const qp2 = Sys.questProgress, qg2 = Sys.questGoal;
@@ -355,43 +383,62 @@
     if (!isMain(q)) return qp2.apply(this, arguments);
     const c = G.player.c, st = c.quests.active[q.id] || {};
     if (q.type === 'meet') return st.met ? 1 : 0;
-    if (q.type === 'tools') return (ownTool(c, 'axe') ? 1 : 0) + (ownTool(c, 'pick') ? 1 : 0);
-    if (q.type === 'mgather') { const K = KR.Kingdom; return K ? Math.min(MG.n, K.have(c, MG.wood)) + Math.min(MG.n, K.have(c, MG.stone)) : 0; }
-    if (q.type === 'klevel') return Sys.cityLevel(q.f) >= q.n ? 1 : 0;
+    if (q.type === 'realm') {
+      if (q.cond === 'workers') { const s = realmSt(q.f); return s ? (s.workers.arborist.hired ? 1 : 0) + (s.workers.miner.hired ? 1 : 0) : 0; }
+      if (q.cond === 'mills') return (hasB(q.f, 'sawmill') ? 1 : 0) + (hasB(q.f, 'cutter') ? 1 : 0);
+      if (q.cond === 'raiders') return Math.min(RAIDERS, raiders(q.f));
+      return COND[q.cond] && COND[q.cond](q.f) ? 1 : 0;
+    }
     return 0;
   };
-  Sys.questGoal = function (q) { if (!isMain(q)) return qg2.apply(this, arguments); return q.type === 'tools' ? 2 : q.type === 'mgather' ? MG.n * 2 : 1; };
+  Sys.questGoal = function (q) { if (!isMain(q)) return qg2.apply(this, arguments); if (q.type === 'realm') return q.cond === 'workers' || q.cond === 'mills' ? 2 : q.cond === 'raiders' ? RAIDERS : 1; return 1; };
+  const tick = (ok) => (ok ? '✓' : '○');
   Story.progText = function (q) {
     const c = G.player.c, st = c.quests.active[q.id] || {}, F = D.FACTIONS[q.f];
-    if (q.type === 'meet') return `Speak with ${(npcOf(q.f, q.meet) || { name: q.meet }).name}`;
-    if (q.type === 'tools') return st.met ? `${ownTool(c, 'axe') ? '✓' : '○'} Woodcutting axe · ${ownTool(c, 'pick') ? '✓' : '○'} Mining pick` : `Visit ${(npcOf(q.f, 'smith') || { name: 'the blacksmith' }).name} at the smithy`;
-    if (q.type === 'mgather') { const K = KR.Kingdom; return `${Math.min(MG.n, K.have(c, MG.wood))} / ${MG.n} Oak Logs · ${Math.min(MG.n, K.have(c, MG.stone))} / ${MG.n} Fieldstone`; }
-    if (q.type === 'klevel') return `${F.city}: Kingdom Level ${Sys.cityLevel(q.f)} / ${q.n}`;
+    const who = (role, fb) => (whoIs(q.f, role) || { name: fb }).name;
+    if (q.type === 'meet') return `Speak with ${who(q.meet, q.meet)}`;
+    if (q.type === 'realm') {
+      const s = realmSt(q.f);
+      if (q.cond === 'liaison') return st.met || (s && s.liaison) ? `${tick(s && s.liaison)} Take the Court Liaison into your service` : `Find ${who('liaison', 'the Court Liaison')} in the Town Hall`;
+      if (q.cond === 'workers') return s ? `${tick(s.workers.arborist.hired)} Arborist · ${tick(s.workers.miner.hired)} Miner` : 'Hire the Arborist and the Miner';
+      if (q.cond === 'mills') { const done = COND.mills(q.f); if (done) return `Visit ${who('sawyer', 'the sawmill')}`; const R = R_(); const bld = (id) => (R && R.building && R.building(q.f, id) ? '⚒' : tick(hasB(q.f, id))); return `${bld('sawmill')} Sawmill · ${bld('cutter')} Stone Cutter${s ? ` · stores ${Math.floor(s.wood)} wood, ${Math.floor(s.stone)} stone` : ''}`; }
+      if (q.cond === 'barracks') return COND.barracks(q.f) ? `Meet ${who('recruiter', 'the Recruiter')} at the Barracks` : `${R_() && R_().building && R_().building(q.f, 'barracks') ? '⚒ Barracks going up' : '○ Build the Barracks'}`;
+      if (q.cond === 'raiders') return `${Math.min(RAIDERS, raiders(q.f))} / ${RAIDERS} raiders hired`;
+      if (q.cond === 'march') return st.met ? '○ Order the attack (N, then Status)' : `Speak with ${F.king}`;
+    }
     return '';
   };
+  // who a step sends you to: some people are found by what they do, not their trade
+  function whoIs(f, role) {
+    if (role === 'liaison') return G.ents.find((e) => e.liaison && e.city === f && !e.removed && !e.dead) || null;
+    if (role === 'sawyer') return G.ents.find((e) => e.millHand === 'sawmill' && e.city === f && !e.removed && !e.dead) || G.ents.find((e) => e.millHand && e.city === f && !e.removed && !e.dead) || whoIs(f, 'liaison');
+    if (role === 'king') return G.ents.find((e) => e.type === 'king' && e.faction === f && !e.dead && !e.removed) || npcOf(f, 'king');
+    if (role === 'recruiter') return npcOf(f, 'recruiter') || whoIs(f, 'liaison'); // until the barracks has its recruiter standing, the liaison speaks for him
+    return npcOf(f, role);
+  }
   // where the map points
-  let gatherPts = null, gatherT = 0;
   const qt2 = Sys.questTarget;
   Sys.questTarget = function (q) {
     if (!isMain(q)) return qt2.apply(this, arguments);
     const c = G.player.c, st = c.quests.active[q.id] || {};
-    const at = (role) => { const n = npcOf(q.f, role); return n ? [{ x: n.x / TS, y: n.y / TS, r: 2, npc: true }] : []; };
+    const at = (role) => { const n = whoIs(q.f, role); return n ? [{ x: n.x / TS, y: n.y / TS, r: 2, npc: true }] : []; };
+    const plot = (id) => { const R = R_(); const pl = R && R.plotOf && R.plotOf(q.f, id); return pl ? [{ x: pl.x + pl.w / 2, y: pl.y + pl.h / 2, r: Math.max(2, pl.w / 2) }] : []; };
     if (q.meet && !st.met) return at(q.meet);
-    if (Sys.questComplete(q)) return at(q.turnin);
-    if (q.type === 'mgather' && KR.Kingdom) {
-      if (!gatherPts || performance.now() - gatherT > 6000) { gatherT = performance.now(); const K = KR.Kingdom, p = G.player; let bw = null, bs = null, dw = 1e9, ds = 1e9;
-        for (const d of W.decor) { const h = K.harvestOf(d); if (!h || (d.cutUntil && d.cutUntil > G.now)) continue; const dd = Math.hypot(d.x - p.x, d.y - p.y); if (h.mat === MG.wood && dd < dw) { dw = dd; bw = d; } else if (h.mat === MG.stone && dd < ds) { ds = dd; bs = d; } }
-        gatherPts = [bw, bs].filter(Boolean).map((d) => ({ x: d.x / TS, y: d.y / TS, r: 4 })); }
-      const K = KR.Kingdom; return gatherPts.filter((m, i) => (i === 0 && K.have(c, MG.wood) < MG.n) || (i === 1 && K.have(c, MG.stone) < MG.n) || gatherPts.length === 1);
+    if (Sys.questComplete(q)) return q.auto ? [] : at(q.turnin);
+    if (q.type === 'realm') {
+      if (q.cond === 'workers') return at('liaison');
+      if (q.cond === 'mills') return [].concat(hasB(q.f, 'sawmill') ? [] : plot('sawmill'), hasB(q.f, 'cutter') ? [] : plot('cutter'));
+      if (q.cond === 'barracks') return plot('barracks');
+      if (q.cond === 'raiders') return at('recruiter');
+      return [];
     }
-    if (q.type === 'klevel') return at('king');
     return at(q.turnin);
   };
   // the person you are sent to see wears a gold ? until you have spoken
   const nm2 = Sys.npcMarker;
   Sys.npcMarker = function (npc) {
     const p = G.player; if (p && npc && npc.city === p.c.faction) { const c = p.c;
-      for (const id in c.quests.active) { const q = Sys.QUESTS[id]; if (!isMain(q)) continue; const st = c.quests.active[id]; if ((q.meet === npc.role && !st.met) || (q.scDone && q.turnin === npc.role && Sys.questComplete(q))) return '?'; } }
+      for (const id in c.quests.active) { const q = Sys.QUESTS[id]; if (!isMain(q)) continue; const st = c.quests.active[id]; if ((q.meet && !st.met && whoIs(q.f, q.meet) === npc) || (q.scDone && !q.auto && Sys.questComplete(q) && whoIs(q.f, q.turnin) === npc)) return '?'; } }
     return nm2.apply(this, arguments);
   };
   // our own accepts and hand-ins (quiet: the scene has already played)
@@ -402,6 +449,7 @@
     if (!c.quests.done[q.id]) return;
     for (const n of q.next || []) takeQuest(n);
     if ((q.next || []).length) { const nq = Sys.QUESTS[q.next[q.next.length - 1]]; if (nq && UI.banner) UI.banner(nq.title, nq.text.length > 150 ? nq.text.slice(0, 147).replace(/\s+\S*$/, '') + '...' : nq.text); }
+    else if (q.auto && q.scDone && SCENE[q.scDone]) for (const [who, text] of SCENE[q.scDone](c, null)) G.log(`${who}: ${text}`, 'say', '#f0e0b0');
     UI.refresh && UI.refresh(); Sys.save();
   }
   Story.finish = finishMain;
@@ -421,15 +469,17 @@
     return play(lines, npc, () => {
       st.met = 1; Sys.save();
       if (q.type === 'meet') finishMain(q);
-      else if (q.type === 'tools') { if (Sys.questComplete(q)) doneScene(q, npc); else { openPrev.call(UI, npc); } } // straight into the smith's shop
+      else if (q.type === 'realm' && !q.auto) { if (Sys.questComplete(q) && whoIs(q.f, q.turnin) === npc) doneScene(q, npc); else openPrev.call(UI, npc); } // straight into their window
       UI.refresh && UI.refresh();
     });
   }
   function doneScene(q, npc) {
     const c = G.player.c; const lines = q.scDone && SCENE[q.scDone] ? SCENE[q.scDone](c, npc) : null;
-    if (q.type === 'tools') for (const k of ['axe', 'pick']) if (!c.equip[k]) { const it = c.inv.find((x) => x && x.tool === k); if (it && Sys.equip) Sys.equip(it); } // wear them
     if (!lines || !npc) { finishMain(q); return true; }
-    return play(lines, npc, () => finishMain(q));
+    return play(lines, npc, () => { finishMain(q);
+      // the liaison has more to do for you straight after: back into their window
+      const nx = (q.next || []).map((id) => Sys.QUESTS[id]).find((n) => n && n.type === 'realm' && whoIs(n.f, n.turnin) === npc && !Sys.questComplete(n));
+      if (nx) setTimeout(() => { try { openPrev.call(UI, npc); } catch (er) {} }, 60); });
   }
   // the dock: a new hero is met as they step off the ship
   Story.arrive = function () {
@@ -463,8 +513,8 @@
     const p = G.player, c = p.c; if (!npc || npc.city !== c.faction) return null;
     for (const id in c.quests.active) {
       const q = Sys.QUESTS[id]; if (!isMain(q) || q.f !== c.faction) continue; const st = c.quests.active[id];
-      if (q.meet === npc.role && !st.met) return () => meetScene(q, npc);
-      if (q.turnin === npc.role && Sys.questComplete(q) && (q.scDone || q.type !== 'meet')) return () => doneScene(q, npc);
+      if (q.meet && !st.met && whoIs(q.f, q.meet) === npc) return () => meetScene(q, npc);
+      if (!q.auto && Sys.questComplete(q) && whoIs(q.f, q.turnin) === npc && (q.scDone || q.type !== 'meet')) return () => doneScene(q, npc);
     }
     // a hero who never got the summons (no ship to arrive on): the harbourmaster still has it
     if (npc.role === 'harbor' && !c.quests.done[c.faction + '_arrive'] && !c.quests.active[c.faction + '_arrive'] && !near) return () => Story.arrive();
@@ -476,10 +526,10 @@
     const c = p.c; if (!c || !c.quests) return;
     for (const id in c.quests.active) {
       const q = Sys.QUESTS[id]; if (!isMain(q) || q.f !== c.faction) continue; const st = c.quests.active[id];
-      // the smith's tools are bought: he sees you are kitted out and says so
-      if (q.type === 'tools' && st.met && Sys.questComplete(q)) { const sm = npcOf(q.f, 'smith'); if (UI.isOpen && UI.isOpen('npc')) return; doneScene(q, sm && close3(p, sm, 360) ? sm : null); return; }
-      const role = q.meet && !st.met ? q.meet : Sys.questComplete(q) ? q.turnin : null; if (!role) continue;
-      const npc = npcOf(q.f, role); if (!npc || !close3(p, npc, 110)) continue;
+      // the march has begun: the last step closes wherever you are
+      if (q.auto && (!q.meet || st.met) && Sys.questComplete(q)) { finishMain(q); return; }
+      const role = q.meet && !st.met ? q.meet : Sys.questComplete(q) && !q.auto ? q.turnin : null; if (!role) continue;
+      const npc = whoIs(q.f, role); if (!npc || !close3(p, npc, 110)) continue;
       const go = sceneFor2(npc, true); if (go) { go(); return; }
     }
   };
@@ -516,8 +566,19 @@
   const sp2 = Sys.startPlayer;
   Sys.startPlayer = function (c) {
     const r = sp2.apply(this, arguments);
-    try { const f = c.faction; const Q = Sys.QUESTS;
-      if (Q[f + '_arrive'] && (c.quests.done[f + '_story0'] || c.quests.active[f + '_story0'] || c.quests.done[f + '_build1'] || c.quests.done[f + '_story1'] || c.level >= 6)) for (const id of MAIN(f)) if (!c.quests.done[id] && !c.quests.active[id]) c.quests.done[id] = 1;
+    try { const f = c.faction; const Q = Sys.QUESTS; const qd = c.quests.done, qa = c.quests.active;
+      // the old homecoming (smith's tools, timber and stone, Kingdom Levels) is retired: those steps leave the journal
+      let wasOn = false; for (const id of OLD_MAIN(f)) { if (qa[id] || qd[id]) wasOn = true; delete qa[id]; }
+      const veteran = wasOn || qd[f + '_story0'] || qa[f + '_story0'] || qd[f + '_build1'] || qd[f + '_story1'] || c.level >= 6;
+      if (Q[f + '_arrive'] && veteran) {
+        if (!qd[f + '_arrive']) { delete qa[f + '_arrive']; qd[f + '_arrive'] = 1; }
+        // the new steps count as done as far as the kingdom already stands; the story heroes are past them all
+        const past = qd[f + '_story1'] || qa[f + '_story1'] || qd[f + '_story2'];
+        const steps = ['k1', 'k2', 'k3', 'k4', 'k5', 'k6'], ok = { k1: 'liaison', k2: 'workers', k3: 'mills', k4: 'barracks', k5: 'raiders' };
+        let next = null;
+        for (const k of steps) { const id = f + '_' + k; if (qd[id]) continue; if (past || (ok[k] && COND[ok[k]](f))) { delete qa[id]; qd[id] = 1; continue; } next = id; break; }
+        if (next && !qa[next] && Q[next]) setTimeout(() => { try { if (G.player && G.player.c === c) takeQuest(next); } catch (er) { console.warn(er); } }, 0);
+      }
     } catch (er) { console.warn(er); }
     return r;
   };

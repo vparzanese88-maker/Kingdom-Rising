@@ -222,15 +222,29 @@ float fbm3(vec3 p){ return vn(p) * .5 + vn(p * 2.03 + 7.1) * .3 + vn(p * 4.1 + 3
 `;
 // skin: base tone with blotches, blush, lips, brows, stubble and a painted scalp, pores and fine wrinkles
 function skinMaterial(u) {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.52, metalness: 0, sheen: 0.35, sheenRoughness: 0.55, sheenColor: new THREE.Color(0.55, 0.16, 0.1), specularIntensity: 0.45 });
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.52, metalness: 0, sheen: 0.45, sheenRoughness: 0.5, sheenColor: new THREE.Color(0.62, 0.2, 0.12), specularIntensity: 0.45 });
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
+    // in a cutscene the jaw works as a line is spoken and the eyelids blink: small moves of the rest-pose skin
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;\nuniform vec3 uMouth, uChin, uEye; uniform float uCorner, uTalk, uBlink, uEyeR;').replace('#include <begin_vertex>', `#include <begin_vertex>
+      vRest = position;
+      if (uTalk > 0.001) {
+        float below = smoothstep(uMouth.y + .001, uMouth.y - .006, position.y) * smoothstep(uChin.y - .03, uChin.y - .005, position.y);
+        float fr = smoothstep(uMouth.z - .06, uMouth.z - .02, position.z) * smoothstep(uCorner * 2.6, uCorner * .8, abs(position.x));
+        transformed.y -= uTalk * .0055 * below * fr; transformed.z -= uTalk * .0015 * below * fr;
+      }
+      if (uBlink > 0.001) {
+        vec2 d = vec2(abs(position.x) - abs(uEye.x), position.y - uEye.y);
+        float ring = exp(-dot(d, d) / (uEyeR * uEyeR * 2.6)) * step(0., position.z - uEye.z + uEyeR * .9);
+        float up = smoothstep(-.002, uEyeR * .5, d.y), lo = smoothstep(.002, -uEyeR * .5, d.y);
+        transformed.y -= uBlink * ring * (up * max(0., d.y + uEyeR * .15) - lo * max(0., -d.y - uEyeR * .55));
+        transformed.z += uBlink * ring * up * uEyeR * .25;
+      }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vRest;
       uniform vec3 uSkin, uLip, uBrow, uHairC, uEye, uMouth, uNose, uChin, uBrowIn, uBrowOut, uHead;
-      uniform float uCorner, uStub, uScalp, uFem, uAge, uBrowW, uPaint, uGrime;
+      uniform float uCorner, uStub, uScalp, uFem, uAge, uBrowW, uPaint, uGrime, uTalk, uEyeR;
       uniform vec3 uPaintC, uTatC, uChestP, uShP; uniform float uScar, uTat;
       float seg2(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.); return length(pa - ba * h); }
       float gBump; float gRough; float gBumpScar = 0.;
@@ -255,18 +269,40 @@ function skinMaterial(u) {
         float low = .6 * pow(max(0., 1. - m.x * m.x), .7);
         float lip = front * smoothstep(1.08, .9, m.x) * (m.y > 0. ? smoothstep(bow + .06, bow - .06, m.y) : smoothstep(-low - .07, -low + .07, m.y));
         col = mix(col, uLip * (.9 + .15 * n2), lip * .85);
-        col *= 1. - smoothstep(.08, 0., abs(m.y + .02)) * smoothstep(1.0, .7, m.x) * front * .45; // the line between the lips
+        col *= 1. - smoothstep(.08 + uTalk * .14, 0., abs(m.y + .02 + uTalk * .06)) * smoothstep(1.0, .7, m.x) * front * (.45 + uTalk * .45); // the line between the lips (wider while speaking)
         gRough = mix(gRough, .32, lip);
         // eyebrows: an arch of fine hairs from the inner to the outer end
         float t = (q.x - uBrowIn.x) / (uBrowOut.x - uBrowIn.x);
         float yc = mix(uBrowIn.y, uBrowOut.y, t) + .006 * sin(3.1416 * clamp(t, 0., 1.) * .95);
-        float th = mix(.0068, .0026, clamp(t, 0., 1.)) * uBrowW;
+        float th = mix(.0072, .0028, clamp(t, 0., 1.)) * uBrowW;
         float bz = smoothstep(uEye.z - .01, uEye.z + .002, p.z);
-        float brow = bz * smoothstep(-.06, .04, t) * smoothstep(1.08, .95, t) * smoothstep(th, th * .3, abs(p.y - yc));
+        float brow = bz * smoothstep(-.08, .06, t) * smoothstep(1.1, .88, t) * smoothstep(th, th * .05, abs(p.y - yc + th * .25 * (1. - t)));
         vec2 bs = vec2(q.x * cos(.5 - t * .4) - p.y * sin(.5 - t * .4), q.x * sin(.5 - t * .4) + p.y * cos(.5 - t * .4));
         float hairs = smoothstep(.35, .75, vn(vec3(bs.x * 1400., bs.y * 160., 1.)));
-        col = mix(col, uBrow, brow * (.45 + .55 * hairs));
+        col = mix(col, uBrow, brow * (.7 + .15 * hairs)); // a soft painted brow, the hair's colour, never spiky
         gRough = mix(gRough, .65, brow);
+        // the eyes: a thin dark lash line along the upper lid with a soft shadow, a fainter one below, and the lid crease
+        {
+          vec2 el = vec2((q.x - abs(uEye.x)) / (uEyeR * 1.3), (p.y - uEye.y) / uEyeR); float er = length(el);
+          float ez = smoothstep(uEye.z - .014, uEye.z - .003, p.z);
+          float upLine = exp(-pow((er - .97) / .075, 2.)) * smoothstep(.05, .45, el.y) * smoothstep(1.25, .7, abs(el.x)) * ez;
+          float loLine = exp(-pow((er - 1.) / .07, 2.)) * smoothstep(-.2, -.55, el.y) * ez;
+          float crease = exp(-pow((er - 1.55) / .3, 2.)) * smoothstep(0., .5, el.y) * ez;
+          col *= 1. - .62 * upLine - .1 * loLine - .1 * crease;
+          gRough = mix(gRough, .35, upLine * .5);
+        }
+        // nose and mouth with some form: a philtrum groove, shaded nostrils and wings, a lit bridge, a highlight on the lower lip
+        {
+          float ph = smoothstep(uNose.y - .005, uNose.y - .011, p.y) * smoothstep(uMouth.y + uCorner * .35, uMouth.y + uCorner * .7, p.y) * front;
+          col *= 1. - .12 * ph * exp(-pow(q.x / .0034, 2.)); col *= 1. + .05 * ph * exp(-pow((q.x - .0052) / .0016, 2.));
+          vec2 ns = vec2(q.x - .0085, p.y - (uNose.y - .0065)); float nz = smoothstep(uNose.z - .03, uNose.z - .012, p.z);
+          col *= 1. - .5 * exp(-dot(ns, ns) / .000014) * nz;
+          col *= 1. - .14 * exp(-pow((length(vec2(q.x - .006, p.y - uNose.y + .002)) - .012) / .0022, 2.)) * nz * smoothstep(uNose.y - .012, uNose.y + .004, p.y);
+          col *= 1. + .07 * exp(-pow(q.x / .0042, 2.)) * smoothstep(uEye.y + .005, uEye.y - .01, p.y) * smoothstep(uNose.y - .002, uNose.y + .01, p.y) * nz;
+          float lh = lip * exp(-pow((m.y + .32) / .17, 2.)) * exp(-pow(m.x / .45, 2.));
+          col *= 1. + .2 * lh; gRough = mix(gRough, .2, lh);
+        }
+        col *= vec3(1.035, 1., .965); // a touch warmer, as if lit through the skin
         // stubble / beard shadow on the jaw, chin and upper lip
         float jaw = smoothstep(uNose.y - .002, uNose.y - .012, p.y) * smoothstep(uChin.y - .045, uChin.y - .015, p.y);
         float side = smoothstep(uEye.x + .05, uEye.x + .035, q.x) * smoothstep(uMouth.z - .085, uMouth.z - .05, p.z);
@@ -335,9 +371,10 @@ function skinUniforms(look, kind, sh, spec) {
   const beardy = !fem && (L.beard || (D.RACES[L.race] || {}).beard);
   const head = new V3(0, lm.eyeL.c.y + 0.01, lm.eyeL.c.z - 0.085);
   return {
-    uSkin: { value: skin }, uLip: { value: lip }, uBrow: { value: hairC.clone().multiplyScalar(0.75) }, uHairC: { value: hairC },
+    uSkin: { value: skin }, uLip: { value: lip }, uBrow: { value: hairC.clone().multiplyScalar(0.6) }, uHairC: { value: hairC },
     uEye: { value: lm.eyeL.c.clone() }, uMouth: { value: lm.mouth.clone() }, uNose: { value: lm.nose.clone() }, uChin: { value: lm.chin.clone() },
     uBrowIn: { value: lm.browIn.clone() }, uBrowOut: { value: lm.browOut.clone() }, uHead: { value: head }, uCorner: { value: Math.max(0.012, Math.abs(lm.corner.x)) },
+    uTalk: { value: 0 }, uBlink: { value: 0 }, uEyeR: { value: Math.max(0.011, lm.eyeL.r) }, // speech and blinks in cutscenes (scene3d.js)
     uStub: { value: fem ? 0 : L.beardStyle != null ? [0, 0.9, 1, 1, 1, 0.6, 0.35][L.beardStyle] || 0 : beardy ? 1 : 0.25 + (spec.seed % 7) / 12 }, uScalp: { value: bald ? (fem ? 0 : 0.18) : 1 }, uFem: { value: fem ? 1 : 0 }, uAge: { value: L.old ? 1 : 0.15 },
     uScar: { value: L.scar || 0 }, uTat: { value: L.tattoo || 0 }, uTatC: { value: new THREE.Color(L.tatCol || '#1e2a5a') }, uChestP: { value: new V3(...(sh.pivots.chest ? [sh.pivots.chest.x, sh.pivots.chest.y, sh.pivots.chest.z] : [0, 1.3, 0])) }, uShP: { value: new V3(...(sh.pivots.shL ? [sh.pivots.shL.x, sh.pivots.shL.y, sh.pivots.shL.z] : [0.18, 1.45, 0])) },
     uBrowW: { value: fem ? 0.75 : kind === 'orc' ? 1.4 : 1 }, uPaint: { value: L.warpaint ? 1 : 0 }, uPaintC: { value: new THREE.Color(L.warpaint || '#2a3a8a') }, uGrime: { value: kind === 'zombie' ? 1 : kind === 'goblin' || kind === 'troll' ? 0.5 : 0 },
@@ -587,7 +624,8 @@ function strandCards(look, kind, sh, spec, N, rest) {
   const style = closedHelm ? null : styleFor(look, kind, spec.fem);
   const push = (pts, side, width, nrm, chest, col, uw = 0.18, vlen = 1, shade = true) => cards.push({ pts, side, width, nrm, chest, col, u0: rnd() * (1 - uw), uw, vlen, shade });
   // ---- scalp hair: cards that lie along the head, layered, then fall below the ears ----
-  if (style && !(covered && style !== 'long' && style !== 'vlong' && style !== 'shoulder')) {
+  const hatOnly = covered && !look.helm && !look.hood; // under a hat the hair below the brim still shows, whatever the style
+  if (style && !(covered && !hatOnly && style !== 'long' && style !== 'vlong' && style !== 'shoulder')) {
     const S = HAIR_STYLE[style]; const crown = new V3(c.x, c.y + rad.y * 0.95, c.z - rad.z * 0.35);
     const fallY = c.y - rad.y * 0.35; const faceZ = c.z + rad.z * 0.45, browY = lm.browIn.y + 0.012;
     const roots = sampleSurface(P, N, A.tri.body, (v) => fr.isScalp[v] && (!S.strip || Math.abs(P[v * 3]) < S.strip * 1.8), Math.round(S.n * (K3.quality && K3.quality.grass >= 1.5 ? 1 : 0.7)), rnd);
@@ -596,11 +634,11 @@ function strandCards(look, kind, sh, spec, N, rest) {
     const G = S.gather === 'pony' ? new V3(c.x, c.y + rad.y * 0.12, c.z - rad.z * 1.02) : S.gather === 'bun' ? new V3(c.x, c.y + rad.y * 0.72, c.z - rad.z * 0.78) : null;
     for (const r of roots) {
       if (S.strip && Math.abs(r.p.x) > S.strip) continue;
-      if (covered && r.p.y > c.y - 0.01) continue; // under a hat only the hair below the brim shows
+      if (covered && r.p.y > (hatOnly ? c.y + rad.y * 0.45 : c.y - 0.01)) continue; // under a helmet or hood only the hair below the rim shows; a hat's crown hides the top, the rest still falls round the face
       const hd = r.p.clone().sub(c).normalize(); const layer = rnd();
       // which way it is combed: away from the crown, swept back at the front for short styles, from the part for longer ones
       let flow = r.p.clone().sub(crown); if (short && hd.z > 0.1) flow = new V3((r.p.x - partX) * 0.6, 0.2, -1);
-      if (!short && hd.z > 0.15) flow = new V3(Math.sign(r.p.x - partX || 1), -0.4, 0.15);
+      if (!short && hd.z > 0.15) flow = new V3(Math.sign(r.p.x - partX || 1), -0.15, -0.35); // hair at the front sweeps aside and back, off the face
       flow.sub(r.n.clone().multiplyScalar(flow.dot(r.n))).normalize();
       const len = S.len[0] + rnd() * (S.len[1] - S.len[0]);
       let dir = S.strip ? r.n.clone().lerp(new V3(0, 0.3, -1), 0.3).normalize() : r.n.clone().multiplyScalar(0.25).add(flow).normalize();
@@ -626,11 +664,11 @@ function strandCards(look, kind, sh, spec, N, rest) {
           const o2 = p.clone().sub(c).normalize(); dir.addScaledVector(new V3(0, -1, 0), S.grav * 0.22); dir.sub(o2.clone().multiplyScalar(dir.dot(o2))).normalize();
         } else { dir.y -= S.grav * 0.5; dir.normalize(); }
         // keep the face clear and fall behind the shoulders
-        if (p.z > faceZ && p.y < browY && Math.abs(p.x) < Math.abs(lm.eyeL.c.x) + 0.035) { p.x = Math.sign(p.x || 1) * (Math.abs(lm.eyeL.c.x) + 0.035); dir.x += Math.sign(p.x) * 0.5; dir.normalize(); }
+        if (p.z > faceZ && p.y < browY + 0.01 && Math.abs(p.x) < Math.abs(lm.eyeL.c.x) + 0.035) { if (k > 0 && Math.abs(lm.eyeL.c.x) + 0.035 - Math.abs(p.x) > 0.012) { pts.pop(); side.pop(); width.pop(); nrm.pop(); chest.pop(); break; } p.x = Math.sign(p.x || 1) * (Math.abs(lm.eyeL.c.x) + 0.035); dir.x += Math.sign(p.x) * 0.5; dir.normalize(); } // no strand ever hangs across the eyes: one that would is cut at the hairline
         if (p.y < neckY + 0.03 && p.z > backZ - 0.012 - Math.max(0, shY - p.y) * 0.1 && Math.abs(p.x) < 0.15) p.z = Math.min(p.z, backZ - 0.012 - Math.max(0, shY - p.y) * 0.1);
         if (p.y < shY + 0.03 && Math.abs(p.x) > 0.09) { p.x *= 0.96; if (p.z > backZ + 0.02) p.z = backZ + 0.02; }
       }
-      push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.35), 0.2, Math.min(1, len / 0.2 + 0.35));
+      if (pts.length >= 2) push(pts, side, width, nrm, chest, hairCol.clone().multiplyScalar(0.8 + rnd() * 0.35), 0.2, Math.min(1, len / 0.2 + 0.35));
     }
     if (G && S.gather === 'pony') {
       // the tail: a thick bundle from the tie down the back
@@ -676,7 +714,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
     const browCol = hairCol.clone().multiplyScalar(0.62); const surf = (x, y) => { // the nearest face vertex to (x, y) on the front of the head
       let best = -1, bd = 1e9; for (const v of fr.scalpFace || (fr.scalpFace = (() => { const o = []; for (let i = 0; i < A.NV; i++) if (A.B[A.region[i]] === 'head' && P[i * 3 + 2] > lm.eyeL.c.z - 0.02) o.push(i); return o; })())) { const d = (P[v * 3] - x) ** 2 + (P[v * 3 + 1] - y) ** 2; if (d < bd) { bd = d; best = v; } }
       return { p: new V3(P[best * 3], P[best * 3 + 1], P[best * 3 + 2]), n: new V3(N[best * 3], N[best * 3 + 1], N[best * 3 + 2]) }; };
-    const bi = lm.browIn, bo = lm.browOut; const nB = spec.fem ? 34 : 44;
+    const bi = lm.browIn, bo = lm.browOut; const nB = 0; // the brows are painted in the skin shader (strand cards read as spikes in close-ups)
     for (const sx of [1, -1]) for (let i = 0; i < nB; i++) {
       const t = rnd(); const x = (bi.x + (bo.x - bi.x) * t) * sx, y = bi.y + (bo.y - bi.y) * t + 0.006 * Math.sin(Math.PI * t * 0.95) + (rnd() - 0.5) * 0.008 * (1 - t * 0.6) * (spec.fem ? 0.6 : 1);
       const s = surf(x, y); const along = new V3(sx * (0.9 - 0.5 * (1 - t)), 0.55 * (1 - t) + 0.1, 0); along.sub(s.n.clone().multiplyScalar(along.dot(s.n))).normalize();
@@ -696,7 +734,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
         const bins = new Map();
         for (const v of lv) { const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2]; if (Math.sign(x) !== sx || (y > e.c.y) !== upper) continue; const ang = Math.atan2(y - e.c.y, (x - e.c.x) * sx); const b = Math.round(ang * 12); const d = Math.hypot(x - e.c.x, y - e.c.y); const cur = bins.get(b); if (!cur || d < cur.d) bins.set(b, { d, p: new V3(x, y, z) }); }
         const edge = [...bins.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1].p);
-        const n = upper ? 44 : 22;
+        const n = 0; // the lash line is painted in the skin shader (separate lashes read as stitches up close)
         for (let i = 0; i < n && edge.length > 1; i++) {
           const f = (i + 0.5) / n * (edge.length - 1); const a = edge[Math.floor(f)], b = edge[Math.min(edge.length - 1, Math.floor(f) + 1)]; const p0 = a.clone().lerp(b, f - Math.floor(f));
           const out = p0.clone().sub(e.c); out.z = 0; out.normalize(); const fwd = new V3(0, 0, 1);
@@ -794,6 +832,59 @@ function rigidPiece(geo, mtx, col, mat, bone) {
 }
 const RG = { box: new THREE.BoxGeometry(1, 1, 1), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 12), sph: new THREE.SphereGeometry(0.5, 10, 8), torus: new THREE.TorusGeometry(0.5, 0.12, 6, 14) };
 const TRS = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => new M4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
+// a helmet's bowl in real metal: rings round the head from the rim to the crown, each one hugging the skull at its
+// own height (plus a small gap), then shaped by the style: a peaked spangenhelm, a flat-topped great helm, a sallet's
+// swept tail. Holes are cut for the eyes and mouth, and bands, ridges and ribs stand proud of the surface. It is rigid on
+// the head bone, so it keeps a crisp silhouette instead of reading as a ball.
+function headSlices(P, cat) {
+  let y0 = 1e9, y1 = -1e9; for (let v = 0; v < A.NV; v++) if (cat[v] === 'head') { const y = P[v * 3 + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const n = 72, dy = (y1 - y0) / (n - 1); const rx = new Float32Array(n), zf = new Float32Array(n).fill(-1e9), zb = new Float32Array(n).fill(1e9);
+  for (let v = 0; v < A.NV; v++) { if (cat[v] !== 'head') continue; const i = Math.round((P[v * 3 + 1] - y0) / dy); rx[i] = Math.max(rx[i], Math.abs(P[v * 3])); zf[i] = Math.max(zf[i], P[v * 3 + 2]); zb[i] = Math.min(zb[i], P[v * 3 + 2]); }
+  for (let i = 1; i < n; i++) if (zf[i] < -1e8) { zf[i] = zf[i - 1]; zb[i] = zb[i - 1]; rx[i] = rx[i - 1]; }
+  for (let i = n - 2; i >= 0; i--) if (zf[i] < -1e8) { zf[i] = zf[i + 1]; zb[i] = zb[i + 1]; rx[i] = rx[i + 1]; }
+  // a running maximum then an average, so an ear or the nose tip makes a gentle swell, not a dent or a spike
+  const sm = (a, f) => { const m = new Float32Array(n), o = new Float32Array(n); for (let i = 0; i < n; i++) { let b = a[i]; for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) b = f(b, a[j]); m[i] = b; } for (let i = 0; i < n; i++) { let t = 0, c = 0; for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { t += m[j]; c++; } o[i] = t / c; } return o; };
+  const RX = sm(rx, Math.max), ZF = sm(zf, Math.max), ZB = sm(zb, Math.min);
+  const at = (y) => { const f = K3.clamp((y - y0) / dy, 0, n - 1), i = Math.floor(f), k = f - i, j = Math.min(n - 1, i + 1); return { rx: RX[i] + (RX[j] - RX[i]) * k, zf: ZF[i] + (ZF[j] - ZF[i]) * k, zb: ZB[i] + (ZB[j] - ZB[i]) * k }; };
+  return { y0, y1, at };
+}
+// o: { rim(phi) -> y, apexY, yT (where the crown starts closing), top: 'dome' | 'cone' | 'flat', g (gap), bucket (sides
+// no narrower than this share of the widest), off(t, phi, x, y) -> raised by, hole(x, y, z, phi) -> cut, brim, segs }
+function helmBowl(S, o) {
+  const segs = o.segs || 64, g = o.g;
+  let ts = [0, 0.03, 0.07, 0.12, 0.18, 0.25, 0.33, 0.42, 0.51, 0.6, 0.69, 0.77, 0.84, 0.9, 0.95, 0.985, 1];
+  // extra rings at given heights (measured at the front), so slits and openings get crisp edges
+  if (o.rowsY) { const r0 = o.rim(0); for (const y of o.rowsY) { const t = (y - r0) / (o.apexY - r0); if (t > 0.005 && t < 0.995) ts.push(t); } ts = [...new Set(ts.map((t) => Math.round(t * 2000) / 2000))].sort((p, q) => p - q); }
+  let wide = null; if (o.bucket) { wide = { rx: 0, zf: -1, zb: 1 }; for (let y = o.rimMid; y <= o.yT; y += 0.004) { const q = S.at(y); wide.rx = Math.max(wide.rx, q.rx); wide.zf = Math.max(wide.zf, q.zf); wide.zb = Math.min(wide.zb, q.zb); } }
+  const P0 = S.at(o.yT); const cT = (P0.zf + P0.zb) / 2;
+  const pos = (t, phi, extra = 0) => {
+    const ry = o.rim(phi); const y = ry + (o.apexY - ry) * t; const q = S.at(Math.min(y, o.yT));
+    let rx = q.rx + g, zf = q.zf + g, zb = q.zb - g;
+    if (wide) { rx = Math.max(rx, wide.rx * o.bucket + g); zf = Math.max(zf, wide.zf * o.bucket + (1 - o.bucket) * cT + g); zb = Math.min(zb, wide.zb * o.bucket + (1 - o.bucket) * cT - g); }
+    let k = 1; const u = y > o.yT ? (y - o.yT) / Math.max(1e-4, o.apexY - o.yT) : 0;
+    if (u > 0) k = o.top === 'cone' ? Math.pow(Math.max(0, 1 - u), 0.72) : o.top === 'flat' ? Math.pow(Math.max(0, 1 - u ** 5), 0.2) : Math.sqrt(Math.max(0, 1 - u * u));
+    const cz = y > o.yT ? cT : (zf + zb) / 2; const sx = Math.sin(phi), cx = Math.cos(phi);
+    const x0 = sx * rx * k; const add = (o.off ? o.off(t, phi, x0, y) : 0) + extra;
+    return new V3(x0 + sx * add, y, cz + cx * (cx >= 0 ? zf - cz : cz - zb) * k + cx * add);
+  };
+  const rings = []; // [t, extra] rows, outermost first: a brim, a rolled edge, then the bowl
+  if (o.brim) { rings.push([0, o.brim, -o.brim * 0.3]); rings.push([0, o.brim * 0.85, -o.brim * 0.22]); }
+  rings.push([0, 0.0035, -0.003]);
+  for (const t of ts) rings.push([t, 0, 0]);
+  const V = [], idx = [], R = rings.length;
+  for (let r = 0; r < R; r++) for (let k = 0; k < segs; k++) { const [t, ex, dy] = rings[r]; const p = pos(t, (k / segs) * Math.PI * 2, ex); p.y += dy; V.push(p); }
+  const inner = V.map((p) => { const q = p.clone(); const c = new V3(0, p.y, cT); const d = q.clone().sub(c); const l = d.length(); if (l > 1e-5) q.addScaledVector(d, -0.0035 / l); return q; });
+  const cut = (r, k) => { if (!o.hole || r < (o.brim ? 3 : 1)) return false; const a = V[r * segs + k], b = V[(r + 1) * segs + ((k + 1) % segs)]; const m = a.clone().add(b).multiplyScalar(0.5); return o.hole(m.x, m.y, m.z, ((k + 0.5) / segs) * Math.PI * 2); };
+  const N = V.length; const all = V.concat(inner);
+  for (let r = 0; r < R - 1; r++) for (let k = 0; k < segs; k++) {
+    if (cut(r, k)) continue; const a = r * segs + k, b = r * segs + (k + 1) % segs, c = (r + 1) * segs + (k + 1) % segs, d = (r + 1) * segs + k;
+    idx.push(a, b, c, a, c, d); idx.push(N + a, N + c, N + b, N + a, N + d, N + c);
+  }
+  for (let k = 0; k < segs; k++) { const a = k, b = (k + 1) % segs; idx.push(N + a, N + b, b, N + a, b, a); } // the edge of the rim, outside to inside
+  const pa = new Float32Array(all.length * 3); all.forEach((p, i) => { pa[i * 3] = p.x; pa[i * 3 + 1] = p.y; pa[i * 3 + 2] = p.z; });
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pa, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  return { geo, pos };
+}
 // helmets are shells of the head itself, so they sit snugly on this skull; the style decides what they cover
 const HELM_CLOSED = { great: 1, barbute: 1, coif: 1, coifcap: 1 }; // no hair shows
 const HELM_NOBEARD = { great: 1, barbute: 1 }; // the face is covered
@@ -822,47 +913,76 @@ function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
   const hullOf = (o, faceCovered) => ({ c: hc, n: st === 'great' ? 2.9 : st === 'barbute' ? 2.4 : 2, rx: HR.x + o, ryT: HR.y + o, ryB: HR.y * 1.25 + o, rzF: (faceCovered ? noseZ + 0.006 : foreZ) - hc.z + o, rzB: HR.z + o });
   if (st === 'coif' || st === 'coifcap') {
     // mail coif: over the head, round the chin and throat, and out over the shoulders
-    add('body', (v) => { const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const mant = (cat[v] === 'torso' || cat[v] === 'uarm') ? Math.min(Y(v) - (shY - 0.06), 0.2 - sd) : -1; return K3.clamp(Math.min(Math.max(H(v) ? 0.04 : -1, mant), -faceHole(v)), -0.45, 0.45); }, { off: 0.0095, smooth: 9, col: '#8a8e96', mat: matW('chain', wear), trim: '#5a5e66', trimW: 0.006 }, false);
-    if (st === 'coifcap') add('body', (v) => cl(cap(v) + 0.012), { off: 0.016, hull: hullOf(0.016, false), smooth: smoothMetal, col: mcol, mat: matW('bands', wear), trim: trimC, trimW: 0.008, trimMat: trimM }, false);
+    add('body', (v) => { const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const mant = (cat[v] === 'torso' || cat[v] === 'uarm') ? Math.min(Y(v) - (shY - 0.06), 0.2 - sd) : -1; return K3.clamp(Math.min(Math.max(H(v) ? 0.04 : -1, mant), -faceHole(v)), -0.45, 0.45); }, { off: 0.0105, smooth: 7, col: '#9ea2aa', mat: matW('chain', wear), trim: '#4a3424', trimW: 0.008, trimMat: 'leather' }, false);
+    if (st === 'coifcap') { // an iron skull cap worn over the mail, with a riveted band and a low ridge
+      const S = headSlices(sh.P, cat); const g = 0.019;
+      const bw = helmBowl(S, { rim: (phi) => { const bk = (1 - Math.cos(phi)) / 2; return browY + 0.012 - 0.012 * smooth(0.12, 0.35, bk) - 0.01 * smooth(0.5, 0.95, bk); }, yT: browY + 0.014, apexY: S.y1 + g, top: 'dome', g,
+        off: (tt, phi, x, y) => (tt < 0.08 ? 0.0035 : 0) + (y > browY ? 0.005 * Math.exp(-((x / 0.0055) ** 2)) : 0) });
+      solid(bw.geo, new M4(), mcol, matW('metal', wear), A.BI.head);
+      for (let i = 0; i < 12; i++) { const q = bw.pos(0.04, ((i + 0.5) / 12) * Math.PI * 2, 0.0055); solid(RG.sph, TRS(q.x, q.y, q.z, 0.006, 0.006, 0.006), t >= 3 ? goldC : K3.shade(mcol, -0.1), t >= 3 ? goldM : matW('metal', wear), A.BI.head); }
+    }
     return { closed: true, top: 0.016 };
   }
   if (st === 'cap') { // a stitched leather arming cap with ear flaps
     add('body', (v) => { if (!H(v)) return -1; const flap = Math.min(0.022 - Math.abs(Z(v) - (hc.z - HR.z * 0.1)) * 0.5, Y(v) - (chinY + 0.012), side(v) - 0.7); return K3.clamp(Math.max(cap(v) + 0.004, flap), -0.45, 0.45); }, { off: 0.008, smooth: 12, hull: hullOf(0.008, false), col: K3.shade(mcol, -0.05), mat: 'leather', trim: '#2a1a10', trimW: 0.007, trimMat: 'leather' }, false);
     return { closed: false, top: 0.008 };
   }
-  let field = cap, off = offM;
-  if (st === 'nasal' || st === 'skull') {
-    const cheek = (v) => (H(v) ? Math.min(Math.abs(X(v)) - (eyeX + eyeR * 1.15), Y(v) - (mouthY - 0.006), front(v) + HR.z * 0.9, rim(v) + 0.03 - Y(v) + 0.03) : -1);
-    field = st === 'nasal' ? (v) => Math.max(cap(v), cheek(v)) : cap;
-  } else if (st === 'barbute') { // closed to the jaw with a T-shaped opening for the eyes and mouth
-    const T = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.max(Math.min(eyeX + eyeR * 1.35 - Math.abs(X(v)), eyeR * 1.05 - Math.abs(Y(v) - (eyeY + eyeR * 0.15))), Math.min(0.018 - Math.abs(X(v)), eyeY - Y(v), Y(v) - (chinY + 0.004))) : -0.03);
-    field = (v) => Math.min(whole(v), -T(v));
-  } else if (st === 'sallet') { // a tailed sallet with a visor slit; the jaw stays open
-    const cover = (v) => (H(v) ? Y(v) - (eyeY - eyeR * 1.6 - 0.07 * smooth(0, 1, back(v))) : -1);
-    const slit = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.min(eyeX + eyeR * 1.6 - Math.abs(X(v)), eyeR * 0.5 - Math.abs(Y(v) - (eyeY + eyeR * 0.1))) : -0.03);
-    field = (v) => Math.min(cover(v), -slit(v));
-    off = (v, y) => offM + 0.03 * back(v) * smooth(eyeY + 0.02, eyeY - 0.06, y);
-  } else if (st === 'great') { // a great helm: closed all round, an eye slit and breaths
-    const slit = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.min(eyeX + eyeR * 1.8 - Math.abs(X(v)), eyeR * 0.42 - Math.abs(Y(v) - eyeY)) : -0.03);
-    field = (v) => Math.min(H(v) ? Y(v) - (neckY - 0.03) : -1, -slit(v)); off = 0.017;
-  }
-  const breaths = st === 'great' ? (v, y, C, x, z) => { if (z < lm.eyeL.c.z - 0.01 || x > -0.016 || x < -0.046 || y > noseY + 0.004 || y < mouthY - 0.012) return C; const gx = Math.abs(((x + 0.016) * 1000) % 8), gy = Math.abs(((y - noseY) * 1000) % 8); return gx > 2.5 && gx < 5.5 && gy > 2.5 && gy < 5.5 ? C.clone().multiplyScalar(0.12) : C; } : null;
+  // ---- metal helmets: a rigid bowl (helmBowl) that hugs this skull, shaped by the style ----
+  const S = headSlices(sh.P, cat); const G0 = 0.0095; const wearM = matW('metal', wear);
+  const bandC = t >= 3 ? goldC : K3.shade(mcol, -0.1), bandM = t >= 3 ? goldM : wearM;
+  const piece = (geo, col, mat) => solid(geo, new M4(), col, mat, A.BI.head);
+  const browRim = browY + 0.006;
+  // where the rim runs: front over the brow, down at the sides over the ears, and to the nape behind
+  const rimFn = (fy, sy, by) => (phi) => { const b = (1 - Math.cos(phi)) / 2; return fy + (sy - fy) * smooth(0.12, 0.3, b) + (by - sy) * smooth(0.5, 0.95, b); };
+  const bump = (phi, at, w) => { let d = Math.abs(phi - at) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return Math.exp(-(((d * 0.09) / w) ** 2)); };
+  const ridge = (h) => (t, phi, x, y) => (y > browY ? h * Math.exp(-((x / 0.0055) ** 2)) : 0);
+  const band = (h, t1) => (t) => (t <= t1 ? h : 0);
+  const rivets = (bw, t0, n, col, mat, from = 0, to = Math.PI * 2) => { for (let i = 0; i < n; i++) { const phi = from + ((to - from) * (i + 0.5)) / n; const q = bw.pos(t0, phi, 0.0055); solid(RG.sph, TRS(q.x, q.y, q.z, 0.0065, 0.0065, 0.0065), col, mat, A.BI.head); } };
+  const cosOf = (v) => { const dx = X(v), dz = Z(v) - hc.z; const l = Math.hypot(dx, dz) || 1; return dz / l; };
   const faceCovered = st === 'great' || st === 'barbute';
   // darkness behind eye slits: you see shadow through a visor, not skin
-  if (st === 'great' || st === 'sallet') add('body', (v) => (cat[v] === 'head' && Z(v) > lm.eyeL.c.z - 0.04 ? cl(Math.min(eyeX + eyeR * 2.2 - Math.abs(X(v)), eyeR * 1.4 - Math.abs(Y(v) - eyeY))) : -1), { off: 0.004, smooth: 6, col: '#070504', mat: 'plain' }, false);
-  if (st === 'great') { // a riveted band across the brow and a strip down the face
-    add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (eyeY + eyeR * 0.55), eyeY + eyeR * 0.55 + 0.018 - Y(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.05), mat: matW('bands', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
-    add('body', (v) => (cat[v] === 'head' && Z(v) > hc.z && Y(v) < eyeY - eyeR * 0.6 ? cl(0.011 - Math.abs(X(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.08), mat: matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
-  }
-  add('body', (v) => cl(field(v)), { off, hull: hullOf(typeof off === 'number' ? off : offM, faceCovered), smooth: smoothMetal, col: mcol, mat: matW(st === 'great' || st === 'barbute' ? 'metal' : 'bands', wear), trim: trimC, trimW: 0.006, trimMat: trimM, colFn: breaths }, false);
-  // a raised brow band and a ridge over the crown
-  if (st !== 'great') add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (rim(v) + 0.004), rim(v) + 0.022 - Y(v))) : -1), { off: off === offM ? offM + 0.006 : (v, y) => off(v, y) + 0.006, hull: hullOf(offM + 0.006, false), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.06), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
-  add('body', (v) => (H(v) && Y(v) > browY ? cl(0.009 - Math.abs(X(v))) : -1), { off: (typeof off === 'function' ? 0.02 : off + 0.0055), hull: hullOf((typeof off === 'function' ? 0.02 : off + 0.0055), faceCovered), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.1), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
-  if (st === 'nasal') { // the nasal bar, from the brow band down over the nose
+  if (st === 'sallet') add('body', (v) => (cat[v] === 'head' && Z(v) > lm.eyeL.c.z - 0.04 ? cl(Math.min(eyeX + eyeR * 2.2 - Math.abs(X(v)), eyeR * 1.4 - Math.abs(Y(v) - eyeY))) : -1), { off: 0.004, smooth: 6, col: '#070504', mat: 'plain' }, false);
+  if (st === 'great') add('body', (v) => (cat[v] === 'head' && cosOf(v) > 0.2 && Y(v) > chinY - 0.02 ? 0.2 : -1), { off: 0.004, smooth: 4, col: '#0a0806', mat: 'plain' }, false);
+  if (st === 'skull') { // an iron kettle cap: a low bowl, a riveted band and a brim all round
+    const bw = helmBowl(S, { rim: rimFn(browRim, eyeY - 0.004, eyeY - 0.02), yT: browY + 0.01, apexY: S.y1 + G0, top: 'dome', g: G0, brim: 0.026, off: (t, phi, x, y) => band(0.003, 0.08)(t) + ridge(0.004)(t, phi, x, y) });
+    piece(bw.geo, mcol, wearM); rivets(bw, 0.04, 14, bandC, bandM);
+  } else if (st === 'nasal') { // a spangenhelm: a peaked bowl of four plates on riveted ribs, a nasal, cheek plates and a mail aventail
+    const bw = helmBowl(S, { rim: rimFn(browRim, noseY + 0.004, mouthY - 0.004), yT: browY + 0.012, apexY: S.y1 + G0 + 0.045, top: 'cone', g: G0,
+      off: (t, phi) => band(0.004, 0.09)(t) + (t > 0.05 ? 0.0035 * Math.max(bump(phi, 0, 0.006), bump(phi, Math.PI / 2, 0.006), bump(phi, Math.PI, 0.006), bump(phi, Math.PI * 1.5, 0.006)) : 0) });
+    piece(bw.geo, mcol, wearM); rivets(bw, 0.045, 12, bandC, bandM); for (const phi of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) for (const tt of [0.3, 0.55]) { const q = bw.pos(tt, phi, 0.0062); solid(RG.sph, TRS(q.x, q.y, q.z, 0.0055, 0.0055, 0.0055), bandC, bandM, A.BI.head); }
+    const ap = bw.pos(1, 0); solid(RG.sph, TRS(ap.x, ap.y + 0.002, ap.z, 0.01, 0.012, 0.01), bandC, bandM, A.BI.head); // the boss at the peak
+    const cheek = (v) => (H(v) ? Math.min(Math.abs(X(v)) - (eyeX + eyeR * 1.15), Y(v) - (mouthY - 0.006), front(v) + HR.z * 0.9, browRim - 0.004 - Y(v)) : -1);
+    add('body', (v) => cl(cheek(v)), { off: 0.014, hull: hullOf(0.014, false), smooth: smoothMetal, col: K3.shade(mcol, -0.04), mat: wearM, trim: trimC, trimW: 0.005, trimMat: trimM }, false);
+    // the mail aventail hangs from the rim round the back and sides of the neck onto the shoulders
+    add('body', (v) => { const k = cat[v]; if (!(k === 'head' || k === 'neck' || k === 'torso')) return -1; if (cosOf(v) > 0.35 && k !== 'torso') return -1; const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const lowest = k === 'torso' ? Math.min(Y(v) - (shY - 0.03), 0.16 - sd, -0.02 - (Z(v) - rest.neck[2]) * 3) : 1; return cl(Math.min(mouthY + 0.004 - Y(v) + (k === 'head' ? 0 : 0.2), lowest)); }, { off: 0.0105, smooth: 6, col: '#8e9298', mat: matW('chain', wear), trim: '#5a5e66', trimW: 0.006 }, false);
     let z = lm.nose.z; for (let v = 0; v < A.NV; v++) if (cat[v] === 'head' && Math.abs(X(v)) < 0.006 && Y(v) < browY && Y(v) > noseY) z = Math.max(z, Z(v));
-    solid(RG.box, TRS(0, (browY + noseY) / 2 + 0.004, z + 0.012, 0.016, browY - noseY + 0.02, 0.006, -0.12), mcol, matW('metal', wear), A.BI.head);
+    solid(RG.box, TRS(0, (browY + noseY) / 2 + 0.002, z + 0.011, 0.017, browY - noseY + 0.026, 0.006, -0.12), K3.shade(mcol, 0.06), wearM, A.BI.head);
+  } else if (st === 'sallet') { // a sallet: a rounded skull with a combed ridge, a visor slit, and a long tail swept out over the neck
+    const slitY = eyeY + eyeR * 0.1;
+    const bw = helmBowl(S, { rim: rimFn(eyeY - eyeR * 1.9, noseY - 0.002, mouthY - 0.01), yT: browY + 0.008, apexY: S.y1 + G0, top: 'dome', g: G0,
+      off: (t, phi, x, y) => { const bk = Math.max(0, -Math.cos(phi)); return ridge(0.006)(t, phi, x, y) + (t < 0.45 ? 0.05 * (1 - t / 0.45) ** 2 * bk ** 2 : 0) + band(0.003, 0.05)(t); },
+      hole: (x, y, z, phi) => Math.cos(phi) > 0.2 && Math.abs(x) < eyeX + eyeR * 1.8 && Math.abs(y - slitY) < eyeR * 0.5 && Math.abs(x) > 0.004 });
+    piece(bw.geo, mcol, wearM); rivets(bw, 0.03, 10, bandC, bandM, Math.PI * 0.35, Math.PI * 1.65);
+  } else if (st === 'barbute') { // a barbute: closed down to the jaw, a Y-shaped opening for the eyes, nose and mouth, a ridge over the crown
+    const bw = helmBowl(S, { rim: rimFn(chinY - 0.008, chinY - 0.016, neckY + 0.012), yT: browY + 0.008, apexY: S.y1 + G0, top: 'dome', g: G0 + 0.002,
+      rowsY: [eyeY + eyeR * 1.3, eyeY + eyeR * 1.3 + 0.012, eyeY - eyeR * 0.9, chinY + 0.004, (eyeY + chinY) / 2],
+      off: (t, phi, x, y) => { const fr = Math.max(0, Math.cos(phi)), bk = Math.max(0, -Math.cos(phi)); let h = ridge(0.011)(t, phi, x, y) + band(0.003, 0.04)(t);
+        if (fr > 0.55 && y > eyeY + eyeR * 1.3 && y < eyeY + eyeR * 1.3 + 0.012) h += 0.005; // a brow ridge over the opening
+        if (t < 0.12) h += 0.014 * (1 - t / 0.12) ** 2 * bk; // the neck flares out at the back
+        return h; },
+      hole: (x, y, z, phi) => Math.cos(phi) > 0.25 && ((Math.abs(x) < eyeX + eyeR * 1.5 && y < eyeY + eyeR * 1.3 && y > eyeY - eyeR * 0.9 - Math.max(0, eyeX + eyeR * 1.5 - Math.abs(x) - 0.03) * 1.2) || (Math.abs(x) < 0.02 + (y - chinY) * 0.12 && y < eyeY && y > chinY + 0.002)) });
+    piece(bw.geo, mcol, wearM); rivets(bw, 0.02, 14, bandC, bandM, Math.PI * 0.3, Math.PI * 1.7);
+  } else if (st === 'great') { // a great helm: a flat-topped bucket, an eye slit each side of a riveted strip, breaths, a crown band
+    const slitY = eyeY;
+    const bw = helmBowl(S, { rim: rimFn(chinY - 0.03, neckY - 0.012, neckY - 0.008), rimMid: eyeY - 0.03, yT: S.y1 - 0.012, rowsY: [slitY - eyeR * 0.42, slitY + eyeR * 0.42, slitY + eyeR * 0.5, slitY + eyeR * 0.5 + 0.018, ...[0, 1, 2, 3, 4, 5, 6].map((i) => noseY + 0.004 - i * 0.0045)], apexY: S.y1 + 0.016, top: 'flat', g: 0.012, bucket: 0.95,
+      off: (t, phi, x, y) => { const fr = Math.max(0, Math.cos(phi)); let h = (fr > 0.6 && y < slitY + eyeR * 0.5 ? 0.005 * Math.exp(-((x / 0.008) ** 2)) : 0); if (Math.abs(y - (slitY + eyeR * 0.5 + 0.009)) < 0.008) h += 0.003; if (t < 0.05) h += 0.003; return h; },
+      hole: (x, y, z, phi) => { if (Math.cos(phi) < 0.3) return false; if (Math.abs(y - slitY) < eyeR * 0.42 && Math.abs(x) > 0.009 && Math.abs(x) < eyeX + eyeR * 2) return true; if (x < -0.014 && x > -0.05 && y < noseY + 0.004 && y > mouthY - 0.016) { const gx = ((-x - 0.014) * 1000) % 9, gy = ((noseY + 0.004 - y) * 1000) % 9; return gx > 3 && gx < 7 && gy > 3 && gy < 7; } return false; } });
+    piece(bw.geo, mcol, wearM);
+    for (const tt of [0.06]) rivets(bw, tt, 18, bandC, bandM);
+    const top = bw.pos(0.97, 0); rivets(bw, 0.93, 12, bandC, bandM); void top;
+    for (let i = 0; i < 4; i++) { const q = bw.pos(0.25 + i * 0.12, 0, 0.008); solid(RG.sph, TRS(q.x, q.y, q.z, 0.005, 0.005, 0.005), bandC, bandM, A.BI.head); }
   }
-  return { closed: !!HELM_CLOSED[st], top: typeof off === 'number' ? off : 0.02 };
+  return { closed: !!HELM_CLOSED[st], top: G0, faceCovered };
 }
 // what someone wears, as shells cut along smooth lines, and which parts of the skin they hide
 function outfit(look, kind, sh, N, rest) {

@@ -45,6 +45,9 @@ function build(id) {
 K3.lightModel = (id) => { const m = build(id); return m.g; };
 let flick = 0;
 K3.updaters.push((dt, t) => {
+  // a cutscene borrows this light as a soft key light on the speaker's face (scene3d.js sets K3.sceneKey)
+  const sk = K3.sceneKey; if (sk) { light.position.copy(sk.pos); light.color.set(0xffe4cc); light.distance = 3.5; light.intensity += (sk.i - light.intensity) * Math.min(1, dt * 5); light._keyed = true; return; }
+  if (light._keyed) { light._keyed = false; light.distance = 10; light.color.set(0xffb060); light.intensity = 0; }
   const p = G.player; const rig = K3.playerRig;
   const it = p && KR.Gear ? KR.Gear.lightOf(p.c) : null;
   const id = it ? it.light : '';

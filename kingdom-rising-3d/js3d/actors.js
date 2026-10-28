@@ -13,6 +13,7 @@ import { view } from './camera.js';
 import { cardTex } from './texgen.js';
 import { buildFlags } from './structures.js';
 import { siegeModel } from './siege3d.js';
+import { workerPose } from './realm3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W, G = KR.G, S = KR.S;
 const root = new THREE.Group(); root.name = 'actors'; K3.scene.add(root);
@@ -331,6 +332,7 @@ function updateAvatar(av, dt, ctx) {
   const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), swim: !!(e.swim || e.sw) && !e.dead, fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
   st.far = near > 30 && e !== p; // far people skip the fine motion (leaning, breathing, looking, fingers)
   if (av.kind === 'human' || av.kind === 'creature') motionState(av, e, st, tgt, dt); // beasts wind up, freeze on a hit and flinch too (creatures.js)
+  if ((e.realmWorker || e.millHand || e.worker) && av.kind === 'human') workerPose(av, e, st); // the kingdom's arborist and miner: tool in hand, a load home (realm3d.js)
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
   if (av.peer) { st.move = moving ? 1 : 0; st.dist = air != null ? 0 : adist > 0.0005 ? adist / sc : moving ? dt * 3.2 : 0; }
@@ -602,6 +604,7 @@ export const actors = {
     return best;
   },
   // world-space head position of an entity (for name plates)
+  rigOf(e) { const av = avatars.get(keyOf(e)); return av ? av.rig : null; }, // the speaker's face in a cutscene (scene3d.js)
   headPos(e, out) { const av = avatars.get(keyOf(e)); if (!av) return null; out.copy(av.obj.position); out.y += (e.dead ? 0.6 : av.height * av.scale + 0.25); return out; },
 };
 K3.actors = actors;

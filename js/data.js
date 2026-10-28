@@ -3,7 +3,16 @@
   const KR = (window.KR = window.KR || {});
   const D = (KR.D = {});
   D.TS = 32; // tile size in px
-  D.MAX_LEVEL = 50; // player level cap (spells also stop at 50)
+  // Levels. Heroes see levels 1-20 (monsters up to about 24), but every level stored in the game (c.level, e.level,
+  // spell, skill, item and quest levels, mob and region ranges) is an internal power level on the old 1-50 scale,
+  // so the combat, stat and reward formulas keep their balance. Show a level to the player with D.shown(level),
+  // and turn a level the player sees into the stored one with D.LV(n). Heroes only ever stand on the 20 steps
+  // D.LV(1..20) = 1, 4, 6, 9, 11 ... 47, 50, so requirements are kept on those steps too (D.snapLv).
+  D.MAX_LEVEL = 50; // internal cap (shown as level 20)
+  D.MAX_SHOWN = 20;
+  D.LV = (n) => Math.round(1 + (Math.max(1, n) - 1) * 49 / 19);
+  D.shown = (lv) => Math.max(1, Math.round(1 + ((lv || 1) - 1) * 19 / 49));
+  D.snapLv = (lv) => D.LV(D.shown(lv));
   D.STATS = ['STR', 'STA', 'AGI', 'DEX', 'WIS', 'INT', 'CHA'];
   D.STAT_NAMES = { STR: 'Strength', STA: 'Stamina', AGI: 'Agility', DEX: 'Dexterity', WIS: 'Wisdom', INT: 'Intelligence', CHA: 'Charisma' };
   D.STAT_HELP = {
@@ -451,7 +460,7 @@
 
 
   // ---------- Weapon abilities (unlock with weapon skill) ----------
-  D.WEAPON_UNLOCKS = [1, 20, 45, 70, 100, 130, 160, 190, 220, 245];
+  D.WEAPON_UNLOCKS = [1, 70, 160]; // three techniques per weapon (D.WEAPON_KEEP below): from the start, around level 5 and around 12
   D.WEAPON_ABILITIES = {
     SHIELD: [
       { name: 'Shield Bash', icon: '🛡', cd: 12, desc: 'Slam your shield into the enemy, stunning it.', effects: [{ t: 'hit', amt: [5, 1.3] }, { t: 'stun', dur: 1.5 }] },
@@ -574,6 +583,9 @@
       { name: 'Arcane Cataclysm', icon: '☄', cd: 60, ranged: true, target: 'tae', radius: 140, desc: 'Arcane fire engulfs everything near your target.', effects: [{ t: 'rdmg', mult: 2.6 }] },
     ],
   };
+  // three techniques per weapon type, kept from the old ten (old hotbars remap through D.WEAPON_KEEP)
+  D.WEAPON_KEEP = [0, 3, 6];
+  for (const wt in D.WEAPON_ABILITIES) D.WEAPON_ABILITIES[wt] = D.WEAPON_KEEP.map((i) => D.WEAPON_ABILITIES[wt][i]).filter(Boolean);
 
   // ---------- Spells (generated from class spell lines) ----------
   // line: [type, school, resist, names[], start?]
@@ -965,7 +977,7 @@
       case 'fear': return `Sends the target fleeing in terror.`;
       case 'pbae': return `Deals ${e.amt} damage to every enemy around you.`;
       case 'tae': return `Deals ${e.amt} damage to every enemy near your target.`;
-      case 'pet': return `Summons a level ${e.lv} companion to fight for you.`;
+      case 'pet': return `Summons a level ${D.shown(e.lv)} companion to fight for you.`;
       case 'fd': return `Drop to the ground. Enemies forget you.`;
       case 'gate': return `Return to your bind point.`;
       case 'bind': return `Bind your soul to where you stand. Gate and death return you here.`;
@@ -974,8 +986,7 @@
     }
     return '';
   }
-  // ---------- class passives: 10 per class, unlocking as you level ----------
-  D.PASSIVE_LEVELS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
+  // ---------- general passives (each class kit picks its three: see D.KITS) ----------
   D.PASSIVES = {
     fury: { name: 'Combat Fury', icon: '⚔', mods: { dmgMul: 0.06 }, desc: '+6% melee and ability damage.' },
     durability: { name: 'Natural Durability', icon: '❤', mods: { hpPct: 0.06 }, desc: '+6% maximum health.' },
@@ -1000,7 +1011,7 @@
     INT: { name: 'Sharp Intellect', icon: '📘', mods: { INT: 8 }, desc: '+8 Intelligence.' },
     CHA: { name: 'Silver Tongue', icon: '🌹', mods: { CHA: 8 }, desc: '+8 Charisma.' },
   };
-  D.CLASS_PASSIVES = {
+  const OLD_PASSIVES = {
     warrior: ['STA', 'stability', 'durability', 'fury', 'threat', 'defense', 'ambidex', 'stamina', 'STR', 'durability'],
     paladin: ['WIS', 'durability', 'healer', 'stability', 'threat', 'thorns', 'clarity', 'defense', 'fury', 'healer'],
     shadowknight: ['INT', 'durability', 'fury', 'threat', 'stability', 'regen', 'clarity', 'defense', 'fury', 'spellfury'],
@@ -1018,14 +1029,54 @@
     magician: ['INT', 'spellfury', 'clarity', 'arcane', 'durability', 'spellfury', 'arcane', 'clarity', 'defense', 'spellfury'],
     enchanter: ['CHA', 'INT', 'clarity', 'arcane', 'spellfury', 'defense', 'clarity', 'arcane', 'CHA', 'spellfury'],
   };
+  // the general passives classes used to list one by one now come with the class as quiet training that grows with
+  // your level (same bonuses, same old schedule), so heroes are as strong as before with three passives to show
+  const OLD_OWN = { ranger: 4, beastlord: 4, cleric: 2, druid: 2, shaman: 2, necromancer: 2, wizard: 2, magician: 2, enchanter: 2 };
+  const OLD_PLV = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
+  const trainCache = {};
+  D.classTraining = (cls) => {
+    if (trainCache[cls]) return trainCache[cls];
+    const list = (OLD_PASSIVES[cls] || []).slice(0, 10 - (OLD_OWN[cls] || 3)).map((k, i) => [k, OLD_PLV[i]]);
+    // a general passive that is now one of the kit's three counts once
+    for (const p2 of (D.KITS[cls] ? D.KITS[cls].pas : [])) { const id = Array.isArray(p2) ? p2[0] : p2; const at = list.findIndex((x) => x[0] === id); if (at >= 0) list.splice(at, 1); }
+    return (trainCache[cls] = list);
+  };
   // [{ key, name (with rank), icon, mods, desc, level }]
-  // the class's own passive skills (Double Attack, Dual Wield, Meditation...) plus general passives, 10 in total
   const pcacheD = {};
   D.classPassives = (cls) => {
     if (pcacheD[cls]) return pcacheD[cls];
-    const C = D.CLASSES[cls]; const own = (C ? C.skills : []).filter(([id]) => D.SKILLS[id] && D.SKILLS[id].passive).map(([id, lv]) => ({ key: id, skill: true, level: lv, name: D.SKILLS[id].name, icon: D.SKILLS[id].icon, desc: D.SKILLS[id].desc, mods: {} }));
-    const seen = {}; const gen = (D.CLASS_PASSIVES[cls] || []).slice(0, Math.max(0, 10 - own.length)).map((k, i) => { seen[k] = (seen[k] || 0) + 1; const P = D.PASSIVES[k]; return Object.assign({ key: k, level: D.PASSIVE_LEVELS[i], rank: seen[k] }, P, { name: P.name + (seen[k] > 1 ? ' ' + ['', 'I', 'II', 'III'][seen[k]] : '') }); });
-    return (pcacheD[cls] = own.concat(gen).sort((a, b) => a.level - b.level));
+    // the class kit's three passives: its own passive skills (Double Attack, Dual Wield, Meditation...) or general ones
+    const kit = D.KITS[cls]; const out = [];
+    (kit ? kit.pas : []).forEach((p2, i) => {
+      const id = Array.isArray(p2) ? p2[0] : p2, level = Array.isArray(p2) ? p2[1] : D.LV(D.KIT_PAS_SHOWN[i]);
+      const S = D.SKILLS[id];
+      if (S && S.passive) out.push({ key: id, skill: true, level, name: S.name, icon: S.icon, desc: S.desc, mods: {} });
+      else if (D.PASSIVES[id]) out.push(Object.assign({ key: id, level, rank: 1 }, D.PASSIVES[id]));
+    });
+    return (pcacheD[cls] = out.sort((a, b) => a.level - b.level));
+  };
+  // ---------- class kits: about 8 actives and 3 passives per class ----------
+  // act: class skills by id, or 's:N' for spell line N of the class (SPELL_LINES order); pas: passive skills or
+  // general passives (D.PASSIVES), optionally [id, level]
+  D.KIT_ACT_SHOWN = [1, 1, 3, 5, 7, 10, 13, 16];
+  D.KIT_PAS_SHOWN = [4, 9, 15];
+  D.KITS = {
+    warrior: { act: ['taunt', 'kick', 'bash', 'wcharge', 'defensive', 'rampage', 'whirlwind', 'furyofthelast'], pas: ['doubleattack', 'dualwield', 'tripleattack'] },
+    paladin: { act: ['layonhands', 'taunt', 's:0', 'bash', 's:6', 's:1', 's:2', 'avengingwrath'], pas: ['meditation', 'doubleattack', 'tripleattack'] },
+    shadowknight: { act: ['harmtouch', 'taunt', 's:0', 'bash', 's:2', 's:4', 's:3', 'deathcoil'], pas: ['meditation', 'doubleattack', 'tripleattack'] },
+    ranger: { act: ['trueshot', 'kick', 's:2', 's:1', 'huntersmark', 's:9', 'rapidfire', 'volley'], pas: ['meditation', 'dualwield', 'doubleattack'] },
+    bard: { act: ['kick', 's:0', 's:1', 's:5', 's:3', 's:2', 's:7', 'fading'], pas: ['meditation', 'dualwield', 'doubleattack'] },
+    beastlord: { act: ['s:0', 'kick', 's:1', 's:2', 'rendingclaws', 's:4', 'bestialfury', 'feralfrenzy'], pas: ['meditation', 'dualwield', 'doubleattack'] },
+    rogue: { act: ['backstab', 'evade', 'sinister', 'hide', 'cripplingstrike', 'kidneyshot', 'poisonblade', 'assassinate'], pas: [['dualwield', 1], 'doubleattack', 'tripleattack'] },
+    monk: { act: ['roundkick', 'mend', 'tigerclaw', 'feigndeath', 'flyingkick', 'cyclonekick', 'ironskin', 'dragonpunch'], pas: ['dualwield', 'doubleattack', 'tripleattack'] },
+    berserker: { act: ['frenzy', 'kick', 'bloodletter', 'berserkrage', 'ragevolley', 'bwhirl', 'decapitate', 'bloodlust'], pas: ['dualwield', 'doubleattack', 'tripleattack'] },
+    cleric: { act: ['s:0', 's:1', 's:2', 's:6', 's:5', 's:3', 's:4', 'divineaura'], pas: ['meditation', 'channeling', 'healer'] },
+    druid: { act: ['s:1', 's:0', 's:3', 's:7', 's:2', 's:4', 's:10', 's:9'], pas: ['meditation', 'channeling', 'spellfury'] },
+    shaman: { act: ['s:0', 's:2', 's:1', 's:5', 's:3', 'cannibalize', 's:8', 's:6'], pas: ['meditation', 'channeling', 'healer'] },
+    necromancer: { act: ['s:0', 's:1', 's:2', 's:4', 's:5', 's:6', 's:3', 's:11'], pas: ['meditation', 'channeling', 'spellfury'] },
+    wizard: { act: ['s:0', 's:1', 's:4', 's:5', 's:2', 'blink', 's:3', 's:15'], pas: ['meditation', 'channeling', 'spellfury'] },
+    magician: { act: ['s:0', 's:1', 's:7', 's:2', 's:3', 's:5', 's:4', 's:12'], pas: ['meditation', 'channeling', 'spellfury'] },
+    enchanter: { act: ['s:0', 's:1', 's:3', 's:5', 's:2', 's:6', 's:9', 's:4'], pas: ['meditation', 'channeling', 'clarity'] },
   };
   D.SPELLS = {};
   D.CLASS_SPELLS = {};
@@ -1058,12 +1109,40 @@
     }
     list.sort((a, b) => D.SPELLS[a].level - D.SPELLS[b].level);
     D.CLASS_SPELLS[cls] = list;
+    // the class kit keeps a handful of spell lines (see D.KITS below): each kept line has up to three ranks, rebuilt at
+    // their new levels so their power still matches the level you learn them at
+    const kit = D.KITS[cls];
+    if (kit) {
+      const keep = [];
+      kit.act.forEach((a2, slot) => {
+        if (typeof a2 !== 'string' || a2[0] !== 's' || a2[1] !== ':') return;
+        const li = +a2.slice(2), line = lines[li]; if (!line) return;
+        const n = line.names.length, R = Math.min(3, n), u = D.LV(D.KIT_ACT_SHOWN[slot]);
+        for (let j = 0; j < R; j++) {
+          const r = R === 1 ? 0 : Math.round((j * (n - 1)) / (R - 1));
+          const lv = j === 0 ? u : D.snapLv(u + (j * (48 - u)) / (R - 1));
+          const sp = spellFromLine(cls, line, r, n, li, lv); sp.kitSlot = slot; D.SPELLS[sp.id] = sp; keep.push(sp.id);
+        }
+      });
+      keep.sort((a3, b3) => D.SPELLS[a3].level - D.SPELLS[b3].level);
+      D.CLASS_SPELLS[cls] = keep;
+    }
+  }
+  // the class skills of each kit: actives unlock at shown levels 1, 1, 3, 5, 7, 10, 13, 16 and passives at 4, 9, 15
+  for (const cls in D.KITS) {
+    const C = D.CLASSES[cls], kit = D.KITS[cls];
+    const sk = [];
+    kit.act.forEach((id, slot) => { if (typeof id === 'string' && D.SKILLS[id]) sk.push([id, D.LV(D.KIT_ACT_SHOWN[slot])]); });
+    kit.pas.forEach((p2, i) => { const id = Array.isArray(p2) ? p2[0] : p2; const lv = Array.isArray(p2) ? p2[1] : D.LV(D.KIT_PAS_SHOWN[i]); if (D.SKILLS[id] && D.SKILLS[id].passive) sk.push([id, lv]); });
+    C.skills = sk.sort((x, y) => x[1] - y[1]);
   }
 
   // ---------- Progression rules ----------
   D.mobXp = (lv) => 8 + lv * 5;
   D.killsPerLevel = (lv) => 9 + lv * 1.05;
-  D.xpNeeded = (lv) => Math.round(D.mobXp(lv) * D.killsPerLevel(lv));
+  // experience from one shown level to the next (each spans about 2.6 internal levels): a smooth curve, and the
+  // whole climb to 20 is about what reaching 32 used to take
+  D.xpNeeded = (lv) => { const n = D.shown(lv); const mid = 1 + (n - 0.5) * 49 / 19; return Math.round(0.297 * (49 / 19) * D.mobXp(mid) * D.killsPerLevel(mid)); };
   D.SLOT_UNLOCK = [1, 1, 1, 1, 1, 10, 10, 10, 10, 10];
   D.HOTBAR = 10;
   D.slotsForLevel = () => 10; // every hotbar slot is open from level 1
@@ -1174,80 +1253,7 @@
     magician: { wt: '1HP', name: 'Summoned Dagger' },
     enchanter: { wt: '1HP', name: 'Ornate Dagger' },
   };
-  D.CRAFTS = {
-    smithing: { name: 'Smithing', station: 'anvil', mats: ['metal'], makes: 'Plate and chain armor, melee and thrown weapons' },
-    tailoring: { name: 'Tailoring', station: 'loom', mats: ['hide', 'cloth'], makes: 'Leather and cloth armor' },
-    scribing: { name: 'Arcane Binding', station: 'lectern', mats: ['arcane'], makes: 'Magic tomes and spell focuses' },
-    fletching: { name: 'Fletching', station: 'workbench', mats: ['hide', 'metal'], makes: 'Bows and throwing weapons' },
-    jewelcrafting: { name: 'Jewelcrafting', station: 'gem bench', mats: ['metal', 'arcane'], makes: 'Rings and necklaces' },
-  };
-  // every kind of armor reads differently: hammered plate, riveted mail, tanned leather, woven cloth
-  D.CRAFT_ADJ = {
-    plate: ['Hammered', 'Forged', 'Tempered', 'Burnished', 'Masterforged', 'Exalted'],
-    chain: ['Riveted', 'Linked', 'Double-Linked', 'Blackened', 'Masterlinked', 'Exalted'],
-    leather: ['Tanned', 'Stitched', 'Boiled', 'Oiled', 'Masterstitched', 'Exalted'],
-    cloth: ['Woven', 'Embroidered', 'Spun', 'Enchanted', 'Masterwoven', 'Exalted'],
-  };
-  // each kingdom's own name for each kind of armor it crafts
-  D.CRAFT_KIND_PRE = {
-    sylvan: { plate: 'Leafsteel', chain: 'Leafmail', leather: 'Thornhide', cloth: 'Glimmerweave' },
-    iron: { plate: 'Runeforged', chain: 'Runelinked', leather: 'Stonehide', cloth: 'Deepweave' },
-    crown: { plate: 'Valenguard', chain: 'Kingsmail', leather: "Huntsman's", cloth: 'Courtly' },
-  };
-  // which two stats each crafted piece leans toward, by who wears it (the kingdom's own bias fills any extra rolls):
-  // plate: warriors, paladins, shadow knights, bards, clerics · chain: rangers, rogues, berserkers, shamans
-  // leather: monks, beastlords, druids · cloth: necromancers, wizards, magicians, enchanters
-  D.CRAFT_PROFILE = {
-    plate: { head: ['STA', 'WIS'], chest: ['STA', 'STR'], hands: ['STR', 'DEX'], legs: ['STA', 'AGI'], feet: ['AGI', 'CHA'] },
-    chain: { head: ['WIS', 'STA'], chest: ['STR', 'STA'], hands: ['DEX', 'STR'], legs: ['AGI', 'STA'], feet: ['AGI', 'STA'] },
-    leather: { head: ['WIS', 'INT'], chest: ['AGI', 'STA'], hands: ['STR', 'DEX'], legs: ['STA', 'WIS'], feet: ['AGI', 'DEX'] },
-    cloth: { head: ['INT', 'WIS'], chest: ['INT', 'STA'], hands: ['DEX', 'INT'], legs: ['STA', 'CHA'], feet: ['AGI', 'INT'] },
-  };
-  // one piece of each kind trades its random health roll for a steady regeneration
-  D.CRAFT_REGEN = { plate: { chest: 'regen' }, chain: { feet: 'endRegen' }, leather: { feet: 'endRegen', hands: 'endRegen' }, cloth: { head: 'manaRegen' } };
-  // refining: raw materials go in, refined ones come out (two for one) at the right bench
-  D.REFINED = {
-    ingot: { from: 'metal', names: ['Copper Ingot', 'Iron Ingot', 'Silver Ingot', 'Mithril Ingot', 'Adamantite Ingot', 'Starmetal Ingot'], icon: '🧱' },
-    thread: { from: 'cloth', names: ['Linen Thread', 'Silk Thread', 'Spidersilk Thread', 'Moonweave Thread', 'Starweave Thread', 'Void Thread'], icon: '🪡' },
-    cured: { from: 'hide', names: ['Cured Rawhide', 'Supple Leather', 'Hardened Leather', 'Cured Wyvern Leather', 'Cured Dragonscale', 'Cured Shadowhide'], icon: '🟤' },
-    rune: { from: 'arcane', names: ['Refined Dust', 'Distilled Essence', 'Polished Shard', 'Flawless Crystal', 'Radiant Prism', 'Awakened Core'], icon: '🔷' },
-    plank: { from: 'wood', names: ['Seasoned Oak Plank', 'Seasoned Darkoak Plank', 'Seasoned Willow Plank', 'Seasoned Frostpine Plank', 'Frostpine Beam', 'Heartpine Beam'], icon: '🪵' },
-  };
-  D.BENCHES = {
-    forge: { name: "Smelter's Forge", craft: 'smithing', out: ['ingot'], decor: ['anvil', 'forge', 'orepile'], desc: 'Smelt ore into ingots.' },
-    loom: { name: "Tailor's Loom", craft: 'tailoring', out: ['thread', 'cured'], decor: ['loom', 'clothrack'], desc: 'Spin cloth into thread and cure hides into leather.' },
-    lectern: { name: 'Arcane Lectern', craft: 'scribing', out: ['rune'], decor: ['lectern'], desc: 'Refine arcane reagents.' },
-    carpentry: { name: "Carpenter's Bench", craft: 'fletching', out: ['plank'], decor: ['workbench', 'sawhorse'], desc: 'Season logs into planks and beams.' },
-  };
-  D.CRAFT_BENCH = { smithing: 'forge', tailoring: 'loom', scribing: 'lectern', fletching: 'carpentry' };
-  // refined materials join the material table so they stack and sell like any other
-  for (const k in D.REFINED) { D.MATERIALS[k] = D.REFINED[k].names; D.MAT_ICON[k] = D.REFINED[k].icon; }
-  // level 50 with a maxed craft: a full named set for one class, made by the crafter of its armor (staffs and books too)
-  D.SET_SLOT_NAMES = {
-    plate: { head: 'Helm', chest: 'Cuirass', hands: 'Gauntlets', legs: 'Greaves', feet: 'Sabatons' },
-    chain: { head: 'Coif', chest: 'Hauberk', hands: 'Mail Gloves', legs: 'Chausses', feet: 'Mail Boots' },
-    leather: { head: 'Hood', chest: 'Jerkin', hands: 'Grips', legs: 'Leggings', feet: 'Boots' },
-    cloth: { head: 'Cowl', chest: 'Robe', hands: 'Gloves', legs: 'Trousers', feet: 'Slippers' },
-  };
-  D.CLASS_SETS = {
-    warrior: { set: 'Ironwall Battlegear', pre: 'Ironwall', stats: ['STA', 'STR', 'AGI'], wpn: [['1HS', 'Ironwall Longblade'], ['shield', 'Ironwall Bulwark']], lore: 'Forged for the one who stands in the gate when the gate is gone.' },
-    paladin: { set: 'Dawnsworn Raiment', pre: 'Dawnsworn', stats: ['STR', 'WIS', 'STA'], wpn: [['1HS', 'Dawnsworn Blade'], ['shield', 'Dawnsworn Aegis']], lore: 'Each plate is blessed at sunrise and never sees a dusk unburnished.' },
-    shadowknight: { set: 'Gravecaller Plate', pre: 'Gravecaller', stats: ['STR', 'INT', 'STA'], wpn: [['2HS', 'Gravecaller Greatsword']], lore: 'Cold to the touch. The dead hear it coming.' },
-    bard: { set: 'Songweaver Plate', pre: 'Songweaver', stats: ['CHA', 'DEX', 'STR'], wpn: [['1HS', 'Songweaver Saber']], lore: 'Every plate rings a different note when struck.' },
-    cleric: { set: 'Lightbringer Vestments', pre: 'Lightbringer', stats: ['WIS', 'STA', 'CHA'], wpn: [['1HB', 'Lightbringer Mace'], ['TOME', 'Lightbringer Psalter'], ['shield', 'Lightbringer Ward']], lore: 'Plate inlaid with prayers, worn by the healers of the old crown.' },
-    ranger: { set: 'Wildstalker Mail', pre: 'Wildstalker', stats: ['DEX', 'STR', 'WIS'], wpn: [['ARC', 'Wildstalker Longbow'], ['1HS', 'Wildstalker Blade']], lore: 'Mail dulled with ash so it never glints in the trees.' },
-    rogue: { set: 'Nightblade Mail', pre: 'Nightblade', stats: ['DEX', 'AGI', 'STR'], wpn: [['1HP', 'Nightblade Dagger']], lore: 'Rings oiled so fine they make no sound at all.' },
-    berserker: { set: 'Bloodrage Mail', pre: 'Bloodrage', stats: ['STR', 'STA', 'AGI'], wpn: [['2HS', 'Bloodrage Greataxe']], lore: 'Heavy rings for a heavy temper. It drinks the sweat of battle.' },
-    shaman: { set: 'Spiritcaller Mail', pre: 'Spiritcaller', stats: ['WIS', 'STA', 'AGI'], wpn: [['1HB', 'Spiritcaller Totem'], ['TOME', 'Spiritcaller Fetish']], lore: 'Each link is knotted with a spirit-thread from the far side.' },
-    monk: { set: 'Windfist Wraps', pre: 'Windfist', stats: ['AGI', 'STR', 'DEX'], wpn: [['H2H', 'Windfist Knuckles']], lore: 'Light as breath. The monastery cuts only one set a year.' },
-    beastlord: { set: 'Packmaster Hides', pre: 'Packmaster', stats: ['AGI', 'WIS', 'STA'], wpn: [['H2H', 'Packmaster Claws']], lore: 'Your beast knows this smell, and will follow it anywhere.' },
-    druid: { set: 'Thornwarden Leathers', pre: 'Thornwarden', stats: ['WIS', 'STA', 'INT'], wpn: [['2HB', 'Thornwarden Staff'], ['TOME', 'Thornwarden Almanac']], lore: 'Leather that still remembers the forest it came from.' },
-    necromancer: { set: 'Deathweaver Regalia', pre: 'Deathweaver', stats: ['INT', 'STA', 'WIS'], wpn: [['2HB', 'Deathweaver Staff'], ['TOME', 'Deathweaver Grimoire']], lore: 'Woven from grave-silk by candlelight. The thread never breaks.' },
-    wizard: { set: 'Stormweave Vestments', pre: 'Stormweave', stats: ['INT', 'STA', 'DEX'], wpn: [['2HB', 'Stormweave Staff'], ['TOME', 'Stormweave Codex']], lore: 'The hem crackles before every storm.' },
-    magician: { set: 'Embercall Robes', pre: 'Embercall', stats: ['INT', 'STA', 'WIS'], wpn: [['2HB', 'Embercall Staff'], ['TOME', 'Embercall Tome']], lore: 'Warm to wear in any winter, and never once singed.' },
-    enchanter: { set: 'Mindweave Finery', pre: 'Mindweave', stats: ['INT', 'CHA', 'STA'], wpn: [['2HB', 'Mindweave Staff'], ['TOME', 'Mindweave Folio']], lore: 'The patterns shift when you are not looking at them.' },
-  };
-
+  // (crafting is gone: no crafts, refining benches or class sets)
   // ---------- Mobs ----------
   // kind -> sprite family; ranged: archer/caster behavior; heal: heals allies; undead flag
   D.MOBS = {

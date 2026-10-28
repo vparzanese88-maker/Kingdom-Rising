@@ -42,7 +42,7 @@
     const p = G.player, c = p.c; const b = w.body; b.innerHTML = ''; c.petGear = c.petGear || {};
     const who = { cls: 'warrior', level: p.level };
     const pet = p.pet && !p.pet.dead ? p.pet : null;
-    b.appendChild(h('p', 'hint', pet ? `<b>${esc(pet.name)}</b> · Level ${pet.level} · HP ${pet.hpMax} · Hits for ~${pet.dmg} · Armor ${pet.ac}` : 'No pet is summoned. Gear given here stays with your pets and is worn by every pet you summon.'));
+    b.appendChild(h('p', 'hint', pet ? `<b>${esc(pet.name)}</b> · Level ${D.shown(pet.level)} · HP ${pet.hpMax} · Hits for ~${pet.dmg} · Armor ${pet.ac}` : 'No pet is summoned. Gear given here stays with your pets and is worn by every pet you summon.'));
     b.appendChild(h('h4', null, 'Equipped <small class="dim">click to take back</small>'));
     const doll = h('div', 'doll'); b.appendChild(doll);
     for (const sl of Sys.PET_SLOTS) { const box = h('div', 'eq'); box.appendChild(h('label', null, PET_NAMES[sl])); box.appendChild(UI.itemCell(c.petGear[sl], () => { Sys.petUnequip(sl); renderPetGear(w); }, 'equip', who)); doll.appendChild(box); }
@@ -84,7 +84,7 @@
     const p = G.player, c = p.c; const b = w.body;
     const offers = Sys.mercOffers(); const slots = Sys.mercSlots(), have = (c.mercs || []).length;
     const hrs = Sys.hoursToNewMercs();
-    b.innerHTML = `${Sys.cityLevel(c.faction) < Sys.MERC_MIN_KL ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign with a hamlet. Raise ${esc(D.FACTIONS[c.faction].city)} to Kingdom Level ${Sys.MERC_MIN_KL} and they will take your coin.</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
+    b.innerHTML = `${!Sys.mercsOpen(c.faction) ? `<p class="hint warn"><b>Not for hire yet.</b> Mercenaries will not sign until ${esc(D.FACTIONS[c.faction].city)} has a Barracks.</p>` : ''}<p class="hint">Mercenaries always fight at your level. Your kingdom is level ${Sys.cityLevel(c.faction)}: you can lead <b>${slots}</b> and have <b>${have}</b>. Mercenaries hire from kingdom level ${Sys.MERC_MIN_KL}, with one more slot each level after (4 at kingdom level 5), and every mercenary you already lead makes the next contract 50% dearer. New faces arrive in ${Math.floor(hrs)}h ${Math.floor((hrs % 1) * 60)}m of game time (each game day is 24 real minutes). Contract: <span class="gold">${G.fmtCoins(Sys.mercCost(c.level))}</span> · you have ${G.fmtCoins(c.coins)}.</p><div class="mt-list"></div>`;
     const list = $('.mt-list', b);
     if (!offers.length) list.appendChild(h('p', 'empty-note', 'Everyone here has already been hired today. Come back tomorrow.'));
     offers.forEach((o) => {
@@ -92,7 +92,7 @@
       const card = h('div', 'mt-card', `<canvas width="80" height="96"></canvas><div class="mt-i"><b>${esc(o.name)}</b><span>${R.name} ${C.name}</span><span class="tags"><span>${role}</span><span>${C.armor} armor</span>${Sys.MERC_TANKS.includes(o.cls) ? '<span>Taunts</span>' : ''}${['cleric', 'druid', 'shaman', 'paladin', 'ranger', 'beastlord'].includes(o.cls) ? '<span>Heals</span>' : ''}</span><small class="dim">${esc(C.desc)}</small></div>`);
       const data = Object.assign({}, o, { faction: c.faction, level: c.level, equip: {} });
       portrait($('canvas', card), Object.assign(data, { equip: {} }));
-      const bt = h('button', 'btn gold small', 'Hire'); bt.disabled = have >= slots || c.coins < Sys.mercCost(c.level); bt.title = !slots ? `Raise your kingdom to level ${Sys.MERC_MIN_KL} to hire mercenaries` : have >= slots ? 'All your mercenary slots are full' : c.coins < Sys.mercCost(c.level) ? `The contract costs ${G.fmtCoins(Sys.mercCost(c.level))}` : '';
+      const bt = h('button', 'btn gold small', 'Hire'); bt.disabled = have >= slots || c.coins < Sys.mercCost(c.level); bt.title = !slots ? 'Build a Barracks to hire mercenaries' : have >= slots ? 'All your mercenary slots are full' : c.coins < Sys.mercCost(c.level) ? `The contract costs ${G.fmtCoins(Sys.mercCost(c.level))}` : '';
       bt.onclick = () => { Sys.hireMerc(o); renderTrader(w); };
       card.appendChild(bt); list.appendChild(card);
     });
@@ -104,7 +104,7 @@
     let m = ms.find((x) => x.c.id === sel) || ms[0]; sel = m.c.id;
     const st = m.c.stance || 'standard';
     b.innerHTML = `<div class="tabs">${ms.map((x) => `<button class="tab ${x === m ? 'on' : ''}" data-id="${x.c.id}">${esc(x.name.split(' ')[0])}</button>`).join('')}<span class="dim small" style="margin-left:auto">${ms.length} / ${Sys.mercSlots()} slots</span></div>
-      <div class="mc-head"><canvas width="84" height="100"></canvas><div class="mc-i"><b>${esc(m.name)}</b><span>Level ${m.c.level} ${D.RACES[m.c.race].name} ${D.CLASSES[m.c.cls].name} · ${Sys.mercRole(m.c.cls)}</span>
+      <div class="mc-head"><canvas width="84" height="100"></canvas><div class="mc-i"><b>${esc(m.name)}</b><span>Level ${D.shown(m.c.level)} ${D.RACES[m.c.race].name} ${D.CLASSES[m.c.cls].name} · ${Sys.mercRole(m.c.cls)}</span>
       <div class="bar hp"><i style="width:${(m.hp / m.hpMax) * 100}%"></i><span>${m.dead ? 'Recovering' : Math.ceil(m.hp) + ' / ' + m.hpMax}</span></div>${m.manaMax ? `<div class="bar mana"><i style="width:${(m.mana / m.manaMax) * 100}%"></i><span>${Math.floor(m.mana)} / ${m.manaMax}</span></div>` : ''}
       <small class="dim">Armor ${m.ac} · Weapon ${G.weaponDmg(m, 'main').dmg} dmg</small></div><div class="col"><button class="btn small" id="mc-call">Call to me</button><button class="btn small danger" id="mc-dis">Dismiss</button></div></div>
       <h4>Stance</h4><div class="stances">${Object.entries(Sys.STANCES).map(([k, s]) => `<button class="stance ${k === st ? 'on' : ''}" data-s="${k}"><b>${s.name}</b><small>${s.desc}</small></button>`).join('')}</div>

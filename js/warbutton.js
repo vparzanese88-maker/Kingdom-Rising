@@ -11,7 +11,7 @@
   // ---------- the look ----------
   const css = document.createElement('style');
   css.textContent = `
-  #war-btn { position: fixed; right: 22px; bottom: 210px; z-index: 40; width: 172px; height: 70px; border-radius: 14px; cursor: pointer;
+  #war-btn { position: fixed; right: 22px; bottom: 74px; z-index: 40; width: 178px; height: 82px; padding: 4px 0 0; border-radius: 14px; cursor: pointer;
     border: 2px solid #ffcf6a; color: #fff6dc; font: 700 26px/1 'IM Fell English SC', Georgia, serif; letter-spacing: 3px; text-shadow: 0 2px 6px #000, 0 0 14px #ff7a1a;
     background: radial-gradient(120% 140% at 50% 110%, #ff6a12 0%, #b3220c 38%, #4a0c06 78%); overflow: hidden; isolation: isolate;
     box-shadow: 0 0 18px 4px rgba(255,110,30,.65), inset 0 0 18px rgba(0,0,0,.6); animation: wbPulse 1.4s ease-in-out infinite; user-select: none; }
@@ -23,13 +23,13 @@
   #war-btn::after { animation-delay: -.8s; filter: hue-rotate(-12deg); }
   #war-btn .wb-flame { position: absolute; left: 0; right: 0; bottom: -10px; height: 60%; z-index: -1; background: linear-gradient(0deg, rgba(255,150,40,.85), rgba(255,80,20,.25) 60%, transparent);
     filter: blur(6px); animation: wbFlicker .18s steps(2) infinite alternate; }
-  #war-btn small { display: block; font: 600 11px/1.1 Georgia, serif; letter-spacing: 1px; color: #ffe2b0; margin-top: 4px; text-shadow: 0 1px 3px #000; }
+  #war-btn small { display: block; font: 600 12px/1.2 Georgia, serif; letter-spacing: 1px; color: #ffe2b0; margin-top: 4px; text-shadow: 0 1px 3px #000; }
   #war-btn:hover { transform: scale(1.06); } #war-btn:active { transform: scale(.97); }
   #war-btn.wb-out { background: radial-gradient(120% 140% at 50% 110%, #ffb02a 0%, #8a3a0c 45%, #2a0c06 85%); }
   @keyframes wbPulse { 0%,100% { box-shadow: 0 0 14px 3px rgba(255,110,30,.55), inset 0 0 18px rgba(0,0,0,.6); } 50% { box-shadow: 0 0 34px 10px rgba(255,140,40,.9), inset 0 0 12px rgba(0,0,0,.4); } }
   @keyframes wbEmbers { 0% { transform: translateY(30%); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-60%); opacity: 0; } }
   @keyframes wbFlicker { 0% { opacity: .75; transform: scaleY(1); } 100% { opacity: 1; transform: scaleY(1.12); } }
-  #war-menu { position: fixed; right: 22px; bottom: 290px; z-index: 41; display: grid; gap: 8px; width: 230px; padding: 12px; border-radius: 12px;
+  #war-menu { position: fixed; right: 22px; bottom: 166px; z-index: 41; display: grid; gap: 8px; width: 230px; padding: 12px; border-radius: 12px;
     background: rgba(24,10,6,.92); border: 1px solid #a8642a; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
   #war-menu[hidden] { display: none; }
   #war-menu h5 { margin: 0 0 2px; font: 700 15px 'IM Fell English SC', Georgia, serif; color: #ffd27a; letter-spacing: 1px; }

@@ -178,7 +178,8 @@
   // class abilities: level-1 ones come with the class; the rest are trained at your guild for coin once you reach their level
   G.skillPrice = (lvl) => Math.round(40 + lvl * lvl * 24);
   G.trainedSkills = (c) => { if (!c.trained) { const C = D.CLASSES[c.cls]; c.trained = C.skills.filter((x) => x[1] > 1 && c.level >= x[1]).map((x) => x[0]); } return c.trained; }; // heroes from before keep what they had
-  G.hasSkill = (c, id) => { const C = D.CLASSES[c.cls]; const s = C.skills.find((x) => x[0] === id); return !!s && c.level >= s[1] && (s[1] <= 1 || G.trainedSkills(c).includes(id)); };
+  // class abilities and passives come with your level (only spells are bought from a trainer)
+  G.hasSkill = (c, id) => { const C = D.CLASSES[c.cls]; const s = C.skills.find((x) => x[0] === id); return !!s && c.level >= s[1]; };
   G.weaponType = (c) => { const w = c.equip.primary; return w ? w.wt : 'H2H'; };
   G.rangedType = (c) => { const w = c.equip.range; return w ? w.wt : null; };
   G.wtName = (wt) => (wt === 'SHIELD' ? 'Block' : D.WEAPON_TYPES[wt] ? D.WEAPON_TYPES[wt].name : wt);

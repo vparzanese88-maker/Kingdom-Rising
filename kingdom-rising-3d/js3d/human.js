@@ -279,16 +279,16 @@ function skinMaterial(u) {
         float brow = bz * smoothstep(-.08, .06, t) * smoothstep(1.1, .88, t) * smoothstep(th, th * .05, abs(p.y - yc + th * .25 * (1. - t)));
         vec2 bs = vec2(q.x * cos(.5 - t * .4) - p.y * sin(.5 - t * .4), q.x * sin(.5 - t * .4) + p.y * cos(.5 - t * .4));
         float hairs = smoothstep(.35, .75, vn(vec3(bs.x * 1400., bs.y * 160., 1.)));
-        col = mix(col, uBrow, brow * (.62 + .18 * hairs)); // a soft painted brow, the hair's colour, never spiky
+        col = mix(col, uBrow, brow * (.7 + .15 * hairs)); // a soft painted brow, the hair's colour, never spiky
         gRough = mix(gRough, .65, brow);
         // the eyes: a thin dark lash line along the upper lid with a soft shadow, a fainter one below, and the lid crease
         {
           vec2 el = vec2((q.x - abs(uEye.x)) / (uEyeR * 1.3), (p.y - uEye.y) / uEyeR); float er = length(el);
           float ez = smoothstep(uEye.z - .014, uEye.z - .003, p.z);
-          float upLine = exp(-pow((er - .98) / .13, 2.)) * smoothstep(-.35, .2, el.y) * ez;
-          float loLine = exp(-pow((er - 1.) / .1, 2.)) * smoothstep(.1, -.4, el.y) * ez;
+          float upLine = exp(-pow((er - .97) / .075, 2.)) * smoothstep(.05, .45, el.y) * smoothstep(1.25, .7, abs(el.x)) * ez;
+          float loLine = exp(-pow((er - 1.) / .07, 2.)) * smoothstep(-.2, -.55, el.y) * ez;
           float crease = exp(-pow((er - 1.55) / .3, 2.)) * smoothstep(0., .5, el.y) * ez;
-          col *= 1. - .78 * upLine - .22 * loLine - .14 * crease;
+          col *= 1. - .62 * upLine - .1 * loLine - .1 * crease;
           gRough = mix(gRough, .35, upLine * .5);
         }
         // nose and mouth with some form: a philtrum groove, shaded nostrils and wings, a lit bridge, a highlight on the lower lip
@@ -371,7 +371,7 @@ function skinUniforms(look, kind, sh, spec) {
   const beardy = !fem && (L.beard || (D.RACES[L.race] || {}).beard);
   const head = new V3(0, lm.eyeL.c.y + 0.01, lm.eyeL.c.z - 0.085);
   return {
-    uSkin: { value: skin }, uLip: { value: lip }, uBrow: { value: hairC.clone().multiplyScalar(0.75) }, uHairC: { value: hairC },
+    uSkin: { value: skin }, uLip: { value: lip }, uBrow: { value: hairC.clone().multiplyScalar(0.6) }, uHairC: { value: hairC },
     uEye: { value: lm.eyeL.c.clone() }, uMouth: { value: lm.mouth.clone() }, uNose: { value: lm.nose.clone() }, uChin: { value: lm.chin.clone() },
     uBrowIn: { value: lm.browIn.clone() }, uBrowOut: { value: lm.browOut.clone() }, uHead: { value: head }, uCorner: { value: Math.max(0.012, Math.abs(lm.corner.x)) },
     uTalk: { value: 0 }, uBlink: { value: 0 }, uEyeR: { value: Math.max(0.011, lm.eyeL.r) }, // speech and blinks in cutscenes (scene3d.js)

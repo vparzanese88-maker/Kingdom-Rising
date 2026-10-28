@@ -167,7 +167,7 @@
     p.spellCrit = p.c && p.c.cls === 'wizard' ? 0.12 + Math.min(0.08, p.level / 600) : 0;
     p.spellMul = 1 + (mods.spellMul || 0); p.healMul = 1 + (mods.healMul || 0); p.threatMul = 1 + (mods.threat || 0);
     p.rangedMul = 1 + (mods.rangedMul || 0);
-    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln;
+    p.ds = mods.ds || 0; p.gearRegen = { hp: gR, mana: gM, end: gE }; p.regenB = (mods.regen || 0) + gR; p.manaRegenB = (mods.manaRegen || 0) + gM; p.endRegenB = (mods.endRegen || 0) + gE; p.regenPct = mods.regenPct || 0; p.endRegenPct = mods.endRegenPct || 0; // stances: a share of your whole regeneration, so it scales with level p.dmgTaken = 1 + (mods.dmgTaken || 0); p.invuln = !!mods.invuln;
     p.look = G.lookFor(c);
     if (p.type === 'merc') KR.Sys.applyStance(p);
   };
@@ -940,9 +940,9 @@
     const inCombat = G.inCombat(p);
     const sitM = p.sit ? 3 : 1;
     const med = G.hasSkill(c, 'meditation') ? (p.sit ? 1.6 : 1.15) : 1;
-    const rHp = (0.1 + c.level * 0.035 + p.stats.STA / 350 + p.regenB) * sitM * (inCombat ? 0.35 : 1);
+    const rHp = (0.1 + c.level * 0.035 + p.stats.STA / 350 + p.regenB) * sitM * (inCombat ? 0.35 : 1) * (1 + (p.regenPct || 0));
     const rMana = p.manaMax ? (0.15 + c.level * 0.02 + p.manaRegenB) * sitM * med * (inCombat ? 0.4 : 0.8) : 0;
-    const rEnd = p.endurMax ? (0.6 + c.level * 0.04 + p.stats.STA / 300 + (p.endRegenB || 0)) * sitM * (inCombat ? 0.5 : 1.1) : 0;
+    const rEnd = p.endurMax ? (0.6 + c.level * 0.04 + p.stats.STA / 300 + (p.endRegenB || 0)) * sitM * (inCombat ? 0.5 : 1.1) * (1 + (p.endRegenPct || 0)) : 0;
     p.regenRates = { hp: rHp, mana: rMana, end: rEnd };
     p.hp = Math.min(p.hpMax, p.hp + rHp * dt);
     if (p.manaMax) p.mana = Math.min(p.manaMax, p.mana + rMana * dt);

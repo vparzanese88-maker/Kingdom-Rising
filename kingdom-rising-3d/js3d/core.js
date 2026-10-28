@@ -210,11 +210,23 @@ K3.onQuality = [];
 // kept up for a while, try a little more. A failed try waits longer before the next one.
 const perf = { n: 0, t: 0, fps: 0, good: 0, bad: 0, slow: 0, wait: 0, tried: false, el: null };
 K3.perf = perf;
+// the three slowest parts of a frame over the last window, from main3d.js's per-section timer (K3.prof), as
+// average milliseconds per frame: "· actors 9.1 · render 7.4 · game 5.2 ms". Read as differences, so the timer
+// itself is never reset (tests read it too).
+let profLast = null, profLastN = 0;
+function slowest() {
+  const P = K3.prof; if (!P || !P.acc) return '';
+  const frames = P.n - profLastN; const prev = profLast || {}; profLast = Object.assign({}, P.acc); profLastN = P.n;
+  if (frames <= 0) return '';
+  const rows = []; for (const k in P.acc) if (k.indexOf('.') < 0) rows.push([k, (P.acc[k] - (prev[k] || 0)) / frames]);
+  rows.sort((a, b) => b[1] - a[1]);
+  return rows.length ? ' · ' + rows.slice(0, 3).map(([k, v]) => k + ' ' + v.toFixed(1)).join(' · ') + ' ms' : '';
+}
 K3.frameTick = function (dt) {
   perf.n++; perf.t += dt; perf.wait -= dt;
   if (perf.t < 2) return;
   perf.fps = perf.n / perf.t; perf.n = 0; perf.t = 0;
-  if (K3.settings.showFps) { if (!perf.el) { perf.el = document.createElement('div'); perf.el.className = 'k3-fps'; document.body.appendChild(perf.el); } perf.el.hidden = false; perf.el.textContent = Math.round(perf.fps) + ' fps' + (K3.dynScale < 1 ? ' · ' + Math.round(K3.dynScale * 100) + '% res' : ''); }
+  if (K3.settings.showFps) { if (!perf.el) { perf.el = document.createElement('div'); perf.el.className = 'k3-fps'; document.body.appendChild(perf.el); } perf.el.hidden = false; perf.el.textContent = Math.round(perf.fps) + ' fps' + (K3.dynScale < 1 ? ' · ' + Math.round(K3.dynScale * 100) + '% res' : '') + slowest(); }
   else if (perf.el) perf.el.hidden = true;
   if (!K3.settings.dynRes) { if (K3.dynScale !== 1) { K3.dynScale = 1; rescale(); } return; }
   const target = Math.min(K3.settings.targetFps || 60, K3.settings.fpsCap || 999);

@@ -109,6 +109,17 @@ Main.ensureWorld = function () {
 
 const lockEsc = () => { try { if (navigator.keyboard && navigator.keyboard.lock) { if (document.fullscreenElement) navigator.keyboard.lock(['Escape']).catch(() => {}); else navigator.keyboard.unlock(); } } catch (e) {} };
 document.addEventListener('fullscreenchange', lockEsc);
+// Firefox and Safari always let Esc leave full screen (and Chrome can too): if the browser drops you out of
+// full screen while you play, the next click or key press puts you back. The Windowed button turns this off.
+let fsWanted = false;
+document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) fsWanted = true; });
+{ const tf0 = UI.toggleFullscreen; UI.toggleFullscreen = function (want) { if (want === false || (want == null && UI.isFullscreen && UI.isFullscreen())) fsWanted = false; else fsWanted = true; return tf0.apply(this, arguments); }; }
+const reFullscreen = (ev) => {
+  if (!fsWanted || !running || document.fullscreenElement || document.webkitFullscreenElement || (ev.key && ev.key === 'Escape')) return;
+  try { if (localStorage.getItem('kr_auto_fs') === '0') return; } catch (e) {}
+  Main.autoFullscreen();
+};
+addEventListener('pointerdown', reFullscreen, true); addEventListener('keydown', reFullscreen, true);
 Main.autoFullscreen = function () {
   let on = true; try { on = localStorage.getItem('kr_auto_fs') !== '0'; } catch (e) {}
   if (!on || document.fullscreenElement || document.webkitFullscreenElement) return;
@@ -394,6 +405,31 @@ Main.interact = function (target) {
 
 // ---------- mouse ----------
 const mouse = { l: false, r: false, lx: 0, ly: 0, downX: 0, downY: 0, downT: 0, moved: 0, btn: -1 };
+// the cursor turns into the tool when it is over something you can gather (right-click to gather)
+const svgCur = (body, hx, hy) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>${body}</svg>`)}") ${hx} ${hy}, pointer`;
+const TOOL_CURSOR = {
+  pick: svgCur(`<path d='M6 4 Q16 1 27 9 Q17 6 9 8 Z' fill='#cfd6de' stroke='#222' stroke-width='1.2'/><rect x='14.5' y='5' width='3.2' height='24' rx='1.2' transform='rotate(18 16 17)' fill='#8a5a2e' stroke='#222' stroke-width='1.1'/>`, 6, 4),
+  axe: svgCur(`<rect x='14' y='6' width='3.2' height='24' rx='1.2' transform='rotate(-20 16 18)' fill='#8a5a2e' stroke='#222' stroke-width='1.1'/><path d='M8 4 Q4 9 7 15 L15 11 L14 6 Z' fill='#cfd6de' stroke='#222' stroke-width='1.2'/>`, 6, 6),
+  knife: svgCur(`<path d='M4 4 L20 20 L22 18 Q12 6 4 4 Z' fill='#e2e6ea' stroke='#222' stroke-width='1.1'/><rect x='19' y='19' width='3' height='11' rx='1.2' transform='rotate(-45 20.5 24.5)' fill='#5a3a20' stroke='#222' stroke-width='1.1'/>`, 4, 4),
+};
+let hoverT = 0, hoverCur = '';
+function hoverTool(sx, sy) {
+  const now = performance.now(); if (now - hoverT < 90) return; hoverT = now;
+  const K = KR.Kingdom; const p = G.player; let tool = null;
+  if (K && p && !p.dead && !view.look) {
+    const e = pickAt(sx, sy);
+    if (e) { if (K.skinnable && K.skinnable(e) && (!e.loot || !e.loot.items.length)) tool = 'knife'; }
+    else { const d = world3d.pickDecor(screenRay(sx, sy)); const h = d && K.harvestOf && K.harvestOf(d); if (h && !(d.cutUntil && d.cutUntil > G.now)) tool = h.tool; }
+  }
+  const cur = (tool && TOOL_CURSOR[tool]) || ''; if (cur !== hoverCur) { hoverCur = cur; cv.style.cursor = cur; }
+}
+// the second mouse button pressed while the first is held only shows up in the buttons mask of move events
+function syncButtons(ev) {
+  if (ev.pointerType === 'touch' || K3.cine || typeof ev.buttons !== 'number') return;
+  const l = !!(ev.buttons & 1), r = !!(ev.buttons & 2);
+  if (r !== mouse.r) { mouse.r = r; if (r) startLook(); else endLook(); }
+  if (l !== mouse.l) mouse.l = l;
+}
 let lastClick = 0;
 function wantLock() { return cv.requestPointerLock && !('ontouchstart' in window && navigator.maxTouchPoints > 0 && !matchMedia('(pointer:fine)').matches); }
 function startLook() { view.look = true; if (wantLock()) { try { const pr = cv.requestPointerLock({ unadjustedMovement: true }); if (pr && pr.catch) pr.catch(() => { try { cv.requestPointerLock(); } catch (e) {} }); } catch (e) { try { cv.requestPointerLock(); } catch (e2) {} } } }
@@ -415,6 +451,8 @@ addEventListener('pointermove', (ev) => {
   if (!running) return;
   if (ev.pointerType === 'touch') return onTouchMove(ev);
   const mxv = ev.movementX || 0, myv = ev.movementY || 0;
+  syncButtons(ev);
+  if (!mouse.r && !mouse.l && ev.target === cv) hoverTool(ev.clientX, ev.clientY);
   if (mouse.r || mouse.l) mouse.moved += Math.abs(mxv) + Math.abs(myv);
   const rot = (mouse.r || (mouse.l && mouse.moved > 6));
   if (rot) {
@@ -454,7 +492,9 @@ function leftClick(sx, sy) {
 }
 function rightClick(sx, sy) {
   const p = G.player; if (!p || p.dead) return;
-  const e = pickAt(sx, sy); if (!e) return;
+  const e = pickAt(sx, sy); const K = KR.Kingdom;
+  if (!e) { const d = world3d.pickDecor(screenRay(sx, sy)); if (d && K && K.harvestOf && K.harvestOf(d)) K.startHarvest(d); return; }
+  if (K && K.skinnable && K.skinnable(e) && (!e.loot || !e.loot.items.length) && K.startSkin) { p.target = e; K.startSkin(e); return; }
   p.target = e;
   if (G.isHostile(p, e) && !e.dead) { p.autoAttack = true; if (D.CLASSES[p.c.cls].role !== 'caster') { p.moveTo = null; if (p.chase !== e) G.log(`Auto attack and auto follow on ${e.name}. Move with WASD to stop following.`, 'sys', '#cccccc'); p.chase = e; } }
   else Main.interact(e);

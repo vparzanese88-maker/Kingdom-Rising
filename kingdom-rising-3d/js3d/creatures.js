@@ -444,6 +444,7 @@ function buildBug(kind, col) {
 function animBug(rig, st, dt) {
   // spiders walk on alternating tetrapods (L1 R2 L3 R4 against the rest), beetles on alternating tripods;
   // a swinging leg lifts and reaches forward, a planted one sweeps back; the cycle follows distance
+  if (st.freeze) dt = 0;
   const B = rig.bones; const t = (rig.t += dt); rig.phase = ((rig.phase || 0) + st.dist / (rig.spider ? 0.42 : 0.3)) % 1;
   rig.mv = (rig.mv || 0) + ((st.dist > 0 ? 1 : 0) - (rig.mv || 0)) * Math.min(1, dt * 8); const m = rig.mv;
   for (const k in B) B[k].rotation.set(0, 0, 0);
@@ -465,6 +466,8 @@ function animBug(rig, st, dt) {
     B.root.rotation.x = -rear * (rig.spider ? 0.5 : 0.3) + strike * 0.25; B.root.position.z = strike * 0.15; B.head.rotation.x = strike * 0.4;
     if (rig.spider) for (const sd of ['l', 'r']) { B['L0' + sd + '1'].rotation.z += (sd === 'l' ? 1 : -1) * rear * 0.9; B['L0' + sd + '1'].rotation.y += (sd === 'l' ? -1 : 1) * strike * 0.5; B['L1' + sd + '1'].rotation.z += (sd === 'l' ? 1 : -1) * rear * 0.5; }
   }
+  // struck: the body jolts away from the blow and the legs splay
+  if (st.hurt && !st.dead) { const h = st.hurt; const k = Math.sin(Math.min(1, h.t / 0.06) * Math.PI * 0.5) * decay(Math.max(0, h.t - 0.06), 9) * Math.min(1.3, 0.5 + h.mag * 6); B.root.position.x += h.fx * 0.06 * k; B.root.position.z += h.fz * 0.06 * k; B.root.rotation.z += h.fx * 0.2 * k; B.root.position.y += 0.03 * k; }
   if (st.dead) for (let i = 0; i < rig.legs; i++) for (const sd of ['l', 'r']) { const n = 'L' + i + sd; B[n + '1'].rotation.set(0, 0, (sd === 'l' ? 1 : -1) * 0.9); if (B[n + '2']) B[n + '2'].rotation.z = (sd === 'l' ? 1 : -1) * 1.2; } // legs curl up
 
 }
@@ -510,6 +513,10 @@ function animBat(rig, st, dt) {
   B.WL.rotation.z = beat * 0.85; B.WR.rotation.z = -beat * 0.85; B.WL2.rotation.z = beat * 0.55 + (glide ? 0 : 0.15); B.WR2.rotation.z = -beat * 0.55 - (glide ? 0 : 0.15);
   B.root.position.y = rig.rest.root[1] + Math.sin(t * 3) * 0.12 - beat * 0.03; const a = st.atk || 0;
   B.root.rotation.x = a > 0 && a < 1 ? Math.sin(a * Math.PI) * 0.7 : 0.1 + beat * 0.05;
+  // knocked back by a blow, a tumble and a lurch before it beats on
+  if (st.hurt && !st.dead) { const h = st.hurt; const k = Math.sin(Math.min(1, h.t / 0.06) * Math.PI * 0.5) * decay(Math.max(0, h.t - 0.06), 8) * Math.min(1.3, 0.5 + h.mag * 6); B.root.rotation.z += h.fx * 0.6 * k; B.root.position.y -= 0.1 * k; }
+  // dying: the wings fold and it drops
+  if (st.dead) { rig.deadT = (rig.deadT || 0) + dt; const d = ease(Math.min(1, rig.deadT / 0.5)); B.WL.rotation.z = -1.2 * d; B.WR.rotation.z = 1.2 * d; B.WL2.rotation.z = -1.4 * d; B.WR2.rotation.z = 1.4 * d; B.root.position.y = rig.rest.root[1] * (1 - d) + 0.1 * d; B.root.rotation.x = 0.6 * d; } else rig.deadT = 0;
 }
 
 // ---------- golems and treants: heavy humanoids ----------

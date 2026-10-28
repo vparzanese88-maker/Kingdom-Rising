@@ -1100,8 +1100,8 @@
   D.STAT_CAP = 255;
   // player stances (5 second cooldown between switches)
   D.PSTANCES = {
-    fighter: { name: 'Fighter Stance', icon: '⚔', mods: { dmgMul: 0.12, haste: 0.08 }, desc: 'Hit harder and swing faster.' },
-    defensive: { name: 'Defensive Stance', icon: '🛡', mods: { dmgTaken: -0.2, acMul: 0.15, threat: 0.6 }, desc: 'Take much less damage and hold enemy attention.' },
+    fighter: { name: 'Fighter Stance', icon: '⚔', mods: { dmgMul: 0.12, haste: 0.08, endRegenPct: 0.4 }, desc: 'Hit harder, swing faster and recover endurance 40% faster.' },
+    defensive: { name: 'Defensive Stance', icon: '🛡', mods: { dmgTaken: -0.2, acMul: 0.15, threat: 0.6, regenPct: 0.5 }, desc: 'Take much less damage, hold enemy attention and regenerate health 50% faster.' },
     mage: { name: 'Mage Stance', icon: '✦', mods: { spellMul: 0.15, spellHaste: 0.15, manaRegen: 1.5 }, desc: 'Stronger damage spells, 15% faster casting and better mana regen.' },
     healer: { name: 'Healer Stance', icon: '✚', mods: { healMul: 0.2, manaRegen: 1.2 }, desc: 'Stronger heals and better mana regen.' },
   };

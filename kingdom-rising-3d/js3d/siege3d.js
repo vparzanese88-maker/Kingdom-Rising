@@ -265,12 +265,7 @@ function trollModel(e) {
   if (!rig) return { obj: holder, parts: P, height: 2 * TROLL_S };
   rig.mesh.scale.setScalar(TROLL_S); holder.add(rig.mesh); if (rig.setLod) rig.setLod(0);
   const B = rig.bones;
-  // a hide like weathered stone: the rock texture, tinted, on the whole body
-  const rock = K3.mats && K3.mats.get('rock');
-  rig.mesh.traverse((o) => { if (!o.isSkinnedMesh || !o.geometry.attributes.uv || o.geometry.attributes.position.count < 5000) return;
-    const m = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.96, metalness: 0 });
-    if (rock && rock.map) { m.map = rock.map.clone(); m.map.wrapS = m.map.wrapT = THREE.RepeatWrapping; m.map.repeat.set(7, 7); m.map.needsUpdate = true; if (rock.normalMap) { m.normalMap = rock.normalMap.clone(); m.normalMap.wrapS = m.normalMap.wrapT = THREE.RepeatWrapping; m.normalMap.repeat.set(7, 7); m.normalMap.needsUpdate = true; m.normalScale = new THREE.Vector2(1.6, 1.6); } }
-    o.material = m; });
+  // (the body keeps its own skin shader, tinted grey-green; warts, moss and bark plates give it the texture of stone and forest)
   // the troll's proportions: massive shoulders and arms, short thick legs (the hips come down to meet them)
   B.chest.scale.setScalar(1.2); for (const S of ['L', 'R']) { B['sh' + S].scale.setScalar(1.22); B['thigh' + S].scale.setScalar(0.8); }
   // fold away the human head, hands and feet
@@ -280,15 +275,15 @@ function trollModel(e) {
   // ---- the head ----
   const hm = new MB();
   hm.sph('rock', 0, 0.075, -0.01, 0.13, 0.11, 0.14, skin, 0, 12); // a low, wide skull
-  hm.box('rock', 0, 0.115, 0.1, 0.2, 0.045, 0.06, K3.shade(skin, -0.08), 0, -0.25); // the brow ridge
+  hm.sph('rock', 0, 0.112, 0.105, 0.11, 0.028, 0.045, K3.shade(skin, -0.08), 0, 10); // the heavy brow ridge
   hm.sph('rock', 0, 0.0, 0.08, 0.15, 0.075, 0.12, skin, 0, 12); // cheeks and muzzle
-  hm.box('rock', 0, -0.045, 0.1, 0.19, 0.07, 0.14, K3.shade(skin, -0.04)); // the jutting lower jaw
+  hm.sph('rock', 0, -0.04, 0.11, 0.105, 0.05, 0.085, K3.shade(skin, -0.04), 0, 12); // the jutting lower jaw
   hm.box('dark', 0, -0.012, 0.165, 0.15, 0.012, 0.012, '#1a1410'); // the mouth line
   for (const sx of [-1, 1]) { hm.cone('gloss', sx * 0.055, -0.03, 0.16, 0.017, 0.1, bone, 8); hm.cone('gloss', sx * 0.025, -0.005, 0.17, 0.007, 0.03, bone, 6); } // tusks and teeth jutting up from the underbite
   hm.sph('rock', 0, 0.06, 0.17, 0.045, 0.055, 0.05, K3.shade(skin, 0.05), 0, 10); hm.beam('rock', V(0, 0.06, 0.2), V(0, 0.005, 0.235), 0.035, 0.03, K3.shade(skin, 0.05)); // the hooked nose
   for (const sx of [-1, 1]) {
     hm.sph('dark', sx * 0.045, 0.085, 0.125, 0.03, 0.022, 0.02, '#120c08', 0, 8); hm.sph('glow', sx * 0.045, 0.085, 0.133, 0.011, 0.011, 0.008, '#ffc030', 0, 8); // deep-set, glowing
-    hm.beam('rock', V(sx * 0.12, 0.08, -0.01), V(sx * 0.27, 0.15, -0.08), 0.05, 0.016, skin); // long pointed ears
+    hm.beam('rock', V(sx * 0.11, 0.08, 0), V(sx * 0.19, 0.12, -0.05), 0.045, 0.014, skin); hm.beam('rock', V(sx * 0.19, 0.12, -0.05), V(sx * 0.28, 0.17, -0.1), 0.02, 0.01, skin); // long pointed ears, tapering
     for (let w = 0; w < 4; w++) hm.sph('rock', sx * (0.06 + w * 0.025), 0.03 + (w % 2) * 0.05, 0.09 - w * 0.02, 0.012, 0.012, 0.012, K3.shade(skin, -0.12), 0, 6); // warts
   }
   for (let j = 0; j < 16; j++) { const a = (j / 15 - 0.5) * 2.4, r0 = V(Math.sin(a) * 0.1, 0.16, -0.02 - Math.cos(a) * 0.06); hm.rod('cloth', r0, V(r0.x * 1.4, r0.y - 0.22 - (j % 3) * 0.05, r0.z - 0.12), 0.009, hairC, 4); } // a scraggly mane
@@ -297,11 +292,11 @@ function trollModel(e) {
   for (const S of ['L', 'R']) {
     const sx = S === 'L' ? 1 : -1; const h = at(B['fore' + S], B['hand' + S]); const m = new MB();
     m.sph('rock', 0, -0.05, 0, 0.065, 0.075, 0.05, skin, 0, 10);
-    for (let f = 0; f < 3; f++) { const z = -0.03 + f * 0.03; m.beam('rock', V(sx * 0.0, -0.1, z), V(sx * 0.01, -0.17, z + 0.01), 0.024, 0.024, skin); m.cone('gloss', sx * 0.01, -0.2, z + 0.02, 0.008, 0.035, '#2a2418', 6); }
+    for (let f = 0; f < 3; f++) { const z = -0.03 + f * 0.03; m.beam('rock', V(sx * 0.0, -0.1, z), V(sx * 0.01, -0.17, z + 0.01), 0.024, 0.024, skin); m.sph('gloss', sx * 0.012, -0.19, z + 0.02, 0.012, 0.022, 0.012, '#2a2418', 0, 6); }
     m.beam('rock', V(-sx * 0.04, -0.06, 0.02), V(-sx * 0.07, -0.12, 0.05), 0.022, 0.022, skin); // thumb
     h.add(m.build()); P['hand' + S] = h;
     const ft = at(B['shin' + S], B['foot' + S]); const fm = new MB();
-    fm.box('rock', 0, -0.03, 0.06, 0.13, 0.07, 0.27, skin); for (let t = 0; t < 3; t++) { fm.sph('rock', (t - 1) * 0.04, -0.035, 0.2, 0.025, 0.03, 0.04, skin, 0, 8); fm.cone('gloss', (t - 1) * 0.04, -0.04, 0.24, 0.01, 0.03, '#2a2418', 6); }
+    fm.box('rock', 0, -0.03, 0.06, 0.13, 0.07, 0.27, skin); for (let t = 0; t < 3; t++) { fm.sph('rock', (t - 1) * 0.04, -0.035, 0.2, 0.025, 0.03, 0.04, skin, 0, 8); fm.sph('gloss', (t - 1) * 0.04, -0.045, 0.245, 0.012, 0.01, 0.022, '#2a2418', 0, 6); }
     fm.sph('rock', 0, -0.01, -0.05, 0.06, 0.05, 0.06, skin, 0, 8); ft.add(fm.build());
   }
   // ---- belly, bark plates, moss and mushrooms, a loincloth on a belt of bones ----
@@ -311,7 +306,9 @@ function trollModel(e) {
     cm.sph('cloth', sx * 0.19, 0.26, -0.02, 0.09, 0.03, 0.11, moss, 0, 8); cm.sph('cloth', sx * 0.08, 0.2, -0.13, 0.08, 0.06, 0.03, moss, 0, 8); // moss
     for (let m2 = 0; m2 < 2; m2++) { const x = sx * (0.16 + m2 * 0.05), z = -0.04 + m2 * 0.05; cm.cyl('cloth', x, 0.285, z, 0.008, 0.035, '#e8dcc0', 6); cm.sph('cloth', x, 0.305, z, 0.026, 0.014, 0.026, m2 ? '#b8402a' : '#c8a060', 0, 8); } } // mushrooms
   for (let v = 0; v < 3; v++) cm.rod('cloth', V(-0.15 + v * 0.13, 0.25, -0.1), V(-0.1 + v * 0.1, 0.0, 0.13), 0.006, '#3e5a22', 4); // vines
+  for (let w = 0; w < 14; w++) { const a = w * 2.39, y = 0.02 + (w % 5) * 0.05; cm.sph('rock', Math.cos(a) * 0.17, y, Math.sin(a) * 0.12, 0.016, 0.016, 0.014, K3.shade(skin, -0.14), 0, 6); } // warts
   const chestG = cm.build(); B.chest.add(chestG);
+  for (const S of ['L', 'R']) { const am = new MB(); for (let w = 0; w < 6; w++) am.sph(w % 3 ? 'rock' : 'cloth', (w % 2 ? 0.03 : -0.03), -0.05 - w * 0.045, (w % 3 - 1) * 0.03, 0.02, 0.025, 0.02, w % 3 ? K3.shade(skin, -0.14) : moss, 0, 6); B['arm' + S].add(am.build()); } // warts and moss down the arms
   const lm = new MB(); lm.cyl('leather', 0, 0.02, 0, 0.18, 0.04, '#3a2a1a', 14); lm.box('leather', 0, -0.13, 0.13, 0.2, 0.26, 0.02, '#5a4028', 0, 0.1); lm.box('leather', 0, -0.12, -0.13, 0.22, 0.24, 0.02, '#4e3822', 0, -0.1);
   for (let j = 0; j < 9; j++) { const a = j / 9 * TAU; lm.cyl('gloss', Math.cos(a) * 0.185, 0.0, Math.sin(a) * 0.185, 0.012, 0.07, bone, 6); } lm.sph('gloss', 0.12, -0.02, 0.13, 0.04, 0.045, 0.04, bone, 0, 8); // bones, and a skull
   B.hips.add(lm.build());
@@ -340,7 +337,7 @@ function trollAnim(P, av, e, dt) {
   const ph2 = R.phase || 0; const mv = R.mv || 0;
   B.hips.position.y -= P.hipDrop + Math.abs(Math.sin(ph2)) * 0.03 * mv; B.hips.position.x += Math.sin(ph2) * 0.05 * mv;
   B.hips.rotation.z += Math.sin(ph2) * 0.1 * mv; B.chest.rotation.z -= Math.sin(ph2) * 0.08 * mv;
-  B.spine.rotation.x += 0.38; B.chest.rotation.x += 0.22; B.neck.rotation.x -= 0.25; P.head.rotation.x = -0.35;
+  B.spine.rotation.x += 0.24; B.chest.rotation.x += 0.12; B.neck.rotation.x -= 0.12; P.head.rotation.x = -0.25;
   for (const [S, sx] of [['L', 1], ['R', -1]]) { B['thigh' + S].rotation.x -= 0.32; B['thigh' + S].rotation.z += sx * 0.16; B['shin' + S].rotation.x += 0.48; B['shin' + S].rotation.z -= sx * 0.12; }
   // two hands on the trunk, raised high, then brought down on the gate
   const up = wind * (1 - strike);
@@ -356,6 +353,7 @@ function trollAnim(P, av, e, dt) {
   }
   P.lastStrike = strike;
   if (moving && Math.random() < dt * 3) { av.obj.getWorldPosition(_v); dust(_v.x, _v.y + 0.05, _v.z, 2, { speed: 0.5, up: 0.2, s0: 0.5, s1: 1.6, a: 0.25 }); }
+  if (R.setLod && K3.camera) R.setLod(av.obj.position.distanceTo(K3.camera.position) / TROLL_S);
   if (e.dead) { P.dk = Math.min(1, (P.dk || 0) + dt * 0.8); R.mesh.rotation.x = -Math.PI / 2 * sm(0, 1, P.dk); R.mesh.position.y = 0.3 * P.dk; }
   else if (P.dk) { P.dk = 0; R.mesh.rotation.x = 0; R.mesh.position.y = 0; }
 }

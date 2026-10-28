@@ -7,6 +7,7 @@ import { weaponMesh } from './weapons.js';
 
 import { humanAsset, makeHumanRig } from './human.js';
 import { legs, handsOnKnees } from './gait.js';
+import { spring, bodyLean, melee, hurt, casting, look, cape } from './motion.js';
 const KR = window.KR, D = KR.D;
 
 // ---------- the material: vertex colours plus per-vertex metal/roughness and procedural detail ----------
@@ -598,7 +599,7 @@ export function animateHumanoid(rig, st, dt) {
   B.hips.position.set(rig.rest.hips[0], rig.rest.hips[1], rig.rest.hips[2]);
   const hunch = P.hunch || 0;
   // ---- idle breathing and stance ----
-  const br = Math.sin(t * 1.9) * 0.025;
+  const br = 0;
   B.spine.rotation.x = hunch * 0.5 + br * 0.4; B.chest.rotation.x = hunch * 0.6 - br; B.neck.rotation.x = -hunch * 0.8; B.head.rotation.x = -hunch * 0.3;
   B.armL.rotation.z = 0.09 + Math.sin(t * 1.9) * 0.015; B.armR.rotation.z = -0.09 - Math.sin(t * 1.9) * 0.015;
   B.foreL.rotation.x = -0.12; B.foreR.rotation.x = -0.12;
@@ -617,6 +618,7 @@ export function animateHumanoid(rig, st, dt) {
     B.hips.rotation.z = -Math.sin(ph * 2) * 0.03 * m * (1 - run);
     // the head stays steady over the twisting shoulders and leans less than the body, as a runner's does
     B.neck.rotation.y -= c * (0.1 + 0.08 * run) * m * 0.85; B.neck.rotation.x -= (0.03 + 0.1 * run) * m;
+    if (st.combat || st.cast) { B.armL.rotation.x += c * A * 0.28; } // fighting on the move: the free arm still swings a little
     if (!st.combat) { B.armL.rotation.z += 0.08 * run * m; B.armR.rotation.z -= 0.08 * run * m; B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
   }
   // ---- jumping: arms lift for balance in the air, and the knees give a little on landing ----
@@ -625,15 +627,19 @@ export function animateHumanoid(rig, st, dt) {
   // ---- kneeling to skin an animal ----
   rig.crouchK = (rig.crouchK || 0) + ((st.crouch ? 1 : 0) - (rig.crouchK || 0)) * Math.min(1, dt * 5);
   if (rig.crouchK > 0.01) { B.hips.position.y -= rig.rest.hips[1] * 0.38 * rig.crouchK; B.spine.rotation.x += 0.45 * rig.crouchK; B.head.rotation.x += 0.35 * rig.crouchK; }
+  // ---- leaning into starts and turns, rocking back on stops, breathing (motion.js) ----
+  if (!st.mounted && !st.dead) bodyLean(rig, B, st, dt);
   // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
   if (!st.mounted && !st.dead) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
   if (rig.sitK > 0.01) { const k = K3.smooth(0, 1, rig.sitK); B.armL.rotation.x = K3.lerp(B.armL.rotation.x, -0.5, k); B.armR.rotation.x = K3.lerp(B.armR.rotation.x, -0.5, k); }
-  // ---- casting: hands raised and glowing ----
-  if (st.cast) { const w = Math.sin(t * 8) * 0.08; B.armL.rotation.x = -1.25 + w; B.armR.rotation.x = -1.25 - w; B.armL.rotation.z = -0.25; B.armR.rotation.z = 0.25; B.foreL.rotation.x = -0.5; B.foreR.rotation.x = -0.5; B.chest.rotation.x -= 0.1; }
+  // ---- casting: a looping gesture by school, or a quick hand charge, then a release thrust (motion.js) ----
+  casting(rig, B, st, dt);
   // ---- attacks ----
   const a = st.atk || 0;
-  if (a > 0 && a < 1) {
+  // melee: wind-up, strike, follow-through and recovery, the body leading the arms (motion.js)
+  const swung = melee(rig, B, st, dt);
+  if (a > 0 && a < 1 && !swung) {
     const k = st.atkKind || 'slash';
     const wind = K3.smooth(0, 0.35, a), hit = K3.smooth(0.3, 0.6, a), rec = K3.smooth(0.6, 1, a);
     const sw = wind * (1 - hit) + 0, st2 = hit * (1 - rec);
@@ -646,6 +652,8 @@ export function animateHumanoid(rig, st, dt) {
     else if (k === 'claw') { B.armR.rotation.x = -0.4 - wind * 2.0 + hit * 2.0; B.armL.rotation.x = -0.4 - wind * 1.6 + hit * 1.7; B.armR.rotation.z = 0.3 * hit; B.armL.rotation.z = -0.3 * hit; B.chest.rotation.x = 0.3 * hit * (1 - rec); }
     else if (k === 'spin') { B.hips.rotation.y = a * Math.PI * 4; B.armR.rotation.z = -1.4; B.armL.rotation.z = 1.4; }
   }
+  // ---- struck: a flinch, or a stagger from a heavy blow (motion.js) ----
+  hurt(rig, B, st);
   // ---- kick ----
   if (st.kick > 0 && st.kick < 1) { const k = Math.sin(st.kick * Math.PI); B.thighR.rotation.x = -1.6 * k; B.shinR.rotation.x = 0.3 * (1 - k); B.chest.rotation.x = 0.2 * k; B.armL.rotation.z = 0.6 * k; B.armR.rotation.z = -0.6 * k; }
   // ---- special moves ----
@@ -681,8 +689,8 @@ export function animateHumanoid(rig, st, dt) {
   if (st.mez) { B.head.rotation.x = 0.5; B.chest.rotation.x += 0.2; B.armL.rotation.x = 0.1; B.armR.rotation.x = 0.1; }
   if (st.drunk) { B.spine.rotation.z = Math.sin(t * 2.1) * 0.12; B.head.rotation.z = Math.sin(t * 2.4 + 1) * 0.18; }
   if (st.mounted) { B.thighL.rotation.x = -1.3; B.thighR.rotation.x = -1.3; B.thighL.rotation.z = 0.5; B.thighR.rotation.z = -0.5; B.shinL.rotation.x = 1.2; B.shinR.rotation.x = 1.2; }
-  // ---- cape lags behind when moving ----
-  if (B.capeA) { B.capeA.rotation.x = 0.06 + m * 0.5 + Math.sin(t * 3) * 0.03 * (0.4 + m) + (st.sit ? 0.6 : 0); B.capeB.rotation.x = 0.08 + m * 0.35 + Math.sin(t * 3.7 + 1) * 0.05 * (0.4 + m); }
+  // ---- cape trails, swings past on stops and turns (motion.js) ----
+  cape(rig, B, st, dt, m);
   if (B.tail1) { B.tail1.rotation.y = Math.sin(t * 2 + ph) * 0.25; B.tail2.rotation.y = Math.sin(t * 2 + ph - 0.8) * 0.3; B.tail3.rotation.y = Math.sin(t * 2 + ph - 1.6) * 0.35; B.tail1.rotation.x = 0.5; }
   // weapons: swords hang down at rest and come up when fighting, staffs and spears stay upright
   const ready = st.combat || st.atk > 0 || st.cast ? 1 : 0; rig.ready = (rig.ready || 0) + (ready - (rig.ready || 0)) * Math.min(1, dt * 6);
@@ -690,8 +698,8 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.bow && rig.held.L) { rig.held.L.rotation.x = (Math.PI / 2) * rig.ready; }
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
-  if (st.lookYaw) { B.head.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.6; B.neck.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.3; }
-  if (!st.cast && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
+  look(rig, B, st, dt);
+  if (!st.cast && !rig.sw && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
   // fingers: a fist around a weapon, open while casting, loosely curled otherwise
   if (rig.hands) for (const S of ['L', 'R']) {
     const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;

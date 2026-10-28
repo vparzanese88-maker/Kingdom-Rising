@@ -9,7 +9,7 @@ import { sdfMesh } from './sdfmesh.js';
 const shade = (c, a) => K3.shade(c || '#777777', a);
 const Q = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
 // smooth bodies need the realistic-figures option (on unless the quality is low)
-const FUR_LEN = { wolf: 0.022, bear: 0.035, boar: 0.022, tiger: 0.012, rat: 0.01, griffon: 0.018, horse: 0.006 };
+const FUR_LEN = { wolf: 0.024, bear: 0.035, boar: 0.014, tiger: 0.012, rat: 0.01, griffon: 0.018, horse: 0.006 };
 const ORGANIC = () => K3.settings.quality !== 'low';
 const MATS = { gem: [0.2, 0.1, 0], plain: [0, 0.8, 0], fur: [0, 1, 4], skin: [0, 0.6, 5], scales: [0.1, 0.45, 10], bone: [0, 0.7, 8], glow: [0, 1, 9], shell: [0.2, 0.3, 3], rock: [0, 0.95, 2], wood: [0, 0.9, 2], leaf: [0, 0.9, 1], metal: [0.85, 0.32, 3] };
 
@@ -110,14 +110,14 @@ function instance(rig, geom) {
 
 // ---------- quadrupeds (and their winged cousins) ----------
 const QUAD = {
-  rat: { L: 0.72, H: 0.3, br: 0.13, hr: 0.085, sn: 0.11, ear: 'round', tail: 0.62, tailR: 0.015, leg: 0.03, earCol: '#e8a0a0', tailCol: '#d8a0a0' },
-  wolf: { L: 1.45, H: 0.82, br: 0.21, hr: 0.13, sn: 0.19, ear: 'point', tail: 0.55, tailR: 0.07, leg: 0.05, eye: '#e8c040' },
-  spiritwolf: { L: 1.45, H: 0.82, br: 0.21, hr: 0.13, sn: 0.19, ear: 'point', tail: 0.55, tailR: 0.07, leg: 0.05, eye: '#9ef', glowy: true },
-  tiger: { L: 1.95, H: 0.95, br: 0.26, hr: 0.17, sn: 0.12, ear: 'round', tail: 0.95, tailR: 0.035, leg: 0.075, stripes: true, eye: '#e8c040' },
-  bear: { L: 2.0, H: 1.22, br: 0.43, hr: 0.22, sn: 0.14, ear: 'round', tail: 0.08, tailR: 0.06, leg: 0.12, hump: true, eye: '#2a1a10' },
-  boar: { L: 1.35, H: 0.82, br: 0.3, hr: 0.18, sn: 0.2, ear: 'point', tail: 0.18, tailR: 0.02, leg: 0.055, tusk: true, mane: true },
-  croc: { L: 3.2, H: 0.42, br: 0.28, hr: 0.16, sn: 0.62, ear: null, tail: 1.6, tailR: 0.2, leg: 0.07, flat: true, sprawl: true, scales: true, eye: '#e8d040' },
-  drake: { L: 3.4, H: 1.35, br: 0.42, hr: 0.22, sn: 0.32, ear: null, tail: 2.2, tailR: 0.18, leg: 0.11, neck: 0.55, wings: 2.8, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
+  rat: { L: 0.72, H: 0.3, br: 0.14, hr: 0.1, sn: 0.12, ear: 'round', tail: 0.66, tailR: 0.018, leg: 0.034, earCol: '#e8a0a0', tailCol: '#d8a0a0', whisk: true },
+  wolf: { L: 1.45, H: 0.86, br: 0.22, hr: 0.15, sn: 0.21, ear: 'point', tail: 0.6, tailR: 0.075, leg: 0.06, eye: '#e8c040', ruff: true },
+  spiritwolf: { L: 1.45, H: 0.86, br: 0.22, hr: 0.15, sn: 0.21, ear: 'point', tail: 0.6, tailR: 0.075, leg: 0.06, eye: '#9ef', glowy: true, ruff: true },
+  tiger: { L: 1.95, H: 0.95, br: 0.27, hr: 0.2, sn: 0.13, ear: 'round', tail: 0.95, tailR: 0.04, leg: 0.085, stripes: true, eye: '#e8c040', ruff: true },
+  bear: { L: 2.0, H: 1.2, br: 0.45, hr: 0.27, sn: 0.17, ear: 'round', tail: 0.08, tailR: 0.06, leg: 0.135, hump: true, eye: '#2a1a10' },
+  boar: { L: 1.35, H: 0.78, br: 0.3, hr: 0.2, sn: 0.26, ear: 'point', tail: 0.2, tailR: 0.018, leg: 0.045, tusk: true, mane: true, hoof: true, disc: true, wedge: true },
+  croc: { L: 3.2, H: 0.42, br: 0.32, hr: 0.18, sn: 0.66, ear: null, tail: 1.7, tailR: 0.22, leg: 0.085, flat: true, sprawl: true, scales: true, eye: '#e8d040', scutes: true },
+  drake: { L: 3.4, H: 1.35, br: 0.44, hr: 0.26, sn: 0.34, ear: null, tail: 2.2, tailR: 0.2, leg: 0.12, neck: 0.55, wings: 2.8, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
   dragon: { L: 6.5, H: 2.5, br: 0.85, hr: 0.42, sn: 0.62, ear: null, tail: 4.5, tailR: 0.38, leg: 0.24, neck: 2.2, wings: 6.5, horns: true, scales: true, spikes: true, eye: '#ffd23a' },
   griffon: { L: 2.3, H: 1.25, br: 0.34, hr: 0.2, sn: 0.12, ear: 'tuft', tail: 0.9, tailR: 0.04, leg: 0.08, neck: 0.35, wings: 2.5, beak: true, eye: '#1a1a1a' },
   horse: { L: 2.1, H: 1.5, br: 0.33, hr: 0.16, sn: 0.36, ear: 'point', tail: 0.8, tailR: 0.07, leg: 0.065, neck: 0.75, mane: true, eye: '#1a1a1a', long: true },
@@ -143,39 +143,46 @@ function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
   const r = R.rest, br = sp.br, hr = sp.hr, sn = sp.sn, lg = sp.leg; const cat = kind === 'tiger', dog = kind === 'wolf' || kind === 'spiritwolf' || kind === 'rat';
   const heavy = kind === 'bear' || kind === 'boar', rept = sp.scales, horse = kind === 'horse', fl = sp.flat;
   const ch = r.chest, pv = r.pelvis, rt = r.root; const tuck = dog || cat || horse ? 1 : heavy ? 0.2 : 0.5;
+  const slim = (dog || cat) && kind !== 'rat' ? 0.78 : 1; // runners: a deep, narrow chest and narrow hips
   // torso
-  R.ell('chest', [0, ch[1] + br * 0.12, ch[2]], [br * (heavy ? 1.0 : 0.78), br * (fl ? 0.6 : 1.05), br * 1.15], c, mat, null, 'root', 0.25);
+  R.ell('chest', [0, ch[1] + br * 0.12, ch[2]], [br * (heavy ? 1.0 : 0.78) * slim, br * (fl ? 0.6 : 1.1), br * 1.1], c, mat, null, 'root', 0.25);
   R.ell('chest', [0, ch[1] - br * 0.35, ch[2] + br * 0.15], [br * 0.6, br * 0.55, br * 0.8], belly, mat, null, 'root', 0.2); // the brisket
   for (const sx of [1, -1]) R.ell(sx > 0 ? 'FL1' : 'FR1', [sx * br * 0.42, ch[1] + br * 0.38, ch[2] - br * 0.05], [br * 0.32, br * 0.55, br * 0.55], c, mat, Q(0.35, 0, 0), 'chest', 0.6);
   if (sp.hump) R.ell('chest', [0, ch[1] + br * 0.75, ch[2] - br * 0.1], [br * 0.7, br * 0.5, br * 0.7], dark, mat);
-  R.ell('root', [0, rt[1] + br * 0.12 * tuck, rt[2]], [br * (0.62 + 0.3 * (1 - tuck)), br * (0.85 - 0.25 * tuck) * (fl ? 0.65 : 1), Math.abs(ch[2] - pv[2]) * 0.55], c, mat);
+  R.ell('root', [0, rt[1] + br * 0.16 * tuck, rt[2]], [br * (0.62 + 0.3 * (1 - tuck)) * slim, br * (0.85 - 0.3 * tuck) * (fl ? 0.65 : 1), Math.abs(ch[2] - pv[2]) * 0.55], c, mat);
   R.ell('root', [0, rt[1] - br * (0.35 - 0.2 * tuck), rt[2]], [br * 0.5, br * 0.35, Math.abs(ch[2] - pv[2]) * 0.4], belly, mat);
-  R.ell('pelvis', [0, pv[1] + br * 0.1, pv[2]], [br * (heavy ? 0.95 : 0.72), br * (fl ? 0.55 : 0.85), br * 0.9], c, mat, null, 'root', 0.25);
+  R.ell('pelvis', [0, pv[1] + br * 0.1, pv[2]], [br * (heavy ? 0.95 : 0.72) * slim, br * (fl ? 0.55 : 0.85), br * 0.9], c, mat, null, 'root', 0.25);
   for (const sx of [1, -1]) R.ell(sx > 0 ? 'BL1' : 'BR1', [sx * br * 0.38, pv[1] + br * 0.05, pv[2] - br * 0.05], [br * 0.36, br * 0.72, br * 0.66], c, mat, null, 'pelvis', 0.5);
   // neck and head
   const hd = r.head; const nk0 = [0, ch[1] + br * 0.4, ch[2] + br * 0.75], nk1 = [0, hd[1] - hr * 0.1, hd[2] - hr * 0.45];
   R.seg('neck', nk0, nk1, br * (sp.neck ? 0.5 : 0.62), hr * 0.72, c, mat, 'chest', 0.3);
-  R.ell('head', [0, hd[1] + hr * 0.08, hd[2] - hr * 0.05], [hr * 0.82, hr * 0.78, hr * 0.92], c, mat);
+  R.ell('head', [0, hd[1] + hr * 0.08, hd[2] - hr * 0.05], [hr * (dog ? 0.72 : 0.82), hr * 0.78, hr * 0.92], c, mat);
   R.ell('head', [0, hd[1] + hr * 0.32, hd[2] + hr * 0.42], [hr * 0.55, hr * 0.22, hr * 0.32], c, mat); // brow
   for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.42, hd[1] - hr * 0.18, hd[2] + hr * 0.38], [hr * 0.32, hr * 0.32, hr * 0.38], c, mat); // cheeks
   const tipZ = hd[2] + hr * 0.5 + sn * 1.05, tipY = hd[1] - hr * (fl ? 0.3 : 0.18);
   if (!sp.beak) {
-    R.seg('head', [0, hd[1] - hr * 0.05, hd[2] + hr * 0.35], [0, tipY + hr * 0.08, tipZ], hr * (fl ? 0.62 : 0.5), hr * (cat ? 0.36 : fl ? 0.32 : 0.26), shade(c, -0.03), mat);
-    R.seg('jaw', [0, r.jaw[1] - hr * 0.05, r.jaw[2] - hr * 0.2], [0, r.jaw[1] - hr * 0.08, tipZ - hr * 0.12], hr * 0.42, hr * 0.2, belly, mat);
+    const mz = dog ? 0.74 : 1; // a dog's muzzle tapers to a narrow nose
+    R.seg('head', [0, hd[1] - hr * 0.02, hd[2] + hr * 0.35], [0, tipY + hr * 0.1, tipZ], hr * (fl ? 0.62 : 0.5) * mz, hr * (cat ? 0.36 : fl ? 0.32 : 0.26) * mz, shade(c, -0.03), mat);
+    R.seg('jaw', [0, r.jaw[1] + hr * 0.02, r.jaw[2] - hr * 0.2], [0, r.jaw[1] + hr * 0.05, tipZ - hr * 0.14], hr * 0.4 * mz, hr * 0.18 * mz, belly, mat);
     R.ell('head', [0, tipY + hr * 0.1, tipZ + hr * 0.02], [hr * 0.2, hr * 0.15, hr * 0.12], rept ? shade(c, -0.15) : '#1a1414', rept ? mat : 'skin'); // nose
   } else R.ell('head', [0, hd[1], hd[2] + hr * 0.2], [hr * 0.95, hr * 0.9, hr * 1.0], '#f4efe0', 'fur');
   // ears
   for (const sx of [1, -1]) {
-    if (sp.ear === 'point') R.ell('head', [sx * hr * 0.48, hd[1] + hr * 0.82, hd[2] - hr * 0.15], [hr * 0.2, hr * (dog ? 0.42 : 0.3), hr * 0.07], dark, mat, Q(-0.15, 0, -sx * 0.28));
+    if (sp.ear === 'point') R.ell('head', [sx * hr * 0.44, hd[1] + hr * (dog ? 0.95 : 0.82), hd[2] - hr * 0.12], [hr * (dog ? 0.24 : 0.2), hr * (dog ? 0.55 : 0.3), hr * 0.08], dark, mat, Q(-0.1, 0, -sx * 0.22));
     else if (sp.ear === 'round') R.ell('head', [sx * hr * 0.55, hd[1] + hr * 0.72, hd[2] - hr * 0.2], [hr * 0.22, hr * 0.2, hr * 0.07], sp.earCol || dark, mat);
   }
+  // the boar's wedge: deep shoulders, a high ridge of bristles and slim legs on little hooves
+  if (sp.wedge) { R.ell('chest', [0, ch[1] + br * 0.55, ch[2] - br * 0.05], [br * 0.62, br * 0.55, br * 0.95], dark, mat); R.ell('neck', [0, ch[1] + br * 0.3, ch[2] + br * 0.7], [br * 0.66, br * 0.7, br * 0.6], c, mat, null, 'chest', 0.5); }
+  // a ruff of longer fur round the neck and cheeks (wolves, big cats)
+  if (sp.ruff) { R.ell('neck', [0, ch[1] + br * 0.42, ch[2] + br * 0.62], [br * 0.66, br * 0.7, br * 0.55], shade(c, 0.08), mat, null, 'chest', 0.4); for (const sx of [1, -1]) R.ell('head', [sx * hr * 0.55, hd[1] - hr * 0.3, hd[2] + hr * 0.05], [hr * 0.32, hr * 0.42, hr * 0.42], shade(c, 0.12), mat); }
   // legs: a muscular upper leg, a slim lower leg and a paw or hoof
   for (const n of ['FL', 'FR', 'BL', 'BR']) {
     const a = r[n + '1'], b = r[n + '2'], f = r[n + '3']; const back = n[0] === 'B'; const L = lg * (back ? 1.1 : 1) * (heavy ? 1.25 : 1);
-    R.seg(n + '1', [a[0], a[1] + br * 0.15, a[2]], [b[0], b[1] + (a[1] - b[1]) * 0.1, b[2] + (back ? -0.02 : 0)], L * (back ? 1.9 : 1.55), L * 0.85, c, mat, back ? 'pelvis' : 'chest', 0);
-    R.seg(n + '2', b, [f[0], f[1] + L * 1.2, f[2] + (back ? -0.01 : 0.01)], L * 0.78, L * 0.56, c, mat);
-    if (horse) R.seg(n + '3', [f[0], f[1] + L * 1.1, f[2]], [f[0], f[1] - L * 0.2, f[2] + L * 0.2], L * 0.78, L * 0.95, '#2a2a2a', 'skin');
-    else if (!sp.beak || back) R.ell(n + '3', [f[0], f[1] + L * 0.15, f[2] + L * 0.7], [L * 1.15, L * 0.62, L * 1.5], shade(c, -0.08), mat);
+    R.seg(n + '1', [a[0], a[1] + br * 0.15, a[2]], [b[0], b[1] + (a[1] - b[1]) * 0.1, b[2] + (back ? -0.02 : 0)], L * (back ? 1.95 : 1.6), L * 0.95, c, mat, back ? 'pelvis' : 'chest', 0);
+    R.seg(n + '2', b, [f[0], f[1] + L * 1.2, f[2] + (back ? -0.01 : 0.01)], L * 0.92, L * 0.62, c, mat);
+    if (back && !fl) R.ell(n + '2', [b[0], b[1] + L * 0.2, b[2] - L * 0.6], [L * 0.62, L * 0.9, L * 0.7], c, mat); // the hock
+    if (horse || sp.hoof) R.seg(n + '3', [f[0], f[1] + L * 1.1, f[2]], [f[0], f[1] - L * 0.2, f[2] + L * 0.2], L * 0.7, L * 0.9, '#2a2420', 'skin');
+    else if (!sp.beak || back) { const pw = heavy ? 0.95 : 0.85; R.ell(n + '3', [f[0], f[1] + L * 0.38, f[2] + L * 0.45], [L * pw, L * 0.62, L * 1.15], shade(c, -0.08), mat); if (!fl) for (let k = -1; k <= 1; k++) R.ell(n + '3', [f[0] + k * L * 0.42, f[1] + L * 0.22, f[2] + L * 1.12], [L * 0.32, L * 0.3, L * 0.36], shade(c, -0.12), mat); }
   }
   // tail
   if (sp.tail > 0.1) {
@@ -186,10 +193,14 @@ function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
   } else R.ell('pelvis', [0, pv[1] + br * 0.45, pv[2] - br * 0.95], [br * 0.18, br * 0.18, br * 0.18], c, mat);
   // crisp bits: eyes, teeth, tusks, horns, claws, beak, mane, spikes
   R.hard(() => {
-    for (const sx of [-1, 1]) R.ell('head', [sx * hr * 0.45, hd[1] + hr * 0.2, hd[2] + hr * 0.58], [hr * 0.12, hr * 0.12, hr * 0.09], sp.eye || '#1a1a1a', sp.glowy || (sp.eye && sp.eye !== '#1a1a1a' && sp.eye !== '#2a1a10') ? 'glow' : 'gem');
+    for (const sx of [-1, 1]) { const ex = sx * hr * 0.4, ey = hd[1] + hr * 0.2; const ez = hd[2] - hr * 0.05 + hr * 0.92 * Math.sqrt(Math.max(0.05, 1 - (ex / (hr * 0.82)) ** 2 - ((ey - hd[1] - hr * 0.08) / (hr * 0.78)) ** 2)) - hr * 0.04;
+      R.ell('head', [ex, ey, ez], [hr * 0.13, hr * 0.12, hr * 0.1], '#120c08', 'gem', Q(0, sx * 0.5, 0)); R.ell('head', [ex + sx * hr * 0.015, ey, ez + hr * 0.04], [hr * 0.085, hr * 0.085, hr * 0.06], sp.eye || '#3a2a1a', sp.glowy || (sp.eye && sp.eye !== '#1a1a1a' && sp.eye !== '#2a1a10') ? 'glow' : 'gem', Q(0, sx * 0.5, 0)); }
     if (fl) for (let k = 0; k < 12; k++) R.cone('jaw', [(k % 2 ? 1 : -1) * hr * 0.42, r.jaw[1] + hr * 0.1, r.jaw[2] + hr * 0.2 + (k >> 1) * sn * 0.2], hr * 0.045, hr * 0.2, null, '#f0ead8', 'bone');
     else if (!sp.beak) for (const sx of [-1, 1]) R.cone('jaw', [sx * hr * 0.16, r.jaw[1] + hr * 0.06, tipZ - hr * 0.22], hr * 0.035, hr * 0.16, null, '#f0ead8', 'bone');
-    if (sp.tusk) for (const sx of [-1, 1]) R.cone('jaw', [sx * hr * 0.32, r.jaw[1] + hr * 0.25, tipZ - hr * 0.35], hr * 0.07, hr * 0.6, Q(0.6, 0, -sx * 0.5), '#f0ead8', 'bone');
+    if (sp.tusk) for (const sx of [-1, 1]) { R.cone('jaw', [sx * hr * 0.34, r.jaw[1] + hr * 0.18, tipZ - hr * 0.3], hr * 0.075, hr * 0.5, Q(0.2, 0, -sx * 0.55), '#f0ead8', 'bone'); R.cone('jaw', [sx * hr * 0.5, r.jaw[1] + hr * 0.52, tipZ - hr * 0.36], hr * 0.05, hr * 0.32, Q(-0.5, 0, -sx * 0.2), '#f0ead8', 'bone'); }
+    if (sp.disc) R.ell('head', [0, tipY + hr * 0.06, tipZ + hr * 0.08], [hr * 0.3, hr * 0.26, hr * 0.06], '#8a5a50', 'skin');
+    if (sp.whisk) for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) R.seg('head', [sx * hr * 0.15, tipY + hr * 0.05, tipZ - hr * 0.05], [sx * hr * 1.4, tipY + hr * (0.3 - k * 0.25), tipZ - hr * 0.5], 0.0025, 0.0012, '#e8e0d0', 'bone');
+    if (sp.scutes) for (let k = 0; k < 16; k++) for (const sx of [-1, 1]) { const z = ch[2] + br * 0.4 - k * sp.L * 0.065; R.ell(k < 5 ? 'chest' : k < 10 ? 'root' : 'pelvis', [sx * br * 0.28, rt[1] + br * 0.42 - Math.max(0, k - 9) * 0.03, z], [br * 0.12, br * 0.1, sp.L * 0.028], shade(c, -0.18), 'bone'); }
     if (sp.horns) for (const sx of [-1, 1]) R.cone('head', [sx * hr * 0.45, hd[1] + hr * 0.6, hd[2] - hr * 0.45], hr * 0.15, hr * 1.4, Q(-1.15, 0, -sx * 0.25), '#e8dcc0', 'bone');
     if (sp.beak) R.cone('head', [0, hd[1] - hr * 0.15, hd[2] + hr * 1.2], hr * 0.36, hr * 1.0, Q(Math.PI / 2 + 0.45, 0, 0), '#e8c040', 'shell');
     if (sp.ear === 'tuft') for (const sx of [-1, 1]) R.cone('head', [sx * hr * 0.45, hd[1] + hr * 0.8, hd[2] - hr * 0.4], hr * 0.14, hr * 0.7, Q(-0.8, 0, -sx * 0.3), '#f4efe0', 'shell');
@@ -200,10 +211,23 @@ function quadAnatomy(R, sp, kind, c, mat, belly, dark) {
 }
 function buildQuad(kind, col, rnd) {
   const sp = QUAD[kind] || QUAD.wolf; const R = new Rig(quadRig(sp)); const r = R.rest;
-  R.organic = ORGANIC(); R.k = sp.br * 0.17; R.cell = K3.clamp(sp.L / 75, 0.012, 0.07);
+  R.organic = ORGANIC(); R.k = sp.br * 0.095; R.cell = K3.clamp(sp.L / 75, 0.012, 0.07);
   if (R.organic) R.paint = (g) => { // darker along the back, lighter belly, tiger stripes
     const P = g.attributes.position, N = g.attributes.normal, C = g.attributes.color; const top = r.root[1];
-    for (let i = 0; i < P.count; i++) { const ny = N.getY(i); let k = 1 + ny * 0.12 - Math.max(0, -ny) * 0.0; if (sp.stripes && P.getY(i) > top - sp.br * 0.5) { const st = Math.sin(P.getZ(i) * 26 + Math.sin(P.getX(i) * 18) * 1.2 + Math.sin(P.getY(i) * 9) * 0.8); if (st > 0.55) k *= 0.22; } C.setXYZ(i, C.getX(i) * k, C.getY(i) * k, C.getZ(i) * k); }
+    const hz = r.head[2], ch = r.chest[2], pv = r.pelvis[2]; const legH = r.FL1[1];
+    for (let i = 0; i < P.count; i++) {
+      const x = P.getX(i), y = P.getY(i), z = P.getZ(i), ny = N.getY(i); let k = 1 + ny * 0.1;
+      if (!sp.scales) {
+        const onBody = z < ch + sp.br * 0.8 && z > pv - sp.br * 1.2;
+        if (onBody && ny > 0.35 && !sp.stripes) k *= 1 - 0.32 * K3.clamp((ny - 0.35) * 2, 0, 1); // the saddle
+        if (ny < -0.3 && y > legH * 0.6) k *= 1 + 0.35 * K3.clamp(-ny - 0.3, 0, 1); // pale belly and throat
+        if (z > hz + sp.hr * 0.45 && y < r.head[1]) k *= sp.disc ? 0.85 : 1.25; // muzzle
+        if (y < legH * 0.45) k *= 0.62 + 0.38 * K3.clamp(y / (legH * 0.45), 0, 1); // darker socks and feet
+      } else { if (ny > 0.4) k *= 0.8; if (ny < -0.3) k *= 1.35; }
+      if (sp.stripes && y > top - sp.br * 0.5) { const st = Math.sin(z * 26 + Math.sin(x * 18) * 1.2 + Math.sin(y * 9) * 0.8); if (st > 0.55) k *= 0.22; }
+      k *= 0.94 + 0.12 * K3.hash(Math.round(x * 40), Math.round(y * 40), Math.round(z * 40)); // mottling
+      C.setXYZ(i, C.getX(i) * k, C.getY(i) * k, C.getZ(i) * k);
+    }
   };
   const mat = sp.scales ? 'scales' : kind === 'spiritwolf' ? 'glow' : 'fur'; const c = col;
   const belly = shade(c, 0.18), dark = shade(c, -0.3);
@@ -303,15 +327,35 @@ function buildBug(kind, col) {
   const spider = kind === 'spider', bee = kind === 'mosquito';
   const legs = spider ? 4 : 3; const s = spider ? 1 : bee ? 0.55 : 0.75; const H = spider ? 0.42 : bee ? 1.2 : 0.3;
   const defs = [['root', null, [0, H, 0]], ['head', 'root', [0, H, 0.28 * s]], ['abd', 'root', [0, H + 0.05, -0.2 * s]]];
-  for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); const z = (0.12 - i * (spider ? 0.09 : 0.11)) * s; defs.push([n + '1', 'root', [sd * 0.12 * s, H, z]], [n + '2', n + '1', [sd * (spider ? 0.55 : 0.32) * s, H + (spider ? 0.32 : 0.08) * s, z + (i - legs / 2) * 0.08 * s]], [n + '3', n + '2', [sd * (spider ? 0.95 : 0.45) * s, 0.02, z + (i - legs / 2) * 0.14 * s]]); }
+  // spiders: knees arch high over the body; beetles: legs splay out from under the shell; mosquitoes: legs dangle
+  for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); const z = (0.12 - i * (spider ? 0.09 : 0.13)) * s; const fz = spider ? (i - legs / 2 + 0.5) * 0.3 * s : (i - 1) * 0.3 * s;
+    if (bee) defs.push([n + '1', 'root', [sd * 0.04, H - 0.04, z * 0.5]], [n + '2', n + '1', [sd * 0.14, H - 0.12, z * 0.5 + (i - 1) * 0.05]], [n + '3', n + '2', [sd * 0.22, H - 0.5, z * 0.5 + (i - 1) * 0.14]]);
+    else defs.push([n + '1', 'root', [sd * 0.12 * s, H - (spider ? 0 : 0.04), z]], [n + '2', n + '1', [sd * (spider ? 0.55 : 0.5) * s, H + (spider ? 0.32 : 0.1) * s, z + fz * 0.4]], [n + '3', n + '2', [sd * (spider ? 0.95 : 0.78) * s, 0.02, z + fz]]); }
   if (bee) defs.push(['WL', 'root', [0.05, H + 0.08, 0]], ['WR', 'root', [-0.05, H + 0.08, 0]]);
   const R = new Rig(defs); const r = R.rest; const dark = shade(col, -0.25);
   if (spider && ORGANIC()) { R.organic = true; R.k = 0.03; R.cell = 0.014; }
   if (spider) { R.ell('root', r.root, [0.24, 0.17, 0.26], col, 'fur'); R.ell('abd', [0, r.abd[1] + 0.08, r.abd[2] - 0.22], [0.36, 0.3, 0.44], dark, 'fur'); R.box('abd', [0, r.abd[1] + 0.33, r.abd[2] - 0.2], [0.1, 0.04, 0.2], '#c83a3a', 'skin'); R.ell('head', [0, r.head[1], r.head[2] + 0.06], [0.14, 0.12, 0.14], col, 'fur'); for (let k = 0; k < 6; k++) R.ell('head', [((k % 3) - 1) * 0.05, r.head[1] + 0.06 + Math.floor(k / 3) * 0.04, r.head[2] + 0.17], [0.025, 0.025, 0.02], '#ff4a3a', 'glow'); for (const sd of [-1, 1]) R.cone('head', [sd * 0.05, r.head[1] - 0.08, r.head[2] + 0.18], 0.025, 0.12, Q(Math.PI, 0, 0), '#1a1a1a', 'shell'); }
-  else if (bee) { R.ell('root', r.root, [0.08, 0.08, 0.16], col, 'shell'); R.ell('abd', [0, r.abd[1], r.abd[2] - 0.2], [0.07, 0.07, 0.26], dark, 'shell'); R.ell('head', r.head, [0.07, 0.07, 0.07], col, 'shell'); R.seg('head', [0, r.head[1] - 0.02, r.head[2] + 0.05], [0, r.head[1] - 0.12, r.head[2] + 0.35], 0.008, 0.003, '#2a1a10', 'shell'); for (const sd of [-1, 1]) R.ell('head', [sd * 0.05, r.head[1] + 0.02, r.head[2] + 0.04], [0.035, 0.035, 0.03], '#8a2a1a', 'glow');
-    for (const n of ['WL', 'WR']) { const sd = n === 'WL' ? 1 : -1; R.ell(n, [sd * 0.3, r.WL[1] + 0.02, -0.02], [0.3, 0.01, 0.1], '#dce6ff', 'shell'); } }
-  else { R.ell('root', [0, r.root[1] + 0.04, -0.02], [0.3, 0.2, 0.42], col, 'shell'); R.box('root', [0, r.root[1] + 0.2, -0.02], [0.02, 0.02, 0.7], shade(col, -0.4), 'shell'); R.ell('head', [0, r.head[1] - 0.02, r.head[2] + 0.05], [0.14, 0.1, 0.12], '#2a1a10', 'shell'); R.cone('head', [0, r.head[1] + 0.06, r.head[2] + 0.14], 0.03, 0.2, Q(-0.6, 0, 0), '#2a1a10', 'shell'); for (const sd of [-1, 1]) R.ell('root', [sd * 0.14, r.root[1] + 0.16, 0.1 - (sd > 0 ? 0.2 : 0)], [0.04, 0.03, 0.04], '#ffd25a', 'glow'); }
-  for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); R.seg(n + '1', r[n + '1'], r[n + '2'], spider ? 0.03 : 0.018, spider ? 0.025 : 0.014, dark, spider ? 'fur' : 'shell'); R.seg(n + '2', r[n + '2'], r[n + '3'], spider ? 0.025 : 0.014, 0.008, dark, spider ? 'fur' : 'shell'); }
+  else if (bee) {
+    // a mosquito: a hunched thorax, a long banded abdomen, a needle proboscis, feathery antennae, dangling legs
+    R.ell('root', [0, r.root[1] + 0.02, 0], [0.075, 0.085, 0.11], col, 'shell'); R.ell('root', [0, r.root[1] + 0.07, -0.02], [0.06, 0.05, 0.08], shade(col, -0.2), 'shell');
+    for (let k = 0; k < 6; k++) R.ell('abd', [0, r.abd[1] - 0.02 - k * 0.012, r.abd[2] - 0.06 - k * 0.07], [0.045 - k * 0.004, 0.042 - k * 0.004, 0.05], k % 2 ? dark : shade(col, 0.15), 'shell');
+    R.ell('head', r.head, [0.055, 0.055, 0.05], dark, 'shell'); R.seg('head', [0, r.head[1] - 0.02, r.head[2] + 0.04], [0, r.head[1] - 0.16, r.head[2] + 0.3], 0.007, 0.002, '#1a120c', 'shell');
+    for (const sd of [-1, 1]) { R.ell('head', [sd * 0.035, r.head[1] + 0.01, r.head[2] + 0.025], [0.03, 0.035, 0.03], '#8a2a1a', 'glow'); R.seg('head', [sd * 0.02, r.head[1] + 0.03, r.head[2] + 0.03], [sd * 0.08, r.head[1] + 0.12, r.head[2] + 0.12], 0.005, 0.002, '#3a2a1a', 'shell'); }
+    for (const n of ['WL', 'WR']) { const sd = n === 'WL' ? 1 : -1; R.ell(n, [sd * 0.17, r.WL[1] + 0.01, -0.06], [0.17, 0.004, 0.05], '#c8d4e8', 'shell', Q(0, sd * 0.35, 0)); } }
+  else {
+    // a beetle: a domed pronotum, two wing cases split down the middle, a head with mandibles and antennae
+    const sh = shade(col, 0.12); R.ell('root', [0, r.root[1] + 0.05, 0.08], [0.17, 0.12, 0.13], sh, 'shell');
+    for (const sd of [-1, 1]) R.ell('root', [sd * 0.085, r.root[1] + 0.07, -0.13], [0.11, 0.13, 0.25], col, 'shell', Q(0, sd * 0.05, 0));
+    R.box('root', [0, r.root[1] + 0.2, -0.13], [0.012, 0.012, 0.48], shade(col, -0.45), 'shell');
+    R.ell('root', [0, r.root[1] - 0.03, -0.06], [0.16, 0.06, 0.3], shade(col, -0.35), 'shell'); // the underside
+    R.ell('head', [0, r.head[1] - 0.02, r.head[2] + 0.02], [0.1, 0.075, 0.09], shade(col, -0.25), 'shell');
+    for (const sd of [-1, 1]) { R.cone('head', [sd * 0.05, r.head[1] - 0.04, r.head[2] + 0.13], 0.025, 0.14, Q(Math.PI / 2, sd * 0.5, 0), '#1a120c', 'shell'); R.ell('head', [sd * 0.07, r.head[1] + 0.02, r.head[2] + 0.07], [0.025, 0.025, 0.02], '#ffd25a', 'glow'); R.seg('head', [sd * 0.05, r.head[1] + 0.02, r.head[2] + 0.08], [sd * 0.16, r.head[1] + 0.14, r.head[2] + 0.28], 0.007, 0.004, '#1a120c', 'shell'); }
+  }
+  // legs: thigh, shin and a hooked foot; bristles on spiders
+  for (let i = 0; i < legs; i++) for (const sd of [1, -1]) { const n = 'L' + i + (sd > 0 ? 'l' : 'r'); const t0 = spider ? 0.034 : bee ? 0.007 : 0.026;
+    R.seg(n + '1', r[n + '1'], r[n + '2'], t0, t0 * 0.85, dark, spider ? 'fur' : 'shell'); R.seg(n + '2', r[n + '2'], r[n + '3'], t0 * 0.8, t0 * 0.3, spider ? shade(dark, ((i % 2) ? 0.15 : -0.05)) : dark, spider ? 'fur' : 'shell');
+    if (spider) R.ell(n + '2', r[n + '2'], [t0 * 1.15, t0 * 1.15, t0 * 1.15], shade(col, 0.25), 'fur'); }
+  if (spider) for (const sd of [-1, 1]) R.seg('head', [sd * 0.06, r.head[1] - 0.03, r.head[2] + 0.14], [sd * 0.14, r.head[1] - 0.12, r.head[2] + 0.3], 0.022, 0.012, dark, 'fur'); // pedipalps
   const inst = instance(R, R.geometry());
   if (R.organic && spider) addFur(inst, R.body, 0.012);
   return Object.assign(inst, { _R: R, _body: R.organic && spider ? R.body : null, _furLen: 0.012, type: 'bug', legs, spider, bee, t: Math.random() * 10, phase: 0, H });

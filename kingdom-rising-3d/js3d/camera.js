@@ -82,12 +82,17 @@ export function updateCamera(dt, p) {
   if (K3.settings.shake === false) view.shake = 0;
   if (view.shake > 0) { cam.position.x += (Math.random() - 0.5) * view.shake * 0.15; cam.position.y += (Math.random() - 0.5) * view.shake * 0.15; view.shake = Math.max(0, view.shake - dt * 2.5); }
   if (G.shake > 0) { view.shake = Math.max(view.shake, G.shake * 1.5); G.shake = Math.max(0, G.shake - dt); }
+  // blows landed and taken: a quick sine shake along a direction, dying away (motion.js / actors.js hit-stop)
+  if (kicks.length) { for (let i = kicks.length - 1; i >= 0; i--) { const k = kicks[i]; k.t += dt; if (k.t > k.dur || K3.settings.shake === false) { kicks.splice(i, 1); continue; }
+    const o = k.amp * Math.exp(-3.2 * k.t / k.dur) * Math.sin(2 * Math.PI * 27 * k.t); cam.position.x += o * k.dx; cam.position.y += o * k.dy; cam.position.z += o * k.dz; } }
   cam.rotation.set(view.pitch, yaw, 0, 'YXZ');
   const fov = K3.settings.fov; if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
   cam.updateMatrixWorld();
   view.eye.copy(cam.position);
 }
 
+const kicks = [];
+K3.shakeHit = (amp, dur) => { const a = Math.random() * 6.283; kicks.push({ t: 0, amp, dur, dx: Math.cos(a) * 0.8, dy: 0.6, dz: Math.sin(a) * 0.8 }); if (kicks.length > 4) kicks.shift(); };
 // player movement input relative to the camera (forward f, strafe s) -> 2D world direction
 export function moveInput(f, s) {
   const sy = Math.sin(view.yaw), cy = Math.cos(view.yaw);

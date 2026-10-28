@@ -1141,7 +1141,7 @@
   };
   const FPRE = { sylvan: { metal: 'Leafsteel', hide: 'Thornhide', cloth: 'Glimmerweave', arcane: 'Starbough' }, iron: { metal: 'Runeforged', hide: 'Stonehide', cloth: 'Deepweave', arcane: 'Runebound' }, crown: { metal: 'Valenguard', hide: 'Royal', cloth: 'Courtly', arcane: 'Crownsealed' } };
   // "Riveted Leafmail Hauberk", "Tanned Thornhide Jerkin", "Woven Glimmerweave Linen Robe": every kind reads differently
-  Sys.craftName = (ak, sl, tier, f) => `${D.CRAFT_ADJ[ak][tier]} ${(D.CRAFT_KIND_PRE[f] || D.CRAFT_KIND_PRE.crown)[ak]} ${CA[ak][sl][tier]}`;
+  Sys.craftName = (ak, sl, tier, f) => `${D.CRAFT_ADJ[ak][tier]} ${(D.CRAFT_KIND_PRE[f] || D.CRAFT_KIND_PRE.crown)[ak]} ${CA[ak][sl][tier].replace(ak === 'chain' ? /^(Chain|Mail|Ringmail|Ring) / : ak === 'leather' ? /^Leather / : /^$/, '')}`; // no "Leafmail Chain Boots"
   // special pieces are made from refined materials (two raw for one refined, at the crafter's bench)
   const REFINED_OF = { metal: 'ingot', hide: 'cured', cloth: 'thread', arcane: 'rune' };
   Sys.recipes = function (craft, tier) {
@@ -1199,7 +1199,7 @@
     const F = D.FACTIONS[faction];
     // a plain armor piece leans toward the two stats its wearers need most; the kingdom's own bias fills any extra rolls
     const prof = !r.bias && r.kind === 'armor' && D.CRAFT_PROFILE[r.ak] && D.CRAFT_PROFILE[r.ak][r.slot];
-    const opt = { q: (r.set ? 1.45 : r.sig ? 1.35 : 1.15) + Math.min(0.1, Math.max(0, sk - r.req) / 600), bias: prof ? prof.concat(F.craftBias) : r.bias || F.craftBias, ilvl: r.set ? 56 : r.tier * 9 + 6 + (r.sig ? 2 : 0) };
+    const opt = { q: (r.set ? 1.4 : r.sig ? 1.35 : 1.15) + Math.min(0.1, Math.max(0, sk - r.req) / 600), bias: prof ? prof.concat(F.craftBias) : r.bias || F.craftBias, ilvl: r.set ? 56 : r.tier * 9 + 6 + (r.sig ? 2 : 0) };
     let it;
     if (r.kind === 'armor') it = G.makeArmor(r.ak, r.slot, r.tier, opt);
     else if (r.kind === 'weapon') it = G.makeWeapon(r.wt, r.tier, opt);
@@ -1209,7 +1209,10 @@
     // one piece of each kind trades its random health roll for steady regeneration (chain and leather boots: endurance)
     const rg = prof && D.CRAFT_REGEN[r.ak] && D.CRAFT_REGEN[r.ak][r.slot];
     if (rg) { it.hp = 0; it[rg] = +((rg === 'manaRegen' ? 0.1 + opt.ilvl * 0.015 : 0.2 + opt.ilvl * 0.02) * (opt.q / 1.15)).toFixed(1); }
-    if (r.set) { it.set = r.set; it.classes = r.classes.slice(); it.req = Sys.SET_LEVEL; it.lore = D.CLASS_SETS[r.setCls].lore; it.sig = true; if (r.setCls === 'berserker' && r.wt === '2HS') it.axe = true; G.uniqueRegen(it, { bias: D.CLASS_SETS[r.setCls].stats, lvl: 50 }); }
+    if (r.set) { it.set = r.set; it.classes = r.classes.slice(); it.req = Sys.SET_LEVEL; it.lore = D.CLASS_SETS[r.setCls].lore; it.sig = true; if (r.setCls === 'berserker' && r.wt === '2HS') it.axe = true;
+      // every bonus on a class set goes to that class's own stats, and the set's regeneration is shared across its pieces
+      const cs = D.CLASS_SETS[r.setCls].stats; for (const k of Object.keys(it.stats)) if (!cs.includes(k)) { it.stats[cs[0]] = (it.stats[cs[0]] || 0) + it.stats[k]; delete it.stats[k]; }
+      G.uniqueRegen(it, { bias: cs, lvl: 50 }); for (const k of ['regen', 'manaRegen', 'endRegen']) if (it[k]) it[k] = +(it[k] * 0.4).toFixed(1); }
     if (r.proc) { it.proc = r.proc; it.fx = D.PROCS[r.proc].fx; }
     if (r.kind === 'armor') it.icon = { head: '⛑', chest: r.ak === 'cloth' ? '👘' : r.ak === 'leather' ? '🦺' : '🥋', hands: '🧤', legs: '👖', feet: '🥾' }[r.slot];
     return it;
@@ -1245,8 +1248,8 @@
   Sys.benchOf = function (d) {
     if (!d || !d.kind) return null;
     for (const k in D.BENCHES) if (D.BENCHES[k].decor.includes(d.kind)) return k;
-    // the bowyer and fletcher work at their tables until the city has a proper carpenter's bench
-    if (d.kind === 'table' || d.kind === 'weaponrack') { const b = W.buildings && W.buildings.find((o) => d.tx >= o.x && d.ty >= o.y && d.tx < o.x + o.w && d.ty < o.y + o.h); if (b && (b.type === 'bowyer' || b.type === 'fletcher')) return 'carpentry'; }
+    // until the city has a proper carpenter's bench: the smithy's haft rack, and the bowyer's and fletcher's tables
+    if (d.kind === 'table' || d.kind === 'weaponrack') { const b = W.buildings && W.buildings.find((o) => d.tx >= o.x && d.ty >= o.y && d.tx < o.x + o.w && d.ty < o.y + o.h); if (b && (b.type === 'bowyer' || b.type === 'fletcher' || (d.kind === 'weaponrack' && (b.type === 'smithy' || b.type === 'forge')))) return 'carpentry'; }
     return null;
   };
   Sys.benchNear = function (x, y, r = 70) {

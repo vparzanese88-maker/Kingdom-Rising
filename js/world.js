@@ -426,6 +426,15 @@
     const inHarbour = (x, y) => { if (!hb) return false; const ox = x - hb.gx, oy = y - hb.gy; const i = ox * hb.dx + oy * hb.dy, sd = ox * hb.px + oy * hb.py; return i >= -3 && i <= hb.k + 3 && Math.abs(sd) <= hb.half + 3; };
     const inField = (x, y) => fields.some((r) => r && x >= r[0] - 2 && y >= r[1] - 2 && x < r[0] + r[2] + 2 && y < r[1] + r[3] + 2);
     const pref = OUTFLOW_SIDE[f] || [0, 1];
+    // how far you walk from the nearest gate, outside the walls, to each spot (the harbour walls and the sea cut
+    // some stretches of shore off completely)
+    const B0 = cx - R - 16, B1 = cy - R - 16, BW2 = 2 * R + 33; const walk = new Int16Array(BW2 * BW2).fill(-1);
+    const wIdx = (x, y) => (x < B0 || y < B1 || x >= B0 + BW2 || y >= B1 + BW2 ? -1 : (y - B1) * BW2 + (x - B0));
+    { const Q = [];
+      for (const [gx, gy] of gates) { const ox = Math.abs(gx - cx) === R ? Math.sign(gx - cx) : 0, oy = Math.abs(gy - cy) === R ? Math.sign(gy - cy) : 0; const sx = gx + ox, sy = gy + oy, i = wIdx(sx, sy); if (i >= 0 && walk[i] < 0 && !W.isBlockedTile(sx, sy)) { walk[i] = 0; Q.push(sx, sy); } }
+      for (let q = 0; q < Q.length; q += 2) { const x = Q[q], y = Q[q + 1], d0 = walk[wIdx(x, y)];
+        for (const [a, c] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + a, ny = y + c, i = wIdx(nx, ny); if (i < 0 || walk[i] >= 0 || Math.max(Math.abs(nx - cx), Math.abs(ny - cy)) <= R || !W.inb(nx, ny) || W.isBlockedTile(nx, ny)) continue; walk[i] = d0 + 1; Q.push(nx, ny); } } }
+    const walkTo = (x, y) => { const i = wIdx(x, y); return i < 0 ? -1 : walk[i]; };
     const sides = [pref, [0, 1], [1, 0], [-1, 0], [0, -1]].filter((s2, i, a2) => a2.findIndex((q) => q[0] === s2[0] && q[1] === s2[1]) === i);
     let best = null;
     sides.forEach(([ox, oy], si) => {
@@ -439,8 +448,9 @@
         if (!ok) continue;
         let len = 0, roads = 0;
         for (let k = 2; k <= 14; k++) { const x = mx + ox * k, y = my + oy * k; if (isW(x, y)) { len = k; break; } if (bad(x, y) || inHarbour(x, y) || inField(x, y)) break; const tt = W.tile(x, y); if (tt === T.ROAD || tt === T.BRIDGE) roads++; }
-        const gd = Math.min(...gates.map(([gx, gy]) => Math.abs(gx - wx) + Math.abs(gy - wy)), 99);
-        const score = (len ? len : 30) + si * 6 + roads * 5 + gd * 0.15 + (len ? 0 : 100);
+        let wk = 1e9; for (let k = 1; k <= 2; k++) for (let l = -1; l <= 1; l++) { const v = walkTo(mx + ox * k + pxv * l, my + oy * k + pyv * l); if (v >= 0) wk = Math.min(wk, v); }
+        if (wk > 1e8) continue; // can't be reached on foot from any gate
+        const score = (len ? len * 0.8 : 30) + si * 3 + roads * 5 + wk * 0.6 + (len ? 0 : 40);
         if (!best || score < best.score) best = { score, wx, wy, mx, my, ox, oy, pxv, pyv, len };
       }
     });

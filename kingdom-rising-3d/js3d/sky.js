@@ -162,6 +162,7 @@ scene.add(snow);
 // ---------- state ----------
 const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (r, g, b) => new THREE.Color(r, g, b);
+const WARM_IN = C(1.0, 0.86, 0.66), WARM_IN_G = C(0.42, 0.32, 0.22);
 const PAL = {
   day: { zen: C(0.16, 0.34, 0.72), hor: C(0.58, 0.7, 0.84), gnd: C(0.32, 0.31, 0.3), sun: C(1.0, 0.93, 0.82) },
   dusk: { zen: C(0.2, 0.24, 0.45), hor: C(0.98, 0.5, 0.26), gnd: C(0.2, 0.15, 0.12), sun: C(1.0, 0.55, 0.25) },
@@ -221,12 +222,13 @@ export function updateSky(dt, camPos, ctx) {
   let sunI = sunUp ? (0.25 + 2.9 * K3.smooth(-0.02, 0.35, elev)) * overcast * darkMul : 0.6 * nightK * (1 - cloudK * 0.5) * darkMul; // moonlight you can see by
   let hemiI = (0.34 + 0.69 * dayK) * (0.85 + cloudK * 0.25) * darkMul; // nights stay dark but readable
   if (dungeon) { sunI = 0; hemiI = geo.dtype === 'cave' ? 0.11 : 0.13; }
-  hemiI *= 1 - insideK * 0.62;
+  hemiI *= 1 - insideK * 0.42; // rooms keep a warm fill of light from their windows and fires, never gloomy
   sun.intensity = sunI * (1 - insideK * 0.15);
   sun.color.copy(sunUp ? u.uSunCol.value : C(0.55, 0.65, 0.95));
   hemi.intensity = hemiI + flash * 3;
   hemi.color.copy(zen).lerp(C(0.8, 0.85, 0.95), 0.35).multiplyScalar(1.4);
   hemi.groundColor.setRGB(0.36, 0.3, 0.24).multiplyScalar(0.4 + 0.6 * dayK);
+  if (insideK > 0.01 && !dungeon) { hemi.color.lerp(WARM_IN, insideK * 0.45); hemi.groundColor.lerp(WARM_IN_G, insideK * 0.5); } // indoors: firelight warmth
   if (dungeon) { hemi.color.setRGB(0.5, 0.55, 0.7); hemi.groundColor.setRGB(0.25, 0.2, 0.16); if (geo.dgnId === 'frostfang') hemi.color.setRGB(0.5, 0.7, 0.95); if (geo.dgnId === 'abyss') hemi.color.setRGB(0.8, 0.35, 0.3); }
   // shadow box follows the camera
   const sh = K3.quality.shadowBox || 55;
@@ -286,7 +288,7 @@ export function updateSky(dt, camPos, ctx) {
   envT -= dt;
   const envKey = [zen.r, zen.g, zen.b, hor.r, hor.g, hor.b].map((v) => Math.round(v * 30)).join(',') + '|' + Math.round(cloudK * 8) + '|' + (dungeon ? 1 : 0);
   if (!envRT || (envT <= 0 && envKey !== envKeyLast)) { envT = 8; envKeyLast = envKey; try { refreshEnv(); } catch (e) { console.warn(e); envT = 1e9; } }
-  const envI = (dungeon ? 0.12 : 0.25 + 0.75 * dayK) * (1 - insideK * 0.7) * (1 - regDark * 0.5);
+  const envI = (dungeon ? 0.12 : 0.25 + 0.75 * dayK) * (1 - insideK * 0.5) * (1 - regDark * 0.5);
   K3.scene.environmentIntensity = envI;
   // how dark it is for the torches (0 bright day .. 1 black)
   sky.lightLevel = dungeon ? 0 : K3.clamp(dayK * (1 - regDark * 0.6) * (1 - cloudK * 0.25), 0, 1);

@@ -402,9 +402,10 @@ function animQuad(rig, st, dt) {
   // wings: a strong downstroke (60%) and a slower upstroke; folded on the ground
   if (B.WL1) {
     const big = sp.L > 5; const f = (t * (big ? 0.7 : 1.4)) % 1; const beat = f < 0.6 ? Math.cos(f / 0.6 * Math.PI) : -Math.cos((f - 0.6) / 0.4 * Math.PI);
-    B.WL1.rotation.z = fly ? beat * 0.9 : -0.2; B.WR1.rotation.z = fly ? -beat * 0.9 : 0.2;
-    B.WL2.rotation.z = fly ? beat * 0.5 - 0.1 : -1.6; B.WR2.rotation.z = fly ? -beat * 0.5 + 0.1 : 1.6;
-    B.WL1.rotation.y = fly ? 0 : 0.9; B.WR1.rotation.y = fly ? 0 : -0.9;
+    // folded: the arm swept back and the hand folded back along it, the wing lying flat along the flank and back
+    B.WL1.rotation.z = fly ? beat * 0.9 : -0.12; B.WR1.rotation.z = fly ? -beat * 0.9 : 0.12;
+    B.WL2.rotation.z = fly ? beat * 0.5 - 0.1 : -0.18; B.WR2.rotation.z = fly ? -beat * 0.5 + 0.1 : 0.18;
+    B.WL1.rotation.y = fly ? 0 : 0.95; B.WR1.rotation.y = fly ? 0 : -0.95; B.WL2.rotation.y = fly ? 0 : 1.15; B.WR2.rotation.y = fly ? 0 : -1.15;
     if (fly) { B.root.position.y += -beat * sp.H * 0.06; for (const n of offs) { B[n + '1'].rotation.x = n[0] === 'F' ? -0.9 : 0.9; B[n + '2'].rotation.x = n[0] === 'F' ? 1.2 : -1.0; } }
   }
   // attacks: wind up before the blow (st.wind), strike as it lands (st.atk), then recover with a little overshoot
@@ -542,7 +543,7 @@ function buildSnake(col) {
   const N = 13; const defs = [['s0', null, [0, 0.13, 0.9]]]; for (let i = 1; i < N; i++) defs.push(['s' + i, 's' + (i - 1), [0, 0.09, 0.9 - i * 0.16]]);
   const R = new Rig(defs); const r = R.rest; if (ORGANIC()) { R.organic = true; R.k = 0.02; R.cell = 0.011; }
   // thin behind the head, thickest a third of the way back, then a long taper to a fine tail tip
-  const rad = (u) => 0.088 * (u < 0.38 ? 0.5 + 0.5 * Math.sin(Math.min(1, (u + 0.02) / 0.4) * Math.PI / 2) : Math.max(0.06, 1 - ((u - 0.38) / 0.62) ** 1.4 * 0.94));
+  const rad = (u) => 0.1 * (u < 0.38 ? 0.5 + 0.5 * Math.sin(Math.min(1, (u + 0.02) / 0.4) * Math.PI / 2) : Math.max(0.06, 1 - ((u - 0.38) / 0.62) ** 1.4 * 0.94));
   for (let i = 0; i < N - 1; i++) R.seg('s' + i, r['s' + i], r['s' + (i + 1)], rad(i / N), rad((i + 1) / N), col, 'scales');
   const e = r['s' + (N - 1)]; R.seg('s' + (N - 1), e, [0, 0.05, e[2] - 0.22], rad((N - 1) / N), 0.004, col, 'scales');
   // a dark saddle of blotches down the back, edged pale; a cream belly; the marks are soft-edged so they read

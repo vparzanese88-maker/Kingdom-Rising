@@ -448,7 +448,7 @@
       D.FACTION_IDS.forEach((f) => {
         const F = D.FACTIONS[f]; const barred = cs.locked && cs.sworn !== f; const sp = D.CLASSES[D.SPECIAL_CLASS[f]];
         const c = document.createElement('div'); c.className = 'card fac pledge' + (barred ? ' barred' : '') + (cs.faction === f ? ' sel' : ''); c.style.setProperty('--fc', F.color); c.style.setProperty('--fb', F.banner);
-        c.innerHTML = `<canvas width="300" height="150"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name} · ${F.king}</div><p>${PITCH[f] || ''} ${F.blurb}</p>
+        c.innerHTML = `<canvas width="300" height="150" style="width:100%;height:120px;object-fit:cover;display:block"></canvas><div class="card-b"><h3>${F.city}</h3><div class="fac-n">${F.name} · ${F.king}</div><p>${PITCH[f] || ''} ${F.blurb}</p>
           ${sp ? `<div class="fac-sp" style="border:1px solid ${sp.trim};border-radius:6px;padding:6px 8px;margin:6px 0;background:rgba(0,0,0,.3)"><b style="color:${sp.trim}">Kingdom class: ${sp.name}</b><div class="small">${esc(sp.desc)}</div></div>` : ''}
           <div class="dim small">Rivals: ${F.enemyMobs}</div>
           <button class="btn gold pledge-go" ${barred ? 'disabled' : ''}>${barred ? `Your heroes serve ${esc(D.FACTIONS[cs.sworn].kingFirst || D.FACTIONS[cs.sworn].king)}` : `Pledge to ${esc(F.king)}`}</button></div>`;

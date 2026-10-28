@@ -7,6 +7,7 @@ import { weaponMesh } from './weapons.js';
 
 import { humanAsset, makeHumanRig } from './human.js';
 import { legs, handsOnKnees } from './gait.js';
+import { spring, bodyLean, melee, hurt, casting, look, cape } from './motion.js';
 const KR = window.KR, D = KR.D;
 
 // ---------- the material: vertex colours plus per-vertex metal/roughness and procedural detail ----------
@@ -274,7 +275,7 @@ function headgear(B, look, P, H) {
   }
   if (look.helm) return;
   const hc = look.hatCol || '#3a3a6a', tr = look.hatTrim || '#e0c050';
-  const top = cy + s * 0.9;
+  const top = H.hatTop != null ? H.hatTop : cy + s * 0.9; // human heads give the real brow height
   switch (look.hat) {
     case 'wizard': B.geom('head', new THREE.CylinderGeometry(s * 1.9, s * 1.9, s * 0.08, 20), new THREE.Matrix4().makeTranslation(0, top - s * 0.15, hz), hc, 'cloth');
       { const g = new THREE.ConeGeometry(s * 1.0, s * 2.8, 16, 6); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) / (s * 2.8) + 0.5; p.setZ(i, p.getZ(i) - y * y * s * 0.9); } g.computeVertexNormals(); B.geom('head', g, new THREE.Matrix4().makeTranslation(0, top + s * 1.25, hz), hc, 'cloth'); g.dispose(); }
@@ -499,12 +500,35 @@ export function humanoidGeometry(look, kind) {
 // kinds still built the classic way (no human body underneath)
 const CLASSIC = new Set(['skeleton', 'lich', 'lizard', 'scarecrow']);
 export const useHumanBody = (look, kind) => !!humanAsset() && !CLASSIC.has(kind) && !(look && (look.snout || look.wings || look.classic));
+// crests on a fitted helmet: f is the head frame (centre c, radii rad); the shell sits about 1.5 cm out
+const _up = new THREE.Vector3(0, 1, 0);
+function rod(B, a, b, r0, r1, col, mat) { const d = new THREE.Vector3().subVectors(b, a); const len = d.length(); if (len < 1e-4) return; const g = new THREE.CylinderGeometry(r1, r0, len, 7); B.geom('head', g, new THREE.Matrix4().compose(a.clone().addScaledVector(d, 0.5), new THREE.Quaternion().setFromUnitVectors(_up, d.normalize()), new THREE.Vector3(1, 1, 1)), col, mat); g.dispose(); }
+function helmCrest(B, L, f) {
+  const c = f.c, R = f.rad; const top = c.y + R.y + 0.012; const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  if (L.helmCrest === 'horns') for (const sd of [-1, 1]) { // curved horns sweeping out, up and forward from the temples
+    let p = V(sd * R.x * 0.92, c.y + R.y * 0.42, c.z + R.z * 0.05); let d = V(sd * 1, 0.35, 0.15).normalize(); let r = 0.024;
+    for (let k = 0; k < 7; k++) { const q = p.clone().addScaledVector(d, 0.03); rod(B, p, q, r, r * 0.8, k < 1 ? '#3a2a1e' : '#e2d6b8', 'bone'); p = q; r *= 0.8; d.y += 0.28; d.x -= sd * 0.08; d.z += 0.1; d.normalize(); }
+  }
+  if (L.helmCrest === 'antlers') for (const sd of [-1, 1]) { // branching antlers, like a stag's
+    const br = (p, d, len, r, depth) => { const q = p.clone().addScaledVector(d, len); rod(B, p, q, r, r * 0.75, '#5a4632', 'bone'); if (depth <= 0) return;
+      br(q, d.clone().add(V(sd * 0.25, 0.5, -0.1)).normalize(), len * 0.8, r * 0.75, depth - 1); br(q, d.clone().add(V(-sd * 0.2, 0.7, 0.35)).normalize(), len * 0.55, r * 0.6, depth - 2); };
+    br(V(sd * R.x * 0.7, c.y + R.y * 0.75, c.z), V(sd * 0.8, 0.6, -0.1).normalize(), 0.055, 0.009, 3);
+  }
+  if (L.helmCrest === 'wings') for (const sd of [-1, 1]) { // gilded wings rising from the sides
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.03, 0.09, 0.02, 0.16); sh.lineTo(0.0, 0.11); sh.lineTo(-0.012, 0.13); sh.lineTo(-0.02, 0.08); sh.lineTo(-0.03, 0.09); sh.quadraticCurveTo(-0.03, 0.03, 0, 0);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }); B.geom('head', g, new THREE.Matrix4().compose(V(sd * (R.x + 0.012), c.y + R.y * 0.35, c.z - R.z * 0.15), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, sd * Math.PI / 2, sd * -0.35)), V(1, 1, 1)), '#d8b048', 'gold'); g.dispose();
+  }
+  if (L.helmPlume) for (let k = 0; k < 8; k++) { const a = -0.3 + k * 0.32; B.ell('head', 0, c.y + Math.cos(a) * (R.y + 0.03) + 0.01, c.z + Math.sin(-a) * (R.z + 0.03), 0.012, 0.03, 0.024, k % 2 ? shade(L.helmPlume, 0.12) : L.helmPlume, 'fur', Q(-a - 0.3, 0, 0)); }
+  void top;
+}
 // hats, helmets, crowns, capes and plumes placed on a realistic head (the classic builders, re-aimed)
 function humanAccessories(look, kind) {
   return (c) => {
     const f = c.headFrame; const rest = Object.assign({}, c.rest); rest.head = [rest.head[0], rest.head[1], f.c.z];
-    const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top };
-    const L = Object.assign({}, look); if (L.helm === 'chain' || L.helm === 'plate') { /* helmets keep their classic shapes for now */ }
+    const B = new Body(rest); const s = f.rad.x / 0.8; const H = { s, cy: f.c.y + f.rad.y * 0.05, top: c.top, hatTop: f.c.y + f.rad.y * 0.42 + s * 0.15 }; // brimmed hats sit down to the brow
+    const L = Object.assign({}, look);
+    // helmets on a real head are shells of that head (human.js); here only what rises from them: horns, antlers, wings, plumes
+    if (L.helm === 'chain' || L.helm === 'plate' || L.helm === 'leather') { helmCrest(B, L, f); L.helm = null; L.helmPlume = null; L.helmSpike = null; L.horns = null; }
     headgear(B, L, c.P, H);
     if (look.cape) {
       const cw = 0.4, chh = rest.capeA[1] - 0.14;
@@ -575,7 +599,7 @@ export function animateHumanoid(rig, st, dt) {
   B.hips.position.set(rig.rest.hips[0], rig.rest.hips[1], rig.rest.hips[2]);
   const hunch = P.hunch || 0;
   // ---- idle breathing and stance ----
-  const br = Math.sin(t * 1.9) * 0.025;
+  const br = 0;
   B.spine.rotation.x = hunch * 0.5 + br * 0.4; B.chest.rotation.x = hunch * 0.6 - br; B.neck.rotation.x = -hunch * 0.8; B.head.rotation.x = -hunch * 0.3;
   B.armL.rotation.z = 0.09 + Math.sin(t * 1.9) * 0.015; B.armR.rotation.z = -0.09 - Math.sin(t * 1.9) * 0.015;
   B.foreL.rotation.x = -0.12; B.foreR.rotation.x = -0.12;
@@ -594,6 +618,7 @@ export function animateHumanoid(rig, st, dt) {
     B.hips.rotation.z = -Math.sin(ph * 2) * 0.03 * m * (1 - run);
     // the head stays steady over the twisting shoulders and leans less than the body, as a runner's does
     B.neck.rotation.y -= c * (0.1 + 0.08 * run) * m * 0.85; B.neck.rotation.x -= (0.03 + 0.1 * run) * m;
+    if (st.combat || st.cast) { B.armL.rotation.x += c * A * 0.28; } // fighting on the move: the free arm still swings a little
     if (!st.combat) { B.armL.rotation.z += 0.08 * run * m; B.armR.rotation.z -= 0.08 * run * m; B.armL.rotation.x = c * A; B.armR.rotation.x = -c * A; B.foreL.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, -c) * 0.25 * m; B.foreR.rotation.x = -0.18 - (0.15 + 1.05 * run) * m - Math.max(0, c) * 0.25 * m; }
   }
   // ---- jumping: arms lift for balance in the air, and the knees give a little on landing ----
@@ -602,15 +627,19 @@ export function animateHumanoid(rig, st, dt) {
   // ---- kneeling to skin an animal ----
   rig.crouchK = (rig.crouchK || 0) + ((st.crouch ? 1 : 0) - (rig.crouchK || 0)) * Math.min(1, dt * 5);
   if (rig.crouchK > 0.01) { B.hips.position.y -= rig.rest.hips[1] * 0.38 * rig.crouchK; B.spine.rotation.x += 0.45 * rig.crouchK; B.head.rotation.x += 0.35 * rig.crouchK; }
+  // ---- leaning into starts and turns, rocking back on stops, breathing (motion.js) ----
+  if (!st.mounted && !st.dead && !st.far) bodyLean(rig, B, st, dt);
   // ---- legs: feet planted on the ground, and sitting cross-legged (gait.js) ----
   if (!st.mounted && !st.dead) legs(rig, st, dt, m);
   else { rig.sitK = 0; rig.sitHands = 0; }
   if (rig.sitK > 0.01) { const k = K3.smooth(0, 1, rig.sitK); B.armL.rotation.x = K3.lerp(B.armL.rotation.x, -0.5, k); B.armR.rotation.x = K3.lerp(B.armR.rotation.x, -0.5, k); }
-  // ---- casting: hands raised and glowing ----
-  if (st.cast) { const w = Math.sin(t * 8) * 0.08; B.armL.rotation.x = -1.25 + w; B.armR.rotation.x = -1.25 - w; B.armL.rotation.z = -0.25; B.armR.rotation.z = 0.25; B.foreL.rotation.x = -0.5; B.foreR.rotation.x = -0.5; B.chest.rotation.x -= 0.1; }
+  // ---- casting: a looping gesture by school, or a quick hand charge, then a release thrust (motion.js) ----
+  casting(rig, B, st, dt);
   // ---- attacks ----
   const a = st.atk || 0;
-  if (a > 0 && a < 1) {
+  // melee: wind-up, strike, follow-through and recovery, the body leading the arms (motion.js)
+  const swung = melee(rig, B, st, dt);
+  if (a > 0 && a < 1 && !swung) {
     const k = st.atkKind || 'slash';
     const wind = K3.smooth(0, 0.35, a), hit = K3.smooth(0.3, 0.6, a), rec = K3.smooth(0.6, 1, a);
     const sw = wind * (1 - hit) + 0, st2 = hit * (1 - rec);
@@ -623,6 +652,8 @@ export function animateHumanoid(rig, st, dt) {
     else if (k === 'claw') { B.armR.rotation.x = -0.4 - wind * 2.0 + hit * 2.0; B.armL.rotation.x = -0.4 - wind * 1.6 + hit * 1.7; B.armR.rotation.z = 0.3 * hit; B.armL.rotation.z = -0.3 * hit; B.chest.rotation.x = 0.3 * hit * (1 - rec); }
     else if (k === 'spin') { B.hips.rotation.y = a * Math.PI * 4; B.armR.rotation.z = -1.4; B.armL.rotation.z = 1.4; }
   }
+  // ---- struck: a flinch, or a stagger from a heavy blow (motion.js) ----
+  hurt(rig, B, st);
   // ---- kick ----
   if (st.kick > 0 && st.kick < 1) { const k = Math.sin(st.kick * Math.PI); B.thighR.rotation.x = -1.6 * k; B.shinR.rotation.x = 0.3 * (1 - k); B.chest.rotation.x = 0.2 * k; B.armL.rotation.z = 0.6 * k; B.armR.rotation.z = -0.6 * k; }
   // ---- special moves ----
@@ -658,8 +689,8 @@ export function animateHumanoid(rig, st, dt) {
   if (st.mez) { B.head.rotation.x = 0.5; B.chest.rotation.x += 0.2; B.armL.rotation.x = 0.1; B.armR.rotation.x = 0.1; }
   if (st.drunk) { B.spine.rotation.z = Math.sin(t * 2.1) * 0.12; B.head.rotation.z = Math.sin(t * 2.4 + 1) * 0.18; }
   if (st.mounted) { B.thighL.rotation.x = -1.3; B.thighR.rotation.x = -1.3; B.thighL.rotation.z = 0.5; B.thighR.rotation.z = -0.5; B.shinL.rotation.x = 1.2; B.shinR.rotation.x = 1.2; }
-  // ---- cape lags behind when moving ----
-  if (B.capeA) { B.capeA.rotation.x = 0.06 + m * 0.5 + Math.sin(t * 3) * 0.03 * (0.4 + m) + (st.sit ? 0.6 : 0); B.capeB.rotation.x = 0.08 + m * 0.35 + Math.sin(t * 3.7 + 1) * 0.05 * (0.4 + m); }
+  // ---- cape trails, swings past on stops and turns (motion.js) ----
+  cape(rig, B, st, dt, m);
   if (B.tail1) { B.tail1.rotation.y = Math.sin(t * 2 + ph) * 0.25; B.tail2.rotation.y = Math.sin(t * 2 + ph - 0.8) * 0.3; B.tail3.rotation.y = Math.sin(t * 2 + ph - 1.6) * 0.35; B.tail1.rotation.x = 0.5; }
   // weapons: swords hang down at rest and come up when fighting, staffs and spears stay upright
   const ready = st.combat || st.atk > 0 || st.cast ? 1 : 0; rig.ready = (rig.ready || 0) + (ready - (rig.ready || 0)) * Math.min(1, dt * 6);
@@ -667,10 +698,10 @@ export function animateHumanoid(rig, st, dt) {
   if (rig.bow && rig.held.L) { rig.held.L.rotation.x = (Math.PI / 2) * rig.ready; }
   if (rig.dual && rig.held.L) { rig.held.L.rotation.x = (Math.PI - 0.35) + (Math.PI / 2 - (Math.PI - 0.35)) * rig.ready; }
   // look toward a target
-  if (st.lookYaw) { B.head.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.6; B.neck.rotation.y += K3.clamp(st.lookYaw, -0.9, 0.9) * 0.3; }
-  if (!st.cast && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
+  if (!st.far) look(rig, B, st, dt);
+  if (!st.cast && !rig.sw && !(st.atk > 0 && st.atk < 1)) handsOnKnees(rig);
   // fingers: a fist around a weapon, open while casting, loosely curled otherwise
-  if (rig.hands) for (const S of ['L', 'R']) {
+  if (rig.hands && !st.far) for (const S of ['L', 'R']) {
     const held = S === 'R' ? rig.held.R : (rig.held.L && !rig.shield) || rig.bow; const grip = S === 'L' && rig.shield;
     const want = st.cast ? 0.08 : held ? 1.35 : grip ? 1.1 : st.dead ? 0.6 : 0.32 + Math.sin(t * 0.7 + (S === 'L' ? 1 : 0)) * 0.03;
     const k = 'curl' + S; rig[k] = rig[k] == null ? want : rig[k] + (want - rig[k]) * Math.min(1, dt * 10); const c = rig[k]; const h = rig.hands[S];

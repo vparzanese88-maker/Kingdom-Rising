@@ -356,7 +356,8 @@ export function garmentMaterial() {
       ${NOISE}`)
       .replace('#include <map_fragment>', `
       {
-        vec3 p = vRest; float pat = floor(vMat.z + .5); gB = 0.; gR = vMat.y; gM = vMat.x; gCloth = 0.;
+        vec3 p = vRest; float pid = floor(vMat.z + .5); float wear = floor(pid / 20. + .01); float pat = pid - wear * 20.; gB = 0.; gR = vMat.y; gM = vMat.x; gCloth = 0.;
+        float uA = atan(p.x, p.z) * .16; // distance round the body (about a torso's radius), for plates and studs
         float px = length(fwidth(p)); float aa = 1. - smoothstep(.00025, .0009, px);
         vec3 col = diffuseColor.rgb;
         float big = fbm3(p * 6.), mid = vn(p * 40.);
@@ -374,11 +375,47 @@ export function garmentMaterial() {
           col *= .9 + .12 * brush; col = mix(col, col * .55 + vec3(.04, .035, .02), smoothstep(.55, .8, big) * .35);
           gR = clamp(vMat.y + .1 + .1 * (brush - .5) + .25 * smoothstep(.55, .8, big) - scratch * .12, .2, .9); gB = brush * .05 + scratch * .2;
         } else if (pat == 7.) { // mail: rows of rings
-          vec2 q = vec2((p.x + p.z) * 260., p.y * 300.); q.x += floor(q.y) * .5; vec2 f = fract(q) - .5; float ring = smoothstep(.12, 0., abs(length(f) - .33));
-          col *= mix(.55, .45 + .75 * ring, aa); gB = ring * aa; gR = mix(.6, .35, ring); gM = mix(.3, .85, ring * aa + (1. - aa) * .6);
+          vec2 q = vec2((p.x + p.z) * 150., p.y * 170.); q.x += floor(q.y) * .5; vec2 f = fract(q) - .5; float ring = smoothstep(.13, 0., abs(length(f) - .32));
+          float aaR = 1. - smoothstep(.0006, .0022, px); // rings stay visible a few metres out
+          float rows = .5 + .5 * sin(p.y * 170. * 6.283) * (1. - smoothstep(.0012, .003, px)); // further away the rows fade to an even sheen (no stripes)
+          col *= mix(.72 + .12 * rows, .4 + .85 * ring, aaR); col *= .85 + .3 * big;
+          gB = mix(rows * .2, ring * 1.2, aaR); gR = mix(.5 - .12 * rows, mix(.62, .32, ring), aaR); gM = mix(.7, mix(.25, .9, ring), aaR);
         } else if (pat == 4.) { // fur
           float fh = vn(vec3(p.x * 300., p.y * 60., p.z * 300.)); col *= .75 + .4 * fh; gB = fh; gR = 1.; gCloth = .6;
         } else if (pat == 8.) { gR = .45; col *= .9 + .15 * mid; }
+        else if (pat == 9.) { // lamellar: staggered rows of riveted plates, dark seams, bright worn edges
+          float rowH = .082, plW = .125; float row = floor(p.y / rowH), fy = fract(p.y / rowH);
+          float uu = uA / plW + mod(row, 2.) * .5; float ci = floor(uu), fx = fract(uu);
+          float edge = min(min(fx, 1. - fx) * plW, min(fy, 1. - fy) * rowH);
+          float seam = 1. - smoothstep(.0012, .0035, edge); float bevel = smoothstep(.0, .007, edge);
+          col *= .88 + .18 * vn(vec3(row * 3.1, ci * 4.7, .5)); col *= .72 + .32 * smoothstep(.0, .45, fy); col = mix(col * 1.22 + .04, col, bevel); col *= 1. - seam * .45;
+          vec2 rv = vec2((fx - .5) * plW, (fy - .8) * rowH); float riv = smoothstep(.0042, .0024, length(rv)); col = mix(col, col * 1.35 + .06, riv);
+          float scratch = smoothstep(.93, .99, vn(vec3(p.x * 90., p.y * 1500., p.z * 90.) + big * 4.)); col = mix(col, col * 1.4, scratch * .5);
+          gB = bevel * .7 + riv * .9 - seam * .5; gR = clamp(vMat.y + .18 * (1. - bevel) + .2 * seam + .1 * (big - .5), .18, .95); gM = vMat.x * (1. - seam * .7);
+        } else if (pat == 10.) { // banded lames: each band overlaps the one below, rivets along the top
+          float bh = .032; float fy = fract(p.y / bh); float lap = smoothstep(.0, .3, fy); float lip = smoothstep(.86, 1., fy);
+          col *= .62 + .42 * lap; col = mix(col, col * 1.3 + .04, lip * .6);
+          vec2 q = vec2((fract(uA / .11) - .5) * .11, (fy - .78) * bh); float riv = smoothstep(.0034, .0018, length(q)) * step(.5, fract(floor(p.y / bh) * .5)); col = mix(col, col * 1.4 + .06, riv);
+          float scratch = smoothstep(.93, .99, vn(vec3(p.x * 90., p.y * 1500., p.z * 90.) + big * 4.)); col = mix(col, col * 1.35, scratch * .4);
+          gB = lap * .9 + riv * .8; gR = clamp(vMat.y + .22 * (1. - lap) + .1 * (big - .5), .18, .95); gM = vMat.x * (.55 + .45 * lap);
+        } else if (pat == 11.) { // studded leather: grain, stitched panels and rows of round studs
+          float grain = vn(p * 420.) * .6 + vn(p * 1100.) * .4;
+          col *= .78 + .3 * big; col *= .92 + .1 * grain;
+          float sy = fract(p.y / .09); float groove = 1. - smoothstep(.0, .035, abs(sy - .5)); col *= 1. - groove * .45;
+          float st = step(.55, fract(uA / .007)) * (1. - smoothstep(.0, .008, abs(abs(sy - .5) - .06))); col = mix(col, col * 1.5 + .06, st * .45);
+          vec2 g = vec2(fract(uA / .05) - .5, fract(p.y / .09 + .25) - .5); float stud = smoothstep(.13, .08, length(g * vec2(1., .5)));
+          col = mix(col, vec3(.62, .58, .5) * (.8 + .4 * mid), stud); gM = stud * .85; gR = mix(.6 + .2 * (1. - mid), .35, stud); gB = grain * .4 + big * .6 - groove * .8 + stud * 1.2;
+        } else if (pat == 12.) { // quilted padding: puffed diamonds sewn down along the seams
+          vec2 q = vec2(uA + p.y, uA - p.y) / .045; vec2 f = abs(fract(q) - .5); float ln = 1. - smoothstep(.0, .07, min(f.x, f.y));
+          col *= (.86 + .2 * vn(p * 30.)) * (1. - ln * .38); gB = (1. - ln) * 1.2; gR = .95; gCloth = 1.;
+        }
+        // wear by tier on metal: rust and grime on crude gear, scuffs on used gear, engraving on the finest
+        if (pat == 3. || pat == 7. || pat == 9. || pat == 10.) {
+          float rn = fbm3(p * 9. + 3.1); float rust = wear == 2. ? smoothstep(.5, .78, rn) * .55 : wear == 1. ? smoothstep(.66, .86, rn) * .25 : 0.;
+          vec3 rc = vec3(.5, .27, .13) * (.75 + .45 * vn(p * 90.)); col = mix(col, rc, rust); gR = mix(gR, .92, rust); gM = mix(gM, .12, rust);
+          if (wear == 2.) col *= .82 + .18 * fbm3(p * 4.);
+          if (wear == 3.) { float e = vn(vec3(p.x * 40., p.y * 40., p.z * 40.)); float eng = 1. - smoothstep(.0, .02, abs(e - .5)); col = mix(col, vec3(.86, .66, .3), eng * .12); gR = max(.16, gR - .08); }
+        }
         diffuseColor.rgb = col;
       }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gR;')
@@ -546,7 +583,8 @@ function strandCards(look, kind, sh, spec, N, rest) {
   const neckY = rest.neck[1], shY = rest.shL[1], backZ = rest.capeA[2] + 0.02;
   const inHead = (p) => { const x = (p.x - c.x) / rad.x, y = (p.y - c.y) / rad.y, z = (p.z - c.z) / rad.z; return Math.hypot(x, y, z); };
   const covered = look.helm || look.hood || (look.hat && !['circlet', 'headband', 'leafcrown', 'bandana', 'bonemask', 'crown'].includes(look.hat));
-  const style = styleFor(look, kind, spec.fem);
+  const closedHelm = !!(look.helm && HELM_CLOSED[look.helmStyle || (look.helm === 'chain' ? 'coif' : '')]);
+  const style = closedHelm ? null : styleFor(look, kind, spec.fem);
   const push = (pts, side, width, nrm, chest, col, uw = 0.18, vlen = 1, shade = true) => cards.push({ pts, side, width, nrm, chest, col, u0: rnd() * (1 - uw), uw, vlen, shade });
   // ---- scalp hair: cards that lie along the head, layered, then fall below the ears ----
   if (style && !(covered && style !== 'long' && style !== 'vlong' && style !== 'shoulder')) {
@@ -620,7 +658,7 @@ function strandCards(look, kind, sh, spec, N, rest) {
   const raceD = D.RACES[look.race] || {};
   const beardCol = new THREE.Color(look.beard || look.hair || '#3a2a1e');
   const bst = look.beardStyle; // 0 none, 1 stubble, 2 short, 3 full, 4 long, 5 goatee, 6 moustache
-  if (!spec.fem && (bst != null ? bst >= 2 : (look.beard || raceD.beard))) {
+  if (!spec.fem && !(look.helm && HELM_NOBEARD[look.helmStyle]) && (bst != null ? bst >= 2 : (look.beard || raceD.beard))) {
     const long = bst != null ? bst === 4 : look.race === 'dwarf' || kind === 'giant'; const ex = lm.eyeL.c;
     const test = (v) => { const x = Math.abs(P[v * 3]), y = P[v * 3 + 1], z = P[v * 3 + 2]; if (A.B[A.region[v]] !== 'head' && A.B[A.region[v]] !== 'neck') return false; return y < lm.nose.y - 0.006 && y > lm.chin.y - 0.03 && x < ex.x + 0.045 && z > lm.mouth.z - 0.07 && y < ex.y - 0.04 - x * 0.2 && !(Math.abs(y - lm.mouth.y) < 0.008 && x < Math.abs(lm.corner.x) * 1.1); };
     const test2 = bst === 5 ? (v) => test(v) && Math.abs(P[v * 3]) < 0.03 && P[v * 3 + 1] < lm.mouth.y + 0.014 : bst === 6 ? (v) => test(v) && P[v * 3 + 1] > lm.mouth.y + 0.002 && P[v * 3 + 1] < lm.nose.y - 0.004 : test;
@@ -675,7 +713,10 @@ function strandCards(look, kind, sh, spec, N, rest) {
 }
 
 // ---------------------------------------------------------------- clothes and armour: shells around the body
-const MATP = { cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.9, 0.3, 3], chain: [0.8, 0.45, 7], gold: [1, 0.25, 3], fur: [0, 1, 4], plain: [0, 0.8, 0] };
+const MATP = { cloth: [0, 0.95, 1], leather: [0, 0.62, 2], metal: [0.85, 0.4, 3], chain: [0.8, 0.45, 7], gold: [1, 0.25, 3], fur: [0, 1, 4], plain: [0, 0.8, 0], lamellar: [0.82, 0.46, 9], bands: [0.82, 0.44, 10], studded: [0, 0.6, 11], quilted: [0, 0.95, 12] };
+// a material with wear (0 clean, 1 used, 2 rusty, 3 engraved): the shader reads it from the pattern id
+const matW = (name, wear) => { const m = MATP[name] || MATP.cloth; return wear ? [m[0], m[1], m[2] + 20 * wear] : m; };
+const matOf = (m) => (Array.isArray(m) ? m : MATP[m] || MATP.cloth);
 function catOf(v, P, rest) {
   const b = A.B[A.region[v]];
   if (b === 'head') return 'head'; if (b === 'neck') return 'neck';
@@ -725,15 +766,16 @@ function shellPiece(sh, N, src, field, o, FV) {
   const nrm = normalsFor(pos, ltris);
   const offFn = typeof o.off === 'function';
   for (let i = 0; i < NVl; i++) { const off = offFn ? o.off(verts[i], pos[i * 3 + 1]) : o.off; pos[i * 3] += nrm[i * 3] * off; pos[i * 3 + 1] += nrm[i * 3 + 1] * off; pos[i * 3 + 2] += nrm[i * 3 + 2] * off; }
+  if (o.hull) { const H = o.hull; for (let i = 0; i < NVl; i++) { const dx = pos[i * 3] - H.c.x, dy = pos[i * 3 + 1] - H.c.y, dz = pos[i * 3 + 2] - H.c.z; const n = H.n || 2; const k = (Math.abs(dx / H.rx) ** n + Math.abs(dy / (dy > 0 ? H.ryT : H.ryB)) ** n + Math.abs(dz / (dz > 0 ? H.rzF : H.rzB)) ** n) ** (1 / n); if (k < 1 && k > 1e-6) { pos[i * 3] = H.c.x + dx / k; pos[i * 3 + 1] = H.c.y + dy / k; pos[i * 3 + 2] = H.c.z + dz / k; } } }
   const nrm2 = normalsFor(pos, ltris);
   // distance from the edge, for trims
   let dist = null;
   if (o.trim) { dist = new Float32Array(NVl).fill(1e9); const q = []; for (let i = 0; i < NVl; i++) if (edge[i]) { dist[i] = 0; q.push(i); } for (let h = 0; h < q.length; h++) { const i = q[h]; for (let r = start[i]; r < start[i + 1]; r++) { const j = list[r]; const d = dist[i] + Math.hypot(pos[i * 3] - pos[j * 3], pos[i * 3 + 1] - pos[j * 3 + 1], pos[i * 3 + 2] - pos[j * 3 + 2]); if (d < dist[j] && d < 0.06) { dist[j] = d; q.push(j); } } } }
   const col = new Float32Array(NVl * 3), mat = new Float32Array(NVl * 3), si = new Uint8Array(NVl * 4), sw = new Uint8Array(NVl * 4);
-  const C = new THREE.Color(o.col), T = o.trim ? new THREE.Color(o.trim) : null; const M = MATP[o.mat] || MATP.cloth, MT = MATP[o.trimMat || o.mat] || M;
+  const C = new THREE.Color(o.col), T = o.trim ? new THREE.Color(o.trim) : null; const M = matOf(o.mat), MT = o.trimMat ? matOf(o.trimMat) : M;
   for (let i = 0; i < NVl; i++) {
     const v = verts[i]; const tr = T && dist[i] < (o.trimW || 0.014);
-    const c = tr ? T : o.colFn ? o.colFn(v, pos[i * 3 + 1], C) : C; col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    const c = tr ? T : o.colFn ? o.colFn(v, pos[i * 3 + 1], C, pos[i * 3], pos[i * 3 + 2]) : C; col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     const m = tr ? MT : M; mat[i * 3] = m[0]; mat[i * 3 + 1] = m[1]; mat[i * 3 + 2] = m[2];
     for (let k = 0; k < 4; k++) { si[i * 4 + k] = A.skinI[v * 4 + k]; sw[i * 4 + k] = A.skinW[v * 4 + k]; }
     if (o.bind) o.bind(v, pos[i * 3 + 1], si, sw, i);
@@ -743,11 +785,92 @@ function shellPiece(sh, N, src, field, o, FV) {
   g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true)); g.setIndex(Array.from(ltris));
   return g;
 }
+function rigidPiece(geo, mtx, col, mat, bone) {
+  const g = geo.clone(); g.applyMatrix4(mtx); if (g.attributes.uv) g.deleteAttribute('uv'); const n = g.attributes.position.count;
+  const C = new THREE.Color(col); const M = matOf(mat); const cc = new Float32Array(n * 3), mm = new Float32Array(n * 3), si = new Uint8Array(n * 4), sw = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) { cc[i * 3] = C.r; cc[i * 3 + 1] = C.g; cc[i * 3 + 2] = C.b; mm[i * 3] = M[0]; mm[i * 3 + 1] = M[1]; mm[i * 3 + 2] = M[2]; si[i * 4] = bone; sw[i * 4] = 255; }
+  g.setAttribute('color', new THREE.BufferAttribute(cc, 3)); g.setAttribute('aMat', new THREE.BufferAttribute(mm, 3)); g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true));
+  if (!g.index) g.setIndex([...Array(n).keys()]); return g;
+}
+const RG = { box: new THREE.BoxGeometry(1, 1, 1), cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 12), sph: new THREE.SphereGeometry(0.5, 10, 8), torus: new THREE.TorusGeometry(0.5, 0.12, 6, 14) };
+const TRS = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => new M4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
+// helmets are shells of the head itself, so they sit snugly on this skull; the style decides what they cover
+const HELM_CLOSED = { great: 1, barbute: 1, coif: 1, coifcap: 1 }; // no hair shows
+const HELM_NOBEARD = { great: 1, barbute: 1 }; // the face is covered
+function helmet(L, sh, N, rest, cat, add, solid, X, Y, Z) {
+  const cl = (x) => Math.max(-0.45, Math.min(0.45, x));
+  const lm = sh.lm, hf = headFrame(sh); const hc = hf.c, HR = hf.rad;
+  const eyeY = lm.eyeL.c.y, eyeX = Math.abs(lm.eyeL.c.x), eyeR = Math.max(0.011, lm.eyeL.r), browY = lm.browIn.y, chinY = lm.chin.y, mouthY = lm.mouth.y, noseY = lm.nose.y;
+  const neckY = rest.neck[1], shY = rest.shL[1];
+  const kind = L.helm, st = L.helmStyle || (kind === 'chain' ? 'coif' : kind === 'leather' ? 'cap' : 'nasal'), t = L.helmTier || 0;
+  const wear = kind === 'leather' ? 0 : t <= 0 ? 2 : t <= 2 ? 1 : t >= 4 ? 3 : 0;
+  const base = L.helmCol || '#a8acb4'; const mcol = kind === 'plate' ? K3.shade(base, [-0.32, -0.2, -0.1, -0.02, 0.04, 0.08][Math.min(5, t)]) : base;
+  // edges round the face openings stay dark metal (a gold line there looked jagged); the gold goes on the brow band and crest ridge
+  const trimC = K3.shade(mcol, -0.3), trimM = matW('metal', wear);
+  const goldC = t >= 3 ? '#c8a040' : trimC, goldM = t >= 3 ? 'gold' : trimM;
+  const H = (v) => cat[v] === 'head' || cat[v] === 'neck';
+  const back = (v) => K3.clamp((hc.z - Z(v)) / HR.z, 0, 1), side = (v) => K3.clamp(Math.abs(X(v)) / HR.x, 0, 1);
+  const front = (v) => Z(v) - (hc.z + HR.z * 0.15);
+  // the rim of a skull cap: just above the brow at the front, over the ears at the sides, down to the nape at the back
+  const rim = (v) => browY + 0.009 - 0.08 * smooth(0, 1, back(v)) - 0.03 * smooth(0.55, 0.95, side(v)) * (1 - back(v));
+  const cap = (v) => (H(v) ? Y(v) - rim(v) : -1);
+  const whole = (v) => (H(v) ? Y(v) - (neckY - 0.01) : -1);
+  const fw = eyeX + eyeR * 1.7; const fc = (browY + chinY) / 2, fh = (browY - chinY) / 2 + 0.014;
+  const faceHole = (v) => (Z(v) > hc.z ? (1 - ((X(v) / fw) ** 2 + ((Y(v) - fc) / fh) ** 2)) * 0.03 : -0.03);
+  const smoothMetal = 16, offM = 0.0135;
+  let noseZ = -1, foreZ = -1; for (let v = 0; v < A.NV; v++) if (cat[v] === 'head') { noseZ = Math.max(noseZ, Z(v)); if (Y(v) > browY + 0.008) foreZ = Math.max(foreZ, Z(v)); }
+  const hullOf = (o, faceCovered) => ({ c: hc, n: st === 'great' ? 2.9 : st === 'barbute' ? 2.4 : 2, rx: HR.x + o, ryT: HR.y + o, ryB: HR.y * 1.25 + o, rzF: (faceCovered ? noseZ + 0.006 : foreZ) - hc.z + o, rzB: HR.z + o });
+  if (st === 'coif' || st === 'coifcap') {
+    // mail coif: over the head, round the chin and throat, and out over the shoulders
+    add('body', (v) => { const sd = Math.hypot(X(v), Z(v) - rest.neck[2]); const mant = (cat[v] === 'torso' || cat[v] === 'uarm') ? Math.min(Y(v) - (shY - 0.06), 0.2 - sd) : -1; return K3.clamp(Math.min(Math.max(H(v) ? 0.04 : -1, mant), -faceHole(v)), -0.45, 0.45); }, { off: 0.0095, smooth: 9, col: '#8a8e96', mat: matW('chain', wear), trim: '#5a5e66', trimW: 0.006 }, false);
+    if (st === 'coifcap') add('body', (v) => cl(cap(v) + 0.012), { off: 0.016, hull: hullOf(0.016, false), smooth: smoothMetal, col: mcol, mat: matW('bands', wear), trim: trimC, trimW: 0.008, trimMat: trimM }, false);
+    return { closed: true, top: 0.016 };
+  }
+  if (st === 'cap') { // a stitched leather arming cap with ear flaps
+    add('body', (v) => { if (!H(v)) return -1; const flap = Math.min(0.022 - Math.abs(Z(v) - (hc.z - HR.z * 0.1)) * 0.5, Y(v) - (chinY + 0.012), side(v) - 0.7); return K3.clamp(Math.max(cap(v) + 0.004, flap), -0.45, 0.45); }, { off: 0.008, smooth: 12, hull: hullOf(0.008, false), col: K3.shade(mcol, -0.05), mat: 'leather', trim: '#2a1a10', trimW: 0.007, trimMat: 'leather' }, false);
+    return { closed: false, top: 0.008 };
+  }
+  let field = cap, off = offM;
+  if (st === 'nasal' || st === 'skull') {
+    const cheek = (v) => (H(v) ? Math.min(Math.abs(X(v)) - (eyeX + eyeR * 1.15), Y(v) - (mouthY - 0.006), front(v) + HR.z * 0.9, rim(v) + 0.03 - Y(v) + 0.03) : -1);
+    field = st === 'nasal' ? (v) => Math.max(cap(v), cheek(v)) : cap;
+  } else if (st === 'barbute') { // closed to the jaw with a T-shaped opening for the eyes and mouth
+    const T = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.max(Math.min(eyeX + eyeR * 1.35 - Math.abs(X(v)), eyeR * 1.05 - Math.abs(Y(v) - (eyeY + eyeR * 0.15))), Math.min(0.018 - Math.abs(X(v)), eyeY - Y(v), Y(v) - (chinY + 0.004))) : -0.03);
+    field = (v) => Math.min(whole(v), -T(v));
+  } else if (st === 'sallet') { // a tailed sallet with a visor slit; the jaw stays open
+    const cover = (v) => (H(v) ? Y(v) - (eyeY - eyeR * 1.6 - 0.07 * smooth(0, 1, back(v))) : -1);
+    const slit = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.min(eyeX + eyeR * 1.6 - Math.abs(X(v)), eyeR * 0.5 - Math.abs(Y(v) - (eyeY + eyeR * 0.1))) : -0.03);
+    field = (v) => Math.min(cover(v), -slit(v));
+    off = (v, y) => offM + 0.03 * back(v) * smooth(eyeY + 0.02, eyeY - 0.06, y);
+  } else if (st === 'great') { // a great helm: closed all round, an eye slit and breaths
+    const slit = (v) => (Z(v) > lm.eyeL.c.z - 0.035 ? Math.min(eyeX + eyeR * 1.8 - Math.abs(X(v)), eyeR * 0.42 - Math.abs(Y(v) - eyeY)) : -0.03);
+    field = (v) => Math.min(H(v) ? Y(v) - (neckY - 0.03) : -1, -slit(v)); off = 0.017;
+  }
+  const breaths = st === 'great' ? (v, y, C, x, z) => { if (z < lm.eyeL.c.z - 0.01 || x > -0.016 || x < -0.046 || y > noseY + 0.004 || y < mouthY - 0.012) return C; const gx = Math.abs(((x + 0.016) * 1000) % 8), gy = Math.abs(((y - noseY) * 1000) % 8); return gx > 2.5 && gx < 5.5 && gy > 2.5 && gy < 5.5 ? C.clone().multiplyScalar(0.12) : C; } : null;
+  const faceCovered = st === 'great' || st === 'barbute';
+  // darkness behind eye slits: you see shadow through a visor, not skin
+  if (st === 'great' || st === 'sallet') add('body', (v) => (cat[v] === 'head' && Z(v) > lm.eyeL.c.z - 0.04 ? cl(Math.min(eyeX + eyeR * 2.2 - Math.abs(X(v)), eyeR * 1.4 - Math.abs(Y(v) - eyeY))) : -1), { off: 0.004, smooth: 6, col: '#070504', mat: 'plain' }, false);
+  if (st === 'great') { // a riveted band across the brow and a strip down the face
+    add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (eyeY + eyeR * 0.55), eyeY + eyeR * 0.55 + 0.018 - Y(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.05), mat: matW('bands', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
+    add('body', (v) => (cat[v] === 'head' && Z(v) > hc.z && Y(v) < eyeY - eyeR * 0.6 ? cl(0.011 - Math.abs(X(v))) : -1), { off: 0.0225, hull: hullOf(0.0225, true), smooth: smoothMetal, col: K3.shade(mcol, 0.08), mat: matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
+  }
+  add('body', (v) => cl(field(v)), { off, hull: hullOf(typeof off === 'number' ? off : offM, faceCovered), smooth: smoothMetal, col: mcol, mat: matW(st === 'great' || st === 'barbute' ? 'metal' : 'bands', wear), trim: trimC, trimW: 0.006, trimMat: trimM, colFn: breaths }, false);
+  // a raised brow band and a ridge over the crown
+  if (st !== 'great') add('body', (v) => (H(v) ? cl(Math.min(Y(v) - (rim(v) + 0.004), rim(v) + 0.022 - Y(v))) : -1), { off: off === offM ? offM + 0.006 : (v, y) => off(v, y) + 0.006, hull: hullOf(offM + 0.006, false), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.06), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.004, trimMat: trimM }, false);
+  add('body', (v) => (H(v) && Y(v) > browY ? cl(0.009 - Math.abs(X(v))) : -1), { off: (typeof off === 'function' ? 0.02 : off + 0.0055), hull: hullOf((typeof off === 'function' ? 0.02 : off + 0.0055), faceCovered), smooth: smoothMetal, col: t >= 3 ? goldC : K3.shade(mcol, 0.1), mat: t >= 3 ? goldM : matW('metal', wear), trim: trimC, trimW: 0.003, trimMat: trimM }, false);
+  if (st === 'nasal') { // the nasal bar, from the brow band down over the nose
+    let z = lm.nose.z; for (let v = 0; v < A.NV; v++) if (cat[v] === 'head' && Math.abs(X(v)) < 0.006 && Y(v) < browY && Y(v) > noseY) z = Math.max(z, Z(v));
+    solid(RG.box, TRS(0, (browY + noseY) / 2 + 0.004, z + 0.012, 0.016, browY - noseY + 0.02, 0.006, -0.12), mcol, matW('metal', wear), A.BI.head);
+  }
+  return { closed: !!HELM_CLOSED[st], top: typeof off === 'number' ? off : 0.02 };
+}
 // what someone wears, as shells cut along smooth lines, and which parts of the skin they hide
 function outfit(look, kind, sh, N, rest) {
   const L = look || {}; const P = sh.P; const pieces = []; const covers = [];
   const armor = L.armor || { kind: 'none', col: '#7a6a5a', trim: '#5a4a3a' }; const ak = armor.kind || 'none';
-  const ac = armor.col || '#7a6a5a', at = armor.trim || '#5a4a3a';
+  const tier = armor.tier != null ? armor.tier : 1; const wear = ak === 'plate' || ak === 'chain' ? (tier <= 0 ? 2 : tier <= 2 ? 1 : tier >= 4 ? 3 : 0) : 0;
+  const ac = ak === 'plate' ? K3.shade(armor.col || '#a8acb4', [-0.3, -0.18, -0.08, 0, 0.05, 0.08][Math.min(5, tier)]) : armor.col || '#7a6a5a', at = armor.trim || '#5a4a3a';
+  const fine = tier >= 3; const trimM = matW('metal', fine ? 0 : wear), trimC = fine ? K3.shade(ac, -0.16) : K3.shade(ac, -0.32); // a low-contrast edge: a bright line showed every step of the mesh
   const raceD = D.RACES[L.race] || {}; const fem = L.gender === 'f';
   const robe = (ak === 'cloth' && !L.shirtOnly) || L.robe; // a cloth shirt or tunic is worn over trousers, not as a robe
   const bare = L.bare || (ak === 'none' && (kind === 'troll' || kind === 'ogre' || kind === 'goblin'));
@@ -764,18 +887,25 @@ function outfit(look, kind, sh, N, rest) {
   // a round neckline, lower at the front
   const neckCut = (v, drop = 0) => shY + 0.035 - drop - (Z(v) > 0 ? 0.045 * Math.exp(-((X(v) / 0.075) ** 2)) : 0.01);
   const add = (src, field, o, cover = true) => { const FV = new Float32Array(A.NV).fill(NaN); const g = shellPiece(sh, N, src, field, o, FV); if (g) pieces.push(g); if (cover && src === 'body') covers.push({ field, FV }); };
-  const pants = ak === 'plate' ? K3.shade(ac, -0.3) : ak === 'chain' ? '#4a4a52' : ak === 'leather' ? '#4a3424' : L.pants || '#4a4a5a';
+  const solid = (geo, mtx, col, mat, bone) => pieces.push(rigidPiece(geo, mtx, col, mat, bone));
+  // the outermost point of the body near (x, y), for buckles and pouches that sit on the surface
+  const surfZ = (x, y, w = 0.016) => { let z = -1; for (let v = 0; v < A.NV; v++) { const k = cat[v]; if ((k === 'torso' || k === 'pelvis') && Math.abs(X(v) - x) < w && Math.abs(Y(v) - y) < 0.014) z = Math.max(z, Z(v)); } return z < -0.5 ? 0.1 : z; };
+  const buckle = (x, y, zOff, col, bone) => { const z = surfZ(x, y) + zOff; solid(RG.box, TRS(x, y, z, 0.032, 0.026, 0.006), col, matW('metal', 1), bone); solid(RG.box, TRS(x, y, z + 0.0035, 0.02, 0.014, 0.004), '#1a120c', 'leather', bone); solid(RG.box, TRS(x + 0.003, y, z + 0.005, 0.004, 0.02, 0.004), col, matW('metal', 1), bone); };
+  const pants = ak === 'plate' ? (fine ? K3.shade(ac, -0.3) : '#3a2a20') : ak === 'chain' ? '#4a4a52' : ak === 'leather' ? '#4a3424' : L.pants || '#4a4a5a';
   const bootC = ak === 'plate' ? K3.shade(ac, -0.1) : '#3a2a1e';
   // ---- legs and feet ----
   const pantsBottom = barefoot ? ankleY + 0.03 : bootTop - 0.04;
-  if (!legsBare || kind === 'giant') add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh', 'shin') ? cl(min(hipY + 0.07 - Y(v), Y(v) - pantsBottom)) : -1, { off: 0.0045, smooth: 2, col: pants, mat: ak === 'plate' ? 'chain' : 'cloth' });
+  if (!legsBare || kind === 'giant') add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh', 'shin') ? cl(min(hipY + 0.07 - Y(v), Y(v) - pantsBottom)) : -1, { off: 0.0045, smooth: 2, col: pants, mat: ak === 'plate' ? (fine ? matW('chain', wear) : 'leather') : ak === 'chain' ? matW('chain', wear) : ak === 'leather' ? 'leather' : 'cloth' });
   else if (L.noPants) {
     // a linen loincloth: a band round the hips with a flap hanging front and back
     add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh') ? cl(min(hipY + 0.03 - Y(v), Y(v) - (hipY - 0.1))) : -1, { off: 0.005, smooth: 3, col: '#d8ccb0', mat: 'cloth', trim: '#8a7a5a', trimW: 0.008 });
     add('body', (v) => IN(v, 'pelvis', 'thigh') && Math.abs(X(v)) < 0.075 ? cl(min(0.075 - Math.abs(X(v)), Y(v) - (hipY - 0.27), hipY - 0.02 - Y(v))) : -1, { off: 0.009, smooth: 2, col: '#cfc2a4', mat: 'cloth', trim: '#8a7a5a', trimW: 0.006 }, false);
   }
   else add('body', (v) => IN(v, 'pelvis', 'torso', 'thigh') ? cl(min(hipY + 0.045 - Y(v), Y(v) - (hipY - 0.14))) : -1, { off: 0.006, smooth: 3, col: '#5a4030', mat: 'leather', trim: '#3a2818', trimW: 0.01 });
-  if (!barefoot) add('body', (v) => IN(v, 'foot', 'shin') ? cl(bootTop - Y(v)) : -1, { off: (v, y) => (ak === 'plate' ? 0.012 : 0.0075) + (y < 0.025 ? 0.004 : 0), smooth: ak === 'plate' ? 6 : 4, col: bootC, mat: ak === 'plate' ? 'metal' : 'leather', trim: ak === 'plate' ? at : K3.shade(bootC, -0.35), trimW: 0.014, trimMat: ak === 'plate' ? 'gold' : 'leather' });
+  if (!barefoot) {
+    add('body', (v) => IN(v, 'foot', 'shin') ? cl(bootTop - Y(v)) : -1, { off: (v, y) => (ak === 'plate' ? 0.013 : 0.009) + (y < 0.025 ? 0.005 : 0) + (ak !== 'plate' ? 0.007 * smooth(bootTop - 0.035, bootTop - 0.005, y) : 0), smooth: 18, col: bootC, mat: ak === 'plate' ? matW('metal', wear) : 'leather', trim: ak === 'plate' ? trimC : K3.shade(bootC, -0.35), trimW: 0.014, trimMat: ak === 'plate' ? trimM : 'leather' });
+    add('body', (v) => IN(v, 'foot') ? cl(0.016 - Y(v)) : -1, { off: (ak === 'plate' ? 0.016 : 0.012), smooth: 18, col: '#1e140c', mat: 'leather' }, false); // the sole
+  }
   // ---- torso and arms ----
   const sleeves = robe || ak === 'chain' || ak === 'plate' || ak === 'leather' || L.sleeves !== 'short';
   const cuffY = sleeves ? wristY + 0.025 : elbowY + 0.07;
@@ -785,39 +915,62 @@ function outfit(look, kind, sh, N, rest) {
     if (ak !== 'plate') add('body', shirt, { off: (v, y) => (fem ? 0.007 : 0.005) + (robe && cat[v] === 'farm' ? 0.04 * smooth(elbowY, wristY, y) : 0), smooth: fem ? 8 : 4, col: robe ? ac : shirtC, mat: ak === 'chain' ? 'chain' : 'cloth', trim: robe ? at : K3.shade(shirtC, -0.2), trimW: robe ? 0.02 : 0.008 });
     if (false) add('body', (v) => IN(v, 'torso') ? cl(0.07 - Math.abs(Y(v) - (rest.chest[1] + 0.02))) : -1, { off: 0.004, smooth: 2, col: '#6a4a3a', mat: 'leather' });
     if (ak === 'leather') {
-      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.02) - Y(v), Y(v) - (hipY - 0.03))) : -1, { off: 0.012, smooth: fem ? 10 : 6, col: ac, mat: 'leather', trim: K3.shade(ac, -0.35), trimW: 0.012 });
-      add('body', (v) => IN(v, 'uarm', 'torso') && Math.abs(X(v)) > 0.11 ? cl(Y(v) - (shY - 0.1)) : -1, { off: 0.016, smooth: 6, col: K3.shade(ac, -0.1), mat: 'leather', trim: K3.shade(ac, -0.35), trimW: 0.01 }, false);
-      add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.02), elbowY - 0.05 - Y(v))) : -1, { off: 0.011, smooth: 4, col: K3.shade(ac, -0.2), mat: 'leather', trim: K3.shade(ac, -0.4), trimW: 0.008 }, false);
+      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.02) - Y(v), Y(v) - (hipY - 0.03))) : -1, { off: 0.012, smooth: fem ? 10 : 6, col: ac, mat: 'studded', trim: K3.shade(ac, -0.35), trimW: 0.012, trimMat: 'leather' });
+      for (let k = 0; k < 2; k++) add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.11) ? cl(Y(v) - (shY - 0.05 - k * 0.05)) : -1, { off: 0.024 - k * 0.006, smooth: 8, col: K3.shade(ac, -0.06 - k * 0.06), mat: 'studded', trim: K3.shade(ac, -0.4), trimW: 0.008, trimMat: 'leather' }, false);
+      add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.02), elbowY - 0.05 - Y(v))) : -1, { off: 0.011, smooth: 4, col: K3.shade(ac, -0.2), mat: 'studded', trim: K3.shade(ac, -0.4), trimW: 0.008, trimMat: 'leather' }, false);
+      // a cross strap over the chest
+      add('body', (v) => IN(v, 'torso') ? cl(0.014 - Math.abs((Y(v) - rest.chest[1]) - X(v) * 1.1)) : -1, { off: 0.016, smooth: 8, col: '#2a1a10', mat: 'leather', trim: '#c8a040', trimW: 0.002, trimMat: 'gold' }, false);
     }
     if (ak === 'chain') {
       add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.02), (elbowY + wristY) / 2 - Y(v))) : -1, { off: 0.009, smooth: 4, col: '#3a2a1e', mat: 'leather', trim: at, trimW: 0.008 }, false);
-      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.01) - Y(v), Y(v) - (hipY - 0.04), 0.16 - Math.abs(X(v)))) : -1, { off: 0.016, smooth: 10, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012 }, false); // a tabard over the mail
+      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, 0.01) - Y(v), Y(v) - (hipY - 0.04), 0.16 - Math.abs(X(v)))) : -1, { off: 0.016, smooth: 10, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012, colFn: (v, y, C, x) => (Math.abs(x) < 0.022 || Math.abs((y - rest.chest[1] - 0.03) - Math.abs(x) * 0.7) < 0.012 ? C.clone().lerp(new THREE.Color('#e8d8a0'), 0.75) : C) }, false); // a tabard over the mail, with a pale stripe and chevron
+      add('skirt', (v) => cl(min(0.13 - Math.abs(X(v)), Y(v) - (hipY - (hipY - kneeY) * 0.7))), { off: 0.016, smooth: 3, col: at, mat: 'cloth', trim: K3.shade(at, -0.3), trimW: 0.012, bind: (v, y, si, sw, i) => { const t = K3.clamp((hipY - y) / (hipY - ankleY), 0, 1); const sd = P[v * 3] >= 0 ? A.BI.thighL : A.BI.thighR; si[i * 4] = A.BI.hips; si[i * 4 + 1] = sd; si[i * 4 + 2] = 0; si[i * 4 + 3] = 0; const w2 = Math.round(t * 0.5 * 255); sw[i * 4] = 255 - w2; sw[i * 4 + 1] = w2; sw[i * 4 + 2] = 0; sw[i * 4 + 3] = 0; } }, false);
+      for (let k = 0; k < 2; k++) add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.11) ? cl(Y(v) - (shY - 0.045 - k * 0.045)) : -1, { off: 0.024 - k * 0.006, smooth: 8, col: K3.shade('#5a3a24', -k * 0.12), mat: 'studded', trim: '#2a1a10', trimW: 0.008, trimMat: 'leather' }, false);
     }
     if (ak === 'plate') {
-      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, -0.01) - Y(v), Y(v) - (hipY - 0.05))) : IN(v, 'uarm', 'farm') ? cl(Y(v) - (wristY + 0.02)) : -1, { off: 0.007, smooth: 3, col: '#8a8e94', mat: 'chain' });
-      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, -0.005) - Y(v), Y(v) - (hipY - 0.03))) : -1, { off: 0.026, smooth: 12, col: ac, mat: 'metal', trim: at, trimW: 0.016, trimMat: 'gold' });
-      add('body', (v) => IN(v, 'neck', 'torso', 'head') ? cl(min(neckY + 0.035 - Y(v), Y(v) - (shY - 0.02), 0.1 - Math.abs(X(v)))) : -1, { off: 0.02, smooth: 6, col: K3.shade(ac, -0.08), mat: 'metal', trim: at, trimW: 0.008, trimMat: 'gold' });
-      add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.12) ? cl(Y(v) - (elbowY + (shY - elbowY) * 0.45)) : -1, { off: (v, y) => 0.014 + 0.024 * smooth(elbowY + 0.06, shY, y), smooth: 8, col: K3.shade(ac, 0.05), mat: 'metal', trim: at, trimW: 0.014, trimMat: 'gold' }, false);
-      add('body', (v) => IN(v, 'uarm') ? cl(Y(v) - (elbowY - 0.02)) : -1, { off: 0.012, smooth: 6, col: K3.shade(ac, -0.06), mat: 'metal' });
-      add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.012), elbowY + 0.03 - Y(v))) : -1, { off: 0.012, smooth: 6, col: K3.shade(ac, -0.04), mat: 'metal', trim: at, trimW: 0.01, trimMat: 'gold' });
-      add('body', (v) => IN(v, 'hand') ? 1 : IN(v, 'farm') ? cl(wristY + 0.04 - Y(v)) : -1, { off: 0.0035, smooth: 1, col: K3.shade(ac, -0.15), mat: 'metal' });
-      add('body', (v) => IN(v, 'thigh') ? cl(min(hipY - 0.07 - Y(v), Y(v) - (kneeY - 0.01))) : -1, { off: 0.016, smooth: 8, col: K3.shade(ac, 0.02), mat: 'metal', trim: at, trimW: 0.012, trimMat: 'gold' }, false);
-      add('body', (v) => IN(v, 'shin', 'thigh') ? cl(min(kneeY + 0.05 - Y(v), Y(v) - (ankleY + 0.04))) : -1, { off: 0.014, smooth: 8, col: K3.shade(ac, 0.02), mat: 'metal', trim: at, trimW: 0.01, trimMat: 'gold' }, false);
+      // under it all a padded gambeson shows at the sleeves and collar
+      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, -0.01) - Y(v), Y(v) - (hipY - 0.05))) : IN(v, 'uarm', 'farm') ? cl(Y(v) - (wristY + 0.02)) : -1, { off: 0.007, smooth: 3, col: fine ? '#7e828a' : '#5a4232', mat: fine ? matW('chain', wear) : 'quilted' });
+      // the cuirass: rows of riveted plates following the chest, with buckled straps down the front
+      add('body', (v) => IN(v, 'torso', 'neck', 'pelvis') ? cl(min(neckCut(v, -0.005) - Y(v), Y(v) - (hipY - 0.03))) : -1, { off: 0.026, smooth: 12, col: ac, mat: matW(fine ? 'lamellar' : 'lamellar', wear), trim: trimC, trimW: 0.014, trimMat: trimM });
+      add('body', (v) => IN(v, 'torso') ? cl(min(0.016 - Math.abs(X(v)), neckCut(v, 0.02) - Y(v), Y(v) - (hipY + 0.05))) : -1, { off: 0.03, smooth: 12, col: '#3a2416', mat: 'leather', trim: '#1e140c', trimW: 0.003, trimMat: 'leather' }, false);
+      for (let k = 0; k < 3; k++) buckle(0, rest.chest[1] + 0.08 - k * 0.09, 0.034, fine ? '#d8b048' : '#8a8e94', k ? A.BI.spine : A.BI.chest);
+      // a gorget round the throat
+      add('body', (v) => IN(v, 'neck', 'torso', 'head') ? cl(min(neckY + 0.035 - Y(v), Y(v) - (shY - 0.02), 0.1 - Math.abs(X(v)))) : -1, { off: 0.02, smooth: 6, col: K3.shade(ac, -0.08), mat: matW('bands', wear), trim: trimC, trimW: 0.008, trimMat: trimM });
+      // pauldrons: three overlapping lames over each shoulder, the top one outermost
+      for (let k = 0; k < 3; k++) add('body', (v) => IN(v, 'uarm', 'torso') && (cat[v] === 'uarm' || Math.abs(X(v)) > 0.1 + k * 0.006) ? cl(Y(v) - (shY - 0.035 - k * 0.05)) : -1, { off: (v, y) => 0.046 - k * 0.008 + 0.006 * smooth(shY - 0.08, shY, y), smooth: 10, col: K3.shade(ac, 0.06 - k * 0.05), mat: matW('bands', wear), trim: trimC, trimW: 0.011, trimMat: trimM }, false);
+      add('body', (v) => IN(v, 'uarm') ? cl(Y(v) - (elbowY - 0.02)) : -1, { off: 0.013, smooth: 6, col: K3.shade(ac, -0.06), mat: matW('metal', wear) });
+      // a couter over the elbow and vambraces flaring at the wrist
+      add('body', (v) => IN(v, 'uarm', 'farm') ? cl(0.035 - Math.abs(Y(v) - elbowY)) : -1, { off: 0.022, smooth: 8, col: K3.shade(ac, 0.04), mat: matW('metal', wear), trim: trimC, trimW: 0.006, trimMat: trimM }, false);
+      add('body', (v) => IN(v, 'farm') ? cl(min(Y(v) - (wristY + 0.012), elbowY - 0.02 - Y(v))) : -1, { off: (v, y) => 0.013 + 0.012 * smooth(wristY + 0.06, wristY + 0.015, y), smooth: 6, col: K3.shade(ac, -0.04), mat: matW('bands', wear), trim: trimC, trimW: 0.01, trimMat: trimM });
+      add('body', (v) => IN(v, 'hand') ? 1 : IN(v, 'farm') ? cl(wristY + 0.04 - Y(v)) : -1, { off: 0.004, smooth: 1, col: K3.shade(ac, -0.15), mat: matW('metal', wear) });
+      if (fine) add('body', (v) => IN(v, 'thigh') ? cl(min(hipY - 0.07 - Y(v), Y(v) - (kneeY - 0.01))) : -1, { off: 0.016, smooth: 8, col: K3.shade(ac, 0.02), mat: matW('bands', wear), trim: trimC, trimW: 0.012, trimMat: trimM }, false);
+      // knee cops and greaves over the shins
+      add('body', (v) => IN(v, 'shin', 'thigh') ? cl(0.04 - Math.abs(Y(v) - (kneeY + 0.01))) : -1, { off: 0.024, smooth: 10, col: K3.shade(ac, 0.06), mat: matW('metal', wear), trim: trimC, trimW: 0.006, trimMat: trimM }, false);
+      add('body', (v) => IN(v, 'shin', 'thigh') ? cl(min(kneeY - 0.02 - Y(v), Y(v) - (ankleY + 0.04))) : -1, { off: 0.016, smooth: 10, col: K3.shade(ac, 0.02), mat: matW('metal', wear), trim: trimC, trimW: 0.01, trimMat: trimM }, false);
     }
   }
   // a linen wrap over the breasts
   if (fem && torsoBare && (L.wrap || L.bare)) add('body', (v) => IN(v, 'torso') ? cl(min(0.065 - Math.abs(Y(v) - (rest.chest[1] + 0.035)), 1)) : -1, { off: 0.0055, smooth: 3, col: '#d8ccb0', mat: 'cloth', trim: '#8a7a5a', trimW: 0.006 });
   if (!torsoBare) {
     // a belt at the waist
-    if (!robe || ak === 'chain') add('body', (v) => IN(v, 'torso', 'pelvis') ? cl(0.02 - Math.abs(Y(v) - (hipY + 0.035))) : -1, { off: ak === 'plate' ? 0.031 : 0.012, smooth: 3, col: ak === 'plate' ? at : '#3a2618', mat: 'leather', trim: '#c8a040', trimW: 0.0035, trimMat: 'gold' }, false);
+    if (!robe || ak === 'chain') {
+      const bOff = ak === 'plate' ? 0.031 : ak === 'leather' ? 0.018 : ak === 'chain' ? 0.02 : 0.012, bY = hipY + 0.035;
+      add('body', (v) => IN(v, 'torso', 'pelvis') ? cl(0.02 - Math.abs(Y(v) - bY)) : -1, { off: bOff, smooth: 3, col: '#3a2618', mat: 'leather', trim: '#c8a040', trimW: 0.0035, trimMat: 'gold' }, false);
+      if (ak === 'plate' || ak === 'chain' || ak === 'leather') {
+        buckle(0, bY, bOff + 0.004, fine ? '#d8b048' : '#9a9ea6', A.BI.hips);
+        const px = 0.12 * (L.gender === 'f' ? 0.9 : 1); const pz = surfZ(-px, bY - 0.03, 0.03) + bOff + 0.012;
+        solid(RG.box, TRS(-px, bY - 0.045, pz, 0.065, 0.075, 0.03, 0, -0.35), '#4a3020', 'leather', A.BI.hips); solid(RG.box, TRS(-px, bY - 0.016, pz + 0.004, 0.068, 0.025, 0.033, 0, -0.35), '#3a2416', 'leather', A.BI.hips);
+      }
+    }
   }
   // ---- skirts: robes, mail skirts, tassets and tunics ----
   const skirt = (bottom, o) => add('skirt', (v) => cl(P[v * 3 + 1] - bottom), Object.assign({ smooth: 2, bind: (v, y, si, sw, i) => { const t = K3.clamp((hipY - y) / (hipY - ankleY), 0, 1); const side = P[v * 3] >= 0 ? A.BI.thighL : A.BI.thighR; si[i * 4] = A.BI.hips; si[i * 4 + 1] = side; si[i * 4 + 2] = 0; si[i * 4 + 3] = 0; const w2 = Math.round(t * 0.6 * 255); sw[i * 4] = 255 - w2; sw[i * 4 + 1] = w2; sw[i * 4 + 2] = 0; sw[i * 4 + 3] = 0; } }, o), false);
   if (robe && !torsoBare) skirt(ankleY + 0.02, { off: 0.012, col: ac, mat: 'cloth', trim: at, trimW: 0.03 });
   else if (ak === 'chain') skirt(kneeY + 0.06, { off: 0.008, col: '#8e9298', mat: 'chain', trim: '#6a6e74', trimW: 0.01 });
-  else if (ak === 'plate') skirt(hipY - (hipY - kneeY) * 0.45, { off: 0.018, smooth: 4, col: K3.shade(ac, -0.05), mat: 'metal', trim: at, trimW: 0.012, trimMat: 'gold', colFn: (v, y, C) => (Math.floor((hipY - y) / 0.045) % 2 ? C.clone().multiplyScalar(0.85) : C) });
+  else if (ak === 'plate') skirt(hipY - (hipY - kneeY) * 0.62, { off: 0.02, smooth: 4, col: K3.shade(ac, -0.05), mat: matW('lamellar', wear), trim: trimC, trimW: 0.012, trimMat: trimM });
   else if (ak === 'leather' || (ak === 'none' && !torsoBare && L.tunic !== false && !fem)) skirt(hipY - (hipY - kneeY) * 0.38, { off: 0.008, col: ak === 'leather' ? K3.shade(ac, -0.08) : ac, mat: ak === 'leather' ? 'leather' : 'cloth', trim: K3.shade(ac, -0.3), trimW: 0.01 });
   else if (fem && ak === 'none' && !torsoBare && !legsBare) skirt(ankleY + 0.12, { off: 0.01, col: ac, mat: 'cloth', trim: at, trimW: 0.02 });
+  if (L.helm === 'plate' || L.helm === 'chain' || L.helm === 'leather') helmet(L, sh, N, rest, cat, add, solid, X, Y, Z);
   // the skin under a covering piece is not drawn (it never shows and cannot poke through)
   const hidden = new Uint8Array(A.NV); for (const { field, FV } of covers) for (let v = 0; v < A.NV; v++) { if (hidden[v]) continue; let x = FV[v]; if (x !== x) x = field(v); if (x >= 0.012) hidden[v] = 1; }
   return { pieces, hidden, cat };
@@ -828,7 +981,7 @@ const cache = new Map();
 export const HUMAN_PARENT = (() => { const P = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', shL: 'chest', armL: 'shL', foreL: 'armL', handL: 'foreL', shR: 'chest', armR: 'shR', foreR: 'armR', handR: 'foreR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', capeA: 'chest', capeB: 'capeA', tail1: 'hips', tail2: 'tail1', tail3: 'tail2', wingL: 'chest', wingR: 'chest' }; for (const S of ['L', 'R']) for (const f of ['th', 'f1', 'f2', 'f3', 'f4']) { P[f + S + '1'] = 'hand' + S; P[f + S + '2'] = f + S + '1'; } return P; })();
 export function humanKey(look, kind) {
   const L = look || {}; const a = L.armor || {};
-  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.shirtOnly, L.noPants, L.wrap, L.tall, JSON.stringify(L.morph || null), L.beardStyle, L.scar, L.tattoo, L.tatCol, L.iris].join('|');
+  return [kind, L.name, L.race, L.gender, L.skin, L.hair, L.hairStyle, L.cls, a.kind, a.col, a.trim, L.robe, L.bare, L.helm, L.hat, L.hood, L.beard, L.tusk, L.ears, L.eyesCol, L.width, L.pants, L.barefoot, L.old, L.warpaint, L.face, L.noShirt, L.shirtOnly, L.noPants, L.wrap, L.tall, JSON.stringify(L.morph || null), L.beardStyle, L.scar, L.tattoo, L.tatCol, L.iris, a.tier, L.helmStyle, L.helmCrest, L.helmTier, L.helmCol].join('|');
 }
 function skinGeometry(sh, N, hidden) {
   const NS = A.NS, map = A.map;

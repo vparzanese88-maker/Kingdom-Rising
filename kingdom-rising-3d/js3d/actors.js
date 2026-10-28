@@ -162,6 +162,82 @@ export function actorY(e) {
   return base + (av ? av.hoverNow || 0 : 0);
 }
 K3.actorY = (e) => floorOf(e) + heroJump(e);
+
+// ---------- combat feel: hit-stop, flinches, sparks, spell releases and fizzles ----------
+// the game applies a blow at once; these hooks remember it so the bodies can react (motion.js)
+{
+  const at3 = (e, h) => ({ x: e.x * PX, y: floorOf(e) + (h || 1.1) * (e.scale || 1), z: e.y * PX });
+  const dmg0 = G.damage;
+  G.damage = function (src, tgt, amt, opt) {
+    const r = dmg0.apply(this, arguments);
+    try {
+      const o = opt || {};
+      if (r > 0 && src && tgt && !o.dot && !o.spell && Math.hypot(tgt.x - src.x, tgt.y - src.y) < 90) {
+        const now = G.now, mag = r / Math.max(1, tgt.hpMax || 1), heavy = !!o.crit || mag > 0.12;
+        // a moment's freeze on both bodies sells the weight of the blow: longer for heavy hits and kills
+        const stop = tgt.dead ? 150 : heavy ? 110 : 60;
+        src._hs = now + stop; tgt._hs = now + stop;
+        const dx = tgt.x - src.x, dy = tgt.y - src.y, l = Math.hypot(dx, dy) || 1;
+        tgt._hurt = { at: now + stop, dx: dx / l, dy: dy / l, mag };
+        const P = at3(tgt); fx.burst(P.x - dx / l * 0.25, P.y, P.z - dy / l * 0.25, heavy ? 16 : 9, heavy ? [3.2, 2.4, 1.2] : [2.6, 2.2, 1.6], { speed: heavy ? 3.4 : 2.4, life: 0.35, grav: 5, s0: 0.07, kind: 3 });
+        if ((src === G.player || tgt === G.player) && K3.shakeHit) K3.shakeHit(heavy ? 0.07 : tgt === G.player ? 0.045 : 0.03, heavy ? 0.26 : 0.17);
+      }
+    } catch (err) { /* effects must never break combat */ }
+    return r;
+  };
+  const int0 = G.interrupt;
+  G.interrupt = function (e) {
+    const was = e && e.cast;
+    const r = int0.apply(this, arguments);
+    try { if (was && !e.cast) { e._fizAt = G.now; const P = at3(e, 1.25); fx.burst(P.x, P.y, P.z, 10, [0.9, 0.85, 0.8], { speed: 0.8, life: 0.6, s0: 0.25, kind: 2 }); } } catch (err) {}
+    return r;
+  };
+  const vfx0 = G.spellVfx;
+  if (vfx0) G.spellVfx = function (src, tgt, def) {
+    const r = vfx0.apply(this, arguments);
+    try {
+      if (src) { src._relAt = G.now; src._relSchool = def && def.school; }
+      // a landing effect on the target: a ring of light rising from the ground
+      if (tgt && def && !def.quiet) {
+        const col = rgb(CAST_COL[def.res || (def.target === 'enemy' ? 'magic' : 'heal')] || '255,220,140', 2.4); const P = at3(tgt, 0.05);
+        for (let k = 0; k < 18; k++) { const a = (k / 18) * 6.283; fx.add.emit({ x: P.x + Math.cos(a) * 0.55, y: P.y + 0.05, z: P.z + Math.sin(a) * 0.55, vx: Math.cos(a) * 0.3, vz: Math.sin(a) * 0.3, vy: 1.2 + Math.random() * 0.8, life: 0.9, s0: 0.16, s1: 0.03, r: col[0], g: col[1], b: col[2], kind: 1 }); }
+      }
+    } catch (err) {}
+    return r;
+  };
+}
+// how long the wind-up before an auto-attack lasts, by swing (heavier swings take longer)
+const WIND = { thrust: 0.13, punch: 0.1, slash: 0.2, staff: 0.24, chop: 0.32, claw: 0.2, bite: 0.3 }; // bite: a beast's crouch, rear or coil before it strikes
+// the state motion.js needs: wind-up, hit-stop, flinch, casting, releases, acceleration and turning
+function motionState(av, e, st, tgt, dt) {
+  const now = G.now;
+  // the next swing lands when the attack timer runs out: wind up just before it, with a short hold at the top
+  const wd = WIND[st.atkKind];
+  if (wd && tgt && !tgt.dead && e.atkT > 0 && !e.cast && !e.dead && (e === G.player ? e.autoAttack : e.inCombat)) {
+    const reach = (G.meleeRange ? G.meleeRange(e, tgt) : 40) * 1.05;
+    if (Math.hypot(tgt.x - e.x, tgt.y - e.y) <= reach) st.wind = Math.max(0, Math.min(1, 1 - (e.atkT - 0.04) / wd));
+  }
+  st.freeze = (e._hs || 0) > now;
+  if (e._hurt && now - e._hurt.at < 1300) {
+    const h = e._hurt, cy = Math.cos(av.yaw), sy = Math.sin(av.yaw);
+    st.hurt = { t: (now - h.at) / 1000, fx: h.dx * cy - h.dy * sy, fz: h.dx * sy + h.dy * cy, mag: h.mag };
+  }
+  // casting: how full the bar is and which school, so the gesture and its particles match
+  const c = e.cast;
+  if (c && c.spell) st.cast = { p: c.dur > 0 ? Math.min(1, (c.t || 0) / c.dur) : 1, school: c.spell.school, dur: c.dur || 0 };
+  else if (e.casting) st.cast = { p: 0.5, school: null, dur: 2 };
+  else st.cast = null;
+  if (e._relAt && now - e._relAt < 700) st.rel = (now - e._relAt) / 1000;
+  if (e._fizAt && now - e._fizAt < 500) st.fizzle = (now - e._fizAt) / 1000;
+  // acceleration and turning, from the body's own motion (for leaning, banking and the cape)
+  if (st.far) { st.acc = 0; st.yawRate = 0; return; }
+  const v = dt > 0 ? (st.dist || 0) * (av.scale || 1) / dt : 0;
+  av.vS = (av.vS || 0) + (v - (av.vS || 0)) * Math.min(1, dt * 10);
+  const acc = dt > 0 ? (av.vS - (av.vPrev == null ? av.vS : av.vPrev)) / dt : 0; av.vPrev = av.vS;
+  av.accS = (av.accS || 0) + (acc - (av.accS || 0)) * Math.min(1, dt * 12); st.acc = Math.max(-25, Math.min(25, av.accS));
+  const yr = dt > 0 ? K3.dampAngle(0, av.yaw - (av.yawPrev == null ? av.yaw : av.yawPrev), 1) / dt : 0; av.yawPrev = av.yaw;
+  av.yawR = (av.yawR || 0) + (yr - (av.yawR || 0)) * Math.min(1, dt * 10); st.yawRate = Math.max(-8, Math.min(8, av.yawR));
+}
 // group mates shine: a glowing shell around the body that also shows faintly through walls
 let glowMat = null, glowBack = null;
 function makeGlowMats() {
@@ -243,10 +319,14 @@ function updateAvatar(av, dt, ctx) {
   // animation
   const near = Math.hypot(av.obj.position.x - ctx.cam.x, av.obj.position.z - ctx.cam.z);
   // far away people move less often: nobody can see it, and it saves a lot of work
-  if ((near > 90 && K3.frame % 4) || (near > 45 && K3.frame % 2)) return;
+  // (by time, not frames: beyond 30 m a pose 15 times a second, beyond 70 m 8 times; the body still glides every frame)
+  const rate = e === p ? 0 : near > 70 ? 8 : near > 30 ? 15 : 0;
+  if (rate) { av.animAcc = (av.animAcc || 0) + dt; if (av.animAcc < 1 / rate) return; av.animAcc = 0; }
   const adt = av.accT || dt, adist = av.accD || 0; av.accD = 0; av.accT = 0; dt = adt;
   const animP = e.animK && e.animT > G.now ? 1 - (e.animT - G.now) / (e.animDur || 400) : 0;
   const st = { move: moving ? (av.peer ? 1 : Math.min(1, (e.speed || 120) / 128)) : 0, dist: moving && air == null ? adist / sc : 0, air, atk: e.atk || 0, atkKind: atkKindFor(av, e), cast: !!(e.cast || e.casting), sit: !!e.sit, dead: !!e.dead, stun: e.stun > 0, mez: e.mez > 0, kick: e.kickT || 0, animK: animP > 0 ? e.animK : null, animP, combat: !!(e.autoAttack || e.inCombat) && !e.dead && !!tgt, drunk: !!(e.drunk || (e.drunkUntil && e.drunkUntil > G.now) || (av.rig && av.rig.look && av.rig.look.drunk)), mounted: !!e.mounted && !e.dead, crouch: !!(e.harvest && e.harvest.tool === 'knife'), fly: !!e.fly && (moving || e.inCombat), breath: e.breath > 0 };
+  st.far = near > 30 && e !== p; // far people skip the fine motion (leaning, breathing, looking, fingers)
+  if (av.kind === 'human' || av.kind === 'creature') motionState(av, e, st, tgt, dt); // beasts wind up, freeze on a hit and flinch too (creatures.js)
   if (st.atk > 0 && (av.prevAtk || 0) === 0 && av.rig) { av.rig.punch = (av.rig.punch || 0) + 1; }
   av.prevAtk = st.atk;
   if (av.peer) { st.move = moving ? 1 : 0; st.dist = air != null ? 0 : adist > 0.0005 ? adist / sc : moving ? dt * 3.2 : 0; }
@@ -257,7 +337,8 @@ function updateAvatar(av, dt, ctx) {
     st.dir = av.mdir || [0, 1];
     if (near < 32 && !hover && !e.upB && air == null) { const ox = av.obj.position.x, oz = av.obj.position.z; st.ground = (x, z) => (geo.floorAt((ox + (x * cy + z * sy) * sc) / PX, (oz + (-x * sy + z * cy) * sc) / PX) - fy) / sc; }
   }
-  if (tgt && av.kind === 'human' && !moving) st.lookYaw = K3.dampAngle(0, Math.atan2(tgt.x - e.x, tgt.y - e.y) - av.yaw, 1);
+  const lookAt = tgt && tgt !== e ? tgt : e.type === 'npc' && !moving && p && !p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 190 ? p : null;
+  if (lookAt && av.kind === 'human') st.lookYaw = K3.dampAngle(0, Math.atan2(lookAt.x - e.x, lookAt.y - e.y) - av.yaw, 1);
   if (av.kind === 'human') { animateHumanoid(av.rig, st, dt); if (e === p) K3.playerRig = av.rig; if (av.rig.setLod) av.rig.setLod(av.obj.position.distanceTo(K3.camera.position)); }
   else if (av.kind === 'creature') animateCreature(av.rig, st, dt);
   if (av.horse) animateCreature(av.horse, { move: st.move, dist: st.dist * 1.5, atk: 0 }, dt);
@@ -284,7 +365,11 @@ function bodyFx(av, e, dt) {
   const o = av.obj.position; const h = av.height * av.scale;
   if (e.cast && av.rig && av.rig.bones && av.rig.bones.handL) {
     const col = rgb(CAST_COL[(e.cast.spell && e.cast.spell.res) || (e.cast.spell && e.cast.spell.target === 'enemy' ? 'magic' : 'heal')] || '255,220,140', 2.6);
-    for (const hn of ['handL', 'handR']) { av.rig.bones[hn].getWorldPosition(_v); fx.add.emit({ x: _v.x + (Math.random() - 0.5) * 0.1, y: _v.y, z: _v.z + (Math.random() - 0.5) * 0.1, vy: 0.6 + Math.random() * 0.5, vx: (Math.random() - 0.5) * 0.3, vz: (Math.random() - 0.5) * 0.3, life: 0.6, s0: 0.14, s1: 0.02, r: col[0], g: col[1], b: col[2], kind: 1 }); }
+    const cp = e.cast.dur > 0 ? Math.min(1, (e.cast.t || 0) / e.cast.dur) : 1; const n = cp > 0.85 ? 3 : 1 + (cp > 0.4 ? 1 : 0);
+    for (const hn of ['handL', 'handR']) { av.rig.bones[hn].getWorldPosition(_v);
+      fx.add.emit({ x: _v.x + (Math.random() - 0.5) * 0.1, y: _v.y, z: _v.z + (Math.random() - 0.5) * 0.1, vy: 0.6 + Math.random() * 0.5, vx: (Math.random() - 0.5) * 0.3, vz: (Math.random() - 0.5) * 0.3, life: 0.6, s0: 0.14 + 0.08 * cp, s1: 0.02, r: col[0], g: col[1], b: col[2], kind: 1 });
+      // motes drawn in toward the hand from a spiralling ring around it
+      for (let k = 0; k < n; k++) { const a = K3.time * 5 + k * 2.1 + (hn === 'handL' ? 3.1 : 0), rr = 0.28 + 0.06 * Math.sin(K3.time * 3 + k); fx.add.emit({ x: _v.x + Math.cos(a) * rr, y: _v.y + Math.sin(a * 0.7) * 0.12, z: _v.z + Math.sin(a) * rr, vx: -Math.cos(a) * rr * 2.2, vz: -Math.sin(a) * rr * 2.2, vy: 0.25, life: 0.42, s0: 0.07, s1: 0.11, r: col[0], g: col[1], b: col[2], kind: 3 }); } }
     const a = Math.random() * 6.283; fx.add.emit({ x: o.x + Math.cos(a) * 0.9 * av.scale, y: o.y + 0.05, z: o.z + Math.sin(a) * 0.9 * av.scale, vy: 0.9, life: 0.8, s0: 0.1, s1: 0.03, r: col[0], g: col[1], b: col[2], kind: 3 });
   }
   if (e.glowUntil && e.glowUntil > G.now && !e.dead) { for (let k = 0; k < 3; k++) { const a = Math.random() * 6.283, r = 0.4 + Math.random() * 0.4; fx.add.emit({ x: o.x + Math.cos(a) * r, y: o.y + Math.random() * 0.3, z: o.z + Math.sin(a) * r, vy: 1.6 + Math.random(), life: 1.2, s0: 0.12, s1: 0.02, r: 3, g: 2.4, b: 0.8, kind: 3 }); } }

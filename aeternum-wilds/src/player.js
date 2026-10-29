@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WEAPONS, ABILITIES, MATS, NODES, LOADS } from './data.js';
 import { CLASSES } from './classes.js';
+import { meshyReady, makeHero } from './gfx/meshy.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
 import { animHumanoid } from './anim.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
@@ -39,6 +40,7 @@ export function createPlayer() {
 // Build a character model from a profile (race, look); also used by the character creator
 export function makeCharacter(p) {
   const L = p.look || {};
+  if (L.model === 'barbarian' && meshyReady()) return makeHero({ height: L.height || 1, build: L.weight || 1 });
   return makeHumanoid({
     sex: L.sex || 'm', skin: L.skin ?? 0xe0ac84, hair: L.hair ?? 0x5a3a1e, hairStyle: L.hairStyle ?? 0, eyeColor: L.eyeColor,
     facialHair: L.facialHair ?? (L.beard ? 4 : 0), paint: L.paint ?? null, scar: !!L.scar,

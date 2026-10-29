@@ -16,6 +16,7 @@ import { dressHumanoid, makeWeapon } from './models.js';
 import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
+import { loadMeshy, meshyReady } from './gfx/meshy.js';
 import { buildLife, updateLife } from './life.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -381,7 +382,7 @@ export function bindSettings(root) {
 }
 
 // ---------- Character creator ----------
-const draft = { name: '', cls: 'warrior', look: { sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
+const draft = { name: '', cls: 'warrior', look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
 let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
 const PREVIEW_AT = { x: 3, z: 24 };
@@ -414,7 +415,8 @@ function creator() {
       <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
       <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
   } else if (creatorTab === 'body') {
-    body = `<div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
+    body = `${meshyReady() ? `<div class="look"><span>Hero</span><button class="hs ${L.model === 'barbarian' ? 'on' : ''}" data-model="barbarian">Sculpted barbarian</button><button class="hs ${L.model !== 'barbarian' ? 'on' : ''}" data-model="custom">Custom (sliders)</button></div>` : ''}
+      <div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
       ${sliders(BODY_SLIDERS)}
       <div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`;
   } else {
@@ -439,7 +441,8 @@ function creator() {
   $('cname').oninput = e => { draft.name = e.target.value; };
   t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
   t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; creator(); });
-  t.querySelectorAll('[data-sex]').forEach(b => b.onclick = () => { L.sex = b.dataset.sex; if (L.sex === 'f') { L.facialHair = 0; if (L.hairStyle === 0 || L.hairStyle === 3) L.hairStyle = 1; } creator(); });
+  t.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { L.model = b.dataset.model; if (L.model === 'barbarian') L.sex = 'm'; creator(); });
+  t.querySelectorAll('[data-sex]').forEach(b => b.onclick = () => { L.sex = b.dataset.sex; if (L.sex === 'f') L.model = 'custom'; if (L.sex === 'f') { L.facialHair = 0; if (L.hairStyle === 0 || L.hairStyle === 3) L.hairStyle = 1; } creator(); });
   t.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { L[b.dataset.sw] = +b.dataset.v; creator(); });
   t.querySelectorAll('[data-hs]').forEach(b => b.onclick = () => { L.hairStyle = +b.dataset.hs; creator(); });
   t.querySelectorAll('[data-fh]').forEach(b => b.onclick = () => { L.facialHair = +b.dataset.fh; creator(); });
@@ -609,7 +612,8 @@ G.setMusicVolume = setMusicVolume;
 
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
-setTimeout(() => {
+setTimeout(async () => {
+  await loadMeshy();
   buildWorld();
   buildLife();
   $('loading').style.display = 'none';

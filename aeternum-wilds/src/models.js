@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { axeReady, axeMesh } from './gfx/meshy.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
@@ -97,6 +98,11 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.66, 0.08, 0.1, metal, 0, 0.32, 0));
     g.add(box(0.66, 0.08, 0.1, metal, 0, -0.32, 0));
     g.add(box(0.2, 0.2, 0.06, metal, 0, 0, 0.06));
+  } else if (type === 'greataxe' && axeReady()) {
+    // the player's own sculpted double-bladed axe
+    g.add(axeMesh(tier));
+    g.rotation.x = Math.PI / 2;
+    return g;
   } else if (type === 'greataxe') {
     g.add(box(0.07, 1.6, 0.07, wood, 0, 0.55, 0));
     g.add(box(0.05, 0.52, 0.5, metal, 0, 1.2, 0.22));
@@ -267,6 +273,7 @@ export function dressHumanoid(h, look) {
   trim.color.setHex(look.trim ?? shade(look.chest, 0.7));
   pants.color.setHex(look.legs);
   boot.color.setHex(look.feet);
+  if (h.hero) return; // the sculpted hero keeps his own painted outfit
   const head = h.parts.head;
   if (head.userData.helm) { head.remove(head.userData.helm); head.userData.helm = null; }
   h.parts.hair.visible = look.helm == null;

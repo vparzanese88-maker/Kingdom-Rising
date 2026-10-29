@@ -104,3 +104,4 @@ canvas.k3-hero:active { cursor: grabbing; }
 .k3-settings details.k3s-adv[open] { padding-bottom: 10px; }
 .k3-settings .k3s-body { font-size: 15px; }
 body.hud-quiet .k3-gear, body.hud-quiet #realm-bar { opacity: .15; transition: opacity .8s; } body.hud-quiet .k3-gear:hover, body.hud-quiet #realm-bar:hover { opacity: 1; }
+.k3-settings .k3s-head .ch-open { flex: none; white-space: nowrap; }

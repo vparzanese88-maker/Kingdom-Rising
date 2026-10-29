@@ -1,27 +1,51 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Model viewer</title>
-<!-- A developer tool: view one model of assets/models from several sides (viewer.html?m=dutch_ship_medium&a=0). -->
-<style>html,body{margin:0;height:100%;background:#9fb6cc;overflow:hidden}canvas{display:block;width:100%;height:100%}</style>
+<!-- A developer tool: view one model of assets/models from any side.
+     viewer.html?m=dutch_ship_medium&a=0.6&e=0.3        a: angle round it, e: camera height (fraction of its size)
+     &sea=1   water at y = 0 (ships); otherwise it stands on photographed ground, feet on the floor -->
+<style>html,body{margin:0;height:100%;background:#8c9aa8;overflow:hidden}canvas{display:block;width:100%;height:100%}</style>
 <script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
 </head><body>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-const q = new URLSearchParams(location.search), name = q.get('m') || 'dutch_ship_medium';
-const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; document.body.appendChild(r.domElement);
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fb6cc);
-scene.add(new THREE.HemisphereLight(0xbcd4f0, 0x5a4a38, 1.2)); const sun = new THREE.DirectionalLight(0xfff2dd, 3); sun.position.set(30, 50, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 200 }); scene.add(sun);
-const sea = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x2a5a6e, roughness: 0.3, transparent: true, opacity: 0.85 })); sea.rotation.x = -Math.PI / 2; sea.receiveShadow = true; if (q.get('sea') !== '0') scene.add(sea);
-const axes = new THREE.AxesHelper(8); axes.position.y = 0.05; scene.add(axes); // red +x, green +y, blue +z
-const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 1000);
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const q = new URLSearchParams(location.search), name = q.get('m') || 'dutch_ship_medium', sea = q.get('sea') === '1';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+// a soft studio sky for reflections, a warm key light, a cool rim light from behind, and a gentle fill
+const pm = new THREE.PMREMGenerator(r); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55;
+const bg = document.createElement('canvas'); bg.width = 4; bg.height = 256; { const g = bg.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#5a6e86'); gr.addColorStop(0.7, '#a9b6c2'); gr.addColorStop(1, '#c8c2b4'); g.fillStyle = gr; g.fillRect(0, 0, 4, 256); }
+scene.background = new THREE.CanvasTexture(bg); scene.background.colorSpace = THREE.SRGBColorSpace;
+const key = new THREE.DirectionalLight(0xfff0dc, 2.6); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xbfd4ff, 1.6); scene.add(rim, rim.target);
+scene.add(new THREE.HemisphereLight(0xc8d8ec, 0x5a4a38, 0.5));
+if (sea) { const s = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x2a5a6e, roughness: 0.25 })); s.rotation.x = -Math.PI / 2; s.receiveShadow = true; scene.add(s); }
+else {
+  // a disc of photographed ground (the game's own dirt), fading into the backdrop
+  const tl = new THREE.TextureLoader(); const a = tl.load('assets/tex/terrain/road_a.jpg'), n = tl.load('assets/tex/terrain/road_n.jpg');
+  for (const t of [a, n]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 6); } a.colorSpace = THREE.SRGBColorSpace;
+  const fl = new THREE.Mesh(new THREE.CircleGeometry(12, 64), new THREE.MeshStandardMaterial({ map: a, normalMap: n, roughness: 0.95 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; scene.add(fl);
+  scene.fog = new THREE.Fog(0xa9b6c2, 10, 22);
+}
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 2000);
 new GLTFLoader().load(`assets/models/${name}.glb`, (g) => {
-  const m = g.scene; m.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); scene.add(m);
-  const box = new THREE.Box3().setFromObject(m), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
-  window.info = { min: box.min.toArray().map((v) => +v.toFixed(2)), max: box.max.toArray().map((v) => +v.toFixed(2)), meshes: [] };
-  m.traverse((o) => { if (o.isMesh) window.info.meshes.push(o.name); });
-  const R = Math.max(s.x, s.y, s.z) * 1.15, a = +(q.get('a') || 0.6), e = +(q.get('e') || 0.3);
-  cam.position.set(c.x + Math.cos(a) * R, c.y + R * e, c.z + Math.sin(a) * R); cam.lookAt(c);
-  r.render(scene, cam); window.ready = true;
+  const m = g.scene; m.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+  let box = new THREE.Box3().setFromObject(m);
+  if (!sea) { m.position.y -= box.min.y; m.position.x -= (box.min.x + box.max.x) / 2; m.position.z -= (box.min.z + box.max.z) / 2; m.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(m); } // stand it on the floor
+  scene.add(m);
+  const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  window.info = { min: box.min.toArray().map((v) => +v.toFixed(2)), max: box.max.toArray().map((v) => +v.toFixed(2)), meshes: [] }; m.traverse((o) => { if (o.isMesh) window.info.meshes.push(o.name); });
+  const a = +(q.get('a') || 0.6), e = +(q.get('e') || 0.15);
+  // frame the whole model with a little room around it
+  const H = Math.max(s.y, Math.max(s.x, s.z) * 0.9), dist = H / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) * 1.25;
+  cam.position.set(c.x + Math.cos(a) * dist, c.y + H * e, c.z + Math.sin(a) * dist); cam.lookAt(c.x, c.y, c.z);
+  key.position.set(c.x + Math.cos(a + 0.9) * 8, c.y + 9, c.z + Math.sin(a + 0.9) * 8); key.target.position.copy(c);
+  Object.assign(key.shadow.camera, { left: -H, right: H, top: H, bottom: -H, near: 0.5, far: 40 }); key.shadow.camera.updateProjectionMatrix();
+  rim.position.set(c.x - Math.cos(a) * 8, c.y + 5, c.z - Math.sin(a) * 8); rim.target.position.copy(c);
+  window.ready = true;
 });
+(function loop() { r.render(scene, cam); requestAnimationFrame(loop); })(); // (keeps drawing, so textures that arrive later show)
 </script></body></html>

@@ -7,6 +7,7 @@ import { MB, PRIM } from './mb.js';
 import { mats } from './mats.js';
 import { craftFront } from './crafthouses.js';
 import { sewerHalls } from './sewer3d.js';
+import { loadModel, surfaceY } from './models.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
 const Tl = TILE;
@@ -719,11 +720,48 @@ function stoneBridge(mb, br) {
   for (let k = 1; k < nA; k++) { const u = 1.2 + k * seg, sv = s0 + u / Tl; const i = Math.round((sv - s0) / (s1 - s0) * N); const bed = raw[Math.max(0, Math.min(N, i))].bed - 0.4;
     for (const c of [W0, W1]) { const p = P(sv, c, bed); const h = wl + 0.9 - bed; mb.box('stone', p[0], bed + h / 2, p[2], pw * 0.78, h, pw * 0.78, stone, Math.PI / 4); mb.cone('stone', p[0], bed + h, p[2], pw * 0.55, 0.6, cope, 4, Math.PI / 4); } }
 }
+// ---------- the harbour's pier and wharf: a scanned timber pier kit (assets/models/modular_wooden_pier, CC0) ----------
+// laid section by section: two abreast down the pier, one along the waterside wharf, its deck at the dock's height
+let pierCache = null;
+function pierTiles() {
+  if (pierCache && pierCache.v === geo.version) return pierCache.set;
+  const set = new Set();
+  for (const f in W.cityData) { const H = W.cityData[f] && W.cityData[f].harbour; if (!H) continue;
+    const add = (i, sd) => { const x = H.gx + H.dx * i + H.px * sd, y = H.gy + H.dy * i + H.py * sd; if (W.inb(x, y) && geo.cls[y * W.W + x] >= 7) set.add(y * W.W + x); };
+    for (let i = H.k + 1; i <= H.k + 16; i++) for (let sd = -1; sd <= 1; sd++) add(i, sd);
+    for (let sd = -H.half; sd <= H.half; sd++) add(H.k + 1, sd); }
+  pierCache = { v: geo.version, set }; return set;
+}
+let pierKit = null;
+function pierSections() {
+  if (!pierKit) pierKit = loadModel('modular_wooden_pier').then((kit) => ['01', '02', '03'].map((n) => {
+    const o = kit.getObjectByName('modular_wooden_pier_section_' + n); if (!o) return null; const sec = o.clone(true); sec.position.set(0, 0, 0); sec.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(sec), c = box.getCenter(new THREE.Vector3()); const g = new THREE.Group(); sec.position.set(-c.x, 0, -c.z); g.add(sec); g.updateMatrixWorld(true);
+    const top = surfaceY(g, 0, 0, box.max.y + 1) ?? box.max.y; return { g, top, len: box.max.z - box.min.z, wid: box.max.x - box.min.x };
+  }).filter(Boolean));
+  return pierKit;
+}
+function harbourPier(out, f) {
+  const H = W.cityData[f] && W.cityData[f].harbour; if (!H) return;
+  pierSections().then((secs) => { if (!secs.length) return; const sec = (n) => secs[n % secs.length];
+    const tileW = (i, sd) => [(H.gx + H.dx * i + H.px * sd + 0.5) * Tl, (H.gy + H.dy * i + H.py * sd + 0.5) * Tl];
+    const deckY = (i, sd) => { const x = H.gx + H.dx * i + H.px * sd, y = H.gy + H.dy * i + H.py * sd; const d = W.inb(x, y) ? geo.deck[y * W.W + x] : NaN; return isNaN(d) ? 0.85 : d; };
+    const put = (s, x, z, y, ry) => { const g = s.g.clone(true); g.position.set(x, y - s.top, z); g.rotation.y = ry; g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); out.add(g); };
+    const along = Math.atan2(H.dx, H.dy), across = Math.atan2(H.px, H.py);
+    // down the pier: two sections abreast, end to end from the wharf to the pier head
+    const L0 = H.k + 1, L1 = H.k + 16.5, s0 = sec(0), step = s0.len * 0.98; let n = 0;
+    for (let u = L0 * Tl; u < L1 * Tl; u += step, n++) for (const off of [-s0.wid * 0.49, s0.wid * 0.49]) {
+      const i = u / Tl, [x, z] = tileW(i, 0); put(sec(n), x - H.dx * Tl * 0.5 + H.px * off, z - H.dy * Tl * 0.5 + H.py * off, deckY(Math.floor(i), 0), along);
+    }
+    // the wharf along the water's edge, either side of the pier
+    for (let v = -H.half * Tl; v <= H.half * Tl; v += step, n++) { if (Math.abs(v) < s0.wid * 1.1) continue; const [x, z] = tileW(H.k + 1, 0); put(sec(n), x + H.px * v, z + H.py * v, deckY(H.k + 1, Math.round(v / Tl)), across); }
+  }).catch((e) => console.warn('pier', e));
+}
 function decks(mb, x0, y0, x1, y1) {
   for (const br of bridgeList()) if (br.ax >= x0 && br.ax < x1 && br.ay >= y0 && br.ay < y1) { try { stoneBridge(mb, br); } catch (e) { console.warn('bridge', e); } }
-  const isDeck = (tx, ty) => { if (!W.inb(tx, ty)) return false; const c = geo.cls[ty * W.W + tx]; return c === 6 || c === 7; };
+  const isDeck = (tx, ty) => { if (!W.inb(tx, ty)) return false; const c = geo.cls[ty * W.W + tx]; return c === 6 || c === 7 || c === 8; };
   for (let ty = y0; ty < y1; ty++) for (let tx = x0; tx < x1; tx++) {
-    if (!isDeck(tx, ty) || geo.cls[ty * W.W + tx] === 6) continue; // (bridges are built whole, above) const i = ty * W.W + tx; const y = geo.deck[i]; if (isNaN(y)) continue;
+    if (!isDeck(tx, ty) || geo.cls[ty * W.W + tx] === 6 || pierTiles().has(ty * W.W + tx)) continue; /* (bridges are built whole, above; the harbour's pier from the scanned kit, below) */ const i = ty * W.W + tx; const y = geo.deck[i]; if (isNaN(y)) continue;
     const bridge = geo.cls[i] === 6; const x = (tx + 0.5) * Tl, z = (ty + 0.5) * Tl;
     // which way the planks run: across the direction of travel
     const alongX = isDeck(tx - 1, ty) || isDeck(tx + 1, ty) || W.tile(tx - 1, ty) === T.ROAD || W.tile(tx + 1, ty) === T.ROAD;
@@ -816,6 +854,7 @@ export function buildStructuresIn(x0, y0, x1, y1, ownsBuilding) {
   }
   looseWalls(mb, x0, y0, x1, y1);
   sewerHalls(mb, x0, y0, x1, y1, structs.torches, structs.fires); // vaults, kerbs, pipes and shafts of light in the sewer tunnels
+  for (const f in W.cityData) { const H = W.cityData[f] && W.cityData[f].harbour; if (H && H.gx >= x0 && H.gx < x1 && H.gy >= y0 && H.gy < y1) harbourPier(extra, f); }
   decks(mb, x0, y0, x1, y1);
   const grp = mb.build();
   grp.add(extra);

@@ -8,6 +8,8 @@ import { THREE, K3, PX, TILE } from './core.js';
 import { view } from './camera.js';
 import { buildShip } from './ships.js';
 import { fx } from './fx.js';
+import { loadModel, surfaceY, SHIP_MODEL } from './models.js';
+for (const f of ['crown', 'sylvan']) loadModel(SHIP_MODEL(f)).catch(() => {}); // fetched early: the film starts as soon as a hero is made
 
 const KR = window.KR, G = KR.G, W = KR.W, A = KR.A, D = KR.D;
 const cam = K3.camera;
@@ -75,12 +77,15 @@ export function startIntro(c, done) {
   const tile = (i, s) => [(H.gx + H.dx * (H.k + 1 + i) + H.px * s + 0.5) * TILE, (H.gy + H.dy * (H.k + 1 + i) + H.py * s + 0.5) * TILE];
   const isSea = (x, z) => { const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE); if (!W.inb(tx, tz)) return false; const t = W.tile(tx, tz); return t === KR.T.WATER || t === KR.T.DEEP; };
   const C = course(tile, isSea);
-  const ship = buildShip('cog', 0.45, { warship: true, style: c.faction }); // her kingdom's own kind of ship K3.scene.add(ship);
-  const sails = []; ship.traverse((o) => { if (o.userData && o.userData.sail) sails.push(o); });
+  // her kingdom's own ship: the real model (a Dutch merchantman for the Crown, a pinnace for the elves), with the
+  // built cog standing in for the moment until the model has loaded
+  const ship = new THREE.Group(); K3.scene.add(ship);
+  const stand = buildShip('cog', 0.45, { warship: true, style: c.faction }); ship.add(stand);
+  const sails = []; stand.traverse((o) => { if (o.userData && o.userData.sail) sails.push(o); });
   // her crew: a helmsman aft and two hands at the mast, who haul the sail up to its yard as she comes in
   const crew = [];
   if (K3.navalSailor) for (const [x, z, ry, job, shirt, cap] of [[0, -5.6, 0, 'helm', '#3a4a6a', '#2a3a5a'], [-0.7, 1.1, Math.PI / 2, 'haul', '#c8bca0', '#8a2a2a'], [0.75, -0.2, -Math.PI / 2, 'haul', '#8a3a2a', '#5a4a2a']]) {
-    const s = K3.navalSailor(shirt, cap); s.position.set(x, 1.43, z); s.rotation.y = ry; s.userData.job = job; s.userData.ph = crew.length * 1.7; ship.add(s); crew.push(s);
+    const s = K3.navalSailor(shirt, cap); s.position.set(x, 1.43, z); s.rotation.y = ry; s.userData.job = job; s.userData.ph = crew.length * 1.7; s.userData.at = [x, z]; ship.add(s); crew.push(s);
   }
   // the overlay: letterbox bars, the city's name, and a fade at the end
   const fac = D.FACTIONS[c.faction] || {};
@@ -95,6 +100,16 @@ export function startIntro(c, done) {
   const [pierX, pierZ] = tile(BERTH - 2.5, LANE - 6.5); // where the camera waits for her on the water by the pier
   intro = { uiWas, c, p, t: 0, ship, sails, crew, ov, done, tile, C, city, pier: [pierX, pierZ], out: [H.dx, H.dy], update: updateIntro, boats, lift: 0, hidden: [],
     pos: [0, 0, 0], yaw: null, yawV: 0, heel: 0, cs: null, look: null, v3: new THREE.Vector3(), v4: new THREE.Vector3(), camW: new THREE.Vector3(), lookW: new THREE.Vector3(), rc: new THREE.Raycaster(), chk: 0, titleOn: false, fadeOn: false };
+  intro.bowPt = new THREE.Vector3(0, 3.68, 4.3); // where the hero stands at the bow (the stand-in cog's forecastle)
+  loadModel(SHIP_MODEL(c.faction)).then((m) => {
+    if (intro === null || intro.ship !== ship) return;
+    const box = new THREE.Box3().setFromObject(m); const L = box.max.z - box.min.z; // (measured in her own frame, before she joins the moving ship)
+    ship.remove(stand); ship.add(m); intro.sails.length = 0; // (the real ship keeps her sails set)
+    // the hero at the bow, just aft of the stem, on whatever deck is there; the crew on the main deck
+    // (the deck is found by looking down from just above head height on deck, under the yards and the tops)
+    const bz = box.min.z + L * 0.66, by = surfaceY(m, 0, bz, 6.5) ?? 3; intro.bowPt.set(0, by, bz);
+    for (const s of intro.crew) ship.remove(s); intro.crew.length = 0; // (the simple sailors would look out of place on her)
+  }).catch(() => {});
   K3.introOn = true;
   p.sit = false; p.moving = false;
   intro.key = (e) => { e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat && (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')) finish(); };
@@ -151,10 +166,10 @@ function updateIntro(dt) {
   }
   // her wake and the spray at her bow while she has way on
   const fw = [Math.sin(n.yaw), Math.cos(n.yaw)], sd = [Math.cos(n.yaw), -Math.sin(n.yaw)];
-  if (way > 0.15 && Math.random() < dt * 16 * way) { const back = -6.5 + Math.random() * 1.5; fx.smoke.emit({ x: x + fw[0] * back + sd[0] * (Math.random() - 0.5) * 3, y: 0.12, z: z + fw[1] * back + sd[1] * (Math.random() - 0.5) * 3, vy: 0.03, life: 3.4, s0: 0.9, s1: 3.2, r: 0.93, g: 0.96, b: 0.99, a: 0.32 * way, kind: 2, drag: 0.6 }); }
-  if (way > 0.3 && Math.random() < dt * 12 * way) { const s = Math.random() < 0.5 ? 1 : -1; fx.smoke.emit({ x: x + fw[0] * 7 + sd[0] * s * 1.2, y: 0.3, z: z + fw[1] * 7 + sd[1] * s * 1.2, vx: sd[0] * s * 1.4 + fw[0] * 0.6, vy: 1.3 + Math.random(), vz: sd[1] * s * 1.4 + fw[1] * 0.6, grav: 7, life: 0.9, s0: 0.3, s1: 0.8, r: 0.95, g: 0.97, b: 1, a: 0.45, kind: 2, drag: 0.5 }); }
+  if (way > 0.15 && Math.random() < dt * 16 * way) { const back = -6.5 + Math.random() * 1.5; fx.smoke.emit({ x: x + fw[0] * back + sd[0] * (Math.random() - 0.5) * 3, y: 0.05, z: z + fw[1] * back + sd[1] * (Math.random() - 0.5) * 3, vy: 0.0, life: 2.6, s0: 0.5, s1: 1.8, r: 0.9, g: 0.94, b: 0.97, a: 0.12 * way, kind: 2, drag: 0.6 }); }
+  if (way > 0.3 && Math.random() < dt * 12 * way) { const s = Math.random() < 0.5 ? 1 : -1; fx.smoke.emit({ x: x + fw[0] * 9 + sd[0] * s * 1.6, y: 0.2, z: z + fw[1] * 9 + sd[1] * s * 1.6, vx: sd[0] * s * 1.2 + fw[0] * 0.4, vy: 0.6 + Math.random() * 0.6, vz: sd[1] * s * 1.2 + fw[1] * 0.4, grav: 6, life: 0.6, s0: 0.15, s1: 0.45, r: 0.95, g: 0.97, b: 1, a: 0.25, kind: 2, drag: 0.5 }); }
   // the hero stands at the bow, looking toward home
-  const bow = n.v3.set(0, 3.68, 4.3).applyMatrix4(n.ship.matrixWorld);
+  const bow = n.v3.copy(n.bowPt).applyMatrix4(n.ship.matrixWorld);
   p.x = bow.x / PX; p.y = bow.z / PX; p.introY = bow.y; p.moving = false;
   view.want = view.dist = 3; view.turning = true; view.yaw = n.yaw + Math.PI;
   K3.vmVisible = false;
@@ -170,7 +185,7 @@ function updateIntro(dt) {
       const ang = K3.lerp(0.35, Math.PI - 0.5, ease(u)), r = K3.lerp(6.5, 4.2, u);
       const cx = Math.cos(ang), cz = Math.sin(ang); // 0: straight ahead of the bow, PI: behind the hero
       o[0] = bx + fw[0] * r * cx + sd[0] * r * cz; o[1] = by + K3.lerp(1.0, 2.2, u); o[2] = bz + fw[1] * r * cx + sd[1] * r * cz;
-      const lk = K3.lerp(0, 60, K3.smooth(0.5, 0.95, u)); o[3] = bx + fw[0] * lk; // their face first, then out past them to the land o[4] = by + K3.lerp(1.3, 1.0, u); o[5] = bz + fw[1] * lk;
+      const lk = K3.lerp(0, 60, K3.smooth(0.5, 0.95, u)); o[3] = bx + fw[0] * lk; o[4] = by + K3.lerp(1.3, 1.0, u); o[5] = bz + fw[1] * lk; // their face first, then out past them to the land
     } else if (k === 2) { // the city and its harbour from on high, the camera wheeling round behind the ship as the sun climbs
       const ang = K3.lerp(-0.9, 0.5, u), r = K3.lerp(38, 54, u), h = K3.lerp(14, 34, ease(u));
       const ca = Math.cos(ang), sa = Math.sin(ang);

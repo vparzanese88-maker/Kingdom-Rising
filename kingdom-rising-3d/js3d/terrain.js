@@ -246,7 +246,7 @@ function waterGeom(cx, cy) {
     const ti = Math.min(geo.H - 1, y) * Wd + Math.min(geo.W - 1, x); const b = (D.REGIONS[W.region[ti]] || {}).biome; const tc = (DT && DT.has(ti) && TINTS.ditch) || TINTS[b] || TINTS.default; tint.push(tc[0], tc[1], tc[2]); vmap.set(k, i); return i; };
   for (let y = cy * CH; y < Math.min(geo.H, (cy + 1) * CH); y++) for (let x = cx * CH; x < Math.min(geo.W, (cx + 1) * CH); x++) {
     // any tile that touches water gets a quad (the land hides the edges)
-    let wet = false; for (let dy = -1; dy <= 1 && !wet; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= geo.H) continue; const c = geo.cls[yy * Wd + xx]; if (c === 2 || c === 3 || c === 6 || (c === 7 && (geo.cls[yy * Wd + xx] === 7))) { wet = c !== 7 || !isNaN(WL[yy * VW + xx]); if (wet) break; } }
+    let wet = false; for (let dy = -1; dy <= 1 && !wet; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= geo.H) continue; const c = geo.cls[yy * Wd + xx]; if (c === 2 || c === 3 || c === 6 || c === 8 || (c === 7 && (geo.cls[yy * Wd + xx] === 7))) { wet = c !== 7 || !isNaN(WL[yy * VW + xx]); if (wet) break; } }
     if (!wet) continue;
     if (isNaN(wlAt(x, y)) || isNaN(wlAt(x + 1, y)) || isNaN(wlAt(x, y + 1)) || isNaN(wlAt(x + 1, y + 1))) continue;
     const a = vert(x, y), b = vert(x + 1, y), c = vert(x, y + 1), d = vert(x + 1, y + 1);

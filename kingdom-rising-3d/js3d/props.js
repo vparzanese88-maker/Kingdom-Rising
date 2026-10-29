@@ -5,6 +5,7 @@ import { THREE, K3, TILE, TS, PX } from './core.js';
 import { geo, T } from './geo.js';
 import { MB, PRIM } from './mb.js';
 import { buildShip } from './ships.js';
+import { modelInto, SHIP_MODEL } from './models.js';
 import { outflowPipe, sewerExit } from './sewer3d.js';
 
 const KR = window.KR, D = KR.D, W = KR.W;
@@ -266,6 +267,15 @@ export function buildProps(mb, list, out) {
 export function makeAnimProp(a) {
   const mb = new MB();
   const o = new Put(mb, 0, 0, 0, 0, { flames: [], smokes: [], emitters: [] });
+  // the big ships in a harbour are real models (models.js): the kingdom's own ship at the arrival berth, merchantmen
+  // along the piers; the rowboats and longships keep the built ones
+  if (a.kind === 'boat' && (a.size === 'cog' || a.size === 'galleon')) {
+    const g = new THREE.Group(); g.userData.anim = a; g.position.set(a.x, a.y, a.z); g.rotation.y = a.ry || 0;
+    const stand = buildShip(a.size, a.v, { style: a.style }); g.add(stand);
+    const name = a.size === 'galleon' ? 'dutch_ship_large_01' : a.arrival ? SHIP_MODEL(a.style) : (a.v || 0) > 0.5 ? 'dutch_ship_large_01' : 'dutch_ship_medium';
+    modelInto(g, name, () => g.remove(stand));
+    return g;
+  }
   if (a.kind === 'boat' && a.size) { const g = buildShip(a.size, a.v, { style: a.style }); g.userData.anim = a; g.position.set(a.x, a.y, a.z); g.rotation.y = a.ry || 0; g.traverse((m) => { if (m.isMesh || m.isLineSegments) m.matrixAutoUpdate = false; }); return g; }
   if (a.kind === 'boat') {
     const hull = (z, w, h) => o.box('planks', 0, 0.35 + h / 2 - 0.4, z, w, h, 1.05, '#6a4424');

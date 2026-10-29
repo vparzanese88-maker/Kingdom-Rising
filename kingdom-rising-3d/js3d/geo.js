@@ -66,7 +66,7 @@ export function buildGeo() {
   Object.assign(geo, { ready: true, realm, W: Wd, H: Hd, VW, VH, dungeon: !!dgn, dtype: dgn ? dgn.type : null, dgnId: dgn ? dgn.id : null, tilesRef: tiles, version: (geo.version || 0) + 1 });
   const biomeOf = (i) => (D.REGIONS[region[i]] || {}).biome || 'grass';
   // ---- tile classes ----
-  // 0 land, 1 rock, 2 water, 3 deep, 4 lava, 5 wall, 6 bridge, 7 dock
+  // 0 land, 1 rock, 2 water, 3 deep, 4 lava, 5 wall, 6 bridge, 7 dock (8 once it is known to stand over water)
   const bmap = new Int16Array(N).fill(-1);
   W.buildings.forEach((b, k) => { for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) if (x >= 0 && y >= 0 && x < Wd && y < Hd) bmap[y * Wd + x] = k; });
   const cls = new Uint8Array(N);
@@ -83,7 +83,12 @@ export function buildGeo() {
   }
   // docks over water count as water for the ground below them
   geo.bmap = bmap; geo.cls = cls;
-  const isWet = (c) => c === 2 || c === 3 || c === 6;
+  // a dock built out over the water (a pier, a wharf: within two tiles of open water) is 8: the seabed and the sea run
+  // on under its planks instead of a strip of land
+  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const i = y * Wd + x; if (cls[i] !== 7) continue;
+    let near = false; for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) continue; const c = cls[yy * Wd + xx]; if (c === 2 || c === 3) { near = true; break; } }
+    if (near) cls[i] = 8; }
+  const isWet = (c) => c === 2 || c === 3 || c === 6 || c === 8;
   const tileAt = (x, y) => (x < 0 || y < 0 || x >= Wd || y >= Hd ? -1 : y * Wd + x);
   // helper: list the up-to-4 tiles touching vertex (vx, vy)
   const around = (vx, vy, fn) => { for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) { const i = tileAt(vx + dx, vy + dy); if (i >= 0) fn(i); } };
@@ -99,7 +104,7 @@ export function buildGeo() {
   const deck = new Float32Array(N).fill(NaN);
   for (let pass = 0; pass < 1; pass++) {
     for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) {
-      const i = y * Wd + x; if (cls[i] !== 6 && cls[i] !== 7) continue;
+      const i = y * Wd + x; if (cls[i] !== 6 && cls[i] !== 7 && cls[i] !== 8) continue;
       let wl = -1e9, land = -1e9; const vi = [y * VW + x, y * VW + x + 1, (y + 1) * VW + x, (y + 1) * VW + x + 1];
       for (const v of vi) { if (!isNaN(WL[v])) wl = Math.max(wl, WL[v]); land = Math.max(land, H[v]); }
       deck[i] = Math.max(wl > -1e8 ? wl + (cls[i] === 6 ? 1.15 : 0.75) : land + 0.3, land + 0.25);

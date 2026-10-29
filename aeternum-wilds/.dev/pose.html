@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>pose lab</title>
+<style>html,body{margin:0;background:#9cc4e4;overflow:hidden}</style>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three/build/three.module.min.js", "three/addons/": "../vendor/three/examples/jsm/" } }
+</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { G } from '../src/state.js';
+import { makeHumanoid, makeWeapon, dressHumanoid } from '../src/models.js';
+import { animHumanoid, flinch } from '../src/anim.js';
+import { initHumans } from '../src/gfx/human/body.js';
+const W = +(new URLSearchParams(location.search).get('w') || 520), H = +(new URLSearchParams(location.search).get('h') || 520);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xa8cce8);
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x5a4a32, 1.15));
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.1); sun.position.set(4, 8, 5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4 }); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x6a8a4a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 100);
+G.camera = camera; G.mode = 'lab'; G.scene = scene;
+window.THREE = THREE; window.G = G;
+let people = [];
+window.lab = {
+  async init() { await initHumans(); return true; },
+  clear() { for (const p of people) scene.remove(p.h.root); people = []; },
+  add(o, x = 0, z = 0, yaw = 0, gear = {}) {
+    const h = makeHumanoid(o); h.root.position.set(x, 0, z); h.root.rotation.y = yaw; scene.add(h.root);
+    if (gear.dress) dressHumanoid(h, gear.dress);
+    if (gear.wt) {
+      const wt = gear.wt; let wR = null, wL = null;
+      if (wt === 'bow') { wL = makeWeapon('bow', 1); wL.scale.setScalar(1.45 * 0.85); h.parts.handL.add(wL); }
+      else { wR = makeWeapon(wt, 1); wR.scale.setScalar(wt === 'staff' ? 1.1 : 1.45); h.parts.handR.add(wR);
+        if (wt === 'sword' && !gear.noShield) { wL = makeWeapon('shield', 1); wL.scale.setScalar(1.1); wL.position.set(0.07, -0.12, 0); wL.rotation.y = Math.PI / 2; (h.parts.foreL || h.parts.handL).add(wL); } }
+      h.wR = wR; h.wL = wL;
+    }
+    people.push({ h, gear }); return people.length - 1;
+  },
+  // run n frames of dt with state st (a function of frame index or an object)
+  run(i, st, n = 1, dt = 1 / 60) { const p = people[i]; for (let k = 0; k < n; k++) { const s = typeof st === 'function' ? st(k) : st; animHumanoid(p.h, { dt, wt: p.gear.wt, ...s }); } },
+  move(i, x, z, yaw) { const r = people[i].h.root; r.position.x = x; r.position.z = z; if (yaw != null) r.rotation.y = yaw; },
+  flinch(i, fx, fz, m) { flinch(people[i].h, fx, fz, m); },
+  cam(px, py, pz, tx, ty, tz, fov = 40) { camera.fov = fov; camera.updateProjectionMatrix(); camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz); },
+  render() { renderer.render(scene, camera); return true; },
+  info(i) { const h = people[i].h; return { human: !!h.rig, size: h.size, mats: h.mats.length, parts: Object.keys(h.parts) }; },
+  h(i) { return people[i].h; },
+  tip(i, len = 1.0) { const h = people[i].h; h.root.updateMatrixWorld(true); const w = h.wR || h.wL; if (!w) return null; const v = new THREE.Vector3(0, len, 0); w.localToWorld(v); const g = new THREE.Vector3(); w.getWorldPosition(g); return { tip: v.toArray().map(x => +x.toFixed(2)), grip: g.toArray().map(x => +x.toFixed(2)) }; },
+};
+window.labReady = true;
+</script></body></html>

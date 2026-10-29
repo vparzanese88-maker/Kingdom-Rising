@@ -17,10 +17,12 @@ import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
 import { buildLife, updateLife } from './life.js';
-import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js';
+import { U, initEnv } from './gfx/env/shared.js';
+import { initSky, updateSky as updateSkyGfx, SKY } from './gfx/env/sky.js';
+import { buildComposer, resizeComposer, updatePost, renderFrame } from './gfx/env/post.js';
+import { buildFires, updateFires } from './gfx/env/fire.js';
+import { mats as envMats } from './gfx/env/mats.js';
+import { sectorWeights } from './world.js';
 import { esc, clamp, lerp } from './util.js';
 
 const $ = id => document.getElementById(id);
@@ -30,12 +32,17 @@ const SET_KEY = 'aeternum-wilds-settings';
 const S = Object.assign({ sens: 1, fov: 70, quality: 'medium', volume: 0.6, invertY: false, autoFS: true, view: 'third' }, (() => { try { return JSON.parse(localStorage.getItem(SET_KEY)) || {}; } catch (e) { return {}; } })());
 if (S.v !== 2) { S.v = 2; S.view = 'third'; } // the game now plays over the shoulder by default
 // graphics levels; 'superultra' is a joke option that falls back to ultra
+// ratio: pixel ratio cap; shadows: sun shadow map size (0 none); shadowBox: half size of the shadowed area (m);
+// shadowEvery: redraw shadows every n frames; grass: density of the grass field; texSize: generated texture size;
+// msaa: multisampling (else FXAA); ao: ground-contact ambient occlusion; tree*: tree detail bands (m);
+// lights: real flickering point lights; detailMul: draw distance of small scenery; fogMul: haze density
+const ULTRA = { name: 'Ultra', ratio: 1.5, shadows: 4096, shadowBox: 64, shadowEvery: 1, shadowRadius: 2, grass: 1.4, seg: 400, view: 1.35, aa: true, post: true, texSize: 1024, msaa: 4, ao: true, bloom: true, bloomDiv: 2, treeShadow: 56, treeNear: 100, treeMid: 260, treeFar: 480, lights: 8, cloudOct: 6, waterSeg: 192, terrainLod: 0, detailMul: 1.35, fogMul: 0.9, aniso: 16, softShadows: true };
 export const QUALITY = {
-  low: { name: 'Low', ratio: 1, shadows: 0, grass: 0, seg: 220, view: 0.7, aa: false },
-  medium: { name: 'Medium', ratio: 1.25, shadows: 2048, grass: 12000, seg: 300, view: 1, aa: true },
-  high: { name: 'High', ratio: 1.5, shadows: 2048, grass: 20000, seg: 330, view: 1.15, aa: true },
-  ultra: { name: 'Ultra', ratio: 2, shadows: 4096, grass: 30000, seg: 400, view: 1.35, aa: true },
-  superultra: { name: 'Super Ultra', ratio: 2, shadows: 4096, grass: 30000, seg: 400, view: 1.35, aa: true },
+  low: { name: 'Low', ratio: 0.85, shadows: 0, shadowBox: 30, grass: 0, seg: 220, view: 0.7, aa: true, post: false, texSize: 256, msaa: 0, bloom: false, treeShadow: 0, treeNear: 0, treeMid: 70, treeFar: 210, lights: 2, cloudOct: 3, waterSeg: 64, terrainLod: 1, detailMul: 0.55, fogMul: 1.4, env: false, aniso: 2 },
+  medium: { name: 'Medium', ratio: 1, shadows: 1024, shadowBox: 32, shadowEvery: 2, grass: 0.6, seg: 300, view: 1, aa: true, post: true, texSize: 512, msaa: 0, bloom: true, bloomDiv: 4, treeShadow: 26, treeNear: 45, treeMid: 140, treeFar: 290, lights: 3, cloudOct: 4, waterSeg: 96, terrainLod: 0.3, detailMul: 0.8, fogMul: 1.1, aniso: 4 },
+  high: { name: 'High', ratio: 1.25, shadows: 2048, shadowBox: 46, shadowEvery: 1, grass: 1, seg: 330, view: 1.15, aa: true, post: true, texSize: 1024, msaa: 0, bloom: true, bloomDiv: 3, treeShadow: 40, treeNear: 70, treeMid: 200, treeFar: 380, lights: 5, cloudOct: 5, waterSeg: 128, terrainLod: 0, detailMul: 1, fogMul: 1, aniso: 8, softShadows: true },
+  ultra: ULTRA,
+  superultra: Object.assign({}, ULTRA, { name: 'Super Ultra' }),
 };
 if (!QUALITY[S.quality] || S.quality === 'superultra') S.quality = QUALITY[S.quality] ? 'ultra' : 'medium';
 G.settings = S;
@@ -48,43 +55,31 @@ setVolume(S.volume);
 setMusicVolume(S.music ?? 0.5);
 
 // ---------- Renderer ----------
-const renderer = new THREE.WebGLRenderer({ antialias: G.Q.aa, powerPreference: 'high-performance' });
+// Low draws straight to the screen (the browser's own antialiasing); the other levels render into a half-float
+// buffer and post-process it (gfx/env/post.js: bloom, filmic tone mapping, FXAA or MSAA, colour grade, GTAO on Ultra)
+const renderer = new THREE.WebGLRenderer({ antialias: G.Q.post === false, powerPreference: 'high-performance', stencil: false });
 renderer.setPixelRatio(Math.min(devicePixelRatio, G.Q.ratio));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = G.Q.shadows > 0;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = G.Q.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false; // redrawn when the sun's shadow box moves (gfx/env/sky.js)
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-// filmic tone mapping keeps bright fire and magic from clipping to flat white
+// filmic tone mapping keeps bright fire, magic and the sun from clipping to flat white
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
+renderer.toneMappingExposure = 1.0;
+renderer.info.autoReset = false; // whole-frame totals across every pass: G.frameInfo
 $('game').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-const fogCol = new THREE.Color(ZONES.town.fog);
-scene.fog = new THREE.Fog(fogCol, 70, 330);
-const camera = new THREE.PerspectiveCamera(S.fov, innerWidth / innerHeight, 0.08, 1300);
+const camera = new THREE.PerspectiveCamera(S.fov, innerWidth / innerHeight, 0.08, 2600);
 camera.rotation.order = 'YXZ';
 G.scene = scene; G.camera = camera; G.renderer = renderer;
 window.G = G; // handy for debugging from the console
-
-const hemi = new THREE.HemisphereLight(0xdfefff, 0x5a4a32, 1.15); scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff0d8, 2.1);
-sun.castShadow = true;
-const shadowSize = G.Q.shadows || 1024;
-sun.shadow.mapSize.set(shadowSize, shadowSize);
-Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 220 });
-sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05;
-scene.add(sun); scene.add(sun.target);
-G.light = { hemi: 1.15, sun: 2.1, sunColor: new THREE.Color(0xfff0d8) };
-
-// bloom: glow on flames, spells, eyes and lit windows (off on Low)
-let composer = null;
-if (S.quality !== 'low') {
-  composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), S.quality === 'medium' ? 0.42 : 0.55, 0.55, 0.8));
-  composer.addPass(new OutputPass());
-}
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer?.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+initEnv(renderer, scene, camera, G.Q);
+initSky();
+G.light = { hemi: 1.0, sun: 3.0, sunColor: new THREE.Color(0xfff0d8) };
+G.frameInfo = { calls: 0, tris: 0 };
+buildComposer();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); resizeComposer(); });
 
 // ---------- Weapon swing trails ----------
 const TRAIL_N = 14;
@@ -281,48 +276,23 @@ function updateAim() {
 }
 
 // ---------- Day and night ----------
-const DAY_LEN = 24 * 60; // seconds per full day
-const cSunDay = new THREE.Color(0xfff0d8), cSunSet = new THREE.Color(0xff9a50), cMoon = new THREE.Color(0x8aa8ff);
-const cTopDay = new THREE.Color(0x3d7fd0), cTopNight = new THREE.Color(0x0a1230), cHorDay = new THREE.Color(0xcfe4ee), cHorSet = new THREE.Color(0xf0a070), cHorNight = new THREE.Color(0x1a2440);
-const tmpC = new THREE.Color(), tmpC2 = new THREE.Color(), zoneFog = new THREE.Color();
+// dayT: 0.25 sunrise, 0.5 noon, 0.75 sunset, 0.95 deep night. A full day takes about 24 minutes, but the clock
+// runs slowly while the sun is up and quickly through the night, so most of the playing time is daylight.
+const DAY_LEN = 24 * 60;
+const dayRate = (t) => (t > 0.23 && t < 0.77 ? 0.62 : 2.6);
+const zoneW = {};
 function updateSky(dt, center) {
-  if (G.mode === 'game' && G.p) { G.p.dayT = ((G.p.dayT ?? 0.32) + dt / DAY_LEN) % 1; }
-  const dayT = G.mode === 'game' && G.p ? G.p.dayT : 0.36;
-  const ang = (dayT - 0.25) * Math.PI * 2; // 0.25 sunrise, 0.5 noon, 0.75 sunset
-  const sy = Math.sin(ang), sx = Math.cos(ang);
-  const day = clamp(sy * 3 + 0.3, 0, 1), set = clamp(1 - Math.abs(sy) * 4, 0, 1) * (sy > -0.25 ? 1 : 0);
-  const sunDir = new THREE.Vector3(sx, Math.max(0.12, Math.abs(sy)), 0.35).normalize();
-  const isSun = sy > -0.05;
-  // light
-  const sunCol = tmpC.copy(cMoon).lerp(cSunDay, day).lerp(cSunSet, set * 0.7);
-  G.light.sun = isSun ? lerp(0.5, 2.1, day) : 0.45;
-  G.light.hemi = lerp(0.42, 1.15, day);
-  G.light.sunColor.copy(sunCol);
-  sun.intensity = G.light.sun; sun.color.copy(sunCol);
-  hemi.intensity = G.light.hemi;
-  hemi.color.setHex(0xdfefff).lerp(cMoon, 1 - day);
-  const sd = isSun ? sunDir : new THREE.Vector3(-sx, Math.max(0.3, -sy), -0.3).normalize();
-  sun.position.set(center.x + sd.x * 90, center.y + sd.y * 90, center.z + sd.z * 90);
-  sun.target.position.copy(center);
-  // sky
-  if (G.sky) {
-    const u = G.sky.material.uniforms;
-    u.top.value.copy(cTopNight).lerp(cTopDay, day);
-    u.horizon.value.copy(cHorNight).lerp(cHorDay, day).lerp(cHorSet, set * 0.75);
-    u.sunDir.value.copy(sunDir).setY(sy);
-    u.sunCol.value.copy(isSun ? cSunDay : cMoon).lerp(cSunSet, set);
-    u.stars.value = 1 - day;
-    G.sky.position.copy(camera.position);
-  }
-  if (G.cloudMat) G.cloudMat.emissive.setRGB(0.55 * day + 0.05 + set * 0.2, 0.55 * day + 0.05 + set * 0.08, 0.58 * day + 0.08);
-  // fog = zone colour, darkened at night, warmed at sunset
-  const zn = G.player ? zoneAt(G.player.pos.x, G.player.pos.z) : 'meadow';
-  zoneFog.setHex(ZONES[zn].fog);
-  tmpC2.copy(cHorNight).lerp(zoneFog, day).lerp(cHorSet, set * 0.35);
-  fogCol.lerp(tmpC2, Math.min(1, dt * 1.5));
-  // torches at night
-  for (const t of G.torches || []) if (t.light) t.light.intensity = (1 - day) * 25;
-  G.night = 1 - day;
+  if (G.mode === 'game' && G.p) { G.p.dayT = ((G.p.dayT ?? 0.32) + dt / DAY_LEN * dayRate(G.p.dayT ?? 0.32)) % 1; }
+  const dayT = G.mode === 'game' && G.p ? G.p.dayT : 0.37;
+  const cp = camera.position;
+  Object.assign(zoneW, sectorWeights(cp.x, cp.z));
+  const s = updateSkyGfx(dt, dayT, cp, center, zoneW);
+  G.light.sun = SKY.sun.intensity; G.light.hemi = SKY.hemi.intensity; G.light.sunColor.copy(SKY.sun.color);
+  G.night = 1 - s.dayK;
+  const dark = Math.max(G.night, s.duskK * 0.4);
+  envMats.setNight(Math.max(0, Math.min(1, (dark - 0.2) / 0.5)));
+  updateFires(dt, performance.now() / 1000, cp, dark);
+  updatePost(performance.now() / 1000, G.night, zoneW);
 }
 
 // ---------- Save ----------
@@ -528,10 +498,16 @@ function enterGame(profile) {
 const clock = new THREE.Clock();
 let cullT = 0, saveT = 20, promptT = 0, aimT = 0, eyeBob = 0;
 const center = new THREE.Vector3();
+// G.renderHold pauses the loop and G.snap(frames, dt) steps it by hand and returns the picture (for tests:
+// software rendering is too slow to keep a live loop running while screenshots are taken)
+G.snap = (frames = 1, step = 0.1, type = 'image/png') => { for (let i = 0; i < frames; i++) frame(step, performance.now() / 1000); return type ? renderer.domElement.toDataURL(type) : null; };
 function loop() {
   requestAnimationFrame(loop);
-  const dt = Math.min(G.maxDt || 0.05, clock.getDelta());
-  const t = performance.now() / 1000;
+  const dt0 = clock.getDelta();
+  if (G.renderHold) return;
+  frame(Math.min(G.maxDt || 0.05, dt0), performance.now() / 1000);
+}
+function frame(dt, t) {
   const P = G.player;
   if (G.mode === 'game') {
     G.paused = !!G.ui.open || (!G.locked && P.state !== 'dead' && !G.noLockNeeded);
@@ -585,10 +561,6 @@ function loop() {
     center.set(P.pos.x, P.y, P.pos.z);
     updateSky(G.paused ? 0 : dt, center);
     updateWorld(dt, P.pos.x, P.pos.z, t);
-    const zn = zoneAt(P.pos.x, P.pos.z);
-    scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : 70) * G.Q.view;
-    scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : 330) * G.Q.view;
-    if (G.night > 0.5) scene.fog.far *= 0.8;
     updateHud(dt);
   } else {
     // home screen fly-over or character preview
@@ -601,26 +573,24 @@ function loop() {
       else { camera.position.set(px - 1.7, py + 1.5, pz + 5.2); camera.lookAt(px - 1.7, py + 1.0, pz); }
       center.set(px, py, pz);
     } else {
-      const a = t * 0.025;
-      camera.position.set(Math.cos(a) * 95, 42 + Math.sin(t * 0.1) * 6, Math.sin(a) * 95);
-      camera.lookAt(Math.cos(a + 0.9) * 20, 8, Math.sin(a + 0.9) * 20);
-      center.set(Math.cos(a) * 60, 3, Math.sin(a) * 60);
+      // home screen: a slow flight round the island, over the meadows, the town and the coast
+      const a = t * 0.022 + 0.6;
+      const r = 82 + Math.sin(t * 0.05) * 14;
+      camera.position.set(Math.cos(a) * r, 26 + Math.sin(t * 0.08) * 5, Math.sin(a) * r);
+      camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 12);
+      camera.lookAt(Math.cos(a + 1.05) * 30, 6, Math.sin(a + 1.05) * 30);
+      center.set(Math.cos(a + 0.5) * 55, 3, Math.sin(a + 0.5) * 55);
     }
     updateSky(dt, center);
     updateWorld(dt, center.x, center.z, t);
-    scene.fog.near = 90; scene.fog.far = 420;
   }
-  // ambience
-  if (G.flag) G.flag.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
-  if (G.flame) { G.flame.scale.set(1 + Math.sin(t * 13) * 0.12, 1 + Math.sin(t * 9) * 0.2, 1 + Math.cos(t * 11) * 0.12); }
-  for (const tr of G.torches || []) tr.flame.scale.set(1 + Math.sin(t * 12 + tr.flame.id) * 0.15, 1 + Math.sin(t * 9 + tr.flame.id) * 0.25, 1);
-  if (G.crystal) { G.crystal.rotation.y = t * 0.6; G.crystal.position.y = 3.4 + Math.sin(t * 1.5) * 0.3; }
-  if (G.water) G.water.position.y = -0.15 + Math.sin(t * 0.6) * 0.06;
-  scene.background = fogCol;
+  U.uTime.value = t;
   updateLife(dt, t, G.mode === 'game' && !G.paused);
   musicT -= dt; if (musicT <= 0) { musicT = 0.5; updateMusic(); }
   if (G.mode === 'game') updateTrail();
-  if (composer) composer.render(); else renderer.render(scene, camera);
+  renderer.info.reset();
+  renderFrame();
+  G.frameInfo.calls = renderer.info.render.calls; G.frameInfo.tris = renderer.info.render.triangles;
   if (G.mode === 'game' && camDist < 0.3) { vmCam.fov = 58; renderViewmodel(renderer, dt); }
 }
 
@@ -643,6 +613,7 @@ G.setMusicVolume = setMusicVolume;
 $('resume').onclick = () => G.relock();
 setTimeout(() => {
   buildWorld();
+  buildFires();
   buildLife();
   $('loading').style.display = 'none';
   title();

@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
+import { MB } from './gfx/env/mb.js';
+import { mats as envMats } from './gfx/env/mats.js';
+import { leafMat, plantMat, oreMat, rockShape, template as vegTemplate, oreNuggets } from './gfx/env/veg.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
 function prep(geo, m4) {
@@ -332,163 +335,68 @@ export function makeBeast(kind, o = {}) {
 }
 
 // ---------- Scenery ----------
-const trunkM = () => mat(0x5a4028);
-function blob(r, m, x, y, z, sy = 1, det = 1) {
-  const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, det), m);
-  c.position.set(x, y, z); c.scale.y = sy; c.castShadow = true;
-  return c;
+// Textured, built by the environment graphics (gfx/env/): the island itself places its scenery through
+// world.js, these return stand-alone groups of the same models for anything else that wants one.
+function sceneryGroup(parts) {
+  const g = new THREE.Group();
+  for (const [geo, m] of parts) { if (!geo) continue; const mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; mesh.receiveShadow = true; g.add(mesh); }
+  return g;
 }
 export function makeTree(kind = 'oak', scale = 1) {
-  const g = new THREE.Group();
-  if (kind === 'pine') {
-    const t = cyl(0.16, 0.3, 2.6, mat(0x4a3424), 7); t.position.y = 1.3; g.add(t);
-    const lm = mat(0x2f5a32), lm2 = mat(0x274d2b);
-    for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(1.9 - i * 0.34, 1.6, 8), i % 2 ? lm2 : lm); c.position.y = 2.0 + i * 0.85; c.rotation.y = i; c.castShadow = true; g.add(c); }
-  } else if (kind === 'dead') {
-    const bm = mat(0x3a2e26);
-    const t = cyl(0.14, 0.32, 3.4, bm, 6); t.position.y = 1.7; g.add(t);
-    for (const [x, y, z, rz, rx, l] of [[0.4, 2.6, 0, -0.8, 0, 1.4], [-0.35, 2.2, 0.1, 0.9, 0.2, 1.2], [0.1, 3.1, -0.3, 0.3, -0.7, 1.0], [-0.2, 3.3, 0.2, -0.4, 0.6, 0.8]]) { const b = cyl(0.05, 0.1, l, bm, 4); b.position.set(x, y, z); b.rotation.set(rx, 0, rz); g.add(b); }
-  } else if (kind === 'willow') {
-    const t = cyl(0.25, 0.45, 2.6, mat(0x4a3a2a), 7); t.position.y = 1.3; g.add(t);
-    const lm = mat(0x56703a), lm2 = mat(0x4a6232);
-    g.add(blob(1.8, lm, 0, 3.0, 0, 0.75));
-    g.add(blob(1.1, lm2, 0.9, 3.3, 0.4, 0.7));
-    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; g.add(box(0.22, 1.9, 0.22, i % 2 ? lm : lm2, Math.cos(a) * 1.5, 2.0, Math.sin(a) * 1.5)); }
-  } else if (kind === 'wyrd') {
-    const t = cyl(0.22, 0.42, 3, mat(0x3a2440), 6); t.position.y = 1.5; g.add(t);
-    const lm = mat(0x8a3a6a, false, { emissive: 0x2a0a20 });
-    for (let i = 0; i < 4; i++) g.add(blob(1.1 - i * 0.15, lm, (i - 1.5) * 0.6, 3.2 + (i % 2) * 0.6, (i % 2) * 0.4, 0.9));
-  } else {
-    const t = cyl(0.2, 0.36, 2.2, trunkM(), 7); t.position.y = 1.1; g.add(t);
-    const b1 = cyl(0.08, 0.14, 1.2, trunkM(), 5); b1.position.set(0.45, 2.1, 0.1); b1.rotation.z = -0.8; g.add(b1);
-    const b2 = cyl(0.07, 0.12, 1.1, trunkM(), 5); b2.position.set(-0.4, 2.2, -0.1); b2.rotation.z = 0.8; g.add(b2);
-    const aged = kind === 'aged';
-    const lm = mat(aged ? 0x4a6a2e : 0x4f8a3a), lm2 = mat(aged ? 0x3e5c26 : 0x5f9a44), lm3 = mat(aged ? 0x56783a : 0x467e34);
-    g.add(blob(1.45, lm, 0, 3.1, 0, 0.85));
-    g.add(blob(1.0, lm2, 0.95, 2.7, 0.3, 0.85));
-    g.add(blob(1.0, lm3, -0.85, 2.8, -0.35, 0.85));
-    g.add(blob(0.85, lm2, 0.1, 3.8, 0.5, 0.85));
-    if (aged) g.add(blob(1.1, lm, -0.5, 3.6, 0.6, 0.85));
-  }
-  g.scale.setScalar(scale);
+  const k = { oak: 'oak', aged: 'aged', pine: 'pine', dead: 'dead', willow: 'willow', wyrd: 'wyrd', birch: 'birch', palm: 'palm', charred: 'charred' }[kind] || 'oak';
+  const t = vegTemplate(k, 0, 0);
+  const g = sceneryGroup([[t.trunk, envMats.get(t.trunkKey)], [t.leaves, t.leaves ? leafMat(t.leafKind) : null]]);
+  g.scale.setScalar(scale * 0.62);
   return g;
 }
-export function makeFern() {
-  const g = new THREE.Group();
-  const m = mat(0x3f7a34), m2 = mat(0x356a2c);
-  for (let i = 0; i < 7; i++) {
-    const a = i / 7 * Math.PI * 2;
-    const f = box(0.14, 0.03, 0.9, i % 2 ? m : m2, Math.sin(a) * 0.38, 0.28, Math.cos(a) * 0.38);
-    f.rotation.set(-0.5, a, 0); g.add(f);
-  }
-  return g;
-}
+export function makeFern() { const mb = new MB(); mb.add('paint', crossCard(1.4, 1.05), new THREE.Matrix4(), '#ffffff', 'local'); const g = mb.build({ matFor: () => plantMat('fern') }); return g; }
 export function makeShroom() {
-  const g = new THREE.Group();
-  g.add(box(0.06, 0.18, 0.06, mat(0xe8e0c8), 0, 0.09, 0));
-  const c = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.1, 7), mat(0xb83a2a)); c.position.y = 0.2; g.add(c);
-  g.add(box(0.05, 0.12, 0.05, mat(0xe8e0c8), 0.15, 0.06, 0.05));
-  const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.07, 7), mat(0xa8742a)); c2.position.set(0.15, 0.14, 0.05); g.add(c2);
-  return g;
+  const mb = new MB();
+  mb.cylB('paint', 0, 0, 0, 0.03, 0.18, '#ece4d0', 8); mb.sph('paint', 0, 0.2, 0, 0.28, 0.14, 0.28, '#c03a26', 0, 8);
+  mb.cylB('paint', 0.15, 0, 0.05, 0.025, 0.12, '#ece4d0', 8); mb.sph('paint', 0.15, 0.13, 0.05, 0.18, 0.09, 0.18, '#b8743a', 0, 8);
+  return mb.build();
 }
 export function makeBarrel() {
-  const g = new THREE.Group();
-  const b = cyl(0.38, 0.34, 1.0, mat(0x7a5232), 10); b.position.y = 0.5; g.add(b);
-  for (const y of [0.15, 0.85]) { const r = cyl(0.4, 0.4, 0.06, mat(0x3a3a3a), 10); r.position.y = y; g.add(r); }
-  return mergeStatic(g);
+  const mb = new MB();
+  mb.cylB('planks', 0, 0, 0, 0.38, 1.0, '#7a5232', 12, 0.34); for (const t of [0.14, 0.86]) mb.cyl('metalv', 0, t, 0, 0.4, 0.05, '#3a3a3a', 12);
+  return mb.build();
 }
 export function makeCrate(s = 0.9) {
-  const g = new THREE.Group();
-  g.add(box(s, s, s, mat(0x8a6a42), 0, s / 2, 0));
-  for (const y of [0.06, s - 0.06]) for (const z of [-s / 2, s / 2]) g.add(box(s + 0.02, 0.1, 0.04, mat(0x5a4028), 0, y, z));
-  return mergeStatic(g);
+  const mb = new MB();
+  mb.boxB('planks', 0, 0, 0, s, s, s, '#9a7448'); for (const v of [0.06, s - 0.06]) for (const z of [-s / 2, s / 2]) mb.box('timber', 0, v, z, s + 0.04, 0.09, 0.05, '#5a4028');
+  return mb.build();
 }
 export function makeTorch() {
-  const g = new THREE.Group();
-  g.add(box(0.14, 2.4, 0.14, mat(0x4a3220), 0, 1.2, 0));
-  g.add(box(0.26, 0.22, 0.26, mat(0x2a2a2a), 0, 2.45, 0));
+  const mb = new MB();
+  mb.boxB('timber', 0, 0, 0, 0.14, 2.4, 0.14, '#4a3220'); mb.box('metalv', 0, 2.45, 0, 0.26, 0.22, 0.26, '#2a2a2a');
+  const g = mb.build();
   const f = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 }));
   f.position.y = 2.75; f.userData.keep = true; g.add(f); g.userData.flame = f;
-  return mergeStatic(g);
+  return g;
 }
 export function makeFence(len = 4) {
-  const g = new THREE.Group();
-  const m = mat(0x7a5a38);
-  for (let x = 0; x <= len; x += 2) g.add(box(0.14, 1.1, 0.14, m, x - len / 2, 0.55, 0));
-  g.add(box(len, 0.1, 0.08, m, 0, 0.8, 0));
-  g.add(box(len, 0.1, 0.08, m, 0, 0.4, 0));
-  return mergeStatic(g);
+  const mb = new MB();
+  for (let x = 0; x <= len; x += 2) mb.boxB('timber', x - len / 2, -0.1, 0, 0.13, 1.2, 0.13, '#7a5a38');
+  for (const v of [0.4, 0.8]) mb.box('timber', 0, v, 0, len, 0.09, 0.06, '#8a6a42');
+  return mb.build();
 }
-
 export function makeRock(kind = 'iron', scale = 1) {
-  const g = new THREE.Group();
-  const rm = mat(kind === 'plain' ? 0x8a8478 : 0x77736a);
-  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rm);
-  r.scale.set(1.2, 0.8, 1); r.position.y = 0.5; r.castShadow = true; r.receiveShadow = true;
-  g.add(r);
-  const vc = { iron: 0xb07a5a, starmetal: 0x7ac0ff, orichalcum: 0xffa830 }[kind];
-  if (vc) {
-    const vm = mat(vc, false, { emissive: kind === 'iron' ? 0x000000 : vc, emissiveIntensity: 0.35 });
-    for (let i = 0; i < 5; i++) {
-      const a = i * 1.3;
-      const v = box(0.24, 0.24, 0.24, vm, Math.cos(a) * 0.9, 0.5 + Math.sin(i * 2.1) * 0.3, Math.sin(a) * 0.75);
-      v.rotation.set(i, i * 2, 0);
-      g.add(v);
-    }
-  }
-  g.scale.setScalar(scale);
+  const parts = [[rockShape(0, 2), envMats.get('rock')]];
+  if (kind === 'iron' || kind === 'starmetal' || kind === 'orichalcum') parts.push([oreNuggets(kind), oreMat(kind)]);
+  const g = sceneryGroup(parts); g.scale.setScalar(scale);
   return g;
 }
-
-export function makePlant(kind = 'hemp') {
-  const g = new THREE.Group();
-  const lm = mat(kind === 'silkweed' ? 0x9ab0c8 : 0x6ab04a);
-  for (let i = 0; i < 6; i++) {
-    const a = i / 6 * Math.PI * 2;
-    const st = box(0.06, 0.9, 0.06, lm, Math.cos(a) * 0.2, 0.45, Math.sin(a) * 0.2);
-    st.rotation.set(Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3);
-    g.add(st);
-  }
-  const fm = mat(kind === 'silkweed' ? 0xf0f4ff : 0xd8e070);
-  for (let i = 0; i < 3; i++) g.add(box(0.16, 0.16, 0.16, fm, Math.cos(i * 2) * 0.25, 0.95, Math.sin(i * 2) * 0.25));
-  return g;
-}
-
+export function makePlant(kind = 'hemp') { const mb = new MB(); mb.add('paint', crossCard(1.2, 1.5), new THREE.Matrix4(), '#ffffff', 'local'); return mb.build({ matFor: () => plantMat(kind === 'silkweed' ? 'silkweed' : 'hemp') }); }
+function crossCard(w, h) { const g = new THREE.PlaneGeometry(w, h); g.translate(0, h / 2, 0); const g2 = g.clone(); g2.rotateY(Math.PI / 2); const out = mergeGeometries([g, g2]); return out; }
 export function makeHouse(w = 6, d = 5, color = 0x8a6a48, roof = 0x7a3a28) {
-  const g = new THREE.Group();
-  const stone = mat(0x7a756c), beam = mat(0x4a3220), glass = mat(0xf0d090, false, { emissive: 0x5a4010 });
-  g.add(box(w + 0.3, 0.6, d + 0.3, stone, 0, 0.3, 0));
-  const wall = box(w, 2.8, d, mat(color), 0, 2.0, 0); wall.receiveShadow = true; g.add(wall);
-  for (const x of [-w / 2, w / 2]) for (const z of [-d / 2, d / 2]) g.add(box(0.3, 2.9, 0.3, beam, x, 2.05, z));
-  g.add(box(w + 0.1, 0.25, 0.3, beam, 0, 3.35, d / 2)); g.add(box(w + 0.1, 0.25, 0.3, beam, 0, 3.35, -d / 2));
-  g.add(box(w + 0.1, 0.2, 0.25, beam, 0, 1.6, d / 2 + 0.02));
-  // gable roof from two slabs
-  const span = d / 2 + 0.6, pitch = 0.62, len = span / Math.cos(pitch);
-  const rm = mat(roof), rm2 = mat(new THREE.Color(roof).multiplyScalar(0.8).getHex());
-  for (const sd of [1, -1]) {
-    const slab = box(w + 0.8, 0.18, len, sd > 0 ? rm : rm2, 0, 3.45 + Math.sin(pitch) * len / 2, sd * Math.cos(pitch) * len / 2);
-    slab.rotation.x = sd * pitch; g.add(slab);
-    for (let i = 1; i < 4; i++) { const st = box(w + 0.82, 0.05, 0.08, rm2, 0, 3.45 + Math.sin(pitch) * len * i / 4 + 0.1, sd * Math.cos(pitch) * len * i / 4); st.rotation.x = sd * pitch; g.add(st); }
-  }
-  // gable ends
-  const tri = new THREE.Shape(); tri.moveTo(-d / 2, 0); tri.lineTo(d / 2, 0); tri.lineTo(0, Math.tan(pitch) * d / 2); tri.lineTo(-d / 2, 0);
-  const tg = new THREE.ShapeGeometry(tri);
-  for (const sx of [1, -1]) { const m = new THREE.Mesh(tg, mat(color)); m.material.side = THREE.DoubleSide; m.rotation.y = Math.PI / 2; m.position.set(sx * w / 2, 3.4, 0); g.add(m); }
-  g.add(box(0.7, 2.0, 0.7, stone, w / 2 - 0.9, 4.6, -0.6));
-  g.add(box(1.0, 1.9, 0.12, mat(0x3a2414), 0, 1.55, d / 2 + 0.06));
-  g.add(box(0.1, 0.1, 0.06, mat(0xc8a040), 0.35, 1.5, d / 2 + 0.14));
-  for (const x of [w / 4 + 0.3, -w / 4 - 0.3]) {
-    if (Math.abs(x) < 0.9) continue;
-    g.add(box(0.8, 0.7, 0.1, glass, x, 2.1, d / 2 + 0.05));
-    g.add(box(0.9, 0.1, 0.16, beam, x, 1.7, d / 2 + 0.08));
-    g.add(box(0.06, 0.7, 0.12, beam, x, 2.1, d / 2 + 0.1));
-    g.add(box(0.3, 0.75, 0.06, mat(0x3a5a3a), x - 0.58, 2.1, d / 2 + 0.08));
-    g.add(box(0.3, 0.75, 0.06, mat(0x3a5a3a), x + 0.58, 2.1, d / 2 + 0.08));
-  }
-  for (const z of [-d / 4, d / 4]) for (const sx of [1, -1]) g.add(box(0.1, 0.7, 0.8, glass, sx * (w / 2 + 0.05), 2.1, z));
-  return mergeStatic(g);
+  const mb = new MB();
+  mb.box('fieldstone', 0, 0.1, 0, w + 0.24, 1.0, d + 0.24, '#b0a898');
+  mb.box('plaster', 0, 1.95, 0, w, 2.8, d, '#efe4cc');
+  for (const x of [-w / 2, w / 2]) for (const z of [-d / 2, d / 2]) mb.boxB('timber', x, 0.55, z, 0.2, 2.85, 0.2, '#5a3c26');
+  for (const sd of [1, -1]) mb.box('rooftile', 0, 3.4 + (d / 4) * 0.7, sd * d / 4, w + 0.8, 0.16, d / 2 / Math.cos(0.62) + 0.6, new THREE.Color(roof), 0, sd * 0.62, 0);
+  mb.box('planks', 0, 1.6, d / 2 + 0.04, 1.0, 1.9, 0.08, '#7a4a2a');
+  return mb.build();
 }
-
 export function makeFlag(color = 0x2a5a9a) {
   const g = new THREE.Group();
   const pole = cyl(0.08, 0.1, 7, mat(0x5a4028), 6); pole.position.y = 3.5; g.add(pole);

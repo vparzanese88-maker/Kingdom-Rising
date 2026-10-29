@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { G } from './state.js';
 import { ENEMIES, ATTACKS, killXp, MATS } from './data.js';
 import { makeHumanoid, makeBeast, makeWeapon } from './models.js';
@@ -10,6 +11,11 @@ import { randomDrop, addItem, addMat } from './items.js';
 import { toast, lootToast, bossBar, floatText } from './ui.js';
 import { questEvent } from './quests.js';
 import { hurtPet, setPetDamageHook } from './pets.js';
+import { killFx } from './combatfx.js';
+import { tintModel, prewarmCreatures } from './gfx/creatures/index.js';
+import { dressHumanoid, updateAccessories } from './gfx/creatures/accessories.js';
+// which animal each beast enemy is
+const BEAST_KIND = { wolf: 'wolf', direwolf: 'direwolf', mirehound: 'mirehound', boar: 'boar' };
 
 // who an enemy is fighting: a summoned pet that hit it, or the player
 function targetOf(e) {
@@ -38,9 +44,14 @@ export function enemiesNear(x, z, r) {
 
 export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
   const def = ENEMIES[type];
+  // beasts get their own animal (wolf, dire wolf, mire hound, boar); the undead and corrupted are humans with
+  // their look laid over the top (skulls, ribs, helms, horns, hoods, coats: gfx/creatures/accessories.js)
   const model = def.model === 'humanoid'
-    ? makeHumanoid({ skin: def.skin, shirt: def.shirt, pants: def.pants, eyes: def.eyes, size: def.size, hunched: def.hunched, hat: def.hat, horns: def.horns })
-    : makeBeast(type === 'boar' ? 'boar' : 'wolf', { color: def.color, size: def.size, eyes: def.eyes });
+    ? makeHumanoid({ skin: def.skin, shirt: def.shirt, pants: def.pants, eyes: def.eyes, size: def.size, hunched: def.hunched, hat: def.hat && type !== 'grimsby', horns: def.horns && type !== 'warden' })
+    : makeBeast(BEAST_KIND[type] || def.model, { color: def.color, size: def.size, eyes: def.eyes });
+  // a pivot between the root and the body: the flinches, lunges and wind-ups lean the whole figure on it
+  const pivot = new THREE.Group(); model.root.remove(model.body); pivot.add(model.body); model.root.add(pivot);
+  if (def.model === 'humanoid') dressHumanoid(model, type);
   if (def.weapon) {
     const w = makeWeapon(def.weapon);
     if (def.weapon === 'bow') model.parts.handL.add(w); else model.parts.handR.add(w);
@@ -48,7 +59,7 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
   G.scene.add(model.root);
   const hpMult = 1 + 0.22 * (lv - 1), dmgMult = 1 + 0.2 * (lv - 1);
   const e = {
-    type, def, lv, camp, slot, model, root: model.root,
+    type, def, lv, camp, slot, model, root: model.root, pivot,
     pos: { x, z }, y: heightAt(x, z), home: { x, z }, facing: Math.random() * 6.28,
     radius: 0.5 * def.size * (def.model === 'humanoid' ? 1 : 1.1), size: def.size,
     hp: Math.round(def.hp * hpMult), maxHp: Math.round(def.hp * hpMult), dmg: def.dmg * dmgMult,
@@ -57,6 +68,7 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
     wander: null, wanderT: rand(1, 5), strafe: Math.random() < 0.5 ? 1 : -1, adds: [],
   };
   for (const a of def.attacks) e.cds[a] = G.time + rand(0.5, 2);
+  e._hp = e.hp;
   G.enemies.push(e);
   return e;
 }
@@ -88,6 +100,8 @@ export function knockEnemy(e, dx, dz, force) {
 export function killEnemy(e) {
   if (e.dead) return;
   e.dead = true; e.deadT = 0; e.state = 'dead';
+  startDeath(e);
+  try { killFx(e); } catch (err) { console.warn(err); }
   if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); for (const t of e.atk.tels || []) removeTelegraph(t); e.atk = null; }
   const P = G.player, p = G.p;
   // rewards
@@ -117,11 +131,32 @@ export function killEnemy(e) {
   if (e.camp) { e.slot.ent = null; e.slot.respawnAt = G.time + (e.def.boss ? 150 : 50 + rand(0, 20)); }
   if (G.boss === e) setTimeout(() => { if (G.boss === e) { G.boss = null; bossBar(null); } }, 1500);
   // skinnable corpse
-  if (e.def.skin) G.corpses.push({ kind: 'corpse', ent: e, x: e.pos.x, z: e.pos.z, thick: !!e.def.thick, skinned: false, until: G.time + 40, name: e.def.name });
-  else e.removeAt = G.time + 4;
+  if (e.def.skin) G.corpses.push(e.corpse = { kind: 'corpse', ent: e, x: e.pos.x, z: e.pos.z, thick: !!e.def.thick, skinned: false, until: G.time + 40, name: e.def.name });
+  else e.removeAt = G.time + 6;
   sfx('enemy_die', 0.7);
 }
-function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 2; if (e.atk?.tel) removeTelegraph(e.atk.tel); }
+function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 3.5; startDeath(e); if (e.atk?.tel) removeTelegraph(e.atk.tel); }
+
+// ---------- how enemies take blows and die ----------
+// a blow is noticed by the health it took: the body flinches away from the attacker, is pushed back a little
+// (more for bigger hits, not at all for bosses), and staggers on a heavy hit; the pose holds through hit-stop
+function noticeHits(e) {
+  if (e._hp == null) e._hp = e.hp;
+  const lost = e._hp - e.hp; e._hp = e.hp;
+  if (lost <= 0) return;
+  const frac = lost / e.maxHp;
+  const pt = e.petTarget; const src = pt && !pt.dead && Math.hypot(pt.pos.x - e.pos.x, pt.pos.z - e.pos.z) < Math.hypot(G.player.pos.x - e.pos.x, G.player.pos.z - e.pos.z) ? pt.pos : G.player.pos;
+  let dx = e.pos.x - src.x, dz = e.pos.z - src.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+  const mag = Math.min(0.35, frac * (e.def.boss ? 2 : 1) + 0.03);
+  e.hurt = { t: 0, dx, dz, mag };
+  if (!e.def.boss && !e.knock && frac > 0.02) { const push = Math.min(5, 1.2 + frac * 22); e.knock = { vx: dx * push, vz: dz * push, t: 0.12 }; }
+  if (!e.def.boss && frac > 0.18 && (e.state === 'chase' || e.state === 'idle')) e.staggerT = 0.35;
+}
+function startDeath(e) {
+  // thrown in the direction of the last blow, with a slide that bleeds away
+  const h = e.hurt; const dx = h ? h.dx : e.pos.x - G.player.pos.x, dz = h ? h.dz : e.pos.z - G.player.pos.z; const l = Math.hypot(dx, dz) || 1;
+  e.death = { dx: dx / l, dz: dz / l, v: e.def.boss ? 0.6 : 1.6 + Math.min(3, (h ? h.mag : 0.1) * 10), face: e.model.beast ? null : Math.atan2(-dx, -dz), hurt: h ? { ...h } : { t: 0, dx: dx / l, dz: dz / l, mag: 0.3 } };
+}
 
 function dropGear(lv, bonus, minR) {
   const it = randomDrop(lv, bonus, minR);
@@ -277,11 +312,24 @@ export function updateEnemies(dt) {
     const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, d = Math.hypot(dx, dz);
     if (e.dead) {
       e.deadT += dt;
+      const D = e.death;
+      if (D && D.v > 0.01) { // the body's momentum carries it on a little
+        const nx = e.pos.x + D.dx * D.v * dt, nz = e.pos.z + D.dz * D.v * dt;
+        if (walkable(nx, nz)) [e.pos.x, e.pos.z] = collide(nx, nz, e.radius * 0.5);
+        D.v *= Math.exp(-dt * 4.5);
+        if (e.corpse) { e.corpse.x = e.pos.x; e.corpse.z = e.pos.z; }
+      }
+      if (D && D.face != null) e.facing += angDiff(e.facing, D.face) * Math.min(1, dt * 14);
       animate(e, 'dead', e.deadT);
-      if (e.deadT > 1.5 && e.removeAt) e.root.position.y -= dt * 0.8;
+      // after a while the body sinks into the ground and is gone
+      const sinkAt = e.removeAt ? e.removeAt - 2 : e.corpse ? e.corpse.until - 1.6 : Infinity;
+      if (G.time > sinkAt) e.root.position.y -= dt * 0.8 * Math.max(1, e.size);
       if (e.removeAt && G.time > e.removeAt) removeEnemy(e);
       continue;
     }
+    noticeHits(e);
+    if (e.hurt) e.hurt.t += dt;
+    if (e.staggerT > 0) e.staggerT -= dt;
     if (e.removeIfFar && d > 90) { removeEnemy(e); continue; }
     if (d > UPDATE_R && !e.aggro) { e.root.visible = d < 100; continue; }
     e.root.visible = true;
@@ -398,6 +446,7 @@ export function updateEnemies(dt) {
       }
     }
     if (e.rootUntil > G.time && e.state !== 'return') { mvx = 0; mvz = 0; }
+    if (e.staggerT > 0 && e.state !== 'return') { mvx = 0; mvz = 0; }
     if (mvx || mvz) {
       // separation
       for (const o of G.enemies) {
@@ -419,25 +468,75 @@ export function updateEnemies(dt) {
   }
 }
 
+const _col = new THREE.Color();
 function animate(e, pose, t) {
   e.y = heightAt(e.pos.x, e.pos.z);
   if (!e.dead || e.deadT < 1.5) e.root.position.set(e.pos.x, Math.max(e.y, -0.6), e.pos.z);
   e.root.rotation.y = e.facing;
   const two = e.def.weapon === 'club' || e.def.weapon === 'greatsword';
-  if (e.model.beast) animBeast(e.model, { move: e.move, phase: e.phase, pose, t });
-  else {
+  const A = e.atk ? ATTACKS[e.atk.id] : null;
+  const hurt = e.dead ? e.death?.hurt : e.hurt && e.hurt.t < 0.6 ? e.hurt : null;
+  if (e.model.beast) {
+    let bp = pose; if (!bp && hurt && hurt.t < 0.3) bp = 'hit';
+    animBeast(e.model, { move: e.move, phase: e.phase, pose: bp, t: bp === 'hit' ? hurt.t / 0.3 : t, hurt, charge: e.state === 'charging', alert: e.aggro });
+  } else {
     let hp = pose;
     if (pose === 'strike') hp = 'slash';
     if (pose === 'windup' && (e.def.weapon === 'bow')) hp = 'aim';
-    if (pose === 'windup' && !e.def.weapon && e.atk && ATTACKS[e.atk.id].kind === 'proj') hp = 'cast';
-    if (pose === 'windup' && e.atk && (ATTACKS[e.atk.id].kind === 'summon' || (ATTACKS[e.atk.id].kind === 'aoe' && ATTACKS[e.atk.id].at === 'target'))) hp = 'cast';
-    animHumanoid(e.model, { move: e.move, phase: e.phase, pose: hp, t, twoHand: two });
+    if (pose === 'windup' && !e.def.weapon && A && A.kind === 'proj') hp = 'cast';
+    if (pose === 'windup' && A && (A.kind === 'summon' || (A.kind === 'aoe' && A.at === 'target'))) hp = 'cast';
+    let ht = t;
+    if (pose === 'windup' && A && A.kind === 'aoe' && A.at === 'self') { hp = 'slam'; ht = Math.min(0.5, t * 0.5); } // raised overhead, held until it lands
+    if (!pose && hurt && hurt.t < 0.3) { hp = 'hit'; ht = hurt.t / 0.3; }
+    animHumanoid(e.model, { move: e.move, phase: e.phase, pose: hp, t: ht, twoHand: two });
+    leanHumanoid(e, pose, t, A, hurt);
   }
-  const f = e.hitFlash > 0 ? 0x552222 : e.freezeUntil > G.time ? 0x2a4a6a : e.st?.some(s => s.type === 'burn') ? 0x3a1400 : e.state === 'windup' ? 0x301000 : 0;
-  for (const m of e.model.mats) m.emissive.setHex(f);
+  updateAccessories(e.model, G.time, { move: e.move, wind: pose === 'windup' ? t : 0, dead: e.dead, deadT: e.deadT });
+  // the glow: a hit flash, frost, burning, or a wind-up that brightens until the blow lands (bosses flare in the
+  // colour of the attack, flickering faster as it comes)
+  let f = 0;
+  if (e.hitFlash > 0) f = 0x662a22;
+  else if (e.freezeUntil > G.time) f = 0x2a4a6a;
+  else if (e.st?.some(s => s.type === 'burn')) f = 0x3a1400;
+  else if (e.state === 'windup') {
+    const k = Math.min(1, t) * (0.65 + 0.35 * Math.sin(G.time * (10 + t * 20)));
+    _col.setHex(e.def.boss ? (A?.color ?? 0xff3a1a) : 0xff4a10).multiplyScalar(e.def.boss ? 0.45 * k : 0.2 * k);
+    f = _col.getHex();
+  }
+  tintModel(e.model, f);
+}
+// humanoids lean on their pivot: away from a blow, back into a wind-up, forward into the strike; bosses make
+// their big moves read from far off (the Warden rises before a slam and crouches before a charge)
+function leanHumanoid(e, pose, t, A, hurt) {
+  const pv = e.pivot; if (!pv) return;
+  pv.position.set(0, 0, 0); pv.rotation.set(0, 0, 0);
+  if (e.dead) return;
+  const s = e.size;
+  if (pose === 'windup') {
+    const w = Math.min(1, t); const k = w * w * (3 - 2 * w);
+    if (A?.kind === 'charge') { pv.rotation.x = 0.28 * k; pv.position.y = -0.12 * k * s; pv.position.z = -0.15 * k * s; }
+    else if (A?.kind === 'aoe' && A.at === 'self') { pv.position.y = 0.18 * k * s; pv.rotation.x = -0.12 * k; }
+    else if (A?.kind === 'summon' || A?.kind === 'aoe') { pv.rotation.x = -0.14 * k; pv.position.y = 0.03 * k * s * Math.sin(G.time * 18); }
+    else if (A?.kind === 'proj') { pv.rotation.x = -0.05 * k; }
+    else { pv.rotation.x = -0.12 * k; pv.position.z = -0.12 * k * s; pv.position.y = -0.05 * k * s; pv.rotation.y = 0.15 * k; }
+    if (e.def.boss) pv.position.x = Math.sin(G.time * 40) * 0.015 * k * s; // trembling with the effort
+  } else if (pose === 'strike') {
+    const l = Math.sin(Math.min(1, t) * Math.PI);
+    pv.position.z = l * 0.4 * s; pv.rotation.x = l * 0.16; pv.rotation.y = -0.15 * l;
+    if (e.state === 'charging') { pv.rotation.x = 0.3; pv.position.z = 0; }
+  }
+  if (hurt) {
+    const h = hurt; const k = Math.sin(Math.min(1, h.t / 0.05) * Math.PI * 0.5) * Math.exp(-Math.max(0, h.t - 0.05) * 7) * Math.min(1.5, 0.5 + h.mag * 7) * (e.def.boss ? 0.5 : 1);
+    const yaw = e.facing, cy = Math.cos(yaw), sy = Math.sin(yaw); const fx = h.dx * cy - h.dz * sy, fz = h.dx * sy + h.dz * cy;
+    pv.rotation.x += fz * 0.22 * k; pv.rotation.z -= fx * 0.22 * k; pv.position.x += fx * 0.08 * k * s; pv.position.z += fz * 0.08 * k * s;
+  }
+  if (e.staggerT > 0) { const k = Math.sin(Math.min(1, e.staggerT / 0.35) * Math.PI); pv.position.y -= 0.06 * k * s; }
 }
 
 export function clearEnemies() {
   for (const e of [...G.enemies]) removeEnemy(e);
   for (const c of G.camps) { c.active = false; for (const s of c.slots) s.ent = null; }
 }
+
+// build the beast bodies ahead of time, so the first wolf of the day does not stall the game
+setTimeout(() => prewarmCreatures([["wolf", ENEMIES.wolf.color], ["boar", ENEMIES.boar.color], ["direwolf", ENEMIES.direwolf.color], ["mirehound", ENEMIES.mirehound.color]]), 1500);

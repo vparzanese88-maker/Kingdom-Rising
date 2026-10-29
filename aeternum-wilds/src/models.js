@@ -283,52 +283,13 @@ export function dressHumanoid(h, look) {
 }
 
 // ---------- Quadrupeds ----------
+import { makeCreature } from './gfx/creatures/index.js';
+// Animals and monsters come from gfx/creatures: smooth skinned bodies with fur, real anatomy and gaits.
+// kind: wolf, direwolf, mirehound, spiritwolf, boar, bear, deer, rabbit, spider, raven, golem, treant,
+// earth_elemental, ghost, fire_elemental, water_elemental, air_elemental. o: { color, size, eyes }.
+// Returns { root, body, mats, parts:{ torso, head, tail, legs:[4] }, size, beast:true }.
 export function makeBeast(kind, o = {}) {
-  const root = new THREE.Group();
-  const body = new THREE.Group(); root.add(body);
-  const s = o.size || 1;
-  body.scale.setScalar(s);
-  const fur = mat(o.color ?? 0x7b7468, true), dark = mat(0x2a2420, true);
-  const mats = [fur, dark];
-  const eyeM = mat(o.eyes ?? 0xffd040, false, { emissive: o.eyes ?? 0x403000 });
-  const torso = new THREE.Group(); torso.position.y = kind === 'boar' ? 0.62 : 0.72; body.add(torso);
-  if (kind === 'boar') {
-    torso.add(box(0.7, 0.62, 1.15, fur, 0, 0, 0));
-    torso.add(box(0.2, 0.2, 0.9, dark, 0, 0.36, -0.05));
-  } else {
-    torso.add(box(0.48, 0.5, 1.15, fur, 0, 0, 0));
-    torso.add(box(0.56, 0.56, 0.5, fur, 0, 0.04, 0.3));
-  }
-  const head = new THREE.Group(); head.position.set(0, kind === 'boar' ? 0.0 : 0.22, kind === 'boar' ? 0.68 : 0.72); torso.add(head);
-  if (kind === 'boar') {
-    head.add(box(0.52, 0.48, 0.5, fur, 0, 0, 0.1));
-    head.add(box(0.3, 0.26, 0.2, mat(0xc89080, true), 0, -0.08, 0.42));
-    head.add(box(0.06, 0.2, 0.06, mat(0xf0e8d0), 0.2, 0.0, 0.38));
-    head.add(box(0.06, 0.2, 0.06, mat(0xf0e8d0), -0.2, 0.0, 0.38));
-    head.add(box(0.07, 0.07, 0.02, eyeM, 0.16, 0.1, 0.36));
-    head.add(box(0.07, 0.07, 0.02, eyeM, -0.16, 0.1, 0.36));
-  } else {
-    head.add(box(0.4, 0.38, 0.44, fur, 0, 0, 0.1));
-    head.add(box(0.24, 0.2, 0.32, fur, 0, -0.08, 0.42));
-    head.add(box(0.1, 0.08, 0.06, dark, 0, -0.02, 0.6));
-    head.add(box(0.1, 0.18, 0.08, fur, 0.13, 0.26, 0.0));
-    head.add(box(0.1, 0.18, 0.08, fur, -0.13, 0.26, 0.0));
-    head.add(box(0.07, 0.06, 0.02, eyeM, 0.11, 0.06, 0.33));
-    head.add(box(0.07, 0.06, 0.02, eyeM, -0.11, 0.06, 0.33));
-  }
-  const tail = new THREE.Group(); tail.position.set(0, 0.12, -0.58); torso.add(tail);
-  tail.add(box(0.12, 0.12, kind === 'boar' ? 0.2 : 0.55, fur, 0, 0, -0.25));
-  tail.rotation.x = kind === 'boar' ? 0 : 0.5;
-  const legs = [];
-  const lh = kind === 'boar' ? 0.42 : 0.55;
-  for (const [x, z] of [[0.18, 0.4], [-0.18, 0.4], [0.18, -0.42], [-0.18, -0.42]]) {
-    const l = new THREE.Group(); l.position.set(x, -0.15, z); torso.add(l);
-    l.add(box(0.14, lh, 0.16, fur, 0, -lh / 2, 0));
-    l.add(box(0.15, 0.08, 0.18, dark, 0, -lh, 0.02));
-    legs.push(l);
-  }
-  for (const g of [torso, head, tail, ...legs]) mergeDirect(g);
-  return { root, body, mats, parts: { torso, head, tail, legs }, size: s, beast: true };
+  return makeCreature(kind, o);
 }
 
 // ---------- Scenery ----------

@@ -105,15 +105,8 @@ function updateBirds(dt, t) {
 }
 
 // ---------- wildlife: deer and rabbits that graze and bolt from the player ----------
-function makeRabbit() {
-  const g = new THREE.Group();
-  const m = mat(0xb8a890), w = mat(0xf0ece0);
-  g.add(box(0.25, 0.22, 0.38, m, 0, 0.16, 0));
-  g.add(box(0.18, 0.18, 0.18, m, 0, 0.3, 0.2));
-  g.add(box(0.05, 0.2, 0.04, m, 0.05, 0.48, 0.18)); g.add(box(0.05, 0.2, 0.04, m, -0.05, 0.48, 0.18));
-  g.add(box(0.1, 0.1, 0.1, w, 0, 0.2, -0.22));
-  return { root: g, body: g, rabbit: true };
-}
+// deer and rabbits are real animals now (gfx/creatures): rabbits bound, deer graze and flag their tails when they bolt
+function makeRabbit() { return makeBeast('rabbit', { color: [0xa89478, 0x8a7a64, 0xb8a890][Math.floor(R() * 3)] }); }
 function makeCritters() {
   let n = 0, tries = 0;
   while (n < 40 && tries < 2000) {
@@ -123,8 +116,7 @@ function makeCritters() {
     const zn = zoneAt(x, z);
     if (zn === 'ruins' || zn === 'mire' || heightAt(x, z) < 0.8) continue;
     const deer = R() < 0.45;
-    const m = deer ? makeBeast('wolf', { color: 0x9a6a3a, size: 1.25, eyes: 0x1a1a1a }) : makeRabbit();
-    if (deer) { const ant = mat(0x6a5038); for (const s of [1, -1]) { const p = box(0.05, 0.45, 0.05, ant, s * 0.12, 0.45, 0); p.rotation.z = -s * 0.4; m.parts.head.add(p); const q = box(0.04, 0.2, 0.04, ant, s * 0.2, 0.55, 0.05); q.rotation.z = -s * 1.1; m.parts.head.add(q); } m.parts.tail.scale.set(1, 1, 0.3); }
+    const m = deer ? makeBeast('deer', { color: [0x9a6a3a, 0x8a5a32, 0xa87442][Math.floor(R() * 3)] }) : makeRabbit();
     G.scene.add(m.root);
     critters.push({ m, x, z, hx: x, hz: z, f: R() * 6.28, ph: 0, sp: 0, flee: 0, deer, wait: R() * 4, tx: x, tz: z });
     n++;
@@ -154,10 +146,9 @@ function updateCritters(dt) {
       c.f += angDiff(c.f, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
       c.ph += dt * speed * 2;
     }
-    const hop = c.m.rabbit && speed > 0 ? Math.abs(Math.sin(c.ph * 1.5)) * 0.25 : 0;
-    c.m.root.position.set(c.x, heightAt(c.x, c.z) + hop, c.z);
+    c.m.root.position.set(c.x, heightAt(c.x, c.z), c.z);
     c.m.root.rotation.y = c.f;
-    if (!c.m.rabbit) animBeast(c.m, { move: speed ? Math.min(1, speed / 3) : 0, phase: c.ph, pose: speed === 0 && Math.sin(c.wait * 2) > 0.6 ? 'windup' : null, t: 0.4 });
+    if (pd < 90) animBeast(c.m, { move: speed ? Math.min(1, speed / 3) : 0, phase: c.ph, pose: null, alert: c.flee > 0 || pd < 22 });
   }
 }
 

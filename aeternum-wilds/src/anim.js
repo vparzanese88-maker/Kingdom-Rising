@@ -118,18 +118,9 @@ export function animHumanoid(h, st) {
   }
 }
 
+import { animCreature } from './gfx/creatures/index.js';
+// Beasts are posed by gfx/creatures (gaits by speed, idles, telegraphed attacks, flinches, deaths).
+// st: { move, phase, pose: 'windup'|'strike'|'stun'|'dead'|'hit'|null, t, hurt?: {t, dx, dz, mag}, charge?, alert? }
 export function animBeast(b, st) {
-  const P = b.parts;
-  const mv = st.move || 0, ph = st.phase || 0;
-  P.legs.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.8 * mv; });
-  P.torso.rotation.set(0, 0, 0);
-  P.torso.position.z = 0;
-  P.head.rotation.set(0, 0, 0);
-  P.tail.rotation.y = Math.sin(ph * 0.7) * 0.4;
-  b.body.rotation.set(0, 0, 0);
-  const t = st.t || 0;
-  if (st.pose === 'windup') { P.torso.rotation.x = 0.15 * Math.min(1, t * 2); P.torso.position.z = -0.2 * Math.min(1, t * 2); P.head.rotation.x = -0.3; }
-  else if (st.pose === 'strike') { P.torso.position.z = Math.sin(t * Math.PI) * 0.6; P.head.rotation.x = Math.sin(t * Math.PI) * 0.5; }
-  else if (st.pose === 'stun') { P.head.rotation.z = Math.sin(ph * 3) * 0.3; }
-  else if (st.pose === 'dead') { b.body.rotation.z = Math.PI / 2 * Math.min(1, t * 2); }
+  animCreature(b, st);
 }

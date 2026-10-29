@@ -2542,4 +2542,25 @@
     if (ff) for (const sq of War.squads) if (sq.f === ff && !sq.hunt && !sq.startedAt) sq.startedAt = G.now;
     return r;
   };
+  // a column that has not passed a waypoint in 20 s, with nobody fighting, steps its head on (and after 40 s its leader
+  // squeezes past whatever holds it), so an ordered army never stands in its own streets for good
+  const sqTick0 = War.squadTick;
+  War.squadTick = function (dt) {
+    const out = sqTick0.apply(this, arguments);
+    try {
+      for (const sq of War.squads) {
+        if (!sq.path || sq.arrived) continue;
+        const live = (sq.order || sq.members).filter((m) => !m.dead && !m.removed && m.warState === 'march');
+        if (!live.length || live.some((m) => m.inCombat)) { sq._hiT = 0; continue; }
+        if (sq.hi !== sq._hiLast) { sq._hiLast = sq.hi; sq._hiT = 0; continue; }
+        sq._hiT = (sq._hiT || 0) + dt;
+        if (sq._hiT > 20) {
+          const lead = live[0]; const i = Math.min(sq.hi, sq.path.length - 1); const tx = sq.path[i][0] * D.TS + 16, ty = sq.path[i][1] * D.TS + 16; const d = Math.hypot(tx - lead.x, ty - lead.y);
+          if (sq._hiT > 40 && d > 4) { const st = Math.min(d, 90 * dt); lead.x += (tx - lead.x) / d * st; lead.y += (ty - lead.y) / d * st; }
+          if (d < 60) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); sq._hiLast = sq.hi; sq._hiT = 20; }
+        }
+      }
+    } catch (e) {}
+    return out;
+  };
 })();

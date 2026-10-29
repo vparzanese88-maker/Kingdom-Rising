@@ -170,7 +170,7 @@ function updateIntro(dt) {
       const ang = K3.lerp(0.35, Math.PI - 0.5, ease(u)), r = K3.lerp(6.5, 4.2, u);
       const cx = Math.cos(ang), cz = Math.sin(ang); // 0: straight ahead of the bow, PI: behind the hero
       o[0] = bx + fw[0] * r * cx + sd[0] * r * cz; o[1] = by + K3.lerp(1.0, 2.2, u); o[2] = bz + fw[1] * r * cx + sd[1] * r * cz;
-      const lk = K3.lerp(0, 60, K3.smooth(0.5, 0.95, u)); o[3] = bx + fw[0] * lk; // their face first, then out past them to the land o[4] = by + K3.lerp(1.3, 1.0, u); o[5] = bz + fw[1] * lk;
+      const lk = K3.lerp(0, 60, K3.smooth(0.5, 0.95, u)); o[3] = bx + fw[0] * lk; o[4] = by + K3.lerp(1.3, 1.0, u); o[5] = bz + fw[1] * lk; // their face first, then out past them to the land
     } else if (k === 2) { // the city and its harbour from on high, the camera wheeling round behind the ship as the sun climbs
       const ang = K3.lerp(-0.9, 0.5, u), r = K3.lerp(38, 54, u), h = K3.lerp(14, 34, ease(u));
       const ca = Math.cos(ang), sa = Math.sin(ang);

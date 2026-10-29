@@ -17,10 +17,10 @@ import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
 import { buildLife, updateLife } from './life.js';
-import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { esc, clamp, lerp } from './util.js';
 
 const $ = id => document.getElementById(id);

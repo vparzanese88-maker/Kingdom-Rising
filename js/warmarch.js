@@ -2572,13 +2572,30 @@
       for (const sq of War.squads) {
         if (!sq.path || sq.arrived) continue;
         const live = (sq.order || sq.members).filter((m) => !m.dead && !m.removed && m.warState === 'march');
-        if (!live.length || live.some((m) => m.inCombat)) { sq._hiT = 0; continue; }
-        if (sq.hi !== sq._hiLast) { sq._hiLast = sq.hi; sq._hiT = 0; continue; }
+        if (sq.hi !== sq._hiLast) { sq._hiLast = sq.hi; sq._hiT = 0; sq._cbT = 0; continue; }
+        if (live.length && live.some((m) => m.inCombat)) {
+          // a fight that pins the column for long is a phantom (a foe out of reach, a ship offshore): drop it and march on
+          sq._hiT = 0; sq._cbT = (sq._cbT || 0) + dt;
+          if (sq._cbT > 45) for (const m of live) { const t = G.topHate(m); if (sq._cbT > 120 || !t || t.dead || t.removed || t.ship || Math.hypot(t.x - m.x, t.y - m.y) > 500) { m.hate.clear(); m.inCombat = false; m.want = null; m.target = null; } }
+          if (sq._cbT > 120) sq._cbT = 0;
+          continue;
+        }
+        sq._cbT = 0; if (!live.length) { sq._hiT = 0; continue; }
         sq._hiT = (sq._hiT || 0) + dt;
         if (sq._hiT > 20) {
           const lead = live[0]; const i = Math.min(sq.hi, sq.path.length - 1); const tx = sq.path[i][0] * D.TS + 16, ty = sq.path[i][1] * D.TS + 16; const d = Math.hypot(tx - lead.x, ty - lead.y);
           if (d < 60 || sq._hiT > 40) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); sq._hiLast = sq.hi; sq._hiT = 20; }
         }
+      }
+      // anyone on the way home who has not moved in 30 s is wedged somewhere: count them back in the barracks,
+      // or the stale war party would bar every new order to march
+      for (const sq of War.squads.slice()) for (const m of sq.members.slice()) {
+        if (m.dead || m.removed || m.ship || m.warState !== 'home') { if (m) m._hsT = 0; continue; }
+        if (!m._hsAt || Math.hypot(m.x - m._hsAt.x, m.y - m._hsAt.y) > 24) { m._hsAt = { x: m.x, y: m.y }; m._hsT = 0; continue; }
+        m._hsT = (m._hsT || 0) + dt; if (m._hsT < 30) continue;
+        if (m.fieldGun) { sq.members = sq.members.filter((x) => x !== m); if (sq.guns) sq.guns = sq.guns.filter((x) => x !== m); if (!sq.members.length) War.squads = War.squads.filter((s) => s !== sq); m.squad = null; m.warState = 'parked'; m.fp = null; }
+        else if (m.ram || m.nonCombat || !m.hiredId) War.removeRaider(m);
+        else War.returnHome(m);
       }
     } catch (e) {}
     return out;

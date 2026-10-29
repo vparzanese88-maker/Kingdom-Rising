@@ -4,7 +4,7 @@ import { G } from './state.js';
 import { heightAt, zoneAt, walkable, collide } from './world.js';
 import { makeHumanoid, makeBeast, box, mat } from './models.js';
 import { animHumanoid, animBeast } from './anim.js';
-import { angDiff } from './util.js';
+import { angDiff, clamp } from './util.js';
 
 let birds = [], critters = [], villagers = [], motes = null, smokeSrc = [], smoke = [];
 const R = Math.random;
@@ -164,38 +164,69 @@ function updateCritters(dt) {
 // ---------- villagers walking between spots in Windsward ----------
 const SPOTS = [[0, 12], [10, 4], [-8, 6], [12, -10], [-12, -10], [-12, 12], [14, 16], [0, -18], [20, 0], [-20, -2], [6, 26], [-6, -28], [0, 30]];
 function makeVillagers() {
-  const shirts = [0x6a3a2a, 0x2a4a6a, 0x5a6a3a, 0x7a6a4a, 0x8a2a3a, 0x4a3a5a];
+  const shirts = [0x6a3a2a, 0x2a4a6a, 0x5a6a3a, 0x7a6a4a, 0x8a2a3a, 0x4a3a5a, 0x3a5a5a, 0x7a5a2a, 0x5a2a4a];
+  const skins = [0xf1c9a5, 0xe0ac84, 0xc68b5e, 0x8d5a3b, 0xf6dcc4, 0x6e432a];
+  const hairs = [0x2a1a10, 0x5a3a1e, 0xa8743a, 0x9a9a9a, 0x1a1210, 0xd8b878, 0x7a4a26, 0xe8e8e8];
   for (let i = 0; i < 9; i++) {
     const fem = i % 2 === 1;
-    const h = makeHumanoid({ sex: fem ? 'f' : 'm', skin: [0xf1c9a5, 0xe0ac84, 0xc68b5e, 0x8d5a3b][i % 4], shirt: shirts[i % shirts.length], pants: 0x3a3022, hair: [0x2a1a10, 0x5a3a1e, 0xa8743a, 0x9a9a9a][i % 4], hairStyle: fem ? 5 + (i % 2) : i % 3, facialHair: fem ? 0 : i % 5 });
+    const h = makeHumanoid({
+      sex: fem ? 'f' : 'm', skin: skins[(i * 5) % skins.length], shirt: shirts[i % shirts.length], pants: [0x3a3022, 0x4a3a2a, 0x2e3440][i % 3], boots: 0x3a2a1c,
+      hair: hairs[(i * 3) % hairs.length], hairStyle: fem ? [5, 6, 4, 1][i % 4] : [0, 1, 0, 3, 7][i % 5], facialHair: fem ? 0 : [4, 1, 2, 5, 3][i % 5],
+      armor: fem ? 'dress' : i % 4 === 2 ? 'coat' : 'tunic', seed: 'villager' + i, build: [1, 1.15, 0.9, 1.25, 1][i % 5], height: [1, 0.95, 1.05, 0.92, 1.08][i % 5],
+    });
     const [x, z] = SPOTS[i];
     G.scene.add(h.root);
-    villagers.push({ h, x, z, f: 0, ph: 0, wait: R() * 5, tgt: SPOTS[(i + 3) % SPOTS.length] });
+    villagers.push({ h, x, z, f: R() * 6.28, ph: 0, spd: 0, maxSpd: 1.25 + R() * 0.55, turn: 0, wait: R() * 5, tgt: SPOTS[(i + 3) % SPOTS.length] });
   }
 }
+const _look = { x: 0, y: 0, z: 0 };
 function updateVillagers(dt) {
   const P = G.player;
+  _look.x = P.pos.x; _look.y = P.y + 1.6; _look.z = P.pos.z;
   for (const v of villagers) {
-    let moving = false;
     const pd = Math.hypot(v.x - P.pos.x, v.z - P.pos.z);
     v.h.root.visible = pd < 90;
+    let want = 0, face = null;
     if (v.wait > 0) v.wait -= dt;
     else {
       const dx = v.tgt[0] - v.x, dz = v.tgt[1] - v.z, d = Math.hypot(dx, dz);
-      if (d < 0.6) { v.wait = 3 + R() * 8; v.tgt = SPOTS[Math.floor(R() * SPOTS.length)]; }
+      if (d < 0.6 && v.spd < 0.3) { v.wait = 3 + R() * 8; v.tgt = SPOTS[Math.floor(R() * SPOTS.length)]; }
       else {
-        const nx = v.x + dx / d * 1.7 * dt, nz = v.z + dz / d * 1.7 * dt;
-        [v.x, v.z] = collide(nx, nz, 0.4);
-        if (Math.hypot(v.x - nx, v.z - nz) > 0.05) v.tgt = SPOTS[Math.floor(R() * SPOTS.length)];
-        v.f += angDiff(v.f, Math.atan2(dx, dz)) * Math.min(1, dt * 6);
-        v.ph += dt * 1.7 * 1.6; moving = true;
+        // ease into a walk and slow down on arrival; turn at a walker's pace, slowing to turn sharply
+        face = Math.atan2(dx, dz);
+        const turnBy = Math.abs(angDiff(v.f, face));
+        want = Math.min(v.maxSpd, d * 0.9) * (turnBy > 1.2 ? 0.25 : 1);
       }
     }
-    // turn to look at the player when standing close by
-    if (!moving && pd < 5) v.f += angDiff(v.f, Math.atan2(P.pos.x - v.x, P.pos.z - v.z)) * Math.min(1, dt * 3);
+    // someone close by: they stop for a moment and turn to you
+    if (pd < 4.5 && v.wait <= 0 && R() < dt * 0.5) v.wait = 2 + R() * 3;
+    if (pd < 5 && want === 0) face = Math.atan2(P.pos.x - v.x, P.pos.z - v.z);
+    v.spd += Math.max(-dt * 2.2, Math.min(dt * 1.6, want - v.spd));
+    if (face != null) { const want2 = clamp(angDiff(v.f, face) * 4, -2.6, 2.6); v.turn += (want2 - v.turn) * Math.min(1, dt * 6); }
+    else v.turn *= Math.max(0, 1 - dt * 6);
+    v.f += v.turn * dt;
+    if (v.spd > 0.01) {
+      const nx = v.x + Math.sin(v.f) * v.spd * dt, nz = v.z + Math.cos(v.f) * v.spd * dt;
+      [v.x, v.z] = collide(nx, nz, 0.4);
+      if (Math.hypot(v.x - nx, v.z - nz) > 0.05) { v.tgt = SPOTS[Math.floor(R() * SPOTS.length)]; v.spd *= 0.5; }
+      v.ph += dt * v.spd * 1.6;
+    }
     v.h.root.position.set(v.x, heightAt(v.x, v.z), v.z);
     v.h.root.rotation.y = v.f;
-    animHumanoid(v.h, { move: moving ? 0.6 : 0, phase: v.ph, pose: null });
+    animHumanoid(v.h, { move: Math.min(1, v.spd / 1.7), phase: v.ph, pose: null, lookAt: pd < 7 ? _look : null });
+  }
+  // the people of the outpost (Captain Thorne, Ilsa...) stand at their posts: they breathe, shift, look round, and
+  // turn their heads to you when you come near
+  for (const n of G.npcs) {
+    if (!n.h) continue;
+    const pd = Math.hypot(n.x - P.pos.x, n.z - P.pos.z);
+    if (pd > 90) continue;
+    if (n.home == null) n.home = n.h.root.rotation.y;
+    // close by they turn their whole body toward you, slowly; otherwise back to their post
+    const face = pd < 4 ? Math.atan2(P.pos.x - n.x, P.pos.z - n.z) : n.home;
+    n.turn = (n.turn || 0) + (clamp(angDiff(n.h.root.rotation.y, face) * 2.5, -1.6, 1.6) - (n.turn || 0)) * Math.min(1, dt * 4);
+    if (Math.abs(angDiff(n.h.root.rotation.y, face)) > 0.35 || pd >= 4) n.h.root.rotation.y += n.turn * dt;
+    animHumanoid(n.h, { move: 0, phase: 0, pose: null, ready: 0.15, lookAt: pd < 9 ? _look : null });
   }
 }
 

@@ -3,7 +3,8 @@ import { G } from './state.js';
 import { WEAPONS, ABILITIES, MATS, NODES, LOADS } from './data.js';
 import { CLASSES } from './classes.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
-import { animHumanoid } from './anim.js';
+import { animHumanoid, flinch } from './anim.js';
+import { swingFx, swingPeakFx, hitFx, blockFx, hurtFx, dodgeFx } from './combatfx.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later } from './fx.js';
 import { stats, activeWeapon, activeWType, gainXp, gainMastery, gainTrade } from './stats.js';
@@ -43,35 +44,40 @@ export function makeCharacter(p) {
     sex: L.sex || 'm', skin: L.skin ?? 0xe0ac84, hair: L.hair ?? 0x5a3a1e, hairStyle: L.hairStyle ?? 0, eyeColor: L.eyeColor,
     facialHair: L.facialHair ?? (L.beard ? 4 : 0), paint: L.paint ?? null, scar: !!L.scar,
     shirt: 0x7a6a52, pants: 0x4a3e30, height: L.height || 1, build: L.weight || 1, muscle: L.muscle || 1,
-    face: L,
+    face: L, ...(p.gearKinds ? { armor: p.gearKinds.chest, legs: p.gearKinds.legs, feet: p.gearKinds.feet, gloves: p.gearKinds.hands, tier: p.gearKinds.tier } : { armor: 'tunic' }),
   });
 }
 
-// clothes colour by armor weight and tier
-const ARMOR_COLS = { light: [0x9a9270, 0x4a5a8a, 0x9a3a2a], medium: [0x6a4a2a, 0x5a4030, 0x3e4a32], heavy: [0x8a8a90, 0x8aa2b8, 0xc89a48] };
-const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 'medium'][it.tier - 1]).multiplyScalar(k).getHex() : none;
-const WEAPON_SCALE = 1.45; // New World style oversized weapons
-export function refreshLook() {
-  const P = G.player, e = G.p.equip, h = P.h;
-  dressHumanoid(h, {
-    chest: tierColor(e.chest, 1, 0x7a6a52),
-    legs: tierColor(e.legs, 0.75, 0x4a3e30),
-    feet: tierColor(e.feet, 0.55, 0x2a2018),
-    helm: e.head ? tierColor(e.head, 1) : null,
-    helmTier: e.head ? ({ light: 1, medium: 1, heavy: 2 }[e.head.wclass || 'medium'] + (e.head.tier === 3 ? 1 : 0)) : 0,
-    trim: e.hands ? tierColor(e.hands, 0.85) : (CLASSES[G.p.cls]?.color ?? 0x5a4a38),
-  });
-  // weapons
-  for (const k of ['wR', 'wL', 'wBack']) if (P[k]) { P[k].parent?.remove(P[k]); P[k] = null; }
-  const w = activeWeapon(), other = G.p.activeW === 0 ? e.w2 : e.w1;
+// what the gear looks like on the body: light cloth, medium leather, heavy plate (see makeHumanoid)
+const KIND = { chest: { light: 'coat', medium: 'leather', heavy: 'plate' }, legs: { light: 'cloth', medium: 'leather', heavy: 'plate' }, feet: { light: 'shoes', medium: 'boots', heavy: 'plate' }, hands: { light: 'gloves', medium: 'gloves', heavy: 'gauntlets' } };
+export function gearKinds(equip) {
+  const k = (slot, none) => { const it = equip[slot]; return it ? KIND[slot][it.wclass || 'medium'] : none; };
+  return { chest: k('chest', 'tunic'), legs: k('legs', 'cloth'), feet: k('feet', 'boots'), hands: k('hands', 'none'), tier: equip.chest?.tier || 1 };
+}
+export function helmStyle(it) {
+  if (!it) return null;
+  const wc = it.wclass || 'medium';
+  if (wc === 'heavy') return ['nasal', 'sallet', 'great'][Math.min(2, (it.tier || 1) - 1)];
+  if (wc === 'medium') return (it.tier || 1) >= 2 ? 'coif' : 'cap';
+  return 'cap';
+}
+// where weapons go on the body
+export const WEAPON_SCALE = 1.45; // New World style oversized weapons
+export function mountWeapons(h, w, other) {
+  const out = { wR: null, wL: null, wBack: null };
   if (w) {
-    if (w.wtype === 'bow') { P.wL = makeWeapon('bow', w.tier); P.wL.scale.setScalar(WEAPON_SCALE * 0.85); h.parts.handL.add(P.wL); }
+    if (w.wtype === 'bow') { out.wL = makeWeapon('bow', w.tier); out.wL.scale.setScalar(WEAPON_SCALE * 0.85); h.parts.handL.add(out.wL); }
     else {
-      P.wR = makeWeapon(w.wtype, w.tier); P.wR.scale.setScalar(w.wtype === 'staff' ? 1.1 : WEAPON_SCALE); h.parts.handR.add(P.wR);
-      if (w.wtype === 'sword') { P.wL = makeWeapon('shield', w.tier); P.wL.scale.setScalar(1.25); P.wL.position.set(0.14, 0.05, 0.15); P.wL.rotation.y = Math.PI / 2; h.parts.handL.add(P.wL); }
+      out.wR = makeWeapon(w.wtype, w.tier); out.wR.scale.setScalar(w.wtype === 'staff' ? 1.1 : WEAPON_SCALE); h.parts.handR.add(out.wR);
+      if (w.wtype === 'sword') {
+        out.wL = makeWeapon('shield', w.tier); out.wL.scale.setScalar(h.rig ? 1.0 : 1.25);
+        // strapped to the outside of the left forearm (real bodies), or held in the hand (simple figures)
+        if (h.rig) { out.wL.position.set(0.075, -0.13, 0.0); out.wL.rotation.set(0, Math.PI / 2, 0); h.parts.foreL.add(out.wL); }
+        else { out.wL.position.set(0.14, 0.05, 0.15); out.wL.rotation.y = Math.PI / 2; h.parts.handL.add(out.wL); }
+      }
     }
   }
-  // the weapon not in use is slung diagonally across the back
+  // the weapon not in use is slung across the back
   if (other) {
     const back = new THREE.Group();
     const bw = makeWeapon(other.wtype, other.tier);
@@ -81,12 +87,33 @@ export function refreshLook() {
     else if (other.wtype === 'sword') { bw.rotation.z = Math.PI; bw.position.set(0, 0.45, 0); } // hilt up over the shoulder
     else bw.position.set(0, -0.75, 0); // axe or hammer head up
     back.add(bw);
-    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sh.scale.setScalar(1.2); sh.position.set(0, 0.0, -0.06); back.add(sh); }
+    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sh.scale.setScalar(h.rig ? 1.0 : 1.2); sh.position.set(0, 0.0, -0.06); back.add(sh); }
     back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
-    back.position.set(0, 0.5, -0.26);
+    if (h.rig) back.position.set(0, 0.02, -0.2); else back.position.set(0, 0.5, -0.26);
     h.parts.upper.add(back);
-    P.wBack = back;
+    out.wBack = back;
   }
+  return out;
+}
+
+// clothes colour by armor weight and tier
+const ARMOR_COLS = { light: [0x9a9270, 0x4a5a8a, 0x9a3a2a], medium: [0x6a4a2a, 0x5a4030, 0x3e4a32], heavy: [0x8a8a90, 0x8aa2b8, 0xc89a48] };
+const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 'medium'][it.tier - 1]).multiplyScalar(k).getHex() : none;
+export function refreshLook() {
+  const P = G.player, e = G.p.equip, h = P.h;
+  dressHumanoid(h, {
+    kinds: gearKinds(e), helmStyle: helmStyle(e.head),
+    chest: tierColor(e.chest, 1, 0x7a6a52),
+    legs: tierColor(e.legs, h.rig && e.legs?.wclass === 'heavy' ? 0.95 : 0.75, 0x4a3e30),
+    feet: tierColor(e.feet, h.rig && e.feet?.wclass === 'heavy' ? 0.85 : 0.55, 0x2a2018),
+    helm: e.head ? tierColor(e.head, 1) : null,
+    helmTier: e.head ? ({ light: 1, medium: 1, heavy: 2 }[e.head.wclass || 'medium'] + (e.head.tier === 3 ? 1 : 0)) : 0,
+    trim: e.hands ? tierColor(e.hands, 0.85) : (CLASSES[G.p.cls]?.color ?? 0x5a4a38),
+  });
+  // weapons
+  for (const k of ['wR', 'wL', 'wBack']) if (P[k]) { P[k].parent?.remove(P[k]); P[k] = null; }
+  const w = activeWeapon(), other = G.p.activeW === 0 ? e.w2 : e.w1;
+  Object.assign(P, mountWeapons(h, w, other));
   G.statsDirty = true;
 }
 
@@ -124,6 +151,7 @@ export function hitEnemy(e, mult, kind, opts = {}) {
   e.aggro = true; e.lastHit = G.time;
   G.player.inCombat = 6;
   floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, crit ? `${d}!` : `${d}`, crit ? 'crit' : 'dmg');
+  hitFx(e, d, crit, opts.spell ? 'spell' : kind, opts.src || { x: G.player.pos.x, y: G.player.y + 1.2, z: G.player.pos.z });
   burst(e.pos.x, e.y + 1 * e.size, e.pos.z, e.def.family === 'corrupted' ? 0xff3020 : e.def.family === 'lost' ? 0x9fd0c0 : 0xb02020, crit ? 10 : 6, 4, 0.4);
   sfx(crit ? 'crit' : 'hit', 0.8);
   const s = stats();
@@ -171,6 +199,8 @@ export function hurtPlayer(raw, src, opts = {}) {
         dmg *= 1 - W.block;
         sfx('block');
         burst(P.pos.x + Math.sin(P.facing) * 0.8, P.y + 1.3, P.pos.z + Math.cos(P.facing) * 0.8, 0xffe0a0, 6, 3, 0.3);
+        blockFx(P, src);
+        flinch(P.h, P.pos.x - src.x, P.pos.z - src.z, 0.25);
         if (dmg < 1) { selfText('Blocked', 'info'); return; }
       } else {
         P.stam = 0; P.exhausted = 1.6; P.blocking = false;
@@ -193,6 +223,8 @@ export function hurtPlayer(raw, src, opts = {}) {
   }
   P.hp -= dmg;
   P.hurtFlash = 0.15;
+  hurtFx(P, dmg, src);
+  if (src) flinch(P.h, P.pos.x - src.x, P.pos.z - src.z, Math.min(1, 0.35 + dmg / s.maxHp * 3)); else flinch(P.h, 0, 0, 0.4);
   selfText(`-${dmg}`, 'hurt');
   sfx('hurt', 0.7);
   shake(Math.min(0.6, 0.15 + dmg / s.maxHp * 2));
@@ -307,9 +339,18 @@ function startAttack(kind) {
   } else pose = spec.kind === 'spin' ? 'spin' : spec.kind === 'slam' ? 'slam' : 'thrust';
   if (wt === 'staff') pose = kind === 'heavy' ? 'cast' : 'thrust';
   const dur = spec.time / atkSpeed();
+  // a heavy blow picks up from the wind-up shown while the button was held
+  const wound = kind === 'heavy' && P.press ? clamp((P.press.t - 0.12) / (HOLD_HEAVY - 0.12), 0, 1) : 0;
   P.state = 'attack';
-  P.atk = { kind, spec, pose, mult, t: 0, dur, hitDone: false, wt };
+  P.atk = { kind, spec, pose, mult, t: 0, dur, hitDone: false, wt, wound, step: wt === 'staff' ? 0 : kind === 'heavy' ? (spec.kind === 'spin' ? 0.15 : 0.45) : 0.3 };
   sfx(kind === 'heavy' ? 'heavy' : 'swing');
+  if (wt !== 'staff') swingFx(P, P.atk);
+}
+// is someone right in front (so a swing's step does not walk into them)?
+function blockedAhead(r = 1.15) {
+  const P = G.player, fx = Math.sin(P.facing), fz = Math.cos(P.facing);
+  for (const e of enemiesNear(P.pos.x, P.pos.z, r + 2)) { if (e.dead) continue; const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z, d = Math.hypot(dx, dz); if (d < r + e.radius && (dx * fx + dz * fz) / (d || 1) > 0.5) return true; }
+  return false;
 }
 
 function meleeHit(a) {
@@ -370,6 +411,7 @@ export function startDodge() {
   P.dodge = { t: 0, dur: L.dur, dx: mx / l, dz: mz / l, speed: L.dist / (L.dur * 0.7), roll: L.roll };
   P.iframes = L.dur * 0.8;
   sfx('dodge');
+  dodgeFx(P);
 }
 
 export function jump() {
@@ -614,7 +656,7 @@ export function updatePlayer(dt) {
   } P.recallCd -= dt; P.exhausted -= dt; P.comboTimer -= dt; P.inCombat -= dt;
   if (P.hurtFlash > 0) P.hurtFlash -= dt;
   P.buffs = P.buffs.filter(b => b.until > G.time);
-  if (P.state === 'dead') { P.deadT = (P.deadT || 0) + dt; animHumanoid(P.h, { pose: 'dead', t: P.deadT }); placeModel(); return; }
+  if (P.state === 'dead') { P.deadT = (P.deadT || 0) + dt; animHumanoid(P.h, { pose: 'dead', t: P.deadT, wt }); placeModel(); return; }
 
   // regen and DoTs
   if (P.inCombat <= 0) P.hp = Math.min(s.maxHp, P.hp + s.maxHp * 0.03 * dt);
@@ -666,14 +708,25 @@ export function updatePlayer(dt) {
       }
     }
     if (P.state === 'attack') {
-      const a = P.atk; a.t += dt;
-      if (!a.hitDone && a.t >= a.dur * a.spec.hit) {
-        a.hitDone = true;
-        if (a.wt === 'staff') fireStaff(a); else meleeHit(a);
-        P.comboTimer = 1.0;
-        if (a.spec.lunge) { const nx = P.pos.x + Math.sin(P.facing) * a.spec.lunge * 0.4, nz = P.pos.z + Math.cos(P.facing) * a.spec.lunge * 0.4; if (walkable(nx, nz)) [P.pos.x, P.pos.z] = collide(nx, nz, PLAYER_R); }
+      const a = P.atk; const t0 = a.t; a.t += dt;
+      // root motion: a small step into the blow, from the end of the wind-up through the follow-through
+      if (a.step && a.spec.hit != null) {
+        const s0 = a.dur * a.spec.hit * 0.55, s1 = a.dur * (a.spec.hit + (1 - a.spec.hit) * 0.3);
+        const f = (x) => { const u = clamp((x - s0) / (s1 - s0), 0, 1); return u * u * (3 - 2 * u); };
+        const ds = (f(a.t) - f(t0)) * a.step;
+        if (ds > 0 && !blockedAhead()) { const nx = P.pos.x + Math.sin(P.facing) * ds, nz = P.pos.z + Math.cos(P.facing) * ds; if (walkable(nx, nz)) [P.pos.x, P.pos.z] = collide(nx, nz, PLAYER_R); }
       }
-      if (a.t >= a.dur) { P.state = 'idle'; P.atk = null; if (P.queued) { P.queued = null; startAttack('light'); } }
+      if (!a.hitDone && a.spec.hit != null && a.t >= a.dur * a.spec.hit) {
+        a.hitDone = true;
+        if (a.wt === 'staff') fireStaff(a); else { meleeHit(a); swingPeakFx(P, a); }
+        P.comboTimer = 1.0;
+        if (a.spec.lunge) { const nx = P.pos.x + Math.sin(P.facing) * a.spec.lunge * 0.4, nz = P.pos.z + Math.cos(P.facing) * a.spec.lunge * 0.4; if (walkable(nx, nz) && !blockedAhead(0.9)) [P.pos.x, P.pos.z] = collide(nx, nz, PLAYER_R); }
+      }
+      // a buffered next blow cuts the recovery short once this one has followed through
+      const cancelAt = a.spec.hit != null ? a.dur * Math.max(a.spec.hit + (1 - a.spec.hit) * 0.55, 0.78) : a.dur;
+      if (a.hitDone && a.t >= cancelAt && P.press && !P.press.used && P.press.t >= HOLD_HEAVY) { P.press.used = true; P.queued = null; startAttack('heavy'); }
+      else if (a.hitDone && a.t >= cancelAt && P.queued) { P.queued = null; startAttack('light'); }
+      else if (a.t >= a.dur) { P.state = 'idle'; P.atk = null; if (P.queued) { P.queued = null; startAttack('light'); } }
     }
     if (P.state === 'gather') {
       const g = P.gather; g.t += dt;
@@ -718,8 +771,9 @@ export function updatePlayer(dt) {
   else if (P.whirl) { pose = 'spin'; t = (G.time * 2.5) % 1; }
   else if (P.blocking) pose = 'block';
   else if (P.recall) pose = 'cast';
-  else if (P.press && P.press.t > 0.12 && wt !== 'bow') { pose = 'windup'; t = P.press.t; }
-  animHumanoid(P.h, { move: P.move, phase: P.phase, pose, t, twoHand: wt === 'greataxe' || wt === 'hammer', draw: P.draw });
+  else if (P.press && P.press.t > 0.12 && wt !== 'bow') { pose = 'windup'; t = clamp((P.press.t - 0.12) / (HOLD_HEAVY - 0.12), 0, 1); }
+  const air = P.jv || P.jumpY > 0 ? clamp((7.2 - (P.jv || 0)) / 14.4, 0, 1) : null;
+  animHumanoid(P.h, { move: P.move, phase: P.phase, pose, t, twoHand: wt === 'greataxe' || wt === 'hammer', draw: P.draw, wt, ready: 1, hit: P.state === 'attack' ? P.atk.spec.hit : P.state === 'ability' ? 0.45 : undefined, wound: P.atk?.wound, lookPitch: P.pitch, air: P.ability?.leap ? Math.min(1, P.ability.t / P.ability.dur) : air, dir: P.dodge ? { x: P.dodge.dx, z: P.dodge.dz } : undefined, loop: !!P.whirl && pose === 'spin' });
   if (P.wL?.userData.string) P.wL.userData.string.position.z = -0.24 - (P.state === 'draw' ? P.draw * 0.35 : 0);
   placeModel();
   // flash

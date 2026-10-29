@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { G, SAVE_KEY, newProfile } from './state.js';
-import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
+import { ZONES, WEAPONS, ENEMIES, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
 import { CLASSES, CLASS_LIST } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
-import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, TOWN_SPAWN } from './player.js';
+import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, gearKinds, helmStyle, mountWeapons, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
 import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPanel, refreshHud, refreshTracker, toast } from './ui.js';
@@ -14,6 +14,7 @@ import { fillBounties } from './quests.js';
 import { initAudio, setVolume, setMusic, setMusicZone, setAmbience, setMusicVolume } from './audio.js';
 import { dressHumanoid, makeWeapon } from './models.js';
 import { animHumanoid } from './anim.js';
+import { initHumans, prewarmHuman, releaseHuman } from './gfx/human/body.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
 import { buildLife, updateLife } from './life.js';
@@ -417,18 +418,25 @@ const draft = { name: '', cls: 'warrior', look: { sex: 'm', skin: SKIN_TONES[2],
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
 let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
 const PREVIEW_AT = { x: 3, z: 24 };
+const prevHead = new THREE.Vector3();
 function buildPreview() {
-  if (preview) scene.remove(preview.root);
+  if (preview) { scene.remove(preview.root); releaseHuman(preview); }
   const C = CLASSES[draft.cls];
-  preview = makeCharacter({ look: draft.look });
-  const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x6a6a70, 0x4a4a50] }[C.armor];
-  dressHumanoid(preview, { chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
-  const wt = C.weapon;
-  if (wt === 'bow') { const b = makeWeapon('bow', 1); b.scale.setScalar(1.25); preview.parts.handL.add(b); }
-  else { const w = makeWeapon(wt, 1); w.scale.setScalar(1.45); preview.parts.handR.add(w); if (wt === 'sword') { const sh = makeWeapon('shield', 1); sh.scale.setScalar(1.25); sh.position.set(0.14, 0.05, 0.15); sh.rotation.y = Math.PI / 2; preview.parts.handL.add(sh); } }
+  // the class's starting gear, as it will look in the game
+  const eq = {}; for (const sl of ['head', 'chest', 'legs', 'feet']) eq[sl] = C.gear.includes(sl) ? { wclass: C.armor, tier: 1 } : null;
+  const kinds = gearKinds(eq);
+  preview = makeCharacter({ look: draft.look, gearKinds: kinds });
+  const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x82828a, 0x6a6a70] }[C.armor];
+  dressHumanoid(preview, { kinds, helmStyle: helmStyle(eq.head), chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
+  previewWt = C.weapon;
+  mountWeapons(preview, { wtype: C.weapon, tier: 1 }, null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
+  preview.root.rotation.y = previewYaw;
   scene.add(preview.root);
 }
+let previewWt = null, previewT = 0;
+// sliders rebuild the body; while dragging only every so often (a body takes a moment to shape)
+function previewSoon() { clearTimeout(previewT); previewT = setTimeout(buildPreview, 70); }
 const sw = (list, key) => list.map(c => `<button class="sw ${draft.look[key] === c ? 'on' : ''}" data-sw="${key}" data-v="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
 const sliders = list => list.map(([k, label, mn, mx]) => `<label class="sl"><span>${label}</span><input type="range" min="${mn}" max="${mx}" step="0.01" value="${draft.look[k]}" data-sl="${k}"></label>`).join('');
 function creator() {
@@ -478,7 +486,7 @@ function creator() {
   t.querySelectorAll('[data-paint]').forEach(b => b.onclick = () => { L.paint = b.dataset.paint === 'null' ? null : +b.dataset.paint; creator(); });
   t.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => { L.scar = b.dataset.scar === '1'; creator(); });
   // sliders rebuild only the 3D preview so dragging stays smooth
-  t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; buildPreview(); });
+  t.querySelectorAll('[data-sl]').forEach(r => { r.oninput = () => { L[r.dataset.sl] = +r.value; previewSoon(); }; r.onchange = () => { clearTimeout(previewT); buildPreview(); }; });
   $('crand').onclick = () => {
     const pk = a => a[Math.floor(Math.random() * a.length)];
     for (const [k, , mn, mx] of [...BODY_SLIDERS, ...FACE_SLIDERS]) L[k] = +(mn + Math.random() * (mx - mn)).toFixed(2);
@@ -486,14 +494,14 @@ function creator() {
     L.facialHair = L.sex === 'f' ? 0 : Math.floor(Math.random() * FACIAL_HAIR.length); L.paint = Math.random() < 0.25 ? pk(WAR_PAINT.slice(1))[1] : null; L.scar = Math.random() < 0.2;
     creator();
   };
-  $('cback').onclick = () => { if (preview) { scene.remove(preview.root); preview = null; } title(); };
+  $('cback').onclick = () => { if (preview) { scene.remove(preview.root); releaseHuman(preview); preview = null; } title(); };
   $('cgo').onclick = () => {
     const C2 = CLASSES[draft.cls];
     const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
-    if (preview) { scene.remove(preview.root); preview = null; }
+    if (preview) { scene.remove(preview.root); releaseHuman(preview); preview = null; }
     enterGame(p);
   };
 }
@@ -595,10 +603,14 @@ function loop() {
     if (G.mode === 'create' && preview) {
       const px = PREVIEW_AT.x, pz = PREVIEW_AT.z, py = heightAt(px, pz);
       preview.root.rotation.y = previewYaw;
-      animHumanoid(preview, { move: 0, phase: t, pose: null });
-      preview.body.position.y = Math.sin(t * 2) * 0.01;
-      if (previewView === 'face') { const hy = py + 2.0 * (draft.look.height || 1); camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
-      else { camera.position.set(px - 1.7, py + 1.5, pz + 5.2); camera.lookAt(px - 1.7, py + 1.0, pz); }
+      animHumanoid(preview, { move: 0, phase: t, pose: null, wt: previewWt, ready: previewView === 'face' ? 0.2 : 0.85, noIdle: true });
+      if (!preview.rig) preview.body.position.y = Math.sin(t * 2) * 0.01;
+      if (previewView === 'face') {
+        // close on the face, wherever the sliders put it
+        preview.parts.head.getWorldPosition(prevHead);
+        const hy = preview.rig ? prevHead.y + 0.1 * (preview.root.scale.y || 1) : py + 2.0 * (draft.look.height || 1);
+        camera.position.set(px - 0.3, hy + 0.02, pz + 1.05); camera.lookAt(px - 0.3, hy - 0.01, pz);
+      } else { camera.position.set(px - 1.7, py + 1.4, pz + 5.2); camera.lookAt(px - 1.7, py + 0.95, pz); }
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;
@@ -641,11 +653,18 @@ G.setMusicVolume = setMusicVolume;
 
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
-setTimeout(() => {
+// the human body (4.8 MB, shared by every person in the game) loads first, with progress on the loading screen
+const loadText = (txt) => { const el = $('loading').firstElementChild; if (el) el.innerHTML = `<div class="crest">⚜</div>${txt}`; };
+(async () => {
+  await initHumans(p => loadText(`Washing ashore… ${Math.round(p * 100)}%`));
+  loadText('Washing ashore…');
+  await new Promise(r => setTimeout(r, 20));
   buildWorld();
   buildLife();
+  // the bodies of the island's people, so meeting them later does not stall a frame
+  for (const k in ENEMIES) { const d = ENEMIES[k]; if (d.model === 'humanoid') prewarmHuman({ skin: d.skin, shirt: d.shirt, pants: d.pants, eyes: d.eyes, size: d.size, hunched: d.hunched, hat: d.hat, horns: d.horns }); }
   $('loading').style.display = 'none';
   title();
   clock.getDelta();
   requestAnimationFrame(loop);
-}, 30);
+})();

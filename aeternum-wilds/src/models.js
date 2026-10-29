@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
+import { buildHuman, dressHuman } from './gfx/human/body.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
 function prep(geo, m4) {
@@ -144,9 +145,16 @@ export function makeWeapon(type, tier = 1) {
 }
 
 // ---------- Humanoid ----------
-// Faces +z. Returns { root, body, mats:[skin, shirt, pants, boot, trim], parts }
+// Faces +z. Returns { root, body, mats:[skin, shirt, pants, boot, trim, ...], parts }. Real people (gfx/human: the
+// MakeHuman body with a face, hair and fitted clothes on a skinned skeleton); the box figure below is the fallback
+// when the body asset cannot be loaded.
+// Extra options for the real body: armor ('tunic'|'coat'|'dress'|'leather'|'plate'), legs ('cloth'|'leather'|'plate'),
+// feet ('shoes'|'boots'|'plate'|'bare'), gloves ('gloves'|'gauntlets'), tier (1-3), seed (a face of its own).
 function shade(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return c.getHex(); }
 export function makeHumanoid(o = {}) {
+  return buildHuman(o) || makeBoxHumanoid(o);
+}
+export function makeBoxHumanoid(o = {}) {
   const root = new THREE.Group();
   const body = new THREE.Group(); // scaled, bobbing
   root.add(body);
@@ -260,8 +268,10 @@ export function makeHumanoid(o = {}) {
   return { root, body, mats, parts: { hips, upper, head, hair, armR, armL, handR, handL, legR, legL }, size: s * ht, hunched: !!o.hunched };
 }
 
-// Recolor clothes on the player model by gear tier
+// Recolor clothes on the player model by gear tier (look: chest, legs, feet, trim, helm, helmTier; optional kinds and
+// helmStyle reshape the real body's clothes)
 export function dressHumanoid(h, look) {
+  if (h.rig) return dressHuman(h, look);
   const [skin, shirt, pants, boot, trim] = h.mats;
   shirt.color.setHex(look.chest);
   trim.color.setHex(look.trim ?? shade(look.chest, 0.7));

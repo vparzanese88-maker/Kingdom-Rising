@@ -1,8 +1,12 @@
-// First-person arms and weapon, drawn on top of the world from their own little scene.
+// First-person arms and weapon, drawn on top of the world from their own little scene. With the real body the arms
+// are your own (the same skin, sleeves and gloves, cut from the body: fpArms) and reach for where the hands should be
+// (two-bone IK), fists round the grip; the simple box arms remain for the fallback figure.
 import * as THREE from 'three';
 import { G } from './state.js';
 import { makeWeapon, box, mat } from './models.js';
 import { activeWeapon } from './stats.js';
+import { fpArms } from './gfx/human/body.js';
+import { weaponArm } from './anim.js';
 
 const scene = new THREE.Scene();
 export const vmCam = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.01, 10);
@@ -46,10 +50,51 @@ function tool(kind) {
   return g;
 }
 
+// ---- real arms ----
+const holder = new THREE.Group(); holder.rotation.y = Math.PI; scene.add(holder); // the body faces +z, the camera looks down -z
+const SH = { R: new THREE.Vector3(0.2, -0.29, 0.06), L: new THREE.Vector3(-0.2, -0.29, 0.06) }; // shoulders, camera space
+let real = null;
+function ensureReal(P) {
+  const h = P.h;
+  if (!h.rig) { if (real) { holder.remove(real.L.mesh); holder.remove(real.R.mesh); real = null; built = null; } return null; }
+  const key = h.rig.B.key + '|' + JSON.stringify(h.rig.kinds);
+  if (real && real.key === key) return real;
+  if (real) { holder.remove(real.L.mesh); holder.remove(real.R.mesh); }
+  const a = fpArms(h);
+  for (const S of ['L', 'R']) {
+    const arm = a[S]; const sh = SH[S];
+    arm.mesh.position.set(-sh.x - arm.restArm[0], sh.y - arm.restArm[1], -sh.z - arm.restArm[2]);
+    arm.rig = { bones: arm.B, rest: arm.rest, hands: { [S]: arm.hand } };
+    arm.mesh.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    holder.add(arm.mesh);
+  }
+  // the shield rides the left forearm, as on the body
+  a.L.mount = new THREE.Group(); a.L.B.foreL.add(a.L.mount);
+  real = { L: a.L, R: a.R, key };
+  built = null;
+  return real;
+}
+// camera space -> an arm's own mesh space
+const _p = new THREE.Vector3(), _d = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _pole = new THREE.Vector3();
+function toArm(arm, v, out) { return out.set(-v.x - arm.mesh.position.x, v.y - arm.mesh.position.y, -v.z - arm.mesh.position.z); }
+const arrow = new THREE.Group(); arrow.add(box(0.012, 0.012, 0.62, mat(0xd8c8a0), 0, 0, -0.18)); arrow.add(box(0.024, 0.024, 0.06, mat(0x8a8a90), 0, 0, -0.5)); arrow.add(box(0.03, 0.002, 0.08, mat(0xb83a2a), 0, 0, 0.1)); arrow.visible = false; scene.add(arrow);
+
 function rebuild(key) {
   built = key;
   holdR.clear(); holdL.clear();
+  if (real) { real.R.grip.clear(); real.L.grip.clear(); real.L.mount.clear(); }
   const [wt, tier, tk] = key.split(':');
+  if (real) {
+    // weapons and tools in the real fists (grip at the origin, haft along +y turned to run through the fist)
+    if (tk) { const tl = tool(tk); tl.scale.setScalar(0.85); tl.rotation.x = Math.PI / 2; real.R.grip.add(tl); return; }
+    if (!wt || wt === 'none') return;
+    const w = makeWeapon(wt, +tier);
+    w.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    if (wt === 'bow') { w.scale.setScalar(0.85); real.L.grip.add(w); real.L.held = w; return; }
+    w.scale.setScalar(wt === 'staff' ? 0.8 : 0.95); real.R.grip.add(w); real.R.held = w;
+    if (wt === 'sword') { const sh = makeWeapon('shield', +tier); sh.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); sh.scale.setScalar(0.8); sh.position.set(0.075, -0.13, 0); sh.rotation.set(0, Math.PI / 2, 0); real.L.mount.add(sh); }
+    return;
+  }
   if (tk) { const tl = tool(tk); tl.scale.setScalar(0.62); holdR.add(tl); return; }
   if (!wt || wt === 'none') return;
   const w = makeWeapon(wt, +tier);
@@ -77,6 +122,7 @@ export function renderViewmodel(renderer, dt) {
   const wt = w?.wtype || 'none';
   const tk = P.state === 'gather' ? { logging: 'axe', mining: 'pick', harvesting: 'sickle', skinning: 'knife' }[P.gather.skill] : '';
   const k = `${wt}:${w?.tier || 1}:${tk}`;
+  const ra = ensureReal(P);
   if (k !== built) rebuild(k);
   // colors follow the player model
   skinM.color.copy(P.h.mats[0].color);
@@ -187,7 +233,50 @@ export function renderViewmodel(renderer, dt) {
   if (wt === 'sword') { holdL.position.set(0.02, 0.04, -0.06); holdL.rotation.set(0, 0, 0); }
   armR.position.copy(handR.position); armR.lookAt(shoulderR);
   armL.position.copy(handL.position); armL.lookAt(shoulderL);
-  // light the hands like the world
+  armR.visible = armL.visible = holdR.visible = holdL.visible = !ra;
+  if (ra) poseReal(ra, P, wt, tk, two);
+  // ---- the real arms reach for where the hands should be ----
+function poseReal(ra, P, wt, tk, two) {
+  // colours follow the body's clothes
+  for (const arm of [ra.L, ra.R]) for (let i = 0; i < 5; i++) arm.roleM[i].color.copy(P.h.mats[1 + i].color);
+  rig.updateMatrixWorld(true);
+  // the right hand: its grip at holdR, the haft along holdR's +y
+  holdR.getWorldPosition(_p); holdR.getWorldQuaternion(_q4); _d.set(0, 1, 0).applyQuaternion(_q4);
+  const gR = toArm(ra.R, _p, new THREE.Vector3()), bR = _d.clone().set(-_d.x, _d.y, -_d.z);
+  if (wt === 'bow' && !tk) {
+    // the bow in the left fist; the right hand on the string
+    holdL.getWorldPosition(_p); holdL.getWorldQuaternion(_q4); _d.set(0, 1, 0).applyQuaternion(_q4);
+    weaponArm(ra.L.rig, 'L', toArm(ra.L, _p, new THREE.Vector3()), new THREE.Vector3(-_d.x, _d.y, -_d.z), _pole.set(0.6, -0.7, -0.3).normalize(), ra.L.grip);
+    const drawK = P.state === 'draw' ? P.draw : 0;
+    // the string point (the bow's string sits behind its grip): pull it back toward the cheek
+    const bow = ra.L.held; if (bow?.userData.string) bow.userData.string.position.z = -0.24 - drawK * 0.36;
+    ra.L.mesh.updateMatrixWorld(true);
+    const sp = new THREE.Vector3(0, 0, bow?.userData.string ? bow.userData.string.position.z : -0.24); if (bow) bow.localToWorld(sp);
+    // into the right arm's space, the fingers hooked on the string
+    holder.worldToLocal(sp); sp.sub(ra.R.mesh.position);
+    weaponArm(ra.R.rig, 'R', sp, new THREE.Vector3(0, 1, -0.4).normalize(), _pole.set(-0.7, -0.5, -0.5).normalize(), null);
+    ra.R.curl(0.9, 0.4); ra.L.curl(1.35);
+    // an arrow on the string while drawing
+    arrow.visible = P.state === 'draw';
+    if (arrow.visible) { const w = new THREE.Vector3(0, 0, bow.userData.string.position.z); bow.localToWorld(w); arrow.position.copy(w); arrow.lookAt(w.x, w.y, w.z - 1); arrow.rotateY(Math.PI); }
+    return;
+  }
+  arrow.visible = false;
+  if (wt !== 'none' || tk) weaponArm(ra.R.rig, 'R', gR, bR, _pole.set(-0.55, -0.75, -0.35).normalize(), ra.R.grip);
+  else weaponArm(ra.R.rig, 'R', gR, bR, _pole.set(-0.55, -0.75, -0.35).normalize(), null);
+  ra.R.curl(wt !== 'none' || tk ? 1.35 : P.state === 'ability' || P.recall ? 0.1 : 0.9);
+  // the left hand: on the haft of a two-handed weapon (or a tool), else where the pose puts it
+  if ((two && wt !== 'none') || (tk && tk !== 'knife' && tk !== 'sickle')) {
+    const gl = gR.clone().addScaledVector(bR, -0.22);
+    weaponArm(ra.L.rig, 'L', gl, bR, _pole.set(0.55, -0.75, -0.35).normalize(), null); ra.L.curl(1.35);
+  } else {
+    holdL.getWorldPosition(_p); holdL.getWorldQuaternion(_q4); _d.set(0, 1, 0).applyQuaternion(_q4);
+    weaponArm(ra.L.rig, 'L', toArm(ra.L, _p, new THREE.Vector3()), new THREE.Vector3(-_d.x, _d.y, -_d.z), _pole.set(0.55, -0.75, -0.35).normalize(), null);
+    ra.L.curl(wt === 'sword' ? 1.1 : P.state === 'ability' || P.recall ? 0.1 : 0.8);
+  }
+}
+
+// light the hands like the world
   hemi.intensity = G.light?.hemi ?? 1.3; key.intensity = (G.light?.sun ?? 1.8) * 0.9;
   key.color.copy(G.light?.sunColor || key.color);
   renderer.autoClear = false;

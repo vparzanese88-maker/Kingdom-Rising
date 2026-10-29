@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { WEAPONS, ABILITIES, MATS, NODES, RACES, CLASSES, LOADS } from './data.js';
+import { WEAPONS, ABILITIES, MATS, NODES, LOADS } from './data.js';
+import { CLASSES } from './classes.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
 import { animHumanoid } from './anim.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
@@ -11,6 +12,7 @@ import { floatText, selfText, toast, showDeath, castBar, refreshHud } from './ui
 import { sfx } from './audio.js';
 import { enemiesNear, killEnemy, stunEnemy, knockEnemy, interruptEnemy } from './enemies.js';
 import { questEvent } from './quests.js';
+import { spellPower } from './skills.js';
 import { clamp, angDiff, rand, randi } from './util.js';
 
 export const TOWN_SPAWN = { x: 0, z: 16 };
@@ -36,11 +38,12 @@ export function createPlayer() {
 
 // Build a character model from a profile (race, look); also used by the character creator
 export function makeCharacter(p) {
-  const R = RACES[p.race || 'human'], L = p.look || {};
+  const L = p.look || {};
   return makeHumanoid({
-    skin: L.skin ?? R.skins[0], hair: L.hair ?? R.hair[0], hairStyle: L.hairStyle ?? 0,
-    shirt: 0x7a6a52, pants: 0x4a3e30, height: R.height, build: R.build,
-    ears: R.ears, tusks: R.tusks, beard: R.beard && (L.beard ?? true),
+    sex: L.sex || 'm', skin: L.skin ?? 0xe0ac84, hair: L.hair ?? 0x5a3a1e, hairStyle: L.hairStyle ?? 0, eyeColor: L.eyeColor,
+    facialHair: L.facialHair ?? (L.beard ? 4 : 0), paint: L.paint ?? null, scar: !!L.scar,
+    shirt: 0x7a6a52, pants: 0x4a3e30, height: L.height || 1, build: L.weight || 1, muscle: L.muscle || 1,
+    face: L,
   });
 }
 
@@ -88,10 +91,11 @@ export function refreshLook() {
 }
 
 // ---------- Damage dealt ----------
-export function playerDamage(mult, kind, e, extra = 1) {
+export function playerDamage(mult, kind, e, extra = 1, spell = false) {
   const s = stats(), P = G.player, m = s.mods;
   const w = activeWeapon();
-  let d = (w ? weaponDmg(w) : 8) * mult * s.attrMult * extra * (1 + (s.loadDmg || 0));
+  let d = spell ? spellPower() * mult * extra * (1 + (s.loadDmg || 0) * 0.5) : (w ? weaponDmg(w) : 8) * mult * s.attrMult * extra * (1 + (s.loadDmg || 0));
+  d *= 1 + (m.dmg || 0);
   if (kind === 'light') d *= 1 + (m.lightDmg || 0);
   if (kind === 'heavy') d *= 1 + (m.heavyDmg || 0) + s.heavy;
   if (kind === 'ability') d *= s.abilityMult;
@@ -113,7 +117,8 @@ export function playerDamage(mult, kind, e, extra = 1) {
 // opts: stagger, stun, knock, slow, dot:{dmg,dur}, heal(frac of dmg)
 export function hitEnemy(e, mult, kind, opts = {}) {
   if (e.dead) return 0;
-  const { d, crit } = playerDamage(mult, kind, e, opts.extra || 1);
+  const { d, crit } = playerDamage(mult, kind, e, opts.extra || 1, !!opts.spell);
+  if (e.mezzed) { e.mezzed = false; e.stunned = 0; }
   e.hp -= d;
   e.hitFlash = 0.12;
   e.aggro = true; e.lastHit = G.time;
@@ -122,7 +127,8 @@ export function hitEnemy(e, mult, kind, opts = {}) {
   burst(e.pos.x, e.y + 1 * e.size, e.pos.z, e.def.family === 'corrupted' ? 0xff3020 : e.def.family === 'lost' ? 0x9fd0c0 : 0xb02020, crit ? 10 : 6, 4, 0.4);
   sfx(crit ? 'crit' : 'hit', 0.8);
   const s = stats();
-  if (s.lifesteal) healPlayer(d * s.lifesteal / 100, true);
+  let ls = s.lifesteal; for (const b of G.player.buffs) ls += b.mods.lifesteal || 0;
+  if (ls) healPlayer(d * ls / 100, true);
   if (opts.heal) healPlayer(d * opts.heal);
   gainMastery(activeWType(), 2);
   if (opts.stun) stunEnemy(e, opts.stun * (1 + (s.mods.stunDur || 0)));
@@ -179,6 +185,12 @@ export function hurtPlayer(raw, src, opts = {}) {
   for (const b of P.buffs) dr += b.mods.dr || 0;
   dmg *= 1 - Math.min(0.75, dr);
   dmg = Math.max(1, Math.round(dmg));
+  if (P.shield) {
+    const ab = Math.min(P.shield.amt, dmg);
+    P.shield.amt -= ab; dmg -= ab;
+    if (P.shield.amt <= 0) P.shield = null;
+    if (dmg <= 0) { selfText('Absorbed', 'info'); return; }
+  }
   P.hp -= dmg;
   P.hurtFlash = 0.15;
   selfText(`-${dmg}`, 'hurt');
@@ -214,7 +226,7 @@ const arrowGeo = new THREE.BoxGeometry(0.05, 0.05, 0.9);
 const tip = new THREE.ConeGeometry(0.05, 0.16, 4); tip.rotateX(Math.PI / 2); tip.translate(0, 0, 0.5);
 export function spawnProj(o) {
   let mesh;
-  if (o.color && o.owner === 'enemy') { mesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ color: o.color })); }
+  if (o.color) { mesh = new THREE.Mesh(new THREE.SphereGeometry(o.size || 0.25, 10, 8), new THREE.MeshBasicMaterial({ color: o.color })); }
   else {
     mesh = new THREE.Group();
     mesh.add(new THREE.Mesh(arrowGeo, mat(o.owner === 'player' ? (o.poison ? 0x6adf3a : o.pierce ? 0xffe070 : 0xd8c8a0) : 0x5a4a3a)));
@@ -235,6 +247,7 @@ export function updateProjectiles(dt) {
     pr.life -= dt;
     pr.x += pr.dx * pr.speed * dt; pr.y += pr.dy * pr.speed * dt; pr.z += pr.dz * pr.speed * dt;
     pr.mesh.position.set(pr.x, pr.y, pr.z);
+    if (pr.color && Math.random() < 0.6) burst(pr.x, pr.y, pr.z, pr.color, 1, 0.6, 0.3, (pr.size || 0.25) * 0.8, 0);
     let dead = pr.life <= 0 || pr.y < heightAt(pr.x, pr.z) || collide(pr.x, pr.z, 0.05)[0] !== pr.x;
     if (!dead && pr.owner === 'player') {
       for (const e of enemiesNear(pr.x, pr.z, 3)) {
@@ -242,7 +255,7 @@ export function updateProjectiles(dt) {
         const top = e.y + (e.model.beast ? 1.3 : 2.1) * e.size;
         if (Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < e.radius + 0.4 && pr.y > e.y - 0.3 && pr.y < top + 0.3) {
           pr.hit.add(e);
-          hitEnemy(e, pr.mult, pr.kind, pr.opts || {});
+          if (pr.onHit) pr.onHit(e); else hitEnemy(e, pr.mult, pr.kind, pr.opts || {});
           if (!pr.pierce) { dead = true; break; }
         }
       }
@@ -253,6 +266,12 @@ export function updateProjectiles(dt) {
       }
     }
     if (dead) {
+      if (pr.owner === 'player' && pr.explode) {
+        shockRing(pr.x, pr.z, pr.explode, pr.color || 0xff8a3a, 0.35);
+        burst(pr.x, pr.y, pr.z, pr.color || 0xff8a3a, 16, 5, 0.5);
+        sfx('boom', 0.5);
+        for (const e of enemiesNear(pr.x, pr.z, pr.explode + 2)) if (!e.dead && !pr.hit.has(e) && Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < pr.explode + e.radius) { if (pr.onHit) pr.onHit(e, true); else hitEnemy(e, pr.mult * 0.7, pr.kind, pr.opts || {}); }
+      }
       G.scene.remove(pr.mesh);
       if (pr.mesh.isMesh) { pr.mesh.geometry.dispose(); pr.mesh.material.dispose(); }
       G.projectiles.splice(i, 1);
@@ -286,6 +305,7 @@ function startAttack(kind) {
     if (wt === 'sword' && P.combo === 2) { pose = 'thrust'; mult *= 1.25; }
     P.combo = (P.combo + 1) % spec.combo;
   } else pose = spec.kind === 'spin' ? 'spin' : spec.kind === 'slam' ? 'slam' : 'thrust';
+  if (wt === 'staff') pose = kind === 'heavy' ? 'cast' : 'thrust';
   const dur = spec.time / atkSpeed();
   P.state = 'attack';
   P.atk = { kind, spec, pose, mult, t: 0, dur, hitDone: false, wt };
@@ -312,6 +332,15 @@ function meleeHit(a) {
   }
   if (n) shake(a.kind === 'heavy' ? 0.2 : 0.08);
   return n;
+}
+
+// staff: light = bolt, heavy = charged blast that bursts on impact
+function fireStaff(a) {
+  const w = activeWeapon(), W = WEAPONS.staff;
+  const gemC = [0xff7a2a, 0x6ac8ff, 0xc66dff][(w?.tier || 1) - 1];
+  const heavy = a.kind === 'heavy';
+  spawnProj({ owner: 'player', ...shotFrom(), speed: heavy ? W.speed * 0.8 : W.speed, range: W.range, mult: a.mult, kind: a.kind, color: gemC, size: heavy ? 0.38 : 0.2, explode: heavy ? W.heavy.explode : 0 });
+  sfx('magic', heavy ? 0.8 : 0.45);
 }
 
 function fireArrow(power) {
@@ -389,7 +418,7 @@ export function useAbility(slot) {
     case 'proj': {
       P.state = 'ability';
       P.ability = { id, A, t: 0, dur: 0.3, pose: 'shoot' };
-      spawnProj({ owner: 'player', ...shotFrom(), speed: A.speed || 44, range: 36, mult: A.dmg, kind: 'ability', pierce: !!A.pierce, poison: !!A.dot, opts: A.dot ? { dot: A.dot, dotDur: A.dotDur } : {} });
+      spawnProj({ owner: 'player', ...shotFrom(), speed: A.speed || 44, range: 36, mult: A.dmg, kind: 'ability', pierce: !!A.pierce, poison: !!A.dot, color: A.color, size: A.color ? 0.35 : 0, explode: A.explode || 0, opts: A.dot ? { dot: A.dot, dotDur: A.dotDur } : {} });
       sfx('bow');
       break;
     }
@@ -407,7 +436,7 @@ export function useAbility(slot) {
         for (const e of enemiesNear(cx, cz, A.radius + 2)) {
           if (e.dead || Math.hypot(e.pos.x - cx, e.pos.z - cz) > A.radius + e.radius) continue;
           if (A.pull && !e.def.boss) { e.pos.x += (cx - e.pos.x) * 0.7; e.pos.z += (cz - e.pos.z) * 0.7; }
-          hitEnemy(e, A.dmg, 'ability', { stun: A.stun, slow: A.slow });
+          hitEnemy(e, A.dmg, 'ability', { stun: A.stun, slow: A.slow, knock: A.knock });
         }
       });
       if (A.pull) later(0.1, () => { for (const e of enemiesNear(cx, cz, A.radius + 2)) if (!e.dead && !e.def.boss) e.slowUntil = G.time + 1; });
@@ -613,7 +642,7 @@ export function updatePlayer(dt) {
     if (d.t >= d.dur) { P.state = 'idle'; P.dodge = null; }
   } else if (P.state !== 'stunned') {
     // attacks
-    P.blocking = inp.rmb && wt && wt !== 'bow' && P.state !== 'attack' && P.state !== 'gather' && P.exhausted <= 0;
+    P.blocking = inp.rmb && wt && WEAPONS[wt].block > 0 && P.state !== 'attack' && P.state !== 'gather' && P.exhausted <= 0;
     if (wt === 'bow') {
       if (inp.lmb && P.state !== 'gather' && !inp.overUI) {
         if (P.state !== 'draw') { P.state = 'draw'; P.draw = 0; }
@@ -637,7 +666,7 @@ export function updatePlayer(dt) {
       const a = P.atk; a.t += dt;
       if (!a.hitDone && a.t >= a.dur * a.spec.hit) {
         a.hitDone = true;
-        meleeHit(a);
+        if (a.wt === 'staff') fireStaff(a); else meleeHit(a);
         P.comboTimer = 1.0;
         if (a.spec.lunge) { const nx = P.pos.x + Math.sin(P.facing) * a.spec.lunge * 0.4, nz = P.pos.z + Math.cos(P.facing) * a.spec.lunge * 0.4; if (walkable(nx, nz)) [P.pos.x, P.pos.z] = collide(nx, nz, PLAYER_R); }
       }
@@ -655,6 +684,7 @@ export function updatePlayer(dt) {
     }
     // move
     let sp = 6.2 * (1 + s.moveSpeed);
+    for (const b of P.buffs) sp *= 1 + (b.mods.moveSpeed || 0);
     if (P.blocking) sp *= 0.5;
     if (P.state === 'draw') sp *= 0.55;
     if (P.state === 'attack' && P.atk?.wt && P.atk.wt !== 'bow') sp *= 0.3;

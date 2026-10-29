@@ -1,5 +1,6 @@
 import { G } from './state.js';
-import { STORY, ENEMIES, ZONES, MATS, xpForLevel, WEAPONS, CLASSES } from './data.js';
+import { STORY, ENEMIES, ZONES, MATS, xpForLevel, WEAPONS } from './data.js';
+import { CLASSES } from './classes.js';
 import { gainXp } from './stats.js';
 import { addItem, addMat, randomDrop, makeGear, lootGs } from './items.js';
 import { toast, lootToast, refreshTracker, showVictory } from './ui.js';

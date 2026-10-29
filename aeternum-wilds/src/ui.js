@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { G, SAVE_KEY } from './state.js';
-import { LOADS, ARMOR_CLASS, RACES, CLASSES, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
+import { CLASSES } from './classes.js';
+import { classDef, ensureSkills, rankOf, spentInTree, canLearn, learn, resetSkills, skillNode, SKILL_LABELS, TIER_REQ } from './skills.js';
+import { LOADS, ARMOR_CLASS, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
 import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, unlockNode, resetTree, masteryNode, gainTrade, gainXp, masteryPoints } from './stats.js';
 import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
 import { refreshLook, respawn } from './player.js';
@@ -129,6 +131,12 @@ export function refreshHud() {
     const A = slots[i] ? ABILITIES[slots[i]] : null;
     return `<div class="slot ab ${A ? '' : 'empty'}" data-ab="${slots[i] || ''}" title="${A ? A.name + ': ' + A.desc : 'Empty: unlock abilities in the Mastery tree (K)'}"><b>${k}</b>${A ? A.icon : ''}<i class="cd"></i><em></em></div>`;
   }).join('');
+  // class skills on Z X C V
+  const sk = ensureSkills();
+  $('cskills').innerHTML = sk.bar.map((id, i) => {
+    const n = id ? skillNode(id) : null;
+    return `<div class="slot cs ${n ? '' : 'empty'}" data-cs="${id || ''}" title="${n ? `${n.name} (${n.cost} mana): ${n.desc}` : 'Empty: learn class skills with T'}"><b>${SKILL_LABELS[i]}</b>${n ? n.icon : ''}<i class="cd"></i><em></em><u></u></div>`;
+  }).join('');
 }
 
 let hudT = 0;
@@ -151,6 +159,18 @@ export function updateHud(dt) {
   $('vignette').classList.toggle('low', P.hp / s.maxHp < 0.3 && P.state !== 'dead');
   drawCompass();
   // cooldowns
+  for (const el of $('cskills').children) {
+    const id = el.dataset.cs;
+    const cd = id ? (P.cds['cls_' + id] || 0) - G.time : 0;
+    const max = P.cdMax?.['cls_' + id] || 1;
+    el.querySelector('.cd').style.background = cd > 0 ? `conic-gradient(rgba(0,0,0,.72) ${cd / max * 360}deg, transparent 0)` : 'none';
+    el.querySelector('em').textContent = cd > 0 ? Math.ceil(cd) : '';
+    const n = id ? skillNode(id) : null;
+    el.classList.toggle('nomana', !!n && P.mana < n.cost);
+  }
+  $('mpfill').style.width = `${(P.mana || 0) / (P.maxMana || 1) * 100}%`;
+  $('mptext').textContent = `${Math.floor(P.mana || 0)} / ${P.maxMana || 0}`;
+  $('shieldfill').style.width = P.shield ? `${Math.min(100, P.shield.amt / s.maxHp * 100)}%` : '0%';
   for (const el of $('abils').children) {
     const id = el.dataset.ab;
     const cd = id ? (P.cds[id] || 0) - G.time : 0;
@@ -375,7 +395,7 @@ export function togglePanel(name, arg) {
 export function openPanel(name, arg) {
   sfx('ui');
   $('tooltip').style.display = 'none';
-  ({ inventory: openInventory, character: openCharacter, mastery: openMastery, quests: openQuests, map: openMap, menu: openMenu, station: openStation, merchant: openMerchant, board: openBoard, dialog: openDialog })[name]?.(arg);
+  ({ inventory: openInventory, character: openCharacter, skills: openSkills, mastery: openMastery, quests: openQuests, map: openMap, menu: openMenu, station: openStation, merchant: openMerchant, board: openBoard, dialog: openDialog })[name]?.(arg);
 }
 export function refreshPanel() { if (G.ui.open) openPanel(G.ui.open, G.ui.arg); }
 
@@ -493,10 +513,10 @@ function openCharacter() {
   const attrs = ATTRS.map(k => `<div class="attr"><div><b>${ATTR_INFO[k].name}</b><small>${ATTR_INFO[k].desc}</small></div><span class="av">${s.attrs[k]}${s.attrs[k] !== p.attrs[k] ? `<small> (${p.attrs[k]})</small>` : ''}</span>${p.attrPts > 0 ? `<button data-attr="${k}">+</button><button data-attr5="${k}">+5</button>` : ''}</div>`).join('');
   const trades = Object.keys(TRADES).map(k => { const t = p.trade[k]; return `<div class="trade"><span>${TRADES[k].icon} ${TRADES[k].name}</span><b>${t.lv}</b><div class="bar"><div style="width:${t.xp / xpForTrade(t.lv) * 100}%"></div></div></div>`; }).join('');
   const w = activeWeapon();
-  const R = RACES[p.race || 'human'], C = CLASSES[p.cls];
+  const C = CLASSES[p.cls];
   const html = `<div class="char">
-    <div><h3 class="who">${esc(p.name || 'Castaway')} <small>${R.icon} ${R.name}${C ? ` · ${C.icon} ${C.name}` : ''}</small></h3>
-    <p class="small dim">${R.perk}${C ? '<br>' + C.perk : ''}</p>
+    <div><h3 class="who">${esc(p.name || 'Castaway')} <small>${C ? `${C.icon} ${C.name} · ${C.role}` : ''}</small></h3>
+    <p class="small dim">${C ? C.desc : ''} Skill trees: press T.</p>
     <h3>Level ${p.level}</h3><div class="bar xp"><div style="width:${p.level >= MAX_LEVEL ? 100 : p.xp / xpForLevel(p.level) * 100}%"></div></div><p class="small dim">${p.level >= MAX_LEVEL ? 'Max level' : `${p.xp} / ${xpForLevel(p.level)} XP`}</p>
     <h3>Attributes ${p.attrPts ? `<span class="pts">${p.attrPts} points to spend</span>` : ''}</h3>${attrs}
     <button id="respec" class="small">Reset attribute points</button></div>
@@ -512,6 +532,41 @@ function openCharacter() {
   el.querySelectorAll('[data-attr]').forEach(b => b.onclick = () => { p.attrs[b.dataset.attr]++; p.attrPts--; G.statsDirty = true; sfx('ui'); openCharacter(); });
   el.querySelectorAll('[data-attr5]').forEach(b => b.onclick = () => { const n = Math.min(5, p.attrPts); p.attrs[b.dataset.attr5] += n; p.attrPts -= n; G.statsDirty = true; sfx('ui'); openCharacter(); });
   $('respec').onclick = () => { let n = 0; for (const k of ATTRS) { n += p.attrs[k] - 5; p.attrs[k] = 5; } p.attrPts += n; G.statsDirty = true; openCharacter(); };
+}
+
+// ---- Class skill trees ----
+function openSkills() {
+  const p = G.p, C = classDef(), sk = ensureSkills();
+  tipSources = {};
+  const trees = C.trees.map(tr => {
+    const spent = spentInTree(tr.id);
+    const nodes = tr.nodes.map(n => {
+      const r = rankOf(n.id), max = n.type === 'active' ? 1 : n.max || 3;
+      const open = spent >= TIER_REQ[n.tier], can = canLearn(n.id);
+      const extra = n.type === 'active' ? `${n.cost} mana · ${n.cd}s cooldown` : `Passive · rank ${r}/${max}`;
+      tipSources['s' + n.id] = () => `<h3>${n.icon} ${n.name}</h3><div class="tsub">${extra}</div><div>${n.desc}</div>${open ? '' : `<div class="hint">Needs ${TIER_REQ[n.tier]} points in ${tr.name}</div>`}`;
+      const slotBtns = n.type === 'active' && r ? `<div class="sb">${SKILL_LABELS.map((k, i) => `<button class="${sk.bar[i] === n.id ? 'on' : ''}" data-cslot="${i}" data-id="${n.id}">${k}</button>`).join('')}</div>` : '';
+      return `<div class="node ${n.type} ${r >= max ? 'has' : r ? 'part' : can ? 'can' : ''} ${open ? '' : 'locked'}" data-skill="${n.id}" data-tip="s${n.id}">
+        <div class="ni">${n.icon}</div><div class="nn">${n.name}</div>${n.type === 'passive' ? `<div class="rk">${r}/${max}</div>` : ''}${slotBtns}</div>`;
+    }).join('<div class="link"></div>');
+    return `<div class="stree"><h3>${tr.icon} ${tr.name} <small>${spent} pts</small></h3><p class="dim small">${tr.desc}</p>${nodes}</div>`;
+  }).join('');
+  const html = `<div class="mhead"><b>${C.icon} ${C.name}</b><span class="pts">${sk.points} skill point${sk.points === 1 ? '' : 's'} to spend</span><span class="dim small">You get one point every level. Round icons are abilities: learn one, then put it on Z, X, C or V.</span><button id="sreset" class="small">Reset trees</button></div>
+    <div class="strees">${trees}</div>`;
+  const el = panel('skills', `${C.name} Skills`, html, true);
+  el.querySelectorAll('[data-skill]').forEach(d => d.onclick = ev => {
+    if (ev.target.dataset.cslot) return;
+    if (learn(d.dataset.skill)) { sfx('mastery'); refreshHud(); openSkills(); }
+  });
+  el.querySelectorAll('[data-cslot]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.cslot, id = b.dataset.id, bar = sk.bar;
+    const j = bar.indexOf(id);
+    if (j >= 0) bar[j] = bar[i];
+    bar[i] = id;
+    sfx('ui'); refreshHud(); openSkills();
+  });
+  $('sreset').onclick = () => { resetSkills(); refreshHud(); openSkills(); };
+  bindTips(el);
 }
 
 // ---- Mastery ----

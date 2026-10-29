@@ -287,6 +287,33 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
 .nope { color: #ff6a5a; font-family: Cinzel, serif; }
 .shake { animation: shk .5s; }
 @keyframes shk { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+/* ---- classes: skill bar, mana, trees ---- */
+#cskills { display: flex; gap: 6px; }
+#cskills .slot { width: 52px; height: 52px; font-size: 26px; border-color: #6a5aa0; box-shadow: inset 0 0 0 2px rgba(0,0,0,.6), inset 0 0 10px rgba(120,100,220,.35), 0 3px 10px rgba(0,0,0,.6); }
+#cskills .slot.empty { opacity: .5; }
+#cskills .slot.nomana { filter: grayscale(.8) brightness(.7); }
+#mpbar { width: 440px; height: 9px; border: 1px solid #000; }
+#mpbar > div { background: linear-gradient(#5aa0ff, #1e4aa8); }
+#mptext { position: absolute; inset: 0; text-align: center; font-size: 9px; line-height: 8px; text-shadow: 0 1px 2px #000; }
+#shieldfill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(230,230,255,.55); width: 0; }
+.ft.pet { color: #b8a0ff; font-size: 15px; }
+.plate.pet .pb div { background: #4ac04a; } .plate.pet .pn { color: #c8f0c0; }
+.strees { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+.stree { background: rgba(0,0,0,.25); border: 1px solid #3a2e1e; padding: 8px; display: flex; flex-direction: column; align-items: stretch; }
+.stree h3 { margin: 0; } .stree h3 small { color: var(--dim); font-family: 'EB Garamond', serif; }
+.stree .node { margin: 0; } .stree .node.locked { opacity: .45; }
+.stree .node.part { border-color: #b08a3a; } .stree .node.part .ni { filter: none; border-color: #b08a3a; }
+.stree .link { width: 2px; height: 10px; background: #5a4828; margin: 0 auto; }
+.rk { font-size: 12px; color: var(--gold2); }
+.cards.c16 { grid-template-columns: repeat(4, 1fr); }
+.c16 .ccard { padding: 6px 2px; } .c16 .ccard span { font-size: 24px; } .c16 .ccard b { font-size: 12px; }
+.cinfo h3 small { color: var(--dim); font-family: 'EB Garamond', serif; text-transform: none; letter-spacing: 0; }
+.trees3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px; margin-top: 6px; }
+.trees3 > div { background: rgba(0,0,0,.3); border: 1px solid #3a2e1e; padding: 6px; }
+.trees3 small { display: block; color: var(--dim); } .trees3 ul { margin: 4px 0 0; padding-left: 0; list-style: none; }
+.ctabs { margin: 10px 0 4px; }
+.sl { display: flex; align-items: center; gap: 10px; margin: 6px 0; } .sl span { width: 90px; color: var(--dim); } .sl input { flex: 1; accent-color: var(--gold); }
 </style>
 </head>
 <body>
@@ -306,19 +333,21 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
     <div id="actions">
       <div id="wslots"></div><div class="sep"></div>
       <div id="abils"></div><div class="sep"></div>
+      <div id="cskills"></div><div class="sep"></div>
       <div class="slot" id="q3"></div><div class="slot" id="q4"></div>
     </div>
     <div id="bars">
       <div id="lvlbox"><span id="lvl">1</span></div>
       <div class="barw">
         <div id="loadtag"></div>
-        <div class="bar" id="hpbar"><div id="hpfill"></div><span id="hptext"></span></div>
+        <div class="bar" id="hpbar"><div id="hpfill"></div><i id="shieldfill"></i><span id="hptext"></span></div>
+        <div class="bar" id="mpbar"><div id="mpfill"></div><span id="mptext"></span></div>
         <div class="bar" id="stbar"><div id="stfill"></div></div>
       </div>
     </div>
     <div class="bar" id="xpbar"><div id="xpfill"></div></div>
   </div>
-  <div id="keyhint"><kbd>I</kbd> Bag <kbd>C</kbd> Character <kbd>K</kbd> Mastery <kbd>J</kbd> Journal <kbd>M</kbd> Map <kbd>Shift</kbd> Dodge <kbd>Esc</kbd> Menu</div>
+  <div id="keyhint"><kbd>I</kbd> Bag <kbd>P</kbd> Character <kbd>T</kbd> Skills <kbd>K</kbd> Mastery <kbd>J</kbd> Journal <kbd>M</kbd> Map <kbd>Shift</kbd> Dodge <kbd>Esc</kbd> Menu</div>
   <canvas id="compass" width="560" height="34"></canvas>
   <div id="xhair"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="selftext"></div>

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { G, SAVE_KEY, newProfile } from './state.js';
-import { ZONES, WEAPONS, RACES, CLASSES, HAIR_STYLES, ARMOR_SLOTS } from './data.js';
+import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
+import { CLASSES, CLASS_LIST } from './classes.js';
+import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
+import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
 import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
@@ -121,7 +124,7 @@ addEventListener('keydown', e => {
   const c = e.code;
   if (c === 'Escape') { if (G.ui.open) closePanel(); else { G.unlock(); openPanel('menu'); } e.preventDefault(); return; }
   if (c === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
-  const panels = { KeyI: 'inventory', KeyC: 'character', KeyK: 'mastery', KeyJ: 'quests', KeyL: 'quests', KeyM: 'map', Tab: 'map' };
+  const panels = { KeyI: 'inventory', KeyP: 'character', KeyT: 'skills', KeyK: 'mastery', KeyJ: 'quests', KeyL: 'quests', KeyM: 'map', Tab: 'map' };
   if (panels[c]) { e.preventDefault(); togglePanel(panels[c]); return; }
   if (G.ui.open) return;
   if (c === 'Space' || c === 'Tab' || c === 'ShiftLeft' || c === 'ShiftRight') e.preventDefault();
@@ -140,7 +143,10 @@ addEventListener('keydown', e => {
     case 'Digit4': eatFood(); break;
     case 'KeyH': startRecall(); break;
     case 'KeyE': interact(); break;
-    case 'KeyV': G.setView(S.view === 'first' ? 'third' : 'first'); break;
+    case 'KeyZ': castSkill(0); break;
+    case 'KeyX': castSkill(1); break;
+    case 'KeyC': if (e.shiftKey) togglePanel('character'); else castSkill(2); break;
+    case 'KeyV': castSkill(3); break;
   }
 });
 addEventListener('keyup', e => { inp.keys[e.code] = false; });
@@ -276,12 +282,12 @@ function title() {
   G.mode = 'title';
   const save = loadSave();
   const t = $('title');
-  const R = save ? RACES[save.race || 'human'] : null, C = save ? CLASSES[save.cls] : null;
+  const C = save ? CLASSES[save.cls] : null;
   t.innerHTML = `<div class="home">
     <div class="logo"><div class="crest">⚜</div><h1>Aeternum<span>Wilds</span></h1><p>Shipwrecked on a cursed island. Fight, gather, craft, and break the Corruption.</p></div>
     <nav>
-      ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${R ? R.name : ''} ${C ? C.name : ''} · Level ${save.level}</small></button>` : ''}
-      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Choose a race and a class</small></button>
+      ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
+      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
       <button id="sett"><b>Settings</b><small>Mouse, view, graphics, sound</small></button>
       <button id="fs"><b>${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</b><small>Or press F11 at any time</small></button>
       <button id="ctrl"><b>Controls</b></button>
@@ -305,7 +311,8 @@ export function controlsHtml() {
     <tr><td>3 / 4</td><td>Potion / Eat</td><td>E</td><td>Interact, gather, skin</td></tr>
     <tr><td>H</td><td>Recall to town</td><td>Tab</td><td>Map</td></tr>
     <tr><td>Wheel</td><td>Zoom (all the way in for first person)</td><td>F11</td><td>Full screen</td></tr>
-    <tr><td>I</td><td>Inventory</td><td>C</td><td>Character</td></tr>
+    <tr><td>Z X C V</td><td>Class skills</td><td>T</td><td>Class skill trees</td></tr>
+    <tr><td>I</td><td>Inventory</td><td>P</td><td>Character</td></tr>
     <tr><td>K</td><td>Mastery</td><td>J</td><td>Journal</td></tr>
     <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr></table>`;
 }
@@ -344,60 +351,83 @@ export function bindSettings(root) {
 }
 
 // ---------- Character creator ----------
-const draft = { name: '', race: 'human', cls: 'knight', look: { skin: null, hair: null, hairStyle: 0, beard: true } };
-let preview = null, previewYaw = 0;
+const draft = { name: '', cls: 'warrior', look: { sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
+for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
+let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
 const PREVIEW_AT = { x: 3, z: 24 };
 function buildPreview() {
   if (preview) scene.remove(preview.root);
-  const R = RACES[draft.race], C = CLASSES[draft.cls];
-  if (draft.look.skin == null || !R.skins.includes(draft.look.skin)) draft.look.skin = R.skins[0];
-  if (draft.look.hair == null || !R.hair.includes(draft.look.hair)) draft.look.hair = R.hair[0];
-  preview = makeCharacter({ race: draft.race, look: draft.look });
-  const hide = [0x6a4a2a, 0x4a3420, 0x3a2a1a];
-  dressHumanoid(preview, { chest: C.gear.includes('chest') ? hide[0] : 0x7a6a52, legs: C.gear.includes('legs') ? hide[1] : 0x4a3e30, feet: hide[2], helm: C.gear.includes('head') ? 0x6a4a2a : null, helmTier: 1, trim: C.color });
+  const C = CLASSES[draft.cls];
+  preview = makeCharacter({ look: draft.look });
+  const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x6a6a70, 0x4a4a50] }[C.armor];
+  dressHumanoid(preview, { chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
   const wt = C.weapon;
-  if (wt === 'bow') preview.parts.handL.add(makeWeapon('bow', 1));
-  else { preview.parts.handR.add(makeWeapon(wt, 1)); if (wt === 'sword') { const sh = makeWeapon('shield', 1); sh.position.set(0.12, 0.05, 0.15); sh.rotation.y = Math.PI / 2; preview.parts.handL.add(sh); } }
+  if (wt === 'bow') { const b = makeWeapon('bow', 1); b.scale.setScalar(1.25); preview.parts.handL.add(b); }
+  else { const w = makeWeapon(wt, 1); w.scale.setScalar(1.45); preview.parts.handR.add(w); if (wt === 'sword') { const sh = makeWeapon('shield', 1); sh.scale.setScalar(1.25); sh.position.set(0.14, 0.05, 0.15); sh.rotation.y = Math.PI / 2; preview.parts.handL.add(sh); } }
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
+const sw = (list, key) => list.map(c => `<button class="sw ${draft.look[key] === c ? 'on' : ''}" data-sw="${key}" data-v="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
+const sliders = list => list.map(([k, label, mn, mx]) => `<label class="sl"><span>${label}</span><input type="range" min="${mn}" max="${mx}" step="0.01" value="${draft.look[k]}" data-sl="${k}"></label>`).join('');
 function creator() {
   G.mode = 'create';
   buildPreview();
   const t = $('title');
-  const R = RACES[draft.race], C = CLASSES[draft.cls];
+  const C = CLASSES[draft.cls], L = draft.look;
   const attrs = { str: 5, dex: 5, int: 5, con: 5 };
-  for (const src of [R, C]) for (const k in src.attrs) attrs[k] += src.attrs[k];
-  const sw = (list, key) => list.map(c => `<button class="sw ${draft.look[key] === c ? 'on' : ''}" data-${key}="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
+  for (const k in C.attrs) attrs[k] += C.attrs[k];
+  let body = '';
+  if (creatorTab === 'class') {
+    body = `<div class="cards c16">${CLASS_LIST.map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
+      <div class="cinfo"><h3>${C.icon} ${C.name} <small>${C.role}</small></h3><p class="cdesc">${C.desc}</p>
+      <p class="small">Starts with: <b>${WEAPONS[C.weapon].name}</b>, ${C.armor} armor. Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.</p>
+      <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
+      <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
+  } else if (creatorTab === 'body') {
+    body = `<div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
+      ${sliders(BODY_SLIDERS)}
+      <div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`;
+  } else {
+    body = `${sliders(FACE_SLIDERS)}
+      <div class="look"><span>Eyes</span>${sw(EYE_COLORS, 'eyeColor')}</div>
+      <div class="look"><span>Hair</span>${sw(HAIR_COLORS, 'hair')}</div>
+      <div class="look"><span>Style</span>${HAIR_STYLES.map((h, i) => `<button class="hs ${L.hairStyle === i ? 'on' : ''}" data-hs="${i}">${h}</button>`).join('')}</div>
+      <div class="look"><span>Facial hair</span>${FACIAL_HAIR.map((h, i) => `<button class="hs ${L.facialHair === i ? 'on' : ''}" data-fh="${i}">${h}</button>`).join('')}</div>
+      <div class="look"><span>War paint</span>${WAR_PAINT.map(([n, c]) => `<button class="hs ${L.paint === c ? 'on' : ''}" data-paint="${c}">${n}</button>`).join('')}</div>
+      <div class="look"><span>Scar</span><button class="hs ${L.scar ? 'on' : ''}" data-scar="1">Yes</button><button class="hs ${!L.scar ? 'on' : ''}" data-scar="0">No</button></div>`;
+  }
   t.innerHTML = `<div class="creator">
     <div class="cpanel">
       <h2>Create your character</h2>
       <label class="nm">Name <input id="cname" maxlength="18" placeholder="Castaway" value="${esc(draft.name)}"></label>
-      <h3>Race</h3><div class="cards">${Object.entries(RACES).map(([k, r]) => `<button class="ccard ${k === draft.race ? 'on' : ''}" data-race="${k}"><span>${r.icon}</span><b>${r.name}</b></button>`).join('')}</div>
-      <p class="cdesc">${R.desc}<br><em>${R.perk}</em></p>
-      <h3>Class</h3><div class="cards">${Object.entries(CLASSES).map(([k, c]) => `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${WEAPONS[c.weapon].name}</small></button>`).join('')}</div>
-      <p class="cdesc">${C.desc}<br><em>${C.perk}</em> Also gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.</p>
-      <h3>Appearance</h3>
-      <div class="look"><span>Skin</span>${sw(R.skins, 'skin')}</div>
-      <div class="look"><span>Hair</span>${sw(R.hair, 'hair')}</div>
-      <div class="look"><span>Style</span>${HAIR_STYLES.map((h, i) => `<button class="hs ${draft.look.hairStyle === i ? 'on' : ''}" data-hs="${i}">${h}</button>`).join('')}</div>
-      ${R.beard ? `<div class="look"><span>Beard</span><button class="hs ${draft.look.beard ? 'on' : ''}" data-beard="1">Yes</button><button class="hs ${!draft.look.beard ? 'on' : ''}" data-beard="0">No</button></div>` : ''}
-      <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div>
+      <div class="tabs ctabs">${[['class', 'Class'], ['body', 'Body'], ['face', 'Face & Hair']].map(([k, n]) => `<button class="${creatorTab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}<button id="crand" class="right">🎲 Random look</button></div>
+      ${body}
       <div class="row"><button id="cback">Back</button><button id="cgo" class="primary">Begin your journey</button></div>
     </div>
     <div class="chint">Drag to turn your character</div></div>`;
   t.style.display = 'block';
   $('cname').oninput = e => { draft.name = e.target.value; };
-  t.querySelectorAll('[data-race]').forEach(b => b.onclick = () => { draft.race = b.dataset.race; draft.look.skin = null; draft.look.hair = null; creator(); });
+  t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
   t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; creator(); });
-  t.querySelectorAll('[data-skin]').forEach(b => b.onclick = () => { draft.look.skin = +b.dataset.skin; creator(); });
-  t.querySelectorAll('[data-hair]').forEach(b => b.onclick = () => { draft.look.hair = +b.dataset.hair; creator(); });
-  t.querySelectorAll('[data-hs]').forEach(b => b.onclick = () => { draft.look.hairStyle = +b.dataset.hs; creator(); });
-  t.querySelectorAll('[data-beard]').forEach(b => b.onclick = () => { draft.look.beard = b.dataset.beard === '1'; creator(); });
+  t.querySelectorAll('[data-sex]').forEach(b => b.onclick = () => { L.sex = b.dataset.sex; if (L.sex === 'f') { L.facialHair = 0; if (L.hairStyle === 0 || L.hairStyle === 3) L.hairStyle = 1; } creator(); });
+  t.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { L[b.dataset.sw] = +b.dataset.v; creator(); });
+  t.querySelectorAll('[data-hs]').forEach(b => b.onclick = () => { L.hairStyle = +b.dataset.hs; creator(); });
+  t.querySelectorAll('[data-fh]').forEach(b => b.onclick = () => { L.facialHair = +b.dataset.fh; creator(); });
+  t.querySelectorAll('[data-paint]').forEach(b => b.onclick = () => { L.paint = b.dataset.paint === 'null' ? null : +b.dataset.paint; creator(); });
+  t.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => { L.scar = b.dataset.scar === '1'; creator(); });
+  // sliders rebuild only the 3D preview so dragging stays smooth
+  t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; buildPreview(); });
+  $('crand').onclick = () => {
+    const pk = a => a[Math.floor(Math.random() * a.length)];
+    for (const [k, , mn, mx] of [...BODY_SLIDERS, ...FACE_SLIDERS]) L[k] = +(mn + Math.random() * (mx - mn)).toFixed(2);
+    L.skin = pk(SKIN_TONES); L.hair = pk(HAIR_COLORS); L.eyeColor = pk(EYE_COLORS); L.hairStyle = Math.floor(Math.random() * HAIR_STYLES.length);
+    L.facialHair = L.sex === 'f' ? 0 : Math.floor(Math.random() * FACIAL_HAIR.length); L.paint = Math.random() < 0.25 ? pk(WAR_PAINT.slice(1))[1] : null; L.scar = Math.random() < 0.2;
+    creator();
+  };
   $('cback').onclick = () => { if (preview) { scene.remove(preview.root); preview = null; } title(); };
   $('cgo').onclick = () => {
     const C2 = CLASSES[draft.cls];
-    const p = newProfile(C2.weapon, draft.race, draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
+    const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
@@ -411,10 +441,14 @@ addEventListener('mouseup', () => { dragging = false; });
 addEventListener('mousemove', e => { if (dragging) { previewYaw += (e.clientX - lastX) * 0.01; lastX = e.clientX; } });
 
 // ---------- Enter the world ----------
+const OLD_CLASSES = { knight: 'warrior', berserker: 'berserker', vanguard: 'paladin', ranger: 'ranger' };
 function enterGame(profile) {
   G.p = profile;
-  if (!profile.race) profile.race = 'human';
-  if (!profile.cls) profile.cls = ({ sword: 'knight', greataxe: 'berserker', hammer: 'vanguard', bow: 'ranger' })[profile.startWeapon] || 'knight';
+  // older saves: map the first classes onto the new list, add the staff mastery
+  if (!CLASSES[profile.cls]) profile.cls = OLD_CLASSES[profile.cls] || ({ sword: 'warrior', greataxe: 'berserker', hammer: 'paladin', bow: 'ranger' })[profile.startWeapon] || 'warrior';
+  for (const w of Object.keys(WEAPONS)) if (!profile.mastery[w]) profile.mastery[w] = { lv: 1, xp: 0, nodes: [], slots: [null, null, null] };
+  if (!profile.look || !profile.look.sex) profile.look = { sex: 'm', ...(profile.look || {}) };
+  ensureSkills(profile);
   $('title').style.display = 'none';
   if (S.autoFS && !document.fullscreenElement) toggleFullscreen();
   createPlayer();
@@ -425,6 +459,7 @@ function enterGame(profile) {
   G.mode = 'game'; G.started = true; G.paused = false;
   G.relock();
   if (profile.story.step === 0) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
+  if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>T</kbd> to open your ${CLASSES[profile.cls].name} skill trees.`, 'gold'), 2500);
 }
 
 // ---------- Loop ----------
@@ -443,6 +478,8 @@ function loop() {
       G.time += dt;
       G.p.stats.playTime += dt;
       updatePlayer(dt);
+      updateSkills(dt);
+      updatePets(dt, spellPower);
       updateCamps(dt);
       updateEnemies(dt);
       updateProjectiles(dt);
@@ -493,8 +530,8 @@ function loop() {
       preview.root.rotation.y = previewYaw;
       animHumanoid(preview, { move: 0, phase: t, pose: null });
       preview.body.position.y = Math.sin(t * 2) * 0.01;
-      camera.position.set(px - 1.7, py + 1.5, pz + 5.2);
-      camera.lookAt(px - 1.7, py + 1.0, pz);
+      if (previewView === 'face') { const hy = py + 2.0 * (draft.look.height || 1); camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
+      else { camera.position.set(px - 1.7, py + 1.5, pz + 5.2); camera.lookAt(px - 1.7, py + 1.0, pz); }
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;

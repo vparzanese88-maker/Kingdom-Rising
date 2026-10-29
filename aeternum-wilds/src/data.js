@@ -54,6 +54,14 @@ export const WEAPONS = {
     draw: 0.8, speed: 42, range: 34,
     tiers: ['Ash Bow', 'Aged Yew Bow', 'Wyrdwood Bow'],
   },
+  // magic staff: click fires a bolt, hold for a charged blast that bursts on impact
+  staff: {
+    name: 'Staff', short: 'Staff', icon: '🪄', scale: { int: 1.0 },
+    dmg: 26, block: 0, blockCost: 1, speed: 34, range: 32, magic: true,
+    light: { time: 0.5, hit: 0.35, mult: 1.0, combo: 2 },
+    heavy: { time: 0.8, hit: 0.55, mult: 2.0, explode: 2.8 },
+    tiers: ['Ash Staff', 'Starmetal Staff', 'Wyrdwood Staff'],
+  },
 };
 export const WEAPON_TYPES = Object.keys(WEAPONS);
 
@@ -74,6 +82,11 @@ export const ABILITIES = {
   destiny: { name: 'Path of Destiny', icon: '⚡', cd: 15, kind: 'line', range: 11, width: 2.4, dmg: 1.7, knock: 3, desc: 'A long ground-splitting strike that throws enemies back.' },
   wrecking: { name: 'Wrecking Ball', icon: '🔴', cd: 10, kind: 'aoe', at: 'front', fwd: 2.6, delay: 0.25, radius: 3, dmg: 2.2, desc: 'A huge overhead blow in front of you.' },
   clearMind: { name: 'Clear Mind', icon: '🧘', cd: 24, kind: 'buff', dur: 6, buff: { dr: 0.35, stamRegen: 1.0 }, heal: 0.2, cleanse: true, desc: 'Remove slows and poison, heal 20%, take 35% less damage for 6 seconds.' },
+  // Staff
+  fireball: { name: 'Fireball', icon: '☄️', cd: 9, kind: 'proj', dmg: 1.6, speed: 34, explode: 3.2, color: 0xff7a2a, desc: 'Hurl a fireball that bursts on impact.' },
+  pillar: { name: 'Pillar of Fire', icon: '🔥', cd: 13, kind: 'aoe', at: 'cursor', max: 20, delay: 0.7, radius: 3.5, dmg: 2.0, color: 0xff6a1a, desc: 'Fire erupts from the ground at the crosshair.' },
+  incinerate: { name: 'Incinerate', icon: '🌋', cd: 14, kind: 'aoe', at: 'self', delay: 0.15, radius: 5, dmg: 1.3, knock: 3, desc: 'A ring of flame bursts out around you, throwing enemies back.' },
+  burnout: { name: 'Burnout', icon: '💨', cd: 12, kind: 'evade', dist: 7, dmg: 1.0, desc: 'Blink backward in a puff of flame and fire a bolt.' },
   // Bow
   rain: { name: 'Rain of Arrows', icon: '🌧️', cd: 14, kind: 'aoe', at: 'cursor', max: 18, delay: 0.7, radius: 4.2, dmg: 1.5, slow: 3, desc: 'Arrows fall on the cursor, slowing what survives.' },
   evade: { name: 'Evade Shot', icon: '↩️', cd: 10, kind: 'evade', dist: 6, dmg: 1.2, desc: 'Leap backward and loose an arrow.' },
@@ -100,6 +113,12 @@ export const MASTERY = {
     { id: 'hm_stun', row: 1, name: 'Concussion', icon: '💫', desc: 'Stuns last 40% longer', mods: { stunDur: 0.4 } }, { id: 'destiny', row: 1 }, { id: 'hm_slam', row: 1, name: 'Earthbreaker', icon: '🌋', desc: '+30% heavy attack damage', mods: { heavyDmg: 0.3 } },
     { id: 'hm_armor', row: 2, name: 'Plated', icon: '🧱', desc: 'Take 12% less damage', mods: { dr: 0.12 } }, { id: 'clearMind', row: 2 }, { id: 'hm_daze', row: 2, name: 'Opportunist', icon: '🎯', desc: '+30% damage to stunned enemies', mods: { stunnedDmg: 0.3 } },
     { id: 'hm_cdr', row: 3, name: 'Unstoppable', icon: '⏱️', desc: '-15% ability cooldowns', mods: { cdr: 0.15 } }, { id: 'hm_abil', row: 3, name: 'Seismic', icon: '🗻', desc: '+20% ability damage', mods: { abilityDmg: 0.2 } }, { id: 'hm_life', row: 3, name: 'Vigor', icon: '💚', desc: 'Heal 4% of max health on each kill', mods: { killHeal: 0.04 } },
+  ],
+  staff: [
+    { id: 'fireball', row: 0 }, { id: 'st_focus', row: 0, name: 'Focus', icon: '🔮', desc: '+12% light attack damage', mods: { lightDmg: 0.12 } }, { id: 'burnout', row: 0 },
+    { id: 'st_charge', row: 1, name: 'Overcharge', icon: '⚡', desc: '+30% charged blast damage', mods: { heavyDmg: 0.3 } }, { id: 'pillar', row: 1 }, { id: 'st_crit', row: 1, name: 'Searing', icon: '🎯', desc: '+8% critical chance', mods: { crit: 8 } },
+    { id: 'st_mana', row: 2, name: 'Flow', icon: '💧', desc: '+3 mana per second', mods: { manaRegen: 3 } }, { id: 'incinerate', row: 2 }, { id: 'st_spell', row: 2, name: 'Pyromancy', icon: '🔥', desc: '+15% spell damage', mods: { spellDmg: 0.15 } },
+    { id: 'st_cdr', row: 3, name: 'Quick Casting', icon: '⏱️', desc: '-15% ability cooldowns', mods: { cdr: 0.15 } }, { id: 'st_abil', row: 3, name: 'Inferno', icon: '🌋', desc: '+20% ability damage', mods: { abilityDmg: 0.2 } }, { id: 'st_ward', row: 3, name: 'Fire Ward', icon: '🛡️', desc: 'Take 10% less damage', mods: { dr: 0.1 } },
   ],
   bow: [
     { id: 'rain', row: 0 }, { id: 'bw_draw', row: 0, name: 'Quick Draw', icon: '🏹', desc: 'Draw 25% faster', mods: { drawSpeed: 0.25 } }, { id: 'evade', row: 0 },
@@ -238,6 +257,7 @@ export const RECIPES = [
       { id: `f_sword${t}`, station: 'forge', gear: 'weapon', wtype: 'sword', tier: t, in: { [ingot]: q(4), [wood]: q(1), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_axe${t}`, station: 'forge', gear: 'weapon', wtype: 'greataxe', tier: t, in: { [ingot]: q(5), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_hammer${t}`, station: 'forge', gear: 'weapon', wtype: 'hammer', tier: t, in: { [ingot]: q(6), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_staff${t}`, station: 'forge', gear: 'weapon', wtype: 'staff', tier: t, in: { [wood]: q(4), [ingot]: q(1), [cloth]: q(1), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_bow${t}`, station: 'forge', gear: 'weapon', wtype: 'bow', tier: t, in: { [wood]: q(5), [cloth]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
     ];
     for (const s of ARMOR_SLOTS) for (const wc of ['light', 'medium', 'heavy']) {
@@ -339,60 +359,18 @@ export const NPCS = {
   ilsa: { name: 'Ilsa', role: 'Merchant', shirt: 0x2e5a6a, pants: 0x3a3022 },
 };
 
-// ---- Races ----
-// attrs are added to the base 5s; mods work like mastery passives; look sets the body
-export const RACES = {
-  human: {
-    name: 'Human', icon: '🧑', attrs: { str: 1, dex: 1, int: 1, con: 1 }, mods: { xp: 0.1 },
-    perk: '+1 to every attribute and 10% more experience.',
-    desc: 'Settlers from the mainland. Adaptable, ambitious and quick to learn.',
-    skins: [0xf1c9a5, 0xe0ac84, 0xc68b5e, 0x8d5a3b, 0x5e3a24], hair: [0x2a1a10, 0x5a3a1e, 0xa8743a, 0xd8b878, 0x8a2a14, 0x9a9a9a],
-    height: 1, build: 1,
-  },
-  elf: {
-    name: 'Elf', icon: '🧝', attrs: { dex: 3, int: 2, con: -1 }, mods: { stamRegen: 0.2, crit: 3 },
-    perk: '+3 Dexterity, +2 Intelligence, -1 Constitution. 20% faster stamina and +3% critical chance.',
-    desc: 'Long-lived wanderers of the old forests. Light on their feet and deadly at range.',
-    skins: [0xf6dcc4, 0xe8c8a8, 0xd0b8a0, 0xb8a8c8, 0x9a8ab0], hair: [0xf0e6c0, 0xd8c890, 0x2a2a3a, 0x8ab0d8, 0xc0c0c8, 0x6a3a6a],
-    height: 1.06, build: 0.9, ears: true,
-  },
-  dwarf: {
-    name: 'Dwarf', icon: '🧔', attrs: { con: 3, str: 2, dex: -1 }, mods: { gather: 0.2, armorPct: 0.08, tradeXp: 0.2 },
-    perk: '+3 Constitution, +2 Strength, -1 Dexterity. Gathers 20% faster, +8% armor, +20% trade skill experience.',
-    desc: 'Miners and smiths from under the mountains. Stubborn, sturdy and unmatched at the forge.',
-    skins: [0xf0c4a0, 0xd8a47e, 0xb88058, 0x8a5a3a], hair: [0x8a2a14, 0x5a3a1e, 0x2a1a10, 0xd8b878, 0xb0b0b0],
-    height: 0.82, build: 1.25, beard: true,
-  },
-  orc: {
-    name: 'Orc', icon: '👹', attrs: { str: 4, con: 2, int: -1 }, mods: { lifesteal: 2, lowHpDmg: 0.1 },
-    perk: '+4 Strength, +2 Constitution, -1 Intelligence. 2% lifesteal and +10% damage below half health.',
-    desc: 'Raiders from the eastern isles. Huge, fierce and hard to kill.',
-    skins: [0x6a8a4a, 0x5a7a3a, 0x7a8a5a, 0x4a6a3a, 0x8a7a5a], hair: [0x1a1a10, 0x3a2a1a, 0x5a1a10, 0x8a8a7a],
-    height: 1.1, build: 1.2, tusks: true,
-  },
-};
-
-// ---- Classes ----
-export const CLASSES = {
-  knight: {
-    name: 'Knight', icon: '🛡️', weapon: 'sword', second: 'bow', attrs: { str: 2, dex: 2, con: 2 }, mods: { armorPct: 0.1, blockCost: -0.2 },
-    perk: '+10% armor and blocking costs 20% less stamina.', desc: 'Sword and shield. Holds the line and blocks almost anything.',
-    gear: ['head', 'chest', 'legs', 'feet'], armor: 'heavy', color: 0x7a1e1e,
-  },
-  berserker: {
-    name: 'Berserker', icon: '🪓', weapon: 'greataxe', second: 'hammer', attrs: { str: 5, con: 1 }, mods: { lowHpDmg: 0.15, killHeal: 0.02 },
-    perk: '+15% damage below half health and heal 2% on each kill.', desc: 'Great axe. Wide swings, lifesteal and rage.',
-    gear: ['chest', 'legs', 'feet'], armor: 'medium', color: 0x6a3a1a,
-  },
-  vanguard: {
-    name: 'Vanguard', icon: '🔨', weapon: 'hammer', second: 'sword', attrs: { str: 3, con: 3 }, mods: { stunDur: 0.2, dr: 0.05 },
-    perk: 'Stuns last 20% longer and you take 5% less damage.', desc: 'War hammer. Slow, crushing blows that stun whole packs.',
-    gear: ['head', 'chest', 'hands', 'feet'], armor: 'heavy', color: 0x3a4a6a,
-  },
-  ranger: {
-    name: 'Ranger', icon: '🏹', weapon: 'bow', second: 'sword', attrs: { dex: 5, con: 1 }, mods: { moveSpeed: 0.08, crit: 5 },
-    perk: '+8% move speed and +5% critical chance.', desc: 'Bow. Strikes from range and never stands still.',
-    gear: ['chest', 'legs', 'feet', 'hands'], armor: 'light', color: 0x3a5a2a,
-  },
-};
-export const HAIR_STYLES = ['Short', 'Long', 'Topknot', 'Shaved', 'Braids'];
+// ---- Character appearance (everyone is human) ----
+export const SKIN_TONES = [0xf6dcc4, 0xf1c9a5, 0xe0ac84, 0xd29a6e, 0xc68b5e, 0xa86e48, 0x8d5a3b, 0x6e432a, 0x5e3a24, 0x45291a];
+export const HAIR_COLORS = [0x1a1210, 0x2a1a10, 0x5a3a1e, 0x7a4a26, 0xa8743a, 0xd8b878, 0xf0e2b0, 0x8a2a14, 0xb84a20, 0x9a9a9a, 0xe8e8e8, 0x3a4a8a];
+export const EYE_COLORS = [0x3a2a1a, 0x6a4a2a, 0x3a6a9a, 0x4a8a5a, 0x7a8a9a, 0x8a6a2a];
+export const HAIR_STYLES = ['Short', 'Long', 'Topknot', 'Shaved', 'Braids', 'Ponytail', 'Bun', 'Mohawk'];
+export const FACIAL_HAIR = ['None', 'Stubble', 'Mustache', 'Goatee', 'Full beard', 'Long beard'];
+export const WAR_PAINT = [['None', null], ['Red', 0xa02018], ['Blue', 0x2a4aa0], ['Black', 0x1a1a1a], ['White', 0xe8e4d8], ['Green', 0x3a7a2a]];
+// sliders: [key, label, min, max, default]
+export const BODY_SLIDERS = [
+  ['height', 'Height', 0.86, 1.14, 1], ['weight', 'Weight', 0.82, 1.35, 1], ['muscle', 'Muscle', 0.8, 1.35, 1], ['headSize', 'Head size', 0.88, 1.12, 1],
+];
+export const FACE_SLIDERS = [
+  ['faceWidth', 'Face width', 0.85, 1.15, 1], ['jaw', 'Jaw', 0.75, 1.3, 1], ['chin', 'Chin', 0.7, 1.4, 1], ['nose', 'Nose', 0.6, 1.6, 1],
+  ['eyeSize', 'Eyes', 0.7, 1.4, 1], ['brow', 'Brow', 0.6, 1.5, 1], ['ears', 'Ears', 0.7, 1.5, 1], ['mouth', 'Mouth', 0.7, 1.4, 1],
+];

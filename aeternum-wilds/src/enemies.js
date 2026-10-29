@@ -9,6 +9,24 @@ import { gainXp, gainMastery, activeWType, stats } from './stats.js';
 import { randomDrop, addItem, addMat } from './items.js';
 import { toast, lootToast, bossBar, floatText } from './ui.js';
 import { questEvent } from './quests.js';
+import { hurtPet, setPetDamageHook } from './pets.js';
+
+// who an enemy is fighting: a summoned pet that hit it, or the player
+function targetOf(e) {
+  const pt = e.petTarget;
+  if (pt && !pt.dead && Math.hypot(pt.pos.x - e.pos.x, pt.pos.z - e.pos.z) < 30) return { pos: pt.pos, y: pt.y, pet: pt };
+  e.petTarget = null;
+  return { pos: G.player.pos, y: G.player.y, pet: null };
+}
+// pets hurt enemies through here
+setPetDamageHook((e, dmg, pet) => {
+  if (e.dead) return;
+  e.hp -= dmg; e.hitFlash = 0.12; e.aggro = true; e.lastHit = G.time;
+  if (e.mezzed) { e.mezzed = false; e.stunned = 0; }
+  if (!e.petTarget && Math.random() < 0.6) e.petTarget = pet;
+  floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, `${Math.round(dmg)}`, 'pet');
+  if (e.hp <= 0) killEnemy(e);
+});
 import { sfx } from './audio.js';
 import { angDiff, rand, randi, clamp } from './util.js';
 
@@ -167,7 +185,7 @@ function pickAttack(e, d) {
 }
 
 function startAttack(e, id) {
-  const A = ATTACKS[id], P = G.player;
+  const A = ATTACKS[id], P = targetOf(e);
   const enrage = e.def.boss && e.hp < e.maxHp * 0.3 ? 0.75 : 1;
   const wind = A.windup * enrage;
   e.facing = Math.atan2(P.pos.x - e.pos.x, P.pos.z - e.pos.z);
@@ -194,14 +212,14 @@ function startAttack(e, id) {
 }
 
 function resolveAttack(e) {
-  const a = e.atk, A = a.A, P = G.player;
+  const a = e.atk, A = a.A, T = targetOf(e), P = T;
   const dmg = e.dmg * A.dmg;
   const src = { x: e.pos.x, z: e.pos.z, lv: e.lv };
   e.cds[a.id] = G.time + A.cd * (e.def.boss && e.hp < e.maxHp * 0.3 ? 0.7 : 1);
   switch (A.kind) {
     case 'melee': case 'cone': {
       const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, d = Math.hypot(dx, dz);
-      if (d < A.range + e.radius + 0.45 && Math.abs(angDiff(e.facing, Math.atan2(dx, dz))) < A.arc / 2 * Math.PI / 180 + 0.2) hurtPlayer(dmg, src);
+      if (d < A.range + e.radius + 0.45 && Math.abs(angDiff(e.facing, Math.atan2(dx, dz))) < A.arc / 2 * Math.PI / 180 + 0.2) { if (T.pet) hurtPet(T.pet, dmg); else hurtPlayer(dmg, src); }
       e.strikeT = 0.25;
       sfx('swing', 0.5);
       e.atk = null; e.state = 'recover'; e.recover = 0.35;
@@ -216,6 +234,7 @@ function resolveAttack(e) {
     case 'proj': {
       const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
       const sy = e.y + 1.3 * e.size, ty = P.y + 1.2;
+      if (T.pet) { const pet = T.pet; setTimeout(() => hurtPet(pet, dmg), l / A.speed * 1000); }
       spawnProj({ owner: 'enemy', x: e.pos.x + dx / l * 0.6, z: e.pos.z + dz / l * 0.6, y: sy, dx: dx / l, dy: (ty - sy) / l, dz: dz / l, speed: A.speed, range: A.range + 6, dmg, lv: e.lv, poison: A.poison, color: A.color });
       if (!A.color) sfx('bow', 0.5); else sfx('magic', 0.4);
       break;
@@ -225,7 +244,9 @@ function resolveAttack(e) {
       for (const [x, z] of spots) {
         shockRing(x, z, A.radius, A.color ?? 0xff5030, 0.4);
         burst(x, heightAt(x, z) + 0.3, z, A.color ?? 0xa08060, 14, 6, 0.6);
-        if (Math.hypot(P.pos.x - x, P.pos.z - z) < A.radius + 0.4) hurtPlayer(dmg, { x, z, lv: e.lv }, { poison: A.poison, unblockable: A.at !== 'self' });
+        const pl = G.player;
+        if (Math.hypot(pl.pos.x - x, pl.pos.z - z) < A.radius + 0.4) hurtPlayer(dmg, { x, z, lv: e.lv }, { poison: A.poison, unblockable: A.at !== 'self' });
+        for (const pet of G.pets) if (!pet.dead && Math.hypot(pet.pos.x - x, pet.pos.z - z) < A.radius + pet.radius) hurtPet(pet, dmg);
       }
       sfx('boom', 0.6); shake(e.def.boss ? 0.4 : 0.2);
       break;
@@ -312,6 +333,7 @@ export function updateEnemies(dt) {
       if (walkable(nx, nz)) { const [cx, cz] = collide(nx, nz, e.radius); e.pos.x = cx; e.pos.z = cz; }
       else c.t = c.dur;
       if (!c.hit && Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z) < e.radius + 0.8) { c.hit = true; hurtPlayer(c.dmg, { x: e.pos.x, z: e.pos.z, lv: e.lv }); }
+      for (const pet of G.pets) if (!pet.dead && !c.hitPets?.has(pet) && Math.hypot(pet.pos.x - e.pos.x, pet.pos.z - e.pos.z) < e.radius + pet.radius + 0.5) { (c.hitPets ||= new Set()).add(pet); hurtPet(pet, c.dmg); }
       pose = 'strike'; pt = 0.5; e.phase += dt * 20; e.move = 1;
       if (c.t >= c.dur) { e.atk = null; e.state = 'recover'; e.recover = 0.6; }
     } else if (e.state === 'recover') {
@@ -325,6 +347,8 @@ export function updateEnemies(dt) {
       else { mvx = hx / hl; mvz = hz / hl; speed *= 1.3; }
     } else if (e.aggro) {
       e.state = 'chase';
+      const T = targetOf(e);
+      const dx = T.pos.x - e.pos.x, dz = T.pos.z - e.pos.z, d = Math.hypot(dx, dz) || 0.01;
       const A = pickAttack(e, d);
       if (A) startAttack(e, A);
       else {
@@ -345,6 +369,7 @@ export function updateEnemies(dt) {
         if (wl < 0.6) e.wander = null; else { mvx = wx / wl; mvz = wz / wl; speed *= 0.3; }
       }
     }
+    if (e.rootUntil > G.time && e.state !== 'return') { mvx = 0; mvz = 0; }
     if (mvx || mvz) {
       // separation
       for (const o of G.enemies) {

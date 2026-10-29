@@ -115,6 +115,15 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.5, 0.09, 0.1, mat(0x5a0a0a), 0, 0.22, 0));
     g.add(box(0.16, 1.7, 0.05, mat(0x2a1a1a, false, { emissive: 0x401008 }), 0, 1.1, 0));
     g.rotation.x = Math.PI / 2;
+  } else if (type === 'staff') {
+    const sw = mat([0x6a4a2a, 0x4a3a5a, 0x3a2440][tier - 1] ?? 0x6a4a2a);
+    g.add(box(0.07, 1.7, 0.07, sw, 0, 0.45, 0));
+    for (let i = 0; i < 4; i++) { const p = box(0.05, 0.28, 0.05, sw, Math.cos(i * 1.57) * 0.09, 1.38, Math.sin(i * 1.57) * 0.09); p.rotation.set(Math.sin(i * 1.57) * 0.35, 0, -Math.cos(i * 1.57) * 0.35); g.add(p); }
+    const gemC = [0xff7a2a, 0x6ac8ff, 0xc66dff][tier - 1] ?? 0xff7a2a;
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: gemC }));
+    gem.position.y = 1.42; gem.userData.keep = true; g.add(gem); g.userData.gem = gem;
+    g.add(box(0.1, 0.06, 0.1, gold, 0, 1.25, 0));
+    g.rotation.x = Math.PI / 2;
   } else if (type === 'bow') {
     const bm = mat([0x8a5a32, 0x6a3a22, 0x5a2a5a][tier - 1] ?? 0x8a5a32);
     for (let i = -3; i <= 3; i++) {
@@ -141,7 +150,7 @@ export function makeHumanoid(o = {}) {
   const root = new THREE.Group();
   const body = new THREE.Group(); // scaled, bobbing
   root.add(body);
-  const s = o.size || 1, ht = o.height || 1, bd = o.build || 1;
+  const s = o.size || 1, ht = (o.height || 1) * (o.sex === 'f' ? 0.95 : 1), bd = (o.build || 1) * (o.sex === 'f' ? 0.92 : 1), mus = o.muscle || 1;
   body.scale.set(s * bd, s * ht, s * bd);
   const skin = mat(o.skin ?? 0xe0b48a, true), shirt = mat(o.shirt ?? 0x6a5236, true), pants = mat(o.pants ?? 0x40362a, true), boot = mat(o.boots ?? 0x2a2018, true);
   const trim = mat(shade(o.shirt ?? 0x6a5236, 0.7), true);
@@ -161,34 +170,63 @@ export function makeHumanoid(o = {}) {
   upper.add(box(0.24, 0.12, 0.34, trim, 0.36, 0.76, 0));
   upper.add(box(0.24, 0.12, 0.34, trim, -0.36, 0.76, 0));
   upper.add(box(0.16, 0.12, 0.16, skin, 0, 0.86, 0));
-  // head
+  if (o.sex === 'f') upper.add(box(0.46, 0.16, 0.1, shirt, 0, 0.5, 0.17));
+  if ((o.build || 1) > 1.12) upper.add(box(0.46, 0.26, 0.12, shirt, 0, 0.24, 0.18)); // belly
+  if (o.sex === 'f') upper.scale.x = 0.9;
+  // head and face; f holds the character creator sliders (all default 1)
+  const f = o.face || {};
+  const fem = o.sex === 'f';
+  const fw = (f.faceWidth || 1), jaw = f.jaw || 1, chin = f.chin || 1, nose = f.nose || 1, eyeS = f.eyeSize || 1, brow = f.brow || 1, earS = f.ears || 1, mouth = f.mouth || 1;
   const head = new THREE.Group(); head.position.y = 1.08; upper.add(head);
-  head.scale.x = 1 / Math.sqrt(bd); head.scale.z = 1 / Math.sqrt(bd);
-  head.add(box(0.38, 0.42, 0.38, skin, 0, 0, 0));
-  head.add(box(0.07, 0.11, 0.07, skin, 0, -0.02, 0.21));
-  const eyeM = o.eyes ? mat(o.eyes, false, { emissive: o.eyes }) : mat(0x1a1410);
-  const white = mat(0xf0ece0);
+  const hs = (f.headSize || 1) * (fem ? 0.95 : 1);
+  head.scale.set(hs / Math.sqrt(bd), hs, hs / Math.sqrt(bd));
+  const skull = box(0.38 * fw, 0.3, 0.38, skin, 0, 0.06, 0); head.add(skull);
+  head.add(box(0.36 * fw * (0.85 + jaw * 0.15), 0.14, 0.36, skin, 0, -0.14, 0));
+  head.add(box(0.2 * jaw * fw, 0.08 * chin, 0.12, skin, 0, -0.19 - 0.02 * chin, 0.12 + 0.02 * chin));
+  // cheekbones and nose
+  for (const sx of [1, -1]) head.add(box(0.08, 0.06, 0.06, skin, sx * 0.14 * fw, -0.03, 0.17));
+  const nz = box(0.06 * nose, 0.11 * nose, 0.06 + 0.04 * nose, skin, 0, -0.02, 0.2 + 0.02 * nose); head.add(nz);
+  const eyeC = o.eyes ?? o.eyeColor ?? 0x3a2a1a;
+  const eyeM = o.eyes ? mat(o.eyes, false, { emissive: o.eyes }) : mat(eyeC);
+  const white = mat(0xf0ece0), dark = mat(0x0a0806);
+  const browM = mat(shade(o.hair ?? 0x3a2a1a, 0.8));
   for (const sx of [1, -1]) {
-    if (!o.eyes) head.add(box(0.09, 0.06, 0.02, white, sx * 0.09, 0.05, 0.19));
-    head.add(box(0.045, 0.06, 0.02, eyeM, sx * 0.09, 0.05, 0.2));
-    head.add(box(0.11, 0.025, 0.03, mat(shade(o.hair ?? 0x3a2a1a, 0.8)), sx * 0.09, 0.11, 0.195));
+    const ex = sx * 0.09 * fw;
+    if (!o.eyes) { head.add(box(0.085 * eyeS, 0.055 * eyeS, 0.02, white, ex, 0.05, 0.19)); head.add(box(0.012, 0.012, 0.01, dark, ex, 0.05, 0.207)); }
+    head.add(box(0.04 * eyeS, 0.05 * eyeS, 0.02, eyeM, ex, 0.05, 0.198));
+    const br = box(0.1, 0.022 * brow, 0.03, browM, ex, 0.1 + 0.01 * brow, 0.195); br.rotation.z = sx * (fem ? -0.12 : 0.08) * brow; head.add(br);
+    if (fem) head.add(box(0.03, 0.01, 0.01, dark, ex + sx * 0.045, 0.07, 0.205)); // lashes
+    head.add(box(0.04, 0.1 * earS, 0.08, skin, sx * 0.2 * fw, 0.02, -0.01));
   }
-  head.add(box(0.12, 0.025, 0.02, mat(0x6a3a2a), 0, -0.11, 0.19));
-  if (o.ears) for (const sx of [1, -1]) { const e = box(0.05, 0.08, 0.2, skin, sx * 0.21, 0.04, -0.02); e.rotation.x = -0.5; e.rotation.z = sx * 0.3; e.position.y = 0.08; head.add(e); const tip = box(0.04, 0.06, 0.12, skin, sx * 0.24, 0.17, -0.1); tip.rotation.x = -0.9; head.add(tip); }
-  else for (const sx of [1, -1]) head.add(box(0.04, 0.1, 0.08, skin, sx * 0.2, 0.02, 0));
+  const lipM = mat(fem ? 0xa8484a : 0x7a4436);
+  head.add(box(0.11 * mouth, 0.022, 0.02, lipM, 0, -0.1, 0.19));
+  if (fem) head.add(box(0.09 * mouth, 0.016, 0.02, lipM, 0, -0.118, 0.188));
+  // war paint and scars
+  if (o.paint != null) { const pm = mat(o.paint); head.add(box(0.36 * fw, 0.035, 0.01, pm, 0, 0.05, 0.193)); head.add(box(0.03, 0.12, 0.01, pm, 0, -0.16, 0.18)); }
+  if (o.scar) { const sc = box(0.015, 0.16, 0.012, mat(0x8a3a2a), -0.1 * fw, 0.03, 0.198); sc.rotation.z = 0.35; head.add(sc); }
   if (o.tusks) for (const sx of [1, -1]) head.add(box(0.035, 0.09, 0.035, mat(0xf0e8d0), sx * 0.07, -0.1, 0.2));
   const hairM = mat(o.hair ?? 0x3a2a1a, true);
   const hair = new THREE.Group(); head.add(hair);
   if (o.hair !== undefined) {
     const st = o.hairStyle ?? 0;
-    if (st !== 3) hair.add(box(0.42, 0.1, 0.42, hairM, 0, 0.23, -0.01));
-    if (st === 0) { hair.add(box(0.42, 0.22, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.06, 0.18, 0.36, hairM, 0.2, 0.12, -0.03)); hair.add(box(0.06, 0.18, 0.36, hairM, -0.2, 0.12, -0.03)); }
-    if (st === 1) { hair.add(box(0.44, 0.5, 0.1, hairM, 0, -0.04, -0.2)); hair.add(box(0.07, 0.4, 0.36, hairM, 0.21, 0.0, -0.03)); hair.add(box(0.07, 0.4, 0.36, hairM, -0.21, 0.0, -0.03)); }
-    if (st === 2) { hair.add(box(0.42, 0.18, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.14, 0.18, 0.14, hairM, 0, 0.36, -0.08)); }
-    if (st === 3) hair.add(box(0.4, 0.04, 0.4, hairM, 0, 0.21, -0.01));
-    if (st === 4) { hair.add(box(0.42, 0.22, 0.08, hairM, 0, 0.1, -0.19)); for (const sx of [1, -1]) hair.add(box(0.07, 0.55, 0.07, hairM, sx * 0.16, -0.2, -0.2)); }
+    const W = 0.42 * fw;
+    if (st !== 3 && st !== 7) hair.add(box(W, 0.1, 0.42, hairM, 0, 0.24, -0.01));
+    if (st === 0) { hair.add(box(W, 0.22, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.06, 0.18, 0.36, hairM, W / 2, 0.12, -0.03)); hair.add(box(0.06, 0.18, 0.36, hairM, -W / 2, 0.12, -0.03)); }
+    if (st === 1) { hair.add(box(W + 0.02, 0.62, 0.1, hairM, 0, -0.1, -0.2)); hair.add(box(0.07, 0.5, 0.36, hairM, W / 2, -0.05, -0.03)); hair.add(box(0.07, 0.5, 0.36, hairM, -W / 2, -0.05, -0.03)); hair.add(box(W, 0.06, 0.06, hairM, 0, 0.19, 0.19)); }
+    if (st === 2) { hair.add(box(W, 0.18, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.14, 0.18, 0.14, hairM, 0, 0.36, -0.08)); }
+    if (st === 3) hair.add(box(0.4 * fw, 0.04, 0.4, hairM, 0, 0.22, -0.01));
+    if (st === 4) { hair.add(box(W, 0.22, 0.08, hairM, 0, 0.1, -0.19)); for (const sx of [1, -1]) { hair.add(box(0.07, 0.6, 0.07, hairM, sx * 0.16, -0.22, -0.2)); hair.add(box(0.09, 0.05, 0.09, mat(0xc8a040), sx * 0.16, -0.5, -0.2)); } }
+    if (st === 5) { hair.add(box(W, 0.2, 0.08, hairM, 0, 0.12, -0.19)); const pt = box(0.1, 0.55, 0.1, hairM, 0, -0.08, -0.28); pt.rotation.x = 0.25; hair.add(pt); hair.add(box(0.12, 0.05, 0.12, mat(0x6a2a1a), 0, 0.17, -0.24)); }
+    if (st === 6) { hair.add(box(W, 0.2, 0.08, hairM, 0, 0.12, -0.19)); hair.add(box(0.2, 0.18, 0.18, hairM, 0, 0.26, -0.2)); }
+    if (st === 7) { hair.add(box(0.08, 0.16, 0.44, hairM, 0, 0.28, -0.02)); hair.add(box(0.36 * fw, 0.02, 0.38, mat(shade(o.hair ?? 0x3a2a1a, 0.7)), 0, 0.215, -0.01)); }
   }
-  if (o.beard) { head.add(box(0.36, 0.24, 0.1, hairM, 0, -0.2, 0.17)); head.add(box(0.2, 0.18, 0.08, hairM, 0, -0.38, 0.17)); head.add(box(0.2, 0.04, 0.03, hairM, 0, -0.06, 0.205)); }
+  // facial hair: 0 none, 1 stubble, 2 mustache, 3 goatee, 4 full beard, 5 long beard (or o.beard from old saves)
+  const fh = o.facialHair ?? (o.beard ? 4 : 0);
+  if (fh === 1) { const sm = mat(shade(o.skin ?? 0xe0b48a, 0.75)); head.add(box(0.34 * fw * (0.85 + jaw * 0.15), 0.12, 0.02, sm, 0, -0.15, 0.185)); }
+  if (fh === 2 || fh === 3 || fh >= 4) head.add(box(0.16 * mouth, 0.035, 0.03, hairM, 0, -0.075, 0.2));
+  if (fh === 3) head.add(box(0.1, 0.12, 0.06, hairM, 0, -0.2, 0.17));
+  if (fh >= 4) { head.add(box(0.34 * fw, 0.18, 0.1, hairM, 0, -0.18, 0.15)); for (const sx of [1, -1]) head.add(box(0.06, 0.2, 0.3, hairM, sx * 0.18 * fw, -0.08, 0.04)); }
+  if (fh === 5) { head.add(box(0.22, 0.24, 0.08, hairM, 0, -0.38, 0.17)); head.add(box(0.12, 0.14, 0.06, hairM, 0, -0.55, 0.16)); }
   if (o.hat) { head.add(box(0.7, 0.06, 0.7, mat(0x1a1a22), 0, 0.24, 0)); head.add(box(0.44, 0.24, 0.44, mat(0x1a1a22), 0, 0.36, 0)); }
   if (o.horns) {
     const hm = mat(0x1a0a08);
@@ -203,6 +241,7 @@ export function makeHumanoid(o = {}) {
     a.add(box(0.19, 0.14, 0.21, trim, 0, -0.5, 0));
     a.add(box(0.16, 0.14, 0.18, skin, 0, -0.66, 0.01));
     const hand = new THREE.Group(); hand.position.set(0, -0.68, 0.04); a.add(hand);
+    for (const c of a.children) if (c.isMesh) { c.scale.x = mus; c.scale.z = mus; }
     return [a, hand];
   };
   const [armR, handR] = mkArm(-1);

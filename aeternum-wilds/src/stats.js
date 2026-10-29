@@ -1,5 +1,7 @@
 import { G } from './state.js';
-import { LOADS, RACES, CLASSES, WEAPONS, MASTERY, ABILITIES, MATS, MAX_LEVEL, MAX_MASTERY, MAX_TRADE, xpForLevel, xpForMastery, xpForTrade, TRADES } from './data.js';
+import { CLASSES } from './classes.js';
+import { classMods } from './skills.js';
+import { LOADS, WEAPONS, MASTERY, ABILITIES, MATS, MAX_LEVEL, MAX_MASTERY, MAX_TRADE, xpForLevel, xpForMastery, xpForTrade, TRADES } from './data.js';
 import { armorOf, equipLoad } from './items.js';
 import { toast, banner, selfText } from './ui.js';
 import { sfx } from './audio.js';
@@ -73,12 +75,11 @@ export function computeStats() {
     const n = masteryNode(wt, id);
     if (n?.mods) for (const k in n.mods) s.mods[k] = (s.mods[k] || 0) + n.mods[k];
   }
-  // race and class
-  for (const src of [RACES[p.race || 'human'], CLASSES[p.cls]]) {
-    if (!src) continue;
-    for (const k in src.attrs) a[k] += src.attrs[k];
-    for (const k in src.mods) s.mods[k] = (s.mods[k] || 0) + src.mods[k];
-  }
+  // class: starting attribute bonus plus skill tree passives
+  const C = CLASSES[p.cls];
+  if (C) for (const k in C.attrs) a[k] += C.attrs[k];
+  const cm = classMods();
+  for (const k in cm) s.mods[k] = (s.mods[k] || 0) + cm[k];
   s.load = G.p.equip ? equipLoad() : 'light';
   s.loadDmg = LOADS[s.load].dmg;
   if (LOADS[s.load].dr) s.mods.dr = (s.mods.dr || 0) + LOADS[s.load].dr;
@@ -89,7 +90,8 @@ export function computeStats() {
   s.lifesteal += m.lifesteal || 0;
   s.cdr = Math.min(0.45, s.cdr + (a.int - 5) * 0.004 + (m.cdr || 0));
   s.moveSpeed += m.moveSpeed || 0;
-  s.maxHp = Math.round(150 + p.level * 12 + a.con * 10);
+  s.maxHp = Math.round((150 + p.level * 12 + a.con * 10) * (1 + (m.maxHpPct || 0)));
+  s.regen += m.regen || 0;
   let armor = 0;
   for (const k of ['head', 'chest', 'hands', 'legs', 'feet']) armor += armorOf(p.equip[k]);
   s.armor = Math.round(armor * (1 + s.armorPct) + a.con * 2);
@@ -114,10 +116,11 @@ export function gainXp(n, quiet) {
     p.xp -= xpForLevel(p.level);
     p.level++;
     p.attrPts += 3;
+    if (p.skills) p.skills.points = (p.skills.points || 0) + 1;
     G.statsDirty = true;
     const s = stats();
     G.player.hp = s.maxHp;
-    banner(`Level ${p.level}`, '3 attribute points to spend. Press C.');
+    banner(`Level ${p.level}`, '3 attribute points (C) and a skill point (T) to spend.');
     sfx('level');
   }
   if (p.level >= MAX_LEVEL) p.xp = 0;

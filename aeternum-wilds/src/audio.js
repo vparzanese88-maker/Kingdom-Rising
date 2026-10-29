@@ -473,6 +473,7 @@ const SFX = {
     const ok = buf(d, t, 'clash' + r10(), 0.55, vr(0.06));
     voice(d, t, { f: 220, f1: 120, r: 0.08, v: 0.3 });
     fm(d, t, { f: 900 * vr(), ratio: 2.76, idx: ok ? 1.5 : 3, dur: ok ? 0.5 : 0.7, v: ok ? 0.05 : 0.14 });
+    crackle(d, t, 5, 0.08, 0.07, 4500);
   },
   dodge(t, v) {
     const d = O(v, rp(0.3), 0.08, 1);
@@ -677,6 +678,141 @@ const SFX = {
   },
 };
 for (const k of Object.keys(EL)) { SFX['cast_' + k] = EL[k].cast; SFX['impact_' + k] = EL[k].impact; }
+
+// ---- combat feel: weapon whooshes, impacts by material, blocks, kills ----
+Object.assign(SFX, {
+  // swings: the recorded CC0 swing at a weapon-dependent speed, layered with synthesized air
+  whoosh_light(t, v) {
+    const d = O(v, rp(0.3), 0.1, 1.2);
+    if (!buf(d, t, 'swing' + r10(), 0.42, rnd(1.0, 1.16))) whoosh(d, t, 0.24, 0.4, 600, 3000, 800);
+    whoosh(d, t + 0.02, 0.18, 0.09, 1400, 5200, 1600, 'white', 2.2);
+  },
+  whoosh_heavy(t, v) {
+    const d = O(v, rp(0.25), 0.14, 1.6);
+    if (!buf(d, t, 'swing' + r10(), 0.55, rnd(0.78, 0.88))) whoosh(d, t, 0.38, 0.45, 350, 1800, 400);
+    whoosh(d, t, 0.42, 0.42, 220, 1000, 260, 'brown', 1.1);
+    nz(d, t + 0.05, { c: 'pink', f: 700, ft: 'lowpass', a: 0.08, r: 0.2, v: 0.12 });
+  },
+  whoosh_axe(t, v) {
+    const d = O(v, rp(0.2), 0.15, 1.8);
+    if (!buf(d, t, 'swing' + r10(), 0.5, rnd(0.66, 0.76))) whoosh(d, t, 0.46, 0.45, 260, 1300, 300);
+    whoosh(d, t, 0.5, 0.6, 170, 720, 210, 'brown', 1.0);
+    voice(d, t + 0.04, { f: 74 * vr(), f1: 46, a: 0.1, r: 0.35, v: 0.17 });
+  },
+  whoosh_hammer(t, v) {
+    const d = O(v, rp(0.2), 0.15, 1.8);
+    whoosh(d, t, 0.56, 0.85, 120 * vr(), 520, 160, 'brown', 0.9);
+    whoosh(d, t + 0.03, 0.5, 0.24, 300, 1400 * vr(), 320, 'pink', 1.2);
+    voice(d, t, { f: 56 * vr(), f1: 38, a: 0.16, r: 0.4, v: 0.22 });
+  },
+  whoosh_staff(t, v) {
+    const d = O(v, rp(0.25), 0.35, 1.6);
+    const f = 220 * vr(0.05);
+    voice(d, t, { types: ['sine', 'triangle'], det: [-8, 8], mix: [1, 0.4], f, f1: f * 1.5, a: 0.06, r: 0.32, v: 0.08, vib: 14, vibRate: 7 });
+    whoosh(d, t, 0.3, 0.22, 500, 2600, 700);
+    sparkle(d, t + 0.05, 3, 2600, 0.2, 0.02);
+  },
+  // impacts by what you hit
+  hit_flesh(t, v) {
+    const d = O(v, rp(0.25), 0.1, 1.4);
+    thud(d, t, 0.5, 110, 0.16);
+    nz(d, t, { c: 'pink', f: 760 * vr(0.15), f1: 240, q: 3, r: 0.13, v: 0.42 });
+    nz(d, t, { c: 'white', f: 3200 * vr(0.2), q: 1, r: 0.04, v: 0.2 });
+    voice(d, t + 0.01, { f: 420 * vr(0.2), f1: 170, r: 0.06, v: 0.06 });
+    if (Math.random() < 0.25) buf(d, t, 'clash' + r10(), 0.06, 1.4 * vr());
+  },
+  hit_bone(t, v) {
+    const d = O(v, rp(0.25), 0.12, 1.4);
+    nz(d, t, { c: 'white', f: 2400 * vr(0.15), q: 6, r: 0.05, v: 0.5 });
+    fm(d, t, { f: 700 * vr(0.15), ratio: 1.41, idx: 1.5, dur: 0.12, v: 0.12 });
+    crackle(d, t + 0.02, 6, 0.15, 0.12, 2600);
+    thud(d, t, 0.25, 140, 0.1);
+    nz(d, t + 0.02, { c: 'pink', f: 900, f1: 400, q: 2, a: 0.04, r: 0.3, v: 0.06 });
+  },
+  hit_metal(t, v) {
+    const d = O(v, rp(0.25), 0.2, 1.8);
+    const ok = buf(d, t, 'clash' + r10(), 0.5, vr(0.08));
+    fm(d, t, { f: 1800 * vr(0.1), ratio: 2.76, idx: ok ? 1.2 : 3, dur: 0.5, v: ok ? 0.04 : 0.1 });
+    voice(d, t, { f: 200, f1: 120, r: 0.06, v: 0.2 });
+  },
+  hit_corrupt(t, v) {
+    const d = O(v, rp(0.25), 0.2, 1.8);
+    nz(d, t, { c: 'brown', f: 1000, f1: 150, ft: 'lowpass', r: 0.25, v: 0.8 });
+    voice(d, t, { types: ['sawtooth', 'sawtooth'], det: [-25, 25], f: 95 * vr(), f1: 50, a: 0.004, r: 0.3, v: 0.13, lp: 500 });
+    nz(d, t + 0.01, { c: 'white', f: 4000, ft: 'highpass', a: 0.02, r: 0.3, v: 0.07 });
+    crackle(d, t + 0.02, 6, 0.25, 0.08, 3500);
+    thud(d, t, 0.3, 90, 0.14);
+  },
+  slam(t, v) {
+    duck(0.55, 0.35);
+    const d = O(v, rp(0.1), 0.35, 3);
+    voice(d, t, { f: 72 * vr(), f1: 30, glide: 0.45, a: 0.002, r: 0.55, v: 0.75 });
+    nz(d, t, { c: 'brown', f: 1400, f1: 80, ft: 'lowpass', fT: 0.6, r: 0.75, v: 0.95 });
+    nz(d, t, { c: 'white', f: 2000, ft: 'highpass', r: 0.06, v: 0.35 });
+    crackle(d, t + 0.06, 10, 0.5, 0.12, 2500);
+    const l = O(v * 0.5, -0.6, 0.2, 2), r = O(v * 0.5, 0.6, 0.2, 2);
+    for (let i = 0; i < 6; i++) nz(Math.random() < 0.5 ? l : r, t + 0.1 + rnd(0, 0.6), { c: 'white', f: rnd(1500, 4000), q: 3, a: 0.001, r: rnd(0.02, 0.06), v: rnd(0.05, 0.12) });
+  },
+  shatter(t, v) {
+    const d = O(v, rp(0.2), 0.35, 2.5);
+    nz(d, t, { c: 'white', f: 3000, ft: 'highpass', r: 0.08, v: 0.45 });
+    for (let i = 0; i < 8; i++) fm(d, t + rnd(0, 0.12), { f: rnd(2500, 6000), ratio: 2.7, idx: 1, dur: rnd(0.2, 0.5), v: 0.035 });
+    crackle(d, t, 8, 0.15, 0.14, 5000);
+  },
+  sparks(t, v) {
+    const d = O(v, rp(0.25), 0.2, 1.5);
+    crackle(d, t, 10, 0.2, 0.11, 5000);
+    for (let i = 0; i < 3; i++) fm(d, t + rnd(0, 0.08), { f: rnd(3000, 5200), ratio: 2.3, idx: 1, dur: 0.1, v: 0.03 });
+    nz(d, t, { c: 'white', f: 6000, ft: 'highpass', r: 0.15, v: 0.07 });
+  },
+  crit_ring(t, v) {
+    duck(0.6, 0.15);
+    const d = O(v, rp(0.2), 0.3, 2);
+    fm(d, t, { f: 1300 * vr(), ratio: 2.41, idx: 3, dur: 0.5, v: 0.075 });
+    fm(d, t + 0.01, { f: 2600 * vr(), ratio: 1.5, idx: 1, dur: 0.35, v: 0.035 });
+    voice(d, t, { f: 66, f1: 32, a: 0.002, r: 0.35, v: 0.42 });
+    nz(d, t, { c: 'white', f: 4000, ft: 'highpass', r: 0.05, v: 0.22 });
+  },
+  shield_thud(t, v) {
+    const d = O(v, rp(0.2), 0.15, 1.2);
+    voice(d, t, { f: 180 * vr(), f1: 90, r: 0.12, v: 0.42 });
+    nz(d, t, { c: 'brown', f: 900, f1: 200, ft: 'lowpass', r: 0.14, v: 0.6 });
+    nz(d, t, { c: 'pink', f: 600, q: 2, r: 0.08, v: 0.18 });
+  },
+  dodge_roll(t, v) {
+    const d = O(v, rp(0.2), 0.06, 1.2);
+    nz(d, t + 0.08, { c: 'brown', f: 420, ft: 'lowpass', a: 0.03, h: 0.1, r: 0.16, v: 0.32 });
+    crackle(d, t + 0.1, 5, 0.25, 0.05, 2500);
+    whoosh(d, t, 0.3, 0.15, 300, 900, 400);
+  },
+  kill_beast(t, v) {
+    const d = O(v, rp(0.3), 0.2, 2);
+    voice(d, t, { type: 'sawtooth', f: 340 * vr(0.15), f1: 140, glide: 0.5, a: 0.02, r: 0.5, v: 0.07, lp: 900, ft: 'bandpass', q: 3 });
+    nz(d, t, { c: 'pink', f: 1200, f1: 400, q: 1.5, a: 0.03, r: 0.4, v: 0.1 });
+    thud(d, t, 0.3, 120, 0.15);
+  },
+  kill_lost(t, v) {
+    const end = t + 1.1;
+    const d = autopan(O(v, 0, 0.5, 3), t, end, 1.3, 0.4);
+    nz(d, t, { c: 'pink', f: 900, f1: 280, q: 4, a: 0.1, r: 1.0, v: 0.24 });
+    voice(d, t, { types: ['sine', 'sine'], det: [-12, 12], f: 520 * vr(0.08), f1: 250, glide: 1.0, a: 0.1, r: 0.9, v: 0.05, vib: 30 });
+    crackle(d, t + 0.05, 10, 0.4, 0.1, 2200);
+  },
+  kill_corrupt(t, v) {
+    duck(0.6, 0.4);
+    const d = O(v, rp(0.2), 0.4, 3);
+    nz(d, t, { c: 'brown', f: 1200, f1: 80, ft: 'lowpass', r: 0.7, v: 0.85 });
+    voice(d, t, { types: ['sawtooth', 'sawtooth'], det: [-30, 30], f: 110 * vr(), f1: 45, a: 0.005, r: 0.8, v: 0.15, lp: 600 });
+    nz(d, t, { c: 'white', f: 3000, ft: 'highpass', a: 0.25, r: 0.1, v: 0.08 });
+    crackle(d, t + 0.05, 12, 0.6, 0.08, 3000);
+  },
+  soul(t, v) {
+    const d = O(v, rp(0.3), 0.6, 3);
+    voice(d, t, { types: ['sine', 'sine'], det: [-10, 10], f: 600 * vr(0.06), f1: 1400, glide: 0.8, a: 0.1, r: 0.9, v: 0.045, vib: 20 });
+    fm(d, t + 0.1, { f: 1568, ratio: 2, idx: 1.2, dur: 1.2, v: 0.025 });
+    sparkle(d, t + 0.2, 6, 2400, 0.8, 0.02);
+  },
+});
 
 const gateMap = {};
 function gate(name) {

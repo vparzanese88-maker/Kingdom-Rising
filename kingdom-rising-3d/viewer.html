@@ -40,7 +40,9 @@ new GLTFLoader().load(`assets/models/${name}.glb`, (g) => {
   window.info = { min: box.min.toArray().map((v) => +v.toFixed(2)), max: box.max.toArray().map((v) => +v.toFixed(2)), meshes: [] }; m.traverse((o) => { if (o.isMesh) window.info.meshes.push(o.name); });
   const a = +(q.get('a') || 0.6), e = +(q.get('e') || 0.15);
   // frame the whole model with a little room around it
-  const H = Math.max(s.y, Math.max(s.x, s.z) * 0.9), dist = H / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) * 1.25;
+  // &zoom=3&fy=0.45: a close-up, looking at that fraction of its height
+  const zoom = +(q.get('zoom') || 1); if (q.get('fy')) c.y = box.min.y + s.y * +q.get('fy'); if (q.get('tx')) c.x = +q.get('tx'); if (q.get('tz')) c.z = +q.get('tz');
+  const H = Math.max(s.y, Math.max(s.x, s.z) * 0.9), dist = H / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) * 1.25 / zoom;
   cam.position.set(c.x + Math.cos(a) * dist, c.y + H * e, c.z + Math.sin(a) * dist); cam.lookAt(c.x, c.y, c.z);
   key.position.set(c.x + Math.cos(a + 0.9) * 8, c.y + 9, c.z + Math.sin(a + 0.9) * 8); key.target.position.copy(c);
   Object.assign(key.shadow.camera, { left: -H, right: H, top: H, bottom: -H, near: 0.5, far: 40 }); key.shadow.camera.updateProjectionMatrix();

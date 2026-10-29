@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Icon bake</title>
+<style>body{margin:0;background:#17110a;color:#ddd;font:11px sans-serif}#g{display:flex;flex-wrap:wrap;gap:3px;padding:6px}#g div{width:70px;text-align:center;background:#0e0a06;border:1px solid #3a2e1e}#g img{width:64px;height:64px;display:block;margin:auto}p{padding:6px 10px;margin:0}</style></head>
+<body><p>Aeternum Wilds item icon bake: renders every icon from the 3D models. A Playwright script reads <code>window.baked</code> and writes <code>icons/&lt;key&gt;.webp</code>; a person can right-click-save from the sheet below.</p><div id="g"></div>
+<script type="importmap">{ "imports": { "three": "../../../vendor/three.module.min.js" } }</script>
+<script type="module">
+import { renderIcon, allIconDescs } from './iconbake.js';
+const q = new URLSearchParams(location.search); const only = q.get('only');
+const list = allIconDescs().filter((d) => !only || d.key.startsWith(only));
+const out = []; const g = document.getElementById('g');
+for (const d of list) {
+  const cv = renderIcon(d); if (!cv) continue;
+  const url = cv.toDataURL('image/webp', 0.9);
+  out.push({ key: d.key, url });
+  if (!q.get('nosheet')) { const c = document.createElement('div'); c.innerHTML = `<img src="${url}"><span>${d.key}</span>`; g.appendChild(c); }
+}
+window.baked = out;
+</script></body></html>

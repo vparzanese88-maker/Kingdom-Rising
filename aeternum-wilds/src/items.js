@@ -1,6 +1,7 @@
 import { G } from './state.js';
 import { RARITY, PERKS, WEAPONS, WEAPON_TYPES, ARMOR_SLOTS, ARMOR_NAMES, ARMOR_WEIGHT, ARMOR_CLASS, LOADS, MATS, SLOT_ICONS } from './data.js';
 import { clamp, rand, randi, pick } from './util.js';
+import { gearIconHTML, matIconHTML } from './gfx/items/icons.js';
 
 export const BAG_MAX = 36;
 
@@ -48,10 +49,21 @@ export function randomDrop(level, rarityBonus = 0, minRarity = 0) {
   return makeGear({ kind: 'armor', slot: pick([...ARMOR_SLOTS, 'amulet']), gs, rarity });
 }
 
-export function itemIcon(it) {
-  if (it.kind === 'weapon') return WEAPONS[it.wtype].icon;
+// Item pictures are 3D thumbnails rendered from the item models (gfx/items/icons.js); these return HTML (an <img>,
+// or the emoji in a placeholder until the render is ready, or just the emoji if WebGL is unavailable).
+export function itemEmoji(it) {
+  if (it.kind === 'weapon') return WEAPONS[it.wtype]?.icon || '⚔️';
   return SLOT_ICONS[it.slot] || '❔';
 }
+export function itemIcon(it, cls = '') {
+  return gearIconHTML({ kind: it.kind, wtype: it.wtype, slot: it.slot, wclass: it.wclass, tier: it.tier || tierForGs(it.gs || 100), rarity: it.rarity || 0 }, itemEmoji(it), cls);
+}
+// a recipe's result: { gear: 'weapon'|'armor', wtype, slot, wclass, tier }
+export function recipeIcon(r, cls = '') {
+  if (r.gear) return gearIconHTML({ kind: r.gear === 'weapon' ? 'weapon' : 'armor', wtype: r.wtype, slot: r.slot, wclass: r.wclass, tier: r.tier, rarity: 0 }, r.gear === 'weapon' ? WEAPONS[r.wtype].icon : SLOT_ICONS[r.slot], cls);
+  return matIcon(r.out, cls);
+}
+export function matIcon(id, cls = '', emoji) { return matIconHTML(id, emoji || MATS[id]?.icon || '❔', cls); }
 export const armorName = (wc, slot, tier) => `${ARMOR_CLASS[wc].mats[tier - 1]} ${ARMOR_CLASS[wc].nouns[slot]}`;
 export const armorOf = it => it && it.kind === 'armor' && it.slot !== 'amulet' ? Math.round(ARMOR_WEIGHT[it.slot] * it.gs * 0.5 * ARMOR_CLASS[it.wclass || 'medium'].armor) : 0;
 // total equip load from worn armor

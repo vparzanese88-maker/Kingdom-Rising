@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
+import { buildWeapon } from './gfx/items/weapons.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
 function prep(geo, m4) {
@@ -81,66 +82,10 @@ function cyl(rt, rb, h, m, seg = 8) {
 }
 
 // ---------- Weapons ----------
-export function makeWeapon(type, tier = 1) {
-  const g = new THREE.Group();
-  const metal = mat([0x9aa0a6, 0x8fb8d8, 0xe0a640][tier - 1] ?? 0x9aa0a6, false, { emissive: tier === 3 ? 0x3a2000 : 0x000000 });
-  const wood = mat(0x6b4a2a), dark = mat(0x2a2018), gold = mat(0xc8a040);
-  if (type === 'sword' || type === 'cutlass') {
-    const len = type === 'cutlass' ? 0.8 : 0.95;
-    g.add(box(0.07, 0.24, 0.07, dark, 0, 0, 0));
-    g.add(box(0.36, 0.07, 0.09, gold, 0, 0.14, 0));
-    g.add(box(0.1, len, 0.035, type === 'cutlass' ? mat(0x7d7c72) : metal, 0, 0.17 + len / 2, 0));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'shield') {
-    const s = box(0.62, 0.72, 0.08, mat(0x6a3a22), 0, 0, 0);
-    g.add(s);
-    g.add(box(0.66, 0.08, 0.1, metal, 0, 0.32, 0));
-    g.add(box(0.66, 0.08, 0.1, metal, 0, -0.32, 0));
-    g.add(box(0.2, 0.2, 0.06, metal, 0, 0, 0.06));
-  } else if (type === 'greataxe') {
-    g.add(box(0.07, 1.6, 0.07, wood, 0, 0.55, 0));
-    g.add(box(0.05, 0.52, 0.5, metal, 0, 1.2, 0.22));
-    g.add(box(0.05, 0.3, 0.18, metal, 0, 1.22, -0.1));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'hammer') {
-    g.add(box(0.08, 1.4, 0.08, wood, 0, 0.45, 0));
-    g.add(box(0.36, 0.34, 0.6, metal, 0, 1.15, 0));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'club') {
-    g.add(box(0.12, 1.2, 0.12, wood, 0, 0.45, 0));
-    g.add(box(0.3, 0.5, 0.3, mat(0x3a2a1a), 0, 1.0, 0));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'greatsword') {
-    g.add(box(0.09, 0.4, 0.09, dark, 0, 0, 0));
-    g.add(box(0.5, 0.09, 0.1, mat(0x5a0a0a), 0, 0.22, 0));
-    g.add(box(0.16, 1.7, 0.05, mat(0x2a1a1a, false, { emissive: 0x401008 }), 0, 1.1, 0));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'staff') {
-    const sw = mat([0x6a4a2a, 0x4a3a5a, 0x3a2440][tier - 1] ?? 0x6a4a2a);
-    g.add(box(0.07, 1.7, 0.07, sw, 0, 0.45, 0));
-    for (let i = 0; i < 4; i++) { const p = box(0.05, 0.28, 0.05, sw, Math.cos(i * 1.57) * 0.09, 1.38, Math.sin(i * 1.57) * 0.09); p.rotation.set(Math.sin(i * 1.57) * 0.35, 0, -Math.cos(i * 1.57) * 0.35); g.add(p); }
-    const gemC = [0xff7a2a, 0x6ac8ff, 0xc66dff][tier - 1] ?? 0xff7a2a;
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: gemC }));
-    gem.position.y = 1.42; gem.userData.keep = true; g.add(gem); g.userData.gem = gem;
-    g.add(box(0.1, 0.06, 0.1, gold, 0, 1.25, 0));
-    g.rotation.x = Math.PI / 2;
-  } else if (type === 'bow') {
-    const bm = mat([0x8a5a32, 0x6a3a22, 0x5a2a5a][tier - 1] ?? 0x8a5a32);
-    for (let i = -3; i <= 3; i++) {
-      const a = i / 3 * 0.9;
-      const seg = box(0.06, 0.22, 0.06, bm, 0, Math.sin(a) * 0.6, Math.cos(a) * 0.25 - 0.2);
-      seg.rotation.x = -a;
-      g.add(seg);
-    }
-    const str = box(0.015, 1.1, 0.015, mat(0xe8e0c8), 0, 0, -0.24);
-    str.userData.keep = true;
-    g.add(str);
-    g.userData.string = str;
-  }
-  const rx = g.rotation.x; g.rotation.x = 0;
-  mergeStatic(g);
-  g.rotation.x = rx;
-  return g;
+// Detailed weapon models live in gfx/items/weapons.js (grip at origin, business end along +y, turned
+// rotation.x = PI/2 except bows and shields). opts: { rarity } adds a gem / rarity-coloured runes.
+export function makeWeapon(type, tier = 1, opts = {}) {
+  return buildWeapon(type, tier, opts);
 }
 
 // ---------- Humanoid ----------

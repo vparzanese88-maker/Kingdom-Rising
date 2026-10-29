@@ -4,7 +4,7 @@ import { CLASSES } from './classes.js';
 import { classDef, ensureSkills, rankOf, spentInTree, canLearn, learn, resetSkills, skillNode, SKILL_LABELS, TIER_REQ } from './skills.js';
 import { LOADS, ARMOR_CLASS, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
 import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, unlockNode, resetTree, masteryNode, gainTrade, gainXp, masteryPoints } from './stats.js';
-import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
+import { armorName, equipLoad, loadPoints, itemIcon, recipeIcon, matIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
 import { refreshLook, respawn } from './player.js';
 import { thorneDialog, currentStory, objProgress, fillBounties, turnInBounty, abandonBounty, questEvent } from './quests.js';
 import { buildMapImage, zoneAt, levelAt, POI, ISLAND_R } from './world.js';
@@ -68,7 +68,7 @@ export function toast(text, cls = '') {
 }
 export function lootToast(it) {
   if (typeof it === 'string') return toast(it, 'loot');
-  toast(`<span style="color:${RARITY[it.rarity].color}">${itemIcon(it)} ${esc(it.name)}</span> <small>GS ${it.gs}</small>`, 'loot');
+  toast(`<span class="tico r${it.rarity}">${itemIcon(it)}</span><span style="color:${RARITY[it.rarity].color}">${esc(it.name)}</span> <small>GS ${it.gs}</small>`, 'loot item');
 }
 export function banner(title, sub) {
   const b = $('banner');
@@ -123,8 +123,8 @@ export function refreshHud() {
   // New World style: the weapon in hand is big, the one on your back small beside it
   const aw = p.activeW === 0 ? e.w1 : e.w2, ow = p.activeW === 0 ? e.w2 : e.w1;
   wsl.innerHTML = `<div class="wname" style="color:${aw ? RARITY[aw.rarity].color : '#aaa'}">${aw ? esc(aw.name) : 'Unarmed'}</div>
-    <div class="slot wbig on" title="${aw ? esc(aw.name) : 'Empty'}"><b>${p.activeW + 1}</b>${aw ? WEAPONS[aw.wtype].icon : '✊'}</div>
-    <div class="slot wsmall" title="${ow ? esc(ow.name) : 'Empty'}"><b>${2 - p.activeW}</b>${ow ? WEAPONS[ow.wtype].icon : ''}</div>`;
+    <div class="slot wbig on${aw ? ' r' + aw.rarity : ''}" title="${aw ? esc(aw.name) : 'Empty'}"><b>${p.activeW + 1}</b>${aw ? itemIcon(aw, 'hud') : '✊'}</div>
+    <div class="slot wsmall${ow ? ' r' + ow.rarity : ''}" title="${ow ? esc(ow.name) : 'Empty'}"><b>${2 - p.activeW}</b>${ow ? itemIcon(ow, 'hud') : ''}</div>`;
   const wt = activeWType();
   const slots = wt ? p.mastery[wt].slots : [null, null, null];
   $('abils').innerHTML = ['Q', 'R', 'F'].map((k, i) => {
@@ -402,7 +402,7 @@ export function refreshPanel() { if (G.ui.open) openPanel(G.ui.open, G.ui.arg); 
 // ---- tooltips ----
 function itemTip(it, compare) {
   const R = RARITY[it.rarity];
-  let h = `<h3 style="color:${R.color}">${esc(it.name)}</h3><div class="tsub">${R.name} ${it.kind === 'weapon' ? WEAPONS[it.wtype].name : SLOT_NAMES[it.slot]} · Tier ${it.tier}</div>`;
+  let h = `<div class="thead"><div class="tic r${it.rarity}">${itemIcon(it, 'big')}</div><div><h3 style="color:${R.color}">${esc(it.name)}</h3><div class="tsub">${R.name} ${it.kind === 'weapon' ? WEAPONS[it.wtype].name : SLOT_NAMES[it.slot]} · Tier ${it.tier}</div></div></div>`;
   h += `<div class="gs">Gear Score <b>${it.gs}</b>`;
   if (compare) { const d = it.gs - compare.gs; h += ` <span class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">(${d > 0 ? '+' : ''}${d})</span>`; }
   h += '</div>';
@@ -433,7 +433,7 @@ function openInventory(mode) {
   const eqHtml = ['w1', 'w2', 'head', 'chest', 'hands', 'legs', 'feet', 'amulet'].map(k => {
     const it = e[k];
     if (it) tipSources['e' + k] = () => itemTip(it);
-    return `<div class="eq ${it ? 'r' + it.rarity : ''}" data-eq="${k}" ${it ? `data-tip="e${k}"` : ''}><div class="ic">${it ? itemIcon(it) : (SLOT_ICONS[k] || (k[0] === 'w' ? '⚔️' : ''))}</div><div><small>${SLOT_NAMES[k]}${k === (p.activeW ? 'w2' : 'w1') ? ' · in hand' : ''}</small><span style="color:${it ? RARITY[it.rarity].color : '#777'}">${it ? esc(it.name) : 'Empty'}</span>${it ? `<small>GS ${it.gs}</small>` : ''}</div></div>`;
+    return `<div class="eq ${it ? 'r' + it.rarity : ''}" data-eq="${k}" ${it ? `data-tip="e${k}"` : ''}><div class="ic${it ? ' r' + it.rarity : ''}">${it ? itemIcon(it) : `<span class="ghost">${SLOT_ICONS[k] || (k[0] === 'w' ? '⚔️' : '')}</span>`}</div><div><small>${SLOT_NAMES[k]}${k === (p.activeW ? 'w2' : 'w1') ? ' · in hand' : ''}</small><span style="color:${it ? RARITY[it.rarity].color : '#777'}">${it ? esc(it.name) : 'Empty'}</span>${it ? `<small>GS ${it.gs}</small>` : ''}</div></div>`;
   }).join('');
   const bag = p.bag.map((it, i) => {
     const slot = equipSlotFor(it);
@@ -443,8 +443,8 @@ function openInventory(mode) {
     return `<div class="bi r${it.rarity}" data-bag="${i}" data-tip="b${i}">${itemIcon(it)}<small>${it.gs}</small>${better && !merchant ? '<i class="up">▲</i>' : ''}</div>`;
   }).join('') + Array(Math.max(0, BAG_MAX - p.bag.length)).fill('<div class="bi empty"></div>').join('');
   const mats = Object.keys(p.mats).filter(k => p.mats[k] > 0).sort((a, b) => (MATS[a].use ? 0 : 1) - (MATS[b].use ? 0 : 1) || (MATS[a].tier || 0) - (MATS[b].tier || 0)).map(k => {
-    tipSources['m' + k] = () => `<h3>${MATS[k].icon} ${MATS[k].name}</h3>${MATS[k].desc ? `<div>${MATS[k].desc}</div>` : `<div class="dim">${MATS[k].refined ? 'Refined material' : 'Raw material'}, tier ${MATS[k].tier}</div>`}${merchant ? `<div class="hint">Click to sell one for ${matPrice(k)} coins (shift: all)</div>` : ''}`;
-    return `<div class="mi" data-mat="${k}" data-tip="m${k}"><span>${MATS[k].icon}</span>${MATS[k].name}<b>${p.mats[k]}</b></div>`;
+    tipSources['m' + k] = () => `<div class="thead"><div class="tic">${matIcon(k, 'big')}</div><h3>${MATS[k].name}</h3></div>${MATS[k].desc ? `<div>${MATS[k].desc}</div>` : `<div class="dim">${MATS[k].refined ? 'Refined material' : 'Raw material'}, tier ${MATS[k].tier}</div>`}${merchant ? `<div class="hint">Click to sell one for ${matPrice(k)} coins (shift: all)</div>` : ''}`;
+    return `<div class="mi" data-mat="${k}" data-tip="m${k}"><span class="mic">${matIcon(k)}</span>${MATS[k].name}<b>${p.mats[k]}</b></div>`;
   }).join('') || '<p class="dim">No materials yet. Chop trees, mine rocks, harvest plants and skin animals.</p>';
   const s = stats();
   const html = `<div class="inv">
@@ -682,8 +682,8 @@ function openStation(id) {
   const rows = list.filter(r => filter === 'all' || (filter === 'weapon' ? r.gear === 'weapon' : filter === 'amulet' ? r.slot === 'amulet' : r.wclass === filter)).map(r => {
     const can = hasMats(r.in) && sk.lv >= r.req;
     const name = r.gear ? (r.gear === 'weapon' ? WEAPONS[r.wtype].tiers[r.tier - 1] : (r.slot === 'amulet' ? ['Copper Amulet', 'Silver Amulet', 'Gold Amulet'][r.tier - 1] : armorName(r.wclass, r.slot, r.tier))) : MATS[r.out].name;
-    const icon = r.gear ? (r.gear === 'weapon' ? WEAPONS[r.wtype].icon : SLOT_ICONS[r.slot]) : MATS[r.out].icon;
-    const ins = Object.entries(r.in).map(([k, n]) => `<span class="${matCount(k) >= n ? 'ok' : 'no'}">${MATS[k].icon} ${MATS[k].name} ${matCount(k)}/${n}</span>`).join('');
+    const icon = recipeIcon(r);
+    const ins = Object.entries(r.in).map(([k, n]) => `<span class="${matCount(k) >= n ? 'ok' : 'no'}"><i class="inic">${matIcon(k)}</i>${MATS[k].name} ${matCount(k)}/${n}</span>`).join('');
     const gsr = r.gear ? craftGsRange(r) : null;
     const maxN = r.gear ? 1 : Math.floor(Math.min(...Object.entries(r.in).map(([k, n]) => matCount(k) / n)));
     return `<div class="rec ${can ? '' : 'cant'}"><div class="ri">${icon}</div><div class="rn"><b>${name}${r.n > 1 ? ` ×${r.n}` : ''}</b>${gsr ? `<small>Gear score ${gsr[0]}-${gsr[1]} · tier ${r.tier}</small>` : MATS[r.out].desc ? `<small>${MATS[r.out].desc}</small>` : ''}<div class="ins">${ins}</div>${sk.lv < r.req ? `<small class="no">Needs ${TRADES[skill].name} ${r.req}</small>` : ''}</div>
@@ -719,7 +719,7 @@ function craft(r, n) {
     questEvent('craft', {});
   } else {
     addMat(r.out, r.n * n);
-    toast(`+${r.n * n} ${MATS[r.out].icon} ${MATS[r.out].name}`, 'loot');
+    toast(`<span class="tico">${matIcon(r.out)}</span>+${r.n * n} ${MATS[r.out].name}`, 'loot item');
   }
   gainTrade(skill, r.xp * n);
   gainXp(r.xp * n * 0.6, true);
@@ -732,8 +732,8 @@ function openMerchant(tab) {
   const p = G.p;
   const goods = ['potion', 'cooked_meat', 'big_potion', 'stew'];
   const extra = [{ id: 'gear', name: 'Mystery Crate', icon: '📦', desc: 'A random piece of gear near your level. Usually common, sometimes better.', price: 40 + p.level * 12 }];
-  const rows = goods.map(k => `<div class="rec"><div class="ri">${MATS[k].icon}</div><div class="rn"><b>${MATS[k].name}</b><small>${MATS[k].desc}</small></div><div class="rb"><span class="price">🪙 ${MATS[k].price}</span><button data-buy="${k}" ${p.coins >= MATS[k].price ? '' : 'disabled'}>Buy</button><button data-buy5="${k}" ${p.coins >= MATS[k].price * 5 ? '' : 'disabled'}>×5</button></div></div>`).join('')
-    + extra.map(x => `<div class="rec"><div class="ri">${x.icon}</div><div class="rn"><b>${x.name}</b><small>${x.desc}</small></div><div class="rb"><span class="price">🪙 ${x.price}</span><button data-crate="${x.price}" ${p.coins >= x.price ? '' : 'disabled'}>Buy</button></div></div>`).join('');
+  const rows = goods.map(k => `<div class="rec"><div class="ri">${matIcon(k)}</div><div class="rn"><b>${MATS[k].name}</b><small>${MATS[k].desc}</small></div><div class="rb"><span class="price">🪙 ${MATS[k].price}</span><button data-buy="${k}" ${p.coins >= MATS[k].price ? '' : 'disabled'}>Buy</button><button data-buy5="${k}" ${p.coins >= MATS[k].price * 5 ? '' : 'disabled'}>×5</button></div></div>`).join('')
+    + extra.map(x => `<div class="rec"><div class="ri">${matIcon('crate', '', x.icon)}</div><div class="rn"><b>${x.name}</b><small>${x.desc}</small></div><div class="rb"><span class="price">🪙 ${x.price}</span><button data-crate="${x.price}" ${p.coins >= x.price ? '' : 'disabled'}>Buy</button></div></div>`).join('');
   const html = `<p>"Fresh from the mainland, or near enough. What do you need?"</p><div class="tabs"><button class="on">Buy</button><button id="tosell">Sell</button></div><div class="recs">${rows}</div><p class="dim">Coins: 🪙 ${p.coins}</p>`;
   const el = panel('merchant', 'Ilsa the Merchant', html, true);
   G.ui.arg = 'buy';

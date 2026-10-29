@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#17110a;color:#ddd;font:11px sans-serif}.g{display:flex;flex-wrap:wrap;gap:4px;padding:6px}.c{width:84px;height:96px;background:#0e0a06;border:1px solid #3a2e1e;text-align:center}.c img{width:80px;height:80px;display:block;margin:auto} body.big .c{width:260px;height:280px} body.big .c img{width:256px;height:256px}</style></head><body><div class="g" id="g"></div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module">
+import { gearIconHTML, matIconHTML, flushIcons } from './src/gfx/items/icons.js';
+import { MAT_MODEL_IDS } from './src/gfx/items/matmodels.js';
+const q = new URLSearchParams(location.search); const set = q.get('set') || 'weapons'; const rar = +(q.get('rar') || 0);
+import * as THREE from 'three'; import { G } from './src/state.js';
+if (q.get('shared')) { const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(200, 100); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.25; r.shadowMap.enabled = true; document.body.appendChild(r.domElement); G.renderer = r; }
+const cells = []; if (q.get('big')) document.body.className = 'big';
+if (set === 'weapons') for (const w of ['sword', 'greataxe', 'hammer', 'staff', 'bow', 'shield']) for (const t of [1, 2, 3]) cells.push([gearIconHTML({ kind: 'weapon', wtype: w, tier: t, rarity: rar }, 'X'), w + t]);
+if (set === 'one') for (const w of (q.get('w') || 'greataxe,sword').split(',')) cells.push([gearIconHTML({ kind: 'weapon', wtype: w, tier: +(q.get('t') || 1), rarity: rar }, 'X'), w]);
+if (set === 'enemy') for (const w of ['cutlass', 'club', 'greatsword']) cells.push([gearIconHTML({ kind: 'weapon', wtype: w, tier: 1, rarity: 0 }, 'X'), w]);
+if (set === 'armor') for (const s of ['head', 'chest', 'hands', 'legs', 'feet']) for (const wc of ['light', 'medium', 'heavy']) for (const t of [1, 2, 3]) cells.push([gearIconHTML({ kind: 'armor', slot: s, wclass: wc, tier: t, rarity: rar }, 'X'), s[0] + wc[0] + t]);
+if (set === 'armor') for (const t of [1, 2, 3]) cells.push([gearIconHTML({ kind: 'armor', slot: 'amulet', tier: t, rarity: rar }, 'X'), 'amu' + t]);
+if (set === 'mats') for (const id of MAT_MODEL_IDS) cells.push([matIconHTML(id, 'X'), id]);
+document.getElementById('g').innerHTML = cells.map(([h, n]) => `<div class="c">${h}<div>${n}</div></div>`).join('');
+flushIcons(); window.done = true;
+</script></body></html>

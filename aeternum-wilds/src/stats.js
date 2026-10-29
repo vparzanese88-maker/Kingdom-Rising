@@ -14,7 +14,7 @@ export function activeWType() { return activeWeapon()?.wtype || null; }
 
 export function masteryNode(wtype, id) { return MASTERY[wtype].find(n => n.id === id); }
 export function pointsSpent(wtype) { return G.p.mastery[wtype].nodes.length; }
-export const masteryPoints = lv => Math.floor((lv + 3) / 2);
+export const masteryPoints = lv => lv - 1; // weapon points come only from weapon mastery levels
 export function pointsFree(wtype) { const m = G.p.mastery[wtype]; return masteryPoints(m.lv) - m.nodes.length; }
 export function canUnlock(wtype, id) {
   const m = G.p.mastery[wtype], n = masteryNode(wtype, id);
@@ -116,12 +116,12 @@ export function gainXp(n, quiet) {
     p.xp -= xpForLevel(p.level);
     p.level++;
     p.attrPts += 3;
-    if (p.skills) p.skills.points = (p.skills.points || 0) + 1;
+    if (p.skills) p.skills.points = (p.skills.points || 0) + 1; // level points go to the class trees
     G.statsDirty = true;
     const s = stats();
     G.player.hp = s.maxHp;
     banner(`Level ${p.level}`, '3 attribute points (C) and a skill point (T) to spend.');
-    sfx('level');
+    sfx('levelup');
   }
   if (p.level >= MAX_LEVEL) p.xp = 0;
 }
@@ -134,7 +134,7 @@ export function gainMastery(wtype, n) {
   while (m.lv < MAX_MASTERY && m.xp >= xpForMastery(m.lv)) {
     m.xp -= xpForMastery(m.lv);
     m.lv++;
-    toast(`${WEAPONS[wtype].name} mastery ${m.lv}` + (masteryPoints(m.lv) > masteryPoints(m.lv - 1) ? '. A new point to spend (K).' : ''), 'gold');
+    toast(`${WEAPONS[wtype].name} mastery ${m.lv}. A weapon point to spend (K).`, 'gold');
     sfx('mastery');
   }
 }

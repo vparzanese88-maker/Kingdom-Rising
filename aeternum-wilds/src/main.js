@@ -11,10 +11,16 @@ import { updateFx, shakeOffset } from './fx.js';
 import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPanel, refreshHud, refreshTracker, toast } from './ui.js';
 import { makeGear } from './items.js';
 import { fillBounties } from './quests.js';
-import { initAudio, setVolume } from './audio.js';
+import { initAudio, setVolume, setMusic, setMusicZone, setAmbience, setMusicVolume } from './audio.js';
 import { dressHumanoid, makeWeapon } from './models.js';
 import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
+import { updateSpellFx } from './spellfx.js';
+import { buildLife, updateLife } from './life.js';
+import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js';
 import { esc, clamp, lerp } from './util.js';
 
 const $ = id => document.getElementById(id);
@@ -39,6 +45,7 @@ export function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.string
 G.saveSettings = saveSettings;
 G.settingsHtml = (...a) => settingsHtml(...a); G.bindSettings = (...a) => bindSettings(...a); G.controlsHtml = (...a) => controlsHtml(...a);
 setVolume(S.volume);
+setMusicVolume(S.music ?? 0.5);
 
 // ---------- Renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: G.Q.aa, powerPreference: 'high-performance' });
@@ -47,6 +54,9 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = G.Q.shadows > 0;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// filmic tone mapping keeps bright fire and magic from clipping to flat white
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
 $('game').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const fogCol = new THREE.Color(ZONES.town.fog);
@@ -66,7 +76,56 @@ sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05;
 scene.add(sun); scene.add(sun.target);
 G.light = { hemi: 1.15, sun: 2.1, sunColor: new THREE.Color(0xfff0d8) };
 
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+// bloom: glow on flames, spells, eyes and lit windows (off on Low)
+let composer = null;
+if (S.quality !== 'low') {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), S.quality === 'medium' ? 0.42 : 0.55, 0.55, 0.8));
+  composer.addPass(new OutputPass());
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer?.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+
+// ---------- Weapon swing trails ----------
+const TRAIL_N = 14;
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 2 * 3), 3));
+trailGeo.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 2), 1));
+{ const idx = []; for (let i = 0; i < TRAIL_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } trailGeo.setIndex(idx); }
+const trailMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  uniforms: { color: { value: new THREE.Color(0xfff0d0) } },
+  vertexShader: 'attribute float alpha; varying float vA; void main(){ vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: 'uniform vec3 color; varying float vA; void main(){ gl_FragColor = vec4(color * vA, vA); }',
+});
+const trail = new THREE.Mesh(trailGeo, trailMat); trail.frustumCulled = false; scene.add(trail);
+const trailPts = [];
+const TIP = { sword: 1.05, greataxe: 1.4, hammer: 1.3, staff: 1.5 };
+const vTip = new THREE.Vector3(), vBase = new THREE.Vector3();
+function updateTrail() {
+  const P = G.player;
+  const swinging = P && (P.state === 'attack' || (P.state === 'ability' && P.ability?.pose !== 'cast') || P.whirl) && P.wR && camDist > 0.3;
+  if (swinging) {
+    const wt = G.p.equip[G.p.activeW ? 'w2' : 'w1']?.wtype;
+    P.wR.updateMatrixWorld(true);
+    vTip.set(0, TIP[wt] || 1.1, 0); P.wR.localToWorld(vTip);
+    vBase.set(0, (TIP[wt] || 1.1) * 0.45, 0); P.wR.localToWorld(vBase);
+    trailPts.unshift([vTip.clone(), vBase.clone()]);
+    const el = P.whirl?.el; trailMat.uniforms.color.value.setHex(el ? 0xffc890 : P.atk?.kind === 'heavy' ? 0xffd890 : 0xfff4e0);
+  } else trailPts.unshift(null);
+  if (trailPts.length > TRAIL_N) trailPts.length = TRAIL_N;
+  const pos = trailGeo.attributes.position.array, al = trailGeo.attributes.alpha.array;
+  let last = null;
+  for (let i = 0; i < TRAIL_N; i++) {
+    const p = trailPts[i] || last;
+    if (trailPts[i]) last = trailPts[i];
+    const [a, b] = p || [vTip, vTip];
+    pos.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6);
+    const k = trailPts[i] ? (1 - i / TRAIL_N) * 0.55 : 0;
+    al[i * 2] = k; al[i * 2 + 1] = 0;
+  }
+  trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.alpha.needsUpdate = true;
+}
 
 // ---------- Fullscreen & pointer lock ----------
 export function toggleFullscreen() {
@@ -147,6 +206,7 @@ addEventListener('keydown', e => {
     case 'KeyX': castSkill(1); break;
     case 'KeyC': if (e.shiftKey) togglePanel('character'); else castSkill(2); break;
     case 'KeyV': castSkill(3); break;
+    case 'KeyB': castSkill(4); break;
   }
 });
 addEventListener('keyup', e => { inp.keys[e.code] = false; });
@@ -321,6 +381,7 @@ export function settingsHtml() {
     <label>Mouse sensitivity <input type="range" data-s="sens" min="0.2" max="3" step="0.05" value="${S.sens}"><output>${S.sens.toFixed(2)}</output></label>
     <label>Field of view <input type="range" data-s="fov" min="60" max="100" step="1" value="${S.fov}"><output>${S.fov}</output></label>
     <label>Volume <input type="range" data-s="volume" min="0" max="1" step="0.05" value="${S.volume}"><output>${Math.round(S.volume * 100)}%</output></label>
+    <label>Music <input type="range" data-s="music" min="0" max="1" step="0.05" value="${S.music ?? 0.5}"><output>${Math.round((S.music ?? 0.5) * 100)}%</output></label>
     <label>View <select data-s="view"><option value="third" ${S.view === 'third' ? 'selected' : ''}>Over the shoulder</option><option value="first" ${S.view === 'first' ? 'selected' : ''}>First person</option></select></label>
     <label>Graphics <select data-s="quality">${Object.entries(QUALITY).map(([k, q]) => `<option value="${k}" ${S.quality === k ? 'selected' : ''}>${q.name}</option>`).join('')}</select></label>
     <label class="chk"><input type="checkbox" data-s="invertY" ${S.invertY ? 'checked' : ''}> Invert mouse Y</label>
@@ -341,9 +402,10 @@ export function bindSettings(root) {
       if (k === 'quality' && v !== S.quality) { const n = root.querySelector('#qnote'); if (n) n.innerHTML = `Graphics set to ${QUALITY[v].name}. <button id="qreload" class="small">Reload now</button> to apply it.`; setTimeout(() => { const b = root.querySelector('#qreload'); if (b) b.onclick = () => { window.saveGame(); location.reload(); }; }); }
       S[k] = v;
       const out = el.parentElement.querySelector('output');
-      if (out) out.textContent = k === 'volume' ? Math.round(v * 100) + '%' : k === 'sens' ? v.toFixed(2) : v;
+      if (out) out.textContent = k === 'volume' || k === 'music' ? Math.round(v * 100) + '%' : k === 'sens' ? v.toFixed(2) : v;
       if (k === 'fov') { camera.fov = v; camera.updateProjectionMatrix(); }
       if (k === 'volume') setVolume(v);
+      if (k === 'music') setMusicVolume(v);
       if (k === 'view') G.setView(v);
       saveSettings();
     };
@@ -474,7 +536,11 @@ function loop() {
   if (G.mode === 'game') {
     G.paused = !!G.ui.open || (!G.locked && P.state !== 'dead' && !G.noLockNeeded);
     $('resume').style.display = !G.locked && !G.ui.open && P.state !== 'dead' && !G.noLockNeeded ? 'flex' : 'none';
+    // hit-stop: freeze the action for a few frames on big hits
+    let simDt = dt;
+    if (G.hitstop > 0) { G.hitstop -= dt; simDt = dt * 0.08; }
     if (!G.paused) {
+      const dt = simDt;
       G.time += dt;
       G.p.stats.playTime += dt;
       updatePlayer(dt);
@@ -484,6 +550,7 @@ function loop() {
       updateEnemies(dt);
       updateProjectiles(dt);
       updateFx(dt);
+      updateSpellFx(dt);
       cullT -= dt;
       if (cullT <= 0) { cullT = 0.4; for (const n of G.nodes) { const far = Math.abs(n.x - P.pos.x) > 120 || Math.abs(n.z - P.pos.z) > 120; n.mesh.visible = !far && n.depleted <= 0; } }
       for (const n of G.nodes) if (n.depleted > 0) { n.depleted -= dt; if (n.depleted <= 0) { n.mesh.visible = true; cullT = 0; if (n.stump) n.stump.visible = false; if (n.col) n.col.off = false; } }
@@ -550,14 +617,33 @@ function loop() {
   if (G.crystal) { G.crystal.rotation.y = t * 0.6; G.crystal.position.y = 3.4 + Math.sin(t * 1.5) * 0.3; }
   if (G.water) G.water.position.y = -0.15 + Math.sin(t * 0.6) * 0.06;
   scene.background = fogCol;
-  renderer.render(scene, camera);
+  updateLife(dt, t, G.mode === 'game' && !G.paused);
+  musicT -= dt; if (musicT <= 0) { musicT = 0.5; updateMusic(); }
+  if (G.mode === 'game') updateTrail();
+  if (composer) composer.render(); else renderer.render(scene, camera);
   if (G.mode === 'game' && camDist < 0.3) { vmCam.fov = 58; renderViewmodel(renderer, dt); }
 }
+
+// ---------- Music and ambience follow what's happening ----------
+let musicT = 0, calmT = 0;
+function updateMusic() {
+  if (G.mode !== 'game') { setMusic('title'); setAmbience({ zone: 'meadow', night: false, inTown: false }); return; }
+  const P = G.player, zn = zoneAt(P.pos.x, P.pos.z), night = (G.night || 0) > 0.55;
+  setMusicZone(zn);
+  setAmbience({ zone: zn, night, inTown: zn === 'town' });
+  const fighting = G.enemies.some(e => !e.dead && e.aggro && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 28);
+  if (G.boss && !G.boss.dead) { setMusic('boss'); calmT = 6; return; }
+  if (fighting) { setMusic('combat'); calmT = 5; return; }
+  if (calmT > 0) { calmT -= 0.5; if (calmT <= 0) setMusic('victory'); return; }
+  setMusic(zn === 'town' ? 'town' : night ? 'night' : 'explore');
+}
+G.setMusicVolume = setMusicVolume;
 
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
 setTimeout(() => {
   buildWorld();
+  buildLife();
   $('loading').style.display = 'none';
   title();
   clock.getDelta();

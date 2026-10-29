@@ -4,7 +4,7 @@ export const G = {
   time: 0, dt: 0, paused: true, started: false,
   player: null,   // runtime player (mesh, hp, etc.)
   p: null,        // persistent profile (saved)
-  enemies: [], pets: [], projectiles: [], nodes: [], corpses: [], npcs: [], stations: [],
+  enemies: [], pets: [], totems: [], traps: [], projectiles: [], nodes: [], corpses: [], npcs: [], stations: [],
   colliders: null,
   input: { keys: {}, lmb: false, rmb: false, mx: 0, my: 0, aimX: 0, aimZ: 0 },
   zone: 'town',

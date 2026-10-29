@@ -67,7 +67,7 @@ export function refreshLook() {
   if (w) {
     if (w.wtype === 'bow') { P.wL = makeWeapon('bow', w.tier); P.wL.scale.setScalar(WEAPON_SCALE * 0.85); h.parts.handL.add(P.wL); }
     else {
-      P.wR = makeWeapon(w.wtype, w.tier); P.wR.scale.setScalar(WEAPON_SCALE); h.parts.handR.add(P.wR);
+      P.wR = makeWeapon(w.wtype, w.tier); P.wR.scale.setScalar(w.wtype === 'staff' ? 1.1 : WEAPON_SCALE); h.parts.handR.add(P.wR);
       if (w.wtype === 'sword') { P.wL = makeWeapon('shield', w.tier); P.wL.scale.setScalar(1.25); P.wL.position.set(0.14, 0.05, 0.15); P.wL.rotation.y = Math.PI / 2; h.parts.handL.add(P.wL); }
     }
   }
@@ -501,6 +501,7 @@ function updateAbility(dt) {
       if (e.dead || ab.hit.has(e) || Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) > A.radius + e.radius) continue;
       ab.hit.add(e);
       hitEnemy(e, A.dmg, 'ability', { stun: A.stun, knock: A.knock });
+      ab.onHit?.(e);
     }
   }
   if (ab.leap) P.jumpY = Math.sin(Math.min(1, ab.t / ab.dur) * Math.PI) * 3;
@@ -509,7 +510,9 @@ function updateAbility(dt) {
       P.jumpY = 0;
       shockRing(P.pos.x, P.pos.z, A.radius, 0xffe0a0, 0.4); shake(0.35); sfx('boom', 0.8);
       burst(P.pos.x, P.y + 0.3, P.pos.z, 0x9a8a70, 16, 6, 0.5);
-      for (const e of enemiesNear(P.pos.x, P.pos.z, A.radius + 2)) if (!e.dead && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < A.radius + e.radius) hitEnemy(e, A.dmg, 'ability', { stagger: true });
+      for (const e of enemiesNear(P.pos.x, P.pos.z, A.radius + 2)) if (!e.dead && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < A.radius + e.radius) { hitEnemy(e, A.dmg, 'ability', { stagger: true }); ab.onHit?.(e); }
+      ab.onLand?.();
+      sfx('land');
     }
     P.state = 'idle'; P.ability = null;
   }
@@ -712,6 +715,7 @@ export function updatePlayer(dt) {
   else if (P.state === 'ability') { pose = P.ability.pose; t = P.ability.t / P.ability.dur; if (pose === 'shoot' || pose === 'block') t = Math.min(1, t); }
   else if (P.state === 'gather') { pose = P.gather.pose; t = P.gather.t; }
   else if (P.state === 'stunned') pose = 'stun';
+  else if (P.whirl) { pose = 'spin'; t = (G.time * 2.5) % 1; }
   else if (P.blocking) pose = 'block';
   else if (P.recall) pose = 'cast';
   else if (P.press && P.press.t > 0.12 && wt !== 'bow') { pose = 'windup'; t = P.press.t; }
@@ -746,6 +750,6 @@ export function swapWeapon(i) {
   P.state = P.state === 'gather' ? 'gather' : 'idle'; P.atk = null; P.press = null; P.draw = 0; P.combo = 0;
   P.swapT = 0.25;
   refreshLook();
-  sfx('ui');
+  sfx('swap');
   refreshHud();
 }

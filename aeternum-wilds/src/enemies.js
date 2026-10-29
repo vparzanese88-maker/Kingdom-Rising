@@ -23,7 +23,7 @@ setPetDamageHook((e, dmg, pet) => {
   if (e.dead) return;
   e.hp -= dmg; e.hitFlash = 0.12; e.aggro = true; e.lastHit = G.time;
   if (e.mezzed) { e.mezzed = false; e.stunned = 0; }
-  if (!e.petTarget && Math.random() < 0.6) e.petTarget = pet;
+  if (pet && !e.petTarget && Math.random() < 0.6) e.petTarget = pet;
   floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, `${Math.round(dmg)}`, 'pet');
   if (e.hp <= 0) killEnemy(e);
 });
@@ -119,7 +119,7 @@ export function killEnemy(e) {
   // skinnable corpse
   if (e.def.skin) G.corpses.push({ kind: 'corpse', ent: e, x: e.pos.x, z: e.pos.z, thick: !!e.def.thick, skinned: false, until: G.time + 40, name: e.def.name });
   else e.removeAt = G.time + 4;
-  sfx('death', 0.4);
+  sfx('enemy_die', 0.7);
 }
 function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 2; if (e.atk?.tel) removeTelegraph(e.atk.tel); }
 
@@ -319,7 +319,30 @@ export function updateEnemies(dt) {
       if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); for (const t of e.atk.tels || []) removeTelegraph(t); e.atk = null; }
       if (G.boss === e) { G.boss = null; bossBar(null); }
     }
-    let speed = e.def.speed * (e.slowUntil > G.time ? 0.5 : 1);
+    // burning, bleeding and poison tick once a second; flames and frost show on the body
+    if (e.st && e.st.length) {
+      let died = false;
+      for (const st of e.st) {
+        st.tick -= dt;
+        if (st.tick <= 0) {
+          st.tick = 1;
+          const n = Math.max(1, Math.round(st.dps)); e.hp -= n; e.hitFlash = 0.08;
+          floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.7 * e.size }, `${n}`, st.type);
+          if (e.hp <= 0) { killEnemy(e); died = true; break; }
+        }
+      }
+      if (died) continue;
+      e.st = e.st.filter(st => st.until > G.time);
+      const top = e.y + (e.model.beast ? 1.1 : 1.8) * e.size;
+      for (const st of e.st) {
+        if (st.type === 'burn' && Math.random() < dt * 30) burst(e.pos.x + (Math.random() - 0.5) * 0.6 * e.size, e.y + Math.random() * (top - e.y), e.pos.z + (Math.random() - 0.5) * 0.6 * e.size, Math.random() < 0.5 ? 0xff7a2a : 0xffd060, 1, 0.8, 0.5, 0.16, -3);
+        if (st.type === 'poison' && Math.random() < dt * 8) burst(e.pos.x, top, e.pos.z, 0x9ae03a, 1, 0.6, 0.8, 0.12, -1);
+        if (st.type === 'bleed' && Math.random() < dt * 8) burst(e.pos.x, e.y + 1, e.pos.z, 0xa0101a, 1, 1, 0.5, 0.08, 8);
+      }
+    }
+    const frozen = e.freezeUntil > G.time;
+    if (frozen && Math.random() < dt * 6) burst(e.pos.x, e.y + 1, e.pos.z, 0xd8f4ff, 1, 0.5, 0.6, 0.1, 1);
+    let speed = e.def.speed * (e.slowUntil > G.time ? 0.5 : 1) * (frozen ? 0.25 : 1);
     let mvx = 0, mvz = 0, pose = null, pt = 0;
     if (e.state === 'stunned') {
       e.stunned -= dt; pose = 'stun';
@@ -345,6 +368,11 @@ export function updateEnemies(dt) {
       e.hp = Math.min(e.maxHp, e.hp + e.maxHp * dt * 0.5);
       if (hl < 1.5) { e.state = 'idle'; e.hp = e.maxHp; }
       else { mvx = hx / hl; mvz = hz / hl; speed *= 1.3; }
+    } else if (e.fearUntil > G.time) {
+      // feared: run away from the player
+      const fx = e.pos.x - P.pos.x, fz = e.pos.z - P.pos.z, fl = Math.hypot(fx, fz) || 1;
+      mvx = fx / fl; mvz = fz / fl; speed *= 1.1;
+      if (Math.random() < dt * 2) floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 2 * e.size }, '!', 'warn');
     } else if (e.aggro) {
       e.state = 'chase';
       const T = targetOf(e);
@@ -405,7 +433,7 @@ function animate(e, pose, t) {
     if (pose === 'windup' && e.atk && (ATTACKS[e.atk.id].kind === 'summon' || (ATTACKS[e.atk.id].kind === 'aoe' && ATTACKS[e.atk.id].at === 'target'))) hp = 'cast';
     animHumanoid(e.model, { move: e.move, phase: e.phase, pose: hp, t, twoHand: two });
   }
-  const f = e.hitFlash > 0 ? 0x552222 : e.state === 'windup' ? 0x301000 : 0;
+  const f = e.hitFlash > 0 ? 0x552222 : e.freezeUntil > G.time ? 0x2a4a6a : e.st?.some(s => s.type === 'burn') ? 0x3a1400 : e.state === 'windup' ? 0x301000 : 0;
   for (const m of e.model.mats) m.emissive.setHex(f);
 }
 

@@ -4,7 +4,8 @@ import { G } from './state.js';
 import { makeHumanoid, makeBeast, makeWeapon, box, mat } from './models.js';
 import { animHumanoid, animBeast } from './anim.js';
 import { heightAt, walkable, collide } from './world.js';
-import { burst } from './fx.js';
+import { burst, shockRing, shake } from './fx.js';
+import { impact } from './spellfx.js';
 import { stats } from './stats.js';
 import { enemiesNear } from './enemies.js';
 import { floatText } from './ui.js';
@@ -21,6 +22,12 @@ const LOOKS = {
   elemental_fire: { name: 'Fire Elemental', model: 'h', skin: 0xff6a1a, shirt: 0xd04010, pants: 0xa03010, eyes: 0xffff80, glow: 0x802000, speed: 6, ranged: true, color: 0xff7a2a },
   elemental_earth: { name: 'Earth Elemental', model: 'h', skin: 0x7a6a50, shirt: 0x5a4a38, pants: 0x4a3a2a, eyes: 0xffc040, size: 1.4, speed: 5 },
   golem: { name: 'Stone Golem', model: 'h', skin: 0x8a8a84, shirt: 0x6a6a64, pants: 0x5a5a54, eyes: 0x6ad0ff, size: 1.7, speed: 4.8 },
+  flaming_skeleton: { name: 'Flaming Skeleton', model: 'h', skin: 0x2a1a10, shirt: 0x3a2010, pants: 0x2a1a10, eyes: 0xffd060, glow: 0x802000, speed: 11, fire: true },
+  imp: { name: 'Imp', model: 'h', skin: 0xc02a1a, shirt: 0x8a1a10, pants: 0x5a1008, eyes: 0xffff60, size: 0.65, horns: true, speed: 7, ranged: true, color: 0xff5a1a },
+  ghost: { name: 'Ghost', model: 'h', skin: 0xc8d8f0, shirt: 0xa8b8d8, pants: 0x8898b8, eyes: 0x6af0e0, glow: 0x304060, speed: 6.5, float: true, ranged: true, color: 0x6af0e0 },
+  raven: { name: 'Raven', model: 'wolf', color: 0x1a1a22, eyes: 0xff4040, size: 0.55, speed: 9, float: true },
+  elemental_water: { name: 'Water Elemental', model: 'h', skin: 0x3a8ad8, shirt: 0x2a6ab8, pants: 0x1a4a98, eyes: 0xe0ffff, glow: 0x103060, speed: 5.5, ranged: true, color: 0x6ac8ff },
+  elemental_air: { name: 'Air Elemental', model: 'h', skin: 0xd8e8f0, shirt: 0xb8c8d8, pants: 0x98a8b8, eyes: 0xffffff, glow: 0x405060, speed: 8, float: true },
   treant: { name: 'Treant', model: 'h', skin: 0x5a4028, shirt: 0x4a6a2e, pants: 0x4a3420, eyes: 0xa0ff60, size: 1.5, speed: 4.5 },
 };
 
@@ -33,7 +40,7 @@ export function spawnPet(type, o) {
   const alive = G.pets.filter(p => !p.dead);
   if (alive.length >= 4) killPet(alive[0]);
   let model;
-  if (L.model === 'h') model = makeHumanoid({ skin: L.skin, shirt: L.shirt, pants: L.pants, eyes: L.eyes, size: L.size || 1, hunched: L.hunched });
+  if (L.model === 'h') model = makeHumanoid({ skin: L.skin, shirt: L.shirt, pants: L.pants, eyes: L.eyes, size: L.size || 1, hunched: L.hunched, horns: L.horns });
   else model = makeBeast(L.model, { color: L.color, size: L.size || 1, eyes: L.eyes });
   if (L.weapon) model.parts.handR.add(makeWeapon(L.weapon));
   if (L.glow) for (const m of model.mats) m.emissive.setHex(L.glow);
@@ -43,7 +50,8 @@ export function spawnPet(type, o) {
   G.scene.add(model.root);
   const s = stats();
   const hp = Math.round(s.maxHp * (o.hp || 0.8) * (1 + (s.mods.petHp || 0)));
-  const pet = { type, L, model, pos: { x, z }, y: heightAt(x, z), facing: P.yaw, hp, maxHp: hp, dmgMult: o.dmg || 0.5, ranged: o.ranged || L.ranged,
+  const pet = { type, L, model, pos: { x, z }, y: heightAt(x, z), facing: P.yaw, hp, maxHp: hp, dmgMult: o.dmg || 0.5, ranged: (o.ranged || L.ranged) && !o.bomber,
+    bomber: !!o.bomber, explode: o.explode || 4, burn: o.burn || 0,
     until: o.dur ? G.time + o.dur : Infinity, atkCd: 0.5, phase: 0, move: 0, strike: 0, target: null, radius: 0.5 * (L.size || 1), dead: false, src: o.id };
   G.pets.push(pet);
   burst(x, pet.y + 1, z, L.color || L.eyes || 0x9ad0ff, 20, 3, 0.7);
@@ -80,8 +88,16 @@ export function updatePets(dt, spellPowerFn) {
     if (pet.dead) { G.pets.splice(i, 1); continue; }
     if (G.time > pet.until || P.state === 'dead') { killPet(pet); continue; }
     pet.atkCd -= dt; pet.strike -= dt; pet.flash -= dt;
+    if (pet.L.fire && Math.random() < dt * 40) burst(pet.pos.x + (Math.random() - 0.5) * 0.5, pet.y + 0.4 + Math.random() * 1.6, pet.pos.z + (Math.random() - 0.5) * 0.5, Math.random() < 0.5 ? 0xff7a2a : 0xffd060, 1, 0.6, 0.45, 0.18, -3);
+    if (pet.bomber) {
+      if (!pet.target || pet.target.dead) {
+        let best = 25; pet.target = null;
+        for (const e of enemiesNear(pet.pos.x, pet.pos.z, 25)) { if (e.dead) continue; const d = Math.hypot(e.pos.x - pet.pos.x, e.pos.z - pet.pos.z); if (d < best) { best = d; pet.target = e; } }
+      }
+      if (pet.target && Math.hypot(pet.target.pos.x - pet.pos.x, pet.target.pos.z - pet.pos.z) < pet.target.radius + 0.9) { explodeBomber(pet, spellPowerFn); continue; }
+    }
     // pick a target: what the player is fighting, else whatever is attacking the player
-    if (!pet.target || pet.target.dead || Math.hypot(pet.target.pos.x - P.pos.x, pet.target.pos.z - P.pos.z) > 30) {
+    if (!pet.bomber && (!pet.target || pet.target.dead || Math.hypot(pet.target.pos.x - P.pos.x, pet.target.pos.z - P.pos.z) > 30)) {
       pet.target = null;
       let best = 1e9;
       for (const e of enemiesNear(P.pos.x, P.pos.z, 22)) {
@@ -101,7 +117,7 @@ export function updatePets(dt, spellPowerFn) {
     const dx = tx - pet.pos.x, dz = tz - pet.pos.z, d = Math.hypot(dx, dz);
     let moving = false;
     if (d > stop) {
-      const sp = pet.L.speed * (pet.target ? 1 : Math.min(1.6, 0.6 + d / 6));
+      const sp = pet.L.speed * (pet.target ? 1 : Math.min(1.6, 0.6 + d / 6)) * (pet.bomber && pet.target ? 1.3 : 1);
       const nx = pet.pos.x + dx / d * sp * dt, nz = pet.pos.z + dz / d * sp * dt;
       if (walkable(nx, nz)) [pet.pos.x, pet.pos.z] = collide(nx, nz, pet.radius);
       pet.phase += dt * sp * (pet.model.beast ? 2.2 : 1.6);
@@ -112,7 +128,7 @@ export function updatePets(dt, spellPowerFn) {
     if (d > 0.01) pet.facing += angDiff(pet.facing, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
     pet.move += ((moving ? 1 : 0) - pet.move) * Math.min(1, dt * 8);
     // attack
-    if (pet.target && d <= stop + 0.5 && pet.atkCd <= 0) {
+    if (!pet.bomber && pet.target && d <= stop + 0.5 && pet.atkCd <= 0) {
       pet.atkCd = pet.ranged ? 1.6 : 1.2;
       pet.strike = 0.3;
       const dmg = spellPowerFn() * pet.dmgMult * (1 + (s.mods.petDmg || 0));
@@ -124,7 +140,7 @@ export function updatePets(dt, spellPowerFn) {
       damageEnemyByPet(e, dmg, pet);
     }
     // place and animate
-    pet.y = heightAt(pet.pos.x, pet.pos.z);
+    pet.y = heightAt(pet.pos.x, pet.pos.z) + (pet.L.float ? 0.8 + Math.sin(G.time * 3 + i) * 0.15 : 0);
     pet.model.root.position.set(pet.pos.x, pet.y, pet.pos.z);
     pet.model.root.rotation.y = pet.facing;
     if (pet.model.beast) animBeast(pet.model, { move: pet.move, phase: pet.phase, pose: pet.strike > 0 ? 'strike' : null, t: 1 - pet.strike / 0.3 });
@@ -141,6 +157,21 @@ export function updatePets(dt, spellPowerFn) {
       pet.plate.querySelector('.pb div').style.width = `${Math.max(0, pet.hp / pet.maxHp) * 100}%`;
     }
   }
+}
+
+// a bomber pet reaches its target: area blast that sets everyone on fire
+function explodeBomber(pet, spellPowerFn) {
+  const s = stats();
+  const dmg = spellPowerFn() * pet.dmgMult * (1 + (s.mods.petDmg || 0));
+  impact('fire', pet.pos.x, pet.y + 1, pet.pos.z, pet.explode);
+  shockRing(pet.pos.x, pet.pos.z, pet.explode, 0xff7a2a, 0.5);
+  sfx('explosion'); shake(0.35);
+  for (const e of enemiesNear(pet.pos.x, pet.pos.z, pet.explode + 2)) {
+    if (e.dead || Math.hypot(e.pos.x - pet.pos.x, e.pos.z - pet.pos.z) > pet.explode + e.radius) continue;
+    damageEnemyByPet(e, dmg, null);
+    if (pet.burn && !e.dead) { e.st = (e.st || []).filter(x => x.type !== 'burn'); e.st.push({ type: 'burn', dps: spellPowerFn() * pet.burn / 4, until: G.time + 4, tick: 0 }); }
+  }
+  killPet(pet);
 }
 
 // set by enemies.js to avoid a circular import at load time

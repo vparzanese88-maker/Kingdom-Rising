@@ -24,9 +24,9 @@ small { font-size: 12px; }
 .no { color: #ff8a7a; } .ok { color: #9ee07a; }
 
 /* title */
-#title, #loading, #death, #victory { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 50;
+#loading, #death, #victory { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 50;
   background: radial-gradient(ellipse at center, rgba(40,30,18,.75), rgba(5,4,2,.95)), url() center/cover; }
-#title { display: flex; background: radial-gradient(ellipse at 50% 30%, #2e3b2a 0%, #141a12 45%, #070806 100%); }
+#title { position: fixed; inset: 0; z-index: 50; }
 .tbox { text-align: center; max-width: 760px; padding: 24px; }
 .tbox h1 { font-size: clamp(42px, 8vw, 84px); margin: 0; color: var(--gold2); letter-spacing: .06em; text-shadow: 0 4px 24px #000, 0 0 40px rgba(217,180,90,.25); font-weight: 900; }
 .tbox h2 { color: var(--gold2); font-size: 34px; margin: 0 0 6px; }
@@ -182,6 +182,111 @@ table.keys { width: 100%; font-size: 14px; border-collapse: collapse; } table.ke
 .rec .rb { display: flex; gap: 4px; align-items: center; } .price { color: var(--gold2); margin-right: 6px; white-space: nowrap; }
 .dlg p { font-size: 18px; } .dlg .row { display: flex; gap: 8px; }
 @media (max-width: 760px) { .inv, .char { grid-template-columns: 1fr; } #hpbar, #stbar { width: 260px; } #xpbar { width: 300px; } #tracker { display: none; } }
+
+/* ---- first person HUD ---- */
+#compass { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); width: min(560px, 60vw); height: 34px; }
+#bossbar { top: 50px !important; }
+#xhair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --gap: 6px; }
+#xhair i { position: absolute; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; transition: all .08s; }
+#xhair i:nth-child(1) { width: 2px; height: 8px; left: -1px; top: calc(-8px - var(--gap)); }
+#xhair i:nth-child(2) { width: 2px; height: 8px; left: -1px; top: var(--gap); }
+#xhair i:nth-child(3) { width: 8px; height: 2px; top: -1px; left: calc(-8px - var(--gap)); }
+#xhair i:nth-child(4) { width: 8px; height: 2px; top: -1px; left: var(--gap); }
+#xhair b { position: absolute; width: 2px; height: 2px; left: -1px; top: -1px; background: #fff; }
+#xhair.foe i, #xhair.foe b { background: #ff5a4a; }
+#selftext { position: absolute; left: 50%; top: calc(50% + 36px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.st { font: 700 16px Cinzel, serif; text-shadow: 0 2px 3px #000; animation: stup 1.1s ease-out forwards; }
+.st.hurt { color: #ff6a5a; } .st.heal { color: #7aff7a; } .st.xp { color: #c0a8ff; font-size: 14px; } .st.info { color: #cfe8ff; } .st.warn { color: #ffa070; }
+@keyframes stup { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 8; box-shadow: inset 0 0 160px rgba(160,0,0,0); }
+#vignette.hit { animation: hitv .45s ease-out; }
+#vignette.low { box-shadow: inset 0 0 180px rgba(160,0,0,.55); animation: lowv 1.2s ease-in-out infinite; }
+@keyframes hitv { 0% { box-shadow: inset 0 0 220px rgba(200,0,0,.75); } 100% { box-shadow: inset 0 0 160px rgba(160,0,0,0); } }
+@keyframes lowv { 50% { box-shadow: inset 0 0 120px rgba(160,0,0,.3); } }
+#resume { display: none; position: fixed; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(0,0,0,.35); cursor: pointer; text-align: center; }
+#resume h2 { color: var(--gold2); font-size: 40px; margin: 0; } #resume p { font-size: 20px; }
+#loading { display: flex; text-align: center; flex-direction: column; }
+.crest { font-size: 64px; color: var(--gold); text-shadow: 0 0 30px rgba(217,180,90,.5); line-height: 1; }
+
+/* ---- home screen ---- */
+#title { display: none; background: none; }
+.home { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,6,3,.88) 0%, rgba(8,6,3,.55) 34%, rgba(8,6,3,0) 62%), linear-gradient(0deg, rgba(8,6,3,.7), rgba(8,6,3,0) 30%); }
+.home .logo { position: absolute; left: 6vw; top: 7vh; max-width: 470px; }
+.home .logo .crest { font-size: 54px; text-align: left; }
+.home h1 { margin: 0; font: 900 clamp(46px, 7vw, 96px)/0.9 Cinzel, serif; color: var(--gold2); letter-spacing: .04em; text-shadow: 0 4px 30px #000; }
+.home h1 span { display: block; font-size: .62em; letter-spacing: .32em; color: #e8dcc0; margin-top: 6px; }
+.home .logo p { color: #e8dcc0; font-size: 19px; text-shadow: 0 2px 6px #000; margin: 10px 0 0; }
+.home nav { position: absolute; left: 6vw; top: max(52vh, 330px); display: flex; flex-direction: column; gap: 8px; width: 330px; }
+.home nav button { text-align: left; padding: 10px 18px; background: rgba(20,15,9,.78); border: 1px solid #5a4828; border-left: 3px solid #5a4828; }
+.home nav button:hover { border-left-color: var(--gold); background: rgba(50,36,16,.9); }
+.home nav button b { display: block; font-size: 19px; } .home nav button small { display: block; color: #cfc4a8; font-family: 'EB Garamond', serif; font-size: 14px; letter-spacing: 0; }
+.home nav button.primary { border-left-color: var(--gold); background: linear-gradient(90deg, rgba(90,64,24,.9), rgba(30,22,12,.85)); }
+.home footer { position: absolute; left: 6vw; bottom: 3vh; color: #b8ac90; font-size: 15px; }
+#homeside { position: absolute; left: calc(6vw + 360px); top: max(30vh, 200px); width: min(520px, 40vw); }
+.card { background: rgba(14,10,6,.9); border: 1px solid var(--line); padding: 14px 18px; border-radius: 4px; }
+.card h3 { margin: 0 0 8px; color: var(--gold2); }
+.settings label { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 16px; }
+.settings label input[type=range] { flex: 1; accent-color: var(--gold); }
+.settings output { min-width: 44px; text-align: right; color: var(--gold2); }
+.settings select { background: #1e160c; color: var(--ink); border: 1px solid var(--line); padding: 4px; font: inherit; }
+.settings label.chk { gap: 8px; } .settings input[type=checkbox] { accent-color: var(--gold); width: 16px; height: 16px; }
+button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; border-color: var(--gold); }
+
+/* ---- character creator ---- */
+.creator { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,6,3,.92) 0%, rgba(8,6,3,.75) 36%, rgba(8,6,3,0) 55%); }
+.cpanel { position: absolute; left: 3vw; top: 3vh; bottom: 3vh; width: min(560px, 50vw); overflow: auto; padding-right: 10px; }
+.cpanel h2 { margin: 0 0 8px; color: var(--gold2); font-size: 30px; } .cpanel h3 { margin: 14px 0 6px; color: var(--gold2); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; }
+.cpanel .nm { display: flex; align-items: center; gap: 10px; font-family: Cinzel, serif; }
+.cpanel .nm input { flex: 1; background: #1e160c; border: 1px solid var(--line); color: var(--ink); padding: 8px 10px; font: 18px 'EB Garamond', serif; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ccard { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; }
+.ccard span { font-size: 30px; } .ccard b { font-size: 14px; } .ccard small { font-family: 'EB Garamond', serif; color: #cfc4a8; letter-spacing: 0; }
+.ccard.on { background: linear-gradient(#6a5022, #3e2e12); border-color: var(--gold); color: #fff; }
+.cdesc { margin: 6px 0 0; color: #e0d4b8; font-size: 15px; } .cdesc em { color: #9ee07a; font-style: normal; }
+.look { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; } .look > span { width: 54px; color: var(--dim); }
+.sw { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid #3a2e1e; }
+.sw.on { border-color: #fff; box-shadow: 0 0 0 2px var(--gold); }
+.hs { padding: 4px 10px; font-size: 12px; }
+.cattrs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 14px 0; font-size: 15px; } .cattrs b { color: var(--gold2); float: right; }
+.cpanel .row { display: flex; gap: 8px; } .cpanel .row button { flex: 1; padding: 12px; font-size: 17px; }
+.chint { position: absolute; right: 4vw; bottom: 4vh; color: #d8ccb0; text-shadow: 0 2px 4px #000; }
+.who small { color: var(--dim); font-family: 'EB Garamond', serif; font-size: 15px; letter-spacing: 0; }
+.menu .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; } .menu .card { margin-bottom: 10px; }
+@media (max-height: 720px) { .home nav { top: 40vh; } .home nav button { padding: 6px 14px; } .home nav button b { font-size: 16px; } .home .logo p { display: none; } }
+@media (max-width: 900px) { #homeside { left: 6vw; top: auto; bottom: 8vh; width: 88vw; } .home nav { top: 38vh; } }
+
+/* ---- New World style action bar ---- */
+#bottom { bottom: 18px; gap: 8px; }
+#actions { gap: 10px; align-items: flex-end; }
+#wslots { position: relative; display: flex; gap: 6px; align-items: flex-end; }
+#wslots .wname { position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; font: 600 13px Cinzel, serif; white-space: nowrap; text-shadow: 0 1px 3px #000; }
+.slot { background: radial-gradient(circle at 50% 35%, rgba(60,48,30,.92), rgba(12,9,6,.95)); border: 1px solid #8a6e3a; box-shadow: inset 0 0 0 2px rgba(0,0,0,.6), inset 0 0 0 3px rgba(217,180,90,.25), 0 3px 10px rgba(0,0,0,.6); border-radius: 3px; }
+.slot b { left: auto; right: 4px; top: auto; bottom: 2px; font-size: 12px; color: #fff; text-shadow: 0 1px 2px #000; }
+#wslots .slot.wbig { width: 66px; height: 66px; font-size: 34px; opacity: 1; border-color: var(--gold); box-shadow: inset 0 0 0 2px rgba(0,0,0,.6), inset 0 0 14px rgba(217,180,90,.35), 0 0 12px rgba(217,180,90,.35); }
+#wslots .slot.wsmall { width: 40px; height: 40px; font-size: 20px; opacity: .8; }
+#abils .slot { width: 58px; height: 58px; font-size: 28px; }
+#abils .slot.empty { opacity: .55; }
+#q3, #q4 { width: 46px; height: 46px; font-size: 22px; }
+#q3 b, #q4 b { right: auto; left: 4px; top: 2px; bottom: auto; }
+#bars { gap: 8px; }
+#lvlbox { width: 40px; height: 40px; border-radius: 4px; transform: rotate(45deg); }
+#lvlbox span { transform: rotate(-45deg); font-size: 17px; }
+.barw { position: relative; }
+#hpbar { width: 440px; height: 16px; border: 1px solid #000; box-shadow: 0 0 0 1px #6a5530; border-radius: 2px; }
+#hpbar > div { background: linear-gradient(#e2503e, #a02018 60%, #7a140e); }
+#hptext { line-height: 15px; font-size: 12px; font-family: Cinzel, serif; }
+#stbar { width: 440px; height: 7px; border: 1px solid #000; }
+#stbar > div { background: linear-gradient(#f0dc6a, #b49a24); }
+#stbar::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), rgba(0,0,0,.85) calc(25% - 2px) 25%); }
+#xpbar { width: 500px; height: 4px; border: none; background: rgba(0,0,0,.5); }
+#loadtag { position: absolute; right: 0; bottom: 100%; margin-bottom: 2px; font: 600 11px Cinzel, serif; letter-spacing: .06em; text-shadow: 0 1px 2px #000; }
+#loadtag.light { color: #9ee07a; } #loadtag.medium { color: #f1d58a; } #loadtag.heavy { color: #ff9a7a; }
+.load { margin: 8px 0; padding: 6px 8px; border: 1px solid #3a2e1e; background: rgba(0,0,0,.3); font-size: 14px; }
+.load.light b { color: #9ee07a; } .load.medium b { color: #f1d58a; } .load.heavy b { color: #ff9a7a; }
+.wc.light { color: #9ee07a; } .wc.medium { color: #f1d58a; } .wc.heavy { color: #ff9a7a; }
+.nope { color: #ff6a5a; font-family: Cinzel, serif; }
+.shake { animation: shk .5s; }
+@keyframes shk { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 </style>
 </head>
 <body>
@@ -206,18 +311,24 @@ table.keys { width: 100%; font-size: 14px; border-collapse: collapse; } table.ke
     <div id="bars">
       <div id="lvlbox"><span id="lvl">1</span></div>
       <div class="barw">
+        <div id="loadtag"></div>
         <div class="bar" id="hpbar"><div id="hpfill"></div><span id="hptext"></span></div>
         <div class="bar" id="stbar"><div id="stfill"></div></div>
       </div>
     </div>
     <div class="bar" id="xpbar"><div id="xpfill"></div></div>
   </div>
-  <div id="keyhint"><kbd>I</kbd> Bag <kbd>C</kbd> Character <kbd>K</kbd> Mastery <kbd>L</kbd> Journal <kbd>M</kbd> Map <kbd>H</kbd> Recall <kbd>Esc</kbd> Menu</div>
+  <div id="keyhint"><kbd>I</kbd> Bag <kbd>C</kbd> Character <kbd>K</kbd> Mastery <kbd>J</kbd> Journal <kbd>M</kbd> Map <kbd>Shift</kbd> Dodge <kbd>Esc</kbd> Menu</div>
+  <canvas id="compass" width="560" height="34"></canvas>
+  <div id="xhair"><i></i><i></i><i></i><i></i><b></b></div>
+  <div id="selftext"></div>
 </div>
+<div id="vignette"></div>
+<div id="resume"><div><h2>Paused</h2><p>Click to keep playing</p></div></div>
 <div id="panel"></div>
 <div id="tooltip"></div>
 <div id="title"></div>
-<div id="loading">Washing ashore…</div>
+<div id="loading"><div><div class="crest">⚜</div>Washing ashore…</div></div>
 <div id="death"><h1>You have fallen</h1><button>Return to Windsward Outpost</button></div>
 <div id="victory"></div>
 <script type="importmap">

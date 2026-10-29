@@ -1,7 +1,7 @@
 import { G } from './state.js';
-import { WEAPONS, MASTERY, ABILITIES, MATS, MAX_LEVEL, MAX_MASTERY, MAX_TRADE, xpForLevel, xpForMastery, xpForTrade, TRADES } from './data.js';
-import { armorOf } from './items.js';
-import { toast, banner, floatText } from './ui.js';
+import { LOADS, RACES, CLASSES, WEAPONS, MASTERY, ABILITIES, MATS, MAX_LEVEL, MAX_MASTERY, MAX_TRADE, xpForLevel, xpForMastery, xpForTrade, TRADES } from './data.js';
+import { armorOf, equipLoad } from './items.js';
+import { toast, banner, selfText } from './ui.js';
 import { sfx } from './audio.js';
 
 export function activeWeapon() {
@@ -73,7 +73,17 @@ export function computeStats() {
     const n = masteryNode(wt, id);
     if (n?.mods) for (const k in n.mods) s.mods[k] = (s.mods[k] || 0) + n.mods[k];
   }
+  // race and class
+  for (const src of [RACES[p.race || 'human'], CLASSES[p.cls]]) {
+    if (!src) continue;
+    for (const k in src.attrs) a[k] += src.attrs[k];
+    for (const k in src.mods) s.mods[k] = (s.mods[k] || 0) + src.mods[k];
+  }
+  s.load = G.p.equip ? equipLoad() : 'light';
+  s.loadDmg = LOADS[s.load].dmg;
+  if (LOADS[s.load].dr) s.mods.dr = (s.mods.dr || 0) + LOADS[s.load].dr;
   const m = s.mods;
+  s.xp += m.xp || 0; s.stamRegen += m.stamRegen || 0; s.gather += m.gather || 0; s.armorPct += m.armorPct || 0; s.tradeXp = m.tradeXp || 0;
   s.crit += (a.dex - 5) * 0.15 + (m.crit || 0);
   s.critDmg += m.critDmg || 0;
   s.lifesteal += m.lifesteal || 0;
@@ -99,7 +109,7 @@ export function gainXp(n, quiet) {
   n = Math.round(n * (1 + stats().xp));
   if (p.level >= MAX_LEVEL) return;
   p.xp += n;
-  if (!quiet) floatText(G.player.pos, `+${n} XP`, 'xp');
+  if (!quiet) selfText(`+${n} XP`, 'xp');
   while (p.level < MAX_LEVEL && p.xp >= xpForLevel(p.level)) {
     p.xp -= xpForLevel(p.level);
     p.level++;
@@ -129,7 +139,7 @@ export function gainMastery(wtype, n) {
 export function gainTrade(skill, n) {
   const t = G.p.trade[skill];
   if (t.lv >= MAX_TRADE) return;
-  t.xp += Math.round(n);
+  t.xp += Math.round(n * (1 + (stats().tradeXp || 0)));
   while (t.lv < MAX_TRADE && t.xp >= xpForTrade(t.lv)) {
     t.xp -= xpForTrade(t.lv);
     t.lv++;

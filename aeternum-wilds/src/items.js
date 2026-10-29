@@ -1,5 +1,5 @@
 import { G } from './state.js';
-import { RARITY, PERKS, WEAPONS, WEAPON_TYPES, ARMOR_SLOTS, ARMOR_NAMES, ARMOR_WEIGHT, MATS, SLOT_ICONS } from './data.js';
+import { RARITY, PERKS, WEAPONS, WEAPON_TYPES, ARMOR_SLOTS, ARMOR_NAMES, ARMOR_WEIGHT, ARMOR_CLASS, LOADS, MATS, SLOT_ICONS } from './data.js';
 import { clamp, rand, randi, pick } from './util.js';
 
 export const BAG_MAX = 36;
@@ -23,18 +23,18 @@ function perkPool(item) {
   });
 }
 
-export function makeGear({ kind, wtype, slot, gs, rarity = 0 }) {
+export function makeGear({ kind, wtype, slot, gs, rarity = 0, wclass }) {
   gs = Math.round(clamp(gs + RARITY[rarity].gs, 100, 600));
   const tier = tierForGs(gs);
   const item = { uid: G.p.nextId++, kind, gs, rarity, tier, perks: [] };
   if (kind === 'weapon') { item.wtype = wtype; item.slot = 'weapon'; }
-  else item.slot = slot;
+  else { item.slot = slot; if (slot !== 'amulet') item.wclass = wclass || pick(['light', 'medium', 'heavy']); }
   const pool = perkPool(item);
   for (let i = 0; i < RARITY[rarity].perks && pool.length; i++) {
     const id = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
     item.perks.push({ id, v: PERKS[id].v(gs) });
   }
-  const base = kind === 'weapon' ? WEAPONS[wtype].tiers[tier - 1] : ARMOR_NAMES[slot][tier - 1];
+  const base = kind === 'weapon' ? WEAPONS[wtype].tiers[tier - 1] : item.wclass ? armorName(item.wclass, slot, tier) : ARMOR_NAMES[slot][tier - 1];
   item.name = rarity === 4 ? `${PERKS[item.perks[0].id].prefix} ${base} of Aeternum` : rarity > 0 ? `${PERKS[item.perks[0].id].prefix} ${base}` : base;
   return item;
 }
@@ -52,7 +52,15 @@ export function itemIcon(it) {
   if (it.kind === 'weapon') return WEAPONS[it.wtype].icon;
   return SLOT_ICONS[it.slot] || '❔';
 }
-export const armorOf = it => it && it.kind === 'armor' && it.slot !== 'amulet' ? Math.round(ARMOR_WEIGHT[it.slot] * it.gs * 0.5) : 0;
+export const armorName = (wc, slot, tier) => `${ARMOR_CLASS[wc].mats[tier - 1]} ${ARMOR_CLASS[wc].nouns[slot]}`;
+export const armorOf = it => it && it.kind === 'armor' && it.slot !== 'amulet' ? Math.round(ARMOR_WEIGHT[it.slot] * it.gs * 0.5 * ARMOR_CLASS[it.wclass || 'medium'].armor) : 0;
+// total equip load from worn armor
+export function equipLoad() {
+  let n = 0;
+  for (const k of ARMOR_SLOTS) { const it = G.p.equip[k]; if (it) n += ARMOR_CLASS[it.wclass || 'medium'].load; }
+  return n <= LOADS.light.max ? 'light' : n <= LOADS.medium.max ? 'medium' : 'heavy';
+}
+export function loadPoints() { let n = 0; for (const k of ARMOR_SLOTS) { const it = G.p.equip[k]; if (it) n += ARMOR_CLASS[it.wclass || 'medium'].load; } return n; }
 export const weaponDmg = it => it ? Math.round(WEAPONS[it.wtype].dmg * it.gs / 100) : 0;
 export const sellValue = it => Math.round(it.gs / 12 * (1 + it.rarity * 0.8));
 

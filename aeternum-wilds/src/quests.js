@@ -1,5 +1,5 @@
 import { G } from './state.js';
-import { STORY, ENEMIES, ZONES, MATS, xpForLevel, WEAPONS } from './data.js';
+import { STORY, ENEMIES, ZONES, MATS, xpForLevel, WEAPONS, CLASSES } from './data.js';
 import { gainXp } from './stats.js';
 import { addItem, addMat, randomDrop, makeGear, lootGs } from './items.js';
 import { toast, lootToast, refreshTracker, showVictory } from './ui.js';
@@ -59,7 +59,7 @@ function giveReward(r) {
   if (r.coins) { p.coins += r.coins; toast(`+${r.coins} coins`, 'loot'); sfx('coins'); }
   if (r.potions) { addMat('potion', r.potions); toast(`+${r.potions} 🧪 Health Potions`, 'loot'); }
   if (r.secondWeapon) {
-    const wt = p.startWeapon === 'bow' ? 'sword' : 'bow';
+    const wt = CLASSES[p.cls]?.second || (p.startWeapon === 'bow' ? 'sword' : 'bow');
     const it = makeGear({ kind: 'weapon', wtype: wt, gs: 100, rarity: 1 });
     if (!p.equip.w2) { p.equip.w2 = it; toast(`Equipped ${it.name} in weapon slot 2. Press 1 and 2 to swap.`, 'gold'); }
     else addItem(it);

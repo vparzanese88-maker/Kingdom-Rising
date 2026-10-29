@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { G, SAVE_KEY } from './state.js';
-import { RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
+import { LOADS, ARMOR_CLASS, RACES, CLASSES, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
 import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, unlockNode, resetTree, masteryNode, gainTrade, gainXp, masteryPoints } from './stats.js';
-import { itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
+import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
 import { refreshLook, respawn } from './player.js';
 import { thorneDialog, currentStory, objProgress, fillBounties, turnInBounty, abandonBounty, questEvent } from './quests.js';
 import { buildMapImage, zoneAt, levelAt, POI, ISLAND_R } from './world.js';
@@ -41,6 +41,18 @@ function updateFloaters(dt) {
   }
 }
 
+// text about the player itself, shown just under the crosshair
+export function selfText(text, cls = 'info') {
+  const el = document.createElement('div');
+  el.className = 'st ' + cls;
+  el.textContent = text;
+  const box = $('selftext');
+  box.appendChild(el);
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => el.remove(), 1100);
+  if (cls === 'hurt') { const v = $('vignette'); v.classList.remove('hit'); void v.offsetWidth; v.classList.add('hit'); }
+}
+
 // ---------- Toasts & banners ----------
 export function toast(text, cls = '') {
   const el = document.createElement('div');
@@ -77,6 +89,7 @@ export function bossBar(e) {
   b.querySelector('.fill').style.width = `${Math.max(0, e.hp / e.maxHp) * 100}%`;
 }
 export function showDeath() {
+  G.unlock?.();
   $('death').style.display = 'flex';
 }
 export function showVictory() {
@@ -85,7 +98,8 @@ export function showVictory() {
   <p class="vstats">Level ${G.p.level} · Gear score ${gearScore()} · ${s.kills} kills · ${s.bosses} bosses · ${s.deaths} deaths · ${Math.round(s.playTime / 60)} minutes</p>
   <p>You can keep playing: hunt, gather, craft better gear and take bounties.</p><button id="vclose">Continue</button></div>`;
   $('victory').style.display = 'flex';
-  $('vclose').onclick = () => { $('victory').style.display = 'none'; };
+  G.unlock?.(); G.noLockNeeded = true;
+  $('vclose').onclick = () => { $('victory').style.display = 'none'; G.noLockNeeded = false; G.relock(); };
   sfx('level');
 }
 
@@ -93,7 +107,7 @@ export function showVictory() {
 export function initUI() {
   const img = buildMapImage(512);
   mapImg = img;
-  $('death').querySelector('button').onclick = () => { $('death').style.display = 'none'; respawn(); };
+  $('death').querySelector('button').onclick = () => { $('death').style.display = 'none'; respawn(); G.relock(); };
   document.addEventListener('mousemove', e => {
     const tip = $('tooltip');
     if (tip.style.display === 'block') { tip.style.left = Math.min(innerWidth - tip.offsetWidth - 10, e.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - tip.offsetHeight - 10, e.clientY + 12) + 'px'; }
@@ -104,15 +118,16 @@ export function initUI() {
 export function refreshHud() {
   const p = G.p, e = p.equip;
   const wsl = $('wslots');
-  wsl.innerHTML = [0, 1].map(i => {
-    const w = i === 0 ? e.w1 : e.w2;
-    return `<div class="slot ${p.activeW === i ? 'on' : ''}" title="${w ? esc(w.name) : 'Empty'}"><b>${i + 1}</b>${w ? WEAPONS[w.wtype].icon : ''}</div>`;
-  }).join('');
+  // New World style: the weapon in hand is big, the one on your back small beside it
+  const aw = p.activeW === 0 ? e.w1 : e.w2, ow = p.activeW === 0 ? e.w2 : e.w1;
+  wsl.innerHTML = `<div class="wname" style="color:${aw ? RARITY[aw.rarity].color : '#aaa'}">${aw ? esc(aw.name) : 'Unarmed'}</div>
+    <div class="slot wbig on" title="${aw ? esc(aw.name) : 'Empty'}"><b>${p.activeW + 1}</b>${aw ? WEAPONS[aw.wtype].icon : '✊'}</div>
+    <div class="slot wsmall" title="${ow ? esc(ow.name) : 'Empty'}"><b>${2 - p.activeW}</b>${ow ? WEAPONS[ow.wtype].icon : ''}</div>`;
   const wt = activeWType();
   const slots = wt ? p.mastery[wt].slots : [null, null, null];
   $('abils').innerHTML = ['Q', 'R', 'F'].map((k, i) => {
     const A = slots[i] ? ABILITIES[slots[i]] : null;
-    return `<div class="slot ab" data-ab="${slots[i] || ''}" title="${A ? A.name + ': ' + A.desc : 'Empty: unlock abilities in the Mastery tree (K)'}"><b>${k}</b>${A ? A.icon : ''}<i class="cd"></i><em></em></div>`;
+    return `<div class="slot ab ${A ? '' : 'empty'}" data-ab="${slots[i] || ''}" title="${A ? A.name + ': ' + A.desc : 'Empty: unlock abilities in the Mastery tree (K)'}"><b>${k}</b>${A ? A.icon : ''}<i class="cd"></i><em></em></div>`;
   }).join('');
 }
 
@@ -127,6 +142,14 @@ export function updateHud(dt) {
   $('stbar').classList.toggle('ex', P.exhausted > 0);
   $('xpfill').style.width = p.level >= MAX_LEVEL ? '100%' : `${p.xp / xpForLevel(p.level) * 100}%`;
   $('lvl').textContent = p.level;
+  $('loadtag').textContent = { light: 'Light', medium: 'Medium', heavy: 'Heavy' }[s.load] + ' load';
+  $('loadtag').className = s.load;
+  // crosshair: red over enemies, spreads while drawing a bow
+  const xh = $('xhair');
+  xh.classList.toggle('foe', !!G.input.aimEnemy);
+  xh.style.setProperty('--gap', `${P.state === 'draw' ? 14 - P.draw * 10 : 6}px`);
+  $('vignette').classList.toggle('low', P.hp / s.maxHp < 0.3 && P.state !== 'dead');
+  drawCompass();
   // cooldowns
   for (const el of $('abils').children) {
     const id = el.dataset.ab;
@@ -245,26 +268,59 @@ export function refreshTracker() {
   $('tracker').innerHTML = h;
 }
 
-// ---------- Minimap ----------
+// ---------- Compass (top of the screen) ----------
+const bearing = (dx, dz) => Math.atan2(dx, -dz); // 0 = north (-z), clockwise
+function drawCompass() {
+  const cv = $('compass'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height, P = G.player;
+  const pb = bearing(Math.sin(P.yaw), Math.cos(P.yaw)), span = Math.PI * 0.9;
+  ctx.clearRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, 'rgba(10,8,5,0)'); g.addColorStop(0.15, 'rgba(10,8,5,.6)'); g.addColorStop(0.85, 'rgba(10,8,5,.6)'); g.addColorStop(1, 'rgba(10,8,5,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 4, W, H - 8);
+  const xOf = b => { let d = b - pb; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return Math.abs(d) > span / 2 ? null : W / 2 + d / span * W; };
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < 24; i++) {
+    const b = i / 24 * Math.PI * 2, x = xOf(b);
+    if (x == null) continue;
+    const card = i % 6 === 0;
+    ctx.fillStyle = card ? '#f1d58a' : 'rgba(240,230,210,.6)';
+    if (card) { ctx.font = 'bold 15px Cinzel, serif'; ctx.fillText('NESW'[i / 6], x, H / 2); }
+    else if (i % 3 === 0) { ctx.font = '11px serif'; ctx.fillText(['NE', 'SE', 'SW', 'NW'][(i - 3) / 6], x, H / 2); }
+    else ctx.fillRect(x - 0.5, H / 2 - 3, 1, 6);
+  }
+  const mark = (x, z, col, label) => {
+    const px = xOf(bearing(x - P.pos.x, z - P.pos.z)); if (px == null) return;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px, H - 4); ctx.lineTo(px + 5, H - 11); ctx.lineTo(px, H - 18); ctx.lineTo(px - 5, H - 11); ctx.closePath(); ctx.fill();
+    if (label) { ctx.font = '10px serif'; ctx.fillStyle = '#e8dcc0'; ctx.fillText(label, px, 6); }
+  };
+  const t = questTarget();
+  if (t) mark(t.x, t.z, '#ffcc33', `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))}m`);
+  if (Math.hypot(P.pos.x, P.pos.z) > 45) mark(0, 0, '#9ad0ff');
+  ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 - 1, 2, 2, 8);
+}
+
+// ---------- Minimap (turns with you; up is the way you face) ----------
 function drawMinimap() {
   const cv = $('minimap'), ctx = cv.getContext('2d');
   const W = cv.width, P = G.player;
   const span = mapImg.span, ppm = mapImg.canvas.width / span; // image pixels per meter
   const view = 130; // meters across
+  const k = W / view;
+  const rot = -Math.PI / 2 - Math.atan2(Math.cos(P.yaw), Math.sin(P.yaw));
+  const cr = Math.cos(rot), sr = Math.sin(rot);
+  const toS = (x, z) => { const dx = (x - P.pos.x) * k, dz = (z - P.pos.z) * k; return [W / 2 + dx * cr - dz * sr, W / 2 + dx * sr + dz * cr]; };
   ctx.save();
   ctx.clearRect(0, 0, W, W);
   ctx.beginPath(); ctx.arc(W / 2, W / 2, W / 2, 0, 6.28); ctx.clip();
   ctx.fillStyle = '#225c76'; ctx.fillRect(0, 0, W, W);
-  const sx = (P.pos.x + span / 2) * ppm - view / 2 * ppm, sz = (P.pos.z + span / 2) * ppm - view / 2 * ppm;
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(mapImg.canvas, sx, sz, view * ppm, view * ppm, 0, 0, W, W);
-  const k = W / view;
-  const toS = (x, z) => [W / 2 + (x - P.pos.x) * k, W / 2 + (z - P.pos.z) * k];
-  // nodes
+  ctx.save();
+  ctx.translate(W / 2, W / 2); ctx.rotate(rot);
+  const big = view * 1.5;
+  ctx.drawImage(mapImg.canvas, (P.pos.x + span / 2 - big / 2) * ppm, (P.pos.z + span / 2 - big / 2) * ppm, big * ppm, big * ppm, -big * k / 2, -big * k / 2, big * k, big * k);
+  ctx.restore();
   for (const n of G.nodes) {
     if (n.depleted > 0) continue;
-    const dx = n.x - P.pos.x, dz = n.z - P.pos.z;
-    if (Math.abs(dx) > view / 2 || Math.abs(dz) > view / 2) continue;
+    if (Math.abs(n.x - P.pos.x) > view / 1.4 || Math.abs(n.z - P.pos.z) > view / 1.4) continue;
     const [x, y] = toS(n.x, n.z);
     ctx.fillStyle = n.def.skill === 'logging' ? '#c08a4a' : n.def.skill === 'mining' ? (n.type === 'iron' ? '#d0c0b0' : n.type === 'starmetal' ? '#7ac0ff' : '#ffa830') : '#b0ff70';
     ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
@@ -276,7 +332,6 @@ function drawMinimap() {
     ctx.beginPath(); ctx.arc(x, y, e.def.boss ? 4 : 2.2, 0, 6.28); ctx.fill();
   }
   for (const n of [...G.npcs, ...G.stations]) { const [x, y] = toS(n.x, n.z); ctx.fillStyle = '#ffe080'; ctx.fillRect(x - 2, y - 2, 4, 4); }
-  // quest target
   const t = questTarget();
   if (t) {
     let [x, y] = toS(t.x, t.z);
@@ -285,8 +340,10 @@ function drawMinimap() {
     ctx.fillStyle = '#ffcc33'; ctx.strokeStyle = '#000';
     ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
-  // player arrow
-  ctx.translate(W / 2, W / 2); ctx.rotate(-P.facing + Math.PI);
+  // north marker on the rim
+  const [nx, ny] = (() => { const v = toS(P.pos.x, P.pos.z - 1000); const dx = v[0] - W / 2, dy = v[1] - W / 2, d = Math.hypot(dx, dy); return [W / 2 + dx / d * (W / 2 - 9), W / 2 + dy / d * (W / 2 - 9)]; })();
+  ctx.font = 'bold 13px Cinzel, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText('N', nx + 1, ny + 1); ctx.fillStyle = '#f1d58a'; ctx.fillText('N', nx, ny);
+  ctx.translate(W / 2, W / 2);
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 5); ctx.lineTo(0, 2); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
@@ -298,6 +355,7 @@ export function closePanel() {
   $('tooltip').style.display = 'none';
   G.ui.open = null;
   G.input.overUI = false;
+  if (G.mode === 'game') G.relock();
 }
 function panel(name, title, html, wide) {
   const el = $('panel');
@@ -307,6 +365,7 @@ function panel(name, title, html, wide) {
   $('pclose').onclick = () => { sfx('ui'); closePanel(); };
   G.ui.open = name;
   G.input.lmb = false; G.input.rmb = false;
+  G.unlock?.();
   return el;
 }
 export function togglePanel(name, arg) {
@@ -330,7 +389,7 @@ function itemTip(it, compare) {
   if (it.kind === 'weapon') {
     const W = WEAPONS[it.wtype];
     h += `<div>Damage <b>${weaponDmg(it)}</b></div><div class="dim">Scales with ${Object.keys(W.scale).map(k => ATTR_INFO[k].name).join(' & ')}</div>`;
-  } else if (it.slot !== 'amulet') h += `<div>Armor <b>${armorOf(it)}</b></div>`;
+  } else if (it.slot !== 'amulet') h += `<div>Armor <b>${armorOf(it)}</b> · <span class="wc ${it.wclass || 'medium'}">${ARMOR_CLASS[it.wclass || 'medium'].name}</span></div>`;
   for (const pk of it.perks) h += `<div class="perk">◆ ${PERKS[pk.id].text(pk.v)}</div>`;
   if (compare) h += `<div class="dim cmp">Equipped: ${esc(compare.name)} (GS ${compare.gs})</div>`;
   return h;
@@ -370,6 +429,7 @@ function openInventory(mode) {
   const s = stats();
   const html = `<div class="inv">
     <div class="eqcol"><div class="gsbig">Gear Score <b>${gearScore()}</b></div>${eqHtml}
+      <div class="load ${equipLoad()}"><b>${LOADS[equipLoad()].name}</b> (${loadPoints()} / light up to ${LOADS.light.max}, medium up to ${LOADS.medium.max})<br><small>${LOADS[equipLoad()].desc}</small></div>
       <div class="dim small">HP ${s.maxHp} · Armor ${s.armor} · Crit ${s.crit.toFixed(1)}%</div></div>
     <div class="bagcol">
       <div class="tabs"><button class="${invTab === 'gear' ? 'on' : ''}" data-tab="gear">Gear ${p.bag.length}/${BAG_MAX}</button><button class="${invTab === 'mats' ? 'on' : ''}" data-tab="mats">Materials & Food</button>
@@ -433,8 +493,11 @@ function openCharacter() {
   const attrs = ATTRS.map(k => `<div class="attr"><div><b>${ATTR_INFO[k].name}</b><small>${ATTR_INFO[k].desc}</small></div><span class="av">${s.attrs[k]}${s.attrs[k] !== p.attrs[k] ? `<small> (${p.attrs[k]})</small>` : ''}</span>${p.attrPts > 0 ? `<button data-attr="${k}">+</button><button data-attr5="${k}">+5</button>` : ''}</div>`).join('');
   const trades = Object.keys(TRADES).map(k => { const t = p.trade[k]; return `<div class="trade"><span>${TRADES[k].icon} ${TRADES[k].name}</span><b>${t.lv}</b><div class="bar"><div style="width:${t.xp / xpForTrade(t.lv) * 100}%"></div></div></div>`; }).join('');
   const w = activeWeapon();
+  const R = RACES[p.race || 'human'], C = CLASSES[p.cls];
   const html = `<div class="char">
-    <div><h3>Level ${p.level}</h3><div class="bar xp"><div style="width:${p.level >= MAX_LEVEL ? 100 : p.xp / xpForLevel(p.level) * 100}%"></div></div><p class="small dim">${p.level >= MAX_LEVEL ? 'Max level' : `${p.xp} / ${xpForLevel(p.level)} XP`}</p>
+    <div><h3 class="who">${esc(p.name || 'Castaway')} <small>${R.icon} ${R.name}${C ? ` · ${C.icon} ${C.name}` : ''}</small></h3>
+    <p class="small dim">${R.perk}${C ? '<br>' + C.perk : ''}</p>
+    <h3>Level ${p.level}</h3><div class="bar xp"><div style="width:${p.level >= MAX_LEVEL ? 100 : p.xp / xpForLevel(p.level) * 100}%"></div></div><p class="small dim">${p.level >= MAX_LEVEL ? 'Max level' : `${p.xp} / ${xpForLevel(p.level)} XP`}</p>
     <h3>Attributes ${p.attrPts ? `<span class="pts">${p.attrPts} points to spend</span>` : ''}</h3>${attrs}
     <button id="respec" class="small">Reset attribute points</button></div>
     <div><h3>Stats</h3><table class="st">
@@ -535,25 +598,18 @@ function openMap() {
 // ---- Menu ----
 function openMenu() {
   const html = `<div class="menu">
-    <button id="mresume">Resume</button>
-    <h3>Controls</h3>
-    <table class="keys">
-      <tr><td>WASD</td><td>Move</td><td>Mouse</td><td>Aim</td></tr>
-      <tr><td>Left click</td><td>Light attack · hold for heavy · bow: hold to draw</td><td>Right click</td><td>Block</td></tr>
-      <tr><td>Space</td><td>Dodge roll</td><td>Q R F</td><td>Weapon abilities</td></tr>
-      <tr><td>1 / 2</td><td>Swap weapon</td><td>3 / 4</td><td>Potion / Eat</td></tr>
-      <tr><td>E</td><td>Interact, gather, skin</td><td>H</td><td>Recall to town</td></tr>
-      <tr><td>I</td><td>Inventory</td><td>C</td><td>Character</td></tr>
-      <tr><td>K</td><td>Mastery</td><td>L</td><td>Journal</td></tr>
-      <tr><td>M</td><td>Map</td><td>Wheel</td><td>Zoom</td></tr>
-    </table>
-    <label class="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="${volume}"></label>
-    <div class="row"><button id="msave">Save now</button><button id="mdel" class="danger">Delete save & restart</button></div>
+    <div class="row"><button id="mresume" class="primary">Resume</button><button id="mfs">${document.fullscreenElement ? 'Exit full screen' : 'Full screen'}</button><button id="mview">${G.settings.view === 'first' ? 'Over the shoulder view' : 'First person view'}</button></div>
+    ${G.settingsHtml()}
+    <div class="card">${G.controlsHtml()}</div>
+    <div class="row"><button id="msave">Save now</button><button id="mtitle">Save & quit to title</button><button id="mdel" class="danger">Delete character</button></div>
     <p class="dim small">The game saves itself every 20 seconds in this browser.</p></div>`;
-  const el = panel('menu', 'Paused', html);
+  const el = panel('menu', 'Paused', html, true);
+  G.bindSettings(el);
   $('mresume').onclick = closePanel;
-  $('vol').oninput = e => setVolume(+e.target.value);
+  $('mfs').onclick = () => { G.toggleFullscreen(); setTimeout(openMenu, 250); };
+  $('mview').onclick = () => { G.setView(G.settings.view === 'first' ? 'third' : 'first'); openMenu(); };
   $('msave').onclick = () => { window.saveGame(); toast('Game saved'); };
+  $('mtitle').onclick = () => { window.saveGame(); window.skipSave = true; location.reload(); };
   $('mdel').onclick = () => { if (confirm('Delete your character and start over?')) { localStorage.removeItem(SAVE_KEY); window.skipSave = true; location.reload(); } };
 }
 
@@ -564,13 +620,13 @@ function openStation(id) {
   const p = G.p;
   const list = RECIPES.filter(r => r.station === id);
   let filter = stationTab[id] || 'all';
-  const cats = id === 'forge' ? [['weapon', 'Weapons'], ['armor', 'Armor']] : [];
+  const cats = id === 'forge' ? [['weapon', 'Weapons'], ['light', 'Light armor'], ['medium', 'Medium armor'], ['heavy', 'Heavy armor'], ['amulet', 'Amulets']] : [];
   if (id === 'forge' && filter === 'all') filter = 'weapon';
   const skill = id === 'kitchen' ? 'cooking' : 'smithing';
   const sk = p.trade[skill];
-  const rows = list.filter(r => filter === 'all' || r.gear === filter).map(r => {
+  const rows = list.filter(r => filter === 'all' || (filter === 'weapon' ? r.gear === 'weapon' : filter === 'amulet' ? r.slot === 'amulet' : r.wclass === filter)).map(r => {
     const can = hasMats(r.in) && sk.lv >= r.req;
-    const name = r.gear ? (r.gear === 'weapon' ? WEAPONS[r.wtype].tiers[r.tier - 1] : (r.slot === 'amulet' ? ['Copper Amulet', 'Silver Amulet', 'Gold Amulet'][r.tier - 1] : nameForArmor(r))) : MATS[r.out].name;
+    const name = r.gear ? (r.gear === 'weapon' ? WEAPONS[r.wtype].tiers[r.tier - 1] : (r.slot === 'amulet' ? ['Copper Amulet', 'Silver Amulet', 'Gold Amulet'][r.tier - 1] : armorName(r.wclass, r.slot, r.tier))) : MATS[r.out].name;
     const icon = r.gear ? (r.gear === 'weapon' ? WEAPONS[r.wtype].icon : SLOT_ICONS[r.slot]) : MATS[r.out].icon;
     const ins = Object.entries(r.in).map(([k, n]) => `<span class="${matCount(k) >= n ? 'ok' : 'no'}">${MATS[k].icon} ${MATS[k].name} ${matCount(k)}/${n}</span>`).join('');
     const gsr = r.gear ? craftGsRange(r) : null;
@@ -600,7 +656,7 @@ function craft(r, n) {
   if (r.gear) {
     const [a, b] = craftGsRange(r);
     const rar = rollRarity(1 + p.trade.smithing.lv / 10);
-    const it = makeGear({ kind: r.gear === 'weapon' ? 'weapon' : 'armor', wtype: r.wtype, slot: r.slot, gs: Math.round(rand(a, b)), rarity: rar });
+    const it = makeGear({ kind: r.gear === 'weapon' ? 'weapon' : 'armor', wtype: r.wtype, slot: r.slot, wclass: r.wclass, gs: Math.round(rand(a, b)), rarity: rar });
     // crafted gear stays inside its tier
     it.gs = Math.min(it.gs, [219, 379, 600][r.tier - 1]);
     addItem(it); lootToast(it);

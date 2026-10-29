@@ -43,6 +43,7 @@ const r10 = () => 1 + Math.floor(Math.random() * 10);
 export function sfx(name, vol = 1) {
   if (!ctx) return;
   switch (name) {
+    case 'step': noise(0.07, 0.07 * vol, 500 + Math.random() * 300, 150, 'lowpass'); break;
     case 'swing': if (!playBuf('swing' + r10(), 0.35 * vol, 0.9 + Math.random() * 0.2)) noise(0.18, 0.25 * vol, 2500, 600); break;
     case 'heavy': if (!playBuf('swing' + r10(), 0.5 * vol, 0.7)) noise(0.3, 0.3 * vol, 1500, 300); break;
     case 'hit': noise(0.12, 0.5 * vol, 900, 200, 'lowpass'); tone(110, 0.12, 0.25 * vol, 'triangle', 0.5); break;

@@ -215,7 +215,8 @@ function resolveAttack(e) {
     }
     case 'proj': {
       const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
-      spawnProj({ owner: 'enemy', x: e.pos.x + dx / l * 0.6, z: e.pos.z + dz / l * 0.6, y: e.y + 1.3 * e.size, dx: dx / l, dz: dz / l, speed: A.speed, range: A.range + 6, dmg, lv: e.lv, poison: A.poison, color: A.color });
+      const sy = e.y + 1.3 * e.size, ty = P.y + 1.2;
+      spawnProj({ owner: 'enemy', x: e.pos.x + dx / l * 0.6, z: e.pos.z + dz / l * 0.6, y: sy, dx: dx / l, dy: (ty - sy) / l, dz: dz / l, speed: A.speed, range: A.range + 6, dmg, lv: e.lv, poison: A.poison, color: A.color });
       if (!A.color) sfx('bow', 0.5); else sfx('magic', 0.4);
       break;
     }

@@ -1,4 +1,58 @@
 import * as THREE from 'three';
+import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
+
+// ---------- Geometry merging (fewer draw calls) ----------
+function prep(geo, m4) {
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+  g.applyMatrix4(m4);
+  return g;
+}
+// Merge every mesh under root into one mesh per material, in root's local space.
+// Meshes flagged userData.keep (flames, flags, bow strings) stay separate so they can animate.
+export function mergeStatic(root, shadow = true) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMat = new Map(), victims = [];
+  root.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.userData.keep) return;
+    let k = o; let kept = false; while (k && k !== root) { if (k.userData.keep) kept = true; k = k.parent; }
+    if (kept) return;
+    const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(prep(o.geometry, m));
+    victims.push(o);
+  });
+  for (const v of victims) v.parent.remove(v);
+  for (const [m, list] of byMat) {
+    const mesh = new THREE.Mesh(mergeGeometries(list), m);
+    mesh.castShadow = shadow; mesh.receiveShadow = true;
+    root.add(mesh);
+  }
+  return root;
+}
+// Merge only the direct mesh children of a group (for animated body parts)
+export function mergeDirect(group) {
+  const byMat = new Map(), victims = [];
+  for (const o of group.children) {
+    if (!o.isMesh || o.userData.keep) continue;
+    o.updateMatrix();
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(prep(o.geometry, o.matrix));
+    victims.push(o);
+  }
+  if (victims.length < 2) return;
+  for (const v of victims) group.remove(v);
+  for (const [m, list] of byMat) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.castShadow = true; group.add(mesh); }
+}
+// Template group -> [[geometry, material]] in the template's local space (for instancing)
+export function templateParts(root) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMat = new Map();
+  root.traverse(o => { if (o.isMesh) { const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld); if (!byMat.has(o.material)) byMat.set(o.material, []); byMat.get(o.material).push(prep(o.geometry, m)); } });
+  return [...byMat].map(([m, list]) => [mergeGeometries(list), m]);
+}
 
 const shared = new Map();
 // shared material (scenery); use own=true for characters so hit flashes stay per-character
@@ -70,71 +124,121 @@ export function makeWeapon(type, tier = 1) {
       g.add(seg);
     }
     const str = box(0.015, 1.1, 0.015, mat(0xe8e0c8), 0, 0, -0.24);
+    str.userData.keep = true;
     g.add(str);
     g.userData.string = str;
   }
+  const rx = g.rotation.x; g.rotation.x = 0;
+  mergeStatic(g);
+  g.rotation.x = rx;
   return g;
 }
 
 // ---------- Humanoid ----------
-// Faces +z. Returns { root, parts, mats }
+// Faces +z. Returns { root, body, mats:[skin, shirt, pants, boot, trim], parts }
+function shade(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return c.getHex(); }
 export function makeHumanoid(o = {}) {
   const root = new THREE.Group();
   const body = new THREE.Group(); // scaled, bobbing
   root.add(body);
-  const s = o.size || 1;
-  body.scale.setScalar(s);
+  const s = o.size || 1, ht = o.height || 1, bd = o.build || 1;
+  body.scale.set(s * bd, s * ht, s * bd);
   const skin = mat(o.skin ?? 0xe0b48a, true), shirt = mat(o.shirt ?? 0x6a5236, true), pants = mat(o.pants ?? 0x40362a, true), boot = mat(o.boots ?? 0x2a2018, true);
-  const mats = [skin, shirt, pants, boot];
+  const trim = mat(shade(o.shirt ?? 0x6a5236, 0.7), true);
+  const mats = [skin, shirt, pants, boot, trim];
+  const beltM = mat(0x3a2414), buckle = mat(0xc8a040);
   const hips = new THREE.Group(); hips.position.y = 0.95; body.add(hips);
   const upper = new THREE.Group(); hips.add(upper);
   if (o.hunched) upper.rotation.x = 0.35;
-  const torso = box(0.62, 0.72, 0.36, shirt, 0, 0.38, 0); upper.add(torso);
-  const belt = box(0.64, 0.1, 0.38, boot, 0, 0.05, 0); upper.add(belt);
-  const head = new THREE.Group(); head.position.y = 1.0; upper.add(head);
-  head.add(box(0.42, 0.44, 0.42, skin, 0, 0, 0));
+  // torso: chest, waist, collar
+  upper.add(box(0.6, 0.44, 0.36, shirt, 0, 0.52, 0));
+  upper.add(box(0.52, 0.3, 0.32, shirt, 0, 0.2, 0));
+  upper.add(box(0.62, 0.08, 0.38, trim, 0, 0.76, 0));
+  upper.add(box(0.16, 0.5, 0.02, trim, 0, 0.4, 0.18));
+  upper.add(box(0.58, 0.1, 0.36, beltM, 0, 0.04, 0));
+  upper.add(box(0.12, 0.09, 0.04, buckle, 0, 0.04, 0.19));
+  // shoulder pads
+  upper.add(box(0.24, 0.12, 0.34, trim, 0.36, 0.76, 0));
+  upper.add(box(0.24, 0.12, 0.34, trim, -0.36, 0.76, 0));
+  upper.add(box(0.16, 0.12, 0.16, skin, 0, 0.86, 0));
+  // head
+  const head = new THREE.Group(); head.position.y = 1.08; upper.add(head);
+  head.scale.x = 1 / Math.sqrt(bd); head.scale.z = 1 / Math.sqrt(bd);
+  head.add(box(0.38, 0.42, 0.38, skin, 0, 0, 0));
+  head.add(box(0.07, 0.11, 0.07, skin, 0, -0.02, 0.21));
   const eyeM = o.eyes ? mat(o.eyes, false, { emissive: o.eyes }) : mat(0x1a1410);
-  head.add(box(0.08, 0.06, 0.02, eyeM, 0.1, 0.04, 0.215));
-  head.add(box(0.08, 0.06, 0.02, eyeM, -0.1, 0.04, 0.215));
-  if (o.hair !== undefined) head.add(box(0.46, 0.14, 0.46, mat(o.hair, true), 0, 0.2, -0.02));
+  const white = mat(0xf0ece0);
+  for (const sx of [1, -1]) {
+    if (!o.eyes) head.add(box(0.09, 0.06, 0.02, white, sx * 0.09, 0.05, 0.19));
+    head.add(box(0.045, 0.06, 0.02, eyeM, sx * 0.09, 0.05, 0.2));
+    head.add(box(0.11, 0.025, 0.03, mat(shade(o.hair ?? 0x3a2a1a, 0.8)), sx * 0.09, 0.11, 0.195));
+  }
+  head.add(box(0.12, 0.025, 0.02, mat(0x6a3a2a), 0, -0.11, 0.19));
+  if (o.ears) for (const sx of [1, -1]) { const e = box(0.05, 0.08, 0.2, skin, sx * 0.21, 0.04, -0.02); e.rotation.x = -0.5; e.rotation.z = sx * 0.3; e.position.y = 0.08; head.add(e); const tip = box(0.04, 0.06, 0.12, skin, sx * 0.24, 0.17, -0.1); tip.rotation.x = -0.9; head.add(tip); }
+  else for (const sx of [1, -1]) head.add(box(0.04, 0.1, 0.08, skin, sx * 0.2, 0.02, 0));
+  if (o.tusks) for (const sx of [1, -1]) head.add(box(0.035, 0.09, 0.035, mat(0xf0e8d0), sx * 0.07, -0.1, 0.2));
+  const hairM = mat(o.hair ?? 0x3a2a1a, true);
+  const hair = new THREE.Group(); head.add(hair);
+  if (o.hair !== undefined) {
+    const st = o.hairStyle ?? 0;
+    if (st !== 3) hair.add(box(0.42, 0.1, 0.42, hairM, 0, 0.23, -0.01));
+    if (st === 0) { hair.add(box(0.42, 0.22, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.06, 0.18, 0.36, hairM, 0.2, 0.12, -0.03)); hair.add(box(0.06, 0.18, 0.36, hairM, -0.2, 0.12, -0.03)); }
+    if (st === 1) { hair.add(box(0.44, 0.5, 0.1, hairM, 0, -0.04, -0.2)); hair.add(box(0.07, 0.4, 0.36, hairM, 0.21, 0.0, -0.03)); hair.add(box(0.07, 0.4, 0.36, hairM, -0.21, 0.0, -0.03)); }
+    if (st === 2) { hair.add(box(0.42, 0.18, 0.08, hairM, 0, 0.1, -0.19)); hair.add(box(0.14, 0.18, 0.14, hairM, 0, 0.36, -0.08)); }
+    if (st === 3) hair.add(box(0.4, 0.04, 0.4, hairM, 0, 0.21, -0.01));
+    if (st === 4) { hair.add(box(0.42, 0.22, 0.08, hairM, 0, 0.1, -0.19)); for (const sx of [1, -1]) hair.add(box(0.07, 0.55, 0.07, hairM, sx * 0.16, -0.2, -0.2)); }
+  }
+  if (o.beard) { head.add(box(0.36, 0.24, 0.1, hairM, 0, -0.2, 0.17)); head.add(box(0.2, 0.18, 0.08, hairM, 0, -0.38, 0.17)); head.add(box(0.2, 0.04, 0.03, hairM, 0, -0.06, 0.205)); }
   if (o.hat) { head.add(box(0.7, 0.06, 0.7, mat(0x1a1a22), 0, 0.24, 0)); head.add(box(0.44, 0.24, 0.44, mat(0x1a1a22), 0, 0.36, 0)); }
   if (o.horns) {
     const hm = mat(0x1a0a08);
     const h1 = box(0.08, 0.4, 0.08, hm, 0.2, 0.32, 0); h1.rotation.z = -0.5; head.add(h1);
     const h2 = box(0.08, 0.4, 0.08, hm, -0.2, 0.32, 0); h2.rotation.z = 0.5; head.add(h2);
   }
-  if (o.helm) head.add(box(0.48, 0.3, 0.48, mat(o.helm, true), 0, 0.12, -0.01));
+  if (o.helm) head.add(box(0.46, 0.3, 0.46, mat(o.helm, true), 0, 0.12, -0.01));
   const mkArm = side => {
-    const a = new THREE.Group(); a.position.set(side * 0.42, 0.66, 0); upper.add(a);
-    a.add(box(0.2, 0.62, 0.22, shirt, 0, -0.28, 0));
-    a.add(box(0.18, 0.16, 0.2, skin, 0, -0.66, 0));
+    const a = new THREE.Group(); a.position.set(side * 0.4, 0.7, 0); upper.add(a);
+    a.add(box(0.18, 0.36, 0.2, shirt, 0, -0.16, 0));
+    a.add(box(0.17, 0.3, 0.19, skin, 0, -0.46, 0));
+    a.add(box(0.19, 0.14, 0.21, trim, 0, -0.5, 0));
+    a.add(box(0.16, 0.14, 0.18, skin, 0, -0.66, 0.01));
     const hand = new THREE.Group(); hand.position.set(0, -0.68, 0.04); a.add(hand);
     return [a, hand];
   };
   const [armR, handR] = mkArm(-1);
   const [armL, handL] = mkArm(1);
   const mkLeg = side => {
-    const l = new THREE.Group(); l.position.set(side * 0.17, 0, 0); hips.add(l);
-    l.add(box(0.25, 0.62, 0.28, pants, 0, -0.32, 0));
-    l.add(box(0.27, 0.3, 0.34, boot, 0, -0.78, 0.03));
+    const l = new THREE.Group(); l.position.set(side * 0.15, 0, 0); hips.add(l);
+    l.add(box(0.23, 0.4, 0.26, pants, 0, -0.2, 0));
+    l.add(box(0.21, 0.24, 0.24, pants, 0, -0.5, 0));
+    l.add(box(0.24, 0.32, 0.28, boot, 0, -0.76, 0.01));
+    l.add(box(0.24, 0.1, 0.12, boot, 0, -0.87, 0.18));
+    l.add(box(0.26, 0.06, 0.3, trim, 0, -0.6, 0.01));
     return l;
   };
   const legR = mkLeg(-1), legL = mkLeg(1);
-  return { root, body, mats, parts: { hips, upper, torso, head, armR, armL, handR, handL, legR, legL }, size: s, hunched: !!o.hunched };
+  for (const g of [upper, head, hair, armR, armL, legR, legL]) mergeDirect(g);
+  return { root, body, mats, parts: { hips, upper, head, hair, armR, armL, handR, handL, legR, legL }, size: s * ht, hunched: !!o.hunched };
 }
 
-// Recolor armor pieces on the player model by gear tier
+// Recolor clothes on the player model by gear tier
 export function dressHumanoid(h, look) {
-  const [skin, shirt, pants, boot] = h.mats;
+  const [skin, shirt, pants, boot, trim] = h.mats;
   shirt.color.setHex(look.chest);
+  trim.color.setHex(look.trim ?? shade(look.chest, 0.7));
   pants.color.setHex(look.legs);
   boot.color.setHex(look.feet);
   const head = h.parts.head;
   if (head.userData.helm) { head.remove(head.userData.helm); head.userData.helm = null; }
+  h.parts.hair.visible = look.helm == null;
   if (look.helm != null) {
     const hg = new THREE.Group();
-    hg.add(box(0.48, 0.28, 0.48, mat(look.helm), 0, 0.12, -0.01));
-    if (look.helmTier >= 2) hg.add(box(0.06, 0.22, 0.1, mat(look.helm), 0, 0.33, 0));
+    const hm = mat(look.helm);
+    hg.add(box(0.46, 0.26, 0.46, hm, 0, 0.14, -0.01));
+    hg.add(box(0.48, 0.06, 0.48, mat(shade(look.helm, 0.7)), 0, 0.02, -0.01));
+    if (look.helmTier >= 2) { hg.add(box(0.06, 0.24, 0.3, hm, 0, 0.36, -0.02)); hg.add(box(0.08, 0.2, 0.04, hm, 0, -0.02, 0.22)); }
+    if (look.helmTier >= 3) for (const sx of [1, -1]) { const w = box(0.04, 0.22, 0.14, mat(0xf0e0b0), sx * 0.25, 0.26, -0.06); w.rotation.z = sx * -0.4; hg.add(w); }
+    mergeStatic(hg);
     head.add(hg); head.userData.helm = hg;
   }
 }
@@ -184,39 +288,97 @@ export function makeBeast(kind, o = {}) {
     l.add(box(0.15, 0.08, 0.18, dark, 0, -lh, 0.02));
     legs.push(l);
   }
+  for (const g of [torso, head, tail, ...legs]) mergeDirect(g);
   return { root, body, mats, parts: { torso, head, tail, legs }, size: s, beast: true };
 }
 
 // ---------- Scenery ----------
 const trunkM = () => mat(0x5a4028);
+function blob(r, m, x, y, z, sy = 1, det = 1) {
+  const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, det), m);
+  c.position.set(x, y, z); c.scale.y = sy; c.castShadow = true;
+  return c;
+}
 export function makeTree(kind = 'oak', scale = 1) {
   const g = new THREE.Group();
   if (kind === 'pine') {
-    const t = cyl(0.18, 0.28, 2.2, trunkM(), 6); t.position.y = 1.1; g.add(t);
-    const lm = mat(0x2f5a32);
-    for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(1.6 - i * 0.4, 1.8, 7), lm); c.position.y = 2.2 + i * 1.0; c.castShadow = true; g.add(c); }
+    const t = cyl(0.16, 0.3, 2.6, mat(0x4a3424), 7); t.position.y = 1.3; g.add(t);
+    const lm = mat(0x2f5a32), lm2 = mat(0x274d2b);
+    for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(1.9 - i * 0.34, 1.6, 8), i % 2 ? lm2 : lm); c.position.y = 2.0 + i * 0.85; c.rotation.y = i; c.castShadow = true; g.add(c); }
   } else if (kind === 'dead') {
-    const t = cyl(0.14, 0.3, 3.2, mat(0x3a2e26), 5); t.position.y = 1.6; g.add(t);
-    const b1 = cyl(0.06, 0.1, 1.4, mat(0x3a2e26), 4); b1.position.set(0.4, 2.6, 0); b1.rotation.z = -0.8; g.add(b1);
-    const b2 = cyl(0.06, 0.1, 1.2, mat(0x3a2e26), 4); b2.position.set(-0.35, 2.2, 0.1); b2.rotation.z = 0.9; g.add(b2);
+    const bm = mat(0x3a2e26);
+    const t = cyl(0.14, 0.32, 3.4, bm, 6); t.position.y = 1.7; g.add(t);
+    for (const [x, y, z, rz, rx, l] of [[0.4, 2.6, 0, -0.8, 0, 1.4], [-0.35, 2.2, 0.1, 0.9, 0.2, 1.2], [0.1, 3.1, -0.3, 0.3, -0.7, 1.0], [-0.2, 3.3, 0.2, -0.4, 0.6, 0.8]]) { const b = cyl(0.05, 0.1, l, bm, 4); b.position.set(x, y, z); b.rotation.set(rx, 0, rz); g.add(b); }
   } else if (kind === 'willow') {
-    const t = cyl(0.25, 0.4, 2.4, mat(0x4a3a2a), 6); t.position.y = 1.2; g.add(t);
-    const lm = mat(0x56703a);
-    const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8, 0), lm); c.position.y = 3.0; c.scale.y = 0.8; c.castShadow = true; g.add(c);
-    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; g.add(box(0.3, 1.6, 0.3, lm, Math.cos(a) * 1.4, 2.0, Math.sin(a) * 1.4)); }
+    const t = cyl(0.25, 0.45, 2.6, mat(0x4a3a2a), 7); t.position.y = 1.3; g.add(t);
+    const lm = mat(0x56703a), lm2 = mat(0x4a6232);
+    g.add(blob(1.8, lm, 0, 3.0, 0, 0.75));
+    g.add(blob(1.1, lm2, 0.9, 3.3, 0.4, 0.7));
+    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; g.add(box(0.22, 1.9, 0.22, i % 2 ? lm : lm2, Math.cos(a) * 1.5, 2.0, Math.sin(a) * 1.5)); }
   } else if (kind === 'wyrd') {
     const t = cyl(0.22, 0.42, 3, mat(0x3a2440), 6); t.position.y = 1.5; g.add(t);
     const lm = mat(0x8a3a6a, false, { emissive: 0x2a0a20 });
-    for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1 - i * 0.15, 0), lm); c.position.set((i - 1) * 0.7, 3.2 + (i % 2) * 0.6, (i % 2) * 0.4); c.castShadow = true; g.add(c); }
+    for (let i = 0; i < 4; i++) g.add(blob(1.1 - i * 0.15, lm, (i - 1.5) * 0.6, 3.2 + (i % 2) * 0.6, (i % 2) * 0.4, 0.9));
   } else {
-    const t = cyl(0.22, 0.34, 2.0, trunkM(), 6); t.position.y = 1.0; g.add(t);
-    const lm = mat(kind === 'aged' ? 0x4a6a2e : 0x4f8a3a);
-    const c1 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 0), lm); c1.position.y = 2.8; c1.castShadow = true; g.add(c1);
-    const c2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 0), lm); c2.position.set(0.8, 2.4, 0.3); c2.castShadow = true; g.add(c2);
-    if (kind === 'aged') { const c3 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 0), lm); c3.position.set(-0.7, 3.3, -0.3); c3.castShadow = true; g.add(c3); }
+    const t = cyl(0.2, 0.36, 2.2, trunkM(), 7); t.position.y = 1.1; g.add(t);
+    const b1 = cyl(0.08, 0.14, 1.2, trunkM(), 5); b1.position.set(0.45, 2.1, 0.1); b1.rotation.z = -0.8; g.add(b1);
+    const b2 = cyl(0.07, 0.12, 1.1, trunkM(), 5); b2.position.set(-0.4, 2.2, -0.1); b2.rotation.z = 0.8; g.add(b2);
+    const aged = kind === 'aged';
+    const lm = mat(aged ? 0x4a6a2e : 0x4f8a3a), lm2 = mat(aged ? 0x3e5c26 : 0x5f9a44), lm3 = mat(aged ? 0x56783a : 0x467e34);
+    g.add(blob(1.45, lm, 0, 3.1, 0, 0.85));
+    g.add(blob(1.0, lm2, 0.95, 2.7, 0.3, 0.85));
+    g.add(blob(1.0, lm3, -0.85, 2.8, -0.35, 0.85));
+    g.add(blob(0.85, lm2, 0.1, 3.8, 0.5, 0.85));
+    if (aged) g.add(blob(1.1, lm, -0.5, 3.6, 0.6, 0.85));
   }
   g.scale.setScalar(scale);
   return g;
+}
+export function makeFern() {
+  const g = new THREE.Group();
+  const m = mat(0x3f7a34), m2 = mat(0x356a2c);
+  for (let i = 0; i < 7; i++) {
+    const a = i / 7 * Math.PI * 2;
+    const f = box(0.14, 0.03, 0.9, i % 2 ? m : m2, Math.sin(a) * 0.38, 0.28, Math.cos(a) * 0.38);
+    f.rotation.set(-0.5, a, 0); g.add(f);
+  }
+  return g;
+}
+export function makeShroom() {
+  const g = new THREE.Group();
+  g.add(box(0.06, 0.18, 0.06, mat(0xe8e0c8), 0, 0.09, 0));
+  const c = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.1, 7), mat(0xb83a2a)); c.position.y = 0.2; g.add(c);
+  g.add(box(0.05, 0.12, 0.05, mat(0xe8e0c8), 0.15, 0.06, 0.05));
+  const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.07, 7), mat(0xa8742a)); c2.position.set(0.15, 0.14, 0.05); g.add(c2);
+  return g;
+}
+export function makeBarrel() {
+  const g = new THREE.Group();
+  const b = cyl(0.38, 0.34, 1.0, mat(0x7a5232), 10); b.position.y = 0.5; g.add(b);
+  for (const y of [0.15, 0.85]) { const r = cyl(0.4, 0.4, 0.06, mat(0x3a3a3a), 10); r.position.y = y; g.add(r); }
+  return mergeStatic(g);
+}
+export function makeCrate(s = 0.9) {
+  const g = new THREE.Group();
+  g.add(box(s, s, s, mat(0x8a6a42), 0, s / 2, 0));
+  for (const y of [0.06, s - 0.06]) for (const z of [-s / 2, s / 2]) g.add(box(s + 0.02, 0.1, 0.04, mat(0x5a4028), 0, y, z));
+  return mergeStatic(g);
+}
+export function makeTorch() {
+  const g = new THREE.Group();
+  g.add(box(0.14, 2.4, 0.14, mat(0x4a3220), 0, 1.2, 0));
+  g.add(box(0.26, 0.22, 0.26, mat(0x2a2a2a), 0, 2.45, 0));
+  const f = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 }));
+  f.position.y = 2.75; f.userData.keep = true; g.add(f); g.userData.flame = f;
+  return mergeStatic(g);
+}
+export function makeFence(len = 4) {
+  const g = new THREE.Group();
+  const m = mat(0x7a5a38);
+  for (let x = 0; x <= len; x += 2) g.add(box(0.14, 1.1, 0.14, m, x - len / 2, 0.55, 0));
+  g.add(box(len, 0.1, 0.08, m, 0, 0.8, 0));
+  g.add(box(len, 0.1, 0.08, m, 0, 0.4, 0));
+  return mergeStatic(g);
 }
 
 export function makeRock(kind = 'iron', scale = 1) {
@@ -255,20 +417,43 @@ export function makePlant(kind = 'hemp') {
 
 export function makeHouse(w = 6, d = 5, color = 0x8a6a48, roof = 0x7a3a28) {
   const g = new THREE.Group();
-  const wall = box(w, 3, d, mat(color), 0, 1.5, 0); wall.receiveShadow = true; g.add(wall);
-  const beam = mat(0x4a3220);
-  for (const x of [-w / 2, w / 2]) for (const z of [-d / 2, d / 2]) g.add(box(0.3, 3.1, 0.3, beam, x, 1.55, z));
-  const rg = new THREE.ConeGeometry(Math.max(w, d) * 0.78, 2.4, 4);
-  const r = new THREE.Mesh(rg, mat(roof)); r.rotation.y = Math.PI / 4; r.scale.set(w / Math.max(w, d), 1, d / Math.max(w, d)); r.position.y = 4.2; r.castShadow = true; g.add(r);
-  g.add(box(1.0, 1.8, 0.1, mat(0x3a2414), 0, 0.9, d / 2 + 0.05));
-  g.add(box(0.8, 0.7, 0.1, mat(0xf0d090, false, { emissive: 0x403010 }), w / 4 + 0.3, 1.8, d / 2 + 0.05));
-  return g;
+  const stone = mat(0x7a756c), beam = mat(0x4a3220), glass = mat(0xf0d090, false, { emissive: 0x5a4010 });
+  g.add(box(w + 0.3, 0.6, d + 0.3, stone, 0, 0.3, 0));
+  const wall = box(w, 2.8, d, mat(color), 0, 2.0, 0); wall.receiveShadow = true; g.add(wall);
+  for (const x of [-w / 2, w / 2]) for (const z of [-d / 2, d / 2]) g.add(box(0.3, 2.9, 0.3, beam, x, 2.05, z));
+  g.add(box(w + 0.1, 0.25, 0.3, beam, 0, 3.35, d / 2)); g.add(box(w + 0.1, 0.25, 0.3, beam, 0, 3.35, -d / 2));
+  g.add(box(w + 0.1, 0.2, 0.25, beam, 0, 1.6, d / 2 + 0.02));
+  // gable roof from two slabs
+  const span = d / 2 + 0.6, pitch = 0.62, len = span / Math.cos(pitch);
+  const rm = mat(roof), rm2 = mat(new THREE.Color(roof).multiplyScalar(0.8).getHex());
+  for (const sd of [1, -1]) {
+    const slab = box(w + 0.8, 0.18, len, sd > 0 ? rm : rm2, 0, 3.45 + Math.sin(pitch) * len / 2, sd * Math.cos(pitch) * len / 2);
+    slab.rotation.x = sd * pitch; g.add(slab);
+    for (let i = 1; i < 4; i++) { const st = box(w + 0.82, 0.05, 0.08, rm2, 0, 3.45 + Math.sin(pitch) * len * i / 4 + 0.1, sd * Math.cos(pitch) * len * i / 4); st.rotation.x = sd * pitch; g.add(st); }
+  }
+  // gable ends
+  const tri = new THREE.Shape(); tri.moveTo(-d / 2, 0); tri.lineTo(d / 2, 0); tri.lineTo(0, Math.tan(pitch) * d / 2); tri.lineTo(-d / 2, 0);
+  const tg = new THREE.ShapeGeometry(tri);
+  for (const sx of [1, -1]) { const m = new THREE.Mesh(tg, mat(color)); m.material.side = THREE.DoubleSide; m.rotation.y = Math.PI / 2; m.position.set(sx * w / 2, 3.4, 0); g.add(m); }
+  g.add(box(0.7, 2.0, 0.7, stone, w / 2 - 0.9, 4.6, -0.6));
+  g.add(box(1.0, 1.9, 0.12, mat(0x3a2414), 0, 1.55, d / 2 + 0.06));
+  g.add(box(0.1, 0.1, 0.06, mat(0xc8a040), 0.35, 1.5, d / 2 + 0.14));
+  for (const x of [w / 4 + 0.3, -w / 4 - 0.3]) {
+    if (Math.abs(x) < 0.9) continue;
+    g.add(box(0.8, 0.7, 0.1, glass, x, 2.1, d / 2 + 0.05));
+    g.add(box(0.9, 0.1, 0.16, beam, x, 1.7, d / 2 + 0.08));
+    g.add(box(0.06, 0.7, 0.12, beam, x, 2.1, d / 2 + 0.1));
+    g.add(box(0.3, 0.75, 0.06, mat(0x3a5a3a), x - 0.58, 2.1, d / 2 + 0.08));
+    g.add(box(0.3, 0.75, 0.06, mat(0x3a5a3a), x + 0.58, 2.1, d / 2 + 0.08));
+  }
+  for (const z of [-d / 4, d / 4]) for (const sx of [1, -1]) g.add(box(0.1, 0.7, 0.8, glass, sx * (w / 2 + 0.05), 2.1, z));
+  return mergeStatic(g);
 }
 
 export function makeFlag(color = 0x2a5a9a) {
   const g = new THREE.Group();
   const pole = cyl(0.08, 0.1, 7, mat(0x5a4028), 6); pole.position.y = 3.5; g.add(pole);
-  const f = box(1.6, 1.0, 0.05, mat(color), 0.85, 6.3, 0); g.add(f);
+  const f = box(1.6, 1.0, 0.05, mat(color), 0.85, 6.3, 0); f.userData.keep = true; g.add(f);
   g.userData.flag = f;
   return g;
 }

@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { WEAPONS, ABILITIES, MATS, NODES } from './data.js';
+import { WEAPONS, ABILITIES, MATS, NODES, RACES, CLASSES, LOADS } from './data.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
 import { animHumanoid } from './anim.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later } from './fx.js';
 import { stats, activeWeapon, activeWType, gainXp, gainMastery, gainTrade } from './stats.js';
 import { weaponDmg, addMat, matCount } from './items.js';
-import { floatText, toast, showDeath, castBar, refreshHud } from './ui.js';
+import { floatText, selfText, toast, showDeath, castBar, refreshHud } from './ui.js';
 import { sfx } from './audio.js';
 import { enemiesNear, killEnemy, stunEnemy, knockEnemy, interruptEnemy } from './enemies.js';
 import { questEvent } from './quests.js';
@@ -18,11 +18,11 @@ const HOLD_HEAVY = 0.28;
 const PLAYER_R = 0.45;
 
 export function createPlayer() {
-  const h = makeHumanoid({ skin: 0xe2b48c, shirt: 0x7a6a52, pants: 0x4a3e30, hair: 0x5a3a1e });
+  const h = makeCharacter(G.p);
   G.scene.add(h.root);
   const pos = G.p.pos ? { x: G.p.pos[0], z: G.p.pos[1] } : { ...TOWN_SPAWN };
   G.player = {
-    h, pos, y: heightAt(pos.x, pos.z), facing: Math.PI, phase: 0, move: 0,
+    h, pos, y: heightAt(pos.x, pos.z), facing: Math.PI, yaw: G.p.yaw ?? Math.PI, pitch: -0.08, phase: 0, move: 0,
     hp: 1, stam: 100, stamDelay: 0, exhausted: 0,
     state: 'idle', atk: null, combo: 0, comboTimer: 0,
     press: null, draw: 0, dodge: null, iframes: 0, blocking: false,
@@ -34,32 +34,55 @@ export function createPlayer() {
   refreshLook();
 }
 
-const tierColor = (it, cols, none) => it ? cols[it.tier - 1] : none;
+// Build a character model from a profile (race, look); also used by the character creator
+export function makeCharacter(p) {
+  const R = RACES[p.race || 'human'], L = p.look || {};
+  return makeHumanoid({
+    skin: L.skin ?? R.skins[0], hair: L.hair ?? R.hair[0], hairStyle: L.hairStyle ?? 0,
+    shirt: 0x7a6a52, pants: 0x4a3e30, height: R.height, build: R.build,
+    ears: R.ears, tusks: R.tusks, beard: R.beard && (L.beard ?? true),
+  });
+}
+
+// clothes colour by armor weight and tier
+const ARMOR_COLS = { light: [0x9a9270, 0x4a5a8a, 0x9a3a2a], medium: [0x6a4a2a, 0x5a4030, 0x3e4a32], heavy: [0x8a8a90, 0x8aa2b8, 0xc89a48] };
+const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 'medium'][it.tier - 1]).multiplyScalar(k).getHex() : none;
+const WEAPON_SCALE = 1.45; // New World style oversized weapons
 export function refreshLook() {
   const P = G.player, e = G.p.equip, h = P.h;
   dressHumanoid(h, {
-    chest: tierColor(e.chest, [0x6a4a2a, 0x8aa2b8, 0xc89a48], 0x7a6a52),
-    legs: tierColor(e.legs, [0x4a3420, 0x5a6a7a, 0x8a6a30], 0x4a3e30),
-    feet: tierColor(e.feet, [0x3a2a1a, 0x4a5462, 0x6a5020], 0x2a2018),
-    helm: e.head ? [0x6a4a2a, 0x9aaabb, 0xd8a848][e.head.tier - 1] : null,
-    helmTier: e.head?.tier || 0,
+    chest: tierColor(e.chest, 1, 0x7a6a52),
+    legs: tierColor(e.legs, 0.75, 0x4a3e30),
+    feet: tierColor(e.feet, 0.55, 0x2a2018),
+    helm: e.head ? tierColor(e.head, 1) : null,
+    helmTier: e.head ? ({ light: 1, medium: 1, heavy: 2 }[e.head.wclass || 'medium'] + (e.head.tier === 3 ? 1 : 0)) : 0,
+    trim: e.hands ? tierColor(e.hands, 0.85) : (CLASSES[G.p.cls]?.color ?? 0x5a4a38),
   });
-  h.mats[0].color.setHex(e.hands ? [0x5a3a22, 0x8a9aaa, 0xc89a48][e.hands.tier - 1] : 0xe2b48c);
   // weapons
   for (const k of ['wR', 'wL', 'wBack']) if (P[k]) { P[k].parent?.remove(P[k]); P[k] = null; }
   const w = activeWeapon(), other = G.p.activeW === 0 ? e.w2 : e.w1;
   if (w) {
-    if (w.wtype === 'bow') { P.wL = makeWeapon('bow', w.tier); h.parts.handL.add(P.wL); }
+    if (w.wtype === 'bow') { P.wL = makeWeapon('bow', w.tier); P.wL.scale.setScalar(WEAPON_SCALE * 0.85); h.parts.handL.add(P.wL); }
     else {
-      P.wR = makeWeapon(w.wtype, w.tier); h.parts.handR.add(P.wR);
-      if (w.wtype === 'sword') { P.wL = makeWeapon('shield', w.tier); P.wL.position.set(0.12, 0.05, 0.15); P.wL.rotation.y = Math.PI / 2; h.parts.handL.add(P.wL); }
+      P.wR = makeWeapon(w.wtype, w.tier); P.wR.scale.setScalar(WEAPON_SCALE); h.parts.handR.add(P.wR);
+      if (w.wtype === 'sword') { P.wL = makeWeapon('shield', w.tier); P.wL.scale.setScalar(1.25); P.wL.position.set(0.14, 0.05, 0.15); P.wL.rotation.y = Math.PI / 2; h.parts.handL.add(P.wL); }
     }
   }
+  // the weapon not in use is slung diagonally across the back
   if (other) {
-    P.wBack = makeWeapon(other.wtype === 'sword' ? 'sword' : other.wtype, other.tier);
-    P.wBack.rotation.set(0, 0, 0.7); P.wBack.position.set(0, 0.0, -0.25);
-    if (other.wtype === 'bow') P.wBack.rotation.set(0, Math.PI / 2, 0.3);
-    h.parts.upper.add(P.wBack);
+    const back = new THREE.Group();
+    const bw = makeWeapon(other.wtype, other.tier);
+    bw.rotation.set(0, 0, 0);
+    bw.scale.setScalar(other.wtype === 'bow' ? WEAPON_SCALE * 0.85 : WEAPON_SCALE);
+    if (other.wtype === 'bow') { bw.rotation.y = Math.PI / 2; bw.position.set(0, 0.15, 0); }
+    else if (other.wtype === 'sword') { bw.rotation.z = Math.PI; bw.position.set(0, 0.45, 0); } // hilt up over the shoulder
+    else bw.position.set(0, -0.75, 0); // axe or hammer head up
+    back.add(bw);
+    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sh.scale.setScalar(1.2); sh.position.set(0, 0.0, -0.06); back.add(sh); }
+    back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
+    back.position.set(0, 0.5, -0.26);
+    h.parts.upper.add(back);
+    P.wBack = back;
   }
   G.statsDirty = true;
 }
@@ -68,7 +91,7 @@ export function refreshLook() {
 export function playerDamage(mult, kind, e, extra = 1) {
   const s = stats(), P = G.player, m = s.mods;
   const w = activeWeapon();
-  let d = (w ? weaponDmg(w) : 8) * mult * s.attrMult * extra;
+  let d = (w ? weaponDmg(w) : 8) * mult * s.attrMult * extra * (1 + (s.loadDmg || 0));
   if (kind === 'light') d *= 1 + (m.lightDmg || 0);
   if (kind === 'heavy') d *= 1 + (m.heavyDmg || 0) + s.heavy;
   if (kind === 'ability') d *= s.abilityMult;
@@ -120,14 +143,14 @@ export function healPlayer(n, quiet) {
   if (P.state === 'dead') return;
   const before = P.hp;
   P.hp = Math.min(mx, P.hp + n);
-  if (!quiet && P.hp - before >= 1) floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, `+${Math.round(P.hp - before)}`, 'heal');
+  if (!quiet && P.hp - before >= 1) selfText(`+${Math.round(P.hp - before)}`, 'heal');
 }
 
 // ---------- Damage taken ----------
 export function hurtPlayer(raw, src, opts = {}) {
   const P = G.player;
   if (P.state === 'dead') return;
-  if (P.iframes > 0) { floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, 'Dodged', 'info'); return; }
+  if (P.iframes > 0) { selfText('Dodged', 'info'); return; }
   const s = stats();
   let dmg = raw;
   const w = activeWeapon();
@@ -142,11 +165,11 @@ export function hurtPlayer(raw, src, opts = {}) {
         dmg *= 1 - W.block;
         sfx('block');
         burst(P.pos.x + Math.sin(P.facing) * 0.8, P.y + 1.3, P.pos.z + Math.cos(P.facing) * 0.8, 0xffe0a0, 6, 3, 0.3);
-        if (dmg < 1) { floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, 'Blocked', 'info'); return; }
+        if (dmg < 1) { selfText('Blocked', 'info'); return; }
       } else {
         P.stam = 0; P.exhausted = 1.6; P.blocking = false;
         P.stunUntil = G.time + 0.7;
-        floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, 'Guard broken!', 'warn');
+        selfText('Guard broken!', 'warn');
       }
     }
   }
@@ -158,7 +181,7 @@ export function hurtPlayer(raw, src, opts = {}) {
   dmg = Math.max(1, Math.round(dmg));
   P.hp -= dmg;
   P.hurtFlash = 0.15;
-  floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, `-${dmg}`, 'hurt');
+  selfText(`-${dmg}`, 'hurt');
   sfx('hurt', 0.7);
   shake(Math.min(0.6, 0.15 + dmg / s.maxHp * 2));
   if (opts.poison) P.poison = { dps: raw * 0.12, until: G.time + opts.poison };
@@ -186,13 +209,21 @@ export function respawn() {
 }
 
 // ---------- Projectiles ----------
-const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.9);
+// 3D: (dx, dy, dz) is a unit direction
+const arrowGeo = new THREE.BoxGeometry(0.05, 0.05, 0.9);
+const tip = new THREE.ConeGeometry(0.05, 0.16, 4); tip.rotateX(Math.PI / 2); tip.translate(0, 0, 0.5);
 export function spawnProj(o) {
   let mesh;
-  if (o.color && o.owner === 'enemy') mesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ color: o.color }));
-  else { mesh = new THREE.Mesh(arrowGeo, mat(o.owner === 'player' ? (o.poison ? 0x6adf3a : o.pierce ? 0xffe070 : 0xe8dcc0) : 0x5a4a3a)); }
+  if (o.color && o.owner === 'enemy') { mesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ color: o.color })); }
+  else {
+    mesh = new THREE.Group();
+    mesh.add(new THREE.Mesh(arrowGeo, mat(o.owner === 'player' ? (o.poison ? 0x6adf3a : o.pierce ? 0xffe070 : 0xd8c8a0) : 0x5a4a3a)));
+    mesh.add(new THREE.Mesh(tip, mat(0x8a8a90)));
+  }
+  if (o.dy == null) o.dy = 0;
+  const l = Math.hypot(o.dx, o.dy, o.dz) || 1; o.dx /= l; o.dy /= l; o.dz /= l;
   mesh.position.set(o.x, o.y, o.z);
-  mesh.rotation.y = Math.atan2(o.dx, o.dz);
+  mesh.lookAt(o.x + o.dx, o.y + o.dy, o.z + o.dz);
   G.scene.add(mesh);
   G.projectiles.push({ ...o, mesh, life: (o.range || 30) / o.speed, hit: new Set() });
 }
@@ -202,36 +233,43 @@ export function updateProjectiles(dt) {
   for (let i = G.projectiles.length - 1; i >= 0; i--) {
     const pr = G.projectiles[i];
     pr.life -= dt;
-    pr.x += pr.dx * pr.speed * dt; pr.z += pr.dz * pr.speed * dt;
-    const gy = heightAt(pr.x, pr.z) + 1.1;
-    pr.y += (Math.max(pr.y0 ?? gy, gy) - pr.y) * Math.min(1, dt * 6);
+    pr.x += pr.dx * pr.speed * dt; pr.y += pr.dy * pr.speed * dt; pr.z += pr.dz * pr.speed * dt;
     pr.mesh.position.set(pr.x, pr.y, pr.z);
-    let dead = pr.life <= 0 || collide(pr.x, pr.z, 0.05)[0] !== pr.x;
+    let dead = pr.life <= 0 || pr.y < heightAt(pr.x, pr.z) || collide(pr.x, pr.z, 0.05)[0] !== pr.x;
     if (!dead && pr.owner === 'player') {
       for (const e of enemiesNear(pr.x, pr.z, 3)) {
         if (e.dead || pr.hit.has(e)) continue;
-        if (Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < e.radius + 0.35) {
+        const top = e.y + (e.model.beast ? 1.3 : 2.1) * e.size;
+        if (Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < e.radius + 0.4 && pr.y > e.y - 0.3 && pr.y < top + 0.3) {
           pr.hit.add(e);
           hitEnemy(e, pr.mult, pr.kind, pr.opts || {});
           if (!pr.pierce) { dead = true; break; }
         }
       }
     } else if (!dead && pr.owner === 'enemy' && P.state !== 'dead') {
-      if (Math.hypot(P.pos.x - pr.x, P.pos.z - pr.z) < 0.75) {
+      if (Math.hypot(P.pos.x - pr.x, P.pos.z - pr.z) < 0.65 && pr.y > P.y - 0.3 && pr.y < P.y + 2.2) {
         hurtPlayer(pr.dmg, { x: pr.x - pr.dx, z: pr.z - pr.dz, lv: pr.lv }, { poison: pr.poison });
         if (P.iframes <= 0) dead = true;
       }
     }
     if (dead) {
       G.scene.remove(pr.mesh);
-      if (pr.mesh.geometry !== arrowGeo) { pr.mesh.geometry.dispose(); pr.mesh.material.dispose(); }
+      if (pr.mesh.isMesh) { pr.mesh.geometry.dispose(); pr.mesh.material.dispose(); }
       G.projectiles.splice(i, 1);
     }
   }
 }
 
+// where an arrow leaves the player and which way it flies (toward whatever the crosshair is on)
+function shotFrom() {
+  const P = G.player, a = G.input.aimPoint;
+  const ox = P.pos.x + Math.sin(P.yaw) * 0.5, oy = P.y + 1.5 * (P.h.size || 1), oz = P.pos.z + Math.cos(P.yaw) * 0.5;
+  if (!a) return { x: ox, y: oy, z: oz, dx: Math.sin(P.yaw), dy: 0, dz: Math.cos(P.yaw) };
+  return { x: ox, y: oy, z: oz, dx: a.x - ox, dy: a.y - oy, dz: a.z - oz };
+}
+
 // ---------- Actions ----------
-const aimDir = () => { const P = G.player; const dx = G.input.aimX - P.pos.x, dz = G.input.aimZ - P.pos.z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l, l]; };
+const aimDir = () => { const P = G.player; return [Math.sin(P.yaw), Math.cos(P.yaw), G.input.aimDist ?? 8]; };
 const busy = () => { const s = G.player.state; return s === 'dodge' || s === 'ability' || s === 'dead' || s === 'stunned'; };
 function atkSpeed() { let a = 1 + (stats().mods.atkSpeed || 0); for (const b of G.player.buffs) a += b.mods.atkSpeed || 0; return a; }
 
@@ -278,11 +316,10 @@ function meleeHit(a) {
 
 function fireArrow(power) {
   const P = G.player, s = stats();
-  const [dx, dz] = aimDir();
   const W = WEAPONS.bow;
   let mult = 0.3 + power * 0.7;
   if (power >= 0.99) mult *= 1 + (s.mods.fullDraw || 0);
-  spawnProj({ owner: 'player', x: P.pos.x + dx * 0.6, z: P.pos.z + dz * 0.6, y: P.y + 1.4, dx, dz, speed: W.speed * (0.7 + power * 0.3), range: W.range, mult, kind: power >= 0.99 ? 'heavy' : 'light' });
+  spawnProj({ owner: 'player', ...shotFrom(), speed: W.speed * (0.7 + power * 0.3), range: W.range, mult, kind: power >= 0.99 ? 'heavy' : 'light' });
   sfx('bow');
 }
 
@@ -291,18 +328,27 @@ export function startDodge() {
   if (P.state === 'ability' || P.state === 'dodge' || P.state === 'dead' || P.state === 'stunned') return;
   if (P.gather) cancelGather();
   if (P.recall) { P.recall = null; castBar(null); }
-  const cost = 25 * (1 + (s.mods.dodgeCost || 0));
-  if (P.stam < cost || P.exhausted > 0) { if (P.exhausted > 0) floatText({ x: P.pos.x, z: P.pos.z, y: P.y + 2.2 }, 'Exhausted', 'warn'); return; }
+  const L = LOADS[s.load || 'medium'].dodge;
+  const cost = L.cost * (1 + (s.mods.dodgeCost || 0));
+  if (P.stam < cost || P.exhausted > 0) { if (P.exhausted > 0) selfText('Exhausted', 'warn'); return; }
   const k = G.input.keys;
-  let mx = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0), mz = (k.KeyS ? 1 : 0) - (k.KeyW ? 1 : 0);
-  if (!mx && !mz) { mx = -Math.sin(P.facing); mz = -Math.cos(P.facing); }
+  let [mx, mz] = moveDir(k);
+  if (!mx && !mz) { mx = -Math.sin(P.yaw); mz = -Math.cos(P.yaw); }
   const l = Math.hypot(mx, mz);
   P.stam -= cost; P.stamDelay = 0.7;
   if (P.stam <= 0) { P.stam = 0; P.exhausted = 1.6; }
   P.state = 'dodge'; P.atk = null; P.press = null; P.draw = 0;
-  P.dodge = { t: 0, dur: 0.42, dx: mx / l, dz: mz / l, speed: 13.5 };
-  P.iframes = 0.34;
+  P.dodge = { t: 0, dur: L.dur, dx: mx / l, dz: mz / l, speed: L.dist / (L.dur * 0.7), roll: L.roll };
+  P.iframes = L.dur * 0.8;
   sfx('dodge');
+}
+
+export function jump() {
+  const P = G.player;
+  if (busy() || P.state === 'gather' || (P.jumpY || 0) > 0 || P.jv) return;
+  P.jv = 7.2;
+  if (P.recall) { P.recall = null; castBar(null); }
+  sfx('step', 1.2);
 }
 
 export function useAbility(slot) {
@@ -336,14 +382,14 @@ export function useAbility(slot) {
     case 'evade': {
       P.state = 'ability'; P.iframes = 0.35;
       P.ability = { id, A, t: 0, dur: 0.35, dx: -dx, dz: -dz, speed: A.dist / 0.35, pose: 'shoot' };
-      spawnProj({ owner: 'player', x: P.pos.x, z: P.pos.z, y: P.y + 1.4, dx, dz, speed: 44, range: 32, mult: A.dmg, kind: 'ability' });
+      spawnProj({ owner: 'player', ...shotFrom(), speed: 44, range: 32, mult: A.dmg, kind: 'ability' });
       sfx('bow');
       break;
     }
     case 'proj': {
       P.state = 'ability';
       P.ability = { id, A, t: 0, dur: 0.3, pose: 'shoot' };
-      spawnProj({ owner: 'player', x: P.pos.x, z: P.pos.z, y: P.y + 1.4, dx, dz, speed: A.speed || 44, range: 36, mult: A.dmg, kind: 'ability', pierce: !!A.pierce, poison: !!A.dot, opts: A.dot ? { dot: A.dot, dotDur: A.dotDur } : {} });
+      spawnProj({ owner: 'player', ...shotFrom(), speed: A.speed || 44, range: 36, mult: A.dmg, kind: 'ability', pierce: !!A.pierce, poison: !!A.dot, opts: A.dot ? { dot: A.dot, dotDur: A.dotDur } : {} });
       sfx('bow');
       break;
     }
@@ -454,7 +500,6 @@ export function startGather(target) {
     P.gather = { target, t: 0, dur: 1.6 / (1 + G.p.trade.skinning.lv * 0.015 + s.gather), skill: 'skinning', pose: 'harvest' };
   }
   P.state = 'gather';
-  P.facing = Math.atan2(target.x - P.pos.x, target.z - P.pos.z);
   castBar({ logging: 'Chopping', mining: 'Mining', harvesting: 'Harvesting', skinning: 'Skinning' }[P.gather.skill], 0);
 }
 export function cancelGather(msg) {
@@ -530,7 +575,11 @@ export function startRecall() {
 export function updatePlayer(dt) {
   const P = G.player, inp = G.input, s = stats();
   const w = activeWeapon(), wt = w?.wtype;
-  P.iframes -= dt; P.potionCd -= dt; P.recallCd -= dt; P.exhausted -= dt; P.comboTimer -= dt; P.inCombat -= dt;
+  P.iframes -= dt; P.swapT -= dt; P.potionCd -= dt;
+  // jumping (leaps use jumpY themselves)
+  if (!(P.ability && P.ability.leap)) {
+    if (P.jv || P.jumpY > 0) { P.jv = (P.jv || 0) - 24 * dt; P.jumpY = Math.max(0, (P.jumpY || 0) + P.jv * dt); if (P.jumpY <= 0) { P.jv = 0; P.jumpY = 0; } }
+  } P.recallCd -= dt; P.exhausted -= dt; P.comboTimer -= dt; P.inCombat -= dt;
   if (P.hurtFlash > 0) P.hurtFlash -= dt;
   P.buffs = P.buffs.filter(b => b.until > G.time);
   if (P.state === 'dead') { P.deadT = (P.deadT || 0) + dt; animHumanoid(P.h, { pose: 'dead', t: P.deadT }); placeModel(); return; }
@@ -548,14 +597,12 @@ export function updatePlayer(dt) {
 
   // movement input
   const k = inp.keys;
-  let mx = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0), mz = (k.KeyS ? 1 : 0) - (k.KeyW ? 1 : 0);
+  let [mx, mz] = moveDir(k);
   const ml = Math.hypot(mx, mz); if (ml) { mx /= ml; mz /= ml; }
   if (ml && P.gather) cancelGather();
   if (ml && P.recall) { P.recall = null; castBar(null); toast('Recall cancelled'); }
 
-  // aim facing
-  const [adx, adz] = aimDir();
-  const aimF = Math.atan2(adx, adz);
+  P.facing = P.yaw;
 
   if (P.state === 'ability') updateAbility(dt);
   else if (P.state === 'dodge') {
@@ -563,7 +610,6 @@ export function updatePlayer(dt) {
     const sp = d.speed * (1 - d.t / d.dur * 0.6);
     const nx = P.pos.x + d.dx * sp * dt, nz = P.pos.z + d.dz * sp * dt;
     if (walkable(nx, nz)) { const [cx, cz] = collide(nx, nz, PLAYER_R); P.pos.x = cx; P.pos.z = cz; }
-    P.facing = Math.atan2(d.dx, d.dz);
     if (d.t >= d.dur) { P.state = 'idle'; P.dodge = null; }
   } else if (P.state !== 'stunned') {
     // attacks
@@ -622,18 +668,17 @@ export function updatePlayer(dt) {
       else if (walkable(nx, P.pos.z)) { const [cx, cz] = collide(nx, P.pos.z, PLAYER_R); P.pos.x = cx; P.pos.z = cz; }
       else if (walkable(P.pos.x, nz)) { const [cx, cz] = collide(P.pos.x, nz, PLAYER_R); P.pos.x = cx; P.pos.z = cz; }
       P.phase += dt * sp * 1.6;
+      // stride sounds
+      if (Math.floor(P.phase / Math.PI) !== P.lastStep) { P.lastStep = Math.floor(P.phase / Math.PI); sfx('step', 0.5); }
     }
     P.move += ((ml && sp > 0 ? Math.min(1, sp / 6.2) : 0) - P.move) * Math.min(1, dt * 10);
-    if (P.state !== 'gather') {
-      const target = (P.state === 'attack' && P.atk?.hitDone && P.atk?.wt !== 'bow') ? P.facing : aimF;
-      P.facing += angDiff(P.facing, target) * Math.min(1, dt * (P.state === 'attack' ? 8 : 18));
-    }
   }
   // pose
   let pose = null, t = 0;
   if (P.state === 'attack') { pose = P.atk.pose; t = P.atk.t / P.atk.dur; }
   else if (P.state === 'draw') pose = 'draw';
-  else if (P.state === 'dodge') { pose = 'dodge'; t = P.dodge.t / P.dodge.dur; }
+  else if (P.state === 'dodge') { pose = P.dodge.roll ? 'dodge' : 'hop'; t = P.dodge.t / P.dodge.dur; }
+  else if (P.swapT > 0) { pose = 'swap'; t = 1 - P.swapT / 0.25; }
   else if (P.state === 'ability') { pose = P.ability.pose; t = P.ability.t / P.ability.dur; if (pose === 'shoot' || pose === 'block') t = Math.min(1, t); }
   else if (P.state === 'gather') { pose = P.gather.pose; t = P.gather.t; }
   else if (P.state === 'stunned') pose = 'stun';
@@ -646,6 +691,13 @@ export function updatePlayer(dt) {
   // flash
   const fl = P.hurtFlash > 0 ? 0x661010 : P.iframes > 0 && P.state === 'dodge' ? 0x202838 : 0;
   for (const m of P.h.mats) m.emissive.setHex(fl);
+}
+
+// WASD relative to where the player looks. Forward = (sin yaw, cos yaw), right = (-cos yaw, sin yaw)
+function moveDir(k) {
+  const P = G.player;
+  const f = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), r = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
+  return [Math.sin(P.yaw) * f - Math.cos(P.yaw) * r, Math.cos(P.yaw) * f + Math.sin(P.yaw) * r];
 }
 
 function placeModel() {
@@ -662,6 +714,7 @@ export function swapWeapon(i) {
   if (!(i === 0 ? e.w1 : e.w2)) { toast('No weapon in that slot. Equip one from your inventory (I).'); return; }
   G.p.activeW = i;
   P.state = P.state === 'gather' ? 'gather' : 'idle'; P.atk = null; P.press = null; P.draw = 0; P.combo = 0;
+  P.swapT = 0.25;
   refreshLook();
   sfx('ui');
   refreshHud();

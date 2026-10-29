@@ -70,6 +70,18 @@ export function animHumanoid(h, st) {
       h.body.position.y = (1 - Math.cos(a)) * 0.9 * h.size * 0.55;
       break;
     }
+    case 'hop': {
+      h.body.position.y = Math.sin(t * Math.PI) * 0.22;
+      P.upper.rotation.x += Math.sin(t * Math.PI) * 0.35;
+      P.legL.rotation.x = -0.6 * Math.sin(t * Math.PI); P.legR.rotation.x = 0.4 * Math.sin(t * Math.PI);
+      break;
+    }
+    case 'swap': {
+      const k = Math.sin(t * Math.PI);
+      P.armR.rotation.x = -2.8 * k; P.armR.rotation.z = 0.4 * k;
+      P.upper.rotation.y = -0.3 * k;
+      break;
+    }
     case 'gather': {
       const k = (Math.sin(t * Math.PI * 2 * 1.5) + 1) / 2;
       P.armR.rotation.x = lerp(-0.3, -2.4, k); P.armL.rotation.x = lerp(-0.3, -2.4, k);

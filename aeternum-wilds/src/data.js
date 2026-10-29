@@ -114,6 +114,18 @@ export const ARMOR_SLOTS = ['head', 'chest', 'hands', 'legs', 'feet'];
 export const SLOT_NAMES = { w1: 'Weapon 1', w2: 'Weapon 2', head: 'Head', chest: 'Chest', hands: 'Hands', legs: 'Legs', feet: 'Feet', amulet: 'Amulet' };
 export const SLOT_ICONS = { head: '⛑️', chest: '🥋', hands: '🧤', legs: '👖', feet: '🥾', amulet: '📿' };
 export const ARMOR_WEIGHT = { head: 0.15, chest: 0.3, hands: 0.15, legs: 0.25, feet: 0.15 };
+// Armor comes in three weights. Your total equip load sets your dodge and a damage bonus.
+export const ARMOR_CLASS = {
+  light: { name: 'Light', mats: ['Linen', 'Silk', 'Phoenixweave'], nouns: { head: 'Hat', chest: 'Shirt', hands: 'Gloves', legs: 'Pants', feet: 'Shoes' }, armor: 0.65, load: 1 },
+  medium: { name: 'Medium', mats: ['Hide', 'Layered', 'Wyvernhide'], nouns: { head: 'Hood', chest: 'Jerkin', hands: 'Gloves', legs: 'Leggings', feet: 'Boots' }, armor: 1, load: 2 },
+  heavy: { name: 'Heavy', mats: ['Iron', 'Starmetal', 'Orichalcum'], nouns: { head: 'Helm', chest: 'Breastplate', hands: 'Gauntlets', legs: 'Greaves', feet: 'Sabatons' }, armor: 1.4, load: 3 },
+};
+// equip load from total piece load (light 1, medium 2, heavy 3 per piece)
+export const LOADS = {
+  light: { name: 'Light Load', max: 7, dmg: 0.15, dodge: { dist: 7.5, dur: 0.46, cost: 20, roll: true }, desc: '+15% damage. Long, quick dodge rolls.' },
+  medium: { name: 'Medium Load', max: 12, dmg: 0.07, dodge: { dist: 5.6, dur: 0.44, cost: 25, roll: true }, desc: '+7% damage. Normal dodge rolls.' },
+  heavy: { name: 'Heavy Load', max: 99, dmg: 0, dr: 0.08, dodge: { dist: 3.2, dur: 0.38, cost: 30, roll: false }, desc: '8% less damage taken. A short, slow sidestep instead of a roll.' },
+};
 export const ARMOR_NAMES = {
   head: ['Hide Hood', 'Starmetal Helm', 'Orichalcum Helm'],
   chest: ['Hide Jerkin', 'Starmetal Breastplate', 'Orichalcum Breastplate'],
@@ -228,9 +240,10 @@ export const RECIPES = [
       { id: `f_hammer${t}`, station: 'forge', gear: 'weapon', wtype: 'hammer', tier: t, in: { [ingot]: q(6), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_bow${t}`, station: 'forge', gear: 'weapon', wtype: 'bow', tier: t, in: { [wood]: q(5), [cloth]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
     ];
-    for (const s of ARMOR_SLOTS) {
+    for (const s of ARMOR_SLOTS) for (const wc of ['light', 'medium', 'heavy']) {
       const big = s === 'chest' || s === 'legs' ? 2 : 1;
-      out.push({ id: `f_${s}${t}`, station: 'forge', gear: 'armor', slot: s, tier: t, in: { [leather]: q(2 * big), [cloth]: q(big), [ingot]: q(t > 1 ? 2 * big : 0) || undefined, ...extra }, skill: 'smithing', req, xp: 25 * t });
+      const ins = wc === 'light' ? { [cloth]: q(3 * big), [leather]: q(big) } : wc === 'medium' ? { [leather]: q(3 * big), [cloth]: q(big) } : { [ingot]: q(3 * big), [leather]: q(big) };
+      out.push({ id: `f_${s}${t}${wc[0]}`, station: 'forge', gear: 'armor', slot: s, wclass: wc, tier: t, in: { ...ins, ...extra }, skill: 'smithing', req, xp: 25 * t });
     }
     out.push({ id: `f_amulet${t}`, station: 'forge', gear: 'armor', slot: 'amulet', tier: t, in: { [ingot]: q(3), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t });
     return out;
@@ -325,3 +338,61 @@ export const NPCS = {
   board: { name: 'Bounty Board', role: 'Bounties' },
   ilsa: { name: 'Ilsa', role: 'Merchant', shirt: 0x2e5a6a, pants: 0x3a3022 },
 };
+
+// ---- Races ----
+// attrs are added to the base 5s; mods work like mastery passives; look sets the body
+export const RACES = {
+  human: {
+    name: 'Human', icon: '🧑', attrs: { str: 1, dex: 1, int: 1, con: 1 }, mods: { xp: 0.1 },
+    perk: '+1 to every attribute and 10% more experience.',
+    desc: 'Settlers from the mainland. Adaptable, ambitious and quick to learn.',
+    skins: [0xf1c9a5, 0xe0ac84, 0xc68b5e, 0x8d5a3b, 0x5e3a24], hair: [0x2a1a10, 0x5a3a1e, 0xa8743a, 0xd8b878, 0x8a2a14, 0x9a9a9a],
+    height: 1, build: 1,
+  },
+  elf: {
+    name: 'Elf', icon: '🧝', attrs: { dex: 3, int: 2, con: -1 }, mods: { stamRegen: 0.2, crit: 3 },
+    perk: '+3 Dexterity, +2 Intelligence, -1 Constitution. 20% faster stamina and +3% critical chance.',
+    desc: 'Long-lived wanderers of the old forests. Light on their feet and deadly at range.',
+    skins: [0xf6dcc4, 0xe8c8a8, 0xd0b8a0, 0xb8a8c8, 0x9a8ab0], hair: [0xf0e6c0, 0xd8c890, 0x2a2a3a, 0x8ab0d8, 0xc0c0c8, 0x6a3a6a],
+    height: 1.06, build: 0.9, ears: true,
+  },
+  dwarf: {
+    name: 'Dwarf', icon: '🧔', attrs: { con: 3, str: 2, dex: -1 }, mods: { gather: 0.2, armorPct: 0.08, tradeXp: 0.2 },
+    perk: '+3 Constitution, +2 Strength, -1 Dexterity. Gathers 20% faster, +8% armor, +20% trade skill experience.',
+    desc: 'Miners and smiths from under the mountains. Stubborn, sturdy and unmatched at the forge.',
+    skins: [0xf0c4a0, 0xd8a47e, 0xb88058, 0x8a5a3a], hair: [0x8a2a14, 0x5a3a1e, 0x2a1a10, 0xd8b878, 0xb0b0b0],
+    height: 0.82, build: 1.25, beard: true,
+  },
+  orc: {
+    name: 'Orc', icon: '👹', attrs: { str: 4, con: 2, int: -1 }, mods: { lifesteal: 2, lowHpDmg: 0.1 },
+    perk: '+4 Strength, +2 Constitution, -1 Intelligence. 2% lifesteal and +10% damage below half health.',
+    desc: 'Raiders from the eastern isles. Huge, fierce and hard to kill.',
+    skins: [0x6a8a4a, 0x5a7a3a, 0x7a8a5a, 0x4a6a3a, 0x8a7a5a], hair: [0x1a1a10, 0x3a2a1a, 0x5a1a10, 0x8a8a7a],
+    height: 1.1, build: 1.2, tusks: true,
+  },
+};
+
+// ---- Classes ----
+export const CLASSES = {
+  knight: {
+    name: 'Knight', icon: '🛡️', weapon: 'sword', second: 'bow', attrs: { str: 2, dex: 2, con: 2 }, mods: { armorPct: 0.1, blockCost: -0.2 },
+    perk: '+10% armor and blocking costs 20% less stamina.', desc: 'Sword and shield. Holds the line and blocks almost anything.',
+    gear: ['head', 'chest', 'legs', 'feet'], armor: 'heavy', color: 0x7a1e1e,
+  },
+  berserker: {
+    name: 'Berserker', icon: '🪓', weapon: 'greataxe', second: 'hammer', attrs: { str: 5, con: 1 }, mods: { lowHpDmg: 0.15, killHeal: 0.02 },
+    perk: '+15% damage below half health and heal 2% on each kill.', desc: 'Great axe. Wide swings, lifesteal and rage.',
+    gear: ['chest', 'legs', 'feet'], armor: 'medium', color: 0x6a3a1a,
+  },
+  vanguard: {
+    name: 'Vanguard', icon: '🔨', weapon: 'hammer', second: 'sword', attrs: { str: 3, con: 3 }, mods: { stunDur: 0.2, dr: 0.05 },
+    perk: 'Stuns last 20% longer and you take 5% less damage.', desc: 'War hammer. Slow, crushing blows that stun whole packs.',
+    gear: ['head', 'chest', 'hands', 'feet'], armor: 'heavy', color: 0x3a4a6a,
+  },
+  ranger: {
+    name: 'Ranger', icon: '🏹', weapon: 'bow', second: 'sword', attrs: { dex: 5, con: 1 }, mods: { moveSpeed: 0.08, crit: 5 },
+    perk: '+8% move speed and +5% critical chance.', desc: 'Bow. Strikes from range and never stands still.',
+    gear: ['chest', 'legs', 'feet', 'hands'], armor: 'light', color: 0x3a5a2a,
+  },
+};
+export const HAIR_STYLES = ['Short', 'Long', 'Topknot', 'Shaved', 'Braids'];

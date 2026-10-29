@@ -14,9 +14,9 @@ export const G = {
 
 export const SAVE_KEY = 'aeternum-wilds-save-v1';
 
-export function newProfile(weapon) {
+export function newProfile(weapon, race = 'human', cls = 'knight', look = {}, name = 'Castaway') {
   return {
-    v: 1, level: 1, xp: 0,
+    v: 1, level: 1, xp: 0, race, cls, look, name,
     attrs: { str: 5, dex: 5, int: 5, con: 5 }, attrPts: 0,
     coins: 30,
     mastery: Object.fromEntries(['sword', 'greataxe', 'hammer', 'bow'].map(w => [w, { lv: 1, xp: 0, nodes: [], slots: [null, null, null] }])),

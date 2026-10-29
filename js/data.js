@@ -177,7 +177,7 @@
   // each one clears a guard in about the same time for its role (damage dealers fastest, healers a little slower)
   D.GUARD_HP = 2.4; D.GUARD_DMG = 3.2;
   D.KING_STATS = { hp: 26000, dmg: 240, delay: 1.8, lvl: 22 };
-  D.CLASS_POWER = { rogue: 0.9, berserker: 0.79, monk: 1.1, ranger: 1.46, wizard: 3.12, magician: 2.99, necromancer: 3.6, arquebusier: 0.94, beastlord: 1.51, warrior: 0.97, paladin: 1.91, shadowknight: 2.08, bard: 1.58, trollcaller: 1.71, cleric: 2.37, druid: 2.17, shaman: 2.05, enchanter: 2.14 };
+  D.CLASS_POWER = { rogue: 0.9, berserker: 0.79, monk: 1.1, ranger: 1.46, wizard: 4.6, magician: 2.99, necromancer: 3.6, arquebusier: 0.94, beastlord: 1.51, warrior: 0.97, paladin: 1.91, shadowknight: 2.08, bard: 1.58, trollcaller: 1.71, cleric: 2.37, druid: 2.17, shaman: 2.05, enchanter: 2.14 };
   // ---- the top-tier class sets: one per class, from the world's greatest bosses (rare: about one piece in ten kills,
   // and not always for your own class). Each has five armour pieces, its signature weapon (and shield) and set bonuses
   // for 2, 4 and 5 armour pieces worn.
@@ -257,7 +257,7 @@
     necromancer: { name: 'Necromancer', role: 'caster', armor: 'cloth', hpMul: 0.8, manaStat: 'INT', weapons: ['1HP', '2HB'], ranged: ['TOME'],
       color: '#1d1a22', trim: '#79c26b', desc: 'Master of the dead. Rots foes from within and raises skeletal servants.',
       skills: [['meditation', 1], ['channeling', 10], ['darkcommunion', 22], ['arcanesurge', 40]] },
-    wizard: { name: 'Wizard', role: 'caster', armor: 'cloth', hpMul: 0.78, manaStat: 'INT', weapons: ['1HP', '2HB'], ranged: ['TOME'],
+    wizard: { name: 'Wizard', role: 'caster', armor: 'cloth', hpMul: 0.95, manaStat: 'INT', weapons: ['1HP', '2HB'], ranged: ['TOME'],
       color: '#2b4fa3', trim: '#e2c55a', desc: 'Pure destruction. The biggest single hits and the biggest storms.',
       skills: [['meditation', 1], ['channeling', 10], ['harvest', 22], ['arcanesurge', 40]] },
     magician: { name: 'Magician', role: 'caster', armor: 'cloth', hpMul: 0.8, manaStat: 'INT', weapons: ['1HP', '2HB'], ranged: ['TOME'],
@@ -393,6 +393,7 @@
     adrenaline: { name: 'Adrenaline Rush', icon: '💉', cd: 75, target: 'self', effects: [{ t: 'buff', name: 'Adrenaline Rush', mods: { haste: 0.3, dmgMul: 0.1 }, dur: 15 }], sfx: 'rage', desc: 'Attack 30% faster and hit 10% harder for 15 seconds.' },
     focusedmind: { name: 'Focused Mind', icon: '🧘', cd: 120, target: 'self', effects: [{ t: 'buff', name: 'Focused Mind', mods: { manaRegen: 4 }, dur: 30 }], sfx: 'buff', desc: 'Regain 4 extra mana per second for 30 seconds.' },
     manashield: { name: 'Mana Shield', icon: '🔷', cd: 90, target: 'self', effects: [{ t: 'rune', amt: [30, 12], dur: 120 }], sfx: 'buff', desc: 'A magical barrier absorbs damage for 2 minutes.' },
+    arcaneward: { name: 'Arcane Ward', icon: '🔷', cd: 40, target: 'self', effects: [{ t: 'rune', amt: [40, 18], dur: 60 }], sfx: 'buff', desc: 'A wizard\'s barrier of raw force: absorbs a great deal of damage for a minute. Recast it often.' },
     divineinterv: { name: 'Divine Intervention', icon: '👼', cd: 180, target: 'ally', effects: [{ t: 'healpct', pct: 0.45 }], sfx: 'heal', desc: 'Heal a friend for 45% of their health.' },
     hammerfaith: { name: 'Hammer of Faith', icon: '🔨', cd: 15, range: 380, target: 'enemy', effects: [{ t: 'dmg', amt: [8, 2.8], res: 'magic', undead: 2 }, { t: 'stun', dur: 1 }], sfx: 'magic', desc: 'A hammer of light strikes and stuns, twice as hard against undead.' },
     celestialward: { name: 'Celestial Ward', icon: '🛡', cd: 120, target: 'group', effects: [{ t: 'buff', name: 'Celestial Ward', mods: { dmgTaken: -0.12, ac: 25 }, dur: 60 }], sfx: 'buff', desc: 'Your group takes 12% less damage and gains armor for 1 minute.' },
@@ -462,7 +463,7 @@
     druid: ['moonfire', 'focusedmind', 'entangleroots', 'naturestouch', 'barkskin', 'windwalk', 'thornburst', 'wildgrowth', 'communion', 'arcanesurge'],
     shaman: ['frostshock', 'focusedmind', 'cannibalize', 'totemstrike', 'spiritmend', 'empowerpet', 'ancestralward', 'spiritlink', 'manashield', 'arcanesurge'],
     necromancer: ['soulsiphon', 'focusedmind', 'empowerpet', 'mendpet', 'feigndeath', 'boneshield', 'petward', 'corpseexplode', 'darkcommunion', 'arcanesurge'],
-    wizard: ['arcanebarrage', 'focusedmind', 'concussive', 'blink', 'manashield', 'frostnova', 'harvest', 'meteor', 'iceblock', 'arcanesurge'],
+    wizard: ['arcanebarrage', 'focusedmind', 'concussive', 'blink', 'arcaneward', 'frostnova', 'harvest', 'meteor', 'iceblock', 'arcanesurge'],
     magician: ['elembolt', 'focusedmind', 'empowerpet', 'mendpet', 'summonedarmor', 'fireshield', 'petward', 'elemstorm', 'conversion', 'arcanesurge'],
     enchanter: ['mindshatter', 'focusedmind', 'languidgaze', 'mesmergaze', 'mirrorimage', 'manafont', 'blink', 'empowerpet', 'mindovermatter', 'arcanesurge'],
   };
@@ -1121,7 +1122,7 @@
     druid: ['WIS', 'spellfury', 'fleet', 'clarity', 'regen', 'healer', 'arcane', 'spellfury', 'clarity', 'durability'],
     shaman: ['WIS', 'healer', 'regen', 'clarity', 'STA', 'spellfury', 'arcane', 'durability', 'clarity', 'healer'],
     necromancer: ['INT', 'spellfury', 'clarity', 'arcane', 'regen', 'spellfury', 'defense', 'clarity', 'arcane', 'spellfury'],
-    wizard: ['INT', 'spellfury', 'arcane', 'clarity', 'spellfury', 'fleet', 'arcane', 'defense', 'clarity', 'spellfury'],
+    wizard: ['INT', 'spellfury', 'arcane', 'clarity', 'spellfury', 'durability', 'defense', 'defense', 'clarity', 'spellfury'], // a stand-up fight needs a sturdier wizard (balance sim): no Fleet of Foot, a second Innate Defense
     magician: ['INT', 'spellfury', 'clarity', 'arcane', 'durability', 'spellfury', 'arcane', 'clarity', 'defense', 'spellfury'],
     enchanter: ['CHA', 'INT', 'clarity', 'arcane', 'spellfury', 'defense', 'clarity', 'arcane', 'CHA', 'spellfury'],
     arquebusier: ['DEX', 'archery', 'stamina', 'durability', 'fury', 'AGI', 'archery', 'stamina', 'defense', 'DEX'],

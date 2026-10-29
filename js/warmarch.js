@@ -1904,6 +1904,9 @@
     let alt = null, bd = 1e9;
     for (const o of G.ents) { if (!live(o) || o.faction !== ef || o.bldg || o.raider || o.siege || o.type !== 'guard' || !inCity(o)) continue; const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; alt = o; } }
     if (alt) return alt;
+    // the defenders are down: the foot soldiers storm the Town Hall and climb to the king (that is how a war is won),
+    // while archers, gunners and the siege train go on burning the town around it
+    { const king = G.ents.find((o) => o.type === 'king' && o.faction === ef && live(o)); if (king && !r.ranged && !r.siege && !r.ram && !r.fieldGun) return king; }
     if (!t.hall) return t;
     let b2 = null; bd = 1e9;
     for (const o of G.ents) { if (!live(o) || !o.bldg || o.hall || o.razed || o.faction !== ef) continue; const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; b2 = o; } }
@@ -2203,15 +2206,17 @@
     if (best) return best;
     // then (laying siege) the buildings: the barracks and the shipyard before the rest
     // the kingdom's buildings have bodies of their own (War.buildingBodies): the Town Hall only when nothing else stands
+    // buildings and troops only near the shore: a ship lays the waterfront waste, not the whole kingdom
+    const reach = s.ship ? Math.min(range, D.SHIP_SHORE_REACH || 1200) : range;
     if (s.ship && s.state === 'siege') {
       let hall = null;
-      for (const e of G.ents) { if (!e.bldg || e.faction !== ef || e.dead || e.removed || e.razed) continue; if (e.hall) { hall = e; continue; } const d = Math.hypot(e.x - s.x, e.y - s.y) * (e.bldg === 'barracks' || e.bldg === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = e; } }
-      if (best) return best; if (hall && Math.hypot(hall.x - s.x, hall.y - s.y) < range) return hall;
+      for (const e of G.ents) { if (!e.bldg || e.faction !== ef || e.dead || e.removed || e.razed) continue; if (e.hall) { hall = e; continue; } const d = Math.hypot(e.x - s.x, e.y - s.y) * (e.bldg === 'barracks' || e.bldg === 'shipyard' ? 0.7 : 1); if (d < reach && d < bs) { bs = d; best = e; } }
+      if (best) return best; if (hall && Math.hypot(hall.x - s.x, hall.y - s.y) < reach) return hall;
     }
-    if (s.ship && s.state === 'siege' && !G.ents.some((e) => e.bldg)) { for (const b of buildingsOf(ef)) { const d = Math.hypot(b.x - s.x, b.y - s.y) * (b.id === 'barracks' || b.id === 'shipyard' ? 0.7 : 1); if (d < range && d < bs) { bs = d; best = { bld: b.id, f: ef, x: b.x, y: b.y }; } } if (best) return best; }
+    if (s.ship && s.state === 'siege' && !G.ents.some((e) => e.bldg)) { for (const b of buildingsOf(ef)) { const d = Math.hypot(b.x - s.x, b.y - s.y) * (b.id === 'barracks' || b.id === 'shipyard' ? 0.7 : 1); if (d < reach && d < bs) { bs = d; best = { bld: b.id, f: ef, x: b.x, y: b.y }; } } if (best) return best; }
     // then soldiers and the enemy hero
-    for (const e of G.ents) { if (e.dead || e.removed || e.faction !== ef || e.static) continue; if (e.raider || e.type === 'guard') consider(e, 1.6); }
-    if (p && !p.dead && War.isFoe(f, p)) consider(p, 1.8);
+    for (const e of G.ents) { if (e.dead || e.removed || e.faction !== ef || e.static) continue; if ((e.raider || e.type === 'guard') && Math.hypot(e.x - s.x, e.y - s.y) < reach) consider(e, 1.6); }
+    if (p && !p.dead && War.isFoe(f, p) && Math.hypot(p.x - s.x, p.y - s.y) < reach) consider(p, 1.8);
     return best;
   };
 
@@ -2357,6 +2362,10 @@
     if (G.now > cs.nextFleet && N.alive(f).some((s) => s.state === 'moor')) { cs.nextFleet = G.now + (720000 + Math.random() * 360000) / (Df.build || 1); War.sendFleet(f); }
     // a battered fleet goes home
     for (const s of N.alive(f)) if (s.state === 'siege' && s.hp < s.hpMax * 0.25) { War.recallFleet(f); break; }
+    // a raid from the sea, not a blockade: after a few minutes' bombardment the fleet sails home to refit
+    const sieging = N.alive(f).some((s) => s.state === 'siege');
+    if (!sieging) cs.fleetSiegeAt = 0; else if (!cs.fleetSiegeAt) cs.fleetSiegeAt = G.now;
+    else if (G.now - cs.fleetSiegeAt > 180000 * (Df.build || 1)) { cs.fleetSiegeAt = 0; War.recallFleet(f); }
   };
   const tk0 = War.tick;
   War.tick = function (dt) {
@@ -2494,7 +2503,7 @@
 // down, and a war party ordered out could never leave its own walls.) Ordering an attack raises your gates and keeps
 // them up for a minute while the column marches out; then the alarm works as before.
 (function () {
-  const KR = window.KR, G = KR.G, War = KR.War; if (!War || !War.orderAttack || !War.closeGates) return;
+  const KR = window.KR, G = KR.G, D = KR.D, W = KR.W, War = KR.War; if (!War || !War.orderAttack || !War.closeGates) return;
   War.sallyUntil = War.sallyUntil || {};
   const close0 = War.closeGates;
   // ...and they stay up while the column you sent out is still inside your walls (for up to five minutes)
@@ -2506,6 +2515,18 @@
   War.updateRaider = function (r, dt) {
     const out = ur0.apply(this, arguments);
     try {
+      // soldiers on foot can't fight a warship out on the water: they let it go (the harbour guns and our own ships do that)
+      if (r && !r.dead && !r.ship && r.hate) { const t0 = G.topHate(r); if (t0 && t0.ship) { r.hate.delete(t0); if (!r.hate.size) r.inCombat = false; if (r.want === t0) r.want = null; } }
+      // an 'assault' soldier who never got to the enemy town (left behind at home when the column arrived) heads home
+      // instead of standing in its own streets for good, which also kept every later attack order from going out
+      if (r && !r.dead && r.warState === 'assault' && r.squad && r.squad.path && G.now - (r._farChk || 0) > 2000) {
+        r._farChk = G.now; const cdE = W.cityData[r.squad.ef];
+        const far = cdE && Math.max(Math.abs(r.x / D.TS - cdE.cx), Math.abs(r.y / D.TS - cdE.cy)) > cdE.R + 25;
+        if (far && !(War.attackerOf && War.attackerOf(r))) {
+          const P = r.squad.path; let bi = 0, bd = 1e18; for (let i = 0; i < P.length; i += 2) { const d2 = (P[i][0] * D.TS + 16 - r.x) ** 2 + (P[i][1] * D.TS + 16 - r.y) ** 2; if (d2 < bd) { bd = d2; bi = i; } }
+          r.warState = 'home'; r.pi = bi; r.hate.clear(); r.inCombat = false; r.want = null; r.focus = null;
+        }
+      }
       if (r && !r.dead && r.warState === 'march' && r.inCombat) {
         const t = G.topHate(r); const d = t ? Math.hypot(t.x - r.x, t.y - r.y) : 0;
         // only what is within reach stops the column: archers on a wall or a foe across water don't
@@ -2529,7 +2550,7 @@
         // the troops crowding its mark (at the start every slot folds onto the first waypoint) can hold it off for good:
         // then the column's head steps on to the next waypoint
         const sq = r.squad; if (r._wedgedT > 6 && sq && sq.path && !sq.arrived && sq.order && sq.order[0] === r) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); r._wedgedT = 3; r._wedgeD = null; }
-        else if (r._wedgedT > 6 && d > 4) { const st = Math.min(d, (D.RAM ? D.RAM.speed : 100) * dt); r.x += (T.x - r.x) / d * st; r.y += (T.y - r.y) / d * st; r.moving = true; }
+        else if (r._wedgedT > 6 && d > 4) { const st = Math.min(d, (D.RAM ? D.RAM.speed : 100) * dt); G.moveEnt(r, (T.x - r.x) / d * st, (T.y - r.y) / d * st); r.moving = true; } // walls still hold it
       }
     } catch (e) {}
     return out;
@@ -2556,8 +2577,7 @@
         sq._hiT = (sq._hiT || 0) + dt;
         if (sq._hiT > 20) {
           const lead = live[0]; const i = Math.min(sq.hi, sq.path.length - 1); const tx = sq.path[i][0] * D.TS + 16, ty = sq.path[i][1] * D.TS + 16; const d = Math.hypot(tx - lead.x, ty - lead.y);
-          if (sq._hiT > 40 && d > 4) { const st = Math.min(d, 90 * dt); lead.x += (tx - lead.x) / d * st; lead.y += (ty - lead.y) / d * st; }
-          if (d < 60) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); sq._hiLast = sq.hi; sq._hiT = 20; }
+          if (d < 60 || sq._hiT > 40) { sq.hi = Math.min(sq.hi + 1, sq.path.length - 1); sq._hiLast = sq.hi; sq._hiT = 20; }
         }
       }
     } catch (e) {}

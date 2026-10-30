@@ -349,6 +349,31 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 .kit.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(217,180,90,.4); }
 .kit .kn { flex: 1; } .kit .kn small { display: block; color: var(--dim); }
 .kit .klv { font: 700 15px Cinzel, serif; color: var(--gold2); }
+/* ---------- online ---------- */
+#netlabels { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+.netname { position: absolute; left: 0; top: 0; color: #fff; font: 600 13px/1.2 Georgia, serif; text-shadow: 0 1px 3px #000, 0 0 6px #000; white-space: nowrap; text-align: center; }
+.netname small { color: #f0d890; font-weight: 400; }
+.netname i { display: block; width: 70px; height: 5px; margin: 3px auto 0; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.3); }
+.netname i b { display: block; height: 100%; background: #4ad06a; }
+#party { position: fixed; left: 14px; top: 64px; width: 190px; display: none; z-index: 6; pointer-events: none; font: 13px Georgia, serif; color: #f4ead8; }
+#party .ph { font-weight: 700; color: #f0d890; text-shadow: 0 1px 2px #000; margin-bottom: 4px; }
+#party .ph small { color: #cfc4b0; font-weight: 400; }
+#party .pm { background: rgba(20,16,10,.62); border: 1px solid rgba(240,216,144,.25); border-radius: 4px; padding: 4px 7px; margin-bottom: 4px; }
+#party .pm small { float: right; color: #cfc4b0; }
+#party .pm i { display: block; height: 5px; margin-top: 3px; background: rgba(0,0,0,.5); }
+#party .pm i b { display: block; height: 100%; width: 100%; background: #4ad06a; }
+#party .pm.none { color: #cfc4b0; font-style: italic; }
+#chat { position: fixed; left: 14px; bottom: 150px; width: min(420px, 60vw); z-index: 7; opacity: 0; transition: opacity .4s; pointer-events: none; }
+#chat.show { opacity: 1; }
+#chat.typing { pointer-events: auto; }
+#chatlog { max-height: 180px; overflow-y: auto; font: 14px/1.35 Georgia, serif; color: #f4ead8; text-shadow: 0 1px 2px #000, 0 0 4px #000; padding: 4px 2px; }
+#chatlog b { color: #f0d890; } #chatlog i { color: #9fd0ff; }
+#chatin { width: 100%; box-sizing: border-box; font: 14px Georgia, serif; padding: 6px 8px; background: rgba(10,8,6,.78); color: #fff; border: 1px solid rgba(240,216,144,.4); border-radius: 4px; opacity: 0; }
+#chat.typing #chatin { opacity: 1; }
+.card.online .code { font-size: 22px; letter-spacing: 4px; color: #f0d890; }
+.card.online .invite, .card.online .joinrow { display: flex; gap: 6px; margin: 8px 0; }
+.card.online .invite input, .card.online .joinrow input { flex: 1; font: 15px Georgia, serif; padding: 6px; }
+.card.online .joinrow input { text-transform: uppercase; letter-spacing: 3px; max-width: 110px; }
 </style>
 </head>
 <body>
@@ -387,6 +412,9 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
   <canvas id="compass" width="560" height="34"></canvas>
   <div id="xhair"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="selftext"></div>
+  <div id="netlabels"></div>
+  <div id="party"></div>
+  <div id="chat"><div id="chatlog"></div><input id="chatin" maxlength="200" placeholder="Press Enter to chat with your party" autocomplete="off"></div>
   <div id="scope"><div id="scopeDist"></div><div class="tick" data-d="20"><i></i><span>20</span></div><div class="tick" data-d="30"><i></i><span>30</span></div><div class="tick" data-d="40"><i></i><span>40</span></div><div class="tick" data-d="50"><i></i><span>50</span></div></div>
 </div>
 <div id="vignette"></div>
@@ -400,6 +428,7 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 <script type="importmap">
 { "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }
 </script>
+<script src="./vendor/peerjs.min.js"></script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

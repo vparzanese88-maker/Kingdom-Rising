@@ -1,3 +1,4 @@
+import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize } from './online.js';
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
@@ -163,6 +164,7 @@ addEventListener('keydown', e => {
   const c = e.code;
   if (c === 'Escape') { if (G.ui.open) closePanel(); else { G.unlock(); openPanel('menu'); } e.preventDefault(); return; }
   if (c === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
+  if ((c === 'Enter' || c === 'NumpadEnter') && !G.ui.open) { e.preventDefault(); inp.keys = {}; focusChat(); return; }
   const panels = { KeyI: 'inventory', KeyP: 'character', KeyC: 'character', KeyK: 'skills', KeyJ: 'quests', KeyL: 'quests', KeyM: 'map', Tab: 'map' };
   if (panels[c]) { e.preventDefault(); togglePanel(panels[c]); return; }
   if (G.ui.open) return;
@@ -324,6 +326,7 @@ function title() {
     <nav>
       ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
       <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
+      <button id="onl"><b>${online() ? `Online · ${onlineCode()}` : 'Play Online'}</b><small>${online() ? `${partySize()} in the party · invite more friends` : 'Host a game or join friends · chat, party up, share XP'}</small></button>
       <button id="sett"><b>Settings</b><small>Mouse, view, graphics, sound</small></button>
       <button id="fs"><b>${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</b><small>Or press F11 at any time</small></button>
       <button id="ctrl"><b>Controls</b></button>
@@ -334,8 +337,37 @@ function title() {
   if (save) $('cont').onclick = () => { initAudio(); enterGame(save); };
   $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
+  $('onl').onclick = () => { initAudio(); onlinePanel(); };
+  if (invited && !online()) onlinePanel(invited);
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
+}
+
+// ---------- Online ----------
+const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
+function onlinePanel(code = '') {
+  const side = $('homeside');
+  if (online()) {
+    side.innerHTML = `<div class="card online"><h3>Online game ${onlineCode()}</h3>
+      <p>Friends join with the code <b class="code">${onlineCode()}</b> or this link:</p>
+      <div class="invite"><input id="invl" readonly value="${inviteLink(onlineCode())}"><button id="invc">Copy</button></div>
+      <p class="small">${partySize()} in the party. Now press <b>Continue</b> or <b>New Character</b>: everyone starts together in Driftwood Landing. Press <kbd>Enter</kbd> in game to chat.</p>
+      <button id="oleave">Leave online game</button></div>`;
+    $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
+    $('oleave').onclick = () => { leaveOnline(); title(); };
+    return;
+  }
+  side.innerHTML = `<div class="card online"><h3>Play Online</h3>
+    <p>Play the island together. One player hosts and sends the code or link; up to 7 friends join. You start in the same town, see each other, chat, fight the same enemies and share experience.</p>
+    <button id="ohost" class="primary">Host online game</button>
+    <div class="joinrow"><input id="ocode" maxlength="4" placeholder="CODE" value="${code}"><button id="ojoin">Join</button></div>
+    <p id="ostat" class="small"></p></div>`;
+  const stat = m => { $('ostat').textContent = m; };
+  const done = r => { if (r.error) stat(r.error); else { title(); onlinePanel(); } };
+  $('ohost').onclick = () => { stat('Creating your game…'); hostGame(done); };
+  $('ojoin').onclick = () => { const c = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, ''); if (c.length !== 4) { stat('Enter the 4-letter code.'); return; } stat(`Joining ${c}…`); joinGame(c, done); };
+  if (code) stat(`You're invited to game ${code}. Press Join.`);
 }
 
 export function controlsHtml() {
@@ -493,6 +525,7 @@ function enterGame(profile) {
   for (const w of Object.keys(WEAPONS)) if (!profile.mastery[w]) profile.mastery[w] = { lv: 1, xp: 0, nodes: [], slots: [null, null, null] };
   if (!profile.look || !profile.look.sex) profile.look = { sex: 'm', ...(profile.look || {}) };
   ensureSkills(profile);
+  if (online()) { const a = Math.random() * 6.28; profile.pos = [TOWN_SPAWN.x + Math.cos(a) * 2.5, TOWN_SPAWN.z + Math.sin(a) * 2.5]; } // the party starts together in town
   $('title').style.display = 'none';
   if (S.autoFS && !document.fullscreenElement) toggleFullscreen();
   createPlayer();
@@ -502,6 +535,8 @@ function enterGame(profile) {
   $('hud').style.display = 'block';
   G.mode = 'game'; G.started = true; G.paused = false;
   G.relock();
+  initChat(); hello();
+  if (online()) setTimeout(() => toast(`Online game <b>${onlineCode()}</b>: ${partySize()} in the party. Press <kbd>Enter</kbd> to chat.`, 'gold'), 1500);
   if (profile.story.step === 0) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
   if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>K</kbd> to see your abilities.`, 'gold'), 2500);
 }
@@ -515,6 +550,7 @@ function loop() {
   const dt = Math.min(G.maxDt || 0.05, clock.getDelta());
   const t = performance.now() / 1000;
   const P = G.player;
+  tickOnline(dt);
   if (G.mode === 'game') {
     G.paused = !!G.ui.open || (!G.locked && P.state !== 'dead' && !G.noLockNeeded);
     $('resume').style.display = !G.locked && !G.ui.open && P.state !== 'dead' && !G.noLockNeeded ? 'flex' : 'none';

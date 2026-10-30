@@ -24,6 +24,7 @@ function targetOf(e) {
 setPetDamageHook((e, dmg, pet) => {
   if (e.dead) return;
   e.hp -= dmg; e.hitFlash = 0.12; e.aggro = true; e.lastHit = G.time;
+  G.net?.hit(e, dmg);
   if (e.mezzed) { e.mezzed = false; e.stunned = 0; }
   if (pet && !e.petTarget && Math.random() < 0.6) e.petTarget = pet;
   floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, `${Math.round(dmg)}`, 'pet');
@@ -60,12 +61,18 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
     wander: null, wanderT: rand(1, 5), strafe: Math.random() < 0.5 ? 1 : -1, adds: [],
   };
   for (const a of def.attacks) e.cds[a] = G.time + rand(0.5, 2);
+  // camp enemies get a key every player's game agrees on (camp, slot, how many times that slot has died)
+  if (camp && slot) {
+    e.key = `${G.camps.indexOf(camp)}:${camp.slots.indexOf(slot)}:${slot.gen || 0}`;
+    (G.enemyByKey ||= new Map()).set(e.key, e);
+  }
   G.enemies.push(e);
   return e;
 }
 
 export function removeEnemy(e) {
   G.scene.remove(e.root);
+  if (e.key && G.enemyByKey?.get(e.key) === e) G.enemyByKey.delete(e.key);
   if (e.atk?.tel) removeTelegraph(e.atk.tel);
   const i = G.enemies.indexOf(e); if (i >= 0) G.enemies.splice(i, 1);
   if (G.boss === e) { G.boss = null; bossBar(null); }
@@ -88,11 +95,15 @@ export function knockEnemy(e, dx, dz, force) {
   e.knock = { vx: dx * force * 3, vz: dz * force * 3, t: 0.25 };
 }
 
-export function killEnemy(e) {
+// remote: the enemy died in a party member's game (near: I was close enough to share the kill)
+export function killEnemy(e, remote = false, near = true) {
   if (e.dead) return;
   e.dead = true; e.deadT = 0; e.state = 'dead';
   if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); for (const t of e.atk.tels || []) removeTelegraph(t); e.atk = null; }
+  if (!remote) G.net?.kill(e);
+  if (e.slot) e.slot.gen = (e.slot.gen || 0) + 1;
   const P = G.player, p = G.p;
+  if (remote && !near) { if (e.camp) { e.slot.ent = null; e.slot.respawnAt = G.time + 50; } e.removeAt = G.time + 4; killFx(e); return; }
   // rewards
   let xp = killXp(e.lv) * (e.def.xpMult || 1);
   const diff = p.level - e.lv;
@@ -124,6 +135,7 @@ export function killEnemy(e) {
   else e.removeAt = G.time + 4;
   killFx(e); // death burst and sound
 }
+G.killEnemyRemote = (e, near) => killEnemy(e, true, near);
 function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 2; if (e.atk?.tel) removeTelegraph(e.atk.tel); }
 
 function dropGear(lv, bonus, minR) {
@@ -286,6 +298,17 @@ export function updateEnemies(dt) {
       continue;
     }
     if (e.removeIfFar && d > 90) { removeEnemy(e); continue; }
+    if (G.net?.remote(e)) {
+      // a party member is fighting this one: follow their game
+      const k = Math.min(1, dt * 10);
+      e.pos.x += (e.netPos.x - e.pos.x) * k; e.pos.z += (e.netPos.z - e.pos.z) * k;
+      let df = e.netF - e.facing; df = Math.atan2(Math.sin(df), Math.cos(df)); e.facing += df * k;
+      e.phase += dt * e.move * 8;
+      e.root.visible = d < 100;
+      if (e.hitFlash > 0) e.hitFlash -= dt;
+      animate(e, e.netPose, e.netT);
+      continue;
+    }
     if (d > UPDATE_R && !e.aggro) { e.root.visible = d < 100; continue; }
     e.root.visible = true;
     if (e.hitFlash > 0) e.hitFlash -= dt;
@@ -296,7 +319,7 @@ export function updateEnemies(dt) {
         e.dot.tick -= dt;
         if (e.dot.tick <= 0) {
           e.dot.tick = 1;
-          const n = Math.round(e.dot.dps); e.hp -= n; e.hitFlash = 0.1;
+          const n = Math.round(e.dot.dps); e.hp -= n; e.hitFlash = 0.1; G.net?.hit(e, n);
           floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, `${n}`, 'dot');
           if (e.hp <= 0) { killEnemy(e); continue; }
         }
@@ -329,7 +352,7 @@ export function updateEnemies(dt) {
         st.tick -= dt;
         if (st.tick <= 0) {
           st.tick = 1;
-          const n = Math.max(1, Math.round(st.dps)); e.hp -= n; e.hitFlash = 0.08;
+          const n = Math.max(1, Math.round(st.dps)); e.hp -= n; e.hitFlash = 0.08; G.net?.hit(e, n);
           floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.7 * e.size }, `${n}`, st.type);
           if (e.hp <= 0) { killEnemy(e); died = true; break; }
         }
@@ -423,6 +446,7 @@ export function updateEnemies(dt) {
 }
 
 function animate(e, pose, t) {
+  e.lastPose = pose; e.lastT = t;
   e.y = heightAt(e.pos.x, e.pos.z);
   if (!e.dead || e.deadT < 1.5) e.root.position.set(e.pos.x, Math.max(e.y, -0.6), e.pos.z);
   e.root.rotation.y = e.facing;

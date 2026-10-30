@@ -125,6 +125,7 @@ export function refreshLook() {
   armCharacter(h, w, other);
   P.wR = h.wR; P.wL = h.wL; P.wBack = h.wBack;
   G.statsDirty = true;
+  G.onLook?.();
 }
 
 // ---------- Damage dealt ----------
@@ -157,6 +158,7 @@ export function hitEnemy(e, mult, kind, opts = {}) {
   const { d, crit } = playerDamage(mult, kind, e, opts.extra || 1, !!opts.spell);
   if (e.mezzed) { e.mezzed = false; e.stunned = 0; }
   e.hp -= d;
+  G.net?.hit(e, d);
   e.hitFlash = 0.12;
   e.aggro = true; e.lastHit = G.time;
   G.player.inCombat = 6;
@@ -288,6 +290,7 @@ export function spawnProj(o) {
   // spells fly as the sculpted fireball, tinted to their element
   if ((fire || o.color) && spellModelReady()) { const ball = spellBall(fire ? null : o.color, o.size || 0.25); mesh.add(ball); mesh.userData.ball = ball; }
   if (o.dy == null) o.dy = 0;
+  if (o.owner === 'player') G.net?.proj(o);
   const l = Math.hypot(o.dx, o.dy, o.dz) || 1; o.dx /= l; o.dy /= l; o.dz /= l;
   const g = o.grav ?? (o.color ? (fire ? 5 : 2.5) : ARROW_G);
   const v = { x: o.dx * o.speed, y: o.dy * o.speed, z: o.dz * o.speed };
@@ -866,6 +869,7 @@ export function updatePlayer(dt) {
   else if (P.reload > 0 && WEAPONS[wt]?.gun) { pose = 'reload'; t = 1 - P.reload / (WEAPONS[wt].reload || 1); }
   else if (P.press && P.press.t > 0.12 && !RANGED_WEAPONS.has(wt)) { pose = 'windup'; t = P.press.t; }
   animHumanoid(P.h, { move: P.move, phase: P.phase, pose, t, twoHand: wt === 'greataxe' || wt === 'hammer', draw: P.draw });
+  P.netPose = pose; P.netPoseT = t; P.netMaxHp = stats().maxHp;
   carryWeapon(P.h, pose, dt);
   if (P.wL?.userData.string) P.wL.userData.string.position.z = -0.24 - (P.state === 'draw' ? P.draw * 0.35 : 0);
   placeModel();

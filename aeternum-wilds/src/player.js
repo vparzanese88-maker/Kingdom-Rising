@@ -4,7 +4,7 @@ import { WEAPONS, ABILITIES, MATS, NODES, LOADS } from './data.js';
 import { CLASSES } from './classes.js';
 import { meshyReady, makeHero } from './gfx/meshy.js';
 import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
-import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
+import { makeHumanoid, dressHumanoid, makeWeapon, box, mat, charHeight, sizeWeapon, TIER_LEN } from './models.js';
 import { animHumanoid } from './anim.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
@@ -55,7 +55,40 @@ export function makeCharacter(p) {
 // clothes colour by armor weight and tier
 const ARMOR_COLS = { light: [0x9a9270, 0x4a5a8a, 0x9a3a2a], medium: [0x6a4a2a, 0x5a4030, 0x3e4a32], heavy: [0x8a8a90, 0x8aa2b8, 0xc89a48] };
 const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 'medium'][it.tier - 1]).multiplyScalar(k).getHex() : none;
-const WEAPON_SCALE = 1.45; // New World style oversized weapons
+// put weapon w in the hands and the other weapon on the back; sizes follow the wearer's height and the tier
+export function armCharacter(h, w, other) {
+  for (const k of ['wR', 'wL', 'wBack']) if (h[k]) { h[k].parent?.remove(h[k]); h[k] = null; }
+  const tall = charHeight(h);
+  const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (it.wtype === 'sword' ? 0.85 : 1);
+  const shieldLen = it => tall * 0.36 * (0.92 + 0.08 * (it.tier || 1));
+  if (w) {
+    if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
+    else {
+      h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
+      if (w.wtype === 'sword') { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
+    }
+  }
+  // the weapon not in use is slung diagonally across the back
+  if (other) {
+    const host = h.parts.back || h.parts.upper;
+    const back = new THREE.Group();
+    host.add(back);
+    if (h.parts.back) back.position.set(0, 0, -0.16); else back.position.set(0, 0.5, -0.26);
+    back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
+    const L = len(other);
+    const bw = makeWeapon(other.wtype, other.tier);
+    bw.rotation.set(0, 0, 0);
+    sizeWeapon(bw, back, L);
+    back.getWorldScale(_ws); const Lb = L / (_ws.y || 1); // weapon length in the back group's units
+    if (other.wtype === 'bow') { bw.rotation.y = Math.PI / 2; bw.position.set(0, -0.2 * Lb, 0); }
+    else if (other.wtype === 'sword') { bw.rotation.z = Math.PI; bw.position.set(0, 0.32 * Lb, 0); } // hilt up over the shoulder
+    else bw.position.set(0, -0.55 * Lb, 0); // axe, hammer or staff head up
+    back.add(bw);
+    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
+    h.wBack = back;
+  }
+}
+const _ws = new THREE.Vector3();
 export function refreshLook() {
   const P = G.player, e = G.p.equip, h = P.h;
   dressHumanoid(h, {
@@ -67,31 +100,9 @@ export function refreshLook() {
     trim: e.hands ? tierColor(e.hands, 0.85) : (CLASSES[G.p.cls]?.color ?? 0x5a4a38),
   });
   // weapons
-  for (const k of ['wR', 'wL', 'wBack']) if (P[k]) { P[k].parent?.remove(P[k]); P[k] = null; }
   const w = activeWeapon(), other = G.p.activeW === 0 ? e.w2 : e.w1;
-  if (w) {
-    if (w.wtype === 'bow') { P.wL = makeWeapon('bow', w.tier); P.wL.scale.setScalar(WEAPON_SCALE * 0.85); h.parts.handL.add(P.wL); }
-    else {
-      P.wR = makeWeapon(w.wtype, w.tier); P.wR.scale.setScalar(w.wtype === 'staff' ? 1.1 : WEAPON_SCALE); h.parts.handR.add(P.wR);
-      if (w.wtype === 'sword') { P.wL = makeWeapon('shield', w.tier); P.wL.scale.setScalar(1.25); P.wL.position.set(0.14, 0.05, 0.15); P.wL.rotation.y = Math.PI / 2; h.parts.handL.add(P.wL); }
-    }
-  }
-  // the weapon not in use is slung diagonally across the back
-  if (other) {
-    const back = new THREE.Group();
-    const bw = makeWeapon(other.wtype, other.tier);
-    bw.rotation.set(0, 0, 0);
-    bw.scale.setScalar(other.wtype === 'bow' ? WEAPON_SCALE * 0.85 : WEAPON_SCALE);
-    if (other.wtype === 'bow') { bw.rotation.y = Math.PI / 2; bw.position.set(0, 0.15, 0); }
-    else if (other.wtype === 'sword') { bw.rotation.z = Math.PI; bw.position.set(0, 0.45, 0); } // hilt up over the shoulder
-    else bw.position.set(0, -0.75, 0); // axe or hammer head up
-    back.add(bw);
-    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sh.scale.setScalar(1.2); sh.position.set(0, 0.0, -0.06); back.add(sh); }
-    back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
-    back.position.set(0, 0.5, -0.26);
-    h.parts.upper.add(back);
-    P.wBack = back;
-  }
+  armCharacter(h, w, other);
+  P.wR = h.wR; P.wL = h.wL; P.wBack = h.wBack;
   G.statsDirty = true;
 }
 

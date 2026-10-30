@@ -161,6 +161,25 @@ export function makeWeapon(type, tier = 1) {
   return g;
 }
 
+// ---------- Weapon sizing ----------
+// Weapons are about as long as their wielder: smaller at low quality, bigger at high quality.
+export const TIER_LEN = { 1: 0.8, 2: 0.92, 3: 1.04 };
+const _wb = new THREE.Box3(), _wv = new THREE.Vector3();
+// the character's standing height in world units (measured once, before weapons are attached)
+export function charHeight(h) {
+  if (!h.tallW) { h.root.updateMatrixWorld(true); _wb.setFromObject(h.body); h.tallW = Math.max(1, _wb.max.y - _wb.min.y); }
+  return h.tallW;
+}
+// scale weapon w (not yet parented) so it is worldLen long once added to parent
+export function sizeWeapon(w, parent, worldLen) {
+  w.scale.setScalar(1); w.position.set(0, 0, 0); w.updateMatrixWorld(true);
+  _wb.setFromObject(w);
+  const len = Math.max(_wb.max.x - _wb.min.x, _wb.max.y - _wb.min.y, _wb.max.z - _wb.min.z) || 1;
+  parent.updateMatrixWorld(true); parent.getWorldScale(_wv);
+  w.scale.setScalar(worldLen / len / (_wv.y || 1));
+  return w;
+}
+
 // ---------- Humanoid ----------
 // Faces +z. Returns { root, body, mats:[skin, shirt, pants, boot, trim], parts }
 function shade(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return c.getHex(); }

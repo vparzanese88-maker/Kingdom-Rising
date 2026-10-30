@@ -5,7 +5,7 @@ import { CLASSES, CLASS_LIST } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
-import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, TOWN_SPAWN } from './player.js';
+import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
 import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPanel, refreshHud, refreshTracker, toast } from './ui.js';
@@ -383,6 +383,7 @@ export function bindSettings(root) {
 // ---------- Character creator ----------
 const draft = { name: '', cls: 'warrior', look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
+let previewQueued = false;
 let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
 const PREVIEW_AT = { x: 3, z: 24 };
 function buildPreview() {
@@ -391,9 +392,8 @@ function buildPreview() {
   preview = makeCharacter({ look: draft.look });
   const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x6a6a70, 0x4a4a50] }[C.armor];
   dressHumanoid(preview, { chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
-  const wt = C.weapon;
-  if (wt === 'bow') { const b = makeWeapon('bow', 1); b.scale.setScalar(1.25); preview.parts.handL.add(b); }
-  else { const w = makeWeapon(wt, 1); w.scale.setScalar(1.45); preview.parts.handR.add(w); if (wt === 'sword') { const sh = makeWeapon('shield', 1); sh.scale.setScalar(1.25); sh.position.set(0.14, 0.05, 0.15); sh.rotation.y = Math.PI / 2; preview.parts.handL.add(sh); } }
+  preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
+  armCharacter(preview, { wtype: C.weapon, tier: 1 }, null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -417,7 +417,7 @@ function creator() {
     body = `${meshyReady() ? `<div class="look"><span>Hero</span><button class="hs ${L.model === 'barbarian' ? 'on' : ''}" data-model="barbarian">Sculpted barbarian</button><button class="hs ${L.model !== 'barbarian' ? 'on' : ''}" data-model="custom">Custom (sliders)</button></div>` : ''}
       <div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
       ${sliders(L.model === 'barbarian' ? BODY_SLIDERS.filter(b => b[0] !== 'headSize') : BODY_SLIDERS)}
-      <div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`;
+      ${L.model === 'barbarian' ? `<p class="small">The barbarian's skin, face and hair are painted into his model. Pick <b>Custom</b> to choose skin tone, face and hair.</p>` : `<div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`}`;
   } else {
     if (L.model === 'barbarian') body = `<p class="cdesc">The barbarian's face, hair and beard are sculpted into his model, so they can't be restyled here. New looks (other hairstyles, beards, faces, a female hero) come as their own Meshy models: send them and they appear as choices on the Body tab.</p>`;
     else body = `${sliders(FACE_SLIDERS)}
@@ -449,7 +449,7 @@ function creator() {
   t.querySelectorAll('[data-paint]').forEach(b => b.onclick = () => { L.paint = b.dataset.paint === 'null' ? null : +b.dataset.paint; creator(); });
   t.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => { L.scar = b.dataset.scar === '1'; creator(); });
   // sliders rebuild only the 3D preview so dragging stays smooth
-  t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; buildPreview(); });
+  t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; if (!previewQueued) { previewQueued = true; requestAnimationFrame(() => { previewQueued = false; if (G.mode === 'create') buildPreview(); }); } });
   $('crand').onclick = () => {
     const pk = a => a[Math.floor(Math.random() * a.length)];
     for (const [k, , mn, mx] of [...BODY_SLIDERS, ...FACE_SLIDERS]) L[k] = +(mn + Math.random() * (mx - mn)).toFixed(2);
@@ -575,8 +575,9 @@ function loop() {
       preview.root.rotation.y = previewYaw;
       animHumanoid(preview, { move: 0, phase: t, pose: null });
       preview.body.position.y = Math.sin(t * 2) * 0.01;
-      if (previewView === 'face') { const hy = py + 2.0 * (draft.look.height || 1); camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
-      else { camera.position.set(px - 1.7, py + 1.5, pz + 5.2); camera.lookAt(px - 1.7, py + 1.0, pz); }
+      const H = preview.tallW || 2;
+      if (previewView === 'face') { const hy = py + H * 0.9; camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
+      else { const k = H / 2; camera.position.set(px - 1.7 * k, py + 0.75 * H, pz + 5.2 * k); camera.lookAt(px - 1.7 * k, py + 0.5 * H, pz); }
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;

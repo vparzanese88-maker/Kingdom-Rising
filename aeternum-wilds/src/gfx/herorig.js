@@ -52,8 +52,8 @@ export function makeRiggedHero(o = {}) {
   // a big, heroic frame: taller than the townsfolk; height, weight and muscle sliders shape him
   // a big, heroic frame. Height scales him evenly (gently, so he never looks stretched);
   // weight and muscle reshape the body below the neck only (see the girth pass below)
-  const BIG = 1.14;
-  const s = (o.size || 1) * BIG * (1 + ((o.height || 1) - 1) * 0.4);
+  const BIG = 1.3;
+  const s = (o.size || 1) * BIG * (1 + ((o.height || 1) - 1) * 0.9);
   body.scale.setScalar(s);
   root.updateMatrixWorld(true);
 
@@ -87,6 +87,11 @@ export function makeRiggedHero(o = {}) {
     sockets[side] = sock;
     bones[side + 'Arm'].quaternion.copy(bind[side + 'Arm']);
   }
+  // a socket on the upper back (follows the chest bone) for the weapon not in use
+  const chest = bones.Spine02;
+  model.updateMatrixWorld(true);
+  const backQ0 = bodyQuat(chest, body, new THREE.Quaternion()).invert();
+  const backSock = new THREE.Group(); body.add(backSock);
   const _hp = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hs = new THREE.Vector3(), _bq = new THREE.Quaternion();
   function updateSockets() {
     body.updateMatrixWorld(true);
@@ -99,6 +104,11 @@ export function makeRiggedHero(o = {}) {
       sock.position.copy(I.off).applyQuaternion(_hq).add(_hp);
       sock.quaternion.copy(_hq).multiply(I.offQ);
     }
+    chest.matrixWorld.decompose(_hp, _hq, _hs);
+    body.worldToLocal(_hp);
+    _hq.premultiply(_bq);
+    backSock.position.copy(_hp);
+    backSock.quaternion.copy(_hq).multiply(backQ0);
   }
   model.updateMatrixWorld(true);
 
@@ -182,7 +192,7 @@ export function makeRiggedHero(o = {}) {
 
   return {
     root, body, mats: [mat, new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial()],
-    parts: { hips: P.hips, upper: P.upper, head: P.head, hair, armR: P.armR, armL: P.armL, handR: sockets.Right, handL: sockets.Left, legR: P.legR, legL: P.legL },
+    parts: { hips: P.hips, upper: P.upper, head: P.head, hair, armR: P.armR, armL: P.armL, handR: sockets.Right, handL: sockets.Left, back: backSock, legR: P.legR, legL: P.legL },
     size: s, hunched: false, hero: true, rig: { apply, mixer, bones },
   };
 }

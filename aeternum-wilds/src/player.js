@@ -7,6 +7,7 @@ import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat, charHeight, sizeWeapon, TIER_LEN } from './models.js';
 import { animHumanoid } from './anim.js';
 import { dressArmor } from './gfx/armor.js';
+import { WEAPON_MODELS, modelFor } from './gfx/weapons3d.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
 import { stats, activeWeapon, activeWType, gainXp, gainMastery, gainTrade } from './stats.js';
@@ -61,7 +62,7 @@ export function armCharacter(h, w, other) {
   for (const k of ['wR', 'wL', 'wBack']) if (h[k]) { h[k].parent?.remove(h[k]); h[k] = null; }
   const tall = charHeight(h);
   const SHORT = { sword: 1.05, greataxe: 1.2, hammer: 1.2, staff: 1.05, spear: 1.15, club: 0.75, rapier: 0.75, hatchets: 0.55, dagger: 0.38, crossbow: 0.55, musket: 0.9, blunderbuss: 0.6 };
-  const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1);
+  const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1) * (WEAPON_MODELS[modelFor(it.wtype, it.tier, it.model)]?.k || 1);
   const shieldLen = it => tall * 0.42 * (0.92 + 0.08 * (it.tier || 1));
   if (w && w.wtype !== 'fists') {
     if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }

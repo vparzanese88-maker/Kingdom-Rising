@@ -80,7 +80,7 @@ export const CLASSES = {
   paladin: {
     name: 'Paladin', icon: '🛡️', role: 'Hybrid',
     desc: 'An oathbound knight who guards the weak with steel and sacred light, healing between blows.',
-    shield: 'shieldHeater', model: 'longsword', weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'hands', 'legs', 'feet'],
+    shield: 'shieldHeater', model: 'holyAvenger', weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'hands', 'legs', 'feet'],
     attrs: { str: 2, con: 3, int: 1 }, color: 0xd8c070, mana: 1.0,
     trees: [
       { id: 'pal_guard', name: 'Holy Guard', icon: '🏛️', desc: 'Sacred protection.', nodes: [
@@ -188,7 +188,7 @@ export const CLASSES = {
   druid: {
     name: 'Druid', icon: '🌿', role: 'Caster',
     desc: 'A keeper of the old groves who calls storms and roots, mends with sap and sun, and wears the shapes of beasts.',
-    shield: 'shieldRound', model: 'builtin', weapon: 'club', second: 'staff', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    shield: 'shieldRound', model: 'maceOak', weapon: 'club', second: 'staff', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 4, con: 1, dex: 1 }, color: 0x4a7a2a, mana: 1.3,
     trees: [
       { id: 'dru_wrath', name: 'Nature\'s Wrath', icon: '⛈️', desc: 'Storm and thorn.', nodes: [
@@ -260,7 +260,7 @@ export const CLASSES = {
   bard: {
     name: 'Bard', icon: '🎵', role: 'Support',
     desc: 'A wandering minstrel whose blade keeps time with their songs, lifting allies and lulling enemies to stillness.',
-    shield: 'shieldRound', model: 'knightsword', weapon: 'sword', second: 'rapier', armor: 'medium', gear: ['chest', 'hands', 'legs', 'feet'],
+    shield: 'shieldRound', model: 'bardBlade', weapon: 'sword', second: 'rapier', armor: 'medium', gear: ['chest', 'hands', 'legs', 'feet'],
     attrs: { dex: 2, int: 2, con: 1, str: 1 }, color: 0x6a3a8a, mana: 1.0,
     trees: [
       { id: 'brd_war', name: 'Songs of War', icon: '🥁', desc: 'Marching rhythms.', nodes: [
@@ -368,7 +368,7 @@ export const CLASSES = {
   necromancer: {
     name: 'Necromancer', icon: '💀', role: 'Pet Caster',
     desc: 'A scholar of the grave who drinks the life of the living and commands the bones of the dead to do their bidding.',
-    model: 'staffBone', weapon: 'staff', second: 'dagger', start2: true, armor: 'light', gear: ['head', 'chest', 'legs', 'feet'],
+    model2: 'daggerBone', model: 'staffBone', weapon: 'staff', second: 'dagger', start2: true, armor: 'light', gear: ['head', 'chest', 'legs', 'feet'],
     attrs: { int: 5, con: 1 }, color: 0x3a1a4a, mana: 1.3,
     trees: [
       { id: 'nec_siphon', name: 'Siphon', icon: '🩸', desc: 'Steal life to sustain your own.', nodes: [
@@ -440,7 +440,7 @@ export const CLASSES = {
   magician: {
     name: 'Magician', icon: '🔥', role: 'Pet Caster',
     desc: 'A conjurer who binds elemental beings to service and shapes raw matter into bolts and barriers.',
-    model: 'staffEmber', weapon: 'staff', second: 'dagger', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'staffFire', weapon: 'staff', second: 'dagger', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 5, con: 2, str: -1 }, color: 0xa04a1a, mana: 1.3,
     trees: [
       { id: 'mag_elementals', name: 'Elementals', icon: '🌋', desc: 'Bound elemental servants.', nodes: [

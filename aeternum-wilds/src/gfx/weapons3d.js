@@ -29,6 +29,13 @@ export const WEAPON_MODELS = {
   staffArcane: { file: 'staff-spire', off: [0, 0.2, 0], name: 'Arcane Staff', tint: [0xe0b8ff, 0x1a0628] },
   bow: { file: 'bow', ry: PI / 2, off: [0, 0, 0], name: 'Recurve Bow' },
   crossbow: { file: 'crossbow', off: [0, 0.15, 0], name: 'Crossbow' },
+  // stand-ins made from the models above with their own size (k = length factor) and colour
+  holyAvenger: { file: 'gothic', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Holy Avenger', tint: [0xfff0c0, 0x3a2c08], k: 1.05 },
+  bardBlade: { file: 'gothic2', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Minstrel\'s Blade', tint: [0xd0e4ff, 0x0a1428], k: 0.78 },
+  dagger: { file: 'knightsword', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Long Dagger', tint: [0xa8a8b0, 0x000000], k: 1 },
+  daggerBone: { file: 'knightsword', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Bone Dagger', tint: [0xd8e8c8, 0x0a1a04], k: 1 },
+  staffFire: { file: 'staff-ornate', off: [0, 0.5, 0], name: 'Flamecaller Staff', tint: [0xff9060, 0x501000] },
+  maceOak: { file: 'mace', off: [0, 0.3, 0], name: 'Oaken Cudgel', tint: [0x9a7a48, 0x061000] },
   musket: { file: 'musket', rz: -PI / 2, off: [0, 0.6, 0], name: 'Long Musket' },
   staffOrnate: { file: 'staff-ornate', off: [0, 0.5, 0], name: 'Gilded Scepter Staff' },
   quarterstaff: { file: 'pole', off: [0, 0, 0], name: 'Quarterstaff' },
@@ -51,6 +58,7 @@ export const TIER_MODELS = {
   crossbow: ['crossbow', 'crossbow', 'crossbow'],
   blunderbuss: ['blunderbuss', 'blunderbuss', 'blunderbuss'],
   musket: ['musket', 'musket', 'musket'],
+  dagger: ['dagger', 'dagger', 'dagger'],
   shield: ['shieldRound', 'shieldKite', 'shieldHeater'],
 };
 // tier tints on top of the model's own paint: steel, blue starmetal, gold orichalcum

@@ -1,4 +1,4 @@
-import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize, gameStarted, isHost, setLobbyHooks, startAdventure, lobbyPlayers, sendChat } from './online.js';
+import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize, gameStarted, isHost, setLobbyHooks, startAdventure, lobbyPlayers, sendChat, setLobbyName, myLobbyName } from './online.js';
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
@@ -116,8 +116,17 @@ G.toggleFullscreen = toggleFullscreen;
 const canvas = renderer.domElement;
 G.relock = () => { if (G.mode === 'game' && !G.ui.open && G.player?.state !== 'dead') { try { const r = canvas.requestPointerLock(); if (r?.catch) r.catch(() => {}); } catch (e) { /* needs a click */ } } };
 G.unlock = () => { if (document.pointerLockElement) document.exitPointerLock(); };
+// the browser can refuse the mouse lock (e.g. right after leaving full screen): then the game keeps running
+// with a free mouse instead of sitting paused, and every click tries to capture the mouse again
+document.addEventListener('pointerlockerror', () => {
+  if (G.mode !== 'game') return;
+  G.freeMouse = true;
+  toast('Click the game to capture the mouse again (the browser refused it just now).', 'warn');
+});
+document.addEventListener('fullscreenchange', () => { if (G.mode === 'game' && !G.ui.open) setTimeout(() => G.relock(), 50); });
 document.addEventListener('pointerlockchange', () => {
   G.locked = document.pointerLockElement === canvas;
+  if (G.locked) G.freeMouse = false;
   if (!G.locked) {
     G.input.lmb = G.input.rmb = false; G.input.keys = {};
     // Esc while playing releases the mouse: show the pause menu
@@ -130,7 +139,7 @@ const inp = G.input;
 let camDist = S.view === 'third' ? 3.6 : 0, camDistT = camDist;
 addEventListener('mousemove', e => {
   inp.mx = e.clientX; inp.my = e.clientY;
-  if (!G.locked || !G.player) return;
+  if (!(G.locked || G.freeMouse) || !G.player || G.ui.open) return;
   const k = 0.0022 * S.sens * (camera.fov / 75);
   G.player.yaw -= e.movementX * k;
   G.player.pitch = clamp(G.player.pitch - e.movementY * k * (S.invertY ? -1 : 1), -1.45, 1.35);
@@ -139,7 +148,7 @@ addEventListener('mousemove', e => {
 canvas.addEventListener('mousedown', e => {
   initAudio();
   if (G.mode !== 'game') return;
-  if (!G.locked) { G.relock(); return; }
+  if (!G.locked) { G.relock(); if (!G.freeMouse) return; }
   if (G.ui.open) return;
   if (e.button === 0) inp.lmb = true;
   if (e.button === 2) inp.rmb = true;
@@ -317,6 +326,7 @@ addEventListener('beforeunload', saveGame);
 
 // ---------- Home screen ----------
 function title() {
+  if (online() && G.mode !== 'game') { if (gameStarted()) charSelect(); else lobby(); return; }
   G.mode = 'title';
   const save = loadSave();
   const t = $('title');
@@ -326,7 +336,8 @@ function title() {
     <nav>
       ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
       <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
-      <button id="onl"><b>${online() ? `Online · ${onlineCode()}` : 'Play Online'}</b><small>${online() ? `${partySize()} in the party · invite more friends` : 'Host a game or join friends · chat, party up, share XP'}</small></button>
+      <button id="ohost"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
+      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>
       <button id="sett"><b>Settings</b><small>Mouse, view, graphics, sound</small></button>
       <button id="fs"><b>${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</b><small>Or press F11 at any time</small></button>
       <button id="ctrl"><b>Controls</b></button>
@@ -337,69 +348,89 @@ function title() {
   if (save) $('cont').onclick = () => { initAudio(); play(save); };
   $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
-  $('onl').onclick = () => { initAudio(); onlinePanel(); };
-  if (invited && !online()) onlinePanel(invited);
+  $('ohost').onclick = () => { initAudio(); hostNow(); };
+  $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
+  if (invited && !online()) joinPanel(invited);
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
 }
 
-// ---------- Online lobby ----------
-// online and the adventure hasn't started: wait in the lobby with the party until the host starts it
-function play(profile) {
-  if (online() && !gameStarted()) { G.lobbyProfile = profile; lobby(); hello(); return; }
-  G.lobbyProfile = null;
-  enterGame(profile);
+// ---------- Online: host or join on the main menu -> lobby with code and chat -> host presses Play Game ->
+// everyone picks or creates a character -> into the world together ----------
+const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
+const saveName = () => loadSave()?.name || '';
+function play(profile) { enterGame(profile); }
+setLobbyHooks(
+  () => { if (G.mode === 'lobby') { if (gameStarted()) charSelect(); else lobby(); } },
+  () => { if (G.mode === 'lobby') charSelect(); },
+);
+function joinPanel(code = '') {
+  $('homeside').innerHTML = `<div class="card online"><h3>Join Game</h3>
+    <p>Enter the 4-letter code the host sees in their lobby.</p>
+    <label class="nm">Your name <input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
+    <div class="joinrow"><input id="ocode" maxlength="4" placeholder="CODE" value="${code}"><button id="ojoin" class="primary">Join</button></div>
+    <p id="ostat" class="small">${code ? `You're invited to game ${code}. Press Join.` : ''}</p></div>`;
+  $('ojoin').onclick = () => {
+    const c = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, '');
+    if (c.length !== 4) { $('ostat').textContent = 'Enter the 4-letter code.'; return; }
+    $('ostat').textContent = `Joining ${c}…`;
+    setLobbyName($('oname').value.trim() || 'Castaway');
+    joinGame(c, r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
+  };
 }
-setLobbyHooks(() => { if (G.mode === 'lobby') lobby(); }, () => { if (G.mode === 'lobby' && G.lobbyProfile) { const p = G.lobbyProfile; G.lobbyProfile = null; enterGame(p); } });
+function hostNow() {
+  $('homeside').innerHTML = `<div class="card online"><h3>Host Game</h3><p id="ostat">Creating your game…</p></div>`;
+  setLobbyName(saveName() || 'Host');
+  hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
+}
 function lobby() {
   G.mode = 'lobby';
   const t = $('title');
   const log = $('lobbylog')?.innerHTML || '', typed = $('lobbyin')?.value || '', typing = document.activeElement?.id === 'lobbyin';
-  const rows = lobbyPlayers().map(P => `<div class="lp ${P.ready ? 'ready' : ''}"><b>${esc(P.name)}${P.me ? ' (you)' : ''}${P.id === 0 ? ' 👑' : ''}</b><span>${P.ready ? `${CLASSES[P.cls]?.icon || ''} ${CLASSES[P.cls]?.name || ''} · Level ${P.level || 1}` : 'choosing a hero…'}</span><i>${P.ready ? 'Ready' : '…'}</i></div>`).join('');
+  const rows = lobbyPlayers().map(P => `<div class="lp ready"><b>${esc(P.name)}${P.me ? ' (you)' : ''}${P.id === 0 ? ' 👑 host' : ''}</b><i>In lobby</i></div>`).join('');
   t.innerHTML = `<div class="home lobby"><div class="card online lobbycard">
-    <h2>Party Lobby · ${onlineCode()}</h2>
-    <p class="small">Invite friends with the code <b class="code">${onlineCode()}</b> or the link: <input id="invl" readonly value="${location.origin}${location.pathname}?join=${onlineCode()}"> <button id="invc">Copy</button></p>
+    <h2>Game Lobby</h2>
+    <p>Friends join with the code <b class="code">${onlineCode()}</b> (Join Game on the main menu) or this link:</p>
+    <div class="invite"><input id="invl" readonly value="${inviteLink(onlineCode())}"><button id="invc">Copy</button></div>
+    <label class="nm">Your name <input id="lname" maxlength="18" value="${esc(myLobbyName())}"></label>
     <div class="lplayers">${rows}</div>
     <div id="lobbylog">${log}</div>
-    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Say something to the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
-    <div class="row">${isHost() ? `<button id="lstart" class="primary">Start the adventure</button>` : `<p class="small">Waiting for the host to start the adventure…</p>`}<button id="lback">Back</button></div>
+    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Chat with the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
+    <div class="row">${isHost() ? `<button id="lstart" class="primary">Play Game</button>` : `<p class="small">Waiting for the host to press Play Game…</p>`}<button id="lback">Leave</button></div>
   </div></div>`;
   t.style.display = 'block';
   const ll = $('lobbylog'); ll.scrollTop = ll.scrollHeight;
   $('lobbyin').value = typed; if (typing) $('lobbyin').focus();
   $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
+  $('lname').onchange = () => setLobbyName($('lname').value.trim() || 'Castaway');
   const say = () => { sendChat($('lobbyin').value); $('lobbyin').value = ''; $('lobbyin').focus(); };
   $('lobbysend').onclick = say;
   $('lobbyin').onkeydown = e => { if (e.key === 'Enter') say(); };
   if ($('lstart')) $('lstart').onclick = () => startAdventure();
-  $('lback').onclick = () => { G.lobbyProfile = null; hello(); title(); };
+  $('lback').onclick = () => { leaveOnline(); title(); };
 }
-
-// ---------- Online ----------
-const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
-function onlinePanel(code = '') {
-  const side = $('homeside');
-  if (online()) {
-    side.innerHTML = `<div class="card online"><h3>Online game ${onlineCode()}</h3>
-      <p>Friends join with the code <b class="code">${onlineCode()}</b> or this link:</p>
-      <div class="invite"><input id="invl" readonly value="${inviteLink(onlineCode())}"><button id="invc">Copy</button></div>
-      <p class="small">${partySize()} in the party. Now press <b>Continue</b> or <b>New Character</b> to pick your hero; then you wait in the party lobby until ${isHost() ? 'you start' : 'the host starts'} the adventure, and everyone begins together in town. Press <kbd>Enter</kbd> in game to chat.</p>
-      <button id="oleave">Leave online game</button></div>`;
-    $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
-    $('oleave').onclick = () => { leaveOnline(); title(); };
-    return;
-  }
-  side.innerHTML = `<div class="card online"><h3>Play Online</h3>
-    <p>Play the island together. One player hosts and sends the code or link; up to 7 friends join. You start in the same town, see each other, chat, fight the same enemies and share experience.</p>
-    <button id="ohost" class="primary">Host online game</button>
-    <div class="joinrow"><input id="ocode" maxlength="4" placeholder="CODE" value="${code}"><button id="ojoin">Join</button></div>
-    <p id="ostat" class="small"></p></div>`;
-  const stat = m => { $('ostat').textContent = m; };
-  const done = r => { if (r.error) stat(r.error); else { title(); onlinePanel(); } };
-  $('ohost').onclick = () => { stat('Creating your game…'); hostGame(done); };
-  $('ojoin').onclick = () => { const c = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, ''); if (c.length !== 4) { stat('Enter the 4-letter code.'); return; } stat(`Joining ${c}…`); joinGame(c, done); };
-  if (code) stat(`You're invited to game ${code}. Press Join.`);
+// the host pressed Play Game: pick a hero, then into the world (everyone starts together in town)
+function charSelect() {
+  G.mode = 'lobby';
+  const save = loadSave(), C = save ? CLASSES[save.cls] : null;
+  const t = $('title');
+  t.innerHTML = `<div class="home lobby"><div class="card online lobbycard">
+    <h2>Choose your hero</h2>
+    <p>Game <b class="code">${onlineCode()}</b> is on. ${partySize()} in the party. Pick your character, then join the game: everyone meets in town.</p>
+    <nav>
+      ${save ? `<button id="ccont" class="primary"><b>Join with ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
+      <button id="cnew" class="${save ? '' : 'primary'}"><b>Create a New Character</b><small>Pick a class and shape your hero</small></button>
+    </nav>
+    <div id="lobbylog">${$('lobbylog')?.innerHTML || ''}</div>
+    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Chat with the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
+  </div></div>`;
+  t.style.display = 'block';
+  const say = () => { sendChat($('lobbyin').value); $('lobbyin').value = ''; };
+  $('lobbysend').onclick = say;
+  $('lobbyin').onkeydown = e => { if (e.key === 'Enter') say(); };
+  if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
+  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
 }
 
 export function controlsHtml() {
@@ -584,8 +615,10 @@ function loop() {
   const P = G.player;
   tickOnline(dt);
   if (G.mode === 'game') {
-    G.paused = !!G.ui.open || (!G.locked && P.state !== 'dead' && !G.noLockNeeded);
-    $('resume').style.display = !G.locked && !G.ui.open && P.state !== 'dead' && !G.noLockNeeded ? 'flex' : 'none';
+    // online the world never stops (friends are still playing); alone it pauses for menus and a released mouse
+    const waitLock = !G.locked && !G.freeMouse && P.state !== 'dead' && !G.noLockNeeded;
+    G.paused = !online() && (!!G.ui.open || waitLock);
+    $('resume').style.display = waitLock && !G.ui.open ? 'flex' : 'none';
     // hit-stop: freeze the action for a few frames on big hits
     let simDt = dt;
     if (G.hitstop > 0) { G.hitstop -= dt; simDt = dt * 0.08; }

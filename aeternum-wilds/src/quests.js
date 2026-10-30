@@ -1,3 +1,4 @@
+import { WEAPON_MODELS } from './gfx/weapons3d.js';
 import { G } from './state.js';
 import { STORY, ENEMIES, ZONES, MATS, xpForLevel, WEAPONS } from './data.js';
 import { CLASSES } from './classes.js';
@@ -62,6 +63,8 @@ function giveReward(r) {
   if (r.secondWeapon) {
     const wt = CLASSES[p.cls]?.second || (p.startWeapon === 'bow' ? 'sword' : 'bow');
     const it = makeGear({ kind: 'weapon', wtype: wt, gs: 100, rarity: 1 });
+    const C = CLASSES[p.cls];
+    if (C?.model2 && WEAPON_MODELS[C.model2]) { it.model = C.model2; it.name = WEAPON_MODELS[C.model2].name; }
     if (!p.equip.w2) { p.equip.w2 = it; toast(`Equipped ${it.name} in weapon slot 2. Press Q to swap.`, 'gold'); }
     else addItem(it);
   }

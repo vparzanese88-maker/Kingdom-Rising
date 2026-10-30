@@ -29,6 +29,12 @@ export const WEAPON_MODELS = {
   staffArcane: { file: 'staff-spire', off: [0, 0.2, 0], name: 'Arcane Staff', tint: [0xe0b8ff, 0x1a0628] },
   bow: { file: 'bow', ry: PI / 2, off: [0, 0, 0], name: 'Recurve Bow' },
   crossbow: { file: 'crossbow', off: [0, 0.15, 0], name: 'Crossbow' },
+  musket: { file: 'musket', rz: -PI / 2, off: [0, 0.6, 0], name: 'Long Musket' },
+  staffOrnate: { file: 'staff-ornate', off: [0, 0.5, 0], name: 'Gilded Scepter Staff' },
+  quarterstaff: { file: 'pole', off: [0, 0, 0], name: 'Quarterstaff' },
+  shieldRound: { file: 'shield-round', off: [0, 0, 0], name: 'Round Shield' },
+  shieldKite: { file: 'shield-kite', off: [0, 0, 0], name: 'Kite Shield' },
+  shieldHeater: { file: 'shield-heater', off: [0, 0, 0], name: 'Heater Shield' },
   blunderbuss: { file: 'blunderbuss', rz: -PI / 2, off: [0.25, 0.3, 0], name: 'Bell-mouth Blunderbuss' },
 };
 // the model a dropped or crafted weapon gets, per type and tier
@@ -44,6 +50,8 @@ export const TIER_MODELS = {
   bow: ['bow', 'bow', 'bow'],
   crossbow: ['crossbow', 'crossbow', 'crossbow'],
   blunderbuss: ['blunderbuss', 'blunderbuss', 'blunderbuss'],
+  musket: ['musket', 'musket', 'musket'],
+  shield: ['shieldRound', 'shieldKite', 'shieldHeater'],
 };
 // tier tints on top of the model's own paint: steel, blue starmetal, gold orichalcum
 const TIER_TINT = { 1: [0xffffff, 0], 2: [0xc4d8ff, 0x050a18], 3: [0xffdc96, 0x281800] };

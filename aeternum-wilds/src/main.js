@@ -400,7 +400,7 @@ function buildPreview() {
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   const wc = sl => C.gear.includes(sl) ? C.armor : null;
   dressArmor(preview, { chest: wc('chest'), legs: wc('legs'), feet: wc('feet'), hands: wc('hands'), head: previewView === 'body' ? wc('head') : null, tier: 1, trim: C.color });
-  armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model }, null);
+  armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model, shield: C.shield }, null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -472,7 +472,8 @@ function creator() {
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
     if (C2.model) p.equip.w1.model = C2.model;
     if (C2.model && WEAPON_MODELS[C2.model]) { p.equip.w1.model = C2.model; p.equip.w1.name = WEAPON_MODELS[C2.model].name; }
-    if (C2.start2) p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 });
+    if (C2.shield) p.equip.w1.shield = C2.shield;
+    if (C2.start2) { p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 }); if (C2.model2) p.equip.w2.model = C2.model2; }
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
     enterGame(p);

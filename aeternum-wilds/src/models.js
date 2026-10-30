@@ -93,7 +93,7 @@ export function makeWeapon(type, tier = 1, model = null) {
   if (real) {
     if (type === 'greatsword') real.scale.setScalar(1.6);
     g.add(real);
-    g.rotation.x = type === 'bow' ? 0 : (type === 'musket' || type === 'blunderbuss' || type === 'crossbow') ? Math.PI : Math.PI / 2;
+    g.rotation.x = type === 'bow' || type === 'shield' ? 0 : (type === 'musket' || type === 'blunderbuss' || type === 'crossbow') ? Math.PI : Math.PI / 2;
     return g;
   }
   if (type === 'sword' || type === 'cutlass') {

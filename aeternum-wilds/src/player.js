@@ -62,14 +62,14 @@ export function armCharacter(h, w, other) {
   const tall = charHeight(h);
   const SHORT = { sword: 1.05, greataxe: 1.2, hammer: 1.2, staff: 1.05, spear: 1.15, club: 0.75, rapier: 0.75, hatchets: 0.55, dagger: 0.38, crossbow: 0.55, musket: 0.9, blunderbuss: 0.6 };
   const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1);
-  const shieldLen = it => tall * 0.36 * (0.92 + 0.08 * (it.tier || 1));
+  const shieldLen = it => tall * 0.42 * (0.92 + 0.08 * (it.tier || 1));
   if (w && w.wtype !== 'fists') {
     if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
     else {
       h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
       if (w.wtype === 'hatchets') { h.wL = sizeWeapon(makeWeapon('hatchets', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
       else if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.38 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
-      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
+      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier, w.shield); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
   }
   // the weapon not in use is slung diagonally across the back
@@ -89,7 +89,7 @@ export function armCharacter(h, w, other) {
     else if (WEAPONS[other.wtype]?.gun) { bw.rotation.z = Math.PI; bw.position.set(0, 0.25 * Lb, 0); } // stock down, barrel up
     else bw.position.set(0, -0.55 * Lb, 0); // axe, hammer or staff head up
     back.add(bw);
-    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
+    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier, other.shield); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
   }
   for (const k of ['wR', 'wL']) if (h[k]) h[k].userData.rx0 = h[k].rotation.x;

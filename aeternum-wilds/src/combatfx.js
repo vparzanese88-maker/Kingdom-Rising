@@ -97,7 +97,7 @@ function buffElement(P) {
   for (let i = (P.buffs?.length || 0) - 1; i >= 0; i--) { const b = P.buffs[i]; if (b.color != null && (b.mods?.dmg || b.mods?.atkSpeed || b.mods?.lifesteal)) return elFromColor(b.color); }
   return null;
 }
-const WHOOSH = { sword: ['whoosh_light', 'whoosh_heavy'], greataxe: ['whoosh_axe', 'whoosh_axe'], hammer: ['whoosh_hammer', 'whoosh_hammer'], staff: ['whoosh_staff', 'whoosh_staff'], club: ['whoosh_hammer', 'whoosh_hammer'], spear: ['whoosh_light', 'whoosh_heavy'], rapier: ['whoosh_light', 'whoosh_light'], dagger: ['whoosh_light', 'whoosh_light'] };
+const WHOOSH = { sword: ['whoosh_light', 'whoosh_heavy'], greataxe: ['whoosh_axe', 'whoosh_axe'], hammer: ['whoosh_hammer', 'whoosh_hammer'], staff: ['whoosh_staff', 'whoosh_staff'], club: ['whoosh_hammer', 'whoosh_hammer'], spear: ['whoosh_light', 'whoosh_heavy'], rapier: ['whoosh_light', 'whoosh_light'], dagger: ['whoosh_light', 'whoosh_light'], fists: ['whoosh_light', 'whoosh_light'], hatchets: ['whoosh_axe', 'whoosh_axe'] };
 
 // ---------- hooks ----------
 export function swingFx(P, atk) {

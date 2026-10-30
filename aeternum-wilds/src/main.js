@@ -5,7 +5,7 @@ import { CLASSES, CLASS_LIST } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
-import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, refreshLook, TOWN_SPAWN } from './player.js';
+import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, carryWeapon, refreshLook, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
 import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPanel, refreshHud, refreshTracker, toast } from './ui.js';
@@ -467,6 +467,7 @@ function creator() {
     const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
+    if (C2.model) p.equip.w1.model = C2.model;
     if (C2.model && WEAPON_MODELS[C2.model]) { p.equip.w1.model = C2.model; p.equip.w1.name = WEAPON_MODELS[C2.model].name; }
     if (C2.start2) p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
@@ -580,6 +581,7 @@ function loop() {
       const px = PREVIEW_AT.x, pz = PREVIEW_AT.z, py = heightAt(px, pz);
       preview.root.rotation.y = previewYaw;
       animHumanoid(preview, { move: 0, phase: t, pose: null });
+      carryWeapon(preview, null, 1);
       preview.body.position.y = Math.sin(t * 2) * 0.01;
       const H = preview.tallW || 2;
       if (previewView === 'face') { const hy = py + H * 0.9; camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }

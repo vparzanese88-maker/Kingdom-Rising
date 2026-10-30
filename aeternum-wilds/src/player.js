@@ -59,19 +59,20 @@ const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 
 export function armCharacter(h, w, other) {
   for (const k of ['wR', 'wL', 'wBack']) if (h[k]) { h[k].parent?.remove(h[k]); h[k] = null; }
   const tall = charHeight(h);
-  const SHORT = { sword: 0.85, spear: 1.05, club: 0.6, rapier: 0.62, dagger: 0.3, crossbow: 0.5, musket: 0.85, blunderbuss: 0.55 };
+  const SHORT = { sword: 1.05, greataxe: 1.2, hammer: 1.2, staff: 1.05, spear: 1.15, club: 0.75, rapier: 0.75, hatchets: 0.55, dagger: 0.38, crossbow: 0.55, musket: 0.9, blunderbuss: 0.6 };
   const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1);
   const shieldLen = it => tall * 0.36 * (0.92 + 0.08 * (it.tier || 1));
-  if (w) {
+  if (w && w.wtype !== 'fists') {
     if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
     else {
       h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
-      if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.3 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
+      if (w.wtype === 'hatchets') { h.wL = sizeWeapon(makeWeapon('hatchets', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
+      else if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.38 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
       if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
   }
   // the weapon not in use is slung diagonally across the back
-  if (other) {
+  if (other && other.wtype !== 'fists') {
     const host = h.parts.back || h.parts.upper;
     const back = new THREE.Group();
     host.add(back);
@@ -89,6 +90,20 @@ export function armCharacter(h, w, other) {
     back.add(bw);
     if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
+  }
+  for (const k of ['wR', 'wL']) if (h[k]) h[k].userData.rx0 = h[k].rotation.x;
+  if (h.wL && SHIELD_WEAPONS.has(w?.wtype)) h.wL.userData.rx0 = null; // shields stay put
+  h.carryTwo = w && (w.wtype === 'greataxe' || w.wtype === 'hammer');
+}
+// out of combat the weapon is carried, not pointed: swords held upright, big axes and hammers resting
+// head-down in front; any combat pose snaps it back to the fighting grip
+const CARRY_POSES = new Set([null, undefined, 'hop', 'jump', 'swap']);
+export function carryWeapon(h, pose, dt) {
+  for (const k of ['wR', 'wL']) {
+    const w = h[k];
+    if (!w || w.userData.rx0 == null || Math.abs(w.userData.rx0 - Math.PI / 2) > 0.01) continue; // melee grips only
+    const want = w.userData.rx0 + (CARRY_POSES.has(pose) ? (h.carryTwo ? 0.95 : -0.95) : 0);
+    w.rotation.x += (want - w.rotation.x) * Math.min(1, dt * (CARRY_POSES.has(pose) ? 6 : 30));
   }
 }
 const _ws = new THREE.Vector3();
@@ -373,9 +388,11 @@ function startAttack(kind) {
     pose = P.combo % 2 === 0 ? 'slash' : 'slash2';
     if (wt === 'hammer') pose = P.combo % 2 === 0 ? 'slash' : 'overhead';
     if (wt === 'sword' && P.combo === 2) { pose = 'thrust'; mult *= 1.25; }
+    if (wt === 'hatchets') pose = P.combo % 2 === 0 ? 'slash' : 'slash2';
     if (wt === 'club') pose = P.combo % 2 === 0 ? 'slash' : 'overhead';
     if (wt === 'spear') { pose = 'thrust'; if (P.combo === 2) mult *= 1.3; }
     if ((wt === 'rapier' || wt === 'dagger') && P.combo % 2 === 1) pose = 'thrust';
+    if (wt === 'fists') pose = ['thrust', 'slash', 'thrust', 'slash2'][P.combo % 4];
     P.combo = (P.combo + 1) % spec.combo;
   } else pose = spec.kind === 'spin' ? 'spin' : spec.kind === 'slam' ? 'slam' : 'thrust';
   if (wt === 'staff') pose = kind === 'heavy' ? 'cast' : 'thrust';
@@ -829,6 +846,7 @@ export function updatePlayer(dt) {
   else if (P.reload > 0 && WEAPONS[wt]?.gun) { pose = 'reload'; t = 1 - P.reload / (WEAPONS[wt].reload || 1); }
   else if (P.press && P.press.t > 0.12 && !RANGED_WEAPONS.has(wt)) { pose = 'windup'; t = P.press.t; }
   animHumanoid(P.h, { move: P.move, phase: P.phase, pose, t, twoHand: wt === 'greataxe' || wt === 'hammer', draw: P.draw });
+  carryWeapon(P.h, pose, dt);
   if (P.wL?.userData.string) P.wL.userData.string.position.z = -0.24 - (P.state === 'draw' ? P.draw * 0.35 : 0);
   placeModel();
   // flash

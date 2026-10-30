@@ -8,19 +8,18 @@ const BASE = './assets/models/w/';
 const PI = Math.PI;
 // file, rotations applied in order (rz, ry), then the grip offset; tint = [color, emissive]
 export const WEAPON_MODELS = {
-  gothic: { file: 'gothic', rz: PI, off: [0, 0.33, 0], name: 'Gothic Greatsword' },
-  gothicBoss: { file: 'gothic', rz: PI, off: [0, 0.33, 0], name: 'Warden\'s Blade', tint: [0xff9a8a, 0x3a0600] },
-  gothic2: { file: 'gothic2', rz: PI, off: [0, 0.33, 0], name: 'Cathedral Blade' },
-  longsword: { file: 'longsword', rz: PI, off: [0, 0.3, 0], name: 'Crusader Longsword' },
-  knightsword: { file: 'knightsword', rz: PI, off: [0, 0.3, 0], name: 'Knight\'s Sword' },
-  rapier: { file: 'rapier', rz: PI, off: [0, 0.33, 0], name: 'Duelist\'s Rapier' },
-  warhammer: { file: 'warhammer', off: [0, 0.3, 0], name: 'Gothic War Hammer' },
-  axeBearded: { file: 'axe-bearded', ry: PI / 2, off: [0, 0.3, 0], name: 'Bearded Axe' },
-  axeWrapped: { file: 'axe-wrapped', ry: PI / 2, off: [0, 0.3, 0], name: 'Wrapped Axe' },
-  axeReaver: { file: 'axe-reaver', ry: PI / 2, off: [0, 0.3, 0], name: 'Reaver Axe' },
-  axeGothic: { file: 'axe-gothic', ry: PI / 2, off: [0, 0.3, 0], name: 'Gothic Axe' },
+  gothic: { file: 'gothic', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Gothic Greatsword' },
+  gothicBoss: { file: 'gothic', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Warden\'s Blade', tint: [0xff9a8a, 0x3a0600] },
+  gothic2: { file: 'gothic2', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Cathedral Blade' },
+  longsword: { file: 'longsword', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Crusader Longsword', tint: [0xfff2d8, 0x0a0800] },
+  knightsword: { file: 'knightsword', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Knight\'s Sword', tint: [0xdce8ff, 0x000408] },
+  rapier: { file: 'rapier', rz: PI, ry: PI / 2, off: [0, 0.33, 0], name: 'Duelist\'s Rapier' },
+  warhammer: { file: 'warhammer', ry: PI / 2, off: [0, 0.3, 0], name: 'Gothic War Hammer' },
+  hatchetBearded: { file: 'hatchet-bearded', ry: PI / 2, off: [0, 0.3, 0], name: 'Bearded Hatchet' },
+  hatchetWrapped: { file: 'hatchet-wrapped', ry: PI / 2, off: [0, 0.3, 0], name: 'Wrapped Hatchet' },
+  axeGothic: { file: 'axe-gothic', ry: PI / 2, off: [0, 0.3, 0], name: 'Gothic Great Axe' },
   axeDread: { file: 'axe-dread', ry: PI / 2, off: [0, 0.3, 0], name: 'Dread Axe', tint: [0xd8c8d8, 0x12000a] },
-  axeCrescent: { file: 'axe-crescent', ry: PI / 2, off: [0, 0.3, 0], name: 'Crescent Axe' },
+  axeBerserk: { file: 'axe-gothic', ry: PI / 2, off: [0, 0.3, 0], name: 'Bloodreaver Great Axe', tint: [0xffc8b8, 0x1a0200] },
   spearWinged: { file: 'spear-winged', ry: PI / 2, off: [0, 0.15, 0], name: 'Winged Spear' },
   spearDragon: { file: 'spear-dragon', ry: PI / 2, off: [0, 0.15, 0], name: 'Dragon Spear' },
   mace: { file: 'mace', off: [0, 0.3, 0], name: 'Flanged Mace' },
@@ -35,7 +34,8 @@ export const WEAPON_MODELS = {
 // the model a dropped or crafted weapon gets, per type and tier
 export const TIER_MODELS = {
   sword: ['gothic', 'longsword', 'gothic2'],
-  greataxe: ['axeWrapped', 'axeGothic', 'axeCrescent'],
+  greataxe: ['axeGothic', 'axeDread', 'axeBerserk'],
+  hatchets: ['hatchetWrapped', 'hatchetBearded', 'hatchetBearded'],
   hammer: ['warhammer', 'warhammer', 'warhammer'],
   spear: ['spearWinged', 'spearWinged', 'spearDragon'],
   club: ['mace', 'mace', 'mace'],
@@ -56,6 +56,11 @@ function load(file) {
   loading[file] = new GLTFLoader().loadAsync(BASE + file + '.glb').then(gl => {
     let src = null;
     gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+    const nrm = src.geometry.getAttribute('normal');
+    if (nrm) for (let i = 0; i < nrm.count; i++) {
+      const x = nrm.getX(i), y = nrm.getY(i), z = nrm.getZ(i), l = Math.hypot(x, y, z);
+      if (!(l > 1e-4)) nrm.setXYZ(i, 0, 1, 0); else if (Math.abs(l - 1) > 1e-3) nrm.setXYZ(i, x / l, y / l, z / l);
+    }
     const m = src.material;
     for (const t of [m.map, m.normalMap, m.metalnessMap]) if (t) t.anisotropy = 8;
     geo[file] = { g: src.geometry, mat: m, byKey: {} };
@@ -88,4 +93,4 @@ export function weaponModelMesh(key, tier = 1) {
   mesh.castShadow = true;
   return mesh;
 }
-export const modelFor = (type, tier, model) => (model && WEAPON_MODELS[model]) ? model : TIER_MODELS[type]?.[Math.min(3, Math.max(1, tier || 1)) - 1];
+export const modelFor = (type, tier, model) => model === 'builtin' ? null : (model && WEAPON_MODELS[model]) ? model : TIER_MODELS[type]?.[Math.min(3, Math.max(1, tier || 1)) - 1];

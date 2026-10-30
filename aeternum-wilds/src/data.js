@@ -78,6 +78,14 @@ export const WEAPONS = {
     heavy: { time: 0.78, hit: 0.58, range: 2.8, arc: 360, mult: 1.7, kind: 'slam', radius: 2.6, fwd: 1.3, stun: 0.6 },
     tiers: ['Oak Club', 'Ironbound Club', 'Wyrdwood Club'],
   },
+  // bare hands: lightning punches and kicks (the monk's way)
+  fists: {
+    name: 'Fists', short: 'Fists', icon: '👊', scale: { dex: 0.6, str: 0.4 },
+    dmg: 15, block: 0.6, blockCost: 0.6,
+    light: { time: 0.26, hit: 0.45, range: 2.3, arc: 90, mult: 1.0, combo: 4 },
+    heavy: { time: 0.5, hit: 0.5, range: 2.8, arc: 70, mult: 2.2, kind: 'thrust', lunge: 2.4, stagger: true },
+    tiers: ['Hand Wraps', 'Iron Knuckles', 'Dragon Knuckles'],
+  },
   // rapier in the main hand, parrying dagger in the off hand: very fast flurries
   rapier: {
     name: 'Rapier & Dagger', short: 'Rapier', icon: '🤺', scale: { dex: 1.0 }, dual: true,
@@ -85,6 +93,14 @@ export const WEAPONS = {
     light: { time: 0.32, hit: 0.45, range: 2.9, arc: 80, mult: 1.0, combo: 4 },
     heavy: { time: 0.55, hit: 0.45, range: 3.6, arc: 40, mult: 2.1, kind: 'thrust', lunge: 3.2, stagger: true },
     tiers: ['Steel Rapier', 'Starmetal Rapier', 'Orichalcum Rapier'],
+  },
+  // a hatchet in each hand: fast, savage chops (the beastlord's way)
+  hatchets: {
+    name: 'Dual Hatchets', short: 'Hatchets', icon: '🪓', scale: { str: 0.5, dex: 0.5 }, dual: true,
+    dmg: 18, block: 0.5, blockCost: 0.7,
+    light: { time: 0.34, hit: 0.48, range: 2.7, arc: 120, mult: 1.0, combo: 4 },
+    heavy: { time: 0.6, hit: 0.5, range: 3.0, arc: 360, mult: 1.6, kind: 'spin', stagger: true },
+    tiers: ['Iron Hatchets', 'Starmetal Hatchets', 'Orichalcum Hatchets'],
   },
   // a single long dagger: the fastest weapon, deadly crits
   dagger: {
@@ -156,11 +172,21 @@ export const ABILITIES = {
   shieldBash: { name: 'Shield Bash', icon: '🛡️', cd: 12, kind: 'dash', dist: 6, radius: 2, dmg: 0.9, stun: 1.2, desc: 'Barge forward behind your shield, stunning what you hit.' },
   quake: { name: 'Earthshaker', icon: '🌍', cd: 15, kind: 'aoe', at: 'self', delay: 0.2, radius: 4.5, dmg: 1.2, knock: 3, desc: 'Pound the ground and knock everything back.' },
   thorns: { name: 'Barkskin', icon: '🌳', cd: 22, kind: 'buff', dur: 8, buff: { dr: 0.35, regen: 6 }, heal: 0.15, desc: 'Heal 15% and harden like oak: take 35% less damage and regenerate for 8 seconds.' },
+  // Fists
+  palmStrike: { name: 'Thunder Palm', icon: '✋', cd: 9, kind: 'cone', range: 4, arc: 70, dmg: 1.6, knock: 5, desc: 'A palm strike that blasts enemies back.' },
+  flyingKick: { name: 'Flying Kick', icon: '🦶', cd: 11, kind: 'leap', max: 11, radius: 2.6, dmg: 1.7, desc: 'Leap at the crosshair feet first.' },
+  hundredFists: { name: 'Hundred Fists', icon: '👊', cd: 12, kind: 'dash', dist: 5, radius: 2.4, dmg: 2.0, desc: 'Surge forward in a blur of punches.' },
+  innerCalm: { name: 'Inner Calm', icon: '☯️', cd: 22, kind: 'buff', dur: 8, buff: { dr: 0.3, atkSpeed: 0.3 }, heal: 0.2, cleanse: true, desc: 'Heal 20%, cleanse, take 30% less damage and strike 30% faster for 8 seconds.' },
   // Rapier & Dagger
   flurry: { name: 'Flurry', icon: '🌀', cd: 9, kind: 'dash', dist: 5.5, radius: 2.2, dmg: 1.6, desc: 'Dart forward stabbing with both blades.' },
   riposte: { name: 'Riposte', icon: '🤺', cd: 12, kind: 'buff', dur: 4, buff: { dr: 0.6, dmg: 0.3 }, desc: 'Ready a parry: take 60% less damage and strike 30% harder for 4 seconds.' },
   fleche: { name: 'Fleche', icon: '➶', cd: 12, kind: 'line', range: 9, width: 1.6, dmg: 1.9, desc: 'A running lunge that pierces everything in a line.' },
   bladeDance: { name: 'Blade Dance', icon: '💃', cd: 15, kind: 'aoe', at: 'self', delay: 0.2, radius: 3.6, dmg: 1.7, bleed: 1, desc: 'Spin through the crowd cutting with both blades.' },
+  // Hatchets
+  rend: { name: 'Rend', icon: '🐾', cd: 9, kind: 'cone', range: 3.5, arc: 120, dmg: 1.4, heal: 0.15, desc: 'Rake both hatchets across everything in front of you. Heals for 15% of damage dealt.' },
+  pounce: { name: 'Pounce', icon: '🐆', cd: 11, kind: 'leap', max: 11, radius: 2.8, dmg: 1.7, desc: 'Pounce on the crosshair, hatchets first.' },
+  whirlingAxes: { name: 'Whirling Axes', icon: '🌪️', cd: 12, kind: 'dash', dist: 6, radius: 2.6, dmg: 1.8, desc: 'Spin forward with both hatchets out.' },
+  feralCry: { name: 'Feral Cry', icon: '🐺', cd: 22, kind: 'buff', dur: 8, buff: { dmg: 0.25, atkSpeed: 0.25 }, heal: 0.1, desc: 'Howl: heal 10%, deal 25% more damage and attack 25% faster for 8 seconds.' },
   // Dagger
   backstab: { name: 'Shadowstep', icon: '👤', cd: 11, kind: 'leap', max: 10, radius: 2.4, dmg: 1.9, desc: 'Leap to the crosshair and drive the dagger down.' },
   hemorrhage: { name: 'Hemorrhage', icon: '🩸', cd: 10, kind: 'cone', range: 3.5, arc: 90, dmg: 1.0, heal: 0.2, desc: 'Open a deep wound. Heals you for 20% of damage dealt.' },
@@ -188,7 +214,9 @@ const mt = (pre, a, b, c, d, n) => [
 export const MASTERY = {
   spear: mt('sp', 'skewer', 'sweep', 'vault', 'phalanx', ['Honed Point', '🔱', 'Shield Wall', '🛡️', 'Blocking costs 40% less stamina', { blockCost: -0.4 }, 'Impaler', '📌']),
   club: mt('cl', 'bonk', 'shieldBash', 'quake', 'thorns', ['Knotted Wood', '🏏', 'Concussion', '💫', 'Stuns last 40% longer', { stunDur: 0.4 }, 'Crusher', '🔨']),
+  fists: mt('fi', 'palmStrike', 'hundredFists', 'flyingKick', 'innerCalm', ['Iron Fist', '👊', 'Iron Body', '🧘', 'Take 10% less damage', { dr: 0.1 }, 'Dragon Kick', '🦶']),
   rapier: mt('ra', 'flurry', 'riposte', 'fleche', 'bladeDance', ['Fine Point', '🤺', 'Parry', '🛡️', 'Blocking costs 40% less stamina', { blockCost: -0.4 }, 'Duelist', '⚔️']),
+  hatchets: mt('ht', 'rend', 'whirlingAxes', 'pounce', 'feralCry', ['Keen Edges', '🪓', 'Savagery', '🩸', '3% lifesteal', { lifesteal: 3 }, 'Twin Fury', '🌪️']),
   dagger: mt('dg', 'backstab', 'hemorrhage', 'fanKnives', 'shadowVeil', ['Serrated', '🗡️', 'Cutthroat', '🩸', '+30% critical damage', { critDmg: 0.3 }, 'Assassin', '💀']),
   crossbow: mt('cb', 'pierce', 'evade', 'poison', 'rain', ['Barbed Bolts', '🎯', 'Quick Crank', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Heavy Bolts', '🏹']),
   musket: mt('mu', 'powderShot', 'rollReload', 'stopShot', 'steady', ['Rifled Barrel', '🔫', 'Quick Load', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Marksman', '🎯']),
@@ -358,7 +386,9 @@ export const RECIPES = [
       { id: `f_bow${t}`, station: 'forge', gear: 'weapon', wtype: 'bow', tier: t, in: { [wood]: q(5), [cloth]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_spear${t}`, station: 'forge', gear: 'weapon', wtype: 'spear', tier: t, in: { [ingot]: q(3), [wood]: q(3), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_club${t}`, station: 'forge', gear: 'weapon', wtype: 'club', tier: t, in: { [wood]: q(5), [ingot]: q(1), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_fists${t}`, station: 'forge', gear: 'weapon', wtype: 'fists', tier: t, in: { [leather]: q(3), [ingot]: q(1), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_rapier${t}`, station: 'forge', gear: 'weapon', wtype: 'rapier', tier: t, in: { [ingot]: q(5), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_hatchets${t}`, station: 'forge', gear: 'weapon', wtype: 'hatchets', tier: t, in: { [ingot]: q(4), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_dagger${t}`, station: 'forge', gear: 'weapon', wtype: 'dagger', tier: t, in: { [ingot]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_crossbow${t}`, station: 'forge', gear: 'weapon', wtype: 'crossbow', tier: t, in: { [wood]: q(4), [ingot]: q(2), [cloth]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_musket${t}`, station: 'forge', gear: 'weapon', wtype: 'musket', tier: t, in: { [ingot]: q(5), [wood]: q(3), ...extra }, skill: 'smithing', req, xp: 30 * t },

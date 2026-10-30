@@ -203,7 +203,7 @@ export function makeWeapon(type, tier = 1, model = null) {
 
 // ---------- Weapon sizing ----------
 // Weapons are about as long as their wielder: smaller at low quality, bigger at high quality.
-export const TIER_LEN = { 1: 0.8, 2: 0.92, 3: 1.04 };
+export const TIER_LEN = { 1: 0.88, 2: 1.0, 3: 1.12 };
 const _wb = new THREE.Box3(), _wv = new THREE.Vector3();
 // the character's standing height in world units (measured once, before weapons are attached)
 export function charHeight(h) {

@@ -52,7 +52,7 @@ export function makeRiggedHero(o = {}) {
   // a big, heroic frame: taller than the townsfolk; height, weight and muscle sliders shape him
   // a big, heroic frame. Height scales him evenly (gently, so he never looks stretched);
   // weight and muscle reshape the body below the neck only (see the girth pass below)
-  const BIG = 1.45;
+  const BIG = 1.6;
   const s = (o.size || 1) * BIG * (1 + ((o.height || 1) - 1) * 0.9);
   body.scale.setScalar(s);
   root.updateMatrixWorld(true);

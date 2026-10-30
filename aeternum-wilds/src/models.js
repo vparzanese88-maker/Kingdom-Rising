@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { axeReady, axeMesh } from './gfx/meshy.js';
+import { axeReady, axeMesh, swordReady, swordMesh } from './gfx/meshy.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
@@ -86,6 +86,14 @@ export function makeWeapon(type, tier = 1) {
   const g = new THREE.Group();
   const metal = mat([0x9aa0a6, 0x8fb8d8, 0xe0a640][tier - 1] ?? 0x9aa0a6, false, { emissive: tier === 3 ? 0x3a2000 : 0x000000 });
   const wood = mat(0x6b4a2a), dark = mat(0x2a2018), gold = mat(0xc8a040);
+  if ((type === 'sword' || type === 'greatsword') && swordReady()) {
+    // the player's own gothic greatsword model (the Warden carries a huge corrupted one)
+    const m = swordMesh(type === 'greatsword' ? 'boss' : tier);
+    if (type === 'greatsword') m.scale.setScalar(1.6);
+    g.add(m);
+    g.rotation.x = Math.PI / 2;
+    return g;
+  }
   if (type === 'sword' || type === 'cutlass') {
     const len = type === 'cutlass' ? 0.8 : 0.95;
     g.add(box(0.07, 0.24, 0.07, dark, 0, 0, 0));

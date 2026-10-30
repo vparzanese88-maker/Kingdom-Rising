@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const BASE = './assets/models/';
-const A = { hero: null, axe: null, sword: null };
+const A = { hero: null, axe: null, sword: null, hammer: null };
+export const hammerReady = () => !!A.hammer;
 export const swordReady = () => !!A.sword;
 export const meshyReady = () => !!A.hero;
 export const axeReady = () => !!A.axe;
@@ -78,9 +79,31 @@ async function loadSword() {
   A.sword = { g, base: m, mats: {} };
 }
 
+// the gothic war hammer: head at the top, haft down, pommel at the bottom. Grip just above the pommel.
+async function loadHammer() {
+  const gl = await new GLTFLoader().loadAsync(BASE + 'warhammer.glb');
+  let src = null;
+  gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+  const g = src.geometry.clone();
+  g.translate(0, 0.3, 0);
+  g.scale(1.6, 1.6, 1.6);
+  g.computeBoundingSphere();
+  const m = src.material;
+  for (const t of [m.map, m.normalMap, m.metalnessMap]) if (t) t.anisotropy = 8;
+  A.hammer = { g, base: m, mats: {} };
+}
+export function hammerMesh(tier = 1) {
+  const k = SWORD_TINT[tier] ? tier : 1;
+  let m = A.hammer.mats[k];
+  if (!m) { m = A.hammer.mats[k] = A.hammer.base.clone(); m.color.setHex(SWORD_TINT[k][0]); m.emissive.setHex(SWORD_TINT[k][1]); }
+  const mesh = new THREE.Mesh(A.hammer.g, m);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 // load everything; never throws (the game falls back to the built-in models)
 export async function loadMeshy() {
-  await Promise.all([loadHero().catch(e => console.warn('hero model', e)), loadAxe().catch(e => console.warn('axe model', e)), loadSword().catch(e => console.warn('sword model', e))]);
+  await Promise.all([loadHero().catch(e => console.warn('hero model', e)), loadAxe().catch(e => console.warn('axe model', e)), loadSword().catch(e => console.warn('sword model', e)), loadHammer().catch(e => console.warn('hammer model', e))]);
 }
 
 // sword per tier: dark steel, blue starmetal, gold orichalcum; 'boss' is the Warden's corrupted blade

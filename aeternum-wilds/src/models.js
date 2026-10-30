@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { axeReady, axeMesh, swordReady, swordMesh } from './gfx/meshy.js';
+import { axeReady, axeMesh, swordReady, swordMesh, hammerReady, hammerMesh } from './gfx/meshy.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
@@ -116,6 +116,10 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.05, 0.52, 0.5, metal, 0, 1.2, 0.22));
     g.add(box(0.05, 0.3, 0.18, metal, 0, 1.22, -0.1));
     g.rotation.x = Math.PI / 2;
+  } else if (type === 'hammer' && hammerReady()) {
+    g.add(hammerMesh(tier));
+    g.rotation.x = Math.PI / 2;
+    return g;
   } else if (type === 'hammer') {
     g.add(box(0.08, 1.4, 0.08, wood, 0, 0.45, 0));
     g.add(box(0.36, 0.34, 0.6, metal, 0, 1.15, 0));

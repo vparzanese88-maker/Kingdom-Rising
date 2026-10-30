@@ -213,9 +213,9 @@ function tintLin(hex) { let t = tintCache.get(hex); if (!t) { t = lin(hex); tint
 const R = Math.random;
 // emit n particles of preset p at (x,y,z). (dx,dy,dz) steers 'cone'/'disc' emission (need not be unit),
 // scale multiplies size and speed, tint (hex or -1) recolours the preset (keeping its brightness ramp).
-export function emit(p, n, x, y, z, dx = 0, dy = 1, dz = 0, scale = 1, tint = -1) {
+export function emit(p, count, x, y, z, dx = 0, dy = 1, dz = 0, scale = 1, tint = -1) {
   if (!D) initParticles();
-  if (!D || n <= 0) return;
+  if (!D || count <= 0) return;
   let gy = -1e9;
   if (p.ground) gy = heightAt(x, z) + 0.04;
   const dl = Math.hypot(dx, dy, dz) || 1; dx /= dl; dy /= dl; dz /= dl;
@@ -224,9 +224,9 @@ export function emit(p, n, x, y, z, dx = 0, dy = 1, dz = 0, scale = 1, tint = -1
   let bx = dy * uz - dz * uy, by = dz * ux - dx * uz, bz = dx * uy - dy * ux; const bl = Math.hypot(bx, by, bz) || 1; bx /= bl; by /= bl; bz /= bl;
   const cx = by * dz - bz * dy, cy = bz * dx - bx * dz, cz = bx * dy - by * dx;
   const t = tint >= 0 ? tintLin(tint) : null;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < count; i++) {
     let k;
-    if (n_() < cap) k = n++;
+    if (n < cap) k = n++;
     else k = (R() * cap) | 0; // full: recycle a random slot rather than refuse (keeps fresh hits visible)
     const o = k * ST;
     let vx, vy, vz;
@@ -264,7 +264,6 @@ export function emit(p, n, x, y, z, dx = 0, dy = 1, dz = 0, scale = 1, tint = -1
     D[o + 21] = p.cell; D[o + 22] = p.stretch; D[o + 23] = p.add; D[o + 24] = gy; D[o + 25] = p.fadeIn;
   }
 }
-const n_ = () => n;
 // a single particle with explicit velocity, life and colour (trails, motes)
 export function emitOne(p, x, y, z, vx, vy, vz, scale = 1, tint = -1) {
   emit(p, 1, x, y, z, 0, 1, 0, scale, tint);

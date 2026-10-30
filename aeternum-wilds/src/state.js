@@ -12,7 +12,9 @@ export const G = {
   ui: { open: null },
 };
 
-export const SAVE_KEY = 'aeternum-wilds-save-v1';
+// each title-screen tab keeps its own hero: Campaign, Kingdom Wars and Multiplayer never share a character
+export const SAVE_KEYS = { campaign: 'aeternum-wilds-save-v1', wars: 'kingdom-rising-wars-save-v1', mp: 'kingdom-rising-mp-save-v1' };
+export const saveKey = () => SAVE_KEYS[G.slot] || SAVE_KEYS.campaign;
 
 export function newProfile(weapon, race = 'human', cls = 'knight', look = {}, name = 'Castaway') {
   return {

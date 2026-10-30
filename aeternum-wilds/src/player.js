@@ -254,7 +254,7 @@ export function respawn() {
   P.pos.x = TOWN_SPAWN.x; P.pos.z = TOWN_SPAWN.z;
   P.state = 'idle'; P.hp = stats().maxHp; P.stam = 100; P.atk = null; P.ability = null;
   P.iframes = 1.5; P.inCombat = 0;
-  for (const e of G.enemies) { e.aggro = false; if (e.def.boss) e.hp = e.maxHp; }
+  for (const e of G.enemies) { e.aggro = false; if (e.def.boss && !G.wars) e.hp = e.maxHp; }
 }
 
 // ---------- Projectiles ----------

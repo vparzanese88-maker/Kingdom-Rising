@@ -6,6 +6,25 @@ import { mergeStatic, templateParts, mat, box, makeTree, makeRock, makePlant, ma
 
 export const ISLAND_R = 300;
 const TOWN_R = 42, RING_R = 108;
+// Kingdom Wars (?mode=wars): two identical walled towns far apart on a long island, a straight double-wide road
+// between their only gates. The campaign keeps the one town in the middle of the island.
+export const WARS = new URLSearchParams(location.search).get('mode') === 'wars';
+export const WAR_X = 170, ROAD_W = 4.4;
+// a: the direction the town's main gate faces (local +z points out of it); gates: local angles of the openings
+export const TOWNS = WARS
+  ? [{ x: -WAR_X, z: 0, a: 0, team: 'blue', gates: [Math.PI / 2] }, { x: WAR_X, z: 0, a: Math.PI, team: 'red', gates: [Math.PI / 2] }]
+  : [{ x: 0, z: 0, a: Math.PI / 2, team: 'blue', gates: [0, Math.PI / 2, Math.PI, -Math.PI / 2] }];
+// town-local (lx, lz) to world, and back; rotY turns a model built in local space
+export function townPt(T, lx, lz) { const c = Math.cos(T.a), s = Math.sin(T.a); return [T.x + lx * s + lz * c, T.z - lx * c + lz * s]; }
+export function townLocal(T, x, z) { const c = Math.cos(T.a), s = Math.sin(T.a), dx = x - T.x, dz = z - T.z; return [dx * s - dz * c, dx * c + dz * s]; }
+const rotY = T => Math.PI / 2 - T.a;
+export function nearestTown(x, z) { let b = TOWNS[0], bd = 1e9; for (const T of TOWNS) { const d = Math.hypot(x - T.x, z - T.z); if (d < bd) { bd = d; b = T; } } return b; }
+export function inTown(x, z, pad = 0) { for (const T of TOWNS) if (Math.hypot(x - T.x, z - T.z) < TOWN_R + pad) return true; return false; }
+// the roads out of the gates (campaign: four, out to 150 m; wars: the one road between the two gates)
+export function onRoad(x, z, pad = 0) {
+  if (WARS) return Math.abs(z) < ROAD_W + pad && Math.abs(x) < WAR_X;
+  return Math.min(Math.abs(x), Math.abs(z)) < 2.2 + pad && Math.hypot(x, z) < 150;
+}
 const SECTORS = { thorn: 0, coast: Math.PI / 2, ruins: Math.PI, mire: -Math.PI / 2, frost: -Math.PI / 4 };
 const SECTOR_W = { frost: Math.PI / 3 }; // the peaks are a narrower wedge between Thornwood and Mirefen
 
@@ -23,12 +42,24 @@ const PADS = [
   { x: POI.peak.x, z: POI.peak.z, r: 26, h: 9.5 },
 ];
 
+// wars island: a long rounded oblong with forested flanks either side of the road valley
+function warsShape(x, z) { const a = Math.atan2(z, x); return Math.pow(Math.pow(Math.abs(x) / 292, 4) + Math.pow(Math.abs(z) / 158, 4), 0.25) + noise(Math.cos(a) * 3 + 10, Math.sin(a) * 3 + 10) * 0.05; }
+function warsHeight(x, z) {
+  let h = 2.6 + fbm(x * 0.011, z * 0.011, 4) * 3.5 + fbm(x * 0.045, z * 0.045, 2) * 0.6 + smooth(40, 130, Math.abs(z)) * 4;
+  h = lerp(2.4, h, smooth(ROAD_W + 2, 34, Math.abs(z)) * 0.85 + 0.15 * smooth(ROAD_W, 8, Math.abs(z))); // the road valley is level
+  if (Math.abs(z) < ROAD_W + 2 && Math.abs(x) < WAR_X) h = 2.4;
+  for (const T of TOWNS) h = lerp(2.4, h, smooth(TOWN_R - 8, TOWN_R + 12, Math.hypot(x - T.x, z - T.z)));
+  h -= smooth(0.86, 1.03, warsShape(x, z)) * 10;
+  return h;
+}
+
 function coastR(x, z) {
   const a = Math.atan2(z, x);
   return ISLAND_R + noise(Math.cos(a) * 3 + 10, Math.sin(a) * 3 + 10) * 22;
 }
 
 export function sectorWeights(x, z) {
+  if (WARS) { const f = smooth(55, 110, Math.abs(z)) * 0.85 * (inTown(x, z, 10) ? 0 : 1); return { thorn: f, coast: 0, ruins: 0, mire: 0, frost: 0, meadow: 1 - f }; }
   const r = Math.hypot(x, z), a = Math.atan2(z, x);
   const outer = smooth(RING_R - 14, RING_R + 14, r);
   const w = {};
@@ -40,6 +71,7 @@ export function sectorWeights(x, z) {
 }
 
 export function zoneAt(x, z) {
+  if (WARS) return inTown(x, z) ? 'town' : 'meadow';
   const r = Math.hypot(x, z);
   if (r < TOWN_R) return 'town';
   if (r < RING_R) return 'meadow';
@@ -50,6 +82,7 @@ export function zoneAt(x, z) {
 }
 
 export function levelAt(x, z) {
+  if (WARS) return 1;
   const zn = zoneAt(x, z), Z = ZONES[zn];
   const r = Math.hypot(x, z);
   const t = zn === 'meadow' ? clamp((r - TOWN_R) / (RING_R - TOWN_R), 0, 1) : clamp((r - RING_R) / (ISLAND_R - 40 - RING_R), 0, 1);
@@ -57,6 +90,7 @@ export function levelAt(x, z) {
 }
 
 export function heightAt(x, z) {
+  if (WARS) return warsHeight(x, z);
   const r = Math.hypot(x, z);
   const w = sectorWeights(x, z);
   let h = 2.6 + fbm(x * 0.011, z * 0.011, 4) * 4.5 + fbm(x * 0.045, z * 0.045, 2) * 0.7;
@@ -133,11 +167,10 @@ function groundColor(x, z, h, out) {
   };
   let r = 0, g = 0, b = 0;
   for (const k in cols) { r += cols[k][0] * w[k]; g += cols[k][1] * w[k]; b += cols[k][2] * w[k]; }
-  const tr = Math.hypot(x, z);
-  if (tr < TOWN_R + 2) { const t = smooth(TOWN_R - 6, TOWN_R + 2, tr); const path = [0.55, 0.47, 0.34]; const d = Math.min(Math.abs(x), Math.abs(z)); const p = d < 2.6 || tr < 9 ? 1 : 0; r = lerp(lerp(0.45, path[0], p), r, t); g = lerp(lerp(0.6, path[1], p), g, t); b = lerp(lerp(0.3, path[2], p), b, t); }
+  const T = nearestTown(x, z), tr = Math.hypot(x - T.x, z - T.z), [lx, lz] = townLocal(T, x, z);
+  if (tr < TOWN_R + 2) { const t = smooth(TOWN_R - 6, TOWN_R + 2, tr); const path = [0.55, 0.47, 0.34]; const d = Math.min(Math.abs(lx), Math.abs(lz)); const p = d < 2.6 || tr < 9 || (WARS && Math.abs(lx) < ROAD_W && lz > 0) ? 1 : 0; r = lerp(lerp(0.45, path[0], p), r, t); g = lerp(lerp(0.6, path[1], p), g, t); b = lerp(lerp(0.3, path[2], p), b, t); }
   // roads out of the gates
-  const d = Math.min(Math.abs(x), Math.abs(z));
-  if (d < 2.2 && tr < 150 && tr > TOWN_R - 2) { const t = 0.6; r = lerp(r, 0.52, t); g = lerp(g, 0.45, t); b = lerp(b, 0.32, t); }
+  if (onRoad(x, z) && !inTown(x, z, -2)) { const t = 0.6; r = lerp(r, 0.52, t); g = lerp(g, 0.45, t); b = lerp(b, 0.32, t); }
   // sand and seabed
   const sand = smooth(1.3, 0.4, h) * (1 - w.mire * 0.8);
   r = lerp(r, 0.82, sand); g = lerp(g, 0.76, sand); b = lerp(b, 0.55, sand);
@@ -180,9 +213,11 @@ export function buildWorld() {
   scene.add(water);
   G.water = water;
   // bog water
+  if (!WARS) {
   const bog = new THREE.Mesh(new THREE.RingGeometry(RING_R - 6, ISLAND_R - 20, 48, 1, Math.PI / 2 - 0.9, 1.8), new THREE.MeshPhongMaterial({ color: 0x46552e, specular: 0x6a7a4a, shininess: 40, transparent: true, opacity: 0.88, normalMap: wn, normalScale: new THREE.Vector2(0.3, 0.3) }));
   bog.rotation.x = -Math.PI / 2; bog.position.y = 0.12;
   scene.add(bog);
+  }
 
   buildSky();
   const R = rng(4242);
@@ -190,15 +225,14 @@ export function buildWorld() {
   const nodes = [];
   // scatter scenery and nodes
   for (let i = 0; i < 12000; i++) {
-    const a = R() * Math.PI * 2, r = Math.sqrt(R()) * (ISLAND_R + 10);
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (r < TOWN_R + 4) continue;
-    if (Math.min(Math.abs(x), Math.abs(z)) < 4 && r < 150) continue; // keep roads clear
+    const [x, z] = randPt(R, ISLAND_R + 10), r = Math.hypot(x, z);
+    if (inTown(x, z, 4)) continue;
+    if (onRoad(x, z, 2)) continue; // keep roads clear
     let nearPoi = false; for (const k in POI) if (Math.hypot(x - POI[k].x, z - POI[k].z) < 16) nearPoi = true;
     if (nearPoi) continue;
     const h = heightAt(x, z);
     if (h < 0.5) continue;
-    const zn = zoneAt(x, z);
+    const zn = WARS && sectorWeights(x, z).thorn > 0.4 ? 'thorn' : zoneAt(x, z);
     const roll = R();
     const s = 0.8 + R() * 0.6;
     const rot = R() * 6.28;
@@ -265,9 +299,8 @@ export function buildWorld() {
   // small details: pebbles, ferns and mushrooms
   const peb = [], fern = [], shroom = [];
   for (let i = 0; i < 14000; i++) {
-    const a = R() * Math.PI * 2, r = Math.sqrt(R()) * ISLAND_R;
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (r < TOWN_R + 3 || heightAt(x, z) < 0.4) continue;
+    const [x, z] = randPt(R, ISLAND_R);
+    if (inTown(x, z, 3) || onRoad(x, z, 1) || heightAt(x, z) < 0.4) continue;
     const zn = zoneAt(x, z), q = R();
     if (q < 0.25) peb.push([x, z, 0.3 + R() * 0.5, R() * 6]);
     else if (q < 0.45 && (zn === 'thorn' || zn === 'mire')) fern.push([x, z, 0.8 + R() * 0.6, R() * 6]);
@@ -277,10 +310,17 @@ export function buildWorld() {
   instance(makeFern(), fern, 0, false);
   instance(makeShroom(), shroom, 0, false);
 
-  buildTown();
-  buildPOIs();
-  buildCamps(R);
+  for (const T of TOWNS) buildTown(T);
+  if (WARS) G.camps = [];
+  else { buildPOIs(); buildCamps(R); }
   buildGrass();
+}
+
+// a random point on the land: a disc for the campaign island, the oblong for Kingdom Wars
+function randPt(R, rad) {
+  if (WARS) return [(R() * 2 - 1) * 300, (R() * 2 - 1) * 165];
+  const a = R() * Math.PI * 2, r = Math.sqrt(R()) * rad;
+  return [Math.cos(a) * r, Math.sin(a) * r];
 }
 
 // ---------- Textures ----------
@@ -362,7 +402,7 @@ function grassCell(cx, cz) {
   if (grassCache.has(k)) return grassCache.get(k);
   const R = rng(k * 7 + 13), out = [];
   const c = new THREE.Color();
-  const dens = { town: 0.45, meadow: 1, coast: 0.6, thorn: 0.75, mire: 0.7, ruins: 0.22 };
+  const dens = { town: 0.45, meadow: 1, coast: 0.6, thorn: 0.75, mire: 0.7, ruins: 0.22, frost: 0.3 };
   const per = Math.round(G.Q.grass / 105);
   for (let i = 0; i < per; i++) {
     const x = (cx + R()) * GRASS_CELL, z = (cz + R()) * GRASS_CELL;
@@ -370,8 +410,8 @@ function grassCell(cx, cz) {
     if (R() > dens[zn]) continue;
     const h = heightAt(x, z);
     if (h < 0.9) continue;
-    if (zn === 'town' && (Math.min(Math.abs(x), Math.abs(z)) < 3.4 || Math.hypot(x, z) < 11)) continue;
-    if (Math.min(Math.abs(x), Math.abs(z)) < 2.6 && Math.hypot(x, z) < 150) continue;
+    if (zn === 'town') { const T = nearestTown(x, z), [lx, lz] = townLocal(T, x, z); if (Math.min(Math.abs(lx), Math.abs(lz)) < 3.4 || Math.hypot(lx, lz) < 11 || (WARS && Math.abs(lx) < ROAD_W + 0.8 && lz > 0)) continue; }
+    if (onRoad(x, z, 0.4)) continue;
     groundColor(x, z, h, c);
     const flower = zn === 'meadow' && R() < 0.06;
     let r = c.r * 1.15, g = c.g * 1.3, b = c.b * 1.05;
@@ -554,95 +594,121 @@ export function addNode(type, x, z) {
 }
 
 // ---------- Town ----------
-function buildTown() {
-  const scene = G.scene;
+// Built in town-local space (local +z runs out of the main gate) and placed by TOWNS, so the two Kingdom Wars towns
+// are exact copies turned to face each other.
+function buildTown(T) {
+  const scene = G.scene, ry = rotY(T), P = (lx, lz) => townPt(T, lx, lz);
+  const gw = WARS ? 0.125 : 0.09; // half the gate opening, in radians of the wall (wars: wide enough for the double road)
+  // a local box collider, turned into a world box
+  const addBox = (x0, x1, z0, z1) => { const a = P(x0, z0), b = P(x1, z1); addCollider({ minX: Math.min(a[0], b[0]), maxX: Math.max(a[0], b[0]), minZ: Math.min(a[1], b[1]), maxZ: Math.max(a[1], b[1]) }); };
   // palisade
   const logM = mat(0x6a4a2c);
   const logGeo = new THREE.CylinderGeometry(0.45, 0.5, 4.6, 6);
   const logs = [];
   for (let i = 0; i < 300; i++) {
     const a = i / 300 * Math.PI * 2;
-    let gate = false;
-    for (const ga of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) if (Math.abs(angDiff(a, ga)) < 0.09) gate = true;
-    if (gate) continue;
+    if (T.gates.some(ga => Math.abs(angDiff(a, ga)) < gw)) continue;
     logs.push(a);
   }
   const im = new THREE.InstancedMesh(logGeo, logM, logs.length);
   const m4 = new THREE.Matrix4();
   logs.forEach((a, i) => {
-    const x = Math.cos(a) * TOWN_R, z = Math.sin(a) * TOWN_R;
+    const [x, z] = P(Math.cos(a) * TOWN_R, Math.sin(a) * TOWN_R);
     m4.makeTranslation(x, heightAt(x, z) + 1.8 + (i % 3) * 0.15, z);
     im.setMatrixAt(i, m4);
     addCollider({ x, z, r: 0.6 });
   });
   im.castShadow = true;
   scene.add(im);
-  // gate towers
-  for (const ga of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+  // gate towers (and in Kingdom Wars a lintel with its two doors swung wide open)
+  for (const ga of T.gates) {
     for (const s of [-1, 1]) {
-      const a = ga + s * 0.11;
-      const x = Math.cos(a) * TOWN_R, z = Math.sin(a) * TOWN_R;
+      const a = ga + s * (gw + 0.02);
+      const [x, z] = P(Math.cos(a) * TOWN_R, Math.sin(a) * TOWN_R);
       const t = new THREE.Group();
       t.add(box(1.6, 6.5, 1.6, logM, 0, 3.25, 0));
       t.add(box(2.4, 0.4, 2.4, mat(0x4a3220), 0, 6.5, 0));
       mergeStatic(t); t.position.set(x, heightAt(x, z), z);
       scene.add(t);
       addCollider({ x, z, r: 1.1 });
+      if (WARS) {
+        // door leaf hinged on the tower, swung out along the wall outside
+        const half = Math.sin(gw) * TOWN_R;
+        const door = new THREE.Group();
+        door.add(box(half - 0.6, 4.2, 0.3, mat(0x5a3a20), -(half - 0.6) / 2, 2.1, 0));
+        for (const y of [0.9, 3.3]) door.add(box(half - 0.6, 0.3, 0.38, mat(0x2a2a2e), -(half - 0.6) / 2, y, 0));
+        mergeStatic(door);
+        door.position.set(x, heightAt(x, z), z);
+        door.rotation.y = ry - ga - Math.PI / 2 + (s < 0 ? Math.PI : 0) - s * 1.35; // swung open, out from the wall
+        scene.add(door);
+      }
+    }
+    if (WARS) {
+      const [x, z] = P(Math.cos(ga) * TOWN_R, Math.sin(ga) * TOWN_R);
+      const lin = new THREE.Group();
+      lin.add(box(Math.sin(gw) * TOWN_R * 2 + 3, 0.8, 1, logM, 0, 6.2, 0));
+      const ban = makeFlag(T.team === 'red' ? 0x9a2a2a : 0x2a5a9a); ban.scale.setScalar(0.6); ban.position.set(0, 6.6, 0); lin.add(ban);
+      lin.position.set(x, heightAt(x, z), z); lin.rotation.y = ry - ga - Math.PI / 2; // across the opening
+      scene.add(lin);
     }
   }
   const houses = [
     [-24, -20, 7, 6, 0x9a7a58, 0x6a2a20], [24, -22, 6, 6, 0x8a6a48, 0x2a4a6a], [-26, 4, 6, 7, 0x8a6a48, 0x7a3a28], [26, 20, 7, 5, 0x9a7a58, 0x3a5a2a],
     [-20, 26, 6, 6, 0xa08060, 0x6a2a20], [18, -32, 5, 4, 0x8a6a48, 0x7a3a28], [-12, -30, 6, 5, 0x9a7a58, 0x2a4a6a], [31, 2, 5, 6, 0x8a6a48, 0x6a2a20],
   ];
-  for (const [x, z, w, d, c, r] of houses) {
+  for (const [lx, lz, w, d, c, r] of houses) {
     const h = makeHouse(w, d, c, r);
-    h.position.set(x, 2.4, z);
+    const [x, z] = P(lx, lz);
+    h.position.set(x, 2.4, z); h.rotation.y = ry;
     scene.add(h);
-    addCollider({ minX: x - w / 2 - 0.2, maxX: x + w / 2 + 0.2, minZ: z - d / 2 - 0.2, maxZ: z + d / 2 + 0.2 });
+    addBox(lx - w / 2 - 0.2, lx + w / 2 + 0.2, lz - d / 2 - 0.2, lz + d / 2 + 0.2);
   }
   // central flag and campfire
-  const flag = makeFlag(0x2a5a9a); flag.position.set(0, 2.4, -3); scene.add(flag); G.flag = flag;
-  addCollider({ x: 0, z: -3, r: 0.3 });
+  const put = (m, lx, lz, r = 0, rot = 0) => { const [x, z] = P(lx, lz); m.position.set(x, heightAt(x, z), z); m.rotation.y = ry + rot; scene.add(m); if (r) addCollider({ x, z, r }); return m; };
+  const flag = put(makeFlag(T.team === 'red' ? 0x9a2a2a : 0x2a5a9a), 0, -3, 0.3);
+  (G.flags ||= []).push(flag); G.flag = G.flags[0];
   const fire = new THREE.Group();
   for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; fire.add(box(0.4, 0.3, 0.4, mat(0x6a6a66), Math.cos(a) * 1.0, 0.15, Math.sin(a) * 1.0)); }
   const flame = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 6), new THREE.MeshBasicMaterial({ color: 0xffa030 }));
-  flame.position.y = 0.6; flame.userData.keep = true; fire.add(flame); G.flame = flame;
+  flame.position.y = 0.6; flame.userData.keep = true; fire.add(flame); (G.flames ||= []).push(flame); G.flame = G.flames[0];
   mergeStatic(fire);
   const fl = new THREE.PointLight(0xffa040, 30, 14, 1.6); fl.position.y = 1.5; fire.add(fl);
-  fire.position.set(0, 2.4, 8); scene.add(fire);
-  addCollider({ x: 0, z: 8, r: 1.3 });
+  put(fire, 0, 8, 1.3);
 
   // stations
-  addStation('refinery', 14, -12, makeRefinery());
-  addStation('forge', -14, -12, makeForge());
-  addStation('kitchen', -14, 14, makeKitchen());
-  // NPCs
-  addNPC('thorne', 0, -9, { skin: 0xd8a882, shirt: 0x7a1e1e, pants: 0x3a2e22, hair: 0x3a2a1a, helm: 0x8a8a90 }, 'sword');
-  addNPC('ilsa', 14, 12, { skin: 0xf0c8a0, shirt: 0x2e5a6a, pants: 0x3a3022, hair: 0xc89040 });
+  addStation('refinery', ...P(14, -12), makeRefinery(), ry);
+  addStation('forge', ...P(-14, -12), makeForge(), ry);
+  addStation('kitchen', ...P(-14, 14), makeKitchen(), ry);
   // merchant stall
   const stall = new THREE.Group();
   stall.add(box(4, 1, 1.6, mat(0x7a5a38), 0, 0.5, 0));
   for (const x of [-1.9, 1.9]) stall.add(box(0.2, 3, 0.2, mat(0x4a3220), x, 1.5, -0.6));
   stall.add(box(4.4, 0.15, 2.4, mat(0xc04a3a), 0, 3, 0));
-  mergeStatic(stall); stall.position.set(14, 2.4, 14.5); scene.add(stall);
-  addCollider({ minX: 12, maxX: 16, minZ: 13.7, maxZ: 15.3 });
-  // bounty board
-  const board = new THREE.Group();
-  for (const x of [-1.2, 1.2]) board.add(box(0.2, 2.6, 0.2, mat(0x4a3220), x, 1.3, 0));
-  board.add(box(2.6, 1.6, 0.15, mat(0x8a6a48), 0, 1.8, 0));
-  for (let i = 0; i < 4; i++) board.add(box(0.5, 0.6, 0.02, mat(0xf0e4c0), -0.8 + i * 0.55, 1.8 + (i % 2) * 0.15, 0.09));
-  mergeStatic(board); board.position.set(7, 2.4, 2); scene.add(board);
-  addCollider({ x: 7, z: 2, r: 1.0 });
-  G.npcs.push({ id: 'board', x: 7, z: 2.6, kind: 'npc', root: board, marker: makeMarker(board, 3.2) });
+  mergeStatic(stall); put(stall, 14, 14.5);
+  addBox(12, 16, 13.7, 15.3);
+  // NPCs and the bounty board belong to the campaign
+  if (!WARS) {
+    addNPC('thorne', 0, -9, { skin: 0xd8a882, shirt: 0x7a1e1e, pants: 0x3a2e22, hair: 0x3a2a1a, helm: 0x8a8a90 }, 'sword');
+    addNPC('ilsa', 14, 12, { skin: 0xf0c8a0, shirt: 0x2e5a6a, pants: 0x3a3022, hair: 0xc89040 });
+    const board = new THREE.Group();
+    for (const x of [-1.2, 1.2]) board.add(box(0.2, 2.6, 0.2, mat(0x4a3220), x, 1.3, 0));
+    board.add(box(2.6, 1.6, 0.15, mat(0x8a6a48), 0, 1.8, 0));
+    for (let i = 0; i < 4; i++) board.add(box(0.5, 0.6, 0.02, mat(0xf0e4c0), -0.8 + i * 0.55, 1.8 + (i % 2) * 0.15, 0.09));
+    mergeStatic(board); board.position.set(7, 2.4, 2); scene.add(board);
+    addCollider({ x: 7, z: 2, r: 1.0 });
+    G.npcs.push({ id: 'board', x: 7, z: 2.6, kind: 'npc', root: board, marker: makeMarker(board, 3.2) });
+  }
   // clutter: barrels, crates, fences and torches
-  const put = (m, x, z, ry = 0, r = 0) => { m.position.set(x, heightAt(x, z), z); m.rotation.y = ry; scene.add(m); if (r) addCollider({ x, z, r }); return m; };
-  for (const [x, z] of [[17, -9], [17.8, -10], [-17, -8.5], [-18, 17], [9, 15], [-6, -26], [28, 14], [-30, 9]]) put(makeBarrel(), x, z, x, 0.45);
-  for (const [x, z, r] of [[11, -16, 0.3], [12.2, -16.2, 0.7], [11.6, -16.1, 0], [-21, -14, 0.4], [20, 26, 0.2], [-26, 21, 1]]) put(makeCrate(0.8 + (r % 0.3)), x, z, r, 0.6);
-  for (const [x, z, ry] of [[-31, 26, 0.8], [33, -12, 1.6], [-8, 33, 0], [10, -36, 0.3]]) put(makeFence(6), x, z, ry);
-  G.torches = [];
-  for (const [x, z] of [[4, 37], [-4, 37], [4, -37], [-4, -37], [37, 4], [-37, 4], [5, -5], [-5, 5], [10, 10], [-10, -10]]) {
-    const t = put(makeTorch(), x, z, 0, 0.2);
-    const l = G.torches.length < 6 ? new THREE.PointLight(0xffa040, 0, 16, 1.6) : null;
+  for (const [x, z] of [[17, -9], [17.8, -10], [-17, -8.5], [-18, 17], [9, 15], [-6, -26], [28, 14], [-30, 9]]) put(makeBarrel(), x, z, 0.45, x);
+  for (const [x, z, r] of [[11, -16, 0.3], [12.2, -16.2, 0.7], [11.6, -16.1, 0], [-21, -14, 0.4], [20, 26, 0.2], [-26, 21, 1]]) put(makeCrate(0.8 + (r % 0.3)), x, z, 0.6, r);
+  for (const [x, z, r] of [[-31, 26, 0.8], [33, -12, 1.6], [-8, 33, 0], [10, -36, 0.3]]) put(makeFence(6), x, z, 0, r);
+  G.torches ||= [];
+  const torchSpots = WARS ? [[5.5, 37], [-5.5, 37], [5.5, 24], [-5.5, 24], [5, -5], [-5, 5], [10, 10], [-10, -10]] : [[4, 37], [-4, 37], [4, -37], [-4, -37], [37, 4], [-37, 4], [5, -5], [-5, 5], [10, 10], [-10, -10]];
+  let lit = 0;
+  for (const [lx, lz] of torchSpots) {
+    const t = put(makeTorch(), lx, lz, 0.2);
+    const [x, z] = P(lx, lz);
+    const l = lit++ < (WARS ? 4 : 6) ? new THREE.PointLight(0xffa040, 0, 16, 1.6) : null;
     if (l) { l.position.set(x, heightAt(x, z) + 2.9, z); scene.add(l); }
     G.torches.push({ flame: t.userData.flame, light: l });
   }
@@ -665,9 +731,9 @@ function addNPC(id, x, z, look, weapon) {
   G.npcs.push({ id, x, z, kind: 'npc', h, root: h.root, marker: makeMarker(h.root, 2.6) });
 }
 
-function addStation(id, x, z, mesh) {
+function addStation(id, x, z, mesh, ry = 0) {
   mergeStatic(mesh);
-  mesh.position.set(x, heightAt(x, z), z);
+  mesh.position.set(x, heightAt(x, z), z); mesh.rotation.y = ry;
   G.scene.add(mesh);
   addCollider({ x, z, r: 1.6 });
   G.stations.push({ id, x, z, kind: 'station', root: mesh });
@@ -812,6 +878,6 @@ export function buildMapImage(size) {
   ctx.putImageData(img, 0, 0);
   // palisade
   ctx.strokeStyle = '#5a3a22'; ctx.lineWidth = Math.max(1, size / 200);
-  ctx.beginPath(); ctx.arc(size / 2, size / 2, TOWN_R / span * size, 0, 6.28); ctx.stroke();
+  for (const T of TOWNS) { ctx.beginPath(); ctx.arc((T.x / span + 0.5) * size, (T.z / span + 0.5) * size, TOWN_R / span * size, 0, 6.28); ctx.stroke(); }
   return { canvas: cv, span };
 }

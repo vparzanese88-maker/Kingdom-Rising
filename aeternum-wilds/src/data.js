@@ -463,6 +463,10 @@ export const ATTACKS = {
 };
 
 export const ENEMIES = {
+  // Kingdom Wars: the Red King's army (minions march the road; the king guards his keep)
+  redSoldier: { name: 'Red Footman', model: 'humanoid', skin: 0xd8a882, shirt: 0x8a1a1a, pants: 0x3a2020, weapon: 'cutlass', hp: 90, dmg: 12, speed: 4.75, attacks: ['slash'], family: 'red', size: 1, minion: true },
+  redArcher: { name: 'Red Archer', model: 'humanoid', skin: 0xc68b5e, shirt: 0x9a2a1a, pants: 0x3a2020, weapon: 'bow', hp: 60, dmg: 11, speed: 4.75, attacks: ['arrow'], ranged: 13, family: 'red', size: 1, minion: true },
+  redKing: { name: 'The Red King', title: 'Lord of the Red Keep', model: 'humanoid', skin: 0xe0ac84, shirt: 0x6a0a0a, pants: 0x2a0a0a, eyes: 0xffd060, weapon: 'greatsword', hp: 700, dmg: 18, speed: 4.4, attacks: ['slash', 'overhead', 'lunge'], family: 'red', size: 1.6, boss: true, xpMult: 12 },
   wolf: { name: 'Wolf', model: 'wolf', creature: 'wolf', color: 0x7b7468, hp: 60, dmg: 11, speed: 6.4, attacks: ['bite'], family: 'beast', skin: true, size: 1 },
   boar: { name: 'Wild Boar', model: 'boar', color: 0x5a4030, hp: 95, dmg: 14, speed: 5.4, attacks: ['bite', 'gore'], family: 'beast', skin: true, size: 1, passive: true },
   bear: { name: 'Brown Bear', model: 'wolf', creature: 'bear', color: 0x5a3a22, hp: 240, dmg: 21, speed: 5.6, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1, thick: true, radius: 0.95 },

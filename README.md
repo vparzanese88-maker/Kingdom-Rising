@@ -1,6 +1,6 @@
 # Game Arcade
 
-This repo holds several browser games. The two biggest: **Kingdom Rising** (`aeternum-wilds/`, formerly Aeternum Wilds), an online co-op action RPG whose title screen has a Campaign tab and a Kingdom Wars tab (coming soon), and **Kingdom3D** (`kingdom-rising-3d/`, formerly Kingdom Rising).
+This repo holds several browser games. The two biggest: **Kingdom Rising** (`aeternum-wilds/`, formerly Aeternum Wilds), an online co-op action RPG whose title screen has Campaign, Kingdom Wars and Multiplayer tabs, and **Kingdom3D** (`kingdom-rising-3d/`, formerly Kingdom Rising).
 
 ## Kingdom3D
 
@@ -27,7 +27,7 @@ It's plain HTML and JavaScript. There's no build step and nothing to install.
 Each one is a single self-contained HTML page:
 - `arcade.html`: a menu page linking to every game.
 - `kingdom-rising-3d/`: Kingdom3D (see above).
-- `aeternum-wilds/`: Kingdom Rising (formerly Aeternum Wilds), an over-the-shoulder action RPG with online co-op; Campaign and Kingdom Wars tabs on the title screen.
+- `aeternum-wilds/`: Kingdom Rising (formerly Aeternum Wilds), an over-the-shoulder action RPG with online co-op; Campaign, Kingdom Wars and Multiplayer tabs on the title screen, each with its own saved hero. Kingdom Wars (`src/wars.js`, `?mode=wars`) is two identical walled towns at either end of a straight road: waves of soldiers march between them and you win by killing the Red King.
 - `omaha/`: Omaha 1944, a Day of Defeat-style WWII shooter on Omaha Beach (see below).
 - `line-of-battle/`: Line of Battle, a 3D Civil War infantry shooter.
 - `hold-aim-fire/`: Hold, Aim, Fire, a Civil War volley-timing game.

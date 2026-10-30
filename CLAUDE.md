@@ -19,7 +19,7 @@ End every reply that creates or changes a game with its GitHub Pages link, so it
 - Line of Battle: https://vparzanese88-maker.github.io/Kingdom-Rising/line-of-battle/
 - Hold, Aim, Fire: https://vparzanese88-maker.github.io/Kingdom-Rising/hold-aim-fire/
 - Dead End Boulevard: https://vparzanese88-maker.github.io/Kingdom-Rising/dead-end-boulevard/
-- Kingdom Rising (was called Aeternum Wilds; lives in `aeternum-wilds/`; title screen has Campaign and Kingdom Wars tabs; online co-op: one player presses Host Game on the main menu, friends press Join Game and type the code): https://vparzanese88-maker.github.io/Kingdom-Rising/aeternum-wilds/
+- Kingdom Rising (was called Aeternum Wilds; lives in `aeternum-wilds/`; title screen has Campaign, Kingdom Wars and Multiplayer tabs, each with its own saved hero; Kingdom Wars runs on its own map at `?mode=wars`; online co-op: open the Multiplayer tab, one player presses Host Game, friends press Join Game and type the code): https://vparzanese88-maker.github.io/Kingdom-Rising/aeternum-wilds/
 - Castle Wars (online: one player presses Multiplayer → Host Online Game and sends the invite link): https://vparzanese88-maker.github.io/Kingdom-Rising/castle-wars/
 
 When a new game is added, add its link to this list and to `arcade.html`.

@@ -2,12 +2,13 @@ import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
-import { G, SAVE_KEY, newProfile } from './state.js';
+import { G, saveKey, newProfile } from './state.js';
 import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
 import { CLASSES, CLASS_LIST } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
-import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
+import { buildWorld, heightAt, zoneAt, updateWorld, WARS } from './world.js';
+import { startWars, updateWars } from './wars.js';
 import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, carryWeapon, refreshLook, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
@@ -196,6 +197,8 @@ addEventListener('keydown', e => {
     case 'KeyT': eatFood(); break;
     case 'KeyH': startRecall(); break;
     case 'KeyE': interact(); break;
+    case 'KeyB': G.wars?.recruit(); break;
+    case 'KeyG': G.wars?.toggleOrders(); break;
   }
 });
 addEventListener('keyup', e => { inp.keys[e.code] = false; });
@@ -318,54 +321,74 @@ function updateSky(dt, center) {
 function saveGame() {
   if (!G.p || G.mode !== 'game' || window.skipSave) return;
   G.p.pos = [G.player.pos.x, G.player.pos.z];
+  if (WARS) G.p.pos = null; // every battle starts back in your own town
   G.p.yaw = G.player.yaw;
   if (G.player.state === 'dead') G.p.pos = [TOWN_SPAWN.x, TOWN_SPAWN.z];
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G.p)); } catch (e) { /* storage full or blocked */ }
+  try { localStorage.setItem(saveKey(), JSON.stringify(G.p)); } catch (e) { /* storage full or blocked */ }
 }
 window.saveGame = saveGame;
-function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(saveKey())); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
 addEventListener('beforeunload', saveGame);
 
-// ---------- Home screen: Campaign and Kingdom Wars tabs ----------
-let homeTab = 'campaign';
+// ---------- Home screen: Campaign, Kingdom Wars and Multiplayer tabs ----------
+// Each tab has its own hero (its own save). Kingdom Wars is played on its own map (?mode=wars), so switching
+// to or from that tab reloads the page into the other world.
+const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+let homeTab = WARS ? 'wars' : invited || new URLSearchParams(location.search).get('tab') === 'mp' ? 'mp' : 'campaign';
+G.slot = homeTab;
+const TAB_TEXT = {
+  campaign: 'Shipwrecked on a cursed island. Quest, chop trees, mine stone, craft your gear and grow the town.',
+  wars: 'Two kingdoms, one road. Fight beside your soldiers and kill the enemy king before he kills yours.',
+  mp: 'Play the island together online with up to 7 friends. Host a game or join one with a code.',
+};
+function heroButton(save, id, label) {
+  const C = save ? CLASSES[save.cls] : null;
+  return save ? `<button id="${id}" class="primary"><b>${label}</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : '';
+}
+function setTab(k) {
+  if (k === homeTab) return;
+  if (k === 'wars' && !WARS) { location.href = location.pathname + '?mode=wars'; return; }
+  if (k !== 'wars' && WARS) { location.href = location.pathname + (k === 'mp' ? '?tab=mp' : ''); return; }
+  homeTab = k; $('homeside').innerHTML = ''; title();
+}
 function title() {
-  if (online() && G.mode !== 'game') { if (gameStarted()) charSelect(); else lobby(); return; }
+  if (online() && G.mode !== 'game') { G.slot = 'mp'; if (gameStarted()) charSelect(); else lobby(); return; }
   G.mode = 'title';
+  G.slot = homeTab;
   const save = loadSave();
   const t = $('title');
-  const C = save ? CLASSES[save.cls] : null;
-  const camp = homeTab === 'campaign';
+  const side = $('homeside')?.innerHTML || '';
+  const tab = (k, n) => `<button id="t${k}" role="tab" aria-selected="${homeTab === k}" class="${homeTab === k ? 'on' : ''}">${n}</button>`;
+  let body = '';
+  if (homeTab === 'campaign') body = `${heroButton(save, 'cont', 'Continue')}
+      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Your campaign hero · one of 16 classes</small></button>`;
+  else if (homeTab === 'wars') body = `${heroButton(save, 'cont', 'To War')}
+      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Your Kingdom Wars hero, separate from the campaign</small></button>`;
+  else body = `${save ? `<div class="wars"><b>${esc(save.name || 'Castaway')}</b><span class="pill">${CLASSES[save.cls]?.name || 'Adventurer'} · Level ${save.level}</span><p>Your multiplayer hero. You can also make one in the lobby.</p></div>` : ''}
+      <button id="ohost" class="primary"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
+      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>
+      <button id="newg"><b>New Character</b><small>Your multiplayer hero, separate from the other tabs</small></button>`;
   t.innerHTML = `<div class="home">
-    <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>Shipwrecked on a cursed island. Fight, gather, craft, and break the Corruption.</p></div>
+    <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>${TAB_TEXT[homeTab]}</p></div>
     <nav>
-      <div class="htabs" role="tablist">
-        <button id="tcamp" role="tab" aria-selected="${camp}" class="${camp ? 'on' : ''}">Campaign</button>
-        <button id="twars" role="tab" aria-selected="${!camp}" class="${camp ? '' : 'on'}">Kingdom Wars</button>
-      </div>
-      ${camp ? `
-      ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
-      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
-      <button id="ohost"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
-      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>` : `
-      <div class="wars"><b>Kingdom Wars</b><span class="pill">Coming soon</span>
-        <p>Raise a kingdom, muster an army and march on your friends' realms. Kingdom against kingdom, online.</p></div>`}
+      <div class="htabs" role="tablist">${tab('campaign', 'Campaign')}${tab('wars', 'Kingdom Wars')}${tab('mp', 'Multiplayer')}</div>
+      ${body}
       <div class="hrow">
         <button id="sett" title="Mouse, view, graphics, sound">Settings</button>
         <button id="fs" title="Or press F11 at any time">${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</button>
         <button id="ctrl">Controls</button>
       </div>
     </nav>
-    <div id="homeside"></div>
+    <div id="homeside">${side}</div>
     <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
   t.style.display = 'block';
-  $('tcamp').onclick = () => { if (!camp) { homeTab = 'campaign'; title(); } };
-  $('twars').onclick = () => { if (camp) { homeTab = 'wars'; title(); } };
-  if (camp) {
-    if (save) $('cont').onclick = () => { initAudio(); play(save); };
-    $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  for (const k of ['campaign', 'wars', 'mp']) $('t' + k).onclick = () => setTab(k);
+  if ($('cont')) $('cont').onclick = () => { initAudio(); play(save); };
+  $('newg').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${{ campaign: 'campaign', wars: 'Kingdom Wars', mp: 'multiplayer' }[homeTab]} character? Your current one on this tab will be replaced.`)) return; creator(); };
+  if (homeTab === 'mp') {
     $('ohost').onclick = () => { initAudio(); hostNow(); };
     $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
-    if (invited && !online()) joinPanel(invited);
+    if (invited && !online() && !side) joinPanel(invited);
   }
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
@@ -374,7 +397,6 @@ function title() {
 
 // ---------- Online: host or join on the main menu -> lobby with code and chat -> host presses Play Game ->
 // everyone picks or creates a character -> into the world together ----------
-const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
 const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
 const saveName = () => loadSave()?.name || '';
 function play(profile) { enterGame(profile); }
@@ -383,6 +405,7 @@ setLobbyHooks(
   () => { if (G.mode === 'lobby') charSelect(); },
 );
 function joinPanel(code = '') {
+  G.slot = 'mp';
   $('homeside').innerHTML = `<div class="mpcard"><h3>Join Game</h3>
     <p class="dim">Ask the host for their 4-letter game code.</p>
     <label class="mpfield"><span>Your name</span><input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
@@ -402,6 +425,7 @@ function joinPanel(code = '') {
   (code ? $('ojoin') : $('ocode')).focus();
 }
 function hostNow() {
+  G.slot = 'mp';
   $('homeside').innerHTML = `<div class="mpcard"><h3>Host Game</h3><p id="ostat" class="mpstat"><span class="spin"></span> Creating your game…</p></div>`;
   setLobbyName(saveName() || 'Host');
   hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
@@ -494,7 +518,8 @@ export function controlsHtml() {
     <tr><td>Wheel</td><td>Zoom (all the way in for first person)</td><td>F11</td><td>Full screen</td></tr>
     <tr><td>I</td><td>Inventory</td><td>P</td><td>Character</td></tr>
     <tr><td>C</td><td>Character</td><td>J</td><td>Journal</td></tr>
-    <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr></table>`;
+    <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr>
+    <tr><td>B</td><td>Kingdom Wars: recruit soldiers</td><td>G</td><td>Kingdom Wars: advance / hold the gate</td></tr></table>`;
 }
 export function settingsHtml() {
   return `<div class="card settings"><h3>Settings</h3>
@@ -614,6 +639,7 @@ function creator() {
     if (C2.start2) { p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 }); if (C2.model2) p.equip.w2.model = C2.model2; }
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
+    if (G.slot === 'mp' && !online()) { try { localStorage.setItem(saveKey(), JSON.stringify(p)); } catch (e) { /* blocked */ } title(); return; }
     play(p);
   };
 }
@@ -636,6 +662,7 @@ function enterGame(profile) {
   if (S.autoFS && !document.fullscreenElement) toggleFullscreen();
   createPlayer();
   initUI();
+  if (WARS) { startWars(); $('tracker').style.display = 'none'; }
   fillBounties();
   refreshHud(); refreshTracker();
   $('hud').style.display = 'block';
@@ -643,7 +670,7 @@ function enterGame(profile) {
   G.relock();
   initChat(); hello();
   if (online()) setTimeout(() => toast(`Online game <b>${onlineCode()}</b>: ${partySize()} in the party. Press <kbd>Enter</kbd> to chat.`, 'gold'), 1500);
-  if (profile.story.step === 0) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
+  if (profile.story.step === 0 && !WARS) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
   if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>K</kbd> to see your abilities.`, 'gold'), 2500);
 }
 
@@ -672,6 +699,7 @@ function loop() {
       updatePlayer(dt);
       updateSkills(dt);
       updatePets(dt, spellPower);
+      if (WARS) updateWars(dt);
       updateCamps(dt);
       updateEnemies(dt);
       updateProjectiles(dt);
@@ -719,8 +747,9 @@ function loop() {
     updateSky(G.paused ? 0 : dt, center);
     updateWorld(dt, P.pos.x, P.pos.z, t);
     const zn = zoneAt(P.pos.x, P.pos.z);
-    scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : zn === 'frost' ? 50 : 70) * G.Q.view;
-    scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : zn === 'frost' ? 240 : 330) * G.Q.view;
+    if (WARS) { scene.fog.near = 120; scene.fog.far = 385; } // the other town is only just in sight down the road
+    else scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : zn === 'frost' ? 50 : 70) * G.Q.view;
+    if (!WARS) scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : zn === 'frost' ? 240 : 330) * G.Q.view;
     if (G.night > 0.5) scene.fog.far *= 0.8;
     updateHud(dt);
   } else {
@@ -737,17 +766,25 @@ function loop() {
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;
-      camera.position.set(Math.cos(a) * 95, 42 + Math.sin(t * 0.1) * 6, Math.sin(a) * 95);
-      camera.lookAt(Math.cos(a + 0.9) * 20, 8, Math.sin(a + 0.9) * 20);
-      center.set(Math.cos(a) * 60, 3, Math.sin(a) * 60);
+      if (WARS) {
+        // drift down the road from above the blue gate, looking toward the red town
+        const x = -120 + Math.sin(t * 0.03) * 60;
+        camera.position.set(x, 30 + Math.sin(t * 0.1) * 4, 34);
+        camera.lookAt(x + 90, 4, 0);
+        center.set(x + 40, 3, 0);
+      } else {
+        camera.position.set(Math.cos(a) * 95, 42 + Math.sin(t * 0.1) * 6, Math.sin(a) * 95);
+        camera.lookAt(Math.cos(a + 0.9) * 20, 8, Math.sin(a + 0.9) * 20);
+        center.set(Math.cos(a) * 60, 3, Math.sin(a) * 60);
+      }
     }
     updateSky(dt, center);
     updateWorld(dt, center.x, center.z, t);
     scene.fog.near = 90; scene.fog.far = 420;
   }
   // ambience
-  if (G.flag) G.flag.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
-  if (G.flame) { G.flame.scale.set(1 + Math.sin(t * 13) * 0.12, 1 + Math.sin(t * 9) * 0.2, 1 + Math.cos(t * 11) * 0.12); }
+  for (const f of G.flags || []) f.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
+  for (const f of G.flames || []) f.scale.set(1 + Math.sin(t * 13) * 0.12, 1 + Math.sin(t * 9) * 0.2, 1 + Math.cos(t * 11) * 0.12);
   for (const tr of G.torches || []) tr.flame.scale.set(1 + Math.sin(t * 12 + tr.flame.id) * 0.15, 1 + Math.sin(t * 9 + tr.flame.id) * 0.25, 1);
   if (G.crystal) { G.crystal.rotation.y = t * 0.6; G.crystal.position.y = 3.4 + Math.sin(t * 1.5) * 0.3; }
   if (G.water) G.water.position.y = -0.15 + Math.sin(t * 0.6) * 0.06;

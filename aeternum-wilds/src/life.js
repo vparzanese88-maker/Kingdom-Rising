@@ -1,7 +1,7 @@
 // Ambient life: birds, butterflies, fireflies, wildlife, villagers, chimney smoke, embers and dust.
 import * as THREE from 'three';
 import { G } from './state.js';
-import { heightAt, zoneAt, walkable, collide } from './world.js';
+import { heightAt, zoneAt, walkable, collide, TOWNS, townPt, inTown, WARS } from './world.js';
 import { makeHumanoid, makeBeast, box, mat } from './models.js';
 import { animHumanoid, animBeast } from './anim.js';
 import { angDiff } from './util.js';
@@ -121,7 +121,7 @@ function makeCritters() {
     const a = R() * 6.28, r = 50 + R() * 220;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const zn = zoneAt(x, z);
-    if (zn === 'ruins' || zn === 'mire' || heightAt(x, z) < 0.8) continue;
+    if (zn === 'ruins' || zn === 'mire' || heightAt(x, z) < 0.8 || inTown(x, z, 4)) continue;
     const deer = R() < 0.45;
     const m = deer ? makeBeast('wolf', { color: 0x9a6a3a, size: 1.25, eyes: 0x1a1a1a }) : makeRabbit();
     if (deer) { const ant = mat(0x6a5038); for (const s of [1, -1]) { const p = box(0.05, 0.45, 0.05, ant, s * 0.12, 0.45, 0); p.rotation.z = -s * 0.4; m.parts.head.add(p); const q = box(0.04, 0.2, 0.04, ant, s * 0.2, 0.55, 0.05); q.rotation.z = -s * 1.1; m.parts.head.add(q); } m.parts.tail.scale.set(1, 1, 0.3); }
@@ -165,12 +165,14 @@ function updateCritters(dt) {
 const SPOTS = [[0, 12], [10, 4], [-8, 6], [12, -10], [-12, -10], [-12, 12], [14, 16], [0, -18], [20, 0], [-20, -2], [6, 26], [-6, -28], [0, 30]];
 function makeVillagers() {
   const shirts = [0x6a3a2a, 0x2a4a6a, 0x5a6a3a, 0x7a6a4a, 0x8a2a3a, 0x4a3a5a];
-  for (let i = 0; i < 9; i++) {
+  const per = WARS ? 5 : 9;
+  for (let i = 0; i < per * TOWNS.length; i++) {
+    const T = TOWNS[Math.floor(i / per)], spots = SPOTS.map(([lx, lz]) => townPt(T, lx, lz));
     const fem = i % 2 === 1;
     const h = makeHumanoid({ sex: fem ? 'f' : 'm', skin: [0xf1c9a5, 0xe0ac84, 0xc68b5e, 0x8d5a3b][i % 4], shirt: shirts[i % shirts.length], pants: 0x3a3022, hair: [0x2a1a10, 0x5a3a1e, 0xa8743a, 0x9a9a9a][i % 4], hairStyle: fem ? 5 + (i % 2) : i % 3, facialHair: fem ? 0 : i % 5 });
-    const [x, z] = SPOTS[i];
+    const [x, z] = spots[i % per];
     G.scene.add(h.root);
-    villagers.push({ h, x, z, f: 0, ph: 0, wait: R() * 5, tgt: SPOTS[(i + 3) % SPOTS.length] });
+    villagers.push({ h, x, z, f: 0, ph: 0, wait: R() * 5, spots, tgt: spots[(i + 3) % spots.length] });
   }
 }
 function updateVillagers(dt) {
@@ -182,11 +184,11 @@ function updateVillagers(dt) {
     if (v.wait > 0) v.wait -= dt;
     else {
       const dx = v.tgt[0] - v.x, dz = v.tgt[1] - v.z, d = Math.hypot(dx, dz);
-      if (d < 0.6) { v.wait = 3 + R() * 8; v.tgt = SPOTS[Math.floor(R() * SPOTS.length)]; }
+      if (d < 0.6) { v.wait = 3 + R() * 8; v.tgt = v.spots[Math.floor(R() * v.spots.length)]; }
       else {
         const nx = v.x + dx / d * 1.7 * dt, nz = v.z + dz / d * 1.7 * dt;
         [v.x, v.z] = collide(nx, nz, 0.4);
-        if (Math.hypot(v.x - nx, v.z - nz) > 0.05) v.tgt = SPOTS[Math.floor(R() * SPOTS.length)];
+        if (Math.hypot(v.x - nx, v.z - nz) > 0.05) v.tgt = v.spots[Math.floor(R() * v.spots.length)];
         v.f += angDiff(v.f, Math.atan2(dx, dz)) * Math.min(1, dt * 6);
         v.ph += dt * 1.7 * 1.6; moving = true;
       }
@@ -202,7 +204,7 @@ function updateVillagers(dt) {
 // ---------- chimney smoke ----------
 const smokeGeo = new THREE.IcosahedronGeometry(0.5, 0);
 function addSmokeSources() {
-  for (const [x, z, h] of [[-24 + 2.6, -20 - 0.6, 7.5], [24 + 2.1, -22 - 0.6, 7.5], [-26 + 2.1, 4 - 0.6, 7.5], [26 + 2.6, 20 - 0.6, 7.5], [-20 + 2.1, 26 - 0.6, 7.5], [-14, -12, 6], [14, -12, 6.5]]) smokeSrc.push({ x, z, y: 2.4 + h, t: R() });
+  for (const [x, z, h] of [[-24 + 2.6, -20 - 0.6, 7.5], [24 + 2.1, -22 - 0.6, 7.5], [-26 + 2.1, 4 - 0.6, 7.5], [26 + 2.6, 20 - 0.6, 7.5], [-20 + 2.1, 26 - 0.6, 7.5], [-14, -12, 6], [14, -12, 6.5]]) for (const T of TOWNS) { const [wx, wz] = townPt(T, x, z); smokeSrc.push({ x: wx, z: wz, y: 2.4 + h, t: R() }); }
 }
 function updateSmoke(dt) {
   const P = G.player || { pos: G.camera.position };

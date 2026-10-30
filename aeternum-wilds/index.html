@@ -40,7 +40,7 @@ small { font-size: 12px; }
 #loading { font-family: Cinzel, serif; font-size: 26px; color: var(--gold2); background: #0d0b08; }
 #death { flex-direction: column; background: rgba(40,0,0,.55); }
 #death h1 { font-size: 64px; color: #e04a3a; margin: 0 0 18px; text-shadow: 0 4px 20px #000; }
-#victory .scroll { background: var(--bg); border: 1px solid var(--gold); padding: 30px 40px; max-width: 640px; text-align: center; border-radius: 4px; }
+#victory .scroll, #warsend .scroll { background: var(--bg); border: 1px solid var(--gold); padding: 30px 40px; max-width: 640px; text-align: center; border-radius: 4px; }
 #victory h1 { color: var(--gold2); font-size: 44px; margin: 0 0 10px; }
 .vstats { color: var(--gold2); }
 
@@ -225,6 +225,16 @@ table.keys { width: 100%; font-size: 14px; border-collapse: collapse; } table.ke
 .home .htabs button { flex: 1; padding: 8px 10px; text-align: center; font: 700 15px Cinzel, serif; letter-spacing: .06em; border-left-width: 1px; color: #cfc4a8; }
 .home .htabs button.on { color: var(--gold2); border-color: var(--gold); border-bottom: 3px solid var(--gold); background: rgba(50,36,16,.92); }
 .home .hrow { display: flex; gap: 4px; } .home .hrow button { flex: 1; padding: 8px 6px; text-align: center; font-size: 15px; border-left-width: 1px; }
+#warshud { position: absolute; top: 40px; left: 12px; display: flex; flex-direction: column; gap: 6px; width: 190px; pointer-events: none; font-family: 'EB Garamond', serif; }
+#warshud > div { background: rgba(14,10,6,.78); border: 1px solid #5a4828; padding: 6px 12px; min-width: 150px; text-align: center; }
+#warshud b { display: block; font: 700 14px Cinzel, serif; letter-spacing: .04em; } #warshud small { display: block; color: #cfc4a8; font-size: 13px; }
+#warshud .wk.blue b { color: #8ab4ff; } #warshud .wk.red b { color: #ff8a7a; } #warshud .wmid b { color: var(--gold2); }
+#warshud .kb { display: block; height: 8px; margin: 4px 0; background: rgba(0,0,0,.6); border: 1px solid #000; } #warshud .kb i { display: block; height: 100%; }
+#warshud .blue .kb i { background: #3a7ae0; } #warshud .red .kb i { background: #d0352a; }
+#warshud kbd { font-size: 11px; }
+#warsend { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 60; background: rgba(0,0,0,.5); }
+#warsend .row { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.plate.pet.king .pn { color: #ffe08a; font-weight: 700; }
 .home .wars { padding: 12px 18px; background: rgba(20,15,9,.78); border: 1px solid #5a4828; border-left: 3px solid var(--gold); }
 .home .wars b { font-size: 19px; margin-right: 8px; } .home .wars p { margin: 6px 0 0; color: #cfc4a8; font-family: 'EB Garamond', serif; font-size: 15px; }
 .home footer { position: absolute; left: 6vw; bottom: 3vh; color: #b8ac90; font-size: 15px; }
@@ -488,46 +498,47 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793399441",
-"./src/audio.js": "./src/audio.js?v=1793399441",
-"./src/classes.js": "./src/classes.js?v=1793399441",
-"./src/combatfx.js": "./src/combatfx.js?v=1793399441",
-"./src/data.js": "./src/data.js?v=1793399441",
-"./src/enemies.js": "./src/enemies.js?v=1793399441",
-"./src/fx.js": "./src/fx.js?v=1793399441",
-"./src/items.js": "./src/items.js?v=1793399441",
-"./src/life.js": "./src/life.js?v=1793399441",
-"./src/main.js": "./src/main.js?v=1793399441",
-"./src/models.js": "./src/models.js?v=1793399441",
-"./src/net.js": "./src/net.js?v=1793399441",
-"./src/online.js": "./src/online.js?v=1793399441",
-"./src/pets.js": "./src/pets.js?v=1793399441",
-"./src/player.js": "./src/player.js?v=1793399441",
-"./src/quests.js": "./src/quests.js?v=1793399441",
-"./src/skills.js": "./src/skills.js?v=1793399441",
-"./src/spellfx.js": "./src/spellfx.js?v=1793399441",
-"./src/state.js": "./src/state.js?v=1793399441",
-"./src/stats.js": "./src/stats.js?v=1793399441",
-"./src/ui.js": "./src/ui.js?v=1793399441",
-"./src/util.js": "./src/util.js?v=1793399441",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793399441",
-"./src/world.js": "./src/world.js?v=1793399441",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793399441",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793399441",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793399441",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793399441",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793399441",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793399441",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793399441",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793399441",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793399441",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793399441",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793399441",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793399441"
+"./src/anim.js": "./src/anim.js?v=1793400742",
+"./src/audio.js": "./src/audio.js?v=1793400742",
+"./src/classes.js": "./src/classes.js?v=1793400742",
+"./src/combatfx.js": "./src/combatfx.js?v=1793400742",
+"./src/data.js": "./src/data.js?v=1793400742",
+"./src/enemies.js": "./src/enemies.js?v=1793400742",
+"./src/fx.js": "./src/fx.js?v=1793400742",
+"./src/items.js": "./src/items.js?v=1793400742",
+"./src/life.js": "./src/life.js?v=1793400742",
+"./src/main.js": "./src/main.js?v=1793400742",
+"./src/models.js": "./src/models.js?v=1793400742",
+"./src/net.js": "./src/net.js?v=1793400742",
+"./src/online.js": "./src/online.js?v=1793400742",
+"./src/pets.js": "./src/pets.js?v=1793400742",
+"./src/player.js": "./src/player.js?v=1793400742",
+"./src/quests.js": "./src/quests.js?v=1793400742",
+"./src/skills.js": "./src/skills.js?v=1793400742",
+"./src/spellfx.js": "./src/spellfx.js?v=1793400742",
+"./src/state.js": "./src/state.js?v=1793400742",
+"./src/stats.js": "./src/stats.js?v=1793400742",
+"./src/ui.js": "./src/ui.js?v=1793400742",
+"./src/util.js": "./src/util.js?v=1793400742",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793400742",
+"./src/wars.js": "./src/wars.js?v=1793400742",
+"./src/world.js": "./src/world.js?v=1793400742",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793400742",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793400742",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793400742",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793400742",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793400742",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793400742",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793400742",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793400742",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793400742",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793400742",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793400742",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793400742"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793399441"></script>
+<script type="module" src="./src/main.js?v=1793400742"></script>
 </body>
 </html>

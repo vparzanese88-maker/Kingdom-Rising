@@ -98,7 +98,7 @@ export function thorneDialog() {
 }
 
 // ---------- Bounties ----------
-const ZONE_ORDER = ['meadow', 'coast', 'thorn', 'mire', 'ruins'];
+const ZONE_ORDER = ['meadow', 'coast', 'thorn', 'mire', 'ruins', 'frost'];
 function zoneForLevel(lv) {
   let best = 'meadow';
   for (const z of ZONE_ORDER) if (ZONES[z].lv[0] <= lv + 1) best = z;

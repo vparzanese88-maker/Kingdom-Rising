@@ -425,6 +425,7 @@ export const ZONES = {
   thorn: { name: 'Thornwood', lv: [7, 12], fog: 0x8fa58a, enemies: ['direwolf', 'direwolf', 'lost', 'lostArcher', 'bear', 'tiger'] },
   mire: { name: 'Mirefen', lv: [11, 16], fog: 0x6f8a70, enemies: ['withered', 'mirehound', 'withered', 'spitter'] },
   ruins: { name: 'Ashen Ruins', lv: [16, 22], fog: 0x8a6a62, enemies: ['corrupted', 'brute', 'corruptArcher', 'corrupted'] },
+  frost: { name: 'Frostspire Peaks', lv: [22, 30], fog: 0xd6e4ee, enemies: ['frostwolf', 'frostwolf', 'icebear', 'rimeguard', 'frostcaster', 'rimeguard'] },
 };
 
 // ---- Enemies ----
@@ -452,6 +453,13 @@ export const ATTACKS = {
   wardenCharge: { kind: 'charge', windup: 1.0, dist: 18, width: 3.2, dmg: 1.5, cd: 9, min: 6 },
   wardenMeteors: { kind: 'aoe', at: 'target', count: 4, spread: 6, windup: 1.4, radius: 3, dmg: 1.4, cd: 10, color: 0xff3a2a },
   wardenSummon: { kind: 'summon', what: 'corrupted', n: 3, cd: 25, windup: 1.2 },
+  // Frostspire Peaks
+  frostBolt: { kind: 'proj', windup: 0.7, speed: 20, dmg: 1.1, cd: 2.2, range: 22, color: 0x9adfff },
+  frostNova: { kind: 'aoe', at: 'target', windup: 1.1, radius: 3.6, dmg: 1.4, cd: 5, color: 0x9adfff },
+  titanStomp: { kind: 'aoe', at: 'self', windup: 1.3, radius: 7.5, dmg: 1.9, cd: 6.5, color: 0x9adfff },
+  titanSweep: { kind: 'cone', windup: 0.9, range: 7.5, arc: 160, dmg: 1.4, cd: 3 },
+  titanHail: { kind: 'aoe', at: 'target', count: 5, spread: 7, windup: 1.4, radius: 3, dmg: 1.3, cd: 9, color: 0xbfe8ff },
+  titanSummon: { kind: 'summon', what: 'rimeguard', n: 2, cd: 24, windup: 1.2 },
 };
 
 export const ENEMIES = {
@@ -459,6 +467,11 @@ export const ENEMIES = {
   boar: { name: 'Wild Boar', model: 'boar', color: 0x5a4030, hp: 95, dmg: 14, speed: 5.4, attacks: ['bite', 'gore'], family: 'beast', skin: true, size: 1, passive: true },
   bear: { name: 'Brown Bear', model: 'wolf', creature: 'bear', color: 0x5a3a22, hp: 240, dmg: 21, speed: 5.6, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1, thick: true, radius: 0.95 },
   tiger: { name: 'Sabre Tiger', model: 'wolf', creature: 'tiger', color: 0xc07a30, hp: 150, dmg: 18, speed: 7.6, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1, radius: 0.8 },
+  frostwolf: { name: 'Frost Wolf', model: 'wolf', creature: 'wolf', tint: 0xd8e8ff, color: 0xc8d8e8, hp: 120, dmg: 18, speed: 8.2, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.2, thick: true },
+  icebear: { name: 'Frost Bear', model: 'wolf', creature: 'bear', tint: 0xe0ecff, color: 0xe8eef8, hp: 330, dmg: 27, speed: 6.2, attacks: ['maul', 'lunge'], family: 'beast', skin: true, size: 1.2, thick: true, radius: 1.1, xpMult: 1.6 },
+  rimeguard: { name: 'Rime Revenant', model: 'humanoid', skin: 0x9ab8d0, shirt: 0x34506e, pants: 0x1e2c3c, eyes: 0x80e8ff, weapon: 'cutlass', hp: 190, dmg: 22, speed: 4.6, attacks: ['slash', 'overhead'], family: 'corrupted', size: 1.15, drops: ['shard'] },
+  frostcaster: { name: 'Rime Witch', model: 'humanoid', skin: 0xb8d0e4, shirt: 0x5a7aa0, pants: 0x2a3a50, eyes: 0xb0f0ff, hat: true, hp: 140, dmg: 20, speed: 4, attacks: ['frostBolt', 'frostNova'], family: 'corrupted', size: 1, ranged: 16, drops: ['shard'] },
+  titan: { name: 'Ymir', title: 'The Frost Titan', model: 'humanoid', skin: 0x8fb0cc, shirt: 0x2a4a6a, pants: 0x18283a, eyes: 0x9af0ff, weapon: 'club', horns: true, hp: 1800, dmg: 30, speed: 4.2, attacks: ['titanSweep', 'titanStomp', 'titanHail', 'frostBolt', 'titanSummon'], family: 'corrupted', size: 3, boss: true, xpMult: 30, drops: ['shard', 'shard', 'shard'] },
   direwolf: { name: 'Dire Wolf', model: 'wolf', creature: 'wolf', tint: 0x6a6460, color: 0x3b3833, hp: 90, dmg: 13, speed: 7, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.3, thick: true },
   lost: { name: 'Lost Sailor', model: 'humanoid', skin: 0x9fb2a5, shirt: 0x3c4f5a, pants: 0x2e2a26, weapon: 'cutlass', hp: 100, dmg: 15, speed: 3.8, attacks: ['slash'], family: 'lost', size: 1, drops: ['bone'] },
   lostArcher: { name: 'Lost Archer', model: 'humanoid', skin: 0x9fb2a5, shirt: 0x5a4a3a, pants: 0x2e2a26, weapon: 'bow', hp: 70, dmg: 14, speed: 3.6, attacks: ['arrow'], ranged: 13, family: 'lost', size: 1, drops: ['bone'] },

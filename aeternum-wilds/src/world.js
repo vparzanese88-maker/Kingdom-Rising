@@ -6,18 +6,21 @@ import { mergeStatic, templateParts, mat, box, makeTree, makeRock, makePlant, ma
 
 export const ISLAND_R = 300;
 const TOWN_R = 42, RING_R = 108;
-const SECTORS = { thorn: 0, coast: Math.PI / 2, ruins: Math.PI, mire: -Math.PI / 2 };
+const SECTORS = { thorn: 0, coast: Math.PI / 2, ruins: Math.PI, mire: -Math.PI / 2, frost: -Math.PI / 4 };
+const SECTOR_W = { frost: Math.PI / 3 }; // the peaks are a narrower wedge between Thornwood and Mirefen
 
 export const POI = {
   wreck: { x: 6, z: 252, name: 'The Great Wreck' },
   hut: { x: 0, z: -236, name: 'Hag\'s Hut' },
   shrine: { x: -244, z: 0, name: 'Warden\'s Shrine' },
   lostcamp: { x: 205, z: 30, name: 'Lost Encampment' },
+  peak: { x: 158, z: -158, name: 'Titan\'s Throne' },
 };
 const PADS = [
   { x: POI.wreck.x, z: POI.wreck.z - 6, r: 24, h: 1.4 },
   { x: POI.hut.x, z: POI.hut.z, r: 18, h: 1.0 },
   { x: POI.shrine.x, z: POI.shrine.z, r: 28, h: 3.0 },
+  { x: POI.peak.x, z: POI.peak.z, r: 26, h: 9.5 },
 ];
 
 function coastR(x, z) {
@@ -30,7 +33,7 @@ export function sectorWeights(x, z) {
   const outer = smooth(RING_R - 14, RING_R + 14, r);
   const w = {};
   let sum = 0;
-  for (const k in SECTORS) { const d = Math.abs(angDiff(a, SECTORS[k])); const v = Math.pow(Math.max(0, 1 - d / (Math.PI / 2)), 2.2); w[k] = v; sum += v; }
+  for (const k in SECTORS) { const d = Math.abs(angDiff(a, SECTORS[k])); const v = Math.pow(Math.max(0, 1 - d / (SECTOR_W[k] || Math.PI / 2)), 2.2); w[k] = v; sum += v; }
   for (const k in SECTORS) w[k] = w[k] / sum * outer;
   w.meadow = 1 - outer;
   return w;
@@ -64,6 +67,8 @@ export function heightAt(x, z) {
   h = lerp(h, ruinsH, w.ruins);
   const thornH = 3.0 + fbm(x * 0.016 - 20, z * 0.016, 4) * 5.5;
   h = lerp(h, thornH, w.thorn);
+  // Frostspire Peaks: tall snowy ridges
+  if (w.frost > 0.01) { const ridge = 1 - Math.abs(noise(x * 0.018 + 31, z * 0.018 - 17)); const frostH = 5 + fbm(x * 0.012 + 40, z * 0.012 - 15, 5) * 9 + ridge * ridge * 9; h = lerp(h, frostH, w.frost); }
   // town is flat
   h = lerp(2.4, h, smooth(TOWN_R - 8, TOWN_R + 12, r));
   for (const p of PADS) { const d = Math.hypot(x - p.x, z - p.z); if (d < p.r) h = lerp(p.h, h, smooth(p.r * 0.5, p.r, d)); }
@@ -124,7 +129,7 @@ function groundColor(x, z, h, out) {
   const n = noise(x * 0.15, z * 0.15) * 0.06 + noise(x * 0.02, z * 0.02) * 0.05;
   const cols = {
     meadow: [0.42, 0.62, 0.28], coast: [0.58, 0.64, 0.36], thorn: [0.25, 0.42, 0.21],
-    mire: [0.3, 0.36, 0.22], ruins: [0.42, 0.36, 0.33],
+    mire: [0.3, 0.36, 0.22], ruins: [0.42, 0.36, 0.33], frost: [0.88, 0.92, 0.97],
   };
   let r = 0, g = 0, b = 0;
   for (const k in cols) { r += cols[k][0] * w[k]; g += cols[k][1] * w[k]; b += cols[k][2] * w[k]; }
@@ -137,6 +142,7 @@ function groundColor(x, z, h, out) {
   const sand = smooth(1.3, 0.4, h) * (1 - w.mire * 0.8);
   r = lerp(r, 0.82, sand); g = lerp(g, 0.76, sand); b = lerp(b, 0.55, sand);
   if (h < -0.2) { const t = smooth(-0.2, -3, h); r = lerp(r, 0.5, t); g = lerp(g, 0.55, t); b = lerp(b, 0.45, t); }
+  if (w.frost > 0.35 && noise(x * 0.07 + 9, z * 0.07) > 0.3) { const t = w.frost * 0.75; r = lerp(r, 0.46, t); g = lerp(g, 0.5, t); b = lerp(b, 0.56, t); } // bare rock through the snow
   if (w.ruins > 0.3 && noise(x * 0.08, z * 0.08) > 0.35) { r *= 0.8; g *= 0.6; b *= 0.6; r += 0.12 * w.ruins; }
   out.setRGB(r + n, g + n, b + n * 0.5, THREE.SRGBColorSpace);
 }
@@ -180,7 +186,7 @@ export function buildWorld() {
 
   buildSky();
   const R = rng(4242);
-  const scatter = { oak: [], pine: [], dead: [], willow: [], rock: [], bush: [], aged: [] };
+  const scatter = { oak: [], pine: [], dead: [], willow: [], rock: [], bush: [], aged: [], snowpine: [] };
   const nodes = [];
   // scatter scenery and nodes
   for (let i = 0; i < 12000; i++) {
@@ -228,6 +234,12 @@ export function buildWorld() {
       else if (roll < 0.107) nodes.push(['starmetal', x, z]);
       else if (roll < 0.114) nodes.push(['hemp', x, z]);
       else if (roll < 0.15) scatter.bush.push([x, z, s, rot]);
+    } else if (zn === 'frost') {
+      if (roll < 0.12) scatter.snowpine.push([x, z, s * 1.2, rot]);
+      else if (roll < 0.135) scatter.dead.push([x, z, s, rot]);
+      else if (roll < 0.15) nodes.push(['orichalcum', x, z]);
+      else if (roll < 0.158) nodes.push(['starmetal', x, z]);
+      else if (roll < 0.19) scatter.rock.push([x, z, s * 1.5, rot]);
     } else if (zn === 'ruins') {
       if (roll < 0.06) scatter.dead.push([x, z, s, rot]);
       else if (roll < 0.072) nodes.push(['wyrd_tree', x, z]);
@@ -239,6 +251,7 @@ export function buildWorld() {
   }
   instance(makeTree('oak'), scatter.oak, 0.5);
   instance(makeTree('pine'), scatter.pine, 0.45);
+  instance(makeTree('snowpine'), scatter.snowpine, 0.45);
   instance(makeTree('aged'), scatter.aged, 0.5);
   instance(makeTree('dead'), scatter.dead, 0.35);
   instance(makeTree('willow'), scatter.willow, 0.6);
@@ -430,7 +443,35 @@ function layoutGrass(px, pz) {
 }
 
 // per-frame scenery animation
+// falling snow around the camera in Frostspire Peaks
+let snow = null, snowK = 0;
+function updateSnow(dt, px, pz) {
+  const want = sectorWeights(px, pz).frost > 0.45 ? 1 : 0;
+  snowK += (want - snowK) * Math.min(1, dt * 0.8);
+  if (!snow) {
+    if (snowK < 0.01) return;
+    const N = 2200, pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 70; pos[i * 3 + 1] = Math.random() * 30; pos[i * 3 + 2] = (Math.random() - 0.5) * 70; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    snow = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.14, transparent: true, opacity: 0, depthWrite: false }));
+    snow.frustumCulled = false;
+    G.scene.add(snow);
+  }
+  snow.material.opacity = 0.85 * snowK;
+  snow.visible = snowK > 0.01;
+  if (!snow.visible) return;
+  const a = snow.geometry.getAttribute('position'), base = heightAt(px, pz);
+  snow.position.set(px, base, pz);
+  for (let i = 0; i < a.count; i++) {
+    let y = a.getY(i) - dt * (1.6 + (i % 5) * 0.25);
+    let x = a.getX(i) + Math.sin(i + y * 0.5) * dt * 0.6;
+    if (y < -2) y += 32;
+    a.setXY(i, x, y);
+  }
+  a.needsUpdate = true;
+}
 export function updateWorld(dt, px, pz, t) {
+  updateSnow(dt, px, pz);
   if (grassMesh) {
     grassUniforms.time.value = t;
     const k = Math.floor(px / GRASS_CELL) + ',' + Math.floor(pz / GRASS_CELL);
@@ -733,10 +774,13 @@ function buildCamps(R) {
   tryPlace('thorn', 17, RING_R + 4, ISLAND_R - 14);
   tryPlace('mire', 17, RING_R + 4, ISLAND_R - 14);
   tryPlace('ruins', 18, RING_R + 4, ISLAND_R - 14);
+  tryPlace('frost', 14, RING_R + 10, ISLAND_R - 14);
   // special camps
   G.camps.push({ x: POI.lostcamp.x, z: POI.lostcamp.z, zone: 'thorn', slots: ['lost', 'lost', 'lostArcher', 'lost', 'lostArcher'].map(t => ({ type: t, dead: 0, ent: null })), radius: 7 });
   G.camps.push({ x: POI.wreck.x, z: POI.wreck.z - 4, zone: 'coast', lv: 9, boss: true, slots: [{ type: 'grimsby', dead: 0, ent: null }], radius: 2 });
   G.camps.push({ x: POI.hut.x, z: POI.hut.z, zone: 'mire', lv: 15, boss: true, slots: [{ type: 'hag', dead: 0, ent: null }], radius: 2 });
+  G.camps.push({ x: POI.peak.x, z: POI.peak.z, zone: 'frost', lv: 30, boss: true, slots: [{ type: 'titan', dead: 0, ent: null }], radius: 2 });
+  for (const [dx, dz] of [[14, 6], [-10, 12], [6, -14]]) G.camps.push({ x: POI.peak.x + dx, z: POI.peak.z + dz, zone: 'frost', lv: 28, slots: ['rimeguard', 'frostcaster', 'frostwolf'].map(t => ({ type: t, dead: 0, ent: null })), radius: 5 });
   G.camps.push({ x: POI.shrine.x, z: POI.shrine.z, zone: 'ruins', lv: 24, boss: true, slots: [{ type: 'warden', dead: 0, ent: null }], radius: 2 });
   // guards near the shrine
   for (const [dx, dz] of [[30, -14], [30, 14], [18, 26], [18, -26]])

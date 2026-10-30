@@ -420,7 +420,14 @@ function blob(r, m, x, y, z, sy = 1, det = 1) {
 }
 export function makeTree(kind = 'oak', scale = 1) {
   const g = new THREE.Group();
-  if (kind === 'pine') {
+  if (kind === 'snowpine') {
+    const t = cyl(0.16, 0.3, 2.6, mat(0x4a3424), 7); t.position.y = 1.3; g.add(t);
+    const lm = mat(0x2a4a34), snow = mat(0xeef4fa);
+    for (let i = 0; i < 5; i++) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(1.9 - i * 0.34, 1.6, 8), lm); c.position.y = 2.0 + i * 0.85; c.rotation.y = i; c.castShadow = true; g.add(c);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(1.5 - i * 0.28, 0.7, 8), snow); cap.position.y = 2.55 + i * 0.85; cap.rotation.y = i; g.add(cap);
+    }
+  } else if (kind === 'pine') {
     const t = cyl(0.16, 0.3, 2.6, mat(0x4a3424), 7); t.position.y = 1.3; g.add(t);
     const lm = mat(0x2f5a32), lm2 = mat(0x274d2b);
     for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(1.9 - i * 0.34, 1.6, 8), i % 2 ? lm2 : lm); c.position.y = 2.0 + i * 0.85; c.rotation.y = i; c.castShadow = true; g.add(c); }

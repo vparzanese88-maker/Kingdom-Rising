@@ -649,7 +649,7 @@ function openMap() {
   ctx.drawImage(mapImg.canvas, 0, 0, W, W);
   const span = mapImg.span, toS = (x, z) => [(x / span + 0.5) * W, (z / span + 0.5) * W];
   ctx.font = 'bold 15px Cinzel, serif'; ctx.textAlign = 'center';
-  const labels = [['meadow', 0, 75], ['coast', 0, 190], ['thorn', 195, 0], ['mire', 0, -195], ['ruins', -195, 0]];
+  const labels = [['meadow', 0, 75], ['coast', 0, 190], ['thorn', 205, 40], ['mire', -30, -205], ['ruins', -195, 0], ['frost', 150, -150]];
   for (const [z, x, y] of labels) {
     const [sx, sy] = toS(x, y);
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText(ZONES[z].name, sx + 1, sy + 1);

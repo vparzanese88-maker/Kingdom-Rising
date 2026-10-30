@@ -842,6 +842,7 @@ const ZONES = {
   thorn: { shift: -2, dark: 0.4, modes: { dorian: 'aeolian' } },
   mire: { shift: -1, eerie: true, modes: { dorian: 'phrygian', aeolian: 'phrygian', ionian: 'mixolydian' } },
   ruins: { shift: -4, dark: 1, modes: { dorian: 'harmonic', aeolian: 'harmonic' } },
+  frost: { shift: 3, airy: true, dark: 0.5, modes: { ionian: 'lydian', dorian: 'aeolian' } },
 };
 let musicZone = 'meadow';
 let curState = 'none', baseState = 'explore';
@@ -1244,7 +1245,7 @@ const EVENTS = {
 function ambTargets(w) {
   const z = w.zone || 'meadow', n = !!w.night, town = !!w.inTown || z === 'town';
   return {
-    wind: (z === 'coast' ? 0.9 : z === 'ruins' ? 0.85 : z === 'thorn' ? 0.5 : z === 'mire' ? 0.35 : town ? 0.25 : 0.4) * (n ? 0.85 : 1),
+    wind: (z === 'frost' ? 1.2 : z === 'coast' ? 0.9 : z === 'ruins' ? 0.85 : z === 'thorn' ? 0.5 : z === 'mire' ? 0.35 : town ? 0.25 : 0.4) * (n ? 0.85 : 1),
     birds: !n && !town ? (z === 'ruins' ? 0.2 : z === 'mire' ? 0.45 : z === 'coast' ? 0.55 : 1) : 0,
     crickets: n ? (town ? 0.45 : z === 'coast' ? 0.4 : z === 'ruins' ? 0.5 : 1) : 0,
     sea: z === 'coast' ? 1 : 0,

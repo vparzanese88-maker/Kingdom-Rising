@@ -704,8 +704,8 @@ function loop() {
     updateSky(G.paused ? 0 : dt, center);
     updateWorld(dt, P.pos.x, P.pos.z, t);
     const zn = zoneAt(P.pos.x, P.pos.z);
-    scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : 70) * G.Q.view;
-    scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : 330) * G.Q.view;
+    scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : zn === 'frost' ? 50 : 70) * G.Q.view;
+    scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : zn === 'frost' ? 240 : 330) * G.Q.view;
     if (G.night > 0.5) scene.fog.far *= 0.8;
     updateHud(dt);
   } else {

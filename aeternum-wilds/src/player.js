@@ -93,20 +93,18 @@ export function armCharacter(h, w, other) {
     if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier, other.shield); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
   }
-  for (const k of ['wR', 'wL']) if (h[k]) h[k].userData.rx0 = h[k].rotation.x;
-  if (h.wL && SHIELD_WEAPONS.has(w?.wtype)) h.wL.userData.rx0 = null; // shields stay put
   h.carryTwo = w && (w.wtype === 'greataxe' || w.wtype === 'hammer');
+  h.carryDual = w && (w.wtype === 'hatchets' || w.wtype === 'rapier');
+  h.carryOn = w && !RANGED_WEAPONS.has(w.wtype) && w.wtype !== 'fists' && w.wtype !== 'staff';
 }
-// out of combat the weapon is carried, not pointed: swords held upright, big axes and hammers resting
-// head-down in front; any combat pose snaps it back to the fighting grip
+// out of combat the weapon is carried, not pointed: the wrist cocks swords upright and lets big axes and
+// hammers rest head-down in front; any combat pose straightens it to the fighting grip
 const CARRY_POSES = new Set([null, undefined, 'hop', 'jump', 'swap']);
 export function carryWeapon(h, pose, dt) {
-  for (const k of ['wR', 'wL']) {
-    const w = h[k];
-    if (!w || w.userData.rx0 == null || Math.abs(w.userData.rx0 - Math.PI / 2) > 0.01) continue; // melee grips only
-    const want = w.userData.rx0 + (CARRY_POSES.has(pose) ? (h.carryTwo ? 0.95 : -0.95) : 0);
-    w.rotation.x += (want - w.rotation.x) * Math.min(1, dt * (CARRY_POSES.has(pose) ? 6 : 30));
-  }
+  const want = h.carryOn && CARRY_POSES.has(pose) ? (h.carryTwo ? 0.75 : -0.85) : 0;
+  h.carryA = (h.carryA || 0) + (want - (h.carryA || 0)) * Math.min(1, dt * (want ? 6 : 30));
+  if (h.rig) { h.rig.carry = h.carryA; h.rig.carrySides = h.carryDual ? ['Right', 'Left'] : ['Right']; }
+  else { h.parts.handR.rotation.x = h.carryA; if (h.carryDual) h.parts.handL.rotation.x = h.carryA; }
 }
 const _ws = new THREE.Vector3();
 export function refreshLook() {

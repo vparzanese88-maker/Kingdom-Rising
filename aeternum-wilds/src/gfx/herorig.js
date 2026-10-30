@@ -52,7 +52,7 @@ export function makeRiggedHero(o = {}) {
   // a big, heroic frame: taller than the townsfolk; height, weight and muscle sliders shape him
   // a big, heroic frame. Height scales him evenly (gently, so he never looks stretched);
   // weight and muscle reshape the body below the neck only (see the girth pass below)
-  const BIG = 1.3;
+  const BIG = 1.45;
   const s = (o.size || 1) * BIG * (1 + ((o.height || 1) - 1) * 0.9);
   body.scale.setScalar(s);
   root.updateMatrixWorld(true);
@@ -88,11 +88,11 @@ export function makeRiggedHero(o = {}) {
     const hq = bodyQuat(hand, body, new THREE.Quaternion());
     const hp = bodyPos(hand, body, new THREE.Vector3());
     // in the hanging pose the socket matches the body's orientation; palm a little below the wrist, slightly forward
-    const off = new THREE.Vector3(0, -0.075 / BIG, 0.025 / BIG).applyQuaternion(hq.clone().invert());
+    const off = new THREE.Vector3(0, -0.085, 0.022).applyQuaternion(hq.clone().invert());
     sockInfo[side] = { hand, offQ: hq.clone().invert(), off };
     const sock = new THREE.Group();
     body.add(sock);
-    sock.position.copy(hp).add(new THREE.Vector3(0, -0.075 / BIG, 0.025 / BIG));
+    sock.position.copy(hp).add(new THREE.Vector3(0, -0.085, 0.022));
     sockets[side] = sock;
     bones[side + 'Arm'].quaternion.copy(bind[side + 'Arm']);
   }
@@ -179,6 +179,8 @@ export function makeRiggedHero(o = {}) {
 
   let last = performance.now(), armW = 1;
   const POSED = new Set(['jump', 'slash', 'slash2', 'thrust', 'overhead', 'slam', 'spin', 'draw', 'shoot', 'block', 'gather', 'harvest', 'cast', 'windup', 'aim', 'swap', 'stun', 'hit', 'rifle', 'recoil', 'reload']);
+  const _qc = new THREE.Quaternion(), _xAxis = new THREE.Vector3(1, 0, 0);
+  const rigApi = { apply, mixer, bones, follower, restP, girth, carry: 0, carrySides: ['Right'] };
   function apply(st) {
     const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
     const air = st.pose === 'jump';
@@ -213,6 +215,16 @@ export function makeRiggedHero(o = {}) {
       setBodyQuat(bones[bn], body, _q.multiply(_q2), 1);
       bones[bn].updateMatrixWorld(true);
     }
+    // carrying a weapon out of combat: the wrists bend (the weapon stays in the fist and tilts with it)
+    if (rigApi.carry) {
+      _qc.setFromAxisAngle(_xAxis, rigApi.carry);
+      for (const side of rigApi.carrySides) {
+        const hb = bones[side + 'Hand'];
+        bodyQuat(hb, body, _q);
+        setBodyQuat(hb, body, _q.premultiply(_qc), 1);
+        hb.updateMatrixWorld(true);
+      }
+    }
     updateSockets();
     // standing still: legs from the idle frame, but anim.js's hop/dodge kicks still show
     if (mv < 0.12 && (st.pose === 'hop' || air)) {
@@ -223,6 +235,6 @@ export function makeRiggedHero(o = {}) {
   return {
     root, body, mats: [mat, new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial()],
     parts: { hips: P.hips, upper: P.upper, head: P.head, hair, armR: P.armR, armL: P.armL, handR: sockets.Right, handL: sockets.Left, back: backSock, legR: P.legR, legL: P.legL },
-    size: s, hunched: false, hero: true, rig: { apply, mixer, bones, follower, restP, girth },
+    size: s, hunched: false, hero: true, rig: rigApi,
   };
 }

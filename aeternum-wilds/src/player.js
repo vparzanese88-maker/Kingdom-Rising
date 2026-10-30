@@ -7,6 +7,7 @@ import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat, charHeight, sizeWeapon, TIER_LEN } from './models.js';
 import { animHumanoid } from './anim.js';
 import { dressArmor } from './gfx/armor.js';
+import { spellModelReady, spellBall, spinBall, spellBloom, tickSpellFx } from './gfx/spellfx.js';
 import { WEAPON_MODELS, modelFor } from './gfx/weapons3d.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
@@ -284,6 +285,8 @@ export function spawnProj(o) {
     mesh.add(new THREE.Mesh(tip, mat(0x8a8a90)));
     for (const sgn of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.14), new THREE.MeshLambertMaterial({ color: 0xe8e0d0, side: THREE.DoubleSide })); f.position.set(0, 0, -0.4); f.rotation.set(0, sgn > 0 ? 0 : Math.PI / 2, 0); mesh.add(f); }
   }
+  // spells fly as the sculpted fireball, tinted to their element
+  if ((fire || o.color) && spellModelReady()) { const ball = spellBall(fire ? null : o.color, o.size || 0.25); mesh.add(ball); mesh.userData.ball = ball; }
   if (o.dy == null) o.dy = 0;
   const l = Math.hypot(o.dx, o.dy, o.dz) || 1; o.dx /= l; o.dy /= l; o.dz /= l;
   const g = o.grav ?? (o.color ? (fire ? 5 : 2.5) : ARROW_G);
@@ -305,7 +308,8 @@ export function updateProjectiles(dt) {
     pr.x += pr.v.x * dt; pr.y += pr.v.y * dt; pr.z += pr.v.z * dt;
     pr.dx = pr.v.x; pr.dz = pr.v.z;
     pr.mesh.position.set(pr.x, pr.y, pr.z);
-    if (!pr.color) pr.mesh.lookAt(pr.x + pr.v.x, pr.y + pr.v.y, pr.z + pr.v.z); // arrows nose down as they fall
+    if (!pr.color || pr.mesh.userData.ball) pr.mesh.lookAt(pr.x + pr.v.x, pr.y + pr.v.y, pr.z + pr.v.z); // arrows nose down as they fall; fireballs trail their flames
+    if (pr.mesh.userData.ball) spinBall(pr.mesh.userData.ball, dt, pr.age);
     if (pr.fire) {
       // living flame: flickering core, licks of fire peeling off behind it, a little smoke
       const s = pr.size || 0.25, u = pr.mesh.userData;
@@ -320,7 +324,7 @@ export function updateProjectiles(dt) {
       if (Math.random() < 0.35) puff(pr.x, pr.y, pr.z, 0x2a2420, (Math.random() - 0.5) * 0.4, 1 + Math.random(), (Math.random() - 0.5) * 0.4, 0.8, s * 1.4, 1.6, 1);
       if (Math.random() < 0.5) puff(pr.x, pr.y, pr.z, 0xffd060, (Math.random() - 0.5) * 3, Math.random() * 3, (Math.random() - 0.5) * 3, 0.5, 0.05, 0, 0.5);
       if (!projLight) { projLight = new THREE.PointLight(0xff8a30, 0, 12, 1.6); G.scene.add(projLight); }
-      projLight.position.set(pr.x, pr.y, pr.z); projLight.intensity = 18 + Math.random() * 8; projLight.userData.t = 0.06;
+      projLight.color.setHex(0xff8a30); projLight.distance = 12; projLight.position.set(pr.x, pr.y, pr.z); projLight.intensity = 18 + Math.random() * 8; projLight.userData.t = 0.06;
     } else if (pr.color && Math.random() < 0.7) puff(pr.x, pr.y, pr.z, pr.color, 0, 0.3, 0, 0.35, (pr.size || 0.25) * 1.6, 0, 1);
     let dead = pr.life <= 0 || pr.y < heightAt(pr.x, pr.z) || collide(pr.x, pr.z, 0.05)[0] !== pr.x;
     if (!dead && pr.owner === 'player') {
@@ -340,6 +344,16 @@ export function updateProjectiles(dt) {
       }
     }
     if (dead) {
+      if (pr.mesh.userData.ball) {
+        // the fireball blooms out and burns away, with a flash of light and a spray of sparks in its colour
+        const s = pr.size || 0.25, col = pr.fire ? 0xff8a30 : pr.color;
+        spellBloom(G.scene, pr.x, pr.y, pr.z, pr.fire ? null : pr.color, s);
+        if (!projLight) { projLight = new THREE.PointLight(0xff8a30, 0, 12, 1.6); G.scene.add(projLight); }
+        projLight.color.setHex(col); projLight.position.set(pr.x, pr.y + 0.3, pr.z); projLight.intensity = 60 * s / 0.25; projLight.distance = 16; projLight.userData.t = 0.16;
+        for (let k = 0; k < 10; k++) { const a = Math.random() * 6.28, sp = 3 + Math.random() * 5; puff(pr.x, pr.y, pr.z, col, Math.cos(a) * sp, 1 + Math.random() * 4, Math.sin(a) * sp, 0.4 + Math.random() * 0.3, 0.06 + Math.random() * 0.06, 0, 1.2); }
+        if (pr.owner === 'player') shake(Math.min(0.3, 0.06 + s * 0.4));
+        if (pr.y < heightAt(pr.x, pr.z) + 1.2) shockRing(pr.x, pr.z, 1.4 + s * 4, col, 0.3);
+      }
       if (pr.fire) {
         // fire bursts: flash, flames, embers and a smoke plume
         for (let k = 0; k < 14; k++) { const a = Math.random() * 6.28, sp = 1.5 + Math.random() * 3; puff(pr.x, pr.y, pr.z, [0xffe080, 0xffa040, 0xff6a1a][k % 3], Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.35 + Math.random() * 0.25, 0.35 + Math.random() * 0.3, 0, 3); }
@@ -363,6 +377,7 @@ export function updateProjectiles(dt) {
       G.projectiles.splice(i, 1);
     }
   }
+  tickSpellFx(G.scene, dt);
   if (projLight && projLight.userData.t > 0) { projLight.userData.t -= dt; if (projLight.userData.t <= 0) projLight.intensity = 0; }
 }
 

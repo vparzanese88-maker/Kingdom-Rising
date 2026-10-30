@@ -1,3 +1,4 @@
+import { loadSpellModel } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
 import { G, SAVE_KEY, newProfile } from './state.js';
@@ -632,7 +633,7 @@ G.setMusicVolume = setMusicVolume;
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
 setTimeout(async () => {
-  await Promise.all([loadMeshy(), loadHeroRig(), loadCreatures()]);
+  await Promise.all([loadMeshy(), loadHeroRig(), loadCreatures(), loadSpellModel()]);
   buildWorld();
   buildLife();
   $('loading').style.display = 'none';

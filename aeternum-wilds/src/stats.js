@@ -139,7 +139,7 @@ export function gainMastery(wtype, n) {
   while (m.lv < MAX_MASTERY && m.xp >= xpForMastery(m.lv)) {
     m.xp -= xpForMastery(m.lv);
     m.lv++;
-    abilityCelebration(`${WEAPONS[wtype].name} mastery ${m.lv}`, { id: wtype + '_pt', kind: 'buff', element: { sword: 'physical', greataxe: 'blood', hammer: 'physical', bow: 'nature', staff: 'fire' }[wtype] }, 'Weapon point earned', 'Unlock a weapon ability or bonus in <kbd>K</kbd> → Weapon Mastery');
+    abilityCelebration(`${WEAPONS[wtype].name} mastery ${m.lv}`, { id: wtype + '_pt', kind: 'buff', element: ({ sword: 'physical', greataxe: 'blood', hammer: 'physical', bow: 'nature', staff: 'fire', spear: 'physical', club: 'nature', rapier: 'physical', dagger: 'shadow', musket: 'fire', blunderbuss: 'fire' }[wtype] || 'physical') }, 'Weapon point earned', 'Unlock a weapon ability or bonus in <kbd>K</kbd> → Weapon Mastery');
     sfx('mastery');
   }
 }

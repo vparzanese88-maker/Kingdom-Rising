@@ -62,7 +62,55 @@ export const WEAPONS = {
     heavy: { time: 0.8, hit: 0.55, mult: 2.0, explode: 2.8 },
     tiers: ['Ash Staff', 'Starmetal Staff', 'Wyrdwood Staff'],
   },
+  // one-handed spear with a shield: long reach, quick thrusts
+  spear: {
+    name: 'Spear & Shield', short: 'Spear', icon: '🔱', scale: { dex: 0.6, str: 0.4 },
+    dmg: 21, block: 1.0, blockCost: 0.5,
+    light: { time: 0.44, hit: 0.48, range: 3.6, arc: 60, mult: 1.0, combo: 3 },
+    heavy: { time: 0.66, hit: 0.5, range: 4.2, arc: 40, mult: 2.0, kind: 'thrust', lunge: 3.0, stagger: true },
+    tiers: ['Iron Spear', 'Starmetal Spear', 'Orichalcum Spear'],
+  },
+  // one-handed club with a shield: heavy blows that daze
+  club: {
+    name: 'Club & Shield', short: 'Club', icon: '🏏', scale: { str: 0.6, con: 0.4 },
+    dmg: 23, block: 1.0, blockCost: 0.55,
+    light: { time: 0.5, hit: 0.5, range: 2.8, arc: 110, mult: 1.0, combo: 2 },
+    heavy: { time: 0.78, hit: 0.58, range: 2.8, arc: 360, mult: 1.7, kind: 'slam', radius: 2.6, fwd: 1.3, stun: 0.6 },
+    tiers: ['Oak Club', 'Ironbound Club', 'Wyrdwood Club'],
+  },
+  // rapier in the main hand, parrying dagger in the off hand: very fast flurries
+  rapier: {
+    name: 'Rapier & Dagger', short: 'Rapier', icon: '🤺', scale: { dex: 1.0 }, dual: true,
+    dmg: 16, block: 0.7, blockCost: 0.6,
+    light: { time: 0.32, hit: 0.45, range: 2.9, arc: 80, mult: 1.0, combo: 4 },
+    heavy: { time: 0.55, hit: 0.45, range: 3.6, arc: 40, mult: 2.1, kind: 'thrust', lunge: 3.2, stagger: true },
+    tiers: ['Steel Rapier', 'Starmetal Rapier', 'Orichalcum Rapier'],
+  },
+  // a single long dagger: the fastest weapon, deadly crits
+  dagger: {
+    name: 'Dagger', short: 'Dagger', icon: '🗡️', scale: { dex: 0.7, int: 0.3 },
+    dmg: 14, block: 0.4, blockCost: 0.8,
+    light: { time: 0.28, hit: 0.45, range: 2.4, arc: 90, mult: 1.0, combo: 3 },
+    heavy: { time: 0.5, hit: 0.5, range: 2.8, arc: 50, mult: 2.3, kind: 'thrust', lunge: 2.6, stagger: true },
+    tiers: ['Iron Dagger', 'Starmetal Dagger', 'Orichalcum Dagger'],
+  },
+  // guns: hold left click to aim, release to fire, then reload. Right click zooms.
+  musket: {
+    name: 'Musket', short: 'Musket', icon: '🔫', scale: { dex: 1.0 }, gun: true,
+    dmg: 52, block: 0, blockCost: 1,
+    draw: 0.45, speed: 95, range: 60, reload: 1.8,
+    tiers: ['Matchlock Musket', 'Flintlock Musket', 'Gilded Musket'],
+  },
+  blunderbuss: {
+    name: 'Blunderbuss', short: 'Blunderbuss', icon: '💥', scale: { str: 0.5, dex: 0.5 }, gun: true,
+    dmg: 20, block: 0, blockCost: 1,
+    draw: 0.3, speed: 60, range: 16, reload: 1.5, pellets: 7, spread: 0.22,
+    tiers: ['Iron Blunderbuss', 'Brass Blunderbuss', 'Gilded Blunderbuss'],
+  },
 };
+// weapons fired with left-click hold and release (bow and guns), and those carried with a shield
+export const RANGED_WEAPONS = new Set(['bow', 'musket', 'blunderbuss']);
+export const SHIELD_WEAPONS = new Set(['sword', 'spear', 'club']);
 export const WEAPON_TYPES = Object.keys(WEAPONS);
 
 // Ability kinds: dash, leap, aoe, cone, buff, proj, evade
@@ -92,10 +140,52 @@ export const ABILITIES = {
   evade: { name: 'Evade Shot', icon: '↩️', cd: 10, kind: 'evade', dist: 6, dmg: 1.2, desc: 'Leap backward and loose an arrow.' },
   poison: { name: 'Poison Shot', icon: '🐍', cd: 12, kind: 'proj', dmg: 0.7, dot: 1.8, dotDur: 6, desc: 'An arrow that poisons for heavy damage over 6 seconds.' },
   pierce: { name: 'Penetrating Shot', icon: '➶', cd: 16, kind: 'proj', dmg: 2.2, pierce: true, speed: 70, desc: 'A powerful arrow that passes through every enemy in a line.' },
+  // Spear
+  skewer: { name: 'Skewer', icon: '🔱', cd: 11, kind: 'line', range: 9, width: 1.8, dmg: 1.6, knock: 2, desc: 'A long lunging thrust that runs through everything in a line.' },
+  vault: { name: 'Pole Vault', icon: '🤸', cd: 13, kind: 'leap', max: 11, radius: 3, dmg: 1.5, desc: 'Vault on your spear and drive it down where you land.' },
+  sweep: { name: 'Sweeping Reach', icon: '🌙', cd: 10, kind: 'cone', range: 5, arc: 160, dmg: 1.2, slow: 2, desc: 'Sweep the spear in a wide arc, tripping and slowing foes.' },
+  phalanx: { name: 'Phalanx', icon: '🛡️', cd: 22, kind: 'buff', dur: 7, buff: { dr: 0.4, dmg: 0.15 }, desc: 'Lock shield and spear: take 40% less damage and deal 15% more for 7 seconds.' },
+  // Club
+  bonk: { name: 'Skull Knock', icon: '💫', cd: 11, kind: 'aoe', at: 'front', fwd: 1.8, delay: 0.2, radius: 2.4, dmg: 1.7, stun: 1.6, desc: 'A crushing blow to the head that stuns.' },
+  shieldBash: { name: 'Shield Bash', icon: '🛡️', cd: 12, kind: 'dash', dist: 6, radius: 2, dmg: 0.9, stun: 1.2, desc: 'Barge forward behind your shield, stunning what you hit.' },
+  quake: { name: 'Earthshaker', icon: '🌍', cd: 15, kind: 'aoe', at: 'self', delay: 0.2, radius: 4.5, dmg: 1.2, knock: 3, desc: 'Pound the ground and knock everything back.' },
+  thorns: { name: 'Barkskin', icon: '🌳', cd: 22, kind: 'buff', dur: 8, buff: { dr: 0.35, regen: 6 }, heal: 0.15, desc: 'Heal 15% and harden like oak: take 35% less damage and regenerate for 8 seconds.' },
+  // Rapier & Dagger
+  flurry: { name: 'Flurry', icon: '🌀', cd: 9, kind: 'dash', dist: 5.5, radius: 2.2, dmg: 1.6, desc: 'Dart forward stabbing with both blades.' },
+  riposte: { name: 'Riposte', icon: '🤺', cd: 12, kind: 'buff', dur: 4, buff: { dr: 0.6, dmg: 0.3 }, desc: 'Ready a parry: take 60% less damage and strike 30% harder for 4 seconds.' },
+  fleche: { name: 'Fleche', icon: '➶', cd: 12, kind: 'line', range: 9, width: 1.6, dmg: 1.9, desc: 'A running lunge that pierces everything in a line.' },
+  bladeDance: { name: 'Blade Dance', icon: '💃', cd: 15, kind: 'aoe', at: 'self', delay: 0.2, radius: 3.6, dmg: 1.7, bleed: 1, desc: 'Spin through the crowd cutting with both blades.' },
+  // Dagger
+  backstab: { name: 'Shadowstep', icon: '👤', cd: 11, kind: 'leap', max: 10, radius: 2.4, dmg: 1.9, desc: 'Leap to the crosshair and drive the dagger down.' },
+  hemorrhage: { name: 'Hemorrhage', icon: '🩸', cd: 10, kind: 'cone', range: 3.5, arc: 90, dmg: 1.0, heal: 0.2, desc: 'Open a deep wound. Heals you for 20% of damage dealt.' },
+  fanKnives: { name: 'Fan of Knives', icon: '🔪', cd: 13, kind: 'aoe', at: 'self', delay: 0.15, radius: 4.5, dmg: 1.3, slow: 2, desc: 'Throw knives in every direction, slowing those they hit.' },
+  shadowVeil: { name: 'Shadow Veil', icon: '🌑', cd: 22, kind: 'buff', dur: 6, buff: { dmg: 0.3, moveSpeed: 0.25 }, desc: 'Melt into shadow: 30% more damage and 25% faster for 6 seconds.' },
+  // Musket
+  powderShot: { name: 'Powder Shot', icon: '🧨', cd: 12, kind: 'proj', dmg: 2.0, speed: 80, explode: 3.2, color: 0xffa040, desc: 'A charged ball that explodes on impact.' },
+  rollReload: { name: 'Roll and Fire', icon: '↩️', cd: 10, kind: 'evade', dist: 6, dmg: 1.4, desc: 'Dive backward and fire as you go.' },
+  stopShot: { name: 'Stopping Shot', icon: '🎯', cd: 13, kind: 'proj', dmg: 1.6, pierce: true, speed: 110, desc: 'A heavy ball that passes through every enemy in a line.' },
+  steady: { name: 'Steady Hands', icon: '🫡', cd: 24, kind: 'buff', dur: 8, buff: { dmg: 0.25, atkSpeed: 0.3 }, desc: 'Deal 25% more damage and aim and reload 30% faster for 8 seconds.' },
+  // Blunderbuss
+  scatter: { name: 'Scattershot', icon: '💥', cd: 10, kind: 'cone', range: 8, arc: 70, dmg: 2.0, knock: 4, desc: 'Both barrels at point-blank range: blast everything in front of you away.' },
+  grapeshot: { name: 'Grapeshot Bomb', icon: '💣', cd: 14, kind: 'aoe', at: 'cursor', max: 16, delay: 0.7, radius: 4, dmg: 1.8, desc: 'Lob a powder bomb packed with shot at the crosshair.' },
+  blastBack: { name: 'Recoil Jump', icon: '🚀', cd: 11, kind: 'evade', dist: 8, dmg: 1.2, desc: 'Fire into the ground and let the kick throw you backward.' },
+  smoke: { name: 'Gunsmoke', icon: '🌫️', cd: 22, kind: 'buff', dur: 6, buff: { dr: 0.3, moveSpeed: 0.3 }, heal: 0.1, desc: 'Vanish in a cloud of smoke: heal 10%, take 30% less damage and move 30% faster.' },
 };
 
 // Mastery trees: 4 rows x 3 nodes. Row r needs r*3 points spent in the tree.
+const mt = (pre, a, b, c, d, n) => [
+  { id: a, row: 0 }, { id: pre + '_l', row: 0, name: n[0], icon: n[1], desc: '+12% light attack damage', mods: { lightDmg: 0.12 } }, { id: b, row: 0 },
+  { id: pre + '_g', row: 1, name: n[2], icon: n[3], desc: n[4], mods: n[5] }, { id: c, row: 1 }, { id: pre + '_h', row: 1, name: n[6], icon: n[7], desc: '+25% heavy attack damage', mods: { heavyDmg: 0.25 } },
+  { id: pre + '_c', row: 2, name: 'Keen Eye', icon: '🎯', desc: '+8% critical chance', mods: { crit: 8 } }, { id: d, row: 2 }, { id: pre + '_k', row: 2, name: 'Second Wind', icon: '💚', desc: 'Heal 4% of max health on each kill', mods: { killHeal: 0.04 } },
+  { id: pre + '_cd', row: 3, name: 'Drill', icon: '⏱️', desc: '-15% ability cooldowns', mods: { cdr: 0.15 } }, { id: pre + '_a', row: 3, name: 'Veteran', icon: '👑', desc: '+20% ability damage', mods: { abilityDmg: 0.2 } }, { id: pre + '_d', row: 3, name: 'Hardened', icon: '🧱', desc: 'Take 10% less damage', mods: { dr: 0.1 } },
+];
 export const MASTERY = {
+  spear: mt('sp', 'skewer', 'sweep', 'vault', 'phalanx', ['Honed Point', '🔱', 'Shield Wall', '🛡️', 'Blocking costs 40% less stamina', { blockCost: -0.4 }, 'Impaler', '📌']),
+  club: mt('cl', 'bonk', 'shieldBash', 'quake', 'thorns', ['Knotted Wood', '🏏', 'Concussion', '💫', 'Stuns last 40% longer', { stunDur: 0.4 }, 'Crusher', '🔨']),
+  rapier: mt('ra', 'flurry', 'riposte', 'fleche', 'bladeDance', ['Fine Point', '🤺', 'Parry', '🛡️', 'Blocking costs 40% less stamina', { blockCost: -0.4 }, 'Duelist', '⚔️']),
+  dagger: mt('dg', 'backstab', 'hemorrhage', 'fanKnives', 'shadowVeil', ['Serrated', '🗡️', 'Cutthroat', '🩸', '+30% critical damage', { critDmg: 0.3 }, 'Assassin', '💀']),
+  musket: mt('mu', 'powderShot', 'rollReload', 'stopShot', 'steady', ['Rifled Barrel', '🔫', 'Quick Load', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Marksman', '🎯']),
+  blunderbuss: mt('bb', 'scatter', 'blastBack', 'grapeshot', 'smoke', ['Extra Shot', '💥', 'Quick Load', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Point Blank', '💣']),
   sword: [
     { id: 'whirl', row: 0 }, { id: 'sw_edge', row: 0, name: 'Sharpened Edge', icon: '🗡️', desc: '+12% light attack damage', mods: { lightDmg: 0.12 } }, { id: 'shieldRush', row: 0 },
     { id: 'sw_guard', row: 1, name: 'Stalwart Guard', icon: '🛡️', desc: 'Blocking costs 40% less stamina', mods: { blockCost: -0.4 } }, { id: 'defiant', row: 1 }, { id: 'sw_heavy', row: 1, name: 'Pommel Strike', icon: '👊', desc: '+25% heavy attack damage', mods: { heavyDmg: 0.25 } },
@@ -259,6 +349,12 @@ export const RECIPES = [
       { id: `f_hammer${t}`, station: 'forge', gear: 'weapon', wtype: 'hammer', tier: t, in: { [ingot]: q(6), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_staff${t}`, station: 'forge', gear: 'weapon', wtype: 'staff', tier: t, in: { [wood]: q(4), [ingot]: q(1), [cloth]: q(1), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_bow${t}`, station: 'forge', gear: 'weapon', wtype: 'bow', tier: t, in: { [wood]: q(5), [cloth]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_spear${t}`, station: 'forge', gear: 'weapon', wtype: 'spear', tier: t, in: { [ingot]: q(3), [wood]: q(3), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_club${t}`, station: 'forge', gear: 'weapon', wtype: 'club', tier: t, in: { [wood]: q(5), [ingot]: q(1), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_rapier${t}`, station: 'forge', gear: 'weapon', wtype: 'rapier', tier: t, in: { [ingot]: q(5), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_dagger${t}`, station: 'forge', gear: 'weapon', wtype: 'dagger', tier: t, in: { [ingot]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_musket${t}`, station: 'forge', gear: 'weapon', wtype: 'musket', tier: t, in: { [ingot]: q(5), [wood]: q(3), ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_blunder${t}`, station: 'forge', gear: 'weapon', wtype: 'blunderbuss', tier: t, in: { [ingot]: q(6), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
     ];
     for (const s of ARMOR_SLOTS) for (const wc of ['light', 'medium', 'heavy']) {
       const big = s === 'chest' || s === 'legs' ? 2 : 1;

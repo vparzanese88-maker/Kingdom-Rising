@@ -8,7 +8,10 @@ const EL = {
 };
 const WEAPON_EL = { whirl: 'physical', shieldRush: 'physical', defiant: 'holy', leap: 'physical', charge: 'physical', gravity: 'shadow', reap: 'blood', berserk: 'blood',
   shockwave: 'physical', destiny: 'lightning', wrecking: 'physical', clearMind: 'spirit', rain: 'nature', evade: 'nature', poison: 'poison', pierce: 'holy',
-  fireball: 'fire', pillar: 'fire', incinerate: 'fire', burnout: 'fire' };
+  fireball: 'fire', pillar: 'fire', incinerate: 'fire', burnout: 'fire',
+  skewer: 'physical', vault: 'physical', sweep: 'physical', phalanx: 'holy', bonk: 'physical', shieldBash: 'physical', quake: 'nature', thorns: 'nature',
+  flurry: 'physical', riposte: 'spirit', fleche: 'physical', bladeDance: 'blood', backstab: 'shadow', hemorrhage: 'blood', fanKnives: 'physical', shadowVeil: 'shadow',
+  powderShot: 'fire', rollReload: 'physical', stopShot: 'lightning', steady: 'spirit', scatter: 'fire', grapeshot: 'fire', blastBack: 'fire', smoke: 'shadow' };
 const cache = new Map();
 
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }

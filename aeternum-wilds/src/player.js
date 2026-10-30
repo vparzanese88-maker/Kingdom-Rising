@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { WEAPONS, ABILITIES, MATS, NODES, LOADS } from './data.js';
+import { WEAPONS, ABILITIES, MATS, NODES, LOADS, RANGED_WEAPONS, SHIELD_WEAPONS } from './data.js';
 import { CLASSES } from './classes.js';
 import { meshyReady, makeHero } from './gfx/meshy.js';
 import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
@@ -59,13 +59,15 @@ const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 
 export function armCharacter(h, w, other) {
   for (const k of ['wR', 'wL', 'wBack']) if (h[k]) { h[k].parent?.remove(h[k]); h[k] = null; }
   const tall = charHeight(h);
-  const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (it.wtype === 'sword' ? 0.85 : 1);
+  const SHORT = { sword: 0.85, spear: 1.05, club: 0.6, rapier: 0.62, dagger: 0.3, musket: 0.85, blunderbuss: 0.55 };
+  const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1);
   const shieldLen = it => tall * 0.36 * (0.92 + 0.08 * (it.tier || 1));
   if (w) {
     if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
     else {
       h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
-      if (w.wtype === 'sword') { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
+      if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.3 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
+      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
   }
   // the weapon not in use is slung diagonally across the back
@@ -81,10 +83,11 @@ export function armCharacter(h, w, other) {
     sizeWeapon(bw, back, L);
     back.getWorldScale(_ws); const Lb = L / (_ws.y || 1); // weapon length in the back group's units
     if (other.wtype === 'bow') { bw.rotation.y = Math.PI / 2; bw.position.set(0, -0.2 * Lb, 0); }
-    else if (other.wtype === 'sword') { bw.rotation.z = Math.PI; bw.position.set(0, 0.32 * Lb, 0); } // hilt up over the shoulder
+    else if (other.wtype === 'sword' || other.wtype === 'rapier' || other.wtype === 'dagger') { bw.rotation.z = Math.PI; bw.position.set(0, 0.32 * Lb, 0); } // hilt up over the shoulder
+    else if (WEAPONS[other.wtype]?.gun) { bw.rotation.z = Math.PI; bw.position.set(0, 0.25 * Lb, 0); } // stock down, barrel up
     else bw.position.set(0, -0.55 * Lb, 0); // axe, hammer or staff head up
     back.add(bw);
-    if (other.wtype === 'sword') { const sh = makeWeapon('shield', other.tier); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
+    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
   }
 }
@@ -370,6 +373,9 @@ function startAttack(kind) {
     pose = P.combo % 2 === 0 ? 'slash' : 'slash2';
     if (wt === 'hammer') pose = P.combo % 2 === 0 ? 'slash' : 'overhead';
     if (wt === 'sword' && P.combo === 2) { pose = 'thrust'; mult *= 1.25; }
+    if (wt === 'club') pose = P.combo % 2 === 0 ? 'slash' : 'overhead';
+    if (wt === 'spear') { pose = 'thrust'; if (P.combo === 2) mult *= 1.3; }
+    if ((wt === 'rapier' || wt === 'dagger') && P.combo % 2 === 1) pose = 'thrust';
     P.combo = (P.combo + 1) % spec.combo;
   } else pose = spec.kind === 'spin' ? 'spin' : spec.kind === 'slam' ? 'slam' : 'thrust';
   if (wt === 'staff') pose = kind === 'heavy' ? 'cast' : 'thrust';
@@ -408,6 +414,25 @@ function fireStaff(a) {
   const heavy = a.kind === 'heavy';
   spawnProj({ owner: 'player', ...shotFrom(), speed: heavy ? W.speed * 0.8 : W.speed, range: W.range, mult: a.mult, kind: a.kind, color: gemC, size: heavy ? 0.38 : 0.2, explode: heavy ? W.heavy.explode : 0 });
   sfx('magic', heavy ? 0.8 : 0.45);
+}
+
+// guns: one heavy ball (musket) or a spread of shot (blunderbuss), then a reload
+function fireGun(wt, power) {
+  const P = G.player, W = WEAPONS[wt], from = shotFrom();
+  const steady = 0.6 + power * 0.4;
+  const n = W.pellets || 1;
+  const l = Math.hypot(from.dx, from.dy, from.dz) || 1;
+  for (let i = 0; i < n; i++) {
+    const sp = n > 1 ? W.spread : 0.012 * (1 - power);
+    const dx = from.dx / l + (Math.random() - 0.5) * sp * 2, dy = from.dy / l + (Math.random() - 0.5) * sp, dz = from.dz / l + (Math.random() - 0.5) * sp * 2;
+    spawnProj({ owner: 'player', x: from.x, y: from.y, z: from.z, dx, dy, dz, speed: W.speed * (0.9 + Math.random() * 0.1), range: W.range, mult: steady, kind: power >= 0.99 ? 'heavy' : 'light', color: 0xffe0a0, size: n > 1 ? 0.07 : 0.1, element: 'physical' });
+  }
+  // muzzle flash and smoke
+  const mx = from.x + from.dx / l * 1.2, my = from.y + from.dy / l * 1.2, mz = from.z + from.dz / l * 1.2;
+  burst(mx, my, mz, 0xffc060, n > 1 ? 14 : 8, 7, 0.18, 0.14, 0);
+  for (let i = 0; i < (n > 1 ? 8 : 5); i++) puff(mx, my, mz, 0xb8b0a8, from.dx / l * 2 + (Math.random() - 0.5), 0.6 + Math.random() * 0.6, from.dz / l * 2 + (Math.random() - 0.5), 1.4 + Math.random(), 0.35, 1.4);
+  sfx('boom', n > 1 ? 0.9 : 0.7); shake(n > 1 ? 0.22 : 0.14);
+  P.reload = W.reload / atkSpeed();
 }
 
 function fireArrow(power) {
@@ -725,13 +750,15 @@ export function updatePlayer(dt) {
   } else if (P.state !== 'stunned') {
     // attacks
     P.blocking = inp.rmb && wt && WEAPONS[wt].block > 0 && P.state !== 'attack' && P.state !== 'gather' && P.exhausted <= 0;
-    if (wt === 'bow') {
-      if (inp.lmb && P.state !== 'gather' && !inp.overUI) {
+    if (P.reload > 0) { P.reload -= dt; if (P.reload <= 0) { P.reload = 0; sfx('craft', 0.35); } }
+    if (RANGED_WEAPONS.has(wt)) {
+      const gun = WEAPONS[wt].gun;
+      if (inp.lmb && P.state !== 'gather' && !inp.overUI && !(gun && P.reload > 0)) {
         if (P.state !== 'draw') { P.state = 'draw'; P.draw = 0; }
-        P.draw = Math.min(1, P.draw + dt / (WEAPONS.bow.draw / (1 + (s.mods.drawSpeed || 0)) / atkSpeed()));
+        P.draw = Math.min(1, P.draw + dt / (WEAPONS[wt].draw / (1 + (s.mods.drawSpeed || 0)) / atkSpeed()));
       } else if (P.state === 'draw') {
-        fireArrow(P.draw);
-        P.state = 'attack'; P.atk = { pose: 'shoot', t: 0, dur: 0.22, hitDone: true, spec: {} };
+        if (gun) { fireGun(wt, P.draw); P.state = 'attack'; P.atk = { pose: 'recoil', t: 0, dur: 0.3, hitDone: true, spec: {} }; }
+        else { fireArrow(P.draw); P.state = 'attack'; P.atk = { pose: 'shoot', t: 0, dur: 0.22, hitDone: true, spec: {} }; }
         P.draw = 0;
       }
     } else if (P.state !== 'gather') {
@@ -787,7 +814,7 @@ export function updatePlayer(dt) {
   // pose
   let pose = null, t = 0;
   if (P.state === 'attack') { pose = P.atk.pose; t = P.atk.t / P.atk.dur; }
-  else if (P.state === 'draw') pose = 'draw';
+  else if (P.state === 'draw') pose = WEAPONS[wt]?.gun ? 'rifle' : 'draw';
   else if (P.state === 'dodge') { pose = P.dodge.roll ? 'dodge' : 'hop'; t = P.dodge.t / P.dodge.dur; }
   else if (P.swapT > 0) { pose = 'swap'; t = 1 - P.swapT / 0.25; }
   else if ((P.jumpY || 0) > 0.05 && !(P.ability && P.ability.leap)) { pose = 'jump'; t = Math.min(1, Math.max(0, 0.5 - (P.jv || 0) / 21)); }
@@ -797,7 +824,8 @@ export function updatePlayer(dt) {
   else if (P.whirl) { pose = 'spin'; t = (G.time * 2.5) % 1; }
   else if (P.blocking) pose = 'block';
   else if (P.recall) pose = 'cast';
-  else if (P.press && P.press.t > 0.12 && wt !== 'bow') { pose = 'windup'; t = P.press.t; }
+  else if (P.reload > 0 && WEAPONS[wt]?.gun) { pose = 'reload'; t = 1 - P.reload / (WEAPONS[wt].reload || 1); }
+  else if (P.press && P.press.t > 0.12 && !RANGED_WEAPONS.has(wt)) { pose = 'windup'; t = P.press.t; }
   animHumanoid(P.h, { move: P.move, phase: P.phase, pose, t, twoHand: wt === 'greataxe' || wt === 'hammer', draw: P.draw });
   if (P.wL?.userData.string) P.wL.userData.string.position.z = -0.24 - (P.state === 'draw' ? P.draw * 0.35 : 0);
   placeModel();

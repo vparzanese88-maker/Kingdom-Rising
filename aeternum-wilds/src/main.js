@@ -410,7 +410,7 @@ function creator() {
   if (creatorTab === 'class') {
     body = `<div class="cards c16">${CLASS_LIST.map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
       <div class="cinfo"><h3>${C.icon} ${C.name} <small>${C.role}</small></h3><p class="cdesc">${C.desc}</p>
-      <p class="small">Starts with: <b>${WEAPONS[C.weapon].name}</b>, ${C.armor} armor. Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.</p>
+      <p class="small">Starts with: <b>${WEAPONS[C.weapon].name}</b>, ${C.armor} armor. ${C.start2 ? `Also carries a ${WEAPONS[C.second].name.toLowerCase()}.` : `Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.`}</p>
       <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
       <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
   } else if (creatorTab === 'body') {
@@ -463,6 +463,7 @@ function creator() {
     const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
+    if (C2.start2) p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
     enterGame(p);

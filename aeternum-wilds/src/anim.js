@@ -149,6 +149,30 @@ export function animHumanoid(h, st) {
       h.body.position.y -= 0.07 * k;
       break;
     }
+    case 'rifle': {
+      // gun shouldered: both arms forward, cheek down to the stock
+      const d = ease(st.draw || 0);
+      P.upper.rotation.y = 0.25 * d; P.head.rotation.y = -0.25 * d; P.head.rotation.x = 0.1 * d;
+      P.armR.rotation.x = -0.6 - 0.95 * d; P.armR.rotation.z = 0.12 * d;
+      P.armL.rotation.x = -0.6 - 0.85 * d; P.armL.rotation.z = -0.45 * d;
+      break;
+    }
+    case 'recoil': {
+      // the kick: muzzle climbs and the shoulder rocks back, then settles
+      const k = kf(t, [[0, 0], [0.12, 1], [1, 0]]);
+      P.upper.rotation.y = 0.25 * (1 - t); P.head.rotation.y = -P.upper.rotation.y;
+      P.upper.rotation.x -= 0.18 * k;
+      P.armR.rotation.x = -1.55 - 0.4 * k; P.armR.rotation.z = 0.12;
+      P.armL.rotation.x = -1.45 - 0.35 * k; P.armL.rotation.z = -0.45;
+      break;
+    }
+    case 'reload': {
+      // gun held across the body, ramrod hand working up and down
+      P.armR.rotation.x = -0.5; P.armR.rotation.z = 0.2;
+      P.armL.rotation.x = -1.1 + Math.sin(t * Math.PI * 6) * 0.35; P.armL.rotation.z = -0.5;
+      P.head.rotation.x = 0.25;
+      break;
+    }
     case 'aim': {
       P.armL.rotation.x = -1.55; P.armR.rotation.x = -1.55; P.armR.rotation.z = 0.4 + t * 0.6; P.upper.rotation.y = 0.35;
       break;

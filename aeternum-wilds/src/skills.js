@@ -36,6 +36,8 @@ export const KITS = {
   enchanter: ['enc_hypnochain', 'enc_ghosts', 'enc_massmez', 'enc_prismvolley', 'enc_shatter'],
   beastlord: ['bst_bear', 'bst_frenzy', 'bst_ravens', 'bst_frostfang', 'bst_rampage'],
   berserker: ['ber_bloodwhirl', 'ber_skullsplit', 'ber_hurlaxes', 'ber_berserk', 'ber_carnage'],
+  musketeer: ['msk_deadeye', 'msk_volley', 'msk_grenade', 'msk_powderkeg', 'msk_cannonade'],
+  blunderbuss: ['blb_dragonbreath', 'blb_bootkick', 'blb_rocket', 'blb_chainshot', 'blb_bigboom'],
 };
 const KIT_CD_CAP = 22; // the one class ability should come around often
 

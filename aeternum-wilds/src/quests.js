@@ -62,7 +62,7 @@ function giveReward(r) {
   if (r.secondWeapon) {
     const wt = CLASSES[p.cls]?.second || (p.startWeapon === 'bow' ? 'sword' : 'bow');
     const it = makeGear({ kind: 'weapon', wtype: wt, gs: 100, rarity: 1 });
-    if (!p.equip.w2) { p.equip.w2 = it; toast(`Equipped ${it.name} in weapon slot 2. Press 1 and 2 to swap.`, 'gold'); }
+    if (!p.equip.w2) { p.equip.w2 = it; toast(`Equipped ${it.name} in weapon slot 2. Press Q to swap.`, 'gold'); }
     else addItem(it);
   }
   if (r.item) {

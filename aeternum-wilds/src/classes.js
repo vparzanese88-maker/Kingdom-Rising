@@ -188,7 +188,7 @@ export const CLASSES = {
   druid: {
     name: 'Druid', icon: '🌿', role: 'Caster',
     desc: 'A keeper of the old groves who calls storms and roots, mends with sap and sun, and wears the shapes of beasts.',
-    weapon: 'staff', second: 'hammer', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    weapon: 'club', second: 'staff', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 4, con: 1, dex: 1 }, color: 0x4a7a2a, mana: 1.3,
     trees: [
       { id: 'dru_wrath', name: 'Nature\'s Wrath', icon: '⛈️', desc: 'Storm and thorn.', nodes: [
@@ -260,7 +260,7 @@ export const CLASSES = {
   bard: {
     name: 'Bard', icon: '🎵', role: 'Support',
     desc: 'A wandering minstrel whose blade keeps time with their songs, lifting allies and lulling enemies to stillness.',
-    weapon: 'sword', second: 'bow', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    weapon: 'sword', second: 'rapier', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { dex: 2, int: 2, con: 1, str: 1 }, color: 0x6a3a8a, mana: 1.0,
     trees: [
       { id: 'brd_war', name: 'Songs of War', icon: '🥁', desc: 'Marching rhythms.', nodes: [
@@ -296,7 +296,7 @@ export const CLASSES = {
   rogue: {
     name: 'Rogue', icon: '🗡️', role: 'Melee',
     desc: 'A quick-handed cutthroat who strikes from the shadows, coats every blade in venom and is gone before the body falls.',
-    weapon: 'sword', second: 'bow', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    weapon: 'rapier', second: 'bow', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { dex: 5, str: 1 }, color: 0x2a2a2a, mana: 0.6,
     trees: [
       { id: 'rog_assassin', name: 'Assassination', icon: '🎯', desc: 'One perfect cut.', nodes: [
@@ -332,7 +332,7 @@ export const CLASSES = {
   shaman: {
     name: 'Shaman', icon: '🪶', role: 'Support',
     desc: 'A speaker for the spirits of land and ancestor, who wards friends, hexes foes and calls ghostly wolves to the hunt.',
-    weapon: 'staff', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    weapon: 'spear', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 3, con: 2, str: 1 }, color: 0x2a6a8a, mana: 1.2,
     trees: [
       { id: 'sha_wards', name: 'Spirit Wards', icon: '🗿', desc: 'Protection of the spirits.', nodes: [
@@ -368,7 +368,7 @@ export const CLASSES = {
   necromancer: {
     name: 'Necromancer', icon: '💀', role: 'Pet Caster',
     desc: 'A scholar of the grave who drinks the life of the living and commands the bones of the dead to do their bidding.',
-    weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    weapon: 'staff', second: 'dagger', start2: true, armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 5, con: 1 }, color: 0x3a1a4a, mana: 1.3,
     trees: [
       { id: 'nec_siphon', name: 'Siphon', icon: '🩸', desc: 'Steal life to sustain your own.', nodes: [
@@ -580,9 +580,42 @@ export const CLASSES = {
       ] },
     ],
   },
+
+  musketeer: {
+    name: 'Musketeer', icon: '🔫', role: 'Ranged',
+    desc: 'A disciplined marksman with a long musket and a steady eye. One slow, devastating shot at a time, and a powder horn full of tricks.',
+    weapon: 'musket', second: 'rapier', armor: 'medium', gear: ['head', 'chest', 'legs', 'feet'],
+    attrs: { dex: 4, con: 1, int: 1 }, color: 0x2a3a6a, mana: 1.0,
+    trees: [
+      { id: 'msk_powder', name: 'Powder & Ball', icon: '🔫', desc: 'Black powder and lead.', nodes: [
+        { id: 'msk_deadeye', tier: 0, type: 'active', name: 'Deadeye', icon: '🎯', desc: 'Take careful aim and fire a blazing ball that pierces every foe in a line and stuns.', kind: 'bolt', element: 'fire', cost: 12, cd: 8, dmg: 2.6, speed: 110, pierce: true, stun: 0.8, color: 0xffc060 },
+        { id: 'msk_volley', tier: 1, type: 'active', name: 'Firing Line', icon: '🎇', desc: 'Summon the ghosts of your old regiment to fire a volley with you.', kind: 'volley', element: 'fire', cost: 16, cd: 10, dmg: 1.0, count: 6, spread: 26, speed: 90, color: 0xffb050 },
+        { id: 'msk_grenade', tier: 2, type: 'active', name: 'Grenado', icon: '💣', desc: 'Hurl a lit grenade that bursts in fire and knocks foes down.', kind: 'meteor', element: 'fire', cost: 18, cd: 12, dmg: 2.2, radius: 4.5, range: 20, delay: 1.0, stun: 1.0, knock: 3, burn: 1.0, color: 0xff7020 },
+        { id: 'msk_powderkeg', tier: 3, type: 'active', name: 'Powder Keg', icon: '🛢️', desc: 'Roll out a powder keg that explodes in a huge blast when a foe comes near.', kind: 'trap', element: 'fire', cost: 22, cd: 16, dmg: 3.0, radius: 5, burn: 1.5, knock: 5, color: 0xff6020 },
+        { id: 'msk_cannonade', tier: 4, type: 'active', name: 'Cannonade', icon: '💥', desc: 'Signal the guns: cannonballs rain on the target area.', kind: 'rain', element: 'fire', cost: 30, cd: 30, dmg: 3.2, radius: 7, delay: 1.2, range: 26, stun: 1.2, color: 0xff8030 },
+      ] },
+    ],
+  },
+
+  blunderbuss: {
+    name: 'Blunderbuss', icon: '💥', role: 'Bruiser',
+    desc: 'A powder-scarred brawler with a bell-mouthed gun. Gets right up close and blows enemies off their feet.',
+    weapon: 'blunderbuss', second: 'club', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
+    attrs: { str: 3, con: 3 }, color: 0x7a4a1a, mana: 1.0,
+    trees: [
+      { id: 'blb_boom', name: 'Boom', icon: '💥', desc: 'More powder. Always more powder.', nodes: [
+        { id: 'blb_dragonbreath', tier: 0, type: 'active', name: "Dragon's Breath", icon: '🐉', desc: 'Load incendiary shot and blast a cone of fire that throws enemies back and sets them burning.', kind: 'nova', element: 'fire', cost: 12, cd: 8, dmg: 1.8, radius: 6, knock: 5, burn: 1.2, color: 0xff6a1a },
+        { id: 'blb_bootkick', tier: 1, type: 'active', name: 'Boot and Blast', icon: '🥾', desc: 'Kick the nearest foe off balance, then shoot it point blank.', kind: 'strike', element: 'physical', cost: 10, cd: 7, dmg: 2.2, range: 3.5, stun: 1.2, knock: 4, color: 0xc8b898 },
+        { id: 'blb_rocket', tier: 2, type: 'active', name: 'Rocket Jump', icon: '🚀', desc: 'Fire into the ground and ride the blast to the crosshair, landing in an explosion.', kind: 'blink', element: 'fire', cost: 16, cd: 12, dist: 10, dmg: 2.0, radius: 4, stun: 1.0, color: 0xff8030 },
+        { id: 'blb_chainshot', tier: 3, type: 'active', name: 'Chain Shot', icon: '⛓️', desc: 'Two balls chained together whirl through the crowd, bouncing between foes.', kind: 'chain', element: 'physical', cost: 20, cd: 14, dmg: 1.6, bounces: 5, range: 9, stun: 0.5, color: 0xc0c0c8 },
+        { id: 'blb_bigboom', tier: 4, type: 'active', name: 'Big Boom', icon: '☄️', desc: 'Light the whole powder horn: a colossal explosion around you that flattens everything.', kind: 'nova', element: 'fire', cost: 35, cd: 40, dmg: 4.0, radius: 9, knock: 8, stun: 1.5, burn: 2.0, color: 0xffa020 },
+      ] },
+    ],
+  },
 };
 
 export const CLASS_LIST = [
   'warrior', 'cleric', 'paladin', 'ranger', 'shadowknight', 'druid', 'monk', 'bard',
   'rogue', 'shaman', 'necromancer', 'wizard', 'magician', 'enchanter', 'beastlord', 'berserker',
+  'musketeer', 'blunderbuss',
 ];

@@ -148,7 +148,7 @@ export function makeRiggedHero(o = {}) {
   const hair = new THREE.Group(); bones.Head.add(hair);
 
   let last = performance.now(), armW = 1;
-  const POSED = new Set(['jump', 'slash', 'slash2', 'thrust', 'overhead', 'slam', 'spin', 'draw', 'shoot', 'block', 'gather', 'harvest', 'cast', 'windup', 'aim', 'swap', 'stun', 'hit']);
+  const POSED = new Set(['jump', 'slash', 'slash2', 'thrust', 'overhead', 'slam', 'spin', 'draw', 'shoot', 'block', 'gather', 'harvest', 'cast', 'windup', 'aim', 'swap', 'stun', 'hit', 'rifle', 'recoil', 'reload']);
   function apply(st) {
     const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
     const air = st.pose === 'jump';

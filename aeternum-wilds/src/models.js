@@ -125,9 +125,51 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.36, 0.34, 0.6, metal, 0, 1.15, 0));
     g.rotation.x = Math.PI / 2;
   } else if (type === 'club') {
-    g.add(box(0.12, 1.2, 0.12, wood, 0, 0.45, 0));
-    g.add(box(0.3, 0.5, 0.3, mat(0x3a2a1a), 0, 1.0, 0));
+    const cw = mat([0x5a3a20, 0x4a3420, 0x3a2440][tier - 1] ?? 0x3a2a1a);
+    g.add(box(0.1, 0.5, 0.1, dark, 0, 0.05, 0));
+    g.add(box(0.14, 0.5, 0.14, wood, 0, 0.5, 0));
+    g.add(box(0.26, 0.55, 0.26, cw, 0, 0.98, 0));
+    g.add(box(0.3, 0.07, 0.3, metal, 0, 0.82, 0)); g.add(box(0.3, 0.07, 0.3, metal, 0, 1.14, 0));
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; g.add(box(0.07, 0.07, 0.07, metal, Math.cos(a) * 0.15, 0.98 + (i % 2) * 0.12 - 0.06, Math.sin(a) * 0.15)); }
     g.rotation.x = Math.PI / 2;
+  } else if (type === 'rapier' || type === 'dagger') {
+    // grip at the origin, blade along +y
+    const r = type === 'rapier', bladeL = r ? 1.0 : 0.42;
+    g.add(box(0.05, 0.18, 0.05, dark, 0, 0, 0));
+    g.add(box(0.06, 0.06, 0.06, gold, 0, -0.11, 0));
+    if (r) { // swept hilt: cup guard and quillons
+      const cup = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), gold); cup.position.y = 0.1; g.add(cup);
+      g.add(box(0.32, 0.03, 0.03, gold, 0, 0.11, 0));
+      g.add(box(0.025, bladeL, 0.012, metal, 0, 0.13 + bladeL / 2, 0));
+    } else {
+      g.add(box(0.2, 0.04, 0.05, gold, 0, 0.1, 0));
+      const bl = box(0.07, bladeL, 0.018, metal, 0, 0.12 + bladeL / 2, 0); g.add(bl);
+      const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), metal); tip.scale.set(1, 2.5, 0.25); tip.position.y = 0.12 + bladeL + 0.05; g.add(tip);
+    }
+    g.rotation.x = Math.PI / 2;
+  } else if (type === 'spear') {
+    // grip at the origin; a short butt below, the long shaft and a leaf blade above
+    g.add(box(0.06, 2.0, 0.06, wood, 0, 0.55, 0));
+    g.add(box(0.09, 0.12, 0.09, metal, 0, -0.46, 0));
+    g.add(box(0.08, 0.2, 0.08, dark, 0, 0, 0));
+    g.add(box(0.1, 0.08, 0.1, gold, 0, 1.55, 0));
+    const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.1, 0), metal); tip.scale.set(0.9, 3.4, 0.3); tip.position.y = 1.88; g.add(tip);
+    g.rotation.x = Math.PI / 2;
+  } else if (type === 'musket' || type === 'blunderbuss') {
+    // guns: grip at the origin, barrel along +y. rotation.x = PI points the barrel down when the arm hangs
+    // and straight ahead when the arm is raised to aim.
+    const bl = type === 'musket';
+    const stockM = mat([0x6b4a2a, 0x5a3420, 0x3a2418][tier - 1] ?? 0x6b4a2a);
+    const brl = mat([0x4a4a50, 0x6a6a72, 0xc89a48][tier - 1] ?? 0x4a4a50, false, { emissive: tier === 3 ? 0x2a1800 : 0x000000 });
+    const len = bl ? 1.25 : 0.7;
+    g.add(box(0.09, 0.42, 0.16, stockM, 0, -0.28, -0.04)); // butt stock
+    g.add(box(0.08, 0.2, 0.1, stockM, 0, -0.02, 0));
+    g.add(box(0.09, len * 0.75, 0.1, stockM, 0, 0.1 + len * 0.375, 0.02)); // fore stock
+    g.add(box(bl ? 0.05 : 0.08, len, bl ? 0.05 : 0.08, brl, 0, 0.12 + len / 2, 0.08)); // barrel
+    g.add(box(0.04, 0.08, 0.06, brl, 0, 0.06, 0.1)); // lock
+    if (bl) for (const y of [0.4, 0.8, 1.15]) g.add(box(0.07, 0.04, 0.07, gold, 0, y, 0.07));
+    else { const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.05, 0.16, 10, 1, true), brl); bell.position.set(0, 0.12 + len + 0.04, 0.08); g.add(bell); g.add(box(0.12, 0.04, 0.12, gold, 0, 0.45, 0.06)); }
+    g.rotation.x = Math.PI;
   } else if (type === 'greatsword') {
     g.add(box(0.09, 0.4, 0.09, dark, 0, 0, 0));
     g.add(box(0.5, 0.09, 0.1, mat(0x5a0a0a), 0, 0.22, 0));

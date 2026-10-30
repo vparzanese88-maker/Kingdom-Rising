@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { axeReady, axeMesh, swordReady, swordMesh, hammerReady, hammerMesh } from './gfx/meshy.js';
+import { axeReady, axeMesh } from './gfx/meshy.js';
+import { weaponModelMesh, modelFor } from './gfx/weapons3d.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 // ---------- Geometry merging (fewer draw calls) ----------
@@ -82,16 +83,17 @@ function cyl(rt, rb, h, m, seg = 8) {
 }
 
 // ---------- Weapons ----------
-export function makeWeapon(type, tier = 1) {
+export function makeWeapon(type, tier = 1, model = null) {
   const g = new THREE.Group();
   const metal = mat([0x9aa0a6, 0x8fb8d8, 0xe0a640][tier - 1] ?? 0x9aa0a6, false, { emissive: tier === 3 ? 0x3a2000 : 0x000000 });
   const wood = mat(0x6b4a2a), dark = mat(0x2a2018), gold = mat(0xc8a040);
-  if ((type === 'sword' || type === 'greatsword') && swordReady()) {
-    // the player's own gothic greatsword model (the Warden carries a huge corrupted one)
-    const m = swordMesh(type === 'greatsword' ? 'boss' : tier);
-    if (type === 'greatsword') m.scale.setScalar(1.6);
-    g.add(m);
-    g.rotation.x = Math.PI / 2;
+  // the owner's Meshy models (downloaded on first use; the built-in model stands in until then)
+  const key = type === 'greatsword' ? 'gothicBoss' : modelFor(type, tier, model);
+  const real = key && weaponModelMesh(key, type === 'greatsword' ? 1 : tier);
+  if (real) {
+    if (type === 'greatsword') real.scale.setScalar(1.6);
+    g.add(real);
+    g.rotation.x = type === 'bow' ? 0 : (type === 'musket' || type === 'blunderbuss' || type === 'crossbow') ? Math.PI : Math.PI / 2;
     return g;
   }
   if (type === 'sword' || type === 'cutlass') {
@@ -116,10 +118,6 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.05, 0.52, 0.5, metal, 0, 1.2, 0.22));
     g.add(box(0.05, 0.3, 0.18, metal, 0, 1.22, -0.1));
     g.rotation.x = Math.PI / 2;
-  } else if (type === 'hammer' && hammerReady()) {
-    g.add(hammerMesh(tier));
-    g.rotation.x = Math.PI / 2;
-    return g;
   } else if (type === 'hammer') {
     g.add(box(0.08, 1.4, 0.08, wood, 0, 0.45, 0));
     g.add(box(0.36, 0.34, 0.6, metal, 0, 1.15, 0));
@@ -155,7 +153,7 @@ export function makeWeapon(type, tier = 1) {
     g.add(box(0.1, 0.08, 0.1, gold, 0, 1.55, 0));
     const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.1, 0), metal); tip.scale.set(0.9, 3.4, 0.3); tip.position.y = 1.88; g.add(tip);
     g.rotation.x = Math.PI / 2;
-  } else if (type === 'musket' || type === 'blunderbuss') {
+  } else if (type === 'musket' || type === 'blunderbuss' || type === 'crossbow') {
     // guns: grip at the origin, barrel along +y. rotation.x = PI points the barrel down when the arm hangs
     // and straight ahead when the arm is raised to aim.
     const bl = type === 'musket';

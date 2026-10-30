@@ -101,6 +101,12 @@ export const WEAPONS = {
     draw: 0.45, speed: 95, range: 60, reload: 1.8,
     tiers: ['Matchlock Musket', 'Flintlock Musket', 'Gilded Musket'],
   },
+  crossbow: {
+    name: 'Crossbow', short: 'Crossbow', icon: '🎯', scale: { dex: 1.0 }, gun: true, bolt: true,
+    dmg: 44, block: 0, blockCost: 1,
+    draw: 0.35, speed: 70, range: 45, reload: 1.3,
+    tiers: ['Ash Crossbow', 'Steel Crossbow', 'Wyrdwood Crossbow'],
+  },
   blunderbuss: {
     name: 'Blunderbuss', short: 'Blunderbuss', icon: '💥', scale: { str: 0.5, dex: 0.5 }, gun: true,
     dmg: 20, block: 0, blockCost: 1,
@@ -109,7 +115,7 @@ export const WEAPONS = {
   },
 };
 // weapons fired with left-click hold and release (bow and guns), and those carried with a shield
-export const RANGED_WEAPONS = new Set(['bow', 'musket', 'blunderbuss']);
+export const RANGED_WEAPONS = new Set(['bow', 'crossbow', 'musket', 'blunderbuss']);
 export const SHIELD_WEAPONS = new Set(['sword', 'spear', 'club']);
 export const WEAPON_TYPES = Object.keys(WEAPONS);
 
@@ -184,6 +190,7 @@ export const MASTERY = {
   club: mt('cl', 'bonk', 'shieldBash', 'quake', 'thorns', ['Knotted Wood', '🏏', 'Concussion', '💫', 'Stuns last 40% longer', { stunDur: 0.4 }, 'Crusher', '🔨']),
   rapier: mt('ra', 'flurry', 'riposte', 'fleche', 'bladeDance', ['Fine Point', '🤺', 'Parry', '🛡️', 'Blocking costs 40% less stamina', { blockCost: -0.4 }, 'Duelist', '⚔️']),
   dagger: mt('dg', 'backstab', 'hemorrhage', 'fanKnives', 'shadowVeil', ['Serrated', '🗡️', 'Cutthroat', '🩸', '+30% critical damage', { critDmg: 0.3 }, 'Assassin', '💀']),
+  crossbow: mt('cb', 'pierce', 'evade', 'poison', 'rain', ['Barbed Bolts', '🎯', 'Quick Crank', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Heavy Bolts', '🏹']),
   musket: mt('mu', 'powderShot', 'rollReload', 'stopShot', 'steady', ['Rifled Barrel', '🔫', 'Quick Load', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Marksman', '🎯']),
   blunderbuss: mt('bb', 'scatter', 'blastBack', 'grapeshot', 'smoke', ['Extra Shot', '💥', 'Quick Load', '⚡', 'Aim 25% faster', { drawSpeed: 0.25 }, 'Point Blank', '💣']),
   sword: [
@@ -353,6 +360,7 @@ export const RECIPES = [
       { id: `f_club${t}`, station: 'forge', gear: 'weapon', wtype: 'club', tier: t, in: { [wood]: q(5), [ingot]: q(1), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_rapier${t}`, station: 'forge', gear: 'weapon', wtype: 'rapier', tier: t, in: { [ingot]: q(5), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_dagger${t}`, station: 'forge', gear: 'weapon', wtype: 'dagger', tier: t, in: { [ingot]: q(2), [leather]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
+      { id: `f_crossbow${t}`, station: 'forge', gear: 'weapon', wtype: 'crossbow', tier: t, in: { [wood]: q(4), [ingot]: q(2), [cloth]: 1, ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_musket${t}`, station: 'forge', gear: 'weapon', wtype: 'musket', tier: t, in: { [ingot]: q(5), [wood]: q(3), ...extra }, skill: 'smithing', req, xp: 30 * t },
       { id: `f_blunder${t}`, station: 'forge', gear: 'weapon', wtype: 'blunderbuss', tier: t, in: { [ingot]: q(6), [wood]: q(2), ...extra }, skill: 'smithing', req, xp: 30 * t },
     ];

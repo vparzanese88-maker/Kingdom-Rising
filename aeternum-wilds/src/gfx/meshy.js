@@ -3,12 +3,9 @@
 //    animation "parts" (hips, upper, head, armR/L, legR/L) that anim.js already drives
 //  - the double-bladed great axe
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const BASE = './assets/models/';
-const A = { hero: null, axe: null, sword: null, hammer: null };
-export const hammerReady = () => !!A.hammer;
-export const swordReady = () => !!A.sword;
+const A = { hero: null, axe: null };
 export const meshyReady = () => !!A.hero;
 export const axeReady = () => !!A.axe;
 
@@ -63,58 +60,9 @@ async function loadAxe() {
   A.axe = { g, mats: {} };
 }
 
-// the gothic greatsword: textured, with metal/roughness and normal maps
-async function loadSword() {
-  const gl = await new GLTFLoader().loadAsync(BASE + 'greatsword.glb');
-  let src = null;
-  gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
-  const g = src.geometry.clone();
-  // model space: hilt up, blade down along -y, grip around y = 0.33. Make the blade point +y from a grip at the origin.
-  g.rotateZ(Math.PI);
-  g.translate(0, 0.33, 0);
-  g.scale(1.05, 1.05, 1.05);
-  g.computeBoundingSphere();
-  const m = src.material;
-  for (const t of [m.map, m.normalMap, m.metalnessMap]) if (t) t.anisotropy = 8;
-  A.sword = { g, base: m, mats: {} };
-}
-
-// the gothic war hammer: head at the top, haft down, pommel at the bottom. Grip just above the pommel.
-async function loadHammer() {
-  const gl = await new GLTFLoader().loadAsync(BASE + 'warhammer.glb');
-  let src = null;
-  gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
-  const g = src.geometry.clone();
-  g.translate(0, 0.3, 0);
-  g.scale(1.6, 1.6, 1.6);
-  g.computeBoundingSphere();
-  const m = src.material;
-  for (const t of [m.map, m.normalMap, m.metalnessMap]) if (t) t.anisotropy = 8;
-  A.hammer = { g, base: m, mats: {} };
-}
-export function hammerMesh(tier = 1) {
-  const k = SWORD_TINT[tier] ? tier : 1;
-  let m = A.hammer.mats[k];
-  if (!m) { m = A.hammer.mats[k] = A.hammer.base.clone(); m.color.setHex(SWORD_TINT[k][0]); m.emissive.setHex(SWORD_TINT[k][1]); }
-  const mesh = new THREE.Mesh(A.hammer.g, m);
-  mesh.castShadow = true;
-  return mesh;
-}
-
 // load everything; never throws (the game falls back to the built-in models)
 export async function loadMeshy() {
-  await Promise.all([loadHero().catch(e => console.warn('hero model', e)), loadAxe().catch(e => console.warn('axe model', e)), loadSword().catch(e => console.warn('sword model', e)), loadHammer().catch(e => console.warn('hammer model', e))]);
-}
-
-// sword per tier: dark steel, blue starmetal, gold orichalcum; 'boss' is the Warden's corrupted blade
-const SWORD_TINT = { 1: [0xffffff, 0x000000], 2: [0xc4d8ff, 0x050a18], 3: [0xffdc96, 0x281800], boss: [0xff9a8a, 0x3a0600] };
-export function swordMesh(tier = 1) {
-  const k = SWORD_TINT[tier] ? tier : 1;
-  let m = A.sword.mats[k];
-  if (!m) { m = A.sword.mats[k] = A.sword.base.clone(); m.color.setHex(SWORD_TINT[k][0]); m.emissive.setHex(SWORD_TINT[k][1]); }
-  const mesh = new THREE.Mesh(A.sword.g, m);
-  mesh.castShadow = true;
-  return mesh;
+  await Promise.all([loadHero().catch(e => console.warn('hero model', e)), loadAxe().catch(e => console.warn('axe model', e))]);
 }
 
 // ---------- the great axe ----------

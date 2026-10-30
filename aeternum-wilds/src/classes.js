@@ -8,7 +8,7 @@ export const CLASSES = {
   warrior: {
     name: 'Warrior', icon: '⚔️', role: 'Tank',
     desc: 'A shield-line veteran who plants their feet and dares the wilds to move them. Unmatched at soaking punishment and holding attention.',
-    weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
+    model: 'gothic', weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
     attrs: { str: 3, con: 4, int: -1 }, color: 0x8a6a3a, mana: 0.6,
     trees: [
       { id: 'war_defense', name: 'Defense', icon: '🛡️', desc: 'Hold the line and draw every blade to yourself.', nodes: [
@@ -44,7 +44,7 @@ export const CLASSES = {
   cleric: {
     name: 'Cleric', icon: '✝️', role: 'Healer',
     desc: 'An armored servant of the dawn whose prayers mend flesh and whose hammer breaks the restless dead.',
-    weapon: 'hammer', second: 'staff', armor: 'heavy', gear: ['chest', 'legs', 'feet'],
+    model: 'warhammer', weapon: 'hammer', second: 'staff', armor: 'heavy', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 3, con: 2, str: 1 }, color: 0xe8e0b0, mana: 1.3,
     trees: [
       { id: 'clr_healing', name: 'Healing', icon: '💖', desc: 'Restorative prayers.', nodes: [
@@ -80,7 +80,7 @@ export const CLASSES = {
   paladin: {
     name: 'Paladin', icon: '🛡️', role: 'Hybrid',
     desc: 'An oathbound knight who guards the weak with steel and sacred light, healing between blows.',
-    weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
+    model: 'longsword', weapon: 'sword', second: 'hammer', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
     attrs: { str: 2, con: 3, int: 1 }, color: 0xd8c070, mana: 1.0,
     trees: [
       { id: 'pal_guard', name: 'Holy Guard', icon: '🏛️', desc: 'Sacred protection.', nodes: [
@@ -116,7 +116,7 @@ export const CLASSES = {
   ranger: {
     name: 'Ranger', icon: '🏹', role: 'Melee',
     desc: 'A keen-eyed wanderer of the deep woods, deadly at range and at home among wolves and thorns.',
-    weapon: 'bow', second: 'sword', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    model: 'bow', weapon: 'bow', second: 'sword', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { dex: 4, str: 1, con: 1 }, color: 0x3a6a2a, mana: 1.0,
     trees: [
       { id: 'rng_archery', name: 'Archery', icon: '🎯', desc: 'Peerless marksmanship.', nodes: [
@@ -152,7 +152,7 @@ export const CLASSES = {
   shadowknight: {
     name: 'Shadow Knight', icon: '🖤', role: 'Tank',
     desc: 'A dread-clad knight who bargained with the grave. Terror and stolen life keep them standing long after others fall.',
-    weapon: 'greataxe', second: 'sword', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
+    model: 'axeDread', weapon: 'greataxe', second: 'sword', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
     attrs: { str: 3, con: 2, int: 1 }, color: 0x301830, mana: 1.0,
     trees: [
       { id: 'sk_dread', name: 'Dread', icon: '😱', desc: 'Terrify and command attention.', nodes: [
@@ -188,7 +188,7 @@ export const CLASSES = {
   druid: {
     name: 'Druid', icon: '🌿', role: 'Caster',
     desc: 'A keeper of the old groves who calls storms and roots, mends with sap and sun, and wears the shapes of beasts.',
-    weapon: 'club', second: 'staff', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'mace', weapon: 'club', second: 'staff', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 4, con: 1, dex: 1 }, color: 0x4a7a2a, mana: 1.3,
     trees: [
       { id: 'dru_wrath', name: 'Nature\'s Wrath', icon: '⛈️', desc: 'Storm and thorn.', nodes: [
@@ -224,7 +224,7 @@ export const CLASSES = {
   monk: {
     name: 'Monk', icon: '🥋', role: 'Melee',
     desc: 'A disciplined wanderer whose war staff and bare feet are weapons honed by a lifetime of quiet practice.',
-    weapon: 'hammer', second: 'staff', armor: 'light', gear: ['chest', 'legs'],
+    model: 'spearDragon', weapon: 'spear', second: 'staff', armor: 'light', gear: ['chest', 'legs'],
     attrs: { dex: 3, str: 2, con: 1 }, color: 0xd08030, mana: 0.6,
     trees: [
       { id: 'mnk_martial', name: 'Martial Arts', icon: '👊', desc: 'Strikes with the war staff.', nodes: [
@@ -260,7 +260,7 @@ export const CLASSES = {
   bard: {
     name: 'Bard', icon: '🎵', role: 'Support',
     desc: 'A wandering minstrel whose blade keeps time with their songs, lifting allies and lulling enemies to stillness.',
-    weapon: 'sword', second: 'rapier', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    model: 'knightsword', weapon: 'sword', second: 'rapier', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { dex: 2, int: 2, con: 1, str: 1 }, color: 0x6a3a8a, mana: 1.0,
     trees: [
       { id: 'brd_war', name: 'Songs of War', icon: '🥁', desc: 'Marching rhythms.', nodes: [
@@ -296,7 +296,7 @@ export const CLASSES = {
   rogue: {
     name: 'Rogue', icon: '🗡️', role: 'Melee',
     desc: 'A quick-handed cutthroat who strikes from the shadows, coats every blade in venom and is gone before the body falls.',
-    weapon: 'rapier', second: 'bow', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'rapier', weapon: 'rapier', second: 'bow', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { dex: 5, str: 1 }, color: 0x2a2a2a, mana: 0.6,
     trees: [
       { id: 'rog_assassin', name: 'Assassination', icon: '🎯', desc: 'One perfect cut.', nodes: [
@@ -332,7 +332,7 @@ export const CLASSES = {
   shaman: {
     name: 'Shaman', icon: '🪶', role: 'Support',
     desc: 'A speaker for the spirits of land and ancestor, who wards friends, hexes foes and calls ghostly wolves to the hunt.',
-    weapon: 'spear', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    model: 'spearWinged', weapon: 'spear', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 3, con: 2, str: 1 }, color: 0x2a6a8a, mana: 1.2,
     trees: [
       { id: 'sha_wards', name: 'Spirit Wards', icon: '🗿', desc: 'Protection of the spirits.', nodes: [
@@ -368,7 +368,7 @@ export const CLASSES = {
   necromancer: {
     name: 'Necromancer', icon: '💀', role: 'Pet Caster',
     desc: 'A scholar of the grave who drinks the life of the living and commands the bones of the dead to do their bidding.',
-    weapon: 'staff', second: 'dagger', start2: true, armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'staffBone', weapon: 'staff', second: 'dagger', start2: true, armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 5, con: 1 }, color: 0x3a1a4a, mana: 1.3,
     trees: [
       { id: 'nec_siphon', name: 'Siphon', icon: '🩸', desc: 'Steal life to sustain your own.', nodes: [
@@ -404,7 +404,7 @@ export const CLASSES = {
   wizard: {
     name: 'Wizard', icon: '🧙', role: 'Caster',
     desc: 'A master of raw elemental force who turns study into flame, frost and folded space.',
-    weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'staffSpire', weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 6, con: 1, str: -1 }, color: 0x2a3a9a, mana: 1.4,
     trees: [
       { id: 'wiz_fire', name: 'Fire', icon: '🔥', desc: 'Burn it all.', nodes: [
@@ -440,7 +440,7 @@ export const CLASSES = {
   magician: {
     name: 'Magician', icon: '🔥', role: 'Pet Caster',
     desc: 'A conjurer who binds elemental beings to service and shapes raw matter into bolts and barriers.',
-    weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'staffEmber', weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 5, con: 2, str: -1 }, color: 0xa04a1a, mana: 1.3,
     trees: [
       { id: 'mag_elementals', name: 'Elementals', icon: '🌋', desc: 'Bound elemental servants.', nodes: [
@@ -476,7 +476,7 @@ export const CLASSES = {
   enchanter: {
     name: 'Enchanter', icon: '🌀', role: 'Support',
     desc: 'A weaver of glamours who bends minds, lulls monsters into helpless dreams and hides behind shimmering illusions.',
-    weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
+    model: 'staffArcane', weapon: 'staff', second: 'sword', armor: 'light', gear: ['chest', 'legs', 'feet'],
     attrs: { int: 5, dex: 1 }, color: 0x8a3a9a, mana: 1.4,
     trees: [
       { id: 'enc_mesmerize', name: 'Mesmerize', icon: '😵', desc: 'Control the battlefield.', nodes: [
@@ -512,7 +512,7 @@ export const CLASSES = {
   beastlord: {
     name: 'Beastlord', icon: '🐾', role: 'Hybrid',
     desc: 'A wild-hearted fighter bound to a beast companion, sharing its strength, fury and spirit in every fight.',
-    weapon: 'greataxe', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    model: 'axeBearded', weapon: 'greataxe', second: 'hammer', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { str: 2, dex: 2, con: 1, int: 1 }, color: 0x7a5a2a, mana: 1.0,
     trees: [
       { id: 'bst_bond', name: 'Beast Bond', icon: '🐺', desc: 'Your loyal companions.', nodes: [
@@ -548,7 +548,7 @@ export const CLASSES = {
   berserker: {
     name: 'Berserker', icon: '🪓', role: 'Melee',
     desc: 'A frothing northland axe-fighter who grows stronger the more blood is spilled, their own included.',
-    weapon: 'greataxe', second: 'sword', armor: 'medium', gear: ['chest', 'legs', 'feet'],
+    model: 'axeReaver', weapon: 'greataxe', second: 'sword', armor: 'medium', gear: ['chest', 'legs', 'feet'],
     attrs: { str: 5, con: 2, int: -1 }, color: 0x8a1a1a, mana: 0.6,
     trees: [
       { id: 'ber_rage', name: 'Rage', icon: '😡', desc: 'Let the red mist in.', nodes: [
@@ -600,7 +600,7 @@ export const CLASSES = {
   blunderbuss: {
     name: 'Blunderbuss', icon: '💥', role: 'Bruiser',
     desc: 'A powder-scarred brawler with a bell-mouthed gun. Gets right up close and blows enemies off their feet.',
-    weapon: 'blunderbuss', second: 'club', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
+    model: 'blunderbuss', weapon: 'blunderbuss', second: 'club', armor: 'heavy', gear: ['head', 'chest', 'legs', 'feet'],
     attrs: { str: 3, con: 3 }, color: 0x7a4a1a, mana: 1.0,
     trees: [
       { id: 'blb_boom', name: 'Boom', icon: '💥', desc: 'More powder. Always more powder.', nodes: [

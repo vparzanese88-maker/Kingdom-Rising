@@ -5,7 +5,7 @@ import { CLASSES, CLASS_LIST } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
-import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, TOWN_SPAWN } from './player.js';
+import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, refreshLook, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
 import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPanel, refreshHud, refreshTracker, toast } from './ui.js';
@@ -13,6 +13,10 @@ import { makeGear } from './items.js';
 import { fillBounties } from './quests.js';
 import { initAudio, setVolume, setMusic, setMusicZone, setAmbience, setMusicVolume } from './audio.js';
 import { dressHumanoid, makeWeapon } from './models.js';
+import { WEAPON_MODELS, onWeaponModel, weaponModelMesh } from './gfx/weapons3d.js';
+// a weapon model finished downloading: re-dress whoever is holding the stand-in
+onWeaponModel(() => { if (G.mode === 'create' && preview) buildPreview(); else if (G.player && G.p) refreshLook(); });
+weaponModelMesh('gothicBoss'); // the Warden's blade, ready before anyone meets him
 import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
@@ -393,7 +397,7 @@ function buildPreview() {
   const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x6a6a70, 0x4a4a50] }[C.armor];
   dressHumanoid(preview, { chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
-  armCharacter(preview, { wtype: C.weapon, tier: 1 }, null);
+  armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model }, null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -410,7 +414,7 @@ function creator() {
   if (creatorTab === 'class') {
     body = `<div class="cards c16">${CLASS_LIST.map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
       <div class="cinfo"><h3>${C.icon} ${C.name} <small>${C.role}</small></h3><p class="cdesc">${C.desc}</p>
-      <p class="small">Starts with: <b>${WEAPONS[C.weapon].name}</b>, ${C.armor} armor. ${C.start2 ? `Also carries a ${WEAPONS[C.second].name.toLowerCase()}.` : `Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.`}</p>
+      <p class="small">Starts with: <b>${C.model && WEAPON_MODELS[C.model] ? WEAPON_MODELS[C.model].name : WEAPONS[C.weapon].name}</b> (${WEAPONS[C.weapon].name}), ${C.armor} armor. ${C.start2 ? `Also carries a ${WEAPONS[C.second].name.toLowerCase()}.` : `Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.`}</p>
       <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
       <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
   } else if (creatorTab === 'body') {
@@ -463,6 +467,7 @@ function creator() {
     const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
     p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
+    if (C2.model && WEAPON_MODELS[C2.model]) { p.equip.w1.model = C2.model; p.equip.w1.name = WEAPON_MODELS[C2.model].name; }
     if (C2.start2) p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }

@@ -59,13 +59,13 @@ const tierColor = (it, k, none) => it ? new THREE.Color(ARMOR_COLS[it.wclass || 
 export function armCharacter(h, w, other) {
   for (const k of ['wR', 'wL', 'wBack']) if (h[k]) { h[k].parent?.remove(h[k]); h[k] = null; }
   const tall = charHeight(h);
-  const SHORT = { sword: 0.85, spear: 1.05, club: 0.6, rapier: 0.62, dagger: 0.3, musket: 0.85, blunderbuss: 0.55 };
+  const SHORT = { sword: 0.85, spear: 1.05, club: 0.6, rapier: 0.62, dagger: 0.3, crossbow: 0.5, musket: 0.85, blunderbuss: 0.55 };
   const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1);
   const shieldLen = it => tall * 0.36 * (0.92 + 0.08 * (it.tier || 1));
   if (w) {
-    if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
+    if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
     else {
-      h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
+      h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
       if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.3 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
       if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
@@ -78,7 +78,7 @@ export function armCharacter(h, w, other) {
     if (h.parts.back) back.position.set(0, 0, -0.16); else back.position.set(0, 0.5, -0.26);
     back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
     const L = len(other);
-    const bw = makeWeapon(other.wtype, other.tier);
+    const bw = makeWeapon(other.wtype, other.tier, other.model);
     bw.rotation.set(0, 0, 0);
     sizeWeapon(bw, back, L);
     back.getWorldScale(_ws); const Lb = L / (_ws.y || 1); // weapon length in the back group's units
@@ -425,8 +425,10 @@ function fireGun(wt, power) {
   for (let i = 0; i < n; i++) {
     const sp = n > 1 ? W.spread : 0.012 * (1 - power);
     const dx = from.dx / l + (Math.random() - 0.5) * sp * 2, dy = from.dy / l + (Math.random() - 0.5) * sp, dz = from.dz / l + (Math.random() - 0.5) * sp * 2;
-    spawnProj({ owner: 'player', x: from.x, y: from.y, z: from.z, dx, dy, dz, speed: W.speed * (0.9 + Math.random() * 0.1), range: W.range, mult: steady, kind: power >= 0.99 ? 'heavy' : 'light', color: 0xffe0a0, size: n > 1 ? 0.07 : 0.1, element: 'physical' });
+    if (W.bolt) spawnProj({ owner: 'player', x: from.x, y: from.y, z: from.z, dx, dy, dz, speed: W.speed, range: W.range, mult: steady, kind: power >= 0.99 ? 'heavy' : 'light' });
+    else spawnProj({ owner: 'player', x: from.x, y: from.y, z: from.z, dx, dy, dz, speed: W.speed * (0.9 + Math.random() * 0.1), range: W.range, mult: steady, kind: power >= 0.99 ? 'heavy' : 'light', color: 0xffe0a0, size: n > 1 ? 0.07 : 0.1, element: 'physical' });
   }
+  if (W.bolt) { sfx('bow'); P.reload = W.reload / atkSpeed(); return; }
   // muzzle flash and smoke
   const mx = from.x + from.dx / l * 1.2, my = from.y + from.dy / l * 1.2, mz = from.z + from.dz / l * 1.2;
   burst(mx, my, mz, 0xffc060, n > 1 ? 14 : 8, 7, 0.18, 0.14, 0);

@@ -619,3 +619,70 @@ export const CLASS_LIST = [
   'rogue', 'shaman', 'necromancer', 'wizard', 'magician', 'enchanter', 'beastlord', 'berserker',
   'musketeer', 'blunderbuss',
 ];
+
+// ---- Character creation: style -> class -> weapon ----
+export const STYLES = {
+  melee: { name: 'Melee', icon: '⚔️', desc: 'Up close and in their face: swords, shields, axes, hammers, spears and fists.' },
+  ranged: { name: 'Ranged', icon: '🏹', desc: 'Strike from afar with bows, crossbows, muskets and blunderbusses.' },
+  mage: { name: 'Mage', icon: '🔮', desc: 'Wield fire, lightning and frost through a staff, and bend the battle with spells.' },
+};
+export const STYLE_CLASSES = {
+  melee: ['warrior', 'cleric', 'paladin', 'shadowknight', 'berserker', 'shaman', 'monk', 'rogue', 'beastlord'],
+  ranged: ['ranger', 'bard', 'musketeer', 'blunderbuss'],
+  mage: ['wizard', 'magician', 'necromancer', 'enchanter', 'druid'],
+};
+export const styleOf = cls => Object.keys(STYLE_CLASSES).find(k => STYLE_CLASSES[k].includes(cls)) || 'melee';
+// the weapon choices for each class; w1 is in hand, w2 (optional) is the second weapon swapped to with Q.
+// noShield: a sword carried without its shield. elem: a staff's element (fire burns, lightning staggers, frost slows).
+const RANGED_KIT = [
+  { name: 'Bow', icon: '🏹', desc: 'Hold to draw, release to loose. Quick, quiet and accurate.', w1: { wtype: 'bow', model: 'bow' } },
+  { name: 'Crossbow', icon: '🎯', desc: 'Heavy bolts that hit hard and fly flat.', w1: { wtype: 'crossbow', model: 'crossbow' } },
+  { name: 'Musket', icon: '🔫', desc: 'One devastating ball at long range, then a slow reload.', w1: { wtype: 'musket', model: 'musket' } },
+  { name: 'Blunderbuss', icon: '💥', desc: 'A spray of shot that shreds anything close.', w1: { wtype: 'blunderbuss', model: 'blunderbuss' } },
+];
+const STAFFS = [
+  { name: 'Fire Staff', icon: '🔥', desc: 'Fireballs that set enemies burning.', w1: { wtype: 'staff', model: 'staffFire', elem: 'fire', name: 'Flamecaller Staff' } },
+  { name: 'Lightning Staff', icon: '⚡', desc: 'Crackling bolts that hit harder and stagger.', w1: { wtype: 'staff', model: 'staffArcane', elem: 'lightning', name: 'Stormcaller Staff' } },
+  { name: 'Frost Staff', icon: '❄️', desc: 'Freezing shards that slow whatever they hit.', w1: { wtype: 'staff', model: 'staffSpire', elem: 'frost', name: 'Frostspire Staff' } },
+];
+const swordSet = (blade, mace, shield) => [
+  { name: 'Sword & Shield', icon: '🛡️', desc: 'Block almost anything, strike back with quick cuts.', w1: { wtype: 'sword', model: blade, shield } },
+  { name: 'Sword', icon: '🗡️', desc: 'The blade alone: lighter, freer, nothing on your arm.', w1: { wtype: 'sword', model: blade, noShield: true } },
+  { name: 'Sword & Mace', icon: '🔨', desc: 'A sword in hand and a mace on your belt: swap with Q.', w1: { wtype: 'sword', model: blade, noShield: true }, w2: { wtype: 'club', model: mace, noShield: true } },
+];
+export const LOADOUTS = {
+  warrior: swordSet('knightsword', 'mace', 'shieldKite'),
+  cleric: swordSet('longsword', 'mace', 'shieldHeater'),
+  paladin: swordSet('holyAvenger', 'mace', 'shieldHeater'),
+  shadowknight: [
+    { name: 'Dread Axe', icon: '🪓', desc: 'A two-handed axe of black iron.', w1: { wtype: 'greataxe', model: 'axeDread' } },
+    { name: 'Sword & Shield', icon: '🛡️', desc: 'A cathedral blade and a kite shield.', w1: { wtype: 'sword', model: 'gothic2', shield: 'shieldKite' } },
+  ],
+  berserker: [
+    { name: 'Great Axe', icon: '🪓', desc: 'Wide, sweeping two-handed chops.', w1: { wtype: 'greataxe', model: 'axeBerserk' } },
+    { name: 'War Hammer', icon: '🔨', desc: 'Slow, crushing two-handed blows that stun.', w1: { wtype: 'hammer', model: 'warhammer' } },
+    { name: 'Greatsword', icon: '⚔️', desc: 'A huge two-handed blade.', w1: { wtype: 'sword', model: 'gothic', noShield: true } },
+  ],
+  shaman: [
+    { name: 'Spear & Shield', icon: '🔱', desc: 'Long reach and a round shield.', w1: { wtype: 'spear', model: 'spearWinged', shield: 'shieldRound' } },
+    { name: 'Dragon Spear & Shield', icon: '🐉', desc: 'A dragon-headed spear and a round shield.', w1: { wtype: 'spear', model: 'spearDragon', shield: 'shieldRound' } },
+  ],
+  monk: [
+    { name: 'Fists', icon: '👊', desc: 'Fast strikes and kicks, nothing in your hands.', w1: { wtype: 'fists', model: 'builtin' }, w2: { wtype: 'spear', model: 'quarterstaff', noShield: true } },
+    { name: 'Quarterstaff', icon: '🥢', desc: 'A long fighting pole with great reach.', w1: { wtype: 'spear', model: 'quarterstaff', noShield: true }, w2: { wtype: 'fists', model: 'builtin' } },
+  ],
+  rogue: [
+    { name: 'Rapier', icon: '🤺', desc: 'Quick, precise thrusts.', w1: { wtype: 'rapier', model: 'rapier' } },
+    { name: 'Dagger', icon: '🗡️', desc: 'Very fast stabs from close in.', w1: { wtype: 'dagger', model: 'dagger' } },
+  ],
+  beastlord: [
+    { name: 'Bearded Hatchets', icon: '🪓', desc: 'A hatchet in each hand.', w1: { wtype: 'hatchets', model: 'hatchetBearded' } },
+    { name: 'Wrapped Hatchets', icon: '🪓', desc: 'Lighter hatchets with leather-wrapped hafts.', w1: { wtype: 'hatchets', model: 'hatchetWrapped' } },
+    { name: 'Spear & Shield', icon: '🔱', desc: 'Keep the beasts at spear\'s length.', w1: { wtype: 'spear', model: 'spearWinged', shield: 'shieldRound' } },
+  ],
+  ranger: RANGED_KIT,
+  bard: RANGED_KIT,
+  musketeer: [RANGED_KIT[2], ...RANGED_KIT.filter((_, i) => i !== 2)],
+  blunderbuss: [RANGED_KIT[3], ...RANGED_KIT.filter((_, i) => i !== 3)],
+  wizard: STAFFS, magician: STAFFS, necromancer: STAFFS, enchanter: STAFFS, druid: STAFFS,
+};

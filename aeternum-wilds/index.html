@@ -323,6 +323,12 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
 .stree .link { width: 2px; height: 10px; background: #5a4828; margin: 0 auto; }
 .rk { font-size: 12px; color: var(--gold2); }
 .cards.c16 { grid-template-columns: repeat(6, 1fr); }
+.cards.c3 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ccard.big { padding: 16px 10px; gap: 6px; justify-content: flex-start; } .ccard.big span { font-size: 40px; } .ccard.big b { font-size: 18px; }
+.ccard.big small { font-size: 14px; line-height: 1.3; text-align: center; } .ccard.big em { font-style: normal; font-size: 16px; letter-spacing: 2px; margin-top: 4px; }
+.ctabs.steps button i { font-style: normal; display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; background: rgba(240,216,144,.2); font-size: 12px; text-align: center; margin-right: 2px; }
+.ctabs.steps button.on i { background: var(--gold); color: #1a1208; }
+.mp.heroes { width: min(640px, 94vw); }
 .c16 .ccard { padding: 6px 2px; } .c16 .ccard span { font-size: 24px; } .c16 .ccard b { font-size: 12px; }
 .cinfo h3 small { color: var(--dim); font-family: 'EB Garamond', serif; text-transform: none; letter-spacing: 0; }
 .trees3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px; margin-top: 6px; }
@@ -498,47 +504,47 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793400742",
-"./src/audio.js": "./src/audio.js?v=1793400742",
-"./src/classes.js": "./src/classes.js?v=1793400742",
-"./src/combatfx.js": "./src/combatfx.js?v=1793400742",
-"./src/data.js": "./src/data.js?v=1793400742",
-"./src/enemies.js": "./src/enemies.js?v=1793400742",
-"./src/fx.js": "./src/fx.js?v=1793400742",
-"./src/items.js": "./src/items.js?v=1793400742",
-"./src/life.js": "./src/life.js?v=1793400742",
-"./src/main.js": "./src/main.js?v=1793400742",
-"./src/models.js": "./src/models.js?v=1793400742",
-"./src/net.js": "./src/net.js?v=1793400742",
-"./src/online.js": "./src/online.js?v=1793400742",
-"./src/pets.js": "./src/pets.js?v=1793400742",
-"./src/player.js": "./src/player.js?v=1793400742",
-"./src/quests.js": "./src/quests.js?v=1793400742",
-"./src/skills.js": "./src/skills.js?v=1793400742",
-"./src/spellfx.js": "./src/spellfx.js?v=1793400742",
-"./src/state.js": "./src/state.js?v=1793400742",
-"./src/stats.js": "./src/stats.js?v=1793400742",
-"./src/ui.js": "./src/ui.js?v=1793400742",
-"./src/util.js": "./src/util.js?v=1793400742",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793400742",
-"./src/wars.js": "./src/wars.js?v=1793400742",
-"./src/world.js": "./src/world.js?v=1793400742",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793400742",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793400742",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793400742",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793400742",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793400742",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793400742",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793400742",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793400742",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793400742",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793400742",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793400742",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793400742"
+"./src/anim.js": "./src/anim.js?v=1793402365",
+"./src/audio.js": "./src/audio.js?v=1793402365",
+"./src/classes.js": "./src/classes.js?v=1793402365",
+"./src/combatfx.js": "./src/combatfx.js?v=1793402365",
+"./src/data.js": "./src/data.js?v=1793402365",
+"./src/enemies.js": "./src/enemies.js?v=1793402365",
+"./src/fx.js": "./src/fx.js?v=1793402365",
+"./src/items.js": "./src/items.js?v=1793402365",
+"./src/life.js": "./src/life.js?v=1793402365",
+"./src/main.js": "./src/main.js?v=1793402365",
+"./src/models.js": "./src/models.js?v=1793402365",
+"./src/net.js": "./src/net.js?v=1793402365",
+"./src/online.js": "./src/online.js?v=1793402365",
+"./src/pets.js": "./src/pets.js?v=1793402365",
+"./src/player.js": "./src/player.js?v=1793402365",
+"./src/quests.js": "./src/quests.js?v=1793402365",
+"./src/skills.js": "./src/skills.js?v=1793402365",
+"./src/spellfx.js": "./src/spellfx.js?v=1793402365",
+"./src/state.js": "./src/state.js?v=1793402365",
+"./src/stats.js": "./src/stats.js?v=1793402365",
+"./src/ui.js": "./src/ui.js?v=1793402365",
+"./src/util.js": "./src/util.js?v=1793402365",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793402365",
+"./src/wars.js": "./src/wars.js?v=1793402365",
+"./src/world.js": "./src/world.js?v=1793402365",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793402365",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793402365",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793402365",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793402365",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793402365",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793402365",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793402365",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793402365",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793402365",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793402365",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793402365",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793402365"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793400742"></script>
+<script type="module" src="./src/main.js?v=1793402365"></script>
 </body>
 </html>

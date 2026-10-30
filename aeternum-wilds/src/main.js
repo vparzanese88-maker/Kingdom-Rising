@@ -4,7 +4,7 @@ import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
 import { G, saveKey, newProfile } from './state.js';
 import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
-import { CLASSES, CLASS_LIST } from './classes.js';
+import { CLASSES, STYLES, STYLE_CLASSES, LOADOUTS } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
 import { buildWorld, heightAt, zoneAt, updateWorld, WARS } from './world.js';
@@ -341,9 +341,23 @@ const TAB_TEXT = {
   wars: 'Two kingdoms, one road. Fight beside your soldiers and kill the enemy king before he kills yours.',
   mp: 'Play the island together online with up to 7 friends. Host a game or join one with a code.',
 };
-function heroButton(save, id, label) {
-  const C = save ? CLASSES[save.cls] : null;
-  return save ? `<button id="${id}" class="primary"><b>${label}</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : '';
+// after Play: continue with this tab's hero or make a new one
+function heroScreen() {
+  G.mode = 'title';
+  const save = loadSave(), C = save ? CLASSES[save.cls] : null, t = $('title');
+  const where = homeTab === 'wars' ? 'Kingdom Wars' : 'Campaign';
+  t.innerHTML = `<div class="home lobby"><div class="mp heroes">
+    <header><h2>Choose Your Hero</h2><span class="pill">${where}</span></header>
+    <p class="dim">Campaign, Kingdom Wars and Multiplayer each keep their own hero.</p>
+    <div class="mpheroes">
+      ${save ? `<button id="hcont" class="hero primary"><span>${C ? C.icon : '⚔️'}</span><b>Play as ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
+      <button id="hnew" class="hero ${save ? '' : 'primary'}"><span>✨</span><b>Create New Character</b><small>${save ? `Replaces your ${where} hero` : 'Choose a style, a class and a weapon'}</small></button>
+    </div>
+    <footer><div class="grow"></div><button id="hback">Back</button></footer></div></div>`;
+  t.style.display = 'block';
+  if (save) $('hcont').onclick = () => { initAudio(); play(save); };
+  $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; creator(); };
+  $('hback').onclick = () => title();
 }
 function setTab(k) {
   if (k === homeTab) return;
@@ -360,14 +374,10 @@ function title() {
   const side = $('homeside')?.innerHTML || '';
   const tab = (k, n) => `<button id="t${k}" role="tab" aria-selected="${homeTab === k}" class="${homeTab === k ? 'on' : ''}">${n}</button>`;
   let body = '';
-  if (homeTab === 'campaign') body = `${heroButton(save, 'cont', 'Continue')}
-      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Your campaign hero · one of 16 classes</small></button>`;
-  else if (homeTab === 'wars') body = `${heroButton(save, 'cont', 'To War')}
-      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Your Kingdom Wars hero, separate from the campaign</small></button>`;
-  else body = `${save ? `<div class="wars"><b>${esc(save.name || 'Castaway')}</b><span class="pill">${CLASSES[save.cls]?.name || 'Adventurer'} · Level ${save.level}</span><p>Your multiplayer hero. You can also make one in the lobby.</p></div>` : ''}
-      <button id="ohost" class="primary"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
-      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>
-      <button id="newg"><b>New Character</b><small>Your multiplayer hero, separate from the other tabs</small></button>`;
+  if (homeTab === 'campaign') body = `<button id="playb" class="primary"><b>Play Campaign</b><small>Quests, gathering, crafting · choose or create your hero</small></button>`;
+  else if (homeTab === 'wars') body = `<button id="playb" class="primary"><b>Go to War</b><small>Two towns, one road · choose or create your hero</small></button>`;
+  else body = `<button id="ohost" class="primary"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
+      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code · pick your hero in the lobby</small></button>`;
   t.innerHTML = `<div class="home">
     <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>${TAB_TEXT[homeTab]}</p></div>
     <nav>
@@ -383,8 +393,7 @@ function title() {
     <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
   t.style.display = 'block';
   for (const k of ['campaign', 'wars', 'mp']) $('t' + k).onclick = () => setTab(k);
-  if ($('cont')) $('cont').onclick = () => { initAudio(); play(save); };
-  $('newg').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${{ campaign: 'campaign', wars: 'Kingdom Wars', mp: 'multiplayer' }[homeTab]} character? Your current one on this tab will be replaced.`)) return; creator(); };
+  if ($('playb')) $('playb').onclick = () => { initAudio(); heroScreen(); };
   if (homeTab === 'mp') {
     $('ohost').onclick = () => { initAudio(); hostNow(); };
     $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
@@ -502,7 +511,7 @@ function charSelect() {
   t.style.display = 'block';
   bindChat(); $('lobbyin').value = typed;
   if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
-  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creatorTab = 'style'; creator(); };
   $('lback').onclick = () => { if (confirm('Leave this game?')) { leaveOnline(); title(); } };
 }
 
@@ -552,10 +561,12 @@ export function bindSettings(root) {
 }
 
 // ---------- Character creator ----------
-const draft = { name: '', cls: 'warrior', look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
+const draft = { name: '', style: 'melee', cls: 'warrior', kit: 0, look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
 let previewQueued = false, previewZoom = 1;
-let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
+let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'style';
+const STEPS = [['style', 'Style'], ['class', 'Class'], ['weapon', 'Weapon'], ['body', 'Body'], ['face', 'Face & Hair']];
+const kitOf = () => (LOADOUTS[draft.cls] || [])[draft.kit] || null;
 const PREVIEW_AT = { x: 3, z: 24 };
 function buildPreview() {
   if (preview) scene.remove(preview.root);
@@ -563,7 +574,8 @@ function buildPreview() {
   preview = makeCharacter({ look: draft.look });
   dressHumanoid(preview, { chest: 0x7a6a52, legs: 0x4a3e30, feet: 0x2a2018, helm: null, trim: C.color }); // the creator shows the person, not the gear
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
-  armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model, shield: C.shield }, null);
+  const K = kitOf(), w = K ? K.w1 : { wtype: C.weapon, model: C.model, shield: C.shield };
+  armCharacter(preview, { tier: 1, ...w }, K?.w2 ? { tier: 1, ...K.w2 } : null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -576,13 +588,20 @@ function creator() {
   const C = CLASSES[draft.cls], L = draft.look;
   const attrs = { str: 5, dex: 5, int: 5, con: 5 };
   for (const k in C.attrs) attrs[k] += C.attrs[k];
+  const step = STEPS.findIndex(x => x[0] === creatorTab);
   let body = '';
-  if (creatorTab === 'class') {
-    body = `<div class="cards c16">${CLASS_LIST.map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
+  if (creatorTab === 'style') {
+    body = `<h3>Choose your style</h3><div class="cards c3">${Object.entries(STYLES).map(([k, S2]) => `<button class="ccard big ${k === draft.style ? 'on' : ''}" data-style="${k}"><span>${S2.icon}</span><b>${S2.name}</b><small>${S2.desc}</small><em>${STYLE_CLASSES[k].map(c => CLASSES[c].icon).join(' ')}</em></button>`).join('')}</div>`;
+  } else if (creatorTab === 'class') {
+    body = `<h3>${STYLES[draft.style].icon} ${STYLES[draft.style].name} classes</h3><div class="cards c16">${STYLE_CLASSES[draft.style].map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
       <div class="cinfo"><h3>${C.icon} ${C.name} <small>${C.role}</small></h3><p class="cdesc">${C.desc}</p>
-      <p class="small">Starts with: <b>${C.model && WEAPON_MODELS[C.model] ? WEAPON_MODELS[C.model].name : WEAPONS[C.weapon].name}</b> (${WEAPONS[C.weapon].name}), ${C.armor} armor. ${C.start2 ? `Also carries a ${WEAPONS[C.second].name.toLowerCase()}.` : `Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.`}</p>
+      <p class="small">${C.armor[0].toUpperCase() + C.armor.slice(1)} armor. You choose your weapon next.</p>
       <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
       <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
+  } else if (creatorTab === 'weapon') {
+    const kits = LOADOUTS[draft.cls] || [], K = kitOf();
+    body = `<h3>${C.icon} ${C.name}: choose your weapon</h3><div class="cards c3">${kits.map((k, i) => `<button class="ccard big ${i === draft.kit ? 'on' : ''}" data-kit="${i}"><span>${k.icon}</span><b>${k.name}</b><small>${k.desc}</small></button>`).join('')}</div>
+      ${K ? `<p class="small">In hand: <b>${K.w1.name || WEAPON_MODELS[K.w1.model]?.name || WEAPONS[K.w1.wtype].name}</b> (${WEAPONS[K.w1.wtype].short}${K.w1.shield ? ' and shield' : ''})${K.w2 ? ` · Second weapon: <b>${WEAPON_MODELS[K.w2.model]?.name || WEAPONS[K.w2.wtype].name}</b>, swap with <kbd>Q</kbd>` : ''}</p>` : ''}`;
   } else if (creatorTab === 'body') {
     body = `${meshyReady() ? `<div class="look"><span>Hero</span><button class="hs ${L.model === 'barbarian' ? 'on' : ''}" data-model="barbarian">Sculpted barbarian</button><button class="hs ${L.model !== 'barbarian' ? 'on' : ''}" data-model="custom">Custom (sliders)</button></div>` : ''}
       <div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
@@ -602,15 +621,19 @@ function creator() {
     <div class="cpanel">
       <h2>Create your character</h2>
       <label class="nm">Name <input id="cname" maxlength="18" placeholder="Castaway" value="${esc(draft.name)}"></label>
-      <div class="tabs ctabs">${[['class', 'Class'], ['body', 'Body'], ['face', 'Face & Hair']].map(([k, n]) => `<button class="${creatorTab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}<button id="crand" class="right">🎲 Random look</button></div>
+      <div class="tabs ctabs steps">${STEPS.map(([k, n], i) => `<button class="${creatorTab === k ? 'on' : ''}" data-tab="${k}"><i>${i + 1}</i> ${n}</button>`).join('')}${step >= 3 ? '<button id="crand" class="right">🎲 Random look</button>' : ''}</div>
       ${body}
-      <div class="row"><button id="cback">Back</button><button id="cgo" class="primary">Begin your journey</button></div>
+      <div class="row"><button id="cback">Back</button>${step < 2 ? '<button id="cnext" class="primary">Next ▶</button>' : step === 2 ? '<button id="cnext">Shape your look ▶</button><button id="cgo" class="primary">Begin</button>' : '<button id="cgo" class="primary">Begin your journey</button>'}</div>
     </div>
     <div class="chint">Drag to turn your character · Mouse wheel to zoom</div></div>`;
   t.style.display = 'block';
   $('cname').oninput = e => { draft.name = e.target.value; };
   t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
-  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; creator(); });
+  t.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { draft.style = b.dataset.style; if (!STYLE_CLASSES[draft.style].includes(draft.cls)) { draft.cls = STYLE_CLASSES[draft.style][0]; draft.kit = 0; buildPreview(); } creator(); });
+  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; draft.kit = 0; buildPreview(); creator(); });
+  t.querySelectorAll('[data-kit]').forEach(b => b.onclick = () => { draft.kit = +b.dataset.kit; buildPreview(); creator(); });
+  const go = d => { creatorTab = STEPS[Math.max(0, Math.min(STEPS.length - 1, step + d))][0]; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); };
+  if ($('cnext')) $('cnext').onclick = () => go(1);
   t.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { L.model = b.dataset.model; if (L.model === 'barbarian') L.sex = 'm'; creator(); });
   t.querySelectorAll('[data-sex]').forEach(b => b.onclick = () => { L.sex = b.dataset.sex; if (L.sex === 'f') L.model = 'custom'; if (L.sex === 'f') { L.facialHair = 0; if (L.hairStyle === 0 || L.hairStyle === 3) L.hairStyle = 1; } creator(); });
   t.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { L[b.dataset.sw] = +b.dataset.v; creator(); });
@@ -620,23 +643,31 @@ function creator() {
   t.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => { L.scar = b.dataset.scar === '1'; creator(); });
   // sliders rebuild only the 3D preview so dragging stays smooth
   t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; if (!previewQueued) { previewQueued = true; requestAnimationFrame(() => { previewQueued = false; if (G.mode === 'create') buildPreview(); }); } });
-  $('crand').onclick = () => {
+  if ($('crand')) $('crand').onclick = () => {
     const pk = a => a[Math.floor(Math.random() * a.length)];
     for (const [k, , mn, mx] of [...BODY_SLIDERS, ...FACE_SLIDERS]) L[k] = +(mn + Math.random() * (mx - mn)).toFixed(2);
     L.skin = pk(SKIN_TONES); L.hair = pk(HAIR_COLORS); L.eyeColor = pk(EYE_COLORS); L.hairStyle = Math.floor(Math.random() * HAIR_STYLES.length);
     L.facialHair = L.sex === 'f' ? 0 : Math.floor(Math.random() * FACIAL_HAIR.length); L.paint = Math.random() < 0.25 ? pk(WAR_PAINT.slice(1))[1] : null; L.scar = Math.random() < 0.2;
     creator();
   };
-  $('cback').onclick = () => { if (preview) { scene.remove(preview.root); preview = null; } title(); };
+  $('cback').onclick = () => { if (step > 0) { go(-1); return; } if (preview) { scene.remove(preview.root); preview = null; } if (online()) charSelect(); else heroScreen(); };
   $('cgo').onclick = () => {
-    const C2 = CLASSES[draft.cls];
-    const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
+    const C2 = CLASSES[draft.cls], K = kitOf();
+    const p = newProfile(K ? K.w1.wtype : C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
-    p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
-    if (C2.model) p.equip.w1.model = C2.model;
-    if (C2.model && WEAPON_MODELS[C2.model]) { p.equip.w1.model = C2.model; p.equip.w1.name = WEAPON_MODELS[C2.model].name; }
-    if (C2.shield) p.equip.w1.shield = C2.shield;
-    if (C2.start2) { p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 }); if (C2.model2) p.equip.w2.model = C2.model2; }
+    // the chosen weapon (and its second weapon, if the choice has one)
+    const gear = o => {
+      const it = makeGear({ kind: 'weapon', wtype: o.wtype, gs: 100, rarity: 0 });
+      if (o.model) { it.model = o.model; if (WEAPON_MODELS[o.model]) it.name = WEAPON_MODELS[o.model].name; }
+      if (o.shield) it.shield = o.shield;
+      if (o.noShield) it.noShield = true;
+      if (o.elem) it.elem = o.elem;
+      if (o.name) it.name = o.name;
+      return it;
+    };
+    p.equip.w1 = gear(K ? K.w1 : { wtype: C2.weapon, model: C2.model, shield: C2.shield });
+    if (K?.w2) p.equip.w2 = gear(K.w2);
+    else if (C2.start2) p.equip.w2 = gear({ wtype: C2.second, model: C2.model2 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
     if (G.slot === 'mp' && !online()) { try { localStorage.setItem(saveKey(), JSON.stringify(p)); } catch (e) { /* blocked */ } title(); return; }

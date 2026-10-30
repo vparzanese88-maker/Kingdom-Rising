@@ -71,7 +71,7 @@ export function armCharacter(h, w, other) {
       h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model, true), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
       if (w.wtype === 'hatchets') { h.wL = sizeWeapon(makeWeapon('hatchets', w.tier, w.model, true), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
       else if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier, null, true), h.parts.handL, tall * 0.38 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
-      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier, w.shield, true); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
+      if (SHIELD_WEAPONS.has(w.wtype) && !w.noShield) { h.wL = makeWeapon('shield', w.tier, w.shield, true); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
   }
   // the weapon not in use is slung diagonally across the back
@@ -91,7 +91,7 @@ export function armCharacter(h, w, other) {
     else if (WEAPONS[other.wtype]?.gun) { bw.rotation.z = Math.PI; bw.position.set(0, 0.25 * Lb, 0); } // stock down, barrel up
     else bw.position.set(0, -0.55 * Lb, 0); // axe, hammer or staff head up
     back.add(bw);
-    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier, other.shield, true); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
+    if (SHIELD_WEAPONS.has(other.wtype) && !other.noShield) { const sh = makeWeapon('shield', other.tier, other.shield, true); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
   }
   h.carryTwo = w && (w.wtype === 'greataxe' || w.wtype === 'hammer');
@@ -449,9 +449,11 @@ function meleeHit(a) {
 // staff: light = bolt, heavy = charged blast that bursts on impact
 function fireStaff(a) {
   const w = activeWeapon(), W = WEAPONS.staff;
-  const gemC = [0xff7a2a, 0x6ac8ff, 0xc66dff][(w?.tier || 1) - 1];
+  // an element staff (chosen at character creation) colours and flavours its bolts; others glow by tier
+  const EL = { fire: [0xff7a2a, { dot: 0.45, dotDur: 3 }], lightning: [0xfff27a, { extra: 1.15, stagger: true }], frost: [0x9ae8ff, { slow: 2.5 }] }[w?.elem];
+  const gemC = EL ? EL[0] : [0xff7a2a, 0x6ac8ff, 0xc66dff][(w?.tier || 1) - 1];
   const heavy = a.kind === 'heavy';
-  spawnProj({ owner: 'player', ...shotFrom(), speed: heavy ? W.speed * 0.8 : W.speed, range: W.range, mult: a.mult, kind: a.kind, color: gemC, size: heavy ? 0.38 : 0.2, explode: heavy ? W.heavy.explode : 0 });
+  spawnProj({ owner: 'player', ...shotFrom(), speed: heavy ? W.speed * 0.8 : W.speed, range: W.range, mult: a.mult, kind: a.kind, color: gemC, size: heavy ? 0.38 : 0.2, explode: heavy ? W.heavy.explode : 0, opts: EL ? { ...EL[1] } : undefined });
   sfx('magic', heavy ? 0.8 : 0.45);
 }
 

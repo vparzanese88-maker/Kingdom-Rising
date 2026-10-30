@@ -16,69 +16,48 @@ import { toast, selfText, refreshHud } from './ui.js';
 import { sfx } from './audio.js';
 import { angDiff } from './util.js';
 
-export const SKILL_KEYS = ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB'];
-export const SKILL_LABELS = ['Z', 'X', 'C', 'V', 'B'];
-const emptyBar = () => [null, null, null, null, null];
-export const TIER_REQ = [0, 1, 3, 5, 7]; // points spent in a tree to open each tier
+// ---- Class kit: one class ability on F. A signature ability from the start, a new one at levels 3, 5, 7 and 9;
+// the player picks which one is equipped. (The older three-tree data in classes.js is still where abilities live.)
+export const KIT_LEVELS = [1, 3, 5, 7, 9];
+export const KITS = {
+  warrior: ['war_quake', 'war_charge', 'war_whirl', 'war_shieldwall', 'war_execute'],
+  cleric: ['clr_hammer', 'clr_mend', 'clr_consecrate', 'clr_miracle', 'clr_wrath'],
+  paladin: ['pal_heavensfall', 'pal_divinestorm', 'pal_divineshield', 'pal_holychain', 'pal_layhands'],
+  ranger: ['rng_volley', 'rng_multishot', 'rng_firetrap', 'rng_wolf', 'rng_hawkeye'],
+  shadowknight: ['sk_lifetap', 'sk_horror', 'sk_crimsonleap', 'sk_raise', 'sk_harvest'],
+  druid: ['dru_skystrike', 'dru_entangle', 'dru_treant', 'dru_bearform', 'dru_tempest'],
+  monk: ['mnk_dragon', 'mnk_flykick', 'mnk_shadowless', 'mnk_quake', 'mnk_hundred'],
+  bard: ['brd_sonicboom', 'brd_warsong', 'brd_lull', 'brd_echo', 'brd_cacophony'],
+  rogue: ['rog_ambush', 'rog_flurry', 'rog_knives', 'rog_shadowdance', 'rog_deathmark'],
+  shaman: ['sha_chain', 'sha_wolf', 'sha_healtotem', 'sha_stormtotem', 'sha_earthquake'],
+  necromancer: ['nec_flameskel', 'nec_siphonlife', 'nec_skeleton', 'nec_plaguecomet', 'nec_legion'],
+  wizard: ['wiz_meteor', 'wiz_chain', 'wiz_frostnova', 'wiz_blink', 'wiz_firestorm'],
+  magician: ['mag_fireelem', 'mag_boulder', 'mag_imp', 'mag_impswarm', 'mag_golem'],
+  enchanter: ['enc_hypnochain', 'enc_ghosts', 'enc_massmez', 'enc_prismvolley', 'enc_shatter'],
+  beastlord: ['bst_bear', 'bst_frenzy', 'bst_ravens', 'bst_frostfang', 'bst_rampage'],
+  berserker: ['ber_bloodwhirl', 'ber_skullsplit', 'ber_hurlaxes', 'ber_berserk', 'ber_carnage'],
+};
+const KIT_CD_CAP = 22; // the one class ability should come around often
 
 export function classDef(p = G.p) { return CLASSES[p.cls] || CLASSES.warrior; }
-export function allNodes(p = G.p) { return classDef(p).trees.flatMap(t => t.nodes.map(n => ({ ...n, tree: t.id }))); }
-export function skillNode(id, p = G.p) { for (const t of classDef(p).trees) for (const n of t.nodes) if (n.id === id) return { ...n, tree: t.id }; return null; }
-// Every class starts with the first ability of each of its three trees, free, on Z X C.
-// After that every level-up gives one class point.
-export function starters(p = G.p) { return classDef(p).trees.map(t => t.nodes.find(n => n.tier === 0 && n.type === 'active')?.id).filter(Boolean); }
+export function skillNode(id, p = G.p) { for (const t of classDef(p).trees) for (const n of t.nodes) if (n.id === id) return { ...n, tree: t.id, cd: Math.min(n.cd, KIT_CD_CAP) }; return null; }
+export function kit(p = G.p) { return (KITS[p.cls] || KITS.warrior).map((id, i) => ({ id, level: KIT_LEVELS[i], node: skillNode(id, p) })); }
+export function kitUnlocked(p = G.p) { return kit(p).filter(k => p.level >= k.level).map(k => k.id); }
 export function ensureSkills(p = G.p) {
-  if (!p.skills) p.skills = { nodes: {}, bar: emptyBar() };
+  if (!p.skills) p.skills = {};
   const sk = p.skills;
-  while (sk.bar.length < 5) sk.bar.push(null);
-  const st = starters(p);
-  if (!sk.starters) {
-    sk.starters = true;
-    st.forEach((id, i) => { sk.nodes[id] = 1; if (!sk.bar.includes(id)) { if (sk.bar[i] == null) sk.bar[i] = id; else { const j = sk.bar.indexOf(null); if (j >= 0) sk.bar[j] = id; } } });
-  }
-  // drop ids that no longer exist (class data changed)
-  const valid = new Set(classDef(p).trees.flatMap(t => t.nodes.map(n => n.id)));
-  for (const id in sk.nodes) if (!valid.has(id)) delete sk.nodes[id];
-  sk.bar = sk.bar.map(id => id && valid.has(id) && sk.nodes[id] ? id : null);
-  for (const id of st) sk.nodes[id] = 1;
-  const spent = Object.entries(sk.nodes).reduce((a, [id, r]) => a + (st.includes(id) ? 0 : r), 0);
-  sk.points = Math.max(0, p.level - 1 - spent);
+  const have = kitUnlocked(p);
+  if (!have.includes(sk.equipped)) sk.equipped = have[0];
+  sk.points = 0;
   return sk;
 }
-export const rankOf = id => G.p.skills?.nodes[id] || 0;
-export function spentInTree(treeId) {
-  const t = classDef().trees.find(t => t.id === treeId);
-  return t ? t.nodes.reduce((a, n) => a + rankOf(n.id), 0) : 0;
-}
-export function canLearn(id) {
-  const n = skillNode(id); if (!n) return false;
-  const sk = ensureSkills();
-  if (sk.points <= 0) return false;
-  if (rankOf(id) >= (n.type === 'active' ? 1 : n.max || 3)) return false;
-  if (n.tier === 0) return false;
-  return spentInTree(n.tree) >= TIER_REQ[n.tier];
-}
-export function learn(id) {
-  if (!canLearn(id)) return false;
-  const sk = G.p.skills, n = skillNode(id);
-  sk.nodes[id] = rankOf(id) + 1;
-  if (n.type === 'active' && !sk.bar.includes(id)) { const i = sk.bar.indexOf(null); if (i >= 0) sk.bar[i] = id; }
-  ensureSkills();
-  G.statsDirty = true;
-  return true;
-}
-export function resetSkills() { G.p.skills = { nodes: {}, bar: emptyBar() }; ensureSkills(); G.statsDirty = true; }
-
-// passive mods from the class tree (summed per rank)
-export function classMods() {
-  const out = {};
-  const p = G.p; if (!p?.skills) return out;
-  for (const t of classDef().trees) for (const n of t.nodes) {
-    const r = rankOf(n.id);
-    if (r && n.type === 'passive') for (const k in n.mods) out[k] = (out[k] || 0) + n.mods[k] * r;
-  }
-  return out;
-}
+export function equipClassAbility(id) { if (kitUnlocked().includes(id)) { G.p.skills.equipped = id; return true; } return false; }
+// abilities unlocked by reaching exactly this level (for the "new ability" celebration)
+export function kitUnlocksAt(level, p = G.p) { return kit(p).filter(k => k.level === level); }
+export const rankOf = id => (kitUnlocked().includes(id) ? 1 : 0);
+export function resetSkills() { ensureSkills(); }
+// class passives were retired with the trees
+export function classMods() { return {}; }
 
 // spell power: grows with level, gear score and your best attribute
 export function spellPower() {
@@ -140,10 +119,10 @@ function abilityHit(e, mult, n, extra = {}) {
 }
 function inRadius(x, z, r) { return enemiesNear(x, z, r + 2).filter(e => !e.dead && Math.hypot(e.pos.x - x, e.pos.z - z) < r + e.radius); }
 
-export function castSkill(slot) {
+export function castSkill() {
   const P = G.player;
-  const id = G.p.skills?.bar[slot];
-  if (!id) { toast('No class skill in that slot. Open your skills with T.'); return; }
+  const id = ensureSkills().equipped;
+  if (!id) return;
   const n = skillNode(id);
   if (!n || !rankOf(id)) return;
   const s = stats();

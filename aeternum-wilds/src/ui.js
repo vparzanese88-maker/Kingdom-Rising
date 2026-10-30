@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { G, SAVE_KEY } from './state.js';
 import { CLASSES } from './classes.js';
-import { classDef, ensureSkills, rankOf, spentInTree, canLearn, learn, resetSkills, skillNode, SKILL_LABELS, TIER_REQ } from './skills.js';
+import { classDef, ensureSkills, skillNode, kit, kitUnlocked, equipClassAbility } from './skills.js';
+import { iconImg } from './gfx/icons.js';
 import { LOADS, ARMOR_CLASS, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
 import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, unlockNode, resetTree, masteryNode, gainTrade, gainXp, masteryPoints } from './stats.js';
 import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
@@ -70,6 +71,28 @@ export function lootToast(it) {
   if (typeof it === 'string') return toast(it, 'loot');
   toast(`<span style="color:${RARITY[it.rarity].color}">${itemIcon(it)} ${esc(it.name)}</span> <small>GS ${it.gs}</small>`, 'loot');
 }
+// ---------- Celebrations ----------
+// Level up: a big golden title with light rays over a dimmed screen edge, a fanfare and a light pillar on the hero.
+const celebQueue = []; let celebBusy = false;
+function nextCeleb() {
+  if (celebBusy || !celebQueue.length) return;
+  celebBusy = true;
+  const { html, cls, ms } = celebQueue.shift();
+  const el = $('celebrate');
+  el.className = cls; el.innerHTML = html;
+  void el.offsetWidth; el.classList.add('show');
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => { celebBusy = false; nextCeleb(); }, 450); }, ms);
+}
+export function levelUpCelebration(level, lines) {
+  celebQueue.push({ cls: 'lvl', ms: 3200, html: `<div class="rays"></div><div class="lvlnum">${level}</div><h2>LEVEL UP</h2><p>${lines.join(' · ')}</p>` });
+  nextCeleb();
+}
+// a new ability: its icon in a glowing frame, the kind (class or weapon) and the name in glowing text
+export function abilityCelebration(kind, def, name, hint) {
+  celebQueue.push({ cls: 'unlock', ms: 3400, html: `<div class="rays"></div>${iconImg(def, 'hero')}<div class="ukind">${kind}</div><h2 class="glow">${name}</h2>${hint ? `<p>${hint}</p>` : ''}` });
+  nextCeleb();
+}
+
 export function banner(title, sub) {
   const b = $('banner');
   b.innerHTML = `<h2>${title}</h2><p>${sub || ''}</p>`;
@@ -123,20 +146,19 @@ export function refreshHud() {
   // New World style: the weapon in hand is big, the one on your back small beside it
   const aw = p.activeW === 0 ? e.w1 : e.w2, ow = p.activeW === 0 ? e.w2 : e.w1;
   wsl.innerHTML = `<div class="wname" style="color:${aw ? RARITY[aw.rarity].color : '#aaa'}">${aw ? esc(aw.name) : 'Unarmed'}</div>
-    <div class="slot wbig on" title="${aw ? esc(aw.name) : 'Empty'}"><b>${p.activeW + 1}</b>${aw ? WEAPONS[aw.wtype].icon : '✊'}</div>
-    <div class="slot wsmall" title="${ow ? esc(ow.name) : 'Empty'}"><b>${2 - p.activeW}</b>${ow ? WEAPONS[ow.wtype].icon : ''}</div>`;
+    <div class="slot wbig on" title="${aw ? esc(aw.name) : 'Empty'}">${aw ? WEAPONS[aw.wtype].icon : '✊'}</div>
+    <div class="slot wsmall" title="${ow ? esc(ow.name) + ' (Q to swap)' : 'Empty'}"><b>Q</b>${ow ? WEAPONS[ow.wtype].icon : ''}</div>`;
   const wt = activeWType();
   const slots = wt ? p.mastery[wt].slots : [null, null, null];
-  $('abils').innerHTML = ['Q', 'R', 'F'].map((k, i) => {
+  // weapon abilities on 1 2 3
+  $('abils').innerHTML = ['1', '2', '3'].map((k, i) => {
     const A = slots[i] ? ABILITIES[slots[i]] : null;
-    return `<div class="slot ab ${A ? '' : 'empty'}" data-ab="${slots[i] || ''}" title="${A ? A.name + ': ' + A.desc : 'Empty: unlock abilities in the Mastery tree (K)'}"><b>${k}</b>${A ? A.icon : ''}<i class="cd"></i><em></em></div>`;
+    return `<div class="slot ab ${A ? '' : 'empty'}" data-ab="${slots[i] || ''}" title="${A ? A.name + ': ' + A.desc : 'Locked: earn weapon points by fighting, then unlock abilities with K'}"><b>${k}</b>${A ? iconImg({ id: slots[i], kind: A.kind }) : '<span class="lock">🔒</span>'}<i class="cd"></i><em></em></div>`;
   }).join('');
-  // class skills on Z X C V
+  // the one class ability on F
   const sk = ensureSkills();
-  $('cskills').innerHTML = sk.bar.map((id, i) => {
-    const n = id ? skillNode(id) : null;
-    return `<div class="slot cs ${n ? '' : 'empty'}" data-cs="${id || ''}" title="${n ? `${n.name} (${n.cost} mana): ${n.desc}` : 'Empty: learn class skills with T'}"><b>${SKILL_LABELS[i]}</b>${n ? n.icon : ''}<i class="cd"></i><em></em><u></u></div>`;
-  }).join('');
+  const n = sk.equipped ? skillNode(sk.equipped) : null;
+  $('cskills').innerHTML = `<div class="slot cs ${n ? '' : 'empty'}" data-cs="${sk.equipped || ''}" title="${n ? `${n.name} (${n.cost} mana): ${n.desc}` : ''}"><b>F</b>${n ? iconImg(n) : ''}<i class="cd"></i><em></em><u></u></div>`;
 }
 
 let hudT = 0;
@@ -191,9 +213,9 @@ export function updateHud(dt) {
     el.querySelector('.cd').style.background = cd > 0 ? `conic-gradient(rgba(0,0,0,.72) ${cd / max * 360}deg, transparent 0)` : 'none';
     el.querySelector('em').textContent = cd > 0 ? Math.ceil(cd) : '';
   }
-  $('q3').innerHTML = `<b>3</b>🧪<em>${matCount('potion') + matCount('big_potion')}</em><i class="cd" style="background:${P.potionCd > 0 ? `conic-gradient(rgba(0,0,0,.72) ${P.potionCd / 12 * 360}deg, transparent 0)` : 'none'}"></i>`;
+  $('q3').innerHTML = `<b>R</b>🧪<em>${matCount('potion') + matCount('big_potion')}</em><i class="cd" style="background:${P.potionCd > 0 ? `conic-gradient(rgba(0,0,0,.72) ${P.potionCd / 12 * 360}deg, transparent 0)` : 'none'}"></i>`;
   const food = p.food && p.food.until > p.stats.playTime;
-  $('q4').innerHTML = `<b>4</b>🍗<em>${matCount('cooked_meat') + matCount('stew') + matCount('feast')}</em>`;
+  $('q4').innerHTML = `<b>T</b>🍗<em>${matCount('cooked_meat') + matCount('stew') + matCount('feast')}</em>`;
   $('q4').classList.toggle('active', !!food);
   // buffs
   hudT -= dt;
@@ -547,38 +569,23 @@ function openCharacter() {
   $('respec').onclick = () => { let n = 0; for (const k of ATTRS) { n += p.attrs[k] - 5; p.attrs[k] = 5; } p.attrPts += n; G.statsDirty = true; openCharacter(); };
 }
 
-// ---- Class skill trees ----
+// ---- Class abilities: one on F, a new one every other level to 10, swap any time ----
 function openSkills() {
-  const p = G.p, C = classDef(), sk = ensureSkills();
+  const p = G.p, C = classDef(), sk = ensureSkills(), have = kitUnlocked();
   tipSources = {};
-  const trees = C.trees.map(tr => {
-    const spent = spentInTree(tr.id);
-    const nodes = tr.nodes.map(n => {
-      const r = rankOf(n.id), max = n.type === 'active' ? 1 : n.max || 3;
-      const open = spent >= TIER_REQ[n.tier], can = canLearn(n.id);
-      const extra = n.type === 'active' ? `${n.cost} mana · ${n.cd}s cooldown` : `Passive · rank ${r}/${max}`;
-      tipSources['s' + n.id] = () => `<h3>${n.icon} ${n.name}</h3><div class="tsub">${extra}</div><div>${n.desc}</div>${open ? '' : `<div class="hint">Needs ${TIER_REQ[n.tier]} points in ${tr.name}</div>`}`;
-      const slotBtns = n.type === 'active' && r ? `<div class="sb">${SKILL_LABELS.map((k, i) => `<button class="${sk.bar[i] === n.id ? 'on' : ''}" data-cslot="${i}" data-id="${n.id}">${k}</button>`).join('')}</div>` : '';
-      return `<div class="node ${n.type} ${r >= max ? 'has' : r ? 'part' : can ? 'can' : ''} ${open ? '' : 'locked'}" data-skill="${n.id}" data-tip="s${n.id}">
-        <div class="ni">${n.icon}</div><div class="nn">${n.name}</div>${n.type === 'passive' ? `<div class="rk">${r}/${max}</div>` : ''}${slotBtns}</div>`;
-    }).join('<div class="link"></div>');
-    return `<div class="stree"><h3>${tr.icon} ${tr.name} <small>${spent} pts</small></h3><p class="dim small">${tr.desc}</p>${nodes}</div>`;
+  const rows = kit().map(k => {
+    const n = k.node, got = have.includes(k.id), on = sk.equipped === k.id;
+    tipSources['k' + k.id] = () => `<h3>${n.name}</h3><div class="tsub">${n.cost} mana · ${n.cd}s cooldown</div><div>${n.desc}</div>`;
+    return `<div class="kit ${got ? 'got' : 'locked'} ${on ? 'on' : ''}" data-tip="k${k.id}">
+      ${iconImg(n, 'big')}<div class="kn"><b>${n.name}</b><small>${got ? n.desc : `Unlocks at level ${k.level}`}</small></div>
+      ${got ? `<button data-equip="${k.id}" class="${on ? 'on' : ''}">${on ? 'On F' : 'Use on F'}</button>` : `<span class="klv">Lv ${k.level}</span>`}</div>`;
   }).join('');
-  const html = `<div class="mhead"><b>${C.icon} ${C.name}</b><span class="pts">${sk.points} skill point${sk.points === 1 ? '' : 's'} to spend</span><span class="dim small">You get one point every level. Round icons are abilities: learn one, then put it on Z, X, C or V.</span><button id="sreset" class="small">Reset trees</button></div>
-    <div class="strees">${trees}</div>`;
-  const el = panel('skills', `${C.name} Skills`, html, true);
-  el.querySelectorAll('[data-skill]').forEach(d => d.onclick = ev => {
-    if (ev.target.dataset.cslot) return;
-    if (learn(d.dataset.skill)) { sfx('mastery'); refreshHud(); openSkills(); }
-  });
-  el.querySelectorAll('[data-cslot]').forEach(b => b.onclick = () => {
-    const i = +b.dataset.cslot, id = b.dataset.id, bar = sk.bar;
-    const j = bar.indexOf(id);
-    if (j >= 0) bar[j] = bar[i];
-    bar[i] = id;
-    sfx('ui'); refreshHud(); openSkills();
-  });
-  $('sreset').onclick = () => { resetSkills(); refreshHud(); openSkills(); };
+  const html = `<div class="mhead"><b>${C.icon} ${C.name} abilities</b><span class="dim small">One class ability at a time, on <kbd>F</kbd>. You start with your signature move and unlock a new one at levels 3, 5, 7 and 9. Weapon abilities (keys 1 2 3) are on the Weapon Mastery tab.</span></div>
+    <div class="tabs"><button class="on">Class</button><button id="towm">Weapon Mastery</button></div>
+    <div class="kits">${rows}</div>`;
+  const el = panel('skills', 'Abilities', html, true);
+  el.querySelectorAll('[data-equip]').forEach(b => b.onclick = () => { if (equipClassAbility(b.dataset.equip)) { sfx('mastery'); refreshHud(); openSkills(); } });
+  $('towm').onclick = () => openMastery();
   bindTips(el);
 }
 
@@ -596,15 +603,16 @@ function openMastery() {
       const A = ABILITIES[n.id];
       const has = m.nodes.includes(n.id), can = canUnlock(wt, n.id);
       tipSources['n' + n.id] = () => A ? `<h3>${A.icon} ${A.name}</h3><div class="tsub">Active ability · ${A.cd}s cooldown</div><div>${A.desc}</div>` : `<h3>${n.icon} ${n.name}</h3><div class="tsub">Passive</div><div>${n.desc}</div>`;
-      const slotBtns = A && has ? `<div class="sb">${['Q', 'R', 'F'].map((k, i) => `<button class="${m.slots[i] === n.id ? 'on' : ''}" data-slot="${i}" data-id="${n.id}">${k}</button>`).join('')}</div>` : '';
-      return `<div class="node ${A ? 'active' : 'passive'} ${has ? 'has' : can ? 'can' : ''}" data-node="${n.id}" data-tip="n${n.id}"><div class="ni">${A ? A.icon : n.icon}</div><div class="nn">${A ? A.name : n.name}</div>${slotBtns}</div>`;
+      const slotBtns = A && has ? `<div class="sb">${['1', '2', '3'].map((k, i) => `<button class="${m.slots[i] === n.id ? 'on' : ''}" data-slot="${i}" data-id="${n.id}">${k}</button>`).join('')}</div>` : '';
+      return `<div class="node ${A ? 'active' : 'passive'} ${has ? 'has' : can ? 'can' : ''}" data-node="${n.id}" data-tip="n${n.id}"><div class="ni">${A ? iconImg({ id: n.id, kind: A.kind }) : n.icon}</div><div class="nn">${A ? A.name : n.name}</div>${slotBtns}</div>`;
     }).join('')}</div>`;
   }).join('');
   const html = `<div class="tabs mtabs">${tabs}</div>
     <div class="mhead"><b>Mastery ${m.lv}${m.lv >= MAX_MASTERY ? ' (max)' : ''}</b><div class="bar"><div style="width:${m.lv >= MAX_MASTERY ? 100 : m.xp / xpForMastery(m.lv) * 100}%"></div></div><span class="pts">${pointsFree(wt)} point${pointsFree(wt) === 1 ? '' : 's'} free</span><button id="mreset" class="small">Reset tree</button></div>
-    <p class="dim small">Earn mastery by fighting with the ${WEAPONS[wt].name}. Round icons are active abilities: unlock one, then put it on Q, R or F. Each row needs points spent in the rows above.</p>
+    <p class="dim small">Earn mastery by fighting with the ${WEAPONS[wt].name}. Each mastery level gives a weapon point. Round icons are abilities for keys 1, 2 and 3; the others are passive bonuses. Each row needs points spent in the rows above.</p>
     <div class="tree">${rows}</div>`;
-  const el = panel('mastery', 'Weapon Mastery', html, true);
+  const el = panel('mastery', 'Abilities', `<div class="tabs"><button id="tocls">Class</button><button class="on">Weapon Mastery</button></div>` + html, true);
+  $('tocls').onclick = () => openSkills();
   el.querySelectorAll('[data-wt]').forEach(b => b.onclick = () => { masTab = b.dataset.wt; sfx('ui'); openMastery(); });
   el.querySelectorAll('[data-node]').forEach(d => d.onclick = ev => {
     if (ev.target.dataset.slot) return;

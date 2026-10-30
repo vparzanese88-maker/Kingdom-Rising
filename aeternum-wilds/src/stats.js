@@ -3,7 +3,10 @@ import { CLASSES } from './classes.js';
 import { classMods } from './skills.js';
 import { LOADS, WEAPONS, MASTERY, ABILITIES, MATS, MAX_LEVEL, MAX_MASTERY, MAX_TRADE, xpForLevel, xpForMastery, xpForTrade, TRADES } from './data.js';
 import { armorOf, equipLoad } from './items.js';
-import { toast, banner, selfText } from './ui.js';
+import { toast, banner, selfText, levelUpCelebration, abilityCelebration } from './ui.js';
+import { kitUnlocksAt } from './skills.js';
+import { burst } from './fx.js';
+import { pillar } from './spellfx.js';
 import { sfx } from './audio.js';
 
 export function activeWeapon() {
@@ -26,7 +29,7 @@ export function unlockNode(wtype, id) {
   if (!canUnlock(wtype, id)) return false;
   const m = G.p.mastery[wtype];
   m.nodes.push(id);
-  if (ABILITIES[id]) { const i = m.slots.indexOf(null); if (i >= 0) m.slots[i] = id; }
+  if (ABILITIES[id]) { const i = m.slots.indexOf(null); if (i >= 0) m.slots[i] = id; abilityCelebration('New weapon ability', { id, kind: ABILITIES[id].kind }, ABILITIES[id].name, i >= 0 ? `On key <kbd>${i + 1}</kbd>` : ''); }
   G.statsDirty = true;
   return true;
 }
@@ -120,7 +123,9 @@ export function gainXp(n, quiet) {
     G.statsDirty = true;
     const s = stats();
     G.player.hp = s.maxHp;
-    banner(`Level ${p.level}`, '3 attribute points (C) and a skill point (T) to spend.');
+    levelUpCelebration(p.level, ['+3 attribute points (C)', 'Health restored']);
+    for (const k of kitUnlocksAt(p.level)) abilityCelebration('New class ability', k.node, k.node.name, 'Equip it on <kbd>F</kbd> from the Abilities screen (<kbd>K</kbd>)');
+    if (G.player) { burst(G.player.pos.x, G.player.y + 1, G.player.pos.z, 0xffe080, 40, 6, 1.2, 0.2, -3); pillar(G.player.pos.x, G.player.pos.z, 1.4, 0xffe27a, 14); }
     sfx('levelup');
   }
   if (p.level >= MAX_LEVEL) p.xp = 0;
@@ -134,7 +139,7 @@ export function gainMastery(wtype, n) {
   while (m.lv < MAX_MASTERY && m.xp >= xpForMastery(m.lv)) {
     m.xp -= xpForMastery(m.lv);
     m.lv++;
-    toast(`${WEAPONS[wtype].name} mastery ${m.lv}. A weapon point to spend (K).`, 'gold');
+    abilityCelebration(`${WEAPONS[wtype].name} mastery ${m.lv}`, { id: wtype + '_pt', kind: 'buff', element: { sword: 'physical', greataxe: 'blood', hammer: 'physical', bow: 'nature', staff: 'fire' }[wtype] }, 'Weapon point earned', 'Unlock a weapon ability or bonus in <kbd>K</kbd> → Weapon Mastery');
     sfx('mastery');
   }
 }

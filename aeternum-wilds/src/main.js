@@ -155,7 +155,7 @@ addEventListener('keydown', e => {
   const c = e.code;
   if (c === 'Escape') { if (G.ui.open) closePanel(); else { G.unlock(); openPanel('menu'); } e.preventDefault(); return; }
   if (c === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
-  const panels = { KeyI: 'inventory', KeyP: 'character', KeyT: 'skills', KeyK: 'mastery', KeyJ: 'quests', KeyL: 'quests', KeyM: 'map', Tab: 'map' };
+  const panels = { KeyI: 'inventory', KeyP: 'character', KeyC: 'character', KeyK: 'skills', KeyJ: 'quests', KeyL: 'quests', KeyM: 'map', Tab: 'map' };
   if (panels[c]) { e.preventDefault(); togglePanel(panels[c]); return; }
   if (G.ui.open) return;
   if (c === 'Space' || c === 'Tab' || c === 'ShiftLeft' || c === 'ShiftRight') e.preventDefault();
@@ -165,20 +165,16 @@ addEventListener('keydown', e => {
   switch (c) {
     case 'ShiftLeft': case 'ShiftRight': startDodge(); break;
     case 'Space': jump(); break;
-    case 'KeyQ': useAbility(0); break;
-    case 'KeyR': useAbility(1); break;
-    case 'KeyF': useAbility(2); break;
-    case 'Digit1': swapWeapon(0); break;
-    case 'Digit2': swapWeapon(1); break;
-    case 'Digit3': usePotion(); break;
-    case 'Digit4': eatFood(); break;
+    // weapon abilities 1 2 3, the class ability on F, Q swaps weapons, R potion, T food
+    case 'Digit1': useAbility(0); break;
+    case 'Digit2': useAbility(1); break;
+    case 'Digit3': useAbility(2); break;
+    case 'KeyF': castSkill(); break;
+    case 'KeyQ': swapWeapon(G.p.activeW ? 0 : 1); break;
+    case 'KeyR': usePotion(); break;
+    case 'KeyT': eatFood(); break;
     case 'KeyH': startRecall(); break;
     case 'KeyE': interact(); break;
-    case 'KeyZ': castSkill(0); break;
-    case 'KeyX': castSkill(1); break;
-    case 'KeyC': if (e.shiftKey) togglePanel('character'); else castSkill(2); break;
-    case 'KeyV': castSkill(3); break;
-    case 'KeyB': castSkill(4); break;
   }
 });
 addEventListener('keyup', e => { inp.keys[e.code] = false; });
@@ -339,13 +335,13 @@ export function controlsHtml() {
     <tr><td>Mouse</td><td>Look and aim</td><td>WASD</td><td>Move</td></tr>
     <tr><td>Left click</td><td>Light attack · hold for heavy · bow: hold to draw</td><td>Right click</td><td>Block</td></tr>
     <tr><td>Shift</td><td>Dodge (roll length depends on armor weight)</td><td>Space</td><td>Jump</td></tr>
-    <tr><td>Q R F</td><td>Weapon abilities</td><td>1 / 2</td><td>Swap weapon</td></tr>
-    <tr><td>3 / 4</td><td>Potion / Eat</td><td>E</td><td>Interact, gather, skin</td></tr>
+    <tr><td>1 2 3</td><td>Weapon abilities</td><td>F</td><td>Class ability</td></tr>
+    <tr><td>Q</td><td>Swap weapon</td><td>K</td><td>Abilities</td></tr>
+    <tr><td>R / T</td><td>Potion / Eat</td><td>E</td><td>Interact, gather, skin</td></tr>
     <tr><td>H</td><td>Recall to town</td><td>Tab</td><td>Map</td></tr>
     <tr><td>Wheel</td><td>Zoom (all the way in for first person)</td><td>F11</td><td>Full screen</td></tr>
-    <tr><td>Z X C V</td><td>Class skills</td><td>T</td><td>Class skill trees</td></tr>
     <tr><td>I</td><td>Inventory</td><td>P</td><td>Character</td></tr>
-    <tr><td>K</td><td>Mastery</td><td>J</td><td>Journal</td></tr>
+    <tr><td>C</td><td>Character</td><td>J</td><td>Journal</td></tr>
     <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr></table>`;
 }
 export function settingsHtml() {
@@ -496,7 +492,7 @@ function enterGame(profile) {
   G.mode = 'game'; G.started = true; G.paused = false;
   G.relock();
   if (profile.story.step === 0) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
-  if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>T</kbd> to open your ${CLASSES[profile.cls].name} skill trees.`, 'gold'), 2500);
+  if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>K</kbd> to see your abilities.`, 'gold'), 2500);
 }
 
 // ---------- Loop ----------

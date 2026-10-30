@@ -322,6 +322,33 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
 #scope .tick i { display: block; height: 2px; background: rgba(255,230,160,.9); box-shadow: 0 0 2px #000; }
 #scope .tick span { position: absolute; left: 22px; top: -8px; font: 600 11px Cinzel, serif; color: #ffe6a0; text-shadow: 0 1px 2px #000; }
 #scope::before { content: ''; position: absolute; left: -1px; top: 6px; width: 2px; height: 120px; background: linear-gradient(rgba(255,230,160,.5), transparent); }
+
+/* ---- celebrations ---- */
+#celebrate { position: absolute; left: 50%; top: 24%; transform: translate(-50%, 0) scale(.85); text-align: center; opacity: 0; pointer-events: none; transition: opacity .35s, transform .45s cubic-bezier(.2,1.6,.4,1); z-index: 5; }
+#celebrate.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+#celebrate .rays { position: absolute; left: 50%; top: 50%; width: 520px; height: 520px; margin: -260px 0 0 -260px; z-index: -1; background: repeating-conic-gradient(rgba(255,214,110,.35) 0deg 6deg, rgba(255,214,110,0) 6deg 20deg); -webkit-mask: radial-gradient(circle, #000 18%, transparent 62%); mask: radial-gradient(circle, #000 18%, transparent 62%); animation: spinr 9s linear infinite; }
+@keyframes spinr { to { transform: rotate(360deg); } }
+#celebrate h2 { margin: 0; font: 900 64px Cinzel, serif; letter-spacing: .12em; color: #fff3c8; text-shadow: 0 0 18px #ffb52a, 0 0 42px #ff8a1a, 0 4px 0 #6a3a08, 0 6px 20px #000; }
+#celebrate p { margin: 6px 0 0; font: 600 18px 'EB Garamond', serif; color: #fff; text-shadow: 0 2px 6px #000; }
+#celebrate .lvlnum { font: 900 120px/1 Cinzel, serif; color: #ffe08a; text-shadow: 0 0 30px #ffb52a, 0 6px 0 #6a3a08, 0 10px 30px #000; animation: pulse 1.2s ease-in-out infinite; }
+#celebrate.unlock h2 { font-size: 46px; letter-spacing: .06em; color: #f4fbff; text-shadow: 0 0 14px #8ad8ff, 0 0 34px #4aa0ff, 0 0 60px #b070ff, 0 4px 14px #000; animation: glowt 1.4s ease-in-out infinite; }
+#celebrate.unlock .rays { background: repeating-conic-gradient(rgba(150,210,255,.35) 0deg 6deg, rgba(150,210,255,0) 6deg 20deg); }
+#celebrate .ukind { font: 700 16px Cinzel, serif; letter-spacing: .3em; text-transform: uppercase; color: #ffe08a; text-shadow: 0 0 10px #ffb52a, 0 2px 4px #000; margin: 10px 0 4px; }
+@keyframes pulse { 50% { transform: scale(1.06); } }
+@keyframes glowt { 50% { text-shadow: 0 0 22px #b8ecff, 0 0 50px #4aa0ff, 0 0 80px #b070ff, 0 4px 14px #000; } }
+img.aicon { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; display: block; }
+img.aicon.hero { width: 112px; height: 112px; border: 3px solid #ffe08a; border-radius: 10px; box-shadow: 0 0 24px #ffb52a, 0 0 60px rgba(255,180,60,.6); animation: pulse 1.2s ease-in-out infinite; }
+img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a; border-radius: 6px; }
+.slot.ab img.aicon, .slot.cs img.aicon { position: absolute; inset: 0; }
+.slot .lock { font-size: 18px; opacity: .6; }
+#cskills .slot { width: 64px; height: 64px; }
+.node .ni img.aicon { width: 46px; height: 46px; }
+.kits { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.kit { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid #3a2e1e; background: rgba(0,0,0,.3); border-radius: 4px; }
+.kit.locked { opacity: .5; filter: grayscale(.7); }
+.kit.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(217,180,90,.4); }
+.kit .kn { flex: 1; } .kit .kn small { display: block; color: var(--dim); }
+.kit .klv { font: 700 15px Cinzel, serif; color: var(--gold2); }
 </style>
 </head>
 <body>
@@ -334,6 +361,7 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
   <div id="bossbar"><div class="name"></div><div class="title"></div><div class="bar"><div class="fill"></div></div></div>
   <div id="toasts"></div>
   <div id="banner"></div>
+  <div id="celebrate"></div>
   <div id="prompt"></div>
   <div id="castbar"><div class="fill"></div><span></span></div>
   <div id="buffs"></div>
@@ -355,7 +383,7 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
     </div>
     <div class="bar" id="xpbar"><div id="xpfill"></div></div>
   </div>
-  <div id="keyhint"><kbd>I</kbd> Bag <kbd>P</kbd> Character <kbd>T</kbd> Skills <kbd>K</kbd> Mastery <kbd>J</kbd> Journal <kbd>M</kbd> Map <kbd>Shift</kbd> Dodge <kbd>Esc</kbd> Menu</div>
+  <div id="keyhint"><kbd>I</kbd> Bag <kbd>C</kbd> Character <kbd>K</kbd> Abilities <kbd>J</kbd> Journal <kbd>M</kbd> Map <kbd>Shift</kbd> Dodge <kbd>Esc</kbd> Menu</div>
   <canvas id="compass" width="560" height="34"></canvas>
   <div id="xhair"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="selftext"></div>

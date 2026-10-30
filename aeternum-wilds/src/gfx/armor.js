@@ -2,6 +2,10 @@
 // Pieces are simple shells built in the character's body axes and hung on "anchors" that follow the
 // skeleton (the rigged hero) or the limb groups (the built-in humanoid).
 import * as THREE from 'three';
+import { weaponModelMesh } from './weapons3d.js';
+
+// the shapes this file builds were a stand-in; only the owner's own armor models are worn now
+const GENERATED = false;
 
 const COLS = { light: [0x8a7c5c, 0x34406a, 0x6a2020], medium: [0x6a4a2a, 0x54402e, 0x3e3022], heavy: [0x9a9aa2, 0x9ab4cc, 0xd8a850] };
 const matCache = new Map();
@@ -57,6 +61,23 @@ export function dressArmor(h, spec) {
   if (h.armorParts) for (const o of h.armorParts) o.parent?.remove(o);
   h.armorParts = [];
   const F = frame(h), add = (name, o, x, y, z) => { F.at(name, o, x, y, z); h.armorParts.push(o); return o; };
+  // the owner's boot model on both feet, coloured by armor weight (the hero only: it follows the foot bones)
+  if (spec.feet && F.hero) {
+    const P = h.rig.restP;
+    for (const s of [1, -1]) {
+      const b = weaponModelMesh('boot', 1);
+      if (!b) break; // still downloading; dressed again when it arrives
+      const foot = F.side(s, 'Foot'), toe = F.side(s, 'ToeBase');
+      const fl = Math.hypot(P[toe].x - P[foot].x, P[toe].z - P[foot].z) * 1.9;
+      const k = fl / 1.9;
+      b.material = b.material.clone();
+      b.material.color.set(spec.feet === 'heavy' ? 0xb8bcc8 : spec.feet === 'medium' ? 0x8a5a34 : 0x5a4a6a);
+      b.material.metalness = spec.feet === 'heavy' ? 0.8 : 0.1; b.material.roughness = spec.feet === 'heavy' ? 0.3 : 0.75;
+      b.scale.set(k * 1.25, k * 1.4, k);
+      add(foot, b, P[foot].x, 0.005, P[foot].z);
+    }
+  }
+  if (!GENERATED) return;
   const tier = Math.min(3, Math.max(1, spec.tier || 1));
   const trimC = spec.trim ?? 0x8a6a3a;
   const colOf = kind => kind === 'light' ? mix(COLS.light[tier - 1], trimC, 0.45) : COLS[kind][tier - 1];

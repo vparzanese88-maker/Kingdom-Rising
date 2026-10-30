@@ -1,3 +1,4 @@
+import { creatureReady, makeCreature } from './gfx/creatures.js';
 // Summoned allies: follow the player, fight what the player fights, can be hit by enemies.
 import * as THREE from 'three';
 import { G } from './state.js';
@@ -15,9 +16,9 @@ import { angDiff } from './util.js';
 const LOOKS = {
   skeleton: { name: 'Skeleton', model: 'h', skin: 0xe8e0c8, shirt: 0xd8d0b8, pants: 0xc8c0a8, eyes: 0x6ad0ff, weapon: 'cutlass', speed: 6 },
   zombie: { name: 'Zombie', model: 'h', skin: 0x7a8a5a, shirt: 0x4a4a3a, pants: 0x3a3a2a, eyes: 0xc0ff5a, hunched: true, speed: 4.8 },
-  wolf: { name: 'Wolf', model: 'wolf', color: 0x8a8070, speed: 8 },
-  bear: { name: 'Bear', model: 'boar', color: 0x5a3a22, size: 1.5, speed: 6.5 },
-  spirit: { name: 'Spirit Wolf', model: 'wolf', color: 0x6ab0ff, eyes: 0xffffff, glow: 0x2050a0, speed: 8.5 },
+  wolf: { name: 'Wolf', model: 'wolf', creature: 'wolf', color: 0x8a8070, speed: 8 },
+  bear: { name: 'Bear', model: 'boar', creature: 'bear', csize: 0.9, color: 0x5a3a22, size: 1.5, speed: 6.5 },
+  spirit: { name: 'Spirit Wolf', model: 'wolf', creature: 'wolf', tint: 0x9ac8ff, color: 0x6ab0ff, eyes: 0xffffff, glow: 0x2050a0, speed: 8.5 },
   spider: { name: 'Spider', model: 'wolf', color: 0x1a1a1a, eyes: 0xff2020, size: 0.8, speed: 7.5 },
   elemental_fire: { name: 'Fire Elemental', model: 'h', skin: 0xff6a1a, shirt: 0xd04010, pants: 0xa03010, eyes: 0xffff80, glow: 0x802000, speed: 6, ranged: true, color: 0xff7a2a },
   elemental_earth: { name: 'Earth Elemental', model: 'h', skin: 0x7a6a50, shirt: 0x5a4a38, pants: 0x4a3a2a, eyes: 0xffc040, size: 1.4, speed: 5 },
@@ -41,6 +42,7 @@ export function spawnPet(type, o) {
   if (alive.length >= 4) killPet(alive[0]);
   let model;
   if (L.model === 'h') model = makeHumanoid({ skin: L.skin, shirt: L.shirt, pants: L.pants, eyes: L.eyes, size: L.size || 1, hunched: L.hunched, horns: L.horns });
+  else if (L.creature && creatureReady(L.creature)) model = makeCreature(L.creature, { size: L.csize || 1, tint: L.tint });
   else model = makeBeast(L.model, { color: L.color, size: L.size || 1, eyes: L.eyes });
   if (L.weapon) model.parts.handR.add(makeWeapon(L.weapon));
   if (L.glow) for (const m of model.mats) m.emissive.setHex(L.glow);

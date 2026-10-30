@@ -420,9 +420,9 @@ export const STATIONS = {
 // ---- Zones ----
 export const ZONES = {
   town: { name: 'Windsward Outpost', lv: [1, 1], fog: 0xb9d3dc, safe: true },
-  meadow: { name: 'Greenmeadow', lv: [1, 5], fog: 0xbcd6d8, enemies: ['wolf', 'wolf', 'boar'] },
+  meadow: { name: 'Greenmeadow', lv: [1, 5], fog: 0xbcd6d8, enemies: ['wolf', 'wolf', 'boar', 'wolf'] },
   coast: { name: 'Wreckers\' Coast', lv: [4, 8], fog: 0xc2d5dc, enemies: ['lost', 'lostArcher', 'lost', 'boar'] },
-  thorn: { name: 'Thornwood', lv: [7, 12], fog: 0x8fa58a, enemies: ['direwolf', 'direwolf', 'lost', 'lostArcher'] },
+  thorn: { name: 'Thornwood', lv: [7, 12], fog: 0x8fa58a, enemies: ['direwolf', 'direwolf', 'lost', 'lostArcher', 'bear', 'tiger'] },
   mire: { name: 'Mirefen', lv: [11, 16], fog: 0x6f8a70, enemies: ['withered', 'mirehound', 'withered', 'spitter'] },
   ruins: { name: 'Ashen Ruins', lv: [16, 22], fog: 0x8a6a62, enemies: ['corrupted', 'brute', 'corruptArcher', 'corrupted'] },
 };
@@ -455,13 +455,15 @@ export const ATTACKS = {
 };
 
 export const ENEMIES = {
-  wolf: { name: 'Wolf', model: 'wolf', color: 0x7b7468, hp: 60, dmg: 11, speed: 6.4, attacks: ['bite'], family: 'beast', skin: true, size: 1 },
+  wolf: { name: 'Wolf', model: 'wolf', creature: 'wolf', color: 0x7b7468, hp: 60, dmg: 11, speed: 6.4, attacks: ['bite'], family: 'beast', skin: true, size: 1 },
   boar: { name: 'Wild Boar', model: 'boar', color: 0x5a4030, hp: 95, dmg: 14, speed: 5.4, attacks: ['bite', 'gore'], family: 'beast', skin: true, size: 1, passive: true },
-  direwolf: { name: 'Dire Wolf', model: 'wolf', color: 0x3b3833, hp: 90, dmg: 13, speed: 7, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.3, thick: true },
+  bear: { name: 'Brown Bear', model: 'wolf', creature: 'bear', color: 0x5a3a22, hp: 240, dmg: 21, speed: 5.6, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1, thick: true, radius: 0.95 },
+  tiger: { name: 'Sabre Tiger', model: 'wolf', creature: 'tiger', color: 0xc07a30, hp: 150, dmg: 18, speed: 7.6, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1, radius: 0.8 },
+  direwolf: { name: 'Dire Wolf', model: 'wolf', creature: 'wolf', tint: 0x6a6460, color: 0x3b3833, hp: 90, dmg: 13, speed: 7, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.3, thick: true },
   lost: { name: 'Lost Sailor', model: 'humanoid', skin: 0x9fb2a5, shirt: 0x3c4f5a, pants: 0x2e2a26, weapon: 'cutlass', hp: 100, dmg: 15, speed: 3.8, attacks: ['slash'], family: 'lost', size: 1, drops: ['bone'] },
   lostArcher: { name: 'Lost Archer', model: 'humanoid', skin: 0x9fb2a5, shirt: 0x5a4a3a, pants: 0x2e2a26, weapon: 'bow', hp: 70, dmg: 14, speed: 3.6, attacks: ['arrow'], ranged: 13, family: 'lost', size: 1, drops: ['bone'] },
   withered: { name: 'Withered', model: 'humanoid', skin: 0x6f7d4a, shirt: 0x3b3a26, pants: 0x2b2a1e, hp: 115, dmg: 16, speed: 4.4, attacks: ['claw'], family: 'corrupted', size: 1.05, hunched: true, drops: ['bone'] },
-  mirehound: { name: 'Mire Hound', model: 'wolf', color: 0x4d5f3a, eyes: 0xb6ff4a, hp: 95, dmg: 15, speed: 7.2, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.2, thick: true },
+  mirehound: { name: 'Mire Hound', model: 'wolf', creature: 'wolf', tint: 0x8aa070, color: 0x4d5f3a, eyes: 0xb6ff4a, hp: 95, dmg: 15, speed: 7.2, attacks: ['bite', 'lunge'], family: 'beast', skin: true, size: 1.2, thick: true },
   spitter: { name: 'Bog Spitter', model: 'humanoid', skin: 0x5b7a3a, shirt: 0x2f3b20, pants: 0x232a18, hp: 80, dmg: 15, speed: 3.4, attacks: ['spit'], ranged: 11, family: 'corrupted', size: 0.95, hunched: true },
   corrupted: { name: 'Corrupted Soldier', model: 'humanoid', skin: 0x3a1a1a, shirt: 0x5a1414, pants: 0x1e1010, eyes: 0xff3a2a, weapon: 'cutlass', hp: 140, dmg: 18, speed: 4.2, attacks: ['slash', 'overhead'], family: 'corrupted', size: 1.05, drops: ['shard'] },
   brute: { name: 'Corrupted Brute', model: 'humanoid', skin: 0x2e1414, shirt: 0x4a0f0f, pants: 0x1a0c0c, eyes: 0xff3a2a, weapon: 'club', hp: 320, dmg: 26, speed: 3.2, attacks: ['overhead', 'slam'], family: 'corrupted', size: 1.7, xpMult: 2, drops: ['shard', 'shard'] },

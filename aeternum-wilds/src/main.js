@@ -1,3 +1,4 @@
+import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
 import { G, SAVE_KEY, newProfile } from './state.js';
 import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
@@ -633,7 +634,7 @@ G.setMusicVolume = setMusicVolume;
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
 setTimeout(async () => {
-  await Promise.all([loadMeshy(), loadHeroRig()]);
+  await Promise.all([loadMeshy(), loadHeroRig(), loadCreatures()]);
   buildWorld();
   buildLife();
   $('loading').style.display = 'none';

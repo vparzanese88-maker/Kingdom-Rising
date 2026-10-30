@@ -39,6 +39,7 @@ export const WEAPON_MODELS = {
   musket: { file: 'musket', rz: -PI / 2, off: [0, 0.6, 0], name: 'Long Musket' },
   staffOrnate: { file: 'staff-ornate', off: [0, 0.5, 0], name: 'Gilded Scepter Staff' },
   quarterstaff: { file: 'pole', off: [0, 0, 0], name: 'Quarterstaff' },
+  boot: { file: 'boot', ry: PI / 2, off: [0, 0.29, 0.6], name: 'Boot' },
   shieldRound: { file: 'shield-round', off: [0, 0, 0], name: 'Round Shield' },
   shieldKite: { file: 'shield-kite', off: [0, 0, 0], name: 'Kite Shield' },
   shieldHeater: { file: 'shield-heater', off: [0, 0, 0], name: 'Heater Shield' },

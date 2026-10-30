@@ -1,3 +1,4 @@
+import { creatureReady, makeCreature } from './gfx/creatures.js';
 import { G } from './state.js';
 import { ENEMIES, ATTACKS, killXp, MATS } from './data.js';
 import { makeHumanoid, makeBeast, makeWeapon } from './models.js';
@@ -41,6 +42,7 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
   const def = ENEMIES[type];
   const model = def.model === 'humanoid'
     ? makeHumanoid({ skin: def.skin, shirt: def.shirt, pants: def.pants, eyes: def.eyes, size: def.size, hunched: def.hunched, hat: def.hat, horns: def.horns })
+    : def.creature && creatureReady(def.creature) ? makeCreature(def.creature, { size: def.size, tint: def.tint })
     : makeBeast(type === 'boar' ? 'boar' : 'wolf', { color: def.color, size: def.size, eyes: def.eyes });
   if (def.weapon) {
     const w = makeWeapon(def.weapon);
@@ -51,7 +53,7 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
   const e = {
     type, def, lv, camp, slot, model, root: model.root,
     pos: { x, z }, y: heightAt(x, z), home: { x, z }, facing: Math.random() * 6.28,
-    radius: 0.5 * def.size * (def.model === 'humanoid' ? 1 : 1.1), size: def.size,
+    radius: def.radius ?? 0.5 * def.size * (def.model === 'humanoid' ? 1 : 1.1), size: def.size,
     hp: Math.round(def.hp * hpMult), maxHp: Math.round(def.hp * hpMult), dmg: def.dmg * dmgMult,
     state: 'idle', aggro: false, atk: null, cds: {}, phase: Math.random() * 6, move: 0,
     stunned: 0, slowUntil: 0, knock: null, dot: null, hitFlash: 0, dead: false,

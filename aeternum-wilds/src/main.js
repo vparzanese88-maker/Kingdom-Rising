@@ -147,6 +147,7 @@ addEventListener('mouseup', e => { if (e.button === 0) inp.lmb = false; if (e.bu
 addEventListener('contextmenu', e => { if (e.target === canvas) e.preventDefault(); });
 addEventListener('blur', () => { inp.keys = {}; inp.lmb = inp.rmb = false; });
 canvas.addEventListener('wheel', e => {
+  if (G.mode === 'create') { previewZoom = clamp(previewZoom + Math.sign(e.deltaY) * 0.08, 0.3, 1.3); return; }
   if (G.mode !== 'game') return;
   camDistT = clamp(camDistT + Math.sign(e.deltaY) * 0.6, 0, 7);
   if (camDistT > 0 && camDistT < 2.2) camDistT = e.deltaY > 0 ? 2.2 : 0;
@@ -389,7 +390,7 @@ export function bindSettings(root) {
 // ---------- Character creator ----------
 const draft = { name: '', cls: 'warrior', look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
-let previewQueued = false;
+let previewQueued = false, previewZoom = 1;
 let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
 const PREVIEW_AT = { x: 3, z: 24 };
 function buildPreview() {
@@ -441,7 +442,7 @@ function creator() {
       ${body}
       <div class="row"><button id="cback">Back</button><button id="cgo" class="primary">Begin your journey</button></div>
     </div>
-    <div class="chint">Drag to turn your character</div></div>`;
+    <div class="chint">Drag to turn your character · Mouse wheel to zoom</div></div>`;
   t.style.display = 'block';
   $('cname').oninput = e => { draft.name = e.target.value; };
   t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
@@ -587,7 +588,7 @@ function loop() {
       preview.body.position.y = Math.sin(t * 2) * 0.01;
       const H = preview.tallW || 2;
       if (previewView === 'face') { const hy = py + H * 0.9; camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
-      else { const k = H / 2; camera.position.set(px - 1.7 * k, py + 0.75 * H, pz + 5.2 * k); camera.lookAt(px - 1.7 * k, py + 0.5 * H, pz); }
+      else { const k = H / 2 * previewZoom, up = (1 - previewZoom) * 0.3; camera.position.set(px - 1.7 * k, py + (0.75 + up) * H, pz + 5.2 * k); camera.lookAt(px - 1.7 * k, py + (0.5 + up) * H, pz); }
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;

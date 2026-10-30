@@ -60,6 +60,8 @@ export function makeRiggedHero(o = {}) {
   // ---- bind-pose measurements ----
   const bind = {};
   for (const n in bones) bind[n] = bones[n].quaternion.clone();
+  const bindHips = bones.Hips.position.clone();
+  const STAND = Object.keys(bones).filter(n => !/Arm|Hand|Shoulder/.test(n)); // everything but the arms
   // arms hanging at the sides: rotate each upper arm from its bind direction to straight down (a hair outward)
   const hang = {};
   for (const [side, sx] of [['Left', 1], ['Right', -1]]) {
@@ -192,6 +194,11 @@ export function makeRiggedHero(o = {}) {
     run.setEffectiveWeight(runW); walk.setEffectiveWeight(walkW); idle.setEffectiveWeight(idleW);
     run.timeScale = 0.75 + 0.35 * mv; walk.timeScale = 0.8 + mv * 1.2;
     mixer.update(st.pose === 'dead' ? 0 : dt);
+    // standing still: stand up straight in the model's rest pose instead of a frozen walking step
+    if (idleW > 0.001 && !air) {
+      for (const n of STAND) bones[n].quaternion.slerp(bind[n], idleW);
+      bones.Hips.position.lerp(bindHips, idleW);
+    }
     model.updateMatrixWorld(true);
     // arms follow the combat pose when there is one, otherwise the run/walk swing
     const posed = POSED.has(st.pose) || mv < 0.12;

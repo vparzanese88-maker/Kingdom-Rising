@@ -65,12 +65,12 @@ export function armCharacter(h, w, other) {
   const len = it => tall * (TIER_LEN[it.tier] || TIER_LEN[1]) * (SHORT[it.wtype] ?? 1) * (WEAPON_MODELS[modelFor(it.wtype, it.tier, it.model)]?.k || 1);
   const shieldLen = it => tall * 0.42 * (0.92 + 0.08 * (it.tier || 1));
   if (w && w.wtype !== 'fists') {
-    if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
+    if (w.wtype === 'bow') { h.wL = sizeWeapon(makeWeapon('bow', w.tier, w.model, true), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
     else {
-      h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
-      if (w.wtype === 'hatchets') { h.wL = sizeWeapon(makeWeapon('hatchets', w.tier, w.model), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
-      else if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier), h.parts.handL, tall * 0.38 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
-      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier, w.shield); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
+      h.wR = sizeWeapon(makeWeapon(w.wtype, w.tier, w.model, true), h.parts.handR, len(w)); h.parts.handR.add(h.wR);
+      if (w.wtype === 'hatchets') { h.wL = sizeWeapon(makeWeapon('hatchets', w.tier, w.model, true), h.parts.handL, len(w)); h.parts.handL.add(h.wL); }
+      else if (WEAPONS[w.wtype]?.dual) { h.wL = sizeWeapon(makeWeapon('dagger', w.tier, null, true), h.parts.handL, tall * 0.38 * (TIER_LEN[w.tier] || 1)); h.parts.handL.add(h.wL); }
+      if (SHIELD_WEAPONS.has(w.wtype)) { h.wL = makeWeapon('shield', w.tier, w.shield, true); h.wL.rotation.y = Math.PI / 2; sizeWeapon(h.wL, h.parts.handL, shieldLen(w)); h.wL.position.set(0.14, 0.05, 0.15); h.parts.handL.add(h.wL); }
     }
   }
   // the weapon not in use is slung diagonally across the back
@@ -81,7 +81,7 @@ export function armCharacter(h, w, other) {
     if (h.parts.back) back.position.set(0, 0, -0.16); else back.position.set(0, 0.5, -0.26);
     back.rotation.set(0, 0, other.wtype === 'bow' ? -0.5 : 0.75);
     const L = len(other);
-    const bw = makeWeapon(other.wtype, other.tier, other.model);
+    const bw = makeWeapon(other.wtype, other.tier, other.model, true);
     bw.rotation.set(0, 0, 0);
     sizeWeapon(bw, back, L);
     back.getWorldScale(_ws); const Lb = L / (_ws.y || 1); // weapon length in the back group's units
@@ -90,18 +90,19 @@ export function armCharacter(h, w, other) {
     else if (WEAPONS[other.wtype]?.gun) { bw.rotation.z = Math.PI; bw.position.set(0, 0.25 * Lb, 0); } // stock down, barrel up
     else bw.position.set(0, -0.55 * Lb, 0); // axe, hammer or staff head up
     back.add(bw);
-    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier, other.shield); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
+    if (SHIELD_WEAPONS.has(other.wtype)) { const sh = makeWeapon('shield', other.tier, other.shield, true); sizeWeapon(sh, back, shieldLen(other)); sh.position.set(0, 0, -0.06); back.add(sh); }
     h.wBack = back;
   }
   h.carryTwo = w && (w.wtype === 'greataxe' || w.wtype === 'hammer');
   h.carryDual = w && (w.wtype === 'hatchets' || w.wtype === 'rapier');
-  h.carryOn = w && !RANGED_WEAPONS.has(w.wtype) && w.wtype !== 'fists' && w.wtype !== 'staff';
+  h.carryGun = w && WEAPONS[w.wtype]?.gun;
+  h.carryOn = w && (h.carryGun || (!RANGED_WEAPONS.has(w.wtype) && w.wtype !== 'fists' && w.wtype !== 'staff'));
 }
 // out of combat the weapon is carried, not pointed: the wrist cocks swords upright and lets big axes and
 // hammers rest head-down in front; any combat pose straightens it to the fighting grip
 const CARRY_POSES = new Set([null, undefined, 'hop', 'jump', 'swap']);
 export function carryWeapon(h, pose, dt) {
-  const want = h.carryOn && CARRY_POSES.has(pose) ? (h.carryTwo ? 0.75 : -0.85) : 0;
+  const want = h.carryOn && CARRY_POSES.has(pose) ? (h.carryGun ? -1.45 : h.carryTwo ? 0.75 : -0.85) : 0;
   h.carryA = (h.carryA || 0) + (want - (h.carryA || 0)) * Math.min(1, dt * (want ? 6 : 30));
   if (h.rig) { h.rig.carry = h.carryA; h.rig.carrySides = h.carryDual ? ['Right', 'Left'] : ['Right']; }
   else { h.parts.handR.rotation.x = h.carryA; if (h.carryDual) h.parts.handL.rotation.x = h.carryA; }

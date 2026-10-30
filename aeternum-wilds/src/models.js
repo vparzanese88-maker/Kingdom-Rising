@@ -83,13 +83,14 @@ function cyl(rt, rb, h, m, seg = 8) {
 }
 
 // ---------- Weapons ----------
-export function makeWeapon(type, tier = 1, model = null) {
+export function makeWeapon(type, tier = 1, model = null, noStandIn = false) {
   const g = new THREE.Group();
   const metal = mat([0x9aa0a6, 0x8fb8d8, 0xe0a640][tier - 1] ?? 0x9aa0a6, false, { emissive: tier === 3 ? 0x3a2000 : 0x000000 });
   const wood = mat(0x6b4a2a), dark = mat(0x2a2018), gold = mat(0xc8a040);
   // the owner's Meshy models (downloaded on first use; the built-in model stands in until then)
   const key = type === 'greatsword' ? 'gothicBoss' : modelFor(type, tier, model);
   const real = key && weaponModelMesh(key, type === 'greatsword' ? 1 : tier);
+  if (key && !real && noStandIn) { g.userData.pending = true; return g; } // the real model is on its way; show nothing until then
   if (real) {
     if (type === 'greatsword') real.scale.setScalar(1.6);
     g.add(real);
@@ -214,7 +215,8 @@ export function charHeight(h) {
 export function sizeWeapon(w, parent, worldLen) {
   w.scale.setScalar(1); w.position.set(0, 0, 0); w.updateMatrixWorld(true);
   _wb.setFromObject(w);
-  const len = Math.max(_wb.max.x - _wb.min.x, _wb.max.y - _wb.min.y, _wb.max.z - _wb.min.z) || 1;
+  let len = Math.max(_wb.max.x - _wb.min.x, _wb.max.y - _wb.min.y, _wb.max.z - _wb.min.z);
+  if (!(len > 0 && isFinite(len))) len = 1;
   parent.updateMatrixWorld(true); parent.getWorldScale(_wv);
   w.scale.setScalar(worldLen / len / (_wv.y || 1));
   return w;

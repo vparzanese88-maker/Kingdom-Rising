@@ -14,6 +14,7 @@ import { fillBounties } from './quests.js';
 import { initAudio, setVolume, setMusic, setMusicZone, setAmbience, setMusicVolume } from './audio.js';
 import { dressHumanoid, makeWeapon } from './models.js';
 import { WEAPON_MODELS, onWeaponModel, weaponModelMesh } from './gfx/weapons3d.js';
+import { dressArmor } from './gfx/armor.js';
 // a weapon model finished downloading: re-dress whoever is holding the stand-in
 onWeaponModel(() => { if (G.mode === 'create' && preview) buildPreview(); else if (G.player && G.p) refreshLook(); });
 weaponModelMesh('gothicBoss'); // the Warden's blade, ready before anyone meets him
@@ -397,6 +398,8 @@ function buildPreview() {
   const cols = { light: [0x9a9270, 0x7a7258, 0x4a4030], medium: [0x6a4a2a, 0x4a3420, 0x3a2a1a], heavy: [0x8a8a90, 0x6a6a70, 0x4a4a50] }[C.armor];
   dressHumanoid(preview, { chest: C.gear.includes('chest') ? cols[0] : 0x7a6a52, legs: C.gear.includes('legs') ? cols[1] : 0x4a3e30, feet: cols[2], helm: C.gear.includes('head') && previewView === 'body' ? cols[0] : null, helmTier: C.armor === 'heavy' ? 2 : 1, trim: C.color });
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
+  const wc = sl => C.gear.includes(sl) ? C.armor : null;
+  dressArmor(preview, { chest: wc('chest'), legs: wc('legs'), feet: wc('feet'), hands: wc('hands'), head: previewView === 'body' ? wc('head') : null, tier: 1, trim: C.color });
   armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model }, null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);

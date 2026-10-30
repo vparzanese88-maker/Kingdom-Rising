@@ -6,6 +6,7 @@ import { meshyReady, makeHero } from './gfx/meshy.js';
 import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat, charHeight, sizeWeapon, TIER_LEN } from './models.js';
 import { animHumanoid } from './anim.js';
+import { dressArmor } from './gfx/armor.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
 import { stats, activeWeapon, activeWType, gainXp, gainMastery, gainTrade } from './stats.js';
@@ -117,6 +118,7 @@ export function refreshLook() {
     helmTier: e.head ? ({ light: 1, medium: 1, heavy: 2 }[e.head.wclass || 'medium'] + (e.head.tier === 3 ? 1 : 0)) : 0,
     trim: e.hands ? tierColor(e.hands, 0.85) : (CLASSES[G.p.cls]?.color ?? 0x5a4a38),
   });
+  dressArmor(h, { chest: e.chest?.wclass, legs: e.legs?.wclass, feet: e.feet?.wclass, hands: e.hands?.wclass, head: e.head?.wclass, tier: e.chest?.tier || 1, trim: CLASSES[G.p.cls]?.color });
   // weapons
   const w = activeWeapon(), other = G.p.activeW === 0 ? e.w2 : e.w1;
   armCharacter(h, w, other);

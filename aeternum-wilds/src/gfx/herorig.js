@@ -69,6 +69,15 @@ export function makeRiggedHero(o = {}) {
     const fix = new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(sx * 0.1, -1, 0.04).normalize());
     hang[side] = fix.multiply(bodyQuat(arm, body, new THREE.Quaternion()));
   }
+  // every bone's rest orientation and position in body space (arms as they hang at the sides), so armor
+  // pieces can be built once in that frame and then follow their bone
+  const restQ = {}, restP = {};
+  for (const n in bones) { restQ[n] = bodyQuat(bones[n], body, new THREE.Quaternion()); restP[n] = bodyPos(bones[n], body, new THREE.Vector3()); }
+  for (const side of ['Left', 'Right']) {
+    const toHang = hang[side].clone().multiply(restQ[side + 'Arm'].clone().invert());
+    for (const part of ['Arm', 'ForeArm', 'Hand']) restQ[side + part].premultiply(toHang);
+    for (const part of ['ForeArm', 'Hand']) restP[side + part].sub(restP[side + 'Arm']).applyQuaternion(toHang).add(restP[side + 'Arm']);
+  }
   // weapon sockets in the palms. They are children of the body (not the hand bone) and follow the hand's
   // position and rotation every frame, so weapons never inherit the arm's girth scaling and stay undistorted.
   const sockets = {}, sockInfo = {};
@@ -109,14 +118,34 @@ export function makeRiggedHero(o = {}) {
     _hq.premultiply(_bq);
     backSock.position.copy(_hp);
     backSock.quaternion.copy(_hq).multiply(backQ0);
+    for (const f of followers) {
+      f.b.matrixWorld.decompose(_hp, _hq, _hs);
+      body.worldToLocal(_hp);
+      _hq.premultiply(_bq);
+      f.sock.position.copy(_hp);
+      f.sock.quaternion.copy(_hq).multiply(f.q0);
+    }
+  }
+  // a group in body space that follows a bone (position and rotation, never its girth scale); its frame
+  // is the bone's rest pose, so things built in the body's own axes sit right on the bone
+  const followers = [], follow = {};
+  function follower(name) {
+    if (follow[name]) return follow[name];
+    const sock = new THREE.Group(); body.add(sock);
+    followers.push({ b: bones[name], sock, q0: restQ[name].clone().invert() });
+    follow[name] = sock;
+    updateSockets();
+    return sock;
   }
   model.updateMatrixWorld(true);
 
+  const girth = {};
   // girth: each bone is thickened across (never along) its length; children are compensated for their
   // parent so nothing compounds, and the neck, head, hands and feet always keep their natural shape
   {
     const clampK = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const wd = (o.build || 1) - 1, md = (o.muscle || 1) - 1;
+    girth.torso = 1; girth.arm = 1; girth.leg = 1;
     const torso = clampK(1 + wd * 0.45 + md * 0.2, 0.9, 1.18), arm = clampK(1 + md * 0.5 + wd * 0.15, 0.86, 1.2), leg = clampK(1 + wd * 0.25 + md * 0.25, 0.9, 1.15);
     const K = { Hips: clampK(1 + wd * 0.3, 0.92, 1.12), Spine02: torso, Spine01: torso, Spine: torso * 0.97 + 0.03,
       LeftShoulder: arm * 0.5 + 0.5, RightShoulder: arm * 0.5 + 0.5, LeftArm: arm, RightArm: arm, LeftForeArm: arm * 0.85 + 0.15, RightForeArm: arm * 0.85 + 0.15,
@@ -129,6 +158,7 @@ export function makeRiggedHero(o = {}) {
       b.scale.set(w.x / parentWant.x, w.y / parentWant.y, w.z / parentWant.z);
       for (const c of b.children) if (c.isBone) visit(c, w);
     };
+    Object.assign(girth, { torso, arm, leg });
     if (wd || md) visit(bones.Hips, new THREE.Vector3(1, 1, 1));
   }
 
@@ -193,6 +223,6 @@ export function makeRiggedHero(o = {}) {
   return {
     root, body, mats: [mat, new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial()],
     parts: { hips: P.hips, upper: P.upper, head: P.head, hair, armR: P.armR, armL: P.armL, handR: sockets.Right, handL: sockets.Left, back: backSock, legR: P.legR, legL: P.legL },
-    size: s, hunched: false, hero: true, rig: { apply, mixer, bones },
+    size: s, hunched: false, hero: true, rig: { apply, mixer, bones, follower, restP, girth },
   };
 }

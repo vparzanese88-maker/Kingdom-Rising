@@ -1,4 +1,4 @@
-import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize } from './online.js';
+import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize, gameStarted, isHost, setLobbyHooks, startAdventure, lobbyPlayers, sendChat } from './online.js';
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
@@ -334,13 +334,45 @@ function title() {
     <div id="homeside"></div>
     <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
   t.style.display = 'block';
-  if (save) $('cont').onclick = () => { initAudio(); enterGame(save); };
+  if (save) $('cont').onclick = () => { initAudio(); play(save); };
   $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
   $('onl').onclick = () => { initAudio(); onlinePanel(); };
   if (invited && !online()) onlinePanel(invited);
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
+}
+
+// ---------- Online lobby ----------
+// online and the adventure hasn't started: wait in the lobby with the party until the host starts it
+function play(profile) {
+  if (online() && !gameStarted()) { G.lobbyProfile = profile; lobby(); hello(); return; }
+  G.lobbyProfile = null;
+  enterGame(profile);
+}
+setLobbyHooks(() => { if (G.mode === 'lobby') lobby(); }, () => { if (G.mode === 'lobby' && G.lobbyProfile) { const p = G.lobbyProfile; G.lobbyProfile = null; enterGame(p); } });
+function lobby() {
+  G.mode = 'lobby';
+  const t = $('title');
+  const log = $('lobbylog')?.innerHTML || '', typed = $('lobbyin')?.value || '', typing = document.activeElement?.id === 'lobbyin';
+  const rows = lobbyPlayers().map(P => `<div class="lp ${P.ready ? 'ready' : ''}"><b>${esc(P.name)}${P.me ? ' (you)' : ''}${P.id === 0 ? ' 👑' : ''}</b><span>${P.ready ? `${CLASSES[P.cls]?.icon || ''} ${CLASSES[P.cls]?.name || ''} · Level ${P.level || 1}` : 'choosing a hero…'}</span><i>${P.ready ? 'Ready' : '…'}</i></div>`).join('');
+  t.innerHTML = `<div class="home lobby"><div class="card online lobbycard">
+    <h2>Party Lobby · ${onlineCode()}</h2>
+    <p class="small">Invite friends with the code <b class="code">${onlineCode()}</b> or the link: <input id="invl" readonly value="${location.origin}${location.pathname}?join=${onlineCode()}"> <button id="invc">Copy</button></p>
+    <div class="lplayers">${rows}</div>
+    <div id="lobbylog">${log}</div>
+    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Say something to the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
+    <div class="row">${isHost() ? `<button id="lstart" class="primary">Start the adventure</button>` : `<p class="small">Waiting for the host to start the adventure…</p>`}<button id="lback">Back</button></div>
+  </div></div>`;
+  t.style.display = 'block';
+  const ll = $('lobbylog'); ll.scrollTop = ll.scrollHeight;
+  $('lobbyin').value = typed; if (typing) $('lobbyin').focus();
+  $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
+  const say = () => { sendChat($('lobbyin').value); $('lobbyin').value = ''; $('lobbyin').focus(); };
+  $('lobbysend').onclick = say;
+  $('lobbyin').onkeydown = e => { if (e.key === 'Enter') say(); };
+  if ($('lstart')) $('lstart').onclick = () => startAdventure();
+  $('lback').onclick = () => { G.lobbyProfile = null; hello(); title(); };
 }
 
 // ---------- Online ----------
@@ -352,7 +384,7 @@ function onlinePanel(code = '') {
     side.innerHTML = `<div class="card online"><h3>Online game ${onlineCode()}</h3>
       <p>Friends join with the code <b class="code">${onlineCode()}</b> or this link:</p>
       <div class="invite"><input id="invl" readonly value="${inviteLink(onlineCode())}"><button id="invc">Copy</button></div>
-      <p class="small">${partySize()} in the party. Now press <b>Continue</b> or <b>New Character</b>: everyone starts together in Driftwood Landing. Press <kbd>Enter</kbd> in game to chat.</p>
+      <p class="small">${partySize()} in the party. Now press <b>Continue</b> or <b>New Character</b> to pick your hero; then you wait in the party lobby until ${isHost() ? 'you start' : 'the host starts'} the adventure, and everyone begins together in town. Press <kbd>Enter</kbd> in game to chat.</p>
       <button id="oleave">Leave online game</button></div>`;
     $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
     $('oleave').onclick = () => { leaveOnline(); title(); };
@@ -508,7 +540,7 @@ function creator() {
     if (C2.start2) { p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 }); if (C2.model2) p.equip.w2.model = C2.model2; }
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
-    enterGame(p);
+    play(p);
   };
 }
 let dragging = false, lastX = 0;

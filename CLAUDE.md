@@ -5,6 +5,9 @@ The owner has given standing permission, and wants this done every time:
 - After any change to any game (new game or alteration), merge the work into `main` and push `main` to GitHub. Don't wait to be asked and don't stop at a feature branch or pull request.
 - GitHub Pages serves `main`, so this is what makes the change playable.
 
+## Aeternum Wilds: stamp before committing
+Run `python3 aeternum-wilds/tools/stamp.py` before committing Aeternum Wilds changes, so players' browsers load the new code instead of a cached copy.
+
 ## Always give the play link
 End every reply that creates or changes a game with its GitHub Pages link, so it can be sent to friends:
 - Arcade (all games): https://vparzanese88-maker.github.io/Kingdom-Rising/arcade.html

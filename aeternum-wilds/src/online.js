@@ -13,7 +13,16 @@ import { CLASSES } from './classes.js';
 import { esc } from './util.js';
 
 const $ = id => document.getElementById(id);
-const O = { net: null, me: null, code: null, peers: new Map(), sendT: 0, enemyT: 0, status: '' };
+const O = { net: null, me: null, code: null, peers: new Map(), sendT: 0, enemyT: 0, status: '', started: false, onStart: null, onLobby: null };
+export const gameStarted = () => O.started;
+export const isHost = () => O.me === 0;
+export function setLobbyHooks(onLobby, onStart) { O.onLobby = onLobby; O.onStart = onStart; }
+// the host starts the adventure: everyone waiting in the lobby goes in together
+export function startAdventure() { if (O.me !== 0) return; O.started = true; send({ t: 'go' }); O.onStart?.(); }
+export function lobbyPlayers() {
+  const me = { id: O.me, me: true, ...myInfo() };
+  return [me, ...[...O.peers.values()].filter(P => P.name)].sort((a, b) => a.id - b.id);
+}
 export const online = () => !!(O.net && O.me != null);
 export const onlineCode = () => O.code;
 export const partySize = () => O.peers.size + 1;
@@ -38,10 +47,10 @@ function send(d) { if (O.net) O.net.send(d); }
 
 // what other players need to draw me
 function myInfo() {
-  const p = G.p;
-  if (!p) return { name: 'Castaway', inGame: false };
+  const p = G.mode === 'game' ? G.p : G.lobbyProfile;
+  if (!p) return { name: 'Choosing a hero…', inGame: false, ready: false, started: O.started };
   const w = p.equip[p.activeW === 0 ? 'w1' : 'w2'];
-  return { name: p.name || 'Castaway', inGame: G.mode === 'game', cls: p.cls, level: p.level, look: p.look, w: w ? { wtype: w.wtype, tier: w.tier, model: w.model, shield: w.shield } : null };
+  return { name: p.name || 'Castaway', inGame: G.mode === 'game', ready: true, started: O.started, cls: p.cls, level: p.level, look: p.look, w: w ? { wtype: w.wtype, tier: w.tier, model: w.model, shield: w.shield } : null };
 }
 export function hello() { if (online()) send({ t: 'hi', ...myInfo() }); }
 G.onLook = () => { clearTimeout(O.lookT); O.lookT = setTimeout(hello, 200); };
@@ -66,13 +75,16 @@ function onData(from, d) {
       const known = O.peers.has(from);
       const P = peer(from);
       const first = !P.name;
-      Object.assign(P, { name: String(d.name || 'Castaway').slice(0, 18), inGame: !!d.inGame, cls: d.cls, level: d.level, look: d.look, w: d.w });
-      if (first) { sysMsg(`${P.name} joined.`); hello(); }
+      Object.assign(P, { name: String(d.name || 'Castaway').slice(0, 18), inGame: !!d.inGame, ready: !!d.ready, cls: d.cls, level: d.level, look: d.look, w: d.w });
+      if (from === 0 && d.started && !O.started) { O.started = true; O.onLobby?.(); }
+      if (first) { sysMsg(`A player joined.`); hello(); }
       else if (!known) hello();
       rebuildAvatar(P);
       refreshParty();
+      O.onLobby?.();
       break;
     }
+    case 'go': if (from === 0 && !O.started) { O.started = true; O.onStart?.(); } break;
     case 'st': { const P = peer(from); P.st = d; P.seen = performance.now(); if (P.level !== d.lv) { P.level = d.lv; refreshParty(); } P.hp = d.hp; P.mhp = d.mhp; break; }
     case 'chat': { const P = peer(from); chatMsg(P.name || 'Someone', String(d.m || '').slice(0, 200)); break; }
     case 'bye': dropPeer(from); break;
@@ -90,6 +102,7 @@ function dropPeer(id) {
   P.label?.remove();
   O.peers.delete(id);
   if (P.name) sysMsg(`${P.name} left.`);
+  O.onLobby?.();
   for (const e of G.enemies || []) if (e.netOwner === id) e.netOwner = null;
   refreshParty();
 }
@@ -201,6 +214,8 @@ function refreshPartyBars() {
   }
 }
 function line(html) {
+  const ll = $('lobbylog');
+  if (ll) { const d = document.createElement('div'); d.innerHTML = html; ll.appendChild(d); ll.scrollTop = ll.scrollHeight; }
   const log = $('chatlog');
   if (!log) return;
   const d = document.createElement('div'); d.innerHTML = html; log.appendChild(d);
@@ -216,7 +231,7 @@ export function sendChat(m) {
   if (!m) return;
   if (!online()) { sysMsg('You are not in an online game. Host or join one from the home screen.'); return; }
   send({ t: 'chat', m });
-  chatMsg(G.p?.name || 'You', m);
+  chatMsg((G.mode === 'game' ? G.p : G.lobbyProfile)?.name || 'You', m);
 }
 export function initChat() {
   const inp = $('chatin');

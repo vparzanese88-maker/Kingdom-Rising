@@ -373,7 +373,16 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 .card.online .code { font-size: 22px; letter-spacing: 4px; color: #f0d890; }
 .card.online .invite, .card.online .joinrow { display: flex; gap: 6px; margin: 8px 0; }
 .card.online .invite input, .card.online .joinrow input { flex: 1; font: 15px Georgia, serif; padding: 6px; }
-.card.online .joinrow input { text-transform: uppercase; letter-spacing: 3px; max-width: 110px; }
+.card.online .joinrow input#ocode { text-transform: uppercase; letter-spacing: 3px; max-width: 110px; }
+.home.lobby { display: flex; align-items: center; justify-content: center; }
+.lobbycard { width: min(640px, 92vw); max-height: 90vh; overflow: auto; }
+.lobbycard #invl { width: 55%; font: 13px Georgia, serif; }
+.lplayers { margin: 10px 0; }
+.lp { display: flex; gap: 10px; align-items: center; padding: 7px 10px; margin-bottom: 5px; border: 1px solid rgba(240,216,144,.25); border-radius: 4px; background: rgba(0,0,0,.25); }
+.lp b { flex: 1; } .lp span { color: #cfc4b0; font-size: 14px; } .lp i { font-style: normal; color: #999; width: 50px; text-align: right; }
+.lp.ready i { color: #6ad07a; }
+#lobbylog { height: 140px; overflow-y: auto; background: rgba(0,0,0,.3); border-radius: 4px; padding: 6px 8px; font: 14px/1.35 Georgia, serif; }
+#lobbylog b { color: #f0d890; } #lobbylog i { color: #9fd0ff; }
 </style>
 </head>
 <body>
@@ -426,9 +435,50 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 <div id="death"><h1>You have fallen</h1><button>Return to Windsward Outpost</button></div>
 <div id="victory"></div>
 <script type="importmap">
-{ "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+{
+"imports": {
+"three": "./vendor/three/build/three.module.min.js",
+"three/addons/": "./vendor/three/examples/jsm/",
+"./src/anim.js": "./src/anim.js?v=1793327895",
+"./src/audio.js": "./src/audio.js?v=1793327895",
+"./src/classes.js": "./src/classes.js?v=1793327895",
+"./src/combatfx.js": "./src/combatfx.js?v=1793327895",
+"./src/data.js": "./src/data.js?v=1793327895",
+"./src/enemies.js": "./src/enemies.js?v=1793327895",
+"./src/fx.js": "./src/fx.js?v=1793327895",
+"./src/items.js": "./src/items.js?v=1793327895",
+"./src/life.js": "./src/life.js?v=1793327895",
+"./src/main.js": "./src/main.js?v=1793327895",
+"./src/models.js": "./src/models.js?v=1793327895",
+"./src/net.js": "./src/net.js?v=1793327895",
+"./src/online.js": "./src/online.js?v=1793327895",
+"./src/pets.js": "./src/pets.js?v=1793327895",
+"./src/player.js": "./src/player.js?v=1793327895",
+"./src/quests.js": "./src/quests.js?v=1793327895",
+"./src/skills.js": "./src/skills.js?v=1793327895",
+"./src/spellfx.js": "./src/spellfx.js?v=1793327895",
+"./src/state.js": "./src/state.js?v=1793327895",
+"./src/stats.js": "./src/stats.js?v=1793327895",
+"./src/ui.js": "./src/ui.js?v=1793327895",
+"./src/util.js": "./src/util.js?v=1793327895",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793327895",
+"./src/world.js": "./src/world.js?v=1793327895",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793327895",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793327895",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793327895",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793327895",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793327895",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793327895",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793327895",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793327895",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793327895",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793327895",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793327895",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793327895"
+}
+}
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/main.js?v=1793327895"></script>
 </body>
 </html>

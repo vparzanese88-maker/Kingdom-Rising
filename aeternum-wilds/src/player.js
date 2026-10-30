@@ -432,7 +432,7 @@ export function startDodge() {
 export function jump() {
   const P = G.player;
   if (busy() || P.state === 'gather' || (P.jumpY || 0) > 0 || P.jv) return;
-  P.jv = 7.2;
+  P.jv = 10.5; // about 2.3 m high
   if (P.recall) { P.recall = null; castBar(null); }
   sfx('step', 1.2);
 }
@@ -667,7 +667,10 @@ export function updatePlayer(dt) {
   P.iframes -= dt; P.swapT -= dt; P.potionCd -= dt;
   // jumping (leaps use jumpY themselves)
   if (!(P.ability && P.ability.leap)) {
-    if (P.jv || P.jumpY > 0) { P.jv = (P.jv || 0) - 24 * dt; P.jumpY = Math.max(0, (P.jumpY || 0) + P.jv * dt); if (P.jumpY <= 0) { P.jv = 0; P.jumpY = 0; } }
+    if (P.jv || P.jumpY > 0) {
+      P.jv = (P.jv || 0) - 24 * dt; P.jumpY = Math.max(0, (P.jumpY || 0) + P.jv * dt);
+      if (P.jumpY <= 0) { if (P.jv < -6) { sfx('land'); burst(P.pos.x, P.y + 0.1, P.pos.z, 0xb8a888, 10, 3, 0.5, 0.18, 4); shake(0.12); } P.jv = 0; P.jumpY = 0; }
+    }
   } P.recallCd -= dt; P.exhausted -= dt; P.comboTimer -= dt; P.inCombat -= dt;
   if (P.hurtFlash > 0) P.hurtFlash -= dt;
   P.buffs = P.buffs.filter(b => b.until > G.time);
@@ -769,6 +772,7 @@ export function updatePlayer(dt) {
   else if (P.state === 'draw') pose = 'draw';
   else if (P.state === 'dodge') { pose = P.dodge.roll ? 'dodge' : 'hop'; t = P.dodge.t / P.dodge.dur; }
   else if (P.swapT > 0) { pose = 'swap'; t = 1 - P.swapT / 0.25; }
+  else if ((P.jumpY || 0) > 0.05 && !(P.ability && P.ability.leap)) { pose = 'jump'; t = Math.min(1, Math.max(0, 0.5 - (P.jv || 0) / 21)); }
   else if (P.state === 'ability') { pose = P.ability.pose; t = P.ability.t / P.ability.dur; if (pose === 'shoot' || pose === 'block') t = Math.min(1, t); }
   else if (P.state === 'gather') { pose = P.gather.pose; t = P.gather.t; }
   else if (P.state === 'stunned') pose = 'stun';

@@ -452,10 +452,11 @@ function creator() {
   } else if (creatorTab === 'body') {
     body = `${meshyReady() ? `<div class="look"><span>Hero</span><button class="hs ${L.model === 'barbarian' ? 'on' : ''}" data-model="barbarian">Sculpted barbarian</button><button class="hs ${L.model !== 'barbarian' ? 'on' : ''}" data-model="custom">Custom (sliders)</button></div>` : ''}
       <div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
-      ${sliders(BODY_SLIDERS)}
+      ${sliders(L.model === 'barbarian' ? BODY_SLIDERS.filter(b => b[0] !== 'headSize') : BODY_SLIDERS)}
       <div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`;
   } else {
-    body = `${L.model === 'barbarian' ? '<p class="cdesc">The sculpted barbarian has his own face and hair. To shape a face with these sliders, pick <b>Custom</b> on the Body tab.</p>' : ''}${sliders(FACE_SLIDERS)}
+    if (L.model === 'barbarian') body = `<p class="cdesc">The barbarian's face, hair and beard are sculpted into his model, so they can't be restyled here. New looks (other hairstyles, beards, faces, a female hero) come as their own Meshy models: send them and they appear as choices on the Body tab.</p>`;
+    else body = `${sliders(FACE_SLIDERS)}
       <div class="look"><span>Eyes</span>${sw(EYE_COLORS, 'eyeColor')}</div>
       <div class="look"><span>Hair</span>${sw(HAIR_COLORS, 'hair')}</div>
       <div class="look"><span>Style</span>${HAIR_STYLES.map((h, i) => `<button class="hs ${L.hairStyle === i ? 'on' : ''}" data-hs="${i}">${h}</button>`).join('')}</div>

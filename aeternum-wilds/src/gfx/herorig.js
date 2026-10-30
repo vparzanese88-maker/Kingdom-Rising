@@ -50,10 +50,11 @@ export function makeRiggedHero(o = {}) {
   skinMesh.material = skinMesh.material.clone();
   const mat = skinMesh.material;
   // a big, heroic frame: taller than the townsfolk; height, weight and muscle sliders shape him
-  const BIG = 1.14, mus = o.muscle || 1;
-  const s = (o.size || 1) * (o.height || 1) * BIG;
-  const wide = (o.size || 1) * (o.build || 1) * BIG * (0.82 + 0.18 * mus);
-  body.scale.set(wide, s, wide * (0.94 + 0.06 * (o.build || 1)));
+  // a big, heroic frame. Height scales him evenly (gently, so he never looks stretched);
+  // weight and muscle reshape the body below the neck only (see the girth pass below)
+  const BIG = 1.14;
+  const s = (o.size || 1) * BIG * (1 + ((o.height || 1) - 1) * 0.4);
+  body.scale.setScalar(s);
   root.updateMatrixWorld(true);
 
   // ---- bind-pose measurements ----
@@ -68,34 +69,61 @@ export function makeRiggedHero(o = {}) {
     const fix = new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(sx * 0.1, -1, 0.04).normalize());
     hang[side] = fix.multiply(bodyQuat(arm, body, new THREE.Quaternion()));
   }
-  // weapon sockets in the palms: oriented like the box humanoid's hands with the arm hanging down
-  const sockets = {};
+  // weapon sockets in the palms. They are children of the body (not the hand bone) and follow the hand's
+  // position and rotation every frame, so weapons never inherit the arm's girth scaling and stay undistorted.
+  const sockets = {}, sockInfo = {};
   for (const side of ['Left', 'Right']) {
     setBodyQuat(bones[side + 'Arm'], body, hang[side], 1);
     model.updateMatrixWorld(true);
     const hand = bones[side + 'Hand'];
-    const sock = new THREE.Group();
-    hand.add(sock);
     const hq = bodyQuat(hand, body, new THREE.Quaternion());
-    sock.quaternion.copy(hq.invert());
-    const ws = hand.getWorldScale(new THREE.Vector3());
-    const bs = body.getWorldScale(new THREE.Vector3());
-    sock.scale.set(bs.x / ws.x, bs.y / ws.y, bs.z / ws.z);
-    // palm: a little below the wrist along the hanging arm, slightly forward
-    const palm = bodyPos(hand, body, new THREE.Vector3()).add(new THREE.Vector3(0, -0.075, 0.025));
-    body.localToWorld(palm); hand.worldToLocal(palm);
-    sock.position.copy(palm);
+    const hp = bodyPos(hand, body, new THREE.Vector3());
+    // in the hanging pose the socket matches the body's orientation; palm a little below the wrist, slightly forward
+    const off = new THREE.Vector3(0, -0.075 / BIG, 0.025 / BIG).applyQuaternion(hq.clone().invert());
+    sockInfo[side] = { hand, offQ: hq.clone().invert(), off };
+    const sock = new THREE.Group();
+    body.add(sock);
+    sock.position.copy(hp).add(new THREE.Vector3(0, -0.075 / BIG, 0.025 / BIG));
     sockets[side] = sock;
     bones[side + 'Arm'].quaternion.copy(bind[side + 'Arm']);
   }
+  const _hp = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hs = new THREE.Vector3(), _bq = new THREE.Quaternion();
+  function updateSockets() {
+    body.updateMatrixWorld(true);
+    body.getWorldQuaternion(_bq).invert();
+    for (const side of ['Left', 'Right']) {
+      const I = sockInfo[side], sock = sockets[side];
+      I.hand.matrixWorld.decompose(_hp, _hq, _hs);
+      body.worldToLocal(_hp);
+      _hq.premultiply(_bq); // hand rotation in body space
+      sock.position.copy(I.off).applyQuaternion(_hq).add(_hp);
+      sock.quaternion.copy(_hq).multiply(I.offQ);
+    }
+  }
   model.updateMatrixWorld(true);
 
-  // muscle: thicken arms, thighs and chest (bones scaled across, not along, so limbs keep their length)
-  if (mus !== 1) {
-    const thick = (bn, k) => { const b = bones[bn]; if (!b) return; const c = b.children.find(x => x.isBone); const dir = c ? c.position.clone().normalize() : new THREE.Vector3(0, 1, 0); const ax = [Math.abs(dir.x), Math.abs(dir.y), Math.abs(dir.z)]; const along = ax.indexOf(Math.max(...ax)); const sc = [k, k, k]; sc[along] = 1; b.scale.set(...sc); for (const ch of b.children) if (ch.isBone) ch.scale.set(1 / sc[0], 1 / sc[1], 1 / sc[2]); };
-    for (const bn of ['LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm']) thick(bn, 0.75 + 0.25 * mus);
-    for (const bn of ['LeftUpLeg', 'RightUpLeg']) thick(bn, 0.85 + 0.15 * mus);
+  // girth: each bone is thickened across (never along) its length; children are compensated for their
+  // parent so nothing compounds, and the neck, head, hands and feet always keep their natural shape
+  {
+    const clampK = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const wd = (o.build || 1) - 1, md = (o.muscle || 1) - 1;
+    const torso = clampK(1 + wd * 0.45 + md * 0.2, 0.9, 1.18), arm = clampK(1 + md * 0.5 + wd * 0.15, 0.86, 1.2), leg = clampK(1 + wd * 0.25 + md * 0.25, 0.9, 1.15);
+    const K = { Hips: clampK(1 + wd * 0.3, 0.92, 1.12), Spine02: torso, Spine01: torso, Spine: torso * 0.97 + 0.03,
+      LeftShoulder: arm * 0.5 + 0.5, RightShoulder: arm * 0.5 + 0.5, LeftArm: arm, RightArm: arm, LeftForeArm: arm * 0.85 + 0.15, RightForeArm: arm * 0.85 + 0.15,
+      LeftUpLeg: leg, RightUpLeg: leg, LeftLeg: leg * 0.8 + 0.2, RightLeg: leg * 0.8 + 0.2 };
+    const want = new Map();
+    const crossScale = (b, k) => { const c = b.children.find(x => x.isBone); const d = c ? c.position : new THREE.Vector3(0, 1, 0); const ax = [Math.abs(d.x), Math.abs(d.y), Math.abs(d.z)]; const along = ax.indexOf(Math.max(...ax)); const v = new THREE.Vector3(k, k, k); v.setComponent(along, 1); return v; };
+    const visit = (b, parentWant) => {
+      const w = crossScale(b, K[b.name] ?? 1);
+      want.set(b, w);
+      b.scale.set(w.x / parentWant.x, w.y / parentWant.y, w.z / parentWant.z);
+      for (const c of b.children) if (c.isBone) visit(c, w);
+    };
+    if (wd || md) visit(bones.Hips, new THREE.Vector3(1, 1, 1));
   }
+
+  model.updateMatrixWorld(true);
+  updateSockets();
 
   // ---- animation ----
   const mixer = new THREE.AnimationMixer(model);
@@ -110,10 +138,11 @@ export function makeRiggedHero(o = {}) {
   const hair = new THREE.Group(); bones.Head.add(hair);
 
   let last = performance.now(), armW = 1;
-  const POSED = new Set(['slash', 'slash2', 'thrust', 'overhead', 'slam', 'spin', 'draw', 'shoot', 'block', 'gather', 'harvest', 'cast', 'windup', 'aim', 'swap', 'stun', 'hit']);
+  const POSED = new Set(['jump', 'slash', 'slash2', 'thrust', 'overhead', 'slam', 'spin', 'draw', 'shoot', 'block', 'gather', 'harvest', 'cast', 'windup', 'aim', 'swap', 'stun', 'hit']);
   function apply(st) {
     const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
-    const mv = st.move || 0;
+    const air = st.pose === 'jump';
+    const mv = air ? 0 : (st.move || 0); // in the air: no running legs, the jump pose drives them
     // locomotion blend: stand, walk, run
     const runW = THREE.MathUtils.smoothstep(mv, 0.55, 0.85);
     const walkW = Math.min(1, mv / 0.25) * (1 - runW);
@@ -144,8 +173,9 @@ export function makeRiggedHero(o = {}) {
       setBodyQuat(bones[bn], body, _q.multiply(_q2), 1);
       bones[bn].updateMatrixWorld(true);
     }
+    updateSockets();
     // standing still: legs from the idle frame, but anim.js's hop/dodge kicks still show
-    if (mv < 0.12 && st.pose === 'hop') {
+    if (mv < 0.12 && (st.pose === 'hop' || air)) {
       for (const [side, key] of [['Left', 'legL'], ['Right', 'legR']]) { _q.setFromEuler(P[key].rotation); bodyQuat(bones[side + 'UpLeg'], body, _q2); setBodyQuat(bones[side + 'UpLeg'], body, _q.multiply(_q2), 1); }
     }
   }

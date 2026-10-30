@@ -110,6 +110,15 @@ export function animHumanoid(h, st) {
       P.legL.rotation.x = -0.6 * Math.sin(t * Math.PI); P.legR.rotation.x = 0.4 * Math.sin(t * Math.PI);
       break;
     }
+    case 'jump': {
+      // t: 0 launching upward, 0.5 at the top, 1 falling. Knees tuck on the way up, legs reach for the ground coming down
+      const up = Math.max(0, 1 - t * 2), down = Math.max(0, t * 2 - 1), top = 1 - Math.abs(t * 2 - 1);
+      P.legL.rotation.x = -1.1 * top - 0.5 * up + 0.15 * down; P.legR.rotation.x = -0.6 * top - 0.2 * up - 0.25 * down;
+      P.armL.rotation.x = -0.9 * up - 0.5 * top; P.armR.rotation.x = -0.9 * up - 0.5 * top;
+      P.armL.rotation.z = 0.5 * top + 0.35 * down; P.armR.rotation.z = -0.5 * top - 0.35 * down;
+      P.upper.rotation.x += 0.18 * top - 0.12 * up;
+      break;
+    }
     case 'swap': {
       const k = Math.sin(t * Math.PI);
       P.armR.rotation.x = -2.8 * k; P.armR.rotation.z = 0.4 * k;

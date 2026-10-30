@@ -217,9 +217,9 @@ function explosion(p,power,owner,weapon){
     if(u.alive)u.blast=null;
   }
   const dc=p.distanceTo(camera.position);
-  FX.trauma=Math.min(1.6,FX.trauma+clamp((P*18)/(dc+3),0,1.3));
+  FX.trauma=Math.min(.85,FX.trauma+clamp((P*7)/(dc+4),0,.6));
   if(!inWater&&dc<22*P*.8)sandRain(clamp(1.3-dc/(22*P*.8),.2,1),p.z>35);
-  if(dc<12*P)FX.kick=Math.min(1,(FX.kick||0)+(1-dc/(12*P))*.8);
+  if(dc<8*P)FX.kick=Math.min(.6,(FX.kick||0)+(1-dc/(8*P))*.35);
   if(dc<6*P){FX.blur=Math.min(1,FX.blur+(1-dc/(6*P))*.9);FX.white=Math.max(FX.white,.5*(1-dc/(6*P)));muffle(380,3.5);earRing(.05*(1-dc/(6*P)),4);if(dc<3*P){FX.aberr=1;}}
   else if(dc<14*P){muffle(1600,1.2);}
 }

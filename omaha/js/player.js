@@ -85,7 +85,7 @@ function playerFire(){
   w.mag--;
   let kick=u.deployed?(W.depKick||W.kick*.35):W.kick;if(u.stance==='crouch')kick*=.8;if(u.stance==='prone')kick*=.6;if(W.scope&&PL.ads>.5)kick*=1.4;
   PL.kickP+=kick;PL.kickY+=rand(-.4,.4)*kick;PL.recoilZ=Math.min(1,PL.recoilZ+(W.type==='auto'?.5:1));
-  FX.trauma=Math.min(1,FX.trauma+(W.mg?.04:W.type==='bolt'?.12:.06));
+  FX.trauma=Math.min(.5,FX.trauma+(W.mg?.015:W.type==='bolt'?.05:.025));
   if(W.ping&&w.mag===0){play('ping',{vol:.55,delay:.06});PL.lastPing=GAME.time;}
   if(W.type==='bolt'&&w.mag>0){w.boltT=W.bolt;PL.boltDur=W.bolt;setTimeout(()=>play('boltUp',{vol:.55}),W.bolt*180);setTimeout(()=>play('boltBack',{vol:.5}),W.bolt*380);setTimeout(()=>play('boltFwd',{vol:.55}),W.bolt*700);}
   u.cool=W.rof;
@@ -222,7 +222,7 @@ function updatePlayer(dt){
   const bobOn=u.onGround&&sp>.5;PL.bob+=dt*sp*(PL.sprinting?1.55:1.9);PL.bobAmt=lerp(PL.bobAmt,bobOn?Math.min(1,sp/5.3):0,dt*8);
   const bobY=Math.abs(Math.sin(PL.bob))*.045*PL.bobAmt*(1-PL.ads*.8),bobX=Math.cos(PL.bob)*.03*PL.bobAmt*(1-PL.ads*.8);
   const sh=FX.trauma*FX.trauma,t=GAME.time;
-  const shx=(Math.sin(t*47.3)+Math.sin(t*71.1+1))*sh*.035,shy=(Math.sin(t*53.7+2)+Math.sin(t*67.3))*sh*.035,shr=Math.sin(t*39.1)*sh*.05;
+  const shx=(Math.sin(t*47.3)+Math.sin(t*71.1+1))*sh*.018,shy=(Math.sin(t*53.7+2)+Math.sin(t*67.3))*sh*.018,shr=Math.sin(t*39.1)*sh*.025;
   PL.roll=lerp(PL.roll,-ix*.018*(PL.sprinting?1.6:1),dt*6);
   camera.position.set(u.pos.x+bobX*cy,u.pos.y+PL.eyeH+bobY-PL.landV*.08,u.pos.z-bobX*sy);
   if(intro&&G.introBoat){camera.position.y+=Math.sin(t*1.7)*.06;}
@@ -285,7 +285,7 @@ function updateDeathCam(dt){
 }
 function playerHurt(dmg,attacker,zone,dir){
   const u=PL.u;
-  FX.hurt=Math.min(1,FX.hurt+dmg/60);FX.trauma=Math.min(1,FX.trauma+.18);bloodOnLens(Math.min(1,dmg/70));
+  FX.hurt=Math.min(1,FX.hurt+dmg/60);FX.trauma=Math.min(.6,FX.trauma+.08);bloodOnLens(Math.min(1,dmg/70));
   PL.kickP+=rand(-.04,.08);PL.kickY+=rand(-.06,.06);
   play('flesh',{vol:.7});if(zone==='head')FX.white=Math.max(FX.white,.15);
   if(Math.random()<.6)painGrunt(null,.35);

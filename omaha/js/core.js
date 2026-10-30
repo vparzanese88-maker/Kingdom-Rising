@@ -21,8 +21,9 @@ const GAME={time:0,mode:'menu',quality:'high'};
 const Net={on:false,host:false,client:false,ev:[],applying:false,event(e){if(this.host)this.ev.push(e);},send(){}};
 const _realRandom=Math.random;
 {let s=0x2c1b3c6d;Math.random=function(){s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const SET={music:true,voice:true,sens:1.4,size:16,diff:1,team:0};
+const SET={music:true,voice:true,sens:1.4,size:30,diff:1,team:0};
 try{const s=JSON.parse(localStorage.getItem('omaha.settings')||'null');if(s)Object.assign(SET,s);}catch(e){}
+if(!SET.size30){SET.size=30;SET.size30=1;}
 SET.vol=Object.assign({master:.9,sfx:1,music:.6,voice:.9},SET.vol||{});
 function saveSettings(){try{localStorage.setItem('omaha.settings',JSON.stringify(SET));}catch(e){}}
 

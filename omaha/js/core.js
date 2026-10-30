@@ -33,6 +33,12 @@ let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});}
 catch(e){$('unsupported').hidden=false;throw e;}
 const isGL2=renderer.capabilities.isWebGL2;
+// if the graphics driver resets (a big first frame, a driver hiccup, alt-tab on some PCs) WebGL loses
+// the canvas and the screen goes black. Ask for it back and tell the player what is happening.
+var GL_LOST=false;
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();GL_LOST=true;
+  try{center('GRAPHICS RESET','Your graphics driver reset. Getting the picture back… (press F5 if it stays black)',0);}catch(_){}},false);
+canvas.addEventListener('webglcontextrestored',()=>{GL_LOST=false;try{center('','',.01);hint('Graphics restored',2.5);}catch(_){}},false);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.setSize(innerWidth,innerHeight,false);
 renderer.outputEncoding=THREE.sRGBEncoding;

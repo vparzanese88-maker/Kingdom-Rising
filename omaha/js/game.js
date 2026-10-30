@@ -545,21 +545,24 @@ startDemo();resize();
 // audio needs a user gesture: start the menu theme on the first click anywhere
 applyQuality();
 let last=performance.now();
+// one broken system must never stop the battle from being drawn: report it and keep rendering
+function frameErr(e){const t=performance.now();if(!(t-(frameErr.t||-1e9)<6000)){frameErr.t=t;console.error(e);hint('Game error: '+String(e&&e.message||e).slice(0,90)+'. Press F5 if the game stops working.',5);}}
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(window.__freeze)return;
+  if(window.__freeze||GL_LOST)return;
   const live=!G.paused||Net.on;
-  if(live)update(dt);
-  if(G.demo)demoCam(dt);
-  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
-  FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);
-  if(!G.demo){updateHUD(dt);tipsTick(dt);}
-  tagsTick(dt);
-  if(AU.ctx){updateListener();musicTick();}
+  try{if(live)update(dt);if(G.demo)demoCam(dt);}catch(e){frameErr(e);}
+  try{if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}}catch(e){frameErr(e);}
+  FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);FX.dark=0;
+  try{if(!G.demo){updateHUD(dt);tipsTick(dt);}tagsTick(dt);if(AU.ctx){updateListener();musicTick();}}catch(e){frameErr(e);}
+  // a bad camera value (NaN) would turn the whole view black, so fall back to the player's eyes
+  if(!isFinite(camera.position.x+camera.position.y+camera.position.z+camera.quaternion.x+camera.quaternion.w)){
+    if(PL.u&&isFinite(PL.u.pos.x+PL.u.pos.y+PL.u.pos.z))camera.position.set(PL.u.pos.x,PL.u.pos.y+1.6,PL.u.pos.z);else camera.position.set(0,30,160);
+    camera.quaternion.set(0,0,0,1);camera.rotation.set(0,0,0);frameErr('Camera reset');}
   sky.position.copy(camera.position);placeSun(camera.position);
   vmSun.position.copy(sunDir);
-  renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);
+  try{renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);}catch(e){frameErr(e);}
 }
 requestAnimationFrame(frame);
 // Browsers stop animation frames in background tabs. In an online game that would freeze the host's

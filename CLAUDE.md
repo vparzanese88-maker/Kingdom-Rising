@@ -8,6 +8,9 @@ The owner has given standing permission, and wants this done every time:
 ## Aeternum Wilds: stamp before committing
 Run `python3 aeternum-wilds/tools/stamp.py` before committing Aeternum Wilds changes, so players' browsers load the new code instead of a cached copy.
 
+## Omaha 1944: stamp before committing
+Run `python3 omaha/tools/stamp.py` before committing Omaha 1944 changes, so players' browsers never mix a new page with old cached scripts (that shows up as a black screen).
+
 ## Always give the play link
 End every reply that creates or changes a game with its GitHub Pages link, so it can be sent to friends:
 - Arcade (all games): https://vparzanese88-maker.github.io/Kingdom-Rising/arcade.html

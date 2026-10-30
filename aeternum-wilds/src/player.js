@@ -552,6 +552,15 @@ function updateAbility(dt) {
   if (ab.speed) {
     const nx = P.pos.x + ab.dx * ab.speed * dt, nz = P.pos.z + ab.dz * ab.speed * dt;
     if (walkable(nx, nz)) { const [cx, cz] = collide(nx, nz, PLAYER_R); P.pos.x = cx; P.pos.z = cz; }
+  } else if (!ab.leap) {
+    // casting and striking don't root you: keep moving at full speed
+    const [mx, mz] = moveDir(G.input.keys), ml = Math.hypot(mx, mz);
+    if (ml) {
+      const sp = 6.2 * (1 + stats().moveSpeed) / ml;
+      const nx = P.pos.x + mx * sp * dt, nz = P.pos.z + mz * sp * dt;
+      if (walkable(nx, nz)) { const [cx, cz] = collide(nx, nz, PLAYER_R); P.pos.x = cx; P.pos.z = cz; }
+      P.phase += dt * 6.2 * 1.6; P.move = Math.min(1, P.move + dt * 10);
+    }
   }
   if (A.kind === 'dash') {
     for (const e of enemiesNear(P.pos.x, P.pos.z, A.radius + 2)) {
@@ -749,8 +758,7 @@ export function updatePlayer(dt) {
     let sp = 6.2 * (1 + s.moveSpeed);
     for (const b of P.buffs) sp *= 1 + (b.mods.moveSpeed || 0);
     if (P.blocking) sp *= 0.5;
-    if (P.state === 'draw') sp *= 0.55;
-    if (P.state === 'attack' && P.atk?.wt && P.atk.wt !== 'bow') sp *= 0.3;
+    // full speed while attacking, drawing and shooting
     if (P.slowUntil > G.time) sp *= 0.6;
     if (P.exhausted > 0) sp *= 0.75;
     if (P.state === 'gather') sp = 0;

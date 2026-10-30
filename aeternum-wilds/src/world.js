@@ -1,4 +1,3 @@
-import { foliage } from './gfx/creatures.js';
 import * as THREE from 'three';
 import { G } from './state.js';
 import { ZONES, NODES } from './data.js';
@@ -239,15 +238,7 @@ export function buildWorld() {
     }
   }
   instance(makeTree('oak'), scatter.oak, 0.5);
-  // the owner's pine and bush models share the ground with the simple ones (how many depends on quality)
-  const share = G.Q.grass ? (G.Q.grass >= 20000 ? 0.6 : 0.4) : 0;
-  const split = (list, kind) => { const F = foliage(kind); if (!F || !share) return [list, []]; const a = [], b = []; for (const it of list) (R() < share ? b : a).push(it); return [a, b]; };
-  const [pineSimple, pineReal] = split(scatter.pine, 'pine');
-  instance(makeTree('pine'), pineSimple, 0.45);
-  if (pineReal.length) { const F = foliage('pine'); instance(null, pineReal, 0.45, true, [[F.geo, F.mat]]); }
-  const [bushSimple, bushReal] = split(scatter.bush, 'bushes');
-  scatter.bush = bushSimple;
-  if (bushReal.length) { const F = foliage('bushes'); instance(null, bushReal, 0, false, [[F.geo, F.mat]]); }
+  instance(makeTree('pine'), scatter.pine, 0.45);
   instance(makeTree('aged'), scatter.aged, 0.5);
   instance(makeTree('dead'), scatter.dead, 0.35);
   instance(makeTree('willow'), scatter.willow, 0.6);

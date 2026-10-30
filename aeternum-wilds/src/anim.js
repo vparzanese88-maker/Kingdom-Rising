@@ -116,6 +116,8 @@ export function animHumanoid(h, st) {
       break;
     }
   }
+  // a rigged model (the hero) turns these part rotations into bone rotations on top of its clips
+  if (h.rig) h.rig.apply(st);
 }
 
 export function animBeast(b, st) {

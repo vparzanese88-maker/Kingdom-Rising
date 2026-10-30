@@ -17,6 +17,7 @@ import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
 import { updateSpellFx } from './spellfx.js';
 import { loadMeshy, meshyReady } from './gfx/meshy.js';
+import { loadHeroRig } from './gfx/herorig.js';
 import { buildLife, updateLife } from './life.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -645,7 +646,7 @@ G.setMusicVolume = setMusicVolume;
 // ---------- Boot: build the island behind the home screen ----------
 $('resume').onclick = () => G.relock();
 setTimeout(async () => {
-  await loadMeshy();
+  await Promise.all([loadMeshy(), loadHeroRig()]);
   buildWorld();
   buildLife();
   $('loading').style.display = 'none';

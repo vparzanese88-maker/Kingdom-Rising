@@ -91,44 +91,12 @@ if (S.quality !== 'low') {
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer?.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 
 // ---------- Weapon swing trails ----------
-const TRAIL_N = 14;
-const trailGeo = new THREE.BufferGeometry();
-trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 2 * 3), 3));
-trailGeo.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 2), 1));
-{ const idx = []; for (let i = 0; i < TRAIL_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } trailGeo.setIndex(idx); }
-const trailMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-  uniforms: { color: { value: new THREE.Color(0xfff0d0) } },
-  vertexShader: 'attribute float alpha; varying float vA; void main(){ vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-  fragmentShader: 'uniform vec3 color; varying float vA; void main(){ gl_FragColor = vec4(color * vA, vA); }',
-});
-const trail = new THREE.Mesh(trailGeo, trailMat); trail.frustumCulled = false; scene.add(trail);
-const trailPts = [];
-const TIP = { sword: 1.05, greataxe: 1.4, hammer: 1.3, staff: 1.5 };
-const vTip = new THREE.Vector3(), vBase = new THREE.Vector3();
+// Trails, camera kicks and screen feedback for combat live in combatfx.js and gfx/vfx/; this runs them every frame.
+import { tickCombatFx } from './combatfx.js';
+let fxClock = performance.now();
 function updateTrail() {
-  const P = G.player;
-  const swinging = P && (P.state === 'attack' || (P.state === 'ability' && P.ability?.pose !== 'cast') || P.whirl) && P.wR && camDist > 0.3;
-  if (swinging) {
-    const wt = G.p.equip[G.p.activeW ? 'w2' : 'w1']?.wtype;
-    P.wR.updateMatrixWorld(true);
-    vTip.set(0, TIP[wt] || 1.1, 0); P.wR.localToWorld(vTip);
-    vBase.set(0, (TIP[wt] || 1.1) * 0.45, 0); P.wR.localToWorld(vBase);
-    trailPts.unshift([vTip.clone(), vBase.clone()]);
-    const el = P.whirl?.el; trailMat.uniforms.color.value.setHex(el ? 0xffc890 : P.atk?.kind === 'heavy' ? 0xffd890 : 0xfff4e0);
-  } else trailPts.unshift(null);
-  if (trailPts.length > TRAIL_N) trailPts.length = TRAIL_N;
-  const pos = trailGeo.attributes.position.array, al = trailGeo.attributes.alpha.array;
-  let last = null;
-  for (let i = 0; i < TRAIL_N; i++) {
-    const p = trailPts[i] || last;
-    if (trailPts[i]) last = trailPts[i];
-    const [a, b] = p || [vTip, vTip];
-    pos.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6);
-    const k = trailPts[i] ? (1 - i / TRAIL_N) * 0.55 : 0;
-    al[i * 2] = k; al[i * 2 + 1] = 0;
-  }
-  trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.alpha.needsUpdate = true;
+  const now = performance.now(), d = Math.min(0.1, (now - fxClock) / 1000); fxClock = now;
+  tickCombatFx(d, camDist > 0.3);
 }
 
 // ---------- Fullscreen & pointer lock ----------

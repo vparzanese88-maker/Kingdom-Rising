@@ -1,0 +1,50 @@
+// Aeternum Wilds: the particle library. Each entry is one look; effects combine several.
+// add: 1 = light (adds, blooms), 0 = matter (covers); hdr > 1 drives the bloom.
+import { preset, CELL } from './particles.js';
+
+export const FX = {
+  // --- light ---
+  flash: preset({ cell: CELL.glow, life: [0.07, 0.12], size: [1.3, 1.7], grow: 1.5, dir: 'none', hdr: 3, col0: 0xfff4dc, endK: 0.6, fadeIn: 0.01, rot: false }),
+  flashSmall: preset({ cell: CELL.glow, life: [0.06, 0.1], size: [0.6, 0.8], grow: 1.4, dir: 'none', hdr: 2.5, col0: 0xfff4dc, fadeIn: 0.01, rot: false }),
+  star: preset({ cell: CELL.star, life: [0.16, 0.22], size: [1.5, 1.9], grow: 0.4, dir: 'none', hdr: 4, col0: 0xffffff, endK: 0.7, fadeIn: 0.02, spin: 2.5 }),
+  ringFlash: preset({ cell: CELL.ring, life: [0.2, 0.26], size: [0.3, 0.35], grow: 9, dir: 'none', hdr: 2.6, col0: 0xffffff, fadeIn: 0.02, rot: false, endK: 0.4 }),
+  spark: preset({ cell: CELL.spark, life: [0.18, 0.42], size: [0.045, 0.08], grow: 0.4, speed: [6, 15], dir: 'cone', spread: 0.9, grav: 11, drag: 2.2, stretch: 0.05, hdr: 5, col0: 0xfff0b8, col1: 0xff6a10, hdr1: 3, fadeIn: 0.01, ground: true }),
+  sparkWide: preset({ cell: CELL.spark, life: [0.2, 0.5], size: [0.04, 0.07], grow: 0.4, speed: [4, 11], dir: 'sphere', grav: 9, drag: 2, stretch: 0.05, hdr: 4.5, col0: 0xfff0b8, col1: 0xff6a10, hdr1: 3, fadeIn: 0.01, ground: true }),
+  ember: preset({ cell: CELL.spark, life: [0.8, 1.6], size: [0.05, 0.1], grow: 0.3, speed: [0.6, 2.4], dir: 'up', up: 1.2, grav: -0.8, drag: 1.4, hdr: 3.5, col0: 0xffc060, col1: 0xff3a08, hdr1: 2, fadeIn: 0.05 }),
+  fire: preset({ cell: CELL.flame, life: [0.32, 0.6], size: [0.55, 0.9], grow: 0.25, speed: [0.4, 1.6], dir: 'sphere', up: 2.4, grav: -2.2, drag: 2, hdr: 2.4, col0: 0xffe2a0, col1: 0xff3008, hdr1: 1.2, add: 0.9, rot: false, fadeIn: 0.1 }),
+  fireBall: preset({ cell: CELL.glow, life: [0.25, 0.45], size: [1.0, 1.6], grow: 1.6, speed: [1, 3], dir: 'sphere', drag: 4, hdr: 3, col0: 0xffd070, col1: 0xff3000, hdr1: 1.4, fadeIn: 0.03 }),
+  heat: preset({ cell: CELL.glow, life: [0.15, 0.3], size: [0.3, 0.5], grow: 0.6, speed: [0.2, 0.8], dir: 'sphere', hdr: 2, col0: 0xffffff, fadeIn: 0.02 }),
+  mote: preset({ cell: CELL.glow, life: [0.6, 1.1], size: [0.1, 0.18], grow: 0.4, speed: [0.3, 1.2], dir: 'sphere', up: 0.8, drag: 1.5, hdr: 2.6, col0: 0xffffff, whiten: 0.35, endK: 0.7, fadeIn: 0.15 }),
+  sparkle: preset({ cell: CELL.star, life: [0.35, 0.7], size: [0.16, 0.28], grow: 0.2, speed: [0.5, 2], dir: 'sphere', up: 0.6, drag: 2, hdr: 3, col0: 0xffffff, whiten: 0.45, endK: 0.7, spin: 4, fadeIn: 0.1 }),
+  streak: preset({ cell: CELL.streak, life: [0.12, 0.22], size: [0.06, 0.1], grow: 0.6, speed: [8, 16], dir: 'cone', spread: 0.35, drag: 5, stretch: 0.09, hdr: 2.2, col0: 0xffffff, fadeIn: 0.01, add: 0.8 }),
+  windLine: preset({ cell: CELL.streak, life: [0.18, 0.3], size: [0.05, 0.08], grow: 0.8, speed: [5, 9], dir: 'cone', spread: 0.25, drag: 3, stretch: 0.12, hdr: 1.2, alpha: 0.7, col0: 0xffffff, add: 0.6, fadeIn: 0.05 }),
+  // --- matter ---
+  smoke: preset({ cell: CELL.smoke, life: [1.2, 2.2], size: [0.6, 1.0], grow: 2.6, speed: [0.4, 1.5], dir: 'sphere', up: 0.9, grav: -0.25, drag: 1.4, add: 0, alpha: 0.6, col0: 0x4a4440, col1: 0x8a8580, spin: 0.6, fadeIn: 0.1 }),
+  smokeDark: preset({ cell: CELL.smoke, life: [0.9, 1.6], size: [0.5, 0.8], grow: 2.4, speed: [0.5, 1.8], dir: 'sphere', up: 0.6, grav: -0.2, drag: 1.6, add: 0, alpha: 0.75, col0: 0x1e1614, col1: 0x3a3230, spin: 0.7, fadeIn: 0.08 }),
+  dust: preset({ cell: CELL.dust, life: [0.6, 1.1], size: [0.45, 0.75], grow: 2.4, speed: [1.5, 4], dir: 'disc', spread: 0.25, up: 0.3, drag: 3.2, add: 0, alpha: 0.5, col0: 0xb59c78, col1: 0xcdb898, spin: 0.5, fadeIn: 0.06, ground: true }),
+  dustPuff: preset({ cell: CELL.dust, life: [0.45, 0.8], size: [0.3, 0.5], grow: 2.2, speed: [0.4, 1.4], dir: 'up', up: 0.4, drag: 3, add: 0, alpha: 0.45, col0: 0xb8a07c, col1: 0xd0bea0, spin: 0.6, fadeIn: 0.08 }),
+  debris: preset({ cell: CELL.chunk, life: [0.7, 1.2], size: [0.07, 0.17], grow: 1, speed: [3, 7.5], dir: 'up', grav: 18, drag: 0.4, spin: 12, add: 0, col0: 0x6a5a48, col1: 0x5a4a3a, fadeIn: 0.01, ground: true }),
+  blood: preset({ cell: CELL.drop, life: [0.35, 0.65], size: [0.07, 0.14], grow: 0.7, speed: [3, 7.5], dir: 'cone', spread: 0.7, grav: 14, drag: 1, stretch: 0.04, add: 0, alpha: 0.95, col0: 0x9a0c12, col1: 0x5a0408, fadeIn: 0.01, ground: true, rot: false }),
+  bloodMist: preset({ cell: CELL.smoke, life: [0.25, 0.45], size: [0.25, 0.4], grow: 2.2, speed: [0.6, 1.8], dir: 'cone', spread: 0.8, drag: 4, add: 0, alpha: 0.5, col0: 0xa01018, col1: 0x6a0810, fadeIn: 0.03 }),
+  bone: preset({ cell: CELL.shard, life: [0.5, 0.95], size: [0.06, 0.13], grow: 0.9, speed: [3, 6.5], dir: 'cone', spread: 0.9, grav: 15, drag: 0.6, spin: 14, add: 0, col0: 0xeee6d0, col1: 0xc8bea4, fadeIn: 0.01, ground: true }),
+  spectral: preset({ cell: CELL.wisp, life: [0.6, 1.1], size: [0.5, 0.9], grow: 1.9, speed: [0.6, 1.8], dir: 'sphere', up: 0.9, drag: 2, spin: 2.5, add: 0.75, alpha: 0.7, hdr: 1.6, col0: 0xb8fff0, col1: 0x4ab0a0, hdr1: 0.8, fadeIn: 0.1 }),
+  mist: preset({ cell: CELL.smoke, life: [0.8, 1.4], size: [0.5, 0.8], grow: 2.2, speed: [0.3, 1.1], dir: 'sphere', up: 0.4, drag: 1.8, add: 0.4, alpha: 0.45, hdr: 1.2, col0: 0xc8f0e8, col1: 0x80b0a8, spin: 0.5, fadeIn: 0.12 }),
+  corrupt: preset({ cell: CELL.smoke, life: [0.5, 0.95], size: [0.45, 0.75], grow: 2.2, speed: [1.2, 3.6], dir: 'cone', spread: 1.1, up: 0.5, drag: 3, add: 0, alpha: 0.82, col0: 0x2a0406, col1: 0x120204, spin: 1.2, fadeIn: 0.03 }),
+  corruptGlow: preset({ cell: CELL.glow, life: [0.3, 0.55], size: [0.25, 0.45], grow: 1.2, speed: [1.5, 4], dir: 'cone', spread: 1.1, drag: 3, hdr: 3, col0: 0xff3a1a, col1: 0x8a0606, hdr1: 1.5, fadeIn: 0.03 }),
+  corruptSpark: preset({ cell: CELL.spark, life: [0.3, 0.6], size: [0.05, 0.09], grow: 0.4, speed: [4, 10], dir: 'cone', spread: 1, grav: 6, drag: 2, stretch: 0.05, hdr: 4, col0: 0xff6a3a, col1: 0xa00808, hdr1: 2, fadeIn: 0.01 }),
+  soul: preset({ cell: CELL.wisp, life: [1.2, 1.9], size: [0.35, 0.6], grow: 1.3, speed: [0.3, 1], dir: 'sphere', up: 2.2, grav: -1.2, drag: 1.2, spin: 4, add: 1, hdr: 2.6, col0: 0xffb0a0, col1: 0xff2a1a, hdr1: 1.2, fadeIn: 0.12 }),
+  // --- elements ---
+  shardIce: preset({ cell: CELL.shard, life: [0.5, 0.9], size: [0.1, 0.22], grow: 0.8, speed: [4, 9], dir: 'sphere', grav: 13, drag: 0.8, spin: 10, add: 0.35, hdr: 1.6, col0: 0xf0fbff, col1: 0x8ad8ff, fadeIn: 0.01, ground: true }),
+  frostMist: preset({ cell: CELL.smoke, life: [0.8, 1.4], size: [0.6, 1.0], grow: 2.3, speed: [0.6, 2], dir: 'sphere', up: 0.2, drag: 2.2, add: 0.35, alpha: 0.55, hdr: 1.3, col0: 0xe8f8ff, col1: 0x9ad0f0, spin: 0.5, fadeIn: 0.06 }),
+  snow: preset({ cell: CELL.spark, life: [0.8, 1.5], size: [0.04, 0.08], grow: 0.8, speed: [0.5, 2.5], dir: 'sphere', grav: 1.2, drag: 1.5, hdr: 2.2, col0: 0xf4fcff, col1: 0xbfe8ff, fadeIn: 0.05 }),
+  leaf: preset({ cell: CELL.leaf, life: [1.1, 1.9], size: [0.13, 0.22], grow: 0.9, speed: [2, 5], dir: 'sphere', up: 2, grav: 3.2, drag: 2.4, spin: 6, add: 0, col0: 0x7ad04a, col1: 0x3a8a2a, fadeIn: 0.03, ground: true }),
+  pollen: preset({ cell: CELL.glow, life: [0.8, 1.5], size: [0.08, 0.15], grow: 0.6, speed: [0.4, 1.6], dir: 'sphere', up: 0.8, drag: 1.6, hdr: 2.4, col0: 0xd8ff90, col1: 0x6ad04a, fadeIn: 0.15 }),
+  poisonCloud: preset({ cell: CELL.smoke, life: [1.4, 2.4], size: [0.6, 1.0], grow: 2.6, speed: [0.5, 1.6], dir: 'sphere', up: 0.3, drag: 1.6, add: 0.25, alpha: 0.55, hdr: 1.2, col0: 0x8ad02a, col1: 0x4a7a1a, spin: 0.5, fadeIn: 0.12 }),
+  bubble: preset({ cell: CELL.bubble, life: [0.6, 1.2], size: [0.1, 0.22], grow: 1.3, speed: [0.4, 1.4], dir: 'up', up: 1.2, drag: 1.2, add: 0.5, hdr: 1.6, col0: 0xc8ff80, col1: 0x7ac02a, fadeIn: 0.1 }),
+  rune: preset({ cell: CELL.rune, life: [0.6, 1.0], size: [0.22, 0.36], grow: 0.7, speed: [0.8, 2.4], dir: 'sphere', up: 0.8, drag: 2.2, spin: 2, hdr: 2.6, col0: 0xe8b8ff, col1: 0x9a3aff, hdr1: 1.6, fadeIn: 0.1 }),
+  holyMote: preset({ cell: CELL.star, life: [0.7, 1.3], size: [0.12, 0.24], grow: 0.4, speed: [0.4, 1.5], dir: 'sphere', up: 1.8, grav: -0.5, drag: 1.4, spin: 3, hdr: 3.5, col0: 0xffffff, col1: 0xffd860, hdr1: 2, fadeIn: 0.1 }),
+  shadowSmoke: preset({ cell: CELL.smoke, life: [0.8, 1.4], size: [0.5, 0.85], grow: 2.2, speed: [0.6, 2], dir: 'sphere', up: 0.5, drag: 2, add: 0, alpha: 0.8, col0: 0x140a20, col1: 0x2a1440, spin: 0.9, fadeIn: 0.05 }),
+  shadowWisp: preset({ cell: CELL.wisp, life: [0.6, 1.1], size: [0.4, 0.7], grow: 1.6, speed: [0.8, 2.4], dir: 'sphere', up: 0.8, drag: 2, spin: 3, add: 0.8, hdr: 2, col0: 0xc890ff, col1: 0x5a1aa0, hdr1: 1, fadeIn: 0.08 }),
+  note: preset({ cell: CELL.note, life: [0.8, 1.3], size: [0.22, 0.32], grow: 0.8, speed: [0.8, 2.2], dir: 'sphere', up: 1.2, drag: 1.8, add: 0.7, hdr: 2, col0: 0xffd0f0, col1: 0xff70c0, rot: false, fadeIn: 0.08 }),
+  zap: preset({ cell: CELL.spark, life: [0.12, 0.26], size: [0.04, 0.07], grow: 0.4, speed: [8, 18], dir: 'sphere', drag: 4, stretch: 0.06, hdr: 6, col0: 0xffffff, col1: 0x7ab8ff, hdr1: 3, fadeIn: 0.01 }),
+};

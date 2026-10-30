@@ -10,6 +10,7 @@ import { randomDrop, addItem, addMat } from './items.js';
 import { toast, lootToast, bossBar, floatText } from './ui.js';
 import { questEvent } from './quests.js';
 import { hurtPet, setPetDamageHook } from './pets.js';
+import { killFx } from './combatfx.js';
 
 // who an enemy is fighting: a summoned pet that hit it, or the player
 function targetOf(e) {
@@ -119,7 +120,7 @@ export function killEnemy(e) {
   // skinnable corpse
   if (e.def.skin) G.corpses.push({ kind: 'corpse', ent: e, x: e.pos.x, z: e.pos.z, thick: !!e.def.thick, skinned: false, until: G.time + 40, name: e.def.name });
   else e.removeAt = G.time + 4;
-  sfx('enemy_die', 0.7);
+  killFx(e); // death burst and sound
 }
 function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 2; if (e.atk?.tel) removeTelegraph(e.atk.tel); }
 

@@ -15,6 +15,7 @@ import { sfx } from './audio.js';
 import { enemiesNear, killEnemy, stunEnemy, knockEnemy, interruptEnemy } from './enemies.js';
 import { questEvent } from './quests.js';
 import { spellPower } from './skills.js';
+import { swingFx, swingPeakFx, hitFx, blockFx, hurtFx, dodgeFx } from './combatfx.js';
 import { clamp, angDiff, rand, randi } from './util.js';
 
 export const TOWN_SPAWN = { x: 0, z: 16 };
@@ -128,8 +129,7 @@ export function hitEnemy(e, mult, kind, opts = {}) {
   e.aggro = true; e.lastHit = G.time;
   G.player.inCombat = 6;
   floatText({ x: e.pos.x, z: e.pos.z, y: e.y + 1.6 * e.size }, crit ? `${d}!` : `${d}`, crit ? 'crit' : 'dmg');
-  burst(e.pos.x, e.y + 1 * e.size, e.pos.z, e.def.family === 'corrupted' ? 0xff3020 : e.def.family === 'lost' ? 0x9fd0c0 : 0xb02020, crit ? 10 : 6, 4, 0.4);
-  sfx(crit ? 'crit' : 'hit', 0.8);
+  hitFx(e, d, crit, kind, { x: G.player.pos.x, y: G.player.y + 1.3, z: G.player.pos.z }); // blood/bone/corruption, sound, hit-stop
   const s = stats();
   let ls = s.lifesteal; for (const b of G.player.buffs) ls += b.mods.lifesteal || 0;
   if (ls) healPlayer(d * ls / 100, true);
@@ -173,8 +173,7 @@ export function hurtPlayer(raw, src, opts = {}) {
       if (P.stam >= cost && P.exhausted <= 0) {
         P.stam -= cost; P.stamDelay = 0.8;
         dmg *= 1 - W.block;
-        sfx('block');
-        burst(P.pos.x + Math.sin(P.facing) * 0.8, P.y + 1.3, P.pos.z + Math.cos(P.facing) * 0.8, 0xffe0a0, 6, 3, 0.3);
+        blockFx(P, src);
         if (dmg < 1) { selfText('Blocked', 'info'); return; }
       } else {
         P.stam = 0; P.exhausted = 1.6; P.blocking = false;
@@ -198,7 +197,7 @@ export function hurtPlayer(raw, src, opts = {}) {
   P.hp -= dmg;
   P.hurtFlash = 0.15;
   selfText(`-${dmg}`, 'hurt');
-  sfx('hurt', 0.7);
+  hurtFx(P, dmg, src);
   shake(Math.min(0.6, 0.15 + dmg / s.maxHp * 2));
   if (opts.poison) P.poison = { dps: raw * 0.12, until: G.time + opts.poison };
   if (opts.slow) P.slowUntil = G.time + opts.slow;
@@ -366,7 +365,7 @@ function startAttack(kind) {
   const dur = spec.time / atkSpeed();
   P.state = 'attack';
   P.atk = { kind, spec, pose, mult, t: 0, dur, hitDone: false, wt };
-  sfx(kind === 'heavy' ? 'heavy' : 'swing');
+  swingFx(P, P.atk); // whoosh and trail
 }
 
 function meleeHit(a) {
@@ -426,7 +425,7 @@ export function startDodge() {
   P.state = 'dodge'; P.atk = null; P.press = null; P.draw = 0;
   P.dodge = { t: 0, dur: L.dur, dx: mx / l, dz: mz / l, speed: L.dist / (L.dur * 0.7), roll: L.roll };
   P.iframes = L.dur * 0.8;
-  sfx('dodge');
+  dodgeFx(P);
 }
 
 export function jump() {
@@ -738,7 +737,7 @@ export function updatePlayer(dt) {
       const a = P.atk; a.t += dt;
       if (!a.hitDone && a.t >= a.dur * a.spec.hit) {
         a.hitDone = true;
-        if (a.wt === 'staff') fireStaff(a); else meleeHit(a);
+        if (a.wt === 'staff') fireStaff(a); else { swingPeakFx(P, a); meleeHit(a); }
         P.comboTimer = 1.0;
         if (a.spec.lunge) { const nx = P.pos.x + Math.sin(P.facing) * a.spec.lunge * 0.4, nz = P.pos.z + Math.cos(P.facing) * a.spec.lunge * 0.4; if (walkable(nx, nz)) [P.pos.x, P.pos.z] = collide(nx, nz, PLAYER_R); }
       }

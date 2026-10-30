@@ -1,3 +1,4 @@
+import { foliage } from './gfx/creatures.js';
 import * as THREE from 'three';
 import { G } from './state.js';
 import { ZONES, NODES } from './data.js';
@@ -238,7 +239,15 @@ export function buildWorld() {
     }
   }
   instance(makeTree('oak'), scatter.oak, 0.5);
-  instance(makeTree('pine'), scatter.pine, 0.45);
+  // the owner's pine and bush models share the ground with the simple ones (how many depends on quality)
+  const share = G.Q.grass ? (G.Q.grass >= 20000 ? 0.6 : 0.4) : 0;
+  const split = (list, kind) => { const F = foliage(kind); if (!F || !share) return [list, []]; const a = [], b = []; for (const it of list) (R() < share ? b : a).push(it); return [a, b]; };
+  const [pineSimple, pineReal] = split(scatter.pine, 'pine');
+  instance(makeTree('pine'), pineSimple, 0.45);
+  if (pineReal.length) { const F = foliage('pine'); instance(null, pineReal, 0.45, true, [[F.geo, F.mat]]); }
+  const [bushSimple, bushReal] = split(scatter.bush, 'bushes');
+  scatter.bush = bushSimple;
+  if (bushReal.length) { const F = foliage('bushes'); instance(null, bushReal, 0, false, [[F.geo, F.mat]]); }
   instance(makeTree('aged'), scatter.aged, 0.5);
   instance(makeTree('dead'), scatter.dead, 0.35);
   instance(makeTree('willow'), scatter.willow, 0.6);
@@ -460,9 +469,9 @@ function makeRuin() {
 // Instanced copies of a template group, split into map chunks so off-screen chunks are culled.
 // colR: collider radius at scale 1
 const CHUNK = 90;
-function instance(template, list, colR, shadow = true) {
+function instance(template, list, colR, shadow = true, ready = null) {
   if (!list.length) return;
-  const parts = templateParts(template);
+  const parts = ready || templateParts(template);
   const chunks = new Map();
   for (const it of list) {
     const k = Math.floor(it[0] / CHUNK) + ',' + Math.floor(it[1] / CHUNK);

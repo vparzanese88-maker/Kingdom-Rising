@@ -76,8 +76,29 @@ async function load(kind) {
   if (nrm) for (let i = 0; i < nrm.count; i++) { const l = Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)); if (!(l > 1e-4)) nrm.setXYZ(i, 0, 1, 0); }
   R[kind] = rig(src, K);
 }
+// scenery models (pine, bushes): geometry scaled to metres with its base on y = 0, ready for instancing
+const FOLIAGE = { pine: { file: 'pine', height: 7.2 }, bushes: { file: 'bushes', height: 1.5 } };
+const FOL = {};
+export const foliage = kind => FOL[kind] || null;
+async function loadFoliage(kind) {
+  const F = FOLIAGE[kind];
+  const gl = await new GLTFLoader().loadAsync(BASE + F.file + '.glb');
+  let src = null;
+  gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+  const g = src.geometry.clone();
+  g.computeBoundingBox();
+  const b = g.boundingBox, k = F.height / (b.max.y - b.min.y);
+  g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  g.scale(k, k, k);
+  const nrm = g.getAttribute('normal');
+  if (nrm) for (let i = 0; i < nrm.count; i++) { const l = Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)); if (!(l > 1e-4)) nrm.setXYZ(i, 0, 1, 0); }
+  g.computeBoundingSphere();
+  const m = src.material;
+  m.side = THREE.DoubleSide;
+  FOL[kind] = { geo: g, mat: m };
+}
 export async function loadCreatures() {
-  await Promise.all(Object.keys(KINDS).map(k => load(k).catch(e => console.warn('creature', k, e))));
+  await Promise.all([...Object.keys(KINDS).map(k => load(k).catch(e => console.warn('creature', k, e))), ...Object.keys(FOLIAGE).map(k => loadFoliage(k).catch(e => console.warn('foliage', k, e)))]);
 }
 
 // same shape as makeBeast: { root, body, mats, parts: { torso, head, tail, legs }, size, beast }

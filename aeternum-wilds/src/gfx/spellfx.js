@@ -89,3 +89,71 @@ export function tickSpellFx(scene, dt) {
     if (k >= 1) { scene.remove(b.mesh); b.mesh.material.dispose(); blooms.splice(i, 1); }
   }
 }
+
+// ---------- the owner's flame column and fire cloud: area spells erupt and explode with them ----------
+const FXM = {};
+export async function loadFxModels() {
+  await Promise.all(['flame', 'blast'].map(async k => {
+    try {
+      const gl = await new GLTFLoader().loadAsync('./assets/models/c/' + k + '.glb');
+      let src = null;
+      gl.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+      const g = src.geometry.clone();
+      g.computeBoundingBox();
+      const b = g.boundingBox, h = b.max.y - b.min.y, w = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
+      // base on the ground, centred; 1 unit wide
+      g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+      g.scale(1 / w, 1 / w, 1 / w);
+      g.deleteAttribute('normal');
+      g.computeBoundingSphere();
+      const tex = src.material.map;
+      if (tex) tex.colorSpace = THREE.SRGBColorSpace;
+      FXM[k] = { geo: g, tex, h: h / w };
+    } catch (e) { console.warn('fx model', k, e); }
+  }));
+}
+const fxMat = (k, color) => new THREE.MeshBasicMaterial({
+  map: color == null ? FXM[k].tex : null, alphaMap: color == null ? null : FXM[k].tex,
+  color: color == null ? new THREE.Color(1.5, 1.3, 1.1) : new THREE.Color(color).multiplyScalar(2),
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+});
+const anims = [];
+function addAnim(scene, mesh, dur, fn) { scene.add(mesh); anims.push({ scene, mesh, t: 0, dur, fn }); }
+export function tickFxModels(dt) {
+  for (let i = anims.length - 1; i >= 0; i--) {
+    const a = anims[i]; a.t += dt;
+    const k = Math.min(1, a.t / a.dur);
+    a.fn(a.mesh, k, dt);
+    if (k >= 1) { a.scene.remove(a.mesh); a.mesh.material.dispose(); anims.splice(i, 1); }
+  }
+}
+// a column of flame shoots up out of the ground, twists and dies away (color null = its own blue-violet fire)
+export function eruption(scene, x, y, z, r, color = null) {
+  if (!FXM.flame) return;
+  for (let j = 0; j < 2; j++) {
+    const m = new THREE.Mesh(FXM.flame.geo, fxMat('flame', color));
+    m.position.set(x, y - 0.1, z); m.rotation.y = Math.random() * 6.28;
+    const w = r * (j ? 1.1 : 1.7), up = j ? 1.6 : 1.1, spin = (j ? -1 : 1) * (2 + Math.random() * 2);
+    addAnim(scene, m, j ? 0.6 : 0.85, (o, k, dt) => {
+      const rise = k < 0.25 ? 1 - Math.pow(1 - k / 0.25, 3) : 1;
+      o.scale.set(w * (0.6 + 0.4 * rise), w * up * rise * (1 - 0.25 * k), w * (0.6 + 0.4 * rise));
+      o.rotation.y += spin * dt;
+      o.material.opacity = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    });
+  }
+}
+// a rolling cloud of fire and smoke blasts outward (color null = its own fire)
+export function blastCloud(scene, x, y, z, r, color = null) {
+  if (!FXM.blast) return;
+  for (let j = 0; j < 2; j++) {
+    const m = new THREE.Mesh(FXM.blast.geo, fxMat('blast', color));
+    m.position.set(x, y - 0.15, z); m.rotation.y = Math.random() * 6.28;
+    const w0 = r * 0.5, w1 = r * (j ? 1.6 : 2.3), spin = (Math.random() - 0.5) * 1.5;
+    addAnim(scene, m, j ? 0.45 : 0.75, (o, k, dt) => {
+      const e = 1 - Math.pow(1 - k, 3), w = w0 + (w1 - w0) * e;
+      o.scale.set(w, w * (0.8 + 0.5 * e), w);
+      o.rotation.y += spin * dt;
+      o.material.opacity = 1 - k * k;
+    });
+  }
+}

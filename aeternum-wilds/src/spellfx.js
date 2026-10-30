@@ -9,6 +9,7 @@ import { emit, emitOne } from './gfx/vfx/particles.js';
 import { FX } from './gfx/vfx/presets.js';
 import { decal, wall, orb, beam, bolt, tendril, updateMeshFx } from './gfx/vfx/meshfx.js';
 import { flash as lightFlash, updateLights } from './gfx/vfx/lights.js';
+import { eruption, blastCloud } from './gfx/spellfx.js';
 
 export const ELEMENT_COLOR = {
   fire: 0xff7a2a, frost: 0x8ad8ff, shadow: 0x8a3aff, holy: 0xffe27a, nature: 0x6ae04a, lightning: 0xb8d8ff,
@@ -62,6 +63,12 @@ export function impact(el, x, y, z, r = 2) {
   const s = Math.max(0.6, Math.min(2.4, 0.55 + r * 0.3)); // effect scale
   const n = (k) => Math.round(k * (0.7 + r * 0.35));
   const gy = heightAt(x, z), low = y - gy < 1.6;
+  // the owner's sculpted effects: fire and blood explode in a rolling cloud, everything else erupts as a column
+  if (low && r >= 1.5) {
+    if (el === 'fire') blastCloud(G.scene, x, gy, z, r);
+    else if (el === 'blood' || el === 'physical') blastCloud(G.scene, x, gy, z, r, c);
+    else eruption(G.scene, x, gy, z, r * 0.8, el === 'arcane' || el === 'shadow' ? null : c);
+  }
   switch (el) {
     case 'fire': {
       emit(FX.flash, 1, x, y, z, 0, 1, 0, s * 1.6, 0xffc070);

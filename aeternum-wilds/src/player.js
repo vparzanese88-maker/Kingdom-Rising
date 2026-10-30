@@ -7,7 +7,7 @@ import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat, charHeight, sizeWeapon, TIER_LEN } from './models.js';
 import { animHumanoid } from './anim.js';
 import { dressArmor } from './gfx/armor.js';
-import { spellModelReady, spellBall, spinBall, spellBloom, tickSpellFx } from './gfx/spellfx.js';
+import { spellModelReady, spellBall, spinBall, spellBloom, tickSpellFx, tickFxModels, blastCloud, eruption } from './gfx/spellfx.js';
 import { WEAPON_MODELS, modelFor } from './gfx/weapons3d.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
 import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
@@ -363,6 +363,7 @@ export function updateProjectiles(dt) {
       }
       if (pr.owner === 'player' && pr.explode) {
         shockRing(pr.x, pr.z, pr.explode, pr.color || 0xff8a3a, 0.35);
+        blastCloud(G.scene, pr.x, heightAt(pr.x, pr.z), pr.z, pr.explode, pr.fire ? null : pr.color);
         burst(pr.x, pr.y, pr.z, pr.color || 0xff8a3a, 16, 5, 0.5);
         sfx('boom', 0.5);
         for (const e of enemiesNear(pr.x, pr.z, pr.explode + 2)) if (!e.dead && !pr.hit.has(e) && Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < pr.explode + e.radius) { if (pr.onHit) pr.onHit(e, true); else hitEnemy(e, pr.mult * 0.7, pr.kind, pr.opts || {}); }
@@ -378,6 +379,7 @@ export function updateProjectiles(dt) {
     }
   }
   tickSpellFx(G.scene, dt);
+  tickFxModels(dt);
   if (projLight && projLight.userData.t > 0) { projLight.userData.t -= dt; if (projLight.userData.t <= 0) projLight.intensity = 0; }
 }
 
@@ -559,6 +561,7 @@ export function useAbility(slot) {
       telegraph({ shape: 'circle', x: cx, z: cz, r: A.radius, dur: A.delay, color: 0x4ab0ff });
       later(A.delay, () => {
         shockRing(cx, cz, A.radius, id === 'gravity' ? 0xa070ff : 0xffe0a0, 0.4);
+        if (id === 'pillar') eruption(G.scene, cx, heightAt(cx, cz), cz, A.radius * 0.9, 0xff7a2a); else if (id === 'gravity') eruption(G.scene, cx, heightAt(cx, cz), cz, A.radius * 0.8); else if (id === 'incinerate' || id === 'grapeshot' || id === 'quake' || id === 'shockwave') blastCloud(G.scene, cx, heightAt(cx, cz), cz, A.radius * 0.8, id === 'incinerate' || id === 'grapeshot' ? null : 0xc8a070);
         burst(cx, heightAt(cx, cz) + 0.4, cz, id === 'gravity' ? 0x8050ff : id === 'rain' ? 0xe8dcc0 : 0xaa9a80, 16, 6, 0.6);
         sfx(id === 'rain' ? 'bow' : 'boom', 0.7); shake(0.25);
         for (const e of enemiesNear(cx, cz, A.radius + 2)) {

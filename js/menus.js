@@ -67,7 +67,7 @@
     { city: 'crown', title: 'Valenmoor', sub: 'Crown of Valen · Humans, Dwarves, Gnomes, Halflings and Barbarians', text: 'Aldric, the firstborn, claimed the crown by right of birth and kept the old capital. The mountain clans and the halflings of the plains knelt to him.' },
     { city: 'sylvan', title: 'Aelindor', sub: 'Sylvan Throne · Humans, High Elves, Wood Elves, Half Elves and Dark Elves', text: 'Theron, the younger, would not kneel. He rode to the elven city of Aelindor, and the elves, who never loved his brother, crowned him there. Many human families fled after him.' },
     { city: 'sylvan', text: 'The kingdom split in two. Each brother calls the other a tyrant, and each swears the whole land is his by right.' },
-    { city: 'crown', title: 'Kingdom Rising', text: 'Choose your king. Gather timber and stone, slay the beasts that haunt the land, build your kingdom, and crush your king\'s brother.' },
+    { city: 'crown', title: 'Kingdom3D', text: 'Choose your king. Gather timber and stone, slay the beasts that haunt the land, build your kingdom, and crush your king\'s brother.' },
   ];
   let introRaf = 0;
   M.playIntro = function (done) {
@@ -231,7 +231,7 @@
     const banner = (f) => { const F = D.FACTIONS[f]; return `<div class="mm-ban" style="--fb:${F.banner};--ft:${F.trim};--fc:${F.color}" title="${esc(F.city)}"><span>${f === 'sylvan' ? '❦' : '♜'}</span><small>${esc(F.city)}</small></div>`; };
     if (M.offLobby) M.offLobby();
     scr.innerHTML = `<canvas class="bgcv"></canvas><div class="mm">
-      <header class="mm-title">${banner(D.FACTION_IDS[0])}<div class="mm-tt"><div class="mm-crest">♛</div><h1>Kingdom Rising</h1><div class="mm-rule"><i></i><span>Two brothers · One crown</span><i></i></div></div>${banner(D.FACTION_IDS[1])}</header>
+      <header class="mm-title">${banner(D.FACTION_IDS[0])}<div class="mm-tt"><div class="mm-crest">♛</div><h1>Kingdom3D</h1><div class="mm-rule"><i></i><span>Two brothers · One crown</span><i></i></div></div>${banner(D.FACTION_IDS[1])}</header>
       <nav class="mm-nav">${chars.length ? `<button class="mm-continue" id="mm-cont"><span>▶ Continue</span><small>${esc(chars[0].name)} · level ${D.shown(chars[0].level)} ${esc(D.CLASSES[chars[0].cls].name)}</small></button>` : ''}${tabs.map(([k, ic, n]) => `<button class="mm-tab ${(mmTab === k || under[mmTab] === k) ? 'on' : ''}" data-t="${k}"><span>${ic}</span>${n}</button>`).join('')}
         <div class="mm-realm"><small>${KR.Sys.Store.db ? 'Saved to your Claude account' : 'Saved in this browser'} · v${window.KR_VERSION}</small></div></nav>
       <section class="mm-panel"></section></div>`;
@@ -413,7 +413,7 @@
 
   // ---------------- quit ----------------
   M.quit = function () {
-    KR.UI.confirm('Quit Kingdom Rising? Your heroes and kingdoms are saved.', () => {
+    KR.UI.confirm('Quit Kingdom3D? Your heroes and kingdoms are saved.', () => {
       Sys.saveAccount && Sys.saveAccount(true);
       cancelAnimationFrame(riseRaf); if (M.offLobby) M.offLobby();
       KR.A.play('silence');

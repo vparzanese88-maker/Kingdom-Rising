@@ -681,8 +681,8 @@
     const buildTitle = () => {
       tW = tc.width = Math.min(1100, innerWidth * 0.92) | 0; tH = tc.height = Math.round(tW * 0.2);
       const o = document.createElement('canvas'); o.width = tW; o.height = tH; const og = o.getContext('2d');
-      let fs = Math.round(tH * 0.66); og.font = `700 ${fs}px "IM Fell English SC", Georgia, serif`; const mw = og.measureText('KINGDOM RISING').width; if (mw > tW * 0.94) { fs = Math.floor(fs * tW * 0.94 / mw); og.font = `700 ${fs}px "IM Fell English SC", Georgia, serif`; } og.textAlign = 'center'; og.textBaseline = 'middle';
-      const gr = og.createLinearGradient(0, tH * 0.2, 0, tH * 0.8); gr.addColorStop(0, '#fff2c0'); gr.addColorStop(0.5, '#f0b84a'); gr.addColorStop(1, '#a8501a'); og.fillStyle = gr; og.fillText('KINGDOM RISING', tW / 2, tH * 0.54);
+      let fs = Math.round(tH * 0.66); og.font = `700 ${fs}px "IM Fell English SC", Georgia, serif`; const mw = og.measureText('KINGDOM3D').width; if (mw > tW * 0.94) { fs = Math.floor(fs * tW * 0.94 / mw); og.font = `700 ${fs}px "IM Fell English SC", Georgia, serif`; } og.textAlign = 'center'; og.textBaseline = 'middle';
+      const gr = og.createLinearGradient(0, tH * 0.2, 0, tH * 0.8); gr.addColorStop(0, '#fff2c0'); gr.addColorStop(0.5, '#f0b84a'); gr.addColorStop(1, '#a8501a'); og.fillStyle = gr; og.fillText('KINGDOM3D', tW / 2, tH * 0.54);
       tmask = og.getImageData(0, 0, tW, tH); noise = new Float32Array(tW * tH);
       for (let y = 0; y < tH; y++) for (let x2 = 0; x2 < tW; x2++) noise[y * tW + x2] = 0.55 * (x2 / tW) + 0.45 * U.fbm(x2 * 0.02, y * 0.05, 5, 3);
     };

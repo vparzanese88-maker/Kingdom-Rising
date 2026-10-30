@@ -1,4 +1,8 @@
-# Kingdom Rising
+# Game Arcade
+
+This repo holds several browser games. The two biggest: **Kingdom Rising** (`aeternum-wilds/`, formerly Aeternum Wilds), an online co-op action RPG whose title screen has a Campaign tab and a Kingdom Wars tab (coming soon), and **Kingdom3D** (`kingdom-rising-3d/`, formerly Kingdom Rising).
+
+## Kingdom3D
 
 An EverQuest-style browser MMORPG. Two brothers split their poisoned father's kingdom. Pick a side, level up a hero, gather timber and stone, raise your kingdom, and send war parties to kill the other king.
 
@@ -10,7 +14,7 @@ It's plain HTML and JavaScript. There's no build step and nothing to install.
   - `python3 -m http.server 8000`, then open http://localhost:8000
   - or `npx serve .`
 
-## Kingdom Rising 3D
+## Kingdom3D in 3D
 `kingdom-rising-3d/` is the same game in 3D, played in first person (scroll the mouse wheel out for third person). It runs the very same game files: at startup it reads `index.html` for the stylesheet and the script list and loads everything from `js/` except `main.js`, so classes, stats, quests, menus, bosses, castles and saved heroes are all shared with the 2D version. Only the drawing and the controls are new.
 
 - Controls (EverQuest style): W and S move, A and D turn (they sidestep while the right mouse button is held), hold the right mouse button to look around (or left drag), both buttons walk forward, mouse wheel zooms between first and third person, V switches view, H walks or runs, T or Num Lock auto runs, X sits cross-legged. Clicking the ground does not move you. O opens Settings: graphics (presets, render resolution, automatic resolution to hold a frame rate, frame rate limit and counter, shadows, view distance, grass, anti-aliasing, bloom, brightness), controls (mouse speed, vertical speed, invert, turn speed, movement speed), key bindings for every action (two keys each, mouse side buttons too), camera and sound.
@@ -22,7 +26,8 @@ It's plain HTML and JavaScript. There's no build step and nothing to install.
 ## More games in this repo
 Each one is a single self-contained HTML page:
 - `arcade.html`: a menu page linking to every game.
-- `kingdom-rising-3d/`: Kingdom Rising in 3D (see above).
+- `kingdom-rising-3d/`: Kingdom3D (see above).
+- `aeternum-wilds/`: Kingdom Rising (formerly Aeternum Wilds), an over-the-shoulder action RPG with online co-op; Campaign and Kingdom Wars tabs on the title screen.
 - `omaha/`: Omaha 1944, a Day of Defeat-style WWII shooter on Omaha Beach (see below).
 - `line-of-battle/`: Line of Battle, a 3D Civil War infantry shooter.
 - `hold-aim-fire/`: Hold, Aim, Fire, a Civil War volley-timing game.

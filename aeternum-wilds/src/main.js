@@ -326,33 +326,48 @@ window.saveGame = saveGame;
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
 addEventListener('beforeunload', saveGame);
 
-// ---------- Home screen ----------
+// ---------- Home screen: Campaign and Kingdom Wars tabs ----------
+let homeTab = 'campaign';
 function title() {
   if (online() && G.mode !== 'game') { if (gameStarted()) charSelect(); else lobby(); return; }
   G.mode = 'title';
   const save = loadSave();
   const t = $('title');
   const C = save ? CLASSES[save.cls] : null;
+  const camp = homeTab === 'campaign';
   t.innerHTML = `<div class="home">
-    <div class="logo"><div class="crest">⚜</div><h1>Aeternum<span>Wilds</span></h1><p>Shipwrecked on a cursed island. Fight, gather, craft, and break the Corruption.</p></div>
+    <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>Shipwrecked on a cursed island. Fight, gather, craft, and break the Corruption.</p></div>
     <nav>
+      <div class="htabs" role="tablist">
+        <button id="tcamp" role="tab" aria-selected="${camp}" class="${camp ? 'on' : ''}">Campaign</button>
+        <button id="twars" role="tab" aria-selected="${!camp}" class="${camp ? '' : 'on'}">Kingdom Wars</button>
+      </div>
+      ${camp ? `
       ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
       <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
       <button id="ohost"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
-      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>
-      <button id="sett"><b>Settings</b><small>Mouse, view, graphics, sound</small></button>
-      <button id="fs"><b>${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</b><small>Or press F11 at any time</small></button>
-      <button id="ctrl"><b>Controls</b></button>
+      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>` : `
+      <div class="wars"><b>Kingdom Wars</b><span class="pill">Coming soon</span>
+        <p>Raise a kingdom, muster an army and march on your friends' realms. Kingdom against kingdom, online.</p></div>`}
+      <div class="hrow">
+        <button id="sett" title="Mouse, view, graphics, sound">Settings</button>
+        <button id="fs" title="Or press F11 at any time">${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</button>
+        <button id="ctrl">Controls</button>
+      </div>
     </nav>
     <div id="homeside"></div>
     <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
   t.style.display = 'block';
-  if (save) $('cont').onclick = () => { initAudio(); play(save); };
-  $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  $('tcamp').onclick = () => { if (!camp) { homeTab = 'campaign'; title(); } };
+  $('twars').onclick = () => { if (camp) { homeTab = 'wars'; title(); } };
+  if (camp) {
+    if (save) $('cont').onclick = () => { initAudio(); play(save); };
+    $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+    $('ohost').onclick = () => { initAudio(); hostNow(); };
+    $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
+    if (invited && !online()) joinPanel(invited);
+  }
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
-  $('ohost').onclick = () => { initAudio(); hostNow(); };
-  $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
-  if (invited && !online()) joinPanel(invited);
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
 }

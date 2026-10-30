@@ -370,7 +370,7 @@ function grassCell(cx, cz) {
 }
 function buildGrass() {
   if (!G.Q.grass) return;
-  GRASS_R = G.Q.grass > 25000 ? 55 : G.Q.grass > 15000 ? 47 : 40;
+  GRASS_R = G.Q.grass > 40000 ? 66 : G.Q.grass > 25000 ? 55 : G.Q.grass > 15000 ? 47 : 40;
   const blade = new THREE.BufferGeometry();
   // a tuft of five thin, slightly bent blades
   const v = [];

@@ -39,17 +39,19 @@ const $ = id => document.getElementById(id);
 const SET_KEY = 'aeternum-wilds-settings';
 // ranged weapons that zoom with right-click (only the bow exists so far)
 const ZOOM_WEAPONS = new Set(['bow', 'crossbow', 'musket', 'blunderbuss']);
-const S = Object.assign({ sens: 1, fov: 70, quality: 'medium', volume: 0.6, invertY: false, autoFS: true, view: 'third' }, (() => { try { return JSON.parse(localStorage.getItem(SET_KEY)) || {}; } catch (e) { return {}; } })());
+const S = Object.assign({ sens: 1, fov: 70, quality: 'superultra', volume: 0.6, invertY: false, autoFS: true, view: 'third' }, (() => { try { return JSON.parse(localStorage.getItem(SET_KEY)) || {}; } catch (e) { return {}; } })());
 if (S.v !== 2) { S.v = 2; S.view = 'third'; } // the game now plays over the shoulder by default
-// graphics levels; 'superultra' is a joke option that falls back to ultra
+// graphics levels; everyone starts on Super Ultra (the most detail: full resolution, dense grass, far view)
 export const QUALITY = {
   low: { name: 'Low', ratio: 1, shadows: 0, grass: 0, seg: 220, view: 0.7, aa: false },
   medium: { name: 'Medium', ratio: 1.25, shadows: 2048, grass: 12000, seg: 300, view: 1, aa: true },
   high: { name: 'High', ratio: 1.5, shadows: 2048, grass: 20000, seg: 330, view: 1.15, aa: true },
   ultra: { name: 'Ultra', ratio: 2, shadows: 4096, grass: 30000, seg: 400, view: 1.35, aa: true },
-  superultra: { name: 'Super Ultra', ratio: 2, shadows: 4096, grass: 30000, seg: 400, view: 1.35, aa: true },
+  superultra: { name: 'Super Ultra', ratio: 2.5, shadows: 4096, grass: 48000, seg: 520, view: 1.7, aa: true },
 };
-if (!QUALITY[S.quality] || S.quality === 'superultra') S.quality = QUALITY[S.quality] ? 'ultra' : 'medium';
+// one-time move of every player to Super Ultra (they can still lower it in Settings)
+if (!S.su1) { S.quality = 'superultra'; S.su1 = 1; try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch (e) { /* blocked */ } }
+if (!QUALITY[S.quality]) S.quality = 'superultra';
 G.settings = S;
 G.quality = S.quality;
 G.Q = QUALITY[S.quality];
@@ -366,71 +368,103 @@ setLobbyHooks(
   () => { if (G.mode === 'lobby') charSelect(); },
 );
 function joinPanel(code = '') {
-  $('homeside').innerHTML = `<div class="card online"><h3>Join Game</h3>
-    <p>Enter the 4-letter code the host sees in their lobby.</p>
-    <label class="nm">Your name <input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
-    <div class="joinrow"><input id="ocode" maxlength="4" placeholder="CODE" value="${code}"><button id="ojoin" class="primary">Join</button></div>
-    <p id="ostat" class="small">${code ? `You're invited to game ${code}. Press Join.` : ''}</p></div>`;
-  $('ojoin').onclick = () => {
+  $('homeside').innerHTML = `<div class="mpcard"><h3>Join Game</h3>
+    <p class="dim">Ask the host for their 4-letter game code.</p>
+    <label class="mpfield"><span>Your name</span><input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
+    <label class="mpfield"><span>Game code</span><input id="ocode" class="bigin" maxlength="4" placeholder="ABCD" value="${code}" autocomplete="off"></label>
+    <button id="ojoin" class="primary wide">Join Game</button>
+    <p id="ostat" class="mpstat">${code ? `You're invited to game <b>${code}</b>. Press Join Game.` : ''}</p></div>`;
+  const go = () => {
     const c = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, '');
-    if (c.length !== 4) { $('ostat').textContent = 'Enter the 4-letter code.'; return; }
-    $('ostat').textContent = `Joining ${c}…`;
+    if (c.length !== 4) { $('ostat').innerHTML = 'Enter the 4-letter code.'; return; }
+    $('ostat').innerHTML = `<span class="spin"></span> Joining ${c}…`; $('ojoin').disabled = true;
     setLobbyName($('oname').value.trim() || 'Castaway');
-    joinGame(c, r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
+    joinGame(c, r => { if (r.error) { $('ostat').textContent = r.error; $('ojoin').disabled = false; } else lobby(); });
   };
+  $('ojoin').onclick = go;
+  $('ocode').oninput = () => { $('ocode').value = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, ''); };
+  $('ocode').onkeydown = e => { if (e.key === 'Enter') go(); };
+  (code ? $('ojoin') : $('ocode')).focus();
 }
 function hostNow() {
-  $('homeside').innerHTML = `<div class="card online"><h3>Host Game</h3><p id="ostat">Creating your game…</p></div>`;
+  $('homeside').innerHTML = `<div class="mpcard"><h3>Host Game</h3><p id="ostat" class="mpstat"><span class="spin"></span> Creating your game…</p></div>`;
   setLobbyName(saveName() || 'Host');
   hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
 }
-function lobby() {
-  G.mode = 'lobby';
-  const t = $('title');
-  const log = $('lobbylog')?.innerHTML || '', typed = $('lobbyin')?.value || '', typing = document.activeElement?.id === 'lobbyin';
-  const rows = lobbyPlayers().map(P => `<div class="lp ready"><b>${esc(P.name)}${P.me ? ' (you)' : ''}${P.id === 0 ? ' 👑 host' : ''}</b><i>In lobby</i></div>`).join('');
-  t.innerHTML = `<div class="home lobby"><div class="card online lobbycard">
-    <h2>Game Lobby</h2>
-    <p>Friends join with the code <b class="code">${onlineCode()}</b> (Join Game on the main menu) or this link:</p>
-    <div class="invite"><input id="invl" readonly value="${inviteLink(onlineCode())}"><button id="invc">Copy</button></div>
-    <label class="nm">Your name <input id="lname" maxlength="18" value="${esc(myLobbyName())}"></label>
-    <div class="lplayers">${rows}</div>
-    <div id="lobbylog">${log}</div>
-    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Chat with the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
-    <div class="row">${isHost() ? `<button id="lstart" class="primary">Play Game</button>` : `<p class="small">Waiting for the host to press Play Game…</p>`}<button id="lback">Leave</button></div>
-  </div></div>`;
-  t.style.display = 'block';
+const STAGE = { lobby: 'In the lobby', hero: 'Choosing a hero', game: 'In the world' };
+function partyRows(list) {
+  const rows = list.map(P => {
+    const C = P.ready ? CLASSES[P.cls] : null;
+    return `<div class="mpslot ${P.me ? 'me' : ''}"><span class="mpicon">${C ? C.icon : '👤'}</span><div><b>${esc(P.name)}</b>${P.id === 0 ? '<em>Host</em>' : ''}${P.me ? '<em class="you">You</em>' : ''}<small>${C ? `${C.name} · Level ${P.level || 1} · ` : ''}${STAGE[P.stage] || 'In the lobby'}</small></div><i class="dot ${P.stage || 'lobby'}"></i></div>`;
+  });
+  for (let i = list.length; i < 8; i++) rows.push(`<div class="mpslot open"><span class="mpicon">＋</span><div><b>Open slot</b><small>Waiting for a friend</small></div></div>`);
+  return rows.join('');
+}
+function chatHtml() {
+  return `<div class="mpchat"><div id="lobbylog">${$('lobbylog')?.innerHTML || ''}</div>
+    <div class="mpsay"><input id="lobbyin" maxlength="200" placeholder="Say something to the party… (Enter)" autocomplete="off"><button id="lobbysend">Send</button></div></div>`;
+}
+function bindChat() {
   const ll = $('lobbylog'); ll.scrollTop = ll.scrollHeight;
-  $('lobbyin').value = typed; if (typing) $('lobbyin').focus();
-  $('invc').onclick = () => { $('invl').select(); navigator.clipboard?.writeText($('invl').value); $('invc').textContent = 'Copied'; };
-  $('lname').onchange = () => setLobbyName($('lname').value.trim() || 'Castaway');
   const say = () => { sendChat($('lobbyin').value); $('lobbyin').value = ''; $('lobbyin').focus(); };
   $('lobbysend').onclick = say;
   $('lobbyin').onkeydown = e => { if (e.key === 'Enter') say(); };
+}
+function copyBtn(id, text) { $(id).onclick = () => { navigator.clipboard?.writeText(text); const b = $(id), t = b.textContent; b.textContent = 'Copied!'; setTimeout(() => { b.textContent = t; }, 1200); }; }
+function lobby() {
+  G.mode = 'lobby';
+  const t = $('title');
+  const typed = $('lobbyin')?.value || '', typing = document.activeElement?.id === 'lobbyin';
+  const list = lobbyPlayers();
+  t.innerHTML = `<div class="home lobby"><div class="mp">
+    <header><h2>Game Lobby</h2><span class="pill">${list.length} / 8 players</span></header>
+    <div class="mpcols">
+      <div>
+        <div class="codebox"><span>Game code</span><div class="bigcode">${onlineCode()}</div>
+          <div class="cbtns"><button id="ccode">Copy code</button><button id="clink">Copy invite link</button></div>
+          <small>Friends press <b>Join Game</b> on the main menu and type the code, or open the link.</small></div>
+        <div class="mpslots">${partyRows(list)}</div>
+      </div>
+      ${chatHtml()}
+    </div>
+    <footer><label class="mpfield inline"><span>Your name</span><input id="lname" maxlength="18" value="${esc(myLobbyName())}"></label>
+      <div class="grow"></div><button id="lback">Leave</button>
+      ${isHost() ? `<button id="lstart" class="primary big">Play Game ▶</button>` : `<span class="mpwait"><span class="spin"></span> Waiting for the host to press Play Game</span>`}</footer>
+  </div></div>`;
+  t.style.display = 'block';
+  bindChat();
+  $('lobbyin').value = typed; if (typing) $('lobbyin').focus();
+  copyBtn('ccode', onlineCode()); copyBtn('clink', inviteLink(onlineCode()));
+  $('lname').onchange = () => setLobbyName($('lname').value.trim() || 'Castaway');
   if ($('lstart')) $('lstart').onclick = () => startAdventure();
-  $('lback').onclick = () => { leaveOnline(); title(); };
+  $('lback').onclick = () => { if (confirm(isHost() ? 'Close the game for everyone?' : 'Leave this game?')) { leaveOnline(); title(); } };
 }
 // the host pressed Play Game: pick a hero, then into the world (everyone starts together in town)
 function charSelect() {
   G.mode = 'lobby';
   const save = loadSave(), C = save ? CLASSES[save.cls] : null;
   const t = $('title');
-  t.innerHTML = `<div class="home lobby"><div class="card online lobbycard">
-    <h2>Choose your hero</h2>
-    <p>Game <b class="code">${onlineCode()}</b> is on. ${partySize()} in the party. Pick your character, then join the game: everyone meets in town.</p>
-    <nav>
-      ${save ? `<button id="ccont" class="primary"><b>Join with ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
-      <button id="cnew" class="${save ? '' : 'primary'}"><b>Create a New Character</b><small>Pick a class and shape your hero</small></button>
-    </nav>
-    <div id="lobbylog">${$('lobbylog')?.innerHTML || ''}</div>
-    <div class="joinrow"><input id="lobbyin" maxlength="200" placeholder="Chat with the party…" autocomplete="off"><button id="lobbysend">Send</button></div>
+  const typed = $('lobbyin')?.value || '';
+  t.innerHTML = `<div class="home lobby"><div class="mp">
+    <header><h2>Choose Your Hero</h2><span class="pill">Game ${onlineCode()} · ${partySize()} / 8</span></header>
+    <div class="mpcols">
+      <div>
+        <p class="dim">The host started the game. Pick your character and you'll join the party in town.</p>
+        <div class="mpheroes">
+          ${save ? `<button id="ccont" class="hero primary"><span>${C ? C.icon : '⚔️'}</span><b>Play as ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
+          <button id="cnew" class="hero ${save ? '' : 'primary'}"><span>✨</span><b>New Character</b><small>Pick a class and shape your hero</small></button>
+        </div>
+        <div class="mpslots">${partyRows(lobbyPlayers())}</div>
+      </div>
+      ${chatHtml()}
+    </div>
+    <footer><div class="grow"></div><button id="lback">Leave game</button></footer>
   </div></div>`;
   t.style.display = 'block';
-  const say = () => { sendChat($('lobbyin').value); $('lobbyin').value = ''; };
-  $('lobbysend').onclick = say;
-  $('lobbyin').onkeydown = e => { if (e.key === 'Enter') say(); };
+  bindChat(); $('lobbyin').value = typed;
   if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
   $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  $('lback').onclick = () => { if (confirm('Leave this game?')) { leaveOnline(); title(); } };
 }
 
 export function controlsHtml() {
@@ -464,12 +498,6 @@ export function bindSettings(root) {
     const k = el.dataset.s;
     el.oninput = el.onchange = () => {
       const v = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : +el.value;
-      if (k === 'quality' && v === 'superultra') {
-        el.value = S.quality;
-        const n = root.querySelector('#qnote');
-        if (n) { n.innerHTML = '<b class="nope">⚠ Your computer can\'t handle this.</b> Super Ultra would melt it. Try Ultra instead.'; n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake'); }
-        return;
-      }
       if (k === 'quality' && v !== S.quality) { const n = root.querySelector('#qnote'); if (n) n.innerHTML = `Graphics set to ${QUALITY[v].name}. <button id="qreload" class="small">Reload now</button> to apply it.`; setTimeout(() => { const b = root.querySelector('#qreload'); if (b) b.onclick = () => { window.saveGame(); location.reload(); }; }); }
       S[k] = v;
       const out = el.parentElement.querySelector('output');

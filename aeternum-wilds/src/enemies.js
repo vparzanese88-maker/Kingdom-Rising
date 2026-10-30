@@ -50,7 +50,9 @@ export function spawnEnemy(type, x, z, lv, camp = null, slot = null) {
     if (def.weapon === 'bow') model.parts.handL.add(w); else model.parts.handR.add(w);
   }
   G.scene.add(model.root);
-  const hpMult = 1 + 0.22 * (lv - 1), dmgMult = 1 + 0.2 * (lv - 1);
+  // tougher than before: more health, harder hits, and more of both for each party member nearby
+  const party = G.net?.nearCount ? G.net.nearCount(x, z) : 0;
+  const hpMult = (1.6 + 0.3 * (lv - 1)) * (1 + 0.6 * party), dmgMult = (1.4 + 0.24 * (lv - 1)) * (1 + 0.1 * party);
   const e = {
     type, def, lv, camp, slot, model, root: model.root,
     pos: { x, z }, y: heightAt(x, z), home: { x, z }, facing: Math.random() * 6.28,
@@ -105,7 +107,7 @@ export function killEnemy(e, remote = false, near = true) {
   const P = G.player, p = G.p;
   if (remote && !near) { if (e.camp) { e.slot.ent = null; e.slot.respawnAt = G.time + 50; } e.removeAt = G.time + 4; killFx(e); return; }
   // rewards
-  let xp = killXp(e.lv) * (e.def.xpMult || 1);
+  let xp = killXp(e.lv) * (e.def.xpMult || 1) * 1.3; // tougher enemies are worth more
   const diff = p.level - e.lv;
   if (diff > 4) xp *= Math.max(0.15, 1 - (diff - 4) * 0.2);
   if (e.isAdd) xp *= 0.3;
@@ -230,7 +232,7 @@ function resolveAttack(e) {
   const a = e.atk, A = a.A, T = targetOf(e), P = T;
   const dmg = e.dmg * A.dmg;
   const src = { x: e.pos.x, z: e.pos.z, lv: e.lv };
-  e.cds[a.id] = G.time + A.cd * (e.def.boss && e.hp < e.maxHp * 0.3 ? 0.7 : 1);
+  e.cds[a.id] = G.time + A.cd * 0.8 * (e.def.boss && e.hp < e.maxHp * 0.3 ? 0.7 : 1);
   switch (A.kind) {
     case 'melee': case 'cone': {
       const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, d = Math.hypot(dx, dz);
@@ -333,7 +335,7 @@ export function updateEnemies(dt) {
       if (e.knock.t <= 0) e.knock = null;
     }
     // aggro / leash
-    const aggroR = e.def.boss ? 16 : e.def.passive ? 0 : 13;
+    const aggroR = e.def.boss ? 20 : e.def.passive ? 0 : 17;
     if (!e.aggro && !pdead && d < aggroR && e.state !== 'return') {
       e.aggro = true;
       if (e.camp) for (const s of e.camp.slots) if (s.ent && !s.ent.dead && s.ent.state !== 'return') s.ent.aggro = true;
@@ -368,7 +370,7 @@ export function updateEnemies(dt) {
     }
     const frozen = e.freezeUntil > G.time;
     if (frozen && Math.random() < dt * 6) burst(e.pos.x, e.y + 1, e.pos.z, 0xd8f4ff, 1, 0.5, 0.6, 0.1, 1);
-    let speed = e.def.speed * (e.slowUntil > G.time ? 0.5 : 1) * (frozen ? 0.25 : 1);
+    let speed = e.def.speed * 1.12 * (e.slowUntil > G.time ? 0.5 : 1) * (frozen ? 0.25 : 1);
     let mvx = 0, mvz = 0, pose = null, pt = 0;
     if (e.state === 'stunned') {
       e.stunned -= dt; pose = 'stun';

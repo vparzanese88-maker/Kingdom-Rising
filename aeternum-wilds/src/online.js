@@ -50,9 +50,10 @@ function send(d) { if (O.net) O.net.send(d); }
 // what other players need to draw me
 function myInfo() {
   const p = G.mode === 'game' ? G.p : null;
-  if (!p) return { name: O.name || 'Castaway', inGame: false, ready: false, started: O.started };
+  const stage = G.mode === 'game' ? 'game' : O.started ? 'hero' : 'lobby';
+  if (!p) return { name: O.name || 'Castaway', inGame: false, ready: false, started: O.started, stage };
   const w = p.equip[p.activeW === 0 ? 'w1' : 'w2'];
-  return { name: p.name || 'Castaway', inGame: G.mode === 'game', ready: true, started: O.started, cls: p.cls, level: p.level, look: p.look, w: w ? { wtype: w.wtype, tier: w.tier, model: w.model, shield: w.shield } : null };
+  return { name: p.name || 'Castaway', inGame: G.mode === 'game', ready: true, started: O.started, stage, cls: p.cls, level: p.level, look: p.look, w: w ? { wtype: w.wtype, tier: w.tier, model: w.model, shield: w.shield } : null };
 }
 export function hello() { if (online()) send({ t: 'hi', ...myInfo() }); }
 G.onLook = () => { clearTimeout(O.lookT); O.lookT = setTimeout(hello, 200); };
@@ -62,6 +63,8 @@ function setupHub() {
   G.net = {
     me: O.me,
     // an enemy another player is fighting: their game drives it, ours just mirrors it
+    // other party members within 80 m of a spot (enemies there spawn tougher)
+    nearCount: (x, z) => { let n = 0; for (const P of O.peers.values()) if (P.st && Math.hypot(P.st.x - x, P.st.z - z) < 80) n++; return n; },
     remote: e => e.netOwner != null && e.netOwner !== O.me && G.time - (e.netSeen || 0) < 1.5,
     hit: (e, dmg) => { if (e.key) send({ t: 'eh', k: e.key, d: Math.round(dmg) }); },
     kill: e => { if (e.key) send({ t: 'ek', k: e.key, x: Math.round(e.pos.x), z: Math.round(e.pos.z) }); },
@@ -77,7 +80,7 @@ function onData(from, d) {
       const known = O.peers.has(from);
       const P = peer(from);
       const first = !P.name;
-      Object.assign(P, { name: String(d.name || 'Castaway').slice(0, 18), inGame: !!d.inGame, ready: !!d.ready, cls: d.cls, level: d.level, look: d.look, w: d.w });
+      Object.assign(P, { name: String(d.name || 'Castaway').slice(0, 18), inGame: !!d.inGame, ready: !!d.ready, stage: d.stage, cls: d.cls, level: d.level, look: d.look, w: d.w });
       if (from === 0 && d.started && !O.started) { O.started = true; O.onLobby?.(); }
       if (first) { sysMsg(`${P.name} joined.`); hello(); }
       else if (!known) hello();

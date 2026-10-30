@@ -383,6 +383,49 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 .lp.ready i { color: #6ad07a; }
 #lobbylog { height: 140px; overflow-y: auto; background: rgba(0,0,0,.3); border-radius: 4px; padding: 6px 8px; font: 14px/1.35 Georgia, serif; }
 #lobbylog b { color: #f0d890; } #lobbylog i { color: #9fd0ff; }
+
+/* ---------- multiplayer menus ---------- */
+.mpcard { background: rgba(18,14,9,.88); border: 1px solid rgba(240,216,144,.35); border-radius: 8px; padding: 18px 20px; max-width: 380px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.mpcard h3 { margin: 0 0 6px; color: var(--gold2); font-size: 24px; }
+.mpfield { display: block; margin: 10px 0; } .mpfield span { display: block; font-size: 13px; color: #cfc4b0; margin-bottom: 4px; letter-spacing: .5px; text-transform: uppercase; }
+.mpfield input { width: 100%; box-sizing: border-box; font: 17px Georgia, serif; padding: 8px 10px; background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(240,216,144,.35); border-radius: 5px; }
+.mpfield input:focus { outline: none; border-color: var(--gold2); box-shadow: 0 0 0 2px rgba(240,216,144,.2); }
+.mpfield input.bigin { font-size: 32px; letter-spacing: 12px; text-align: center; text-transform: uppercase; font-weight: 700; color: var(--gold2); }
+.mpfield.inline { display: flex; align-items: center; gap: 8px; margin: 0; } .mpfield.inline span { margin: 0; } .mpfield.inline input { width: 170px; font-size: 15px; padding: 6px 8px; }
+button.wide { width: 100%; padding: 12px; font-size: 18px; }
+.mpstat { min-height: 22px; color: #e8dcc0; }
+.spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(240,216,144,.3); border-top-color: var(--gold2); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.home.lobby { display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+.mp { width: min(980px, 96vw); max-height: 94vh; overflow: auto; background: rgba(16,12,8,.9); border: 1px solid rgba(240,216,144,.35); border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 18px 22px; box-sizing: border-box; }
+.mp header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(240,216,144,.2); padding-bottom: 10px; margin-bottom: 14px; }
+.mp header h2 { margin: 0; color: var(--gold2); font-size: 30px; }
+.pill { background: rgba(240,216,144,.15); border: 1px solid rgba(240,216,144,.35); color: #f0d890; padding: 4px 12px; border-radius: 99px; font-size: 14px; }
+.mpcols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+@media (max-width: 760px) { .mpcols { grid-template-columns: 1fr; } }
+.codebox { text-align: center; background: linear-gradient(180deg, rgba(240,216,144,.12), rgba(240,216,144,.04)); border: 1px solid rgba(240,216,144,.35); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.codebox > span { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #cfc4b0; }
+.bigcode { font-size: 54px; font-weight: 700; letter-spacing: 16px; color: var(--gold2); text-shadow: 0 2px 12px rgba(240,180,60,.35); margin: 2px 0 6px 16px; }
+.cbtns { display: flex; gap: 8px; justify-content: center; margin-bottom: 6px; } .cbtns button { font-size: 14px; padding: 6px 12px; }
+.codebox small { color: #b8ad98; }
+.mpslots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mpslot { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 6px; background: rgba(0,0,0,.3); border: 1px solid rgba(240,216,144,.22); min-width: 0; }
+.mpslot > div { flex: 1; min-width: 0; } .mpslot b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mpslot small { display: block; color: #b8ad98; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mpslot em { font-style: normal; font-size: 11px; margin-left: 6px; padding: 1px 6px; border-radius: 99px; background: #8a6a20; color: #fff; } .mpslot em.you { background: #2f5a8a; }
+.mpslot.me { border-color: rgba(240,216,144,.6); }
+.mpslot.open { opacity: .45; border-style: dashed; }
+.mpicon { font-size: 22px; width: 30px; text-align: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #d8b040; box-shadow: 0 0 6px currentColor; } .dot.hero { background: #5aa0ff; } .dot.game { background: #4ad06a; }
+.mpchat { display: flex; flex-direction: column; min-height: 300px; }
+.mpchat #lobbylog { flex: 1; height: auto; min-height: 220px; max-height: 360px; overflow-y: auto; background: rgba(0,0,0,.35); border: 1px solid rgba(240,216,144,.2); border-radius: 6px; padding: 8px 10px; font: 15px/1.4 Georgia, serif; }
+.mpsay { display: flex; gap: 6px; margin-top: 6px; } .mpsay input { flex: 1; font: 15px Georgia, serif; padding: 8px; background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(240,216,144,.35); border-radius: 5px; }
+.mp footer { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(240,216,144,.2); }
+.mp footer .grow { flex: 1; }
+button.big { font-size: 20px; padding: 10px 26px; }
+.mpwait { color: #e8dcc0; }
+.mpheroes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 14px; }
+button.hero { display: flex; flex-direction: column; align-items: center; padding: 16px 10px; gap: 4px; } button.hero span { font-size: 34px; } button.hero b { font-size: 18px; } button.hero small { color: #cfc4b0; }
 </style>
 </head>
 <body>
@@ -439,46 +482,46 @@ img.aicon.big { width: 64px; height: 64px; flex: none; border: 2px solid #8a6e3a
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793328679",
-"./src/audio.js": "./src/audio.js?v=1793328679",
-"./src/classes.js": "./src/classes.js?v=1793328679",
-"./src/combatfx.js": "./src/combatfx.js?v=1793328679",
-"./src/data.js": "./src/data.js?v=1793328679",
-"./src/enemies.js": "./src/enemies.js?v=1793328679",
-"./src/fx.js": "./src/fx.js?v=1793328679",
-"./src/items.js": "./src/items.js?v=1793328679",
-"./src/life.js": "./src/life.js?v=1793328679",
-"./src/main.js": "./src/main.js?v=1793328679",
-"./src/models.js": "./src/models.js?v=1793328679",
-"./src/net.js": "./src/net.js?v=1793328679",
-"./src/online.js": "./src/online.js?v=1793328679",
-"./src/pets.js": "./src/pets.js?v=1793328679",
-"./src/player.js": "./src/player.js?v=1793328679",
-"./src/quests.js": "./src/quests.js?v=1793328679",
-"./src/skills.js": "./src/skills.js?v=1793328679",
-"./src/spellfx.js": "./src/spellfx.js?v=1793328679",
-"./src/state.js": "./src/state.js?v=1793328679",
-"./src/stats.js": "./src/stats.js?v=1793328679",
-"./src/ui.js": "./src/ui.js?v=1793328679",
-"./src/util.js": "./src/util.js?v=1793328679",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793328679",
-"./src/world.js": "./src/world.js?v=1793328679",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793328679",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793328679",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793328679",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793328679",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793328679",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793328679",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793328679",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793328679",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793328679",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793328679",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793328679",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793328679"
+"./src/anim.js": "./src/anim.js?v=1793329348",
+"./src/audio.js": "./src/audio.js?v=1793329348",
+"./src/classes.js": "./src/classes.js?v=1793329348",
+"./src/combatfx.js": "./src/combatfx.js?v=1793329348",
+"./src/data.js": "./src/data.js?v=1793329348",
+"./src/enemies.js": "./src/enemies.js?v=1793329348",
+"./src/fx.js": "./src/fx.js?v=1793329348",
+"./src/items.js": "./src/items.js?v=1793329348",
+"./src/life.js": "./src/life.js?v=1793329348",
+"./src/main.js": "./src/main.js?v=1793329348",
+"./src/models.js": "./src/models.js?v=1793329348",
+"./src/net.js": "./src/net.js?v=1793329348",
+"./src/online.js": "./src/online.js?v=1793329348",
+"./src/pets.js": "./src/pets.js?v=1793329348",
+"./src/player.js": "./src/player.js?v=1793329348",
+"./src/quests.js": "./src/quests.js?v=1793329348",
+"./src/skills.js": "./src/skills.js?v=1793329348",
+"./src/spellfx.js": "./src/spellfx.js?v=1793329348",
+"./src/state.js": "./src/state.js?v=1793329348",
+"./src/stats.js": "./src/stats.js?v=1793329348",
+"./src/ui.js": "./src/ui.js?v=1793329348",
+"./src/util.js": "./src/util.js?v=1793329348",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793329348",
+"./src/world.js": "./src/world.js?v=1793329348",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793329348",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793329348",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793329348",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793329348",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793329348",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793329348",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793329348",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793329348",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793329348",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793329348",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793329348",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793329348"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793328679"></script>
+<script type="module" src="./src/main.js?v=1793329348"></script>
 </body>
 </html>

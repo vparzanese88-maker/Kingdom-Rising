@@ -49,8 +49,11 @@ export function makeRiggedHero(o = {}) {
   // each hero gets its own material so hit flashes don't light up every copy
   skinMesh.material = skinMesh.material.clone();
   const mat = skinMesh.material;
-  const s = (o.size || 1) * (o.height || 1) * 0.96;
-  body.scale.set((o.size || 1) * (o.build || 1) * 0.96, s, (o.size || 1) * (o.build || 1) * 0.96);
+  // a big, heroic frame: taller than the townsfolk; height, weight and muscle sliders shape him
+  const BIG = 1.14, mus = o.muscle || 1;
+  const s = (o.size || 1) * (o.height || 1) * BIG;
+  const wide = (o.size || 1) * (o.build || 1) * BIG * (0.82 + 0.18 * mus);
+  body.scale.set(wide, s, wide * (0.94 + 0.06 * (o.build || 1)));
   root.updateMatrixWorld(true);
 
   // ---- bind-pose measurements ----
@@ -86,6 +89,13 @@ export function makeRiggedHero(o = {}) {
     bones[side + 'Arm'].quaternion.copy(bind[side + 'Arm']);
   }
   model.updateMatrixWorld(true);
+
+  // muscle: thicken arms, thighs and chest (bones scaled across, not along, so limbs keep their length)
+  if (mus !== 1) {
+    const thick = (bn, k) => { const b = bones[bn]; if (!b) return; const c = b.children.find(x => x.isBone); const dir = c ? c.position.clone().normalize() : new THREE.Vector3(0, 1, 0); const ax = [Math.abs(dir.x), Math.abs(dir.y), Math.abs(dir.z)]; const along = ax.indexOf(Math.max(...ax)); const sc = [k, k, k]; sc[along] = 1; b.scale.set(...sc); for (const ch of b.children) if (ch.isBone) ch.scale.set(1 / sc[0], 1 / sc[1], 1 / sc[2]); };
+    for (const bn of ['LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm']) thick(bn, 0.75 + 0.25 * mus);
+    for (const bn of ['LeftUpLeg', 'RightUpLeg']) thick(bn, 0.85 + 0.15 * mus);
+  }
 
   // ---- animation ----
   const mixer = new THREE.AnimationMixer(model);

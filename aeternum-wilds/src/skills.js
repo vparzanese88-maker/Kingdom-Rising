@@ -163,7 +163,7 @@ export function castSkill(slot) {
   const cast = (dur = 0.35, pose = 'cast') => { P.state = 'ability'; P.ability = { id, A: { kind: 'cast' }, t: 0, dur, pose }; };
   castGlow(el, hx, hy, hz);
   sfx('cast_' + el, 0.9);
-  const shot = (dx, dy, dz, extra = {}) => spawnProj({ owner: 'player', x: hx, y: hy, z: hz, dx, dy, dz, speed: n.speed || 36, range: 40, color: col, size: 0.32, pierce: !!n.pierce, explode: n.explode || 0,
+  const shot = (dx, dy, dz, extra = {}) => spawnProj({ owner: 'player', element: el, x: hx, y: hy, z: hz, dx, dy, dz, speed: n.speed || 36, range: 40, color: col, size: 0.32, pierce: !!n.pierce, explode: n.explode || 0,
     onHit: (e, splash) => { abilityHit(e, n.dmg * (splash ? 0.7 : 1), n); if (!splash) { impact(el, e.pos.x, e.y + 1, e.pos.z, n.explode || 1); sfx('impact_' + el, 0.7); } }, ...extra });
   const aimVec = () => { const a = G.input.aimPoint; return a ? [a.x - hx, a.y - hy, a.z - hz] : [Math.sin(P.yaw), 0, Math.cos(P.yaw)]; };
   switch (n.kind) {

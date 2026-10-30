@@ -5,9 +5,26 @@ import { heightAt } from './world.js';
 const tels = [];
 const parts = [];
 const rings = [];
-const pGeo = new THREE.BoxGeometry(1, 1, 1);
+// soft round sprites: glowing (additive) for bright colours, smoky (normal blend) for dark ones
+let glowTex = null;
+function softTex() {
+  if (glowTex) return glowTex;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.85)'); g.addColorStop(0.6, 'rgba(255,255,255,0.25)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(cv); glowTex.colorSpace = THREE.SRGBColorSpace;
+  return glowTex;
+}
 const pMats = new Map();
-const pmat = c => { if (!pMats.has(c)) pMats.set(c, new THREE.MeshBasicMaterial({ color: c, transparent: true })); return pMats.get(c); };
+const pmat = c => {
+  if (!pMats.has(c)) {
+    const col = new THREE.Color(c), lum = col.r * 0.3 + col.g * 0.59 + col.b * 0.11;
+    pMats.set(c, new THREE.SpriteMaterial({ map: softTex(), color: c, transparent: true, depthWrite: false, blending: lum > 0.28 ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: lum > 0.28 ? 1 : 0.75 }));
+  }
+  return pMats.get(c);
+};
+export const spriteMat = pmat;
 
 function telMat(color, op) {
   return new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
@@ -46,16 +63,28 @@ export function removeTelegraph(t) { if (t) t.done = true; }
 export function burst(x, y, z, color, n = 10, speed = 4, life = 0.6, size = 0.15, grav = 9) {
   for (let i = 0; i < n; i++) {
     let p = parts.find(q => !q.alive);
-    if (!p) { if (parts.length > 400) return; p = { mesh: new THREE.Mesh(pGeo, pmat(color)) }; G.scene.add(p.mesh); parts.push(p); }
+    if (!p) { if (parts.length > 700) return; p = { mesh: new THREE.Sprite(pmat(color)) }; G.scene.add(p.mesh); parts.push(p); }
     p.mesh.material = pmat(color);
     p.alive = true; p.mesh.visible = true;
     p.mesh.position.set(x, y, z);
     const a = Math.random() * Math.PI * 2, u = Math.random();
     p.vx = Math.cos(a) * speed * (0.4 + u); p.vz = Math.sin(a) * speed * (0.4 + u); p.vy = speed * (0.5 + Math.random());
     p.life = p.max = life * (0.6 + Math.random() * 0.6);
-    p.size = size * (0.6 + Math.random() * 0.8); p.grav = grav;
+    // sprites read smaller than the old cubes, so draw them a bit larger
+    p.size = size * 2.2 * (0.6 + Math.random() * 0.8); p.grav = grav; p.grow = 0; p.drag = 0;
     p.mesh.scale.setScalar(p.size);
   }
+}
+
+// one particle with an explicit velocity (flame and smoke trails); grow > 0 makes it swell as it fades
+export function puff(x, y, z, color, vx, vy, vz, life, size, grow = 0, drag = 1.5) {
+  let p = parts.find(q => !q.alive);
+  if (!p) { if (parts.length > 700) return; p = { mesh: new THREE.Sprite(pmat(color)) }; G.scene.add(p.mesh); parts.push(p); }
+  p.mesh.material = pmat(color);
+  p.alive = true; p.mesh.visible = true;
+  p.mesh.position.set(x, y, z);
+  p.vx = vx; p.vy = vy; p.vz = vz; p.life = p.max = life; p.size = size; p.grav = 0; p.grow = grow; p.drag = drag;
+  p.mesh.scale.setScalar(size);
 }
 
 // expanding ring on the ground (shockwaves, landing)
@@ -95,8 +124,9 @@ export function updateFx(dt) {
     if (p.life <= 0) { p.alive = false; p.mesh.visible = false; continue; }
     p.vy -= p.grav * dt;
     p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt;
-    p.mesh.scale.setScalar(p.size * (p.life / p.max));
-    p.mesh.rotation.x += dt * 5; p.mesh.rotation.y += dt * 4;
+    const k = p.life / p.max;
+    p.mesh.scale.setScalar(p.grow ? p.size * (1 + (1 - k) * p.grow) : p.size * k);
+    if (p.drag) { p.vx *= 1 - p.drag * dt; p.vz *= 1 - p.drag * dt; p.vy *= 1 - p.drag * dt; }
   }
   for (let i = rings.length - 1; i >= 0; i--) {
     const r = rings[i];

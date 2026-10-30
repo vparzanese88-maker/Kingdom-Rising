@@ -1,6 +1,15 @@
 // Procedural animation for the box-built characters.
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const lerp = (a, b, t) => a + (b - a) * t;
+// smooth keyframes: keys [[time, value], ...] with eased blends between them
+function kf(t, keys) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const [t1, v1] = keys[i];
+    if (t <= t1) { const [t0, v0] = keys[i - 1]; const k = (t - t0) / (t1 - t0 || 1); return v0 + (v1 - v0) * (k * k * (3 - 2 * k)); }
+  }
+  return keys[keys.length - 1][1];
+}
 
 // st: { move 0..1, phase, pose, t (0..1), twoHand, block, draw }
 export function animHumanoid(h, st) {
@@ -14,49 +23,74 @@ export function animHumanoid(h, st) {
   P.upper.rotation.set(h.hunched ? 0.35 : 0, 0, 0);
   P.head.rotation.set(0, 0, 0);
   h.body.rotation.set(0, 0, 0);
+  h.body.position.z = 0;
   h.body.position.y = Math.abs(Math.cos(st.phase || 0)) * 0.06 * mv;
   const t = st.t || 0;
   switch (st.pose) {
     case 'slash': case 'slash2': {
-      const dir = st.pose === 'slash' ? 1 : -1;
-      const k = t < 0.35 ? t / 0.35 * 0.2 : 0.2 + ease((t - 0.35) / 0.65) * 0.8;
-      P.upper.rotation.y = lerp(1.0, -1.2, k) * dir;
-      P.armR.rotation.x = -1.5; P.armR.rotation.z = lerp(-0.4, 0.3, k) * dir;
-      if (st.twoHand) { P.armL.rotation.x = -1.4; P.armL.rotation.z = -0.6; }
-      else P.armL.rotation.x = -0.6;
+      // wind up to one side, whip across the body as the blow lands (hit ~0.45-0.5), follow through, recover
+      const d = st.pose === 'slash' ? 1 : -1;
+      const two = st.twoHand;
+      P.upper.rotation.y = kf(t, [[0, 0], [0.32, 1.05 * d], [0.5, -0.55 * d], [0.72, -1.05 * d], [1, 0]]);
+      P.upper.rotation.x += kf(t, [[0, 0], [0.32, -0.14], [0.52, 0.22], [1, 0]]);
+      P.upper.rotation.z = kf(t, [[0, 0], [0.32, 0.12 * d], [0.55, -0.1 * d], [1, 0]]);
+      P.armR.rotation.x = kf(t, [[0, -0.55], [0.32, two ? -1.95 : -2.1], [0.5, -1.35], [0.75, -1.05], [1, -0.55]]);
+      P.armR.rotation.z = kf(t, [[0, 0], [0.32, d > 0 ? -0.75 : 0.6], [0.5, d > 0 ? 0.25 : -0.3], [0.75, d > 0 ? 0.75 : -0.7], [1, 0]]);
+      if (two) { P.armL.rotation.x = P.armR.rotation.x + 0.12; P.armL.rotation.z = P.armR.rotation.z - 0.5; }
+      else { P.armL.rotation.x = -0.85; P.armL.rotation.z = -0.35; } // shield kept up
+      P.head.rotation.y = -P.upper.rotation.y * 0.6;
+      h.body.position.z = kf(t, [[0, 0], [0.48, 0.22], [1, 0]]);
+      h.body.position.y += kf(t, [[0, 0], [0.5, -0.06], [1, 0]]);
       break;
     }
     case 'thrust': {
-      const k = t < 0.4 ? -t / 0.4 : -1 + ease(Math.min(1, (t - 0.4) / 0.3)) * 2;
-      P.armR.rotation.x = -1.5 + k * 0.1; P.upper.rotation.y = -k * 0.4;
-      P.armL.rotation.x = -1.2;
-      h.body.position.z = Math.max(0, k) * 0.3;
+      // draw the weapon back at the hip, drive it straight forward with a lunge
+      P.armR.rotation.x = kf(t, [[0, -0.7], [0.35, -0.85], [0.55, -1.6], [0.78, -1.5], [1, -0.7]]);
+      P.armR.rotation.z = kf(t, [[0, 0], [0.35, -0.55], [0.55, 0.08], [1, 0]]);
+      P.upper.rotation.y = kf(t, [[0, 0], [0.35, 0.65], [0.55, -0.45], [1, 0]]);
+      P.upper.rotation.x += kf(t, [[0, 0], [0.55, 0.2], [1, 0]]);
+      if (st.twoHand) { P.armL.rotation.x = P.armR.rotation.x + 0.1; P.armL.rotation.z = P.armR.rotation.z - 0.5; }
+      else { P.armL.rotation.x = -1.0; P.armL.rotation.z = -0.4; }
+      P.head.rotation.y = -P.upper.rotation.y * 0.6;
+      h.body.position.z = kf(t, [[0, 0], [0.35, -0.08], [0.58, 0.42], [1, 0]]);
       break;
     }
     case 'overhead': case 'slam': {
-      const k = t < 0.5 ? ease(t / 0.5) : 1 - ease(Math.min(1, (t - 0.5) / 0.2));
-      const x = t < 0.5 ? lerp(-0.4, -2.9, k) : lerp(-0.4, -2.9, k);
-      P.armR.rotation.x = x; P.armL.rotation.x = st.twoHand ? x : -0.5;
-      if (st.twoHand) { P.armR.rotation.z = 0.2; P.armL.rotation.z = -0.2; }
-      P.upper.rotation.x += t < 0.5 ? -0.2 * k : 0.35 * (1 - k);
+      // weapon high behind the head, crash down with the whole body, recover
+      const x = kf(t, [[0, -0.5], [0.42, -3.05], [0.52, -3.1], [0.66, -0.85], [0.82, -0.65], [1, -0.5]]);
+      P.armR.rotation.x = x; P.armR.rotation.z = st.twoHand ? 0.18 : 0.1;
+      if (st.twoHand) { P.armL.rotation.x = x + 0.08; P.armL.rotation.z = -0.3; } else P.armL.rotation.x = -0.6;
+      P.upper.rotation.x += kf(t, [[0, 0], [0.42, -0.3], [0.66, 0.5], [0.85, 0.3], [1, 0]]);
+      P.head.rotation.x = kf(t, [[0, 0], [0.42, -0.2], [0.66, 0.25], [1, 0]]);
+      h.body.position.y += kf(t, [[0, 0], [0.42, 0.05], [0.66, -0.16], [1, 0]]);
+      h.body.position.z = kf(t, [[0, 0], [0.66, 0.25], [1, 0]]);
       break;
     }
     case 'spin': {
-      h.body.rotation.y = ease(t) * Math.PI * 2;
-      P.armR.rotation.x = -1.5; P.armL.rotation.x = -1.5;
-      P.armR.rotation.z = -0.3; P.armL.rotation.z = 0.3;
+      // coil, then a full turn with the weapon held out at arm's length
+      h.body.rotation.y = kf(t, [[0, 0], [0.22, 0.6], [0.8, -Math.PI * 2 + 0.2], [1, -Math.PI * 2]]);
+      P.armR.rotation.x = kf(t, [[0, -0.6], [0.22, -1.2], [0.35, -1.5], [0.85, -1.45], [1, -0.6]]);
+      P.armR.rotation.z = kf(t, [[0, 0], [0.22, -0.7], [0.4, -0.35], [1, 0]]);
+      P.armL.rotation.x = P.armR.rotation.x + 0.1; P.armL.rotation.z = P.armR.rotation.z - 0.55;
+      P.upper.rotation.x += kf(t, [[0, 0], [0.3, 0.15], [0.85, 0.1], [1, 0]]);
+      h.body.position.y += kf(t, [[0, 0], [0.22, -0.1], [0.5, 0], [1, 0]]);
       break;
     }
     case 'draw': {
-      const d = st.draw || 0;
-      P.armL.rotation.x = -1.55; P.armL.rotation.z = -0.15;
-      P.armR.rotation.x = -1.55 + d * 0.15; P.armR.rotation.z = 0.5 + d * 0.5;
-      P.upper.rotation.y = 0.35;
+      // side-on stance, bow arm out straight, string hand pulled back to the cheek
+      const d = ease(st.draw || 0);
+      P.upper.rotation.y = 0.55 + d * 0.25;
+      P.head.rotation.y = -(0.55 + d * 0.25);
+      P.armL.rotation.x = -1.55; P.armL.rotation.z = -0.25 - d * 0.15;
+      P.armR.rotation.x = -1.45 - d * 0.1; P.armR.rotation.z = 0.35 + d * 0.75;
+      P.upper.rotation.x += -0.05 * d;
       break;
     }
     case 'shoot': {
-      P.armL.rotation.x = -1.55; P.armR.rotation.x = -1.3; P.armR.rotation.z = 0.4 * (1 - t);
-      P.upper.rotation.y = 0.35 * (1 - t);
+      // release: the string hand snaps back past the ear, bow arm recoils slightly
+      P.upper.rotation.y = 0.8 * (1 - ease(t)); P.head.rotation.y = -P.upper.rotation.y;
+      P.armL.rotation.x = -1.55 + t * 0.3; P.armL.rotation.z = -0.4;
+      P.armR.rotation.x = kf(t, [[0, -1.55], [0.25, -1.75], [1, -0.7]]); P.armR.rotation.z = kf(t, [[0, 1.1], [0.25, 1.45], [1, 0.2]]);
       break;
     }
     case 'block': {
@@ -98,8 +132,12 @@ export function animHumanoid(h, st) {
       break;
     }
     case 'windup': {
-      P.armR.rotation.x = lerp(-0.5, -2.6, Math.min(1, t * 1.5)); P.armL.rotation.x = st.twoHand ? P.armR.rotation.x : -0.6;
-      P.upper.rotation.y = 0.5 * Math.min(1, t * 2);
+      // charging a heavy attack: coil back, weapon raised, weight dropped
+      const k = ease(Math.min(1, t * 1.6));
+      P.armR.rotation.x = lerp(-0.5, -2.5, k); P.armR.rotation.z = -0.35 * k;
+      if (st.twoHand) { P.armL.rotation.x = P.armR.rotation.x + 0.1; P.armL.rotation.z = P.armR.rotation.z - 0.5; } else { P.armL.rotation.x = -0.9; P.armL.rotation.z = -0.35; }
+      P.upper.rotation.y = 0.7 * k; P.upper.rotation.x += -0.15 * k; P.head.rotation.y = -0.45 * k;
+      h.body.position.y -= 0.07 * k;
       break;
     }
     case 'aim': {

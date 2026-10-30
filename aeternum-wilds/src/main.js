@@ -29,6 +29,8 @@ const $ = id => document.getElementById(id);
 
 // ---------- Settings ----------
 const SET_KEY = 'aeternum-wilds-settings';
+// ranged weapons that zoom with right-click (only the bow exists so far)
+const ZOOM_WEAPONS = new Set(['bow', 'crossbow', 'musket', 'blunderbuss']);
 const S = Object.assign({ sens: 1, fov: 70, quality: 'medium', volume: 0.6, invertY: false, autoFS: true, view: 'third' }, (() => { try { return JSON.parse(localStorage.getItem(SET_KEY)) || {}; } catch (e) { return {}; } })());
 if (S.v !== 2) { S.v = 2; S.view = 'third'; } // the game now plays over the shoulder by default
 // graphics levels; 'superultra' is a joke option that falls back to ultra
@@ -153,7 +155,7 @@ let camDist = S.view === 'third' ? 3.6 : 0, camDistT = camDist;
 addEventListener('mousemove', e => {
   inp.mx = e.clientX; inp.my = e.clientY;
   if (!G.locked || !G.player) return;
-  const k = 0.0022 * S.sens * (S.fov / 75);
+  const k = 0.0022 * S.sens * (camera.fov / 75);
   G.player.yaw -= e.movementX * k;
   G.player.pitch = clamp(G.player.pitch - e.movementY * k * (S.invertY ? -1 : 1), -1.45, 1.35);
   vmLook(e.movementX, e.movementY);
@@ -453,7 +455,7 @@ function creator() {
       ${sliders(BODY_SLIDERS)}
       <div class="look"><span>Skin</span>${sw(SKIN_TONES, 'skin')}</div>`;
   } else {
-    body = `${sliders(FACE_SLIDERS)}
+    body = `${L.model === 'barbarian' ? '<p class="cdesc">The sculpted barbarian has his own face and hair. To shape a face with these sliders, pick <b>Custom</b> on the Body tab.</p>' : ''}${sliders(FACE_SLIDERS)}
       <div class="look"><span>Eyes</span>${sw(EYE_COLORS, 'eyeColor')}</div>
       <div class="look"><span>Hair</span>${sw(HAIR_COLORS, 'hair')}</div>
       <div class="look"><span>Style</span>${HAIR_STYLES.map((h, i) => `<button class="hs ${L.hairStyle === i ? 'on' : ''}" data-hs="${i}">${h}</button>`).join('')}</div>
@@ -565,6 +567,12 @@ function loop() {
     }
     // camera
     camDist += (camDistT - camDist) * Math.min(1, dt * 10);
+    // aiming down a bow (and later crossbows, muskets, blunderbusses): hold right-click to zoom
+    const wt = G.p.equip[G.p.activeW ? 'w2' : 'w1']?.wtype;
+    const wantZoom = ZOOM_WEAPONS.has(wt) && inp.rmb && P.state !== 'dead' && P.state !== 'dodge' && !G.paused;
+    G.zoomK = (G.zoomK || 0) + ((wantZoom ? 1 : 0) - (G.zoomK || 0)) * Math.min(1, dt * 10);
+    const fov = S.fov * (1 - 0.52 * G.zoomK);
+    if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     const third = camDist > 0.3;
     const eyeH = 1.62 * (P.h.size || 1);
     const [shx, shy] = shakeOffset(dt);
@@ -576,8 +584,9 @@ function loop() {
     const fx = Math.sin(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch), fz = Math.cos(P.yaw) * Math.cos(P.pitch);
     if (third) {
       const rx = -Math.cos(P.yaw), rz = Math.sin(P.yaw);
-      const sh = Math.min(1, camDist / 3.6) * 0.95; // shoulder offset to the right
-      let cx = P.pos.x - fx * camDist + rx * sh, cy = P.y + (P.jumpY || 0) + 1.8 * (P.h.size || 1) - fy * camDist + 0.15, cz = P.pos.z - fz * camDist + rz * sh;
+      const sh = Math.min(1, camDist / 3.6) * 0.95 + 0.25 * G.zoomK; // shoulder offset to the right
+      const cd = camDist * (1 - 0.45 * G.zoomK);
+      let cx = P.pos.x - fx * cd + rx * sh, cy = P.y + (P.jumpY || 0) + 1.8 * (P.h.size || 1) - fy * cd + 0.15, cz = P.pos.z - fz * cd + rz * sh;
       cy = Math.max(cy, heightAt(cx, cz) + 0.4);
       camera.position.set(cx + shx * 0.3, cy + shy * 0.3, cz);
     } else camera.position.set(P.pos.x + fx * 0.12 + shx * 0.15, ey + shy * 0.15, P.pos.z + fz * 0.12);

@@ -7,7 +7,7 @@ import { heroRigReady, makeRiggedHero } from './gfx/herorig.js';
 import { makeHumanoid, dressHumanoid, makeWeapon, box, mat } from './models.js';
 import { animHumanoid } from './anim.js';
 import { heightAt, walkable, collide, zoneAt } from './world.js';
-import { telegraph, burst, shockRing, shake, later } from './fx.js';
+import { telegraph, burst, shockRing, shake, later, puff, spriteMat } from './fx.js';
 import { stats, activeWeapon, activeWType, gainXp, gainMastery, gainTrade } from './stats.js';
 import { weaponDmg, addMat, matCount } from './items.js';
 import { floatText, selfText, toast, showDeath, castBar, refreshHud } from './ui.js';
@@ -41,7 +41,7 @@ export function createPlayer() {
 // Build a character model from a profile (race, look); also used by the character creator
 export function makeCharacter(p) {
   const L = p.look || {};
-  if (L.model === 'barbarian' && heroRigReady()) return makeRiggedHero({ height: L.height || 1, build: L.weight || 1 });
+  if (L.model === 'barbarian' && heroRigReady()) return makeRiggedHero({ height: L.height || 1, build: L.weight || 1, muscle: L.muscle || 1 });
   if (L.model === 'barbarian' && meshyReady()) return makeHero({ height: L.height || 1, build: L.weight || 1 });
   return makeHumanoid({
     sex: L.sex || 'm', skin: L.skin ?? 0xe0ac84, hair: L.hair ?? 0x5a3a1e, hairStyle: L.hairStyle ?? 0, eyeColor: L.eyeColor,
@@ -228,30 +228,70 @@ export function respawn() {
 // 3D: (dx, dy, dz) is a unit direction
 const arrowGeo = new THREE.BoxGeometry(0.05, 0.05, 0.9);
 const tip = new THREE.ConeGeometry(0.05, 0.16, 4); tip.rotateX(Math.PI / 2); tip.translate(0, 0, 0.5);
+// gravity on everything that flies: arrows drop like real arrows, fire bolts arc, spells drift down slowly
+export const ARROW_G = 9.8;
+const isFire = c => { const col = new THREE.Color(c); return col.r > 0.75 && col.g < 0.75 && col.b < 0.35; };
+let projLight = null;
+function fireBolt(size) {
+  const g = new THREE.Group();
+  const core = new THREE.Sprite(spriteMat(0xfff2c0)); core.scale.setScalar(size * 2.4); g.add(core);
+  const halo = new THREE.Sprite(spriteMat(0xff8a2a)); halo.scale.setScalar(size * 5); g.add(halo);
+  g.userData.core = core; g.userData.halo = halo;
+  return g;
+}
 export function spawnProj(o) {
   let mesh;
-  if (o.color) { mesh = new THREE.Mesh(new THREE.SphereGeometry(o.size || 0.25, 10, 8), new THREE.MeshBasicMaterial({ color: o.color })); }
-  else {
+  const fire = o.fire ?? (o.element === 'fire' || (o.color != null && isFire(o.color)));
+  if (fire) mesh = fireBolt(o.size || 0.25);
+  else if (o.color) {
+    mesh = new THREE.Group();
+    const core = new THREE.Sprite(spriteMat(0xffffff)); core.scale.setScalar((o.size || 0.25) * 2); mesh.add(core);
+    const halo = new THREE.Sprite(spriteMat(o.color)); halo.scale.setScalar((o.size || 0.25) * 4.5); mesh.add(halo);
+    mesh.userData.halo = halo;
+  } else {
     mesh = new THREE.Group();
     mesh.add(new THREE.Mesh(arrowGeo, mat(o.owner === 'player' ? (o.poison ? 0x6adf3a : o.pierce ? 0xffe070 : 0xd8c8a0) : 0x5a4a3a)));
     mesh.add(new THREE.Mesh(tip, mat(0x8a8a90)));
+    for (const sgn of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.14), new THREE.MeshLambertMaterial({ color: 0xe8e0d0, side: THREE.DoubleSide })); f.position.set(0, 0, -0.4); f.rotation.set(0, sgn > 0 ? 0 : Math.PI / 2, 0); mesh.add(f); }
   }
   if (o.dy == null) o.dy = 0;
   const l = Math.hypot(o.dx, o.dy, o.dz) || 1; o.dx /= l; o.dy /= l; o.dz /= l;
+  const g = o.grav ?? (o.color ? (fire ? 5 : 2.5) : ARROW_G);
+  const v = { x: o.dx * o.speed, y: o.dy * o.speed, z: o.dz * o.speed };
+  // enemies lead their shots for the drop so their arrows still find the player
+  if (o.owner === 'enemy' && G.player) { const D = Math.hypot(G.player.pos.x - o.x, G.player.pos.z - o.z); v.y += 0.5 * g * (D / o.speed); }
   mesh.position.set(o.x, o.y, o.z);
-  mesh.lookAt(o.x + o.dx, o.y + o.dy, o.z + o.dz);
+  mesh.lookAt(o.x + v.x, o.y + v.y, o.z + v.z);
   G.scene.add(mesh);
-  G.projectiles.push({ ...o, mesh, life: (o.range || 30) / o.speed, hit: new Set() });
+  G.projectiles.push({ ...o, fire, g, v, mesh, life: (o.range || 30) / o.speed * 1.6, hit: new Set(), age: 0 });
 }
 
 export function updateProjectiles(dt) {
   const P = G.player;
   for (let i = G.projectiles.length - 1; i >= 0; i--) {
     const pr = G.projectiles[i];
-    pr.life -= dt;
-    pr.x += pr.dx * pr.speed * dt; pr.y += pr.dy * pr.speed * dt; pr.z += pr.dz * pr.speed * dt;
+    pr.life -= dt; pr.age += dt;
+    pr.v.y -= pr.g * dt;
+    pr.x += pr.v.x * dt; pr.y += pr.v.y * dt; pr.z += pr.v.z * dt;
+    pr.dx = pr.v.x; pr.dz = pr.v.z;
     pr.mesh.position.set(pr.x, pr.y, pr.z);
-    if (pr.color && Math.random() < 0.6) burst(pr.x, pr.y, pr.z, pr.color, 1, 0.6, 0.3, (pr.size || 0.25) * 0.8, 0);
+    if (!pr.color) pr.mesh.lookAt(pr.x + pr.v.x, pr.y + pr.v.y, pr.z + pr.v.z); // arrows nose down as they fall
+    if (pr.fire) {
+      // living flame: flickering core, licks of fire peeling off behind it, a little smoke
+      const s = pr.size || 0.25, u = pr.mesh.userData;
+      u.core.scale.setScalar(s * (2.1 + Math.random() * 0.7));
+      u.halo.scale.setScalar(s * (4.2 + Math.random() * 1.6));
+      const back = 1 / (Math.hypot(pr.v.x, pr.v.y, pr.v.z) || 1);
+      for (let k = 0; k < 3; k++) {
+        const c = [0xffe080, 0xffa040, 0xff6a1a, 0xe0401a][Math.floor(Math.random() * 4)];
+        puff(pr.x + (Math.random() - 0.5) * s, pr.y + (Math.random() - 0.5) * s, pr.z + (Math.random() - 0.5) * s, c,
+          -pr.v.x * back * 1.5 + (Math.random() - 0.5), 0.8 + Math.random() * 1.2, -pr.v.z * back * 1.5 + (Math.random() - 0.5), 0.25 + Math.random() * 0.2, s * (1.6 + Math.random()), 0, 2);
+      }
+      if (Math.random() < 0.35) puff(pr.x, pr.y, pr.z, 0x2a2420, (Math.random() - 0.5) * 0.4, 1 + Math.random(), (Math.random() - 0.5) * 0.4, 0.8, s * 1.4, 1.6, 1);
+      if (Math.random() < 0.5) puff(pr.x, pr.y, pr.z, 0xffd060, (Math.random() - 0.5) * 3, Math.random() * 3, (Math.random() - 0.5) * 3, 0.5, 0.05, 0, 0.5);
+      if (!projLight) { projLight = new THREE.PointLight(0xff8a30, 0, 12, 1.6); G.scene.add(projLight); }
+      projLight.position.set(pr.x, pr.y, pr.z); projLight.intensity = 18 + Math.random() * 8; projLight.userData.t = 0.06;
+    } else if (pr.color && Math.random() < 0.7) puff(pr.x, pr.y, pr.z, pr.color, 0, 0.3, 0, 0.35, (pr.size || 0.25) * 1.6, 0, 1);
     let dead = pr.life <= 0 || pr.y < heightAt(pr.x, pr.z) || collide(pr.x, pr.z, 0.05)[0] !== pr.x;
     if (!dead && pr.owner === 'player') {
       for (const e of enemiesNear(pr.x, pr.z, 3)) {
@@ -265,22 +305,35 @@ export function updateProjectiles(dt) {
       }
     } else if (!dead && pr.owner === 'enemy' && P.state !== 'dead') {
       if (Math.hypot(P.pos.x - pr.x, P.pos.z - pr.z) < 0.65 && pr.y > P.y - 0.3 && pr.y < P.y + 2.2) {
-        hurtPlayer(pr.dmg, { x: pr.x - pr.dx, z: pr.z - pr.dz, lv: pr.lv }, { poison: pr.poison });
+        hurtPlayer(pr.dmg, { x: pr.x - pr.v.x * 0.05, z: pr.z - pr.v.z * 0.05, lv: pr.lv }, { poison: pr.poison });
         if (P.iframes <= 0) dead = true;
       }
     }
     if (dead) {
+      if (pr.fire) {
+        // fire bursts: flash, flames, embers and a smoke plume
+        for (let k = 0; k < 14; k++) { const a = Math.random() * 6.28, sp = 1.5 + Math.random() * 3; puff(pr.x, pr.y, pr.z, [0xffe080, 0xffa040, 0xff6a1a][k % 3], Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.35 + Math.random() * 0.25, 0.35 + Math.random() * 0.3, 0, 3); }
+        for (let k = 0; k < 6; k++) puff(pr.x, pr.y + 0.2, pr.z, 0x2a2420, (Math.random() - 0.5) * 1.2, 1.2 + Math.random(), (Math.random() - 0.5) * 1.2, 1.1, 0.4, 2.2, 1);
+        burst(pr.x, pr.y, pr.z, 0xffd060, 10, 5, 0.6, 0.04, 6);
+        sfx('impact_fire', 0.7);
+      }
       if (pr.owner === 'player' && pr.explode) {
         shockRing(pr.x, pr.z, pr.explode, pr.color || 0xff8a3a, 0.35);
         burst(pr.x, pr.y, pr.z, pr.color || 0xff8a3a, 16, 5, 0.5);
         sfx('boom', 0.5);
         for (const e of enemiesNear(pr.x, pr.z, pr.explode + 2)) if (!e.dead && !pr.hit.has(e) && Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < pr.explode + e.radius) { if (pr.onHit) pr.onHit(e, true); else hitEnemy(e, pr.mult * 0.7, pr.kind, pr.opts || {}); }
+      } else if (!pr.color && !pr.hit.size) {
+        // arrows that miss stick in the ground for a while
+        const stuck = pr.mesh; stuck.position.y = Math.max(stuck.position.y, heightAt(pr.x, pr.z) + 0.25);
+        G.projectiles.splice(i, 1);
+        setTimeout(() => G.scene.remove(stuck), 8000);
+        continue;
       }
       G.scene.remove(pr.mesh);
-      if (pr.mesh.isMesh) { pr.mesh.geometry.dispose(); pr.mesh.material.dispose(); }
       G.projectiles.splice(i, 1);
     }
   }
+  if (projLight && projLight.userData.t > 0) { projLight.userData.t -= dt; if (projLight.userData.t <= 0) projLight.intensity = 0; }
 }
 
 // where an arrow leaves the player and which way it flies (toward whatever the crosshair is on)

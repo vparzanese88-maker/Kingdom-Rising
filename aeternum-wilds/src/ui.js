@@ -5,7 +5,7 @@ import { classDef, ensureSkills, rankOf, spentInTree, canLearn, learn, resetSkil
 import { LOADS, ARMOR_CLASS, RARITY, PERKS, WEAPONS, ABILITIES, MASTERY, ATTRS, ATTR_INFO, MATS, TRADES, RECIPES, STATIONS, SLOT_NAMES, SLOT_ICONS, ZONES, ENEMIES, NPCS, STORY, xpForLevel, xpForMastery, xpForTrade, MAX_LEVEL, MAX_MASTERY, ARMOR_SLOTS } from './data.js';
 import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, unlockNode, resetTree, masteryNode, gainTrade, gainXp, masteryPoints } from './stats.js';
 import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
-import { refreshLook, respawn } from './player.js';
+import { refreshLook, respawn, ARROW_G } from './player.js';
 import { thorneDialog, currentStory, objProgress, fillBounties, turnInBounty, abandonBounty, questEvent } from './quests.js';
 import { buildMapImage, zoneAt, levelAt, POI, ISLAND_R } from './world.js';
 import { sfx, setVolume, volume } from './audio.js';
@@ -156,6 +156,19 @@ export function updateHud(dt) {
   const xh = $('xhair');
   xh.classList.toggle('foe', !!G.input.aimEnemy);
   xh.style.setProperty('--gap', `${P.state === 'draw' ? 14 - P.draw * 10 : 6}px`);
+  // range-finder while zoomed: distance to the target and where a full-draw arrow drops at 20-50 m
+  const zk = G.zoomK || 0, scope = $('scope');
+  if (zk > 0.35) {
+    scope.style.display = 'block'; scope.style.opacity = Math.min(1, (zk - 0.35) * 3);
+    const a = G.input.aimPoint, cam = G.camera;
+    const dist = a ? Math.hypot(a.x - P.pos.x, a.y - P.y - 1.5, a.z - P.pos.z) : 0;
+    $('scopeDist').textContent = a && dist < 78 ? `${Math.round(dist)} m` : '—';
+    const pxPerTan = (innerHeight / 2) / Math.tan(cam.fov * Math.PI / 360), sp = WEAPONS.bow.speed;
+    for (const el of scope.querySelectorAll('.tick')) {
+      const D = +el.dataset.d, tt = D / sp, drop = 0.5 * ARROW_G * tt * tt;
+      el.style.transform = `translateY(${(drop / D) * pxPerTan}px)`;
+    }
+  } else scope.style.display = 'none';
   $('vignette').classList.toggle('low', P.hp / s.maxHp < 0.3 && P.state !== 'dead');
   drawCompass();
   // cooldowns

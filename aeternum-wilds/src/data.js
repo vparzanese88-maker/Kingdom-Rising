@@ -57,7 +57,7 @@ export const WEAPONS = {
   // magic staff: click fires a bolt, hold for a charged blast that bursts on impact
   staff: {
     name: 'Staff', short: 'Staff', icon: '🪄', scale: { int: 1.0 },
-    dmg: 26, block: 0, blockCost: 1, speed: 34, range: 32, magic: true,
+    dmg: 26, block: 0, blockCost: 1, speed: 28, range: 32, magic: true,
     light: { time: 0.5, hit: 0.35, mult: 1.0, combo: 2 },
     heavy: { time: 0.8, hit: 0.55, mult: 2.0, explode: 2.8 },
     tiers: ['Ash Staff', 'Starmetal Staff', 'Wyrdwood Staff'],

@@ -314,6 +314,14 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
 .trees3 small { display: block; color: var(--dim); } .trees3 ul { margin: 4px 0 0; padding-left: 0; list-style: none; }
 .ctabs { margin: 10px 0 4px; }
 .sl { display: flex; align-items: center; gap: 10px; margin: 6px 0; } .sl span { width: 90px; color: var(--dim); } .sl input { flex: 1; accent-color: var(--gold); }
+
+/* bow range-finder */
+#scope { display: none; position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+#scopeDist { position: absolute; left: 22px; top: -26px; font: 700 15px Cinzel, serif; color: #fff; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+#scope .tick { position: absolute; left: -9px; top: 0; width: 18px; }
+#scope .tick i { display: block; height: 2px; background: rgba(255,230,160,.9); box-shadow: 0 0 2px #000; }
+#scope .tick span { position: absolute; left: 22px; top: -8px; font: 600 11px Cinzel, serif; color: #ffe6a0; text-shadow: 0 1px 2px #000; }
+#scope::before { content: ''; position: absolute; left: -1px; top: 6px; width: 2px; height: 120px; background: linear-gradient(rgba(255,230,160,.5), transparent); }
 </style>
 </head>
 <body>
@@ -351,6 +359,7 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
   <canvas id="compass" width="560" height="34"></canvas>
   <div id="xhair"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="selftext"></div>
+  <div id="scope"><div id="scopeDist"></div><div class="tick" data-d="20"><i></i><span>20</span></div><div class="tick" data-d="30"><i></i><span>30</span></div><div class="tick" data-d="40"><i></i><span>40</span></div><div class="tick" data-d="50"><i></i><span>50</span></div></div>
 </div>
 <div id="vignette"></div>
 <div id="resume"><div><h2>Paused</h2><p>Click to keep playing</p></div></div>

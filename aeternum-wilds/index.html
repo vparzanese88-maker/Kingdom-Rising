@@ -474,6 +474,44 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 .home.t2 #homeside { left: calc(6vw + min(440px, 88vw) + 40px); top: 50%; transform: translateY(-50%); }
 @media (max-width: 900px) { .home.t2 #homeside { left: 6vw; top: auto; bottom: 3vh; transform: none; } }
 @media (max-height: 640px) { .t2btn { min-height: 58px; padding: 8px 16px; } .t2btn b { font-size: 20px; } .t2crest { display: none; } .t2col { gap: 2vh; } }
+
+/* ---------- title screen (cinematic) ---------- */
+.home.t3 { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5vh 4vw 4vh; box-sizing: border-box; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, rgba(0,0,0,0) 0%, rgba(4,3,2,.35) 55%, rgba(4,3,2,.85) 100%), linear-gradient(0deg, rgba(4,3,2,.92) 0%, rgba(4,3,2,0) 42%), linear-gradient(180deg, rgba(4,3,2,.7) 0%, rgba(4,3,2,0) 30%); }
+.t3head { text-align: center; position: relative; z-index: 2; animation: t3in 1.2s ease-out both; }
+.t3crest { font-size: clamp(38px, 5vh, 60px); color: #f1d58a; text-shadow: 0 0 30px rgba(255,190,80,.8); animation: t3pulse 3s ease-in-out infinite; line-height: 1; }
+.t3name { margin: 4px 0 0; font: 900 clamp(54px, 11vw, 150px)/.86 Cinzel, serif; letter-spacing: .05em; text-transform: uppercase; }
+.t3name span { display: block; background: linear-gradient(180deg, #fff6d8 0%, #f1d58a 38%, #c8902e 62%, #f7dd96 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 6px 0 rgba(60,30,4,.85)) drop-shadow(0 0 28px rgba(255,170,60,.45)); }
+.t3name .b { font-size: .62em; letter-spacing: .42em; margin-left: .42em; }
+.t3name .a { animation: t3glow 4s ease-in-out infinite; }
+.t3tag { margin: 14px auto 0; max-width: 640px; color: #f2e6c8; font: 400 clamp(16px, 2vh, 21px) 'EB Garamond', Georgia, serif; text-shadow: 0 2px 8px #000; letter-spacing: .02em; }
+.t3nav { width: min(1180px, 94vw); position: relative; z-index: 2; animation: t3up 1s .25s ease-out both; }
+.t3cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.t3card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: clamp(130px, 19vh, 190px); padding: 16px 12px; border-radius: 14px; overflow: hidden; cursor: pointer;
+  background: linear-gradient(180deg, rgba(120,84,28,.92), rgba(54,36,14,.94) 60%, rgba(22,14,6,.96)); border: 1px solid rgba(241,213,138,.6);
+  box-shadow: 0 10px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,236,180,.35), inset 0 -20px 40px rgba(0,0,0,.35); color: #fff3d6; transition: transform .16s, box-shadow .16s, border-color .16s, filter .16s; }
+.t3card::before { content: ''; position: absolute; inset: -40% -60%; background: linear-gradient(105deg, transparent 40%, rgba(255,240,200,.28) 50%, transparent 60%); transform: translateX(-60%); transition: transform .6s; }
+.t3card:hover { transform: translateY(-8px) scale(1.03); border-color: #ffe9b0; filter: brightness(1.15); box-shadow: 0 18px 46px rgba(0,0,0,.65), 0 0 34px rgba(255,190,90,.5), inset 0 1px 0 rgba(255,236,180,.5); }
+.t3card:hover::before { transform: translateX(60%); }
+.t3card:active { transform: translateY(-4px) scale(1.01); }
+.t3card i { font-style: normal; font-size: clamp(34px, 5vh, 52px); filter: drop-shadow(0 4px 8px rgba(0,0,0,.6)); }
+.t3card b { font: 700 clamp(20px, 2.6vh, 28px)/1.05 Cinzel, serif; color: #ffe9b0; letter-spacing: .05em; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+.t3card small { font: 400 clamp(13px, 1.6vh, 16px)/1.25 'EB Garamond', Georgia, serif; color: #ecdcb8; text-align: center; }
+.t3small { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.t3small button { min-width: 150px; padding: 10px 18px; border-radius: 99px; font: 600 15px Cinzel, serif; background: rgba(16,12,7,.72); border: 1px solid rgba(241,213,138,.35); color: #ecdcb8; transition: all .14s; }
+.t3small button:hover { border-color: #ffe9b0; color: #fff3d6; background: rgba(70,50,20,.85); }
+.home.t3 #homeside { position: relative; left: auto; top: auto; transform: none; width: auto; max-width: min(560px, 92vw); max-height: 34vh; overflow: auto; z-index: 3; }
+.home.t3 #homeside:empty { display: none; }
+.t3embers { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.t3embers span { position: absolute; bottom: -10px; width: calc(5px * var(--s)); height: calc(5px * var(--s)); border-radius: 50%; background: radial-gradient(circle, #fff2c0, #ffae3a 45%, rgba(255,120,20,0) 70%); box-shadow: 0 0 10px #ff9a30; opacity: 0; animation: t3ember linear infinite; }
+@keyframes t3ember { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: .9; } 80% { opacity: .6; } 100% { transform: translate(var(--dx), -92vh); opacity: 0; } }
+@keyframes t3pulse { 0%, 100% { transform: scale(1); text-shadow: 0 0 24px rgba(255,190,80,.6); } 50% { transform: scale(1.08); text-shadow: 0 0 44px rgba(255,200,90,1); } }
+@keyframes t3glow { 0%, 100% { filter: drop-shadow(0 6px 0 rgba(60,30,4,.85)) drop-shadow(0 0 22px rgba(255,170,60,.35)); } 50% { filter: drop-shadow(0 6px 0 rgba(60,30,4,.85)) drop-shadow(0 0 40px rgba(255,180,70,.75)); } }
+@keyframes t3in { from { opacity: 0; transform: translateY(-30px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes t3up { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@media (max-width: 860px) { .t3cards { grid-template-columns: 1fr 1fr; } .t3card { min-height: 110px; } .t3small button { min-width: 0; flex: 1; } }
+@media (max-height: 640px) { .t3tag { display: none; } .t3card { min-height: 96px; } .t3card small { display: none; } }
 </style>
 </head>
 <body>
@@ -530,47 +568,47 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793405716",
-"./src/audio.js": "./src/audio.js?v=1793405716",
-"./src/classes.js": "./src/classes.js?v=1793405716",
-"./src/combatfx.js": "./src/combatfx.js?v=1793405716",
-"./src/data.js": "./src/data.js?v=1793405716",
-"./src/enemies.js": "./src/enemies.js?v=1793405716",
-"./src/fx.js": "./src/fx.js?v=1793405716",
-"./src/items.js": "./src/items.js?v=1793405716",
-"./src/life.js": "./src/life.js?v=1793405716",
-"./src/main.js": "./src/main.js?v=1793405716",
-"./src/models.js": "./src/models.js?v=1793405716",
-"./src/net.js": "./src/net.js?v=1793405716",
-"./src/online.js": "./src/online.js?v=1793405716",
-"./src/pets.js": "./src/pets.js?v=1793405716",
-"./src/player.js": "./src/player.js?v=1793405716",
-"./src/quests.js": "./src/quests.js?v=1793405716",
-"./src/skills.js": "./src/skills.js?v=1793405716",
-"./src/spellfx.js": "./src/spellfx.js?v=1793405716",
-"./src/state.js": "./src/state.js?v=1793405716",
-"./src/stats.js": "./src/stats.js?v=1793405716",
-"./src/ui.js": "./src/ui.js?v=1793405716",
-"./src/util.js": "./src/util.js?v=1793405716",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793405716",
-"./src/wars.js": "./src/wars.js?v=1793405716",
-"./src/world.js": "./src/world.js?v=1793405716",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793405716",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793405716",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793405716",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793405716",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793405716",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793405716",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793405716",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793405716",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793405716",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793405716",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793405716",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793405716"
+"./src/anim.js": "./src/anim.js?v=1793405996",
+"./src/audio.js": "./src/audio.js?v=1793405996",
+"./src/classes.js": "./src/classes.js?v=1793405996",
+"./src/combatfx.js": "./src/combatfx.js?v=1793405996",
+"./src/data.js": "./src/data.js?v=1793405996",
+"./src/enemies.js": "./src/enemies.js?v=1793405996",
+"./src/fx.js": "./src/fx.js?v=1793405996",
+"./src/items.js": "./src/items.js?v=1793405996",
+"./src/life.js": "./src/life.js?v=1793405996",
+"./src/main.js": "./src/main.js?v=1793405996",
+"./src/models.js": "./src/models.js?v=1793405996",
+"./src/net.js": "./src/net.js?v=1793405996",
+"./src/online.js": "./src/online.js?v=1793405996",
+"./src/pets.js": "./src/pets.js?v=1793405996",
+"./src/player.js": "./src/player.js?v=1793405996",
+"./src/quests.js": "./src/quests.js?v=1793405996",
+"./src/skills.js": "./src/skills.js?v=1793405996",
+"./src/spellfx.js": "./src/spellfx.js?v=1793405996",
+"./src/state.js": "./src/state.js?v=1793405996",
+"./src/stats.js": "./src/stats.js?v=1793405996",
+"./src/ui.js": "./src/ui.js?v=1793405996",
+"./src/util.js": "./src/util.js?v=1793405996",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793405996",
+"./src/wars.js": "./src/wars.js?v=1793405996",
+"./src/world.js": "./src/world.js?v=1793405996",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793405996",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793405996",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793405996",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793405996",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793405996",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793405996",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793405996",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793405996",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793405996",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793405996",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793405996",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793405996"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793405716"></script>
+<script type="module" src="./src/main.js?v=1793405996"></script>
 </body>
 </html>

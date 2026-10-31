@@ -924,34 +924,49 @@ const OST_EX = [[0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 3, 2, 1, 2, 1], [0, 2, 1, 2, 0
 const OST_CB = [[0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 1, 0, 3, 2, 1, 0], [0, 2, 0, 2, 1, 2, 0, 2, 0, 2, 0, 2, 3, 2, 1, 2], [0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 2, 3, 0, 2, 1]];
 
 const STATES = {
+  // the title screen: an epic, booming war theme - pounding taiko and timpani, driving low strings,
+  // brass stabs, a soaring horn melody over a full choir, crashes and huge low booms at each new phrase
   title: {
-    bpm: 54, root: 50, mode: 'aeolian', fixed: true, melProb: 0.95,
-    progs: [[0, 5, 3, 4], [0, 3, 5, 6], [0, 6, 5, 4], [5, 3, 0, 6]],
-    cells: [[8, 8], [12, 4], [16], [6, 2, 8], [4, 4, 8]], range: [0, 9],
+    bpm: 92, root: 50, mode: 'aeolian', fixed: true, melProb: 1,
+    progs: [[0, 5, 3, 4], [0, 6, 5, 4], [0, 3, 6, 4], [0, 5, 6, 4]],
+    cells: [[4, 4, 8], [6, 2, 8], [8, 4, 4], [2, 2, 4, 8], [12, 4]], range: [2, 10],
     step(p, s, t) {
-      const L = p.spb * 16, dr = bus(p, 'drum', 0, 0.55);
+      const L = p.spb * 16, dr = bus(p, 'drum', 0, 0.45), bar = p.bar % 8, intro = p.bar < 2;
+      // drums: a war-drum groove, a rising roll into every fourth bar
+      const groove = [1, 0, 0, 0.55, 0, 0, 0.75, 0, 1, 0, 0, 0.55, 0, 0, 0.7, 0.4];
+      if (!intro && groove[s]) INS.taiko(dr, t, 0.42 * groove[s], s % 8 === 0 ? 0.85 : 1.1);
+      if (intro && s === 0) INS.taiko(dr, t, 0.5, 0.75);
+      if (p.bar % 4 === 3 && s >= 8) INS.taiko(dr, t, 0.12 + (s - 8) * 0.045, 1.25);
+      if (s === 0) INS.timp(dr, t, p.key.root, 0.32);
+      if (s === 8 && !intro) INS.timp(dr, t, ct(p, 2, -1), 0.2);
+      // phrase starts: crash and a deep boom
+      if (s === 0 && p.bar % 4 === 0) {
+        INS.crash(bus(p, 'cym', 0, 0.6), t, p.bar ? 0.07 : 0.05);
+        voice(dr, t, { f: 62, f1: 28, glide: 0.9, a: 0.004, r: 1.6, v: 0.5 });
+        nz(dr, t, { c: 'brown', f: 300, ft: 'lowpass', f1: 60, fT: 0.8, a: 0.004, r: 1.2, v: 0.35 });
+      }
+      if (p.bar % 4 === 3 && s === 2) INS.swell(bus(p, 'cym', 0, 0.6), t, p.spb * 14, 0.05);
+      // driving low strings
+      const ost = bus(p, 'ost', -0.15, 0.25);
+      if (!intro) INS.short(ost, t, ct(p, [0, 0, 2, 0, 1, 0, 2, 0][s % 8], -1), p.spb * 0.85, s % 4 === 0 ? 0.06 : 0.04, 1400);
       if (s === 0) {
-        const c = bus(p, 'choir', 0, 0.65), vow = p.bar % 8 < 4 ? 'ah' : 'oo';
-        for (const i of [0, 1, 2]) INS.choir(c, t, ct(p, i, 0), L * 0.8, 0.04, vow, { a: 1.4, r: 2 });
-        INS.choir(c, t, ct(p, 0, 1), L * 0.8, 0.022, vow, { a: 1.6, r: 2 });
-        const lo = bus(p, 'low', 0, 0.35);
-        INS.str(lo, t, ct(p, 0, -1), L * 0.85, 0.07, { a: 0.8, r: 1.2, lp: 700 });
-        INS.str(lo, t, ct(p, 0, -2), L * 0.85, 0.07, { a: 1.0, r: 1.2, lp: 380 });
-        INS.str(lo, t, ct(p, 2, -1), L * 0.85, 0.04, { a: 0.9, r: 1.2, lp: 800 });
-        if (p.bar % 4 === 0) { INS.taiko(dr, t, 0.45, 0.75); INS.timp(dr, t, p.key.root, 0.3); }
-        if (p.bar % 8 === 4) INS.bell(bus(p, 'bell', 0.3, 0.75), t, ct(p, 0, 2), 0.035, 3.2);
+        const lo = bus(p, 'low', 0, 0.3);
+        INS.str(lo, t, ct(p, 0, -2), L * 0.95, 0.08, { a: 0.15, r: 0.8, lp: 420 });
+        const c = bus(p, 'choir', 0, 0.7), vow = bar < 4 ? 'ah' : 'oh';
+        for (const i of [0, 1, 2]) INS.choir(c, t, ct(p, i, 0), L * 0.9, 0.045, vow, { a: 0.5, r: 1.2 });
+        INS.choir(c, t, ct(p, 0, 1), L * 0.9, 0.03, vow, { a: 0.6, r: 1.2 });
       }
-      if (s === 8 && Math.random() < 0.45) INS.timp(dr, t, ct(p, 0, -1), 0.13);
-      if (p.bar % 4 === 3) {
-        if (s === 4) INS.swell(bus(p, 'cym', 0, 0.6), t, p.spb * 12, 0.05);
-        if (s >= 8) INS.timp(dr, t, p.key.root, 0.03 + (s - 8) * 0.022);
-      }
+      // brass stabs on the beat accents
+      const br = bus(p, 'brass', 0.1, 0.5);
+      if (!intro && (s === 0 || (bar % 2 === 1 && (s === 6 || s === 10)))) for (const i of [0, 1, 2]) brass(br, t, ct(p, i, 0), p.spb * (s === 0 ? 3 : 1.6), s === 0 ? 0.05 : 0.035, 1.7);
+      // the heroic melody: horns, doubled an octave up by strings in the second half
       const e = melAt(p, s);
-      if (e) {
+      if (e && !intro) {
         const len = e.l * p.spb * 0.95;
-        if (p.ph === 2) INS.str(bus(p, 'hi', 0.15, 0.6), t, melNote(p, e, s, 1), len, 0.035, { a: 0.3, lp: 2200 });
-        else INS.horn(bus(p, 'horn', -0.2, 0.75), t, melNote(p, e, s, 0), len, 0.075, 0.8);
+        INS.horn(bus(p, 'horn', -0.2, 0.6), t, melNote(p, e, s, 0), len, 0.085, 1.5);
+        if (bar >= 4) INS.str(bus(p, 'hi', 0.2, 0.6), t, melNote(p, e, s, 1), len, 0.035, { a: 0.1, lp: 2600 });
       }
+      if (s === 0 && bar === 6) INS.bell(bus(p, 'bell', 0.3, 0.75), t, ct(p, 0, 2), 0.04, 3);
     },
   },
   town: {
@@ -975,7 +990,7 @@ const STATES = {
     },
   },
   explore: {
-    bpm: 104, root: 50, mode: 'dorian', melProb: 0.8,
+    bpm: 84, root: 50, mode: 'dorian', melProb: 0.75,
     progs: [[0, 6, 3, 0], [0, 2, 6, 3], [0, 3, 4, 0], [0, 6, 2, 3], [0, 4, 6, 3]],
     pats: OST_EX,
     cells: [[4, 2, 2], [6, 2], [4, 4], [2, 2, 4], [8], [-4, 4], [3, 3, 2]], range: [0, 9],
@@ -989,11 +1004,12 @@ const STATES = {
         if (dark) INS.str(lo, t, ct(p, 0, -2), L * 0.9, 0.05 * dark, { a: 0.6, r: 1, lp: 260 });
       }
       const ost = bus(p, 'ost', -0.2, 0.25);
-      INS.short(ost, t, ct(p, p.pat[s], dark > 0.5 ? -1 : 0), p.spb * 0.9, s % 4 === 0 ? 0.045 : 0.03, 1700 - dark * 500);
+      if (s % 2 === 0) INS.short(ost, t, ct(p, p.pat[s], dark > 0.5 ? -1 : 0), p.spb * 1.6, s % 4 === 0 ? 0.03 : 0.02, 1500 - dark * 500); // a gentle, flowing ostinato
       const dr = bus(p, 'drum', 0.1, 0.3);
-      if (s === 0 || s === 6 || s === 10) INS.frame(dr, t, z.eerie ? 0.04 : 0.07);
-      if (s === 0 && (p.bar % 2 === 0 || dark)) INS.taiko(dr, t, 0.16 + dark * 0.1, 0.9);
-      if (!z.eerie && s % 2 === 0) INS.shaker(bus(p, 'shk', 0.35, 0.1), t, s % 4 === 2 ? 0.025 : 0.014);
+      if (s === 0 || s === 10) INS.frame(dr, t, z.eerie ? 0.025 : 0.04);
+      if (s === 0 && (p.bar % 4 === 0 || dark)) INS.taiko(dr, t, 0.1 + dark * 0.08, 0.9);
+      if (!z.eerie && s % 4 === 2) INS.shaker(bus(p, 'shk', 0.35, 0.1), t, 0.012);
+      if (!z.eerie && s % 4 === 0 && Math.random() < 0.55) pluck(bus(p, 'harp', 0.35, 0.6), t, ct(p, [0, 1, 2, 1][(s / 4) | 0], 1), 0.04, 0.8, 1.4); // harp shimmer
       if (p.bar % 8 === 7 && s === 4) INS.swell(bus(p, 'cym', 0, 0.5), t, p.spb * 12, 0.035);
       if (p.bar % 8 === 0 && s === 0 && p.bar) INS.crash(bus(p, 'cym', 0, 0.5), t, 0.035);
       if (z.airy && (s === 4 || s === 12) && Math.random() < 0.5) pluck(bus(p, 'harp', 0.4, 0.7), t, ct(p, (Math.random() * 3) | 0, 2), 0.05, 0.8, 1.2);

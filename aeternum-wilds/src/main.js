@@ -366,23 +366,27 @@ function title() {
   const save = loadSave();
   const t = $('title');
   const side = $('homeside')?.innerHTML || '';
-  const btn = (id, icon, name, sub) => `<button id="${id}" class="t2btn"><i>${icon}</i><b>${name}<small>${sub}</small></b></button>`;
-  t.innerHTML = `<div class="home t2">
-    <div class="t2col">
-      <div class="t2logo"><div class="t2crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>Shipwrecked on a cursed island. Quest, fight and build, alone or with friends.</p></div>
-      <nav class="t2nav">
-        ${btn('pcamp', '🗺️', 'Campaign', 'Quests, crafting and the cursed island')}
-        ${btn('pwars', '⚔️', 'Kingdom Wars', 'Two towns, one road · kill the Red King')}
-        <div class="t2pair">${btn('ohost', '👑', 'Host Game', 'Play with friends')}${btn('ojoinb', '🔗', 'Join Game', 'Enter a code')}</div>
-        <div class="t2small">
-          <button id="sett">⚙ Settings</button>
-          <button id="ctrl">⌨ Controls</button>
-          <button id="fs">⛶ ${document.fullscreenElement ? 'Windowed' : 'Full Screen'}</button>
-        </div>
-      </nav>
-    </div>
-    <div id="homeside">${side}</div></div>`;
+  const card = (id, icon, name, sub) => `<button id="${id}" class="t3card"><i>${icon}</i><b>${name}</b><small>${sub}</small></button>`;
+  const embers = Array.from({ length: 34 }, () => `<span style="left:${(Math.random() * 100).toFixed(1)}%;animation-delay:${(-Math.random() * 9).toFixed(2)}s;animation-duration:${(6 + Math.random() * 6).toFixed(2)}s;--dx:${((Math.random() - 0.5) * 120).toFixed(0)}px;--s:${(0.5 + Math.random()).toFixed(2)}"></span>`).join('');
+  t.innerHTML = `<div class="home t3">
+    <div class="t3embers">${embers}</div>
+    <header class="t3head">
+      <div class="t3crest">⚜</div>
+      <h1 class="t3name"><span class="a">Kingdom</span><span class="b">Rising</span></h1>
+      <p class="t3tag">A cursed island. A kingdom to win. Fight, build and conquer, alone or with friends.</p>
+    </header>
+    <div id="homeside">${side}</div>
+    <nav class="t3nav">
+      <div class="t3cards">
+        ${card('pcamp', '🗺️', 'Campaign', 'Quests, crafting and the cursed island')}
+        ${card('pwars', '⚔️', 'Kingdom Wars', 'Two towns, one road. Kill the Red King')}
+        ${card('ohost', '👑', 'Host Game', 'Get a code and play with friends')}
+        ${card('ojoinb', '🔗', 'Join Game', 'Enter a friend\'s code')}
+      </div>
+      <div class="t3small"><button id="sett">⚙ Settings</button><button id="ctrl">⌨ Controls</button><button id="fs">⛶ ${document.fullscreenElement ? 'Windowed' : 'Full Screen'}</button></div>
+    </nav></div>`;
   t.style.display = 'block';
+  t.onpointerdown = () => initAudio(); // browsers start sound on the first click: the title theme kicks in
   $('pcamp').onclick = () => { initAudio(); playMode('campaign'); };
   $('pwars').onclick = () => { initAudio(); playMode('wars'); };
   // online co-op runs on the campaign island

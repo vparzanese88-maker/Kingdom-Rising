@@ -426,6 +426,31 @@ button.big { font-size: 20px; padding: 10px 26px; }
 .mpwait { color: #e8dcc0; }
 .mpheroes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 14px; }
 button.hero { display: flex; flex-direction: column; align-items: center; padding: 16px 10px; gap: 4px; } button.hero span { font-size: 34px; } button.hero b { font-size: 18px; } button.hero small { color: #cfc4b0; }
+
+/* ---------- title screen ---------- */
+.home.t2 { background: linear-gradient(90deg, rgba(6,5,3,.92) 0%, rgba(6,5,3,.7) 30%, rgba(6,5,3,0) 58%); }
+.t2col { position: absolute; left: 6vw; top: 0; bottom: 0; width: min(440px, 88vw); display: flex; flex-direction: column; justify-content: center; gap: 4vh; }
+.t2logo h1 { margin: 0; font: 900 clamp(50px, 6.6vw, 92px)/.88 Cinzel, serif; color: var(--gold2); letter-spacing: .04em; text-shadow: 0 4px 30px #000; }
+.t2logo h1 span { display: block; font-size: .5em; letter-spacing: .5em; color: #e8dcc0; margin-top: 10px; }
+.t2crest { font-size: 46px; color: var(--gold); text-shadow: 0 0 24px rgba(217,180,90,.6); line-height: 1; margin-bottom: 6px; }
+.t2nav { display: flex; flex-direction: column; gap: 12px; }
+.t2btn { position: relative; display: flex; align-items: center; gap: 16px; width: 100%; min-height: 76px; padding: 12px 22px; text-align: left; border-radius: 10px;
+  background: linear-gradient(100deg, rgba(118,84,30,.95), rgba(58,40,16,.92) 55%, rgba(26,18,8,.9));
+  border: 1px solid rgba(241,213,138,.55); box-shadow: 0 6px 22px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,236,180,.25);
+  color: #fff3d6; transition: transform .12s, box-shadow .12s, border-color .12s, filter .12s; }
+.t2btn:hover { transform: translateX(6px); border-color: #ffe7a8; filter: brightness(1.12); box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 22px rgba(241,200,110,.35), inset 0 1px 0 rgba(255,236,180,.35); }
+.t2btn:active { transform: translateX(6px) scale(.985); }
+.t2btn i { font-style: normal; font-size: 30px; width: 40px; text-align: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.t2btn b { display: block; font: 700 25px/1.1 Cinzel, serif; letter-spacing: .04em; color: #ffe9b0; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.t2btn small { display: block; margin-top: 4px; font: 400 15px 'EB Garamond', Georgia, serif; letter-spacing: 0; color: #e8d8b4; text-shadow: none; }
+.t2pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.t2pair .t2btn { min-height: 70px; padding: 10px 14px; gap: 10px; } .t2pair .t2btn b { font-size: 20px; } .t2pair .t2btn i { font-size: 24px; width: 28px; }
+.t2small { display: flex; gap: 10px; margin-top: 4px; }
+.t2small button { flex: 1; padding: 11px 6px; border-radius: 8px; font: 600 15px Cinzel, serif; background: rgba(20,15,9,.75); border: 1px solid rgba(241,213,138,.3); color: #e8d8b4; transition: border-color .12s, color .12s, background .12s; }
+.t2small button:hover { border-color: #ffe7a8; color: #fff3d6; background: rgba(60,44,18,.85); }
+.home.t2 #homeside { left: calc(6vw + min(440px, 88vw) + 40px); top: 50%; transform: translateY(-50%); }
+@media (max-width: 900px) { .home.t2 #homeside { left: 6vw; top: auto; bottom: 3vh; transform: none; } }
+@media (max-height: 640px) { .t2btn { min-height: 58px; padding: 8px 16px; } .t2btn b { font-size: 20px; } .t2crest { display: none; } .t2col { gap: 2vh; } }
 </style>
 </head>
 <body>
@@ -482,46 +507,46 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793329474",
-"./src/audio.js": "./src/audio.js?v=1793329474",
-"./src/classes.js": "./src/classes.js?v=1793329474",
-"./src/combatfx.js": "./src/combatfx.js?v=1793329474",
-"./src/data.js": "./src/data.js?v=1793329474",
-"./src/enemies.js": "./src/enemies.js?v=1793329474",
-"./src/fx.js": "./src/fx.js?v=1793329474",
-"./src/items.js": "./src/items.js?v=1793329474",
-"./src/life.js": "./src/life.js?v=1793329474",
-"./src/main.js": "./src/main.js?v=1793329474",
-"./src/models.js": "./src/models.js?v=1793329474",
-"./src/net.js": "./src/net.js?v=1793329474",
-"./src/online.js": "./src/online.js?v=1793329474",
-"./src/pets.js": "./src/pets.js?v=1793329474",
-"./src/player.js": "./src/player.js?v=1793329474",
-"./src/quests.js": "./src/quests.js?v=1793329474",
-"./src/skills.js": "./src/skills.js?v=1793329474",
-"./src/spellfx.js": "./src/spellfx.js?v=1793329474",
-"./src/state.js": "./src/state.js?v=1793329474",
-"./src/stats.js": "./src/stats.js?v=1793329474",
-"./src/ui.js": "./src/ui.js?v=1793329474",
-"./src/util.js": "./src/util.js?v=1793329474",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793329474",
-"./src/world.js": "./src/world.js?v=1793329474",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793329474",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793329474",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793329474",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793329474",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793329474",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793329474",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793329474",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793329474",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793329474",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793329474",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793329474",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793329474"
+"./src/anim.js": "./src/anim.js?v=1793405504",
+"./src/audio.js": "./src/audio.js?v=1793405504",
+"./src/classes.js": "./src/classes.js?v=1793405504",
+"./src/combatfx.js": "./src/combatfx.js?v=1793405504",
+"./src/data.js": "./src/data.js?v=1793405504",
+"./src/enemies.js": "./src/enemies.js?v=1793405504",
+"./src/fx.js": "./src/fx.js?v=1793405504",
+"./src/items.js": "./src/items.js?v=1793405504",
+"./src/life.js": "./src/life.js?v=1793405504",
+"./src/main.js": "./src/main.js?v=1793405504",
+"./src/models.js": "./src/models.js?v=1793405504",
+"./src/net.js": "./src/net.js?v=1793405504",
+"./src/online.js": "./src/online.js?v=1793405504",
+"./src/pets.js": "./src/pets.js?v=1793405504",
+"./src/player.js": "./src/player.js?v=1793405504",
+"./src/quests.js": "./src/quests.js?v=1793405504",
+"./src/skills.js": "./src/skills.js?v=1793405504",
+"./src/spellfx.js": "./src/spellfx.js?v=1793405504",
+"./src/state.js": "./src/state.js?v=1793405504",
+"./src/stats.js": "./src/stats.js?v=1793405504",
+"./src/ui.js": "./src/ui.js?v=1793405504",
+"./src/util.js": "./src/util.js?v=1793405504",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793405504",
+"./src/world.js": "./src/world.js?v=1793405504",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793405504",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793405504",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793405504",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793405504",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793405504",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793405504",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793405504",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793405504",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793405504",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793405504",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793405504",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793405504"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793329474"></script>
+<script type="module" src="./src/main.js?v=1793405504"></script>
 </body>
 </html>

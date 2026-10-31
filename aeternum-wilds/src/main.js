@@ -333,19 +333,24 @@ function title() {
   const save = loadSave();
   const t = $('title');
   const C = save ? CLASSES[save.cls] : null;
-  t.innerHTML = `<div class="home">
-    <div class="logo"><div class="crest">⚜</div><h1>Aeternum<span>Wilds</span></h1><p>Shipwrecked on a cursed island. Fight, gather, craft, and break the Corruption.</p></div>
-    <nav>
-      ${save ? `<button id="cont" class="primary"><b>Continue</b><small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
-      <button id="newg" class="${save ? '' : 'primary'}"><b>New Character</b><small>Pick one of 16 classes and shape your hero</small></button>
-      <button id="ohost"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
-      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code</small></button>
-      <button id="sett"><b>Settings</b><small>Mouse, view, graphics, sound</small></button>
-      <button id="fs"><b>${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</b><small>Or press F11 at any time</small></button>
-      <button id="ctrl"><b>Controls</b></button>
-    </nav>
-    <div id="homeside"></div>
-    <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
+  t.innerHTML = `<div class="home t2">
+    <div class="t2col">
+      <div class="t2logo"><div class="t2crest">⚜</div><h1>Aeternum<span>Wilds</span></h1></div>
+      <nav class="t2nav">
+        ${save ? `<button id="cont" class="t2btn"><i>${C ? C.icon : '⚔️'}</i><b>Continue<small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></b></button>` : ''}
+        <button id="newg" class="t2btn"><i>✨</i><b>New Character<small>18 classes · shape your hero</small></b></button>
+        <div class="t2pair">
+          <button id="ohost" class="t2btn"><i>👑</i><b>Host Game<small>Play with friends</small></b></button>
+          <button id="ojoinb" class="t2btn"><i>🔗</i><b>Join Game<small>Enter a code</small></b></button>
+        </div>
+        <div class="t2small">
+          <button id="sett" title="Settings">⚙ Settings</button>
+          <button id="ctrl" title="Controls">⌨ Controls</button>
+          <button id="fs" title="Full screen (F11)">⛶ ${document.fullscreenElement ? 'Windowed' : 'Full Screen'}</button>
+        </div>
+      </nav>
+    </div>
+    <div id="homeside"></div></div>`;
   t.style.display = 'block';
   if (save) $('cont').onclick = () => { initAudio(); play(save); };
   $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };

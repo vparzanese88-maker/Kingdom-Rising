@@ -8,12 +8,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const BASE = './assets/models/c/';
 // len: body length in metres; leg: share of the height that is leg; head/tail: share of the length
 const KINDS = {
-  wolf: { file: 'wolf', len: 1.7, leg: 0.42, head: 0.27, tail: 0.17 },
-  bear: { file: 'bear', len: 2.3, leg: 0.36, head: 0.24, tail: 0.06 },
-  tiger: { file: 'tiger', len: 2.4, leg: 0.4, head: 0.22, tail: 0.14 },
+  // nose-to-tail lengths in the game's heroic scale (the hero stands about 1.5x life size)
+  wolf: { file: 'wolf', len: 2.7, leg: 0.42, head: 0.27, tail: 0.17, r: 0.7 },
+  bear: { file: 'bear', len: 3.7, leg: 0.36, head: 0.24, tail: 0.06, r: 1.15 },
+  tiger: { file: 'tiger', len: 4.3, leg: 0.4, head: 0.22, tail: 0.14, r: 0.95 },
 };
 const R = {};
 export const creatureReady = kind => !!R[kind];
+export const creatureRadius = kind => KINDS[kind]?.r || 0.7;
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -63,7 +65,7 @@ function rig(src, K) {
   g.computeBoundingSphere();
   const m = src.material;
   for (const t of [m.map, m.normalMap, m.metalnessMap]) if (t) t.anisotropy = 8;
-  return { g, joints, mat: m, scale: K.len / L };
+  return { g, joints, mat: m, scale: K.len / L, H };
 }
 
 async function load(kind) {
@@ -99,5 +101,5 @@ export function makeCreature(kind, o = {}) {
   root.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(bones));
   // the torso bone sits at belly height over the centre (z = 0), so anim.js's torso moves work about it
-  return { root, body, mats: [mat, mat], parts: { torso: bones[0], head: bones[5], tail: bones[6], legs: [bones[1], bones[2], bones[3], bones[4]] }, size: o.size || 1, beast: true, real: true };
+  return { root, body, mats: [mat, mat], parts: { torso: bones[0], head: bones[5], tail: bones[6], legs: [bones[1], bones[2], bones[3], bones[4]] }, size: o.size || 1, beast: true, real: true, height: C.H * s };
 }

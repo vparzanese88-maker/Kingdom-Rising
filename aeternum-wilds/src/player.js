@@ -333,7 +333,7 @@ export function updateProjectiles(dt) {
     if (!dead && pr.owner === 'player') {
       for (const e of enemiesNear(pr.x, pr.z, 3)) {
         if (e.dead || pr.hit.has(e)) continue;
-        const top = e.y + (e.model.beast ? 1.3 : 2.1) * e.size;
+        const top = e.y + (e.model.height || (e.model.beast ? 1.3 : 2.1) * e.size);
         if (Math.hypot(e.pos.x - pr.x, e.pos.z - pr.z) < e.radius + 0.4 && pr.y > e.y - 0.3 && pr.y < top + 0.3) {
           pr.hit.add(e);
           if (pr.onHit) pr.onHit(e); else hitEnemy(e, pr.mult, pr.kind, pr.opts || {});

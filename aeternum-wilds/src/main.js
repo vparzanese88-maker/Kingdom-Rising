@@ -16,7 +16,7 @@ import { initUI, updateHud, setPrompt, togglePanel, closePanel, talkTo, openPane
 import { makeGear } from './items.js';
 import { fillBounties } from './quests.js';
 import { initAudio, setVolume, setMusic, setMusicZone, setAmbience, setMusicVolume } from './audio.js';
-import { dressHumanoid, makeWeapon } from './models.js';
+import { dressHumanoid, makeWeapon, charHeight } from './models.js';
 import { WEAPON_MODELS, onWeaponModel, weaponModelMesh } from './gfx/weapons3d.js';
 import { dressArmor } from './gfx/armor.js';
 // a weapon model finished downloading: re-dress whoever is holding the stand-in
@@ -356,7 +356,7 @@ function heroScreen() {
     <footer><div class="grow"></div><button id="hback">Back</button></footer></div></div>`;
   t.style.display = 'block';
   if (save) $('hcont').onclick = () => { initAudio(); play(save); };
-  $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; creator(); };
+  $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; draft.clsPicked = false; creator(); };
   $('hback').onclick = () => title();
 }
 function title() {
@@ -508,7 +508,7 @@ function charSelect() {
   t.style.display = 'block';
   bindChat(); $('lobbyin').value = typed;
   if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
-  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creatorTab = 'style'; creator(); };
+  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creatorTab = 'style'; draft.clsPicked = false; creator(); };
   $('lback').onclick = () => { if (confirm('Leave this game?')) { leaveOnline(); title(); } };
 }
 
@@ -571,8 +571,10 @@ function buildPreview() {
   preview = makeCharacter({ look: draft.look });
   dressHumanoid(preview, { chest: 0x7a6a52, legs: 0x4a3e30, feet: 0x2a2018, helm: null, trim: C.color }); // the creator shows the person, not the gear
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
+  // empty-handed until a class is chosen; then the class's (or chosen kit's) weapons
   const K = kitOf(), w = K ? K.w1 : { wtype: C.weapon, model: C.model, shield: C.shield };
-  armCharacter(preview, { tier: 1, ...w }, K?.w2 ? { tier: 1, ...K.w2 } : null);
+  charHeight(preview); // measured before any weapon so the camera can frame the hero
+  if (draft.clsPicked) armCharacter(preview, { tier: 1, ...w }, K?.w2 ? { tier: 1, ...K.w2 } : null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -627,7 +629,7 @@ function creator() {
   $('cname').oninput = e => { draft.name = e.target.value; };
   t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
   t.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { draft.style = b.dataset.style; if (!STYLE_CLASSES[draft.style].includes(draft.cls)) { draft.cls = STYLE_CLASSES[draft.style][0]; draft.kit = 0; buildPreview(); } creator(); });
-  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; draft.kit = 0; buildPreview(); creator(); });
+  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; draft.kit = 0; draft.clsPicked = true; buildPreview(); creator(); });
   t.querySelectorAll('[data-kit]').forEach(b => b.onclick = () => { draft.kit = +b.dataset.kit; buildPreview(); creator(); });
   const go = d => { creatorTab = STEPS[Math.max(0, Math.min(STEPS.length - 1, step + d))][0]; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); };
   if ($('cnext')) $('cnext').onclick = () => go(1);
@@ -790,7 +792,13 @@ function loop() {
       preview.body.position.y = Math.sin(t * 2) * 0.01;
       const H = preview.tallW || 2;
       if (previewView === 'face') { const hy = py + H * 0.9; camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
-      else { const k = H / 2 * previewZoom, up = (1 - previewZoom) * 0.3; camera.position.set(px - 1.7 * k, py + (0.75 + up) * H, pz + 5.2 * k); camera.lookAt(px - 1.7 * k, py + (0.5 + up) * H, pz); }
+      else {
+        // frame the hero to fill the right half of the screen (about 90% of its height); the wheel zooms in
+        const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        const dist = H * 0.56 / half * previewZoom, side = dist * half * camera.aspect * 0.5;
+        const up = (1 - previewZoom) * 0.35;
+        camera.position.set(px - side, py + (0.52 + up) * H, pz + dist); camera.lookAt(px - side, py + (0.5 + up) * H, pz);
+      }
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;

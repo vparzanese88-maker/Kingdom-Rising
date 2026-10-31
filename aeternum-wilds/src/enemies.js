@@ -13,7 +13,7 @@ import { questEvent } from './quests.js';
 import { hurtPet, setPetDamageHook } from './pets.js';
 import { killFx } from './combatfx.js';
 
-// who an enemy is fighting: a summoned pet that hit it, or the player
+// who an enemy is fighting: a summoned pet that hit it (or, in Kingdom Wars, a blue soldier), or the player
 function targetOf(e) {
   const pt = e.petTarget;
   if (pt && !pt.dead && Math.hypot(pt.pos.x - e.pos.x, pt.pos.z - e.pos.z) < 30) return { pos: pt.pos, y: pt.y, pet: pt };
@@ -114,7 +114,8 @@ export function killEnemy(e, remote = false, near = true) {
   gainXp(xp);
   gainMastery(activeWType(), xp * 0.9);
   p.stats.kills++;
-  if (!e.isAdd) {
+  G.onPlayerKill?.(e);
+  if (!e.isAdd && !e.def.minion) {
     const coins = randi(1, 3) * Math.ceil(e.lv / 2) * (e.def.boss ? 15 : 1);
     p.coins += coins;
     for (const m of e.def.drops || []) if (Math.random() < (e.def.boss ? 1 : 0.45)) { addMat(m, 1); lootToast(`+1 ${MATS[m].icon} ${MATS[m].name}`); }
@@ -138,6 +139,14 @@ export function killEnemy(e, remote = false, near = true) {
   killFx(e); // death burst and sound
 }
 G.killEnemyRemote = (e, near) => killEnemy(e, true, near);
+// killed by someone other than the player (Kingdom Wars soldiers): no rewards, just the death
+export function slayEnemy(e) {
+  if (e.dead) return;
+  e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 4;
+  if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); for (const t of e.atk.tels || []) removeTelegraph(t); e.atk = null; }
+  if (G.boss === e) { G.boss = null; bossBar(null); }
+  killFx(e);
+}
 function killEnemyQuiet(e) { e.dead = true; e.deadT = 0; e.state = 'dead'; e.removeAt = G.time + 2; if (e.atk?.tel) removeTelegraph(e.atk.tel); }
 
 function dropGear(lv, bonus, minR) {
@@ -311,7 +320,7 @@ export function updateEnemies(dt) {
       animate(e, e.netPose, e.netT);
       continue;
     }
-    if (d > UPDATE_R && !e.aggro) { e.root.visible = d < 100; continue; }
+    if (d > UPDATE_R && !e.aggro && !e.march) { e.root.visible = d < 100; continue; }
     e.root.visible = true;
     if (e.hitFlash > 0) e.hitFlash -= dt;
     // dot
@@ -342,7 +351,10 @@ export function updateEnemies(dt) {
     }
     if (e.aggro && e.def.boss && !e.isAdd && G.boss !== e) { G.boss = e; sfx('roar'); }
     const homeD = Math.hypot(e.pos.x - e.home.x, e.pos.z - e.home.z);
-    if (e.aggro && (pdead || d > 55 || (!e.isAdd && homeD > (e.def.boss ? 34 : 42)))) {
+    if (e.march) {
+      // marching soldiers never go home: they drop a player who got away and carry on down the road
+      if (e.aggro && !targetOf(e).pet && (pdead || d > 26)) { e.aggro = false; if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); e.atk = null; e.state = 'idle'; } }
+    } else if (e.aggro && (pdead || d > 55 || (!e.isAdd && homeD > (e.def.boss ? 34 : 42)))) {
       e.aggro = false; e.state = 'return';
       if (e.atk) { if (e.atk.tel) removeTelegraph(e.atk.tel); for (const t of e.atk.tels || []) removeTelegraph(t); e.atk = null; }
       if (G.boss === e) { G.boss = null; bossBar(null); }
@@ -416,6 +428,9 @@ export function updateEnemies(dt) {
         } else if (d > 1.6 + e.radius) { mvx = dx / d; mvz = dz / d; }
         e.facing += angDiff(e.facing, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
       }
+    } else if (e.march) {
+      const m = G.warsMarch?.(e);
+      if (m) { mvx = m[0]; mvz = m[1]; }
     } else {
       // wander
       e.wanderT -= dt;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aeternum Wilds</title>
+<title>Kingdom Rising</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -40,7 +40,7 @@ small { font-size: 12px; }
 #loading { font-family: Cinzel, serif; font-size: 26px; color: var(--gold2); background: #0d0b08; }
 #death { flex-direction: column; background: rgba(40,0,0,.55); }
 #death h1 { font-size: 64px; color: #e04a3a; margin: 0 0 18px; text-shadow: 0 4px 20px #000; }
-#victory .scroll { background: var(--bg); border: 1px solid var(--gold); padding: 30px 40px; max-width: 640px; text-align: center; border-radius: 4px; }
+#victory .scroll, #warsend .scroll { background: var(--bg); border: 1px solid var(--gold); padding: 30px 40px; max-width: 640px; text-align: center; border-radius: 4px; }
 #victory h1 { color: var(--gold2); font-size: 44px; margin: 0 0 10px; }
 .vstats { color: var(--gold2); }
 
@@ -216,11 +216,27 @@ table.keys { width: 100%; font-size: 14px; border-collapse: collapse; } table.ke
 .home h1 { margin: 0; font: 900 clamp(46px, 7vw, 96px)/0.9 Cinzel, serif; color: var(--gold2); letter-spacing: .04em; text-shadow: 0 4px 30px #000; }
 .home h1 span { display: block; font-size: .62em; letter-spacing: .32em; color: #e8dcc0; margin-top: 6px; }
 .home .logo p { color: #e8dcc0; font-size: 19px; text-shadow: 0 2px 6px #000; margin: 10px 0 0; }
-.home nav { position: absolute; left: 6vw; top: max(52vh, 330px); display: flex; flex-direction: column; gap: 8px; width: 330px; }
+.home nav { position: absolute; left: 6vw; top: max(42vh, 335px); display: flex; flex-direction: column; gap: 8px; width: 330px; }
 .home nav button { text-align: left; padding: 10px 18px; background: rgba(20,15,9,.78); border: 1px solid #5a4828; border-left: 3px solid #5a4828; }
 .home nav button:hover { border-left-color: var(--gold); background: rgba(50,36,16,.9); }
 .home nav button b { display: block; font-size: 19px; } .home nav button small { display: block; color: #cfc4a8; font-family: 'EB Garamond', serif; font-size: 14px; letter-spacing: 0; }
 .home nav button.primary { border-left-color: var(--gold); background: linear-gradient(90deg, rgba(90,64,24,.9), rgba(30,22,12,.85)); }
+.home .htabs { display: flex; gap: 4px; margin-bottom: 4px; }
+.home .htabs button { flex: 1; padding: 8px 10px; text-align: center; font: 700 15px Cinzel, serif; letter-spacing: .06em; border-left-width: 1px; color: #cfc4a8; }
+.home .htabs button.on { color: var(--gold2); border-color: var(--gold); border-bottom: 3px solid var(--gold); background: rgba(50,36,16,.92); }
+.home .hrow { display: flex; gap: 4px; } .home .hrow button { flex: 1; padding: 8px 6px; text-align: center; font-size: 15px; border-left-width: 1px; }
+#warshud { position: absolute; top: 40px; left: 12px; display: flex; flex-direction: column; gap: 6px; width: 190px; pointer-events: none; font-family: 'EB Garamond', serif; }
+#warshud > div { background: rgba(14,10,6,.78); border: 1px solid #5a4828; padding: 6px 12px; min-width: 150px; text-align: center; }
+#warshud b { display: block; font: 700 14px Cinzel, serif; letter-spacing: .04em; } #warshud small { display: block; color: #cfc4a8; font-size: 13px; }
+#warshud .wk.blue b { color: #8ab4ff; } #warshud .wk.red b { color: #ff8a7a; } #warshud .wmid b { color: var(--gold2); }
+#warshud .kb { display: block; height: 8px; margin: 4px 0; background: rgba(0,0,0,.6); border: 1px solid #000; } #warshud .kb i { display: block; height: 100%; }
+#warshud .blue .kb i { background: #3a7ae0; } #warshud .red .kb i { background: #d0352a; }
+#warshud kbd { font-size: 11px; }
+#warsend { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 60; background: rgba(0,0,0,.5); }
+#warsend .row { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.plate.pet.king .pn { color: #ffe08a; font-weight: 700; }
+.home .wars { padding: 12px 18px; background: rgba(20,15,9,.78); border: 1px solid #5a4828; border-left: 3px solid var(--gold); }
+.home .wars b { font-size: 19px; margin-right: 8px; } .home .wars p { margin: 6px 0 0; color: #cfc4a8; font-family: 'EB Garamond', serif; font-size: 15px; }
 .home footer { position: absolute; left: 6vw; bottom: 3vh; color: #b8ac90; font-size: 15px; }
 #homeside { position: absolute; left: calc(6vw + 360px); top: max(30vh, 200px); width: min(520px, 40vw); }
 .card { background: rgba(14,10,6,.9); border: 1px solid var(--line); padding: 14px 18px; border-radius: 4px; }
@@ -307,6 +323,12 @@ button.primary { background: linear-gradient(#7a5a22, #4a3412); color: #fff3c8; 
 .stree .link { width: 2px; height: 10px; background: #5a4828; margin: 0 auto; }
 .rk { font-size: 12px; color: var(--gold2); }
 .cards.c16 { grid-template-columns: repeat(6, 1fr); }
+.cards.c3 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ccard.big { padding: 16px 10px; gap: 6px; justify-content: flex-start; } .ccard.big span { font-size: 40px; } .ccard.big b { font-size: 18px; }
+.ccard.big small { font-size: 14px; line-height: 1.3; text-align: center; } .ccard.big em { font-style: normal; font-size: 16px; letter-spacing: 2px; margin-top: 4px; }
+.ctabs.steps button i { font-style: normal; display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; background: rgba(240,216,144,.2); font-size: 12px; text-align: center; margin-right: 2px; }
+.ctabs.steps button.on i { background: var(--gold); color: #1a1208; }
+.mp.heroes { width: min(640px, 94vw); }
 .c16 .ccard { padding: 6px 2px; } .c16 .ccard span { font-size: 24px; } .c16 .ccard b { font-size: 12px; }
 .cinfo h3 small { color: var(--dim); font-family: 'EB Garamond', serif; text-transform: none; letter-spacing: 0; }
 .trees3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px; margin-top: 6px; }
@@ -507,46 +529,47 @@ button.hero { display: flex; flex-direction: column; align-items: center; paddin
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/anim.js": "./src/anim.js?v=1793405504",
-"./src/audio.js": "./src/audio.js?v=1793405504",
-"./src/classes.js": "./src/classes.js?v=1793405504",
-"./src/combatfx.js": "./src/combatfx.js?v=1793405504",
-"./src/data.js": "./src/data.js?v=1793405504",
-"./src/enemies.js": "./src/enemies.js?v=1793405504",
-"./src/fx.js": "./src/fx.js?v=1793405504",
-"./src/items.js": "./src/items.js?v=1793405504",
-"./src/life.js": "./src/life.js?v=1793405504",
-"./src/main.js": "./src/main.js?v=1793405504",
-"./src/models.js": "./src/models.js?v=1793405504",
-"./src/net.js": "./src/net.js?v=1793405504",
-"./src/online.js": "./src/online.js?v=1793405504",
-"./src/pets.js": "./src/pets.js?v=1793405504",
-"./src/player.js": "./src/player.js?v=1793405504",
-"./src/quests.js": "./src/quests.js?v=1793405504",
-"./src/skills.js": "./src/skills.js?v=1793405504",
-"./src/spellfx.js": "./src/spellfx.js?v=1793405504",
-"./src/state.js": "./src/state.js?v=1793405504",
-"./src/stats.js": "./src/stats.js?v=1793405504",
-"./src/ui.js": "./src/ui.js?v=1793405504",
-"./src/util.js": "./src/util.js?v=1793405504",
-"./src/viewmodel.js": "./src/viewmodel.js?v=1793405504",
-"./src/world.js": "./src/world.js?v=1793405504",
-"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793405504",
-"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793405504",
-"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793405504",
-"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793405504",
-"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793405504",
-"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793405504",
-"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793405504",
-"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793405504",
-"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793405504",
-"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793405504",
-"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793405504",
-"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793405504"
+"./src/anim.js": "./src/anim.js?v=1793402365",
+"./src/audio.js": "./src/audio.js?v=1793402365",
+"./src/classes.js": "./src/classes.js?v=1793402365",
+"./src/combatfx.js": "./src/combatfx.js?v=1793402365",
+"./src/data.js": "./src/data.js?v=1793402365",
+"./src/enemies.js": "./src/enemies.js?v=1793402365",
+"./src/fx.js": "./src/fx.js?v=1793402365",
+"./src/items.js": "./src/items.js?v=1793402365",
+"./src/life.js": "./src/life.js?v=1793402365",
+"./src/main.js": "./src/main.js?v=1793402365",
+"./src/models.js": "./src/models.js?v=1793402365",
+"./src/net.js": "./src/net.js?v=1793402365",
+"./src/online.js": "./src/online.js?v=1793402365",
+"./src/pets.js": "./src/pets.js?v=1793402365",
+"./src/player.js": "./src/player.js?v=1793402365",
+"./src/quests.js": "./src/quests.js?v=1793402365",
+"./src/skills.js": "./src/skills.js?v=1793402365",
+"./src/spellfx.js": "./src/spellfx.js?v=1793402365",
+"./src/state.js": "./src/state.js?v=1793402365",
+"./src/stats.js": "./src/stats.js?v=1793402365",
+"./src/ui.js": "./src/ui.js?v=1793402365",
+"./src/util.js": "./src/util.js?v=1793402365",
+"./src/viewmodel.js": "./src/viewmodel.js?v=1793402365",
+"./src/wars.js": "./src/wars.js?v=1793402365",
+"./src/world.js": "./src/world.js?v=1793402365",
+"./src/gfx/armor.js": "./src/gfx/armor.js?v=1793402365",
+"./src/gfx/creatures.js": "./src/gfx/creatures.js?v=1793402365",
+"./src/gfx/herorig.js": "./src/gfx/herorig.js?v=1793402365",
+"./src/gfx/icons.js": "./src/gfx/icons.js?v=1793402365",
+"./src/gfx/meshy.js": "./src/gfx/meshy.js?v=1793402365",
+"./src/gfx/spellfx.js": "./src/gfx/spellfx.js?v=1793402365",
+"./src/gfx/weapons3d.js": "./src/gfx/weapons3d.js?v=1793402365",
+"./src/gfx/vfx/lights.js": "./src/gfx/vfx/lights.js?v=1793402365",
+"./src/gfx/vfx/meshfx.js": "./src/gfx/vfx/meshfx.js?v=1793402365",
+"./src/gfx/vfx/particles.js": "./src/gfx/vfx/particles.js?v=1793402365",
+"./src/gfx/vfx/presets.js": "./src/gfx/vfx/presets.js?v=1793402365",
+"./src/gfx/vfx/trail.js": "./src/gfx/vfx/trail.js?v=1793402365"
 }
 }
 </script>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1793405504"></script>
+<script type="module" src="./src/main.js?v=1793402365"></script>
 </body>
 </html>

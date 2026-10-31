@@ -7,7 +7,8 @@
    Each friend takes over a bot's slot on their side; when they leave, a bot takes the slot back.
    Clients move their own soldier locally and tell the host where they are; the host checks every
    shot, grenade and knife blow and sends back what happened.                                      */
-const NET_VER=3,SNAP_HZ=12,ST_HZ=15,MAX_HUMANS=12,TIMEOUT=15000;
+// timeouts are generous: free relays sometimes drop a connection for a few seconds and it reconnects
+const NET_VER=4,SNAP_HZ=12,ST_HZ=12,MAX_HUMANS=12,TIMEOUT=35000,WARN_T=5000;
 Object.assign(Net,{conns:[],code:'',myId:-1,snapT:0,stT:0,sbT:0,annT:0,rosT:0,nadeMesh:{},pendingRoster:null,pendingJoin:false,welcome:null,status:'',games:{},lastSnapQ:0,lastHost:0});
 const STANCE=['stand','crouch','prone'],SLOTS=['primary','pistol','melee','nade'];
 const q=new URLSearchParams(location.search);
@@ -23,7 +24,7 @@ function netHost(){
   Object.assign(Net,{on:true,host:true,client:false,conns:[],ev:[],code:newCode(),annT:0});
   Relay.connect({topic:lobbyTopic(Net.code),payload:'',retain:true});
   Relay.sub(gTopic()+'/u',m=>{if(m)hostRecv(m);});
-  Relay.onstate=up=>{if(up)announce();};
+  Relay.onstate=up=>{if(up){announce();if(Net.relayLost){Net.relayLost=false;hint('Reconnected to the online relay',2.5);}}else if(!Relay.connected()){Net.relayLost=true;hint('Lost the online relay, reconnecting… Friends stay in the game for 35 seconds.',4);}};
   center('ROOM '+Net.code,'Your game is listed under Find online games. Press Esc for the invite link.',6);
   updateInvite();
 }
@@ -55,7 +56,7 @@ function hostData(c,m){
       let bot=pickBot(team);if(!bot){team=1-team;bot=pickBot(team);}
       if(!bot){c.send({t:'full',why:'Both teams are full of players.'});return;}
       const cls=clsById(team,m.cls)||CLASSES[team][0];
-      if(cls.limit&&classCount(team,cls.id,bot)>=cls.limit){const other=UNITS.find(x=>x.team===team&&x.brain&&x!==bot&&(x.nextCls||x.cls).id===cls.id);if(other)other.nextCls=CLASSES[team][0];}
+      if(cls.limit&&classCount(team,cls.id,bot)>=classLimit(cls)){const other=UNITS.find(x=>x.team===team&&x.brain&&x!==bot&&(x.nextCls||x.cls).id===cls.id);if(other)other.nextCls=CLASSES[team][0];}
       // take over the bot's slot: it leaves quietly and the player deploys with the next wave
       if(bot.alive&&bot.model){scene.remove(bot.model.root);bot.model=null;}
       bot.alive=false;bot.deadAt=GAME.time-10;bot.brain=null;bot.remote=c;bot.human=true;bot.botName=bot.name;bot.name=c.name;bot.nextCls=cls;bot.kills=bot.deaths=bot.caps=bot.score=0;
@@ -93,23 +94,25 @@ function hostDrop(c){
   broadcast(rosterMsg());
 }
 function broadcast(m){if(Net.host)Relay.pub(gTopic()+'/h',m);}
-const R=v=>Math.round(v*100)/100;
+const R=v=>Math.round(v*100)/100,R5=v=>Math.round(v*20)/20;
 function stateMsg(){
   return{t:'s',m:G.mode,it:R(G.introT),fz:R(G.freezeT||0),tl:Math.round(G.timeLeft),w:[R(G.waveT[0]),R(G.waveT[1])],r:G.round,sc:G.score,
     f:G.flags.map(f=>[f.owner,R(f.prog),f.capTeam]),
-    u:UNITS.map(u=>[u.id,u.alive?1:0,R(u.pos.x),R(u.pos.y),R(u.pos.z),R(u.yaw),R(u.pitch),STANCE.indexOf(u.stance),SLOTS.indexOf(u.cur),u.deployed?1:0,(u.cls||{}).id,Math.max(0,Math.ceil(u.hp)),u.bleed?1:0]),
+    u:UNITS.map(u=>!u.alive?[u.id,0]:[u.id,1,R5(u.pos.x),R5(u.pos.y),R5(u.pos.z),R(u.yaw),R(u.pitch),STANCE.indexOf(u.stance),SLOTS.indexOf(u.cur),u.deployed?1:0,(u.cls||{}).id,Math.max(0,Math.ceil(u.hp)),u.bleed?1:0]),
     n:NADES.map(n=>[n.nid,R(n.p.x),R(n.p.y),R(n.p.z),n.id==='stick'?1:0,n.held?n.held.id:-1])};
 }
 function netTick(dt){
   if(Net.host){
-    if(Net.ev.length){if(Net.conns.length)broadcast({t:'e',e:Net.ev});Net.ev=[];}
     Net.annT-=dt;if(Net.annT<=0){Net.annT=3;announce();const t=now();for(const c of Net.conns.slice())if(t-c.last>TIMEOUT)hostDrop(c);}
-    if(!Net.conns.length)return;
-    Net.snapT-=dt;if(Net.snapT<=0){Net.snapT=1/SNAP_HZ;broadcast(stateMsg());}
+    if(!Net.conns.length){Net.ev=[];return;}
+    Net.snapT-=dt;if(Net.snapT<=0){Net.snapT=1/SNAP_HZ;const m=stateMsg();if(Net.ev.length){m.e=Net.ev;Net.ev=[];}broadcast(m);}
     Net.sbT-=dt;if(Net.sbT<=0){Net.sbT=2;broadcast({t:'sb',s:UNITS.map(u=>[u.id,u.kills,u.deaths,u.score])});}
     Net.rosT-=dt;if(Net.rosT<=0){Net.rosT=6;broadcast(rosterMsg());}
   }else if(Net.client&&PL.u){
-    if(now()-Net.lastHost>TIMEOUT){clientFail('Lost the connection to the host.');return;}
+    const quiet=now()-Net.lastHost;
+    if(quiet>TIMEOUT){clientFail('Lost the connection to the host.');return;}
+    if(quiet>WARN_T){if(!Net.warned){Net.warned=true;center('CONNECTION TROUBLE','Waiting for the host… ('+(Relay.count()?'relay OK':'reconnecting to the relay')+')',0);}}
+    else if(Net.warned){Net.warned=false;$('center').innerHTML='';hint('Back in contact with the host',2);}
     Net.stT-=dt;if(Net.stT<=0){const u=PL.u;
       if(u.alive){Net.stT=1/ST_HZ;Net.send({t:'st',p:[R(u.pos.x),R(u.pos.y),R(u.pos.z)],y:R(u.yaw),pi:R(u.pitch),s:STANCE.indexOf(u.stance),w:SLOTS.indexOf(u.cur),d:u.deployed?1:0,f:PL.fireHeld?1:0});}
       else{Net.stT=2;Net.send({t:'hb'});}}
@@ -125,7 +128,9 @@ function netJoin(code){
   mpStatus('Connecting to room '+code+'…');
   Object.assign(Net,{on:false,host:false,client:false,code,lastSnapQ:0,joining:true});
   Relay.connect({topic:gTopic()+'/u',payload:JSON.stringify({i:Relay.me,q:0,t:'bye'}),retain:false});
-  const rx=m=>{if(!m)return;if(m.q){if(m.t==='s'){if(m.q<=Net.lastSnapQ)return;Net.lastSnapQ=m.q;}}Net.lastHost=now();try{clientData(m);}catch(e){console.warn('net',e);}};
+  const rx=m=>{if(!m)return;Net.lastHost=now();
+    if(m.t==='s'&&m.q){if(m.q<=Net.lastSnapQ){if(m.e&&Net.client)clientData({t:'e',e:m.e});return;}Net.lastSnapQ=m.q;}
+    try{if(m.t==='s'&&m.e&&Net.client)clientData({t:'e',e:m.e});clientData(m);}catch(e){console.warn('net',e);}};
   Relay.sub(gTopic()+'/h',rx);Relay.sub(gTopic()+'/c/'+Relay.me,rx);
   const t0=now();clearInterval(Net.helloT);
   Net.helloT=setInterval(()=>{

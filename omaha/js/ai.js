@@ -36,17 +36,28 @@ function updateBullets(dt){
         const ex=t.pos.x-p.x,ey=t.pos.y+1.2-p.y,ez=t.pos.z-p.z;const al=ex*_bd.x+ey*_bd.y+ez*_bd.z;if(al<0||al>segT)continue;
         const px=ex-_bd.x*al,py=ey-_bd.y*al,pz=ez-_bd.z*al;const d=Math.sqrt(px*px+py*py+pz*pz);if(d>3.2)continue;b.cracked.add(t);
         if(t.isPlayer){if(!(uh&&uh.u===t)){play(sp>343&&b.dist>20?'crack':'whiz',{pos:new V3(p.x+_bd.x*al,p.y+_bd.y*al,p.z+_bd.z*al),vol:.5,travel:false,ref:3});
-          FX.trauma=Math.min(1,FX.trauma+.05);FX.aberr=Math.min(1,FX.aberr+.25);PL.suppress=Math.min(1,PL.suppress+.2);}}
+          FX.trauma=Math.min(.4,FX.trauma+.02);FX.aberr=Math.min(1,FX.aberr+.2);PL.suppress=Math.min(1,PL.suppress+.2);}}
         else if(t.brain&&d<2.6&&b.dmg)t.brain.suppress+=(b.W.mg?.22:.12)*(1-d/2.6);}
       if(uh){
         const hp=new V3(p.x+_bd.x*uh.t,p.y+_bd.y*uh.t,p.z+_bd.z*uh.t);const dist=b.dist+uh.t;
         let dmg=b.W.dmg*ZONE_MUL[uh.zone];
         if((b.W.type==='auto'||b.W.pistol)&&!b.W.mg)dmg*=clamp(1-(dist-35)/170,.55,1);
         goreHit(hp,_bd,uh.zone,uh.u,dmg);
+        if(b.ric)dmg*=.5;
         if(b.dmg){const before=uh.u.alive;hurt(uh.u,dmg,b.u,b.wid,uh.zone,_bd.clone());
           if(before&&b.u.isPlayer)hitMarker(!uh.u.alive,uh.zone==='head');else if(before&&b.u.remote)Net.event(['hm',b.u.id,uh.u.alive?0:1,uh.zone==='head'?1:0]);}
         done=true;p.copy(hp);
-      }else if(wh){impactFX(wh,_bd);done=true;p.set(wh.x,wh.y,wh.z);}
+      }else if(wh){impactFX(wh,_bd);p.set(wh.x,wh.y,wh.z);
+        // ricochet: glancing hits skip off steel, concrete, stone, water and even sand; machine-gun fire most of all
+        const cosI=-(_bd.x*wh.nx+_bd.y*wh.ny+_bd.z*wh.nz);const hard={metal:.85,concrete:.7,stone:.65,water:.45,sand:.35,dirt:.25,grass:.2,wood:.12,timber:.12,sandbag:.1}[wh.mat]||.15;
+        const chance=hard*(1.3-cosI)*(b.W.mg?1.7:b.W.type==='auto'?1:.7)*(b.ric?.45:1);
+        if((b.ric||0)<2&&Math.random()<chance){
+          b.ric=(b.ric||0)+1;const dn=2*(_bd.x*wh.nx+_bd.y*wh.ny+_bd.z*wh.nz);
+          _bd.set(_bd.x-dn*wh.nx,_bd.y-dn*wh.ny,_bd.z-dn*wh.nz);spreadDir(_bd,.22,_bd);if(_bd.y<.02)_bd.y=Math.abs(_bd.y)+.05;_bd.normalize();
+          v.copy(_bd).multiplyScalar(sp*rand(.3,.6));p.addScaledVector(_bd,.05);b.cracked.clear();
+          if(wh.mat!=='water'&&wh.mat!=='sand'&&wh.mat!=='dirt'&&wh.mat!=='grass')for(let k=0;k<6;k++)glow.spawn(wh.x,wh.y,wh.z,_bd.x*rand(4,12)+rand(-2,2),_bd.y*rand(4,12)+rand(0,3),_bd.z*rand(4,12)+rand(-2,2),rand(.08,.2),.05,.02,1,1,.75,.4,2,12);
+          play('ric',{pos:p.clone(),vol:b.W.mg?.42:.32,maxD:90,jit:.15});
+        }else done=true;}
       else{p.addScaledVector(v,h);v.y-=GRAV*h;v.multiplyScalar(1-h*.12);b.dist+=L;}
       b.age+=h;if(b.age>3||b.dist>900||p.y<-30)done=true;
     }
@@ -151,7 +162,13 @@ class Brain{
       let best=attack[0],bs=1e9;for(const f of attack){const s=Math.hypot(f.x-u.pos.x,f.z-u.pos.z)*rand(.6,1.4);if(s<bs){bs=s;best=f;}}
       this.goal={type:'flag',fi:best.i};this.goalT=rand(12,20);this.path=null;return;
     }
-    const f=pick(defend.length?defend:ours.length?ours:flags);const spots=coverSpots(f.i,team);const s=pick(spots)||{x:f.x,z:f.z};
+    // cap defenders per flag so big teams spread out instead of packing two bunkers
+    let mates=0;const on=[0,0,0,0,0,0,0,0];for(const o of UNITS)if(o.team===team&&o!==u){mates++;if(o.alive&&o.brain&&o.brain.goal&&o.brain.goal.flag!=null&&o.brain.goal.type==='spot')on[o.brain.goal.flag]++;}
+    const cap=Math.max(5,Math.round(mates*.2));
+    let pool=(defend.length?defend:ours.length?ours:flags).filter(f=>on[f.i]<cap);
+    if(!pool.length)pool=ours.filter(f=>on[f.i]<cap);
+    if(!pool.length&&attack.length){const best=attack[randi(0,attack.length-1)];this.goal={type:'flag',fi:best.i};this.goalT=rand(12,20);this.path=null;return;}
+    const f=pick(pool.length?pool:defend.length?defend:ours.length?ours:flags);const spots=coverSpots(f.i,team);const s=pick(spots)||{x:f.x,z:f.z};
     this.goal={type:'spot',x:s.x,z:s.z,flag:f.i};this.goalT=rand(15,30);this.path=null;
   }
   // nearest visible enemy
@@ -163,8 +180,14 @@ class Brain{
       const dx=e.pos.x-u.pos.x,dz=e.pos.z-u.pos.z;const d=Math.hypot(dx,dz);if(d>range)continue;
       const heard=GAME.time-e.lastShot<1.2&&d<45;const front=(dx*fx+dz*fz)/Math.max(d,.01);
       if(front<-.15&&d>10&&!heard&&e!==this.threat)continue;
-      if(e.stance==='prone'&&d>70&&GAME.time-e.lastShot>2)continue;
-      if(e.stance==='crouch'&&d>140&&GAME.time-e.lastShot>2)continue;
+      // a quiet soldier who is crouched or prone is hard to pick out, harder still in long grass or against a hedge
+      const quiet=GAME.time-e.lastShot>2.5,moving=Math.hypot(e.vel.x,e.vel.z)>1.2;
+      if(quiet&&e!==this.target&&e!==this.threat){
+        let see=e.stance==='prone'?.22:e.stance==='crouch'?.5:1;
+        if(see<1){if(moving)see*=1.5;if(e.pos.z<32&&e.pos.z>-170&&H(e.pos.x,e.pos.z)>1)see*=.8;for(const s of solidsNear(e.pos.x,e.pos.z,2.2,_sn))if(s.mat==='hedge'){see*=.7;break;}}
+        if(d>range*see)continue;
+        if(see<1&&d>12&&Math.random()>see+.25)continue;
+      }
       let score=d*(e===this.target?.6:1)*(e===this.threat&&GAME.time-this.threatT<4?.5:1);
       if(score>=bd)continue;
       const tgt=e.center(_v2);if(e.stance!=='prone')tgt.y+=.2;
@@ -172,7 +195,7 @@ class Brain{
       best=e;bd=score;
     }
     if(best!==this.target){
-      if(best){this.reactT=DIFF[SET.diff].react+rand(0,.35)+Math.hypot(best.pos.x-u.pos.x,best.pos.z-u.pos.z)/220;this.trackT=0;
+      if(best){this.reactT=DIFF[SET.diff].react+rand(0,.35)+Math.hypot(best.pos.x-u.pos.x,best.pos.z-u.pos.z)/220+(best.stance==='prone'?.6:best.stance==='crouch'?.25:0);this.trackT=0;
         if(!this.spokeEnemy&&Math.random()<.25){shout(u,best.W.mg?'mg':best.W.scope?'sniper':'enemy');this.spokeEnemy=true;}}
       this.target=best;
     }
@@ -316,7 +339,8 @@ class Brain{
     // aim error shrinks while tracking
     const D=DIFF[SET.diff];
     let err=D.err*(.35+.65*Math.exp(-this.trackT/1.3))+Math.hypot(tg.vel.x,tg.vel.z)*.004+this.suppress*.03+(Math.hypot(u.vel.x,u.vel.z)>1?.02:0);
-    if(W.scope)err*=.35;if(u.deployed)err*=.6;if(tg.isPlayer)err*=1.15;
+    if(W.scope)err*=.35;if(u.deployed)err*=.8;if(tg.isPlayer||tg.human)err*=1.15;
+    if(tg.stance==='prone')err*=1.35;else if(tg.stance==='crouch')err*=1.15;
     if(W.mg&&!u.deployed)err+=.05;
     const e=u.eye(new V3());const aim=tg.center(new V3());
     if(tg.stance!=='prone')aim.y+=Math.random()<(W.scope?.35:.12)*D.acc?.5:.18;

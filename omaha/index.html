@@ -175,6 +175,12 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
 #tips b{font-family:var(--stencil);color:var(--gold);letter-spacing:.14em;margin-right:8px}
 #tips #tipX{position:absolute;top:4px;right:6px;appearance:none;background:none;border:0;color:var(--dim);font-size:20px;cursor:pointer;line-height:1}
 #tips #tipOff{display:block;margin-top:6px;appearance:none;background:none;border:0;padding:0;color:var(--dim);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+#tags{position:absolute;inset:0;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,-100%);font-family:var(--num);font-size:13px;letter-spacing:.04em;white-space:nowrap;text-shadow:0 1px 2px #000,0 0 4px #000;text-align:center;line-height:1.1;will-change:transform}
+.tag i{display:block;height:3px;margin:3px auto 0;width:42px;background:rgba(0,0,0,.55)}.tag i b{display:block;height:100%;background:currentColor}
+.tag.a{color:#d4dd96}.tag.x{color:#c4ccd8}.tag.foe{color:#ff8a70}
+#plist{position:absolute;top:32px;left:16px;font-family:var(--num);font-size:12.5px;line-height:1.45;text-shadow:0 1px 2px #000}
+#plist .a{color:#c9d48c}#plist .x{color:#b8c3cf}#plist .dead{opacity:.45;text-decoration:line-through}
 #bleed{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);font-family:var(--stencil);letter-spacing:.14em;color:#e0563f;text-shadow:0 1px 3px #000;animation:blink 1s infinite}
 #blood{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0}
 #unsupported{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--ink)}
@@ -189,6 +195,8 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
   <div id="flagsBar"></div>
   <div id="timer">15:00<small>ROUND 1</small></div>
   <div id="room"></div>
+  <div id="plist"></div>
+  <div id="tags"></div>
   <div id="feed"></div>
   <div id="xh"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
   <div id="hitm"></div>
@@ -231,7 +239,7 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
       <button class="mbtn" id="mControls"><b>CONTROLS</b><small>Keys and tips</small></button>
     </nav>
     <p class="lbl">BATTLE · OFFLINE AND HOSTED GAMES</p>
-    <div class="slider"><input id="size" type="range" min="12" max="20" value="16" aria-label="Soldiers per side"><output id="sizeO">16 v 16</output></div>
+    <div class="slider"><input id="size" type="range" min="12" max="30" value="30" aria-label="Soldiers per side"><output id="sizeO">30 v 30</output></div>
     <div class="row" id="diff">
       <button class="opt" data-d="0" aria-pressed="false"><b>RECRUIT</b></button>
       <button class="opt" data-d="1" aria-pressed="true"><b>REGULAR</b></button>
@@ -311,21 +319,21 @@ h1.big span{display:block;font-size:.42em;letter-spacing:.42em;color:var(--gold)
 <div id="unsupported" class="ov" hidden><p class="lede">This game needs WebGL. Try a recent desktop Chrome, Edge or Firefox.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/core.js"></script>
-<script src="js/shapes.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/terrain.js"></script>
-<script src="js/world.js"></script>
-<script src="js/vegetation.js"></script>
-<script src="js/fx.js"></script>
-<script src="js/weapons.js"></script>
-<script src="js/guns.js"></script>
-<script src="js/soldier.js"></script>
-<script src="js/ragdoll.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/player.js"></script>
-<script src="js/game.js"></script>
-<script src="js/relay.js"></script>
-<script src="js/net.js"></script>
+<script src="js/core.js?v=1793337533"></script>
+<script src="js/shapes.js?v=1793337533"></script>
+<script src="js/audio.js?v=1793337533"></script>
+<script src="js/terrain.js?v=1793337533"></script>
+<script src="js/world.js?v=1793337533"></script>
+<script src="js/vegetation.js?v=1793337533"></script>
+<script src="js/fx.js?v=1793337533"></script>
+<script src="js/weapons.js?v=1793337533"></script>
+<script src="js/guns.js?v=1793337533"></script>
+<script src="js/soldier.js?v=1793337533"></script>
+<script src="js/ragdoll.js?v=1793337533"></script>
+<script src="js/ai.js?v=1793337533"></script>
+<script src="js/player.js?v=1793337533"></script>
+<script src="js/game.js?v=1793337533"></script>
+<script src="js/relay.js?v=1793337533"></script>
+<script src="js/net.js?v=1793337533"></script>
 </body>
 </html>

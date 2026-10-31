@@ -2,12 +2,13 @@ import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
-import { G, SAVE_KEY, newProfile } from './state.js';
+import { G, saveKey, newProfile } from './state.js';
 import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
-import { CLASSES, CLASS_LIST } from './classes.js';
+import { CLASSES, STYLES, STYLE_CLASSES, LOADOUTS } from './classes.js';
 import { ensureSkills, castSkill, updateSkills, spellPower } from './skills.js';
 import { updatePets, clearPets } from './pets.js';
-import { buildWorld, heightAt, zoneAt, updateWorld } from './world.js';
+import { buildWorld, heightAt, zoneAt, updateWorld, WARS } from './world.js';
+import { startWars, updateWars } from './wars.js';
 import { createPlayer, updatePlayer, updateProjectiles, useAbility, swapWeapon, usePotion, eatFood, startRecall, startGather, startDodge, jump, makeCharacter, armCharacter, carryWeapon, refreshLook, TOWN_SPAWN } from './player.js';
 import { updateEnemies, updateCamps, removeEnemy, enemiesNear } from './enemies.js';
 import { updateFx, shakeOffset } from './fx.js';
@@ -196,6 +197,8 @@ addEventListener('keydown', e => {
     case 'KeyT': eatFood(); break;
     case 'KeyH': startRecall(); break;
     case 'KeyE': interact(); break;
+    case 'KeyB': G.wars?.recruit(); break;
+    case 'KeyG': G.wars?.toggleOrders(); break;
   }
 });
 addEventListener('keyup', e => { inp.keys[e.code] = false; });
@@ -318,53 +321,91 @@ function updateSky(dt, center) {
 function saveGame() {
   if (!G.p || G.mode !== 'game' || window.skipSave) return;
   G.p.pos = [G.player.pos.x, G.player.pos.z];
+  if (WARS) G.p.pos = null; // every battle starts back in your own town
   G.p.yaw = G.player.yaw;
   if (G.player.state === 'dead') G.p.pos = [TOWN_SPAWN.x, TOWN_SPAWN.z];
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G.p)); } catch (e) { /* storage full or blocked */ }
+  try { localStorage.setItem(saveKey(), JSON.stringify(G.p)); } catch (e) { /* storage full or blocked */ }
 }
 window.saveGame = saveGame;
-function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(saveKey())); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
 addEventListener('beforeunload', saveGame);
 
-// ---------- Home screen ----------
-function title() {
-  if (online() && G.mode !== 'game') { if (gameStarted()) charSelect(); else lobby(); return; }
+// ---------- Home screen: Campaign, Kingdom Wars and Multiplayer tabs ----------
+// Each tab has its own hero (its own save). Kingdom Wars is played on its own map (?mode=wars), so switching
+// to or from that tab reloads the page into the other world.
+const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+let homeTab = WARS ? 'wars' : invited || new URLSearchParams(location.search).get('tab') === 'mp' ? 'mp' : 'campaign';
+G.slot = homeTab;
+const TAB_TEXT = {
+  campaign: 'Shipwrecked on a cursed island. Quest, chop trees, mine stone, craft your gear and grow the town.',
+  wars: 'Two kingdoms, one road. Fight beside your soldiers and kill the enemy king before he kills yours.',
+  mp: 'Play the island together online with up to 7 friends. Host a game or join one with a code.',
+};
+// after Play: continue with this tab's hero or make a new one
+function heroScreen() {
   G.mode = 'title';
+  const save = loadSave(), C = save ? CLASSES[save.cls] : null, t = $('title');
+  const where = homeTab === 'wars' ? 'Kingdom Wars' : 'Campaign';
+  t.innerHTML = `<div class="home lobby"><div class="mp heroes">
+    <header><h2>Choose Your Hero</h2><span class="pill">${where}</span></header>
+    <p class="dim">Campaign, Kingdom Wars and Multiplayer each keep their own hero.</p>
+    <div class="mpheroes">
+      ${save ? `<button id="hcont" class="hero primary"><span>${C ? C.icon : '⚔️'}</span><b>Play as ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
+      <button id="hnew" class="hero ${save ? '' : 'primary'}"><span>✨</span><b>Create New Character</b><small>${save ? `Replaces your ${where} hero` : 'Choose a style, a class and a weapon'}</small></button>
+    </div>
+    <footer><div class="grow"></div><button id="hback">Back</button></footer></div></div>`;
+  t.style.display = 'block';
+  if (save) $('hcont').onclick = () => { initAudio(); play(save); };
+  $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; creator(); };
+  $('hback').onclick = () => title();
+}
+function setTab(k) {
+  if (k === homeTab) return;
+  if (k === 'wars' && !WARS) { location.href = location.pathname + '?mode=wars'; return; }
+  if (k !== 'wars' && WARS) { location.href = location.pathname + (k === 'mp' ? '?tab=mp' : ''); return; }
+  homeTab = k; $('homeside').innerHTML = ''; title();
+}
+function title() {
+  if (online() && G.mode !== 'game') { G.slot = 'mp'; if (gameStarted()) charSelect(); else lobby(); return; }
+  G.mode = 'title';
+  G.slot = homeTab;
   const save = loadSave();
   const t = $('title');
-  const C = save ? CLASSES[save.cls] : null;
-  t.innerHTML = `<div class="home t2">
-    <div class="t2col">
-      <div class="t2logo"><div class="t2crest">⚜</div><h1>Aeternum<span>Wilds</span></h1></div>
-      <nav class="t2nav">
-        ${save ? `<button id="cont" class="t2btn"><i>${C ? C.icon : '⚔️'}</i><b>Continue<small>${esc(save.name || 'Castaway')} · ${C ? C.name : 'Adventurer'} · Level ${save.level}</small></b></button>` : ''}
-        <button id="newg" class="t2btn"><i>✨</i><b>New Character<small>18 classes · shape your hero</small></b></button>
-        <div class="t2pair">
-          <button id="ohost" class="t2btn"><i>👑</i><b>Host Game<small>Play with friends</small></b></button>
-          <button id="ojoinb" class="t2btn"><i>🔗</i><b>Join Game<small>Enter a code</small></b></button>
-        </div>
-        <div class="t2small">
-          <button id="sett" title="Settings">⚙ Settings</button>
-          <button id="ctrl" title="Controls">⌨ Controls</button>
-          <button id="fs" title="Full screen (F11)">⛶ ${document.fullscreenElement ? 'Windowed' : 'Full Screen'}</button>
-        </div>
-      </nav>
-    </div>
-    <div id="homeside"></div></div>`;
+  const side = $('homeside')?.innerHTML || '';
+  const tab = (k, n) => `<button id="t${k}" role="tab" aria-selected="${homeTab === k}" class="${homeTab === k ? 'on' : ''}">${n}</button>`;
+  let body = '';
+  if (homeTab === 'campaign') body = `<button id="playb" class="primary"><b>Play Campaign</b><small>Quests, gathering, crafting · choose or create your hero</small></button>`;
+  else if (homeTab === 'wars') body = `<button id="playb" class="primary"><b>Go to War</b><small>Two towns, one road · choose or create your hero</small></button>`;
+  else body = `<button id="ohost" class="primary"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
+      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code · pick your hero in the lobby</small></button>`;
+  t.innerHTML = `<div class="home">
+    <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>${TAB_TEXT[homeTab]}</p></div>
+    <nav>
+      <div class="htabs" role="tablist">${tab('campaign', 'Campaign')}${tab('wars', 'Kingdom Wars')}${tab('mp', 'Multiplayer')}</div>
+      ${body}
+      <div class="hrow">
+        <button id="sett" title="Mouse, view, graphics, sound">Settings</button>
+        <button id="fs" title="Or press F11 at any time">${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</button>
+        <button id="ctrl">Controls</button>
+      </div>
+    </nav>
+    <div id="homeside">${side}</div>
+    <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
   t.style.display = 'block';
-  if (save) $('cont').onclick = () => { initAudio(); play(save); };
-  $('newg').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  for (const k of ['campaign', 'wars', 'mp']) $('t' + k).onclick = () => setTab(k);
+  if ($('playb')) $('playb').onclick = () => { initAudio(); heroScreen(); };
+  if (homeTab === 'mp') {
+    $('ohost').onclick = () => { initAudio(); hostNow(); };
+    $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
+    if (invited && !online() && !side) joinPanel(invited);
+  }
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
-  $('ohost').onclick = () => { initAudio(); hostNow(); };
-  $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
-  if (invited && !online()) joinPanel(invited);
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
 }
 
 // ---------- Online: host or join on the main menu -> lobby with code and chat -> host presses Play Game ->
 // everyone picks or creates a character -> into the world together ----------
-const invited = (new URLSearchParams(location.search).get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
 const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
 const saveName = () => loadSave()?.name || '';
 function play(profile) { enterGame(profile); }
@@ -373,6 +414,7 @@ setLobbyHooks(
   () => { if (G.mode === 'lobby') charSelect(); },
 );
 function joinPanel(code = '') {
+  G.slot = 'mp';
   $('homeside').innerHTML = `<div class="mpcard"><h3>Join Game</h3>
     <p class="dim">Ask the host for their 4-letter game code.</p>
     <label class="mpfield"><span>Your name</span><input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
@@ -392,6 +434,7 @@ function joinPanel(code = '') {
   (code ? $('ojoin') : $('ocode')).focus();
 }
 function hostNow() {
+  G.slot = 'mp';
   $('homeside').innerHTML = `<div class="mpcard"><h3>Host Game</h3><p id="ostat" class="mpstat"><span class="spin"></span> Creating your game…</p></div>`;
   setLobbyName(saveName() || 'Host');
   hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
@@ -468,7 +511,7 @@ function charSelect() {
   t.style.display = 'block';
   bindChat(); $('lobbyin').value = typed;
   if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
-  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creator(); };
+  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creatorTab = 'style'; creator(); };
   $('lback').onclick = () => { if (confirm('Leave this game?')) { leaveOnline(); title(); } };
 }
 
@@ -484,7 +527,8 @@ export function controlsHtml() {
     <tr><td>Wheel</td><td>Zoom (all the way in for first person)</td><td>F11</td><td>Full screen</td></tr>
     <tr><td>I</td><td>Inventory</td><td>P</td><td>Character</td></tr>
     <tr><td>C</td><td>Character</td><td>J</td><td>Journal</td></tr>
-    <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr></table>`;
+    <tr><td>M</td><td>Map</td><td>Esc</td><td>Menu</td></tr>
+    <tr><td>B</td><td>Kingdom Wars: recruit soldiers</td><td>G</td><td>Kingdom Wars: advance / hold the gate</td></tr></table>`;
 }
 export function settingsHtml() {
   return `<div class="card settings"><h3>Settings</h3>
@@ -517,10 +561,12 @@ export function bindSettings(root) {
 }
 
 // ---------- Character creator ----------
-const draft = { name: '', cls: 'warrior', look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
+const draft = { name: '', style: 'melee', cls: 'warrior', kit: 0, look: { model: 'barbarian', sex: 'm', skin: SKIN_TONES[2], hair: HAIR_COLORS[2], eyeColor: EYE_COLORS[0], hairStyle: 0, facialHair: 0, paint: null, scar: false } };
 for (const [k, , , , d] of [...BODY_SLIDERS, ...FACE_SLIDERS]) draft.look[k] = d;
 let previewQueued = false, previewZoom = 1;
-let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'class';
+let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'style';
+const STEPS = [['style', 'Style'], ['class', 'Class'], ['weapon', 'Weapon'], ['body', 'Body'], ['face', 'Face & Hair']];
+const kitOf = () => (LOADOUTS[draft.cls] || [])[draft.kit] || null;
 const PREVIEW_AT = { x: 3, z: 24 };
 function buildPreview() {
   if (preview) scene.remove(preview.root);
@@ -528,7 +574,8 @@ function buildPreview() {
   preview = makeCharacter({ look: draft.look });
   dressHumanoid(preview, { chest: 0x7a6a52, legs: 0x4a3e30, feet: 0x2a2018, helm: null, trim: C.color }); // the creator shows the person, not the gear
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
-  armCharacter(preview, { wtype: C.weapon, tier: 1, model: C.model, shield: C.shield }, null);
+  const K = kitOf(), w = K ? K.w1 : { wtype: C.weapon, model: C.model, shield: C.shield };
+  armCharacter(preview, { tier: 1, ...w }, K?.w2 ? { tier: 1, ...K.w2 } : null);
   preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   scene.add(preview.root);
 }
@@ -541,13 +588,20 @@ function creator() {
   const C = CLASSES[draft.cls], L = draft.look;
   const attrs = { str: 5, dex: 5, int: 5, con: 5 };
   for (const k in C.attrs) attrs[k] += C.attrs[k];
+  const step = STEPS.findIndex(x => x[0] === creatorTab);
   let body = '';
-  if (creatorTab === 'class') {
-    body = `<div class="cards c16">${CLASS_LIST.map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
+  if (creatorTab === 'style') {
+    body = `<h3>Choose your style</h3><div class="cards c3">${Object.entries(STYLES).map(([k, S2]) => `<button class="ccard big ${k === draft.style ? 'on' : ''}" data-style="${k}"><span>${S2.icon}</span><b>${S2.name}</b><small>${S2.desc}</small><em>${STYLE_CLASSES[k].map(c => CLASSES[c].icon).join(' ')}</em></button>`).join('')}</div>`;
+  } else if (creatorTab === 'class') {
+    body = `<h3>${STYLES[draft.style].icon} ${STYLES[draft.style].name} classes</h3><div class="cards c16">${STYLE_CLASSES[draft.style].map(k => { const c = CLASSES[k]; return `<button class="ccard ${k === draft.cls ? 'on' : ''}" data-cls="${k}"><span>${c.icon}</span><b>${c.name}</b><small>${c.role}</small></button>`; }).join('')}</div>
       <div class="cinfo"><h3>${C.icon} ${C.name} <small>${C.role}</small></h3><p class="cdesc">${C.desc}</p>
-      <p class="small">Starts with: <b>${C.model && WEAPON_MODELS[C.model] ? WEAPON_MODELS[C.model].name : WEAPONS[C.weapon].name}</b> (${WEAPONS[C.weapon].name}), ${C.armor} armor. ${C.start2 ? `Also carries a ${WEAPONS[C.second].name.toLowerCase()}.` : `Gets a ${WEAPONS[C.second].name.toLowerCase()} from the first quest.`}</p>
+      <p class="small">${C.armor[0].toUpperCase() + C.armor.slice(1)} armor. You choose your weapon next.</p>
       <div class="trees3">${C.trees.map(tr => `<div><b>${tr.icon} ${tr.name}</b><small>${tr.desc}</small><ul>${tr.nodes.filter(n => n.type === 'active').map(n => `<li>${n.icon} ${n.name}</li>`).join('')}</ul></div>`).join('')}</div>
       <div class="cattrs">${['str', 'dex', 'int', 'con'].map(k => `<span>${{ str: 'Strength', dex: 'Dexterity', int: 'Intelligence', con: 'Constitution' }[k]} <b>${attrs[k]}</b></span>`).join('')}</div></div>`;
+  } else if (creatorTab === 'weapon') {
+    const kits = LOADOUTS[draft.cls] || [], K = kitOf();
+    body = `<h3>${C.icon} ${C.name}: choose your weapon</h3><div class="cards c3">${kits.map((k, i) => `<button class="ccard big ${i === draft.kit ? 'on' : ''}" data-kit="${i}"><span>${k.icon}</span><b>${k.name}</b><small>${k.desc}</small></button>`).join('')}</div>
+      ${K ? `<p class="small">In hand: <b>${K.w1.name || WEAPON_MODELS[K.w1.model]?.name || WEAPONS[K.w1.wtype].name}</b> (${WEAPONS[K.w1.wtype].short}${K.w1.shield ? ' and shield' : ''})${K.w2 ? ` · Second weapon: <b>${WEAPON_MODELS[K.w2.model]?.name || WEAPONS[K.w2.wtype].name}</b>, swap with <kbd>Q</kbd>` : ''}</p>` : ''}`;
   } else if (creatorTab === 'body') {
     body = `${meshyReady() ? `<div class="look"><span>Hero</span><button class="hs ${L.model === 'barbarian' ? 'on' : ''}" data-model="barbarian">Sculpted barbarian</button><button class="hs ${L.model !== 'barbarian' ? 'on' : ''}" data-model="custom">Custom (sliders)</button></div>` : ''}
       <div class="look"><span>Sex</span><button class="hs ${L.sex === 'm' ? 'on' : ''}" data-sex="m">Male</button><button class="hs ${L.sex === 'f' ? 'on' : ''}" data-sex="f">Female</button></div>
@@ -567,15 +621,19 @@ function creator() {
     <div class="cpanel">
       <h2>Create your character</h2>
       <label class="nm">Name <input id="cname" maxlength="18" placeholder="Castaway" value="${esc(draft.name)}"></label>
-      <div class="tabs ctabs">${[['class', 'Class'], ['body', 'Body'], ['face', 'Face & Hair']].map(([k, n]) => `<button class="${creatorTab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}<button id="crand" class="right">🎲 Random look</button></div>
+      <div class="tabs ctabs steps">${STEPS.map(([k, n], i) => `<button class="${creatorTab === k ? 'on' : ''}" data-tab="${k}"><i>${i + 1}</i> ${n}</button>`).join('')}${step >= 3 ? '<button id="crand" class="right">🎲 Random look</button>' : ''}</div>
       ${body}
-      <div class="row"><button id="cback">Back</button><button id="cgo" class="primary">Begin your journey</button></div>
+      <div class="row"><button id="cback">Back</button>${step < 2 ? '<button id="cnext" class="primary">Next ▶</button>' : step === 2 ? '<button id="cnext">Shape your look ▶</button><button id="cgo" class="primary">Begin</button>' : '<button id="cgo" class="primary">Begin your journey</button>'}</div>
     </div>
     <div class="chint">Drag to turn your character · Mouse wheel to zoom</div></div>`;
   t.style.display = 'block';
   $('cname').oninput = e => { draft.name = e.target.value; };
   t.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { creatorTab = b.dataset.tab; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); });
-  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; creator(); });
+  t.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { draft.style = b.dataset.style; if (!STYLE_CLASSES[draft.style].includes(draft.cls)) { draft.cls = STYLE_CLASSES[draft.style][0]; draft.kit = 0; buildPreview(); } creator(); });
+  t.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { draft.cls = b.dataset.cls; draft.kit = 0; buildPreview(); creator(); });
+  t.querySelectorAll('[data-kit]').forEach(b => b.onclick = () => { draft.kit = +b.dataset.kit; buildPreview(); creator(); });
+  const go = d => { creatorTab = STEPS[Math.max(0, Math.min(STEPS.length - 1, step + d))][0]; previewView = creatorTab === 'face' ? 'face' : 'body'; creator(); };
+  if ($('cnext')) $('cnext').onclick = () => go(1);
   t.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { L.model = b.dataset.model; if (L.model === 'barbarian') L.sex = 'm'; creator(); });
   t.querySelectorAll('[data-sex]').forEach(b => b.onclick = () => { L.sex = b.dataset.sex; if (L.sex === 'f') L.model = 'custom'; if (L.sex === 'f') { L.facialHair = 0; if (L.hairStyle === 0 || L.hairStyle === 3) L.hairStyle = 1; } creator(); });
   t.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { L[b.dataset.sw] = +b.dataset.v; creator(); });
@@ -585,25 +643,34 @@ function creator() {
   t.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => { L.scar = b.dataset.scar === '1'; creator(); });
   // sliders rebuild only the 3D preview so dragging stays smooth
   t.querySelectorAll('[data-sl]').forEach(r => r.oninput = () => { L[r.dataset.sl] = +r.value; if (!previewQueued) { previewQueued = true; requestAnimationFrame(() => { previewQueued = false; if (G.mode === 'create') buildPreview(); }); } });
-  $('crand').onclick = () => {
+  if ($('crand')) $('crand').onclick = () => {
     const pk = a => a[Math.floor(Math.random() * a.length)];
     for (const [k, , mn, mx] of [...BODY_SLIDERS, ...FACE_SLIDERS]) L[k] = +(mn + Math.random() * (mx - mn)).toFixed(2);
     L.skin = pk(SKIN_TONES); L.hair = pk(HAIR_COLORS); L.eyeColor = pk(EYE_COLORS); L.hairStyle = Math.floor(Math.random() * HAIR_STYLES.length);
     L.facialHair = L.sex === 'f' ? 0 : Math.floor(Math.random() * FACIAL_HAIR.length); L.paint = Math.random() < 0.25 ? pk(WAR_PAINT.slice(1))[1] : null; L.scar = Math.random() < 0.2;
     creator();
   };
-  $('cback').onclick = () => { if (preview) { scene.remove(preview.root); preview = null; } title(); };
+  $('cback').onclick = () => { if (step > 0) { go(-1); return; } if (preview) { scene.remove(preview.root); preview = null; } if (online()) charSelect(); else heroScreen(); };
   $('cgo').onclick = () => {
-    const C2 = CLASSES[draft.cls];
-    const p = newProfile(C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
+    const C2 = CLASSES[draft.cls], K = kitOf();
+    const p = newProfile(K ? K.w1.wtype : C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
-    p.equip.w1 = makeGear({ kind: 'weapon', wtype: C2.weapon, gs: 100, rarity: 0 });
-    if (C2.model) p.equip.w1.model = C2.model;
-    if (C2.model && WEAPON_MODELS[C2.model]) { p.equip.w1.model = C2.model; p.equip.w1.name = WEAPON_MODELS[C2.model].name; }
-    if (C2.shield) p.equip.w1.shield = C2.shield;
-    if (C2.start2) { p.equip.w2 = makeGear({ kind: 'weapon', wtype: C2.second, gs: 100, rarity: 0 }); if (C2.model2) p.equip.w2.model = C2.model2; }
+    // the chosen weapon (and its second weapon, if the choice has one)
+    const gear = o => {
+      const it = makeGear({ kind: 'weapon', wtype: o.wtype, gs: 100, rarity: 0 });
+      if (o.model) { it.model = o.model; if (WEAPON_MODELS[o.model]) it.name = WEAPON_MODELS[o.model].name; }
+      if (o.shield) it.shield = o.shield;
+      if (o.noShield) it.noShield = true;
+      if (o.elem) it.elem = o.elem;
+      if (o.name) it.name = o.name;
+      return it;
+    };
+    p.equip.w1 = gear(K ? K.w1 : { wtype: C2.weapon, model: C2.model, shield: C2.shield });
+    if (K?.w2) p.equip.w2 = gear(K.w2);
+    else if (C2.start2) p.equip.w2 = gear({ wtype: C2.second, model: C2.model2 });
     for (const sl of C2.gear) p.equip[sl] = makeGear({ kind: 'armor', slot: sl, gs: 100, rarity: 0, wclass: C2.armor });
     if (preview) { scene.remove(preview.root); preview = null; }
+    if (G.slot === 'mp' && !online()) { try { localStorage.setItem(saveKey(), JSON.stringify(p)); } catch (e) { /* blocked */ } title(); return; }
     play(p);
   };
 }
@@ -626,6 +693,7 @@ function enterGame(profile) {
   if (S.autoFS && !document.fullscreenElement) toggleFullscreen();
   createPlayer();
   initUI();
+  if (WARS) { startWars(); $('tracker').style.display = 'none'; }
   fillBounties();
   refreshHud(); refreshTracker();
   $('hud').style.display = 'block';
@@ -633,7 +701,7 @@ function enterGame(profile) {
   G.relock();
   initChat(); hello();
   if (online()) setTimeout(() => toast(`Online game <b>${onlineCode()}</b>: ${partySize()} in the party. Press <kbd>Enter</kbd> to chat.`, 'gold'), 1500);
-  if (profile.story.step === 0) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
+  if (profile.story.step === 0 && !WARS) setTimeout(() => toast(`Welcome to Aeternum, ${esc(profile.name || 'Castaway')}. Captain Thorne is waiting by the flag. Walk up to him and press <kbd>E</kbd>.`, 'gold'), 800);
   if (profile.skills.points > 0) setTimeout(() => toast(`You have ${profile.skills.points} skill point${profile.skills.points > 1 ? 's' : ''}. Press <kbd>K</kbd> to see your abilities.`, 'gold'), 2500);
 }
 
@@ -662,6 +730,7 @@ function loop() {
       updatePlayer(dt);
       updateSkills(dt);
       updatePets(dt, spellPower);
+      if (WARS) updateWars(dt);
       updateCamps(dt);
       updateEnemies(dt);
       updateProjectiles(dt);
@@ -709,8 +778,9 @@ function loop() {
     updateSky(G.paused ? 0 : dt, center);
     updateWorld(dt, P.pos.x, P.pos.z, t);
     const zn = zoneAt(P.pos.x, P.pos.z);
-    scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : zn === 'frost' ? 50 : 70) * G.Q.view;
-    scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : zn === 'frost' ? 240 : 330) * G.Q.view;
+    if (WARS) { scene.fog.near = 120; scene.fog.far = 385; } // the other town is only just in sight down the road
+    else scene.fog.near = (zn === 'mire' ? 25 : zn === 'ruins' ? 45 : zn === 'frost' ? 50 : 70) * G.Q.view;
+    if (!WARS) scene.fog.far = (zn === 'mire' ? 170 : zn === 'ruins' ? 230 : zn === 'frost' ? 240 : 330) * G.Q.view;
     if (G.night > 0.5) scene.fog.far *= 0.8;
     updateHud(dt);
   } else {
@@ -727,17 +797,25 @@ function loop() {
       center.set(px, py, pz);
     } else {
       const a = t * 0.025;
-      camera.position.set(Math.cos(a) * 95, 42 + Math.sin(t * 0.1) * 6, Math.sin(a) * 95);
-      camera.lookAt(Math.cos(a + 0.9) * 20, 8, Math.sin(a + 0.9) * 20);
-      center.set(Math.cos(a) * 60, 3, Math.sin(a) * 60);
+      if (WARS) {
+        // drift down the road from above the blue gate, looking toward the red town
+        const x = -120 + Math.sin(t * 0.03) * 60;
+        camera.position.set(x, 30 + Math.sin(t * 0.1) * 4, 34);
+        camera.lookAt(x + 90, 4, 0);
+        center.set(x + 40, 3, 0);
+      } else {
+        camera.position.set(Math.cos(a) * 95, 42 + Math.sin(t * 0.1) * 6, Math.sin(a) * 95);
+        camera.lookAt(Math.cos(a + 0.9) * 20, 8, Math.sin(a + 0.9) * 20);
+        center.set(Math.cos(a) * 60, 3, Math.sin(a) * 60);
+      }
     }
     updateSky(dt, center);
     updateWorld(dt, center.x, center.z, t);
     scene.fog.near = 90; scene.fog.far = 420;
   }
   // ambience
-  if (G.flag) G.flag.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
-  if (G.flame) { G.flame.scale.set(1 + Math.sin(t * 13) * 0.12, 1 + Math.sin(t * 9) * 0.2, 1 + Math.cos(t * 11) * 0.12); }
+  for (const f of G.flags || []) f.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
+  for (const f of G.flames || []) f.scale.set(1 + Math.sin(t * 13) * 0.12, 1 + Math.sin(t * 9) * 0.2, 1 + Math.cos(t * 11) * 0.12);
   for (const tr of G.torches || []) tr.flame.scale.set(1 + Math.sin(t * 12 + tr.flame.id) * 0.15, 1 + Math.sin(t * 9 + tr.flame.id) * 0.25, 1);
   if (G.crystal) { G.crystal.rotation.y = t * 0.6; G.crystal.position.y = 3.4 + Math.sin(t * 1.5) * 0.3; }
   if (G.water) G.water.position.y = -0.15 + Math.sin(t * 0.6) * 0.06;

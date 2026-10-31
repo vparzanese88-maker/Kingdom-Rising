@@ -21,8 +21,9 @@ const GAME={time:0,mode:'menu',quality:'high'};
 const Net={on:false,host:false,client:false,ev:[],applying:false,event(e){if(this.host)this.ev.push(e);},send(){}};
 const _realRandom=Math.random;
 {let s=0x2c1b3c6d;Math.random=function(){s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const SET={music:true,voice:true,sens:1.4,size:16,diff:1,team:0};
+const SET={music:true,voice:true,sens:1.4,size:30,diff:1,team:0};
 try{const s=JSON.parse(localStorage.getItem('omaha.settings')||'null');if(s)Object.assign(SET,s);}catch(e){}
+if(!SET.size30){SET.size=30;SET.size30=1;}
 SET.vol=Object.assign({master:.9,sfx:1,music:.6,voice:.9},SET.vol||{});
 function saveSettings(){try{localStorage.setItem('omaha.settings',JSON.stringify(SET));}catch(e){}}
 
@@ -32,6 +33,12 @@ let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});}
 catch(e){$('unsupported').hidden=false;throw e;}
 const isGL2=renderer.capabilities.isWebGL2;
+// if the graphics driver resets (a big first frame, a driver hiccup, alt-tab on some PCs) WebGL loses
+// the canvas and the screen goes black. Ask for it back and tell the player what is happening.
+var GL_LOST=false;
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();GL_LOST=true;
+  try{center('GRAPHICS RESET','Your graphics driver reset. Getting the picture back… (press F5 if it stays black)',0);}catch(_){}},false);
+canvas.addEventListener('webglcontextrestored',()=>{GL_LOST=false;try{center('','',.01);hint('Graphics restored',2.5);}catch(_){}},false);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.setSize(innerWidth,innerHeight,false);
 renderer.outputEncoding=THREE.sRGBEncoding;

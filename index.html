@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <script>/* the game is played at kingdom-rising-3d/; this page only holds the shared styles and script list it loads */ if (!/[?&]classic=1/.test(location.search)) location.replace('kingdom-rising-3d/' + location.search + location.hash);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kingdom Rising</title>
+<title>Kingdom3D</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -561,46 +561,46 @@ body.hud-quiet .hud-menu:hover, body.hud-quiet .hud-chat:hover, body.hud-quiet .
 .cr-dbtn.on { border-color: var(--brass-hi); background: rgba(201,164,92,.22); }
 </style>
 
-<canvas id="game" aria-label="Kingdom Rising game world"></canvas>
+<canvas id="game" aria-label="Kingdom3D game world"></canvas>
 <div id="ui" hidden></div>
 <div id="screen"></div>
 <div id="loading"><div><div class="spin"></div><p class="dim">Preparing the realm...</p></div></div>
 <div id="gate" hidden><div class="cv-click" id="gate-go">Click anywhere to continue</div></div>
 
 <script>
-window.KR_VERSION = 81;
+window.KR_VERSION = 82;
 window.addEventListener('error', function (e) { if (e.filename && e.filename.indexOf('/js/') < 0) return; if (window.KR && window.KR.Main && window.KR.Main.showFatal) window.KR.Main.showFatal(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { try { e.preventDefault(); } catch (x) {} console.warn('Ignored async error:', e.reason); });
 </script>
-<script src="js/data.js?v=81"></script>
-<script src="js/audio.js?v=81"></script>
-<script src="js/world.js?v=81"></script>
-<script src="js/sprites.js?v=81"></script>
-<script src="js/game.js?v=81"></script>
-<script src="js/systems.js?v=81"></script>
-<script src="js/mercs.js?v=81"></script>
-<script src="js/gear.js?v=81"></script>
-<script src="js/render.js?v=81"></script>
-<script src="js/ui.js?v=81"></script>
-<script src="js/mercui.js?v=81"></script>
-<script src="js/travel.js?v=81"></script>
-<script src="js/war.js?v=81"></script>
-<script src="js/warmarch.js?v=81"></script>
+<script src="js/data.js?v=82"></script>
+<script src="js/audio.js?v=82"></script>
+<script src="js/world.js?v=82"></script>
+<script src="js/sprites.js?v=82"></script>
+<script src="js/game.js?v=82"></script>
+<script src="js/systems.js?v=82"></script>
+<script src="js/mercs.js?v=82"></script>
+<script src="js/gear.js?v=82"></script>
+<script src="js/render.js?v=82"></script>
+<script src="js/ui.js?v=82"></script>
+<script src="js/mercui.js?v=82"></script>
+<script src="js/travel.js?v=82"></script>
+<script src="js/war.js?v=82"></script>
+<script src="js/warmarch.js?v=82"></script>
 <script src="js/unlocks.js?v=1"></script>
-<script src="js/kingdom.js?v=81"></script>
-<script src="js/realm.js?v=81"></script>
-<script src="js/realmui.js?v=81"></script>
-<script src="js/tips.js?v=81"></script>
-<script src="js/story.js?v=81"></script>
-<script src="js/affinity.js?v=81"></script>
-<script src="js/group.js?v=81"></script>
-<script src="js/chat.js?v=81"></script>
-<script src="js/kingstory.js?v=81"></script>
-<script src="js/mapinfo.js?v=81"></script>
-<script src="js/relay.js?v=81"></script>
-<script src="js/online.js?v=81"></script>
-<script src="js/cheats.js?v=81"></script>
-<script src="js/warbutton.js?v=81"></script>
-<script src="js/classbg.js?v=81"></script>
-<script src="js/menus.js?v=81"></script>
-<script src="js/main.js?v=81"></script>
+<script src="js/kingdom.js?v=82"></script>
+<script src="js/realm.js?v=82"></script>
+<script src="js/realmui.js?v=82"></script>
+<script src="js/tips.js?v=82"></script>
+<script src="js/story.js?v=82"></script>
+<script src="js/affinity.js?v=82"></script>
+<script src="js/group.js?v=82"></script>
+<script src="js/chat.js?v=82"></script>
+<script src="js/kingstory.js?v=82"></script>
+<script src="js/mapinfo.js?v=82"></script>
+<script src="js/relay.js?v=82"></script>
+<script src="js/online.js?v=82"></script>
+<script src="js/cheats.js?v=82"></script>
+<script src="js/warbutton.js?v=82"></script>
+<script src="js/classbg.js?v=82"></script>
+<script src="js/menus.js?v=82"></script>
+<script src="js/main.js?v=82"></script>

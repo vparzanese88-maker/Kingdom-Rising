@@ -69,7 +69,7 @@ export function hurtPet(pet, dmg) {
   if (pet.dead) return;
   pet.hp -= dmg;
   pet.flash = 0.12;
-  floatText({ x: pet.pos.x, z: pet.pos.z, y: pet.y + 2 }, `-${Math.round(dmg)}`, 'hurt');
+  if (!G.player || Math.hypot(pet.pos.x - G.player.pos.x, pet.pos.z - G.player.pos.z) < 35) floatText({ x: pet.pos.x, z: pet.pos.z, y: pet.y + 2 }, `-${Math.round(dmg)}`, 'hurt');
   if (pet.hp <= 0) killPet(pet);
 }
 export function killPet(pet) {
@@ -77,7 +77,8 @@ export function killPet(pet) {
   pet.dead = true;
   burst(pet.pos.x, pet.y + 1, pet.pos.z, 0x9a9a9a, 16, 3, 0.6);
   G.scene.remove(pet.model.root);
-  pet.plate.remove();
+  pet.plate?.remove();
+  pet.onDeath?.();
   for (const e of G.enemies) if (e.petTarget === pet) e.petTarget = null;
 }
 export function clearPets() { for (const p of G.pets) killPet(p); G.pets.length = 0; }

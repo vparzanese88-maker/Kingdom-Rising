@@ -161,7 +161,7 @@
     if (other) { room.leave().catch(() => {}); throw new Error(`"${other.data.name || code}" already has a host. Join it instead.`); }
     let save = null;
     if (!opts.fresh) { save = await O.loadShared(code, pass); if (!save) { room.leave().catch(() => {}); throw new Error('No saved game matches that code and password.'); } }
-    const name = String(opts.name || (save && save.name) || 'Kingdom Rising game').slice(0, 40);
+    const name = String(opts.name || (save && save.name) || 'Kingdom3D game').slice(0, 40);
     O.room = room; O.code = code; O.pass = pass; O.name = name; O.mode = 'host'; O.hostPeer = null;
     bind(room);
     useWorld(HOST_KEYS, save ? save.world : O.freshWorld());

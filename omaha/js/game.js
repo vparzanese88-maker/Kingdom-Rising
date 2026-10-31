@@ -1,6 +1,6 @@
 'use strict';
 /* ================= Game state ================= */
-const G={mode:'menu',flags:[],round:1,score:[0,0],timeLeft:900,waveT:[0,0],waveInt:[11,13],introT:0,endT:0,artyT:40,ambT:0,demo:false,paused:false,winner:-1,shipT:3,planeT:30};
+const G={mode:'menu',flags:[],round:1,score:[0,0],timeLeft:900,waveT:[0,0],waveInt:[8,15],introT:0,endT:0,artyT:40,ambT:0,demo:false,paused:false,winner:-1,shipT:3,planeT:30};
 const stats={shots:0};
 const ROUND_TIME=900,FREEZE_T=10,INTRO_T=8;
 const preRound=()=>G.mode==='freeze'||G.mode==='intro';
@@ -42,7 +42,7 @@ function updateFlags(dt){
       const t=n[0]&&!n[1]?0:n[1]&&!n[0]?1:-1;
       if(t>=0&&f.owner!==t){
         if(f.capTeam!==t&&f.prog>0)f.prog=Math.max(0,f.prog-dt/4);
-        else{f.capTeam=t;const rate=(1/8)*Math.min(2.5,1+.5*(n[t]-1));f.prog+=dt*rate;
+        else{f.capTeam=t;const rate=(1/8)*Math.min(3,1+.5*(n[t]-1));f.prog+=dt*rate;
           if(f.prog>=1)captureFlag(f,t,inside[t]);}
       }else if(t<0&&n[0]&&n[1]){/* contested: hold */}
       else f.prog=Math.max(0,f.prog-dt*.12);
@@ -82,8 +82,14 @@ function checkWin(){
 }
 
 /* ================= Units, teams, spawning ================= */
-const COMPOSITION={0:['rifleman','rifleman','rifleman','rifleman','rifleman','rifleman','staffsgt','staffsgt','mastersgt','mastersgt','sergeant','sergeant','support','support','sniper','mg','rifleman','staffsgt','mastersgt','support'],
-  1:['grenadier','grenadier','grenadier','grenadier','grenadier','stoss','stoss','unteroffizier','unteroffizier','unteroffizier','sturm','sturm','sniper','mg42','mg34','grenadier','stoss','unteroffizier','sturm','grenadier']};
+// army make-up for up to 30 a side: the first 16 are a balanced company, the rest add depth
+const COMPOSITION={0:['rifleman','rifleman','rifleman','rifleman','rifleman','rifleman','staffsgt','staffsgt','mastersgt','mastersgt','sergeant','sergeant','support','support','sniper','mg','rifleman','staffsgt','mastersgt','support',
+    'rifleman','sergeant','rifleman','staffsgt','mg','mastersgt','sniper','rifleman','sergeant','support'],
+  1:['grenadier','grenadier','grenadier','grenadier','grenadier','stoss','stoss','unteroffizier','unteroffizier','unteroffizier','sturm','sturm','sniper','mg42','mg34','grenadier','stoss','unteroffizier','sturm','grenadier',
+    'grenadier','unteroffizier','stoss','grenadier','mg42','sturm','sniper','grenadier','unteroffizier','mg34']};
+// sniper and machine gun slots grow with the size of the battle
+function teamSize(){return Net.pendingJoin||Net.client?(Net.welcome&&Net.welcome.size)||SET.size:G.demo?16:SET.size;}
+function classLimit(c){return c.limit?Math.max(c.limit,Math.round(c.limit*teamSize()/16)):0;}
 function clsById(team,id){return CLASSES[team].find(c=>c.id===id);}
 function makeTeams(size,playerTeam,playerCls){
   for(const u of UNITS)if(u.model)scene.remove(u.model.root);
@@ -390,7 +396,7 @@ function openClasses(team,fromGame,mode){
     const b=document.createElement('button');b.className='card';b.setAttribute('aria-pressed',pickCls.id===c.id?'true':'false');
     b.innerHTML=`<span class="k">${i+1}</span><b>${c.name}</b><i>${W.name}${c.pistol?' · '+WEAPONS[c.pistol].name:''}</i><p>${c.desc}</p>
       <div class="bars"><em>DAMAGE</em><span style="--v:${dmg}%"></span><em>FIRE RATE</em><span style="--v:${rate}%"></span><em>ACCURACY</em><span style="--v:${acc}%"></span></div>
-      <span class="cnt">${c.limit?`${Math.min(used,c.limit)} of ${c.limit} taken${used>=c.limit?' · a bot will swap out':''}`:`${used} on your side`} · ${c.nades} grenade${c.nades===1?'':'s'}</span>`;
+      <span class="cnt">${c.limit?`${Math.min(used,classLimit(c))} of ${classLimit(c)} taken${used>=classLimit(c)?' · a bot will swap out':''}`:`${used} on your side`} · ${c.nades} grenade${c.nades===1?'':'s'}</span>`;
     b.onclick=()=>{pickCls=Object.assign({team:t},c);for(const x of grid.children)x.setAttribute('aria-pressed',x===b?'true':'false');};
     b.ondblclick=()=>$('deploy').click();
     grid.appendChild(b);
@@ -409,7 +415,7 @@ $('deploy').onclick=()=>{
   const c=clsById(classTeam,pickCls.id);
   if(Net.pendingJoin){Net.joinTeam=classTeam;Net.joinCls=c;Net.sentJoin=true;Net.send({t:'join',team:classTeam,cls:c.id});mpStatus('Joining…');showScreen('browser');return;}
   // take a limited slot from a bot if needed
-  if(c.limit&&classCount(classTeam,c.id,PL.u)>=c.limit){const bot=UNITS.find(u=>u.team===classTeam&&!u.isPlayer&&(u.nextCls||u.cls).id===c.id);if(bot)bot.nextCls=CLASSES[classTeam][0];}
+  if(c.limit&&classCount(classTeam,c.id,PL.u)>=classLimit(c)){const bot=UNITS.find(u=>u.team===classTeam&&!u.isPlayer&&(u.nextCls||u.cls).id===c.id);if(bot)bot.nextCls=CLASSES[classTeam][0];}
   if(classFromGame&&PL.u){
     showScreen(null);
     if(c.id!==PL.u.cls.id){PL.u.nextCls=c;
@@ -539,22 +545,34 @@ startDemo();resize();
 // audio needs a user gesture: start the menu theme on the first click anywhere
 applyQuality();
 let last=performance.now();
+// one broken system must never stop the battle from being drawn: report it and keep rendering
+function frameErr(e){const t=performance.now();if(!(t-(frameErr.t||-1e9)<6000)){frameErr.t=t;console.error(e);hint('Game error: '+String(e&&e.message||e).slice(0,90)+'. Press F5 if the game stops working.',5);}}
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(window.__freeze)return;
+  if(window.__freeze||GL_LOST)return;
   const live=!G.paused||Net.on;
-  if(live)update(dt);
-  if(G.demo)demoCam(dt);
-  if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}
-  FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);
-  if(!G.demo){updateHUD(dt);tipsTick(dt);}
-  if(AU.ctx){updateListener();musicTick();}
+  try{if(live)update(dt);if(G.demo)demoCam(dt);}catch(e){frameErr(e);}
+  try{if(live){smoke.update(dt);chunks.update(dt);glow.update(dt);updateFlashes(dt);updateTracers(dt);updateDebris(dt);rainTick(dt);dirtTick(dt);bloodTick(dt);burnTick(dt);hazeTick(dt);updateAmbient(dt);grassTime.value+=dt;waterU.time.value+=dt;skyU.time.value+=dt;}}catch(e){frameErr(e);}
+  FX.trauma=Math.max(0,FX.trauma-dt*1.1);FX.blur=Math.max(0,FX.blur-dt*.5);FX.aberr=Math.max(0,FX.aberr-dt*1.5);FX.hurt=Math.max(0,FX.hurt-dt*(PL.u&&!PL.u.alive?0:1.4));FX.white=Math.max(0,FX.white-dt*1.2);FX.dark=0;
+  try{if(!G.demo){updateHUD(dt);tipsTick(dt);}tagsTick(dt);if(AU.ctx){updateListener();musicTick();}}catch(e){frameErr(e);}
+  // a bad camera value (NaN) would turn the whole view black, so fall back to the player's eyes
+  if(!isFinite(camera.position.x+camera.position.y+camera.position.z+camera.quaternion.x+camera.quaternion.w)){
+    if(PL.u&&isFinite(PL.u.pos.x+PL.u.pos.y+PL.u.pos.z))camera.position.set(PL.u.pos.x,PL.u.pos.y+1.6,PL.u.pos.z);else camera.position.set(0,30,160);
+    camera.quaternion.set(0,0,0,1);camera.rotation.set(0,0,0);frameErr('Camera reset');}
   sky.position.copy(camera.position);placeSun(camera.position);
   vmSun.position.copy(sunDir);
-  renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);
+  try{renderFrame(!G.demo&&PL.u&&PL.u.alive&&VM.g.visible);}catch(e){frameErr(e);}
 }
 requestAnimationFrame(frame);
+// Browsers stop animation frames in background tabs. In an online game that would freeze the host's
+// battle and the network, and everyone would be dropped, so a worker timer keeps the game ticking.
+(()=>{try{
+  const w=new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),50)'],{type:'text/javascript'})));let lastBg=performance.now();
+  w.onmessage=()=>{const t=performance.now(),dt=Math.min(.1,(t-lastBg)/1000);lastBg=t;
+    if(!document.hidden||!(Net.on||Net.joining)||window.__noBg)return;
+    try{update(dt);smoke.update(dt);chunks.update(dt);glow.update(dt);}catch(e){console.warn(e);}last=performance.now();};
+}catch(e){}})();
 
 /* ================= Tips ================= */
 const TIPS=['Hold Ctrl to duck behind cover. Press Z to go prone, and Z again to get up.',
@@ -585,4 +603,34 @@ function tipsTick(dt){
   if(tipShowT>0){tipShowT-=dt;if(tipShowT<=0)$('tips').hidden=true;}
   if(!SET.tips)return;
   tipNext-=dt;if(tipNext<=0){tipNext=55;showTip();}
+}
+
+/* ================= Live players: name tags over heads and the player list ================= */
+const TAGS={};let tagLosT=0;const _tp=new V3();
+function tagsTick(dt){
+  const me=PL.u,box=$('tags');
+  if(!me||G.demo){box.innerHTML='';for(const k in TAGS)delete TAGS[k];$('plist').innerHTML='';return;}
+  tagLosT-=dt;const losNow=tagLosT<=0;if(losNow)tagLosT=.25;
+  const seen=new Set();
+  for(const u of UNITS){
+    if(u===me||!(u.human||u.isPlayer)||!u.alive||!u.model)continue;
+    let t=TAGS[u.id];if(!t){t=TAGS[u.id]={el:document.createElement('div'),vis:false};t.el.className='tag';t.el.innerHTML='<span></span><i><b></b></i>';box.appendChild(t.el);}
+    seen.add(u.id);
+    const foe=u.team!==me.team;
+    _tp.set(u.pos.x,u.pos.y+(u.stance==='prone'?.75:u.stance==='crouch'?1.55:2.05),u.pos.z);
+    const d=_tp.distanceTo(camera.position);
+    if(losNow)t.vis=!foe||(d<90&&clearLine(camera.position,_tp));
+    _tp.project(camera);
+    const on=t.vis&&d<(foe?90:220)&&_tp.z<1&&Math.abs(_tp.x)<1.1&&Math.abs(_tp.y)<1.1;
+    t.el.style.display=on?'':'none';if(!on)continue;
+    t.el.className='tag '+(foe?'foe':u.team?'x':'a');
+    t.el.firstChild.textContent=u.name+(d>25?` · ${Math.round(d)}m`:'');
+    t.el.lastChild.firstChild.style.width=clamp(u.hp,0,100)+'%';t.el.lastChild.style.display=foe?'none':'';
+    t.el.style.left=((_tp.x*.5+.5)*innerWidth)+'px';t.el.style.top=((-_tp.y*.5+.5)*innerHeight)+'px';t.el.style.opacity=clamp(1.4-d/(foe?90:220),.35,1);
+  }
+  for(const k in TAGS)if(!seen.has(+k)){TAGS[k].el.remove();delete TAGS[k];}
+  // who is in the game right now
+  if(Net.on){const hs=UNITS.filter(u=>u.human||u.isPlayer).sort((a,b)=>a.team-b.team);
+    $('plist').innerHTML=hs.map(u=>`<div class="${u.team?'x':'a'}${u.alive?'':' dead'}">${u.team?'■':'●'} ${String(u.name).replace(/[<>&]/g,'')}${u===me?' (you)':''}</div>`).join('');}
+  else $('plist').innerHTML='';
 }

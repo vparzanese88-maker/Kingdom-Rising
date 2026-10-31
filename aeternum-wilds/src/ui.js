@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { G, SAVE_KEY } from './state.js';
+import { G, saveKey } from './state.js';
 import { CLASSES } from './classes.js';
 import { classDef, ensureSkills, skillNode, kit, kitUnlocked, equipClassAbility } from './skills.js';
 import { iconImg } from './gfx/icons.js';
@@ -8,7 +8,7 @@ import { stats, activeWeapon, activeWType, pointsFree, pointsSpent, canUnlock, u
 import { armorName, equipLoad, loadPoints, itemIcon, armorOf, weaponDmg, sellValue, addItem, addMat, matCount, hasMats, takeMats, gearScore, equipSlotFor, makeGear, rollRarity, randomDrop, BAG_MAX } from './items.js';
 import { refreshLook, respawn, ARROW_G } from './player.js';
 import { thorneDialog, currentStory, objProgress, fillBounties, turnInBounty, abandonBounty, questEvent } from './quests.js';
-import { buildMapImage, zoneAt, levelAt, POI, ISLAND_R } from './world.js';
+import { buildMapImage, zoneAt, levelAt, POI, ISLAND_R, WARS, TOWNS } from './world.js';
 import { sfx, setVolume, volume } from './audio.js';
 import { esc, fmt, clamp, rand } from './util.js';
 
@@ -227,7 +227,7 @@ export function updateHud(dt) {
     if (P.exhausted > 0) buffs.push(`<span title="Exhausted: no stamina">😮‍💨</span>`);
     $('buffs').innerHTML = buffs.join('');
     const zn = zoneAt(P.pos.x, P.pos.z), Z = ZONES[zn];
-    $('zone').innerHTML = `${Z.name}<small>${Z.safe ? 'Safe' : `Level ${Z.lv[0]}-${Z.lv[1]}`}</small>`;
+    $('zone').innerHTML = `${Z.name}<small>${Z.sub ?? (Z.safe ? 'Safe' : `Level ${Z.lv[0]}-${Z.lv[1]}`)}</small>`;
     $('coins').textContent = `🪙 ${fmt(p.coins)}  ·  GS ${gearScore()}`;
     drawMinimap();
     updateMarkers();
@@ -297,6 +297,7 @@ export function setPrompt(html) {
 
 // ---------- Quest tracker ----------
 export function questTarget() {
+  if (G.warsTarget) return G.warsTarget();
   const s = G.p.story, q = currentStory();
   if (!q) return null;
   if (s.state === 'complete' || q.obj.kind === 'talk') return { x: 0, z: -9, label: 'Captain Thorne' };
@@ -644,21 +645,22 @@ function openQuests() {
 
 // ---- Map ----
 function openMap() {
-  const el = panel('map', 'Map of Aeternum', `<canvas id="bigmap" width="640" height="640"></canvas><p class="dim small">Diamond: current quest. Gold squares: town. Red: bosses. Recall to town with H.</p>`, true);
+  const el = panel('map', WARS ? 'The Kingdom Wars Road' : 'Map of Aeternum', `<canvas id="bigmap" width="640" height="640"></canvas><p class="dim small">Diamond: current quest. Gold squares: town. Red: bosses. Recall to town with H.</p>`, true);
   const cv = $('bigmap'), ctx = cv.getContext('2d'), W = cv.width;
   ctx.drawImage(mapImg.canvas, 0, 0, W, W);
   const span = mapImg.span, toS = (x, z) => [(x / span + 0.5) * W, (z / span + 0.5) * W];
   ctx.font = 'bold 15px Cinzel, serif'; ctx.textAlign = 'center';
   const labels = [['meadow', 0, 75], ['coast', 0, 190], ['thorn', 205, 40], ['mire', -30, -205], ['ruins', -195, 0], ['frost', 150, -150]];
-  for (const [z, x, y] of labels) {
+  if (!WARS) for (const [z, x, y] of labels) {
     const [sx, sy] = toS(x, y);
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText(ZONES[z].name, sx + 1, sy + 1);
     ctx.fillStyle = '#f4e6c0'; ctx.fillText(ZONES[z].name, sx, sy);
     ctx.font = '12px serif'; ctx.fillText(`Level ${ZONES[z].lv[0]}-${ZONES[z].lv[1]}`, sx, sy + 15); ctx.font = 'bold 15px Cinzel, serif';
   }
-  const [tx, ty] = toS(0, 0); ctx.fillStyle = '#ffe080'; ctx.fillRect(tx - 5, ty - 5, 10, 10);
-  ctx.fillStyle = '#fff'; ctx.font = '12px serif'; ctx.fillText('Windsward', tx, ty - 9);
-  for (const [k, poi] of Object.entries(POI)) {
+  if (WARS) for (const T of TOWNS) { const [tx, ty] = toS(T.x, T.z); ctx.fillStyle = T.team === 'red' ? '#ff5a4a' : '#6aa0ff'; ctx.fillRect(tx - 6, ty - 6, 12, 12); ctx.fillStyle = '#fff'; ctx.font = '13px serif'; ctx.fillText(T.team === 'red' ? 'The Red Keep' : 'Your Town', tx, ty - 10); }
+  else { const [tx, ty] = toS(0, 0); ctx.fillStyle = '#ffe080'; ctx.fillRect(tx - 5, ty - 5, 10, 10);
+  ctx.fillStyle = '#fff'; ctx.font = '12px serif'; ctx.fillText('Windsward', tx, ty - 9); }
+  if (!WARS) for (const [k, poi] of Object.entries(POI)) {
     const [x, y] = toS(poi.x, poi.z);
     ctx.fillStyle = k === 'lostcamp' ? '#d08040' : '#ff3a2a'; ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.fillText(poi.name, x, y - 9);
@@ -686,7 +688,7 @@ function openMenu() {
   $('mview').onclick = () => { G.setView(G.settings.view === 'first' ? 'third' : 'first'); openMenu(); };
   $('msave').onclick = () => { window.saveGame(); toast('Game saved'); };
   $('mtitle').onclick = () => { window.saveGame(); window.skipSave = true; location.reload(); };
-  $('mdel').onclick = () => { if (confirm('Delete your character and start over?')) { localStorage.removeItem(SAVE_KEY); window.skipSave = true; location.reload(); } };
+  $('mdel').onclick = () => { if (confirm('Delete your character and start over?')) { localStorage.removeItem(saveKey()); window.skipSave = true; location.reload(); } };
 }
 
 // ---- Crafting stations ----

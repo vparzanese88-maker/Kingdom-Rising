@@ -359,12 +359,6 @@ function heroScreen() {
   $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; creator(); };
   $('hback').onclick = () => title();
 }
-function setTab(k) {
-  if (k === homeTab) return;
-  if (k === 'wars' && !WARS) { location.href = location.pathname + '?mode=wars'; return; }
-  if (k !== 'wars' && WARS) { location.href = location.pathname + (k === 'mp' ? '?tab=mp' : ''); return; }
-  homeTab = k; $('homeside').innerHTML = ''; title();
-}
 function title() {
   if (online() && G.mode !== 'game') { G.slot = 'mp'; if (gameStarted()) charSelect(); else lobby(); return; }
   G.mode = 'title';
@@ -372,36 +366,39 @@ function title() {
   const save = loadSave();
   const t = $('title');
   const side = $('homeside')?.innerHTML || '';
-  const tab = (k, n) => `<button id="t${k}" role="tab" aria-selected="${homeTab === k}" class="${homeTab === k ? 'on' : ''}">${n}</button>`;
-  let body = '';
-  if (homeTab === 'campaign') body = `<button id="playb" class="primary"><b>Play Campaign</b><small>Quests, gathering, crafting · choose or create your hero</small></button>`;
-  else if (homeTab === 'wars') body = `<button id="playb" class="primary"><b>Go to War</b><small>Two towns, one road · choose or create your hero</small></button>`;
-  else body = `<button id="ohost" class="primary"><b>Host Game</b><small>Get a code for friends · chat in the lobby · play together</small></button>
-      <button id="ojoinb"><b>Join Game</b><small>Enter a friend's code · pick your hero in the lobby</small></button>`;
-  t.innerHTML = `<div class="home">
-    <div class="logo"><div class="crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>${TAB_TEXT[homeTab]}</p></div>
-    <nav>
-      <div class="htabs" role="tablist">${tab('campaign', 'Campaign')}${tab('wars', 'Kingdom Wars')}${tab('mp', 'Multiplayer')}</div>
-      ${body}
-      <div class="hrow">
-        <button id="sett" title="Mouse, view, graphics, sound">Settings</button>
-        <button id="fs" title="Or press F11 at any time">${document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen'}</button>
-        <button id="ctrl">Controls</button>
-      </div>
-    </nav>
-    <div id="homeside">${side}</div>
-    <footer>Over-the-shoulder view · scroll all the way in for first person</footer></div>`;
+  const btn = (id, icon, name, sub) => `<button id="${id}" class="t2btn"><i>${icon}</i><b>${name}<small>${sub}</small></b></button>`;
+  t.innerHTML = `<div class="home t2">
+    <div class="t2col">
+      <div class="t2logo"><div class="t2crest">⚜</div><h1>Kingdom<span>Rising</span></h1><p>Shipwrecked on a cursed island. Quest, fight and build, alone or with friends.</p></div>
+      <nav class="t2nav">
+        ${btn('pcamp', '🗺️', 'Campaign', 'Quests, crafting and the cursed island')}
+        ${btn('pwars', '⚔️', 'Kingdom Wars', 'Two towns, one road · kill the Red King')}
+        <div class="t2pair">${btn('ohost', '👑', 'Host Game', 'Play with friends')}${btn('ojoinb', '🔗', 'Join Game', 'Enter a code')}</div>
+        <div class="t2small">
+          <button id="sett">⚙ Settings</button>
+          <button id="ctrl">⌨ Controls</button>
+          <button id="fs">⛶ ${document.fullscreenElement ? 'Windowed' : 'Full Screen'}</button>
+        </div>
+      </nav>
+    </div>
+    <div id="homeside">${side}</div></div>`;
   t.style.display = 'block';
-  for (const k of ['campaign', 'wars', 'mp']) $('t' + k).onclick = () => setTab(k);
-  if ($('playb')) $('playb').onclick = () => { initAudio(); heroScreen(); };
-  if (homeTab === 'mp') {
-    $('ohost').onclick = () => { initAudio(); hostNow(); };
-    $('ojoinb').onclick = () => { initAudio(); joinPanel(); };
-    if (invited && !online() && !side) joinPanel(invited);
-  }
+  $('pcamp').onclick = () => { initAudio(); playMode('campaign'); };
+  $('pwars').onclick = () => { initAudio(); playMode('wars'); };
+  // online co-op runs on the campaign island
+  const online2 = fn => { if (WARS) { location.href = location.pathname + '?tab=mp&do=' + fn; return; } homeTab = 'mp'; G.slot = 'mp'; fn === 'host' ? hostNow() : joinPanel(); };
+  $('ohost').onclick = () => { initAudio(); online2('host'); };
+  $('ojoinb').onclick = () => { initAudio(); online2('join'); };
+  if (invited && !online() && !side) { homeTab = 'mp'; G.slot = 'mp'; joinPanel(invited); }
   $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
   $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
+}
+// Campaign and Kingdom Wars live on different maps: switching reloads the page straight into hero select
+function playMode(k) {
+  if (k === 'wars' && !WARS) { location.href = location.pathname + '?mode=wars&go=1'; return; }
+  if (k !== 'wars' && WARS) { location.href = location.pathname + '?go=1'; return; }
+  homeTab = k; G.slot = k; $('homeside').innerHTML = ''; heroScreen();
 }
 
 // ---------- Online: host or join on the main menu -> lobby with code and chat -> host presses Play Game ->
@@ -850,6 +847,7 @@ setTimeout(async () => {
   buildLife();
   $('loading').style.display = 'none';
   title();
+  { const q = new URLSearchParams(location.search); if (q.get('go')) heroScreen(); else if (q.get('do') === 'host') { homeTab = 'mp'; G.slot = 'mp'; hostNow(); } else if (q.get('do') === 'join') { homeTab = 'mp'; G.slot = 'mp'; joinPanel(); } }
   clock.getDelta();
   requestAnimationFrame(loop);
 }, 30);

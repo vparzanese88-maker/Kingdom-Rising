@@ -387,6 +387,7 @@ function title() {
     </nav></div>`;
   t.style.display = 'block';
   t.onpointerdown = () => initAudio(); // browsers start sound on the first click: the title theme kicks in
+  { const sc = $('homeside').querySelector('.sideclose'); if (sc) { sc.onclick = closeSide; $('homeside').onpointerdown = e => { if (e.target === $('homeside')) closeSide(); }; } }
   $('pcamp').onclick = () => { initAudio(); playMode('campaign'); };
   $('pwars').onclick = () => { initAudio(); playMode('wars'); };
   // online co-op runs on the campaign island
@@ -394,10 +395,19 @@ function title() {
   $('ohost').onclick = () => { initAudio(); online2('host'); };
   $('ojoinb').onclick = () => { initAudio(); online2('join'); };
   if (invited && !online() && !side) { homeTab = 'mp'; G.slot = 'mp'; joinPanel(invited); }
-  $('sett').onclick = () => { initAudio(); $('homeside').innerHTML = settingsHtml(); bindSettings($('homeside')); };
+  $('sett').onclick = () => { initAudio(); sidePanel(settingsHtml()); bindSettings($('homeside')); };
   $('fs').onclick = () => { toggleFullscreen(); setTimeout(title, 200); };
-  $('ctrl').onclick = () => { $('homeside').innerHTML = `<div class="card">${controlsHtml()}</div>`; };
+  $('ctrl').onclick = () => { sidePanel(`<div class="card">${controlsHtml()}</div>`); };
 }
+// Settings, Controls and Join open in a window over the title screen: ✕, a click outside it or Esc closes it
+function sidePanel(html) {
+  const side = $('homeside');
+  side.innerHTML = `<div class="sidewrap"><button class="sideclose" title="Close (Esc)">✕ Close</button>${html}</div>`;
+  side.querySelector('.sideclose').onclick = closeSide;
+  side.onpointerdown = e => { if (e.target === side) closeSide(); };
+}
+function closeSide() { const side = $('homeside'); if (side) { side.innerHTML = ''; side.onpointerdown = null; } }
+addEventListener('keydown', e => { if (e.key === 'Escape' && G.mode === 'title' && $('homeside')?.innerHTML) { closeSide(); e.preventDefault(); } });
 // Campaign and Kingdom Wars live on different maps: switching reloads the page straight into hero select
 function playMode(k) {
   if (k === 'wars' && !WARS) { location.href = location.pathname + '?mode=wars&go=1'; return; }
@@ -416,12 +426,12 @@ setLobbyHooks(
 );
 function joinPanel(code = '') {
   G.slot = 'mp';
-  $('homeside').innerHTML = `<div class="mpcard"><h3>Join Game</h3>
+  sidePanel(`<div class="mpcard"><h3>Join Game</h3>
     <p class="dim">Ask the host for their 4-letter game code.</p>
     <label class="mpfield"><span>Your name</span><input id="oname" maxlength="18" value="${esc(saveName())}" placeholder="Castaway"></label>
     <label class="mpfield"><span>Game code</span><input id="ocode" class="bigin" maxlength="4" placeholder="ABCD" value="${code}" autocomplete="off"></label>
     <button id="ojoin" class="primary wide">Join Game</button>
-    <p id="ostat" class="mpstat">${code ? `You're invited to game <b>${code}</b>. Press Join Game.` : ''}</p></div>`;
+    <p id="ostat" class="mpstat">${code ? `You're invited to game <b>${code}</b>. Press Join Game.` : ''}</p></div>`);
   const go = () => {
     const c = $('ocode').value.toUpperCase().replace(/[^A-Z]/g, '');
     if (c.length !== 4) { $('ostat').innerHTML = 'Enter the 4-letter code.'; return; }
@@ -436,7 +446,7 @@ function joinPanel(code = '') {
 }
 function hostNow() {
   G.slot = 'mp';
-  $('homeside').innerHTML = `<div class="mpcard"><h3>Host Game</h3><p id="ostat" class="mpstat"><span class="spin"></span> Creating your game…</p></div>`;
+  sidePanel(`<div class="mpcard"><h3>Host Game</h3><p id="ostat" class="mpstat"><span class="spin"></span> Creating your game…</p></div>`);
   setLobbyName(saveName() || 'Host');
   hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
 }

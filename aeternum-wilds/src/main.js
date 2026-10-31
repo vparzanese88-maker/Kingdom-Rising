@@ -1,7 +1,9 @@
+import { STAGE, buildStage, showStage } from './gfx/stage.js';
 import { hostGame, joinGame, online, onlineCode, tickOnline, initChat, focusChat, hello, leaveOnline, partySize, gameStarted, isHost, setLobbyHooks, startAdventure, lobbyPlayers, sendChat, setLobbyName, myLobbyName } from './online.js';
 import { loadSpellModel, loadFxModels } from './gfx/spellfx.js';
 import { loadCreatures } from './gfx/creatures.js';
 import * as THREE from 'three';
+import { MAX_CHARS, saveKeyAt } from './state.js';
 import { G, saveKey, newProfile } from './state.js';
 import { ZONES, WEAPONS, HAIR_STYLES, ARMOR_SLOTS, SKIN_TONES, HAIR_COLORS, EYE_COLORS, FACIAL_HAIR, WAR_PAINT, BODY_SLIDERS, FACE_SLIDERS } from './data.js';
 import { CLASSES, STYLES, STYLE_CLASSES, LOADOUTS } from './classes.js';
@@ -20,7 +22,7 @@ import { dressHumanoid, makeWeapon, charHeight } from './models.js';
 import { WEAPON_MODELS, onWeaponModel, weaponModelMesh } from './gfx/weapons3d.js';
 import { dressArmor } from './gfx/armor.js';
 // a weapon model finished downloading: re-dress whoever is holding the stand-in
-onWeaponModel(() => { if (G.mode === 'create' && preview) buildPreview(); else if (G.player && G.p) refreshLook(); });
+onWeaponModel(() => { if (G.mode === 'create' && preview) buildPreview(); else if (G.mode === 'select' && preview) { const p = loadAt(G.charIdx); if (p) showHero(p); } else if (G.player && G.p) refreshLook(); });
 weaponModelMesh('gothicBoss'); // the Warden's blade, ready before anyone meets him
 import { animHumanoid } from './anim.js';
 import { renderViewmodel, vmLook, vmCam } from './viewmodel.js';
@@ -161,7 +163,7 @@ addEventListener('mouseup', e => { if (e.button === 0) inp.lmb = false; if (e.bu
 addEventListener('contextmenu', e => { if (e.target === canvas) e.preventDefault(); });
 addEventListener('blur', () => { inp.keys = {}; inp.lmb = inp.rmb = false; });
 canvas.addEventListener('wheel', e => {
-  if (G.mode === 'create') { previewZoom = clamp(previewZoom + Math.sign(e.deltaY) * 0.08, 0.3, 1.3); return; }
+  if (G.mode === 'create' || G.mode === 'select') { previewZoom = clamp(previewZoom + Math.sign(e.deltaY) * 0.08, 0.3, 1.3); return; }
   if (G.mode !== 'game') return;
   camDistT = clamp(camDistT + Math.sign(e.deltaY) * 0.6, 0, 7);
   if (camDistT > 0 && camDistT < 2.2) camDistT = e.deltaY > 0 ? 2.2 : 0;
@@ -341,23 +343,48 @@ const TAB_TEXT = {
   wars: 'Two kingdoms, one road. Fight beside your soldiers and kill the enemy king before he kills yours.',
   mp: 'Play the island together online with up to 7 friends. Host a game or join one with a code.',
 };
-// after Play: continue with this tab's hero or make a new one
-function heroScreen() {
-  G.mode = 'title';
-  const save = loadSave(), C = save ? CLASSES[save.cls] : null, t = $('title');
-  const where = homeTab === 'wars' ? 'Kingdom Wars' : 'Campaign';
-  t.innerHTML = `<div class="home lobby"><div class="mp heroes">
-    <header><h2>Choose Your Hero</h2><span class="pill">${where}</span></header>
-    <p class="dim">Campaign, Kingdom Wars and Multiplayer each keep their own hero.</p>
-    <div class="mpheroes">
-      ${save ? `<button id="hcont" class="hero primary"><span>${C ? C.icon : '⚔️'}</span><b>Play as ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
-      <button id="hnew" class="hero ${save ? '' : 'primary'}"><span>✨</span><b>Create New Character</b><small>${save ? `Replaces your ${where} hero` : 'Choose a style, a class and a weapon'}</small></button>
+// ---------- Choose your hero: up to 10 per mode, shown on the stage with their gear ----------
+function loadAt(i) { try { const s = JSON.parse(localStorage.getItem(saveKeyAt(i))); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
+function roster() { const r = []; for (let i = 0; i < MAX_CHARS; i++) { const p = loadAt(i); if (p) r.push({ i, p }); } return r; }
+function firstFree() { for (let i = 0; i < MAX_CHARS; i++) if (!loadAt(i)) return i; return -1; }
+function showHero(p) {
+  if (preview) scene.remove(preview.root);
+  preview = makeCharacter({ look: p.look || {} });
+  const C = CLASSES[p.cls];
+  dressHumanoid(preview, { chest: 0x7a6a52, legs: 0x4a3e30, feet: 0x2a2018, helm: null, trim: C?.color ?? 0x5a4a38 });
+  const e = p.equip || {};
+  dressArmor(preview, { chest: e.chest?.wclass, legs: e.legs?.wclass, feet: e.feet?.wclass, hands: e.hands?.wclass, head: e.head?.wclass, tier: e.chest?.tier || 1, trim: C?.color });
+  charHeight(preview);
+  const w = p.activeW === 1 ? e.w2 : e.w1, other = p.activeW === 1 ? e.w1 : e.w2;
+  armCharacter(preview, w || null, other || null);
+  preview.root.position.set(STAGE.x, STAGE.y + 0.5, STAGE.z);
+  scene.add(preview.root);
+}
+function heroScreen(onlineGame = false) {
+  G.mode = 'select';
+  const list = roster(), t = $('title');
+  if (!list.find(r => r.i === G.charIdx)) G.charIdx = list.length ? list[0].i : 0;
+  const sel = list.find(r => r.i === G.charIdx);
+  const where = onlineGame ? `Online game ${onlineCode()}` : homeTab === 'wars' ? 'Kingdom Wars' : 'Campaign';
+  const free = firstFree();
+  if (sel) showHero(sel.p); else if (preview) { scene.remove(preview.root); preview = null; }
+  t.innerHTML = `<div class="home hsel"><div class="hpanel">
+    <h2>Choose Your Hero</h2><span class="pill">${where} · ${list.length} / ${MAX_CHARS}</span>
+    <div class="hlist">
+      ${list.map(({ i, p }) => { const C = CLASSES[p.cls]; return `<button class="hrow ${i === G.charIdx ? 'on' : ''}" data-ci="${i}"><span>${C ? C.icon : '⚔️'}</span><b>${esc(p.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${p.level}</small></button>`; }).join('')}
+      ${free >= 0 ? `<button class="hrow new" id="hnew"><span>＋</span><b>Create New Character</b><small>${list.length ? `${MAX_CHARS - list.length} slot${MAX_CHARS - list.length > 1 ? 's' : ''} left` : 'Choose a style, a class and a weapon'}</small></button>` : `<p class="dim">All ${MAX_CHARS} hero slots are full. Delete one to make another.</p>`}
     </div>
-    <footer><div class="grow"></div><button id="hback">Back</button></footer></div></div>`;
+    <div class="hbtns">
+      ${sel ? `<button id="hplay" class="primary big">${onlineGame ? 'Join the Game' : 'Play'} as ${esc(sel.p.name || 'Castaway')} ▶</button>` : ''}
+      <div class="hrow2">${sel ? '<button id="hdel">Delete</button>' : ''}<button id="hback">${onlineGame ? 'Leave game' : 'Back'}</button></div>
+    </div>
+  </div><div class="hhint">${sel ? 'Drag to turn your hero · mouse wheel to zoom' : ''}</div></div>`;
   t.style.display = 'block';
-  if (save) $('hcont').onclick = () => { initAudio(); play(save); };
-  $('hnew').onclick = () => { initAudio(); if (save && !confirm(`Create a new ${where} hero? ${esc(save.name || 'Your hero')} will be replaced.`)) return; creatorTab = 'style'; draft.clsPicked = false; creator(); };
-  $('hback').onclick = () => title();
+  t.querySelectorAll('[data-ci]').forEach(b => b.onclick = () => { G.charIdx = +b.dataset.ci; heroScreen(onlineGame); });
+  if ($('hnew')) $('hnew').onclick = () => { initAudio(); G.charIdx = free; creatorTab = 'style'; draft.clsPicked = false; draft.name = ''; creator(); };
+  if ($('hplay')) $('hplay').onclick = () => { initAudio(); const p = loadAt(G.charIdx); if (preview) { scene.remove(preview.root); preview = null; } play(p); };
+  if ($('hdel')) $('hdel').onclick = () => { if (!confirm(`Delete ${sel.p.name || 'this hero'} forever?`)) return; localStorage.removeItem(saveKeyAt(G.charIdx)); G.charIdx = -1; heroScreen(onlineGame); };
+  $('hback').onclick = () => { if (preview) { scene.remove(preview.root); preview = null; } if (onlineGame) { if (confirm('Leave this game?')) { leaveOnline(); title(); } } else title(); };
 }
 function title() {
   if (online() && G.mode !== 'game') { G.slot = 'mp'; if (gameStarted()) charSelect(); else lobby(); return; }
@@ -450,11 +477,11 @@ function hostNow() {
   setLobbyName(saveName() || 'Host');
   hostGame(r => { if (r.error) $('ostat').textContent = r.error; else lobby(); });
 }
-const STAGE = { lobby: 'In the lobby', hero: 'Choosing a hero', game: 'In the world' };
+const PARTY_STAGE = { lobby: 'In the lobby', hero: 'Choosing a hero', game: 'In the world' };
 function partyRows(list) {
   const rows = list.map(P => {
     const C = P.ready ? CLASSES[P.cls] : null;
-    return `<div class="mpslot ${P.me ? 'me' : ''}"><span class="mpicon">${C ? C.icon : '👤'}</span><div><b>${esc(P.name)}</b>${P.id === 0 ? '<em>Host</em>' : ''}${P.me ? '<em class="you">You</em>' : ''}<small>${C ? `${C.name} · Level ${P.level || 1} · ` : ''}${STAGE[P.stage] || 'In the lobby'}</small></div><i class="dot ${P.stage || 'lobby'}"></i></div>`;
+    return `<div class="mpslot ${P.me ? 'me' : ''}"><span class="mpicon">${C ? C.icon : '👤'}</span><div><b>${esc(P.name)}</b>${P.id === 0 ? '<em>Host</em>' : ''}${P.me ? '<em class="you">You</em>' : ''}<small>${C ? `${C.name} · Level ${P.level || 1} · ` : ''}${PARTY_STAGE[P.stage] || 'In the lobby'}</small></div><i class="dot ${P.stage || 'lobby'}"></i></div>`;
   });
   for (let i = list.length; i < 8; i++) rows.push(`<div class="mpslot open"><span class="mpicon">＋</span><div><b>Open slot</b><small>Waiting for a friend</small></div></div>`);
   return rows.join('');
@@ -499,32 +526,7 @@ function lobby() {
   $('lback').onclick = () => { if (confirm(isHost() ? 'Close the game for everyone?' : 'Leave this game?')) { leaveOnline(); title(); } };
 }
 // the host pressed Play Game: pick a hero, then into the world (everyone starts together in town)
-function charSelect() {
-  G.mode = 'lobby';
-  const save = loadSave(), C = save ? CLASSES[save.cls] : null;
-  const t = $('title');
-  const typed = $('lobbyin')?.value || '';
-  t.innerHTML = `<div class="home lobby"><div class="mp">
-    <header><h2>Choose Your Hero</h2><span class="pill">Game ${onlineCode()} · ${partySize()} / 8</span></header>
-    <div class="mpcols">
-      <div>
-        <p class="dim">The host started the game. Pick your character and you'll join the party in town.</p>
-        <div class="mpheroes">
-          ${save ? `<button id="ccont" class="hero primary"><span>${C ? C.icon : '⚔️'}</span><b>Play as ${esc(save.name || 'Castaway')}</b><small>${C ? C.name : 'Adventurer'} · Level ${save.level}</small></button>` : ''}
-          <button id="cnew" class="hero ${save ? '' : 'primary'}"><span>✨</span><b>New Character</b><small>Pick a class and shape your hero</small></button>
-        </div>
-        <div class="mpslots">${partyRows(lobbyPlayers())}</div>
-      </div>
-      ${chatHtml()}
-    </div>
-    <footer><div class="grow"></div><button id="lback">Leave game</button></footer>
-  </div></div>`;
-  t.style.display = 'block';
-  bindChat(); $('lobbyin').value = typed;
-  if (save) $('ccont').onclick = () => { initAudio(); enterGame(save); };
-  $('cnew').onclick = () => { initAudio(); if (save && !confirm('Create a new character? Your current character will be replaced.')) return; creatorTab = 'style'; draft.clsPicked = false; creator(); };
-  $('lback').onclick = () => { if (confirm('Leave this game?')) { leaveOnline(); title(); } };
-}
+function charSelect() { G.slot = 'mp'; heroScreen(true); }
 
 export function controlsHtml() {
   return `<h3>Controls</h3><table class="keys">
@@ -578,18 +580,17 @@ let previewQueued = false, previewZoom = 1;
 let preview = null, previewYaw = 0, previewView = 'body', creatorTab = 'style';
 const STEPS = [['style', 'Style'], ['class', 'Class'], ['weapon', 'Weapon'], ['body', 'Body'], ['face', 'Face & Hair']];
 const kitOf = () => (LOADOUTS[draft.cls] || [])[draft.kit] || null;
-const PREVIEW_AT = { x: 3, z: 24 };
+const stageBg = new THREE.Color(0x0c0906);
 function buildPreview() {
   if (preview) scene.remove(preview.root);
   const C = CLASSES[draft.cls];
   preview = makeCharacter({ look: draft.look });
   dressHumanoid(preview, { chest: 0x7a6a52, legs: 0x4a3e30, feet: 0x2a2018, helm: null, trim: C.color }); // the creator shows the person, not the gear
-  preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
   // empty-handed until a class is chosen; then the class's (or chosen kit's) weapons
   const K = kitOf(), w = K ? K.w1 : { wtype: C.weapon, model: C.model, shield: C.shield };
   charHeight(preview); // measured before any weapon so the camera can frame the hero
   if (draft.clsPicked) armCharacter(preview, { tier: 1, ...w }, K?.w2 ? { tier: 1, ...K.w2 } : null);
-  preview.root.position.set(PREVIEW_AT.x, heightAt(PREVIEW_AT.x, PREVIEW_AT.z), PREVIEW_AT.z);
+  preview.root.position.set(STAGE.x, STAGE.y + 0.5, STAGE.z);
   scene.add(preview.root);
 }
 const sw = (list, key) => list.map(c => `<button class="sw ${draft.look[key] === c ? 'on' : ''}" data-sw="${key}" data-v="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
@@ -663,8 +664,8 @@ function creator() {
     L.facialHair = L.sex === 'f' ? 0 : Math.floor(Math.random() * FACIAL_HAIR.length); L.paint = Math.random() < 0.25 ? pk(WAR_PAINT.slice(1))[1] : null; L.scar = Math.random() < 0.2;
     creator();
   };
-  $('cback').onclick = () => { if (step > 0) { go(-1); return; } if (preview) { scene.remove(preview.root); preview = null; } if (online()) charSelect(); else heroScreen(); };
-  $('cgo').onclick = () => {
+  $('cback').onclick = () => { if (step > 0) { go(-1); return; } if (preview) { scene.remove(preview.root); preview = null; } heroScreen(online()); };
+  if ($('cgo')) $('cgo').onclick = () => {
     const C2 = CLASSES[draft.cls], K = kitOf();
     const p = newProfile(K ? K.w1.wtype : C2.weapon, 'human', draft.cls, { ...draft.look }, draft.name.trim() || 'Castaway');
     G.p = p;
@@ -688,7 +689,7 @@ function creator() {
   };
 }
 let dragging = false, lastX = 0;
-$('title').addEventListener('mousedown', e => { if (G.mode === 'create' && e.target.closest('.cpanel') == null) { dragging = true; lastX = e.clientX; } });
+$('title').addEventListener('mousedown', e => { if ((G.mode === 'create' && e.target.closest('.cpanel') == null) || (G.mode === 'select' && e.target.closest('.hpanel') == null)) { dragging = true; lastX = e.clientX; } });
 addEventListener('mouseup', () => { dragging = false; });
 addEventListener('mousemove', e => { if (dragging) { previewYaw += (e.clientX - lastX) * 0.01; lastX = e.clientX; } });
 
@@ -729,6 +730,7 @@ function loop() {
   const P = G.player;
   tickOnline(dt);
   if (G.mode === 'game') {
+    if (scene.background) { scene.background = null; if (G.sky) G.sky.visible = true; showStage(false); } // left the hero stage
     // online the world never stops (friends are still playing); alone it pauses for menus and a released mouse
     const waitLock = !G.locked && !G.freeMouse && P.state !== 'dead' && !G.noLockNeeded;
     G.paused = !online() && (!!G.ui.open || waitLock);
@@ -798,18 +800,24 @@ function loop() {
     updateHud(dt);
   } else {
     // home screen fly-over or character preview
-    if (G.mode === 'create' && preview) {
-      const px = PREVIEW_AT.x, pz = PREVIEW_AT.z, py = heightAt(px, pz);
-      preview.root.rotation.y = previewYaw;
-      animHumanoid(preview, { move: 0, phase: t, pose: null });
-      carryWeapon(preview, null, 1);
-      preview.body.position.y = Math.sin(t * 2) * 0.01;
-      const H = preview.tallW || 2;
+    const onStage = G.mode === 'create' || G.mode === 'select';
+    showStage(onStage, t);
+    if (G.sky) G.sky.visible = !onStage;
+    scene.background = onStage ? stageBg : null;
+    if (onStage) {
+      const px = STAGE.x, pz = STAGE.z, py = STAGE.y + 0.5;
+      if (preview) {
+        preview.root.rotation.y = previewYaw;
+        animHumanoid(preview, { move: 0, phase: t, pose: null });
+        carryWeapon(preview, null, 1);
+        preview.body.position.y = Math.sin(t * 2) * 0.01;
+      }
+      const H = preview?.tallW || 3.2;
       if (previewView === 'face') { const hy = py + H * 0.9; camera.position.set(px - 0.42, hy, pz + 1.35); camera.lookAt(px - 0.42, hy - 0.03, pz); }
       else {
         // frame the hero to fill the right half of the screen (about 90% of its height); the wheel zooms in
         const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const dist = H * 0.56 / half * previewZoom, side = dist * half * camera.aspect * 0.5;
+        const dist = H * 0.7 / half * previewZoom, side = dist * half * camera.aspect * 0.5;
         const up = (1 - previewZoom) * 0.35;
         camera.position.set(px - side, py + (0.52 + up) * H, pz + dist); camera.lookAt(px - side, py + (0.5 + up) * H, pz);
       }
@@ -831,6 +839,7 @@ function loop() {
     updateSky(dt, center);
     updateWorld(dt, center.x, center.z, t);
     scene.fog.near = 90; scene.fog.far = 420;
+    if (onStage) { scene.fog.near = 16; scene.fog.far = 48; fogCol.setHex(0x0c0906); sun.intensity = 0.25; hemi.intensity = 0.3; }
   }
   // ambience
   for (const f of G.flags || []) f.userData.flag.rotation.y = Math.sin(t * 2) * 0.25;
@@ -867,6 +876,7 @@ setTimeout(async () => {
   await Promise.all([loadMeshy(), loadHeroRig(), loadCreatures(), loadSpellModel(), loadFxModels()]);
   buildWorld();
   buildLife();
+  buildStage(scene);
   $('loading').style.display = 'none';
   title();
   { const q = new URLSearchParams(location.search); if (q.get('go')) heroScreen(); else if (q.get('do') === 'host') { homeTab = 'mp'; G.slot = 'mp'; hostNow(); } else if (q.get('do') === 'join') { homeTab = 'mp'; G.slot = 'mp'; joinPanel(); } }

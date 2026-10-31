@@ -14,7 +14,10 @@ export const G = {
 
 // each title-screen tab keeps its own hero: Campaign, Kingdom Wars and Multiplayer never share a character
 export const SAVE_KEYS = { campaign: 'aeternum-wilds-save-v1', wars: 'kingdom-rising-wars-save-v1', mp: 'kingdom-rising-mp-save-v1' };
-export const saveKey = () => SAVE_KEYS[G.slot] || SAVE_KEYS.campaign;
+// each mode keeps up to 10 heroes: slot 0 uses the original key so older saves stay where they were
+export const MAX_CHARS = 10;
+export const saveKeyAt = i => (SAVE_KEYS[G.slot] || SAVE_KEYS.campaign) + (i ? `#${i}` : '');
+export const saveKey = () => saveKeyAt(G.charIdx || 0);
 
 export function newProfile(weapon, race = 'human', cls = 'knight', look = {}, name = 'Castaway') {
   return {

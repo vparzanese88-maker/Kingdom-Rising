@@ -58,7 +58,7 @@ function boot() {
   for (const s of SPAWNS) { const [type, x, z, r, n, l0, l1] = s; const hostileN = MOBS[type].elite ? 1 : MOBS[type].aggro > 0 ? 2.2 : 1.3; const packs = Math.max(1, Math.round(n / 3)); const centers = []; for (let j = 0; j < packs; j++) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r * 0.75; centers.push([x + Math.cos(a) * d, z + Math.sin(a) * d]); }
     for (let i = 0; i < Math.max(1, Math.round(n * hostileN)); i++) { const [cx0, cz0] = centers[i % packs]; let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * Math.min(r, 9 + r * 0.1); px = cx0 + Math.cos(a) * d; pz = cz0 + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
   // fill the empty stretches between spawn areas with small roaming packs
-  { const TAB = { coast: [['crab', 1, 2], ['crab', 1, 2], ['rat', 1, 2]], meadow: [['rabbit', 1, 2], ['wolfpup', 1, 3], ['bearcub', 2, 3], ['wolfpup', 2, 3], ['goblin', 2, 3], ['boarlet', 1, 2], ['rat', 1, 2]], edge: [['wolf', 3, 4], ['boar', 3, 5], ['bearcub', 3, 4], ['goblin', 3, 5], ['rat', 3, 4]], wood: [['goblin_brute', 6, 8], ['goblin', 5, 7], ['wolf', 5, 7], ['boar', 5, 7], ['spider', 6, 8], ['wolf', 6, 7], ['boar', 6, 8], ['tiger', 7, 8]], highlands: [['skeleton', 10, 12], ['goblin_brute', 10, 12], ['frostwolf', 9, 11], ['bear', 9, 11], ['frostwolf', 10, 11], ['snowtiger', 11, 12]], ashlands: [['ashhound', 14, 16], ['imp', 15, 16], ['golem', 16, 17], ['skeleton', 15, 17]] };
+  { const TAB = { coast: [['wolf', 1, 2], ['rat', 1, 2], ['crab', 1, 2]], meadow: [['wolf', 1, 2], ['wolf', 2, 3], ['bear', 2, 3], ['tiger', 2, 3], ['goblin', 1, 3], ['wolf', 1, 3], ['bear', 3, 4], ['tiger', 3, 4]], edge: [['wolf', 3, 4], ['bear', 3, 5], ['tiger', 3, 5], ['goblin', 3, 5], ['boar', 3, 5]], wood: [['goblin_brute', 6, 8], ['goblin', 5, 7], ['wolf', 5, 7], ['boar', 5, 7], ['spider', 6, 8], ['wolf', 6, 7], ['boar', 6, 8], ['tiger', 7, 8]], highlands: [['skeleton', 10, 12], ['goblin_brute', 10, 12], ['frostwolf', 9, 11], ['bear', 9, 11], ['frostwolf', 10, 11], ['snowtiger', 11, 12]], ashlands: [['ashhound', 14, 16], ['imp', 15, 16], ['golem', 16, 17], ['skeleton', 15, 17]] };
     for (let gx = -520; gx <= 520; gx += 60) for (let gz = -520; gz <= 460; gz += 60) {
       const x = gx + (Math.random() - 0.5) * 40, z = gz + (Math.random() - 0.5) * 40;
       if (heightAt(x, z) < 1.2 || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 70) continue;
@@ -66,7 +66,7 @@ function boot() {
       let zn = zoneAt(x, z); if (zn === 'meadow' && z < 215) zn = 'edge'; if (zn === 'wood' && z > 150) zn = 'edge';
       const tab = TAB[zn]; if (!tab) continue;
       const [type, l0, l1] = tab[Math.floor(Math.random() * tab.length)];
-      const n = type === 'tiger' || type === 'snowtiger' ? 2 : type === 'rabbit' || type === 'crab' ? 4 : 3 + (Math.random() < 0.5 ? 1 : 0);
+      const n = zn === 'meadow' || zn === 'edge' || zn === 'coast' ? 2 + (Math.random() < 0.5 ? 1 : 0) : type === 'tiger' || type === 'snowtiger' ? 2 : type === 'rabbit' || type === 'crab' ? 4 : 3 + (Math.random() < 0.5 ? 1 : 0);
       for (let i = 0; i < n; i++) { const px = x + (Math.random() - 0.5) * 12, pz = z + (Math.random() - 0.5) * 12; if (heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)) continue; G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); }
     } }
   // goblin camps: three around the fire, two on patrol
@@ -286,8 +286,8 @@ function input() {
     $('clickToPlay').hidden = locked || mode !== 'game' || G.uiOpen || intro || (G.player && G.player.dead);
     // only the Esc key (the browser dropping the lock) opens the pause menu; unlocks caused by opening/closing our own windows are ignored
     if (locked || mode !== 'game' || G.uiOpen || intro || !G.player || G.player.dead) return;
-    if (performance.now() < lockBusyUntil || performance.now() - (G.uiClosedAt || 0) < 900) return;
-    UI.openPause(); $('clickToPlay').hidden = true;
+    // never pop a menu up on its own: just show "click to continue" (Esc opens the menu)
+    $('clickToPlay').hidden = false;
   });
   $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; lockPointer(); });
   addEventListener('beforeunload', () => { if (mode === 'game') saveNow(); });

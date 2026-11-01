@@ -17,7 +17,7 @@ import * as Game from './game.js';
 import * as UI from './ui.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
-import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf } from './combat.js';
+import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
 const canvas = document.getElementById('game');
 const $ = (id) => document.getElementById(id);
@@ -56,7 +56,7 @@ function boot() {
   const vill = [[-6, 352, { race: 'human', sex: 'f', outfit: 'weaver', hair: '#7b2a15', hairStyle: 2, skin: '#e0ac85', height: 0.8 }], [12, 372, { race: 'human', sex: 'm', outfit: 'worker', hair: '#d9b26a', skin: '#f1c7a5', beard: 0, height: 0.75 }], [-18, 340, { race: 'dwarf', sex: 'm', outfit: 'worker', hair: '#6b3a17', skin: '#dba07a' }], [24, 360, { race: 'elf', sex: 'f', outfit: 'merchant', hair: '#e8e8e8', skin: '#ead0b5', hairStyle: 1 }]];
   for (const [x, z, app] of vill) G.npcs.push(new Villager(x, z, app));
   for (const s of SPAWNS) { const [type, x, z, r, n, l0, l1] = s; const hostileN = MOBS[type].elite ? 1 : MOBS[type].aggro > 0 ? 2.2 : 1.3; const packs = Math.max(1, Math.round(n / 3)); const centers = []; for (let j = 0; j < packs; j++) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r * 0.75; centers.push([x + Math.cos(a) * d, z + Math.sin(a) * d]); }
-    for (let i = 0; i < Math.max(1, Math.round(n * hostileN)); i++) { const [cx0, cz0] = centers[i % packs]; let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * Math.min(r, 9 + r * 0.1); px = cx0 + Math.cos(a) * d; pz = cz0 + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
+    for (let i = 0; i < Math.max(1, Math.round(n * hostileN)); i++) { const [cx0, cz0] = centers[i % packs]; let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * Math.max(14, r * 0.6); px = cx0 + Math.cos(a) * d; pz = cz0 + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
   // fill the empty stretches between spawn areas with small roaming packs
   { const TAB = { coast: [['wolf', 1, 2], ['rat', 1, 2], ['crab', 1, 2]], meadow: [['wolf', 1, 2], ['wolf', 2, 3], ['bear', 2, 3], ['tiger', 2, 3], ['goblin', 1, 3], ['wolf', 1, 3], ['bear', 3, 4], ['tiger', 3, 4]], edge: [['wolf', 3, 4], ['bear', 3, 5], ['tiger', 3, 5], ['goblin', 3, 5], ['boar', 3, 5]], wood: [['goblin_brute', 6, 8], ['goblin', 5, 7], ['wolf', 5, 7], ['boar', 5, 7], ['spider', 6, 8], ['wolf', 6, 7], ['boar', 6, 8], ['tiger', 7, 8]], highlands: [['skeleton', 10, 12], ['goblin_brute', 10, 12], ['frostwolf', 9, 11], ['bear', 9, 11], ['frostwolf', 10, 11], ['snowtiger', 11, 12]], ashlands: [['ashhound', 14, 16], ['imp', 15, 16], ['golem', 16, 17], ['skeleton', 15, 17]] };
     for (let gx = -520; gx <= 520; gx += 60) for (let gz = -520; gz <= 460; gz += 60) {
@@ -67,7 +67,7 @@ function boot() {
       const tab = TAB[zn]; if (!tab) continue;
       const [type, l0, l1] = tab[Math.floor(Math.random() * tab.length)];
       const n = zn === 'meadow' || zn === 'edge' || zn === 'coast' ? 2 + (Math.random() < 0.5 ? 1 : 0) : type === 'tiger' || type === 'snowtiger' ? 2 : type === 'rabbit' || type === 'crab' ? 4 : 3 + (Math.random() < 0.5 ? 1 : 0);
-      for (let i = 0; i < n; i++) { const px = x + (Math.random() - 0.5) * 12, pz = z + (Math.random() - 0.5) * 12; if (heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)) continue; G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); }
+      for (let i = 0; i < n; i++) { const px = x + (Math.random() - 0.5) * 34, pz = z + (Math.random() - 0.5) * 34; if (heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)) continue; G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); }
     } }
   // goblin camps: three around the fire, two on patrol
   for (const [cx, cz, l0, l1] of GOBLIN_CAMPS) {
@@ -158,7 +158,7 @@ function hooks() {
   H.station = (type) => { S.click(); UI.openCrafting(type); };
   H.progress = (k, l) => UI.progress(k, l);
   H.died = () => { setTimeout(() => { $('death').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }, 1500); };
-  H.telegraph = telegraph; H.enemyBlast = enemyBlast; H.enemyProjectile = enemyProjectile; H.mobShot = mobShot; H.mobBlast = mobBlast; H.telegraphSelf = telegraphSelf;
+  H.telegraph = telegraph; H.enemyBlast = enemyBlast; H.enemyProjectile = enemyProjectile; H.mobShot = mobShot; H.mobBlast = mobBlast; H.telegraphSelf = telegraphSelf; H.telegraphLine = telegraphLine; H.telegraphCone = telegraphCone;
   H.saveQuit = quitToTitle;
   H.applyGraphics = applyGraphics;
   H.nodeDone = (n, p) => { if (n.type.startsWith('tree')) fallTree(n, p); else if (n.def.tool === 'pickaxe') { S.rockBreak(n); V.burst('stone', new THREE.Vector3(n.x, n.y + 0.5, n.z), 30, { speed: 6, size: 0.3, grav: 14 }); V.burst('dust', new THREE.Vector3(n.x, n.y + 0.5, n.z), 20, { speed: 3, size: 1.2, life: 1.5 }); } };

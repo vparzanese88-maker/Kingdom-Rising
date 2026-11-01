@@ -23,13 +23,13 @@ const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 // ---------- first-person view model ----------
 const P = (x, y, z, rx, ry, rz) => [x, y, z, rx, ry, rz];
 const VP = {
-  rest: P(0.36, -0.29, -0.48, -0.45, 0.05, 0.05), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
+  rest: P(0.44, -0.4, -0.55, -0.32, 0.1, 0.22), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
   s1a: P(0.52, -0.05, -0.4, -1.35, -1.1, 0.3), s1b: P(-0.42, -0.3, -0.45, -1.35, 1.35, 0.3),
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
   ha: P(0.45, 0.25, -0.15, 0.6, -0.5, -0.3), hb: P(0, -0.45, -0.62, -2.1, 0.3, 0),
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
-  blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.42, -0.52, -0.5, 0.15, 0.6, 0), shieldBlock: P(-0.02, -0.16, -0.36, 0, 0, 0),
+  blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.44, -0.56, -0.5, 0.2, 0.55, 0.05), shieldBlock: P(-0.2, -0.2, -0.46, 0.05, 0.4, 0.08), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.2, -0.14, -0.62, 0, 0, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.24, -0.48, -0.85, -0.55, 0, -0.05), staffHigh: P(0.2, -0.15, -0.35, 0.3, 0, -0.1), staffSlam: P(0.12, -0.6, -0.9, -0.9, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
@@ -103,8 +103,8 @@ class ViewModel {
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
     if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = 0.45; // show the blade at an angle, like Skyrim
-    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.66); off.position.set(0.04, 0.12, -0.03); } }
-    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.25);
+    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.06, 0.1, -0.03); } }
+    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -147,7 +147,7 @@ class ViewModel {
         case 'spell': l = seq(VP.castL, VP.castL, t, 0.25, l || VP.hideL); if (W && W.kind === 'staff') r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); break;
       }
     } else if (st.block) {
-      if (W && W.hands === 'shield') { l = VP.shieldBlock; r = plerp(VP.rest, VP.blockW, 0.3); }
+      if (W && W.hands === 'shield') { l = VP.shieldBlock; r = VP.swordLow; }
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
       else { r = VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; }
     } else if (st.drawing) { r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, st.drawing))); }

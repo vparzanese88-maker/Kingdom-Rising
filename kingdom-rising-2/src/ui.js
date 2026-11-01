@@ -557,14 +557,18 @@ export function openMerchant(npc) {
 // --- pause, settings, controls ---
 export function openPause(onSaveQuit) {
   const c = openWin('pause', 'Paused', '');
-  const m = el('div', 'pausemenu');
-  const b = (t, fn, cls = 'btn big') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
+  const h = G.player.h, zn = ZONES.find(z => z.id === G.zone);
+  const wrap = el('div', 'pausewrap');
+  const m = el('div', 'pausemenu'); m.style.display = 'flex'; m.style.flexDirection = 'column'; m.style.gap = '7px';
+  const b = (t, fn, cls = 'btn') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
   b('Resume', () => closeWin(), 'btn big gold');
-  b('Character & Bags (I)', () => openInventory()); b('Class Talents (N)', () => openSkills('class')); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (P)', () => openCrafting(null));
-  b('⛶ Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
-  b('Settings', () => openSettings(true)); b('Controls', () => openControls(true));
-  b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn big red');
-  c.appendChild(m);
+  b('Character & Bags  ·  I', () => openInventory()); b('Class Talents  ·  N', () => openSkills('class')); b('Quest Log  ·  L', () => openQuestLog()); b('World Map  ·  M', () => openMap()); b('Recipes  ·  P', () => openCrafting(null));
+  b('Settings', () => openSettings(true)); b('How to Play', () => openControls(true));
+  b(document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
+  b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn red');
+  const act = Object.keys(h.quests.active).length;
+  const info = el('div', 'phero', `<div class="eyebrow">Your hero</div><h3>${esc(h.name)}</h3>Level <b>${h.level}</b> ${RACES[h.race].name} ${CLASSES[h.cls].name}<br>Location: <b>${zn ? zn.name : ''}</b> <span style="color:var(--mut)">(level ${zn ? zn.lv : ''})</span><br>Active quests: <b>${act}</b> · Completed: <b>${h.quests.done.length}</b><br>Gold: <b>${h.gold}</b><br>Played: <b>${Math.floor((h.timePlayed || 0) / 60)} min</b><p style="color:var(--mut);margin:10px 0 0;font-size:13px">The game saves automatically every 30 seconds and when you quit. The world is paused while this menu is open.</p>`);
+  wrap.append(m, info); c.appendChild(wrap);
 }
 export function openSettings(fromPause) {
   const c = openWin('settings', 'Settings', '');
@@ -577,15 +581,15 @@ export function openSettings(fromPause) {
   fs.onclick = () => { S.click(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
   row('Full screen', fs);
   g.appendChild(el('h3', '', 'Sound')); g.appendChild(el('div'));
-  row('Master volume', range('master', 0, 1, 0.05)); row('Music', range('music', 0, 1, 0.05)); row('Sound effects', range('sfx', 0, 1, 0.05)); row('Ambience', range('ambient', 0, 1, 0.05));
+  row('Master volume<small>Everything at once</small>', range('master', 0, 1, 0.05)); row('Music', range('music', 0, 1, 0.05)); row('Sound effects', range('sfx', 0, 1, 0.05)); row('Ambience', range('ambient', 0, 1, 0.05));
   g.appendChild(el('h3', '', 'Controls')); g.appendChild(el('div'));
-  row('Mouse sensitivity', range('sens', 0.2, 4, 0.05)); row('Invert mouse Y', check('invertY')); row('Field of view', range('fov', 60, 100, 1));
+  row('Mouse sensitivity<small>How fast the view turns</small>', range('sens', 0.2, 4, 0.05)); row('Invert mouse Y', check('invertY')); row('Field of view<small>Wider shows more but looks smaller</small>', range('fov', 60, 100, 1));
   g.appendChild(el('h3', '', 'Graphics')); g.appendChild(el('div'));
   const q = el('select'); for (const o of ['low', 'medium', 'high']) { const op = el('option', '', o[0].toUpperCase() + o.slice(1)); op.value = o; q.appendChild(op); } q.value = settings.quality; q.style.cssText = 'padding:6px;background:#1a140e;color:var(--text);border:1px solid var(--line);border-radius:6px;font:inherit';
   q.onchange = () => { settings.quality = q.value; saveSettings(); G.hooks.applyGraphics && G.hooks.applyGraphics(); };
-  row('Quality (resolution)', q);
+  row('Quality<small>Lower this if the game stutters</small>', q);
   row('Shadows', check('shadows', () => G.hooks.applyGraphics && G.hooks.applyGraphics())); row('Bloom glow', check('bloom', () => G.hooks.applyGraphics && G.hooks.applyGraphics())); row('Grass', check('grass'));
-  row('View distance', range('viewDist', 0.5, 1.5, 0.05, () => G.hooks.applyGraphics && G.hooks.applyGraphics()));
+  row('View distance<small>How far you can see</small>', range('viewDist', 0.5, 1.5, 0.05, () => G.hooks.applyGraphics && G.hooks.applyGraphics()));
   row('Damage numbers', check('dmgNumbers')); row('Head bob', check('headBob'));
   c.appendChild(g);
   c.appendChild(el('p', 'dim', 'Music: "The Fall of Arcana", "Pleasant Creek", "Woodland Fantasy" and "Snowland" by Matthew Pablo (matthewpablo.com, CC-BY 3.0); "The Secret Within the Silent Woods" by Hitctrl (CC-BY 3.0); "Minstrel Dance", "The Old Tower Inn" and "The Bard\'s Tale" by RandomMind, "Town Theme", "Crystal Cave", "Mysterious Ambience" and "Battle Theme A" by cynicmusic, "Epic Boss Battle" by SubspaceAudio (CC0). Via OpenGameArt.org.'));
@@ -595,11 +599,16 @@ export function openSettings(fromPause) {
   r.append(reset, back); c.appendChild(r);
 }
 export function openControls(fromPause) {
-  const c = openWin('controls', 'Controls', '');
-  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Each weapon has its own combo: swords 3 hits, maces swing + crushing blow, daggers 5 fast stabs, spears 4 thrusts, big weapons swing slow and hard'], ['Right click (hold)', 'Block. Shields block the most'], ['1 2 3', 'Class abilities (choose them in Class Talents, N)'], ['1 to 6', 'Hotbar: class abilities fill it as you unlock them (levels 3, 6, 10), then potions and food'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['I or B', 'Character, gear & bags'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
-  const g = el('div', 'keys'); for (const [k, d] of K) { g.appendChild(el('div', '', `<span class="kbd">${k}</span>`)); g.appendChild(el('div', '', d)); }
+  const c = openWin('controls', 'How to Play', '');
+  const g = el('div', 'helpgrid');
+  const grp = (title, rows) => { const d = el('div'); d.appendChild(el('h4', '', title)); for (const [k, t] of rows) d.appendChild(el('div', 'krow', `<span class="kbd">${k}</span><span>${t}</span>`)); g.appendChild(d); };
+  g.appendChild(el('div', 'helpnote', '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
+  grp('Moving', [['W A S D', 'Walk. Moving backwards is slower.'], ['Shift (hold)', 'Sprint. Uses endurance.'], ['Shift (tap)', 'Dodge roll: you can\'t be hit mid-roll.'], ['Space', 'Jump'], ['Mouse', 'Look around'], ['Wheel / V', 'Switch between first and third person']]);
+  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Hold to block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Swap weapon sets']]);
+  grp('World', [['E', 'Talk, loot, skin, chop, mine, gather and use crafting stations'], ['Red swords', 'Above a name: this enemy attacks on sight'], ['Ring colour', 'Under an enemy: grey/green easy, blue fair, white even, yellow hard, red dangerous']]);
+  grp('Windows', [['I or B', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['L', 'Quest log'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
   c.appendChild(g);
-  const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '14px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);
+  const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '18px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);
 }
 export function confirmBox(text, yes, no = 'Cancel', yesText = 'Yes') {
   const d = el('div', 'confirm', `<div class="panel"><div style="font-size:18px">${text}</div><div class="row"></div></div>`);

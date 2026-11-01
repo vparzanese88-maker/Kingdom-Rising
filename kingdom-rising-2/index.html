@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793576030",
-"./src/character.js": "./src/character.js?v=1793576030",
-"./src/combat.js": "./src/combat.js?v=1793576030",
-"./src/data.js": "./src/data.js?v=1793576030",
-"./src/game.js": "./src/game.js?v=1793576030",
-"./src/icons.js": "./src/icons.js?v=1793576030",
-"./src/main.js": "./src/main.js?v=1793576030",
-"./src/menu.js": "./src/menu.js?v=1793576030",
-"./src/mobs.js": "./src/mobs.js?v=1793576030",
-"./src/player.js": "./src/player.js?v=1793576030",
-"./src/saves.js": "./src/saves.js?v=1793576030",
-"./src/state.js": "./src/state.js?v=1793576030",
-"./src/terrain.js": "./src/terrain.js?v=1793576030",
-"./src/ui.js": "./src/ui.js?v=1793576030",
-"./src/util.js": "./src/util.js?v=1793576030",
-"./src/vfx.js": "./src/vfx.js?v=1793576030",
-"./src/world.js": "./src/world.js?v=1793576030"
+"./src/audio.js": "./src/audio.js?v=1793576493",
+"./src/character.js": "./src/character.js?v=1793576493",
+"./src/combat.js": "./src/combat.js?v=1793576493",
+"./src/data.js": "./src/data.js?v=1793576493",
+"./src/game.js": "./src/game.js?v=1793576493",
+"./src/icons.js": "./src/icons.js?v=1793576493",
+"./src/main.js": "./src/main.js?v=1793576493",
+"./src/menu.js": "./src/menu.js?v=1793576493",
+"./src/mobs.js": "./src/mobs.js?v=1793576493",
+"./src/player.js": "./src/player.js?v=1793576493",
+"./src/saves.js": "./src/saves.js?v=1793576493",
+"./src/state.js": "./src/state.js?v=1793576493",
+"./src/terrain.js": "./src/terrain.js?v=1793576493",
+"./src/ui.js": "./src/ui.js?v=1793576493",
+"./src/util.js": "./src/util.js?v=1793576493",
+"./src/vfx.js": "./src/vfx.js?v=1793576493",
+"./src/world.js": "./src/world.js?v=1793576493"
 }
 }
 </script>
@@ -364,29 +364,170 @@ svg{display:block;width:100%;height:100%}
 .plate.tgt .nm{font-size:17px}
 #target .lvb{display:inline-grid;place-items:center;min-width:28px;height:28px;border-radius:50%;border:2px solid var(--c);color:var(--c);background:#0a0604;font-size:14px;box-shadow:0 0 8px var(--c);vertical-align:middle}
 </style>
+
+<style id="ui3">
+/* ================= Kingdom Rising II: refined theme ================= */
+:root{--g1:#f6e2a8;--g2:#d8a848;--g3:#8a6224;--panel:rgba(16,12,9,.92);--panel2:rgba(26,19,13,.95);--hair:rgba(216,168,72,.35);--txt:#efe4cc;--mut:#a89a80}
+body{font-size:16px;letter-spacing:.005em}
+.eyebrow{font-family:var(--f-b);font-size:12px;font-weight:800;letter-spacing:.28em;text-transform:uppercase;color:var(--g2)}
+.btn{background:linear-gradient(180deg,#2c2117,#1a130c);border:1px solid var(--hair);border-radius:4px;padding:10px 20px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:14px;color:var(--txt);box-shadow:inset 0 1px 0 rgba(255,230,170,.08),0 2px 6px rgba(0,0,0,.5)}
+.btn:hover{border-color:var(--g2);color:#fff3d0;background:linear-gradient(180deg,#3a2b1c,#20170e);box-shadow:inset 0 1px 0 rgba(255,230,170,.15),0 0 18px rgba(216,168,72,.18)}
+.btn.gold{background:linear-gradient(180deg,#e2b65a,#a87628 55%,#7a5218);color:#1a0f04;border-color:#ffe2a0;text-shadow:0 1px 0 rgba(255,240,200,.5)}
+.btn.gold:hover{filter:brightness(1.1);color:#000}
+.btn.red{background:linear-gradient(180deg,#5a1a14,#30100c);border-color:rgba(220,90,70,.5)}
+.btn.ghost{background:none;box-shadow:none;border-color:transparent;color:var(--mut)}.btn.ghost:hover{color:var(--txt);border-color:var(--hair)}
+.btn.big{font-family:var(--f-b);font-size:16px;padding:13px 24px}
+/* ---- loading ---- */
+#loading{background:radial-gradient(ellipse at center,#1a120a,#050403)}
+#loading .ld{text-align:center}
+#loading .ldt{font-family:var(--f-t);font-size:46px;font-weight:900;background:linear-gradient(#fff2c8,#d8a440 60%,#8a5a18);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.04em}
+#loading .ldt span{font-size:.8em}
+#loading .ldbar{width:320px;height:3px;margin:18px auto 10px;background:rgba(255,255,255,.08);overflow:hidden;border-radius:2px}
+#loading .ldbar i{display:block;width:35%;height:100%;background:linear-gradient(90deg,transparent,var(--g2),transparent);animation:ldm 1.2s ease-in-out infinite}
+@keyframes ldm{from{transform:translateX(-100%)}to{transform:translateX(320%)}}
+/* ---- title ---- */
+#title{display:grid;grid-template-columns:minmax(380px,560px) 1fr minmax(380px,500px);grid-template-rows:1fr auto;padding:0;background:linear-gradient(90deg,rgba(6,4,2,.92) 0%,rgba(6,4,2,.72) 30%,rgba(6,4,2,.05) 55%,rgba(6,4,2,.05) 62%,rgba(6,4,2,.75) 100%)}
+#title .tl-left{grid-column:1;grid-row:1;padding:6vh 40px 3vh 56px;display:flex;flex-direction:column;overflow:auto}
+#title .crest{width:84px;height:98px;filter:drop-shadow(0 6px 18px rgba(0,0,0,.8))}
+#title .ttl{display:flex;align-items:flex-end;gap:12px;margin-top:10px}
+#title h1{font-family:var(--f-t);font-weight:900;font-size:clamp(42px,4.6vw,72px);line-height:.95;letter-spacing:.02em;background:linear-gradient(180deg,#fff6d8 0%,#f0c46a 45%,#9a6620 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 10px rgba(0,0,0,.9))}
+#title .numeral{font-family:var(--f-t);font-weight:900;font-size:clamp(36px,3.6vw,58px);color:#c0302a;text-shadow:0 0 18px rgba(200,40,30,.5),0 3px 8px #000;line-height:1}
+#title .tagline{margin:10px 0 0;font-family:var(--f-t);letter-spacing:.32em;font-size:13px;color:var(--g2);text-transform:uppercase}
+#title .premise{margin:16px 0 0;max-width:440px;color:#d8ccb4;font-size:16px;line-height:1.6}
+#title .mainmenu{margin-top:auto;padding-top:26px;display:flex;flex-direction:column;gap:2px;max-width:420px}
+.mm{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:none;border:none;border-left:2px solid transparent;padding:10px 16px;color:var(--txt);transition:.15s;position:relative}
+.mm .t{font-family:var(--f-t);font-size:24px;font-weight:700;letter-spacing:.04em}
+.mm small{color:var(--mut);font-size:13px;margin-top:1px}
+.mm:hover:not(:disabled){border-left-color:var(--g2);background:linear-gradient(90deg,rgba(216,168,72,.16),transparent);padding-left:22px}
+.mm:hover .t{color:#fff3d0}
+.mm.primary .t{color:var(--g1)}
+.mm:disabled{opacity:.35;cursor:default}
+#title .tl-right{grid-column:3;grid-row:1;margin:6vh 48px 3vh 0;background:var(--panel);border:1px solid var(--hair);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);backdrop-filter:blur(4px)}
+#title .tl-right header{display:flex;justify-content:space-between;align-items:baseline;padding:18px 20px 12px;border-bottom:1px solid var(--hair)}
+#title .tl-right h2{font-size:22px;letter-spacing:.06em}
+#slotCount{color:var(--mut);font-size:13px;text-align:right}
+#saves{padding:12px;gap:10px;overflow:auto;flex:1}
+.save{padding:12px;background:linear-gradient(180deg,rgba(40,30,20,.6),rgba(20,15,10,.6));border:1px solid rgba(216,168,72,.18);border-radius:5px;cursor:pointer;gap:14px}
+.save:hover{border-color:var(--g2);background:linear-gradient(180deg,rgba(60,44,26,.7),rgba(28,20,12,.7))}
+.save .crest{width:56px;height:56px;border-radius:6px;border:1px solid var(--g3);background:radial-gradient(#3a2814,#120c06);padding:7px;font-size:0}
+.save .info b{font-size:19px;letter-spacing:.02em}
+.save .info .sub{color:var(--g2);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.save .info .meta{gap:12px;color:var(--mut);font-size:13px;margin-top:4px}
+.save .acts .btn{padding:8px 12px}
+.emptysaves{margin:auto;padding:30px;text-align:center;color:var(--mut);line-height:1.6}
+.emptysaves b{display:block;font-family:var(--f-t);color:var(--txt);font-size:18px;margin-bottom:6px}
+#title .tl-foot{grid-column:1/4;grid-row:2;padding:10px 56px 16px;color:rgba(239,228,204,.45);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+@media (max-width:1100px){#title{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow:auto}#title .tl-right{grid-column:1;grid-row:2;margin:0 20px 20px}#title .tl-foot{grid-column:1;grid-row:3}}
+/* ---- creator ---- */
+#creator{grid-template-columns:minmax(400px,560px) 1fr}
+#creator .side{background:linear-gradient(90deg,rgba(10,7,5,.97),rgba(14,10,7,.94));border-right:1px solid var(--hair);padding:28px 30px 22px}
+#creator .chead h2{font-size:32px;margin-top:4px}
+.stepper{display:flex;gap:0;margin:6px 0 4px}
+.stepper button{flex:1;background:none;border:none;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--mut);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;position:relative}
+.stepper button::before{content:"";position:absolute;top:22px;left:-50%;right:50%;height:2px;background:rgba(216,168,72,.25);z-index:0}
+.stepper button:first-child::before{display:none}
+.stepper .n{position:relative;z-index:1;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair);background:#120c07;font-family:var(--f-t);font-size:14px;color:var(--mut)}
+.stepper button.done .n{background:var(--g3);color:#fff2c8;border-color:var(--g2)}
+.stepper button.done::before,.stepper button.on::before{background:var(--g2)}
+.stepper button.on{color:var(--g1)}.stepper button.on .n{background:linear-gradient(#e2b65a,#8a5a18);color:#1a0f04;border-color:#ffe2a0;box-shadow:0 0 14px rgba(216,168,72,.5)}
+#creator .body{padding-right:8px;margin-top:6px}
+.cintro{color:#d8ccb4;font-size:15px;line-height:1.55;margin:4px 0 14px}
+.sect{font-family:var(--f-b);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--g2);font-weight:800;margin:18px 0 8px;display:flex;align-items:center;gap:10px}
+.sect::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--hair),transparent)}
+.opt{display:flex;gap:14px;align-items:center;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;background:linear-gradient(180deg,rgba(40,30,20,.5),rgba(18,13,8,.5));border:1px solid rgba(216,168,72,.18);border-radius:5px;transition:.12s}
+.opt:hover{border-color:rgba(216,168,72,.6)}
+.opt.on{border-color:var(--g1);background:linear-gradient(180deg,rgba(90,62,24,.55),rgba(30,20,10,.6));box-shadow:inset 3px 0 0 var(--g2)}
+.opt .oi{width:50px;height:50px;flex:none;border-radius:5px;border:1px solid var(--g3);background:radial-gradient(#3a2814,#120c06);padding:6px;font-size:28px;display:grid;place-items:center}
+.opt b{font-family:var(--f-t);font-size:19px;color:var(--g1);display:block}
+.opt small{color:var(--mut);font-size:13px}
+.opt .tagr{margin-left:auto;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--g2);font-weight:800;white-space:nowrap}
+.segs{display:flex;gap:8px}.segs .opt{justify-content:center;margin:0}
+.lore{color:#d8ccb4;line-height:1.6;font-size:15px;padding:12px 14px;border-left:2px solid var(--g3);background:rgba(0,0,0,.25);margin:10px 0}
+.bars{display:grid;grid-template-columns:110px 1fr 28px;gap:7px 10px;align-items:center;font-size:14px}
+.bars .bt{height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden}.bars .bt i{display:block;height:100%;background:linear-gradient(90deg,#8a5a18,#f0c46a)}
+.bars span{color:var(--mut)}.bars b{text-align:right}
+.tips{margin:8px 0 0;padding-left:18px;color:#d8ccb4;line-height:1.55;font-size:14px}
+.tips li{margin:3px 0}
+.abl{display:flex;gap:12px;align-items:flex-start;margin:8px 0}
+.abl .ai{width:44px;height:44px;flex:none;border-radius:4px;overflow:hidden;border:1px solid var(--g3)}
+.abl b{color:var(--g1);font-size:15px}.abl div{font-size:14px;color:#d8ccb4;line-height:1.4}
+.diff{display:inline-flex;gap:3px;vertical-align:middle}.diff i{width:9px;height:9px;transform:rotate(45deg);background:rgba(255,255,255,.12)}.diff i.on{background:var(--g2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chips span{font-size:12px;padding:3px 9px;border:1px solid var(--hair);border-radius:20px;color:#d8ccb4}
+.csum{position:absolute;right:28px;top:28px;width:300px;background:var(--panel);border:1px solid var(--hair);border-radius:6px;padding:16px 18px;pointer-events:none;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+.csum h3{font-size:22px;margin:4px 0 2px}.csum .sub{color:var(--g2);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.csum .bars{margin-top:12px;grid-template-columns:90px 1fr 24px;font-size:13px}
+.csum .kv{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:8px;border-top:1px solid rgba(216,168,72,.15);padding-top:8px}.csum .kv b{color:var(--txt)}
+@media (max-width:900px){.csum{display:none}}
+/* ---- windows ---- */
+.win{border:1px solid #8a6424;border-radius:6px;box-shadow:0 0 0 1px #000,0 0 0 4px rgba(30,20,10,.95),0 0 0 5px rgba(216,168,72,.45),0 30px 90px rgba(0,0,0,.85);background:radial-gradient(ellipse at 50% -10%,rgba(140,96,36,.22),transparent 55%),linear-gradient(180deg,#1c140d,#0f0a06)}
+.win::before,.win::after{display:none}
+.win>header{padding:16px 24px 14px}
+.win>header h2{font-size:26px;letter-spacing:.08em;text-transform:uppercase}
+.win .content{padding:18px 26px 24px}
+.win .x{border-radius:4px;background:none;border:1px solid var(--hair)}
+/* pause */
+.pausewrap{display:grid;grid-template-columns:260px 280px;gap:22px}
+.pausemenu{min-width:0}
+.pausemenu .btn{width:100%;text-align:left}
+.phero{background:rgba(0,0,0,.3);border:1px solid rgba(216,168,72,.18);border-radius:5px;padding:14px 16px;font-size:14px;color:#d8ccb4;line-height:1.7}
+.phero b{color:var(--txt)}.phero h3{font-size:20px;margin:2px 0 6px}
+/* controls / help */
+.helpgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 30px;max-width:880px}
+.helpgrid h4{font-family:var(--f-b);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--g2);margin:0 0 8px;font-weight:800}
+.krow{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:6px 0;border-bottom:1px solid rgba(216,168,72,.08);font-size:14px;color:#d8ccb4;line-height:1.45}
+.krow .kbd{justify-self:start;font-size:12px}
+.helpnote{grid-column:1/3;color:#d8ccb4;font-size:14px;line-height:1.6;background:rgba(0,0,0,.25);border-left:2px solid var(--g3);padding:10px 14px}
+/* settings */
+.setgrid{grid-template-columns:200px 280px;gap:6px 18px}
+.setgrid h3{grid-column:1/3;font-family:var(--f-b);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--g2);font-weight:800;margin:14px 0 4px;border-bottom:1px solid var(--hair);padding-bottom:6px}
+.setgrid h3+div{display:none}
+.setgrid label{color:var(--txt);font-size:15px}
+.setgrid label small{display:block;color:var(--mut);font-size:12px}
+/* death */
+#death{background:radial-gradient(ellipse at center,rgba(70,0,0,.45),rgba(0,0,0,.9))}
+#death .dbox{text-align:center;max-width:520px}
+#death h1{font-size:62px;letter-spacing:.04em;margin:6px 0 10px}
+#death p{color:#d8ccb4;font-size:16px;line-height:1.6;margin:0 0 22px}
+/* hud polish */
+.bar2{border-radius:2px;border-color:rgba(0,0,0,.8);box-shadow:0 0 0 1px rgba(216,168,72,.25)}
+#lvl .badge{border-width:1px;box-shadow:0 0 0 3px rgba(0,0,0,.6),0 0 0 4px rgba(216,168,72,.4)}
+.confirm .panel{background:var(--panel2);border:1px solid var(--hair);border-radius:6px;padding:26px 30px}
+</style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="dmgLayer"></div>
-<div id="loading">Kingdom Rising II<small>Building the world...</small></div>
+<div id="loading"><div class="ld"><div class="ldt">Kingdom Rising <span>II</span></div><div class="ldbar"><i></i></div><small>Building the world...</small></div></div>
 
 <div id="title" hidden>
-  <div class="logo"><h1>Kingdom Rising II</h1><p>A FANTASY ADVENTURE</p></div>
-  <div class="menu">
-    <button class="btn big gold" id="btnNew">✦ Create New Campaign</button>
-    <div class="slotcount" id="slotCount"></div>
-    <div id="saves"></div>
+  <div class="tl-left">
+    <div class="crest"><svg viewBox="0 0 120 140"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0c0"/><stop offset=".5" stop-color="#d8a440"/><stop offset="1" stop-color="#6a4410"/></linearGradient></defs><path d="M60 6 L108 22 Q108 92 60 134 Q12 92 12 22 Z" fill="#1a120a" stroke="url(#cg)" stroke-width="5"/><path d="M60 18 L96 30 Q96 86 60 120 Q24 86 24 30 Z" fill="none" stroke="url(#cg)" stroke-width="1.5" opacity=".6"/><path d="M60 34 L60 104 M42 52 L78 52" stroke="url(#cg)" stroke-width="7" stroke-linecap="round"/><path d="M36 82 Q60 66 84 82" stroke="url(#cg)" stroke-width="3" fill="none"/><circle cx="60" cy="52" r="6" fill="#c0302a" stroke="url(#cg)" stroke-width="2"/></svg></div>
+    <div class="ttl"><h1>Kingdom Rising</h1><div class="numeral">II</div></div>
+    <p class="tagline">Shipwrecked &middot; Forgotten &middot; Destined</p>
+    <p class="premise">You wash ashore on a wild coast with nothing but salt in your hair. Gather, craft and fight your way from rags to legend, from the quiet Sunmeadow to the frozen peaks and the burning Ashlands where the Ash Tyrant waits.</p>
+    <nav class="mainmenu">
+      <button class="mm primary" id="btnContinue"><span class="t">Continue</span><small id="contSub"></small></button>
+      <button class="mm" id="btnNew"><span class="t">New Campaign</span><small>Create a new hero and begin on the beach</small></button>
+      <button class="mm" id="btnSettingsT"><span class="t">Settings</span><small>Sound, graphics, mouse and display</small></button>
+      <button class="mm" id="btnControlsT"><span class="t">How to Play</span><small>Controls, combat and the basics</small></button>
+      <button class="mm" id="btnFull"><span class="t">Full Screen</span><small>Best way to play</small></button>
+    </nav>
   </div>
-  <div class="foot"><button class="btn" id="btnSettingsT">⚙ Settings</button><button class="btn" id="btnControlsT">⌨ Controls</button><button class="btn" id="btnFull">⛶ Full Screen</button></div>
+  <aside class="tl-right">
+    <header><h2>Your Campaigns</h2><span id="slotCount"></span></header>
+    <div id="saves"></div>
+  </aside>
+  <footer class="tl-foot">Saves are kept in this browser &middot; Mouse and keyboard recommended</footer>
 </div>
 
 <div id="creator" hidden>
   <div class="side">
-    <h2 style="font-size:28px">Create Your Hero</h2>
-    <div class="tabs" id="cTabs"></div>
+    <div class="chead"><span class="eyebrow">New Campaign</span><h2>Create Your Hero</h2></div>
+    <div class="stepper" id="cTabs"></div>
     <div class="body" id="cBody"></div>
-    <div class="nav"><button class="btn" id="cBack">← Back</button><button class="btn" id="cPrev">Previous</button><button class="btn gold" id="cNext">Next →</button></div>
+    <div class="nav"><button class="btn ghost" id="cBack">Cancel</button><span style="flex:1"></span><button class="btn" id="cPrev">Back</button><button class="btn gold" id="cNext">Next</button></div>
   </div>
+  <div class="csum" id="cSum"></div>
   <div class="preview-label">Drag to turn your hero</div>
 </div>
 
@@ -417,8 +558,8 @@ svg{display:block;width:100%;height:100%}
 <div id="clickToPlay" hidden><div style="text-align:center">Click to continue<div style="font-size:16px;color:#d8c8a8;margin-top:6px">Press Esc for the menu</div></div></div>
 <div id="windows"></div>
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
-<div id="death" hidden><div style="text-align:center"><h1>You Have Fallen</h1><p style="font-size:18px;color:#ddd">Your spirit drifts back to the nearest settlement.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
+<div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793576030"></script>
+<script type="module" src="./src/main.js?v=1793576493"></script>
 </body>
 </html>

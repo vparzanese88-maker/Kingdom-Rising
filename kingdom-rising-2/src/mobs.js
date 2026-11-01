@@ -332,8 +332,8 @@ export class Mob {
         this.timer -= dt;
         if (this.patrol && this.state !== 'wander') { const P = this.patrol; const tgt = P.pts[P.i]; want = tgt; speed = spd * 0.4; if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.2) P.i = (P.i + 1) % P.pts.length; this.faceTo(tgt, dt, 4); }
         else if (this.sitAt) { if (this.pos.distanceTo(this.home) > 0.6) { want = this.home; speed = spd * 0.4; } else { this.faceTo(this.sitAt, dt, 4); this.sitting = true; } }
-        else if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(2, 7); } }
-        else if (this.timer <= 0) { const a = Math.random() * 6.28, r = Math.random() * 7; this.wanderTo = new THREE.Vector3(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
+        else if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(1, 4); } }
+        else if (this.timer <= 0) { const a = Math.random() * 6.28, r = 8 + Math.random() * (this.sitAt ? 0 : 30); const base = Math.random() < 0.6 ? this.pos : this.home; this.wanderTo = new THREE.Vector3(base.x + Math.cos(a) * r, 0, base.z + Math.sin(a) * r); if (this.wanderTo.distanceTo(this.home) > 45) this.wanderTo.copy(this.home); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
       }
       if (want && speed !== 0) {
         const dx = want.x - this.pos.x, dz = want.z - this.pos.z, l = Math.hypot(dx, dz);
@@ -387,6 +387,8 @@ export class Mob {
       this.actionDur = { charge: 1.6, pounce: 1.4, maul: 1.25, web: 0.8, pound: 1.4, nova: 1.0, frenzy: 0.9, bash: 0.8 }[a];
       const name = { charge: 'Charge!', pounce: 'Pounce!', maul: 'Maul!', web: 'Web!', pound: 'Ground Pound!', nova: 'Fire Nova!', frenzy: 'Frenzy!', bash: 'Shield Bash!' }[a];
       this.say(name);
+      if (a === 'charge' || a === 'pounce') { const len = Math.min(20, dp + 3); G.hooks.telegraphLine && G.hooks.telegraphLine(this, player, len, Math.max(1.6, this.radius * 2.2), this.actionDur * 0.38); }
+      if (a === 'maul') G.hooks.telegraphCone && G.hooks.telegraphCone(this, this.reach + 1.4, this.actionDur * 0.62);
       if (a === 'charge' || a === 'maul' || a === 'pounce') S.roar(this.pos); else S.growl(this.def.variant || this.def.shape, this.pos, 1.2);
       if (a === 'pound') G.hooks.telegraphSelf && G.hooks.telegraphSelf(this, 4.5, this.actionDur * 0.65);
       return true;
@@ -399,10 +401,10 @@ export class Mob {
     const facing = Math.abs(angDiff(this.yaw, toP)) < 1.0;
     let out = null;
     if (a === 'charge' || a === 'pounce') {
-      if (t < 0.38) { this.faceTo(player.pos, dt, 10); this.windup = true; } // rear up / crouch
+      if (t < 0.38) { if (!this.lockDir) this.faceTo(player.pos, dt, 10); this.windup = true; } // rear up / crouch
       else {
         this.windup = false;
-        if (!this.spDir) { this.spDir = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); this.spDist = Math.min(20, dp + 3); S.swing(2, this.pos); }
+        if (!this.spDir) { this.spDir = this.lockDir ? this.lockDir.clone() : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); this.spDist = this.lockLen || Math.min(20, dp + 3); this.yaw = Math.atan2(this.spDir.x, this.spDir.z); S.swing(2, this.pos); }
         const sp = a === 'pounce' ? 15 : 13;
         if (this.spDist > 0) { const mv = sp * dt; this.spDist -= mv; this.pos.addScaledVector(this.spDir, mv); if (a === 'pounce') this.leapY = Math.sin(Math.min(1, (t - 0.38) / 0.4) * Math.PI) * 1.6; if (Math.random() < 0.5) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 2, { speed: 2, size: 0.5 }); }
         if (!this.didHit && dp < this.reach + player.radius + 0.6) {
@@ -435,7 +437,7 @@ export class Mob {
         if (dp < r + player.radius) { player.takeDamage(this.dmg * (a === 'pound' ? 1.7 : 1.4), this, { aoe: true }); if (a === 'pound') { player.knock(player.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), 0.7); } else player.debuff('burn', 4, this.dmg * 0.15); }
       }
     }
-    if (this.actionT >= 1) { this.action = null; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, 0.6); }
+    if (this.actionT >= 1) { this.action = null; this.lockDir = null; this.lockLen = 0; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, 0.6); }
     return out;
   }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }

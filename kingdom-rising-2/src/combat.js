@@ -195,6 +195,25 @@ export function telegraphSelf(mob, r, delay) {
   G.scene.add(ring, disc); let t = 0;
   G.timers.push({ update(dt) { t += dt; const p = mob.pos; ring.position.set(p.x, heightAt(p.x, p.z) + 0.12, p.z); disc.position.copy(ring.position); disc.scale.setScalar(Math.min(1, t / delay)); if (t >= delay || mob.dead) { G.scene.remove(ring, disc); return true; } return false; } });
 }
+// red warning path on the ground for charges and pounces; the mob commits to this line
+export function telegraphLine(mob, player, len, w, delay) {
+  const dir = player.pos.clone().sub(mob.pos).setY(0).normalize();
+  mob.lockDir = dir.clone(); mob.lockLen = len; mob.yaw = Math.atan2(dir.x, dir.z);
+  const mk = (op) => { const g = new THREE.PlaneGeometry(w, len, 1, 16).rotateX(-Math.PI / 2); g.translate(0, 0, len / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: '#ff2a10', transparent: true, opacity: op, depthWrite: false })); m.renderOrder = 5; return m; };
+  const area = mk(0.22), fill = mk(0.45);
+  const start = mob.pos.clone(); const yaw = Math.atan2(dir.x, dir.z);
+  for (const m of [area, fill]) { m.position.set(start.x, heightAt(start.x, start.z) + 0.15, start.z); m.rotation.y = yaw; G.scene.add(m); }
+  // follow the ground along the path
+  for (const m of [area, fill]) { const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const lx = pa.getX(i), lz = pa.getZ(i); const wx = start.x + lx * Math.cos(yaw) + lz * Math.sin(yaw), wz = start.z - lx * Math.sin(yaw) + lz * Math.cos(yaw); pa.setY(i, heightAt(wx, wz) - heightAt(start.x, start.z) + 0.05); } pa.needsUpdate = true; }
+  let t = 0;
+  G.timers.push({ update(dt) { t += dt; const k = Math.min(1, t / delay); fill.scale.z = Math.max(0.01, k); area.material.opacity = 0.18 + 0.1 * Math.sin(t * 20); if (t >= delay + 0.35 || mob.dead) { G.scene.remove(area, fill); return true; } return false; } });
+}
+export function telegraphCone(mob, r, delay) {
+  const g = new THREE.CircleGeometry(r, 24, -0.75, 1.5).rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: '#ff2a10', transparent: true, opacity: 0.35, depthWrite: false })); m.renderOrder = 5; G.scene.add(m);
+  let t = 0;
+  G.timers.push({ update(dt) { t += dt; const p = mob.pos; m.position.set(p.x, heightAt(p.x, p.z) + 0.15, p.z); m.rotation.y = mob.yaw - Math.PI / 2; m.material.opacity = 0.2 + 0.25 * Math.min(1, t / delay); if (t >= delay || mob.dead) { G.scene.remove(m); return true; } return false; } });
+}
 export function lightning(a, b) {
   const pts = []; const n = 10;
   for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); if (i && i < n) p.add(new THREE.Vector3(rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5))); pts.push(p); }

@@ -7,6 +7,7 @@ import { newHero } from './game.js';
 import { S, A, M } from './audio.js';
 import { confirmBox, openSettings, openControls, closeWin } from './ui.js';
 import { G } from './state.js';
+import * as Icons from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -20,16 +21,22 @@ export function showTitle() {
   M.play('title');
   renderSaves();
 }
+const CLS_WPN = { warrior: { kind: 'weapon', wt: 'swordshield', tier: 2, rarity: 0 }, ranger: { kind: 'weapon', wt: 'bow', tier: 2, rarity: 0 }, wizard: { kind: 'weapon', wt: 'firestaff', tier: 2, rarity: 0 } };
 function renderSaves() {
   const saves = listSaves(); const box = $('saves'); box.innerHTML = '';
   $('btnNew').disabled = !canCreate();
-  $('slotCount').textContent = `${saves.length} / ${MAX_SAVES} campaigns` + (canCreate() ? '' : ' (delete one to start another)');
+  $('btnNew').querySelector('small').textContent = canCreate() ? 'Create a new hero and wake on the beach' : 'All 5 slots are used: delete a campaign first';
+  $('slotCount').textContent = `${saves.length} of ${MAX_SAVES} slots used`;
+  const last = saves[0];
+  $('btnContinue').hidden = !last;
+  if (last) { $('contSub').textContent = `${last.name} · Level ${last.level} ${RACES[last.race].name} ${CLASSES[last.cls].name} · ${last.zone || ''}`; $('btnContinue').onclick = () => { S.click(); goFull(); Menu.onPlay(last); }; }
+  if (!saves.length) { box.appendChild(el('div', 'emptysaves', '<b>No campaigns yet</b>Choose <i>New Campaign</i> to create your first hero. You can keep up to five heroes, each with their own progress.')); return; }
   for (const s of saves) {
-    const d = el('div', 'save', `<div class="crest">${CLS_ICON[s.cls]}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}</div><div class="meta"><span>⏱ ${fmtTime(s.timePlayed)} played</span><span>📍 ${esc(s.zone || '')}</span><span>📜 ${s.quests.done.length} quests</span><span style="color:var(--dim)">${fmtDate(s.lastPlayed)}</span></div></div>`);
+    const d = el('div', 'save', `<div class="crest">${Icons.itemSvg(CLS_WPN[s.cls])}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} · ${RACES[s.race].name} ${CLASSES[s.cls].name}</div><div class="meta"><span>${esc(s.zone || 'Driftwood Coast')}</span><span>${fmtTime(s.timePlayed)} played</span><span>${s.quests.done.length} quests done</span></div><div class="meta"><span>Last played ${fmtDate(s.lastPlayed)}</span></div></div>`);
     const acts = el('div', 'acts');
-    const play = el('button', 'btn gold', '▶ Play'); play.onclick = (e) => { e.stopPropagation(); S.click(); goFull(); Menu.onPlay(s); };
-    const del = el('button', 'btn red', '🗑'); del.title = 'Delete this campaign';
-    del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`Delete <b>${esc(s.name)}</b> (level ${s.level} ${CLASSES[s.cls].name})?<br><span style="color:var(--dim)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
+    const play = el('button', 'btn gold', 'Play'); play.onclick = (e) => { e.stopPropagation(); S.click(); goFull(); Menu.onPlay(s); };
+    const del = el('button', 'btn ghost', 'Delete'); del.title = 'Delete this campaign';
+    del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete campaign</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
     acts.append(play, del); d.appendChild(acts);
     d.onclick = () => { S.click(); goFull(); Menu.onPlay(s); };
     d.onmouseenter = () => S.hover();
@@ -43,7 +50,7 @@ export function initMenu() {
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
-  for (const b of document.querySelectorAll('#title .btn')) b.addEventListener('mouseenter', () => S.hover());
+  for (const b of document.querySelectorAll('#title .mm, #title .btn')) b.addEventListener('mouseenter', () => S.hover());
   $('cBack').onclick = () => { S.click(); closeCreator(); showTitle(); };
   $('cPrev').onclick = () => { S.click(); if (tab > 0) { tab--; renderCreator(); } };
   $('cNext').onclick = () => { S.click(); if (tab < TABS.length - 1) { tab++; renderCreator(); } else finish(); };
@@ -63,60 +70,79 @@ export function showCreator() {
   Menu.preview.active = true; rebuildPreview(); renderCreator();
 }
 function closeCreator() { $('creator').hidden = true; Menu.preview.active = false; }
+const RACE_INFO = {
+  highelf: { tag: 'Wise & magical', icon: '🧝', best: 'Wizard', lore: 'The last of the Silver Courts, tall and proud, with long ears and a memory that stretches back centuries. Magic runs in their blood.', perk: 'Highest Intellect: stronger spells and a bigger mana pool.' },
+  woodelf: { tag: 'Swift & keen-eyed', icon: '🧝', best: 'Ranger', lore: 'Sun-browned hunters of the deep forests. They move without a sound and never miss what they aim at.', perk: 'Highest Dexterity: harder hitting bows and blades, more critical hits, faster endurance recovery.' },
+  dwarf: { tag: 'Stout & unbreakable', icon: '🧔', best: 'Warrior', lore: 'Short, broad and stubborn as the mountains they carve. A dwarf in armour is a wall with a beard.', perk: 'Highest Strength and Stamina, plus 20 bonus health. Hard to kill.' },
+};
+const CLASS_INFO = {
+  warrior: { tag: 'Front line', diff: 1, role: 'Tank and melee damage', res: 'Endurance', start: 'Sword (main hand) and Shield (off hand)', tips: ['Get close and chain your 3-hit sword combo with left click.', 'Hold right click to raise your shield and stop most of the damage.', 'Charge into a pack, then use Battle Cry and Earthsplitter to finish it.'] },
+  ranger: { tag: 'Ranged hunter', diff: 2, role: 'Ranged damage and mobility', res: 'Endurance', start: 'Longbow', tips: ['Keep your distance: arrows drop over long range, so aim a little high.', 'Spectral Arrow pierces a whole line of enemies.', 'Smoke Roll hides you and makes your next hit deal double damage.'] },
+  wizard: { tag: 'Spell caster', diff: 3, role: 'Area damage and control', res: 'Mana', start: 'Fire Staff', tips: ['Fireballs arc and explode: hit groups from a safe distance.', 'Frost Nova freezes everything near you; Blink gets you out.', 'Watch your mana; Mana Surge makes everything free for a while.'] },
+};
+const STAT_MAX = 18;
+function statBars(st) { return `<div class="bars">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]}</span><div class="bt"><i style="width:${st[k] / STAT_MAX * 100}%"></i></div><b>${st[k]}</b>`).join('')}</div>`; }
+function renderSummary() {
+  const R = RACES[C.race], K = CLASSES[C.cls], P = poolsAt(C.cls, 1);
+  $('cSum').innerHTML = `<div class="eyebrow">Your hero</div><h3>${esc(C.name.trim() || 'Unnamed')}</h3><div class="sub">${R.name} ${K.name} · ${C.sex === 'm' ? 'Male' : 'Female'}</div>${statBars(R.stats)}<div class="kv"><span>Health</span><b>${P.hp + R.hp + R.stats.sta * 6}</b></div>${P.mana ? `<div class="kv"><span>Mana</span><b>${P.mana + R.stats.int * 6}</b></div>` : ''}<div class="kv"><span>Endurance</span><b>${P.end + R.stats.dex * 2}</b></div><div class="kv"><span>Starts with</span><b style="text-align:right">${CLASS_INFO[C.cls].start}</b></div>`;
+}
 function renderCreator() {
   const tabs = $('cTabs'); tabs.innerHTML = '';
-  TABS.forEach((t, i) => { const b = el('button', 'tab' + (i === tab ? ' on' : ''), `${i + 1}. ${t}`); b.onclick = () => { S.click(); tab = i; renderCreator(); }; tabs.appendChild(b); });
+  TABS.forEach((t, i) => { const b = el('button', (i === tab ? 'on' : i < tab ? 'done' : ''), `<span class="n">${i < tab ? '✓' : i + 1}</span>${t}`); b.onclick = () => { S.click(); tab = i; renderCreator(); }; tabs.appendChild(b); });
   const body = $('cBody'); body.innerHTML = '';
-  $('cPrev').disabled = tab === 0; $('cNext').textContent = tab === TABS.length - 1 ? '⚔ Begin Adventure' : 'Next →';
-  const choice = (list, cur, onPick) => { const g = el('div', 'choice'); for (const o of list) { const c = el('button', 'card' + (o.id === cur ? ' on' : ''), `${o.icon ? `<div class="ico">${o.icon}</div>` : ''}<b>${o.name}</b>${o.small ? `<small>${o.small}</small>` : ''}`); c.onclick = () => { S.click(); onPick(o.id); renderCreator(); rebuildPreview(); }; c.onmouseenter = () => S.hover(); g.appendChild(c); } return g; };
+  $('cPrev').disabled = tab === 0; $('cNext').textContent = tab === TABS.length - 1 ? 'Begin Adventure' : 'Next';
+  const opt = (o, on, pick) => { const c = el('button', 'opt' + (on ? ' on' : ''), `<div class="oi">${o.icon || ''}</div><div><b>${o.name}</b>${o.small ? `<small>${o.small}</small>` : ''}</div>${o.tag ? `<span class="tagr">${o.tag}</span>` : ''}`); c.onclick = () => { S.click(); pick(); renderCreator(); rebuildPreview(); }; c.onmouseenter = () => S.hover(); return c; };
+  const seg = (list, cur, pick) => { const g = el('div', 'segs'); for (const o of list) g.appendChild(opt(o, o.id === cur, () => pick(o.id))); return g; };
   const R = RACES[C.race];
+  const intro = (t) => body.appendChild(el('p', 'cintro', t));
+  const sect = (t) => body.appendChild(el('div', 'sect', t));
   if (tab === 0) {
-    body.appendChild(el('h3', '', 'Choose your race'));
-    body.appendChild(choice(Object.keys(RACES).filter(k => RACES[k].playable).map(k => ({ id: k, name: RACES[k].name, icon: k === 'dwarf' ? '🧔' : '🧝', small: k === 'highelf' ? 'Wise & magical' : k === 'woodelf' ? 'Agile & keen-eyed' : 'Strong & tough' })), C.race, (id) => { C.race = id; const r = RACES[id]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = id === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (id === 'dwarf' ? 4 : 1) : id === 'dwarf' ? 0 : 1; }));
-    body.appendChild(el('div', 'desc', `${R.desc}<div class="statrow">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]} <b>${R.stats[k]}</b></span>`).join('')}</div><div style="color:var(--dim);font-size:13px;margin-top:6px">Your race sets your starting stats. They only rise further through gear.</div>`));
-    body.appendChild(el('h3', '', 'Body type')).style.marginTop = '14px';
-    body.appendChild(choice([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
+    intro('Your race shapes how you look and sets your starting attributes. Attributes only grow further through the gear you find and craft.');
+    sect('Race');
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable)) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
+    body.appendChild(el('div', 'lore', `${RACE_INFO[C.race].lore}<br><b style="color:var(--g1)">${RACE_INFO[C.race].perk}</b>`));
+    body.appendChild(el('div', '', statBars(R.stats) + '<p class="cintro" style="margin-top:10px;font-size:13px;color:var(--mut)">Strength: melee damage. Dexterity: bows, daggers, spears, crits and endurance. Intellect: spells and mana. Stamina: health.</p>'));
+    sect('Body type');
+    body.appendChild(seg([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
-    body.appendChild(el('h3', '', 'Choose your class'));
-    body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bow & arrows' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = START[id]; }));
-    const P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
-    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">Starts with:</b> ${START_NAME[C.cls]}`));
-    body.appendChild(el('div', 'desc', `${CLASSES[C.cls].desc}<div class="statrow"><span>❤ Health ${P0.hp} → ${P20.hp}</span>${P0.mana ? `<span>💧 Mana ${P0.mana} → ${P20.mana}</span>` : ''}<span>⚡ Endurance ${P0.end} → ${P20.end}</span></div><div style="margin-top:10px"><b style="color:var(--gold)">Class abilities</b> (they cost ${CLASS_POOLS[C.cls].uses === 'mana' ? 'mana' : 'endurance'}):${ABILITIES[C.cls].map(a => `<div style="margin-top:4px"><span class="kbd">${a.key}</span> <b>${a.name}</b> <span style="color:var(--dim)">(level ${a.level})</span><br><span style="font-size:14px">${a.desc}</span></div>`).join('')}</div>`));
-  } else if (tab === 99) {
-    body.appendChild(el('h3', '', 'Choose your starting weapon'));
-    body.appendChild(el('p', '', `<span style="color:var(--dim)">A worn starter weapon. Craft or loot better ones later. Every ${CLASSES[C.cls].name} weapon can be equipped, and you can carry two and swap with Q.</span>`));
-    const ic = { swordshield: '🛡', maceshield: '🔨', swordmace: '⚔', greatsword: '🗡', greataxe: '🪓', warhammer: '🔨', spear: '🔱', daggers: '🗡', handaxes: '🪓', bow: '🏹', firestaff: '🔥', froststaff: '❄', arcanestaff: '✨' };
-    body.appendChild(choice(CLASSES[C.cls].weapons.map(w => ({ id: w, name: WEAPON_TYPES[w].name, icon: ic[w], small: WEAPON_TYPES[w].hands === 'two' ? 'Two-handed' : WEAPON_TYPES[w].hands === 'dual' ? 'Dual wield' : WEAPON_TYPES[w].hands === 'shield' ? 'Best block' : WEAPON_TYPES[w].kind === 'bow' ? 'Ranged' : 'Spells' })), C.weapon, (id) => { C.weapon = id; }));
-    const W = WEAPON_TYPES[C.weapon];
-    const lmb = W.kind === 'melee' ? (W.hands === 'dual' ? 'Swing both weapons in turn, then a crossing finisher (3-hit combo)' : '3-hit combo: two different swings, then a big finisher') : W.kind === 'bow' ? 'Shoot an arrow. Arrows drop over distance.' : W.element === 'fire' ? 'Fireball. Drops a little over long range.' : W.element === 'frost' ? 'Ice shard that slows.' : 'Fast arcane bolt.';
-    const tr = COMBOS[C.weapon];
-    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${W.name}</b><div style="margin-top:6px"><span class="kbd">Left click</span> ${lmb}</div>${tr ? `<div style="margin-top:4px"><span class="kbd">Combo</span> ${tr.chain.length} attacks · ${tr.trait}</div>` : ''}<div style="margin-top:4px"><span class="kbd">Right click</span> Block: stops ${Math.round(W.block * 100)}% of damage</div><div style="margin-top:4px;color:var(--dim)">Bigger weapons swing slower but hit harder. Damage scales with ${STAT_NAMES[weaponStat(C.weapon)]}.</div>`));
+    intro('Your class decides how you fight, which abilities you learn and what weapon you start with. Every class can gather, craft and do every quest.');
+    sect('Class');
+    for (const k of Object.keys(CLASSES)) body.appendChild(opt({ name: CLASSES[k].name, icon: `<div style="width:38px;height:38px">${Icons.itemSvg(CLS_WPN[k])}</div>`, small: CLASS_INFO[k].role, tag: CLASS_INFO[k].tag }, C.cls === k, () => { C.cls = k; C.weapon = START[k]; }));
+    const I = CLASS_INFO[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
+    body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${I.start}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
+    sect('How to play');
+    body.appendChild(el('ul', 'tips', I.tips.map(t => `<li>${t}</li>`).join('')));
+    sect('Class abilities');
+    body.appendChild(el('p', 'cintro', `Five abilities, all available from the start. Put any three on keys 1, 2 and 3 (change them any time in Class Talents, N). They cost ${I.res.toLowerCase()}.`));
+    for (const a of ABILITIES[C.cls]) body.appendChild(el('div', 'abl', `<div class="ai">${Icons.abilityIcon(a.id)}</div><div><b>${a.name}</b><br>${a.desc} <span style="color:var(--mut)">${a.cost ? a.cost + ' ' + I.res.toLowerCase() : 'free'}</span></div>`));
   } else if (tab === 2) {
+    intro('Shape your hero. This is purely how you look; your attributes come from your race and gear.');
     const f = (label, input) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); d.appendChild(input); body.appendChild(d); };
-    const range = (k, min, max, step, lbls) => { const w = el('div'); const i = el('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = C.app[k]; i.oninput = () => { C.app[k] = +i.value; rebuildPreview(); }; w.appendChild(i); w.appendChild(el('div', '', `<div style="display:flex;justify-content:space-between;color:var(--dim);font-size:13px"><span>${lbls[0]}</span><span>${lbls[1]}</span></div>`)); return w; };
-    body.appendChild(el('h3', '', 'Shape your body'));
+    const range = (k, min, max, step, lbls) => { const w = el('div'); const i = el('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = C.app[k]; i.oninput = () => { C.app[k] = +i.value; rebuildPreview(); }; w.appendChild(i); w.appendChild(el('div', '', `<div style="display:flex;justify-content:space-between;color:var(--mut);font-size:13px"><span>${lbls[0]}</span><span>${lbls[1]}</span></div>`)); return w; };
+    sect('Body');
     f('Height', range('height', 0.9, 1.1, 0.01, ['Short', 'Tall']));
-    f('Build', range('build', -1, 1, 0.05, ['Skinny', 'Strong']));
-    body.appendChild(el('p', '', '<span style="color:var(--dim)">Purely how you look. Your stats come from your race and gear.</span>'));
+    f('Build', range('build', -1, 1, 0.05, ['Slender', 'Muscular']));
   } else if (tab === 3) {
+    intro('Choose your colouring and hair. Drag the hero on the right to see every side.');
     const sw = (label, list, k) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); const s = el('div', 'swatches'); for (const c of list) { const b = el('button', 'sw' + (C.app[k] === c ? ' on' : '')); b.style.background = c; b.onclick = () => { S.click(); C.app[k] = c; renderCreator(); rebuildPreview(); }; s.appendChild(b); } d.appendChild(s); body.appendChild(d); };
-    body.appendChild(el('h3', '', 'Appearance'));
-    sw('Skin', R.skins, 'skin'); sw('Hair colour', R.hairs, 'hair');
-    const hs = el('div', 'field'); hs.appendChild(el('label', '', 'Hair style'));
-    hs.appendChild(choice([{ id: 0, name: 'Short' }, { id: 1, name: 'Long' }, { id: 2, name: 'Ponytail' }, { id: 4, name: 'Braids' }, { id: 3, name: 'Bald' }], C.app.hairStyle, (id) => { C.app.hairStyle = id; })); body.appendChild(hs);
+    sect('Colours'); sw('Skin', R.skins, 'skin'); sw('Hair', R.hairs, 'hair');
+    sect('Hair style');
+    const hsg = el('div', 'segs'); hsg.style.flexWrap = 'wrap'; for (const o of [{ id: 0, name: 'Short' }, { id: 1, name: 'Long' }, { id: 2, name: 'Ponytail' }, { id: 4, name: 'Braids' }, { id: 3, name: 'Bald' }]) { const b = opt(o, C.app.hairStyle === o.id, () => { C.app.hairStyle = o.id; }); b.style.flex = '1 0 28%'; b.querySelector('.oi').remove(); hsg.appendChild(b); } body.appendChild(hsg);
     if (C.sex === 'm') {
-      sw('Beard colour', [null, ...R.hairs].filter(Boolean), 'beardCol');
-      const bs = el('div', 'field'); bs.appendChild(el('label', '', 'Beard'));
-      bs.appendChild(choice([{ id: 0, name: 'None' }, { id: 1, name: 'Stubble' }, { id: 2, name: 'Full' }, { id: 3, name: 'Long' }], C.app.beard, (id) => { C.app.beard = id; })); body.appendChild(bs);
+      sect('Beard'); sw('Beard colour', R.hairs, 'beardCol');
+      const bg = el('div', 'segs'); for (const o of [{ id: 0, name: 'None' }, { id: 1, name: 'Stubble' }, { id: 2, name: 'Full' }, { id: 3, name: 'Long' }]) { const b = opt(o, C.app.beard === o.id, () => { C.app.beard = o.id; }); b.querySelector('.oi').remove(); bg.appendChild(b); } body.appendChild(bg);
     }
   } else if (tab === 4) {
-    body.appendChild(el('h3', '', 'Name your hero'));
-    const i = el('input'); i.type = 'text'; i.maxLength = 18; i.placeholder = 'Enter a name'; i.value = C.name; i.oninput = () => { C.name = i.value; }; i.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') finish(); };
+    intro('Last step. Give your hero a name, then begin. You will wake on a lonely beach beside the wreck of your raft, with no memory of how you got there.');
+    sect('Name');
+    const i = el('input'); i.type = 'text'; i.maxLength = 18; i.placeholder = 'Enter a name'; i.value = C.name; i.oninput = () => { C.name = i.value; renderSummary(); }; i.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') finish(); };
     const d = el('div', 'field'); d.appendChild(i); body.appendChild(d);
-    const rnd = el('button', 'btn', '🎲 Random name'); rnd.onclick = () => { const l = NAMES[C.race][C.sex]; C.name = l[Math.floor(Math.random() * l.length)]; i.value = C.name; }; body.appendChild(rnd);
-    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${RACES[C.race].name} ${CLASSES[C.cls].name}</b> · ${C.sex === 'm' ? 'Male' : 'Female'}<br>Starting weapon: ${START_NAME[C.cls]}<div class="statrow">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]} <b>${RACES[C.race].stats[k]}</b></span>`).join('')}</div><p style="margin:10px 0 0">You wake on a lonely beach beside the wreck of your raft, with no memory of how you got there...</p>`));
+    const rnd = el('button', 'btn', 'Suggest a name'); rnd.onclick = () => { const l = NAMES[C.race][C.sex]; C.name = l[Math.floor(Math.random() * l.length)]; i.value = C.name; renderSummary(); }; body.appendChild(rnd);
+    sect('Your first steps');
+    body.appendChild(el('ul', 'tips', ['Head up the beach to Seabreak Village and talk to Elder Maren (gold <b style="color:#ffd84a">!</b> above her head).', 'Villagers teach you to chop trees, mine, gather cotton, skin animals and craft better gear.', 'Wolves, bears, tigers and goblins attack on sight: watch for the red crossed swords above their names.'].map(t => `<li>${t}</li>`).join('')));
     setTimeout(() => i.focus(), 50);
   }
+  renderSummary();
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }

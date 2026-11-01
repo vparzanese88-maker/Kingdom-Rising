@@ -37,21 +37,58 @@ function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 
+// a detailed gripping hand: palm, four curled fingers, thumb, knuckles, class glove and cuff
+function makeHand(right, cls, skinCol) {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: skinCol, roughness: 0.6 });
+  const glove = cls === 'warrior' ? new THREE.MeshStandardMaterial({ color: '#aab2bc', roughness: 0.3, metalness: 0.85 }) : cls === 'ranger' ? new THREE.MeshStandardMaterial({ color: '#5a3a20', roughness: 0.8 }) : skin;
+  const fingerM = cls === 'ranger' ? skin : glove; // rangers wear fingerless gloves
+  const sx = right ? 1 : -1;
+  // palm wraps the handle (the handle runs along local Y through the origin)
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(0.036, 14, 10), glove); palm.scale.set(1.15, 1.35, 1.0); palm.position.set(sx * 0.03, 0.0, 0.012); g.add(palm);
+  // four fingers curl around the grip
+  for (let i = 0; i < 4; i++) {
+    const r = 0.026 - i * 0.0015;
+    const f = new THREE.Mesh(new THREE.TorusGeometry(r, 0.0115 - i * 0.0008, 7, 12, Math.PI * 1.25), fingerM);
+    f.rotation.x = Math.PI / 2; f.rotation.z = right ? Math.PI * 0.05 : Math.PI * 0.7; f.position.y = 0.033 - i * 0.022; g.add(f);
+    if (cls === 'warrior') { const k = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.016, 0.02), glove); k.position.set(sx * 0.005, 0.033 - i * 0.022, -0.03); g.add(k); }
+    else { const k = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 5), fingerM); k.position.set(sx * 0.0, 0.033 - i * 0.022, -0.033); g.add(k); }
+  }
+  // thumb over the top of the fingers
+  const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.035, 4, 8), fingerM); th.position.set(-sx * 0.012, 0.03, -0.026); th.rotation.z = sx * 1.1; th.rotation.x = 0.4; g.add(th);
+  // back of the hand plate / glove detail
+  if (cls === 'warrior') { const plate = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.085, 0.06), glove); plate.position.set(sx * 0.07, 0, 0.012); g.add(plate); }
+  if (cls === 'wizard') { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0145, 0.004, 6, 14), new THREE.MeshStandardMaterial({ color: '#e0b040', metalness: 0.9, roughness: 0.3 })); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.011, 0); g.add(ring); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.007), new THREE.MeshStandardMaterial({ color: '#8a40ff', emissive: '#6a20ff', emissiveIntensity: 1.2 })); gem.position.set(0, 0.011, -0.04); g.add(gem); }
+  // wrist / cuff
+  const cuffM = cls === 'warrior' ? glove : cls === 'ranger' ? new THREE.MeshStandardMaterial({ color: '#6a4628', roughness: 0.8 }) : new THREE.MeshStandardMaterial({ color: CLASSES.wizard.colors.trim, roughness: 0.4, metalness: 0.6 });
+  const wrist = new THREE.Object3D(); wrist.position.set(sx * 0.055, -0.04, 0.03); g.add(wrist);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.04, 0.06, 14), cuffM); wrist.add(cuff);
+  if (cls === 'ranger') for (const y of [-0.016, 0.016]) { const strap = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.004, 4, 16), new THREE.MeshStandardMaterial({ color: '#2a1a0e' })); strap.rotation.x = Math.PI / 2; strap.position.y = y; wrist.add(strap); }
+  if (cls === 'warrior') { const rim = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.006, 5, 16), new THREE.MeshStandardMaterial({ color: CLASSES.warrior.colors.trim, metalness: 0.9, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.03; wrist.add(rim); }
+  g.userData.wrist = wrist;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+  return g;
+}
 class ViewModel {
   constructor(camera, app, cls) {
     this.g = new THREE.Group(); camera.add(this.g);
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
-    const skin = new THREE.MeshStandardMaterial({ color: app.skin, roughness: 0.6 });
-    const sleeveCol = CLASSES[cls].colors.main;
-    const sleeve = new THREE.MeshStandardMaterial({ color: cls === 'warrior' ? '#7a8088' : sleeveCol, roughness: cls === 'warrior' ? 0.45 : 0.85, metalness: cls === 'warrior' ? 0.7 : 0 });
-    for (const H of [this.R, this.L]) {
-      const fist = new THREE.Mesh(new THREE.SphereGeometry(0.048, 12, 10), skin); fist.scale.set(1.1, 0.9, 1.25); H.add(fist);
-      const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), skin); thumb.position.set(H === this.R ? -0.035 : 0.035, 0.02, -0.02); H.add(thumb);
-    }
-    this.arms = [this.R, this.L].map(H => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.055, 1, 10, 1, true), sleeve); this.g.add(m); const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.07, 10), new THREE.MeshStandardMaterial({ color: CLASSES[cls].colors.trim, roughness: 0.5, metalness: 0.4 })); this.g.add(cuff); return { m, cuff, H }; });
-    this.anchor = [new THREE.Vector3(0.34, -1.2, -0.3), new THREE.Vector3(-0.34, -1.2, -0.3)];
-    this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 5; } });
-    this.weapons = {}; this.bob = 0;
+    this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
+    const c = CLASSES[cls].colors;
+    const sleeve = cls === 'warrior' ? new THREE.MeshStandardMaterial({ color: '#8a929c', roughness: 0.4, metalness: 0.75 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
+    const trimM = new THREE.MeshStandardMaterial({ color: c.trim, roughness: 0.45, metalness: cls === 'ranger' ? 0 : 0.6 });
+    this.arms = [this.R, this.L].map(H => {
+      const arm = new THREE.Group(); this.g.add(arm);
+      // forearm: tapered sleeve (wizards get a wide bell sleeve), a trim ring and some cloth folds
+      const geo = cls === 'wizard' ? new THREE.CylinderGeometry(0.052, 0.085, 1, 16, 1, true) : new THREE.CylinderGeometry(0.044, 0.058, 1, 16, 1, true);
+      const m = new THREE.Mesh(geo, sleeve); arm.add(m);
+      const trim = new THREE.Mesh(new THREE.TorusGeometry(cls === 'wizard' ? 0.055 : 0.047, 0.007, 6, 18), trimM); trim.rotation.x = Math.PI / 2; arm.add(trim);
+      if (cls === 'warrior') { for (let i = 1; i < 4; i++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.05 + i * 0.002, 0.004, 4, 16), sleeve); band.rotation.x = Math.PI / 2; band.userData.t = i * 0.12; arm.add(band); } }
+      arm.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+      return { arm, m, trim, H };
+    });
+    this.anchor = [new THREE.Vector3(0.36, -1.15, -0.25), new THREE.Vector3(-0.36, -1.15, -0.25)];
+    this.weapons = {}; this.bob = 0; this.sprintK = 0;
   }
   setWeapon(w) {
     for (const k in this.weapons) { const o = this.weapons[k]; o.parent && o.parent.remove(o); }
@@ -106,24 +143,38 @@ class ViewModel {
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
       else { r = VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; }
     } else if (st.drawing) { r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, st.drawing))); }
+    // sprinting: lower the weapon and pump the arms
+    this.sprintK += ((st.sprint && !act && !st.block && !st.tool ? 1 : 0) - this.sprintK) * Math.min(1, dt * 8);
+    if (this.sprintK > 0.01) {
+      const sp = W && W.kind === 'bow' ? [0.05, -0.3, -0.5, 0.2, 0.3, 0.9] : W && W.kind === 'staff' ? [0.35, -0.55, -0.45, -0.6, 0.4, -0.7] : [0.36, -0.42, -0.42, -0.25, 0.5, -1.0];
+      r = plerp(r, sp, this.sprintK);
+      if (l && W && W.kind !== 'bow') l = plerp(l, [-0.36, -0.45, -0.42, -0.2, -0.5, 1.0], this.sprintK);
+    }
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);
     if (W && W.hands === 'two' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
-    // bob & sway
-    this.bob += dt * st.speed * 1.9;
-    const bob = settings.headBob ? Math.sin(this.bob) * 0.012 * Math.min(1, st.speed / 4) : 0;
-    this.g.position.set(Math.cos(this.bob * 0.5) * 0.008 * Math.min(1, st.speed / 4) + st.swayX, bob - 0.005 * Math.sin(performance.now() * 0.0015) + st.swayY, 0);
+    // bob & sway: arms swing with each stride, harder and faster when sprinting
+    this.bob += dt * st.speed * 1.75;
+    const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.022 + this.sprintK * 0.05);
+    const ph = this.bob;
+    this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 0.8 * this.sprintK; this.R.rotation.z += Math.sin(ph) * amp * 1.2; this.R.rotation.x += Math.cos(ph) * amp * (1 + this.sprintK * 3);
+    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
+    const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
+    this.g.position.set(0.04 + st.swayX, -0.025 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     // bow string pull
     if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, 0.02 + pull * 0.5); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
-    // forearms
+    // forearms follow from the wrist down toward the elbow (off screen)
     for (let i = 0; i < 2; i++) {
-      const { m, cuff, H } = this.arms[i]; m.visible = cuff.visible = H.visible;
+      const { arm, m, trim, H } = this.arms[i]; arm.visible = H.visible;
       if (!H.visible) continue;
-      const a = this.anchor[i], h = H.position.clone().add(new THREE.Vector3(0, 0, 0.06).applyEuler(H.rotation));
-      const d = a.clone().sub(h), len = d.length();
-      m.position.copy(h).addScaledVector(d, 0.5); m.scale.set(1, len, 1); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
-      cuff.position.copy(h).addScaledVector(d, 0.02); cuff.quaternion.copy(m.quaternion);
+      const wr = H.children[0].userData.wrist;
+      const w = new THREE.Vector3(); wr.getWorldPosition(w); this.g.worldToLocal(w);
+      const a = this.anchor[i], d = a.clone().sub(w), len = d.length(); d.normalize();
+      arm.position.copy(w); arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+      m.scale.set(1, len, 1); m.position.set(0, len / 2 + 0.03, 0);
+      trim.position.set(0, 0.035, 0);
+      for (const c of arm.children) if (c.userData.t) c.position.set(0, 0.06 + c.userData.t, 0);
     }
   }
 }
@@ -142,7 +193,7 @@ export class Player {
     this.swayX = 0; this.swayY = 0; this.fovKick = 0; this.landDip = 0; this.lookDX = 0; this.lookDY = 0;
     const app = Object.assign({ race: hero.race, sex: hero.sex, cls: hero.cls }, hero.app);
     this.app = app;
-    this.vm = new ViewModel(G.camera, app, hero.cls);
+    this.vm = new ViewModel(G.vmCam, app, hero.cls);
     this.trail = V.trail('#ffffff'); this.trailL = V.trail('#ffffff');
     this.refreshGear(true);
     this.eye = this.ch.height * 0.9;
@@ -673,9 +724,6 @@ export class Player {
     let spd = (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.05);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block) spd *= 0.45;
-    if (charging) spd *= 0.55;
-    if (this.atk && this.W && this.W.kind === 'melee') spd *= this.atk.name === 'fury' ? 0.6 : 0.4;
-    if (this.atk && this.W && (this.W.kind === 'staff' || this.W.kind === 'bow')) spd *= 0.65;
     if (this.gathering) spd = 0;
     if (this.stagger > 0) spd *= 0.3;
     this.sprinting = sprint && md.lengthSq() > 0.1;
@@ -759,7 +807,7 @@ export class Player {
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
-    this.vm.update(dt, { act: vmAct, block: this.block, speed: this.onGround ? hs : 0, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
+    this.vm.update(dt, { act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = (this.camDist < 0.6 ? this.vm.weapons.main || this.vm.weapons.bow : this.ch.weapons.main); if (tip && tip.userData.tip) { const p = tip.userData.tip.getWorldPosition(new THREE.Vector3()); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade
@@ -771,6 +819,7 @@ export class Player {
     const fp = this.camDist < 0.6;
     this.ch.root.visible = !fp || this.dead;
     this.vm.g.visible = fp && !this.dead;
+    for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
     if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.7;

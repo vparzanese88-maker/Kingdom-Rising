@@ -197,6 +197,8 @@ function buildHumanMob(type, def, size) {
 }
 
 // ---------- Mob class ----------
+const RING_GEO = (() => { const g = new THREE.RingGeometry(0.82, 1, 40); g.rotateX(-Math.PI / 2); return g; })();
+export function conColor(ml, pl) { const d = ml - pl; return d >= 3 ? '#ff2a20' : d >= 1 ? '#ffd830' : d === 0 ? '#ffffff' : d >= -2 ? '#3a6aff' : d >= -4 ? '#5ad0ff' : d >= -6 ? '#3ae03a' : '#8a8a8a'; }
 let mobId = 1;
 export class Mob {
   constructor(type, lv, x, z) {
@@ -222,6 +224,9 @@ export class Mob {
     G.scene.add(this.root);
     this.mats = []; const seenM = new Map(); this.root.traverse(o => { if (o.isMesh && o.material && o.material.emissive && o.material.emissive.getHex() === 0) { let c = seenM.get(o.material); if (!c) { c = o.material.clone(); seenM.set(o.material, c); this.mats.push(c); } o.material = c; } });
     if (d.variant === 'golem' || d.variant === 'tyrant' || d.variant === 'imp' || d.variant === 'hound') this.emberT = 0;
+    // EverQuest-style con ring on the ground, coloured by level difference
+    this.ring = new THREE.Mesh(RING_GEO, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.ring.renderOrder = 4; this.ringR = Math.max(0.6, this.radius * 1.25); this.ring.scale.setScalar(this.ringR); G.scene.add(this.ring);
   }
   get name() { return this.def.name; }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
@@ -249,6 +254,7 @@ export class Mob {
     return dmg;
   }
   die(src) {
+    if (this.ring) this.ring.visible = false;
     this.dead = true; this.deadT = 0; this.hp = 0; this.state = 'dead'; this.respawnT = this.def.boss ? 300 : this.def.elite ? 180 : 75;
     S.yelp(this.def.variant || 'human', this.pos);
     if (this.def.variant === 'skeleton') S.hit('bone', this.pos, 1.5);
@@ -262,6 +268,7 @@ export class Mob {
   update(dt, player) {
     const st = this.status;
     if (this.dead) {
+      if (this.ring) this.ring.visible = false;
       this.deadT += dt;
       this.animate(dt, { dead: true, deadT: this.deadT });
       this.respawnT -= dt;
@@ -311,7 +318,7 @@ export class Mob {
       } else {
         this.timer -= dt;
         if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(2, 7); } }
-        else if (this.timer <= 0) { const a = Math.random() * 6.28, r = Math.random() * 14; this.wanderTo = new THREE.Vector3(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
+        else if (this.timer <= 0) { const a = Math.random() * 6.28, r = Math.random() * 7; this.wanderTo = new THREE.Vector3(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
       }
       if (want && speed !== 0) {
         const dx = want.x - this.pos.x, dz = want.z - this.pos.z, l = Math.hypot(dx, dz);
@@ -332,6 +339,7 @@ export class Mob {
     this.pos.y = Math.max(heightAt(this.pos.x, this.pos.z), this.type === 'crab' ? -2 : -0.8);
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.yaw;
+    if (this.ring) { const show = dp < 45; this.ring.visible = show; if (show) { this.ring.position.set(this.pos.x, this.pos.y + 0.08, this.pos.z); const col = conColor(this.lv, player.level); if (this.ring.userData.c !== col) { this.ring.material.color.set(col); this.ring.userData.c = col; } const tg = G.target === this; this.ring.material.opacity = tg ? 0.95 : this.state === 'chase' ? 0.8 : 0.45; this.ring.scale.setScalar(this.ringR * (tg ? 1.08 + Math.sin(G.time * 6) * 0.05 : 1)); } }
     if (this.model.details) setDetail(this.model, dp < 30);
     if (this.model.kind === 'quad' || this.model.kind2 === 'human' || this.model.kind === 'spider') { const n = normalAt(this.pos.x, this.pos.z); if (this.model.kind !== 'human') this.root.rotation.x = 0; }
     this.animate(dt, { speed: disabled ? 0 : Math.abs(speed), action: this.action, actionT: this.actionT, graze: this.state === 'idle' && this.model.kind === 'quad' && (this.type === 'deer' || this.type === 'rabbit') });
@@ -367,7 +375,7 @@ export class Mob {
     else if (m.kind === 'crab') animCrab(m, dt, st);
     else animateHumanoid(m, dt, { speed: st.speed, action: st.action === 'attack' ? (this.def.variant === 'imp' ? 'cast' : this.def.variant === 'golem' || this.def.boss || this.def.variant === 'troll' ? 'slam' : 'swing1') : null, actionT: st.actionT, dead: st.dead, deadT: st.deadT, armed: true });
   }
-  remove() { G.scene.remove(this.root); }
+  remove() { G.scene.remove(this.root); if (this.ring) G.scene.remove(this.ring); }
 }
 
 // ---------- NPCs ----------

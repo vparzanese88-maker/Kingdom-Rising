@@ -21,7 +21,7 @@ import { updateProjectiles, telegraph, enemyBlast, enemyProjectile } from './com
 
 const canvas = document.getElementById('game');
 const $ = (id) => document.getElementById(id);
-let renderer, scene, camera, composer, bloom, sun, hemi, sky, water, fall, fireLights = [];
+let renderer, scene, camera, composer, bloom, sun, hemi, sky, water, fall, fireLights = [], vmSun, vmHemi;
 let mode = 'loading', intro = null, saveTimer = 0, zoneNow = null, lastT = performance.now();
 
 // ---------- boot ----------
@@ -32,6 +32,9 @@ function boot() {
   scene = new THREE.Scene(); G.scene = scene; G.renderer = renderer;
   camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.05, 3500); G.camera = camera; scene.add(camera);
   scene.fog = new THREE.Fog('#b8d4e8', 150, 900);
+  // first-person hands and weapon are drawn in their own scene with a narrower camera, on top of the world
+  G.vmScene = new THREE.Scene(); G.vmCam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 50); G.vmScene.add(G.vmCam);
+  vmSun = new THREE.DirectionalLight('#fff2d8', 2.2); vmSun.position.set(0.5, 1, 0.3); G.vmScene.add(vmSun, vmSun.target); vmHemi = new THREE.HemisphereLight('#cfe4ff', '#5a4a30', 0.9); G.vmScene.add(vmHemi);
   sun = new THREE.DirectionalLight('#fff2d8', 2.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 420 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
@@ -39,7 +42,7 @@ function boot() {
   for (let i = 0; i < 4; i++) { const l = new THREE.PointLight('#ff9040', 0, 16, 2); scene.add(l); fireLights.push(l); }
   // soft sky environment so metal and wet surfaces have something to reflect
   { const es = new THREE.Scene(); const g = new THREE.SphereGeometry(10, 32, 16); const cols = []; const pa = g.attributes.position; const top = new THREE.Color('#9cc4ec'), hor = new THREE.Color('#f0e4cc'), gnd = new THREE.Color('#5a5040'); for (let i = 0; i < pa.count; i++) { const y = pa.getY(i) / 10; const c = y > 0 ? hor.clone().lerp(top, Math.pow(y, 0.6)) : hor.clone().lerp(gnd, Math.min(1, -y * 3)); cols.push(c.r, c.g, c.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); es.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }))); const sunM = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff4e0').multiplyScalar(6) })); sunM.position.set(5, 6, 3); es.add(sunM);
-    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(es, 0.03).texture; scene.environmentIntensity = 0.55; G.envMap = scene.environment; }
+    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(es, 0.03).texture; scene.environmentIntensity = 0.55; G.envMap = scene.environment; G.vmScene.environment = scene.environment; G.vmScene.environmentIntensity = 0.7; }
   buildTerrain(scene); water = buildWater(scene); sky = buildSky(scene); fall = buildWaterfall(scene);
   buildWorld(scene);
   V.init(scene, camera);
@@ -52,7 +55,8 @@ function boot() {
   for (const id in NPCS) G.npcs.push(new NPC(id));
   const vill = [[-6, 352, { race: 'human', sex: 'f', outfit: 'weaver', hair: '#7b2a15', hairStyle: 2, skin: '#e0ac85', height: 0.8 }], [12, 372, { race: 'human', sex: 'm', outfit: 'worker', hair: '#d9b26a', skin: '#f1c7a5', beard: 0, height: 0.75 }], [-18, 340, { race: 'dwarf', sex: 'm', outfit: 'worker', hair: '#6b3a17', skin: '#dba07a' }], [24, 360, { race: 'elf', sex: 'f', outfit: 'merchant', hair: '#e8e8e8', skin: '#ead0b5', hairStyle: 1 }]];
   for (const [x, z, app] of vill) G.npcs.push(new Villager(x, z, app));
-  for (const s of SPAWNS) { const [type, x, z, r, n, l0, l1] = s; for (let i = 0; i < n; i++) { let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r; px = x + Math.cos(a) * d; pz = z + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
+  for (const s of SPAWNS) { const [type, x, z, r, n, l0, l1] = s; const packs = Math.max(1, Math.round(n / 3)); const centers = []; for (let j = 0; j < packs; j++) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r * 0.75; centers.push([x + Math.cos(a) * d, z + Math.sin(a) * d]); }
+    for (let i = 0; i < Math.round(n * 1.3); i++) { const [cx0, cz0] = centers[i % packs]; let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * Math.min(r, 9 + r * 0.1); px = cx0 + Math.cos(a) * d; pz = cz0 + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
   hooks();
   initMenu();
   Menu.onPlay = startGame;
@@ -79,7 +83,7 @@ function applyGraphics() {
 function startGame(save) {
   const h = Game.migrateHero(save.inv ? save : getSave(save.id));
   G.save = h;
-  if (G.player) { scene.remove(G.player.ch.root); camera.remove(G.player.vm.g); }
+  if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
   const p = new Player(h); G.player = p;
@@ -101,7 +105,7 @@ function saveNow() {
 }
 function quitToTitle() {
   saveNow(); UI.closeWin();
-  if (G.player) { scene.remove(G.player.ch.root); camera.remove(G.player.vm.g); G.player = null; }
+  if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); G.player = null; }
   $('hud').hidden = true; $('death').hidden = true; $('clickToPlay').hidden = true; $('intro').hidden = true; intro = null;
   if (document.pointerLockElement) document.exitPointerLock();
   mode = 'title'; showTitle();
@@ -113,7 +117,7 @@ function hooks() {
   H.toast = (t, i, k) => UI.toast(t, i, k);
   H.invChanged = () => { UI.refreshOpen(); UI.updateTracker(); };
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
-  H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press J to spend it.', 3500); S.levelUp(); };
+  H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
   H.questsChanged = () => UI.updateTracker();
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
@@ -122,7 +126,7 @@ function hooks() {
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
-    UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New skill point: press J', 4500);
+    UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New talent point: press N', 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
     UI.refreshAbilityBar(); saveNow();
   };
@@ -234,7 +238,7 @@ function input() {
     if (e.code === 'Tab') e.preventDefault();
     const p = G.player;
     if (!e.repeat) {
-      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyJ: 'skills', KeyM: 'map', KeyK: 'craft' };
+      const map = { KeyI: 'inv', KeyB: 'inv', KeyC: 'inv', KeyL: 'quests', KeyK: 'skills', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); if (!G.uiOpen) lockPointer(); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
@@ -380,6 +384,15 @@ function loop(now) {
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }
   composer.render(paused ? 0 : dt);
+  // first-person hands & weapon on top
+  const pl = G.player;
+  if (pl && pl.vm.g.visible && !intro) {
+    camera.updateMatrixWorld(); G.vmCam.position.copy(camera.position); G.vmCam.quaternion.copy(camera.quaternion);
+    G.vmCam.fov = 72 + (camera.fov - settings.fov) * 0.5; G.vmCam.aspect = camera.aspect; G.vmCam.updateProjectionMatrix();
+    vmSun.color.copy(sun.color); vmSun.intensity = Math.max(0.6, sun.intensity * 0.9); vmSun.position.copy(sun.position).sub(sun.target.position).normalize().add(camera.position);
+    vmSun.target.position.copy(camera.position); vmHemi.intensity = hemi.intensity; vmHemi.color.copy(hemi.color); vmHemi.groundColor.copy(hemi.groundColor);
+    renderer.autoClear = false; renderer.clearDepth(); renderer.render(G.vmScene, G.vmCam); renderer.autoClear = true;
+  }
 }
 let portraitCh = null, portraitRot = 0;
 function gameUpdate(dt) {
@@ -390,7 +403,8 @@ function gameUpdate(dt) {
     p.update(dt);
   }
   G.inCombat = Math.max(0, G.inCombat - dt);
-  M.setCombat(G.inCombat > 0);
+  M.setCombat(G.inCombat > 1);
+  M.setBoss(!!(G.target && !G.target.dead && G.target.def.elite && G.inCombat > 0));
   { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
   updateProjectiles(dt);

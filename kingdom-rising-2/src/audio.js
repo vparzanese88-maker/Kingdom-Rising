@@ -24,7 +24,6 @@ export const A = {
     noiseBuf = makeNoise(2);
     A.applyVolumes();
     loadSamples();
-    startScheduler();
     startAmbience();
   },
   applyVolumes() {
@@ -440,38 +439,51 @@ TRACKS.combat = { bpm: 148, div: 4, step(t, s, dest) {
   if (b === 14) brass(t, ch[1][2] - 12, sp * 2, dest, 0.04);
 } };
 
-let musicZone = 'meadow';
-let wanted = null;
-let townTarget = 0;
-export const M = {
-  play(name) { wanted = name; if (!ctx) return; if (track !== name) { track = name; } },
-  setCombat(on) { combatTarget = on ? 1 : 0; },
-  setZone(z) { musicZone = z; },
-  setTown(on) { townTarget = on ? 1 : 0; },
+// ---------------- RECORDED MUSIC (see music/CREDITS.md) ----------------
+const MUSIC = {
+  title: ['music/title.mp3'], meadow: ['music/meadow.mp3'], wood: ['music/forest.mp3'], highlands: ['music/highlands.mp3'], ashlands: ['music/ashlands.mp3'],
+  town: ['music/town1.mp3', 'music/town3.mp3', 'music/town2.mp3'], combat: ['../audio/rec/battle-music.mp3'], boss: ['music/boss.mp3'],
 };
-const lanes = { title: { next: 0, step: 0, lv: 0 }, explore: { next: 0, step: 0, lv: 0 }, town: { next: 0, step: 0, lv: 0 }, combat: { next: 0, step: 0, lv: 0 } };
-function startScheduler() {
-  if (wanted) track = wanted;
-  schedTimer = setInterval(() => {
-    if (!ctx) return;
-    combatLevel += (combatTarget - combatLevel) * 0.04;
-    const want = {
-      title: track === 'title' ? 1 : 0,
-      combat: track === 'explore' ? combatLevel : 0,
-      town: track === 'explore' ? townTarget * (1 - combatLevel) : 0,
-      explore: track === 'explore' ? (1 - townTarget) * (1 - combatLevel) : 0,
-    };
-    for (const n in lanes) {
-      const L = lanes[n], g = busFor(n);
-      L.lv += (want[n] - L.lv) * 0.04;
-      g.gain.value = L.lv;
-      if (L.lv < 0.01 && want[n] === 0) { L.next = 0; continue; }
-      const tr = TRACKS[n];
-      if (L.next < ctx.currentTime) { L.next = ctx.currentTime + 0.05; if (n !== 'title') L.step = 0; }
-      while (L.next < ctx.currentTime + 0.15) { tr.step(L.next, L.step, g, musicZone); L.step++; L.next += 60 / tr.bpm / (tr.div || 2); }
-    }
-  }, 30);
+const chans = {};
+let musicZone = 'meadow', wanted = null, townOn = false, bossOn = false, inCombat = false, combatHold = 0;
+function chan(name) {
+  let c = chans[name]; if (c) return c;
+  const list = MUSIC[name]; c = chans[name] = { list, i: 0, lv: 0, el: null };
+  const make = () => { const el = new Audio(list[c.i]); el.preload = 'auto'; el.loop = list.length === 1; el.volume = 0; el.addEventListener('ended', () => { c.i = (c.i + 1) % list.length; const old = c.el; c.el = make(); c.el.volume = old.volume; if (c.lv > 0.01) c.el.play().catch(() => {}); }); return el; };
+  c.el = make(); return c;
 }
+function desired() {
+  if (wanted === 'title') return 'title';
+  if (wanted !== 'explore') return null;
+  if (inCombat) return bossOn ? 'boss' : 'combat';
+  if (townOn) return 'town';
+  return musicZone === 'coast' ? 'meadow' : (MUSIC[musicZone] ? musicZone : 'meadow');
+}
+export const M = {
+  play(name) { wanted = name; track = name; },
+  setCombat(on) { if (on) { inCombat = true; combatHold = 5; } },
+  setBoss(on) { bossOn = on; },
+  setZone(z) { musicZone = z; },
+  setTown(on) { townOn = on; },
+};
+let lastTick = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = Math.min(0.5, (now - lastTick) / 1000); lastTick = now;
+  if (inCombat) { combatHold -= dt; if (combatHold <= 0) inCombat = false; }
+  if (!ctx) return; // wait for the first click/key (browsers block audio before that)
+  const want = desired();
+  const vol = settings.master * settings.music * 0.75;
+  for (const name in MUSIC) {
+    const target = name === want ? 1 : 0;
+    if (!chans[name] && !target) continue;
+    const c = chan(name);
+    const rate = target ? (name === 'combat' || name === 'boss' ? 1.2 : 0.5) : (name === 'combat' || name === 'boss' ? 0.35 : 0.6);
+    c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
+    c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * vol));
+    if (c.lv > 0.001 && c.el.paused) c.el.play().catch(() => {});
+    if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name === 'combat' || name === 'boss') c.el.currentTime = 0; }
+  }
+}, 50);
 function combatTick() {}
 
 // ---------------- AMBIENCE ----------------

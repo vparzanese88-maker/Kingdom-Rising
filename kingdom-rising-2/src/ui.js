@@ -94,10 +94,10 @@ export function updateHUD(dt) {
   const pr = $('prompt'); if (it) { pr.hidden = false; pr.innerHTML = `<kbd>E</kbd>${esc(it.label)}`; } else pr.hidden = true;
   // target frame
   const t = G.target;
-  if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `${t.def.elite ? '★ ' : ''}${esc(t.name)} <span style="color:${lvlCol(t.lv, h.level)}">Lv ${t.lv}</span>`; $('target').querySelector('i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`; }
+  if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `<span class="lvb" style="--c:${lvlCol(t.lv, h.level)}">${t.lv}</span> ${t.def.elite ? '★ ' : ''}<span style="color:${lvlCol(t.lv, h.level)}">${esc(t.name)}</span>`; $('target').querySelector('.bar2 i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('.bar2 span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`; }
   else { $('target').hidden = true; if (t && (t.dead || t.pos.distanceTo(p.pos) > 45)) G.target = null; }
 }
-function lvlCol(ml, pl) { const d = ml - pl; return d >= 5 ? '#ff4040' : d >= 3 ? '#ff9a40' : d >= -2 ? '#ffe070' : d >= -5 ? '#7ee07a' : '#a0a0a0'; }
+export function lvlCol(ml, pl) { const d = ml - pl; return d >= 3 ? '#ff3a30' : d >= 1 ? '#ffe040' : d === 0 ? '#ffffff' : d >= -2 ? '#4a7aff' : d >= -4 ? '#6ad0ff' : d >= -6 ? '#5ae05a' : '#9a9a9a'; }
 export function progress(k, label) { const e = $('progress'); if (k == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('span').textContent = label; e.querySelector('i').style.width = (Math.min(1, k) * 100) + '%'; }
 
 // ---------- nameplates & quest markers ----------
@@ -129,7 +129,8 @@ export function updatePlates() {
       const d = m.pos.distanceTo(p.pos); if (d > 32 && m !== G.target) continue;
       if (d > 14 && m.hp >= m.maxHp && m !== G.target) continue;
       const cls = m.def.elite ? 'elite' : m.hostile || m.provoked ? 'hostile' : 'passive';
-      show('m' + m.id, m, `<div class="nm" style="color:${lvlCol(m.lv, p.level)}">${esc(m.name)}</div><div class="hpb"><i style="width:${(m.hp / m.maxHp * 100).toFixed(0)}%"></i></div>`, cls, m.height + 0.35);
+      const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
+      show('m' + m.id, m, `<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }
   }
   for (const [k, e] of plates) if (!seen.has(k)) { e.remove(); plates.delete(k); }
@@ -221,7 +222,7 @@ function openWin(id, title, content, cls = '') {
   UI.open = id; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
   return c;
 }
-export function toggleWin(id) { if (UI.open === id) { closeWin(); return; } ({ inv: openInventory, quests: openQuestLog, map: openMap, pause: openPause, skills: openSkills, craft: () => openCrafting(null) })[id]?.(); }
+export function toggleWin(id) { if (UI.open === id || (UI.open === 'skills' && (id === 'talents' || id === 'skills') && skTab === (id === 'talents' ? 'class' : 'weapon'))) { closeWin(); return; } ({ inv: openInventory, quests: openQuestLog, map: openMap, pause: openPause, skills: () => openSkills('weapon'), talents: () => openSkills('class'), craft: () => openCrafting(null) })[id]?.(); }
 
 // --- inventory & character (EverQuest style: your hero in the middle, gear slots all around) ---
 let selInv = null;
@@ -316,7 +317,7 @@ export function refreshOpen() { if (UI.open === 'inv') renderInventory(winRoot()
 
 // --- skills: class tree, weapon trees, dual wield mastery ---
 let skTab = 'class', skWeapon = null;
-export function openSkills() { openWin('skills', 'Skills & Abilities', '', 'big'); renderSkills(); }
+export function openSkills(tab) { if (tab) skTab = tab; const h = G.player.h; openWin('skills', skTab === 'class' ? `${CLASSES[h.cls].name} Talents & Abilities` : 'Weapon Skills & Abilities', '', 'big'); renderSkills(); }
 function treeHtml(nodes, pts, avail, onSpend) {
   const box = el('div', 'tree');
   const spentN = Object.values(pts).reduce((a, b) => a + b, 0);
@@ -341,14 +342,12 @@ function renderSkills() {
   const h = G.player.h; c.innerHTML = '';
   const hasDual = CLASSES[h.cls].weapons.some(x => WEAPON_TYPES[x].hands === 'dual');
   const tabs = el('div', 'tabsrow big');
-  for (const [k, t] of [['class', `${CLASSES[h.cls].name} Tree`], ['weapon', 'Weapon Trees'], ...(hasDual ? [['dual', 'Dual Wield Mastery']] : [])]) { const b = el('button', skTab === k ? 'on' : '', t); b.onclick = () => { S.click(); skTab = k; renderSkills(); }; tabs.appendChild(b); }
+  for (const [k, t] of [['class', `${CLASSES[h.cls].name} Talents (N)`], ['weapon', 'Weapon Skills (K)'], ...(hasDual ? [['dual', 'Dual Wield Mastery']] : [])]) { const b = el('button', skTab === k ? 'on' : '', t); b.onclick = () => { S.click(); openSkills(k); }; tabs.appendChild(b); }
   c.appendChild(tabs);
   if (skTab === 'class') {
     const ab = el('div', 'abilrow');
     const W = G.player.W;
-    const items = [{ k: 'LMB', icon: W ? (W.kind === 'staff' ? 'meteor' : W.kind === 'bow' ? 'spectral' : 'combo') : 'fist', name: W ? (W.kind === 'melee' ? '3-hit combo' : W.kind === 'bow' ? 'Quick shot' : 'Bolt') : 'Punch', d: 'Click in rhythm; hold to charge a heavy attack.', lv: 1 },
-      { k: 'RMB', icon: rmbIcon(W), name: W ? W.areaName : '', d: 'Weapon ability (timed cooldown).', lv: AREA_UNLOCK_LEVEL },
-      ...ABILITIES[h.cls].map(a => ({ k: a.key, icon: a.id, name: a.name, d: `${a.desc} Costs ${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}.`, lv: a.level }))];
+    const items = [...ABILITIES[h.cls].map(a => ({ k: a.key, icon: a.id, name: a.name, d: `${a.desc} Costs ${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}.${h.level >= RANK2_LEVEL ? ' Rank II.' : ''}`, lv: a.level }))];
     for (const a of items) ab.appendChild(el('div', 'abil' + (h.level < a.lv ? ' locked' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}<span class="k">${a.k}</span></div><div><b>${esc(a.name)}</b>${h.level < a.lv ? ` <span class="dim">unlocks at level ${a.lv}</span>` : ''}<div class="dim">${esc(a.d)}</div></div>`));
     c.appendChild(ab);
     const avail = Game.classPoints(h);
@@ -361,6 +360,15 @@ function renderSkills() {
     const pick = el('div', 'wpick');
     for (const wt of ws) { const m = Game.wm(h, wt); const b = el('button', 'wp' + (wt === skWeapon ? ' on' : ''), `<div class="nic">${Icons.itemSvg({ kind: 'weapon', wt, tier: 2, rarity: 0 })}</div><div><b>${WEAPON_TYPES[wt].name}</b><div class="dim">Mastery ${m.lv}</div></div>`); b.onclick = () => { S.click(); skWeapon = wt; renderSkills(); }; pick.appendChild(b); }
     c.appendChild(pick);
+    const WT = WEAPON_TYPES[skWeapon];
+    const wab = el('div', 'abilrow');
+    const lmbName = WT.kind === 'melee' ? (WT.hands === 'dual' ? 'Alternating strikes' : WT.wt === 'spear' ? '3-hit thrust combo' : '3-hit combo') : WT.kind === 'bow' ? 'Quick shot' : WT.element === 'fire' ? 'Fireball' : WT.element === 'frost' ? 'Ice shard' : 'Arcane bolt';
+    const lmbD = WT.kind === 'melee' ? (WT.hands === 'dual' ? 'Swing both weapons in turn, then a crossing finisher.' : 'Two different swings, then a big finisher. Click in rhythm.') : WT.kind === 'bow' ? 'Arrows drop with distance.' : 'Drops slightly over long range.';
+    const heavyD = WT.kind === 'melee' ? 'Hold left click to wind up, release for a crushing blow.' : WT.kind === 'bow' ? 'Hold to draw a power shot: faster, flatter, harder; full draw pierces.' : 'Hold to charge a bigger, stronger spell.';
+    const rmbD = WT.hands === 'dual' ? 'A flurry of strikes; upgrades with Dual Wield Mastery.' : WT.kind === 'melee' ? `Hits everything within ${WT.area} m around you.` : WT.kind === 'bow' ? 'Arrows rain down on the spot you aim at.' : WT.element === 'fire' ? 'Lob a huge meteor that drops hard: the biggest area of all.' : WT.element === 'frost' ? 'A storm of ice that slows and damages.' : 'A heavy orb that bursts in a wide nova.';
+    for (const a of [{ k: 'LMB', icon: WT.kind === 'staff' ? 'meteor' : WT.kind === 'bow' ? 'spectral' : 'combo', name: lmbName, d: lmbD, lv: 1 }, { k: 'HOLD', icon: 'heavy', name: WT.kind === 'melee' ? 'Heavy attack' : WT.kind === 'bow' ? 'Power shot' : 'Charged spell', d: heavyD, lv: 1 }, { k: 'RMB', icon: rmbIcon(WT), name: WT.areaName, d: rmbD + ' Timed cooldown.', lv: AREA_UNLOCK_LEVEL }, { k: 'F', icon: 'shield', name: 'Block', d: `Stops ${Math.round(WT.block * 100)}% of damage from the front.`, lv: 1 }])
+      wab.appendChild(el('div', 'abil' + (h.level < a.lv ? ' locked' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}<span class="k">${a.k}</span></div><div><b>${esc(a.name)}</b>${h.level < a.lv ? ` <span class="dim">unlocks at level ${a.lv}</span>` : ''}<div class="dim">${esc(a.d)}</div></div>`));
+    c.appendChild(wab);
     const m = Game.wm(h, skWeapon), avail = Game.weaponPoints(h, skWeapon), need = masteryXpFor(m.lv);
     const head = el('div', 'treehead', `<div><b>${WEAPON_TYPES[skWeapon].name}</b> mastery <b>${m.lv}</b>/${MASTERY_CAP} · <b>${avail}</b> point${avail === 1 ? '' : 's'} to spend<div class="xpb"><i style="width:${m.lv >= MASTERY_CAP ? 100 : m.xp / need * 100}%"></i></div><div class="dim">Kill enemies while wielding this weapon to raise its mastery.</div></div>`);
     const rs = el('button', 'btn', 'Reset tree'); rs.onclick = () => { Game.resetWeapon(h, skWeapon); renderSkills(); }; head.appendChild(rs);
@@ -523,7 +531,7 @@ export function openPause(onSaveQuit) {
   const m = el('div', 'pausemenu');
   const b = (t, fn, cls = 'btn big') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
   b('Resume', () => closeWin(), 'btn big gold');
-  b('Hero & Bag (I)', () => openInventory()); b('Skills (J)', () => openSkills()); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (K)', () => openCrafting(null));
+  b('Character & Bags (C / I)', () => openInventory()); b('Weapon Skills (K)', () => openSkills('weapon')); b('Class Talents (N)', () => openSkills('class')); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (P)', () => openCrafting(null));
   b('⛶ Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
   b('Settings', () => openSettings(true)); b('Controls', () => openControls(true));
   b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn big red');
@@ -551,6 +559,7 @@ export function openSettings(fromPause) {
   row('View distance', range('viewDist', 0.5, 1.5, 0.05, () => G.hooks.applyGraphics && G.hooks.applyGraphics()));
   row('Damage numbers', check('dmgNumbers')); row('Head bob', check('headBob'));
   c.appendChild(g);
+  c.appendChild(el('p', 'dim', 'Music: "The Fall of Arcana", "Woodland Fantasy", "Beyond The Clouds" and "Dark Descent" by Matthew Pablo (matthewpablo.com, CC-BY 3.0); "GrassLands Theme" by DST, "Minstrel Dance" and "The Old Tower Inn" by RandomMind, "Town Theme" and "Battle Theme A" by cynicmusic, "Epic Boss Battle" by SubspaceAudio (all CC0). Via OpenGameArt.org.'));
   const r = el('div', '', ''); r.style.cssText = 'display:flex;gap:10px;margin-top:14px';
   const reset = el('button', 'btn', 'Reset to defaults'); reset.onclick = () => { Object.assign(settings, DEFAULT_SETTINGS); saveSettings(); A.applyVolumes(); G.hooks.applyGraphics && G.hooks.applyGraphics(); openSettings(fromPause); };
   const back = el('button', 'btn gold', fromPause ? 'Back' : 'Done'); back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); };
@@ -558,7 +567,7 @@ export function openSettings(fromPause) {
 }
 export function openControls(fromPause) {
   const c = openWin('controls', 'Controls', '');
-  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Click again in rhythm for a 3-hit combo'], ['Hold left click', 'Heavy attack (bows: power shot, staffs: charged spell)'], ['Right click', 'Weapon ability (unlocks at level 2): area attack, Meteor, Rain of Arrows, Twin Fury...'], ['1  2  3', 'Class abilities (unlock at levels 3, 6 and 10)'], ['F (hold)', 'Block. Shields block the most'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['I or B', 'Hero, gear & backpack'], ['J', 'Skills: class tree, weapon trees, dual wield mastery'], ['L', 'Quest log'], ['M', 'Map'], ['K', 'Recipes'], ['Esc', 'Pause menu']];
+  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Click again in rhythm for a 3-hit combo'], ['Hold left click', 'Heavy attack (bows: power shot, staffs: charged spell)'], ['Right click', 'Weapon ability (unlocks at level 2): area attack, Meteor, Rain of Arrows, Twin Fury...'], ['1  2  3', 'Class abilities (unlock at levels 3, 6 and 10)'], ['F (hold)', 'Block. Shields block the most'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['C, I or B', 'Character, gear & bags'], ['K', 'Weapon skills (weapon trees & dual wield mastery)'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
   const g = el('div', 'keys'); for (const [k, d] of K) { g.appendChild(el('div', '', `<span class="kbd">${k}</span>`)); g.appendChild(el('div', '', d)); }
   c.appendChild(g);
   const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '14px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);

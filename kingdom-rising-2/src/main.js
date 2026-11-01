@@ -10,7 +10,7 @@ import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
 import { buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, DUAL_MASTERY, QUESTS, MOBS, GOBLIN_CAMPS } from './data.js';
+import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -140,7 +140,7 @@ function hooks() {
   H.toast = (t, i, k) => UI.toast(t, i, k);
   H.invChanged = () => { UI.refreshOpen(); UI.updateTracker(); };
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
-  H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
+  H.masteryUp = (wt, lv) => { UI.banner(`${FAMILIES[wt] ? FAMILIES[wt].name : wt} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
@@ -263,7 +263,7 @@ function input() {
     if (e.code === 'Tab') e.preventDefault();
     const p = G.player;
     if (!e.repeat) {
-      const map = { KeyI: 'inv', KeyB: 'inv', KeyC: 'inv', KeyL: 'quests', KeyK: 'skills', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
+      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyK: 'skills', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); if (!G.uiOpen) lockPointer(); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }

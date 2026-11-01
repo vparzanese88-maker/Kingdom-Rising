@@ -50,6 +50,61 @@ export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; return { hp: P
 // weapon ability (right click) cooldowns in seconds, by weapon kind
 export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8 };
 
+// ---------- Individual weapons: each has its own mastery, tree and two abilities (F and C) ----------
+export const FAMILIES = {
+  sword: { name: 'Sword', kind: 'melee', skills: ['whirlwind', 'lunge'] },
+  mace: { name: 'Mace', kind: 'melee', skills: ['skullcrack', 'shockwave'] },
+  axe: { name: 'Hand Axe', kind: 'melee', skills: ['hatchet', 'rend'] },
+  dagger: { name: 'Dagger', kind: 'melee', skills: ['twinfury', 'fan'] },
+  shield: { name: 'Shield', kind: 'melee', skills: ['shieldcharge', 'shieldbash'] },
+  greatsword: { name: 'Greatsword', kind: 'melee', skills: ['greatcleave', 'execute'] },
+  greataxe: { name: 'Great Axe', kind: 'melee', skills: ['reaping', 'earthcleaver'] },
+  warhammer: { name: 'Warhammer', kind: 'melee', skills: ['quake', 'hammerfall'] },
+  spear: { name: 'Spear', kind: 'melee', skills: ['sweep', 'javelin'] },
+  bow: { name: 'Bow', kind: 'bow', skills: ['rain', 'multishot'] },
+  firestaff: { name: 'Fire Staff', kind: 'staff', skills: ['meteor', 'flamewave'] },
+  froststaff: { name: 'Frost Staff', kind: 'staff', skills: ['blizzard', 'icelance'] },
+  arcanestaff: { name: 'Arcane Staff', kind: 'staff', skills: ['nova', 'missiles'] },
+};
+export const WSKILLS = {
+  whirlwind: { name: 'Whirlwind', cd: 8, icon: 'area', desc: 'Spin with your blade, hitting everything around you.' },
+  lunge: { name: 'Lunging Strike', cd: 7, icon: 'charge', desc: 'Dash forward and run through the first enemy in your way for heavy damage.' },
+  skullcrack: { name: 'Skull Crack', cd: 8, icon: 'heavy', desc: 'A brutal overhead blow that stuns the target.' },
+  shockwave: { name: 'Shockwave', cd: 10, icon: 'earthsplitter', desc: 'Smash the ground: damage and slow everything around you.' },
+  hatchet: { name: 'Hatchet Throw', cd: 6, icon: 'charge', desc: 'Hurl an axe that makes the target bleed.' },
+  rend: { name: 'Rending Chop', cd: 8, icon: 'fury', desc: 'A savage chop that leaves a deep bleeding wound.' },
+  twinfury: { name: 'Twin Fury', cd: 8, icon: 'twinfury', desc: 'A flurry of six quick strikes on everything in front of you.' },
+  fan: { name: 'Fan of Knives', cd: 9, icon: 'blink', desc: 'Throw a ring of knives in every direction.' },
+  shieldcharge: { name: 'Shield Charge', cd: 8, icon: 'charge', desc: 'Rush forward behind your shield, bowling over and stunning everything in your path.' },
+  shieldbash: { name: 'Shield Slam', cd: 9, icon: 'shield', desc: 'Slam your shield into the ground: knock back and stun every enemy around you.' },
+  greatcleave: { name: 'Great Cleave', cd: 8, icon: 'area', desc: 'A huge spinning cleave with a wide reach.' },
+  execute: { name: 'Executioner', cd: 10, icon: 'skull', desc: 'A massive downward blow. Double damage to enemies below 35% health.' },
+  reaping: { name: 'Reaping Whirl', cd: 9, icon: 'area', desc: 'Spin your axe in a wide circle, making everything bleed.' },
+  earthcleaver: { name: 'Earth Cleaver', cd: 10, icon: 'earthsplitter', desc: 'Split the ground: a shockwave rips forward through every enemy in a line.' },
+  quake: { name: 'Quake Spin', cd: 9, icon: 'area', desc: 'Spin your hammer, damaging and slowing everything around you.' },
+  hammerfall: { name: 'Hammerfall', cd: 12, icon: 'earthsplitter', desc: 'Leap-slam with your hammer: huge damage and a long stun around the impact.' },
+  sweep: { name: 'Sweeping Arc', cd: 8, icon: 'area', desc: 'Sweep your spear in a full circle.' },
+  javelin: { name: 'Javelin', cd: 7, icon: 'spectral', desc: 'Throw a spear that pierces every enemy in a line.' },
+  rain: { name: 'Rain of Arrows', cd: 9, icon: 'rain', desc: 'Arrows rain down on the spot you aim at.' },
+  multishot: { name: 'Multishot', cd: 7, icon: 'spectral', desc: 'Fire five arrows in a spread.' },
+  meteor: { name: 'Meteor', cd: 10, icon: 'meteor', desc: 'Lob a huge meteor that drops hard: the biggest area of all.' },
+  flamewave: { name: 'Flame Wave', cd: 8, icon: 'meteor', desc: 'A wave of fire in front of you that sets enemies alight.' },
+  blizzard: { name: 'Blizzard', cd: 10, icon: 'blizzard', desc: 'A storm of ice on a spot that damages and slows.' },
+  icelance: { name: 'Ice Lance', cd: 7, icon: 'frostnova', desc: 'A huge piercing shard of ice that freezes what it hits.' },
+  nova: { name: 'Arcane Nova', cd: 10, icon: 'nova', desc: 'A heavy orb that bursts in a wide nova.' },
+  missiles: { name: 'Arcane Missiles', cd: 7, icon: 'nova', desc: 'Three seeking bolts of arcane force.' },
+};
+export function partFamily(wt, part) { const W = WEAPON_TYPES[wt]; return part === 'staff' ? W.element + 'staff' : part === 'handaxe' ? 'axe' : part; }
+export function familiesOf(wt) { return [...new Set(WEAPON_TYPES[wt].parts.map(p => partFamily(wt, p)))]; }
+// the two weapon abilities on F and C for a weapon type
+export function slotSkills(wt, sel = {}) {
+  const fams = WEAPON_TYPES[wt].parts.map(p => partFamily(wt, p));
+  const a = fams[0], b = fams[1];
+  if (b && b !== a) return [{ fam: a, id: FAMILIES[a].skills[sel[a] || 0] }, { fam: b, id: FAMILIES[b].skills[sel[b] || 0] }];
+  return [{ fam: a, id: FAMILIES[a].skills[0] }, { fam: a, id: FAMILIES[a].skills[1] }];
+}
+export function classFamilies(cls) { const out = []; for (const wt of CLASSES[cls].weapons) for (const f of familiesOf(wt)) if (!out.includes(f)) out.push(f); return out; }
+
 // ---------- Skill trees ----------
 // Class tree: 1 point per level after 1. Rows unlock after spending points in the tree (row r needs 3*r points).
 export const TREE_ROW_POINTS = 2;
@@ -107,7 +162,7 @@ const WT = (kind) => {
     { id: 'wdmg', row: 0, name: staff ? 'Empowered Focus' : ranged ? 'Broadheads' : 'Honed Edge', icon: 'sword', max: 3, desc: '+6% damage with this weapon per rank.' },
     { id: 'heavy', row: 0, name: staff ? 'Quick Channel' : ranged ? 'Steady Draw' : 'Heavy Hands', icon: 'heavy', max: 2, desc: 'Hold-to-charge attacks charge 30% faster and hit 15% harder per rank.' },
     { id: 'combo', row: 1, name: staff ? 'Spell Weaving' : ranged ? 'Rapid Fire' : 'Flowing Strikes', icon: 'combo', max: 2, desc: staff ? 'Basic spells cast 12% faster per rank.' : ranged ? 'Quick shots fire 12% faster per rank.' : 'The 3rd combo hit deals +25% damage per rank.' },
-    { id: 'area', row: 1, name: staff ? 'Cataclysm' : ranged ? 'Volley Master' : 'Wide Arc', icon: 'area', max: 2, desc: 'Right-click ability: +15% radius and 15% shorter cooldown per rank.' },
+    { id: 'area', row: 1, name: staff ? 'Cataclysm' : ranged ? 'Volley Master' : 'Wide Arc', icon: 'area', max: 2, desc: 'This weapon\'s abilities (F / C): +15% radius and 15% shorter cooldown per rank.' },
     { id: 'crit', row: 2, name: 'Precision', icon: 'crit', max: 2, desc: '+3% critical chance with this weapon per rank.' },
     { id: 'block', row: 2, name: staff ? 'Mana Shield' : ranged ? 'Evasive Stance' : 'Iron Guard', icon: 'shield', max: 2, desc: 'Blocking stops 10% more damage and costs 25% less endurance per rank.' },
     { id: 'leech', row: 3, name: 'Bloodthirst', icon: 'heart', max: 1, desc: 'Heal for 4% of the damage you deal with this weapon.' },
@@ -115,6 +170,7 @@ const WT = (kind) => {
   ];
 };
 export const WEAPON_TREE = { melee: WT('melee'), bow: WT('bow'), staff: WT('staff') };
+export const familyTree = (fam) => WEAPON_TREE[FAMILIES[fam].kind];
 export const MASTERY_CAP = 20;
 export const masteryXpFor = (lv) => 60 + lv * 45;
 export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }

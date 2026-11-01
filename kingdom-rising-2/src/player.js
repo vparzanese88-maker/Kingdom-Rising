@@ -5,7 +5,8 @@ import { G } from './state.js';
 import { S, A, M as Music } from './audio.js';
 import { V } from './vfx.js';
 import { settings } from './saves.js';
-import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, AREA_CD, RANK2_LEVEL, DUAL_MASTERY, dualRank, CLASS_POOLS, RARITY, TIERS } from './data.js';
+import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf } from './data.js';
+const dualRank = () => 0;
 import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
@@ -188,7 +189,7 @@ export class Player {
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3(); this.yaw = 0; this.pitch = 0; this.bodyYaw = 0;
     this.radius = 0.4; this.onGround = true; this.swim = false; this.dead = false;
     this.camDist = 0; this.camDistT = 0;
-    this.cd = { area: 0, a1: 0, a2: 0, a3: 0, dodge: 0 }; this.useCd = 0;
+    this.cd = { w0: 0, w1: 0, a1: 0, a2: 0, a3: 0, dodge: 0 }; this.useCd = 0;
     this.atk = null; this.queued = null; this.combo = 0; this.comboT = 0; this.press = null; this.block = false;
     this.dodge = null; this.iframes = 0; this.stealth = 0; this.buffs = { cry: 0, fury: 0, nextCrit: false }; this.regen = null;
     this.gathering = null; this.hurtT = 0; this.stepAcc = 0; this.lastSurf = 'grass'; this.endUseT = 0; this.manaUseT = 0;
@@ -203,7 +204,8 @@ export class Player {
   }
   get level() { return this.h.level; }
   pk(id) { return perk(this.h, id); }
-  wp(id) { const w = this.weapon; return w ? wperk(this.h, w.wt, id) : 0; }
+  wp(id, fam) { const w = this.weapon; return w ? wperk(this.h, fam || familiesOf(w.wt)[0], id) : 0; }
+  skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
   get weapon() { return this.h.equip[this.h.active]; }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
   refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = D.maxHp; this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
@@ -235,6 +237,8 @@ export class Player {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
       case 'KeyQ': this.swapWeapon(); break;
+      case 'KeyF': this.weaponAbility(0); break;
+      case 'KeyC': this.weaponAbility(1); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -250,10 +254,8 @@ export class Player {
   onMouse(btn, down) {
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
-    if (btn === 0) {
-      if (down) { this.press = { t: 0, charging: false }; this.cancelGather(); }
-      else if (this.press) { const p = this.press; this.press = null; if (p.charging) this.releaseHeavy(p); else this.light(); }
-    } else if (btn === 2 && down) { this.weaponAbility(); }
+    if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
+    else if (btn === 2) this.rmbDown = down;
   }
   onWheel(dy) { this.camDistT = clamp(this.camDistT + dy * 0.004, 0, 9); if (this.camDistT < 0.7 && dy < 0) this.camDistT = 0; else if (this.camDistT > 0 && this.camDistT < 1.6 && dy > 0) this.camDistT = 2.2; }
   look(dx, dy) { const s = 0.0032 * settings.sens; this.yaw -= dx * s; this.pitch = clamp(this.pitch - dy * s * (settings.invertY ? -1 : 1), -1.45, 1.45); }
@@ -319,7 +321,7 @@ export class Player {
   }
   updateAttack(dt) {
     // charging heavy (hold left click)
-    if (this.press && !G.uiOpen) {
+    if (false && this.press && !G.uiOpen) {
       this.press.t += dt;
       if (this.press.t > 0.22 && !this.press.charging && !this.atk && !this.dodge && !this.block && this.W) {
         this.press.charging = true;
@@ -398,72 +400,80 @@ export class Player {
     V.light(pos, '#ff6020', 3 + r, 0.25, 6 + r * 3); S.explode(pos, 0.35 + r * 0.15); if (r > 2) V.ring(pos, r, '#ffa040', 0.35);
   }
 
-  // ---------- weapon ability (right click) ----------
-  weaponAbility() {
+  // ---------- weapon abilities on F and C ----------
+  weaponAbility(slot) {
     const W = this.W; if (!W || this.busy() || this.swim) return;
-    if (this.h.level < AREA_UNLOCK_LEVEL) { G.hooks.toast && G.hooks.toast(`Right-click ability unlocks at level ${AREA_UNLOCK_LEVEL}`, '🔒', 'bad'); S.error(); return; }
-    if (this.cd.area > 0) { S.error(); return; }
-    const w = this.weapon, base = weaponDamage(this.h, w);
-    const aR = 1 + this.wp('area') * 0.15, aCd = 1 - this.wp('area') * 0.15;
-    if (W.hands === 'dual') {
-      const rank = dualRank(this.h.dualKills);
-      this.cd.area = AREA_CD.dual * (rank >= 10 ? 0.5 : 1) * aCd;
-      const hits = rank >= 8 ? 9 : 6, dur = rank >= 8 ? 1.6 : 1.15;
-      this.atk = { name: 'fury', t: 0, dur, hits, rank, hit: true, noQueue: true, base };
-      S.swing(1.2, this.pos);
-      return;
-    }
-    if (W.kind === 'melee') {
-      this.cd.area = AREA_CD.melee * aCd;
+    const sk = this.skills()[slot]; if (!sk) return;
+    const key = 'w' + slot;
+    if (this.cd[key] > 0) { S.error(); return; }
+    const S2 = WSKILLS[sk.id], fam = sk.fam;
+    const aR = 1 + this.wp('area', fam) * 0.15, aCd = 1 - this.wp('area', fam) * 0.15;
+    this.cd[key] = S2.cd * aCd;
+    const base = weaponDamage(this.h, this.weapon), f = this.fwd(), p0 = this.pos.clone();
+    const spin = (r, mult, extra = {}, sound = 1.6) => {
       this.atk = { name: 'area', t: 0, dur: 0.7, hit: true, noQueue: true };
-      S.swingW(this.swingKind('area'), 1.6, this.pos); S.swingW(this.swingKind('area'), 1.3, this.pos);
-      setTimeout(() => {
-        if (this.dead) return;
-        const r = W.area * aR; const p = this.pos.clone();
-        areaDamage(p, r, base * 1.5, { knock: 7, big: true, melee: true });
-        V.ring(p, r, '#fff0c0', 0.45); V.burst('dust', p.clone().setY(p.y + 0.2), 20 + r * 4, { speed: r * 1.2, size: 0.45, up: 0.3, radius: r * 0.6 }); V.addShake(0.25); S.hit('stone', p);
-      }, 200);
-      return;
-    }
-    if (W.kind === 'bow') {
-      this.cd.area = AREA_CD.bow * aCd; const tgt = groundPoint(40), r = W.area * aR;
-      this.atk = { name: 'shoot', t: 0, dur: 0.5, hit: true };
-      S.bowShot(this.pos);
-      V.ring(tgt, r, '#a0ffb0', 2.2, 0.1);
-      for (let i = 0; i < 22; i++) {
-        const d = 0.5 + i * 0.07;
-        setTimeout(() => {
-          const p = tgt.clone().add(new THREE.Vector3(rand(-r, r) * 0.8, 0, rand(-r, r) * 0.8));
-          spawnProjectile({ pos: p.clone().add(new THREE.Vector3(rand(-3, 3), 26, rand(-3, 3))), vel: new THREE.Vector3(0, -45, 0), grav: 0, radius: 0.5, dmg: base * 0.45, owner: 'player', kind: 'arrow', life: 2 });
-        }, d * 1000);
-      }
-      return;
-    }
-    if (W.kind === 'staff') {
-      this.cd.area = AREA_CD.staff * aCd; const el = W.element;
+      S.swingW(this.swingKind('area'), sound, this.pos); S.swingW(this.swingKind('area'), 1.3, this.pos);
+      setTimeout(() => { if (this.dead) return; const p = this.pos.clone(); areaDamage(p, r * aR, base * mult, Object.assign({ knock: 7, big: true, melee: true }, extra)); V.ring(p, r * aR, '#fff0c0', 0.45); V.burst('dust', p.clone().setY(p.y + 0.2), 20 + r * 4, { speed: r * 1.2, size: 0.45, up: 0.3, radius: r * 0.6 }); V.addShake(0.25); S.hit('stone', p); }, 200);
+    };
+    const front = (reach, half, mult, extra = {}, delay = 260, anim = 'swing3') => {
+      this.atk = { name: anim, t: 0, dur: 0.75, hit: true, noQueue: true };
+      S.swingW(this.swingKind('swing3'), 1.6, this.pos);
+      setTimeout(() => { if (this.dead) return; let hit = false; for (const m of mobsInCone(this.pos, this.yaw, reach * aR, half)) { hit = true; this.dealDamage(m, base * mult * (extra.exec && m.hp < m.maxHp * 0.35 ? 2 : 1), Object.assign({ big: true, melee: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(5) }, extra)); if (this.swingKind('swing3') === 'blunt') S.blunt(m.pos); } if (hit) { G.hitstop = 0.08; V.addShake(0.3); } const p = this.pos.clone().addScaledVector(this.fwd(), reach * 0.7); p.y = heightAt(p.x, p.z); V.burst('dust', p, 14, { speed: 3, size: 0.5 }); }, delay);
+    };
+    const dash = (dist, mult, extra = {}) => {
+      this.dodge = { t: 0, dur: dist / 30, dir: f.clone(), speed: 30, charge: true, hitSet: new Set(), dmg: base * mult, extra }; this.fovKick = 12;
+      this.atk = { name: 'thrust3', t: 0.3, dur: 0.5, hit: true, noQueue: true };
+    };
+    const throwP = (kind, speed, mult, extra = {}, pierce = false, n = 1, spread = 0) => {
       const from = this.handPos(), dir = this.aimDir(from);
-      this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true };
-      if (el === 'fire') {
-        S.cast('fire', from, 2); S.whistle(from, 1.5);
-        setTimeout(() => {
-          const f = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, 0.4, -1.2).applyQuaternion(G.camera.quaternion)) : this.handPos().add(new THREE.Vector3(0, 1.2, 0));
-          const d2 = this.aimDir(f); d2.y += 0.32; d2.normalize();
-          spawnProjectile({ pos: f, vel: d2.multiplyScalar(27), grav: 17, radius: 1.0, dmg: base * 3.0, owner: 'player', kind: 'meteor', life: 6, onHit: (p, m, pos) => this.meteorImpact(pos, W.area * aR, p.dmg) });
-        }, 450);
-      } else if (el === 'frost') {
-        const tgt = groundPoint(35), r = W.area * aR; S.cast('frost', tgt, 1.5);
-        V.ring(tgt, r, '#a0e0ff', 0.6);
-        let ticks = 0; const iv = setInterval(() => {
-          ticks++; for (const m of mobsInRadius(tgt, r)) this.dealDamage(m, base * 0.35, { slow: 2, el: 'frost', silent: ticks % 2 === 0 });
-          V.burst('frost', tgt.clone().setY(tgt.y + 6), 40, { speed: 2, radius: r * 2, vy: -6, size: 0.3, life: 1.0, grav: 4 });
-          if (ticks % 3 === 0) S.cast('frost', tgt, 0.6);
-          if (ticks >= 10) clearInterval(iv);
-        }, 400);
-      } else {
-        S.cast('arcane', from, 1.5);
-        setTimeout(() => { const f = this.handPos(); const d2 = this.aimDir(f); spawnProjectile({ pos: f, vel: d2.multiplyScalar(22), grav: 6, radius: 0.5, dmg: base * 2.2, owner: 'player', kind: 'orb', scale: 2.5, life: 4, aoe: true, onHit: (p, m, pos) => { const r = W.area * aR; for (const mm of mobsInRadius(pos, r)) { this.dealDamage(mm, p.dmg, { el: 'arcane', knock: mm.pos.clone().sub(pos).setY(0).normalize().multiplyScalar(-5) }); } V.sphereFlash(pos, r, '#b060ff', 0.45); V.burst('arcane', pos, 60, { speed: 8, size: 0.4 }); V.ring(pos, r, '#d090ff', 0.5); V.light(pos, '#a040ff', 6, 0.4, 20); S.explode(pos, 1.3, 'arcane'); V.addShake(0.25); } }); }, 400);
+      for (let i = 0; i < n; i++) { const d = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (i - (n - 1) / 2) * spread); spawnProjectile({ pos: from.clone(), vel: d.multiplyScalar(speed), grav: kind === 'arrow' ? 8 : 3, radius: kind === 'wave' ? 1.3 : 0.3, dmg: base * mult, owner: 'player', kind, life: 2.5, pierce, onHit: extra.onHit }); }
+      this.atk = { name: W.kind === 'bow' ? 'shoot' : W.kind === 'staff' ? 'cast' : 'swing2', t: 0.3, dur: 0.5, hit: true };
+    };
+    switch (sk.id) {
+      case 'whirlwind': spin(4.5, 1.5); break;
+      case 'greatcleave': spin(6.5, 1.7); break;
+      case 'sweep': spin(5.5, 1.5); break;
+      case 'reaping': spin(6.5, 1.4, { bleed: base * 0.1 }); break;
+      case 'quake': spin(7, 1.4, { slow: 3 }); break;
+      case 'lunge': dash(8, 2.0); break;
+      case 'shieldcharge': dash(11, 1.4, { stun: 1.5 }); S.block(true, this.pos); break;
+      case 'skullcrack': front(this.W.reach + 0.5, 0.6, 2.2, { stun: 1.6 }); break;
+      case 'execute': front(this.W.reach + 0.5, 0.8, 2.4, { exec: true }, 330, 'heavy'); break;
+      case 'rend': front(this.W.reach + 0.4, 0.8, 1.3, { bleed: base * 0.25 }); break;
+      case 'shieldbash': { this.atk = { name: 'heavy', t: 0.2, dur: 0.6, hit: true, noQueue: true }; S.block(true, this.pos); setTimeout(() => { if (this.dead) return; const p = this.pos.clone(); areaDamage(p, 5 * aR, base * 1.1, { knock: 11, stun: 2, big: true, melee: true }); V.ring(p, 5 * aR, '#c0d8ff', 0.4); V.burst('dust', p, 30, { speed: 6, size: 0.6, up: 0.3 }); S.blunt(p); S.hit('stone', p); V.addShake(0.35); }, 250); break; }
+      case 'shockwave': { this.atk = { name: 'heavy', t: 0.2, dur: 0.7, hit: true, noQueue: true }; setTimeout(() => { if (this.dead) return; const p = this.pos.clone(); areaDamage(p, 4.5 * aR, base * 1.4, { slow: 3, knock: 6, big: true, melee: true }); V.ring(p, 4.5 * aR, '#ffe0a0', 0.5); V.burst('stone', p, 30, { speed: 7, size: 0.3, grav: 14 }); S.blunt(p); S.rumble(p, 0.6); V.addShake(0.4); }, 300); break; }
+      case 'hammerfall': { const tgt = groundPoint(10); this.leap = { t: 0, dur: 0.7, from: this.pos.clone(), to: tgt, dmg: base * 2.4, r: 5 * aR }; this.atk = { name: 'heavy', t: 0, dur: 0.85, hit: true, noQueue: true }; S.jump(); break; }
+      case 'hatchet': throwP('axe', 32, 1.8, { onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.12, melee: true }); } }); S.swingW('axe', 1.2, this.pos); break;
+      case 'javelin': throwP('javelin', 45, 2.2, {}, true); S.swingW('spear', 1.4, this.pos); break;
+      case 'earthcleaver': { const from = this.pos.clone(); from.y += 0.6; spawnProjectile({ pos: from, vel: f.clone().multiplyScalar(24), grav: 0, radius: 1.6, dmg: base * 2.0, owner: 'player', kind: 'wave', life: 0.9, pierce: true }); this.atk = { name: 'heavy', t: 0.3, dur: 0.6, hit: true, noQueue: true }; S.rumble(this.pos, 0.6); V.addShake(0.3); break; }
+      case 'twinfury': this.atk = { name: 'fury', t: 0, dur: 1.15, hits: 6, rank: 1, hit: true, noQueue: true, base }; S.swing(1.2, this.pos); break;
+      case 'fan': { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const d = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)); spawnProjectile({ pos: this.pos.clone().setY(this.pos.y + 1.1), vel: d.multiplyScalar(26), grav: 2, radius: 0.35, dmg: base * 0.8, owner: 'player', kind: 'knife', life: 0.5 }); } this.atk = { name: 'area', t: 0.3, dur: 0.5, hit: true, noQueue: true }; S.swingW('light', 1.5, this.pos); break; }
+      case 'multishot': throwP('arrow', 55, 0.9, {}, false, 5, 0.09); S.bowShot(this.pos); break;
+      case 'rain': {
+        const tgt = groundPoint(40), r = 6 * aR; this.atk = { name: 'shoot', t: 0, dur: 0.5, hit: true }; S.bowShot(this.pos); V.ring(tgt, r, '#a0ffb0', 2.2, 0.1);
+        for (let i = 0; i < 22; i++) setTimeout(() => { const p = tgt.clone().add(new THREE.Vector3(rand(-r, r) * 0.8, 0, rand(-r, r) * 0.8)); spawnProjectile({ pos: p.clone().add(new THREE.Vector3(rand(-3, 3), 26, rand(-3, 3))), vel: new THREE.Vector3(0, -45, 0), grav: 0, radius: 0.5, dmg: base * 0.45, owner: 'player', kind: 'arrow', life: 2 }); }, (0.5 + i * 0.07) * 1000);
+        break;
       }
+      case 'meteor': {
+        const from = this.handPos(); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true }; S.cast('fire', from, 2); S.whistle(from, 1.5);
+        setTimeout(() => { const f2 = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, 0.4, -1.2).applyQuaternion(G.camera.quaternion)) : this.handPos().add(new THREE.Vector3(0, 1.2, 0)); const d2 = this.aimDir(f2); d2.y += 0.32; d2.normalize(); spawnProjectile({ pos: f2, vel: d2.multiplyScalar(27), grav: 17, radius: 1.0, dmg: base * 3.0, owner: 'player', kind: 'meteor', life: 6, onHit: (p, m, pos) => this.meteorImpact(pos, 9 * aR, p.dmg) }); }, 450);
+        break;
+      }
+      case 'flamewave': { this.atk = { name: 'castBig', t: 0.3, dur: 0.7, hit: true }; S.cast('fire', this.pos, 1.8); for (const m of mobsInCone(this.pos, this.yaw, 9 * aR, 0.6)) this.dealDamage(m, base * 1.6, { el: 'fire', burn: base * 0.12 }); for (let i = 0; i < 70; i++) { const a = this.yaw + (Math.random() - 0.5) * 1.1, d = Math.random() * 9 * aR; V.add.spawn(this.pos.x + Math.sin(a) * d, this.pos.y + 0.5 + Math.random(), this.pos.z + Math.cos(a) * d, Math.sin(a) * 3, 2, Math.cos(a) * 3, 0.7, 0.9, 0.1, new THREE.Color('#ffe08a'), new THREE.Color('#ff3a08'), 1, 0, -1, 1); } V.light(this.pos.clone().addScaledVector(f, 4).setY(this.pos.y + 1), '#ff6020', 5, 0.4); break; }
+      case 'blizzard': {
+        const tgt = groundPoint(35), r = 7 * aR; this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true }; S.cast('frost', tgt, 1.5); V.ring(tgt, r, '#a0e0ff', 0.6);
+        let ticks = 0; const iv = setInterval(() => { ticks++; for (const m of mobsInRadius(tgt, r)) this.dealDamage(m, base * 0.35, { slow: 2, el: 'frost', silent: ticks % 2 === 0 }); V.burst('frost', tgt.clone().setY(tgt.y + 6), 40, { speed: 2, radius: r * 2, vy: -6, size: 0.3, life: 1.0, grav: 4 }); if (ticks % 3 === 0) S.cast('frost', tgt, 0.6); if (ticks >= 10) clearInterval(iv); }, 400);
+        break;
+      }
+      case 'icelance': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(50), grav: 1, radius: 0.5, dmg: base * 2.4, owner: 'player', kind: 'frost', scale: 2.6, life: 2, pierce: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { freeze: 1.5, el: 'frost' }); V.burst('frost', pos, 20, { speed: 4 }); } }); this.atk = { name: 'cast', t: 0.3, dur: 0.5, hit: true }; S.cast('frost', from, 1.3); break; }
+      case 'nova': {
+        const from = this.handPos(); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true }; S.cast('arcane', from, 1.5);
+        setTimeout(() => { const f2 = this.handPos(); const d2 = this.aimDir(f2); spawnProjectile({ pos: f2, vel: d2.multiplyScalar(22), grav: 6, radius: 0.5, dmg: base * 2.2, owner: 'player', kind: 'orb', scale: 2.5, life: 4, aoe: true, onHit: (p, m, pos) => { const r = 6.5 * aR; for (const mm of mobsInRadius(pos, r)) this.dealDamage(mm, p.dmg, { el: 'arcane', knock: mm.pos.clone().sub(pos).setY(0).normalize().multiplyScalar(-5) }); V.sphereFlash(pos, r, '#b060ff', 0.45); V.burst('arcane', pos, 60, { speed: 8, size: 0.4 }); V.ring(pos, r, '#d090ff', 0.5); V.light(pos, '#a040ff', 6, 0.4, 20); S.explode(pos, 1.3, 'arcane'); V.addShake(0.25); } }); }, 400);
+        break;
+      }
+      case 'missiles': { for (let i = 0; i < 3; i++) setTimeout(() => { if (this.dead) return; const from = this.handPos(), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.3; dir.y += 0.15; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(28), grav: 0, radius: 0.3, dmg: base * 0.9, owner: 'player', kind: 'arcane', life: 2.5, homing: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 14, { speed: 3 }); } }); S.cast('arcane', from, 0.6); }, i * 130); this.atk = { name: 'cast', t: 0, dur: 0.6, hit: true }; break; }
     }
+    G.hooks.toast && false;
   }
   meteorImpact(pos, r, dmg) {
     pos.y = heightAt(pos.x, pos.z);
@@ -795,7 +805,7 @@ export class Player {
     const f = this.fwd(), r = this.right();
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
-    this.block = !ui && !!K.KeyF && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
+    this.block = !ui && !!this.rmbDown && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;
@@ -825,7 +835,7 @@ export class Player {
       const D = this.dodge; D.t += dt / D.dur;
       const s = D.speed * (D.charge ? 1 : (1 - D.t * 0.75));
       this.vel.x = D.dir.x * s; this.vel.z = D.dir.z * s;
-      if (D.charge) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, { knock: side.multiplyScalar(9).add(D.dir.clone().multiplyScalar(4)), stun: 1, big: true, melee: true }); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
+      if (D.charge) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, Object.assign({ knock: side.multiplyScalar(9).add(D.dir.clone().multiplyScalar(4)), stun: 1, big: true, melee: true }, D.extra || {})); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
       if (D.t >= 1) { this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
       const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? 12 : 2.5));

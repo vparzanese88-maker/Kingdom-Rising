@@ -75,6 +75,9 @@ export function spawnProjectile(o) {
     case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
+    case 'axe': { m = new THREE.Group(); const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#6a4020' })); m.add(h); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), new THREE.MeshStandardMaterial({ color: '#b0b8c0', metalness: 0.8, roughness: 0.3 })); b.position.y = 0.2; b.position.x = 0.08; m.add(b); break; }
+    case 'javelin': { m = new THREE.Group(); const h = new THREE.Mesh(geo.arrow, new THREE.MeshStandardMaterial({ color: '#8a6a44' })); h.scale.set(2, 2, 2.2); m.add(h); break; }
+    case 'knife': { m = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#d0d8e0', metalness: 0.9, roughness: 0.2 })); break; }
     case 'web': m = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#f0f0f8', transparent: true, opacity: 0.85 })); m.scale.setScalar(0.22); break;
     case 'rock': m = new THREE.Mesh(geo.rock, new THREE.MeshStandardMaterial({ color: '#7a746a', roughness: 0.9, flatShading: true })); m.scale.setScalar(0.12); break;
   }
@@ -86,6 +89,7 @@ export function updateProjectiles(dt) {
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; p.life -= dt;
     p.vel.y -= p.grav * dt;
+    if (p.homing) { let best = null, bd = 25; for (const m of G.mobs) { if (m.dead) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } } if (best) { const tgt = best.pos.clone(); tgt.y += best.height * 0.5; const want = tgt.sub(p.pos).normalize().multiplyScalar(p.vel.length()); p.vel.lerp(want, Math.min(1, dt * 4)); } }
     const step = p.vel.clone().multiplyScalar(dt);
     const sub = Math.max(1, Math.ceil(step.length() / 0.6));
     let dead = false;
@@ -110,7 +114,8 @@ export function updateProjectiles(dt) {
     // trails
     if (p.mesh) {
       p.mesh.position.copy(p.pos);
-      if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave') p.mesh.lookAt(p.pos.clone().sub(p.vel));
+      if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave' || p.kind === 'javelin') p.mesh.lookAt(p.pos.clone().sub(p.vel));
+      if (p.kind === 'axe' || p.kind === 'knife') { p.mesh.rotation.x += dt * 20; }
       if (p.kind === 'wave') p.mesh.rotateZ(Math.PI / 2);
       if (p.kind === 'meteor' || p.kind === 'rock') { p.mesh.rotation.x += dt * 8; p.mesh.rotation.z += dt * 6; }
     }

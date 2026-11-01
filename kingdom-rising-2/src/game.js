@@ -1,5 +1,5 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, DUAL_MASTERY, dualRank, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -23,7 +23,8 @@ export function newHero(o) {
 export const EQUIP_SLOTS = ['w1', 'w2', 'head', 'neck', 'shoulders', 'back', 'chest', 'wrists', 'hands', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
-export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
+export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
+  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
@@ -134,17 +135,17 @@ export function heroDerived(h) {
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15));
   const res = 1 + perk(h, 'res') * 0.2;
   const F = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] || {} : {};
-  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + (F.hp || 0))), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
+  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + (F.hp || 0))), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, familiesOf(w.wt)[0], 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08 + (h.food && h.food.t > 0 && FOOD_BUFFS[h.food.id] ? FOOD_BUFFS[h.food.id].dmg || 0 : 0)) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08 + (h.food && h.food.t > 0 && FOOD_BUFFS[h.food.id] ? FOOD_BUFFS[h.food.id].dmg || 0 : 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
 // ---------- skill trees ----------
 export function perk(h, id) { return (h.ctree && h.ctree[id]) || 0; }
-export function wkind(wt) { const k = WEAPON_TYPES[wt].kind; return k === 'bow' ? 'bow' : k === 'staff' ? 'staff' : 'melee'; }
+export function wkind(fam) { return FAMILIES[fam] ? FAMILIES[fam].kind : 'melee'; }
 export function wm(h, wt) { h.wm = h.wm || {}; return h.wm[wt] || (h.wm[wt] = { lv: 1, xp: 0, pts: {} }); }
 export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id]) || 0; }
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
@@ -207,13 +208,9 @@ export function onKill(h, mob) {
     const q = QUESTS.find(x => x.id === qid), a = h.quests.active[qid];
     q.obj.forEach((o, i) => { if (o.t === 'kill' && o.mob === mob.type && a.p[i] < o.n) { a.p[i]++; G.hooks.objective && G.hooks.objective(q, o, a.p[i]); } });
   }
-  // weapon mastery
+  // weapon mastery: every weapon in your hands levels up (both of a pair)
   const w = h.equip[h.active];
-  if (w) gainMastery(h, w.wt, 10 + mob.lv * 6 * xpMul);
-  if (w && WEAPON_TYPES[w.wt].hands === 'dual') {
-    const before = dualRank(h.dualKills); h.dualKills++; const after = dualRank(h.dualKills);
-    if (after > before) G.hooks.mastery && G.hooks.mastery(DUAL_MASTERY[after - 1]);
-  }
+  if (w) for (const f of familiesOf(w.wt)) gainMastery(h, f, 10 + mob.lv * 6 * xpMul);
   // loot table
   const D = mob.def, loot = [];
   for (const id in D.loot || {}) { const [a, b, c] = D.loot[id]; if (Math.random() < c) loot.push({ id, n: a + Math.floor(Math.random() * (b - a + 1)) }); }

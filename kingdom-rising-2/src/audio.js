@@ -118,6 +118,28 @@ export const S = {
     }
     noise(t, 0.25 * size, o.node, { type: 'bandpass', f: 300 / size, f2: 1200 / size, q: 0.8, gain: 0.18 * size, a: 0.08 });
   },
+  // weapon-specific swings: blunt (mace/hammer), axe, spear, light (daggers), staff; blades use the recorded sword swings
+  swingW(kind, size = 1, pos) {
+    if (!ctx) return;
+    if (kind === 'blade') return S.swing(size, pos);
+    const o = out(pos, sfxBus, 0.1), t = now();
+    if (kind === 'blunt') {
+      noise(t, 0.32 * size, o.node, { type: 'lowpass', f: 260, f2: 720, q: 1.2, gain: 0.55 * size, a: 0.1 });
+      noise(t + 0.04, 0.26 * size, o.node, { type: 'bandpass', f: 180, f2: 420, q: 2.5, gain: 0.35 * size, a: 0.08 });
+      tone(t, 0.3 * size, o.node, { type: 'sine', f: 70, f2: 110, gain: 0.12 * size, a: 0.12 });
+    } else if (kind === 'axe') {
+      noise(t, 0.28 * size, o.node, { type: 'bandpass', f: 350, f2: 1100, q: 1.6, gain: 0.45 * size, a: 0.08 });
+      noise(t, 0.3 * size, o.node, { type: 'lowpass', f: 300, f2: 600, gain: 0.3 * size, a: 0.1 });
+    } else if (kind === 'spear') {
+      noise(t, 0.16 * size, o.node, { type: 'bandpass', f: 900, f2: 2600, q: 2, gain: 0.35, a: 0.03 });
+      noise(t, 0.2, o.node, { type: 'lowpass', f: 500, gain: 0.15, a: 0.04 });
+    } else if (kind === 'light') {
+      noise(t, 0.12, o.node, { type: 'bandpass', f: 1800, f2: 4200, q: 2, gain: 0.28, a: 0.02 });
+    } else if (kind === 'staff') {
+      noise(t, 0.3 * size, o.node, { type: 'bandpass', f: 400, f2: 900, q: 1.4, gain: 0.35 * size, a: 0.1 });
+    }
+  },
+  blunt(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); tone(t, 0.22, o.node, { type: 'sine', f: 95, f2: 45, gain: 0.7 }); noise(t, 0.16, o.node, { type: 'lowpass', f: 900, f2: 200, gain: 0.7 }); noise(t + 0.01, 0.07, o.node, { type: 'bandpass', f: 600, q: 3, gain: 0.35 }); },
   heavySwing(pos) { if (!ctx) return; S.swing(1.6, pos); const o = out(pos, sfxBus, 0.2); noise(now(), 0.45, o.node, { type: 'lowpass', f: 400, f2: 1500, q: 2, gain: 0.35, a: 0.12 }); },
   hit(kind = 'flesh', pos, big = 1) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.18); const t = now();

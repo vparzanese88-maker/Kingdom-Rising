@@ -23,7 +23,11 @@ export function newHero(o) {
 export const EQUIP_SLOTS = ['w1', 'w2', 'head', 'neck', 'shoulders', 'back', 'chest', 'wrists', 'hands', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
-export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null]; return h; }
+export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
+  // talents became single-point passives: refund anything from the old trees
+  const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
+  if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
+  return h; }
 // hotbar (keys 1-6): unlocked class abilities, then potions/food, fill the next open slot; once full, nothing more is added
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat'];
 export function autoFillHotbar(h) {
@@ -40,6 +44,7 @@ export function autoFillHotbar(h) {
     // keep slots 1-3 free for class abilities still to come
     const pending = ABILITIES[h.cls].filter(a => !has('ab', a.id) && !(c.t === 'ab' && c.id === a.id)).length;
     const i = c.t === 'ab' ? free[0] : free.find(k => k >= 3 || free.filter(x => x < 3).length > pending);
+    if (i == null && c.t === 'ab') { const j = h.hotbar.findIndex(x => x && x.t === 'item'); if (j >= 0) { h.hotbar[j] = c; added.push({ slot: j, ...c }); } continue; }
     if (i == null) continue;
     h.hotbar[i] = c; added.push({ slot: i, ...c });
   }
@@ -129,14 +134,14 @@ export function heroDerived(h) {
   let armor = 0; for (const k of [...ARMOR_SLOT_LIST, 'back']) if (h.equip[k]) armor += h.equip[k].armor || 0;
   const w = h.equip[h.active];
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
-  armor = Math.round(armor * (1 + perk(h, 'armor') * (h.cls === 'wizard' ? 0.15 : 0.1)));
-  const res = 1 + perk(h, 'res') * 0.1;
-  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.05)), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + perk(h, 'crit') * 0.03 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
+  armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15));
+  const res = 1 + perk(h, 'res') * 0.2;
+  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1)), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + perk(h, 'crit') * 0.06 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.04) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
 // ---------- skill trees ----------
@@ -147,9 +152,9 @@ export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id])
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 export function classPoints(h) { return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
-export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * 3; }
-export function spendClass(h, node) { if (!canSpend(CLASS_TREE[h.cls], h.ctree, classPoints(h), node)) return false; h.ctree[node.id] = (h.ctree[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
-export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend(WEAPON_TREE[wkind(wt)], m.pts, weaponPoints(h, wt), node)) return false; m.pts[node.id] = (m.pts[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
+export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * (tree === 'w' ? 3 : 2); }
+export function spendClass(h, node) { if (!canSpend('c', h.ctree, classPoints(h), node)) return false; h.ctree[node.id] = (h.ctree[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
+export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend('w', m.pts, weaponPoints(h, wt), node)) return false; m.pts[node.id] = (m.pts[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
 export function resetClass(h) { h.ctree = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 export function gainMastery(h, wt, n) {

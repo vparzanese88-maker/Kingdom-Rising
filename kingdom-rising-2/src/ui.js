@@ -346,10 +346,11 @@ function treeHtml(nodes, pts, avail, onSpend) {
   const spentN = Object.values(pts).reduce((a, b) => a + b, 0);
   const rows = Math.max(...nodes.map(n => n.row)) + 1;
   for (let r = 0; r < rows; r++) {
-    const row = el('div', 'trow' + (spentN >= r * 3 ? '' : ' locked'));
-    row.appendChild(el('div', 'treq', r ? `${r * 3} pts` : ''));
+    const rp = nodes === CLASS_TREE[G.player.h.cls] ? 2 : 3;
+    const row = el('div', 'trow' + (spentN >= r * rp ? '' : ' locked'));
+    row.appendChild(el('div', 'treq', r ? `${r * rp} pts` : ''));
     for (const n of nodes.filter(x => x.row === r)) {
-      const rank = pts[n.id] || 0, can = Game.canSpend(null, pts, avail, n);
+      const rank = pts[n.id] || 0, can = Game.canSpend(nodes === CLASS_TREE[G.player.h.cls] ? 'c' : 'w', pts, avail, n);
       const b = el('button', 'node' + (rank ? ' has' : '') + (rank >= n.max ? ' max' : '') + (can ? ' can' : ''), `<div class="nic">${Icons.abilityIcon(n.icon)}</div><div class="nr">${rank}/${n.max}</div><div class="nn">${esc(n.name)}</div>`);
       b.title = n.desc;
       b.onmouseenter = () => { const d = box.parentElement.querySelector('.tdesc'); if (d) d.innerHTML = `<b>${esc(n.name)}</b> <span class="dim">(rank ${rank}/${n.max})</span><br>${esc(n.desc)}`; };
@@ -377,7 +378,7 @@ function renderSkills() {
     const head = el('div', 'treehead', `<div><b>${avail}</b> point${avail === 1 ? '' : 's'} to spend <span class="dim">(1 per level)</span></div>`);
     const rs = el('button', 'btn', 'Reset tree'); rs.onclick = () => { Game.resetClass(h); renderSkills(); }; head.appendChild(rs);
     c.appendChild(head);
-    const wrap = el('div', 'treewrap'); wrap.appendChild(treeHtml(CLASS_TREE[h.cls], h.ctree, avail, (n) => Game.spendClass(h, n))); wrap.appendChild(el('div', 'tdesc', '<span class="dim">Hover over a skill to read it. Each row opens after you spend 3 more points in this tree.</span>')); c.appendChild(wrap);
+    const wrap = el('div', 'treewrap'); wrap.appendChild(treeHtml(CLASS_TREE[h.cls], h.ctree, avail, (n) => Game.spendClass(h, n))); wrap.appendChild(el('div', 'tdesc', '<span class="dim">Hover over a skill to read it. Each talent is a single point. Each row opens after you spend 2 more points in this tree.</span>')); c.appendChild(wrap);
   } else if (skTab === 'weapon') {
     const ws = CLASSES[h.cls].weapons; if (!skWeapon || !ws.includes(skWeapon)) skWeapon = G.player.weapon ? G.player.weapon.wt : ws[0];
     const pick = el('div', 'wpick');

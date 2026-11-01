@@ -101,6 +101,7 @@ class ViewModel {
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.02, 0.05, -0.03); } }
+    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(0.68);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -161,7 +162,7 @@ class ViewModel {
     this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 0.8 * this.sprintK; this.R.rotation.z += Math.sin(ph) * amp * 1.2; this.R.rotation.x += Math.cos(ph) * amp * (1 + this.sprintK * 3);
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
-    this.g.position.set(0.04 + st.swayX, -0.025 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
+    this.g.position.set(0.07 + st.swayX, -0.05 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.3);
     // bow string pull
     if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, 0.02 + pull * 0.5); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
     // forearms follow from the wrist down toward the elbow (off screen)
@@ -259,7 +260,7 @@ export class Player {
   right() { return new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw)); }
   busy() { return !!(this.atk || this.dodge || this.gathering || this.dead); }
   spend(cost) {
-    cost = Math.round(cost * (1 - this.pk('cost') * 0.12) * (this.h.cls === 'wizard' && this.pk('cap') ? 0.75 : 1));
+    cost = Math.round(cost * (this.h.cls === 'wizard' && this.pk('cap') ? 0.75 : 1) * (this.buffs.surge > 0 ? 0 : 1));
     const uses = CLASS_POOLS[this.h.cls].uses;
     const cur = uses === 'mana' ? this.mana : this.end;
     if (cur < cost) { G.hooks.toast && G.hooks.toast(uses === 'mana' ? 'Not enough mana' : 'Not enough endurance', '⚠', 'bad'); S.error(); return false; }
@@ -273,13 +274,24 @@ export class Player {
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   speedMul() { let m = 1; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; return m; }
 
+  // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
+  swingKind(name) {
+    const wt = this.weapon ? this.weapon.wt : '';
+    if (wt === 'maceshield' || wt === 'warhammer') return 'blunt';
+    if (wt === 'swordmace') return name === 'off1' ? 'blunt' : 'blade';
+    if (wt === 'greataxe' || wt === 'handaxes') return 'axe';
+    if (wt === 'spear') return 'spear';
+    if (wt === 'daggers') return 'light';
+    if (this.W && this.W.kind === 'staff') return 'staff';
+    return 'blade';
+  }
   // ---------- attacks ----------
   light() {
     if (this.dodge || this.gathering || this.swim) return;
     const W = this.W; if (!W) return;
     if (this.block) return;
     if (this.atk) { if (this.atk.t > 0.35 && !this.atk.noQueue) this.queued = 'light'; return; }
-    if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
+    if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
     if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
     if (this.comboT <= 0) this.combo = 0;
     const i = this.combo % 3; this.combo = i + 1;
@@ -292,7 +304,7 @@ export class Player {
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
-    const charge = clamp((p.t - 0.22) / 0.8 * (1 + this.wp('heavy') * 0.3), 0, 1);
+    const charge = clamp((p.t - 0.22) / 0.8 * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
     if (W.kind === 'bow') return this.startAtk('release', 0.3, { charge, fire: true });
     if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });
     this.startAtk('heavy', 0.75 / W.speed, { charge });
@@ -300,7 +312,7 @@ export class Player {
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
     const W = this.W;
-    if (W && W.kind === 'melee' && !['charge'].includes(name)) { S.swing(name === 'swing3' || name === 'heavy' || name === 'thrust3' ? 1.5 : W.hands === 'two' ? 1.25 : 0.9, this.pos); if (name === 'heavy') S.heavySwing(this.pos); }
+    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'thrust3'; S.swingW(this.swingKind(name), big ? 1.5 : W.hands === 'two' ? 1.25 : 0.9, this.pos); if (name === 'heavy') S.swingW(this.swingKind(name), 1.8, this.pos); }
   }
   updateAttack(dt) {
     // charging heavy (hold left click)
@@ -347,12 +359,13 @@ export class Player {
       if (this.weapon.wt === 'spear') half = a.name === 'heavy' || a.name === 'thrust3' ? 0.5 : 0.35;
       if (W.hands === 'dual' && a.name === 'swing3') mult = 1.9;
       const off = a.name === 'off1';
-      const targets = mobsInCone(this.pos, yaw, reach, half);
+      const targets = (a.combo === 2 && this.pk('cleave')) ? mobsInRadius(this.pos, reach) : mobsInCone(this.pos, yaw, reach, half);
       let hitAny = false;
       for (const m of targets) {
         const big = a.name === 'heavy' || a.name === 'swing3' || a.name === 'thrust3';
         const kn = big ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(6 + (a.charge || 0) * 6) : m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(1.5);
         this.dealDamage(m, base * mult, { knock: kn, big, offhand: off, melee: true, stun: a.name === 'heavy' && a.charge > 0.8 ? 1 : 0 });
+        if (this.swingKind(a.name) === 'blunt') S.blunt(m.pos);
         hitAny = true;
       }
       if (hitAny) { G.hitstop = a.name === 'heavy' ? 0.09 : 0.045; V.addShake(a.name === 'heavy' ? 0.35 : a.name === 'swing3' ? 0.22 : 0.08); }
@@ -370,6 +383,7 @@ export class Player {
       if (el === 'fire') spawnProjectile({ pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
       else if (el === 'frost') spawnProjectile({ pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
       else spawnProjectile({ pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * (0.95 + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
+      if (this.pk('echo') && !a.echoed && Math.random() < 0.15) { setTimeout(() => { if (!this.dead) this.doHit(Object.assign({}, a, { echoed: true })); }, 140); }
       S.cast(el, from, big ? 1.4 : 0.8);
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
     }
@@ -399,7 +413,7 @@ export class Player {
     if (W.kind === 'melee') {
       this.cd.area = AREA_CD.melee * aCd;
       this.atk = { name: 'area', t: 0, dur: 0.7, hit: true, noQueue: true };
-      S.heavySwing(this.pos); S.swing(1.4, this.pos);
+      S.swingW(this.swingKind('area'), 1.6, this.pos); S.swingW(this.swingKind('area'), 1.3, this.pos);
       setTimeout(() => {
         if (this.dead) return;
         const r = W.area * aR; const p = this.pos.clone();
@@ -466,7 +480,7 @@ export class Player {
       this.dealDamage(m, a.base * 0.55 * (rank >= 10 ? 1.2 : 1), { offhand: k % 2 === 0, melee: true, silent: false });
       if (rank >= 8) { const pull = this.pos.clone().sub(m.pos).setY(0).normalize().multiplyScalar(4); m.status.knock.add(pull); }
     }
-    S.swing(0.8, this.pos);
+    S.swingW(this.swingKind(k % 2 ? 'swing1' : 'off1'), 0.8, this.pos);
     if (rank >= 6) V.ring(this.pos, r, '#e0e8ff', 0.25);
     if (k === a.hits && rank >= 4) { // cross slash wave
       const from = this.pos.clone(); from.y += 1; const dir = this.fwd();
@@ -491,7 +505,7 @@ export class Player {
     this.cd[key] = ab.cd;
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
-    const up = [1 + this.pk('a1up') * 0.3, 1 + this.pk('a2up') * 0.3, 1 + this.pk('a3up') * 0.3][i];
+    const up = [1 + this.pk('a1up') * 0.5, 1, 1 + this.pk('a3up') * 0.5, 1, 1][i];
     const f = this.fwd();
     switch (ab.id) {
       case 'charge': {
@@ -500,14 +514,14 @@ export class Player {
         break;
       }
       case 'battlecry': {
-        S.battleCry(); this.heal(this.maxHp * (0.2 + this.pk('a2up') * 0.1)); this.buffs.cry = 10 + this.pk('a2up') * 4;
+        S.battleCry(); this.heal(this.maxHp * (0.2 + this.pk('a2up') * 0.1)); this.buffs.cry = 10 + this.pk('a2up') * 5;
         V.ring(this.pos, 8, '#ff5040', 0.6); V.ring(this.pos, 5, '#ffc040', 0.5); V.burst('ember', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 6 }); V.addShake(0.3);
         for (const m of mobsInRadius(this.pos, 8)) m.status.stun = Math.max(m.status.stun, 1.2 * rk);
         break;
       }
       case 'earthsplitter': {
         const tgt = groundPoint(14);
-        this.leap = { t: 0, dur: 0.75, from: this.pos.clone(), to: tgt, dmg: base * 2.6 * rk * up, r: 7 * (1 + this.pk('a3up') * 0.15) };
+        this.leap = { t: 0, dur: 0.75, from: this.pos.clone(), to: tgt, dmg: base * 2.6 * rk * up, r: 7 * (1 + this.pk('a3up') * 0.3) };
         this.atk = { name: 'heavy', t: 0, dur: 0.9, hit: true, noQueue: true };
         S.heavySwing(this.pos); S.jump();
         break;
@@ -520,14 +534,46 @@ export class Player {
         break;
       }
       case 'smokeroll': {
-        this.dodge = { t: 0, dur: 0.45, dir: f.clone().multiplyScalar(-1), speed: 13 }; this.iframes = 0.5; this.stealth = 4 * (rk > 1 ? 1.5 : 1) + this.pk('a2up') * 2; this.buffs.nextCrit = true;
+        this.dodge = { t: 0, dur: 0.45, dir: f.clone().multiplyScalar(-1), speed: 13 }; this.iframes = 0.5; this.stealth = 4 * (rk > 1 ? 1.5 : 1) + this.pk('a2up') * 3; this.buffs.nextCrit = true;
         V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 4, size: 1.6, life: 1.6, vy: 1, grav: 0, a0: 0.8 }); S.stealth();
         for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) > 3) { m.state = 'return'; }
         break;
       }
       case 'fury': {
-        this.buffs.fury = 10 * rk + this.pk('a3up') * 3; S.growl('wolf', null, 1.4); S.battleCry();
+        this.buffs.fury = 10 * rk + this.pk('a3up') * 5; S.growl('wolf', null, 1.4); S.battleCry();
         V.burst('green', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); V.ring(this.pos, 4, '#60ff90', 0.5);
+        break;
+      }
+      case 'adrenaline': {
+        this.buffs.adren = 8; S.battleCry(); S.heal(); this.fovKick = 10; this.end = Math.min(this.maxEnd, this.end + 20);
+        V.burst('ember', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); V.ring(this.pos, 3.5, '#ff6a3a', 0.4); G.hooks.toast && G.hooks.toast('Adrenaline! Faster and stronger for 8 s', '⚡', 'gold');
+        break;
+      }
+      case 'tourniquet': {
+        this.buffs.tq = 10; S.skin(this.pos); S.heal();
+        V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); G.hooks.toast && G.hooks.toast('Tourniquet: double health regeneration for 10 s', '✚', 'gold');
+        break;
+      }
+      case 'secondwind': {
+        this.end = Math.min(this.maxEnd, this.end + this.maxEnd * 0.4); this.buffs.swind = 6; S.dodge(); S.heal();
+        V.burst('green', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 3 }); V.ring(this.pos, 3, '#90ffb0', 0.4);
+        break;
+      }
+      case 'fielddress': {
+        this.regen = { per: this.maxHp * 0.3 / 8, t: 8 }; S.skin(this.pos); S.heal();
+        V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 });
+        break;
+      }
+      case 'manasurge': {
+        this.buffs.surge = 8; this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.15); S.cast('arcane', this.pos, 1.5); S.cast('holy', this.pos);
+        V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 60, { speed: 5 }); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 2.5, '#8ac0ff', 0.4);
+        this.atk = { name: 'spell', t: 0, dur: 0.45, hit: true };
+        break;
+      }
+      case 'icebarrier': {
+        this.buffs.barrier = this.maxHp * 0.3; this.buffs.barrierT = 12; S.cast('frost', this.pos, 1.5);
+        V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 60, { speed: 3, radius: 1.5 }); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.6, '#bfefff', 0.6);
+        this.atk = { name: 'spell', t: 0, dur: 0.45, hit: true };
         break;
       }
       case 'frostnova': {
@@ -542,7 +588,7 @@ export class Player {
       case 'blink': {
         let dir = this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : f.clone();
         const from = this.pos.clone(); let to = from.clone();
-        for (let s = 0.5; s <= 14 + this.pk('a2up') * 4; s += 0.5) { const p = from.clone().addScaledVector(dir, s); if (isWater(p.x, p.z)) break; const q = p.clone(); if (collide(q, this.radius)) break; if (heightAt(p.x, p.z) - this.pos.y > 4) break; to = p; }
+        for (let s = 0.5; s <= 14 + this.pk('a2up') * 6; s += 0.5) { const p = from.clone().addScaledVector(dir, s); if (isWater(p.x, p.z)) break; const q = p.clone(); if (collide(q, this.radius)) break; if (heightAt(p.x, p.z) - this.pos.y > 4) break; to = p; }
         to.y = groundAt(to.x, to.z, to.y + 2).h;
         V.burst('arcane', from.clone().setY(from.y + 1), 50, { speed: 4, size: 0.4 }); V.sphereFlash(from.clone().setY(from.y + 1), 1.4, '#c080ff', 0.3);
         this.pos.copy(to); this.vel.set(0, 0, 0);
@@ -557,7 +603,7 @@ export class Player {
         this.atk = { name: 'spell', t: 0, dur: 0.45, hit: true };
         if (!tgt) { lightning(from, a.point); break; }
         const hit = new Set(); let prev = from, dmg = base * 1.7 * rk * up;
-        for (let j = 0; j < 5 + this.pk('a3up') && tgt; j++) {
+        for (let j = 0; j < 5 + this.pk('a3up') * 2 && tgt; j++) {
           hit.add(tgt); const to = tgt.pos.clone(); to.y += tgt.height * 0.6;
           lightning(prev, to); this.dealDamage(tgt, dmg, { el: 'lightning', stun: 0.4 }); V.light(to, '#a0c0ff', 4, 0.2);
           dmg *= 0.85; prev = to;
@@ -579,6 +625,11 @@ export class Player {
     if (this.h.cls === 'warrior' && this.pk('cap') && this.hp < this.maxHp * 0.5) dmg *= 1.2;
     if (this.buffs.cry > 0) dmg *= 1.3;
     if (this.buffs.fury > 0) dmg *= 1.25;
+    if (this.buffs.adren > 0) dmg *= 1.2;
+    if (this.buffs.surge > 0) dmg *= 1.2;
+    if (this.h.cls === 'ranger' && this.pk('poison') && !o.silent) o.bleed = Math.max(o.bleed || 0, dmg * 0.06);
+    if (o.el === 'fire' && o.burn && this.pk('ignite')) o.burn *= 2;
+    if (o.el === 'frost' && this.pk('frostbite')) { if (o.slow) o.slow *= 2; if (o.freeze) o.freeze += 1; }
     const W = this.W, rank = W && W.hands === 'dual' ? dualRank(this.h.dualKills) : 0;
     if (o.offhand && rank >= 3) o.bleed = dmg * 0.08;
     let total = m.takeHit(dmg * rand(0.92, 1.08), this, o);
@@ -600,12 +651,13 @@ export class Player {
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;
     if (this.block && front && this.W) {
       const red = Math.min(0.95, this.W.block + this.wp('block') * 0.1); const cost = dmg * 0.6 * (1 - this.wp('block') * 0.25);
-      if (this.end >= cost * 0.5 || (this.h.cls === 'warrior' && this.pk('cap'))) { this.end = Math.max(0, this.end - cost); this.endUseT = 1; dmg *= 1 - red; S.block(this.W.hands === 'shield', this.pos); V.burst('spark', this.handPos(true), 14, { speed: 5 }); V.addShake(0.12); if (dmg < 1) return; }
+      if (this.end >= cost * 0.5 || this.pk('unbreak')) { this.end = Math.max(0, this.end - cost); this.endUseT = 1; dmg *= 1 - red; S.block(this.W.hands === 'shield', this.pos); V.burst('spark', this.handPos(true), 14, { speed: 5 }); V.addShake(0.12); if (dmg < 1) return; }
       else { this.block = false; this.stagger = 0.8; V.number(this.pos.clone().setY(this.pos.y + this.eye), 'Guard broken!', 'bad'); S.hit('metal', this.pos); }
     }
     const lv = src && src.lv || this.h.level;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));
+    if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; this.hurtT = 0.4; this.regenDelay = 4;
     V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); S.hurt();
     G.inCombat = 6;
@@ -620,7 +672,7 @@ export class Player {
   tryDodge() {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
-    const cost = 16 * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1);
+    const cost = 16 * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); return; }
     this.end -= cost; this.endUseT = 1;
     let dir = this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : this.fwd().multiplyScalar(-1);
@@ -698,7 +750,7 @@ export class Player {
     if (this.moveDir && this.moveDir.lengthSq() > 0.01) { this.cancelGather(); return; }
     if (g.t >= g.dur) {
       const n = g.node;
-      if (g.anim === 'skin') { const mob = n.skin; mob.skinned = true; const k2 = mob.def.size > 1 ? 2 : 1; addItem(this.h, 'raw_hide', k2 + (Math.random() < 0.3 ? 1 : 0)); }
+      if (g.anim === 'skin') { const mob = n.skin; mob.skinned = true; const k2 = mob.def.size > 1 ? 2 : 1; addItem(this.h, 'raw_hide', k2 + (Math.random() < 0.3 ? 1 : 0) + this.pk('bounty')); if (this.pk('bounty')) addItem(this.h, 'raw_meat', 1); }
       else { gatherReward(this.h, n); n.alive = false; n.respawn = G.time + n.def.respawn; hideNode(n); G.hooks.nodeDone && G.hooks.nodeDone(n, this); }
       this.cancelGather();
     }
@@ -709,15 +761,16 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    this.buffs.cry = Math.max(0, this.buffs.cry - dt); this.buffs.fury = Math.max(0, this.buffs.fury - dt); this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
-    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (1 + this.pk('regen') * 0.25));
-    if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.25));
+    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
+    if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.5));
     if (this.regen) { this.hp = Math.min(this.maxHp, this.hp + this.regen.per * dt); this.regen.t -= dt; if (this.regen.t <= 0) this.regen = null; }
-    if (G.inCombat <= 0 && this.regenDelay <= 0) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
+    const baseRegen = G.inCombat <= 0 && this.regenDelay <= 0 ? 0.02 : this.pk('secondwind') ? 0.008 : 0;
+    this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.buffs.tq > 0 ? Math.max(0.03, baseRegen * 2) : baseRegen) * dt);
     // input
     const K = G.keys, ui = G.uiOpen;
     let ix = 0, iz = 0;
@@ -729,9 +782,9 @@ export class Player {
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;
-    let spd = (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.05);
+    let spd = (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
-    if (this.block) spd *= 0.45;
+    if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering) spd = 0;
     if (this.stagger > 0) spd *= 0.3;
     this.sprinting = sprint && md.lengthSq() > 0.1;

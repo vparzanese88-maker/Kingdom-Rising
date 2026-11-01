@@ -219,11 +219,23 @@ export const ITEMS = {
   // consumables
   potion_heal: { name: 'Healing Potion', icon: '🧪', col: '#ff5050', desc: 'Restores 40% health. Press R.', value: 8, use: { heal: 0.4 } },
   potion_heal2: { name: 'Greater Healing Potion', icon: '🧪', col: '#ff2070', desc: 'Restores 70% health. Press R.', value: 25, use: { heal: 0.7 } },
-  crab_cake: { name: 'Crab Cake', icon: '🍘', desc: 'Restores 25% health over 10 s.', value: 4, use: { regen: 0.25 } },
-  roast_meat: { name: 'Roast Meat', icon: '🍖', desc: 'Restores 35% health over 10 s.', value: 5, use: { regen: 0.35 } },
+  crab_cake: { name: 'Crab Cake', icon: '🍘', desc: 'Restores 25% health over 10 s. Food buff Sea Legs: +10% move speed for 5 min.', value: 4, use: { regen: 0.25 } },
+  roast_meat: { name: 'Roast Meat', icon: '🍖', desc: 'Restores 35% health over 10 s. Food buff Hearty: +10% maximum health for 5 min.', value: 5, use: { regen: 0.35 } },
+  herb_roast: { name: 'Herb-Roasted Meat', icon: '🍖', desc: 'Restores 40% health over 10 s. Food buff Vigour: +25% health and endurance regeneration for 5 min.', value: 8, use: { regen: 0.4 } },
+  hunter_stew: { name: "Hunter's Stew", icon: '🍲', desc: "Restores 45% health over 10 s. Food buff Hunter's Strength: +8% damage for 5 min.", value: 12, use: { regen: 0.45 } },
+  ember_skewer: { name: 'Ember Skewer', icon: '🍢', desc: 'Restores 40% health over 10 s. Food buff Fire Belly: +6% critical chance for 5 min.', value: 16, use: { regen: 0.4 } },
   bandage: { name: 'Linen Bandage', icon: '🩹', desc: 'Restores 20% health over 6 s.', value: 3, use: { regen: 0.2, time: 6 } },
 };
 
+// Food buffs: only one at a time, eating another replaces it
+export const FOOD_BUFFS = {
+  roast_meat: { name: 'Hearty', desc: '+10% maximum health', hp: 0.1 },
+  crab_cake: { name: 'Sea Legs', desc: '+10% move speed', speed: 0.1 },
+  herb_roast: { name: 'Vigour', desc: '+25% health and endurance regeneration', regen: 0.25 },
+  hunter_stew: { name: "Hunter's Strength", desc: '+8% damage', dmg: 0.08 },
+  ember_skewer: { name: 'Fire Belly', desc: '+6% critical chance', crit: 0.06 },
+};
+export const FOOD_TIME = 300;
 export const TOOLS = {
   hatchet: { name: 'Hatchet', icon: '🪓', desc: 'For chopping trees.' },
   pickaxe: { name: 'Pickaxe', icon: '⛏', desc: 'For mining stone and ore.' },
@@ -291,6 +303,9 @@ export const RECIPES = [];
   R({ id: 'bandage', out: 'bandage', n: 2, station: 'loom', need: { linen: 1 }, cat: 'Consumables', lvl: 1 });
   R({ id: 'crab_cake', out: 'crab_cake', n: 1, station: 'campfire', need: { crab_meat: 1 }, cat: 'Consumables', lvl: 1 });
   R({ id: 'roast_meat', out: 'roast_meat', n: 1, station: 'campfire', need: { raw_meat: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'herb_roast', out: 'herb_roast', n: 1, station: 'campfire', need: { raw_meat: 1, healroot: 1 }, cat: 'Consumables', lvl: 3 });
+  R({ id: 'hunter_stew', out: 'hunter_stew', n: 1, station: 'campfire', need: { raw_meat: 2, healroot: 1 }, cat: 'Consumables', lvl: 6 });
+  R({ id: 'ember_skewer', out: 'ember_skewer', n: 1, station: 'campfire', need: { raw_meat: 1, ember_core: 1 }, cat: 'Consumables', lvl: 12 });
   R({ id: 'potion_heal', out: 'potion_heal', n: 1, station: 'alchemy', need: { healroot: 2 }, cat: 'Consumables', lvl: 1 });
   R({ id: 'potion_heal2', out: 'potion_heal2', n: 1, station: 'alchemy', need: { healroot: 3, ember_core: 1 }, cat: 'Consumables', lvl: 12 });
   // tools

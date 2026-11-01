@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
-import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, DUAL_MASTERY, dualRank, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, AREA_CD, TIERS, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, DUAL_MASTERY, dualRank, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, AREA_CD, TIERS, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
@@ -110,6 +110,8 @@ export function updateHUD(dt) {
     $('xpI').style.width = h.level >= LEVEL_CAP ? '100%' : (h.xp / need * 100) + '%';
     $('xpT').textContent = h.level >= LEVEL_CAP ? `Level ${LEVEL_CAP} (max)` : `Level ${h.level}  ·  ${h.xp} / ${need} XP`;
     const b = []; if (p.buffs.cry > 0) b.push(`📯 Battle Cry ${Math.ceil(p.buffs.cry)}s`); if (p.buffs.fury > 0) b.push(`🐺 Fury ${Math.ceil(p.buffs.fury)}s`); if (p.stealth > 0) b.push(`☁ Unseen ${Math.ceil(p.stealth)}s`); if (p.buffs.nextCrit) b.push('✦ Next hit x2'); if (p.regen) b.push('❤ Regenerating');
+    if (h.food && h.food.t > 0) { const F = FOOD_BUFFS[h.food.id]; b.push(`🍖 ${F.name} ${Math.ceil(h.food.t / 60)}m`); }
+    if (p.buffs.adren > 0) b.push(`⚡ Adrenaline ${Math.ceil(p.buffs.adren)}s`); if (p.buffs.tq > 0) b.push(`✚ Tourniquet ${Math.ceil(p.buffs.tq)}s`); if (p.buffs.surge > 0) b.push(`💧 Mana Surge ${Math.ceil(p.buffs.surge)}s`); if (p.buffs.barrier > 0) b.push(`🛡 Ice Barrier ${Math.round(p.buffs.barrier)}`); if (p.buffs.swind > 0) b.push(`💨 Second Wind ${Math.ceil(p.buffs.swind)}s`);
     $('buffs').innerHTML = b.map(x => `<div class="b">${x}</div>`).join('');
   }
   // interaction prompt
@@ -371,8 +373,15 @@ function renderSkills() {
   if (skTab === 'class') {
     const ab = el('div', 'abilrow');
     const W = G.player.W;
-    const items = [...ABILITIES[h.cls].map(a => ({ k: a.key, icon: a.id, name: a.name, d: `${a.desc} Costs ${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}.${h.level >= RANK2_LEVEL ? ' Rank II.' : ''}`, lv: a.level }))];
-    for (const a of items) ab.appendChild(el('div', 'abil' + (h.level < a.lv ? ' locked' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}<span class="k">${a.k}</span></div><div><b>${esc(a.name)}</b>${h.level < a.lv ? ` <span class="dim">unlocks at level ${a.lv}</span>` : ''}<div class="dim">${esc(a.d)}</div></div>`));
+    const items = [...ABILITIES[h.cls].map(a => ({ k: '', icon: a.id, name: a.name, d: `${a.desc} Costs ${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}.${h.level >= RANK2_LEVEL ? ' Rank II.' : ''}`, lv: a.level }))];
+    c.appendChild(el('p', 'dim', 'Your hotbar holds 3 class abilities (keys 1, 2, 3). Choose which ones with the slot buttons.'));
+    for (const a of items) {
+      const slot = h.hotbar.findIndex(s => s && s.t === 'ab' && s.id === a.icon);
+      const row = el('div', 'abil' + (slot >= 0 ? ' onbar' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}${slot >= 0 ? `<span class="k">${slot + 1}</span>` : ''}</div><div style="flex:1"><b>${esc(a.name)}</b><div class="dim">${esc(a.d)}</div></div>`);
+      const bs = el('div', 'slotbtns');
+      for (let i = 0; i < 3; i++) { const b = el('button', 'btn' + (slot === i ? ' gold' : ''), String(i + 1)); b.title = 'Put on hotbar slot ' + (i + 1); b.onclick = () => { S.click(); Game.setAbilitySlot(h, i, a.icon); renderSkills(); }; bs.appendChild(b); }
+      row.appendChild(bs); ab.appendChild(row);
+    }
     c.appendChild(ab);
     const avail = Game.classPoints(h);
     const head = el('div', 'treehead', `<div><b>${avail}</b> point${avail === 1 ? '' : 's'} to spend <span class="dim">(1 per level)</span></div>`);

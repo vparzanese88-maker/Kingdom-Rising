@@ -1,5 +1,5 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, DUAL_MASTERY, dualRank, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, DUAL_MASTERY, dualRank, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -28,28 +28,25 @@ export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip |
   const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
   return h; }
-// hotbar (keys 1-6): unlocked class abilities, then potions/food, fill the next open slot; once full, nothing more is added
-export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat'];
+// hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
+export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
   if (!h.hotbar) h.hotbar = [null, null, null, null, null, null];
-  const has = (t, id) => h.hotbar.some(s => s && s.t === t && s.id === id);
-  const cands = [];
-  for (const a of [...ABILITIES[h.cls]].sort((x, y) => x.level - y.level)) if (h.level >= a.level) cands.push({ t: 'ab', id: a.id });
-  for (const id of HOTBAR_ITEMS) if (count(h, id) > 0) cands.push({ t: 'item', id });
+  const hb = h.hotbar;
+  // keep abilities only in 1-3 and items only in 4-6
+  for (let i = 0; i < 6; i++) if (hb[i] && ((i < 3) !== (hb[i].t === 'ab'))) hb[i] = null;
+  const has = (t, id) => hb.some(s => s && s.t === t && s.id === id);
   const added = [];
-  for (const c of cands) {
-    if (has(c.t, c.id)) continue;
-    const range = c.t === 'ab' ? [0, 1, 2, 3, 4, 5] : [3, 4, 5, 0, 1, 2];
-    const free = range.filter(k => !h.hotbar[k]);
-    // keep slots 1-3 free for class abilities still to come
-    const pending = ABILITIES[h.cls].filter(a => !has('ab', a.id) && !(c.t === 'ab' && c.id === a.id)).length;
-    const i = c.t === 'ab' ? free[0] : free.find(k => k >= 3 || free.filter(x => x < 3).length > pending);
-    if (i == null && c.t === 'ab') { const j = h.hotbar.findIndex(x => x && x.t === 'item'); if (j >= 0) { h.hotbar[j] = c; added.push({ slot: j, ...c }); } continue; }
-    if (i == null) continue;
-    h.hotbar[i] = c; added.push({ slot: i, ...c });
-  }
+  for (const a of ABILITIES[h.cls]) { if (has('ab', a.id) || h.level < a.level) continue; const i = [0, 1, 2].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+  for (const id of HOTBAR_ITEMS) { if (has('item', id) || count(h, id) <= 0) continue; const i = [3, 4, 5].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
   if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
   return added;
+}
+export function setAbilitySlot(h, slot, id) {
+  const hb = h.hotbar; const cur = hb.findIndex(s => s && s.t === 'ab' && s.id === id);
+  if (cur >= 0) hb[cur] = hb[slot] && hb[slot].t === 'ab' ? hb[slot] : null;
+  hb[slot] = { t: 'ab', id };
+  G.hooks.gearChanged && G.hooks.gearChanged();
 }
 
 // ---------- items ----------
@@ -136,12 +133,13 @@ export function heroDerived(h) {
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15));
   const res = 1 + perk(h, 'res') * 0.2;
-  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1)), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + perk(h, 'crit') * 0.06 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
+  const F = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] || {} : {};
+  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + (F.hp || 0))), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08 + (h.food && h.food.t > 0 && FOOD_BUFFS[h.food.id] ? FOOD_BUFFS[h.food.id].dmg || 0 : 0)) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
 // ---------- skill trees ----------
@@ -302,7 +300,9 @@ export function useItem(h, id, player) {
   if (player.useCd > 0) return false;
   removeItem(h, id, 1); player.useCd = 1.0;
   if (it.use.heal) { player.heal(player.maxHp * it.use.heal); S.drink(); }
-  if (it.use.regen) { player.regen = { per: player.maxHp * it.use.regen / (it.use.time || 10), t: it.use.time || 10 }; S.eat(); G.hooks.toast && G.hooks.toast(`${it.name}: healing over time`, it.icon); }
+  if (it.use.regen) { player.regen = { per: player.maxHp * it.use.regen / (it.use.time || 10), t: it.use.time || 10 }; S.eat(); }
+  if (FOOD_BUFFS[id]) { const prev = h.food && h.food.t > 0 && h.food.id !== id ? FOOD_BUFFS[h.food.id].name : null; h.food = { id, t: FOOD_TIME }; G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[id].name}: ${FOOD_BUFFS[id].desc} for 5 min${prev ? ` (replaces ${prev})` : ''}`, itemSvg({ id }), 'gold'); G.hooks.gearChanged && G.hooks.gearChanged(); }
+  else if (it.use.regen) G.hooks.toast && G.hooks.toast(`${it.name}: healing over time`, itemSvg({ id }));
   return true;
 }
 

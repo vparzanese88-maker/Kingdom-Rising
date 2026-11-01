@@ -119,11 +119,11 @@ function hooks() {
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
   H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
   H.questsChanged = () => UI.updateTracker();
-  H.hotbarAdded = (list) => { UI.refreshAbilityBar(); for (const a of list) UI.toast(`Added to hotbar slot ${a.slot + 1}`, '✦', 'gold'); };
+  H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
-  H.onKill = (mob) => { Game.onKill(G.save, mob); };
+  H.onKill = (mob) => { Game.onKill(G.save, mob); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;

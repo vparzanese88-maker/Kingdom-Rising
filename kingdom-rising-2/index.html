@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793562382",
-"./src/character.js": "./src/character.js?v=1793562382",
-"./src/combat.js": "./src/combat.js?v=1793562382",
-"./src/data.js": "./src/data.js?v=1793562382",
-"./src/game.js": "./src/game.js?v=1793562382",
-"./src/icons.js": "./src/icons.js?v=1793562382",
-"./src/main.js": "./src/main.js?v=1793562382",
-"./src/menu.js": "./src/menu.js?v=1793562382",
-"./src/mobs.js": "./src/mobs.js?v=1793562382",
-"./src/player.js": "./src/player.js?v=1793562382",
-"./src/saves.js": "./src/saves.js?v=1793562382",
-"./src/state.js": "./src/state.js?v=1793562382",
-"./src/terrain.js": "./src/terrain.js?v=1793562382",
-"./src/ui.js": "./src/ui.js?v=1793562382",
-"./src/util.js": "./src/util.js?v=1793562382",
-"./src/vfx.js": "./src/vfx.js?v=1793562382",
-"./src/world.js": "./src/world.js?v=1793562382"
+"./src/audio.js": "./src/audio.js?v=1793562489",
+"./src/character.js": "./src/character.js?v=1793562489",
+"./src/combat.js": "./src/combat.js?v=1793562489",
+"./src/data.js": "./src/data.js?v=1793562489",
+"./src/game.js": "./src/game.js?v=1793562489",
+"./src/icons.js": "./src/icons.js?v=1793562489",
+"./src/main.js": "./src/main.js?v=1793562489",
+"./src/menu.js": "./src/menu.js?v=1793562489",
+"./src/mobs.js": "./src/mobs.js?v=1793562489",
+"./src/player.js": "./src/player.js?v=1793562489",
+"./src/saves.js": "./src/saves.js?v=1793562489",
+"./src/state.js": "./src/state.js?v=1793562489",
+"./src/terrain.js": "./src/terrain.js?v=1793562489",
+"./src/ui.js": "./src/ui.js?v=1793562489",
+"./src/util.js": "./src/util.js?v=1793562489",
+"./src/vfx.js": "./src/vfx.js?v=1793562489",
+"./src/world.js": "./src/world.js?v=1793562489"
 }
 }
 </script>
@@ -337,6 +337,8 @@ svg{display:block;width:100%;height:100%}
 .wp{display:flex;gap:10px;align-items:center;padding:6px 12px 6px 6px;background:rgba(0,0,0,.35);border:1px solid #4a3418;border-radius:12px;text-align:left}
 .wp .nic{width:46px;height:46px}
 .wp.on{border-color:#ffd98a;background:rgba(226,189,106,.15)}
+.slotbtns{display:flex;gap:4px}.slotbtns .btn{padding:6px 11px;font-size:15px}
+.abil.onbar{border-color:#d8aa50;background:rgba(226,189,106,.12)}
 .duallist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* ---------- action bar ---------- */
 .slot{width:68px;height:68px;border-radius:12px;padding:7px;background:radial-gradient(circle at 50% 35%,#3a2a1a,#0e0905);border:2px solid #6a4a1a;box-shadow:0 4px 10px rgba(0,0,0,.6),inset 0 0 12px rgba(0,0,0,.7)}
@@ -415,6 +417,6 @@ svg{display:block;width:100%;height:100%}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div style="text-align:center"><h1>You Have Fallen</h1><p style="font-size:18px;color:#ddd">Your spirit drifts back to the nearest settlement.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793562382"></script>
+<script type="module" src="./src/main.js?v=1793562489"></script>
 </body>
 </html>

@@ -396,7 +396,7 @@ function loop(now) {
     renderer.autoClear = false; renderer.clearDepth(); renderer.render(G.vmScene, G.vmCam); renderer.autoClear = true;
   }
 }
-let portraitCh = null, portraitRot = 0;
+let portraitCh = null, portraitRot = 0, musicFight = 0;
 function gameUpdate(dt) {
   const p = G.player;
   if (intro) updateIntro(dt);
@@ -405,8 +405,10 @@ function gameUpdate(dt) {
     p.update(dt);
   }
   G.inCombat = Math.max(0, G.inCombat - dt);
-  M.setCombat(G.inCombat > 1);
-  M.setBoss(!!(G.target && !G.target.dead && G.target.def.elite && G.inCombat > 0));
+  // battle music only for real fights: hostile mobs hunting you, or an elite
+  { let threat = false, elite = false; for (const m of G.mobs) { if (m.dead || m.state !== 'chase') continue; if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) > 35) continue; if (m.def.aggro > 0) threat = true; if (m.def.elite) elite = true; }
+    musicFight = threat || elite ? Math.min(6, musicFight + dt) : Math.max(0, musicFight - dt * 0.4);
+    M.setCombat(musicFight > 1.2); M.setBoss(elite); }
   { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
   updateProjectiles(dt);

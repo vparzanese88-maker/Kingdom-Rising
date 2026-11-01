@@ -582,7 +582,7 @@ export function openSettings(fromPause) {
   row('View distance', range('viewDist', 0.5, 1.5, 0.05, () => G.hooks.applyGraphics && G.hooks.applyGraphics()));
   row('Damage numbers', check('dmgNumbers')); row('Head bob', check('headBob'));
   c.appendChild(g);
-  c.appendChild(el('p', 'dim', 'Music: "The Fall of Arcana", "Woodland Fantasy", "Beyond The Clouds" and "Dark Descent" by Matthew Pablo (matthewpablo.com, CC-BY 3.0); "GrassLands Theme" by DST, "Minstrel Dance" and "The Old Tower Inn" by RandomMind, "Town Theme" and "Battle Theme A" by cynicmusic, "Epic Boss Battle" by SubspaceAudio (all CC0). Via OpenGameArt.org.'));
+  c.appendChild(el('p', 'dim', 'Music: "The Fall of Arcana", "Pleasant Creek", "Woodland Fantasy" and "Snowland" by Matthew Pablo (matthewpablo.com, CC-BY 3.0); "The Secret Within the Silent Woods" by Hitctrl (CC-BY 3.0); "Minstrel Dance", "The Old Tower Inn" and "The Bard\'s Tale" by RandomMind, "Town Theme", "Crystal Cave", "Mysterious Ambience" and "Battle Theme A" by cynicmusic, "Epic Boss Battle" by SubspaceAudio (CC0). Via OpenGameArt.org.'));
   const r = el('div', '', ''); r.style.cssText = 'display:flex;gap:10px;margin-top:14px';
   const reset = el('button', 'btn', 'Reset to defaults'); reset.onclick = () => { Object.assign(settings, DEFAULT_SETTINGS); saveSettings(); A.applyVolumes(); G.hooks.applyGraphics && G.hooks.applyGraphics(); openSettings(fromPause); };
   const back = el('button', 'btn gold', fromPause ? 'Back' : 'Done'); back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); };

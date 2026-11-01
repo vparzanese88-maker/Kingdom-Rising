@@ -440,28 +440,32 @@ TRACKS.combat = { bpm: 148, div: 4, step(t, s, dest) {
 } };
 
 // ---------------- RECORDED MUSIC (see music/CREDITS.md) ----------------
-const MUSIC = {
-  title: ['music/title.mp3'], meadow: ['music/meadow.mp3'], wood: ['music/forest.mp3'], highlands: ['music/highlands.mp3'], ashlands: ['music/ashlands.mp3'],
-  town: ['music/town1.mp3', 'music/town3.mp3', 'music/town2.mp3'], combat: ['../audio/rec/battle-music.mp3'], boss: ['music/boss.mp3'],
+// In the world: one calm song at a time, then a few minutes of just ambience before the next.
+// Battle music only for real fights (hostile mobs chasing you or an elite), and it fades away soon after.
+const SONGS = {
+  coast: ['music/calm_meadow.mp3'], meadow: ['music/calm_meadow.mp3'], wood: ['music/calm_forest.mp3', 'music/forest.mp3'],
+  highlands: ['music/calm_snow.mp3', 'music/calm_cave.mp3'], ashlands: ['music/calm_ash.mp3'],
+  town: ['music/town4.mp3', 'music/town2.mp3', 'music/town3.mp3', 'music/town1.mp3'],
 };
-const chans = {};
-let musicZone = 'meadow', wanted = null, townOn = false, bossOn = false, inCombat = false, combatHold = 0;
-function chan(name) {
-  let c = chans[name]; if (c) return c;
-  const list = MUSIC[name]; c = chans[name] = { list, i: 0, lv: 0, el: null };
-  const make = () => { const el = new Audio(list[c.i]); el.preload = 'auto'; el.loop = list.length === 1; el.volume = 0; el.addEventListener('ended', () => { c.i = (c.i + 1) % list.length; const old = c.el; c.el = make(); c.el.volume = old.volume; if (c.lv > 0.01) c.el.play().catch(() => {}); }); return el; };
-  c.el = make(); return c;
-}
-function desired() {
-  if (wanted === 'title') return 'title';
-  if (wanted !== 'explore') return null;
-  if (inCombat) return bossOn ? 'boss' : 'combat';
-  if (townOn) return 'town';
-  return musicZone === 'coast' ? 'meadow' : (MUSIC[musicZone] ? musicZone : 'meadow');
+const LOOPS = { title: 'music/title.mp3', combat: '../audio/rec/battle-music.mp3', boss: 'music/boss.mp3' };
+let musicZone = 'meadow', wanted = null, townOn = false, bossOn = false, inCombat = false;
+const loops = {};
+function loopCh(name) { let c = loops[name]; if (!c) { const el = new Audio(LOOPS[name]); el.loop = true; el.preload = 'auto'; el.volume = 0; c = loops[name] = { el, lv: 0 }; } return c; }
+const song = { el: null, lv: 0, ctx: null, fadeOut: false, silenceUntil: 0, last: {} };
+function ctxNow() { return townOn ? 'town' : musicZone; }
+function startSong(now) {
+  const key = ctxNow(), list = SONGS[key] || SONGS.meadow;
+  let pick = list[Math.floor(Math.random() * list.length)];
+  if (list.length > 1 && pick === song.last[key]) pick = list[(list.indexOf(pick) + 1) % list.length];
+  song.last[key] = pick;
+  const el = new Audio(pick); el.volume = 0; el.preload = 'auto';
+  el.addEventListener('ended', () => { if (song.el === el) { song.el = null; song.lv = 0; song.silenceUntil = performance.now() + (townOn ? 15000 + Math.random() * 20000 : 60000 + Math.random() * 90000); } });
+  song.el = el; song.lv = 0; song.ctx = key; song.fadeOut = false;
+  el.play().then(() => { M.blocked = false; }).catch(() => { M.blocked = true; song.el = null; song.silenceUntil = now + 1500; });
 }
 export const M = {
-  play(name) { wanted = name; track = name; },
-  setCombat(on) { if (on) { inCombat = true; combatHold = 5; } },
+  play(name) { wanted = name; track = name; if (name === 'explore') { song.silenceUntil = performance.now() + 4000; } },
+  setCombat(on) { inCombat = on; },
   setBoss(on) { bossOn = on; },
   setZone(z) { musicZone = z; },
   setTown(on) { townOn = on; },
@@ -470,20 +474,32 @@ export const M = {
 let lastTick = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = Math.min(0.5, (now - lastTick) / 1000); lastTick = now;
-  if (inCombat) { combatHold -= dt; if (combatHold <= 0) inCombat = false; }
-  const want = desired();
-  const vol = settings.master * settings.music * 0.75;
-  if (!want && !Object.keys(chans).length) return;
-  for (const name in MUSIC) {
-    const target = name === want ? 1 : 0;
-    if (!chans[name] && !target) continue;
-    const c = chan(name);
-    const rate = target ? (name === 'combat' || name === 'boss' ? 1.2 : 0.5) : (name === 'combat' || name === 'boss' ? 0.35 : 0.6);
+  const vol = settings.master * settings.music;
+  const fight = wanted === 'explore' && inCombat;
+  // looping channels: title, battle, boss
+  const wantLoop = wanted === 'title' ? 'title' : fight ? (bossOn ? 'boss' : 'combat') : null;
+  for (const name in LOOPS) {
+    const target = name === wantLoop ? 1 : 0;
+    if (!loops[name] && !target) continue;
+    const c = loopCh(name);
+    const rate = target ? 0.6 : 0.3;
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * vol));
+    c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * vol * (name === 'title' ? 0.8 : 0.5)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
-    if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name === 'combat' || name === 'boss') c.el.currentTime = 0; }
+    if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }
+  // calm world songs with silence between them
+  if (wanted !== 'explore') { if (song.el) { song.el.pause(); song.el = null; } return; }
+  if (song.el) {
+    // entering or leaving town changes the song; moving between zones lets it finish
+    if ((song.ctx === 'town') !== townOn) song.fadeOut = true;
+    const target = song.fadeOut || fight ? 0 : 1;
+    song.lv += Math.sign(target - song.lv) * Math.min(Math.abs(target - song.lv), dt * (target ? 0.25 : 0.4));
+    song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * vol * 0.42));
+    if (fight && song.lv <= 0.001 && !song.el.paused) song.el.pause();
+    if (!fight && !song.fadeOut && song.el.paused && song.el.currentTime > 0) song.el.play().catch(() => {});
+    if (song.fadeOut && song.lv <= 0.001) { song.el.pause(); song.el = null; song.silenceUntil = now + (townOn ? 1500 : 20000); }
+  } else if (!fight && now > song.silenceUntil) startSong(now);
 }, 50);
 function combatTick() {}
 

@@ -1,6 +1,7 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, DUAL_MASTERY, dualRank, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, DUAL_MASTERY, dualRank, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor } from './data.js';
 import { G } from './state.js';
+import { itemSvg } from './icons.js';
 import { S } from './audio.js';
 import { V } from './vfx.js';
 
@@ -13,11 +14,16 @@ export function newHero(o) {
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
-    pos: null, inv: new Array(INV_SIZE).fill(null), equip: { w1: starter, w2: null, head: null, chest: null, legs: null, feet: null },
+    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter }), ctree: {}, wm: {},
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   return h;
 }
+
+export const EQUIP_SLOTS = ['w1', 'w2', 'head', 'neck', 'shoulders', 'back', 'chest', 'wrists', 'hands', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'trinket'];
+function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
+// bring older saves up to date
+export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; return h; }
 
 // ---------- items ----------
 export function makeWeapon(wt, tier, rarity = 0, lvlHint) {
@@ -39,18 +45,29 @@ function rollStats(tier, rarity, main) {
   for (let i = 0; i < rarity; i++) { const k = Math.random() < 0.5 ? main : keys[Math.floor(Math.random() * 4)]; st[k] = (st[k] || 0) + Math.round(1 + tier * (0.8 + Math.random() * 0.8)); }
   return st;
 }
+export function makeAcc(slot, tier, rarity = 0) {
+  const R = RARITY[rarity];
+  const keys = ['str', 'dex', 'int', 'sta'];
+  const st = {}; const n = 1 + rarity;
+  for (let i = 0; i < n; i++) { const k = keys[Math.floor(Math.random() * 4)]; st[k] = (st[k] || 0) + Math.round(1 + tier * (0.9 + Math.random() * 0.7)); }
+  const s2 = slot === 'ring1' || slot === 'ring2' ? 'ring' : slot;
+  return { uid: ++uid, kind: 'acc', slot: s2, tier, rarity, name: ACC[s2].names[tier], stats: st, armor: s2 === 'back' ? Math.round((2 + tier * 2) * R.mult) : 0, lvl: TIERS[tier].lvl };
+}
 export function itemName(it) { return it.kind ? it.name : (ITEMS[it.id]?.name || it.id); }
 export function itemValue(it) { if (it.kind) return Math.round((4 + it.tier * 10) * (1 + it.rarity * 0.8)); return ITEMS[it.id]?.value || 1; }
 export function itemIcon(it) {
   if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; return W.kind === 'bow' ? '🏹' : W.kind === 'staff' ? '🪄' : it.wt === 'daggers' ? '🗡' : it.wt === 'spear' ? '🔱' : it.wt.includes('axe') ? '🪓' : it.wt === 'warhammer' || it.wt === 'maceshield' ? '🔨' : '⚔'; }
-  if (it.kind === 'armor') return { head: '⛑', chest: '🥋', legs: '👖', feet: '🥾' }[it.slot];
+  if (it.kind === 'armor') return { head: '⛑', shoulders: '🎽', chest: '🥋', wrists: '⌚', hands: '🧤', waist: '🎗', legs: '👖', feet: '🥾' }[it.slot];
+  if (it.kind === 'acc') return { neck: '📿', back: '🧣', ring: '💍', trinket: '🔮' }[it.slot];
   return ITEMS[it.id]?.icon || '?';
 }
 export function randomGear(h, lvl, minRarity = 0) {
   const tier = Math.max(1, Math.min(5, Math.floor((lvl + 3) / 4)));
   let r = Math.random(), rarity = r < 0.55 ? 1 : r < 0.85 ? 2 : r < 0.97 ? 3 : 4; rarity = Math.max(minRarity, rarity);
-  if (Math.random() < 0.45) { const ws = CLASSES[h.cls].weapons; return makeWeapon(ws[Math.floor(Math.random() * ws.length)], tier, rarity); }
-  return makeArmor(CLASSES[h.cls].armor, ARMOR_SLOT_LIST[Math.floor(Math.random() * 4)], tier, rarity);
+  const r2 = Math.random();
+  if (r2 < 0.35) { const ws = CLASSES[h.cls].weapons; return makeWeapon(ws[Math.floor(Math.random() * ws.length)], tier, rarity); }
+  if (r2 < 0.55) return makeAcc(['neck', 'back', 'ring', 'trinket'][Math.floor(Math.random() * 4)], tier, Math.max(1, rarity));
+  return makeArmor(CLASSES[h.cls].armor, ARMOR_SLOT_LIST[Math.floor(Math.random() * ARMOR_SLOT_LIST.length)], tier, rarity);
 }
 
 // ---------- inventory ----------
@@ -59,14 +76,14 @@ export function addItem(h, id, n = 1, quiet) {
   let left = n;
   for (const s of h.inv) if (s && !s.kind && s.id === id && s.n < STACK) { const k = Math.min(left, STACK - s.n); s.n += k; left -= k; if (!left) break; }
   while (left > 0) { const i = h.inv.indexOf(null); if (i < 0) break; const k = Math.min(left, STACK); h.inv[i] = { id, n: k }; left -= k; }
-  if (!quiet && n - left > 0) G.hooks.toast && G.hooks.toast(`+${n - left} ${ITEMS[id].name}`, ITEMS[id].icon);
+  if (!quiet && n - left > 0) G.hooks.toast && G.hooks.toast(`+${n - left} ${ITEMS[id].name}`, itemSvg({ id }));
   if (left > 0) G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad');
   G.hooks.invChanged && G.hooks.invChanged();
   return n - left;
 }
 export function addGear(h, it, quiet) {
   const i = h.inv.indexOf(null); if (i < 0) { G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad'); return false; }
-  h.inv[i] = it; if (!quiet) G.hooks.toast && G.hooks.toast(it.name, itemIcon(it), 'r' + it.rarity);
+  h.inv[i] = it; if (!quiet) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
   G.hooks.invChanged && G.hooks.invChanged(); return true;
 }
 export function removeItem(h, id, n) {
@@ -77,7 +94,7 @@ export function removeItem(h, id, n) {
 // ---------- stats ----------
 export function heroStats(h) {
   const base = Object.assign({}, RACES[h.race].stats);
-  for (const k of ['w1', 'w2', 'head', 'chest', 'legs', 'feet']) {
+  for (const k of EQUIP_SLOTS) {
     const it = h.equip[k]; if (!it) continue;
     if ((k === 'w1' || k === 'w2') && k !== h.active) continue;
     for (const s in it.stats) base[s] += it.stats[s];
@@ -86,23 +103,45 @@ export function heroStats(h) {
 }
 export function heroDerived(h) {
   const st = heroStats(h), d = derived(st), P = poolsAt(h.cls, h.level);
-  let armor = 0; for (const k of ARMOR_SLOT_LIST) if (h.equip[k]) armor += h.equip[k].armor;
+  let armor = 0; for (const k of [...ARMOR_SLOT_LIST, 'back']) if (h.equip[k]) armor += h.equip[k].armor || 0;
   const w = h.equip[h.active];
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
-  return { stats: st, maxHp: Math.round(P.hp + d.hp + RACES[h.race].hp), maxMana: Math.round(P.mana + (P.mana > 0 ? d.mana : 0)), maxEnd: Math.round(P.end + d.end), armor, crit: d.crit, meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
+  armor = Math.round(armor * (1 + perk(h, 'armor') * (h.cls === 'wizard' ? 0.15 : 0.1)));
+  const res = 1 + perk(h, 'res') * 0.1;
+  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.05)), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + perk(h, 'crit') * 0.03 + (w ? wperk(h, w.wt, 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05);
+  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.04) * (1 + wperk(h, w.wt, 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+}
+
+// ---------- skill trees ----------
+export function perk(h, id) { return (h.ctree && h.ctree[id]) || 0; }
+export function wkind(wt) { const k = WEAPON_TYPES[wt].kind; return k === 'bow' ? 'bow' : k === 'staff' ? 'staff' : 'melee'; }
+export function wm(h, wt) { h.wm = h.wm || {}; return h.wm[wt] || (h.wm[wt] = { lv: 1, xp: 0, pts: {} }); }
+export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id]) || 0; }
+const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+export function classPoints(h) { return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
+export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
+export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * 3; }
+export function spendClass(h, node) { if (!canSpend(CLASS_TREE[h.cls], h.ctree, classPoints(h), node)) return false; h.ctree[node.id] = (h.ctree[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
+export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend(WEAPON_TREE[wkind(wt)], m.pts, weaponPoints(h, wt), node)) return false; m.pts[node.id] = (m.pts[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
+export function resetClass(h) { h.ctree = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
+export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
+export function gainMastery(h, wt, n) {
+  const m = wm(h, wt); if (m.lv >= MASTERY_CAP) return;
+  m.xp += n;
+  while (m.lv < MASTERY_CAP && m.xp >= masteryXpFor(m.lv)) { m.xp -= masteryXpFor(m.lv); m.lv++; G.hooks.masteryUp && G.hooks.masteryUp(wt, m.lv); }
 }
 export function spellPower(h) { const D = heroDerived(h); const w = h.equip[h.active]; return (12 + h.level * 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
-export function canEquip(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+export function canEquip(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 export function equipFromInv(h, idx, slot) {
   const it = h.inv[idx]; if (!it || !it.kind) return false;
   if (!canEquip(h, it)) { G.hooks.toast && G.hooks.toast(`${CLASSES[h.cls].name}s can't use that.`, '⚠', 'bad'); S.error(); return false; }
   if (it.lvl > h.level) { G.hooks.toast && G.hooks.toast(`Requires level ${it.lvl}.`, '⚠', 'bad'); S.error(); return false; }
-  const target = it.kind === 'weapon' ? (slot || h.active) : it.slot;
+  let target = it.kind === 'weapon' ? (slot || h.active) : it.slot;
+  if (it.kind === 'acc' && it.slot === 'ring') target = slot || (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
   h.inv[idx] = h.equip[target] || null; h.equip[target] = it;
   S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
   checkEquipObjectives(h);
@@ -142,8 +181,9 @@ export function onKill(h, mob) {
     const q = QUESTS.find(x => x.id === qid), a = h.quests.active[qid];
     q.obj.forEach((o, i) => { if (o.t === 'kill' && o.mob === mob.type && a.p[i] < o.n) { a.p[i]++; G.hooks.objective && G.hooks.objective(q, o, a.p[i]); } });
   }
-  // dual wield mastery
+  // weapon mastery
   const w = h.equip[h.active];
+  if (w) gainMastery(h, w.wt, 10 + mob.lv * 6 * xpMul);
   if (w && WEAPON_TYPES[w.wt].hands === 'dual') {
     const before = dualRank(h.dualKills); h.dualKills++; const after = dualRank(h.dualKills);
     if (after > before) G.hooks.mastery && G.hooks.mastery(DUAL_MASTERY[after - 1]);
@@ -193,8 +233,10 @@ export function recipeOutputName(r) {
   if (r.tool) return TOOL_TIER_NAMES[r.tier] + ' ' + TOOLS[r.tool].name;
   if (r.weapon) return TIERS[r.tier].name + ' ' + WEAPON_TYPES[r.weapon].name;
   if (r.armor) return ARMOR_TIER_NAMES[r.armor][r.tier] + ' ' + ARMOR_NAMES[r.armor][r.slot];
+  if (r.acc) return ACC[r.acc].names[r.tier];
 }
-export function recipeIcon(r) { if (r.out) return ITEMS[r.out].icon; if (r.tool) return TOOLS[r.tool].icon; if (r.weapon) return itemIcon({ kind: 'weapon', wt: r.weapon }); if (r.armor) return itemIcon({ kind: 'armor', slot: r.slot }); }
+export function recipeItem(r) { if (r.out) return { id: r.out, n: r.n }; if (r.tool) return { tool: r.tool, tier: r.tier }; if (r.weapon) return { kind: 'weapon', wt: r.weapon, tier: r.tier, rarity: 0 }; if (r.armor) return { kind: 'armor', akind: r.armor, slot: r.slot, tier: r.tier, rarity: 0 }; if (r.acc) return { kind: 'acc', slot: r.acc, tier: r.tier, rarity: 0 }; }
+export function recipeIcon(r) { if (r.out) return ITEMS[r.out].icon; if (r.tool) return TOOLS[r.tool].icon; if (r.weapon) return itemIcon({ kind: 'weapon', wt: r.weapon }); if (r.armor) return itemIcon({ kind: 'armor', slot: r.slot }); if (r.acc) return itemIcon({ kind: 'acc', slot: r.acc }); }
 export function recipesFor(h) {
   return RECIPES.filter(r => {
     if (r.weapon && !CLASSES[h.cls].weapons.includes(r.weapon)) return false;
@@ -213,7 +255,7 @@ export function craft(h, r) {
   else {
     // crafted gear: small chance of better rarity
     const x = Math.random(), rar = x < 0.6 ? 0 : x < 0.88 ? 1 : x < 0.98 ? 2 : 3;
-    const it = r.weapon ? makeWeapon(r.weapon, r.tier, rar) : makeArmor(r.armor, r.slot, r.tier, rar);
+    const it = r.weapon ? makeWeapon(r.weapon, r.tier, rar) : r.acc ? makeAcc(r.acc, r.tier, Math.max(1, rar)) : makeArmor(r.armor, r.slot, r.tier, rar);
     addGear(h, it);
   }
   S.craft(r.station);

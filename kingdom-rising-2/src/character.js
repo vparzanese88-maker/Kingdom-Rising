@@ -461,6 +461,16 @@ export function tintGear(ch, gear) {
   const chest = gear && gear.chest, legs = gear && gear.legs, head = gear && gear.head;
   if (ch.outfit.mail) ch.outfit.mail.material.color.set(chest ? TIERS[chest.tier].col : CLASSES.warrior.colors.metal);
   if (legs) ch.mats.pants.color.set(new THREE.Color(ch.mats.pants.color).lerp(new THREE.Color(TIERS[legs.tier].col), 0.3));
+  // cloak from the back slot
+  if (gear && gear.back && ch.outfit) {
+    const col = ['#8a2a2a', '#8a2a2a', '#2a5a2a', '#2a3a8a', '#5a2a8a', '#8a6a1a'][gear.back.tier] || '#8a2a2a';
+    if (ch.outfit.cloak) ch.outfit.cloak.material.color.set(col);
+    else {
+      const th = ch.R.torsoH - 0.2, T = ch.R.thick;
+      const cl = new THREE.Mesh(cached('cloak', () => { const g = new THREE.PlaneGeometry(0.46, 1.0, 4, 8); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -Math.abs(x) * 0.25 + (0.5 - y) * -0.12); } g.translate(0, -0.5, 0); g.computeVertexNormals(); return g; }), mat(col, 0.9, 0, { side: THREE.DoubleSide }));
+      cl.position.set(0, th + 0.02, -0.11 * T - 0.06); cl.scale.x = ch.R.sw / 0.2; cl.castShadow = true; cl.userData.keep = true; ch.chest.add(cl); ch.outfit.cloak = cl;
+    }
+  }
   // helmet for warriors with head armour
   if (ch.helm) { ch.helm.parent.remove(ch.helm); ch.helm = null; }
   if (head && ch.app.cls === 'warrior') {

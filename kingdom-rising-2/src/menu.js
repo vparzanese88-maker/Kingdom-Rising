@@ -147,7 +147,7 @@ function buildPreview() {
 }
 function rebuildPreview() {
   const P = Menu.preview; if (!P) return;
-  if (P.ch) P.holder.remove(P.ch.root);
+  if (P.ch) P.holder.clear();
   const ch = buildHumanoid(Object.assign({ race: C.race, sex: C.sex, cls: C.cls }, C.app));
   equipWeapon(ch, C.weapon, 0, 0);
   ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
@@ -156,14 +156,20 @@ function rebuildPreview() {
 export function renderPreview(renderer, dt) {
   const P = Menu.preview; if (!P || !P.active || !P.ch) return false;
   const w = innerWidth, h = innerHeight, side = innerWidth > 900 ? Math.min(520, Math.max(360, w * 0.32)) : 0;
-  P.holder.rotation.y = P.rot;
   animateHumanoid(P.ch, dt, { speed: 0, armed: true });
-  const ht = P.ch.height;
-  const vw = w - side;
-  P.cam.aspect = vw / h; P.cam.position.set(0, ht * 0.62, ht * 2.35 + 1.2); P.cam.lookAt(0, ht * 0.52, 0); P.cam.updateProjectionMatrix();
-  P.torch.intensity = 2.6 + Math.sin(performance.now() * 0.013) * 0.4 + Math.sin(performance.now() * 0.031) * 0.3;
-  renderer.setViewport(side, 0, vw, h); renderer.setScissor(side, 0, vw, h); renderer.setScissorTest(true);
-  renderer.render(P.scene, P.cam);
-  renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h);
+  renderStage(renderer, { left: side, top: 0, width: w - side, height: h }, P.ch, P.rot, 2.35);
   return true;
+}
+// draw a character on the torch-lit stage into a screen rectangle (creator preview, inventory portrait)
+export function renderStage(renderer, rect, ch, rot, dist = 2.1) {
+  const P = Menu.preview;
+  if (P.holder.children[0] !== ch.root) { P.holder.clear(); P.holder.add(ch.root); }
+  P.holder.rotation.y = rot;
+  const ht = ch.height;
+  P.cam.aspect = rect.width / rect.height; P.cam.position.set(0, ht * 0.6, ht * dist + 1.2); P.cam.lookAt(0, ht * 0.5, 0); P.cam.updateProjectionMatrix();
+  P.torch.intensity = 2.6 + Math.sin(performance.now() * 0.013) * 0.4 + Math.sin(performance.now() * 0.031) * 0.3;
+  const y = innerHeight - rect.top - rect.height;
+  renderer.setViewport(rect.left, y, rect.width, rect.height); renderer.setScissor(rect.left, y, rect.width, rect.height); renderer.setScissorTest(true);
+  renderer.render(P.scene, P.cam);
+  renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
 }

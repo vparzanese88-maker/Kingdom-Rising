@@ -15,83 +15,115 @@ function piv(p, x = 0, y = 0, z = 0) { const o = new THREE.Object3D(); o.positio
 
 // ---------- quadrupeds ----------
 const QV = {
-  wolf: { len: 1.0, bodyR: 0.22, legL: 0.55, legR: 0.055, neck: 0.25, headR: 0.13, snout: 0.2, ears: 'point', tail: 0.5, tailBushy: true },
-  bear: { len: 1.1, bodyR: 0.38, legL: 0.5, legR: 0.11, neck: 0.12, headR: 0.2, snout: 0.13, ears: 'round', tail: 0.08, hump: true },
-  boar: { len: 0.9, bodyR: 0.3, legL: 0.32, legR: 0.06, neck: 0.05, headR: 0.17, snout: 0.22, ears: 'point', tail: 0.18, tusks: true },
-  deer: { len: 0.95, bodyR: 0.2, legL: 0.8, legR: 0.04, neck: 0.5, headR: 0.11, snout: 0.16, ears: 'long', tail: 0.1, antlers: true },
-  rabbit: { len: 0.4, bodyR: 0.16, legL: 0.14, legR: 0.035, neck: 0.05, headR: 0.1, snout: 0.05, ears: 'bunny', tail: 0.05 },
-  hound: { len: 1.05, bodyR: 0.24, legL: 0.6, legR: 0.06, neck: 0.25, headR: 0.14, snout: 0.22, ears: 'point', tail: 0.5, ember: true },
+  // len: body length, ch: chest radius, hip: hip radius, legL: leg length, legR: leg thickness, neck, headR, snout (muzzle length), ears, tail, extras
+  wolf: { len: 1.05, ch: 0.25, hip: 0.19, waist: 0.15, legL: 0.62, legR: 0.05, neck: 0.3, neckUp: 0.55, headR: 0.13, snout: 0.22, snoutR: 0.07, ears: 'point', earL: 0.13, tail: 0.55, tailR: 0.075, ruff: true, under: 0.45 },
+  hound: { len: 1.1, ch: 0.26, hip: 0.19, waist: 0.14, legL: 0.66, legR: 0.05, neck: 0.32, neckUp: 0.5, headR: 0.14, snout: 0.24, snoutR: 0.075, ears: 'point', earL: 0.15, tail: 0.6, tailR: 0.06, ruff: true, under: -0.2, ember: true },
+  bear: { len: 1.05, ch: 0.42, hip: 0.38, waist: 0.36, legL: 0.5, legR: 0.11, neck: 0.18, neckUp: 0.25, headR: 0.2, snout: 0.14, snoutR: 0.09, ears: 'round', earL: 0.07, tail: 0.1, tailR: 0.06, hump: true, under: 0.15, plantigrade: true },
+  boar: { len: 0.95, ch: 0.33, hip: 0.27, waist: 0.28, legL: 0.34, legR: 0.055, neck: 0.08, neckUp: 0.1, headR: 0.18, snout: 0.24, snoutR: 0.09, ears: 'point', earL: 0.1, tail: 0.2, tailR: 0.02, tusks: true, mane: true, under: 0.1, plantigrade: true },
+  deer: { len: 0.95, ch: 0.22, hip: 0.2, waist: 0.17, legL: 0.85, legR: 0.035, neck: 0.5, neckUp: 1.0, headR: 0.11, snout: 0.17, snoutR: 0.055, ears: 'long', earL: 0.15, tail: 0.1, tailR: 0.04, antlers: true, under: 0.5 },
+  rabbit: { len: 0.32, ch: 0.15, hip: 0.17, waist: 0.13, legL: 0.12, legR: 0.03, neck: 0.04, neckUp: 0.6, headR: 0.1, snout: 0.05, snoutR: 0.05, ears: 'bunny', earL: 0.2, tail: 0.04, tailR: 0.05, under: 0.5, plantigrade: true },
 };
 function buildQuad(variant, col, size) {
   const P = QV[variant];
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
-  const M = mat(col, 0.9), dark = mat(new THREE.Color(col).multiplyScalar(0.55), 0.9), eyeM = P.ember ? new THREE.MeshBasicMaterial({ color: '#ffb020' }) : mat('#111', 0.3);
-  const hipY = P.legL + P.bodyR * 0.6;
-  const torso = piv(body, 0, hipY, 0);
-  const tb = mesh(limbGeo(P.bodyR, P.bodyR * 0.9, P.len), M, torso, 0, 0, P.len / 2); tb.rotation.x = Math.PI / 2; tb.scale.set(1, 1, 0.92);
-  if (P.hump) { const h = mesh(new THREE.SphereGeometry(P.bodyR * 0.9, 12, 8), M, torso, 0, P.bodyR * 0.45, P.len * 0.3); }
+  const base = new THREE.Color(col);
+  const M = mat(col, 0.92), dark = mat(base.clone().multiplyScalar(0.5), 0.9), light = mat(P.under >= 0 ? base.clone().lerp(new THREE.Color('#f4ece0'), P.under) : base.clone().multiplyScalar(0.6), 0.92);
+  const nose = mat('#141010', 0.35), eyeM = P.ember ? new THREE.MeshBasicMaterial({ color: '#ffb020' }) : mat('#1a1208', 0.25);
+  const hipY = P.legL + P.hip * 0.35;
+  const torso = piv(body, 0, hipY, 0); // origin at the hips, body extends to +z
+  // body: hips, waist, ribcage
+  const hip = mesh(new THREE.SphereGeometry(P.hip, 16, 12), M, torso, 0, 0.02, 0); hip.scale.set(0.95, 1, 1.15);
+  const waist = mesh(limbGeo(P.ch * 0.92, P.waist * 1.05, P.len * 0.7, 14), M, torso, 0, P.ch * 0.18, P.len * 0.75); waist.rotation.x = Math.PI / 2 + 0.08;
+  const chest = mesh(new THREE.SphereGeometry(P.ch, 16, 12), M, torso, 0, P.ch * 0.2, P.len * 0.75); chest.scale.set(0.82, 1.05, 1.15);
+  const belly = mesh(new THREE.SphereGeometry(P.ch * 0.8, 12, 8), light, torso, 0, -P.ch * 0.25, P.len * 0.62); belly.scale.set(0.75, 0.65, 1.5);
+  if (P.hump) { mesh(new THREE.SphereGeometry(P.ch * 0.7, 12, 8), M, torso, 0, P.ch * 0.75, P.len * 0.78); }
+  if (P.ruff) { const r = mesh(new THREE.SphereGeometry(P.ch * 0.8, 12, 8), light, torso, 0, P.ch * 0.1, P.len * 1.0); r.scale.set(0.95, 1.15, 0.8); const r2 = mesh(new THREE.SphereGeometry(P.ch * 0.75, 12, 8), M, torso, 0, P.ch * 0.65, P.len * 0.9); r2.scale.set(0.9, 0.8, 1.1); }
+  if (P.mane) for (let i = 0; i < 6; i++) { const c = mesh(new THREE.ConeGeometry(0.04, 0.16, 4), dark, torso, 0, P.ch * 0.9, P.len * (0.2 + i * 0.14)); c.rotation.x = -0.4; }
   // neck & head
-  const neck = piv(torso, 0, P.bodyR * 0.3, P.len / 2 + P.bodyR * 0.3);
-  const nk = mesh(limbGeo(P.bodyR * 0.55, P.headR * 0.8, P.neck + 0.05), M, neck); nk.rotation.x = -Math.PI * (variant === 'deer' ? 0.82 : 0.65);
-  const head = piv(neck, 0, Math.cos(Math.PI * 0.35) * P.neck + 0.03, Math.sin(Math.PI * 0.35) * P.neck);
-  if (variant === 'deer') head.position.set(0, P.neck * 0.85, P.neck * 0.35);
-  mesh(new THREE.SphereGeometry(P.headR, 14, 10), M, head);
-  const sn = mesh(limbGeo(P.headR * 0.55, P.headR * 0.35, P.snout + P.headR * 0.4), M, head, 0, -P.headR * 0.2, P.headR * 0.2); sn.rotation.x = -Math.PI / 2 - 0.15;
-  mesh(new THREE.SphereGeometry(P.headR * 0.22, 8, 6), mat('#111', 0.4), head, 0, -P.headR * 0.25, P.headR * 0.6 + P.snout);
+  const neck = piv(torso, 0, P.ch * 0.45, P.len * 0.95);
+  neck.rotation.x = -P.neckUp;
+  const nk = mesh(limbGeo(P.ch * 0.55, P.headR * 0.85, P.neck + 0.06, 12), M, neck); nk.rotation.x = -Math.PI / 2;
+  const head = piv(neck, 0, 0, P.neck);
+  const headRot = piv(head); headRot.rotation.x = P.neckUp * 0.9; // keep the head level
+  const skull = mesh(new THREE.SphereGeometry(P.headR, 16, 12), M, headRot); skull.scale.set(0.9, 0.85, 1.05);
+  const muz = mesh(limbGeo(P.snoutR * 1.25, P.snoutR * 0.85, P.snout + P.headR * 0.5, 12), variant === 'bear' || variant === 'boar' ? M : light, headRot, 0, -P.headR * 0.25, P.headR * 0.2); muz.rotation.x = -Math.PI / 2 + 0.08;
+  const nz = P.headR * 0.2 + P.snout + P.headR * 0.5;
+  mesh(new THREE.SphereGeometry(P.snoutR * (variant === 'boar' ? 1.1 : 0.65), 10, 8), variant === 'boar' ? mat('#c89090', 0.5) : nose, headRot, 0, -P.headR * 0.22, nz).scale.z = variant === 'boar' ? 0.4 : 0.8;
+  const jaw = mesh(limbGeo(P.snoutR * 0.9, P.snoutR * 0.6, P.snout + P.headR * 0.3, 10), light, headRot, 0, -P.headR * 0.45, P.headR * 0.15); jaw.rotation.x = -Math.PI / 2 + 0.22;
   for (const s of [-1, 1]) {
-    const e = mesh(new THREE.SphereGeometry(P.headR * 0.17, 8, 6), eyeM, head, s * P.headR * 0.55, P.headR * 0.25, P.headR * 0.65);
-    let ear;
-    if (P.ears === 'point') { ear = mesh(new THREE.ConeGeometry(P.headR * 0.32, P.headR * 0.8, 5), M, head, s * P.headR * 0.5, P.headR * 0.85, -P.headR * 0.1); ear.rotation.z = -s * 0.3; }
-    else if (P.ears === 'round') { ear = mesh(new THREE.SphereGeometry(P.headR * 0.3, 8, 6), M, head, s * P.headR * 0.7, P.headR * 0.75, -P.headR * 0.1); ear.scale.z = 0.5; }
-    else if (P.ears === 'long') { ear = mesh(new THREE.ConeGeometry(P.headR * 0.3, P.headR * 1.3, 6), M, head, s * P.headR * 0.8, P.headR * 0.7, -P.headR * 0.2); ear.rotation.z = -s * 1.1; ear.scale.z = 0.4; }
-    else if (P.ears === 'bunny') { ear = mesh(limbGeo(P.headR * 0.25, P.headR * 0.2, P.headR * 2.2), M, head, s * P.headR * 0.35, P.headR * 0.6, -P.headR * 0.2); ear.rotation.x = Math.PI - 0.3; ear.rotation.z = s * 0.2; ear.scale.z = 0.5; }
-    if (P.tusks) { const t = mesh(new THREE.ConeGeometry(0.02, 0.12, 5), mat('#f0e8d0', 0.5), head, s * P.headR * 0.4, -P.headR * 0.35, P.headR * 0.5 + P.snout * 0.6); t.rotation.x = -0.6; }
-    if (P.antlers) { const a = new THREE.Group(); a.position.set(s * P.headR * 0.4, P.headR * 0.8, -0.02); head.add(a); const am = mat('#d8c8a0', 0.7); const m1 = mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.4, 5), am, a, 0, 0.2, 0); m1.rotation.z = -s * 0.4; for (let k = 0; k < 3; k++) { const b = mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.18, 4), am, a, -s * 0.06 * k, 0.12 + k * 0.1, 0.04); b.rotation.x = 0.7; b.rotation.z = -s * 0.2; } }
+    const e = mesh(new THREE.SphereGeometry(P.headR * 0.13, 8, 6), eyeM, headRot, s * P.headR * 0.42, P.headR * 0.2, P.headR * 0.68); e.scale.set(1, 0.75, 0.6);
+    if (P.ears === 'point') { const ear = mesh(new THREE.ConeGeometry(P.headR * 0.33, P.earL, 4), M, headRot, s * P.headR * 0.48, P.headR * 0.78, -P.headR * 0.05); ear.rotation.z = -s * 0.25; ear.rotation.x = -0.15; ear.scale.z = 0.45; const inn = mesh(new THREE.ConeGeometry(P.headR * 0.2, P.earL * 0.75, 3), dark, ear, 0, -P.earL * 0.05, 0.02); }
+    else if (P.ears === 'round') { const ear = mesh(new THREE.SphereGeometry(P.headR * 0.32, 8, 6), M, headRot, s * P.headR * 0.7, P.headR * 0.72, -P.headR * 0.1); ear.scale.z = 0.5; }
+    else if (P.ears === 'long') { const ear = mesh(new THREE.ConeGeometry(P.headR * 0.3, P.earL, 6), M, headRot, s * P.headR * 0.75, P.headR * 0.6, -P.headR * 0.25); ear.rotation.z = -s * 1.1; ear.scale.z = 0.4; }
+    else if (P.ears === 'bunny') { const ear = mesh(limbGeo(P.headR * 0.28, P.headR * 0.22, P.earL), M, headRot, s * P.headR * 0.35, P.headR * 0.6, -P.headR * 0.25); ear.rotation.x = Math.PI - 0.35; ear.rotation.z = s * 0.18; ear.scale.z = 0.45; }
+    if (P.tusks) { const t = mesh(new THREE.ConeGeometry(0.022, 0.13, 5), mat('#f0e8d0', 0.4), headRot, s * P.snoutR * 0.9, -P.headR * 0.3, nz - 0.06); t.rotation.x = -0.9; t.rotation.z = s * 0.3; }
+    if (P.antlers) { const a = new THREE.Group(); a.position.set(s * P.headR * 0.38, P.headR * 0.75, -0.02); headRot.add(a); const am = mat('#e0cfa8', 0.7); const m1 = mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.42, 5), am, a, 0, 0.2, 0); m1.rotation.z = -s * 0.45; m1.rotation.x = -0.3; for (let k = 0; k < 3; k++) { const b = mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.17, 4), am, a, -s * (0.05 + 0.06 * k), 0.13 + k * 0.11, 0.05 - k * 0.04); b.rotation.x = 0.8; b.rotation.z = -s * 0.25; } }
   }
-  // legs
+  // legs: front legs straight, hind legs with a backward hock (digitigrade) unless plantigrade
   const legs = [];
-  for (const [lx, lz] of [[-1, 1], [1, 1], [-1, 0], [1, 0]]) {
-    const hip = piv(torso, lx * P.bodyR * 0.62, -P.bodyR * 0.25, lz ? P.len * 0.92 : P.len * 0.08);
-    mesh(limbGeo(P.legR * 1.35, P.legR, P.legL * 0.52), lz ? M : M, hip);
-    const knee = piv(hip, 0, -P.legL * 0.52, 0);
-    mesh(limbGeo(P.legR, P.legR * 0.8, P.legL * 0.5), dark, knee);
-    const paw = mesh(new THREE.SphereGeometry(P.legR * 1.2, 8, 6), dark, knee, 0, -P.legL * 0.5, P.legR * 0.4); paw.scale.set(1, 0.6, 1.4);
-    legs.push({ hip, knee, front: !!lz, side: lx });
+  for (const [side, front] of [[-1, 1], [1, 1], [-1, 0], [1, 0]]) {
+    const z = front ? P.len * 0.88 : P.len * 0.02;
+    const hipP = piv(torso, side * (front ? P.ch : P.hip) * 0.58, front ? -P.ch * 0.1 : -P.hip * 0.1, z);
+    const L = P.legL + (front ? P.ch * 0.1 : P.hip * 0.25);
+    const up = mesh(limbGeo(P.legR * (front ? 1.5 : 2.0), P.legR * 1.05, L * 0.45, 10), M, hipP);
+    const knee = piv(hipP, 0, -L * 0.45, 0);
+    let foot;
+    if (!front && !P.plantigrade) {
+      up.rotation.x = 0; hipP.userData.base = 0.35; knee.userData.base = -0.9;
+      mesh(limbGeo(P.legR * 1.05, P.legR * 0.9, L * 0.32, 8), M, knee);
+      const hock = piv(knee, 0, -L * 0.32, 0); hock.userData.base = 0.6;
+      mesh(limbGeo(P.legR * 0.9, P.legR * 0.75, L * 0.3, 8), dark, hock);
+      foot = piv(hock, 0, -L * 0.3, 0); legs.push({ hip: hipP, knee, hock, front: false, side });
+    } else {
+      hipP.userData.base = front ? -0.05 : 0.1; knee.userData.base = front ? 0.05 : -0.1;
+      mesh(limbGeo(P.legR * 1.05, P.legR * 0.85, L * 0.55, 8), front ? M : M, knee);
+      foot = piv(knee, 0, -L * 0.55, 0); legs.push({ hip: hipP, knee, front: !!front, side });
+    }
+    const paw = mesh(new THREE.SphereGeometry(P.legR * (P.plantigrade ? 1.5 : 1.3), 8, 6), dark, foot, 0, 0, P.legR * 0.6); paw.scale.set(1, 0.55, 1.6);
   }
-  // tail
-  const tail = piv(torso, 0, P.bodyR * 0.3, -0.02);
-  const tl = mesh(limbGeo(P.tailBushy ? P.bodyR * 0.35 : 0.03, P.tailBushy ? P.bodyR * 0.2 : 0.02, P.tail), P.tailBushy ? M : M, tail); tail.rotation.x = -2.2;
-  if (variant === 'rabbit') { tail.remove(tl); mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#f4f0e8'), torso, 0, P.bodyR * 0.3, -0.05); }
-  if (variant === 'deer') { tail.remove(tl); mesh(new THREE.SphereGeometry(0.05, 6, 6), mat('#f4f0e8'), torso, 0, P.bodyR * 0.5, -0.03); }
-  if (P.ember) { for (let i = 0; i < 5; i++) { const sp = mesh(new THREE.ConeGeometry(0.035, 0.18, 4), new THREE.MeshStandardMaterial({ color: '#ff6a10', emissive: '#ff4a00', emissiveIntensity: 2 }), torso, 0, P.bodyR * 0.9, P.len * (0.3 + i * 0.13)); sp.rotation.x = -0.4; } }
-  // center the creature (torso extends +z from hips)
+  // tail: two-segment bushy chain
+  const tail = piv(torso, 0, P.hip * 0.55, -P.hip * 0.6);
+  tail.rotation.x = variant === 'deer' || variant === 'rabbit' ? 2.3 : variant === 'bear' ? 1.3 : 0.75;
+  const t1 = mesh(limbGeo(P.tailR, P.tailR * 1.15, P.tail * 0.55, 10), M, tail);
+  const tail2 = piv(tail, 0, -P.tail * 0.55, 0); tail2.rotation.x = -0.35;
+  const t2 = mesh(limbGeo(P.tailR * 1.15, P.tailR * 0.4, P.tail * 0.5, 10), P.ruff ? light : M, tail2);
+  if (variant === 'rabbit' || variant === 'deer') { t1.material = light; t2.visible = false; }
+  if (P.ember) { for (let i = 0; i < 6; i++) { const sp = mesh(new THREE.ConeGeometry(0.035, 0.2, 4), new THREE.MeshStandardMaterial({ color: '#ff6a10', emissive: '#ff4a00', emissiveIntensity: 2 }), torso, 0, P.ch * 0.95, P.len * (0.15 + i * 0.15)); sp.rotation.x = -0.5; } }
   body.position.z = -P.len / 2;
   bake(root);
   root.scale.setScalar(size);
-  return { root, body, torso, neck, head, legs, tail, P, kind: 'quad', variant, height: (hipY + P.bodyR + P.neck) * size, radius: Math.max(P.len * 0.5, P.bodyR) * size, anim: { ph: Math.random() * 10 } };
+  return { root, body, torso, neck, head: headRot, legs, tail, tail2, P, kind: 'quad', variant, height: (hipY + P.ch + P.neck * Math.sin(P.neckUp) + P.headR) * size, radius: Math.max(P.len * 0.55, P.ch) * size, anim: { ph: Math.random() * 10 } };
 }
 function animQuad(c, dt, st) {
   const A = c.anim, P = c.P;
   const sp = st.speed || 0;
-  A.ph += dt * (sp > 0.05 ? 3 + sp * 1.6 / Math.max(0.5, P.legL * 1.6) : 0);
-  const amp = Math.min(1, sp / 2.5) * 0.6;
+  const gallop = sp > 4.5;
+  A.ph += dt * (sp > 0.05 ? (2.6 + sp * 1.5) / Math.max(0.55, P.legL * 1.5) : 0);
+  const amp = Math.min(1, sp / 2.2) * (gallop ? 0.75 : 0.5);
   for (const L of c.legs) {
-    const ph = A.ph + (L.front ? 0 : Math.PI) + (L.side > 0 ? Math.PI : 0) * (c.variant === 'rabbit' ? 0 : 1);
-    L.hip.rotation.x = Math.sin(ph) * amp;
-    L.knee.rotation.x = (L.front ? -1 : 1) * Math.max(0, Math.cos(ph)) * amp * 0.9;
+    // trot: diagonal pairs; gallop: front pair and hind pair
+    const off = gallop ? (L.front ? 0 : Math.PI * 0.9) + (L.side > 0 ? 0.4 : 0) : (L.front ? 0 : Math.PI) + (L.side > 0 ? Math.PI : 0);
+    const ph = A.ph + (c.variant === 'rabbit' ? (L.front ? 0 : Math.PI) : off);
+    const sw = Math.sin(ph) * amp, lift = Math.max(0, Math.cos(ph)) * amp;
+    L.hip.rotation.x = (L.hip.userData.base || 0) + sw;
+    L.knee.rotation.x = (L.knee.userData.base || 0) + (L.front ? -lift * 1.1 : lift * 0.9);
+    if (L.hock) L.hock.rotation.x = L.hock.userData.base + lift * 0.4;
   }
-  const bob = Math.abs(Math.sin(A.ph)) * 0.04 * amp;
-  c.torso.position.y = P.legL + P.bodyR * 0.6 + bob;
-  let headPitch = Math.sin(A.ph * 0.5) * 0.04;
-  if (st.graze) headPitch = 0.9 + Math.sin(A.ph * 0.3 + performance.now() * 0.002) * 0.1;
+  const bob = Math.abs(Math.sin(A.ph)) * 0.05 * amp * (gallop ? 2 : 1);
+  c.torso.position.y = P.legL + P.hip * 0.35 + bob;
+  c.torso.rotation.x = gallop ? Math.sin(A.ph) * 0.08 : 0;
+  let headPitch = Math.sin(A.ph * 0.5) * 0.04 * amp;
+  if (st.graze) headPitch = 0.75 + Math.sin(performance.now() * 0.002) * 0.08;
+  if (st.howl) headPitch = -0.8;
   let lunge = 0;
-  if (st.action === 'attack') { const t = st.actionT; lunge = t < 0.5 ? -t * 0.4 : Math.sin((t - 0.5) * Math.PI * 2) * 0.5; headPitch = t < 0.5 ? -0.4 : 0.3; }
-  c.neck.rotation.x += ((headPitch) - c.neck.rotation.x) * Math.min(1, dt * 8);
-  c.body.position.z = -P.len / 2 + lunge * 0.4;
-  c.body.rotation.x = st.action === 'attack' && st.actionT < 0.5 ? -0.15 : 0;
-  c.tail.rotation.y = Math.sin(performance.now() * 0.006) * (sp > 0 ? 0.4 : 0.15);
-  if (st.dead) { const d = Math.min(1, (st.deadT || 0) / 0.6); c.root.children[0].rotation.z = d * Math.PI / 2; c.root.children[0].position.y = d * P.bodyR * 0.8; for (const L of c.legs) { L.hip.rotation.x = 0.3 * L.side; L.knee.rotation.x = 0; } }
-  else { c.root.children[0].rotation.z = 0; c.root.children[0].position.y = 0; }
+  if (st.action === 'attack') { const t = st.actionT; lunge = t < 0.45 ? -t * 0.5 : Math.sin((t - 0.45) / 0.55 * Math.PI) * 0.6; headPitch = t < 0.45 ? -0.35 : 0.35; }
+  c.neck.rotation.x += ((-P.neckUp + headPitch) - c.neck.rotation.x) * Math.min(1, dt * 8);
+  c.body.position.z = -P.len / 2 + lunge * 0.45;
+  c.tail.rotation.y = Math.sin(performance.now() * (sp > 0 ? 0.008 : 0.004)) * (sp > 0 ? 0.35 : 0.15);
+  if (c.tail2) c.tail2.rotation.x = -0.35 + Math.sin(performance.now() * 0.006) * 0.08;
+  const b = c.root.children[0];
+  if (st.dead) { const d = Math.min(1, (st.deadT || 0) / 0.6); b.rotation.z = d * Math.PI / 2; b.position.y = d * P.ch * 0.7; for (const L of c.legs) { L.hip.rotation.x = 0.4 * L.side; L.knee.rotation.x = 0.2; } }
+  else { b.rotation.z = 0; b.position.y = 0; }
 }
 
 // ---------- spider ----------

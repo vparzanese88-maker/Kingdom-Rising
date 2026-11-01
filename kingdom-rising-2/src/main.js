@@ -15,7 +15,8 @@ import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
-import { showTitle, initMenu, Menu, renderPreview, goFull } from './menu.js';
+import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
+import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile } from './combat.js';
 
 const canvas = document.getElementById('game');
@@ -76,7 +77,7 @@ function applyGraphics() {
 
 // ---------- start / quit ----------
 function startGame(save) {
-  const h = save.inv ? save : getSave(save.id);
+  const h = Game.migrateHero(save.inv ? save : getSave(save.id));
   G.save = h;
   if (G.player) { scene.remove(G.player.ch.root); camera.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
@@ -111,7 +112,8 @@ function hooks() {
   const H = G.hooks;
   H.toast = (t, i, k) => UI.toast(t, i, k);
   H.invChanged = () => { UI.refreshOpen(); UI.updateTracker(); };
-  H.gearChanged = (swap) => { G.player && G.player.refreshGear(); UI.refreshAbilityBar(); UI.refreshOpen(); };
+  H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
+  H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press J to spend it.', 3500); S.levelUp(); };
   H.questsChanged = () => UI.updateTracker();
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
@@ -120,7 +122,7 @@ function hooks() {
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
-    UI.banner(`Level ${lv}!`, unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') : 'Health, mana and endurance increased', 4500);
+    UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New skill point: press J', 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
     UI.refreshAbilityBar(); saveNow();
   };
@@ -223,7 +225,7 @@ function endIntro() {
 }
 
 // ---------- input ----------
-function lockPointer() { if (mode !== 'game' || G.uiOpen) return; canvas.requestPointerLock && canvas.requestPointerLock(); }
+function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock) return; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
 function input() {
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
@@ -232,14 +234,14 @@ function input() {
     if (e.code === 'Tab') e.preventDefault();
     const p = G.player;
     if (!e.repeat) {
-      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyJ: 'quests', KeyM: 'map', KeyK: 'craft' };
+      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyJ: 'skills', KeyM: 'map', KeyK: 'craft' };
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); if (!G.uiOpen) lockPointer(); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) p.onKey(e.code, true);
   });
-  addEventListener('keyup', (e) => { G.keys[e.code] = false; });
+  addEventListener('keyup', (e) => { G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   canvas.addEventListener('mousedown', (e) => {
     if (mode !== 'game' || intro) return;
@@ -248,7 +250,7 @@ function input() {
   });
   addEventListener('mouseup', (e) => { if (mode === 'game' && G.player && document.pointerLockElement) G.player.onMouse(e.button, false); else if (G.player) G.player.press = null; });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  addEventListener('mousemove', (e) => { if (mode === 'game' && document.pointerLockElement && G.player && !intro) { G.player.look(e.movementX, e.movementY); G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
+  addEventListener('mousemove', (e) => { if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
   addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) G.player.onWheel(e.deltaY); }, { passive: true });
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
@@ -366,9 +368,20 @@ function loop(now) {
     return;
   }
   if (mode !== 'game' || !p) return;
-  if (gameUpdate(dt) === 'paused') { composer.render(0); return; }
-  composer.render(dt);
+  const paused = gameUpdate(dt) === 'paused';
+  const pc = UI.portraitRect && UI.portraitRect() && document.getElementById('portrait');
+  if (pc) {
+    if (!portraitCh) { const pl = G.player; portraitCh = buildHumanoid(pl.app); const w = pl.weapon; equipWeapon(portraitCh, w ? w.wt : null, w ? w.tier : 0, w ? w.rarity : 0); tintGear(portraitCh, pl.h.equip); bake(portraitCh.root); }
+    animateHumanoid(portraitCh, dt, { speed: 0, armed: true });
+    portraitRot += dt * 0.35;
+    const pr = renderer.getPixelRatio(), cw = Math.round(pc.width / pr), chh = Math.round(pc.height / pr);
+    renderStage(renderer, { left: 0, top: innerHeight - chh, width: cw, height: chh }, portraitCh, Math.sin(portraitRot) * 0.6, 1.75);
+    const g2 = pc.getContext('2d'); g2.clearRect(0, 0, pc.width, pc.height);
+    g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
+  }
+  composer.render(paused ? 0 : dt);
 }
+let portraitCh = null, portraitRot = 0;
 function gameUpdate(dt) {
   const p = G.player;
   if (intro) updateIntro(dt);
@@ -378,6 +391,7 @@ function gameUpdate(dt) {
   }
   G.inCombat = Math.max(0, G.inCombat - dt);
   M.setCombat(G.inCombat > 0);
+  { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
   updateProjectiles(dt);
   for (let i = G.timers.length - 1; i >= 0; i--) if (G.timers[i].update(dt)) G.timers.splice(i, 1);

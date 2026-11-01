@@ -48,6 +48,67 @@ export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; return { hp: P
 // which stat a weapon type scales with
 // weapon ability (right click) cooldowns in seconds, by weapon kind
 export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8 };
+
+// ---------- Skill trees ----------
+// Class tree: 1 point per level after 1. Rows unlock after spending points in the tree (row r needs 3*r points).
+export const CLASS_TREE = {
+  warrior: [
+    { id: 'hp', row: 0, name: 'Toughness', icon: 'heart', max: 3, desc: '+5% maximum health per rank.' },
+    { id: 'armor', row: 0, name: 'Iron Skin', icon: 'shield', max: 3, desc: '+10% armour per rank.' },
+    { id: 'dmg', row: 0, name: 'Brute Force', icon: 'fist', max: 3, desc: '+4% damage with everything per rank.' },
+    { id: 'res', row: 1, name: 'Endurance Training', icon: 'bolt', max: 3, desc: '+10% maximum endurance per rank.' },
+    { id: 'regen', row: 1, name: 'Second Wind', icon: 'wind', max: 2, desc: '+25% endurance regeneration per rank.' },
+    { id: 'a1up', row: 1, name: 'Bull Rush', icon: 'charge', max: 2, desc: 'Charge deals +30% damage and travels further per rank.' },
+    { id: 'a2up', row: 2, name: 'Warlord\'s Roar', icon: 'battlecry', max: 2, desc: 'Battle Cry lasts 4 s longer and heals 10% more per rank.' },
+    { id: 'cost', row: 2, name: 'Discipline', icon: 'scroll', max: 2, desc: 'Class abilities cost 12% less per rank.' },
+    { id: 'a3up', row: 3, name: 'Worldbreaker', icon: 'earthsplitter', max: 2, desc: 'Earthsplitter hits +30% harder with a wider shockwave per rank.' },
+    { id: 'crit', row: 3, name: 'Killer Instinct', icon: 'crit', max: 2, desc: '+3% critical chance per rank.' },
+    { id: 'cap', row: 4, name: 'Unstoppable', icon: 'crown', max: 1, desc: 'Your guard can never be broken, and you deal +20% damage while below half health.' },
+  ],
+  ranger: [
+    { id: 'dmg', row: 0, name: 'Hunter\'s Mark', icon: 'fist', max: 3, desc: '+4% damage with everything per rank.' },
+    { id: 'crit', row: 0, name: 'Eagle Eye', icon: 'crit', max: 3, desc: '+3% critical chance per rank.' },
+    { id: 'speed', row: 0, name: 'Fleet Foot', icon: 'boot', max: 2, desc: '+5% movement speed per rank.' },
+    { id: 'res', row: 1, name: 'Wilderness Stamina', icon: 'bolt', max: 3, desc: '+10% maximum endurance per rank.' },
+    { id: 'hp', row: 1, name: 'Survivalist', icon: 'heart', max: 3, desc: '+5% maximum health per rank.' },
+    { id: 'a1up', row: 1, name: 'Ghost Arrow', icon: 'spectral', max: 2, desc: 'Spectral Arrow deals +30% damage per rank.' },
+    { id: 'a2up', row: 2, name: 'Vanishing Act', icon: 'smokeroll', max: 2, desc: 'Smoke Roll keeps you unseen 2 s longer per rank.' },
+    { id: 'regen', row: 2, name: 'Steady Breath', icon: 'wind', max: 2, desc: '+25% endurance regeneration per rank.' },
+    { id: 'a3up', row: 3, name: 'Pack Leader', icon: 'fury', max: 2, desc: 'Hunter\'s Fury lasts 3 s longer and leeches 5% more per rank.' },
+    { id: 'cost', row: 3, name: 'Efficiency', icon: 'scroll', max: 2, desc: 'Class abilities cost 12% less per rank.' },
+    { id: 'cap', row: 4, name: 'Deadeye', icon: 'crown', max: 1, desc: 'Your first hit on an unhurt enemy is always a critical hit.' },
+  ],
+  wizard: [
+    { id: 'dmg', row: 0, name: 'Spellcraft', icon: 'fist', max: 3, desc: '+4% damage with everything per rank.' },
+    { id: 'res', row: 0, name: 'Deep Reserves', icon: 'mana', max: 3, desc: '+10% maximum mana per rank.' },
+    { id: 'hp', row: 0, name: 'Warding', icon: 'heart', max: 3, desc: '+5% maximum health per rank.' },
+    { id: 'regen', row: 1, name: 'Mana Flow', icon: 'wind', max: 2, desc: '+25% mana regeneration per rank.' },
+    { id: 'crit', row: 1, name: 'Focus', icon: 'crit', max: 3, desc: '+3% critical chance per rank.' },
+    { id: 'a1up', row: 1, name: 'Deep Freeze', icon: 'frostnova', max: 2, desc: 'Frost Nova deals +30% damage and freezes 1 s longer per rank.' },
+    { id: 'a2up', row: 2, name: 'Phase Step', icon: 'blink', max: 2, desc: 'Blink goes 4 m further per rank.' },
+    { id: 'cost', row: 2, name: 'Thrift', icon: 'scroll', max: 2, desc: 'Class abilities cost 12% less per rank.' },
+    { id: 'a3up', row: 3, name: 'Storm Lord', icon: 'chain', max: 2, desc: 'Chain Lightning deals +30% damage and jumps once more per rank.' },
+    { id: 'armor', row: 3, name: 'Arcane Armour', icon: 'shield', max: 2, desc: '+15% armour per rank.' },
+    { id: 'cap', row: 4, name: 'Archmage', icon: 'crown', max: 1, desc: 'Abilities cost 25% less and every spell deals +15% damage.' },
+  ],
+};
+// Weapon trees (one per weapon type, points from that weapon's mastery level)
+const WT = (kind) => {
+  const ranged = kind === 'bow', staff = kind === 'staff';
+  return [
+    { id: 'wdmg', row: 0, name: staff ? 'Empowered Focus' : ranged ? 'Broadheads' : 'Honed Edge', icon: 'sword', max: 3, desc: '+6% damage with this weapon per rank.' },
+    { id: 'heavy', row: 0, name: staff ? 'Quick Channel' : ranged ? 'Steady Draw' : 'Heavy Hands', icon: 'heavy', max: 2, desc: 'Hold-to-charge attacks charge 30% faster and hit 15% harder per rank.' },
+    { id: 'combo', row: 1, name: staff ? 'Spell Weaving' : ranged ? 'Rapid Fire' : 'Flowing Strikes', icon: 'combo', max: 2, desc: staff ? 'Basic spells cast 12% faster per rank.' : ranged ? 'Quick shots fire 12% faster per rank.' : 'The 3rd combo hit deals +25% damage per rank.' },
+    { id: 'area', row: 1, name: staff ? 'Cataclysm' : ranged ? 'Volley Master' : 'Wide Arc', icon: 'area', max: 2, desc: 'Right-click ability: +15% radius and 15% shorter cooldown per rank.' },
+    { id: 'crit', row: 2, name: 'Precision', icon: 'crit', max: 2, desc: '+3% critical chance with this weapon per rank.' },
+    { id: 'block', row: 2, name: staff ? 'Mana Shield' : ranged ? 'Evasive Stance' : 'Iron Guard', icon: 'shield', max: 2, desc: 'Blocking stops 10% more damage and costs 25% less endurance per rank.' },
+    { id: 'leech', row: 3, name: 'Bloodthirst', icon: 'heart', max: 1, desc: 'Heal for 4% of the damage you deal with this weapon.' },
+    { id: 'exec', row: 3, name: 'Executioner', icon: 'skull', max: 1, desc: '+30% damage against enemies below 35% health.' },
+  ];
+};
+export const WEAPON_TREE = { melee: WT('melee'), bow: WT('bow'), staff: WT('staff') };
+export const MASTERY_CAP = 20;
+export const masteryXpFor = (lv) => 60 + lv * 45;
 export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
 
 export const CLASSES = {
@@ -177,11 +238,11 @@ export const STATIONS = {
   workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table',
 };
 
-const ARMOR_SLOTS = { head: 'Hood/Helm', chest: 'Chest', legs: 'Legs', feet: 'Boots' };
+const ARMOR_SLOTS = { head: 'Head', shoulders: 'Shoulders', chest: 'Chest', wrists: 'Wrists', hands: 'Hands', waist: 'Waist', legs: 'Legs', feet: 'Feet' };
 export const ARMOR_NAMES = {
-  cloth: { head: 'Hat', chest: 'Robe', legs: 'Leggings', feet: 'Slippers' },
-  leather: { head: 'Hood', chest: 'Jerkin', legs: 'Breeches', feet: 'Boots' },
-  mail: { head: 'Helm', chest: 'Hauberk', legs: 'Greaves', feet: 'Sabatons' },
+  cloth: { head: 'Hat', shoulders: 'Mantle', chest: 'Robe', wrists: 'Cuffs', hands: 'Gloves', waist: 'Sash', legs: 'Leggings', feet: 'Slippers' },
+  leather: { head: 'Hood', shoulders: 'Spaulders', chest: 'Jerkin', wrists: 'Bracers', hands: 'Gloves', waist: 'Belt', legs: 'Breeches', feet: 'Boots' },
+  mail: { head: 'Helm', shoulders: 'Pauldrons', chest: 'Hauberk', wrists: 'Vambraces', hands: 'Gauntlets', waist: 'Girdle', legs: 'Greaves', feet: 'Sabatons' },
 };
 export const ARMOR_TIER_NAMES = {
   cloth: ['Ragged', 'Linen', 'Woven', 'Silk', 'Starweave', 'Archmage'],
@@ -189,9 +250,17 @@ export const ARMOR_TIER_NAMES = {
   mail: ['Rusty', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
 };
 export const ARMOR_SLOT_LIST = Object.keys(ARMOR_SLOTS);
+export const SLOT_LABEL = Object.assign({ neck: 'Neck', back: 'Back', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm', w1: 'Main Weapon', w2: 'Second Weapon' }, ARMOR_SLOTS);
+// accessories: neck (amulet), back (cloak), ring, trinket (charm)
+export const ACC = {
+  neck: { names: ['', 'Copper Amulet', 'Iron Pendant', 'Steel Torc', 'Mithril Amulet', 'Starmetal Medallion'] },
+  back: { names: ['', 'Linen Cloak', 'Woolen Cloak', 'Silk Cape', 'Mithril-Thread Cloak', 'Starweave Mantle'] },
+  ring: { names: ['', 'Copper Ring', 'Iron Band', 'Steel Signet', 'Mithril Ring', 'Starmetal Ring'] },
+  trinket: { names: ['', 'Lucky Wolf Fang', 'Carved Bone Charm', 'Troll-Tusk Talisman', 'Ember Heart', 'Star Shard'] },
+};
 
 export function weaponBaseDmg(tier) { return 9 + tier * 9; }
-export function armorBase(tier, slot) { const m = { head: 0.7, chest: 1.3, legs: 1.0, feet: 0.6 }[slot]; return Math.round((3 + tier * 5) * m); }
+export function armorBase(tier, slot) { const m = { head: 0.7, shoulders: 0.6, chest: 1.3, wrists: 0.35, hands: 0.45, waist: 0.4, legs: 1.0, feet: 0.6 }[slot]; return Math.max(1, Math.round((3 + tier * 5) * m)); }
 
 // Build recipe list
 export const RECIPES = [];
@@ -233,7 +302,7 @@ export const RECIPES = [];
   for (const kind of ['cloth', 'leather', 'mail']) {
     for (const slot of ARMOR_SLOT_LIST) {
       for (let t = 1; t <= 5; t++) {
-        const n = slot === 'chest' ? 4 : slot === 'legs' ? 3 : 2;
+        const n = slot === 'chest' ? 4 : slot === 'legs' ? 3 : slot === 'wrists' || slot === 'waist' ? 1 : 2;
         const need = {};
         const metal = TIERS[t].ingot;
         if (kind === 'cloth') { need[t >= 3 ? 'silk_cloth' : 'linen'] = n + t - 1; if (t >= 2) need.leather = 1; if (t >= 4) need[metal] = 1; }
@@ -243,6 +312,13 @@ export const RECIPES = [];
         R({ id: 'a_' + kind + '_' + slot + '_' + t, armor: kind, slot, tier: t, station, need, cat: 'Armor', lvl: TIERS[t].lvl });
       }
     }
+  }
+  // accessories
+  for (let t = 1; t <= 5; t++) {
+    const metal = TIERS[t].ingot;
+    R({ id: 'acc_ring_' + t, acc: 'ring', tier: t, station: 'forge', need: { [metal]: 2 + t, ...(t >= 3 ? { ember_core: t - 2 } : {}) }, cat: 'Jewelry', lvl: TIERS[t].lvl });
+    R({ id: 'acc_neck_' + t, acc: 'neck', tier: t, station: 'forge', need: { [metal]: 3 + t, linen: 1, ...(t >= 3 ? { ember_core: t - 2 } : {}) }, cat: 'Jewelry', lvl: TIERS[t].lvl });
+    R({ id: 'acc_back_' + t, acc: 'back', tier: t, station: 'loom', need: { [t >= 3 ? 'silk_cloth' : 'linen']: 3 + t, leather: 1, ...(t >= 4 ? { [metal]: 1 } : {}) }, cat: 'Armor', lvl: TIERS[t].lvl });
   }
 })();
 
@@ -259,7 +335,7 @@ export const ZONES = [
 // shape: quad (wolf/bear/boar/deer/rabbit/hound), crab, spider, humanoid kinds
 export const MOBS = {
   crab: { name: 'Shore Crab', shape: 'crab', hpM: 0.55, dmgM: 0.5, aggro: 0, speed: 2.2, size: 0.55, loot: { crab_meat: [1, 1, 0.9] }, skin: false, col: '#d0502a' },
-  rabbit: { name: 'Meadow Hare', shape: 'quad', variant: 'rabbit', hpM: 0.35, dmgM: 0, aggro: 0, flee: true, speed: 6, size: 0.35, loot: { raw_meat: [1, 1, 0.7] }, skin: true, col: '#b8a184' },
+  rabbit: { name: 'Meadow Hare', shape: 'quad', variant: 'rabbit', hpM: 0.35, dmgM: 0, aggro: 0, flee: true, speed: 6, size: 1.0, loot: { raw_meat: [1, 1, 0.7] }, skin: true, col: '#b8a184' },
   deer: { name: 'Coast Deer', shape: 'quad', variant: 'deer', hpM: 0.7, dmgM: 0, aggro: 0, flee: true, speed: 7, size: 1.1, loot: { raw_meat: [1, 2, 1] }, skin: true, col: '#a4703e' },
   wolfpup: { name: 'Wolf Pup', shape: 'quad', variant: 'wolf', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.55, loot: { wolf_fang: [1, 1, 0.5], raw_meat: [1, 1, 0.5] }, skin: true, col: '#8d8579' },
   bearcub: { name: 'Bear Cub', shape: 'quad', variant: 'bear', hpM: 0.8, dmgM: 0.6, aggro: 0, speed: 3.8, size: 0.7, loot: { raw_meat: [1, 2, 0.7] }, skin: true, col: '#6b4a2e' },

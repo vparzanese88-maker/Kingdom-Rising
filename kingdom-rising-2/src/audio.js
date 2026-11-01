@@ -268,7 +268,7 @@ export const S = {
 
 // ---------------- MUSIC ----------------
 const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);
-let track = null, nextTime = 0, step = 0, schedTimer = null;
+let track = null, schedTimer = null;
 let combatLevel = 0, combatTarget = 0;
 const trackGain = {};
 const TRACKS = {};
@@ -364,17 +364,6 @@ function genMelody(chord, len, base = 74) {
   return out;
 }
 
-TRACKS.explore = { bpm: 70, step(t, s, dest, zone) {
-  const P = zone === 'ashlands' ? prog.ash : zone === 'highlands' ? prog.snow : prog.explore;
-  const bar = Math.floor(s / 8), ch = P[bar % P.length], b8 = s % 8, sp = 60 / this.bpm / 2;
-  if (b8 === 0) { pad(t, ch[1], sp * 8, dest, 0.022, zone === 'ashlands' ? 600 : 1100); tone(t, sp * 8, dest, { type: 'sine', f: NOTE(ch[0]), gain: 0.09, a: 0.3, d: sp * 8 }); if (bar % 4 === 0) melody = genMelody(ch, 32); }
-  // harp arpeggio
-  const arp = [ch[1][0], ch[1][1], ch[1][2], ch[1][0] + 12, ch[1][2], ch[1][1], ch[1][0] + 12, ch[1][1] + 12];
-  if (zone !== 'ashlands' || b8 % 2 === 0) pluck(t, arp[b8] - (zone === 'ashlands' ? 12 : 0), dest, 0.06, 1.8);
-  // flute melody every other 4 bars
-  if ((Math.floor(bar / 4) % 2) === 1 && b8 % 2 === 0) { const n = melody[(bar % 4) * 4 + b8 / 2]; if (n) flute(t, n, sp * 1.8, dest, zone === 'highlands' ? 0.05 : 0.045); }
-  if (zone === 'ashlands' && b8 === 0 && bar % 2 === 0) drum(t, dest, 'timp', 0.3);
-} };
 TRACKS.title = { bpm: 76, step(t, s, dest) {
   const bar = Math.floor(s / 8), ch = prog.title[bar % 8], b8 = s % 8, sp = 60 / this.bpm / 2;
   if (b8 === 0) { choir(t, ch[1].map(n => n - 12).concat([ch[1][0]]), sp * 8, dest, 0.02); tone(t, sp * 8, dest, { type: 'sawtooth', f: NOTE(ch[0]), gain: 0.05, a: 0.2, d: sp * 8 }); }
@@ -387,60 +376,103 @@ TRACKS.title = { bpm: 76, step(t, s, dest) {
     let pos = 0; for (const [n, l] of m) { if (pos === b8) brass(t, n - 12, sp * l * 0.95, dest, 0.03); pos += l; }
   }
 } };
-TRACKS.combat = { bpm: 128, step(t, s, dest) {
-  const bar = Math.floor(s / 8), ch = prog.combat[bar % 4], b8 = s % 8, sp = 60 / this.bpm / 2;
-  if (b8 === 0 || b8 === 3 || b8 === 6) drum(t, dest, 'taiko', 0.45);
-  if (b8 === 4) drum(t, dest, 'snare', 0.6);
-  drum(t, dest, 'frame', b8 % 2 ? 0.25 : 0.4);
-  strings(t, (b8 % 2 ? ch[1][0] : ch[1][0] - 12), sp * 0.8, dest, 0.03);
-  if (b8 === 0) { tone(t, sp * 8, dest, { type: 'sawtooth', f: NOTE(ch[0]), gain: 0.06, a: 0.05, d: sp * 8 }); if (bar % 2 === 0) brass(t, ch[1][2] - 12, sp * 3, dest, 0.035); }
-  if (b8 === 6 && bar % 2 === 1) brass(t, ch[1][1] - 12, sp * 2, dest, 0.03);
+function fiddle(t, n, dur, dest, vol = 0.05) {
+  const f = NOTE(n);
+  for (const det of [-4, 5]) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
+    const v = ctx.createOscillator(); v.frequency.value = 6; const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.01, t + dur * 0.7); v.connect(vg); vg.connect(o.frequency);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = Math.min(3200, f * 2.5); bp.Q.value = 0.9;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.03); g.gain.setValueAtTime(vol * 0.85, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05);
+    o.connect(bp); bp.connect(g); g.connect(dest); o.start(t); v.start(t); o.stop(t + dur + 0.1); v.stop(t + dur + 0.1);
+  }
+}
+function cymbal(t, dest, vol = 0.12, dur = 1.6) { noise(t, dur, dest, { type: 'highpass', f: 5000, gain: vol, a: dur > 1 ? dur * 0.8 : 0.005, d: dur }); }
+
+// Exploring: bright and moving (harp 16ths, bass pulse, hand drum groove, flute or fiddle melody)
+TRACKS.explore = { bpm: 96, div: 4, step(t, s, dest, zone) {
+  const P = zone === 'ashlands' ? prog.ash : zone === 'highlands' ? prog.snow : prog.explore;
+  const spb = this.div * 4, bar = Math.floor(s / spb), ch = P[bar % P.length], b = s % spb, sp = 60 / this.bpm / this.div;
+  if (b === 0) { pad(t, ch[1], sp * spb, dest, 0.018, zone === 'ashlands' ? 700 : 1400); if (bar % 4 === 0) melody = genMelody(ch, 64); if (bar % 8 === 0) cymbal(t, dest, 0.05, 2); }
+  // bass pulse on 8ths
+  if (b % 2 === 0) tone(t, sp * 1.6, dest, { type: 'triangle', f: NOTE(ch[0] + (b % 8 === 6 ? 7 : 0)), gain: 0.11, a: 0.01 });
+  // harp 16ths
+  const arp = [0, 1, 2, 1, 3, 2, 1, 2];
+  const notes = [ch[1][0], ch[1][1], ch[1][2], ch[1][0] + 12];
+  if (zone !== 'ashlands' || b % 2 === 0) pluck(t, notes[arp[b % 8]] + (b >= 8 ? 12 : 0) - (zone === 'ashlands' ? 12 : 0), dest, 0.045, 0.9);
+  // groove
+  if (b % 8 === 0) drum(t, dest, zone === 'ashlands' ? 'taiko' : 'timp', 0.32); if (b % 8 === 4) drum(t, dest, 'snare', 0.25);
+  if (b % 2 === 1) drum(t, dest, 'frame', 0.18);
+  // melody: plays most of the time
+  if ((Math.floor(bar / 2) % 4) !== 3 && b % 2 === 0) { const n = melody[((bar % 4) * 8 + b / 2) % 64]; if (n) (zone === 'highlands' ? flute : fiddle)(t, n, sp * 1.8, dest, zone === 'highlands' ? 0.05 : 0.035); }
+} };
+// Village / camp: a lively jig in D (12 steps per bar)
+const JIG = [[74, 2, 0, 1], [78, 1, 0, 1], [76, 2, 1, 1], [74, 1, 1, 1], [73, 2, 2, 1], [74, 1, 2, 1], [76, 2, 3, 1], [69, 1, 3, 1]];
+const JIGA = [62, 66, 69, 74, 69, 66, 62, 66, 69, 71, 69, 66, 64, 67, 71, 76, 71, 67, 62, 66, 69, 74, 73, 71, 69, 73, 76, 81, 76, 73, 74, 69, 66, 62, 64, 66, 67, 71, 74, 71, 67, 64, 62, 66, 69, 66, 62, 57];
+const JIGB = [74, 76, 78, 79, 78, 76, 74, 73, 71, 69, 71, 73, 74, 69, 66, 69, 74, 78, 81, 79, 78, 76, 74, 73, 71, 74, 79, 78, 76, 74, 73, 76, 81, 79, 76, 73, 74, 78, 81, 78, 74, 69, 74, 69, 66, 62, 66, 69];
+const JIGCH = [[50, [62, 66, 69]], [55, [59, 62, 67]], [45, [61, 64, 69]], [50, [62, 66, 69]]];
+TRACKS.town = { bpm: 116, div: 3, step(t, s, dest) {
+  const spb = 12, bar = Math.floor(s / spb), b = s % spb, sp = 60 / this.bpm / this.div;
+  const ch = JIGCH[bar % 4];
+  const mel = (Math.floor(bar / 4) % 2 ? JIGB : JIGA);
+  const n = mel[((bar % 4) * 12 + b) % mel.length];
+  fiddle(t, n, sp * 0.95, dest, 0.034);
+  if (b % 3 === 0) pluck(t, n - 12, dest, 0.03, 0.5);
+  // lute strums
+  if (b === 0 || b === 6) for (let i = 0; i < 3; i++) pluck(t + i * 0.012, ch[1][i] - 12, dest, 0.05, 0.9);
+  if (b === 3 || b === 9) for (let i = 0; i < 3; i++) pluck(t + i * 0.01, ch[1][i], dest, 0.035, 0.5);
+  // bodhran
+  if (b === 0 || b === 6) drum(t, dest, 'taiko', 0.32); if (b % 3 === 2) drum(t, dest, 'frame', 0.25); if (b === 3 || b === 9) drum(t, dest, 'frame', 0.35);
+  if (b === 0) tone(t, sp * 5.5, dest, { type: 'triangle', f: NOTE(ch[0]), gain: 0.12, a: 0.01 });
+  if (b === 6) tone(t, sp * 5.5, dest, { type: 'triangle', f: NOTE(ch[0] + 7), gain: 0.1, a: 0.01 });
+} };
+// Battle: driving taiko, 16th string ostinato, brass and choir hits
+TRACKS.combat = { bpm: 148, div: 4, step(t, s, dest) {
+  const spb = 16, bar = Math.floor(s / spb), ch = prog.combat[bar % 4], b = s % spb, sp = 60 / this.bpm / this.div;
+  const tk = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0];
+  if (tk[b]) drum(t, dest, 'taiko', b === 0 ? 0.6 : 0.42);
+  if (b === 4 || b === 12) drum(t, dest, 'snare', 0.7);
+  if (bar % 4 === 3 && b >= 12) drum(t, dest, 'snare', 0.4 + (b - 12) * 0.1);
+  drum(t, dest, 'frame', b % 2 ? 0.15 : 0.28);
+  const ost = [0, 0, 12, 0, 7, 0, 12, 7];
+  strings(t, ch[1][0] - 12 + ost[b % 8], sp * 0.9, dest, 0.032);
+  if (b === 0) { tone(t, sp * 16, dest, { type: 'sawtooth', f: NOTE(ch[0]), gain: 0.07, a: 0.02, d: sp * 16 }); brass(t, ch[1][2] - 12, sp * 5, dest, 0.04); brass(t, ch[1][0] - 12, sp * 5, dest, 0.035); if (bar % 4 === 0) { cymbal(t, dest, 0.16, 1.2); choir(t, ch[1], sp * 16, dest, 0.016); } }
+  if (b === 10) brass(t, ch[1][1] - 12, sp * 2, dest, 0.035);
+  if (b === 14) brass(t, ch[1][2] - 12, sp * 2, dest, 0.04);
 } };
 
 let musicZone = 'meadow';
 let wanted = null;
+let townTarget = 0;
 export const M = {
   play(name) { wanted = name; if (!ctx) return; if (track !== name) { track = name; } },
   setCombat(on) { combatTarget = on ? 1 : 0; },
   setZone(z) { musicZone = z; },
+  setTown(on) { townTarget = on ? 1 : 0; },
 };
-let combatStep = 0;
+const lanes = { title: { next: 0, step: 0, lv: 0 }, explore: { next: 0, step: 0, lv: 0 }, town: { next: 0, step: 0, lv: 0 }, combat: { next: 0, step: 0, lv: 0 } };
 function startScheduler() {
-  nextTime = ctx.currentTime + 0.1;
   if (wanted) track = wanted;
   schedTimer = setInterval(() => {
     if (!ctx) return;
-    // fades
-    combatLevel += (combatTarget - combatLevel) * 0.03;
-    for (const n of ['title', 'explore', 'combat']) {
-      const g = busFor(n);
-      let target = 0;
-      if (track === 'title' && n === 'title') target = 1;
-      if (track === 'explore') { if (n === 'explore') target = 1 - combatLevel * 0.85; if (n === 'combat') target = combatLevel; }
-      g.gain.value += (target - g.gain.value) * 0.05;
+    combatLevel += (combatTarget - combatLevel) * 0.04;
+    const want = {
+      title: track === 'title' ? 1 : 0,
+      combat: track === 'explore' ? combatLevel : 0,
+      town: track === 'explore' ? townTarget * (1 - combatLevel) : 0,
+      explore: track === 'explore' ? (1 - townTarget) * (1 - combatLevel) : 0,
+    };
+    for (const n in lanes) {
+      const L = lanes[n], g = busFor(n);
+      L.lv += (want[n] - L.lv) * 0.04;
+      g.gain.value = L.lv;
+      if (L.lv < 0.01 && want[n] === 0) { L.next = 0; continue; }
+      const tr = TRACKS[n];
+      if (L.next < ctx.currentTime) { L.next = ctx.currentTime + 0.05; if (n !== 'title') L.step = 0; }
+      while (L.next < ctx.currentTime + 0.15) { tr.step(L.next, L.step, g, musicZone); L.step++; L.next += 60 / tr.bpm / (tr.div || 2); }
     }
-    while (nextTime < ctx.currentTime + 0.15) {
-      const tr = TRACKS[track === 'title' ? 'title' : 'explore'];
-      if (track) {
-        tr.step(nextTime, step, busFor(track === 'title' ? 'title' : 'explore'), musicZone);
-        if (track === 'explore' && combatLevel > 0.05) {
-          // run combat at its own tempo, simple approach: step on every second explore 8th aligned
-        }
-      }
-      step++; nextTime += 60 / tr.bpm / 2;
-    }
-    combatTick();
   }, 30);
 }
-let cNext = 0;
-function combatTick() {
-  if (!ctx || track !== 'explore') return;
-  if (cNext < ctx.currentTime) cNext = ctx.currentTime + 0.05;
-  while (cNext < ctx.currentTime + 0.15) {
-    if (combatLevel > 0.05) TRACKS.combat.step(cNext, combatStep, busFor('combat'));
-    combatStep++; cNext += 60 / TRACKS.combat.bpm / 2;
-  }
-}
+function combatTick() {}
 
 // ---------------- AMBIENCE ----------------
 const amb = {};

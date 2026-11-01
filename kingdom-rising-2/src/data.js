@@ -197,7 +197,7 @@ export const CLASSES = {
   warrior: { name: 'Warrior', desc: 'A steel-clad fighter who wades into the thick of battle. High health, heavy weapons and a shield.',
     weapons: ['sword', 'mace', 'shield', 'swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
     colors: { main: '#8b1e1e', trim: '#d8b04a', metal: '#9aa3ad' } },
-  ranger: { name: 'Ranger', desc: 'A hooded hunter of the wilds. Deadly with a bow, quick with blades, hard to pin down.',
+  ranger: { name: 'Ranger', desc: 'A hooded hunter of the wilds. Deadly with a bow and hard to pin down.',
     weapons: ['bow', 'daggers', 'handaxes', 'spear'], armor: 'leather', hp: 110, mana: 0,
     colors: { main: '#2f5a2a', trim: '#6b4a2a', metal: '#7a6a55' } },
   wizard: { name: 'Wizard', desc: 'A robed scholar of the arcane. Hurls fire, frost and raw magic from afar.',

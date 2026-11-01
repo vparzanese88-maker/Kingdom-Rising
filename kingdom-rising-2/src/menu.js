@@ -78,8 +78,9 @@ function renderCreator() {
     body.appendChild(choice([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
     body.appendChild(el('h3', '', 'Choose your class'));
-    body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bows & blades' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = START[id]; }));
+    body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bow & arrows' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = START[id]; }));
     const P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
+    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">Starts with:</b> ${START_NAME[C.cls]}`));
     body.appendChild(el('div', 'desc', `${CLASSES[C.cls].desc}<div class="statrow"><span>❤ Health ${P0.hp} → ${P20.hp}</span>${P0.mana ? `<span>💧 Mana ${P0.mana} → ${P20.mana}</span>` : ''}<span>⚡ Endurance ${P0.end} → ${P20.end}</span></div><div style="margin-top:10px"><b style="color:var(--gold)">Class abilities</b> (they cost ${CLASS_POOLS[C.cls].uses === 'mana' ? 'mana' : 'endurance'}):${ABILITIES[C.cls].map(a => `<div style="margin-top:4px"><span class="kbd">${a.key}</span> <b>${a.name}</b> <span style="color:var(--dim)">(level ${a.level})</span><br><span style="font-size:14px">${a.desc}</span></div>`).join('')}</div>`));
   } else if (tab === 99) {
     body.appendChild(el('h3', '', 'Choose your starting weapon'));

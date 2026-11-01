@@ -1,0 +1,493 @@
+// Kingdom Rising 2 audio: procedural music, synthesized sound effects, ambience, plus CC0 sword samples.
+import { settings } from './saves.js';
+
+let ctx = null, master, musicBus, sfxBus, ambBus, reverb, reverbSend, comp;
+const samples = {};
+let listener = { x: 0, y: 0, z: 0, yaw: 0 };
+let noiseBuf = null;
+
+export const A = {
+  get ready() { return !!ctx; },
+  init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25;
+    master = ctx.createGain(); master.connect(comp); comp.connect(ctx.destination);
+    musicBus = ctx.createGain(); sfxBus = ctx.createGain(); ambBus = ctx.createGain();
+    musicBus.connect(master); sfxBus.connect(master); ambBus.connect(master);
+    reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(2.8, 2.5);
+    reverbSend = ctx.createGain(); reverbSend.gain.value = 0.9;
+    reverbSend.connect(reverb); reverb.connect(master);
+    noiseBuf = makeNoise(2);
+    A.applyVolumes();
+    loadSamples();
+    startScheduler();
+    startAmbience();
+  },
+  applyVolumes() {
+    if (!ctx) return;
+    master.gain.value = settings.master;
+    musicBus.gain.value = settings.music * 0.6;
+    sfxBus.gain.value = settings.sfx;
+    ambBus.gain.value = settings.ambient * 0.8;
+  },
+  setListener(x, y, z, yaw) { listener.x = x; listener.y = y; listener.z = z; listener.yaw = yaw; },
+};
+
+function makeNoise(sec) {
+  const b = ctx.createBuffer(1, ctx.sampleRate * sec, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function makeImpulse(sec, decay) {
+  const len = ctx.sampleRate * sec, b = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
+  return b;
+}
+function loadSamples() {
+  const base = '../audio/rec/';
+  const names = [];
+  for (let i = 1; i <= 10; i++) { names.push('swing' + i, 'clash' + i); }
+  for (const n of names) {
+    fetch(base + n + '.mp3').then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && ctx.decodeAudioData(ab)).then(buf => { if (buf) samples[n] = buf; }).catch(() => {});
+  }
+}
+
+// ---- spatial helper: returns a node to connect sources into ----
+function out(pos, bus = sfxBus, wet = 0.15) {
+  const g = ctx.createGain();
+  let vol = 1, pan = 0;
+  if (pos) {
+    const dx = pos.x - listener.x, dz = pos.z - listener.z, dy = (pos.y || 0) - listener.y;
+    const d = Math.sqrt(dx * dx + dz * dz + dy * dy);
+    vol = 1 / (1 + Math.max(0, d - 2) * 0.09);
+    if (d > 80) vol = 0;
+    // right vector of listener: yaw 0 looks toward -z
+    const rx = Math.cos(listener.yaw), rz = -Math.sin(listener.yaw);
+    pan = d > 0.5 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) * 0.8 : 0;
+  }
+  g.gain.value = vol;
+  if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(bus); }
+  else g.connect(bus);
+  if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet * vol; g.connect(w); w.connect(reverbSend); }
+  return { node: g, vol };
+}
+function now() { return ctx.currentTime; }
+function env(g, t, a, peak, d, sus = 0, rel = 0) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, sus || 0.0001), t + a + d);
+  if (rel) g.gain.exponentialRampToValueAtTime(0.0001, t + a + d + rel);
+}
+function noise(t, dur, dest, { type = 'bandpass', f = 1000, q = 1, f2 = null, gain = 0.5, a = 0.005, d = null } = {}) {
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t); fl.Q.value = q;
+  if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  const g = ctx.createGain(); env(g, t, a, gain, d || dur);
+  s.connect(fl); fl.connect(g); g.connect(dest);
+  s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  return { s, fl, g };
+}
+function tone(t, dur, dest, { type = 'sine', f = 440, f2 = null, gain = 0.3, a = 0.005, d = null, detune = 0 } = {}) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = detune;
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  const g = ctx.createGain(); env(g, t, a, gain, d || dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  return { o, g };
+}
+function sample(name, dest, rate = 1, gain = 1) {
+  const b = samples[name]; if (!b) return false;
+  const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+  const g = ctx.createGain(); g.gain.value = gain; s.connect(g); g.connect(dest); s.start();
+  return true;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (n) => 1 + Math.floor(Math.random() * n);
+
+// ---------------- SOUND EFFECTS ----------------
+export const S = {
+  click() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.06, o.node, { type: 'triangle', f: 900, f2: 600, gain: 0.12 }); },
+  hover() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.04, o.node, { type: 'sine', f: 1400, gain: 0.04 }); },
+  swing(size = 1, pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();
+    if (!sample('swing' + ri(10), o.node, rnd(0.9, 1.1) / Math.sqrt(size), 0.55)) {
+      noise(t, 0.22 * size, o.node, { type: 'bandpass', f: 600, f2: 2400 / size, q: 1.5, gain: 0.35, a: 0.06 });
+    }
+    noise(t, 0.25 * size, o.node, { type: 'bandpass', f: 300 / size, f2: 1200 / size, q: 0.8, gain: 0.18 * size, a: 0.08 });
+  },
+  heavySwing(pos) { if (!ctx) return; S.swing(1.6, pos); const o = out(pos, sfxBus, 0.2); noise(now(), 0.45, o.node, { type: 'lowpass', f: 400, f2: 1500, q: 2, gain: 0.35, a: 0.12 }); },
+  hit(kind = 'flesh', pos, big = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.18); const t = now();
+    if (kind === 'flesh') {
+      noise(t, 0.12, o.node, { type: 'lowpass', f: 1800, f2: 300, gain: 0.55 * big });
+      tone(t, 0.14, o.node, { type: 'sine', f: 140 * rnd(0.9, 1.1), f2: 60, gain: 0.5 * big });
+      noise(t + 0.01, 0.08, o.node, { type: 'bandpass', f: 3000, q: 2, gain: 0.12 });
+    } else if (kind === 'metal') {
+      if (!sample('clash' + ri(10), o.node, rnd(0.95, 1.1), 0.6)) {
+        [1, 2.76, 5.4].forEach((m, i) => tone(t, 0.6 - i * 0.15, o.node, { type: 'sine', f: 620 * m * rnd(0.98, 1.02), gain: 0.15 / (i + 1) }));
+        noise(t, 0.05, o.node, { type: 'highpass', f: 3000, gain: 0.3 });
+      }
+    } else if (kind === 'bone') {
+      noise(t, 0.08, o.node, { type: 'bandpass', f: 1600, q: 3, gain: 0.5 }); tone(t, 0.08, o.node, { type: 'square', f: 300, f2: 150, gain: 0.08 });
+    } else if (kind === 'stone') {
+      noise(t, 0.15, o.node, { type: 'bandpass', f: 900, q: 1.5, gain: 0.6 }); tone(t, 0.18, o.node, { type: 'sine', f: 90, f2: 50, gain: 0.4 });
+    }
+  },
+  block(shield, pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.2); const t = now();
+    if (shield) { tone(t, 0.25, o.node, { type: 'sine', f: 160, f2: 90, gain: 0.5 }); noise(t, 0.15, o.node, { type: 'lowpass', f: 1200, gain: 0.5 }); }
+    else S.hit('metal', pos);
+  },
+  chop(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.25); const t = now();
+    tone(t, 0.12, o.node, { type: 'triangle', f: 220 * rnd(0.9, 1.1), f2: 120, gain: 0.5 });
+    noise(t, 0.1, o.node, { type: 'bandpass', f: 1100, q: 2, gain: 0.5 });
+  },
+  mine(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.3); const t = now();
+    [1, 2.4, 3.9].forEach((m, i) => tone(t, 0.35 - i * 0.08, o.node, { type: 'sine', f: 1300 * m * rnd(0.97, 1.03), gain: 0.12 / (i + 1) }));
+    noise(t, 0.07, o.node, { type: 'highpass', f: 2500, gain: 0.4 });
+    noise(t, 0.2, o.node, { type: 'lowpass', f: 500, gain: 0.25, a: 0.02 });
+  },
+  gather(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.05); noise(now(), 0.25, o.node, { type: 'bandpass', f: 2500, f2: 1200, q: 0.8, gain: 0.2, a: 0.03 }); },
+  treeFall(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now();
+    for (let i = 0; i < 6; i++) noise(t + i * 0.12, 0.1, o.node, { type: 'bandpass', f: 400 + Math.random() * 600, q: 3, gain: 0.25 });
+    noise(t + 1.0, 0.8, o.node, { type: 'lowpass', f: 300, f2: 80, gain: 0.8 }); tone(t + 1.0, 0.5, o.node, { type: 'sine', f: 70, f2: 35, gain: 0.6 });
+  },
+  rockBreak(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now(); noise(t, 0.5, o.node, { type: 'lowpass', f: 1500, f2: 200, gain: 0.7 }); for (let i = 0; i < 5; i++) noise(t + 0.1 + Math.random() * 0.4, 0.06, o.node, { type: 'bandpass', f: 1500 + Math.random() * 2000, q: 4, gain: 0.25 }); },
+  skin(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.05); const t = now(); for (let i = 0; i < 3; i++) noise(t + i * 0.2, 0.15, o.node, { type: 'bandpass', f: 1800, f2: 900, q: 2, gain: 0.25 }); },
+  step(surface = 'grass', pos, vol = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.02); const t = now();
+    const f = { grass: 1400, sand: 900, wood: 500, stone: 2200, snow: 700, water: 1200, ash: 800 }[surface] || 1200;
+    noise(t, 0.09, o.node, { type: surface === 'stone' ? 'highpass' : 'bandpass', f: f * rnd(0.85, 1.15), q: 0.7, gain: 0.13 * vol, a: 0.008 });
+    if (surface === 'wood') tone(t, 0.08, o.node, { type: 'triangle', f: 140, f2: 90, gain: 0.15 * vol });
+    if (surface === 'water') noise(t, 0.2, o.node, { type: 'bandpass', f: 600, f2: 2000, q: 1, gain: 0.15 * vol, a: 0.03 });
+  },
+  jump() { if (!ctx) return; const o = out(null, sfxBus, 0); noise(now(), 0.15, o.node, { type: 'bandpass', f: 800, f2: 1600, gain: 0.12, a: 0.02 }); tone(now(), 0.1, o.node, { type: 'sine', f: 180, f2: 240, gain: 0.08 }); },
+  land(h = 1) { if (!ctx) return; const o = out(null, sfxBus, 0.05); noise(now(), 0.12, o.node, { type: 'lowpass', f: 600, gain: 0.25 * Math.min(2, h) }); tone(now(), 0.12, o.node, { type: 'sine', f: 90, f2: 50, gain: 0.25 * Math.min(2, h) }); },
+  dodge() { if (!ctx) return; const o = out(null, sfxBus, 0.05); noise(now(), 0.35, o.node, { type: 'bandpass', f: 500, f2: 1800, q: 1, gain: 0.3, a: 0.05 }); },
+  splash(pos, big = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); noise(now(), 0.5 * big, o.node, { type: 'bandpass', f: 1500, f2: 400, q: 0.7, gain: 0.4 * big, a: 0.01 }); },
+  bowDraw() { if (!ctx) return; const o = out(null, sfxBus, 0); noise(now(), 0.5, o.node, { type: 'bandpass', f: 400, f2: 900, q: 6, gain: 0.08, a: 0.3 }); },
+  bowShot(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();
+    tone(t, 0.15, o.node, { type: 'triangle', f: 160, f2: 110, gain: 0.35 }); noise(t, 0.2, o.node, { type: 'highpass', f: 2500, f2: 6000, gain: 0.2, a: 0.01 });
+  },
+  arrowHit(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now(); noise(t, 0.06, o.node, { type: 'bandpass', f: 1200, q: 2, gain: 0.5 }); tone(t, 0.12, o.node, { type: 'triangle', f: 300, f2: 180, gain: 0.2 }); },
+  cast(el = 'fire', pos, big = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.35); const t = now();
+    if (el === 'fire') {
+      noise(t, 0.5 * big, o.node, { type: 'lowpass', f: 300, f2: 3000, q: 1, gain: 0.45 * big, a: 0.04 });
+      tone(t, 0.4 * big, o.node, { type: 'sawtooth', f: 110, f2: 220, gain: 0.08 * big, a: 0.05 });
+    } else if (el === 'frost') {
+      [2400, 3200, 4100].forEach((f, i) => tone(t + i * 0.04, 0.5, o.node, { type: 'sine', f, f2: f * 1.5, gain: 0.05 }));
+      noise(t, 0.4, o.node, { type: 'highpass', f: 3000, gain: 0.25, a: 0.05 });
+    } else if (el === 'arcane') {
+      tone(t, 0.45 * big, o.node, { type: 'sine', f: 330, f2: 990, gain: 0.18, a: 0.03 }); tone(t, 0.45 * big, o.node, { type: 'sine', f: 335, f2: 1000, gain: 0.18, a: 0.03 });
+      noise(t, 0.3, o.node, { type: 'bandpass', f: 2000, q: 5, gain: 0.12 });
+    } else if (el === 'lightning') {
+      noise(t, 0.6, o.node, { type: 'highpass', f: 1500, gain: 0.6, a: 0.002 }); for (let i = 0; i < 8; i++) noise(t + Math.random() * 0.3, 0.04, o.node, { type: 'bandpass', f: 3000 + Math.random() * 4000, gain: 0.4 });
+      tone(t, 0.6, o.node, { type: 'sawtooth', f: 80, f2: 40, gain: 0.2 });
+    } else if (el === 'holy') {
+      [523, 659, 784, 1046].forEach((f, i) => tone(t + i * 0.06, 0.9, o.node, { type: 'sine', f, gain: 0.07, a: 0.05 }));
+    }
+  },
+  charge(el = 'fire') { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); const f = el === 'frost' ? 1500 : el === 'arcane' ? 700 : 200; tone(t, 1.0, o.node, { type: 'sine', f, f2: f * 3, gain: 0.08, a: 0.6 }); noise(t, 1.0, o.node, { type: 'bandpass', f: f * 2, f2: f * 6, q: 3, gain: 0.08, a: 0.6 }); },
+  explode(pos, big = 1, el = 'fire') {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.5); const t = now();
+    const lp = el === 'frost' ? 4000 : el === 'arcane' ? 2500 : 1800;
+    noise(t, 0.9 * big, o.node, { type: 'lowpass', f: lp, f2: 120, q: 0.7, gain: 0.9 * Math.min(1.4, big), a: 0.005 });
+    tone(t, 0.8 * big, o.node, { type: 'sine', f: 120, f2: 30, gain: 0.8 * Math.min(1.4, big) });
+    if (el === 'frost') [1800, 2600, 3700, 5100].forEach(f => tone(t + Math.random() * 0.1, 0.6, o.node, { type: 'sine', f, gain: 0.05 }));
+    if (big > 1.5) { noise(t + 0.1, 2.5, o.node, { type: 'lowpass', f: 400, f2: 60, gain: 0.6, a: 0.1 }); for (let i = 0; i < 10; i++) noise(t + 0.2 + Math.random(), 0.05, o.node, { type: 'bandpass', f: 2000 + Math.random() * 3000, q: 3, gain: 0.2 }); }
+  },
+  whistle(pos, dur = 1.2) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); tone(now(), dur, o.node, { type: 'sine', f: 1400, f2: 300, gain: 0.08, a: 0.2 }); noise(now(), dur, o.node, { type: 'bandpass', f: 600, f2: 200, q: 2, gain: 0.25, a: 0.3 }); },
+  rumble(pos, dur = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); noise(now(), dur, o.node, { type: 'lowpass', f: 200, f2: 60, gain: 0.7, a: 0.05 }); tone(now(), dur, o.node, { type: 'sine', f: 55, f2: 35, gain: 0.5 }); },
+  roar(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now();
+    [1, 1.5, 2.02].forEach((m, i) => { const x = tone(t, 1.3, o.node, { type: 'sawtooth', f: 110 * m, f2: 80 * m, gain: 0.12, a: 0.1 }); });
+    noise(t, 1.3, o.node, { type: 'bandpass', f: 700, f2: 400, q: 1, gain: 0.4, a: 0.1 });
+  },
+  growl(type = 'wolf', pos, vol = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.15); const t = now();
+    const p = { wolf: 160, bear: 85, boar: 220, spider: 900, crab: 1500, rabbit: 1800, deer: 600, hound: 120, human: 140, skeleton: 400, troll: 70, imp: 500, golem: 50, tyrant: 45 }[type] || 150;
+    if (type === 'spider' || type === 'crab') { for (let i = 0; i < 6; i++) noise(t + i * 0.04, 0.03, o.node, { type: 'bandpass', f: p * 2, q: 4, gain: 0.2 * vol }); return; }
+    if (type === 'skeleton') { for (let i = 0; i < 5; i++) noise(t + i * 0.06, 0.04, o.node, { type: 'bandpass', f: 1800, q: 6, gain: 0.25 * vol }); return; }
+    const x = tone(t, 0.6, o.node, { type: 'sawtooth', f: p, f2: p * 0.8, gain: 0.12 * vol, a: 0.06 });
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 28; const lg = ctx.createGain(); lg.gain.value = p * 0.08; lfo.connect(lg); lg.connect(x.o.frequency); lfo.start(t); lfo.stop(t + 0.7);
+    noise(t, 0.6, o.node, { type: 'bandpass', f: p * 3, q: 2, gain: 0.15 * vol, a: 0.06 });
+  },
+  yelp(type = 'wolf', pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();
+    const p = { wolf: 700, wolfpup: 1100, bear: 300, boar: 500, deer: 900, rabbit: 2000, hound: 500, human: 260, troll: 140, imp: 900, golem: 90, tyrant: 80 }[type] || 500;
+    tone(t, 0.18, o.node, { type: 'sawtooth', f: p, f2: p * 0.6, gain: 0.1 });
+    noise(t, 0.12, o.node, { type: 'bandpass', f: p * 2, q: 2, gain: 0.15 });
+  },
+  hurt() { if (!ctx) return; const o = out(null, sfxBus, 0.05); const t = now(); tone(t, 0.2, o.node, { type: 'sawtooth', f: 220, f2: 150, gain: 0.08 }); noise(t, 0.12, o.node, { type: 'lowpass', f: 900, gain: 0.35 }); tone(t, 0.15, o.node, { type: 'sine', f: 100, f2: 60, gain: 0.35 }); },
+  battleCry() {
+    if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now();
+    for (let v = 0; v < 4; v++) { const f = 140 + v * 30; const x = tone(t + v * 0.03, 1.2, o.node, { type: 'sawtooth', f, f2: f * 1.25, gain: 0.08, a: 0.05 }); }
+    noise(t, 1.2, o.node, { type: 'bandpass', f: 900, f2: 1200, q: 1, gain: 0.3, a: 0.05 });
+    tone(t + 0.1, 1.5, o.node, { type: 'sawtooth', f: 220, gain: 0.06, a: 0.2 }); tone(t + 0.1, 1.5, o.node, { type: 'sawtooth', f: 330, gain: 0.05, a: 0.2 });
+  },
+  heal() { if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now(); [784, 988, 1175, 1568].forEach((f, i) => tone(t + i * 0.07, 0.7, o.node, { type: 'sine', f, gain: 0.07, a: 0.02 })); },
+  drink() { if (!ctx) return; const o = out(null, sfxBus, 0.05); const t = now(); for (let i = 0; i < 4; i++) tone(t + i * 0.15, 0.1, o.node, { type: 'sine', f: 300 + Math.random() * 200, f2: 180, gain: 0.15 }); S.heal(); },
+  eat() { if (!ctx) return; const o = out(null, sfxBus, 0.02); const t = now(); for (let i = 0; i < 4; i++) noise(t + i * 0.18, 0.08, o.node, { type: 'bandpass', f: 1200, q: 1.5, gain: 0.25 }); },
+  coins() { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); for (let i = 0; i < 4; i++) tone(t + i * 0.05, 0.25, o.node, { type: 'sine', f: 2200 + Math.random() * 1500, gain: 0.06 }); },
+  loot() { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); tone(t, 0.12, o.node, { type: 'triangle', f: 660, gain: 0.12 }); tone(t + 0.08, 0.2, o.node, { type: 'triangle', f: 990, gain: 0.12 }); },
+  craft(station) {
+    if (!ctx) return; const o = out(null, sfxBus, 0.3); const t = now();
+    if (station === 'forge') { for (let i = 0; i < 3; i++) { [1, 2.7, 5.1].forEach((m, k) => tone(t + i * 0.28, 0.4, o.node, { type: 'sine', f: 900 * m, gain: 0.1 / (k + 1) })); noise(t + i * 0.28, 0.05, o.node, { type: 'highpass', f: 3000, gain: 0.3 }); } noise(t + 0.9, 0.5, o.node, { type: 'highpass', f: 2000, f2: 5000, gain: 0.2 }); }
+    else if (station === 'workbench') { for (let i = 0; i < 4; i++) noise(t + i * 0.18, 0.14, o.node, { type: 'bandpass', f: 1500, f2: 900, q: 2, gain: 0.3 }); }
+    else if (station === 'campfire') { noise(t, 1.0, o.node, { type: 'bandpass', f: 3000, q: 0.5, gain: 0.15, a: 0.1 }); for (let i = 0; i < 8; i++) noise(t + Math.random(), 0.02, o.node, { type: 'highpass', f: 2000, gain: 0.25 }); }
+    else if (station === 'alchemy') { for (let i = 0; i < 6; i++) tone(t + i * 0.1, 0.12, o.node, { type: 'sine', f: 400 + Math.random() * 600, f2: 900, gain: 0.08 }); }
+    else { for (let i = 0; i < 3; i++) noise(t + i * 0.2, 0.15, o.node, { type: 'bandpass', f: 800, q: 1.5, gain: 0.25 }); }
+    setTimeout(() => S.loot(), 950);
+  },
+  levelUp() {
+    if (!ctx) return; const o = out(null, sfxBus, 0.6); const t = now();
+    const notes = [392, 523, 659, 784, 1046];
+    notes.forEach((f, i) => { tone(t + i * 0.1, 1.4 - i * 0.1, o.node, { type: 'triangle', f, gain: 0.14, a: 0.01 }); tone(t + i * 0.1, 1.4 - i * 0.1, o.node, { type: 'sawtooth', f: f / 2, gain: 0.03, a: 0.02 }); });
+    [523, 659, 784].forEach(f => tone(t + 0.55, 1.8, o.node, { type: 'sawtooth', f, gain: 0.05, a: 0.05 }));
+    noise(t + 0.5, 1.5, o.node, { type: 'highpass', f: 5000, gain: 0.08, a: 0.1 });
+  },
+  questAccept() { if (!ctx) return; const o = out(null, sfxBus, 0.4); const t = now(); [440, 554, 659].forEach((f, i) => tone(t + i * 0.09, 0.5, o.node, { type: 'triangle', f, gain: 0.12 })); },
+  questDone() { if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now(); [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(t + i * 0.11, 0.8, o.node, { type: 'triangle', f, gain: 0.12 })); [261, 392].forEach(f => tone(t + 0.4, 1.4, o.node, { type: 'sawtooth', f, gain: 0.04, a: 0.1 })); },
+  objective() { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); tone(t, 0.25, o.node, { type: 'triangle', f: 880, gain: 0.1 }); tone(t + 0.1, 0.35, o.node, { type: 'triangle', f: 1320, gain: 0.1 }); },
+  error() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.15, o.node, { type: 'square', f: 180, gain: 0.05 }); },
+  swap() { if (!ctx) return; const o = out(null, sfxBus, 0.1); noise(now(), 0.2, o.node, { type: 'bandpass', f: 2500, q: 3, gain: 0.15 }); S.hit('metal'); },
+  zone() { if (!ctx) return; const o = out(null, sfxBus, 0.7); const t = now(); [196, 294, 392].forEach((f, i) => tone(t + i * 0.2, 2.4, o.node, { type: 'sawtooth', f, gain: 0.035, a: 0.3 })); },
+  wake() { if (!ctx) return; const o = out(null, sfxBus, 0.4); const t = now(); tone(t, 3, o.node, { type: 'sine', f: 60, gain: 0.25, a: 1 }); noise(t, 3, o.node, { type: 'lowpass', f: 200, gain: 0.2, a: 1 }); },
+  heartbeat() { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now(); tone(t, 0.15, o.node, { type: 'sine', f: 55, f2: 40, gain: 0.5 }); tone(t + 0.22, 0.15, o.node, { type: 'sine', f: 50, f2: 38, gain: 0.35 }); },
+  stealth() { if (!ctx) return; const o = out(null, sfxBus, 0.4); noise(now(), 1.0, o.node, { type: 'lowpass', f: 2000, f2: 300, gain: 0.35, a: 0.01 }); },
+};
+
+// ---------------- MUSIC ----------------
+const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);
+let track = null, nextTime = 0, step = 0, schedTimer = null;
+let combatLevel = 0, combatTarget = 0;
+const trackGain = {};
+const TRACKS = {};
+
+function busFor(name) {
+  if (!trackGain[name]) { const g = ctx.createGain(); g.gain.value = 0; g.connect(musicBus); const w = ctx.createGain(); w.gain.value = 0.5; g.connect(w); w.connect(reverbSend); trackGain[name] = g; }
+  return trackGain[name];
+}
+// instruments
+function pad(t, notes, dur, dest, vol = 0.05, bright = 900) {
+  for (const n of notes) {
+    for (const det of [-7, 7]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n); o.detune.value = det;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = bright; f.Q.value = 0.5;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur * 0.35); g.gain.linearRampToValueAtTime(vol * 0.8, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+      o.connect(f); f.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.7);
+    }
+  }
+}
+function pluck(t, n, dest, vol = 0.12, dec = 1.6) {
+  const f = NOTE(n);
+  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+  const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2.001;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+  const g2 = ctx.createGain(); g2.gain.value = 0.3;
+  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(dest); o.start(t); o2.start(t); o.stop(t + dec); o2.stop(t + dec);
+}
+function flute(t, n, dur, dest, vol = 0.07) {
+  const f = NOTE(n);
+  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+  const v = ctx.createOscillator(); v.frequency.value = 5; const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.012, t + dur * 0.6); v.connect(vg); vg.connect(o.frequency);
+  const o3 = ctx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = f * 2; const g3 = ctx.createGain(); g3.gain.value = 0.15; o3.connect(g3);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.08); g.gain.setValueAtTime(vol * 0.9, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.15);
+  o.connect(g); g3.connect(g); g.connect(dest);
+  const nb = noise(t, 0.12, dest, { type: 'bandpass', f: f * 2, q: 2, gain: vol * 0.4, a: 0.02 });
+  o.start(t); v.start(t); o3.start(t); o.stop(t + dur + 0.2); v.stop(t + dur + 0.2); o3.stop(t + dur + 0.2);
+}
+function brass(t, n, dur, dest, vol = 0.06) {
+  for (const det of [-5, 4]) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n); o.detune.value = det;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(300, t); f.frequency.linearRampToValueAtTime(2200, t + 0.15); f.frequency.linearRampToValueAtTime(1200, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.08); g.gain.setValueAtTime(vol, t + dur * 0.85); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.25);
+    o.connect(f); f.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.3);
+  }
+}
+function choir(t, notes, dur, dest, vol = 0.03) {
+  for (const n of notes) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n);
+    const v = ctx.createOscillator(); v.frequency.value = 4.5 + Math.random(); const vg = ctx.createGain(); vg.gain.value = NOTE(n) * 0.008; v.connect(vg); vg.connect(o.frequency);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.5); g.gain.setValueAtTime(vol, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+    for (const [ff, q, gg] of [[700, 8, 1], [1150, 10, 0.6], [2800, 12, 0.25]]) { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = q; const bg = ctx.createGain(); bg.gain.value = gg; o.connect(bp); bp.connect(bg); bg.connect(g); }
+    g.connect(dest); o.start(t); v.start(t); o.stop(t + dur + 0.7); v.stop(t + dur + 0.7);
+  }
+}
+function drum(t, dest, kind = 'taiko', vol = 0.5) {
+  if (kind === 'taiko') { tone(t, 0.5, dest, { type: 'sine', f: 90, f2: 45, gain: vol }); noise(t, 0.15, dest, { type: 'lowpass', f: 700, gain: vol * 0.5 }); }
+  else if (kind === 'timp') { tone(t, 0.9, dest, { type: 'sine', f: 73, f2: 68, gain: vol * 0.8 }); noise(t, 0.3, dest, { type: 'lowpass', f: 400, gain: vol * 0.3 }); }
+  else if (kind === 'frame') { noise(t, 0.08, dest, { type: 'bandpass', f: 1800, q: 1, gain: vol * 0.3 }); tone(t, 0.12, dest, { type: 'sine', f: 200, f2: 150, gain: vol * 0.2 }); }
+  else if (kind === 'snare') { noise(t, 0.12, dest, { type: 'highpass', f: 1500, gain: vol * 0.35 }); }
+}
+function strings(t, n, dur, dest, vol = 0.04) {
+  for (const det of [-9, 0, 9]) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n); o.detune.value = det;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2000;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  }
+}
+
+// chord tables (MIDI)
+const D = 62;
+const prog = {
+  explore: [[50, [62, 65, 69]], [48, [60, 64, 67]], [46, [58, 62, 65]], [45, [57, 60, 64]], [50, [62, 65, 69]], [43, [59, 62, 67]], [46, [58, 62, 65]], [48, [60, 64, 67]]],
+  title: [[38, [62, 65, 69]], [46, [58, 62, 65]], [41, [60, 65, 69]], [48, [60, 64, 67]], [38, [62, 65, 69]], [43, [62, 67, 70]], [45, [61, 64, 69]], [45, [61, 64, 69]]],
+  combat: [[38, [62, 65, 69]], [38, [62, 65, 69]], [46, [58, 62, 65]], [45, [57, 61, 64]]],
+  ash: [[38, [62, 65, 68]], [37, [61, 65, 68]], [38, [62, 65, 68]], [34, [58, 61, 65]]],
+  snow: [[45, [64, 69, 72]], [41, [65, 69, 72]], [43, [62, 67, 71]], [40, [64, 67, 71]]],
+};
+const scaleDor = [0, 2, 3, 5, 7, 9, 10];
+let melody = [];
+function genMelody(chord, len, base = 74) {
+  const out = []; let cur = chord[1][0] + 12;
+  for (let i = 0; i < len; i++) {
+    if (Math.random() < 0.25) { out.push(null); continue; }
+    const cand = chord[1].map(n => n + 12).concat(chord[1].map(n => n + 24));
+    const step2 = scaleDor.map(s => D + 12 + s).concat(scaleDor.map(s => D + 24 + s));
+    const pool = Math.random() < 0.65 ? cand : step2;
+    pool.sort((a, b) => Math.abs(a - cur) - Math.abs(b - cur));
+    cur = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+    out.push(cur);
+  }
+  return out;
+}
+
+TRACKS.explore = { bpm: 70, step(t, s, dest, zone) {
+  const P = zone === 'ashlands' ? prog.ash : zone === 'highlands' ? prog.snow : prog.explore;
+  const bar = Math.floor(s / 8), ch = P[bar % P.length], b8 = s % 8, sp = 60 / this.bpm / 2;
+  if (b8 === 0) { pad(t, ch[1], sp * 8, dest, 0.022, zone === 'ashlands' ? 600 : 1100); tone(t, sp * 8, dest, { type: 'sine', f: NOTE(ch[0]), gain: 0.09, a: 0.3, d: sp * 8 }); if (bar % 4 === 0) melody = genMelody(ch, 32); }
+  // harp arpeggio
+  const arp = [ch[1][0], ch[1][1], ch[1][2], ch[1][0] + 12, ch[1][2], ch[1][1], ch[1][0] + 12, ch[1][1] + 12];
+  if (zone !== 'ashlands' || b8 % 2 === 0) pluck(t, arp[b8] - (zone === 'ashlands' ? 12 : 0), dest, 0.06, 1.8);
+  // flute melody every other 4 bars
+  if ((Math.floor(bar / 4) % 2) === 1 && b8 % 2 === 0) { const n = melody[(bar % 4) * 4 + b8 / 2]; if (n) flute(t, n, sp * 1.8, dest, zone === 'highlands' ? 0.05 : 0.045); }
+  if (zone === 'ashlands' && b8 === 0 && bar % 2 === 0) drum(t, dest, 'timp', 0.3);
+} };
+TRACKS.title = { bpm: 76, step(t, s, dest) {
+  const bar = Math.floor(s / 8), ch = prog.title[bar % 8], b8 = s % 8, sp = 60 / this.bpm / 2;
+  if (b8 === 0) { choir(t, ch[1].map(n => n - 12).concat([ch[1][0]]), sp * 8, dest, 0.02); tone(t, sp * 8, dest, { type: 'sawtooth', f: NOTE(ch[0]), gain: 0.05, a: 0.2, d: sp * 8 }); }
+  if (b8 === 0 || b8 === 3 || b8 === 6) drum(t, dest, 'taiko', b8 === 0 ? 0.55 : 0.35);
+  if (bar % 2 === 1 && b8 === 4) drum(t, dest, 'timp', 0.4);
+  strings(t, ch[1][b8 % 3] - 12, sp * 0.9, dest, 0.018);
+  if (bar >= 2) {
+    const mel = [[69, 4], [72, 2], [74, 2]], mel2 = [[77, 3], [76, 1], [74, 4]], mel3 = [[72, 4], [74, 2], [76, 2]], mel4 = [[74, 8]];
+    const m = [mel, mel2, mel3, mel4, mel, mel2, [[77, 4], [81, 4]], [[81, 8]]][bar % 8];
+    let pos = 0; for (const [n, l] of m) { if (pos === b8) brass(t, n - 12, sp * l * 0.95, dest, 0.03); pos += l; }
+  }
+} };
+TRACKS.combat = { bpm: 128, step(t, s, dest) {
+  const bar = Math.floor(s / 8), ch = prog.combat[bar % 4], b8 = s % 8, sp = 60 / this.bpm / 2;
+  if (b8 === 0 || b8 === 3 || b8 === 6) drum(t, dest, 'taiko', 0.45);
+  if (b8 === 4) drum(t, dest, 'snare', 0.6);
+  drum(t, dest, 'frame', b8 % 2 ? 0.25 : 0.4);
+  strings(t, (b8 % 2 ? ch[1][0] : ch[1][0] - 12), sp * 0.8, dest, 0.03);
+  if (b8 === 0) { tone(t, sp * 8, dest, { type: 'sawtooth', f: NOTE(ch[0]), gain: 0.06, a: 0.05, d: sp * 8 }); if (bar % 2 === 0) brass(t, ch[1][2] - 12, sp * 3, dest, 0.035); }
+  if (b8 === 6 && bar % 2 === 1) brass(t, ch[1][1] - 12, sp * 2, dest, 0.03);
+} };
+
+let musicZone = 'meadow';
+let wanted = null;
+export const M = {
+  play(name) { wanted = name; if (!ctx) return; if (track !== name) { track = name; } },
+  setCombat(on) { combatTarget = on ? 1 : 0; },
+  setZone(z) { musicZone = z; },
+};
+let combatStep = 0;
+function startScheduler() {
+  nextTime = ctx.currentTime + 0.1;
+  if (wanted) track = wanted;
+  schedTimer = setInterval(() => {
+    if (!ctx) return;
+    // fades
+    combatLevel += (combatTarget - combatLevel) * 0.03;
+    for (const n of ['title', 'explore', 'combat']) {
+      const g = busFor(n);
+      let target = 0;
+      if (track === 'title' && n === 'title') target = 1;
+      if (track === 'explore') { if (n === 'explore') target = 1 - combatLevel * 0.85; if (n === 'combat') target = combatLevel; }
+      g.gain.value += (target - g.gain.value) * 0.05;
+    }
+    while (nextTime < ctx.currentTime + 0.15) {
+      const tr = TRACKS[track === 'title' ? 'title' : 'explore'];
+      if (track) {
+        tr.step(nextTime, step, busFor(track === 'title' ? 'title' : 'explore'), musicZone);
+        if (track === 'explore' && combatLevel > 0.05) {
+          // run combat at its own tempo, simple approach: step on every second explore 8th aligned
+        }
+      }
+      step++; nextTime += 60 / tr.bpm / 2;
+    }
+    combatTick();
+  }, 30);
+}
+let cNext = 0;
+function combatTick() {
+  if (!ctx || track !== 'explore') return;
+  if (cNext < ctx.currentTime) cNext = ctx.currentTime + 0.05;
+  while (cNext < ctx.currentTime + 0.15) {
+    if (combatLevel > 0.05) TRACKS.combat.step(cNext, combatStep, busFor('combat'));
+    combatStep++; cNext += 60 / TRACKS.combat.bpm / 2;
+  }
+}
+
+// ---------------- AMBIENCE ----------------
+const amb = {};
+let ambState = { sea: 0, wind: 0.2, forest: 0, waterfall: 0, fire: 0, lava: 0, night: 0 };
+function loopNoise(type, f, q) {
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = ctx.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(ambBus); s.start();
+  return { s, fl, g };
+}
+function startAmbience() {
+  amb.sea = loopNoise('lowpass', 500, 0.5);
+  amb.sea2 = loopNoise('bandpass', 1800, 0.4);
+  amb.wind = loopNoise('bandpass', 400, 0.6);
+  amb.fall = loopNoise('lowpass', 1400, 0.3);
+  amb.fire = loopNoise('bandpass', 2500, 0.6);
+  amb.lava = loopNoise('lowpass', 150, 1);
+  setInterval(ambTick, 100);
+}
+let ambT = 0;
+function ambTick() {
+  if (!ctx) return;
+  ambT += 0.1;
+  const st = ambState, ON = track === 'explore' ? 1 : 0;
+  const wave = 0.55 + 0.45 * Math.sin(ambT * 0.7) * Math.sin(ambT * 0.31 + 1);
+  set(amb.sea.g, st.sea * 0.5 * wave * ON); set(amb.sea2.g, st.sea * 0.12 * Math.max(0, wave - 0.4) * ON);
+  amb.wind.fl.frequency.value = 300 + 200 * Math.sin(ambT * 0.13);
+  set(amb.wind.g, st.wind * (0.12 + 0.08 * Math.sin(ambT * 0.21)) * ON);
+  set(amb.fall.g, st.waterfall * 0.55 * ON);
+  set(amb.fire.g, st.fire * 0.05 * ON);
+  set(amb.lava.g, st.lava * 0.35 * ON);
+  if (st.fire > 0.1 && Math.random() < st.fire * 0.5) { const o = out(null, ambBus, 0); noise(now(), 0.02, o.node, { type: 'highpass', f: 2500, gain: 0.15 * st.fire }); }
+  // birds and crickets
+  if (ON && st.forest > 0 && st.night < 0.5 && Math.random() < 0.06 * st.forest) bird();
+  if (ON && st.sea > 0.3 && st.night < 0.5 && Math.random() < 0.015) gull();
+  if (ON && st.night > 0.5 && st.forest > 0.2 && Math.random() < 0.4) cricket();
+}
+function set(g, v) { g.gain.value += (v - g.gain.value) * 0.2; }
+function bird() {
+  const o = out({ x: listener.x + rnd(-30, 30), y: listener.y + 8, z: listener.z + rnd(-30, 30) }, ambBus, 0.3), t = now();
+  const base = rnd(2200, 4200), n = 2 + Math.floor(Math.random() * 5), kind = Math.random();
+  for (let i = 0; i < n; i++) {
+    const tt = t + i * rnd(0.08, 0.16);
+    if (kind < 0.5) tone(tt, 0.08, o.node, { type: 'sine', f: base, f2: base * rnd(1.2, 1.6), gain: 0.05 });
+    else tone(tt, 0.12, o.node, { type: 'sine', f: base * 1.3, f2: base * 0.8, gain: 0.04 });
+  }
+}
+function gull() { const o = out({ x: listener.x + rnd(-40, 40), y: 20, z: listener.z + rnd(-10, 40) }, ambBus, 0.4), t = now(); for (let i = 0; i < 3; i++) tone(t + i * 0.3, 0.25, o.node, { type: 'sawtooth', f: 1400, f2: 900, gain: 0.02 }); }
+function cricket() { const o = out({ x: listener.x + rnd(-15, 15), y: 0, z: listener.z + rnd(-15, 15) }, ambBus, 0.1), t = now(); for (let i = 0; i < 3; i++) tone(t + i * 0.05, 0.03, o.node, { type: 'sine', f: 4600, gain: 0.015 }); }
+export function setAmbience(st) { Object.assign(ambState, st); }

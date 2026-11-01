@@ -1,0 +1,401 @@
+// Kingdom Rising 2: all game data (races, classes, weapons, abilities, items, recipes, mobs, zones, quests)
+
+export const LEVEL_CAP = 20;
+export const xpForLevel = (lv) => Math.round(80 * Math.pow(lv, 1.6));
+
+export const RACES = {
+  human: { name: 'Human', desc: 'Hardy and adaptable. Balanced stats in everything.', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 },
+    skins: ['#f1c7a5', '#e0ac85', '#c68863', '#9a6544', '#6e452c'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c', '#d9b26a', '#7b2a15', '#1a1a1a', '#9a9a9a'] },
+  elf: { name: 'Elf', desc: 'Tall, graceful and sharp-eyed. Long pointed ears. High Dexterity and Intellect, lower Strength and Stamina.', height: 1.07, width: 0.88, hp: 0, stats: { str: 9, dex: 15, int: 14, sta: 9 },
+    skins: ['#f6dcc6', '#ead0b5', '#d8b998', '#b98f6e', '#c9d4c0'], hairs: ['#f2e6b0', '#e8e8e8', '#c48a3a', '#2a1a10', '#3b4a6b', '#7a3020', '#d7c08a'] },
+  dwarf: { name: 'Dwarf', desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
+    skins: ['#efc2a0', '#dba07a', '#bf825d', '#94603f', '#d9a98c'], hairs: ['#b5501f', '#6b3a17', '#2a1b10', '#d6a23f', '#8a8a8a', '#e3e3e3', '#4a2a14'] },
+};
+
+// Weapon families. reach in metres, area = right-click area radius, speed = attack speed multiplier.
+export const WEAPON_TYPES = {
+  swordshield: { name: 'Sword & Shield', hands: 'shield', reach: 2.7, area: 4.5, speed: 1.0, block: 0.85, dmg: 1.0, kind: 'melee', parts: ['sword', 'shield'], areaName: 'Shield Spin' },
+  maceshield: { name: 'Mace & Shield', hands: 'shield', reach: 2.5, area: 4.5, speed: 0.95, block: 0.85, dmg: 1.08, kind: 'melee', parts: ['mace', 'shield'], areaName: 'Crushing Spin' },
+  swordmace: { name: 'Sword & Mace', hands: 'dual', reach: 2.6, area: 4.5, speed: 1.15, block: 0.5, dmg: 0.95, kind: 'melee', parts: ['sword', 'mace'], areaName: 'Twin Fury' },
+  greatsword: { name: 'Greatsword', hands: 'two', reach: 3.4, area: 6.5, speed: 0.8, block: 0.6, dmg: 1.4, kind: 'melee', parts: ['greatsword'], areaName: 'Great Cleave' },
+  greataxe: { name: 'Great Axe', hands: 'two', reach: 3.2, area: 6.5, speed: 0.75, block: 0.55, dmg: 1.5, kind: 'melee', parts: ['greataxe'], areaName: 'Reaping Whirl' },
+  warhammer: { name: 'Warhammer', hands: 'two', reach: 3.0, area: 7, speed: 0.7, block: 0.55, dmg: 1.55, kind: 'melee', parts: ['warhammer'], areaName: 'Quake Spin' },
+  spear: { name: 'Spear', hands: 'two', reach: 4.0, area: 5.5, speed: 0.95, block: 0.55, dmg: 1.12, kind: 'melee', parts: ['spear'], areaName: 'Sweeping Arc' },
+  daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.45, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
+  handaxes: { name: 'Hand Axes', hands: 'dual', reach: 2.3, area: 4, speed: 1.25, block: 0.45, dmg: 0.88, kind: 'melee', parts: ['handaxe', 'handaxe'], areaName: 'Twin Fury' },
+  bow: { name: 'Longbow', hands: 'bow', reach: 60, area: 6, speed: 1.0, block: 0.35, dmg: 1.05, kind: 'bow', parts: ['bow'], areaName: 'Rain of Arrows' },
+  firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
+  froststaff: { name: 'Frost Staff', hands: 'staff', reach: 55, area: 7, speed: 1.05, block: 0.4, dmg: 0.95, kind: 'staff', element: 'frost', parts: ['staff'], areaName: 'Blizzard' },
+  arcanestaff: { name: 'Arcane Staff', hands: 'staff', reach: 60, area: 6.5, speed: 1.15, block: 0.4, dmg: 0.95, kind: 'staff', element: 'arcane', parts: ['staff'], areaName: 'Arcane Nova' },
+};
+
+// Stats: STR melee damage, DEX ranged/light-weapon damage, crit chance and endurance, INT mana and spell damage, STA health.
+// Races set the starting points; stats only rise through gear. Health, Mana and Endurance also grow each level by class.
+export const STAT_NAMES = { str: 'Strength', dex: 'Dexterity', int: 'Intellect', sta: 'Stamina' };
+export const STAT_DESC = { str: '+2% melee damage per point (swords, maces, axes, hammers)', dex: '+2% bow, dagger, hand axe and spear damage, +0.4% crit, +2 endurance per point', int: '+2% spell and staff damage, +6 mana per point', sta: '+6 health per point' };
+export function derived(stats) { return { meleeMul: 1 + (stats.str - 10) * 0.02, rangedMul: 1 + (stats.dex - 10) * 0.02, spellMul: 1 + (stats.int - 10) * 0.02, crit: 0.05 + stats.dex * 0.004, hp: stats.sta * 6, mana: stats.int * 6, end: stats.dex * 2 }; }
+// per-class pools: base and gain per level. Abilities spend mana (wizard) or endurance (warrior, ranger).
+export const CLASS_POOLS = {
+  warrior: { hp: [120, 16], mana: [0, 0], end: [100, 5], uses: 'end' },
+  ranger: { hp: [100, 13], mana: [0, 0], end: [110, 6], uses: 'end' },
+  wizard: { hp: [85, 10], mana: [110, 9], end: [80, 3], uses: 'mana' },
+};
+export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; return { hp: P.hp[0] + P.hp[1] * (level - 1), mana: P.mana[0] + P.mana[1] * (level - 1), end: P.end[0] + P.end[1] * (level - 1) }; }
+// which stat a weapon type scales with
+// weapon ability (right click) cooldowns in seconds, by weapon kind
+export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8 };
+export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
+
+export const CLASSES = {
+  warrior: { name: 'Warrior', desc: 'A steel-clad fighter who wades into the thick of battle. High health, heavy weapons and a shield.',
+    weapons: ['swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
+    colors: { main: '#8b1e1e', trim: '#d8b04a', metal: '#9aa3ad' } },
+  ranger: { name: 'Ranger', desc: 'A hooded hunter of the wilds. Deadly with a bow, quick with blades, hard to pin down.',
+    weapons: ['bow', 'daggers', 'handaxes', 'spear'], armor: 'leather', hp: 110, mana: 0,
+    colors: { main: '#2f5a2a', trim: '#6b4a2a', metal: '#7a6a55' } },
+  wizard: { name: 'Wizard', desc: 'A robed scholar of the arcane. Hurls fire, frost and raw magic from afar.',
+    weapons: ['firestaff', 'froststaff', 'arcanestaff'], armor: 'cloth', hp: 95, mana: 100,
+    colors: { main: '#2b3a8f', trim: '#e0c25a', metal: '#c9b26a' } },
+};
+
+// Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
+export const ABILITIES = {
+  warrior: [
+    { id: 'charge', cost: 30, name: 'Charge', key: '1', level: 3, cd: 2.5, icon: '⇶', desc: 'Rush forward 12 m, knocking aside and damaging everything in your path.' },
+    { id: 'battlecry', cost: 50, name: 'Battle Cry', key: '2', level: 6, cd: 3, icon: '📯', desc: 'A mighty roar: heal 20% health and deal 30% more damage for 10 s.' },
+    { id: 'earthsplitter', cost: 55, name: 'Earthsplitter', key: '3', level: 10, cd: 3, icon: '⛰', desc: 'Leap toward your aim and crash down, shattering the ground. Stuns for 2 s.' },
+  ],
+  ranger: [
+    { id: 'spectral', cost: 20, name: 'Spectral Arrow', key: '1', level: 3, cd: 2, icon: '➶', desc: 'Loose a glowing arrow that pierces every enemy in a line for heavy damage.' },
+    { id: 'smokeroll', cost: 40, name: 'Smoke Roll', key: '2', level: 6, cd: 3, icon: '☁', desc: 'Roll back in a burst of smoke. Unseen for 4 s; your next hit deals double damage.' },
+    { id: 'fury', cost: 60, name: "Hunter's Fury", key: '3', level: 10, cd: 3, icon: '🐺', desc: 'For 10 s attack 50% faster, deal 25% more damage and heal 10% of damage dealt.' },
+  ],
+  wizard: [
+    { id: 'frostnova', cost: 30, name: 'Frost Nova', key: '1', level: 3, cd: 2.5, icon: '❄', desc: 'Blast of ice around you: damages and freezes nearby enemies for 3 s.' },
+    { id: 'blink', cost: 25, name: 'Blink', key: '2', level: 6, cd: 2, icon: '✦', desc: 'Teleport 14 m in the direction you are moving (or facing).' },
+    { id: 'chain', cost: 30, name: 'Chain Lightning', key: '3', level: 10, cd: 2, icon: '⚡', desc: 'A bolt of lightning that leaps between up to 5 enemies.' },
+  ],
+};
+export const AREA_UNLOCK_LEVEL = 2;
+export const RANK2_LEVEL = 15;
+
+// Dual Wield Mastery: ranks earned by kills while dual wielding. Each rank unlocks something.
+export const DUAL_MASTERY = [
+  { rank: 1, kills: 0, name: 'Twin Fury', desc: 'Right click: a flurry of six alternating strikes on everything in front of you.' },
+  { rank: 2, kills: 10, name: 'Quick Hands', desc: 'Attacks 8% faster while dual wielding.' },
+  { rank: 3, kills: 25, name: 'Bleeding Edges', desc: 'Off-hand hits cause bleeding: damage over 4 s.' },
+  { rank: 4, kills: 45, name: 'Cross Slash', desc: 'Twin Fury ends with a crossing slash that sends a blade wave forward.' },
+  { rank: 5, kills: 70, name: 'Flowing Steel', desc: 'Each hit restores a little stamina.' },
+  { rank: 6, kills: 100, name: 'Whirling Blades', desc: 'Twin Fury becomes a spinning storm that hits all around you, wider radius.' },
+  { rank: 7, kills: 140, name: 'Double Strike', desc: '15% chance for any hit to strike twice.' },
+  { rank: 8, kills: 190, name: 'Bladestorm', desc: 'Twin Fury lasts longer and pulls enemies toward you.' },
+  { rank: 9, kills: 250, name: 'Dancer', desc: 'Dodging costs 40% less stamina while dual wielding.' },
+  { rank: 10, kills: 330, name: 'Master of Twin Blades', desc: 'Twin Fury cooldown halved and +20% dual wield damage.' },
+];
+export function dualRank(kills) { let r = 1; for (const m of DUAL_MASTERY) if (kills >= m.kills) r = m.rank; return r; }
+
+export const TIERS = [
+  { name: 'Driftwood', metal: 'Rusty', col: '#7d6f62', lvl: 1 },
+  { name: 'Copper', metal: 'Copper', col: '#c27a45', lvl: 1, ingot: 'copper_ingot' },
+  { name: 'Iron', metal: 'Iron', col: '#9aa1a8', lvl: 5, ingot: 'iron_ingot' },
+  { name: 'Steel', metal: 'Steel', col: '#c8d0d8', lvl: 9, ingot: 'steel_ingot' },
+  { name: 'Mithril', metal: 'Mithril', col: '#9fd6ff', lvl: 13, ingot: 'mithril_ingot' },
+  { name: 'Starmetal', metal: 'Starmetal', col: '#c6a0ff', lvl: 17, ingot: 'starmetal_ingot' },
+];
+export const RARITY = [
+  { name: 'Common', col: '#e8e8e8', mult: 1 },
+  { name: 'Uncommon', col: '#5fd35f', mult: 1.12 },
+  { name: 'Rare', col: '#4fa3ff', mult: 1.25 },
+  { name: 'Epic', col: '#c06bff', mult: 1.42 },
+  { name: 'Legendary', col: '#ff9a2a', mult: 1.65 },
+];
+
+// Stackable items
+export const ITEMS = {
+  wood: { name: 'Wood', icon: '🪵', desc: 'Logs from a felled tree.', value: 1 },
+  planks: { name: 'Planks', icon: '▤', desc: 'Sawn timber for crafting.', value: 3 },
+  stone: { name: 'Stone', icon: '🪨', desc: 'Rough stone.', value: 1 },
+  copper_ore: { name: 'Copper Ore', icon: '◆', col: '#d0844c', desc: 'Smelt at a forge.', value: 2 },
+  copper_ingot: { name: 'Copper Ingot', icon: '▬', col: '#d0844c', desc: 'Used for copper gear.', value: 6 },
+  iron_ore: { name: 'Iron Ore', icon: '◆', col: '#a8a8b0', desc: 'Smelt at a forge. Needs a Copper Pickaxe or better.', value: 4 },
+  iron_ingot: { name: 'Iron Ingot', icon: '▬', col: '#a8a8b0', desc: 'Used for iron gear.', value: 12 },
+  steel_ingot: { name: 'Steel Ingot', icon: '▬', col: '#d8e0e8', desc: 'Iron folded with charcoal.', value: 20 },
+  mithril_ore: { name: 'Mithril Ore', icon: '◆', col: '#8fd0ff', desc: 'Shimmering ore. Needs an Iron Pickaxe.', value: 9 },
+  mithril_ingot: { name: 'Mithril Ingot', icon: '▬', col: '#8fd0ff', desc: 'Light as a feather, hard as diamond.', value: 30 },
+  starmetal_ore: { name: 'Starmetal Ore', icon: '◆', col: '#c6a0ff', desc: 'Fallen from the sky. Needs a Mithril Pickaxe.', value: 16 },
+  starmetal_ingot: { name: 'Starmetal Ingot', icon: '▬', col: '#c6a0ff', desc: 'The finest metal known.', value: 50 },
+  cotton: { name: 'Cotton', icon: '☁', desc: 'Soft fibre. Spin into linen at a loom.', value: 1 },
+  linen: { name: 'Linen', icon: '▦', col: '#e8dfc8', desc: 'Woven cloth.', value: 4 },
+  raw_hide: { name: 'Raw Hide', icon: '🟫', desc: 'Skinned from a beast. Tan it at a tanning rack.', value: 2 },
+  leather: { name: 'Leather', icon: '▩', col: '#8a5a32', desc: 'Tanned hide.', value: 6 },
+  spider_silk: { name: 'Spider Silk', icon: '🕸', desc: 'Strong, sticky thread.', value: 4 },
+  silk_cloth: { name: 'Silk Cloth', icon: '▦', col: '#dcd6ff', desc: 'Fine cloth for mage robes.', value: 12 },
+  healroot: { name: 'Healroot', icon: '🌿', desc: 'A healing herb. Brew at an alchemy table.', value: 2 },
+  raw_meat: { name: 'Raw Meat', icon: '🥩', desc: 'Cook it at a campfire.', value: 1 },
+  crab_meat: { name: 'Crab Meat', icon: '🦀', desc: 'Cook it at a campfire.', value: 1 },
+  bone: { name: 'Old Bone', icon: '🦴', desc: 'From restless dead.', value: 2 },
+  troll_tusk: { name: 'Troll Tusk', icon: '🦷', desc: 'A trophy.', value: 8 },
+  ember_core: { name: 'Ember Core', icon: '🔥', desc: 'Still warm. Burns forever.', value: 10 },
+  wolf_fang: { name: 'Wolf Fang', icon: '🦷', desc: 'Sharp.', value: 2 },
+  bandit_badge: { name: 'Bandit Badge', icon: '⛉', desc: 'Proof of a bandit slain.', value: 3 },
+  // consumables
+  potion_heal: { name: 'Healing Potion', icon: '🧪', col: '#ff5050', desc: 'Restores 40% health. Press R.', value: 8, use: { heal: 0.4 } },
+  potion_heal2: { name: 'Greater Healing Potion', icon: '🧪', col: '#ff2070', desc: 'Restores 70% health. Press R.', value: 25, use: { heal: 0.7 } },
+  crab_cake: { name: 'Crab Cake', icon: '🍘', desc: 'Restores 25% health over 10 s.', value: 4, use: { regen: 0.25 } },
+  roast_meat: { name: 'Roast Meat', icon: '🍖', desc: 'Restores 35% health over 10 s.', value: 5, use: { regen: 0.35 } },
+  bandage: { name: 'Linen Bandage', icon: '🩹', desc: 'Restores 20% health over 6 s.', value: 3, use: { regen: 0.2, time: 6 } },
+};
+
+export const TOOLS = {
+  hatchet: { name: 'Hatchet', icon: '🪓', desc: 'For chopping trees.' },
+  pickaxe: { name: 'Pickaxe', icon: '⛏', desc: 'For mining stone and ore.' },
+  knife: { name: 'Skinning Knife', icon: '🔪', desc: 'For skinning beasts.' },
+};
+// pickaxe tier needed to mine each node
+export const NODE_TYPES = {
+  tree_oak: { name: 'Oak Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [3, 5], time: 2.2, respawn: 90 },
+  tree_pine: { name: 'Pine Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [3, 5], time: 2.2, respawn: 90 },
+  tree_birch: { name: 'Birch Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [2, 4], time: 2.0, respawn: 90 },
+  tree_palm: { name: 'Palm Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [2, 3], time: 1.8, respawn: 90 },
+  tree_snow: { name: 'Frost Pine', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [3, 5], time: 2.4, respawn: 90 },
+  tree_dead: { name: 'Charred Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [2, 4], time: 2.0, respawn: 90 },
+  rock: { name: 'Boulder', verb: 'Mine', tool: 'pickaxe', tier: 1, item: 'stone', amt: [2, 4], time: 2.0, respawn: 80 },
+  copper: { name: 'Copper Vein', verb: 'Mine', tool: 'pickaxe', tier: 1, item: 'copper_ore', amt: [2, 3], time: 2.4, respawn: 100, extra: 'stone' },
+  iron: { name: 'Iron Vein', verb: 'Mine', tool: 'pickaxe', tier: 2, item: 'iron_ore', amt: [2, 3], time: 2.8, respawn: 110, extra: 'stone' },
+  mithril: { name: 'Mithril Vein', verb: 'Mine', tool: 'pickaxe', tier: 3, item: 'mithril_ore', amt: [1, 3], time: 3.2, respawn: 130 },
+  starmetal: { name: 'Starmetal Vein', verb: 'Mine', tool: 'pickaxe', tier: 4, item: 'starmetal_ore', amt: [1, 2], time: 3.5, respawn: 150 },
+  cotton: { name: 'Cotton Plant', verb: 'Gather', tool: null, item: 'cotton', amt: [2, 3], time: 1.2, respawn: 60 },
+  healroot: { name: 'Healroot', verb: 'Gather', tool: null, item: 'healroot', amt: [1, 2], time: 1.2, respawn: 70 },
+};
+export const TOOL_TIER_NAMES = ['', 'Crude', 'Copper', 'Iron', 'Mithril'];
+
+export const STATIONS = {
+  workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table',
+};
+
+const ARMOR_SLOTS = { head: 'Hood/Helm', chest: 'Chest', legs: 'Legs', feet: 'Boots' };
+export const ARMOR_NAMES = {
+  cloth: { head: 'Hat', chest: 'Robe', legs: 'Leggings', feet: 'Slippers' },
+  leather: { head: 'Hood', chest: 'Jerkin', legs: 'Breeches', feet: 'Boots' },
+  mail: { head: 'Helm', chest: 'Hauberk', legs: 'Greaves', feet: 'Sabatons' },
+};
+export const ARMOR_TIER_NAMES = {
+  cloth: ['Ragged', 'Linen', 'Woven', 'Silk', 'Starweave', 'Archmage'],
+  leather: ['Worn', 'Hide', 'Tanned', 'Hardened', 'Shadowhide', 'Wildlord'],
+  mail: ['Rusty', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
+};
+export const ARMOR_SLOT_LIST = Object.keys(ARMOR_SLOTS);
+
+export function weaponBaseDmg(tier) { return 9 + tier * 9; }
+export function armorBase(tier, slot) { const m = { head: 0.7, chest: 1.3, legs: 1.0, feet: 0.6 }[slot]; return Math.round((3 + tier * 5) * m); }
+
+// Build recipe list
+export const RECIPES = [];
+(function buildRecipes() {
+  const R = (o) => RECIPES.push(o);
+  R({ id: 'planks', out: 'planks', n: 1, station: 'workbench', need: { wood: 2 }, cat: 'Refining', lvl: 1 });
+  R({ id: 'copper_ingot', out: 'copper_ingot', n: 1, station: 'forge', need: { copper_ore: 2 }, cat: 'Refining', lvl: 1 });
+  R({ id: 'iron_ingot', out: 'iron_ingot', n: 1, station: 'forge', need: { iron_ore: 2 }, cat: 'Refining', lvl: 4 });
+  R({ id: 'steel_ingot', out: 'steel_ingot', n: 1, station: 'forge', need: { iron_ingot: 2, wood: 2 }, cat: 'Refining', lvl: 8 });
+  R({ id: 'mithril_ingot', out: 'mithril_ingot', n: 1, station: 'forge', need: { mithril_ore: 2 }, cat: 'Refining', lvl: 11 });
+  R({ id: 'starmetal_ingot', out: 'starmetal_ingot', n: 1, station: 'forge', need: { starmetal_ore: 2, ember_core: 1 }, cat: 'Refining', lvl: 15 });
+  R({ id: 'linen', out: 'linen', n: 1, station: 'loom', need: { cotton: 3 }, cat: 'Refining', lvl: 1 });
+  R({ id: 'silk_cloth', out: 'silk_cloth', n: 1, station: 'loom', need: { spider_silk: 3 }, cat: 'Refining', lvl: 5 });
+  R({ id: 'leather', out: 'leather', n: 1, station: 'tanning', need: { raw_hide: 2 }, cat: 'Refining', lvl: 1 });
+  R({ id: 'bandage', out: 'bandage', n: 2, station: 'loom', need: { linen: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'crab_cake', out: 'crab_cake', n: 1, station: 'campfire', need: { crab_meat: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'roast_meat', out: 'roast_meat', n: 1, station: 'campfire', need: { raw_meat: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'potion_heal', out: 'potion_heal', n: 1, station: 'alchemy', need: { healroot: 2 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'potion_heal2', out: 'potion_heal2', n: 1, station: 'alchemy', need: { healroot: 3, ember_core: 1 }, cat: 'Consumables', lvl: 12 });
+  // tools
+  R({ id: 'tool_pick2', tool: 'pickaxe', tier: 2, station: 'forge', need: { copper_ingot: 3, planks: 2 }, cat: 'Tools', lvl: 3 });
+  R({ id: 'tool_pick3', tool: 'pickaxe', tier: 3, station: 'forge', need: { iron_ingot: 4, planks: 2 }, cat: 'Tools', lvl: 8 });
+  R({ id: 'tool_pick4', tool: 'pickaxe', tier: 4, station: 'forge', need: { mithril_ingot: 4, planks: 2 }, cat: 'Tools', lvl: 13 });
+  R({ id: 'tool_hatchet2', tool: 'hatchet', tier: 2, station: 'forge', need: { copper_ingot: 2, planks: 2 }, cat: 'Tools', lvl: 2 });
+  // weapons, tiers 1-5
+  for (const wt in WEAPON_TYPES) {
+    const W = WEAPON_TYPES[wt];
+    for (let t = 1; t <= 5; t++) {
+      const T = TIERS[t];
+      const need = {};
+      if (W.kind === 'staff') { need.planks = 2 + t; need[T.ingot] = 1 + Math.floor(t / 2); if (t >= 2) need.linen = 2; if (t >= 4) need.ember_core = t - 3; }
+      else if (W.kind === 'bow') { need.planks = 3 + t; need.linen = 2; if (t >= 2) need.leather = 1 + Math.floor(t / 2); need[T.ingot] = Math.max(1, t - 1); }
+      else { need[T.ingot] = (W.hands === 'two' ? 4 : W.hands === 'dual' ? 4 : 3) + t - 1; need.planks = 1 + Math.floor(t / 2); if (W.hands === 'shield') need.planks += 2; if (t >= 2) need.leather = 1; }
+      const station = W.kind === 'melee' ? 'forge' : 'workbench';
+      R({ id: 'w_' + wt + '_' + t, weapon: wt, tier: t, station, need, cat: 'Weapons', lvl: T.lvl });
+    }
+  }
+  // armor
+  for (const kind of ['cloth', 'leather', 'mail']) {
+    for (const slot of ARMOR_SLOT_LIST) {
+      for (let t = 1; t <= 5; t++) {
+        const n = slot === 'chest' ? 4 : slot === 'legs' ? 3 : 2;
+        const need = {};
+        const metal = TIERS[t].ingot;
+        if (kind === 'cloth') { need[t >= 3 ? 'silk_cloth' : 'linen'] = n + t - 1; if (t >= 2) need.leather = 1; if (t >= 4) need[metal] = 1; }
+        if (kind === 'leather') { need.leather = n + t - 1; need.linen = 1; if (t >= 3) need[metal] = 1 + Math.floor(t / 3); }
+        if (kind === 'mail') { need[metal] = n + t - 1; need.leather = 1; if (t === 1) need.linen = 1; }
+        const station = kind === 'cloth' ? 'loom' : kind === 'leather' ? 'tanning' : 'forge';
+        R({ id: 'a_' + kind + '_' + slot + '_' + t, armor: kind, slot, tier: t, station, need, cat: 'Armor', lvl: TIERS[t].lvl });
+      }
+    }
+  }
+})();
+
+// ---- Zones ----
+export const ZONES = [
+  { id: 'coast', name: 'Driftwood Coast', lv: '1-4', col: '#f0d890' },
+  { id: 'meadow', name: 'Sunmeadow', lv: '1-4', col: '#9ad66a' },
+  { id: 'wood', name: 'Whisperwood', lv: '4-9', col: '#3f8a3a' },
+  { id: 'highlands', name: 'Frostpeak Highlands', lv: '9-14', col: '#d8e6f2' },
+  { id: 'ashlands', name: 'The Ashlands', lv: '14-20', col: '#c4462a' },
+];
+
+// ---- Mobs ----
+// shape: quad (wolf/bear/boar/deer/rabbit/hound), crab, spider, humanoid kinds
+export const MOBS = {
+  crab: { name: 'Shore Crab', shape: 'crab', hpM: 0.55, dmgM: 0.5, aggro: 0, speed: 2.2, size: 0.55, loot: { crab_meat: [1, 1, 0.9] }, skin: false, col: '#d0502a' },
+  rabbit: { name: 'Meadow Hare', shape: 'quad', variant: 'rabbit', hpM: 0.35, dmgM: 0, aggro: 0, flee: true, speed: 6, size: 0.35, loot: { raw_meat: [1, 1, 0.7] }, skin: true, col: '#b8a184' },
+  deer: { name: 'Coast Deer', shape: 'quad', variant: 'deer', hpM: 0.7, dmgM: 0, aggro: 0, flee: true, speed: 7, size: 1.1, loot: { raw_meat: [1, 2, 1] }, skin: true, col: '#a4703e' },
+  wolfpup: { name: 'Wolf Pup', shape: 'quad', variant: 'wolf', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.55, loot: { wolf_fang: [1, 1, 0.5], raw_meat: [1, 1, 0.5] }, skin: true, col: '#8d8579' },
+  bearcub: { name: 'Bear Cub', shape: 'quad', variant: 'bear', hpM: 0.8, dmgM: 0.6, aggro: 0, speed: 3.8, size: 0.7, loot: { raw_meat: [1, 2, 0.7] }, skin: true, col: '#6b4a2e' },
+  wolf: { name: 'Grey Wolf', shape: 'quad', variant: 'wolf', hpM: 0.9, dmgM: 1, aggro: 14, speed: 6.5, size: 1.0, loot: { wolf_fang: [1, 2, 0.6], raw_meat: [1, 1, 0.5] }, skin: true, col: '#6f6a64' },
+  boar: { name: 'Wild Boar', shape: 'quad', variant: 'boar', hpM: 1.1, dmgM: 1.0, aggro: 9, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#4e3a2c' },
+  spider: { name: 'Forest Spider', shape: 'spider', hpM: 0.9, dmgM: 1.05, aggro: 13, speed: 5.5, size: 1.0, loot: { spider_silk: [1, 2, 0.75] }, skin: false, col: '#2a2420' },
+  bandit: { name: 'Bandit', shape: 'human', variant: 'bandit', hpM: 1.0, dmgM: 1.1, aggro: 15, speed: 4.8, size: 1.0, loot: { bandit_badge: [1, 1, 0.8] }, gold: [3, 9], skin: false, col: '#5a4030' },
+  bandit_boss: { name: 'Garrick the Cutthroat', shape: 'human', variant: 'bandit', elite: true, hpM: 4, dmgM: 1.5, aggro: 18, speed: 5, size: 1.2, loot: { bandit_badge: [2, 3, 1] }, gold: [30, 60], skin: false, col: '#3a1a14', gearChance: 1 },
+  bear: { name: 'Brown Bear', shape: 'quad', variant: 'bear', hpM: 1.5, dmgM: 1.25, aggro: 11, speed: 5.5, size: 1.5, loot: { raw_meat: [2, 3, 1] }, skin: true, col: '#5a3a22' },
+  frostwolf: { name: 'Frost Wolf', shape: 'quad', variant: 'wolf', hpM: 1.0, dmgM: 1.1, aggro: 16, speed: 7, size: 1.15, loot: { wolf_fang: [1, 2, 0.7] }, skin: true, col: '#dfe8f0' },
+  skeleton: { name: 'Skeleton Warrior', shape: 'human', variant: 'skeleton', hpM: 1.0, dmgM: 1.15, aggro: 15, speed: 4.2, size: 1.0, loot: { bone: [1, 3, 0.9] }, gold: [4, 12], skin: false, col: '#e8e0c8' },
+  troll: { name: 'Mountain Troll', shape: 'human', variant: 'troll', hpM: 2.2, dmgM: 1.5, aggro: 14, speed: 4.5, size: 1.7, loot: { troll_tusk: [1, 1, 0.5] }, gold: [6, 15], skin: true, col: '#7c8a74' },
+  troll_king: { name: 'Grumbak the Troll King', shape: 'human', variant: 'troll', elite: true, hpM: 6, dmgM: 1.8, aggro: 20, speed: 5, size: 2.4, loot: { troll_tusk: [2, 3, 1] }, gold: [60, 120], skin: true, col: '#5e6e58', gearChance: 1 },
+  ashhound: { name: 'Ash Hound', shape: 'quad', variant: 'hound', hpM: 1.0, dmgM: 1.2, aggro: 18, speed: 7.5, size: 1.15, loot: { ember_core: [1, 1, 0.25], raw_meat: [1, 1, 0.4] }, skin: true, col: '#2a2220' },
+  imp: { name: 'Fire Imp', shape: 'human', variant: 'imp', ranged: true, hpM: 0.8, dmgM: 1.15, aggro: 20, speed: 5, size: 0.7, loot: { ember_core: [1, 1, 0.6] }, gold: [5, 12], skin: false, col: '#c33a1a' },
+  golem: { name: 'Magma Golem', shape: 'human', variant: 'golem', hpM: 2.4, dmgM: 1.4, aggro: 12, speed: 3.6, size: 1.9, loot: { ember_core: [1, 2, 0.8], starmetal_ore: [1, 1, 0.3] }, gold: [8, 18], skin: false, col: '#3a302a' },
+  tyrant: { name: 'Vorgath the Ash Tyrant', shape: 'human', variant: 'tyrant', boss: true, elite: true, hpM: 16, dmgM: 2.0, aggro: 30, speed: 5, size: 3.4, loot: { ember_core: [4, 6, 1], starmetal_ore: [3, 5, 1] }, gold: [300, 500], skin: false, col: '#2a1410', gearChance: 1, gearRarity: 4 },
+};
+
+// Spawn regions [type, x, z, radius, count, lvMin, lvMax]
+export const SPAWNS = [
+  ['crab', 70, 440, 60, 8, 1, 1], ['crab', -80, 442, 60, 6, 1, 2],
+  ['rabbit', 40, 260, 120, 8, 1, 2], ['deer', -110, 240, 90, 5, 2, 3], ['deer', 140, 230, 90, 4, 2, 3],
+  ['wolfpup', 120, 290, 60, 6, 1, 2], ['wolfpup', -120, 300, 60, 5, 1, 3], ['bearcub', 80, 200, 70, 5, 2, 3], ['bearcub', -60, 190, 70, 5, 2, 4],
+  ['wolf', 90, 90, 80, 7, 4, 6], ['wolf', -140, 80, 70, 6, 5, 6], ['boar', 160, 40, 70, 6, 5, 7], ['boar', -60, 130, 60, 4, 4, 5],
+  ['spider', -180, 10, 70, 8, 6, 8], ['spider', 230, 120, 60, 5, 6, 7],
+  ['bandit', 200, -60, 40, 7, 7, 9], ['bandit_boss', 205, -68, 3, 1, 9, 9],
+  ['bear', -120, -170, 80, 5, 9, 11], ['frostwolf', -260, -230, 90, 8, 10, 12], ['frostwolf', -380, -330, 80, 6, 11, 13],
+  ['skeleton', -330, -420, 45, 10, 11, 13], ['troll', -200, -430, 70, 6, 12, 14], ['troll_king', -150, -480, 4, 1, 15, 15],
+  ['ashhound', 230, -260, 80, 8, 14, 16], ['imp', 320, -300, 70, 8, 15, 17], ['golem', 280, -400, 80, 7, 16, 18], ['imp', 160, -380, 60, 5, 16, 17],
+  ['tyrant', 400, -456, 3, 1, 20, 20],
+];
+export const mobHp = (lv, M) => Math.round((34 + lv * 26 + lv * lv * 1.2) * M.hpM);
+export const mobDmg = (lv, M) => (4 + lv * 2.6) * M.dmgM;
+export const mobXp = (lv, M) => Math.round((12 + lv * 9) * (M.elite ? 4 : 1) * (M.boss ? 3 : 1) * Math.max(0.6, Math.min(1.6, M.hpM)));
+
+// ---- NPCs ----
+// role: quest giver / merchant / villager
+export const NPCS = {
+  maren: { name: 'Elder Maren', title: 'Village Elder', race: 'human', sex: 'f', outfit: 'elder', x: 2.2, z: 363.1, hello: 'The sea gives and the sea takes, stranger. Today it seems it gave us you.' },
+  bram: { name: 'Bram', title: 'Woodcutter', race: 'human', sex: 'm', outfit: 'worker', x: -14.3, z: 355.4, hello: 'Good honest work, swinging an axe. Clears the head.' },
+  torvin: { name: 'Torvin Ironhand', title: 'Blacksmith', race: 'dwarf', sex: 'm', outfit: 'smith', x: 16.5, z: 352.1, hello: 'Mind the sparks, lad. Or lass. Or whatever ye are under all that salt.' },
+  elsa: { name: 'Elsa', title: 'Weaver', race: 'elf', sex: 'f', outfit: 'weaver', x: -12.1, z: 369.7, hello: 'Every thread has a story. Yours is still being spun.' },
+  lyra: { name: 'Lyra', title: 'Huntress', race: 'elf', sex: 'f', outfit: 'hunter', x: 19.8, z: 370.8, hello: 'Walk soft. The meadow has ears.' },
+  pell: { name: 'Old Pell', title: 'Fisherman', race: 'human', sex: 'm', outfit: 'fisher', x: -7, z: 398, hello: 'Fish ain\'t biting. Crabs are, though. Ha!' },
+  odo: { name: 'Odo', title: 'Merchant', race: 'human', sex: 'm', outfit: 'merchant', x: 7.7, z: 357.6, merchant: true, hello: 'Buying, selling, a bit of both? Odo has it all. Well. Some of it.' },
+  kael: { name: 'Scout Kael', title: 'Whisperwood Warden', race: 'elf', sex: 'm', outfit: 'hunter', x: -36, z: 58, hello: 'Keep your blade close in these woods.' },
+  fen: { name: 'Fen', title: 'Herbalist', race: 'human', sex: 'f', outfit: 'weaver', x: -44, z: 70, hello: 'Healroot grows where the light breaks through the canopy.' },
+  hilda: { name: 'Captain Hilda', title: 'Stonewatch Captain', race: 'dwarf', sex: 'f', outfit: 'smith', x: -222, z: -296, hello: 'Cold enough to freeze your beard off. If ye had one.' },
+  dorn: { name: 'Dorn', title: 'Miner', race: 'dwarf', sex: 'm', outfit: 'worker', x: -234, z: -286, merchant: true, hello: 'There\'s mithril in them peaks. And trolls. Mostly trolls.' },
+  sael: { name: 'Warden Sael', title: 'Emberwatch Warden', race: 'elf', sex: 'm', outfit: 'elder', x: 238, z: -326, merchant: true, hello: 'The ash remembers the fire that made it. So should you.' },
+};
+
+// Quests. obj types: talk(npc), collect(item,n), kill(mob,n), craft(item|cat,n), equip(slot), reach(x,z,r,label)
+export const QUESTS = [
+  { id: 'q_stranger', giver: 'maren', turnin: 'bram', lvl: 1, title: 'A Stranger from the Sea',
+    text: 'You washed up with nothing but salt in your hair. If you mean to stay, you\'ll need to earn your keep. Bram the woodcutter, by the workbench, can teach you to fell a tree.',
+    done: 'Maren sent you? Then let\'s get you an axe.', obj: [{ t: 'talk', npc: 'bram', label: 'Speak with Bram the woodcutter' }], xp: 40, gold: 2 },
+  { id: 'q_timber', giver: 'bram', turnin: 'bram', lvl: 1, req: ['q_stranger'], title: 'Timber for the Shore',
+    text: 'Take this old hatchet. Walk up to any tree, look at it and press E to chop. Bring me 6 Wood and we\'ll see what you\'re made of.',
+    give: { tool: ['hatchet', 1] }, done: 'Not bad at all! Your arms will thank you later. Or curse you.',
+    obj: [{ t: 'collect', item: 'wood', n: 6, label: 'Chop trees for Wood' }], take: { wood: 0 }, xp: 70, gold: 4, items: { potion_heal: 2 } },
+  { id: 'q_planks', giver: 'bram', turnin: 'bram', lvl: 1, req: ['q_timber'], title: 'The Workbench',
+    text: 'Logs are no good to anyone as they are. Stand at the workbench beside me, press E, and saw your wood into 3 Planks.',
+    done: 'Clean cuts. You\'ve a knack for this.', obj: [{ t: 'craft', item: 'planks', n: 3, label: 'Craft Planks at the Workbench' }], xp: 70, gold: 4 },
+  { id: 'q_ore', giver: 'torvin', turnin: 'torvin', lvl: 1, req: ['q_stranger'], title: 'Stone and Copper',
+    text: 'So ye want to make something useful. Here, a crude pick. Go mine boulders for Stone and the green-streaked rocks for Copper Ore. Look for them on the hills north of the village.',
+    give: { tool: ['pickaxe', 1] }, done: 'Good ore, that. Now we work it.',
+    obj: [{ t: 'collect', item: 'stone', n: 4, label: 'Mine Stone from boulders' }, { t: 'collect', item: 'copper_ore', n: 4, label: 'Mine Copper Ore' }], xp: 90, gold: 5 },
+  { id: 'q_smelt', giver: 'torvin', turnin: 'torvin', lvl: 1, req: ['q_ore'], title: 'Into the Fire',
+    text: 'Ore must be smelted. Use the forge here. Two ore makes one ingot. Make me 2 Copper Ingots.',
+    done: 'Look at that shine!', obj: [{ t: 'craft', item: 'copper_ingot', n: 2, label: 'Smelt Copper Ingots at the Forge' }], xp: 90, gold: 5 },
+  { id: 'q_blade', giver: 'torvin', turnin: 'torvin', lvl: 2, req: ['q_smelt', 'q_planks'], title: 'Your First Real Weapon',
+    text: 'That driftwood toy won\'t last. Craft yourself a Copper weapon. Melee weapons at the forge, bows and staves at the workbench. Then equip it from your bag (I).',
+    done: 'Now that\'s a weapon. Try not to lose it in the sea.', obj: [{ t: 'craft', cat: 'Weapons', n: 1, label: 'Craft any Copper weapon' }], xp: 140, gold: 8 },
+  { id: 'q_cotton', giver: 'elsa', turnin: 'elsa', lvl: 1, req: ['q_stranger'], title: 'Soft as Cotton',
+    text: 'The white bushes in the meadow are cotton. Gather some for me and spin it into Linen on my loom. Three cotton makes one linen.',
+    done: 'Lovely. You have patient hands.', obj: [{ t: 'collect', item: 'cotton', n: 6, label: 'Gather Cotton in the meadow' }, { t: 'craft', item: 'linen', n: 2, label: 'Weave Linen at the Loom' }], xp: 100, gold: 5 },
+  { id: 'q_hides', giver: 'lyra', turnin: 'lyra', lvl: 1, req: ['q_stranger'], title: 'Hides and Hunting',
+    text: 'Here is a skinning knife. Hunt hares, deer, wolf pups or bear cubs in the meadow. They won\'t attack unless you do. When one falls, look at it and press E to skin it. Then tan the hides on my rack.',
+    give: { tool: ['knife', 1] }, done: 'Clean work. The meadow provides.',
+    obj: [{ t: 'collect', item: 'raw_hide', n: 4, label: 'Skin beasts for Raw Hide' }, { t: 'craft', item: 'leather', n: 2, label: 'Tan Leather at the Tanning Rack' }], xp: 120, gold: 6 },
+  { id: 'q_garb', giver: 'elsa', turnin: 'elsa', lvl: 2, req: ['q_cotton', 'q_hides'], title: 'Proper Garb',
+    text: 'You\'re still in rags. Craft a piece of armour (cloth at the loom, leather at the rack, mail at the forge) and wear it.',
+    done: 'Much better. You almost look like you belong here.', obj: [{ t: 'craft', cat: 'Armor', n: 1, label: 'Craft any piece of armour' }, { t: 'equip', cat: 'armor', label: 'Equip a piece of armour' }], xp: 140, gold: 8 },
+  { id: 'q_crabs', giver: 'pell', turnin: 'pell', lvl: 1, title: 'Crab Supper',
+    text: 'Those crabs on the beach are fat this year. Fetch me 4 Crab Meat, then cook them into Crab Cakes on the campfire. One for you, one for me... well, three for me.',
+    done: 'Mmm! Just like my mother made. Here, keep the rest.', obj: [{ t: 'collect', item: 'crab_meat', n: 4, label: 'Collect Crab Meat from Shore Crabs' }, { t: 'craft', item: 'crab_cake', n: 4, label: 'Cook Crab Cakes at the Campfire' }], take: { crab_cake: 3 }, xp: 110, gold: 6, items: { potion_heal: 1 } },
+  { id: 'q_litter', giver: 'lyra', turnin: 'lyra', lvl: 2, req: ['q_hides'], title: 'Thinning the Litter',
+    text: 'Too many young wolves and bears near the village, raiding the fish racks. Drive some off: defeat 4 Wolf Pups and 3 Bear Cubs.',
+    done: 'The racks will be safe for a while.', obj: [{ t: 'kill', mob: 'wolfpup', n: 4, label: 'Defeat Wolf Pups' }, { t: 'kill', mob: 'bearcub', n: 3, label: 'Defeat Bear Cubs' }], xp: 160, gold: 10, gear: true },
+  { id: 'q_onward', giver: 'maren', turnin: 'kael', lvl: 4, req: ['q_blade'], title: 'Beyond the Meadow',
+    text: 'You\'ve grown strong here. North, past the meadow, lies the Whisperwood. Scout Kael keeps an outpost there. He could use someone like you. Follow the road north.',
+    done: 'Maren sent you? Good. We need every blade.', obj: [{ t: 'talk', npc: 'kael', label: 'Find Scout Kael in the Whisperwood' }], xp: 200, gold: 10 },
+  { id: 'q_wolves', giver: 'kael', turnin: 'kael', lvl: 4, req: ['q_onward'], title: 'The Grey Pack',
+    text: 'Grey wolves hunt the roads. Unlike the pups, these will come for you on sight. Kill 6.',
+    done: 'Six fewer fangs in the dark.', obj: [{ t: 'kill', mob: 'wolf', n: 6, label: 'Kill Grey Wolves' }], xp: 300, gold: 14, gear: true },
+  { id: 'q_herbs', giver: 'fen', turnin: 'fen', lvl: 4, req: ['q_onward'], title: 'Roots of Healing',
+    text: 'Gather Healroot, the glowing green herb on the forest floor, then brew 3 Healing Potions at my alchemy table.',
+    done: 'Keep a few for yourself. You\'ll need them.', obj: [{ t: 'collect', item: 'healroot', n: 6, label: 'Gather Healroot' }, { t: 'craft', item: 'potion_heal', n: 3, label: 'Brew Healing Potions' }], xp: 300, gold: 12 },
+  { id: 'q_spiders', giver: 'kael', turnin: 'kael', lvl: 6, req: ['q_wolves'], title: 'Webs in the West',
+    text: 'Spiders the size of dogs nest west of here. Kill 6 and bring back 4 Spider Silk. Elsa can weave it into fine cloth.',
+    done: 'Ugh. Burn those legs from your memory.', obj: [{ t: 'kill', mob: 'spider', n: 6, label: 'Kill Forest Spiders' }, { t: 'collect', item: 'spider_silk', n: 4, label: 'Collect Spider Silk' }], xp: 420, gold: 18, gear: true },
+  { id: 'q_iron', giver: 'kael', turnin: 'kael', lvl: 5, req: ['q_onward'], title: 'Iron in the Hills',
+    text: 'Iron veins run through the rocky hills of the Whisperwood. You\'ll need a Copper Pickaxe from a forge to break them. Bring me 6 Iron Ore.',
+    done: 'Good iron. Smelt it and arm yourself.', obj: [{ t: 'collect', item: 'iron_ore', n: 6, label: 'Mine Iron Ore' }], xp: 380, gold: 16 },
+  { id: 'q_bandits', giver: 'kael', turnin: 'kael', lvl: 7, req: ['q_spiders'], title: 'The Cutthroat Camp',
+    text: 'Bandits have made camp east of the river crossing. Kill 6 of them and their leader, Garrick the Cutthroat.',
+    done: 'Garrick is dead? The roads will sing your name.', obj: [{ t: 'kill', mob: 'bandit', n: 6, label: 'Kill Bandits' }, { t: 'kill', mob: 'bandit_boss', n: 1, label: 'Slay Garrick the Cutthroat' }], xp: 700, gold: 40, gear: true },
+  { id: 'q_highlands', giver: 'kael', turnin: 'hilda', lvl: 9, req: ['q_bandits'], title: 'To the Frostpeaks',
+    text: 'The dwarves of Stonewatch, in the snowy highlands to the northwest, have sent for help. Follow the road over the bridge and climb.',
+    done: 'Ye made the climb! Good. Warm yer hands by the fire.', obj: [{ t: 'talk', npc: 'hilda', label: 'Find Captain Hilda at Stonewatch' }], xp: 600, gold: 20 },
+  { id: 'q_frost', giver: 'hilda', turnin: 'hilda', lvl: 10, req: ['q_highlands'], title: 'White Fangs',
+    text: 'Frost wolves stalk the passes. Kill 8 and the miners can work in peace.', done: 'That\'ll do.', obj: [{ t: 'kill', mob: 'frostwolf', n: 8, label: 'Kill Frost Wolves' }], xp: 900, gold: 30, gear: true },
+  { id: 'q_mithril', giver: 'dorn', turnin: 'dorn', lvl: 10, req: ['q_highlands'], title: 'The Shining Vein',
+    text: 'Mithril! Pale blue veins up on the peaks. Ye\'ll need an Iron Pickaxe to break them. Bring me 6 Mithril Ore.',
+    done: 'Beautiful. Simply beautiful.', obj: [{ t: 'collect', item: 'mithril_ore', n: 6, label: 'Mine Mithril Ore' }], xp: 900, gold: 40 },
+  { id: 'q_ruins', giver: 'hilda', turnin: 'hilda', lvl: 11, req: ['q_frost'], title: 'The Restless Dead',
+    text: 'Old ruins up north are crawling with skeletons. Put 10 of them back in the ground.', done: 'Rest easy, dead ones.', obj: [{ t: 'kill', mob: 'skeleton', n: 10, label: 'Destroy Skeleton Warriors' }], xp: 1300, gold: 45, gear: true },
+  { id: 'q_troll', giver: 'hilda', turnin: 'hilda', lvl: 13, req: ['q_ruins'], title: 'The Troll King',
+    text: 'Grumbak, king of the trolls, sits on his throne of bones high in the north. Kill his trolls and then kill him.',
+    done: 'Grumbak... dead? Drinks are on me!', obj: [{ t: 'kill', mob: 'troll', n: 5, label: 'Kill Mountain Trolls' }, { t: 'kill', mob: 'troll_king', n: 1, label: 'Slay Grumbak the Troll King' }], xp: 2200, gold: 100, gear: true, gearRarity: 3 },
+  { id: 'q_ember', giver: 'hilda', turnin: 'sael', lvl: 14, req: ['q_troll'], title: 'Into the Ash',
+    text: 'East, beyond the river, the land burns. Warden Sael holds Emberwatch there. He asked for our best. That\'s you.',
+    done: 'So you are the one they speak of. Welcome to the end of the world.', obj: [{ t: 'talk', npc: 'sael', label: 'Find Warden Sael at Emberwatch' }], xp: 1500, gold: 40 },
+  { id: 'q_hounds', giver: 'sael', turnin: 'sael', lvl: 14, req: ['q_ember'], title: 'Hounds of Cinder', text: 'Ash hounds circle our walls. Kill 8.', done: 'Well fought.', obj: [{ t: 'kill', mob: 'ashhound', n: 8, label: 'Kill Ash Hounds' }], xp: 2400, gold: 60, gear: true },
+  { id: 'q_imps', giver: 'sael', turnin: 'sael', lvl: 15, req: ['q_hounds'], title: 'Embers of Spite', text: 'Fire imps hurl flame from the rocks. Kill 8 and bring me 5 Ember Cores.', done: 'These cores will fuel our forge.', obj: [{ t: 'kill', mob: 'imp', n: 8, label: 'Kill Fire Imps' }, { t: 'collect', item: 'ember_core', n: 5, label: 'Collect Ember Cores' }], take: { ember_core: 5 }, xp: 3000, gold: 70, gear: true },
+  { id: 'q_golems', giver: 'sael', turnin: 'sael', lvl: 16, req: ['q_imps'], title: 'Hearts of Magma', text: 'Magma golems guard the starmetal fields near the volcano. Break 6 of them.', done: 'The path to the crater is open.', obj: [{ t: 'kill', mob: 'golem', n: 6, label: 'Destroy Magma Golems' }], xp: 3600, gold: 80, gear: true, gearRarity: 3 },
+  { id: 'q_tyrant', giver: 'sael', turnin: 'sael', lvl: 18, req: ['q_golems'], title: 'The Ash Tyrant', text: 'Vorgath, the Ash Tyrant, wakes in the crater of the volcano. End him, and the land can heal.', done: 'It is done. The fire dies. You are the hero of this land.', obj: [{ t: 'kill', mob: 'tyrant', n: 1, label: 'Slay Vorgath the Ash Tyrant' }], xp: 8000, gold: 500, gear: true, gearRarity: 4 },
+];
+
+// Village/outpost stations positions
+export const STATION_SPOTS = [
+  { type: 'workbench', x: -16.5, z: 358.7, rot: 0.3 }, { type: 'forge', x: 18.7, z: 348.8, rot: -0.2 }, { type: 'loom', x: -15.4, z: 373.0, rot: 0.6 },
+  { type: 'tanning', x: 23.1, z: 373.0, rot: -0.5 }, { type: 'campfire', x: 1.1, z: 367.5, rot: 0 },
+  { type: 'campfire', x: -40, z: 64, rot: 0 }, { type: 'alchemy', x: -50, z: 74, rot: 0.4 }, { type: 'workbench', x: -30, z: 72, rot: -0.6 },
+  { type: 'forge', x: -240, z: -300, rot: 0.2 }, { type: 'campfire', x: -226, z: -306, rot: 0 }, { type: 'workbench', x: -212, z: -290, rot: 0.9 },
+  { type: 'tanning', x: -244, z: -282, rot: 1.4 }, { type: 'loom', x: -206, z: -304, rot: 2.2 },
+  { type: 'forge', x: 248, z: -318, rot: -0.3 }, { type: 'alchemy', x: 230, z: -340, rot: 0.8 }, { type: 'campfire', x: 236, z: -330, rot: 0 },
+  { type: 'workbench', x: 252, z: -336, rot: 2.0 }, { type: 'loom', x: 222, z: -318, rot: 1.0 }, { type: 'tanning', x: 226, z: -308, rot: 0.6 },
+];
+
+export const MERCHANT_STOCK = ['potion_heal', 'bandage', 'crab_cake', 'linen', 'leather', 'planks', 'copper_ingot', 'iron_ingot'];

@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793561152",
-"./src/character.js": "./src/character.js?v=1793561152",
-"./src/combat.js": "./src/combat.js?v=1793561152",
-"./src/data.js": "./src/data.js?v=1793561152",
-"./src/game.js": "./src/game.js?v=1793561152",
-"./src/icons.js": "./src/icons.js?v=1793561152",
-"./src/main.js": "./src/main.js?v=1793561152",
-"./src/menu.js": "./src/menu.js?v=1793561152",
-"./src/mobs.js": "./src/mobs.js?v=1793561152",
-"./src/player.js": "./src/player.js?v=1793561152",
-"./src/saves.js": "./src/saves.js?v=1793561152",
-"./src/state.js": "./src/state.js?v=1793561152",
-"./src/terrain.js": "./src/terrain.js?v=1793561152",
-"./src/ui.js": "./src/ui.js?v=1793561152",
-"./src/util.js": "./src/util.js?v=1793561152",
-"./src/vfx.js": "./src/vfx.js?v=1793561152",
-"./src/world.js": "./src/world.js?v=1793561152"
+"./src/audio.js": "./src/audio.js?v=1793561282",
+"./src/character.js": "./src/character.js?v=1793561282",
+"./src/combat.js": "./src/combat.js?v=1793561282",
+"./src/data.js": "./src/data.js?v=1793561282",
+"./src/game.js": "./src/game.js?v=1793561282",
+"./src/icons.js": "./src/icons.js?v=1793561282",
+"./src/main.js": "./src/main.js?v=1793561282",
+"./src/menu.js": "./src/menu.js?v=1793561282",
+"./src/mobs.js": "./src/mobs.js?v=1793561282",
+"./src/player.js": "./src/player.js?v=1793561282",
+"./src/saves.js": "./src/saves.js?v=1793561282",
+"./src/state.js": "./src/state.js?v=1793561282",
+"./src/terrain.js": "./src/terrain.js?v=1793561282",
+"./src/ui.js": "./src/ui.js?v=1793561282",
+"./src/util.js": "./src/util.js?v=1793561282",
+"./src/vfx.js": "./src/vfx.js?v=1793561282",
+"./src/world.js": "./src/world.js?v=1793561282"
 }
 }
 </script>
@@ -347,6 +347,10 @@ svg{display:block;width:100%;height:100%}
 .slot.mini{width:48px;height:31px;padding:2px}
 .slot .k{background:rgba(0,0,0,.7);border-radius:4px;padding:0 4px;left:2px;top:2px}
 .slot .lock{font-size:14px;background:rgba(0,0,0,.6)}
+.slot.locked .ai{visibility:hidden}.slot.locked{filter:none;background:radial-gradient(circle at 50% 35%,#1e1610,#0a0704);border-style:dashed;border-color:#4a3418}
+.slot.locked .lock{background:none;color:#8a7a60;font-size:13px}
+.slot.added{animation:added 2.6s ease-out}
+@keyframes added{0%{transform:scale(1.7);box-shadow:0 0 0 4px #fff,0 0 40px 14px #ffd98a}25%{transform:scale(1.15);box-shadow:0 0 0 3px #ffe6a8,0 0 30px 10px #ffd98a}100%{transform:scale(1);box-shadow:0 4px 10px rgba(0,0,0,.6)}}
 .toast{font-size:17px;display:flex;align-items:center}
 /* mob name plates: level badge, name, health bar */
 .plate .nm{font-weight:800;font-size:15px;letter-spacing:.02em;text-shadow:0 1px 2px #000,0 0 4px #000}
@@ -412,6 +416,6 @@ svg{display:block;width:100%;height:100%}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div style="text-align:center"><h1>You Have Fallen</h1><p style="font-size:18px;color:#ddd">Your spirit drifts back to the nearest settlement.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793561152"></script>
+<script type="module" src="./src/main.js?v=1793561282"></script>
 </body>
 </html>

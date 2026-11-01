@@ -129,6 +129,7 @@ function hooks() {
     UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New talent point: press N', 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
     UI.refreshAbilityBar(); saveNow();
+    for (const u of unlocked) setTimeout(() => UI.toast(`New ability added to your bar: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); UI.openDialog(npc); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };
@@ -426,5 +427,9 @@ function gameUpdate(dt) {
   saveTimer += dt; if (saveTimer > 30) { saveTimer = 0; saveNow(); }
 }
 
+// start the title music straight away, before the world is built
+M.play('title');
+setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
+addEventListener('pointerdown', function early() { A.init(); goFull(); removeEventListener('pointerdown', early); }, { once: true });
 window.KR2 = { G, startGame, quitToTitle, UI, Game, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
-boot();
+setTimeout(boot, 60);

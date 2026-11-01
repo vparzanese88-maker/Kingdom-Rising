@@ -465,14 +465,15 @@ export const M = {
   setBoss(on) { bossOn = on; },
   setZone(z) { musicZone = z; },
   setTown(on) { townOn = on; },
+  blocked: false,
 };
 let lastTick = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = Math.min(0.5, (now - lastTick) / 1000); lastTick = now;
   if (inCombat) { combatHold -= dt; if (combatHold <= 0) inCombat = false; }
-  if (!ctx) return; // wait for the first click/key (browsers block audio before that)
   const want = desired();
   const vol = settings.master * settings.music * 0.75;
+  if (!want && !Object.keys(chans).length) return;
   for (const name in MUSIC) {
     const target = name === want ? 1 : 0;
     if (!chans[name] && !target) continue;
@@ -480,7 +481,7 @@ setInterval(() => {
     const rate = target ? (name === 'combat' || name === 'boss' ? 1.2 : 0.5) : (name === 'combat' || name === 'boss' ? 0.35 : 0.6);
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
     c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * vol));
-    if (c.lv > 0.001 && c.el.paused) c.el.play().catch(() => {});
+    if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name === 'combat' || name === 'boss') c.el.currentTime = 0; }
   }
 }, 50);

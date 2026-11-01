@@ -58,7 +58,13 @@ export function refreshAbilityBar() {
   setLock(abilEls.rmb, h.level < AREA_UNLOCK_LEVEL, AREA_UNLOCK_LEVEL);
   ABILITIES[h.cls].forEach((a, i) => { const e = abilEls.ab[i]; e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; setLock(e, h.level < a.level, a.level); });
 }
-function setLock(e, locked, lv) { e.classList.toggle('locked', locked); let l = e.querySelector('.lock'); if (locked && !l) { l = el('div', 'lock', `Lv ${lv}`); e.appendChild(l); } if (!locked && l) l.remove(); }
+function setLock(e, locked, lv) {
+  const was = e.classList.contains('locked');
+  e.classList.toggle('locked', locked);
+  let l = e.querySelector('.lock'); if (locked && !l) { l = el('div', 'lock', `Lv ${lv}`); e.appendChild(l); } if (!locked && l) l.remove();
+  if (was && !locked && e._init) { e.classList.add('added'); setTimeout(() => e.classList.remove('added'), 2600); }
+  e._init = true;
+}
 function setCd(e, left, total) { const c = e.querySelector('.cd'); if (left > 0.05) { c.style.display = ''; c.style.setProperty('--p', (left / total * 100) + '%'); c.textContent = left > 1 ? Math.ceil(left) : left.toFixed(1); e.classList.remove('ready'); } else if (c.style.display !== 'none') { c.style.display = 'none'; e.classList.add('flash'); setTimeout(() => e.classList.remove('flash'), 300); } }
 
 // ---------- HUD per frame ----------

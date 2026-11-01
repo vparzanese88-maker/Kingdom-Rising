@@ -19,6 +19,9 @@ export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf';
 
 // Weapon families. reach in metres, area = right-click area radius, speed = attack speed multiplier.
 export const WEAPON_TYPES = {
+  sword: { name: 'Sword', hands: 'one', reach: 2.7, area: 4.5, speed: 1.05, block: 0.5, dmg: 1.0, kind: 'melee', parts: ['sword'], areaName: 'Whirlwind' },
+  mace: { name: 'Mace', hands: 'one', reach: 2.5, area: 4.5, speed: 0.9, block: 0.5, dmg: 1.08, kind: 'melee', parts: ['mace'], areaName: 'Shockwave' },
+  shield: { name: 'Shield', hands: 'off', reach: 1.8, area: 4, speed: 1.0, block: 0.85, dmg: 0.3, kind: 'melee', parts: ['shield'], areaName: 'Shield Slam' },
   swordshield: { name: 'Sword & Shield', hands: 'shield', reach: 2.7, area: 4.5, speed: 1.05, block: 0.85, dmg: 1.0, kind: 'melee', parts: ['sword', 'shield'], areaName: 'Shield Spin' },
   maceshield: { name: 'Mace & Shield', hands: 'shield', reach: 2.5, area: 4.5, speed: 0.9, block: 0.85, dmg: 1.08, kind: 'melee', parts: ['mace', 'shield'], areaName: 'Crushing Spin' },
   swordmace: { name: 'Sword & Mace', hands: 'dual', reach: 2.6, area: 4.5, speed: 1.15, block: 0.5, dmg: 0.95, kind: 'melee', parts: ['sword', 'mace'], areaName: 'Twin Fury' },
@@ -178,6 +181,8 @@ export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'sta
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 export const COMBOS = {
+  sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 1.6, d: 1.4 }] },
+  mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
   swordshield: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 1.6, d: 1.4 }] },
   maceshield: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
   swordmace: { trait: 'Sword crits, mace ignores armour', chain: [{ a: 'swing1', m: 1.0 }, { a: 'off1', m: 1.15, blunt: true }, { a: 'swing3', m: 1.8, d: 1.4, shock: 3, blunt: true }] },
@@ -190,7 +195,7 @@ export const COMBOS = {
 };
 export const CLASSES = {
   warrior: { name: 'Warrior', desc: 'A steel-clad fighter who wades into the thick of battle. High health, heavy weapons and a shield.',
-    weapons: ['swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
+    weapons: ['sword', 'mace', 'shield', 'swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
     colors: { main: '#8b1e1e', trim: '#d8b04a', metal: '#9aa3ad' } },
   ranger: { name: 'Ranger', desc: 'A hooded hunter of the wilds. Deadly with a bow, quick with blades, hard to pin down.',
     weapons: ['bow', 'daggers', 'handaxes', 'spear'], armor: 'leather', hp: 110, mana: 0,

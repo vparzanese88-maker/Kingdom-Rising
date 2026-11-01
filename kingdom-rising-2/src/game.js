@@ -9,12 +9,21 @@ export const INV_SIZE = 36, STACK = 99;
 let uid = Date.now() % 1e6;
 
 // ---------- new hero ----------
+// main hand + off hand that fight together (sword + shield, mace + shield, sword + mace)
+const ONE = ['sword', 'mace'];
+export function pairedWt(h) {
+  const a = h.equip.w1, b = h.equip.w2; if (!a || !b || !ONE.includes(a.wt)) return null;
+  if (b.wt === 'shield') return a.wt === 'sword' ? 'swordshield' : 'maceshield';
+  if (ONE.includes(b.wt)) return 'swordmace';
+  return null;
+}
+export function activeWeapon(h) { const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
 export function newHero(o) {
-  const starter = makeWeapon(o.weapon, 0, 0);
+  const starter = { warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
-    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
+    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   return h;
@@ -122,7 +131,7 @@ export function heroStats(h) {
   const base = Object.assign({}, RACES[h.race].stats);
   for (const k of EQUIP_SLOTS) {
     const it = h.equip[k]; if (!it) continue;
-    if ((k === 'w1' || k === 'w2') && k !== h.active) continue;
+    if ((k === 'w1' || k === 'w2') && k !== h.active && !pairedWt(h)) continue;
     for (const s in it.stats) base[s] += it.stats[s];
   }
   return base;
@@ -130,7 +139,7 @@ export function heroStats(h) {
 export function heroDerived(h) {
   const st = heroStats(h), d = derived(st), P = poolsAt(h.cls, h.level);
   let armor = 0; for (const k of [...ARMOR_SLOT_LIST, 'back']) if (h.equip[k]) armor += h.equip[k].armor || 0;
-  const w = h.equip[h.active];
+  const w = activeWeapon(h);
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15));
   const res = 1 + perk(h, 'res') * 0.2;
@@ -161,13 +170,13 @@ export function gainMastery(h, wt, n) {
   m.xp += n;
   while (m.lv < MASTERY_CAP && m.xp >= masteryXpFor(m.lv)) { m.xp -= masteryXpFor(m.lv); m.lv++; G.hooks.masteryUp && G.hooks.masteryUp(wt, m.lv); }
 }
-export function spellPower(h) { const D = heroDerived(h); const w = h.equip[h.active]; return (12 + h.level * 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
+export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + h.level * 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 export function equipFromInv(h, idx, slot) {
   const it = h.inv[idx]; if (!it || !it.kind) return false;
   if (!canEquip(h, it)) { G.hooks.toast && G.hooks.toast(`${CLASSES[h.cls].name}s can't use that.`, '⚠', 'bad'); S.error(); return false; }
   if (it.lvl > h.level) { G.hooks.toast && G.hooks.toast(`Requires level ${it.lvl}.`, '⚠', 'bad'); S.error(); return false; }
-  let target = it.kind === 'weapon' ? (slot || h.active) : it.slot;
+  let target = it.kind === 'weapon' ? (slot || (it.wt === 'shield' ? 'w2' : h.active)) : it.slot;
   if (it.kind === 'acc' && it.slot === 'ring') target = slot || (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
   h.inv[idx] = h.equip[target] || null; h.equip[target] = it;
   S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();

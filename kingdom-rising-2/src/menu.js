@@ -51,7 +51,9 @@ export function initMenu() {
 }
 
 // ---------- creator ----------
-const TABS = ['Race', 'Class', 'Weapon', 'Body', 'Look', 'Name'];
+const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
+const START = { warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
+const START_NAME = { warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
 const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
@@ -76,10 +78,10 @@ function renderCreator() {
     body.appendChild(choice([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
     body.appendChild(el('h3', '', 'Choose your class'));
-    body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bows & blades' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = CLASSES[id].weapons[0]; }));
+    body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bows & blades' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = START[id]; }));
     const P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
     body.appendChild(el('div', 'desc', `${CLASSES[C.cls].desc}<div class="statrow"><span>❤ Health ${P0.hp} → ${P20.hp}</span>${P0.mana ? `<span>💧 Mana ${P0.mana} → ${P20.mana}</span>` : ''}<span>⚡ Endurance ${P0.end} → ${P20.end}</span></div><div style="margin-top:10px"><b style="color:var(--gold)">Class abilities</b> (they cost ${CLASS_POOLS[C.cls].uses === 'mana' ? 'mana' : 'endurance'}):${ABILITIES[C.cls].map(a => `<div style="margin-top:4px"><span class="kbd">${a.key}</span> <b>${a.name}</b> <span style="color:var(--dim)">(level ${a.level})</span><br><span style="font-size:14px">${a.desc}</span></div>`).join('')}</div>`));
-  } else if (tab === 2) {
+  } else if (tab === 99) {
     body.appendChild(el('h3', '', 'Choose your starting weapon'));
     body.appendChild(el('p', '', `<span style="color:var(--dim)">A worn starter weapon. Craft or loot better ones later. Every ${CLASSES[C.cls].name} weapon can be equipped, and you can carry two and swap with Q.</span>`));
     const ic = { swordshield: '🛡', maceshield: '🔨', swordmace: '⚔', greatsword: '🗡', greataxe: '🪓', warhammer: '🔨', spear: '🔱', daggers: '🗡', handaxes: '🪓', bow: '🏹', firestaff: '🔥', froststaff: '❄', arcanestaff: '✨' };
@@ -88,14 +90,14 @@ function renderCreator() {
     const lmb = W.kind === 'melee' ? (W.hands === 'dual' ? 'Swing both weapons in turn, then a crossing finisher (3-hit combo)' : '3-hit combo: two different swings, then a big finisher') : W.kind === 'bow' ? 'Shoot an arrow. Arrows drop over distance.' : W.element === 'fire' ? 'Fireball. Drops a little over long range.' : W.element === 'frost' ? 'Ice shard that slows.' : 'Fast arcane bolt.';
     const tr = COMBOS[C.weapon];
     body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${W.name}</b><div style="margin-top:6px"><span class="kbd">Left click</span> ${lmb}</div>${tr ? `<div style="margin-top:4px"><span class="kbd">Combo</span> ${tr.chain.length} attacks · ${tr.trait}</div>` : ''}<div style="margin-top:4px"><span class="kbd">Right click</span> Block: stops ${Math.round(W.block * 100)}% of damage</div><div style="margin-top:4px;color:var(--dim)">Bigger weapons swing slower but hit harder. Damage scales with ${STAT_NAMES[weaponStat(C.weapon)]}.</div>`));
-  } else if (tab === 3) {
+  } else if (tab === 2) {
     const f = (label, input) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); d.appendChild(input); body.appendChild(d); };
     const range = (k, min, max, step, lbls) => { const w = el('div'); const i = el('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = C.app[k]; i.oninput = () => { C.app[k] = +i.value; rebuildPreview(); }; w.appendChild(i); w.appendChild(el('div', '', `<div style="display:flex;justify-content:space-between;color:var(--dim);font-size:13px"><span>${lbls[0]}</span><span>${lbls[1]}</span></div>`)); return w; };
     body.appendChild(el('h3', '', 'Shape your body'));
     f('Height', range('height', 0.9, 1.1, 0.01, ['Short', 'Tall']));
     f('Build', range('build', -1, 1, 0.05, ['Skinny', 'Strong']));
     body.appendChild(el('p', '', '<span style="color:var(--dim)">Purely how you look. Your stats come from your race and gear.</span>'));
-  } else if (tab === 4) {
+  } else if (tab === 3) {
     const sw = (label, list, k) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); const s = el('div', 'swatches'); for (const c of list) { const b = el('button', 'sw' + (C.app[k] === c ? ' on' : '')); b.style.background = c; b.onclick = () => { S.click(); C.app[k] = c; renderCreator(); rebuildPreview(); }; s.appendChild(b); } d.appendChild(s); body.appendChild(d); };
     body.appendChild(el('h3', '', 'Appearance'));
     sw('Skin', R.skins, 'skin'); sw('Hair colour', R.hairs, 'hair');
@@ -106,17 +108,17 @@ function renderCreator() {
       const bs = el('div', 'field'); bs.appendChild(el('label', '', 'Beard'));
       bs.appendChild(choice([{ id: 0, name: 'None' }, { id: 1, name: 'Stubble' }, { id: 2, name: 'Full' }, { id: 3, name: 'Long' }], C.app.beard, (id) => { C.app.beard = id; })); body.appendChild(bs);
     }
-  } else if (tab === 5) {
+  } else if (tab === 4) {
     body.appendChild(el('h3', '', 'Name your hero'));
     const i = el('input'); i.type = 'text'; i.maxLength = 18; i.placeholder = 'Enter a name'; i.value = C.name; i.oninput = () => { C.name = i.value; }; i.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') finish(); };
     const d = el('div', 'field'); d.appendChild(i); body.appendChild(d);
     const rnd = el('button', 'btn', '🎲 Random name'); rnd.onclick = () => { const l = NAMES[C.race][C.sex]; C.name = l[Math.floor(Math.random() * l.length)]; i.value = C.name; }; body.appendChild(rnd);
-    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${RACES[C.race].name} ${CLASSES[C.cls].name}</b> · ${C.sex === 'm' ? 'Male' : 'Female'}<br>Starting weapon: ${WEAPON_TYPES[C.weapon].name}<div class="statrow">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]} <b>${RACES[C.race].stats[k]}</b></span>`).join('')}</div><p style="margin:10px 0 0">You wake on a lonely beach beside the wreck of your raft, with no memory of how you got there...</p>`));
+    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${RACES[C.race].name} ${CLASSES[C.cls].name}</b> · ${C.sex === 'm' ? 'Male' : 'Female'}<br>Starting weapon: ${START_NAME[C.cls]}<div class="statrow">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]} <b>${RACES[C.race].stats[k]}</b></span>`).join('')}</div><p style="margin:10px 0 0">You wake on a lonely beach beside the wreck of your raft, with no memory of how you got there...</p>`));
     setTimeout(() => i.focus(), 50);
   }
 }
 function finish() {
-  if (!C.name.trim()) { tab = 5; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
+  if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   putSave(h);
   closeCreator();

@@ -124,12 +124,26 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       base.position.set(0, 1.2, 0); tip.position.set(0, 1.92, 0); break;
     }
     case 'shield': {
-      const sh = mesh(cached('shield', () => { const s = new THREE.CylinderGeometry(0.34, 0.34, 0.05, 24); s.rotateX(Math.PI / 2); return s; }), mat(tier >= 4 ? '#2a3a6a' : '#7a2020', 0.7), g, 0, 0, 0);
-      mesh(cached('srim', () => new THREE.TorusGeometry(0.34, 0.025, 6, 24)), M, g, 0, 0, 0);
-      mesh(cached('sboss', () => { const s = new THREE.SphereGeometry(0.08, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2); s.rotateX(Math.PI / 2); return s; }), M, g, 0, 0, 0.025);
-      const em = mesh(cached('semb', () => new THREE.BoxGeometry(0.06, 0.48, 0.01)), goldMat, g, 0, 0, 0.03);
-      const em2 = mesh(cached('semb2', () => new THREE.BoxGeometry(0.48, 0.06, 0.01)), goldMat, g, 0, 0, 0.03);
-      base.position.set(0, -0.3, 0); tip.position.set(0, 0.3, 0); break;
+      // shield styles: a warrior's heater (tiers 0-1), a tall kite (2-3) and a great tower shield (4-5);
+      // the small round 'buckler' style is kept for lighter classes later (e.g. a druid)
+      const style = arguments[4] || (tier >= 4 ? 'tower' : tier >= 2 ? 'kite' : 'heater');
+      const faceCol = tier >= 4 ? '#24365e' : tier >= 2 ? '#2a4a2a' : '#7a2020';
+      const geo = cached('shield_' + style, () => {
+        const S2 = new THREE.Shape();
+        if (style === 'buckler') { S2.absarc(0, 0, 0.26, 0, Math.PI * 2, false); }
+        else if (style === 'heater') { S2.moveTo(-0.34, 0.36); S2.quadraticCurveTo(0, 0.42, 0.34, 0.36); S2.lineTo(0.34, 0.05); S2.quadraticCurveTo(0.3, -0.38, 0, -0.56); S2.quadraticCurveTo(-0.3, -0.38, -0.34, 0.05); S2.lineTo(-0.34, 0.36); }
+        else if (style === 'kite') { S2.moveTo(-0.32, 0.42); S2.quadraticCurveTo(0, 0.52, 0.32, 0.42); S2.quadraticCurveTo(0.36, 0.1, 0.2, -0.3); S2.lineTo(0, -0.78); S2.lineTo(-0.2, -0.3); S2.quadraticCurveTo(-0.36, 0.1, -0.32, 0.42); }
+        else { S2.moveTo(-0.36, 0.58); S2.quadraticCurveTo(0, 0.64, 0.36, 0.58); S2.lineTo(0.36, -0.5); S2.quadraticCurveTo(0, -0.82, -0.36, -0.5); S2.lineTo(-0.36, 0.58); }
+        const g2 = new THREE.ExtrudeGeometry(S2, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.018, bevelSize: 0.022, bevelSegments: 2, curveSegments: 14 });
+        const pa = g2.attributes.position; for (let i = 0; i < pa.count; i++) { const x = pa.getX(i); pa.setZ(i, pa.getZ(i) - x * x * 0.55); } // curved like a real shield
+        g2.computeVertexNormals(); return g2;
+      });
+      const face = mesh(geo, mat(faceCol, 0.7), g, 0, 0, 0);
+      const rim = mesh(geo, M, g, 0, 0, -0.012); rim.scale.set(1.07, 1.05, 0.6); // metal rim showing round the edge
+      mesh(cached('sboss', () => { const s = new THREE.SphereGeometry(0.08, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2); s.rotateX(Math.PI / 2); return s; }), M, g, 0, style === 'tower' ? 0.05 : 0.08, 0.05);
+      if (style !== 'buckler') { mesh(cached('semb', () => new THREE.BoxGeometry(0.06, 0.62, 0.012)), goldMat, g, 0, style === 'kite' ? -0.05 : 0, 0.06); mesh(cached('semb2', () => new THREE.BoxGeometry(0.5, 0.06, 0.012)), goldMat, g, 0, 0.18, 0.06); }
+      g.scale.setScalar(1.15);
+      base.position.set(0, -0.4, 0); tip.position.set(0, 0.4, 0); break;
     }
     case 'bow': {
       const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, -0.7, 0), new THREE.Vector3(0, 0, -0.42), new THREE.Vector3(0, 0.7, 0));

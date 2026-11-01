@@ -10,7 +10,7 @@ const dualRank = () => 0;
 import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
-import { heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
+import { activeWeapon, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
 import { FOOD_BUFFS } from './data.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -103,8 +103,8 @@ class ViewModel {
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
     if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = 0.45; // show the blade at an angle, like Skyrim
-    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.02, 0.05, -0.03); } }
-    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(0.95);
+    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.66); off.position.set(0.04, 0.12, -0.03); } }
+    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.25);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -214,7 +214,7 @@ export class Player {
   pk(id) { return perk(this.h, id); }
   wp() { return 0; }
   skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
-  get weapon() { return this.h.equip[this.h.active]; }
+  get weapon() { return activeWeapon(this.h); }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
   refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = D.maxHp; this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
   refreshGear(first) {
@@ -711,6 +711,7 @@ export class Player {
     S.dodge(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 10, { speed: 2, size: 0.4 });
   }
   swapWeapon() {
+    if (pairedWt(this.h)) { G.hooks.toast && G.hooks.toast('Your main and off-hand weapons are used together', '⚔'); return; }
     if (this.atk || this.dodge) return;
     const other = this.h.active === 'w1' ? 'w2' : 'w1';
     if (!this.h.equip[other]) { G.hooks.toast && G.hooks.toast('No second weapon equipped (equip one from your bag)', '⚔', 'bad'); return; }

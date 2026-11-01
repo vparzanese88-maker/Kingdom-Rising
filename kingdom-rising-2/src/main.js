@@ -162,7 +162,7 @@ function hooks() {
   H.saveQuit = quitToTitle;
   H.applyGraphics = applyGraphics;
   H.nodeDone = (n, p) => { if (n.type.startsWith('tree')) fallTree(n, p); else if (n.def.tool === 'pickaxe') { S.rockBreak(n); V.burst('stone', new THREE.Vector3(n.x, n.y + 0.5, n.z), 30, { speed: 6, size: 0.3, grav: 14 }); V.burst('dust', new THREE.Vector3(n.x, n.y + 0.5, n.z), 20, { speed: 3, size: 1.2, life: 1.5 }); } };
-  G.onUiClosed = () => { if (mode === 'game' && !G.player.dead && !intro) lockPointer(); };
+  G.onUiClosed = () => { G.uiClosedAt = performance.now(); if (mode === 'game' && !G.player.dead && !intro) lockPointer(); };
   $('btnRespawn').onclick = () => respawn();
 }
 function respawn() {
@@ -253,7 +253,8 @@ function endIntro() {
 }
 
 // ---------- input ----------
-function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock) return; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
+let lockBusyUntil = 0;
+function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock || document.pointerLockElement || performance.now() < lockBusyUntil - 700) return; lockBusyUntil = performance.now() + 900; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
 function input() {
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
@@ -263,7 +264,7 @@ function input() {
     const p = G.player;
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyK: 'skills', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
-      if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); if (!G.uiOpen) lockPointer(); return; }
+      if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
     G.keys[e.code] = true;
@@ -283,7 +284,10 @@ function input() {
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
     $('clickToPlay').hidden = locked || mode !== 'game' || G.uiOpen || intro || (G.player && G.player.dead);
-    if (!locked && mode === 'game' && !G.uiOpen && !intro && G.player && !G.player.dead) { UI.openPause(); $('clickToPlay').hidden = true; }
+    // only the Esc key (the browser dropping the lock) opens the pause menu; unlocks caused by opening/closing our own windows are ignored
+    if (locked || mode !== 'game' || G.uiOpen || intro || !G.player || G.player.dead) return;
+    if (performance.now() < lockBusyUntil || performance.now() - (G.uiClosedAt || 0) < 900) return;
+    UI.openPause(); $('clickToPlay').hidden = true;
   });
   $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; lockPointer(); });
   addEventListener('beforeunload', () => { if (mode === 'game') saveNow(); });

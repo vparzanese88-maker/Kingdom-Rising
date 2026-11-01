@@ -244,7 +244,7 @@ function openWin(id, title, content, cls = '') {
   const w = el('div', 'win ' + cls); const hd = el('header', '', `<h2>${title}</h2>`); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); closeWin(); }; hd.appendChild(x);
   const c = el('div', 'content'); if (typeof content === 'string') c.innerHTML = content; else c.appendChild(content);
   w.append(hd, c); winRoot().appendChild(w);
-  UI.open = id; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
+  UI.open = id; G.uiOpen = true; G.uiClosedAt = performance.now(); if (document.pointerLockElement) document.exitPointerLock();
   return c;
 }
 export function toggleWin(id) { if (UI.open === id || (UI.open === 'skills' && (id === 'talents' || id === 'skills') && skTab === (id === 'talents' ? 'class' : 'weapon'))) { closeWin(); return; } ({ inv: openInventory, quests: openQuestLog, map: openMap, pause: openPause, skills: () => openSkills('weapon'), talents: () => openSkills('class'), craft: () => openCrafting(null) })[id]?.(); }

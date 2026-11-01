@@ -69,8 +69,8 @@ export const FAMILIES = {
 export const WSKILLS = {
   whirlwind: { name: 'Whirlwind', cd: 8, icon: 'area', desc: 'Spin with your blade, hitting everything around you.' },
   lunge: { name: 'Lunging Strike', cd: 7, icon: 'charge', desc: 'Dash forward and run through the first enemy in your way for heavy damage.' },
-  skullcrack: { name: 'Skull Crack', cd: 8, icon: 'heavy', desc: 'A brutal overhead blow that stuns the target.' },
-  shockwave: { name: 'Shockwave', cd: 10, icon: 'earthsplitter', desc: 'Smash the ground: damage and slow everything around you.' },
+  skullcrack: { name: 'Skull Crack', cd: 8, icon: 'skullcrack', desc: 'A brutal overhead blow that stuns the target.' },
+  shockwave: { name: 'Shockwave', cd: 10, icon: 'shockwave', desc: 'Smash the ground: damage and slow everything around you.' },
   hatchet: { name: 'Hatchet Throw', cd: 6, icon: 'charge', desc: 'Hurl an axe that makes the target bleed.' },
   rend: { name: 'Rending Chop', cd: 8, icon: 'fury', desc: 'A savage chop that leaves a deep bleeding wound.' },
   twinfury: { name: 'Twin Fury', cd: 8, icon: 'twinfury', desc: 'A flurry of six quick strikes on everything in front of you.' },

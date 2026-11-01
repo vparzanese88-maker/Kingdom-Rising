@@ -87,6 +87,8 @@ const S = {
 };
 // ---- ability art ----
 const AB = {
+  skullcrack: '<g transform="rotate(-35 32 32)"><rect x="29.8" y="22" width="4.4" height="38" rx="2" fill="#6a4020" stroke="#140c06" stroke-width="2"/><circle cx="32" cy="16" r="10" fill="#b8c0c8" stroke="#140c06" stroke-width="2"/><path d="M32 4 V28 M20 16 H44" stroke="#140c06" stroke-width="5"/><path d="M32 4 V28 M20 16 H44" stroke="#dfe6ee" stroke-width="2.5"/></g><path d="M48 8 l2 5 l5 1 l-4 3 l1 5 l-4 -3 l-4 3 l1 -5 l-4 -3 l5 -1 z" fill="#ffe24a" stroke="#140c06" stroke-width="1.2"/><path d="M50 30 l1.5 3.5 l3.5 .5 l-3 2 l.8 3.5 l-2.8 -2 l-2.8 2 l.8 -3.5 l-3 -2 l3.5 -.5 z" fill="#ffe24a" stroke="#140c06" stroke-width="1"/>',
+  shockwave: '<path d="M4 50 Q32 34 60 50" stroke="#ffd080" stroke-width="4" fill="none"/><path d="M10 58 Q32 44 54 58" stroke="#ffe8b0" stroke-width="3" fill="none"/><g transform="rotate(-20 32 24)"><rect x="29.8" y="18" width="4.4" height="26" rx="2" fill="#6a4020" stroke="#140c06" stroke-width="2"/><circle cx="32" cy="14" r="9" fill="#b8c0c8" stroke="#140c06" stroke-width="2"/></g>',
   adrenaline: '<path d="M32 58 Q6 40 8 22 Q10 8 22 8 Q30 8 32 18 Q34 8 42 8 Q54 8 56 22 Q58 40 32 58 Z" fill="#c82828" stroke="#140c06" stroke-width="2"/><path d="M36 12 L22 34 L32 34 L26 52 L44 28 L34 28 Z" fill="#ffe24a" stroke="#140c06" stroke-width="1.5"/>',
   tourniquet: '<rect x="8" y="24" width="48" height="16" rx="6" fill="#efe4cc" stroke="#140c06" stroke-width="2"/><path d="M8 32 H56" stroke="#c03030" stroke-width="3" stroke-dasharray="4 3"/><rect x="26" y="14" width="12" height="36" rx="3" fill="#8a5a30" stroke="#140c06" stroke-width="2"/><path d="M44 10 Q56 8 56 20" stroke="#ff6a6a" stroke-width="3" fill="none"/><path d="M50 8 l6 2 l-2 6" stroke="#ff6a6a" stroke-width="3" fill="none"/>',
   secondwind: '<path d="M6 20 H38 Q48 20 48 12 Q48 6 42 6 M6 32 H52 Q60 32 60 40 Q60 48 52 48 M6 44 H30" stroke="#bfffd0" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="16" cy="54" r="5" fill="#f2cc50" stroke="#140c06" stroke-width="1.5"/>',
@@ -123,7 +125,7 @@ const AB = {
   boot: null, sword: null, potionAb: null,
 };
 export function abilityIcon(name, color) {
-  const map = { boot: 'boots', sword: 'sword', shield: 'shield' };
+  const map = { boot: 'boots', sword: 'sword', shield: 'shield', mace: 'mace', axe: 'axe', dagger: 'dagger' };
   if (map[name] && S[map[name]]) return svg(S[map[name]]({}));
   const body = AB[name]; if (!body) return svg(S.sword({}));
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;

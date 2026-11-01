@@ -263,7 +263,7 @@ function input() {
     if (e.code === 'Tab') e.preventDefault();
     const p = G.player;
     if (!e.repeat) {
-      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyK: 'skills', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
+      const map = { KeyI: 'inv', KeyB: 'inv', KeyL: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }

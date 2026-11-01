@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
-import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
@@ -37,12 +37,11 @@ export function buildAbilityBar() {
   bar.appendChild(ws);
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
-  const wf = mk('F', '', 'wab'), wc = mk('C', '', 'wab');
   bar.appendChild(el('div', 'sep'));
   const hb = [0, 1, 2, 3, 4, 5].map(i => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
   const f = mk('RMB', Icons.abilityIcon('shield'), 'small');
-  abilEls = { ws, lmb, wf, wc, hb, f };
+  abilEls = { ws, lmb, hb, f };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
@@ -51,9 +50,8 @@ export function refreshAbilityBar() {
   const [w1, w2] = abilEls.ws.children;
   for (const [e, k] of [[w1, 'w1'], [w2, 'w2']]) { const it = h.equip[k]; e.innerHTML = `<span class="ai">${it ? Icons.itemSvg(it) : ''}</span>`; e.classList.toggle('active', h.active === k); e.title = (it ? it.name : 'Empty') + ' (Q swaps)'; }
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
-  abilEls.lmb.title = W ? (W.kind === 'melee' ? 'Left click: 3-hit combo' : W.kind === 'bow' ? 'Left click: shoot' : 'Left click: cast a bolt') : '';
+  abilEls.lmb.title = W ? (W.kind === 'melee' ? 'Left click: attack. ' + (COMBOS[p.weapon.wt] ? COMBOS[p.weapon.wt].trait : '') : W.kind === 'bow' ? 'Left click: shoot' : 'Left click: cast a bolt') : '';
   const sk = p.skills();
-  [abilEls.wf, abilEls.wc].forEach((e, i) => { const k = sk[i]; e.querySelector('.ai').innerHTML = k ? Icons.abilityIcon(WSKILLS[k.id].icon) : ''; e.title = k ? `${WSKILLS[k.id].name} (${FAMILIES[k.fam].name}): ${WSKILLS[k.id].desc}` : ''; });
   abilEls.f.title = 'Hold right click to block';
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
@@ -90,7 +88,6 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
-    { const sk = p.skills(); [abilEls.wf, abilEls.wc].forEach((e, i) => { if (sk[i]) setCd(e, p.cd['w' + i], WSKILLS[sk[i].id].cd); }); }
     (h.hotbar || []).forEach((sl, i) => {
       const e = abilEls.hb[i];
       if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
@@ -342,7 +339,7 @@ export function refreshOpen() { if (UI.open === 'inv') renderInventory(winRoot()
 
 // --- skills: class tree, weapon trees, dual wield mastery ---
 let skTab = 'class', skWeapon = null;
-export function openSkills(tab) { if (tab) skTab = tab; const h = G.player.h; openWin('skills', skTab === 'class' ? `${CLASSES[h.cls].name} Talents & Abilities` : 'Weapon Skills & Abilities', '', 'big'); renderSkills(); }
+export function openSkills(tab) { skTab = 'class'; const h = G.player.h; openWin('skills', skTab === 'class' ? `${CLASSES[h.cls].name} Talents & Abilities` : 'Weapon Skills & Abilities', '', 'big'); renderSkills(); }
 function treeHtml(nodes, pts, avail, onSpend) {
   const box = el('div', 'tree');
   const spentN = Object.values(pts).reduce((a, b) => a + b, 0);
@@ -367,7 +364,7 @@ function renderSkills() {
   const c = winRoot().querySelector('.content'); if (!c) return;
   const h = G.player.h; c.innerHTML = '';
   const tabs = el('div', 'tabsrow big');
-  for (const [k, t] of [['class', `${CLASSES[h.cls].name} Talents (N)`], ['weapon', 'Weapon Skills (K)']]) { const b = el('button', skTab === k ? 'on' : '', t); b.onclick = () => { S.click(); openSkills(k); }; tabs.appendChild(b); }
+  for (const [k, t] of [['class', `${CLASSES[h.cls].name} Talents (N)`]]) { const b = el('button', skTab === k ? 'on' : '', t); b.onclick = () => { S.click(); openSkills(k); }; tabs.appendChild(b); }
   c.appendChild(tabs);
   if (skTab === 'class') {
     const ab = el('div', 'abilrow');
@@ -563,7 +560,7 @@ export function openPause(onSaveQuit) {
   const m = el('div', 'pausemenu');
   const b = (t, fn, cls = 'btn big') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
   b('Resume', () => closeWin(), 'btn big gold');
-  b('Character & Bags (I)', () => openInventory()); b('Weapon Skills (K)', () => openSkills('weapon')); b('Class Talents (N)', () => openSkills('class')); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (P)', () => openCrafting(null));
+  b('Character & Bags (I)', () => openInventory()); b('Class Talents (N)', () => openSkills('class')); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (P)', () => openCrafting(null));
   b('⛶ Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
   b('Settings', () => openSettings(true)); b('Controls', () => openControls(true));
   b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn big red');
@@ -599,7 +596,7 @@ export function openSettings(fromPause) {
 }
 export function openControls(fromPause) {
   const c = openWin('controls', 'Controls', '');
-  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Melee weapons chain a 3-hit combo'], ['Right click (hold)', 'Block. Shields block the most'], ['F and C', 'Weapon abilities (see Weapon Skills, K)'], ['1 to 6', 'Hotbar: class abilities fill it as you unlock them (levels 3, 6, 10), then potions and food'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['I or B', 'Character, gear & bags'], ['K', 'Weapon skills: each weapon\'s abilities and tree'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
+  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Each weapon has its own combo: swords 3 hits, maces swing + crushing blow, daggers 5 fast stabs, spears 4 thrusts, big weapons swing slow and hard'], ['Right click (hold)', 'Block. Shields block the most'], ['1 2 3', 'Class abilities (choose them in Class Talents, N)'], ['1 to 6', 'Hotbar: class abilities fill it as you unlock them (levels 3, 6, 10), then potions and food'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['I or B', 'Character, gear & bags'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
   const g = el('div', 'keys'); for (const [k, d] of K) { g.appendChild(el('div', '', `<span class="kbd">${k}</span>`)); g.appendChild(el('div', '', d)); }
   c.appendChild(g);
   const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '14px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);

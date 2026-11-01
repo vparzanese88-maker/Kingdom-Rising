@@ -210,7 +210,7 @@ export function onKill(h, mob) {
   }
   // weapon mastery: every weapon in your hands levels up (both of a pair)
   const w = h.equip[h.active];
-  if (w) for (const f of familiesOf(w.wt)) gainMastery(h, f, 10 + mob.lv * 6 * xpMul);
+
   // loot table
   const D = mob.def, loot = [];
   for (const id in D.loot || {}) { const [a, b, c] = D.loot[id]; if (Math.random() < c) loot.push({ id, n: a + Math.floor(Math.random() * (b - a + 1)) }); }

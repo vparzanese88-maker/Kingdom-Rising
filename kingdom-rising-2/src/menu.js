@@ -1,6 +1,6 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
 import * as THREE from 'three';
-import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS } from './data.js';
 import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave } from './saves.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
 import { newHero } from './game.js';
@@ -86,8 +86,8 @@ function renderCreator() {
     body.appendChild(choice(CLASSES[C.cls].weapons.map(w => ({ id: w, name: WEAPON_TYPES[w].name, icon: ic[w], small: WEAPON_TYPES[w].hands === 'two' ? 'Two-handed' : WEAPON_TYPES[w].hands === 'dual' ? 'Dual wield' : WEAPON_TYPES[w].hands === 'shield' ? 'Best block' : WEAPON_TYPES[w].kind === 'bow' ? 'Ranged' : 'Spells' })), C.weapon, (id) => { C.weapon = id; }));
     const W = WEAPON_TYPES[C.weapon];
     const lmb = W.kind === 'melee' ? (W.hands === 'dual' ? 'Swing both weapons in turn, then a crossing finisher (3-hit combo)' : '3-hit combo: two different swings, then a big finisher') : W.kind === 'bow' ? 'Shoot an arrow. Arrows drop over distance.' : W.element === 'fire' ? 'Fireball. Drops a little over long range.' : W.element === 'frost' ? 'Ice shard that slows.' : 'Fast arcane bolt.';
-    const sk = slotSkills(C.weapon);
-    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${W.name}</b><div style="margin-top:6px"><span class="kbd">Left click</span> ${lmb}</div>${sk.map((k, i) => `<div style="margin-top:4px"><span class="kbd">${i ? 'C' : 'F'}</span> <b>${WSKILLS[k.id].name}</b> <span style="color:var(--dim)">(${FAMILIES[k.fam].name})</span>: ${WSKILLS[k.id].desc}</div>`).join('')}<div style="margin-top:4px"><span class="kbd">Right click</span> Block: stops ${Math.round(W.block * 100)}% of damage</div><div style="margin-top:4px;color:var(--dim)">Damage scales with ${STAT_NAMES[weaponStat(C.weapon)]}. Each weapon you use levels up its own skill tree.</div>`));
+    const tr = COMBOS[C.weapon];
+    body.appendChild(el('div', 'desc', `<b style="color:var(--gold2)">${W.name}</b><div style="margin-top:6px"><span class="kbd">Left click</span> ${lmb}</div>${tr ? `<div style="margin-top:4px"><span class="kbd">Combo</span> ${tr.chain.length} attacks · ${tr.trait}</div>` : ''}<div style="margin-top:4px"><span class="kbd">Right click</span> Block: stops ${Math.round(W.block * 100)}% of damage</div><div style="margin-top:4px;color:var(--dim)">Bigger weapons swing slower but hit harder. Damage scales with ${STAT_NAMES[weaponStat(C.weapon)]}.</div>`));
   } else if (tab === 3) {
     const f = (label, input) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); d.appendChild(input); body.appendChild(d); };
     const range = (k, min, max, step, lbls) => { const w = el('div'); const i = el('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = C.app[k]; i.oninput = () => { C.app[k] = +i.value; rebuildPreview(); }; w.appendChild(i); w.appendChild(el('div', '', `<div style="display:flex;justify-content:space-between;color:var(--dim);font-size:13px"><span>${lbls[0]}</span><span>${lbls[1]}</span></div>`)); return w; };

@@ -447,11 +447,13 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
   ch.arms.R.grip.add(main); ch.weapons.main = main;
   if (W.kind === 'bow') { ch.arms.R.grip.remove(main); ch.arms.L.grip.add(main); main.rotation.set(-Math.PI / 2, 0, 0); main.position.set(0, 0, -0.02); }
   if (W.kind === 'staff') { main.position.y = -0.5; }
+  // turn blades and axe heads so their edge faces forward instead of sideways
+  if (W.kind === 'melee') main.rotation.y = Math.PI / 2;
   if (wt === 'spear') { main.position.y = -0.7; }
   if (W.hands === 'two' && wt !== 'spear') main.position.y = W.parts[0] === 'greatsword' ? -0.06 : -0.25;
   if (parts[1]) {
     const off = makeWeapon(parts[1], tier, rarity);
-    ch.arms.L.grip.add(off); ch.weapons.off = off;
+    ch.arms.L.grip.add(off); ch.weapons.off = off; if (parts[1] !== 'shield') off.rotation.y = Math.PI / 2;
     if (parts[1] === 'shield') { off.rotation.set(-Math.PI / 2, Math.PI / 2, 0); off.position.set(0.08, 0.0, 0.05); }
   }
 }

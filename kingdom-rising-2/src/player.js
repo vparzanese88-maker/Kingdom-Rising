@@ -5,7 +5,7 @@ import { G } from './state.js';
 import { S, A, M as Music } from './audio.js';
 import { V } from './vfx.js';
 import { settings } from './saves.js';
-import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf } from './data.js';
+import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS } from './data.js';
 const dualRank = () => 0;
 import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
@@ -23,7 +23,7 @@ const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 // ---------- first-person view model ----------
 const P = (x, y, z, rx, ry, rz) => [x, y, z, rx, ry, rz];
 const VP = {
-  rest: P(0.3, -0.3, -0.5, -0.55, 0.15, -0.25), restL: P(-0.3, -0.32, -0.5, -0.55, -0.15, 0.25), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
+  rest: P(0.27, -0.2, -0.48, -0.45, 0.1, 0.16), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
   s1a: P(0.52, -0.05, -0.4, -1.35, -1.1, 0.3), s1b: P(-0.42, -0.3, -0.45, -1.35, 1.35, 0.3),
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
@@ -64,7 +64,7 @@ function makeHand(right, cls, skinCol) {
   // wrist / cuff
   const cuffM = cls === 'warrior' ? glove : cls === 'ranger' ? new THREE.MeshStandardMaterial({ color: '#6a4628', roughness: 0.8 }) : new THREE.MeshStandardMaterial({ color: CLASSES.wizard.colors.trim, roughness: 0.4, metalness: 0.6 });
   const wrist = new THREE.Object3D(); wrist.position.set(sx * 0.055, -0.04, 0.03); g.add(wrist);
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.04, 0.06, 14), cuffM); wrist.add(cuff);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.041, 0.24, 14), cuffM); cuff.position.y = -0.09; wrist.add(cuff);
   if (cls === 'ranger') for (const y of [-0.016, 0.016]) { const strap = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.004, 4, 16), new THREE.MeshStandardMaterial({ color: '#2a1a0e' })); strap.rotation.x = Math.PI / 2; strap.position.y = y; wrist.add(strap); }
   if (cls === 'warrior') { const rim = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.006, 5, 16), new THREE.MeshStandardMaterial({ color: CLASSES.warrior.colors.trim, metalness: 0.9, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.03; wrist.add(rim); }
   g.userData.wrist = wrist;
@@ -102,8 +102,9 @@ class ViewModel {
     if (W.kind === 'staff') main.position.y = -0.55;
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
-    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.02, 0.05, -0.03); } }
-    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(0.68);
+    if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = 0.45; // show the blade at an angle, like Skyrim
+    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.02, 0.05, -0.03); } }
+    for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(0.95);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -111,7 +112,7 @@ class ViewModel {
   apply(H, p) { H.position.set(p[0], p[1], p[2]); H.rotation.set(p[3], p[4], p[5]); }
   update(dt, st) {
     const W = this.W, act = st.act;
-    let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : VP.rest) : VP.rest;
+    let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
     const t = act ? act.t : 0, n = act ? act.name : '';
@@ -129,6 +130,10 @@ class ViewModel {
         case 'off1': l = seq(mirror(VP.s1a), mirror(VP.s1b), t, 0.3, VP.restL); break;
         case 'off2': l = seq(mirror(VP.s2a), mirror(VP.s2b), t, 0.3, VP.restL); break;
         case 'charge': { const k = Math.min(1, t); r = plerp(this.wt === 'spear' ? VP.spRest : VP.rest, this.wt === 'spear' ? VP.th3A : VP.ha, ease(k)); r = r.map((v, i) => v + (i < 3 ? Math.sin(performance.now() * 0.05) * 0.004 * st.charge : 0)); if (dual) l = plerp(VP.restL, mirror(VP.ha), ease(k)); break; }
+        case 'smash': r = seq(VP.ha, VP.hb, t, 0.5); if (dual || (W && W.hands === 'two')) l = seq(mirror(VP.ha), mirror(VP.hb), t, 0.5, VP.restL); break;
+        case 'stabR': r = seq(VP.thA, VP.thB, t, 0.3, VP.rest); break;
+        case 'stabL': l = seq(mirror(VP.thA), mirror(VP.thB), t, 0.3, VP.restL); break;
+        case 'spin': { const k = ease(Math.min(1, t / 0.8)); const a2 = lerp(-2.6, 2.6, k); r = [lerp(0.6, -0.6, k), -0.15, -0.42, -1.4, a2 * 0.55, 0.3]; l = [lerp(0.6, -0.6, (k + 0.15) % 1), -0.22, -0.42, -1.4, a2 * 0.55, -0.3]; break; }
         case 'heavy': r = this.wt === 'spear' ? seq(VP.th3A, VP.th3B, t, 0.15, VP.th3A) : seq(VP.ha, VP.hb, t, 0.12, VP.ha); if (dual) l = seq(mirror(VP.ha), mirror(VP.hb), t, 0.12, mirror(VP.ha)); break;
         case 'thrust1': case 'thrust2': r = seq(VP.thA, VP.thB, t, 0.35, VP.spRest); break;
         case 'thrust3': r = seq(VP.th3A, VP.th3B, t, 0.4, VP.spRest); break;
@@ -161,15 +166,18 @@ class ViewModel {
     this.bob += dt * st.speed * 1.75;
     const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.022 + this.sprintK * 0.05);
     const ph = this.bob;
+    const spread = run * (0.09 + this.sprintK * 0.06);
+    this.R.position.x += spread; this.R.position.y -= spread * 0.6; this.R.rotation.z -= spread * 1.2;
+    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.x -= spread; this.L.position.y -= spread * 0.6; this.L.rotation.z += spread * 1.2; }
     this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 0.8 * this.sprintK; this.R.rotation.z += Math.sin(ph) * amp * 1.2; this.R.rotation.x += Math.cos(ph) * amp * (1 + this.sprintK * 3);
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
-    this.g.position.set(0.07 + st.swayX, -0.05 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.3);
+    this.g.position.set(st.swayX, -0.04 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     // bow string pull
     if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, 0.02 + pull * 0.5); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
     // forearms follow from the wrist down toward the elbow (off screen)
     for (let i = 0; i < 2; i++) {
-      const { arm, m, trim, H } = this.arms[i]; arm.visible = H.visible;
+      const { arm, m, trim, H } = this.arms[i]; arm.visible = false;
       if (!H.visible) continue;
       const wr = H.children[0].userData.wrist;
       const w = new THREE.Vector3(); wr.getWorldPosition(w); this.g.worldToLocal(w);
@@ -204,7 +212,7 @@ export class Player {
   }
   get level() { return this.h.level; }
   pk(id) { return perk(this.h, id); }
-  wp(id, fam) { const w = this.weapon; return w ? wperk(this.h, fam || familiesOf(w.wt)[0], id) : 0; }
+  wp() { return 0; }
   skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
   get weapon() { return this.h.equip[this.h.active]; }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
@@ -237,8 +245,6 @@ export class Player {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
       case 'KeyQ': this.swapWeapon(); break;
-      case 'KeyF': this.weaponAbility(0); break;
-      case 'KeyC': this.weaponAbility(1); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -298,14 +304,12 @@ export class Player {
     if (this.atk) { if (this.atk.t > 0.35 && !this.atk.noQueue) this.queued = 'light'; return; }
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
     if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
+    const C = COMBOS[this.weapon.wt]; if (!C) return;
     if (this.comboT <= 0) this.combo = 0;
-    const i = this.combo % 3; this.combo = i + 1;
-    let name;
-    if (W.hands === 'dual') name = ['swing1', 'off1', 'swing3'][i];
-    else if (this.weapon.wt === 'spear') name = ['thrust1', 'thrust2', 'thrust3'][i];
-    else name = ['swing1', 'swing2', 'swing3'][i];
-    const dur = (i === 2 ? 0.78 : 0.52) / (W.speed * this.speedMul());
-    this.startAtk(name, dur, { combo: i });
+    const i = this.combo % C.chain.length; this.combo = i + 1;
+    const st = C.chain[i];
+    const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
+    this.startAtk(st.a, dur, { combo: i, step: st, last: i === C.chain.length - 1 });
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
@@ -331,23 +335,23 @@ export class Player {
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
     const W = this.W;
-    const hitAt = a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
+    const hitAt = a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
     if (!a.hit && a.t >= hitAt) { a.hit = true; this.doHit(a); }
     // fury flurry: several hits
     if (a.name === 'fury') { const k = Math.floor(a.t * a.hits); if (k > (a.done || 0) && k <= a.hits) { a.done = k; this.furyHit(a, k); } }
     // trails
     const tr = this.camDist < 0.6 ? this.vm.weapons.main : this.ch.weapons.main;
-    const trActive = W && W.kind === 'melee' && a.t > hitAt - 0.25 && a.t < hitAt + 0.25 && a.name !== 'off1';
+    const trActive = W && W.kind === 'melee' && a.t > hitAt - 0.25 && a.t < hitAt + 0.25 && a.name !== 'off1' && a.name !== 'stabL';
     this.trail.active = trActive;
     if (trActive && tr) this.trail.push(tr.userData.base.getWorldPosition(new THREE.Vector3()), tr.userData.tip.getWorldPosition(new THREE.Vector3()));
     const trl = this.camDist < 0.6 ? this.vm.weapons.off : this.ch.weapons.off;
-    const offActive = W && W.hands === 'dual' && (a.name === 'off1' || a.name === 'swing3' || a.name === 'fury' || a.name === 'heavy') && a.t > 0.1 && a.t < 0.8;
+    const offActive = W && W.hands === 'dual' && (a.name === 'off1' || a.name === 'stabL' || a.name === 'spin' || a.name === 'swing3' || a.name === 'fury' || a.name === 'heavy' || a.name === 'smash') && a.t > 0.1 && a.t < 0.8;
     this.trailL.active = offActive;
     if (offActive && trl) this.trailL.push(trl.userData.base.getWorldPosition(new THREE.Vector3()), trl.userData.tip.getWorldPosition(new THREE.Vector3()));
     if (a.t >= 1) {
       this.atk = null; this.trail.active = this.trailL.active = false;
       this.comboT = 0.55;
-      if (a.combo === 2) this.combo = 0;
+      if (a.last) this.combo = 0;
       if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') this.light(); }
     }
   }
@@ -357,24 +361,27 @@ export class Player {
     const yaw = this.yaw;
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
-      let mult = [1, 1.05, 1.6][a.combo ?? 0], half = 1.0, reach = W.reach;
-      if (a.name === 'heavy') { mult = (1.8 + a.charge * 1.5) * (1 + this.wp('heavy') * 0.15); reach *= 1.15; half = 1.15; }
-      if ((a.combo ?? 0) === 2 && a.name !== 'heavy') mult *= 1 + this.wp('combo') * 0.25;
-      if (a.name === 'swing3') half = 1.3;
-      if (this.weapon.wt === 'spear') half = a.name === 'heavy' || a.name === 'thrust3' ? 0.5 : 0.35;
-      if (W.hands === 'dual' && a.name === 'swing3') mult = 1.9;
-      const off = a.name === 'off1';
-      const targets = (a.combo === 2 && this.pk('cleave')) ? mobsInRadius(this.pos, reach) : mobsInCone(this.pos, yaw, reach, half);
-      let hitAny = false;
+      const st = a.step || { m: 1 }, wt = this.weapon.wt;
+      const blunt = wt === 'maceshield' || wt === 'warhammer' || !!st.blunt;
+      const swordHit = (wt === 'swordshield' || wt === 'swordmace') && !st.blunt;
+      let reach = W.reach * (a.name === 'smash' ? 1.1 : 1), half = st.cleave ? 1.3 : wt === 'spear' ? 0.35 : 0.85;
+      let targets;
+      if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
+      else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
+      else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
+      else { targets = mobsInCone(this.pos, yaw, reach, half); if (!st.cleave) targets = targets.sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 2); }
+      const big = !!a.last;
       for (const m of targets) {
-        const big = a.name === 'heavy' || a.name === 'swing3' || a.name === 'thrust3';
-        const kn = big ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(6 + (a.charge || 0) * 6) : m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(1.5);
-        this.dealDamage(m, base * mult, { knock: kn, big, offhand: off, melee: true, stun: a.name === 'heavy' && a.charge > 0.8 ? 1 : 0 });
-        if (this.swingKind(a.name) === 'blunt') S.blunt(m.pos);
-        hitAny = true;
+        const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
+        this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed ? base * 0.09 : 0, stun: st.stun || 0 });
+        if (blunt) S.blunt(m.pos);
       }
-      if (hitAny) { G.hitstop = a.name === 'heavy' ? 0.09 : 0.045; V.addShake(a.name === 'heavy' ? 0.35 : a.name === 'swing3' ? 0.22 : 0.08); }
-      if (a.name === 'heavy' || a.name === 'swing3') { const p = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); p.y = heightAt(p.x, p.z); if (W.hands === 'two' || a.name === 'heavy') { V.burst('dust', p, 10 + (a.charge || 0) * 14, { speed: 3, size: 0.4 }); if ((a.charge || 0) > 0.6) { V.ring(p, 3.5, '#ffe0a0', 0.4); S.hit('stone', p); } } }
+      if (targets.length) { G.hitstop = big ? 0.09 : 0.04; V.addShake(big ? 0.3 : 0.08); }
+      const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
+      if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp, st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
+      if (a.name === 'spin') { V.ring(this.pos, st.aoe || 3, '#e0e8ff', 0.35); V.burst('spark', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 7 }); S.swingW('light', 1.6, this.pos); }
+      if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
+      if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });
     } else if (W.kind === 'bow') {
       const from = this.handPos(true), dir = this.aimDir(from);
       const charge = a.name === 'release' ? a.charge : 0.25;
@@ -633,7 +640,9 @@ export class Player {
     let crit = Math.random() < this.D.crit;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
     if (this.h.cls === 'ranger' && this.pk('cap') && m.hp >= m.maxHp) crit = true;
+    if (o.critBonus && Math.random() < o.critBonus) crit = true;
     if (crit) dmg *= 1.75;
+    const arm = m.def.armor || 0; if (arm && !o.el) { if (o.blunt) { if (Math.random() < 0.3) V.number(m.pos.clone().setY(m.pos.y + m.height + 0.7), 'Crush!', 'crit'); } else dmg *= 1 - arm; }
     if (this.wp('exec') && m.hp < m.maxHp * 0.35) dmg *= 1.3;
     if (this.h.cls === 'warrior' && this.pk('cap') && this.hp < this.maxHp * 0.5) dmg *= 1.2;
     if (this.buffs.cry > 0) dmg *= 1.3;
@@ -890,6 +899,10 @@ export class Player {
     else if (a) {
       actionT = Math.min(1, a.t); action = a.name;
       if (a.name === 'off1') { action = 'swing1'; mirror = true; }
+      if (a.name === 'stabR') action = 'thrust1';
+      if (a.name === 'stabL') { action = 'thrust1'; mirror = true; }
+      if (a.name === 'smash') action = 'heavy';
+      if (a.name === 'spin') { action = 'area'; spin = ease(Math.min(1, a.t / 0.8)) * Math.PI * 2; }
       if (a.name === 'area' || a.name === 'fury') { action = 'area'; spin = (a.name === 'fury' ? a.t * 3 : ease(Math.min(1, a.t / 0.8))) * Math.PI * 2; }
       if (a.name === 'release') action = 'shoot', actionT = 0.6 + a.t * 0.4;
       if (a.name === 'spell') action = 'cast';

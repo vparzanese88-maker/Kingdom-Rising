@@ -19,14 +19,14 @@ export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf';
 
 // Weapon families. reach in metres, area = right-click area radius, speed = attack speed multiplier.
 export const WEAPON_TYPES = {
-  swordshield: { name: 'Sword & Shield', hands: 'shield', reach: 2.7, area: 4.5, speed: 1.0, block: 0.85, dmg: 1.0, kind: 'melee', parts: ['sword', 'shield'], areaName: 'Shield Spin' },
-  maceshield: { name: 'Mace & Shield', hands: 'shield', reach: 2.5, area: 4.5, speed: 0.95, block: 0.85, dmg: 1.08, kind: 'melee', parts: ['mace', 'shield'], areaName: 'Crushing Spin' },
+  swordshield: { name: 'Sword & Shield', hands: 'shield', reach: 2.7, area: 4.5, speed: 1.05, block: 0.85, dmg: 1.0, kind: 'melee', parts: ['sword', 'shield'], areaName: 'Shield Spin' },
+  maceshield: { name: 'Mace & Shield', hands: 'shield', reach: 2.5, area: 4.5, speed: 0.9, block: 0.85, dmg: 1.08, kind: 'melee', parts: ['mace', 'shield'], areaName: 'Crushing Spin' },
   swordmace: { name: 'Sword & Mace', hands: 'dual', reach: 2.6, area: 4.5, speed: 1.15, block: 0.5, dmg: 0.95, kind: 'melee', parts: ['sword', 'mace'], areaName: 'Twin Fury' },
-  greatsword: { name: 'Greatsword', hands: 'two', reach: 3.4, area: 6.5, speed: 0.8, block: 0.6, dmg: 1.4, kind: 'melee', parts: ['greatsword'], areaName: 'Great Cleave' },
-  greataxe: { name: 'Great Axe', hands: 'two', reach: 3.2, area: 6.5, speed: 0.75, block: 0.55, dmg: 1.5, kind: 'melee', parts: ['greataxe'], areaName: 'Reaping Whirl' },
-  warhammer: { name: 'Warhammer', hands: 'two', reach: 3.0, area: 7, speed: 0.7, block: 0.55, dmg: 1.55, kind: 'melee', parts: ['warhammer'], areaName: 'Quake Spin' },
+  greatsword: { name: 'Greatsword', hands: 'two', reach: 3.4, area: 6.5, speed: 0.68, block: 0.6, dmg: 1.4, kind: 'melee', parts: ['greatsword'], areaName: 'Great Cleave' },
+  greataxe: { name: 'Great Axe', hands: 'two', reach: 3.2, area: 6.5, speed: 0.62, block: 0.55, dmg: 1.5, kind: 'melee', parts: ['greataxe'], areaName: 'Reaping Whirl' },
+  warhammer: { name: 'Warhammer', hands: 'two', reach: 3.0, area: 7, speed: 0.58, block: 0.55, dmg: 1.55, kind: 'melee', parts: ['warhammer'], areaName: 'Quake Spin' },
   spear: { name: 'Spear', hands: 'two', reach: 4.0, area: 5.5, speed: 0.95, block: 0.55, dmg: 1.12, kind: 'melee', parts: ['spear'], areaName: 'Sweeping Arc' },
-  daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.45, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
+  daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.9, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
   handaxes: { name: 'Hand Axes', hands: 'dual', reach: 2.3, area: 4, speed: 1.25, block: 0.45, dmg: 0.88, kind: 'melee', parts: ['handaxe', 'handaxe'], areaName: 'Twin Fury' },
   bow: { name: 'Longbow', hands: 'bow', reach: 60, area: 6, speed: 1.0, block: 0.35, dmg: 1.05, kind: 'bow', parts: ['bow'], areaName: 'Rain of Arrows' },
   firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
@@ -175,6 +175,19 @@ export const MASTERY_CAP = 20;
 export const masteryXpFor = (lv) => 60 + lv * 45;
 export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
 
+// How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
+// cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
+export const COMBOS = {
+  swordshield: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 1.6, d: 1.4 }] },
+  maceshield: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
+  swordmace: { trait: 'Sword crits, mace ignores armour', chain: [{ a: 'swing1', m: 1.0 }, { a: 'off1', m: 1.15, blunt: true }, { a: 'swing3', m: 1.8, d: 1.4, shock: 3, blunt: true }] },
+  daggers: { trait: 'Daggers: lightning fast, the 5th strike is a spinning double slash', chain: [{ a: 'stabR', m: 0.6, d: 0.55 }, { a: 'stabL', m: 0.6, d: 0.55 }, { a: 'stabR', m: 0.65, d: 0.55 }, { a: 'stabL', m: 0.7, d: 0.55 }, { a: 'spin', m: 2.4, d: 1.6, aoe: 3.4, bleed: true, crit: 0.5 }] },
+  handaxes: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 0.95, bleed: true }, { a: 'off1', m: 0.95, bleed: true }, { a: 'swing3', m: 1.7, d: 1.3, bleed: true }] },
+  greatsword: { trait: 'Greatswords cleave through every enemy in front of you', chain: [{ a: 'swing1', m: 1.1, cleave: true }, { a: 'swing2', m: 1.15, cleave: true }, { a: 'smash', m: 2.2, d: 1.5, cleave: true }] },
+  greataxe: { trait: 'Great axes cleave and leave deep bleeding wounds', chain: [{ a: 'swing1', m: 1.35, cleave: true, bleed: true }, { a: 'smash', m: 2.7, d: 1.6, cleave: true, bleed: true }] },
+  warhammer: { trait: 'Hammers ignore armour; the second blow quakes the ground and stuns', chain: [{ a: 'swing1', m: 1.35, blunt: true }, { a: 'smash', m: 2.8, d: 1.7, blunt: true, stun: 1.8, shock: 5 }] },
+  spear: { trait: 'Spears strike from far away; the 4th thrust pierces a whole line', chain: [{ a: 'thrust1', m: 0.85, d: 0.8 }, { a: 'thrust2', m: 0.85, d: 0.8 }, { a: 'thrust1', m: 0.9, d: 0.8 }, { a: 'thrust3', m: 1.9, d: 1.3, line: true, knock: 10 }] },
+};
 export const CLASSES = {
   warrior: { name: 'Warrior', desc: 'A steel-clad fighter who wades into the thick of battle. High health, heavy weapons and a shield.',
     weapons: ['swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
@@ -420,7 +433,7 @@ export const ZONES = [
 // ---- Mobs ----
 // shape: quad (wolf/bear/boar/deer/rabbit/hound), crab, spider, humanoid kinds
 export const MOBS = {
-  crab: { name: 'Shore Crab', shape: 'crab', hpM: 0.55, dmgM: 0.5, aggro: 0, speed: 2.2, size: 0.55, loot: { crab_meat: [1, 1, 0.9] }, skin: false, col: '#d0502a' },
+  crab: { armor: 0.3, name: 'Shore Crab', shape: 'crab', hpM: 0.55, dmgM: 0.5, aggro: 0, speed: 2.2, size: 0.55, loot: { crab_meat: [1, 1, 0.9] }, skin: false, col: '#d0502a' },
   rabbit: { name: 'Meadow Hare', shape: 'quad', variant: 'rabbit', hpM: 0.35, dmgM: 0, aggro: 0, flee: true, speed: 6, size: 1.0, loot: { raw_meat: [1, 1, 0.7] }, skin: true, col: '#b8a184' },
   deer: { name: 'Coast Deer', shape: 'quad', variant: 'deer', hpM: 0.7, dmgM: 0, aggro: 0, flee: true, speed: 7, size: 1.1, loot: { raw_meat: [1, 2, 1] }, skin: true, col: '#a4703e' },
   wolfpup: { name: 'Wolf Pup', shape: 'quad', variant: 'wolf', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.55, loot: { wolf_fang: [1, 1, 0.5], raw_meat: [1, 1, 0.5] }, skin: true, col: '#8d8579' },
@@ -429,23 +442,23 @@ export const MOBS = {
   boar: { name: 'Wild Boar', shape: 'quad', variant: 'boar', hpM: 1.1, dmgM: 1.0, aggro: 9, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#4e3a2c' },
   spider: { name: 'Forest Spider', shape: 'spider', hpM: 0.9, dmgM: 1.05, aggro: 13, speed: 5.5, size: 1.0, loot: { spider_silk: [1, 2, 0.75] }, skin: false, col: '#2a2420' },
   goblin: { name: 'Goblin Raider', shape: 'human', variant: 'goblin', hpM: 0.85, dmgM: 0.95, aggro: 13, speed: 5.2, size: 1.0, loot: { goblin_ear: [1, 1, 0.8], copper_ore: [1, 2, 0.2], raw_meat: [1, 1, 0.2] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
-  goblin_brute: { name: 'Goblin Brute', shape: 'human', variant: 'goblin', hpM: 1.6, dmgM: 1.3, aggro: 13, speed: 4.6, size: 1.35, loot: { goblin_ear: [1, 2, 0.9], iron_ore: [1, 2, 0.3] }, gold: [3, 10], skin: false, col: '#5a7a32' },
+  goblin_brute: { armor: 0.2, name: 'Goblin Brute', shape: 'human', variant: 'goblin', hpM: 1.6, dmgM: 1.3, aggro: 13, speed: 4.6, size: 1.35, loot: { goblin_ear: [1, 2, 0.9], iron_ore: [1, 2, 0.3] }, gold: [3, 10], skin: false, col: '#5a7a32' },
   rat: { name: 'Giant Rat', shape: 'quad', variant: 'rabbit', hpM: 0.45, dmgM: 0.6, aggro: 8, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 1, 0.4] }, skin: true, col: '#5a4e44' },
   boarlet: { name: 'Boarlet', shape: 'quad', variant: 'boar', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.6, loot: { raw_meat: [1, 1, 0.8] }, skin: true, col: '#6a4e38' },
   goblin_slinger: { name: 'Goblin Slinger', shape: 'human', variant: 'goblin', ranged: true, proj: 'rock', hpM: 0.7, dmgM: 0.85, aggro: 17, speed: 5, size: 0.95, loot: { goblin_ear: [1, 1, 0.8], stone: [1, 2, 0.4] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
-  bandit: { name: 'Bandit', shape: 'human', variant: 'bandit', hpM: 1.0, dmgM: 1.1, aggro: 15, speed: 4.8, size: 1.0, loot: { bandit_badge: [1, 1, 0.8] }, gold: [3, 9], skin: false, col: '#5a4030' },
-  bandit_boss: { name: 'Garrick the Cutthroat', shape: 'human', variant: 'bandit', elite: true, hpM: 4, dmgM: 1.5, aggro: 18, speed: 5, size: 1.2, loot: { bandit_badge: [2, 3, 1] }, gold: [30, 60], skin: false, col: '#3a1a14', gearChance: 1 },
+  bandit: { armor: 0.15, name: 'Bandit', shape: 'human', variant: 'bandit', hpM: 1.0, dmgM: 1.1, aggro: 15, speed: 4.8, size: 1.0, loot: { bandit_badge: [1, 1, 0.8] }, gold: [3, 9], skin: false, col: '#5a4030' },
+  bandit_boss: { armor: 0.25, name: 'Garrick the Cutthroat', shape: 'human', variant: 'bandit', elite: true, hpM: 4, dmgM: 1.5, aggro: 18, speed: 5, size: 1.2, loot: { bandit_badge: [2, 3, 1] }, gold: [30, 60], skin: false, col: '#3a1a14', gearChance: 1 },
   tiger: { name: 'Shadow Tiger', shape: 'quad', variant: 'tiger', hpM: 1.15, dmgM: 1.2, aggro: 14, speed: 7.5, size: 1.05, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#d07a2a' },
   snowtiger: { name: 'Snow Tiger', shape: 'quad', variant: 'tiger', hpM: 1.25, dmgM: 1.25, aggro: 15, speed: 7.8, size: 1.15, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#e8e8ec' },
-  bear: { name: 'Brown Bear', shape: 'quad', variant: 'bear', hpM: 1.5, dmgM: 1.25, aggro: 11, speed: 5.5, size: 1.5, loot: { raw_meat: [2, 3, 1] }, skin: true, col: '#5a3a22' },
+  bear: { armor: 0.1, name: 'Brown Bear', shape: 'quad', variant: 'bear', hpM: 1.5, dmgM: 1.25, aggro: 11, speed: 5.5, size: 1.5, loot: { raw_meat: [2, 3, 1] }, skin: true, col: '#5a3a22' },
   frostwolf: { name: 'Frost Wolf', shape: 'quad', variant: 'wolf', hpM: 1.0, dmgM: 1.1, aggro: 16, speed: 7, size: 1.15, loot: { wolf_fang: [1, 2, 0.7] }, skin: true, col: '#dfe8f0' },
-  skeleton: { name: 'Skeleton Warrior', shape: 'human', variant: 'skeleton', hpM: 1.0, dmgM: 1.15, aggro: 15, speed: 4.2, size: 1.0, loot: { bone: [1, 3, 0.9] }, gold: [4, 12], skin: false, col: '#e8e0c8' },
-  troll: { name: 'Mountain Troll', shape: 'human', variant: 'troll', hpM: 2.2, dmgM: 1.5, aggro: 14, speed: 4.5, size: 1.7, loot: { troll_tusk: [1, 1, 0.5] }, gold: [6, 15], skin: true, col: '#7c8a74' },
-  troll_king: { name: 'Grumbak the Troll King', shape: 'human', variant: 'troll', elite: true, hpM: 6, dmgM: 1.8, aggro: 20, speed: 5, size: 2.4, loot: { troll_tusk: [2, 3, 1] }, gold: [60, 120], skin: true, col: '#5e6e58', gearChance: 1 },
+  skeleton: { armor: 0.35, name: 'Skeleton Warrior', shape: 'human', variant: 'skeleton', hpM: 1.0, dmgM: 1.15, aggro: 15, speed: 4.2, size: 1.0, loot: { bone: [1, 3, 0.9] }, gold: [4, 12], skin: false, col: '#e8e0c8' },
+  troll: { armor: 0.25, name: 'Mountain Troll', shape: 'human', variant: 'troll', hpM: 2.2, dmgM: 1.5, aggro: 14, speed: 4.5, size: 1.7, loot: { troll_tusk: [1, 1, 0.5] }, gold: [6, 15], skin: true, col: '#7c8a74' },
+  troll_king: { armor: 0.35, name: 'Grumbak the Troll King', shape: 'human', variant: 'troll', elite: true, hpM: 6, dmgM: 1.8, aggro: 20, speed: 5, size: 2.4, loot: { troll_tusk: [2, 3, 1] }, gold: [60, 120], skin: true, col: '#5e6e58', gearChance: 1 },
   ashhound: { name: 'Ash Hound', shape: 'quad', variant: 'hound', hpM: 1.0, dmgM: 1.2, aggro: 18, speed: 7.5, size: 1.15, loot: { ember_core: [1, 1, 0.25], raw_meat: [1, 1, 0.4] }, skin: true, col: '#2a2220' },
   imp: { name: 'Fire Imp', shape: 'human', variant: 'imp', ranged: true, hpM: 0.8, dmgM: 1.15, aggro: 20, speed: 5, size: 0.7, loot: { ember_core: [1, 1, 0.6] }, gold: [5, 12], skin: false, col: '#c33a1a' },
-  golem: { name: 'Magma Golem', shape: 'human', variant: 'golem', hpM: 2.4, dmgM: 1.4, aggro: 12, speed: 3.6, size: 1.9, loot: { ember_core: [1, 2, 0.8], starmetal_ore: [1, 1, 0.3] }, gold: [8, 18], skin: false, col: '#3a302a' },
-  tyrant: { name: 'Vorgath the Ash Tyrant', shape: 'human', variant: 'tyrant', boss: true, elite: true, hpM: 16, dmgM: 2.0, aggro: 30, speed: 5, size: 3.4, loot: { ember_core: [4, 6, 1], starmetal_ore: [3, 5, 1] }, gold: [300, 500], skin: false, col: '#2a1410', gearChance: 1, gearRarity: 4 },
+  golem: { armor: 0.5, name: 'Magma Golem', shape: 'human', variant: 'golem', hpM: 2.4, dmgM: 1.4, aggro: 12, speed: 3.6, size: 1.9, loot: { ember_core: [1, 2, 0.8], starmetal_ore: [1, 1, 0.3] }, gold: [8, 18], skin: false, col: '#3a302a' },
+  tyrant: { armor: 0.4, name: 'Vorgath the Ash Tyrant', shape: 'human', variant: 'tyrant', boss: true, elite: true, hpM: 16, dmgM: 2.0, aggro: 30, speed: 5, size: 3.4, loot: { ember_core: [4, 6, 1], starmetal_ore: [3, 5, 1] }, gold: [300, 500], skin: false, col: '#2a1410', gearChance: 1, gearRarity: 4 },
 };
 
 // Spawn regions [type, x, z, radius, count, lvMin, lvMax]

@@ -124,11 +124,24 @@ const AB = {
   heavy: '<path d="M32 6 V48" stroke="#fff" stroke-width="6"/><path d="M18 36 L32 56 L46 36 Z" fill="#ffd080" stroke="#140c06" stroke-width="2"/><path d="M10 58 H54" stroke="#a07a4a" stroke-width="4"/>',
   boot: null, sword: null, potionAb: null,
 };
+// Ability icons: painted look (dark tinted backdrop, grain, lighting and a bevelled frame) instead of flat cartoon
+const TINT = { charge: '#7a2a14', battlecry: '#7a4a10', earthsplitter: '#5a3a1a', adrenaline: '#8a1a12', tourniquet: '#5a1a1a', spectral: '#0e5a42', smokeroll: '#2a2a3a', fury: '#6a1410', secondwind: '#1a4a3a', fielddress: '#1e4a1e', frostnova: '#14406a', blink: '#3a1a6a', chain: '#2a3a7a', manasurge: '#12306a', icebarrier: '#1a4a6a', heart: '#5a1010', shield: '#3a3a4a', crown: '#5a4410', crit: '#5a1414', bolt: '#5a4a10', mana: '#10305a', wind: '#1a3a4a', fist: '#4a3018', scroll: '#4a3a20', skull: '#2a2a2a', combo: '#4a2a14', heavy: '#4a3a20' };
+let fid = 0;
 export function abilityIcon(name, color) {
   const map = { boot: 'boots', sword: 'sword', shield: 'shield', mace: 'mace', axe: 'axe', dagger: 'dagger' };
-  if (map[name] && S[map[name]]) return svg(S[map[name]]({}));
-  const body = AB[name]; if (!body) return svg(S.sword({}));
-  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+  let inner;
+  if (map[name] && S[map[name]]) { const p = S[map[name]]({}); inner = { defs: p.defs, body: p.body }; }
+  else inner = { defs: '', body: AB[name] || S.sword({}).body };
+  inner.body = inner.body.replace(/stroke="#140c06" stroke-width="[0-9.]+"/g, 'stroke="#140c06" stroke-opacity=".55" stroke-width="1.1"');
+  const id = 'f' + (fid++), tint = color || TINT[name] || '#3a2a1a';
+  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>${inner.defs}
+    <radialGradient id="${id}b" cx=".5" cy=".38" r=".8"><stop offset="0" stop-color="${shade(tint, 0.35)}"/><stop offset=".55" stop-color="${tint}"/><stop offset="1" stop-color="#050302"/></radialGradient>
+    <filter id="${id}n" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" seed="${fid % 9}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 .22"/></feComponentTransfer><feComposite operator="in" in2="SourceGraphic"/></filter>
+    <filter id="${id}s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2.5" stdDeviation="1.8" flood-color="#000" flood-opacity=".85"/><feColorMatrix type="matrix" values=".85 .1 .05 0 0  .08 .85 .07 0 0  .06 .08 .86 0 0  0 0 0 1 0"/></filter>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+  </defs><rect width="64" height="64" fill="url(#${id}b)"/><rect width="64" height="64" fill="#888" filter="url(#${id}n)"/>
+  <g filter="url(#${id}s)" transform="translate(6.4 6.4) scale(.8)">${inner.body}</g>
+  <rect width="64" height="64" fill="url(#${id}g)"/><rect x="1.5" y="1.5" width="61" height="61" fill="none" stroke="#000" stroke-opacity=".75" stroke-width="3"/><rect x="3.5" y="3.5" width="57" height="57" fill="none" stroke="#e8c880" stroke-opacity=".28" stroke-width="1"/></svg>`;
 }
 function svg(p) { return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>${p.defs}</defs>${p.body}</svg>`; }
 

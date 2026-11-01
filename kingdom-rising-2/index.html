@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793562489",
-"./src/character.js": "./src/character.js?v=1793562489",
-"./src/combat.js": "./src/combat.js?v=1793562489",
-"./src/data.js": "./src/data.js?v=1793562489",
-"./src/game.js": "./src/game.js?v=1793562489",
-"./src/icons.js": "./src/icons.js?v=1793562489",
-"./src/main.js": "./src/main.js?v=1793562489",
-"./src/menu.js": "./src/menu.js?v=1793562489",
-"./src/mobs.js": "./src/mobs.js?v=1793562489",
-"./src/player.js": "./src/player.js?v=1793562489",
-"./src/saves.js": "./src/saves.js?v=1793562489",
-"./src/state.js": "./src/state.js?v=1793562489",
-"./src/terrain.js": "./src/terrain.js?v=1793562489",
-"./src/ui.js": "./src/ui.js?v=1793562489",
-"./src/util.js": "./src/util.js?v=1793562489",
-"./src/vfx.js": "./src/vfx.js?v=1793562489",
-"./src/world.js": "./src/world.js?v=1793562489"
+"./src/audio.js": "./src/audio.js?v=1793562959",
+"./src/character.js": "./src/character.js?v=1793562959",
+"./src/combat.js": "./src/combat.js?v=1793562959",
+"./src/data.js": "./src/data.js?v=1793562959",
+"./src/game.js": "./src/game.js?v=1793562959",
+"./src/icons.js": "./src/icons.js?v=1793562959",
+"./src/main.js": "./src/main.js?v=1793562959",
+"./src/menu.js": "./src/menu.js?v=1793562959",
+"./src/mobs.js": "./src/mobs.js?v=1793562959",
+"./src/player.js": "./src/player.js?v=1793562959",
+"./src/saves.js": "./src/saves.js?v=1793562959",
+"./src/state.js": "./src/state.js?v=1793562959",
+"./src/terrain.js": "./src/terrain.js?v=1793562959",
+"./src/ui.js": "./src/ui.js?v=1793562959",
+"./src/util.js": "./src/util.js?v=1793562959",
+"./src/vfx.js": "./src/vfx.js?v=1793562959",
+"./src/world.js": "./src/world.js?v=1793562959"
 }
 }
 </script>
@@ -355,6 +355,8 @@ svg{display:block;width:100%;height:100%}
 .toast{font-size:17px;display:flex;align-items:center}
 /* mob name plates: level badge, name, health bar */
 .plate .nm{font-weight:800;font-size:15px;letter-spacing:.02em;text-shadow:0 1px 2px #000,0 0 4px #000}
+.plate .lvrow{display:flex;align-items:center;justify-content:center;gap:3px}
+.plate .hos{width:20px;height:20px;filter:drop-shadow(0 0 3px #ff3a20)}
 .plate .lvb{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 4px;margin:0 auto 2px;border-radius:50%;border:2px solid var(--c);color:var(--c);background:radial-gradient(#2a1e14,#0a0604);font-family:var(--f-t);font-weight:900;font-size:13px;box-shadow:0 0 8px var(--c),0 2px 4px #000}
 .plate .hpb{width:96px;height:9px;margin:3px auto 0;background:linear-gradient(#1a0806,#3a1410);border:1px solid #000;border-radius:5px;box-shadow:0 0 0 1px rgba(255,220,160,.35),0 2px 4px rgba(0,0,0,.7);overflow:hidden}
 .plate .hpb i{display:block;height:100%;background:linear-gradient(#ff8a6a,#d8281c 55%,#8a0e08);border-radius:4px 0 0 4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
@@ -417,6 +419,6 @@ svg{display:block;width:100%;height:100%}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div style="text-align:center"><h1>You Have Fallen</h1><p style="font-size:18px;color:#ddd">Your spirit drifts back to the nearest settlement.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793562489"></script>
+<script type="module" src="./src/main.js?v=1793562959"></script>
 </body>
 </html>

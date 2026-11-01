@@ -1,6 +1,6 @@
 // Creatures (procedural animals, spiders, crabs, humanoid monsters), mob AI, and village NPCs.
 import * as THREE from 'three';
-import { MOBS, NPCS, mobHp, mobDmg, mobXp } from './data.js';
+import { MOBS, NPCS, mobHp, mobDmg, mobXp, MOB_ABILITIES } from './data.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, makeWeapon, limbGeo, setDetail, bake } from './character.js';
 import { heightAt, isWater, normalAt } from './terrain.js';
 import { collide } from './world.js';
@@ -21,6 +21,7 @@ const QV = {
   bear: { len: 1.05, ch: 0.42, hip: 0.38, waist: 0.36, legL: 0.5, legR: 0.11, neck: 0.18, neckUp: 0.25, headR: 0.2, snout: 0.14, snoutR: 0.09, ears: 'round', earL: 0.07, tail: 0.1, tailR: 0.06, hump: true, under: 0.15, plantigrade: true },
   boar: { len: 0.95, ch: 0.33, hip: 0.27, waist: 0.28, legL: 0.34, legR: 0.055, neck: 0.08, neckUp: 0.1, headR: 0.18, snout: 0.24, snoutR: 0.09, ears: 'point', earL: 0.1, tail: 0.2, tailR: 0.02, tusks: true, mane: true, under: 0.1, plantigrade: true },
   deer: { len: 0.95, ch: 0.22, hip: 0.2, waist: 0.17, legL: 0.85, legR: 0.035, neck: 0.5, neckUp: 1.0, headR: 0.11, snout: 0.17, snoutR: 0.055, ears: 'long', earL: 0.15, tail: 0.1, tailR: 0.04, antlers: true, under: 0.5 },
+  tiger: { len: 1.3, ch: 0.27, hip: 0.23, waist: 0.2, legL: 0.55, legR: 0.07, neck: 0.22, neckUp: 0.3, headR: 0.17, snout: 0.12, snoutR: 0.09, ears: 'round', earL: 0.06, tail: 0.95, tailR: 0.045, under: 0.75, stripes: true },
   rabbit: { len: 0.32, ch: 0.15, hip: 0.17, waist: 0.13, legL: 0.12, legR: 0.03, neck: 0.04, neckUp: 0.6, headR: 0.1, snout: 0.05, snoutR: 0.05, ears: 'bunny', earL: 0.2, tail: 0.04, tailR: 0.05, under: 0.5, plantigrade: true },
 };
 function buildQuad(variant, col, size) {
@@ -38,6 +39,7 @@ function buildQuad(variant, col, size) {
   const belly = mesh(new THREE.SphereGeometry(P.ch * 0.8, 12, 8), light, torso, 0, -P.ch * 0.25, P.len * 0.62); belly.scale.set(0.75, 0.65, 1.5);
   if (P.hump) { mesh(new THREE.SphereGeometry(P.ch * 0.7, 12, 8), M, torso, 0, P.ch * 0.75, P.len * 0.78); }
   if (P.ruff) { const r = mesh(new THREE.SphereGeometry(P.ch * 0.8, 12, 8), light, torso, 0, P.ch * 0.1, P.len * 1.0); r.scale.set(0.95, 1.15, 0.8); const r2 = mesh(new THREE.SphereGeometry(P.ch * 0.75, 12, 8), M, torso, 0, P.ch * 0.65, P.len * 0.9); r2.scale.set(0.9, 0.8, 1.1); }
+  if (P.stripes) { const sm = mat(base.clone().multiplyScalar(0.18), 0.9); for (let i = 0; i < 9; i++) { const st = mesh(new THREE.TorusGeometry(P.ch * (0.82 + Math.sin(i) * 0.05), 0.018, 4, 14, Math.PI * 0.9), sm, torso, 0, P.ch * 0.18, P.len * (0.1 + i * 0.09)); st.rotation.z = Math.PI * 0.05; st.rotation.y = (i % 2 ? 0.15 : -0.15); } }
   if (P.mane) for (let i = 0; i < 6; i++) { const c = mesh(new THREE.ConeGeometry(0.04, 0.16, 4), dark, torso, 0, P.ch * 0.9, P.len * (0.2 + i * 0.14)); c.rotation.x = -0.4; }
   // neck & head
   const neck = piv(torso, 0, P.ch * 0.45, P.len * 0.95);
@@ -119,6 +121,7 @@ function animQuad(c, dt, st) {
   if (st.action === 'attack') { const t = st.actionT; lunge = t < 0.45 ? -t * 0.5 : Math.sin((t - 0.45) / 0.55 * Math.PI) * 0.6; headPitch = t < 0.45 ? -0.35 : 0.35; }
   c.neck.rotation.x += ((-P.neckUp + headPitch) - c.neck.rotation.x) * Math.min(1, dt * 8);
   c.body.position.z = -P.len / 2 + lunge * 0.45;
+  if (st.rear) { c.torso.rotation.x = -0.45; headPitch = -0.6; }
   c.tail.rotation.y = Math.sin(performance.now() * (sp > 0 ? 0.008 : 0.004)) * (sp > 0 ? 0.35 : 0.15);
   if (c.tail2) c.tail2.rotation.x = -0.35 + Math.sin(performance.now() * 0.006) * 0.08;
   const b = c.root.children[0];
@@ -179,6 +182,7 @@ function animCrab(c, dt, st) { c.anim.ph += dt * (st.speed || 0) * 8; c.torso.po
 // ---------- humanoid monsters ----------
 const HUMAN_VAR = {
   bandit: { kind: 'person', outfit: 'bandit', race: 'human', weapon: 'swordshield' },
+  goblin: { kind: 'person', outfit: 'goblin', race: 'goblin', weapon: 'goblin' },
   skeleton: { kind: 'skeleton', race: 'human', weapon: 'swordshield', tier: 0 },
   troll: { kind: 'troll', race: 'human', weapon: 'warhammer', tier: 0 },
   imp: { kind: 'imp', race: 'human' },
@@ -187,9 +191,11 @@ const HUMAN_VAR = {
 };
 function buildHumanMob(type, def, size) {
   const v = HUMAN_VAR[def.variant];
-  const app = { race: v.race, kind: v.kind, outfit: v.outfit, sex: 'm', skin: def.variant === 'bandit' ? '#c68863' : undefined, hair: '#2a1a10', beard: def.variant === 'bandit' ? 2 : 0, build: 0.4 };
+  const gob = def.variant === 'goblin';
+  const app = { race: v.race, kind: v.kind, outfit: v.outfit, sex: 'm', skin: def.variant === 'bandit' ? '#c68863' : gob ? ['#6a8a3a', '#7a9a44', '#5a7a32'][Math.floor(Math.random() * 3)] : undefined, hair: '#2a1a10', hairStyle: gob ? 3 : 0, beard: def.variant === 'bandit' ? 2 : 0, build: gob ? -0.3 : 0.4 };
   const ch = buildHumanoid(app);
-  if (v.weapon) { equipWeapon(ch, v.weapon, v.tier ?? 1); if (def.variant === 'skeleton') ch.weapons.off && (ch.weapons.off.visible = Math.random() < 0.5); }
+  if (gob) { if (!def.ranged) { const w = makeWeapon(['dagger', 'handaxe', 'mace'][Math.floor(Math.random() * 3)], 0); ch.arms.R.grip.add(w); ch.weapons.main = w; } }
+  else if (v.weapon) { equipWeapon(ch, v.weapon, v.tier ?? 1); if (def.variant === 'skeleton') ch.weapons.off && (ch.weapons.off.visible = Math.random() < 0.5); }
   bake(ch.root);
   ch.root.scale.setScalar(size);
   ch.kind2 = 'human'; ch.radius = 0.4 * size * (v.kind === 'golem' || v.kind === 'troll' ? 1.4 : 1); ch.heightT = ch.height * size;
@@ -210,6 +216,7 @@ export class Mob {
     this.status = { frozen: 0, stun: 0, slow: 0, bleed: 0, bleedDps: 0, burn: 0, burnDps: 0, knock: new THREE.Vector3() };
     this.hostile = this.def.aggro > 0; this.provoked = false; this.dead = false; this.deadT = 0; this.respawnT = 0; this.looted = false; this.skinned = false; this.loot = null;
     this.hitFlash = 0; this.lastHitT = 0; this.growlT = rand(4, 12);
+    this.abil = MOB_ABILITIES[type] || []; this.spCd = {}; for (const a of this.abil) this.spCd[a] = rand(2, 6);
     const size = this.def.size * (1 + (lv - 1) * 0.012);
     const d = this.def;
     if (d.shape === 'quad') this.model = buildQuad(d.variant, d.col, size);
@@ -287,6 +294,7 @@ export class Mob {
     if (this.frozenMesh) this.frozenMesh.visible = st.frozen > 0;
     if (st.frozen > 0 && !this.frozenMesh) { this.frozenMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#bfefff', transparent: true, opacity: 0.45, roughness: 0.1, emissive: '#3080a0', emissiveIntensity: 0.4 })); this.frozenMesh.scale.set(this.radius * 1.4 / this.root.scale.x, this.height * 0.6 / this.root.scale.x, this.radius * 1.4 / this.root.scale.x); this.frozenMesh.position.y = this.height * 0.45 / this.root.scale.x; this.root.add(this.frozenMesh); }
     const disabled = st.frozen > 0 || st.stun > 0;
+    if (this.state !== 'idle' && this.state !== 'wander') this.sitting = false;
     const d2p = this.dist2(player.pos), dp = Math.sqrt(d2p);
     let speed = 0, want = null;
     const spd = this.def.speed * (st.slow > 0 ? 0.5 : 1);
@@ -297,10 +305,15 @@ export class Mob {
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
       if (this.state === 'chase' && (leash > (this.def.boss ? 60 : 45) || player.stealth > 0 && dp > 6)) { this.state = 'return'; this.provoked = false; }
-      if (this.action) {
+      for (const k in this.spCd) this.spCd[k] -= dt;
+      if (this.abil.includes('regen') && this.state === 'chase') this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.012 * dt);
+      if (this.action && this.action !== 'attack') { const mv = this.special(dt, player, dp); if (mv) { want = mv.want; speed = mv.speed; } }
+      else if (this.action) {
         this.actionT += dt / this.actionDur;
         if (this.action === 'attack' && !this.didHit && this.actionT >= 0.55) { this.didHit = true; this.strike(player, dp); }
         if (this.actionT >= 1) { this.action = null; }
+      } else if (this.state === 'chase' && this.tryAbility(player, dp)) {
+        // a special ability just started
       } else if (this.state === 'chase') {
         const ranged = this.def.ranged;
         if (ranged && dp < 22 && dp > 6) { if (this.atkCd <= 0) this.startAttack(1.0); }
@@ -317,7 +330,9 @@ export class Mob {
         if (leash < 3) { this.state = 'idle'; this.hp = this.maxHp; }
       } else {
         this.timer -= dt;
-        if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(2, 7); } }
+        if (this.patrol && this.state !== 'wander') { const P = this.patrol; const tgt = P.pts[P.i]; want = tgt; speed = spd * 0.4; if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.2) P.i = (P.i + 1) % P.pts.length; this.faceTo(tgt, dt, 4); }
+        else if (this.sitAt) { if (this.pos.distanceTo(this.home) > 0.6) { want = this.home; speed = spd * 0.4; } else { this.faceTo(this.sitAt, dt, 4); this.sitting = true; } }
+        else if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(2, 7); } }
         else if (this.timer <= 0) { const a = Math.random() * 6.28, r = Math.random() * 7; this.wanderTo = new THREE.Vector3(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
       }
       if (want && speed !== 0) {
@@ -337,12 +352,12 @@ export class Mob {
     // separation from player
     if (dp < this.radius + player.radius && dp > 0.01) { const k = (this.radius + player.radius - dp) / dp; this.pos.x -= (player.pos.x - this.pos.x) * k * 0.5; this.pos.z -= (player.pos.z - this.pos.z) * k * 0.5; }
     this.pos.y = Math.max(heightAt(this.pos.x, this.pos.z), this.type === 'crab' ? -2 : -0.8);
-    this.root.position.copy(this.pos);
+    this.root.position.copy(this.pos); this.root.position.y += this.leapY || 0;
     this.root.rotation.y = this.yaw;
     if (this.ring) { const show = dp < 45; this.ring.visible = show; if (show) { this.ring.position.set(this.pos.x, this.pos.y + 0.08, this.pos.z); const col = conColor(this.lv, player.level); if (this.ring.userData.c !== col) { this.ring.material.color.set(col); this.ring.userData.c = col; } const tg = G.target === this; this.ring.material.opacity = tg ? 0.95 : this.state === 'chase' ? 0.8 : 0.45; this.ring.scale.setScalar(this.ringR * (tg ? 1.08 + Math.sin(G.time * 6) * 0.05 : 1)); } }
     if (this.model.details) setDetail(this.model, dp < 30);
     if (this.model.kind === 'quad' || this.model.kind2 === 'human' || this.model.kind === 'spider') { const n = normalAt(this.pos.x, this.pos.z); if (this.model.kind !== 'human') this.root.rotation.x = 0; }
-    this.animate(dt, { speed: disabled ? 0 : Math.abs(speed), action: this.action, actionT: this.actionT, graze: this.state === 'idle' && this.model.kind === 'quad' && (this.type === 'deer' || this.type === 'rabbit') });
+    this.animate(dt, { speed: disabled ? 0 : Math.abs(speed), action: this.action, actionT: this.actionT, graze: this.state === 'idle' && this.model.kind === 'quad' && (this.type === 'deer' || this.type === 'rabbit'), rear: this.windup });
     if (this.emberT != null) { this.emberT += dt; if (this.emberT > 0.08 && dp < 50) { this.emberT = 0; V.emit('ember', this.pos.clone().setY(this.pos.y + this.height * (0.3 + Math.random() * 0.6)), { speed: 0.5, vy: 1.5, life: 1.2, size: 0.12 }); } }
   }
   bossTick(dt, player, dp) {
@@ -358,6 +373,71 @@ export class Mob {
       }
     }
   }
+  // ---- special abilities ----
+  say(t) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.6), t, 'bad'); }
+  tryAbility(player, dp) {
+    if (player.dead) return false;
+    for (const a of this.abil) {
+      if ((this.spCd[a] || 0) > 0) continue;
+      const D = { charge: [6, 18, 9], pounce: [5, 14, 8], maul: [0, this.reach + 1.2, 8], web: [5, 18, 8], pound: [0, 5, 9], nova: [0, 4.5, 8], frenzy: [0, this.reach + 0.8, 6], bash: [0, this.reach + 0.6, 7] }[a];
+      if (!D || dp < D[0] || dp > D[1]) continue;
+      if (Math.random() > 0.035 && a !== 'pound' && a !== 'nova') continue; // don't fire the moment it's possible
+      this.spCd[a] = D[2] * rand(0.8, 1.3);
+      this.action = a; this.actionT = 0; this.didHit = false; this.spDir = null;
+      this.actionDur = { charge: 1.6, pounce: 1.4, maul: 1.25, web: 0.8, pound: 1.4, nova: 1.0, frenzy: 0.9, bash: 0.8 }[a];
+      const name = { charge: 'Charge!', pounce: 'Pounce!', maul: 'Maul!', web: 'Web!', pound: 'Ground Pound!', nova: 'Fire Nova!', frenzy: 'Frenzy!', bash: 'Shield Bash!' }[a];
+      this.say(name);
+      if (a === 'charge' || a === 'maul' || a === 'pounce') S.roar(this.pos); else S.growl(this.def.variant || this.def.shape, this.pos, 1.2);
+      if (a === 'pound') G.hooks.telegraphSelf && G.hooks.telegraphSelf(this, 4.5, this.actionDur * 0.65);
+      return true;
+    }
+    return false;
+  }
+  special(dt, player, dp) {
+    const a = this.action; this.actionT += dt / this.actionDur; const t = this.actionT;
+    const toP = Math.atan2(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
+    const facing = Math.abs(angDiff(this.yaw, toP)) < 1.0;
+    let out = null;
+    if (a === 'charge' || a === 'pounce') {
+      if (t < 0.38) { this.faceTo(player.pos, dt, 10); this.windup = true; } // rear up / crouch
+      else {
+        this.windup = false;
+        if (!this.spDir) { this.spDir = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); this.spDist = Math.min(20, dp + 3); S.swing(2, this.pos); }
+        const sp = a === 'pounce' ? 15 : 13;
+        if (this.spDist > 0) { const mv = sp * dt; this.spDist -= mv; this.pos.addScaledVector(this.spDir, mv); if (a === 'pounce') this.leapY = Math.sin(Math.min(1, (t - 0.38) / 0.4) * Math.PI) * 1.6; if (Math.random() < 0.5) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 2, { speed: 2, size: 0.5 }); }
+        if (!this.didHit && dp < this.reach + player.radius + 0.6) {
+          this.didHit = true; this.spDist = 0;
+          player.takeDamage(this.dmg * (a === 'pounce' ? 1.6 : 1.5), this);
+          player.knock(this.spDir.clone().multiplyScalar(a === 'pounce' ? 6 : 10), a === 'pounce' ? 1.0 : 0.6);
+          if (a === 'pounce') player.debuff('bleed', 5, this.dmg * 0.12);
+          V.addShake(0.4); S.hit('flesh', player.pos, 1.5);
+        }
+        if (this.spDist <= 0 && t > 0.6) this.leapY = 0;
+      }
+    } else if (a === 'maul' || a === 'frenzy' || a === 'bash') {
+      this.faceTo(player.pos, dt, 8);
+      const hits = a === 'frenzy' ? [0.35, 0.7] : [a === 'maul' ? 0.62 : 0.5];
+      for (let i = 0; i < hits.length; i++) if (t >= hits[i] && (this.hitN || 0) <= i) {
+        this.hitN = i + 1;
+        if (dp <= this.reach + player.radius + 0.6 && facing) {
+          if (a === 'maul') { player.takeDamage(this.dmg * 2.0, this); player.knock(new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(8), 0.4); V.addShake(0.35); }
+          else if (a === 'frenzy') { player.takeDamage(this.dmg * 0.8, this); }
+          else { player.takeDamage(this.dmg * 0.9, this); player.debuff('stun', 0.8); S.block(true, player.pos); }
+        } else S.swing(1.2, this.pos);
+      }
+    } else if (a === 'web') {
+      this.faceTo(player.pos, dt, 8);
+      if (t >= 0.5 && !this.didHit) { this.didHit = true; G.hooks.mobShot && G.hooks.mobShot(this, player, 'web'); }
+    } else if (a === 'pound' || a === 'nova') {
+      if (t >= 0.65 && !this.didHit) {
+        this.didHit = true; const r = a === 'pound' ? 4.5 : 4.5;
+        G.hooks.mobBlast && G.hooks.mobBlast(this, r, a);
+        if (dp < r + player.radius) { player.takeDamage(this.dmg * (a === 'pound' ? 1.7 : 1.4), this, { aoe: true }); if (a === 'pound') { player.knock(player.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), 0.7); } else player.debuff('burn', 4, this.dmg * 0.15); }
+      }
+    }
+    if (this.actionT >= 1) { this.action = null; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, 0.6); }
+    return out;
+  }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }
   startAttack(cd) { this.action = 'attack'; this.actionT = 0; this.didHit = false; this.atkCd = cd + rand(0.6, 1.3); this.actionDur = this.def.boss ? 1.3 : this.def.ranged ? 0.8 : 0.85; }
   strike(player, dp) {
@@ -365,15 +445,19 @@ export class Mob {
     const toP = Math.atan2(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
     if (dp <= this.reach + player.radius + 0.4 && Math.abs(angDiff(this.yaw, toP)) < 1.2) {
       player.takeDamage(this.dmg * rand(0.85, 1.15), this);
+      if (this.abil.includes('bite') && Math.random() < 0.35) { player.debuff('bleed', 5, this.dmg * 0.1); this.say('Bite!'); }
+      if (this.abil.includes('poison') && Math.random() < 0.4) { player.debuff('poison', 6, this.dmg * 0.1); this.say('Poison!'); }
+      if (this.abil.includes('frostbite') && Math.random() < 0.4) player.debuff('slow', 3);
+      if (this.abil.includes('firebite') && Math.random() < 0.4) player.debuff('burn', 4, this.dmg * 0.12);
     } else S.swing(this.def.boss ? 2 : 1, this.pos);
     if (this.def.boss || this.def.variant === 'troll' || this.def.variant === 'golem') { V.addShake(0.15); const p = this.pos.clone(); p.x += Math.sin(this.yaw) * this.reach; p.z += Math.cos(this.yaw) * this.reach; V.burst('dust', p, 12, { speed: 3 }); S.hit('stone', p); }
   }
   animate(dt, st) {
     const m = this.model;
-    if (m.kind === 'quad') animQuad(m, dt, st);
+    if (m.kind === 'quad') animQuad(m, dt, Object.assign({}, st, { action: st.action && st.action !== 'charge' && st.action !== 'pounce' ? 'attack' : null, speed: (st.action === 'charge' || st.action === 'pounce') && !this.windup ? 9 : st.speed }));
     else if (m.kind === 'spider') animSpider(m, dt, st);
     else if (m.kind === 'crab') animCrab(m, dt, st);
-    else animateHumanoid(m, dt, { speed: st.speed, action: st.action === 'attack' ? (this.def.variant === 'imp' ? 'cast' : this.def.variant === 'golem' || this.def.boss || this.def.variant === 'troll' ? 'slam' : 'swing1') : null, actionT: st.actionT, dead: st.dead, deadT: st.deadT, armed: true });
+    else animateHumanoid(m, dt, { speed: st.speed, action: st.action === 'maul' || st.action === 'bash' ? 'slam' : st.action === 'frenzy' ? (st.actionT < 0.5 ? 'swing1' : 'swing2') : st.action === 'pound' ? 'slam' : st.action === 'nova' || st.action === 'web' ? 'cast' : st.action === 'charge' ? 'heavy' : st.action === 'attack' ? (this.def.variant === 'imp' ? 'cast' : this.def.variant === 'golem' || this.def.boss || this.def.variant === 'troll' ? 'slam' : 'swing1') : null, actionT: st.actionT, dead: st.dead, deadT: st.deadT, armed: true, sit: this.sitting && !st.speed && !st.action });
   }
   remove() { G.scene.remove(this.root); if (this.ring) G.scene.remove(this.ring); }
 }

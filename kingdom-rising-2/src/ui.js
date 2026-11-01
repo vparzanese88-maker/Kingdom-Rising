@@ -110,6 +110,7 @@ export function updateHUD(dt) {
     $('xpI').style.width = h.level >= LEVEL_CAP ? '100%' : (h.xp / need * 100) + '%';
     $('xpT').textContent = h.level >= LEVEL_CAP ? `Level ${LEVEL_CAP} (max)` : `Level ${h.level}  ·  ${h.xp} / ${need} XP`;
     const b = []; if (p.buffs.cry > 0) b.push(`📯 Battle Cry ${Math.ceil(p.buffs.cry)}s`); if (p.buffs.fury > 0) b.push(`🐺 Fury ${Math.ceil(p.buffs.fury)}s`); if (p.stealth > 0) b.push(`☁ Unseen ${Math.ceil(p.stealth)}s`); if (p.buffs.nextCrit) b.push('✦ Next hit x2'); if (p.regen) b.push('❤ Regenerating');
+    if (p.db) { const L = { bleed: '🩸 Bleeding', poison: '☠ Poisoned', burn: '🔥 Burning', slow: '🐌 Slowed', stun: '💫 Stunned' }; for (const k in p.db) if (p.db[k].t > 0) b.push(`<span style="color:#ff8a7a">${L[k]} ${Math.ceil(p.db[k].t)}s</span>`); }
     if (h.food && h.food.t > 0) { const F = FOOD_BUFFS[h.food.id]; b.push(`🍖 ${F.name} ${Math.ceil(h.food.t / 60)}m`); }
     if (p.buffs.adren > 0) b.push(`⚡ Adrenaline ${Math.ceil(p.buffs.adren)}s`); if (p.buffs.tq > 0) b.push(`✚ Tourniquet ${Math.ceil(p.buffs.tq)}s`); if (p.buffs.surge > 0) b.push(`💧 Mana Surge ${Math.ceil(p.buffs.surge)}s`); if (p.buffs.barrier > 0) b.push(`🛡 Ice Barrier ${Math.round(p.buffs.barrier)}`); if (p.buffs.swind > 0) b.push(`💨 Second Wind ${Math.ceil(p.buffs.swind)}s`);
     $('buffs').innerHTML = b.map(x => `<div class="b">${x}</div>`).join('');
@@ -127,6 +128,7 @@ export function progress(k, label) { const e = $('progress'); if (k == null) { e
 
 // ---------- nameplates & quest markers ----------
 const plates = new Map(); const v3 = new THREE.Vector3();
+const HOSTILE_SVG = '<svg viewBox="0 0 64 64"><path d="M8 56 L48 16 M16 8 L56 48" stroke="#140c06" stroke-width="11" stroke-linecap="round"/><path d="M8 56 L48 16 M16 8 L56 48" stroke="#ff4a3a" stroke-width="6" stroke-linecap="round"/><path d="M40 10 L54 10 L54 24 M24 10 L10 10 L10 24" stroke="#ffd0c0" stroke-width="4" fill="none"/></svg>';
 export function updatePlates() {
   const layer = $('plates'), cam = G.camera, W = innerWidth, H = innerHeight, p = G.player;
   cam.updateMatrixWorld();
@@ -152,10 +154,11 @@ export function updatePlates() {
     for (const m of G.mobs) {
       if (m.dead) continue;
       const d = m.pos.distanceTo(p.pos); if (d > 32 && m !== G.target) continue;
-      if (d > 14 && m.hp >= m.maxHp && m !== G.target) continue;
+      const hostile = m.hostile || m.provoked;
+      if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile) continue;
       const cls = m.def.elite ? 'elite' : m.hostile || m.provoked ? 'hostile' : 'passive';
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
-      show('m' + m.id, m, `<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
+      show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }
   }
   for (const [k, e] of plates) if (!seen.has(k)) { e.remove(); plates.delete(k); }

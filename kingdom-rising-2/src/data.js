@@ -10,6 +10,7 @@ export const RACES = {
     skins: ['#e8c4a0', '#d4a882', '#c08e68', '#a87a58', '#8a6448'], hairs: ['#5a3a1e', '#7a3a1a', '#3a2a14', '#a06a30', '#2a1a10', '#4a5a2a', '#c88a4a'] },
   dwarf: { name: 'Dwarf', playable: true, desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
     skins: ['#efc2a0', '#dba07a', '#bf825d', '#94603f', '#d9a98c'], hairs: ['#b5501f', '#6b3a17', '#2a1b10', '#d6a23f', '#8a8a8a', '#e3e3e3', '#4a2a14'] },
+  goblin: { name: 'Goblin', height: 0.72, width: 0.9, hp: 0, stats: { str: 8, dex: 12, int: 6, sta: 8 }, skins: ['#6a8a3a', '#7a9a44', '#5a7a32'], hairs: ['#1a1a10'] },
   // villagers only
   human: { name: 'Human', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
   elf: { name: 'Elf', height: 1.05, width: 0.9, hp: 0, stats: { str: 10, dex: 15, int: 13, sta: 10 }, skins: ['#f6dcc6', '#ead0b5', '#d8b998'], hairs: ['#f2e6b0', '#e8e8e8', '#2a1a10'] },
@@ -215,6 +216,7 @@ export const ITEMS = {
   troll_tusk: { name: 'Troll Tusk', icon: '🦷', desc: 'A trophy.', value: 8 },
   ember_core: { name: 'Ember Core', icon: '🔥', desc: 'Still warm. Burns forever.', value: 10 },
   wolf_fang: { name: 'Wolf Fang', icon: '🦷', desc: 'Sharp.', value: 2 },
+  goblin_ear: { name: 'Goblin Ear', icon: '👂', desc: 'Pointy, green and smelly. Proof of a goblin slain.', value: 3 },
   bandit_badge: { name: 'Bandit Badge', icon: '⛉', desc: 'Proof of a bandit slain.', value: 3 },
   // consumables
   potion_heal: { name: 'Healing Potion', icon: '🧪', col: '#ff5050', desc: 'Restores 40% health. Press R.', value: 8, use: { heal: 0.4 } },
@@ -370,8 +372,12 @@ export const MOBS = {
   wolf: { name: 'Grey Wolf', shape: 'quad', variant: 'wolf', hpM: 0.9, dmgM: 1, aggro: 14, speed: 6.5, size: 1.0, loot: { wolf_fang: [1, 2, 0.6], raw_meat: [1, 1, 0.5] }, skin: true, col: '#6f6a64' },
   boar: { name: 'Wild Boar', shape: 'quad', variant: 'boar', hpM: 1.1, dmgM: 1.0, aggro: 9, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#4e3a2c' },
   spider: { name: 'Forest Spider', shape: 'spider', hpM: 0.9, dmgM: 1.05, aggro: 13, speed: 5.5, size: 1.0, loot: { spider_silk: [1, 2, 0.75] }, skin: false, col: '#2a2420' },
+  goblin: { name: 'Goblin Raider', shape: 'human', variant: 'goblin', hpM: 0.85, dmgM: 0.95, aggro: 13, speed: 5.2, size: 1.0, loot: { goblin_ear: [1, 1, 0.8], copper_ore: [1, 2, 0.2], raw_meat: [1, 1, 0.2] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
+  goblin_slinger: { name: 'Goblin Slinger', shape: 'human', variant: 'goblin', ranged: true, proj: 'rock', hpM: 0.7, dmgM: 0.85, aggro: 17, speed: 5, size: 0.95, loot: { goblin_ear: [1, 1, 0.8], stone: [1, 2, 0.4] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
   bandit: { name: 'Bandit', shape: 'human', variant: 'bandit', hpM: 1.0, dmgM: 1.1, aggro: 15, speed: 4.8, size: 1.0, loot: { bandit_badge: [1, 1, 0.8] }, gold: [3, 9], skin: false, col: '#5a4030' },
   bandit_boss: { name: 'Garrick the Cutthroat', shape: 'human', variant: 'bandit', elite: true, hpM: 4, dmgM: 1.5, aggro: 18, speed: 5, size: 1.2, loot: { bandit_badge: [2, 3, 1] }, gold: [30, 60], skin: false, col: '#3a1a14', gearChance: 1 },
+  tiger: { name: 'Shadow Tiger', shape: 'quad', variant: 'tiger', hpM: 1.15, dmgM: 1.2, aggro: 14, speed: 7.5, size: 1.05, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#d07a2a' },
+  snowtiger: { name: 'Snow Tiger', shape: 'quad', variant: 'tiger', hpM: 1.25, dmgM: 1.25, aggro: 15, speed: 7.8, size: 1.15, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#e8e8ec' },
   bear: { name: 'Brown Bear', shape: 'quad', variant: 'bear', hpM: 1.5, dmgM: 1.25, aggro: 11, speed: 5.5, size: 1.5, loot: { raw_meat: [2, 3, 1] }, skin: true, col: '#5a3a22' },
   frostwolf: { name: 'Frost Wolf', shape: 'quad', variant: 'wolf', hpM: 1.0, dmgM: 1.1, aggro: 16, speed: 7, size: 1.15, loot: { wolf_fang: [1, 2, 0.7] }, skin: true, col: '#dfe8f0' },
   skeleton: { name: 'Skeleton Warrior', shape: 'human', variant: 'skeleton', hpM: 1.0, dmgM: 1.15, aggro: 15, speed: 4.2, size: 1.0, loot: { bone: [1, 3, 0.9] }, gold: [4, 12], skin: false, col: '#e8e0c8' },
@@ -386,9 +392,10 @@ export const MOBS = {
 // Spawn regions [type, x, z, radius, count, lvMin, lvMax]
 export const SPAWNS = [
   ['crab', 70, 440, 60, 8, 1, 1], ['crab', -80, 442, 60, 6, 1, 2],
-  ['rabbit', 40, 260, 120, 8, 1, 2], ['deer', -110, 240, 90, 5, 2, 3], ['deer', 140, 230, 90, 4, 2, 3],
+  ['rabbit', 40, 260, 120, 8, 1, 2], ['deer', -110, 240, 90, 2, 2, 3], ['deer', 140, 230, 90, 1, 2, 3],
   ['wolfpup', 120, 290, 60, 6, 1, 2], ['wolfpup', -120, 300, 60, 5, 1, 3], ['bearcub', 80, 200, 70, 5, 2, 3], ['bearcub', -60, 190, 70, 5, 2, 4],
   ['wolf', 90, 90, 80, 7, 4, 6], ['wolf', -140, 80, 70, 6, 5, 6], ['boar', 160, 40, 70, 6, 5, 7], ['boar', -60, 130, 60, 4, 4, 5],
+  ['tiger', -60, 20, 50, 3, 7, 9], ['tiger', 240, 70, 50, 2, 7, 8], ['snowtiger', -330, -270, 60, 3, 11, 13],
   ['spider', -180, 10, 70, 8, 6, 8], ['spider', 230, 120, 60, 5, 6, 7],
   ['bandit', 200, -60, 40, 7, 7, 9], ['bandit_boss', 205, -68, 3, 1, 9, 9],
   ['bear', -120, -170, 80, 5, 9, 11], ['frostwolf', -260, -230, 90, 8, 10, 12], ['frostwolf', -380, -330, 80, 6, 11, 13],
@@ -396,6 +403,15 @@ export const SPAWNS = [
   ['ashhound', 230, -260, 80, 8, 14, 16], ['imp', 320, -300, 70, 8, 15, 17], ['golem', 280, -400, 80, 7, 16, 18], ['imp', 160, -380, 60, 5, 16, 17],
   ['tyrant', 400, -456, 3, 1, 20, 20],
 ];
+// goblin camps: [x, z, level min, level max]
+export const GOBLIN_CAMPS = [[160, 300, 2, 3], [-165, 230, 3, 4], [70, 40, 5, 6], [-115, -5, 6, 8], [-300, -235, 10, 12]];
+// Mob special abilities (see mobs.js): bite (bleed), charge, maul, pounce, web, poison, pound, nova, frenzy, bash, regen
+export const MOB_ABILITIES = {
+  wolfpup: ['bite'], wolf: ['bite'], frostwolf: ['bite', 'frostbite'], ashhound: ['bite', 'firebite'],
+  bearcub: ['maul'], bear: ['charge', 'maul'], boar: ['charge'], tiger: ['pounce', 'maul', 'bite'], snowtiger: ['pounce', 'maul', 'bite'],
+  spider: ['web', 'poison'], bandit: ['bash'], bandit_boss: ['bash', 'charge'], skeleton: ['bash'],
+  troll: ['pound', 'regen'], troll_king: ['pound', 'regen', 'charge'], golem: ['pound'], imp: ['nova'], goblin: ['frenzy'], goblin_slinger: [],
+};
 export const mobHp = (lv, M) => Math.round((34 + lv * 26 + lv * lv * 1.2) * M.hpM);
 export const mobDmg = (lv, M) => (4 + lv * 2.6) * M.dmgM;
 export const mobXp = (lv, M) => Math.round((12 + lv * 9) * (M.elite ? 4 : 1) * (M.boss ? 3 : 1) * Math.max(0.6, Math.min(1.6, M.hpM)));
@@ -455,6 +471,9 @@ export const QUESTS = [
   { id: 'q_litter', giver: 'lyra', turnin: 'lyra', lvl: 2, req: ['q_hides'], title: 'Thinning the Litter',
     text: 'Too many young wolves and bears near the village, raiding the fish racks. Drive some off: defeat 4 Wolf Pups and 3 Bear Cubs.',
     done: 'The racks will be safe for a while.', obj: [{ t: 'kill', mob: 'wolfpup', n: 4, label: 'Defeat Wolf Pups' }, { t: 'kill', mob: 'bearcub', n: 3, label: 'Defeat Bear Cubs' }], xp: 160, gold: 10, gear: true },
+  { id: 'q_goblins', giver: 'maren', turnin: 'maren', lvl: 2, req: ['q_stranger'], title: 'Goblin Trouble',
+    text: 'Goblins have pitched their filthy tents in the meadow, east and west of the village. They sit around their fires and send raiders out on patrol. Thin them out: defeat 6 goblins and bring me their ears as proof.',
+    done: 'Ugh, put those away! But thank you. The roads are safer already.', obj: [{ t: 'kill', mob: 'goblin', n: 4, label: 'Defeat Goblin Raiders' }, { t: 'kill', mob: 'goblin_slinger', n: 2, label: 'Defeat Goblin Slingers' }, { t: 'collect', item: 'goblin_ear', n: 6, label: 'Collect Goblin Ears' }], take: { goblin_ear: 6 }, xp: 220, gold: 15, gear: true },
   { id: 'q_onward', giver: 'maren', turnin: 'kael', lvl: 4, req: ['q_blade'], title: 'Beyond the Meadow',
     text: 'You\'ve grown strong here. North, past the meadow, lies the Whisperwood. Scout Kael keeps an outpost there. He could use someone like you. Follow the road north.',
     done: 'Maren sent you? Good. We need every blade.', obj: [{ t: 'talk', npc: 'kael', label: 'Find Scout Kael in the Whisperwood' }], xp: 200, gold: 10 },

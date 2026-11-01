@@ -243,18 +243,19 @@ export class Player {
       case 'Digit6': this.hotbar(5); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': this.quaff(); break;
-      case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 4.5; break;
+      case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
     }
   }
   onKeyUp(code) { if ((code === 'ShiftLeft' || code === 'ShiftRight') && this.shiftT != null) { if (G.time - this.shiftT < 0.22 && !G.uiOpen) this.tryDodge(); this.shiftT = null; } }
   onMouse(btn, down) {
     if (this.dead || G.uiOpen) return;
+    if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
     if (btn === 0) {
       if (down) { this.press = { t: 0, charging: false }; this.cancelGather(); }
       else if (this.press) { const p = this.press; this.press = null; if (p.charging) this.releaseHeavy(p); else this.light(); }
     } else if (btn === 2 && down) { this.weaponAbility(); }
   }
-  onWheel(dy) { this.camDistT = clamp(this.camDistT + dy * 0.004, 0, 9); if (this.camDistT < 0.7 && dy < 0) this.camDistT = 0; else if (this.camDistT > 0 && this.camDistT < 1.6 && dy > 0) this.camDistT = 1.6; }
+  onWheel(dy) { this.camDistT = clamp(this.camDistT + dy * 0.004, 0, 9); if (this.camDistT < 0.7 && dy < 0) this.camDistT = 0; else if (this.camDistT > 0 && this.camDistT < 1.6 && dy > 0) this.camDistT = 2.2; }
   look(dx, dy) { const s = 0.0032 * settings.sens; this.yaw -= dx * s; this.pitch = clamp(this.pitch - dy * s * (settings.invertY ? -1 : 1), -1.45, 1.45); }
 
   // ---------- helpers ----------
@@ -667,6 +668,15 @@ export class Player {
     this.cancelGather();
     if (this.hp <= 0) { this.hp = 0; this.die(); }
   }
+  debuff(type, t, dps = 0) {
+    this.db = this.db || {};
+    const d = this.db[type] || (this.db[type] = { t: 0, dps: 0 });
+    d.t = Math.max(d.t, t); d.dps = Math.max(d.dps, dps);
+    const label = { bleed: 'Bleeding!', poison: 'Poisoned!', burn: 'Burning!', slow: 'Slowed!', stun: 'Stunned!' }[type];
+    V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.2), label, 'bad');
+    if (type === 'stun') { this.atk = null; this.press = null; this.cancelGather(); }
+  }
+  knock(v, stun = 0) { if (this.iframes > 0) return; this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
   die() { this.dead = true; this.atk = null; this.press = null; this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
@@ -767,6 +777,9 @@ export class Player {
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (h.food && h.food.t > 0) { h.food.t -= dt; if (h.food.t <= 0) { G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[h.food.id].name} has worn off`, '🍖'); h.food = null; this.refreshStatsOnly(); } }
     this.fb = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] : {};
+    this.knockT = Math.max(0, (this.knockT || 0) - dt);
+    if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
+    const stunned = this.db && this.db.stun && this.db.stun.t > 0;
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
@@ -786,10 +799,15 @@ export class Player {
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;
+    // sprinting burns endurance; once empty you must recover a little before sprinting again
+    if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
+    if (sprint && this.sprintTired) sprint = false;
+    if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
     let spd = (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0));
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
-    if (this.gathering) spd = 0;
+    if (this.gathering || stunned) spd = 0;
+    if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55;
     if (this.stagger > 0) spd *= 0.3;
     this.sprinting = sprint && md.lengthSq() > 0.1;
     // dodge / charge / leap override
@@ -810,7 +828,7 @@ export class Player {
       if (D.charge) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, { knock: side.multiplyScalar(9).add(D.dir.clone().multiplyScalar(4)), stun: 1, big: true, melee: true }); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
       if (D.t >= 1) { this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
-      const k = Math.min(1, dt * (this.onGround ? 12 : 2.5));
+      const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? 12 : 2.5));
       this.vel.x += (md.x * spd - this.vel.x) * k; this.vel.z += (md.z * spd - this.vel.z) * k;
     }
     // gravity / swim
@@ -899,8 +917,9 @@ export class Player {
     if (fp) cam.position.copy(eye);
     else {
       const back = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
-      const sh = this.right().multiplyScalar(-0.55 * Math.min(1, this.camDist / 3));
-      eye.y += 0.25;
+      // over the right shoulder: the hero sits left of the crosshair
+      const sh = this.right().multiplyScalar(0.8 * Math.min(1, this.camDist / 2.5));
+      eye.y += 0.3;
       let d = this.camDist;
       for (let s = 0.5; s <= this.camDist; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3) { d = Math.max(0.5, s - 0.4); break; } }
       cam.position.copy(eye).add(sh).addScaledVector(back, -d);

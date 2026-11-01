@@ -75,6 +75,8 @@ export function spawnProjectile(o) {
     case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
+    case 'web': m = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#f0f0f8', transparent: true, opacity: 0.85 })); m.scale.setScalar(0.22); break;
+    case 'rock': m = new THREE.Mesh(geo.rock, new THREE.MeshStandardMaterial({ color: '#7a746a', roughness: 0.9, flatShading: true })); m.scale.setScalar(0.12); break;
   }
   if (m) { m.position.copy(p.pos); G.scene.add(m); }
   p.mesh = m; G.projectiles.push(p); return p;
@@ -99,7 +101,7 @@ export function updateProjectiles(dt) {
         }
       } else if (p.owner === 'enemy' && !G.player.dead) {
         const c = tmp.copy(G.player.pos); c.y += 1.0;
-        if (c.distanceToSquared(p.pos) < (0.6 + p.radius) ** 2) { G.player.takeDamage(p.dmg, p.src, { ranged: true }); V.burst('fire', p.pos, 14, { speed: 3 }); S.explode(p.pos, 0.4); dead = true; }
+        if (c.distanceToSquared(p.pos) < (0.6 + p.radius) ** 2) { if (p.kind === 'web') { G.player.takeDamage(p.dmg * 0.4, p.src, { ranged: true }); G.player.debuff('slow', 4); V.burst('cotton', p.pos, 14, { speed: 2, size: 0.15 }); } else G.player.takeDamage(p.dmg, p.src, { ranged: true }); if (p.kind === 'web') {} else if (p.kind === 'rock') { V.burst('stone', p.pos, 8, { speed: 3 }); S.hit('stone', p.pos, 0.6); } else { V.burst('fire', p.pos, 14, { speed: 3 }); S.explode(p.pos, 0.4); } dead = true; }
       }
       const gh = heightAt(p.pos.x, p.pos.z);
       if (!dead && p.pos.y < gh) { p.pos.y = gh; impact(p, null); dead = true; }
@@ -110,7 +112,7 @@ export function updateProjectiles(dt) {
       p.mesh.position.copy(p.pos);
       if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave') p.mesh.lookAt(p.pos.clone().sub(p.vel));
       if (p.kind === 'wave') p.mesh.rotateZ(Math.PI / 2);
-      if (p.kind === 'meteor') { p.mesh.rotation.x += dt * 3; p.mesh.rotation.z += dt * 2; }
+      if (p.kind === 'meteor' || p.kind === 'rock') { p.mesh.rotation.x += dt * 8; p.mesh.rotation.z += dt * 6; }
     }
     trail(p, dt);
     if (dead) { if (p.mesh) G.scene.remove(p.mesh); P.splice(i, 1); }
@@ -163,13 +165,31 @@ export function enemyBlast(p, r, dmg, src) {
 export function enemyProjectile(mob, player) {
   const from = mob.pos.clone(); from.y += mob.height * 0.7;
   const to = player.pos.clone(); to.y += 1.0;
-  const d = to.clone().sub(from); const dist = d.length(); const speed = 18;
-  const t = dist / speed; const v = d.multiplyScalar(1 / t); v.y += 0.5 * 4 * t;
-  S.cast('fire', from, 0.6);
-  spawnProjectile({ pos: from, vel: v, grav: 4, radius: 0.3, dmg: mob.dmg, owner: 'enemy', kind: 'impfire', life: 4, src: mob });
+  const rock = mob.def.proj === 'rock';
+  const d = to.clone().sub(from); const dist = d.length(); const speed = rock ? 16 : 18, grav = rock ? 9 : 4;
+  const t = dist / speed; const v = d.multiplyScalar(1 / t); v.y += 0.5 * grav * t;
+  if (rock) S.swingW('light', 1, from); else S.cast('fire', from, 0.6);
+  spawnProjectile({ pos: from, vel: v, grav, radius: 0.3, dmg: mob.dmg, owner: 'enemy', kind: rock ? 'rock' : 'impfire', life: 4, src: mob });
 }
 
 // ---- lightning bolt visual ----
+export function mobShot(mob, player, kind) {
+  const from = mob.pos.clone(); from.y += mob.height * 0.6; const to = player.pos.clone(); to.y += 1.0;
+  const d = to.clone().sub(from), dist = d.length(), speed = 17, t = dist / speed, v = d.multiplyScalar(1 / t); v.y += 0.5 * 6 * t;
+  S.growl('spider', from); spawnProjectile({ pos: from, vel: v, grav: 6, radius: 0.35, dmg: mob.dmg, owner: 'enemy', kind, life: 4, src: mob });
+}
+export function mobBlast(mob, r, kind) {
+  const p = mob.pos.clone();
+  if (kind === 'nova') { V.burst('fire', p.clone().setY(p.y + 0.5), 60, { speed: 9, up: 0.3, size: 0.6 }); V.ring(p, r, '#ff7030', 0.5); S.explode(p, 0.9); }
+  else { V.burst('stone', p, 30, { speed: 8, size: 0.3, grav: 14 }); V.burst('dust', p, 25, { speed: 5, size: 1.2, life: 1.3 }); V.ring(p, r, '#d8b080', 0.5); S.explode(p, 1.0); S.rumble(p, 0.8); }
+  V.addShake(0.35);
+}
+export function telegraphSelf(mob, r, delay) {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.9, r, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff3010', transparent: true, opacity: 0.85, depthWrite: false }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff3010', transparent: true, opacity: 0.18, depthWrite: false }));
+  G.scene.add(ring, disc); let t = 0;
+  G.timers.push({ update(dt) { t += dt; const p = mob.pos; ring.position.set(p.x, heightAt(p.x, p.z) + 0.12, p.z); disc.position.copy(ring.position); disc.scale.setScalar(Math.min(1, t / delay)); if (t >= delay || mob.dead) { G.scene.remove(ring, disc); return true; } return false; } });
+}
 export function lightning(a, b) {
   const pts = []; const n = 10;
   for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); if (i && i < n) p.add(new THREE.Vector3(rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5))); pts.push(p); }

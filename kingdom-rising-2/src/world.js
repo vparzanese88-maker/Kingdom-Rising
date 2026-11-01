@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt } from './terrain.js';
-import { NODE_TYPES, STATION_SPOTS } from './data.js';
+import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 
 export const world = {
   nodes: [], colliders: [], surfaces: [], stations: [], fires: [], lights: [], birds: [], interact: [],
@@ -234,6 +234,7 @@ function addNode(type, x, z, s, rotY, kind, tint) {
 function avoid(x, z, pad = 0) {
   if (Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 36 + pad) return true;
   for (const c of CAMPS) if (Math.hypot(x - c.x, z - c.z) < c.r + 6 + pad) return true;
+  for (const g of GOBLIN_CAMPS) if (Math.hypot(x - g[0], z - g[1]) < 16 + pad) return true;
   if (roadDist(x, z) < 4.5 + pad) return true;
   if (Math.hypot(x - SPAWN.x, z - SPAWN.z) < 10) return true;
   if (distToLine(x, z, RIVER).d < 11) return true;
@@ -551,6 +552,30 @@ function buildCamps(scene) {
     for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28; const r = new THREE.Mesh(new THREE.DodecahedronGeometry(R(1, 2), 0), M.darkStone); placeGroup(r, x + Math.cos(a) * 18, z + Math.sin(a) * 18, a, scene, 0.3); r.castShadow = true; }
   }
 }
+function buildGoblinCamps(scene) {
+  const hideM = new THREE.MeshStandardMaterial({ color: '#7a5a3a', roughness: 0.95, side: THREE.DoubleSide });
+  const patchM = new THREE.MeshStandardMaterial({ color: '#5a4028', roughness: 0.95, side: THREE.DoubleSide });
+  const boneM = M.bone, woodM = M.beam;
+  for (const [cx, cz] of GOBLIN_CAMPS) {
+    // campfire in the middle
+    const fg = new THREE.Group(); campfire(fg, scene, cx, cz); placeGroup(fg, cx, cz, 0, scene); addCircle(cx, cz, 0.9);
+    // ragged hide tents around it
+    const nT = 3 + (Math.abs(cx) % 2 ? 1 : 0);
+    for (let i = 0; i < nT; i++) {
+      const a = i / nT * Math.PI * 2 + 0.9, r = 8 + (i % 2) * 1.5, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+      const g = new THREE.Group();
+      const geo = new THREE.ConeGeometry(1.9, 2.4, 6, 1, true); const p = geo.attributes.position; for (let k = 0; k < p.count; k++) if (p.getY(k) < 0) { p.setX(k, p.getX(k) * (0.9 + hash2(k, i) * 0.25)); p.setZ(k, p.getZ(k) * (0.9 + hash2(i, k) * 0.25)); } geo.computeVertexNormals();
+      const t = new THREE.Mesh(geo, i % 2 ? hideM : patchM); t.position.y = 1.2; t.castShadow = true; g.add(t);
+      for (let k = 0; k < 3; k++) { const pole = cy(0.04, 0.05, 3.2, woodM, Math.cos(k * 2.1) * 0.15, 1.4, Math.sin(k * 2.1) * 0.15, g, 4); pole.rotation.z = (k - 1) * 0.12; }
+      bx(1.0, 1.2, 0.05, M.dark, 0, 0.6, 1.55, g, -0.2, 0, 0);
+      placeGroup(g, x, z, Math.atan2(cx - x, cz - z), scene); addCircle(x, z, 1.6);
+    }
+    // skull totem, crates and a bone pile
+    { const g = new THREE.Group(); cy(0.1, 0.14, 3.2, woodM, 0, 1.6, 0, g, 6); const sk = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), boneM); sk.position.y = 3.3; g.add(sk); for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.4, 5), boneM); h.position.set(s * 0.22, 3.45, 0); h.rotation.z = -s * 0.8; g.add(h); } const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.9), new THREE.MeshStandardMaterial({ color: '#4a6a2a', side: THREE.DoubleSide })); fl.position.set(0.32, 2.5, 0); g.add(fl); placeGroup(g, cx + 4.5, cz - 3, 0, scene); addCircle(cx + 4.5, cz - 3, 0.2); }
+    crate(scene, cx - 5, cz + 4, 0.4); crate(scene, cx - 5.6, cz + 4.9, 1.1, 0.6); barrel(scene, cx + 3.5, cz + 5);
+    { const g = new THREE.Group(); for (let k = 0; k < 6; k++) { const b = cy(0.04, 0.04, 0.6, boneM, (hash2(k, 3) - 0.5) * 0.8, 0.06, (hash2(3, k) - 0.5) * 0.8, g, 4); b.rotation.set(Math.PI / 2, hash2(k, k) * 3, 0); } placeGroup(g, cx - 3, cz - 4.5, 0, scene); }
+  }
+}
 function banner(scene, x, z, m) { const g = new THREE.Group(); cy(0.06, 0.06, 5, M.beam, 0, 2.5, 0, g, 5); const f = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2, 3, 6), m); f.position.set(0.62, 3.8, 0); g.add(f); world.flags = world.flags || []; world.flags.push(f); placeGroup(g, x, z, 0, scene); g.userData.dynamic = true; addCircle(x, z, 0.2); }
 
 function buildBridges(scene) {
@@ -760,6 +785,7 @@ export function buildWorld(scene) {
   buildCamps(scene);
   buildBridges(scene);
   buildLava(scene);
+  buildGoblinCamps(scene);
   mergeStatics(scene);
   scatter();
   buildChunks(scene);

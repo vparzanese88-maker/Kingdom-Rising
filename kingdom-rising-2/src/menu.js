@@ -53,8 +53,8 @@ export function initMenu() {
 // ---------- creator ----------
 const TABS = ['Race', 'Class', 'Weapon', 'Body', 'Look', 'Name'];
 let tab = 0, C = null;
-const NAMES = { human: { m: ['Aldric', 'Bran', 'Cedric', 'Rowan', 'Gareth', 'Tobin'], f: ['Elena', 'Mira', 'Rowena', 'Isolde', 'Brenna', 'Tamsin'] }, elf: { m: ['Thalion', 'Aerendil', 'Faelar', 'Ilyon', 'Sylvar'], f: ['Lyralei', 'Elowen', 'Aeris', 'Naeva', 'Sylwen'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
-function defaults() { return { race: 'human', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.human.skins[1], hair: RACES.human.hairs[1], beardCol: null, hairStyle: 0, beard: 1, height: 1, build: 0 } }; }
+const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
+function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator() {
   C = defaults(); tab = 0;
   $('title').hidden = true; $('creator').hidden = false;
@@ -70,10 +70,10 @@ function renderCreator() {
   const R = RACES[C.race];
   if (tab === 0) {
     body.appendChild(el('h3', '', 'Choose your race'));
-    body.appendChild(choice(Object.keys(RACES).map(k => ({ id: k, name: RACES[k].name, icon: k === 'human' ? '🧑' : k === 'elf' ? '🧝' : '🧔', small: k === 'human' ? 'Balanced' : k === 'elf' ? 'Agile & clever' : 'Strong & tough' })), C.race, (id) => { C.race = id; const r = RACES[id]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[id === 'elf' ? 0 : 1]; C.app.beard = id === 'dwarf' ? 3 : C.sex === 'm' ? 1 : 0; C.app.hairStyle = C.sex === 'f' ? (id === 'dwarf' ? 4 : 1) : 0; }));
+    body.appendChild(choice(Object.keys(RACES).filter(k => RACES[k].playable).map(k => ({ id: k, name: RACES[k].name, icon: k === 'dwarf' ? '🧔' : '🧝', small: k === 'highelf' ? 'Wise & magical' : k === 'woodelf' ? 'Agile & keen-eyed' : 'Strong & tough' })), C.race, (id) => { C.race = id; const r = RACES[id]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = id === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (id === 'dwarf' ? 4 : 1) : id === 'dwarf' ? 0 : 1; }));
     body.appendChild(el('div', 'desc', `${R.desc}<div class="statrow">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]} <b>${R.stats[k]}</b></span>`).join('')}</div><div style="color:var(--dim);font-size:13px;margin-top:6px">Your race sets your starting stats. They only rise further through gear.</div>`));
     body.appendChild(el('h3', '', 'Body type')).style.marginTop = '14px';
-    body.appendChild(choice([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : 0; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 1; }));
+    body.appendChild(choice([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
     body.appendChild(el('h3', '', 'Choose your class'));
     body.appendChild(choice(Object.keys(CLASSES).map(k => ({ id: k, name: CLASSES[k].name, icon: CLS_ICON[k], small: k === 'warrior' ? 'Melee & shields' : k === 'ranger' ? 'Bows & blades' : 'Fire, frost & arcane' })), C.cls, (id) => { C.cls = id; C.weapon = CLASSES[id].weapons[0]; }));

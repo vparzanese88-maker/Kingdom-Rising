@@ -1,6 +1,6 @@
 // Procedural characters: smooth humanoids with race features, class outfits, weapons, and a procedural animator.
 import * as THREE from 'three';
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, isElf } from './data.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y);
@@ -179,7 +179,9 @@ export function buildHumanoid(app = {}) {
   const female = app.sex === 'f';
   const build = app.build || 0; // -1 thin .. 1 strong
   const R = { sw: 0.2, hw: 0.1, legL: 0.9, armL: 0.58, thick: 1, head: 1, torsoH: 0.57, neck: 0.07 };
-  if (app.race === 'elf') { R.sw = 0.19; R.thick = 0.92; R.legL = 0.96; R.head = 0.96; }
+  if (isElf(app.race)) { R.sw = 0.19; R.thick = 0.92; R.legL = 0.96; R.head = 0.96; }
+  if (app.race === 'highelf') { R.sw = 0.185; R.thick = 0.88; R.legL = 0.98; R.neck = 0.09; }
+  if (app.race === 'woodelf') { R.thick = 0.95; }
   if (app.race === 'dwarf') { R.sw = 0.26; R.hw = 0.13; R.thick = 1.35; R.legL = 0.62; R.armL = 0.5; R.head = 1.22; R.torsoH = 0.6; R.neck = 0.04; }
   if (female) { R.sw *= 0.88; R.hw *= 1.12; R.thick *= 0.88; }
   R.sw *= 1 + build * 0.13; R.thick *= 1 + build * 0.22;
@@ -307,20 +309,21 @@ function buildHead2(g, app, kind, female, mats, glowM) {
   if (app.race === 'dwarf') { const tipn = mesh(sphereGeo(0.02, 8, 6), sk, g, 0, 0.075, 0.13); }
   // eyes
   const eyeWhite = kind === 'imp' || kind === 'tyrant' ? glowM : (kind === 'troll' ? mat('#e8d860', 0.4) : mat('#f4f0e8', 0.3));
-  const iris = mat(app.eye || (app.race === 'elf' ? '#3a7a5a' : '#3a2a1a'), 0.3);
+  const iris = mat(app.eye || (app.race === 'highelf' ? '#4a6aa8' : isElf(app.race) ? '#3a7a3a' : '#3a2a1a'), 0.3);
   for (const s of [-1, 1]) {
-    const e = mesh(sphereGeo(0.017, 10, 8), eyeWhite, g, s * 0.037, 0.115, 0.088); e.scale.set(1.2, app.race === 'elf' ? 0.75 : 0.9, 0.6);
+    const e = mesh(sphereGeo(0.017, 10, 8), eyeWhite, g, s * 0.037, 0.115, 0.088); e.scale.set(1.2, isElf(app.race) ? 0.75 : 0.9, 0.6);
     if (kind === 'person') { const p = mesh(sphereGeo(0.009, 8, 6), iris, g, s * 0.037, 0.115, 0.098); }
     const brow = mesh(cached('brow', () => new THREE.BoxGeometry(0.04, 0.009, 0.012)), kind === 'person' ? mats.hair : sk, g, s * 0.038, 0.142, 0.094);
-    brow.rotation.z = s * (app.race === 'elf' ? -0.25 : kind === 'troll' || kind === 'tyrant' ? 0.35 : -0.08);
+    brow.rotation.z = s * (isElf(app.race) ? -0.25 : kind === 'troll' || kind === 'tyrant' ? 0.35 : -0.08);
   }
   // mouth
   const mouth = mesh(cached('mouth', () => new THREE.BoxGeometry(0.04, 0.006, 0.01)), mat('#7a3a32', 0.6), g, 0, 0.045, 0.1);
   // ears
   for (const s of [-1, 1]) {
-    if (app.race === 'elf') {
-      const ear = mesh(cached('elfear', () => { const c = new THREE.ConeGeometry(0.022, 0.13, 6); c.translate(0, 0.065, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.095, 0.1, -0.005);
-      ear.rotation.z = -s * 1.05; ear.rotation.x = -0.35;
+    if (isElf(app.race)) {
+      const hi = app.race === 'highelf';
+      const ear = mesh(cached('elfear' + hi, () => { const c = new THREE.ConeGeometry(0.024, hi ? 0.17 : 0.13, 6); c.translate(0, hi ? 0.085 : 0.065, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.095, 0.1, -0.005);
+      ear.rotation.z = -s * (hi ? 0.85 : 1.05); ear.rotation.x = -0.35;
     } else if (kind === 'imp' || kind === 'tyrant' || kind === 'troll') {
       const ear = mesh(cached('impear', () => { const c = new THREE.ConeGeometry(0.03, 0.12, 5); c.translate(0, 0.06, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.095, 0.1, 0);
       ear.rotation.z = -s * 1.3;
@@ -536,14 +539,17 @@ export function animateHumanoid(ch, dt, st) {
   let knL = Math.max(0, -Math.cos(ph)) * amp * 1.4 + 0.05, knR = Math.max(0, Math.cos(ph)) * amp * 1.4 + 0.05;
   let bob = Math.abs(Math.sin(ph)) * 0.04 * amp;
   let lean = runF * 0.18 * (st.back ? -0.6 : 1);
-  if (st.airborne && !st.swim) { thL = -0.6; thR = 0.15; knL = 1.1; knR = 0.5; bob = 0; }
+  const air = st.airborne && !st.swim;
+  if (air) { const up = (st.vy || 0) > 0.5; if (up) { thL = 1.15; knL = 1.5; thR = -0.35; knR = 0.75; } else { thL = 0.45; knL = 0.45; thR = 0.15; knR = 0.3; } bob = 0; }
+  const land = st.land || 0;
+  if (land > 0 && !air) { thL += 0.8 * land; thR += 0.8 * land; knL += 1.4 * land; knR += 1.4 * land; bob += 0.2 * land; lean += 0.35 * land; }
   if (st.swim) { thL = Math.sin(A.t * 3) * 0.4; thR = -thL; knL = 0.4; knR = 0.4; lean = 0.9; }
   const breathe = Math.sin(A.t * 1.8) * 0.015;
   hips.position.y = (ch.R.legL + 0.06) - bob + (st.crouch ? -0.2 : 0);
   // legs
   damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0), 0, 0.02, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0), 0, -0.02, k);
   damp(legs.L.knee, knL + (st.sit ? 1.5 : 0), 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0), 0, 0, k);
-  damp(legs.L.ankle, -knL * 0.3, 0, 0, k); damp(legs.R.ankle, -knR * 0.3, 0, 0, k);
+  damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k);
   // default arm swing
   let armSwing = Math.sin(ph) * amp * 0.9;
   let P = null;
@@ -568,6 +574,7 @@ export function animateHumanoid(ch, dt, st) {
     damp(arms.R.sh, armSwing, 0, 0.1, k); damp(arms.L.sh, -armSwing, 0, -0.1, k);
     damp(arms.R.el, -0.2 - runF * 0.9, 0, 0, k); damp(arms.L.el, -0.2 - runF * 0.9, 0, 0, k);
   }
+  if (air && !st.action && !st.block) { const up = (st.vy || 0) > 0.5; damp(arms.L.sh, up ? -1.3 : -0.5, 0, up ? -0.35 : -1.0, k * 1.3); damp(arms.R.sh, up ? -0.4 : -0.5, 0, up ? 0.5 : 1.0, k * 1.3); damp(arms.L.el, -0.5, 0, 0, k); damp(arms.R.el, -0.5, 0, 0, k); }
   if (st.wave) { damp(arms.R.sh, -2.6, 0, 0.3 + Math.sin(A.t * 8) * 0.25, k); damp(arms.R.el, -0.4, 0, 0, k); }
   // head follows look pitch
   damp(neck, (st.lookPitch || 0) * 0.5 - lean * 0.3, -(chest.rotation.y) * 0.6, 0, k);

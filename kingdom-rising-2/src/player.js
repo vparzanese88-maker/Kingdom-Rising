@@ -546,7 +546,7 @@ export class Player {
   die() { this.dead = true; this.atk = null; this.press = null; this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
-  jump() { if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 7.4; this.onGround = false; S.jump(); } else if (this.swim) this.vel.y = 3; }
+  jump() { if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge() {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
@@ -640,11 +640,11 @@ export class Player {
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     this.buffs.cry = Math.max(0, this.buffs.cry - dt); this.buffs.fury = Math.max(0, this.buffs.fury - dt); this.stagger = Math.max(0, (this.stagger || 0) - dt);
-    this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt);
+    this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
-    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'elf' ? 3 : 0)));
+    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)));
     if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25));
     if (this.regen) { this.hp = Math.min(this.maxHp, this.hp + this.regen.per * dt); this.regen.t -= dt; if (this.regen.t <= 0) this.regen = null; }
     if (G.inCombat <= 0 && this.regenDelay <= 0) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
@@ -695,7 +695,7 @@ export class Player {
     this.swim = depth > 1.35 && this.pos.y < wl - 0.9 && !gh.surf;
     if (!this.leap) {
       if (this.swim) { this.vel.y += ((wl - 1.25) - this.pos.y) * dt * 6 - this.vel.y * dt * 3; if (Math.random() < dt * 4 && md.lengthSq() > 0.1) S.splash(this.pos, 0.3); }
-      else this.vel.y -= 22 * dt;
+      else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;
     }
     collide(this.pos, this.radius);
@@ -704,7 +704,8 @@ export class Player {
     const g2 = groundAt(this.pos.x, this.pos.z, this.pos.y);
     const wasAir = !this.onGround;
     if (this.pos.y <= g2.h && !this.leap) {
-      if (wasAir && this.vel.y < -9) { S.land(-this.vel.y / 10); this.landDip = Math.min(0.25, -this.vel.y * 0.015); if (this.vel.y < -17) this.takeDamage((-this.vel.y - 17) * 6 * this.maxHp / 100, null); }
+      if (wasAir && this.vel.y < -3) { this.landT = Math.min(1, -this.vel.y / 12); }
+      if (wasAir && this.vel.y < -7) { S.land(-this.vel.y / 10); this.landDip = Math.min(0.3, -this.vel.y * 0.018); V.burst('dust', this.pos.clone().setY(g2.h + 0.1), 10, { speed: 2.5, size: 0.5, up: 0.25 }); if (this.vel.y < -17) this.takeDamage((-this.vel.y - 17) * 6 * this.maxHp / 100, null); }
       this.pos.y = g2.h; this.vel.y = Math.max(0, this.vel.y); this.onGround = true;
     } else if (this.pos.y > g2.h + 0.15) this.onGround = this.swim;
     // step down slopes smoothly
@@ -743,7 +744,7 @@ export class Player {
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'bow' ? 0.3 : 0.3; }
     const roll = this.dodge && !this.dodge.charge ? Math.min(1, this.dodge.t) : null;
-    animateHumanoid(ch, dt, { speed: hs, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    animateHumanoid(ch, dt, { speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;

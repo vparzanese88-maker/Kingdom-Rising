@@ -105,6 +105,7 @@ export function progress(k, label) { const e = $('progress'); if (k == null) { e
 const plates = new Map(); const v3 = new THREE.Vector3();
 export function updatePlates() {
   const layer = $('plates'), cam = G.camera, W = innerWidth, H = innerHeight, p = G.player;
+  cam.updateMatrixWorld();
   const seen = new Set();
   const show = (key, ent, html, cls, yOff) => {
     seen.add(key);
@@ -391,7 +392,7 @@ export function openDialog(npc) {
   const c = openWin('dialog', '', '', 'dialog');
   const render = (view) => {
     c.innerHTML = '';
-    const who = el('div', 'who', `<div class="p">${npc.def.race === 'dwarf' ? '🧔' : npc.def.race === 'elf' ? '🧝' : '🧑'}</div><div><h2 style="font-size:24px">${esc(npc.name)}</h2><div style="color:var(--dim)">${esc(npc.def.title)}</div></div>`);
+    const who = el('div', 'who', `<div class="p">${npc.def.race === 'dwarf' ? '🧔' : npc.def.race.includes('elf') ? '🧝' : '🧑'}</div><div><h2 style="font-size:24px">${esc(npc.name)}</h2><div style="color:var(--dim)">${esc(npc.def.title)}</div></div>`);
     c.appendChild(who);
     const { offer, ready, active } = Game.npcQuests(h, npc.id);
     if (!view) {
@@ -452,6 +453,7 @@ export function openPause(onSaveQuit) {
   const b = (t, fn, cls = 'btn big') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
   b('Resume', () => closeWin(), 'btn big gold');
   b('Hero & Bag (I)', () => openInventory()); b('Quest Log (L)', () => openQuestLog()); b('Map (M)', () => openMap()); b('Recipes (K)', () => openCrafting(null));
+  b('⛶ Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
   b('Settings', () => openSettings(true)); b('Controls', () => openControls(true));
   b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn big red');
   c.appendChild(m);
@@ -462,6 +464,10 @@ export function openSettings(fromPause) {
   const row = (label, input) => { g.appendChild(el('label', '', label)); g.appendChild(input); };
   const range = (k, min, max, step, after) => { const i = el('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = settings[k]; i.oninput = () => { settings[k] = +i.value; saveSettings(); A.applyVolumes(); after && after(); }; return i; };
   const check = (k, after) => { const i = el('input'); i.type = 'checkbox'; i.checked = settings[k]; i.style.width = '22px'; i.style.height = '22px'; i.onchange = () => { settings[k] = i.checked; saveSettings(); after && after(); }; return i; };
+  g.appendChild(el('h3', '', 'Display')); g.appendChild(el('div'));
+  const fs = el('button', 'btn', document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen');
+  fs.onclick = () => { S.click(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
+  row('Full screen', fs);
   g.appendChild(el('h3', '', 'Sound')); g.appendChild(el('div'));
   row('Master volume', range('master', 0, 1, 0.05)); row('Music', range('music', 0, 1, 0.05)); row('Sound effects', range('sfx', 0, 1, 0.05)); row('Ambience', range('ambient', 0, 1, 0.05));
   g.appendChild(el('h3', '', 'Controls')); g.appendChild(el('div'));

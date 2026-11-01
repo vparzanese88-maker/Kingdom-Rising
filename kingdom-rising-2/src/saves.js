@@ -6,8 +6,9 @@ export const MAX_SAVES = 5;
 function read(k, d) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } }
 function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 
-export function listSaves() { return read(KEY, []).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)); }
-export function getSave(id) { return read(KEY, []).find(s => s.id === id) || null; }
+function migrate(s) { if (s.race === 'human') s.race = 'highelf'; else if (s.race === 'elf') s.race = 'woodelf'; return s; }
+export function listSaves() { return read(KEY, []).map(migrate).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)); }
+export function getSave(id) { const s = read(KEY, []).find(s => s.id === id); return s ? migrate(s) : null; }
 export function putSave(save) {
   const all = read(KEY, []);
   const i = all.findIndex(s => s.id === save.id);

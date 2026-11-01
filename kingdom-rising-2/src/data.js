@@ -4,13 +4,17 @@ export const LEVEL_CAP = 20;
 export const xpForLevel = (lv) => Math.round(80 * Math.pow(lv, 1.6));
 
 export const RACES = {
-  human: { name: 'Human', desc: 'Hardy and adaptable. Balanced stats in everything.', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 },
-    skins: ['#f1c7a5', '#e0ac85', '#c68863', '#9a6544', '#6e452c'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c', '#d9b26a', '#7b2a15', '#1a1a1a', '#9a9a9a'] },
-  elf: { name: 'Elf', desc: 'Tall, graceful and sharp-eyed. Long pointed ears. High Dexterity and Intellect, lower Strength and Stamina.', height: 1.07, width: 0.88, hp: 0, stats: { str: 9, dex: 15, int: 14, sta: 9 },
-    skins: ['#f6dcc6', '#ead0b5', '#d8b998', '#b98f6e', '#c9d4c0'], hairs: ['#f2e6b0', '#e8e8e8', '#c48a3a', '#2a1a10', '#3b4a6b', '#7a3020', '#d7c08a'] },
-  dwarf: { name: 'Dwarf', desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
+  highelf: { name: 'High Elf', playable: true, desc: 'Tall, proud and ancient, steeped in magic. Pale skin, long pointed ears. High Intellect.', height: 1.08, width: 0.92, hp: 5, stats: { str: 10, dex: 12, int: 16, sta: 10 },
+    skins: ['#f8e6d4', '#f2dcc4', '#ead2b8', '#e4cbb6', '#d8c4b4'], hairs: ['#f4ead0', '#e8e8ec', '#d8b860', '#1a1a1e', '#c0c8d8', '#a8442a', '#f0d890'] },
+  woodelf: { name: 'Wood Elf', playable: true, desc: 'Lithe forest-dwellers, quick and keen-eyed. Sun-browned skin, pointed ears. High Dexterity.', height: 1.02, width: 0.9, hp: 5, stats: { str: 10, dex: 16, int: 12, sta: 10 },
+    skins: ['#e8c4a0', '#d4a882', '#c08e68', '#a87a58', '#8a6448'], hairs: ['#5a3a1e', '#7a3a1a', '#3a2a14', '#a06a30', '#2a1a10', '#4a5a2a', '#c88a4a'] },
+  dwarf: { name: 'Dwarf', playable: true, desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
     skins: ['#efc2a0', '#dba07a', '#bf825d', '#94603f', '#d9a98c'], hairs: ['#b5501f', '#6b3a17', '#2a1b10', '#d6a23f', '#8a8a8a', '#e3e3e3', '#4a2a14'] },
+  // villagers only
+  human: { name: 'Human', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
+  elf: { name: 'Elf', height: 1.05, width: 0.9, hp: 0, stats: { str: 10, dex: 15, int: 13, sta: 10 }, skins: ['#f6dcc6', '#ead0b5', '#d8b998'], hairs: ['#f2e6b0', '#e8e8e8', '#2a1a10'] },
 };
+export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf';
 
 // Weapon families. reach in metres, area = right-click area radius, speed = attack speed multiplier.
 export const WEAPON_TYPES = {

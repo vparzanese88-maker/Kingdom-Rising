@@ -158,7 +158,7 @@ export const V = {
     this.shake = Math.max(0, this.shake - dt * 2.2);
   },
   updateNumbers(dt, camera, w, h) {
-    const v = new THREE.Vector3();
+    const v = new THREE.Vector3(); camera.updateMatrixWorld();
     for (let i = this.numbers.length - 1; i >= 0; i--) {
       const n = this.numbers[i]; n.t += dt;
       if (n.t > 1.1) { n.el.remove(); this.numbers.splice(i, 1); continue; }

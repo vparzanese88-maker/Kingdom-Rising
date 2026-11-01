@@ -262,7 +262,7 @@ export class Mob {
   }
   die(src) {
     if (this.ring) this.ring.visible = false;
-    this.dead = true; this.deadT = 0; this.hp = 0; this.state = 'dead'; this.respawnT = this.def.boss ? 300 : this.def.elite ? 180 : 75;
+    this.dead = true; this.deadT = 0; this.hp = 0; this.state = 'dead'; this.respawnT = this.def.boss ? 300 : this.def.elite ? 180 : 40;
     S.yelp(this.def.variant || 'human', this.pos);
     if (this.def.variant === 'skeleton') S.hit('bone', this.pos, 1.5);
     G.hooks.onKill && G.hooks.onKill(this, src);

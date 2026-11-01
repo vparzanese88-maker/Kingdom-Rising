@@ -429,6 +429,9 @@ export const MOBS = {
   boar: { name: 'Wild Boar', shape: 'quad', variant: 'boar', hpM: 1.1, dmgM: 1.0, aggro: 9, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#4e3a2c' },
   spider: { name: 'Forest Spider', shape: 'spider', hpM: 0.9, dmgM: 1.05, aggro: 13, speed: 5.5, size: 1.0, loot: { spider_silk: [1, 2, 0.75] }, skin: false, col: '#2a2420' },
   goblin: { name: 'Goblin Raider', shape: 'human', variant: 'goblin', hpM: 0.85, dmgM: 0.95, aggro: 13, speed: 5.2, size: 1.0, loot: { goblin_ear: [1, 1, 0.8], copper_ore: [1, 2, 0.2], raw_meat: [1, 1, 0.2] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
+  goblin_brute: { name: 'Goblin Brute', shape: 'human', variant: 'goblin', hpM: 1.6, dmgM: 1.3, aggro: 13, speed: 4.6, size: 1.35, loot: { goblin_ear: [1, 2, 0.9], iron_ore: [1, 2, 0.3] }, gold: [3, 10], skin: false, col: '#5a7a32' },
+  rat: { name: 'Giant Rat', shape: 'quad', variant: 'rabbit', hpM: 0.45, dmgM: 0.6, aggro: 8, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 1, 0.4] }, skin: true, col: '#5a4e44' },
+  boarlet: { name: 'Boarlet', shape: 'quad', variant: 'boar', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.6, loot: { raw_meat: [1, 1, 0.8] }, skin: true, col: '#6a4e38' },
   goblin_slinger: { name: 'Goblin Slinger', shape: 'human', variant: 'goblin', ranged: true, proj: 'rock', hpM: 0.7, dmgM: 0.85, aggro: 17, speed: 5, size: 0.95, loot: { goblin_ear: [1, 1, 0.8], stone: [1, 2, 0.4] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
   bandit: { name: 'Bandit', shape: 'human', variant: 'bandit', hpM: 1.0, dmgM: 1.1, aggro: 15, speed: 4.8, size: 1.0, loot: { bandit_badge: [1, 1, 0.8] }, gold: [3, 9], skin: false, col: '#5a4030' },
   bandit_boss: { name: 'Garrick the Cutthroat', shape: 'human', variant: 'bandit', elite: true, hpM: 4, dmgM: 1.5, aggro: 18, speed: 5, size: 1.2, loot: { bandit_badge: [2, 3, 1] }, gold: [30, 60], skin: false, col: '#3a1a14', gearChance: 1 },
@@ -460,13 +463,13 @@ export const SPAWNS = [
   ['tyrant', 400, -456, 3, 1, 20, 20],
 ];
 // goblin camps: [x, z, level min, level max]
-export const GOBLIN_CAMPS = [[160, 300, 2, 3], [-165, 230, 3, 4], [70, 40, 5, 6], [-115, -5, 6, 8], [-300, -235, 10, 12]];
+export const GOBLIN_CAMPS = [[160, 300, 2, 3], [-165, 230, 3, 4], [-95, 290, 2, 3], [120, 170, 4, 5], [70, 40, 5, 6], [-115, -5, 6, 8], [150, -120, 7, 9], [-300, -235, 10, 12], [-80, -260, 11, 13]];
 // Mob special abilities (see mobs.js): bite (bleed), charge, maul, pounce, web, poison, pound, nova, frenzy, bash, regen
 export const MOB_ABILITIES = {
   wolfpup: ['bite'], wolf: ['bite'], frostwolf: ['bite', 'frostbite'], ashhound: ['bite', 'firebite'],
   bearcub: ['maul'], bear: ['charge', 'maul'], boar: ['charge'], tiger: ['pounce', 'maul', 'bite'], snowtiger: ['pounce', 'maul', 'bite'],
   spider: ['web', 'poison'], bandit: ['bash'], bandit_boss: ['bash', 'charge'], skeleton: ['bash'],
-  troll: ['pound', 'regen'], troll_king: ['pound', 'regen', 'charge'], golem: ['pound'], imp: ['nova'], goblin: ['frenzy'], goblin_slinger: [],
+  troll: ['pound', 'regen'], troll_king: ['pound', 'regen', 'charge'], golem: ['pound'], imp: ['nova'], goblin: ['frenzy'], goblin_slinger: [], goblin_brute: ['charge', 'pound'], rat: ['bite'], boarlet: ['charge'],
 };
 export const mobHp = (lv, M) => Math.round((34 + lv * 26 + lv * lv * 1.2) * M.hpM);
 export const mobDmg = (lv, M) => (4 + lv * 2.6) * M.dmgM;

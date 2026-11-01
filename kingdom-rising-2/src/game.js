@@ -14,7 +14,7 @@ export function newHero(o) {
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
-    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter }), ctree: {}, wm: {},
+    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   return h;
@@ -23,7 +23,29 @@ export function newHero(o) {
 export const EQUIP_SLOTS = ['w1', 'w2', 'head', 'neck', 'shoulders', 'back', 'chest', 'wrists', 'hands', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
-export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; return h; }
+export function migrateHero(h) { h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null]; return h; }
+// hotbar (keys 1-6): unlocked class abilities, then potions/food, fill the next open slot; once full, nothing more is added
+export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat'];
+export function autoFillHotbar(h) {
+  if (!h.hotbar) h.hotbar = [null, null, null, null, null, null];
+  const has = (t, id) => h.hotbar.some(s => s && s.t === t && s.id === id);
+  const cands = [];
+  for (const a of [...ABILITIES[h.cls]].sort((x, y) => x.level - y.level)) if (h.level >= a.level) cands.push({ t: 'ab', id: a.id });
+  for (const id of HOTBAR_ITEMS) if (count(h, id) > 0) cands.push({ t: 'item', id });
+  const added = [];
+  for (const c of cands) {
+    if (has(c.t, c.id)) continue;
+    const range = c.t === 'ab' ? [0, 1, 2, 3, 4, 5] : [3, 4, 5, 0, 1, 2];
+    const free = range.filter(k => !h.hotbar[k]);
+    // keep slots 1-3 free for class abilities still to come
+    const pending = ABILITIES[h.cls].filter(a => !has('ab', a.id) && !(c.t === 'ab' && c.id === a.id)).length;
+    const i = c.t === 'ab' ? free[0] : free.find(k => k >= 3 || free.filter(x => x < 3).length > pending);
+    if (i == null) continue;
+    h.hotbar[i] = c; added.push({ slot: i, ...c });
+  }
+  if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
+  return added;
+}
 
 // ---------- items ----------
 export function makeWeapon(wt, tier, rarity = 0, lvlHint) {
@@ -78,6 +100,7 @@ export function addItem(h, id, n = 1, quiet) {
   while (left > 0) { const i = h.inv.indexOf(null); if (i < 0) break; const k = Math.min(left, STACK); h.inv[i] = { id, n: k }; left -= k; }
   if (!quiet && n - left > 0) G.hooks.toast && G.hooks.toast(`+${n - left} ${ITEMS[id].name}`, itemSvg({ id }));
   if (left > 0) G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad');
+  if (HOTBAR_ITEMS.includes(id)) autoFillHotbar(h);
   G.hooks.invChanged && G.hooks.invChanged();
   return n - left;
 }

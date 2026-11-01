@@ -232,9 +232,12 @@ export class Player {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
       case 'KeyQ': this.swapWeapon(); break;
-      case 'Digit1': this.ability(0); break;
-      case 'Digit2': this.ability(1); break;
-      case 'Digit3': this.ability(2); break;
+      case 'Digit1': this.hotbar(0); break;
+      case 'Digit2': this.hotbar(1); break;
+      case 'Digit3': this.hotbar(2); break;
+      case 'Digit4': this.hotbar(3); break;
+      case 'Digit5': this.hotbar(4); break;
+      case 'Digit6': this.hotbar(5); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': this.quaff(); break;
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 4.5; break;
@@ -472,7 +475,12 @@ export class Player {
     }
   }
 
-  // ---------- class abilities (1 2 3) ----------
+  hotbar(i) {
+    const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
+    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) this.ability(k); }
+    else if (sl.t === 'item') { if (count(this.h, sl.id) > 0) useItem(this.h, sl.id, this); else S.error(); }
+  }
+  // ---------- class abilities ----------
   ability(i) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }

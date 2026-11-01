@@ -91,7 +91,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker();
+  Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
   if (!h.introDone) startIntro(); else { lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
@@ -119,6 +119,7 @@ function hooks() {
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
   H.masteryUp = (wt, lv) => { UI.banner(`${WEAPON_TYPES[wt].name} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
   H.questsChanged = () => UI.updateTracker();
+  H.hotbarAdded = (list) => { UI.refreshAbilityBar(); for (const a of list) UI.toast(`Added to hotbar slot ${a.slot + 1}`, '✦', 'gold'); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
@@ -128,8 +129,8 @@ function hooks() {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
     UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New talent point: press N', 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
-    UI.refreshAbilityBar(); saveNow();
-    for (const u of unlocked) setTimeout(() => UI.toast(`New ability added to your bar: ${u}`, '✦', 'gold'), 600);
+    Game.autoFillHotbar(G.save); UI.refreshAbilityBar(); saveNow();
+    for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); UI.openDialog(npc); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };

@@ -39,11 +39,10 @@ export function buildAbilityBar() {
   const lmb = mk('LMB', '', 'wpn');
   const rmb = mk('RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
-  const ab = ABILITIES[h.cls].map(a => mk(a.key, Icons.abilityIcon(a.id), 'cls ' + h.cls));
+  const hb = [0, 1, 2, 3, 4, 5].map(i => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
-  const pot = mk('R', Icons.itemSvg({ id: 'potion_heal' }), 'small');
   const f = mk('F', Icons.abilityIcon('shield'), 'small');
-  abilEls = { ws, lmb, rmb, ab, pot, f };
+  abilEls = { ws, lmb, rmb, hb, f };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
@@ -55,9 +54,24 @@ export function refreshAbilityBar() {
   abilEls.lmb.title = W ? (W.kind === 'melee' ? 'Click: 3-hit combo. Hold: heavy attack' : W.kind === 'bow' ? 'Click: quick shot. Hold: power shot' : 'Click: bolt. Hold: charged bolt') : '';
   abilEls.rmb.querySelector('.ai').innerHTML = Icons.abilityIcon(rmbIcon(W));
   abilEls.rmb.title = W ? W.areaName + (W.hands === 'dual' ? ` (Dual Wield Mastery rank ${dualRank(h.dualKills)})` : '') : '';
-  setLock(abilEls.rmb, h.level < AREA_UNLOCK_LEVEL, AREA_UNLOCK_LEVEL);
-  ABILITIES[h.cls].forEach((a, i) => { const e = abilEls.ab[i]; e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; setLock(e, h.level < a.level, a.level); });
+  const rOpen = h.level >= AREA_UNLOCK_LEVEL;
+  if (!rOpen) abilEls.rmb.querySelector('.ai').innerHTML = '';
+  if (rOpen && abilEls.rmb._open === false) pop(abilEls.rmb);
+  abilEls.rmb._open = rOpen;
+  (h.hotbar || []).forEach((sl, i) => {
+    const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
+    if (e._key !== key) {
+      const ai = e.querySelector('.ai');
+      e.className = 'slot hb' + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
+      if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
+      else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; }
+      else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }
+      if (e._key !== undefined && sl) pop(e);
+      e._key = key;
+    }
+  });
 }
+function pop(e) { e.classList.add('added'); setTimeout(() => e.classList.remove('added'), 2600); }
 function setLock(e, locked, lv) {
   const was = e.classList.contains('locked');
   e.classList.toggle('locked', locked);
@@ -80,9 +94,12 @@ export function updateHUD(dt) {
   if (abilEls) {
     const W = p.W;
     setCd(abilEls.rmb, h.level >= AREA_UNLOCK_LEVEL ? p.cd.area : 0, W ? (W.hands === 'dual' ? AREA_CD.dual : AREA_CD[W.kind]) : 1);
-    ABILITIES[h.cls].forEach((a, i) => { setCd(abilEls.ab[i], p.cd['a' + (i + 1)], a.cd); const cost = a.cost, cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; abilEls.ab[i].style.opacity = h.level >= a.level && cur < cost ? 0.55 : 1; });
-    const pc = ['potion_heal2', 'potion_heal', 'crab_cake', 'roast_meat', 'bandage'].reduce((s, k) => s + Game.count(h, k), 0);
-    abilEls.pot.querySelector('.n') ? abilEls.pot.querySelector('.n').textContent = pc : abilEls.pot.appendChild(el('span', 'n', pc));
+    (h.hotbar || []).forEach((sl, i) => {
+      const e = abilEls.hb[i];
+      if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
+      else if (sl && sl.t === 'item') { setCd(e, p.useCd, 1); const n = Game.count(h, sl.id); let ne = e.querySelector('.n'); if (!ne) { ne = el('span', 'n'); e.appendChild(ne); } ne.textContent = n; e.style.opacity = n ? 1 : 0.4; }
+      else { setCd(e, 0, 1); e.style.opacity = 1; const ne = e.querySelector('.n'); if (ne) ne.remove(); }
+    });
     abilEls.f.classList.toggle('active', p.block);
   }
   hudT -= dt;
@@ -573,7 +590,7 @@ export function openSettings(fromPause) {
 }
 export function openControls(fromPause) {
   const c = openWin('controls', 'Controls', '');
-  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Click again in rhythm for a 3-hit combo'], ['Hold left click', 'Heavy attack (bows: power shot, staffs: charged spell)'], ['Right click', 'Weapon ability (unlocks at level 2): area attack, Meteor, Rain of Arrows, Twin Fury...'], ['1  2  3', 'Class abilities (unlock at levels 3, 6 and 10)'], ['F (hold)', 'Block. Shields block the most'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['C, I or B', 'Character, gear & bags'], ['K', 'Weapon skills (weapon trees & dual wield mastery)'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
+  const K = [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Mouse wheel / V', 'Zoom out to third person, or back to first person'], ['Left click', 'Attack. Click again in rhythm for a 3-hit combo'], ['Hold left click', 'Heavy attack (bows: power shot, staffs: charged spell)'], ['Right click', 'Weapon ability (unlocks at level 2): area attack, Meteor, Rain of Arrows, Twin Fury...'], ['1 to 6', 'Hotbar: class abilities fill it as you unlock them (levels 3, 6, 10), then potions and food'], ['F (hold)', 'Block. Shields block the most'], ['Space', 'Jump'], ['Shift (tap)', 'Dodge roll'], ['Shift (hold)', 'Sprint'], ['Q', 'Swap between your two weapons'], ['E', 'Talk, gather, chop, mine, loot, skin, use crafting stations'], ['R', 'Drink a potion or eat food'], ['C, I or B', 'Character, gear & bags'], ['K', 'Weapon skills (weapon trees & dual wield mastery)'], ['N', 'Class talents & abilities'], ['L', 'Quest log'], ['M', 'Map'], ['P', 'Recipes'], ['Esc', 'Pause menu']];
   const g = el('div', 'keys'); for (const [k, d] of K) { g.appendChild(el('div', '', `<span class="kbd">${k}</span>`)); g.appendChild(el('div', '', d)); }
   c.appendChild(g);
   const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '14px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);

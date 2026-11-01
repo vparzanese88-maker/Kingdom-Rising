@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
-import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
@@ -37,11 +37,12 @@ export function buildAbilityBar() {
   bar.appendChild(ws);
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
+  const rmb = mk('RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
   const hb = [0, 1, 2, 3, 4, 5].map(i => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
-  const f = mk('RMB', Icons.abilityIcon('shield'), 'small');
-  abilEls = { ws, lmb, hb, f };
+  const f = mk('F', Icons.abilityIcon('shield'), 'small');
+  abilEls = { ws, lmb, rmb, hb, f };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
@@ -52,7 +53,8 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? (W.kind === 'melee' ? 'Left click: attack. ' + (COMBOS[p.weapon.wt] ? COMBOS[p.weapon.wt].trait : '') : W.kind === 'bow' ? 'Left click: shoot' : 'Left click: cast a bolt') : '';
   const sk = p.skills();
-  abilEls.f.title = 'Hold right click to block';
+  abilEls.f.title = 'Hold F to block';
+  { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `Right click: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
     if (e._key !== key) {
@@ -88,6 +90,7 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
+    { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
       const e = abilEls.hb[i];
       if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
@@ -373,8 +376,9 @@ function renderSkills() {
     c.appendChild(el('p', 'dim', 'Your hotbar holds 3 class abilities (keys 1, 2, 3). Choose which ones with the slot buttons.'));
     for (const a of items) {
       const slot = h.hotbar.findIndex(s => s && s.t === 'ab' && s.id === a.icon);
-      const row = el('div', 'abil' + (slot >= 0 ? ' onbar' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}${slot >= 0 ? `<span class="k">${slot + 1}</span>` : ''}</div><div style="flex:1"><b>${esc(a.name)}</b><div class="dim">${esc(a.d)}</div></div>`);
-      const bs = el('div', 'slotbtns');
+      const lockedA = h.level < (ABILITIES[h.cls].find(x => x.id === a.icon) || {}).level;
+      const row = el('div', 'abil' + (slot >= 0 ? ' onbar' : '') + (lockedA ? ' locked' : ''), `<div class="aic">${Icons.abilityIcon(a.icon)}${slot >= 0 ? `<span class="k">${slot + 1}</span>` : ''}</div><div style="flex:1"><b>${esc(a.name)}</b>${lockedA ? ` <span class="dim">learned at level ${a.lv}</span>` : ''}<div class="dim">${esc(a.d)}</div></div>`);
+      const bs = el('div', 'slotbtns'); if (lockedA) { row.appendChild(bs); ab.appendChild(row); continue; }
       for (let i = 0; i < 3; i++) { const b = el('button', 'btn' + (slot === i ? ' gold' : ''), String(i + 1)); b.title = 'Put on hotbar slot ' + (i + 1); b.onclick = () => { S.click(); Game.setAbilitySlot(h, i, a.icon); renderSkills(); }; bs.appendChild(b); }
       row.appendChild(bs); ab.appendChild(row);
     }
@@ -604,9 +608,9 @@ export function openControls(fromPause) {
   const grp = (title, rows) => { const d = el('div'); d.appendChild(el('h4', '', title)); for (const [k, t] of rows) d.appendChild(el('div', 'krow', `<span class="kbd">${k}</span><span>${t}</span>`)); g.appendChild(d); };
   g.appendChild(el('div', 'helpnote', '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
   grp('Moving', [['W A S D', 'Walk. Moving backwards is slower.'], ['Shift (hold)', 'Sprint. Uses endurance.'], ['Shift (tap)', 'Dodge roll: you can\'t be hit mid-roll.'], ['Space', 'Jump'], ['Mouse', 'Look around'], ['Wheel / V', 'Switch between first and third person']]);
-  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Hold to block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Swap weapon sets']]);
+  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Swap weapon sets']]);
   grp('World', [['E', 'Talk, loot, skin, chop, mine, gather and use crafting stations'], ['Red swords', 'Above a name: this enemy attacks on sight'], ['Ring colour', 'Under an enemy: grey/green easy, blue fair, white even, yellow hard, red dangerous']]);
-  grp('Windows', [['I or B', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['L', 'Quest log'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
+  grp('Windows', [['I', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['L', 'Quest log'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
   c.appendChild(g);
   const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '18px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);
 }

@@ -27,6 +27,7 @@ function pivot(parent, x = 0, y = 0, z = 0, name) { const o = new THREE.Object3D
 function outfitSpec(app) {
   const c = app.cls ? CLASSES[app.cls].colors : null;
   switch (app.outfit || app.cls) {
+    case 'berserker': return { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, shawl: '#8a7a6a', sash: c.main };
     case 'warrior': return { shirt: '#5b5f66', mail: c.metal, tabard: c.main, trim: c.trim, pants: '#3a2f28', boots: '#2b211a', pauldrons: true, belt: '#3a2a1a', bracers: c.metal };
     case 'ranger': return { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: c.main, cloak: c.main, quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' };
     case 'wizard': return { shirt: c.main, robe: c.main, trim: c.trim, pants: '#2a2a40', boots: '#3a2a1a', hat: 'pointy', hatCol: c.main, sash: c.trim, sleeves: true };
@@ -142,7 +143,7 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       const rim = mesh(geo, M, g, 0, 0, -0.012); rim.scale.set(1.07, 1.05, 0.6); // metal rim showing round the edge
       mesh(cached('sboss', () => { const s = new THREE.SphereGeometry(0.08, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2); s.rotateX(Math.PI / 2); return s; }), M, g, 0, style === 'tower' ? 0.05 : 0.08, 0.05);
       if (style !== 'buckler') { mesh(cached('semb', () => new THREE.BoxGeometry(0.06, 0.62, 0.012)), goldMat, g, 0, style === 'kite' ? -0.05 : 0, 0.06); mesh(cached('semb2', () => new THREE.BoxGeometry(0.5, 0.06, 0.012)), goldMat, g, 0, 0.18, 0.06); }
-      g.scale.setScalar(1.15);
+      g.scale.setScalar(1.15); g.userData.isShield = true;
       base.position.set(0, -0.4, 0); tip.position.set(0, 0.4, 0); break;
     }
     case 'bow': {
@@ -198,6 +199,7 @@ export function buildHumanoid(app = {}) {
   if (app.race === 'highelf') { R.sw = 0.185; R.thick = 0.88; R.legL = 0.98; R.neck = 0.09; }
   if (app.race === 'woodelf') { R.thick = 0.95; }
   if (app.race === 'dwarf') { R.sw = 0.26; R.hw = 0.13; R.thick = 1.35; R.legL = 0.62; R.armL = 0.5; R.head = 1.22; R.torsoH = 0.6; R.neck = 0.04; }
+  if (app.race === 'orc') { R.sw = 0.25; R.hw = 0.12; R.thick = 1.25; R.head = 1.08; R.armL = 0.62; R.neck = 0.05; }
   if (app.race === 'goblin') { R.sw = 0.17; R.thick = 0.85; R.legL = 0.62; R.armL = 0.6; R.head = 1.35; R.torsoH = 0.52; R.neck = 0.04; }
   if (female) { R.sw *= 0.88; R.hw *= 1.12; R.thick *= 0.88; }
   R.sw *= 1 + build * 0.13; R.thick *= 1 + build * 0.22;
@@ -331,13 +333,15 @@ function buildHead2(g, app, kind, female, mats, glowM) {
     const e = mesh(sphereGeo(0.017, 10, 8), eyeWhite, g, s * 0.037, 0.115, 0.088); e.scale.set(1.2, isElf(app.race) ? 0.75 : 0.9, 0.6);
     if (kind === 'person' && !gob) { const p = mesh(sphereGeo(0.009, 8, 6), iris, g, s * 0.037, 0.115, 0.098); }
     const brow = mesh(cached('brow', () => new THREE.BoxGeometry(0.04, 0.009, 0.012)), kind === 'person' ? mats.hair : sk, g, s * 0.038, 0.142, 0.094);
-    brow.rotation.z = s * (isElf(app.race) ? -0.25 : kind === 'troll' || kind === 'tyrant' ? 0.35 : -0.08);
+    brow.rotation.z = s * (app.race === 'orc' ? 0.3 : isElf(app.race) ? -0.25 : kind === 'troll' || kind === 'tyrant' ? 0.35 : -0.08);
   }
   // mouth
   const mouth = mesh(cached('mouth', () => new THREE.BoxGeometry(0.04, 0.006, 0.01)), mat('#7a3a32', 0.6), g, 0, 0.045, 0.1);
   // ears
   for (const s of [-1, 1]) {
-    if (gob) {
+    if (app.race === 'orc') {
+      const ear = mesh(cached('orcear', () => { const c = new THREE.ConeGeometry(0.026, 0.09, 5); c.translate(0, 0.045, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.097, 0.1, -0.005); ear.rotation.z = -s * 1.2;
+    } else if (gob) {
       const ear = mesh(cached('gobear', () => { const c = new THREE.ConeGeometry(0.035, 0.2, 5); c.translate(0, 0.1, 0); c.scale(1, 1, 0.35); return c; }), sk, g, s * 0.095, 0.1, -0.01);
       ear.rotation.z = -s * 1.45; ear.rotation.x = -0.15;
     } else if (isElf(app.race)) {
@@ -351,6 +355,7 @@ function buildHead2(g, app, kind, female, mats, glowM) {
       const ear = mesh(sphereGeo(0.024, 8, 6), sk, g, s * 0.098, 0.1, 0); ear.scale.set(0.45, 1, 0.75);
     }
   }
+  if (app.race === 'orc') { for (const s of [-1, 1]) { const tk = mesh(cached('orctusk', () => new THREE.ConeGeometry(0.014, 0.075, 5)), mat('#efe6c8', 0.5), g, s * 0.035, 0.045, 0.1); tk.rotation.z = s * 0.15; } }
   if (kind === 'troll') { for (const s of [-1, 1]) { const tk = mesh(cached('tusk', () => new THREE.ConeGeometry(0.012, 0.06, 5)), mat('#efe6c8', 0.5), g, s * 0.04, 0.04, 0.1); tk.rotation.z = s * 0.2; } }
   if (kind === 'imp' || kind === 'tyrant') {
     const big = kind === 'tyrant';
@@ -557,6 +562,16 @@ function attackPose(name, t, mirror) {
 }
 
 // st: { speed, airborne, action, actionT, block, dead, deadT, bowDraw, sit, lie, crouch, swim, spinT, hit }
+const _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _sq3 = new THREE.Quaternion(), _se = new THREE.Euler();
+// keep a strapped shield upright (point down, face outward) whatever the arm is doing
+function uprightShield(ch, st) {
+  const sh = ch.weapons && ch.weapons.off; if (!sh || !sh.userData.isShield || !sh.parent) return;
+  ch.root.updateMatrixWorld(true);
+  sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
+  _sq3.setFromEuler(_se.set(st.block ? -0.1 : 0.08, st.block ? 0.12 : 0.62, 0));
+  _sq2.multiply(_sq3);
+  sh.quaternion.copy(_sq1.invert().multiply(_sq2));
+}
 export function animateHumanoid(ch, dt, st) {
   const A = ch.anim; A.t += dt;
   const { hips, spine, chest, neck, head, arms, legs, body } = ch;
@@ -627,6 +642,7 @@ export function animateHumanoid(ch, dt, st) {
   if (st.lie) { body.rotation.x = -Math.PI / 2; body.position.y = 0.12; }
   // hit flinch
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
+  uprightShield(ch, st);
 }
 
 // ---------- baking: merge each joint's meshes into one vertex-coloured mesh (far fewer draw calls) ----------

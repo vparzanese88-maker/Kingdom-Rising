@@ -125,10 +125,11 @@ const AB = {
   boot: null, sword: null, potionAb: null,
 };
 // Ability icons: painted look (dark tinted backdrop, grain, lighting and a bevelled frame) instead of flat cartoon
-const TINT = { charge: '#7a2a14', battlecry: '#7a4a10', earthsplitter: '#5a3a1a', adrenaline: '#8a1a12', tourniquet: '#5a1a1a', spectral: '#0e5a42', smokeroll: '#2a2a3a', fury: '#6a1410', secondwind: '#1a4a3a', fielddress: '#1e4a1e', frostnova: '#14406a', blink: '#3a1a6a', chain: '#2a3a7a', manasurge: '#12306a', icebarrier: '#1a4a6a', heart: '#5a1010', shield: '#3a3a4a', crown: '#5a4410', crit: '#5a1414', bolt: '#5a4a10', mana: '#10305a', wind: '#1a3a4a', fist: '#4a3018', scroll: '#4a3a20', skull: '#2a2a2a', combo: '#4a2a14', heavy: '#4a3a20' };
+const TINT = { bash: '#2a3a5a', shieldwall: '#1a2a4a', execute: '#3a0a0a', laststand: '#5a3a10', intimshout: '#7a1a10', bloodrage: '#6a0808', charge: '#7a2a14', battlecry: '#7a4a10', earthsplitter: '#5a3a1a', adrenaline: '#8a1a12', tourniquet: '#5a1a1a', spectral: '#0e5a42', smokeroll: '#2a2a3a', fury: '#6a1410', secondwind: '#1a4a3a', fielddress: '#1e4a1e', frostnova: '#14406a', blink: '#3a1a6a', chain: '#2a3a7a', manasurge: '#12306a', icebarrier: '#1a4a6a', heart: '#5a1010', shield: '#3a3a4a', crown: '#5a4410', crit: '#5a1414', bolt: '#5a4a10', mana: '#10305a', wind: '#1a3a4a', fist: '#4a3018', scroll: '#4a3a20', skull: '#2a2a2a', combo: '#4a2a14', heavy: '#4a3a20' };
 let fid = 0;
 export function abilityIcon(name, color) {
-  const map = { boot: 'boots', sword: 'sword', shield: 'shield', mace: 'mace', axe: 'axe', dagger: 'dagger' };
+  const map = { boot: 'boots', sword: 'sword', shield: 'shield', mace: 'mace', axe: 'axe', dagger: 'dagger', bash: 'shield', shieldwall: 'shield' };
+  if (name === 'execute') name = 'skull'; if (name === 'laststand') name = 'heart'; if (name === 'intimshout') name = 'battlecry'; if (name === 'bloodrage') name = 'adrenaline';
   let inner;
   if (map[name] && S[map[name]]) { const p = S[map[name]]({}); inner = { defs: p.defs, body: p.body }; }
   else inner = { defs: '', body: AB[name] || S.sword({}).body };

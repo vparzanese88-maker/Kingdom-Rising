@@ -11,6 +11,8 @@ export const RACES = {
   dwarf: { name: 'Dwarf', playable: true, desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
     skins: ['#efc2a0', '#dba07a', '#bf825d', '#94603f', '#d9a98c'], hairs: ['#b5501f', '#6b3a17', '#2a1b10', '#d6a23f', '#8a8a8a', '#e3e3e3', '#4a2a14'] },
   goblin: { name: 'Goblin', height: 0.72, width: 0.9, hp: 0, stats: { str: 8, dex: 12, int: 6, sta: 8 }, skins: ['#6a8a3a', '#7a9a44', '#5a7a32'], hairs: ['#1a1a10'] },
+  orc: { name: 'Orc', playable: true, desc: 'Huge, green-skinned and tusked. Born for war. Highest Strength.', height: 1.08, width: 1.15, hp: 15, stats: { str: 17, dex: 10, int: 7, sta: 15 },
+    skins: ['#6a8a4a', '#5a7a3e', '#7a9050', '#4e6a3a', '#8a9a5a'], hairs: ['#1a1410', '#2a2018', '#3a2a1a', '#5a4a3a', '#8a8a8a', '#a03a1a', '#d8d0c0'] },
   // villagers only
   human: { name: 'Human', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
   elf: { name: 'Elf', height: 1.05, width: 0.9, hp: 0, stats: { str: 10, dex: 15, int: 13, sta: 10 }, skins: ['#f6dcc6', '#ead0b5', '#d8b998'], hairs: ['#f2e6b0', '#e8e8e8', '#2a1a10'] },
@@ -45,6 +47,7 @@ export function derived(stats) { return { meleeMul: 1 + (stats.str - 10) * 0.02,
 // per-class pools: base and gain per level. Abilities spend mana (wizard) or endurance (warrior, ranger).
 export const CLASS_POOLS = {
   warrior: { hp: [120, 16], mana: [0, 0], end: [100, 5], uses: 'end' },
+  berserker: { hp: [130, 18], mana: [0, 0], end: [105, 6], uses: 'end' },
   ranger: { hp: [100, 13], mana: [0, 0], end: [110, 6], uses: 'end' },
   wizard: { hp: [85, 10], mana: [110, 9], end: [80, 3], uses: 'mana' },
 };
@@ -70,6 +73,9 @@ export const FAMILIES = {
   arcanestaff: { name: 'Arcane Staff', kind: 'staff', skills: ['nova', 'missiles'] },
 };
 export const WSKILLS = {
+  wheel: { name: 'Wheel Strike', cd: 7, icon: 'area', desc: 'A spinning sword strike that hits everything around you and slows them.' },
+  shadowflurry: { name: 'Shadow Flurry', cd: 8, icon: 'twinfury', desc: 'A blur of dagger strikes on everything in front of you; every hit makes them bleed.' },
+  whirlaxes: { name: 'Whirling Axes', cd: 8, icon: 'area', desc: 'Spin with both axes, cutting everything around you and leaving them bleeding.' },
   whirlwind: { name: 'Whirlwind', cd: 8, icon: 'area', desc: 'Spin with your blade, hitting everything around you.' },
   lunge: { name: 'Lunging Strike', cd: 7, icon: 'charge', desc: 'Dash forward and run through the first enemy in your way for heavy damage.' },
   skullcrack: { name: 'Skull Crack', cd: 8, icon: 'skullcrack', desc: 'A brutal overhead blow that stuns the target.' },
@@ -114,6 +120,21 @@ export const TREE_ROW_POINTS = 2;
 export const CLASS_TREE = {
   warrior: [
     { id: 'shieldwall', row: 0, name: 'Shield Wall', icon: 'shield', max: 1, desc: 'Blocking with a shield no longer slows you down.' },
+    { id: 'hp', row: 0, name: 'Toughness', icon: 'heart', max: 1, desc: '+10% maximum health.' },
+    { id: 'armor', row: 0, name: 'Iron Skin', icon: 'shield', max: 1, desc: '+15% armour.' },
+    { id: 'heavyhit', row: 1, name: 'Heavy Hitter', icon: 'heavy', max: 1, desc: 'Heavy attacks charge 40% faster.' },
+    { id: 'bloodlust', row: 1, name: 'Bloodlust', icon: 'heart', max: 1, desc: 'Every kill restores 5% of your health.' },
+    { id: 'dmg', row: 1, name: 'Brute Force', icon: 'fist', max: 1, desc: '+8% damage with everything.' },
+    { id: 'a1up', row: 2, name: 'Bull Rush', icon: 'charge', max: 1, desc: 'Charge deals 50% more damage and goes further.' },
+    { id: 'a2up', row: 2, name: "Warlord's Roar", icon: 'battlecry', max: 1, desc: 'Battle Cry lasts 5 s longer and heals 10% more.' },
+    { id: 'unbreak', row: 2, name: 'Unbreakable Guard', icon: 'shield', max: 1, desc: 'Your block can never be broken, however hard you are hit.' },
+    { id: 'cleave', row: 3, name: 'Cleaver', icon: 'area', max: 1, desc: 'The finishing blow of your combo hits every enemy around you.' },
+    { id: 'secondwind', row: 3, name: 'Battle Hardened', icon: 'wind', max: 1, desc: 'Health slowly regenerates even while fighting.' },
+    { id: 'a3up', row: 3, name: 'Worldbreaker', icon: 'earthsplitter', max: 1, desc: 'Earthsplitter hits 50% harder with a wider shockwave.' },
+    { id: 'cap', row: 4, name: 'Unstoppable', icon: 'crown', max: 1, desc: 'Deal 20% more damage while below half health.' },
+  ],
+  berserker: [
+    { id: 'reckless', row: 0, name: 'Reckless', icon: 'fist', max: 1, desc: 'Deal 10% more damage but take 5% more.' },
     { id: 'hp', row: 0, name: 'Toughness', icon: 'heart', max: 1, desc: '+10% maximum health.' },
     { id: 'armor', row: 0, name: 'Iron Skin', icon: 'shield', max: 1, desc: '+15% armour.' },
     { id: 'heavyhit', row: 1, name: 'Heavy Hitter', icon: 'heavy', max: 1, desc: 'Heavy attacks charge 40% faster.' },
@@ -180,10 +201,12 @@ export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'sta
 
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
+// right-click special attack for each weapon (dual-wield sets have their own)
+export const RMB_SPECIAL = { sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'shadowflurry', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'rain', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
-  sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 1.6, d: 1.4 }] },
+  sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
-  swordshield: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 1.6, d: 1.4 }] },
+  swordshield: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   maceshield: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
   swordmace: { trait: 'Sword crits, mace ignores armour', chain: [{ a: 'swing1', m: 1.0 }, { a: 'off1', m: 1.15, blunt: true }, { a: 'swing3', m: 1.8, d: 1.4, shock: 3, blunt: true }] },
   daggers: { trait: 'Daggers: lightning fast, the 5th strike is a spinning double slash', chain: [{ a: 'stabR', m: 0.6, d: 0.55 }, { a: 'stabL', m: 0.6, d: 0.55 }, { a: 'stabR', m: 0.65, d: 0.55 }, { a: 'stabL', m: 0.7, d: 0.55 }, { a: 'spin', m: 2.4, d: 1.6, aoe: 3.4, bleed: true, crit: 0.5 }] },
@@ -197,6 +220,9 @@ export const CLASSES = {
   warrior: { name: 'Warrior', desc: 'A steel-clad fighter who wades into the thick of battle. High health, heavy weapons and a shield.',
     weapons: ['sword', 'mace', 'shield', 'swordshield', 'maceshield', 'swordmace', 'greatsword', 'greataxe', 'warhammer', 'spear'], armor: 'mail', hp: 130, mana: 0,
     colors: { main: '#8b1e1e', trim: '#d8b04a', metal: '#9aa3ad' } },
+  berserker: { name: 'Berserker', desc: 'A wild warrior who fights with huge two-handed weapons, leaping into battle and roaring war shouts. Hits the hardest, wears light armour.',
+    weapons: ['greataxe', 'greatsword', 'warhammer', 'handaxes', 'swordmace'], armor: 'leather', hp: 135, mana: 0,
+    colors: { main: '#6a2a14', trim: '#c8a060', metal: '#7a7470' } },
   ranger: { name: 'Ranger', desc: 'A hooded hunter of the wilds. Deadly with a bow and hard to pin down.',
     weapons: ['bow', 'daggers', 'handaxes', 'spear'], armor: 'leather', hp: 110, mana: 0,
     colors: { main: '#2f5a2a', trim: '#6b4a2a', metal: '#7a6a55' } },
@@ -208,25 +234,32 @@ export const CLASSES = {
 // Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
 export const ABILITIES = {
   warrior: [
-    { id: 'charge', cost: 30, name: 'Charge', key: '1', level: 1, cd: 2.5, icon: '⇶', desc: 'Rush forward 12 m, knocking aside and damaging everything in your path.' },
-    { id: 'battlecry', cost: 50, name: 'Battle Cry', key: '2', level: 1, cd: 3, icon: '📯', desc: 'A mighty roar: heal 20% health and deal 30% more damage for 10 s.' },
-    { id: 'earthsplitter', cost: 55, name: 'Earthsplitter', key: '3', level: 1, cd: 3, icon: '⛰', desc: 'Leap toward your aim and crash down, shattering the ground. Stuns for 2 s.' },
-    { id: 'adrenaline', cost: 40, name: 'Adrenaline Dump', key: '4', level: 1, cd: 20, icon: '⚡', desc: 'For 8 s run and sprint 30% faster and deal 20% more damage.' },
-    { id: 'tourniquet', cost: 35, name: 'Tourniquet', key: '5', level: 1, cd: 25, icon: '✚', desc: 'Tie off your wounds: health regenerates twice as fast for 10 s, even in a fight.' },
+    { id: 'charge', cost: 30, name: 'Charge', key: '1', level: 1, cd: 6, icon: '⇶', desc: 'Rush forward 12 m behind your shield, knocking aside and stunning everything in your path.' },
+    { id: 'bash', cost: 25, name: 'Shield Bash', key: '2', level: 4, cd: 6, icon: '🛡', desc: 'Slam your shield into the enemies in front of you: damage, knock back and stun them for 2 s.' },
+    { id: 'shieldwall', cost: 40, name: 'Shield Wall', key: '3', level: 7, cd: 20, icon: '🛡', desc: 'Brace yourself: take 60% less damage from every direction for 6 s.' },
+    { id: 'laststand', cost: 35, name: 'Last Stand', key: '4', level: 10, cd: 40, icon: '❤', desc: 'Refuse to fall: heal 30% of your health and take 25% less damage for 10 s.' },
+    { id: 'execute', cost: 35, name: 'Execute', key: '5', level: 14, cd: 10, icon: '☠', desc: 'A massive overhead strike. Deals double damage to enemies below 35% health.' },
+  ],
+  berserker: [
+    { id: 'earthsplitter', cost: 40, name: 'Leap Strike', key: '1', level: 1, cd: 7, icon: '⛰', desc: 'Leap toward your aim and crash down, shattering the ground and stunning everything around you.' },
+    { id: 'battlecry', cost: 40, name: 'Battle Cry', key: '2', level: 4, cd: 20, icon: '📯', desc: 'A furious roar: heal 20% health and deal 30% more damage for 10 s.' },
+    { id: 'intimshout', cost: 35, name: 'Intimidating Shout', key: '3', level: 7, cd: 18, icon: '📢', desc: 'A terrifying shout: every enemy within 9 m is stunned with fear for 2.5 s.' },
+    { id: 'adrenaline', cost: 30, name: 'Adrenaline Dump', key: '4', level: 10, cd: 20, icon: '⚡', desc: 'For 8 s run and sprint 30% faster and deal 20% more damage.' },
+    { id: 'bloodrage', cost: 40, name: 'Bloodrage', key: '5', level: 14, cd: 35, icon: '🩸', desc: 'Lose yourself to rage for 10 s: +15% damage, heal 15% of all damage you deal, and regenerate health twice as fast.' },
   ],
   ranger: [
     { id: 'spectral', cost: 20, name: 'Spectral Arrow', key: '1', level: 1, cd: 2, icon: '➶', desc: 'Loose a glowing arrow that pierces every enemy in a line for heavy damage.' },
-    { id: 'smokeroll', cost: 40, name: 'Smoke Roll', key: '2', level: 1, cd: 3, icon: '☁', desc: 'Roll back in a burst of smoke. Unseen for 4 s; your next hit deals double damage.' },
-    { id: 'fury', cost: 60, name: "Hunter's Fury", key: '3', level: 1, cd: 3, icon: '🐺', desc: 'For 10 s attack 50% faster, deal 25% more damage and heal 10% of damage dealt.' },
-    { id: 'secondwind', cost: 0, name: 'Second Wind', key: '4', level: 1, cd: 25, icon: '💨', desc: 'Catch your breath: restore 40% endurance and move 25% faster for 6 s.' },
-    { id: 'fielddress', cost: 30, name: 'Field Dressing', key: '5', level: 1, cd: 25, icon: '✚', desc: 'Bind your wounds: heal 30% of your health over 8 s.' },
+    { id: 'smokeroll', cost: 40, name: 'Smoke Roll', key: '2', level: 4, cd: 3, icon: '☁', desc: 'Roll back in a burst of smoke. Unseen for 4 s; your next hit deals double damage.' },
+    { id: 'fury', cost: 60, name: "Hunter's Fury", key: '3', level: 7, cd: 3, icon: '🐺', desc: 'For 10 s attack 50% faster, deal 25% more damage and heal 10% of damage dealt.' },
+    { id: 'secondwind', cost: 0, name: 'Second Wind', key: '4', level: 10, cd: 25, icon: '💨', desc: 'Catch your breath: restore 40% endurance and move 25% faster for 6 s.' },
+    { id: 'fielddress', cost: 30, name: 'Field Dressing', key: '5', level: 14, cd: 25, icon: '✚', desc: 'Bind your wounds: heal 30% of your health over 8 s.' },
   ],
   wizard: [
     { id: 'frostnova', cost: 30, name: 'Frost Nova', key: '1', level: 1, cd: 2.5, icon: '❄', desc: 'Blast of ice around you: damages and freezes nearby enemies for 3 s.' },
-    { id: 'blink', cost: 25, name: 'Blink', key: '2', level: 1, cd: 2, icon: '✦', desc: 'Teleport 14 m in the direction you are moving (or facing).' },
-    { id: 'chain', cost: 30, name: 'Chain Lightning', key: '3', level: 1, cd: 2, icon: '⚡', desc: 'A bolt of lightning that leaps between up to 5 enemies.' },
-    { id: 'manasurge', cost: 0, name: 'Mana Surge', key: '4', level: 1, cd: 30, icon: '💧', desc: 'For 8 s your spells and abilities cost nothing and deal 20% more damage.' },
-    { id: 'icebarrier', cost: 40, name: 'Ice Barrier', key: '5', level: 1, cd: 20, icon: '🛡', desc: 'Wrap yourself in ice that absorbs damage equal to 30% of your health for 12 s.' },
+    { id: 'blink', cost: 25, name: 'Blink', key: '2', level: 4, cd: 2, icon: '✦', desc: 'Teleport 14 m in the direction you are moving (or facing).' },
+    { id: 'chain', cost: 30, name: 'Chain Lightning', key: '3', level: 7, cd: 2, icon: '⚡', desc: 'A bolt of lightning that leaps between up to 5 enemies.' },
+    { id: 'manasurge', cost: 0, name: 'Mana Surge', key: '4', level: 10, cd: 30, icon: '💧', desc: 'For 8 s your spells and abilities cost nothing and deal 20% more damage.' },
+    { id: 'icebarrier', cost: 40, name: 'Ice Barrier', key: '5', level: 14, cd: 20, icon: '🛡', desc: 'Wrap yourself in ice that absorbs damage equal to 30% of your health for 12 s.' },
   ],
 };
 export const AREA_UNLOCK_LEVEL = 1;

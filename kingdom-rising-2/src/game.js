@@ -19,7 +19,7 @@ export function pairedWt(h) {
 }
 export function activeWeapon(h) { const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
 export function newHero(o) {
-  const starter = { warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
+  const starter = { berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
@@ -45,6 +45,7 @@ export function autoFillHotbar(h) {
   const hb = h.hotbar;
   // keep abilities only in 1-3 and items only in 4-6
   for (let i = 0; i < 6; i++) if (hb[i] && ((i < 3) !== (hb[i].t === 'ab'))) hb[i] = null;
+  for (let i = 0; i < 3; i++) if (hb[i] && hb[i].t === 'ab') { const A = ABILITIES[h.cls].find(x => x.id === hb[i].id); if (!A || A.level > h.level) hb[i] = null; }
   const has = (t, id) => hb.some(s => s && s.t === t && s.id === id);
   const added = [];
   for (const a of ABILITIES[h.cls]) { if (has('ab', a.id) || h.level < a.level) continue; const i = [0, 1, 2].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }

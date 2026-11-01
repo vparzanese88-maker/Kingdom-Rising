@@ -12,7 +12,7 @@ import * as Icons from './icons.js';
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const CLS_ICON = { warrior: '🛡', ranger: '🏹', wizard: '🔥' };
+const CLS_ICON = { berserker: '🪓', warrior: '🛡', ranger: '🏹', wizard: '🔥' };
 
 export const Menu = { onPlay: null, preview: null };
 
@@ -21,7 +21,7 @@ export function showTitle() {
   M.play('title');
   renderSaves();
 }
-const CLS_WPN = { warrior: { kind: 'weapon', wt: 'swordshield', tier: 2, rarity: 0 }, ranger: { kind: 'weapon', wt: 'bow', tier: 2, rarity: 0 }, wizard: { kind: 'weapon', wt: 'firestaff', tier: 2, rarity: 0 } };
+const CLS_WPN = { berserker: { kind: 'weapon', wt: 'greataxe', tier: 2, rarity: 0 }, warrior: { kind: 'weapon', wt: 'swordshield', tier: 2, rarity: 0 }, ranger: { kind: 'weapon', wt: 'bow', tier: 2, rarity: 0 }, wizard: { kind: 'weapon', wt: 'firestaff', tier: 2, rarity: 0 } };
 function renderSaves() {
   const saves = listSaves(); const box = $('saves'); box.innerHTML = '';
   $('btnNew').disabled = !canCreate();
@@ -59,8 +59,8 @@ export function initMenu() {
 
 // ---------- creator ----------
 const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
-const START = { warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
-const START_NAME = { warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
+const START = { berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
+const START_NAME = { berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
 const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
@@ -73,10 +73,12 @@ function closeCreator() { $('creator').hidden = true; Menu.preview.active = fals
 const RACE_INFO = {
   highelf: { tag: 'Wise & magical', icon: '🧝', best: 'Wizard', lore: 'The last of the Silver Courts, tall and proud, with long ears and a memory that stretches back centuries. Magic runs in their blood.', perk: 'Highest Intellect: stronger spells and a bigger mana pool.' },
   woodelf: { tag: 'Swift & keen-eyed', icon: '🧝', best: 'Ranger', lore: 'Sun-browned hunters of the deep forests. They move without a sound and never miss what they aim at.', perk: 'Highest Dexterity: harder hitting bows and blades, more critical hits, faster endurance recovery.' },
+  orc: { tag: 'Brutal & mighty', icon: '👹', best: 'Berserker', lore: 'Huge, tusked and green-skinned, orcs are raised for war and fear nothing. What they lack in subtlety they make up for in sheer strength.', perk: 'Highest Strength and great Stamina, plus 15 bonus health. Hits harder than anyone.' },
   dwarf: { tag: 'Stout & unbreakable', icon: '🧔', best: 'Warrior', lore: 'Short, broad and stubborn as the mountains they carve. A dwarf in armour is a wall with a beard.', perk: 'Highest Strength and Stamina, plus 20 bonus health. Hard to kill.' },
 };
 const CLASS_INFO = {
-  warrior: { tag: 'Front line', diff: 1, role: 'Tank and melee damage', res: 'Endurance', start: 'Sword (main hand) and Shield (off hand)', tips: ['Get close and chain your 3-hit sword combo with left click.', 'Hold right click to raise your shield and stop most of the damage.', 'Charge into a pack, then use Battle Cry and Earthsplitter to finish it.'] },
+  berserker: { tag: 'Wild fighter', diff: 1, role: 'Heavy melee damage', res: 'Endurance', start: 'Great Axe', tips: ['Leap Strike into a group, then roar Battle Cry and keep swinging.', 'Intimidating Shout freezes everything around you with fear.', 'You wear light armour: Bloodrage heals you as you deal damage.'] },
+  warrior: { tag: 'Shield soldier', diff: 1, role: 'Tank and steady damage', res: 'Endurance', start: 'Sword (main hand) and Shield (off hand)', tips: ['Get close and chain your 3-hit sword combo with left click.', 'Hold F to raise your shield and stop most of the damage; right click for Wheel Strike.', 'Charge in, Shield Bash to stun, and Shield Wall when the fight turns against you.'] },
   ranger: { tag: 'Ranged hunter', diff: 2, role: 'Ranged damage and mobility', res: 'Endurance', start: 'Longbow', tips: ['Keep your distance: arrows drop over long range, so aim a little high.', 'Spectral Arrow pierces a whole line of enemies.', 'Smoke Roll hides you and makes your next hit deal double damage.'] },
   wizard: { tag: 'Spell caster', diff: 3, role: 'Area damage and control', res: 'Mana', start: 'Fire Staff', tips: ['Fireballs arc and explode: hit groups from a safe distance.', 'Frost Nova freezes everything near you; Blink gets you out.', 'Watch your mana; Mana Surge makes everything free for a while.'] },
 };
@@ -113,8 +115,8 @@ function renderCreator() {
     sect('How to play');
     body.appendChild(el('ul', 'tips', I.tips.map(t => `<li>${t}</li>`).join('')));
     sect('Class abilities');
-    body.appendChild(el('p', 'cintro', `Five abilities, all available from the start. Put any three on keys 1, 2 and 3 (change them any time in Class Talents, N). They cost ${I.res.toLowerCase()}.`));
-    for (const a of ABILITIES[C.cls]) body.appendChild(el('div', 'abl', `<div class="ai">${Icons.abilityIcon(a.id)}</div><div><b>${a.name}</b><br>${a.desc} <span style="color:var(--mut)">${a.cost ? a.cost + ' ' + I.res.toLowerCase() : 'free'}</span></div>`));
+    body.appendChild(el('p', 'cintro', `You learn five abilities as you level up (levels 1, 4, 7, 10 and 14). Each goes on your hotbar when learned; put any three on keys 1, 2 and 3 in Class Talents (N). They cost ${I.res.toLowerCase()}.`));
+    for (const a of ABILITIES[C.cls]) body.appendChild(el('div', 'abl', `<div class="ai">${Icons.abilityIcon(a.id)}</div><div><b>${a.name}</b> <span style="color:var(--mut)">level ${a.level}</span><br>${a.desc} <span style="color:var(--mut)">${a.cost ? a.cost + ' ' + I.res.toLowerCase() : 'free'}</span></div>`));
   } else if (tab === 2) {
     intro('Shape your hero. This is purely how you look; your attributes come from your race and gear.');
     const f = (label, input) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); d.appendChild(input); body.appendChild(d); };

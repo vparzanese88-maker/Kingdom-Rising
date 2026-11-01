@@ -5,7 +5,7 @@ import { G } from './state.js';
 import { S, A, M as Music } from './audio.js';
 import { V } from './vfx.js';
 import { settings } from './saves.js';
-import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS } from './data.js';
+import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS, RMB_SPECIAL } from './data.js';
 const dualRank = () => 0;
 import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
@@ -23,13 +23,13 @@ const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 // ---------- first-person view model ----------
 const P = (x, y, z, rx, ry, rz) => [x, y, z, rx, ry, rz];
 const VP = {
-  rest: P(0.44, -0.4, -0.55, -0.32, 0.1, 0.22), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
+  rest: P(0.42, -0.44, -0.55, -0.22, -0.05, -0.2), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
   s1a: P(0.52, -0.05, -0.4, -1.35, -1.1, 0.3), s1b: P(-0.42, -0.3, -0.45, -1.35, 1.35, 0.3),
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
   ha: P(0.45, 0.25, -0.15, 0.6, -0.5, -0.3), hb: P(0, -0.45, -0.62, -2.1, 0.3, 0),
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
-  blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.44, -0.56, -0.5, 0.2, 0.55, 0.05), shieldBlock: P(-0.2, -0.2, -0.46, 0.05, 0.4, 0.08), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
+  blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.24, -0.28, -0.55, 0.08, 0.38, 0.06), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.2, -0.14, -0.62, 0, 0, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.24, -0.48, -0.85, -0.55, 0, -0.05), staffHigh: P(0.2, -0.15, -0.35, 0.3, 0, -0.1), staffSlam: P(0.12, -0.6, -0.9, -0.9, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
@@ -103,7 +103,7 @@ class ViewModel {
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
     if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = 0.45; // show the blade at an angle, like Skyrim
-    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.62); off.position.set(0.06, 0.1, -0.03); } }
+    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
@@ -261,7 +261,7 @@ export class Player {
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
-    else if (btn === 2) this.rmbDown = down;
+    else if (btn === 2 && down) this.specialAttack();
   }
   onWheel(dy) { this.camDistT = clamp(this.camDistT + dy * 0.004, 0, 9); if (this.camDistT < 0.7 && dy < 0) this.camDistT = 0; else if (this.camDistT > 0 && this.camDistT < 1.6 && dy > 0) this.camDistT = 2.2; }
   look(dx, dy) { const s = 0.0032 * settings.sens; this.yaw -= dx * s; this.pitch = clamp(this.pitch - dy * s * (settings.invertY ? -1 : 1), -1.45, 1.45); }
@@ -408,9 +408,10 @@ export class Player {
   }
 
   // ---------- weapon abilities on F and C ----------
-  weaponAbility(slot) {
+  specialAttack() { const w = this.weapon; if (!w) return; const id = RMB_SPECIAL[w.wt]; if (!id) return; this.weaponAbility(0, { fam: familiesOf(w.wt)[0], id }); }
+  weaponAbility(slot, skOverride) {
     const W = this.W; if (!W || this.busy() || this.swim) return;
-    const sk = this.skills()[slot]; if (!sk) return;
+    const sk = skOverride || this.skills()[slot]; if (!sk) return;
     const key = 'w' + slot;
     if (this.cd[key] > 0) { S.error(); return; }
     const S2 = WSKILLS[sk.id], fam = sk.fam;
@@ -438,6 +439,9 @@ export class Player {
     };
     switch (sk.id) {
       case 'whirlwind': spin(4.5, 1.5); break;
+      case 'wheel': spin(4.5, 1.5, { slow: 3 }); break;
+      case 'whirlaxes': spin(4.5, 1.3, { bleed: base * 0.12 }); break;
+      case 'shadowflurry': this.atk = { name: 'fury', t: 0, dur: 1.0, hits: 7, rank: 1, hit: true, noQueue: true, base, bleed: true }; S.swingW('light', 1.2, this.pos); break;
       case 'greatcleave': spin(6.5, 1.7); break;
       case 'sweep': spin(5.5, 1.5); break;
       case 'reaping': spin(6.5, 1.4, { bleed: base * 0.1 }); break;
@@ -497,7 +501,7 @@ export class Player {
     const r = rank >= 6 ? W.area * 1.3 : W.reach * 1.3;
     const targets = rank >= 6 ? mobsInRadius(this.pos, r) : mobsInCone(this.pos, this.yaw, r, 1.1);
     for (const m of targets) {
-      this.dealDamage(m, a.base * 0.55 * (rank >= 10 ? 1.2 : 1), { offhand: k % 2 === 0, melee: true, silent: false });
+      this.dealDamage(m, a.base * 0.55 * (rank >= 10 ? 1.2 : 1), { offhand: k % 2 === 0, melee: true, silent: false, bleed: a.bleed ? a.base * 0.06 : 0 });
       if (rank >= 8) { const pull = this.pos.clone().sub(m.pos).setY(0).normalize().multiplyScalar(4); m.status.knock.add(pull); }
     }
     S.swingW(this.swingKind(k % 2 ? 'swing1' : 'off1'), 0.8, this.pos);
@@ -520,7 +524,7 @@ export class Player {
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
     const key = 'a' + (i + 1);
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim) { S.error(); return; }
-    if (this.atk && this.atk.name !== 'swing1' && this.atk.name !== 'off1') return;
+    if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(ab.cost)) return;
     this.cd[key] = ab.cd;
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
@@ -564,6 +568,24 @@ export class Player {
         V.burst('green', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); V.ring(this.pos, 4, '#60ff90', 0.5);
         break;
       }
+      case 'bash': {
+        this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; S.block(true, this.pos);
+        setTimeout(() => { if (this.dead) return; let n = 0; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) { n++; this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); S.blunt(m.pos); } const p = this.pos.clone().addScaledVector(this.fwd(), 2); V.ring(p, 2.5, '#c8d8ff', 0.35); V.burst('spark', p.setY(p.y + 1), 16, { speed: 5 }); V.addShake(n ? 0.35 : 0.1); }, 140);
+        break;
+      }
+      case 'shieldwall': { this.buffs.wall = 6; S.block(true, this.pos); S.battleCry(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#a8c8ff', 0.5); V.ring(this.pos, 3, '#a8c8ff', 0.5); G.hooks.toast && G.hooks.toast('Shield Wall: 60% less damage for 6 s', '🛡', 'gold'); break; }
+      case 'laststand': { this.heal(this.maxHp * 0.3); this.buffs.stand = 10; S.battleCry(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 3 }); V.ring(this.pos, 4, '#ffd080', 0.5); break; }
+      case 'execute': {
+        this.atk = { name: 'smash', t: 0, dur: 0.75, hit: true, noQueue: true }; S.swingW(this.swingKind('swing3'), 1.8, this.pos);
+        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (this.W ? this.W.reach : 2.5) + 0.6, 0.6).sort((a2, b2) => a2.dist2(this.pos) - b2.dist2(this.pos))[0]; if (t) { const low = t.hp < t.maxHp * 0.35; this.dealDamage(t, base * 2.6 * (low ? 2 : 1), { big: true, melee: true, critBonus: low ? 0.5 : 0, knock: t.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(6) }); if (low) V.number(t.pos.clone().setY(t.pos.y + t.height + 0.8), 'Execute!', 'crit'); G.hitstop = 0.1; V.addShake(0.45); V.burst('blood', t.pos.clone().setY(t.pos.y + 1), 20, { speed: 4 }); } }, 480);
+        break;
+      }
+      case 'intimshout': {
+        S.battleCry(); S.roar(this.pos); V.ring(this.pos, 9, '#ff6a3a', 0.6); V.ring(this.pos, 6, '#ffb060', 0.5); V.addShake(0.4);
+        for (const m of mobsInRadius(this.pos, 9)) { m.status.stun = Math.max(m.status.stun, m.def.boss ? 0.8 : 2.5); V.number(m.pos.clone().setY(m.pos.y + m.height + 0.6), 'Feared!', 'bad'); }
+        break;
+      }
+      case 'bloodrage': { this.buffs.rage = 10; this.buffs.tq = Math.max(this.buffs.tq || 0, 10); S.roar(this.pos); S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 5 }); V.ring(this.pos, 4, '#c01818', 0.5); this.fovKick = 8; break; }
       case 'adrenaline': {
         this.buffs.adren = 8; S.battleCry(); S.heal(); this.fovKick = 10; this.end = Math.min(this.maxEnd, this.end + 20);
         V.burst('ember', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); V.ring(this.pos, 3.5, '#ff6a3a', 0.4); G.hooks.toast && G.hooks.toast('Adrenaline! Faster and stronger for 8 s', '⚡', 'gold');
@@ -647,6 +669,8 @@ export class Player {
     if (this.h.cls === 'warrior' && this.pk('cap') && this.hp < this.maxHp * 0.5) dmg *= 1.2;
     if (this.buffs.cry > 0) dmg *= 1.3;
     if (this.buffs.fury > 0) dmg *= 1.25;
+    if (this.buffs.rage > 0) dmg *= 1.15;
+    if (this.h.cls === 'berserker' && this.pk('reckless')) dmg *= 1.1;
     if (this.buffs.adren > 0) dmg *= 1.2;
     if (this.buffs.surge > 0) dmg *= 1.2;
     if (this.h.cls === 'ranger' && this.pk('poison') && !o.silent) o.bleed = Math.max(o.bleed || 0, dmg * 0.06);
@@ -659,6 +683,7 @@ export class Player {
     if (o.melee && rank >= 5) this.end = Math.min(this.maxEnd, this.end + 3);
     if (this.buffs.fury > 0) this.heal(total * (0.1 + this.pk('a3up') * 0.05), true);
     if (this.wp('leech')) this.heal(total * 0.04, true);
+    if (this.buffs.rage > 0) this.heal(total * 0.15, true);
     const np = m.pos.clone(); np.y += m.height + 0.2;
     if (!o.silent || o.el) V.number(np, crit ? total + '!' : total, crit ? 'crit' : o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : 'dmg');
     if (crit) { V.burst('spark', np, 12, { speed: 5 }); }
@@ -679,6 +704,8 @@ export class Player {
     const lv = src && src.lv || this.h.level;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));
+    if (this.buffs.wall > 0) dmg = Math.max(1, Math.round(dmg * 0.4));
+    if (this.buffs.stand > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; this.hurtT = 0.4; this.regenDelay = 4;
     V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); S.hurt();
@@ -793,7 +820,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (h.food && h.food.t > 0) { h.food.t -= dt; if (h.food.t <= 0) { G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[h.food.id].name} has worn off`, '🍖'); h.food = null; this.refreshStatsOnly(); } }
     this.fb = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] : {};
@@ -815,7 +842,7 @@ export class Player {
     const f = this.fwd(), r = this.right();
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
-    this.block = !ui && !!this.rmbDown && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
+    this.block = !ui && !!K.KeyF && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;

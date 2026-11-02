@@ -3,7 +3,7 @@
 export const TEAM_COLORS = ['#2f6ae0', '#d0302a', '#2fa84a', '#e0a820'];
 export const TEAM_NAMES = ['Blue', 'Red', 'Green', 'Gold'];
 export const DIFFS = {
-  easy: { name: 'Easy', income: 0.7, wave: 7, think: 3.0, upgradeAt: 480, reserve: 0.5 },
+  easy: { name: 'Easy', income: 0.6, wave: 7, think: 3.0, upgradeAt: 480, reserve: 0.5 },
   normal: { name: 'Normal', income: 1.0, wave: 10, think: 2.0, upgradeAt: 300, reserve: 0.35 },
   hard: { name: 'Hard', income: 1.3, wave: 12, think: 1.2, upgradeAt: 200, reserve: 0.25 },
   insane: { name: 'Insane', income: 1.75, wave: 14, think: 0.8, upgradeAt: 140, reserve: 0.15 },
@@ -115,15 +115,22 @@ export function unitSpec(spec, team, race) {
 
 // town upgrade costs and what each level gives. Level 0 is the starting town.
 export const TOWN_LEVELS = [
-  { name: 'Village', cap: 30, cost: null, hall: 7000, wallH: 4.2, houses: 5 },
-  { name: 'Town', cap: 40, cost: { gold: 350, wood: 300, stone: 200 }, hall: 9500, wallH: 5.4, houses: 8, time: 60 },
-  { name: 'Stronghold', cap: 50, cost: { gold: 700, wood: 450, stone: 450 }, hall: 12500, wallH: 6.6, houses: 11, time: 60 },
-  { name: 'Citadel', cap: 60, cost: { gold: 1100, wood: 600, stone: 800 }, hall: 16000, wallH: 7.8, houses: 14, time: 60 },
+  { name: 'Village', cap: 30, peasants: 5, cost: null, hall: 7000, wallH: 4.2, houses: 5 },
+  { name: 'Town', cap: 40, peasants: 8, cost: { gold: 350, wood: 300, stone: 200 }, hall: 9500, wallH: 5.4, houses: 8, time: 60 },
+  { name: 'Stronghold', cap: 50, peasants: 11, cost: { gold: 700, wood: 450, stone: 450 }, hall: 12500, wallH: 6.6, houses: 11, time: 60 },
+  { name: 'Citadel', cap: 60, peasants: 14, cost: { gold: 1100, wood: 600, stone: 800 }, hall: 16000, wallH: 7.8, houses: 14, time: 60 },
 ];
 export const TOWER_LEVELS = [
   { name: 'Archer Tower', hp: 3000, dmg: 55, cd: 1.6, range: 26 },
   { name: 'Guard Tower', hp: 4300, dmg: 80, cd: 1.4, range: 28, cost: { gold: 150, wood: 150, stone: 200 }, time: 25 },
   { name: 'Fortress Tower', hp: 6000, dmg: 115, cd: 1.2, range: 30, cost: { gold: 300, wood: 250, stone: 400 }, time: 35 },
+];
+// Foreman upgrades (peasants). Each has 3 ranks.
+export const FOREMAN = [
+  { id: 'housing', name: 'Peasant Housing', desc: '+2 peasant limit per rank', icon: '🏠', costs: [{ gold: 60, wood: 60 }, { gold: 140, wood: 120, stone: 60 }, { gold: 260, wood: 200, stone: 160 }] },
+  { id: 'tools', name: 'Sharper Tools', desc: 'Peasants chop and mine 20% faster per rank', icon: '🪓', costs: [{ gold: 50, wood: 40, stone: 20 }, { gold: 120, wood: 90, stone: 60 }, { gold: 240, wood: 160, stone: 140 }] },
+  { id: 'boots', name: 'Sturdy Boots', desc: 'Peasants walk 15% faster per rank', icon: '👢', costs: [{ gold: 50, wood: 30 }, { gold: 110, wood: 80, stone: 40 }, { gold: 220, wood: 140, stone: 100 }] },
+  { id: 'sacks', name: 'Bigger Sacks', desc: 'Peasants carry +5 and you carry +10 per rank', icon: '🎒', costs: [{ gold: 60, wood: 50 }, { gold: 130, wood: 100, stone: 50 }, { gold: 250, wood: 180, stone: 120 }] },
 ];
 export const TOWER_REPAIR = { wood: 40, stone: 60 }; // per 25% repaired
 
@@ -132,8 +139,9 @@ export const ARMORY = { weapon: [0, 120, 260, 450, 700, 1000], armor: [0, 160, 3
 
 // economy
 export const ECON = {
-  start: { gold: 250, wood: 100, stone: 50 },
-  passiveGold: 1.5, passiveGoldPerLevel: 0.5, passiveXp: 3,
+  start: { gold: 0, wood: 0, stone: 0 },
+  passiveGold: 0.4, passiveGoldPerLevel: 0.3, passiveXp: 0, aiPassiveXp: 1.5,
+  heroCarry: 30, peasantCost: { gold: 40 }, graceTime: 480,
   carry: 15, gatherTime: 3.5,
   levelGold: (lv) => 40 * lv,
   killGold: (u) => Math.round((u.def.cost ? u.def.cost.gold : 60) * 0.4),

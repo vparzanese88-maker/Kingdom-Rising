@@ -223,27 +223,27 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793640318",
-"./src/battle.js": "./src/battle.js?v=1793640318",
-"./src/battledata.js": "./src/battledata.js?v=1793640318",
-"./src/battlemap.js": "./src/battlemap.js?v=1793640318",
-"./src/battleui.js": "./src/battleui.js?v=1793640318",
-"./src/character.js": "./src/character.js?v=1793640318",
-"./src/combat.js": "./src/combat.js?v=1793640318",
-"./src/data.js": "./src/data.js?v=1793640318",
-"./src/game.js": "./src/game.js?v=1793640318",
-"./src/icons.js": "./src/icons.js?v=1793640318",
-"./src/main.js": "./src/main.js?v=1793640318",
-"./src/menu.js": "./src/menu.js?v=1793640318",
-"./src/mobs.js": "./src/mobs.js?v=1793640318",
-"./src/player.js": "./src/player.js?v=1793640318",
-"./src/saves.js": "./src/saves.js?v=1793640318",
-"./src/state.js": "./src/state.js?v=1793640318",
-"./src/terrain.js": "./src/terrain.js?v=1793640318",
-"./src/ui.js": "./src/ui.js?v=1793640318",
-"./src/util.js": "./src/util.js?v=1793640318",
-"./src/vfx.js": "./src/vfx.js?v=1793640318",
-"./src/world.js": "./src/world.js?v=1793640318"
+"./src/audio.js": "./src/audio.js?v=1793642219",
+"./src/battle.js": "./src/battle.js?v=1793642219",
+"./src/battledata.js": "./src/battledata.js?v=1793642219",
+"./src/battlemap.js": "./src/battlemap.js?v=1793642219",
+"./src/battleui.js": "./src/battleui.js?v=1793642219",
+"./src/character.js": "./src/character.js?v=1793642219",
+"./src/combat.js": "./src/combat.js?v=1793642219",
+"./src/data.js": "./src/data.js?v=1793642219",
+"./src/game.js": "./src/game.js?v=1793642219",
+"./src/icons.js": "./src/icons.js?v=1793642219",
+"./src/main.js": "./src/main.js?v=1793642219",
+"./src/menu.js": "./src/menu.js?v=1793642219",
+"./src/mobs.js": "./src/mobs.js?v=1793642219",
+"./src/player.js": "./src/player.js?v=1793642219",
+"./src/saves.js": "./src/saves.js?v=1793642219",
+"./src/state.js": "./src/state.js?v=1793642219",
+"./src/terrain.js": "./src/terrain.js?v=1793642219",
+"./src/ui.js": "./src/ui.js?v=1793642219",
+"./src/util.js": "./src/util.js?v=1793642219",
+"./src/vfx.js": "./src/vfx.js?v=1793642219",
+"./src/world.js": "./src/world.js?v=1793642219"
 }
 }
 </script>
@@ -634,6 +634,11 @@ body{font-size:16px;letter-spacing:.005em}
 .eq.twoh{opacity:.7;border-style:dashed}
 @media (max-width:900px){.invwin .invlay{grid-template-columns:1fr;overflow:auto}.invwin .invright .grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* ===== Kingdom Battles ===== */
+.ri{display:inline-block;vertical-align:middle;flex:none}.ri svg{width:100% !important;height:100% !important;display:block}
+.bres .rn{font-size:11px;font-weight:600;color:#c8b48a;margin-right:2px}
+.bres .bcarry{color:#ffe6a0}.bres .bcarry.full{border-color:#ff7a5a;color:#ffb0a0;animation:dbp .8s ease-in-out infinite alternate}
+.branks{display:flex;gap:5px}.branks i{width:22px;height:8px;border-radius:4px;background:rgba(255,255,255,.12);border:1px solid #5a4020}.branks i.on{background:#ffd84a;border-color:#ffd84a}
+
 #bsetup{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 30%,rgba(30,20,10,.55),rgba(8,6,4,.92));padding:20px}
 #bsetup[hidden]{display:none}
 .bsp{width:min(1080px,96vw);max-height:94vh;overflow:auto;background:linear-gradient(#21180fee,#120c07f2);border:1px solid #6a4a1a;border-radius:12px;padding:26px 30px;box-shadow:0 30px 90px rgba(0,0,0,.8);display:flex;flex-direction:column;gap:18px}
@@ -757,6 +762,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793640318"></script>
+<script type="module" src="./src/main.js?v=1793642219"></script>
 </body>
 </html>

@@ -4,15 +4,22 @@ import { S } from './audio.js';
 import { CLASSES, ARMOR_SLOT_LIST, ITEMS } from './data.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
-import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank } from './battle.js';
-import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS } from './battledata.js';
+import * as Icons from './icons.js';
+import * as THREE from 'three';
+import { heightAt } from './terrain.js';
+import { V } from './vfx.js';
+import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, buyForeman, up, peasantCarry } from './battle.js';
+import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
 import { SETUP, SETUP_KEY, LAYOUT } from './battlemap.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const fmtT = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const RES_ICON = { gold: '🪙', wood: '🪵', stone: '🪨' };
-const costHtml = (c, t) => Object.entries(c).map(([k, v]) => `<span class="bc ${res(t, k) >= v ? '' : 'no'}">${RES_ICON[k]} ${v}</span>`).join(' ');
+// clear icons: a coin for gold, a log for wood, a grey block for stone
+export function resIcon(k, size = 20) { const svg = k === 'gold' ? Icons.coin() : Icons.itemSvg({ id: k }); return `<span class="ri ri-${k}" style="width:${size}px;height:${size}px">${svg}</span>`; }
+const RES_NAME = { gold: 'Gold', wood: 'Wood', stone: 'Stone' };
+const costHtml = (c, t) => Object.entries(c).map(([k, v]) => `<span class="bc ${res(t, k) >= v ? '' : 'no'}" title="${RES_NAME[k]}">${resIcon(k, 18)} ${v}</span>`).join(' ');
+export function heroCarryCap() { return ECON.heroCarry + up(myTown(), 'sacks') * 10; }
 const ROLE = { melee: '⚔ Melee', ranged: '🏹 Ranged', healer: '✚ Healer', worker: '⛏ Worker' };
 let opts = {}, tab = 'army', bar = null, deathT = 0, menuT = 0, xpAcc = 0;
 
@@ -50,14 +57,18 @@ export function init(o) {
 function drawBar() {
   const t = myTown(); if (!t || !bar) return;
   const L = TOWN_LEVELS[t.level];
-  bar.innerHTML = `<div><b>🪙</b>${Math.floor(res(t, 'gold'))}</div><div><b>🪵</b>${Math.floor(res(t, 'wood'))}</div><div><b>🪨</b>${Math.floor(res(t, 'stone'))}</div>`
-    + `<div title="Army size"><b>⚔</b>${pop(t)}/${popCap(t)}</div><div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`
+  const c = G.save && G.save.carry || { wood: 0, stone: 0 }, cap = heroCarryCap();
+  bar.innerHTML = ['gold', 'wood', 'stone'].map(k => `<div title="${RES_NAME[k]} in town">${resIcon(k)}<span class="rn">${RES_NAME[k]}</span>${Math.floor(res(t, k))}</div>`).join('')
+    + `<div title="Peasants"><b>⛏</b>${peasants(t)}/${peasantCap(t)}</div><div title="Army size"><b>⚔</b>${pop(t)}/${popCap(t)}</div>`
+    + (c.wood || c.stone ? `<div class="bcarry ${c.wood >= cap || c.stone >= cap ? 'full' : ''}" title="What you are carrying: unload at the Storehouse">🎒 ${resIcon('wood', 16)}${c.wood}/${cap} ${resIcon('stone', 16)}${c.stone}/${cap}</div>` : '')
+    + `<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`
     + `<div class="bhall" title="Your town hall"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>${t.name} · ${L.name}${t.building ? ' · building ' + Math.ceil(t.building.dur - t.building.t) + 's' : ''}</span></div>`
     + `<div class="bkey">B · Command</div>`;
 }
 export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
   menuT -= dt; if (menuT <= 0) { menuT = 0.25; drawBar(); zoneLabel(); if (UI.UI.open === 'battle') render(); }
+  storeTick(dt);
   if (deathT > 0) { deathT -= dt; const d = $('bdeath'); d.innerHTML = `<div><h2>You have fallen</h2><p>Your troops fight on. Back in <b>${Math.ceil(deathT)}</b>…</p></div>`; if (deathT <= 0) { d.hidden = true; opts.respawn && opts.respawn(); } }
 }
 function zoneLabel() {
@@ -66,12 +77,42 @@ function zoneLabel() {
   const where = bd < 50 ? best.name : bd < 140 ? `Near ${best.name}` : 'The Wilds';
   G.zoneLabel = `${where}<small style="color:${best && bd < 140 ? best.color : '#d8d0b8'}">${best && bd < 140 ? (best.team === B.myTeam ? (best.isMe ? 'Your town' : 'Ally') : 'Enemy') : 'Kingdom Battles'}</small>`;
 }
+// ---------- storehouse: a glowing ring and sign where you unload ----------
+let mark = null;
+function makeMarker(t) {
+  const [x, z] = t.store, g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffd84a', transparent: true, opacity: 0.8, depthWrite: false }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(3.2, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffd84a', transparent: true, opacity: 0.12, depthWrite: false }));
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 12, 1, true), new THREE.MeshBasicMaterial({ color: '#ffe080', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  beam.position.y = 7;
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 160; const c = cv.getContext('2d');
+  c.fillStyle = 'rgba(20,14,8,.85)'; c.strokeStyle = '#ffd84a'; c.lineWidth = 8; c.beginPath(); c.roundRect(6, 6, 500, 148, 24); c.fill(); c.stroke();
+  c.fillStyle = '#ffe2a0'; c.font = 'bold 54px Georgia, serif'; c.textAlign = 'center'; c.fillText('STOREHOUSE', 256, 70); c.font = '34px Georgia, serif'; c.fillStyle = '#f0e4c8'; c.fillText('Unload wood & stone here', 256, 122);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); sp.scale.set(5.2, 1.6, 1); sp.position.y = 5.2; sp.renderOrder = 9;
+  g.add(ring, disc, beam, sp); g.position.set(x, heightAt(x, z) + 0.12, z); G.scene.add(g);
+  return { g, ring, sp };
+}
+function storeTick(dt) {
+  const t = myTown(), p = G.player; if (!t || !p) return;
+  if (!mark) mark = makeMarker(t);
+  mark.ring.scale.setScalar(1 + Math.sin(B.time * 3) * 0.05); mark.sp.position.y = 5.2 + Math.sin(B.time * 2) * 0.2;
+  const c = G.save && G.save.carry; if (!c || p.dead) return;
+  if ((c.wood || c.stone) && Math.hypot(p.pos.x - t.store[0], p.pos.z - t.store[1]) < 3.8) {
+    const w = c.wood, s = c.stone; if (w) bank(t, 'wood', w); if (s) bank(t, 'stone', s); c.wood = 0; c.stone = 0;
+    UI.toast(`Unloaded ${w ? w + ' wood' : ''}${w && s ? ' and ' : ''}${s ? s + ' stone' : ''}`, resIcon(w ? 'wood' : 'stone'), 'gold'); S.coins();
+    V.burst('gold', p.pos.clone().setY(p.pos.y + 1.2), 30, { speed: 3, vy: 2 });
+  }
+}
 export function died() { deathT = ECON.respawn(G.save.level); $('bdeath').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }
 
 // ---------- command menu ----------
-function openMenu() {
+let menu = 'command';
+const MENUS = { command: { title: 'Command', tabs: [['army', 'Army'], ['orders', 'Orders'], ['armory', 'Armory']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
+export function openNpc(role) { menu = role; tab = MENUS[role].tabs[0][0]; openMenu(true); }
+function openMenu(keep) {
+  if (!keep) { menu = 'command'; if (!MENUS.command.tabs.some(x => x[0] === tab)) tab = 'army'; }
   const w = $('windows'); w.innerHTML = '';
-  const win = el('div', 'win big bwin'); const hd = el('header', '', `<h2>Command</h2>`); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
+  const win = el('div', 'win big bwin'); const hd = el('header', '', `<h2>${MENUS[menu].title}</h2>`); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
   const c = el('div', 'content'); win.append(hd, c); w.appendChild(win);
   UI.UI.open = 'battle'; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
   render();
@@ -82,17 +123,17 @@ function render() {
   const t = myTown();
   c.innerHTML = '';
   const tabs = el('div', 'btabs');
-  for (const [k, n] of [['army', 'Army'], ['town', 'Town'], ['def', 'Defences'], ['orders', 'Orders'], ['armory', 'Armory']]) { const b = el('button', tab === k ? 'on' : '', n); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
+  for (const [k, n] of MENUS[menu].tabs) { const b = el('button', tab === k ? 'on' : '', n); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
   c.appendChild(tabs);
-  c.appendChild(el('div', 'bresline', ['gold', 'wood', 'stone'].map(k => `<span>${RES_ICON[k]} <b>${Math.floor(res(t, k))}</b></span>`).join('') + `<span>⚔ <b>${pop(t)}/${popCap(t)}</b> army</span>`));
+  c.appendChild(el('div', 'bresline', ['gold', 'wood', 'stone'].map(k => `<span>${resIcon(k)} ${RES_NAME[k]} <b>${Math.floor(res(t, k))}</b></span>`).join('') + `<span>⛏ <b>${peasants(t)}/${peasantCap(t)}</b> peasants</span><span>⚔ <b>${pop(t)}/${popCap(t)}</b> army</span>`));
   const body = el('div', 'bbody'); c.appendChild(body);
-  ({ army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory })[tab](body, t);
+  ({ army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory, foreman: tabForeman })[tab](body, t);
   body.scrollTop = sc;
 }
 const say = (err) => { if (err) { UI.toast(err, '⚠', 'bad'); S.error(); } else S.coins(); render(); };
 function tabArmy(body, t) {
   const grid = el('div', 'bgrid');
-  const all = [t.roster.worker, ...rosterOf(t.race)];
+  const all = rosterOf(t.race);
   for (const d of all) {
     const locked = (d.lvl || 0) > t.level, n = t.units.filter(u => !u.dead && u.udef.id === d.id).length, q = t.queue.filter(x => x.def.id === d.id).length;
     const card = el('div', 'bcard' + (locked ? ' locked' : '') + (d.merc ? ' merc' : ''), `<div class="bh"><b>${d.name}</b><span>${ROLE[d.role] || ''}${d.merc ? ' · Mercenary' : ''}</span></div>
@@ -104,12 +145,26 @@ function tabArmy(body, t) {
   body.appendChild(grid);
   // training queue
   if (t.queue.length) body.appendChild(el('div', 'bqueue', '<b>Training:</b> ' + t.queue.map((q, i) => `<span>${q.def.name}${i === 0 ? ` <i style="--p:${(1 - q.t / q.total) * 100}%"></i>` : ''}</span>`).join('')));
-  // what the workers focus on
-  const jobs = el('div', 'bjobs', '<b>Workers gather:</b>');
-  const J = { Balanced: { wood: 0.45, stone: 0.35, gold: 0.2 }, Wood: { wood: 0.8, stone: 0.1, gold: 0.1 }, Stone: { wood: 0.15, stone: 0.75, gold: 0.1 }, Gold: { wood: 0.15, stone: 0.1, gold: 0.75 } };
+}
+function tabForeman(body, t) {
+  const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);
+  const p = el('div', 'bpanel', `<h3>${W.name}s</h3><p>They chop wood and mine stone, then haul it to the Storehouse. <b>${n}/${cap}</b> peasants (the limit grows with your town and with Peasant Housing). Each carries <b>${peasantCarry(t)}</b>.</p><div class="bcost">${costHtml(W.cost, t)}</div>`);
+  const b = el('button', 'btn gold', `Hire a ${W.name}`); b.disabled = n >= cap; b.onclick = () => say(hire(t, 'worker')); p.appendChild(b);
+  const q = t.queue.filter(x => x.def.role === 'worker').length; if (q) p.appendChild(el('p', 'dim', `${q} on the way…`));
+  body.appendChild(p);
+  const jobs = el('div', 'bpanel', '<h3>What they gather</h3>'); const row = el('div', 'brow');
+  const J = { Balanced: { wood: 0.55, stone: 0.45 }, 'Mostly wood': { wood: 0.85, stone: 0.15 }, 'Mostly stone': { wood: 0.15, stone: 0.85 } };
   const cur = Object.keys(J).find(k => JSON.stringify(J[k]) === JSON.stringify(t.jobs || J.Balanced)) || 'Balanced';
-  for (const k in J) { const b = el('button', 'btn' + (k === cur ? ' gold' : ''), k); b.onclick = () => { S.click(); t.jobs = J[k]; for (const u of t.units) if (u.worker) u.job = null; render(); }; jobs.appendChild(b); }
-  body.appendChild(jobs);
+  for (const k in J) { const bb = el('button', 'btn' + (k === cur ? ' gold' : ''), k); bb.onclick = () => { S.click(); t.jobs = J[k]; for (const u of t.units) if (u.worker && !u.carry) { u.job = null; u.node = null; } render(); }; row.appendChild(bb); }
+  jobs.appendChild(row); body.appendChild(jobs);
+  const grid = el('div', 'bgrid');
+  for (const F of FOREMAN) {
+    const r = up(t, F.id), next = F.costs[r];
+    const card = el('div', 'bcard', `<div class="bh"><b>${F.icon} ${F.name}</b><span>${F.desc}</span></div><div class="branks">${F.costs.map((_, i) => `<i class="${i < r ? 'on' : ''}"></i>`).join('')}</div>${next ? `<div class="bcost">${costHtml(next, t)}</div>` : '<div class="bown">Fully upgraded</div>'}`);
+    if (next) { const bb = el('button', 'btn gold', `Rank ${r + 1}`); bb.onclick = () => say(buyForeman(t, F.id)); card.appendChild(bb); }
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
 }
 function tabTown(body, t) {
   const L = TOWN_LEVELS[t.level], N = TOWN_LEVELS[t.level + 1];
@@ -149,6 +204,7 @@ function tabOrders(body, t) {
     row.append(a, h); p.appendChild(row);
   }
   body.appendChild(p);
+  body.appendChild(el('div', 'bpanel', '<h3>In your town</h3><p>Talk to the <b>Foreman</b> (E) to hire peasants and upgrade their tools. Talk to the <b>Master Builder</b> to upgrade the town and the archer towers. Both stand just inside your gate. Unload wood and stone at the glowing <b>Storehouse</b>.</p>'));
   const q = el('div', 'bpanel', '<h3>Other orders</h3>'); const row = el('div', 'brow');
   const d = el('button', 'btn', '🛡 Defend the town'); d.onclick = () => { recall(t); say(null); };
   const f = el('button', 'btn', '👣 Follow me'); f.onclick = () => { setFollow(t); say(null); };

@@ -534,7 +534,7 @@ export class Player {
     this.cd[key] = ab.cd;
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
-    const up = this.pk('a_' + ab.id) ? 1.5 : 1;
+    const up = G.abilScale ? G.abilScale(this.h.level) : this.pk('a_' + ab.id) ? 1.5 : 1;
     const f = this.fwd();
     switch (ab.id) {
       case 'charge': {

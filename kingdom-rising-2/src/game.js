@@ -321,13 +321,14 @@ export function hasLoot(mob) { return mob.loot && !mob.looted && (mob.loot.items
 export function gatherReward(h, node) {
   const N = node.def;
   const n = N.amt[0] + Math.floor(Math.random() * (N.amt[1] - N.amt[0] + 1));
-  if (G.hooks.gatherBank && G.hooks.gatherBank(N.item, n, node)) { gainXp(h, 4 + (N.tier || 1) * 3, N.name); return; }
+  if (G.hooks.gatherBank && G.hooks.gatherBank(N.item, n, node)) { gainXp(h, (4 + (N.tier || 1) * 3) * (G.gatherXp || 1), N.name); return; }
   addItem(h, N.item, n);
   if (N.extra && Math.random() < 0.6) addItem(h, N.extra, 1);
   gainXp(h, 4 + (N.tier || 1) * 3, N.name);
 }
 export function toolProblem(h, node) {
   const N = node.def;
+  { const cf = G.hooks.carryFull && G.hooks.carryFull(N); if (cf) return cf; }
   if (!N.tool) return null;
   const t = h.tools[N.tool] || 0;
   if (!t) return `You need a ${TOOLS[N.tool].name}.`;

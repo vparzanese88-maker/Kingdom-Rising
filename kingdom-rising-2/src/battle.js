@@ -10,7 +10,7 @@ import { buildHumanoid, animateHumanoid, equipWeapon, bake, holdTool } from './c
 import { RACES, CLASSES, MOBS } from './data.js';
 import { Mob } from './mobs.js';
 import { BATTLE, SETUP, LAYOUT, WALL_R, nearTown } from './battlemap.js';
-import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON } from './battledata.js';
+import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN } from './battledata.js';
 import { angDiff, rand, clamp, distToLine } from './util.js';
 
 export const B = { on: false, towns: [], units: [], structs: [], shots: [], time: 0, over: false, result: null, me: 0, msgs: [] };
@@ -110,17 +110,44 @@ function house(g, race, x, z, rot, s = 1) {
   else { box(h, 5.5, 2.6, 4.5, mat(st.stone, 0.95), 0, 1.3, 0); const r = cone(h, 4.4, 1.8, mat(st.roof, 0.7, 0.3), 0, 3.5, 0, 4, Math.PI / 4); r.scale.set(1.15, 1, 0.95); box(h, 0.8, 2, 0.8, mat(st.stone), 1.6, 4, 1); }
   addCircle(x, z, 2.9 * s, 'house');
 }
+// storehouse: where peasants and heroes unload wood and stone
+function buildStorehouse(g, t) {
+  const [x, z] = t.storeSpot, y = heightAt(x, z), s = new THREE.Group(); s.position.set(x, y, z); s.rotation.y = Math.atan2(-t.perp[0], -t.perp[1]); g.add(s);
+  const st = STYLE[t.race] || STYLE.human, wood = mat(st.wood), dark = mat(st.dark), roof = mat(st.roof, 0.85);
+  for (const [px, pz] of [[-3.2, -1.8], [3.2, -1.8], [-3.2, 1.8], [3.2, 1.8]]) cyl(s, 0.16, 0.18, 3.6, dark, px, 1.8, pz, 6);
+  const r = box(s, 7.4, 0.25, 4.6, roof, 0, 3.75, 0.2); r.rotation.x = -0.18;
+  box(s, 7, 2.2, 0.2, wood, 0, 1.1, -1.9);
+  for (let i = 0; i < 9; i++) { const c = add(s, new THREE.CylinderGeometry(0.22, 0.22, 2.4, 7), mat('#8a6238'), -1.7, 0.24 + Math.floor(i / 3) * 0.4, -1.1 + (i % 3) * 0.46); c.rotation.set(0, 0, Math.PI / 2); }
+  for (let i = 0; i < 7; i++) ball(s, 0.38 + (i % 3) * 0.08, mat('#8a847a', 0.95), 1.4 + (i % 3) * 0.6, 0.3 + (i > 3 ? 0.5 : 0), -1.0 + Math.floor(i / 3) * 0.55, 0);
+  const sign = box(s, 2.6, 0.9, 0.1, mat('#6a4a2a'), 0, 3.1, 2.3); sign.rotation.x = 0.1;
+  addBox(x - t.perp[0] * 1.6, z - t.perp[1] * 1.6, 3.6, 0.3, Math.atan2(-t.perp[0], -t.perp[1]), 'house');
+}
+// the Master Builder's yard: plans table, planks and cut stone
+function buildYard(g, t) {
+  const [x, z] = t.yardSpot, y = heightAt(x, z), s = new THREE.Group(); s.position.set(x, y, z); s.rotation.y = Math.atan2(t.perp[0], t.perp[1]); g.add(s);
+  const st = STYLE[t.race] || STYLE.human;
+  box(s, 2.2, 0.12, 1.2, mat('#7a5a3a'), 0, 1.0, 1.2); for (const [px, pz] of [[-1, 0.7], [1, 0.7], [-1, 1.7], [1, 1.7]]) cyl(s, 0.06, 0.06, 1, mat('#4a3020'), px, 0.5, pz, 5);
+  box(s, 1.4, 0.02, 0.9, mat('#e8dcb0'), 0, 1.08, 1.2);
+  for (let i = 0; i < 6; i++) box(s, 3.2, 0.14, 0.35, mat('#9a7650'), -1.2, 0.08 + i * 0.15, -0.8 + (i % 2) * 0.05);
+  for (let i = 0; i < 6; i++) box(s, 0.8, 0.5, 0.6, mat(st.stone, 0.95), 1.4 + (i % 2) * 0.85, 0.25 + Math.floor(i / 4) * 0.5, -1.2 + (Math.floor(i / 2) % 2) * 0.7);
+  cyl(s, 0.08, 0.1, 5, mat('#4a3020'), 2.6, 2.5, 1.6, 5); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(3.2, 4.6, 1.6); s.add(fl);
+  addCircle(x, z, 2.2, 'house');
+}
 function buildInner(t, lvl) {
   const g = new THREE.Group(), n = TOWN_LEVELS[lvl].houses;
   // houses on a ring, leaving the road from the gate to the hall clear
   const ag = Math.atan2(t.dir[1], t.dir[0]);
+  const at = (along, lat) => [t.x + t.dir[0] * along + t.perp[0] * lat, t.z + t.dir[1] * along + t.perp[1] * lat];
+  t.storeSpot = at(21, 12.5); t.store = at(21, 6.5); t.foremanSpot = at(15.5, 8.5); t.builderSpot = at(15.5, -8.5); t.yardSpot = at(21, -12.5);
+  t.houses = [t.storeSpot, t.yardSpot];
+  buildStorehouse(g, t); buildYard(g, t);
   let placed = 0;
   for (let k = 0; placed < n && k < 40; k++) {
     const ring = k % 2 ? 29 : 22, a = ag + 0.75 + (k * 0.55) % (Math.PI * 2 - 1.5);
     const x = t.x + Math.cos(a) * ring, z = t.z + Math.sin(a) * ring;
     if (Math.abs(angDiff(a, ag)) < 0.55) continue;
-    if (t.houses && t.houses.some(h => Math.hypot(h[0] - x, h[1] - z) < 7.5)) continue;
-    (t.houses = t.houses || []).push([x, z]);
+    if (t.houses.some(h => Math.hypot(h[0] - x, h[1] - z) < 8)) continue;
+    t.houses.push([x, z]);
     house(g, t.race, x, z, Math.atan2(t.x - x, t.z - z), 0.95 + (k % 3) * 0.06); placed++;
   }
   // barracks / training yard
@@ -385,7 +412,7 @@ export class Unit {
     const spd = this.udef.speed * (st.slow > 0 ? 0.55 : 1);
     if (!disabled) {
       this.atkCd -= dt;
-      if (this.worker) { const r = workerTick(this, dt); want = r.want; speed = r.speed ? spd * r.speed : 0; }
+      if (this.worker) { const r = workerTick(this, dt); want = r.want; speed = r.speed ? spd * r.speed * (1 + up(this.town, 'boots') * 0.15) : 0; }
       else {
         this.scanT -= dt;
         if (this.scanT <= 0) { this.scanT = 0.35 + Math.random() * 0.2; const tg = this.scan(); if (tg && (!this.target || this.target.dead || this.dist(tg) < this.dist(this.target) * 0.7 || this.target.isStruct && !tg.isStruct)) this.target = tg; if (this.target && (this.target.dead || this.dist(this.target) > (this.range || 18) + 30)) this.target = null; }
@@ -433,19 +460,28 @@ export class Unit {
 function towerCovering(p, team) { for (const s of B.structs) if (!s.dead && s.team === team && s.kind === 'tower' && Math.hypot(p.x - s.pos.x, p.z - s.pos.z) < s.range) return s; return null; }
 
 // ---------- workers: chop, mine and haul back to the town hall ----------
-const JOB_NODES = { wood: (n) => n.type.startsWith('tree'), stone: (n) => n.type === 'rock', gold: (n) => n.type === 'gold_ore' };
+const JOB_NODES = { wood: (n) => n.type.startsWith('tree'), stone: (n) => n.type === 'rock' };
+export const up = (t, id) => (t.up && t.up[id]) || 0;
+export function peasantCarry(t) { return ECON.carry + up(t, 'sacks') * 5; }
 function pickJob(t) {
-  const want = t.jobs || { wood: 0.5, stone: 0.3, gold: 0.2 };
-  const have = { wood: 0, stone: 0, gold: 0 }; let n = 0; for (const u of t.units) if (u.worker && !u.dead && u.job) { have[u.job]++; n++; }
+  const want = t.jobs || { wood: 0.55, stone: 0.45 };
+  const have = { wood: 0, stone: 0 }; let n = 0; for (const u of t.units) if (u.worker && !u.dead && u.job) { have[u.job]++; n++; }
   let best = 'wood', gap = -1e9; for (const k in want) { const g = want[k] * (n + 1) - have[k]; if (g > gap) { gap = g; best = k; } }
   return best;
 }
+// a bundle of logs or a sack of stone on a peasant's back while carrying
+function setSack(u) {
+  const show = u.carry > 0, kind = u.cjob || u.job;
+  if (!u.sack && show) { const g = new THREE.Group(); const logs = new THREE.Group(); for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.62, 6), mat('#8a6238')); c.rotation.z = Math.PI / 2; c.position.set(0, (i === 2 ? 0.12 : 0), (i === 1 ? 0.13 : 0)); logs.add(c); } const sack = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), mat('#a08a60', 0.95)); sack.scale.set(1.1, 1.3, 0.8); for (let i = 0; i < 3; i++) { const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07, 0), mat('#8a847a', 0.95)); st.position.set((i - 1) * 0.08, 0.24, 0); sack.add(st); } g.add(logs, sack); g.position.set(0, 0.05, -0.24); (u.model.chest || u.model.spine || u.model.root).add(g); u.sack = { g, logs, sack }; }
+  if (u.sack) { u.sack.g.visible = show; u.sack.logs.visible = kind === 'wood'; u.sack.sack.visible = kind !== 'wood'; }
+}
 function workerTick(u, dt) {
   const t = u.town;
-  if (!u.job) u.job = pickJob(t);
-  if (u.carry >= ECON.carry) { // haul home
-    const hx = t.x + t.dir[0] * 9, hz = t.z + t.dir[1] * 9;
-    if (Math.hypot(hx - u.pos.x, hz - u.pos.z) < 3) { bank(t, u.job, u.carry); u.carry = 0; u.node = null; if (Math.random() < 0.25) u.job = pickJob(t); return { want: null, speed: 0 }; }
+  if (!u.job || !JOB_NODES[u.job]) u.job = pickJob(t);
+  setSack(u);
+  if (u.carry > 0 && (u.carry >= peasantCarry(t) || u.homeNow)) { // haul home to the storehouse
+    const [hx, hz] = t.store;
+    if (Math.hypot(hx - u.pos.x, hz - u.pos.z) < 2.6) { bank(t, u.cjob || u.job, u.carry); if (t.isMe && G.player && u.dist(G.player) < 40) S.drop && S.drop(); u.carry = 0; u.homeNow = false; setSack(u); if (Math.random() < 0.25) { u.job = pickJob(t); u.node = null; } return { want: null, speed: 0 }; }
     return { want: routeHome(u, [hx, hz]), speed: 1 };
   }
   if (!u.node || !u.node.alive) {
@@ -459,9 +495,9 @@ function workerTick(u, dt) {
   if (d > (n.col ? n.col.r : 0.5) + u.radius + 0.9) return { want: routeOut(u, [n.x, n.z]), speed: 1 };
   u.faceTo(V3(n.x, 0, n.z), dt, 6);
   if (!u.action) { u.startAction(u.job === 'wood' ? 'chop' : 'mine', 0.9); if (G.player && u.dist(G.player) < 30) (u.job === 'wood' ? S.chop : S.mine)(u.pos); }
-  u.work += dt;
+  u.work += dt * (1 + up(t, 'tools') * 0.2);
   if (u.work >= ECON.gatherTime) {
-    u.work = 0; u.carry = ECON.carry;
+    u.work = 0; u.carry = peasantCarry(t); u.cjob = u.job;
     n.chops = (n.chops || 0) + 1;
     if (n.chops >= (n.type.startsWith('tree') ? 3 : 5)) { n.alive = false; n.chops = 0; n.respawn = G.time + (n.def.respawn || 80) * 1.5; hideNode(n); if (G.hooks.nodeDone && G.player && u.dist(G.player) < 80) G.hooks.nodeDone(n, u); }
   }
@@ -554,15 +590,24 @@ export function bank(t, k, n) { if (k === 'gold' && t.isMe && G.save) { t.gf = (
 export function res(t, k) { return k === 'gold' && t.isMe && G.save ? G.save.gold : (t.bank[k] || 0); }
 export function canPay(t, cost) { for (const k in cost) if (res(t, k) < cost[k]) return false; return true; }
 function pay(t, cost) { for (const k in cost) bank(t, k, -cost[k]); }
-export function pop(t) { let n = 0; for (const u of t.units) if (!u.dead && !u.hero) n += u.udef.pop || 1; for (const q of t.queue) n += q.def.pop || 1; return n; }
+export function pop(t) { let n = 0; for (const u of t.units) if (!u.dead && !u.hero && !u.worker) n += u.udef.pop || 1; for (const q of t.queue) if (q.def.role !== 'worker') n += q.def.pop || 1; return n; }
 export function popCap(t) { return TOWN_LEVELS[t.level].cap; }
+export function peasants(t) { return t.units.filter(u => u.worker && !u.dead).length + t.queue.filter(q => q.def.role === 'worker').length; }
+export function peasantCap(t) { return TOWN_LEVELS[t.level].peasants + up(t, 'housing') * 2; }
+export function buyForeman(t, id) {
+  const F = FOREMAN.find(f => f.id === id); if (!F) return 'Unknown upgrade';
+  const r = up(t, id); if (r >= F.costs.length) return 'Fully upgraded';
+  if (!canPay(t, F.costs[r])) return 'Not enough resources';
+  pay(t, F.costs[r]); (t.up = t.up || {})[id] = r + 1; return null;
+}
 export function available(t) { return [t.roster.worker, ...rosterOf(t.race)].filter(d => (d.lvl || 0) <= t.level); }
 
 // ---------- orders ----------
 export function hire(t, id) {
   const def = unitDef(t.race, id); if (!def || t.dead) return 'Unknown troop';
   if ((def.lvl || 0) > t.level) return `Needs a ${TOWN_LEVELS[def.lvl].name}`;
-  if (pop(t) + (def.pop || 1) > popCap(t)) return 'Army is full: upgrade your town';
+  if (def.role === 'worker') { if (peasants(t) >= peasantCap(t)) return 'Peasant limit reached: upgrade housing or the town'; }
+  else if (pop(t) + (def.pop || 1) > popCap(t)) return 'Army is full: upgrade your town';
   if (!canPay(t, def.cost)) return 'Not enough resources';
   pay(t, def.cost); t.queue.push({ def, t: def.time, total: def.time });
   return null;
@@ -693,8 +738,10 @@ function aiThink(t) {
   const wantWorkers = 5 + t.level * 2;
   // spread workers over what we need
   const next = TOWN_LEVELS[t.level + 1];
-  t.jobs = next ? { wood: 0.45, stone: 0.35, gold: 0.2 } : { wood: 0.4, stone: 0.2, gold: 0.4 };
-  if (workers < wantWorkers && canPay(t, t.roster.worker.cost) && pop(t) < popCap(t)) { hire(t, 'worker'); return; }
+  t.jobs = next ? { wood: 0.55, stone: 0.45 } : { wood: 0.5, stone: 0.5 };
+  if (workers < Math.min(wantWorkers, peasantCap(t)) && canPay(t, t.roster.worker.cost)) { hire(t, 'worker'); return; }
+  // foreman upgrades now and then
+  if (Math.random() < 0.15) { const F = FOREMAN[Math.floor(Math.random() * FOREMAN.length)]; const r = up(t, F.id); if (r < F.costs.length && r <= t.level && canPay(t, F.costs[r])) { buyForeman(t, F.id); return; } }
   // town upgrade once the time is right
   if (next && !t.building && B.time > D.upgradeAt * (t.level + 1) * 0.8 && canPay(t, next.cost)) { upgradeTown(t); return; }
   // tower upgrades after the first town upgrade
@@ -713,7 +760,8 @@ function aiThink(t) {
   }
   // attack waves
   const wave = D.wave + t.level * 3 + Math.floor(B.time / 240);
-  if (home.length >= wave || (B.time > 1500 && home.length >= 4)) {
+  const grace = ECON.graceTime * ({ easy: 1.3, normal: 1, hard: 0.85, insane: 0.7 }[t.diff] || 1);
+  if (B.time > grace && (home.length >= wave || (B.time > 1500 && home.length >= 4))) {
     const foes = B.towns.filter(o => !o.dead && o.team !== t.team);
     if (foes.length) { foes.sort((a, b) => (a.hall.hp / a.hall.maxHp) - (b.hall.hp / b.hall.maxHp) + (Math.random() - 0.5) * 0.4); sendAttack(t, foes[0].i, 0.8); }
   }
@@ -753,7 +801,7 @@ export function update(dt) {
     // passive income
     const D = t.ai ? DIFFS[t.diff] || DIFFS.normal : { income: 1 };
     bank(t, 'gold', (ECON.passiveGold + ECON.passiveGoldPerLevel * t.level) * D.income * dt);
-    if (t.ai && D.income > 1) { t.bank.wood += 0.4 * (D.income - 1) * dt * 10; t.bank.stone += 0.3 * (D.income - 1) * dt * 10; }
+    if (t.ai && D.income > 1 && B.time > 120) { t.bank.wood += 0.4 * (D.income - 1) * dt * 3; t.bank.stone += 0.3 * (D.income - 1) * dt * 3; }
     // training queue
     const q = t.queue[0];
     if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe && G.hooks.trained) G.hooks.trained(u); } }
@@ -761,7 +809,7 @@ export function update(dt) {
     for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); if (t.isMe) G.hooks.banner && G.hooks.banner('Tower upgraded', TOWER_LEVELS[s.level].name); } }
     if (t.ai && !B.over) { t.thinkT = (t.thinkT || 0) - dt; if (t.thinkT <= 0) { t.thinkT = (DIFFS[t.diff] || DIFFS.normal).think; aiThink(t); } }
     if (t.hero && t.hero.dead) { t.hero.respawnT -= dt; if (t.hero.respawnT <= 0) t.hero.respawnHero(); }
-    if (t.hero && !t.hero.dead && !B.over) heroXp(t.hero, ECON.passiveXp * dt * (t.ai ? (DIFFS[t.diff] || DIFFS.normal).income : 1));
+    if (t.hero && !t.hero.dead && !B.over) heroXp(t.hero, ECON.aiPassiveXp * dt * (t.ai ? (DIFFS[t.diff] || DIFFS.normal).income : 1));
     t.units = t.units.filter(u => !u.gone || u.hero);
   }
   for (const s of B.structs) s.update(dt);

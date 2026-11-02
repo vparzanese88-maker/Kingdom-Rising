@@ -15,6 +15,7 @@ import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
+import * as Icons from './icons.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, SETUP, LAYOUT } from './battlemap.js';
@@ -144,34 +145,60 @@ function quitToTitle() {
 
 // ---------- Kingdom Battles ----------
 function spawnBattleCamps() {
-  const TIERS = [[['wolf', 2, 4, 3], ['goblin', 3, 5, 3], ['boar', 2, 4, 3]], [['bear', 6, 8, 2], ['bandit', 7, 9, 3], ['tiger', 7, 9, 2]], [['troll', 12, 14, 2]]];
+  const TIERS = [
+    [['wolf', 2, 4, 4], ['goblin', 3, 5, 4], ['boar', 2, 4, 3], ['spider', 3, 5, 3]],
+    [['bear', 6, 8, 3], ['bandit', 7, 9, 4], ['tiger', 7, 9, 3], ['goblin_brute', 6, 8, 3]],
+    [['troll', 11, 13, 2], ['snowtiger', 11, 13, 3], ['skeleton', 12, 14, 4], ['frostwolf', 10, 12, 4]],
+  ];
+  const BOSSES = [['troll_king', 16, ['troll', 13, 2]], ['bandit_boss', 12, ['bandit', 10, 4]], ['golem', 15, ['imp', 13, 3]]];
+  let bi = Math.floor(Math.random() * 3);
   for (const c of LAYOUT.camps) {
+    if (c.tier === 3) { const [boss, lv, [add, al, an]] = BOSSES[bi++ % BOSSES.length]; const m = new Mob(boss, lv, c.x, c.z); G.mobs.push(m); for (let i = 0; i < an; i++) { const a = i / an * 6.28; G.mobs.push(new Mob(add, al, c.x + Math.cos(a) * 6, c.z + Math.sin(a) * 6)); } continue; }
     const opts = TIERS[c.tier], [type, l0, l1, n] = opts[Math.floor(Math.random() * opts.length)];
     for (let i = 0; i < n; i++) { const a = i / n * 6.28, m = new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), c.x + Math.cos(a) * 4, c.z + Math.sin(a) * 4); G.mobs.push(m); }
-    if (c.tier === 0 && Math.random() < 0.5) { const m = new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3); G.mobs.push(m); }
+    if (c.tier === 0 && type === 'goblin') G.mobs.push(new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3));
   }
+}
+const NPC_NAMES = { human: ['Foreman Hobb', 'Master Builder Edric'], orc: ['Peon-boss Gruk', 'Wallmaster Durgo'], highelf: ['Steward Ilvaen', 'Architect Saelora'], woodelf: ['Gatherer Fenwick', 'Shaper Thalanor'], dwarf: ['Foreman Brokk', 'Master Mason Dain'] };
+function spawnBattleNpcs() {
+  const t = Battle.myTown(), [fn, bn] = NPC_NAMES[t.race] || NPC_NAMES.human;
+  const race = t.race === 'woodelf' || t.race === 'highelf' ? t.race : t.race;
+  NPCS.b_foreman = { name: fn, title: 'Peasants & tools', race, sex: 'm', outfit: 'worker', x: t.foremanSpot[0], z: t.foremanSpot[1], hello: '', battleRole: 'foreman' };
+  NPCS.b_builder = { name: bn, title: 'Town & tower upgrades', race, sex: 'm', outfit: 'smith', x: t.builderSpot[0], z: t.builderSpot[1], hello: '', battleRole: 'builder' };
+  for (const id of ['b_foreman', 'b_builder']) { const n = new NPC(id); n.baseYaw = t.yaw; G.npcs.push(n); }
 }
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
   const h = Game.newHero({ name: cfg.name || 'Hero', race: SETUP.towns[0].race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
-  h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 };
+  h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
-  G.xpReq = ECON.xpNeed;
+  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true;
+  // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead
+  G.abilScale = (lv) => 1 + (lv - 1) * 0.035;
+  spawnBattleNpcs();
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
-  UI.banner('Kingdom Battles', `${t.name} · defend your Hall and destroy theirs. Press B to command.`, 5000);
+  UI.banner('Kingdom Battles', `${t.name} · level up by fighting and harvesting · B to command your army`, 5000);
 }
 function battleHooks() {
   const H = G.hooks;
-  H.onKill = (mob, src) => { if (mob.team != null || (src && src !== G.player)) return; const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return; const g = 4 + mob.lv * 2; Battle.bank(Battle.myTown(), 'gold', g); Game.gainXp(G.save, 6 + mob.lv * 4, mob.name); UI.toast(`+${g} gold`, '🪙', 'gold'); };
-  H.gatherBank = (item, n) => { const t = Battle.myTown(); const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : item === 'gold_ore' ? 'gold' : null; if (!k) return false; const amt = k === 'wood' ? n * 4 : k === 'stone' ? n * 4 : n * 6; Battle.bank(t, k, amt); UI.toast(`+${amt} ${k}`, k === 'wood' ? '🪵' : k === 'stone' ? '🪨' : '🪙', 'gold'); return true; };
+  // kills: XP and your own loot go straight to you (auto loot), gold goes to the town
+  H.onKill = (mob, src) => {
+    if (mob.team != null) return; const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return;
+    Game.onKill(G.save, mob);
+    if (mob.loot && !mob.def.boss && Math.random() < (mob.def.elite ? 0.6 : 0.14)) mob.loot.gear.push(Game.randomGear(G.save, mob.lv, mob.def.elite ? 2 : 1));
+    if (mob.loot) { mob.loot.gold = (mob.loot.gold || 0) + 3 + mob.lv * 2; Game.lootCorpse(G.save, mob); }
+  };
+  H.carryFull = (N) => { const k = N.item === 'wood' ? 'wood' : N.item === 'stone' ? 'stone' : null; if (!k) return null; const cap = BUI.heroCarryCap(); return G.save.carry[k] >= cap ? `You can't carry more ${k}. Unload it at the Storehouse in town.` : null; };
+  H.gatherBank = (item, n) => { const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : null; if (!k) return false; const cap = BUI.heroCarryCap(), c = G.save.carry; const amt = Math.min(n * 4, cap - c[k]); if (amt > 0) { c[k] += amt; UI.toast(`+${amt} ${k} (carrying ${c[k]}/${cap})`, BUI.resIcon(k), 'gold'); } if (c[k] >= cap) UI.toast(`Full of ${k}! Take it to the Storehouse in town.`, BUI.resIcon(k), 'bad'); return true; };
   H.battleXp = (n) => Game.gainXp(G.save, n);
   H.xpGained = (n, why) => { if (why) UI.toast(`+${n} XP · ${why}`, '✦', 'xp'); };
   H.banner = (a, b, ms) => UI.banner(a, b, ms);
   H.matchOver = (r) => BUI.matchOver(r);
-  H.killReward = (g, u) => UI.toast(`+${g} gold · ${u.name}`, '🪙', 'gold');
+  H.killReward = (g, u) => UI.toast(`+${g} gold · ${u.name}`, Icons.coin(), 'gold');
   H.trained = (u) => UI.toast(`${u.name} ready`, '⚔', 'gold');
-  const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, '🪙', 'gold'); };
+  H.talk = (npc) => { S.click(); if (npc.def.battleRole) BUI.openNpc(npc.def.battleRole); else UI.openDialog(npc); };
+  const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, Icons.coin(), 'gold'); };
   H.died = () => BUI.died();
 }
 const B_DEAD = (m) => false;
@@ -192,7 +219,7 @@ function hooks() {
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
-    UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + 'New talent point: press N', 4500);
+    UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + (G.noTalents ? 'Your abilities grow stronger' : 'New talent point: press N'), 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
     Game.autoFillHotbar(G.save); UI.refreshAbilityBar(); saveNow();
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
@@ -310,6 +337,7 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
+      if (BATTLE && (e.code === 'KeyN' || e.code === 'KeyP' || e.code === 'KeyJ')) { UI.toast(e.code === 'KeyN' ? 'No talents in Kingdom Battles: your abilities grow stronger as you level' : e.code === 'KeyP' ? 'No crafting in Kingdom Battles' : 'No quests in Kingdom Battles', '·'); return; }
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }

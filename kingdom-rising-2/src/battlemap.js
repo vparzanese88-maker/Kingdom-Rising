@@ -62,9 +62,20 @@ if (BATTLE) {
   for (const t of LAYOUT.towns) {
     const side = (k) => [t.x + t.perp[0] * k[0] + t.dir[0] * k[1], t.z + t.perp[1] * k[0] + t.dir[1] * k[1]];
     LAYOUT.stone.push(side([-72, 10]), side([78, -20]));
-    LAYOUT.gold.push(side([70, 40]));
   }
-  for (const r of LAYOUT.roads) if (r.a != null) { const [A, , B] = r.pts; LAYOUT.gold.push([(A[0] + B[0]) / 2 + (rnd() - 0.5) * 40, (A[1] + B[1]) / 2 + (rnd() - 0.5) * 40]); }
+  // lots more camps scattered over the wilds: weaker near towns, tougher far out; the farthest are boss lairs
+  const roadD = (x, z) => { let d = 1e9; for (const r of LAYOUT.roads) d = Math.min(d, distToLine(x, z, r.pts).d); return d; };
+  const townD = (x, z) => Math.min(...LAYOUT.towns.map(t => Math.hypot(x - t.x, z - t.z)));
+  const extra = [];
+  for (let k = 0; k < 900 && extra.length < 26 + N * 4; k++) {
+    const x = (rnd() - 0.5) * 900, z = (rnd() - 0.5) * 900;
+    const td = townD(x, z); if (td < 115 || roadD(x, z) < 30) continue;
+    if ([...LAYOUT.camps, ...extra].some(c => Math.hypot(c.x - x, c.z - z) < 62)) continue;
+    extra.push({ x, z, tier: td < 190 ? 0 : td < 290 ? 1 : 2, td });
+  }
+  extra.sort((a, b) => b.td - a.td);
+  for (let k = 0; k < Math.min(extra.length, 3 + N); k++) extra[k].tier = 3;
+  LAYOUT.camps.push(...extra);
 }
 
 export function roadPolylines() { return LAYOUT.roads.map(r => r.pts); }

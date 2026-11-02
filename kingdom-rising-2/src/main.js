@@ -195,7 +195,15 @@ function battleHooks() {
     const n = mob.bossy ? 3 : Math.random() < (mob.def.elite ? 0.7 : 0.22) ? 1 : 0; for (let k = 0; k < n; k++) { const g = gearOnly(); if (g) mob.loot.gear.push(g); }
     mob.loot.gold = (mob.loot.gold || 0) + 6 + mob.lv * 4 + (mob.bossy ? 150 + mob.lv * 20 : 0);
     if (mob.bossy) UI.banner(`${mob.name} defeated!`, 'Boss loot is in your bag', 3500);
+    const got = mob.loot.gear.slice();
     Game.lootCorpse(G.save, mob);
+    // auto-equip better armour (never weapons) unless turned off, then celebrate each piece
+    const h = G.save, score = (it) => (it ? (it.armor || 0) * 1.5 + Object.values(it.stats || {}).reduce((a, b) => a + b, 0) * 2 + it.rarity * 2 : -1);
+    for (const g of got) {
+      let eq = false; const i = h.inv.indexOf(g);
+      if (i >= 0 && settings.autoEquip !== false && g.kind !== 'weapon' && Game.canEquip(h, g) && (g.lvl || 1) <= h.level) { const cur = h.equip[g.slot]; if (score(g) > score(cur)) eq = Game.equipFromInv(h, i); }
+      BUI.lootPopup(g, eq);
+    }
   };
   H.carryFull = (N) => { const k = N.item === 'wood' ? 'wood' : N.item === 'stone' ? 'stone' : null; if (!k) return null; const cap = BUI.heroCarryCap(); return G.save.carry[k] >= cap ? `You can't carry more ${k}. Unload it at the Storehouse in town.` : null; };
   H.gatherBank = (item, n) => { const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : null; if (!k) return false; const cap = BUI.heroCarryCap(), c = G.save.carry; const amt = Math.min(n * 4, cap - c[k]); if (amt > 0) { c[k] += amt; UI.toast(`+${amt} ${k} (carrying ${c[k]}/${cap})`, BUI.resIcon(k), 'gold'); } if (c[k] >= cap) UI.toast(`Full of ${k}! Take it to the Storehouse in town.`, BUI.resIcon(k), 'bad'); return true; };

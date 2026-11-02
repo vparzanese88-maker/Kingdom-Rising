@@ -1,7 +1,8 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS } from './data.js';
+import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL } from './data.js';
+import { settings, saveSettings } from './saves.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
@@ -230,6 +231,7 @@ function tabOrders(body, t) {
 }
 function tabArmory(body, t) {
   const h = G.save;
+  const ae = el('div', 'bpanel', `<h3>Loot</h3><label class="bsteams"><input type="checkbox" ${settings.autoEquip !== false ? 'checked' : ''}> <span>Auto-equip better armour you loot (weapons never auto-equip)</span></label>`); ae.querySelector('input').onchange = (e) => { settings.autoEquip = e.target.checked; saveSettings(); S.click(); }; body.appendChild(ae);
   const s = el('div', 'bpanel', '<h3>Supplies</h3>'); const row = el('div', 'brow');
   for (const [id, g] of [['potion_heal', 30], ['potion_heal2', 70], ['honey_mead', 25], ['hunter_stew', 25]]) { const b = el('button', 'btn', `${ITEMS[id].name} · 🪙 ${g}`); b.onclick = () => { if (res(t, 'gold') < g) return say('Not enough gold'); bank(t, 'gold', -g); Game.addItem(h, id, 1); Game.autoFillHotbar(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded(); say(null); }; row.appendChild(b); }
   s.appendChild(row); body.appendChild(s);
@@ -269,6 +271,24 @@ function renderBook() {
     grid.appendChild(d);
   }
   c.appendChild(grid);
+}
+
+// ---------- loot celebration: a card with the item, louder the rarer it is ----------
+const lootQ = []; let lootBusy = false;
+export function lootPopup(it, equipped) { lootQ.push({ it, equipped }); if (!lootBusy) nextLoot(); }
+function nextLoot() {
+  const n = lootQ.shift(); if (!n) { lootBusy = false; return; } lootBusy = true;
+  const { it, equipped } = n, r = it.rarity || 0, R = RARITY[r];
+  const type = it.kind === 'weapon' ? WEAPON_TYPES[it.wt].name : SLOT_LABEL[it.slot] || 'Gear';
+  const stat = (it.dmg ? `${it.dmg} damage` : it.armor ? `${it.armor} armour` : '') + Object.entries(it.stats || {}).map(([k, v]) => ` · +${v} ${STAT_NAMES[k]}`).join('');
+  const words = ['Loot!', 'Nice find!', 'Great find!', 'Epic loot!', 'LEGENDARY!'][r];
+  const d = el('div', `lootpop r${r}`, `<div class="lrays"></div><div class="lcard" style="--rc:${R.col}"><div class="lhead">${words}</div><div class="lic">${Icons.itemSvg(it)}</div><div class="lname">${it.name}</div><div class="lrar">${R.name} ${type}${it.lvl ? ' · level ' + it.lvl : ''}</div><div class="lstat">${stat}</div>${equipped ? '<div class="leq">✔ Equipped</div>' : it.lvl > G.save.level ? `<div class="lneed">Needs level ${it.lvl}</div>` : '<div class="lbag">In your bag (I)</div>'}</div>`);
+  document.body.appendChild(d);
+  const p = G.player;
+  if (r >= 1) S.coins(); if (r >= 2) S.loot && S.loot(); if (r >= 3) S.levelUp();
+  if (p) { V.burst('gold', p.pos.clone().setY(p.pos.y + 1.4), 20 + r * 30, { speed: 3 + r, vy: 3 + r, life: 1 + r * 0.3 }); if (r >= 3) { V.ring(p.pos, 4 + r, R.col, 0.8); V.light(p.pos.clone().setY(p.pos.y + 2), R.col, 6 + r * 2, 0.8); V.addShake(0.15 * (r - 2)); } }
+  const dur = [1800, 2200, 2800, 3600, 4800][r];
+  setTimeout(() => { d.classList.add('out'); setTimeout(() => { d.remove(); nextLoot(); }, 380); }, dur);
 }
 
 // ---------- end of match ----------

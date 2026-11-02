@@ -130,7 +130,7 @@ export function addItem(h, id, n = 1, quiet) {
 }
 export function addGear(h, it, quiet) {
   const i = h.inv.indexOf(null); if (i < 0) { G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad'); return false; }
-  h.inv[i] = it; if (!quiet) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
+  h.inv[i] = it; if (!quiet && !G.battleFx) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
   G.hooks.invChanged && G.hooks.invChanged(); return true;
 }
 export function removeItem(h, id, n) {
@@ -283,7 +283,7 @@ export function gainXp(h, n, why) {
     h.xp -= need(h.level); h.level++;
     const unlocked = [];
     if (h.level === AREA_UNLOCK_LEVEL) { const w = h.equip[h.active]; unlocked.push(`Right click: ${w ? WEAPON_TYPES[w.wt].areaName : 'weapon ability'}`); }
-    for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`[${a.key}] ${a.name}`);
+    for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
     if (h.level === 15) unlocked.push('Class abilities upgraded to Rank II');
     G.hooks.levelUp && G.hooks.levelUp(h.level, unlocked);
   }

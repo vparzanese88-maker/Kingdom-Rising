@@ -223,28 +223,28 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793652397",
-"./src/battle.js": "./src/battle.js?v=1793652397",
-"./src/battledata.js": "./src/battledata.js?v=1793652397",
-"./src/battlemap.js": "./src/battlemap.js?v=1793652397",
-"./src/battleui.js": "./src/battleui.js?v=1793652397",
-"./src/character.js": "./src/character.js?v=1793652397",
-"./src/combat.js": "./src/combat.js?v=1793652397",
-"./src/data.js": "./src/data.js?v=1793652397",
-"./src/game.js": "./src/game.js?v=1793652397",
-"./src/icons.js": "./src/icons.js?v=1793652397",
-"./src/icons2.js": "./src/icons2.js?v=1793652397",
-"./src/main.js": "./src/main.js?v=1793652397",
-"./src/menu.js": "./src/menu.js?v=1793652397",
-"./src/mobs.js": "./src/mobs.js?v=1793652397",
-"./src/player.js": "./src/player.js?v=1793652397",
-"./src/saves.js": "./src/saves.js?v=1793652397",
-"./src/state.js": "./src/state.js?v=1793652397",
-"./src/terrain.js": "./src/terrain.js?v=1793652397",
-"./src/ui.js": "./src/ui.js?v=1793652397",
-"./src/util.js": "./src/util.js?v=1793652397",
-"./src/vfx.js": "./src/vfx.js?v=1793652397",
-"./src/world.js": "./src/world.js?v=1793652397"
+"./src/audio.js": "./src/audio.js?v=1793652644",
+"./src/battle.js": "./src/battle.js?v=1793652644",
+"./src/battledata.js": "./src/battledata.js?v=1793652644",
+"./src/battlemap.js": "./src/battlemap.js?v=1793652644",
+"./src/battleui.js": "./src/battleui.js?v=1793652644",
+"./src/character.js": "./src/character.js?v=1793652644",
+"./src/combat.js": "./src/combat.js?v=1793652644",
+"./src/data.js": "./src/data.js?v=1793652644",
+"./src/game.js": "./src/game.js?v=1793652644",
+"./src/icons.js": "./src/icons.js?v=1793652644",
+"./src/icons2.js": "./src/icons2.js?v=1793652644",
+"./src/main.js": "./src/main.js?v=1793652644",
+"./src/menu.js": "./src/menu.js?v=1793652644",
+"./src/mobs.js": "./src/mobs.js?v=1793652644",
+"./src/player.js": "./src/player.js?v=1793652644",
+"./src/saves.js": "./src/saves.js?v=1793652644",
+"./src/state.js": "./src/state.js?v=1793652644",
+"./src/terrain.js": "./src/terrain.js?v=1793652644",
+"./src/ui.js": "./src/ui.js?v=1793652644",
+"./src/util.js": "./src/util.js?v=1793652644",
+"./src/vfx.js": "./src/vfx.js?v=1793652644",
+"./src/world.js": "./src/world.js?v=1793652644"
 }
 }
 </script>
@@ -713,6 +713,25 @@ body{font-size:16px;letter-spacing:.005em}
 .bendp{text-align:center;padding:40px 60px;border-radius:14px;background:linear-gradient(#2a1e10f2,#140d06f2);border:2px solid #8a6a2a;display:flex;flex-direction:column;gap:14px;align-items:center}
 .bend h1{font-family:var(--f-t);font-size:64px;margin:0;color:#ffd84a;text-shadow:0 0 30px rgba(255,200,60,.6)}.bend.defeat h1{color:#ff6a5a;text-shadow:0 0 30px rgba(255,60,40,.5)}
 .bstats{display:grid;grid-template-columns:repeat(4,auto);gap:22px}.bstats div{display:flex;flex-direction:column}.bstats span{font-size:12px;color:#a8987a;text-transform:uppercase}.bstats b{font-size:24px;color:#fff2c8}
+/* ===== Kingdom Battles: loot celebration ===== */
+.lootpop{position:fixed;left:50%;top:9%;transform:translateX(-50%);z-index:45;pointer-events:none;display:grid;place-items:center;animation:lpIn .45s cubic-bezier(.2,1.6,.4,1) both}
+.lootpop.out{animation:lpOut .38s ease-in both}
+@keyframes lpIn{from{opacity:0;transform:translateX(-50%) scale(.4)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+@keyframes lpOut{to{opacity:0;transform:translateX(-50%) translateY(-30px) scale(.9)}}
+.lcard{position:relative;min-width:300px;padding:16px 26px 18px;border-radius:16px;text-align:center;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--rc) 35%,#2a1e10),#120c07 75%);border:2px solid var(--rc);box-shadow:0 0 30px color-mix(in srgb,var(--rc) 55%,transparent),0 18px 50px rgba(0,0,0,.7),inset 0 0 30px rgba(0,0,0,.5)}
+.lhead{font-family:var(--f-t);font-size:26px;font-weight:900;letter-spacing:.08em;color:var(--rc);text-shadow:0 0 14px var(--rc),0 2px 3px #000}
+.lic{width:84px;height:84px;margin:8px auto;padding:10px;border-radius:14px;background:radial-gradient(circle,color-mix(in srgb,var(--rc) 30%,#2a1e10),#0e0905);border:2px solid var(--rc);box-shadow:0 0 22px color-mix(in srgb,var(--rc) 60%,transparent)}.lic svg{width:100%;height:100%}
+.lname{font-size:22px;font-weight:800;color:var(--rc);text-shadow:0 2px 3px #000}
+.lrar{font-size:13px;color:#d8c8a8;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.lstat{font-size:14px;color:#8fe07a;margin-top:6px}
+.leq{margin-top:8px;display:inline-block;padding:4px 12px;border-radius:999px;background:#2f8a2a;color:#eaffde;font-weight:800;font-size:13px}
+.lneed{margin-top:8px;color:#ff9a7a;font-size:13px;font-weight:700}.lbag{margin-top:8px;color:#bfae8c;font-size:12px}
+.lrays{position:absolute;width:520px;height:520px;border-radius:50%;opacity:0;background:repeating-conic-gradient(from 0deg,rgba(255,220,120,.0) 0deg 10deg,rgba(255,220,120,.18) 10deg 20deg);animation:lpSpin 6s linear infinite;mask:radial-gradient(circle,#000 20%,transparent 68%);-webkit-mask:radial-gradient(circle,#000 20%,transparent 68%)}
+.lootpop.r2 .lrays{opacity:.5}.lootpop.r3 .lrays{opacity:.85}.lootpop.r4 .lrays{opacity:1;width:680px;height:680px;background:repeating-conic-gradient(from 0deg,rgba(255,160,40,0) 0deg 8deg,rgba(255,180,60,.3) 8deg 16deg)}
+.lootpop.r3 .lcard,.lootpop.r4 .lcard{animation:lpPulse 1s ease-in-out infinite alternate}
+.lootpop.r4 .lhead{font-size:34px}
+@keyframes lpSpin{to{transform:rotate(360deg)}}
+@keyframes lpPulse{to{box-shadow:0 0 60px var(--rc),0 18px 50px rgba(0,0,0,.7),inset 0 0 30px rgba(0,0,0,.5)}}
 /* ===== Kingdom Battles: polished look ===== */
 .combostrip.battle{position:fixed;left:18px !important;right:auto !important;bottom:104px;text-align:left}.combostrip.battle .crow{align-items:flex-start}
 .win.bwin{background:radial-gradient(ellipse at 50% 0%,#3a2a16 0%,#1c130b 55%,#0f0a06 100%);border:2px solid #a07a30;box-shadow:0 0 0 1px #000,0 0 0 5px rgba(160,122,48,.18),0 30px 90px rgba(0,0,0,.85),inset 0 0 60px rgba(0,0,0,.6)}
@@ -815,6 +834,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793652397"></script>
+<script type="module" src="./src/main.js?v=1793652644"></script>
 </body>
 </html>

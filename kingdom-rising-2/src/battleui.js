@@ -61,7 +61,7 @@ function drawBar() {
   bar.innerHTML = ['gold', 'wood', 'stone'].map(k => `<div title="${RES_NAME[k]} in town">${resIcon(k)}<span class="rn">${RES_NAME[k]}</span>${Math.floor(res(t, k))}</div>`).join('')
     + `<div title="Peasants"><b>⛏</b>${peasants(t)}/${peasantCap(t)}</div><div title="Army size"><b>⚔</b>${pop(t)}/${popCap(t)}</div>`
     + (c.wood || c.stone ? `<div class="bcarry ${c.wood >= cap || c.stone >= cap ? 'full' : ''}" title="What you are carrying: unload at the Storehouse">🎒 ${resIcon('wood', 16)}${c.wood}/${cap} ${resIcon('stone', 16)}${c.stone}/${cap}</div>` : '')
-    + `<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`
+    + `<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`
     + `<div class="bhall" title="Your town hall"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>${t.name} · ${L.name}${t.building ? ' · building ' + Math.ceil(t.building.dur - t.building.t) + 's' : ''}</span></div>`
     + `<div class="bkey">B · Command</div>`;
 }

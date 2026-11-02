@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793577404",
-"./src/character.js": "./src/character.js?v=1793577404",
-"./src/combat.js": "./src/combat.js?v=1793577404",
-"./src/data.js": "./src/data.js?v=1793577404",
-"./src/game.js": "./src/game.js?v=1793577404",
-"./src/icons.js": "./src/icons.js?v=1793577404",
-"./src/main.js": "./src/main.js?v=1793577404",
-"./src/menu.js": "./src/menu.js?v=1793577404",
-"./src/mobs.js": "./src/mobs.js?v=1793577404",
-"./src/player.js": "./src/player.js?v=1793577404",
-"./src/saves.js": "./src/saves.js?v=1793577404",
-"./src/state.js": "./src/state.js?v=1793577404",
-"./src/terrain.js": "./src/terrain.js?v=1793577404",
-"./src/ui.js": "./src/ui.js?v=1793577404",
-"./src/util.js": "./src/util.js?v=1793577404",
-"./src/vfx.js": "./src/vfx.js?v=1793577404",
-"./src/world.js": "./src/world.js?v=1793577404"
+"./src/audio.js": "./src/audio.js?v=1793578686",
+"./src/character.js": "./src/character.js?v=1793578686",
+"./src/combat.js": "./src/combat.js?v=1793578686",
+"./src/data.js": "./src/data.js?v=1793578686",
+"./src/game.js": "./src/game.js?v=1793578686",
+"./src/icons.js": "./src/icons.js?v=1793578686",
+"./src/main.js": "./src/main.js?v=1793578686",
+"./src/menu.js": "./src/menu.js?v=1793578686",
+"./src/mobs.js": "./src/mobs.js?v=1793578686",
+"./src/player.js": "./src/player.js?v=1793578686",
+"./src/saves.js": "./src/saves.js?v=1793578686",
+"./src/state.js": "./src/state.js?v=1793578686",
+"./src/terrain.js": "./src/terrain.js?v=1793578686",
+"./src/ui.js": "./src/ui.js?v=1793578686",
+"./src/util.js": "./src/util.js?v=1793578686",
+"./src/vfx.js": "./src/vfx.js?v=1793578686",
+"./src/world.js": "./src/world.js?v=1793578686"
 }
 }
 </script>
@@ -492,6 +492,11 @@ body{font-size:16px;letter-spacing:.005em}
 .bar2{border-radius:2px;border-color:rgba(0,0,0,.8);box-shadow:0 0 0 1px rgba(216,168,72,.25)}
 #lvl .badge{border-width:1px;box-shadow:0 0 0 3px rgba(0,0,0,.6),0 0 0 4px rgba(216,168,72,.4)}
 .confirm .panel{background:var(--panel2);border:1px solid var(--hair);border-radius:6px;padding:26px 30px}
+/* campaigns with several characters */
+.camp{border:1px solid rgba(216,168,72,.22);border-radius:6px;padding:10px;background:rgba(0,0,0,.2);display:flex;flex-direction:column;gap:8px}
+.camph{display:flex;justify-content:space-between;align-items:flex-end;padding:2px 4px 4px;border-bottom:1px solid rgba(216,168,72,.15)}
+.camph b{font-family:var(--f-t);font-size:18px;color:var(--g1)}
+.newchar{width:100%;font-size:13px;border-style:dashed;background:none;box-shadow:none}
 /* inventory fits on one screen */
 .win.big{max-height:96vh}
 .invlay{gap:18px}
@@ -539,7 +544,7 @@ body{font-size:16px;letter-spacing:.005em}
 
 <div id="creator" hidden>
   <div class="side">
-    <div class="chead"><span class="eyebrow">New Campaign</span><h2>Create Your Hero</h2></div>
+    <div class="chead"><span class="eyebrow" id="cEyebrow">New Campaign</span><h2>Create Your Hero</h2></div>
     <div class="stepper" id="cTabs"></div>
     <div class="body" id="cBody"></div>
     <div class="nav"><button class="btn ghost" id="cBack">Cancel</button><span style="flex:1"></span><button class="btn" id="cPrev">Back</button><button class="btn gold" id="cNext">Next</button></div>
@@ -577,6 +582,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793577404"></script>
+<script type="module" src="./src/main.js?v=1793578686"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
 import * as THREE from 'three';
 import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS } from './data.js';
-import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave } from './saves.js';
+import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave, listCampaigns, MAX_CHARS } from './saves.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
 import { newHero } from './game.js';
 import { S, A, M } from './audio.js';
@@ -23,30 +23,36 @@ export function showTitle() {
 }
 const CLS_WPN = { berserker: { kind: 'weapon', wt: 'greataxe', tier: 2, rarity: 0 }, warrior: { kind: 'weapon', wt: 'swordshield', tier: 2, rarity: 0 }, ranger: { kind: 'weapon', wt: 'bow', tier: 2, rarity: 0 }, wizard: { kind: 'weapon', wt: 'firestaff', tier: 2, rarity: 0 } };
 function renderSaves() {
-  const saves = listSaves(); const box = $('saves'); box.innerHTML = '';
+  const saves = listSaves(), camps = listCampaigns(); const box = $('saves'); box.innerHTML = '';
   $('btnNew').disabled = !canCreate();
-  $('btnNew').querySelector('small').textContent = canCreate() ? 'Create a new hero and wake on the beach' : 'All 5 slots are used: delete a campaign first';
-  $('slotCount').textContent = `${saves.length} of ${MAX_SAVES} slots used`;
+  $('btnNew').querySelector('small').textContent = canCreate() ? 'Start a new world with a new hero' : 'All 5 campaign slots are used: delete one first';
+  $('slotCount').textContent = `${camps.length} of ${MAX_SAVES} campaigns`;
   const last = saves[0];
   $('btnContinue').hidden = !last;
   if (last) { $('contSub').textContent = `${last.name} · Level ${last.level} ${RACES[last.race].name} ${CLASSES[last.cls].name} · ${last.zone || ''}`; $('btnContinue').onclick = () => { S.click(); goFull(); Menu.onPlay(last); }; }
-  if (!saves.length) { box.appendChild(el('div', 'emptysaves', '<b>No campaigns yet</b>Choose <i>New Campaign</i> to create your first hero. You can keep up to five heroes, each with their own progress.')); return; }
-  for (const s of saves) {
-    const d = el('div', 'save', `<div class="crest">${Icons.itemSvg(CLS_WPN[s.cls])}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} · ${RACES[s.race].name} ${CLASSES[s.cls].name}</div><div class="meta"><span>${esc(s.zone || 'Driftwood Coast')}</span><span>${fmtTime(s.timePlayed)} played</span><span>${s.quests.done.length} quests done</span></div><div class="meta"><span>Last played ${fmtDate(s.lastPlayed)}</span></div></div>`);
-    const acts = el('div', 'acts');
-    const play = el('button', 'btn gold', 'Play'); play.onclick = (e) => { e.stopPropagation(); S.click(); goFull(); Menu.onPlay(s); };
-    const del = el('button', 'btn ghost', 'Delete'); del.title = 'Delete this campaign';
-    del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete campaign</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
-    acts.append(play, del); d.appendChild(acts);
-    d.onclick = () => { S.click(); goFull(); Menu.onPlay(s); };
-    d.onmouseenter = () => S.hover();
-    box.appendChild(d);
+  if (!saves.length) { box.appendChild(el('div', 'emptysaves', '<b>No campaigns yet</b>Choose <i>New Campaign</i> to create your first hero. You can keep up to five campaigns, each with up to five characters.')); return; }
+  for (const c of camps) {
+    const g = el('div', 'camp');
+    g.appendChild(el('div', 'camph', `<div><div class="eyebrow">Campaign</div><b>${esc(c.name)}</b></div><span class="dim">${c.chars.length} of ${MAX_CHARS} characters</span>`));
+    for (const s of c.chars) {
+      const d = el('div', 'save', `<div class="crest">${Icons.itemSvg(CLS_WPN[s.cls])}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} · ${RACES[s.race].name} ${CLASSES[s.cls].name}</div><div class="meta"><span>${esc(s.zone || 'Driftwood Coast')}</span><span>${fmtTime(s.timePlayed)} played</span><span>${s.quests.done.length} quests</span></div></div>`);
+      const acts = el('div', 'acts');
+      const play = el('button', 'btn gold', 'Play'); play.onclick = (e) => { e.stopPropagation(); S.click(); goFull(); Menu.onPlay(s); };
+      const del = el('button', 'btn ghost', 'Delete'); del.title = 'Delete this character';
+      del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete character</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
+      acts.append(play, del); d.appendChild(acts);
+      d.onclick = () => { S.click(); goFull(); Menu.onPlay(s); };
+      d.onmouseenter = () => S.hover();
+      g.appendChild(d);
+    }
+    if (c.chars.length < MAX_CHARS) { const nb = el('button', 'btn newchar', '+ New Character in this campaign'); nb.onclick = () => { S.click(); goFull(); showCreator({ id: c.id, name: c.name }); }; g.appendChild(nb); }
+    box.appendChild(g);
   }
 }
 export function goFull() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {}); }
 
 export function initMenu() {
-  $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(); };
+  $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
@@ -64,8 +70,8 @@ const START_NAME = { berserker: 'Great Axe', warrior: 'Sword (main hand) and Shi
 let tab = 0, C = null;
 const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
-export function showCreator() {
-  C = defaults(); tab = 0;
+export function showCreator(camp) {
+  C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
   $('title').hidden = true; $('creator').hidden = false;
   Menu.preview.active = true; rebuildPreview(); renderCreator();
 }
@@ -149,6 +155,7 @@ function renderCreator() {
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
+  h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
   putSave(h);
   closeCreator();
   goFull();

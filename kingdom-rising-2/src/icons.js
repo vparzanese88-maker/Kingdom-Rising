@@ -125,16 +125,19 @@ const AB = {
   boot: null, sword: null, potionAb: null,
 };
 // Ability icons: painted look (dark tinted backdrop, grain, lighting and a bevelled frame) instead of flat cartoon
-const TINT = { bash: '#2a3a5a', shieldwall: '#1a2a4a', execute: '#3a0a0a', laststand: '#5a3a10', intimshout: '#7a1a10', bloodrage: '#6a0808', charge: '#7a2a14', battlecry: '#7a4a10', earthsplitter: '#5a3a1a', adrenaline: '#8a1a12', tourniquet: '#5a1a1a', spectral: '#0e5a42', smokeroll: '#2a2a3a', fury: '#6a1410', secondwind: '#1a4a3a', fielddress: '#1e4a1e', frostnova: '#14406a', blink: '#3a1a6a', chain: '#2a3a7a', manasurge: '#12306a', icebarrier: '#1a4a6a', heart: '#5a1010', shield: '#3a3a4a', crown: '#5a4410', crit: '#5a1414', bolt: '#5a4a10', mana: '#10305a', wind: '#1a3a4a', fist: '#4a3018', scroll: '#4a3a20', skull: '#2a2a2a', combo: '#4a2a14', heavy: '#4a3a20' };
+const TINT = { cleavestrike: '#5a2a14', shieldthrow: '#2a3a5a', fortify: '#3a4a6a', hamstring: '#5a1010', bulwark: '#3a3a5a', whirlwind: '#5a1a10', rampage: '#7a2a08', groundslam: '#4a3010', warstomp: '#5a3a10', undying: '#6a0606', mending: '#1a5a2a', disengage: '#1a3a3a', focus: '#2a4a1a', barkskin: '#4a3418', snaretrap: '#3a3a3a', vanish: '#20203a', explotrap: '#6a2a08', pinning: '#1a4a3a', barrage: '#2a3a2a', firering: '#7a2008', missiles: '#3a1a6a', timewarp: '#2a1a5a', lightstorm: '#1a2a6a', inferno: '#8a2a04', bash: '#2a3a5a', shieldwall: '#1a2a4a', execute: '#3a0a0a', laststand: '#5a3a10', intimshout: '#7a1a10', bloodrage: '#6a0808', charge: '#7a2a14', battlecry: '#7a4a10', earthsplitter: '#5a3a1a', adrenaline: '#8a1a12', tourniquet: '#5a1a1a', spectral: '#0e5a42', smokeroll: '#2a2a3a', fury: '#6a1410', secondwind: '#1a4a3a', fielddress: '#1e4a1e', frostnova: '#14406a', blink: '#3a1a6a', chain: '#2a3a7a', manasurge: '#12306a', icebarrier: '#1a4a6a', heart: '#5a1010', shield: '#3a3a4a', crown: '#5a4410', crit: '#5a1414', bolt: '#5a4a10', mana: '#10305a', wind: '#1a3a4a', fist: '#4a3018', scroll: '#4a3a20', skull: '#2a2a2a', combo: '#4a2a14', heavy: '#4a3a20' };
 let fid = 0;
 export function abilityIcon(name, color) {
   const map = { boot: 'boots', sword: 'sword', shield: 'shield', mace: 'mace', axe: 'axe', dagger: 'dagger', bash: 'shield', shieldwall: 'shield' };
-  if (name === 'execute') name = 'skull'; if (name === 'laststand') name = 'heart'; if (name === 'intimshout') name = 'battlecry'; if (name === 'bloodrage') name = 'adrenaline';
+  const ALIAS = { cleavestrike: 'area', shieldthrow: 'shield', fortify: 'shield', hamstring: 'crit', bulwark: 'earthsplitter', whirlwind: 'twinfury', rampage: 'fury', groundslam: 'earthsplitter', warstomp: 'shockwave', undying: 'heart', mending: 'fielddress', disengage: 'smokeroll', focus: 'crit', barkskin: 'shield', snaretrap: 'combo', vanish: 'smokeroll', explotrap: 'meteor', pinning: 'spectral', barrage: 'rain', firering: 'meteor', missiles: 'nova', timewarp: 'blink', lightstorm: 'chain', inferno: 'meteor' };
+  const tintName = name;
+  if (ALIAS[name]) name = ALIAS[name];
+    if (name === 'execute') name = 'skull'; if (name === 'laststand') name = 'heart'; if (name === 'intimshout') name = 'battlecry'; if (name === 'bloodrage') name = 'adrenaline';
   let inner;
   if (map[name] && S[map[name]]) { const p = S[map[name]]({}); inner = { defs: p.defs, body: p.body }; }
   else inner = { defs: '', body: AB[name] || S.sword({}).body };
   inner.body = inner.body.replace(/stroke="#140c06" stroke-width="[0-9.]+"/g, 'stroke="#140c06" stroke-opacity=".55" stroke-width="1.1"');
-  const id = 'f' + (fid++), tint = color || TINT[name] || '#3a2a1a';
+  const id = 'f' + (fid++), tint = color || TINT[tintName] || TINT[name] || '#3a2a1a';
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>${inner.defs}
     <radialGradient id="${id}b" cx=".5" cy=".38" r=".8"><stop offset="0" stop-color="${shade(tint, 0.35)}"/><stop offset=".55" stop-color="${tint}"/><stop offset="1" stop-color="#050302"/></radialGradient>
     <filter id="${id}n" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" seed="${fid % 9}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 .22"/></feComponentTransfer><feComposite operator="in" in2="SourceGraphic"/></filter>

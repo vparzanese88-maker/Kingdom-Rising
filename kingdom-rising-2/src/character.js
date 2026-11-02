@@ -147,14 +147,31 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       base.position.set(0, -0.4, 0); tip.position.set(0, 0.4, 0); break;
     }
     case 'bow': {
-      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, -0.7, 0), new THREE.Vector3(0, 0, -0.42), new THREE.Vector3(0, 0.7, 0));
-      const limbs = mesh(cached('bow', () => new THREE.TubeGeometry(curve, 20, 0.018, 6, false)), tier >= 2 ? darkWood : woodMat, g);
-      cyl(0.026, 0.026, 0.14, leatherMat, 0);
-      const strM = new THREE.LineBasicMaterial({ color: '#ddd8c8' });
-      const sg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.7, 0), new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, 0.7, 0)]);
-      const str = new THREE.Line(sg, strM); g.add(str); g.userData.string = str;
-      for (const y of [-0.7, 0.7]) mesh(sphereGeo(0.025, 6, 4), M, g, 0, y, 0);
-      base.position.set(0, -0.6, -0.1); tip.position.set(0, 0.6, -0.1); break;
+      // recurve bow: thick riser, tapered limbs that bend toward the archer and flick forward at the tips
+      const L = 0.78, zf = (t) => { const u = Math.abs(t), sm = Math.max(0, Math.min(1, (u - 0.7) / 0.3)); return 0.22 * t * t - 0.13 * sm * sm * (3 - 2 * sm); };
+      const rf = (t) => { const u = Math.abs(t); return u < 0.16 ? 0.03 : 0.024 - (u - 0.16) * 0.017; };
+      const geo = cached('recurve', () => {
+        const parts = [], N = 26, up = new THREE.Vector3(0, 1, 0);
+        for (let i = 0; i < N; i++) {
+          const t0 = -1 + 2 * i / N, t1 = -1 + 2 * (i + 1) / N;
+          const p0 = new THREE.Vector3(0, t0 * L, zf(t0)), p1 = new THREE.Vector3(0, t1 * L, zf(t1));
+          const d = p1.clone().sub(p0), len = d.length();
+          const c = new THREE.CylinderGeometry(rf(t1), rf(t0), len * 1.04, 8); c.scale(1.45, 1, 0.8);
+          c.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); c.translate((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
+          parts.push(c.toNonIndexed());
+        }
+        const m = mergeGeometries(parts); m.computeVertexNormals(); return m;
+      });
+      const limbM = mat(tier >= 3 ? '#2a1a12' : tier >= 1 ? '#5a3418' : '#7a5230', 0.55);
+      mesh(geo, limbM, g);
+      mesh(cached('bowgrip', () => new THREE.CylinderGeometry(0.034, 0.034, 0.16, 10)), leatherMat, g, 0, 0, 0);
+      for (const y of [-0.085, 0.085]) { const w = mesh(cached('bowwrap', () => new THREE.TorusGeometry(0.035, 0.007, 5, 12)), goldMat, g, 0, y, 0); w.rotation.x = Math.PI / 2; }
+      const horn = mat('#e8dcc0', 0.4);
+      for (const sgn of [-1, 1]) { const tp = mesh(cached('bowtip', () => new THREE.ConeGeometry(0.014, 0.07, 6)), horn, g, 0, sgn * (L + 0.02), zf(1) - 0.01); if (sgn < 0) tp.rotation.x = Math.PI; }
+      const zt = zf(1);
+      const sg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -L, zt), new THREE.Vector3(0, 0, zt), new THREE.Vector3(0, L, zt)]);
+      const str = new THREE.Line(sg, new THREE.LineBasicMaterial({ color: '#efe8d4' })); g.add(str); g.userData.string = str; g.userData.stringZ = zt;
+      base.position.set(0, -0.6, 0.1); tip.position.set(0, 0.6, 0.1); break;
     }
     case 'staff': {
       const col = { fire: '#ff6a1a', frost: '#7fe0ff', arcane: '#c070ff' }[element] || '#ffd060';

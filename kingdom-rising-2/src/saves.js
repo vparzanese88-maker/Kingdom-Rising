@@ -17,7 +17,15 @@ export function putSave(save) {
   return write(KEY, all);
 }
 export function deleteSave(id) { write(KEY, read(KEY, []).filter(s => s.id !== id)); }
-export function canCreate() { return read(KEY, []).length < MAX_SAVES; }
+export const MAX_CHARS = 5;
+// a campaign holds up to 5 characters; old single-hero saves are their own campaign
+export function campaignOf(s) { return s.campaign || s.id; }
+export function listCampaigns() {
+  const map = new Map();
+  for (const s of listSaves()) { const k = campaignOf(s); if (!map.has(k)) map.set(k, { id: k, name: s.campaignName || `${s.name}'s Campaign`, chars: [] }); map.get(k).chars.push(s); }
+  return [...map.values()];
+}
+export function canCreate() { return listCampaigns().length < MAX_SAVES; }
 
 export const DEFAULT_SETTINGS = {
   master: 0.8, music: 0.55, sfx: 0.85, ambient: 0.7,

@@ -176,11 +176,12 @@ export function updatePlates() {
     }
     for (const m of G.mobs) {
       if (m.dead) continue;
-      const d = m.pos.distanceTo(p.pos); if (d > 32 && m !== G.target) continue;
-      const hostile = m.hostile || m.provoked;
+      const d = m.pos.distanceTo(p.pos); if (d > (m.isStruct ? 70 : 32) && m !== G.target) continue;
+      const ally = m.team != null && m.team === G.myTeam; if (ally && d > 16 && !m.isStruct && m !== G.target) continue;
+      const hostile = !ally && (m.hostile || m.provoked);
       const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0;
       if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb) continue;
-      const cls = m.def.elite ? 'elite' : m.hostile || m.provoked ? 'hostile' : 'passive';
+      const cls = ally ? 'ally' : m.def.elite ? 'elite' : hostile ? 'hostile' : 'passive';
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
       const S2 = m.status; let db = '';
       for (const [k, ic, c] of [['stun', '💫', '#e0c020'], ['frozen', '❄', '#8ad8ff'], ['slow', '🐌', '#4a8ad8'], ['bleed', '🩸', '#c82020'], ['burn', '🔥', '#ff7020']]) if (S2[k] > 0) db += `<span style="--c:${c}">${ic}<i>${Math.ceil(S2[k])}</i></span>`;
@@ -235,7 +236,7 @@ export function drawMinimap() {
   // markers (rotate positions)
   const cs = Math.cos(p.yaw + Math.PI), sn = Math.sin(p.yaw + Math.PI);
   const dot = (x, z, fn) => { const dx = (x - p.pos.x) * scale, dz = (z - p.pos.z) * scale; let rx = dx * cs - dz * sn, rz = dx * sn + dz * cs; const d = Math.hypot(rx, rz), max = N / 2 - 14; let edge = false; if (d > max) { rx *= max / d; rz *= max / d; edge = true; } fn(N / 2 + rx, N / 2 + rz, edge); };
-  for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(p.pos) < 70) dot(m.pos.x, m.pos.z, (x, y, e) => { if (e) return; g.fillStyle = m.hostile || m.provoked ? '#ff5040' : '#ffe070'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); });
+  for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(p.pos) < 70) dot(m.pos.x, m.pos.z, (x, y, e) => { if (e) return; g.fillStyle = m.team != null ? (m.team === G.myTeam ? '#5aa0ff' : '#ff4030') : m.hostile || m.provoked ? '#ff8a40' : '#ffe070'; g.beginPath(); g.arc(x, y, m.isStruct ? 7 : 4, 0, 7); g.fill(); });
   g.font = 'bold 30px Cinzel, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const k of markers(p.h)) dot(k.x, k.z, (x, y, e) => { g.fillStyle = '#ffd84a'; g.strokeStyle = '#000'; g.lineWidth = 4; g.strokeText(k.t, x, y); g.fillText(k.t, x, y); });
   // player arrow (always up)
@@ -243,7 +244,7 @@ export function drawMinimap() {
   // N marker
   dot(p.pos.x, p.pos.z - 1000, (x, y) => { g.font = 'bold 26px Cinzel'; g.fillStyle = '#ffe2a0'; g.strokeStyle = '#000'; g.lineWidth = 4; g.strokeText('N', x, y); g.fillText('N', x, y); });
   const zn = ZONES.find(z => z.id === G.zone);
-  const zl = $('zoneLbl'); const html = `${zn ? zn.name : ''}<small>Level ${zn ? zn.lv : ''}</small>`; if (zl._h !== html) { zl.innerHTML = html; zl._h = html; }
+  const zl = $('zoneLbl'); const html = G.zoneLabel ? G.zoneLabel : `${zn ? zn.name : ''}<small>Level ${zn ? zn.lv : ''}</small>`; if (zl._h !== html) { zl.innerHTML = html; zl._h = html; }
 }
 
 // ---------- tracker ----------
@@ -614,6 +615,7 @@ export function openMap() {
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const lbl = (t, x, z, size = 30, col = '#ffe2a0') => { const [px, pz] = P(x, z); size *= k; g.font = `700 ${size}px Cinzel, serif`; g.lineWidth = size / 5; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, px, pz); g.fillStyle = col; g.fillText(t, px, pz); };
     const icon = (x, z, ch, col, size = 22) => { const [px, pz] = P(x, z); size *= k; g.beginPath(); g.arc(px, pz, size * 0.62, 0, 7); g.fillStyle = 'rgba(0,0,0,.65)'; g.fill(); g.lineWidth = 2 * k; g.strokeStyle = col; g.stroke(); g.font = `900 ${size * 0.8}px sans-serif`; g.fillStyle = col; g.fillText(ch, px, pz + 1); };
+    if (G.battleMapDraw) G.battleMapDraw(g, P, k, lbl, icon, s); else {
     lbl('Driftwood Coast', 0, 470, 26); lbl('Sunmeadow', 0, 250, 26); lbl('Whisperwood', -80, 60, 26); lbl('Frostpeak Highlands', -300, -330, 26, '#e8f2ff'); lbl('The Ashlands', 290, -380, 26, '#ffb090');
     // zone level ranges
     const ZP = { coast: [0, 470], meadow: [0, 250], wood: [-80, 60], highlands: [-300, -330], ashlands: [290, -380] };
@@ -621,7 +623,7 @@ export function openMap() {
     icon(VILLAGE.x, VILLAGE.z, '⌂', '#fff', 26); lbl('Seabreak Village', VILLAGE.x, VILLAGE.z - 22, 18, '#fff');
     for (const [x, z, t] of [[-40, 44, 'Ranger Outpost'], [-225, -318, 'Stonewatch'], [238, -346, 'Emberwatch']]) { icon(x, z + 20, '⌂', '#fff', 20); lbl(t, x, z, 16, '#fff'); }
     lbl('Bandit Camp', 200, -80, 15, '#ffb0a0'); icon(200, -62, '⚔', '#ff8a7a', 18); lbl('Old Ruins', -330, -440, 15, '#ffb0a0'); lbl("Troll King's Throne", -150, -500, 15, '#ffb0a0'); icon(-150, -485, '☠', '#ff6060', 20); lbl('Volcano', 400, -500, 17, '#ff8060'); lbl('Waterfall', -366, -120, 14, '#bfe8ff');
-    for (const gc of GOBLIN_CAMPS) { icon(gc[0], gc[1], '⛺', '#9cdc5a', 16); lbl(`Goblin Camp ${gc[2]}-${gc[3]}`, gc[0], gc[1] + 16, 11, '#c8f0a0'); }
+    for (const gc of GOBLIN_CAMPS) { icon(gc[0], gc[1], '⛺', '#9cdc5a', 16); lbl(`Goblin Camp ${gc[2]}-${gc[3]}`, gc[0], gc[1] + 16, 11, '#c8f0a0'); } }
     // quest areas
     for (const A of areas) { if (!A.tracked && mapSel !== A.q.id) continue; const hi = !mapSel || mapSel === A.q.id;
       for (const o of A.objs) { if (o.x == null) continue; const [px, pz] = P(o.x, o.z);
@@ -633,6 +635,7 @@ export function openMap() {
     g.save(); g.translate(px, pz); g.scale(k * 0.95, k * 0.95); g.rotate(-p.yaw + Math.PI); g.shadowColor = '#000'; g.shadowBlur = 8; g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -18); g.lineTo(12, 14); g.lineTo(0, 7); g.lineTo(-12, 14); g.closePath(); g.stroke(); g.fill(); g.restore();
   };
   const renderSide = () => {
+    if (G.battleMapSide) { G.battleMapSide(side); return; }
     side.innerHTML = `<h3>Quests</h3>` + (areas.length ? '' : '<p class="dim">No active quests. Look for a gold ! over a villager.</p>');
     for (const A of areas) {
       const d = el('div', 'mq' + (mapSel === A.q.id ? ' sel' : '') + (A.tracked ? '' : ' off'), `<div class="mqh"><i style="background:${A.col}"></i><b>${esc(A.q.title)}</b>${A.ready ? '<span class="rdy">Ready</span>' : ''}</div>` + A.objs.map(o => `<div class="mqo">${o.turnin ? '?' : '◆'} ${esc(o.label)}${o.x == null ? ' <span class="dim">(anywhere)</span>' : ''}</div>`).join(''));

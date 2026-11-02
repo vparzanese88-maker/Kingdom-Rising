@@ -12,7 +12,7 @@ export function aimRay(maxD = 120) {
   const cam = G.camera; cam.updateMatrixWorld(); const o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3());
   let best = null, bestT = maxD;
   for (const m of G.mobs) {
-    if (m.dead) continue;
+    if (m.dead || !foe(m)) continue;
     const c = tmp.copy(m.pos); c.y += m.height * 0.5;
     const oc = c.clone().sub(o), t = oc.dot(d); if (t < 0 || t > bestT) continue;
     const r = Math.max(m.radius, m.height * 0.45) * 1.05;
@@ -22,7 +22,7 @@ export function aimRay(maxD = 120) {
   if (!best) {
     let bestA = 0.075;
     for (const m of G.mobs) {
-      if (m.dead) continue;
+      if (m.dead || !foe(m)) continue;
       const c = tmp.copy(m.pos); c.y += m.height * 0.5;
       const oc = c.clone().sub(o), t = oc.length(); if (t > maxD || t < 1) continue;
       const ang = Math.acos(Math.min(1, oc.dot(d) / t)) - Math.atan2(Math.max(m.radius, m.height * 0.5), t);
@@ -44,9 +44,10 @@ export function groundPoint(maxD = 40) {
 }
 
 // ---- damage helpers (player -> mobs)
-export function mobsInRadius(p, r) { return G.mobs.filter(m => !m.dead && Math.hypot(m.pos.x - p.x, m.pos.z - p.z) < r + m.radius && Math.abs(m.pos.y - p.y) < 6 + m.height); }
+export const foe = (m) => m.team == null || m.team !== G.myTeam;
+export function mobsInRadius(p, r) { return G.mobs.filter(m => !m.dead && foe(m) && Math.hypot(m.pos.x - p.x, m.pos.z - p.z) < r + m.radius && Math.abs(m.pos.y - p.y) < 6 + m.height); }
 export function mobsInCone(p, yaw, range, half) {
-  return G.mobs.filter(m => { if (m.dead) return false; const dx = m.pos.x - p.x, dz = m.pos.z - p.z, d = Math.hypot(dx, dz); if (d > range + m.radius || Math.abs(m.pos.y - p.y) > 3 + m.height) return false; if (d < m.radius + 0.6) return true; return Math.abs(angDiff(yaw, Math.atan2(dx, dz))) < half + Math.atan2(m.radius, d); });
+  return G.mobs.filter(m => { if (m.dead || !foe(m)) return false; const dx = m.pos.x - p.x, dz = m.pos.z - p.z, d = Math.hypot(dx, dz); if (d > range + m.radius || Math.abs(m.pos.y - p.y) > 3 + m.height) return false; if (d < m.radius + 0.6) return true; return Math.abs(angDiff(yaw, Math.atan2(dx, dz))) < half + Math.atan2(m.radius, d); });
 }
 export function areaDamage(p, r, dmg, opts = {}) {
   let n = 0;
@@ -89,7 +90,7 @@ export function updateProjectiles(dt) {
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; p.life -= dt;
     p.vel.y -= p.grav * dt;
-    if (p.homing) { let best = null, bd = 25; for (const m of G.mobs) { if (m.dead) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } } if (best) { const tgt = best.pos.clone(); tgt.y += best.height * 0.5; const want = tgt.sub(p.pos).normalize().multiplyScalar(p.vel.length()); p.vel.lerp(want, Math.min(1, dt * 4)); } }
+    if (p.homing) { let best = null, bd = 25; for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } } if (best) { const tgt = best.pos.clone(); tgt.y += best.height * 0.5; const want = tgt.sub(p.pos).normalize().multiplyScalar(p.vel.length()); p.vel.lerp(want, Math.min(1, dt * 4)); } }
     const step = p.vel.clone().multiplyScalar(dt);
     const sub = Math.max(1, Math.ceil(step.length() / 0.6));
     let dead = false;
@@ -98,7 +99,7 @@ export function updateProjectiles(dt) {
       // hits
       if (p.owner === 'player') {
         for (const m of G.mobs) {
-          if (m.dead || p.hitSet.has(m)) continue;
+          if (m.dead || p.hitSet.has(m) || !foe(m)) continue;
           const c = tmp.copy(m.pos); c.y += m.height * 0.5;
           const r = Math.max(m.radius, m.height * 0.5) + p.radius * 1.4 + 0.15;
           if (c.distanceToSquared(p.pos) < r * r) { p.hitSet.add(m); impact(p, m); if (!p.pierce) { dead = true; break; } }

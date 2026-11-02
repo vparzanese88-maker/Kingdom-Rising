@@ -14,7 +14,7 @@ export const RACES = {
   orc: { name: 'Orc', playable: true, desc: 'Huge, green-skinned and tusked. Born for war. Highest Strength.', height: 1.08, width: 1.15, hp: 15, stats: { str: 17, dex: 10, int: 7, sta: 15 },
     skins: ['#6a8a4a', '#5a7a3e', '#7a9050', '#4e6a3a', '#8a9a5a'], hairs: ['#1a1410', '#2a2018', '#3a2a1a', '#5a4a3a', '#8a8a8a', '#a03a1a', '#d8d0c0'] },
   // villagers only
-  human: { name: 'Human', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
+  human: { name: 'Human', playable: true, desc: 'Hardy, ambitious and adaptable, the kingdoms of men build with timber and stone. Balanced in every attribute.', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
   elf: { name: 'Elf', height: 1.05, width: 0.9, hp: 0, stats: { str: 10, dex: 15, int: 13, sta: 10 }, skins: ['#f6dcc6', '#ead0b5', '#d8b998'], hairs: ['#f2e6b0', '#e8e8e8', '#2a1a10'] },
 };
 export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf';
@@ -322,6 +322,7 @@ export const ITEMS = {
   wood: { name: 'Wood', icon: '🪵', desc: 'Logs from a felled tree.', value: 1 },
   planks: { name: 'Planks', icon: '▤', desc: 'Sawn timber for crafting.', value: 3 },
   stone: { name: 'Stone', icon: '🪨', desc: 'Rough stone.', value: 1 },
+  gold_ore: { name: 'Gold Ore', icon: '◆', col: '#ffd040', desc: 'Pure gold.', value: 5 },
   copper_ore: { name: 'Copper Ore', icon: '◆', col: '#d0844c', desc: 'Smelt at a forge.', value: 2 },
   copper_ingot: { name: 'Copper Ingot', icon: '▬', col: '#d0844c', desc: 'Used for copper gear.', value: 6 },
   iron_ore: { name: 'Iron Ore', icon: '◆', col: '#a8a8b0', desc: 'Smelt at a forge. Needs a Copper Pickaxe or better.', value: 4 },
@@ -391,6 +392,7 @@ export const NODE_TYPES = {
   tree_snow: { name: 'Frost Pine', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [3, 5], time: 2.4, respawn: 90 },
   tree_dead: { name: 'Charred Tree', verb: 'Chop', tool: 'hatchet', tier: 1, item: 'wood', amt: [2, 4], time: 2.0, respawn: 90 },
   rock: { name: 'Boulder', verb: 'Mine', tool: 'pickaxe', tier: 1, item: 'stone', amt: [2, 4], time: 2.0, respawn: 80 },
+  gold_ore: { name: 'Gold Vein', verb: 'Mine', tool: 'pickaxe', tier: 1, item: 'gold_ore', amt: [3, 5], time: 2.4, respawn: 70 },
   copper: { name: 'Copper Vein', verb: 'Mine', tool: 'pickaxe', tier: 1, item: 'copper_ore', amt: [2, 3], time: 2.4, respawn: 100, extra: 'stone' },
   iron: { name: 'Iron Vein', verb: 'Mine', tool: 'pickaxe', tier: 2, item: 'iron_ore', amt: [2, 3], time: 2.8, respawn: 110, extra: 'stone' },
   mithril: { name: 'Mithril Vein', verb: 'Mine', tool: 'pickaxe', tier: 3, item: 'mithril_ore', amt: [1, 3], time: 3.2, respawn: 130 },

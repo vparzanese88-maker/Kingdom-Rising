@@ -25,6 +25,7 @@ function pivot(parent, x = 0, y = 0, z = 0, name) { const o = new THREE.Object3D
 // ---------- Outfits ----------
 // palette & features for classes and NPCs
 function outfitSpec(app) {
+  if (app.spec) return app.spec;
   const c = app.cls ? CLASSES[app.cls].colors : null;
   switch (app.outfit || app.cls) {
     case 'berserker': return { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, shawl: '#8a7a6a', sash: c.main };

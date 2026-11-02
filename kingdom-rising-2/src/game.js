@@ -22,7 +22,7 @@ export function newHero(o) {
   const starter = { berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
-    level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
+    raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
     pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
@@ -269,8 +269,9 @@ export function gainXp(h, n, why) {
   if (h.level >= LEVEL_CAP) return;
   h.xp += Math.round(n);
   G.hooks.xpGained && G.hooks.xpGained(Math.round(n), why);
-  while (h.level < LEVEL_CAP && h.xp >= xpForLevel(h.level)) {
-    h.xp -= xpForLevel(h.level); h.level++;
+  const need = G.xpReq || xpForLevel;
+  while (h.level < LEVEL_CAP && h.xp >= need(h.level)) {
+    h.xp -= need(h.level); h.level++;
     const unlocked = [];
     if (h.level === AREA_UNLOCK_LEVEL) { const w = h.equip[h.active]; unlocked.push(`Right click: ${w ? WEAPON_TYPES[w.wt].areaName : 'weapon ability'}`); }
     for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`[${a.key}] ${a.name}`);
@@ -320,6 +321,7 @@ export function hasLoot(mob) { return mob.loot && !mob.looted && (mob.loot.items
 export function gatherReward(h, node) {
   const N = node.def;
   const n = N.amt[0] + Math.floor(Math.random() * (N.amt[1] - N.amt[0] + 1));
+  if (G.hooks.gatherBank && G.hooks.gatherBank(N.item, n, node)) { gainXp(h, 4 + (N.tier || 1) * 3, N.name); return; }
   addItem(h, N.item, n);
   if (N.extra && Math.random() < 0.6) addItem(h, N.extra, 1);
   gainXp(h, 4 + (N.tier || 1) * 3, N.name);

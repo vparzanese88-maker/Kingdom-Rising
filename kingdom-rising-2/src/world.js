@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
+import { BATTLE, LAYOUT, WALL_R, battleRoadDist, nearTown } from './battlemap.js';
 
 export const world = {
   nodes: [], colliders: [], surfaces: [], stations: [], fires: [], lights: [], birds: [], interact: [],
@@ -242,7 +243,32 @@ function avoid(x, z, pad = 0) {
   for (const p of LAVA_POOLS) if (Math.hypot(x - p[0], z - p[1]) < p[2] + 5) return true;
   return false;
 }
+// Kingdom Battles: forests in clumps between towns, quarries and gold veins near each town and in the middle
+function battleScatter() {
+  const clear = (x, z, pad = 0) => { if (battleRoadDist(x, z) < 7 + pad) return true; for (const t of LAYOUT.towns) { if (Math.hypot(x - t.x, z - t.z) < WALL_R + 26 + pad) return true; for (const tw of t.towers) if (Math.hypot(x - tw[0], z - tw[1]) < 32 + pad) return true; } for (const c of LAYOUT.camps) if (Math.hypot(x - c.x, z - c.z) < 20 + pad) return true; for (const g of LAYOUT.gold) if (Math.hypot(x - g[0], z - g[1]) < 12) return true; for (const g of LAYOUT.stone) if (Math.hypot(x - g[0], z - g[1]) < 12) return true; return false; };
+  for (let i = 0; i < 22000; i++) {
+    const x = R(-540, 540), z = R(-540, 540), h = heightAt(x, z); if (h < 1.2 || h > 40) continue;
+    if (normalAt(x, z).y < 0.8 || clear(x, z)) continue;
+    const cl = fbm(x * 0.011 + 50, z * 0.011, 3) * 0.5 + 0.5;
+    if (rng() > smooth(0.42, 0.75, cl) * 0.55 + 0.012) continue;
+    const r = rng(), type = r < 0.45 ? 'tree_oak' : r < 0.8 ? 'tree_pine' : 'tree_birch';
+    const kind = type === 'tree_oak' ? (rng() < 0.5 ? 'oakA' : 'oakB') : type.replace('tree_', '');
+    addNode(type, x, z, R(1.6, 2.4), R(0, 6.28), kind, '#' + tmpC.setHSL(R(0.22, 0.32), R(0.25, 0.5), R(0.42, 0.6)).getHexString());
+  }
+  // a small wood lot right outside every town so the first workers have something to chop
+  for (const t of LAYOUT.towns) for (const sd of [-1, 1]) {
+    const cx = t.x + t.perp[0] * sd * 88 - t.dir[0] * 25, cz = t.z + t.perp[1] * sd * 88 - t.dir[1] * 25;
+    for (let k = 0; k < 18; k++) { const a = R(0, 6.28), d = Math.sqrt(rng()) * 24, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+      if (Math.hypot(x - t.x, z - t.z) < WALL_R + 18 || battleRoadDist(x, z) < 8) continue;
+      addNode(rng() < 0.5 ? 'tree_oak' : 'tree_pine', x, z, R(1.7, 2.3), R(0, 6.28), rng() < 0.5 ? 'oakA' : 'pine'); }
+  }
+  for (const [gx, gz] of LAYOUT.stone) for (let k = 0; k < 9; k++) { const a = R(0, 6.28), d = R(0, 9); addNode('rock', gx + Math.cos(a) * d, gz + Math.sin(a) * d, R(0.9, 1.4), R(0, 6.28), 'rock' + (k % 3)); }
+  for (const [gx, gz] of LAYOUT.gold) for (let k = 0; k < 5; k++) { const a = R(0, 6.28), d = R(0, 6); addNode('gold_ore', gx + Math.cos(a) * d, gz + Math.sin(a) * d, R(0.9, 1.15), R(0, 6.28), 'goldv'); }
+  for (let i = 0; i < 2600; i++) { const x = R(-540, 540), z = R(-540, 540), h = heightAt(x, z); if (h < 1.2 || clear(x, z, -3)) continue; if (rng() < 0.04) addNode('rock', x, z, R(0.7, 1.2), R(0, 6.28), 'rock' + (i % 3)); }
+  for (let i = 0; i < 2200; i++) { const x = R(-540, 540), z = R(-540, 540), h = heightAt(x, z); if (h < 1.5 || clear(x, z, -4)) continue; addInstance('bush', x, h - 0.15, z, R(0, 6.28), R(0.6, 1.4), '#' + tmpC.setHSL(R(0.2, 0.33), 0.45, R(0.4, 0.55)).getHexString()); }
+}
 function scatter() {
+  if (BATTLE) return battleScatter();
   // trees
   const tries = 26000;
   for (let i = 0; i < tries; i++) {
@@ -776,16 +802,11 @@ export function buildWorld(scene) {
     rock0: { geo: rockGeo(201), mat: solidMat, shadowDist: 50 }, rock1: { geo: rockGeo(202, '#8e8676'), mat: solidMat, shadowDist: 50 }, rock2: { geo: rockGeo(203, '#7a766e', 1.2), mat: solidMat, shadowDist: 50 },
     rockAsh: { geo: rockGeo(204, '#3a3230'), mat: solidMat, shadowDist: 50 }, rockSnow: { geo: rockGeo(205, '#c8ccd0'), mat: solidMat, shadowDist: 50 },
     copper: { geo: oreGeo(301, '#3fbf8a'), mat: oreMat('#0a3020'), shadowDist: 50 }, iron: { geo: oreGeo(302, '#c87a50'), mat: oreMat('#301508'), shadowDist: 50 },
-    mithril: { geo: oreGeo(303, '#8fd8ff'), mat: oreMat('#103850'), shadowDist: 50 }, starmetal: { geo: oreGeo(304, '#c890ff'), mat: oreMat('#401860'), shadowDist: 50 },
+    mithril: { geo: oreGeo(303, '#8fd8ff'), mat: oreMat('#103850'), shadowDist: 50 }, goldv: { geo: oreGeo(305, '#ffd040'), mat: oreMat('#4a3000'), shadowDist: 50 }, starmetal: { geo: oreGeo(304, '#c890ff'), mat: oreMat('#401860'), shadowDist: 50 },
     cotton: { geo: cottonGeo(), mat: leafMat, shadowDist: 30 }, healroot: { geo: herbGeo(), mat: new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: '#1a5a20', emissiveIntensity: 0.6 }), shadowDist: 20, noShadow: true },
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
-  buildVillage(scene);
-  buildRaft(scene);
-  buildCamps(scene);
-  buildBridges(scene);
-  buildLava(scene);
-  buildGoblinCamps(scene);
+  if (!BATTLE) { buildVillage(scene); buildRaft(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();
   buildChunks(scene);

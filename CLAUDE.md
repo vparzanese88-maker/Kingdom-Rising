@@ -23,7 +23,7 @@ End every reply that creates or changes a game with its GitHub Pages link, so it
 - Hold, Aim, Fire: https://vparzanese88-maker.github.io/Kingdom-Rising/hold-aim-fire/
 - Dead End Boulevard: https://vparzanese88-maker.github.io/Kingdom-Rising/dead-end-boulevard/
 - Kingdom Rising (was called Aeternum Wilds; lives in `aeternum-wilds/`; title screen has big Campaign, Kingdom Wars, Host Game and Join Game buttons, each mode with its own saved hero; Kingdom Wars runs on its own map at `?mode=wars`; online co-op: one player presses Host Game, friends press Join Game and type the code): https://vparzanese88-maker.github.io/Kingdom-Rising/aeternum-wilds/
-- Kingdom Rising II (single player fantasy RPG; races High Elf, Wood Elf, Dwarf, Orc; classes Warrior, Berserker, Ranger, Wizard; title screen holds up to 5 campaigns; lives in `kingdom-rising-2/`): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/
+- Kingdom Rising II (fantasy RPG; races Human, High Elf, Wood Elf, Dwarf, Orc; classes Warrior, Berserker, Ranger, Wizard; title screen holds up to 5 campaigns; Kingdom Battles mode on the title screen is an RTS-style town-vs-town battle that runs at `?mode=battle`; lives in `kingdom-rising-2/`): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/
 - Castle Wars (online: one player presses Multiplayer → Host Online Game and sends the invite link): https://vparzanese88-maker.github.io/Kingdom-Rising/castle-wars/
 
 When a new game is added, add its link to this list and to `arcade.html`.

@@ -17,6 +17,10 @@ import * as Game from './game.js';
 import * as UI from './ui.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
+import { BATTLE, SETUP, LAYOUT } from './battlemap.js';
+import * as Battle from './battle.js';
+import * as BUI from './battleui.js';
+import { ECON } from './battledata.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
 const canvas = document.getElementById('game');
@@ -51,6 +55,8 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   applyGraphics();
+  if (BATTLE) { Battle.initBattle(scene); spawnBattleCamps(); G.myTeam = Battle.B.myTeam; }
+  else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
   const vill = [[-6, 352, { race: 'human', sex: 'f', outfit: 'weaver', hair: '#7b2a15', hairStyle: 2, skin: '#e0ac85', height: 0.8 }], [12, 372, { race: 'human', sex: 'm', outfit: 'worker', hair: '#d9b26a', skin: '#f1c7a5', beard: 0, height: 0.75 }], [-18, 340, { race: 'dwarf', sex: 'm', outfit: 'worker', hair: '#6b3a17', skin: '#dba07a' }], [24, 360, { race: 'elf', sex: 'f', outfit: 'merchant', hair: '#e8e8e8', skin: '#ead0b5', hairStyle: 1 }]];
@@ -79,13 +85,14 @@ function boot() {
       const m = new Mob(k ? 'goblin_slinger' : 'goblin', lv(), pts[0].x, pts[0].z); m.patrol = { pts, i: 1 }; m.home.set(cx, heightAt(cx, cz), cz); G.mobs.push(m);
     }
   }
+  }
   hooks();
   initMenu();
   Menu.onPlay = startGame;
   addEventListener('resize', onResize); onResize();
   input();
   $('loading').hidden = true;
-  mode = 'title'; showTitle();
+  if (BATTLE) startBattle(); else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); goFull(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -119,6 +126,7 @@ function startGame(save) {
   if (!h.introDone) startIntro(); else { lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
 }
 function saveNow() {
+  if (BATTLE) return;
   const p = G.player, h = G.save; if (!p || !h) return;
   h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null;
   h.hp = p.hp; h.tod = G.tod;
@@ -126,12 +134,47 @@ function saveNow() {
   putSave(h);
 }
 function quitToTitle() {
+  if (BATTLE) { location.href = location.pathname; return; }
   saveNow(); UI.closeWin();
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); G.player = null; }
   $('hud').hidden = true; $('death').hidden = true; $('clickToPlay').hidden = true; $('intro').hidden = true; intro = null;
   if (document.pointerLockElement) document.exitPointerLock();
   mode = 'title'; showTitle();
 }
+
+// ---------- Kingdom Battles ----------
+function spawnBattleCamps() {
+  const TIERS = [[['wolf', 2, 4, 3], ['goblin', 3, 5, 3], ['boar', 2, 4, 3]], [['bear', 6, 8, 2], ['bandit', 7, 9, 3], ['tiger', 7, 9, 2]], [['troll', 12, 14, 2]]];
+  for (const c of LAYOUT.camps) {
+    const opts = TIERS[c.tier], [type, l0, l1, n] = opts[Math.floor(Math.random() * opts.length)];
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28, m = new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), c.x + Math.cos(a) * 4, c.z + Math.sin(a) * 4); G.mobs.push(m); }
+    if (c.tier === 0 && Math.random() < 0.5) { const m = new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3); G.mobs.push(m); }
+  }
+}
+function startBattle() {
+  const t = Battle.myTown(), cfg = SETUP.hero || {};
+  const h = Game.newHero({ name: cfg.name || 'Hero', race: SETUP.towns[0].race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
+  h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 };
+  h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
+  G.xpReq = ECON.xpNeed;
+  startGame(h);
+  BUI.init({ respawn, lock: lockPointer });
+  UI.banner('Kingdom Battles', `${t.name} · defend your Hall and destroy theirs. Press B to command.`, 5000);
+}
+function battleHooks() {
+  const H = G.hooks;
+  H.onKill = (mob, src) => { if (mob.team != null || (src && src !== G.player)) return; const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return; const g = 4 + mob.lv * 2; Battle.bank(Battle.myTown(), 'gold', g); Game.gainXp(G.save, 6 + mob.lv * 4, mob.name); UI.toast(`+${g} gold`, '🪙', 'gold'); };
+  H.gatherBank = (item, n) => { const t = Battle.myTown(); const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : item === 'gold_ore' ? 'gold' : null; if (!k) return false; const amt = k === 'wood' ? n * 4 : k === 'stone' ? n * 4 : n * 6; Battle.bank(t, k, amt); UI.toast(`+${amt} ${k}`, k === 'wood' ? '🪵' : k === 'stone' ? '🪨' : '🪙', 'gold'); return true; };
+  H.battleXp = (n) => Game.gainXp(G.save, n);
+  H.xpGained = (n, why) => { if (why) UI.toast(`+${n} XP · ${why}`, '✦', 'xp'); };
+  H.banner = (a, b, ms) => UI.banner(a, b, ms);
+  H.matchOver = (r) => BUI.matchOver(r);
+  H.killReward = (g, u) => UI.toast(`+${g} gold · ${u.name}`, '🪙', 'gold');
+  H.trained = (u) => UI.toast(`${u.name} ready`, '⚔', 'gold');
+  const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, '🪙', 'gold'); };
+  H.died = () => BUI.died();
+}
+const B_DEAD = (m) => false;
 
 // ---------- hooks ----------
 function hooks() {
@@ -162,11 +205,13 @@ function hooks() {
   H.saveQuit = quitToTitle;
   H.applyGraphics = applyGraphics;
   H.nodeDone = (n, p) => { if (n.type.startsWith('tree')) fallTree(n, p); else if (n.def.tool === 'pickaxe') { S.rockBreak(n); V.burst('stone', new THREE.Vector3(n.x, n.y + 0.5, n.z), 30, { speed: 6, size: 0.3, grav: 14 }); V.burst('dust', new THREE.Vector3(n.x, n.y + 0.5, n.z), 20, { speed: 3, size: 1.2, life: 1.5 }); } };
+  if (BATTLE) battleHooks();
   G.onUiClosed = () => { G.uiClosedAt = performance.now(); if (mode === 'game' && !G.player.dead && !intro) lockPointer(); };
   $('btnRespawn').onclick = () => respawn();
 }
 function respawn() {
   const p = G.player; if (!p) return;
+  if (BATTLE) { const t = Battle.myTown(); p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.place(t.x + t.dir[0] * 12, t.z + t.dir[1] * 12, t.yaw); $('death').hidden = true; lockPointer(); S.heal(); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 40, { speed: 3, vy: 3 }); return; }
   // nearest settlement
   const spots = [{ x: VILLAGE.x + 4, z: VILLAGE.z + 10 }, ...CAMPS.slice(0, 3).map(c => ({ x: c.x + 5, z: c.z + 5 }))];
   let best = spots[0]; for (const s of spots) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < Math.hypot(best.x - p.pos.x, best.z - p.pos.z)) best = s;
@@ -345,7 +390,7 @@ function updateZone(p) {
   if (z !== zoneNow) {
     const prev = zoneNow; zoneNow = z;
     const zn = ZONES.find(x => x.id === z);
-    if (prev && zn) { UI.banner(zn.name, `Level ${zn.lv}`); S.zone(); }
+    if (prev && zn && !BATTLE) { UI.banner(zn.name, `Level ${zn.lv}`); S.zone(); }
     M.setZone(z);
     if (G.save) G.save.zone = zn.name;
   }
@@ -360,6 +405,8 @@ function updateMobs(dt, p) {
   let chasing = false;
   for (const m of G.mobs) {
     const d = m.pos.distanceTo(p.pos);
+    if (m.isStruct) continue;
+    if (m.team != null) { if (!m.dead && !m.gone) m.root.visible = d < 170; m.update(dt); continue; }
     if (d > 110 && !m.dead) { m.root.visible = false; if (d > 150) continue; }
     else if (!m.dead) m.root.visible = true;
     if (d < 150) m.update(dt, p);
@@ -436,8 +483,9 @@ function gameUpdate(dt) {
   { let threat = false, elite = false; for (const m of G.mobs) { if (m.dead || m.state !== 'chase') continue; if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) > 35) continue; if (m.def.aggro > 0) threat = true; if (m.def.elite) elite = true; }
     musicFight = threat || elite ? Math.min(6, musicFight + dt) : Math.max(0, musicFight - dt * 0.4);
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
-  { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
+  if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
+  if (BATTLE) { Battle.update(dt); BUI.update(dt); }
   updateProjectiles(dt);
   for (let i = G.timers.length - 1; i >= 0; i--) if (G.timers[i].update(dt)) G.timers.splice(i, 1);
   const focus = p.pos;
@@ -453,6 +501,7 @@ function gameUpdate(dt) {
   V.updateNumbers(dt, camera, innerWidth, innerHeight);
   // crosshair hit flash
   // save
+  if (BATTLE) return;
   G.save.timePlayed = (G.save.timePlayed || 0) + dt;
   saveTimer += dt; if (saveTimer > 30) { saveTimer = 0; saveNow(); }
 }
@@ -461,5 +510,5 @@ function gameUpdate(dt) {
 M.play('title');
 setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
 addEventListener('pointerdown', function early() { A.init(); goFull(); removeEventListener('pointerdown', early); }, { once: true });
-window.KR2 = { G, startGame, quitToTitle, UI, Game, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
+window.KR2 = { G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
 setTimeout(boot, 60);

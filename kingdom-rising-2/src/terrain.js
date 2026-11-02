@@ -1,6 +1,7 @@
 // Terrain heights, biomes/zones, terrain mesh, water, sky and lighting.
 import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
+import { BATTLE, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
 
 export const HALF = 600, SEG = 300, CELL = (HALF * 2) / SEG;
 export const SEA = 0;
@@ -22,6 +23,13 @@ export const ROADS = [
 ];
 export const LAVA_POOLS = [[250, -380, 14], [320, -350, 10], [190, -420, 12], [300, -440, 9], [400, -482, 13]];
 export const BRIDGES = []; // filled at build: {x,z,ang,len,w,y}
+// Kingdom Battles uses its own map: move the campaign landmarks out of the way
+if (BATTLE) {
+  ROADS.length = 0; ROADS.push(...roadPolylines());
+  LAVA_POOLS.length = 0; CAMPS.length = 0; RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]);
+  VILLAGE.x = 9000; VILLAGE.z = 9000; PLATEAU.x = LAKE.x = 9000; PLATEAU.z = LAKE.z = 9000; VOLCANO.x = VOLCANO.z = 9000; FALL.x = FALL.z = 9000;
+  const t0 = LAYOUT.towns[0]; SPAWN.x = t0.x; SPAWN.z = t0.z; SPAWN.yaw = t0.yaw;
+}
 
 function riverDist(x, z) { return distToLine(x, z, RIVER); }
 function roadDist(x, z) { let best = 1e9; for (const r of ROADS) { const d = distToLine(x, z, r).d; if (d < best) best = d; } return best; }
@@ -29,6 +37,7 @@ export { roadDist };
 
 // raw height function (analytic). The mesh samples it; gameplay uses the mesh samples via heightAt().
 export function rawHeight(x, z, noCamps) {
+  if (BATTLE) return battleHeight(x, z);
   let h = 4.5 + fbm(x * 0.0035, z * 0.0035, 4) * 8 + fbm(x * 0.014 + 7, z * 0.014, 3) * 2.2;
   h = Math.max(h, 2.4 + fbm(x * 0.02, z * 0.02, 2) * 0.6);
   const north = smooth(240, -60, z);
@@ -92,6 +101,7 @@ export function heightAt(x, z) {
 export function normalAt(x, z) { const e = 1.5; const hx = heightAt(x + e, z) - heightAt(x - e, z), hz = heightAt(x, z + e) - heightAt(x, z - e); const n = new THREE.Vector3(-hx, 2 * e, -hz); return n.normalize(); }
 
 export function zoneAt(x, z) {
+  if (BATTLE) return 'meadow';
   const ash = smooth(-150, -290, z) * smooth(90, 250, x);
   if (ash > 0.4 || Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < 200) return 'ashlands';
   if (z < -150) return 'highlands';
@@ -101,6 +111,7 @@ export function zoneAt(x, z) {
   return 'meadow';
 }
 export function biomeMasks(x, z) {
+  if (BATTLE) return { hl: 0, ash: 0, forest: clamp(fbm(x * 0.006 + 70, z * 0.006 - 30, 3) * 1.6, 0, 0.8), dry: clamp(fbm(x * 0.004 - 40, z * 0.004, 2) * 1.2, 0, 0.35), meadow: 1 };
   return {
     hl: smooth(-70, -270, z) * smooth(20, -200, x) + Math.max(smooth(-440, -585, x), smooth(-430, -585, z)) * 0.6,
     ash: Math.max(smooth(-150, -290, z) * smooth(90, 250, x), clamp(1 - Math.hypot(x - VOLCANO.x, z - VOLCANO.z) / 230, 0, 1)),
@@ -109,7 +120,7 @@ export function biomeMasks(x, z) {
     meadow: smooth(170, 230, z),
   };
 }
-export function beachMask(x, z) { const cn = fbm(x * 0.006 + 40, z * 0.006, 3) * 26; return Math.max(smooth(375, 402, z + cn * 0.5), smooth(440, 500, x + cn) * smooth(-120, -40, z)); }
+export function beachMask(x, z) { if (BATTLE) return 0; const cn = fbm(x * 0.006 + 40, z * 0.006, 3) * 26; return Math.max(smooth(375, 402, z + cn * 0.5), smooth(440, 500, x + cn) * smooth(-120, -40, z)); }
 export function isWater(x, z) { return heightAt(x, z) < SEA - 0.4 || (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r && heightAt(x, z) < LAKE.y - 0.3); }
 export function waterLevelAt(x, z) { if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 4 || (Math.hypot(x - PLATEAU.x, z - PLATEAU.z) < PLATEAU.r && heightAt(x, z) > 20)) return LAKE.y; return SEA; }
 
@@ -184,6 +195,7 @@ export function buildTerrain(scene) {
     // village dirt
     const dvl = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
     if (dvl < 26) tmp.lerp(COL.road, (1 - dvl / 26) * 0.45 * (0.5 + n * 0.5));
+    if (BATTLE) for (const t of LAYOUT.towns) { const d = Math.hypot(x - t.x, z - t.z); if (d < WALL_R + 6) tmp.lerp(COL.road, (0.35 + (1 - d / (WALL_R + 6)) * 0.25) * (0.6 + n * 0.4)); }
     for (const c of CAMPS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r) tmp.lerp(m.hl > 0.5 ? COL.rock2 : COL.road, (1 - d / c.r) * 0.5); }
     for (const p of LAVA_POOLS) { const d = Math.hypot(x - p[0], z - p[1]); if (d < p[2] + 6) tmp.lerp(COL.basalt, smooth(p[2] + 6, p[2], d)); }
     col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;

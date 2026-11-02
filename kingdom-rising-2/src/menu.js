@@ -8,6 +8,8 @@ import { S, A, M } from './audio.js';
 import { confirmBox, openSettings, openControls, closeWin } from './ui.js';
 import { G } from './state.js';
 import * as Icons from './icons.js';
+import { SETUP_KEY } from './battlemap.js';
+import { BATTLE_RACES, DIFFS, TEAM_COLORS, TEAM_NAMES, TOWN_NAMES } from './battledata.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -53,11 +55,12 @@ export function goFull() { const d = document.documentElement; if (!document.ful
 
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
+  $('btnBattle').onclick = () => { S.click(); goFull(); showBattleSetup(); };
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
   for (const b of document.querySelectorAll('#title .mm, #title .btn')) b.addEventListener('mouseenter', () => S.hover());
-  $('cBack').onclick = () => { S.click(); closeCreator(); showTitle(); };
+  $('cBack').onclick = () => { S.click(); const b = C && C.battle; closeCreator(); if (b) showBattleSetup(); else showTitle(); };
   $('cPrev').onclick = () => { S.click(); if (tab > 0) { tab--; renderCreator(); } };
   $('cNext').onclick = () => { S.click(); if (tab < TABS.length - 1) { tab++; renderCreator(); } else finish(); };
   buildPreview();
@@ -68,15 +71,17 @@ const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
 const START = { berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
 const START_NAME = { berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
-const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
+const NAMES = { human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 'Owen'], f: ['Elena', 'Rowena', 'Isolde', 'Catrin', 'Alys', 'Brienne'] }, highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator(camp) {
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
+  if (camp && camp.battle) { C.battle = camp.battle; C.camp = null; C.race = camp.battle.towns[0].race; const r = RACES[C.race]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = C.race === 'dwarf' ? 3 : 0; $('cEyebrow').textContent = 'Kingdom Battles · your hero'; }
   $('title').hidden = true; $('creator').hidden = false;
   Menu.preview.active = true; rebuildPreview(); renderCreator();
 }
 function closeCreator() { $('creator').hidden = true; Menu.preview.active = false; }
 const RACE_INFO = {
+  human: { tag: 'Balanced & bold', icon: '🛡', best: 'Warrior', lore: 'The young kingdoms of men: farmers, soldiers and knights who build with timber and stone and never know when they are beaten.', perk: 'Even attributes and 10 bonus health: good at everything.' },
   highelf: { tag: 'Wise & magical', icon: '🧝', best: 'Wizard', lore: 'The last of the Silver Courts, tall and proud, with long ears and a memory that stretches back centuries. Magic runs in their blood.', perk: 'Highest Intellect: stronger spells and a bigger mana pool.' },
   woodelf: { tag: 'Swift & keen-eyed', icon: '🧝', best: 'Ranger', lore: 'Sun-browned hunters of the deep forests. They move without a sound and never miss what they aim at.', perk: 'Highest Dexterity: harder hitting bows and blades, more critical hits, faster endurance recovery.' },
   orc: { tag: 'Brutal & mighty', icon: '👹', best: 'Berserker', lore: 'Huge, tusked and green-skinned, orcs are raised for war and fear nothing. What they lack in subtlety they make up for in sheer strength.', perk: 'Highest Strength and great Stamina, plus 15 bonus health. Hits harder than anyone.' },
@@ -98,7 +103,7 @@ function renderCreator() {
   const tabs = $('cTabs'); tabs.innerHTML = '';
   TABS.forEach((t, i) => { const b = el('button', (i === tab ? 'on' : i < tab ? 'done' : ''), `<span class="n">${i < tab ? '✓' : i + 1}</span>${t}`); b.onclick = () => { S.click(); tab = i; renderCreator(); }; tabs.appendChild(b); });
   const body = $('cBody'); body.innerHTML = '';
-  $('cPrev').disabled = tab === 0; $('cNext').textContent = tab === TABS.length - 1 ? 'Begin Adventure' : 'Next';
+  $('cPrev').disabled = tab === 0; $('cNext').textContent = tab === TABS.length - 1 ? (C.battle ? 'To Battle!' : 'Begin Adventure') : 'Next';
   const opt = (o, on, pick) => { const c = el('button', 'opt' + (on ? ' on' : ''), `<div class="oi">${o.icon || ''}</div><div><b>${o.name}</b>${o.small ? `<small>${o.small}</small>` : ''}</div>${o.tag ? `<span class="tagr">${o.tag}</span>` : ''}`); c.onclick = () => { S.click(); pick(); renderCreator(); rebuildPreview(); }; c.onmouseenter = () => S.hover(); return c; };
   const seg = (list, cur, pick) => { const g = el('div', 'segs'); for (const o of list) g.appendChild(opt(o, o.id === cur, () => pick(o.id))); return g; };
   const R = RACES[C.race];
@@ -107,7 +112,8 @@ function renderCreator() {
   if (tab === 0) {
     intro('Your race shapes how you look and sets your starting attributes. Attributes only grow further through the gear you find and craft.');
     sect('Race');
-    for (const k of Object.keys(RACES).filter(k => RACES[k].playable)) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
+    if (C.battle) intro(`Your race was chosen with your town: you lead the ${RACES[C.race].name} town.`);
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || k === C.race))) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
     body.appendChild(el('div', 'lore', `${RACE_INFO[C.race].lore}<br><b style="color:var(--g1)">${RACE_INFO[C.race].perk}</b>`));
     body.appendChild(el('div', '', statBars(R.stats) + '<p class="cintro" style="margin-top:10px;font-size:13px;color:var(--mut)">Strength: melee damage. Dexterity: bows, daggers, spears, crits and endurance. Intellect: spells and mana. Stamina: health.</p>'));
     sect('Body type');
@@ -154,12 +160,72 @@ function renderCreator() {
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
+  if (C.battle) { const st = Object.assign({}, C.battle, { hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, app: Object.assign({}, C.app) } }); try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
   putSave(h);
   closeCreator();
   goFull();
   Menu.onPlay(h);
+}
+
+// ---------- Kingdom Battles setup ----------
+const RACE_NAME = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
+const RACE_BLURB = { human: 'Timber and stone town · Footmen, Archers, Musketeers, Knights', orc: 'Spiked palisades · Axe Brutes, Crossbowmen, Shamans, Warlords', highelf: 'White and gold spires · Spearguards, Longbows, Battle Mages, Blademasters', woodelf: 'Living-wood walls · Wardens, Sharpshooters, Druids, Ancients', dwarf: 'Iron and stone · Ironshields, Thunderers, Ironbreakers, Rune Priests' };
+let BS = null;
+export function showBattleSetup() {
+  let ov = document.getElementById('bsetup'); if (!ov) { ov = el('div', ''); ov.id = 'bsetup'; document.body.appendChild(ov); }
+  ov.hidden = false; $('title').hidden = true;
+  BS = BS || { step: 'mode', towns: [{ race: 'human', team: 0 }, { race: 'orc', ai: true, diff: 'normal', team: 1 }], teams: false };
+  renderBattleSetup();
+}
+function closeBattleSetup() { const ov = document.getElementById('bsetup'); if (ov) ov.hidden = true; }
+function renderBattleSetup() {
+  const ov = document.getElementById('bsetup'); ov.innerHTML = '';
+  const panel = el('div', 'bsp'); ov.appendChild(panel);
+  const head = el('div', 'bsh', `<div class="eyebrow">Kingdom Battles</div><h1>${BS.step === 'mode' ? 'Choose how to play' : 'Set up the battle'}</h1>`); panel.appendChild(head);
+  if (BS.step === 'mode') {
+    const g = el('div', 'bsmodes');
+    const sp = el('button', 'bsmode', `<div class="bsi">⚔</div><b>Single Player</b><span>You against 1 to 3 computer kingdoms. Pick their races and how hard they play.</span>`); sp.onclick = () => { S.click(); BS.step = 'setup'; renderBattleSetup(); };
+    const mp = el('button', 'bsmode soon', `<div class="bsi">🌐</div><b>Multiplayer</b><span>Host or join with a code, up to 4 players on any side. Empty towns are run by the computer. <em>Coming in the next update.</em></span>`); mp.onclick = () => { S.error(); };
+    g.append(sp, mp); panel.appendChild(g);
+    const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); closeBattleSetup(); showTitle(); }; panel.appendChild(back);
+    return;
+  }
+  const lay = el('div', 'bslay'); panel.appendChild(lay);
+  const list = el('div', 'bslist'); lay.appendChild(list);
+  const raceSel = (t) => { const s = el('select'); for (const r of BATTLE_RACES) { const o = el('option', '', RACE_NAME[r]); o.value = r; s.appendChild(o); } s.value = t.race; s.onchange = () => { t.race = s.value; renderBattleSetup(); }; return s; };
+  BS.towns.forEach((t, i) => {
+    const row = el('div', 'bstown', `<div class="bsdot" style="background:${TEAM_COLORS[BS.teams ? t.team : i]}"></div><div class="bsname"><b>${i === 0 ? 'You' : 'Computer ' + i}</b><small>${RACE_BLURB[t.race]}</small></div>`);
+    const f = el('div', 'bsfields');
+    const lab = (txt, inp) => { const w = el('label', '', `<span>${txt}</span>`); w.appendChild(inp); f.appendChild(w); };
+    lab('Race', raceSel(t));
+    if (i > 0) { const d = el('select'); for (const k in DIFFS) { const o = el('option', '', DIFFS[k].name); o.value = k; d.appendChild(o); } d.value = t.diff; d.onchange = () => { t.diff = d.value; }; lab('Difficulty', d); }
+    if (BS.teams) { const s = el('select'); for (let k = 0; k < 4; k++) { const o = el('option', '', TEAM_NAMES[k] + ' team'); o.value = k; s.appendChild(o); } s.value = t.team; s.onchange = () => { t.team = +s.value; renderBattleSetup(); }; lab('Team', s); }
+    row.appendChild(f);
+    if (i > 1) { const x = el('button', 'btn bsx', '✕'); x.title = 'Remove'; x.onclick = () => { S.click(); BS.towns.splice(i, 1); renderBattleSetup(); }; row.appendChild(x); }
+    list.appendChild(row);
+  });
+  if (BS.towns.length < 4) { const a = el('button', 'btn bsadd', '+ Add a computer opponent'); a.onclick = () => { S.click(); BS.towns.push({ race: BATTLE_RACES[(BS.towns.length * 2) % 5], ai: true, diff: 'normal', team: BS.towns.length }); renderBattleSetup(); }; list.appendChild(a); }
+  const tm = el('label', 'bsteams', `<input type="checkbox" ${BS.teams ? 'checked' : ''}> <span>Teams (otherwise everyone for themselves)</span>`); tm.querySelector('input').onchange = (e) => { BS.teams = e.target.checked; if (!BS.teams) BS.towns.forEach((t, i) => t.team = i); renderBattleSetup(); }; list.appendChild(tm);
+  // map preview: towns on a ring, you at the bottom
+  const N = BS.towns.length, R = 70, pts = BS.towns.map((t, i) => { const a = Math.PI / 2 + i * Math.PI * 2 / N; return [100 + Math.cos(a) * R, 100 + Math.sin(a) * R]; });
+  let svg = `<svg viewBox="0 0 200 200" class="bsmap"><rect x="4" y="4" width="192" height="192" rx="14" fill="#2a3a1e" stroke="#6a4a1a" stroke-width="3"/>`;
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) svg += `<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="#a08a5a" stroke-width="3" stroke-dasharray="6 4"/>`;
+  BS.towns.forEach((t, i) => { svg += `<circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="15" fill="${TEAM_COLORS[BS.teams ? t.team : i]}" stroke="#fff3d0" stroke-width="2"/><text x="${pts[i][0]}" y="${pts[i][1] + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${i === 0 ? 'YOU' : 'CPU'}</text><text x="${pts[i][0]}" y="${pts[i][1] + (pts[i][1] > 100 ? 28 : -20)}" text-anchor="middle" font-size="9" fill="#f0e4c8">${RACE_NAME[t.race]}</text>`; });
+  svg += '</svg>';
+  const side = el('div', 'bsside', svg + `<p>Each kingdom starts walled in its own town with two archer towers on the road out. Destroy every enemy <b>Town Hall</b> to win. Matches last about 30 minutes.</p>`);
+  lay.appendChild(side);
+  const row = el('div', 'bsbtns');
+  const back = el('button', 'btn', '← Back'); back.onclick = () => { S.click(); BS.step = 'mode'; renderBattleSetup(); };
+  const go = el('button', 'btn gold big', 'Create your hero →');
+  go.onclick = () => {
+    const teams = new Set(BS.towns.map(t => t.team)); if (teams.size < 2) { S.error(); return; }
+    S.click(); closeBattleSetup();
+    const setup = { towns: BS.towns.map((t, i) => ({ race: t.race, ai: i > 0, diff: t.diff || 'normal', team: BS.teams ? t.team : i })), seed: Math.floor(Math.random() * 1e6) };
+    showCreator({ battle: setup });
+  };
+  row.append(back, go); panel.appendChild(row);
 }
 
 // ---------- preview scene ----------

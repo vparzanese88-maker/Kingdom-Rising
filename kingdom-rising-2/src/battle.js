@@ -787,8 +787,6 @@ export function initBattle(scene) {
     t.hall = new Structure(t, 'hall', t.x, t.z); B.structs.push(t.hall); G.mobs.push(t.hall);
     for (const [x, z] of t.towerSpots) { const s = new Structure(t, 'tower', x, z); B.structs.push(s); G.mobs.push(s); }
     t.towers = B.structs.filter(s => s.town === t && s.kind === 'tower');
-    for (let k = 0; k < 3; k++) { const a = rand(0, 6.28); const w = new Unit(t, t.roster.worker, t.x + t.dir[0] * 12 + Math.cos(a) * 3, t.z + t.dir[1] * 12 + Math.sin(a) * 3); t.units.push(w); }
-    for (let k = 0; k < 4; k++) { const d = rosterOf(t.race)[k % 2]; const u = new Unit(t, d, t.gateIn[0] - t.dir[0] * 4 + t.perp[0] * (k - 1.5) * 2, t.gateIn[1] - t.dir[1] * 4 + t.perp[1] * (k - 1.5) * 2); t.units.push(u); }
     if (t.ai) makeAIHero(t);
   }
   for (const s of B.structs) s.hostile = s.team !== B.myTeam;

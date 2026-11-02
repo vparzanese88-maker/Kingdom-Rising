@@ -468,7 +468,18 @@ function workerTick(u, dt) {
   return { want: null, speed: 0 };
 }
 // path around town walls: in and out only through the gate, and around the outside of the wall instead of into it
-export function nav(u, dest) {
+export function nav(u, dest) { const r = nav0(u, dest); return hallAround(u, r); }
+// inside a town, walk around the town hall instead of into it
+function hallAround(u, p) {
+  for (const t of B.towns) {
+    if (Math.hypot(u.pos.x - t.x, u.pos.z - t.z) > WALL_R + 2) continue;
+    const R = (t.hall && !t.hall.dead ? 7.6 : 0) + u.radius; if (R < 1) return p;
+    const r = distToLine(t.x, t.z, [[u.pos.x, u.pos.z], p]);
+    if (r.d < R && r.t > 0.01 && r.t < 0.99) { const au = Math.atan2(u.pos.z - t.z, u.pos.x - t.x), a2 = Math.atan2(p[1] - t.z, p[0] - t.x), da = angDiff(au, a2); const a = au + Math.sign(da || 1) * Math.min(Math.abs(da), 0.7); return [t.x + Math.cos(a) * (R + 2.5), t.z + Math.sin(a) * (R + 2.5)]; }
+  }
+  return p;
+}
+function nav0(u, dest) {
   let T = null, bd = 1e9; for (const t of B.towns) { const d = Math.hypot(u.pos.x - t.x, u.pos.z - t.z); if (d < bd) { bd = d; T = t; } }
   const D = (x, z) => Math.hypot(x - T.x, z - T.z);
   // also check the town around the destination
@@ -482,7 +493,7 @@ export function nav(u, dest) {
   const ring = (a) => [T.x + Math.cos(a) * (WALL_R + 8), T.z + Math.sin(a) * (WALL_R + 8)];
   const axis = (a) => [T.x + T.dir[0] * a, T.z + T.dir[1] * a];
   // off to the side of the gate: line up on the gate axis first (inside or outside the wall), then walk straight through
-  if (inU && !inD) { if (lat > 2.2) return axis(Math.min(along, WALL_R - 7)); return axis(WALL_R + 12); }
+  if (inU && !inD) { if (lat > 2.2) return axis(clamp(along, 13, WALL_R - 7)); return axis(WALL_R + 12); }
   if (!inU && inD) {
     const da = angDiff(au, ag);
     if (Math.abs(da) > 0.3 && ru < WALL_R + 25) return ring(au + Math.sign(da) * Math.min(Math.abs(da), 0.55));

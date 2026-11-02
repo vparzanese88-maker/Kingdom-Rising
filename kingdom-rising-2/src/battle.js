@@ -79,6 +79,13 @@ function buildWalls(t, lvl) {
       box(s, L + 0.05, 0.3, 2.3, mIron, 0, H * 0.35, 0); if (lvl >= 2) box(s, L + 0.05, 0.3, 2.3, mTrim, 0, H * 0.7, 0);
     }
   }
+  // turrets along the wall from the first upgrade, banners from the second, gold caps on the third
+  if (lvl >= 1) out.forEach((a, i) => { if (i % 6 !== 3) return; const x = t.x + Math.cos(a) * WALL_R, z = t.z + Math.sin(a) * WALL_R, s = new THREE.Group(); s.position.set(x, heightAt(x, z), z); g.add(s); const th = H + 2.2 + lvl * 0.6;
+    if (t.race === 'orc' || t.race === 'woodelf') { cyl(s, 1.3, 1.5, th, mWood, 0, th / 2 - 0.3, 0, 7); cone(s, 1.8, 1.8 + lvl * 0.3, t.race === 'orc' ? mDark : mLeaf, 0, th + 0.6, 0, 7); }
+    else { cyl(s, 1.5, 1.7, th, mStone, 0, th / 2 - 0.3, 0, 10); for (let k = 0; k < 6; k++) { const aa = k / 6 * 6.28; box(s, 0.6, 0.7, 0.6, mStone, Math.cos(aa) * 1.45, th + 0.1, Math.sin(aa) * 1.45); } if (lvl >= 3) cone(s, 1.9, 2.6, mat(st.roof, 0.7), 0, th + 1.6, 0, 10); }
+    if (lvl >= 3) cyl(s, 1.75, 1.75, 0.3, mTrim, 0, th * 0.6, 0, 10);
+    if (lvl >= 2) { const b = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.6), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); b.position.set(-Math.cos(a) * 1.8, th - 1.8, -Math.sin(a) * 1.8); b.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI / 2; s.add(b); } });
+  if (lvl >= 2) for (const sd of [-1, 1]) { const a = ag + sd * step * 2.3, x = t.x + Math.cos(a) * (WALL_R - 2.5), z = t.z + Math.sin(a) * (WALL_R - 2.5), s = new THREE.Group(); s.position.set(x, heightAt(x, z), z); g.add(s); cyl(s, 0.1, 0.12, 2.6, mat('#3a2a1a'), 0, 1.3, 0, 6); cyl(s, 0.35, 0.2, 0.4, mat('#2a2a2e', 0.5, 0.7), 0, 2.7, 0, 8); ball(s, 0.3, mat('#ff8a20', 0.5, 0, { emissive: '#ff6a10', emissiveIntensity: 2.4 }), 0, 3.0, 0, 1); }
   // gate towers on both sides of the opening
   for (const sd of [-1, 1]) {
     const a = ag + sd * step * 1.0, x = t.x + Math.cos(a) * WALL_R, z = t.z + Math.sin(a) * WALL_R, y = heightAt(x, z), gh = H + 2.5;
@@ -101,13 +108,15 @@ function wallColliders(t) {
 }
 
 // ---------- buildings inside the walls ----------
-function house(g, race, x, z, rot, s = 1) {
+function house(g, race, x, z, rot, s = 1, lvl = 0) {
   const st = STYLE[race] || STYLE.human, y = heightAt(x, z), h = new THREE.Group(); h.position.set(x, y, z); h.rotation.y = rot; h.scale.setScalar(s); g.add(h);
+  if (lvl >= 2 && (race === 'human' || race === 'dwarf')) { h.position.y += 0; const up = new THREE.Group(); up.position.y = 2.6; h.add(up); box(up, 5.2, 2.4, 4.2, mat(race === 'human' ? st.wall2 : st.stone, 0.95), 0, 1.2, 0); for (const xx of [-2.55, 2.55]) box(up, 0.2, 2.4, 4.25, mat(st.dark), xx, 1.2, 0); h.position.y += 0; h.userData.tall = true; }
   if (race === 'human') { box(h, 5, 3, 4, mat(st.wall2, 0.95), 0, 1.5, 0); for (const xx of [-2.45, 2.45]) box(h, 0.2, 3, 4.05, mat(st.dark), xx, 1.5, 0); const r = cone(h, 4.2, 2.6, mat(Math.random() < 0.5 ? st.roof : st.roof2, 0.9), 0, 4.3, 0, 4, Math.PI / 4); r.scale.set(1.1, 1, 0.85); box(h, 0.6, 1.6, 0.6, mat(st.stone), 1.4, 4.6, 0.8); }
   else if (race === 'orc') { cyl(h, 2.4, 2.7, 2.2, mat(st.wood), 0, 1.1, 0, 9); cone(h, 3.3, 3.2, mat(Math.random() < 0.5 ? st.roof : '#a8784a', 0.95), 0, 3.8, 0, 9); for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28; cone(h, 0.12, 1.1, mat('#e8dfc4', 0.8), Math.cos(a) * 1.6, 5.2, Math.sin(a) * 1.6, 5); } }
   else if (race === 'highelf') { cyl(h, 2.0, 2.2, 5.5, mat(st.wall2, 0.8), 0, 2.75, 0, 10); cyl(h, 2.25, 2.25, 0.25, mat(st.trim, 0.5, 0.6), 0, 5.4, 0, 10); cone(h, 2.5, 4.2, mat(Math.random() < 0.5 ? st.roof : st.roof2, 0.6), 0, 7.6, 0, 10); }
   else if (race === 'woodelf') { cyl(h, 0.8, 1.2, 6, mat(st.wood), 0, 3, 0, 7); ball(h, 3.2, mat('#3e7a2e', 0.9), 0, 6.5, 0, 1); cyl(h, 2.4, 2.4, 2.2, mat('#8a6a40'), 0, 2.4, 0, 9); cone(h, 2.9, 1.8, mat(st.roof, 0.9), 0, 4.4, 0, 9); }
   else { box(h, 5.5, 2.6, 4.5, mat(st.stone, 0.95), 0, 1.3, 0); const r = cone(h, 4.4, 1.8, mat(st.roof, 0.7, 0.3), 0, 3.5, 0, 4, Math.PI / 4); r.scale.set(1.15, 1, 0.95); box(h, 0.8, 2, 0.8, mat(st.stone), 1.6, 4, 1); }
+  if (h.userData.tall) for (const c of h.children) if (c.position.y >= 3.4) c.position.y += 2.4;
   addCircle(x, z, 2.9 * s, 'house');
 }
 // storehouse: where peasants and heroes unload wood and stone
@@ -133,6 +142,38 @@ function buildYard(g, t) {
   cyl(s, 0.08, 0.1, 5, mat('#4a3020'), 2.6, 2.5, 1.6, 5); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(3.2, 4.6, 1.6); s.add(fl);
   addCircle(x, z, 2.2, 'house');
 }
+// what a town gains with each upgrade: plaza, market, smithy, temple, keep, lamps and statues
+function townExtras(g, t, lvl) {
+  const st = STYLE[t.race] || STYLE.human, ag = Math.atan2(t.dir[1], t.dir[0]);
+  const polar = (a, r) => [t.x + Math.cos(ag + a) * r, t.z + Math.sin(ag + a) * r];
+  const place = (x, z, rot) => { const s = new THREE.Group(); s.position.set(x, heightAt(x, z), z); s.rotation.y = rot; g.add(s); return s; };
+  const face = (x, z) => Math.atan2(t.x - x, t.z - z);
+  if (lvl >= 1) {
+    // stone plaza around the hall
+    const pz = place(t.x, t.z, 0); cyl(pz, 13 + lvl * 1.5, 13 + lvl * 1.5, 0.12, mat(lvl >= 2 ? '#a8a294' : '#8a7a62', 0.95), 0, 0.02, 0, 32);
+    // market stalls either side of the road to the hall
+    for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const [x, z] = polar(sd * (0.42 + k * 0.28), 15); const s = place(x, z, face(x, z)); for (const [px, pz2] of [[-1.2, -0.8], [1.2, -0.8], [-1.2, 0.8], [1.2, 0.8]]) cyl(s, 0.06, 0.06, 2.2, mat(st.dark), px, 1.1, pz2, 5); box(s, 2.8, 0.1, 2, mat(['#c83a2a', '#e0c040', '#3a7ac8', '#3aa04a'][(k + (sd > 0 ? 2 : 0)) % 4], 0.9), 0, 2.25, 0); box(s, 2.4, 0.8, 0.9, mat(st.wood), 0, 0.4, 0.3); for (let i = 0; i < 4; i++) ball(s, 0.16, mat(['#e04030', '#f0c040', '#80c040', '#c08040'][i]), -0.8 + i * 0.5, 0.95, 0.3, 0); addCircle(x, z, 1.3, 'house'); }
+    // smithy with a glowing forge and smoke
+    { const [x, z] = polar(-Math.PI * 0.55, 16); t.houses.push([x, z]); const s = place(x, z, face(x, z)); box(s, 5, 2.6, 4, mat(st.stone, 0.95), 0, 1.3, 0); const r = cone(s, 4, 2, mat(st.roof, 0.85), 0, 3.6, 0, 4, Math.PI / 4); r.scale.set(1.1, 1, 0.9); box(s, 0.9, 3.5, 0.9, mat(st.stone), 1.6, 3.5, -1); box(s, 1.2, 0.8, 1, mat('#ff5a10', 0.6, 0, { emissive: '#ff4a00', emissiveIntensity: 1.6 }), -1, 0.7, 2.05); box(s, 0.8, 0.8, 0.5, mat('#3a3a3e', 0.5, 0.8), 1.3, 0.6, 2.4); addBox(x, z, 2.6, 2.1, face(x, z), 'house'); (world.smokes = world.smokes || []).push(V3(x + Math.cos(ag) * 0, heightAt(x, z) + 5.5, z)); }
+  }
+  if (lvl >= 2) {
+    // temple behind the hall
+    const [x, z] = polar(Math.PI, 16.5); t.houses.push([x, z]); const s = place(x, z, face(x, z));
+    const light = t.race === 'orc' ? '#8a3a2a' : t.race === 'highelf' ? '#f4f0e6' : st.stone;
+    box(s, 7, 4, 5, mat(light, 0.9), 0, 2, 0); for (let i = 0; i < 4; i++) cyl(s, 0.3, 0.3, 4, mat(st.wall2, 0.9), -2.6 + i * 1.75, 2, 2.8, 8);
+    const r = cone(s, 5.6, 2.6, mat(st.roof, 0.7), 0, 5.3, 0, 4, Math.PI / 4); r.scale.set(1.2, 1, 0.85);
+    ball(s, 0.5, mat(st.trim, 0.3, 0.9, { emissive: st.trim, emissiveIntensity: 0.4 }), 0, 7, 0, 1); addBox(x, z, 3.6, 2.8, face(x, z), 'house');
+  }
+  if (lvl >= 3) {
+    // a tall keep tower beside the hall, statues by the road and lamp posts
+    const [x, z] = polar(Math.PI * 0.8, 11); const s = place(x, z, 0);
+    cyl(s, 2.4, 2.8, 20, mat(st.stone, 0.9), 0, 10, 0, 10); cyl(s, 2.9, 2.9, 0.6, mat(st.trim, 0.4, 0.7), 0, 20, 0, 10); cone(s, 3, 5, mat(st.roof, 0.7), 0, 22.8, 0, 10);
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(1.4, 26.5, 0); s.add(fl); cyl(s, 0.08, 0.08, 4, mat('#4a3020'), 0, 26, 0, 5);
+    addCircle(x, z, 2.9, 'house');
+    for (const sd of [-1, 1]) { const [sx, sz] = polar(sd * 0.22, 26); const q = place(sx, sz, face(sx, sz)); box(q, 1.4, 1.2, 1.4, mat(st.stone), 0, 0.6, 0); const fig = new THREE.Group(); fig.position.y = 1.2; q.add(fig); cyl(fig, 0.35, 0.45, 1.8, mat(st.trim, 0.35, 0.85), 0, 0.9, 0, 8); ball(fig, 0.32, mat(st.trim, 0.35, 0.85), 0, 2.1, 0, 1); addCircle(sx, sz, 0.9, 'house'); }
+  }
+  if (lvl >= 1) for (let k = 0; k < 4 + lvl * 2; k++) { const a = (k / (4 + lvl * 2)) * Math.PI * 2 + 0.3; if (Math.abs(angDiff(a, 0)) < 0.35) continue; const [x, z] = polar(a, 9.5); const s = place(x, z, 0); cyl(s, 0.07, 0.09, 3, mat('#2a2a2e', 0.5, 0.7), 0, 1.5, 0, 6); ball(s, 0.22, mat('#ffd890', 0.4, 0, { emissive: '#ffb050', emissiveIntensity: 2 }), 0, 3.1, 0, 1); }
+}
 function buildInner(t, lvl) {
   const g = new THREE.Group(), n = TOWN_LEVELS[lvl].houses;
   // houses on a ring, leaving the road from the gate to the hall clear
@@ -148,8 +189,9 @@ function buildInner(t, lvl) {
     if (Math.abs(angDiff(a, ag)) < 0.55) continue;
     if (t.houses.some(h => Math.hypot(h[0] - x, h[1] - z) < 8)) continue;
     t.houses.push([x, z]);
-    house(g, t.race, x, z, Math.atan2(t.x - x, t.z - z), 0.95 + (k % 3) * 0.06); placed++;
+    house(g, t.race, x, z, Math.atan2(t.x - x, t.z - z), (0.95 + (k % 3) * 0.06) * (1 + lvl * 0.1), lvl); placed++;
   }
+  townExtras(g, t, lvl);
   // barracks / training yard
   { const a = ag + Math.PI * 0.55, x = t.x + Math.cos(a) * 16, z = t.z + Math.sin(a) * 16; t.barracks = [x, z]; const st = STYLE[t.race]; const y = heightAt(x, z); const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = Math.atan2(t.x - x, t.z - z); g.add(b);
     box(b, 7, 3.2, 5, mat(t.race === 'highelf' ? st.wall2 : st.stone, 0.95), 0, 1.6, 0); const r = cone(b, 5.4, 2.4, mat(st.roof, 0.85), 0, 4.4, 0, 4, Math.PI / 4); r.scale.set(1.3, 1, 0.9);
@@ -210,6 +252,7 @@ class Structure {
       this.height = H + 2; this.topY = H;
     }
     g.position.copy(this.pos); g.rotation.y = this.town.yaw;
+    if (this.kind === 'hall') { const k = 1 + l * 0.1; g.scale.setScalar(k); this.col.r = 6.4 * k; this.radius = 7 * k; this.height *= k; this.topY *= k; }
     this.root.add(mergeGroup(g)); this.root.position.set(0, 0, 0);
     // range ring for towers (Smite style: only fights what is inside it)
     if (this.kind === 'tower') {

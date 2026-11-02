@@ -67,6 +67,8 @@ function glow(c) { return matCache[c] || (matCache[c] = new THREE.MeshBasicMater
 export function spawnProjectile(o) {
   // o: {pos, vel, grav, radius, dmg, owner, kind, life, pierce, aoe, el, onHit, scale}
   const p = Object.assign({ grav: 0, radius: 0.3, life: 4, pierce: false, hitSet: new Set(), t: 0 }, o);
+  // Kingdom Battles: your arrows fly straight first, then slowly drop
+  if (G.battleFx && p.owner === 'player' && (p.kind === 'arrow' || p.kind === 'spectral') && !p.flat) { p.flat = 0.35; p.grav *= 0.6; }
   let m;
   switch (p.kind) {
     case 'fireball': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#fff0b0'))); m.children[0].scale.setScalar(0.18 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ff6010', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.34 * (p.scale || 1)); m.add(h); } break;
@@ -89,7 +91,8 @@ export function updateProjectiles(dt) {
   const P = G.projectiles;
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; p.life -= dt;
-    p.vel.y -= p.grav * dt;
+    // 'flat': fly straight for that long, then let gravity ease in over 0.8 s
+    p.vel.y -= p.grav * (p.flat ? Math.min(1, Math.max(0, (p.t - p.flat) / 0.8)) : 1) * dt;
     if (p.homing) { let best = null, bd = 25; for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } } if (best) { const tgt = best.pos.clone(); tgt.y += best.height * 0.5; const want = tgt.sub(p.pos).normalize().multiplyScalar(p.vel.length()); p.vel.lerp(want, Math.min(1, dt * 4)); } }
     const step = p.vel.clone().multiplyScalar(dt);
     const sub = Math.max(1, Math.ceil(step.length() / 0.6));

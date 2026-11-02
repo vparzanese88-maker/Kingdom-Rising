@@ -584,4 +584,6 @@ M.play('title');
 setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
 addEventListener('pointerdown', function early() { A.init(); goFull(); removeEventListener('pointerdown', early); }, { once: true });
 window.KR2 = { G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
+// online host in a hidden tab: keep the battle running on a timer so nobody's game freezes
+setInterval(() => { if (BATTLE && MP.on && MP.host && document.hidden && mode === 'game' && G.player) { G.time += 0.1; world.time.value = G.time; gameUpdate(0.1); } }, 100);
 setTimeout(() => { if (BATTLE && SETUP.mp) lobby().then(() => { computeLayout(); applyBattleTerrain(); boot(); }); else boot(); }, 60);

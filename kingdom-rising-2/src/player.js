@@ -413,8 +413,8 @@ export class Player {
       const from = this.handPos(true), dir = this.aimDir(from);
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
-      const speed = (38 + charge * (G.battleFx ? 62 : 40)) * (G.battleFx ? 1.2 : 1);
-      spawnProjectile({ flat: G.battleFx ? 0.35 + charge * 0.9 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      const speed = G.battleFx ? 34 + charge * 36 : 38 + charge * 40;
+      spawnProjectile({ flat: G.battleFx ? 0.6 + charge * 1.1 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());

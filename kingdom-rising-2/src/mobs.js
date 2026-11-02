@@ -263,6 +263,7 @@ export class Mob {
   }
   die(src) {
     if (this.ring) this.ring.visible = false;
+    if (this.stars) this.stars.visible = false;
     this.dead = true; this.deadT = 0; this.hp = 0; this.state = 'dead'; this.respawnT = this.def.boss ? 300 : this.def.elite ? 180 : 40;
     S.yelp(this.def.variant || 'human', this.pos);
     if (this.def.variant === 'skeleton') S.hit('bone', this.pos, 1.5);
@@ -293,6 +294,11 @@ export class Mob {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     for (const m of this.mats) m.emissive && m.emissive.setScalar(this.hitFlash > 0 ? 0.6 : 0);
     if (this.frozenMesh) this.frozenMesh.visible = st.frozen > 0;
+    // stun stars circling the head
+    if (st.stun > 0) { if (!this.stars) { this.stars = new THREE.Group(); const sm = new THREE.MeshBasicMaterial({ color: '#ffe040' }); for (let k = 0; k < 4; k++) { const st2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), sm); const a = k / 4 * Math.PI * 2; st2.position.set(Math.cos(a) * 0.38, 0, Math.sin(a) * 0.38); this.stars.add(st2); } G.scene.add(this.stars); } this.stars.visible = true; this.stars.position.set(this.pos.x, this.pos.y + this.height + 0.25, this.pos.z); this.stars.rotation.y += dt * 5; }
+    else if (this.stars) this.stars.visible = false;
+    if (st.slow > 0 && Math.random() < dt * 4) V.emit('frost', this.pos.clone().setY(this.pos.y + 0.3), { speed: 0.4, size: 0.18, life: 0.6 });
+    if (st.bleed > 0 && Math.random() < dt * 6) V.burst('blood', this.pos.clone().setY(this.pos.y + this.height * 0.6), 1, { speed: 0.5, size: 0.08 });
     if (st.frozen > 0 && !this.frozenMesh) { this.frozenMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#bfefff', transparent: true, opacity: 0.45, roughness: 0.1, emissive: '#3080a0', emissiveIntensity: 0.4 })); this.frozenMesh.scale.set(this.radius * 1.4 / this.root.scale.x, this.height * 0.6 / this.root.scale.x, this.radius * 1.4 / this.root.scale.x); this.frozenMesh.position.y = this.height * 0.45 / this.root.scale.x; this.root.add(this.frozenMesh); }
     const disabled = st.frozen > 0 || st.stun > 0;
     if (this.state !== 'idle' && this.state !== 'wander') this.sitting = false;

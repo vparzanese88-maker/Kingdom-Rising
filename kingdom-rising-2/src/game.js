@@ -37,6 +37,7 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
+  if (h.inv) fixHands(h);
   return h; }
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
@@ -173,22 +174,55 @@ export function gainMastery(h, wt, n) {
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + h.level * 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+// hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
+export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
+export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }
+const warn = (t) => { G.hooks.toast && G.hooks.toast(t, '⚠', 'bad'); S.error(); };
 export function equipFromInv(h, idx, slot) {
   const it = h.inv[idx]; if (!it || !it.kind) return false;
-  if (!canEquip(h, it)) { G.hooks.toast && G.hooks.toast(`${CLASSES[h.cls].name}s can't use that.`, '⚠', 'bad'); S.error(); return false; }
-  if (it.lvl > h.level) { G.hooks.toast && G.hooks.toast(`Requires level ${it.lvl}.`, '⚠', 'bad'); S.error(); return false; }
-  let target = it.kind === 'weapon' ? (slot || (it.wt === 'shield' ? 'w2' : h.active)) : it.slot;
-  if (it.kind === 'acc' && it.slot === 'ring') target = slot || (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
-  h.inv[idx] = h.equip[target] || null; h.equip[target] = it;
+  if (!canEquip(h, it)) { warn(`${CLASSES[h.cls].name}s can't use that.`); return false; }
+  if (it.lvl > h.level) { warn(`Requires level ${it.lvl}.`); return false; }
+  let target = it.kind === 'weapon' ? 'w1' : it.slot;
+  if (it.kind === 'acc' && it.slot === 'ring') target = slot === 'ring1' || slot === 'ring2' ? slot : (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
+  if (it.kind === 'weapon') {
+    const hd = handsOf(it.wt), main = h.equip.w1;
+    if (hd === 'off' || (hd === 'one' && slot === 'w2')) {
+      if (!main && hd === 'one') target = 'w1';
+      else if (isTwoHanded(main)) { warn(`Your ${main.name} needs both hands. Hold a sword or mace in your main hand to use an off hand.`); return false; }
+      else if (!main) { warn('Hold a sword or mace in your main hand before equipping a shield.'); return false; }
+      else target = 'w2';
+    } else if (hd === 'two' && h.equip.w2) {
+      // the off-hand item goes back into the bag
+      const free = h.inv.findIndex((x, i) => !x && i !== idx);
+      const off = h.equip.w2;
+      if (!main) { h.inv[idx] = off; h.equip.w2 = null; }
+      else if (free < 0) { warn('Your bag is too full to put away your off-hand item.'); return false; }
+      else { h.inv[free] = off; h.equip.w2 = null; }
+      if (!main) { h.equip.w1 = it; h.active = 'w1'; S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); checkEquipObjectives(h); return true; }
+    }
+  }
+  if (slot && slot !== target && it.kind !== 'weapon') { warn(`That doesn't go in that slot.`); return false; }
+  h.inv[idx] = h.equip[target] || null; h.equip[target] = it; h.active = 'w1';
   S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
   checkEquipObjectives(h);
   return true;
 }
-export function unequip(h, slot) {
-  if (!h.equip[slot]) return; if (slot === h.active && WEAPON_TYPES && !h.equip[slot === 'w1' ? 'w2' : 'w1']) { G.hooks.toast && G.hooks.toast('Keep at least one weapon.', '⚠', 'bad'); return; }
-  const i = h.inv.indexOf(null); if (i < 0) { G.hooks.toast('Your bag is full!', '⚠', 'bad'); return; }
-  h.inv[i] = h.equip[slot]; h.equip[slot] = null; if (slot === h.active) h.active = slot === 'w1' ? 'w2' : 'w1';
+export function unequip(h, slot, toIdx) {
+  if (!h.equip[slot]) return false;
+  if (slot === 'w1' && (!h.equip.w2 || h.equip.w2.wt === 'shield')) { warn('Keep at least one weapon in your main hand.'); return false; }
+  const i = toIdx != null && !h.inv[toIdx] ? toIdx : h.inv.indexOf(null); if (i < 0) { warn('Your bag is full!'); return false; }
+  h.inv[i] = h.equip[slot]; h.equip[slot] = null;
+  if (slot === 'w1') { h.equip.w1 = h.equip.w2; h.equip.w2 = null; }
+  h.active = 'w1';
   G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
+  return true;
+}
+// fix gear from older saves: two-handers never share the hands with anything
+function fixHands(h) {
+  const e = h.equip;
+  if (!e.w1 && e.w2 && e.w2.wt !== 'shield') { e.w1 = e.w2; e.w2 = null; }
+  if (e.w2 && (isTwoHanded(e.w1) || isTwoHanded(e.w2) || !e.w1)) { const k = h.inv.indexOf(null); if (k >= 0) { h.inv[k] = e.w2; e.w2 = null; } }
+  h.active = 'w1';
 }
 
 // ---------- XP & levels ----------

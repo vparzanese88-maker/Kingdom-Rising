@@ -28,6 +28,24 @@ export function banner(title, sub = '', ms = 3200) {
 }
 export function hint(text, ms = 6000) { const h = $('hint'); if (!text) { h.hidden = true; return; } h.innerHTML = text; h.hidden = false; clearTimeout(h._t); h._t = setTimeout(() => h.hidden = true, ms); }
 
+// ---------- left-click combo descriptions ----------
+const HIT_NAME = { swing1: 'Slash', swing2: 'Backhand', swing3: 'Heavy Slash', off1: 'Off-hand Strike', smash: 'Overhead Smash', stabR: 'Stab', stabL: 'Stab', spin: 'Spinning Slash', thrust1: 'Thrust', thrust2: 'Thrust', thrust3: 'Lunge' };
+export function comboSteps(wt) {
+  const W = WEAPON_TYPES[wt]; if (!W) return [];
+  if (W.kind === 'bow') return [{ n: 'Arrow', d: 100, tags: ['Ranged'] }];
+  if (W.kind === 'staff') return [{ n: W.element === 'fire' ? 'Firebolt' : W.element === 'frost' ? 'Frostbolt' : 'Arcane Bolt', d: 100, tags: [W.element === 'fire' ? '🔥 Burns' : W.element === 'frost' ? '🐌 Slows' : 'Ranged'] }];
+  const C = COMBOS[wt]; if (!C) return [];
+  return C.chain.map(st => { const t = [];
+    if (st.cleave) t.push('Cleave'); if (st.aoe) t.push('Area'); if (st.line) t.push('Pierces line');
+    if (st.bleed) t.push('🩸 Bleed'); if (st.stun) t.push('💫 Stun ' + st.stun + 's'); if (st.shock) t.push('Shockwave');
+    if (st.blunt || wt === 'mace' || wt === 'maceshield') t.push('Ignores armour'); if (st.knock) t.push('Knockback'); if (st.crit) t.push('+' + Math.round(st.crit * 100) + '% crit');
+    return { n: HIT_NAME[st.a] || 'Strike', d: Math.round(st.m * 100), tags: t }; });
+}
+export function comboText(wt) {
+  const C = COMBOS[wt], st = comboSteps(wt); if (!st.length) return '';
+  return 'Left click combo:\n' + st.map((x, i) => `${i + 1}. ${x.n} (${x.d}% dmg)${x.tags.length ? ' · ' + x.tags.join(', ') : ''}`).join('\n') + (C ? '\n' + C.trait : '');
+}
+
 // ---------- ability bar ----------
 let abilEls = null;
 export function buildAbilityBar() {
@@ -42,16 +60,20 @@ export function buildAbilityBar() {
   const hb = [0, 1, 2, 3, 4, 5].map(i => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
   const f = mk('F', Icons.abilityIcon('shield'), 'small');
-  abilEls = { ws, lmb, rmb, hb, f };
+  const combo = el('div', 'combostrip'); bar.appendChild(combo);
+  abilEls = { ws, lmb, rmb, hb, f, combo };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
   if (!abilEls) return;
   const p = G.player, h = p.h, W = p.W;
   const [w1, w2] = abilEls.ws.children;
-  for (const [e, k] of [[w1, 'w1'], [w2, 'w2']]) { const it = h.equip[k]; e.innerHTML = `<span class="ai">${it ? Icons.itemSvg(it) : ''}</span>`; e.classList.toggle('active', h.active === k); e.title = (it ? it.name : 'Empty') + ' (Q swaps)'; }
+  for (const [e, k] of [[w1, 'w1'], [w2, 'w2']]) { const it = h.equip[k]; e.innerHTML = `<span class="ai">${it ? Icons.itemSvg(it) : ''}</span>`; e.classList.toggle('active', h.active === k); e.title = (it ? it.name : 'Empty') + (k === 'w1' ? ' (main hand)' : ' (off hand)'); }
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
-  abilEls.lmb.title = W ? (W.kind === 'melee' ? 'Left click: attack. ' + (COMBOS[p.weapon.wt] ? COMBOS[p.weapon.wt].trait : '') : W.kind === 'bow' ? 'Left click: shoot' : 'Left click: cast a bolt') : '';
+  abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
+  { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    cs._n = st.length; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = 'Hold F to block';
   { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `Right click: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
@@ -81,6 +103,8 @@ function setCd(e, left, total) { const c = e.querySelector('.cd'); if (left > 0.
 // ---------- HUD per frame ----------
 let hudT = 0;
 export function updateHUD(dt) {
+  if (abilEls && abilEls.combo._n > 1) { const p0 = G.player, n = abilEls.combo._n, cur = p0.atk && p0.combo ? (p0.combo - 1) % n : (p0.comboT > 0 ? p0.combo % n : -1);
+    if (abilEls.combo._c !== cur) { abilEls.combo._c = cur; abilEls.combo.querySelectorAll('.cstep').forEach((e, i) => e.classList.toggle('on', i === cur)); } }
   const p = G.player, h = p.h;
   $('hpI').style.width = (p.hp / p.maxHp * 100) + '%'; $('hpT').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
   $('manaBar').hidden = p.maxMana <= 0;
@@ -107,7 +131,9 @@ export function updateHUD(dt) {
     $('xpI').style.width = h.level >= LEVEL_CAP ? '100%' : (h.xp / need * 100) + '%';
     $('xpT').textContent = h.level >= LEVEL_CAP ? `Level ${LEVEL_CAP} (max)` : `Level ${h.level}  ·  ${h.xp} / ${need} XP`;
     const b = []; if (p.buffs.cry > 0) b.push(`📯 Battle Cry ${Math.ceil(p.buffs.cry)}s`); if (p.buffs.fury > 0) b.push(`🐺 Fury ${Math.ceil(p.buffs.fury)}s`); if (p.stealth > 0) b.push(`☁ Unseen ${Math.ceil(p.stealth)}s`); if (p.buffs.nextCrit) b.push('✦ Next hit x2'); if (p.regen) b.push('❤ Regenerating');
-    if (p.db) { const L = { bleed: '🩸 Bleeding', poison: '☠ Poisoned', burn: '🔥 Burning', slow: '🐌 Slowed', stun: '💫 Stunned' }; for (const k in p.db) if (p.db[k].t > 0) b.push(`<span style="color:#ff8a7a">${L[k]} ${Math.ceil(p.db[k].t)}s</span>`); }
+    { const box = $('debuffs'); const L = { bleed: ['🩸', 'Bleeding', '#c82020'], poison: ['☠', 'Poisoned', '#5ab030'], burn: ['🔥', 'Burning', '#ff7020'], slow: ['🐌', 'Slowed', '#4a8ad8'], stun: ['💫', 'Stunned', '#e0c020'] }; let html = '';
+      if (p.db) for (const k in p.db) if (p.db[k].t > 0 && L[k]) html += `<div class="dbx" style="--c:${L[k][2]}" title="${L[k][1]}"><span>${L[k][0]}</span><b>${Math.ceil(p.db[k].t)}</b><small>${L[k][1]}</small></div>`;
+      if (box._h !== html) { box.innerHTML = html; box._h = html; } }
     if (h.food && h.food.t > 0) { const F = FOOD_BUFFS[h.food.id]; b.push(`🍖 ${F.name} ${Math.ceil(h.food.t / 60)}m`); }
     if (p.buffs.adren > 0) b.push(`⚡ Adrenaline ${Math.ceil(p.buffs.adren)}s`); if (p.buffs.tq > 0) b.push(`✚ Tourniquet ${Math.ceil(p.buffs.tq)}s`); if (p.buffs.surge > 0) b.push(`💧 Mana Surge ${Math.ceil(p.buffs.surge)}s`); if (p.buffs.barrier > 0) b.push(`🛡 Ice Barrier ${Math.round(p.buffs.barrier)}`); if (p.buffs.swind > 0) b.push(`💨 Second Wind ${Math.ceil(p.buffs.swind)}s`);
     $('buffs').innerHTML = b.map(x => `<div class="b">${x}</div>`).join('');
@@ -152,10 +178,13 @@ export function updatePlates() {
       if (m.dead) continue;
       const d = m.pos.distanceTo(p.pos); if (d > 32 && m !== G.target) continue;
       const hostile = m.hostile || m.provoked;
-      if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile) continue;
+      const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0;
+      if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb) continue;
       const cls = m.def.elite ? 'elite' : m.hostile || m.provoked ? 'hostile' : 'passive';
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
-      show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
+      const S2 = m.status; let db = '';
+      for (const [k, ic, c] of [['stun', '💫', '#e0c020'], ['frozen', '❄', '#8ad8ff'], ['slow', '🐌', '#4a8ad8'], ['bleed', '🩸', '#c82020'], ['burn', '🔥', '#ff7020']]) if (S2[k] > 0) db += `<span style="--c:${c}">${ic}<i>${Math.ceil(S2[k])}</i></span>`;
+      show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }
   }
   for (const [k, e] of plates) if (!seen.has(k)) { e.remove(); plates.delete(k); }
@@ -266,7 +295,55 @@ function slotEl(h, k, tipEl, c) {
   d.onmouseenter = () => { if (it) showTip(tipEl, it, null, k, c); };
   d.onclick = () => { if (it) { S.click(); selInv = { eq: k }; showTip(tipEl, it, null, k, c, true); } };
   d.ondblclick = () => { if (it) { Game.unequip(h, k); renderInventory(c); } };
+  d.dataset.eq = k; if (it) dragable(d, { eq: k }, it, c);
+  if (k === 'w2' && Game.isTwoHanded(h.equip.w1)) { d.classList.add('twoh'); d.innerHTML = `<div class="ic" style="opacity:.35">${Icons.itemSvg(h.equip.w1)}</div><div class="lb">Both hands</div>`; d.title = h.equip.w1.name + ' needs both hands'; }
   return d;
+}
+// ---- click and drag items between the bag and the gear slots ----
+let dragEnd = 0;
+function dragable(node, src, it, c) {
+  node.addEventListener('click', e => { if (performance.now() - dragEnd < 200) e.stopImmediatePropagation(); }, true);
+  node.addEventListener('dblclick', e => { if (performance.now() - dragEnd < 300) e.stopImmediatePropagation(); }, true);
+  node.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    const x0 = e.clientX, y0 = e.clientY; let gh = null, over = null;
+    const tgt = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY); return t && (t.closest('[data-inv],[data-eq]') || (t.id === 'portrait' ? t : null)); };
+    const mv = (ev) => {
+      if (!gh) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return; gh = el('div', 'dragghost', Icons.itemSvg(it)); document.body.appendChild(gh); node.classList.add('dragsrc'); }
+      gh.style.left = ev.clientX + 'px'; gh.style.top = ev.clientY + 'px';
+      const t = tgt(ev); if (t !== over) { over && over.classList.remove('dropover'); over = t; over && over.classList.add('dropover'); }
+    };
+    const up = (ev) => {
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', up);
+      if (!gh) return; gh.remove(); over && over.classList.remove('dropover'); node.classList.remove('dragsrc'); dragEnd = performance.now();
+      const t = tgt(ev); if (t) { dropItem(src, t); selInv = null; renderInventory(c); }
+    };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up);
+  };
+}
+function dropItem(src, t) {
+  const h = G.player.h, inv = h.inv;
+  const toI = t.dataset.inv != null ? +t.dataset.inv : null, toE = t.dataset.eq || null, portrait = t.id === 'portrait';
+  if (src.i != null) {
+    const a = inv[src.i]; if (!a) return;
+    if (toI != null) {
+      if (toI === src.i) return;
+      const b = inv[toI];
+      if (b && !a.kind && !b.kind && a.id === b.id) { const mv = Math.min(a.n, Game.STACK - b.n); b.n += mv; a.n -= mv; if (a.n <= 0) inv[src.i] = null; }
+      else { inv[src.i] = b; inv[toI] = a; }
+      S.click(); G.hooks.invChanged && G.hooks.invChanged(); return;
+    }
+    if (portrait) { if (a.kind) Game.equipFromInv(h, src.i); else quickUse(src.i); return; }
+    if (toE) { if (!a.kind) { S.error(); return; } if (a.kind === 'weapon' && toE !== 'w1' && toE !== 'w2') { toast("Weapons go in your hands.", '⚠', 'bad'); S.error(); return; } Game.equipFromInv(h, src.i, toE); }
+    return;
+  }
+  const k = src.eq, it = h.equip[k]; if (!it) return;
+  if (toI != null) { const b = inv[toI]; if (!b) Game.unequip(h, k, toI); else if (b.kind) Game.equipFromInv(h, toI, k); else Game.unequip(h, k); return; }
+  if (toE && toE !== k) {
+    const pair = (k === 'ring1' && toE === 'ring2') || (k === 'ring2' && toE === 'ring1') || ((k === 'w1' || k === 'w2') && (toE === 'w1' || toE === 'w2') && h.equip.w1 && h.equip.w2 && Game.handsOf(h.equip.w1.wt) === 'one' && Game.handsOf(h.equip.w2.wt) === 'one');
+    if (pair) { [h.equip[k], h.equip[toE]] = [h.equip[toE], h.equip[k]]; S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); }
+    else S.error();
+  }
 }
 function ghost(kind) {
   const m = { helm: { kind: 'armor', akind: 'mail', slot: 'head', tier: 0 }, amulet: { kind: 'acc', slot: 'neck', tier: 1 }, shoulders: { kind: 'armor', akind: 'mail', slot: 'shoulders', tier: 0 }, cloak: { kind: 'acc', slot: 'back', tier: 1 }, chest: { kind: 'armor', akind: 'mail', slot: 'chest', tier: 0 }, wrists: { kind: 'armor', akind: 'leather', slot: 'wrists', tier: 0 }, hands: { kind: 'armor', akind: 'leather', slot: 'hands', tier: 0 }, waist: { kind: 'armor', akind: 'leather', slot: 'waist', tier: 0 }, boots: { kind: 'armor', akind: 'leather', slot: 'feet', tier: 0 }, ring: { kind: 'acc', slot: 'ring', tier: 1 }, charm: { kind: 'acc', slot: 'trinket', tier: 1 }, sword: { kind: 'weapon', wt: 'greatsword', tier: 0 } };
@@ -276,7 +353,7 @@ function renderInventory(c) {
   const h = G.player.h, p = G.player, D = Game.heroDerived(h);
   c.innerHTML = '';
   const lay = el('div', 'invlay');
-  const tip = el('div', 'tip big', '<span style="color:var(--dim)">Hover over an item to inspect it. Click to select, double-click to equip, use or take off.</span>');
+  const tip = el('div', 'tip big', '<span style="color:var(--dim)">Hover over an item to inspect it. Drag items between your bag and gear slots. Click to select, double-click to equip, use or take off.</span>');
   // paper doll
   const doll = el('div', 'doll');
   const L = el('div', 'col'), R = el('div', 'col');
@@ -303,7 +380,8 @@ function renderInventory(c) {
   const grid = el('div', 'grid');
   h.inv.forEach((it, i) => {
     const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : '') + (selInv && selInv.i === i ? ' sel' : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
-    if (it) { cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; }
+    if (it) { cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; dragable(cell, { i }, it, c); }
+    cell.dataset.inv = i;
     grid.appendChild(cell);
   });
   right.appendChild(grid); right.appendChild(tip);
@@ -316,7 +394,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   let html = `<div class="tiphead"><div class="tic r${it.rarity || 0}">${Icons.itemSvg(it)}</div><div>`;
   if (it.kind) {
     html += `<b style="color:${RARITY[it.rarity].col}">${esc(it.name)}</b><div class="dim">${RARITY[it.rarity].name} · ${it.kind === 'weapon' ? WEAPON_TYPES[it.wt].name : SLOT_LABEL[it.slot === 'ring' ? 'ring1' : it.slot]} · level ${it.lvl}</div></div></div>`;
-    if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'Dual wield' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : 'Staff'} · Right click: ${W.areaName}</div>`; }
+    if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'Dual wield' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : 'Staff'} · Right click: ${W.areaName}</div>`; const cs = comboSteps(it.wt); if (cs.length) html += `<div class="tipcombo"><div class="dim">Left click${COMBOS[it.wt] ? ' combo' : ''}</div>${cs.map((x, i) => `<div><b>${i + 1}. ${x.n}</b> <span class="dim">${x.d}% dmg</span>${x.tags.length ? ' · <span style="color:#ffcf70">' + x.tags.join(', ') + '</span>' : ''}</div>`).join('')}${COMBOS[it.wt] ? `<div style="color:#9fd0ff">${COMBOS[it.wt].trait}</div>` : ''}</div>`; }
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
     if (!Game.canEquip(hh, it)) html += `<div style="color:var(--bad)">${CLASSES[hh.cls].name}s can't use this.</div>`;
@@ -328,7 +406,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   if (!withButtons) return;
   const row = el('div', 'row');
   const b = (t, fn, cls = 'btn') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); renderInventory(c); }; row.appendChild(x); };
-  if (idx != null && it.kind === 'weapon') { b('Equip as Main Weapon', () => Game.equipFromInv(hh, idx, 'w1')); b('Equip as Second Weapon', () => Game.equipFromInv(hh, idx, 'w2')); }
+  if (idx != null && it.kind === 'weapon') { if (Game.handsOf(it.wt) === 'off') b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); else if (Game.handsOf(it.wt) === 'two') b('Equip (both hands)', () => Game.equipFromInv(hh, idx, 'w1')); else { b('Equip in Main Hand', () => Game.equipFromInv(hh, idx, 'w1')); if (hh.equip.w1 && !Game.isTwoHanded(hh.equip.w1)) b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); } }
   else if (idx != null && it.kind === 'acc' && it.slot === 'ring') { b('Wear on left hand', () => Game.equipFromInv(hh, idx, 'ring1')); b('Wear on right hand', () => Game.equipFromInv(hh, idx, 'ring2')); }
   else if (idx != null && it.kind) b('Equip', () => Game.equipFromInv(hh, idx));
   else if (idx != null && ITEMS[it.id]?.use) b('Use', () => quickUse(idx));
@@ -608,9 +686,9 @@ export function openControls(fromPause) {
   const grp = (title, rows) => { const d = el('div'); d.appendChild(el('h4', '', title)); for (const [k, t] of rows) d.appendChild(el('div', 'krow', `<span class="kbd">${k}</span><span>${t}</span>`)); g.appendChild(d); };
   g.appendChild(el('div', 'helpnote', '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
   grp('Moving', [['W A S D', 'Walk. Moving backwards is slower.'], ['Shift (hold)', 'Sprint. Uses endurance.'], ['Shift (tap)', 'Dodge roll: you can\'t be hit mid-roll.'], ['Space', 'Jump'], ['Mouse', 'Look around'], ['Wheel / V', 'Switch between first and third person']]);
-  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Swap weapon sets']]);
+  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item']]);
   grp('World', [['E', 'Talk, loot, skin, chop, mine, gather and use crafting stations'], ['Red swords', 'Above a name: this enemy attacks on sight'], ['Ring colour', 'Under an enemy: grey/green easy, blue fair, white even, yellow hard, red dangerous']]);
-  grp('Windows', [['I', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['L', 'Quest log'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
+  grp('Windows', [['I', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['J', 'Journal (quest log)'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
   c.appendChild(g);
   const back = el('button', 'btn gold', 'Back'); back.style.marginTop = '18px'; back.onclick = () => { S.click(); fromPause && G.player ? openPause() : closeWin(); }; c.appendChild(back);
 }

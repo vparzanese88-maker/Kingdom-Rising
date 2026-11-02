@@ -784,7 +784,7 @@ export class Player {
     S.dodge(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 10, { speed: 2, size: 0.4 });
   }
   swapWeapon() {
-    if (pairedWt(this.h)) { G.hooks.toast && G.hooks.toast('Your main and off-hand weapons are used together', '⚔'); return; }
+    if (pairedWt(this.h) || !this.h.equip.w2 || this.h.equip.w2.wt === 'shield' || this.h.active === 'w1') { G.hooks.toast && G.hooks.toast('Your main and off hand fight together. Two-handed weapons fill both hands.', '⚔'); return; }
     if (this.atk || this.dodge) return;
     const other = this.h.active === 'w1' ? 'w2' : 'w1';
     if (!this.h.equip[other]) { G.hooks.toast && G.hooks.toast('No second weapon equipped (equip one from your bag)', '⚔', 'bad'); return; }

@@ -49,6 +49,8 @@ export function init(o) {
       for (const s of t.towers) icon(s.pos.x, s.pos.z, s.dead ? '✕' : '▲', t.color, 13);
       lbl(`${t.name}${t.isMe ? ' (you)' : ''}`, t.x, t.z + (t.z > 0 ? 38 : -38), 17, '#fff'); g.globalAlpha = 1;
     }
+    // allied heroes and players by name
+    if (G.allyHeroes) for (const ah of G.allyHeroes()) { const [px, pz] = P(ah.pos.x, ah.pos.z); g.beginPath(); g.arc(px, pz, 8 * k, 0, 7); g.fillStyle = TEAM_COLORS[ah.team]; g.fill(); g.lineWidth = 3 * k; g.strokeStyle = '#fff'; g.stroke(); lbl(ah.name || 'Ally', ah.pos.x, ah.pos.z - 14, 12, '#cfe4ff'); }
     if (G.fog) { for (const s of G.fog.sentries) if (!s.dead) { const [px, pz] = P(s.x, s.z); g.beginPath(); g.arc(px, pz, s.r * k * 1.33, 0, 7); g.strokeStyle = 'rgba(96,208,255,.7)'; g.lineWidth = 2 * k; g.setLineDash([6 * k, 5 * k]); g.stroke(); g.setLineDash([]); icon(s.x, s.z, '👁', '#60d0ff', 14); }
       for (const p of G.fog.pings) { const [px, pz] = P(p.x, p.z), a = (G.time - p.t) % 1.5 / 1.5; g.beginPath(); g.arc(px, pz, (10 + a * 40) * k, 0, 7); g.strokeStyle = `rgba(255,60,40,${1 - a})`; g.lineWidth = 4 * k; g.stroke(); } }
   };

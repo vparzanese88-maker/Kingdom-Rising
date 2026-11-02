@@ -28,6 +28,8 @@ function slashArc(pl, R, H, name, hit, col) {
 }
 // abilities land almost at once: their follow-up hits come after a third of the old wind-up
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
+// [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
+const ALLY_FX = { mending: [10, 0.25], fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8] };
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -576,6 +578,8 @@ export class Player {
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
     const up = G.abilScale ? G.abilScale(this.h.level) : this.pk('a_' + ab.id) ? 1.5 : 1;
     const f = this.fwd();
+    // Kingdom Battles: support abilities also reach allied troops and players nearby
+    if (G.hooks.allyFx && ALLY_FX[ab.id]) G.hooks.allyFx(this.pos, ALLY_FX[ab.id], up);
     switch (ab.id) {
       case 'charge': {
         S.battleCry(); this.dodge = { t: 0, dur: 0.38 * (1 + this.pk('a1up') * 0.2), dir: f.clone(), speed: 32, charge: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 14;

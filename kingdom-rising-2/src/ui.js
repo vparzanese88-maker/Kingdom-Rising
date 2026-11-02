@@ -240,6 +240,8 @@ export function drawMinimap() {
   for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(p.pos) < 70 && (!G.fogVis || m.team === G.myTeam || G.fogVis(m.pos.x, m.pos.z))) dot(m.pos.x, m.pos.z, (x, y, e) => { if (e) return; g.fillStyle = m.team != null ? (m.team === G.myTeam ? '#5aa0ff' : '#ff4030') : m.hostile || m.provoked ? '#ff8a40' : '#ffe070'; g.beginPath(); g.arc(x, y, m.isStruct ? 7 : 4, 0, 7); g.fill(); });
   g.font = 'bold 30px Cinzel, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const k of markers(p.h)) dot(k.x, k.z, (x, y, e) => { g.fillStyle = '#ffd84a'; g.strokeStyle = '#000'; g.lineWidth = 4; g.strokeText(k.t, x, y); g.fillText(k.t, x, y); });
+  // allied heroes and players: always on the minimap (pinned to the edge when far away)
+  if (G.allyHeroes) for (const ah of G.allyHeroes()) dot(ah.pos.x, ah.pos.z, (x, y, e) => { g.fillStyle = '#5aa0ff'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, e ? 6 : 8, 0, 7); g.fill(); g.stroke(); });
   if (G.fog) for (const pg of G.fog.pings) dot(pg.x, pg.z, (x, y) => { const a = (G.time - pg.t) % 1.2 / 1.2; g.strokeStyle = `rgba(255,60,40,${1 - a})`; g.lineWidth = 4; g.beginPath(); g.arc(x, y, 8 + a * 26, 0, 7); g.stroke(); });
   // player arrow (always up)
   g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.beginPath(); g.moveTo(N / 2, N / 2 - 14); g.lineTo(N / 2 + 9, N / 2 + 10); g.lineTo(N / 2, N / 2 + 5); g.lineTo(N / 2 - 9, N / 2 + 10); g.closePath(); g.stroke(); g.fill();

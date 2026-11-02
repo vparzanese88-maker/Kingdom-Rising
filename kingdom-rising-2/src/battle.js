@@ -388,7 +388,7 @@ export class Unit {
   dist(p) { return Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z); }
   takeHit(dmg, src, opts = {}) {
     if (this.dead || B.over) return 0;
-    dmg = Math.max(1, Math.round(dmg * (1 - (this.udef.armor || 0) * 0.6)));
+    dmg = Math.max(1, Math.round(dmg * (1 - (this.udef.armor || 0) * 0.6) * (this.ward > B.time ? 0.6 : 1)));
     this.hp -= dmg; this.hitFlash = 0.15;
     if (opts.stun) this.status.stun = Math.max(this.status.stun, opts.stun * (this.udef.pop >= 3 ? 0.4 : 1));
     if (opts.freeze) this.status.frozen = Math.max(this.status.frozen, opts.freeze);
@@ -471,8 +471,8 @@ export class Unit {
           const d = this.dist(tg) - (tg.radius || 0.5);
           this.faceTo(tg.pos, dt, 8);
           if (this.range && d < this.range * 0.3 && !tg.isStruct) { want = [this.pos.x - (tg.pos.x - this.pos.x), this.pos.z - (tg.pos.z - this.pos.z)]; speed = spd * 0.8; }
-          else if (this.range && d <= this.range) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.wt && this.udef.wt.includes('staff') ? 'cast' : 'shoot', 0.6); const kind = this.udef.proj || 'arrow'; shoot(this, tg, this.handPos(), this.dmg * rand(0.85, 1.15), kind, { splash: this.udef.splash, slow: this.udef.slow }); } }
-          else if (!this.range && d <= this.reach) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.kind === 'troll' || this.udef.wt === 'warhammer' ? 'slam' : ['swing1', 'swing2', 'swing3'][Math.floor(Math.random() * 3)], 0.75); this.pending = tg; this.hitAt = 0.5; } }
+          else if (this.range && d <= this.range) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15) * (this.haste > B.time ? 0.7 : 1); this.startAction(this.udef.wt && this.udef.wt.includes('staff') ? 'cast' : 'shoot', 0.6); const kind = this.udef.proj || 'arrow'; shoot(this, tg, this.handPos(), this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), kind, { splash: this.udef.splash, slow: this.udef.slow }); } }
+          else if (!this.range && d <= this.reach) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15) * (this.haste > B.time ? 0.7 : 1); this.startAction(this.udef.kind === 'troll' || this.udef.wt === 'warhammer' ? 'slam' : ['swing1', 'swing2', 'swing3'][Math.floor(Math.random() * 3)], 0.75); this.pending = tg; this.hitAt = 0.5; } }
           else { want = [tg.pos.x, tg.pos.z]; speed = spd; }
         } else { const g = this.goal(); if (Math.hypot(g[0] - this.pos.x, g[1] - this.pos.z) > 1.2) { want = g; speed = spd * (this.order === 'defend' ? 0.8 : 1); } else if (this.order === 'defend') this.faceTo(V3(this.pos.x + this.town.dir[0], 0, this.pos.z + this.town.dir[1]), dt, 3); }
         if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
@@ -709,6 +709,17 @@ export function sendAttack(t, targetIdx, frac = 1) {
   return null;
 }
 // abilities that touch your army: rally heals and empowers nearby troops, wolves fight for you
+// heals and buffs that reach every ally near the caster: troops, allied heroes and other players
+export function allyHeal(p, r, pct, team = B.myTeam) {
+  let n = 0;
+  for (const u of B.units) if (!u.dead && u.team === team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * pct); n++; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 6, { speed: 2, vy: 2 }); }
+  for (const h of allHeroes()) if (h !== G.player && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) { G.hooks.netHeal && G.hooks.netHeal(h, pct); n++; }
+  return n;
+}
+export function allyBuff(p, r, kind, dur, team = B.myTeam) {
+  for (const u of B.units) if (!u.dead && u.team === team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u[kind] = B.time + dur; V.burst(kind === 'ward' ? 'frost' : 'gold', u.pos.clone().setY(u.pos.y + 1.5), 6, { speed: 2, vy: 2 }); }
+  for (const h of allHeroes()) if (h !== G.player && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) G.hooks.netBuff && G.hooks.netBuff(h, kind, dur);
+}
 export function rallyTroops(p, r) { const t = myTown(); for (const u of t.units) if (!u.dead && !u.worker && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.3); u.rally = B.time + 10; V.burst('gold', u.pos.clone().setY(u.pos.y + 1.5), 8, { speed: 2, vy: 2 }); } }
 export function summonWolves(p, lv, dur) { const t = myTown(); for (let k = 0; k < 2; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k ? 2 : -2), p.z - 2, { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
 export function recall(t) { for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }
@@ -847,7 +858,8 @@ function aiThink(t) {
 
 // ---------- setup ----------
 export function initBattle(scene) {
-  B.on = true; fog.on = true; G.fog = fog; G.fogVis = isVisible; B.myTeam = SETUP.towns[0].team ?? 0;
+  B.on = true; fog.on = true; G.fog = fog; G.fogVis = isVisible;
+  G.allyHeroes = () => allHeroes().filter(h => h !== G.player && !h.dead && h.team === B.myTeam); B.myTeam = SETUP.towns[0].team ?? 0;
   const used = {};
   SETUP.towns.forEach((cfg, i) => {
     const L = LAYOUT.towns[i];

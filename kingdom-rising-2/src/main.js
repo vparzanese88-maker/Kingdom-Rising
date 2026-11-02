@@ -218,7 +218,8 @@ function battleHooks() {
   const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, Icons.coin(), 'gold'); };
   H.died = () => BUI.died();
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);
-  H.rally = (p, r) => Battle.rallyTroops(p, r);
+  H.rally = () => {};
+  H.allyFx = (p, [r, heal, kind, dur], up) => { const R = r * Math.sqrt(up); if (heal) Battle.allyHeal(p, R, heal * up); if (kind) Battle.allyBuff(p, R, kind, dur * up); V.ring(p, R, heal ? '#80ff90' : kind === 'ward' ? '#80d8ff' : '#ffd84a', 0.7); }
   H.summonWolves = (p, lv, dur) => Battle.summonWolves(p, lv, dur);
   H.sentry = (x, z, lv) => Battle.placeSentry(x, z, lv);
 }

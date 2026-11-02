@@ -73,7 +73,7 @@ export function refreshAbilityBar() {
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
     cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
-    cs._n = st.length; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
+    cs._n = st.length; if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = 'Hold F to block';
   { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `Right click: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
@@ -249,8 +249,8 @@ export function drawMinimap() {
 // ---------- tracker ----------
 export function updateTracker() {
   const h = G.player.h, box = $('tracker'); box.innerHTML = '';
-  const act = Object.keys(h.quests.active).map(id => QUESTS.find(q => q.id === id)).slice(-4);
-  if (!act.length) {
+  const all = Object.keys(h.quests.active), act = all.filter(id => !(h.untracked || []).includes(id)).map(id => QUESTS.find(q => q.id === id)).filter(Boolean).slice(-6);
+  if (!act.length) { if (all.length) return;
     const any = QUESTS.find(q => Game.questState(h, q) === 'available');
     if (any) box.innerHTML = `<div class="q"><b>Find someone to help</b><div>Look for a <span style="color:#ffd84a;font-weight:800">!</span> over a villager's head</div></div>`;
     return;
@@ -265,6 +265,7 @@ export function updateTracker() {
 // ---------- windows ----------
 const winRoot = () => $('windows');
 export function closeWin() {
+  if (G.hudEdit) { exitHudEdit(); return; }
   winRoot().innerHTML = ''; UI.open = null; G.uiOpen = false;
   if (G.onUiClosed) G.onUiClosed();
 }
@@ -547,13 +548,16 @@ function renderCraft() {
 // --- quest log ---
 let qSel = null;
 export function openQuestLog() {
-  const c = openWin('quests', 'Quest Log', '', 'big');
+  const c = openWin('quests', 'Journal', '', 'big');
   const h = G.player.h;
   const act = Object.keys(h.quests.active).map(id => QUESTS.find(q => q.id === id));
   const lay = el('div', 'qlog'), list = el('div', 'qlist'), det = el('div', 'tip');
   if (!act.length) list.innerHTML = '<p style="color:var(--dim)">No active quests. Look for villagers with a gold ! over their heads.</p>';
   if (!qSel || !act.includes(qSel)) qSel = act[0];
-  for (const q of act) { const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${NPCS[q.giver].name}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; list.appendChild(b); }
+  const isT = (q) => !(h.untracked || []).includes(q.id);
+  const setT = (q, on) => { h.untracked = (h.untracked || []).filter(x => x !== q.id); if (!on) h.untracked.push(q.id); updateTracker(); openQuestLog(); };
+  if (act.length) { const bar = el('div', 'qtrackall'); const a = el('button', 'btn', 'Show all'); a.onclick = () => { h.untracked = []; updateTracker(); openQuestLog(); }; const n = el('button', 'btn', 'Hide all'); n.onclick = () => { h.untracked = act.map(q => q.id); updateTracker(); openQuestLog(); }; bar.append(el('span', 'dim', 'On screen:'), a, n); list.appendChild(bar); }
+  for (const q of act) { const row = el('div', 'qrow'); const tg = el('label', 'qtrack' + (isT(q) ? ' on' : ''), `<input type="checkbox" ${isT(q) ? 'checked' : ''}><span>${isT(q) ? 'Shown' : 'Hidden'}</span>`); tg.title = 'Show this quest on screen'; tg.querySelector('input').onchange = (e) => { S.click(); setT(q, e.target.checked); }; const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${NPCS[q.giver].name}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; row.append(b, tg); list.appendChild(row); }
   list.appendChild(el('div', '', `<p style="color:var(--dim);font-size:13px;margin-top:10px">Completed: ${h.quests.done.length} / ${QUESTS.length}</p>`));
   if (qSel) {
     const q = qSel;
@@ -765,6 +769,7 @@ export function openSettings(fromPause) {
   const fs = el('button', 'btn', document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen');
   fs.onclick = () => { S.click(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
   row('Full screen', fs);
+  const he = el('button', 'btn', '✥ Edit HUD layout'); he.onclick = () => { S.click(); enterHudEdit(); }; row('HUD layout<small>Move, resize or hide any part of the screen</small>', he);
   g.appendChild(el('h3', '', 'Sound')); g.appendChild(el('div'));
   row('Master volume<small>Everything at once</small>', range('master', 0, 1, 0.05)); row('Music', range('music', 0, 1, 0.05)); row('Sound effects', range('sfx', 0, 1, 0.05)); row('Ambience', range('ambient', 0, 1, 0.05));
   g.appendChild(el('h3', '', 'Controls')); g.appendChild(el('div'));
@@ -802,3 +807,58 @@ export function confirmBox(text, yes, no = 'Cancel', yesText = 'Yes') {
   const n = el('button', 'btn', no); n.onclick = () => d.remove();
   r.append(n, y); document.body.appendChild(d);
 }
+
+// ---------- HUD layout editor: move, resize and hide parts of the screen ----------
+const HUD_PARTS = [['mapbox', 'Minimap'], ['tracker', 'Quest tracker'], ['bottom', 'Health bars & hotbar'], ['lvl', 'Hero badge & gold'], ['buffs', 'Buffs'], ['debuffs', 'Debuffs'], ['target', 'Target frame'], ['toasts', 'Messages'], ['xpbar', 'Experience bar'], ['combo', 'Left-click combo guide']];
+const hudCfg = () => (settings.hud = settings.hud || {});
+export function applyHud() {
+  const cfg = hudCfg(), edit = !!G.hudEdit;
+  for (const [id] of HUD_PARTS) {
+    const e = id === 'combo' ? document.querySelector('.combostrip') : $(id); if (!e) continue;
+    const c = cfg[id] || {};
+    e.classList.toggle('hudhidden', !!c.hide);
+    e.style.display = c.hide && !edit ? 'none' : '';
+    if (id === 'combo') continue;
+    if (c.x != null) { e.style.left = (c.x * innerWidth) + 'px'; e.style.top = (c.y * innerHeight) + 'px'; e.style.right = 'auto'; e.style.bottom = 'auto'; e.style.transform = `scale(${c.s || 1})`; e.style.transformOrigin = 'top left'; if (c.w) e.style.width = c.w + 'px'; }
+    else { e.style.left = e.style.top = e.style.right = e.style.bottom = e.style.transform = e.style.transformOrigin = e.style.width = ''; }
+  }
+}
+function capture(id) { const c = hudCfg()[id] = hudCfg()[id] || {}; if (c.x == null) { const r = $(id).getBoundingClientRect(); c.x = r.left / innerWidth; c.y = r.top / innerHeight; c.s = c.s || 1; if (id === 'xpbar') c.w = r.width; } return c; }
+let hudPanel = null;
+export function enterHudEdit() {
+  winRoot().innerHTML = ''; UI.open = null; G.uiOpen = true; G.hudEdit = true; if (document.pointerLockElement) document.exitPointerLock();
+  $('clickToPlay').hidden = true;
+  const hud = $('hud'); hud.classList.add('hudedit');
+  for (const [id, name] of HUD_PARTS) { if (id === 'combo') continue; const e = $(id); e.dataset.hudname = name; e.onpointerdown = (ev) => hudDrag(ev, id); e.onwheel = (ev) => { ev.preventDefault(); const c = capture(id); c.s = Math.max(0.5, Math.min(2.2, (c.s || 1) - Math.sign(ev.deltaY) * 0.05)); saveSettings(); applyHud(); renderHudPanel(); }; }
+  if (!$('target').textContent.trim()) $('target').hidden = false;
+  hudPanel = el('div', 'hudpanel'); document.body.appendChild(hudPanel); renderHudPanel(); applyHud();
+}
+function renderHudPanel() {
+  const cfg = hudCfg();
+  hudPanel.innerHTML = `<h3 title="Drag to move this panel">✥ Edit HUD</h3><p>Drag a highlighted box to move it. Mouse wheel over it, or the slider, to resize. Drag this panel by its title.</p>`;
+  hudPanel.querySelector('h3').onpointerdown = (ev) => { const r = hudPanel.getBoundingClientRect(), dx = ev.clientX - r.left, dy = ev.clientY - r.top; const mv = (m) => { hudPanel.style.transform = 'none'; hudPanel.style.left = (m.clientX - dx) + 'px'; hudPanel.style.top = (m.clientY - dy) + 'px'; }; const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); }; addEventListener('pointermove', mv); addEventListener('pointerup', up); };
+  for (const [id, name] of HUD_PARTS) {
+    const c = cfg[id] || {}, r = el('div', 'hprow');
+    r.innerHTML = `<label><input type="checkbox" ${c.hide ? '' : 'checked'}> ${name}</label>` + (id === 'combo' ? '<span></span>' : `<input type="range" min="0.5" max="2.2" step="0.05" value="${c.s || 1}"><b>${Math.round((c.s || 1) * 100)}%</b>`);
+    r.querySelector('input[type=checkbox]').onchange = (e) => { (cfg[id] = cfg[id] || {}).hide = !e.target.checked; saveSettings(); applyHud(); };
+    const sl = r.querySelector('input[type=range]'); if (sl) sl.oninput = () => { const k = capture(id); k.s = +sl.value; r.querySelector('b').textContent = Math.round(k.s * 100) + '%'; saveSettings(); applyHud(); };
+    hudPanel.appendChild(r);
+  }
+  const row = el('div', 'hpbtns'); const rs = el('button', 'btn', 'Reset layout'); rs.onclick = () => { S.click(); settings.hud = {}; saveSettings(); applyHud(); renderHudPanel(); };
+  const done = el('button', 'btn gold', 'Done'); done.onclick = () => { S.click(); exitHudEdit(); }; row.append(rs, done); hudPanel.appendChild(row);
+}
+function hudDrag(ev, id) {
+  if (!G.hudEdit || ev.button !== 0) return; ev.preventDefault();
+  const c = capture(id); applyHud(); const e = $(id), x0 = ev.clientX, y0 = ev.clientY, cx = c.x * innerWidth, cy = c.y * innerHeight;
+  const mv = (m) => { const r = e.getBoundingClientRect(); c.x = Math.max(0, Math.min(innerWidth - Math.min(r.width, 60), cx + m.clientX - x0)) / innerWidth; c.y = Math.max(0, Math.min(innerHeight - 20, cy + m.clientY - y0)) / innerHeight; applyHud(); };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); saveSettings(); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+export function exitHudEdit() {
+  G.hudEdit = false; G.uiOpen = false; $('hud').classList.remove('hudedit');
+  for (const [id] of HUD_PARTS) { const e = id === 'combo' ? null : $(id); if (e) { e.onpointerdown = null; e.onwheel = null; } }
+  if (hudPanel) { hudPanel.remove(); hudPanel = null; }
+  if (!G.target) $('target').hidden = true;
+  applyHud(); $('clickToPlay').hidden = false; if (G.onUiClosed) G.onUiClosed();
+}
+addEventListener('resize', () => { if (G.player) applyHud(); });

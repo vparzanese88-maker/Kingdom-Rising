@@ -34,7 +34,7 @@ export function init(o) {
   $('death').style.display = 'none'; $('tracker').style.display = 'none';
   // the world map (M) shows towns, towers, camps, resources and every army
   G.battleMapDraw = (g, P, k, lbl, icon) => {
-    for (const c of LAYOUT.camps) icon(c.x, c.z, c.tier === 2 ? '☠' : '⛺', c.tier === 2 ? '#ff6060' : c.tier ? '#ffb070' : '#9cdc5a', c.tier === 2 ? 20 : 15);
+    for (const c of LAYOUT.camps) { if (c.tier === 3) { icon(c.x, c.z, '☠', '#ff3030', 24); lbl('Boss', c.x, c.z + 18, 13, '#ff8a7a'); } else icon(c.x, c.z, '⛺', c.tier === 2 ? '#ff8a50' : c.tier ? '#ffc070' : '#9cdc5a', 15); }
     for (const [x, z] of LAYOUT.gold) icon(x, z, '◆', '#ffd84a', 13);
     for (const [x, z] of LAYOUT.stone) icon(x, z, '■', '#c8c0b0', 12);
     for (const u of B.units) if (!u.dead) { const [px, pz] = P(u.pos.x, u.pos.z); g.fillStyle = TEAM_COLORS[u.team]; g.beginPath(); g.arc(px, pz, (u.hero ? 6 : 3.2) * k, 0, 7); g.fill(); if (u.hero) { g.lineWidth = 2 * k; g.strokeStyle = '#fff'; g.stroke(); } }
@@ -49,7 +49,7 @@ export function init(o) {
   G.battleMapSide = (side) => {
     side.innerHTML = '<h3>Kingdoms</h3>';
     for (const t of B.towns) side.insertAdjacentHTML('beforeend', `<div class="mq" style="border-color:${t.color}"><div class="mqh"><i style="background:${t.color}"></i><b>${t.name}${t.isMe ? ' (you)' : ''}</b>${t.dead ? '<span class="rdy" style="color:#ff7a6a">Fallen</span>' : ''}</div><div class="mqo">${t.race === 'highelf' ? 'High Elf' : t.race === 'woodelf' ? 'Wood Elf' : t.race[0].toUpperCase() + t.race.slice(1)} · ${TOWN_LEVELS[t.level].name} · Hall ${Math.round(t.hall.hp / t.hall.maxHp * 100)}%</div><div class="mqo">${t.units.filter(u => !u.dead && !u.worker && !u.hero).length} troops · ${t.towers.filter(s => !s.dead).length}/2 towers</div></div>`);
-    side.insertAdjacentHTML('beforeend', '<h3>Legend</h3><div class="legend"><div><b>♜</b> Town and Hall</div><div><b>▲</b> Archer tower</div><div><b style="color:#9cdc5a">⛺</b> Neutral camp (gold & XP)</div><div><b style="color:#ff6060">☠</b> Dangerous camp</div><div><b style="color:#ffd84a">◆</b> Gold vein · <b style="color:#c8c0b0">■</b> Stone quarry</div><div><b>●</b> Troops in team colours</div></div><p class="dim">M or Esc closes.</p>');
+    side.insertAdjacentHTML('beforeend', '<h3>Legend</h3><div class="legend"><div><b>♜</b> Town and Hall</div><div><b>▲</b> Archer tower</div><div><b style="color:#9cdc5a">⛺</b> Neutral camp (gold & XP)</div><div><b style="color:#ff3030">☠</b> Boss lair (red beam in the sky)</div><div><b style="color:#ffd84a">◆</b> Gold vein · <b style="color:#c8c0b0">■</b> Stone quarry</div><div><b>●</b> Troops in team colours</div></div><p class="dim">M or Esc closes.</p>');
   };
 }
 
@@ -92,7 +92,18 @@ function makeMarker(t) {
   g.add(ring, disc, beam, sp); g.position.set(x, heightAt(x, z) + 0.12, z); G.scene.add(g);
   return { g, ring, sp };
 }
+// red beams over living bosses so they can be found from far away
+const beacons = new Map();
+function bossBeacons() {
+  for (const m of G.mobs) {
+    if (!m.bossy) continue;
+    let b = beacons.get(m);
+    if (!b) { b = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 2.2, 90, 12, 1, true), new THREE.MeshBasicMaterial({ color: '#ff2a2a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false })); G.scene.add(b); beacons.set(m, b); }
+    b.visible = !m.dead; b.position.set(m.pos.x, m.pos.y + 45, m.pos.z); b.material.opacity = 0.16 + Math.sin(B.time * 2 + m.id) * 0.06;
+  }
+}
 function storeTick(dt) {
+  bossBeacons();
   const t = myTown(), p = G.player; if (!t || !p) return;
   if (!mark) mark = makeMarker(t);
   mark.ring.scale.setScalar(1 + Math.sin(B.time * 3) * 0.05); mark.sp.position.y = 5.2 + Math.sin(B.time * 2) * 0.2;
@@ -107,7 +118,7 @@ export function died() { deathT = ECON.respawn(G.save.level); $('bdeath').hidden
 
 // ---------- command menu ----------
 let menu = 'command';
-const MENUS = { command: { title: 'Command', tabs: [['army', 'Army'], ['orders', 'Orders'], ['armory', 'Armory']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
+const MENUS = { command: { title: 'Command', tabs: [['army', 'Army'], ['orders', 'Orders'], ['armory', 'Supplies']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
 export function openNpc(role) { menu = role; tab = MENUS[role].tabs[0][0]; openMenu(true); }
 function openMenu(keep) {
   if (!keep) { menu = 'command'; if (!MENUS.command.tabs.some(x => x[0] === tab)) tab = 'army'; }
@@ -211,14 +222,7 @@ function tabOrders(body, t) {
   row.append(d, f); q.appendChild(row); body.appendChild(q);
 }
 function tabArmory(body, t) {
-  const h = G.save, w = h.equip.w1, wt = w ? w.tier : 0;
-  const arm = ARMOR_SLOT_LIST.map(k => h.equip[k]).filter(Boolean), at = arm.length ? Math.min(...arm.map(a => a.tier)) : 0;
-  const p = el('div', 'bpanel', `<h3>Weapons</h3><p>${w ? w.name : 'None'}${h.equip.w2 ? ' & ' + h.equip.w2.name : ''}</p>`);
-  if (wt < 5) { const cost = { gold: ARMORY.weapon[wt + 1] }; const b = el('button', 'btn gold', `Forge tier ${wt + 1} weapons`); b.onclick = () => { if (!canPay(t, cost)) return say('Not enough gold'); bank(t, 'gold', -cost.gold); for (const k of ['w1', 'w2', 'ranged']) if (h.equip[k]) h.equip[k] = Game.makeWeapon(h.equip[k].wt, wt + 1, 1); G.hooks.gearChanged && G.hooks.gearChanged(); say(null); }; p.append(b, el('span', 'bcost', costHtml(cost, t))); } else p.appendChild(el('p', '', '<b>Best weapons forged.</b>'));
-  body.appendChild(p);
-  const q = el('div', 'bpanel', `<h3>Armour</h3><p>${arm.length ? `Tier ${at} ${CLASSES[h.cls].armor}` : 'No armour yet'}</p>`);
-  if (at < 5 || arm.length < ARMOR_SLOT_LIST.length) { const nt = Math.min(5, arm.length < ARMOR_SLOT_LIST.length ? Math.max(1, at) : at + 1); const cost = { gold: ARMORY.armor[nt] }; const b = el('button', 'btn gold', `Outfit tier ${nt} armour`); b.onclick = () => { if (!canPay(t, cost)) return say('Not enough gold'); bank(t, 'gold', -cost.gold); for (const k of ARMOR_SLOT_LIST) h.equip[k] = Game.makeArmor(CLASSES[h.cls].armor, k, nt, 1); G.hooks.gearChanged && G.hooks.gearChanged(); say(null); }; q.append(b, el('span', 'bcost', costHtml(cost, t))); }
-  body.appendChild(q);
+  const h = G.save;
   const s = el('div', 'bpanel', '<h3>Supplies</h3>'); const row = el('div', 'brow');
   for (const [id, g] of [['potion_heal', 30], ['potion_heal2', 70], ['honey_mead', 25], ['hunter_stew', 25]]) { const b = el('button', 'btn', `${ITEMS[id].name} · 🪙 ${g}`); b.onclick = () => { if (res(t, 'gold') < g) return say('Not enough gold'); bank(t, 'gold', -g); Game.addItem(h, id, 1); Game.autoFillHotbar(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded(); say(null); }; row.appendChild(b); }
   s.appendChild(row); body.appendChild(s);

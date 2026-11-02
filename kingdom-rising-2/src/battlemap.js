@@ -67,14 +67,15 @@ if (BATTLE) {
   const roadD = (x, z) => { let d = 1e9; for (const r of LAYOUT.roads) d = Math.min(d, distToLine(x, z, r.pts).d); return d; };
   const townD = (x, z) => Math.min(...LAYOUT.towns.map(t => Math.hypot(x - t.x, z - t.z)));
   const extra = [];
-  for (let k = 0; k < 900 && extra.length < 26 + N * 4; k++) {
+  for (let k = 0; k < 3000 && extra.length < 48 + N * 8; k++) {
     const x = (rnd() - 0.5) * 900, z = (rnd() - 0.5) * 900;
     const td = townD(x, z); if (td < 115 || roadD(x, z) < 30) continue;
-    if ([...LAYOUT.camps, ...extra].some(c => Math.hypot(c.x - x, c.z - z) < 62)) continue;
+    if ([...LAYOUT.camps, ...extra].some(c => Math.hypot(c.x - x, c.z - z) < 50)) continue;
     extra.push({ x, z, tier: td < 190 ? 0 : td < 290 ? 1 : 2, td });
   }
+  // boss lairs spread over the map: every 5th of the outer camps, so there is always one within reach
   extra.sort((a, b) => b.td - a.td);
-  for (let k = 0; k < Math.min(extra.length, 3 + N); k++) extra[k].tier = 3;
+  let nb = 0; for (let k = 0; k < extra.length && nb < 6 + N * 2; k += 4) { if (extra[k].td > 150) { extra[k].tier = 3; nb++; } }
   LAYOUT.camps.push(...extra);
 }
 

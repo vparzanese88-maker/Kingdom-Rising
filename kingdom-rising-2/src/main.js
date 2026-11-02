@@ -146,17 +146,18 @@ function quitToTitle() {
 // ---------- Kingdom Battles ----------
 function spawnBattleCamps() {
   const TIERS = [
-    [['wolf', 2, 4, 4], ['goblin', 3, 5, 4], ['boar', 2, 4, 3], ['spider', 3, 5, 3]],
-    [['bear', 6, 8, 3], ['bandit', 7, 9, 4], ['tiger', 7, 9, 3], ['goblin_brute', 6, 8, 3]],
-    [['troll', 11, 13, 2], ['snowtiger', 11, 13, 3], ['skeleton', 12, 14, 4], ['frostwolf', 10, 12, 4]],
+    [['wolf', 2, 4, 5], ['goblin', 3, 5, 5], ['boar', 2, 4, 4], ['spider', 3, 5, 4], ['rat', 1, 3, 5]],
+    [['bear', 6, 8, 4], ['bandit', 7, 9, 5], ['tiger', 7, 9, 4], ['goblin_brute', 6, 8, 4], ['wolf', 6, 8, 6]],
+    [['troll', 11, 13, 3], ['snowtiger', 11, 13, 4], ['skeleton', 12, 14, 5], ['frostwolf', 10, 12, 5], ['ashhound', 12, 14, 4]],
   ];
-  const BOSSES = [['troll_king', 16, ['troll', 13, 2]], ['bandit_boss', 12, ['bandit', 10, 4]], ['golem', 15, ['imp', 13, 3]]];
-  let bi = Math.floor(Math.random() * 3);
+  // bosses get tougher the further they are from the towns
+  const BOSSES = [['bandit_boss', 8, ['bandit', 7, 4]], ['golem', 12, ['imp', 11, 3]], ['troll_king', 16, ['troll', 13, 3]]];
+  let bossN = 0;
   for (const c of LAYOUT.camps) {
-    if (c.tier === 3) { const [boss, lv, [add, al, an]] = BOSSES[bi++ % BOSSES.length]; const m = new Mob(boss, lv, c.x, c.z); G.mobs.push(m); for (let i = 0; i < an; i++) { const a = i / an * 6.28; G.mobs.push(new Mob(add, al, c.x + Math.cos(a) * 6, c.z + Math.sin(a) * 6)); } continue; }
+    if (c.tier === 3) { const bt = (bossN++) % 3; const [boss, lv, [add, al, an]] = BOSSES[bt]; const m = new Mob(boss, lv + Math.floor(Math.random() * 2), c.x, c.z); m.bossy = true; m.maxHp = Math.round(m.maxHp * 1.6); m.hp = m.maxHp; G.mobs.push(m); for (let i = 0; i < an; i++) { const a = i / an * 6.28; G.mobs.push(new Mob(add, al, c.x + Math.cos(a) * 7, c.z + Math.sin(a) * 7)); } continue; }
     const opts = TIERS[c.tier], [type, l0, l1, n] = opts[Math.floor(Math.random() * opts.length)];
-    for (let i = 0; i < n; i++) { const a = i / n * 6.28, m = new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), c.x + Math.cos(a) * 4, c.z + Math.sin(a) * 4); G.mobs.push(m); }
-    if (c.tier === 0 && type === 'goblin') G.mobs.push(new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3));
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28 + Math.random() * 0.5, r = 3 + Math.random() * 4, m = new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), c.x + Math.cos(a) * r, c.z + Math.sin(a) * r); G.mobs.push(m); }
+    if (type === 'goblin') G.mobs.push(new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3));
   }
 }
 const NPC_NAMES = { human: ['Foreman Hobb', 'Master Builder Edric'], orc: ['Peon-boss Gruk', 'Wallmaster Durgo'], highelf: ['Steward Ilvaen', 'Architect Saelora'], woodelf: ['Gatherer Fenwick', 'Shaper Thalanor'], dwarf: ['Foreman Brokk', 'Master Mason Dain'] };
@@ -186,8 +187,14 @@ function battleHooks() {
   H.onKill = (mob, src) => {
     if (mob.team != null) return; const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return;
     Game.onKill(G.save, mob);
-    if (mob.loot && !mob.def.boss && Math.random() < (mob.def.elite ? 0.6 : 0.14)) mob.loot.gear.push(Game.randomGear(G.save, mob.lv, mob.def.elite ? 2 : 1));
-    if (mob.loot) { mob.loot.gold = (mob.loot.gold || 0) + 3 + mob.lv * 2; Game.lootCorpse(G.save, mob); }
+    if (!mob.loot) return;
+    // only weapons and armour drop (no materials, no cloaks); bosses always drop a few good pieces
+    const gearOnly = () => { for (let k = 0; k < 6; k++) { const g = Game.randomGear(G.save, mob.lv, mob.bossy ? 3 : mob.def.elite ? 2 : 1); if (g.kind !== 'acc') return g; } return null; };
+    mob.loot.items = []; mob.loot.gear = mob.loot.gear.filter(g => g.kind !== 'acc');
+    const n = mob.bossy ? 3 : Math.random() < (mob.def.elite ? 0.7 : 0.22) ? 1 : 0; for (let k = 0; k < n; k++) { const g = gearOnly(); if (g) mob.loot.gear.push(g); }
+    mob.loot.gold = (mob.loot.gold || 0) + 6 + mob.lv * 4 + (mob.bossy ? 150 + mob.lv * 20 : 0);
+    if (mob.bossy) UI.banner(`${mob.name} defeated!`, 'Boss loot is in your bag', 3500);
+    Game.lootCorpse(G.save, mob);
   };
   H.carryFull = (N) => { const k = N.item === 'wood' ? 'wood' : N.item === 'stone' ? 'stone' : null; if (!k) return null; const cap = BUI.heroCarryCap(); return G.save.carry[k] >= cap ? `You can't carry more ${k}. Unload it at the Storehouse in town.` : null; };
   H.gatherBank = (item, n) => { const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : null; if (!k) return false; const cap = BUI.heroCarryCap(), c = G.save.carry; const amt = Math.min(n * 4, cap - c[k]); if (amt > 0) { c[k] += amt; UI.toast(`+${amt} ${k} (carrying ${c[k]}/${cap})`, BUI.resIcon(k), 'gold'); } if (c[k] >= cap) UI.toast(`Full of ${k}! Take it to the Storehouse in town.`, BUI.resIcon(k), 'bad'); return true; };

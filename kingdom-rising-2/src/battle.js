@@ -174,6 +174,7 @@ class Structure {
   }
   get name() { return this.kind === 'hall' ? `${this.town.name} Hall` : TOWER_LEVELS[this.level].name; }
   get range() { return this.kind === 'hall' ? 22 : TOWER_LEVELS[this.level].range; }
+  dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
   setLevel(l, fresh) {
     this.level = l;
     const max = this.kind === 'hall' ? TOWN_LEVELS[l].hall : TOWER_LEVELS[l].hp;
@@ -338,6 +339,7 @@ export class Unit {
     B.units.push(this); G.mobs.push(this);
   }
   get name() { return this.hero ? this.heroName : this.udef.name; }
+  dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
   get range() { return this.udef.range || 0; }
   dist(p) { return Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z); }
   takeHit(dmg, src, opts = {}) {
@@ -424,18 +426,27 @@ export class Unit {
         if (tg) {
           const d = this.dist(tg) - (tg.radius || 0.5);
           this.faceTo(tg.pos, dt, 8);
-          if (this.range && d <= this.range) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.wt && this.udef.wt.includes('staff') ? 'cast' : 'shoot', 0.6); const kind = this.udef.proj || 'arrow'; shoot(this, tg, this.handPos(), this.dmg * rand(0.85, 1.15), kind, { splash: this.udef.splash, slow: this.udef.slow }); } }
+          if (this.range && d < this.range * 0.3 && !tg.isStruct) { want = [this.pos.x - (tg.pos.x - this.pos.x), this.pos.z - (tg.pos.z - this.pos.z)]; speed = spd * 0.8; }
+          else if (this.range && d <= this.range) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.wt && this.udef.wt.includes('staff') ? 'cast' : 'shoot', 0.6); const kind = this.udef.proj || 'arrow'; shoot(this, tg, this.handPos(), this.dmg * rand(0.85, 1.15), kind, { splash: this.udef.splash, slow: this.udef.slow }); } }
           else if (!this.range && d <= this.reach) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.kind === 'troll' || this.udef.wt === 'warhammer' ? 'slam' : ['swing1', 'swing2', 'swing3'][Math.floor(Math.random() * 3)], 0.75); this.pending = tg; this.hitAt = 0.5; } }
           else { want = [tg.pos.x, tg.pos.z]; speed = spd; }
         } else { const g = this.goal(); if (Math.hypot(g[0] - this.pos.x, g[1] - this.pos.z) > 1.2) { want = g; speed = spd * (this.order === 'defend' ? 0.8 : 1); } else if (this.order === 'defend') this.faceTo(V3(this.pos.x + this.town.dir[0], 0, this.pos.z + this.town.dir[1]), dt, 3); }
         if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
       }
+      // smooth steering: accelerate toward where we want to be, ease in on arrival, keep a little apart from friends
+      let dvx = 0, dvz = 0;
       if (want && speed) {
         want = nav(this, want);
         const dx = want[0] - this.pos.x, dz = want[1] - this.pos.z, l = Math.hypot(dx, dz);
-        if (l > 0.3) { if (!this.target || this.worker) this.faceTo(V3(want[0], 0, want[1]), dt, 6); const mv = Math.min(l, speed * dt); this.pos.x += dx / l * mv; this.pos.z += dz / l * mv; }
+        if (l > 0.3) { const s2 = speed * Math.min(1, l / 1.6); dvx = dx / l * s2; dvz = dz / l * s2; }
       }
+      dvx += this.sepX || 0; dvz += this.sepZ || 0;
+      const acc = Math.min(1, dt * (this.worker ? 7 : 6)); this.vx = (this.vx || 0) + (dvx - (this.vx || 0)) * acc; this.vz = (this.vz || 0) + (dvz - (this.vz || 0)) * acc;
+      const vsp = Math.hypot(this.vx, this.vz), cap = Math.max(speed, 1.5); if (vsp > cap) { this.vx *= cap / vsp; this.vz *= cap / vsp; }
+      this.pos.x += this.vx * dt; this.pos.z += this.vz * dt;
+      if (vsp > 0.6 && (!this.target || this.worker || this.dist(this.target) > (this.range || this.reach) + 1)) this.faceTo(V3(this.pos.x + this.vx, 0, this.pos.z + this.vz), dt, 7);
     }
+    else { this.vx = (this.vx || 0) * 0.8; this.vz = (this.vz || 0) * 0.8; }
     if (st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
     collide(this.pos, this.radius * 0.8);
     this.pos.y = heightAt(this.pos.x, this.pos.z);
@@ -818,8 +829,9 @@ export function update(dt) {
   for (const s of B.structs) s.update(dt);
   // units update themselves through G.mobs; clear out the long dead
   for (let i = B.units.length - 1; i >= 0; i--) { const u = B.units[i]; if (u.gone && !u.hero) { G.scene.remove(u.root); B.units.splice(i, 1); const j = G.mobs.indexOf(u); if (j >= 0) G.mobs.splice(j, 1); } }
-  // keep troops from standing inside each other
-  const L = B.units; for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead) continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = a.radius + b.radius; if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue; const d = Math.hypot(dx, dz); if (d < rr && d > 1e-4) { const k = (rr - d) / d * 0.5; a.pos.x -= dx * k; a.pos.z -= dz * k; b.pos.x += dx * k; b.pos.z += dz * k; } } }
+  // keep troops apart: a soft steering push for near neighbours, a hard nudge only if they really overlap
+  const L = B.units; for (const u of L) { u.sepX = 0; u.sepZ = 0; }
+  for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead) continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = (a.radius + b.radius) * 1.35; if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue; const d = Math.hypot(dx, dz) || 0.01; if (d >= rr) continue; const k = (rr - d) / rr, fx = dx / d * k * 3.2, fz = dz / d * k * 3.2; a.sepX -= fx; a.sepZ -= fz; b.sepX += fx; b.sepZ += fz; const hard = a.radius + b.radius; if (d < hard * 0.7) { const c = (hard * 0.7 - d) / d * 0.5; a.pos.x -= dx * c; a.pos.z -= dz * c; b.pos.x += dx * c; b.pos.z += dz * c; } } }
   updateShots(dt);
 }
 export { TEAM_COLORS, TEAM_NAMES, TOWN_LEVELS, TOWER_LEVELS };

@@ -173,7 +173,7 @@ function startBattle() {
   const h = Game.newHero({ name: cfg.name || 'Hero', race: SETUP.towns[0].race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
-  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4;
+  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true;
   for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
   // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead
   G.abilScale = (lv) => 1 + (lv - 1) * 0.035;

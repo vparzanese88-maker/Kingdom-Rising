@@ -15,6 +15,17 @@ import { FOOD_BUFFS, ITEMS } from './data.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
+// Kingdom Battles: a glowing slash crescent that covers the swing's real hit area
+const ARC_GEO = new Map();
+const ARC_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+function slashArc(pl, R, H, name, hit, col) {
+  const key = R.toFixed(1) + '_' + H.toFixed(2); let g = ARC_GEO.get(key); if (!g) { g = new THREE.RingGeometry(Math.max(0.5, R * 0.35), R, 28, 1, -H, H * 2); g.rotateX(-Math.PI / 2); ARC_GEO.set(key, g); }
+  const m = new THREE.Mesh(g, ARC_MAT.clone()); m.material.color.copy(col || new THREE.Color('#ffffff')); m.material.opacity = hit ? 0.75 : 0.45;
+  m.position.copy(pl.pos); m.position.y += name === 'smash' ? 0.4 : 1.05; m.rotation.y = pl.yaw - Math.PI / 2;
+  // tilt the plane a little with the swing direction so it reads as a cut
+  m.rotation.z = name === 'swing2' || name === 'off1' ? 0.25 : name === 'swing1' ? -0.25 : 0;
+  V.temp(m, 0.22, (mm, t) => { m.material.opacity = (hit ? 0.75 : 0.45) * (1 - t); m.scale.setScalar(0.85 + t * 0.25); if (t >= 0.99) m.material.dispose(); });
+}
 // abilities land almost at once: their follow-up hits come after a third of the old wind-up
 const ABIL_DELAY = 0.35;
 
@@ -374,7 +385,10 @@ export class Player {
       if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
       else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
       else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
+      else if (G.battleFx) { half = Math.max(half, wt === 'spear' ? 0.45 : 1.05); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
       else { targets = mobsInCone(this.pos, yaw, reach, half); if (!st.cleave) targets = targets.sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 2); }
+      // Kingdom Battles: show the swing as a slash crescent exactly as wide and long as what it hits
+      if (G.battleFx) { const R = st.aoe || (st.line ? reach * 1.7 : reach), H = st.aoe ? Math.PI : st.line ? 0.22 : half; slashArc(this, R, H, a.name, targets.length > 0, this.trail.mat.uniforms.color.value); }
       const big = !!a.last;
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
@@ -382,7 +396,7 @@ export class Player {
         this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed ? base * 0.09 : 0, stun: st.stun || 0 });
         if (blunt) S.blunt(m.pos);
       }
-      if (targets.length) { G.hitstop = big ? 0.09 : 0.04; V.addShake(big ? 0.3 : 0.08); }
+      if (targets.length) { G.hitstop = (big ? 0.09 : 0.04) * (G.battleFx ? 1.5 : 1); V.addShake((big ? 0.3 : 0.08) * (G.battleFx ? 1.6 : 1)); if (G.battleFx) for (const m of targets) { const hp = m.pos.clone(); hp.y += (m.height || 1.5) * 0.6; V.burst('spark', hp, big ? 22 : 12, { speed: big ? 9 : 6 }); if (big) V.light(hp, '#ffd8a0', 5, 0.12); } }
       const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
       if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp, st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
       if (a.name === 'spin') { V.ring(this.pos, st.aoe || 3, '#e0e8ff', 0.35); V.burst('spark', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 7 }); S.swingW('light', 1.6, this.pos); }

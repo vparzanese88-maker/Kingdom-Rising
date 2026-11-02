@@ -43,6 +43,15 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
+  // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book
+  if (G.hotbarSlots) {
+    const N = G.hotbarSlots; if (!h.hotbar || h.hotbar.length !== N) h.hotbar = new Array(N).fill(null);
+    const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
+    const added = [];
+    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex(s => !s); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+    if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
+    return;
+  }
   if (!h.hotbar) h.hotbar = [null, null, null, null, null, null];
   const hb = h.hotbar;
   // keep abilities only in 1-3 and items only in 4-6

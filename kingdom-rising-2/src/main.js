@@ -10,7 +10,7 @@ import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
 import { buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES } from './data.js';
+import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -21,7 +21,7 @@ import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './c
 import { BATTLE, SETUP, LAYOUT } from './battlemap.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
-import { ECON } from './battledata.js';
+import { ECON, BATTLE_ABILITIES } from './battledata.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
 const canvas = document.getElementById('game');
@@ -173,7 +173,8 @@ function startBattle() {
   const h = Game.newHero({ name: cfg.name || 'Hero', race: SETUP.towns[0].race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
-  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true;
+  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4;
+  for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
   // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead
   G.abilScale = (lv) => 1 + (lv - 1) * 0.035;
   spawnBattleNpcs();
@@ -207,6 +208,8 @@ function battleHooks() {
   H.talk = (npc) => { S.click(); if (npc.def.battleRole) BUI.openNpc(npc.def.battleRole); else UI.openDialog(npc); };
   const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, Icons.coin(), 'gold'); };
   H.died = () => BUI.died();
+  H.rally = (p, r) => Battle.rallyTroops(p, r);
+  H.summonWolves = (p, lv, dur) => Battle.summonWolves(p, lv, dur);
 }
 const B_DEAD = (m) => false;
 
@@ -344,7 +347,8 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
-      if (BATTLE && (e.code === 'KeyN' || e.code === 'KeyP' || e.code === 'KeyJ')) { UI.toast(e.code === 'KeyN' ? 'No talents in Kingdom Battles: your abilities grow stronger as you level' : e.code === 'KeyP' ? 'No crafting in Kingdom Battles' : 'No quests in Kingdom Battles', '·'); return; }
+      if (BATTLE && (e.code === 'KeyK' || e.code === 'KeyN')) { BUI.openBook(); return; }
+      if (BATTLE && (e.code === 'KeyP' || e.code === 'KeyJ')) { UI.toast(e.code === 'KeyN' ? 'No talents in Kingdom Battles: your abilities grow stronger as you level' : e.code === 'KeyP' ? 'No crafting in Kingdom Battles' : 'No quests in Kingdom Battles', '·'); return; }
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }

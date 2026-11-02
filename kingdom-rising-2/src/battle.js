@@ -8,7 +8,7 @@ import { heightAt } from './terrain.js';
 import { world, addBox, addCircle, collide, hideNode } from './world.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, bake, holdTool } from './character.js';
 import { RACES, CLASSES, MOBS } from './data.js';
-import { Mob } from './mobs.js';
+import { Mob, buildQuad, animQuad } from './mobs.js';
 import { BATTLE, SETUP, LAYOUT, WALL_R, nearTown } from './battlemap.js';
 import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN } from './battledata.js';
 import { angDiff, rand, clamp, distToLine } from './util.js';
@@ -323,14 +323,15 @@ export class Unit {
     this.action = null; this.actionT = 0; this.off = rand(-3.2, 3.2); this.hitFlash = 0;
     const app = { race: town.race, kind: def.kind || 'person', sex: 'm', spec: unitSpec(def.spec, TEAM_COLORS[town.team], town.race), skin: def.skin, hair: '#2a1a10', hairStyle: Math.floor(Math.random() * 3), beard: town.race === 'dwarf' ? 2 : Math.random() < 0.3 ? 1 : 0, build: def.kind === 'troll' ? 0 : rand(0, 0.6) };
     if (opts.app) Object.assign(app, opts.app);
-    const ch = buildHumanoid(app);
-    if (def.wt === 'musket') { const m = MUSKET_GEO.clone(); ch.arms.R.grip.add(m); ch.weapons.main = m; }
+    const ch = def.quad ? buildQuad(def.quad, def.col || '#8a8a90', def.size || 1.2) : buildHumanoid(app);
+    if (def.quad) {}
+    else if (def.wt === 'musket') { const m = MUSKET_GEO.clone(); ch.arms.R.grip.add(m); ch.weapons.main = m; }
     else if (def.wt === 'crossbow') { const m = XBOW_GEO.clone(); ch.arms.R.grip.add(m); ch.weapons.main = m; }
     else if (def.wt) equipWeapon(ch, def.wt, def.tier ?? 1);
     if (this.worker) holdTool(ch, def.tool || 'hatchet', 1);
-    bake(ch.root);
-    const sc = (def.size || 1) * (opts.scale || 1); ch.root.scale.setScalar(sc);
-    this.model = ch; this.root = ch.root; this.radius = 0.42 * sc * (def.kind === 'troll' ? 1.5 : 1); this.height = ch.height * sc;
+    if (!def.quad) bake(ch.root);
+    const sc = def.quad ? 1 : (def.size || 1) * (opts.scale || 1); if (!def.quad) ch.root.scale.setScalar(sc);
+    this.model = ch; this.root = ch.root; this.radius = def.quad ? ch.radius : 0.42 * sc * (def.kind === 'troll' ? 1.5 : 1); this.height = def.quad ? ch.height : ch.height * sc;
     this.reach = this.radius + (def.kind === 'troll' ? 2.4 : 1.6);
     this.mats = []; const seen = new Map(); this.root.traverse(o => { if (o.isMesh && o.material && o.material.emissive) { let c = seen.get(o.material); if (!c) { c = o.material.clone(); seen.set(o.material, c); this.mats.push(c); } o.material = c; } });
     G.scene.add(this.root); this.root.position.copy(this.pos);
@@ -427,7 +428,7 @@ export class Unit {
           else if (!this.range && d <= this.reach) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15); this.startAction(this.udef.kind === 'troll' || this.udef.wt === 'warhammer' ? 'slam' : ['swing1', 'swing2', 'swing3'][Math.floor(Math.random() * 3)], 0.75); this.pending = tg; this.hitAt = 0.5; } }
           else { want = [tg.pos.x, tg.pos.z]; speed = spd; }
         } else { const g = this.goal(); if (Math.hypot(g[0] - this.pos.x, g[1] - this.pos.z) > 1.2) { want = g; speed = spd * (this.order === 'defend' ? 0.8 : 1); } else if (this.order === 'defend') this.faceTo(V3(this.pos.x + this.town.dir[0], 0, this.pos.z + this.town.dir[1]), dt, 3); }
-        if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
+        if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
       }
       if (want && speed) {
         want = nav(this, want);
@@ -448,7 +449,8 @@ export class Unit {
         if (this.worker && this.stuckN > 5 && this.node && !(this.carry >= ECON.carry)) { (this.badNodes = this.badNodes || new Set()).add(this.node); this.node.workers = Math.max(0, (this.node.workers || 1) - 1); this.node = null; this.stuckN = 0; } } }
     else if (realSp > speed * 0.5) { this.stuck = 0; if (realSp > 1) this.stuckN = Math.max(0, (this.stuckN || 0) - dt * 0.5); }
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
-    if (this.root.visible) animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true });
+    if (this.expire != null) { this.expire -= dt; if (this.expire <= 0 && !this.dead) { V.burst('shadow', this.pos.clone().setY(this.pos.y + 0.8), 25, { speed: 2 }); this.dead = true; this.gone = true; this.root.visible = false; } }
+    if (this.root.visible) { if (this.udef.quad) animQuad(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action ? 'attack' : null, actionT: this.actionT }); else animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true }); }
   }
   startAction(a, dur) { this.action = a; this.actionT = 0; this.actionDur = dur; }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }
@@ -590,7 +592,7 @@ export function bank(t, k, n) { if (k === 'gold' && t.isMe && G.save) { t.gf = (
 export function res(t, k) { return k === 'gold' && t.isMe && G.save ? G.save.gold : (t.bank[k] || 0); }
 export function canPay(t, cost) { for (const k in cost) if (res(t, k) < cost[k]) return false; return true; }
 function pay(t, cost) { for (const k in cost) bank(t, k, -cost[k]); }
-export function pop(t) { let n = 0; for (const u of t.units) if (!u.dead && !u.hero && !u.worker) n += u.udef.pop || 1; for (const q of t.queue) if (q.def.role !== 'worker') n += q.def.pop || 1; return n; }
+export function pop(t) { let n = 0; for (const u of t.units) if (!u.dead && !u.hero && !u.worker && !u.pet) n += u.udef.pop || 1; for (const q of t.queue) if (q.def.role !== 'worker') n += q.def.pop || 1; return n; }
 export function popCap(t) { return TOWN_LEVELS[t.level].cap; }
 export function peasants(t) { return t.units.filter(u => u.worker && !u.dead).length + t.queue.filter(q => q.def.role === 'worker').length; }
 export function peasantCap(t) { return TOWN_LEVELS[t.level].peasants + up(t, 'housing') * 2; }
@@ -649,6 +651,9 @@ export function sendAttack(t, targetIdx, frac = 1) {
   t.lastAttack = targetIdx;
   return null;
 }
+// abilities that touch your army: rally heals and empowers nearby troops, wolves fight for you
+export function rallyTroops(p, r) { const t = myTown(); for (const u of t.units) if (!u.dead && !u.worker && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.3); u.rally = B.time + 10; V.burst('gold', u.pos.clone().setY(u.pos.y + 1.5), 8, { speed: 2, vy: 2 }); } }
+export function summonWolves(p, lv, dur) { const t = myTown(); for (let k = 0; k < 2; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k ? 2 : -2), p.z - 2, { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
 export function recall(t) { for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }
 export function setFollow(t) { for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'follow'; u.path = null; } }
 

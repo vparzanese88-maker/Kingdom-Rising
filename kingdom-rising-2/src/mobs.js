@@ -24,7 +24,7 @@ const QV = {
   tiger: { len: 1.3, ch: 0.27, hip: 0.23, waist: 0.2, legL: 0.55, legR: 0.07, neck: 0.22, neckUp: 0.3, headR: 0.17, snout: 0.12, snoutR: 0.09, ears: 'round', earL: 0.06, tail: 0.95, tailR: 0.045, under: 0.75, stripes: true },
   rabbit: { len: 0.32, ch: 0.15, hip: 0.17, waist: 0.13, legL: 0.12, legR: 0.03, neck: 0.04, neckUp: 0.6, headR: 0.1, snout: 0.05, snoutR: 0.05, ears: 'bunny', earL: 0.2, tail: 0.04, tailR: 0.05, under: 0.5, plantigrade: true },
 };
-function buildQuad(variant, col, size) {
+export function buildQuad(variant, col, size) {
   const P = QV[variant];
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const base = new THREE.Color(col);
@@ -96,7 +96,7 @@ function buildQuad(variant, col, size) {
   root.scale.setScalar(size);
   return { root, body, torso, neck, head: headRot, legs, tail, tail2, P, kind: 'quad', variant, height: (hipY + P.ch + P.neck * Math.sin(P.neckUp) + P.headR) * size, radius: Math.max(P.len * 0.55, P.ch) * size, anim: { ph: Math.random() * 10 } };
 }
-function animQuad(c, dt, st) {
+export function animQuad(c, dt, st) {
   const A = c.anim, P = c.P;
   const sp = st.speed || 0;
   const gallop = sp > 4.5;

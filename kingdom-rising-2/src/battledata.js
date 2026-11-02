@@ -152,3 +152,20 @@ export const ECON = {
   xpNeed: (lv) => 60 * lv + 40,
   respawn: (lv) => 7 + lv * 1.7,
 };
+
+// extra class abilities that only exist in Kingdom Battles (3 per class)
+const BA = (id, name, level, cost, cd, desc) => ({ id, name, level, cost, cd, desc, key: '', icon: '', battle: true });
+export const BATTLE_ABILITIES = {
+  warrior: [BA('rally', 'Rallying Banner', 3, 30, 22, 'Plant your banner: you heal 15% and every one of your troops within 14 m heals 30% and hits 25% harder for 10 s.'),
+    BA('seismic', 'Seismic Slam', 7, 35, 10, 'Smash the ground: a shockwave rips 10 m forward in a wide cone, dealing heavy damage and slowing everything it hits.'),
+    BA('bladestorm', 'Bladestorm', 11, 45, 18, 'Spin like a whirlwind of steel for 2.4 s, cutting everything within 4.5 m again and again.')],
+  berserker: [BA('hurlaxe', 'Hurl Axe', 3, 20, 7, 'Throw a spinning axe that hits hard and leaves the target bleeding.'),
+    BA('skullsplitter', 'Skull Splitter', 7, 35, 9, 'A savage overhead chop on everything right in front of you: huge damage, doubled on enemies below 30% health.'),
+    BA('frenzy', 'Blood Frenzy', 11, 40, 24, 'Go berserk for 8 s: you attack 50% faster and every hit heals you a little.')],
+  ranger: [BA('arrowrain', 'Arrow Rain', 3, 30, 12, 'Loose a storm of arrows at the spot you aim at: 6 volleys over 3 s hit everything in 7 m.'),
+    BA('venomshot', 'Venom Arrow', 7, 20, 8, 'A poisoned arrow that hits hard and keeps eating away at the target for 8 s.'),
+    BA('wolves', 'Call of the Wild', 11, 45, 40, 'Two great wolves come to fight at your side for 30 s.')],
+  wizard: [BA('pyroblast', 'Pyroblast', 3, 30, 8, 'Hurl a huge fireball that explodes on impact, burning everything within 4.5 m.'),
+    BA('glacial', 'Glacial Spike', 7, 25, 9, 'A spear of ice that hits hard and freezes its target solid for 3 s.'),
+    BA('meteorshower', 'Meteor Shower', 11, 60, 28, 'Call down five meteors around the spot you aim at.')],
+};

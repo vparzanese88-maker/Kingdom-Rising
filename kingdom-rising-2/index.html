@@ -223,27 +223,27 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793648295",
-"./src/battle.js": "./src/battle.js?v=1793648295",
-"./src/battledata.js": "./src/battledata.js?v=1793648295",
-"./src/battlemap.js": "./src/battlemap.js?v=1793648295",
-"./src/battleui.js": "./src/battleui.js?v=1793648295",
-"./src/character.js": "./src/character.js?v=1793648295",
-"./src/combat.js": "./src/combat.js?v=1793648295",
-"./src/data.js": "./src/data.js?v=1793648295",
-"./src/game.js": "./src/game.js?v=1793648295",
-"./src/icons.js": "./src/icons.js?v=1793648295",
-"./src/main.js": "./src/main.js?v=1793648295",
-"./src/menu.js": "./src/menu.js?v=1793648295",
-"./src/mobs.js": "./src/mobs.js?v=1793648295",
-"./src/player.js": "./src/player.js?v=1793648295",
-"./src/saves.js": "./src/saves.js?v=1793648295",
-"./src/state.js": "./src/state.js?v=1793648295",
-"./src/terrain.js": "./src/terrain.js?v=1793648295",
-"./src/ui.js": "./src/ui.js?v=1793648295",
-"./src/util.js": "./src/util.js?v=1793648295",
-"./src/vfx.js": "./src/vfx.js?v=1793648295",
-"./src/world.js": "./src/world.js?v=1793648295"
+"./src/audio.js": "./src/audio.js?v=1793648750",
+"./src/battle.js": "./src/battle.js?v=1793648750",
+"./src/battledata.js": "./src/battledata.js?v=1793648750",
+"./src/battlemap.js": "./src/battlemap.js?v=1793648750",
+"./src/battleui.js": "./src/battleui.js?v=1793648750",
+"./src/character.js": "./src/character.js?v=1793648750",
+"./src/combat.js": "./src/combat.js?v=1793648750",
+"./src/data.js": "./src/data.js?v=1793648750",
+"./src/game.js": "./src/game.js?v=1793648750",
+"./src/icons.js": "./src/icons.js?v=1793648750",
+"./src/main.js": "./src/main.js?v=1793648750",
+"./src/menu.js": "./src/menu.js?v=1793648750",
+"./src/mobs.js": "./src/mobs.js?v=1793648750",
+"./src/player.js": "./src/player.js?v=1793648750",
+"./src/saves.js": "./src/saves.js?v=1793648750",
+"./src/state.js": "./src/state.js?v=1793648750",
+"./src/terrain.js": "./src/terrain.js?v=1793648750",
+"./src/ui.js": "./src/ui.js?v=1793648750",
+"./src/util.js": "./src/util.js?v=1793648750",
+"./src/vfx.js": "./src/vfx.js?v=1793648750",
+"./src/world.js": "./src/world.js?v=1793648750"
 }
 }
 </script>
@@ -634,6 +634,25 @@ body{font-size:16px;letter-spacing:.005em}
 .eq.twoh{opacity:.7;border-style:dashed}
 @media (max-width:900px){.invwin .invlay{grid-template-columns:1fr;overflow:auto}.invwin .invright .grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* ===== Kingdom Battles ===== */
+#abil .slot.hb .an{position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);font-size:10px;font-weight:700;letter-spacing:.02em;color:#f0e4c8;white-space:nowrap;text-shadow:0 1px 2px #000,0 0 4px #000;pointer-events:none}
+#abil .slot.hb{overflow:visible}
+.book .content{overflow:hidden}
+.bookintro{margin:0;color:#d8c8a8;font-size:14px}
+.bookbar{display:flex;gap:12px;justify-content:center;padding:6px 0}
+.bookslot{position:relative;width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:12px;background:linear-gradient(#2a1e10,#140d06);border:2px solid #5a4020;color:#f0e4c8;cursor:pointer;transition:.12s}
+.bookslot .k{position:absolute;left:8px;top:6px;font-weight:900;color:#ffd84a;font-size:16px}
+.bookslot .bi{width:58px;height:58px}.bookslot .bi svg{width:100%;height:100%}.bookslot b{font-size:13px;text-align:center}
+.bookslot.sel{border-color:#ffd84a;box-shadow:0 0 18px rgba(255,216,74,.45);transform:translateY(-3px)}
+.bookgrid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;padding-right:4px}
+.bookab{position:relative;display:grid;grid-template-columns:64px 1fr;gap:12px;text-align:left;padding:12px;border-radius:12px;background:linear-gradient(160deg,rgba(60,42,22,.85),rgba(18,12,7,.85));border:1px solid #5a4020;color:#f0e4c8;cursor:pointer;transition:.12s}
+.bookab:hover{border-color:#ffd84a;transform:translateY(-2px)}
+.bookab.on{border-color:#8ac0ff;box-shadow:inset 0 0 0 1px #8ac0ff}
+.bookab.locked{opacity:.5;filter:grayscale(.6)}
+.bookab .bi{width:64px;height:64px}.bookab .bi svg{width:100%;height:100%}
+.bookab b{font-size:17px;color:#fff2c8}.bookab p{margin:6px 0 0;font-size:13px;line-height:1.45;color:#d8c8a8}
+.bookab .bm{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:#bfae8c;margin-top:2px}.bookab .bm .new{color:#8ac0ff;font-weight:700}
+.bookab .inslot{position:absolute;right:10px;top:8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#2f6ae0;color:#fff;font-weight:900;font-size:13px}
+
 .ri{display:inline-block;vertical-align:middle;flex:none}.ri svg{width:100% !important;height:100% !important;display:block}
 .bres .rn{font-size:11px;font-weight:600;color:#c8b48a;margin-right:2px}
 .bres .bcarry{color:#ffe6a0}.bres .bcarry.full{border-color:#ff7a5a;color:#ffb0a0;animation:dbp .8s ease-in-out infinite alternate}
@@ -762,6 +781,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793648295"></script>
+<script type="module" src="./src/main.js?v=1793648750"></script>
 </body>
 </html>

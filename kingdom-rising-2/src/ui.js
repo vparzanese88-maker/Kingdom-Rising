@@ -57,7 +57,7 @@ export function buildAbilityBar() {
   const lmb = mk('LMB', '', 'wpn');
   const rmb = mk('RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
-  const hb = [0, 1, 2, 3, 4, 5].map(i => mk(String(i + 1), '', 'hb'));
+  const hb = Array.from({ length: G.hotbarSlots || 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
   const f = mk('F', Icons.abilityIcon('shield'), 'small');
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
@@ -83,7 +83,7 @@ export function refreshAbilityBar() {
       const ai = e.querySelector('.ai');
       e.className = 'slot hb' + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
       if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
-      else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; }
+      else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
       else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }
       if (e._key !== undefined && sl) pop(e);
       e._key = key;
@@ -116,8 +116,8 @@ export function updateHUD(dt) {
     const W = p.W;
     { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
-      const e = abilEls.hb[i];
-      if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
+      const e = abilEls.hb[i]; if (!e) return;
+      if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; if (!a) return; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
       else if (sl && sl.t === 'item') { setCd(e, p.useCd, 1); const n = Game.count(h, sl.id); let ne = e.querySelector('.n'); if (!ne) { ne = el('span', 'n'); e.appendChild(ne); } ne.textContent = n; e.style.opacity = n ? 1 : 0.4; }
       else { setCd(e, 0, 1); e.style.opacity = 1; const ne = e.querySelector('.n'); if (ne) ne.remove(); }
     });

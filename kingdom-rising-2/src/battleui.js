@@ -1,7 +1,7 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { CLASSES, ARMOR_SLOT_LIST, ITEMS } from './data.js';
+import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS } from './data.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
@@ -226,6 +226,42 @@ function tabArmory(body, t) {
   const s = el('div', 'bpanel', '<h3>Supplies</h3>'); const row = el('div', 'brow');
   for (const [id, g] of [['potion_heal', 30], ['potion_heal2', 70], ['honey_mead', 25], ['hunter_stew', 25]]) { const b = el('button', 'btn', `${ITEMS[id].name} · 🪙 ${g}`); b.onclick = () => { if (res(t, 'gold') < g) return say('Not enough gold'); bank(t, 'gold', -g); Game.addItem(h, id, 1); Game.autoFillHotbar(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded(); say(null); }; row.appendChild(b); }
   s.appendChild(row); body.appendChild(s);
+}
+
+// ---------- ability book (K): read every ability and choose the 4 on your hotbar ----------
+let bookSel = 0;
+export function openBook() {
+  const w = $('windows'); if (UI.UI.open === 'book') { UI.closeWin(); return; } w.innerHTML = '';
+  const win = el('div', 'win big bwin book'); const hd = el('header', '', '<h2>Abilities</h2>'); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
+  const c = el('div', 'content'); win.append(hd, c); w.appendChild(win);
+  UI.UI.open = 'book'; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
+  renderBook();
+}
+function renderBook() {
+  const c = document.querySelector('.book .content'); if (!c) return;
+  const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
+  const k = G.abilScale ? G.abilScale(h.level) : 1;
+  c.innerHTML = '';
+  c.appendChild(el('p', 'bookintro', `Your hotbar holds <b>4 abilities</b> on keys <b>1 2 3 4</b>. Click a slot, then click an ability to put it there. Every level makes all your abilities stronger: right now they hit <b>${Math.round(k * 100)}%</b> as hard, last as long and reach as far as at level 1.`));
+  const bar = el('div', 'bookbar');
+  for (let i = 0; i < 4; i++) {
+    const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
+    const d = el('button', 'bookslot' + (i === bookSel ? ' sel' : ''), `<span class="k">${i + 1}</span><div class="bi">${a ? Icons.abilityIcon(a.id) : ''}</div><b>${a ? a.name : 'Empty'}</b>`);
+    d.onclick = () => { S.click(); bookSel = i; renderBook(); }; bar.appendChild(d);
+  }
+  c.appendChild(bar);
+  const grid = el('div', 'bookgrid');
+  for (const a of list) {
+    const locked = a.level > h.level, slot = h.hotbar.findIndex(s => s && s.id === a.id);
+    const d = el('button', 'bookab' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><div class="bm"><span>${locked ? '🔒 Level ' + a.level : 'Level ' + a.level}</span><span>${a.cost} ${res}</span><span>⟳ ${a.cd}s</span>${a.battle ? '<span class="new">Battle</span>' : ''}</div><p>${a.desc}</p></div>${slot >= 0 ? `<span class="inslot">${slot + 1}</span>` : ''}`);
+    d.onclick = () => {
+      if (locked) { S.error(); UI.toast(`${a.name} unlocks at level ${a.level}`, '🔒', 'bad'); return; }
+      S.click(); const prev = h.hotbar[bookSel]; if (slot >= 0) h.hotbar[slot] = prev; h.hotbar[bookSel] = { t: 'ab', id: a.id }; bookSel = (bookSel + 1) % 4;
+      G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
+    };
+    grid.appendChild(d);
+  }
+  c.appendChild(grid);
 }
 
 // ---------- end of match ----------

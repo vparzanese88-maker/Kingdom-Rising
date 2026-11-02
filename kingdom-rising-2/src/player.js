@@ -11,7 +11,8 @@ import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tint
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
 import { activeWeapon, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
-import { FOOD_BUFFS } from './data.js';
+import { FOOD_BUFFS, ITEMS } from './data.js';
+import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
 
@@ -784,10 +785,9 @@ export class Player {
     S.dodge(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 10, { speed: 2, size: 0.4 });
   }
   swapWeapon() {
-    if (pairedWt(this.h) || !this.h.equip.w2 || this.h.equip.w2.wt === 'shield' || this.h.active === 'w1') { G.hooks.toast && G.hooks.toast('Your main and off hand fight together. Two-handed weapons fill both hands.', '⚔'); return; }
     if (this.atk || this.dodge) return;
-    const other = this.h.active === 'w1' ? 'w2' : 'w1';
-    if (!this.h.equip[other]) { G.hooks.toast && G.hooks.toast('No second weapon equipped (equip one from your bag)', '⚔', 'bad'); return; }
+    const other = this.h.active === 'ranged' ? 'w1' : 'ranged';
+    if (!this.h.equip[other]) { G.hooks.toast && G.hooks.toast('Put a bow in your Ranged slot (I) to switch to it with Q', '🏹', 'bad'); return; }
     this.h.active = other; this.refreshGear(); S.swap(); this.swapT = 0.35;
     G.hooks.gearChanged && G.hooks.gearChanged(true);
   }
@@ -868,8 +868,14 @@ export class Player {
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     for (const k of ['cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
-    if (h.food && h.food.t > 0) { h.food.t -= dt; if (h.food.t <= 0) { G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[h.food.id].name} has worn off`, '🍖'); h.food = null; this.refreshStatsOnly(); } }
-    this.fb = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] : {};
+    for (const k of ['food', 'drink']) {
+      const b = h[k];
+      if (b && b.t > 0) { b.t -= dt; if (b.t <= 0) { h[k] = null; if (!h.equip[k]) G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[b.id].name} has worn off`, k === 'food' ? '🍖' : '🍺'); this.refreshStatsOnly(); } }
+      // the food and drink slots feed you automatically when the buff runs out
+      const st = h.equip[k];
+      if ((!h[k] || h[k].t <= 0) && st && st.n > 0 && !this.dead) { st.n--; const id = st.id; if (st.n <= 0) h.equip[k] = null; Game.applyConsumable(h, id, true); G.hooks.toast && G.hooks.toast(`${k === 'food' ? 'Ate' : 'Drank'} ${ITEMS[id].name}: ${FOOD_BUFFS[id].desc}`, k === 'food' ? '🍖' : '🍺'); this.refreshStatsOnly(); G.hooks.invChanged && G.hooks.invChanged(); }
+    }
+    this.fb = Game.consumBuff(h);
     this.knockT = Math.max(0, (this.knockT || 0) - dt);
     if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
     const stunned = this.db && this.db.stun && this.db.stun.t > 0;

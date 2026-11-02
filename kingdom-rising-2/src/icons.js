@@ -162,7 +162,7 @@ export function itemSvg(it) {
   if (it.kind === 'armor') {
     const col = it.akind === 'mail' ? TIERS[it.tier].col : it.akind === 'leather' ? ['#9a6a3a', '#8a5a34', '#6a4a2a', '#4a3a2a', '#2a2a3a', '#3a5a2a'][it.tier] : ['#cbb898', '#e8dfc8', '#8a6ac8', '#4a6ad8', '#c070ff', '#ffb040'][it.tier];
     const metal = tri(col);
-    const shape = { head: it.akind === 'mail' ? 'helm' : it.akind === 'leather' ? 'hood' : 'hat', shoulders: 'shoulders', chest: it.akind === 'cloth' ? 'robe' : 'chest', wrists: 'wrists', hands: 'hands', waist: 'waist', legs: 'legs', feet: 'boots' }[it.slot];
+    const shape = { head: it.akind === 'mail' ? 'helm' : it.akind === 'leather' ? 'hood' : 'hat', shoulders: 'shoulders', chest: it.akind === 'cloth' ? 'robe' : 'chest', wrists: 'wrists', arms: 'wrists', hands: 'hands', waist: 'waist', legs: 'legs', feet: 'boots' }[it.slot];
     return svg(S[shape]({ col, metal }));
   }
   if (it.kind === 'acc') {
@@ -177,7 +177,7 @@ export function itemSvg(it) {
     copper_ingot: ['ingot'], iron_ingot: ['ingot'], steel_ingot: ['ingot'], mithril_ingot: ['ingot'], starmetal_ingot: ['ingot'],
     cotton: ['cotton'], linen: ['cloth'], silk_cloth: ['cloth'], raw_hide: ['hide', '#a8784a'], leather: ['hide', '#6a4020'], spider_silk: ['web'], healroot: ['herb'],
     raw_meat: ['meat'], crab_meat: ['crab'], roast_meat: ['roast'], herb_roast: ['roast'], hunter_stew: ['stew'], ember_skewer: ['skewer'], crab_cake: ['cake'], bandage: ['bandage'], bone: ['bone'], troll_tusk: ['fang'], wolf_fang: ['fang'], ember_core: ['ember'], bandit_badge: ['badge'], goblin_ear: ['fang', '#7a9a44'],
-    potion_heal: ['potion'], potion_heal2: ['potion'],
+    potion_heal: ['potion'], potion_heal2: ['potion'], dwarf_ale: ['potion', '#c88a30'], berry_juice: ['potion', '#b02a6a'], mint_tea: ['potion', '#5aba6a'], honey_mead: ['potion', '#f0b830'], fire_whisky: ['potion', '#e8601a'],
   }[id] || ['rock'];
   return svg(S[m[0]]({ col: m[1] || I.col }));
 }

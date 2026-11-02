@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793620059",
-"./src/character.js": "./src/character.js?v=1793620059",
-"./src/combat.js": "./src/combat.js?v=1793620059",
-"./src/data.js": "./src/data.js?v=1793620059",
-"./src/game.js": "./src/game.js?v=1793620059",
-"./src/icons.js": "./src/icons.js?v=1793620059",
-"./src/main.js": "./src/main.js?v=1793620059",
-"./src/menu.js": "./src/menu.js?v=1793620059",
-"./src/mobs.js": "./src/mobs.js?v=1793620059",
-"./src/player.js": "./src/player.js?v=1793620059",
-"./src/saves.js": "./src/saves.js?v=1793620059",
-"./src/state.js": "./src/state.js?v=1793620059",
-"./src/terrain.js": "./src/terrain.js?v=1793620059",
-"./src/ui.js": "./src/ui.js?v=1793620059",
-"./src/util.js": "./src/util.js?v=1793620059",
-"./src/vfx.js": "./src/vfx.js?v=1793620059",
-"./src/world.js": "./src/world.js?v=1793620059"
+"./src/audio.js": "./src/audio.js?v=1793620320",
+"./src/character.js": "./src/character.js?v=1793620320",
+"./src/combat.js": "./src/combat.js?v=1793620320",
+"./src/data.js": "./src/data.js?v=1793620320",
+"./src/game.js": "./src/game.js?v=1793620320",
+"./src/icons.js": "./src/icons.js?v=1793620320",
+"./src/main.js": "./src/main.js?v=1793620320",
+"./src/menu.js": "./src/menu.js?v=1793620320",
+"./src/mobs.js": "./src/mobs.js?v=1793620320",
+"./src/player.js": "./src/player.js?v=1793620320",
+"./src/saves.js": "./src/saves.js?v=1793620320",
+"./src/state.js": "./src/state.js?v=1793620320",
+"./src/terrain.js": "./src/terrain.js?v=1793620320",
+"./src/ui.js": "./src/ui.js?v=1793620320",
+"./src/util.js": "./src/util.js?v=1793620320",
+"./src/vfx.js": "./src/vfx.js?v=1793620320",
+"./src/world.js": "./src/world.js?v=1793620320"
 }
 }
 </script>
@@ -559,6 +559,8 @@ body{font-size:16px;letter-spacing:.005em}
 .tiphead b{font-size:17px}.tic{width:46px;height:46px}
 @media (max-height:680px){.doll{grid-template-columns:44px 160px 44px}.eq{width:44px;height:44px}.eq .ic{width:26px;height:26px}#portrait{width:160px;height:190px}.invright .grid{grid-template-columns:repeat(6,44px)}.invright .cell{width:44px;height:44px;padding:4px}.statbox .tools{display:none}}
 @media (max-height:860px){.doll{grid-template-columns:52px 190px 52px}.eq{width:52px;height:52px}.eq .ic{width:30px;height:30px}.eq .lb{display:none}#portrait{width:190px;height:230px}.invright .grid{grid-template-columns:repeat(6,50px)}.invright .cell{width:50px;height:50px;padding:5px}.win>header{padding:10px 20px}.win .content{padding:12px 20px 14px}}
+/* food & drink counts on gear slots */
+.eq .n{position:absolute;right:6px;top:4px;font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000}
 /* HUD editor */
 #hud.hudedit{pointer-events:none}
 #hud.hudedit #mapbox,#hud.hudedit #tracker,#hud.hudedit #bottom,#hud.hudedit #lvl,#hud.hudedit #buffs,#hud.hudedit #debuffs,#hud.hudedit #target,#hud.hudedit #toasts,#hud.hudedit #xpbar{pointer-events:auto;cursor:move;outline:2px dashed #ffd84a;outline-offset:3px;background-color:rgba(255,216,74,.07);min-width:110px;min-height:34px}
@@ -695,6 +697,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793620059"></script>
+<script type="module" src="./src/main.js?v=1793620320"></script>
 </body>
 </html>

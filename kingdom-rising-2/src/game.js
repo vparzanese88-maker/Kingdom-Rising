@@ -1,5 +1,5 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -17,7 +17,7 @@ export function pairedWt(h) {
   if (ONE.includes(b.wt)) return 'swordmace';
   return null;
 }
-export function activeWeapon(h) { const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
+export function activeWeapon(h) { if (h.active === 'ranged' && h.equip.ranged) return h.equip.ranged; const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
 export function newHero(o) {
   const starter = { berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
@@ -29,7 +29,8 @@ export function newHero(o) {
   return h;
 }
 
-export const EQUIP_SLOTS = ['w1', 'w2', 'head', 'neck', 'shoulders', 'back', 'chest', 'wrists', 'hands', 'waist', 'legs', 'feet', 'ring1', 'ring2', 'trinket'];
+export const EQUIP_SLOTS = ['w1', 'w2', 'ranged', 'head', 'back', 'chest', 'arms', 'hands', 'waist', 'legs', 'feet', 'food', 'drink'];
+const RETIRED = ['neck', 'shoulders', 'wrists', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
 export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
@@ -37,7 +38,7 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
-  if (h.inv) fixHands(h);
+  if (h.inv) { retireSlots(h); fixHands(h); }
   return h; }
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
@@ -93,7 +94,7 @@ export function itemName(it) { return it.kind ? it.name : (ITEMS[it.id]?.name ||
 export function itemValue(it) { if (it.kind) return Math.round((4 + it.tier * 10) * (1 + it.rarity * 0.8)); return ITEMS[it.id]?.value || 1; }
 export function itemIcon(it) {
   if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; return W.kind === 'bow' ? '🏹' : W.kind === 'staff' ? '🪄' : it.wt === 'daggers' ? '🗡' : it.wt === 'spear' ? '🔱' : it.wt.includes('axe') ? '🪓' : it.wt === 'warhammer' || it.wt === 'maceshield' ? '🔨' : '⚔'; }
-  if (it.kind === 'armor') return { head: '⛑', shoulders: '🎽', chest: '🥋', wrists: '⌚', hands: '🧤', waist: '🎗', legs: '👖', feet: '🥾' }[it.slot];
+  if (it.kind === 'armor') return { head: '⛑', shoulders: '🎽', chest: '🥋', wrists: '⌚', arms: '🦾', hands: '🧤', waist: '🎗', legs: '👖', feet: '🥾' }[it.slot];
   if (it.kind === 'acc') return { neck: '📿', back: '🧣', ring: '💍', trinket: '🔮' }[it.slot];
   return ITEMS[it.id]?.icon || '?';
 }
@@ -102,7 +103,7 @@ export function randomGear(h, lvl, minRarity = 0) {
   let r = Math.random(), rarity = r < 0.55 ? 1 : r < 0.85 ? 2 : r < 0.97 ? 3 : 4; rarity = Math.max(minRarity, rarity);
   const r2 = Math.random();
   if (r2 < 0.35) { const ws = CLASSES[h.cls].weapons; return makeWeapon(ws[Math.floor(Math.random() * ws.length)], tier, rarity); }
-  if (r2 < 0.55) return makeAcc(['neck', 'back', 'ring', 'trinket'][Math.floor(Math.random() * 4)], tier, Math.max(1, rarity));
+  if (r2 < 0.45) return makeAcc('back', tier, Math.max(1, rarity));
   return makeArmor(CLASSES[h.cls].armor, ARMOR_SLOT_LIST[Math.floor(Math.random() * ARMOR_SLOT_LIST.length)], tier, rarity);
 }
 
@@ -145,13 +146,13 @@ export function heroDerived(h) {
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15));
   const res = 1 + perk(h, 'res') * 0.2;
-  const F = h.food && h.food.t > 0 ? FOOD_BUFFS[h.food.id] || {} : {};
+  const F = consumBuff(h);
   return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + (F.hp || 0))), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, familiesOf(w.wt)[0], 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08 + (h.food && h.food.t > 0 && FOOD_BUFFS[h.food.id] ? FOOD_BUFFS[h.food.id].dmg || 0 : 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+  return w.dmg * mul * (1 + (h.level - 1) * 0.05) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
 // ---------- skill trees ----------
@@ -173,17 +174,19 @@ export function gainMastery(h, wt, n) {
   while (m.lv < MASTERY_CAP && m.xp >= masteryXpFor(m.lv)) { m.xp -= masteryXpFor(m.lv); m.lv++; G.hooks.masteryUp && G.hooks.masteryUp(wt, m.lv); }
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + h.level * 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
-export function canEquip(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && slot === 'ranged') return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
+function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
 export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }
 const warn = (t) => { G.hooks.toast && G.hooks.toast(t, '⚠', 'bad'); S.error(); };
 export function equipFromInv(h, idx, slot) {
   const it = h.inv[idx]; if (!it || !it.kind) return false;
-  if (!canEquip(h, it)) { warn(`${CLASSES[h.cls].name}s can't use that.`); return false; }
+  if (!canEquip(h, it, slot)) { warn(it.kind === 'acc' && it.slot !== 'back' ? 'That is no longer worn. Sell it to a merchant.' : `${CLASSES[h.cls].name}s can't use that.`); return false; }
   if (it.lvl > h.level) { warn(`Requires level ${it.lvl}.`); return false; }
   let target = it.kind === 'weapon' ? 'w1' : it.slot;
   if (it.kind === 'acc' && it.slot === 'ring') target = slot === 'ring1' || slot === 'ring2' ? slot : (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
+  if (it.kind === 'weapon' && slot === 'ranged') { if (it.wt !== 'bow') { warn('Only bows go in the ranged slot.'); return false; } h.inv[idx] = h.equip.ranged || null; h.equip.ranged = it; S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); return true; }
   if (it.kind === 'weapon') {
     const hd = handsOf(it.wt), main = h.equip.w1;
     if (hd === 'off' || (hd === 'one' && slot === 'w2')) {
@@ -202,7 +205,7 @@ export function equipFromInv(h, idx, slot) {
     }
   }
   if (slot && slot !== target && it.kind !== 'weapon') { warn(`That doesn't go in that slot.`); return false; }
-  h.inv[idx] = h.equip[target] || null; h.equip[target] = it; h.active = 'w1';
+  h.inv[idx] = h.equip[target] || null; h.equip[target] = it; if (target === 'w1' || target === 'w2') h.active = 'w1';
   S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
   checkEquipObjectives(h);
   return true;
@@ -211,18 +214,54 @@ export function unequip(h, slot, toIdx) {
   if (!h.equip[slot]) return false;
   if (slot === 'w1' && (!h.equip.w2 || h.equip.w2.wt === 'shield')) { warn('Keep at least one weapon in your main hand.'); return false; }
   const i = toIdx != null && !h.inv[toIdx] ? toIdx : h.inv.indexOf(null); if (i < 0) { warn('Your bag is full!'); return false; }
-  h.inv[i] = h.equip[slot]; h.equip[slot] = null;
+  const it = h.equip[slot];
+  if (!it.kind) { h.equip[slot] = null; if (toIdx != null && !h.inv[toIdx]) h.inv[toIdx] = it; else addItem(h, it.id, it.n, true); }
+  else { h.inv[i] = it; h.equip[slot] = null; }
   if (slot === 'w1') { h.equip.w1 = h.equip.w2; h.equip.w2 = null; }
-  h.active = 'w1';
+  if (slot !== 'ranged' || h.active === 'ranged') h.active = 'w1';
   G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
   return true;
 }
+// food and drink slots hold a stack that is used up one at a time as the buff runs out
+export function equipConsumable(h, idx, slot) {
+  const it = h.inv[idx]; if (!it || it.kind) return false;
+  const F = FOOD_BUFFS[it.id]; if (!F) { warn("That isn't food or drink."); return false; }
+  const want = F.drink ? 'drink' : 'food'; if (slot && slot !== want) { warn(F.drink ? 'That goes in the drink slot.' : 'That goes in the food slot.'); return false; }
+  const cur = h.equip[want];
+  if (cur && cur.id === it.id) { cur.n += it.n; h.inv[idx] = null; }
+  else { h.inv[idx] = cur || null; h.equip[want] = it; }
+  S.swap(); G.hooks.invChanged && G.hooks.invChanged(); G.hooks.gearChanged && G.hooks.gearChanged();
+  return true;
+}
+// combined food + drink buff
+export function consumBuff(h) {
+  const out = {};
+  for (const b of [h.food, h.drink]) if (b && b.t > 0 && FOOD_BUFFS[b.id]) for (const [k, v] of Object.entries(FOOD_BUFFS[b.id])) if (typeof v === 'number') out[k] = (out[k] || 0) + v;
+  return out;
+}
+export function applyConsumable(h, id, quiet) {
+  const F = FOOD_BUFFS[id]; if (!F) return;
+  const k = F.drink ? 'drink' : 'food', time = F.drink ? DRINK_TIME : FOOD_TIME;
+  const prev = h[k] && h[k].t > 0 && h[k].id !== id ? FOOD_BUFFS[h[k].id].name : null;
+  h[k] = { id, t: time };
+  if (!quiet) G.hooks.toast && G.hooks.toast(`${F.name}: ${F.desc} for ${Math.round(time / 60)} min${prev ? ` (replaces ${prev})` : ''}`, itemSvg({ id }), 'gold');
+  G.hooks.gearChanged && G.hooks.gearChanged();
+}
+// gear slots that were removed: their items go back to the bag
+function retireSlots(h) {
+  const e = h.equip;
+  for (const it of h.inv) if (it && it.kind === 'armor' && (it.slot === 'wrists' || it.slot === 'shoulders')) it.slot = 'arms';
+  for (const k of RETIRED) { const it = h.equip[k]; delete h.equip[k]; if (!it) continue;
+    if (it.kind === 'armor') { it.slot = 'arms'; if (!e.arms) { e.arms = it; continue; } }
+    const i = h.inv.indexOf(null); if (i >= 0) h.inv[i] = it; }
+  if (!['w1', 'ranged'].includes(h.active)) h.active = 'w1';
+}
 // fix gear from older saves: two-handers never share the hands with anything
 function fixHands(h) {
-  const e = h.equip;
+  const e = h.equip; if (h.active === 'ranged' && e.ranged) return;
   if (!e.w1 && e.w2 && e.w2.wt !== 'shield') { e.w1 = e.w2; e.w2 = null; }
   if (e.w2 && (isTwoHanded(e.w1) || isTwoHanded(e.w2) || !e.w1)) { const k = h.inv.indexOf(null); if (k >= 0) { h.inv[k] = e.w2; e.w2 = null; } }
-  h.active = 'w1';
+  if (h.active !== 'ranged' || !e.ranged) h.active = 'w1';
 }
 
 // ---------- XP & levels ----------
@@ -342,7 +381,7 @@ export function useItem(h, id, player) {
   removeItem(h, id, 1); player.useCd = 1.0;
   if (it.use.heal) { player.heal(player.maxHp * it.use.heal); S.drink(); }
   if (it.use.regen) { player.regen = { per: player.maxHp * it.use.regen / (it.use.time || 10), t: it.use.time || 10 }; S.eat(); }
-  if (FOOD_BUFFS[id]) { const prev = h.food && h.food.t > 0 && h.food.id !== id ? FOOD_BUFFS[h.food.id].name : null; h.food = { id, t: FOOD_TIME }; G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[id].name}: ${FOOD_BUFFS[id].desc} for 5 min${prev ? ` (replaces ${prev})` : ''}`, itemSvg({ id }), 'gold'); G.hooks.gearChanged && G.hooks.gearChanged(); }
+  if (FOOD_BUFFS[id]) { if (FOOD_BUFFS[id].drink) S.drink(); applyConsumable(h, id); }
   else if (it.use.regen) G.hooks.toast && G.hooks.toast(`${it.name}: healing over time`, itemSvg({ id }));
   return true;
 }

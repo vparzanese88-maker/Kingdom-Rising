@@ -349,23 +349,34 @@ export const ITEMS = {
   // consumables
   potion_heal: { name: 'Healing Potion', icon: '🧪', col: '#ff5050', desc: 'Restores 40% health. Press R.', value: 8, use: { heal: 0.4 } },
   potion_heal2: { name: 'Greater Healing Potion', icon: '🧪', col: '#ff2070', desc: 'Restores 70% health. Press R.', value: 25, use: { heal: 0.7 } },
-  crab_cake: { name: 'Crab Cake', icon: '🍘', desc: 'Restores 25% health over 10 s. Food buff Sea Legs: +10% move speed for 5 min.', value: 4, use: { regen: 0.25 } },
-  roast_meat: { name: 'Roast Meat', icon: '🍖', desc: 'Restores 35% health over 10 s. Food buff Hearty: +10% maximum health for 5 min.', value: 5, use: { regen: 0.35 } },
-  herb_roast: { name: 'Herb-Roasted Meat', icon: '🍖', desc: 'Restores 40% health over 10 s. Food buff Vigour: +25% health and endurance regeneration for 5 min.', value: 8, use: { regen: 0.4 } },
-  hunter_stew: { name: "Hunter's Stew", icon: '🍲', desc: "Restores 45% health over 10 s. Food buff Hunter's Strength: +8% damage for 5 min.", value: 12, use: { regen: 0.45 } },
-  ember_skewer: { name: 'Ember Skewer', icon: '🍢', desc: 'Restores 40% health over 10 s. Food buff Fire Belly: +6% critical chance for 5 min.', value: 16, use: { regen: 0.4 } },
+  dwarf_ale: { name: 'Dwarven Ale', icon: '🍺', desc: 'Drink.', value: 5, use: {} },
+  berry_juice: { name: 'Berry Juice', icon: '🧃', desc: 'Drink.', value: 3, use: {} },
+  mint_tea: { name: 'Mint Tea', icon: '🍵', desc: 'Drink.', value: 3, use: {} },
+  honey_mead: { name: 'Honey Mead', icon: '🍯', desc: 'Drink.', value: 6, use: {} },
+  fire_whisky: { name: 'Fire Whisky', icon: '🥃', desc: 'Drink.', value: 14, use: {} },
+  crab_cake: { name: 'Crab Cake', icon: '🍘', desc: 'Restores 25% health over 10 s.', value: 4, use: { regen: 0.25 } },
+  roast_meat: { name: 'Roast Meat', icon: '🍖', desc: 'Restores 35% health over 10 s.', value: 5, use: { regen: 0.35 } },
+  herb_roast: { name: 'Herb-Roasted Meat', icon: '🍖', desc: 'Restores 40% health over 10 s.', value: 8, use: { regen: 0.4 } },
+  hunter_stew: { name: "Hunter's Stew", icon: '🍲', desc: "Restores 45% health over 10 s.", value: 12, use: { regen: 0.45 } },
+  ember_skewer: { name: 'Ember Skewer', icon: '🍢', desc: 'Restores 40% health over 10 s.', value: 16, use: { regen: 0.4 } },
   bandage: { name: 'Linen Bandage', icon: '🩹', desc: 'Restores 20% health over 6 s.', value: 3, use: { regen: 0.2, time: 6 } },
 };
 
 // Food buffs: only one at a time, eating another replaces it
+// food: small buffs that last a long time. drinks: a bit stronger, shorter. One of each at a time.
 export const FOOD_BUFFS = {
-  roast_meat: { name: 'Hearty', desc: '+10% maximum health', hp: 0.1 },
-  crab_cake: { name: 'Sea Legs', desc: '+10% move speed', speed: 0.1 },
-  herb_roast: { name: 'Vigour', desc: '+25% health and endurance regeneration', regen: 0.25 },
-  hunter_stew: { name: "Hunter's Strength", desc: '+8% damage', dmg: 0.08 },
-  ember_skewer: { name: 'Fire Belly', desc: '+6% critical chance', crit: 0.06 },
+  roast_meat: { name: 'Hearty', desc: '+6% maximum health', hp: 0.06 },
+  crab_cake: { name: 'Sea Legs', desc: '+6% move speed', speed: 0.06 },
+  herb_roast: { name: 'Vigour', desc: '+15% health and endurance regeneration', regen: 0.15 },
+  hunter_stew: { name: "Hunter's Strength", desc: '+5% damage', dmg: 0.05 },
+  ember_skewer: { name: 'Fire Belly', desc: '+4% critical chance', crit: 0.04 },
+  dwarf_ale: { drink: true, name: 'Stout', desc: '+10% maximum health', hp: 0.1 },
+  berry_juice: { drink: true, name: 'Quickstep', desc: '+10% move speed', speed: 0.1 },
+  mint_tea: { drink: true, name: 'Second Wind', desc: '+30% health and endurance regeneration', regen: 0.3 },
+  honey_mead: { drink: true, name: 'Courage', desc: '+8% damage', dmg: 0.08 },
+  fire_whisky: { drink: true, name: 'Firewater', desc: '+7% critical chance', crit: 0.07 },
 };
-export const FOOD_TIME = 300;
+export const FOOD_TIME = 900, DRINK_TIME = 360;
 export const TOOLS = {
   hatchet: { name: 'Hatchet', icon: '🪓', desc: 'For chopping trees.' },
   pickaxe: { name: 'Pickaxe', icon: '⛏', desc: 'For mining stone and ore.' },
@@ -393,11 +404,11 @@ export const STATIONS = {
   workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table',
 };
 
-const ARMOR_SLOTS = { head: 'Head', shoulders: 'Shoulders', chest: 'Chest', wrists: 'Wrists', hands: 'Hands', waist: 'Waist', legs: 'Legs', feet: 'Feet' };
+const ARMOR_SLOTS = { head: 'Head', chest: 'Chest', arms: 'Arms', hands: 'Hands', waist: 'Waist', legs: 'Legs', feet: 'Feet' };
 export const ARMOR_NAMES = {
-  cloth: { head: 'Hat', shoulders: 'Mantle', chest: 'Robe', wrists: 'Cuffs', hands: 'Gloves', waist: 'Sash', legs: 'Leggings', feet: 'Slippers' },
-  leather: { head: 'Hood', shoulders: 'Spaulders', chest: 'Jerkin', wrists: 'Bracers', hands: 'Gloves', waist: 'Belt', legs: 'Breeches', feet: 'Boots' },
-  mail: { head: 'Helm', shoulders: 'Pauldrons', chest: 'Hauberk', wrists: 'Vambraces', hands: 'Gauntlets', waist: 'Girdle', legs: 'Greaves', feet: 'Sabatons' },
+  cloth: { head: 'Hat', chest: 'Robe', arms: 'Sleeves', hands: 'Gloves', waist: 'Sash', legs: 'Leggings', feet: 'Slippers' },
+  leather: { head: 'Hood', chest: 'Jerkin', arms: 'Bracers', hands: 'Gloves', waist: 'Belt', legs: 'Breeches', feet: 'Boots' },
+  mail: { head: 'Helm', chest: 'Hauberk', arms: 'Vambraces', hands: 'Gauntlets', waist: 'Girdle', legs: 'Greaves', feet: 'Sabatons' },
 };
 export const ARMOR_TIER_NAMES = {
   cloth: ['Ragged', 'Linen', 'Woven', 'Silk', 'Starweave', 'Archmage'],
@@ -405,7 +416,7 @@ export const ARMOR_TIER_NAMES = {
   mail: ['Rusty', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
 };
 export const ARMOR_SLOT_LIST = Object.keys(ARMOR_SLOTS);
-export const SLOT_LABEL = Object.assign({ neck: 'Neck', back: 'Back', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm', w1: 'Main Hand', w2: 'Off Hand' }, ARMOR_SLOTS);
+export const SLOT_LABEL = Object.assign({ back: 'Back', w1: 'Main Hand', w2: 'Off Hand', ranged: 'Ranged', food: 'Food', drink: 'Drink', neck: 'Neck (no longer worn)', ring: 'Ring (no longer worn)', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm (no longer worn)', shoulders: 'Shoulders (no longer worn)', wrists: 'Arms' }, ARMOR_SLOTS);
 // accessories: neck (amulet), back (cloak), ring, trinket (charm)
 export const ACC = {
   neck: { names: ['', 'Copper Amulet', 'Iron Pendant', 'Steel Torc', 'Mithril Amulet', 'Starmetal Medallion'] },
@@ -415,7 +426,7 @@ export const ACC = {
 };
 
 export function weaponBaseDmg(tier) { return 9 + tier * 9; }
-export function armorBase(tier, slot) { const m = { head: 0.7, shoulders: 0.6, chest: 1.3, wrists: 0.35, hands: 0.45, waist: 0.4, legs: 1.0, feet: 0.6 }[slot]; return Math.max(1, Math.round((3 + tier * 5) * m)); }
+export function armorBase(tier, slot) { const m = { head: 0.7, chest: 1.3, arms: 0.7, hands: 0.45, waist: 0.4, legs: 1.0, feet: 0.6 }[slot]; return Math.max(1, Math.round((3 + tier * 5) * m)); }
 
 // Build recipe list
 export const RECIPES = [];
@@ -431,6 +442,8 @@ export const RECIPES = [];
   R({ id: 'silk_cloth', out: 'silk_cloth', n: 1, station: 'loom', need: { spider_silk: 3 }, cat: 'Refining', lvl: 5 });
   R({ id: 'leather', out: 'leather', n: 1, station: 'tanning', need: { raw_hide: 2 }, cat: 'Refining', lvl: 1 });
   R({ id: 'bandage', out: 'bandage', n: 2, station: 'loom', need: { linen: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'mint_tea', out: 'mint_tea', n: 2, station: 'campfire', need: { healroot: 1 }, cat: 'Consumables', lvl: 1 });
+  R({ id: 'fire_whisky', out: 'fire_whisky', n: 1, station: 'campfire', need: { ember_core: 1, healroot: 1 }, cat: 'Consumables', lvl: 14 });
   R({ id: 'crab_cake', out: 'crab_cake', n: 1, station: 'campfire', need: { crab_meat: 1 }, cat: 'Consumables', lvl: 1 });
   R({ id: 'roast_meat', out: 'roast_meat', n: 1, station: 'campfire', need: { raw_meat: 1 }, cat: 'Consumables', lvl: 1 });
   R({ id: 'herb_roast', out: 'herb_roast', n: 1, station: 'campfire', need: { raw_meat: 1, healroot: 1 }, cat: 'Consumables', lvl: 3 });
@@ -460,7 +473,7 @@ export const RECIPES = [];
   for (const kind of ['cloth', 'leather', 'mail']) {
     for (const slot of ARMOR_SLOT_LIST) {
       for (let t = 1; t <= 5; t++) {
-        const n = slot === 'chest' ? 4 : slot === 'legs' ? 3 : slot === 'wrists' || slot === 'waist' ? 1 : 2;
+        const n = slot === 'chest' ? 4 : slot === 'legs' ? 3 : slot === 'arms' || slot === 'waist' ? 1 : 2;
         const need = {};
         const metal = TIERS[t].ingot;
         if (kind === 'cloth') { need[t >= 3 ? 'silk_cloth' : 'linen'] = n + t - 1; if (t >= 2) need.leather = 1; if (t >= 4) need[metal] = 1; }
@@ -474,8 +487,6 @@ export const RECIPES = [];
   // accessories
   for (let t = 1; t <= 5; t++) {
     const metal = TIERS[t].ingot;
-    R({ id: 'acc_ring_' + t, acc: 'ring', tier: t, station: 'forge', need: { [metal]: 2 + t, ...(t >= 3 ? { ember_core: t - 2 } : {}) }, cat: 'Jewelry', lvl: TIERS[t].lvl });
-    R({ id: 'acc_neck_' + t, acc: 'neck', tier: t, station: 'forge', need: { [metal]: 3 + t, linen: 1, ...(t >= 3 ? { ember_core: t - 2 } : {}) }, cat: 'Jewelry', lvl: TIERS[t].lvl });
     R({ id: 'acc_back_' + t, acc: 'back', tier: t, station: 'loom', need: { [t >= 3 ? 'silk_cloth' : 'linen']: 3 + t, leather: 1, ...(t >= 4 ? { [metal]: 1 } : {}) }, cat: 'Armor', lvl: TIERS[t].lvl });
   }
 })();
@@ -656,4 +667,4 @@ export const STATION_SPOTS = [
   { type: 'workbench', x: 252, z: -336, rot: 2.0 }, { type: 'loom', x: 222, z: -318, rot: 1.0 }, { type: 'tanning', x: 226, z: -308, rot: 0.6 },
 ];
 
-export const MERCHANT_STOCK = ['potion_heal', 'bandage', 'crab_cake', 'linen', 'leather', 'planks', 'copper_ingot', 'iron_ingot'];
+export const MERCHANT_STOCK = ['potion_heal', 'bandage', 'crab_cake', 'roast_meat', 'berry_juice', 'mint_tea', 'honey_mead', 'dwarf_ale', 'linen', 'leather', 'planks', 'copper_ingot', 'iron_ingot'];

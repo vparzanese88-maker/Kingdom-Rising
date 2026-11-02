@@ -19,7 +19,9 @@ export const JUNCTION_D = 100;     // where a town's road splits toward the othe
 
 // town layout: towns sit on a ring around the map centre, gates facing the middle
 export const LAYOUT = { towns: [], roads: [], camps: [], gold: [], stone: [] };
-if (BATTLE) {
+// built at load for single player, or once the online lobby has decided the towns
+export function computeLayout() {
+  for (const k in LAYOUT) LAYOUT[k].length = 0;
   const N = SETUP.towns.length, R = N === 2 ? 330 : N === 3 ? 310 : 320;
   const rnd = mulberry32((SETUP.seed || 7) * 7919);
   for (let i = 0; i < N; i++) {
@@ -79,6 +81,7 @@ if (BATTLE) {
   LAYOUT.camps.push(...extra);
 }
 
+if (BATTLE && !SETUP.mp) computeLayout();
 export function roadPolylines() { return LAYOUT.roads.map(r => r.pts); }
 export function nearTown(x, z, pad = 0) { for (const t of LAYOUT.towns) if (Math.hypot(x - t.x, z - t.z) < WALL_R + 12 + pad) return t; return null; }
 

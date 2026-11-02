@@ -24,12 +24,13 @@ export const ROADS = [
 export const LAVA_POOLS = [[250, -380, 14], [320, -350, 10], [190, -420, 12], [300, -440, 9], [400, -482, 13]];
 export const BRIDGES = []; // filled at build: {x,z,ang,len,w,y}
 // Kingdom Battles uses its own map: move the campaign landmarks out of the way
-if (BATTLE) {
+export function applyBattleTerrain() {
   ROADS.length = 0; ROADS.push(...roadPolylines());
   LAVA_POOLS.length = 0; CAMPS.length = 0; RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]);
   VILLAGE.x = 9000; VILLAGE.z = 9000; PLATEAU.x = LAKE.x = 9000; PLATEAU.z = LAKE.z = 9000; VOLCANO.x = VOLCANO.z = 9000; FALL.x = FALL.z = 9000;
   const t0 = LAYOUT.towns[0]; SPAWN.x = t0.x; SPAWN.z = t0.z; SPAWN.yaw = t0.yaw;
 }
+if (BATTLE && LAYOUT.towns.length) applyBattleTerrain();
 
 function riverDist(x, z) { return distToLine(x, z, RIVER); }
 function roadDist(x, z) { let best = 1e9; for (const r of ROADS) { const d = distToLine(x, z, r).d; if (d < best) best = d; } return best; }

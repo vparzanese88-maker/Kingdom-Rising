@@ -37,6 +37,7 @@ export const WEAPON_TYPES = {
   firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
   froststaff: { name: 'Frost Staff', hands: 'staff', reach: 55, area: 7, speed: 1.05, block: 0.4, dmg: 0.95, kind: 'staff', element: 'frost', parts: ['staff'], areaName: 'Blizzard' },
   arcanestaff: { name: 'Arcane Staff', hands: 'staff', reach: 60, area: 6.5, speed: 1.15, block: 0.4, dmg: 0.95, kind: 'staff', element: 'arcane', parts: ['staff'], areaName: 'Arcane Nova' },
+  musket: { name: 'Musket', hands: 'two', reach: 70, area: 6, speed: 0.85, block: 0.3, dmg: 1.55, kind: 'gun', parts: ['musket'], areaName: 'Double Shot' },
 };
 
 // Stats: STR melee damage, DEX ranged/light-weapon damage, crit chance and endurance, INT mana and spell damage, STA health.
@@ -50,11 +51,12 @@ export const CLASS_POOLS = {
   berserker: { hp: [130, 18], mana: [0, 0], end: [105, 6], uses: 'end' },
   ranger: { hp: [100, 13], mana: [0, 0], end: [110, 6], uses: 'end' },
   wizard: { hp: [85, 10], mana: [110, 9], end: [80, 3], uses: 'mana' },
+  musketeer: { hp: [100, 13], mana: [0, 0], end: [105, 6], uses: 'end' },
 };
 export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; return { hp: P.hp[0] + P.hp[1] * (level - 1), mana: P.mana[0] + P.mana[1] * (level - 1), end: P.end[0] + P.end[1] * (level - 1) }; }
 // which stat a weapon type scales with
 // weapon ability (right click) cooldowns in seconds, by weapon kind
-export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8 };
+export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8, gun: 6 };
 
 // ---------- Individual weapons: each has its own mastery, tree and two abilities (F and C) ----------
 export const FAMILIES = {
@@ -71,6 +73,7 @@ export const FAMILIES = {
   firestaff: { name: 'Fire Staff', kind: 'staff', skills: ['meteor', 'flamewave'] },
   froststaff: { name: 'Frost Staff', kind: 'staff', skills: ['blizzard', 'icelance'] },
   arcanestaff: { name: 'Arcane Staff', kind: 'staff', skills: ['nova', 'missiles'] },
+  musket: { name: 'Musket', kind: 'gun', skills: ['doubleshot', 'doubleshot'] },
 };
 export const WSKILLS = {
   fan8: { name: 'Arrow Fan', cd: 7, icon: 'rain', desc: 'Loose eight arrows at once in a wide horizontal fan.' },
@@ -101,6 +104,7 @@ export const WSKILLS = {
   flamewave: { name: 'Flame Wave', cd: 8, icon: 'meteor', desc: 'A wave of fire in front of you that sets enemies alight.' },
   blizzard: { name: 'Blizzard', cd: 10, icon: 'blizzard', desc: 'A storm of ice on a spot that damages and slows.' },
   icelance: { name: 'Ice Lance', cd: 7, icon: 'frostnova', desc: 'A huge piercing shard of ice that freezes what it hits.' },
+  doubleshot: { name: 'Double Shot', cd: 6, icon: 'dash', desc: 'Fire both barrels in quick succession, then leap backwards out of harm.' },
   nova: { name: 'Arcane Nova', cd: 10, icon: 'nova', desc: 'A heavy orb that bursts in a wide nova.' },
   missiles: { name: 'Arcane Missiles', cd: 7, icon: 'nova', desc: 'Three seeking bolts of arcane force.' },
 };
@@ -119,6 +123,7 @@ export function classFamilies(cls) { const out = []; for (const wt of CLASSES[cl
 // Class tree: 1 point per level after 1. Rows unlock after spending points in the tree (row r needs 3*r points).
 export const TREE_ROW_POINTS = 2;
 export const CLASS_TREE = {
+  musketeer: [],
   warrior: [
     { id: 'hp', row: 0, name: "Toughness", icon: 'heart', max: 1, desc: "+10% maximum health." },
     { id: 'armor', row: 0, name: "Iron Skin", icon: 'shield', max: 1, desc: "+15% armour." },
@@ -198,12 +203,12 @@ export const WEAPON_TREE = { melee: WT('melee'), bow: WT('bow'), staff: WT('staf
 export const familyTree = (fam) => WEAPON_TREE[FAMILIES[fam].kind];
 export const MASTERY_CAP = 20;
 export const masteryXpFor = (lv) => 60 + lv * 45;
-export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
+export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || W.kind === 'gun' || wt === 'daggers' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
 
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 // right-click special attack for each weapon (dual-wield sets have their own)
-export const RMB_SPECIAL = { sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'shadowflurry', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
+export const RMB_SPECIAL = { musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'shadowflurry', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
   sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
@@ -230,6 +235,9 @@ export const CLASSES = {
   wizard: { name: 'Wizard', desc: 'A robed scholar of the arcane. Hurls fire, frost and raw magic from afar.',
     weapons: ['firestaff', 'froststaff', 'arcanestaff'], armor: 'cloth', hp: 95, mana: 100,
     colors: { main: '#2b3a8f', trim: '#e0c25a', metal: '#c9b26a' } },
+  musketeer: { name: 'Musketeer', battleOnly: true, desc: 'A sharpshooter in a long coat. Slow to reload, but every shot hits like a hammer, and a steady aim can drop a foe from across the field.',
+    weapons: ['musket'], armor: 'leather', hp: 105, mana: 0,
+    colors: { main: '#1e3a6a', trim: '#d8b04a', metal: '#4a4a50' } },
 };
 
 // Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
@@ -269,6 +277,18 @@ export const ABILITIES = {
     { id: 'explotrap', cost: 35, name: "Explosive Trap", key: '', level: 14, cd: 14, icon: '', desc: "Set a fire trap that explodes when an enemy steps on it, burning everything nearby." },
     { id: 'pinning', cost: 25, name: "Pinning Shot", key: '', level: 16, cd: 9, icon: '', desc: "An arrow that pins the target to the ground: stunned for 2.5 s." },
     { id: 'barrage', cost: 45, name: "Barrage", key: '', level: 18, cd: 16, icon: '', desc: "Loose 10 arrows in quick succession at whatever you are aiming at." },
+  ],
+  musketeer: [
+    { id: 'grapeshot', cost: 30, name: "Grapeshot", key: '', level: 1, cd: 8, icon: '', desc: "Load a handful of shot and blast a wide cone 10 m in front of you, knocking enemies back." },
+    { id: 'smokebomb', cost: 25, name: "Smoke Bomb", key: '', level: 2, cd: 16, icon: '', desc: "Vanish in a cloud of powder smoke: enemies lose you for 4 s and your next shot is a guaranteed critical hit." },
+    { id: 'powderkeg', cost: 35, name: "Powder Keg", key: '', level: 4, cd: 12, icon: '', desc: "Toss a lit keg where you aim. It explodes after a moment, blasting everything within 6 m." },
+    { id: 'quickreload', cost: 20, name: "Quick Reload", key: '', level: 6, cd: 18, icon: '', desc: "For 8 s you reload in half the time and every shot deals 30% more damage." },
+    { id: 'bayonet', cost: 30, name: "Bayonet Charge", key: '', level: 8, cd: 10, icon: '', desc: "Lunge 10 m forward behind your bayonet, running through everything in your path." },
+    { id: 'eagleeye', cost: 25, name: "Eagle Eye", key: '', level: 10, cd: 22, icon: '', desc: "For 10 s your aim is perfect: +40% critical chance and shots fly faster and flatter." },
+    { id: 'volleyfire', cost: 40, name: "Volley Fire", key: '', level: 12, cd: 16, icon: '', desc: "Empty your bandolier: five rapid shots at your target, each hitting hard." },
+    { id: 'incendiary', cost: 30, name: "Incendiary Round", key: '', level: 14, cd: 10, icon: '', desc: "A blazing round that bursts on impact, setting everything within 4 m on fire." },
+    { id: 'caltrops', cost: 20, name: "Caltrops", key: '', level: 16, cd: 14, icon: '', desc: "Scatter iron spikes in a 6 m circle around you: enemies inside are slowed and cut." },
+    { id: 'cannonade', cost: 55, name: "Cannonade", key: '', level: 18, cd: 30, icon: '', desc: "Signal the town's cannons: three shells crash down around the spot you aim at." },
   ],
   wizard: [
     { id: 'frostnova', cost: 30, name: "Frost Nova", key: '', level: 1, cd: 8, icon: '', desc: "Blast of ice around you: damages and freezes nearby enemies for 3 s." },

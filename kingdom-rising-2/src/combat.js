@@ -78,6 +78,7 @@ export function spawnProjectile(o) {
     case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
+    case 'bullet': m = new THREE.Mesh(geo.sphere, glow('#fff0b0')); m.scale.setScalar(0.07); break;
     case 'axe': { m = new THREE.Group(); const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#6a4020' })); m.add(h); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), new THREE.MeshStandardMaterial({ color: '#b0b8c0', metalness: 0.8, roughness: 0.3 })); b.position.y = 0.2; b.position.x = 0.08; m.add(b); break; }
     case 'javelin': { m = new THREE.Group(); const h = new THREE.Mesh(geo.arrow, new THREE.MeshStandardMaterial({ color: '#8a6a44' })); h.scale.set(2, 2, 2.2); m.add(h); break; }
     case 'knife': { m = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#d0d8e0', metalness: 0.9, roughness: 0.2 })); break; }
@@ -109,7 +110,7 @@ export function updateProjectiles(dt) {
             p.hitSet.add(m);
             // Kingdom Battles headshots: an arrow in the top of a humanoid's body does double damage
             const human = !m.isStruct && ((m.model && m.model.kind2 === 'human') || (m.udef && !m.udef.quad));
-            const head = G.battleFx && human && (p.kind === 'arrow' || p.kind === 'spectral') && p.pos.y > m.pos.y + m.height * 0.76;
+            const head = G.battleFx && human && (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'bullet') && p.pos.y > m.pos.y + m.height * 0.76;
             const d0 = p.dmg; if (head) { p.dmg *= 2; V.number(p.pos.clone().setY(m.pos.y + m.height + 0.4), 'Headshot!', 'crit'); S.hit('flesh', m.pos, 1.6); G.hitstop = 0.06; }
             impact(p, m); p.dmg = d0;
             if (!p.pierce) { dead = true; break; }

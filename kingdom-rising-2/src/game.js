@@ -19,7 +19,7 @@ export function pairedWt(h) {
 }
 export function activeWeapon(h) { if (h.active === 'ranged' && h.equip.ranged) return h.equip.ranged; const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
 export function newHero(o) {
-  const starter = { berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
+  const starter = { musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,

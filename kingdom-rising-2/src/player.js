@@ -112,7 +112,9 @@ class ViewModel {
     const W = WEAPON_TYPES[w.wt];
     const main = makeWeapon(W.parts[0], w.tier, w.rarity, W.element);
     if (W.kind === 'bow') { this.L.add(main); main.scale.setScalar(0.42); this.weapons.bow = main; const ar = new THREE.Group(); const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.75, 5), new THREE.MeshStandardMaterial({ color: '#8a6a44' })); shaft.rotation.x = Math.PI / 2; shaft.position.z = -0.35; ar.add(shaft); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 4), new THREE.MeshStandardMaterial({ color: '#999', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.74; ar.add(tip); this.R.add(ar); this.weapons.arrow = ar; }
+    else if (W.kind === 'gun') { this.g.add(main); this.weapons.main = main; this.gun = main; }
     else { this.R.add(main); this.weapons.main = main; }
+    if (W.kind !== 'gun') this.gun = null;
     if (W.kind === 'staff') main.position.y = -0.55;
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
@@ -120,6 +122,7 @@ class ViewModel {
     if (W.hands === 'two' && w.wt !== 'spear') main.scale.multiplyScalar(0.8);
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
+    if (W.kind === 'gun') main.scale.setScalar(0.62);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -136,6 +139,12 @@ class ViewModel {
       else r = plerp(VP.gatherR, VP.gatherR2, 0.5 + 0.5 * Math.sin(t * Math.PI * 4));
       l = W && W.kind === 'bow' ? VP.hideL : l;
       if (W && (W.kind === 'bow' || W.hands === 'dual' || W.kind === 'staff')) l = VP.hideL;
+    } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
+      // musket at the hip, raised to the eye while aiming, with a kick on every shot
+      // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
+      const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0.012, k), lerp(-0.27, -0.088, k), lerp(-0.5, -0.42, k) + rc * 0.07];
+      if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06, (1 - k) * 0.05, 0); }
+      r = [gp[0] + 0.01, gp[1] - 0.05, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02, gp[2] - 0.22, -1.4, 0, -0.2];
     } else if (act) {
       const dual = W && W.hands === 'dual';
       switch (n) {
@@ -175,7 +184,7 @@ class ViewModel {
     }
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);
-    if (W && W.hands === 'two' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
+    if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
     // bob & sway: arms swing with each stride, harder and faster when sprinting
     this.bob += dt * st.speed * 1.75;
@@ -276,7 +285,7 @@ export class Player {
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
-    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'bow') {
+    if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
       return;
@@ -323,6 +332,7 @@ export class Player {
     const W = this.W; if (!W) return;
     if (this.block) return;
     if (this.atk) { if (this.atk.t > 0.35 && !this.atk.noQueue) this.queued = 'light'; return; }
+    if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
     if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
     const C = COMBOS[this.weapon.wt]; if (!C) return;
@@ -334,8 +344,8 @@ export class Player {
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
-    const charge = clamp((p.t - 0.22) / (G.battleFx && W.kind === 'bow' ? 1.8 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
-    if (W.kind === 'bow') return this.startAtk('release', 0.3, { charge, fire: true });
+    const charge = clamp((p.t - 0.22) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
+    if (W.kind === 'bow' || W.kind === 'gun') return this.startAtk('release', W.kind === 'gun' ? 0.35 : 0.3, { charge, fire: true });
     if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });
     this.startAtk('heavy', 0.75 / W.speed, { charge });
   }
@@ -346,18 +356,19 @@ export class Player {
   }
   updateAttack(dt) {
     // charging heavy (hold left click)
-    if (G.battleFx && this.W && this.W.kind === 'bow' && this.press && !G.uiOpen) {
+    if (G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun') && this.press && !G.uiOpen) {
       this.press.t += dt;
-      if (this.press.charging && !this.press.full && this.press.t >= 2.02) { this.press.full = true; S.bowDraw(); V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full draw', 'crit'); }
+      const fullAt = this.W.kind === 'gun' ? 1.62 : 2.02;
+      if (this.press.charging && !this.press.full && this.press.t >= fullAt) { this.press.full = true; S.bowDraw(); V.number(this.pos.clone().setY(this.pos.y + 2.3), this.W.kind === 'gun' ? 'Steady aim' : 'Full draw', 'crit'); }
       if (this.press.t > 0.22 && !this.press.charging && !this.atk && !this.dodge && !this.block && this.W) {
         this.press.charging = true;
-        if (this.W.kind === 'bow') S.bowDraw(); else if (this.W.kind === 'staff') S.charge(this.W.element); else S.charge('none');
+        if (this.W.kind === 'bow') S.bowDraw(); else if (this.W.kind === 'gun') S.click(); else if (this.W.kind === 'staff') S.charge(this.W.element); else S.charge('none');
       }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
     const W = this.W;
-    const hitAt = a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
+    const hitAt = W && W.kind === 'gun' && (a.name === 'shoot' || a.name === 'release') ? 0.02 : a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
     if (a.swingSnd && (hitAt - a.t) * a.dur <= 0.13) { S.swingW(a.swingSnd.k, a.swingSnd.v, this.pos); a.swingSnd = null; } // whoosh lands with the blow
     if (!a.hit && a.t >= hitAt) { a.hit = true; this.doHit(a); }
     // fury flurry: several hits
@@ -416,6 +427,7 @@ export class Player {
       const speed = G.battleFx ? 34 + charge * 36 : 38 + charge * 40;
       spawnProjectile({ flat: G.battleFx ? 0.6 + charge * 1.1 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
+    } else if (W.kind === 'gun') { this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release');
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
@@ -471,6 +483,7 @@ export class Player {
     switch (sk.id) {
       case 'whirlwind': spin(4.5, 1.5); break;
       case 'wheel': spin(4.5, 1.5, { slow: 3 }); break;
+      case 'doubleshot': { this.fireGun(0.35, true, 0.9); setTimeout(() => { if (!this.dead) this.fireGun(0.35, true, 0.9); }, 170); this.dodge = { t: 0, dur: 0.36, dir: f.clone().multiplyScalar(-1), speed: 22 }; this.iframes = 0.45; this.vel.y = 5; this.onGround = false; S.dodge(); V.burst('dust', this.pos.clone(), 14, { speed: 3, size: 0.8 }); break; }
       case 'whirlaxes': spin(4.5, 1.3, { bleed: base * 0.12 }); break;
       case 'shadowflurry': this.atk = { name: 'fury', t: 0, dur: 1.0, hits: 7, rank: 1, hit: true, noQueue: true, base, bleed: true }; S.swingW('light', 1.2, this.pos); break;
       case 'greatcleave': spin(6.5, 1.7); break;
@@ -657,6 +670,17 @@ export class Player {
       case 'sentry': { const at = groundPoint(16); G.hooks.sentry && G.hooks.sentry(at.x, at.z, this.h.level); S.click(); V.burst('frost', at.clone().setY(at.y + 1.5), 20, { speed: 2 }); this.atk = { name: 'cast', t: 0.2, dur: 0.4, hit: true, noQueue: true }; break; }
       case 'spiketrap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2.2)); this.battleTrap(at, 'spike', base * 1.6 * up, up); S.chop && S.chop(at); this.atk = { name: 'gather', t: 0.2, dur: 0.45, hit: true, noQueue: true }; break; }
       case 'frosttrap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2.2)); this.battleTrap(at, 'frost', base * 1.1 * up, up); S.cast('frost', at, 0.8); this.atk = { name: 'gather', t: 0.2, dur: 0.45, hit: true, noQueue: true }; break; }
+      // ---- Musketeer ----
+      case 'grapeshot': { for (const m of mobsInCone(this.pos, this.yaw, 10 * Math.sqrt(up), 0.55)) this.dealDamage(m, base * 2 * up, { knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(10) }); const from = this.handPos(true); for (let k = 0; k < 9; k++) { const q = this.pos.clone(); const a2 = this.yaw + (Math.random() - 0.5) * 1.1, d = 2 + Math.random() * 8; q.x += Math.sin(a2) * d; q.z += Math.cos(a2) * d; q.y = heightAt(q.x, q.z) + 1; setTimeout(() => V.burst('spark', q, 4, { speed: 3 }), k * 15); } V.burst('smoke', from, 30, { speed: 4, size: 1.6, life: 1.8 }); V.burst('fire', from, 18, { speed: 7 }); S.explode(from, 0.9, 'fire'); V.addShake(0.4); this.fovKick += 6; this.atk = { name: 'release', t: 0, dur: 0.4, hit: true, noQueue: true }; break; }
+      case 'smokebomb': { this.stealth = 4 * up; this.buffs.nextCrit = true; for (const m of mobsInRadius(this.pos, 6)) { m.status.slow = Math.max(m.status.slow, 3); if (m.target === this) m.target = null; } V.burst('smoke', this.pos.clone().setY(this.pos.y + 1), 60, { speed: 4, size: 2.2, life: 3 }); S.stealth(); S.explode(this.pos, 0.4); break; }
+      case 'powderkeg': { const tgt = groundPoint(24), r = 6 * Math.sqrt(up); const keg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5, 10), new THREE.MeshStandardMaterial({ color: '#7a3a1a', emissive: '#ff3a00', emissiveIntensity: 0.5 })); keg.position.copy(tgt); keg.position.y += 0.25; G.scene.add(keg); V.ring(tgt, r, '#ff5030', 1.2); setTimeout(() => { G.scene.remove(keg); if (this.dead) return; areaDamage(tgt, r, base * 3 * up, { el: 'fire', burn: base * 0.1, falloff: true, knock: 9 }); V.burst('fire', tgt.clone().setY(tgt.y + 0.5), 80, { speed: 10, size: 0.9 }); V.burst('smoke', tgt.clone().setY(tgt.y + 1), 40, { speed: 4, size: 2, life: 2 }); V.sphereFlash(tgt.clone().setY(tgt.y + 1), r * 0.6, '#ff9040', 0.4); S.explode(tgt, 1.6, 'fire'); V.addShake(0.6); }, 1100); S.swing(1, this.pos); this.atk = { name: 'cast', t: 0.2, dur: 0.4, hit: true, noQueue: true }; break; }
+      case 'quickreload': { this.buffs.reload = 8 * up; S.click(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.3), 25, { speed: 3 }); break; }
+      case 'bayonet': { this.dodge = { t: 0, dur: 0.34 * Math.sqrt(up), dir: f.clone(), speed: 30, charge: true, hitSet: new Set(), dmg: base * 1.8 * up }; this.fovKick = 12; S.battleCry(); break; }
+      case 'eagleeye': { this.buffs.eagle = 10 * up; this.buffs.focus = Math.max(this.buffs.focus || 0, 10 * up); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.6), 1.5, '#ffe080', 0.4); S.cast('arcane', this.pos, 0.6); break; }
+      case 'volleyfire': { for (let k = 0; k < 5; k++) setTimeout(() => { if (!this.dead) this.fireGun(0.5, true, 0.85 * up); }, k * 180); break; }
+      case 'incendiary': { const from = this.handPos(true), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(90), grav: 4, flat: 0.8, radius: 0.2, dmg: base * 2.4 * up, owner: 'player', kind: 'fireball', scale: 0.8, life: 3, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4 * Math.sqrt(up), p.dmg * 0.6, { el: 'fire', burn: base * 0.15 }); if (m) this.dealDamage(m, p.dmg * 0.5, { el: 'fire', burn: base * 0.15 }); V.burst('fire', at, 50, { speed: 6 }); S.explode(at, 1, 'fire'); } }); S.explode(from, 0.5, 'fire'); V.burst('smoke', from, 14, { speed: 2, size: 1.2 }); this.fovKick += 4; break; }
+      case 'caltrops': { const R = 6 * Math.sqrt(up), c = this.pos.clone(); for (let k = 0; k < 24; k++) { const a2 = Math.random() * 6.28, d = Math.sqrt(Math.random()) * R; V.burst('spark', new THREE.Vector3(c.x + Math.cos(a2) * d, heightAt(c.x + Math.cos(a2) * d, c.z + Math.sin(a2) * d) + 0.1, c.z + Math.sin(a2) * d), 1, { speed: 0.5 }); } V.ring(c, R, '#9aa0a8', 6); let k = 0; const iv = setInterval(() => { k++; if (k > 12) { clearInterval(iv); return; } for (const m of mobsInRadius(c, R)) { if (m.isStruct) continue; m.status.slow = Math.max(m.status.slow, 1.2); this.dealDamage(m, base * 0.25 * up, { silent: true, bleed: base * 0.04 }); } }, 500); S.mine && S.mine(c); break; }
+      case 'cannonade': { const c = groundPoint(36); S.rumble(c, 1.5); for (let k = 0; k < 3; k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10)); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 5, base * 2.4 * up); }, 500 + k * 450); break; }
       case 'pyroblast': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(28), grav: 1, radius: 0.7, dmg: base * 3.2 * up, owner: 'player', kind: 'fireball', scale: 2.6, life: 2.5, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4.5 * Math.sqrt(up), p.dmg * 0.6, { el: 'fire', burn: base * 0.1, falloff: true, knock: 6 }); if (m) this.dealDamage(m, p.dmg * 0.4, { el: 'fire' }); V.sphereFlash(at, 3, '#ff8030', 0.4); V.burst('fire', at, 40, { speed: 7 }); S.explode(at, 1.2, 'fire'); V.addShake(0.35); } }); S.cast('fire', this.pos, 1.6); this.atk = { name: 'castBig', t: 0.2, dur: 0.6, hit: true, noQueue: true }; break; }
       case 'glacial': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(40), grav: 0, radius: 0.45, dmg: base * 2 * up, owner: 'player', kind: 'frost', scale: 1.6, life: 2, onHit: (p, m) => { if (m) { this.dealDamage(m, p.dmg, { el: 'frost', freeze: 3 * Math.sqrt(up) }); V.burst('frost', m.pos.clone().setY(m.pos.y + 1), 30, { speed: 4 }); } } }); S.cast('frost', this.pos, 1.3); this.atk = { name: 'cast', t: 0.2, dur: 0.5, hit: true, noQueue: true }; break; }
       case 'meteorshower': { const c = groundPoint(32); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true, noQueue: true }; S.cast('fire', this.pos, 2); for (let k = 0; k < 5; k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 0, (Math.random() - 0.5) * 14)); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 4.5, base * 1.6 * up); }, 250 + k * 380); break; }
@@ -732,6 +756,18 @@ export class Player {
     G.hooks.abilityUsed && G.hooks.abilityUsed(i);
   }
 
+  // the musket: a fast ball with smoke and a kick; an aimed shot hits much harder and goes exactly where you point
+  fireGun(charge, aimed, mult = 1) {
+    const w = this.weapon, base = weaponDamage(this.h, w);
+    const tip = (this.camDist < 0.6 ? this.vm.weapons.main : this.ch.weapons.main);
+    const from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true);
+    const dir = this.aimDir(from);
+    if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.05; dir.y += (Math.random() - 0.5) * 0.04; dir.z += (Math.random() - 0.5) * 0.05; dir.normalize(); }
+    const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
+    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 5, flat: 0.7 + charge * 0.9 + (eagle ? 0.6 : 0), radius: 0.12, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3 });
+    V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
+    S.explode(from, 0.3 + charge * 0.15, 'fire'); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
+  }
   // Kingdom Battles ranger traps: spike pits and frost runes, sprung by any enemy (troops too)
   battleTrap(pos, kind, dmg, up) {
     pos.y = heightAt(pos.x, pos.z);
@@ -925,7 +961,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];
@@ -1052,7 +1088,9 @@ export class Player {
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
-    this.vm.update(dt, { act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
+    this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
+    { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
+    this.vm.update(dt, { aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = (this.camDist < 0.6 ? this.vm.weapons.main || this.vm.weapons.bow : this.ch.weapons.main); if (tip && tip.userData.tip) { const p = tip.userData.tip.getWorldPosition(new THREE.Vector3()); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade
@@ -1091,8 +1129,8 @@ export class Player {
     if (sk > 0) { cam.position.x += (Math.random() - 0.5) * sk * 0.35; cam.position.y += (Math.random() - 0.5) * sk * 0.35; cam.rotation.z += (Math.random() - 0.5) * sk * 0.04; }
     this.fovKick *= Math.max(0, 1 - dt * 4);
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
-    // Kingdom Battles: zoom in a little while drawing the bow, more the longer you hold
-    { const drawing = G.battleFx && this.press && this.press.charging && this.W && this.W.kind === 'bow'; const want = drawing ? -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3 : 0; this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 4 : 9)); }
+    // Kingdom Battles: zoom in a little while drawing the bow (and much more when aiming a musket)
+    { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0; this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 4 : 9)); }
     cam.fov = settings.fov + this.fovKick + this.fovS + (this.bowZoom || 0);
     cam.updateProjectionMatrix();
     A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI);

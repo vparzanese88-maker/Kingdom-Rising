@@ -31,6 +31,7 @@ function outfitSpec(app) {
     case 'berserker': return { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, shawl: '#8a7a6a', sash: c.main };
     case 'warrior': return { shirt: '#5b5f66', mail: c.metal, tabard: c.main, trim: c.trim, pants: '#3a2f28', boots: '#2b211a', pauldrons: true, belt: '#3a2a1a', bracers: c.metal };
     case 'ranger': return { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: c.main, cloak: c.main, quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' };
+    case 'musketeer': return { shirt: '#e8e0c8', vest: c.main, trim: c.trim, pants: '#2a2a34', boots: '#1e1a16', hat: 'cap', hatCol: '#1a1a20', belt: '#3a2a1a', cloak: c.main, bracers: '#3a2a1a' };
     case 'wizard': return { shirt: c.main, robe: c.main, trim: c.trim, pants: '#2a2a40', boots: '#3a2a1a', hat: 'pointy', hatCol: c.main, sash: c.trim, sleeves: true };
     case 'elder': return { shirt: '#6b5a48', robe: '#5a4a3a', trim: '#b49a5a', pants: '#3a3028', boots: '#3a2a1a', shawl: '#8a6a4a', sash: '#8a6a4a' };
     case 'worker': return { shirt: '#9a7a5a', pants: '#4a4038', boots: '#3a2a1a', belt: '#3a2a1a', apron: null };
@@ -84,6 +85,17 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
   const tip = new THREE.Object3D(), base = new THREE.Object3D();
   const cyl = (r1, r2, h, m, y, seg = 8) => mesh(cached(`cyl${r1}_${r2}_${h}_${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg)), m, g, 0, y, 0);
   switch (part) {
+    case 'musket': {
+      // wooden stock below the grip, a long iron barrel up the +y axis, brass bands and a flintlock
+      const stock = mesh(cached('mstock', () => new THREE.BoxGeometry(0.055, 0.42, 0.09)), woodMat, g, 0, -0.16, 0.012); stock.rotation.x = 0.08;
+      mesh(cached('mbutt', () => new THREE.BoxGeometry(0.06, 0.1, 0.13)), darkWood, g, 0, -0.39, 0.03);
+      mesh(cached('mfore', () => new THREE.BoxGeometry(0.045, 0.62, 0.05)), woodMat, g, 0, 0.36, 0.0);
+      cyl(0.017, 0.019, 1.0, M, 0.55, 10);
+      for (const y of [0.18, 0.5, 0.82]) mesh(cached('mband', () => new THREE.CylinderGeometry(0.026, 0.026, 0.025, 10)), goldMat, g, 0, y, 0);
+      mesh(cached('mlock', () => new THREE.BoxGeometry(0.03, 0.08, 0.05)), M, g, 0.035, 0.08, 0);
+      mesh(cached('mhammer', () => new THREE.BoxGeometry(0.015, 0.05, 0.02)), M, g, 0.04, 0.13, -0.02);
+      base.position.set(0, 0.6, 0); tip.position.set(0, 1.06, 0); break;
+    }
     case 'sword': {
       cyl(0.018, 0.02, 0.18, leatherMat, 0); mesh(sphereGeo(0.03, 8, 6), goldMat, g, 0, -0.1, 0);
       const gd = mesh(cached('guard', () => new THREE.BoxGeometry(0.2, 0.03, 0.04)), M, g, 0, 0.1, 0);

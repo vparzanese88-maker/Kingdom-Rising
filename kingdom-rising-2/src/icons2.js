@@ -53,6 +53,7 @@ const MAP = {
   arrowrain: ['volley', 'nature'], venomshot: ['arrow', 'nature'], wolves: ['wolf', 'frost'], sentry: ['eye', 'frost'], spiketrap: ['trap', 'red'], frosttrap: ['snow', 'frost'],
   frostnova: ['snow', 'frost'], blink: ['dash', 'arcane'], chain: ['bolt', 'frost'], manasurge: ['spiral', 'arcane'], icebarrier: ['shield', 'frost'], firering: ['flame', 'fire'], missiles: ['burst', 'arcane'], timewarp: ['hourglass', 'arcane'], lightstorm: ['bolt', 'gold'], inferno: ['meteor', 'fire'],
   pyroblast: ['fireball', 'fire'], glacial: ['snow', 'frost'], meteorshower: ['meteor', 'red'],
+  grapeshot: ['burst', 'fire'], smokebomb: ['cloud', 'shadow'], powderkeg: ['burst', 'red'], quickreload: ['hourglass', 'gold'], bayonet: ['sword', 'steel'], eagleeye: ['eye', 'gold'], volleyfire: ['volley', 'fire'], incendiary: ['fireball', 'fire'], caltrops: ['trap', 'steel'], cannonade: ['meteor', 'steel'], doubleshot: ['dash', 'fire'], dash: ['dash', 'fire'],
   tourniquet: ['heart', 'red'], secondwind: ['leaf', 'gold'], fielddress: ['heart', 'nature'], fist: ['fist', 'steel'],
 };
 export function hasIcon(id) { return !!MAP[id]; }

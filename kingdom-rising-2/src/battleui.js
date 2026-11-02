@@ -14,7 +14,7 @@ const fmtT = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart
 const RES_ICON = { gold: '🪙', wood: '🪵', stone: '🪨' };
 const costHtml = (c, t) => Object.entries(c).map(([k, v]) => `<span class="bc ${res(t, k) >= v ? '' : 'no'}">${RES_ICON[k]} ${v}</span>`).join(' ');
 const ROLE = { melee: '⚔ Melee', ranged: '🏹 Ranged', healer: '✚ Healer', worker: '⛏ Worker' };
-let opts = {}, tab = 'army', bar = null, deathT = 0, menuT = 0;
+let opts = {}, tab = 'army', bar = null, deathT = 0, menuT = 0, xpAcc = 0;
 
 export function init(o) {
   opts = o;
@@ -56,6 +56,7 @@ function drawBar() {
     + `<div class="bkey">B · Command</div>`;
 }
 export function update(dt) {
+  if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
   menuT -= dt; if (menuT <= 0) { menuT = 0.25; drawBar(); zoneLabel(); if (UI.UI.open === 'battle') render(); }
   if (deathT > 0) { deathT -= dt; const d = $('bdeath'); d.innerHTML = `<div><h2>You have fallen</h2><p>Your troops fight on. Back in <b>${Math.ceil(deathT)}</b>…</p></div>`; if (deathT <= 0) { d.hidden = true; opts.respawn && opts.respawn(); } }
 }

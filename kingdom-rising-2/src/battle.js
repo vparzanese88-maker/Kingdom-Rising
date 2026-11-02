@@ -349,8 +349,8 @@ export class Unit {
     }
     if (this.order === 'follow' && G.player && this.team === B.myTeam) return [G.player.pos.x + Math.sin(this.id) * 4, G.player.pos.z + Math.cos(this.id) * 4];
     // defend: hold the square just inside the gate
-    const k = this.id % 12, row = Math.floor(k / 6), col = k % 6 - 2.5;
-    return [t.gateIn[0] - t.dir[0] * (4 + row * 2.4) + t.perp[0] * col * 2.2, t.gateIn[1] - t.dir[1] * (4 + row * 2.4) + t.perp[1] * col * 2.2];
+    const k = this.id % 16, row = Math.floor(k / 8), col = k % 8, lat = (col < 4 ? -1 : 1) * (4 + (col % 4) * 2.2);
+    return [t.gateIn[0] - t.dir[0] * (3 + row * 2.6) + t.perp[0] * lat, t.gateIn[1] - t.dir[1] * (3 + row * 2.6) + t.perp[1] * lat];
   }
   scan() {
     // nearest enemy that can be reached (melee troops don't chase through walls)
@@ -403,6 +403,7 @@ export class Unit {
         if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
       }
       if (want && speed) {
+        want = nav(this, want);
         const dx = want[0] - this.pos.x, dz = want[1] - this.pos.z, l = Math.hypot(dx, dz);
         if (l > 0.3) { if (!this.target || this.worker) this.faceTo(V3(want[0], 0, want[1]), dt, 6); const mv = Math.min(l, speed * dt); this.pos.x += dx / l * mv; this.pos.z += dz / l * mv; }
       }
@@ -460,9 +461,35 @@ function workerTick(u, dt) {
   }
   return { want: null, speed: 0 };
 }
-// leave/enter town through the gate instead of walking into the wall
-function routeOut(u, dest) { const t = u.town; const inside = Math.hypot(u.pos.x - t.x, u.pos.z - t.z) < WALL_R - 2; if (inside && Math.hypot(dest[0] - t.x, dest[1] - t.z) > WALL_R) return Math.hypot(u.pos.x - t.gateIn[0], u.pos.z - t.gateIn[1]) > 3 ? t.gateIn : t.gateOut; return dest; }
-function routeHome(u, dest) { const t = u.town; const inside = Math.hypot(u.pos.x - t.x, u.pos.z - t.z) < WALL_R - 1; if (!inside) return Math.hypot(u.pos.x - t.gateOut[0], u.pos.z - t.gateOut[1]) > 3 ? t.gateOut : t.gateIn; return dest; }
+// path around town walls: in and out only through the gate, and around the outside of the wall instead of into it
+export function nav(u, dest) {
+  let T = null, bd = 1e9; for (const t of B.towns) { const d = Math.hypot(u.pos.x - t.x, u.pos.z - t.z); if (d < bd) { bd = d; T = t; } }
+  const D = (x, z) => Math.hypot(x - T.x, z - T.z);
+  // also check the town around the destination
+  let TD = null; for (const t of B.towns) if (Math.hypot(dest[0] - t.x, dest[1] - t.z) < WALL_R) TD = t;
+  if (TD && TD !== T && bd > WALL_R + 30) T = TD;
+  if (!T || (bd > WALL_R + 30 && TD !== T)) return dest;
+  const ru = D(u.pos.x, u.pos.z), rd = D(dest[0], dest[1]), inU = ru < WALL_R, inD = rd < WALL_R;
+  const ag = Math.atan2(T.dir[1], T.dir[0]), au = Math.atan2(u.pos.z - T.z, u.pos.x - T.x);
+  const lat = Math.abs((u.pos.x - T.x) * T.perp[0] + (u.pos.z - T.z) * T.perp[1]);
+  const along = (u.pos.x - T.x) * T.dir[0] + (u.pos.z - T.z) * T.dir[1];
+  const ring = (a) => [T.x + Math.cos(a) * (WALL_R + 8), T.z + Math.sin(a) * (WALL_R + 8)];
+  if (inU && !inD) { if (lat > 2.6 && along < WALL_R - 4) return T.gateIn; return [T.x + T.dir[0] * (WALL_R + 12), T.z + T.dir[1] * (WALL_R + 12)]; }
+  if (!inU && inD) {
+    const da = angDiff(au, ag);
+    if (Math.abs(da) > 0.3 && ru < WALL_R + 25) return ring(au + Math.sign(da) * Math.min(Math.abs(da), 0.55));
+    if (lat > 2.6 && along > WALL_R + 3) return T.gateOut;
+    return [T.x + T.dir[0] * (WALL_R - 12), T.z + T.dir[1] * (WALL_R - 12)];
+  }
+  if (!inU && !inD && ru < WALL_R + 25) {
+    // straight line would cut through the town: go round
+    const r = distToLine(T.x, T.z, [[u.pos.x, u.pos.z], dest]);
+    if (r.d < WALL_R + 3 && r.t > 0.02 && r.t < 0.98) { const a2 = Math.atan2(dest[1] - T.z, dest[0] - T.x), da = angDiff(au, a2); return ring(au + Math.sign(da || 1) * Math.min(Math.abs(da), 0.55)); }
+  }
+  return dest;
+}
+function routeOut(u, dest) { return dest; }
+function routeHome(u, dest) { return dest; }
 
 // ---------- AI heroes ----------
 const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior' };
@@ -497,7 +524,7 @@ function heroTick(u, dt) {
     else {
       u.order = 'roam';
       const mob = G.mobs.find(m => !m.dead && m.team == null && m.lv <= u.heroLv + 3 && Math.hypot(m.pos.x - t.x, m.pos.z - t.z) < 240 && (!u.hunt || u.hunt === m));
-      if (mob) { u.hunt = mob; if (u.dist(mob) < (u.range || 2.5)) { if (u.atkCd <= 0) { u.atkCd = u.udef.cd; u.startAction(u.range ? 'shoot' : 'swing1', 0.6); if (u.range) shoot(u, mob, u.handPos(), u.dmg, u.udef.proj, { splash: u.udef.splash }); else { mob.takeHit(u.dmg, u); } if (mob.dead) { heroXp(u, 6 + mob.lv * 4); bank(t, 'gold', 4 + mob.lv * 2); u.hunt = null; } } u.faceTo(mob.pos, dt, 8); } else { const r = routeOut(u, [mob.pos.x, mob.pos.z]); const dx = r[0] - u.pos.x, dz = r[1] - u.pos.z, l = Math.hypot(dx, dz) || 1; u.pos.x += dx / l * u.udef.speed * dt; u.pos.z += dz / l * u.udef.speed * dt; u.faceTo(V3(r[0], 0, r[1]), dt, 6); } }
+      if (mob) { u.hunt = mob; if (u.dist(mob) < (u.range || 2.5)) { if (u.atkCd <= 0) { u.atkCd = u.udef.cd; u.startAction(u.range ? 'shoot' : 'swing1', 0.6); if (u.range) shoot(u, mob, u.handPos(), u.dmg, u.udef.proj, { splash: u.udef.splash }); else { mob.takeHit(u.dmg, u); } if (mob.dead) { heroXp(u, 6 + mob.lv * 4); bank(t, 'gold', 4 + mob.lv * 2); u.hunt = null; } } u.faceTo(mob.pos, dt, 8); } else { const r = nav(u, [mob.pos.x, mob.pos.z]); const dx = r[0] - u.pos.x, dz = r[1] - u.pos.z, l = Math.hypot(dx, dz) || 1; u.pos.x += dx / l * u.udef.speed * dt; u.pos.z += dz / l * u.udef.speed * dt; u.faceTo(V3(r[0], 0, r[1]), dt, 6); } }
       else u.order = 'defend';
     }
   }

@@ -134,7 +134,7 @@ export const ARMORY = { weapon: [0, 120, 260, 450, 700, 1000], armor: [0, 160, 3
 export const ECON = {
   start: { gold: 250, wood: 100, stone: 50 },
   passiveGold: 1.5, passiveGoldPerLevel: 0.5, passiveXp: 3,
-  carry: 10, gatherTime: 4.5,
+  carry: 15, gatherTime: 3.5,
   levelGold: (lv) => 40 * lv,
   killGold: (u) => Math.round((u.def.cost ? u.def.cost.gold : 60) * 0.4),
   heroKillGold: (lv) => 60 + lv * 12,

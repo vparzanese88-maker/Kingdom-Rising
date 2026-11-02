@@ -264,6 +264,7 @@ function input() {
     const p = G.player;
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
+      if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
@@ -407,7 +408,7 @@ function loop(now) {
     animateHumanoid(portraitCh, dt, { speed: 0, armed: true });
     portraitRot += dt * 0.35;
     const pr = renderer.getPixelRatio(), cw = Math.round(pc.width / pr), chh = Math.round(pc.height / pr);
-    renderStage(renderer, { left: 0, top: innerHeight - chh, width: cw, height: chh }, portraitCh, Math.sin(portraitRot) * 0.6, 1.75);
+    renderStage(renderer, { left: 0, top: innerHeight - chh, width: cw, height: chh }, portraitCh, G.portraitYaw ?? Math.sin(portraitRot) * 0.6, 1.75);
     const g2 = pc.getContext('2d'); g2.clearRect(0, 0, pc.width, pc.height);
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }

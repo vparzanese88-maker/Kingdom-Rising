@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793619293",
-"./src/character.js": "./src/character.js?v=1793619293",
-"./src/combat.js": "./src/combat.js?v=1793619293",
-"./src/data.js": "./src/data.js?v=1793619293",
-"./src/game.js": "./src/game.js?v=1793619293",
-"./src/icons.js": "./src/icons.js?v=1793619293",
-"./src/main.js": "./src/main.js?v=1793619293",
-"./src/menu.js": "./src/menu.js?v=1793619293",
-"./src/mobs.js": "./src/mobs.js?v=1793619293",
-"./src/player.js": "./src/player.js?v=1793619293",
-"./src/saves.js": "./src/saves.js?v=1793619293",
-"./src/state.js": "./src/state.js?v=1793619293",
-"./src/terrain.js": "./src/terrain.js?v=1793619293",
-"./src/ui.js": "./src/ui.js?v=1793619293",
-"./src/util.js": "./src/util.js?v=1793619293",
-"./src/vfx.js": "./src/vfx.js?v=1793619293",
-"./src/world.js": "./src/world.js?v=1793619293"
+"./src/audio.js": "./src/audio.js?v=1793619677",
+"./src/character.js": "./src/character.js?v=1793619677",
+"./src/combat.js": "./src/combat.js?v=1793619677",
+"./src/data.js": "./src/data.js?v=1793619677",
+"./src/game.js": "./src/game.js?v=1793619677",
+"./src/icons.js": "./src/icons.js?v=1793619677",
+"./src/main.js": "./src/main.js?v=1793619677",
+"./src/menu.js": "./src/menu.js?v=1793619677",
+"./src/mobs.js": "./src/mobs.js?v=1793619677",
+"./src/player.js": "./src/player.js?v=1793619677",
+"./src/saves.js": "./src/saves.js?v=1793619677",
+"./src/state.js": "./src/state.js?v=1793619677",
+"./src/terrain.js": "./src/terrain.js?v=1793619677",
+"./src/ui.js": "./src/ui.js?v=1793619677",
+"./src/util.js": "./src/util.js?v=1793619677",
+"./src/vfx.js": "./src/vfx.js?v=1793619677",
+"./src/world.js": "./src/world.js?v=1793619677"
 }
 }
 </script>
@@ -492,6 +492,22 @@ body{font-size:16px;letter-spacing:.005em}
 .bar2{border-radius:2px;border-color:rgba(0,0,0,.8);box-shadow:0 0 0 1px rgba(216,168,72,.25)}
 #lvl .badge{border-width:1px;box-shadow:0 0 0 3px rgba(0,0,0,.6),0 0 0 4px rgba(216,168,72,.4)}
 .confirm .panel{background:var(--panel2);border:1px solid var(--hair);border-radius:6px;padding:26px 30px}
+/* full screen map */
+.win.mapfull{position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;border-radius:0;display:flex;flex-direction:column;overflow:hidden}
+.win.mapfull .content{flex:1;min-height:0;overflow:hidden;padding:10px 16px 14px}
+.maplay{display:flex;gap:16px;height:100%;min-height:0}
+.mapcv{flex:1;min-width:0;display:grid;place-items:center}
+.mapcv canvas{border-radius:10px;box-shadow:0 0 0 2px #6a4a1a,0 10px 40px rgba(0,0,0,.7)}
+.mapside{width:300px;flex:none;overflow:hidden;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.mapside h3{margin:6px 0 2px;font-size:17px}
+.mq{padding:7px 9px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(200,160,80,.2);cursor:pointer}
+.mq:hover{background:rgba(255,220,140,.08)}.mq.sel{border-color:#ffd84a;background:rgba(255,216,74,.1)}.mq.off{opacity:.5}
+.mqh{display:flex;align-items:center;gap:7px}.mqh i{width:11px;height:11px;border-radius:50%;flex:none}.mqh .rdy{margin-left:auto;font-size:11px;color:#8fe07a}
+.mqo{font-size:12.5px;color:#d8ccb0;margin:2px 0 0 18px}
+.legend{display:grid;gap:3px;font-size:13px}.legend b{display:inline-block;width:20px;text-align:center}
+@media (max-width:900px){.maplay{flex-direction:column}.mapside{width:auto;max-height:30vh}}
+/* dialog key hints */
+.dialog .opts button kbd{display:inline-grid;place-items:center;min-width:22px;height:22px;margin-right:10px;padding:0 5px;border-radius:5px;background:#2a1e10;border:1px solid #a07a30;color:#ffd84a;font:700 12px var(--f-b,sans-serif);box-shadow:0 2px 0 #000}
 /* drag and drop */
 .dragghost{position:fixed;z-index:9999;width:56px;height:56px;transform:translate(-50%,-50%) scale(1.1);pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.8));opacity:.92}
 .dragghost svg{width:100%;height:100%}
@@ -543,6 +559,24 @@ body{font-size:16px;letter-spacing:.005em}
 .tiphead b{font-size:17px}.tic{width:46px;height:46px}
 @media (max-height:680px){.doll{grid-template-columns:44px 160px 44px}.eq{width:44px;height:44px}.eq .ic{width:26px;height:26px}#portrait{width:160px;height:190px}.invright .grid{grid-template-columns:repeat(6,44px)}.invright .cell{width:44px;height:44px;padding:4px}.statbox .tools{display:none}}
 @media (max-height:860px){.doll{grid-template-columns:52px 190px 52px}.eq{width:52px;height:52px}.eq .ic{width:30px;height:30px}.eq .lb{display:none}#portrait{width:190px;height:230px}.invright .grid{grid-template-columns:repeat(6,50px)}.invright .cell{width:50px;height:50px;padding:5px}.win>header{padding:10px 20px}.win .content{padding:12px 20px 14px}}
+/* inventory v3: fills the window, bigger slots and hero */
+.win.invwin{width:96vw;max-width:1500px;height:94vh;max-height:none;display:flex;flex-direction:column}
+.invwin .content{flex:1;min-height:0;overflow:hidden;--s:clamp(44px,min(8vh,5.2vw),96px);--b:clamp(44px,min(9.5vh,5.6vw),100px)}
+.invwin .invlay{display:grid;grid-template-columns:auto 1fr;gap:clamp(14px,2vw,30px);height:100%}
+.invwin .doll{grid-template-columns:var(--s) calc(var(--s) * 3.9) var(--s);gap:calc(var(--s) * .13)}
+.invwin .doll .col{gap:calc(var(--s) * .1);justify-content:space-between}
+.invwin .eq{width:var(--s);height:var(--s);border-radius:9px}.invwin .eq .ic{width:62%;height:62%}.invwin .eq .lb{display:block;font-size:clamp(8px,calc(var(--s) * .14),12px)}
+.invwin #portrait{width:calc(var(--s) * 3.9);height:calc(var(--s) * 4.75);cursor:grab}
+.invwin .botrow{gap:calc(var(--s) * .13)}
+.invwin .statbox .sg div{font-size:clamp(12px,1.9vh,17px)}.invwin .statbox .tools{display:flex}
+@media (max-height:780px){.invwin .statbox .tools{display:none}}
+.invwin .invright{display:flex;flex-direction:column;min-width:0;min-height:0}
+.invwin .invright .grid{grid-template-columns:repeat(9,minmax(0,1fr));gap:clamp(5px,.7vw,10px);width:100%;max-width:calc((94vh - 250px) * 2.15)}
+.invwin .invright .cell{width:auto;height:auto;aspect-ratio:1;padding:12%;border-radius:10px}
+.invwin .invright .cell .n{font-size:clamp(11px,calc(var(--b) * .2),16px)}
+.invwin .tip.big{flex:1;min-height:0;overflow:auto;font-size:clamp(13px,1.9vh,16px)}
+.eq.twoh{opacity:.7;border-style:dashed}
+@media (max-width:900px){.invwin .invlay{grid-template-columns:1fr;overflow:auto}.invwin .invright .grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -611,6 +645,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793619293"></script>
+<script type="module" src="./src/main.js?v=1793619677"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
-import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
@@ -285,7 +285,7 @@ const RIGHT_SLOTS = ['hands', 'waist', 'legs', 'feet', 'ring1', 'ring2'];
 const BOTTOM_SLOTS = ['w1', 'w2', 'trinket'];
 const SLOT_HINT = { head: 'helm', neck: 'amulet', shoulders: 'shoulders', back: 'cloak', chest: 'chest', wrists: 'wrists', hands: 'hands', waist: 'waist', legs: 'legs', feet: 'boots', ring1: 'ring', ring2: 'ring', trinket: 'charm', w1: 'sword', w2: 'sword' };
 export function openInventory() {
-  const c = openWin('inv', 'Hero', '', 'big');
+  const c = openWin('inv', 'Hero', '', 'big invwin');
   renderInventory(c);
 }
 function slotEl(h, k, tipEl, c) {
@@ -362,6 +362,11 @@ function renderInventory(c) {
   const mid = el('div', 'mid');
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
   const bot = el('div', 'botrow'); BOTTOM_SLOTS.forEach(k => bot.appendChild(slotEl(h, k, tip, c)));
+  requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
+    pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
+      const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };
+      const up = () => { pc.style.cursor = ''; removeEventListener('pointermove', mv); removeEventListener('pointerup', up); };
+      addEventListener('pointermove', mv); addEventListener('pointerup', up); }; });
   mid.appendChild(bot);
   doll.append(L, mid, R);
   // stats
@@ -559,21 +564,73 @@ export function openQuestLog() {
 }
 
 // --- map ---
+// where each active quest objective can be done, found from the live world
+const QCOL = ['#ffd84a', '#6fe0ff', '#ff7ad0', '#9cff6a', '#ffa04a', '#c8a0ff'];
+export function questAreas(h) {
+  const p = G.player, out = [];
+  const near = (arr, n) => arr.map(o => [o, (o.x - p.pos.x) ** 2 + (o.z - p.pos.z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, n).map(a => a[0]);
+  const area = (pts) => { if (!pts.length) return null; const cx = pts.reduce((a, o) => a + o.x, 0) / pts.length, cz = pts.reduce((a, o) => a + o.z, 0) / pts.length; const r = Math.max(14, ...pts.map(o => Math.hypot(o.x - cx, o.z - cz) + 6)); return { x: cx, z: cz, r: Math.min(r, 70) }; };
+  let qi = 0;
+  for (const qid of Object.keys(h.quests.active)) {
+    const q = QUESTS.find(x => x.id === qid); if (!q) continue; const col = QCOL[qi++ % QCOL.length];
+    const tracked = !(h.untracked && h.untracked.includes(qid)), ready = Game.questComplete ? Game.questComplete(h, q) : false;
+    const objs = [];
+    if (ready) { const n = G.npcs.find(n => n.id === (q.turnin || q.giver)); if (n) objs.push({ label: 'Hand in to ' + n.name, x: n.pos.x, z: n.pos.z, r: 0, done: false, turnin: true }); }
+    else q.obj.forEach((o, k) => {
+      const pr = Game.objProgress(h, q, k) || 0, n = o.n || 1; if (pr >= n) return;
+      let a = null;
+      if (o.t === 'talk') { const np = G.npcs.find(x => x.id === o.npc); if (np) a = { x: np.pos.x, z: np.pos.z, r: 0 }; }
+      else if (o.t === 'kill') a = area(near(G.mobs.filter(m => m.type === o.mob && m.hp > 0).map(m => ({ x: m.pos.x, z: m.pos.z })), 5));
+      else if (o.t === 'collect') { const nodes = world.nodes.filter(nd => nd.alive && nd.def && nd.def.item === o.item); a = nodes.length ? area(near(nodes, 6)) : area(near(G.mobs.filter(m => m.hp > 0 && m.def.loot && m.def.loot[o.item]).map(m => ({ x: m.pos.x, z: m.pos.z })), 5)); }
+      else if (o.t === 'craft') { const R = RECIPES.find(r => r.out === o.item); const st = R && world.stations.filter(s => s.type === R.station); if (st && st.length) { const s0 = near(st, 1)[0]; a = { x: s0.x, z: s0.z, r: 0 }; } }
+      objs.push(Object.assign({ label: `${o.label} ${pr}/${n}` }, a || {}));
+    });
+    out.push({ q, col, tracked, ready, objs });
+  }
+  return out;
+}
+let mapSel = null;
 export function openMap() {
-  const c = openWin('map', 'Map of the Realm', '', 'mapwin');
-  const N = Math.min(760, Math.floor(Math.min(innerWidth * 0.84, innerHeight * 0.76)));
-  const cv = el('canvas'); cv.width = cv.height = N * 2; cv.style.width = cv.style.height = N + 'px'; c.appendChild(cv);
-  const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(mapCanvas, 0, 0, N * 2, N * 2);
-  const s = N * 2 / (HALF * 2), P = (x, z) => [(x + HALF) * s, (z + HALF) * s];
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  const lbl = (t, x, z, size = 30, col = '#ffe2a0') => { const [px, pz] = P(x, z); g.font = `700 ${size}px Cinzel, serif`; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, px, pz); g.fillStyle = col; g.fillText(t, px, pz); };
-  lbl('Driftwood Coast', 0, 470, 30); lbl('Sunmeadow', 0, 250, 30); lbl('Whisperwood', -80, 60, 30); lbl('Frostpeak Highlands', -300, -330, 30, '#e8f2ff'); lbl('The Ashlands', 290, -380, 30, '#ffb090');
-  lbl('Seabreak Village', VILLAGE.x, VILLAGE.z - 16, 22, '#fff'); lbl('Ranger Outpost', -40, 44, 20, '#fff'); lbl('Stonewatch', -225, -318, 20, '#fff'); lbl('Emberwatch', 238, -346, 20, '#fff');
-  lbl('Bandit Camp', 200, -80, 18, '#ffb0a0'); lbl('Old Ruins', -330, -440, 18, '#ffb0a0'); lbl("Troll King's Throne", -150, -500, 18, '#ffb0a0'); lbl('Volcano', 400, -500, 20, '#ff8060'); lbl('Waterfall', -366, -120, 16, '#bfe8ff');
-  for (const k of markers(G.player.h)) { const [px, pz] = P(k.x, k.z); g.font = '900 34px Cinzel'; g.lineWidth = 6; g.strokeStyle = '#000'; g.strokeText(k.t, px, pz - 14); g.fillStyle = '#ffd84a'; g.fillText(k.t, px, pz - 14); }
-  const p = G.player; const [px, pz] = P(p.pos.x, p.pos.z);
-  g.save(); g.translate(px, pz); g.rotate(-p.yaw + Math.PI); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -18); g.lineTo(12, 14); g.lineTo(0, 7); g.lineTo(-12, 14); g.closePath(); g.stroke(); g.fill(); g.restore();
-  c.appendChild(el('p', '', '<span style="color:var(--dim)">Gold ! = quest to pick up · Gold ? = quest to hand in · Press M to close</span>'));
+  const c = openWin('map', 'Map of the Realm', '', 'mapfull');
+  const h = G.player.h, p = G.player, areas = questAreas(h);
+  const wrap = el('div', 'maplay'); c.appendChild(wrap);
+  const holder = el('div', 'mapcv'); wrap.appendChild(holder);
+  const side = el('div', 'mapside'); wrap.appendChild(side);
+  const draw = () => {
+    const N = Math.floor(Math.min(holder.clientWidth, holder.clientHeight)) || 600;
+    holder.innerHTML = ''; const cv = el('canvas'); cv.width = cv.height = N * 2; cv.style.width = cv.style.height = N + 'px'; holder.appendChild(cv);
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(mapCanvas, 0, 0, N * 2, N * 2);
+    const s = N * 2 / (HALF * 2), P = (x, z) => [(x + HALF) * s, (z + HALF) * s], k = N / 380;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const lbl = (t, x, z, size = 30, col = '#ffe2a0') => { const [px, pz] = P(x, z); size *= k; g.font = `700 ${size}px Cinzel, serif`; g.lineWidth = size / 5; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, px, pz); g.fillStyle = col; g.fillText(t, px, pz); };
+    const icon = (x, z, ch, col, size = 22) => { const [px, pz] = P(x, z); size *= k; g.beginPath(); g.arc(px, pz, size * 0.62, 0, 7); g.fillStyle = 'rgba(0,0,0,.65)'; g.fill(); g.lineWidth = 2 * k; g.strokeStyle = col; g.stroke(); g.font = `900 ${size * 0.8}px sans-serif`; g.fillStyle = col; g.fillText(ch, px, pz + 1); };
+    lbl('Driftwood Coast', 0, 470, 26); lbl('Sunmeadow', 0, 250, 26); lbl('Whisperwood', -80, 60, 26); lbl('Frostpeak Highlands', -300, -330, 26, '#e8f2ff'); lbl('The Ashlands', 290, -380, 26, '#ffb090');
+    // zone level ranges
+    const ZP = { coast: [0, 470], meadow: [0, 250], wood: [-80, 60], highlands: [-300, -330], ashlands: [290, -380] };
+    for (const zn of ZONES) if (ZP[zn.id]) lbl(`Levels ${zn.lv}`, ZP[zn.id][0], ZP[zn.id][1] + 20, 13, '#e8dcc0');
+    icon(VILLAGE.x, VILLAGE.z, '⌂', '#fff', 26); lbl('Seabreak Village', VILLAGE.x, VILLAGE.z - 22, 18, '#fff');
+    for (const [x, z, t] of [[-40, 44, 'Ranger Outpost'], [-225, -318, 'Stonewatch'], [238, -346, 'Emberwatch']]) { icon(x, z + 20, '⌂', '#fff', 20); lbl(t, x, z, 16, '#fff'); }
+    lbl('Bandit Camp', 200, -80, 15, '#ffb0a0'); icon(200, -62, '⚔', '#ff8a7a', 18); lbl('Old Ruins', -330, -440, 15, '#ffb0a0'); lbl("Troll King's Throne", -150, -500, 15, '#ffb0a0'); icon(-150, -485, '☠', '#ff6060', 20); lbl('Volcano', 400, -500, 17, '#ff8060'); lbl('Waterfall', -366, -120, 14, '#bfe8ff');
+    for (const gc of GOBLIN_CAMPS) { icon(gc[0], gc[1], '⛺', '#9cdc5a', 16); lbl(`Goblin Camp ${gc[2]}-${gc[3]}`, gc[0], gc[1] + 16, 11, '#c8f0a0'); }
+    // quest areas
+    for (const A of areas) { if (!A.tracked && mapSel !== A.q.id) continue; const hi = !mapSel || mapSel === A.q.id;
+      for (const o of A.objs) { if (o.x == null) continue; const [px, pz] = P(o.x, o.z);
+        g.globalAlpha = hi ? 1 : 0.35;
+        if (o.r > 0) { g.beginPath(); g.arc(px, pz, o.r * s, 0, 7); g.fillStyle = A.col + '33'; g.fill(); g.setLineDash([8 * k, 6 * k]); g.lineWidth = 3 * k; g.strokeStyle = A.col; g.stroke(); g.setLineDash([]); }
+        icon(o.x, o.z, o.turnin ? '?' : '◆', A.col, o.turnin ? 24 : 16); g.globalAlpha = 1; } }
+    for (const m of markers(h)) icon(m.x, m.z, m.t, '#ffd84a', 24);
+    const [px, pz] = P(p.pos.x, p.pos.z);
+    g.save(); g.translate(px, pz); g.scale(k * 0.95, k * 0.95); g.rotate(-p.yaw + Math.PI); g.shadowColor = '#000'; g.shadowBlur = 8; g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -18); g.lineTo(12, 14); g.lineTo(0, 7); g.lineTo(-12, 14); g.closePath(); g.stroke(); g.fill(); g.restore();
+  };
+  const renderSide = () => {
+    side.innerHTML = `<h3>Quests</h3>` + (areas.length ? '' : '<p class="dim">No active quests. Look for a gold ! over a villager.</p>');
+    for (const A of areas) {
+      const d = el('div', 'mq' + (mapSel === A.q.id ? ' sel' : '') + (A.tracked ? '' : ' off'), `<div class="mqh"><i style="background:${A.col}"></i><b>${esc(A.q.title)}</b>${A.ready ? '<span class="rdy">Ready</span>' : ''}</div>` + A.objs.map(o => `<div class="mqo">${o.turnin ? '?' : '◆'} ${esc(o.label)}${o.x == null ? ' <span class="dim">(anywhere)</span>' : ''}</div>`).join(''));
+      d.onclick = () => { S.click(); mapSel = mapSel === A.q.id ? null : A.q.id; renderSide(); draw(); }; side.appendChild(d);
+    }
+    side.insertAdjacentHTML('beforeend', `<h3>Legend</h3><div class="legend"><div><b style="color:#ffd84a">!</b> Quest to pick up</div><div><b style="color:#ffd84a">?</b> Quest to hand in</div><div><b>◆</b> Quest objective (circle = area)</div><div><b>⌂</b> Town or outpost</div><div><b style="color:#9cdc5a">⛺</b> Goblin camp (levels)</div><div><b style="color:#ff8a7a">⚔</b> Bandits · <b style="color:#ff6060">☠</b> Boss</div><div><b>➤</b> You</div></div><p class="dim">Click a quest to highlight it. M or Esc closes.</p>`);
+  };
+  renderSide(); requestAnimationFrame(draw);
 }
 
 // --- NPC dialog ---
@@ -615,8 +672,20 @@ export function openDialog(npc) {
       c.appendChild(el('div', '', q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="obj" style="${pr >= n ? 'color:var(--good)' : ''}">${esc(o.label)} ${pr}/${n}</div>`; }).join('')));
       const opts = el('div', 'opts'); opts.style.marginTop = '12px'; const b = el('button', '', 'I\'ll keep at it.'); b.onclick = () => render(null); opts.appendChild(b); c.appendChild(opts);
     }
+    // keyboard: E does the obvious thing, 1-9 pick an option
+    const btns = [...c.querySelectorAll('.opts button')];
+    const primary = view ? btns[0] : (ready.length || offer.length ? btns[0] : btns[btns.length - 1]);
+    btns.forEach((b, i) => { b.insertAdjacentHTML('afterbegin', `<kbd>${b === primary ? 'E' : i + 1}</kbd>`); });
+    dialogKeys = { primary, btns };
   };
   render(null);
+}
+let dialogKeys = null;
+export function dialogKey(code) {
+  if (UI.open !== 'dialog' || !dialogKeys) return false;
+  if (code === 'KeyE' || code === 'Space' || code === 'Enter') { dialogKeys.primary?.click(); return true; }
+  const m = /^(Digit|Numpad)([1-9])$/.exec(code); if (m) { dialogKeys.btns[+m[2] - 1]?.click(); return true; }
+  return false;
 }
 
 // --- merchant ---

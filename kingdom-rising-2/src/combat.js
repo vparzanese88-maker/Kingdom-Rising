@@ -105,7 +105,15 @@ export function updateProjectiles(dt) {
           if (m.dead || p.hitSet.has(m) || !foe(m)) continue;
           const c = tmp.copy(m.pos); c.y += m.height * 0.5;
           const r = Math.max(m.radius, m.height * 0.5) + p.radius * 1.4 + 0.15;
-          if (c.distanceToSquared(p.pos) < r * r) { p.hitSet.add(m); impact(p, m); if (!p.pierce) { dead = true; break; } }
+          if (c.distanceToSquared(p.pos) < r * r) {
+            p.hitSet.add(m);
+            // Kingdom Battles headshots: an arrow in the top of a humanoid's body does double damage
+            const human = !m.isStruct && ((m.model && m.model.kind2 === 'human') || (m.udef && !m.udef.quad));
+            const head = G.battleFx && human && (p.kind === 'arrow' || p.kind === 'spectral') && p.pos.y > m.pos.y + m.height * 0.76;
+            const d0 = p.dmg; if (head) { p.dmg *= 2; V.number(p.pos.clone().setY(m.pos.y + m.height + 0.4), 'Headshot!', 'crit'); S.hit('flesh', m.pos, 1.6); G.hitstop = 0.06; }
+            impact(p, m); p.dmg = d0;
+            if (!p.pierce) { dead = true; break; }
+          }
         }
       } else if (p.owner === 'enemy' && !G.player.dead) {
         const c = tmp.copy(G.player.pos); c.y += 1.0;

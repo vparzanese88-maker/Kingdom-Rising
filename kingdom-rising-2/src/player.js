@@ -23,7 +23,7 @@ const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 // ---------- first-person view model ----------
 const P = (x, y, z, rx, ry, rz) => [x, y, z, rx, ry, rz];
 const VP = {
-  rest: P(0.42, -0.44, -0.55, -0.22, -0.05, -0.2), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.22, -0.24, -0.45, -0.45, 0.15, 0.5), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
+  rest: P(0.42, -0.44, -0.55, -0.22, -0.05, -0.2), restL: P(-0.27, -0.22, -0.48, -0.45, -0.1, -0.16), rest2: P(0.36, -0.5, -0.6, -0.1, 0.05, -0.85), hideL: P(-0.4, -0.9, -0.3, 0, 0, 0),
   s1a: P(0.52, -0.05, -0.4, -1.35, -1.1, 0.3), s1b: P(-0.42, -0.3, -0.45, -1.35, 1.35, 0.3),
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
@@ -102,8 +102,9 @@ class ViewModel {
     if (W.kind === 'staff') main.position.y = -0.55;
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
-    if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = 0.45; // show the blade at an angle, like Skyrim
-    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] !== 'shield') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
+    if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = (W.parts[0] === 'sword' || W.parts[0] === 'greatsword' || W.parts[0] === 'dagger') ? 0.45 : 0; // swords show the blade at an angle; axe and hammer heads sit straight
+    if (W.hands === 'two' && w.wt !== 'spear') main.scale.multiplyScalar(0.8);
+    if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
@@ -321,7 +322,7 @@ export class Player {
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
     const W = this.W;
-    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'thrust3'; S.swingW(this.swingKind(name), big ? 1.5 : W.hands === 'two' ? 1.25 : 0.9, this.pos); if (name === 'heavy') S.swingW(this.swingKind(name), 1.8, this.pos); }
+    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : 0.9 }; }
   }
   updateAttack(dt) {
     // charging heavy (hold left click)
@@ -336,6 +337,7 @@ export class Player {
     a.t += dt / a.dur;
     const W = this.W;
     const hitAt = a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
+    if (a.swingSnd && (hitAt - a.t) * a.dur <= 0.13) { S.swingW(a.swingSnd.k, a.swingSnd.v, this.pos); a.swingSnd = null; } // whoosh lands with the blow
     if (!a.hit && a.t >= hitAt) { a.hit = true; this.doHit(a); }
     // fury flurry: several hits
     if (a.name === 'fury') { const k = Math.floor(a.t * a.hits); if (k > (a.done || 0) && k <= a.hits) { a.done = k; this.furyHit(a, k); } }

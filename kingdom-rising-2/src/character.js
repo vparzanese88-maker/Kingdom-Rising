@@ -620,17 +620,28 @@ export function animateHumanoid(ch, dt, st) {
   if (st.action) P = attackPose(st.action, clamp01(st.actionT || 0));
   if (!P && st.block) P = POSE.block;
   if (!P && st.bowDraw) P = POSE.bowDraw;
-  if (!P && st.armed && ch.wt) { const W = WEAPON_TYPES[ch.wt]; if (W.kind === 'bow') P = [0, -0.25 - armSwing * 0.3, 0, 0.12, -0.4, -0.6, -0.1, -0.5, 0]; else if (W.kind === 'staff') P = [0, -0.35 - armSwing * 0.3, 0, 0.12, -0.9, armSwing * 0.4 - 0.1, -0.1, -0.3, 0]; else if (W.hands === 'two') P = [0.3, -0.75, 0.2, 0.35, -1.25, -0.9, -0.35, -1.25, 0]; else P = [0, -0.45 - armSwing * 0.4, 0, 0.15, -0.95, (W.hands === 'shield' ? -0.6 : -0.45) + armSwing * 0.4, -0.15, -0.95, 0]; }
+  let carry = false;
+  if (!P && st.armed && ch.wt) {
+    // weapon-carry poses that move with the stride: arms pump, elbows bend more as you run, the torso twists
+    carry = true; const W = WEAPON_TYPES[ch.wt], sw = armSwing, bend = runF * 0.55;
+    if (W.kind === 'bow') P = [0, -0.3 - sw * 0.7, 0, 0.12, -0.45 - bend, -0.55 + sw * 0.6, -0.12, -0.5 - bend * 0.6, 0];
+    else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.6, 0, 0.14, -0.9 - bend * 0.4, sw * 0.9 - 0.1, -0.12, -0.35 - bend, 0];
+    else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
+    else if (W.hands === 'shield') P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.75 + sw * 0.35, -0.22, -1.1 - bend * 0.4, 0];
+    else P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.4 + sw * 0.85, -0.16, -0.85 - bend, 0];
+  }
   if (P) {
     const mir = st.mirror ? -1 : 1;
-    damp(chest, 0, P[0] * mir * 0.7, 0, k * 1.4);
-    damp(spine, P[8] + lean * 0.5, P[0] * mir * 0.3, 0, k * 1.4);
+    const twist = carry ? Math.sin(ph) * amp * 0.28 : 0;
+    damp(chest, carry ? breathe + Math.abs(Math.sin(ph)) * amp * 0.06 : 0, P[0] * mir * 0.7 + twist, carry ? Math.sin(ph) * amp * 0.05 : 0, k * (carry ? 1 : 1.4));
+    damp(spine, P[8] + lean * (carry ? 0.85 : 0.5), P[0] * mir * 0.3 - twist * 0.4, 0, k * (carry ? 1 : 1.4));
     if (st.mirror) { // left hand performs the attack (dual wield off-hand)
       damp(arms.L.sh, P[1], -P[2], -P[3], k * 1.6); damp(arms.L.el, P[4], 0, 0, k * 1.6);
       damp(arms.R.sh, P[5], 0, -P[6], k * 1.6); damp(arms.R.el, P[7], 0, 0, k * 1.6);
     } else {
-      damp(arms.R.sh, P[1], P[2], P[3], k * 1.6); damp(arms.R.el, P[4], 0, 0, k * 1.6);
-      damp(arms.L.sh, P[5], 0, P[6], k * 1.6); damp(arms.L.el, P[7], 0, 0, k * 1.6);
+      const ka = carry ? k * 0.9 : k * 1.6;
+      damp(arms.R.sh, P[1], P[2], P[3], ka); damp(arms.R.el, P[4], 0, 0, ka);
+      damp(arms.L.sh, P[5], 0, P[6], ka); damp(arms.L.el, P[7], 0, 0, ka);
     }
   } else {
     damp(chest, breathe, Math.sin(ph) * amp * 0.12, 0, k);

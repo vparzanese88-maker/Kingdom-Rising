@@ -68,7 +68,7 @@ const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
 const START = { berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
 const START_NAME = { berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
-const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
+const NAMES = { highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator(camp) {
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';

@@ -116,6 +116,7 @@ function animQuad(c, dt, st) {
   c.torso.rotation.x = gallop ? Math.sin(A.ph) * 0.08 : 0;
   let headPitch = Math.sin(A.ph * 0.5) * 0.04 * amp;
   if (st.graze) headPitch = 0.75 + Math.sin(performance.now() * 0.002) * 0.08;
+  if (st.sniff) headPitch = 0.45 + Math.sin(performance.now() * 0.012) * 0.12;
   if (st.howl) headPitch = -0.8;
   let lunge = 0;
   if (st.action === 'attack') { const t = st.actionT; lunge = t < 0.45 ? -t * 0.5 : Math.sin((t - 0.45) / 0.55 * Math.PI) * 0.6; headPitch = t < 0.45 ? -0.35 : 0.35; }
@@ -296,6 +297,7 @@ export class Mob {
     const disabled = st.frozen > 0 || st.stun > 0;
     if (this.state !== 'idle' && this.state !== 'wander') this.sitting = false;
     const d2p = this.dist2(player.pos), dp = Math.sqrt(d2p);
+    const px0 = this.pos.x, pz0 = this.pos.z;
     let speed = 0, want = null;
     const spd = this.def.speed * (st.slow > 0 ? 0.5 : 1);
     if (!disabled) {
@@ -332,8 +334,10 @@ export class Mob {
         this.timer -= dt;
         if (this.patrol && this.state !== 'wander') { const P = this.patrol; const tgt = P.pts[P.i]; want = tgt; speed = spd * 0.4; if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.2) P.i = (P.i + 1) % P.pts.length; this.faceTo(tgt, dt, 4); }
         else if (this.sitAt) { if (this.pos.distanceTo(this.home) > 0.6) { want = this.home; speed = spd * 0.4; } else { this.faceTo(this.sitAt, dt, 4); this.sitting = true; } }
-        else if (this.state === 'wander') { want = this.wanderTo; speed = spd * 0.35; if (!want || this.pos.distanceTo(want) < 1.2) { this.state = 'idle'; this.timer = rand(1, 4); } }
-        else if (this.timer <= 0) { const a = Math.random() * 6.28, r = 8 + Math.random() * (this.sitAt ? 0 : 30); const base = Math.random() < 0.6 ? this.pos : this.home; this.wanderTo = new THREE.Vector3(base.x + Math.cos(a) * r, 0, base.z + Math.sin(a) * r); if (this.wanderTo.distanceTo(this.home) > 45) this.wanderTo.copy(this.home); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
+        else if (this.state === 'wander') { want = this.wanderTo; speed = spd * (this.def.flee ? 0.3 : 0.32); this.idleAct = null; if (!want || Math.hypot(want.x - this.pos.x, want.z - this.pos.z) < 1.2 || (this.stuckT || 0) > 1.2) { this.stuckT = 0; this.state = 'idle'; this.pickIdle(); } }
+        else if (this.idleAct && this.timer > 0) { if (this.idleAct === 'look') this.yaw += Math.sin(G.time * 0.8 + this.id) * dt * 0.6; }
+        else if (this.timer <= 0 && this.idleAct && Math.random() < 0.35) { this.pickIdle(); }
+        else if (this.timer <= 0) { this.idleAct = null; const a = Math.random() * 6.28, r = 8 + Math.random() * (this.sitAt ? 0 : 30); const base = Math.random() < 0.6 ? this.pos : this.home; this.wanderTo = new THREE.Vector3(base.x + Math.cos(a) * r, 0, base.z + Math.sin(a) * r); if (this.wanderTo.distanceTo(this.home) > 45) this.wanderTo.copy(this.home); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
       }
       if (want && speed !== 0) {
         const dx = want.x - this.pos.x, dz = want.z - this.pos.z, l = Math.hypot(dx, dz);
@@ -342,6 +346,7 @@ export class Mob {
           const mv = speed * dt;
           const nx = this.pos.x + dx / l * mv, nz = this.pos.z + dz / l * mv;
           if (!isWater(nx, nz) || this.type === 'crab') { this.pos.x = nx; this.pos.z = nz; }
+          else if (this.state === 'wander') this.stuckT = 9;
         }
       }
       this.growlT -= dt; if (this.growlT <= 0) { this.growlT = rand(6, 16); if (dp < 30 && (this.state === 'chase' || Math.random() < 0.3)) S.growl(this.def.variant || this.def.shape, this.pos, this.state === 'chase' ? 1 : 0.5); }
@@ -357,7 +362,10 @@ export class Mob {
     if (this.ring) { const show = dp < 45; this.ring.visible = show; if (show) { this.ring.position.set(this.pos.x, this.pos.y + 0.08, this.pos.z); const col = conColor(this.lv, player.level); if (this.ring.userData.c !== col) { this.ring.material.color.set(col); this.ring.userData.c = col; } const tg = G.target === this; this.ring.material.opacity = tg ? 0.95 : this.state === 'chase' ? 0.8 : 0.45; this.ring.scale.setScalar(this.ringR * (tg ? 1.08 + Math.sin(G.time * 6) * 0.05 : 1)); } }
     if (this.model.details) setDetail(this.model, dp < 30);
     if (this.model.kind === 'quad' || this.model.kind2 === 'human' || this.model.kind === 'spider') { const n = normalAt(this.pos.x, this.pos.z); if (this.model.kind !== 'human') this.root.rotation.x = 0; }
-    this.animate(dt, { speed: disabled ? 0 : Math.abs(speed), action: this.action, actionT: this.actionT, graze: this.state === 'idle' && this.model.kind === 'quad' && (this.type === 'deer' || this.type === 'rabbit'), rear: this.windup });
+    const realSp = Math.hypot(this.pos.x - px0, this.pos.z - pz0) / Math.max(dt, 1e-4);
+    if (this.state === 'wander' && realSp < Math.abs(speed) * 0.3) this.stuckT = (this.stuckT || 0) + dt; else if (this.state === 'wander') this.stuckT = 0;
+    if (this.state === 'return' && realSp < 0.3) { this.retStuck = (this.retStuck || 0) + dt; if (this.retStuck > 3) { this.pos.copy(this.home); this.state = 'idle'; this.retStuck = 0; } } else this.retStuck = 0;
+    this.animate(dt, { speed: disabled ? 0 : Math.min(Math.abs(speed), realSp * 1.1), action: this.action, actionT: this.actionT, graze: this.state === 'idle' && this.idleAct === 'graze', howl: this.state === 'idle' && this.idleAct === 'howl', sniff: this.state === 'idle' && this.idleAct === 'sniff', rear: this.windup });
     if (this.emberT != null) { this.emberT += dt; if (this.emberT > 0.08 && dp < 50) { this.emberT = 0; V.emit('ember', this.pos.clone().setY(this.pos.y + this.height * (0.3 + Math.random() * 0.6)), { speed: 0.5, vy: 1.5, life: 1.2, size: 0.12 }); } }
   }
   bossTick(dt, player, dp) {
@@ -372,6 +380,21 @@ export class Mob {
         G.hooks.telegraph && G.hooks.telegraph(p, 3.2, 1.4 + i * 0.25, () => { G.hooks.enemyBlast && G.hooks.enemyBlast(p, 3.2, this.dmg * 0.9, this); });
       }
     }
+  }
+  // what an idle mob does next, by type
+  pickIdle() {
+    const v = this.def.variant || this.def.shape, t = this.type;
+    let opts;
+    if (v === 'bear' || v === 'boar') opts = [['graze', 4, 9], ['sniff', 2, 4], ['wander', 0, 0], ['wander', 0, 0]];
+    else if (v === 'deer' || v === 'rabbit') opts = [['graze', 4, 10], ['graze', 3, 6], ['look', 2, 4], ['wander', 0, 0]];
+    else if (v === 'wolf' || v === 'hound') opts = [['sniff', 2, 5], ['look', 2, 4], ['wander', 0, 0], ['wander', 0, 0], ...(t === 'wolf' || t === 'frostwolf' ? [['howl', 2.5, 3.5]] : [])];
+    else if (v === 'tiger') opts = [['look', 3, 6], ['sniff', 2, 4], ['wander', 0, 0]];
+    else if (this.def.shape === 'spider' || this.def.shape === 'crab') opts = [['look', 1, 3], ['wander', 0, 0], ['wander', 0, 0]];
+    else opts = [['look', 2, 5], ['look', 3, 6], ['wander', 0, 0]];
+    const o = opts[Math.floor(Math.random() * opts.length)];
+    if (o[0] === 'wander') { this.idleAct = null; this.timer = 0; return; }
+    this.idleAct = o[0]; this.timer = rand(o[1], o[2]);
+    if (o[0] === 'howl' && Math.random() < 0.7) S.growl('wolf', this.pos, 0.8);
   }
   // ---- special abilities ----
   say(t) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.6), t, 'bad'); }

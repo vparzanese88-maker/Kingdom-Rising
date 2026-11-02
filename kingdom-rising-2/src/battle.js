@@ -12,6 +12,7 @@ import { Mob, buildQuad, animQuad } from './mobs.js';
 import { BATTLE, SETUP, LAYOUT, WALL_R, nearTown } from './battlemap.js';
 import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN } from './battledata.js';
 import { angDiff, rand, clamp, distToLine } from './util.js';
+import { fog, updateFog, isVisible, addPing } from './fog.js';
 
 export const B = { on: false, towns: [], units: [], structs: [], shots: [], time: 0, over: false, result: null, me: 0, msgs: [] };
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -846,7 +847,7 @@ function aiThink(t) {
 
 // ---------- setup ----------
 export function initBattle(scene) {
-  B.on = true; B.myTeam = SETUP.towns[0].team ?? 0;
+  B.on = true; fog.on = true; G.fog = fog; G.fogVis = isVisible; B.myTeam = SETUP.towns[0].team ?? 0;
   const used = {};
   SETUP.towns.forEach((cfg, i) => {
     const L = LAYOUT.towns[i];
@@ -894,5 +895,41 @@ export function update(dt) {
   const L = B.units; for (const u of L) { u.sepX = 0; u.sepZ = 0; }
   for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead) continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = (a.radius + b.radius) * 1.35; if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue; const d = Math.hypot(dx, dz) || 0.01; if (d >= rr) continue; const k = (rr - d) / rr, fx = dx / d * k * 3.2, fz = dz / d * k * 3.2; a.sepX -= fx; a.sepZ -= fz; b.sepX += fx; b.sepZ += fz; const hard = a.radius + b.radius; if (d < hard * 0.7) { const c = (hard * 0.7 - d) / d * 0.5; a.pos.x -= dx * c; a.pos.z -= dz * c; b.pos.x += dx * c; b.pos.z += dz * c; } } }
   updateShots(dt);
+  // fog of war: everything on your side sees around itself
+  const src = []; const me = myTown();
+  if (G.player && !G.player.dead) src.push({ x: G.player.pos.x, z: G.player.pos.z, r: 58 });
+  for (const u of B.units) if (!u.dead && u.team === B.myTeam) src.push({ x: u.pos.x, z: u.pos.z, r: u.worker ? 16 : u.hero ? 40 : 26 });
+  for (const s of B.structs) if (!s.dead && s.team === B.myTeam) src.push({ x: s.pos.x, z: s.pos.z, r: s.kind === 'hall' ? 62 : 36 });
+  updateFog(dt, src);
+  // sentry wards raise the alarm for the whole team
+  for (const s of fog.sentries) {
+    if (s.dead) continue; s.life -= dt; if (s.life <= 0) { s.dead = true; if (s.mesh) G.scene.remove(s.mesh); continue; }
+    s.chk = (s.chk || 0) - dt; if (s.chk > 0) continue; s.chk = 1;
+    const foes = B.units.filter(u => !u.dead && u.team !== B.myTeam && Math.hypot(u.pos.x - s.x, u.pos.z - s.z) < s.r);
+    const mobs = G.mobs.filter(m => m.team == null && !m.dead && m.def.aggro > 0 && Math.hypot(m.pos.x - s.x, m.pos.z - s.z) < s.r);
+    const n = foes.length, nm = mobs.length;
+    const cdOk = n ? G.time - (s.alarmU || -99) > 15 : G.time - (s.alarmM || -99) > 40;
+    if ((n || nm) && cdOk) { if (n) s.alarmU = G.time; else s.alarmM = G.time; addPing(s.x, s.z); const where = sentryWhere(s); say('scout', n ? `our sentry ${where} spotted ${n} enemy ${n > 1 ? 'soldiers' : 'soldier'} on the move!` : `our sentry ${where} spotted ${nm} wild ${nm > 1 ? 'beasts' : 'beast'}.`, n ? 'bad' : ''); if (s.mesh) s.mesh.userData.flash = 2; }
+    if (s.mesh && s.mesh.userData.flash > 0) s.mesh.userData.flash -= 1;
+  }
+}
+function sentryWhere(s) {
+  const me = myTown(); const d = Math.hypot(s.x - me.x, s.z - me.z);
+  let best = null, bd = 1e9; for (const t of B.towns) { const dd = Math.hypot(s.x - t.x, s.z - t.z); if (dd < bd) { bd = dd; best = t; } }
+  return bd < 120 ? (best.isMe ? 'by our walls' : `near ${best.name}`) : d < 250 ? 'on the near road' : 'out in the wilds';
+}
+// a sentry ward placed by a ranger: watches a wide circle and pings the map when enemies come near
+export function placeSentry(x, z, lv) {
+  const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 6), mat('#5a3a20')); pole.position.y = 1.1; g.add(pole);
+  const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshStandardMaterial({ color: '#9fe8ff', emissive: '#40c0ff', emissiveIntensity: 1.6 })); eye.position.y = 2.4; g.add(eye);
+  for (const s of [-1, 1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.6), mat('#3a7a3a', 0.9, 0, { side: THREE.DoubleSide })); f.position.set(0.2 * s, 1.9, 0); f.rotation.y = s; g.add(f); }
+  g.position.set(x, heightAt(x, z), z); G.scene.add(g);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#60d0ff', transparent: true, opacity: 0.35, depthWrite: false }));
+  const r = 40 + lv * 1.2; ring.scale.setScalar(r); ring.position.set(x, heightAt(x, z) + 0.2, z); G.scene.add(ring);
+  const s = { x, z, r, life: 150, mesh: g, ring }; fog.sentries.push(s);
+  G.timers.push({ update(dt) { eye.rotation.y += dt * 2; eye.position.y = 2.4 + Math.sin(G.time * 3) * 0.08; ring.material.opacity = s.mesh.userData.flash > 0 ? 0.8 : 0.3; if (s.dead) { G.scene.remove(ring); return true; } } });
+  if (fog.sentries.filter(q => !q.dead).length > 4) { const old = fog.sentries.find(q => !q.dead); old.life = 0; }
+  say('scout', `a sentry ward stands watch ${sentryWhere(s)}. I will warn you if anything comes near.`, '');
+  return s;
 }
 export { TEAM_COLORS, TEAM_NAMES, TOWN_LEVELS, TOWER_LEVELS };

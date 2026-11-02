@@ -220,6 +220,7 @@ function battleHooks() {
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);
   H.rally = (p, r) => Battle.rallyTroops(p, r);
   H.summonWolves = (p, lv, dur) => Battle.summonWolves(p, lv, dur);
+  H.sentry = (x, z, lv) => Battle.placeSentry(x, z, lv);
 }
 const B_DEAD = (m) => false;
 

@@ -50,7 +50,7 @@ const MAP = {
   earthsplitter: ['slam', 'red'], battlecry: ['shout', 'red'], intimshout: ['shout', 'shadow'], whirlwind: ['whirl', 'red'], adrenaline: ['heart', 'fire'], rampage: ['swords', 'red'], groundslam: ['slam', 'fire'], bloodrage: ['drop', 'red'], warstomp: ['burst', 'steel'], undying: ['skull', 'gold'],
   hurlaxe: ['axe', 'steel'], skullsplitter: ['axe', 'red'], frenzy: ['drop', 'fire'],
   spectral: ['arrow', 'arcane'], mending: ['leaf', 'nature'], disengage: ['dash', 'nature'], focus: ['eye', 'gold'], barkskin: ['leaf', 'gold'], snaretrap: ['trap', 'nature'], vanish: ['cloud', 'shadow'], explotrap: ['trap', 'fire'], pinning: ['arrow', 'steel'], barrage: ['volley', 'steel'],
-  arrowrain: ['volley', 'nature'], venomshot: ['arrow', 'nature'], wolves: ['wolf', 'frost'],
+  arrowrain: ['volley', 'nature'], venomshot: ['arrow', 'nature'], wolves: ['wolf', 'frost'], sentry: ['eye', 'frost'], spiketrap: ['trap', 'red'], frosttrap: ['snow', 'frost'],
   frostnova: ['snow', 'frost'], blink: ['dash', 'arcane'], chain: ['bolt', 'frost'], manasurge: ['spiral', 'arcane'], icebarrier: ['shield', 'frost'], firering: ['flame', 'fire'], missiles: ['burst', 'arcane'], timewarp: ['hourglass', 'arcane'], lightstorm: ['bolt', 'gold'], inferno: ['meteor', 'fire'],
   pyroblast: ['fireball', 'fire'], glacial: ['snow', 'frost'], meteorshower: ['meteor', 'red'],
   tourniquet: ['heart', 'red'], secondwind: ['leaf', 'gold'], fielddress: ['heart', 'nature'], fist: ['fist', 'steel'],

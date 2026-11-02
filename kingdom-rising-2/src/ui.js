@@ -232,13 +232,15 @@ export function drawMinimap() {
   const [mx, mz] = toMap(p.pos.x, p.pos.z, MAPN);
   g.scale(scale / mpp, scale / mpp);
   g.drawImage(mapCanvas, -mx, -mz);
+  if (G.fog && G.fog.canvas) { g.imageSmoothingEnabled = true; g.drawImage(G.fog.canvas, -mx, -mz, MAPN, MAPN); }
   g.restore();
   // markers (rotate positions)
   const cs = Math.cos(p.yaw + Math.PI), sn = Math.sin(p.yaw + Math.PI);
   const dot = (x, z, fn) => { const dx = (x - p.pos.x) * scale, dz = (z - p.pos.z) * scale; let rx = dx * cs - dz * sn, rz = dx * sn + dz * cs; const d = Math.hypot(rx, rz), max = N / 2 - 14; let edge = false; if (d > max) { rx *= max / d; rz *= max / d; edge = true; } fn(N / 2 + rx, N / 2 + rz, edge); };
-  for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(p.pos) < 70) dot(m.pos.x, m.pos.z, (x, y, e) => { if (e) return; g.fillStyle = m.team != null ? (m.team === G.myTeam ? '#5aa0ff' : '#ff4030') : m.hostile || m.provoked ? '#ff8a40' : '#ffe070'; g.beginPath(); g.arc(x, y, m.isStruct ? 7 : 4, 0, 7); g.fill(); });
+  for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(p.pos) < 70 && (!G.fogVis || m.team === G.myTeam || G.fogVis(m.pos.x, m.pos.z))) dot(m.pos.x, m.pos.z, (x, y, e) => { if (e) return; g.fillStyle = m.team != null ? (m.team === G.myTeam ? '#5aa0ff' : '#ff4030') : m.hostile || m.provoked ? '#ff8a40' : '#ffe070'; g.beginPath(); g.arc(x, y, m.isStruct ? 7 : 4, 0, 7); g.fill(); });
   g.font = 'bold 30px Cinzel, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const k of markers(p.h)) dot(k.x, k.z, (x, y, e) => { g.fillStyle = '#ffd84a'; g.strokeStyle = '#000'; g.lineWidth = 4; g.strokeText(k.t, x, y); g.fillText(k.t, x, y); });
+  if (G.fog) for (const pg of G.fog.pings) dot(pg.x, pg.z, (x, y) => { const a = (G.time - pg.t) % 1.2 / 1.2; g.strokeStyle = `rgba(255,60,40,${1 - a})`; g.lineWidth = 4; g.beginPath(); g.arc(x, y, 8 + a * 26, 0, 7); g.stroke(); });
   // player arrow (always up)
   g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.beginPath(); g.moveTo(N / 2, N / 2 - 14); g.lineTo(N / 2 + 9, N / 2 + 10); g.lineTo(N / 2, N / 2 + 5); g.lineTo(N / 2 - 9, N / 2 + 10); g.closePath(); g.stroke(); g.fill();
   // N marker
@@ -611,6 +613,7 @@ export function openMap() {
     const N = Math.floor(Math.min(holder.clientWidth, holder.clientHeight)) || 600;
     holder.innerHTML = ''; const cv = el('canvas'); cv.width = cv.height = N * 2; cv.style.width = cv.style.height = N + 'px'; holder.appendChild(cv);
     const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(mapCanvas, 0, 0, N * 2, N * 2);
+    if (G.fog && G.fog.canvas) g.drawImage(G.fog.canvas, 0, 0, N * 2, N * 2);
     const s = N * 2 / (HALF * 2), P = (x, z) => [(x + HALF) * s, (z + HALF) * s], k = N / 380;
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const lbl = (t, x, z, size = 30, col = '#ffe2a0') => { const [px, pz] = P(x, z); size *= k; g.font = `700 ${size}px Cinzel, serif`; g.lineWidth = size / 5; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, px, pz); g.fillStyle = col; g.fillText(t, px, pz); };
@@ -644,6 +647,8 @@ export function openMap() {
     side.insertAdjacentHTML('beforeend', `<h3>Legend</h3><div class="legend"><div><b style="color:#ffd84a">!</b> Quest to pick up</div><div><b style="color:#ffd84a">?</b> Quest to hand in</div><div><b>◆</b> Quest objective (circle = area)</div><div><b>⌂</b> Town or outpost</div><div><b style="color:#9cdc5a">⛺</b> Goblin camp (levels)</div><div><b style="color:#ff8a7a">⚔</b> Bandits · <b style="color:#ff6060">☠</b> Boss</div><div><b>➤</b> You</div></div><p class="dim">Click a quest to highlight it. M or Esc closes.</p>`);
   };
   renderSide(); requestAnimationFrame(draw);
+  // live map in Kingdom Battles: redraw while it is open
+  if (G.fog) { const iv = setInterval(() => { if (UI.open !== 'map') { clearInterval(iv); return; } draw(); renderSide(); }, 500); }
 }
 
 // --- NPC dialog ---

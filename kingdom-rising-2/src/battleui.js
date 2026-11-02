@@ -9,6 +9,7 @@ import * as Icons from './icons.js';
 import { glyphBadge } from './icons2.js';
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
+import { isExplored } from './fog.js';
 import { V } from './vfx.js';
 import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
@@ -36,22 +37,25 @@ export function init(o) {
   $('death').style.display = 'none'; $('tracker').style.display = 'none';
   // the world map (M) shows towns, towers, camps, resources and every army
   G.battleMapDraw = (g, P, k, lbl, icon) => {
-    for (const c of LAYOUT.camps) { if (c.tier === 3) { icon(c.x, c.z, '☠', '#ff3030', 24); lbl('Boss', c.x, c.z + 18, 13, '#ff8a7a'); } else icon(c.x, c.z, '⛺', c.tier === 2 ? '#ff8a50' : c.tier ? '#ffc070' : '#9cdc5a', 15); }
-    for (const [x, z] of LAYOUT.gold) icon(x, z, '◆', '#ffd84a', 13);
-    for (const [x, z] of LAYOUT.stone) icon(x, z, '■', '#c8c0b0', 12);
-    for (const u of B.units) if (!u.dead) { const [px, pz] = P(u.pos.x, u.pos.z); g.fillStyle = TEAM_COLORS[u.team]; g.beginPath(); g.arc(px, pz, (u.hero ? 6 : 3.2) * k, 0, 7); g.fill(); if (u.hero) { g.lineWidth = 2 * k; g.strokeStyle = '#fff'; g.stroke(); } }
+    const seen = (x, z) => !G.fog || G.fog.explored && isExplored(x, z), vis = (x, z) => !G.fogVis || G.fogVis(x, z);
+    for (const c of LAYOUT.camps) { if (!seen(c.x, c.z)) continue; if (c.tier === 3) { icon(c.x, c.z, '☠', '#ff3030', 24); lbl('Boss', c.x, c.z + 18, 13, '#ff8a7a'); } else icon(c.x, c.z, '⛺', c.tier === 2 ? '#ff8a50' : c.tier ? '#ffc070' : '#9cdc5a', 15); }
+    for (const [x, z] of LAYOUT.stone) if (seen(x, z)) icon(x, z, '■', '#c8c0b0', 12);
+    for (const u of B.units) if (!u.dead && (u.team === B.myTeam || vis(u.pos.x, u.pos.z))) { const [px, pz] = P(u.pos.x, u.pos.z); g.fillStyle = TEAM_COLORS[u.team]; g.beginPath(); g.arc(px, pz, (u.hero ? 6 : 3.2) * k, 0, 7); g.fill(); if (u.hero) { g.lineWidth = 2 * k; g.strokeStyle = '#fff'; g.stroke(); } }
     for (const t of B.towns) {
+      if (!t.isMe && t.team !== B.myTeam && !seen(t.x, t.z)) { icon(t.x, t.z, '?', '#a89a7a', 22); continue; }
       const [px, pz] = P(t.x, t.z); g.globalAlpha = t.dead ? 0.35 : 1;
       g.beginPath(); g.arc(px, pz, 22 * k, 0, 7); g.fillStyle = t.color + '55'; g.fill(); g.lineWidth = 4 * k; g.strokeStyle = t.color; g.stroke();
       icon(t.x, t.z, t.dead ? '✕' : '♜', t.color, 26);
       for (const s of t.towers) icon(s.pos.x, s.pos.z, s.dead ? '✕' : '▲', t.color, 13);
       lbl(`${t.name}${t.isMe ? ' (you)' : ''}`, t.x, t.z + (t.z > 0 ? 38 : -38), 17, '#fff'); g.globalAlpha = 1;
     }
+    if (G.fog) { for (const s of G.fog.sentries) if (!s.dead) { const [px, pz] = P(s.x, s.z); g.beginPath(); g.arc(px, pz, s.r * k * 1.33, 0, 7); g.strokeStyle = 'rgba(96,208,255,.7)'; g.lineWidth = 2 * k; g.setLineDash([6 * k, 5 * k]); g.stroke(); g.setLineDash([]); icon(s.x, s.z, '👁', '#60d0ff', 14); }
+      for (const p of G.fog.pings) { const [px, pz] = P(p.x, p.z), a = (G.time - p.t) % 1.5 / 1.5; g.beginPath(); g.arc(px, pz, (10 + a * 40) * k, 0, 7); g.strokeStyle = `rgba(255,60,40,${1 - a})`; g.lineWidth = 4 * k; g.stroke(); } }
   };
   G.battleMapSide = (side) => {
     side.innerHTML = '<h3>Kingdoms</h3>';
-    for (const t of B.towns) side.insertAdjacentHTML('beforeend', `<div class="mq" style="border-color:${t.color}"><div class="mqh"><i style="background:${t.color}"></i><b>${t.name}${t.isMe ? ' (you)' : ''}</b>${t.dead ? '<span class="rdy" style="color:#ff7a6a">Fallen</span>' : ''}</div><div class="mqo">${t.race === 'highelf' ? 'High Elf' : t.race === 'woodelf' ? 'Wood Elf' : t.race[0].toUpperCase() + t.race.slice(1)} · ${TOWN_LEVELS[t.level].name} · Hall ${Math.round(t.hall.hp / t.hall.maxHp * 100)}%</div><div class="mqo">${t.units.filter(u => !u.dead && !u.worker && !u.hero).length} troops · ${t.towers.filter(s => !s.dead).length}/2 towers</div></div>`);
-    side.insertAdjacentHTML('beforeend', '<h3>Legend</h3><div class="legend"><div><b>♜</b> Town and Hall</div><div><b>▲</b> Archer tower</div><div><b style="color:#9cdc5a">⛺</b> Neutral camp (gold & XP)</div><div><b style="color:#ff3030">☠</b> Boss lair (red beam in the sky)</div><div><b style="color:#ffd84a">◆</b> Gold vein · <b style="color:#c8c0b0">■</b> Stone quarry</div><div><b>●</b> Troops in team colours</div></div><p class="dim">M or Esc closes.</p>');
+    for (const t of B.towns) side.insertAdjacentHTML('beforeend', `<div class="mq" style="border-color:${t.color}"><div class="mqh"><i style="background:${t.color}"></i><b>${t.name}${t.isMe ? ' (you)' : ''}</b>${t.dead ? '<span class="rdy" style="color:#ff7a6a">Fallen</span>' : ''}</div><div class="mqo">${t.race === 'highelf' ? 'High Elf' : t.race === 'woodelf' ? 'Wood Elf' : t.race[0].toUpperCase() + t.race.slice(1)} · ${TOWN_LEVELS[t.level].name} · Hall ${Math.round(t.hall.hp / t.hall.maxHp * 100)}%</div><div class="mqo">${t.team === B.myTeam ? `${t.units.filter(u => !u.dead && !u.worker && !u.hero).length} troops · ${t.towers.filter(s => !s.dead).length}/2 towers` : isExplored(t.x, t.z) ? `${t.towers.filter(s => !s.dead).length}/2 towers · army unknown` : 'Not yet scouted'}</div></div>`);
+    side.insertAdjacentHTML('beforeend', '<h3>Legend</h3><div class="legend"><div><b>♜</b> Town and Hall</div><div><b>▲</b> Archer tower</div><div><b style="color:#9cdc5a">⛺</b> Neutral camp (gold & XP)</div><div><b style="color:#ff3030">☠</b> Boss lair (red beam in the sky)</div><div><b style="color:#c8c0b0">■</b> Stone quarry</div><div><b style="color:#60d0ff">👁</b> Sentry ward · <b style="color:#ff4030">◎</b> Sentry alarm</div><div><b>Dark</b> unexplored · <b>dim</b> not watched</div><div><b>●</b> Troops in team colours</div></div><p class="dim">M or Esc closes.</p>');
   };
 }
 

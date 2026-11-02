@@ -689,18 +689,52 @@ export function dialogKey(code) {
 }
 
 // --- merchant ---
+const TOOL_SHOP = [[1, 3, 1], [2, 30, 4], [3, 110, 9], [4, 320, 14]]; // tier, price, level
 export function openMerchant(npc) {
-  const c = openWin('merchant', esc(npc.name) + "'s Wares", '', 'big');
+  const c = openWin('merchant', esc(npc.name) + "'s Wares", '', 'big shopwin');
+  let tab = 'tools', last = '';
   const render = () => {
-    const h = G.player.h; c.innerHTML = `<div style="margin-bottom:8px;color:#ffd84a">🪙 ${h.gold} gold</div>`;
-    const lay = el('div', 'charlay');
-    const buy = el('div', '', '<h3 style="font-size:18px">Buy</h3>');
-    for (const id of Game.merchantStock()) { const pr = Game.buyPrice(id); const b = el('button', 'btn buyb', `<span class="ni">${Icons.itemSvg({ id })}</span> ${ITEMS[id].name} <span style="margin-left:auto;color:#ffd84a">${pr}g</span>`); b.style.cssText = 'display:block;width:100%;text-align:left;margin:4px 0'; b.disabled = h.gold < pr; b.onclick = () => { h.gold -= pr; Game.addItem(h, id, 1); S.coins(); render(); }; buy.appendChild(b); }
-    const sell = el('div', '', '<h3 style="font-size:18px">Sell (click an item)</h3>');
-    const grid = el('div', 'grid'); grid.style.marginTop = '8px';
-    h.inv.forEach((it, i) => { const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : ''); if (it) { cell.title = `${Game.itemName(it)}: ${Game.itemValue(it)}g`; cell.onclick = () => { h.gold += Game.itemValue(it); if (it.kind || it.n <= 1) h.inv[i] = null; else it.n--; S.coins(); G.hooks.invChanged(); render(); }; } grid.appendChild(cell); });
-    sell.appendChild(grid);
-    lay.style.gridTemplateColumns = '260px auto'; lay.append(buy, sell); c.appendChild(lay);
+    const h = G.player.h; c.innerHTML = '';
+    const top = el('div', 'shoptop', `<div class="shopwho"><b>${esc(npc.name)}</b><span>${esc(npc.def.title || 'Merchant')}</span></div><div class="shopgold">${Icons.coin()} <b>${h.gold}</b> gold</div>`);
+    c.appendChild(top);
+    const lay = el('div', 'shoplay'); c.appendChild(lay);
+    // buy side
+    const buy = el('div', 'shopbuy');
+    const tabs = el('div', 'shoptabs'); for (const [k, t] of [['tools', 'Tools'], ['supplies', 'Supplies']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
+    buy.appendChild(tabs);
+    const list = el('div', 'shoplist');
+    const card = (icon, name, desc, price, state, onBuy) => {
+      const d = el('div', 'scard' + (state ? ' dis' : ''), `<div class="sic">${icon}</div><div class="sinf"><b>${name}</b><span>${desc}</span></div><button class="sbuy" ${state ? 'disabled' : ''}>${state || `${Icons.coin()} ${price}`}</button>`);
+      if (!state) d.querySelector('.sbuy').onclick = () => { onBuy(); S.coins(); render(); };
+      list.appendChild(d);
+    };
+    if (tab === 'tools') {
+      for (const t of Object.keys(TOOLS)) {
+        const have = h.tools[t] || 0, next = TOOL_SHOP.find(x => x[0] > have);
+        if (!next) { card(Icons.toolSvg(t, have), `${TOOL_TIER_NAMES[have]} ${TOOLS[t].name}`, `${TOOLS[t].desc} You have the best one.`, 0, 'Owned', null); continue; }
+        const [tier, price, lvl] = next;
+        const state = h.level < lvl ? `Level ${lvl}` : h.gold < price ? `${Icons.coin()} ${price}` : '';
+        card(Icons.toolSvg(t, tier), `${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, `${TOOLS[t].desc}${have ? ` Upgrades your ${TOOL_TIER_NAMES[have]} one: works faster and on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.` : ''}`, price, state, () => { h.gold -= price; h.tools[t] = tier; toast(`Bought: ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, TOOLS[t].icon, 'gold'); G.hooks.invChanged && G.hooks.invChanged(); });
+      }
+    } else for (const id of Game.merchantStock()) {
+      const pr = Game.buyPrice(id), I = ITEMS[id];
+      card(Icons.itemSvg({ id }), I.name, esc(I.desc || ''), pr, h.gold < pr ? `${Icons.coin()} ${pr}` : '', () => { h.gold -= pr; Game.addItem(h, id, 1); });
+    }
+    buy.appendChild(list); lay.appendChild(buy);
+    // sell side
+    const sell = el('div', 'shopsell', `<div class="shoph"><h3>Your Bag</h3><span class="dim">Click to sell one · Shift+click sells the stack</span></div>`);
+    const grid = el('div', 'grid');
+    const info = el('div', 'shopinfo', last || '<span class="dim">Hover an item to see what it sells for.</span>');
+    h.inv.forEach((it, i) => {
+      const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
+      if (it) {
+        const v = Game.itemValue(it);
+        cell.onmouseenter = () => { info.innerHTML = `<b>${esc(Game.itemName(it))}</b>${!it.kind && it.n > 1 ? ` ×${it.n}` : ''} <span class="sv">${Icons.coin()} ${v}${!it.kind && it.n > 1 ? ` each · ${v * it.n} for all` : ''}</span>`; };
+        cell.onclick = (e) => { const n = !it.kind && e.shiftKey ? it.n : 1; h.gold += v * n; if (it.kind || it.n <= n) h.inv[i] = null; else it.n -= n; S.coins(); last = `Sold ${esc(Game.itemName(it))}${n > 1 ? ' ×' + n : ''} for <span class="sv">${Icons.coin()} ${v * n}</span>`; G.hooks.invChanged && G.hooks.invChanged(); render(); };
+      }
+      grid.appendChild(cell);
+    });
+    sell.append(grid, info); lay.appendChild(sell);
   };
   render();
 }

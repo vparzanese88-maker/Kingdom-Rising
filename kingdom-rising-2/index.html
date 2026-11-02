@@ -223,23 +223,23 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793619677",
-"./src/character.js": "./src/character.js?v=1793619677",
-"./src/combat.js": "./src/combat.js?v=1793619677",
-"./src/data.js": "./src/data.js?v=1793619677",
-"./src/game.js": "./src/game.js?v=1793619677",
-"./src/icons.js": "./src/icons.js?v=1793619677",
-"./src/main.js": "./src/main.js?v=1793619677",
-"./src/menu.js": "./src/menu.js?v=1793619677",
-"./src/mobs.js": "./src/mobs.js?v=1793619677",
-"./src/player.js": "./src/player.js?v=1793619677",
-"./src/saves.js": "./src/saves.js?v=1793619677",
-"./src/state.js": "./src/state.js?v=1793619677",
-"./src/terrain.js": "./src/terrain.js?v=1793619677",
-"./src/ui.js": "./src/ui.js?v=1793619677",
-"./src/util.js": "./src/util.js?v=1793619677",
-"./src/vfx.js": "./src/vfx.js?v=1793619677",
-"./src/world.js": "./src/world.js?v=1793619677"
+"./src/audio.js": "./src/audio.js?v=1793619887",
+"./src/character.js": "./src/character.js?v=1793619887",
+"./src/combat.js": "./src/combat.js?v=1793619887",
+"./src/data.js": "./src/data.js?v=1793619887",
+"./src/game.js": "./src/game.js?v=1793619887",
+"./src/icons.js": "./src/icons.js?v=1793619887",
+"./src/main.js": "./src/main.js?v=1793619887",
+"./src/menu.js": "./src/menu.js?v=1793619887",
+"./src/mobs.js": "./src/mobs.js?v=1793619887",
+"./src/player.js": "./src/player.js?v=1793619887",
+"./src/saves.js": "./src/saves.js?v=1793619887",
+"./src/state.js": "./src/state.js?v=1793619887",
+"./src/terrain.js": "./src/terrain.js?v=1793619887",
+"./src/ui.js": "./src/ui.js?v=1793619887",
+"./src/util.js": "./src/util.js?v=1793619887",
+"./src/vfx.js": "./src/vfx.js?v=1793619887",
+"./src/world.js": "./src/world.js?v=1793619887"
 }
 }
 </script>
@@ -559,6 +559,39 @@ body{font-size:16px;letter-spacing:.005em}
 .tiphead b{font-size:17px}.tic{width:46px;height:46px}
 @media (max-height:680px){.doll{grid-template-columns:44px 160px 44px}.eq{width:44px;height:44px}.eq .ic{width:26px;height:26px}#portrait{width:160px;height:190px}.invright .grid{grid-template-columns:repeat(6,44px)}.invright .cell{width:44px;height:44px;padding:4px}.statbox .tools{display:none}}
 @media (max-height:860px){.doll{grid-template-columns:52px 190px 52px}.eq{width:52px;height:52px}.eq .ic{width:30px;height:30px}.eq .lb{display:none}#portrait{width:190px;height:230px}.invright .grid{grid-template-columns:repeat(6,50px)}.invright .cell{width:50px;height:50px;padding:5px}.win>header{padding:10px 20px}.win .content{padding:12px 20px 14px}}
+/* merchant */
+.win.shopwin{width:min(1240px,96vw);height:min(820px,92vh);display:flex;flex-direction:column}
+.shopwin .content{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+.shoptop{display:flex;justify-content:space-between;align-items:center;padding:4px 4px 10px;border-bottom:1px solid rgba(216,168,72,.2)}
+.shopwho b{display:block;font-family:var(--f-t);font-size:22px;color:var(--gold2,#ffd98a)}.shopwho span{color:var(--dim);font-size:13px}
+.shopgold{font-size:18px;color:#ffd84a;padding:6px 14px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid #6a4a1a}.shopgold b{font-size:22px}
+.shoplay{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px}
+.shopbuy,.shopsell{display:flex;flex-direction:column;min-height:0}
+.shoptabs{display:flex;gap:6px;margin-bottom:10px}
+.shoptabs button{flex:1;padding:9px;font-family:var(--f-t);font-size:15px;letter-spacing:.06em;border-radius:8px 8px 0 0;background:rgba(0,0,0,.35);border:1px solid #4a3418;border-bottom-width:3px;color:#c8b48a;cursor:pointer}
+.shoptabs button.on{background:linear-gradient(#4a3418,#2a1c0c);border-bottom-color:#ffd84a;color:#fff2c8}
+.shoplist{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.scard{display:grid;grid-template-columns:60px 1fr auto;align-items:center;gap:14px;padding:10px 12px;border-radius:12px;background:linear-gradient(90deg,rgba(60,42,22,.75),rgba(20,14,8,.75));border:1px solid #5a4020;transition:.12s}
+.scard:hover{border-color:#c8a050;transform:translateX(2px)}
+.scard .sic{width:60px;height:60px;border-radius:10px;padding:8px;background:radial-gradient(circle at 50% 40%,#3a2c1e,#0e0905);border:2px solid #6a4a1a}
+.scard .sic svg{width:100%;height:100%}
+.scard .sinf b{display:block;font-size:17px;color:#fff2c8}.scard .sinf span{font-size:13px;color:#bfae8c;line-height:1.35}
+.sbuy{min-width:92px;padding:9px 14px;border-radius:9px;font-weight:800;font-size:16px;color:#2a1a04;background:linear-gradient(#ffe48a,#d8a030);border:1px solid #7a5010;box-shadow:0 3px 0 #5a3a08;cursor:pointer;white-space:nowrap}
+.sbuy:hover{filter:brightness(1.1)}.sbuy:active{transform:translateY(2px);box-shadow:0 1px 0 #5a3a08}
+.sbuy:disabled{background:#2a2016;color:#8a7a60;box-shadow:none;border-color:#3a2a16;cursor:default}
+.scard.dis{opacity:.75}
+.shoph{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}.shoph h3{font-size:20px}.shoph span{font-size:12px}
+.shopsell .grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.shopsell .cell{width:auto;height:auto;aspect-ratio:1;max-height:84px;padding:12%}
+.shopsell .cell:hover{border-color:#ffd84a}
+.shopinfo{margin-top:12px;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid #4a3418;font-size:15px;min-height:44px}
+.shopinfo .sv{color:#ffd84a;font-weight:800;margin-left:8px}
+.shopwin .sbuy svg,.shopwin .shopgold svg,.shopwin .shopinfo svg{width:18px !important;height:18px !important;display:inline-block;vertical-align:-3px}
+.shopwin .shopgold svg{width:22px !important;height:22px !important;vertical-align:-4px}
+.shopgold{display:flex;align-items:center;gap:6px}
+.shopsell .grid{flex:1;min-height:0;overflow:auto;align-content:start;padding:2px}
+.shopsell .grid{grid-template-columns:repeat(9,minmax(0,1fr))}
+@media (max-width:900px){.shoplay{grid-template-columns:1fr;overflow:auto}}
 /* inventory v3: fills the window, bigger slots and hero */
 .win.invwin{width:96vw;max-width:1500px;height:94vh;max-height:none;display:flex;flex-direction:column}
 .invwin .content{flex:1;min-height:0;overflow:hidden;--s:clamp(44px,min(8vh,5.2vw),96px);--b:clamp(44px,min(9.5vh,5.6vw),100px)}
@@ -645,6 +678,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793619677"></script>
+<script type="module" src="./src/main.js?v=1793619887"></script>
 </body>
 </html>

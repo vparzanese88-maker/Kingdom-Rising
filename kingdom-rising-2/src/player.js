@@ -1073,7 +1073,9 @@ export class Player {
     if (sk > 0) { cam.position.x += (Math.random() - 0.5) * sk * 0.35; cam.position.y += (Math.random() - 0.5) * sk * 0.35; cam.rotation.z += (Math.random() - 0.5) * sk * 0.04; }
     this.fovKick *= Math.max(0, 1 - dt * 4);
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
-    cam.fov = settings.fov + this.fovKick + this.fovS;
+    // Kingdom Battles: zoom in a little while drawing the bow, more the longer you hold
+    { const drawing = G.battleFx && this.press && this.press.charging && this.W && this.W.kind === 'bow'; const want = drawing ? -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3 : 0; this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 4 : 9)); }
+    cam.fov = settings.fov + this.fovKick + this.fovS + (this.bowZoom || 0);
     cam.updateProjectionMatrix();
     A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI);
   }

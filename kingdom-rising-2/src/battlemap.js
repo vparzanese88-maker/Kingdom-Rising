@@ -6,7 +6,7 @@ export const BATTLE = /[?&]mode=battle/.test(location.search);
 export const SETUP_KEY = 'kr2_battle_setup';
 
 function readSetup() {
-  try { const s = JSON.parse(sessionStorage.getItem(SETUP_KEY) || 'null'); if (s && s.towns && s.towns.length >= 2) return s; } catch (e) {}
+  try { const s = JSON.parse(sessionStorage.getItem(SETUP_KEY) || 'null'); if (s && (s.mp || (s.towns && s.towns.length >= 2))) return s; } catch (e) {}
   // fallback so the page still works if opened directly
   return { towns: [{ race: 'human', ai: false, team: 0 }, { race: 'orc', ai: true, diff: 'normal', team: 1 }], seed: 7 };
 }

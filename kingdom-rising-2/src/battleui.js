@@ -10,6 +10,7 @@ import { glyphBadge } from './icons2.js';
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { isExplored } from './fog.js';
+import { MP } from './mp.js';
 import { V } from './vfx.js';
 import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
@@ -77,6 +78,8 @@ export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
   menuT -= dt; if (menuT <= 0) { menuT = 0.25; drawBar(); zoneLabel(); if (UI.UI.open === 'battle') render(); }
   storeTick(dt);
+  // online: the gates stay shut for the first minute
+  { let g = $('gatecd'); if (MP.on && B.time < 60 && !B.over) { if (!g) { g = el('div', ''); g.id = 'gatecd'; $('hud').appendChild(g); } g.innerHTML = `<b>The gates open in ${Math.ceil(60 - B.time)} s</b><span>Ready your town, Commander</span>`; } else if (g) { g.remove(); if (MP.on && !B.gatesSaid) { B.gatesSaid = true; report('captain', 'the gates are open! To battle!', 'war'); } } }
   if (deathT > 0) { deathT -= dt; const d = $('bdeath'); d.innerHTML = `<div><h2>You have fallen</h2><p>Your troops fight on. Back in <b>${Math.ceil(deathT)}</b>…</p></div>`; if (deathT <= 0) { d.hidden = true; opts.respawn && opts.respawn(); } }
 }
 function zoneLabel() {

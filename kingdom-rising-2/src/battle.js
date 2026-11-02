@@ -13,6 +13,8 @@ import { BATTLE, SETUP, LAYOUT, WALL_R, nearTown } from './battlemap.js';
 import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN } from './battledata.js';
 import { angDiff, rand, clamp, distToLine } from './util.js';
 import { fog, updateFog, isVisible, addPing } from './fog.js';
+import { MP, send } from './mp.js';
+import { proxyUnitStep, fxQueue, mobList } from './mpsync.js';
 
 export const B = { on: false, towns: [], units: [], structs: [], shots: [], time: 0, over: false, result: null, me: 0, msgs: [] };
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -265,6 +267,7 @@ class Structure {
     if (this.dead || B.over) return 0;
     // Smite rule: heroes can only damage a tower from inside its circle
     if (src && (src === G.player || src.hero) && this.kind === 'tower' && Math.hypot(src.pos.x - this.pos.x, src.pos.z - this.pos.z) > this.range + 0.5) { if (src === G.player) V.number(this.pos.clone().setY(this.pos.y + 6), 'Out of range', 'miss'); return 0; }
+    if (B.client) { send({ t: 'hit', k: 's', id: B.structs.indexOf(this), dmg: Math.round(dmg), o: {} }); this.hitT = 0.2; return Math.round(dmg); }
     dmg = Math.max(1, Math.round(dmg * (this.kind === 'hall' ? 0.8 : 0.9)));
     this.hp -= dmg; this.hitT = 0.2;
     if (src && (src === G.player || src.hero)) this.lastHeroHit = { src, t: B.time };
@@ -279,12 +282,13 @@ class Structure {
     let t = 0; const r = this.root; G.timers.push({ update(dt) { t += dt; r.position.y -= dt * 2.2; r.rotation.z = Math.sin(t * 9) * 0.02; if (t > 4) { r.visible = false; return true; } } });
     // rubble
     const rub = new THREE.Group(); for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6 + Math.random() * 0.8, 0), mat(STYLE[this.town.race].stone, 0.95)); m.position.set(this.pos.x + rand(-1, 1) * this.radius, this.pos.y + 0.2, this.pos.z + rand(-1, 1) * this.radius); m.rotation.set(rand(0, 3), rand(0, 3), 0); m.castShadow = true; rub.add(m); } G.scene.add(rub);
-    onStructDown(this, src);
+    if (!B.client) onStructDown(this, src);
   }
   update(dt) {
     if (this.dead) return;
     this.hitT = Math.max(0, (this.hitT || 0) - dt);
     if (this.ring) { const p = G.player, d = p ? Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) : 999; this.ring.visible = d < this.range + 30; if (this.ring.visible) { const foe = this.team !== B.myTeam, inside = d < this.range; this.ring.material.color.set(foe ? (inside ? '#ff3020' : '#ff8a60') : '#5aa0ff'); this.ring.material.opacity = inside ? 0.85 : 0.45; } }
+    if (B.client) return;
     this.atkCd -= dt; if (this.atkCd > 0) return;
     const tg = this.pickTarget(); if (!tg) return;
     const L = this.kind === 'hall' ? { dmg: 40 + this.level * 15, cd: 1.8 } : TOWER_LEVELS[this.level];
@@ -311,7 +315,14 @@ class Structure {
 const SHOT_GEO = { arrow: new THREE.CylinderGeometry(0.03, 0.03, 0.9, 4).rotateX(Math.PI / 2), bolt: new THREE.CylinderGeometry(0.05, 0.05, 0.6, 4).rotateX(Math.PI / 2), bullet: new THREE.SphereGeometry(0.08, 6, 4), fire: new THREE.SphereGeometry(0.35, 8, 6), arcane: new THREE.SphereGeometry(0.3, 8, 6), frost: new THREE.IcosahedronGeometry(0.3, 0), holy: new THREE.SphereGeometry(0.28, 8, 6), smite: new THREE.CylinderGeometry(0.06, 0.06, 1.6, 5).rotateX(Math.PI / 2) };
 const SHOT_MAT = { arrow: new THREE.MeshBasicMaterial({ color: '#c8a070' }), bolt: new THREE.MeshBasicMaterial({ color: '#7a6a5a' }), bullet: new THREE.MeshBasicMaterial({ color: '#ffe8a0' }), fire: new THREE.MeshBasicMaterial({ color: '#ff8a20' }), arcane: new THREE.MeshBasicMaterial({ color: '#c070ff' }), frost: new THREE.MeshBasicMaterial({ color: '#a0e8ff' }), holy: new THREE.MeshBasicMaterial({ color: '#fff0a0' }), smite: new THREE.MeshBasicMaterial({ color: '#ffe080' }) };
 const SPEED = { arrow: 34, bolt: 40, bullet: 80, fire: 22, arcane: 24, frost: 24, holy: 24, smite: 46 };
+function tgtRef(t) { if (t === G.player) return 'h' + MP.myId; if (t.remote) return 'h' + t.netId; if (t.isStruct) return 's' + B.structs.indexOf(t); if (t.netIdx != null) return 'm' + t.netIdx; return 'u' + t.id; }
+export function shootVisual(f) {
+  const [kind, x, y, z, ref] = f, c = ref[0], id = +ref.slice(1);
+  const tgt = c === 'h' ? (id === MP.myId ? G.player : MP.remotes.get(id)) : c === 's' ? B.structs[id] : c === 'm' ? mobList[id] : B.units.find(u => u.id === id);
+  if (!tgt) return; shoot({ team: -1 }, tgt, V3(x, y, z), 0, kind, { visual: true });
+}
 function shoot(src, tgt, from, dmg, kind, opts = {}) {
+  if (MP.host && !opts.visual) fxQueue.push([kind, Math.round(from.x * 10) / 10, Math.round(from.y * 10) / 10, Math.round(from.z * 10) / 10, tgtRef(tgt)]);
   const m = new THREE.Mesh(SHOT_GEO[kind] || SHOT_GEO.arrow, SHOT_MAT[kind] || SHOT_MAT.arrow); m.position.copy(from); G.scene.add(m);
   B.shots.push({ m, src, tgt, dmg, kind, opts, t: 0, from: from.clone(), arc: kind === 'arrow' || kind === 'bolt' ? 1 : 0 });
   if (kind === 'bullet') { S.explode(from, 0.25, 'fire'); V.burst('smoke', from, 8, { speed: 1.5, size: 0.8, life: 1.2 }); V.light(from, '#ffb050', 4, 0.1); }
@@ -326,6 +337,7 @@ function updateShots(dt) {
     const step = sp * dt;
     if (d <= step + 0.3 || s.t > 4) {
       G.scene.remove(s.m); B.shots.splice(i, 1);
+      if (s.opts.visual) { V.burst(s.kind === 'fire' || s.kind === 'smite' ? 'fire' : 'spark', end, 5, { speed: 3 }); continue; }
       if (s.kind === 'holy' && s.opts.heal) { if (!s.tgt.dead) { s.tgt.hp = Math.min(s.tgt.maxHp, s.tgt.hp + s.opts.heal); V.burst('heal', end, 12, { speed: 2, vy: 2 }); } continue; }
       V.burst(s.kind === 'fire' || s.kind === 'smite' ? 'fire' : s.kind === 'frost' ? 'frost' : s.kind === 'arcane' ? 'arcane' : 'spark', end, s.kind === 'smite' ? 14 : 6, { speed: 3 });
       if (s.kind === 'smite') { V.light(end, '#ffe080', 5, 0.15); S.arrowHit(end); }
@@ -344,11 +356,12 @@ function updateShots(dt) {
 function hurt(t, dmg, src, opts = {}) {
   if (t.dead || B.over) return;
   if (t === G.player) { t.takeDamage(dmg, src, opts); if (opts.slow) t.debuff && t.debuff('slow', opts.slow); return; }
+  if (t.remote) { t.takeDamage(dmg, src, opts); return; }
   if (t.isStruct) return t.takeHit(dmg, src, opts);
   t.takeHit(dmg, src, Object.assign({ fromUnit: true }, opts));
 }
 function foesNear(team, p, r) { const out = []; for (const u of B.units) if (!u.dead && u.team !== team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r + u.radius) out.push(u); return out; }
-export function allHeroes() { const out = []; if (G.player && B.on) { G.player.team = B.myTeam; G.player.hero = true; out.push(G.player); } for (const u of B.units) if (u.hero) out.push(u); return out; }
+export function allHeroes() { const out = []; if (G.player && B.on) { G.player.team = B.myTeam; G.player.hero = true; out.push(G.player); } for (const u of B.units) if (u.hero) out.push(u); for (const r of MP.remotes.values()) out.push(r); return out; }
 
 // ---------- troops ----------
 const MUSKET_GEO = (() => { const g = new THREE.Group(); const wood = new THREE.MeshStandardMaterial({ color: '#5a3a20', roughness: 0.8 }), iron = new THREE.MeshStandardMaterial({ color: '#3a3a3e', roughness: 0.4, metalness: 0.8 }); const st = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.75, 0.1), wood); st.position.y = -0.1; g.add(st); const br = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.95, 6), iron); br.position.set(0, 0.6, 0.02); g.add(br); return g; })();
@@ -388,6 +401,7 @@ export class Unit {
   dist(p) { return Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z); }
   takeHit(dmg, src, opts = {}) {
     if (this.dead || B.over) return 0;
+    if (B.client) { send({ t: 'hit', k: 'u', id: this.id, dmg: Math.round(dmg), o: { stun: opts.stun || 0, slow: opts.slow || 0, freeze: opts.freeze || 0, bleed: opts.bleed || 0, burn: opts.burn || 0, big: !!opts.big } }); this.hitFlash = 0.15; return Math.round(dmg); }
     dmg = Math.max(1, Math.round(dmg * (1 - (this.udef.armor || 0) * 0.6) * (this.ward > B.time ? 0.6 : 1)));
     this.hp -= dmg; this.hitFlash = 0.15;
     if (opts.stun) this.status.stun = Math.max(this.status.stun, opts.stun * (this.udef.pop >= 3 ? 0.4 : 1));
@@ -421,7 +435,8 @@ export class Unit {
       const dx = p[0] - q[0], dz = p[1] - q[1], l = Math.hypot(dx, dz) || 1;
       return [p[0] - dz / l * this.off, p[1] + dx / l * this.off];
     }
-    if (this.order === 'follow' && G.player && this.team === B.myTeam) return [G.player.pos.x + Math.sin(this.id) * 4, G.player.pos.z + Math.cos(this.id) * 4];
+    const leader = this.town.leader || (this.town.isMe ? G.player : null);
+    if (this.order === 'follow' && leader && !leader.dead) return [leader.pos.x + Math.sin(this.id) * 4, leader.pos.z + Math.cos(this.id) * 4];
     // defend: hold the square just inside the gate
     const k = this.id % 16, row = Math.floor(k / 8), col = k % 8, lat = (col < 4 ? -1 : 1) * (4 + (col % 4) * 2.2);
     return [t.gateIn[0] - t.dir[0] * (3 + row * 2.6) + t.perp[0] * lat, t.gateIn[1] - t.dir[1] * (3 + row * 2.6) + t.perp[1] * lat];
@@ -440,6 +455,7 @@ export class Unit {
     return best;
   }
   update(dt) {
+    if (this.proxy) return proxyUnitStep(this, dt);
     const st = this.status;
     if (this.dead) {
       this.deadT += dt;
@@ -508,6 +524,8 @@ export class Unit {
     if (this.root.visible) { if (this.udef.quad) animQuad(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action ? 'attack' : null, actionT: this.actionT }); else animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true }); }
   }
   startAction(a, dur) { this.action = a; this.actionT = 0; this.actionDur = dur; }
+  animateProxy(dt, sp) { if (this.udef.quad) animQuad(this.model, dt, { speed: sp, action: this.action ? 'attack' : null, actionT: this.actionT }); else animateHumanoid(this.model, dt, { speed: sp, action: this.action, actionT: this.actionT, armed: true }); }
+  sackUpdate() { if (this.worker) setSack(this); }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }
   handPos() { const p = this.pos.clone(); p.y += this.height * 0.75; p.x += Math.sin(this.yaw) * 0.6; p.z += Math.cos(this.yaw) * 0.6; return p; }
   remove() { G.scene.remove(this.root); }
@@ -606,6 +624,7 @@ function routeHome(u, dest) { return dest; }
 // ---------- AI heroes ----------
 const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior' };
 const CLASS_HERO = { warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
+export function heroUnitDef(cls) { const H = CLASS_HERO[cls] || CLASS_HERO.warrior; return { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } }; }
 function makeAIHero(t) {
   const cls = t.heroCls || AI_CLASS[t.race] || 'warrior', H = CLASS_HERO[cls];
   const def = { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } };
@@ -643,7 +662,8 @@ function heroTick(u, dt) {
 }
 
 // ---------- economy ----------
-export function bank(t, k, n) { if (k === 'gold' && t.isMe && G.save) { t.gf = (t.gf || 0) + n; const w = t.gf >= 0 ? Math.floor(t.gf) : Math.ceil(t.gf); t.gf -= w; G.save.gold = Math.max(0, G.save.gold + w); } else t.bank[k] = Math.max(0, (t.bank[k] || 0) + n); if (t.isMe && k !== 'gold' && n > 0 && G.hooks.resGained) G.hooks.resGained(k, n); }
+export function bank(t, k, n) {
+  if (B.client) { if (k === 'gold' && t.isMe && n) { send({ t: 'gold', n: Math.round(n) }); if (G.save) G.save.gold = Math.max(0, G.save.gold + Math.round(n)); } return; } if (k === 'gold' && t.isMe && G.save) { t.gf = (t.gf || 0) + n; const w = t.gf >= 0 ? Math.floor(t.gf) : Math.ceil(t.gf); t.gf -= w; G.save.gold = Math.max(0, G.save.gold + w); } else t.bank[k] = Math.max(0, (t.bank[k] || 0) + n); if (t.isMe && k !== 'gold' && n > 0 && G.hooks.resGained) G.hooks.resGained(k, n); }
 export function res(t, k) { return k === 'gold' && t.isMe && G.save ? G.save.gold : (t.bank[k] || 0); }
 export function canPay(t, cost) { for (const k in cost) if (res(t, k) < cost[k]) return false; return true; }
 function pay(t, cost) { for (const k in cost) bank(t, k, -cost[k]); }
@@ -655,7 +675,7 @@ export function buyForeman(t, id) {
   const F = FOREMAN.find(f => f.id === id); if (!F) return 'Unknown upgrade';
   const r = up(t, id); if (r >= F.costs.length) return 'Fully upgraded';
   if (!canPay(t, F.costs[r])) return 'Not enough resources';
-  pay(t, F.costs[r]); (t.up = t.up || {})[id] = r + 1; if (t.isMe) say('steward', `${({ housing: 'new cottages are up: we can take on more peasants', tools: 'the peasants have sharper tools: they work faster now', boots: 'the peasants have new boots: they move faster now', sacks: 'bigger sacks for the peasants: they haul more each trip' })[id]} (rank ${r + 1}).`, 'build'); return null;
+  pay(t, F.costs[r]); (t.up = t.up || {})[id] = r + 1; tsay(t, 'steward', `${({ housing: 'new cottages are up: we can take on more peasants', tools: 'the peasants have sharper tools: they work faster now', boots: 'the peasants have new boots: they move faster now', sacks: 'bigger sacks for the peasants: they haul more each trip' })[id]} (rank ${r + 1}).`, 'build'); return null;
 }
 export function available(t) { return [t.roster.worker, ...rosterOf(t.race)].filter(d => (d.lvl || 0) <= t.level); }
 
@@ -677,12 +697,12 @@ export function upgradeTown(t) {
 export function upgradeTower(s) {
   const t = s.town, L = TOWER_LEVELS[s.level + 1]; if (s.dead) return 'Destroyed'; if (!L) return 'Fully upgraded'; if (s.building) return 'Already upgrading';
   if (!canPay(t, L.cost)) return 'Not enough resources';
-  pay(t, L.cost); s.building = { t: 0, dur: L.time }; if (t.isMe) say('steward', `we are strengthening our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); return null;
+  pay(t, L.cost); s.building = { t: 0, dur: L.time }; tsay(t, 'steward', `we are strengthening our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); return null;
 }
 export function repairTower(s) {
   const t = s.town; if (s.dead) return 'Destroyed'; if (s.hp >= s.maxHp) return 'Not damaged';
   if (!canPay(t, TOWER_REPAIR)) return 'Not enough resources';
-  pay(t, TOWER_REPAIR); if (t.isMe) say('steward', `masons are patching up our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); s.hp = Math.min(s.maxHp, s.hp + s.maxHp * 0.25); V.burst('wood', s.pos.clone().setY(s.pos.y + 4), 20, { speed: 3 }); return null;
+  pay(t, TOWER_REPAIR); tsay(t, 'steward', `masons are patching up our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); s.hp = Math.min(s.maxHp, s.hp + s.maxHp * 0.25); V.burst('wood', s.pos.clone().setY(s.pos.y + 4), 20, { speed: 3 }); return null;
 }
 // march path from a town to another town's hall
 function pathTo(a, b) {
@@ -698,6 +718,7 @@ export function directionOf(from, to) {
   return Math.abs(a) < 0.5 ? 'Straight' : a > 0 ? 'Left' : 'Right';
 }
 export function sendAttack(t, targetIdx, frac = 1) {
+  if (B.client) { send({ t: 'order', kind: 'attack', target: targetIdx, frac }); return null; }
   const tg = B.towns[targetIdx]; if (!tg || tg.dead || tg.team === t.team) return 'No target';
   const army = t.units.filter(u => !u.dead && !u.worker && !u.hero && u.order !== 'attack');
   const n = Math.max(1, Math.round(army.length * frac)); if (!army.length) return 'No troops to send';
@@ -705,25 +726,29 @@ export function sendAttack(t, targetIdx, frac = 1) {
   t.lastAttackT = Math.round(B.time);
   for (const u of army.slice(0, n)) { u.order = 'attack'; u.path = path; u.pi = 0; u.targetTown = tg; u.target = null; }
   t.lastAttack = targetIdx;
-  if (t.isMe) say('captain', `${n} of our soldiers march ${directionOf(t, tg).toLowerCase()} on ${tg.name}!`, 'war');
+  tsay(t, 'captain', `${n} of our soldiers march ${directionOf(t, tg).toLowerCase()} on ${tg.name}!`, 'war');
   return null;
 }
 // abilities that touch your army: rally heals and empowers nearby troops, wolves fight for you
 // heals and buffs that reach every ally near the caster: troops, allied heroes and other players
-export function allyHeal(p, r, pct, team = B.myTeam) {
+export function allyHeal(p, r, pct, team = B.myTeam, caster = G.player) {
   let n = 0;
+  if (caster !== G.player && G.player && !G.player.dead && team === B.myTeam && Math.hypot(G.player.pos.x - p.x, G.player.pos.z - p.z) < r) { G.player.heal(G.player.maxHp * pct); G.hooks.toast && G.hooks.toast('An ally healed you', '✚', 'gold'); }
   for (const u of B.units) if (!u.dead && u.team === team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * pct); n++; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 6, { speed: 2, vy: 2 }); }
-  for (const h of allHeroes()) if (h !== G.player && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) { G.hooks.netHeal && G.hooks.netHeal(h, pct); n++; }
+  for (const h of allHeroes()) if (h !== G.player && h !== caster && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) { G.hooks.netHeal && G.hooks.netHeal(h, pct); n++; }
   return n;
 }
-export function allyBuff(p, r, kind, dur, team = B.myTeam) {
+export function allyBuff(p, r, kind, dur, team = B.myTeam, caster = G.player) {
+  if (caster !== G.player && G.player && team === B.myTeam && Math.hypot(G.player.pos.x - p.x, G.player.pos.z - p.z) < r) { if (kind === 'ward') G.player.buffs.ward = dur; else if (kind === 'rally') G.player.buffs.cry = Math.max(G.player.buffs.cry || 0, dur); else G.player.buffs.focus = Math.max(G.player.buffs.focus || 0, dur); }
   for (const u of B.units) if (!u.dead && u.team === team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u[kind] = B.time + dur; V.burst(kind === 'ward' ? 'frost' : 'gold', u.pos.clone().setY(u.pos.y + 1.5), 6, { speed: 2, vy: 2 }); }
-  for (const h of allHeroes()) if (h !== G.player && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) G.hooks.netBuff && G.hooks.netBuff(h, kind, dur);
+  for (const h of allHeroes()) if (h !== G.player && h !== caster && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) G.hooks.netBuff && G.hooks.netBuff(h, kind, dur);
 }
 export function rallyTroops(p, r) { const t = myTown(); for (const u of t.units) if (!u.dead && !u.worker && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.3); u.rally = B.time + 10; V.burst('gold', u.pos.clone().setY(u.pos.y + 1.5), 8, { speed: 2, vy: 2 }); } }
-export function summonWolves(p, lv, dur) { const t = myTown(); for (let k = 0; k < 2; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k ? 2 : -2), p.z - 2, { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
-export function recall(t) { for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }
-export function setFollow(t) { for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'follow'; u.path = null; } }
+export function summonWolves(p, lv, dur, town) { const t = town || myTown(); for (let k = 0; k < 2; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k ? 2 : -2), p.z - 2, { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
+export function recall(t) {
+  if (B.client) { send({ t: 'order', kind: 'recall' }); return; } for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }
+export function setFollow(t) {
+  if (B.client) { send({ t: 'order', kind: 'follow' }); return; } for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'follow'; u.path = null; } }
 
 // ---------- construction (town upgrades take a minute with scaffolding, workers and dust) ----------
 function startConstruction(t, dur) {
@@ -736,7 +761,7 @@ function startConstruction(t, dur) {
   G.scene.add(sc);
   // builders walking between the wall and the hall, hammering
   for (let i = 0; i < 6; i++) { const a = rand(0, 6.28); const w = new Unit(t, t.roster.worker, t.x + Math.cos(a) * 20, t.z + Math.sin(a) * 20); w.builder = true; w.worker = false; w.udef = Object.assign({}, t.roster.worker, { role: 'builder' }); B.units.splice(B.units.indexOf(w), 1); G.mobs.splice(G.mobs.indexOf(w), 1); t.building.crew.push(w); holdTool(w.model, 'hatchet', 2); }
-  if (t.isMe) say('steward', `the builders are at work. ${t.name} will be a ${TOWN_LEVELS[t.level + 1].name} within the minute.`, 'build');
+  tsay(t, 'steward', `the builders are at work. ${t.name} will be a ${TOWN_LEVELS[t.level + 1].name} within the minute.`, 'build');
 }
 function updateConstruction(t, dt) {
   const b = t.building; if (!b) return;
@@ -753,7 +778,26 @@ function updateConstruction(t, dt) {
   }
   if (near && Math.random() < dt * 3) { const { out } = wallAngles(t); const a = out[Math.floor(Math.random() * out.length)]; V.burst('dust', V3(t.x + Math.cos(a) * WALL_R, heightAt(t.x, t.z) + rand(1, 5), t.z + Math.sin(a) * WALL_R), 8, { speed: 2, size: 1.6, life: 1.6 }); }
   if (near && Math.random() < dt * 0.8) V.burst('smoke', V3(t.x + rand(-6, 6), heightAt(t.x, t.z) + 10, t.z + rand(-6, 6)), 6, { speed: 1, size: 2, life: 2.5 });
-  if (b.t >= b.dur) finishConstruction(t);
+  if (b.t >= b.dur && !B.client) finishConstruction(t);
+}
+// online mirrors: the host says the town reached a level; rebuild it here
+export function syncTownLevel(t, lvl) {
+  const b = t.building; t.building = null; if (b) { G.scene.remove(b.scaff); for (const w of b.crew) G.scene.remove(w.root); }
+  t.level = lvl; rebuildTown(t);
+  if (t.isMe) S.levelUp();
+}
+export function startConstructionVisual(t, dur, at) { startConstruction(t, dur); if (t.building) t.building.t = at || 0; }
+function rebuildTown(t) {
+  G.scene.remove(t.wallMesh); t.wallMesh = mergeGroup(buildWalls(t, t.level)); G.scene.add(t.wallMesh);
+  G.scene.remove(t.innerMesh); t.innerMesh = mergeGroup(buildInner(t, t.level)); G.scene.add(t.innerMesh);
+  for (const u of B.units) collide(u.pos, u.radius); if (G.player) collide(G.player.pos, 0.5);
+  V.burst('gold', V3(t.x, heightAt(t.x, t.z) + 14, t.z), 120, { speed: 8, vy: 6, life: 2 });
+}
+// the 60 second countdown in online games: nobody leaves their town before the gates open
+function gateLock() {
+  if (!MP.on || B.time >= 60 || !G.player || G.player.dead) return;
+  const t = myTown(), p = G.player, dx = p.pos.x - t.x, dz = p.pos.z - t.z, d = Math.hypot(dx, dz);
+  if (d > WALL_R - 3) { p.pos.x = t.x + dx / d * (WALL_R - 3); p.pos.z = t.z + dz / d * (WALL_R - 3); if (p.vel) { p.vel.x *= 0.2; p.vel.z *= 0.2; } }
 }
 function finishConstruction(t) {
   const b = t.building; t.building = null;
@@ -764,7 +808,7 @@ function finishConstruction(t) {
   t.hall.setLevel(t.level);
   // nobody ends up inside a new house or wall
   for (const u of B.units) collide(u.pos, u.radius); if (G.player) collide(G.player.pos, 0.5);
-  if (t.isMe) { say('steward', `it is done! ${t.name} is now a ${TOWN_LEVELS[t.level].name}. We can field ${popCap(t)} soldiers and ${peasantCap(t)} peasants.`, 'big'); S.levelUp(); }
+  if (t.isMe || t.owner != null) { tsay(t, 'steward', `it is done! ${t.name} is now a ${TOWN_LEVELS[t.level].name}. We can field ${popCap(t)} soldiers and ${peasantCap(t)} peasants.`, 'big'); S.levelUp(); }
   V.burst('gold', V3(t.x, heightAt(t.x, t.z) + 14, t.z), 120, { speed: 8, vy: 6, life: 2 });
 }
 
@@ -781,16 +825,16 @@ function onStructDown(s, src) {
   if (killer && killer.team !== s.team) { bank(killer, 'gold', ECON.structGold[s.kind]); giveXp(killer, src, ECON.xpStruct[s.kind], s.pos); }
   const t = s.town;
   if (s.kind === 'hall') eliminate(t, killer);
-  else if (t.isMe) say('captain', `our ${s === t.towers[0] ? 'right' : 'left'} archer tower has fallen!`, 'bad');
-  else if (killer && killer.isMe) say('captain', `an enemy tower at ${t.name} lies in ruins. Well fought!`, 'good');
+  else if (t.isMe || t.owner != null) tsay(t, 'captain', `our ${s === t.towers[0] ? 'right' : 'left'} archer tower has fallen!`, 'bad');
+  else if (killer && (killer.isMe || killer.owner != null)) tsay(killer, 'captain', `an enemy tower at ${t.name} lies in ruins. Well fought!`, 'good');
 }
 // xp is shared, unsplit, with allied heroes close by
 function giveXp(town, src, n, at) {
-  for (const h of allHeroes()) { if (h.dead || h.team !== town.team) continue; if (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else heroXp(h, n); }
+  for (const h of allHeroes()) { if (h.dead || h.team !== town.team) continue; if (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else if (h.remote) send({ t: 'xp', to: h.netId, n }); else heroXp(h, n); }
 }
 function eliminate(t, by) {
   t.dead = true;
-  if (by && by.isMe) say('captain', `${t.name} has fallen! Their kingdom is broken. Glory to you, Commander!`, 'big'); else if (!t.isMe && by) say('scout', `${t.name} has fallen to ${by.name}.`, 'war');
+  if (by && (by.isMe || by.owner != null)) tsay(by, 'captain', `${t.name} has fallen! Their kingdom is broken. Glory to you, Commander!`, 'big'); else if (!t.isMe && by) say('scout', `${t.name} has fallen to ${by.name}.`, 'war');
   for (const u of t.units) if (!u.dead) { u.takeHit(u.hp + 1, null, { silent: true }); }
   for (const s of B.structs) if (s.town === t && !s.dead) s.destroy(null);
   G.hooks.banner && G.hooks.banner(`${t.name} has fallen!`, by ? `Destroyed by ${by.name}` : '', 4000);
@@ -799,20 +843,28 @@ function eliminate(t, by) {
 function checkWin() {
   const alive = B.towns.filter(t => !t.dead); const teams = new Set(alive.map(t => t.team));
   const me = myTown();
+  // online, the battle only ends when one side is left; a fallen player just sees their defeat
+  if (MP.on) {
+    if (me.dead && !B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver('defeat'); }
+    if (teams.size <= 1 && !B.over) { B.winTeam = alive.length ? alive[0].team : null; B.over = true; B.result = me.team === B.winTeam ? 'victory' : 'defeat'; if (!B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver(B.result); } }
+    return;
+  }
   if (me.dead && !B.over) { B.over = true; B.result = 'defeat'; G.hooks.matchOver && G.hooks.matchOver('defeat'); }
-  else if (teams.size <= 1 && !B.over) { B.over = true; B.result = 'victory'; G.hooks.matchOver && G.hooks.matchOver('victory'); }
+  else if (teams.size <= 1 && !B.over) { B.winTeam = alive.length ? alive[0].team : null; B.over = true; B.result = 'victory'; G.hooks.matchOver && G.hooks.matchOver('victory'); }
 }
 export function myTown() { return B.towns[B.me]; }
 // reports to the player, who is the Commander
 function say(who, text, kind) { G.hooks.cmd && G.hooks.cmd(who, text, kind); }
+// a report for whoever commands that town: here, or sent over the network to its player
+function tsay(t, who, text, kind) { if (B.client) return; if (t.isMe) say(who, text, kind); else if (t.owner != null && G.hooks.netSay) G.hooks.netSay(t.owner, who, text, kind); }
 // scouts and captains warn about threats to the town and its towers
 function watchTown(t, dt) {
   t.watchT = (t.watchT || 0) - dt; if (t.watchT > 0) return; t.watchT = 1;
   const foes = B.units.filter(u => !u.dead && u.team !== t.team && !u.worker && Math.hypot(u.pos.x - t.x, u.pos.z - t.z) < WALL_R + 60);
-  if (foes.length >= 3 && B.time > (t.warnT || 0)) { t.warnT = B.time + 45; const from = B.towns.find(o => o.team === foes[0].team); say('scout', `the enemy is at our gates! ${foes.length} ${from ? from.name : 'enemy'} soldiers near the walls!`, 'bad'); }
-  for (const s of t.towers) { if (s.dead) continue; const k = s.hp / s.maxHp; if (k < 0.5 && !s.warned50) { s.warned50 = true; say('captain', `our ${s === t.towers[0] ? 'right' : 'left'} tower is badly damaged!`, 'bad'); } if (k > 0.8) s.warned50 = false; }
-  if (t.hall.hp / t.hall.maxHp < 0.5 && !t.hallWarn) { t.hallWarn = true; say('steward', 'the Town Hall is burning! If it falls, we are lost!', 'bad'); }
-  const ours = t.units.filter(u => !u.dead && u.order === 'attack'); if (ours.length) { const tg = ours[0].targetTown; if (tg && ours.some(u => Math.hypot(u.pos.x - tg.x, u.pos.z - tg.z) < WALL_R + 40) && t.siegeSaid !== tg.i + ':' + t.lastAttackT) { t.siegeSaid = tg.i + ':' + t.lastAttackT; say('captain', `our army has reached ${tg.name} and is storming the walls!`, 'war'); } }
+  if (foes.length >= 3 && B.time > (t.warnT || 0)) { t.warnT = B.time + 45; const from = B.towns.find(o => o.team === foes[0].team); tsay(t, 'scout', `the enemy is at our gates! ${foes.length} ${from ? from.name : 'enemy'} soldiers near the walls!`, 'bad'); }
+  for (const s of t.towers) { if (s.dead) continue; const k = s.hp / s.maxHp; if (k < 0.5 && !s.warned50) { s.warned50 = true; tsay(t, 'captain', `our ${s === t.towers[0] ? 'right' : 'left'} tower is badly damaged!`, 'bad'); } if (k > 0.8) s.warned50 = false; }
+  if (t.hall.hp / t.hall.maxHp < 0.5 && !t.hallWarn) { t.hallWarn = true; tsay(t, 'steward', 'the Town Hall is burning! If it falls, we are lost!', 'bad'); }
+  const ours = t.units.filter(u => !u.dead && u.order === 'attack'); if (ours.length) { const tg = ours[0].targetTown; if (tg && ours.some(u => Math.hypot(u.pos.x - tg.x, u.pos.z - tg.z) < WALL_R + 40) && t.siegeSaid !== tg.i + ':' + t.lastAttackT) { t.siegeSaid = tg.i + ':' + t.lastAttackT; tsay(t, 'captain', `our army has reached ${tg.name} and is storming the walls!`, 'war'); } }
 }
 
 // ---------- AI commander ----------
@@ -859,12 +911,14 @@ function aiThink(t) {
 // ---------- setup ----------
 export function initBattle(scene) {
   B.on = true; fog.on = true; G.fog = fog; G.fogVis = isVisible;
-  G.allyHeroes = () => allHeroes().filter(h => h !== G.player && !h.dead && h.team === B.myTeam); B.myTeam = SETUP.towns[0].team ?? 0;
+  G.allyHeroes = () => allHeroes().filter(h => h !== G.player && !h.dead && h.team === B.myTeam);
+  B.client = MP.client; const meIdx = MP.on ? Math.max(0, SETUP.towns.findIndex(c => c.owner === MP.myId)) : 0; B.me = meIdx; B.myTeam = SETUP.towns[meIdx].team ?? meIdx; G.myTeam = B.myTeam;
+  G.remoteHeroes = () => [...MP.remotes.values()];
   const used = {};
   SETUP.towns.forEach((cfg, i) => {
     const L = LAYOUT.towns[i];
     const race = cfg.race || 'human'; used[race] = (used[race] || 0);
-    const t = Object.assign({}, L, { race, ai: i !== 0 && cfg.ai !== false, diff: cfg.diff || 'normal', team: cfg.team ?? i, level: 0, units: [], queue: [], towerSpots: L.towers, bank: Object.assign({}, ECON.start), dead: false, isMe: i === 0, roster: ROSTERS[race] || ROSTERS.human });
+    const t = Object.assign({}, L, { race, ai: MP.on ? !!cfg.ai : (i !== 0 && cfg.ai !== false), owner: MP.on && cfg.owner != null && cfg.owner !== MP.myId ? cfg.owner : null, diff: cfg.diff || 'normal', team: cfg.team ?? i, level: 0, units: [], queue: [], towerSpots: L.towers, bank: Object.assign({}, ECON.start), dead: false, isMe: i === meIdx, roster: ROSTERS[race] || ROSTERS.human });
     t.name = cfg.name || TOWN_NAMES[race][used[race]++ % 4]; t.color = TEAM_COLORS[t.team]; t.heroCls = cfg.cls;
     B.towns.push(t);
   });
@@ -874,13 +928,15 @@ export function initBattle(scene) {
     t.hall = new Structure(t, 'hall', t.x, t.z); B.structs.push(t.hall); G.mobs.push(t.hall);
     for (const [x, z] of t.towerSpots) { const s = new Structure(t, 'tower', x, z); B.structs.push(s); G.mobs.push(s); }
     t.towers = B.structs.filter(s => s.town === t && s.kind === 'tower');
-    if (t.ai) makeAIHero(t);
-    if (t.isMe) { t.auto = true; t.diff = 'normal'; }
+    if (t.ai && !MP.client) makeAIHero(t);
+    if (t.isMe || t.owner != null) { t.auto = true; t.diff = 'normal'; }
   }
   for (const s of B.structs) s.hostile = s.team !== B.myTeam;
 }
 export function update(dt) {
   if (!B.on) return;
+  gateLock();
+  if (B.client) { for (const t of B.towns) if (!t.dead) updateConstruction(t, dt); for (const s of B.structs) s.update(dt); updateShots(dt); fogAndSentries(dt); return; }
   if (!B.over) B.time += dt;
   for (const t of B.towns) {
     if (t.dead) continue;
@@ -890,11 +946,11 @@ export function update(dt) {
     if (t.ai && D.income > 1 && B.time > 120) { t.bank.wood += 0.4 * (D.income - 1) * dt * 3; t.bank.stone += 0.3 * (D.income - 1) * dt * 3; }
     // training queue
     const q = t.queue[0];
-    if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
+    if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe || t.owner != null) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
     updateConstruction(t, dt);
-    for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); if (t.isMe) say('steward', `our ${s === t.towers[0] ? 'right' : 'left'} tower is now a ${TOWER_LEVELS[s.level].name}.`, 'build'); } }
-    if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0 && t.newly) { const parts = Object.entries(t.newly).map(([k, v]) => `${v > 1 ? v + ' ' + k + 's' : (/^[AEIOU]/.test(k) ? 'an ' : 'a ') + k}`); const peas = t.newly[t.roster.worker.name]; say(peas && parts.length === 1 ? 'steward' : 'captain', peas && parts.length === 1 ? `${parts[0]} joined the work crews. (${peasants(t)}/${peasantCap(t)} peasants)` : `${parts.join(', ')} ${parts.length > 1 || parts[0].match(/^\d/) ? 'have' : 'has'} joined the ranks. (${pop(t)}/${popCap(t)} soldiers)`, 'good'); t.newly = null; } }
-    if (t.isMe && !B.over) watchTown(t, dt);
+    for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); tsay(t, 'steward', `our ${s === t.towers[0] ? 'right' : 'left'} tower is now a ${TOWER_LEVELS[s.level].name}.`, 'build'); } }
+    if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0 && t.newly) { const parts = Object.entries(t.newly).map(([k, v]) => `${v > 1 ? v + ' ' + k + 's' : (/^[AEIOU]/.test(k) ? 'an ' : 'a ') + k}`); const peas = t.newly[t.roster.worker.name]; tsay(t, peas && parts.length === 1 ? 'steward' : 'captain', peas && parts.length === 1 ? `${parts[0]} joined the work crews. (${peasants(t)}/${peasantCap(t)} peasants)` : `${parts.join(', ')} ${parts.length > 1 || parts[0].match(/^\d/) ? 'have' : 'has'} joined the ranks. (${pop(t)}/${popCap(t)} soldiers)`, 'good'); t.newly = null; } }
+    if ((t.isMe || t.owner != null) && !B.over) watchTown(t, dt);
     if ((t.ai || t.auto) && !B.over) { t.thinkT = (t.thinkT || 0) - dt; if (t.thinkT <= 0) { t.thinkT = (DIFFS[t.diff] || DIFFS.normal).think; aiThink(t); } }
     if (t.hero && t.hero.dead) { t.hero.respawnT -= dt; if (t.hero.respawnT <= 0) t.hero.respawnHero(); }
     if (t.hero && !t.hero.dead && !B.over) heroXp(t.hero, ECON.aiPassiveXp * dt * (t.ai ? (DIFFS[t.diff] || DIFFS.normal).income : 1));
@@ -907,6 +963,9 @@ export function update(dt) {
   const L = B.units; for (const u of L) { u.sepX = 0; u.sepZ = 0; }
   for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead) continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = (a.radius + b.radius) * 1.35; if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue; const d = Math.hypot(dx, dz) || 0.01; if (d >= rr) continue; const k = (rr - d) / rr, fx = dx / d * k * 3.2, fz = dz / d * k * 3.2; a.sepX -= fx; a.sepZ -= fz; b.sepX += fx; b.sepZ += fz; const hard = a.radius + b.radius; if (d < hard * 0.7) { const c = (hard * 0.7 - d) / d * 0.5; a.pos.x -= dx * c; a.pos.z -= dz * c; b.pos.x += dx * c; b.pos.z += dz * c; } } }
   updateShots(dt);
+  fogAndSentries(dt);
+}
+function fogAndSentries(dt) {
   // fog of war: everything on your side sees around itself
   const src = []; const me = myTown();
   if (G.player && !G.player.dead) src.push({ x: G.player.pos.x, z: G.player.pos.z, r: 58 });
@@ -921,7 +980,7 @@ export function update(dt) {
     const mobs = G.mobs.filter(m => m.team == null && !m.dead && m.def.aggro > 0 && Math.hypot(m.pos.x - s.x, m.pos.z - s.z) < s.r);
     const n = foes.length, nm = mobs.length;
     const cdOk = n ? G.time - (s.alarmU || -99) > 15 : G.time - (s.alarmM || -99) > 40;
-    if ((n || nm) && cdOk) { if (n) s.alarmU = G.time; else s.alarmM = G.time; addPing(s.x, s.z); const where = sentryWhere(s); say('scout', n ? `our sentry ${where} spotted ${n} enemy ${n > 1 ? 'soldiers' : 'soldier'} on the move!` : `our sentry ${where} spotted ${nm} wild ${nm > 1 ? 'beasts' : 'beast'}.`, n ? 'bad' : ''); if (s.mesh) s.mesh.userData.flash = 2; }
+    if ((n || nm) && cdOk) { if (n) s.alarmU = G.time; else s.alarmM = G.time; addPing(s.x, s.z); const where = sentryWhere(s); const txt = n ? `our sentry ${where} spotted ${n} enemy ${n > 1 ? 'soldiers' : 'soldier'} on the move!` : `our sentry ${where} spotted ${nm} wild ${nm > 1 ? 'beasts' : 'beast'}.`; if (n && G.hooks.teamSay) G.hooks.teamSay('scout', txt, 'bad'); say('scout', n ? `our sentry ${where} spotted ${n} enemy ${n > 1 ? 'soldiers' : 'soldier'} on the move!` : `our sentry ${where} spotted ${nm} wild ${nm > 1 ? 'beasts' : 'beast'}.`, n ? 'bad' : ''); if (s.mesh) s.mesh.userData.flash = 2; }
     if (s.mesh && s.mesh.userData.flash > 0) s.mesh.userData.flash -= 1;
   }
 }

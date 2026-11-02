@@ -240,6 +240,8 @@ export class Mob {
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
   takeHit(dmg, src, opts = {}) {
     if (this.dead) return 0;
+    // online mirror: the host decides what happens to this mob
+    if (this.netProxy && G.mpSend) { G.mpSend({ t: 'hit', k: 'm', id: this.netIdx, dmg: Math.round(dmg), o: { stun: opts.stun || 0, slow: opts.slow || 0, freeze: opts.freeze || 0, bleed: opts.bleed || 0, burn: opts.burn || 0, big: !!opts.big } }); this.hitFlash = 0.15; return Math.max(1, Math.round(dmg)); }
     dmg = Math.max(1, Math.round(dmg));
     this.hp -= dmg; this.hitFlash = 0.15; this.lastHitT = G.time;
     if (!this.def.flee || this.def.dmgM > 0) { this.provoked = true; this.state = 'chase'; }
@@ -275,6 +277,7 @@ export class Mob {
     for (const k in this.status) if (typeof this.status[k] === 'number') this.status[k] = 0;
   }
   update(dt, player) {
+    if (this.netProxy && G.mpMobStep) return G.mpMobStep(this, dt);
     const st = this.status;
     if (this.dead) {
       if (this.ring) this.ring.visible = false;

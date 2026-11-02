@@ -113,8 +113,9 @@ function renderCreator() {
   if (tab === 0) {
     intro('Your race shapes how you look and sets your starting attributes. Attributes only grow further through the gear you find and craft.');
     sect('Race');
-    if (C.battle) intro(`Your race was chosen with your town: you lead the ${RACES[C.race].name} town.`);
-    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || k === C.race))) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
+    if (C.battle && !C.battle.mp) intro(`Your race was chosen with your town: you lead the ${RACES[C.race].name} town.`);
+    if (C.battle && C.battle.mp) intro('Your race is also the race of your town: its walls, buildings and troops.');
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
     body.appendChild(el('div', 'lore', `${RACE_INFO[C.race].lore}<br><b style="color:var(--g1)">${RACE_INFO[C.race].perk}</b>`));
     body.appendChild(el('div', '', statBars(R.stats) + '<p class="cintro" style="margin-top:10px;font-size:13px;color:var(--mut)">Strength: melee damage. Dexterity: bows, daggers, spears, crits and endurance. Intellect: spells and mana. Stamina: health.</p>'));
     sect('Body type');
@@ -161,7 +162,7 @@ function renderCreator() {
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
-  if (C.battle) { const st = Object.assign({}, C.battle, { hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, app: Object.assign({}, C.app) } }); try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
+  if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
   putSave(h);
@@ -188,9 +189,21 @@ function renderBattleSetup() {
   if (BS.step === 'mode') {
     const g = el('div', 'bsmodes');
     const sp = el('button', 'bsmode', `<div class="bsi">⚔</div><b>Single Player</b><span>You against 1 to 3 computer kingdoms. Pick their races and how hard they play.</span>`); sp.onclick = () => { S.click(); BS.step = 'setup'; renderBattleSetup(); };
-    const mp = el('button', 'bsmode soon', `<div class="bsi">🌐</div><b>Multiplayer</b><span>Host or join with a code, up to 4 players on any side. Empty towns are run by the computer. <em>Coming in the next update.</em></span>`); mp.onclick = () => { S.error(); };
+    const mp = el('button', 'bsmode', `<div class="bsi">🌐</div><b>Multiplayer</b><span>Host a game and share the 4-letter code, or join a friend's. Up to 4 players, on the same side or against each other. Empty towns are run by the computer.</span>`); mp.onclick = () => { S.click(); BS.step = 'mp'; renderBattleSetup(); };
     g.append(sp, mp); panel.appendChild(g);
     const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); closeBattleSetup(); showTitle(); }; panel.appendChild(back);
+    return;
+  }
+  if (BS.step === 'mp') {
+    head.querySelector('h1').textContent = 'Play online';
+    const g = el('div', 'bsmodes');
+    const host = el('button', 'bsmode', `<div class="bsi">🏰</div><b>Host a game</b><span>Create your hero, then share the code with your friends. You choose the towns and teams in the lobby.</span>`);
+    host.onclick = () => { S.click(); closeBattleSetup(); showCreator({ battle: { mp: 'host', towns: [{ race: 'human' }] } }); };
+    const join = el('div', 'bsmode', `<div class="bsi">🔑</div><b>Join a game</b><span>Type the 4-letter code your friend gives you.</span><input id="bsCode" maxlength="4" placeholder="CODE" style="margin-top:8px;font-size:28px;letter-spacing:.3em;text-transform:uppercase;width:180px;text-align:center;padding:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a;border-radius:8px"><button class="btn gold" id="bsJoin" style="margin-top:8px">Join →</button>`);
+    g.append(host, join); panel.appendChild(g);
+    const inp = join.querySelector('#bsCode'); inp.onkeydown = (e) => e.stopPropagation();
+    join.querySelector('#bsJoin').onclick = () => { const code = inp.value.trim().toUpperCase(); if (code.length !== 4) { S.error(); inp.focus(); return; } S.click(); closeBattleSetup(); showCreator({ battle: { mp: 'join', code, towns: [{ race: 'human' }] } }); };
+    const back = el('button', 'btn', '← Back'); back.onclick = () => { S.click(); BS.step = 'mode'; renderBattleSetup(); }; panel.appendChild(back);
     return;
   }
   const lay = el('div', 'bslay'); panel.appendChild(lay);

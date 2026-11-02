@@ -847,6 +847,7 @@ export class Player {
       else { this.block = false; this.stagger = 0.8; V.number(this.pos.clone().setY(this.pos.y + this.eye), 'Guard broken!', 'bad'); S.hit('metal', this.pos); }
     }
     const lv = src && src.lv || this.h.level;
+    if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));
     if (this.buffs.wall > 0) dmg = Math.max(1, Math.round(dmg * (this.pk('a_shieldwall') ? 0.4 : 0.4)));
@@ -965,7 +966,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];

@@ -116,6 +116,7 @@ export function updateProjectiles(dt) {
             if (!p.pierce) { dead = true; break; }
           }
         }
+      } else if (p.owner === 'enemy' && G.remoteHeroes && G.remoteHeroes().some(r => !r.dead && Math.hypot(r.pos.x - p.pos.x, r.pos.y + 1 - p.pos.y, r.pos.z - p.pos.z) < 0.6 + p.radius && (r.takeDamage(p.dmg, p.src, { ranged: true }), true))) { dead = true;
       } else if (p.owner === 'enemy' && !G.player.dead) {
         const c = tmp.copy(G.player.pos); c.y += 1.0;
         if (c.distanceToSquared(p.pos) < (0.6 + p.radius) ** 2) { if (p.kind === 'web') { G.player.takeDamage(p.dmg * 0.4, p.src, { ranged: true }); G.player.debuff('slow', 4); V.burst('cotton', p.pos, 14, { speed: 2, size: 0.15 }); } else G.player.takeDamage(p.dmg, p.src, { ranged: true }); if (p.kind === 'web') {} else if (p.kind === 'rock') { V.burst('stone', p.pos, 8, { speed: 3 }); S.hit('stone', p.pos, 0.6); } else { V.burst('fire', p.pos, 14, { speed: 3 }); S.explode(p.pos, 0.4); } dead = true; }

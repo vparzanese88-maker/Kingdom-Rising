@@ -8,7 +8,7 @@ import { G } from './state.js';
 import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
-import { buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
+import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
 import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
@@ -18,7 +18,9 @@ import * as UI from './ui.js';
 import * as Icons from './icons.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
-import { BATTLE, SETUP, LAYOUT } from './battlemap.js';
+import { BATTLE, SETUP, LAYOUT, computeLayout } from './battlemap.js';
+import { MP, lobby, send as mpSend } from './mp.js';
+import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
 import { ECON, BATTLE_ABILITIES } from './battledata.js';
@@ -56,7 +58,7 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   applyGraphics();
-  if (BATTLE) { Battle.initBattle(scene); spawnBattleCamps(); G.myTeam = Battle.B.myTeam; }
+  if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; if (!MP.client) { spawnBattleCamps(); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -170,7 +172,7 @@ function spawnBattleNpcs() {
 }
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
-  const h = Game.newHero({ name: cfg.name || 'Hero', race: SETUP.towns[0].race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
+  const h = Game.newHero({ name: cfg.name || 'Hero', race: t.race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
   G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true; G.noHarvest = true;
@@ -179,6 +181,7 @@ function startBattle() {
   G.abilScale = (lv) => 1 + (lv - 1) * 0.035;
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
+  if (MP.client) mpSend({ t: 'booted' });
   UI.banner('Kingdom Battles', `${t.name} awaits your command`, 4500);
   setTimeout(() => BUI.report('steward', `welcome home. I will run ${t.name} for you: hire the workers, gather wood and stone and raise the walls. You lead the fight. Hunt the beasts of the wilds, grow strong, and break the enemy halls.`, 'big'), 2500);
   setTimeout(() => BUI.report('captain', 'the army will march when it is ready. Press B any time for a war report or to give orders.', 'war'), 9000);
@@ -187,7 +190,10 @@ function battleHooks() {
   const H = G.hooks;
   // kills: XP and your own loot go straight to you (auto loot), gold goes to the town
   H.onKill = (mob, src) => {
-    if (mob.team != null) return; const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return;
+    if (mob.team != null) return;
+    // online: a mob killed by another player rewards that player on their own screen
+    if (src && src.remote) { if (MP.host) mpSend({ t: 'kill', to: src.netId, i: mob.netIdx }); return; }
+    const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return;
     Game.onKill(G.save, mob);
     if (!mob.loot) return;
     // only weapons and armour drop (no materials, no cloaks); bosses always drop a few good pieces
@@ -219,8 +225,22 @@ function battleHooks() {
   H.died = () => BUI.died();
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);
   H.rally = () => {};
-  H.allyFx = (p, [r, heal, kind, dur], up) => { const R = r * Math.sqrt(up); if (heal) Battle.allyHeal(p, R, heal * up); if (kind) Battle.allyBuff(p, R, kind, dur * up); V.ring(p, R, heal ? '#80ff90' : kind === 'ward' ? '#80d8ff' : '#ffd84a', 0.7); }
-  H.summonWolves = (p, lv, dur) => Battle.summonWolves(p, lv, dur);
+  H.allyFx = (p, [r, heal, kind, dur], up) => { const R = r * Math.sqrt(up); if (MP.client) mpSend({ t: 'fx', x: p.x, z: p.z, r: R, heal: heal ? heal * up : 0, kind: kind || null, dur: dur ? dur * up : 0 }); else { if (heal) Battle.allyHeal(p, R, heal * up); if (kind) Battle.allyBuff(p, R, kind, dur * up); } V.ring(p, R, heal ? '#80ff90' : kind === 'ward' ? '#80d8ff' : '#ffd84a', 0.7); }
+  H.summonWolves = (p, lv, dur) => { if (MP.client) mpSend({ t: 'summon', x: p.x, z: p.z, lv, dur }); else Battle.summonWolves(p, lv, dur); };
+  // online plumbing
+  G.mpSend = mpSend; G.mpMobStep = Sync.proxyMobStep;
+  H.netData = Sync.onData;
+  H.netSay = (to, who, text, kind) => mpSend({ t: 'say', to, who, text, kind });
+  H.netHeal = (h, pct) => mpSend({ t: 'heal', to: h.netId, pct });
+  H.netBuff = (h, kind, dur) => mpSend({ t: 'buff', to: h.netId, kind, dur });
+  H.teamSay = (who, text, kind) => { if (MP.on) mpSend({ t: 'teamsay', team: Battle.B.myTeam, who, text, kind }); };
+  H.netLeave = (id) => {
+    if (!Battle.B.towns.length) return;
+    if (id === 0 && MP.client) { UI.banner('The host left the game', 'The battle has ended', 6000); setTimeout(() => { location.href = location.pathname; }, 6000); return; }
+    const info = MP.players.get(id); const r = MP.remotes.get(id); if (r) { r.remove(); const i = G.mobs.indexOf(r); if (i >= 0) G.mobs.splice(i, 1); MP.remotes.delete(id); }
+    const t = Battle.B.towns.find(x => x.owner === id); if (t) { t.owner = null; t.ai = true; t.leader = null; }
+    BUI.report('scout', `${info ? info.name : 'a player'} has left the battle. The computer takes over their town.`, '');
+  };
   H.sentry = (x, z, lv) => Battle.placeSentry(x, z, lv);
 }
 const B_DEAD = (m) => false;
@@ -454,13 +474,15 @@ function updateZone(p) {
 }
 function updateMobs(dt, p) {
   let chasing = false;
+  const heroes = MP.host ? [p, ...MP.remotes.values()].filter(h => !h.dead) : null;
   for (const m of G.mobs) {
-    const d = m.pos.distanceTo(p.pos);
+    let d = m.pos.distanceTo(p.pos), tp = p;
+    if (heroes && m.team == null && !m.netProxy) for (const h of heroes) { const dd = m.pos.distanceTo(h.pos); if (dd < d || (tp.dead && !h.dead)) { d = dd; tp = h; } }
     if (m.isStruct) continue;
     if (m.team != null) { if (!m.dead && !m.gone) m.root.visible = d < 170; m.update(dt); continue; }
     if (d > 110 && !m.dead) { m.root.visible = false; if (d > 150) continue; }
     else if (!m.dead) m.root.visible = true;
-    if (d < 150) m.update(dt, p);
+    if (d < 150) m.update(dt, tp);
     if (m.state === 'chase' && !m.dead) chasing = true;
   }
   for (const n of G.npcs) if (n.pos.distanceTo(p.pos) < 160) n.update(dt, p);
@@ -536,7 +558,7 @@ function gameUpdate(dt) {
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
   if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
-  if (BATTLE) { Battle.update(dt); BUI.update(dt); }
+  if (BATTLE) { Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);
   for (let i = G.timers.length - 1; i >= 0; i--) if (G.timers[i].update(dt)) G.timers.splice(i, 1);
   const focus = p.pos;
@@ -562,4 +584,4 @@ M.play('title');
 setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
 addEventListener('pointerdown', function early() { A.init(); goFull(); removeEventListener('pointerdown', early); }, { once: true });
 window.KR2 = { G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
-setTimeout(boot, 60);
+setTimeout(() => { if (BATTLE && SETUP.mp) lobby().then(() => { computeLayout(); applyBattleTerrain(); boot(); }); else boot(); }, 60);

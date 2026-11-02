@@ -537,7 +537,7 @@ function workerTick(u, dt) {
   setSack(u);
   if (u.carry > 0 && (u.carry >= peasantCarry(t) || u.homeNow)) { // haul home to the storehouse
     const [hx, hz] = t.store;
-    if (Math.hypot(hx - u.pos.x, hz - u.pos.z) < 2.6) { bank(t, u.cjob || u.job, u.carry); if (t.isMe && G.player && u.dist(G.player) < 40) S.drop && S.drop(); u.carry = 0; u.homeNow = false; setSack(u); if (Math.random() < 0.25) { u.job = pickJob(t); u.node = null; } return { want: null, speed: 0 }; }
+    if (Math.hypot(hx - u.pos.x, hz - u.pos.z) < 2.6) { bank(t, u.cjob || u.job, u.carry); bank(t, 'gold', ECON.deliveryGold); if (t.isMe && G.player && u.dist(G.player) < 40) S.drop && S.drop(); u.carry = 0; u.homeNow = false; setSack(u); if (Math.random() < 0.25) { u.job = pickJob(t); u.node = null; } return { want: null, speed: 0 }; }
     return { want: routeHome(u, [hx, hz]), speed: 1 };
   }
   if (!u.node || !u.node.alive) {
@@ -654,7 +654,7 @@ export function buyForeman(t, id) {
   const F = FOREMAN.find(f => f.id === id); if (!F) return 'Unknown upgrade';
   const r = up(t, id); if (r >= F.costs.length) return 'Fully upgraded';
   if (!canPay(t, F.costs[r])) return 'Not enough resources';
-  pay(t, F.costs[r]); (t.up = t.up || {})[id] = r + 1; return null;
+  pay(t, F.costs[r]); (t.up = t.up || {})[id] = r + 1; if (t.isMe) say('steward', `${({ housing: 'new cottages are up: we can take on more peasants', tools: 'the peasants have sharper tools: they work faster now', boots: 'the peasants have new boots: they move faster now', sacks: 'bigger sacks for the peasants: they haul more each trip' })[id]} (rank ${r + 1}).`, 'build'); return null;
 }
 export function available(t) { return [t.roster.worker, ...rosterOf(t.race)].filter(d => (d.lvl || 0) <= t.level); }
 
@@ -676,12 +676,12 @@ export function upgradeTown(t) {
 export function upgradeTower(s) {
   const t = s.town, L = TOWER_LEVELS[s.level + 1]; if (s.dead) return 'Destroyed'; if (!L) return 'Fully upgraded'; if (s.building) return 'Already upgrading';
   if (!canPay(t, L.cost)) return 'Not enough resources';
-  pay(t, L.cost); s.building = { t: 0, dur: L.time }; return null;
+  pay(t, L.cost); s.building = { t: 0, dur: L.time }; if (t.isMe) say('steward', `we are strengthening our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); return null;
 }
 export function repairTower(s) {
   const t = s.town; if (s.dead) return 'Destroyed'; if (s.hp >= s.maxHp) return 'Not damaged';
   if (!canPay(t, TOWER_REPAIR)) return 'Not enough resources';
-  pay(t, TOWER_REPAIR); s.hp = Math.min(s.maxHp, s.hp + s.maxHp * 0.25); V.burst('wood', s.pos.clone().setY(s.pos.y + 4), 20, { speed: 3 }); return null;
+  pay(t, TOWER_REPAIR); if (t.isMe) say('steward', `masons are patching up our ${s === t.towers[0] ? 'right' : 'left'} tower.`, 'build'); s.hp = Math.min(s.maxHp, s.hp + s.maxHp * 0.25); V.burst('wood', s.pos.clone().setY(s.pos.y + 4), 20, { speed: 3 }); return null;
 }
 // march path from a town to another town's hall
 function pathTo(a, b) {
@@ -701,8 +701,10 @@ export function sendAttack(t, targetIdx, frac = 1) {
   const army = t.units.filter(u => !u.dead && !u.worker && !u.hero && u.order !== 'attack');
   const n = Math.max(1, Math.round(army.length * frac)); if (!army.length) return 'No troops to send';
   const path = pathTo(t, tg);
+  t.lastAttackT = Math.round(B.time);
   for (const u of army.slice(0, n)) { u.order = 'attack'; u.path = path; u.pi = 0; u.targetTown = tg; u.target = null; }
   t.lastAttack = targetIdx;
+  if (t.isMe) say('captain', `${n} of our soldiers march ${directionOf(t, tg).toLowerCase()} on ${tg.name}!`, 'war');
   return null;
 }
 // abilities that touch your army: rally heals and empowers nearby troops, wolves fight for you
@@ -722,7 +724,7 @@ function startConstruction(t, dur) {
   G.scene.add(sc);
   // builders walking between the wall and the hall, hammering
   for (let i = 0; i < 6; i++) { const a = rand(0, 6.28); const w = new Unit(t, t.roster.worker, t.x + Math.cos(a) * 20, t.z + Math.sin(a) * 20); w.builder = true; w.worker = false; w.udef = Object.assign({}, t.roster.worker, { role: 'builder' }); B.units.splice(B.units.indexOf(w), 1); G.mobs.splice(G.mobs.indexOf(w), 1); t.building.crew.push(w); holdTool(w.model, 'hatchet', 2); }
-  if (t.isMe) { G.hooks.banner && G.hooks.banner('Construction started', `${t.name} is becoming a ${TOWN_LEVELS[t.level + 1].name}: about a minute`); S.drum && 0; }
+  if (t.isMe) say('steward', `the builders are at work. ${t.name} will be a ${TOWN_LEVELS[t.level + 1].name} within the minute.`, 'build');
 }
 function updateConstruction(t, dt) {
   const b = t.building; if (!b) return;
@@ -750,7 +752,7 @@ function finishConstruction(t) {
   t.hall.setLevel(t.level);
   // nobody ends up inside a new house or wall
   for (const u of B.units) collide(u.pos, u.radius); if (G.player) collide(G.player.pos, 0.5);
-  if (t.isMe) { G.hooks.banner && G.hooks.banner(`${t.name} is now a ${TOWN_LEVELS[t.level].name}!`, `Army size ${popCap(t)} · new troops unlocked`); S.levelUp(); }
+  if (t.isMe) { say('steward', `it is done! ${t.name} is now a ${TOWN_LEVELS[t.level].name}. We can field ${popCap(t)} soldiers and ${peasantCap(t)} peasants.`, 'big'); S.levelUp(); }
   V.burst('gold', V3(t.x, heightAt(t.x, t.z) + 14, t.z), 120, { speed: 8, vy: 6, life: 2 });
 }
 
@@ -767,7 +769,8 @@ function onStructDown(s, src) {
   if (killer && killer.team !== s.team) { bank(killer, 'gold', ECON.structGold[s.kind]); giveXp(killer, src, ECON.xpStruct[s.kind], s.pos); }
   const t = s.town;
   if (s.kind === 'hall') eliminate(t, killer);
-  else if (t.isMe || (killer && killer.isMe)) G.hooks.banner && G.hooks.banner(t.isMe ? 'Your tower has fallen!' : 'Enemy tower destroyed!', t.name);
+  else if (t.isMe) say('captain', `our ${s === t.towers[0] ? 'right' : 'left'} archer tower has fallen!`, 'bad');
+  else if (killer && killer.isMe) say('captain', `an enemy tower at ${t.name} lies in ruins. Well fought!`, 'good');
 }
 // xp is shared, unsplit, with allied heroes close by
 function giveXp(town, src, n, at) {
@@ -775,6 +778,7 @@ function giveXp(town, src, n, at) {
 }
 function eliminate(t, by) {
   t.dead = true;
+  if (by && by.isMe) say('captain', `${t.name} has fallen! Their kingdom is broken. Glory to you, Commander!`, 'big'); else if (!t.isMe && by) say('scout', `${t.name} has fallen to ${by.name}.`, 'war');
   for (const u of t.units) if (!u.dead) { u.takeHit(u.hp + 1, null, { silent: true }); }
   for (const s of B.structs) if (s.town === t && !s.dead) s.destroy(null);
   G.hooks.banner && G.hooks.banner(`${t.name} has fallen!`, by ? `Destroyed by ${by.name}` : '', 4000);
@@ -787,6 +791,17 @@ function checkWin() {
   else if (teams.size <= 1 && !B.over) { B.over = true; B.result = 'victory'; G.hooks.matchOver && G.hooks.matchOver('victory'); }
 }
 export function myTown() { return B.towns[B.me]; }
+// reports to the player, who is the Commander
+function say(who, text, kind) { G.hooks.cmd && G.hooks.cmd(who, text, kind); }
+// scouts and captains warn about threats to the town and its towers
+function watchTown(t, dt) {
+  t.watchT = (t.watchT || 0) - dt; if (t.watchT > 0) return; t.watchT = 1;
+  const foes = B.units.filter(u => !u.dead && u.team !== t.team && !u.worker && Math.hypot(u.pos.x - t.x, u.pos.z - t.z) < WALL_R + 60);
+  if (foes.length >= 3 && B.time > (t.warnT || 0)) { t.warnT = B.time + 45; const from = B.towns.find(o => o.team === foes[0].team); say('scout', `the enemy is at our gates! ${foes.length} ${from ? from.name : 'enemy'} soldiers near the walls!`, 'bad'); }
+  for (const s of t.towers) { if (s.dead) continue; const k = s.hp / s.maxHp; if (k < 0.5 && !s.warned50) { s.warned50 = true; say('captain', `our ${s === t.towers[0] ? 'right' : 'left'} tower is badly damaged!`, 'bad'); } if (k > 0.8) s.warned50 = false; }
+  if (t.hall.hp / t.hall.maxHp < 0.5 && !t.hallWarn) { t.hallWarn = true; say('steward', 'the Town Hall is burning! If it falls, we are lost!', 'bad'); }
+  const ours = t.units.filter(u => !u.dead && u.order === 'attack'); if (ours.length) { const tg = ours[0].targetTown; if (tg && ours.some(u => Math.hypot(u.pos.x - tg.x, u.pos.z - tg.z) < WALL_R + 40) && t.siegeSaid !== tg.i + ':' + t.lastAttackT) { t.siegeSaid = tg.i + ':' + t.lastAttackT; say('captain', `our army has reached ${tg.name} and is storming the walls!`, 'war'); } }
+}
 
 // ---------- AI commander ----------
 function aiThink(t) {
@@ -847,6 +862,7 @@ export function initBattle(scene) {
     for (const [x, z] of t.towerSpots) { const s = new Structure(t, 'tower', x, z); B.structs.push(s); G.mobs.push(s); }
     t.towers = B.structs.filter(s => s.town === t && s.kind === 'tower');
     if (t.ai) makeAIHero(t);
+    if (t.isMe) { t.auto = true; t.diff = 'normal'; }
   }
   for (const s of B.structs) s.hostile = s.team !== B.myTeam;
 }
@@ -856,15 +872,17 @@ export function update(dt) {
   for (const t of B.towns) {
     if (t.dead) continue;
     // passive income
-    const D = t.ai ? DIFFS[t.diff] || DIFFS.normal : { income: 1 };
+    const D = t.ai ? DIFFS[t.diff] || DIFFS.normal : { income: 1.15 };
     bank(t, 'gold', (ECON.passiveGold + ECON.passiveGoldPerLevel * t.level) * D.income * dt);
     if (t.ai && D.income > 1 && B.time > 120) { t.bank.wood += 0.4 * (D.income - 1) * dt * 3; t.bank.stone += 0.3 * (D.income - 1) * dt * 3; }
     // training queue
     const q = t.queue[0];
-    if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe && G.hooks.trained) G.hooks.trained(u); } }
+    if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
     updateConstruction(t, dt);
-    for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); if (t.isMe) G.hooks.banner && G.hooks.banner('Tower upgraded', TOWER_LEVELS[s.level].name); } }
-    if (t.ai && !B.over) { t.thinkT = (t.thinkT || 0) - dt; if (t.thinkT <= 0) { t.thinkT = (DIFFS[t.diff] || DIFFS.normal).think; aiThink(t); } }
+    for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); if (t.isMe) say('steward', `our ${s === t.towers[0] ? 'right' : 'left'} tower is now a ${TOWER_LEVELS[s.level].name}.`, 'build'); } }
+    if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0 && t.newly) { const parts = Object.entries(t.newly).map(([k, v]) => `${v > 1 ? v + ' ' + k + 's' : (/^[AEIOU]/.test(k) ? 'an ' : 'a ') + k}`); const peas = t.newly[t.roster.worker.name]; say(peas && parts.length === 1 ? 'steward' : 'captain', peas && parts.length === 1 ? `${parts[0]} joined the work crews. (${peasants(t)}/${peasantCap(t)} peasants)` : `${parts.join(', ')} ${parts.length > 1 || parts[0].match(/^\d/) ? 'have' : 'has'} joined the ranks. (${pop(t)}/${popCap(t)} soldiers)`, 'good'); t.newly = null; } }
+    if (t.isMe && !B.over) watchTown(t, dt);
+    if ((t.ai || t.auto) && !B.over) { t.thinkT = (t.thinkT || 0) - dt; if (t.thinkT <= 0) { t.thinkT = (DIFFS[t.diff] || DIFFS.normal).think; aiThink(t); } }
     if (t.hero && t.hero.dead) { t.hero.respawnT -= dt; if (t.hero.respawnT <= 0) t.hero.respawnHero(); }
     if (t.hero && !t.hero.dead && !B.over) heroXp(t.hero, ECON.aiPassiveXp * dt * (t.ai ? (DIFFS[t.diff] || DIFFS.normal).income : 1));
     t.units = t.units.filter(u => !u.gone || u.hero);

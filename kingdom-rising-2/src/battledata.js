@@ -140,7 +140,7 @@ export const ARMORY = { weapon: [0, 120, 260, 450, 700, 1000], armor: [0, 160, 3
 // economy
 export const ECON = {
   start: { gold: 0, wood: 0, stone: 0 },
-  passiveGold: 0.8, passiveGoldPerLevel: 0.4, passiveXp: 0, aiPassiveXp: 1.5,
+  passiveGold: 1.6, passiveGoldPerLevel: 0.6, deliveryGold: 4, passiveXp: 0, aiPassiveXp: 1.5,
   heroCarry: 30, peasantCost: { gold: 40 }, graceTime: 480,
   carry: 15, gatherTime: 3.5,
   levelGold: (lv) => 40 * lv,

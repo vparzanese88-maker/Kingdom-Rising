@@ -23,7 +23,7 @@ const RES_NAME = { gold: 'Gold', wood: 'Wood', stone: 'Stone' };
 const costHtml = (c, t) => Object.entries(c).map(([k, v]) => `<span class="bc ${res(t, k) >= v ? '' : 'no'}" title="${RES_NAME[k]}">${resIcon(k, 18)} ${v}</span>`).join(' ');
 export function heroCarryCap() { return ECON.heroCarry + up(myTown(), 'sacks') * 10; }
 const ROLE = { melee: '⚔ Melee', ranged: '🏹 Ranged', healer: '✚ Healer', worker: '⛏ Worker' };
-let opts = {}, tab = 'army', bar = null, deathT = 0, menuT = 0, xpAcc = 0;
+let opts = {}, tab = 'report', bar = null, deathT = 0, menuT = 0, xpAcc = 0;
 
 export function init(o) {
   opts = o;
@@ -65,7 +65,7 @@ function drawBar() {
     + (c.wood || c.stone ? `<div class="bcarry ${c.wood >= cap || c.stone >= cap ? 'full' : ''}" title="What you are carrying: unload at the Storehouse">🎒 ${resIcon('wood', 16)}${c.wood}/${cap} ${resIcon('stone', 16)}${c.stone}/${cap}</div>` : '')
     + `<div title="Match time"><b>⏱</b>${fmtT(B.time)}</div>`
     + `<div class="bhall" title="Your town hall"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>${t.name} · ${L.name}${t.building ? ' · building ' + Math.ceil(t.building.dur - t.building.t) + 's' : ''}</span></div>`
-    + `<div class="bkey">B · Command</div>`;
+    + `<div class="bkey">B · War Report</div>`;
 }
 export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
@@ -106,6 +106,7 @@ function bossBeacons() {
 }
 function storeTick(dt) {
   bossBeacons();
+  if (G.noHarvest) return;
   const t = myTown(), p = G.player; if (!t || !p) return;
   if (!mark) mark = makeMarker(t);
   mark.ring.scale.setScalar(1 + Math.sin(B.time * 3) * 0.05); mark.sp.position.y = 6 + Math.sin(B.time * 2) * 0.2;
@@ -120,10 +121,10 @@ export function died() { deathT = ECON.respawn(G.save.level); $('bdeath').hidden
 
 // ---------- command menu ----------
 let menu = 'command';
-const MENUS = { command: { title: 'Command', tabs: [['army', 'Army'], ['orders', 'Orders'], ['armory', 'Supplies']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
+const MENUS = { command: { title: 'War Report', tabs: [['report', 'Report'], ['orders', 'Orders'], ['armory', 'Supplies']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
 export function openNpc(role) { menu = role; tab = MENUS[role].tabs[0][0]; openMenu(true); }
 function openMenu(keep) {
-  if (!keep) { menu = 'command'; if (!MENUS.command.tabs.some(x => x[0] === tab)) tab = 'army'; }
+  if (!keep) { menu = 'command'; if (!MENUS.command.tabs.some(x => x[0] === tab)) tab = 'report'; }
   const w = $('windows'); w.innerHTML = '';
   const win = el('div', 'win big bwin'); const hd = el('header', '', `<h2>${MENUS[menu].title}</h2>`); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
   const c = el('div', 'content'); win.append(hd, c); w.appendChild(win);
@@ -140,7 +141,7 @@ function render() {
   c.appendChild(tabs);
   c.appendChild(el('div', 'bresline', ['gold', 'wood', 'stone'].map(k => `<span>${resIcon(k)} ${RES_NAME[k]} <b>${Math.floor(res(t, k))}</b></span>`).join('') + `<span>⛏ <b>${peasants(t)}/${peasantCap(t)}</b> peasants</span><span>⚔ <b>${pop(t)}/${popCap(t)}</b> army</span>`));
   const body = el('div', 'bbody'); c.appendChild(body);
-  ({ army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory, foreman: tabForeman })[tab](body, t);
+  ({ report: tabReport, army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory, foreman: tabForeman })[tab](body, t);
   body.scrollTop = sc;
 }
 const say = (err) => { if (err) { UI.toast(err, '⚠', 'bad'); S.error(); } else S.coins(); render(); };
@@ -163,6 +164,18 @@ function unitBadge(d) {
   const g = d.role === 'worker' ? (d.tool === 'pickaxe' ? 'hammer' : 'axe') : d.role === 'healer' ? 'heart' : d.role === 'ranged' ? (d.proj === 'bullet' ? 'burst' : d.proj === 'fire' ? 'fireball' : d.proj === 'arcane' ? 'spiral' : d.proj === 'frost' ? 'snow' : 'arrow') : d.kind === 'troll' ? 'hammer' : d.wt && d.wt.includes('axe') ? 'axe' : d.wt === 'spear' ? 'sword' : d.wt === 'warhammer' ? 'hammer' : d.pop >= 2 ? 'swords' : 'shield';
   const th = d.role === 'healer' ? 'gold' : d.role === 'ranged' ? (d.proj === 'fire' ? 'fire' : d.proj === 'arcane' ? 'arcane' : d.proj === 'frost' ? 'frost' : 'nature') : d.merc ? 'shadow' : d.role === 'worker' ? 'gold' : d.pop >= 2 ? 'red' : 'steel';
   return glyphBadge(g, th);
+}
+// the town runs itself: this is what the Commander sees
+function tabReport(body, t) {
+  const L = TOWN_LEVELS[t.level], army = t.units.filter(u => !u.dead && !u.worker && !u.hero && !u.pet);
+  const kinds = {}; for (const u of army) kinds[u.udef.name] = (kinds[u.udef.name] || 0) + 1;
+  body.appendChild(el('div', 'bstages', TOWN_LEVELS.map((x, i) => `<div class="bstage ${i < t.level ? 'done' : i === t.level ? 'cur' : ''}"><div class="bsn">${i < t.level ? '✓' : i + 1}</div><b>${x.name}</b><span>Army ${x.cap} · Peasants ${x.peasants}</span></div>`).join('<i class="bsline"></i>')));
+  const ups = FOREMAN.map(F => `${F.icon} ${F.name} ${'●'.repeat(up(t, F.id))}${'○'.repeat(F.costs.length - up(t, F.id))}`).join(' &nbsp; ');
+  body.appendChild(el('div', 'bpanel', `<h3>${t.name}, ${L.name}</h3><p>${t.building ? `The builders are raising a <b>${TOWN_LEVELS[t.level + 1].name}</b>: ${Math.ceil(t.building.dur - t.building.t)} s to go.` : TOWN_LEVELS[t.level + 1] ? `Your steward is saving up to build a <b>${TOWN_LEVELS[t.level + 1].name}</b>.` : 'The Citadel is complete.'}</p><div class="bprog hp"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>Town Hall ${Math.ceil(t.hall.hp)}/${t.hall.maxHp}</span></div><p class="dim" style="margin-top:6px">${ups}</p>`));
+  const tw = t.towers.map((s, i) => `<div class="brep"><b>${i ? 'Left' : 'Right'} ${TOWER_LEVELS[s.level].name}</b>${s.dead ? '<span class="bad">destroyed</span>' : `<div class="bprog hp"><i style="width:${(s.hp / s.maxHp * 100).toFixed(0)}%"></i><span>${Math.ceil(s.hp)}/${s.maxHp}</span></div>`}</div>`).join('');
+  body.appendChild(el('div', 'bpanel', `<h3>Defences</h3><div class="brepgrid">${tw}</div>`));
+  body.appendChild(el('div', 'bpanel', `<h3>Army: ${pop(t)}/${popCap(t)}</h3><p>${army.length ? Object.entries(kinds).map(([k, v]) => `<span class="bchip">${v} × ${k}</span>`).join(' ') : 'No soldiers yet: the steward will hire them as gold comes in.'}</p><p class="dim">${army.filter(u => u.order === 'attack').length} marching · ${army.filter(u => u.order !== 'attack').length} guarding the town · ${peasants(t)}/${peasantCap(t)} peasants at work${t.queue.length ? ` · ${t.queue.length} in training` : ''}</p>`));
+  const log = el('div', 'bpanel', '<h3>Recent reports</h3>'); for (const m of reportLog.slice(-8).reverse()) log.appendChild(el('div', 'blog', `<span class="bt">${fmtT(m.t)}</span> <b>${m.who}:</b> ${m.text}`)); body.appendChild(log);
 }
 function tabForeman(body, t) {
   const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);
@@ -223,7 +236,6 @@ function tabOrders(body, t) {
     row.append(a, h); p.appendChild(row);
   }
   body.appendChild(p);
-  body.appendChild(el('div', 'bpanel', '<h3>In your town</h3><p>Talk to the <b>Foreman</b> (E) to hire peasants and upgrade their tools. Talk to the <b>Master Builder</b> to upgrade the town and the archer towers. Both stand just inside your gate. Unload wood and stone at the glowing <b>Storehouse</b>.</p>'));
   const q = el('div', 'bpanel', '<h3>Other orders</h3>'); const row = el('div', 'brow');
   const d = el('button', 'btn', '🛡 Defend the town'); d.onclick = () => { recall(t); say(null); };
   const f = el('button', 'btn', '👣 Follow me'); f.onclick = () => { setFollow(t); say(null); };
@@ -271,6 +283,19 @@ function renderBook() {
     grid.appendChild(d);
   }
   c.appendChild(grid);
+}
+
+// ---------- reports to the Commander ----------
+const SPEAKERS = { steward: ['Steward', '📜', '#e8c87a'], captain: ['Captain', '⚔', '#ff9a7a'], scout: ['Scout', '🦅', '#9fd0ff'] };
+const reportLog = [];
+export function report(who, text, kind = '') {
+  const [name, icon, col] = SPEAKERS[who] || SPEAKERS.steward; const msg = `Commander, ${text}`;
+  reportLog.push({ t: B.time, who: name, text: msg }); if (reportLog.length > 60) reportLog.shift();
+  let box = $('cmdfeed'); if (!box) { box = el('div', ''); box.id = 'cmdfeed'; $('hud').appendChild(box); }
+  const d = el('div', 'cmdmsg ' + kind, `<div class="ci" style="color:${col}">${icon}</div><div><b style="color:${col}">${name}</b><p>${msg}</p></div>`);
+  box.prepend(d); while (box.children.length > 4) box.lastChild.remove();
+  if (kind === 'bad') S.error(); else if (kind === 'big') S.levelUp(); else if (kind === 'war') S.battleCry && S.battleCry(); else S.objective && S.objective();
+  setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 600); }, kind === 'big' ? 11000 : 8000);
 }
 
 // ---------- loot celebration: a card with the item, louder the rarer it is ----------

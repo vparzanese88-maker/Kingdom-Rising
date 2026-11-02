@@ -73,7 +73,7 @@ export function refreshAbilityBar() {
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
     cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
-    cs._n = st.length; if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
+    cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = 'Hold F to block';
   { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `Right click: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }

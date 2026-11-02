@@ -5,6 +5,7 @@ import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS } from './data.
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
+import { glyphBadge } from './icons2.js';
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { V } from './vfx.js';
@@ -88,7 +89,7 @@ function makeMarker(t) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 160; const c = cv.getContext('2d');
   c.fillStyle = 'rgba(20,14,8,.85)'; c.strokeStyle = '#ffd84a'; c.lineWidth = 8; c.beginPath(); c.roundRect(6, 6, 500, 148, 24); c.fill(); c.stroke();
   c.fillStyle = '#ffe2a0'; c.font = 'bold 54px Georgia, serif'; c.textAlign = 'center'; c.fillText('STOREHOUSE', 256, 70); c.font = '34px Georgia, serif'; c.fillStyle = '#f0e4c8'; c.fillText('Unload wood & stone here', 256, 122);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); sp.scale.set(5.2, 1.6, 1); sp.position.y = 5.2; sp.renderOrder = 9;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); sp.scale.set(3.4, 1.05, 1); sp.position.y = 6; sp.renderOrder = 9;
   g.add(ring, disc, beam, sp); g.position.set(x, heightAt(x, z) + 0.12, z); G.scene.add(g);
   return { g, ring, sp };
 }
@@ -106,7 +107,7 @@ function storeTick(dt) {
   bossBeacons();
   const t = myTown(), p = G.player; if (!t || !p) return;
   if (!mark) mark = makeMarker(t);
-  mark.ring.scale.setScalar(1 + Math.sin(B.time * 3) * 0.05); mark.sp.position.y = 5.2 + Math.sin(B.time * 2) * 0.2;
+  mark.ring.scale.setScalar(1 + Math.sin(B.time * 3) * 0.05); mark.sp.position.y = 6 + Math.sin(B.time * 2) * 0.2;
   const c = G.save && G.save.carry; if (!c || p.dead) return;
   if ((c.wood || c.stone) && Math.hypot(p.pos.x - t.store[0], p.pos.z - t.store[1]) < 3.8) {
     const w = c.wood, s = c.stone; if (w) bank(t, 'wood', w); if (s) bank(t, 'stone', s); c.wood = 0; c.stone = 0;
@@ -147,7 +148,7 @@ function tabArmy(body, t) {
   const all = rosterOf(t.race);
   for (const d of all) {
     const locked = (d.lvl || 0) > t.level, n = t.units.filter(u => !u.dead && u.udef.id === d.id).length, q = t.queue.filter(x => x.def.id === d.id).length;
-    const card = el('div', 'bcard' + (locked ? ' locked' : '') + (d.merc ? ' merc' : ''), `<div class="bh"><b>${d.name}</b><span>${ROLE[d.role] || ''}${d.merc ? ' · Mercenary' : ''}</span></div>
+    const card = el('div', 'bcard' + (locked ? ' locked' : '') + (d.merc ? ' merc' : ''), `<div class="bport">${unitBadge(d)}</div><div class="bh"><b>${d.name}</b><span>${ROLE[d.role] || ''}${d.merc ? ' · Mercenary' : ''}</span></div>
       <div class="bst"><span>❤ ${Math.round(d.hp * (1 + t.level * 0.12))}</span><span>⚔ ${Math.round(d.dmg * (1 + t.level * 0.12))}</span>${d.range ? `<span>➶ ${d.range} m</span>` : ''}${d.heal ? `<span>✚ ${d.heal}</span>` : ''}${d.pop > 1 ? `<span>👥 ${d.pop}</span>` : ''}</div>
       <div class="bcost">${costHtml(d.cost, t)}</div><div class="bown">${n} in army${q ? ` · ${q} training` : ''}</div>`);
     const b = el('button', 'btn gold', locked ? `Needs ${TOWN_LEVELS[d.lvl].name}` : 'Hire'); b.disabled = locked;
@@ -156,6 +157,11 @@ function tabArmy(body, t) {
   body.appendChild(grid);
   // training queue
   if (t.queue.length) body.appendChild(el('div', 'bqueue', '<b>Training:</b> ' + t.queue.map((q, i) => `<span>${q.def.name}${i === 0 ? ` <i style="--p:${(1 - q.t / q.total) * 100}%"></i>` : ''}</span>`).join('')));
+}
+function unitBadge(d) {
+  const g = d.role === 'worker' ? (d.tool === 'pickaxe' ? 'hammer' : 'axe') : d.role === 'healer' ? 'heart' : d.role === 'ranged' ? (d.proj === 'bullet' ? 'burst' : d.proj === 'fire' ? 'fireball' : d.proj === 'arcane' ? 'spiral' : d.proj === 'frost' ? 'snow' : 'arrow') : d.kind === 'troll' ? 'hammer' : d.wt && d.wt.includes('axe') ? 'axe' : d.wt === 'spear' ? 'sword' : d.wt === 'warhammer' ? 'hammer' : d.pop >= 2 ? 'swords' : 'shield';
+  const th = d.role === 'healer' ? 'gold' : d.role === 'ranged' ? (d.proj === 'fire' ? 'fire' : d.proj === 'arcane' ? 'arcane' : d.proj === 'frost' ? 'frost' : 'nature') : d.merc ? 'shadow' : d.role === 'worker' ? 'gold' : d.pop >= 2 ? 'red' : 'steel';
+  return glyphBadge(g, th);
 }
 function tabForeman(body, t) {
   const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);
@@ -179,6 +185,7 @@ function tabForeman(body, t) {
 }
 function tabTown(body, t) {
   const L = TOWN_LEVELS[t.level], N = TOWN_LEVELS[t.level + 1];
+  body.appendChild(el('div', 'bstages', TOWN_LEVELS.map((x, i) => `<div class="bstage ${i < t.level ? 'done' : i === t.level ? 'cur' : ''}"><div class="bsn">${i < t.level ? '✓' : i + 1}</div><b>${x.name}</b><span>Army ${x.cap} · Peasants ${x.peasants}</span></div>`).join('<i class="bsline"></i>')));
   body.appendChild(el('div', 'bpanel', `<h3>${t.name} · ${L.name}</h3><p>Army size <b>${popCap(t)}</b> · Hall <b>${Math.ceil(t.hall.hp)}/${t.hall.maxHp}</b> · Walls ${L.wallH.toFixed(1)} m</p>`));
   if (t.building) { const k = t.building.t / t.building.dur; body.appendChild(el('div', 'bpanel', `<h3>Building: ${TOWN_LEVELS[t.level + 1].name}</h3><div class="bprog"><i style="width:${(k * 100).toFixed(0)}%"></i><span>${Math.ceil(t.building.dur - t.building.t)} s</span></div><p class="dim">Builders are raising the walls and the hall.</p>`)); }
   else if (N) {

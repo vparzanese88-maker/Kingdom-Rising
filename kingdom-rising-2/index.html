@@ -223,27 +223,28 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793649441",
-"./src/battle.js": "./src/battle.js?v=1793649441",
-"./src/battledata.js": "./src/battledata.js?v=1793649441",
-"./src/battlemap.js": "./src/battlemap.js?v=1793649441",
-"./src/battleui.js": "./src/battleui.js?v=1793649441",
-"./src/character.js": "./src/character.js?v=1793649441",
-"./src/combat.js": "./src/combat.js?v=1793649441",
-"./src/data.js": "./src/data.js?v=1793649441",
-"./src/game.js": "./src/game.js?v=1793649441",
-"./src/icons.js": "./src/icons.js?v=1793649441",
-"./src/main.js": "./src/main.js?v=1793649441",
-"./src/menu.js": "./src/menu.js?v=1793649441",
-"./src/mobs.js": "./src/mobs.js?v=1793649441",
-"./src/player.js": "./src/player.js?v=1793649441",
-"./src/saves.js": "./src/saves.js?v=1793649441",
-"./src/state.js": "./src/state.js?v=1793649441",
-"./src/terrain.js": "./src/terrain.js?v=1793649441",
-"./src/ui.js": "./src/ui.js?v=1793649441",
-"./src/util.js": "./src/util.js?v=1793649441",
-"./src/vfx.js": "./src/vfx.js?v=1793649441",
-"./src/world.js": "./src/world.js?v=1793649441"
+"./src/audio.js": "./src/audio.js?v=1793649826",
+"./src/battle.js": "./src/battle.js?v=1793649826",
+"./src/battledata.js": "./src/battledata.js?v=1793649826",
+"./src/battlemap.js": "./src/battlemap.js?v=1793649826",
+"./src/battleui.js": "./src/battleui.js?v=1793649826",
+"./src/character.js": "./src/character.js?v=1793649826",
+"./src/combat.js": "./src/combat.js?v=1793649826",
+"./src/data.js": "./src/data.js?v=1793649826",
+"./src/game.js": "./src/game.js?v=1793649826",
+"./src/icons.js": "./src/icons.js?v=1793649826",
+"./src/icons2.js": "./src/icons2.js?v=1793649826",
+"./src/main.js": "./src/main.js?v=1793649826",
+"./src/menu.js": "./src/menu.js?v=1793649826",
+"./src/mobs.js": "./src/mobs.js?v=1793649826",
+"./src/player.js": "./src/player.js?v=1793649826",
+"./src/saves.js": "./src/saves.js?v=1793649826",
+"./src/state.js": "./src/state.js?v=1793649826",
+"./src/terrain.js": "./src/terrain.js?v=1793649826",
+"./src/ui.js": "./src/ui.js?v=1793649826",
+"./src/util.js": "./src/util.js?v=1793649826",
+"./src/vfx.js": "./src/vfx.js?v=1793649826",
+"./src/world.js": "./src/world.js?v=1793649826"
 }
 }
 </script>
@@ -712,6 +713,39 @@ body{font-size:16px;letter-spacing:.005em}
 .bendp{text-align:center;padding:40px 60px;border-radius:14px;background:linear-gradient(#2a1e10f2,#140d06f2);border:2px solid #8a6a2a;display:flex;flex-direction:column;gap:14px;align-items:center}
 .bend h1{font-family:var(--f-t);font-size:64px;margin:0;color:#ffd84a;text-shadow:0 0 30px rgba(255,200,60,.6)}.bend.defeat h1{color:#ff6a5a;text-shadow:0 0 30px rgba(255,60,40,.5)}
 .bstats{display:grid;grid-template-columns:repeat(4,auto);gap:22px}.bstats div{display:flex;flex-direction:column}.bstats span{font-size:12px;color:#a8987a;text-transform:uppercase}.bstats b{font-size:24px;color:#fff2c8}
+/* ===== Kingdom Battles: polished look ===== */
+.combostrip.battle{position:fixed;left:18px !important;right:auto !important;bottom:104px;text-align:left}.combostrip.battle .crow{align-items:flex-start}
+.win.bwin{background:radial-gradient(ellipse at 50% 0%,#3a2a16 0%,#1c130b 55%,#0f0a06 100%);border:2px solid #a07a30;box-shadow:0 0 0 1px #000,0 0 0 5px rgba(160,122,48,.18),0 30px 90px rgba(0,0,0,.85),inset 0 0 60px rgba(0,0,0,.6)}
+.win.bwin>header{background:linear-gradient(180deg,rgba(255,216,120,.10),transparent);border-bottom:1px solid rgba(216,168,72,.35)}
+.win.bwin>header h2{font-size:30px;letter-spacing:.12em;background:linear-gradient(#fff2c0,#d8a440 60%,#9a6a20);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 2px 2px #000)}
+.btabs{gap:8px;padding:2px}
+.btabs button{border-radius:999px;border:1px solid #6a4a1a;border-bottom-width:1px;padding:10px 18px;background:linear-gradient(#2a1e10,#140d06);font-size:15px;transition:.15s}
+.btabs button:hover{border-color:#c8a050;color:#fff2c8}
+.btabs button.on{background:linear-gradient(#ffe48a,#c8902a);color:#2a1a04;border-color:#ffe48a;box-shadow:0 0 18px rgba(255,200,80,.35)}
+.bresline{border:1px solid rgba(216,168,72,.25);background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(40,28,14,.45));padding:8px 14px;border-radius:10px}
+.bgrid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.bcard{display:grid;grid-template-columns:62px 1fr;grid-template-areas:"p h" "p s" "c c" "o o" "b b";column-gap:12px;row-gap:6px;padding:14px;border-radius:14px;background:linear-gradient(160deg,rgba(74,52,26,.92),rgba(20,14,8,.95));border:1px solid #6a4a1a;box-shadow:inset 0 1px 0 rgba(255,230,160,.08),0 6px 16px rgba(0,0,0,.4);transition:.15s}
+.bcard:hover{transform:translateY(-3px);border-color:#d8a640;box-shadow:0 10px 24px rgba(0,0,0,.5),0 0 16px rgba(255,200,80,.15)}
+.bcard .bport{grid-area:p;width:62px;height:62px}.bcard .bport svg{width:100%;height:100%}
+.bcard .bh{grid-area:h}.bcard .bst{grid-area:s}.bcard .bcost{grid-area:c}.bcard .bown{grid-area:o}.bcard>.btn{grid-area:b;width:100%}
+.bcard .bh b{font-size:18px}
+.bst span{padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid rgba(216,168,72,.2)}
+.bcard .branks{grid-area:s}
+.bpanel{background:linear-gradient(160deg,rgba(54,38,20,.6),rgba(12,8,5,.6));border:1px solid rgba(216,168,72,.28);border-radius:14px;padding:16px 18px;box-shadow:inset 0 1px 0 rgba(255,230,160,.06)}
+.bpanel h3{font-size:21px;background:linear-gradient(#fff2c0,#d8a440);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bstages{display:flex;align-items:center;gap:0;padding:6px 4px 2px}
+.bstage{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;text-align:center}
+.bstage .bsn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:17px;background:#1a120a;border:2px solid #5a4020;color:#8a7a5a}
+.bstage b{font-size:15px;color:#bfae8c}.bstage span{font-size:11px;color:#8a7a5a}
+.bstage.done .bsn{background:linear-gradient(#7ae05a,#3a8a2a);border-color:#9af07a;color:#0a2a06}.bstage.done b{color:#c8f0b0}
+.bstage.cur .bsn{background:linear-gradient(#ffe48a,#c8902a);border-color:#ffe48a;color:#2a1a04;box-shadow:0 0 16px rgba(255,200,80,.5)}.bstage.cur b{color:#fff2c8}
+.bsline{flex:1;height:3px;min-width:20px;background:linear-gradient(90deg,#5a4020,#2a1e10);border-radius:2px;margin-top:-30px}
+#abil .slot.hb .an{top:-18px;bottom:auto;font-size:11px;padding:1px 6px;border-radius:6px;background:rgba(10,6,3,.75);border:1px solid rgba(216,168,72,.35)}
+.btn.gold{background:linear-gradient(#ffe48a,#d8a030 55%,#a87018);color:#2a1a04;border:1px solid #6a4410;box-shadow:0 3px 0 #4a2e08,0 6px 14px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.5);font-weight:800}
+.btn.gold:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+.btn.gold:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #4a2e08}
+.btn:disabled{filter:grayscale(.7) brightness(.7);cursor:default}
+.bres>div{background:linear-gradient(#2a1e10f0,#120c07f0);border:1px solid #8a6a2a;box-shadow:0 4px 12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,230,160,.1);border-radius:10px;padding:6px 12px}
 </style>
 </head>
 <body>
@@ -781,6 +815,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793649441"></script>
+<script type="module" src="./src/main.js?v=1793649826"></script>
 </body>
 </html>

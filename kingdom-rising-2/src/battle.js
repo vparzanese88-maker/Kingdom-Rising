@@ -413,7 +413,13 @@ export class Unit {
     this.pos.y = heightAt(this.pos.x, this.pos.z);
     const realSp = Math.hypot(this.pos.x - px0, this.pos.z - pz0) / Math.max(dt, 1e-4);
     // stuck on a wall or a tree: slide sideways for a moment
-    if (speed && realSp < speed * 0.25) { this.stuck = (this.stuck || 0) + dt; if (this.stuck > 1.2) { this.off = -this.off || 2; this.pos.x += Math.cos(this.id) * 0.8; this.pos.z += Math.sin(this.id) * 0.8; this.stuck = 0; } } else this.stuck = 0;
+    if (speed && want && realSp < speed * 0.25) { this.stuck = (this.stuck || 0) + dt; if (this.stuck > 0.9) { this.stuck = 0; this.stuckN = (this.stuckN || 0) + 1; this.off = -this.off || 2;
+        // side-step: alternate left and right of where we were trying to go, a little further each time
+        const dx = want[0] - this.pos.x, dz = want[1] - this.pos.z, l = Math.hypot(dx, dz) || 1, sd = this.stuckN % 2 ? 1 : -1, k = Math.min(3, 0.8 + this.stuckN * 0.4);
+        this.pos.x += (-dz / l * sd - dx / l * 0.3) * k; this.pos.z += (dx / l * sd - dz / l * 0.3) * k; collide(this.pos, this.radius * 0.8);
+        // a worker that can't reach its tree or rock gives up on it
+        if (this.worker && this.stuckN > 5 && this.node && !(this.carry >= ECON.carry)) { (this.badNodes = this.badNodes || new Set()).add(this.node); this.node.workers = Math.max(0, (this.node.workers || 1) - 1); this.node = null; this.stuckN = 0; } } }
+    else if (realSp > speed * 0.5) { this.stuck = 0; if (realSp > 1) this.stuckN = Math.max(0, (this.stuckN || 0) - dt * 0.5); }
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
     if (this.root.visible) animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true });
   }
@@ -444,13 +450,13 @@ function workerTick(u, dt) {
   }
   if (!u.node || !u.node.alive) {
     let best = null, bd = 1e9; const test = JOB_NODES[u.job];
-    for (const n of world.nodes) { if (!n.alive || !test(n)) continue; const d = Math.hypot(n.x - t.x, n.z - t.z) + Math.hypot(n.x - u.pos.x, n.z - u.pos.z) * 0.5 + (n.workers || 0) * 25; if (d < bd && Math.hypot(n.x - t.x, n.z - t.z) < 240) { bd = d; best = n; } }
+    for (const n of world.nodes) { if (!n.alive || !test(n) || (u.badNodes && u.badNodes.has(n))) continue; const d = Math.hypot(n.x - t.x, n.z - t.z) + Math.hypot(n.x - u.pos.x, n.z - u.pos.z) * 0.5 + (n.workers || 0) * 25; if (d < bd && Math.hypot(n.x - t.x, n.z - t.z) < 240) { bd = d; best = n; } }
     if (u.node) u.node.workers = Math.max(0, (u.node.workers || 1) - 1);
     u.node = best; if (best) best.workers = (best.workers || 0) + 1; u.work = 0;
     if (!best) { u.job = u.job === 'wood' ? 'stone' : 'wood'; return { want: null, speed: 0 }; }
   }
   const n = u.node, d = Math.hypot(n.x - u.pos.x, n.z - u.pos.z);
-  if (d > (n.type.startsWith('tree') ? 1.6 : 2.2)) return { want: routeOut(u, [n.x, n.z]), speed: 1 };
+  if (d > (n.col ? n.col.r : 0.5) + u.radius + 0.9) return { want: routeOut(u, [n.x, n.z]), speed: 1 };
   u.faceTo(V3(n.x, 0, n.z), dt, 6);
   if (!u.action) { u.startAction(u.job === 'wood' ? 'chop' : 'mine', 0.9); if (G.player && u.dist(G.player) < 30) (u.job === 'wood' ? S.chop : S.mine)(u.pos); }
   u.work += dt;
@@ -474,12 +480,14 @@ export function nav(u, dest) {
   const lat = Math.abs((u.pos.x - T.x) * T.perp[0] + (u.pos.z - T.z) * T.perp[1]);
   const along = (u.pos.x - T.x) * T.dir[0] + (u.pos.z - T.z) * T.dir[1];
   const ring = (a) => [T.x + Math.cos(a) * (WALL_R + 8), T.z + Math.sin(a) * (WALL_R + 8)];
-  if (inU && !inD) { if (lat > 2.6 && along < WALL_R - 4) return T.gateIn; return [T.x + T.dir[0] * (WALL_R + 12), T.z + T.dir[1] * (WALL_R + 12)]; }
+  const axis = (a) => [T.x + T.dir[0] * a, T.z + T.dir[1] * a];
+  // off to the side of the gate: line up on the gate axis first (inside or outside the wall), then walk straight through
+  if (inU && !inD) { if (lat > 2.2) return axis(Math.min(along, WALL_R - 7)); return axis(WALL_R + 12); }
   if (!inU && inD) {
     const da = angDiff(au, ag);
     if (Math.abs(da) > 0.3 && ru < WALL_R + 25) return ring(au + Math.sign(da) * Math.min(Math.abs(da), 0.55));
-    if (lat > 2.6 && along > WALL_R + 3) return T.gateOut;
-    return [T.x + T.dir[0] * (WALL_R - 12), T.z + T.dir[1] * (WALL_R - 12)];
+    if (lat > 2.2) return axis(Math.max(along, WALL_R + 7));
+    return axis(WALL_R - 12);
   }
   if (!inU && !inD && ru < WALL_R + 25) {
     // straight line would cut through the town: go round

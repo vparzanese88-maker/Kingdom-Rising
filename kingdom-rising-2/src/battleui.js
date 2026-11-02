@@ -335,7 +335,7 @@ export function matchOver(result) {
       <div class="bstats"><div><span>Match time</span><b>${fmtT(B.time)}</b></div><div><span>Hero level</span><b>${G.save.level}</b></div><div><span>Town</span><b>${TOWN_LEVELS[t.level].name}</b></div><div><span>Troops lost</span><b>${t.lost || 0}</b></div></div>
       <div class="brow"><button class="btn gold big" id="bAgain">Play again</button><button class="btn big" id="bTitle">Title screen</button></div></div>`);
     document.body.appendChild(d);
-    $('bAgain').onclick = () => location.reload();
+    $('bAgain').onclick = () => { try { sessionStorage.setItem('kr2_fs', document.fullscreenElement ? '1' : ''); } catch (e) {} location.reload(); };
     $('bTitle').onclick = () => { location.href = location.pathname; };
     G.uiOpen = true;
   }, 2500);

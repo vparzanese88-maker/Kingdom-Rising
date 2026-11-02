@@ -406,7 +406,11 @@ function input() {
     // never pop a menu up on its own: just show "click to continue" (Esc opens the menu)
     $('clickToPlay').hidden = false;
   });
-  $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; lockPointer(); });
+  // a page change (title -> battle) always drops full screen in the browser: the first click puts it back
+  let wantFs = false; try { wantFs = BATTLE && sessionStorage.getItem('kr2_fs') === '1'; } catch (e) {}
+  if (wantFs) { const c = $('clickToPlay').firstElementChild; if (c) c.firstChild.textContent = 'Click to enter the battle'; }
+  $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; if (BATTLE && !document.fullscreenElement) { goFull(); setTimeout(lockPointer, 350); } lockPointer(); });
+  addEventListener('fullscreenchange', () => { if (document.fullscreenElement && mode === 'game' && !G.uiOpen && !document.pointerLockElement) setTimeout(lockPointer, 120); });
   addEventListener('beforeunload', () => { if (mode === 'game') saveNow(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'game') saveNow(); });
 }

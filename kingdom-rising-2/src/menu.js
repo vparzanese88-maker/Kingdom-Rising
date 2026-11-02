@@ -61,13 +61,15 @@ export function initMenu() {
   $('btnFull').onclick = () => { S.click(); goFull(); };
   for (const b of document.querySelectorAll('#title .mm, #title .btn')) b.addEventListener('mouseenter', () => S.hover());
   $('cBack').onclick = () => { S.click(); const b = C && C.battle; closeCreator(); if (b) showBattleSetup(); else showTitle(); };
-  $('cPrev').onclick = () => { S.click(); if (tab > 0) { tab--; renderCreator(); } };
+  $('cPrev').onclick = () => { S.click(); if (tab > firstTab()) { tab--; renderCreator(); } };
   $('cNext').onclick = () => { S.click(); if (tab < TABS.length - 1) { tab++; renderCreator(); } else finish(); };
   buildPreview();
 }
 
 // ---------- creator ----------
 const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
+// a single-player battle hero takes the race of their town, so the Race step is skipped
+const firstTab = () => (C && C.battle && !C.battle.mp ? 1 : 0);
 const START = { musketeer: 'musket', berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
 const START_NAME = { musketeer: 'Musket', berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
@@ -102,9 +104,10 @@ function renderSummary() {
 }
 function renderCreator() {
   const tabs = $('cTabs'); tabs.innerHTML = '';
-  TABS.forEach((t, i) => { const b = el('button', (i === tab ? 'on' : i < tab ? 'done' : ''), `<span class="n">${i < tab ? '✓' : i + 1}</span>${t}`); b.onclick = () => { S.click(); tab = i; renderCreator(); }; tabs.appendChild(b); });
+  const f0 = firstTab(); if (tab < f0) tab = f0;
+  TABS.forEach((t, i) => { if (i < f0) return; const b = el('button', (i === tab ? 'on' : i < tab ? 'done' : ''), `<span class="n">${i < tab ? '✓' : i + 1 - f0}</span>${t}`); b.onclick = () => { S.click(); tab = i; renderCreator(); }; tabs.appendChild(b); });
   const body = $('cBody'); body.innerHTML = '';
-  $('cPrev').disabled = tab === 0; $('cNext').textContent = tab === TABS.length - 1 ? (C.battle ? 'To Battle!' : 'Begin Adventure') : 'Next';
+  $('cPrev').disabled = tab <= f0; $('cNext').textContent = tab === TABS.length - 1 ? (C.battle ? 'To Battle!' : 'Begin Adventure') : 'Next';
   const opt = (o, on, pick) => { const c = el('button', 'opt' + (on ? ' on' : ''), `<div class="oi">${o.icon || ''}</div><div><b>${o.name}</b>${o.small ? `<small>${o.small}</small>` : ''}</div>${o.tag ? `<span class="tagr">${o.tag}</span>` : ''}`); c.onclick = () => { S.click(); pick(); renderCreator(); rebuildPreview(); }; c.onmouseenter = () => S.hover(); return c; };
   const seg = (list, cur, pick) => { const g = el('div', 'segs'); for (const o of list) g.appendChild(opt(o, o.id === cur, () => pick(o.id))); return g; };
   const R = RACES[C.race];
@@ -113,7 +116,6 @@ function renderCreator() {
   if (tab === 0) {
     intro('Your race shapes how you look and sets your starting attributes. Attributes only grow further through the gear you find and craft.');
     sect('Race');
-    if (C.battle && !C.battle.mp) intro(`Your race was chosen with your town: you lead the ${RACES[C.race].name} town.`);
     if (C.battle && C.battle.mp) intro('Your race is also the race of your town: its walls, buildings and troops.');
     for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
     body.appendChild(el('div', 'lore', `${RACE_INFO[C.race].lore}<br><b style="color:var(--g1)">${RACE_INFO[C.race].perk}</b>`));
@@ -162,7 +164,7 @@ function renderCreator() {
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
-  if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
+  if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); sessionStorage.setItem('kr2_fs', document.fullscreenElement ? '1' : ''); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
   putSave(h);

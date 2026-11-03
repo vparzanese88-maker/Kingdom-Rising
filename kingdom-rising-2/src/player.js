@@ -47,7 +47,7 @@ const VP = {
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
   blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.24, -0.28, -0.55, 0.08, 0.38, 0.06), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
-  staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.2, -0.36, -0.66, -0.8, 0, -0.06), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
+  staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -177,7 +177,7 @@ class ViewModel {
         case 'spell': l = seq(VP.castL, VP.castL, t, 0.25, l || VP.hideL); if (W && W.kind === 'staff') r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); break;
       }
     } else if (st.channel && W && W.kind === 'staff') {
-      const j = Math.sin(performance.now() * 0.03) * 0.006; r = [0.16 + j, -0.3 + j, -0.62, -0.95, 0, -0.08]; l = [-0.16, -0.22, -0.6, -1.4, 0, 0.1];
+      const j = Math.sin(performance.now() * 0.03) * 0.004; r = [0.13 + j, -0.25 + j, -0.42, -1.48, 0.06, -0.1]; l = [-0.15, -0.24, -0.55, -1.4, 0, 0.12];
     } else if (st.block) {
       if (W && W.hands === 'shield') { l = VP.shieldBlock; r = VP.swordLow; }
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
@@ -315,7 +315,7 @@ export class Player {
       return;
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
-    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); this.channel = { t: 0, on: false, tick: 0, snd: 0 }; this.light(); } else this.channel = null; return; }
+    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = { t: 0, on: false, tick: 0, snd: null }; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
     else if (btn === 2 && down && !G.battleFx) this.specialAttack();
   }
@@ -874,19 +874,21 @@ export class Player {
   // arcane: a crackling beam that pierces everything in a line
   tickChannel(dt) {
     const c = this.channel, W = this.W;
-    if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) c.on = false; return; }
+    if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) { c.on = false; if (c.snd) { c.snd.stop(); c.snd = null; } } return; }
     c.t += dt; if (c.t < 0.3) return;
-    const cost = 16 * dt; if (this.mana < cost) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); this.channel = null; return; }
+    const cost = 16 * dt; if (this.mana < cost) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
     this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
-    const el = W.element || 'fire', from = this.handPos(), dir = this.aimDir(from), base = weaponDamage(this.h, this.weapon);
+    const el = W.element || 'fire', base = weaponDamage(this.h, this.weapon);
+    const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.13, -1.25).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main && this.ch.weapons.main.userData.tip ? this.ch.weapons.main.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos());
+    const dir = this.aimDir(from);
+    if (!c.snd) { c.snd = S.spellLoop(el); }
     const range = el === 'arcane' ? 20 : el === 'frost' ? 9 : 8.5;
-    // what it looks like: a stream of particles leaving the staff
-    for (let k = 0; k < (el === 'arcane' ? 6 : 4); k++) {
-      const d = dir.clone(); if (el !== 'arcane') { d.x += (Math.random() - 0.5) * 0.35; d.y += (Math.random() - 0.5) * 0.25; d.z += (Math.random() - 0.5) * 0.35; d.normalize(); }
-      const q = from.clone().addScaledVector(d, Math.random() * range * (el === 'arcane' ? 1 : 0.35));
-      V.emit(el === 'frost' ? 'frost' : el === 'arcane' ? 'arcane' : 'fire', q, { vx: d.x * (el === 'arcane' ? 0 : 14), vy: d.y * 14 + 0.5, vz: d.z * (el === 'arcane' ? 0 : 14), speed: 0.6, size: el === 'arcane' ? 0.22 : 0.5, life: el === 'arcane' ? 0.2 : 0.5 });
-    }
-    if ((c.snd -= dt) <= 0) { c.snd = 0.35; S.cast(el, from, 0.35); V.light(from.clone().addScaledVector(dir, 2), el === 'frost' ? '#9ad8ff' : el === 'arcane' ? '#c080ff' : '#ff8a30', 4, 0.35, 12); }
+    // what it looks like: a dense stream leaving the staff's tip and widening as it goes
+    const f0 = from.clone().addScaledVector(dir, 0.5);
+    if (el === 'fire') { V.burst('ember', f0, 4, { dir, speed: 13, up: 0.2, size: 0.12, size1: 0.9, life: 0.5, a0: 0.75 }); V.burst('fire', f0.clone().addScaledVector(dir, 1.2), 2, { dir, speed: 12, up: 0.25, size: 0.3, size1: 1.1, life: 0.4, a0: 0.55 }); V.burst('ember', f0, 1, { dir, speed: 10, up: 0.5, size: 0.05, size1: 0.02, life: 0.8 }); if (Math.random() < 0.35) V.burst('smoke', from.clone().addScaledVector(dir, range * 0.8), 1, { speed: 1, size: 1.2, size1: 2.2, life: 1, vy: 1.2, a0: 0.4 }); }
+    else if (el === 'frost') { V.burst('frost', f0, 4, { dir, speed: 12, up: 0.2, size: 0.12, size1: 0.9, life: 0.55, a0: 0.6 }); if (Math.random() < 0.5) V.burst('cotton', from, 2, { dir, speed: 10, up: 0.2, size: 0.06, size1: 0.04, life: 0.8 }); }
+    else { for (let k = 0; k < 16; k++) { const q = from.clone().addScaledVector(dir, (k + Math.random()) / 16 * range); V.burst('arcane', q, 1, { speed: 0.4, size: 0.32, size1: 0.05, life: 0.12 }); } V.burst('arcane', from, 3, { speed: 2, size: 0.3, size1: 0.0, life: 0.2 }); }
+    if ((c.lt = (c.lt || 0) - dt) <= 0) { c.lt = 0.12; V.light(from.clone().addScaledVector(dir, el === 'arcane' ? 4 : 3), el === 'frost' ? '#9ad8ff' : el === 'arcane' ? '#c080ff' : '#ff7a20', 2.2, 0.16, 12); }
     // what it does: damage ticks
     if ((c.tick -= dt) > 0) return; c.tick = 0.15;
     const hits = el === 'arcane'

@@ -234,6 +234,24 @@ export const S = {
       noise(t, 0.3, o.node, { type: 'bandpass', f: 1500, q: 2, gain: 0.25 }); tone(t, 0.3, o.node, { type: 'sine', f: 600, f2: 1200, gain: 0.08 });
     }
   },
+  // a looping spell sound for as long as a staff stream is held: fire roars, frost hisses, arcane hums. returns { stop() }
+  spellLoop(el = 'fire') {
+    if (!ctx) return { stop() {} };
+    const o = out(null, sfxBus, 0.25), t = now(), g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.15); g.connect(o.node);
+    const nodes = [];
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; nodes.push(src);
+    const f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(); src.connect(f1); f1.connect(f2); f2.connect(g);
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.connect(lg); nodes.push(lfo);
+    if (el === 'fire') { f1.type = 'lowpass'; f1.frequency.value = 900; f2.type = 'peaking'; f2.frequency.value = 300; f2.gain.value = 8; lfo.frequency.value = 7; lg.gain.value = 350; lg.connect(f1.frequency); g.gain.value = 0.9; }
+    else if (el === 'frost') { f1.type = 'highpass'; f1.frequency.value = 2500; f2.type = 'lowpass'; f2.frequency.value = 7000; lfo.frequency.value = 3; lg.gain.value = 800; lg.connect(f1.frequency); }
+    else { f1.type = 'bandpass'; f1.frequency.value = 1400; f1.Q.value = 2; f2.type = 'lowpass'; f2.frequency.value = 5000; lfo.frequency.value = 18; lg.gain.value = 600; lg.connect(f1.frequency);
+      for (const fr of [220, 223.5, 440]) { const os = ctx.createOscillator(); os.type = 'sine'; os.frequency.value = fr; const og = ctx.createGain(); og.gain.value = fr > 300 ? 0.05 : 0.12; os.connect(og); og.connect(g); os.start(t); nodes.push(os); } }
+    const vol = ctx.createGain(); vol.gain.value = el === 'fire' ? 0.55 : el === 'frost' ? 0.35 : 0.4; g.disconnect(); g.connect(vol); vol.connect(o.node);
+    src.start(t, Math.random()); lfo.start(t);
+    // fire crackles and pops while it burns
+    const iv = el === 'fire' ? setInterval(() => { const tt = now(); for (let i = 0; i < 3; i++) noise(tt + Math.random() * 0.1, 0.02, vol, { type: 'highpass', f: 2500 + Math.random() * 3000, gain: 0.5 }); }, 110) : el === 'arcane' ? setInterval(() => noise(now(), 0.03, vol, { type: 'bandpass', f: 3000 + Math.random() * 3000, q: 4, gain: 0.4 }), 140) : null;
+    return { stop() { if (iv) clearInterval(iv); const tt = now(); g.gain.cancelScheduledValues(tt); g.gain.setValueAtTime(g.gain.value || 1, tt); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.25); for (const n of nodes) try { n.stop(tt + 0.3); } catch (e) {} } };
+  },
   // the crack of a lightning bolt striking something
   zap(pos, k = 1) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.5); const t = now();

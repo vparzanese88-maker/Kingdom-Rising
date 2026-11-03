@@ -16,7 +16,7 @@ import { Player } from './player.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
-import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage } from './menu.js';
+import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, SETUP, LAYOUT, computeLayout } from './battlemap.js';
 import { MP, lobby, send as mpSend } from './mp.js';
@@ -24,6 +24,7 @@ import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
 import { CLASS_KIT, ECON, BATTLE_ABILITIES } from './battledata.js';
+import * as BQ from './battlequests.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
 const canvas = document.getElementById('game');
@@ -58,7 +59,7 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   applyGraphics();
-  if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); if (!MP.client) { spawnBattleCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) { m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2)); } G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
+  if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -146,6 +147,55 @@ function quitToTitle() {
 }
 
 // ---------- Kingdom Battles ----------
+// camp dressing: goblins keep powder kegs by their fire, bandits pile scrap metal from the wagons they rob
+const campFires = [];
+function decorCamps() {
+  const wood = new THREE.MeshStandardMaterial({ color: '#5a3a20', roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: '#3a2a1a', roughness: 0.9 });
+  const keg = new THREE.MeshStandardMaterial({ color: '#6a4424', roughness: 0.8 }), band = new THREE.MeshStandardMaterial({ color: '#2a2a2e', roughness: 0.5, metalness: 0.7 });
+  const flame = new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.9 }), flame2 = new THREE.MeshBasicMaterial({ color: '#fff0a0' });
+  const rock = new THREE.MeshStandardMaterial({ color: '#6a6a66', roughness: 0.95 }), rust = new THREE.MeshStandardMaterial({ color: '#7a4a2a', roughness: 0.6, metalness: 0.6 }), iron = new THREE.MeshStandardMaterial({ color: '#7a7e84', roughness: 0.45, metalness: 0.8 });
+  const hide = new THREE.MeshStandardMaterial({ color: '#8a6a44', roughness: 0.95, side: THREE.DoubleSide }), cloth = new THREE.MeshStandardMaterial({ color: '#5a2a24', roughness: 0.95, side: THREE.DoubleSide });
+  const add = (g, geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; g.add(o); return o; };
+  for (const c of LAYOUT.camps) {
+    if (c.decor) continue;
+    const near = G.mobs.filter(m => m.team == null && Math.hypot(m.home.x - c.x, m.home.z - c.z) < 14).map(m => m.type);
+    const gob = near.some(t => t.startsWith('goblin')), ban = near.some(t => t.startsWith('bandit'));
+    if (!gob && !ban) continue; c.decor = gob ? 'goblin' : 'bandit';
+    const g = new THREE.Group(); g.position.set(c.x, heightAt(c.x, c.z), c.z); scene.add(g);
+    // campfire: a ring of stones, crossed logs, flames and a flickering light
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28; add(g, new THREE.DodecahedronGeometry(0.28, 0), rock, Math.cos(a) * 0.95, 0.12, Math.sin(a) * 0.95, i, i * 2, 0); }
+    for (let i = 0; i < 4; i++) add(g, new THREE.CylinderGeometry(0.1, 0.12, 1.4, 6), dark, 0, 0.22, 0, Math.PI / 2 - 0.3, i * Math.PI / 4, 0);
+    const f1 = add(g, new THREE.ConeGeometry(0.45, 1.2, 7), flame, 0, 0.75, 0), f2 = add(g, new THREE.ConeGeometry(0.22, 0.7, 6), flame2, 0, 0.6, 0);
+    const L = new THREE.PointLight('#ff9a40', 3, 18, 1.6); L.position.set(0, 1.4, 0); g.add(L); campFires.push({ f1, f2, L, ph: Math.random() * 10 });
+    // logs to sit on
+    for (const a of [0.6, 2.4, 4.3]) add(g, new THREE.CylinderGeometry(0.22, 0.22, 1.8, 7), wood, Math.cos(a) * 2.4, 0.22, Math.sin(a) * 2.4, Math.PI / 2, a, 0);
+    if (gob) {
+      // powder kegs stacked by the fire (a little too close, as goblins do) and crude hide tents
+      const kp = [[3.2, 1.4], [3.7, 0.6], [3.4, 2.2], [3.55, 1.4, 1]];
+      for (const [x, z, up] of kp) { const k = add(g, new THREE.CylinderGeometry(0.34, 0.34, 0.7, 10), keg, x, up ? 1.05 : 0.35, z); for (const yy of [-0.22, 0.22]) add(k, new THREE.CylinderGeometry(0.36, 0.36, 0.06, 10), band, 0, yy, 0); add(k, new THREE.CylinderGeometry(0.2, 0.2, 0.02, 8), new THREE.MeshStandardMaterial({ color: '#1a1a1a' }), 0, 0.36, 0); }
+      add(g, new THREE.BoxGeometry(0.5, 0.5, 0.5), keg, 2.7, 0.25, 2.9, 0, 0.5, 0);
+      for (const [x, z, r] of [[-3.6, -2, 0.4], [-1.5, -4.2, 1.3]]) { const tent = add(g, new THREE.ConeGeometry(1.7, 2.4, 5, 1, true), hide, x, 1.2, z, 0, r, 0); add(tent, new THREE.CylinderGeometry(0.05, 0.05, 3, 4), dark, 0, 0.3, 0); }
+      // a sign of a skull on a pole
+      add(g, new THREE.CylinderGeometry(0.06, 0.07, 2.6, 5), dark, -2.6, 1.3, 2.6); add(g, new THREE.SphereGeometry(0.22, 7, 5), new THREE.MeshStandardMaterial({ color: '#e8dfc4' }), -2.6, 2.7, 2.6);
+    } else {
+      // bandits: piles of scrap metal from robbed wagons, a broken cart wheel, a lean-to of stolen cloth
+      for (let i = 0; i < 14; i++) { const x = 3.1 + Math.sin(i * 7.1) * 0.9, z = -1.2 + Math.cos(i * 3.3) * 0.9; const k = i % 3; add(g, k === 0 ? new THREE.BoxGeometry(0.6, 0.08, 0.35) : k === 1 ? new THREE.CylinderGeometry(0.05, 0.05, 0.9, 5) : new THREE.TorusGeometry(0.25, 0.05, 5, 10), i % 2 ? rust : iron, x, 0.1 + (i % 4) * 0.12, z, i * 0.7, i * 1.3, i * 0.4); }
+      const wh = add(g, new THREE.TorusGeometry(0.6, 0.07, 6, 14), wood, 2.2, 0.62, -3, 0, 0.6, 0.2); for (let k = 0; k < 4; k++) add(wh, new THREE.BoxGeometry(1.1, 0.05, 0.05), wood, 0, 0, 0, 0, 0, k * Math.PI / 4);
+      for (const [x, z] of [[-3, -2.5], [-1.2, -4]]) { add(g, new THREE.CylinderGeometry(0.06, 0.07, 2.2, 5), dark, x, 1.1, z); }
+      const lean = add(g, new THREE.PlaneGeometry(2.4, 2.2), cloth, -2.1, 1.3, -3.6, -0.7, 0.55, 0);
+      add(g, new THREE.BoxGeometry(0.9, 0.6, 0.6), wood, -2.6, 0.3, 1.8, 0, 0.3, 0); add(g, new THREE.BoxGeometry(0.7, 0.5, 0.6), wood, -2.2, 0.85, 1.9, 0, -0.2, 0);
+    }
+  }
+}
+function tickCampFires() { const t = performance.now() * 0.001; for (const c of campFires) { const k = 0.85 + Math.sin(t * 9 + c.ph) * 0.1 + Math.sin(t * 23 + c.ph) * 0.06; c.f1.scale.set(1, k, 1); c.f2.scale.set(1, 2 - k, 1); c.L.intensity = 2.4 + k * 1.2; } }
+// Kingdom Battles monsters: levels shown halved (top level 10), and tuned so a fight against your own level
+// takes a few swings and real damage, three levels up is a hard fight, and five up will usually kill you
+function battleMob(m) {
+  m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2));
+  m.maxHp = Math.round(m.maxHp * 4); m.hp = m.maxHp;
+  m.dmg *= 2.1 - 0.08 * (m.lv - 1);
+  m.xp = Math.round(m.xp * 2.5);
+}
 function spawnBattleCamps() {
   const TIERS = [
     [['wolf', 2, 4, 5], ['goblin', 3, 5, 5], ['boar', 2, 4, 4], ['spider', 3, 5, 4], ['rat', 1, 3, 5]],
@@ -154,10 +204,11 @@ function spawnBattleCamps() {
   ];
   // bosses get tougher the further they are from the towns
   const BOSSES = [['bandit_boss', 8, ['bandit', 7, 4]], ['golem', 12, ['imp', 11, 3]], ['troll_king', 16, ['troll', 13, 3]]];
-  let bossN = 0;
+  let bossN = 0; const campN = {};
   for (const c of LAYOUT.camps) {
     if (c.tier === 3) { const bt = (bossN++) % 3; const [boss, lv, [add, al, an]] = BOSSES[bt]; const m = new Mob(boss, lv + Math.floor(Math.random() * 2), c.x, c.z); m.bossy = true; m.maxHp = Math.round(m.maxHp * 1.6); m.hp = m.maxHp; G.mobs.push(m); for (let i = 0; i < an; i++) { const a = i / an * 6.28; G.mobs.push(new Mob(add, al, c.x + Math.cos(a) * 7, c.z + Math.sin(a) * 7)); } continue; }
-    const opts = TIERS[c.tier], [type, l0, l1, n] = opts[Math.floor(Math.random() * opts.length)];
+    // every kind of camp turns up (goblin and bandit camps are needed for the town jobs)
+    const opts = TIERS[c.tier], [type, l0, l1, n] = opts[(campN[c.tier] = (campN[c.tier] ?? Math.floor(Math.random() * opts.length)) + 1) % opts.length];
     for (let i = 0; i < n; i++) { const a = i / n * 6.28 + Math.random() * 0.5, r = 3 + Math.random() * 4, m = new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), c.x + Math.cos(a) * r, c.z + Math.sin(a) * r); G.mobs.push(m); }
     if (type === 'goblin') G.mobs.push(new Mob('goblin_slinger', l0 + 1, c.x, c.z + 3));
   }
@@ -168,7 +219,21 @@ function spawnBattleNpcs() {
   const race = t.race === 'woodelf' || t.race === 'highelf' ? t.race : t.race;
   NPCS.b_foreman = { name: fn, title: 'Peasants & tools', race, sex: 'm', outfit: 'worker', x: t.foremanSpot[0], z: t.foremanSpot[1], hello: '', battleRole: 'foreman' };
   NPCS.b_builder = { name: bn, title: 'Town & tower upgrades', race, sex: 'm', outfit: 'smith', x: t.builderSpot[0], z: t.builderSpot[1], hello: '', battleRole: 'builder' };
-  for (const id of ['b_foreman', 'b_builder']) { const n = new NPC(id); n.baseYaw = t.yaw; G.npcs.push(n); }
+  // the two job givers: kill and loot jobs that make the town stronger
+  const at = (along, lat) => [t.x + t.dir[0] * along + t.perp[0] * lat, t.z + t.dir[1] * along + t.perp[1] * lat];
+  const QN = { human: ['Huntmaster Oswin', 'Quartermaster Bess'], orc: ['Huntmaster Rakh', 'Quartermaster Zug'], highelf: ['Huntmaster Aelir', 'Quartermaster Ithrae'], woodelf: ['Huntmaster Sylwen', 'Quartermaster Bramblewick'], dwarf: ['Huntmaster Grimma', 'Quartermaster Thorek'] }[t.race] || ['Huntmaster', 'Quartermaster'];
+  const hs = at(27, 6), qs = at(27, -6);
+  NPCS.b_hunt = { name: QN[0], title: 'Hunting jobs  !', race, sex: 'f', outfit: 'worker', x: hs[0], z: hs[1], hello: '', battleRole: 'hunt' };
+  NPCS.b_quarter = { name: QN[1], title: 'Supply jobs  !', race, sex: 'm', outfit: 'smith', x: qs[0], z: qs[1], hello: '', battleRole: 'quarter' };
+  // the town runs itself, so only the job givers stand in the square
+  for (const id of ['b_hunt', 'b_quarter']) { const n = new NPC(id); n.baseYaw = t.yaw; G.npcs.push(n); }
+  BQ.initQuests({
+    say: (giver, text, kind) => BUI.report(giver === 'hunt' ? 'huntmaster' : 'quartermaster', text, kind),
+    toast: (t2) => UI.toast(t2, '✦', 'gold'),
+    banner: (a, b) => UI.banner(a, b, 3500),
+    changed: () => BUI.questTrack(),
+    reward: (j) => { Battle.questReward(Battle.myTown(), j.id); },
+  });
 }
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
@@ -185,6 +250,8 @@ function startBattle() {
   G.abilScale = (lv) => 1 + (lv - 1) * 0.075;
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
+  spawnBattleNpcs(); BUI.questTrack();
+  setTimeout(() => { if (document.getElementById('bgoal')) return; const d = document.createElement('div'); d.id = 'bgoal'; d.innerHTML = `<div class="bsgoal">${BATTLE_GOAL}<div class="brow"><button class="btn gold big" id="bgoalGo">To battle!</button></div></div>`; document.body.appendChild(d); G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock(); const go = () => { d.remove(); G.uiOpen = false; lockPointer(); }; d.querySelector('#bgoalGo').onclick = go; setTimeout(() => { if (d.isConnected) go(); }, 25000); }, 600);
   if (MP.client) mpSend({ t: 'booted' });
   UI.banner('Kingdom Battles', `${t.name} awaits your command`, 4500);
   setTimeout(() => BUI.report('steward', `welcome home. I will run ${t.name} for you: hire the workers, gather wood and stone and raise the walls. You lead the fight. Hunt the beasts of the wilds, grow strong, and break the enemy halls.`, 'big'), 2500);
@@ -199,6 +266,7 @@ function battleHooks() {
     if (src && src.remote) { if (MP.host) mpSend({ t: 'kill', to: src.netId, i: mob.netIdx }); return; }
     const p = G.player; if (!p || p.dead || mob.pos.distanceTo(p.pos) > 45) return;
     Game.onKill(G.save, mob);
+    BQ.questKill(mob);
     if (!mob.loot) return;
     // only weapons and armour drop (no materials, no cloaks); bosses always drop a few good pieces
     const gearOnly = () => { for (let k = 0; k < 6; k++) { const g = Game.randomGear(G.save, mob.lv, mob.bossy ? 3 : mob.def.elite ? 2 : 1); if (g.kind !== 'acc') return g; } return null; };
@@ -385,7 +453,9 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (BATTLE && (e.code === 'KeyK' || e.code === 'KeyN')) { BUI.openBook(); return; }
-      if (BATTLE && (e.code === 'KeyP' || e.code === 'KeyJ')) { UI.toast(e.code === 'KeyN' ? 'No talents in Kingdom Battles: your abilities grow stronger as you level' : e.code === 'KeyP' ? 'No crafting in Kingdom Battles' : 'No quests in Kingdom Battles', '·'); return; }
+      if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
+      if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
+      if (BATTLE && e.code === 'KeyP') { UI.toast('No crafting in Kingdom Battles', '·'); return; }
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
@@ -567,7 +637,7 @@ function gameUpdate(dt) {
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
   if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   updateMobs(dt, p);
-  if (BATTLE) { Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
+  if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);
   for (let i = G.timers.length - 1; i >= 0; i--) if (G.timers[i].update(dt)) G.timers.splice(i, 1);
   const focus = p.pos;

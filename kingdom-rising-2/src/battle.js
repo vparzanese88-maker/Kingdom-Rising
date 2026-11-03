@@ -14,6 +14,7 @@ import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, u
 import { angDiff, rand, clamp, distToLine } from './util.js';
 import { fog, updateFog, isVisible, addPing } from './fog.js';
 import { MP, send } from './mp.js';
+import { job as QJOB } from './battlequests.js';
 import { proxyUnitStep, fxQueue, mobList } from './mpsync.js';
 
 export const B = { on: false, towns: [], units: [], structs: [], shots: [], time: 0, over: false, result: null, me: 0, msgs: [] };
@@ -111,27 +112,234 @@ function wallColliders(t) {
 }
 
 // ---------- buildings inside the walls ----------
+const UPV = new THREE.Vector3(0, 1, 0), PRISMS = new Map();
+const sub = (g, x = 0, y = 0, z = 0, ry = 0) => { const o = new THREE.Group(); o.position.set(x, y, z); o.rotation.y = ry; g.add(o); return o; };
+const GLOW = () => mat('#ffd68a', 0.5, 0, { emissive: '#ff9a30', emissiveIntensity: 1.5 });
+const EMBER = () => mat('#ff7a20', 0.6, 0, { emissive: '#ff5000', emissiveIntensity: 2.4 });
+const ELFGLOW = () => mat('#e0f4ff', 0.4, 0, { emissive: '#8ad0ff', emissiveIntensity: 1.4 });
+const FAEGLOW = () => mat('#eaffb0', 0.4, 0, { emissive: '#c8ff60', emissiveIntensity: 1.8 });
+const RUNE = () => mat('#ffd070', 0.4, 0, { emissive: '#ffa020', emissiveIntensity: 2.0 });
+const IRON = () => mat('#3a3a3e', 0.5, 0.8), BONE = () => mat('#e8dfc4', 0.8);
+const LEAF = ['#3e7a2e', '#4e8a34', '#2f6a2a'];
+const shade = (c, k) => '#' + new THREE.Color(c).multiplyScalar(k).getHexString();
+// triangular prism: base w wide on y=0, apex h high, d deep along z (a gable end / pediment)
+function prismGeo(w, h, d) {
+  const key = `${w.toFixed(2)},${h.toFixed(2)},${d.toFixed(2)}`; if (PRISMS.has(key)) return PRISMS.get(key);
+  const A = [-w / 2, 0], Bq = [w / 2, 0], C = [0, h], v = [], T = (...p) => { for (const q of p) v.push(...q); }, f = (p, zz) => [p[0], p[1], zz];
+  T(f(A, d / 2), f(Bq, d / 2), f(C, d / 2)); T(f(Bq, -d / 2), f(A, -d / 2), f(C, -d / 2));
+  for (const [p, q] of [[A, Bq], [Bq, C], [C, A]]) { T(f(p, d / 2), f(p, -d / 2), f(q, -d / 2)); T(f(p, d / 2), f(q, -d / 2), f(q, d / 2)); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.computeVertexNormals(); PRISMS.set(key, geo); return geo;
+}
+// a beam, pole or horn from one point to another
+function strut(g, x1, y1, z1, x2, y2, z2, r, m, kind = 'box') {
+  const d = V3(x2 - x1, y2 - y1, z2 - z1), L = d.length();
+  const geo = kind === 'cyl' ? new THREE.CylinderGeometry(r, r, L, 5) : kind === 'cone' ? new THREE.ConeGeometry(r, L, 6) : new THREE.BoxGeometry(r, L, r);
+  const o = add(g, geo, m, (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2); o.quaternion.setFromUnitVectors(UPV, d.normalize()); return o;
+}
+// gabled roof: span w across x, ridge along z (length d), rise h; slabs overhang by o, optional tile courses
+function gable(g, w, d, h, mRoof, mEnd, x, y, z, ry = 0, o = 0.5, mRidge = mRoof, rows = 0, mRow = null) {
+  const r = sub(g, x, y, z, ry), L = Math.hypot(w / 2, h), ang = Math.atan2(h, w / 2), th = 0.18;
+  if (mEnd) add(r, prismGeo(w, h, d), mEnd, 0, 0, 0);
+  for (const sd of [-1, 1]) {
+    const sl = sub(r, sd * w / 4 + sd * Math.cos(ang) * o / 2 + sd * Math.sin(ang) * th / 2, h / 2 - Math.sin(ang) * o / 2 + Math.cos(ang) * th / 2, 0); sl.rotation.z = -sd * ang;
+    box(sl, L + o + 0.12, th, d + o * 2, mRoof, -sd * 0.06, 0, 0);
+    for (let i = 1; i <= rows; i++) box(sl, 0.1, 0.07, d + o * 2, mRow || mRoof, sd * (-(L + o) / 2 + i * (L + o) / (rows + 1)), th / 2 + 0.03, 0);
+  }
+  if (mRidge) box(r, 0.32, 0.3, d + o * 2 + 0.12, mRidge, 0, h + 0.1, 0);
+  return r;
+}
+// a window facing +z: frame, lit glass, cross bars, sill, optional shutters and an arched top
+function win(f, x, y, z, ww, wh, mFrame, mGlass, mShut, arch = false, cross = true) {
+  box(f, ww + 0.16, wh + 0.16, 0.08, mFrame, x, y, z); box(f, ww, wh, 0.1, mGlass, x, y, z + 0.01);
+  if (arch) { add(f, new THREE.CylinderGeometry(ww / 2 + 0.08, ww / 2 + 0.08, 0.08, 8, 1, false, Math.PI / 2, Math.PI), mFrame, x, y + wh / 2, z, Math.PI / 2); add(f, new THREE.CylinderGeometry(ww / 2, ww / 2, 0.1, 8, 1, false, Math.PI / 2, Math.PI), mGlass, x, y + wh / 2, z + 0.01, Math.PI / 2); }
+  if (cross) { box(f, 0.05, wh, 0.13, mFrame, x, y, z + 0.02); box(f, ww, 0.05, 0.13, mFrame, x, y + wh * 0.1, z + 0.02); }
+  box(f, ww + 0.28, 0.08, 0.2, mFrame, x, y - wh / 2 - 0.1, z + 0.06);
+  if (mShut) for (const sd of [-1, 1]) box(f, ww * 0.5, wh + 0.06, 0.05, mShut, x + sd * (ww * 0.75 + 0.1), y, z + 0.03);
+}
+function barrel(g, x, z, s = 1, y = 0) { cyl(g, 0.33 * s, 0.28 * s, 0.85 * s, mat('#7a5232'), x, y + 0.425 * s, z, 8); for (const yy of [0.18, 0.67]) cyl(g, 0.345 * s, 0.33 * s, 0.07 * s, IRON(), x, y + yy * s, z, 8); }
+function crate(g, x, z, s = 1, y = 0, ry = 0) { box(g, s, s, s, mat('#9a7448'), x, y + s / 2, z, ry); box(g, s * 1.03, s * 0.14, s * 1.03, mat('#6a4a2a'), x, y + s / 2, z, ry); }
+function smokeAt(p) { const L = world.smokes = world.smokes || []; if (!L.some(q => Math.abs(q.x - p.x) < 2 && Math.abs(q.z - p.z) < 2)) L.push(p); }
+function lantern(g, x, y, z, m = GLOW()) { box(g, 0.32, 0.42, 0.32, IRON(), x, y, z); box(g, 0.24, 0.3, 0.36, m, x, y, z); box(g, 0.36, 0.3, 0.24, m, x, y, z); cone(g, 0.26, 0.22, IRON(), x, y + 0.32, z, 4, Math.PI / 4); }
+function totem(g, x, z, hh, st) {
+  const s = sub(g, x, 0, z), cols = [st.wood, st.trim, '#3a2616', '#c8b898']; let y = 0; const n = Math.max(3, Math.round(hh / 1.1));
+  for (let i = 0; i < n; i++) { const sz = 0.75 - i * 0.04; box(s, sz, 1.0, sz, mat(cols[i % 4], 0.9), 0, y + 0.5, 0, i * 0.3); box(s, 0.5, 0.14, 0.1, mat('#1a1008'), 0, y + 0.62, sz / 2 + 0.02); for (const sd of [-1, 1]) box(s, 0.12, 0.12, 0.1, EMBER(), sd * 0.16, y + 0.72, sz / 2 + 0.03); y += 1.0; }
+  for (const sd of [-1, 1]) strut(s, sd * 0.25, y - 0.2, 0, sd * 0.95, y + 0.9, 0.2, 0.14, BONE(), 'cone');
+  return s;
+}
+// wall details for one face of a building, drawn in local x/y at z = 0 facing +z
+function face(f, race, w, H, kind, st, o = {}) {
+  let n = Math.max(2, Math.round(w / 1.35)); if (kind === 'door' && n % 2 === 0) n++;
+  const dI = kind === 'door' ? (n - 1) / 2 : -1, back = kind === 'back';
+  const dwB = kind === 'door' ? Math.max(w / n, (o.dw || 0) + 0.6) : 0, sbw = kind === 'door' ? (w - dwB) / (n - 1) : w / n;
+  const bays = []; { let x = -w / 2; for (let i = 0; i < n; i++) { const bw = i === dI ? dwB : sbw; bays.push([x, x + bw, x + bw / 2, bw]); x += bw; } }
+  const mDark = mat(st.dark), ww = Math.min(0.85, sbw * 0.55), wh = Math.min(1.3, H * 0.36), wy = H * 0.58;
+  const dh = o.dh || Math.min(2.1, H * 0.78), dw = i => o.dw || bays[i][3] * 0.74;
+  if (race === 'human' || race === 'hstone') {
+    const mSh = mat('#3e5a44', 0.9), mDoor = mat('#5a3a22'), stone = race === 'hstone';
+    if (!stone) { for (const yy of [0.1, H - 0.1]) box(f, w + 0.14, 0.2, 0.12, mDark, 0, yy, 0.05); for (let i = 0; i <= n; i++) box(f, 0.2, H, 0.12, mDark, i < n ? bays[i][0] : bays[n - 1][1], H / 2, 0.05); }
+    else { const q = mat(shade(st.stone, 1.18), 0.95); for (const sd of [-1, 1]) for (let k = 0; k < Math.floor(H / 0.55); k++) box(f, k % 2 ? 0.5 : 0.8, 0.42, 0.14, q, sd * (w / 2 - (k % 2 ? 0.25 : 0.4)), 0.28 + k * 0.55, 0.04); box(f, w + 0.1, 0.22, 0.2, q, 0, H - 0.11, 0.06); }
+    for (let i = 0; i < n; i++) {
+      const [x0, x1, xc, bw] = bays[i];
+      if (i === dI) { const W2 = dw(i); box(f, W2, dh, 0.14, mDoor, xc, dh / 2, 0.06); for (const k of [0.25, 0.7]) box(f, W2 + 0.04, 0.08, 0.18, IRON(), xc, dh * k, 0.08); box(f, W2 + 0.3, 0.24, 0.2, stone ? mat(shade(st.stone, 1.18)) : mDark, xc, dh + 0.1, 0.07); if (W2 > 1.4) box(f, 0.06, dh, 0.18, mDark, xc, dh / 2, 0.08); else box(f, 0.08, 0.08, 0.1, mat(st.trim, 0.4, 0.8), xc + W2 * 0.3, dh * 0.5, 0.15); }
+      else if (!stone && (i === 0 || i === n - 1) && n > 2) { const a = i === 0 ? x0 + 0.1 : x1 - 0.1, b = i === 0 ? x1 : x0; strut(f, a, 0.15, 0.05, b, H - 0.15, 0.05, 0.16, mDark); }
+      else { if (!stone) box(f, bw, 0.16, 0.12, mDark, xc, H * 0.32, 0.05); if (!back) win(f, xc, wy, 0.06, ww, wh, mDark, GLOW(), stone ? null : mSh, stone); else if (!stone) strut(f, x0, H * 0.32, 0.05, x1, H - 0.15, 0.05, 0.14, mDark); }
+    }
+  } else if (race === 'orc') {
+    const mLog = mat(st.dark), k = Math.max(3, Math.round(w / 0.62)), dc = dI >= 0 ? bays[dI][2] : 0, DW = dI >= 0 ? dw(dI) : 0;
+    for (let i = 0; i <= k; i++) { const x = -w / 2 + i * w / k; if (dI >= 0 && Math.abs(x - dc) < DW / 2 + 0.15) continue; cyl(f, 0.17, 0.2, H + 0.4, mLog, x, (H + 0.4) / 2 - 0.1, 0.12, 5); }
+    box(f, w + 0.2, 0.12, 0.08, mat('#2a1a10'), 0, H * 0.72, 0.3); box(f, w + 0.2, 0.3, 0.08, mat(st.trim, 0.85), 0, H * 0.45, 0.28);
+    if (dI >= 0) { const tk = Math.max(1, DW / 1.1); box(f, DW, dh, 0.14, mat('#1e120a'), dc, dh / 2, 0.12); box(f, DW * 0.8, dh * 0.6, 0.06, mat(st.roof, 0.95), dc, dh * 0.66, 0.22);
+      for (const sd of [-1, 1]) strut(f, dc + sd * (DW / 2 + 0.3), 0.05, 0.45, dc + sd * (DW / 2 - 0.1 * tk), dh + 0.9 * tk, 0.9 * tk, 0.2 * tk, BONE(), 'cone');
+      ball(f, 0.3 * tk, BONE(), dc, dh + 0.35 * tk, 0.35, 0); for (const sd of [-1, 1]) box(f, 0.1 * tk, 0.1 * tk, 0.1, mat('#1a1008'), dc + sd * 0.11 * tk, dh + 0.4 * tk, 0.35 + 0.27 * tk); }
+    else if (!back) for (let i = 0; i < n; i += 2) { const xc = bays[i][2]; box(f, 0.6, 0.5, 0.1, mat('#1e120a'), xc, wy, 0.3); box(f, 0.44, 0.34, 0.1, EMBER(), xc, wy, 0.32); }
+  } else if (race === 'highelf') {
+    const mTrim = mat(st.trim, 0.4, 0.75), mPil = mat(st.stone, 0.75);
+    box(f, w + 0.1, 0.16, 0.1, mTrim, 0, H - 0.28, 0.06); box(f, w + 0.1, 0.12, 0.1, mTrim, 0, 0.12, 0.06);
+    for (let i = 0; i <= n; i++) { const x = i < n ? bays[i][0] : bays[n - 1][1]; box(f, 0.3, H - 0.4, 0.14, mPil, x, H / 2 - 0.15, 0.06); box(f, 0.42, 0.16, 0.2, mTrim, x, H - 0.45, 0.07); }
+    for (let i = 0; i < n; i++) { const xc = bays[i][2];
+      if (i === dI) { const W2 = dw(i); box(f, W2, dh, 0.14, mat('#3a5a8a', 0.6), xc, dh / 2, 0.06); add(f, new THREE.CylinderGeometry(W2 / 2, W2 / 2, 0.14, 10, 1, false, Math.PI / 2, Math.PI), mat('#3a5a8a', 0.6), xc, dh, 0.06, Math.PI / 2); add(f, new THREE.CylinderGeometry(W2 / 2 + 0.14, W2 / 2 + 0.14, 0.1, 10, 1, false, Math.PI / 2, Math.PI), mTrim, xc, dh, 0.03, Math.PI / 2); }
+      else if (!back) win(f, xc, wy - 0.1, 0.06, ww * 0.85, wh * 1.1, mTrim, ELFGLOW(), null, true, false); }
+  } else if (race === 'woodelf') {
+    const mLive = mat(st.wood), mDk = mat(st.dark);
+    for (const sd of [-1, 1]) cyl(f, 0.2, 0.28, H + 0.3, mLive, sd * w / 2, (H + 0.3) / 2, 0.05, 6); box(f, w, 0.18, 0.14, mDk, 0, H - 0.1, 0.06);
+    for (let i = 0; i < Math.ceil(w / 1.4); i++) ball(f, 0.38, mat(LEAF[i % 3], 0.9), -w / 2 + 0.5 + i * 1.4, H - 0.05, 0.16, 0);
+    for (let i = 0; i < n; i++) { const xc = bays[i][2];
+      if (i === dI) { const W2 = dw(i); box(f, W2, dh - W2 / 2, 0.14, mDk, xc, (dh - W2 / 2) / 2, 0.06); add(f, new THREE.CylinderGeometry(W2 / 2, W2 / 2, 0.14, 10, 1, false, Math.PI / 2, Math.PI), mDk, xc, dh - W2 / 2, 0.06, Math.PI / 2); lantern(f, xc + W2 / 2 + 0.35, dh * 0.8, 0.3, FAEGLOW()); }
+      else if (!back) { add(f, new THREE.CylinderGeometry(ww * 0.6, ww * 0.6, 0.1, 10), mDk, xc, wy, 0.04, Math.PI / 2); add(f, new THREE.CylinderGeometry(ww * 0.45, ww * 0.45, 0.12, 10), FAEGLOW(), xc, wy, 0.06, Math.PI / 2); } }
+  } else {
+    const mBut = mat(shade(st.stone, 0.82), 0.95), mIron = IRON();
+    for (const sd of [-1, 1]) { box(f, 0.75, H + 0.25, 0.55, mBut, sd * (w / 2 - 0.1), (H + 0.25) / 2, 0.2); box(f, 0.9, 0.3, 0.7, mBut, sd * (w / 2 - 0.1), 0.15, 0.25); }
+    box(f, w - 1.4, 0.16, 0.08, mIron, 0, H * 0.84, 0.05);
+    for (let i = 0; i < n; i++) { const xc = bays[i][2];
+      if (i === dI) { const W2 = Math.max(1.1, dw(i)); box(f, W2 + 0.7, dh + 0.45, 0.3, mBut, xc, (dh + 0.45) / 2, 0.12); box(f, W2, dh, 0.12, mat(st.wood), xc, dh / 2, 0.3); for (const k of [0.28, 0.72]) box(f, W2 + 0.04, 0.12, 0.06, mIron, xc, dh * k, 0.38); box(f, 0.06, dh, 0.06, mIron, xc, dh / 2, 0.38); box(f, W2 + 0.2, 0.22, 0.06, RUNE(), xc, dh + 0.24, 0.3); }
+      else if (!back && i % 2 === (dI >= 0 ? dI % 2 ^ 1 : 1)) { box(f, 0.66, wh + 0.3, 0.22, mBut, xc, wy, 0.08); box(f, 0.34, wh, 0.24, mat('#ffb060', 0.5, 0, { emissive: '#ff7a20', emissiveIntensity: 1.6 }), xc, wy, 0.09); box(f, 0.05, wh, 0.3, mIron, xc, wy, 0.1); }
+    }
+  }
+}
+// a rectangular building in a race's style: plinth, n storeys of walls with windows (door on +z) and a gabled roof
+function block(g, race, W, D, F, n = 1, o = {}) {
+  const st = STYLE[race] || STYLE.human, P = o.plinth ?? 0.5, mStone = mat(st.stone, 0.95), mDark = mat(st.dark);
+  box(g, W + 0.4, P, D + 0.4, race === 'dwarf' ? mat(shade(st.stone, 0.82), 0.95) : race === 'orc' ? mat('#5a5048', 0.95) : mStone, 0, P / 2, 0);
+  let y0 = P, w = W, d = D;
+  for (let k = 0; k < n; k++) {
+    if (k > 0) { if (race === 'human') { w += 0.35; d += 0.35; } else if (race === 'dwarf') { w -= 0.8; d -= 0.6; } }
+    const sb = race === 'human' && k === 0 && o.stoneBase, fr = sb ? 'hstone' : race;
+    const wm = race === 'human' ? (sb ? mStone : mat(st.wall2, 0.95)) : race === 'highelf' ? mat(st.wall2, 0.7) : race === 'woodelf' ? mat(st.wall2, 0.9) : race === 'orc' ? mat(st.wood) : mStone;
+    box(g, w, F, d, wm, 0, y0 + F / 2, 0);
+    if (race === 'human' && k > 0) box(g, w + 0.1, 0.22, d + 0.1, mDark, 0, y0 + 0.05, 0);
+    const fo = { dw: o.dw, dh: o.dh };
+    const fronts = [[0, d / 2, 0, w, k === 0 && o.door !== false ? 'door' : 'win'], [w / 2, 0, Math.PI / 2, d, 'win'], [0, -d / 2, Math.PI, w, 'back'], [-w / 2, 0, -Math.PI / 2, d, 'win']];
+    for (const [fx, fz, fry, fw, kind] of fronts) face(sub(g, fx, y0, fz, fry), fr, fw, F, kind, st, fo);
+    if (race === 'highelf' && k < n - 1) box(g, w + 0.3, 0.2, d + 0.3, mat(st.trim, 0.4, 0.75), 0, y0 + F, 0);
+    y0 += F;
+  }
+  const rz = !!o.ridgeZ, span = rz ? w : d, len = rz ? d : w;
+  const rise = o.rise ?? (race === 'dwarf' ? 1.1 + span * 0.08 : race === 'highelf' ? span * 0.72 : race === 'orc' ? span * 0.62 : span * 0.55);
+  const roofC = o.roofC || st.roof, mRoof = mat(roofC, race === 'dwarf' ? 0.7 : race === 'highelf' ? 0.55 : 0.9, race === 'dwarf' ? 0.25 : 0);
+  const endM = race === 'human' ? mat(st.wall2, 0.95) : race === 'orc' ? mat(st.wood) : race === 'highelf' ? mat(st.wall2, 0.7) : race === 'woodelf' ? mat(st.wall2, 0.9) : mStone;
+  const ridgeM = o.ridgeM || (race === 'highelf' ? mat(st.trim, 0.4, 0.75) : race === 'dwarf' ? IRON() : race === 'woodelf' ? mat(LEAF[1], 0.9) : mDark);
+  gable(g, span, len, rise, mRoof, endM, 0, y0, 0, rz ? 0 : Math.PI / 2, race === 'dwarf' ? 0.4 : race === 'orc' ? 0.75 : 0.55, ridgeM, race === 'orc' ? 2 : 3, mat(shade(roofC, 0.72), 0.9));
+  for (const sd of [-1, 1]) {
+    const e = sub(g, rz ? 0 : sd * len / 2, y0, rz ? sd * len / 2 : 0, rz ? (sd > 0 ? 0 : Math.PI) : sd * Math.PI / 2);
+    if (race === 'human') { if (span > 6) { add(e, new THREE.CylinderGeometry(rise * 0.2 + 0.12, rise * 0.2 + 0.12, 0.1, 12), mDark, 0, rise * 0.38, 0.04, Math.PI / 2); add(e, new THREE.CylinderGeometry(rise * 0.2, rise * 0.2, 0.14, 12), GLOW(), 0, rise * 0.38, 0.05, Math.PI / 2); strut(e, 0, rise * 0.62, 0.05, 0, rise - 0.1, 0.05, 0.2, mDark); }
+      else strut(e, 0, 0.05, 0.05, 0, rise - 0.1, 0.05, 0.2, mDark);
+      box(e, span * 0.5, 0.18, 0.12, mDark, 0, rise * 0.5, 0.05); for (const s2 of [-1, 1]) strut(e, s2 * span * 0.4, 0.1, 0.05, s2 * span * 0.1, rise * 0.48, 0.05, 0.16, mDark); }
+    else if (race === 'orc') { const tl = span * 0.16; for (const s2 of [-1, 1]) strut(e, s2 * tl * 0.9, rise - tl * 0.7, 0.3, -s2 * tl * 0.5, rise + tl * 1.1, 0.7, 0.12 * tl + 0.08, BONE(), 'cone'); ball(e, 0.12 * tl + 0.2, BONE(), 0, rise - 0.2, 0.45, 0); }
+    else if (race === 'highelf') { cone(e, 0.16, 1.2, mat(st.trim, 0.4, 0.75), 0, rise + 0.7, 0, 6); add(e, new THREE.CylinderGeometry(rise * 0.16, rise * 0.16, 0.12, 10), ELFGLOW(), 0, rise * 0.36, 0.05, Math.PI / 2); }
+    else if (race === 'woodelf') ball(e, 0.55, mat(LEAF[2], 0.9), 0, rise, 0.1, 0);
+    else { add(e, new THREE.CylinderGeometry(Math.min(0.5, rise * 0.3), Math.min(0.5, rise * 0.3), 0.12, 8), mat(st.trim, 0.4, 0.75), 0, rise * 0.4, 0.05, Math.PI / 2); }
+  }
+  return { top: y0, rise, w, d };
+}
 function house(g, race, x, z, rot, s = 1, lvl = 0) {
   const st = STYLE[race] || STYLE.human, y = heightAt(x, z), h = new THREE.Group(); h.position.set(x, y, z); h.rotation.y = rot; h.scale.setScalar(s); g.add(h);
-  if (lvl >= 2 && (race === 'human' || race === 'dwarf')) { h.position.y += 0; const up = new THREE.Group(); up.position.y = 2.6; h.add(up); box(up, 5.2, 2.4, 4.2, mat(race === 'human' ? st.wall2 : st.stone, 0.95), 0, 1.2, 0); for (const xx of [-2.55, 2.55]) box(up, 0.2, 2.4, 4.25, mat(st.dark), xx, 1.2, 0); h.position.y += 0; h.userData.tall = true; }
-  if (race === 'human') { box(h, 5, 3, 4, mat(st.wall2, 0.95), 0, 1.5, 0); for (const xx of [-2.45, 2.45]) box(h, 0.2, 3, 4.05, mat(st.dark), xx, 1.5, 0); const r = cone(h, 4.2, 2.6, mat(Math.random() < 0.5 ? st.roof : st.roof2, 0.9), 0, 4.3, 0, 4, Math.PI / 4); r.scale.set(1.1, 1, 0.85); box(h, 0.6, 1.6, 0.6, mat(st.stone), 1.4, 4.6, 0.8); }
-  else if (race === 'orc') { cyl(h, 2.4, 2.7, 2.2, mat(st.wood), 0, 1.1, 0, 9); cone(h, 3.3, 3.2, mat(Math.random() < 0.5 ? st.roof : '#a8784a', 0.95), 0, 3.8, 0, 9); for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28; cone(h, 0.12, 1.1, mat('#e8dfc4', 0.8), Math.cos(a) * 1.6, 5.2, Math.sin(a) * 1.6, 5); } }
-  else if (race === 'highelf') { cyl(h, 2.0, 2.2, 5.5, mat(st.wall2, 0.8), 0, 2.75, 0, 10); cyl(h, 2.25, 2.25, 0.25, mat(st.trim, 0.5, 0.6), 0, 5.4, 0, 10); cone(h, 2.5, 4.2, mat(Math.random() < 0.5 ? st.roof : st.roof2, 0.6), 0, 7.6, 0, 10); }
-  else if (race === 'woodelf') { cyl(h, 0.8, 1.2, 6, mat(st.wood), 0, 3, 0, 7); ball(h, 3.2, mat('#3e7a2e', 0.9), 0, 6.5, 0, 1); cyl(h, 2.4, 2.4, 2.2, mat('#8a6a40'), 0, 2.4, 0, 9); cone(h, 2.9, 1.8, mat(st.roof, 0.9), 0, 4.4, 0, 9); }
-  else { box(h, 5.5, 2.6, 4.5, mat(st.stone, 0.95), 0, 1.3, 0); const r = cone(h, 4.4, 1.8, mat(st.roof, 0.7, 0.3), 0, 3.5, 0, 4, Math.PI / 4); r.scale.set(1.15, 1, 0.95); box(h, 0.8, 2, 0.8, mat(st.stone), 1.6, 4, 1); }
-  if (h.userData.tall) for (const c of h.children) if (c.position.y >= 3.4) c.position.y += 2.4;
+  const R = Math.random, mStone = mat(st.stone, 0.95), mWood = mat(st.wood), mDark = mat(st.dark), mTrim = mat(st.trim, 0.4, 0.75);
+  let chim = null;
+  if (race === 'human') {
+    const n = lvl >= 2 || (lvl === 1 && R() < 0.5) ? 2 : 1;
+    const b = block(h, 'human', 5, 4, 2.4, n, { roofC: [st.roof, st.roof2, '#6e3326'][Math.floor(R() * 3)], stoneBase: lvl >= 3, rise: 2.3, ridgeM: lvl >= 3 ? mTrim : null });
+    const cx = 1.5, cz = -0.95, ch = b.rise + 1.3; box(h, 0.7, ch, 0.7, mStone, cx, b.top + ch / 2 - 0.2, cz); box(h, 0.86, 0.16, 0.86, mDark, cx, b.top + ch - 0.2, cz); chim = [cx, b.top + ch, cz];
+    if (R() < 0.6) barrel(h, -2.95, 1.7, 0.95); if (R() < 0.5) { crate(h, 2.95, 1.6, 0.65, 0, 0.3); if (R() < 0.5) crate(h, 2.9, 1.6, 0.45, 0.65, 0.9); }
+    if (lvl >= 1 && R() < 0.5) for (let i = 0; i < 5; i++) { cyl(h, 0.05, 0.05, 0.9, mWood, 3.4, 0.45, -1.8 + i * 0.9, 4); if (i < 4) for (const yy of [0.35, 0.75]) box(h, 0.05, 0.08, 0.9, mWood, 3.4, yy, -1.35 + i * 0.9); }
+  } else if (race === 'orc') {
+    const r0 = 2.45, wh = 2.0 + (lvl >= 2 ? 0.5 : 0), mHide = mat(R() < 0.5 ? st.roof : '#a8784a', 0.95);
+    cyl(h, r0 + 0.4, r0 + 0.55, 0.45, mat('#5a5048', 0.95), 0, 0.22, 0, 9);
+    cyl(h, r0, r0 + 0.1, wh, mWood, 0, wh / 2, 0, 9);
+    for (let i = 0; i < 12; i++) { const a = (i + 0.5) / 12 * Math.PI * 2; if (Math.abs(angDiff(a, 0)) < 0.35) continue; cyl(h, 0.16, 0.19, wh + 0.4, mDark, Math.sin(a) * (r0 + 0.06), (wh + 0.4) / 2, Math.cos(a) * (r0 + 0.06), 5); }
+    cone(h, r0 + 0.95, 3.0, mHide, 0, wh + 1.3, 0, 9); cyl(h, r0 + 0.62, r0 + 0.82, 0.22, mat(st.trim, 0.85), 0, wh + 0.42, 0, 9);
+    cyl(h, 0.55, 0.65, 0.3, mDark, 0, wh + 2.55, 0, 7);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4; strut(h, Math.cos(a) * 1.1, wh + 1.9, Math.sin(a) * 1.1, -Math.cos(a) * 0.35, wh + 3.6, -Math.sin(a) * 0.35, 0.07, mDark, 'cyl'); }
+    chim = [0, wh + 3.0, 0];
+    box(h, 1.1, 1.7, 0.6, mat('#1e120a'), 0, 0.85, r0 - 0.1); box(h, 0.9, 1.1, 0.06, mHide, 0, 1.15, r0 + 0.24);
+    for (const sd of [-1, 1]) strut(h, sd * 0.85, 0.1, r0 + 0.35, sd * 0.4, 2.5, r0 + 1.0, 0.17, BONE(), 'cone');
+    ball(h, 0.28, BONE(), 0, 2.05, r0 + 0.3, 0); for (const sd of [-1, 1]) box(h, 0.09, 0.09, 0.08, mat('#1a1008'), sd * 0.1, 2.1, r0 + 0.56);
+    if (R() < 0.45 || lvl >= 2) totem(h, r0 + 1.0, 1.2, 3 + lvl * 0.4, st);
+    if (R() < 0.5) { for (const sd of [-1, 1]) cyl(h, 0.05, 0.05, 1.8, mDark, -r0 - 0.9, 0.9, sd * 0.8, 4); box(h, 0.06, 0.06, 1.8, mDark, -r0 - 0.9, 1.75, 0); const hd = box(h, 0.05, 1.1, 1.3, mat('#b89a6a', 0.95), -r0 - 0.9, 1.15, 0); hd.rotation.z = 0.05; }
+    if (lvl >= 3) for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; strut(h, Math.cos(a) * (r0 + 0.2), wh + 0.7, Math.sin(a) * (r0 + 0.2), Math.cos(a) * (r0 + 1.4), wh + 1.4, Math.sin(a) * (r0 + 1.4), 0.12, IRON(), 'cone'); }
+  } else if (race === 'highelf') {
+    const th = 4.8 + lvl * 1.1, mW = mat(st.wall2, 0.7), mRoof = mat(R() < 0.5 ? st.roof : st.roof2, 0.55);
+    cyl(h, 2.15, 2.35, 0.5, mStone, 0, 0.25, 0, 12);
+    cyl(h, 1.7, 1.9, th, mW, 0, th / 2 + 0.5, 0, 12);
+    cyl(h, 1.97, 1.97, 0.16, mTrim, 0, 0.6, 0, 12); cyl(h, 2.1, 1.85, 0.45, mW, 0, th + 0.6, 0, 12); cyl(h, 2.12, 2.12, 0.14, mTrim, 0, th + 0.86, 0, 12);
+    const rh = 4.4 + lvl * 0.5; cone(h, 2.25, rh, mRoof, 0, th + 0.9 + rh / 2, 0, 12); cyl(h, 0.04, 0.04, 1.4, mTrim, 0, th + 0.9 + rh + 0.4, 0, 4); ball(h, 0.14, mTrim, 0, th + 0.9 + rh + 0.2, 0, 0);
+    for (let k = 0; k < (lvl >= 2 ? 3 : 2); k++) for (const a of k % 2 ? [-0.8, 0.8, Math.PI] : [0.55, -0.55, Math.PI * 0.75, -Math.PI * 0.75]) { const ww = sub(h, Math.sin(a) * 1.78, 0, Math.cos(a) * 1.78, a); if (k === 0 && Math.abs(a) < 1) continue; win(ww, 0, 2.0 + k * 1.9, 0, 0.42, 0.85, mTrim, ELFGLOW(), null, true, false); }
+    const df = sub(h, 0, 0, 1.78, 0); box(df, 1.0, 1.7, 0.2, mat('#3a5a8a', 0.6), 0, 0.5 + 0.85, 0.04); add(df, new THREE.CylinderGeometry(0.5, 0.5, 0.2, 10, 1, false, Math.PI / 2, Math.PI), mat('#3a5a8a', 0.6), 0, 2.2, 0.04, Math.PI / 2); add(df, new THREE.CylinderGeometry(0.64, 0.64, 0.14, 10, 1, false, Math.PI / 2, Math.PI), mTrim, 0, 2.2, 0.0, Math.PI / 2);
+    for (const sd of [-1, 1]) box(h, 1.4, 0.2, 0.5, mStone, 0, 0.35 - (sd > 0 ? 0.2 : 0), 2.1 + (sd > 0 ? 0.45 : 0));
+    // annex with its own little spire
+    const ah = 2.6 + lvl * 0.4; cyl(h, 1.05, 1.15, ah, mW, 1.9, ah / 2 + 0.3, -1.3, 10); cyl(h, 1.2, 1.2, 0.14, mTrim, 1.9, ah + 0.3, -1.3, 10); cone(h, 1.3, 2.4 + lvl * 0.4, mRoof, 1.9, ah + 0.3 + (2.4 + lvl * 0.4) / 2, -1.3, 10);
+    win(sub(h, 1.9 + Math.sin(0.9) * 1.07, 0, -1.3 + Math.cos(0.9) * 1.07, 0.9), 0, ah * 0.55, 0, 0.36, 0.7, mTrim, ELFGLOW(), null, true, false);
+    if (lvl >= 2) { cyl(h, 2.35, 2.35, 0.16, mW, 0, 0.5 + th * 0.62, 0, 12); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; cyl(h, 0.04, 0.04, 0.6, mTrim, Math.cos(a) * 2.28, 0.5 + th * 0.62 + 0.38, Math.sin(a) * 2.28, 4); } add(h, new THREE.TorusGeometry(2.28, 0.05, 4, 16), mTrim, 0, 0.5 + th * 0.62 + 0.68, 0, Math.PI / 2); }
+    if (R() < 0.6) for (const sd of [-1, 1]) { box(h, 0.7, 0.45, 0.7, mStone, sd * 1.6, 0.22, 2.2); ball(h, 0.42, mat(sd > 0 ? '#5a9a4a' : '#6aa84a', 0.9), sd * 1.6, 0.65, 2.2, 0); ball(h, 0.12, mat('#f0e0f8', 0.8), sd * 1.6 + 0.2, 0.95, 2.3, 0); }
+  } else if (race === 'woodelf') {
+    const ph = 3.0 + lvl * 0.45, top = lvl >= 2 ? ph + 3.0 : ph, mPl = mat(st.dark), mLive = mWood;
+    cyl(h, 0.7, 1.15, top + 3.6, mLive, 0, (top + 3.6) / 2, 0, 8);
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.3; strut(h, Math.cos(a) * 0.7, 1.1, Math.sin(a) * 0.7, Math.cos(a) * 2.1, -0.1, Math.sin(a) * 2.1, 0.42, mLive, 'cone'); }
+    const plat = (py, pr, podR, ang) => {
+      cyl(h, pr, pr, 0.22, mPl, 0, py, 0, 10);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.78; strut(h, Math.cos(a) * 0.6, py - 1.5, Math.sin(a) * 0.6, Math.cos(a) * (pr - 0.3), py - 0.1, Math.sin(a) * (pr - 0.3), 0.12, mPl, 'cyl'); }
+      for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; if (Math.abs(angDiff(a, Math.PI / 2)) < 0.3) continue; cyl(h, 0.04, 0.04, 0.7, mLive, Math.cos(a) * (pr - 0.1), py + 0.45, Math.sin(a) * (pr - 0.1), 4); }
+      add(h, new THREE.TorusGeometry(pr - 0.1, 0.05, 4, 14), mat(lvl >= 3 ? st.trim : st.dark, 0.6, lvl >= 3 ? 0.6 : 0), 0, py + 0.8, 0, Math.PI / 2);
+      const pod = sub(h, 0, py, 0, ang); cyl(pod, podR, podR + 0.1, 1.8, mat(st.wall2, 0.9), 0, 1.0, 0, 9); cone(pod, podR + 0.6, 1.5, mat(st.roof, 0.9), 0, 2.6, 0, 9); ball(pod, 0.35, mat(LEAF[1], 0.9), 0, 3.3, 0, 0);
+      box(pod, 0.6, 1.2, 0.12, mPl, 0, 0.7, podR + 0.06); for (const a of [1.2, -1.2, Math.PI]) { const ww = sub(pod, Math.sin(a) * (podR + 0.03), 0, Math.cos(a) * (podR + 0.03), a); add(ww, new THREE.CylinderGeometry(0.24, 0.24, 0.1, 8), FAEGLOW(), 0, 1.15, 0.02, Math.PI / 2); }
+      for (const a of [0.9, 2.4, 4.2]) { const lx = Math.cos(a) * (pr - 0.2), lz = Math.sin(a) * (pr - 0.2); cyl(h, 0.015, 0.015, 0.7, IRON(), lx, py - 0.35, lz, 3); ball(h, 0.16, FAEGLOW(), lx, py - 0.8, lz, 1); }
+    };
+    plat(ph, 2.8, 1.65, 0); if (lvl >= 2) plat(top, 2.0, 1.15, 0.9);
+    for (let i = 0; i <= Math.floor(ph / 0.45); i++) box(h, 0.7, 0.06, 0.08, mPl, 0, 0.3 + i * 0.45, 2.85 + i * 0.012);
+    for (const sd of [-1, 1]) strut(h, sd * 0.33, 0, 2.86, sd * 0.33, ph + 0.4, 2.9, 0.07, mPl);
+    ball(h, 2.6 + lvl * 0.15, mat(LEAF[0], 0.9), 0, top + 4.6, 0, 1); ball(h, 1.9, mat(LEAF[1], 0.9), 1.7, top + 3.8, 0.9, 1); ball(h, 1.7, mat(LEAF[2], 0.9), -1.5, top + 4.0, -1.0, 1);
+    if (R() < 0.6) for (let i = 0; i < 3; i++) { const mx = -2.4 + i * 0.35, mz = 1.6 + (i % 2) * 0.4; cyl(h, 0.06, 0.08, 0.3, mat('#e8e0c8'), mx, 0.15, mz, 5); cone(h, 0.22, 0.18, mat(i % 2 ? '#c83a2a' : '#d8a040', 0.7), mx, 0.38, mz, 7); }
+  } else {
+    const b = block(h, 'dwarf', 5.6, 4.6, 2.4, lvl >= 2 ? 2 : 1, { rise: 1.4, ridgeM: lvl >= 3 ? mTrim : null });
+    const cx = -1.7, cz = -1.0, ch = b.rise + 1.4; box(h, 1.0, ch, 1.0, mat(shade(st.stone, 0.82), 0.95), cx, b.top + ch / 2 - 0.2, cz); box(h, 0.7, 0.25, 0.7, EMBER(), cx, b.top + ch - 0.12, cz); box(h, 1.2, 0.18, 1.2, IRON(), cx, b.top + ch - 0.32, cz); chim = [cx, b.top + ch, cz];
+    if (R() < 0.6) { barrel(h, 3.15, 1.5, 0.95); barrel(h, 3.15, 0.75, 0.95); if (R() < 0.5) barrel(h, 3.15, 1.1, 0.9, 0.82); }
+    if (R() < 0.4) { box(h, 1.1, 0.5, 0.7, IRON(), -3.2, 0.55, 1.2); for (const sd of [-1, 1]) cyl(h, 0.18, 0.18, 0.1, mDark, -3.2 + sd * 0.4, 0.2, 1.57, 8); for (let i = 0; i < 3; i++) ball(h, 0.2, mat('#6a6a70', 0.6, 0.5), -3.4 + i * 0.2, 0.9, 1.2, 0); }
+  }
+  if (chim && (race !== 'orc' || R() < 0.6)) { h.updateMatrixWorld(true); smokeAt(h.localToWorld(V3(...chim))); }
   addCircle(x, z, 2.9 * s, 'house');
 }
 // storehouse: where peasants and heroes unload wood and stone
 function buildStorehouse(g, t) {
   const [x, z] = t.storeSpot, y = heightAt(x, z), s = new THREE.Group(); s.position.set(x, y, z); s.rotation.y = Math.atan2(-t.perp[0], -t.perp[1]); g.add(s);
-  const st = STYLE[t.race] || STYLE.human, wood = mat(st.wood), dark = mat(st.dark), roof = mat(st.roof, 0.85);
-  for (const [px, pz] of [[-3.2, -1.8], [3.2, -1.8], [-3.2, 1.8], [3.2, 1.8]]) cyl(s, 0.16, 0.18, 3.6, dark, px, 1.8, pz, 6);
-  const r = box(s, 7.4, 0.25, 4.6, roof, 0, 3.75, 0.2); r.rotation.x = -0.18;
-  box(s, 7, 2.2, 0.2, wood, 0, 1.1, -1.9);
-  for (let i = 0; i < 9; i++) { const c = add(s, new THREE.CylinderGeometry(0.22, 0.22, 2.4, 7), mat('#8a6238'), -1.7, 0.24 + Math.floor(i / 3) * 0.4, -1.1 + (i % 3) * 0.46); c.rotation.set(0, 0, Math.PI / 2); }
-  for (let i = 0; i < 7; i++) ball(s, 0.38 + (i % 3) * 0.08, mat('#8a847a', 0.95), 1.4 + (i % 3) * 0.6, 0.3 + (i > 3 ? 0.5 : 0), -1.0 + Math.floor(i / 3) * 0.55, 0);
-  const sign = box(s, 2.6, 0.9, 0.1, mat('#6a4a2a'), 0, 3.1, 2.3); sign.rotation.x = 0.1;
+  const st = STYLE[t.race] || STYLE.human, race = t.race, wood = mat(st.wood), dark = mat(st.dark), roofC = race === 'woodelf' ? LEAF[0] : st.roof;
+  box(s, 7.8, 0.3, 4.6, mat(race === 'dwarf' ? shade(st.stone, 0.82) : st.stone, 0.95), 0, 0.15, 0);
+  for (const px of [-3.4, 0, 3.4]) for (const pz of [-1.9, 1.9]) {
+    if (race === 'highelf') { cyl(s, 0.2, 0.24, 3.4, mat(st.wall2, 0.7), px, 2.0, pz, 8); box(s, 0.5, 0.18, 0.5, mat(st.trim, 0.4, 0.75), px, 3.6, pz); }
+    else if (race === 'dwarf') box(s, 0.5, 3.4, 0.5, mat(st.stone, 0.95), px, 2.0, pz);
+    else cyl(s, 0.17, 0.2, 3.4, race === 'woodelf' ? wood : dark, px, 2.0, pz, 6);
+    if (pz > 0 && px !== 0) for (const sd of [-1, 1]) if (Math.abs(px + sd * 1.0) < 3.6) strut(s, px, 2.7, pz, px + sd * 0.9, 3.55, pz, 0.12, dark);
+  }
+  for (const pz of [-1.9, 1.9]) box(s, 7.3, 0.26, 0.26, dark, 0, 3.7, pz);
+  for (const px of [-3.4, 0, 3.4]) box(s, 0.2, 0.2, 4.0, dark, px, 3.7, 0);
+  gable(s, 4.4, 7.3, 1.6, mat(roofC, race === 'dwarf' ? 0.7 : 0.9, race === 'dwarf' ? 0.25 : 0), null, 0, 3.8, 0, Math.PI / 2, 0.5, race === 'highelf' ? mat(st.trim, 0.4, 0.75) : dark, 3, mat(shade(roofC, 0.72), 0.9));
+  box(s, 7.0, 3.3, 0.18, wood, 0, 1.95, -1.95); for (let i = 0; i < 8; i++) box(s, 0.1, 3.3, 0.08, dark, -3.1 + i * 0.885, 1.95, -1.84);
+  const mLog = mat('#8a6238'), mEnd = mat('#c89a60', 0.9);
+  for (let i = 0; i < 12; i++) { const ly = 0.52 + Math.floor(i / 4) * 0.4, lz = -1.3 + (i % 4) * 0.42 + (Math.floor(i / 4) % 2) * 0.2; if (Math.floor(i / 4) === 2 && i % 4 === 3) continue; add(s, new THREE.CylinderGeometry(0.21, 0.21, 2.6, 7), mLog, -1.8, ly, lz, 0, 0, Math.PI / 2); for (const sd of [-1, 1]) add(s, new THREE.CylinderGeometry(0.17, 0.17, 0.04, 7), mEnd, -1.8 + sd * 1.3, ly, lz, 0, 0, Math.PI / 2); }
+  for (let i = 0; i < 7; i++) ball(s, 0.38 + (i % 3) * 0.08, mat('#8a847a', 0.95), 1.4 + (i % 3) * 0.6, 0.6 + (i > 3 ? 0.5 : 0), -1.0 + Math.floor(i / 3) * 0.55, 0);
+  for (let i = 0; i < 3; i++) box(s, 0.8, 0.45, 0.55, mat(shade(st.stone, 1.1), 0.95), 2.4 + (i % 2) * 0.3, 0.52 + i * 0.45, 1.3, i * 0.2);
+  crate(s, -3.0, 1.2, 0.7, 0.3, 0.2); crate(s, -3.0, 1.2, 0.5, 1.0, 0.7); barrel(s, -2.2, 1.5, 0.9, 0.3);
+  for (let i = 0; i < 3; i++) { const sk = ball(s, 0.32, mat('#c8b080', 0.95), 0.4 + i * 0.5, 0.58, 1.4 - (i % 2) * 0.2, 1); sk.scale.set(1, 0.75, 0.85); }
+  for (const sd of [-1, 1]) cyl(s, 0.02, 0.02, 0.5, IRON(), sd * 1.1, 3.35, 2.0, 3);
+  box(s, 2.6, 0.8, 0.1, mat('#6a4a2a'), 0, 2.85, 2.0); box(s, 2.75, 0.95, 0.06, mat(st.trim, 0.5, 0.6), 0, 2.85, 1.96);
   addBox(x - t.perp[0] * 1.6, z - t.perp[1] * 1.6, 3.6, 0.3, Math.atan2(-t.perp[0], -t.perp[1]), 'house');
 }
 // the Master Builder's yard: plans table, planks and cut stone
@@ -142,6 +350,11 @@ function buildYard(g, t) {
   box(s, 1.4, 0.02, 0.9, mat('#e8dcb0'), 0, 1.08, 1.2);
   for (let i = 0; i < 6; i++) box(s, 3.2, 0.14, 0.35, mat('#9a7650'), -1.2, 0.08 + i * 0.15, -0.8 + (i % 2) * 0.05);
   for (let i = 0; i < 6; i++) box(s, 0.8, 0.5, 0.6, mat(st.stone, 0.95), 1.4 + (i % 2) * 0.85, 0.25 + Math.floor(i / 4) * 0.5, -1.2 + (Math.floor(i / 2) % 2) * 0.7);
+  // sawhorse with a half-cut beam, a hoist, tools and a barrel of nails
+  { const mW = mat('#6a4a2a'); for (const sx of [-0.6, 0.6]) for (const sd of [-1, 1]) strut(s, -2.6 + sx, 0, 0.3 + sd * 0.35, -2.6 + sx, 0.8, 0.3, 0.08, mW); box(s, 1.6, 0.08, 0.12, mW, -2.6, 0.8, 0.3); box(s, 2.6, 0.22, 0.22, mat('#9a7650'), -2.4, 0.95, 0.3); box(s, 0.02, 0.4, 0.5, IRON(), -2.0, 1.15, 0.3); }
+  { const mW = mat('#5a3a22'); for (const sd of [-1, 1]) strut(s, 2.2 + sd * 0.9, 0, -2.4, 2.2, 3.6, -2.0, 0.12, mW); strut(s, 2.2, 0, -1.0, 2.2, 3.6, -2.0, 0.12, mW); box(s, 0.4, 0.4, 0.4, mW, 2.2, 3.55, -2.0); cyl(s, 0.015, 0.015, 2.2, mat('#c8b080'), 2.2, 2.4, -1.6, 3); box(s, 0.5, 0.35, 0.4, mat(st.stone, 0.95), 2.2, 1.2, -1.6); }
+  barrel(s, -0.9, 2.1, 0.8); crate(s, 0.9, 2.2, 0.55, 0, 0.4);
+  for (let i = 0; i < 3; i++) strut(s, -1.6 + i * 0.25, 0, 2.3, -1.5 + i * 0.25, 1.4, 2.6, 0.05, mat('#7a5a3a'), 'cyl');
   cyl(s, 0.08, 0.1, 5, mat('#4a3020'), 2.6, 2.5, 1.6, 5); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(3.2, 4.6, 1.6); s.add(fl);
   addCircle(x, z, 2.2, 'house');
 }
@@ -151,31 +364,87 @@ function townExtras(g, t, lvl) {
   const polar = (a, r) => [t.x + Math.cos(ag + a) * r, t.z + Math.sin(ag + a) * r];
   const place = (x, z, rot) => { const s = new THREE.Group(); s.position.set(x, heightAt(x, z), z); s.rotation.y = rot; g.add(s); return s; };
   const face = (x, z) => Math.atan2(t.x - x, t.z - z);
+  const race = t.race, mDark = mat(st.dark), mStone = mat(st.stone, 0.95), mWood = mat(st.wood), mTrim = mat(st.trim, 0.4, 0.75), mTeam = mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide });
+  const smokeOf = (s, x, y, z) => { s.updateMatrixWorld(true); smokeAt(s.localToWorld(V3(x, y, z))); };
+  // the village well (a fire pit for orcs, a moonwell for wood elves) from the start
+  { const [x, z] = polar(-Math.PI * 0.8, 12.5), s = place(x, z, face(x, z));
+    if (race === 'orc') { for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; ball(s, 0.32, mat('#5a5048', 0.95), Math.cos(a) * 1.1, 0.15, Math.sin(a) * 1.1, 0); } ball(s, 0.55, EMBER(), 0, 0.2, 0, 1); for (let i = 0; i < 3; i++) strut(s, Math.cos(i * 2.1) * 0.8, 0, Math.sin(i * 2.1) * 0.8, 0, 0.6, 0, 0.1, mDark, 'cyl');
+      for (const sd of [-1, 1]) { strut(s, sd * 1.4, 0, 0, sd * 1.4, 1.5, 0, 0.07, mDark, 'cyl'); } box(s, 2.9, 0.07, 0.07, mDark, 0, 1.45, 0); ball(s, 0.35, mat('#8a4a2a', 0.8), 0, 1.15, 0, 0); smokeOf(s, 0, 1.5, 0); }
+    else if (race === 'woodelf') { const ring = mat('#6a7a5a', 0.95); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; box(s, 0.6, 0.45 + (i % 3) * 0.12, 0.45, ring, Math.cos(a) * 1.25, 0.25, Math.sin(a) * 1.25, -a); } cyl(s, 1.1, 1.1, 0.1, mat('#b0f4ff', 0.2, 0, { emissive: '#40c0ff', emissiveIntensity: 1.1 }), 0, 0.3, 0, 12);
+      for (const sd of [-1, 1]) strut(s, sd * 1.4, 0, 0, sd * 0.2, 3.0, 0, 0.18, mWood, 'cone'); ball(s, 0.6, mat(LEAF[1], 0.9), 0, 2.9, 0, 0); lantern(s, 0, 2.2, 0, FAEGLOW()); }
+    else { const ws = race === 'dwarf' ? mat(shade(st.stone, 0.82), 0.95) : race === 'highelf' ? mat(st.wall2, 0.7) : mStone; cyl(s, 1.0, 1.1, 0.95, ws, 0, 0.47, 0, 12); cyl(s, 1.08, 1.08, 0.12, race === 'highelf' ? mTrim : mat(shade(st.stone, 1.15), 0.95), 0, 0.95, 0, 12); cyl(s, 0.85, 0.85, 0.05, mat('#1e3a4a', 0.2), 0, 0.85, 0, 12);
+      for (const sd of [-1, 1]) box(s, 0.16, 2.2, 0.16, race === 'dwarf' ? IRON() : mDark, sd * 0.95, 1.1, 0); add(s, new THREE.CylinderGeometry(0.07, 0.07, 2.0, 5), mDark, 0, 1.75, 0, 0, 0, Math.PI / 2);
+      gable(s, 1.6, 2.4, 0.8, mat(race === 'highelf' ? st.roof : st.roof, 0.85), null, 0, 2.15, 0, Math.PI / 2, 0.15, race === 'highelf' ? mTrim : mDark); cyl(s, 0.015, 0.015, 0.8, mat('#c8b080'), 0.3, 1.35, 0, 3); cyl(s, 0.16, 0.13, 0.25, mat('#7a5232'), 0.3, 0.9, 0, 7); barrel(s, 1.5, 0.6, 0.8); }
+    addCircle(x, z, 1.3, 'house'); }
   if (lvl >= 1) {
     // stone plaza around the hall
-    const pz = place(t.x, t.z, 0); cyl(pz, 13 + lvl * 1.5, 13 + lvl * 1.5, 0.12, mat(lvl >= 2 ? '#a8a294' : '#8a7a62', 0.95), 0, 0.02, 0, 32);
-    // market stalls either side of the road to the hall
-    for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const [x, z] = polar(sd * (0.42 + k * 0.28), 15); const s = place(x, z, face(x, z)); for (const [px, pz2] of [[-1.2, -0.8], [1.2, -0.8], [-1.2, 0.8], [1.2, 0.8]]) cyl(s, 0.06, 0.06, 2.2, mat(st.dark), px, 1.1, pz2, 5); box(s, 2.8, 0.1, 2, mat(['#c83a2a', '#e0c040', '#3a7ac8', '#3aa04a'][(k + (sd > 0 ? 2 : 0)) % 4], 0.9), 0, 2.25, 0); box(s, 2.4, 0.8, 0.9, mat(st.wood), 0, 0.4, 0.3); for (let i = 0; i < 4; i++) ball(s, 0.16, mat(['#e04030', '#f0c040', '#80c040', '#c08040'][i]), -0.8 + i * 0.5, 0.95, 0.3, 0); addCircle(x, z, 1.3, 'house'); }
-    // smithy with a glowing forge and smoke
-    { const [x, z] = polar(-Math.PI * 0.55, 16); t.houses.push([x, z]); const s = place(x, z, face(x, z)); box(s, 5, 2.6, 4, mat(st.stone, 0.95), 0, 1.3, 0); const r = cone(s, 4, 2, mat(st.roof, 0.85), 0, 3.6, 0, 4, Math.PI / 4); r.scale.set(1.1, 1, 0.9); box(s, 0.9, 3.5, 0.9, mat(st.stone), 1.6, 3.5, -1); box(s, 1.2, 0.8, 1, mat('#ff5a10', 0.6, 0, { emissive: '#ff4a00', emissiveIntensity: 1.6 }), -1, 0.7, 2.05); box(s, 0.8, 0.8, 0.5, mat('#3a3a3e', 0.5, 0.8), 1.3, 0.6, 2.4); addBox(x, z, 2.6, 2.1, face(x, z), 'house'); (world.smokes = world.smokes || []).push(V3(x + Math.cos(ag) * 0, heightAt(x, z) + 5.5, z)); }
+    const pz = place(t.x, t.z, 0); cyl(pz, 13 + lvl * 1.5, 13 + lvl * 1.5, 0.12, mat(lvl >= 2 ? '#a8a294' : '#8a7a62', 0.95), 0, 0.02, 0, 32); cyl(pz, 13.3 + lvl * 1.5, 13.3 + lvl * 1.5, 0.08, mat(lvl >= 2 ? '#8a8476' : '#6e624e', 0.95), 0, 0.0, 0, 32);
+    // market stalls either side of the road to the hall: striped awnings, crates, barrels and wares
+    for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const [x, z] = polar(sd * (0.42 + k * 0.28), 15); const s = place(x, z, face(x, z)), c = ['#c83a2a', '#e0c040', '#3a7ac8', '#3aa04a'][(k + (sd > 0 ? 2 : 0)) % 4];
+      for (const [px, pz2] of [[-1.2, -0.8], [1.2, -0.8], [-1.2, 0.8], [1.2, 0.8]]) cyl(s, 0.06, 0.06, pz2 < 0 ? 2.55 : 2.1, mDark, px, pz2 < 0 ? 1.27 : 1.05, pz2, 5);
+      const aw = sub(s, 0, 2.32, 0); aw.rotation.x = 0.24; for (let i = 0; i < 5; i++) box(aw, 0.58, 0.06, 2.15, mat(i % 2 ? '#f0e8d8' : c, 0.9), -1.16 + i * 0.58, 0, 0); for (let i = 0; i < 5; i++) { const fl = cone(aw, 0.29, 0.3, mat(i % 2 ? '#f0e8d8' : c, 0.9), -1.16 + i * 0.58, -0.15, 1.1, 3); fl.rotation.x = Math.PI; }
+      box(s, 2.4, 0.85, 0.9, mWood, 0, 0.42, 0.3); box(s, 2.5, 0.08, 1.0, mDark, 0, 0.88, 0.3);
+      const ware = [['#e04030', '#f0c040', '#80c040', '#c08040'], ['#d8c8a0', '#b89a6a', '#e8dcc0', '#c8b080'], ['#8a8a92', '#a0a0a8', '#7a7a82', '#c89a40'], ['#a04a8a', '#4a7ac8', '#c83a2a', '#e0c040']][(k + (sd > 0 ? 2 : 0)) % 4];
+      for (let i = 0; i < 4; i++) { ball(s, 0.15, mat(ware[i], 0.7), -0.85 + i * 0.55, 1.05, 0.15, 0); ball(s, 0.13, mat(ware[(i + 1) % 4], 0.7), -0.6 + i * 0.55, 1.03, 0.5, 0); }
+      crate(s, -0.8, -0.5, 0.6, 0, 0.3); barrel(s, 0.7, -0.5, 0.85); if (k) crate(s, -0.8, -0.5, 0.42, 0.6, 0.8);
+      addCircle(x, z, 1.3, 'house'); }
+    // smithy with a glowing forge under a lean-to, anvil, quench barrel and a smoking chimney
+    { const [x, z] = polar(-Math.PI * 0.55, 16); t.houses.push([x, z]); const s = place(x, z, face(x, z));
+      const b = block(s, race, 5, 4, 2.6, 1, { door: false, rise: race === 'dwarf' ? 1.3 : 1.9 });
+      const lt = sub(s, 0, b.top - 0.15, 2.0); lt.rotation.x = 0.42; box(lt, 5.3, 0.14, 1.9, mat(race === 'woodelf' ? LEAF[0] : st.roof, 0.9), 0, 0, 0.9); for (const sd of [-1, 0.33, 1]) box(s, 0.2, b.top - 0.8, 0.2, mDark, sd * 2.4, (b.top - 0.8) / 2, 3.65);
+      box(s, 1.3, 0.85, 1.1, mat(shade(st.stone, 0.8), 0.95), -1.2, 0.42, 2.8); box(s, 1.0, 0.12, 0.8, EMBER(), -1.2, 0.88, 2.8); box(s, 0.5, 1.6, 0.5, mat(shade(st.stone, 0.8), 0.95), -1.2, 1.6, 2.4);
+      box(s, 0.3, 0.55, 0.3, IRON(), 0.9, 0.27, 2.9); box(s, 0.8, 0.22, 0.32, IRON(), 0.9, 0.65, 2.9); cone(s, 0.12, 0.35, IRON(), 1.4, 0.65, 2.9, 4); barrel(s, 1.9, 2.5, 0.85); cyl(s, 0.3, 0.3, 0.05, mat('#2a3a4a', 0.2), 1.9, 0.86, 2.5, 8);
+      for (let i = 0; i < 3; i++) { const sw = strut(s, -2.4, 0.1, 1.0 - i * 0.5, -2.55, 1.6, 1.0 - i * 0.5, 0.08, IRON()); sw.scale.x = 0.6; } box(s, 0.08, 0.08, 1.6, mDark, -2.55, 1.35, 0.5);
+      const ch = b.top + b.rise + 1.6; box(s, 0.95, ch, 0.95, mat(shade(st.stone, 0.85), 0.95), 1.6, ch / 2, -1); box(s, 1.1, 0.2, 1.1, race === 'dwarf' ? IRON() : mDark, 1.6, ch, -1); box(s, 0.6, 0.12, 0.6, EMBER(), 1.6, ch + 0.08, -1);
+      addBox(x, z, 2.6, 2.1, face(x, z), 'house'); smokeOf(s, 1.6, ch + 0.4, -1); }
   }
   if (lvl >= 2) {
-    // temple behind the hall
+    // temple behind the hall, in the race's own faith
     const [x, z] = polar(Math.PI, 16.5); t.houses.push([x, z]); const s = place(x, z, face(x, z));
-    const light = t.race === 'orc' ? '#8a3a2a' : t.race === 'highelf' ? '#f4f0e6' : st.stone;
-    box(s, 7, 4, 5, mat(light, 0.9), 0, 2, 0); for (let i = 0; i < 4; i++) cyl(s, 0.3, 0.3, 4, mat(st.wall2, 0.9), -2.6 + i * 1.75, 2, 2.8, 8);
-    const r = cone(s, 5.6, 2.6, mat(st.roof, 0.7), 0, 5.3, 0, 4, Math.PI / 4); r.scale.set(1.2, 1, 0.85);
-    ball(s, 0.5, mat(st.trim, 0.3, 0.9, { emissive: st.trim, emissiveIntensity: 0.4 }), 0, 7, 0, 1); addBox(x, z, 3.6, 2.8, face(x, z), 'house');
+    if (race === 'human') { const b = block(s, 'human', 7, 5, 3.4, 1, { stoneBase: true, rise: 3.0, dw: 1.3, dh: 2.4 }); const tw = sub(s, 0, 0, 2.6);
+      box(tw, 2.0, b.top + 3.8, 1.6, mStone, 0, (b.top + 3.8) / 2, 0); box(tw, 2.2, 0.2, 1.8, mat(shade(st.stone, 1.18)), 0, b.top + 3.8, 0); for (const sd of [-1, 1]) box(tw, 0.25, 1.6, 1.7, mStone, sd * 0.88, b.top + 4.7, 0); box(tw, 2.0, 0.25, 1.6, mStone, 0, b.top + 5.6, 0);
+      cyl(tw, 0.42, 0.55, 0.7, mTrim, 0, b.top + 4.6, 0, 8); cone(tw, 1.5, 4.5, mat(st.roof, 0.85), 0, b.top + 5.7 + 2.25, 0, 4, Math.PI / 4); cyl(tw, 0.04, 0.04, 1.2, mTrim, 0, b.top + 10.4, 0, 4); box(tw, 0.6, 0.06, 0.06, mTrim, 0, b.top + 10.6, 0);
+      win(tw, 0, b.top + 2.2, 0.81, 0.6, 1.1, mat(shade(st.stone, 1.18)), GLOW(), null, true, false); }
+    else if (race === 'orc') { block(s, 'orc', 7, 5, 3.0, 1, { door: true, dw: 1.6, dh: 2.4 }); const sk = sub(s, 0, 4.4, 3.2); ball(sk, 1.0, BONE(), 0, 0, 0, 1); for (const sd of [-1, 1]) { box(sk, 0.3, 0.3, 0.2, mat('#1a1008'), sd * 0.35, 0.1, 0.85); strut(sk, sd * 0.8, 0.3, 0, sd * 2.2, 1.8, 0.4, 0.3, BONE(), 'cone'); } box(sk, 0.7, 0.3, 0.6, BONE(), 0, -0.75, 0.5);
+      for (const sd of [-1, 1]) { const b2 = sub(s, sd * 2.6, 0, 3.6); cyl(b2, 0.3, 0.4, 1.0, IRON(), 0, 0.5, 0, 7); ball(b2, 0.45, EMBER(), 0, 1.1, 0, 1); } smokeOf(s, 0, 7, 0); }
+    else if (race === 'highelf') { cyl(s, 3.4, 3.6, 0.6, mStone, 0, 0.3, 0, 16); cyl(s, 3.45, 3.45, 0.1, mTrim, 0, 0.62, 0, 16);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; cyl(s, 0.22, 0.26, 3.6, mat(st.wall2, 0.7), Math.cos(a) * 2.9, 2.4, Math.sin(a) * 2.9, 8); box(s, 0.55, 0.2, 0.55, mTrim, Math.cos(a) * 2.9, 4.25, Math.sin(a) * 2.9); }
+      cyl(s, 3.3, 3.3, 0.5, mat(st.wall2, 0.7), 0, 4.6, 0, 16); cyl(s, 3.35, 3.35, 0.12, mTrim, 0, 4.85, 0, 16); add(s, new THREE.SphereGeometry(3.0, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(lvl >= 3 ? st.trim : st.roof, 0.5, lvl >= 3 ? 0.6 : 0), 0, 4.85, 0);
+      cone(s, 0.2, 1.6, mTrim, 0, 8.6, 0, 6); cyl(s, 0.9, 1.1, 1.0, mat(st.wall2, 0.7), 0, 1.1, 0, 10); add(s, new THREE.OctahedronGeometry(0.7, 0), ELFGLOW(), 0, 2.5, 0); }
+    else if (race === 'woodelf') { const mSt = mat('#7a8070', 0.95); for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 0.2; box(s, 0.8, 2.2 + (i % 2) * 0.6, 0.5, mSt, Math.cos(a) * 3.0, 1.1 + (i % 2) * 0.3, Math.sin(a) * 3.0, -a + Math.PI / 2); box(s, 0.3, 0.6, 0.1, FAEGLOW(), Math.cos(a) * 2.74, 1.6, Math.sin(a) * 2.74, -a + Math.PI / 2); }
+      cyl(s, 1.3, 1.3, 0.12, mat('#b0f4ff', 0.2, 0, { emissive: '#40c0ff', emissiveIntensity: 1.1 }), 0, 0.1, 0, 12); cyl(s, 0.9, 1.5, 7, mWood, 0, 3.5, -1.6, 8); for (const [bx, by, bz, r] of [[0, 8.2, -1.6, 3.2], [1.9, 7.2, -0.6, 2.0], [-1.9, 7.4, -1.2, 2.2]]) ball(s, r, mat(LEAF[Math.round(r) % 3], 0.9), bx, by, bz, 1);
+      for (const a of [0.6, 2.1, 3.6, 5.0]) { const lx = Math.cos(a) * 2.4, lz = -1.6 + Math.sin(a) * 2.4; cyl(s, 0.015, 0.015, 1.0, IRON(), lx, 5.6, lz, 3); ball(s, 0.2, FAEGLOW(), lx, 5.0, lz, 1); } }
+    else { const b = block(s, 'dwarf', 7, 5, 3.4, 1, { rise: 1.6, dw: 1.6, dh: 2.6 }); for (const sd of [-1, 1]) { const b2 = sub(s, sd * 2.4, 0, 3.4); box(b2, 0.7, 1.0, 0.7, mat(shade(st.stone, 0.82), 0.95), 0, 0.5, 0); cyl(b2, 0.45, 0.3, 0.35, IRON(), 0, 1.15, 0, 8); ball(b2, 0.32, EMBER(), 0, 1.4, 0, 1); }
+      const an = sub(s, 0, b.top + b.rise + 0.4, 0); box(an, 0.8, 0.6, 0.6, mTrim, 0, 0.3, 0); box(an, 1.8, 0.45, 0.7, mTrim, 0, 0.85, 0); cone(an, 0.3, 0.7, mTrim, 1.2, 0.85, 0, 6).rotation.z = -Math.PI / 2; }
+    addBox(x, z, 3.6, 2.8, face(x, z), 'house');
   }
   if (lvl >= 3) {
-    // a tall keep tower beside the hall, statues by the road and lamp posts
-    const [x, z] = polar(Math.PI * 0.8, 11); const s = place(x, z, 0);
-    cyl(s, 2.4, 2.8, 20, mat(st.stone, 0.9), 0, 10, 0, 10); cyl(s, 2.9, 2.9, 0.6, mat(st.trim, 0.4, 0.7), 0, 20, 0, 10); cone(s, 3, 5, mat(st.roof, 0.7), 0, 22.8, 0, 10);
-    const fl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(1.4, 26.5, 0); s.add(fl); cyl(s, 0.08, 0.08, 4, mat('#4a3020'), 0, 26, 0, 5);
+    // a tall keep tower beside the hall, statues by the road
+    const [x, z] = polar(Math.PI * 0.8, 11); const s = place(x, z, face(x, z));
+    if (race === 'orc') { for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; strut(s, Math.cos(a) * 2.6, 0, Math.sin(a) * 2.6, Math.cos(a) * 1.9, 17, Math.sin(a) * 1.9, 0.32, mWood, 'cyl'); } for (let k = 0; k < 4; k++) cyl(s, 2.5 - k * 0.15, 2.55 - k * 0.15, 0.3, mDark, 0, 3 + k * 4, 0, 8);
+      box(s, 5.2, 0.5, 5.2, mWood, 0, 17, 0); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; cyl(s, 0.16, 0.16, 1.6, mWood, Math.cos(a) * 2.4, 18, Math.sin(a) * 2.4, 5); cone(s, 0.17, 0.7, mDark, Math.cos(a) * 2.4, 19.15, Math.sin(a) * 2.4, 5); } cone(s, 3.4, 3.5, mat(st.roof, 0.95), 0, 21.6, 0, 8); ball(s, 0.6, BONE(), 0, 23.6, 0, 1); for (const sd of [-1, 1]) strut(s, sd * 0.3, 23.6, 0, sd * 1.6, 25.2, 0, 0.25, BONE(), 'cone'); }
+    else if (race === 'woodelf') { cyl(s, 1.6, 2.6, 22, mWood, 0, 11, 0, 9); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; strut(s, Math.cos(a) * 1.8, 2, Math.sin(a) * 1.8, Math.cos(a) * 3.6, -0.2, Math.sin(a) * 3.6, 0.7, mWood, 'cone'); }
+      for (const [py, pr] of [[9, 3.6], [16, 3.0]]) { cyl(s, pr, pr, 0.3, mDark, 0, py, 0, 12); add(s, new THREE.TorusGeometry(pr - 0.1, 0.06, 4, 16), mTrim, 0, py + 0.8, 0, Math.PI / 2); for (const a of [0.5, 2.6, 4.4]) ball(s, 0.2, FAEGLOW(), Math.cos(a) * (pr - 0.3), py - 0.6, Math.sin(a) * (pr - 0.3), 1); }
+      for (const [bx, by, bz, r] of [[0, 24, 0, 5], [3, 21, 1, 3], [-3, 21.5, -1, 3.2], [0.5, 19.5, -3, 2.8]]) ball(s, r, mat(LEAF[Math.round(r) % 3], 0.9), bx, by, bz, 1); }
+    else { const tc = race === 'highelf' ? mat(st.wall2, 0.7) : mStone, rad = race === 'dwarf' ? 3.0 : race === 'highelf' ? 2.0 : 2.4, hh = race === 'highelf' ? 22 : race === 'dwarf' ? 15 : 19, seg = race === 'dwarf' ? 8 : 12;
+      cyl(s, rad, rad + 0.4, hh, tc, 0, hh / 2, 0, seg); cyl(s, rad + 0.45, rad + 0.45, 0.6, mTrim, 0, hh * 0.55, 0, seg); cyl(s, rad + 0.55, rad + 0.1, 1.0, tc, 0, hh + 0.2, 0, seg);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; box(s, 0.7, 0.8, 0.5, tc, Math.cos(a) * (rad + 0.3), hh + 1.1, Math.sin(a) * (rad + 0.3), -a); }
+      for (let k = 0; k < 3; k++) for (const a of [0, 2.1, 4.2]) { const aa = a + k * 1.05; win(sub(s, Math.sin(aa) * (rad + 0.15 - k * 0.1), 0, Math.cos(aa) * (rad + 0.15 - k * 0.1), aa), 0, 4 + k * hh * 0.28, 0, 0.45, 1.0, race === 'highelf' ? mTrim : mDark, race === 'highelf' ? ELFGLOW() : GLOW(), null, true, false); }
+      if (race === 'dwarf') { cyl(s, 1.0, 1.2, 1.0, IRON(), 0, hh + 1.0, 0, 8); ball(s, 0.9, EMBER(), 0, hh + 1.6, 0, 1); smokeOf(s, 0, hh + 2.5, 0); }
+      else cone(s, rad + 0.7, race === 'highelf' ? 8 : 5.5, mat(st.roof, 0.6), 0, hh + 1.5 + (race === 'highelf' ? 4 : 2.75), 0, seg); }
+    const fh = race === 'orc' ? 25 : race === 'woodelf' ? 28 : race === 'highelf' ? 33 : race === 'dwarf' ? 17.5 : 26.5;
+    cyl(s, 0.08, 0.08, 4, mat('#4a3020'), 0, fh - 0.5, 0, 5); const fl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), mTeam); fl.position.set(1.4, fh + 0.6, 0); s.add(fl);
     addCircle(x, z, 2.9, 'house');
-    for (const sd of [-1, 1]) { const [sx, sz] = polar(sd * 0.22, 26); const q = place(sx, sz, face(sx, sz)); box(q, 1.4, 1.2, 1.4, mat(st.stone), 0, 0.6, 0); const fig = new THREE.Group(); fig.position.y = 1.2; q.add(fig); cyl(fig, 0.35, 0.45, 1.8, mat(st.trim, 0.35, 0.85), 0, 0.9, 0, 8); ball(fig, 0.32, mat(st.trim, 0.35, 0.85), 0, 2.1, 0, 1); addCircle(sx, sz, 0.9, 'house'); }
+    for (const sd of [-1, 1]) { const [sx, sz] = polar(sd * 0.22, 26); const q = place(sx, sz, face(sx, sz)); box(q, 1.8, 0.4, 1.8, mStone, 0, 0.2, 0); box(q, 1.4, 1.0, 1.4, mStone, 0, 0.9, 0); box(q, 1.6, 0.15, 1.6, mTrim, 0, 1.45, 0);
+      const fig = sub(q, 0, 1.5, 0), mG = mat(st.trim, 0.35, 0.85); cyl(fig, 0.32, 0.48, 1.7, mG, 0, 0.85, 0, 8); ball(fig, 0.3, mG, 0, 2.0, 0, 1); cyl(fig, 0.38, 0.3, 0.5, mG, 0, 1.6, 0, 8);
+      add(fig, new THREE.CylinderGeometry(0.42, 0.42, 0.08, 10), mG, sd * 0.45, 1.2, 0.25, 0, 0, Math.PI / 2); box(fig, 0.08, 1.5, 0.08, mG, -sd * 0.4, 1.4, 0.3); box(fig, 0.35, 0.06, 0.08, mG, -sd * 0.4, 0.75, 0.3); addCircle(sx, sz, 0.9, 'house'); }
   }
-  if (lvl >= 1) for (let k = 0; k < 4 + lvl * 2; k++) { const a = (k / (4 + lvl * 2)) * Math.PI * 2 + 0.3; if (Math.abs(angDiff(a, 0)) < 0.35) continue; const [x, z] = polar(a, 9.5); const s = place(x, z, 0); cyl(s, 0.07, 0.09, 3, mat('#2a2a2e', 0.5, 0.7), 0, 1.5, 0, 6); ball(s, 0.22, mat('#ffd890', 0.4, 0, { emissive: '#ffb050', emissiveIntensity: 2 }), 0, 3.1, 0, 1); }
+  // lamp posts round the plaza, in the race's style
+  if (lvl >= 1) for (let k = 0; k < 4 + lvl * 2; k++) { const a = (k / (4 + lvl * 2)) * Math.PI * 2 + 0.3; if (Math.abs(angDiff(a, 0)) < 0.35) continue; const [x, z] = polar(a, 9.5); const s = place(x, z, face(x, z));
+    if (race === 'orc') { cyl(s, 0.09, 0.12, 2.8, mDark, 0, 1.4, 0, 5); cyl(s, 0.28, 0.16, 0.35, IRON(), 0, 2.9, 0, 6); ball(s, 0.26, EMBER(), 0, 3.15, 0, 1); ball(s, 0.2, BONE(), 0, 2.3, 0.12, 0); }
+    else if (race === 'highelf') { cyl(s, 0.08, 0.12, 3.0, mat(st.wall2, 0.7), 0, 1.5, 0, 8); cyl(s, 0.2, 0.2, 0.1, mTrim, 0, 3.0, 0, 8); add(s, new THREE.OctahedronGeometry(0.26, 0), ELFGLOW(), 0, 3.35, 0); }
+    else if (race === 'woodelf') { strut(s, 0, 0, 0, 0.25, 2.2, 0, 0.1, mWood, 'cyl'); strut(s, 0.25, 2.2, 0, -0.35, 3.0, 0, 0.07, mWood, 'cyl'); ball(s, 0.22, FAEGLOW(), -0.4, 2.75, 0, 1); ball(s, 0.3, mat(LEAF[1], 0.9), -0.35, 3.05, 0, 0); }
+    else { cyl(s, 0.07, 0.09, 3, mat('#2a2a2e', 0.5, 0.7), 0, 1.5, 0, 6); box(s, 0.7, 0.06, 0.06, mat('#2a2a2e', 0.5, 0.7), 0.3, 2.95, 0); lantern(s, 0.55, 2.65, 0); } }
 }
 function buildInner(t, lvl) {
   const g = new THREE.Group(), n = TOWN_LEVELS[lvl].houses;
@@ -265,6 +534,7 @@ class Structure {
   }
   takeHit(dmg, src, opts = {}) {
     if (this.dead || B.over) return 0;
+    if (this.town && this.town.qmod && this.town.qmod.hall) dmg *= 1 - this.town.qmod.hall; // town job: tougher walls
     // Smite rule: heroes can only damage a tower from inside its circle
     if (src && (src === G.player || src.hero) && this.kind === 'tower' && Math.hypot(src.pos.x - this.pos.x, src.pos.z - this.pos.z) > this.range + 0.5) { if (src === G.player) V.number(this.pos.clone().setY(this.pos.y + 6), 'Out of range', 'miss'); return 0; }
     if (B.client) { send({ t: 'hit', k: 's', id: B.structs.indexOf(this), dmg: Math.round(dmg), o: {} }); this.hitT = 0.2; return Math.round(dmg); }
@@ -353,8 +623,18 @@ function updateShots(dt) {
 }
 
 // ---------- damage between sides ----------
+// town job bonuses, by town: gather, build, train, income, tower, hall, army
+const qm = (t, k) => (t && t.qmod && t.qmod[k]) || 0;
+export function questReward(t, id) {
+  if (B.client) { send({ t: 'qreward', id }); return; }
+  const j = QJOB(id); if (!j || !t) return;
+  t.qmod = t.qmod || {}; for (const k in j.mod) t.qmod[k] = (t.qmod[k] || 0) + j.mod[k];
+  if (j.bank) for (const k in j.bank) bank(t, k, j.bank[k]);
+  if (j.gold) bank(t, 'gold', j.gold);
+}
 function hurt(t, dmg, src, opts = {}) {
   if (t.dead || B.over) return;
+  if (src && src.town && src.town.qmod) dmg *= 1 + (src.isStruct ? (src.kind === 'tower' ? qm(src.town, 'tower') : 0) : qm(src.town, 'army'));
   if (t === G.player) { t.takeDamage(dmg, src, opts); if (opts.slow) t.debuff && t.debuff('slow', opts.slow); return; }
   if (t.remote) { t.takeDamage(dmg, src, opts); return; }
   if (t.isStruct) return t.takeHit(dmg, src, opts);
@@ -570,7 +850,7 @@ function workerTick(u, dt) {
   if (d > (n.col ? n.col.r : 0.5) + u.radius + 0.9) return { want: routeOut(u, [n.x, n.z]), speed: 1 };
   u.faceTo(V3(n.x, 0, n.z), dt, 6);
   if (!u.action) { u.startAction(u.job === 'wood' ? 'chop' : 'mine', 0.9); if (G.player && u.dist(G.player) < 30) (u.job === 'wood' ? S.chop : S.mine)(u.pos); }
-  u.work += dt * (1 + up(t, 'tools') * 0.2);
+  u.work += dt * (1 + up(t, 'tools') * 0.2) * (1 + qm(t, 'gather'));
   if (u.work >= ECON.gatherTime) {
     u.work = 0; u.carry = peasantCarry(t); u.cjob = u.job;
     n.chops = (n.chops || 0) + 1;
@@ -768,7 +1048,7 @@ function startConstruction(t, dur) {
 }
 function updateConstruction(t, dt) {
   const b = t.building; if (!b) return;
-  b.t += dt;
+  b.t += dt * (B.client ? 1 : 1 + qm(t, 'build'));
   const near = G.player && Math.hypot(G.player.pos.x - t.x, G.player.pos.z - t.z) < 120;
   for (const w of b.crew) {
     if (!w.spot || w.work > 3) { const a = rand(0, 6.28), r = Math.random() < 0.6 ? WALL_R - 3.5 : 9; w.spot = [t.x + Math.cos(a) * r, t.z + Math.sin(a) * r]; w.work = 0; }
@@ -878,8 +1158,9 @@ export function townPlan(t) {
   const home = army.filter(u => u.order !== 'attack'), out = army.filter(u => u.order === 'attack');
   const e = t.earned || (t.earned = { gold: 0, wood: 0, stone: 0 }), sn = t.snaps || (t.snaps = []);
   if (!sn.length || B.time - sn[sn.length - 1].t >= 5) { sn.push({ t: B.time, gold: e.gold, wood: e.wood, stone: e.stone }); if (sn.length > 13) sn.shift(); }
-  const s0 = sn[0], mins = Math.max(10, B.time - s0.t) / 60;
-  const rate = {}; for (const k of ['gold', 'wood', 'stone']) rate[k] = Math.max(0, (e[k] - s0[k]) / mins);
+  const s0 = sn[0], span = B.time - s0.t, mins = Math.max(10, span) / 60;
+  // until a minute of samples exists, use the average since the match began
+  const rate = {}; for (const k of ['gold', 'wood', 'stone']) rate[k] = Math.max(0, span < 50 ? e[k] / Math.max(20, B.time) * 60 : (e[k] - s0[k]) / mins);
   let upgrade = null;
   if (t.building && TOWN_LEVELS[t.level + 1]) upgrade = { state: 'building', name: TOWN_LEVELS[t.level + 1].name, secs: Math.max(0, t.building.dur - t.building.t) };
   else if (next) {
@@ -973,11 +1254,11 @@ export function update(dt) {
     if (t.dead) continue;
     // passive income
     const D = t.ai ? DIFFS[t.diff] || DIFFS.normal : { income: 1.15 };
-    bank(t, 'gold', (ECON.passiveGold + ECON.passiveGoldPerLevel * t.level) * D.income * dt);
+    bank(t, 'gold', (ECON.passiveGold + ECON.passiveGoldPerLevel * t.level) * D.income * (1 + qm(t, 'income')) * dt);
     if (t.ai && D.income > 1 && B.time > 120) { t.bank.wood += 0.4 * (D.income - 1) * dt * 3; t.bank.stone += 0.3 * (D.income - 1) * dt * 3; }
     // training queue
     const q = t.queue[0];
-    if (q) { q.t -= dt; if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe || t.owner != null) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
+    if (q) { q.t -= dt * (1 + qm(t, 'train')); if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe || t.owner != null) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
     updateConstruction(t, dt);
     for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); tsay(t, 'steward', `our ${s === t.towers[0] ? 'right' : 'left'} tower is now a ${TOWER_LEVELS[s.level].name}.`, 'build'); } }
     if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0 && t.newly) { const parts = Object.entries(t.newly).map(([k, v]) => `${v > 1 ? v + ' ' + k + 's' : (/^[AEIOU]/.test(k) ? 'an ' : 'a ') + k}`); const peas = t.newly[t.roster.worker.name]; tsay(t, peas && parts.length === 1 ? 'steward' : 'captain', peas && parts.length === 1 ? `${parts[0]} joined the work crews. (${peasants(t)}/${peasantCap(t)} peasants)` : `${parts.join(', ')} ${parts.length > 1 || parts[0].match(/^\d/) ? 'have' : 'has'} joined the ranks. (${pop(t)}/${popCap(t)} soldiers)`, 'good'); t.newly = null; } }

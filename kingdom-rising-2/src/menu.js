@@ -196,6 +196,12 @@ function finish() {
 const RACE_NAME = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
 const RACE_BLURB = { human: 'Timber and stone town · Footmen, Archers, Musketeers, Knights', orc: 'Spiked palisades · Axe Brutes, Crossbowmen, Shamans, Warlords', highelf: 'White and gold spires · Spearguards, Longbows, Battle Mages, Blademasters', woodelf: 'Living-wood walls · Wardens, Sharpshooters, Druids, Ancients', dwarf: 'Iron and stone · Ironshields, Thunderers, Ironbreakers, Rune Priests' };
 let BS = null;
+// what Kingdom Battles is about, shown on the setup screen and when a match begins
+export const BATTLE_GOAL = `<div class="bsgh">👑 The objective</div><p class="bsgl">Your kingdom has called you to war. Do its bidding, survive, and rise above every other kingdom.</p>
+<div class="bsgs"><div><b>1 · Level up</b><span>Hunt beasts, goblins and bandits in the wilds. Every kill makes you stronger (top level 10).</span></div>
+<div><b>2 · Gear up</b><span>Monsters and bosses drop weapons and armour. Red beacons on the map mark the bosses with the best loot.</span></div>
+<div><b>3 · Grow the kingdom</b><span>Your steward runs the town for you. Take jobs from the Huntmaster and Quartermaster (J) to make it gather, build and train faster.</span></div>
+<div><b>4 · Take down the enemy</b><span>Lead your army, break the enemy walls and destroy their Town Hall. The last kingdom standing wins.</span></div></div>`;
 export function showBattleSetup() {
   let ov = document.getElementById('bsetup'); if (!ov) { ov = el('div', ''); ov.id = 'bsetup'; document.body.appendChild(ov); }
   ov.hidden = false; $('title').hidden = true;
@@ -208,6 +214,7 @@ function renderBattleSetup() {
   const panel = el('div', 'bsp'); ov.appendChild(panel);
   const head = el('div', 'bsh', `<div class="eyebrow">Kingdom Battles</div><h1>${BS.step === 'mode' ? 'Choose how to play' : 'Set up the battle'}</h1>`); panel.appendChild(head);
   if (BS.step === 'mode') {
+    panel.appendChild(el('div', 'bsgoal', BATTLE_GOAL));
     const g = el('div', 'bsmodes');
     const sp = el('button', 'bsmode', `<div class="bsi">⚔</div><b>Single Player</b><span>You against 1 to 3 computer kingdoms. Pick their races and how hard they play.</span>`); sp.onclick = () => { S.click(); BS.step = 'setup'; renderBattleSetup(); };
     const mp = el('button', 'bsmode', `<div class="bsi">🌐</div><b>Multiplayer</b><span>Host a game and share the 4-letter code, or join a friend's. Up to 4 players, on the same side or against each other. Empty towns are run by the computer.</span>`); mp.onclick = () => { S.click(); BS.step = 'mp'; renderBattleSetup(); };

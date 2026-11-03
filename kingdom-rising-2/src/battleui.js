@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { isExplored } from './fog.js';
 import { MP } from './mp.js';
+import * as BQ from './battlequests.js';
 import { V } from './vfx.js';
 import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, townPlan, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
@@ -130,7 +131,7 @@ export function died() { deathT = ECON.respawn(G.save.level); $('bdeath').hidden
 
 // ---------- command menu ----------
 let menu = 'command';
-const MENUS = { command: { title: 'War Report', tabs: [['report', 'Report'], ['orders', 'Orders'], ['armory', 'Supplies']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] } };
+const MENUS = { command: { title: 'War Report', tabs: [['report', 'Report'], ['orders', 'Orders'], ['armory', 'Supplies']] }, foreman: { title: 'Foreman', tabs: [['foreman', 'Peasants & Tools']] }, builder: { title: 'Master Builder', tabs: [['town', 'Town'], ['def', 'Defences']] }, hunt: { title: 'Huntmaster', tabs: [['hunt', 'Hunting jobs']] }, quarter: { title: 'Quartermaster', tabs: [['quarter', 'Supply jobs']] }, jobs: { title: 'Town Jobs', tabs: [['jobs', 'All jobs']] } };
 export function openNpc(role) { menu = role; tab = MENUS[role].tabs[0][0]; openMenu(true); }
 function openMenu(keep) {
   if (!keep) { menu = 'command'; if (!MENUS.command.tabs.some(x => x[0] === tab)) tab = 'report'; }
@@ -150,7 +151,7 @@ function render() {
   c.appendChild(tabs);
   c.appendChild(el('div', 'bresline', ['gold', 'wood', 'stone'].map(k => `<span>${resIcon(k)} ${RES_NAME[k]} <b>${Math.floor(res(t, k))}</b></span>`).join('') + `<span>⛏ <b>${peasants(t)}/${peasantCap(t)}</b> peasants</span><span>⚔ <b>${pop(t)}/${popCap(t)}</b> army</span>`));
   const body = el('div', 'bbody'); c.appendChild(body);
-  ({ report: tabReport, army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory, foreman: tabForeman })[tab](body, t);
+  ({ hunt: (b2, t2) => tabJobs(b2, t2, 'hunt'), quarter: (b2, t2) => tabJobs(b2, t2, 'quarter'), jobs: (b2, t2) => { tabJobs(b2, t2, 'hunt'); tabJobs(b2, t2, 'quarter'); }, report: tabReport, army: tabArmy, town: tabTown, def: tabDef, orders: tabOrders, armory: tabArmory, foreman: tabForeman })[tab](body, t);
   body.scrollTop = sc;
 }
 const say = (err) => { if (err) { UI.toast(err, '⚠', 'bad'); S.error(); } else S.coins(); render(); };
@@ -232,6 +233,33 @@ export function warHorn(d) {
   if (ours && G.player) { S.battleCry(); V.ring(G.player.pos, 10, '#ffcf60', 1.2); }
   // soldiers marching out raise a cheer of dust at the gate
   if (ours) { const gp = from.gateOut || from.gateIn; if (gp) V.burst('dust', new THREE.Vector3(gp[0], heightAt(gp[0], gp[1]) + 0.5, gp[1]), 60, { speed: 4, size: 1.4, life: 2 }); }
+}
+// town jobs: the Huntmaster (kill jobs) and the Quartermaster (loot jobs). Each one finished makes the town stronger
+function tabJobs(body, t, giver) {
+  const Gv = BQ.GIVERS[giver], a = BQ.Q.active[giver], j = BQ.nextFor(giver);
+  const done = BQ.JOBS.filter(x => x.giver === giver && BQ.Q.done.includes(x.id));
+  const p = el('div', 'bpanel jobp', `<h3>${Gv.title} · ${Gv.role}</h3>`);
+  if (!j) p.appendChild(el('p', '', 'Every job is done. The town is as strong as I can make it, Commander.'));
+  else {
+    const goal = j.kind === 'kill' ? `Kill <b>${j.n}</b>: ${j.where}` : `Bring <b>${j.n} ${j.item}</b> ${j.icon}: ${j.where}`;
+    const prog = a ? Math.min(a.have, j.n) : 0;
+    p.appendChild(el('div', 'job' + (a ? ' on' : ''), `<div class="jh"><b>${j.name}</b>${a ? '<span class="jtag">Active</span>' : '<span class="jtag new">New job</span>'}</div><p class="jt">“${j.text}”</p><div class="jg">🎯 ${goal}</div><div class="jr">🏆 <b>${j.reward}</b>${j.gold ? ` · +${j.gold} gold` : ''}</div>${a ? `<div class="wr-bar"><i style="width:${prog / j.n * 100}%"></i></div><div class="jp">${prog} / ${j.n}</div>` : ''}`));
+    const row = el('div', 'brow');
+    if (!a) { const b = el('button', 'btn gold big', 'Take the job (E)'); b.onclick = () => { BQ.accept(giver); render(); questTrack(); }; row.appendChild(b); }
+    else { const b = el('button', 'btn', 'Drop this job'); b.onclick = () => { S.click(); BQ.abandon(giver); render(); questTrack(); }; row.appendChild(b); }
+    p.appendChild(row);
+  }
+  if (done.length) p.appendChild(el('div', 'jdone', 'Done: ' + done.map(x => `<span class="bchip">✓ ${x.name}: ${x.reward}</span>`).join(' ')));
+  body.appendChild(p);
+}
+// quick accept with E straight from the job window
+export function jobKey() { if (!G.uiOpen) return false; const g = menu === 'hunt' || menu === 'quarter' ? menu : null; if (!g || BQ.Q.active[g] || !BQ.nextFor(g)) return false; BQ.accept(g); render(); questTrack(); return true; }
+// the job tracker on the left of the screen
+export function questTrack() {
+  let d = document.getElementById('bqtrack'); const list = BQ.activeList();
+  if (!d) { d = el('div', ''); d.id = 'bqtrack'; document.body.appendChild(d); }
+  d.hidden = !list.length;
+  d.innerHTML = `<div class="bqh">Town jobs <span>J</span></div>` + list.map(j => `<div class="bqj"><b>${j.name}</b><span>${j.kind === 'kill' ? '☠ Kill' : j.icon + ' ' + j.item}: ${Math.min(j.have, j.n)}/${j.n}</span><div class="wr-bar"><i style="width:${Math.min(1, j.have / j.n) * 100}%"></i></div></div>`).join('');
 }
 function tabForeman(body, t) {
   const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);
@@ -342,7 +370,7 @@ function renderBook() {
 }
 
 // ---------- reports to the Commander ----------
-const SPEAKERS = { steward: ['Steward', '📜', '#e8c87a'], captain: ['Captain', '⚔', '#ff9a7a'], scout: ['Scout', '🦅', '#9fd0ff'] };
+const SPEAKERS = { steward: ['Steward', '📜', '#e8c87a'], captain: ['Captain', '⚔', '#ff9a7a'], scout: ['Scout', '🦅', '#9fd0ff'], huntmaster: ['Huntmaster', '🏹', '#a8e070'], quartermaster: ['Quartermaster', '📦', '#ffcf70'] };
 const reportLog = [];
 export function report(who, text, kind = '') {
   const [name, icon, col] = SPEAKERS[who] || SPEAKERS.steward; const msg = `Commander, ${text}`;

@@ -915,7 +915,8 @@ export class Player {
       if (this.end >= cost * 0.5 || this.pk('unbreak') || this.buffs.fort > 0) { this.end = Math.max(0, this.end - cost); this.endUseT = 1; dmg *= 1 - red; S.block(this.W.hands === 'shield', this.pos); V.burst('spark', this.handPos(true), 14, { speed: 5 }); V.addShake(0.12); if (dmg < 1) return; }
       else { this.block = false; this.stagger = 0.8; V.number(this.pos.clone().setY(this.pos.y + this.eye), 'Guard broken!', 'bad'); S.hit('metal', this.pos); }
     }
-    const lv = src && src.lv || this.h.level;
+    // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
+    const lv = src && (src.statLv || src.lv) || this.h.level * (G.battleFx ? 2 : 1);
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));

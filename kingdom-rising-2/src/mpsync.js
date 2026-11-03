@@ -6,7 +6,7 @@ import { S } from './audio.js';
 import { MOBS } from './data.js';
 import { Mob } from './mobs.js';
 import { MP, send, RemoteHero } from './mp.js';
-import { B, Unit, myTown, bank, allyHeal, allyBuff, sendAttack, recall, setFollow, summonWolves, heroUnitDef, syncTownLevel, startConstructionVisual, shootVisual } from './battle.js';
+import { B, Unit, myTown, bank, allyHeal, allyBuff, sendAttack, recall, setFollow, summonWolves, heroUnitDef, syncTownLevel, startConstructionVisual, shootVisual, questReward } from './battle.js';
 import { unitDef } from './battledata.js';
 import { heightAt } from './terrain.js';
 import { angDiff } from './util.js';
@@ -122,6 +122,7 @@ export function onData(from, d) {
     case 'xp': if (d.to === MP.myId) G.hooks.battleXp && G.hooks.battleXp(d.n); break;
     case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player); } } break;
     case 'horn': if (MP.client && G.hooks.warHorn) G.hooks.warHorn(d); break;
+    case 'qreward': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (t) questReward(t, d.id); } break;
     case 'say': if (d.to === MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     case 'teamsay': if (B.towns.length && myTown().team === d.team && from !== MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     // a player's economy and orders, handled by the host for their town
@@ -139,4 +140,5 @@ function buildRoster(list) {
   for (const m of mobList) { G.scene.remove(m.root); if (m.ring) G.scene.remove(m.ring); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1); }
   mobList.length = 0;
   list.forEach(([type, lv, x, z, bossy, mhp], i) => { if (!MOBS[type]) return; const m = new Mob(type, lv, x, z); m.netProxy = true; m.netIdx = i; m.maxHp = mhp; m.hp = mhp; if (bossy) m.bossy = true; m.tpos = m.pos.clone(); m.tyaw = m.yaw; G.mobs.push(m); mobList[i] = m; });
+  if (G.hooks.decorCamps) G.hooks.decorCamps();
 }

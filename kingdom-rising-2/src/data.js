@@ -87,6 +87,7 @@ export const FAMILIES = {
 export const WSKILLS = {
   fan8: { name: 'Arrow Fan', cd: 7, icon: 'rain', desc: 'Loose eight arrows at once in a wide horizontal fan.' },
   wheel: { name: 'Wheel Strike', cd: 7, icon: 'area', desc: 'A spinning sword strike that hits everything around you and slows them.' },
+  tripstab: { name: 'Triple Stab', cd: 7, icon: 'twinfury', desc: 'Three lightning-fast stabs into the enemy in front of you; the third drives deep and makes it bleed. From behind every stab hits half again as hard.' },
   shadowflurry: { name: 'Shadow Flurry', cd: 8, icon: 'twinfury', desc: 'A blur of dagger strikes on everything in front of you; every hit makes them bleed.' },
   whirlaxes: { name: 'Whirling Axes', cd: 8, icon: 'area', desc: 'Spin with both axes, cutting everything around you and leaving them bleeding.' },
   whirlwind: { name: 'Whirlwind', cd: 8, icon: 'area', desc: 'Spin with your blade, hitting everything around you.' },
@@ -172,9 +173,9 @@ export const CLASS_TREE = {
     { id: 'a_spectral', row: 1, name: "Ghost Arrow", icon: 'spectral', max: 1, desc: "Spectral Arrow hits 50% harder." },
     { id: 'a_mending', row: 1, name: "Nature's Gift", icon: 'mending', max: 1, desc: "Mending heals 50% more." },
     { id: 'poison', row: 2, name: "Poisoned Tips", icon: 'skull', max: 1, desc: "Your hits poison enemies, dealing extra damage over 4 s." },
-    { id: 'a_barkskin', row: 2, name: "Ironbark", icon: 'barkskin', max: 1, desc: "Bark Skin absorbs 50% more." },
+    { id: 'a_barkskin', row: 2, name: "Ironbark", icon: 'barkskin', max: 1, desc: "Hunter's Hide absorbs 50% more." },
     { id: 'a_snaretrap', row: 2, name: "Steel Jaws", icon: 'snaretrap', max: 1, desc: "Snare Trap roots longer and hurts more." },
-    { id: 'a_vanish', row: 3, name: "Shadow Walk", icon: 'vanish', max: 1, desc: "Vanish lasts 50% longer." },
+    { id: 'a_vanish', row: 3, name: "Shadow Walk", icon: 'vanish', max: 1, desc: "Camouflage lasts 50% longer." },
     { id: 'a_explotrap', row: 3, name: "Black Powder", icon: 'explotrap', max: 1, desc: "Explosive Trap hits 50% harder in a wider blast." },
     { id: 'a_barrage', row: 3, name: "Storm of Arrows", icon: 'barrage', max: 1, desc: "Barrage fires 5 more arrows." },
     { id: 'cap', row: 4, name: "Deadeye", icon: 'crown', max: 1, desc: "Your first hit on an unhurt enemy is always a critical hit." },
@@ -218,7 +219,7 @@ export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'sta
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 // right-click special attack for each weapon (dual-wield sets have their own)
-export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'shadowflurry', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
+export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
   sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
@@ -285,9 +286,9 @@ export const ABILITIES = {
     { id: 'mending', cost: 25, name: "Mending", key: '', level: 2, cd: 15, icon: '', desc: "Light healing magic: restore 25% of your health over 6 s." },
     { id: 'disengage', cost: 20, name: "Disengage", key: '', level: 4, cd: 8, icon: '', desc: "Leap backwards out of danger and slow every enemy near where you stood." },
     { id: 'focus', cost: 30, name: "Hunter's Focus", key: '', level: 6, cd: 20, icon: '', desc: "Attack 35% faster and crit 10% more often for 8 s." },
-    { id: 'barkskin', cost: 30, name: "Bark Skin", key: '', level: 8, cd: 20, icon: '', desc: "Your skin hardens like bark: absorb damage equal to 20% of your health for 10 s." },
+    { id: 'barkskin', cost: 30, name: "Hunter's Hide", key: '', level: 8, cd: 20, icon: '', desc: "Your skin toughens like old leather: absorb damage equal to 20% of your health for 10 s." },
     { id: 'snaretrap', cost: 25, name: "Snare Trap", key: '', level: 10, cd: 12, icon: '', desc: "Set a trap at your feet. The first enemy to step on it is rooted in place and hurt." },
-    { id: 'vanish', cost: 35, name: "Vanish", key: '', level: 12, cd: 25, icon: '', desc: "Turn invisible for 5 s. Enemies lose track of you and your next hit deals double damage." },
+    { id: 'vanish', cost: 35, name: "Camouflage", key: '', level: 12, cd: 25, icon: '', desc: "Blend into the wilds for 5 s. Enemies lose track of you and your next hit deals double damage." },
     { id: 'explotrap', cost: 35, name: "Explosive Trap", key: '', level: 14, cd: 14, icon: '', desc: "Set a fire trap that explodes when an enemy steps on it, burning everything nearby." },
     { id: 'pinning', cost: 25, name: "Pinning Shot", key: '', level: 16, cd: 9, icon: '', desc: "An arrow that pins the target to the ground: stunned for 2.5 s." },
     { id: 'barrage', cost: 45, name: "Barrage", key: '', level: 18, cd: 16, icon: '', desc: "Loose 10 arrows in quick succession at whatever you are aiming at." },
@@ -355,6 +356,17 @@ export const TIERS = [
   { name: 'Mithril', metal: 'Mithril', col: '#9fd6ff', lvl: 13, ingot: 'mithril_ingot' },
   { name: 'Starmetal', metal: 'Starmetal', col: '#c6a0ff', lvl: 17, ingot: 'starmetal_ingot' },
 ];
+// Rare, epic and legendary weapons carry one proc: a small chance on each weapon hit (more with Dexterity) to unleash an extra effect
+export const PROCS = {
+  flame: { name: 'Flametongue', col: '#ff8a3a', desc: 'bursts into flame: fire damage and a burn' },
+  frost: { name: 'Frostbite', col: '#8ad8ff', desc: 'frost damage that slows the target' },
+  storm: { name: 'Thunderclap', col: '#c8d8ff', desc: 'lightning that leaps to the nearest foes' },
+  venom: { name: 'Venom', col: '#8fe05a', desc: 'a deep poison that bleeds the target' },
+  crush: { name: 'Concussion', col: '#ffe28a', desc: 'a crushing blow that stuns for a moment' },
+  shadow: { name: 'Shadowstrike', col: '#c080ff', desc: 'shadow damage that ignores armour' },
+};
+export function procChance(rarity, dex) { const b = [0, 0, 0.03, 0.05, 0.07][rarity] || 0; return b ? Math.min(0.25, b + (dex || 0) * (0.002 + (rarity - 2) * 0.0007)) : 0; }
+export const PROC_DEX = (rarity) => (0.2 + (rarity - 2) * 0.07).toFixed(2);
 export const RARITY = [
   { name: 'Common', col: '#e8e8e8', mult: 1 },
   { name: 'Uncommon', col: '#5fd35f', mult: 1.12 },

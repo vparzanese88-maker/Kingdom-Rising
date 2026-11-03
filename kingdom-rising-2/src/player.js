@@ -11,8 +11,8 @@ const dualRank = () => 0;
 import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
-import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
-import { FOOD_BUFFS, ITEMS } from './data.js';
+import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
+import { FOOD_BUFFS, ITEMS, PROCS, procChance } from './data.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -543,6 +543,21 @@ export class Player {
       case 'wheel': spin(4.5, 1.5, { slow: 3 }); break;
       case 'doubleshot': { this.fireGun(0.8, true, 1.5, true); this.dodge = { t: 0, dur: 0.36, dir: f.clone().multiplyScalar(-1), speed: 22 }; this.iframes = 0.45; this.vel.y = 5; this.onGround = false; S.dodge(); V.burst('dust', this.pos.clone(), 14, { speed: 3, size: 0.8 }); break; }
       case 'whirlaxes': spin(4.5, 1.3, { bleed: base * 0.12 }); break;
+      case 'tripstab': {
+        // three quick alternating stabs at the one enemy in front, the last the deepest
+        const ms = [1.1, 1.1, 1.7];
+        ms.forEach((mult, k) => setTimeout(() => {
+          if (this.dead) return;
+          this.atk = { name: k % 2 ? 'stabL' : 'stabR', t: 0, dur: 0.22, hit: true, noQueue: true };
+          S.swingW('light', 1 + k * 0.15, this.pos);
+          let best = null, bd = 1e9; for (const m of mobsInCone(this.pos, this.yaw, this.W.reach + 0.6, 0.7)) { const d = m.pos.distanceTo(this.pos); if (d < bd) { bd = d; best = m; } }
+          if (!best) return;
+          const behind = Math.abs(angDiff(best.yaw || 0, Math.atan2(this.pos.x - best.pos.x, this.pos.z - best.pos.z))) > 2.0;
+          this.dealDamage(best, base * mult * (behind ? 1.5 : 1), { melee: true, offhand: k % 2 === 1, big: k === 2, bleed: k === 2 ? base * 0.15 : 0 });
+          if (k === 2) { G.hitstop = 0.06; V.addShake(0.15); }
+        }, k * 190));
+        break;
+      }
       case 'shadowflurry': this.atk = { name: 'fury', t: 0, dur: 1.0, hits: 7, rank: 1, hit: true, noQueue: true, base, bleed: true }; S.swingW('light', 1.2, this.pos); break;
       case 'greatcleave': spin(6.5, 1.7); break;
       case 'sweep': spin(5.5, 1.5); break;
@@ -711,7 +726,7 @@ export class Player {
       case 'disengage': { for (const m of mobsInRadius(this.pos, 5)) m.status.slow = Math.max(m.status.slow, 4); this.dodge = { t: 0, dur: 0.45, dir: f.clone().multiplyScalar(-1), speed: 18 }; this.iframes = 0.5; this.vel.y = 6; this.onGround = false; S.dodge(); V.burst('green', this.pos.clone().setY(this.pos.y + 0.5), 25, { speed: 3 }); break; }
       case 'focus': this.buffs.focus = 8; S.cast('holy', this.pos); V.burst('green', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 3 }); break;
       case 'barkskin': this.buffs.barrier = this.maxHp * 0.2 * up; this.buffs.barrierT = 10; S.chop(this.pos); V.burst('wood', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, radius: 1 }); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.5, '#8a6a3a', 0.5); break;
-      case 'vanish': this.stealth = 5 * up; this.buffs.nextCrit = true; S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); for (const m of G.mobs) if (!m.dead && m.state === 'chase') m.state = 'return'; break;
+      case 'vanish': this.stealth = 5 * up; this.buffs.nextCrit = true; S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); break;
       case 'snaretrap': case 'explotrap': { const fire = ab.id === 'explotrap'; this.placeTrap(this.pos.clone(), fire, base * (fire ? 2.4 : 1.0) * up, up); S.chop(this.pos); break; }
       case 'pinning': { const from = this.handPos(true), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(70), grav: 3, radius: 0.3, dmg: base * 1.3, owner: 'player', kind: 'spectral', life: 1.5, onHit: (p, m) => { if (m) { this.dealDamage(m, p.dmg, { stun: 2.5 }); V.number(m.pos.clone().setY(m.pos.y + m.height + 0.6), 'Pinned!', 'bad'); } } }); S.bowShot(this.pos); this.atk = { name: 'shoot', t: 0.4, dur: 0.4, hit: true }; break; }
       case 'barrage': { const n = 10 + (up > 1 ? 5 : 0); for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = this.handPos(true), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.06; dir.y += (Math.random() - 0.5) * 0.04; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(60), grav: 6, radius: 0.2, dmg: base * 0.6, owner: 'player', kind: 'arrow', life: 3 }); S.bowShot(this.pos); }, k * 90); this.atk = { name: 'shoot', t: 0, dur: n * 0.09, hit: true }; break; }
@@ -973,7 +988,7 @@ export class Player {
       case 'nova': { const r = (a.r || 5) * K; let dealt = 0;
         for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m)); dealt += P(a.dmg); }
         if (a.drainAll && dealt) this.heal(dealt * a.drainAll * this.hk());
-        if (a.vanish) { this.stealth = Math.max(this.stealth || 0, a.vanish); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.target === this) m.state = 'return'; S.stealth(); }
+        if (a.vanish) { this.stealth = Math.max(this.stealth || 0, a.vanish); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); }
         V.ring(this.pos, r, col, 0.6); V.burst(pk === 'spark' ? 'dust' : pk, this.pos.clone().setY(this.pos.y + 0.6), 50, { speed: 6, radius: r * 0.4 }); S.cast(el || 'arcane', this.pos, 1); S.rumble && S.rumble(this.pos, 0.5); V.addShake(0.25); anim('smash', 0.5); return true; }
       case 'cone': { const range = (a.range || 6) * K;
         for (const m of mobsInCone(this.pos, this.yaw, range, a.ang || 0.6)) this.dealDamage(m, P(a.dmg), hitO(m, { melee: true }));
@@ -1016,7 +1031,7 @@ export class Player {
         anim('castBig', 0.6); return true; }
       case 'summon': { const n = this.qty(a.n || 1, a.extra || 0); if (G.hooks.summonPet) G.hooks.summonPet(a.pet, this.pos.clone().addScaledVector(f, -2), this.h.level, a.dur || 30, n, !!a.big); S.cast('arcane', this.pos, 1); V.burst(a.pet === 'skeleton' ? 'bone' : 'shadow', this.pos.clone().addScaledVector(f, -2).setY(this.pos.y + 0.5), 40, { speed: 3 }); anim('castBig', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
-      case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase') m.state = 'return'; S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
+      case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
     }
     return false;
   }
@@ -1108,6 +1123,7 @@ export class Player {
     const W = this.W, rank = W && W.hands === 'dual' ? dualRank(this.h.dualKills) : 0;
     if (o.offhand && rank >= 3) o.bleed = dmg * 0.08;
     let total = m.takeHit(dmg * rand(0.92, 1.08), this, o);
+    if (G.battleFx && !o.proc && !o.silent && (o.melee || o.ranged || o.el) && !m.dead) this.tryProc(m);
     if (o.melee && rank >= 7 && Math.random() < 0.15 && !m.dead) { total += m.takeHit(dmg * 0.6, this, { silent: true }); V.number(m.pos.clone().setY(m.pos.y + m.height + 0.3), 'Double!', 'crit'); }
     if (o.melee && rank >= 5) this.end = Math.min(this.maxEnd, this.end + 3);
     if (this.buffs.fury > 0) this.heal(total * (0.1 + this.pk('a3up') * 0.05) * this.hk(), true);
@@ -1119,6 +1135,24 @@ export class Player {
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
     G.inCombat = 6; G.target = m;
     this.stealth = 0;
+  }
+  // rare, epic and legendary weapons: a small chance per weapon hit (better with Dexterity) to set off their proc
+  tryProc(m) {
+    const w = this.weapon; if (!w || w.rarity < 2) return; ensureProc(w);
+    if (G.time < (this.procT || 0) || Math.random() >= procChance(w.rarity, this.D.stats.dex)) return;
+    this.procT = G.time + 2;
+    const P = PROCS[w.proc], base = weaponDamage(this.h, w) * (w.rarity >= 4 ? 0.75 : w.rarity >= 3 ? 0.65 : 0.55), at = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6);
+    V.number(at.clone().setY(at.y + 1.2), P.name + '!', 'crit');
+    switch (w.proc) {
+      case 'flame': this.dealDamage(m, base * 0.7, { proc: true, el: 'fire', burn: base * 0.35 }); V.burst('fire', at, 26, { speed: 4, size: 0.6 }); S.cast && S.cast('fire', 0.6); break;
+      case 'frost': this.dealDamage(m, base * 0.55, { proc: true, el: 'frost', slow: 3 }); V.burst('frost', at, 24, { speed: 3.5, size: 0.5 }); break;
+      case 'storm': { const hit = [m]; let from = this.pos.clone().setY(this.pos.y + 1.4), cur = m;
+        for (let k = 0; k < 3 && cur; k++) { lightning(from, cur.pos.clone().setY(cur.pos.y + (cur.height || 1.6) * 0.6)); if (!cur.dead) this.dealDamage(cur, base * (k ? 0.4 : 0.55), { proc: true, el: 'arcane' }); from = cur.pos.clone().setY(cur.pos.y + 1); cur = mobsInRadius(cur.pos, 7).filter(x => !hit.includes(x)).sort((a, b) => a.pos.distanceTo(cur.pos) - b.pos.distanceTo(cur.pos))[0]; if (cur) hit.push(cur); }
+        break; }
+      case 'venom': this.dealDamage(m, base * 0.2, { proc: true, bleed: base * 0.12 }); V.burst('leaf', at, 18, { speed: 2.5 }); break;
+      case 'crush': this.dealDamage(m, base * 0.5, { proc: true, stun: 1.1, blunt: true, big: true }); V.ring(m.pos, 1.6, '#ffe28a', 0.3); S.blunt && S.blunt(m.pos); break;
+      case 'shadow': this.dealDamage(m, base * 0.85, { proc: true, el: 'arcane' }); V.burst('shadow', at, 22, { speed: 3, size: 0.8, grav: 0 }); break;
+    }
   }
   heal(n, quiet) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {

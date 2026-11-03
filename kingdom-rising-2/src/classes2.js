@@ -51,7 +51,7 @@ export const NEW_CLASSES = {
       { id: 'deathgrip', name: 'Death Grip', level: 6, cd: 12, cost: 25, t: 'curse', range: 25, pull: true, stun: 1, dmg: 0.6, desc: 'Drag the enemy you aim at to your feet and stun it.' },
       { id: 'harvest', name: 'Soul Harvest', level: 8, cd: 14, cost: 30, t: 'nova', r: 6, dmg: 1.2, drainAll: 0.25, fx: 'shadow', desc: 'Rip at the life of everything within 6 m.' },
       { id: 'darkarmor', name: 'Shroud of Night', level: 10, cd: 22, cost: 25, t: 'buff', buff: 'fort', dur: 12, desc: '+50% armour and your guard cannot be broken for 12 s.' },
-      { id: 'plague', name: 'Plague', level: 12, cd: 12, cost: 25, t: 'curse', range: 25, dot: 0.25, dotT: 8, spread: 6, desc: 'A creeping plague on the enemy you aim at, spreading to its friends within 6 m. Damages for 8 s.' },
+      { id: 'plague', name: 'Blight', level: 12, cd: 12, cost: 25, t: 'curse', range: 25, dot: 0.25, dotT: 8, spread: 6, desc: 'A creeping blight on the enemy you aim at, spreading to its friends within 6 m. Damages for 8 s.' },
       { id: 'bloodfury', name: 'Blood Fury', level: 14, cd: 30, cost: 30, t: 'buff', buff: 'rage', dur: 10, desc: 'For 10 s you hit 15% harder.' },
       { id: 'deathcoil', name: 'Death Coil', level: 16, cd: 10, cost: 30, t: 'drain', kind: 'orb', col: 'shadow', speed: 30, dmg: 2.3, drain: 0.5, aoe: 3, desc: 'A coil of death that bursts on impact.' },
       { id: 'armyofdead', name: 'Rise, Dead', level: 18, cd: 50, cost: 50, t: 'summon', pet: 'skeleton', n: 2, extra: 2, dur: 30, desc: 'Two skeletons claw their way up to fight for you for 30 s (more as you level).' },

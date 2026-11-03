@@ -329,7 +329,8 @@ export class Mob {
       if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && player.level - this.lv < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
-      if (this.state === 'chase' && (leash > (this.def.boss ? 60 : 45) || player.stealth > 0 && (G.battleFx || dp > 6))) { this.state = 'return'; this.provoked = false; }
+      if (this.state === 'chase' && player.stealth > 0 && G.battleFx && leash <= (this.def.boss ? 60 : 45)) this.loseTrack();
+      else if (this.state === 'chase' && (leash > (this.def.boss ? 60 : 45) || player.stealth > 0 && (G.battleFx || dp > 6))) { this.state = 'return'; this.provoked = false; }
       for (const k in this.spCd) this.spCd[k] -= dt;
       if (this.abil.includes('regen') && this.state === 'chase') this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.012 * dt);
       if (this.action && this.action !== 'attack') { const mv = this.special(dt, player, dp); if (mv) { want = mv.want; speed = mv.speed; } }
@@ -350,6 +351,9 @@ export class Mob {
       } else if (this.state === 'flee') {
         this.timer -= dt; const away = this.pos.clone().sub(player.pos).setY(0).normalize().multiplyScalar(10).add(this.pos);
         want = away; speed = spd; if (this.timer <= 0) this.state = 'idle';
+      } else if (this.state === 'lost') {
+        // lost sight of a vanished foe: stand where it was last seen and look around, then settle down right here
+        this.timer -= dt; this.yaw += Math.sin(G.time * 2.2 + this.id) * dt * 2.2; if (this.timer <= 0) { this.state = 'idle'; this.timer = 2; this.idleAct = null; }
       } else if (this.state === 'return') {
         want = this.home; speed = spd * 1.3; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * dt * 0.3);
         if (leash < 3) { this.state = 'idle'; this.hp = this.maxHp; }
@@ -421,6 +425,8 @@ export class Mob {
   }
   // ---- special abilities ----
   say(t) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.6), t, 'bad'); }
+  // a stealthed hero slipped away: in battle the mob searches the spot instead of running home
+  loseTrack() { if (!G.battleFx) { this.state = 'return'; return; } this.state = 'lost'; this.timer = 3 + Math.random() * 2; this.provoked = false; this.action = this.action === 'attack' ? null : this.action; if (this.target) this.target = null; }
   tryAbility(player, dp) {
     if (player.dead) return false;
     for (const a of this.abil) {

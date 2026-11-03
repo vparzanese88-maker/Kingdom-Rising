@@ -85,7 +85,15 @@ export function makeWeapon(wt, tier, rarity = 0, lvlHint) {
   const W = WEAPON_TYPES[wt], T = TIERS[tier], R = RARITY[rarity];
   const stats = rollStats(tier, rarity, weaponStat(wt));
   const name = (tier === 0 ? (W.kind === 'staff' ? 'Driftwood' : W.kind === 'bow' ? 'Driftwood' : 'Rusty') : T.name) + ' ' + W.name;
-  return { uid: ++uid, kind: 'weapon', wt, tier, rarity, name, dmg: Math.round(weaponBaseDmg(tier) * W.dmg * R.mult), stats, lvl: tier === 0 ? 1 : T.lvl };
+  const it = { uid: ++uid, kind: 'weapon', wt, tier, rarity, name, dmg: Math.round(weaponBaseDmg(tier) * W.dmg * R.mult), stats, lvl: tier === 0 ? 1 : T.lvl };
+  ensureProc(it); return it;
+}
+const PROC_BY_KIND = { staff: ['flame', 'frost', 'storm', 'shadow'], bow: ['flame', 'frost', 'storm', 'venom'], gun: ['flame', 'storm', 'crush'], melee: ['flame', 'frost', 'storm', 'venom', 'crush', 'shadow'] };
+export function ensureProc(it) {
+  if (!it || it.kind !== 'weapon' || it.rarity < 2 || it.proc) return it;
+  const W = WEAPON_TYPES[it.wt]; let pool = PROC_BY_KIND[W.kind] || PROC_BY_KIND.melee;
+  if (W.kind === 'staff') pool = [it.wt === 'firestaff' ? 'flame' : it.wt === 'froststaff' ? 'frost' : it.wt === 'stormstaff' ? 'storm' : pool[Math.floor(Math.random() * pool.length)]];
+  it.proc = pool[Math.floor(Math.random() * pool.length)]; return it;
 }
 export function makeArmor(akind, slot, tier, rarity = 0) {
   const R = RARITY[rarity];

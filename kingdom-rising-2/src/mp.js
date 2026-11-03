@@ -37,7 +37,8 @@ export function lobby() {
       const isHost = MP.host, focus = document.activeElement && document.activeElement.id === 'mpName';
       let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div><h1>${MP.code ? 'Game <span class="mpcode">' + MP.code + '</span>' : 'Connecting…'}</h1>`;
       html += MP.code ? `<p class="mpsub">${isHost ? 'Send this code to your friends. They choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in. They join your town unless they pick another.' : 'You are in! The host is setting up the battle. You can stay in the host\'s town or join another one.'}</p>` : `<p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>`;
-      if (MP.code) {
+      if (MP.code && !MP.slots.length) html += '<p class="mpsub dim">Joining the host\'s lobby…</p>';
+      else if (MP.code) {
         html += `<div class="mpname"><label>Your name <input id="mpName" maxlength="16" value="${String(me.name).replace(/"/g, '&quot;')}"></label><span class="dim">You make your hero after the game starts.</span></div>`;
         const homeI = Math.max(0, MP.slots.findIndex(s => s.players.includes(0))), home = MP.slots[homeI], foes = MP.slots.filter((s, i) => i !== homeI);
         const others = MP.slots.filter((s, i) => i !== homeI && s.players.length);

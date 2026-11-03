@@ -229,7 +229,7 @@ class ViewModel {
 
 // ---------- Player ----------
 const SWORDS = { sword: 1, swordshield: 1, swordmace: 1, greatsword: 1 };
-const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, paladin: 0.6, ranger: 0.35, beastmaster: 0.35 };
+const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
 // bard songs: a colour per kind of song (healing is green)
 const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff' };
 const NOTE_TEX = {};

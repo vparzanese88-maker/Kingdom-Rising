@@ -272,7 +272,7 @@ export class Mob {
     G.hooks.onKill && G.hooks.onKill(this, src);
   }
   respawn() {
-    this.dead = false; this.hp = this.maxHp; this.pos.copy(this.home); this.state = 'idle'; this.provoked = false; this.looted = false; this.skinned = false; this.loot = null;
+    this.dead = false; this._shared = false; this.hp = this.maxHp; this.pos.copy(this.home); this.state = 'idle'; this.provoked = false; this.looted = false; this.skinned = false; this.loot = null;
     this.root.visible = true; this.deadT = 0;
     for (const k in this.status) if (typeof this.status[k] === 'number') this.status[k] = 0;
   }

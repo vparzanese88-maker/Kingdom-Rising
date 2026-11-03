@@ -94,7 +94,7 @@ export const NEW_CLASSES = {
     weapons: ['sword', 'daggers', 'swordmace'], armor: 'leather', start: 'sword', startName: 'Rapier', outfit: 'musketeer',
     colors: { main: '#8a2a6a', trim: '#e8c060', metal: '#b0a080' }, pool: { hp: [105, 13], mana: [80, 6], end: [100, 5], uses: 'mana' },
     info: { tag: 'Minstrel', diff: 2, role: 'Songs for the whole side', res: 'Mana', tips: ['Songs reach everyone near you: soldiers and friends.', 'Song of Travel makes a whole army march faster.', 'Discord and Lullaby stop enemies cold.'] },
-    tune: { dmg: 1.2, hp: 1.12 },
+    tune: { dmg: 1.65, hp: 1.12 },
     abilities: [
       { id: 'warsong', name: 'War Song', level: 1, cd: 0, cost: 0, song: 'war', r: 14, desc: 'A song (plays by itself while on your hotbar): you and allies within 14 m hit 25% harder.' },
       { id: 'flamesong', name: 'Song of Flames', level: 2, cd: 0, cost: 0, song: 'flame', r: 12, desc: 'A song (plays by itself while on your hotbar): the weapons of you, your soldiers and other players within 12 m burst into flame, so every hit burns.' },
@@ -162,7 +162,7 @@ export const NEW_CLASSES = {
     weapons: ['arcanestaff', 'froststaff', 'daggers'], armor: 'cloth', start: 'arcanestaff', startName: 'Arcane Staff', outfit: 'wizard',
     colors: { main: '#6a2a9a', trim: '#e0c8ff', metal: '#a090c0' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Mind weaver', diff: 3, role: 'Crowd control and buffs', res: 'Mana', tips: ['Mesmerize and Mass Sleep stop whole packs.', 'Clarity and Haste make your side far stronger.', 'Mind Blast and Phantasm finish what you start.'] },
-    tune: { dmg: 1.05, hp: 1.13 },
+    tune: { dmg: 0.95, hp: 1.13 },
     abilities: [
       { id: 'mindblast', name: 'Mind Blast', level: 1, cd: 5, cost: 20, t: 'bolt', kind: 'arcane', col: 'arcane', speed: 45, dmg: 1.6, slow: 2, desc: 'A spike of pure thought into the enemy you aim at.' },
       { id: 'mesmerize', name: 'Mesmerize', level: 2, cd: 12, cost: 20, t: 'curse', range: 30, stun: 5, dmg: 0.1, desc: 'The enemy you aim at stands entranced for 5 s.' },

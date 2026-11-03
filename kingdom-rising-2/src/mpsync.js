@@ -6,7 +6,7 @@ import { S } from './audio.js';
 import { MOBS } from './data.js';
 import { Mob } from './mobs.js';
 import { MP, send, RemoteHero } from './mp.js';
-import { B, Unit, myTown, bank, allyHeal, allyBuff, sendAttack, recall, setFollow, summonWolves, heroUnitDef, syncTownLevel, startConstructionVisual, shootVisual, questReward } from './battle.js';
+import { B, Unit, myTown, bank, allyHeal, allyBuff, sendAttack, recall, setFollow, summonWolves, heroUnitDef, syncTownLevel, startConstructionVisual, shootVisual, questReward, spiritWolf, spiritWolfDef } from './battle.js';
 import { unitDef } from './battledata.js';
 import { heightAt } from './terrain.js';
 import { angDiff } from './util.js';
@@ -20,7 +20,7 @@ export const fxQueue = [];
 export function hostTick(dt) {
   snapT -= dt; if (snapT > 0) return; snapT = 0.1;
   const u = [];
-  for (const x of B.units) { if (x.gone || x.builder) continue; u.push([x.id, x.town.i, x.hero ? '@' + (x.cls || 'warrior') : x.pet ? '~wolf' : x.udef.id, r1(x.pos.x), r1(x.pos.z), r2(x.yaw), Math.round(x.hp), x.maxHp, x.action || '', x.dead ? 1 : 0, x.carry > 0 ? (x.cjob === 'wood' ? 1 : 2) : 0, x.hero ? x.heroName : 0]); }
+  for (const x of B.units) { if (x.gone || x.builder) continue; u.push([x.id, x.town.i, x.hero ? '@' + (x.cls || 'warrior') : x.udef.id === 'spiritwolf' ? '~swolf:' + x.udef.lv : x.pet ? '~wolf' : x.udef.id, r1(x.pos.x), r1(x.pos.z), r2(x.yaw), Math.round(x.hp), x.maxHp, x.action || '', x.dead ? 1 : 0, x.carry > 0 ? (x.cjob === 'wood' ? 1 : 2) : 0, x.hero ? x.heroName : 0]); }
   // only mobs that changed since last time
   const m = [];
   mobList.forEach((mb, i) => { const L = lastMobs[i]; const st = [r1(mb.pos.x), r1(mb.pos.z), r2(mb.yaw), Math.round(mb.hp), mb.dead ? 1 : 0, mb.action ? 1 : 0]; if (!L || Math.abs(L[0] - st[0]) > 0.15 || Math.abs(L[1] - st[1]) > 0.15 || L[3] !== st[3] || L[4] !== st[4] || L[5] !== st[5] || Math.abs(L[2] - st[2]) > 0.1) { m.push([i, ...st]); lastMobs[i] = st; } });
@@ -55,10 +55,10 @@ function applySnap(d) {
     let u = unitById.get(id);
     if (!u) {
       const t = B.towns[ti]; if (!t) continue;
-      const D = def[0] === '@' ? heroUnitDef(def.slice(1)) : def === '~wolf' ? { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: mhp, dmg: 1, speed: 7, range: 0, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } } : unitDef(t.race, def);
+      const D = def[0] === '@' ? heroUnitDef(def.slice(1)) : def.startsWith('~swolf') ? spiritWolfDef(+def.split(':')[1] || 1) : def === '~wolf' ? { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: mhp, dmg: 1, speed: 7, range: 0, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } } : unitDef(t.race, def);
       if (!D) continue;
       u = new Unit(t, D, x, z, { hero: def[0] === '@', app: def[0] === '@' ? { cls: def.slice(1), outfit: def.slice(1), spec: undefined } : undefined, proxyId: id });
-      u.proxy = true; u.id = id; if (hname) u.heroName = hname; if (def === '~wolf') u.pet = true;
+      u.proxy = true; u.id = id; if (hname) u.heroName = hname; if (def === '~wolf' || def.startsWith('~swolf')) u.pet = true;
       u.tpos = new THREE.Vector3(x, 0, z); t.units.push(u); unitById.set(id, u);
     }
     u.tpos.set(x, 0, z); u.tyaw = yaw; u.hp = hp; u.maxHp = mhp; u.carry = carry ? 10 : 0; u.cjob = carry === 1 ? 'wood' : 'stone';
@@ -134,7 +134,7 @@ export function onData(from, d) {
     case 'gold': if (MP.host) { const t = townOf(from); if (t) bank(t, 'gold', d.n); } break;
     case 'order': if (MP.host) { const t = townOf(from); if (!t) break; if (d.kind === 'attack') sendAttack(t, d.target, d.frac || 1); else if (d.kind === 'recall') recall(t); else if (d.kind === 'follow') setFollow(t); } break;
     case 'fx': if (MP.host) { const t = townOf(from); if (!t) break; const at = new THREE.Vector3(d.x, 0, d.z); if (d.heal) allyHeal(at, d.r, d.heal, t.team, remoteFor(from)); if (d.kind) allyBuff(at, d.r, d.kind, d.dur, t.team, remoteFor(from)); } break;
-    case 'summon': if (MP.host) { const t = townOf(from); if (t) summonWolves(new THREE.Vector3(d.x, 0, d.z), d.lv, d.dur, t); } break;
+    case 'summon': if (MP.host) { const t = townOf(from); if (t) (d.kind === 'spirit' ? spiritWolf : summonWolves)(new THREE.Vector3(d.x, 0, d.z), d.lv, d.dur, t); } break;
   }
 }
 const pendingRoster = [];

@@ -716,7 +716,11 @@ export class Unit {
       return [p[0] - dz / l * this.off, p[1] + dx / l * this.off];
     }
     const leader = this.town.leader || (this.town.isMe ? G.player : null);
-    if (this.order === 'follow' && leader && !leader.dead) return [leader.pos.x + Math.sin(this.id) * 4, leader.pos.z + Math.cos(this.id) * 4];
+    if (this.order === 'follow' && leader && !leader.dead) {
+      // pets keep their own spot a few steps behind and to the side of you, instead of crowding you
+      if (this.pet) { const y = leader.yaw || 0, side = (this.id % 2 ? 1 : -1) * (2.6 + (this.id % 3) * 1.1), back = 3.4 + (this.id % 2) * 1.3; return [leader.pos.x - Math.sin(y) * back - Math.cos(y) * side, leader.pos.z - Math.cos(y) * back + Math.sin(y) * side]; }
+      return [leader.pos.x + Math.sin(this.id) * 4, leader.pos.z + Math.cos(this.id) * 4];
+    }
     // defend: hold the square just inside the gate
     const k = this.id % 16, row = Math.floor(k / 8), col = k % 8, lat = (col < 4 ? -1 : 1) * (4 + (col % 4) * 2.2);
     return [t.gateIn[0] - t.dir[0] * (3 + row * 2.6) + t.perp[0] * lat, t.gateIn[1] - t.dir[1] * (3 + row * 2.6) + t.perp[1] * lat];
@@ -752,7 +756,7 @@ export class Unit {
     const disabled = st.frozen > 0 || st.stun > 0;
     const px0 = this.pos.x, pz0 = this.pos.z;
     let want = null, speed = 0;
-    const spd = this.udef.speed * (st.slow > 0 ? 0.55 : 1);
+    const spd = this.udef.speed * (st.slow > 0 ? 0.55 : 1) * (this.runUntil > B.time ? 1 + (this.runK || 0) : 1);
     if (!disabled) {
       this.atkCd -= dt;
       if (this.worker) { const r = workerTick(this, dt); want = r.want; speed = r.speed ? spd * r.speed * (1 + up(this.town, 'boots') * 0.15) : 0; }
@@ -770,7 +774,7 @@ export class Unit {
           else if (this.range && d <= this.range) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15) * (this.haste > B.time ? 0.7 : 1); this.startAction(this.udef.wt && this.udef.wt.includes('staff') ? 'cast' : 'shoot', 0.6); const kind = this.udef.proj || 'arrow'; shoot(this, tg, this.handPos(), this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), kind, { splash: this.udef.splash, slow: this.udef.slow }); } }
           else if (!this.range && d <= this.reach) { if (this.atkCd <= 0 && !this.action) { this.atkCd = this.udef.cd * rand(0.9, 1.15) * (this.haste > B.time ? 0.7 : 1); this.startAction(this.udef.kind === 'troll' || this.udef.wt === 'warhammer' ? 'slam' : ['swing1', 'swing2', 'swing3'][Math.floor(Math.random() * 3)], 0.75); this.pending = tg; this.hitAt = 0.5; } }
           else { want = [tg.pos.x, tg.pos.z]; speed = spd; }
-        } else { const g = this.goal(); if (Math.hypot(g[0] - this.pos.x, g[1] - this.pos.z) > 1.2) { want = g; speed = spd * (this.order === 'defend' ? 0.8 : 1); } else if (this.order === 'defend') this.faceTo(V3(this.pos.x + this.town.dir[0], 0, this.pos.z + this.town.dir[1]), dt, 3); }
+        } else { const g = this.goal(), gd = Math.hypot(g[0] - this.pos.x, g[1] - this.pos.z), arrive = this.pet ? (this.petGo ? 1.0 : 3.0) : 1.2; if (this.pet) this.petGo = gd > arrive; if (gd > arrive) { want = g; speed = spd * (this.order === 'defend' ? 0.8 : 1); } else if (this.order === 'defend') this.faceTo(V3(this.pos.x + this.town.dir[0], 0, this.pos.z + this.town.dir[1]), dt, 3); }
         if (this.pending && this.action && this.actionT >= this.hitAt) { const t = this.pending; this.pending = null; if (!t.dead && this.dist(t) - (t.radius || 0.5) <= this.reach + 0.8) { hurt(t, this.dmg * rand(0.85, 1.15) * (this.rally > B.time ? 1.25 : 1), this); if (this.udef.slam) { V.ring(t.pos, this.udef.slam, '#c8a070', 0.4); V.burst('dust', t.pos.clone(), 14, { speed: 4, size: 1 }); for (const o of foesNear(this.team, t.pos, this.udef.slam)) if (o !== t) hurt(o, this.dmg * 0.5, this); } } }
       }
       // smooth steering: accelerate toward where we want to be, ease in on arrival, keep a little apart from friends
@@ -801,7 +805,9 @@ export class Unit {
     else if (realSp > speed * 0.5) { this.stuck = 0; if (realSp > 1) this.stuckN = Math.max(0, (this.stuckN || 0) - dt * 0.5); }
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
     if (this.expire != null) { this.expire -= dt; if (this.expire <= 0 && !this.dead) { V.burst('shadow', this.pos.clone().setY(this.pos.y + 0.8), 25, { speed: 2 }); this.dead = true; this.gone = true; this.root.visible = false; } }
-    if (this.root.visible) { if (this.udef.quad) animQuad(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action ? 'attack' : null, actionT: this.actionT }); else animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true }); }
+    if (this.pet) { const still = realSp < 0.25 && !this.target && !this.action; this.idleT = still ? (this.idleT || 0) + dt : 0; }
+    const it = this.idleT || 0, petIdle = this.pet ? { sniff: it > 0.8 && it < 4.5 && Math.sin(this.id + it * 0.9) > -0.2, sit: it >= 4.5 && it < 16, lie: it >= 16 } : {};
+    if (this.root.visible) { if (this.udef.quad) animQuad(this.model, dt, Object.assign({ speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action ? 'attack' : null, actionT: this.actionT }, petIdle)); else animateHumanoid(this.model, dt, { speed: disabled ? 0 : Math.min(speed, realSp * 1.1), action: this.action, actionT: this.actionT, armed: true }); }
   }
   startAction(a, dur) { this.action = a; this.actionT = 0; this.actionDur = dur; }
   animateProxy(dt, sp) { if (this.udef.quad) animQuad(this.model, dt, { speed: sp, action: this.action ? 'attack' : null, actionT: this.actionT }); else animateHumanoid(this.model, dt, { speed: sp, action: this.action, actionT: this.actionT, armed: true }); }
@@ -903,7 +909,7 @@ function routeHome(u, dest) { return dest; }
 
 // ---------- AI heroes ----------
 const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior' };
-const CLASS_HERO = { warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
+const CLASS_HERO = { shaman: { wt: 'spear', range: 0 }, musketeer: { wt: 'musket', range: 26, proj: 'bullet' }, warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
 export function heroUnitDef(cls) { const H = CLASS_HERO[cls] || CLASS_HERO.warrior; return { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } }; }
 function makeAIHero(t) {
   const cls = t.heroCls || AI_CLASS[t.race] || 'warrior', H = CLASS_HERO[cls];
@@ -1027,6 +1033,16 @@ export function allyBuff(p, r, kind, dur, team = B.myTeam, caster = G.player) {
   for (const h of allHeroes()) if (h !== G.player && h !== caster && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) G.hooks.netBuff && G.hooks.netBuff(h, kind, dur);
 }
 export function rallyTroops(p, r) { const t = myTown(); for (const u of t.units) if (!u.dead && !u.worker && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.3); u.rally = B.time + 10; V.burst('gold', u.pos.clone().setY(u.pos.y + 1.5), 8, { speed: 2, vy: 2 }); } }
+// the Shaman's spirit wolf: light bites, but everyone of its side near it runs faster. It, its aura and the speed grow with level
+export function spiritWolfDef(lv) { lv = Math.max(1, Math.min(10, lv)); return { id: 'spiritwolf', name: 'Spirit Wolf', lv, role: 'melee', hp: 220 + lv * 45, dmg: 3 + lv * 1.2, cd: 1.3, speed: 7.5, range: 0, armor: 0.2, size: 1.0 + lv * 0.05, quad: 'wolf', col: '#a8f0d8', pop: 0, cost: { gold: 0 }, aura: { r: 8 + lv * 0.9, k: 0.12 + lv * 0.02 } }; }
+export function spiritWolf(p, lv, dur, town) { const t = town || myTown(); for (const u of t.units) if (u.udef.id === 'spiritwolf' && !u.dead) { u.dead = true; u.gone = true; u.root.visible = false; } const u = new Unit(t, spiritWolfDef(lv), p.x, p.z, { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('heal', u.pos.clone().setY(u.pos.y + 0.8), 30, { speed: 3 }); return u; }
+// every few frames: anyone of the wolf's side inside its aura runs faster
+function wolfAuras(dt) {
+  for (const w of B.units) { if (w.dead || !w.udef.aura) continue; const A = w.udef.aura;
+    if ((w.auraFx = (w.auraFx || 0) - dt) <= 0) { w.auraFx = 1.4; V.ring(w.pos, A.r, '#80ffd0', 1.2); }
+    const p = G.player; if (p && !p.dead && w.team === B.myTeam && Math.hypot(p.pos.x - w.pos.x, p.pos.z - w.pos.z) < A.r) { p.buffs.wolfRun = 0.35; p.wolfK = A.k; }
+    if (!B.client) for (const u of B.units) if (u.team === w.team && !u.dead && u !== w && Math.hypot(u.pos.x - w.pos.x, u.pos.z - w.pos.z) < A.r) { u.runUntil = B.time + 0.35; u.runK = A.k; } }
+}
 export function summonWolves(p, lv, dur, town) { const t = town || myTown(); const n = 2 + Math.round((Math.min(10, lv) - 1) / 9 * 2); for (let k = 0; k < n; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k - (n - 1) / 2) * 2.2, p.z - 2 - (k % 2), { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
 export function recall(t) {
   if (B.client) { send({ t: 'order', kind: 'recall' }); return; } for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }
@@ -1252,6 +1268,7 @@ export function initBattle(scene) {
 export function update(dt) {
   if (!B.on) return;
   gateLock();
+  wolfAuras(dt);
   if (B.client) { for (const t of B.towns) if (!t.dead) updateConstruction(t, dt); for (const s of B.structs) s.update(dt); updateShots(dt); fogAndSentries(dt); return; }
   if (!B.over) B.time += dt;
   for (const t of B.towns) {

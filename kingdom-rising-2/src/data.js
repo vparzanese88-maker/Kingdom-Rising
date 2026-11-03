@@ -58,6 +58,7 @@ export const CLASS_POOLS = {
   ranger: { hp: [100, 13], mana: [0, 0], end: [110, 6], uses: 'end' },
   wizard: { hp: [85, 10], mana: [110, 9], end: [80, 3], uses: 'mana' },
   musketeer: { hp: [100, 13], mana: [0, 0], end: [105, 6], uses: 'end' },
+  shaman: { hp: [105, 13], mana: [100, 8], end: [95, 4], uses: 'mana' },
 };
 export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; const L = (level - 1) * LEVEL_GROWTH; return { hp: P.hp[0] + P.hp[1] * L, mana: P.mana[0] + P.mana[1] * L, end: P.end[0] + P.end[1] * L }; }
 // which stat a weapon type scales with
@@ -130,6 +131,7 @@ export function classFamilies(cls) { const out = []; for (const wt of CLASSES[cl
 export const TREE_ROW_POINTS = 2;
 export const CLASS_TREE = {
   musketeer: [],
+  shaman: [],
   warrior: [
     { id: 'hp', row: 0, name: "Toughness", icon: 'heart', max: 1, desc: "+10% maximum health." },
     { id: 'armor', row: 0, name: "Iron Skin", icon: 'shield', max: 1, desc: "+15% armour." },
@@ -244,6 +246,9 @@ export const CLASSES = {
   musketeer: { name: 'Musketeer', battleOnly: true, desc: 'A sharpshooter in a long coat. Slow to reload, but every shot hits like a hammer, and a steady aim can drop a foe from across the field.',
     weapons: ['musket'], armor: 'leather', hp: 105, mana: 0,
     colors: { main: '#1e3a6a', trim: '#d8b04a', metal: '#4a4a50' } },
+  shaman: { name: 'Shaman', battleOnly: true, desc: 'A spirit-caller who fights with a spear and the old powers: mends allies, curses foes, calls storms and runs with a spirit wolf.',
+    weapons: ['spear', 'sword', 'mace', 'handaxes'], armor: 'leather', hp: 105, mana: 100,
+    colors: { main: '#2a6a6a', trim: '#c89a4a', metal: '#8a7a5a' } },
 };
 
 // Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
@@ -295,6 +300,18 @@ export const ABILITIES = {
     { id: 'incendiary', cost: 30, name: "Incendiary Round", key: '', level: 14, cd: 10, icon: '', desc: "A blazing round that bursts on impact, setting everything within 4 m on fire." },
     { id: 'caltrops', cost: 20, name: "Caltrops", key: '', level: 16, cd: 14, icon: '', desc: "Scatter iron spikes in a 6 m circle around you: enemies inside are slowed and cut." },
     { id: 'cannonade', cost: 55, name: "Cannonade", key: '', level: 18, cd: 30, icon: '', desc: "Signal the town's cannons: three shells crash down around the spot you aim at." },
+  ],
+  shaman: [
+    { id: 'healingwave', cost: 25, name: "Healing Wave", key: '', level: 1, cd: 10, icon: '', desc: "A wave of spirit water: heals you and every ally within 10 m (troops and players) for 15% of their health." },
+    { id: 'earthshock', cost: 20, name: "Earth Shock", key: '', level: 2, cd: 6, icon: '', desc: "Hurl a shard of living stone where you aim: it hits hard and slows the target for 3 s." },
+    { id: 'spiritwolf', cost: 40, name: "Spirit Wolf", key: '', level: 4, cd: 40, icon: '', desc: "Call a spirit wolf to run with you for 45 s. It bites only lightly, but everyone near it runs faster. The wolf, its aura and the speed grow as you level." },
+    { id: 'ancestralward', cost: 30, name: "Ancestral Ward", key: '', level: 6, cd: 20, icon: '', desc: "The ancestors stand guard: you and allies within 9 m take 40% less damage for 8 s." },
+    { id: 'hex', cost: 25, name: "Hex", key: '', level: 8, cd: 12, icon: '', desc: "Curse the enemy you aim at: it is slowed, stunned for a moment and its strength drains away for 6 s." },
+    { id: 'chainheal', cost: 35, name: "Chain Heal", key: '', level: 10, cd: 12, icon: '', desc: "A healing spirit leaps from ally to ally, healing each one less than the last. More jumps as you level." },
+    { id: 'wartotem', cost: 30, name: "War Totem", key: '', level: 12, cd: 22, icon: '', desc: "Plant a war totem: you and allies within 10 m attack faster for 8 s." },
+    { id: 'stormcall', cost: 40, name: "Storm Call", key: '', level: 14, cd: 16, icon: '', desc: "Call lightning down on the enemies where you aim. More bolts as you level." },
+    { id: 'earthbind', cost: 25, name: "Earthbind", key: '', level: 16, cd: 18, icon: '', desc: "Roots burst from the ground: every enemy within 7 m is held in place and badly slowed for 4 s." },
+    { id: 'spiritlink', cost: 50, name: "Spirit Link", key: '', level: 18, cd: 40, icon: '', desc: "Bind your side together: you and allies within 12 m heal 30% over 6 s." },
   ],
   wizard: [
     { id: 'frostnova', cost: 30, name: "Frost Nova", key: '', level: 1, cd: 8, icon: '', desc: "Blast of ice around you: damages and freezes nearby enemies for 3 s." },

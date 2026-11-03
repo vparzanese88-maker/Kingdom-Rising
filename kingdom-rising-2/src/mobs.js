@@ -123,6 +123,20 @@ export function animQuad(c, dt, st) {
   c.neck.rotation.x += ((-P.neckUp + headPitch) - c.neck.rotation.x) * Math.min(1, dt * 8);
   c.body.position.z = -P.len / 2 + lunge * 0.45;
   if (st.rear) { c.torso.rotation.x = -0.45; headPitch = -0.6; }
+  // resting poses for pets: sitting (hind legs folded, chest up) and lying down (belly on the ground)
+  A.sitK = (A.sitK || 0) + ((st.sit ? 1 : 0) - (A.sitK || 0)) * Math.min(1, dt * 3);
+  A.lieK = (A.lieK || 0) + ((st.lie ? 1 : 0) - (A.lieK || 0)) * Math.min(1, dt * 2);
+  if (A.sitK > 0.01 || A.lieK > 0.01) {
+    const s = A.sitK, l = A.lieK;
+    c.torso.rotation.x = -0.5 * s + 0.02 * l;
+    c.torso.position.y -= (P.legL * 0.45) * s + (P.legL * 0.8) * l;
+    for (const L of c.legs) {
+      if (L.front) { L.hip.rotation.x = (L.hip.userData.base || 0) + 0.35 * s - 1.2 * l; L.knee.rotation.x = (L.knee.userData.base || 0) + 1.3 * l; }
+      else { L.hip.rotation.x = (L.hip.userData.base || 0) - 1.1 * s - 1.0 * l; L.knee.rotation.x = (L.knee.userData.base || 0) + 1.6 * s + 1.4 * l; }
+    }
+    if (l > 0.5) headPitch = 0.25 + Math.sin(performance.now() * 0.0015) * 0.05;
+    c.neck.rotation.x += ((-P.neckUp + headPitch) - c.neck.rotation.x) * Math.min(1, dt * 4);
+  }
   c.tail.rotation.y = Math.sin(performance.now() * (sp > 0 ? 0.008 : 0.004)) * (sp > 0 ? 0.35 : 0.15);
   if (c.tail2) c.tail2.rotation.x = -0.35 + Math.sin(performance.now() * 0.006) * 0.08;
   const b = c.root.children[0];

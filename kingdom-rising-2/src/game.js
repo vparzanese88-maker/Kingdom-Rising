@@ -25,7 +25,7 @@ export const setIsEmpty = (h) => !h.equip.w3 && !h.equip.w4;
 // run an equip or unequip against Set 2 by trading the sets around it
 function onSet2(h, fn) { swapSets(h); let r; try { r = fn(); } finally { swapSets(h); } G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); return r; }
 export function newHero(o) {
-  const starter = { musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
+  const starter = { shaman: makeWeapon('spear', 0, 0), musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,

@@ -31,6 +31,7 @@ function outfitSpec(app) {
     case 'berserker': return { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, shawl: '#8a7a6a', sash: c.main };
     case 'warrior': return { shirt: '#5b5f66', mail: c.metal, tabard: c.main, trim: c.trim, pants: '#3a2f28', boots: '#2b211a', pauldrons: true, belt: '#3a2a1a', bracers: c.metal };
     case 'ranger': return { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: c.main, cloak: c.main, quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' };
+    case 'shaman': return { shirt: '#5a3a22', vest: c.main, trim: c.trim, pants: '#3a2a1e', boots: '#4a3220', belt: '#6b4a2a', shawl: '#7a5a3a', sash: c.trim, bracers: '#5a3a22', hood: null };
     case 'musketeer': return { shirt: '#e8e0c8', vest: c.main, trim: c.trim, pants: '#2a2a34', boots: '#1e1a16', hat: 'cap', hatCol: '#1a1a20', belt: '#3a2a1a', cloak: c.main, bracers: '#3a2a1a' };
     case 'wizard': return { shirt: c.main, robe: c.main, trim: c.trim, pants: '#2a2a40', boots: '#3a2a1a', hat: 'pointy', hatCol: c.main, sash: c.trim, sleeves: true };
     case 'elder': return { shirt: '#6b5a48', robe: '#5a4a3a', trim: '#b49a5a', pants: '#3a3028', boots: '#3a2a1a', shawl: '#8a6a4a', sash: '#8a6a4a' };

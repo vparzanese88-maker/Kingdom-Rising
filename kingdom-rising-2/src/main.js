@@ -194,9 +194,9 @@ function tickCampFires() { const t = performance.now() * 0.001; for (const c of 
 // takes a few swings and real damage, three levels up is a hard fight, and five up will usually kill you
 function battleMob(m) {
   m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2));
-  m.maxHp = Math.round(m.maxHp * 2.2); m.hp = m.maxHp;
-  m.dmg *= 1.1 - 0.03 * (m.lv - 1);
-  m.xp = Math.round(m.xp * 1.8);
+  m.maxHp = Math.round(m.maxHp * 1.4); m.hp = m.maxHp;
+  m.dmg *= 0.95 - 0.03 * (m.lv - 1);
+  m.xp = Math.round(m.xp * 1.4);
 }
 function spawnBattleCamps() {
   const TIERS = [

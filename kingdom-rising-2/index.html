@@ -224,33 +224,33 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793678987",
-"./src/battle.js": "./src/battle.js?v=1793678987",
-"./src/battledata.js": "./src/battledata.js?v=1793678987",
-"./src/battlemap.js": "./src/battlemap.js?v=1793678987",
-"./src/battlequests.js": "./src/battlequests.js?v=1793678987",
-"./src/battleui.js": "./src/battleui.js?v=1793678987",
-"./src/character.js": "./src/character.js?v=1793678987",
-"./src/combat.js": "./src/combat.js?v=1793678987",
-"./src/data.js": "./src/data.js?v=1793678987",
-"./src/fog.js": "./src/fog.js?v=1793678987",
-"./src/game.js": "./src/game.js?v=1793678987",
-"./src/icons.js": "./src/icons.js?v=1793678987",
-"./src/icons2.js": "./src/icons2.js?v=1793678987",
-"./src/main.js": "./src/main.js?v=1793678987",
-"./src/menu.js": "./src/menu.js?v=1793678987",
-"./src/mobs.js": "./src/mobs.js?v=1793678987",
-"./src/mp.js": "./src/mp.js?v=1793678987",
-"./src/mpsync.js": "./src/mpsync.js?v=1793678987",
-"./src/net.js": "./src/net.js?v=1793678987",
-"./src/player.js": "./src/player.js?v=1793678987",
-"./src/saves.js": "./src/saves.js?v=1793678987",
-"./src/state.js": "./src/state.js?v=1793678987",
-"./src/terrain.js": "./src/terrain.js?v=1793678987",
-"./src/ui.js": "./src/ui.js?v=1793678987",
-"./src/util.js": "./src/util.js?v=1793678987",
-"./src/vfx.js": "./src/vfx.js?v=1793678987",
-"./src/world.js": "./src/world.js?v=1793678987"
+"./src/audio.js": "./src/audio.js?v=1793708051",
+"./src/battle.js": "./src/battle.js?v=1793708051",
+"./src/battledata.js": "./src/battledata.js?v=1793708051",
+"./src/battlemap.js": "./src/battlemap.js?v=1793708051",
+"./src/battlequests.js": "./src/battlequests.js?v=1793708051",
+"./src/battleui.js": "./src/battleui.js?v=1793708051",
+"./src/character.js": "./src/character.js?v=1793708051",
+"./src/combat.js": "./src/combat.js?v=1793708051",
+"./src/data.js": "./src/data.js?v=1793708051",
+"./src/fog.js": "./src/fog.js?v=1793708051",
+"./src/game.js": "./src/game.js?v=1793708051",
+"./src/icons.js": "./src/icons.js?v=1793708051",
+"./src/icons2.js": "./src/icons2.js?v=1793708051",
+"./src/main.js": "./src/main.js?v=1793708051",
+"./src/menu.js": "./src/menu.js?v=1793708051",
+"./src/mobs.js": "./src/mobs.js?v=1793708051",
+"./src/mp.js": "./src/mp.js?v=1793708051",
+"./src/mpsync.js": "./src/mpsync.js?v=1793708051",
+"./src/net.js": "./src/net.js?v=1793708051",
+"./src/player.js": "./src/player.js?v=1793708051",
+"./src/saves.js": "./src/saves.js?v=1793708051",
+"./src/state.js": "./src/state.js?v=1793708051",
+"./src/terrain.js": "./src/terrain.js?v=1793708051",
+"./src/ui.js": "./src/ui.js?v=1793708051",
+"./src/util.js": "./src/util.js?v=1793708051",
+"./src/vfx.js": "./src/vfx.js?v=1793708051",
+"./src/world.js": "./src/world.js?v=1793708051"
 }
 }
 </script>
@@ -830,6 +830,25 @@ body{font-size:16px;letter-spacing:.005em}
 @media (max-height:700px){#bnext{top:220px;font-size:11px}}
 .givebar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.gdrop{flex:1 1 150px;display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:10px;border:2px dashed rgba(216,168,72,.45);background:rgba(0,0,0,.25);color:#f0e4c8}
 .gdrop small{color:#a8987a;font-size:11.5px}.gdrop.sell{border-color:rgba(255,207,96,.6)}.gdrop.give{border-color:var(--tc)}.gdrop.none{border-style:dotted;opacity:.7}.gdrop.dropover{background:rgba(255,207,96,.25);border-style:solid}
+.mppl .rdy{color:#8fe07a}.mppl .nrdy{color:#ffb070}.mpsub.bad{color:#ffb070}#mpStart:disabled{filter:grayscale(.6);opacity:.75;cursor:not-allowed}
+#mplobby .mpp{width:min(1100px,96vw)}
+.lbtop{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:6px 0 14px}
+.lbcode{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,207,96,.6)}.lbcode span{color:#bfae8c;font-size:12px;text-transform:uppercase;letter-spacing:.1em}.lbcode b{font-family:monospace;font-size:34px;letter-spacing:.25em;color:#ffd36a}
+.lbsteps{display:flex;flex:1;gap:4px;min-width:300px}.lbst{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font-size:11.5px;color:#8a7a5a}
+.lbst i{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:2px solid #5a4a2a;font-style:normal;font-weight:900;color:#8a7a5a}.lbst.done i{background:#2f8a2a;border-color:#5fd05a;color:#fff}.lbst.done{color:#a8d8a0}
+.lbst.now i{background:#d8a640;border-color:#ffe28a;color:#1a1006;box-shadow:0 0 12px rgba(255,200,80,.7)}.lbst.now{color:#ffe2a0;font-weight:800}
+.lbcols{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}@media (max-width:820px){.lbcols{grid-template-columns:1fr}}
+.lbleft,.lbright{padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid rgba(216,168,72,.25)}.lbleft h3,.lbright h3{margin:0 0 8px;color:#ffe2a0;font-size:17px}.lbleft h3 small{color:#a8987a;font-size:12px;font-weight:400;margin-left:6px}.lbright h3:not(:first-child){margin-top:16px}
+.lbside{border-radius:10px;border:1px solid var(--tc,#777);background:color-mix(in srgb,var(--tc,#777) 13%,rgba(0,0,0,.3));padding:6px 10px 4px;margin-bottom:8px}.lbside.ai{--tc:#8a8a8a;opacity:.85}
+.lbsh{display:flex;align-items:center;gap:8px;padding-bottom:4px}.lbsh i{width:12px;height:12px;border-radius:50%;background:var(--tc)}.lbsh b{color:#fff3d0}.lbsh span{color:#cfc0a0;font-size:12px}
+.lbp{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid rgba(255,255,255,.08)}.lbp b{color:#ffe2a0;font-size:15px}.lbp em{color:#ffd36a;font-style:normal;font-weight:400;font-size:12px}.lbp small{display:block;color:#a8987a;font-size:12px}
+.lbr{font-size:13px;font-weight:800;padding:4px 10px;border-radius:999px}.lbr.ok{background:#2f6a2a;color:#d8ffd0}.lbr.no{background:#6a4a1a;color:#ffd8a0}.lbr.host{background:rgba(255,207,96,.18);color:#ffe2a0}
+.lbhint{color:#d8c8a8;font-size:13px;margin:6px 0}.lbplan{margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.3);font-size:13px;color:#f0e4c8}.lbplan .bad{color:#ff9a7a}
+.lbf{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}.lbf>span{color:#bfae8c;font-size:12px;text-transform:uppercase;letter-spacing:.08em}.lbf small{color:#a8987a;font-size:12px}.lbf input{font-size:16px;padding:8px 10px;border-radius:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a}
+.lbopts{display:flex;flex-wrap:wrap;gap:5px}
+.btn.huge{width:100%;padding:16px;font-size:20px;margin-top:6px}.btn.ok{background:linear-gradient(180deg,#3a9a34,#226a1e);color:#eaffde;border-color:#7fe06a}
+.lbmsg{text-align:center;color:#cfc0a0;font-size:13px;margin:6px 0 0}.lbmsg.warn{color:#ffb070}
+.lbnav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}.lbnav .btn{padding:6px 12px;font-size:13px}
 /* ===== Kingdom Battles: war horn ===== */
 .warhorn{position:fixed;inset:0;z-index:60;pointer-events:none;display:grid;place-items:start center;padding-top:14vh}
 .warhorn .whv{position:absolute;inset:0;animation:whV 4.6s ease-out both}
@@ -947,6 +966,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793678987"></script>
+<script type="module" src="./src/main.js?v=1793708051"></script>
 </body>
 </html>

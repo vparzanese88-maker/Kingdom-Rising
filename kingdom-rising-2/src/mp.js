@@ -37,57 +37,61 @@ export function lobby() {
     const usedTeams = () => [...new Set(players().map(([, p]) => p.team))];
     const render = () => {
       const isHost = MP.host, focus = document.activeElement && document.activeElement.id === 'mpName';
-      let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div>`;
-      if (!MP.code) { html += `<h1>Connecting…</h1><p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>${MP.err ? '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>' : ''}</div>`; ov.innerHTML = html; const bk = $('mpBack'); if (bk) bk.onclick = () => { location.href = location.pathname; }; return; }
-      if (!MP.players.has(MP.myId) || (MP.client && !MP.synced)) { ov.innerHTML = html + '<h1>Joining…</h1><p class="mpsub">Getting the lobby from the host…</p></div>'; return; }
+      let html = `<div class="mpp"><div class="lbnav"><button class="btn" id="mpMain">← Main screen</button><div class="eyebrow">Kingdom Battles · Online</div><button class="btn red" id="mpExit">Exit game</button></div>`;
+      const navs = () => { const m = $('mpMain'); if (m) m.onclick = () => { S.click(); location.href = location.pathname; }; const x = $('mpExit'); if (x) x.onclick = () => { S.click(); window.KR2exit && window.KR2exit(); }; };
+      if (!MP.code) { html += `<h1>Connecting…</h1><p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>${MP.err ? '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>' : ''}</div>`; ov.innerHTML = html; const bk = $('mpBack'); if (bk) bk.onclick = () => { location.href = location.pathname; }; navs(); return; }
+      if (!MP.players.has(MP.myId) || (MP.client && !MP.synced)) { ov.innerHTML = html + '<h1>Joining…</h1><p class="mpsub">Getting the lobby from the host…</p></div>'; navs(); return; }
       const mine = MP.players.get(MP.myId);
-      html += `<div class="mptop"><div><h1>Game <span class="mpcode">${MP.code}</span></h1><p class="mpsub">${isHost ? 'You are the <b>host</b>. Send this code to your friends: they choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in.' : 'You joined the game. Pick your race and colour, then wait for the host to start.'}</p></div></div>`;
-      // ---- you ----
-      html += `<div class="mpk mine"><div class="mpkh"><b>You</b><span>Your name, race and side. You make the rest of your hero after the game starts.</span></div>
-        <div class="mpkr"><span>Name</span><input id="mpName" maxlength="16" value="${String(mine.name).replace(/"/g, '&quot;')}"></div>
-        <div class="mpkr"><span>Race</span>${BATTLE_RACES.map(r => `<button class="seg${mine.race === r ? ' on' : ''}" data-race="${r}">${RN[r]}</button>`).join('')}</div>
-        <div class="mpkr"><span>Colour</span>${[0, 1, 2, 3].map(t => `<button class="seg col${mine.team === t ? ' on' : ''}" data-team="${t}" style="--tc:${TEAM_COLORS[t]}"><i></i>${TEAM_NAMES[t]}</button>`).join('')}</div></div>`;
-      // ---- everyone ----
+      const ut = usedTeams(), maxAi = Math.min(3, 4 - ut.length), nAi = Math.min(MP.enemies.n, maxAi), sides = ut.length + (nAi ? 1 : 0);
+      const notReady = players().filter(([id, p]) => id !== 0 && !p.ready).map(([, p]) => p.name);
+      const step = isHost ? (MP.players.size < 2 ? 1 : notReady.length ? 2 : 3) : (mine.ready ? 3 : 2);
+      // ---- top: the code and where we are ----
+      html += `<div class="lbtop"><div class="lbcode"><span>Game code</span><b>${MP.code}</b><button class="btn" id="mpCopy">Copy</button></div>
+        <div class="lbsteps">${['Friends join with the code', 'Pick race and colour, then Ready', 'Host starts the game', 'Everyone makes a hero', 'Battle!'].map((t, i) => `<div class="lbst${i + 1 < step ? ' done' : i + 1 === step ? ' now' : ''}"><i>${i + 1 < step ? '✓' : i + 1}</i><span>${t}</span></div>`).join('')}</div></div>`;
+      html += '<div class="lbcols">';
+      // ---- left: everyone in the game, by side ----
       const byTeam = {}; for (const [id, p] of players()) (byTeam[p.team] = byTeam[p.team] || []).push([id, p]);
-      html += `<div class="mpk"><div class="mpkh"><b>Players (${MP.players.size})</b><span>Players on the same colour fight together and share one town.</span></div><div class="mpsides">`;
+      html += `<div class="lbleft"><h3>In this game <small>${MP.players.size} player${MP.players.size === 1 ? '' : 's'}</small></h3>`;
       for (const t of Object.keys(byTeam).map(Number).sort()) {
         const list = byTeam[t];
-        html += `<div class="mpside" style="--tc:${TEAM_COLORS[t]}"><div class="mpsideh"><i></i>${TEAM_NAMES[t]} side · ${RN[list[0][1].race]} town${list.length > 1 ? ` · ${list.length} players share it` : ''}</div>${list.map(([id, p]) => `<div class="mppl${id === MP.myId ? ' me' : ''}"><b>${p.name}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑 host' : ''}</b><span>${RN[p.race]} · ${STATUS[p.status || 'lobby'][1]} ${STATUS[p.status || 'lobby'][0]}</span></div>`).join('')}</div>`;
+        html += `<div class="lbside" style="--tc:${TEAM_COLORS[t]}"><div class="lbsh"><i></i><b>${TEAM_NAMES[t]} side</b><span>${RN[list[0][1].race]} town${list.length > 1 ? ' · shared by ' + list.length : ''}</span></div>` +
+          list.map(([id, p]) => `<div class="lbp${id === MP.myId ? ' me' : ''}"><div><b>${p.name}${id === MP.myId ? ' <em>(you)</em>' : ''}</b><small>${RN[p.race]}${id === 0 ? ' · host' : ''}</small></div><span class="lbr ${id === 0 ? 'host' : p.ready ? 'ok' : 'no'}">${id === 0 ? '👑 Host' : p.ready ? '✅ Ready' : '⏳ Not ready'}</span></div>`).join('') + '</div>';
       }
-      html += '</div></div>';
-      // ---- computer enemies (host decides) ----
-      const ut = usedTeams(), freeCols = [0, 1, 2, 3].filter(t => !ut.includes(t)), maxAi = Math.min(3, 4 - ut.length), nAi = Math.min(MP.enemies.n, maxAi);
-      html += `<div class="mpk"><div class="mpkh"><b>Computer enemies</b><span>${isHost ? 'You choose these. They play against every player.' : 'The host chooses these.'}</span></div>`;
-      if (isHost) html += `<div class="mpkr"><span>How many</span>${[0, 1, 2, 3].map(n => `<button class="seg${nAi === n ? ' on' : ''}" data-nai="${n}" ${n > maxAi ? 'disabled' : ''}>${n === 0 ? 'None' : n}</button>`).join('')}</div><div class="mpkr"><span>How hard</span>${Object.keys(DIFFS).map(d => `<button class="seg${MP.enemies.diff === d ? ' on' : ''}" data-diff="${d}">${DIFFS[d].name}</button>`).join('')}</div>`;
-      else html += `<p class="mpsub">${nAi ? `${nAi} computer kingdom${nAi > 1 ? 's' : ''} · ${DIFFS[MP.enemies.diff].name}` : 'No computer enemies'}</p>`;
-      html += '</div>';
-      // ---- what will happen ----
-      const sides = ut.length + (nAi ? 1 : 0);
-      const plan = sides < 2 ? '<b class="bad">Nobody to fight yet:</b> add a computer enemy, or have someone pick a different colour.' : ut.length > 1 ? `<b>Players against players${nAi ? ' and the computer' : ''}:</b> ${ut.map(t => TEAM_NAMES[t]).join(' vs ')}${nAi ? ` vs ${nAi} computer kingdom${nAi > 1 ? 's' : ''}` : ''}.` : `<b>Everyone together</b> on ${TEAM_NAMES[ut[0]]} against ${nAi} computer kingdom${nAi > 1 ? 's' : ''}.`;
-      html += `<div class="mpplan">${plan}</div>`;
-      if (isHost) html += `<div class="mprow"><button class="btn gold big" id="mpStart" ${sides < 2 ? 'disabled' : ''}>Start the game</button></div>`;
-      else html += '<p class="mpsub dim">Waiting for the host to start the game…</p>';
+      if (nAi) html += `<div class="lbside ai"><div class="lbsh"><i></i><b>Computer</b><span>${nAi} kingdom${nAi > 1 ? 's' : ''} · ${DIFFS[MP.enemies.diff].name}</span></div></div>`;
+      if (MP.players.size < 2) html += `<p class="lbhint">Waiting for friends… Send them the code <b>${MP.code}</b>. They choose <b>Kingdom Battles → Multiplayer → Join a game</b>.</p>`;
+      html += `<div class="lbplan">${sides < 2 ? '<b class="bad">Nobody to fight yet.</b> Add a computer enemy, or someone picks another colour.' : ut.length > 1 ? `<b>Players vs players</b>${nAi ? ' and the computer' : ''}: ${ut.map(t => TEAM_NAMES[t]).join(' vs ')}${nAi ? ' vs Computer' : ''}` : `<b>Everyone together</b> on ${TEAM_NAMES[ut[0]]} vs the computer`}</div></div>`;
+      // ---- right: your choices and the one big button ----
+      html += `<div class="lbright"><h3>You</h3>
+        <label class="lbf"><span>Name</span><input id="mpName" maxlength="16" value="${String(mine.name).replace(/"/g, '&quot;')}"></label>
+        <div class="lbf"><span>Race</span><div class="lbopts">${BATTLE_RACES.map(r => `<button class="seg${mine.race === r ? ' on' : ''}" data-race="${r}">${RN[r]}</button>`).join('')}</div></div>
+        <div class="lbf"><span>Side colour</span><div class="lbopts">${[0, 1, 2, 3].map(t => `<button class="seg col${mine.team === t ? ' on' : ''}" data-team="${t}" style="--tc:${TEAM_COLORS[t]}"><i></i>${TEAM_NAMES[t]}</button>`).join('')}</div><small>Same colour as a friend = you share a town. Different colour = you fight each other.</small></div>`;
+      if (isHost) {
+        html += `<button class="btn gold huge" id="mpStart" ${sides < 2 || notReady.length ? 'disabled' : ''}>${notReady.length ? '🔒 Waiting for everyone to be ready' : '▶ Start the game'}</button>
+          <p class="lbmsg ${notReady.length ? 'warn' : ''}">${notReady.length ? `Not ready: <b>${notReady.join(', ')}</b>` : MP.players.size < 2 ? 'You can start alone, or wait for friends.' : 'Everyone is ready!'}</p>
+          <h3>Computer enemies</h3><div class="lbf"><span>How many</span><div class="lbopts">${[0, 1, 2, 3].map(n => `<button class="seg${nAi === n ? ' on' : ''}" data-nai="${n}" ${n > maxAi ? 'disabled' : ''}>${n === 0 ? 'None' : n}</button>`).join('')}</div></div>
+          <div class="lbf"><span>How hard</span><div class="lbopts">${Object.keys(DIFFS).map(d => `<button class="seg${MP.enemies.diff === d ? ' on' : ''}" data-diff="${d}">${DIFFS[d].name}</button>`).join('')}</div></div>`;
+      } else html += `<button class="btn ${mine.ready ? 'ok' : 'gold'} huge" id="mpReady">${mine.ready ? '✅ Ready! (click to cancel)' : '✔ Ready up'}</button><p class="lbmsg">${mine.ready ? 'Waiting for the host to start…' : 'Choose your race and colour, then press Ready up.'}</p>`;
       html += `<details class="mpmore"><summary>How online play works</summary><ol class="mphow">
-        <li><b>Colours are sides.</b> Same colour = allies who share one town, its army, gold and upgrades. Different colours fight each other.</li>
-        <li><b>After the host starts</b>, everyone's game loads the world, then each player makes their hero. You can see who is still loading or making a hero.</li>
-        <li><b>The gates stay shut for the first 60 seconds</b> so everyone can get in.</li>
-        <li><b>Kills are shared:</b> every ally within about 60 m gets the full XP. <b>Loot is your own:</b> each player gets their own random drops for their class.</li>
-        <li><b>Your town runs itself.</b> Take jobs from the Huntmaster and Quartermaster (J) to make it stronger. B opens the War Report and orders.</li>
-        <li><b>Hold Tab</b> in the game to see every player: class, level, health, kills.</li>
-        <li><b>Win</b> by destroying every enemy Town Hall. If the host leaves, the game ends for everyone.</li></ol></details>`;
-      html += '</div>';
-      ov.innerHTML = html;
+        <li><b>Colours are sides.</b> Same colour = allies sharing one town, its army, gold and upgrades.</li>
+        <li><b>XP is shared</b> by everyone on a side, so you all stay the same level. <b>Loot is your own</b>, random for your class.</li>
+        <li><b>After the start</b> everyone makes a hero. The gates stay shut for 60 seconds so everyone can get in.</li>
+        <li><b>In the game:</b> Tab shows every player, J shows town jobs, B opens the War Report. Drag items onto a friend's name (I) to give them.</li>
+        <li><b>Win</b> by destroying every enemy Town Hall. If the host leaves, the game ends.</li></ol></details></div>`;
+      html += '</div></div>';
+      ov.innerHTML = html; navs();
       const ni = $('mpName'); if (ni) { ni.onkeydown = (e) => e.stopPropagation(); ni.oninput = () => { setMe({ name: ni.value.trim().slice(0, 16) || 'Player' }, false); }; ni.onchange = () => render(); if (focus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); } }
       ov.querySelectorAll('[data-race]').forEach(b => b.onclick = () => { S.click(); setMe({ race: b.dataset.race }); });
       ov.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { S.click(); setMe({ team: +b.dataset.team }); });
       ov.querySelectorAll('[data-nai]').forEach(b => b.onclick = () => { S.click(); MP.enemies.n = +b.dataset.nai; pushLobby(); render(); });
       ov.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { S.click(); MP.enemies.diff = b.dataset.diff; pushLobby(); render(); });
-      const st = $('mpStart'); if (st) st.onclick = () => { S.click(); const setup = buildSetup(); if (!setup) { S.error(); return; } send({ t: 'start', setup, players: [...MP.players.entries()] }); begin(setup); };
+      const cp = $('mpCopy'); if (cp) cp.onclick = () => { S.click(); try { navigator.clipboard.writeText(MP.code); cp.textContent = 'Copied!'; } catch (e) {} };
+      const rd = $('mpReady'); if (rd) rd.onclick = () => { S.click(); setMe({ ready: !mine.ready }); };
+      const st = $('mpStart'); if (st) st.onclick = () => { S.click(); if (players().some(([id, p]) => id !== 0 && !p.ready)) { S.error(); return; } const setup = buildSetup(); if (!setup) { S.error(); return; } send({ t: 'start', setup, players: [...MP.players.entries()] }); begin(setup); };
     };
     // my own choices: stored, and sent to the host (or shared by the host)
     const setMe = (o, rerender = true) => {
       const p = Object.assign(MP.players.get(MP.myId), o); try { localStorage.setItem(NAME_KEY, p.name); localStorage.setItem(RACE_KEY, p.race); } catch (e) {}
-      if (MP.host) pushLobby(); else send({ t: 'me-info', info: { name: p.name, race: p.race, team: p.team } });
+      if (MP.host) pushLobby(); else send({ t: 'me-info', info: { name: p.name, race: p.race, team: p.team, ready: !!p.ready } });
       if (rerender) render();
     };
     // the towns: one per colour that has players (they share it), then the computer kingdoms on a colour of their own

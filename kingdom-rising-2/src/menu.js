@@ -79,9 +79,9 @@ export function initMenu() {
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
   // exit: leave full screen, then close the tab if the browser allows it, otherwise go back to the arcade
-  $('btnExit').onclick = () => { S.click(); confirmBox('<h3 style="margin:0 0 6px">Exit Kingdom Rising II?</h3><span style="font-size:14px;opacity:.8">Your heroes and campaigns are saved.</span>', () => { leaving = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); try { window.close(); } catch (e) {} setTimeout(() => { location.href = '../arcade.html'; }, 300); }, 'Cancel', 'Exit'); };
+  $('btnExit').onclick = () => { S.click(); exitGame(); };
   for (const b of document.querySelectorAll('#title .mm, #title .btn')) b.addEventListener('mouseenter', () => S.hover());
-  $('cBack').onclick = () => { S.click(); const b = C && C.battle; closeCreator(); if (b) showBattleSetup(); else showTitle(); };
+  $('cBack').onclick = () => { S.click(); const b = C && C.battle; if (b && b.live) { confirmBox('Leave this online game and go back to the main screen?', toMainScreen, 'Stay', 'Leave'); return; } closeCreator(); if (b) showBattleSetup(); else showTitle(); };
   $('cPrev').onclick = () => { S.click(); if (tab > firstTab()) { tab--; renderCreator(); } };
   $('cNext').onclick = () => { S.click(); if (tab < TABS.length - 1) { tab++; renderCreator(); } else finish(); };
   buildPreview();
@@ -90,7 +90,8 @@ export function initMenu() {
 // ---------- creator ----------
 const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
 // a single-player battle hero takes the race of their town, so the Race step is skipped
-const firstTab = () => (C && C.battle && !C.battle.mp ? 1 : 0);
+// Kingdom Battles: the race comes from your town (single player) or from the lobby (online), so the Race step is skipped
+const firstTab = () => (C && C.battle && (!C.battle.mp || C.battle.live) ? 1 : 0);
 const START = { musketeer: 'musket', berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
 const START_NAME = { musketeer: 'Musket', berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
 let tab = 0, C = null;
@@ -99,7 +100,7 @@ function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon
 export function showCreator(camp) {
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
   if (camp && camp.battle) { C.battle = camp.battle; C.camp = null; C.race = camp.battle.towns[0].race; const r = RACES[C.race]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = C.race === 'dwarf' ? 3 : 0; $('cEyebrow').textContent = 'Kingdom Battles · your hero'; if (camp.battle.name) C.name = camp.battle.name; }
-  $('cBack').hidden = !!(camp && camp.battle && camp.battle.live);
+  const live = !!(camp && camp.battle && camp.battle.live); $('cBack').hidden = false; $('cBack').textContent = live ? '← Leave game' : 'Cancel';
   $('title').hidden = true; $('creator').hidden = false;
   Menu.preview.active = true; rebuildPreview(); renderCreator();
 }
@@ -206,6 +207,10 @@ export const BATTLE_GOAL = `<div class="bsgh">👑 The objective</div><p class="
 <div><b>2 · Gear up</b><span>Monsters and bosses drop weapons and armour. Red beacons on the map mark the bosses with the best loot.</span></div>
 <div><b>3 · Grow the kingdom</b><span>Your steward runs the town for you. Take jobs from the Huntmaster and Quartermaster (J) to make it gather, build and train faster.</span></div>
 <div><b>4 · Take down the enemy</b><span>Lead your army, break the enemy walls and destroy their Town Hall. The last kingdom standing wins.</span></div></div>`;
+// exit: leave full screen, close the tab if the browser allows it, otherwise go back to the arcade
+export function exitGame() { confirmBox('<h3 style="margin:0 0 6px">Exit Kingdom Rising II?</h3><span style="font-size:14px;opacity:.8">Your heroes and campaigns are saved.</span>', () => { leaving = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); try { window.close(); } catch (e) {} setTimeout(() => { location.href = '../arcade.html'; }, 300); }, 'Cancel', 'Exit'); }
+export const toMainScreen = () => { location.href = location.pathname; };
+window.KR2exit = exitGame; window.KR2main = toMainScreen;
 export function showBattleSetup() {
   let ov = document.getElementById('bsetup'); if (!ov) { ov = el('div', ''); ov.id = 'bsetup'; document.body.appendChild(ov); }
   ov.hidden = false; $('title').hidden = true;

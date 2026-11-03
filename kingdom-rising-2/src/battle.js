@@ -663,6 +663,7 @@ function heroTick(u, dt) {
 
 // ---------- economy ----------
 export function bank(t, k, n) {
+  if (n > 0 && !B.client) { const e = t.earned || (t.earned = { gold: 0, wood: 0, stone: 0 }); e[k] = (e[k] || 0) + n; }
   if (B.client) { if (k === 'gold' && t.isMe && n) { send({ t: 'gold', n: Math.round(n) }); if (G.save) G.save.gold = Math.max(0, G.save.gold + Math.round(n)); } return; } if (k === 'gold' && t.isMe && G.save) { t.gf = (t.gf || 0) + n; const w = t.gf >= 0 ? Math.floor(t.gf) : Math.ceil(t.gf); t.gf -= w; G.save.gold = Math.max(0, G.save.gold + w); } else t.bank[k] = Math.max(0, (t.bank[k] || 0) + n); if (t.isMe && k !== 'gold' && n > 0 && G.hooks.resGained) G.hooks.resGained(k, n); }
 export function res(t, k) { return k === 'gold' && t.isMe && G.save ? G.save.gold : (t.bank[k] || 0); }
 export function canPay(t, cost) { for (const k in cost) if (res(t, k) < cost[k]) return false; return true; }
@@ -726,6 +727,8 @@ export function sendAttack(t, targetIdx, frac = 1) {
   t.lastAttackT = Math.round(B.time);
   for (const u of army.slice(0, n)) { u.order = 'attack'; u.path = path; u.pi = 0; u.targetTown = tg; u.target = null; }
   t.lastAttack = targetIdx;
+  const horn = { t: 'horn', from: t.i, target: tg.i, n, dir: directionOf(t, tg) };
+  if (MP.on) send(horn); if (G.hooks.warHorn) G.hooks.warHorn(horn);
   tsay(t, 'captain', `${n} of our soldiers march ${directionOf(t, tg).toLowerCase()} on ${tg.name}!`, 'war');
   return null;
 }
@@ -868,6 +871,34 @@ function watchTown(t, dt) {
 }
 
 // ---------- AI commander ----------
+// what the steward and captain are planning: used by the War Report
+export function townPlan(t) {
+  const D = DIFFS[t.diff] || DIFFS.normal, next = TOWN_LEVELS[t.level + 1];
+  const army = t.units.filter(u => !u.dead && !u.worker && !u.hero && !u.pet && !u.builder);
+  const home = army.filter(u => u.order !== 'attack'), out = army.filter(u => u.order === 'attack');
+  const e = t.earned || (t.earned = { gold: 0, wood: 0, stone: 0 }), sn = t.snaps || (t.snaps = []);
+  if (!sn.length || B.time - sn[sn.length - 1].t >= 5) { sn.push({ t: B.time, gold: e.gold, wood: e.wood, stone: e.stone }); if (sn.length > 13) sn.shift(); }
+  const s0 = sn[0], mins = Math.max(10, B.time - s0.t) / 60;
+  const rate = {}; for (const k of ['gold', 'wood', 'stone']) rate[k] = Math.max(0, (e[k] - s0[k]) / mins);
+  let upgrade = null;
+  if (t.building && TOWN_LEVELS[t.level + 1]) upgrade = { state: 'building', name: TOWN_LEVELS[t.level + 1].name, secs: Math.max(0, t.building.dur - t.building.t) };
+  else if (next) {
+    const short = {}; let waitRes = 0;
+    for (const k in next.cost) { const s = Math.max(0, next.cost[k] - res(t, k)); if (s > 0) { short[k] = Math.ceil(s); waitRes = Math.max(waitRes, rate[k] > 0.5 ? s / rate[k] * 60 : Infinity); } }
+    const gate = Math.max(0, D.upgradeAt * (t.level + 1) * 0.8 - B.time);
+    upgrade = { state: 'saving', name: next.name, cost: next.cost, short, secs: Math.max(gate, waitRes), gate };
+  }
+  const grace = ECON.graceTime * ({ easy: 1.3, normal: 1, hard: 0.85, insane: 0.7 }[t.diff] || 1);
+  const need = B.time > 1500 ? Math.min(4, D.wave + t.level * 3 + Math.floor(B.time / 240)) : D.wave + t.level * 3 + Math.floor(B.time / 240);
+  const tg = out.length && out[0].targetTown;
+  const attack = { out: out.length, target: tg ? tg.name : null, home: home.length, need, graceLeft: Math.max(0, grace - B.time), last: t.lastAttackT };
+  const kinds = {}; for (const u of army) kinds[u.udef.name] = (kinds[u.udef.name] || 0) + 1;
+  const workers = t.units.filter(u => u.worker && !u.dead);
+  return { upgrade, attack, rate, kinds, army: army.length, cap: popCap(t), peasants: workers.length, peasantCap: peasantCap(t),
+    wood: workers.filter(u => u.cjob === 'wood' || u.job === 'wood').length, stone: workers.filter(u => u.cjob === 'stone' || u.job === 'stone').length,
+    training: t.queue.map(q => ({ name: q.def.name, secs: Math.max(0, q.t), worker: q.def.role === 'worker' })),
+    threat: B.units.filter(u => !u.dead && u.team !== t.team && !u.worker && Math.hypot(u.pos.x - t.x, u.pos.z - t.z) < WALL_R + 40).length };
+}
 function aiThink(t) {
   const D = DIFFS[t.diff] || DIFFS.normal;
   const workers = t.units.filter(u => u.worker && !u.dead).length;

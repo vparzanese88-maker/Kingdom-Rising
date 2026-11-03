@@ -12,7 +12,7 @@ import { heightAt } from './terrain.js';
 import { isExplored } from './fog.js';
 import { MP } from './mp.js';
 import { V } from './vfx.js';
-import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, buyForeman, up, peasantCarry } from './battle.js';
+import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, townPlan, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
 import { SETUP, SETUP_KEY, LAYOUT } from './battlemap.js';
 
@@ -174,17 +174,64 @@ function unitBadge(d) {
   const th = d.role === 'healer' ? 'gold' : d.role === 'ranged' ? (d.proj === 'fire' ? 'fire' : d.proj === 'arcane' ? 'arcane' : d.proj === 'frost' ? 'frost' : 'nature') : d.merc ? 'shadow' : d.role === 'worker' ? 'gold' : d.pop >= 2 ? 'red' : 'steel';
   return glyphBadge(g, th);
 }
-// the town runs itself: this is what the Commander sees
+// the town runs itself: this is what the Commander sees. Plain answers: what is happening, what comes next and when, how many of everything
 function tabReport(body, t) {
-  const L = TOWN_LEVELS[t.level], army = t.units.filter(u => !u.dead && !u.worker && !u.hero && !u.pet);
-  const kinds = {}; for (const u of army) kinds[u.udef.name] = (kinds[u.udef.name] || 0) + 1;
-  body.appendChild(el('div', 'bstages', TOWN_LEVELS.map((x, i) => `<div class="bstage ${i < t.level ? 'done' : i === t.level ? 'cur' : ''}"><div class="bsn">${i < t.level ? '✓' : i + 1}</div><b>${x.name}</b><span>Army ${x.cap} · Peasants ${x.peasants}</span></div>`).join('<i class="bsline"></i>')));
-  const ups = FOREMAN.map(F => `${F.icon} ${F.name} ${'●'.repeat(up(t, F.id))}${'○'.repeat(F.costs.length - up(t, F.id))}`).join(' &nbsp; ');
-  body.appendChild(el('div', 'bpanel', `<h3>${t.name}, ${L.name}</h3><p>${t.building ? `The builders are raising a <b>${TOWN_LEVELS[t.level + 1].name}</b>: ${Math.ceil(t.building.dur - t.building.t)} s to go.` : TOWN_LEVELS[t.level + 1] ? `Your steward is saving up to build a <b>${TOWN_LEVELS[t.level + 1].name}</b>.` : 'The Citadel is complete.'}</p><div class="bprog hp"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>Town Hall ${Math.ceil(t.hall.hp)}/${t.hall.maxHp}</span></div><p class="dim" style="margin-top:6px">${ups}</p>`));
-  const tw = t.towers.map((s, i) => `<div class="brep"><b>${i ? 'Left' : 'Right'} ${TOWER_LEVELS[s.level].name}</b>${s.dead ? '<span class="bad">destroyed</span>' : `<div class="bprog hp"><i style="width:${(s.hp / s.maxHp * 100).toFixed(0)}%"></i><span>${Math.ceil(s.hp)}/${s.maxHp}</span></div>`}</div>`).join('');
-  body.appendChild(el('div', 'bpanel', `<h3>Defences</h3><div class="brepgrid">${tw}</div>`));
-  body.appendChild(el('div', 'bpanel', `<h3>Army: ${pop(t)}/${popCap(t)}</h3><p>${army.length ? Object.entries(kinds).map(([k, v]) => `<span class="bchip">${v} × ${k}</span>`).join(' ') : 'No soldiers yet: the steward will hire them as gold comes in.'}</p><p class="dim">${army.filter(u => u.order === 'attack').length} marching · ${army.filter(u => u.order !== 'attack').length} guarding the town · ${peasants(t)}/${peasantCap(t)} peasants at work${t.queue.length ? ` · ${t.queue.length} in training` : ''}</p>`));
+  const P = townPlan(t), L = TOWN_LEVELS[t.level], A = P.attack, U = P.upgrade, cl = B.client;
+  const mmss = (s) => !isFinite(s) ? '—' : s >= 3600 ? '60:00+' : fmtT(s);
+  const soon = (s) => !isFinite(s) ? 'when the resources come in' : s < 15 ? 'any moment now' : `in about ${s < 90 ? Math.ceil(s / 5) * 5 + ' s' : Math.round(s / 60) + ' min'}`;
+  const bar = (k) => `<div class="wr-bar"><i style="width:${Math.max(0, Math.min(100, k * 100)).toFixed(0)}%"></i></div>`;
+  const RN = { gold: 'gold', wood: 'wood', stone: 'stone' };
+  // ---- at a glance ----
+  const card = (icon, big, label, sub) => `<div class="wr-card"><div class="wr-ic">${icon}</div><div><div class="wr-big">${big}</div><div class="wr-lab">${label}</div>${sub ? `<div class="wr-sub">${sub}</div>` : ''}</div></div>`;
+  const trainN = P.training.filter(x => !x.worker).length, trainW = P.training.length - trainN;
+  body.appendChild(el('div', 'wr-cards',
+    card('⚔', `${P.army}<small>/${P.cap}</small>`, 'Soldiers', `${A.out ? `<b>${A.out}</b> marching · ` : ''}${A.home} at home${trainN ? ` · ${trainN} training` : ''}`) +
+    card('⛏', `${P.peasants}<small>/${P.peasantCap}</small>`, 'Peasants', `${P.wood} on wood · ${P.stone} on stone${trainW ? ` · ${trainW} coming` : ''}`) +
+    card(resIcon('gold', 26), cl ? Math.floor(res(t, 'gold')) : `+${Math.round(P.rate.gold)}`, cl ? 'Gold' : 'Gold a minute', cl ? '' : `+${Math.round(P.rate.wood)} wood · +${Math.round(P.rate.stone)} stone a minute`) +
+    card('🏰', `${Math.round(t.hall.hp / t.hall.maxHp * 100)}%`, `${L.name} hall`, `${Math.ceil(t.hall.hp)}/${t.hall.maxHp} health`)));
+  // ---- what is happening and what comes next ----
+  const rows = [];
+  const row = (cls, icon, title, text, right, prog) => rows.push(`<div class="wr-row ${cls}"><div class="wr-ri">${icon}</div><div class="wr-rt"><b>${title}</b><span>${text}</span>${prog != null ? bar(prog) : ''}</div>${right ? `<div class="wr-tm">${right}</div>` : ''}</div>`);
+  if (P.threat) row('bad', '⚠', 'Under attack!', `${P.threat} enemy soldiers are at the walls. Every soldier at home is defending.`, 'NOW');
+  if (A.out) row('war', '📯', `Attacking ${A.target || 'the enemy'}`, `${A.out} of our soldiers are on the march. ${A.home} stay behind to guard the town.`, 'Under way');
+  else if (A.graceLeft > 0) row('', '⚔', 'Next attack', `The army gathers for the first march. The captain wants <b>${A.need}</b> soldiers: we have <b>${A.home}</b>.`, mmss(A.graceLeft), Math.min(1, A.home / A.need));
+  else row('', '⚔', 'Next attack', A.home >= A.need ? 'The army is ready and marches any moment now.' : `We march when <b>${A.need}</b> soldiers are ready: <b>${A.home}</b> are here, <b>${A.need - A.home}</b> to go.`, A.home >= A.need ? 'Soon' : `${A.home}/${A.need}`, Math.min(1, A.home / A.need));
+  if (A.last != null && !A.out) rows.push(`<div class="wr-note">Last attack ${fmtT(Math.max(0, B.time - A.last))} ago.</div>`);
+  if (U && U.state === 'building') { const tot = (t.building && t.building.dur) || 60; row('build', '🏗', `Building the ${U.name}`, `Builders and scaffolding are up. When it is done: army limit ${TOWN_LEVELS[t.level + 1].cap}, ${TOWN_LEVELS[t.level + 1].peasants} peasants, bigger walls.`, mmss(U.secs), 1 - U.secs / tot); }
+  else if (U) {
+    const need = Object.entries(U.short).map(([k, v]) => `${v} ${RN[k]}`).join(', ');
+    const txt = need ? `Saving up: still need <b>${need}</b>.` : U.gate > 0 ? 'We can afford it: the steward starts once the town is settled.' : 'We can afford it: building starts any moment.';
+    const cost = Object.entries(U.cost).map(([k, v]) => `${v} ${RN[k]}`).join(' · ');
+    row('', '🏗', `Next upgrade: ${U.name}`, `${txt} <span class="dim">(costs ${cost})</span>`, cl ? '' : need ? soon(U.secs) : U.gate > 0 ? mmss(U.gate) : 'Soon');
+  } else row('', '🏰', 'The town is complete', 'Every upgrade is built.', '');
+  if (P.training.length) row('', '🪖', 'Training now', P.training.slice(0, 4).map((q, i) => `${q.name}${i === 0 ? ` (${Math.ceil(q.secs)} s)` : ''}`).join(', ') + (P.training.length > 4 ? ` and ${P.training.length - 4} more` : ''), '');
+  else if (P.army >= P.cap) row('', '🪖', 'Army full', `We have the most soldiers this town can hold (${P.cap}). Upgrading the town raises the limit.`, '');
+  body.appendChild(el('div', 'bpanel', `<h3>What is happening</h3>${rows.join('')}`));
+  // ---- the army and the defences ----
+  const chips = Object.entries(P.kinds).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="bchip"><b>${v}</b> ${k}${v > 1 ? 's' : ''}</span>`).join(' ');
+  const tw = t.towers.map((s, i) => `<div class="brep"><b>${i ? 'Left' : 'Right'} tower · ${TOWER_LEVELS[s.level].name}</b>${s.dead ? '<span class="bad">destroyed</span>' : `<div class="bprog hp"><i style="width:${(s.hp / s.maxHp * 100).toFixed(0)}%"></i><span>${Math.ceil(s.hp)}/${s.maxHp}</span></div>`}</div>`).join('');
+  body.appendChild(el('div', 'bpanel', `<h3>Our army</h3><p>${chips || 'No soldiers yet: the steward hires them as gold comes in.'}</p><div class="brepgrid" style="margin-top:8px">${tw}</div>`));
+  // ---- the enemy ----
+  const foes = B.towns.filter(o => o.team !== t.team);
+  body.appendChild(el('div', 'bpanel', `<h3>Enemy towns</h3>${foes.map(o => `<div class="wr-foe ${o.dead ? 'dead' : ''}"><i style="background:${TEAM_COLORS[o.team]}"></i><b>${o.name}</b><span>${o.dead ? 'Destroyed' : `${TOWN_LEVELS[o.level].name} · ${directionOf(t, o)}`}</span>${o.dead ? '' : `<div class="bprog hp"><i style="width:${(o.hall.hp / o.hall.maxHp * 100).toFixed(0)}%"></i><span>Hall ${Math.round(o.hall.hp / o.hall.maxHp * 100)}%</span></div>`}</div>`).join('')}`));
   const log = el('div', 'bpanel', '<h3>Recent reports</h3>'); for (const m of reportLog.slice(-8).reverse()) log.appendChild(el('div', 'blog', `<span class="bt">${fmtT(m.t)}</span> <b>${m.who}:</b> ${m.text}`)); body.appendChild(log);
+}
+// the war horn: when our side marches it is a big moment; when the enemy marches on us, a warning
+export function warHorn(d) {
+  const from = B.towns[d.from], tg = B.towns[d.target]; if (!from || !tg) return;
+  const ours = from.team === B.myTeam, onUs = tg.team === B.myTeam;
+  if (!ours && !onUs) return;
+  S.warHorn && S.warHorn(!ours);
+  const mine = from === myTown();
+  const title = ours ? 'To war!' : 'Enemy attack!';
+  const sub = ours ? `${mine ? 'Our' : from.name + "'s"} army of ${d.n} marches ${String(d.dir || '').toLowerCase()} on ${tg.name}` : `${from.name} sends ${d.n} soldiers against ${tg === myTown() ? 'our town' : tg.name}`;
+  document.querySelectorAll('.warhorn').forEach(x => x.remove());
+  const w = el('div', 'warhorn ' + (ours ? 'ours' : 'theirs'), `<div class="whv"></div><div class="whc"><div class="whi">📯</div><div class="wht">${title}</div><div class="whs">${sub}</div></div>`);
+  document.body.appendChild(w); setTimeout(() => w.classList.add('out'), 4200); setTimeout(() => w.remove(), 5000);
+  V.addShake(ours ? 0.35 : 0.25);
+  if (ours && G.player) { S.battleCry(); V.ring(G.player.pos, 10, '#ffcf60', 1.2); }
+  // soldiers marching out raise a cheer of dust at the gate
+  if (ours) { const gp = from.gateOut || from.gateIn; if (gp) V.burst('dust', new THREE.Vector3(gp[0], heightAt(gp[0], gp[1]) + 0.5, gp[1]), 60, { speed: 4, size: 1.4, life: 2 }); }
 }
 function tabForeman(body, t) {
   const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);

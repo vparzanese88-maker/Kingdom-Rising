@@ -237,6 +237,7 @@ function battleHooks() {
   H.netSay = (to, who, text, kind) => mpSend({ t: 'say', to, who, text, kind });
   H.netHeal = (h, pct) => mpSend({ t: 'heal', to: h.netId, pct });
   H.netBuff = (h, kind, dur) => mpSend({ t: 'buff', to: h.netId, kind, dur });
+  H.warHorn = (d) => BUI.warHorn(d);
   H.teamSay = (who, text, kind) => { if (MP.on) mpSend({ t: 'teamsay', team: Battle.B.myTeam, who, text, kind }); };
   H.netLeave = (id) => {
     if (!Battle.B.towns.length) return;

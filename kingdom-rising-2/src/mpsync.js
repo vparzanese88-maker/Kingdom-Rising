@@ -120,6 +120,7 @@ export function onData(from, d) {
     case 'buff': if (d.to === MP.myId && p) { if (d.kind === 'ward') p.buffs.ward = d.dur; else if (d.kind === 'rally') p.buffs.cry = Math.max(p.buffs.cry || 0, d.dur); else if (d.kind === 'haste') p.buffs.focus = Math.max(p.buffs.focus || 0, d.dur); G.hooks.toast && G.hooks.toast(d.kind === 'ward' ? 'An ally shields you' : d.kind === 'rally' ? 'An ally rallies you' : 'An ally hastens you', '✦', 'gold'); } break;
     case 'xp': if (d.to === MP.myId) G.hooks.battleXp && G.hooks.battleXp(d.n); break;
     case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player); } } break;
+    case 'horn': if (MP.client && G.hooks.warHorn) G.hooks.warHorn(d); break;
     case 'say': if (d.to === MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     case 'teamsay': if (B.towns.length && myTown().team === d.team && from !== MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     // a player's economy and orders, handled by the host for their town

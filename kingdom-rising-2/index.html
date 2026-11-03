@@ -224,32 +224,32 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793669574",
-"./src/battle.js": "./src/battle.js?v=1793669574",
-"./src/battledata.js": "./src/battledata.js?v=1793669574",
-"./src/battlemap.js": "./src/battlemap.js?v=1793669574",
-"./src/battleui.js": "./src/battleui.js?v=1793669574",
-"./src/character.js": "./src/character.js?v=1793669574",
-"./src/combat.js": "./src/combat.js?v=1793669574",
-"./src/data.js": "./src/data.js?v=1793669574",
-"./src/fog.js": "./src/fog.js?v=1793669574",
-"./src/game.js": "./src/game.js?v=1793669574",
-"./src/icons.js": "./src/icons.js?v=1793669574",
-"./src/icons2.js": "./src/icons2.js?v=1793669574",
-"./src/main.js": "./src/main.js?v=1793669574",
-"./src/menu.js": "./src/menu.js?v=1793669574",
-"./src/mobs.js": "./src/mobs.js?v=1793669574",
-"./src/mp.js": "./src/mp.js?v=1793669574",
-"./src/mpsync.js": "./src/mpsync.js?v=1793669574",
-"./src/net.js": "./src/net.js?v=1793669574",
-"./src/player.js": "./src/player.js?v=1793669574",
-"./src/saves.js": "./src/saves.js?v=1793669574",
-"./src/state.js": "./src/state.js?v=1793669574",
-"./src/terrain.js": "./src/terrain.js?v=1793669574",
-"./src/ui.js": "./src/ui.js?v=1793669574",
-"./src/util.js": "./src/util.js?v=1793669574",
-"./src/vfx.js": "./src/vfx.js?v=1793669574",
-"./src/world.js": "./src/world.js?v=1793669574"
+"./src/audio.js": "./src/audio.js?v=1793670042",
+"./src/battle.js": "./src/battle.js?v=1793670042",
+"./src/battledata.js": "./src/battledata.js?v=1793670042",
+"./src/battlemap.js": "./src/battlemap.js?v=1793670042",
+"./src/battleui.js": "./src/battleui.js?v=1793670042",
+"./src/character.js": "./src/character.js?v=1793670042",
+"./src/combat.js": "./src/combat.js?v=1793670042",
+"./src/data.js": "./src/data.js?v=1793670042",
+"./src/fog.js": "./src/fog.js?v=1793670042",
+"./src/game.js": "./src/game.js?v=1793670042",
+"./src/icons.js": "./src/icons.js?v=1793670042",
+"./src/icons2.js": "./src/icons2.js?v=1793670042",
+"./src/main.js": "./src/main.js?v=1793670042",
+"./src/menu.js": "./src/menu.js?v=1793670042",
+"./src/mobs.js": "./src/mobs.js?v=1793670042",
+"./src/mp.js": "./src/mp.js?v=1793670042",
+"./src/mpsync.js": "./src/mpsync.js?v=1793670042",
+"./src/net.js": "./src/net.js?v=1793670042",
+"./src/player.js": "./src/player.js?v=1793670042",
+"./src/saves.js": "./src/saves.js?v=1793670042",
+"./src/state.js": "./src/state.js?v=1793670042",
+"./src/terrain.js": "./src/terrain.js?v=1793670042",
+"./src/ui.js": "./src/ui.js?v=1793670042",
+"./src/util.js": "./src/util.js?v=1793670042",
+"./src/vfx.js": "./src/vfx.js?v=1793670042",
+"./src/world.js": "./src/world.js?v=1793670042"
 }
 }
 </script>
@@ -757,6 +757,34 @@ body{font-size:16px;letter-spacing:.005em}
 .lsub{font-size:11.5px;color:#d8c8a8;line-height:1.2}.lsub .lstat{color:#8fe07a}.lsub .leq{color:#7fe06a;font-weight:800}.lsub .lneed{color:#ff9a7a;font-weight:700}
 .lootpop.r3 .lcard,.lootpop.r4 .lcard{animation:lpPulse .9s ease-in-out infinite alternate}
 @keyframes lpPulse{to{box-shadow:0 0 26px var(--rc),0 6px 16px rgba(0,0,0,.6)}}
+/* ===== Kingdom Battles: war report ===== */
+.wr-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+@media (max-width:760px){.wr-cards{grid-template-columns:repeat(2,1fr)}}
+.wr-card{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:linear-gradient(180deg,rgba(60,44,24,.55),rgba(20,14,8,.7));border:1px solid rgba(216,168,72,.28)}
+.wr-ic{font-size:24px;width:30px;text-align:center;flex:none}.wr-big{font-size:24px;font-weight:900;color:#ffe2a0;line-height:1}.wr-big small{font-size:14px;color:#bfae8c;font-weight:700}
+.wr-lab{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#d8c8a8;margin-top:2px}.wr-sub{font-size:12px;color:#a8987a;margin-top:3px;line-height:1.3}
+.wr-row{display:flex;gap:12px;align-items:center;padding:9px 10px;border-radius:9px;background:rgba(0,0,0,.25);border:1px solid rgba(216,168,72,.14);margin-top:6px}
+.wr-row.bad{background:rgba(120,20,10,.45);border-color:#ff6a4a;animation:wrPulse 1s ease-in-out infinite alternate}.wr-row.war{background:rgba(110,70,10,.4);border-color:#ffcf60}.wr-row.build{border-color:rgba(120,190,255,.45)}
+@keyframes wrPulse{to{box-shadow:0 0 16px rgba(255,90,60,.6)}}
+.wr-ri{font-size:22px;width:28px;text-align:center;flex:none}.wr-rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.wr-rt b{color:#ffe2a0;font-size:14.5px}.wr-rt span{font-size:13px;color:#d8c8a8;line-height:1.35}
+.wr-tm{flex:none;min-width:64px;text-align:center;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid rgba(216,168,72,.4);color:#ffe2a0;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+.wr-bar{height:6px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden;margin-top:4px}.wr-bar i{display:block;height:100%;background:linear-gradient(90deg,#c8902a,#ffd060)}
+.wr-note{font-size:12px;color:#8a7a5a;margin:4px 0 0 50px}
+.wr-foe{display:grid;grid-template-columns:12px 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(216,168,72,.12)}.wr-foe i{width:12px;height:12px;border-radius:50%}.wr-foe span{color:#bfae8c;font-size:13px}.wr-foe .bprog{grid-column:2/4}.wr-foe.dead{opacity:.5}
+/* ===== Kingdom Battles: war horn ===== */
+.warhorn{position:fixed;inset:0;z-index:60;pointer-events:none;display:grid;place-items:start center;padding-top:14vh}
+.warhorn .whv{position:absolute;inset:0;animation:whV 4.6s ease-out both}
+.warhorn.ours .whv{background:radial-gradient(ellipse at center,transparent 45%,rgba(255,170,40,.45))}.warhorn.theirs .whv{background:radial-gradient(ellipse at center,transparent 40%,rgba(200,20,10,.55))}
+@keyframes whV{0%{opacity:0}8%{opacity:1}20%{opacity:.55}32%{opacity:1}100%{opacity:0}}
+.warhorn .whc{position:relative;text-align:center;animation:whIn .6s cubic-bezier(.2,1.5,.4,1) both}
+.warhorn.out .whc{animation:whOut .7s ease-in both}
+@keyframes whIn{from{opacity:0;transform:scale(2.2)}to{opacity:1;transform:none}}@keyframes whOut{to{opacity:0;transform:translateY(-30px) scale(.9)}}
+.whi{font-size:54px;filter:drop-shadow(0 0 16px rgba(255,200,80,.8));animation:whShake .25s ease-in-out 6}
+@keyframes whShake{50%{transform:rotate(-12deg) scale(1.1)}}
+.wht{font-family:var(--f-t);font-size:64px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;line-height:1;color:#ffd36a;text-shadow:0 0 24px rgba(255,160,40,.9),0 4px 0 #5a2a00,0 8px 20px #000}
+.warhorn.theirs .wht{color:#ff6a50;text-shadow:0 0 24px rgba(255,40,20,.9),0 4px 0 #4a0800,0 8px 20px #000}
+.whs{margin-top:10px;font-size:20px;font-weight:700;color:#fff3d0;text-shadow:0 2px 6px #000;padding:6px 18px;border-radius:999px;background:rgba(0,0,0,.45);display:inline-block}
+@media (max-width:640px){.wht{font-size:40px}.whs{font-size:15px}}
 /* ===== Kingdom Battles: polished look ===== */
 .combostrip.battle{position:fixed;left:18px !important;right:auto !important;bottom:104px;text-align:left}.combostrip.battle .crow{align-items:flex-start}
 .win.bwin{background:radial-gradient(ellipse at 50% 0%,#3a2a16 0%,#1c130b 55%,#0f0a06 100%);border:2px solid #a07a30;box-shadow:0 0 0 1px #000,0 0 0 5px rgba(160,122,48,.18),0 30px 90px rgba(0,0,0,.85),inset 0 0 60px rgba(0,0,0,.6)}
@@ -859,6 +887,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793669574"></script>
+<script type="module" src="./src/main.js?v=1793670042"></script>
 </body>
 </html>

@@ -249,6 +249,24 @@ export const S = {
     noise(t, 0.12, o.node, { type: 'bandpass', f: p * 2, q: 2, gain: 0.15 });
   },
   hurt() { if (!ctx) return; const o = out(null, sfxBus, 0.05); const t = now(); tone(t, 0.2, o.node, { type: 'sawtooth', f: 220, f2: 150, gain: 0.08 }); noise(t, 0.12, o.node, { type: 'lowpass', f: 900, gain: 0.35 }); tone(t, 0.15, o.node, { type: 'sine', f: 100, f2: 60, gain: 0.35 }); },
+  // a great war horn: two long brassy blasts over war drums. enemy = a lower, darker horn
+  warHorn(enemy = false) {
+    if (!ctx) return; const o = out(null, sfxBus, 0.9); const t = now();
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = enemy ? 900 : 1500; lp.Q.value = 2.5; lp.connect(o.node);
+    const base = enemy ? 73.4 : 98; // D2 / G2
+    const blast = (t0, dur, f0, bend) => {
+      for (const [m, g] of [[1, 0.2], [2, 0.12], [3, 0.07], [4, 0.04], [1.005, 0.12]]) {
+        const x = ctx.createOscillator(); x.type = 'sawtooth'; x.frequency.setValueAtTime(f0 * m * bend, t0); x.frequency.exponentialRampToValueAtTime(f0 * m, t0 + 0.25);
+        const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t0); vg.gain.linearRampToValueAtTime(f0 * m * 0.012, t0 + dur * 0.6); vib.connect(vg); vg.connect(x.frequency);
+        const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(g, t0 + 0.18); gg.gain.setValueAtTime(g, t0 + dur - 0.4); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        x.connect(gg); gg.connect(lp); x.start(t0); x.stop(t0 + dur + 0.05); vib.start(t0); vib.stop(t0 + dur + 0.05);
+      }
+      noise(t0, dur, lp, { type: 'bandpass', f: f0 * 6, q: 1.2, gain: 0.08, a: 0.15 });
+    };
+    blast(t, 1.1, base, 0.84); blast(t + 1.25, 2.6, enemy ? base * 0.94 : base * 1.5, 0.9);
+    // war drums underneath
+    for (let i = 0; i < 8; i++) { const tt = t + 0.1 + i * 0.5 + (i % 2 ? 0.12 : 0); tone(tt, 0.5, o.node, { type: 'sine', f: enemy ? 52 : 62, f2: 34, gain: 0.5, a: 0.004 }); noise(tt, 0.12, o.node, { type: 'lowpass', f: 600, gain: 0.25 }); }
+  },
   battleCry() {
     if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now();
     for (let v = 0; v < 4; v++) { const f = 140 + v * 30; const x = tone(t + v * 0.03, 1.2, o.node, { type: 'sawtooth', f, f2: f * 1.25, gain: 0.08, a: 0.05 }); }

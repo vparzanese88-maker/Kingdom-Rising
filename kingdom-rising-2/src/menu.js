@@ -58,7 +58,7 @@ function renderSaves() {
 const FS_KEY = 'kr2_fs';
 const kbLock = !!(navigator.keyboard && navigator.keyboard.lock);
 let leaving = false, fsOff = false;
-const fsWanted = () => { try { return localStorage.getItem(FS_KEY) === '1'; } catch (e) { return false; } };
+const fsWanted = () => { try { return localStorage.getItem(FS_KEY) !== ''; } catch (e) { return true; } };
 const setWanted = (on) => { try { localStorage.setItem(FS_KEY, on ? '1' : ''); } catch (e) {} };
 export function goFull() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); }
 export function exitFull() { fsOff = true; setWanted(false); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
@@ -66,8 +66,8 @@ addEventListener('pagehide', () => { leaving = true; }); addEventListener('befor
 document.addEventListener('fullscreenchange', () => {
   if (document.fullscreenElement) { fsOff = false; setWanted(true); if (kbLock) navigator.keyboard.lock(['Escape']).catch(() => {}); return; }
   if (kbLock) try { navigator.keyboard.unlock(); } catch (e) {}
-  // with Keyboard Lock, leaving full screen means the player held Esc on purpose: respect that
-  if (!leaving && (kbLock || fsOff)) setWanted(false);
+  // only the Full Screen switch in Settings turns it off for good: anything else, the next click or key puts it back
+  if (!leaving && fsOff) setWanted(false);
 });
 const regain = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; if (!document.fullscreenElement && fsWanted()) goFull(); };
 addEventListener('pointerdown', regain, true); addEventListener('keydown', regain, true);

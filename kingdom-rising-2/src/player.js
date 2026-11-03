@@ -7,10 +7,10 @@ import { V } from './vfx.js';
 import { settings } from './saves.js';
 import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS, RMB_SPECIAL } from './data.js';
 const dualRank = () => 0;
-import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake } from './character.js';
+import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
-import { activeWeapon, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
+import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk } from './game.js';
 import { FOOD_BUFFS, ITEMS } from './data.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
@@ -255,6 +255,7 @@ export class Player {
     this.ch = buildHumanoid(this.app);
     equipWeapon(this.ch, w ? w.wt : null, w ? w.tier : 0, w ? w.rarity : 0);
     tintGear(this.ch, this.h.equip);
+    backWeapons(this.ch, [this.h.equip.w3, this.h.equip.w4]);
     bake(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
     if (old) { this.ch.anim = old.anim; this.ch.root.position.copy(old.root.position); this.ch.root.rotation.copy(old.root.rotation); }
     this.vm.setWeapon(w);
@@ -954,9 +955,9 @@ export class Player {
   }
   swapWeapon() {
     if (this.atk || this.dodge) return;
-    const other = this.h.active === 'ranged' ? 'w1' : 'ranged';
-    if (!this.h.equip[other]) { G.hooks.toast && G.hooks.toast('Put a bow in your Ranged slot (I) to switch to it with Q', '🏹', 'bad'); return; }
-    this.h.active = other; this.refreshGear(); S.swap(); this.swapT = 0.35;
+    if (setIsEmpty(this.h)) { G.hooks.toast && G.hooks.toast('Weapon Set 2 is empty: put weapons in it on the Hero page (I), then Q swaps sets', '⚔', 'bad'); return; }
+    swapSets(this.h); this.refreshGear(); S.swap(); this.swapT = 0.35;
+    G.hooks.toast && G.hooks.toast(`Weapon Set ${this.h.setNo || 1}: ${this.h.equip.w1 ? this.h.equip.w1.name : 'bare hands'}${this.h.equip.w2 ? ' + ' + this.h.equip.w2.name : ''}`, '⚔');
     G.hooks.gearChanged && G.hooks.gearChanged(true);
   }
   quaff() {

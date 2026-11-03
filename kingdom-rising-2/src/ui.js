@@ -289,8 +289,8 @@ export function toggleWin(id) { if (UI.open === id || (UI.open === 'skills' && (
 let selInv = null;
 const LEFT_SLOTS = ['head', 'back', 'chest', 'arms', 'food'];
 const RIGHT_SLOTS = ['hands', 'waist', 'legs', 'feet', 'drink'];
-const BOTTOM_SLOTS = ['w1', 'w2', 'ranged'];
-const SLOT_HINT = { ranged: 'bow', food: 'food', drink: 'drink', arms: 'wrists', head: 'helm', neck: 'amulet', shoulders: 'shoulders', back: 'cloak', chest: 'chest', wrists: 'wrists', hands: 'hands', waist: 'waist', legs: 'legs', feet: 'boots', ring1: 'ring', ring2: 'ring', trinket: 'charm', w1: 'sword', w2: 'sword' };
+const SET1 = ['w1', 'w2'], SET2 = ['w3', 'w4'];
+const SLOT_HINT = { ranged: 'bow', food: 'food', drink: 'drink', arms: 'wrists', head: 'helm', neck: 'amulet', shoulders: 'shoulders', back: 'cloak', chest: 'chest', wrists: 'wrists', hands: 'hands', waist: 'waist', legs: 'legs', feet: 'boots', ring1: 'ring', ring2: 'ring', trinket: 'charm', w1: 'sword', w2: 'sword', w3: 'bow', w4: 'sword' };
 export function openInventory() {
   const c = openWin('inv', 'Hero', '', 'big invwin');
   renderInventory(c);
@@ -300,11 +300,12 @@ function slotEl(h, k, tipEl, c) {
   const d = el('div', 'eq' + (it ? ' r' + (it.rarity || 0) : ' empty') + (k === h.active ? ' active' : ''));
   d.innerHTML = `<div class="ic">${it ? Icons.itemSvg(it) : Icons.itemSvg(ghost(SLOT_HINT[k]))}</div>${it && !it.kind ? `<span class="n">${it.n}</span>` : ''}<div class="lb">${SLOT_LABEL[k]}${k === h.active ? ' ✦' : ''}</div>`;
   if (!it && (k === 'food' || k === 'drink')) d.title = k === 'food' ? 'Drag food here: you eat one each time the buff runs out (long, small buffs)' : 'Drag a drink here: you drink one each time the buff runs out (shorter, stronger buffs)';
-  if (!it && k === 'ranged') d.title = 'Drag a bow here. Q switches to it and back.';
+  if (!it && (k === 'w3' || k === 'w4')) d.title = 'Weapon Set 2 hangs on your back. Drag weapons here, then Q swaps sets.';
   d.onmouseenter = () => { if (it) showTip(tipEl, it, null, k, c); };
   d.onclick = () => { if (it) { S.click(); selInv = { eq: k }; showTip(tipEl, it, null, k, c, true); } };
   d.ondblclick = () => { if (it) { Game.unequip(h, k); renderInventory(c); } };
   d.dataset.eq = k; if (it) dragable(d, { eq: k }, it, c);
+  if (k === 'w4' && Game.isTwoHanded(h.equip.w3)) { d.classList.add('twoh'); d.innerHTML = `<div class="ic" style="opacity:.35">${Icons.itemSvg(h.equip.w3)}</div><div class="lb">Both hands</div>`; d.title = h.equip.w3.name + ' needs both hands'; }
   if (k === 'w2' && Game.isTwoHanded(h.equip.w1)) { d.classList.add('twoh'); d.innerHTML = `<div class="ic" style="opacity:.35">${Icons.itemSvg(h.equip.w1)}</div><div class="lb">Both hands</div>`; d.title = h.equip.w1.name + ' needs both hands'; }
   return d;
 }
@@ -344,8 +345,7 @@ function dropItem(src, t) {
     }
     if (portrait) { if (a.kind) Game.equipFromInv(h, src.i); else if (FOOD_BUFFS[a.id]) Game.equipConsumable(h, src.i); else quickUse(src.i); return; }
     if (toE === 'food' || toE === 'drink') { Game.equipConsumable(h, src.i, toE); return; }
-    if (toE === 'ranged') { Game.equipFromInv(h, src.i, 'ranged'); return; }
-    if (toE) { if (!a.kind) { S.error(); return; } if (a.kind === 'weapon' && toE !== 'w1' && toE !== 'w2' && toE !== 'ranged') { toast("Weapons go in your hands.", '⚠', 'bad'); S.error(); return; } Game.equipFromInv(h, src.i, toE); }
+    if (toE) { if (!a.kind) { S.error(); return; } if (a.kind === 'weapon' && !['w1', 'w2', 'w3', 'w4'].includes(toE)) { toast("Weapons go in your hands.", '⚠', 'bad'); S.error(); return; } Game.equipFromInv(h, src.i, toE); }
     return;
   }
   const k = src.eq, it = h.equip[k]; if (!it) return;
@@ -372,7 +372,9 @@ function renderInventory(c) {
   RIGHT_SLOTS.forEach(k => R.appendChild(slotEl(h, k, tip, c)));
   const mid = el('div', 'mid');
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
-  const bot = el('div', 'botrow'); BOTTOM_SLOTS.forEach(k => bot.appendChild(slotEl(h, k, tip, c)));
+  const bot = el('div', 'botrow wsets');
+  const setBox = (keys, n, on) => { const g = el('div', 'wset' + (on ? ' on' : ''), `<div class="wsh">Set ${n}${on ? ' · in your hands' : ' · on your back'}</div>`); const r = el('div', 'wsr'); keys.forEach(k => r.appendChild(slotEl(h, k, tip, c))); g.appendChild(r); return g; };
+  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', '<b>Q</b><span>swap</span>'), setBox(SET2, n1 === 1 ? 2 : 1, false));
   requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
     pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
       const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };
@@ -414,7 +416,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
     if (it.kind === 'acc' && it.slot !== 'back') html += `<div style="color:var(--bad)">No longer worn. Sell it to a merchant.</div>`;
-    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in your Ranged slot (Q switches to it).</div>`;
+    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in Weapon Set 2 (Q swaps sets).</div>`;
     else if (!Game.canEquip(hh, it)) html += `<div style="color:var(--bad)">${CLASSES[hh.cls].name}s can't use this.</div>`;
     const cur = it.kind === 'weapon' ? hh.equip[hh.active] : hh.equip[it.slot === 'ring' ? 'ring1' : it.slot];
     if (cur && idx != null) html += `<div class="dim">Currently worn: ${esc(cur.name)} (${cur.dmg ? cur.dmg + ' damage' : (cur.armor || 0) + ' armour'})</div>`;
@@ -424,7 +426,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   if (!withButtons) return;
   const row = el('div', 'row');
   const b = (t, fn, cls = 'btn') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); renderInventory(c); }; row.appendChild(x); };
-  if (idx != null && it.kind === 'weapon') { if (it.wt === 'bow') b('Put in Ranged slot', () => Game.equipFromInv(hh, idx, 'ranged')); if (it.wt === 'bow' && !Game.canEquip(hh, it)) {} else if (Game.handsOf(it.wt) === 'off') b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); else if (Game.handsOf(it.wt) === 'two') b('Equip (both hands)', () => Game.equipFromInv(hh, idx, 'w1')); else { b('Equip in Main Hand', () => Game.equipFromInv(hh, idx, 'w1')); if (hh.equip.w1 && !Game.isTwoHanded(hh.equip.w1)) b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); } }
+  if (idx != null && it.kind === 'weapon') { b('Put in Set 2', () => Game.equipFromInv(hh, idx, Game.handsOf(it.wt) === 'off' ? 'w4' : 'w3')); if (it.wt === 'bow' && !Game.canEquip(hh, it)) {} else if (Game.handsOf(it.wt) === 'off') b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); else if (Game.handsOf(it.wt) === 'two') b('Equip (both hands)', () => Game.equipFromInv(hh, idx, 'w1')); else { b('Equip in Main Hand', () => Game.equipFromInv(hh, idx, 'w1')); if (hh.equip.w1 && !Game.isTwoHanded(hh.equip.w1)) b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); } }
   else if (idx != null && !it.kind && FOOD_BUFFS[it.id]) { b(FOOD_BUFFS[it.id].drink ? 'Put in Drink slot' : 'Put in Food slot', () => Game.equipConsumable(hh, idx)); b(FOOD_BUFFS[it.id].drink ? 'Drink one now' : 'Eat one now', () => quickUse(idx)); }
   else if (idx != null && it.kind) b('Equip', () => Game.equipFromInv(hh, idx));
   else if (idx != null && ITEMS[it.id]?.use) b('Use', () => quickUse(idx));
@@ -433,7 +435,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   tipEl.appendChild(row);
 }
 export function portraitRect() { if (UI.open !== 'inv') return null; const e = document.getElementById('portrait'); return e ? e.getBoundingClientRect() : null; }
-function quickUse(i) { const h = G.player.h, it = h.inv[i]; if (!it) return; if (it.kind) Game.equipFromInv(h, i, it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(h, it) ? 'ranged' : undefined); else if (ITEMS[it.id]?.use) Game.useItem(h, it.id, G.player); }
+function quickUse(i) { const h = G.player.h, it = h.inv[i]; if (!it) return; if (it.kind) Game.equipFromInv(h, i, it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(h, it) ? 'w3' : undefined); else if (ITEMS[it.id]?.use) Game.useItem(h, it.id, G.player); }
 export function refreshOpen() { if (UI.open === 'inv') renderInventory(winRoot().querySelector('.content')); if (UI.open === 'craft' && craftState) renderCraft(); if (UI.open === 'skills') renderSkills(); }
 
 // --- skills: class tree, weapon trees, dual wield mastery ---

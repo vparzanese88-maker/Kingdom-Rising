@@ -444,7 +444,7 @@ export const ARMOR_TIER_NAMES = {
   mail: ['Rusty', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
 };
 export const ARMOR_SLOT_LIST = Object.keys(ARMOR_SLOTS);
-export const SLOT_LABEL = Object.assign({ back: 'Back', w1: 'Main Hand', w2: 'Off Hand', ranged: 'Ranged', food: 'Food', drink: 'Drink', neck: 'Neck (no longer worn)', ring: 'Ring (no longer worn)', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm (no longer worn)', shoulders: 'Shoulders (no longer worn)', wrists: 'Arms' }, ARMOR_SLOTS);
+export const SLOT_LABEL = Object.assign({ back: 'Back', w1: 'Main Hand', w2: 'Off Hand', w3: 'Main Hand', w4: 'Off Hand', ranged: 'Set 2', food: 'Food', drink: 'Drink', neck: 'Neck (no longer worn)', ring: 'Ring (no longer worn)', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm (no longer worn)', shoulders: 'Shoulders (no longer worn)', wrists: 'Arms' }, ARMOR_SLOTS);
 // accessories: neck (amulet), back (cloak), ring, trinket (charm)
 export const ACC = {
   neck: { names: ['', 'Copper Amulet', 'Iron Pendant', 'Steel Torc', 'Mithril Amulet', 'Starmetal Medallion'] },

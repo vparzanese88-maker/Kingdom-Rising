@@ -17,7 +17,13 @@ export function pairedWt(h) {
   if (ONE.includes(b.wt)) return 'swordmace';
   return null;
 }
-export function activeWeapon(h) { if (h.active === 'ranged' && h.equip.ranged) return h.equip.ranged; const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
+export function activeWeapon(h) { const p = pairedWt(h); if (p) return Object.assign({}, h.equip.w1, { wt: p, paired: true, offTier: h.equip.w2.tier }); return h.equip[h.active]; }
+// ---- two weapon sets ----
+// Set 1 (w1 main hand, w2 off hand) is always the set in your hands; Set 2 (w3, w4) hangs on your back. Q trades them over.
+export function swapSets(h) { const e = h.equip; [e.w1, e.w2, e.w3, e.w4] = [e.w3, e.w4, e.w1, e.w2]; h.active = 'w1'; h.setNo = h.setNo === 2 ? 1 : 2; }
+export const setIsEmpty = (h) => !h.equip.w3 && !h.equip.w4;
+// run an equip or unequip against Set 2 by trading the sets around it
+function onSet2(h, fn) { swapSets(h); let r; try { r = fn(); } finally { swapSets(h); } G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); return r; }
 export function newHero(o) {
   const starter = { musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
@@ -29,7 +35,7 @@ export function newHero(o) {
   return h;
 }
 
-export const EQUIP_SLOTS = ['w1', 'w2', 'ranged', 'head', 'back', 'chest', 'arms', 'hands', 'waist', 'legs', 'feet', 'food', 'drink'];
+export const EQUIP_SLOTS = ['w1', 'w2', 'w3', 'w4', 'ranged', 'head', 'back', 'chest', 'arms', 'hands', 'waist', 'legs', 'feet', 'food', 'drink'];
 const RETIRED = ['neck', 'shoulders', 'wrists', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
@@ -143,6 +149,7 @@ export function heroStats(h) {
   const base = Object.assign({}, RACES[h.race].stats);
   for (const k of EQUIP_SLOTS) {
     const it = h.equip[k]; if (!it) continue;
+    if (k === 'w3' || k === 'w4' || k === 'ranged') continue;
     if ((k === 'w1' || k === 'w2') && k !== h.active && !pairedWt(h)) continue;
     for (const s in it.stats) base[s] += it.stats[s];
   }
@@ -183,7 +190,7 @@ export function gainMastery(h, wt, n) {
   while (m.lv < MASTERY_CAP && m.xp >= masteryXpFor(m.lv)) { m.xp -= masteryXpFor(m.lv); m.lv++; G.hooks.masteryUp && G.hooks.masteryUp(wt, m.lv); }
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + (h.level - 1) * LEVEL_GROWTH * 5 + 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
-export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && slot === 'ranged') return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
+export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && (slot === 'ranged' || slot === 'w3' || h.bowOk)) return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
 function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
@@ -195,6 +202,8 @@ export function equipFromInv(h, idx, slot) {
   if (it.lvl > h.level) { warn(`Requires level ${it.lvl}.`); return false; }
   let target = it.kind === 'weapon' ? 'w1' : it.slot;
   if (it.kind === 'acc' && it.slot === 'ring') target = slot === 'ring1' || slot === 'ring2' ? slot : (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
+  if (slot === 'ranged') slot = 'w3';
+  if (slot === 'w3' || slot === 'w4') { if (it.kind !== 'weapon') { warn('Only weapons go in a weapon set.'); return false; } const bow = it.wt === 'bow'; return onSet2(h, () => { h.bowOk = bow; try { return equipFromInv(h, idx, slot === 'w4' ? 'w2' : 'w1'); } finally { h.bowOk = false; } }); }
   if (it.kind === 'weapon' && slot === 'ranged') { if (it.wt !== 'bow') { warn('Only bows go in the ranged slot.'); return false; } h.inv[idx] = h.equip.ranged || null; h.equip.ranged = it; S.swap(); G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); return true; }
   if (it.kind === 'weapon') {
     const hd = handsOf(it.wt), main = h.equip.w1;
@@ -221,12 +230,13 @@ export function equipFromInv(h, idx, slot) {
 }
 export function unequip(h, slot, toIdx) {
   if (!h.equip[slot]) return false;
-  if (slot === 'w1' && (!h.equip.w2 || h.equip.w2.wt === 'shield')) { warn('Keep at least one weapon in your main hand.'); return false; }
+  if (slot === 'w3' || slot === 'w4') return onSet2(h, () => { h.allowEmpty = true; try { return unequip(h, slot === 'w4' ? 'w2' : 'w1', toIdx); } finally { h.allowEmpty = false; } });
+  if (slot === 'w1' && !h.allowEmpty && (!h.equip.w2 || h.equip.w2.wt === 'shield')) { warn('Keep at least one weapon in your main hand.'); return false; }
   const i = toIdx != null && !h.inv[toIdx] ? toIdx : h.inv.indexOf(null); if (i < 0) { warn('Your bag is full!'); return false; }
   const it = h.equip[slot];
   if (!it.kind) { h.equip[slot] = null; if (toIdx != null && !h.inv[toIdx]) h.inv[toIdx] = it; else addItem(h, it.id, it.n, true); }
   else { h.inv[i] = it; h.equip[slot] = null; }
-  if (slot === 'w1') { h.equip.w1 = h.equip.w2; h.equip.w2 = null; }
+  if (slot === 'w1') { if (h.equip.w2 && h.equip.w2.wt !== 'shield') { h.equip.w1 = h.equip.w2; h.equip.w2 = null; } }
   if (slot !== 'ranged' || h.active === 'ranged') h.active = 'w1';
   G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged();
   return true;
@@ -263,14 +273,17 @@ function retireSlots(h) {
   for (const k of RETIRED) { const it = h.equip[k]; delete h.equip[k]; if (!it) continue;
     if (it.kind === 'armor') { it.slot = 'arms'; if (!e.arms) { e.arms = it; continue; } }
     const i = h.inv.indexOf(null); if (i >= 0) h.inv[i] = it; }
-  if (!['w1', 'ranged'].includes(h.active)) h.active = 'w1';
+  if (h.active === 'ranged' && h.equip.ranged) { const e = h.equip; if (!e.w3 && !e.w4) { [e.w3, e.w4] = [e.w1, e.w2]; e.w1 = e.ranged; e.w2 = null; e.ranged = null; h.setNo = 2; } }
+  if (h.equip.ranged) { const e = h.equip; if (!e.w3) { e.w3 = e.ranged; e.ranged = null; } else { const i = h.inv.indexOf(null); if (i >= 0) { h.inv[i] = e.ranged; e.ranged = null; } } }
+  h.active = 'w1';
 }
 // fix gear from older saves: two-handers never share the hands with anything
 function fixHands(h) {
-  const e = h.equip; if (h.active === 'ranged' && e.ranged) return;
+  const e = h.equip;
   if (!e.w1 && e.w2 && e.w2.wt !== 'shield') { e.w1 = e.w2; e.w2 = null; }
   if (e.w2 && (isTwoHanded(e.w1) || isTwoHanded(e.w2) || !e.w1)) { const k = h.inv.indexOf(null); if (k >= 0) { h.inv[k] = e.w2; e.w2 = null; } }
-  if (h.active !== 'ranged' || !e.ranged) h.active = 'w1';
+  if (!e.w3 && e.w4 && e.w4.wt !== 'shield') { e.w3 = e.w4; e.w4 = null; }
+  h.active = 'w1';
 }
 
 // ---------- XP & levels ----------

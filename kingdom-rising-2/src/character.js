@@ -509,6 +509,24 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
     if (parts[1] === 'shield') { off.rotation.set(-Math.PI / 2, Math.PI / 2, 0); off.position.set(0.08, 0.0, 0.05); }
   }
 }
+// the weapons you are not holding hang on your back, so everyone can see what you carry. items: [{wt, tier, rarity} | null, ...]
+export function backWeapons(ch, items) {
+  if (ch.backG) { ch.backG.parent && ch.backG.parent.remove(ch.backG); ch.backG = null; }
+  const list = (items || []).filter(Boolean); if (!list.length || !ch.chest) return;
+  const g = new THREE.Group(); g.position.set(0, 0.06, -0.15); ch.chest.add(g); ch.backG = g;
+  list.forEach((it, i) => {
+    const W = WEAPON_TYPES[it.wt]; if (!W) return;
+    const part = W.parts[0] === 'shield' || it.wt === 'shield' ? 'shield' : W.parts[0];
+    const m = makeWeapon(part, it.tier || 0, it.rarity || 0, W.element); g.add(m);
+    if (part === 'shield') { m.rotation.set(0, Math.PI / 2, Math.PI / 2); m.position.set(0, -0.02, -0.07); return; }
+    if (W.kind === 'bow') { m.rotation.set(0, 0, -0.75); m.position.set(0.02, 0.05, -0.02); return; }
+    if (W.kind === 'gun') { m.rotation.set(0, 0, -0.42); m.position.set(0.05, -0.32, -0.03); return; }
+    if (W.kind === 'staff') { m.rotation.set(0, 0, 0.5); m.position.set(0.1, -0.5, -0.02); return; }
+    // blades and hafts: the grip over the shoulder, the blade down the back (two of them cross)
+    const s = i % 2 ? -1 : 1; m.rotation.set(0, Math.PI / 2, Math.PI + s * 0.55); m.position.set(s * 0.12, 0.24, -0.03 - i * 0.02);
+    if (W.hands === 'two') m.position.y = 0.34;
+  });
+}
 export function holdTool(ch, tool, tier = 1) {
   if (ch.toolMesh) { ch.toolMesh.parent && ch.toolMesh.parent.remove(ch.toolMesh); ch.toolMesh = null; }
   for (const k in ch.weapons) ch.weapons[k].visible = !tool;

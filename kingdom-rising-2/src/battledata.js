@@ -169,6 +169,12 @@ export const CLASS_KIT = {
   bash: ['Shoulder Bash', 'Drive your shoulder into the enemies in front of you: they are knocked back and stunned.'],
   shieldwall: ['Iron Stance', 'Plant your feet and brace: take 60% less damage for 6 s.'],
   shieldthrow: ['Throwing Hammer', 'Hurl a throwing hammer: it stuns the first enemy and bounces to the ones nearby.'],
+  battlecry: ['Battle Cry', 'A furious roar: you deal 30% more damage for 10 s and enemies around you are stunned.'],
+  laststand: ['Last Stand', 'Refuse to fall: take far less damage for 10 s.'],
+  bloodrage: ['Bloodrage', 'Lose yourself to rage for 10 s: +15% damage.'],
+  mending: ['Mending', 'A little light healing magic: restore some health over 6 s.'],
+  rally: ['Rallying Banner', 'Plant your banner: you and every one of your troops within 14 m hit 25% harder for 10 s.'],
+  frenzy: ['Blood Frenzy', 'Go berserk for 8 s: you attack 50% faster.'],
   bulwark: ['Earthshaker', 'Slam the ground: every enemy around you is knocked away and stunned.'],
 };
 export const BATTLE_ABILITIES = {

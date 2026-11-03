@@ -578,7 +578,7 @@ function updateZone(p) {
 }
 function updateMobs(dt, p) {
   let chasing = false;
-  const heroes = MP.host ? [p, ...MP.remotes.values()].filter(h => !h.dead) : null;
+  const heroes = MP.host ? [p, ...MP.remotes.values()].filter(h => !h.dead && !(h.stealth > 0)) : null;
   for (const m of G.mobs) {
     let d = m.pos.distanceTo(p.pos), tp = p;
     if (heroes && m.team == null && !m.netProxy) for (const h of heroes) { const dd = m.pos.distanceTo(h.pos); if (dd < d || (tp.dead && !h.dead)) { d = dd; tp = h; } }

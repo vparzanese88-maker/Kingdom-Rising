@@ -27,7 +27,7 @@ export function hostTick(dt) {
   mobList.forEach((mb, i) => { const L = lastMobs[i]; const st = [r1(mb.pos.x), r1(mb.pos.z), r2(mb.yaw), Math.round(mb.hp), mb.dead ? 1 : 0, mb.action ? 1 : 0]; if (!L || Math.abs(L[0] - st[0]) > 0.15 || Math.abs(L[1] - st[1]) > 0.15 || L[3] !== st[3] || L[4] !== st[4] || L[5] !== st[5] || Math.abs(L[2] - st[2]) > 0.1) { m.push([i, ...st]); lastMobs[i] = st; } });
   const s = B.structs.map(x => [Math.round(x.hp), x.level, x.dead ? 1 : 0, x.building ? 1 : 0]);
   const tw = B.towns.map(t => [t.level, t.building ? [r1(t.building.t), t.building.dur] : 0, Math.round(t.isMe ? G.save.gold : t.bank.gold), Math.round(t.bank.wood), Math.round(t.bank.stone), t.dead ? 1 : 0, t.up || {}]);
-  const p = G.player, h = p ? [r1(p.pos.x), r1(p.pos.y), r1(p.pos.z), r2(p.yaw), Math.round(p.hp), Math.round(p.maxHp), p.dead ? 1 : 0, G.save.level, p.atk ? p.atk.name : '', r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), p.weapon ? p.weapon.wt : '', backOf(), G.save.kills || 0, G.save.deaths || 0] : null;
+  const p = G.player, h = p ? [r1(p.pos.x), r1(p.pos.y), r1(p.pos.z), r2(p.yaw), Math.round(p.hp), Math.round(p.maxHp), p.dead ? 1 : 0, G.save.level, p.atk ? p.atk.name : '', r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), p.weapon ? p.weapon.wt : '', backOf(), G.save.kills || 0, G.save.deaths || 0, p.stealth > 0 ? 1 : 0] : null;
   send({ t: 'snap', time: r1(B.time), u, m, s, tw, h, fx: fxQueue.splice(0), over: B.over ? B.result : 0, overTeam: B.winTeam });
 }
 // ---------- every player ----------
@@ -35,7 +35,7 @@ const backOf = () => { const e = G.save && G.save.equip; return e ? [e.w3, e.w4]
 export function meTick(dt) {
   if (MP.host) return; meT -= dt; if (meT > 0) return; meT = 0.066;
   const p = G.player; if (!p) return;
-  send({ t: 'me', s: { x: r1(p.pos.x), y: r1(p.pos.y), z: r1(p.pos.z), yaw: r2(p.yaw), hp: Math.round(p.hp), mhp: Math.round(p.maxHp), dead: p.dead ? 1 : 0, lv: G.save.level, act: p.atk ? p.atk.name : '', spd: r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), wt: p.weapon ? p.weapon.wt : '', bk: backOf(), k: G.save.kills || 0, de: G.save.deaths || 0 } });
+  send({ t: 'me', s: { x: r1(p.pos.x), y: r1(p.pos.y), z: r1(p.pos.z), yaw: r2(p.yaw), hp: Math.round(p.hp), mhp: Math.round(p.maxHp), dead: p.dead ? 1 : 0, lv: G.save.level, act: p.atk ? p.atk.name : '', spd: r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), wt: p.weapon ? p.weapon.wt : '', bk: backOf(), k: G.save.kills || 0, de: G.save.deaths || 0, st: p.stealth > 0 ? 1 : 0 } });
 }
 // which town a player belongs to (friends can share a town)
 export const townOf = (id) => B.towns.find(x => (x.members || []).includes(id) || x.owner === id);
@@ -79,7 +79,7 @@ function applySnap(d) {
     if (dead && !t.dead) { t.dead = true; G.hooks.banner && G.hooks.banner(`${t.name} has fallen!`, '', 3500); }
   });
   // host hero
-  if (d.h) { const r = remoteFor(0); if (r) { const [x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de] = d.h; r.netState({ x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de }); } }
+  if (d.h) { const r = remoteFor(0); if (r) { const [x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de, st] = d.h; r.netState({ x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de, st }); } }
   for (const f of d.fx) shootVisual(f);
   { const me = myTown(); if (me.dead && !B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver('defeat'); }
     if (d.over && !B.over) { B.over = true; const res = d.overTeam != null && d.overTeam === me.team ? 'victory' : 'defeat'; B.result = res; if (!B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver(res); } } }

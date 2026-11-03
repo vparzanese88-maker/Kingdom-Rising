@@ -571,7 +571,7 @@ class Structure {
     // Smite rules: troops in the circle first; a hero only once they step inside (and always if they hit an ally hero in the circle)
     const R = this.range; let best = null, bd = 1e9;
     for (const u of B.units) { if (u.dead || u.team === this.team || u.hero) continue; const d = Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z); if (d < R && d < bd) { bd = d; best = u; } }
-    const heroes = allHeroes().filter(h => h.team !== this.team && !h.dead && Math.hypot(h.pos.x - this.pos.x, h.pos.z - this.pos.z) < R);
+    const heroes = allHeroes().filter(h => h.team !== this.team && !h.dead && !(h.stealth > 0) && Math.hypot(h.pos.x - this.pos.x, h.pos.z - this.pos.z) < R);
     const agg = heroes.find(h => h.aggroT > B.time && h.aggroAt === this.town); if (agg) return agg;
     if (best) return best;
     if (heroes.length) return heroes.sort((a, b) => Math.hypot(a.pos.x - this.pos.x, a.pos.z - this.pos.z) - Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z))[0];
@@ -732,7 +732,7 @@ export class Unit {
     const aggro = this.range ? this.range + 6 : (this.order === 'attack' ? 16 : 22);
     const myIn = nearTown(this.pos.x, this.pos.z, -12);
     let best = null, bd = aggro;
-    const consider = (o, w = 1) => { if (o.dead || o.team === this.team) return; const d = this.dist(o) - (o.radius || 0.5); if (d * w >= bd) return; if (!this.range && !o.isStruct) { const oIn = nearTown(o.pos.x, o.pos.z, -12); if (oIn !== myIn && Math.hypot(o.pos.x - (oIn || myIn).gate[0], o.pos.z - (oIn || myIn).gate[1]) > 14 && this.dist({ pos: V3((oIn || myIn).gate[0], 0, (oIn || myIn).gate[1]) }) > 14) return; } bd = d * w; best = o; };
+    const consider = (o, w = 1) => { if (o.dead || o.team === this.team || o.stealth > 0) return; /* the invisible cannot be targeted */ const d = this.dist(o) - (o.radius || 0.5); if (d * w >= bd) return; if (!this.range && !o.isStruct) { const oIn = nearTown(o.pos.x, o.pos.z, -12); if (oIn !== myIn && Math.hypot(o.pos.x - (oIn || myIn).gate[0], o.pos.z - (oIn || myIn).gate[1]) > 14 && this.dist({ pos: V3((oIn || myIn).gate[0], 0, (oIn || myIn).gate[1]) }) > 14) return; } bd = d * w; best = o; };
     for (const u of B.units) consider(u, u.worker ? 1.4 : 1);
     for (const h of allHeroes()) if (h !== this) consider(h, 0.95);
     if (this.order === 'attack' || this.hero) for (const s of B.structs) consider(s, s.kind === 'hall' ? 1.25 : 1.1);

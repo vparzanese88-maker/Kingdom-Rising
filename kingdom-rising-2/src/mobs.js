@@ -326,10 +326,10 @@ export class Mob {
     if (!disabled) {
       this.atkCd -= dt;
       // aggro
-      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? 0.25 : 1) && player.level - this.lv < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
+      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && player.level - this.lv < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
-      if (this.state === 'chase' && (leash > (this.def.boss ? 60 : 45) || player.stealth > 0 && dp > 6)) { this.state = 'return'; this.provoked = false; }
+      if (this.state === 'chase' && (leash > (this.def.boss ? 60 : 45) || player.stealth > 0 && (G.battleFx || dp > 6))) { this.state = 'return'; this.provoked = false; }
       for (const k in this.spCd) this.spCd[k] -= dt;
       if (this.abil.includes('regen') && this.state === 'chase') this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.012 * dt);
       if (this.action && this.action !== 'attack') { const mv = this.special(dt, player, dp); if (mv) { want = mv.want; speed = mv.speed; } }

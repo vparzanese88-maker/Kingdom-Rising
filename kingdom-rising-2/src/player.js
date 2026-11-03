@@ -47,7 +47,7 @@ const VP = {
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
   blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.24, -0.28, -0.55, 0.08, 0.38, 0.06), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
-  staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.24, -0.48, -0.85, -0.55, 0, -0.05), staffHigh: P(0.2, -0.15, -0.35, 0.3, 0, -0.1), staffSlam: P(0.12, -0.6, -0.9, -0.9, 0, 0),
+  staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.2, -0.36, -0.66, -0.8, 0, -0.06), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -176,6 +176,8 @@ class ViewModel {
         case 'castBig': r = seq(VP.staffHigh, VP.staffSlam, t, 0.45, VP.staff); l = seq(VP.castL, VP.castL, t, 0.3, VP.hideL); break;
         case 'spell': l = seq(VP.castL, VP.castL, t, 0.25, l || VP.hideL); if (W && W.kind === 'staff') r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); break;
       }
+    } else if (st.channel && W && W.kind === 'staff') {
+      const j = Math.sin(performance.now() * 0.03) * 0.006; r = [0.16 + j, -0.3 + j, -0.62, -0.95, 0, -0.08]; l = [-0.16, -0.22, -0.6, -1.4, 0, 0.1];
     } else if (st.block) {
       if (W && W.hands === 'shield') { l = VP.shieldBlock; r = VP.swordLow; }
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
@@ -313,6 +315,7 @@ export class Player {
       return;
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
+    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); this.channel = { t: 0, on: false, tick: 0, snd: 0 }; this.light(); } else this.channel = null; return; }
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
     else if (btn === 2 && down && !G.battleFx) this.specialAttack();
   }
@@ -860,6 +863,35 @@ export class Player {
     }
     return false;
   }
+  // Kingdom Battles staffs: hold left click to pour out the staff's element
+  // fire: a flamethrower cone that sets enemies burning; frost: an icy cone that slows, then freezes whatever stays in it;
+  // arcane: a crackling beam that pierces everything in a line
+  tickChannel(dt) {
+    const c = this.channel, W = this.W;
+    if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) c.on = false; return; }
+    c.t += dt; if (c.t < 0.3) return;
+    const cost = 16 * dt; if (this.mana < cost) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); this.channel = null; return; }
+    this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
+    const el = W.element || 'fire', from = this.handPos(), dir = this.aimDir(from), base = weaponDamage(this.h, this.weapon);
+    const range = el === 'arcane' ? 20 : el === 'frost' ? 9 : 8.5;
+    // what it looks like: a stream of particles leaving the staff
+    for (let k = 0; k < (el === 'arcane' ? 6 : 4); k++) {
+      const d = dir.clone(); if (el !== 'arcane') { d.x += (Math.random() - 0.5) * 0.35; d.y += (Math.random() - 0.5) * 0.25; d.z += (Math.random() - 0.5) * 0.35; d.normalize(); }
+      const q = from.clone().addScaledVector(d, Math.random() * range * (el === 'arcane' ? 1 : 0.35));
+      V.emit(el === 'frost' ? 'frost' : el === 'arcane' ? 'arcane' : 'fire', q, { vx: d.x * (el === 'arcane' ? 0 : 14), vy: d.y * 14 + 0.5, vz: d.z * (el === 'arcane' ? 0 : 14), speed: 0.6, size: el === 'arcane' ? 0.22 : 0.5, life: el === 'arcane' ? 0.2 : 0.5 });
+    }
+    if ((c.snd -= dt) <= 0) { c.snd = 0.35; S.cast(el, from, 0.35); V.light(from.clone().addScaledVector(dir, 2), el === 'frost' ? '#9ad8ff' : el === 'arcane' ? '#c080ff' : '#ff8a30', 4, 0.35, 12); }
+    // what it does: damage ticks
+    if ((c.tick -= dt) > 0) return; c.tick = 0.15;
+    const hits = el === 'arcane'
+      ? G.mobs.filter(m => !m.dead && foe(m) && (() => { const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.5).sub(from), t = v.dot(dir); return t > 0 && t < range && v.addScaledVector(dir, -t).length() < (m.radius || 0.5) + 0.6; })())
+      : mobsInCone(this.pos, this.yaw, range, 0.55);
+    for (const m of hits) {
+      if (el === 'fire') this.dealDamage(m, base * 0.32, { el: 'fire', burn: base * 0.06, silent: true });
+      else if (el === 'frost') { m.chill = (m.chill || 0) + 0.15; this.dealDamage(m, base * 0.26, { el: 'frost', slow: 2, freeze: m.chill > 1.5 ? 1.2 : 0, silent: true }); if (m.chill > 1.5) m.chill = 0; }
+      else this.dealDamage(m, base * 0.36, { el: 'arcane', silent: true });
+    }
+  }
   // Kingdom Battles ranger traps: spike pits and frost runes, sprung by any enemy (troops too)
   battleTrap(pos, kind, dmg, up) {
     pos.y = heightAt(pos.x, pos.z);
@@ -1094,6 +1126,7 @@ export class Player {
     const wasBlock = this.block;
     this.block = !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
+    if (G.battleFx) this.tickChannel(dt);
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;
@@ -1194,7 +1227,7 @@ export class Player {
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
-    this.vm.update(dt, { aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
+    this.vm.update(dt, { channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade

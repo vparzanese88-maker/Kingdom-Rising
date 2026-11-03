@@ -1,7 +1,7 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL } from './data.js';
+import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS } from './data.js';
 import { settings, saveSettings } from './saves.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
@@ -402,6 +402,12 @@ function renderBook() {
   const k = G.abilScale ? G.abilScale(h.level) : 1;
   c.innerHTML = '';
   c.appendChild(el('p', 'bookintro', `Your hotbar holds <b>4 abilities</b> on keys <b>1 2 3 4</b>. Click a slot, then click an ability to put it there. Every level makes all your abilities stronger: right now they hit <b>${Math.round(k * 100)}%</b> as hard, last as long and reach as far as at level 1.`));
+  // your weapons: what left click and F do with each set
+  const wrow = (it, setN) => { if (!it) return ''; const wt = it.wt, W = WEAPON_TYPES[wt]; const st = UI.comboSteps(wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
+    return `<div class="bwpn"><div class="bwh"><b>${it.name}</b><span>Set ${setN}${setN === (h.setNo || 1) ? ' · in your hands' : ' · Q to swap'}</span></div><div class="bwl"><b>Left click</b> ${st.map(x => `${x.n} <small>${x.d}%</small>`).join(' → ')}${st[0] && st[0].tags.length && st.length === 1 ? ` <small>(${st[0].tags.join(', ')})</small>` : ''}</div>${S2 ? `<div class="bwl"><b>F · ${S2.name}</b> ${S2.desc} <small>⟳ ${S2.cd}s</small></div>` : ''}</div>`; };
+  const pairs = [[h.equip.w1, h.setNo === 2 ? 2 : 1], [h.equip.w3, h.setNo === 2 ? 1 : 2]];
+  const wp = pairs.map(([it, n]) => { if (!it) return ''; const act = it === h.equip.w1 ? Game.activeWeapon(h) : it; return wrow(act || it, n); }).join('');
+  if (wp) c.appendChild(el('div', 'bookwpn', `<h3>Your weapons</h3>${wp}<p class="dim">Hold right click to block. Raise it just before a hit for a perfect block.</p>`));
   const bar = el('div', 'bookbar');
   for (let i = 0; i < 4; i++) {
     const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);

@@ -1,11 +1,11 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
 import * as THREE from 'three';
-import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
 import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave, listCampaigns, MAX_CHARS } from './saves.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
 import { newHero } from './game.js';
 import { S, A, M } from './audio.js';
-import { confirmBox, openSettings, openControls, closeWin } from './ui.js';
+import { confirmBox, openSettings, openControls, closeWin, comboSteps } from './ui.js';
 import { G } from './state.js';
 import * as Icons from './icons.js';
 import { SETUP_KEY } from './battlemap.js';
@@ -151,6 +151,17 @@ function renderCreator() {
     for (const k of Object.keys(CLASSES).filter(k => !CLASSES[k].battleOnly || C.battle)) body.appendChild(opt({ name: CLASSES[k].name, icon: `<div style="width:38px;height:38px">${Icons.itemSvg(CLS_WPN[k])}</div>`, small: CLASS_INFO[k].role, tag: CLASS_INFO[k].tag }, C.cls === k, () => { C.cls = k; C.weapon = START[k]; }));
     const I = CLASS_INFO[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
     body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${I.start}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
+    // the starting weapon: what each button does with it
+    { const wt = { warrior: 'swordshield', berserker: 'greataxe', ranger: 'bow', wizard: 'firestaff', musketeer: 'musket' }[C.cls], W = WEAPON_TYPES[wt], bt = !!C.battle;
+      const st = comboSteps(wt, bt), sid = RMB_SPECIAL[wt], SP = sid && WSKILLS[sid];
+      const tap = st.filter(x => !/^Hold/.test(x.n)), hold = st.filter(x => /^Hold/.test(x.n));
+      const holdTxt = hold.length ? `${hold[0].n.replace('Hold: ', '')}: ${hold[0].tags.join(', ')}` : W.kind === 'bow' ? 'Draw the bow: the longer you hold, the harder, faster and straighter the arrow' : W.kind === 'gun' ? 'Raise the musket and aim down the barrel: a harder, straighter shot (zooms in)' : 'Wind up a heavy blow: hits much harder';
+      sect(`Your weapon · ${W.name}`);
+      body.appendChild(el('div', 'wkeys', `<div><b>Left click</b><span>${W.kind === 'melee' ? 'Combo: ' + tap.map(x => `${x.n} (${x.d}%)`).join(' → ') : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ' · ' + x.tags.join(', ') : ''}`).join('')}</span></div>
+        <div><b>Hold left click</b><span>${holdTxt}</span></div>
+        ${SP ? `<div><b>${bt ? 'F' : 'Right click'}</b><span><b class="wsn">${SP.name}</b> ${SP.desc} (every ${SP.cd} s)</span></div>` : ''}
+        <div><b>${bt ? 'Hold right click' : 'Hold F'}</b><span>Block. Raise it just before a hit for a perfect block: no damage.</span></div>
+        <div><b>${bt ? 'Double-tap W A S D' : 'Tap Shift'}</b><span>${bt ? 'Roll that way (a Shift tap rolls too)' : 'Roll out of the way'}</span></div>`)); }
     sect('How to play');
     body.appendChild(el('ul', 'tips', I.tips.map(t => `<li>${t}</li>`).join('')));
     sect('Class abilities');

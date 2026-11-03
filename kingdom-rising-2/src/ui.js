@@ -31,10 +31,13 @@ export function hint(text, ms = 6000) { const h = $('hint'); if (!text) { h.hidd
 
 // ---------- left-click combo descriptions ----------
 const HIT_NAME = { swing1: 'Slash', swing2: 'Backhand', swing3: 'Heavy Slash', off1: 'Off-hand Strike', smash: 'Overhead Smash', stabR: 'Stab', stabL: 'Stab', spin: 'Spinning Slash', thrust1: 'Thrust', thrust2: 'Thrust', thrust3: 'Lunge' };
-export function comboSteps(wt) {
+export function comboSteps(wt, battle = G.battleFx) {
   const W = WEAPON_TYPES[wt]; if (!W) return [];
-  if (W.kind === 'bow') return [{ n: 'Arrow', d: 100, tags: ['Ranged'] }];
-  if (W.kind === 'staff') return [{ n: W.element === 'fire' ? 'Firebolt' : W.element === 'frost' ? 'Frostbolt' : 'Arcane Bolt', d: 100, tags: [W.element === 'fire' ? '🔥 Burns' : W.element === 'frost' ? '🐌 Slows' : 'Ranged'] }];
+  if (W.kind === 'bow') return [{ n: 'Arrow', d: 100, tags: battle ? ['Hold to draw: harder, faster, straighter', 'Headshots x2'] : ['Ranged'] }];
+  if (W.kind === 'gun') return [{ n: 'Musket shot', d: 100, tags: ['Hold to aim down the barrel: harder and straighter', 'Headshots x2'] }];
+  if (W.kind === 'staff') { const bolt = { n: W.element === 'fire' ? 'Tap: Firebolt' : W.element === 'frost' ? 'Tap: Frostbolt' : 'Tap: Arcane Bolt', d: 100, tags: [W.element === 'fire' ? '🔥 Burns' : W.element === 'frost' ? '🐌 Slows' : 'Ranged'] };
+    if (!battle) return [bolt];
+    return [bolt, { n: W.element === 'fire' ? 'Hold: Flamethrower' : W.element === 'frost' ? 'Hold: Frost Blast' : 'Hold: Arcane Beam', d: 32, tags: [W.element === 'fire' ? '🔥 Cone, sets enemies burning' : W.element === 'frost' ? '❄ Cone, slows, freezes if held on them' : '⚡ Beam, pierces a whole line', 'Uses mana while held'] }]; }
   const C = COMBOS[wt]; if (!C) return [];
   return C.chain.map(st => { const t = [];
     if (st.cleave) t.push('Cleave'); if (st.aoe) t.push('Area'); if (st.line) t.push('Pierces line');
@@ -73,7 +76,8 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
-    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}${G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    { const sid = W && G.battleFx ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
@@ -429,7 +433,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   let html = `<div class="tiphead"><div class="tic r${it.rarity || 0}">${Icons.itemSvg(it)}</div><div>`;
   if (it.kind) {
     html += `<b style="color:${RARITY[it.rarity].col}">${esc(it.name)}</b><div class="dim">${RARITY[it.rarity].name} · ${it.kind === 'weapon' ? WEAPON_TYPES[it.wt].name : SLOT_LABEL[it.slot === 'ring' ? 'ring1' : it.slot]} · level ${it.lvl}</div></div></div>`;
-    if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'Dual wield' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : 'Staff'} · Right click: ${W.areaName}</div>`; const cs = comboSteps(it.wt); if (cs.length) html += `<div class="tipcombo"><div class="dim">Left click${COMBOS[it.wt] ? ' combo' : ''}</div>${cs.map((x, i) => `<div><b>${i + 1}. ${x.n}</b> <span class="dim">${x.d}% dmg</span>${x.tags.length ? ' · <span style="color:#ffcf70">' + x.tags.join(', ') + '</span>' : ''}</div>`).join('')}${COMBOS[it.wt] ? `<div style="color:#9fd0ff">${COMBOS[it.wt].trait}</div>` : ''}</div>`; }
+    if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'Dual wield' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : 'Staff'} · ${G.battleFx ? 'F' : 'Right click'}: ${W.areaName}</div>${G.battleFx && RMB_SPECIAL[it.wt] && WSKILLS[RMB_SPECIAL[it.wt]] ? `<div class="dim" style="font-size:12px"><b>F · ${WSKILLS[RMB_SPECIAL[it.wt]].name}:</b> ${WSKILLS[RMB_SPECIAL[it.wt]].desc}</div>` : ''}`; const cs = comboSteps(it.wt); if (cs.length) html += `<div class="tipcombo"><div class="dim">Left click${COMBOS[it.wt] ? ' combo' : ''}</div>${cs.map((x, i) => `<div><b>${i + 1}. ${x.n}</b> <span class="dim">${x.d}% dmg</span>${x.tags.length ? ' · <span style="color:#ffcf70">' + x.tags.join(', ') + '</span>' : ''}</div>`).join('')}${COMBOS[it.wt] ? `<div style="color:#9fd0ff">${COMBOS[it.wt].trait}</div>` : ''}</div>`; }
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
     if (it.kind === 'acc' && it.slot !== 'back') html += `<div style="color:var(--bad)">No longer worn. Sell it to a merchant.</div>`;

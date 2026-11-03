@@ -271,6 +271,7 @@ export function updateTracker() {
 // ---------- windows ----------
 const winRoot = () => $('windows');
 export function closeWin() {
+  hideFtip();
   if (G.hudEdit) { exitHudEdit(); return; }
   winRoot().innerHTML = ''; UI.open = null; G.uiOpen = false;
   if (G.onUiClosed) G.onUiClosed();
@@ -295,6 +296,16 @@ export function openInventory() {
   const c = openWin('inv', 'Hero', '', 'big invwin');
   renderInventory(c);
 }
+let ftipT = 0, ftipEl = null, ftipXY = [0, 0];
+function hoverTip(node, it, idx, eqSlot, c) {
+  node.addEventListener('mouseenter', (e) => { ftipXY = [e.clientX, e.clientY]; clearTimeout(ftipT); ftipT = setTimeout(() => {
+    if (!node.isConnected) return; if (!ftipEl) { ftipEl = el('div', 'tip big ftip'); document.body.appendChild(ftipEl); }
+    showTip(ftipEl, it, idx, eqSlot, c, false); ftipEl.hidden = false; placeFtip(); }, 1000); });
+  node.addEventListener('mousemove', (e) => { ftipXY = [e.clientX, e.clientY]; if (ftipEl && !ftipEl.hidden) placeFtip(); });
+  node.addEventListener('mouseleave', hideFtip); node.addEventListener('pointerdown', hideFtip);
+}
+function placeFtip() { const r = ftipEl.getBoundingClientRect(); let x = ftipXY[0] + 18, y = ftipXY[1] + 14; if (x + r.width > innerWidth - 8) x = ftipXY[0] - r.width - 18; if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8; ftipEl.style.left = Math.max(8, x) + 'px'; ftipEl.style.top = Math.max(8, y) + 'px'; }
+export function hideFtip() { clearTimeout(ftipT); if (ftipEl) ftipEl.hidden = true; }
 function slotEl(h, k, tipEl, c) {
   const it = h.equip[k];
   const d = el('div', 'eq' + (it ? ' r' + (it.rarity || 0) : ' empty') + (k === h.active ? ' active' : ''));
@@ -302,6 +313,7 @@ function slotEl(h, k, tipEl, c) {
   if (!it && (k === 'food' || k === 'drink')) d.title = k === 'food' ? 'Drag food here: you eat one each time the buff runs out (long, small buffs)' : 'Drag a drink here: you drink one each time the buff runs out (shorter, stronger buffs)';
   if (!it && (k === 'w3' || k === 'w4')) d.title = 'Weapon Set 2 hangs on your back. Drag weapons here, then Q swaps sets.';
   d.onmouseenter = () => { if (it) showTip(tipEl, it, null, k, c); };
+  if (it) hoverTip(d, it, null, k, c);
   d.onclick = () => { if (it) { S.click(); selInv = { eq: k }; showTip(tipEl, it, null, k, c, true); } };
   d.ondblclick = () => { if (it) { Game.unequip(h, k); renderInventory(c); } };
   d.dataset.eq = k; if (it) dragable(d, { eq: k }, it, c);
@@ -400,7 +412,7 @@ function renderInventory(c) {
   const grid = el('div', 'grid');
   h.inv.forEach((it, i) => {
     const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : '') + (selInv && selInv.i === i ? ' sel' : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
-    if (it) { cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; dragable(cell, { i }, it, c); }
+    if (it) { hoverTip(cell, it, i, null, c); cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; dragable(cell, { i }, it, c); }
     cell.dataset.inv = i;
     grid.appendChild(cell);
   });

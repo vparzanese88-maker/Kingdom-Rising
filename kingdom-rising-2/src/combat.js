@@ -175,6 +175,7 @@ function impact(p, mob) {
   const pos = p.pos.clone();
   if (p.onHit) p.onHit(p, mob, pos);
   else if (mob) G.player.dealDamage(mob, p.dmg, { ranged: true, el: p.el });
+  if (mob && p.wpn && p.owner === 'player' && G.player.wpnXp) G.player.wpnXp(1);
   if (p.kind === 'arrow' || p.kind === 'spectral') { S.arrowHit(pos); if (!mob) V.burst('dust', pos, 5, { speed: 1.5, size: 0.1 }); else if (p.kind === 'arrow' && !p.pierce) { /* stick arrow into mob briefly */ } }
 }
 

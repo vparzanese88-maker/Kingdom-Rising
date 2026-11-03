@@ -1,6 +1,7 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
 import { NEW_CLASSES } from './classes2.js';
-import { STARTING_PAIR } from './data.js';
+import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL } from './data.js';
+import { BATTLE } from './battlemap.js';
 import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -36,7 +37,10 @@ export function newHero(o) {
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   // campaign heroes sail in wearing only a few tattered clothes
-  if (!G.battleFx) { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
+  if (!BATTLE) { // the campaign: everyone starts with one rusty dagger and learns weapons by using them
+    h.equip.w1 = Object.assign(makeWeapon('daggers', 0, 0), { name: 'Rusty Dagger' }); h.equip.w2 = null; h.wseen = ['daggers'];
+  }
+  if (!BATTLE) { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
   return h;
 }
 
@@ -47,7 +51,7 @@ function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; 
 export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
-  const valid = new Set(CLASS_TREE[h.cls].map(n => n.id));
+  const valid = new Set((CLASS_TREE[h.cls] || []).map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
   if (h.inv) { retireSlots(h); fixHands(h); }
   return h; }
@@ -56,10 +60,13 @@ export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cak
 export function autoFillHotbar(h) {
   // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book
   if (G.hotbarSlots) {
-    const N = G.hotbarSlots; if (!h.hotbar || h.hotbar.length !== N) h.hotbar = new Array(N).fill(null);
+    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
     const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
     const added = [];
-    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex(s => !s); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+    // campaign: the last slots hold potions and food, filled as you find them
+    for (let i = N; i < T; i++) if (hb[i] && (hb[i].t !== 'item' || count(h, hb[i].id) <= 0)) hb[i] = null;
+    for (const id of HOTBAR_ITEMS) { if (!NI || hb.some(s => s && s.t === 'item' && s.id === id) || count(h, id) <= 0) continue; const i = hb.findIndex((s, k) => !s && k >= N); if (i < 0) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
     if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
     return;
   }
@@ -149,7 +156,7 @@ export function addItem(h, id, n = 1, quiet) {
 }
 export function addGear(h, it, quiet) {
   const i = h.inv.indexOf(null); if (i < 0) { G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad'); return false; }
-  h.inv[i] = it; if (!quiet && !G.battleFx) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
+  h.inv[i] = it; if (!quiet && !BATTLE) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
   G.hooks.invChanged && G.hooks.invChanged(); return true;
 }
 export function removeItem(h, id, n) {
@@ -181,7 +188,8 @@ export function heroDerived(h) {
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  return w.dmg * mul * (1 + (h.level - 1) * 0.05 * LEVEL_GROWTH) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
+  const mast = BATTLE ? 1 : 1 + (wm(h, familiesOf(w.wt)[0]).lv - 1) * 0.01; // every mastery level: +1% with that weapon
+  return mast * w.dmg * mul * (1 + (h.level - 1) * 0.05 * LEVEL_GROWTH) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
 // ---------- skill trees ----------
@@ -197,6 +205,26 @@ export function spendClass(h, node) { if (!canSpend('c', h.ctree, classPoints(h)
 export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend('w', m.pts, weaponPoints(h, wt), node)) return false; m.pts[node.id] = (m.pts[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
 export function resetClass(h) { h.ctree = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
+// ---------- weapon skills: what a weapon lets you do grows with its mastery (campaign) ----------
+// melee: strikes 1-2 from the start, 3rd strike at 2, hold attack at 3, 4th strike at 4, F special at 5, the finisher at 6
+// bows and muskets shoot and draw from the start, F at 5; staffs tap-cast from the start, hold stream at 3, F at 5
+export const WM_HOLD = 3, WM_F = 5;
+export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 1, 2, 4, 6][i] || 6; }
+export function masteryOf(h, wt) { return BATTLE ? 99 : wm(h, familiesOf(wt)[0]).lv; }
+export function comboLen(h, wt) { const C = COMBOS[wt]; if (!C) return 0; const lv = masteryOf(h, wt); let n = 0; while (n < C.chain.length && stepReq(C.chain.length, n) <= lv) n++; return Math.max(1, n); }
+export function canHold(h, wt) { const W = WEAPON_TYPES[wt]; if (!W || W.kind === 'bow' || W.kind === 'gun') return true; return masteryOf(h, wt) >= WM_HOLD; }
+export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
+// the unlock list for one weapon type, for the Weapons tab and level-up messages
+export function weaponUnlocks(wt) {
+  const W = WEAPON_TYPES[wt], C = COMBOS[wt], out = [];
+  if (W.kind === 'melee' && C) C.chain.forEach((st, i) => out.push({ lv: stepReq(C.chain.length, i), what: `Combo strike ${i + 1}` + (i === C.chain.length - 1 && C.chain.length >= 3 ? ' (finisher)' : ''), key: 'Left click' }));
+  else out.push({ lv: 1, what: W.kind === 'staff' ? 'Tap: bolt' : W.kind === 'gun' ? 'Shot, hold to aim down the barrel' : 'Arrow, hold to draw', key: 'Left click' });
+  if (W.kind === 'melee' || W.kind === 'staff') out.push({ lv: WM_HOLD, what: 'Hold attack', key: 'Hold left click' });
+  if (RMB_SPECIAL[wt]) out.push({ lv: WM_F, what: 'Weapon special', key: 'F' });
+  return out.sort((a, b) => a.lv - b.lv);
+}
+// a weapon held for the first time joins the Weapons tab
+export function seeWeapon(h, wt) { if (!wt || BATTLE) return false; h.wseen = h.wseen || []; if (h.wseen.includes(wt)) return false; h.wseen.push(wt); return true; }
 export function gainMastery(h, wt, n) {
   const m = wm(h, wt); if (m.lv >= MASTERY_CAP) return;
   m.xp += n;
@@ -204,7 +232,7 @@ export function gainMastery(h, wt, n) {
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + (h.level - 1) * LEVEL_GROWTH * 5 + 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && (slot === 'ranged' || slot === 'w3' || h.bowOk)) return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
-function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && it.wt === 'daggers'); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
 export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }
@@ -319,7 +347,7 @@ export function gainXp(h, n, why) {
 // ---------- kills & loot ----------
 export function onKill(h, mob, shared = false) {
   if (!shared) h.kills = (h.kills || 0) + 1;
-  const diff = mob.lv - h.level;
+  const diff = levelGap(mob.lv, h.level);
   const xpMul = diff <= -6 ? 0.1 : diff <= -3 ? 0.5 : diff >= 3 ? 1.25 : 1;
   if (!shared) gainXp(h, mob.xp * xpMul, mob.name);
   // quest kill objectives
@@ -327,15 +355,15 @@ export function onKill(h, mob, shared = false) {
     const q = QUESTS.find(x => x.id === qid), a = h.quests.active[qid];
     q.obj.forEach((o, i) => { if (o.t === 'kill' && o.mob === mob.type && a.p[i] < o.n) { a.p[i]++; G.hooks.objective && G.hooks.objective(q, o, a.p[i]); } });
   }
-  // weapon mastery: every weapon in your hands levels up (both of a pair)
-  const w = h.equip[h.active];
+  // weapon mastery: the weapon in your hands learns from every kill
+  { const w = activeWeapon(h); if (w && !shared) gainMastery(h, familiesOf(w.wt)[0], 6 + Math.round(designLv(mob.lv) * 2)); }
 
   // loot table
   const D = mob.def, loot = [];
   for (const id in D.loot || {}) { const [a, b, c] = D.loot[id]; if (Math.random() < c) loot.push({ id, n: a + Math.floor(Math.random() * (b - a + 1)) }); }
-  let gold = 0; if (D.gold) gold = D.gold[0] + Math.floor(Math.random() * (D.gold[1] - D.gold[0] + 1)); else if (Math.random() < 0.4) gold = 1 + Math.floor(mob.lv * Math.random());
+  let gold = 0; if (D.gold) gold = D.gold[0] + Math.floor(Math.random() * (D.gold[1] - D.gold[0] + 1)); else if (Math.random() < 0.4) gold = 1 + Math.floor(designLv(mob.lv) * Math.random());
   const gear = [];
-  if (Math.random() < (D.gearChance ?? (mob.lv >= 4 ? 0.07 : 0.03))) gear.push(randomGear(h, mob.lv, D.gearRarity || (D.elite ? 2 : 0)));
+  if (Math.random() < (D.gearChance ?? (designLv(mob.lv) >= 4 ? 0.07 : 0.03))) gear.push(randomGear(h, mob.lv, D.gearRarity || (D.elite ? 2 : 0)));
   if (D.boss) gear.push(randomGear(h, mob.lv, 4));
   mob.loot = { items: loot, gold, gear };
   G.hooks.questsChanged && G.hooks.questsChanged();

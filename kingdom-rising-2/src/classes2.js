@@ -60,7 +60,7 @@ export const NEW_CLASSES = {
     weapons: ['froststaff', 'spear', 'arcanestaff'], armor: 'leather', start: 'froststaff', startName: 'Frost Staff', outfit: 'ranger',
     colors: { main: '#3a6a2a', trim: '#a8c060', metal: '#7a6a45' }, pool: { hp: [95, 12], mana: [110, 9], end: [85, 3], uses: 'mana' },
     info: { tag: 'Keeper of the wild', diff: 2, role: 'Healing, roots and storms', res: 'Mana', tips: ['Regrowth and Wild Bloom heal over time.', 'Entangle and Thorn Wall stop enemies in their tracks.', 'Call a bear to stand between you and danger.'] },
-    tune: { dmg: 1.3, hp: 1.25 },
+    tune: { dmg: 1.45, hp: 1.25 },
     abilities: [
       { id: 'regrowth', name: 'Regrowth', level: 1, cd: 10, cost: 25, t: 'hot', pct: 0.35, dur: 8, r: 10, ally: 0.2, desc: 'Leaves and light heal you 35% over 8 s; allies within 10 m heal 20%.' },
       { id: 'moonfire', name: 'Moonfire', level: 2, cd: 5, cost: 20, t: 'bolt', kind: 'arcane', col: 'arcane', speed: 42, dmg: 1.6, burn: 0.08, desc: 'A beam of moonlight that burns the enemy you aim at.' },
@@ -128,7 +128,7 @@ export const NEW_CLASSES = {
     weapons: ['arcanestaff', 'firestaff', 'froststaff'], armor: 'cloth', start: 'arcanestaff', startName: 'Arcane Staff', outfit: 'wizard',
     colors: { main: '#1a1a22', trim: '#5ad070', metal: '#5a5a60' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Master of the dead', diff: 3, role: 'Pets, curses and damage over time', res: 'Mana', tips: ['Raise Skeleton early: your dead fight while you cast.', 'Curses and plagues keep hurting long after you cast them.', 'Drain Life keeps you alive.'] },
-    tune: { dmg: 1.27, hp: 1.29 },
+    tune: { dmg: 1.12, hp: 1.29 },
     abilities: [
       { id: 'raiseskel', name: 'Raise Skeleton', level: 1, cd: 30, cost: 35, t: 'summon', pet: 'skeleton', n: 1, extra: 2, dur: 40, desc: 'A skeleton rises to fight for you for 40 s. More skeletons as you level.' },
       { id: 'drainlife', name: 'Soul Rend', level: 2, cd: 6, cost: 20, t: 'drain', kind: 'arcane', col: 'shadow', speed: 40, dmg: 1.4, drain: 0.6, desc: 'Tear at the soul of the enemy you aim at and drink its life: heals you for a good part of the damage.' },

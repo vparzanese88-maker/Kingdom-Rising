@@ -12,7 +12,8 @@ import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tint
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
-import { FOOD_BUFFS, ITEMS, PROCS, procChance } from './data.js';
+import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv } from './data.js';
+import { BATTLE } from './battlemap.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -265,6 +266,7 @@ export class Player {
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
   refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = D.maxHp; this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
   refreshGear(first) {
+    { const aw = activeWeapon(this.h); if (aw && Game.seeWeapon(this.h, aw.wt) && !first) G.hooks.newWeapon && G.hooks.newWeapon(aw.wt); }
     const D = heroDerived(this.h); this.D = D;
     const oldMax = this.maxHp || D.maxHp;
     this.maxHp = Math.round(D.maxHp * (G.battleFx ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1)); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd;
@@ -327,7 +329,7 @@ export class Player {
       return;
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
-    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = { t: 0, on: false, tick: 0, snd: null }; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
+    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = Game.canHold(this.h, this.weapon.wt) ? { t: 0, on: false, tick: 0, snd: null } : null; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
       if (down) { this.cancelGather(); if (!this.dodge && !this.block) this.press = { t: 0, charging: false, melee: true }; }
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
@@ -381,10 +383,11 @@ export class Player {
     if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
     const C = COMBOS[this.weapon.wt]; if (!C) return;
     if (this.comboT <= 0) this.combo = 0;
-    const i = this.combo % C.chain.length; this.combo = i + 1;
+    const L = Game.comboLen(this.h, this.weapon.wt); // the campaign: strikes unlock as the weapon's mastery grows
+    const i = this.combo % L; this.combo = i + 1;
     const st = C.chain[i];
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
-    this.startAtk(st.a, dur, { combo: i, step: st, last: i === C.chain.length - 1 });
+    this.startAtk(st.a, dur, { combo: i, step: st, last: i === L - 1 });
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
@@ -411,7 +414,7 @@ export class Player {
     }
     if (G.battleFx && this.W && this.W.kind === 'melee' && this.press && this.press.melee && !G.uiOpen) {
       this.press.t += dt;
-      if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.55, hit: true, noQueue: true, hold: true }; S.charge('none'); }
+      if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block && Game.canHold(this.h, this.weapon.wt)) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.55, hit: true, noQueue: true, hold: true }; S.charge('none'); }
       if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
       if (this.press.charging && !this.press.full && this.press.t >= 1.0) { this.press.full = true; V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full power', 'crit'); }
     }
@@ -467,6 +470,7 @@ export class Player {
         this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed ? base * 0.09 : 0, stun: st.stun || 0 });
         if (blunt) S.blunt(m.pos);
       }
+      if (targets.length) this.wpnXp(1);
       if (targets.length) { G.hitstop = (big ? 0.09 : 0.04) * (G.battleFx ? 1.5 : 1); V.addShake((big ? 0.3 : 0.08) * (G.battleFx ? 1.6 : 1)); if (G.battleFx) for (const m of targets) { const hp = m.pos.clone(); hp.y += (m.height || 1.5) * 0.6; V.burst('spark', hp, big ? 22 : 12, { speed: big ? 9 : 6 }); if (big) V.light(hp, '#ffd8a0', 5, 0.12); } }
       const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
       if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp, st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
@@ -478,16 +482,16 @@ export class Player {
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
       const speed = G.battleFx ? 34 + charge * 36 : 38 + charge * 40;
-      spawnProjectile({ flat: G.battleFx ? 0.6 + charge * 1.1 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      spawnProjectile({ wpn: true, flat: G.battleFx ? 0.6 + charge * 1.1 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
     } else if (W.kind === 'gun') { this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release');
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
       const sc = big ? 1 + ch * 1.4 : 1;
-      if (el === 'fire') spawnProjectile({ pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
-      else if (el === 'frost') spawnProjectile({ pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
-      else spawnProjectile({ pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * (0.95 + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
+      if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
+      else if (el === 'frost') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
+      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * (0.95 + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
       if (this.pk('echo') && !a.echoed && Math.random() < 0.15) { setTimeout(() => { if (!this.dead) this.doHit(Object.assign({}, a, { echoed: true })); }, 140 * ABIL_DELAY_K()); }
       S.cast(el, from, big ? 1.4 : 0.8);
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
@@ -503,10 +507,10 @@ export class Player {
   // ---------- weapon abilities on F and C ----------
   // how much this class's abilities may heal (Kingdom Battles): potions and food are not affected
   hk() { return G.battleFx ? (HEAL_K[this.h.cls] || 0) : 1; }
-  qty(b, extra) { return G.battleFx ? b + Math.round((this.h.level - 1) / 9 * extra) : b; }
+  qty(b, extra) { return G.battleFx ? b + Math.round((this.h.level - 1) / (LEVEL_CAP - 1) * extra) : b; }
   // area of effect grows with level in Kingdom Battles: +4% radius per level (+36% at level 10)
-  areaK() { return G.battleFx ? 1 + (this.h.level - 1) * 0.04 : 1; }
-  specialAttack() { const w = this.weapon; if (!w) return; const id = RMB_SPECIAL[w.wt]; if (!id) return; this.weaponAbility(0, { fam: familiesOf(w.wt)[0], id }); }
+  areaK() { return G.battleFx ? 1 + (this.h.level - 1) * 0.36 / (LEVEL_CAP - 1) : 1; }
+  specialAttack() { const w = this.weapon; if (!w) return; const id = RMB_SPECIAL[w.wt]; if (!id) return; if (!Game.canSpecial(this.h, w.wt)) { if (!(this.cd.lockF > 0)) { this.cd.lockF = 1.5; G.hooks.toast && G.hooks.toast(`${WSKILLS[id].name} unlocks at ${WEAPON_TYPES[w.wt].name} mastery ${Game.WM_F} (press L)`, '🔒', 'bad'); S.error(); } return; } this.weaponAbility(0, { fam: familiesOf(w.wt)[0], id }); }
   weaponAbility(slot, skOverride) {
     const W = this.W; if (!W || this.swim) return;
     // Kingdom Battles: right click cuts straight through a swing
@@ -854,7 +858,7 @@ export class Player {
     const dir = this.aimDir(from);
     if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
     const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
-    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (G.battleFx ? 0.62 + charge * 1.05 : 1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
+    spawnProjectile({ wpn: mult === 1, pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (G.battleFx ? 0.62 + charge * 1.05 : 1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
     S.gunshot(null, 1 + charge * 0.35); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
   }
@@ -1144,7 +1148,7 @@ export class Player {
     const P = PROCS[w.proc], base = weaponDamage(this.h, w) * (w.rarity >= 4 ? 0.75 : w.rarity >= 3 ? 0.65 : 0.55), at = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6);
     V.number(at.clone().setY(at.y + 1.2), P.name + '!', 'crit');
     switch (w.proc) {
-      case 'flame': this.dealDamage(m, base * 0.7, { proc: true, el: 'fire', burn: base * 0.35 }); V.burst('fire', at, 26, { speed: 4, size: 0.6 }); S.cast && S.cast('fire', 0.6); break;
+      case 'flame': this.dealDamage(m, base * 0.7, { proc: true, el: 'fire', burn: base * 0.35 }); V.burst('fire', at, 26, { speed: 4, size: 0.6 }); S.cast && S.cast('fire', m.pos, 0.6); break;
       case 'frost': this.dealDamage(m, base * 0.55, { proc: true, el: 'frost', slow: 3 }); V.burst('frost', at, 24, { speed: 3.5, size: 0.5 }); break;
       case 'storm': { const hit = [m]; let from = this.pos.clone().setY(this.pos.y + 1.4), cur = m;
         for (let k = 0; k < 3 && cur; k++) { lightning(from, cur.pos.clone().setY(cur.pos.y + (cur.height || 1.6) * 0.6)); if (!cur.dead) this.dealDamage(cur, base * (k ? 0.4 : 0.55), { proc: true, el: 'arcane' }); from = cur.pos.clone().setY(cur.pos.y + 1); cur = mobsInRadius(cur.pos, 7).filter(x => !hit.includes(x)).sort((a, b) => a.pos.distanceTo(cur.pos) - b.pos.distanceTo(cur.pos))[0]; if (cur) hit.push(cur); }
@@ -1154,6 +1158,8 @@ export class Player {
       case 'shadow': this.dealDamage(m, base * 0.85, { proc: true, el: 'arcane' }); V.burst('shadow', at, 22, { speed: 3, size: 0.8, grav: 0 }); break;
     }
   }
+  // the campaign: landing hits with a weapon trains it (see the Weapons tab, L)
+  wpnXp(n) { if (BATTLE || !this.weapon) return; Game.gainMastery(this.h, familiesOf(this.weapon.wt)[0], n); }
   heal(n, quiet) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
     if (this.dead) return;
@@ -1173,7 +1179,7 @@ export class Player {
     }
     if (src && src.hexUntil > G.time) dmg *= 0.65; // a Shaman's Hex drains their strength
     // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
-    const lv = src && (src.statLv || src.lv) || this.h.level * (G.battleFx ? 2 : 1);
+    const lv = src && (src.statLv || src.lv) || (BATTLE ? this.h.level * 2 : designLv(this.h.level));
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));
@@ -1235,7 +1241,7 @@ export class Player {
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
     for (const n of G.npcs) if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name);
-    if (world.myBoatHome && !G.battleFx) consider(world.myBoat, world.myBoatHome.x, world.myBoatHome.z, 1.3, 'boat', 'Board your boat');
+    if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, world.myBoatHome.z, 1.3, 'boat', 'Board your boat');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
     if (!G.noHarvest) for (const n of nodesNear(this.pos.x, this.pos.z)) if (n.alive) consider(n, n.x, n.z, n.type.startsWith('tree') ? 0.5 * n.s : n.type === 'cotton' || n.type === 'healroot' ? 0.2 : 0.8 * n.s, 'node', n.def.verb + ' ' + n.def.name);

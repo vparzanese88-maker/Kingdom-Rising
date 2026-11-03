@@ -1,6 +1,6 @@
 // Creatures (procedural animals, spiders, crabs, humanoid monsters), mob AI, and village NPCs.
 import * as THREE from 'three';
-import { MOBS, NPCS, mobHp, mobDmg, mobXp, MOB_ABILITIES } from './data.js';
+import { MOBS, NPCS, mobHp, mobDmg, mobXp, MOB_ABILITIES, LV_K, shownLv, levelGap } from './data.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, makeWeapon, limbGeo, setDetail, bake } from './character.js';
 import { heightAt, isWater, normalAt } from './terrain.js';
 import { collide } from './world.js';
@@ -219,12 +219,13 @@ function buildHumanMob(type, def, size) {
 
 // ---------- Mob class ----------
 const RING_GEO = (() => { const g = new THREE.RingGeometry(0.82, 1, 40); g.rotateX(-Math.PI / 2); return g; })();
-export function conColor(ml, pl) { const d = ml - pl; return d >= 3 ? '#ff2a20' : d >= 1 ? '#ffd830' : d === 0 ? '#ffffff' : d >= -2 ? '#3a6aff' : d >= -4 ? '#5ad0ff' : d >= -6 ? '#3ae03a' : '#8a8a8a'; }
+export function conColor(ml, pl) { const d = Math.round(levelGap(ml, pl)); return d >= 3 ? '#ff2a20' : d >= 1 ? '#ffd830' : d === 0 ? '#ffffff' : d >= -2 ? '#3a6aff' : d >= -4 ? '#5ad0ff' : d >= -6 ? '#3ae03a' : '#8a8a8a'; }
 let mobId = 1;
 export class Mob {
   constructor(type, lv, x, z) {
     this.id = mobId++; this.type = type; this.def = MOBS[type]; this.lv = lv;
     this.maxHp = mobHp(lv, this.def); this.hp = this.maxHp; this.dmg = mobDmg(lv, this.def); this.xp = mobXp(lv, this.def);
+    if (LV_K !== 1) { this.statLv = lv; this.lv = shownLv(lv); } // campaign: same strength, shown on the 1-50 scale
     this.home = new THREE.Vector3(x, heightAt(x, z), z);
     this.pos = this.home.clone(); this.yaw = Math.random() * 6.28; this.vel = new THREE.Vector3();
     this.state = 'idle'; this.timer = rand(1, 5); this.target = null; this.atkCd = 0; this.action = null; this.actionT = 0; this.actionDur = 0.9;
@@ -326,7 +327,7 @@ export class Mob {
     if (!disabled) {
       this.atkCd -= dt;
       // aggro
-      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && player.level - this.lv < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
+      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && levelGap(player.level, this.lv) < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
       if (this.state === 'chase' && player.stealth > 0 && G.battleFx && leash <= (this.def.boss ? 60 : 45)) this.loseTrack();

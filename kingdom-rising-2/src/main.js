@@ -11,7 +11,7 @@ import { V } from './vfx.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat } from './sailintro.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { battleLevels, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
+import { battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -60,6 +60,7 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   applyGraphics();
+  if (!BATTLE) campaignSetup();
   if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
@@ -119,6 +120,8 @@ function applyGraphics() {
 function startGame(save) {
   const h = Game.migrateHero(save.inv ? save : getSave(save.id));
   G.save = h;
+  // older campaign saves move onto the 1-50 scale once
+  if (!BATTLE && !h.lv50) { h.lv50 = true; if (h.level > 1) { h.level = Math.min(LEVEL_CAP, shownLv(h.level)); h.xp = 0; } }
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
@@ -239,19 +242,29 @@ function spawnBattleNpcs() {
     reward: (j) => { Battle.questReward(Battle.myTown(), j.id); },
   });
 }
+// Both modes fight the same way: class abilities come from the class kit (they work with any weapon),
+// no talent trees, and abilities grow a little stronger, longer and wider every level instead.
+function kitAbilities(levelOf) {
+  for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
+  for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
+  for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
+  G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);
+  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 4;
+}
+// The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
+function campaignSetup() {
+  campaignLevels();
+  kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
+  G.itemSlots = 2; G.xpReq = campaignXp; document.body.classList.add('battlefx');
+}
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
   const h = Game.newHero({ name: cfg.name || 'Hero', race: (MP.on && cfg.race) || t.race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
-  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true; G.noHarvest = true;
-  for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
-  // class abilities use the class kit, so they work with any weapon
-  for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
+  G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noHarvest = true;
   // level 10 is the top in Kingdom Battles: spread every ability over levels 1 to 10
-  for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = Math.max(1, Math.min(10, Math.ceil(a.lv20 / 2))); }
-  // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead
-  G.abilScale = (lv) => 1 + (lv - 1) * 0.075;
+  kitAbilities((lv20) => Math.max(1, Math.min(10, Math.ceil(lv20 / 2))));
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
   spawnBattleNpcs(); BUI.questTrack(); document.body.classList.add('battlefx');
@@ -356,7 +369,10 @@ function hooks() {
   H.toast = (t, i, k) => UI.toast(t, i, k);
   H.invChanged = () => { UI.refreshOpen(); UI.updateTracker(); };
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
-  H.masteryUp = (wt, lv) => { UI.banner(`${FAMILIES[wt] ? FAMILIES[wt].name : wt} Mastery ${lv}`, 'New weapon skill point! Press K to spend it.', 3500); S.levelUp(); };
+  H.masteryUp = (fam, lv) => { const aw = Game.activeWeapon(G.save), wt = aw && familiesOf(aw.wt)[0] === fam ? aw.wt : null;
+    const un = wt ? Game.weaponUnlocks(wt).filter(u => u.lv === lv).map(u => `${u.key}: ${u.what}`) : [];
+    UI.banner(`${wt ? WEAPON_TYPES[wt].name : FAMILIES[fam] ? FAMILIES[fam].name : fam} mastery ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Your strikes land a little harder', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
+  H.newWeapon = (wt) => { UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
@@ -532,7 +548,8 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
-      if (BATTLE && (e.code === 'KeyK' || e.code === 'KeyN')) { BUI.openBook(); return; }
+      if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
+      if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
       if (BATTLE && e.code === 'KeyP') { UI.toast('No crafting in Kingdom Battles', '·'); return; }

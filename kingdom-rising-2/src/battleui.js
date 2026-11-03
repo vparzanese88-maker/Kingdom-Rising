@@ -1,7 +1,7 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS } from './data.js';
+import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS, familiesOf, MASTERY_CAP, masteryXpFor, LEVEL_CAP } from './data.js';
 import { settings, saveSettings } from './saves.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
@@ -15,7 +15,7 @@ import * as BQ from './battlequests.js';
 import { V } from './vfx.js';
 import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, townPlan, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
-import { SETUP, SETUP_KEY, LAYOUT } from './battlemap.js';
+import { SETUP, SETUP_KEY, LAYOUT, BATTLE } from './battlemap.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -393,9 +393,13 @@ function tabArmory(body, t) {
 
 // ---------- ability book (K): read every ability and choose the 4 on your hotbar ----------
 let bookSel = 0;
-export function openBook() {
-  const w = $('windows'); if (UI.UI.open === 'book') { UI.closeWin(); return; } w.innerHTML = '';
-  const win = el('div', 'win big bwin book'); const hd = el('header', '', '<h2>Abilities</h2>'); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
+// the ability book has two tabs: Abilities (K) and Weapons (L)
+let bookTab = 'abil';
+export function openBook(tab = 'abil') {
+  const w = $('windows'); if (UI.UI.open === 'book' && bookTab === tab) { UI.closeWin(); return; } w.innerHTML = '';
+  bookTab = tab;
+  const win = el('div', 'win big bwin book'); const hd = el('header', '', '<div class="booktabs"><button data-t="abil">Abilities <small>K</small></button><button data-t="wpn">Weapons <small>L</small></button></div>'); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
+  hd.querySelectorAll('.booktabs button').forEach(b => { b.onclick = () => { S.click(); bookTab = b.dataset.t; renderBook(); }; });
   const c = el('div', 'content'); win.append(hd, c); w.appendChild(win);
   UI.UI.open = 'book'; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
   renderBook();
@@ -404,8 +408,8 @@ export function openBook() {
 const GROW_WHAT = { heal: 'healing', mending: 'healing', fielddress: 'healing', barkskin: 'shield', icebarrier: 'shield', shieldwall: 'duration', fortify: 'duration', quickreload: 'duration', eagleeye: 'duration', focus: 'duration', vanish: 'duration', smokebomb: 'duration', rampage: 'duration', bloodrage: 'duration', undying: 'duration', laststand: 'healing', sentry: 'reach', wolves: 'wolves', rally: 'heal and buff', battlecry: 'heal and stun' };
 function growLine(a, lv) {
   const sc = (L) => (G.abilScale ? G.abilScale(L) : 1), from = Math.max(1, a.level), now = Math.max(from, lv), what = GROW_WHAT[a.id] || 'damage, area and duration';
-  const pips = Array.from({ length: 10 }, (_, i) => `<i class="${i + 1 < from ? 'off' : i + 1 <= now ? 'on' : ''}" title="Level ${i + 1}: ${Math.round(sc(i + 1) * 100)}%"></i>`).join('');
-  return `<div class="bgrow"><div class="bgp">${pips}</div><span>Power (${what}): <b>${Math.round(sc(from) * 100)}%</b> at level ${from} → <b class="nowv">${Math.round(sc(now) * 100)}% now</b> → <b>${Math.round(sc(10) * 100)}%</b> at level 10</span></div>`;
+  const CAP = LEVEL_CAP, step = CAP / 10, pips = Array.from({ length: 10 }, (_, i) => { const L = Math.round((i + 1) * step); return `<i class="${L < from ? 'off' : L <= now ? 'on' : ''}" title="Level ${L}: ${Math.round(sc(L) * 100)}%"></i>`; }).join('');
+  return `<div class="bgrow"><div class="bgp">${pips}</div><span>Power (${what}): <b>${Math.round(sc(from) * 100)}%</b> at level ${from} → <b class="nowv">${Math.round(sc(now) * 100)}% now</b> → <b>${Math.round(sc(LEVEL_CAP) * 100)}%</b> at level ${LEVEL_CAP}</span></div>`;
 }
 // what holding left click does with a weapon
 function holdText(wt) {
@@ -418,24 +422,51 @@ function holdText(wt) {
 }
 function renderBook() {
   const c = document.querySelector('.book .content'); if (!c) return;
+  document.querySelectorAll('.booktabs button').forEach(b => b.classList.toggle('on', b.dataset.t === bookTab));
+  const t0 = document.getElementById('booktip'); if (t0) t0.hidden = true;
+  if (bookTab === 'wpn') return renderWeapons(c);
   const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
   const k = G.abilScale ? G.abilScale(h.level) : 1;
   c.innerHTML = '';
-  // ---- your weapons, always in view ----
+  abilityTab(c, h, cls, list, res, k);
+}
+// ---- Weapons tab: what the weapons in your hands do, and every weapon you have learned (campaign: mastery) ----
+function renderWeapons(c) {
+  const h = G.save; c.innerHTML = '';
   const handsLine = (main, off) => { if (!main) return 'Bare hands'; const W = WEAPON_TYPES[main.wt]; if (W.hands === 'dual') return `<b>${main.name}</b> <small>(a pair: fills both hands)</small>`; if (W.hands === 'two' || W.kind === 'bow' || W.kind === 'gun' || W.kind === 'staff') return `<b>${main.name}</b> <small>(both hands)</small>`; return `Main hand <b>${main.name}</b>${off ? ` · Off hand <b>${off.name}</b>` : ' · Off hand empty'}`; };
   const wrow = (main, off, act, setN, inHand) => { if (!main) return ''; const wt = act.wt, W = WEAPON_TYPES[wt]; const st = UI.comboSteps(wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
-    const tap = st.filter(x => !/^Hold/.test(x.n));
+    const tap = st.filter(x => !/^Hold/.test(x.n)), mlv = Game.masteryOf(h, wt), L = Game.comboLen(h, wt), lockT = (lv) => `<small class="lk">🔒 mastery ${lv}</small>`;
+    const holdOk = Game.canHold(h, wt), fOk = Game.canSpecial(h, wt);
     return `<div class="bwpn${inHand ? ' now' : ''}"><div class="bwh"><span class="bset">Set ${setN}${inHand ? ' · in your hands' : ' · Q to swap'}</span>${handsLine(main, off)}</div>
-      <div class="bwl"><b>Left click</b><span>${W.kind === 'melee' ? `Combo: ${tap.map(x => `${x.n} <small>${x.d}%</small>`).join(' → ')}` : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ` <small>${x.tags.join(', ')}</small>` : ''}`).join('')}</span></div>
-      <div class="bwl"><b>Hold left click</b><span>${holdText(wt)}</span></div>
-      ${S2 ? `<div class="bwl"><b>F</b><span><span class="fs">${S2.name}</span> ${S2.desc} <small>every ${S2.cd} s</small></span></div>` : ''}
+      <div class="bwl"><b>Left click</b><span>${W.kind === 'melee' ? `Combo: ${tap.map((x, i) => i < L ? `${x.n} <small>${x.d}%</small>` : `<s class="lkd">${x.n}</s> ${lockT(Game.stepReq(tap.length, i))}`).join(' → ')}` : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ` <small>${x.tags.join(', ')}</small>` : ''}`).join('')}</span></div>
+      <div class="bwl${holdOk ? '' : ' locked'}"><b>Hold left click</b><span>${holdText(wt)}${holdOk ? '' : ' ' + lockT(Game.WM_HOLD)}</span></div>
+      ${S2 ? `<div class="bwl${fOk ? '' : ' locked'}"><b>F</b><span><span class="fs">${S2.name}</span> ${S2.desc} <small>every ${S2.cd} s</small>${fOk ? '' : ' ' + lockT(Game.WM_F)}</span></div>` : ''}
       <div class="bwl"><b>Hold right click</b><span>Block${off && off.wt === 'shield' ? ' (a shield blocks far more)' : ''}. Raise it just before a hit for a perfect block.</span></div></div>`; };
   const now1 = h.equip.w1, now2 = h.equip.w2, act = Game.activeWeapon(h);
   let wp = wrow(now1, now2, act || now1, h.setNo === 2 ? 2 : 1, true);
   if (h.equip.w3) wp += wrow(h.equip.w3, h.equip.w4, h.equip.w3, h.setNo === 2 ? 1 : 2, false);
   c.appendChild(el('div', 'bookwpn open', `<h3>Your weapons</h3>${wp || '<p class="dim">No weapon in your hands.</p>'}<p class="bwrule">Daggers, hand axes and fist wraps come as a pair and fill both hands. Swords and maces are one-handed: your <b>main hand sets the combo</b>, and a second one in the off hand joins in with its own strikes; a shield in the off hand blocks better instead.</p>`));
+  if (!BATTLE) weaponSkills(c, h); // the campaign: mastery per weapon
+}
+// every weapon type you have held, with its mastery and what it unlocks
+function weaponSkills(c, h) {
+  const seen = (h.wseen || []).filter(wt => WEAPON_TYPES[wt]);
+  const box = el('div', 'wskills');
+  box.appendChild(el('h3', '', 'Weapon skills'));
+  box.appendChild(el('p', 'bookintro', 'Every weapon learns by being used: each hit and each kill trains it. Higher mastery unlocks more of its attacks, then adds +1% damage per level. A weapon joins this list the first time you hold it.'));
+  const grid = el('div', 'wsgrid');
+  for (const wt of seen) {
+    const fam = familiesOf(wt)[0], m = Game.wm(h, fam), cap = MASTERY_CAP, need = masteryXpFor(m.lv), W = WEAPON_TYPES[wt];
+    const act = Game.activeWeapon(h), inHand = act && act.wt === wt;
+    const un = Game.weaponUnlocks(wt).map(u => `<div class="wsu${m.lv >= u.lv ? ' ok' : ''}"><span>${m.lv >= u.lv ? '✓' : '🔒 ' + u.lv}</span><b>${u.key}</b> ${u.what}</div>`).join('');
+    grid.appendChild(el('div', 'wscard' + (inHand ? ' now' : ''), `<div class="wsh"><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt, tier: 2, rarity: 0 })}</div><div><b>${W.name}</b>${inHand ? ' <small class="nowt">in your hands</small>' : ''}<div class="dim">Mastery <b>${m.lv}</b>/${cap} · +${m.lv - 1}% damage</div><div class="xpb"><i style="width:${m.lv >= cap ? 100 : Math.round(m.xp / need * 100)}%"></i></div></div></div>${un}`));
+  }
+  if (!seen.length) grid.appendChild(el('p', 'dim', 'Hold a weapon to start learning it.'));
+  box.appendChild(grid); c.appendChild(box);
+}
+function abilityTab(c, h, cls, list, res, k) {
   // ---- hotbar slots ----
-  c.appendChild(el('p', 'bookintro', `Hotbar keys <b>1 2 3 4</b>: click a slot, then an ability. Hover an ability for details. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
+  c.appendChild(el('p', 'bookintro', `Hotbar keys <b>1 2 3 4</b>: click a slot, then an ability. Hover an ability for details. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).${G.itemSlots ? ' Keys <b>5 6</b> hold potions and food.' : ''} Weapon attacks are in the <b>Weapons</b> tab (L).`));
   const bar = el('div', 'bookbar');
   for (let i = 0; i < 4; i++) {
     const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);

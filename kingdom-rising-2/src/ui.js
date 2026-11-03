@@ -7,6 +7,7 @@ import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
 import { PROCS, procChance, PROC_DEX } from './data.js';
 import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
+import { BATTLE } from './battlemap.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
 import { world } from './world.js';
@@ -62,7 +63,7 @@ export function buildAbilityBar() {
   const lmb = mk('LMB', '', 'wpn');
   const rmb = mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
-  const hb = Array.from({ length: G.hotbarSlots || 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
+  const hb = Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
@@ -797,9 +798,9 @@ export function openPause(onSaveQuit) {
   b('Character & Bags  ·  I', () => openInventory()); b('Class Talents  ·  N', () => openSkills('class')); b('Quest Log  ·  L', () => openQuestLog()); b('World Map  ·  M', () => openMap()); b('Recipes  ·  P', () => openCrafting(null));
   b('Settings', () => openSettings(true)); b('How to Play', () => openControls(true));
   b(document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen', () => { if (document.fullscreenElement) exitFull(); else goFull(); });
-  if (G.battleFx) { b('Leave battle (main screen)', () => confirmBox('Leave this battle and go back to the main screen?', () => { location.href = location.pathname; }, 'Stay', 'Leave'), 'btn red'); b('Exit game', () => window.KR2exit && window.KR2exit(), 'btn red'); }
+  if (BATTLE) { b('Leave battle (main screen)', () => confirmBox('Leave this battle and go back to the main screen?', () => { location.href = location.pathname; }, 'Stay', 'Leave'), 'btn red'); b('Exit game', () => window.KR2exit && window.KR2exit(), 'btn red'); }
   else b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn red');
-  if (!G.battleFx) b('Exit game', () => window.KR2exit && window.KR2exit(), 'btn red');
+  if (!BATTLE) b('Exit game', () => window.KR2exit && window.KR2exit(), 'btn red');
   const act = Object.keys(h.quests.active).length;
   const info = el('div', 'phero', `<div class="eyebrow">Your hero</div><h3>${esc(h.name)}</h3>Level <b>${h.level}</b> ${RACES[h.race].name} ${CLASSES[h.cls].name}<br>Location: <b>${zn ? zn.name : ''}</b> <span style="color:var(--mut)">(level ${zn ? zn.lv : ''})</span><br>Active quests: <b>${act}</b> · Completed: <b>${h.quests.done.length}</b><br>Gold: <b>${h.gold}</b><br>Played: <b>${Math.floor((h.timePlayed || 0) / 60)} min</b><p style="color:var(--mut);margin:10px 0 0;font-size:13px">The game saves automatically every 30 seconds and when you quit. The world is paused while this menu is open.</p>`);
   wrap.append(m, info); c.appendChild(wrap);

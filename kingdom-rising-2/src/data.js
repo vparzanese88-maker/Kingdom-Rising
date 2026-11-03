@@ -8,6 +8,21 @@ export function battleLevels() {
   for (const t of TIERS) t.lvl = Math.max(1, Math.ceil(t.lvl / 2));
 }
 export const xpForLevel = (lv) => Math.round(80 * Math.pow(lv, 1.6));
+// The world is designed for 20 levels. The campaign stretches that climb to 50: every designed level shows as
+// about 2.6 campaign levels (monsters, gear, quests, recipes), and each campaign level is worth 0.39 designed levels.
+export let LV_K = 1;
+export const shownLv = (lv) => Math.max(1, Math.round(1 + (lv - 1) * LV_K)); // designed level -> level shown in this mode
+export const designLv = (lv) => 1 + (lv - 1) / LV_K;                          // shown level -> designed level
+export const levelGap = (a, b) => (a - b) / LV_K;                             // a level difference, in designed levels
+export function campaignLevels() {
+  LEVEL_CAP = 50; LV_K = 49 / 19; LEVEL_GROWTH = 19 / 49; RANK2_LEVEL = shownLv(15);
+  for (const t of TIERS) t.lvl = shownLv(t.lvl);
+  for (const q of QUESTS) q.lvl = shownLv(q.lvl || 1);
+  for (const r of RECIPES) if (r.lvl) r.lvl = shownLv(r.lvl);
+  for (const z of ZONES) if (typeof z.lv === 'string') z.lv = z.lv.split('-').map(n => shownLv(+n)).join('-');
+}
+// XP for each campaign level: the designed curve spread over 50 levels, slightly longer overall
+export const campaignXp = (lv) => Math.round(xpForLevel(designLv(lv)) / LV_K * 1.15);
 
 export const RACES = {
   highelf: { name: 'High Elf', playable: true, desc: 'Tall, proud and ancient, steeped in magic. Pale skin, long pointed ears. High Intellect.', height: 1.08, width: 0.92, hp: 5, stats: { str: 10, dex: 12, int: 16, sta: 10 },

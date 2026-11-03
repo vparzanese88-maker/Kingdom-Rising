@@ -1,7 +1,7 @@
 // Kingdom Rising 2 audio: procedural music, synthesized sound effects, ambience, plus CC0 sword samples.
 import { settings } from './saves.js';
 
-let ctx = null, master, musicBus, sfxBus, ambBus, reverb, reverbSend, comp, sfxWet, ambWet;
+let ctx = null, master, musicBus, musicOut, sfxBus, ambBus, reverb, reverbSend, comp, sfxWet, ambWet;
 const samples = {};
 let listener = { x: 0, y: 0, z: 0, yaw: 0 };
 let noiseBuf = null;
@@ -17,7 +17,9 @@ export const A = {
     comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25;
     master = ctx.createGain(); master.connect(comp); comp.connect(ctx.destination);
     musicBus = ctx.createGain(); sfxBus = ctx.createGain(); ambBus = ctx.createGain();
-    musicBus.connect(master); sfxBus.connect(master); ambBus.connect(master);
+    // music skips the effects compressor (its make-up gain would push recorded music far too loud)
+    musicOut = ctx.createGain(); musicOut.connect(ctx.destination); musicBus.connect(musicOut);
+    sfxBus.connect(master); ambBus.connect(master);
     reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(2.8, 2.5);
     reverbSend = ctx.createGain(); reverbSend.gain.value = 0.9;
     reverbSend.connect(reverb); reverb.connect(master);
@@ -31,6 +33,7 @@ export const A = {
   applyVolumes() {
     if (!ctx) return;
     master.gain.value = settings.master;
+    musicOut.gain.value = settings.master;
     musicBus.gain.value = settings.music * 0.6;
     sfxBus.gain.value = settings.sfx;
     ambBus.gain.value = settings.ambient * 0.8;
@@ -529,7 +532,7 @@ setInterval(() => {
     const c = loopCh(name);
     const rate = target ? 0.6 : 0.3;
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.8 : 0.5) / (c.el._routed === true ? 0.6 : 1)));
+    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.8 : name === 'combat' ? 0.32 : 0.5) / (c.el._routed === true ? 0.6 : 1)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }

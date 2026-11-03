@@ -141,6 +141,10 @@ class ViewModel {
       else r = plerp(VP.gatherR, VP.gatherR2, 0.5 + 0.5 * Math.sin(t * Math.PI * 4));
       l = W && W.kind === 'bow' ? VP.hideL : l;
       if (W && (W.kind === 'bow' || W.hands === 'dual' || W.kind === 'staff')) l = VP.hideL;
+    } else if (W && W.kind === 'gun' && st.block && !act) {
+      // blocking with a musket: held level across the body, stock to the left, barrel to the right
+      if (this.gun) { this.gun.position.set(0.05, -0.13, -0.4); this.gun.rotation.set(-0.15, 0, -Math.PI / 2 + 0.08); }
+      r = [0.2, -0.2, -0.38, -1.25, 0, 0.6]; l = [-0.2, -0.19, -0.4, -1.25, 0, -0.6];
     } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
       // musket at the hip, raised to the eye while aiming, with a kick on every shot
       // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
@@ -175,6 +179,7 @@ class ViewModel {
     } else if (st.block) {
       if (W && W.hands === 'shield') { l = VP.shieldBlock; r = VP.swordLow; }
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
+      else if (W && W.kind === 'bow') { l = [0.02, -0.13, -0.44, -0.2, 0.1, 1.5]; r = [0.3, -0.42, -0.4, -0.4, 0, 0.4]; }
       else { r = VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; }
     } else if (st.drawing) { r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, st.drawing))); }
     // sprinting: lower the weapon and pump the arms
@@ -691,7 +696,14 @@ export class Player {
       // ---- Musketeer ----
       case 'grapeshot': { for (const m of mobsInCone(this.pos, this.yaw, 10 * Math.sqrt(up), 0.55)) this.dealDamage(m, base * 2 * up, { knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(10) }); const from = this.handPos(true); for (let k = 0; k < 9; k++) { const q = this.pos.clone(); const a2 = this.yaw + (Math.random() - 0.5) * 1.1, d = 2 + Math.random() * 8; q.x += Math.sin(a2) * d; q.z += Math.cos(a2) * d; q.y = heightAt(q.x, q.z) + 1; setTimeout(() => V.burst('spark', q, 4, { speed: 3 }), k * 15); } V.burst('smoke', from, 30, { speed: 4, size: 1.6, life: 1.8 }); V.burst('fire', from, 18, { speed: 7 }); S.explode(from, 0.9, 'fire'); V.addShake(0.4); this.fovKick += 6; this.atk = { name: 'release', t: 0, dur: 0.4, hit: true, noQueue: true }; break; }
       case 'smokebomb': { this.stealth = 4 * up; this.buffs.nextCrit = true; for (const m of mobsInRadius(this.pos, 6)) { m.status.slow = Math.max(m.status.slow, 3); if (m.target === this) m.target = null; } V.burst('smoke', this.pos.clone().setY(this.pos.y + 1), 60, { speed: 4, size: 2.2, life: 3 }); S.stealth(); S.explode(this.pos, 0.4); break; }
-      case 'powderkeg': { const tgt = groundPoint(24), r = 6 * Math.sqrt(up); const keg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5, 10), new THREE.MeshStandardMaterial({ color: '#7a3a1a', emissive: '#ff3a00', emissiveIntensity: 0.5 })); keg.position.copy(tgt); keg.position.y += 0.25; G.scene.add(keg); V.ring(tgt, r, '#ff5030', 1.2); setTimeout(() => { G.scene.remove(keg); if (this.dead) return; areaDamage(tgt, r, base * 3 * up, { el: 'fire', burn: base * 0.1, falloff: true, knock: 9 }); V.burst('fire', tgt.clone().setY(tgt.y + 0.5), 80, { speed: 10, size: 0.9 }); V.burst('smoke', tgt.clone().setY(tgt.y + 1), 40, { speed: 4, size: 2, life: 2 }); V.sphereFlash(tgt.clone().setY(tgt.y + 1), r * 0.6, '#ff9040', 0.4); S.explode(tgt, 1.6, 'fire'); V.addShake(0.6); }, 1100); S.swing(1, this.pos); this.atk = { name: 'cast', t: 0.2, dur: 0.4, hit: true, noQueue: true }; break; }
+      case 'powderkeg': {
+        // throw the keg in an arc at where you aim: it blows up the moment it lands or hits someone
+        const tgt = groundPoint(24), r = 6 * Math.sqrt(up), from = this.handPos(true), T = 0.8, gr = 14;
+        const vel = new THREE.Vector3((tgt.x - from.x) / T, (tgt.y + 0.3 - from.y + 0.5 * gr * T * T) / T, (tgt.z - from.z) / T);
+        V.ring(tgt, r, '#ff5030', T + 0.2);
+        const boom = (at) => { areaDamage(at, r, base * 3 * up, { el: 'fire', burn: base * 0.1, falloff: true, knock: 9 }); V.burst('fire', at.clone().setY(at.y + 0.5), 90, { speed: 11, size: 0.95 }); V.burst('smoke', at.clone().setY(at.y + 1), 45, { speed: 4, size: 2.2, life: 2.2 }); V.burst('wood', at.clone().setY(at.y + 0.6), 20, { speed: 8, size: 0.3, grav: 14 }); V.sphereFlash(at.clone().setY(at.y + 1), r * 0.6, '#ff9040', 0.4); V.light(at.clone().setY(at.y + 2), '#ff8030', 12, 0.5, 30); S.explode(at, 1.8, 'fire'); S.gunshot(at, 1.4); V.addShake(0.6); };
+        spawnProjectile({ pos: from, vel, grav: gr, radius: 0.35, dmg: 0, owner: 'player', kind: 'keg', life: 3, aoe: true, onHit: (p, m, pos) => boom((pos || (m && m.pos) || p.pos).clone()) });
+        S.swing(1, this.pos); this.atk = { name: 'swing2', t: 0.2, dur: 0.4, hit: true, noQueue: true }; break; }
       case 'quickreload': { this.buffs.reload = 8 * up; S.click(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.3), 25, { speed: 3 }); break; }
       case 'bayonet': { this.dodge = { t: 0, dur: 0.34 * Math.sqrt(up), dir: f.clone(), speed: 30, charge: true, hitSet: new Set(), dmg: base * 1.8 * up }; this.fovKick = 12; S.battleCry(); break; }
       case 'eagleeye': { this.buffs.eagle = 10 * up; this.buffs.focus = Math.max(this.buffs.focus || 0, 10 * up); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.6), 1.5, '#ffe080', 0.4); S.cast('arcane', this.pos, 0.6); break; }

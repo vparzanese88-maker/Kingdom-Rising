@@ -75,6 +75,12 @@ function drawBar() {
     + `<div class="bhall" title="Your town hall"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>${t.name} · ${L.name}${t.building ? ' · building ' + Math.ceil(t.building.dur - t.building.t) + 's' : ''}</span></div>`
     + `<div class="bkey">B · War Report</div>`;
 }
+// the right-hand column under the minimap: Coming up, Town jobs, then loot cards, stacked without overlapping
+function stackRight() {
+  let y = 262; const put = (id, gap = 8) => { const e = $(id); if (!e || e.hidden) return; e.style.top = y + 'px'; y += e.offsetHeight + gap; };
+  const mb = document.getElementById('mapbox'); if (mb) { const r = mb.getBoundingClientRect(); if (r.height) y = Math.max(y, Math.round(r.bottom + 34)); }
+  put('bnext'); put('bqtrack'); const ls = $('lootstack'); if (ls) ls.style.top = y + 'px';
+}
 // "Coming up": live countdowns under the minimap, in plain words
 let nextT = 0;
 function comingUp() {
@@ -93,6 +99,7 @@ function comingUp() {
   const tr = P.training.find(x => !x.worker); if (tr) row('', '🪖', `Training ${tr.name}`, mm(tr.secs));
   for (const j of BQ.activeList()) if (j.ready) row('job', '❓', `Hand in "${j.name}" in town`, '');
   d.hidden = false; d.innerHTML = `<div class="bnh">Coming up</div>${rows.join('')}`;
+  stackRight();
 }
 export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }

@@ -81,6 +81,17 @@ function stackRight() {
   const mb = document.getElementById('mapbox'); if (mb) { const r = mb.getBoundingClientRect(); if (r.height) y = Math.max(y, Math.round(r.bottom + 34)); }
   put('bnext'); put('bqtrack'); const ls = $('lootstack'); if (ls) ls.style.top = y + 'px';
 }
+// the army head count at the bottom right: it glows when someone joins the ranks
+let lastHeads = null, lastPeas = null;
+function headCount() {
+  const t = myTown(); let d = $('bheads'); if (!t || !G.player) { if (d) d.hidden = true; return; }
+  if (!d) { d = el('div', ''); d.id = 'bheads'; $('hud').appendChild(d); }
+  const n = pop(t), cap = popCap(t), pe = peasants(t), pc = peasantCap(t);
+  d.hidden = false; d.innerHTML = `<div class="bhr" title="Soldiers"><span>⚔</span><b>${n}</b><small>/${cap}</small></div><div class="bhr pe" title="Peasants"><span>⛏</span><b>${pe}</b><small>/${pc}</small></div>`;
+  if (lastHeads != null && n > lastHeads) { d.classList.remove('glow'); void d.offsetWidth; d.classList.add('glow'); S.click && 0; }
+  if (lastPeas != null && pe > lastPeas) { d.classList.remove('glowp'); void d.offsetWidth; d.classList.add('glowp'); }
+  lastHeads = n; lastPeas = pe;
+}
 // "Coming up": live countdowns under the minimap, in plain words
 let nextT = 0;
 function comingUp() {
@@ -104,7 +115,7 @@ function comingUp() {
 export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
   menuT -= dt; if (menuT <= 0) { menuT = 0.25; drawBar(); zoneLabel(); if (UI.UI.open === 'battle') render(); }
-  nextT -= dt; if (nextT <= 0) { nextT = 0.5; comingUp(); }
+  nextT -= dt; if (nextT <= 0) { nextT = 0.5; comingUp(); headCount(); }
   storeTick(dt);
   // online: the gates stay shut for the first minute
   { let g = $('gatecd'); if (MP.on && B.time < 60 && !B.over) { if (!g) { g = el('div', ''); g.id = 'gatecd'; $('hud').appendChild(g); } g.innerHTML = `<b>The gates open in ${Math.ceil(60 - B.time)} s</b><span>Ready your town, Commander</span>`; } else if (g) { g.remove(); if (MP.on && !B.gatesSaid) { B.gatesSaid = true; report('captain', 'the gates are open! To battle!', 'war'); } } }

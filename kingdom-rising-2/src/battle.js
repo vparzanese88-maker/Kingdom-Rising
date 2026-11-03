@@ -1284,7 +1284,8 @@ export function update(dt) {
     if (q) { q.t -= dt * (1 + qm(t, 'train')); if (q.t <= 0) { t.queue.shift(); const b = t.barracks || t.gateIn; const u = new Unit(t, q.def, b[0] + rand(-2, 2), b[1] + rand(-2, 2)); t.units.push(u); if (t.isMe || t.owner != null) { (t.newly = t.newly || {})[u.udef.name] = (t.newly[u.udef.name] || 0) + 1; t.newlyT = 4; } } }
     updateConstruction(t, dt);
     for (const s of t.towers) if (s.building) { s.building.t += dt; if (s.building.t >= s.building.dur) { s.building = null; s.setLevel(s.level + 1); tsay(t, 'steward', `our ${s === t.towers[0] ? 'right' : 'left'} tower is now a ${TOWER_LEVELS[s.level].name}.`, 'build'); } }
-    if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0 && t.newly) { const parts = Object.entries(t.newly).map(([k, v]) => `${v > 1 ? v + ' ' + k + 's' : (/^[AEIOU]/.test(k) ? 'an ' : 'a ') + k}`); const peas = t.newly[t.roster.worker.name]; tsay(t, peas && parts.length === 1 ? 'steward' : 'captain', peas && parts.length === 1 ? `${parts[0]} joined the work crews. (${peasants(t)}/${peasantCap(t)} peasants)` : `${parts.join(', ')} ${parts.length > 1 || parts[0].match(/^\d/) ? 'have' : 'has'} joined the ranks. (${pop(t)}/${popCap(t)} soldiers)`, 'good'); t.newly = null; } }
+    // new recruits are shown by the head count at the bottom right (it glows), not by a report each time
+    if (t.newlyT > 0) { t.newlyT -= dt; if (t.newlyT <= 0) t.newly = null; }
     if ((t.isMe || t.owner != null) && !B.over) watchTown(t, dt);
     if ((t.ai || t.auto) && !B.over) { t.thinkT = (t.thinkT || 0) - dt; if (t.thinkT <= 0) { t.thinkT = (DIFFS[t.diff] || DIFFS.normal).think; aiThink(t); } }
     if (t.hero && t.hero.dead) { t.hero.respawnT -= dt; if (t.hero.respawnT <= 0) t.hero.respawnHero(); }

@@ -253,7 +253,7 @@ function startBattle() {
   G.abilScale = (lv) => 1 + (lv - 1) * 0.075;
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
-  spawnBattleNpcs(); BUI.questTrack();
+  spawnBattleNpcs(); BUI.questTrack(); document.body.classList.add('battlefx');
   setTimeout(() => { if (document.getElementById('bgoal')) return; const d = document.createElement('div'); d.id = 'bgoal'; d.innerHTML = `<div class="bsgoal">${BATTLE_GOAL}<div class="brow"><button class="btn gold big" id="bgoalGo">To battle!</button></div></div>`; document.body.appendChild(d); G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock(); const go = () => { d.remove(); G.uiOpen = false; lockPointer(); }; d.querySelector('#bgoalGo').onclick = go; setTimeout(() => { if (d.isConnected) go(); }, 25000); }, 600);
   if (MP.client) mpSend({ t: 'booted' });
   if (MP.on) setMpStatus('playing');

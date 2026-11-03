@@ -64,7 +64,7 @@ import { NEW_CLASSES } from './classes2.js';
     let g = G2[ab.t] || 'burst'; if (ab.t === 'bolt') g = ab.kind === 'knife' ? 'volley' : ab.kind === 'rock' ? 'slam' : ab.kind === 'spectral' ? 'arrow' : 'fireball'; if (ab.t === 'summon') g = ab.pet === 'skeleton' ? 'skull' : ab.pet === 'fireel' ? 'flame' : ab.pet === 'earthel' ? 'slam' : ab.pet === 'phantasm' ? 'eye' : 'wolf';
     if (ab.t === 'buff') g = ab.buff === 'ward' || ab.buff === 'fort' || ab.buff === 'barrier' ? 'shield' : ab.buff === 'cry' || ab.buff === 'rage' || ab.buff === 'stand' ? 'banner' : ab.buff === 'undying' ? 'heart' : 'hourglass';
     const th = ab.t === 'heal' || ab.t === 'hot' ? (ab.fx === 'gold' ? 'gold' : 'nature') : TH[ab.fx] || (ab.t === 'curse' || ab.t === 'drain' ? 'shadow' : ab.kind === 'fireball' ? 'fire' : ab.kind === 'arcane' ? 'arcane' : 'steel');
-    MAP[ab.id] = [g, th]; } }
+    MAP[ab.id] = ab.song ? ['shout', { war: 'red', travel: 'frost', heal: 'nature', ward: 'gold', flame: 'fire', mana: 'arcane' }[ab.song]] : [g, th]; } }
 export function hasIcon(id) { return !!MAP[id]; }
 export function abilityBadge(id) { const [g, th] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th); }
 export function glyphBadge(g, th) {

@@ -44,6 +44,7 @@ const VP = {
   s1a: P(0.52, -0.05, -0.4, -1.35, -1.1, 0.3), s1b: P(-0.42, -0.3, -0.45, -1.35, 1.35, 0.3),
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
+  ohA: P(0.2, 0.3, -0.32, 1.25, 0, 0.12), ohB: P(0.04, -0.5, -0.62, -1.55, 0, 0.05),
   ha: P(0.45, 0.25, -0.15, 0.6, -0.5, -0.3), hb: P(0, -0.45, -0.62, -2.1, 0.3, 0),
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
   blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.24, -0.28, -0.55, 0.08, 0.38, 0.06), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
@@ -160,11 +161,13 @@ class ViewModel {
         case 'swing3': r = seq(VP.s3a, VP.s3b, t, 0.42); if (dual) l = seq(mirror(VP.s3a), mirror(VP.s3b), t, 0.42, VP.restL); break;
         case 'off1': l = seq(mirror(VP.s1a), mirror(VP.s1b), t, 0.3, VP.restL); break;
         case 'off2': l = seq(mirror(VP.s2a), mirror(VP.s2b), t, 0.3, VP.restL); break;
+        case 'charge': if (G.battleFx && SWORDS[this.wt]) { const k = Math.min(1, t); r = plerp(VP.rest, VP.ohA, ease(k)); if (this.wt === 'greatsword') l = null; break; }
         case 'charge': { const k = Math.min(1, t); r = plerp(this.wt === 'spear' ? VP.spRest : VP.rest, this.wt === 'spear' ? VP.th3A : VP.ha, ease(k)); r = r.map((v, i) => v + (i < 3 ? Math.sin(performance.now() * 0.05) * 0.004 * st.charge : 0)); if (dual) l = plerp(VP.restL, mirror(VP.ha), ease(k)); break; }
         case 'smash': r = seq(VP.ha, VP.hb, t, 0.5); if (dual || (W && W.hands === 'two')) l = seq(mirror(VP.ha), mirror(VP.hb), t, 0.5, VP.restL); break;
         case 'stabR': r = seq(VP.thA, VP.thB, t, 0.3, VP.rest); break;
         case 'stabL': l = seq(mirror(VP.thA), mirror(VP.thB), t, 0.3, VP.restL); break;
         case 'spin': { const k = ease(Math.min(1, t / 0.8)); const a2 = lerp(-2.6, 2.6, k); r = [lerp(0.6, -0.6, k), -0.15, -0.42, -1.4, a2 * 0.55, 0.3]; l = [lerp(0.6, -0.6, (k + 0.15) % 1), -0.22, -0.42, -1.4, a2 * 0.55, -0.3]; break; }
+        case 'heavy': if (G.battleFx && SWORDS[this.wt]) { r = seq(VP.ohA, VP.ohB, t, 0.12, VP.ohA); break; }
         case 'heavy': r = this.wt === 'spear' ? seq(VP.th3A, VP.th3B, t, 0.15, VP.th3A) : seq(VP.ha, VP.hb, t, 0.12, VP.ha); if (dual) l = seq(mirror(VP.ha), mirror(VP.hb), t, 0.12, mirror(VP.ha)); break;
         case 'thrust1': case 'thrust2': r = seq(VP.thA, VP.thB, t, 0.35, VP.spRest); break;
         case 'thrust3': r = seq(VP.th3A, VP.th3B, t, 0.4, VP.spRest); break;
@@ -225,6 +228,13 @@ class ViewModel {
 }
 
 // ---------- Player ----------
+const SWORDS = { sword: 1, swordshield: 1, swordmace: 1, greatsword: 1 };
+// bard songs: a colour per kind of song (healing is green)
+const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff' };
+const NOTE_TEX = {};
+function noteTex(col, ch) { const k = col + ch; if (NOTE_TEX[k]) return NOTE_TEX[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.font = 'bold 50px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = col; g.shadowBlur = 14; g.fillStyle = col; g.fillText(ch, 32, 34); g.shadowBlur = 0; g.fillStyle = '#ffffff'; g.globalAlpha = 0.5; g.fillText(ch, 32, 34);
+  const t = new THREE.CanvasTexture(c); NOTE_TEX[k] = t; return t; }
 // Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
 const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 0.59, hp: 0.74 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
 export class Player {
@@ -317,6 +327,11 @@ export class Player {
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = { t: 0, on: false, tick: 0, snd: null }; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
+    if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
+      if (down) { this.cancelGather(); if (!this.dodge && !this.block) this.press = { t: 0, charging: false, melee: true }; }
+      else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
+      return;
+    }
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
     else if (btn === 2 && down && !G.battleFx) this.specialAttack();
   }
@@ -350,6 +365,7 @@ export class Player {
     if (wt === 'greataxe' || wt === 'handaxes') return 'axe';
     if (wt === 'spear') return 'spear';
     if (wt === 'daggers') return 'light';
+    if (wt === 'fists') return 'fist';
     if (this.W && this.W.kind === 'staff') return 'staff';
     return 'blade';
   }
@@ -374,7 +390,7 @@ export class Player {
     const charge = clamp((p.t - 0.22) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
     if (W.kind === 'bow' || W.kind === 'gun') return this.startAtk('release', W.kind === 'gun' ? 0.35 : 0.3, { charge, fire: true });
     if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });
-    this.startAtk('heavy', 0.75 / W.speed, { charge });
+    this.startAtk('heavy', 0.75 / W.speed, { charge, last: true });
   }
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
@@ -391,6 +407,12 @@ export class Player {
         this.press.charging = true;
         if (this.W.kind === 'bow') S.bowDraw(); else if (this.W.kind === 'gun') S.click(); else if (this.W.kind === 'staff') S.charge(this.W.element); else S.charge('none');
       }
+    }
+    if (G.battleFx && this.W && this.W.kind === 'melee' && this.press && this.press.melee && !G.uiOpen) {
+      this.press.t += dt;
+      if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.55, hit: true, noQueue: true, hold: true }; S.charge('none'); }
+      if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
+      if (this.press.charging && !this.press.full && this.press.t >= 1.0) { this.press.full = true; V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full power', 'crit'); }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
@@ -427,7 +449,10 @@ export class Player {
       const swordHit = (wt === 'swordshield' || wt === 'swordmace') && !st.blunt;
       let reach = W.reach * (a.name === 'smash' ? 1.1 : 1), half = st.cleave ? 1.3 : wt === 'spear' ? 0.35 : 0.85;
       let targets;
-      if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
+      const swordFam = wt === 'sword' || wt === 'swordshield' || wt === 'swordmace' || wt === 'greatsword';
+      if (G.battleFx && a.name === 'heavy') st = swordFam ? { m: 2.1 + (a.charge || 0) * 1.7, stun: 0.6, knock: 5, crit: 0.15 } : { m: 1.5 + (a.charge || 0) * 1.3, knock: 7, cleave: true };
+      if (G.battleFx && a.name === 'heavy' && swordFam) targets = mobsInCone(this.pos, yaw, reach * 1.15, 0.35).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 1);
+      else if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
       else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
       else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
       else if (G.battleFx) { half = Math.max(half, wt === 'spear' ? 0.45 : 1.05); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
@@ -597,6 +622,7 @@ export class Player {
   ability(i) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
+    if (G.battleFx && ab.song) { G.hooks.toast && G.hooks.toast(`${ab.name} plays by itself while it is on your hotbar`, '♪', 'gold'); return; }
     const key = 'a' + (i + 1);
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim) { S.error(); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
@@ -890,6 +916,36 @@ export class Player {
     }
     return false;
   }
+  // ---- Bard songs: every song on the hotbar plays by itself, pulsing its effect on you and your side ----
+  tickSongs(dt) {
+    const songs = this.h.hotbar.map(s => s && s.t === 'ab' && ABILITIES[this.h.cls].find(a => a.id === s.id)).filter(a => a && a.song && a.level <= this.h.level);
+    this.notes = this.notes || [];
+    if (songs.length && !this.dead) {
+      this.noteT = (this.noteT || 0) - dt;
+      if (this.noteT <= 0) { this.noteT = 0.35; const a = songs[Math.floor(Math.random() * songs.length)]; this.spawnNote(SONG_COL[a.song]); }
+      // the healing song is a steady regen: a little every second, no big heals
+      const regen = songs.find(a => a.song === 'heal');
+      if (regen && (this.regenT = (this.regenT || 0) - dt) <= 0) { this.regenT = 1; const up2 = G.abilScale ? G.abilScale(this.h.level) : 1; this.heal(this.maxHp * regen.pct * up2); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [(regen.r || 14) * this.areaK(), regen.pct * up2], 1); }
+      this.songT = (this.songT || 0) - dt;
+      if (this.songT <= 0) { this.songT = 3;
+        const up = G.abilScale ? G.abilScale(this.h.level) : 1, K = this.areaK(), ally = (r, pct, kind) => G.hooks.allyFx && G.hooks.allyFx(this.pos, [r, pct || 0, kind, 3.6], 1);
+        for (const a of songs) { const r = (a.r || 14) * K;
+          if (a.song === 'war') { this.buffs.cry = Math.max(this.buffs.cry || 0, 3.6); ally(r, 0, 'rally'); }
+          else if (a.song === 'travel') { this.buffs.swind = Math.max(this.buffs.swind || 0, 3.6); ally(r, 0, 'haste'); }
+          else if (a.song === 'flame') { this.buffs.flame = Math.max(this.buffs.flame || 0, 3.6); ally(r, 0, 'flame'); }
+          else if (a.song === 'mana') { this.buffs.clarity = Math.max(this.buffs.clarity || 0, 3.6); ally(r, 0, 'clarity'); }
+          else if (a.song === 'ward') { this.buffs.barrier = Math.max(this.buffs.barrier || 0, this.maxHp * 0.06 * up); this.buffs.barrierT = 3.6; ally(r, 0, 'ward'); }
+          V.ring(this.pos, r, SONG_COL[a.song], 0.9); }
+        S.heal && songs.some(a => a.song === 'heal') && 0; }
+    }
+    // the notes drift up and fade
+    for (let i = this.notes.length - 1; i >= 0; i--) { const n = this.notes[i]; n.t += dt; const k = n.t / 2.2; if (k >= 1) { G.scene.remove(n.s); this.notes.splice(i, 1); continue; }
+      n.s.position.set(this.pos.x + Math.cos(n.a + n.t * 0.8) * n.r, this.pos.y + n.y + n.t * 0.6, this.pos.z + Math.sin(n.a + n.t * 0.8) * n.r); n.s.material.opacity = Math.min(1, (1 - k) * 2) * Math.min(1, n.t * 4); }
+  }
+  spawnNote(col) {
+    const tex = noteTex(col, Math.random() < 0.5 ? '♪' : '♫'); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.scale.setScalar(0.32 + Math.random() * 0.12); G.scene.add(s); this.notes.push({ s, t: 0, a: Math.random() * Math.PI * 2, r: 0.7 + Math.random() * 0.7, y: 0.9 + Math.random() * 1.0 });
+  }
   // ---- the new classes' abilities, run from their data in classes2.js ----
   runKit(a, base, up, f) {
     const K = this.areaK(), P = (n) => base * (n || 0) * up;
@@ -1016,6 +1072,7 @@ export class Player {
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
     if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
+    if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06);
     let crit = Math.random() < this.D.crit;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
@@ -1189,7 +1246,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];
@@ -1221,6 +1278,9 @@ export class Player {
     this.block = !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
     if (G.battleFx) this.tickChannel(dt);
+    if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
+    if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);
+    if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 14) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); }
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;

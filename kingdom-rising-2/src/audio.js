@@ -140,7 +140,13 @@ export const S = {
       noise(t, 0.16 * size, o.node, { type: 'bandpass', f: 900, f2: 2600, q: 2, gain: 0.35, a: 0.03 });
       noise(t, 0.2, o.node, { type: 'lowpass', f: 500, gain: 0.15, a: 0.04 });
     } else if (kind === 'light') {
-      noise(t, 0.12, o.node, { type: 'bandpass', f: 1800, f2: 4200, q: 2, gain: 0.28, a: 0.02 });
+      // daggers: a quick, sharp blade slash
+      S.swing(Math.max(0.55, size * 0.75), pos);
+      noise(t, 0.1, o.node, { type: 'bandpass', f: 2200, f2: 5200, q: 2.2, gain: 0.4, a: 0.01 });
+    } else if (kind === 'fist') {
+      // fists: a short punchy whoosh
+      noise(t, 0.14 * size, o.node, { type: 'bandpass', f: 500, f2: 1400, q: 1.4, gain: 0.5 * size, a: 0.02 });
+      noise(t, 0.1, o.node, { type: 'lowpass', f: 400, gain: 0.3, a: 0.02 });
     } else if (kind === 'staff') {
       noise(t, 0.3 * size, o.node, { type: 'bandpass', f: 400, f2: 900, q: 1.4, gain: 0.35 * size, a: 0.1 });
     }

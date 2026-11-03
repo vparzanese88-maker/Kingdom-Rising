@@ -635,6 +635,7 @@ export function questReward(t, id) {
 }
 function hurt(t, dmg, src, opts = {}) {
   if (t.dead || B.over) return;
+  if (src && src.flame > B.time) { opts = Object.assign({}, opts, { burn: (opts.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.4) V.burst('fire', t.pos.clone().setY(t.pos.y + 1), 6, { speed: 2 }); }
   if (src && src.town && src.town.qmod) dmg *= 1 + (src.isStruct ? (src.kind === 'tower' ? qm(src.town, 'tower') : 0) : qm(src.town, 'army'));
   if (t === G.player) { t.takeDamage(dmg, src, opts); if (opts.slow) t.debuff && t.debuff('slow', opts.slow); return; }
   if (t.remote) { t.takeDamage(dmg, src, opts); return; }
@@ -1029,7 +1030,7 @@ export function allyHeal(p, r, pct, team = B.myTeam, caster = G.player) {
   return n;
 }
 export function allyBuff(p, r, kind, dur, team = B.myTeam, caster = G.player) {
-  if (caster !== G.player && G.player && team === B.myTeam && Math.hypot(G.player.pos.x - p.x, G.player.pos.z - p.z) < r) { if (kind === 'ward') G.player.buffs.ward = dur; else if (kind === 'rally') G.player.buffs.cry = Math.max(G.player.buffs.cry || 0, dur); else G.player.buffs.focus = Math.max(G.player.buffs.focus || 0, dur); }
+  if (caster !== G.player && G.player && team === B.myTeam && Math.hypot(G.player.pos.x - p.x, G.player.pos.z - p.z) < r) { if (kind === 'ward') G.player.buffs.ward = dur; else if (kind === 'rally') G.player.buffs.cry = Math.max(G.player.buffs.cry || 0, dur); else if (kind === 'flame') G.player.buffs.flame = Math.max(G.player.buffs.flame || 0, dur); else if (kind === 'clarity') G.player.buffs.clarity = Math.max(G.player.buffs.clarity || 0, dur); else G.player.buffs.focus = Math.max(G.player.buffs.focus || 0, dur); }
   for (const u of B.units) if (!u.dead && u.team === team && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) { u[kind] = B.time + dur; V.burst(kind === 'ward' ? 'frost' : 'gold', u.pos.clone().setY(u.pos.y + 1.5), 6, { speed: 2, vy: 2 }); }
   for (const h of allHeroes()) if (h !== G.player && h !== caster && !h.dead && h.team === team && h.remote && Math.hypot(h.pos.x - p.x, h.pos.z - p.z) < r) G.hooks.netBuff && G.hooks.netBuff(h, kind, dur);
 }

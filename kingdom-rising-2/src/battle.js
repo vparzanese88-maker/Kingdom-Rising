@@ -634,8 +634,8 @@ function makeAIHero(t) {
   u.heroName = (t.heroName || ['Aldric', 'Grommash', 'Faelar', 'Sylvaine', 'Borin'][Math.floor(Math.random() * 5)]); u.heroLv = 1; u.xp = 0; u.cls = cls; u.abilCd = 6;
   heroStats(u); t.hero = u; return u;
 }
-function heroStats(u) { const L = u.heroLv; const k = u.hp / u.maxHp; u.maxHp = Math.round(330 + L * 95 + u.town.level * 60); u.hp = Math.round(u.maxHp * k); u.dmg = 24 + L * 6.5; u.lv = L; }
-export function heroXp(u, n) { if (u.heroLv >= 20) return; u.xp += n; while (u.heroLv < 20 && u.xp >= ECON.xpNeed(u.heroLv)) { u.xp -= ECON.xpNeed(u.heroLv); u.heroLv++; heroStats(u); u.hp = u.maxHp; bank(u.town, 'gold', ECON.levelGold(u.heroLv)); } }
+function heroStats(u) { const L = u.heroLv * 2 - 1; const k = u.hp / u.maxHp; u.maxHp = Math.round(330 + L * 95 + u.town.level * 60); u.hp = Math.round(u.maxHp * k); u.dmg = 24 + L * 6.5; u.lv = L; }
+export function heroXp(u, n) { if (u.heroLv >= 10) return; u.xp += n; while (u.heroLv < 10 && u.xp >= ECON.xpNeed(u.heroLv)) { u.xp -= ECON.xpNeed(u.heroLv); u.heroLv++; heroStats(u); u.hp = u.maxHp; bank(u.town, 'gold', ECON.levelGold(u.heroLv)); } }
 function heroTick(u, dt) {
   const t = u.town;
   u.abilCd -= dt;

@@ -1,6 +1,12 @@
 // Kingdom Rising 2: all game data (races, classes, weapons, abilities, items, recipes, mobs, zones, quests)
 
-export const LEVEL_CAP = 20;
+export let LEVEL_CAP = 20;
+// Kingdom Battles runs a shorter climb: level 10 is the top, and every level is worth about two campaign levels
+export let LEVEL_GROWTH = 1;
+export function battleLevels() {
+  LEVEL_CAP = 10; RANK2_LEVEL = 6; LEVEL_GROWTH = 2;
+  for (const t of TIERS) t.lvl = Math.max(1, Math.ceil(t.lvl / 2));
+}
 export const xpForLevel = (lv) => Math.round(80 * Math.pow(lv, 1.6));
 
 export const RACES = {
@@ -53,7 +59,7 @@ export const CLASS_POOLS = {
   wizard: { hp: [85, 10], mana: [110, 9], end: [80, 3], uses: 'mana' },
   musketeer: { hp: [100, 13], mana: [0, 0], end: [105, 6], uses: 'end' },
 };
-export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; return { hp: P.hp[0] + P.hp[1] * (level - 1), mana: P.mana[0] + P.mana[1] * (level - 1), end: P.end[0] + P.end[1] * (level - 1) }; }
+export function poolsAt(cls, level) { const P = CLASS_POOLS[cls]; const L = (level - 1) * LEVEL_GROWTH; return { hp: P.hp[0] + P.hp[1] * L, mana: P.mana[0] + P.mana[1] * L, end: P.end[0] + P.end[1] * L }; }
 // which stat a weapon type scales with
 // weapon ability (right click) cooldowns in seconds, by weapon kind
 export const AREA_CD = { melee: 7, bow: 9, staff: 10, dual: 8, gun: 6 };
@@ -304,7 +310,7 @@ export const ABILITIES = {
   ],
 };
 export const AREA_UNLOCK_LEVEL = 1;
-export const RANK2_LEVEL = 15;
+export let RANK2_LEVEL = 15;
 
 // Dual Wield Mastery: ranks earned by kills while dual wielding. Each rank unlocks something.
 export const DUAL_MASTERY = [

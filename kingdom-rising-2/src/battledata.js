@@ -149,7 +149,7 @@ export const ECON = {
   structGold: { tower: 220, hall: 500 },
   xpUnit: (u) => 8 + Math.round((u.def.cost ? u.def.cost.gold : 60) / 7),
   xpHero: (lv) => 40 + lv * 15, xpStruct: { tower: 160, hall: 400 },
-  xpNeed: (lv) => 60 * lv + 40,
+  xpNeed: (lv) => 110 * lv + 60, // level 10 is the top: about 5,500 xp in all
   respawn: (lv) => 7 + lv * 1.7,
 };
 

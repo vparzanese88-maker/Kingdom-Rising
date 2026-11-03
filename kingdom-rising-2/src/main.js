@@ -10,7 +10,7 @@ import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
+import { battleLevels, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -58,7 +58,7 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   applyGraphics();
-  if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; if (!MP.client) { spawnBattleCamps(); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
+  if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); if (!MP.client) { spawnBattleCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) { m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2)); } G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -177,8 +177,10 @@ function startBattle() {
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
   G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true; G.noHarvest = true;
   for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
+  // level 10 is the top in Kingdom Battles: spread every ability over levels 1 to 10
+  for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = Math.max(1, Math.min(10, Math.ceil(a.lv20 / 2))); }
   // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead
-  G.abilScale = (lv) => 1 + (lv - 1) * 0.035;
+  G.abilScale = (lv) => 1 + (lv - 1) * 0.075;
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
   if (MP.client) mpSend({ t: 'booted' });

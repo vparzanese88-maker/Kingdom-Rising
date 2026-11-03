@@ -9,7 +9,7 @@ export const NEW_CLASSES = {
     weapons: ['maceshield', 'mace', 'warhammer'], armor: 'mail', start: 'maceshield', startName: 'Mace and Shield', outfit: 'warrior',
     colors: { main: '#e8e0c8', trim: '#d8b04a', metal: '#c8c8d0' }, pool: { hp: [110, 14], mana: [110, 9], end: [90, 4], uses: 'mana' },
     info: { tag: 'Holy healer', diff: 1, role: 'The best healing, protection', res: 'Mana', tips: ['Radiant Heal and Prayer of Healing keep a whole army standing.', 'Hammer of Light and Holy Smite punish anything that gets close.', 'Divine Aegis makes you nearly untouchable for a few seconds.'] },
-    tune: { dmg: 1.0, hp: 1.05 },
+    tune: { dmg: 0.58, hp: 0.72 },
     abilities: [
       { id: 'radiantheal', name: 'Radiant Heal', level: 1, cd: 7, cost: 25, t: 'heal', self: 0.28, r: 10, ally: 0.25, fx: 'gold', desc: 'Holy light heals you for 28% and every ally within 10 m for 25% of their health.' },
       { id: 'holysmite', name: 'Holy Smite', level: 2, cd: 5, cost: 20, t: 'bolt', kind: 'arcane', col: 'gold', speed: 45, dmg: 1.7, stun: 0.6, desc: 'A bolt of holy fire: heavy damage and a short stun.' },
@@ -26,7 +26,7 @@ export const NEW_CLASSES = {
     weapons: ['swordshield', 'sword', 'greatsword', 'maceshield'], armor: 'mail', start: 'swordshield', startName: 'Sword and Shield', outfit: 'warrior',
     colors: { main: '#e0e4f0', trim: '#e0b84a', metal: '#d0d4dc' }, pool: { hp: [125, 16], mana: [60, 5], end: [95, 5], uses: 'end' },
     info: { tag: 'Holy knight', diff: 1, role: 'Tank with some healing', res: 'Endurance', tips: ['Lay on Hands saves you (or a friend) from death.', 'Divine Charge and Hammer Strike stun what you hit.', 'Aura of Devotion protects everyone around you.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 0.78, hp: 0.85 },
     abilities: [
       { id: 'hammerstrike', name: 'Hammer Strike', level: 1, cd: 6, cost: 20, t: 'strike', reach: 3.2, dmg: 1.9, stun: 1.2, desc: 'A crushing holy blow that stuns the enemy in front of you.' },
       { id: 'layonhands', name: 'Lay on Hands', level: 2, cd: 45, cost: 30, t: 'heal', self: 0.6, r: 6, ally: 0.4, fx: 'gold', desc: 'Heal yourself for 60% and allies within 6 m for 40%.' },
@@ -43,7 +43,7 @@ export const NEW_CLASSES = {
     weapons: ['greatsword', 'greataxe', 'swordshield', 'warhammer'], armor: 'mail', start: 'greatsword', startName: 'Greatsword', outfit: 'warrior',
     colors: { main: '#2a1a2a', trim: '#8a1a1a', metal: '#4a4048' }, pool: { hp: [125, 16], mana: [60, 5], end: [95, 5], uses: 'end' },
     info: { tag: 'Unholy knight', diff: 2, role: 'Tank who drains life', res: 'Endurance', tips: ['Life Tap and Harvest heal you as they hurt.', 'Dread Roar terrifies everything around you.', 'Death Grip yanks a fleeing enemy back to your blade.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 0.91, hp: 0.94 },
     abilities: [
       { id: 'lifetap', name: 'Life Tap', level: 1, cd: 6, cost: 20, t: 'drain', kind: 'arcane', col: 'red', speed: 40, dmg: 1.4, drain: 0.6, desc: 'Steal the life of the enemy you aim at: damages it and heals you for 60% of the damage.' },
       { id: 'dreadroar', name: 'Dread Roar', level: 2, cd: 16, cost: 25, t: 'nova', r: 8, dmg: 0.4, stun: 2, fx: 'shadow', desc: 'A terrible roar: every enemy within 8 m freezes in fear for 2 s.' },
@@ -60,7 +60,7 @@ export const NEW_CLASSES = {
     weapons: ['froststaff', 'spear', 'arcanestaff'], armor: 'leather', start: 'froststaff', startName: 'Frost Staff', outfit: 'ranger',
     colors: { main: '#3a6a2a', trim: '#a8c060', metal: '#7a6a45' }, pool: { hp: [95, 12], mana: [110, 9], end: [85, 3], uses: 'mana' },
     info: { tag: 'Keeper of the wild', diff: 2, role: 'Healing, roots and storms', res: 'Mana', tips: ['Regrowth and Wild Bloom heal over time.', 'Entangle and Thorn Wall stop enemies in their tracks.', 'Call a bear to stand between you and danger.'] },
-    tune: { dmg: 1.0, hp: 1.05 },
+    tune: { dmg: 1.3, hp: 1.25 },
     abilities: [
       { id: 'regrowth', name: 'Regrowth', level: 1, cd: 10, cost: 25, t: 'hot', pct: 0.35, dur: 8, r: 10, ally: 0.2, desc: 'Leaves and light heal you 35% over 8 s; allies within 10 m heal 20%.' },
       { id: 'moonfire', name: 'Moonfire', level: 2, cd: 5, cost: 20, t: 'bolt', kind: 'arcane', col: 'arcane', speed: 42, dmg: 1.6, burn: 0.08, desc: 'A beam of moonlight that burns the enemy you aim at.' },
@@ -77,7 +77,7 @@ export const NEW_CLASSES = {
     weapons: ['spear', 'daggers', 'handaxes'], armor: 'leather', start: 'spear', startName: 'Fighting Staff', outfit: 'berserker',
     colors: { main: '#c8742a', trim: '#e8d8a8', metal: '#8a6a45' }, pool: { hp: [110, 14], mana: [0, 0], end: [120, 7], uses: 'end' },
     info: { tag: 'Martial artist', diff: 2, role: 'Fast melee and dodging', res: 'Endurance', tips: ['Flying Kick and Hundred Fists chain huge combos.', 'Feign Death makes every enemy forget you.', 'Inner Peace heals you in the middle of a fight.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 0.91, hp: 0.94 },
     abilities: [
       { id: 'flyingkick', name: 'Flying Kick', level: 1, cd: 6, cost: 20, t: 'dash', dur: 0.3, speed: 28, dmg: 1.4, desc: 'Leap forward with a flying kick through everything in your way.' },
       { id: 'tigerpalm', name: 'Tiger Palm', level: 2, cd: 5, cost: 15, t: 'strike', reach: 3, dmg: 1.8, knock: 10, desc: 'A strike so fast it hurls the enemy back.' },
@@ -94,7 +94,7 @@ export const NEW_CLASSES = {
     weapons: ['sword', 'daggers', 'swordmace'], armor: 'leather', start: 'sword', startName: 'Rapier', outfit: 'musketeer',
     colors: { main: '#8a2a6a', trim: '#e8c060', metal: '#b0a080' }, pool: { hp: [105, 13], mana: [80, 6], end: [100, 5], uses: 'mana' },
     info: { tag: 'Minstrel', diff: 2, role: 'Songs for the whole side', res: 'Mana', tips: ['Songs reach everyone near you: soldiers and friends.', 'Song of Travel makes a whole army march faster.', 'Discord and Lullaby stop enemies cold.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 1.52, hp: 1.32 },
     abilities: [
       { id: 'warsong', name: 'War Song', level: 1, cd: 18, cost: 25, t: 'buff', buff: 'cry', dur: 10, r: 14, allyBuff: 'rally', desc: 'You and allies within 14 m hit 25% harder for 10 s.' },
       { id: 'discord', name: 'Discord', level: 2, cd: 6, cost: 20, t: 'cone', range: 8, ang: 0.6, dmg: 1.3, slow: 3, fx: 'arcane', desc: 'A screech of notes that cuts and slows everything in front of you.' },
@@ -111,7 +111,7 @@ export const NEW_CLASSES = {
     weapons: ['daggers', 'sword', 'handaxes'], armor: 'leather', start: 'daggers', startName: 'Daggers', outfit: 'ranger',
     colors: { main: '#2a2a32', trim: '#7a2a2a', metal: '#6a6a70' }, pool: { hp: [100, 13], mana: [0, 0], end: [115, 6], uses: 'end' },
     info: { tag: 'Assassin', diff: 3, role: 'Burst damage from the shadows', res: 'Endurance', tips: ['Vanish, then Backstab: a guaranteed critical.', 'Poison everything you touch with Envenom.', 'Smoke and Shadowstep get you out of trouble.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 0.89, hp: 0.92 },
     abilities: [
       { id: 'backstab', name: 'Backstab', level: 1, cd: 6, cost: 20, t: 'strike', reach: 2.8, dmg: 2.3, crit: 0.35, bleed: 0.08, desc: 'Drive both blades into the enemy in front of you. Much more likely to crit.' },
       { id: 'vanish2', name: 'Vanish', level: 2, cd: 18, cost: 20, t: 'stealth', dur: 5, desc: 'Disappear for 5 s. Your next hit is a guaranteed critical.' },
@@ -128,7 +128,7 @@ export const NEW_CLASSES = {
     weapons: ['arcanestaff', 'firestaff', 'froststaff'], armor: 'cloth', start: 'arcanestaff', startName: 'Arcane Staff', outfit: 'wizard',
     colors: { main: '#1a1a22', trim: '#5ad070', metal: '#5a5a60' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Master of the dead', diff: 3, role: 'Pets, curses and damage over time', res: 'Mana', tips: ['Raise Skeleton early: your dead fight while you cast.', 'Curses and plagues keep hurting long after you cast them.', 'Drain Life keeps you alive.'] },
-    tune: { dmg: 1.0, hp: 1.1 },
+    tune: { dmg: 1.27, hp: 1.29 },
     abilities: [
       { id: 'raiseskel', name: 'Raise Skeleton', level: 1, cd: 30, cost: 35, t: 'summon', pet: 'skeleton', n: 1, extra: 2, dur: 40, desc: 'A skeleton rises to fight for you for 40 s. More skeletons as you level.' },
       { id: 'drainlife', name: 'Drain Life', level: 2, cd: 6, cost: 20, t: 'drain', kind: 'arcane', col: 'shadow', speed: 40, dmg: 1.4, drain: 0.6, desc: 'Steal the life of the enemy you aim at; you heal for 60% of it.' },
@@ -145,7 +145,7 @@ export const NEW_CLASSES = {
     weapons: ['firestaff', 'froststaff', 'arcanestaff'], armor: 'cloth', start: 'firestaff', startName: 'Fire Staff', outfit: 'wizard',
     colors: { main: '#a84a1a', trim: '#e8c060', metal: '#c09050' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Summoner of elements', diff: 2, role: 'Elemental pets and blasts', res: 'Mana', tips: ['Your elementals fight while you blast from behind them.', 'Lava Burst and Boulder hit hard; Gale knocks enemies away.', 'Elemental Shield keeps you safe while you work.'] },
-    tune: { dmg: 1.0, hp: 1.1 },
+    tune: { dmg: 1.07, hp: 1.14 },
     abilities: [
       { id: 'firesprite', name: 'Summon Fire Elemental', level: 1, cd: 35, cost: 35, t: 'summon', pet: 'fireel', n: 1, extra: 1, dur: 40, desc: 'A burning elemental fights for you for 40 s.' },
       { id: 'lavaburst', name: 'Lava Burst', level: 2, cd: 6, cost: 22, t: 'bolt', kind: 'fireball', speed: 38, dmg: 1.6, aoe: 3, burn: 0.1, desc: 'A ball of molten rock that bursts where it lands.' },
@@ -162,7 +162,7 @@ export const NEW_CLASSES = {
     weapons: ['arcanestaff', 'froststaff', 'daggers'], armor: 'cloth', start: 'arcanestaff', startName: 'Arcane Staff', outfit: 'wizard',
     colors: { main: '#6a2a9a', trim: '#e0c8ff', metal: '#a090c0' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Mind weaver', diff: 3, role: 'Crowd control and buffs', res: 'Mana', tips: ['Mesmerize and Mass Sleep stop whole packs.', 'Clarity and Haste make your side far stronger.', 'Mind Blast and Phantasm finish what you start.'] },
-    tune: { dmg: 1.0, hp: 1.1 },
+    tune: { dmg: 1.05, hp: 1.13 },
     abilities: [
       { id: 'mindblast', name: 'Mind Blast', level: 1, cd: 5, cost: 20, t: 'bolt', kind: 'arcane', col: 'arcane', speed: 45, dmg: 1.6, slow: 2, desc: 'A spike of pure thought into the enemy you aim at.' },
       { id: 'mesmerize', name: 'Mesmerize', level: 2, cd: 12, cost: 20, t: 'curse', range: 30, stun: 5, dmg: 0.1, desc: 'The enemy you aim at stands entranced for 5 s.' },
@@ -179,7 +179,7 @@ export const NEW_CLASSES = {
     weapons: ['handaxes', 'spear', 'daggers'], armor: 'leather', start: 'handaxes', startName: 'Hand Axes', outfit: 'berserker',
     colors: { main: '#6a4a2a', trim: '#c89a4a', metal: '#7a6a55' }, pool: { hp: [115, 15], mana: [50, 4], end: [105, 6], uses: 'end' },
     info: { tag: 'Beast tamer', diff: 1, role: 'Melee with a war beast', res: 'Endurance', tips: ['Call your war beast first: it grows with you.', 'Feral Roar and Pack Frenzy make you and your beast deadlier.', 'Mend Pet and Primal Bond keep you both alive.'] },
-    tune: { dmg: 1.0, hp: 1.0 },
+    tune: { dmg: 1.17, hp: 1.11 },
     abilities: [
       { id: 'warbeast', name: 'Call War Beast', level: 1, cd: 30, cost: 30, t: 'summon', pet: 'tiger', n: 1, extra: 1, dur: 60, desc: 'Your war tiger joins you for 60 s. It grows bigger and fiercer as you level.' },
       { id: 'rendclaw', name: 'Rending Claws', level: 2, cd: 6, cost: 20, t: 'strike', reach: 3, dmg: 1.7, bleed: 0.12, desc: 'Tear into the enemy in front of you: it bleeds.' },

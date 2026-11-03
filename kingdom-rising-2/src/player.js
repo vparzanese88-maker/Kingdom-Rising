@@ -226,7 +226,7 @@ class ViewModel {
 
 // ---------- Player ----------
 // Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
-const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 1, hp: 1.05 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
+const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 0.59, hp: 0.74 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
 export class Player {
   constructor(hero) {
     this.h = hero;

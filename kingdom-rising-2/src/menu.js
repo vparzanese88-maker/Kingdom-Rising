@@ -44,7 +44,8 @@ function renderSaves() {
       const del = el('button', 'btn ghost', 'Delete'); del.title = 'Delete this character';
       del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete character</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
       acts.append(play, del); d.appendChild(acts);
-      d.onclick = () => { S.click(); goFull(); Menu.onPlay(s); };
+      d.onpointerdown = (e) => { d._down = e.target; };
+      d.onclick = (e) => { const t = d._down || e.target; d._down = null; if (t.closest && t.closest('.acts')) return; S.click(); goFull(); Menu.onPlay(s); };
       d.onmouseenter = () => S.hover();
       g.appendChild(d);
     }
@@ -71,7 +72,7 @@ document.addEventListener('fullscreenchange', () => {
   if (!leaving && fsOff) setWanted(false);
 });
 const regain = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; if (!document.fullscreenElement && fsWanted()) goFull(); };
-addEventListener('pointerdown', regain, true); addEventListener('keydown', regain, true);
+addEventListener('click', regain, true); addEventListener('keydown', regain, true);
 
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };

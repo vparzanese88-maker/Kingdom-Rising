@@ -130,6 +130,9 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       mesh(cached('hcap', () => new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10)), M, g, -0.18, 1.0, 0).rotation.z = Math.PI / 2;
       base.position.set(0, 0.8, 0); tip.position.set(0, 1.1, 0); break;
     }
+    case 'fistwrap': { // cloth wrapped round the knuckles: the fist itself is the weapon
+      const wrap = mat('#e8dcc0', 0.95); mesh(cached('fwrap', () => new THREE.BoxGeometry(0.095, 0.09, 0.1)), wrap, g, 0, 0.02, 0); mesh(cached('fwrap2', () => new THREE.CylinderGeometry(0.045, 0.045, 0.06, 8)), wrap, g, 0, -0.05, 0);
+      base.position.set(0, -0.02, 0); tip.position.set(0, 0.1, 0); break; }
     case 'greataxe': case 'handaxe': {
       const big = part === 'greataxe';
       cyl(0.022, 0.024, big ? 1.3 : 0.55, darkWood, big ? 0.38 : 0.15);

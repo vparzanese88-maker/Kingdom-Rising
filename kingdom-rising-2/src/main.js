@@ -9,7 +9,9 @@ import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
-import { buildGull, flap, placeHomeBoat } from './sailintro.js';
+import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
+import { summonPets } from './pets.js';
+import { initChat, openChat, add as chatAdd } from './chat.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
 import { battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
@@ -130,7 +132,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
+  initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
   if (!h.introDone) startIntro(); else { if (!BATTLE && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
@@ -371,11 +373,13 @@ function hooks() {
   H.gearChanged = (swap) => { G.player && G.player.refreshGear(); portraitCh = null; UI.refreshAbilityBar(); UI.refreshOpen(); };
   H.masteryUp = (fam, lv) => { const aw = Game.activeWeapon(G.save), wt = aw && familiesOf(aw.wt)[0] === fam ? aw.wt : null;
     const un = wt ? Game.weaponUnlocks(wt).filter(u => u.lv === lv).map(u => `${u.key}: ${u.what}`) : [];
-    UI.banner(`${wt ? WEAPON_TYPES[wt].name : FAMILIES[fam] ? FAMILIES[fam].name : fam} mastery ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Your strikes land a little harder', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
-  H.newWeapon = (wt) => { UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
+    const fn = FAMILIES[fam] ? FAMILIES[fam].name : fam; chatAdd(`<b class="sk">You have become better at ${fn}! (${lv})</b>${un.length ? ' Learned: ' + un.join(', ') + '.' : ' Faster and a little harder hitting.'}`, 'skill');
+    UI.banner(`${fn} skill ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Faster and a little harder hitting', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
+  H.masteryTick = (fam, lv, pct) => chatAdd(`Your ${FAMILIES[fam] ? FAMILIES[fam].name : fam} skill is growing: ${pct}% of the way to ${lv + 1}.`, 'skill');
+  H.newWeapon = (wt) => { chatAdd(`You pick up a new kind of weapon: <b>${WEAPON_TYPES[wt].name}</b>. Use it to learn it (L).`, 'skill'); UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
-  H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${NPCS[q.turnin].name}`, 2600); };
+  H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
   H.onKill = (mob) => { Game.onKill(G.save, mob); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
@@ -388,6 +392,10 @@ function hooks() {
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); UI.openDialog(npc); };
+  // summons in the campaign (Kingdom Battles overrides these with town pets)
+  if (!BATTLE) H.spiritWolf = (p, lv, dur) => summonPets('spirit', p, 1 + (lv - 1) * 9 / (LEVEL_CAP - 1), dur, 1);
+  H.castBar = (name, k) => { let e = $('castbar'); if (!e) { e = document.createElement('div'); e.id = 'castbar'; e.innerHTML = '<b></b><i><u></u></i>'; $('hud').appendChild(e); }
+    if (name == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('b').textContent = name; e.querySelector('u').style.width = Math.round(Math.min(1, k) * 100) + '%'; };
   H.boat = () => { S.step('wood'); const q = G.save.quests;
     UI.toast("You can't set sail yet: she needs major repairs.", '⛵', 'bad');
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
@@ -451,7 +459,7 @@ function startIntro() {
   const boat = world.myBoat || placeHomeBoat(scene);
   const home = world.myBoatHome, to = { x: home.x, z: home.z }, yaw = Math.atan2(to.x - SAIL.from.x, to.z - SAIL.from.z);
   intro = { t: 0, boat, yaw, ly: 0, lp: -0.05, gulls: [], poop: null, fade: 0 };
-  boat.position.set(SAIL.from.x, 0.15, SAIL.from.z); boat.rotation.set(0, yaw, 0);
+  boat.position.set(SAIL.from.x, BOAT_Y, SAIL.from.z); boat.rotation.set(0, yaw, 0);
   // a few gulls wheel about overhead the whole way in; one of them has plans
   for (let i = 0; i < 4; i++) { const g = buildGull(); scene.add(g); intro.gulls.push({ g, a: Math.random() * 6.28, r: 9 + Math.random() * 9, y: 8 + Math.random() * 6, sp: 0.35 + Math.random() * 0.25, ph: Math.random() * 6 }); }
   intro.lander = { g: buildGull(), st: 'away' }; scene.add(intro.lander.g); intro.lander.g.visible = false;
@@ -465,7 +473,7 @@ function startIntro() {
 function introBoatTo(I, dt) {
   const b = I.boat, t = I.t;
   b.position.x += Math.sin(I.yaw) * SAIL.speed * dt; b.position.z += Math.cos(I.yaw) * SAIL.speed * dt;
-  b.position.y = 0.15 + Math.sin(t * 1.05) * 0.14 + Math.sin(t * 0.47 + 1) * 0.07;
+  b.position.y = BOAT_Y + Math.sin(t * 1.05) * 0.14 + Math.sin(t * 0.47 + 1) * 0.07;
   b.rotation.set(Math.sin(t * 0.62 + 0.8) * 0.035, I.yaw + Math.sin(t * 0.21) * 0.03, Math.sin(t * 0.83) * 0.07, 'YXZ');
   const sail = b.userData.sail; if (sail) sail.scale.z = 1 + Math.sin(t * 1.7) * 0.06;
 }
@@ -490,9 +498,9 @@ function updateIntro(dt) {
   if (t > 17 && L.st === 'away') { L.st = 'in'; g.visible = true; L.from = new THREE.Vector3(b.position.x + Math.sin(I.yaw) * 40 + 14, 16, b.position.z + Math.cos(I.yaw) * 40); L.t0 = t; S.gull && S.gull(L.from); }
   if (L.st === 'in') { const k = Math.min(1, (t - L.t0) / 4.2), e = k * k * (3 - 2 * k); g.position.lerpVectors(L.from, perch, e); g.position.y += Math.sin(k * Math.PI) * 2.5; g.lookAt(perch.x, g.position.y, perch.z); flap(g, t * 10, k > 0.8 ? 1.4 : 0.6); if (k >= 1) { L.st = 'perch'; L.t0 = t; S.gull && S.gull(perch); } }
   if (L.st === 'perch') {
-    g.position.copy(perch); g.position.y += 0.22; g.rotation.set(0, I.yaw + Math.PI + Math.sin(t * 1.3) * 0.5, 0); flap(g, 0, 0, true);
+    g.position.copy(perch); g.position.y += 0.2; g.rotation.set(0, I.yaw + Math.PI + Math.sin(t * 1.3) * 0.5, 0); flap(g, 0, 0, true);
     if (!I.poop && t - L.t0 > 2.0) { // plop
-      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshStandardMaterial({ color: '#f2f0e6', roughness: 0.4 }));
+      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), new THREE.MeshStandardMaterial({ color: '#f2f0e6', roughness: 0.4 }));
       b.add(drop); const lp = b.userData.bow.clone(); lp.y += 0.1; lp.z -= 0.22; drop.position.copy(lp); I.poop = { m: drop, v: 0, landed: false };
     }
     if (t - L.t0 > 4.6) { L.st = 'out'; L.t0 = t; L.from = g.position.clone(); L.to = g.position.clone().add(new THREE.Vector3(Math.cos(I.yaw) * 30, 14, -Math.sin(I.yaw) * 30)); S.gull && S.gull(perch); }
@@ -512,9 +520,9 @@ function endIntro() {
   for (const q of I.gulls) scene.remove(q.g); scene.remove(I.lander.g);
   if (I.poop) { I.boat.remove(I.poop.m); I.poop.m.scale.set(2.4, 0.35, 2.0); I.poop.m.position.y = 0.62; I.boat.add(I.poop.m); } // it stays. of course it stays.
   if (water.sea) water.sea.position.set(0, water.sea.position.y, 0);
-  const H0 = world.myBoatHome; I.boat.position.set(H0.x, 0.15, H0.z); I.boat.rotation.set(0, H0.yaw, 0);
+  const H0 = world.myBoatHome; I.boat.position.set(H0.x, BOAT_Y, H0.z); I.boat.rotation.set(0, H0.yaw, 0);
   // standing on the pier beside her
-  const P = world.pier, sx = P.x - 0.3, sz = H0.z - 6.5; p.place(sx, sz, Math.atan2(H0.x - sx, H0.z - sz)); p.ch.root.visible = true; p.pos.y = P.y + 0.02; if (p.vel) p.vel.set(0, 0, 0); p.onGround = true;
+  const P = world.pier, sx = P.x - 0.3, sz = H0.z - 13; p.place(sx, sz, Math.atan2(H0.x - sx, H0.z - sz)); p.ch.root.visible = true; p.pos.y = P.y + 0.02; if (p.vel) p.vel.set(0, 0, 0); p.onGround = true;
   $('intro').hidden = true; $('intro').classList.remove('sail'); canvas.style.filter = ''; $('hud').hidden = false;
   p.pitch = -0.1; G.save.introDone = true;
   startMainQuest(G.save);
@@ -543,6 +551,7 @@ function input() {
     if (e.target.tagName === 'INPUT') return;
     if (mode !== 'game') { if (e.code === 'Escape' && $('windows').children.length) UI.closeWin(); return; }
     if (intro) { if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') endIntro(); return; }
+    if (e.code === 'Enter' && !e.repeat && !G.uiOpen && !G.chatting) { e.preventDefault(); for (const k in G.keys) G.keys[k] = false; if (G.player) { G.player.press = null; G.player.rmbHeld = false; } if (document.pointerLockElement) document.exitPointerLock(); openChat(); return; }
     if (e.code === 'Tab') { e.preventDefault(); if (BATTLE && mode === 'game' && !e.repeat) BUI.scoreboard(true); }
     const p = G.player;
     if (!e.repeat) {
@@ -550,6 +559,7 @@ function input() {
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
       if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
+      if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
       if (BATTLE && e.code === 'KeyP') { UI.toast('No crafting in Kingdom Battles', '·'); return; }
@@ -628,7 +638,7 @@ function updateFires(dt, focus) {
   if (focus.distanceTo(fall.base) < 160) for (let i = 0; i < 3; i++) { V.norm.spawn(fall.base.x - 3 + Math.random() * 3, fall.base.y + 0.5, fall.base.z + (Math.random() - 0.5) * 10, Math.random() * 3, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 2, 2.2, 1.2, 5, MIST0, MIST1, 0.35, 0, -0.2, 0.4); }
   // flags & boats
   if (world.flags) for (const f of world.flags) { const a = f.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i) + 0.6; a.setZ(i, Math.sin(G.time * 4 + x * 3) * 0.12 * x); } a.needsUpdate = true; }
-  if (world.myBoat && !intro) { const b = world.myBoat, H0 = world.myBoatHome; b.position.y = 0.15 + Math.sin(G.time * 1.1) * 0.08; b.rotation.set(Math.sin(G.time * 0.7) * 0.015, H0.yaw, Math.sin(G.time * 0.9 + 1) * 0.035); }
+  if (world.myBoat && !intro) { const b = world.myBoat, H0 = world.myBoatHome; b.position.y = BOAT_Y + Math.sin(G.time * 1.1) * 0.08; b.rotation.set(Math.sin(G.time * 0.7) * 0.015, H0.yaw, Math.sin(G.time * 0.9 + 1) * 0.035); }
   if (world.boats) world.boats.forEach((b, i) => { b.position.y = 0.3 + Math.sin(G.time * 1.2 + i) * 0.12; b.rotation.z = Math.sin(G.time * 0.9 + i * 2) * 0.05; });
 }
 const SMK0 = new THREE.Color('#8a8480'), SMK1 = new THREE.Color('#5a5654'), MIST0 = new THREE.Color('#ffffff'), MIST1 = new THREE.Color('#c8dce8');

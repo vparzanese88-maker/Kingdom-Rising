@@ -430,40 +430,37 @@ function renderBook() {
   c.innerHTML = '';
   abilityTab(c, h, cls, list, res, k);
 }
-// ---- Weapons tab: what the weapons in your hands do, and every weapon you have learned (campaign: mastery) ----
+// ---- Weapons tab: one simple card per weapon in your hands, then the other weapons you know ----
 function renderWeapons(c) {
   const h = G.save; c.innerHTML = '';
-  const handsLine = (main, off) => { if (!main) return 'Bare hands'; const W = WEAPON_TYPES[main.wt]; if (W.hands === 'dual') return `<b>${main.name}</b> <small>(a pair: fills both hands)</small>`; if (W.hands === 'two' || W.kind === 'bow' || W.kind === 'gun' || W.kind === 'staff') return `<b>${main.name}</b> <small>(both hands)</small>`; return `Main hand <b>${main.name}</b>${off ? ` · Off hand <b>${off.name}</b>` : ' · Off hand empty'}`; };
-  const wrow = (main, off, act, setN, inHand) => { if (!main) return ''; const wt = act.wt, W = WEAPON_TYPES[wt]; const st = UI.comboSteps(wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
-    const tap = st.filter(x => !/^Hold/.test(x.n)), mlv = Game.masteryOf(h, wt), L = Game.comboLen(h, wt), lockT = (lv) => `<small class="lk">🔒 mastery ${lv}</small>`;
-    const holdOk = Game.canHold(h, wt), fOk = Game.canSpecial(h, wt);
-    return `<div class="bwpn${inHand ? ' now' : ''}"><div class="bwh"><span class="bset">Set ${setN}${inHand ? ' · in your hands' : ' · Q to swap'}</span>${handsLine(main, off)}</div>
-      <div class="bwl"><b>Left click</b><span>${W.kind === 'melee' ? `Combo: ${tap.map((x, i) => i < L ? `${x.n} <small>${x.d}%</small>` : `<s class="lkd">${x.n}</s> ${lockT(Game.stepReq(tap.length, i))}`).join(' → ')}` : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ` <small>${x.tags.join(', ')}</small>` : ''}`).join('')}</span></div>
-      <div class="bwl${holdOk ? '' : ' locked'}"><b>Hold left click</b><span>${holdText(wt)}${holdOk ? '' : ' ' + lockT(Game.WM_HOLD)}</span></div>
-      ${S2 ? `<div class="bwl${fOk ? '' : ' locked'}"><b>F</b><span><span class="fs">${S2.name}</span> ${S2.desc} <small>every ${S2.cd} s</small>${fOk ? '' : ' ' + lockT(Game.WM_F)}</span></div>` : ''}
-      <div class="bwl"><b>Hold right click</b><span>Block${off && off.wt === 'shield' ? ' (a shield blocks far more)' : ''}. Raise it just before a hit for a perfect block.</span></div></div>`; };
-  const now1 = h.equip.w1, now2 = h.equip.w2, act = Game.activeWeapon(h);
-  let wp = wrow(now1, now2, act || now1, h.setNo === 2 ? 2 : 1, true);
-  if (h.equip.w3) wp += wrow(h.equip.w3, h.equip.w4, h.equip.w3, h.setNo === 2 ? 1 : 2, false);
-  c.appendChild(el('div', 'bookwpn open', `<h3>Your weapons</h3>${wp || '<p class="dim">No weapon in your hands.</p>'}<p class="bwrule">Daggers, hand axes and fist wraps come as a pair and fill both hands. Swords and maces are one-handed: your <b>main hand sets the combo</b>, and a second one in the off hand joins in with its own strikes; a shield in the off hand blocks better instead.</p>`));
-  if (!BATTLE) weaponSkills(c, h); // the campaign: mastery per weapon
-}
-// every weapon type you have held, with its mastery and what it unlocks
-function weaponSkills(c, h) {
-  const seen = (h.wseen || []).filter(wt => WEAPON_TYPES[wt]);
-  const box = el('div', 'wskills');
-  box.appendChild(el('h3', '', 'Weapon skills'));
-  box.appendChild(el('p', 'bookintro', 'Every weapon learns by being used: each hit and each kill trains it. Higher mastery unlocks more of its attacks, then adds +1% damage per level. A weapon joins this list the first time you hold it.'));
-  const grid = el('div', 'wsgrid');
-  for (const wt of seen) {
-    const fam = familiesOf(wt)[0], m = Game.wm(h, fam), cap = MASTERY_CAP, need = masteryXpFor(m.lv), W = WEAPON_TYPES[wt];
-    const act = Game.activeWeapon(h), inHand = act && act.wt === wt;
-    const un = Game.weaponUnlocks(wt).map(u => `<div class="wsu${m.lv >= u.lv ? ' ok' : ''}"><span>${m.lv >= u.lv ? '✓' : '🔒 ' + u.lv}</span><b>${u.key}</b> ${u.what}</div>`).join('');
-    grid.appendChild(el('div', 'wscard' + (inHand ? ' now' : ''), `<div class="wsh"><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt, tier: 2, rarity: 0 })}</div><div><b>${W.name}</b>${inHand ? ' <small class="nowt">in your hands</small>' : ''}<div class="dim">Mastery <b>${m.lv}</b>/${cap} · +${m.lv - 1}% damage</div><div class="xpb"><i style="width:${m.lv >= cap ? 100 : Math.round(m.xp / need * 100)}%"></i></div></div></div>${un}`));
+  const act = Game.activeWeapon(h), sets = [[h.equip.w1, h.equip.w2, act, true]];
+  if (h.equip.w3) sets.push([h.equip.w3, h.equip.w4, h.equip.w3, false]);
+  const lock = (lv) => `<span class="wlock">🔒 skill ${lv}</span>`;
+  for (const [main, off, a, inHand] of sets) {
+    if (!main || !a) continue;
+    const wt = a.wt, W = WEAPON_TYPES[wt]; if (!W) continue;
+    const fam = familiesOf(wt)[0], m = Game.wm(h, fam), need = masteryXpFor(m.lv), lv = Game.masteryOf(h, wt);
+    const st = UI.comboSteps(wt).filter(x => !/^Hold/.test(x.n)), L = Game.comboLen(h, wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
+    const nextLocks = W.kind === 'melee' ? st.map((x, i) => i >= L ? Game.stepReq(st.length, i) : 0).filter(Boolean) : [];
+    const lmb = W.kind === 'melee' ? `${L === 1 ? 'A single strike' : `A ${L}-hit combo`}: ${st.slice(0, L).map(x => x.n).join(' → ')}${nextLocks.length ? ` <span class="wlock">more strikes at skill ${nextLocks.join(', ')}</span>` : ''}` : st.map(x => x.n.replace('Tap: ', '')).join(', ');
+    const rows = [
+      ['Left click', lmb, true],
+      ['Hold left click', holdText(wt), Game.canHold(h, wt), Game.WM_HOLD],
+      S2 && ['F', `<b>${S2.name}</b>: ${S2.desc}`, Game.canSpecial(h, wt), Game.WM_F],
+      ['Right click (hold)', 'Block. Raise it just before a hit to block it completely.', true],
+    ].filter(Boolean);
+    const skill = BATTLE ? '' : `<div class="wskill"><span>${FAMILIESN(fam)} skill <b>${m.lv}</b> / ${MASTERY_CAP}</span><i><u style="width:${m.lv >= MASTERY_CAP ? 100 : Math.round(m.xp / need * 100)}%"></u></i><small>Speed ${Math.round(Game.speedOf(h, wt) * 100)}% · damage +${m.lv - 1}% · it grows each time you hit with it</small></div>`;
+    c.appendChild(el('div', 'wcard2' + (inHand ? ' now' : ''), `<div class="wc2h"><div class="bi">${Icons.itemSvg(main)}</div><div><b>${main.name}</b>${off && off !== main && !W.parts[1] ? ` <small>+ ${off.name}</small>` : ''}<div class="dim">${inHand ? 'In your hands' : 'Set 2 · press Q to swap'}</div></div></div>${skill}
+      ${rows.map(([k, t, ok, at]) => `<div class="wrow2${ok ? '' : ' off'}"><b>${k}</b><span>${ok ? t : lock(at) + ' ' + t}</span></div>`).join('')}`));
   }
-  if (!seen.length) grid.appendChild(el('p', 'dim', 'Hold a weapon to start learning it.'));
-  box.appendChild(grid); c.appendChild(box);
+  if (!act) c.appendChild(el('p', 'dim', 'No weapon in your hands.'));
+  if (!BATTLE) { // the other weapons you have learned
+    const seen = (h.wseen || []).filter(wt => WEAPON_TYPES[wt] && (!act || wt !== act.wt));
+    if (seen.length) c.appendChild(el('div', 'wothers', '<h3>Other weapons you know</h3>' + seen.map(wt => { const m = Game.wm(h, familiesOf(wt)[0]); return `<span><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt, tier: 2, rarity: 0 })}</div>${WEAPON_TYPES[wt].name} <b>skill ${m.lv}</b></span>`; }).join('')));
+  }
+  c.appendChild(el('p', 'bwrule', 'Two daggers or two one-handed weapons fight as a pair. A shield in the off hand blocks better.'));
 }
+const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {
   // ---- hotbar slots ----
   c.appendChild(el('p', 'bookintro', `Hotbar keys <b>1 2 3 4</b>: click a slot, then an ability. Hover an ability for details. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).${G.itemSlots ? ' Keys <b>5 6</b> hold potions and food.' : ''} Weapon attacks are in the <b>Weapons</b> tab (L).`));

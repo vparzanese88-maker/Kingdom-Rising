@@ -215,8 +215,22 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 #mono{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:61;pointer-events:none;text-align:center;font-family:var(--f-t);color:#f6ecd6;text-shadow:0 2px 12px #000,0 0 3px #000;opacity:0;transition:opacity .7s}
 #mono i{display:block;font-size:27px}#mono small{display:block;margin-top:4px;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#cbbd9c;font-style:normal}
 #mono.in{opacity:1}#mono.out{opacity:0}
+.wcard2{max-width:760px;margin:0 auto 12px;padding:14px 16px;border-radius:14px;background:linear-gradient(160deg,rgba(60,42,22,.9),rgba(18,12,7,.9));border:1px solid #5a4020;text-align:left}
+.wcard2.now{border-color:#ffd84a}.wc2h{display:grid;grid-template-columns:54px 1fr;gap:12px;align-items:center;margin-bottom:8px}.wc2h .bi{width:54px;height:54px}.wc2h .bi svg{width:100%;height:100%}.wc2h b{font-size:19px;color:#fff2c8}
+.wskill{margin:4px 0 10px}.wskill span{font-size:14px;color:#f0e0b8}.wskill i{display:block;height:9px;border-radius:5px;background:rgba(0,0,0,.55);margin:4px 0;overflow:hidden}.wskill u{display:block;height:100%;background:linear-gradient(90deg,#c08a30,#ffd84a)}.wskill small{color:#b8a684;font-size:12px}
+.wrow2{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:6px 0;border-top:1px solid rgba(200,160,80,.15);font-size:14px;color:#eadcc0}.wrow2 b{color:#ffd84a}.wrow2.off span{color:#8f8068}.wlock{color:#ff9a6a;font-size:12px;white-space:nowrap}
+.wothers{max-width:760px;margin:6px auto}.wothers h3{margin:4px 0 6px}.wothers span{display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:13px}.wothers .bi{width:26px;height:26px}.wothers .bi svg{width:100%;height:100%}
+
 /* ability book tabs: Abilities (K) and Weapons (L) */
-.booktabs{display:flex;gap:6px}.booktabs button{font-family:var(--f-t);font-size:20px;letter-spacing:.08em;padding:6px 16px;border-radius:9px 9px 0 0;border:1px solid #5a4020;border-bottom:none;background:rgba(30,20,10,.6);color:#bfa880;cursor:pointer}
+#castbar{position:absolute;left:50%;bottom:205px;transform:translateX(-50%);width:260px;text-align:center;pointer-events:none}#castbar b{display:block;font-size:13px;color:#e8d8ff;text-shadow:0 1px 3px #000;margin-bottom:3px}#castbar i{display:block;height:10px;border-radius:5px;background:rgba(0,0,0,.6);border:1px solid #8a6ad0;overflow:hidden}#castbar u{display:block;height:100%;width:0;background:linear-gradient(90deg,#7a4ad0,#d0a0ff)}
+.booktabs{display:flex;gap:6px}
+#chat{position:absolute;left:18px;bottom:150px;width:380px;pointer-events:auto;font-size:13px;line-height:1.4;color:#f0e6d0;text-shadow:0 1px 2px #000;transition:opacity .6s;opacity:.35}
+#chat.awake,#chat:hover,#chat.typing{opacity:1}#chat .ctabs{display:flex;gap:4px;align-items:center;margin-bottom:3px}
+#chat .ctabs button{font-size:11px;padding:2px 9px;border-radius:6px;border:1px solid rgba(200,160,80,.35);background:rgba(0,0,0,.45);color:#cdb98c;cursor:pointer}#chat .ctabs button.on{background:rgba(120,85,30,.8);color:#fff2c8}
+#chat .ctabs small{margin-left:auto;font-size:10px;color:#a8987a}#chat .clist{background:linear-gradient(90deg,rgba(0,0,0,.5),rgba(0,0,0,0));padding:4px 8px;border-radius:6px;min-height:20px;max-height:170px;overflow:hidden}
+#chat .cl.skill{color:#9fd8ff}#chat .cl .sk{color:#ffe08a}#chat .cl .me{color:#ffd84a}#chat .cin{width:100%;margin-top:4px;padding:5px 8px;border-radius:6px;border:1px solid #8a6a30;background:rgba(10,8,4,.85);color:#fff;font-size:13px;outline:none}
+#tracker .qhead{display:flex;justify-content:flex-end;gap:6px;pointer-events:auto}#tracker .qhead button{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid rgba(200,160,80,.4);background:rgba(0,0,0,.5);color:#d8c490;cursor:pointer}#tracker .qhead button.on{background:rgba(140,100,30,.85);color:#fff}
+#tracker .q{position:relative}#tracker .q .qx{position:absolute;left:4px;top:4px;pointer-events:auto;cursor:pointer;font-size:12px;color:#c8b080;opacity:.6}#tracker .q .qx:hover{opacity:1;color:#ff9a6a}.booktabs button{font-family:var(--f-t);font-size:20px;letter-spacing:.08em;padding:6px 16px;border-radius:9px 9px 0 0;border:1px solid #5a4020;border-bottom:none;background:rgba(30,20,10,.6);color:#bfa880;cursor:pointer}
 .booktabs button small{font-family:var(--f-b,sans-serif);font-size:11px;margin-left:6px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.08);color:#d8c8a0}
 .booktabs button.on{background:linear-gradient(180deg,#5a4020,#2a1c0e);color:#ffe8a8}
 .bwl.locked>span{opacity:.6}.bwl small.lk,.bwl .lk{color:#ff9a6a;font-size:11px;white-space:nowrap}.bwl s.lkd{color:#8a7a60}
@@ -245,35 +259,37 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793745971",
-"./src/battle.js": "./src/battle.js?v=1793745971",
-"./src/battledata.js": "./src/battledata.js?v=1793745971",
-"./src/battlemap.js": "./src/battlemap.js?v=1793745971",
-"./src/battlequests.js": "./src/battlequests.js?v=1793745971",
-"./src/battleui.js": "./src/battleui.js?v=1793745971",
-"./src/character.js": "./src/character.js?v=1793745971",
-"./src/classes2.js": "./src/classes2.js?v=1793745971",
-"./src/combat.js": "./src/combat.js?v=1793745971",
-"./src/data.js": "./src/data.js?v=1793745971",
-"./src/fog.js": "./src/fog.js?v=1793745971",
-"./src/game.js": "./src/game.js?v=1793745971",
-"./src/icons.js": "./src/icons.js?v=1793745971",
-"./src/icons2.js": "./src/icons2.js?v=1793745971",
-"./src/main.js": "./src/main.js?v=1793745971",
-"./src/menu.js": "./src/menu.js?v=1793745971",
-"./src/mobs.js": "./src/mobs.js?v=1793745971",
-"./src/mp.js": "./src/mp.js?v=1793745971",
-"./src/mpsync.js": "./src/mpsync.js?v=1793745971",
-"./src/net.js": "./src/net.js?v=1793745971",
-"./src/player.js": "./src/player.js?v=1793745971",
-"./src/sailintro.js": "./src/sailintro.js?v=1793745971",
-"./src/saves.js": "./src/saves.js?v=1793745971",
-"./src/state.js": "./src/state.js?v=1793745971",
-"./src/terrain.js": "./src/terrain.js?v=1793745971",
-"./src/ui.js": "./src/ui.js?v=1793745971",
-"./src/util.js": "./src/util.js?v=1793745971",
-"./src/vfx.js": "./src/vfx.js?v=1793745971",
-"./src/world.js": "./src/world.js?v=1793745971"
+"./src/audio.js": "./src/audio.js?v=1793749375",
+"./src/battle.js": "./src/battle.js?v=1793749375",
+"./src/battledata.js": "./src/battledata.js?v=1793749375",
+"./src/battlemap.js": "./src/battlemap.js?v=1793749375",
+"./src/battlequests.js": "./src/battlequests.js?v=1793749375",
+"./src/battleui.js": "./src/battleui.js?v=1793749375",
+"./src/character.js": "./src/character.js?v=1793749375",
+"./src/chat.js": "./src/chat.js?v=1793749375",
+"./src/classes2.js": "./src/classes2.js?v=1793749375",
+"./src/combat.js": "./src/combat.js?v=1793749375",
+"./src/data.js": "./src/data.js?v=1793749375",
+"./src/fog.js": "./src/fog.js?v=1793749375",
+"./src/game.js": "./src/game.js?v=1793749375",
+"./src/icons.js": "./src/icons.js?v=1793749375",
+"./src/icons2.js": "./src/icons2.js?v=1793749375",
+"./src/main.js": "./src/main.js?v=1793749375",
+"./src/menu.js": "./src/menu.js?v=1793749375",
+"./src/mobs.js": "./src/mobs.js?v=1793749375",
+"./src/mp.js": "./src/mp.js?v=1793749375",
+"./src/mpsync.js": "./src/mpsync.js?v=1793749375",
+"./src/net.js": "./src/net.js?v=1793749375",
+"./src/pets.js": "./src/pets.js?v=1793749375",
+"./src/player.js": "./src/player.js?v=1793749375",
+"./src/sailintro.js": "./src/sailintro.js?v=1793749375",
+"./src/saves.js": "./src/saves.js?v=1793749375",
+"./src/state.js": "./src/state.js?v=1793749375",
+"./src/terrain.js": "./src/terrain.js?v=1793749375",
+"./src/ui.js": "./src/ui.js?v=1793749375",
+"./src/util.js": "./src/util.js?v=1793749375",
+"./src/vfx.js": "./src/vfx.js?v=1793749375",
+"./src/world.js": "./src/world.js?v=1793749375"
 }
 }
 </script>
@@ -1021,6 +1037,6 @@ body.battlefx #buffs{left:18px!important;bottom:92px!important;transform:none!im
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793745971"></script>
+<script type="module" src="./src/main.js?v=1793749375"></script>
 </body>
 </html>

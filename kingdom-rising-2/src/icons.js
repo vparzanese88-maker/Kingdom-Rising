@@ -31,6 +31,7 @@ const S = {
   sword: (o) => blade(50, 8, o.metal || C.steel),
   greatsword: (o) => blade(56, 10, o.metal || C.steel, -45),
   dagger: (o) => blade(32, 7, o.metal || C.steel, -45),
+  dagger: (o) => blade(40, 8, o.metal || C.steel, 30, 32, 32),
   daggers: (o) => cat(blade(34, 7, o.metal || C.steel, -40, 26, 32), blade(34, 7, o.metal || C.steel, 40, 38, 32)),
   mace: (o) => { const m = grad(o.metal || C.steel); return cat(haft(40, -45), { defs: m.def, body: `<g transform="rotate(-45 32 32)"><circle cx="32" cy="14" r="9" fill="url(#${m.id})" ${OUT}/>${[0, 60, 120, 180, 240, 300].map(a => `<path d="M32 14 L${32 + Math.cos(a * Math.PI / 180) * 13} ${14 + Math.sin(a * Math.PI / 180) * 13}" stroke="#140c06" stroke-width="5" stroke-linecap="round"/><path d="M32 14 L${32 + Math.cos(a * Math.PI / 180) * 12} ${14 + Math.sin(a * Math.PI / 180) * 12}" stroke="url(#${m.id})" stroke-width="3" stroke-linecap="round"/>`).join('')}<circle cx="29" cy="11" r="2.5" fill="rgba(255,255,255,.6)"/></g>` }); },
   axe: (o) => { const m = grad(o.metal || C.steel, 'h'); return cat(haft(48, -40), { defs: m.def, body: `<g transform="rotate(-40 32 32)"><path d="M34 10 Q50 8 52 22 Q46 30 34 22 Z" fill="url(#${m.id})" ${OUT}/><path d="M36 12 Q48 11 50 21" stroke="rgba(255,255,255,.6)" stroke-width="1.4" fill="none"/></g>` }); },
@@ -159,7 +160,7 @@ export function itemSvg(it) {
   if (!it) return '';
   if (it.kind === 'weapon') {
     const W = WEAPON_TYPES[it.wt], metal = tri(TIERS[it.tier]?.col || '#9aa1a8');
-    const shape = { sword: 'sword', mace: 'mace', shield: 'shield', swordshield: 'swordshield', maceshield: 'maceshield', swordmace: 'swordmace', greatsword: 'greatsword', greataxe: 'greataxe', warhammer: 'hammer', spear: 'spear', daggers: 'daggers', fists: 'mace', handaxes: 'handaxes', bow: 'bow', musket: 'musket' }[it.wt];
+    const shape = { sword: 'sword', mace: 'mace', shield: 'shield', swordshield: 'swordshield', maceshield: 'maceshield', swordmace: 'swordmace', greatsword: 'greatsword', greataxe: 'greataxe', warhammer: 'hammer', spear: 'spear', daggers: 'daggers', dagger: 'dagger', fists: 'mace', handaxes: 'handaxes', bow: 'bow', musket: 'musket' }[it.wt];
     if (W.kind === 'staff') return svg(S.staff({ orb: { fire: '#ff7a1a', frost: '#7fe0ff', arcane: '#c070ff' }[W.element] }));
     return svg(S[shape]({ metal }));
   }

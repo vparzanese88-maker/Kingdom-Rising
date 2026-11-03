@@ -261,7 +261,9 @@ export function drawMinimap() {
 // ---------- tracker ----------
 export function updateTracker() {
   const h = G.player.h, box = $('tracker'); box.innerHTML = '';
-  const all = Object.keys(h.quests.active), act0 = all.filter(id => !(h.untracked || []).includes(id)).map(id => QUESTS.find(q => q.id === id)).filter(Boolean), mqs = act0.filter(q => q.main), act = [...mqs, ...act0.filter(q => !q.main).slice(-(6 - mqs.length))]; // the main quest always stays on top
+  const all = Object.keys(h.quests.active), act0 = all.filter(id => !(h.untracked || []).includes(id)).map(id => QUESTS.find(q => q.id === id)).filter(Boolean), mqs = act0.filter(q => q.main), act = h.mainOnly ? mqs : [...mqs, ...act0.filter(q => !q.main).slice(-(6 - mqs.length))];
+  // on-screen controls: show only the main quest, or hide a side quest (click when the mouse is free; O also toggles)
+  if (all.length) { const hd = el('div', 'qhead', `<button class="${h.mainOnly ? 'on' : ''}" title="Show only the main quest (O)">${h.mainOnly ? '☑' : '☐'} Main quest only</button>${(h.untracked || []).length ? '<button class="sa" title="Show every quest again">Show all</button>' : ''}`); hd.querySelector('button').onclick = () => { toggleMainOnly(); }; const sa = hd.querySelector('.sa'); if (sa) sa.onclick = () => { h.untracked = []; updateTracker(); }; box.appendChild(hd); } // the main quest always stays on top
   if (!act.length) { if (all.length) return;
     const any = QUESTS.find(q => Game.questState(h, q) === 'available');
     if (any) box.innerHTML = `<div class="q"><b>Find someone to help</b><div>Look for a <span style="color:#ffd84a;font-weight:800">!</span> over a villager's head</div></div>`;
@@ -269,10 +271,12 @@ export function updateTracker() {
   }
   for (const q of act) {
     const ready = Game.questComplete(h, q);
-    const d = el('div', 'q' + (ready ? ' ready' : '') + (q.main ? ' main' : ''), `${q.main ? '<small class="mq">Main quest</small>' : ''}<b>${esc(q.title)}</b>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="${pr >= n ? 'ok' : ''}">${esc(o.label)}${n > 1 ? ` ${pr}/${n}` : pr >= n ? ' ✓' : ''}</div>`; }).join('') + (ready ? `<div class="ok">Return to ${esc(NPCS[q.turnin].name)}</div>` : ''));
+    const d = el('div', 'q' + (ready ? ' ready' : '') + (q.main ? ' main' : ''), `${q.main ? '<small class="mq">Main quest</small>' : ''}<b>${esc(q.title)}</b>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="${pr >= n ? 'ok' : ''}">${esc(o.label)}${n > 1 ? ` ${pr}/${n}` : pr >= n ? ' ✓' : ''}</div>`; }).join('') + (ready ? `<div class="ok">Return to ${esc((q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story"))}</div>` : ''));
+    if (!q.main) { const x = el('span', 'qx', '✕'); x.title = 'Hide this quest from the screen (the Journal, J, can show it again)'; x.onclick = (e) => { e.stopPropagation(); h.untracked = (h.untracked || []).filter(i => i !== q.id); h.untracked.push(q.id); updateTracker(); }; d.appendChild(x); }
     box.appendChild(d);
   }
 }
+export function toggleMainOnly() { const h = G.player.h; h.mainOnly = !h.mainOnly; S.click(); updateTracker(); toast(h.mainOnly ? 'Quest tracker: main quest only' : 'Quest tracker: all quests', '📜'); }
 
 // ---------- windows ----------
 const winRoot = () => $('windows');
@@ -596,11 +600,11 @@ export function openQuestLog() {
   const isT = (q) => !(h.untracked || []).includes(q.id);
   const setT = (q, on) => { h.untracked = (h.untracked || []).filter(x => x !== q.id); if (!on) h.untracked.push(q.id); updateTracker(); openQuestLog(); };
   if (act.length) { const bar = el('div', 'qtrackall'); const a = el('button', 'btn', 'Show all'); a.onclick = () => { h.untracked = []; updateTracker(); openQuestLog(); }; const n = el('button', 'btn', 'Hide all'); n.onclick = () => { h.untracked = act.map(q => q.id); updateTracker(); openQuestLog(); }; bar.append(el('span', 'dim', 'On screen:'), a, n); list.appendChild(bar); }
-  for (const q of act) { const row = el('div', 'qrow'); const tg = el('label', 'qtrack' + (isT(q) ? ' on' : ''), `<input type="checkbox" ${isT(q) ? 'checked' : ''}><span>${isT(q) ? 'Shown' : 'Hidden'}</span>`); tg.title = 'Show this quest on screen'; tg.querySelector('input').onchange = (e) => { S.click(); setT(q, e.target.checked); }; const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${NPCS[q.giver].name}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; row.append(b, tg); list.appendChild(row); }
+  for (const q of act) { const row = el('div', 'qrow'); const tg = el('label', 'qtrack' + (isT(q) ? ' on' : ''), `<input type="checkbox" ${isT(q) ? 'checked' : ''}><span>${isT(q) ? 'Shown' : 'Hidden'}</span>`); tg.title = 'Show this quest on screen'; tg.querySelector('input').onchange = (e) => { S.click(); setT(q, e.target.checked); }; const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${(q.giver && NPCS[q.giver] ? NPCS[q.giver].name : "Main quest")}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; row.append(b, tg); list.appendChild(row); }
   list.appendChild(el('div', '', `<p style="color:var(--dim);font-size:13px;margin-top:10px">Completed: ${h.quests.done.length} / ${QUESTS.length}</p>`));
   if (qSel) {
     const q = qSel;
-    det.innerHTML = `<h3>${esc(q.title)}</h3><p>${esc(q.text)}</p>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="obj" style="${pr >= n ? 'color:var(--good)' : ''}">${pr >= n ? '✓' : '•'} ${esc(o.label)} ${n > 1 ? `(${pr}/${n})` : ''}</div>`; }).join('') + `<p style="color:var(--dim)">Turn in to: <b>${esc(NPCS[q.turnin].name)}</b></p><div class="reward">Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · a piece of gear' : ''}${q.items ? ' · ' + Object.entries(q.items).map(([k, n]) => n + ' ' + ITEMS[k].name).join(', ') : ''}</div>`;
+    det.innerHTML = `<h3>${esc(q.title)}</h3><p>${esc(q.text)}</p>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="obj" style="${pr >= n ? 'color:var(--good)' : ''}">${pr >= n ? '✓' : '•'} ${esc(o.label)} ${n > 1 ? `(${pr}/${n})` : ''}</div>`; }).join('') + `<p style="color:var(--dim)">Turn in to: <b>${esc((q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story"))}</b></p><div class="reward">Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · a piece of gear' : ''}${q.items ? ' · ' + Object.entries(q.items).map(([k, n]) => n + ' ' + ITEMS[k].name).join(', ') : ''}</div>`;
     const ab = el('button', 'btn red', 'Abandon quest'); ab.style.marginTop = '10px'; ab.onclick = () => { delete h.quests.active[q.id]; qSel = null; G.hooks.questsChanged(); openQuestLog(); }; det.appendChild(ab);
   }
   lay.append(list, det); c.appendChild(lay);

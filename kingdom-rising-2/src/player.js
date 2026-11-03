@@ -14,6 +14,7 @@ import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds }
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
 import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv } from './data.js';
 import { BATTLE } from './battlemap.js';
+import { summonPets } from './pets.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -358,7 +359,9 @@ export class Player {
     const p = this.pos.clone(); p.y += this.eye * 0.8; return p.addScaledVector(this.fwd(), 0.5).addScaledVector(this.right(), left ? -0.3 : 0.3);
   }
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
-  speedMul() { let m = 1; if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; return m; }
+  // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
+  wSpeedK() { if (BATTLE || !this.weapon) return 1; return Game.speedOf(this.h, this.weapon.wt); }
+  speedMul() { let m = this.wSpeedK(); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -367,7 +370,7 @@ export class Player {
     if (wt === 'swordmace') return name === 'off1' ? 'blunt' : 'blade';
     if (wt === 'greataxe' || wt === 'handaxes') return 'axe';
     if (wt === 'spear') return 'spear';
-    if (wt === 'daggers') return 'light';
+    if (wt === 'daggers' || wt === 'dagger') return 'light';
     if (wt === 'fists') return 'fist';
     if (this.W && this.W.kind === 'staff') return 'staff';
     return 'blade';
@@ -644,7 +647,7 @@ export class Player {
   ability(i) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
-    if (G.battleFx && ab.needs && !(this.weapon && this.weapon.wt === ab.needs)) { G.hooks.toast && G.hooks.toast(`${ab.name} needs ${WEAPON_TYPES[ab.needs].name} in your hands`, '🗡', 'bad'); S.error(); return; }
+    if (G.battleFx && ab.needs && !(this.weapon && (this.weapon.wt === ab.needs || (ab.needs === 'daggers' && this.weapon.wt === 'dagger')))) { G.hooks.toast && G.hooks.toast(`${ab.name} needs ${WEAPON_TYPES[ab.needs].name} in your hands`, '🗡', 'bad'); S.error(); return; }
     if (G.battleFx && ab.song) { G.hooks.toast && G.hooks.toast(`${ab.name} plays by itself while it is on your hotbar`, '♪', 'gold'); return; }
     const key = 'a' + (i + 1);
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim) { S.error(); return; }
@@ -1033,11 +1036,28 @@ export class Player {
           for (let j = 0; j < 14; j++) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0.3 + Math.random() * 2, (Math.random() - 0.5) * r * 1.6)); V.burst(pk === 'spark' ? 'arcane' : pk, q, 1, { speed: 1.5, vy: pk === 'fire' ? 3 : 1 }); }
           if (k % 2 === 0) S.cast(el || 'arcane', c, 0.6); }, 150 + k * 500);
         anim('castBig', 0.6); return true; }
-      case 'summon': { const n = this.qty(a.n || 1, a.extra || 0); if (G.hooks.summonPet) G.hooks.summonPet(a.pet, this.pos.clone().addScaledVector(f, -2), this.h.level, a.dur || 30, n, !!a.big); S.cast('arcane', this.pos, 1); V.burst(a.pet === 'skeleton' ? 'bone' : 'shadow', this.pos.clone().addScaledVector(f, -2).setY(this.pos.y + 0.5), 40, { speed: 3 }); anim('castBig', 0.6); return true; }
+      case 'summon': { // a 3 s cast at the spot you aim at, then they rise there
+        const n = this.qty(a.n || 1, a.extra || 0), at = groundPoint(14);
+        this.summonCast = { t: 0, dur: 3, at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name };
+        V.ring(at, 1.8, a.pet === 'skeleton' ? '#b080ff' : '#ffb060', 3.1); S.cast('arcane', this.pos, 0.7); anim('cast', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
       case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
     }
     return false;
+  }
+  // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
+  tickSummon(dt) {
+    const c = this.summonCast; c.t += dt;
+    if (this.dead || this.dodge) { this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (!this.dead) G.hooks.toast && G.hooks.toast(`${c.name} was interrupted`, '✋', 'bad'); return; }
+    G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur);
+    if (Math.random() < dt * 30) V.emit(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2.4, 0.1, (Math.random() - 0.5) * 2.4)), { speed: 1, vy: 2, size: 0.3, life: 0.8 });
+    if (Math.random() < dt * 12) V.emit('arcane', this.handPos(), { speed: 0.6, size: 0.2, life: 0.5 });
+    if (c.t < c.dur) return;
+    this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null);
+    const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
+    if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
+    else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big);
+    S.cast('arcane', c.at, 1.2); V.burst(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().setY(c.at.y + 0.5), 50, { speed: 4 }); V.ring(c.at, 2.4, '#d0a0ff', 0.5);
   }
   // Kingdom Battles staffs: hold left click to pour out the staff's element
   // fire: a flamethrower cone that sets enemies burning; frost: an icy cone that slows, then freezes whatever stays in it;
@@ -1241,7 +1261,7 @@ export class Player {
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
     for (const n of G.npcs) if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name);
-    if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, world.myBoatHome.z, 1.3, 'boat', 'Board your boat');
+    if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, clamp(this.pos.z, world.myBoatHome.z - 6, world.myBoatHome.z + 6), 3.2, 'boat', 'Board your boat');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
     if (!G.noHarvest) for (const n of nodesNear(this.pos.x, this.pos.z)) if (n.alive) consider(n, n.x, n.z, n.type.startsWith('tree') ? 0.5 * n.s : n.type === 'cotton' || n.type === 'healroot' ? 0.2 : 0.8 * n.s, 'node', n.def.verb + ' ' + n.def.name);
@@ -1332,6 +1352,7 @@ export class Player {
     const wasBlock = this.block;
     this.block = !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
+    if (this.summonCast) this.tickSummon(dt);
     if (G.battleFx) this.tickChannel(dt);
     if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
     if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);
@@ -1343,7 +1364,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.summonCast ? 0.35 : 1) * (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;

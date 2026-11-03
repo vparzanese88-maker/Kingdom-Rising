@@ -52,6 +52,7 @@ export const WEAPON_TYPES = {
   greataxe: { name: 'Great Axe', hands: 'two', reach: 3.2, area: 6.5, speed: 0.62, block: 0.55, dmg: 1.5, kind: 'melee', parts: ['greataxe'], areaName: 'Reaping Whirl' },
   warhammer: { name: 'Warhammer', hands: 'two', reach: 3.0, area: 7, speed: 0.58, block: 0.55, dmg: 1.55, kind: 'melee', parts: ['warhammer'], areaName: 'Quake Spin' },
   spear: { name: 'Spear', hands: 'two', reach: 4.0, area: 5.5, speed: 0.95, block: 0.55, dmg: 1.12, kind: 'melee', parts: ['spear'], areaName: 'Sweeping Arc' },
+  dagger: { name: 'Dagger', hands: 'one', reach: 2.1, area: 3.5, speed: 1.35, block: 0.4, dmg: 0.8, kind: 'melee', parts: ['dagger'], areaName: 'Triple Stab' },
   daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.9, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
   fists: { name: 'Fist Wraps', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.5, block: 0.4, dmg: 0.82, kind: 'melee', parts: ['fistwrap', 'fistwrap'], areaName: 'Flurry of Fists' },
   handaxes: { name: 'Hand Axes', hands: 'dual', reach: 2.3, area: 4, speed: 1.25, block: 0.45, dmg: 0.88, kind: 'melee', parts: ['handaxe', 'handaxe'], areaName: 'Twin Fury' },
@@ -229,12 +230,12 @@ export const WEAPON_TREE = { melee: WT('melee'), bow: WT('bow'), staff: WT('staf
 export const familyTree = (fam) => WEAPON_TREE[FAMILIES[fam].kind];
 export const MASTERY_CAP = 20;
 export const masteryXpFor = (lv) => 60 + lv * 45;
-export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || W.kind === 'gun' || wt === 'daggers' || wt === 'fists' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
+export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || W.kind === 'gun' || wt === 'daggers' || wt === 'dagger' || wt === 'fists' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
 
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 // right-click special attack for each weapon (dual-wield sets have their own)
-export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
+export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'tripstab', dagger: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
   sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
@@ -242,6 +243,7 @@ export const COMBOS = {
   maceshield: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
   swordmace: { trait: 'Sword crits, mace ignores armour', chain: [{ a: 'swing1', m: 1.0 }, { a: 'off1', m: 1.15, blunt: true }, { a: 'swing3', m: 1.8, d: 1.4, shock: 3, blunt: true }] },
   fists: { trait: 'Bare knuckles: jab, cross, jab, then an uppercut that staggers', chain: [{ a: 'stabR', m: 0.75, d: 0.5 }, { a: 'stabL', m: 0.75, d: 0.5 }, { a: 'stabR', m: 0.8, d: 0.5 }, { a: 'smash', m: 1.9, d: 1.1, stun: 0.6, knock: 6 }] },
+  dagger: { trait: 'A single dagger: quick stabs, and the 4th drives deep', chain: [{ a: 'stabR', m: 0.85, d: 0.6 }, { a: 'stabR', m: 0.9, d: 0.6 }, { a: 'stabR', m: 1.0, d: 0.6 }, { a: 'stabR', m: 2.0, d: 1.1, bleed: true, crit: 0.3 }] },
   daggers: { trait: 'Daggers: lightning fast, the 5th strike is a spinning double slash', chain: [{ a: 'stabR', m: 0.6, d: 0.55 }, { a: 'stabL', m: 0.6, d: 0.55 }, { a: 'stabR', m: 0.65, d: 0.55 }, { a: 'stabL', m: 0.7, d: 0.55 }, { a: 'spin', m: 2.4, d: 1.6, aoe: 3.4, bleed: true, crit: 0.5 }] },
   handaxes: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 0.95, bleed: true }, { a: 'off1', m: 0.95, bleed: true }, { a: 'swing3', m: 1.7, d: 1.3, bleed: true }] },
   greatsword: { trait: 'Greatswords cleave through every enemy in front of you', chain: [{ a: 'swing1', m: 1.1, cleave: true }, { a: 'swing2', m: 1.15, cleave: true }, { a: 'smash', m: 2.2, d: 1.5, cleave: true }] },
@@ -687,8 +689,11 @@ export const QUESTS = [
     text: 'You\'re still in rags. Craft a piece of armour (cloth at the loom, leather at the rack, mail at the forge) and wear it.',
     done: 'Much better. You almost look like you belong here.', obj: [{ t: 'craft', cat: 'Armor', n: 1, label: 'Craft any piece of armour' }, { t: 'equip', cat: 'armor', label: 'Equip a piece of armour' }], xp: 140, gold: 8 },
   { id: 'q_crabs', giver: 'pell', turnin: 'pell', lvl: 1, title: 'Crab Supper',
-    text: 'Those crabs on the beach are fat this year. Fetch me 4 Crab Meat, then cook them into Crab Cakes on the campfire. One for you, one for me... well, three for me.',
-    done: 'Mmm! Just like my mother made. Here, keep the rest.', obj: [{ t: 'collect', item: 'crab_meat', n: 4, label: 'Collect Crab Meat from Shore Crabs' }, { t: 'craft', item: 'crab_cake', n: 4, label: 'Cook Crab Cakes at the Campfire' }], take: { crab_cake: 3 }, xp: 110, gold: 6, items: { potion_heal: 1 } },
+    text: 'Those crabs on the beach are fat this year. Fetch me 4 Crab Meat and I\'ll show you something.',
+    done: 'Fat ones! Now try cooking it up: put that meat on the campfire and make some Crab Cakes.', obj: [{ t: 'collect', item: 'crab_meat', n: 4, label: 'Collect Crab Meat from Shore Crabs' }], xp: 60, gold: 3 },
+  { id: 'q_crabcakes', giver: 'pell', turnin: 'pell', lvl: 1, req: ['q_crabs'], title: 'Crab Cakes',
+    text: 'Take that crab meat to the campfire and cook up 4 Crab Cakes. One for you, one for me... well, three for me.',
+    done: 'Mmm! Just like my mother made. Here, keep the rest.', obj: [{ t: 'craft', item: 'crab_cake', n: 4, label: 'Cook Crab Cakes at the Campfire' }], take: { crab_cake: 3 }, xp: 70, gold: 4, items: { potion_heal: 1 } },
   { id: 'q_litter', giver: 'lyra', turnin: 'lyra', lvl: 2, req: ['q_hides'], title: 'Thinning the Litter',
     text: 'Too many young wolves and bears near the village, raiding the fish racks. Drive some off: defeat 4 Wolf Pups and 3 Bear Cubs.',
     done: 'The racks will be safe for a while.', obj: [{ t: 'kill', mob: 'wolfpup', n: 4, label: 'Defeat Wolf Pups' }, { t: 'kill', mob: 'bearcub', n: 3, label: 'Defeat Bear Cubs' }], xp: 160, gold: 10, gear: true },

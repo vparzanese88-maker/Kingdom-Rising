@@ -23,7 +23,8 @@ export function buildBoat() {
   box(0.08, 0.14, 5.3, M.hullDark, 0, 0.02, 0, g);
   // gunwale rail around the top
   const rail = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 6, 40), M.rail); rail.rotation.x = Math.PI / 2; rail.scale.set(1.15, 2.7, 1); rail.position.y = 0.76; g.add(rail);
-  // floor boards, thwarts (seats)
+  // a solid bottom (keeps the sea out of sight) under the floor boards, thwarts (seats)
+  box(2.05, 0.03, 5.1, M.hullDark, 0, 0.165, 0, g);
   for (let i = -4; i <= 4; i++) box(1.3, 0.04, 0.2, M.plank, 0, 0.18, i * 0.42, g);
   box(1.9, 0.06, 0.32, M.plank, 0, 0.52, -1.25, g); box(2.05, 0.06, 0.3, M.plank, 0, 0.55, 0.35, g); box(1.2, 0.06, 0.28, M.plank, 0, 0.6, 1.7, g);
   // mast, boom and a torn, patched sail
@@ -45,9 +46,11 @@ export function buildBoat() {
   // a hole in the hull side with a rough patch board: the "needs major repairs" part
   box(0.05, 0.3, 0.6, M.hullDark, 1.07, 0.5, -1.4, g, 0, 0, 0.3); box(0.04, 0.22, 0.75, M.plank, 1.1, 0.52, -1.35, g, 0.15, 0, 0.32);
   g.userData.bow = new THREE.Vector3(0, 0.86, 2.55); // where a gull can perch
-  g.userData.seat = new THREE.Vector3(0.48, 1.42, -1.6); // the sailor's eye, sitting at the stern
+  g.userData.seat = new THREE.Vector3(0.45, 1.0, -1.7); // the sailor's eye, standing at the stern (in boat units; the boat is built at 3x)
+  g.scale.set(BOAT_SCALE, BOAT_SCALE * 2 / 3, BOAT_SCALE); // three times longer and wider, twice as deep
   return g;
 }
+export const BOAT_SCALE = 3, BOAT_Y = 0;
 
 // a gull with flapping wings and folding legs
 export function buildGull() {
@@ -75,10 +78,10 @@ export function flap(gull, t, k = 1, folded = false) {
 export function placeHomeBoat(scene) {
   if (world.myBoat || !world.pier) return world.myBoat;
   const P = world.pier, b = buildBoat();
-  const x = P.x - P.w - 1.75, z = P.z1 - 4;
-  b.position.set(x, 0.15, z); b.rotation.y = 0.04; scene.add(b);
+  const x = P.x - P.w - 1.15 * BOAT_SCALE - 0.4, z = P.z1 - 2.7 * BOAT_SCALE - 1;
+  b.position.set(x, BOAT_Y, z); b.rotation.y = 0.04; scene.add(b);
   world.myBoat = b; world.myBoatHome = { x, z, yaw: 0.04 };
   // a rope from the bow to a pier post
-  addBox(x, z, 1.1, 2.6, 0.04, 'boat');
+  addBox(x, z, 1.1 * BOAT_SCALE, 2.6 * BOAT_SCALE, 0.04, 'boat');
   return b;
 }

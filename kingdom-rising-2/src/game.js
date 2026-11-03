@@ -13,9 +13,10 @@ let uid = Date.now() % 1e6;
 
 // ---------- new hero ----------
 // main hand + off hand that fight together (sword + shield, mace + shield, sword + mace)
-const ONE = ['sword', 'mace'];
+const ONE = ['sword', 'mace', 'dagger'];
 export function pairedWt(h) {
   const a = h.equip.w1, b = h.equip.w2; if (!a || !b || !ONE.includes(a.wt)) return null;
+  if (a.wt === 'dagger') return b.wt === 'dagger' ? 'daggers' : null;
   if (b.wt === 'shield') return a.wt === 'sword' ? 'swordshield' : 'maceshield';
   if (ONE.includes(b.wt)) return 'swordmace';
   return null;
@@ -38,7 +39,7 @@ export function newHero(o) {
   };
   // campaign heroes sail in wearing only a few tattered clothes
   if (!BATTLE) { // the campaign: everyone starts with one rusty dagger and learns weapons by using them
-    h.equip.w1 = Object.assign(makeWeapon('daggers', 0, 0), { name: 'Rusty Dagger' }); h.equip.w2 = null; h.wseen = ['daggers'];
+    h.equip.w1 = Object.assign(makeWeapon('dagger', 0, 0), { name: 'Rusty Dagger' }); h.equip.w2 = null; h.wseen = ['dagger'];
   }
   if (!BATTLE) { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
   return h;
@@ -128,7 +129,7 @@ export function makeAcc(slot, tier, rarity = 0) {
 export function itemName(it) { return it.kind ? it.name : (ITEMS[it.id]?.name || it.id); }
 export function itemValue(it) { if (it.kind) return Math.round((4 + it.tier * 10) * (1 + it.rarity * 0.8)); return ITEMS[it.id]?.value || 1; }
 export function itemIcon(it) {
-  if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; return W.kind === 'bow' ? '🏹' : W.kind === 'staff' ? '🪄' : it.wt === 'daggers' ? '🗡' : it.wt === 'spear' ? '🔱' : it.wt.includes('axe') ? '🪓' : it.wt === 'warhammer' || it.wt === 'maceshield' ? '🔨' : '⚔'; }
+  if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; return W.kind === 'bow' ? '🏹' : W.kind === 'staff' ? '🪄' : it.wt === 'daggers' || it.wt === 'dagger' ? '🗡' : it.wt === 'spear' ? '🔱' : it.wt.includes('axe') ? '🪓' : it.wt === 'warhammer' || it.wt === 'maceshield' ? '🔨' : '⚔'; }
   if (it.kind === 'armor') return { head: '⛑', shoulders: '🎽', chest: '🥋', wrists: '⌚', arms: '🦾', hands: '🧤', waist: '🎗', legs: '👖', feet: '🥾' }[it.slot];
   if (it.kind === 'acc') return { neck: '📿', back: '🧣', ring: '💍', trinket: '🔮' }[it.slot];
   return ITEMS[it.id]?.icon || '?';
@@ -206,13 +207,14 @@ export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend('w
 export function resetClass(h) { h.ctree = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 // ---------- weapon skills: what a weapon lets you do grows with its mastery (campaign) ----------
-// melee: strikes 1-2 from the start, 3rd strike at 2, hold attack at 3, 4th strike at 4, F special at 5, the finisher at 6
+// melee: one strike to start, 2nd at mastery 2, 3rd and the hold attack at 3, 4th at 4, F special at 5, the finisher at 6
 // bows and muskets shoot and draw from the start, F at 5; staffs tap-cast from the start, hold stream at 3, F at 5
 export const WM_HOLD = 3, WM_F = 5;
-export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 1, 2, 4, 6][i] || 6; }
+export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 2, 3, 4, 6][i] || 6; }
 export function masteryOf(h, wt) { return BATTLE ? 99 : wm(h, familiesOf(wt)[0]).lv; }
 export function comboLen(h, wt) { const C = COMBOS[wt]; if (!C) return 0; const lv = masteryOf(h, wt); let n = 0; while (n < C.chain.length && stepReq(C.chain.length, n) <= lv) n++; return Math.max(1, n); }
 export function canHold(h, wt) { const W = WEAPON_TYPES[wt]; if (!W || W.kind === 'bow' || W.kind === 'gun') return true; return masteryOf(h, wt) >= WM_HOLD; }
+export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE ? 1 : 0.72 + 0.28 * Math.min(1, (lv - 1) / 14); } // 72% at skill 1, full speed at skill 15
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {
@@ -227,12 +229,13 @@ export function weaponUnlocks(wt) {
 export function seeWeapon(h, wt) { if (!wt || BATTLE) return false; h.wseen = h.wseen || []; if (h.wseen.includes(wt)) return false; h.wseen.push(wt); return true; }
 export function gainMastery(h, wt, n) {
   const m = wm(h, wt); if (m.lv >= MASTERY_CAP) return;
-  m.xp += n;
+  const q0 = Math.floor(m.xp / masteryXpFor(m.lv) * 4); m.xp += n;
+  { const q1 = Math.floor(Math.min(m.xp, masteryXpFor(m.lv) - 1) / masteryXpFor(m.lv) * 4); if (q1 > q0 && G.hooks.masteryTick) G.hooks.masteryTick(wt, m.lv, q1 * 25); }
   while (m.lv < MASTERY_CAP && m.xp >= masteryXpFor(m.lv)) { m.xp -= masteryXpFor(m.lv); m.lv++; G.hooks.masteryUp && G.hooks.masteryUp(wt, m.lv); }
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + (h.level - 1) * LEVEL_GROWTH * 5 + 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && (slot === 'ranged' || slot === 'w3' || h.bowOk)) return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
-function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && it.wt === 'daggers'); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && (it.wt === 'daggers' || it.wt === 'dagger')); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
 export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }

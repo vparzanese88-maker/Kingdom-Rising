@@ -517,7 +517,7 @@ function buildVillage(scene) {
     placeGroup(g, pierX, (z0 + z1) / 2, 0, scene, 0, 2.15); world.pier = { x: pierX, z0, z1, w: pw, y: 2.2 };
     addSurface(pierX, (z0 + z1) / 2, pw, len / 2, 0, 2.2);
     // boats
-    for (const [bxp, bzp, r] of [[4.5, z0 + 32, 0.15], [-12, z0 + 42, -0.2], [5, z0 + 47, 0.3]]) {
+    for (const [bxp, bzp, r] of []) { // (the old rowing boats are gone: only your own boat is moored here)
       const b = new THREE.Group();
       const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M.wood); hull.scale.set(1.1, 0.6, 2.6); hull.material.side = THREE.DoubleSide; b.add(hull);
       bx(2.0, 0.08, 0.3, M.plank, 0, -0.15, 0.5, b); bx(2.0, 0.08, 0.3, M.plank, 0, -0.15, -0.8, b);

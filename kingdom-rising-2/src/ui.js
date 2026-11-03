@@ -260,7 +260,7 @@ export function drawMinimap() {
 // ---------- tracker ----------
 export function updateTracker() {
   const h = G.player.h, box = $('tracker'); box.innerHTML = '';
-  const all = Object.keys(h.quests.active), act = all.filter(id => !(h.untracked || []).includes(id)).map(id => QUESTS.find(q => q.id === id)).filter(Boolean).slice(-6);
+  const all = Object.keys(h.quests.active), act0 = all.filter(id => !(h.untracked || []).includes(id)).map(id => QUESTS.find(q => q.id === id)).filter(Boolean), mqs = act0.filter(q => q.main), act = [...mqs, ...act0.filter(q => !q.main).slice(-(6 - mqs.length))]; // the main quest always stays on top
   if (!act.length) { if (all.length) return;
     const any = QUESTS.find(q => Game.questState(h, q) === 'available');
     if (any) box.innerHTML = `<div class="q"><b>Find someone to help</b><div>Look for a <span style="color:#ffd84a;font-weight:800">!</span> over a villager's head</div></div>`;
@@ -268,7 +268,7 @@ export function updateTracker() {
   }
   for (const q of act) {
     const ready = Game.questComplete(h, q);
-    const d = el('div', 'q' + (ready ? ' ready' : ''), `<b>${esc(q.title)}</b>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="${pr >= n ? 'ok' : ''}">${esc(o.label)}${n > 1 ? ` ${pr}/${n}` : pr >= n ? ' ✓' : ''}</div>`; }).join('') + (ready ? `<div class="ok">Return to ${esc(NPCS[q.turnin].name)}</div>` : ''));
+    const d = el('div', 'q' + (ready ? ' ready' : '') + (q.main ? ' main' : ''), `${q.main ? '<small class="mq">Main quest</small>' : ''}<b>${esc(q.title)}</b>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="${pr >= n ? 'ok' : ''}">${esc(o.label)}${n > 1 ? ` ${pr}/${n}` : pr >= n ? ' ✓' : ''}</div>`; }).join('') + (ready ? `<div class="ok">Return to ${esc(NPCS[q.turnin].name)}</div>` : ''));
     box.appendChild(d);
   }
 }

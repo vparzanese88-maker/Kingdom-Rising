@@ -283,7 +283,7 @@ export class Player {
     const col = w ? (w.rarity >= 2 ? RARITY[w.rarity].col : WEAPON_TYPES[w.wt].element === 'fire' ? '#ff9050' : '#ffffff') : '#fff';
     this.trail.mat.uniforms.color.value.set(col); this.trailL.mat.uniforms.color.value.set(col);
   }
-  place(x, z, yaw) { this.pos.set(x, heightAt(x, z), z); this.yaw = yaw; this.bodyYaw = yaw; this.vel.set(0, 0, 0); }
+  place(x, z, yaw) { this.pos.set(x, groundAt(x, z).h, z); /* stand on piers and bridges, not the ground under them */ this.yaw = yaw; this.bodyYaw = yaw; this.vel.set(0, 0, 0); }
 
   // ---------- input ----------
   onKey(code, down) {
@@ -1235,6 +1235,7 @@ export class Player {
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
     for (const n of G.npcs) if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name);
+    if (world.myBoatHome && !G.battleFx) consider(world.myBoat, world.myBoatHome.x, world.myBoatHome.z, 1.3, 'boat', 'Board your boat');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
     if (!G.noHarvest) for (const n of nodesNear(this.pos.x, this.pos.z)) if (n.alive) consider(n, n.x, n.z, n.type.startsWith('tree') ? 0.5 * n.s : n.type === 'cotton' || n.type === 'healroot' ? 0.2 : 0.8 * n.s, 'node', n.def.verb + ' ' + n.def.name);
@@ -1245,6 +1246,7 @@ export class Player {
     const t = this.findInteract(); if (!t) return;
     if (t.kind === 'npc') G.hooks.talk && G.hooks.talk(t.o);
     else if (t.kind === 'station') G.hooks.station && G.hooks.station(t.o.type);
+    else if (t.kind === 'boat') G.hooks.boat && G.hooks.boat();
     else if (t.kind === 'loot') lootCorpse(this.h, t.o);
     else if (t.kind === 'skin') {
       if (!this.h.tools.knife) { G.hooks.toast && G.hooks.toast('You need a Skinning Knife (Lyra the Huntress has one).', '🔪', 'bad'); S.error(); return; }

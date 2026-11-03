@@ -210,6 +210,13 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 #death h1{font-size:64px;color:#e04a3a;text-shadow:0 4px 20px #000}
 /* intro */
 #intro{position:fixed;inset:0;pointer-events:none}
+#intro.sail .lid{display:none}#intro.sail .sub{font-style:italic;font-size:24px}
+#sailfade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.4s ease;z-index:60}
+#mono{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:61;pointer-events:none;text-align:center;font-family:var(--f-t);color:#f6ecd6;text-shadow:0 2px 12px #000,0 0 3px #000;opacity:0;transition:opacity .7s}
+#mono i{display:block;font-size:27px}#mono small{display:block;margin-top:4px;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#cbbd9c;font-style:normal}
+#mono.in{opacity:1}#mono.out{opacity:0}
+#tracker .q.main b{color:#ffd84a}#tracker .q.main .mq,.q.main .mq{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#e0b050}
+
 #intro .lid{position:absolute;left:-10%;right:-10%;height:52%;background:#000;border-radius:50%}
 #intro .lid.top{top:-2%}#intro .lid.bot{bottom:-2%}
 #intro .sub{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);font-family:var(--f-t);font-size:26px;color:#f3e9d2;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .8s;text-align:center;white-space:nowrap}
@@ -224,34 +231,35 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793742033",
-"./src/battle.js": "./src/battle.js?v=1793742033",
-"./src/battledata.js": "./src/battledata.js?v=1793742033",
-"./src/battlemap.js": "./src/battlemap.js?v=1793742033",
-"./src/battlequests.js": "./src/battlequests.js?v=1793742033",
-"./src/battleui.js": "./src/battleui.js?v=1793742033",
-"./src/character.js": "./src/character.js?v=1793742033",
-"./src/classes2.js": "./src/classes2.js?v=1793742033",
-"./src/combat.js": "./src/combat.js?v=1793742033",
-"./src/data.js": "./src/data.js?v=1793742033",
-"./src/fog.js": "./src/fog.js?v=1793742033",
-"./src/game.js": "./src/game.js?v=1793742033",
-"./src/icons.js": "./src/icons.js?v=1793742033",
-"./src/icons2.js": "./src/icons2.js?v=1793742033",
-"./src/main.js": "./src/main.js?v=1793742033",
-"./src/menu.js": "./src/menu.js?v=1793742033",
-"./src/mobs.js": "./src/mobs.js?v=1793742033",
-"./src/mp.js": "./src/mp.js?v=1793742033",
-"./src/mpsync.js": "./src/mpsync.js?v=1793742033",
-"./src/net.js": "./src/net.js?v=1793742033",
-"./src/player.js": "./src/player.js?v=1793742033",
-"./src/saves.js": "./src/saves.js?v=1793742033",
-"./src/state.js": "./src/state.js?v=1793742033",
-"./src/terrain.js": "./src/terrain.js?v=1793742033",
-"./src/ui.js": "./src/ui.js?v=1793742033",
-"./src/util.js": "./src/util.js?v=1793742033",
-"./src/vfx.js": "./src/vfx.js?v=1793742033",
-"./src/world.js": "./src/world.js?v=1793742033"
+"./src/audio.js": "./src/audio.js?v=1793744175",
+"./src/battle.js": "./src/battle.js?v=1793744175",
+"./src/battledata.js": "./src/battledata.js?v=1793744175",
+"./src/battlemap.js": "./src/battlemap.js?v=1793744175",
+"./src/battlequests.js": "./src/battlequests.js?v=1793744175",
+"./src/battleui.js": "./src/battleui.js?v=1793744175",
+"./src/character.js": "./src/character.js?v=1793744175",
+"./src/classes2.js": "./src/classes2.js?v=1793744175",
+"./src/combat.js": "./src/combat.js?v=1793744175",
+"./src/data.js": "./src/data.js?v=1793744175",
+"./src/fog.js": "./src/fog.js?v=1793744175",
+"./src/game.js": "./src/game.js?v=1793744175",
+"./src/icons.js": "./src/icons.js?v=1793744175",
+"./src/icons2.js": "./src/icons2.js?v=1793744175",
+"./src/main.js": "./src/main.js?v=1793744175",
+"./src/menu.js": "./src/menu.js?v=1793744175",
+"./src/mobs.js": "./src/mobs.js?v=1793744175",
+"./src/mp.js": "./src/mp.js?v=1793744175",
+"./src/mpsync.js": "./src/mpsync.js?v=1793744175",
+"./src/net.js": "./src/net.js?v=1793744175",
+"./src/player.js": "./src/player.js?v=1793744175",
+"./src/sailintro.js": "./src/sailintro.js?v=1793744175",
+"./src/saves.js": "./src/saves.js?v=1793744175",
+"./src/state.js": "./src/state.js?v=1793744175",
+"./src/terrain.js": "./src/terrain.js?v=1793744175",
+"./src/ui.js": "./src/ui.js?v=1793744175",
+"./src/util.js": "./src/util.js?v=1793744175",
+"./src/vfx.js": "./src/vfx.js?v=1793744175",
+"./src/world.js": "./src/world.js?v=1793744175"
 }
 }
 </script>
@@ -995,9 +1003,10 @@ body.battlefx #buffs{left:18px!important;bottom:92px!important;transform:none!im
 </div>
 <div id="clickToPlay" hidden><div style="text-align:center">Click to continue<div style="font-size:16px;color:#d8c8a8;margin-top:6px">Press Esc for the menu</div></div></div>
 <div id="windows"></div>
+<div id="sailfade"></div><div id="mono" hidden></div>
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793742033"></script>
+<script type="module" src="./src/main.js?v=1793744175"></script>
 </body>
 </html>

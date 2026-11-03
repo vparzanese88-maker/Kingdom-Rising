@@ -514,7 +514,7 @@ function buildVillage(scene) {
   { const g = new THREE.Group(); const len = z1 - z0;
     for (let i = 0; i < len / 0.5; i++) { const p = bx(pw * 2, 0.1, 0.45, M.plank, 0, 0, i * 0.5 - len / 2 + 0.25, g); p.rotation.z = (hash2(i, 3) - 0.5) * 0.03; }
     for (let i = 0; i <= len / 4; i++) for (const sx of [-1, 1]) cy(0.13, 0.13, 6, M.beam, sx * pw, -3, i * 4 - len / 2, g, 6);
-    placeGroup(g, pierX, (z0 + z1) / 2, 0, scene, 0, 2.15);
+    placeGroup(g, pierX, (z0 + z1) / 2, 0, scene, 0, 2.15); world.pier = { x: pierX, z0, z1, w: pw, y: 2.2 };
     addSurface(pierX, (z0 + z1) / 2, pw, len / 2, 0, 2.2);
     // boats
     for (const [bxp, bzp, r] of [[4.5, z0 + 32, 0.15], [-12, z0 + 42, -0.2], [5, z0 + 47, 0.3]]) {

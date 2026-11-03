@@ -35,6 +35,8 @@ export function newHero(o) {
     pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), NC ? { w1: makeWeapon(ncPair ? ncPair[0] : NC.start, 0, 0), w2: ncPair ? makeWeapon(ncPair[1], 0, 0) : null } : { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
+  // campaign heroes sail in wearing only a few tattered clothes
+  if (!G.battleFx) { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
   return h;
 }
 

@@ -9,6 +9,7 @@ import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
+import { buildGull, flap, placeHomeBoat } from './sailintro.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
 import { battleLevels, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
@@ -52,7 +53,7 @@ function boot() {
   { const es = new THREE.Scene(); const g = new THREE.SphereGeometry(10, 32, 16); const cols = []; const pa = g.attributes.position; const top = new THREE.Color('#9cc4ec'), hor = new THREE.Color('#f0e4cc'), gnd = new THREE.Color('#5a5040'); for (let i = 0; i < pa.count; i++) { const y = pa.getY(i) / 10; const c = y > 0 ? hor.clone().lerp(top, Math.pow(y, 0.6)) : hor.clone().lerp(gnd, Math.min(1, -y * 3)); cols.push(c.r, c.g, c.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); es.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }))); const sunM = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff4e0').multiplyScalar(6) })); sunM.position.set(5, 6, 3); es.add(sunM);
     const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(es, 0.03).texture; scene.environmentIntensity = 0.55; G.envMap = scene.environment; G.vmScene.environment = scene.environment; G.vmScene.environmentIntensity = 0.7; }
   buildTerrain(scene); water = buildWater(scene); sky = buildSky(scene); fall = buildWaterfall(scene);
-  buildWorld(scene);
+  buildWorld(scene); if (!BATTLE) placeHomeBoat(scene);
   V.init(scene, camera);
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -129,7 +130,7 @@ function startGame(save) {
   Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
-  if (!h.introDone) startIntro(); else { lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
+  if (!h.introDone) startIntro(); else { if (!BATTLE && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
 }
 function saveNow() {
   if (BATTLE) return;
@@ -371,6 +372,9 @@ function hooks() {
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); UI.openDialog(npc); };
+  H.boat = () => { S.step('wood'); const q = G.save.quests;
+    UI.toast("You can't set sail yet: she needs major repairs.", '⛵', 'bad');
+    monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };
   H.progress = (k, l) => UI.progress(k, l);
   H.died = () => { setTimeout(() => { $('death').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }, 1500); };
@@ -421,53 +425,98 @@ function fallTree(n, p) {
   } });
 }
 
-// ---------- intro cinematic ----------
+// ---------- intro cinematic: sailing in ----------
+// First person in your own little boat, far out at sea, with the island only a hazy coast on the horizon.
+// You can look around while she rocks; after half a minute a gull drops in, does its business and leaves,
+// then the scene cuts to the pier with the boat tied up beside you.
+const SAIL = { dur: 30, speed: 4.2, from: { x: -90, z: 1500 } };
 function startIntro() {
   const p = G.player;
-  intro = { t: 0 };
-  $('intro').hidden = false; $('hud').hidden = true;
-  p.vm.g.visible = false;
-  S.wake();
-  const lines = [[2.2, 'Where... where am I?'], [5.8, 'The raft... it\'s wrecked.'], [9.2, 'There\'s a village up the beach.']];
-  intro.lines = lines;
+  const boat = world.myBoat || placeHomeBoat(scene);
+  const home = world.myBoatHome, to = { x: home.x, z: home.z }, yaw = Math.atan2(to.x - SAIL.from.x, to.z - SAIL.from.z);
+  intro = { t: 0, boat, yaw, ly: 0, lp: -0.05, gulls: [], poop: null, fade: 0 };
+  boat.position.set(SAIL.from.x, 0.15, SAIL.from.z); boat.rotation.set(0, yaw, 0);
+  // a few gulls wheel about overhead the whole way in; one of them has plans
+  for (let i = 0; i < 4; i++) { const g = buildGull(); scene.add(g); intro.gulls.push({ g, a: Math.random() * 6.28, r: 9 + Math.random() * 9, y: 8 + Math.random() * 6, sp: 0.35 + Math.random() * 0.25, ph: Math.random() * 6 }); }
+  intro.lander = { g: buildGull(), st: 'away' }; scene.add(intro.lander.g); intro.lander.g.visible = false;
+  $('intro').hidden = false; $('intro').classList.add('sail'); $('hud').hidden = true;
+  p.vm.g.visible = false; p.ch.root.visible = false;
+  G.tod = 0.42; // a bright, clear late morning
+  intro.lines = [[3.0, 'There it is. Land, at last.'], [11.0, 'Easy now, old girl. Not much further.'], [24.6, '...Really?']];
+  M.play('explore'); M.soonSong && M.soonSong();
+  lockPointer();
+}
+function introBoatTo(I, dt) {
+  const b = I.boat, t = I.t;
+  b.position.x += Math.sin(I.yaw) * SAIL.speed * dt; b.position.z += Math.cos(I.yaw) * SAIL.speed * dt;
+  b.position.y = 0.15 + Math.sin(t * 1.05) * 0.14 + Math.sin(t * 0.47 + 1) * 0.07;
+  b.rotation.set(Math.sin(t * 0.62 + 0.8) * 0.035, I.yaw + Math.sin(t * 0.21) * 0.03, Math.sin(t * 0.83) * 0.07, 'YXZ');
+  const sail = b.userData.sail; if (sail) sail.scale.z = 1 + Math.sin(t * 1.7) * 0.06;
 }
 function updateIntro(dt) {
-  const p = G.player, I = intro; I.t += dt;
-  const t = I.t;
-  // eyelids: closed, flutter open, blink, open
-  const open = t < 1.0 ? 0 : t < 1.8 ? (t - 1.0) / 0.8 * 0.35 : t < 2.2 ? 0.35 - (t - 1.8) / 0.4 * 0.35 : t < 3.4 ? (t - 2.2) / 1.2 * 0.8 : t < 3.6 ? 0.8 - (t - 3.4) * 4 * 0.7 : Math.min(1, 0.1 + (t - 3.6) * 1.5);
-  const lidH = 52 - open * 60;
-  document.querySelector('#intro .lid.top').style.height = lidH + '%'; document.querySelector('#intro .lid.bot').style.height = lidH + '%';
-  canvas.style.filter = `blur(${Math.max(0, 6 - t * 1.3).toFixed(1)}px) saturate(${Math.min(1, 0.4 + t * 0.12).toFixed(2)})`;
-  // camera: lying on back looking at sky -> sit up -> stand -> look at raft -> look at village
-  const vy = Math.atan2(VILLAGE.x - p.pos.x, VILLAGE.z - p.pos.z);
-  const raftYaw = Math.atan2(-3, 3.5) + Math.PI * 0;
-  let pitch, yaw, h, roll = 0;
-  const e = (a, b, k) => a + (b - a) * (k < 0 ? 0 : k > 1 ? 1 : (k * k * (3 - 2 * k)));
-  const g = p.ch.height;
-  if (t < 4.5) { pitch = 1.2 + Math.sin(t * 0.8) * 0.03; yaw = vy + 2.6; h = 0.25; roll = 0.25; }
-  else if (t < 6.5) { const k = (t - 4.5) / 2; pitch = e(1.2, -0.25, k); yaw = e(vy + 2.6, vy + 2.2, k); h = e(0.25, 0.9, k); roll = e(0.25, 0, k); }
-  else if (t < 8.5) { const k = (t - 6.5) / 2; pitch = e(-0.25, -0.5, k) + Math.sin(t * 3) * 0.02; yaw = e(vy + 2.2, vy + 2.9, k); h = e(0.9, g * 0.94, k); roll = Math.sin(t * 2) * 0.04 * (1 - k); }
-  else { const k = (t - 8.5) / 2.2; pitch = e(-0.5, 0.0, k); yaw = e(vy + 2.9, vy, k); h = g * 0.94; }
-  if (t > 6.5 && t < 7.0 && !I.stood) { I.stood = true; S.step('sand'); setTimeout(() => S.step('sand'), 250); }
-  camera.rotation.order = 'YXZ'; camera.rotation.set(pitch, yaw + Math.PI, roll);
-  camera.position.set(p.pos.x, p.pos.y + h, p.pos.z);
-  p.yaw = yaw; p.pitch = pitch;
-  A.setListener(camera.position.x, camera.position.y, camera.position.z, yaw + Math.PI);
-  // subtitles
+  const p = G.player, I = intro; I.t += dt; const t = I.t, b = I.boat;
+  introBoatTo(I, dt);
+  // the island only as a far-off coast: push the haze back and draw its trees far away
+  if (water.sea) water.sea.position.set(Math.round(b.position.x / 32) * 32, water.sea.position.y, Math.round(b.position.z / 32) * 32); // the sea reaches the horizon all round
+  // the eye: sitting at the stern, rocking with the boat, free to look around
+  b.updateMatrixWorld(true);
+  const eye = b.userData.seat.clone().applyMatrix4(b.matrixWorld);
+  camera.rotation.order = 'YXZ'; camera.rotation.set(I.lp + b.rotation.x * 0.8, I.yaw + I.ly + Math.PI, b.rotation.z * 0.9);
+  camera.position.copy(eye);
+  p.pos.set(eye.x, 0.3, eye.z); p.yaw = I.yaw + I.ly; p.pitch = I.lp;
+  A.setListener(eye.x, eye.y, eye.z, p.yaw + Math.PI);
+  setAmbience({ sea: 1, wind: 0.55, forest: 0, waterfall: 0, fire: 0, lava: 0, night: 0 });
+  // circling gulls
+  for (const q of I.gulls) { q.a += q.sp * dt; const x = b.position.x + Math.cos(q.a) * q.r, z = b.position.z + Math.sin(q.a) * q.r, y = q.y + Math.sin(t * 0.6 + q.ph) * 1.2; q.g.position.set(x, y, z); q.g.rotation.set(0, Math.atan2(-Math.sin(q.a), Math.cos(q.a)), -0.35); flap(q.g, t * 9 + q.ph, Math.sin(t * 0.5 + q.ph) > 0.2 ? 0.15 : 1); }
+  if (Math.random() < dt * 0.35) S.gull && S.gull({ x: b.position.x + (Math.random() - 0.5) * 30, y: 12, z: b.position.z + (Math.random() - 0.5) * 30 });
+  // the gull that lands on the bow, poops and leaves
+  const L = I.lander, g = L.g, perch = b.userData.bow.clone().applyMatrix4(b.matrixWorld);
+  if (t > 17 && L.st === 'away') { L.st = 'in'; g.visible = true; L.from = new THREE.Vector3(b.position.x + Math.sin(I.yaw) * 40 + 14, 16, b.position.z + Math.cos(I.yaw) * 40); L.t0 = t; S.gull && S.gull(L.from); }
+  if (L.st === 'in') { const k = Math.min(1, (t - L.t0) / 4.2), e = k * k * (3 - 2 * k); g.position.lerpVectors(L.from, perch, e); g.position.y += Math.sin(k * Math.PI) * 2.5; g.lookAt(perch.x, g.position.y, perch.z); flap(g, t * 10, k > 0.8 ? 1.4 : 0.6); if (k >= 1) { L.st = 'perch'; L.t0 = t; S.gull && S.gull(perch); } }
+  if (L.st === 'perch') {
+    g.position.copy(perch); g.position.y += 0.22; g.rotation.set(0, I.yaw + Math.PI + Math.sin(t * 1.3) * 0.5, 0); flap(g, 0, 0, true);
+    if (!I.poop && t - L.t0 > 2.0) { // plop
+      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshStandardMaterial({ color: '#f2f0e6', roughness: 0.4 }));
+      b.add(drop); const lp = b.userData.bow.clone(); lp.y += 0.1; lp.z -= 0.22; drop.position.copy(lp); I.poop = { m: drop, v: 0, landed: false };
+    }
+    if (t - L.t0 > 4.6) { L.st = 'out'; L.t0 = t; L.from = g.position.clone(); L.to = g.position.clone().add(new THREE.Vector3(Math.cos(I.yaw) * 30, 14, -Math.sin(I.yaw) * 30)); S.gull && S.gull(perch); }
+  }
+  if (L.st === 'out') { const k = Math.min(1, (t - L.t0) / 4); g.position.lerpVectors(L.from, L.to, k * k); g.lookAt(L.to); flap(g, t * 11, 1.3); if (k >= 1) { L.st = 'gone'; g.visible = false; } }
+  if (I.poop && !I.poop.landed) { const P = I.poop; P.v += 9.8 * dt; P.m.position.y -= P.v * dt; if (P.m.position.y <= 0.62) { P.landed = true; P.m.position.y = 0.62; P.m.scale.set(2.4, 0.35, 2.0); S.plop && S.plop(); } }
+  // subtitles (your own thoughts)
   const sub = document.querySelector('#intro .sub');
-  let line = ''; for (const [at, l] of I.lines) if (t > at && t < at + 3.0) line = l;
+  let line = ''; for (const [at, l] of I.lines) if (t > at && t < at + 3.2) line = l;
   if (sub.textContent !== line) { sub.style.opacity = 0; setTimeout(() => { sub.textContent = line; sub.style.opacity = line ? 1 : 0; }, line ? 150 : 0); }
-  if (t > 11.5) endIntro();
+  // fade to black, then arrive at the pier
+  const fd = $('sailfade'); if (t > SAIL.dur) { fd.style.opacity = 1; if (t > SAIL.dur + 1.6) endIntro(); }
 }
 function endIntro() {
   if (!intro) return;
-  intro = null; const p = G.player;
-  $('intro').hidden = true; canvas.style.filter = ''; $('hud').hidden = false;
-  p.pitch = 0; G.save.introDone = true; saveNow();
-  UI.banner('Driftwood Coast', 'Washed ashore with nothing...', 3500);
-  setTimeout(() => UI.hint('Head up the beach to the village. Talk to <b>Elder Maren</b>: look for the gold <b style="color:#ffd84a">!</b> above her head and press <span class="kbd">E</span>. Scroll the mouse wheel for third person.', 12000), 1500);
+  const I = intro; intro = null; const p = G.player;
+  for (const q of I.gulls) scene.remove(q.g); scene.remove(I.lander.g);
+  if (I.poop) { I.boat.remove(I.poop.m); I.poop.m.scale.set(2.4, 0.35, 2.0); I.poop.m.position.y = 0.62; I.boat.add(I.poop.m); } // it stays. of course it stays.
+  if (water.sea) water.sea.position.set(0, water.sea.position.y, 0);
+  const H0 = world.myBoatHome; I.boat.position.set(H0.x, 0.15, H0.z); I.boat.rotation.set(0, H0.yaw, 0);
+  // standing on the pier beside her
+  const P = world.pier, sx = P.x - 0.3, sz = H0.z - 6.5; p.place(sx, sz, Math.atan2(H0.x - sx, H0.z - sz)); p.ch.root.visible = true; p.pos.y = P.y + 0.02; if (p.vel) p.vel.set(0, 0, 0); p.onGround = true;
+  $('intro').hidden = true; $('intro').classList.remove('sail'); canvas.style.filter = ''; $('hud').hidden = false;
+  p.pitch = -0.1; G.save.introDone = true;
+  startMainQuest(G.save);
+  saveNow();
+  const fd = $('sailfade'); setTimeout(() => { fd.style.opacity = 0; }, 400);
+  setTimeout(() => monologue('I should see if I can find someone who can fix my boat.'), 1800);
+  setTimeout(() => UI.banner('Driftwood Coast', 'Main quest: Repairs at Sea\'s End', 3500), 7600);
+  setTimeout(() => UI.hint('The village is up the pier. People there may know a shipwright. Look for the gold <b style="color:#ffd84a">!</b> above heads and press <span class="kbd">E</span> to talk. Press <span class="kbd">E</span> at your boat to check on her. Scroll the mouse wheel for third person.', 12000), 11500);
   lockPointer();
+}
+// your own thoughts, shown in italics low on the screen
+function monologue(text, ms = 5200) {
+  const m = $('mono'); m.innerHTML = `<i>“${text}”</i><small>to yourself</small>`; m.hidden = false; m.classList.remove('out'); void m.offsetWidth; m.classList.add('in');
+  clearTimeout(monologue.t); monologue.t = setTimeout(() => { m.classList.remove('in'); m.classList.add('out'); setTimeout(() => { m.hidden = true; }, 700); }, ms);
+}
+function startMainQuest(h) {
+  const q = QUESTS.find(x => x.id === 'mq_boat'); if (!q || h.quests.done.includes(q.id) || h.quests.active[q.id]) return;
+  Game.acceptQuest(h, q); h.trackQ = h.trackQ || null; UI.updateTracker();
 }
 
 // ---------- input ----------
@@ -502,7 +551,7 @@ function input() {
   });
   addEventListener('mouseup', (e) => { if (mode === 'game' && G.player && document.pointerLockElement) G.player.onMouse(e.button, false); else if (G.player) G.player.press = null; });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  addEventListener('mousemove', (e) => { if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
+  addEventListener('mousemove', (e) => { if (intro && document.pointerLockElement) { const k = 0.0032 * (settings.sens || 1); intro.ly = Math.max(-2.6, Math.min(2.6, intro.ly - e.movementX * k)); intro.lp = Math.max(-1.0, Math.min(1.1, intro.lp - e.movementY * k)); return; } if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
   addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) G.player.onWheel(e.deltaY); }, { passive: true });
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
@@ -540,6 +589,7 @@ function updateDayNight(dt, focus) {
   if (zn === 'ashlands') fogC.lerp(new THREE.Color('#5a3a30'), 0.55); if (zn === 'highlands') fogC.lerp(new THREE.Color('#d8e4f0'), 0.25); if (zn === 'wood') fogC.lerp(new THREE.Color('#5a7a5a'), 0.15);
   scene.fog.color.lerp(fogC, Math.min(1, dt * 2)); const vd = settings.viewDist;
   scene.fog.near = (zn === 'ashlands' ? 60 : zn === 'wood' ? 90 : 140) * vd; scene.fog.far = (zn === 'ashlands' ? 420 : zn === 'wood' ? 520 : 900) * vd;
+  if (intro) { scene.fog.near = 350; scene.fog.far = 2600; } // sailing in: the island is a hazy coast on the horizon
   scene.background = null;
   for (const m of water.mats) { m.uniforms.time.value = G.time; m.uniforms.sunDir.value.copy(sd); m.uniforms.sky.value.copy(c.hor); m.uniforms.sunCol.value.copy(c.sun).multiplyScalar(night > 0.5 ? 0.2 : 1); m.uniforms.light.value = 0.35 + c.light * 0.5; m.uniforms.fogColor && m.uniforms.fogColor.value.copy(scene.fog.color); m.uniforms.fogNear && (m.uniforms.fogNear.value = scene.fog.near); m.uniforms.fogFar && (m.uniforms.fogFar.value = scene.fog.far); }
   fall.mat.uniforms.time.value = G.time; fall.mat.uniforms.light.value = 0.4 + c.light * 0.5;
@@ -561,6 +611,7 @@ function updateFires(dt, focus) {
   if (focus.distanceTo(fall.base) < 160) for (let i = 0; i < 3; i++) { V.norm.spawn(fall.base.x - 3 + Math.random() * 3, fall.base.y + 0.5, fall.base.z + (Math.random() - 0.5) * 10, Math.random() * 3, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 2, 2.2, 1.2, 5, MIST0, MIST1, 0.35, 0, -0.2, 0.4); }
   // flags & boats
   if (world.flags) for (const f of world.flags) { const a = f.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i) + 0.6; a.setZ(i, Math.sin(G.time * 4 + x * 3) * 0.12 * x); } a.needsUpdate = true; }
+  if (world.myBoat && !intro) { const b = world.myBoat, H0 = world.myBoatHome; b.position.y = 0.15 + Math.sin(G.time * 1.1) * 0.08; b.rotation.set(Math.sin(G.time * 0.7) * 0.015, H0.yaw, Math.sin(G.time * 0.9 + 1) * 0.035); }
   if (world.boats) world.boats.forEach((b, i) => { b.position.y = 0.3 + Math.sin(G.time * 1.2 + i) * 0.12; b.rotation.z = Math.sin(G.time * 0.9 + i * 2) * 0.05; });
 }
 const SMK0 = new THREE.Color('#8a8480'), SMK1 = new THREE.Color('#5a5654'), MIST0 = new THREE.Color('#ffffff'), MIST1 = new THREE.Color('#c8dce8');
@@ -675,7 +726,7 @@ function gameUpdate(dt) {
   G.night = updateDayNight(dt, focus);
   updateFires(dt, focus);
   updateZone(p);
-  cullChunks(focus.x, focus.z, 480 * settings.viewDist, settings.shadows);
+  cullChunks(focus.x, focus.z, intro ? 1500 : 480 * settings.viewDist, settings.shadows && !intro);
   updateGrass(focus.x, focus.z, settings.grass);
   updateBirds(G.time, dt);
   updateAmbient(dt, focus.x, focus.y, focus.z, G.zone, G.night);
@@ -693,7 +744,7 @@ function gameUpdate(dt) {
 M.play('title');
 setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
 addEventListener('pointerdown', function early() { A.init(); removeEventListener('pointerdown', early); }, { once: true });
-window.KR2 = { G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
+window.KR2 = { get intro() { return intro; }, G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
 // online host in a hidden tab: keep the battle running on a timer so nobody's game freezes
 setInterval(() => { if (BATTLE && MP.on && MP.host && document.hidden && mode === 'game' && G.player) { G.time += 0.1; world.time.value = G.time; gameUpdate(0.1); } }, 100);
 setTimeout(() => { if (BATTLE && SETUP.mp) lobby().then(() => { computeLayout(); applyBattleTerrain(); boot(); }); else boot(); }, 60);

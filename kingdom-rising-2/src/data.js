@@ -637,8 +637,12 @@ export const NPCS = {
 
 // Quests. obj types: talk(npc), collect(item,n), kill(mob,n), craft(item|cat,n), equip(slot), reach(x,z,r,label)
 export const QUESTS = [
+  // Main quest. Chapter 1 stops here for now: the objective stays open until the next part of the story is written.
+  { id: 'mq_boat', main: true, giver: null, turnin: null, lvl: 1, title: 'Repairs at Sea\'s End',
+    text: 'You made it to Driftwood Coast, but only just. Your little boat limped in with a split plank and a torn sail, and she will not carry you anywhere until someone with real skill puts her right. Somebody in the village must know a shipwright.',
+    done: '', obj: [{ t: 'story', n: 1, label: 'Find someone who can repair your boat' }], xp: 0, gold: 0 },
   { id: 'q_stranger', giver: 'maren', turnin: 'bram', lvl: 1, title: 'A Stranger from the Sea',
-    text: 'You washed up with nothing but salt in your hair. If you mean to stay, you\'ll need to earn your keep. Bram the woodcutter, by the workbench, can teach you to fell a tree.',
+    text: 'You sailed in on a boat held together with rope and hope, wearing little more than rags. If you mean to stay while she is mended, you\'ll need to earn your keep. Bram the woodcutter, by the workbench, can teach you to fell a tree.',
     done: 'Maren sent you? Then let\'s get you an axe.', obj: [{ t: 'talk', npc: 'bram', label: 'Speak with Bram the woodcutter' }], xp: 40, gold: 2 },
   { id: 'q_timber', giver: 'bram', turnin: 'bram', lvl: 1, req: ['q_stranger'], title: 'Timber for the Shore',
     text: 'Take this old hatchet. Walk up to any tree, look at it and press E to chop. Bring me 6 Wood and we\'ll see what you\'re made of.',

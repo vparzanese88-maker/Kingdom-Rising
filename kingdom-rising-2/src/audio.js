@@ -361,6 +361,11 @@ export const S = {
   zone() { if (!ctx) return; const o = out(null, sfxBus, 0.7); const t = now(); [196, 294, 392].forEach((f, i) => tone(t + i * 0.2, 2.4, o.node, { type: 'sawtooth', f, gain: 0.035, a: 0.3 })); },
   wake() { if (!ctx) return; const o = out(null, sfxBus, 0.4); const t = now(); tone(t, 3, o.node, { type: 'sine', f: 60, gain: 0.25, a: 1 }); noise(t, 3, o.node, { type: 'lowpass', f: 200, gain: 0.2, a: 1 }); },
   heartbeat() { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now(); tone(t, 0.15, o.node, { type: 'sine', f: 55, f2: 40, gain: 0.5 }); tone(t + 0.22, 0.15, o.node, { type: 'sine', f: 50, f2: 38, gain: 0.35 }); },
+  // a seagull's cry: two or three falling 'kee-ow' calls
+  gull(pos) { if (!ctx) return; const o = out(pos || { x: listener.x + rnd(-20, 20), y: 14, z: listener.z + rnd(-20, 20) }, ambBus, 0.3), t = now(), n = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) { const t0 = t + i * rnd(0.32, 0.42); tone(t0, 0.28, o.node, { type: 'sawtooth', f: rnd(1500, 1750), f2: rnd(850, 1000), gain: 0.03 }); tone(t0, 0.28, o.node, { type: 'square', f: rnd(2900, 3300), f2: 1800, gain: 0.006 }); } },
+  // something small and wet landing on wood
+  plop() { if (!ctx) return; const o = out(null, sfxBus, 0.05), t = now(); tone(t, 0.09, o.node, { type: 'sine', f: 420, f2: 140, gain: 0.12 }); noise(t, 0.06, o.node, { type: 'lowpass', f: 900, gain: 0.08, a: 0.002, d: 0.06 }); },
   stealth() { if (!ctx) return; const o = out(null, sfxBus, 0.4); noise(now(), 1.0, o.node, { type: 'lowpass', f: 2000, f2: 300, gain: 0.35, a: 0.01 }); },
 };
 
@@ -565,6 +570,7 @@ function startSong(now) {
 function routeEl(el) { if (!ctx || el._routed) return; try { const s = ctx.createMediaElementSource(el); s.connect(musicBus); el._routed = true; } catch (e) { el._routed = 'no'; } }
 const musicVol = (el) => (el && el._routed === true ? 1 : settings.master * settings.music);
 export const M = {
+  soonSong() { song.silenceUntil = performance.now() + 1500; },
   play(name) { wanted = name; track = name; if (name === 'explore') { song.silenceUntil = performance.now() + 4000; } },
   setCombat(on) { inCombat = on; },
   setBoss(on) { bossOn = on; },

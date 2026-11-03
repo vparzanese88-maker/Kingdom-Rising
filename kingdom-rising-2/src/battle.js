@@ -1111,9 +1111,9 @@ function onStructDown(s, src) {
   else if (t.isMe || t.owner != null) tsay(t, 'captain', `our ${s === t.towers[0] ? 'right' : 'left'} archer tower has fallen!`, 'bad');
   else if (killer && (killer.isMe || killer.owner != null)) tsay(killer, 'captain', `an enemy tower at ${t.name} lies in ruins. Well fought!`, 'good');
 }
-// xp is shared, unsplit, with allied heroes close by
+// xp is shared, unsplit: every player on the side gets it wherever they are (computer heroes only when close by)
 function giveXp(town, src, n, at) {
-  for (const h of allHeroes()) { if (h.dead || h.team !== town.team) continue; if (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else if (h.remote) send({ t: 'xp', to: h.netId, n }); else heroXp(h, n); }
+  for (const h of allHeroes()) { if (h.team !== town.team) continue; const player = h === G.player || h.remote; if (!player && (h.dead || (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45))) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else if (h.remote) send({ t: 'xp', to: h.netId, n }); else heroXp(h, n); }
 }
 function eliminate(t, by) {
   t.dead = true;

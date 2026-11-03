@@ -261,8 +261,8 @@ function startBattle() {
   setTimeout(() => BUI.report('steward', `welcome home. I will run ${t.name} for you: hire the workers, gather wood and stone and raise the walls. You lead the fight. Hunt the beasts of the wilds, grow strong, and break the enemy halls.`, 'big'), 2500);
   setTimeout(() => BUI.report('captain', 'the army will march when it is ready. Press B any time for a war report or to give orders.', 'war'), 9000);
 }
-// how close a hero must be to share a kill (XP and their own loot roll)
-const SHARE_R = 60;
+// every player on the same side shares every kill (full XP and their own loot roll), wherever they are
+const SHARE_R = Infinity;
 function battleHooks() {
   const H = G.hooks;
   // kills: XP and your own loot go straight to you (auto loot), gold goes to the town
@@ -272,10 +272,10 @@ function battleHooks() {
     if (MP.on && MP.host && !mob._shared) {
       mob._shared = true;
       const team = src && src.team != null ? src.team : Battle.B.myTeam;
-      for (const r of MP.remotes.values()) if (!r.dead && r.team === team && Math.hypot(r.pos.x - mob.pos.x, r.pos.z - mob.pos.z) < SHARE_R) mpSend({ t: 'kill', to: r.netId, i: mob.netIdx });
+      for (const r of MP.remotes.values()) if (r.team === team && Math.hypot(r.pos.x - mob.pos.x, r.pos.z - mob.pos.z) < SHARE_R) mpSend({ t: 'kill', to: r.netId, i: mob.netIdx });
       if (team !== Battle.B.myTeam) return;
     } else if (src && src.remote) return;
-    const p = G.player; if (!p || p.dead || (!fromHost && mob.pos.distanceTo(p.pos) > SHARE_R)) return;
+    const p = G.player; if (!p || (!fromHost && mob.pos.distanceTo(p.pos) > SHARE_R)) return;
     Game.onKill(G.save, mob);
     BQ.questKill(mob);
     if (!mob.loot) return;

@@ -26,7 +26,7 @@ export function hostTick(dt) {
   mobList.forEach((mb, i) => { const L = lastMobs[i]; const st = [r1(mb.pos.x), r1(mb.pos.z), r2(mb.yaw), Math.round(mb.hp), mb.dead ? 1 : 0, mb.action ? 1 : 0]; if (!L || Math.abs(L[0] - st[0]) > 0.15 || Math.abs(L[1] - st[1]) > 0.15 || L[3] !== st[3] || L[4] !== st[4] || L[5] !== st[5] || Math.abs(L[2] - st[2]) > 0.1) { m.push([i, ...st]); lastMobs[i] = st; } });
   const s = B.structs.map(x => [Math.round(x.hp), x.level, x.dead ? 1 : 0, x.building ? 1 : 0]);
   const tw = B.towns.map(t => [t.level, t.building ? [r1(t.building.t), t.building.dur] : 0, Math.round(t.isMe ? G.save.gold : t.bank.gold), Math.round(t.bank.wood), Math.round(t.bank.stone), t.dead ? 1 : 0, t.up || {}]);
-  const p = G.player, h = p ? [r1(p.pos.x), r1(p.pos.y), r1(p.pos.z), r2(p.yaw), Math.round(p.hp), Math.round(p.maxHp), p.dead ? 1 : 0, G.save.level, p.atk ? p.atk.name : '', r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), p.weapon ? p.weapon.wt : '', backOf()] : null;
+  const p = G.player, h = p ? [r1(p.pos.x), r1(p.pos.y), r1(p.pos.z), r2(p.yaw), Math.round(p.hp), Math.round(p.maxHp), p.dead ? 1 : 0, G.save.level, p.atk ? p.atk.name : '', r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), p.weapon ? p.weapon.wt : '', backOf(), G.save.kills || 0, G.save.deaths || 0] : null;
   send({ t: 'snap', time: r1(B.time), u, m, s, tw, h, fx: fxQueue.splice(0), over: B.over ? B.result : 0, overTeam: B.winTeam });
 }
 // ---------- every player ----------
@@ -34,13 +34,15 @@ const backOf = () => { const e = G.save && G.save.equip; return e ? [e.w3, e.w4]
 export function meTick(dt) {
   if (MP.host) return; meT -= dt; if (meT > 0) return; meT = 0.066;
   const p = G.player; if (!p) return;
-  send({ t: 'me', s: { x: r1(p.pos.x), y: r1(p.pos.y), z: r1(p.pos.z), yaw: r2(p.yaw), hp: Math.round(p.hp), mhp: Math.round(p.maxHp), dead: p.dead ? 1 : 0, lv: G.save.level, act: p.atk ? p.atk.name : '', spd: r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), wt: p.weapon ? p.weapon.wt : '', bk: backOf() } });
+  send({ t: 'me', s: { x: r1(p.pos.x), y: r1(p.pos.y), z: r1(p.pos.z), yaw: r2(p.yaw), hp: Math.round(p.hp), mhp: Math.round(p.maxHp), dead: p.dead ? 1 : 0, lv: G.save.level, act: p.atk ? p.atk.name : '', spd: r1(p.vel ? Math.hypot(p.vel.x, p.vel.z) : 0), wt: p.weapon ? p.weapon.wt : '', bk: backOf(), k: G.save.kills || 0, de: G.save.deaths || 0 } });
 }
+// which town a player belongs to (friends can share a town)
+export const townOf = (id) => B.towns.find(x => (x.members || []).includes(id) || x.owner === id);
 function remoteFor(netId) {
   let r = MP.remotes.get(netId); if (r || netId === MP.myId) return r;
   const info = MP.players.get(netId); if (!info) return null;
-  const t = B.towns.find(x => x.owner === netId); if (!t) return null;
-  r = new RemoteHero(netId, info, t); t.leader = r; return r;
+  const t = townOf(netId); if (!t || !info.cls) return null; // no hero until they have made one
+  r = new RemoteHero(netId, info, t); if (!t.isMe && !t.leader) t.leader = r; return r;
 }
 // ---------- client: apply a snapshot ----------
 const unitById = new Map();
@@ -76,7 +78,7 @@ function applySnap(d) {
     if (dead && !t.dead) { t.dead = true; G.hooks.banner && G.hooks.banner(`${t.name} has fallen!`, '', 3500); }
   });
   // host hero
-  if (d.h) { const r = remoteFor(0); if (r) { const [x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk] = d.h; r.netState({ x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk }); } }
+  if (d.h) { const r = remoteFor(0); if (r) { const [x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de] = d.h; r.netState({ x, y, z, yaw, hp, mhp, dead, lv, act, spd, wt, bk, k, de }); } }
   for (const f of d.fx) shootVisual(f);
   { const me = myTown(); if (me.dead && !B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver('defeat'); }
     if (d.over && !B.over) { B.over = true; const res = d.overTeam != null && d.overTeam === me.team ? 'victory' : 'defeat'; B.result = res; if (!B.shownEnd) { B.shownEnd = true; G.hooks.matchOver && G.hooks.matchOver(res); } } }
@@ -122,14 +124,14 @@ export function onData(from, d) {
     case 'xp': if (d.to === MP.myId) G.hooks.battleXp && G.hooks.battleXp(d.n); break;
     case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player); } } break;
     case 'horn': if (MP.client && G.hooks.warHorn) G.hooks.warHorn(d); break;
-    case 'qreward': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (t) questReward(t, d.id); } break;
+    case 'qreward': if (MP.host) { const t = townOf(from); if (t) questReward(t, d.id); } break;
     case 'say': if (d.to === MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     case 'teamsay': if (B.towns.length && myTown().team === d.team && from !== MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     // a player's economy and orders, handled by the host for their town
-    case 'gold': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (t) bank(t, 'gold', d.n); } break;
-    case 'order': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (!t) break; if (d.kind === 'attack') sendAttack(t, d.target, d.frac || 1); else if (d.kind === 'recall') recall(t); else if (d.kind === 'follow') setFollow(t); } break;
-    case 'fx': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (!t) break; const at = new THREE.Vector3(d.x, 0, d.z); if (d.heal) allyHeal(at, d.r, d.heal, t.team, remoteFor(from)); if (d.kind) allyBuff(at, d.r, d.kind, d.dur, t.team, remoteFor(from)); } break;
-    case 'summon': if (MP.host) { const t = B.towns.find(x => x.owner === from); if (t) summonWolves(new THREE.Vector3(d.x, 0, d.z), d.lv, d.dur, t); } break;
+    case 'gold': if (MP.host) { const t = townOf(from); if (t) bank(t, 'gold', d.n); } break;
+    case 'order': if (MP.host) { const t = townOf(from); if (!t) break; if (d.kind === 'attack') sendAttack(t, d.target, d.frac || 1); else if (d.kind === 'recall') recall(t); else if (d.kind === 'follow') setFollow(t); } break;
+    case 'fx': if (MP.host) { const t = townOf(from); if (!t) break; const at = new THREE.Vector3(d.x, 0, d.z); if (d.heal) allyHeal(at, d.r, d.heal, t.team, remoteFor(from)); if (d.kind) allyBuff(at, d.r, d.kind, d.dur, t.team, remoteFor(from)); } break;
+    case 'summon': if (MP.host) { const t = townOf(from); if (t) summonWolves(new THREE.Vector3(d.x, 0, d.z), d.lv, d.dur, t); } break;
   }
 }
 const pendingRoster = [];

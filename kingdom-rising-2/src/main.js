@@ -16,7 +16,7 @@ import { Player } from './player.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
-import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL } from './menu.js';
+import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL, showCreator } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, SETUP, LAYOUT, computeLayout } from './battlemap.js';
 import { MP, lobby, send as mpSend } from './mp.js';
@@ -96,7 +96,9 @@ function boot() {
   addEventListener('resize', onResize); onResize();
   input();
   $('loading').hidden = true;
-  if (BATTLE) startBattle(); else { mode = 'title'; showTitle(); }
+  // online: the world is ready, now everyone makes their hero for this match
+  if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: mt.race }] } }); }
+  else if (BATTLE) startBattle(); else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); goFull(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -237,7 +239,7 @@ function spawnBattleNpcs() {
 }
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
-  const h = Game.newHero({ name: cfg.name || 'Hero', race: t.race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
+  const h = Game.newHero({ name: cfg.name || 'Hero', race: (MP.on && cfg.race) || t.race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
   G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true; G.noHarvest = true;
@@ -294,7 +296,7 @@ function battleHooks() {
   H.trained = (u) => UI.toast(`${u.name} ready`, '⚔', 'gold');
   H.talk = (npc) => { S.click(); if (npc.def.battleRole) BUI.openNpc(npc.def.battleRole); else UI.openDialog(npc); };
   const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, Icons.coin(), 'gold'); };
-  H.died = () => BUI.died();
+  H.died = () => { G.save.deaths = (G.save.deaths || 0) + 1; BUI.died(); };
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);
   H.rally = () => {};
   H.allyFx = (p, [r, heal, kind, dur], up) => { const R = r * Math.sqrt(up); if (MP.client) mpSend({ t: 'fx', x: p.x, z: p.z, r: R, heal: heal ? heal * up : 0, kind: kind || null, dur: dur ? dur * up : 0 }); else { if (heal) Battle.allyHeal(p, R, heal * up); if (kind) Battle.allyBuff(p, R, kind, dur * up); } V.ring(p, R, heal ? '#80ff90' : kind === 'ward' ? '#80d8ff' : '#ffd84a', 0.7); }
@@ -311,7 +313,7 @@ function battleHooks() {
     if (!Battle.B.towns.length) return;
     if (id === 0 && MP.client) { UI.banner('The host left the game', 'The battle has ended', 6000); setTimeout(() => { location.href = location.pathname; }, 6000); return; }
     const info = MP.players.get(id); const r = MP.remotes.get(id); if (r) { r.remove(); const i = G.mobs.indexOf(r); if (i >= 0) G.mobs.splice(i, 1); MP.remotes.delete(id); }
-    const t = Battle.B.towns.find(x => x.owner === id); if (t) { t.owner = null; t.ai = true; t.leader = null; }
+    const t = Battle.B.towns.find(x => (x.members || []).includes(id) || x.owner === id); if (t) { t.members = (t.members || []).filter(m => m !== id); if (t.leader === r) t.leader = null; if (!t.members.length && !t.isMe) { t.owner = null; t.ai = true; } else if (t.owner === id) t.owner = t.members.find(m => m !== MP.myId) ?? null; }
     BUI.report('scout', `${info ? info.name : 'a player'} has left the battle. The computer takes over their town.`, '');
   };
   H.sentry = (x, z, lv) => Battle.placeSentry(x, z, lv);
@@ -447,7 +449,7 @@ function input() {
     if (e.target.tagName === 'INPUT') return;
     if (mode !== 'game') { if (e.code === 'Escape' && $('windows').children.length) UI.closeWin(); return; }
     if (intro) { if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') endIntro(); return; }
-    if (e.code === 'Tab') e.preventDefault();
+    if (e.code === 'Tab') { e.preventDefault(); if (BATTLE && mode === 'game' && !e.repeat) BUI.scoreboard(true); }
     const p = G.player;
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
@@ -462,7 +464,7 @@ function input() {
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
-  addEventListener('keyup', (e) => { G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
+  addEventListener('keyup', (e) => { if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   canvas.addEventListener('mousedown', (e) => {
     if (mode !== 'game' || intro) return;

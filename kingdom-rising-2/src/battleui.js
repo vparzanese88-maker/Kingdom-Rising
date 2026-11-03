@@ -254,6 +254,26 @@ function tabJobs(body, t, giver) {
 }
 // quick accept with E straight from the job window
 export function jobKey() { if (!G.uiOpen) return false; const g = menu === 'hunt' || menu === 'quarter' ? menu : null; if (!g || BQ.Q.active[g] || !BQ.nextFor(g)) return false; BQ.accept(g); render(); questTrack(); return true; }
+// hold Tab: everyone in the game, players first, with their class, level, town and how the fight is going
+export function scoreboard(on) {
+  let d = document.getElementById('scoreb');
+  if (!on) { if (d) d.remove(); clearInterval(scoreboard.iv); return; }
+  if (!d) { d = el('div', ''); d.id = 'scoreb'; document.body.appendChild(d); }
+  const RN2 = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
+  const fill = () => {
+    const rows = [], p = G.player, h = G.save, my = myTown();
+    if (p && h) rows.push({ me: true, name: h.name, cls: CLASSES[h.cls].name, race: RN2[h.race] || h.race, lv: h.level, town: my, hp: p.hp, mhp: p.maxHp, dead: p.dead, k: h.kills || 0, de: h.deaths || 0, gear: gearScore(h), who: 'Player' });
+    for (const r of MP.remotes.values()) { const t = r.town, info = r.info || {}; rows.push({ name: r.heroName, cls: CLASSES[info.cls] ? CLASSES[info.cls].name : '', race: RN2[info.race] || '', lv: r.lv || 1, town: t, hp: r.hp, mhp: r.maxHp, dead: r.dead, k: r.kills || 0, de: r.deaths || 0, who: 'Player' }); }
+    for (const t of B.towns) if (t.hero && t.ai) { const u = t.hero; rows.push({ name: u.heroName || u.udef.name, cls: CLASSES[u.cls] ? CLASSES[u.cls].name : 'Hero', race: RN2[t.race], lv: u.heroLv || 1, town: t, hp: u.hp, mhp: u.maxHp, dead: u.dead, k: u.kills || 0, de: u.deaths || 0, who: 'Computer' }); }
+    rows.sort((a, b) => (a.town.team - b.town.team) || (a.who === 'Player' ? -1 : 1) || b.lv - a.lv);
+    d.innerHTML = `<div class="sbh"><b>Kingdom Battles</b><span>${fmtT(B.time)} · ${B.towns.filter(t => !t.dead).length} kingdoms standing</span></div>
+      <div class="sbr sbk"><span></span><span>Hero</span><span>Class</span><span>Lv</span><span>Town</span><span>Health</span><span>Kills</span><span>Deaths</span></div>` +
+      rows.map(r => `<div class="sbr${r.me ? ' me' : ''}${r.town.team === B.myTeam ? ' ally' : ' foe'}"><i style="background:${TEAM_COLORS[r.town.team]}"></i><span><b>${r.name}</b>${r.me ? ' (you)' : ''}<small>${r.who}${r.town.team === B.myTeam ? ' · ally' : ' · enemy'}</small></span><span>${r.cls}<small>${r.race}</small></span><span class="sblv">${r.lv}</span><span>${r.town.name}<small>${TOWN_LEVELS[r.town.level].name}${r.town.dead ? ' · fallen' : ''}</small></span><span>${r.dead ? '<em>Respawning</em>' : `<div class="bprog hp"><i style="width:${Math.max(0, Math.min(100, r.hp / r.mhp * 100)).toFixed(0)}%"></i><span>${Math.ceil(r.hp)}/${Math.round(r.mhp)}</span></div>`}</span><span>${r.k}</span><span>${r.de}</span></div>`).join('') +
+      `<div class="sbf">Hold Tab · allies on your team colour, enemies below</div>`;
+  };
+  fill(); clearInterval(scoreboard.iv); scoreboard.iv = setInterval(fill, 500);
+}
+const gearScore = (h) => Object.values(h.equip || {}).reduce((a, it) => a + (it && it.kind ? (it.armor || 0) + (it.dmg || 0) : 0), 0);
 // the job tracker on the left of the screen
 export function questTrack() {
   let d = document.getElementById('bqtrack'); const list = BQ.activeList();

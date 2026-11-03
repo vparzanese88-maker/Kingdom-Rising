@@ -20,61 +20,77 @@ const RN = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf
 export function send(d) { if (MP.net) MP.net.send(d); }
 
 // ---------------- lobby ----------------
+// Host gets a code straight away. Friends join with it and land in the host's town (they can move to another town).
+// Towns with nobody in them are run by the computer. When the host starts, everyone makes their hero, then plays.
+const NAME_KEY = 'kr2_mpname';
 export function lobby() {
   return new Promise((resolve) => {
     MP.on = true; MP.host = SETUP.mp === 'host'; MP.client = !MP.host;
-    const me = { name: SETUP.hero.name, cls: SETUP.hero.cls, race: SETUP.race || SETUP.hero.race || 'human', sex: SETUP.hero.sex, app: SETUP.hero.app };
+    let myName = ''; try { myName = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+    const me = { name: myName || (MP.host ? 'Host' : 'Friend') };
     const ov = el('div', ''); ov.id = 'mplobby'; document.body.appendChild(ov);
     const net = MP.net = new Net();
+    const nameOf = (id) => { const p = MP.players.get(id); return p ? p.name : 'Player'; };
+    const myTownIdx = () => MP.slots.findIndex(s => s.players.includes(MP.myId));
+    const moveTo = (id, i) => { for (const s of MP.slots) s.players = s.players.filter(x => x !== id); if (MP.slots[i]) MP.slots[i].players.push(id); };
     const render = () => {
-      const isHost = MP.host;
+      const isHost = MP.host, focus = document.activeElement && document.activeElement.id === 'mpName';
       let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div><h1>${MP.code ? 'Game <span class="mpcode">' + MP.code + '</span>' : 'Connecting…'}</h1>`;
-      html += MP.code ? `<p class="mpsub">${isHost ? 'Send this code to your friends. They choose <b>Kingdom Battles → Multiplayer → Join a game</b>.' : 'You are in! The host is setting up the battle.'}</p>` : `<p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>`;
+      html += MP.code ? `<p class="mpsub">${isHost ? 'Send this code to your friends. They choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in. They join your town unless they pick another.' : 'You are in! The host is setting up the battle. You can stay in the host\'s town or join another one.'}</p>` : `<p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>`;
       if (MP.code) {
+        html += `<div class="mpname"><label>Your name <input id="mpName" maxlength="16" value="${String(me.name).replace(/"/g, '&quot;')}"></label><span class="dim">You make your hero after the host starts.</span></div>`;
         html += '<div class="mpslots">';
         MP.slots.forEach((s, i) => {
-          const pl = s.owner != null ? MP.players.get(s.owner) : null;
-          html += `<div class="mpslot"><div class="mpdot" style="background:${TEAM_COLORS[s.team]}"></div><div class="mpwho"><b>${pl ? pl.name + (s.owner === MP.myId ? ' (you)' : '') : 'Computer'}</b><small>${pl ? `${RN[pl.race]} ${CLASSES[pl.cls] ? CLASSES[pl.cls].name : ''}` : `${RN[s.race]} · ${DIFFS[s.diff].name}`}</small></div>`;
+          const here = s.players.includes(MP.myId), pl = s.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑' : ''}</span>`).join('');
+          html += `<div class="mpslot${here ? ' mine' : ''}"><div class="mpdot" style="background:${TEAM_COLORS[s.team]}"></div><div class="mpwho"><b>Town ${i + 1} · ${RN[s.race]}</b><small>${s.players.length ? pl : `Computer · ${DIFFS[s.diff || 'normal'].name}`}</small></div>`;
           if (isHost) {
             html += `<label>Team <select data-i="${i}" data-k="team">${[0, 1, 2, 3].map(t => `<option value="${t}" ${s.team === t ? 'selected' : ''}>${TEAM_NAMES[t]}</option>`).join('')}</select></label>`;
-            if (s.owner == null) html += `<label>Race <select data-i="${i}" data-k="race">${BATTLE_RACES.map(r => `<option value="${r}" ${s.race === r ? 'selected' : ''}>${RN[r]}</option>`).join('')}</select></label><label>Difficulty <select data-i="${i}" data-k="diff">${Object.keys(DIFFS).map(d => `<option value="${d}" ${s.diff === d ? 'selected' : ''}>${DIFFS[d].name}</option>`).join('')}</select></label>${i > 0 && MP.slots.length > 2 ? `<button class="btn mprm" data-rm="${i}">✕</button>` : ''}`;
+            html += `<label>Race <select data-i="${i}" data-k="race">${BATTLE_RACES.map(r => `<option value="${r}" ${s.race === r ? 'selected' : ''}>${RN[r]}</option>`).join('')}</select></label>`;
+            if (!s.players.length) html += `<label>Difficulty <select data-i="${i}" data-k="diff">${Object.keys(DIFFS).map(d => `<option value="${d}" ${s.diff === d ? 'selected' : ''}>${DIFFS[d].name}</option>`).join('')}</select></label>`;
+            if (MP.slots.length > 2 && !s.players.includes(0)) html += `<button class="btn mprm" data-rm="${i}">✕</button>`;
           } else html += `<span class="mpteam">${TEAM_NAMES[s.team]} team</span>`;
+          if (!here) html += `<button class="btn mpjoin" data-join="${i}">Join this town</button>`;
           html += '</div>';
         });
         html += '</div>';
-        if (isHost) html += `<div class="mprow">${MP.slots.length < 4 ? '<button class="btn" id="mpAdd">+ Add a computer town</button>' : ''}<button class="btn gold big" id="mpStart">Start the battle</button></div><p class="mpsub dim">Players on the same team share a side. Everyone needs a different team from at least one other town.</p>`;
+        if (isHost) html += `<div class="mprow">${MP.slots.length < 4 ? '<button class="btn" id="mpAdd">+ Add a town</button>' : ''}<button class="btn gold big" id="mpStart">Start the game</button></div><p class="mpsub dim">Same team colour = allies. Towns with no players are run by the computer. Everyone makes their hero once you start.</p>`;
         else html += '<p class="mpsub dim">Waiting for the host to start…</p>';
       } else if (MP.err) html += '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>';
       html += '</div>';
       ov.innerHTML = html;
+      const ni = $('mpName'); if (ni) { ni.onkeydown = (e) => e.stopPropagation(); ni.oninput = () => { me.name = ni.value.trim().slice(0, 16) || 'Player'; try { localStorage.setItem(NAME_KEY, me.name); } catch (e) {} MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, me)); if (MP.host) pushLobby(); else send({ t: 'me-info', info: me }); }; ni.onchange = () => render(); if (focus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); } }
       ov.querySelectorAll('select').forEach(sel => sel.onchange = () => { const s = MP.slots[+sel.dataset.i]; const k = sel.dataset.k; s[k] = k === 'team' ? +sel.value : sel.value; pushLobby(); render(); });
-      ov.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { MP.slots.splice(+b.dataset.rm, 1); pushLobby(); render(); });
-      const add = $('mpAdd'); if (add) add.onclick = () => { MP.slots.push({ owner: null, race: BATTLE_RACES[MP.slots.length % 5], team: MP.slots.length, diff: 'normal' }); pushLobby(); render(); };
+      ov.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const s = MP.slots[+b.dataset.rm]; const home = MP.slots.find(x => x.players.includes(0)); if (home) home.players.push(...s.players); MP.slots.splice(+b.dataset.rm, 1); pushLobby(); render(); });
+      ov.querySelectorAll('[data-join]').forEach(b => b.onclick = () => { S.click(); const i = +b.dataset.join; if (MP.host) { moveTo(MP.myId, i); pushLobby(); render(); } else send({ t: 'pick', slot: i }); });
+      const add = $('mpAdd'); if (add) add.onclick = () => { MP.slots.push({ players: [], race: BATTLE_RACES[MP.slots.length % 5], team: MP.slots.length, diff: 'normal' }); pushLobby(); render(); };
       const st = $('mpStart'); if (st) st.onclick = () => {
-        if (new Set(MP.slots.map(s => s.team)).size < 2) { S.error(); return; }
-        const setup = { mp: true, seed: Math.floor(Math.random() * 1e6), towns: MP.slots.map(s => ({ race: s.owner != null ? MP.players.get(s.owner).race : s.race, team: s.team, ai: s.owner == null, owner: s.owner, diff: s.diff || 'normal', name: s.owner != null ? null : null })) };
+        if (new Set(MP.slots.map(s => s.team)).size < 2) { S.error(); alertTeams(); return; }
+        const setup = { mp: true, seed: Math.floor(Math.random() * 1e6), towns: MP.slots.map(s => ({ race: s.race, team: s.team, ai: !s.players.length, members: s.players.slice(), owner: s.players.length ? s.players[0] : null, diff: s.diff || 'normal' })) };
         send({ t: 'start', setup, players: [...MP.players.entries()] }); begin(setup);
       };
       const bk = $('mpBack'); if (bk) bk.onclick = () => { location.href = location.pathname; };
     };
+    const alertTeams = () => { const p = ov.querySelector('.mpp .dim:last-child'); if (p) { p.textContent = 'Put at least one town on a different team colour, so there is someone to fight.'; p.style.color = '#ff9a7a'; } };
     const pushLobby = () => { if (MP.host) send({ t: 'lobby', slots: MP.slots, players: [...MP.players.entries()], code: MP.code }); };
-    const begin = (setup) => { Object.assign(SETUP, setup); ov.remove(); resolve(setup); };
+    const begin = (setup) => { Object.assign(SETUP, setup); delete SETUP.hero; ov.remove(); resolve(setup); };
     net.on('ready', ({ code, id }) => {
-      MP.code = code; MP.myId = id; MP.players.set(id, me);
-      if (MP.host) { MP.slots = [{ owner: 0, team: 0 }, { owner: null, race: me.race === 'orc' ? 'human' : 'orc', team: 1, diff: 'normal' }]; }
+      MP.code = code; MP.myId = id; MP.players.set(id, Object.assign({}, me));
+      if (MP.host) MP.slots = [{ players: [0], race: 'human', team: 0, diff: 'normal' }, { players: [], race: 'orc', team: 1, diff: 'normal' }];
       else send({ t: 'me-info', info: me });
       render();
     });
     net.on('error', (msg) => { MP.err = msg; render(); });
     net.on('join', (id) => { /* waits for me-info */ });
-    net.on('leave', (id) => { MP.players.delete(id); const s = MP.slots.find(x => x.owner === id); if (s) { s.owner = null; s.race = s.race || 'orc'; s.diff = 'normal'; } pushLobby(); render(); if (G.hooks.netLeave) G.hooks.netLeave(id); });
+    net.on('leave', (id) => { MP.players.delete(id); for (const s of MP.slots) s.players = s.players.filter(x => x !== id); pushLobby(); render(); if (G.hooks.netLeave) G.hooks.netLeave(id); });
     net.on('hostleft', () => { MP.err = 'The host left the game.'; if (G.hooks.netLeave) G.hooks.netLeave(0); else render(); });
     net.on('data', (from, d) => {
       if (!d) return;
       if (d.to != null && d.to !== MP.myId) return;
-      if (d.t === 'me-info' && MP.host) { MP.players.set(from, d.info); if (!MP.slots.some(s => s.owner === from)) { const free = MP.slots.find(s => s.owner == null); if (free) { free.owner = from; } else if (MP.slots.length < 4) MP.slots.push({ owner: from, team: MP.slots.length }); } pushLobby(); render(); return; }
+      if (d.t === 'me-info' && MP.host) { MP.players.set(from, Object.assign(MP.players.get(from) || {}, d.info)); if (!MP.slots.some(s => s.players.includes(from))) { const home = MP.slots.find(s => s.players.includes(0)) || MP.slots[0]; home.players.push(from); } pushLobby(); render(); return; }
+      if (d.t === 'pick' && MP.host) { if (MP.slots[d.slot]) { moveTo(from, d.slot); pushLobby(); render(); } return; }
       if (d.t === 'lobby' && MP.client) { MP.slots = d.slots; MP.players = new Map(d.players); render(); return; }
       if (d.t === 'start' && MP.client) { MP.players = new Map(d.players); begin(d.setup); return; }
+      if (d.t === 'hero') { MP.players.set(from, Object.assign(MP.players.get(from) || {}, d.info)); if (G.hooks.netHero) G.hooks.netHero(from); return; }
       if (G.hooks.netData) G.hooks.netData(from, d);
     });
     if (MP.host) net.host(); else net.join(SETUP.code);
@@ -100,7 +116,7 @@ export class RemoteHero {
   get name() { return this.heroName; }
   setWeapon(wt) { if (wt === this.wt) return; this.wt = wt; try { equipWeapon(this.model, wt, 1); } catch (e) { /* unknown weapon on this client */ } }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
-  netState(s) { this.tgt.set(s.x, s.y, s.z); this.tyaw = s.yaw; this.hp = s.hp; this.maxHp = s.mhp; this.lv = this.level = s.lv; if (s.dead && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s.dead && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.x = 0; this.pos.copy(this.tgt); } if (s.act && s.act !== this.act) { this.act = s.act; this.actT = 0; } if (!s.act) this.act = ''; this.spd = s.spd || 0; if (s.wt) this.setWeapon(s.wt); if (s.bk != null && s.bk !== this.bk) { this.bk = s.bk; try { backWeapons(this.model, s.bk.split(',').map(x => { if (!x) return null; const [wt, tier, rarity] = x.split(':'); return { wt, tier: +tier, rarity: +rarity }; })); } catch (e) {} } }
+  netState(s) { if (s.k != null) { this.kills = s.k; this.deaths = s.de || 0; } this.tgt.set(s.x, s.y, s.z); this.tyaw = s.yaw; this.hp = s.hp; this.maxHp = s.mhp; this.lv = this.level = s.lv; if (s.dead && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s.dead && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.x = 0; this.pos.copy(this.tgt); } if (s.act && s.act !== this.act) { this.act = s.act; this.actT = 0; } if (!s.act) this.act = ''; this.spd = s.spd || 0; if (s.wt) this.setWeapon(s.wt); if (s.bk != null && s.bk !== this.bk) { this.bk = s.bk; try { backWeapons(this.model, s.bk.split(',').map(x => { if (!x) return null; const [wt, tier, rarity] = x.split(':'); return { wt, tier: +tier, rarity: +rarity }; })); } catch (e) {} } }
   update(dt) {
     if (this.dead) { this.deadT = (this.deadT || 0) + dt; if (this.deadT < 1) this.root.rotation.x = -Math.min(1, this.deadT / 0.6) * Math.PI / 2; else this.root.visible = false; return; }
     this.pos.lerp(this.tgt, Math.min(1, dt * 12)); this.yaw += angDiff(this.yaw, this.tyaw) * Math.min(1, dt * 14);

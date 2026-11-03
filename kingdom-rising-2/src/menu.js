@@ -98,7 +98,8 @@ const NAMES = { human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator(camp) {
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
-  if (camp && camp.battle) { C.battle = camp.battle; C.camp = null; C.race = camp.battle.towns[0].race; const r = RACES[C.race]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = C.race === 'dwarf' ? 3 : 0; $('cEyebrow').textContent = 'Kingdom Battles · your hero'; }
+  if (camp && camp.battle) { C.battle = camp.battle; C.camp = null; C.race = camp.battle.towns[0].race; const r = RACES[C.race]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = C.race === 'dwarf' ? 3 : 0; $('cEyebrow').textContent = 'Kingdom Battles · your hero'; if (camp.battle.name) C.name = camp.battle.name; }
+  $('cBack').hidden = !!(camp && camp.battle && camp.battle.live);
   $('title').hidden = true; $('creator').hidden = false;
   Menu.preview.active = true; rebuildPreview(); renderCreator();
 }
@@ -185,6 +186,7 @@ function renderCreator() {
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
+  if (C.battle && C.battle.live) { if (Menu.onBattleHero) Menu.onBattleHero({ name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) }); return; }
   if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
@@ -228,11 +230,11 @@ function renderBattleSetup() {
     head.querySelector('h1').textContent = 'Play online';
     const g = el('div', 'bsmodes');
     const host = el('button', 'bsmode', `<div class="bsi">🏰</div><b>Host a game</b><span>Create your hero, then share the code with your friends. You choose the towns and teams in the lobby.</span>`);
-    host.onclick = () => { S.click(); closeBattleSetup(); showCreator({ battle: { mp: 'host', towns: [{ race: 'human' }] } }); };
+    host.onclick = () => { S.click(); try { sessionStorage.setItem(SETUP_KEY, JSON.stringify({ mp: 'host' })); } catch (e) {} location.href = location.pathname + '?mode=battle'; };
     const join = el('div', 'bsmode', `<div class="bsi">🔑</div><b>Join a game</b><span>Type the 4-letter code your friend gives you.</span><input id="bsCode" maxlength="4" placeholder="CODE" style="margin-top:8px;font-size:28px;letter-spacing:.3em;text-transform:uppercase;width:180px;text-align:center;padding:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a;border-radius:8px"><button class="btn gold" id="bsJoin" style="margin-top:8px">Join →</button>`);
     g.append(host, join); panel.appendChild(g);
     const inp = join.querySelector('#bsCode'); inp.onkeydown = (e) => e.stopPropagation();
-    join.querySelector('#bsJoin').onclick = () => { const code = inp.value.trim().toUpperCase(); if (code.length !== 4) { S.error(); inp.focus(); return; } S.click(); closeBattleSetup(); showCreator({ battle: { mp: 'join', code, towns: [{ race: 'human' }] } }); };
+    join.querySelector('#bsJoin').onclick = () => { const code = inp.value.trim().toUpperCase(); if (code.length !== 4) { S.error(); inp.focus(); return; } S.click(); try { sessionStorage.setItem(SETUP_KEY, JSON.stringify({ mp: 'join', code })); } catch (e) {} location.href = location.pathname + '?mode=battle'; };
     const back = el('button', 'btn', '← Back'); back.onclick = () => { S.click(); BS.step = 'mode'; renderBattleSetup(); }; panel.appendChild(back);
     return;
   }

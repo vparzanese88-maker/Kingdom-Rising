@@ -1139,7 +1139,8 @@ export function myTown() { return B.towns[B.me]; }
 // reports to the player, who is the Commander
 function say(who, text, kind) { G.hooks.cmd && G.hooks.cmd(who, text, kind); }
 // a report for whoever commands that town: here, or sent over the network to its player
-function tsay(t, who, text, kind) { if (B.client) return; if (t.isMe) say(who, text, kind); else if (t.owner != null && G.hooks.netSay) G.hooks.netSay(t.owner, who, text, kind); }
+// a report to every player in that town (several friends can share one town)
+function tsay(t, who, text, kind) { if (B.client) return; if (t.isMe) say(who, text, kind); if (G.hooks.netSay) for (const m of t.members || (t.owner != null ? [t.owner] : [])) if (m !== MP.myId) G.hooks.netSay(m, who, text, kind); }
 // scouts and captains warn about threats to the town and its towers
 function watchTown(t, dt) {
   t.watchT = (t.watchT || 0) - dt; if (t.watchT > 0) return; t.watchT = 1;
@@ -1224,13 +1225,13 @@ function aiThink(t) {
 export function initBattle(scene) {
   B.on = true; fog.on = true; G.fog = fog; G.fogVis = isVisible;
   G.allyHeroes = () => allHeroes().filter(h => h !== G.player && !h.dead && h.team === B.myTeam);
-  B.client = MP.client; const meIdx = MP.on ? Math.max(0, SETUP.towns.findIndex(c => c.owner === MP.myId)) : 0; B.me = meIdx; B.myTeam = SETUP.towns[meIdx].team ?? meIdx; G.myTeam = B.myTeam;
+  B.client = MP.client; const meIdx = MP.on ? Math.max(0, SETUP.towns.findIndex(c => (c.members || [c.owner]).includes(MP.myId))) : 0; B.me = meIdx; B.myTeam = SETUP.towns[meIdx].team ?? meIdx; G.myTeam = B.myTeam;
   G.remoteHeroes = () => [...MP.remotes.values()];
   const used = {};
   SETUP.towns.forEach((cfg, i) => {
     const L = LAYOUT.towns[i];
     const race = cfg.race || 'human'; used[race] = (used[race] || 0);
-    const t = Object.assign({}, L, { race, ai: MP.on ? !!cfg.ai : (i !== 0 && cfg.ai !== false), owner: MP.on && cfg.owner != null && cfg.owner !== MP.myId ? cfg.owner : null, diff: cfg.diff || 'normal', team: cfg.team ?? i, level: 0, units: [], queue: [], towerSpots: L.towers, bank: Object.assign({}, ECON.start), dead: false, isMe: i === meIdx, roster: ROSTERS[race] || ROSTERS.human });
+    const t = Object.assign({}, L, { race, ai: MP.on ? !!cfg.ai : (i !== 0 && cfg.ai !== false), owner: MP.on && cfg.owner != null && !(cfg.members || [cfg.owner]).includes(MP.myId) ? cfg.owner : null, members: MP.on ? (cfg.members || (cfg.owner != null ? [cfg.owner] : [])).slice() : [], diff: cfg.diff || 'normal', team: cfg.team ?? i, level: 0, units: [], queue: [], towerSpots: L.towers, bank: Object.assign({}, ECON.start), dead: false, isMe: i === meIdx, roster: ROSTERS[race] || ROSTERS.human });
     t.name = cfg.name || TOWN_NAMES[race][used[race]++ % 4]; t.color = TEAM_COLORS[t.team]; t.heroCls = cfg.cls;
     B.towns.push(t);
   });

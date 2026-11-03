@@ -23,7 +23,7 @@ import { MP, lobby, send as mpSend, setStatus as setMpStatus, statusPanel } from
 import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
-import { CLASS_KIT, ECON, BATTLE_ABILITIES } from './battledata.js';
+import { TEAM_COLORS, CLASS_KIT, ECON, BATTLE_ABILITIES } from './battledata.js';
 import * as BQ from './battlequests.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
@@ -326,6 +326,11 @@ function battleHooks() {
     BUI.report('scout', `${info ? info.name : 'a player'} has left the battle. The computer takes over their town.`, '');
   };
   H.sentry = (x, z, lv) => Battle.placeSentry(x, z, lv);
+  // selling loot: the gold goes into your town; giving: straight into another player's bag
+  H.sellItem = (i) => { const h = G.save, it = h.inv[i]; if (!it || !it.kind) return; const g = Game.itemValue(it); h.inv[i] = null; Battle.bank(Battle.myTown(), 'gold', g); S.coins(); UI.toast(`Sold ${it.name}: +${g} gold for ${Battle.myTown().name}`, Icons.coin(), 'gold'); H.invChanged && H.invChanged(); };
+  H.tradeTargets = () => [...MP.remotes.values()].map(r => ({ id: r.netId, name: r.heroName, col: TEAM_COLORS[r.team] || '#888' }));
+  H.giveItem = (i, to) => { const h = G.save, it = h.inv[i]; const r = MP.remotes.get(to); if (!it || !r) return; h.inv[i] = null; mpSend({ t: 'give', to, item: it, from: h.name }); S.loot && S.loot(); UI.toast(`Gave ${it.name || 'an item'} to ${r.heroName}`, '🎁', 'gold'); H.invChanged && H.invChanged(); };
+  H.gotItem = (d, from) => { const h = G.save, i = h.inv.indexOf(null); if (i < 0) { mpSend({ t: 'give', to: from, item: d.item, from: h.name, back: 1 }); UI.toast(`${d.from} tried to give you ${d.item.name || 'an item'}, but your bag is full`, '🎒', 'bad'); return; } h.inv[i] = d.item; S.loot && S.loot(); UI.toast(d.back ? `${d.from}'s bag was full: ${d.item.name} came back to you` : `${d.from} gave you ${d.item.name || 'an item'}!`, '🎁', 'gold'); if (d.item.kind && !d.back) BUI.lootPopup(d.item, false); H.invChanged && H.invChanged(); };
 }
 const B_DEAD = (m) => false;
 

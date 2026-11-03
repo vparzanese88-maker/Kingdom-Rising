@@ -317,7 +317,7 @@ function dragable(node, src, it, c) {
   node.onpointerdown = (e) => {
     if (e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY; let gh = null, over = null;
-    const tgt = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY); return t && (t.closest('[data-inv],[data-eq]') || (t.id === 'portrait' ? t : null)); };
+    const tgt = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY); return t && (t.closest('[data-inv],[data-eq],[data-give],[data-sell]') || (t.id === 'portrait' ? t : null)); };
     const mv = (ev) => {
       if (!gh) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return; gh = el('div', 'dragghost', Icons.itemSvg(it)); document.body.appendChild(gh); node.classList.add('dragsrc'); }
       gh.style.left = ev.clientX + 'px'; gh.style.top = ev.clientY + 'px';
@@ -334,6 +334,8 @@ function dragable(node, src, it, c) {
 function dropItem(src, t) {
   const h = G.player.h, inv = h.inv;
   const toI = t.dataset.inv != null ? +t.dataset.inv : null, toE = t.dataset.eq || null, portrait = t.id === 'portrait';
+  if (src.i != null && t.dataset.sell != null && G.hooks.sellItem) { G.hooks.sellItem(src.i); return; }
+  if (src.i != null && t.dataset.give != null && G.hooks.giveItem) { G.hooks.giveItem(src.i, +t.dataset.give); return; }
   if (src.i != null) {
     const a = inv[src.i]; if (!a) return;
     if (toI != null) {
@@ -402,7 +404,10 @@ function renderInventory(c) {
     cell.dataset.inv = i;
     grid.appendChild(cell);
   });
-  right.appendChild(grid); right.appendChild(tip);
+  right.appendChild(grid);
+  // Kingdom Battles: sell what you don't use to help the town, or hand it to another player
+  if (G.battleFx && G.hooks.tradeTargets) { const pl = G.hooks.tradeTargets(); right.appendChild(el('div', 'givebar', `<div class="gdrop sell" data-sell="1">💰 <b>Sell to the town</b><small>drop an item here: its gold goes to your town</small></div>${pl.length ? pl.map(p => `<div class="gdrop give" data-give="${p.id}" style="--tc:${p.col}">🎁 <b>${esc(p.name)}</b><small>drop to give</small></div>`).join('') : '<div class="gdrop none"><small>Online friends show here: drop an item on a name to give it to them</small></div>'}`)); }
+  right.appendChild(tip);
   lay.append(left, right); c.appendChild(lay);
   if (selInv && selInv.i != null && h.inv[selInv.i]) showTip(tip, h.inv[selInv.i], selInv.i, null, c, true);
   else if (selInv && selInv.eq && h.equip[selInv.eq]) showTip(tip, h.equip[selInv.eq], null, selInv.eq, c, true);
@@ -431,6 +436,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   else if (idx != null && it.kind) b('Equip', () => Game.equipFromInv(hh, idx));
   else if (idx != null && ITEMS[it.id]?.use) b('Use', () => quickUse(idx));
   if (eqSlot) b('Take off', () => Game.unequip(hh, eqSlot));
+  if (idx != null && G.battleFx && it.kind && G.hooks.sellItem) { b(`Sell to the town (+${Game.itemValue(it)} gold)`, () => G.hooks.sellItem(idx), 'btn gold'); if (G.hooks.tradeTargets) for (const p of G.hooks.tradeTargets()) b(`Give to ${p.name}`, () => G.hooks.giveItem(idx, p.id)); }
   if (idx != null) b('Destroy', () => { hh.inv[idx] = null; selInv = null; G.hooks.invChanged && G.hooks.invChanged(); }, 'btn red');
   tipEl.appendChild(row);
 }

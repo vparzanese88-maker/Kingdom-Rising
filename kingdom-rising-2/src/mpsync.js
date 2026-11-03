@@ -125,6 +125,7 @@ export function onData(from, d) {
     case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player, true); } } break;
     case 'horn': if (MP.client && G.hooks.warHorn) G.hooks.warHorn(d); break;
     case 'qreward': if (MP.host) { const t = townOf(from); if (t) questReward(t, d.id); } break;
+    case 'give': if (d.to === MP.myId && G.hooks.gotItem) G.hooks.gotItem(d, from); break;
     case 'say': if (d.to === MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     case 'teamsay': if (B.towns.length && myTown().team === d.team && from !== MP.myId) G.hooks.cmd && G.hooks.cmd(d.who, d.text, d.kind); break;
     // a player's economy and orders, handled by the host for their town

@@ -75,9 +75,29 @@ function drawBar() {
     + `<div class="bhall" title="Your town hall"><i style="width:${(t.hall.hp / t.hall.maxHp * 100).toFixed(0)}%"></i><span>${t.name} · ${L.name}${t.building ? ' · building ' + Math.ceil(t.building.dur - t.building.t) + 's' : ''}</span></div>`
     + `<div class="bkey">B · War Report</div>`;
 }
+// "Coming up": live countdowns under the minimap, in plain words
+let nextT = 0;
+function comingUp() {
+  let d = $('bnext'); const t = myTown(); if (!t || B.over || !G.player) { if (d) d.hidden = true; return; }
+  if (!d) { d = el('div', ''); d.id = 'bnext'; $('hud').appendChild(d); }
+  const P = townPlan(t), A = P.attack, U = P.upgrade, rows = [];
+  const mm = (s) => !isFinite(s) ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const row = (cls, ic, txt, tm, prog) => rows.push(`<div class="bnr ${cls}"><span class="bni">${ic}</span><span class="bnt">${txt}${prog != null ? `<i class="bnb"><b style="width:${Math.max(0, Math.min(1, prog)) * 100}%"></b></i>` : ''}</span>${tm ? `<span class="bnm">${tm}</span>` : ''}</div>`);
+  if (P.threat) row('bad', '⚠', `<b>${P.threat} enemies at our walls!</b>`, 'NOW');
+  if (MP.on && B.time < 60) row('', '🚪', 'Gates open', mm(60 - B.time), B.time / 60);
+  if (A.out) row('war', '📯', `Our army is attacking ${A.target || ''}`, `${A.out} ⚔`);
+  else if (A.graceLeft > 0) row('', '⚔', `First attack (${A.home}/${A.need} soldiers)`, mm(A.graceLeft), 1 - A.graceLeft / Math.max(1, A.graceLeft + B.time));
+  else row('', '⚔', A.home >= A.need ? 'Army marches any moment' : `Next attack at ${A.need} soldiers`, `${A.home}/${A.need}`, A.home / A.need);
+  if (U && U.state === 'building') row('build', '🏗', `Building the ${U.name}`, mm(U.secs), 1 - U.secs / ((t.building && t.building.dur) || 60));
+  else if (U) { const need = Object.entries(U.short).map(([k, v]) => `${v} ${k}`).join(', '); row('', '🏗', need ? `${U.name}: need ${need}` : `${U.name}: ready to build`, B.client ? '' : need ? (isFinite(U.secs) ? '~' + mm(U.secs) : '') : U.gate > 0 ? mm(U.gate) : 'Soon'); }
+  const tr = P.training.find(x => !x.worker); if (tr) row('', '🪖', `Training ${tr.name}`, mm(tr.secs));
+  for (const j of BQ.activeList()) if (j.ready) row('job', '❓', `Hand in "${j.name}" in town`, '');
+  d.hidden = false; d.innerHTML = `<div class="bnh">Coming up</div>${rows.join('')}`;
+}
 export function update(dt) {
   if (!B.over && G.save && G.player && !G.player.dead) { xpAcc += ECON.passiveXp * dt; if (xpAcc >= 15) { Game.gainXp(G.save, Math.floor(xpAcc)); xpAcc -= Math.floor(xpAcc); } }
   menuT -= dt; if (menuT <= 0) { menuT = 0.25; drawBar(); zoneLabel(); if (UI.UI.open === 'battle') render(); }
+  nextT -= dt; if (nextT <= 0) { nextT = 0.5; comingUp(); }
   storeTick(dt);
   // online: the gates stay shut for the first minute
   { let g = $('gatecd'); if (MP.on && B.time < 60 && !B.over) { if (!g) { g = el('div', ''); g.id = 'gatecd'; $('hud').appendChild(g); } g.innerHTML = `<b>The gates open in ${Math.ceil(60 - B.time)} s</b><span>Ready your town, Commander</span>`; } else if (g) { g.remove(); if (MP.on && !B.gatesSaid) { B.gatesSaid = true; report('captain', 'the gates are open! To battle!', 'war'); } } }
@@ -362,6 +382,13 @@ export function openBook() {
   UI.UI.open = 'book'; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
   renderBook();
 }
+// how an ability grows: power by level, from the level it unlocks up to level 10
+const GROW_WHAT = { heal: 'healing', mending: 'healing', fielddress: 'healing', barkskin: 'shield', icebarrier: 'shield', shieldwall: 'duration', fortify: 'duration', quickreload: 'duration', eagleeye: 'duration', focus: 'duration', vanish: 'duration', smokebomb: 'duration', rampage: 'duration', bloodrage: 'duration', undying: 'duration', laststand: 'healing', sentry: 'reach', wolves: 'wolves', rally: 'heal and buff', battlecry: 'heal and stun' };
+function growLine(a, lv) {
+  const sc = (L) => (G.abilScale ? G.abilScale(L) : 1), from = Math.max(1, a.level), now = Math.max(from, lv), what = GROW_WHAT[a.id] || 'damage, area and duration';
+  const pips = Array.from({ length: 10 }, (_, i) => `<i class="${i + 1 < from ? 'off' : i + 1 <= now ? 'on' : ''}" title="Level ${i + 1}: ${Math.round(sc(i + 1) * 100)}%"></i>`).join('');
+  return `<div class="bgrow"><div class="bgp">${pips}</div><span>Power (${what}): <b>${Math.round(sc(from) * 100)}%</b> at level ${from} → <b class="nowv">${Math.round(sc(now) * 100)}% now</b> → <b>${Math.round(sc(10) * 100)}%</b> at level 10</span></div>`;
+}
 function renderBook() {
   const c = document.querySelector('.book .content'); if (!c) return;
   const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
@@ -378,7 +405,7 @@ function renderBook() {
   const grid = el('div', 'bookgrid');
   for (const a of list) {
     const locked = a.level > h.level, slot = h.hotbar.findIndex(s => s && s.id === a.id);
-    const d = el('button', 'bookab' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><div class="bm"><span>${locked ? '🔒 Level ' + a.level : 'Level ' + a.level}</span><span>${a.cost} ${res}</span><span>⟳ ${a.cd}s</span>${a.battle ? '<span class="new">Battle</span>' : ''}</div><p>${a.desc}</p></div>${slot >= 0 ? `<span class="inslot">${slot + 1}</span>` : ''}`);
+    const d = el('button', 'bookab' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><div class="bm"><span>${locked ? '🔒 Level ' + a.level : 'Level ' + a.level}</span><span>${a.cost} ${res}</span><span>⟳ ${a.cd}s</span>${a.battle ? '<span class="new">Battle</span>' : ''}</div><p>${a.desc}</p>${growLine(a, h.level)}</div>${slot >= 0 ? `<span class="inslot">${slot + 1}</span>` : ''}`);
     d.onclick = () => {
       if (locked) { S.error(); UI.toast(`${a.name} unlocks at level ${a.level}`, '🔒', 'bad'); return; }
       S.click(); const prev = h.hotbar[bookSel]; if (slot >= 0) h.hotbar[slot] = prev; h.hotbar[bookSel] = { t: 'ab', id: a.id }; bookSel = (bookSel + 1) % 4;

@@ -145,7 +145,7 @@ export const NEW_CLASSES = {
     weapons: ['firestaff', 'froststaff', 'arcanestaff'], armor: 'cloth', start: 'firestaff', startName: 'Fire Staff', outfit: 'wizard',
     colors: { main: '#a84a1a', trim: '#e8c060', metal: '#c09050' }, pool: { hp: [85, 10], mana: [120, 10], end: [80, 3], uses: 'mana' },
     info: { tag: 'Summoner of elements', diff: 2, role: 'Elemental pets and blasts', res: 'Mana', tips: ['Your elementals fight while you blast from behind them.', 'Lava Burst and Boulder hit hard; Gale knocks enemies away.', 'Elemental Shield keeps you safe while you work.'] },
-    tune: { dmg: 1.07, hp: 1.14 },
+    tune: { dmg: 0.98, hp: 1.14 },
     abilities: [
       { id: 'firesprite', name: 'Summon Fire Elemental', level: 1, cd: 35, cost: 35, t: 'summon', pet: 'fireel', n: 1, extra: 1, dur: 40, desc: 'A burning elemental fights for you for 40 s.' },
       { id: 'lavaburst', name: 'Lava Burst', level: 2, cd: 6, cost: 22, t: 'bolt', kind: 'fireball', speed: 38, dmg: 1.6, aoe: 3, burn: 0.1, desc: 'A ball of molten rock that bursts where it lands.' },

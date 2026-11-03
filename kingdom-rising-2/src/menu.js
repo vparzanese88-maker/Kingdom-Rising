@@ -78,6 +78,8 @@ export function initMenu() {
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
+  // exit: leave full screen, then close the tab if the browser allows it, otherwise go back to the arcade
+  $('btnExit').onclick = () => { S.click(); confirmBox('<h3 style="margin:0 0 6px">Exit Kingdom Rising II?</h3><span style="font-size:14px;opacity:.8">Your heroes and campaigns are saved.</span>', () => { leaving = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); try { window.close(); } catch (e) {} setTimeout(() => { location.href = '../arcade.html'; }, 300); }, 'Cancel', 'Exit'); };
   for (const b of document.querySelectorAll('#title .mm, #title .btn')) b.addEventListener('mouseenter', () => S.hover());
   $('cBack').onclick = () => { S.click(); const b = C && C.battle; closeCreator(); if (b) showBattleSetup(); else showTitle(); };
   $('cPrev').onclick = () => { S.click(); if (tab > firstTab()) { tab--; renderCreator(); } };

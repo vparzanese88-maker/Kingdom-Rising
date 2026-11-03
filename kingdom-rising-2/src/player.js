@@ -1,5 +1,6 @@
 // The player: movement, camera (first <-> third person), first-person view model, combos, heavy attacks,
 // weapon abilities, class abilities, blocking, dodging, gathering and interaction.
+import { NEW_CLASSES } from './classes2.js';
 import * as THREE from 'three';
 import { G } from './state.js';
 import { S, A, M as Music } from './audio.js';
@@ -225,7 +226,7 @@ class ViewModel {
 
 // ---------- Player ----------
 // Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
-const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 1, hp: 1.05 }, none: { dmg: 1, hp: 1 } };
+const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 1, hp: 1.05 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
 export class Player {
   constructor(hero) {
     this.h = hero;
@@ -607,7 +608,7 @@ export class Player {
     const f = this.fwd();
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) G.hooks.allyFx(this.pos, ALLY_FX[ab.id], up);
-    if (!(G.battleFx && this.classGear(ab.id, base, up, f))) switch (ab.id) {
+    if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'charge': {
         S.battleCry(); this.dodge = { t: 0, dur: 0.38 * (1 + this.pk('a1up') * 0.2), dir: f.clone(), speed: 32, charge: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 14;
         this.atk = { name: 'heavy', t: 0.3, dur: 0.5, hit: true, noQueue: true };
@@ -886,6 +887,70 @@ export class Player {
         spawnProjectile({ pos: from, vel: dir.multiplyScalar(34), grav: 2, radius: 0.5, dmg: base * 1.4 * up, owner: 'player', kind: 'axe', life: 1.5, onHit: (p, m) => { if (!m) return; const hit = new Set([m]); let cur = m; this.dealDamage(m, p.dmg, { stun: 1.5, blunt: true }); S.blunt(m.pos); for (let k = 0; k < bounces; k++) { const nx = G.mobs.filter(o => !o.dead && !hit.has(o) && foe(o) && o.pos.distanceTo(cur.pos) < 10).sort((x, y) => x.pos.distanceTo(cur.pos) - y.pos.distanceTo(cur.pos))[0]; if (!nx) break; hit.add(nx); V.burst('spark', nx.pos.clone().setY(nx.pos.y + 1), 10, { speed: 4 }); this.dealDamage(nx, p.dmg * 0.8, { stun: 1, blunt: true }); cur = nx; } } });
         S.swingW('blunt', 1.4, this.pos); this.atk = { name: 'swing2', t: 0.3, dur: 0.45, hit: true, noQueue: true }; return true;
       }
+    }
+    return false;
+  }
+  // ---- the new classes' abilities, run from their data in classes2.js ----
+  runKit(a, base, up, f) {
+    const K = this.areaK(), P = (n) => base * (n || 0) * up;
+    const FX = { gold: ['gold', '#ffd870'], shadow: ['shadow', '#9a60c0'], leaf: ['leaf', '#7ac050'], dust: ['dust', '#c8b090'], arcane: ['arcane', '#c080ff'], frost: ['frost', '#9ad8ff'], fire: ['fire', '#ff8030'], smoke: ['smoke', '#8a8a8a'], blood: ['blood', '#c02020'] };
+    const [pk, col] = FX[a.fx] || ['spark', '#ffffff'];
+    const el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.kind === 'arcane' || a.fx === 'arcane' || a.fx === 'shadow' ? 'arcane' : null;
+    const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
+    const anim = (n, d = 0.45) => { this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
+    const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
+    const aimTarget = (range) => { const r = aimRay(range); return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
+    switch (a.t) {
+      case 'bolt': case 'drain': {
+        const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.handPos(), dir0 = this.aimDir(from);
+        for (let i = 0; i < n; i++) { const dir = dir0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (i - (n - 1) / 2) * (a.spread || 0));
+          spawnProjectile({ pos: from.clone(), vel: dir.multiplyScalar(a.speed || 40), grav: a.kind === 'rock' ? 4 : 0.5, radius: a.aoe ? 0.5 : 0.35, dmg: P(a.dmg), owner: 'player', kind: a.kind || 'arcane', scale: a.kind === 'orb' ? 1.6 : 1.2, life: 2.5, pierce: !!a.pierce,
+            onHit: (p, m, pos) => { const at = (pos || (m && m.pos) || p.pos).clone(); let dealt = 0;
+              if (a.aoe) { for (const mm of mobsInRadius(at, a.aoe * K)) { this.dealDamage(mm, p.dmg * 0.8, hitO(mm)); dealt += p.dmg * 0.8; } V.burst(el === 'fire' ? 'fire' : pk === 'spark' ? 'arcane' : pk, at, 30, { speed: 5 }); S.explode(at, 0.7, el || 'fire'); }
+              else if (m) { this.dealDamage(m, p.dmg, hitO(m)); dealt = p.dmg; }
+              if (a.t === 'drain' && dealt) { this.heal(dealt * a.drain); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 12, { speed: 2 }); } } }); }
+        S.cast(el || 'arcane', this.pos, 0.8); anim('cast'); return true; }
+      case 'nova': { const r = (a.r || 5) * K; let dealt = 0;
+        for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m)); dealt += P(a.dmg); }
+        if (a.drainAll && dealt) this.heal(dealt * a.drainAll);
+        V.ring(this.pos, r, col, 0.6); V.burst(pk === 'spark' ? 'dust' : pk, this.pos.clone().setY(this.pos.y + 0.6), 50, { speed: 6, radius: r * 0.4 }); S.cast(el || 'arcane', this.pos, 1); S.rumble && S.rumble(this.pos, 0.5); V.addShake(0.25); anim('smash', 0.5); return true; }
+      case 'cone': { const range = (a.range || 6) * K;
+        for (const m of mobsInCone(this.pos, this.yaw, range, a.ang || 0.6)) this.dealDamage(m, P(a.dmg), hitO(m, { melee: true }));
+        for (let i = 0; i < 40; i++) { const an = this.yaw + (Math.random() - 0.5) * (a.ang || 0.6) * 2, d = Math.random() * range; V.burst(pk === 'spark' ? 'dust' : pk, new THREE.Vector3(this.pos.x + Math.sin(an) * d, this.pos.y + 0.6 + Math.random(), this.pos.z + Math.cos(an) * d), 1, { speed: 1.5 }); }
+        S.swingW(this.swingKind('swing3'), 1.5, this.pos); if (el) S.cast(el, this.pos, 0.8); V.addShake(0.2); anim('swing3', 0.5); return true; }
+      case 'strike': { anim('heavy', 0.5); S.swingW(this.swingKind('swing3'), 1.4, this.pos);
+        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.7).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; if (!t) return; this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, big: true })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 16, { speed: 5 }); G.hitstop = 0.07; V.addShake(0.25); }, 160 * ABIL_DELAY_K());
+        return true; }
+      case 'flurry': { const n = this.qty(a.hits || 4, a.extra || 0); anim('fury', Math.max(0.5, n * 0.09));
+        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, silent: k % 2 === 1 })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 5, { speed: 3 }); } }, k * 90);
+        return true; }
+      case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
+      case 'heal': { this.heal(this.maxHp * (a.self || 0) * up); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
+      case 'hot': { this.regen = { per: this.maxHp * a.pct * up / a.dur, t: a.dur }; if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
+      case 'buff': { const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
+        if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
+        else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up); B2.stand = d; }
+        else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
+        if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
+        V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); anim('cast'); return true; }
+      case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
+        const list = [t, ...(a.spread ? mobsInRadius(t.pos, a.spread * K).filter(m => m !== t) : [])];
+        for (const m of list) {
+          if (a.pull && m === t) { const to = this.pos.clone().addScaledVector(f, 2); m.pos.x = to.x; m.pos.z = to.z; }
+          if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.05), hitO(m, { freeze: a.freeze ? a.stun : 0 }));
+          if (a.hex) m.hexUntil = G.time + a.hex;
+          if (a.dot) { let k = 0; const iv = setInterval(() => { if (m.dead || ++k > a.dotT || this.dead) { clearInterval(iv); return; } this.dealDamage(m, P(a.dot), { silent: k % 2 === 0, el: 'arcane' }); }, 1000); }
+          V.burst('shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 24, { speed: 2.5, size: 0.7 }); }
+        V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.6), a.name, 'bad'); return true; }
+      case 'ground': { const c = groundPoint(32), r = (a.r || 6) * K, n = a.ticks || 4; V.ring(c, r, col, n * 0.5 + 0.3);
+        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return;
+          for (const m of mobsInRadius(c, r)) if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.02), hitO(m, { silent: k > 0 }));
+          if (a.healAllies) { ally(c, r, a.healAllies * up); if (Math.hypot(this.pos.x - c.x, this.pos.z - c.z) < r) this.heal(this.maxHp * a.healAllies * up); }
+          for (let j = 0; j < 14; j++) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0.3 + Math.random() * 2, (Math.random() - 0.5) * r * 1.6)); V.burst(pk === 'spark' ? 'arcane' : pk, q, 1, { speed: 1.5, vy: pk === 'fire' ? 3 : 1 }); }
+          if (k % 2 === 0) S.cast(el || 'arcane', c, 0.6); }, 150 + k * 500);
+        anim('castBig', 0.6); return true; }
+      case 'summon': { const n = this.qty(a.n || 1, a.extra || 0); if (G.hooks.summonPet) G.hooks.summonPet(a.pet, this.pos.clone().addScaledVector(f, -2), this.h.level, a.dur || 30, n, !!a.big); S.cast('arcane', this.pos, 1); V.burst(a.pet === 'skeleton' ? 'bone' : 'shadow', this.pos.clone().addScaledVector(f, -2).setY(this.pos.y + 0.5), 40, { speed: 3 }); anim('castBig', 0.6); return true; }
+      case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase') m.state = 'return'; S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
     }
     return false;
   }

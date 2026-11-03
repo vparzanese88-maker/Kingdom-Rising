@@ -1,4 +1,6 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
+import { NEW_CLASSES } from './classes2.js';
+import { STARTING_PAIR } from './data.js';
 import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -25,11 +27,12 @@ export const setIsEmpty = (h) => !h.equip.w3 && !h.equip.w4;
 // run an equip or unequip against Set 2 by trading the sets around it
 function onSet2(h, fn) { swapSets(h); let r; try { r = fn(); } finally { swapSets(h); } G.hooks.gearChanged && G.hooks.gearChanged(); G.hooks.invChanged && G.hooks.invChanged(); return r; }
 export function newHero(o) {
+  const NC = NEW_CLASSES[o.cls], ncPair = NC && STARTING_PAIR[NC.start];
   const starter = { shaman: makeWeapon('spear', 0, 0), musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
-    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
+    pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), NC ? { w1: makeWeapon(ncPair ? ncPair[0] : NC.start, 0, 0), w2: ncPair ? makeWeapon(ncPair[1], 0, 0) : null } : { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   return h;

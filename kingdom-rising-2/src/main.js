@@ -315,6 +315,7 @@ function battleHooks() {
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);
   H.rally = () => {};
   H.allyFx = (p, [r, heal, kind, dur], up) => { const R = r * Math.sqrt(up); if (MP.client) mpSend({ t: 'fx', x: p.x, z: p.z, r: R, heal: heal ? heal * up : 0, kind: kind || null, dur: dur ? dur * up : 0 }); else { if (heal) Battle.allyHeal(p, R, heal * up); if (kind) Battle.allyBuff(p, R, kind, dur * up); } V.ring(p, R, heal ? '#80ff90' : kind === 'ward' ? '#80d8ff' : '#ffd84a', 0.7); }
+  H.summonPet = (pet, p, lv, dur, n, big) => { if (MP.client) mpSend({ t: 'summon', kind: 'pet', pet, x: p.x, z: p.z, lv, dur, n, big }); else Battle.summonPet(pet, p, lv, dur, n, big); };
   H.spiritWolf = (p, lv, dur) => { if (MP.client) mpSend({ t: 'summon', kind: 'spirit', x: p.x, z: p.z, lv, dur }); else Battle.spiritWolf(p, lv, dur); };
   H.alliesNear = (p, r) => { const out = []; for (const u of Battle.B.units) if (!u.dead && u.team === Battle.B.myTeam && !u.worker && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < r) out.push(u); for (const x of MP.remotes.values()) if (!x.dead && x.team === Battle.B.myTeam && Math.hypot(x.pos.x - p.x, x.pos.z - p.z) < r) out.push(x); return out; };
   H.summonWolves = (p, lv, dur) => { if (MP.client) mpSend({ t: 'summon', x: p.x, z: p.z, lv, dur }); else Battle.summonWolves(p, lv, dur); };

@@ -1,5 +1,6 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
 import * as THREE from 'three';
+import { NEW_CLASSES } from './classes2.js';
 import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
 import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave, listCampaigns, MAX_CHARS } from './saves.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
@@ -94,6 +95,8 @@ const TABS = ['Race', 'Class', 'Body', 'Look', 'Name'];
 const firstTab = () => (C && C.battle && (!C.battle.mp || C.battle.live) ? 1 : 0);
 const START = { shaman: 'spear', musketeer: 'musket', berserker: 'greataxe', warrior: 'swordshield', ranger: 'bow', wizard: 'firestaff' };
 const START_NAME = { shaman: 'Spear', musketeer: 'Musket', berserker: 'Great Axe', warrior: 'Sword (main hand) and Shield (off hand)', ranger: 'Longbow', wizard: 'Fire Staff' };
+// the new classes bring their own starting weapon and creator text
+for (const [id, c] of Object.entries(NEW_CLASSES)) { const pair = { maceshield: 'mace', swordshield: 'sword', swordmace: 'sword' }[c.start]; CLS_WPN[id] = { kind: 'weapon', wt: pair || c.start, tier: 2, rarity: 0 }; START[id] = c.start; START_NAME[id] = c.startName; }
 let tab = 0, C = null;
 const NAMES = { human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 'Owen'], f: ['Elena', 'Rowena', 'Isolde', 'Catrin', 'Alys', 'Brienne'] }, highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
@@ -113,6 +116,7 @@ const RACE_INFO = {
   dwarf: { tag: 'Stout & unbreakable', icon: '🧔', best: 'Warrior', lore: 'Short, broad and stubborn as the mountains they carve. A dwarf in armour is a wall with a beard.', perk: 'Highest Strength and Stamina, plus 20 bonus health. Hard to kill.' },
 };
 const CLASS_INFO = {
+  ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, Object.assign({ start: c.startName }, c.info)])),
   shaman: { tag: 'Spirit caller', diff: 2, role: 'Healing, buffs and curses', res: 'Mana', start: 'Spear', tips: ['Healing Wave and Chain Heal keep you and everyone near you on their feet. Not as strong as a true healer, but always welcome.', 'Spirit Wolf makes everyone near it run faster: great for marching on an enemy town.', 'Hex and Earthbind stop the enemy; Earth Shock and Storm Call finish them.'] },
   musketeer: { tag: 'Sharpshooter', diff: 2, role: 'Long-range burst damage', res: 'Endurance', start: 'Musket', tips: ['Tap left click to fire from the hip; hold it to aim down the barrel for a much stronger, steadier shot.', 'Right click fires both barrels and leaps you backwards: perfect when something gets too close.', 'Smoke Bomb and Powder Keg keep enemies off you while you reload.'] },
   berserker: { tag: 'Wild fighter', diff: 1, role: 'Heavy melee damage', res: 'Endurance', start: 'Great Axe', tips: ['Leap Strike into a group, then roar Battle Cry and keep swinging.', 'Intimidating Shout freezes everything around you with fear.', 'You wear light armour: Bloodrage heals you as you deal damage.'] },
@@ -153,7 +157,7 @@ function renderCreator() {
     const I = CLASS_INFO[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
     body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${I.start}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
     // the starting weapon: what each button does with it
-    { const wt = { warrior: 'swordshield', berserker: 'greataxe', ranger: 'bow', wizard: 'firestaff', musketeer: 'musket', shaman: 'spear' }[C.cls], W = WEAPON_TYPES[wt], bt = !!C.battle;
+    { const wt = (START[C.cls] || 'sword'), W = WEAPON_TYPES[wt], bt = !!C.battle;
       const st = comboSteps(wt, bt), sid = RMB_SPECIAL[wt], SP = sid && WSKILLS[sid];
       const tap = st.filter(x => !/^Hold/.test(x.n)), hold = st.filter(x => /^Hold/.test(x.n));
       const holdTxt = hold.length ? `${hold[0].n.replace('Hold: ', '')}: ${hold[0].tags.join(', ')}` : W.kind === 'bow' ? 'Draw the bow: the longer you hold, the harder, faster and straighter the arrow' : W.kind === 'gun' ? 'Raise the musket and aim down the barrel: a harder, straighter shot (zooms in)' : 'Wind up a heavy blow: hits much harder';

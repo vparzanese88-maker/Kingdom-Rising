@@ -15,6 +15,7 @@ import { angDiff, rand, clamp, distToLine } from './util.js';
 import { fog, updateFog, isVisible, addPing } from './fog.js';
 import { MP, send } from './mp.js';
 import { job as QJOB } from './battlequests.js';
+import { petDef } from './classes2.js';
 import { proxyUnitStep, fxQueue, mobList } from './mpsync.js';
 
 export const B = { on: false, towns: [], units: [], structs: [], shots: [], time: 0, over: false, result: null, me: 0, msgs: [] };
@@ -909,7 +910,7 @@ function routeHome(u, dest) { return dest; }
 
 // ---------- AI heroes ----------
 const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior' };
-const CLASS_HERO = { shaman: { wt: 'spear', range: 0 }, musketeer: { wt: 'musket', range: 26, proj: 'bullet' }, warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
+const CLASS_HERO = { cleric: { wt: 'maceshield', range: 0 }, paladin: { wt: 'swordshield', range: 0 }, darkknight: { wt: 'greatsword', range: 0 }, druid: { wt: 'froststaff', range: 22, proj: 'frost' }, monk: { wt: 'spear', range: 0 }, bard: { wt: 'sword', range: 0 }, rogue: { wt: 'daggers', range: 0 }, necromancer: { wt: 'arcanestaff', range: 22, proj: 'arcane' }, elementalist: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 }, enchanter: { wt: 'arcanestaff', range: 22, proj: 'arcane' }, beastmaster: { wt: 'handaxes', range: 0 }, shaman: { wt: 'spear', range: 0 }, musketeer: { wt: 'musket', range: 26, proj: 'bullet' }, warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
 export function heroUnitDef(cls) { const H = CLASS_HERO[cls] || CLASS_HERO.warrior; return { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } }; }
 function makeAIHero(t) {
   const cls = t.heroCls || AI_CLASS[t.race] || 'warrior', H = CLASS_HERO[cls];
@@ -1043,6 +1044,7 @@ function wolfAuras(dt) {
     const p = G.player; if (p && !p.dead && w.team === B.myTeam && Math.hypot(p.pos.x - w.pos.x, p.pos.z - w.pos.z) < A.r) { p.buffs.wolfRun = 0.35; p.wolfK = A.k; }
     if (!B.client) for (const u of B.units) if (u.team === w.team && !u.dead && u !== w && Math.hypot(u.pos.x - w.pos.x, u.pos.z - w.pos.z) < A.r) { u.runUntil = B.time + 0.35; u.runK = A.k; } }
 }
+export function summonPet(kind, p, lv, dur, n, big, town) { const t = town || myTown(); for (let k = 0; k < n; k++) { const def = petDef(kind, lv, big); def.petKind = kind; def.petLv = lv; const u = new Unit(t, def, p.x + (k - (n - 1) / 2) * 2.2, p.z - (k % 2), { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('shadow', u.pos.clone().setY(u.pos.y + 0.8), 20, { speed: 2 }); } }
 export function summonWolves(p, lv, dur, town) { const t = town || myTown(); const n = 2 + Math.round((Math.min(10, lv) - 1) / 9 * 2); for (let k = 0; k < n; k++) { const def = { id: 'wolfpet', name: 'Spirit Wolf', role: 'melee', hp: 260 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.0, speed: 7, range: 0, armor: 0.15, size: 1.35, quad: 'wolf', col: '#c8d8f0', pop: 0, cost: { gold: 0 } }; const u = new Unit(t, def, p.x + (k - (n - 1) / 2) * 2.2, p.z - 2 - (k % 2), { order: 'follow' }); u.expire = dur; u.pet = true; t.units.push(u); V.burst('frost', u.pos.clone().setY(u.pos.y + 0.8), 25, { speed: 3 }); } }
 export function recall(t) {
   if (B.client) { send({ t: 'order', kind: 'recall' }); return; } for (const u of t.units) if (!u.worker && !u.hero) { u.order = 'defend'; u.path = null; u.target = null; } }

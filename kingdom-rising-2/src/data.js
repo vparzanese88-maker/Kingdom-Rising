@@ -713,3 +713,14 @@ export const STATION_SPOTS = [
 ];
 
 export const MERCHANT_STOCK = ['potion_heal', 'bandage', 'crab_cake', 'roast_meat', 'berry_juice', 'mint_tea', 'honey_mead', 'dwarf_ale', 'linen', 'leather', 'planks', 'copper_ingot', 'iron_ingot'];
+
+// ---- the rest of the classic party (Kingdom Battles only), defined in classes2.js ----
+import { NEW_CLASSES } from './classes2.js';
+const PAIR_PARTS = { maceshield: ['mace', 'shield'], swordshield: ['sword', 'shield'], swordmace: ['sword', 'mace'] };
+for (const [id, c] of Object.entries(NEW_CLASSES)) {
+  const weapons = [...new Set(c.weapons.flatMap(w => PAIR_PARTS[w] ? [w, ...PAIR_PARTS[w]] : [w]))];
+  CLASSES[id] = { name: c.name, battleOnly: true, desc: c.desc, weapons, armor: c.armor, hp: c.pool.hp[0], mana: c.pool.mana[0], colors: c.colors };
+  CLASS_POOLS[id] = c.pool; CLASS_TREE[id] = [];
+  ABILITIES[id] = c.abilities.map(a => Object.assign({ key: '', icon: '', kit: true }, a));
+}
+export const STARTING_PAIR = PAIR_PARTS;

@@ -56,6 +56,15 @@ const MAP = {
   grapeshot: ['burst', 'fire'], smokebomb: ['cloud', 'shadow'], powderkeg: ['burst', 'red'], quickreload: ['hourglass', 'gold'], bayonet: ['sword', 'steel'], eagleeye: ['eye', 'gold'], volleyfire: ['volley', 'fire'], incendiary: ['fireball', 'fire'], caltrops: ['trap', 'steel'], cannonade: ['meteor', 'steel'], doubleshot: ['dash', 'fire'], dash: ['dash', 'fire'],
   tourniquet: ['heart', 'red'], secondwind: ['leaf', 'gold'], fielddress: ['heart', 'nature'], fist: ['fist', 'steel'],
 };
+// the new classes' abilities get an icon from what they do
+import { NEW_CLASSES } from './classes2.js';
+{ const G2 = { bolt: 'fireball', drain: 'heart', nova: 'burst', cone: 'volley', strike: 'sword', flurry: 'swords', dash: 'dash', heal: 'heart', hot: 'leaf', buff: 'shield', curse: 'spiral', ground: 'meteor', summon: 'skull', stealth: 'cloud' };
+  const TH = { gold: 'gold', shadow: 'shadow', leaf: 'nature', dust: 'steel', arcane: 'arcane', frost: 'frost', fire: 'fire', smoke: 'shadow', blood: 'red' };
+  for (const c of Object.values(NEW_CLASSES)) for (const ab of c.abilities) if (!MAP[ab.id]) {
+    let g = G2[ab.t] || 'burst'; if (ab.t === 'bolt') g = ab.kind === 'knife' ? 'volley' : ab.kind === 'rock' ? 'slam' : ab.kind === 'spectral' ? 'arrow' : 'fireball'; if (ab.t === 'summon') g = ab.pet === 'skeleton' ? 'skull' : ab.pet === 'fireel' ? 'flame' : ab.pet === 'earthel' ? 'slam' : ab.pet === 'phantasm' ? 'eye' : 'wolf';
+    if (ab.t === 'buff') g = ab.buff === 'ward' || ab.buff === 'fort' || ab.buff === 'barrier' ? 'shield' : ab.buff === 'cry' || ab.buff === 'rage' || ab.buff === 'stand' ? 'banner' : ab.buff === 'undying' ? 'heart' : 'hourglass';
+    const th = ab.t === 'heal' || ab.t === 'hot' ? (ab.fx === 'gold' ? 'gold' : 'nature') : TH[ab.fx] || (ab.t === 'curse' || ab.t === 'drain' ? 'shadow' : ab.kind === 'fireball' ? 'fire' : ab.kind === 'arcane' ? 'arcane' : 'steel');
+    MAP[ab.id] = [g, th]; } }
 export function hasIcon(id) { return !!MAP[id]; }
 export function abilityBadge(id) { const [g, th] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th); }
 export function glyphBadge(g, th) {

@@ -784,7 +784,7 @@ export class Player {
     const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
     spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
-    S.explode(from, 0.3 + charge * 0.15, 'fire'); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
+    S.gunshot(null, 1 + charge * 0.35); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
   }
   // Kingdom Battles: class abilities never depend on the weapon in your hands. Every hero carries their class kit:
   // rangers throwing knives, bolas and a spirit hawk; musketeers a belt pistol, a bayonet knife and fire flasks;
@@ -792,7 +792,7 @@ export class Player {
   classGear(id, base, up, f) {
     const hand = () => this.handPos(true), aim = (from) => this.aimDir(from);
     const bullet = (from, dir, dmg, o = {}) => spawnProjectile(Object.assign({ pos: from, vel: dir.multiplyScalar(130), grav: 3, flat: 1.2, radius: 0.14, dmg, owner: 'player', kind: 'bullet', life: 2.5 }, o));
-    const pistolFx = (from) => { V.burst('smoke', from, 10, { speed: 2, size: 0.9, life: 1.3 }); V.burst('fire', from, 5, { speed: 4 }); V.light(from, '#ffc060', 5, 0.07); S.explode(from, 0.25, 'fire'); this.recoil = 0.6; V.addShake(0.05); };
+    const pistolFx = (from) => { V.burst('smoke', from, 10, { speed: 2, size: 0.9, life: 1.3 }); V.burst('fire', from, 5, { speed: 4 }); V.light(from, '#ffc060', 5, 0.07); S.gunshot(null, 0.8); this.recoil = 0.6; V.addShake(0.05); };
     switch (id) {
       // ---- Ranger ----
       case 'spectral': { // Spirit Hawk

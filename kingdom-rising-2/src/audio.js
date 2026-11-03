@@ -224,6 +224,16 @@ export const S = {
     }
   },
   charge(el = 'fire') { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); const f = el === 'frost' ? 1500 : el === 'arcane' ? 700 : 200; tone(t, 1.0, o.node, { type: 'sine', f, f2: f * 3, gain: 0.08, a: 0.6 }); noise(t, 1.0, o.node, { type: 'bandpass', f: f * 2, f2: f * 6, q: 3, gain: 0.08, a: 0.6 }); },
+  // a black-powder gunshot: a sharp crack, a deep boom and an echo rolling away. k: loudness (1 = musket)
+  gunshot(pos, k = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.75); const t = now(), g = Math.min(2, k);
+    noise(t, 0.05, o.node, { type: 'highpass', f: 2500, gain: 1.6 * g, a: 0.001 });
+    noise(t, 0.12, o.node, { type: 'bandpass', f: 1400, q: 0.8, gain: 1.4 * g, a: 0.001 });
+    noise(t, 0.55, o.node, { type: 'lowpass', f: 1600, f2: 140, q: 0.6, gain: 1.5 * g, a: 0.002 });
+    tone(t, 0.32, o.node, { type: 'sine', f: 95, f2: 38, gain: 1.4 * g, a: 0.002 });
+    tone(t, 0.18, o.node, { type: 'triangle', f: 180, f2: 60, gain: 0.5 * g, a: 0.002 });
+    for (let i = 1; i <= 3; i++) noise(t + 0.18 * i + Math.random() * 0.05, 0.4, o.node, { type: 'lowpass', f: 900 - i * 180, gain: 0.35 * g / i, a: 0.02 });
+  },
   explode(pos, big = 1, el = 'fire') {
     if (!ctx) return; const o = out(pos, sfxBus, 0.5); const t = now();
     const lp = el === 'frost' ? 4000 : el === 'arcane' ? 2500 : 1800;

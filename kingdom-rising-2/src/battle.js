@@ -595,7 +595,7 @@ function shoot(src, tgt, from, dmg, kind, opts = {}) {
   if (MP.host && !opts.visual) fxQueue.push([kind, Math.round(from.x * 10) / 10, Math.round(from.y * 10) / 10, Math.round(from.z * 10) / 10, tgtRef(tgt)]);
   const m = new THREE.Mesh(SHOT_GEO[kind] || SHOT_GEO.arrow, SHOT_MAT[kind] || SHOT_MAT.arrow); m.position.copy(from); G.scene.add(m);
   B.shots.push({ m, src, tgt, dmg, kind, opts, t: 0, from: from.clone(), arc: kind === 'arrow' || kind === 'bolt' ? 1 : 0 });
-  if (kind === 'bullet') { S.explode(from, 0.25, 'fire'); V.burst('smoke', from, 8, { speed: 1.5, size: 0.8, life: 1.2 }); V.light(from, '#ffb050', 4, 0.1); }
+  if (kind === 'bullet') { S.gunshot(from, 0.9); V.burst('smoke', from, 8, { speed: 1.5, size: 0.8, life: 1.2 }); V.light(from, '#ffb050', 4, 0.1); }
   else if (kind === 'arrow' || kind === 'bolt' || kind === 'smite') S.bowShot(from);
   else S.cast(kind === 'frost' ? 'frost' : kind === 'arcane' || kind === 'holy' ? 'arcane' : 'fire', from, 0.6);
 }

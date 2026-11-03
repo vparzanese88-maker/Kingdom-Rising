@@ -8,7 +8,7 @@ import { S } from './audio.js';
 import { V } from './vfx.js';
 import { heightAt } from './terrain.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, bake, backWeapons } from './character.js';
-import { RACES, CLASSES } from './data.js';
+import { RACES, CLASSES, WEAPON_TYPES } from './data.js';
 import { SETUP } from './battlemap.js';
 import { TEAM_COLORS, TEAM_NAMES, DIFFS, BATTLE_RACES } from './battledata.js';
 import { angDiff } from './util.js';
@@ -165,7 +165,7 @@ export class RemoteHero {
   get name() { return this.heroName; }
   setWeapon(wt) { if (wt === this.wt) return; this.wt = wt; try { equipWeapon(this.model, wt, 1); } catch (e) { /* unknown weapon on this client */ } }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
-  netState(s) { if (s.k != null) { this.kills = s.k; this.deaths = s.de || 0; } this.tgt.set(s.x, s.y, s.z); this.tyaw = s.yaw; this.hp = s.hp; this.maxHp = s.mhp; this.lv = this.level = s.lv; if (s.dead && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s.dead && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.x = 0; this.pos.copy(this.tgt); } if (s.act && s.act !== this.act) { this.act = s.act; this.actT = 0; } if (!s.act) this.act = ''; this.spd = s.spd || 0; if (s.wt) this.setWeapon(s.wt); if (s.bk != null && s.bk !== this.bk) { this.bk = s.bk; try { backWeapons(this.model, s.bk.split(',').map(x => { if (!x) return null; const [wt, tier, rarity] = x.split(':'); return { wt, tier: +tier, rarity: +rarity }; })); } catch (e) {} } }
+  netState(s) { if (s.k != null) { this.kills = s.k; this.deaths = s.de || 0; } this.tgt.set(s.x, s.y, s.z); this.tyaw = s.yaw; this.hp = s.hp; this.maxHp = s.mhp; this.lv = this.level = s.lv; if (s.dead && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s.dead && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.x = 0; this.pos.copy(this.tgt); } if (s.act && s.act !== this.act) { this.act = s.act; this.actT = 0; const W = WEAPON_TYPES[this.wt]; if (W && W.kind === 'gun' && (s.act === 'shoot' || s.act === 'release')) S.gunshot(this.pos, 0.9); else if (W && W.kind === 'bow' && s.act === 'release') S.bowShot(this.pos); } if (!s.act) this.act = ''; this.spd = s.spd || 0; if (s.wt) this.setWeapon(s.wt); if (s.bk != null && s.bk !== this.bk) { this.bk = s.bk; try { backWeapons(this.model, s.bk.split(',').map(x => { if (!x) return null; const [wt, tier, rarity] = x.split(':'); return { wt, tier: +tier, rarity: +rarity }; })); } catch (e) {} } }
   update(dt) {
     if (this.dead) { this.deadT = (this.deadT || 0) + dt; if (this.deadT < 1) this.root.rotation.x = -Math.min(1, this.deadT / 0.6) * Math.PI / 2; else this.root.visible = false; return; }
     this.pos.lerp(this.tgt, Math.min(1, dt * 12)); this.yaw += angDiff(this.yaw, this.tyaw) * Math.min(1, dt * 14);

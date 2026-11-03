@@ -879,7 +879,7 @@ export class Player {
       }
       case 'barrage': { // Knife Fan
         const n = this.qty(5, 7);
-        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = hand(), dir = aim(from); dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), (Math.random() - 0.5) * 0.35); dir.y += (Math.random() - 0.5) * 0.05; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(48), grav: 4, radius: 0.22, dmg: base * 0.65 * up, owner: 'player', kind: 'knife', life: 1.6, onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.05 }); } }); S.swingW('light', 0.7, this.pos); }, k * 70);
+        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = hand(), dir = aim(from); dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), (Math.random() - 0.5) * 0.35); dir.y += (Math.random() - 0.5) * 0.05; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(48), grav: 4, radius: 0.22, dmg: base * 0.4 * up, owner: 'player', kind: 'knife', life: 1.6, onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.05 }); } }); S.swingW('light', 0.7, this.pos); }, k * 70);
         this.atk = { name: 'swing1', t: 0, dur: n * 0.07, hit: true, noQueue: true }; return true;
       }
       // ---- Musketeer ----

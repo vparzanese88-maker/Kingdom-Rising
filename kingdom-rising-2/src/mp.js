@@ -38,22 +38,34 @@ export function lobby() {
       let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div><h1>${MP.code ? 'Game <span class="mpcode">' + MP.code + '</span>' : 'Connecting…'}</h1>`;
       html += MP.code ? `<p class="mpsub">${isHost ? 'Send this code to your friends. They choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in. They join your town unless they pick another.' : 'You are in! The host is setting up the battle. You can stay in the host\'s town or join another one.'}</p>` : `<p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>`;
       if (MP.code) {
-        html += `<div class="mpname"><label>Your name <input id="mpName" maxlength="16" value="${String(me.name).replace(/"/g, '&quot;')}"></label><span class="dim">You make your hero after the host starts.</span></div>`;
-        html += '<div class="mpslots">';
+        html += `<div class="mpname"><label>Your name <input id="mpName" maxlength="16" value="${String(me.name).replace(/"/g, '&quot;')}"></label><span class="dim">You make your hero after the game starts.</span></div>`;
+        const homeI = Math.max(0, MP.slots.findIndex(s => s.players.includes(0))), home = MP.slots[homeI], foes = MP.slots.filter((s, i) => i !== homeI);
+        const others = MP.slots.filter((s, i) => i !== homeI && s.players.length);
+        // your kingdom: everyone shares the host's town
+        html += `<div class="mpk mine"><div class="mpkh"><b>👑 Your kingdom</b><span>${home.players.length} player${home.players.length === 1 ? '' : 's'} · everyone here shares this town, its army and its gold</span></div><div class="mpkp">${home.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑' : ''}</span>`).join('') || '<span class="dim">Nobody yet</span>'}</div>`;
+        if (isHost) html += `<div class="mpkr"><span>Town race</span>${BATTLE_RACES.map(r => `<button class="seg${home.race === r ? ' on' : ''}" data-hrace="${r}">${RN[r]}</button>`).join('')}</div>`;
+        else if (!home.players.includes(MP.myId)) html += `<button class="btn gold" data-join="${homeI}">Join this kingdom</button>`;
+        html += '</div>';
+        // the enemy
+        const aiFoes = foes.filter(s => !s.players.length), diff = (aiFoes[0] || {}).diff || 'normal';
+        html += `<div class="mpk"><div class="mpkh"><b>⚔ The enemy</b><span>${foes.length} enemy kingdom${foes.length === 1 ? '' : 's'}${others.length ? ` (${others.length} with players)` : ''}</span></div>`;
+        if (isHost) html += `<div class="mpkr"><span>How many</span>${[1, 2, 3].map(n => `<button class="seg${foes.length === n ? ' on' : ''}" data-nfoes="${n}">${n}</button>`).join('')}</div><div class="mpkr"><span>How hard</span>${Object.keys(DIFFS).map(d => `<button class="seg${diff === d ? ' on' : ''}" data-diff="${d}">${DIFFS[d].name}</button>`).join('')}</div>`;
+        else html += `<p class="dim">${foes.map(s => RN[s.race]).join(', ')} · ${DIFFS[diff].name}</p>`;
+        html += '</div>';
+        // more options: teams, races and splitting players across towns
+        html += `<details class="mpmore"${MP.more ? ' open' : ''}><summary>More options: teams, races, play against each other</summary><div class="mpslots">`;
         MP.slots.forEach((s, i) => {
-          const here = s.players.includes(MP.myId), pl = s.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑' : ''}</span>`).join('');
+          const here = s.players.includes(MP.myId), pl = s.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}</span>`).join('');
           html += `<div class="mpslot${here ? ' mine' : ''}"><div class="mpdot" style="background:${TEAM_COLORS[s.team]}"></div><div class="mpwho"><b>Town ${i + 1} · ${RN[s.race]}</b><small>${s.players.length ? pl : `Computer · ${DIFFS[s.diff || 'normal'].name}`}</small></div>`;
           if (isHost) {
             html += `<label>Team <select data-i="${i}" data-k="team">${[0, 1, 2, 3].map(t => `<option value="${t}" ${s.team === t ? 'selected' : ''}>${TEAM_NAMES[t]}</option>`).join('')}</select></label>`;
             html += `<label>Race <select data-i="${i}" data-k="race">${BATTLE_RACES.map(r => `<option value="${r}" ${s.race === r ? 'selected' : ''}>${RN[r]}</option>`).join('')}</select></label>`;
-            if (!s.players.length) html += `<label>Difficulty <select data-i="${i}" data-k="diff">${Object.keys(DIFFS).map(d => `<option value="${d}" ${s.diff === d ? 'selected' : ''}>${DIFFS[d].name}</option>`).join('')}</select></label>`;
-            if (MP.slots.length > 2 && !s.players.includes(0)) html += `<button class="btn mprm" data-rm="${i}">✕</button>`;
           } else html += `<span class="mpteam">${TEAM_NAMES[s.team]} team</span>`;
-          if (!here) html += `<button class="btn mpjoin" data-join="${i}">Join this town</button>`;
+          if (!here) html += `<button class="btn mpjoin" data-join="${i}">Move here</button>`;
           html += '</div>';
         });
-        html += '</div>';
-        if (isHost) html += `<div class="mprow">${MP.slots.length < 4 ? '<button class="btn" id="mpAdd">+ Add a town</button>' : ''}<button class="btn gold big" id="mpStart">Start the game</button></div><p class="mpsub dim">Same team colour = allies. Towns with no players are run by the computer. Everyone makes their hero once you start.</p>`;
+        html += '</div></details>';
+        if (isHost) html += `<div class="mprow"><button class="btn gold big" id="mpStart">Start the game</button></div>`;
         else html += '<p class="mpsub dim">Waiting for the host to start…</p>';
       } else if (MP.err) html += '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>';
       html += '</div>';
@@ -62,6 +74,14 @@ export function lobby() {
       ov.querySelectorAll('select').forEach(sel => sel.onchange = () => { const s = MP.slots[+sel.dataset.i]; const k = sel.dataset.k; s[k] = k === 'team' ? +sel.value : sel.value; pushLobby(); render(); });
       ov.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const s = MP.slots[+b.dataset.rm]; const home = MP.slots.find(x => x.players.includes(0)); if (home) home.players.push(...s.players); MP.slots.splice(+b.dataset.rm, 1); pushLobby(); render(); });
       ov.querySelectorAll('[data-join]').forEach(b => b.onclick = () => { S.click(); const i = +b.dataset.join; if (MP.host) { moveTo(MP.myId, i); pushLobby(); render(); } else send({ t: 'pick', slot: i }); });
+      ov.querySelectorAll('[data-hrace]').forEach(b => b.onclick = () => { S.click(); const h = MP.slots.find(x => x.players.includes(0)); h.race = b.dataset.hrace; pushLobby(); render(); });
+      ov.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { S.click(); for (const x of MP.slots) if (!x.players.length) x.diff = b.dataset.diff; pushLobby(); render(); });
+      ov.querySelectorAll('[data-nfoes]').forEach(b => b.onclick = () => { S.click(); const n = +b.dataset.nfoes, homeI = Math.max(0, MP.slots.findIndex(x => x.players.includes(0))); let foes = MP.slots.length - 1;
+        const diff = (MP.slots.find((x, i) => i !== homeI && !x.players.length) || {}).diff || 'normal', used = new Set(MP.slots.map(x => x.race));
+        while (foes < n) { const race = BATTLE_RACES.find(r => !used.has(r)) || 'orc'; used.add(race); MP.slots.push({ players: [], race, team: 1, diff }); foes++; }
+        while (foes > n) { const k = MP.slots.map((x, i) => i).reverse().find(i => i !== homeI && !MP.slots[i].players.length); if (k == null) break; MP.slots.splice(k, 1); foes--; }
+        pushLobby(); render(); });
+      const more = ov.querySelector('.mpmore'); if (more) more.ontoggle = () => { MP.more = more.open; };
       const add = $('mpAdd'); if (add) add.onclick = () => { MP.slots.push({ players: [], race: BATTLE_RACES[MP.slots.length % 5], team: MP.slots.length, diff: 'normal' }); pushLobby(); render(); };
       const st = $('mpStart'); if (st) st.onclick = () => {
         if (new Set(MP.slots.map(s => s.team)).size < 2) { S.error(); alertTeams(); return; }

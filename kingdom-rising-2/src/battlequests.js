@@ -45,13 +45,19 @@ export function abandon(giver) { delete Q.active[giver]; Q.hooks.changed && Q.ho
 export function questKill(mob) {
   if (!mob || !mob.type) return;
   for (const giver in Q.active) {
-    const a = Q.active[giver], j = J[a.id]; if (!j.types.includes(mob.type)) continue;
+    const a = Q.active[giver], j = J[a.id]; if (a.ready || !j.types.includes(mob.type)) continue;
     if (j.kind === 'loot') { if (Math.random() > j.chance) continue; a.have++; if (mob.pos) V.number(mob.pos.clone().setY(mob.pos.y + (mob.height || 2) + 1), `+1 ${j.item}`, 'gold'); S.coins(); Q.hooks.toast(`${j.icon} ${j.item} ${Math.min(a.have, j.n)}/${j.n}`); }
     else { a.have++; if (a.have <= j.n) Q.hooks.toast(`☠ ${j.name}: ${Math.min(a.have, j.n)}/${j.n}`); }
-    if (a.have >= j.n) finish(giver);
+    if (a.have >= j.n) { a.ready = true; S.levelUp && S.levelUp(); Q.hooks.toast(`✔ ${j.name} done: hand it in to the ${GIVERS[giver].title} (?)`); Q.hooks.say(giver, `that's all of it, Commander. Come back to me in town and I will put it to use.`, 'good'); }
   }
   Q.hooks.changed && Q.hooks.changed();
 }
+// hand a finished job in at its giver
+export function turnIn(giver) {
+  const a = Q.active[giver]; if (!a || !a.ready) return false; finish(giver); return true;
+}
+// what floats over a giver's head: ! a new job, ? a finished one to hand in, grey ? a job under way
+export function marker(giver) { const a = Q.active[giver]; if (a) return a.ready ? '?' : 'q'; return nextFor(giver) ? '!' : ''; }
 function finish(giver) {
   const a = Q.active[giver], j = J[a.id]; delete Q.active[giver]; Q.done.push(j.id);
   S.levelUp && S.levelUp(); V.addShake(0.15);
@@ -59,4 +65,4 @@ function finish(giver) {
   Q.hooks.say(giver, `job done, Commander: <b>${j.name}</b>. ${j.reward}!${nextFor(giver) ? ' Come and see me, I have more work.' : ''}`, 'good');
   Q.hooks.banner && Q.hooks.banner(`Job done: ${j.name}`, j.reward);
 }
-export const activeList = () => Object.entries(Q.active).map(([g, a]) => ({ giver: g, have: a.have, ...J[a.id] }));
+export const activeList = () => Object.entries(Q.active).map(([g, a]) => ({ giver: g, have: a.have, ready: !!a.ready, ...J[a.id] }));

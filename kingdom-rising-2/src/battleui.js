@@ -243,7 +243,7 @@ function tabJobs(body, t, giver) {
   else {
     const goal = j.kind === 'kill' ? `Kill <b>${j.n}</b>: ${j.where}` : `Bring <b>${j.n} ${j.item}</b> ${j.icon}: ${j.where}`;
     const prog = a ? Math.min(a.have, j.n) : 0;
-    p.appendChild(el('div', 'job' + (a ? ' on' : ''), `<div class="jh"><b>${j.name}</b>${a ? '<span class="jtag">Active</span>' : '<span class="jtag new">New job</span>'}</div><p class="jt">“${j.text}”</p><div class="jg">🎯 ${goal}</div><div class="jr">🏆 <b>${j.reward}</b>${j.gold ? ` · +${j.gold} gold` : ''}</div>${a ? `<div class="wr-bar"><i style="width:${prog / j.n * 100}%"></i></div><div class="jp">${prog} / ${j.n}</div>` : ''}`));
+    p.appendChild(el('div', 'job' + (a ? ' on' : ''), `<div class="jh"><b>${j.name}</b>${a ? (a.ready ? '<span class="jtag">Done: talk to me</span>' : '<span class="jtag">Active</span>') : '<span class="jtag new">New job</span>'}</div><p class="jt">“${j.text}”</p><div class="jg">🎯 ${goal}</div><div class="jr">🏆 <b>${j.reward}</b>${j.gold ? ` · +${j.gold} gold` : ''}</div>${a ? `<div class="wr-bar"><i style="width:${prog / j.n * 100}%"></i></div><div class="jp">${prog} / ${j.n}</div>` : ''}`));
     const row = el('div', 'brow');
     if (!a) { const b = el('button', 'btn gold big', 'Take the job (E)'); b.onclick = () => { BQ.accept(giver); render(); questTrack(); }; row.appendChild(b); }
     else { const b = el('button', 'btn', 'Drop this job'); b.onclick = () => { S.click(); BQ.abandon(giver); render(); questTrack(); }; row.appendChild(b); }
@@ -279,7 +279,7 @@ export function questTrack() {
   let d = document.getElementById('bqtrack'); const list = BQ.activeList();
   if (!d) { d = el('div', ''); d.id = 'bqtrack'; document.body.appendChild(d); }
   d.hidden = !list.length;
-  d.innerHTML = `<div class="bqh">Town jobs <span>J</span></div>` + list.map(j => `<div class="bqj"><b>${j.name}</b><span>${j.kind === 'kill' ? '☠ Kill' : j.icon + ' ' + j.item}: ${Math.min(j.have, j.n)}/${j.n}</span><div class="wr-bar"><i style="width:${Math.min(1, j.have / j.n) * 100}%"></i></div></div>`).join('');
+  d.innerHTML = `<div class="bqh">Town jobs <span>J</span></div>` + list.map(j => `<div class="bqj"><b>${j.name}</b><span>${j.ready ? `✔ Done: hand it in to the ${BQ.GIVERS[j.giver].title} (?)` : `${j.kind === 'kill' ? '☠ Kill' : j.icon + ' ' + j.item}: ${Math.min(j.have, j.n)}/${j.n}`}</span><div class="wr-bar"><i style="width:${Math.min(1, j.have / j.n) * 100}%"></i></div></div>`).join('');
 }
 function tabForeman(body, t) {
   const W = t.roster.worker, n = peasants(t), cap = peasantCap(t);

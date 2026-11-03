@@ -465,6 +465,7 @@ export function npcQuests(h, npcId) {
   return { offer, ready, active };
 }
 export function npcMarker(h, npcId) {
+  if (G.hooks.npcMarker) return G.hooks.npcMarker(npcId);
   const { offer, ready, active } = npcQuests(h, npcId);
   // a talk objective targeting this npc counts as ready
   const talkReady = Object.keys(h.quests.active).some(qid => { const q = QUESTS.find(x => x.id === qid); return q.turnin === npcId && q.obj.every(o => o.t === 'talk'); });

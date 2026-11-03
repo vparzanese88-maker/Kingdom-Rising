@@ -194,9 +194,9 @@ function tickCampFires() { const t = performance.now() * 0.001; for (const c of 
 // takes a few swings and real damage, three levels up is a hard fight, and five up will usually kill you
 function battleMob(m) {
   m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2));
-  m.maxHp = Math.round(m.maxHp * 4); m.hp = m.maxHp;
-  m.dmg *= 2.1 - 0.08 * (m.lv - 1);
-  m.xp = Math.round(m.xp * 2.5);
+  m.maxHp = Math.round(m.maxHp * 2.2); m.hp = m.maxHp;
+  m.dmg *= 1.1 - 0.03 * (m.lv - 1);
+  m.xp = Math.round(m.xp * 1.8);
 }
 function spawnBattleCamps() {
   const TIERS = [
@@ -225,10 +225,11 @@ function spawnBattleNpcs() {
   const at = (along, lat) => [t.x + t.dir[0] * along + t.perp[0] * lat, t.z + t.dir[1] * along + t.perp[1] * lat];
   const QN = { human: ['Huntmaster Oswin', 'Quartermaster Bess'], orc: ['Huntmaster Rakh', 'Quartermaster Zug'], highelf: ['Huntmaster Aelir', 'Quartermaster Ithrae'], woodelf: ['Huntmaster Sylwen', 'Quartermaster Bramblewick'], dwarf: ['Huntmaster Grimma', 'Quartermaster Thorek'] }[t.race] || ['Huntmaster', 'Quartermaster'];
   const hs = at(27, 6), qs = at(27, -6);
-  NPCS.b_hunt = { name: QN[0], title: 'Hunting jobs  !', race, sex: 'f', outfit: 'worker', x: hs[0], z: hs[1], hello: '', battleRole: 'hunt' };
-  NPCS.b_quarter = { name: QN[1], title: 'Supply jobs  !', race, sex: 'm', outfit: 'smith', x: qs[0], z: qs[1], hello: '', battleRole: 'quarter' };
+  NPCS.b_hunt = { name: QN[0], title: 'Hunting jobs', race, sex: 'f', outfit: 'worker', x: hs[0], z: hs[1], hello: '', battleRole: 'hunt' };
+  NPCS.b_quarter = { name: QN[1], title: 'Supply jobs', race, sex: 'm', outfit: 'smith', x: qs[0], z: qs[1], hello: '', battleRole: 'quarter' };
   // the town runs itself, so only the job givers stand in the square
   for (const id of ['b_hunt', 'b_quarter']) { const n = new NPC(id); n.baseYaw = t.yaw; G.npcs.push(n); }
+  G.hooks.npcMarker = (id) => id === 'b_hunt' ? BQ.marker('hunt') : id === 'b_quarter' ? BQ.marker('quarter') : '';
   BQ.initQuests({
     say: (giver, text, kind) => BUI.report(giver === 'hunt' ? 'huntmaster' : 'quartermaster', text, kind),
     toast: (t2) => UI.toast(t2, '✦', 'gold'),
@@ -294,7 +295,7 @@ function battleHooks() {
   H.matchOver = (r) => BUI.matchOver(r);
   H.killReward = (g, u) => UI.toast(`+${g} gold · ${u.name}`, Icons.coin(), 'gold');
   H.trained = (u) => UI.toast(`${u.name} ready`, '⚔', 'gold');
-  H.talk = (npc) => { S.click(); if (npc.def.battleRole) BUI.openNpc(npc.def.battleRole); else UI.openDialog(npc); };
+  H.talk = (npc) => { S.click(); const role = npc.def.battleRole; if (role === 'hunt' || role === 'quarter') { BQ.turnIn(role); BUI.questTrack(); } if (role) BUI.openNpc(role); else UI.openDialog(npc); };
   const lvUp = H.levelUp; H.levelUp = (lv, un) => { lvUp(lv, un); const g = ECON.levelGold(lv); Battle.bank(Battle.myTown(), 'gold', g); UI.toast(`+${g} gold for reaching level ${lv}`, Icons.coin(), 'gold'); };
   H.died = () => { G.save.deaths = (G.save.deaths || 0) + 1; BUI.died(); };
   H.cmd = (who, text, kind) => BUI.report(who, text, kind);

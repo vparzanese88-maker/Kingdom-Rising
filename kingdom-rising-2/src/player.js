@@ -625,6 +625,7 @@ export class Player {
   ability(i) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
+    if (G.battleFx && ab.needs && !(this.weapon && this.weapon.wt === ab.needs)) { G.hooks.toast && G.hooks.toast(`${ab.name} needs ${WEAPON_TYPES[ab.needs].name} in your hands`, '🗡', 'bad'); S.error(); return; }
     if (G.battleFx && ab.song) { G.hooks.toast && G.hooks.toast(`${ab.name} plays by itself while it is on your hotbar`, '♪', 'gold'); return; }
     const key = 'a' + (i + 1);
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim) { S.error(); return; }

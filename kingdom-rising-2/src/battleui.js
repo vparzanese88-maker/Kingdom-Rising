@@ -407,18 +407,35 @@ function growLine(a, lv) {
   const pips = Array.from({ length: 10 }, (_, i) => `<i class="${i + 1 < from ? 'off' : i + 1 <= now ? 'on' : ''}" title="Level ${i + 1}: ${Math.round(sc(i + 1) * 100)}%"></i>`).join('');
   return `<div class="bgrow"><div class="bgp">${pips}</div><span>Power (${what}): <b>${Math.round(sc(from) * 100)}%</b> at level ${from} → <b class="nowv">${Math.round(sc(now) * 100)}% now</b> → <b>${Math.round(sc(10) * 100)}%</b> at level 10</span></div>`;
 }
+// what holding left click does with a weapon
+function holdText(wt) {
+  const W = WEAPON_TYPES[wt]; if (!W) return '';
+  if (W.kind === 'bow') return 'Draw the bow: the longer you hold, the harder, faster and straighter the arrow (zooms in).';
+  if (W.kind === 'gun') return 'Raise the musket and aim down the barrel: a harder, straighter shot (zooms in further).';
+  if (W.kind === 'staff') return W.element === 'fire' ? 'Flamethrower: a cone of fire that sets enemies burning, using mana while held.' : W.element === 'frost' ? 'Frost Blast: an icy cone that slows and then freezes, using mana while held.' : 'Arcane Beam: a beam that pierces a whole line, using mana while held.';
+  if (['sword', 'swordshield', 'swordmace', 'greatsword'].includes(wt)) return 'Overhead strike: raise the blade and bring it straight down on one enemy for huge damage and a short stun.';
+  return 'Heavy blow: wind up and swing through everything in front of you. The longer you hold (up to 1 s), the harder it hits.';
+}
 function renderBook() {
   const c = document.querySelector('.book .content'); if (!c) return;
   const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
   const k = G.abilScale ? G.abilScale(h.level) : 1;
   c.innerHTML = '';
-  c.appendChild(el('p', 'bookintro', `Your hotbar holds <b>4 abilities</b> on keys <b>1 2 3 4</b>. Click a slot, then click an ability to put it there. Every level makes all your abilities stronger: right now they hit <b>${Math.round(k * 100)}%</b> as hard, last as long and reach as far as at level 1.`));
-  // your weapons: what left click and F do with each set
-  const wrow = (it, setN) => { if (!it) return ''; const wt = it.wt, W = WEAPON_TYPES[wt]; const st = UI.comboSteps(wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
-    return `<div class="bwpn"><div class="bwh"><b>${it.name}</b><span>Set ${setN}${setN === (h.setNo || 1) ? ' · in your hands' : ' · Q to swap'}</span></div><div class="bwl"><b>Left click</b> ${st.map(x => `${x.n} <small>${x.d}%</small>`).join(' → ')}${st[0] && st[0].tags.length && st.length === 1 ? ` <small>(${st[0].tags.join(', ')})</small>` : ''}</div>${S2 ? `<div class="bwl"><b>F · ${S2.name}</b> ${S2.desc} <small>⟳ ${S2.cd}s</small></div>` : ''}</div>`; };
-  const pairs = [[h.equip.w1, h.setNo === 2 ? 2 : 1], [h.equip.w3, h.setNo === 2 ? 1 : 2]];
-  const wp = pairs.map(([it, n]) => { if (!it) return ''; const act = it === h.equip.w1 ? Game.activeWeapon(h) : it; return wrow(act || it, n); }).join('');
-  if (wp) { const dd = el('details', 'bookwpn', `<summary>Your weapons: left click, hold and F (click to show)</summary>${wp}<p class="dim">Hold right click to block. Raise it just before a hit for a perfect block.</p>`); dd.open = !!openBook.wpnOpen; dd.ontoggle = () => { openBook.wpnOpen = dd.open; }; c.appendChild(dd); }
+  // ---- your weapons, always in view ----
+  const handsLine = (main, off) => { if (!main) return 'Bare hands'; const W = WEAPON_TYPES[main.wt]; if (W.hands === 'dual') return `<b>${main.name}</b> <small>(a pair: fills both hands)</small>`; if (W.hands === 'two' || W.kind === 'bow' || W.kind === 'gun' || W.kind === 'staff') return `<b>${main.name}</b> <small>(both hands)</small>`; return `Main hand <b>${main.name}</b>${off ? ` · Off hand <b>${off.name}</b>` : ' · Off hand empty'}`; };
+  const wrow = (main, off, act, setN, inHand) => { if (!main) return ''; const wt = act.wt, W = WEAPON_TYPES[wt]; const st = UI.comboSteps(wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
+    const tap = st.filter(x => !/^Hold/.test(x.n));
+    return `<div class="bwpn${inHand ? ' now' : ''}"><div class="bwh"><span class="bset">Set ${setN}${inHand ? ' · in your hands' : ' · Q to swap'}</span>${handsLine(main, off)}</div>
+      <div class="bwl"><b>Left click</b><span>${W.kind === 'melee' ? `Combo: ${tap.map(x => `${x.n} <small>${x.d}%</small>`).join(' → ')}` : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ` <small>${x.tags.join(', ')}</small>` : ''}`).join('')}</span></div>
+      <div class="bwl"><b>Hold left click</b><span>${holdText(wt)}</span></div>
+      ${S2 ? `<div class="bwl"><b>F</b><span><span class="fs">${S2.name}</span> ${S2.desc} <small>every ${S2.cd} s</small></span></div>` : ''}
+      <div class="bwl"><b>Hold right click</b><span>Block${off && off.wt === 'shield' ? ' (a shield blocks far more)' : ''}. Raise it just before a hit for a perfect block.</span></div></div>`; };
+  const now1 = h.equip.w1, now2 = h.equip.w2, act = Game.activeWeapon(h);
+  let wp = wrow(now1, now2, act || now1, h.setNo === 2 ? 2 : 1, true);
+  if (h.equip.w3) wp += wrow(h.equip.w3, h.equip.w4, h.equip.w3, h.setNo === 2 ? 1 : 2, false);
+  c.appendChild(el('div', 'bookwpn open', `<h3>Your weapons</h3>${wp || '<p class="dim">No weapon in your hands.</p>'}<p class="bwrule">Daggers, hand axes and fist wraps come as a pair and fill both hands. Swords and maces are one-handed: your <b>main hand sets the combo</b>, and a second one in the off hand joins in with its own strikes; a shield in the off hand blocks better instead.</p>`));
+  // ---- hotbar slots ----
+  c.appendChild(el('p', 'bookintro', `Hotbar keys <b>1 2 3 4</b>: click a slot, then an ability. Hover an ability for details. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
   const bar = el('div', 'bookbar');
   for (let i = 0; i < 4; i++) {
     const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
@@ -426,13 +443,17 @@ function renderBook() {
     d.onclick = () => { S.click(); bookSel = i; renderBook(); }; bar.appendChild(d);
   }
   c.appendChild(bar);
-  const grid = el('div', 'bookgrid');
+  // ---- abilities: just the names; hover for the details ----
+  const grid = el('div', 'bookgrid compact');
+  let tip = document.getElementById('booktip'); if (!tip) { tip = el('div', 'tip big ftip'); tip.id = 'booktip'; document.body.appendChild(tip); } tip.hidden = true;
   for (const a of list) {
     const locked = a.level > h.level, slot = h.hotbar.findIndex(s => s && s.id === a.id);
-    const d = el('button', 'bookab' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><div class="bm"><span>${locked ? '🔒 Level ' + a.level : 'Level ' + a.level}</span><span>${a.cost} ${res}</span><span>⟳ ${a.cd}s</span>${a.battle ? '<span class="new">Battle</span>' : ''}</div><p>${a.desc}</p>${growLine(a, h.level)}</div>${slot >= 0 ? `<span class="inslot">${slot + 1}</span>` : ''}`);
+    const d = el('button', 'bookab mini' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><small>${locked ? '🔒 Level ' + a.level : a.song ? '♪ Song' : 'Level ' + a.level}</small></div>${slot >= 0 ? `<span class="inslot">${slot + 1}</span>` : ''}`);
+    d.onmouseenter = (e) => { tip.innerHTML = `<b style="font-size:16px;color:#fff2c8">${a.name}</b><div class="dim" style="margin:3px 0">${a.song ? 'Song · plays by itself on your hotbar' : `Level ${a.level} · ${a.cost} ${res} · every ${a.cd} s`}</div><div>${a.desc}</div>${growLine(a, h.level)}`; tip.hidden = false; const r = d.getBoundingClientRect(); const tr = tip.getBoundingClientRect(); let x = r.right + 10, y = r.top; if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10; if (y + tr.height > innerHeight - 8) y = innerHeight - tr.height - 8; tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; };
+    d.onmouseleave = () => { tip.hidden = true; };
     d.onclick = () => {
       if (locked) { S.error(); UI.toast(`${a.name} unlocks at level ${a.level}`, '🔒', 'bad'); return; }
-      S.click(); const prev = h.hotbar[bookSel]; if (slot >= 0) h.hotbar[slot] = prev; h.hotbar[bookSel] = { t: 'ab', id: a.id }; bookSel = (bookSel + 1) % 4;
+      S.click(); const prev = h.hotbar[bookSel]; if (slot >= 0) h.hotbar[slot] = prev; h.hotbar[bookSel] = { t: 'ab', id: a.id }; bookSel = (bookSel + 1) % 4; tip.hidden = true;
       G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
     };
     grid.appendChild(d);

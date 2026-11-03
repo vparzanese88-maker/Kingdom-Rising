@@ -275,7 +275,7 @@ export function updateTracker() {
 // ---------- windows ----------
 const winRoot = () => $('windows');
 export function closeWin() {
-  hideFtip();
+  hideFtip(); { const bt = document.getElementById('booktip'); if (bt) bt.hidden = true; }
   if (G.hudEdit) { exitHudEdit(); return; }
   winRoot().innerHTML = ''; UI.open = null; G.uiOpen = false;
   if (G.onUiClosed) G.onUiClosed();
@@ -812,7 +812,7 @@ export function openSettings(fromPause) {
   const fs = el('button', 'btn', document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen');
   fs.onclick = () => { S.click(); if (document.fullscreenElement) exitFull(); else goFull(); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
   row('Full screen', fs);
-  row('Auto-equip better armour<small>Kingdom Battles: looted armour you can wear goes on straight away if it is better. Weapons never auto-equip.</small>', check('autoEquip'));
+  row('Auto-equip better gear<small>Kingdom Battles: looted armour you can wear goes on straight away if it is better, and so does a better weapon of the same kind you already use.</small>', check('autoEquip'));
   const he = el('button', 'btn', '✥ Edit HUD layout'); he.onclick = () => { S.click(); enterHudEdit(); }; row('HUD layout<small>Move, resize or hide any part of the screen</small>', he);
   g.appendChild(el('h3', '', 'Sound')); g.appendChild(el('div'));
   row('Master volume<small>Everything at once</small>', range('master', 0, 1, 0.05)); row('Music', range('music', 0, 1, 0.05)); row('Sound effects', range('sfx', 0, 1, 0.05)); row('Ambience', range('ambient', 0, 1, 0.05));

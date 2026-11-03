@@ -308,21 +308,21 @@ export function report(who, text, kind = '') {
 }
 
 // ---------- loot celebration: a card with the item, louder the rarer it is ----------
-const lootQ = []; let lootBusy = false;
-export function lootPopup(it, equipped) { lootQ.push({ it, equipped }); if (!lootBusy) nextLoot(); }
-function nextLoot() {
-  const n = lootQ.shift(); if (!n) { lootBusy = false; return; } lootBusy = true;
-  const { it, equipped } = n, r = it.rarity || 0, R = RARITY[r];
+// loot: a small card that slides in on the right under the map, so the fight stays in view
+export function lootPopup(it, equipped) {
+  let st = document.getElementById('lootstack'); if (!st) { st = el('div', ''); st.id = 'lootstack'; document.body.appendChild(st); }
+  const r = it.rarity || 0, R = RARITY[r];
   const type = it.kind === 'weapon' ? WEAPON_TYPES[it.wt].name : SLOT_LABEL[it.slot] || 'Gear';
   const stat = (it.dmg ? `${it.dmg} damage` : it.armor ? `${it.armor} armour` : '') + Object.entries(it.stats || {}).map(([k, v]) => ` · +${v} ${STAT_NAMES[k]}`).join('');
-  const words = ['Loot!', 'Nice find!', 'Great find!', 'Epic loot!', 'LEGENDARY!'][r];
-  const d = el('div', `lootpop r${r}`, `<div class="lrays"></div><div class="lcard" style="--rc:${R.col}"><div class="lhead">${words}</div><div class="lic">${Icons.itemSvg(it)}</div><div class="lname">${it.name}</div><div class="lrar">${R.name} ${type}${it.lvl ? ' · level ' + it.lvl : ''}</div><div class="lstat">${stat}</div>${equipped ? '<div class="leq">✔ Equipped</div>' : it.lvl > G.save.level ? `<div class="lneed">Needs level ${it.lvl}</div>` : '<div class="lbag">In your bag (I)</div>'}</div>`);
-  document.body.appendChild(d);
+  const words = ['Loot', 'Nice find', 'Great find!', 'Epic loot!', 'Legendary!'][r];
+  const note = equipped ? '<span class="leq">✔ Equipped</span>' : it.lvl > G.save.level ? `<span class="lneed">Needs level ${it.lvl}</span>` : 'In your bag (I)';
+  const d = el('div', `lootpop r${r}`, `<div class="lcard" style="--rc:${R.col}"><div class="lic">${Icons.itemSvg(it)}</div><div class="lhead">${words} · ${R.name} ${type}</div><div class="lname">${it.name}</div><div class="lsub">${stat ? `<span class="lstat">${stat}</span> · ` : ''}${note}</div></div>`);
+  st.prepend(d); while (st.children.length > 4) st.lastChild.remove();
   const p = G.player;
   if (r >= 1) S.coins(); if (r >= 2) S.loot && S.loot(); if (r >= 3) S.levelUp();
-  if (p) { V.burst('gold', p.pos.clone().setY(p.pos.y + 1.4), 20 + r * 30, { speed: 3 + r, vy: 3 + r, life: 1 + r * 0.3 }); if (r >= 3) { V.ring(p.pos, 4 + r, R.col, 0.8); V.light(p.pos.clone().setY(p.pos.y + 2), R.col, 6 + r * 2, 0.8); V.addShake(0.15 * (r - 2)); } }
-  const dur = [1800, 2200, 2800, 3600, 4800][r];
-  setTimeout(() => { d.classList.add('out'); setTimeout(() => { d.remove(); nextLoot(); }, 380); }, dur);
+  if (p) { V.burst('gold', p.pos.clone().setY(p.pos.y + 1.4), 12 + r * 14, { speed: 2 + r * 0.6, vy: 2 + r * 0.6, life: 0.9 + r * 0.2 }); if (r >= 3) V.ring(p.pos, 3 + r, R.col, 0.6); }
+  const dur = [3000, 3500, 4200, 5000, 6000][r];
+  setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 330); }, dur);
 }
 
 // ---------- end of match ----------
@@ -335,7 +335,7 @@ export function matchOver(result) {
       <div class="bstats"><div><span>Match time</span><b>${fmtT(B.time)}</b></div><div><span>Hero level</span><b>${G.save.level}</b></div><div><span>Town</span><b>${TOWN_LEVELS[t.level].name}</b></div><div><span>Troops lost</span><b>${t.lost || 0}</b></div></div>
       <div class="brow"><button class="btn gold big" id="bAgain">Play again</button><button class="btn big" id="bTitle">Title screen</button></div></div>`);
     document.body.appendChild(d);
-    $('bAgain').onclick = () => { try { sessionStorage.setItem('kr2_fs', document.fullscreenElement ? '1' : ''); } catch (e) {} location.reload(); };
+    $('bAgain').onclick = () => location.reload();
     $('bTitle').onclick = () => { location.href = location.pathname; };
     G.uiOpen = true;
   }, 2500);

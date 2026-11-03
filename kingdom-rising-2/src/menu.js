@@ -51,7 +51,26 @@ function renderSaves() {
     box.appendChild(g);
   }
 }
-export function goFull() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {}); }
+// ---- full screen that stays put ----
+// Esc normally makes the browser leave full screen. In Chrome/Edge the Keyboard Lock API hands Esc to the game instead
+// (holding Esc still leaves on purpose). We also remember that the player wants full screen, so after a page change
+// (title <-> battle) or a browser without Keyboard Lock, the next click or key puts it straight back.
+const FS_KEY = 'kr2_fs';
+const kbLock = !!(navigator.keyboard && navigator.keyboard.lock);
+let leaving = false, fsOff = false;
+const fsWanted = () => { try { return localStorage.getItem(FS_KEY) === '1'; } catch (e) { return false; } };
+const setWanted = (on) => { try { localStorage.setItem(FS_KEY, on ? '1' : ''); } catch (e) {} };
+export function goFull() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); }
+export function exitFull() { fsOff = true; setWanted(false); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
+addEventListener('pagehide', () => { leaving = true; }); addEventListener('beforeunload', () => { leaving = true; });
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) { fsOff = false; setWanted(true); if (kbLock) navigator.keyboard.lock(['Escape']).catch(() => {}); return; }
+  if (kbLock) try { navigator.keyboard.unlock(); } catch (e) {}
+  // with Keyboard Lock, leaving full screen means the player held Esc on purpose: respect that
+  if (!leaving && (kbLock || fsOff)) setWanted(false);
+});
+const regain = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; if (!document.fullscreenElement && fsWanted()) goFull(); };
+addEventListener('pointerdown', regain, true); addEventListener('keydown', regain, true);
 
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
@@ -164,7 +183,7 @@ function renderCreator() {
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }
-  if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); sessionStorage.setItem('kr2_fs', document.fullscreenElement ? '1' : ''); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
+  if (C.battle) { const st = Object.assign({}, C.battle, { race: C.race, hero: { name: C.name.trim().slice(0, 18), cls: C.cls, sex: C.sex, race: C.race, app: Object.assign({}, C.app) } }); if (st.mp) st.towns = [{ race: C.race }]; try { sessionStorage.setItem(SETUP_KEY, JSON.stringify(st)); } catch (e) {} location.href = location.pathname + '?mode=battle'; return; }
   const h = newHero({ name: C.name.trim().slice(0, 18), race: C.race, cls: C.cls, sex: C.sex, weapon: C.weapon, app: Object.assign({}, C.app) });
   h.campaign = C.camp ? C.camp.id : 'c' + h.id; h.campaignName = C.camp ? C.camp.name : `${h.name}'s Campaign`;
   putSave(h);

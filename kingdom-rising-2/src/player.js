@@ -144,9 +144,9 @@ class ViewModel {
     } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
       // musket at the hip, raised to the eye while aiming, with a kick on every shot
       // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
-      const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0.012, k), lerp(-0.27, -0.088, k), lerp(-0.5, -0.42, k) + rc * 0.07];
+      const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0, k), lerp(-0.27, -0.036, k), lerp(-0.5, -0.4, k) + rc * 0.07];
       if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06, (1 - k) * 0.05, 0); }
-      r = [gp[0] + 0.01, gp[1] - 0.05, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02, gp[2] - 0.22, -1.4, 0, -0.2];
+      r = [gp[0] + 0.01 + k * 0.03, gp[1] - 0.05 - k * 0.03, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02 - k * 0.04, gp[2] - 0.22, -1.4, 0, -0.2];
     } else if (act) {
       const dual = W && W.hands === 'dual';
       switch (n) {
@@ -281,6 +281,17 @@ export class Player {
       case 'KeyR': this.quaff(); break;
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
     }
+  }
+  // Kingdom Battles: double-tap W, A, S or D to roll that way
+  tapRoll(code) {
+    if (!G.battleFx || !{ KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1 }[code]) return;
+    const now = performance.now(), last = this.lastTap;
+    this.lastTap = { code, t: now };
+    if (!last || last.code !== code || now - last.t > 280) return;
+    this.lastTap = null;
+    const f = this.fwd(), r = this.right();
+    const dir = code === 'KeyW' ? f : code === 'KeyS' ? f.multiplyScalar(-1) : code === 'KeyA' ? r.multiplyScalar(-1) : r;
+    this.tryDodge(dir.normalize());
   }
   onKeyUp(code) { if ((code === 'ShiftLeft' || code === 'ShiftRight') && this.shiftT != null) { if (G.time - this.shiftT < 0.22 && !G.uiOpen) this.tryDodge(); this.shiftT = null; } }
   onMouse(btn, down) {
@@ -485,7 +496,7 @@ export class Player {
     switch (sk.id) {
       case 'whirlwind': spin(4.5, 1.5); break;
       case 'wheel': spin(4.5, 1.5, { slow: 3 }); break;
-      case 'doubleshot': { this.fireGun(0.35, true, 0.9); setTimeout(() => { if (!this.dead) this.fireGun(0.35, true, 0.9); }, 170); this.dodge = { t: 0, dur: 0.36, dir: f.clone().multiplyScalar(-1), speed: 22 }; this.iframes = 0.45; this.vel.y = 5; this.onGround = false; S.dodge(); V.burst('dust', this.pos.clone(), 14, { speed: 3, size: 0.8 }); break; }
+      case 'doubleshot': { this.fireGun(0.8, true, 1.5, true); this.dodge = { t: 0, dur: 0.36, dir: f.clone().multiplyScalar(-1), speed: 22 }; this.iframes = 0.45; this.vel.y = 5; this.onGround = false; S.dodge(); V.burst('dust', this.pos.clone(), 14, { speed: 3, size: 0.8 }); break; }
       case 'whirlaxes': spin(4.5, 1.3, { bleed: base * 0.12 }); break;
       case 'shadowflurry': this.atk = { name: 'fury', t: 0, dur: 1.0, hits: 7, rank: 1, hit: true, noQueue: true, base, bleed: true }; S.swingW('light', 1.2, this.pos); break;
       case 'greatcleave': spin(6.5, 1.7); break;
@@ -761,14 +772,14 @@ export class Player {
   }
 
   // the musket: a fast ball with smoke and a kick; an aimed shot hits much harder and goes exactly where you point
-  fireGun(charge, aimed, mult = 1) {
+  fireGun(charge, aimed, mult = 1, pierce = false) {
     const w = this.weapon, base = weaponDamage(this.h, w);
     const tip = (this.camDist < 0.6 ? this.vm.weapons.main : this.ch.weapons.main);
     const from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true);
     const dir = this.aimDir(from);
-    if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.05; dir.y += (Math.random() - 0.5) * 0.04; dir.z += (Math.random() - 0.5) * 0.05; dir.normalize(); }
+    if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
     const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
-    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 5, flat: 0.7 + charge * 0.9 + (eagle ? 0.6 : 0), radius: 0.12, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3 });
+    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
     S.explode(from, 0.3 + charge * 0.15, 'fire'); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
   }
@@ -874,13 +885,13 @@ export class Player {
 
   // ---------- movement ----------
   jump() { if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
-  tryDodge() {
+  tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
     const cost = 16 * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); return; }
     this.end -= cost; this.endUseT = 1;
-    let dir = this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : this.fwd().multiplyScalar(-1);
+    let dir = dirOverride ? dirOverride : this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : this.fwd().multiplyScalar(-1);
     this.dodge = { t: 0, dur: 0.48, dir, speed: 12 }; this.iframes = 0.38; this.atk = null; this.queued = null; this.block = false;
     S.dodge(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 10, { speed: 2, size: 0.4 });
   }

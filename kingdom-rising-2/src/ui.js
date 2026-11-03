@@ -9,6 +9,7 @@ import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
 import { world } from './world.js';
+import { goFull, exitFull } from './menu.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -769,7 +770,7 @@ export function openPause(onSaveQuit) {
   b('Resume', () => closeWin(), 'btn big gold');
   b('Character & Bags  ·  I', () => openInventory()); b('Class Talents  ·  N', () => openSkills('class')); b('Quest Log  ·  L', () => openQuestLog()); b('World Map  ·  M', () => openMap()); b('Recipes  ·  P', () => openCrafting(null));
   b('Settings', () => openSettings(true)); b('How to Play', () => openControls(true));
-  b(document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); });
+  b(document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen', () => { if (document.fullscreenElement) exitFull(); else goFull(); });
   b('Save & Quit to Title', () => G.hooks.saveQuit && G.hooks.saveQuit(), 'btn red');
   const act = Object.keys(h.quests.active).length;
   const info = el('div', 'phero', `<div class="eyebrow">Your hero</div><h3>${esc(h.name)}</h3>Level <b>${h.level}</b> ${RACES[h.race].name} ${CLASSES[h.cls].name}<br>Location: <b>${zn ? zn.name : ''}</b> <span style="color:var(--mut)">(level ${zn ? zn.lv : ''})</span><br>Active quests: <b>${act}</b> · Completed: <b>${h.quests.done.length}</b><br>Gold: <b>${h.gold}</b><br>Played: <b>${Math.floor((h.timePlayed || 0) / 60)} min</b><p style="color:var(--mut);margin:10px 0 0;font-size:13px">The game saves automatically every 30 seconds and when you quit. The world is paused while this menu is open.</p>`);
@@ -783,7 +784,7 @@ export function openSettings(fromPause) {
   const check = (k, after) => { const i = el('input'); i.type = 'checkbox'; i.checked = settings[k]; i.style.width = '22px'; i.style.height = '22px'; i.onchange = () => { settings[k] = i.checked; saveSettings(); after && after(); }; return i; };
   g.appendChild(el('h3', '', 'Display')); g.appendChild(el('div'));
   const fs = el('button', 'btn', document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen');
-  fs.onclick = () => { S.click(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
+  fs.onclick = () => { S.click(); if (document.fullscreenElement) exitFull(); else goFull(); setTimeout(() => { fs.textContent = document.fullscreenElement ? '⛶ Exit full screen' : '⛶ Go full screen'; }, 300); };
   row('Full screen', fs);
   row('Auto-equip better armour<small>Kingdom Battles: looted armour you can wear goes on straight away if it is better. Weapons never auto-equip.</small>', check('autoEquip'));
   const he = el('button', 'btn', '✥ Edit HUD layout'); he.onclick = () => { S.click(); enterHudEdit(); }; row('HUD layout<small>Move, resize or hide any part of the screen</small>', he);

@@ -224,32 +224,32 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793658445",
-"./src/battle.js": "./src/battle.js?v=1793658445",
-"./src/battledata.js": "./src/battledata.js?v=1793658445",
-"./src/battlemap.js": "./src/battlemap.js?v=1793658445",
-"./src/battleui.js": "./src/battleui.js?v=1793658445",
-"./src/character.js": "./src/character.js?v=1793658445",
-"./src/combat.js": "./src/combat.js?v=1793658445",
-"./src/data.js": "./src/data.js?v=1793658445",
-"./src/fog.js": "./src/fog.js?v=1793658445",
-"./src/game.js": "./src/game.js?v=1793658445",
-"./src/icons.js": "./src/icons.js?v=1793658445",
-"./src/icons2.js": "./src/icons2.js?v=1793658445",
-"./src/main.js": "./src/main.js?v=1793658445",
-"./src/menu.js": "./src/menu.js?v=1793658445",
-"./src/mobs.js": "./src/mobs.js?v=1793658445",
-"./src/mp.js": "./src/mp.js?v=1793658445",
-"./src/mpsync.js": "./src/mpsync.js?v=1793658445",
-"./src/net.js": "./src/net.js?v=1793658445",
-"./src/player.js": "./src/player.js?v=1793658445",
-"./src/saves.js": "./src/saves.js?v=1793658445",
-"./src/state.js": "./src/state.js?v=1793658445",
-"./src/terrain.js": "./src/terrain.js?v=1793658445",
-"./src/ui.js": "./src/ui.js?v=1793658445",
-"./src/util.js": "./src/util.js?v=1793658445",
-"./src/vfx.js": "./src/vfx.js?v=1793658445",
-"./src/world.js": "./src/world.js?v=1793658445"
+"./src/audio.js": "./src/audio.js?v=1793669255",
+"./src/battle.js": "./src/battle.js?v=1793669255",
+"./src/battledata.js": "./src/battledata.js?v=1793669255",
+"./src/battlemap.js": "./src/battlemap.js?v=1793669255",
+"./src/battleui.js": "./src/battleui.js?v=1793669255",
+"./src/character.js": "./src/character.js?v=1793669255",
+"./src/combat.js": "./src/combat.js?v=1793669255",
+"./src/data.js": "./src/data.js?v=1793669255",
+"./src/fog.js": "./src/fog.js?v=1793669255",
+"./src/game.js": "./src/game.js?v=1793669255",
+"./src/icons.js": "./src/icons.js?v=1793669255",
+"./src/icons2.js": "./src/icons2.js?v=1793669255",
+"./src/main.js": "./src/main.js?v=1793669255",
+"./src/menu.js": "./src/menu.js?v=1793669255",
+"./src/mobs.js": "./src/mobs.js?v=1793669255",
+"./src/mp.js": "./src/mp.js?v=1793669255",
+"./src/mpsync.js": "./src/mpsync.js?v=1793669255",
+"./src/net.js": "./src/net.js?v=1793669255",
+"./src/player.js": "./src/player.js?v=1793669255",
+"./src/saves.js": "./src/saves.js?v=1793669255",
+"./src/state.js": "./src/state.js?v=1793669255",
+"./src/terrain.js": "./src/terrain.js?v=1793669255",
+"./src/ui.js": "./src/ui.js?v=1793669255",
+"./src/util.js": "./src/util.js?v=1793669255",
+"./src/vfx.js": "./src/vfx.js?v=1793669255",
+"./src/world.js": "./src/world.js?v=1793669255"
 }
 }
 </script>
@@ -745,24 +745,18 @@ body{font-size:16px;letter-spacing:.005em}
 .bchip{display:inline-block;margin:2px;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid rgba(216,168,72,.3);font-size:13px}
 .blog{font-size:13.5px;color:#d8c8a8;padding:4px 0;border-bottom:1px solid rgba(216,168,72,.12)}.blog .bt{color:#8a7a5a;font-size:12px}
 /* ===== Kingdom Battles: loot celebration ===== */
-.lootpop{position:fixed;left:50%;top:9%;transform:translateX(-50%);z-index:45;pointer-events:none;display:grid;place-items:center;animation:lpIn .45s cubic-bezier(.2,1.6,.4,1) both}
-.lootpop.out{animation:lpOut .38s ease-in both}
-@keyframes lpIn{from{opacity:0;transform:translateX(-50%) scale(.4)}to{opacity:1;transform:translateX(-50%) scale(1)}}
-@keyframes lpOut{to{opacity:0;transform:translateX(-50%) translateY(-30px) scale(.9)}}
-.lcard{position:relative;min-width:300px;padding:16px 26px 18px;border-radius:16px;text-align:center;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--rc) 35%,#2a1e10),#120c07 75%);border:2px solid var(--rc);box-shadow:0 0 30px color-mix(in srgb,var(--rc) 55%,transparent),0 18px 50px rgba(0,0,0,.7),inset 0 0 30px rgba(0,0,0,.5)}
-.lhead{font-family:var(--f-t);font-size:26px;font-weight:900;letter-spacing:.08em;color:var(--rc);text-shadow:0 0 14px var(--rc),0 2px 3px #000}
-.lic{width:84px;height:84px;margin:8px auto;padding:10px;border-radius:14px;background:radial-gradient(circle,color-mix(in srgb,var(--rc) 30%,#2a1e10),#0e0905);border:2px solid var(--rc);box-shadow:0 0 22px color-mix(in srgb,var(--rc) 60%,transparent)}.lic svg{width:100%;height:100%}
-.lname{font-size:22px;font-weight:800;color:var(--rc);text-shadow:0 2px 3px #000}
-.lrar{font-size:13px;color:#d8c8a8;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
-.lstat{font-size:14px;color:#8fe07a;margin-top:6px}
-.leq{margin-top:8px;display:inline-block;padding:4px 12px;border-radius:999px;background:#2f8a2a;color:#eaffde;font-weight:800;font-size:13px}
-.lneed{margin-top:8px;color:#ff9a7a;font-size:13px;font-weight:700}.lbag{margin-top:8px;color:#bfae8c;font-size:12px}
-.lrays{position:absolute;width:520px;height:520px;border-radius:50%;opacity:0;background:repeating-conic-gradient(from 0deg,rgba(255,220,120,.0) 0deg 10deg,rgba(255,220,120,.18) 10deg 20deg);animation:lpSpin 6s linear infinite;mask:radial-gradient(circle,#000 20%,transparent 68%);-webkit-mask:radial-gradient(circle,#000 20%,transparent 68%)}
-.lootpop.r2 .lrays{opacity:.5}.lootpop.r3 .lrays{opacity:.85}.lootpop.r4 .lrays{opacity:1;width:680px;height:680px;background:repeating-conic-gradient(from 0deg,rgba(255,160,40,0) 0deg 8deg,rgba(255,180,60,.3) 8deg 16deg)}
-.lootpop.r3 .lcard,.lootpop.r4 .lcard{animation:lpPulse 1s ease-in-out infinite alternate}
-.lootpop.r4 .lhead{font-size:34px}
-@keyframes lpSpin{to{transform:rotate(360deg)}}
-@keyframes lpPulse{to{box-shadow:0 0 60px var(--rc),0 18px 50px rgba(0,0,0,.7),inset 0 0 30px rgba(0,0,0,.5)}}
+#lootstack{position:fixed;right:16px;top:232px;width:min(290px,40vw);display:flex;flex-direction:column;gap:6px;z-index:45;pointer-events:none}
+.lootpop{animation:lpIn .32s cubic-bezier(.2,1.4,.4,1) both}
+.lootpop.out{animation:lpOut .32s ease-in both}
+@keyframes lpIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
+@keyframes lpOut{to{opacity:0;transform:translateX(60px)}}
+.lcard{display:grid;grid-template-columns:44px 1fr;gap:4px 10px;align-items:center;padding:7px 10px;border-radius:10px;background:linear-gradient(90deg,color-mix(in srgb,var(--rc) 28%,#1e150b),rgba(14,9,5,.92));border:1.5px solid var(--rc);box-shadow:0 0 12px color-mix(in srgb,var(--rc) 45%,transparent),0 6px 16px rgba(0,0,0,.6)}
+.lic{grid-row:span 3;width:44px;height:44px;padding:5px;border-radius:9px;background:radial-gradient(circle,color-mix(in srgb,var(--rc) 30%,#2a1e10),#0e0905);border:1.5px solid var(--rc);box-sizing:border-box}.lic svg{width:100%;height:100%}
+.lhead{font-family:var(--f-t);font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--rc);text-transform:uppercase;line-height:1}
+.lname{font-size:14.5px;font-weight:800;color:var(--rc);text-shadow:0 1px 2px #000;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lsub{font-size:11.5px;color:#d8c8a8;line-height:1.2}.lsub .lstat{color:#8fe07a}.lsub .leq{color:#7fe06a;font-weight:800}.lsub .lneed{color:#ff9a7a;font-weight:700}
+.lootpop.r3 .lcard,.lootpop.r4 .lcard{animation:lpPulse .9s ease-in-out infinite alternate}
+@keyframes lpPulse{to{box-shadow:0 0 26px var(--rc),0 6px 16px rgba(0,0,0,.6)}}
 /* ===== Kingdom Battles: polished look ===== */
 .combostrip.battle{position:fixed;left:18px !important;right:auto !important;bottom:104px;text-align:left}.combostrip.battle .crow{align-items:flex-start}
 .win.bwin{background:radial-gradient(ellipse at 50% 0%,#3a2a16 0%,#1c130b 55%,#0f0a06 100%);border:2px solid #a07a30;box-shadow:0 0 0 1px #000,0 0 0 5px rgba(160,122,48,.18),0 30px 90px rgba(0,0,0,.85),inset 0 0 60px rgba(0,0,0,.6)}
@@ -865,6 +859,6 @@ body{font-size:16px;letter-spacing:.005em}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793658445"></script>
+<script type="module" src="./src/main.js?v=1793669255"></script>
 </body>
 </html>

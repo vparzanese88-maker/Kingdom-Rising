@@ -19,7 +19,7 @@ export function aimRay(maxD = 120) {
     if (oc.lengthSq() - t * t < r * r) { bestT = t; best = m; }
   }
   // aim assist: a mob within a few degrees of the crosshair counts as aimed at
-  if (!best) {
+  if (!best && !G.battleFx) {
     let bestA = 0.075;
     for (const m of G.mobs) {
       if (m.dead || !foe(m)) continue;
@@ -88,6 +88,22 @@ export function spawnProjectile(o) {
   if (m) { m.position.copy(p.pos); G.scene.add(m); }
   p.mesh = m; G.projectiles.push(p); return p;
 }
+// where a creature's head is right now (people, orcs, trolls, wolves, bears, boars, deer...), or null if it has none
+const _hp = new THREE.Vector3(), _hs = new THREE.Vector3(), _hv = new THREE.Vector3(), _hw = new THREE.Vector3();
+function headOf(m) {
+  if (m.isStruct) return null;
+  const md = m.model || m.ch; if (!md) return null;
+  if (md.headG) { md.headG.getWorldPosition(_hp); md.headG.getWorldScale(_hs); _hp.y += 0.1 * _hs.y; return { c: _hp, r: 0.15 * _hs.y }; }
+  if (md.kind === 'quad' && md.head && md.P) { md.head.getWorldPosition(_hp); md.head.getWorldScale(_hs); return { c: _hp, r: md.P.headR * 1.25 * _hs.x }; }
+  return null;
+}
+// does this arrow or ball pass through the head on its way? (checked along its flight line, not just where it is now)
+function headHit(p, m) {
+  const h = headOf(m); if (!h) return false;
+  _hv.copy(p.vel).normalize(); _hw.copy(h.c).sub(p.pos);
+  const t = Math.max(-0.6, Math.min(1.2, _hw.dot(_hv)));
+  return _hw.addScaledVector(_hv, -t).length() < h.r + p.radius * 0.6;
+}
 export function updateProjectiles(dt) {
   const P = G.projectiles;
   for (let i = P.length - 1; i >= 0; i--) {
@@ -108,9 +124,8 @@ export function updateProjectiles(dt) {
           const r = Math.max(m.radius, m.height * 0.5) + p.radius * 1.4 + 0.15;
           if (c.distanceToSquared(p.pos) < r * r) {
             p.hitSet.add(m);
-            // Kingdom Battles headshots: an arrow in the top of a humanoid's body does double damage
-            const human = !m.isStruct && ((m.model && m.model.kind2 === 'human') || (m.udef && !m.udef.quad));
-            const head = G.battleFx && human && (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'bullet') && p.pos.y > m.pos.y + m.height * 0.76;
+            // Kingdom Battles headshots: any arrow or musket ball through anything with a head
+            const head = G.battleFx && (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'bullet') && headHit(p, m);
             const d0 = p.dmg; if (head) { p.dmg *= 2; V.number(p.pos.clone().setY(m.pos.y + m.height + 0.4), 'Headshot!', 'crit'); S.hit('flesh', m.pos, 1.6); G.hitstop = 0.06; }
             impact(p, m); p.dmg = d0;
             if (!p.pierce) { dead = true; break; }

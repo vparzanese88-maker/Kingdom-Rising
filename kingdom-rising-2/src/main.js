@@ -385,7 +385,7 @@ function input() {
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
     G.keys[e.code] = true;
-    if (!e.repeat && !G.uiOpen && p) p.onKey(e.code, true);
+    if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
   addEventListener('keyup', (e) => { G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
@@ -407,7 +407,7 @@ function input() {
     $('clickToPlay').hidden = false;
   });
   // a page change (title -> battle) always drops full screen in the browser: the first click puts it back
-  let wantFs = false; try { wantFs = BATTLE && sessionStorage.getItem('kr2_fs') === '1'; } catch (e) {}
+  let wantFs = false; try { wantFs = BATTLE && localStorage.getItem('kr2_fs') === '1'; } catch (e) {}
   if (wantFs) { const c = $('clickToPlay').firstElementChild; if (c) c.firstChild.textContent = 'Click to enter the battle'; }
   $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; if (BATTLE && !document.fullscreenElement) { goFull(); setTimeout(lockPointer, 350); } lockPointer(); });
   addEventListener('fullscreenchange', () => { if (document.fullscreenElement && mode === 'game' && !G.uiOpen && !document.pointerLockElement) setTimeout(lockPointer, 120); });

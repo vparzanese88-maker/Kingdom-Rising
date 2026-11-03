@@ -37,7 +37,7 @@ export const WEAPON_TYPES = {
   firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
   froststaff: { name: 'Frost Staff', hands: 'staff', reach: 55, area: 7, speed: 1.05, block: 0.4, dmg: 0.95, kind: 'staff', element: 'frost', parts: ['staff'], areaName: 'Blizzard' },
   arcanestaff: { name: 'Arcane Staff', hands: 'staff', reach: 60, area: 6.5, speed: 1.15, block: 0.4, dmg: 0.95, kind: 'staff', element: 'arcane', parts: ['staff'], areaName: 'Arcane Nova' },
-  musket: { name: 'Musket', hands: 'two', reach: 70, area: 6, speed: 0.85, block: 0.3, dmg: 1.55, kind: 'gun', parts: ['musket'], areaName: 'Double Shot' },
+  musket: { name: 'Musket', hands: 'two', reach: 70, area: 6, speed: 0.85, block: 0.3, dmg: 1.55, kind: 'gun', parts: ['musket'], areaName: 'Piercing Shot' },
 };
 
 // Stats: STR melee damage, DEX ranged/light-weapon damage, crit chance and endurance, INT mana and spell damage, STA health.
@@ -104,7 +104,7 @@ export const WSKILLS = {
   flamewave: { name: 'Flame Wave', cd: 8, icon: 'meteor', desc: 'A wave of fire in front of you that sets enemies alight.' },
   blizzard: { name: 'Blizzard', cd: 10, icon: 'blizzard', desc: 'A storm of ice on a spot that damages and slows.' },
   icelance: { name: 'Ice Lance', cd: 7, icon: 'frostnova', desc: 'A huge piercing shard of ice that freezes what it hits.' },
-  doubleshot: { name: 'Double Shot', cd: 6, icon: 'dash', desc: 'Fire both barrels in quick succession, then leap backwards out of harm.' },
+  doubleshot: { name: 'Piercing Shot', cd: 6, icon: 'dash', desc: 'One heavy ball that punches straight through every enemy in its path, then you leap backwards out of harm.' },
   nova: { name: 'Arcane Nova', cd: 10, icon: 'nova', desc: 'A heavy orb that bursts in a wide nova.' },
   missiles: { name: 'Arcane Missiles', cd: 7, icon: 'nova', desc: 'Three seeking bolts of arcane force.' },
 };

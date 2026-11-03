@@ -94,6 +94,9 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       for (const y of [0.18, 0.5, 0.82]) mesh(cached('mband', () => new THREE.CylinderGeometry(0.026, 0.026, 0.025, 10)), goldMat, g, 0, y, 0);
       mesh(cached('mlock', () => new THREE.BoxGeometry(0.03, 0.08, 0.05)), M, g, 0.035, 0.08, 0);
       mesh(cached('mhammer', () => new THREE.BoxGeometry(0.015, 0.05, 0.02)), M, g, 0.04, 0.13, -0.02);
+      // iron sights on top of the barrel: a brass bead at the muzzle and a notched rear sight
+      mesh(cached('mfsight', () => new THREE.BoxGeometry(0.006, 0.014, 0.026)), goldMat, g, 0, 1.0, 0.026);
+      for (const sx of [-0.009, 0.009]) mesh(cached('mrsight', () => new THREE.BoxGeometry(0.006, 0.012, 0.022)), M, g, sx, 0.22, 0.026);
       base.position.set(0, 0.6, 0); tip.position.set(0, 1.06, 0); break;
     }
     case 'sword': {

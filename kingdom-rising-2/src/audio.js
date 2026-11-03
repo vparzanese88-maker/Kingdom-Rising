@@ -1,7 +1,7 @@
 // Kingdom Rising 2 audio: procedural music, synthesized sound effects, ambience, plus CC0 sword samples.
 import { settings } from './saves.js';
 
-let ctx = null, master, musicBus, sfxBus, ambBus, reverb, reverbSend, comp;
+let ctx = null, master, musicBus, sfxBus, ambBus, reverb, reverbSend, comp, sfxWet, ambWet;
 const samples = {};
 let listener = { x: 0, y: 0, z: 0, yaw: 0 };
 let noiseBuf = null;
@@ -21,6 +21,8 @@ export const A = {
     reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(2.8, 2.5);
     reverbSend = ctx.createGain(); reverbSend.gain.value = 0.9;
     reverbSend.connect(reverb); reverb.connect(master);
+    // the echo of each sound follows that sound's own volume slider
+    sfxWet = ctx.createGain(); ambWet = ctx.createGain(); sfxWet.connect(reverbSend); ambWet.connect(reverbSend);
     noiseBuf = makeNoise(2);
     A.applyVolumes();
     loadSamples();
@@ -32,6 +34,7 @@ export const A = {
     musicBus.gain.value = settings.music * 0.6;
     sfxBus.gain.value = settings.sfx;
     ambBus.gain.value = settings.ambient * 0.8;
+    if (sfxWet) { sfxWet.gain.value = settings.sfx; ambWet.gain.value = settings.ambient * 0.8; }
   },
   setListener(x, y, z, yaw) { listener.x = x; listener.y = y; listener.z = z; listener.yaw = yaw; },
 };
@@ -72,7 +75,7 @@ function out(pos, bus = sfxBus, wet = 0.15) {
   g.gain.value = vol;
   if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(bus); }
   else g.connect(bus);
-  if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet * vol; g.connect(w); w.connect(reverbSend); }
+  if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet * vol; g.connect(w); w.connect(bus === ambBus ? ambWet : bus === sfxBus ? sfxWet : reverbSend); }
   return { node: g, vol };
 }
 function now() { return ctx.currentTime; }
@@ -503,6 +506,8 @@ function startSong(now) {
   song.el = el; song.lv = 0; song.ctx = key; song.fadeOut = false;
   el.play().then(() => { M.blocked = false; }).catch(() => { M.blocked = true; song.el = null; song.silenceUntil = now + 1500; });
 }
+function routeEl(el) { if (!ctx || el._routed) return; try { const s = ctx.createMediaElementSource(el); s.connect(musicBus); el._routed = true; } catch (e) { el._routed = 'no'; } }
+const musicVol = (el) => (el && el._routed === true ? 1 : settings.master * settings.music);
 export const M = {
   play(name) { wanted = name; track = name; if (name === 'explore') { song.silenceUntil = performance.now() + 4000; } },
   setCombat(on) { inCombat = on; },
@@ -514,7 +519,7 @@ export const M = {
 let lastTick = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = Math.min(0.5, (now - lastTick) / 1000); lastTick = now;
-  const vol = settings.master * settings.music;
+  const vol = 1;
   const fight = wanted === 'explore' && inCombat;
   // looping channels: title, battle, boss
   const wantLoop = wanted === 'title' ? 'title' : fight ? (bossOn ? 'boss' : 'combat') : null;
@@ -524,7 +529,7 @@ setInterval(() => {
     const c = loopCh(name);
     const rate = target ? 0.6 : 0.3;
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * vol * (name === 'title' ? 0.8 : 0.5)));
+    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.8 : 0.5) / (c.el._routed === true ? 0.6 : 1)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }
@@ -535,7 +540,7 @@ setInterval(() => {
     if ((song.ctx === 'town') !== townOn) song.fadeOut = true;
     const target = song.fadeOut || fight ? 0 : 1;
     song.lv += Math.sign(target - song.lv) * Math.min(Math.abs(target - song.lv), dt * (target ? 0.25 : 0.4));
-    song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * vol * 0.42));
+    routeEl(song.el); song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * musicVol(song.el) * 0.42 / (song.el._routed === true ? 0.6 : 1)));
     if (fight && song.lv <= 0.001 && !song.el.paused) song.el.pause();
     if (!fight && !song.fadeOut && song.el.paused && song.el.currentTime > 0) song.el.play().catch(() => {});
     if (song.fadeOut && song.lv <= 0.001) { song.el.pause(); song.el = null; song.silenceUntil = now + (townOn ? 1500 : 20000); }

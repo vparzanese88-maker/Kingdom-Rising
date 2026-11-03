@@ -56,11 +56,11 @@ export function buildAbilityBar() {
   bar.appendChild(ws);
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
-  const rmb = mk('RMB', '', 'wab');
+  const rmb = mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
   const hb = Array.from({ length: G.hotbarSlots || 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
-  const f = mk('F', Icons.abilityIcon('shield'), 'small');
+  const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
   abilEls = { ws, lmb, rmb, hb, f, combo };
   refreshAbilityBar();
@@ -76,8 +76,8 @@ export function refreshAbilityBar() {
     cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
-  abilEls.f.title = 'Hold F to block';
-  { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `Right click: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
+  abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
+  { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `${G.battleFx ? 'F' : 'Right click'}: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
     if (e._key !== key) {
@@ -822,7 +822,7 @@ export function openControls(fromPause) {
   const grp = (title, rows) => { const d = el('div'); d.appendChild(el('h4', '', title)); for (const [k, t] of rows) d.appendChild(el('div', 'krow', `<span class="kbd">${k}</span><span>${t}</span>`)); g.appendChild(d); };
   g.appendChild(el('div', 'helpnote', '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
   grp('Moving', [['W A S D', 'Walk. Moving backwards is slower.'], ['Shift (hold)', 'Sprint. Uses endurance.'], ['Shift (tap)', 'Dodge roll: you can\'t be hit mid-roll.'], ['Space', 'Jump'], ['Mouse', 'Look around'], ['Wheel / V', 'Switch between first and third person']]);
-  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.'], ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Switch to the bow in your Ranged slot and back']]);
+  grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ...(G.battleFx ? [['F', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['Right click (hold)', 'Block. Raise it just before a hit for a perfect block: no damage at all.'], ['Q', 'Swap weapon sets'], ['Double-tap W A S D', 'Roll that way'], ['Tab (hold)', 'Every player in the game'], ['J', 'Town jobs'], ['B', 'War Report and orders'], ['K', 'Ability book']] : [['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.']]), ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Switch to the bow in your Ranged slot and back']]);
   grp('World', [['E', 'Talk, loot, skin, chop, mine, gather and use crafting stations'], ['Red swords', 'Above a name: this enemy attacks on sight'], ['Ring colour', 'Under an enemy: grey/green easy, blue fair, white even, yellow hard, red dangerous']]);
   grp('Windows', [['I', 'Character, gear and bags'], ['N', 'Class talents and abilities'], ['J', 'Journal (quest log)'], ['M', 'World map'], ['P', 'Recipes'], ['Esc', 'Pause menu (press once to free the mouse, again for the menu)']]);
   c.appendChild(g);

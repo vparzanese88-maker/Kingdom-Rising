@@ -272,6 +272,7 @@ export class Player {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
       case 'KeyQ': this.swapWeapon(); break;
+      case 'KeyF': if (G.battleFx && !this.dead) this.specialAttack(); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -304,8 +305,9 @@ export class Player {
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
       return;
     }
+    if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
-    else if (btn === 2 && down) this.specialAttack();
+    else if (btn === 2 && down && !G.battleFx) this.specialAttack();
   }
   onWheel(dy) { this.camDistT = clamp(this.camDistT + dy * 0.004, 0, 9); if (this.camDistT < 0.7 && dy < 0) this.camDistT = 0; else if (this.camDistT > 0 && this.camDistT < 1.6 && dy > 0) this.camDistT = 2.2; }
   look(dx, dy) { const s = 0.0032 * settings.sens; this.yaw -= dx * s; this.pitch = clamp(this.pitch - dy * s * (settings.invertY ? -1 : 1), -1.45, 1.45); }
@@ -1072,7 +1074,7 @@ export class Player {
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
     const wasBlock = this.block;
-    this.block = !ui && !!K.KeyF && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
+    this.block = !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;

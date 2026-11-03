@@ -122,7 +122,9 @@ export function onData(from, d) {
     case 'heal': if (d.to === MP.myId && p && !p.dead) { p.heal(p.maxHp * d.pct); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 20, { speed: 2, vy: 2 }); G.hooks.toast && G.hooks.toast('An ally healed you', '✚', 'gold'); } break;
     case 'buff': if (d.to === MP.myId && p) { if (d.kind === 'ward') p.buffs.ward = d.dur; else if (d.kind === 'rally') p.buffs.cry = Math.max(p.buffs.cry || 0, d.dur); else if (d.kind === 'haste') p.buffs.focus = Math.max(p.buffs.focus || 0, d.dur); G.hooks.toast && G.hooks.toast(d.kind === 'ward' ? 'An ally shields you' : d.kind === 'rally' ? 'An ally rallies you' : 'An ally hastens you', '✦', 'gold'); } break;
     case 'xp': if (d.to === MP.myId) G.hooks.battleXp && G.hooks.battleXp(d.n); break;
-    case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player, true); } } break;
+    case 'kill': if (d.to === MP.myId) { const mb = mobList[d.i]; if (mb) { mb.dead = true; G.hooks.onKill && G.hooks.onKill(mb, G.player, true, !!d.xp); } } break;
+    // the side's XP pool: whatever a teammate earns, you earn too
+    case 'txp': if (G.hooks.teamXp && d.team === B.myTeam && from !== MP.myId) G.hooks.teamXp(d.n, d.why); break;
     case 'horn': if (MP.client && G.hooks.warHorn) G.hooks.warHorn(d); break;
     case 'qreward': if (MP.host) { const t = townOf(from); if (t) questReward(t, d.id); } break;
     case 'give': if (d.to === MP.myId && G.hooks.gotItem) G.hooks.gotItem(d, from); break;

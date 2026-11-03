@@ -1113,7 +1113,10 @@ function onStructDown(s, src) {
 }
 // xp is shared, unsplit: every player on the side gets it wherever they are (computer heroes only when close by)
 function giveXp(town, src, n, at) {
-  for (const h of allHeroes()) { if (h.team !== town.team) continue; const player = h === G.player || h.remote; if (!player && (h.dead || (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45))) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else if (h.remote) send({ t: 'xp', to: h.netId, n }); else heroXp(h, n); }
+  // players: one of them earns it (the killer if a player) and the team XP pool copies it to the others
+  const players = allHeroes().filter(h => h.team === town.team && (h === G.player || h.remote));
+  const earner = players.includes(src) ? src : players.find(h => h === G.player) || players[0];
+  for (const h of allHeroes()) { if (h.team !== town.team) continue; const player = h === G.player || h.remote; if (player && h !== earner) continue; if (!player && (h.dead || (h !== src && Math.hypot(h.pos.x - at.x, h.pos.z - at.z) > 45))) continue; if (h === G.player) G.hooks.battleXp && G.hooks.battleXp(n); else if (h.remote) send({ t: 'xp', to: h.netId, n }); else heroXp(h, n); }
 }
 function eliminate(t, by) {
   t.dead = true;

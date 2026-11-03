@@ -304,11 +304,11 @@ export function gainXp(h, n, why) {
 }
 
 // ---------- kills & loot ----------
-export function onKill(h, mob) {
-  h.kills = (h.kills || 0) + 1;
+export function onKill(h, mob, shared = false) {
+  if (!shared) h.kills = (h.kills || 0) + 1;
   const diff = mob.lv - h.level;
   const xpMul = diff <= -6 ? 0.1 : diff <= -3 ? 0.5 : diff >= 3 ? 1.25 : 1;
-  gainXp(h, mob.xp * xpMul, mob.name);
+  if (!shared) gainXp(h, mob.xp * xpMul, mob.name);
   // quest kill objectives
   for (const qid in h.quests.active) {
     const q = QUESTS.find(x => x.id === qid), a = h.quests.active[qid];

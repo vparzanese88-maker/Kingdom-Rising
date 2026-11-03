@@ -910,6 +910,13 @@ export class Player {
     if (this.dead) return;
     if (this.iframes > 0 || (this.dodge && !this.dodge.charge)) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Dodged', 'miss'); return; }
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;
+    // a timed block (raised just before the hit lands) deflects all of it, costs nothing and staggers the attacker
+    if (this.block && front && this.W && G.time - (this.blockStart || -9) < 0.3) {
+      S.block(this.W.hands === 'shield', this.pos); S.hit('metal', this.pos, 1.4); V.burst('spark', this.handPos(true), 30, { speed: 7 }); V.ring(this.pos, 1.6, '#ffe28a', 0.25); V.addShake(0.15); G.hitstop = 0.07;
+      V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Perfect block!', 'crit');
+      if (src && src.status && !src.remote && !src.isStruct) src.status.stun = Math.max(src.status.stun || 0, 0.9);
+      return;
+    }
     if (this.block && front && this.W) {
       const red = Math.min(0.95, this.W.block + this.wp('block') * 0.1); const cost = dmg * 0.6 * (1 - this.wp('block') * 0.25);
       if (this.end >= cost * 0.5 || this.pk('unbreak') || this.buffs.fort > 0) { this.end = Math.max(0, this.end - cost); this.endUseT = 1; dmg *= 1 - red; S.block(this.W.hands === 'shield', this.pos); V.burst('spark', this.handPos(true), 14, { speed: 5 }); V.addShake(0.12); if (dmg < 1) return; }
@@ -1064,7 +1071,9 @@ export class Player {
     const f = this.fwd(), r = this.right();
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
+    const wasBlock = this.block;
     this.block = !ui && !!K.KeyF && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
+    if (this.block && !wasBlock) this.blockStart = G.time;
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;

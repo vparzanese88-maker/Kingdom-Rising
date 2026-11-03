@@ -266,17 +266,21 @@ const SHARE_R = Infinity;
 function battleHooks() {
   const H = G.hooks;
   // kills: XP and your own loot go straight to you (auto loot), gold goes to the town
-  H.onKill = (mob, src, fromHost) => {
+  H.onKill = (mob, src, fromHost, earns = true) => {
+    let sharedKill = fromHost ? !earns : false;
     if (mob.team != null) return;
     // online, on the host: every hero on the killer's side who is close by gets the full XP and their own loot
     if (MP.on && MP.host && !mob._shared) {
       mob._shared = true;
       const team = src && src.team != null ? src.team : Battle.B.myTeam;
-      for (const r of MP.remotes.values()) if (r.team === team && Math.hypot(r.pos.x - mob.pos.x, r.pos.z - mob.pos.z) < SHARE_R) mpSend({ t: 'kill', to: r.netId, i: mob.netIdx });
+      const mates = [...MP.remotes.values()].filter(r => r.team === team);
+      const earner = src && src.remote && src.team === team ? src : team === Battle.B.myTeam ? G.player : mates[0];
+      for (const r of mates) mpSend({ t: 'kill', to: r.netId, i: mob.netIdx, xp: r === earner ? 1 : 0 });
       if (team !== Battle.B.myTeam) return;
+      sharedKill = earner !== G.player;
     } else if (src && src.remote) return;
     const p = G.player; if (!p || (!fromHost && mob.pos.distanceTo(p.pos) > SHARE_R)) return;
-    Game.onKill(G.save, mob);
+    Game.onKill(G.save, mob, sharedKill);
     BQ.questKill(mob);
     if (!mob.loot) return;
     // only weapons and armour drop (no materials, no cloaks); bosses always drop a few good pieces
@@ -298,7 +302,9 @@ function battleHooks() {
   H.carryFull = (N) => { const k = N.item === 'wood' ? 'wood' : N.item === 'stone' ? 'stone' : null; if (!k) return null; const cap = BUI.heroCarryCap(); return G.save.carry[k] >= cap ? `You can't carry more ${k}. Unload it at the Storehouse in town.` : null; };
   H.gatherBank = (item, n) => { const k = item === 'wood' ? 'wood' : item === 'stone' ? 'stone' : null; if (!k) return false; const cap = BUI.heroCarryCap(), c = G.save.carry; const amt = Math.min(n * 4, cap - c[k]); if (amt > 0) { c[k] += amt; UI.toast(`+${amt} ${k} (carrying ${c[k]}/${cap})`, BUI.resIcon(k), 'gold'); } if (c[k] >= cap) UI.toast(`Full of ${k}! Take it to the Storehouse in town.`, BUI.resIcon(k), 'bad'); return true; };
   H.battleXp = (n) => Game.gainXp(G.save, n);
-  H.xpGained = (n, why) => { if (why) UI.toast(`+${n} XP · ${why}`, '✦', 'xp'); };
+  let mirroring = false;
+  H.xpGained = (n, why) => { if (why) UI.toast(`+${n} XP · ${why}`, '✦', 'xp'); if (MP.on && !mirroring && n > 0) mpSend({ t: 'txp', n, why: why || '', team: Battle.B.myTeam }); };
+  H.teamXp = (n, why) => { if (!G.save) return; mirroring = true; try { Game.gainXp(G.save, n, why ? why + ' (team)' : 'Team'); } finally { mirroring = false; } };
   H.banner = (a, b, ms) => UI.banner(a, b, ms);
   H.matchOver = (r) => BUI.matchOver(r);
   H.killReward = (g, u) => UI.toast(`+${g} gold · ${u.name}`, Icons.coin(), 'gold');

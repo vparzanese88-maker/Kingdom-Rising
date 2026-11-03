@@ -250,6 +250,7 @@ export function telegraphCone(mob, r, delay) {
   G.timers.push({ update(dt) { t += dt; const p = mob.pos; m.position.set(p.x, heightAt(p.x, p.z) + 0.15, p.z); m.rotation.y = mob.yaw - Math.PI / 2; m.material.opacity = 0.2 + 0.25 * Math.min(1, t / delay); if (t >= delay || mob.dead) { G.scene.remove(m); return true; } return false; } });
 }
 export function lightning(a, b) {
+  if (Math.random() < 0.8) S.zap(b, 0.9);
   const pts = []; const n = 10;
   for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); if (i && i < n) p.add(new THREE.Vector3(rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5))); pts.push(p); }
   const g = new THREE.BufferGeometry().setFromPoints(pts);

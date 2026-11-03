@@ -474,6 +474,9 @@ export class Player {
   }
 
   // ---------- weapon abilities on F and C ----------
+  qty(b, extra) { return G.battleFx ? b + Math.round((this.h.level - 1) / 9 * extra) : b; }
+  // area of effect grows with level in Kingdom Battles: +4% radius per level (+36% at level 10)
+  areaK() { return G.battleFx ? 1 + (this.h.level - 1) * 0.04 : 1; }
   specialAttack() { const w = this.weapon; if (!w) return; const id = RMB_SPECIAL[w.wt]; if (!id) return; this.weaponAbility(0, { fam: familiesOf(w.wt)[0], id }); }
   weaponAbility(slot, skOverride) {
     const W = this.W; if (!W || this.swim) return;
@@ -484,7 +487,7 @@ export class Player {
     const key = 'w' + slot;
     if (this.cd[key] > 0) { S.error(); return; }
     const S2 = WSKILLS[sk.id], fam = sk.fam;
-    const aR = 1 + this.wp('area', fam) * 0.15, aCd = 1 - this.wp('area', fam) * 0.15;
+    const aR = (1 + this.wp('area', fam) * 0.15) * this.areaK(), aCd = 1 - this.wp('area', fam) * 0.15;
     this.cd[key] = S2.cd * aCd;
     const base = weaponDamage(this.h, this.weapon), f = this.fwd(), p0 = this.pos.clone();
     const spin = (r, mult, extra = {}, sound = 1.6) => {
@@ -530,7 +533,7 @@ export class Player {
       case 'twinfury': this.atk = { name: 'fury', t: 0, dur: 1.15, hits: 6, rank: 1, hit: true, noQueue: true, base }; S.swing(1.2, this.pos); break;
       case 'fan': { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const d = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)); spawnProjectile({ pos: this.pos.clone().setY(this.pos.y + 1.1), vel: d.multiplyScalar(26), grav: 2, radius: 0.35, dmg: base * 0.8, owner: 'player', kind: 'knife', life: 0.5 }); } this.atk = { name: 'area', t: 0.3, dur: 0.5, hit: true, noQueue: true }; S.swingW('light', 1.5, this.pos); break; }
       case 'multishot': throwP('arrow', 55, 0.9, {}, false, 5, 0.09); S.bowShot(this.pos); break;
-      case 'fan8': throwP('arrow', 52, 0.85, {}, false, 8, 0.11); S.bowShot(this.pos); S.bowShot(this.pos); break;
+      case 'fan8': throwP('arrow', 52, 0.85, {}, false, this.qty(5, 6), 0.11); S.bowShot(this.pos); S.bowShot(this.pos); break;
       case 'rain': {
         const tgt = groundPoint(40), r = 6 * aR; this.atk = { name: 'shoot', t: 0, dur: 0.5, hit: true }; S.bowShot(this.pos); V.ring(tgt, r, '#a0ffb0', 2.2, 0.1);
         for (let i = 0; i < 22; i++) setTimeout(() => { const p = tgt.clone().add(new THREE.Vector3(rand(-r, r) * 0.8, 0, rand(-r, r) * 0.8)); spawnProjectile({ pos: p.clone().add(new THREE.Vector3(rand(-3, 3), 26, rand(-3, 3))), vel: new THREE.Vector3(0, -45, 0), grav: 0, radius: 0.5, dmg: base * 0.45, owner: 'player', kind: 'arrow', life: 2 }); }, (0.5 + i * 0.07) * 1000);
@@ -553,7 +556,7 @@ export class Player {
         setTimeout(() => { const f2 = this.handPos(); const d2 = this.aimDir(f2); spawnProjectile({ pos: f2, vel: d2.multiplyScalar(22), grav: 6, radius: 0.5, dmg: base * 2.2, owner: 'player', kind: 'orb', scale: 2.5, life: 4, aoe: true, onHit: (p, m, pos) => { const r = 6.5 * aR; for (const mm of mobsInRadius(pos, r)) this.dealDamage(mm, p.dmg, { el: 'arcane', knock: mm.pos.clone().sub(pos).setY(0).normalize().multiplyScalar(-5) }); V.sphereFlash(pos, r, '#b060ff', 0.45); V.burst('arcane', pos, 60, { speed: 8, size: 0.4 }); V.ring(pos, r, '#d090ff', 0.5); V.light(pos, '#a040ff', 6, 0.4, 20); S.explode(pos, 1.3, 'arcane'); V.addShake(0.25); } }); }, 400 * ABIL_DELAY_K());
         break;
       }
-      case 'missiles': { for (let i = 0; i < 3; i++) setTimeout(() => { if (this.dead) return; const from = this.handPos(), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.3; dir.y += 0.15; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(28), grav: 0, radius: 0.3, dmg: base * 0.9, owner: 'player', kind: 'arcane', life: 2.5, homing: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 14, { speed: 3 }); } }); S.cast('arcane', from, 0.6); }, i * 130); this.atk = { name: 'cast', t: 0, dur: 0.6, hit: true }; break; }
+      case 'missiles': { for (let i = 0; i < this.qty(3, 4); i++) setTimeout(() => { if (this.dead) return; const from = this.handPos(), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.3; dir.y += 0.15; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(28), grav: 0, radius: 0.3, dmg: base * 0.9, owner: 'player', kind: 'arcane', life: 2.5, homing: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 14, { speed: 3 }); } }); S.cast('arcane', from, 0.6); }, i * 130); this.atk = { name: 'cast', t: 0, dur: 0.6, hit: true }; break; }
     }
     G.hooks.toast && false;
   }
@@ -682,9 +685,9 @@ export class Player {
       case 'pinning': { const from = this.handPos(true), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(70), grav: 3, radius: 0.3, dmg: base * 1.3, owner: 'player', kind: 'spectral', life: 1.5, onHit: (p, m) => { if (m) { this.dealDamage(m, p.dmg, { stun: 2.5 }); V.number(m.pos.clone().setY(m.pos.y + m.height + 0.6), 'Pinned!', 'bad'); } } }); S.bowShot(this.pos); this.atk = { name: 'shoot', t: 0.4, dur: 0.4, hit: true }; break; }
       case 'barrage': { const n = 10 + (up > 1 ? 5 : 0); for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = this.handPos(true), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.06; dir.y += (Math.random() - 0.5) * 0.04; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(60), grav: 6, radius: 0.2, dmg: base * 0.6, owner: 'player', kind: 'arrow', life: 3 }); S.bowShot(this.pos); }, k * 90); this.atk = { name: 'shoot', t: 0, dur: n * 0.09, hit: true }; break; }
       case 'firering': { const p0 = this.pos; let k = 0; V.ring(this.pos, 6, '#ff7030', 0.6); S.cast('fire', this.pos, 1.6); const iv = setInterval(() => { k++; if (this.dead || k > 10) { clearInterval(iv); return; } for (const m of mobsInRadius(this.pos, 6)) this.dealDamage(m, base * 0.35 * up, { el: 'fire', burn: base * 0.05, silent: k % 2 === 0 }); for (let j = 0; j < 24; j++) { const a2 = j / 24 * Math.PI * 2; V.emit('fire', new THREE.Vector3(this.pos.x + Math.cos(a2) * 6, this.pos.y + 0.3, this.pos.z + Math.sin(a2) * 6), { speed: 1, vy: 2, size: 0.6, life: 0.6 }); } }, 500 * ABIL_DELAY_K()); break; }
-      case 'missiles': { for (let k = 0; k < 5; k++) setTimeout(() => { if (this.dead) return; const from = this.handPos(), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.5; dir.y += 0.2; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(26), grav: 0, radius: 0.3, dmg: base * 0.9, owner: 'player', kind: 'arcane', life: 2.5, homing: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 14, { speed: 3 }); } }); S.cast('arcane', from, 0.6); }, k * 120); this.atk = { name: 'cast', t: 0, dur: 0.7, hit: true }; break; }
+      case 'missiles': { for (let k = 0; k < this.qty(3, 5); k++) setTimeout(() => { if (this.dead) return; const from = this.handPos(), dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.5; dir.y += 0.2; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(26), grav: 0, radius: 0.3, dmg: base * 0.9, owner: 'player', kind: 'arcane', life: 2.5, homing: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 14, { speed: 3 }); } }); S.cast('arcane', from, 0.6); }, k * 120); this.atk = { name: 'cast', t: 0, dur: 0.7, hit: true }; break; }
       case 'timewarp': { for (const m of mobsInRadius(this.pos, 12)) { m.status.slow = Math.max(m.status.slow, 6); m.atkCd += 2; } V.ring(this.pos, 12, '#c0a0ff', 0.9); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 4, '#a080ff', 0.6); S.cast('arcane', this.pos, 2); break; }
-      case 'lightstorm': { const c = groundPoint(30), n = 8 + (up > 1 ? 4 : 0); for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const near = mobsInRadius(c, 10); const m = near[Math.floor(Math.random() * near.length)]; const p = m ? m.pos.clone() : c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 12, 0, (Math.random() - 0.5) * 12)); p.y = heightAt(p.x, p.z); lightning(p.clone().add(new THREE.Vector3(0, 25, 0)), p.clone().setY(p.y + 0.5)); V.light(p.clone().setY(p.y + 2), '#a0c0ff', 6, 0.2, 18); S.cast('lightning', p, 0.8); for (const mm of mobsInRadius(p, 2.5)) this.dealDamage(mm, base * 1.1, { el: 'lightning', stun: 0.3 }); }, 300 + k * 220); this.atk = { name: 'castBig', t: 0, dur: 0.8, hit: true }; break; }
+      case 'lightstorm': { const c = groundPoint(30), n = G.battleFx ? this.qty(5, 9) : 8 + (up > 1 ? 4 : 0); for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const near = mobsInRadius(c, 10); const m = near[Math.floor(Math.random() * near.length)]; const p = m ? m.pos.clone() : c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 12, 0, (Math.random() - 0.5) * 12)); p.y = heightAt(p.x, p.z); lightning(p.clone().add(new THREE.Vector3(0, 25, 0)), p.clone().setY(p.y + 0.5)); V.light(p.clone().setY(p.y + 2), '#a0c0ff', 6, 0.2, 18); S.cast('lightning', p, 0.8); for (const mm of mobsInRadius(p, 2.5)) this.dealDamage(mm, base * 1.1, { el: 'lightning', stun: 0.3 }); }, 300 + k * 220); this.atk = { name: 'castBig', t: 0, dur: 0.8, hit: true }; break; }
       // ---- Kingdom Battles abilities ----
       case 'rally': { this.heal(this.maxHp * 0.15 * up); G.hooks.rally && G.hooks.rally(this.pos, 14 * up); S.battleCry(); V.ring(this.pos, 14 * up, '#ffd84a', 0.8); V.burst('gold', this.pos.clone().setY(this.pos.y + 2), 50, { speed: 5, vy: 3 }); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 3, '#ffe080', 0.5); this.atk = { name: 'cheer', t: 0, dur: 0.7, hit: true, noQueue: true }; break; }
       case 'seismic': { const R = 10 * Math.sqrt(up); for (const m of mobsInCone(this.pos, this.yaw, R, 0.75)) this.dealDamage(m, base * 2.4 * up, { slow: 3, blunt: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9) }); for (let k = 1; k <= 6; k++) { const d = k * R / 6; for (const s2 of [-0.6, -0.3, 0, 0.3, 0.6]) { const q = this.pos.clone(); q.x += Math.sin(this.yaw + s2) * d; q.z += Math.cos(this.yaw + s2) * d; q.y = heightAt(q.x, q.z); setTimeout(() => V.burst('stone', q, 5, { speed: 5, grav: 14, size: 0.35 }), k * 40); } } S.rumble(this.pos, 0.8); S.blunt(this.pos); V.addShake(0.6); G.hitstop = 0.06; this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; break; }
@@ -715,10 +718,13 @@ export class Player {
       case 'volleyfire': { for (let k = 0; k < 5; k++) setTimeout(() => { if (!this.dead) this.fireGun(0.5, true, 0.85 * up); }, k * 180); break; }
       case 'incendiary': { const from = this.handPos(true), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(90), grav: 4, flat: 0.8, radius: 0.2, dmg: base * 2.4 * up, owner: 'player', kind: 'fireball', scale: 0.8, life: 3, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4 * Math.sqrt(up), p.dmg * 0.6, { el: 'fire', burn: base * 0.15 }); if (m) this.dealDamage(m, p.dmg * 0.5, { el: 'fire', burn: base * 0.15 }); V.burst('fire', at, 50, { speed: 6 }); S.explode(at, 1, 'fire'); } }); S.explode(from, 0.5, 'fire'); V.burst('smoke', from, 14, { speed: 2, size: 1.2 }); this.fovKick += 4; break; }
       case 'caltrops': { const R = 6 * Math.sqrt(up), c = this.pos.clone(); for (let k = 0; k < 24; k++) { const a2 = Math.random() * 6.28, d = Math.sqrt(Math.random()) * R; V.burst('spark', new THREE.Vector3(c.x + Math.cos(a2) * d, heightAt(c.x + Math.cos(a2) * d, c.z + Math.sin(a2) * d) + 0.1, c.z + Math.sin(a2) * d), 1, { speed: 0.5 }); } V.ring(c, R, '#9aa0a8', 6); let k = 0; const iv = setInterval(() => { k++; if (k > 12) { clearInterval(iv); return; } for (const m of mobsInRadius(c, R)) { if (m.isStruct) continue; m.status.slow = Math.max(m.status.slow, 1.2); this.dealDamage(m, base * 0.25 * up, { silent: true, bleed: base * 0.04 }); } }, 500); S.mine && S.mine(c); break; }
-      case 'cannonade': { const c = groundPoint(36); S.rumble(c, 1.5); for (let k = 0; k < 3; k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10)); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 5, base * 2.4 * up); }, 500 + k * 450); break; }
-      case 'pyroblast': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(28), grav: 1, radius: 0.7, dmg: base * 3.2 * up, owner: 'player', kind: 'fireball', scale: 2.6, life: 2.5, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4.5 * Math.sqrt(up), p.dmg * 0.6, { el: 'fire', burn: base * 0.1, falloff: true, knock: 6 }); if (m) this.dealDamage(m, p.dmg * 0.4, { el: 'fire' }); V.sphereFlash(at, 3, '#ff8030', 0.4); V.burst('fire', at, 40, { speed: 7 }); S.explode(at, 1.2, 'fire'); V.addShake(0.35); } }); S.cast('fire', this.pos, 1.6); this.atk = { name: 'castBig', t: 0.2, dur: 0.6, hit: true, noQueue: true }; break; }
+      case 'cannonade': { const c = groundPoint(36); S.rumble(c, 1.5); for (let k = 0; k < this.qty(3, 3); k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10)); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 5, base * 2.4 * up); }, 500 + k * 450); break; }
+      case 'pyroblast': { // a huge, slow ball of fire that lands like a falling star: the biggest fire spell there is
+        const from = this.handPos(), dir = this.aimDir(from), R = 10.5 * Math.sqrt(up) * this.areaK();
+        spawnProjectile({ pos: from, vel: dir.multiplyScalar(22), grav: 1, radius: 1.0, dmg: base * 4.2 * up, owner: 'player', kind: 'fireball', scale: 4.2, life: 3, onHit: (p, m, pos) => { const at = (pos || (m && m.pos) || p.pos).clone(); this.meteorImpact(at, R, p.dmg); V.sphereFlash(at.clone().setY(at.y + 1), R * 0.7, '#ff7020', 0.55); V.burst('fire', at, 120, { speed: 12, size: 1.1 }); V.burst('ember', at, 60, { speed: 9, vy: 8 }); V.light(at.clone().setY(at.y + 3), '#ff7030', 16, 0.7, 40); S.explode(at, 2.4, 'fire'); V.addShake(0.8); } });
+        S.cast('fire', this.pos, 2.4); V.burst('fire', from, 30, { speed: 3 }); this.atk = { name: 'castBig', t: 0.2, dur: 0.7, hit: true, noQueue: true }; break; }
       case 'glacial': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(40), grav: 0, radius: 0.45, dmg: base * 2 * up, owner: 'player', kind: 'frost', scale: 1.6, life: 2, onHit: (p, m) => { if (m) { this.dealDamage(m, p.dmg, { el: 'frost', freeze: 3 * Math.sqrt(up) }); V.burst('frost', m.pos.clone().setY(m.pos.y + 1), 30, { speed: 4 }); } } }); S.cast('frost', this.pos, 1.3); this.atk = { name: 'cast', t: 0.2, dur: 0.5, hit: true, noQueue: true }; break; }
-      case 'meteorshower': { const c = groundPoint(32); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true, noQueue: true }; S.cast('fire', this.pos, 2); for (let k = 0; k < 5; k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 0, (Math.random() - 0.5) * 14)); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 4.5, base * 1.6 * up); }, 250 + k * 380); break; }
+      case 'meteorshower': { const c = groundPoint(32); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true, noQueue: true }; S.cast('fire', this.pos, 2); for (let k = 0; k < this.qty(4, 5); k++) setTimeout(() => { if (this.dead) return; const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14 * this.areaK(), 0, (Math.random() - 0.5) * 14 * this.areaK())); q.y = heightAt(q.x, q.z); this.meteorImpact(q, 4.5 * this.areaK(), base * 1.6 * up); }, 250 + k * 380); break; }
       case 'inferno': { const tgt = groundPoint(30), r = 7 * (up > 1 ? 1.3 : 1); this.atk = { name: 'castBig', t: 0, dur: 0.9, hit: true }; S.cast('fire', this.pos, 2); setTimeout(() => { if (!this.dead) this.meteorImpact(tgt, r, base * 3.5 * up); }, 600 * ABIL_DELAY_K()); break; }
       case 'adrenaline': {
         this.buffs.adren = 8; S.battleCry(); S.heal(); this.fovKick = 10; this.end = Math.min(this.maxEnd, this.end + 20);
@@ -779,11 +785,11 @@ export class Player {
         this.atk = { name: 'spell', t: 0, dur: 0.45, hit: true };
         if (!tgt) { lightning(from, a.point); break; }
         const hit = new Set(); let prev = from, dmg = base * 1.7 * rk * up;
-        for (let j = 0; j < 5 + this.pk('a3up') * 2 && tgt; j++) {
+        for (let j = 0; j < (G.battleFx ? this.qty(3, 4) : 5 + this.pk('a3up') * 2) && tgt; j++) {
           hit.add(tgt); const to = tgt.pos.clone(); to.y += tgt.height * 0.6;
           lightning(prev, to); this.dealDamage(tgt, dmg, { el: 'lightning', stun: 0.4 }); V.light(to, '#a0c0ff', 4, 0.2);
           dmg *= 0.85; prev = to;
-          tgt = G.mobs.filter(m => !m.dead && foe(m) && !hit.has(m) && m.pos.distanceTo(tgt.pos) < 11).sort((x, y) => x.pos.distanceTo(tgt.pos) - y.pos.distanceTo(tgt.pos))[0];
+          tgt = G.mobs.filter(m => !m.dead && foe(m) && !hit.has(m) && m.pos.distanceTo(tgt.pos) < 11 * this.areaK()).sort((x, y) => x.pos.distanceTo(tgt.pos) - y.pos.distanceTo(tgt.pos))[0];
         }
         break;
       }
@@ -826,7 +832,7 @@ export class Player {
         S.swingW('light', 1, this.pos); this.atk = { name: 'swing2', t: 0.25, dur: 0.4, hit: true, noQueue: true }; return true;
       }
       case 'barrage': { // Knife Fan
-        const n = 8 + (up > 1.3 ? 4 : 0);
+        const n = this.qty(5, 7);
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = hand(), dir = aim(from); dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), (Math.random() - 0.5) * 0.35); dir.y += (Math.random() - 0.5) * 0.05; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(48), grav: 4, radius: 0.22, dmg: base * 0.65 * up, owner: 'player', kind: 'knife', life: 1.6, onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.05 }); } }); S.swingW('light', 0.7, this.pos); }, k * 70);
         this.atk = { name: 'swing1', t: 0, dur: n * 0.07, hit: true, noQueue: true }; return true;
       }
@@ -837,7 +843,7 @@ export class Player {
         pistolFx(from); V.burst('smoke', from, 20, { speed: 4, size: 1.4, life: 1.6 }); S.explode(from, 0.6, 'fire'); V.addShake(0.2); this.atk = { name: 'stabR', t: 0.2, dur: 0.35, hit: true, noQueue: true }; return true;
       }
       case 'volleyfire': { // Pistol Fan: a brace of belt pistols, fired one after another
-        for (let k = 0; k < 5; k++) setTimeout(() => { if (this.dead) return; const from = hand(); bullet(from, aim(from), base * 1.1 * up); pistolFx(from); }, k * 150);
+        for (let k = 0; k < this.qty(3, 4); k++) setTimeout(() => { if (this.dead) return; const from = hand(); bullet(from, aim(from), base * 1.1 * up); pistolFx(from); }, k * 150);
         this.atk = { name: 'stabR', t: 0, dur: 0.75, hit: true, noQueue: true }; return true;
       }
       case 'incendiary': { // Fire Flask: lob a flask of lamp oil and powder
@@ -856,7 +862,7 @@ export class Player {
       }
       // ---- Warrior: no shield needed ----
       case 'shieldthrow': { // Throwing Hammer
-        const from = hand(), dir = aim(from), bounces = 2 + (up > 1.3 ? 2 : 0);
+        const from = hand(), dir = aim(from), bounces = this.qty(2, 4);
         spawnProjectile({ pos: from, vel: dir.multiplyScalar(34), grav: 2, radius: 0.5, dmg: base * 1.4 * up, owner: 'player', kind: 'axe', life: 1.5, onHit: (p, m) => { if (!m) return; const hit = new Set([m]); let cur = m; this.dealDamage(m, p.dmg, { stun: 1.5, blunt: true }); S.blunt(m.pos); for (let k = 0; k < bounces; k++) { const nx = G.mobs.filter(o => !o.dead && !hit.has(o) && foe(o) && o.pos.distanceTo(cur.pos) < 10).sort((x, y) => x.pos.distanceTo(cur.pos) - y.pos.distanceTo(cur.pos))[0]; if (!nx) break; hit.add(nx); V.burst('spark', nx.pos.clone().setY(nx.pos.y + 1), 10, { speed: 4 }); this.dealDamage(nx, p.dmg * 0.8, { stun: 1, blunt: true }); cur = nx; } } });
         S.swingW('blunt', 1.4, this.pos); this.atk = { name: 'swing2', t: 0.3, dur: 0.45, hit: true, noQueue: true }; return true;
       }

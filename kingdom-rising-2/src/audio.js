@@ -206,22 +206,39 @@ export const S = {
   },
   arrowHit(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now(); noise(t, 0.06, o.node, { type: 'bandpass', f: 1200, q: 2, gain: 0.5 }); tone(t, 0.12, o.node, { type: 'triangle', f: 300, f2: 180, gain: 0.2 }); },
   cast(el = 'fire', pos, big = 1) {
-    if (!ctx) return; const o = out(pos, sfxBus, 0.35); const t = now();
+    if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now(), b = Math.min(2.5, big);
     if (el === 'fire') {
-      noise(t, 0.5 * big, o.node, { type: 'lowpass', f: 300, f2: 3000, q: 1, gain: 0.45 * big, a: 0.04 });
-      tone(t, 0.4 * big, o.node, { type: 'sawtooth', f: 110, f2: 220, gain: 0.08 * big, a: 0.05 });
+      // a roaring whoosh of flame with crackles in it
+      noise(t, 0.55 * b, o.node, { type: 'bandpass', f: 250, f2: 1800, q: 0.9, gain: 0.7 * b, a: 0.03 });
+      noise(t + 0.05, 0.6 * b, o.node, { type: 'lowpass', f: 700, f2: 250, gain: 0.45 * b, a: 0.08 });
+      tone(t, 0.45 * b, o.node, { type: 'sawtooth', f: 70, f2: 140, gain: 0.07 * b, a: 0.06 });
+      for (let i = 0; i < 6 + 4 * b; i++) noise(t + 0.05 + Math.random() * 0.5 * b, 0.02, o.node, { type: 'highpass', f: 2500 + Math.random() * 3000, gain: 0.35 });
     } else if (el === 'frost') {
-      [2400, 3200, 4100].forEach((f, i) => tone(t + i * 0.04, 0.5, o.node, { type: 'sine', f, f2: f * 1.5, gain: 0.05 }));
-      noise(t, 0.4, o.node, { type: 'highpass', f: 3000, gain: 0.25, a: 0.05 });
+      // chiming ice and a cold hiss
+      [2400, 3200, 4100, 5400].forEach((f, i) => tone(t + i * 0.05, 0.7, o.node, { type: 'sine', f, f2: f * 1.25, gain: 0.06 * b }));
+      noise(t, 0.6 * b, o.node, { type: 'highpass', f: 4000, f2: 2000, gain: 0.3 * b, a: 0.05 });
+      noise(t + 0.1, 0.4, o.node, { type: 'bandpass', f: 900, q: 3, gain: 0.12 });
     } else if (el === 'arcane') {
-      tone(t, 0.45 * big, o.node, { type: 'sine', f: 330, f2: 990, gain: 0.18, a: 0.03 }); tone(t, 0.45 * big, o.node, { type: 'sine', f: 335, f2: 1000, gain: 0.18, a: 0.03 });
-      noise(t, 0.3, o.node, { type: 'bandpass', f: 2000, q: 5, gain: 0.12 });
+      // a shimmering, ringing hum
+      tone(t, 0.6 * b, o.node, { type: 'sine', f: 330, f2: 990, gain: 0.16, a: 0.03 }); tone(t, 0.6 * b, o.node, { type: 'sine', f: 337, f2: 1004, gain: 0.16, a: 0.03 });
+      tone(t + 0.08, 0.9, o.node, { type: 'triangle', f: 1320, f2: 1760, gain: 0.05 });
+      noise(t, 0.35, o.node, { type: 'bandpass', f: 2600, q: 6, gain: 0.14 });
     } else if (el === 'lightning') {
-      noise(t, 0.6, o.node, { type: 'highpass', f: 1500, gain: 0.6, a: 0.002 }); for (let i = 0; i < 8; i++) noise(t + Math.random() * 0.3, 0.04, o.node, { type: 'bandpass', f: 3000 + Math.random() * 4000, gain: 0.4 });
-      tone(t, 0.6, o.node, { type: 'sawtooth', f: 80, f2: 40, gain: 0.2 });
-    } else if (el === 'holy') {
-      [523, 659, 784, 1046].forEach((f, i) => tone(t + i * 0.06, 0.9, o.node, { type: 'sine', f, gain: 0.07, a: 0.05 }));
+      // a sharp electric crack, a buzzing zap, then thunder rolling away
+      noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 1.0 * b, a: 0.001 });
+      noise(t, 0.25, o.node, { type: 'bandpass', f: 1800, q: 0.7, gain: 0.6 * b, a: 0.001 });
+      const z = tone(t, 0.3, o.node, { type: 'sawtooth', f: 90, gain: 0.12 * b, a: 0.002 }); const lfo = ctx.createOscillator(); lfo.frequency.value = 60; const lg = ctx.createGain(); lg.gain.value = 40; lfo.connect(lg); lg.connect(z.o.frequency); lfo.start(t); lfo.stop(t + 0.35);
+      for (let i = 0; i < 8; i++) noise(t + Math.random() * 0.25, 0.03, o.node, { type: 'bandpass', f: 3000 + Math.random() * 4000, gain: 0.45 });
+      noise(t + 0.15, 1.6 * b, o.node, { type: 'lowpass', f: 220, f2: 60, gain: 0.55 * b, a: 0.2 });
+    } else {
+      noise(t, 0.3, o.node, { type: 'bandpass', f: 1500, q: 2, gain: 0.25 }); tone(t, 0.3, o.node, { type: 'sine', f: 600, f2: 1200, gain: 0.08 });
     }
+  },
+  // the crack of a lightning bolt striking something
+  zap(pos, k = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.5); const t = now();
+    noise(t, 0.06, o.node, { type: 'highpass', f: 2500, gain: 0.9 * k, a: 0.001 }); noise(t, 0.18, o.node, { type: 'bandpass', f: 1200, q: 0.8, gain: 0.5 * k, a: 0.001 });
+    tone(t, 0.12, o.node, { type: 'square', f: 140, f2: 60, gain: 0.08 * k });
   },
   charge(el = 'fire') { if (!ctx) return; const o = out(null, sfxBus, 0.2); const t = now(); const f = el === 'frost' ? 1500 : el === 'arcane' ? 700 : 200; tone(t, 1.0, o.node, { type: 'sine', f, f2: f * 3, gain: 0.08, a: 0.6 }); noise(t, 1.0, o.node, { type: 'bandpass', f: f * 2, f2: f * 6, q: 3, gain: 0.08, a: 0.6 }); },
   // a black-powder gunshot: a sharp crack, a deep boom and an echo rolling away. k: loudness (1 = musket)
@@ -240,6 +257,8 @@ export const S = {
     noise(t, 0.9 * big, o.node, { type: 'lowpass', f: lp, f2: 120, q: 0.7, gain: 0.9 * Math.min(1.4, big), a: 0.005 });
     tone(t, 0.8 * big, o.node, { type: 'sine', f: 120, f2: 30, gain: 0.8 * Math.min(1.4, big) });
     if (el === 'frost') [1800, 2600, 3700, 5100].forEach(f => tone(t + Math.random() * 0.1, 0.6, o.node, { type: 'sine', f, gain: 0.05 }));
+    if (el === 'fire') { noise(t + 0.15, 1.2 * big, o.node, { type: 'bandpass', f: 600, f2: 300, q: 0.8, gain: 0.35 * Math.min(1.4, big), a: 0.1 }); for (let i = 0; i < 10 * Math.min(2, big); i++) noise(t + 0.2 + Math.random() * 1.2 * big, 0.02, o.node, { type: 'highpass', f: 2500 + Math.random() * 3000, gain: 0.3 }); }
+    if (el === 'lightning') { noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 0.9, a: 0.001 }); noise(t + 0.2, 1.4, o.node, { type: 'lowpass', f: 200, f2: 50, gain: 0.5, a: 0.2 }); }
     if (big > 1.5) { noise(t + 0.1, 2.5, o.node, { type: 'lowpass', f: 400, f2: 60, gain: 0.6, a: 0.1 }); for (let i = 0; i < 10; i++) noise(t + 0.2 + Math.random(), 0.05, o.node, { type: 'bandpass', f: 2000 + Math.random() * 3000, q: 3, gain: 0.2 }); }
   },
   whistle(pos, dur = 1.2) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); tone(now(), dur, o.node, { type: 'sine', f: 1400, f2: 300, gain: 0.08, a: 0.2 }); noise(now(), dur, o.node, { type: 'bandpass', f: 600, f2: 200, q: 2, gain: 0.25, a: 0.3 }); },

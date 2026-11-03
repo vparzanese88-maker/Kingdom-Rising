@@ -19,7 +19,7 @@ import * as Icons from './icons.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL, showCreator } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, SETUP, LAYOUT, computeLayout } from './battlemap.js';
-import { MP, lobby, send as mpSend } from './mp.js';
+import { MP, lobby, send as mpSend, setStatus as setMpStatus, statusPanel } from './mp.js';
 import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
@@ -97,7 +97,7 @@ function boot() {
   input();
   $('loading').hidden = true;
   // online: the world is ready, now everyone makes their hero for this match
-  if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: mt.race }] } }); }
+  if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: SETUP.myRace || mt.race }] } }); setMpStatus('hero'); }
   else if (BATTLE) startBattle(); else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); goFull(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
@@ -256,6 +256,7 @@ function startBattle() {
   spawnBattleNpcs(); BUI.questTrack();
   setTimeout(() => { if (document.getElementById('bgoal')) return; const d = document.createElement('div'); d.id = 'bgoal'; d.innerHTML = `<div class="bsgoal">${BATTLE_GOAL}<div class="brow"><button class="btn gold big" id="bgoalGo">To battle!</button></div></div>`; document.body.appendChild(d); G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock(); const go = () => { d.remove(); G.uiOpen = false; lockPointer(); }; d.querySelector('#bgoalGo').onclick = go; setTimeout(() => { if (d.isConnected) go(); }, 25000); }, 600);
   if (MP.client) mpSend({ t: 'booted' });
+  if (MP.on) setMpStatus('playing');
   UI.banner('Kingdom Battles', `${t.name} awaits your command`, 4500);
   setTimeout(() => BUI.report('steward', `welcome home. I will run ${t.name} for you: hire the workers, gather wood and stone and raise the walls. You lead the fight. Hunt the beasts of the wilds, grow strong, and break the enemy halls.`, 'big'), 2500);
   setTimeout(() => BUI.report('captain', 'the army will march when it is ready. Press B any time for a war report or to give orders.', 'war'), 9000);

@@ -20,103 +20,127 @@ const RN = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf
 export function send(d) { if (MP.net) MP.net.send(d); }
 
 // ---------------- lobby ----------------
-// Host gets a code straight away. Friends join with it and land in the host's town (they can move to another town).
-// Towns with nobody in them are run by the computer. When the host starts, everyone makes their hero, then plays.
-const NAME_KEY = 'kr2_mpname';
+// Every player picks their own name, race and colour. Same colour = same side, and players on the same colour share
+// one town (its army, gold and upgrades). The host only picks the computer enemies and presses Start.
+// After Start every player's progress is shown to everyone: loading the world, making a hero, in the battle.
+const NAME_KEY = 'kr2_mpname', RACE_KEY = 'kr2_mprace';
+const STATUS = { lobby: ['In the lobby', '🟡'], loading: ['Loading the world…', '⏳'], hero: ['Making their hero…', '🎨'], playing: ['In the battle', '⚔'] };
 export function lobby() {
   return new Promise((resolve) => {
     MP.on = true; MP.host = SETUP.mp === 'host'; MP.client = !MP.host;
-    let myName = ''; try { myName = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
-    const me = { name: myName || (MP.host ? 'Host' : 'Friend') };
+    let nm = '', rc = ''; try { nm = localStorage.getItem(NAME_KEY) || ''; rc = localStorage.getItem(RACE_KEY) || ''; } catch (e) {}
+    const me = { name: nm || (MP.host ? 'Host' : 'Friend'), race: BATTLE_RACES.includes(rc) ? rc : 'human', team: 0, status: 'lobby' };
+    MP.enemies = { n: 1, diff: 'normal' };
     const ov = el('div', ''); ov.id = 'mplobby'; document.body.appendChild(ov);
     const net = MP.net = new Net();
-    const nameOf = (id) => { const p = MP.players.get(id); return p ? p.name : 'Player'; };
-    const myTownIdx = () => MP.slots.findIndex(s => s.players.includes(MP.myId));
-    const moveTo = (id, i) => { for (const s of MP.slots) s.players = s.players.filter(x => x !== id); if (MP.slots[i]) MP.slots[i].players.push(id); };
+    const players = () => [...MP.players.entries()].sort((a, b) => a[0] - b[0]);
+    const usedTeams = () => [...new Set(players().map(([, p]) => p.team))];
     const render = () => {
       const isHost = MP.host, focus = document.activeElement && document.activeElement.id === 'mpName';
-      let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div><h1>${MP.code ? 'Game <span class="mpcode">' + MP.code + '</span>' : 'Connecting…'}</h1>`;
-      html += MP.code ? `<p class="mpsub">${isHost ? 'Send this code to your friends. They choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in. They join your town unless they pick another.' : 'You are in! The host is setting up the battle. You can stay in the host\'s town or join another one.'}</p>` : `<p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>`;
-      if (MP.code && !MP.slots.length) html += '<p class="mpsub dim">Joining the host\'s lobby…</p>';
-      else if (MP.code) {
-        html += `<div class="mpname"><label>Your name <input id="mpName" maxlength="16" value="${String(me.name).replace(/"/g, '&quot;')}"></label><span class="dim">You make your hero after the game starts.</span></div>`;
-        const homeI = Math.max(0, MP.slots.findIndex(s => s.players.includes(0))), home = MP.slots[homeI], foes = MP.slots.filter((s, i) => i !== homeI);
-        const others = MP.slots.filter((s, i) => i !== homeI && s.players.length);
-        // your kingdom: everyone shares the host's town
-        html += `<div class="mpk mine"><div class="mpkh"><b>👑 Your kingdom</b><span>${home.players.length} player${home.players.length === 1 ? '' : 's'} · everyone here shares this town, its army and its gold</span></div><div class="mpkp">${home.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑' : ''}</span>`).join('') || '<span class="dim">Nobody yet</span>'}</div>`;
-        if (isHost) html += `<div class="mpkr"><span>Town race</span>${BATTLE_RACES.map(r => `<button class="seg${home.race === r ? ' on' : ''}" data-hrace="${r}">${RN[r]}</button>`).join('')}</div>`;
-        else if (!home.players.includes(MP.myId)) html += `<button class="btn gold" data-join="${homeI}">Join this kingdom</button>`;
-        html += '</div>';
-        // the enemy
-        const aiFoes = foes.filter(s => !s.players.length), diff = (aiFoes[0] || {}).diff || 'normal';
-        html += `<div class="mpk"><div class="mpkh"><b>⚔ The enemy</b><span>${foes.length} enemy kingdom${foes.length === 1 ? '' : 's'}${others.length ? ` (${others.length} with players)` : ''}</span></div>`;
-        if (isHost) html += `<div class="mpkr"><span>How many</span>${[1, 2, 3].map(n => `<button class="seg${foes.length === n ? ' on' : ''}" data-nfoes="${n}">${n}</button>`).join('')}</div><div class="mpkr"><span>How hard</span>${Object.keys(DIFFS).map(d => `<button class="seg${diff === d ? ' on' : ''}" data-diff="${d}">${DIFFS[d].name}</button>`).join('')}</div>`;
-        else html += `<p class="dim">${foes.map(s => RN[s.race]).join(', ')} · ${DIFFS[diff].name}</p>`;
-        html += '</div>';
-        // more options: teams, races and splitting players across towns
-        html += `<details class="mpmore"${MP.more ? ' open' : ''}><summary>More options: teams, races, play against each other</summary><div class="mpslots">`;
-        MP.slots.forEach((s, i) => {
-          const here = s.players.includes(MP.myId), pl = s.players.map(id => `<span class="mpchip${id === MP.myId ? ' me' : ''}">${nameOf(id)}${id === MP.myId ? ' (you)' : ''}</span>`).join('');
-          html += `<div class="mpslot${here ? ' mine' : ''}"><div class="mpdot" style="background:${TEAM_COLORS[s.team]}"></div><div class="mpwho"><b>Town ${i + 1} · ${RN[s.race]}</b><small>${s.players.length ? pl : `Computer · ${DIFFS[s.diff || 'normal'].name}`}</small></div>`;
-          if (isHost) {
-            html += `<label>Team <select data-i="${i}" data-k="team">${[0, 1, 2, 3].map(t => `<option value="${t}" ${s.team === t ? 'selected' : ''}>${TEAM_NAMES[t]}</option>`).join('')}</select></label>`;
-            html += `<label>Race <select data-i="${i}" data-k="race">${BATTLE_RACES.map(r => `<option value="${r}" ${s.race === r ? 'selected' : ''}>${RN[r]}</option>`).join('')}</select></label>`;
-          } else html += `<span class="mpteam">${TEAM_NAMES[s.team]} team</span>`;
-          if (!here) html += `<button class="btn mpjoin" data-join="${i}">Move here</button>`;
-          html += '</div>';
-        });
-        html += '</div></details>';
-        if (isHost) html += `<div class="mprow"><button class="btn gold big" id="mpStart">Start the game</button></div>`;
-        else html += '<p class="mpsub dim">Waiting for the host to start…</p>';
-      } else if (MP.err) html += '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>';
+      let html = `<div class="mpp"><div class="eyebrow">Kingdom Battles · Online</div>`;
+      if (!MP.code) { html += `<h1>Connecting…</h1><p class="mpsub">${MP.err || 'Reaching the matchmaking service…'}</p>${MP.err ? '<div class="mprow"><button class="btn" id="mpBack">← Back to title</button></div>' : ''}</div>`; ov.innerHTML = html; const bk = $('mpBack'); if (bk) bk.onclick = () => { location.href = location.pathname; }; return; }
+      if (!MP.players.has(MP.myId) || (MP.client && !MP.synced)) { ov.innerHTML = html + '<h1>Joining…</h1><p class="mpsub">Getting the lobby from the host…</p></div>'; return; }
+      const mine = MP.players.get(MP.myId);
+      html += `<div class="mptop"><div><h1>Game <span class="mpcode">${MP.code}</span></h1><p class="mpsub">${isHost ? 'You are the <b>host</b>. Send this code to your friends: they choose <b>Kingdom Battles → Multiplayer → Join a game</b> and type it in.' : 'You joined the game. Pick your race and colour, then wait for the host to start.'}</p></div></div>`;
+      // ---- you ----
+      html += `<div class="mpk mine"><div class="mpkh"><b>You</b><span>Your name, race and side. You make the rest of your hero after the game starts.</span></div>
+        <div class="mpkr"><span>Name</span><input id="mpName" maxlength="16" value="${String(mine.name).replace(/"/g, '&quot;')}"></div>
+        <div class="mpkr"><span>Race</span>${BATTLE_RACES.map(r => `<button class="seg${mine.race === r ? ' on' : ''}" data-race="${r}">${RN[r]}</button>`).join('')}</div>
+        <div class="mpkr"><span>Colour</span>${[0, 1, 2, 3].map(t => `<button class="seg col${mine.team === t ? ' on' : ''}" data-team="${t}" style="--tc:${TEAM_COLORS[t]}"><i></i>${TEAM_NAMES[t]}</button>`).join('')}</div></div>`;
+      // ---- everyone ----
+      const byTeam = {}; for (const [id, p] of players()) (byTeam[p.team] = byTeam[p.team] || []).push([id, p]);
+      html += `<div class="mpk"><div class="mpkh"><b>Players (${MP.players.size})</b><span>Players on the same colour fight together and share one town.</span></div><div class="mpsides">`;
+      for (const t of Object.keys(byTeam).map(Number).sort()) {
+        const list = byTeam[t];
+        html += `<div class="mpside" style="--tc:${TEAM_COLORS[t]}"><div class="mpsideh"><i></i>${TEAM_NAMES[t]} side · ${RN[list[0][1].race]} town${list.length > 1 ? ` · ${list.length} players share it` : ''}</div>${list.map(([id, p]) => `<div class="mppl${id === MP.myId ? ' me' : ''}"><b>${p.name}${id === MP.myId ? ' (you)' : ''}${id === 0 ? ' 👑 host' : ''}</b><span>${RN[p.race]} · ${STATUS[p.status || 'lobby'][1]} ${STATUS[p.status || 'lobby'][0]}</span></div>`).join('')}</div>`;
+      }
+      html += '</div></div>';
+      // ---- computer enemies (host decides) ----
+      const ut = usedTeams(), freeCols = [0, 1, 2, 3].filter(t => !ut.includes(t)), maxAi = Math.min(3, 4 - ut.length), nAi = Math.min(MP.enemies.n, maxAi);
+      html += `<div class="mpk"><div class="mpkh"><b>Computer enemies</b><span>${isHost ? 'You choose these. They play against every player.' : 'The host chooses these.'}</span></div>`;
+      if (isHost) html += `<div class="mpkr"><span>How many</span>${[0, 1, 2, 3].map(n => `<button class="seg${nAi === n ? ' on' : ''}" data-nai="${n}" ${n > maxAi ? 'disabled' : ''}>${n === 0 ? 'None' : n}</button>`).join('')}</div><div class="mpkr"><span>How hard</span>${Object.keys(DIFFS).map(d => `<button class="seg${MP.enemies.diff === d ? ' on' : ''}" data-diff="${d}">${DIFFS[d].name}</button>`).join('')}</div>`;
+      else html += `<p class="mpsub">${nAi ? `${nAi} computer kingdom${nAi > 1 ? 's' : ''} · ${DIFFS[MP.enemies.diff].name}` : 'No computer enemies'}</p>`;
+      html += '</div>';
+      // ---- what will happen ----
+      const sides = ut.length + (nAi ? 1 : 0);
+      const plan = sides < 2 ? '<b class="bad">Nobody to fight yet:</b> add a computer enemy, or have someone pick a different colour.' : ut.length > 1 ? `<b>Players against players${nAi ? ' and the computer' : ''}:</b> ${ut.map(t => TEAM_NAMES[t]).join(' vs ')}${nAi ? ` vs ${nAi} computer kingdom${nAi > 1 ? 's' : ''}` : ''}.` : `<b>Everyone together</b> on ${TEAM_NAMES[ut[0]]} against ${nAi} computer kingdom${nAi > 1 ? 's' : ''}.`;
+      html += `<div class="mpplan">${plan}</div>`;
+      if (isHost) html += `<div class="mprow"><button class="btn gold big" id="mpStart" ${sides < 2 ? 'disabled' : ''}>Start the game</button></div>`;
+      else html += '<p class="mpsub dim">Waiting for the host to start the game…</p>';
+      html += `<details class="mpmore"><summary>How online play works</summary><ol class="mphow">
+        <li><b>Colours are sides.</b> Same colour = allies who share one town, its army, gold and upgrades. Different colours fight each other.</li>
+        <li><b>After the host starts</b>, everyone's game loads the world, then each player makes their hero. You can see who is still loading or making a hero.</li>
+        <li><b>The gates stay shut for the first 60 seconds</b> so everyone can get in.</li>
+        <li><b>Kills are shared:</b> every ally within about 60 m gets the full XP. <b>Loot is your own:</b> each player gets their own random drops for their class.</li>
+        <li><b>Your town runs itself.</b> Take jobs from the Huntmaster and Quartermaster (J) to make it stronger. B opens the War Report and orders.</li>
+        <li><b>Hold Tab</b> in the game to see every player: class, level, health, kills.</li>
+        <li><b>Win</b> by destroying every enemy Town Hall. If the host leaves, the game ends for everyone.</li></ol></details>`;
       html += '</div>';
       ov.innerHTML = html;
-      const ni = $('mpName'); if (ni) { ni.onkeydown = (e) => e.stopPropagation(); ni.oninput = () => { me.name = ni.value.trim().slice(0, 16) || 'Player'; try { localStorage.setItem(NAME_KEY, me.name); } catch (e) {} MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, me)); if (MP.host) pushLobby(); else send({ t: 'me-info', info: me }); }; ni.onchange = () => render(); if (focus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); } }
-      ov.querySelectorAll('select').forEach(sel => sel.onchange = () => { const s = MP.slots[+sel.dataset.i]; const k = sel.dataset.k; s[k] = k === 'team' ? +sel.value : sel.value; pushLobby(); render(); });
-      ov.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const s = MP.slots[+b.dataset.rm]; const home = MP.slots.find(x => x.players.includes(0)); if (home) home.players.push(...s.players); MP.slots.splice(+b.dataset.rm, 1); pushLobby(); render(); });
-      ov.querySelectorAll('[data-join]').forEach(b => b.onclick = () => { S.click(); const i = +b.dataset.join; if (MP.host) { moveTo(MP.myId, i); pushLobby(); render(); } else send({ t: 'pick', slot: i }); });
-      ov.querySelectorAll('[data-hrace]').forEach(b => b.onclick = () => { S.click(); const h = MP.slots.find(x => x.players.includes(0)); h.race = b.dataset.hrace; pushLobby(); render(); });
-      ov.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { S.click(); for (const x of MP.slots) if (!x.players.length) x.diff = b.dataset.diff; pushLobby(); render(); });
-      ov.querySelectorAll('[data-nfoes]').forEach(b => b.onclick = () => { S.click(); const n = +b.dataset.nfoes, homeI = Math.max(0, MP.slots.findIndex(x => x.players.includes(0))); let foes = MP.slots.length - 1;
-        const diff = (MP.slots.find((x, i) => i !== homeI && !x.players.length) || {}).diff || 'normal', used = new Set(MP.slots.map(x => x.race));
-        while (foes < n) { const race = BATTLE_RACES.find(r => !used.has(r)) || 'orc'; used.add(race); MP.slots.push({ players: [], race, team: 1, diff }); foes++; }
-        while (foes > n) { const k = MP.slots.map((x, i) => i).reverse().find(i => i !== homeI && !MP.slots[i].players.length); if (k == null) break; MP.slots.splice(k, 1); foes--; }
-        pushLobby(); render(); });
-      const more = ov.querySelector('.mpmore'); if (more) more.ontoggle = () => { MP.more = more.open; };
-      const add = $('mpAdd'); if (add) add.onclick = () => { MP.slots.push({ players: [], race: BATTLE_RACES[MP.slots.length % 5], team: MP.slots.length, diff: 'normal' }); pushLobby(); render(); };
-      const st = $('mpStart'); if (st) st.onclick = () => {
-        if (new Set(MP.slots.map(s => s.team)).size < 2) { S.error(); alertTeams(); return; }
-        const setup = { mp: true, seed: Math.floor(Math.random() * 1e6), towns: MP.slots.map(s => ({ race: s.race, team: s.team, ai: !s.players.length, members: s.players.slice(), owner: s.players.length ? s.players[0] : null, diff: s.diff || 'normal' })) };
-        send({ t: 'start', setup, players: [...MP.players.entries()] }); begin(setup);
-      };
-      const bk = $('mpBack'); if (bk) bk.onclick = () => { location.href = location.pathname; };
+      const ni = $('mpName'); if (ni) { ni.onkeydown = (e) => e.stopPropagation(); ni.oninput = () => { setMe({ name: ni.value.trim().slice(0, 16) || 'Player' }, false); }; ni.onchange = () => render(); if (focus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); } }
+      ov.querySelectorAll('[data-race]').forEach(b => b.onclick = () => { S.click(); setMe({ race: b.dataset.race }); });
+      ov.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { S.click(); setMe({ team: +b.dataset.team }); });
+      ov.querySelectorAll('[data-nai]').forEach(b => b.onclick = () => { S.click(); MP.enemies.n = +b.dataset.nai; pushLobby(); render(); });
+      ov.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { S.click(); MP.enemies.diff = b.dataset.diff; pushLobby(); render(); });
+      const st = $('mpStart'); if (st) st.onclick = () => { S.click(); const setup = buildSetup(); if (!setup) { S.error(); return; } send({ t: 'start', setup, players: [...MP.players.entries()] }); begin(setup); };
     };
-    const alertTeams = () => { const p = ov.querySelector('.mpp .dim:last-child'); if (p) { p.textContent = 'Put at least one town on a different team colour, so there is someone to fight.'; p.style.color = '#ff9a7a'; } };
-    const pushLobby = () => { if (MP.host) send({ t: 'lobby', slots: MP.slots, players: [...MP.players.entries()], code: MP.code }); };
-    const begin = (setup) => { Object.assign(SETUP, setup); delete SETUP.hero; ov.remove(); resolve(setup); };
+    // my own choices: stored, and sent to the host (or shared by the host)
+    const setMe = (o, rerender = true) => {
+      const p = Object.assign(MP.players.get(MP.myId), o); try { localStorage.setItem(NAME_KEY, p.name); localStorage.setItem(RACE_KEY, p.race); } catch (e) {}
+      if (MP.host) pushLobby(); else send({ t: 'me-info', info: { name: p.name, race: p.race, team: p.team } });
+      if (rerender) render();
+    };
+    // the towns: one per colour that has players (they share it), then the computer kingdoms on a colour of their own
+    const buildSetup = () => {
+      const towns = [], ut = usedTeams().sort();
+      for (const t of ut) { const ids = players().filter(([, p]) => p.team === t).map(([id]) => id); towns.push({ race: MP.players.get(ids[0]).race, team: t, ai: false, members: ids, owner: ids[0], diff: 'normal' }); }
+      const free = [0, 1, 2, 3].filter(t => !ut.includes(t)), nAi = Math.min(MP.enemies.n, 4 - ut.length);
+      const races = BATTLE_RACES.filter(r => !towns.some(x => x.race === r)).concat(BATTLE_RACES);
+      for (let k = 0; k < nAi; k++) towns.push({ race: races[k], team: free[0], ai: true, members: [], owner: null, diff: MP.enemies.diff });
+      if (new Set(towns.map(x => x.team)).size < 2) return null;
+      return { mp: true, seed: Math.floor(Math.random() * 1e6), towns };
+    };
+    const pushLobby = () => { if (MP.host) send({ t: 'lobby', players: [...MP.players.entries()], enemies: MP.enemies, code: MP.code }); };
+    const begin = (setup) => { Object.assign(SETUP, setup); delete SETUP.hero; SETUP.myRace = (MP.players.get(MP.myId) || {}).race; ov.remove(); MP.started = true; setStatus('loading'); resolve(setup); };
     net.on('ready', ({ code, id }) => {
-      MP.code = code; MP.myId = id; MP.players.set(id, Object.assign({}, me));
-      if (MP.host) MP.slots = [{ players: [0], race: 'human', team: 0, diff: 'normal' }, { players: [], race: 'orc', team: 1, diff: 'normal' }];
-      else send({ t: 'me-info', info: me });
+      MP.code = code; MP.myId = id;
+      if (MP.host) { me.team = 0; MP.players.set(0, Object.assign({}, me)); }
+      else { send({ t: 'me-info', info: { name: me.name, race: me.race, team: null } }); }
       render();
     });
     net.on('error', (msg) => { MP.err = msg; render(); });
     net.on('join', (id) => { /* waits for me-info */ });
-    net.on('leave', (id) => { MP.players.delete(id); for (const s of MP.slots) s.players = s.players.filter(x => x !== id); pushLobby(); render(); if (G.hooks.netLeave) G.hooks.netLeave(id); });
+    net.on('leave', (id) => { const p = MP.players.get(id); MP.players.delete(id); pushLobby(); if (!MP.started) render(); else { statusPanel(); if (p && G.hooks.toast) G.hooks.toast(`${p.name} left the game`, '👋', 'bad'); } if (G.hooks.netLeave) G.hooks.netLeave(id); });
     net.on('hostleft', () => { MP.err = 'The host left the game.'; if (G.hooks.netLeave) G.hooks.netLeave(0); else render(); });
     net.on('data', (from, d) => {
       if (!d) return;
       if (d.to != null && d.to !== MP.myId) return;
-      if (d.t === 'me-info' && MP.host) { MP.players.set(from, Object.assign(MP.players.get(from) || {}, d.info)); if (!MP.slots.some(s => s.players.includes(from))) { const home = MP.slots.find(s => s.players.includes(0)) || MP.slots[0]; home.players.push(from); } pushLobby(); render(); return; }
-      if (d.t === 'pick' && MP.host) { if (MP.slots[d.slot]) { moveTo(from, d.slot); pushLobby(); render(); } return; }
-      if (d.t === 'lobby' && MP.client) { MP.slots = d.slots; MP.players = new Map(d.players); render(); return; }
+      if (d.t === 'me-info' && MP.host) {
+        const old = MP.players.get(from), info = Object.assign({ status: 'lobby' }, old || {}, d.info);
+        // a new player joins the host's colour unless they chose one
+        if (info.team == null) info.team = MP.players.get(0) ? MP.players.get(0).team : 0;
+        MP.players.set(from, info); pushLobby(); render(); return;
+      }
+      if (d.t === 'lobby' && MP.client) { MP.players = new Map(d.players); MP.enemies = d.enemies || MP.enemies; MP.synced = true; if (!MP.started) render(); return; }
       if (d.t === 'start' && MP.client) { MP.players = new Map(d.players); begin(d.setup); return; }
+      if (d.t === 'status') { const p = MP.players.get(from); if (p) { const was = p.status; p.status = d.s; if (MP.started) { statusPanel(); if (d.s === 'playing' && was !== 'playing' && G.hooks.toast) G.hooks.toast(`${p.name} has joined the battle!`, '⚔', 'gold'); } } return; }
       if (d.t === 'hero') { MP.players.set(from, Object.assign(MP.players.get(from) || {}, d.info)); if (G.hooks.netHero) G.hooks.netHero(from); return; }
       if (G.hooks.netData) G.hooks.netData(from, d);
     });
     if (MP.host) net.host(); else net.join(SETUP.code);
     render();
   });
+}
+// where every player is after the host starts: loading, making a hero, or in the battle
+export function setStatus(s) { const p = MP.players.get(MP.myId); if (p) p.status = s; send({ t: 'status', s }); statusPanel(); }
+export function statusPanel() {
+  if (!MP.on || !MP.started) return;
+  let d = $('mpstatus'); const list = [...MP.players.entries()].sort((a, b) => a[0] - b[0]);
+  const waiting = list.filter(([, p]) => p.status !== 'playing');
+  const me = MP.players.get(MP.myId), inGame = me && me.status === 'playing';
+  if (inGame && !waiting.length) { if (d) d.remove(); return; }
+  if (!d) { d = el('div', ''); d.id = 'mpstatus'; document.body.appendChild(d); }
+  d.innerHTML = `<div class="mpsh">${waiting.length ? `Waiting for ${waiting.length} player${waiting.length > 1 ? 's' : ''}` : 'Everyone is in!'}</div>` + list.map(([id, p]) => `<div class="mpsr ${p.status || 'lobby'}"><i style="background:${TEAM_COLORS[p.team || 0]}"></i><b>${p.name}${id === MP.myId ? ' (you)' : ''}</b><span>${(STATUS[p.status] || STATUS.lobby)[1]} ${(STATUS[p.status] || STATUS.lobby)[0]}</span></div>`).join('') + (inGame && waiting.length ? '<div class="mpsf">The gates stay shut for the first 60 seconds while everyone gets in.</div>' : '');
 }
 
 // ---------------- remote heroes (other players' heroes, seen by everyone else) ----------------

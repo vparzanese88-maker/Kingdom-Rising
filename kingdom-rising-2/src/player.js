@@ -591,7 +591,7 @@ export class Player {
     const f = this.fwd();
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) G.hooks.allyFx(this.pos, ALLY_FX[ab.id], up);
-    switch (ab.id) {
+    if (!(G.battleFx && this.classGear(ab.id, base, up, f))) switch (ab.id) {
       case 'charge': {
         S.battleCry(); this.dodge = { t: 0, dur: 0.38 * (1 + this.pk('a1up') * 0.2), dir: f.clone(), speed: 32, charge: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 14;
         this.atk = { name: 'heavy', t: 0.3, dur: 0.5, hit: true, noQueue: true };
@@ -633,7 +633,7 @@ export class Player {
         setTimeout(() => { if (this.dead) return; let n = 0; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) { n++; this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); S.blunt(m.pos); } const p = this.pos.clone().addScaledVector(this.fwd(), 2); V.ring(p, 2.5, '#c8d8ff', 0.35); V.burst('spark', p.setY(p.y + 1), 16, { speed: 5 }); V.addShake(n ? 0.35 : 0.1); }, 140 * ABIL_DELAY_K());
         break;
       }
-      case 'shieldwall': { this.buffs.wall = 6; S.block(true, this.pos); S.battleCry(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#a8c8ff', 0.5); V.ring(this.pos, 3, '#a8c8ff', 0.5); G.hooks.toast && G.hooks.toast('Shield Wall: 60% less damage for 6 s', '🛡', 'gold'); break; }
+      case 'shieldwall': { this.buffs.wall = 6; S.block(true, this.pos); S.battleCry(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#a8c8ff', 0.5); V.ring(this.pos, 3, '#a8c8ff', 0.5); G.hooks.toast && G.hooks.toast((G.battleFx ? 'Iron Stance' : 'Shield Wall') + ': 60% less damage for 6 s', '🛡', 'gold'); break; }
       case 'laststand': { this.heal(this.maxHp * 0.3); this.buffs.stand = 10; S.battleCry(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 3 }); V.ring(this.pos, 4, '#ffd080', 0.5); break; }
       case 'execute': {
         this.atk = { name: 'smash', t: 0, dur: 0.75, hit: true, noQueue: true }; S.swingW(this.swingKind('swing3'), 1.8, this.pos);
@@ -782,6 +782,63 @@ export class Player {
     spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
     S.explode(from, 0.3 + charge * 0.15, 'fire'); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
+  }
+  // Kingdom Battles: class abilities never depend on the weapon in your hands. Every hero carries their class kit:
+  // rangers throwing knives, bolas and a spirit hawk; musketeers a belt pistol, a bayonet knife and fire flasks;
+  // warriors fight with shoulder and stance whether or not they hold a shield. Returns true when it handled the ability.
+  classGear(id, base, up, f) {
+    const hand = () => this.handPos(true), aim = (from) => this.aimDir(from);
+    const bullet = (from, dir, dmg, o = {}) => spawnProjectile(Object.assign({ pos: from, vel: dir.multiplyScalar(130), grav: 3, flat: 1.2, radius: 0.14, dmg, owner: 'player', kind: 'bullet', life: 2.5 }, o));
+    const pistolFx = (from) => { V.burst('smoke', from, 10, { speed: 2, size: 0.9, life: 1.3 }); V.burst('fire', from, 5, { speed: 4 }); V.light(from, '#ffc060', 5, 0.07); S.explode(from, 0.25, 'fire'); this.recoil = 0.6; V.addShake(0.05); };
+    switch (id) {
+      // ---- Ranger ----
+      case 'spectral': { // Spirit Hawk
+        const from = this.pos.clone().setY(this.pos.y + 2.2), dir = aim(from);
+        spawnProjectile({ pos: from, vel: dir.multiplyScalar(70), grav: 0, radius: 0.45, dmg: base * 2.6 * up, owner: 'player', kind: 'spectral', scale: 1.6, life: 1.6, pierce: true });
+        S.growl && S.growl('wolf', this.pos, 1.8); S.cast('holy', this.pos); V.burst('green', from, 30, { speed: 3 }); this.atk = { name: 'cast', t: 0.3, dur: 0.4, hit: true, noQueue: true }; return true;
+      }
+      case 'pinning': { // Bolas
+        const from = hand(), dir = aim(from);
+        spawnProjectile({ pos: from, vel: dir.multiplyScalar(42), grav: 6, radius: 0.4, dmg: base * 1.1 * up, owner: 'player', kind: 'axe', scale: 0.6, life: 1.6, onHit: (p, m) => { if (m) { this.dealDamage(m, p.dmg, { stun: 2.5 * Math.sqrt(up), slow: 5 }); V.number(m.pos.clone().setY(m.pos.y + m.height + 0.6), 'Bound!', 'bad'); V.ring(m.pos, 1.2, '#c8a060', 0.5); } } });
+        S.swingW('light', 1, this.pos); this.atk = { name: 'swing2', t: 0.25, dur: 0.4, hit: true, noQueue: true }; return true;
+      }
+      case 'barrage': { // Knife Fan
+        const n = 8 + (up > 1.3 ? 4 : 0);
+        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const from = hand(), dir = aim(from); dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), (Math.random() - 0.5) * 0.35); dir.y += (Math.random() - 0.5) * 0.05; spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(48), grav: 4, radius: 0.22, dmg: base * 0.65 * up, owner: 'player', kind: 'knife', life: 1.6, onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.05 }); } }); S.swingW('light', 0.7, this.pos); }, k * 70);
+        this.atk = { name: 'swing1', t: 0, dur: n * 0.07, hit: true, noQueue: true }; return true;
+      }
+      // ---- Musketeer ----
+      case 'grapeshot': { // Sidearm Blast: the belt pistol, loaded with shot
+        const from = hand(); for (const m of mobsInCone(this.pos, this.yaw, 9 * Math.sqrt(up), 0.6)) this.dealDamage(m, base * 1.8 * up, { knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9) });
+        for (let k = 0; k < 9; k++) { const q = this.pos.clone(), a2 = this.yaw + (Math.random() - 0.5) * 1.2, d = 2 + Math.random() * 7; q.x += Math.sin(a2) * d; q.z += Math.cos(a2) * d; q.y = heightAt(q.x, q.z) + 1; setTimeout(() => V.burst('spark', q, 4, { speed: 3 }), k * 15); }
+        pistolFx(from); V.burst('smoke', from, 20, { speed: 4, size: 1.4, life: 1.6 }); S.explode(from, 0.6, 'fire'); V.addShake(0.2); this.atk = { name: 'stabR', t: 0.2, dur: 0.35, hit: true, noQueue: true }; return true;
+      }
+      case 'volleyfire': { // Pistol Fan: a brace of belt pistols, fired one after another
+        for (let k = 0; k < 5; k++) setTimeout(() => { if (this.dead) return; const from = hand(); bullet(from, aim(from), base * 1.1 * up); pistolFx(from); }, k * 150);
+        this.atk = { name: 'stabR', t: 0, dur: 0.75, hit: true, noQueue: true }; return true;
+      }
+      case 'incendiary': { // Fire Flask: lob a flask of lamp oil and powder
+        const from = hand(), dir = aim(from); dir.y += 0.18;
+        spawnProjectile({ pos: from, vel: dir.normalize().multiplyScalar(30), grav: 14, radius: 0.25, dmg: base * 2.2 * up, owner: 'player', kind: 'fireball', scale: 0.7, life: 3, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4.5 * Math.sqrt(up), p.dmg * 0.7, { el: 'fire', burn: base * 0.15 }); V.burst('fire', at, 60, { speed: 6 }); S.explode(at, 1, 'fire'); V.ring(at, 4.5, '#ff7030', 0.6); } });
+        this.atk = { name: 'swing2', t: 0.25, dur: 0.4, hit: true, noQueue: true }; return true;
+      }
+      case 'quickreload': { // Powder Rush: everything you do, faster
+        this.buffs.reload = 8 * up; this.buffs.rampage = Math.max(this.buffs.rampage || 0, 8 * up); S.click(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.3), 25, { speed: 3 }); return true;
+      }
+      case 'bayonet': { // Throat Stab: dart in with the bayonet knife and open the throat of whatever is in front of you
+        this.dodge = { t: 0, dur: 0.18, dir: f.clone(), speed: 26 }; this.iframes = 0.25; this.fovKick = 8; S.swingW('pierce', 1.4, this.pos);
+        this.atk = { name: 'stabR', t: 0, dur: 0.45, hit: true, noQueue: true };
+        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, 3.2, 0.8).sort((a, b) => a.dist2(this.pos) - b.dist2(this.pos))[0]; if (!t) return; this.dealDamage(t, base * 2.6 * up, { bleed: base * 0.2 * up, stun: 1.2, big: true, melee: true, critBonus: 0.3 }); t.status.bleed = Math.max(t.status.bleed || 0, 6); V.number(t.pos.clone().setY(t.pos.y + t.height + 0.6), 'Throat Stab!', 'crit'); V.burst('blood', t.pos.clone().setY(t.pos.y + t.height * 0.85), 24, { speed: 4 }); G.hitstop = 0.08; V.addShake(0.2); }, 190 * ABIL_DELAY_K());
+        return true;
+      }
+      // ---- Warrior: no shield needed ----
+      case 'shieldthrow': { // Throwing Hammer
+        const from = hand(), dir = aim(from), bounces = 2 + (up > 1.3 ? 2 : 0);
+        spawnProjectile({ pos: from, vel: dir.multiplyScalar(34), grav: 2, radius: 0.5, dmg: base * 1.4 * up, owner: 'player', kind: 'axe', life: 1.5, onHit: (p, m) => { if (!m) return; const hit = new Set([m]); let cur = m; this.dealDamage(m, p.dmg, { stun: 1.5, blunt: true }); S.blunt(m.pos); for (let k = 0; k < bounces; k++) { const nx = G.mobs.filter(o => !o.dead && !hit.has(o) && foe(o) && o.pos.distanceTo(cur.pos) < 10).sort((x, y) => x.pos.distanceTo(cur.pos) - y.pos.distanceTo(cur.pos))[0]; if (!nx) break; hit.add(nx); V.burst('spark', nx.pos.clone().setY(nx.pos.y + 1), 10, { speed: 4 }); this.dealDamage(nx, p.dmg * 0.8, { stun: 1, blunt: true }); cur = nx; } } });
+        S.swingW('blunt', 1.4, this.pos); this.atk = { name: 'swing2', t: 0.3, dur: 0.45, hit: true, noQueue: true }; return true;
+      }
+    }
+    return false;
   }
   // Kingdom Battles ranger traps: spike pits and frost runes, sprung by any enemy (troops too)
   battleTrap(pos, kind, dmg, up) {

@@ -155,6 +155,22 @@ export const ECON = {
 
 // extra class abilities that only exist in Kingdom Battles (3 per class)
 const BA = (id, name, level, cost, cd, desc) => ({ id, name, level, cost, cd, desc, key: '', icon: '', battle: true });
+// class abilities in Kingdom Battles use the class kit, not the weapon in hand (see Player.classGear)
+export const CLASS_KIT = {
+  spectral: ['Spirit Hawk', 'Loose your spirit hawk: it screams through every enemy in a line for heavy damage.'],
+  pinning: ['Bolas', 'Throw weighted cords that bind the target in place for a few seconds and slow it after.'],
+  barrage: ['Knife Fan', 'Hurl a fan of throwing knives where you aim. Each one opens a bleeding cut.'],
+  grapeshot: ['Sidearm Blast', 'Draw the belt pistol, loaded with shot, and blast everything in a cone in front of you back.'],
+  volleyfire: ['Pistol Fan', 'Empty a brace of belt pistols: five quick shots where you aim.'],
+  incendiary: ['Fire Flask', 'Lob a flask of lamp oil and powder. It bursts into flames and sets everything near it alight.'],
+  quickreload: ['Powder Rush', 'For 8 s you attack faster with anything you hold, and a musket reloads in half the time.'],
+  bayonet: ['Throat Stab', 'Dart in with your bayonet knife and stab the throat of the enemy in front: huge damage, a stun and heavy bleeding.'],
+  eagleeye: ['Eagle Eye', 'For 10 s you see every weak spot: more critical hits and your shots fly true.'],
+  bash: ['Shoulder Bash', 'Drive your shoulder into the enemies in front of you: they are knocked back and stunned.'],
+  shieldwall: ['Iron Stance', 'Plant your feet and brace: take 60% less damage for 6 s.'],
+  shieldthrow: ['Throwing Hammer', 'Hurl a throwing hammer: it stuns the first enemy and bounces to the ones nearby.'],
+  bulwark: ['Earthshaker', 'Slam the ground: every enemy around you is knocked away and stunned.'],
+};
 export const BATTLE_ABILITIES = {
   warrior: [BA('rally', 'Rallying Banner', 3, 30, 22, 'Plant your banner: you heal 15% and every one of your troops within 14 m heals 30% and hits 25% harder for 10 s.'),
     BA('seismic', 'Seismic Slam', 7, 35, 10, 'Smash the ground: a shockwave rips 10 m forward in a wide cone, dealing heavy damage and slowing everything it hits.'),

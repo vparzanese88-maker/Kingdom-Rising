@@ -23,7 +23,7 @@ import { MP, lobby, send as mpSend } from './mp.js';
 import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
 import * as BUI from './battleui.js';
-import { ECON, BATTLE_ABILITIES } from './battledata.js';
+import { CLASS_KIT, ECON, BATTLE_ABILITIES } from './battledata.js';
 import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mobBlast, telegraphSelf, telegraphLine, telegraphCone } from './combat.js';
 
 const canvas = document.getElementById('game');
@@ -177,6 +177,8 @@ function startBattle() {
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
   G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noTalents = true; G.hotbarSlots = 4; G.battleFx = true; G.noHarvest = true;
   for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
+  // class abilities use the class kit, so they work with any weapon
+  for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   // level 10 is the top in Kingdom Battles: spread every ability over levels 1 to 10
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = Math.max(1, Math.min(10, Math.ceil(a.lv20 / 2))); }
   // no talents in Kingdom Battles: abilities grow a little stronger, longer and wider every level instead

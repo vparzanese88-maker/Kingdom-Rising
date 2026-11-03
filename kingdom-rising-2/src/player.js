@@ -222,6 +222,8 @@ class ViewModel {
 }
 
 // ---------- Player ----------
+// Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
+const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.88 * (1 + 0.35 * (10 - L) / 9), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, none: { dmg: 1, hp: 1 } };
 export class Player {
   constructor(hero) {
     this.h = hero;
@@ -251,7 +253,7 @@ export class Player {
   refreshGear(first) {
     const D = heroDerived(this.h); this.D = D;
     const oldMax = this.maxHp || D.maxHp;
-    this.maxHp = D.maxHp; this.maxMana = D.maxMana; this.maxEnd = D.maxEnd;
+    this.maxHp = Math.round(D.maxHp * (G.battleFx ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1)); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd;
     if (!first) { this.hp = Math.min(this.maxHp, this.hp * (this.maxHp / oldMax)); this.mana = Math.min(this.mana, this.maxMana); this.end = Math.min(this.end, this.maxEnd); }
     const w = this.weapon;
     // rebuild the body so armour colours and the weapon bake into few meshes
@@ -789,12 +791,15 @@ export class Player {
   // the musket: a fast ball with smoke and a kick; an aimed shot hits much harder and goes exactly where you point
   fireGun(charge, aimed, mult = 1, pierce = false) {
     const w = this.weapon, base = weaponDamage(this.h, w);
-    const tip = (this.camDist < 0.6 ? this.vm.weapons.main : this.ch.weapons.main);
-    const from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true);
+    // the muzzle in the world. In first person the gun model lives in its own view-model scene, so its position there
+    // means nothing in the world: work the muzzle out from the camera instead (centred under the eye when aiming)
+    let from;
+    if (this.camDist < 0.6) { const k = this.aimK || 0; from = G.camera.position.clone().add(new THREE.Vector3(0.22 * (1 - k), -0.2 * (1 - k) - 0.05 * k, -1.1).applyQuaternion(G.camera.quaternion)); }
+    else { const tip = this.ch.weapons.main; from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true); }
     const dir = this.aimDir(from);
     if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
     const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
-    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
+    spawnProjectile({ pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (G.battleFx ? 0.62 + charge * 1.05 : 1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
     S.gunshot(null, 1 + charge * 0.35); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
   }
@@ -885,6 +890,7 @@ export class Player {
   }
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
+    if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06);
     let crit = Math.random() < this.D.crit;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
@@ -1190,7 +1196,7 @@ export class Player {
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
     this.vm.update(dt, { aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
     // charge glow on weapon
-    if (this.press && this.press.charging && Math.random() < 0.5) { const tip = (this.camDist < 0.6 ? this.vm.weapons.main || this.vm.weapons.bow : this.ch.weapons.main); if (tip && tip.userData.tip) { const p = tip.userData.tip.getWorldPosition(new THREE.Vector3()); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
+    if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade
     ch.root.traverse(o => { if (o.isMesh && o.material) { if (this.stealth > 0) { o.material.transparent = true; o.material.opacity = 0.35; } else if (o.material.opacity < 1) { o.material.opacity = 1; o.material.transparent = false; } } });
   }

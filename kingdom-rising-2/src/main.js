@@ -28,7 +28,8 @@ import * as UI from './ui.js';
 import * as Icons from './icons.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL, showCreator } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
-import { BATTLE, SETUP, LAYOUT, computeLayout } from './battlemap.js';
+import { BATTLE, YARD, SETUP, LAYOUT, computeLayout } from './battlemap.js';
+import { spawnDummies, updateYard, openYardPanel, yardHero, YD, resetCooldowns } from './yard.js';
 import { MP, lobby, send as mpSend, setStatus as setMpStatus, statusPanel } from './mp.js';
 import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
@@ -71,6 +72,7 @@ function boot() {
   applyGraphics();
   if (!BATTLE) campaignSetup();
   if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
+  else if (YARD) spawnDummies();
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -117,7 +119,7 @@ function boot() {
   $('loading').hidden = true;
   // online: the world is ready, now everyone makes their hero for this match
   if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: SETUP.myRace || mt.race }] } }); setMpStatus('hero'); }
-  else if (BATTLE) startBattle(); else { mode = 'title'; showTitle(); }
+  else if (BATTLE) startBattle(); else if (YARD) { YD.startGame = startGame; startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">Y</span> to change class or weapon, <span class="kbd">K</span> to put abilities on your hotbar. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -148,14 +150,14 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); buildDefenses(defensesFor(h)); }
+  if (!BATTLE && !YARD) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); buildDefenses(defensesFor(h)); }
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
-  if (!h.introDone) startIntro(); else { if (!BATTLE && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
+  if (!h.introDone) startIntro(); else { if (!BATTLE && !YARD && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}`); }
 }
 function saveNow() {
-  if (BATTLE) return;
+  if (BATTLE || YARD) return;
   const p = G.player, h = G.save; if (!p || !h) return;
   h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null;
   h.hp = p.hp; h.tod = G.tod; if (fog.on && fog.soft) h.fogEx = packFog();
@@ -636,6 +638,7 @@ function input() {
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
       if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
+      if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
       if (e.code === 'KeyQ' && G.uiOpen && UI.UI.open === 'inv' && G.player) { G.player.swapWeapon(); UI.refreshOpen(); return; } // swap weapon sets with the bag open
       if (e.code === 'KeyZ' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
@@ -826,7 +829,8 @@ function gameUpdate(dt) {
     musicFight = threat || elite ? Math.min(6, musicFight + dt) : Math.max(0, musicFight - dt * 0.4);
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
   if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
-  if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
+  if (YARD) updateYard(dt);
+  if (!BATTLE && !YARD && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
     if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
   updatePetBar(dt);
   updateScene(dt); updateConstruction(dt, V, S);
@@ -848,7 +852,7 @@ function gameUpdate(dt) {
   V.updateNumbers(dt, camera, innerWidth, innerHeight);
   // crosshair hit flash
   // save
-  if (BATTLE) return;
+  if (BATTLE || YARD) return;
   G.save.timePlayed = (G.save.timePlayed || 0) + dt;
   saveTimer += dt; if (saveTimer > 30) { saveTimer = 0; saveNow(); }
 }

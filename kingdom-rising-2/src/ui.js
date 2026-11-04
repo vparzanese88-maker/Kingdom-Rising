@@ -325,7 +325,7 @@ export function closeWin() {
   winRoot().innerHTML = ''; UI.open = null; G.uiOpen = false;
   if (G.onUiClosed) G.onUiClosed();
 }
-function openWin(id, title, content, cls = '') {
+export function openWin(id, title, content, cls = '') {
   winRoot().innerHTML = '';
   const w = el('div', 'win ' + cls); const hd = el('header', '', `<h2>${title}</h2>`); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); closeWin(); }; hd.appendChild(x);
   const c = el('div', 'content'); if (typeof content === 'string') c.innerHTML = content; else c.appendChild(content);

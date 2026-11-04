@@ -1,7 +1,7 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
-import { BATTLE } from './battlemap.js';
+import { BATTLE, YARD } from './battlemap.js';
 import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -214,10 +214,10 @@ export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && 
 // bows and muskets shoot and draw from the start, F at 5; staffs tap-cast from the start, hold stream at 3, F at 5
 export const WM_HOLD = 3, WM_F = 5;
 export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 2, 3, 4, 6][i] || 6; }
-export function masteryOf(h, wt) { return BATTLE ? 99 : wm(h, familiesOf(wt)[0]).lv; }
+export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : wm(h, familiesOf(wt)[0]).lv; }
 export function comboLen(h, wt) { const C = COMBOS[wt]; if (!C) return 0; if (wt === 'dagger' || wt === 'daggers') return C.chain.length; const lv = masteryOf(h, wt); let n = 0; while (n < C.chain.length && stepReq(C.chain.length, n) <= lv) n++; return Math.max(1, n); }
 export function canHold(h, wt) { const W = WEAPON_TYPES[wt]; if (!W || W.kind === 'bow' || W.kind === 'gun') return true; return masteryOf(h, wt) >= WM_HOLD; }
-export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE ? 1 : 0.55 + 0.45 * Math.min(1, (lv - 1) / 19); } // slow and clumsy at skill 1 (55%), full speed at skill 20
+export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.55 + 0.45 * Math.min(1, (lv - 1) / 19); } // slow and clumsy at skill 1 (55%), full speed at skill 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {
@@ -239,7 +239,7 @@ export function gainMastery(h, wt, n) {
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + (h.level - 1) * LEVEL_GROWTH * 5 + 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && (slot === 'ranged' || slot === 'w3' || h.bowOk)) return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
-function canEquip0(h, it) { if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && (it.wt === 'daggers' || it.wt === 'dagger')); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+function canEquip0(h, it) { if (YARD) return it.kind !== 'acc' || it.slot === 'back'; if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && (it.wt === 'daggers' || it.wt === 'dagger')); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
 export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }

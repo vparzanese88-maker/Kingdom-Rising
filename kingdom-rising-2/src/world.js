@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
+import { YARD } from './battlemap.js';
 import { BATTLE, LAYOUT, WALL_R, battleRoadDist, nearTown } from './battlemap.js';
 
 export const world = {
@@ -270,6 +271,7 @@ function battleScatter() {
 }
 function scatter() {
   if (BATTLE) return battleScatter();
+  if (YARD) return;
   // trees
   const tries = 26000;
   for (let i = 0; i < tries; i++) {
@@ -507,6 +509,14 @@ function barrel(scene, x, z) { const g = new THREE.Group(); cy(0.38, 0.34, 0.95,
 function crate(scene, x, z, rot = 0, s = 0.8) { const g = new THREE.Group(); bx(s, s, s, M.plank, 0, s / 2, 0, g); placeGroup(g, x, z, rot, scene); addBox(x, z, s / 2, s / 2, rot); }
 
 const PIER_Y = 1.25; // piers sit low, level with the rail of a moored boat
+// the Training Yard: a fenced field with weapon racks, banners and archery butts
+function buildYard(scene) {
+  const R = 70, n = 90;
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = Math.cos(a) * R, z = Math.sin(a) * R; const g = new THREE.Group(); cy(0.12, 0.14, 1.6, M.beam, 0, 0.8, 0, g, 6); bx(2 * Math.PI * R / n + 0.1, 0.12, 0.1, M.plank, 0, 1.2, 0, g); bx(2 * Math.PI * R / n + 0.1, 0.12, 0.1, M.plank, 0, 0.6, 0, g); placeGroup(g, x, z, -a + Math.PI / 2, scene); }
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + 0.2; banner(scene, Math.cos(a) * (R - 3), Math.sin(a) * (R - 3), i % 2 ? M.clothRed : M.clothBlue); }
+  for (const [x, z] of [[-14, 40], [14, 40]]) { const g = new THREE.Group(); bx(3, 0.15, 0.4, M.beam, 0, 1.5, 0, g); for (let k = 0; k < 6; k++) { const s = cy(0.03, 0.03, 2.4, M.wood, -1.2 + k * 0.48, 1.2, 0, g, 4); s.rotation.z = 0.08; } for (const s of [-1, 1]) cy(0.07, 0.07, 1.6, M.beam, s * 1.45, 0.8, 0, g, 5); placeGroup(g, x, z, 0, scene); }
+  for (const x of [-30, -10, 10, 30]) { const g = new THREE.Group(); const t = cy(1.2, 1.2, 0.3, M.cloth, 0, 1.6, 0, g, 20); t.rotation.x = Math.PI / 2; const r = cy(0.7, 0.7, 0.32, M.clothRed, 0, 1.6, 0.01, g, 20); r.rotation.x = Math.PI / 2; for (const s of [-1, 1]) { const l = cy(0.06, 0.06, 2.2, M.beam, s * 0.8, 1, -0.3, g, 4); l.rotation.x = 0.25; } placeGroup(g, x, -60, 0, scene); }
+}
 function buildVillage(scene) {
   const V = VILLAGE;
   const H = [
@@ -857,7 +867,8 @@ export function buildWorld(scene) {
     cotton: { geo: cottonGeo(), mat: leafMat, shadowDist: 30 }, healroot: { geo: herbGeo(), mat: new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: '#1a5a20', emissiveIntensity: 0.6 }), shadowDist: 20, noShadow: true },
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
-  if (!BATTLE) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
+  if (YARD) buildYard(scene);
+  if (!BATTLE && !YARD) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();
   buildChunks(scene);

@@ -3,6 +3,7 @@
 import { fbm, ridged, smooth, lerp, clamp, distToLine, mulberry32 } from './util.js';
 
 export const BATTLE = /[?&]mode=battle/.test(location.search);
+export const YARD = /[?&]mode=yard/.test(location.search); // the Training Yard: a plain field, dummies, every class and weapon
 export const SETUP_KEY = 'kr2_battle_setup';
 
 function readSetup() {

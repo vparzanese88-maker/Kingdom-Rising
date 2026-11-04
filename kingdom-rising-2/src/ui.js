@@ -11,7 +11,7 @@ import { BATTLE } from './battlemap.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask, MOUNT, PORT } from './terrain.js';
 import { fbm } from './util.js';
-import { pois, known, LORE } from './lore.js';
+import { pois, known, LORE, villagerNews, smallTalk } from './lore.js';
 import { isExplored } from './fog.js';
 import { world } from './world.js';
 import { goFull, exitFull } from './menu.js';
@@ -735,6 +735,18 @@ export function openMap() {
   if (G.fog) { const iv = setInterval(() => { if (UI.open !== 'map') { clearInterval(iv); return; } draw(); renderSide(); }, 500); }
 }
 
+// --- talking to ordinary villagers: a short conversation; each one only knows a thing or two ---
+const GREET = ['Afternoon, stranger.', 'Oh! You gave me a start.', 'Well met. Not many new faces these days.', 'Mind the goblins out there.', 'Can I help you with something?'];
+export function openChatter(v) {
+  const c = openWin('chatter', esc(v.vname), '', 'chatwin'); const h = G.player.h;
+  const say = (t) => { const p = c.querySelector('.cline'); p.innerHTML = `“${esc(t)}”`; p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); };
+  c.innerHTML = `<div class="cline">“${GREET[Math.floor(Math.random() * GREET.length)]}”</div><div class="copts"></div>`;
+  const opts = c.querySelector('.copts');
+  const opt = (label, fn) => { const b = el('button', 'btn copt', label); b.onclick = () => { S.click(); fn(); }; opts.appendChild(b); };
+  opt('Heard any news around here?', () => { const r = villagerNews(h, v); say(r.text); if (r.found) { toast(`Map updated: ${r.found.name}`, '🗺', 'gold'); G.hooks.mapLearned && G.hooks.mapLearned(r.found, v); } });
+  opt('What\'s it like living here?', () => say(smallTalk()));
+  opt('Goodbye', () => closeWin());
+}
 // --- NPC dialog ---
 export function openDialog(npc) {
   const h = G.player.h; Game.talkTo(h, npc.id);

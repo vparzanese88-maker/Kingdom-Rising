@@ -77,6 +77,7 @@ function petUpdate(dt) {
   const P = G.player, D = this.pet; if (!P) return;
   if (P.dead) { vanish(this); return; }
   this.knock.multiplyScalar(0.9);
+  if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tgt ? 0.004 : 0.02) * dt); // slow regeneration
   this.atkCd -= dt; this.thinkT = (this.thinkT || 0) - dt;
   if (PETS.order && PETS.order.dead) PETS.order = null;
   if (PETS.mode === 'follow' && !PETS.order) this.tgt = null;

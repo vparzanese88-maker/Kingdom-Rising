@@ -1489,7 +1489,8 @@ export class Player {
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'bow' ? 0.3 : 0.3; }
     const roll = this.dodge && !this.dodge.charge ? Math.min(1, this.dodge.t) : null;
-    animateHumanoid(ch, dt, { speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
+    animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;

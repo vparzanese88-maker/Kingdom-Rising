@@ -414,9 +414,8 @@ function hooks() {
   if (!BATTLE) H.spiritWolf = (p, lv, dur) => summonPets('spirit', p, 1 + (lv - 1) * 9 / (LEVEL_CAP - 1), dur, 1);
   H.castBar = (name, k) => { let e = $('castbar'); if (!e) { e = document.createElement('div'); e.id = 'castbar'; e.innerHTML = '<b></b><i><u></u></i>'; $('hud').appendChild(e); }
     if (name == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('b').textContent = name; e.querySelector('u').style.width = Math.round(Math.min(1, k) * 100) + '%'; };
-  H.chatter = (v) => { S.click(); const P = G.player; v.yaw = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); v.to = null; v.t = 4;
-    const r = chatter(G.save, v); chatAdd(`<b class="me" style="color:#b8e0ff">${v.vname}:</b> “${r.text}”`, 'chat'); UI.toast(`${v.vname}: “${r.text}”`, '💬');
-    if (r.found) { chatAdd(`<b class="sk">Map updated:</b> ${r.found.name}`, 'skill'); setTimeout(() => UI.toast(`Map updated: ${r.found.name}`, '🗺', 'gold'), 600); } };
+  H.chatter = (v) => { const P = G.player; v.yaw = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); v.to = null; v.t = 6; S.click(); UI.openChatter(v); };
+  H.mapLearned = (p, v) => chatAdd(`<b class="sk">Map updated:</b> ${p.name} <span style="color:#a8987a">(from ${v.vname})</span>`, 'skill');
   H.boat = () => { S.step('wood'); const q = G.save.quests;
     UI.toast("You can't set sail yet: the boat needs major repairs.", '⛵', 'bad');
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };

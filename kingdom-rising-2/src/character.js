@@ -711,6 +711,11 @@ export function animateHumanoid(ch, dt, st) {
   // hit flinch
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
   uprightShield(ch, st);
+  // casting with a staff: the arm comes up and the staff points where you are looking
+  const grip = arms.R.grip;
+  if (grip && grip.userData.rx0 == null) grip.userData.rx0 = grip.rotation.x;
+  if (st.aimStaff) { const p = st.aimPitch || 0; damp(arms.R.sh, -1.45 - p, 0.12, 0.08, k * 2.2); damp(arms.R.el, -0.12, 0, 0, k * 2.2); if (grip) grip.rotation.x += ((grip.userData.rx0 - 1.45) - grip.rotation.x) * Math.min(1, dt * 14); }
+  else if (grip && grip.userData.rx0 != null) grip.rotation.x += (grip.userData.rx0 - grip.rotation.x) * Math.min(1, dt * 10);
 }
 
 // ---------- baking: merge each joint's meshes into one vertex-coloured mesh (far fewer draw calls) ----------

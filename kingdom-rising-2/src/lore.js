@@ -43,6 +43,26 @@ const SMALL = [
   'The bears on Kelda were gentle once. The goblins hunt their cubs. Now they charge anything.',
   'Saltmere has walls of stone and a harbour full of ships. We have a well and a pier.',
 ];
+// each villager knows one to three things (always the same ones), and tells you them one at a time when you ask
+export function villagerKnows(v) {
+  if (v.knows) return v.knows; const all = pois().filter(p => !p.town || p.big), n = 1 + Math.floor(rnd(v) * 3), out = [];
+  const near = all.slice().sort((a, b) => Math.hypot(a.x - v.home.x, a.z - v.home.z) - Math.hypot(b.x - v.home.x, b.z - v.home.z));
+  for (let i = 0; out.length < n && i < 40; i++) { const p = near[Math.floor(rnd(v, i + 1) * Math.min(near.length, 8))]; if (p && !out.includes(p.id)) out.push(p.id); }
+  return (v.knows = out);
+}
+const rnd = (v, k = 0) => { const s = Math.sin((v.home.x * 12.9898 + v.home.z * 78.233 + k * 37.719)) * 43758.5453; return s - Math.floor(s); };
+export function villagerNews(h, v) {
+  const P = G.player, id = villagerKnows(v).find(id => !known(h, id)); if (!id) return { text: 'That\'s all I know, I\'m afraid. Ask around: someone else might know more.' };
+  const p = pois().find(q => q.id === id), dir = dirName(p.x - P.pos.x, p.z - P.pos.z), far = Math.hypot(p.x - P.pos.x, p.z - P.pos.z) > 300 ? 'a long way' : 'not far';
+  learn(h, id);
+  const text = p.camp ? `Goblins have a camp ${far} ${dir} of here. You can see the smoke from their fire at night.`
+    : p.id === 'hold' ? 'Gorgrak sits in his Hold high on the north face of Kelda. Nobody who went up there came back.'
+    : p.id === 'saltmere' ? `Saltmere is ${far} to the ${dir}, on the north shore. If anyone can mend a ship, it's the shipwrights there.`
+    : p.id === 'warcamp' ? `The goblins gather for their raids at a war camp ${dir} of here, on Kelda's eastern slopes. Powder kegs everywhere, I hear.`
+    : `There's ${p.name} ${far} to the ${dir}. Worth a look.`;
+  return { text, found: p };
+}
+export const smallTalk = () => SMALL[Math.floor(Math.random() * SMALL.length)];
 // what a villager says: sometimes small talk, often a tip about a place you have not found yet (and it goes on your map)
 export function chatter(h, v) {
   const P = G.player, all = pois().filter(p => !known(h, p.id));

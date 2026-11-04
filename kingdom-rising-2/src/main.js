@@ -13,6 +13,8 @@ import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall,
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
+import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
+import { buildDefenses, defensesFor } from './seabreak.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -146,7 +148,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); }
+  if (!BATTLE) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); buildDefenses(defensesFor(h)); }
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
@@ -409,7 +411,9 @@ function hooks() {
     Game.autoFillHotbar(G.save); UI.refreshAbilityBar(); saveNow();
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
-  H.talk = (npc) => { S.click(); UI.openDialog(npc); };
+  H.talk = (npc) => { S.click(); if (storyTalk(G.save, npc)) return; UI.openDialog(npc); };
+  H.storyStep = (id) => { buildDefenses(defensesFor(G.save)); if (id === 'mq_walls') UI.banner('Seabreak is walled', 'A palisade with a gate on every road', 3500); if (id === 'mq_towers') UI.banner('Watchtowers raised', 'Seabreak can defend itself', 3500); UI.updateTracker(); };
+  H.relock = () => lockPointer();
   // summons in the campaign (Kingdom Battles overrides these with town pets)
   if (!BATTLE) H.spiritWolf = (p, lv, dur) => summonPets('spirit', p, 1 + (lv - 1) * 9 / (LEVEL_CAP - 1), dur, 1);
   H.castBar = (name, k) => { let e = $('castbar'); if (!e) { e = document.createElement('div'); e.id = 'castbar'; e.innerHTML = '<b></b><i><u></u></i>'; $('hud').appendChild(e); }
@@ -620,6 +624,7 @@ function input() {
     if (e.target.tagName === 'INPUT') return;
     if (mode !== 'game') { if (e.code === 'Escape' && $('windows').children.length) UI.closeWin(); return; }
     if (intro) { if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') endIntro(); return; }
+    if (inScene()) { e.preventDefault(); if (!e.repeat) sceneKey(e.code); return; }
     if (e.code === 'Enter' && !e.repeat && !G.uiOpen && !G.chatting) { e.preventDefault(); for (const k in G.keys) G.keys[k] = false; if (G.player) { G.player.press = null; G.player.rmbHeld = false; } if (document.pointerLockElement) document.exitPointerLock(); openChat(); return; }
     if (e.code === 'Tab') { e.preventDefault(); if (BATTLE && mode === 'game' && !e.repeat) BUI.scoreboard(true); }
     const p = G.player;
@@ -642,7 +647,8 @@ function input() {
   });
   addEventListener('keyup', (e) => { if (e.code === 'KeyZ' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petTap(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
-  canvas.addEventListener('mousedown', (e) => {
+  addEventListener('mousedown', () => { if (inScene()) sceneAdvance(); }, true);
+  canvas.addEventListener('mousedown', (e) => { if (inScene()) return;
     if (mode !== 'game' || intro) return;
     if (!document.pointerLockElement) { if (!G.uiOpen && !G.player.dead) lockPointer(); return; }
     G.player.onMouse(e.button, true);
@@ -820,6 +826,7 @@ function gameUpdate(dt) {
   if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
     if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
   updatePetBar(dt);
+  updateScene(dt);
   if (!BATTLE) updateGuards(dt, p);
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }

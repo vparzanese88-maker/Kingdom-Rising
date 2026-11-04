@@ -12,6 +12,7 @@ import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS } from './pets.js';
+import { spawnGuards, updateGuards } from './guards.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -101,6 +102,10 @@ function boot() {
       const m = new Mob(k ? 'goblin_slinger' : 'goblin', lv(), pts[0].x, pts[0].z); m.patrol = { pts, i: 1 }; m.home.set(cx, heightAt(cx, cz), cz); G.mobs.push(m);
     }
   }
+  // no beasts inside towns and villages, and guards to keep it that way (2 in a small village, more in bigger places)
+  { const TOWNS = [{ x: VILLAGE.x, z: VILLAGE.z, r: 60, n: 2, col: '#3a7a3a' }, { x: PORT.x, z: PORT.z, r: 90, n: 8, col: '#2a4a8a' }, { x: CAMPS[0].x, z: CAMPS[0].z, r: 32, n: 2, col: '#6a3a2a' }, { x: CAMPS[1].x, z: CAMPS[1].z, r: 34, n: 3, col: '#6a3a2a' }];
+    for (const m of G.mobs.slice()) if (m.team == null && TOWNS.some(T => Math.hypot(m.home.x - T.x, m.home.z - T.z) < T.r + 12)) { G.scene.remove(m.root); if (m.ring) G.scene.remove(m.ring); G.mobs.splice(G.mobs.indexOf(m), 1); }
+    spawnGuards(TOWNS); }
   }
   hooks();
   initMenu();
@@ -395,7 +400,7 @@ function hooks() {
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
-  H.onKill = (mob) => { Game.onKill(G.save, mob); if (settings.autoLoot !== false) setTimeout(() => { if (mob.dead && Game.hasLoot(mob)) Game.lootCorpse(G.save, mob); }, 650); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
+  H.onKill = (mob, src) => { if (src && src.isGuard) { mob.loot = { items: [], gold: 0, gear: [] }; mob.looted = true; return; } Game.onKill(G.save, mob); if (settings.autoLoot !== false) setTimeout(() => { if (mob.dead && Game.hasLoot(mob)) Game.lootCorpse(G.save, mob); }, 650); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
@@ -815,6 +820,7 @@ function gameUpdate(dt) {
   if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
     if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
   updatePetBar(dt);
+  if (!BATTLE) updateGuards(dt, p);
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);

@@ -461,7 +461,7 @@ function renderInventory(c) {
   const grid = el('div', 'grid');
   h.inv.forEach((it, i) => {
     const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : '') + (selInv && selInv.i === i ? ' sel' : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
-    if (it) { hoverTip(cell, it, i, null, c); cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; dragable(cell, { i }, it, c); }
+    if (it) { hoverTip(cell, it, i, null, c); cell.onmouseenter = () => showTip(tip, it, i, null, c); cell.onclick = () => { S.click(); selInv = { i }; renderInventory(c); }; cell.ondblclick = () => { quickUse(i); renderInventory(c); }; cell.oncontextmenu = (e) => { e.preventDefault(); S.click(); hideFtip(); quickUse(i); renderInventory(c); }; /* right click or double click: equip it (swaps with what you wear) or use it */ dragable(cell, { i }, it, c); }
     cell.dataset.inv = i;
     grid.appendChild(cell);
   });

@@ -388,7 +388,7 @@ function hooks() {
     const fn = FAMILIES[fam] ? FAMILIES[fam].name : fam; chatAdd(`<b class="sk">You have become better at ${fn}! (${lv})</b>${un.length ? ' Learned: ' + un.join(', ') + '.' : ' Faster and a little harder hitting.'}`, 'skill');
     UI.banner(`${fn} skill ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Faster and a little harder hitting', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
   H.skillUp = (name, lv) => { chatAdd(`<b class="sk">You have become better at ${name}! (${lv})</b>`, 'skill'); if (lv % 5 === 0) UI.toast(`${name} skill ${lv}`, '🌊', 'gold'); };
-  H.masteryTick = (fam, lv, pct) => chatAdd(`Your ${FAMILIES[fam] ? FAMILIES[fam].name : fam} skill is growing: ${pct}% of the way to ${lv + 1}.`, 'skill');
+  H.masteryTick = () => {}; // (skill progress is not reported, only each new point)
   H.newWeapon = (wt) => { chatAdd(`You pick up a new kind of weapon: <b>${WEAPON_TYPES[wt].name}</b>. Use it to learn it (L).`, 'skill'); UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };

@@ -137,7 +137,9 @@ export function itemIcon(it) {
 }
 export function randomGear(h, lvl, minRarity = 0) {
   const tier = Math.max(1, Math.min(5, Math.floor((lvl * LEVEL_GROWTH + 3) / 4)));
-  let r = Math.random(), rarity = r < 0.55 ? 1 : r < 0.85 ? 2 : r < 0.97 ? 3 : 4; rarity = Math.max(minRarity, rarity);
+  const dl = designLv(lvl), r = Math.random();
+  let rarity = dl < 5 ? (r < 0.85 ? 0 : 1) : dl < 10 ? (r < 0.55 ? 0 : r < 0.95 ? 1 : 2) : dl < 15 ? (r < 0.35 ? 0 : r < 0.85 ? 1 : 2) : (r < 0.2 ? 0 : r < 0.7 ? 1 : r < 0.95 ? 2 : 3);
+  rarity = Math.min(4, Math.max(minRarity, rarity));
   const r2 = Math.random();
   if (r2 < 0.35) { const ws = CLASSES[h.cls].weapons; return makeWeapon(ws[Math.floor(Math.random() * ws.length)], tier, rarity); }
   if (r2 < 0.45) return makeAcc('back', tier, Math.max(1, rarity));
@@ -367,8 +369,9 @@ export function onKill(h, mob, shared = false) {
   for (const id in D.loot || {}) { const [a, b, c] = D.loot[id]; if (Math.random() < c) loot.push({ id, n: a + Math.floor(Math.random() * (b - a + 1)) }); }
   let gold = 0; if (D.gold) gold = D.gold[0] + Math.floor(Math.random() * (D.gold[1] - D.gold[0] + 1)); else if (Math.random() < 0.4) gold = 1 + Math.floor(designLv(mob.lv) * Math.random());
   const gear = [];
-  if (Math.random() < (D.gearChance ?? (designLv(mob.lv) >= 4 ? 0.07 : 0.03))) gear.push(randomGear(h, mob.lv, D.gearRarity || (D.elite ? 2 : 0)));
-  if (D.boss) gear.push(randomGear(h, mob.lv, 4));
+  const named = D.elite || D.boss || mob.bossy, dl = designLv(mob.lv), step = named ? (dl < 8 ? 1 : dl < 15 ? 2 : 3) : 0;
+  if (Math.random() < (D.gearChance ?? (dl >= 4 ? 0.07 : 0.03))) gear.push(randomGear(h, mob.lv, step));
+  if (D.boss) gear.push(randomGear(h, mob.lv, Math.min(4, step + 1)));
   mob.loot = { items: loot, gold, gear };
   G.hooks.questsChanged && G.hooks.questsChanged();
 }

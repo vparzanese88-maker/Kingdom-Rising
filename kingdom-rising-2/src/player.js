@@ -32,6 +32,14 @@ function slashArc(pl, R, H, name, hit, col) {
 // abilities land almost at once: their follow-up hits come after a third of the old wind-up
 // how wide a basic swing reaches, by the size of the weapon (radians either side): small blades narrow, big ones wide
 const ARC = { dagger: 0.42, daggers: 0.5, fists: 0.45, spear: 0.4, sword: 0.75, mace: 0.75, swordshield: 0.75, maceshield: 0.75, swordmace: 0.85, handaxes: 0.8, greatsword: 1.05, greataxe: 1.1, warhammer: 1.0 };
+// cast and action times (seconds): big spells and big heals take a moment to gather; a few hands-on actions
+// (setting a trap, lighting a fuse, coating blades, planting a banner) take a beat; strikes and emergency moves stay instant
+const CAST_T = {
+  pyroblast: 1.6, meteorshower: 2.0, lightstorm: 1.5, inferno: 1.2, firestorm: 1.3, cataclysm: 2.0, starfall: 1.6, hurricane: 1.3, mindstorm: 1.5, judgement: 1.2,
+  prayer: 1.6, tranquility: 1.8, chainheal: 1.1, holylight: 1.1, radiantheal: 0.9, healingwave: 0.9, regrowth: 0.8, wildbloom: 1.2, spiritlink: 1.2, mending: 0.8, mendpet: 0.8,
+  mesmerize: 1.0, masssleep: 1.5,
+};
+const ACT_T = { snaretrap: 0.6, explotrap: 0.6, spikepit: 0.6, frosttrap: 0.6, poisontrap: 0.6, snaretrap2: 0.6, envenom: 0.9, powderkeg: 0.5, cannonade: 1.0, rally: 0.8 };
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
 const ALLY_FX = { fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
@@ -658,16 +666,20 @@ export class Player {
     else if (sl.t === 'item') { if (count(this.h, sl.id) > 0) useItem(this.h, sl.id, this); else S.error(); }
   }
   // ---------- class abilities ----------
-  ability(i) {
+  ability(i, fromCast) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
     if (G.battleFx && ab.needs && !(this.weapon && (this.weapon.wt === ab.needs || (ab.needs === 'daggers' && this.weapon.wt === 'dagger')))) { G.hooks.toast && G.hooks.toast(`${ab.name} needs ${WEAPON_TYPES[ab.needs].name} in your hands`, '🗡', 'bad'); S.error(); return; }
     if (G.battleFx && ab.song) { G.hooks.toast && G.hooks.toast(`${ab.name} plays by itself while it is on your hotbar`, '♪', 'gold'); return; }
     const key = 'a' + (i + 1);
-    if (this.cd[key] > 0 || this.dead || this.gathering || this.swim) { S.error(); return; }
+    if (!fromCast) {
+    if (this.cd[key] > 0 || this.dead || this.gathering || this.swim || this.abCast || this.summonCast) { S.error(); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(ab.cost)) return;
     this.cd[key] = ab.cd;
+    const ct = CAST_T[ab.id] || ACT_T[ab.id];
+    if (ct) { this.abCast = { t: 0, dur: ct, i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
+    }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
     const up = G.abilScale ? G.abilScale(this.h.level) : this.pk('a_' + ab.id) ? 1.5 : 1;
@@ -1076,6 +1088,15 @@ export class Player {
       V.emit('heal', o.p.clone(), { speed: 0.2, size: 0.5, life: 0.45 }); if (Math.random() < 0.5) V.emit('heal', o.p.clone(), { speed: 0.6, size: 0.25, life: 0.6 });
       if (l < 0.7 || o.t > 2.5) { clearInterval(iv); this.heal(amount); V.burst('heal', to, 18, { speed: 2.2 }); S.heal && S.heal(); } }, 30);
   }
+  // casting (spells) or a short action: slowed while it gathers, a dodge breaks it, then it fires
+  tickAbCast(dt) {
+    const c = this.abCast; c.t += dt;
+    if (this.dead || this.dodge || this.swim) { this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); if (!this.dead) G.hooks.toast && G.hooks.toast(`${c.name} was interrupted`, '✋', 'bad'); return; }
+    G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur);
+    if (c.spell && Math.random() < dt * 20) V.emit(this.W && this.W.element === 'fire' ? 'fire' : this.W && this.W.element === 'frost' ? 'frost' : 'arcane', this.handPos(), { speed: 0.8, size: 0.25, life: 0.5 });
+    if (c.t < c.dur) return;
+    this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); this.ability(c.i, true);
+  }
   // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
   tickSummon(dt) {
     const c = this.summonCast; c.t += dt;
@@ -1390,6 +1411,7 @@ export class Player {
     this.block = !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
     if (this.summonCast) this.tickSummon(dt);
+    if (this.abCast) this.tickAbCast(dt);
     if (G.battleFx) this.tickChannel(dt);
     if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
     if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);
@@ -1401,7 +1423,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.summonCast ? 0.35 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
@@ -1489,7 +1511,7 @@ export class Player {
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'bow' ? 0.3 : 0.3; }
     const roll = this.dodge && !this.dodge.charge ? Math.min(1, this.dodge.t) : null;
-    const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
+    const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;

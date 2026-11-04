@@ -113,7 +113,7 @@ export const NEW_CLASSES = {
     info: { tag: 'Assassin', diff: 3, role: 'Stealth, poison and traps', res: 'Endurance', tips: ['Vanish and nobody can see you: monsters, soldiers, towers or enemy players.', 'Backstab from behind for huge damage.', 'Envenom your blades and lay traps; poisons do not work through a staff.'] },
     tune: { dmg: 0.89, hp: 0.92 },
     abilities: [
-      { id: 'backstab', name: 'Backstab', level: 1, cd: 6, cost: 20, t: 'strike', reach: 2.8, dmg: 1.6, backstab: true, needs: 'daggers', desc: 'Needs daggers in your hands. Drive a dagger into the enemy in front of you. From behind it does more than double damage and always crits.' },
+      { id: 'backstab', name: 'Cheap Shot', level: 1, cd: 10, cost: 25, t: 'strike', reach: 2.8, dmg: 1.1, stun: 2, desc: 'A dirty blow to the knee and the throat: stuns the enemy in front of you for 2 s. Your twin daggers\' F does the real backstabbing.' },
       { id: 'vanish2', name: 'Vanish', level: 2, cd: 18, cost: 20, t: 'stealth', dur: 6, desc: 'Disappear for 6 s: monsters, enemy soldiers, towers and enemy players cannot see you. Attacking ends it, and your next hit is a guaranteed critical.' },
       { id: 'smokescreen', name: 'Smoke Screen', level: 4, cd: 16, cost: 20, t: 'nova', r: 5, dmg: 0, stun: 1.2, slow: 4, fx: 'smoke', vanish: 2.5, desc: 'Burst a cloud of smoke: enemies within 5 m are dazed and slowed, and you vanish for 2.5 s.' },
       { id: 'poisontrap', name: 'Poison Trap', level: 6, cd: 12, cost: 20, t: 'trap', trap: 'poison', dmg: 0.5, desc: 'Hide a poison trap at your feet: the first enemy to step on it bursts a cloud of poison over everything nearby.' },

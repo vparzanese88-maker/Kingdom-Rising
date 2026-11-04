@@ -104,6 +104,7 @@ export const FAMILIES = {
 export const WSKILLS = {
   fan8: { name: 'Arrow Fan', cd: 7, icon: 'rain', desc: 'Loose eight arrows at once in a wide horizontal fan.' },
   wheel: { name: 'Wheel Strike', cd: 7, icon: 'area', desc: 'A spinning sword strike that hits everything around you and slows them.' },
+  backstabw: { name: 'Backstab', cd: 7, icon: 'dagger', desc: 'Drive both daggers into the enemy in front of you. From behind it does triple damage and always lands a critical hit.' },
   tripstab: { name: 'Triple Stab', cd: 7, icon: 'twinfury', desc: 'Three lightning-fast stabs into the enemy in front of you; the third drives deep and makes it bleed. From behind every stab hits half again as hard.' },
   shadowflurry: { name: 'Shadow Flurry', cd: 8, icon: 'twinfury', desc: 'A blur of dagger strikes on everything in front of you; every hit makes them bleed.' },
   whirlaxes: { name: 'Whirling Axes', cd: 8, icon: 'area', desc: 'Spin with both axes, cutting everything around you and leaving them bleeding.' },
@@ -236,7 +237,7 @@ export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'sta
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 // right-click special attack for each weapon (dual-wield sets have their own)
-export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'tripstab', dagger: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
+export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'backstabw', dagger: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
   sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
@@ -244,8 +245,8 @@ export const COMBOS = {
   maceshield: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
   swordmace: { trait: 'Sword crits, mace ignores armour', chain: [{ a: 'swing1', m: 1.0 }, { a: 'off1', m: 1.15, blunt: true }, { a: 'swing3', m: 1.8, d: 1.4, shock: 3, blunt: true }] },
   fists: { trait: 'Bare knuckles: jab, cross, jab, then an uppercut that staggers', chain: [{ a: 'stabR', m: 0.75, d: 0.5 }, { a: 'stabL', m: 0.75, d: 0.5 }, { a: 'stabR', m: 0.8, d: 0.5 }, { a: 'smash', m: 1.9, d: 1.1, stun: 0.6, knock: 6 }] },
-  dagger: { trait: 'A single dagger: quick stabs, and the 4th drives deep', chain: [{ a: 'stabR', m: 0.85, d: 0.6 }, { a: 'stabR', m: 0.9, d: 0.6 }, { a: 'stabR', m: 1.0, d: 0.6 }, { a: 'stabR', m: 2.0, d: 1.1, bleed: true, crit: 0.3 }] },
-  daggers: { trait: 'Daggers: lightning fast, the 5th strike is a spinning double slash', chain: [{ a: 'stabR', m: 0.6, d: 0.55 }, { a: 'stabL', m: 0.6, d: 0.55 }, { a: 'stabR', m: 0.65, d: 0.55 }, { a: 'stabL', m: 0.7, d: 0.55 }, { a: 'spin', m: 2.4, d: 1.6, aoe: 3.4, bleed: true, crit: 0.5 }] },
+  dagger: { trait: 'A single dagger: a quick stab. Dagger skill brings a chance of lightning-fast double, triple and quadruple attacks', chain: [{ a: 'stabR', m: 0.95, d: 0.6 }] },
+  daggers: { trait: 'Twin daggers: left, right, left, right. Double the chance of lightning-fast flurries', chain: [{ a: 'stabR', m: 0.62, d: 0.5 }, { a: 'stabL', m: 0.62, d: 0.5 }] },
   handaxes: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 0.95, bleed: true }, { a: 'off1', m: 0.95, bleed: true }, { a: 'swing3', m: 1.7, d: 1.3, bleed: true }] },
   greatsword: { trait: 'Greatswords cleave through every enemy in front of you', chain: [{ a: 'swing1', m: 1.1, cleave: true }, { a: 'swing2', m: 1.15, cleave: true }, { a: 'smash', m: 2.2, d: 1.5, cleave: true }] },
   greataxe: { trait: 'Great axes cleave and leave deep bleeding wounds', chain: [{ a: 'swing1', m: 1.35, cleave: true, bleed: true }, { a: 'smash', m: 2.7, d: 1.6, cleave: true, bleed: true }] },

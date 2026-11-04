@@ -30,6 +30,8 @@ function slashArc(pl, R, H, name, hit, col) {
   V.temp(m, 0.22, (mm, t) => { m.material.opacity = (hit ? 0.75 : 0.45) * (1 - t); m.scale.setScalar(0.85 + t * 0.25); if (t >= 0.99) m.material.dispose(); });
 }
 // abilities land almost at once: their follow-up hits come after a third of the old wind-up
+// how wide a basic swing reaches, by the size of the weapon (radians either side): small blades narrow, big ones wide
+const ARC = { dagger: 0.42, daggers: 0.5, fists: 0.45, spear: 0.4, sword: 0.75, mace: 0.75, swordshield: 0.75, maceshield: 0.75, swordmace: 0.85, handaxes: 0.8, greatsword: 1.05, greataxe: 1.1, warhammer: 1.0 };
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
 const ALLY_FX = { fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
@@ -462,7 +464,7 @@ export class Player {
       else if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
       else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
       else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
-      else if (G.battleFx) { half = Math.max(half, wt === 'spear' ? 0.45 : 1.05); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
+      else if (G.battleFx) { half = ARC[wt] || 0.8; half *= BATTLE ? 1 : 0.85 + 0.3 * Math.min(1, (Game.masteryOf(this.h, wt) - 1) / 19); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
       else { targets = mobsInCone(this.pos, yaw, reach, half); if (!st.cleave) targets = targets.sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 2); }
       // Kingdom Battles: show the swing as a slash crescent exactly as wide and long as what it hits
       if (G.battleFx) { const R = st.aoe || (st.line ? reach * 1.7 : reach), H = st.aoe ? Math.PI : st.line ? 0.22 : half; slashArc(this, R, H, a.name, targets.length > 0, this.trail.mat.uniforms.color.value); }
@@ -474,6 +476,12 @@ export class Player {
         if (blunt) S.blunt(m.pos);
       }
       if (targets.length) this.wpnXp(1);
+      if (targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) {
+        const lv = Game.masteryOf(this.h, wt), k = wt === 'daggers' ? 2 : 1;
+        const n = lv >= 9 && Math.random() < (0.02 + lv * 0.002) * k ? 3 : lv >= 5 && Math.random() < (0.04 + lv * 0.003) * k ? 2 : lv >= 2 && Math.random() < (0.08 + lv * 0.006) * k ? 1 : 0;
+        if (n) { const t0 = targets[0]; V.number(t0.pos.clone().setY(t0.pos.y + (t0.height || 1.6) + 0.8), ['', 'Double attack!', 'Triple attack!', 'Quad attack!'][n], 'crit');
+          for (let q = 1; q <= n; q++) setTimeout(() => { if (this.dead || t0.dead) return; this.dealDamage(t0, base * st.m * 0.9, { melee: true, offhand: q % 2 === 1 }); S.swingW('light', 0.8, this.pos); this.atk = { name: q % 2 ? 'stabL' : 'stabR', t: 0, dur: 0.12, hit: true, noQueue: true, extraHit: true }; }, q * 85); }
+      }
       if (targets.length) { G.hitstop = (big ? 0.09 : 0.04) * (G.battleFx ? 1.5 : 1); V.addShake((big ? 0.3 : 0.08) * (G.battleFx ? 1.6 : 1)); if (G.battleFx) for (const m of targets) { const hp = m.pos.clone(); hp.y += (m.height || 1.5) * 0.6; V.burst('spark', hp, big ? 22 : 12, { speed: big ? 9 : 6 }); if (big) V.light(hp, '#ffd8a0', 5, 0.12); } }
       const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
       if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp, st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
@@ -550,6 +558,12 @@ export class Player {
       case 'wheel': spin(4.5, 1.5, { slow: 3 }); break;
       case 'doubleshot': { this.fireGun(0.8, true, 1.5, true); this.dodge = { t: 0, dur: 0.36, dir: f.clone().multiplyScalar(-1), speed: 22 }; this.iframes = 0.45; this.vel.y = 5; this.onGround = false; S.dodge(); V.burst('dust', this.pos.clone(), 14, { speed: 3, size: 0.8 }); break; }
       case 'whirlaxes': spin(4.5, 1.3, { bleed: base * 0.12 }); break;
+      case 'backstabw': { // twin daggers: both blades into the back
+        this.atk = { name: 'stabR', t: 0, dur: 0.35, hit: true, noQueue: true }; S.swingW('light', 1.3, this.pos);
+        setTimeout(() => { if (this.dead) return; let best = null, bd = 1e9; for (const m of mobsInCone(this.pos, this.yaw, this.W.reach + 0.6, 0.6)) { const d = m.pos.distanceTo(this.pos); if (d < bd) { bd = d; best = m; } } if (!best) return;
+          const behind = Math.abs(angDiff(best.yaw || 0, Math.atan2(this.pos.x - best.pos.x, this.pos.z - best.pos.z))) > 2.0;
+          if (behind) this.buffs.nextCrit = true; this.dealDamage(best, base * (behind ? 3.6 : 1.4), { melee: true, big: true, bleed: base * 0.1 }); V.number(best.pos.clone().setY(best.pos.y + (best.height || 1.6) + 0.9), behind ? 'Backstab!' : 'Stab', behind ? 'crit' : 'dmg'); G.hitstop = 0.07; }, 140);
+        break; }
       case 'tripstab': {
         // three quick alternating stabs at the one enemy in front, the last the deepest
         const ms = [1.1, 1.1, 1.7];

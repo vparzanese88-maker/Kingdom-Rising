@@ -630,6 +630,7 @@ function input() {
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
       if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
+      if (e.code === 'KeyQ' && G.uiOpen && UI.UI.open === 'inv' && G.player) { G.player.swapWeapon(); UI.refreshOpen(); return; } // swap weapon sets with the bag open
       if (e.code === 'KeyZ' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;

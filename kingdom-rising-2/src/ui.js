@@ -742,13 +742,24 @@ const GREET = ['Afternoon, stranger.', 'Oh! You gave me a start.', 'Well met. No
 export function openChatter(v) {
   const c = openWin('chatter', esc(v.vname), '', 'chatwin'); const h = G.player.h;
   const say = (t) => { const p = c.querySelector('.cline'); p.innerHTML = `“${esc(t)}”`; p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); };
-  c.innerHTML = `<div class="cline">“${GREET[Math.floor(Math.random() * GREET.length)]}”</div><div class="copts"></div>`;
+  const home = Math.hypot(v.home.x - VILLAGE.x, v.home.z - VILLAGE.z) < 90; // Seabreak folk call you the newcomer, or the sailor
+  const greet = home ? HOME_GREET : GREET;
+  c.innerHTML = `<div class="cline">“${greet[Math.floor(Math.random() * greet.length)]}”</div><div class="copts"></div>`;
   const opts = c.querySelector('.copts');
   const opt = (label, fn) => { const b = el('button', 'btn copt', label); b.onclick = () => { S.click(); fn(); }; opts.appendChild(b); };
+  // the first time, some of them ask where you came from: you never really answer
+  if (!v.askedHome && Math.random() < 0.6) { v.askedHome = true; say(home ? 'So where did you sail in from, newcomer?' : 'You are not from Saltmere. Where did you come from, sailor?');
+    const reacts = ['Hm. Fair enough.', 'Keep your secrets, then. Everyone on Kelda has a few.', 'Ha! That is what everybody says.', 'Right. Not my business.'];
+    for (const ans of ['Here and there.', 'Somewhere that doesn\'t need me any more.', 'Does it matter?']) opt(`“${ans}”`, () => { opts.innerHTML = ''; say(reacts[Math.floor(Math.random() * reacts.length)]); addMain(); });
+    return; }
+  const addMain = () => {
   opt('Heard any news around here?', () => { const r = villagerNews(h, v); say(r.text); if (r.found) { toast(`Map updated: ${r.found.name}`, '🗺', 'gold'); G.hooks.mapLearned && G.hooks.mapLearned(r.found, v); } });
   opt('What\'s it like living here?', () => say(smallTalk()));
   opt('Goodbye', () => closeWin());
+  };
+  addMain();
 }
+const HOME_GREET = ['Ah, the newcomer.', 'Morning, sailor.', 'The sailor! Everyone\'s talking about that boat of yours.', 'Oh, it\'s the newcomer. Mind the goblins.', 'Welcome to Seabreak, sailor. What there is of it.'];
 // --- NPC dialog ---
 export function openDialog(npc) {
   const h = G.player.h; Game.talkTo(h, npc.id);

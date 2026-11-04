@@ -649,13 +649,13 @@ export const mobXp = (lv, M) => Math.round((12 + lv * 9) * (M.elite ? 4 : 1) * (
 // ---- NPCs ----
 // role: quest giver / merchant / villager
 export const NPCS = {
-  maren: { name: 'Elder Maren', title: 'Village Elder', race: 'human', sex: 'f', outfit: 'elder', x: 2.2, z: 363.1, hello: 'The sea gives and the sea takes, stranger. Today it gave us you. Mind the goblins: twenty years they have ruled Kelda from the mountain, and every year they come closer.' },
-  bram: { name: 'Bram', title: 'Woodcutter', race: 'human', sex: 'm', outfit: 'worker', x: -14.3, z: 355.4, hello: 'Good honest work, swinging an axe. Clears the head.' },
-  torvin: { name: 'Torvin Ironhand', title: 'Blacksmith', race: 'dwarf', sex: 'm', outfit: 'smith', x: 16.5, z: 352.1, hello: 'Mind the sparks, lad. Or lass. Or whatever ye are under all that salt.' },
-  elsa: { name: 'Elsa', title: 'Weaver', race: 'elf', sex: 'f', outfit: 'weaver', x: -12.1, z: 369.7, hello: 'Every thread has a story. Yours is still being spun.' },
-  lyra: { name: 'Lyra', title: 'Huntress', race: 'elf', sex: 'f', outfit: 'hunter', x: 19.8, z: 370.8, hello: 'Walk soft. The meadow has ears.' },
-  pell: { name: 'Old Pell', title: 'Fisherman', race: 'human', sex: 'm', outfit: 'fisher', x: -7, z: 398, hello: 'Fish ain\'t biting. Crabs are, though. Ha!' },
-  odo: { name: 'Odo', title: 'Merchant', race: 'human', sex: 'm', outfit: 'merchant', x: 7.7, z: 357.6, merchant: true, hello: 'Buying, selling, a bit of both? Odo has it all. Well. Some of it.' },
+  maren: { name: 'Elder Maren', title: 'Village Elder', race: 'human', sex: 'f', outfit: 'elder', x: 2.2, z: 363.1, hello: 'Ah, the newcomer. The sea gives and the sea takes, and today it gave us you. Mind the goblins: twenty years they have ruled Kelda from the mountain, and every year they come closer.' },
+  bram: { name: 'Bram', title: 'Woodcutter', race: 'human', sex: 'm', outfit: 'worker', x: -14.3, z: 355.4, hello: 'Morning, sailor. Good honest work, swinging an axe. Clears the head. You look like you\'ve got a lot to clear.' },
+  torvin: { name: 'Torvin Ironhand', title: 'Blacksmith', race: 'dwarf', sex: 'm', outfit: 'smith', x: 16.5, z: 352.1, hello: 'The newcomer, eh? Hands like those have held a blade before. Don\'t tell me where. I don\'t want to know.' },
+  elsa: { name: 'Elsa', title: 'Weaver', race: 'elf', sex: 'f', outfit: 'weaver', x: -12.1, z: 369.7, hello: 'Oh, you\'re the sailor everyone\'s whispering about. Where did you sail from? ...No? Fair enough.' },
+  lyra: { name: 'Lyra', title: 'Huntress', race: 'elf', sex: 'f', outfit: 'hunter', x: 19.8, z: 370.8, hello: 'Newcomer. You walk like a hunter. Or like someone who\'s been hunted.' },
+  pell: { name: 'Old Pell', title: 'Fisherman', race: 'human', sex: 'm', outfit: 'fisher', x: -7, z: 398, hello: 'Saw that boat of yours limp in, sailor. Funny little thing for a long voyage. Not my business, mind.' },
+  odo: { name: 'Odo', title: 'Merchant', race: 'human', sex: 'm', outfit: 'merchant', x: 7.7, z: 357.6, merchant: true, hello: 'The newcomer! Gold\'s gold, wherever it was earned. No questions asked at Odo\'s stall.' },
   kael: { name: 'Scout Kael', title: 'Tanglewood Warden', race: 'elf', sex: 'm', outfit: 'hunter', x: -36, z: 58, hello: 'Keep your blade close in these woods.' },
   fen: { name: 'Fen', title: 'Herbalist', race: 'human', sex: 'f', outfit: 'weaver', x: -44, z: 70, hello: 'Healroot grows where the light breaks through the canopy.' },
   hilda: { name: 'Captain Hilda', title: 'Stonewatch Captain', race: 'dwarf', sex: 'f', outfit: 'smith', x: -296, z: -158, hello: 'Stonewatch still stands. Barely. The goblins come down off Kelda every night now.' },

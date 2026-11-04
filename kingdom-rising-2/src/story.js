@@ -48,11 +48,25 @@ export function updateScene(dt) {
 
 // ---------- the main story, chapter by chapter ----------
 const MAREN_ASK = [
+  ['maren', 'Before anything else, newcomer: where did you sail from, in a boat like that?'],
+  ['you', 'Far enough that it doesn\'t matter.'],
+  ['maren', 'Hm. Everyone on this island is running from something. Keep your secrets.'],
   ['maren', 'Your boat? I know someone who can help. But I must ask something of you first.'],
   ['maren', 'Please, help our people in need, and help our village grow strong enough to defend ourselves from the goblin attacks.'],
   ['maren', 'Do that, and I will lead you to someone who knows where to find repairs and supplies for your boat.'],
   ['you', 'Then tell me where to start.'],
   ['maren', 'With walls. Bram oversees what little defence we have. Bring him timber and stone and he will raise a palisade around Seabreak.'],
+];
+// (Your past stays your own on Kelda: you came from a place that needed you, helped them rebuild and put down
+// some very dangerous enemies, then had to take this boat and leave in a hurry. That is a story for another time.)
+// Master Corwin's first look at your boat, for when you reach Saltmere:
+export const CORWIN_BOAT = [
+  ['corwin', 'So. Pip tells me you have a boat that needs work. What is she, then? Build, tonnage, who laid her keel?'],
+  ['you', 'Small. Single mast. She was... built well, once.'],
+  ['corwin', 'Built well, once. Ha. That is not your ship, is it? You do not even know her name.'],
+  ['corwin', 'You in some kind of trouble, mate?'],
+  ['you', '...'],
+  ['corwin', 'Right. Not my business. Let us get her fixed.'],
 ];
 export const SCENES = {
   mq_boat: { done: MAREN_ASK },

@@ -1,6 +1,6 @@
 // Game rules: hero stats, inventory, gear, loot, XP/levels, quests, crafting, gathering.
 import { NEW_CLASSES } from './classes2.js';
-import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL } from './data.js';
+import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE } from './battlemap.js';
 import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
@@ -359,6 +359,8 @@ export function onKill(h, mob, shared = false) {
   const diff = levelGap(mob.lv, h.level);
   const xpMul = diff <= -6 ? 0.1 : diff <= -3 ? 0.5 : diff >= 3 ? 1.25 : 1;
   if (!shared) gainXp(h, mob.xp * xpMul, mob.name);
+  // trophies for gathering quests drop only while a quest still wants them
+  { const tro = QUEST_DROPS[mob.type]; if (tro) for (const qid in h.quests.active) { const q = QUESTS.find(x => x.id === qid); if (q && q.obj.some(o => o.t === 'collect' && o.item === tro && count(h, tro) < o.n)) { addItem(h, tro, 1); break; } } }
   // quest kill objectives
   for (const qid in h.quests.active) {
     const q = QUESTS.find(x => x.id === qid), a = h.quests.active[qid];

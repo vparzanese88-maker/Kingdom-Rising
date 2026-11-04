@@ -422,6 +422,12 @@ export const ITEMS = {
   troll_tusk: { name: 'Troll Tusk', icon: '🦷', desc: 'A trophy.', value: 8 },
   ember_core: { name: 'Ember Core', icon: '🔥', desc: 'Still warm. Burns forever.', value: 10 },
   wolf_fang: { name: 'Wolf Fang', icon: '🦷', desc: 'Sharp.', value: 2 },
+  pup_pelt: { name: 'Wolf Pup Pelt', icon: '🐺', desc: 'A soft grey pelt. Proof the litter is thinning.', value: 2 },
+  cub_pelt: { name: 'Bear Cub Fur', icon: '🐻', desc: 'Thick brown fur from a bear cub.', value: 2 },
+  bear_claw: { name: 'Bear Claw', icon: '🐾', desc: 'A claw as long as your finger.', value: 6 },
+  tiger_pelt: { name: 'Tiger Pelt', icon: '🐯', desc: 'A striped pelt from the jungle.', value: 7 },
+  goblin_sling: { name: 'Goblin Sling', icon: '🪢', desc: 'A greasy leather sling. Goblin slingers carry them.', value: 2 },
+  brute_tooth: { name: 'Brute Tooth', icon: '🦷', desc: 'A tusk-like tooth from a goblin brute.', value: 5 },
   goblin_ear: { name: 'Goblin Ear', icon: '👂', desc: 'Pointy, green and smelly. Proof of a goblin slain.', value: 3 },
   bandit_badge: { name: 'Bandit Badge', icon: '⛉', desc: 'Proof of a bandit slain.', value: 3 },
   // consumables
@@ -662,7 +668,7 @@ export const QUESTS = [
   // Main quest. Chapter 1 stops here for now: the objective stays open until the next part of the story is written.
   { id: 'mq_boat', main: true, giver: null, turnin: null, lvl: 1, title: 'Repairs at Sea\'s End',
     text: 'You made it to Driftwood Coast, but only just. Your little boat limped in with a split plank and a torn sail, and she will not carry you anywhere until someone with real skill puts her right. Somebody in the village must know a shipwright.',
-    done: '', obj: [{ t: 'story', n: 1, label: 'Find someone who can repair your boat' }], xp: 0, gold: 0 },
+    done: '', obj: [{ t: 'talk', npc: 'maren', label: 'Ask Elder Maren about repairs' }, { t: 'story', n: 1, label: 'Help Seabreak grow strong enough to stand against the goblins' }], xp: 0, gold: 0 },
   { id: 'q_stranger', giver: 'maren', turnin: 'bram', lvl: 1, title: 'A Stranger from the Sea',
     text: 'You sailed in on a boat held together with rope and hope, wearing little more than rags. If you mean to stay while she is mended, you\'ll need to earn your keep. Bram the woodcutter, by the workbench, can teach you to fell a tree.',
     done: 'Maren sent you? Then let\'s get you an axe.', obj: [{ t: 'talk', npc: 'bram', label: 'Speak with Bram the woodcutter' }], xp: 40, gold: 2 },
@@ -706,8 +712,8 @@ export const QUESTS = [
     text: 'Goblins have pitched their filthy tents in the meadow, east and west of the village. They sit around their fires and send raiders out on patrol. Thin them out: defeat 6 goblins and bring me their ears as proof.',
     done: 'Ugh, put those away! But thank you. The roads are safer already.', obj: [{ t: 'kill', mob: 'goblin', n: 4, label: 'Defeat Goblin Raiders' }, { t: 'kill', mob: 'goblin_slinger', n: 2, label: 'Defeat Goblin Slingers' }, { t: 'collect', item: 'goblin_ear', n: 6, label: 'Collect Goblin Ears' }], take: { goblin_ear: 6 }, xp: 220, gold: 15, gear: true },
   { id: 'q_onward', giver: 'maren', turnin: 'kael', lvl: 4, req: ['q_blade'], title: 'Beyond the Meadow',
-    text: 'You\'ve grown strong here. North, past the meadow, lies the Whisperwood. Scout Kael keeps an outpost there. He could use someone like you. Follow the road north.',
-    done: 'Maren sent you? Good. We need every blade.', obj: [{ t: 'talk', npc: 'kael', label: 'Find Scout Kael in the Whisperwood' }], xp: 200, gold: 10 },
+    text: 'You\'ve grown strong here. North, past the meadow, lies the Tanglewood. Scout Kael keeps an outpost there. He could use someone like you. Follow the road north.',
+    done: 'Maren sent you? Good. We need every blade.', obj: [{ t: 'talk', npc: 'kael', label: 'Find Scout Kael in the Tanglewood' }], xp: 200, gold: 10 },
   { id: 'q_wolves', giver: 'kael', turnin: 'kael', lvl: 4, req: ['q_onward'], title: 'The Grey Pack',
     text: 'Grey wolves hunt the roads. Unlike the pups, these will come for you on sight. Kill 6.',
     done: 'Six fewer fangs in the dark.', obj: [{ t: 'kill', mob: 'wolf', n: 6, label: 'Kill Grey Wolves' }], xp: 300, gold: 14, gear: true },
@@ -718,7 +724,7 @@ export const QUESTS = [
     text: 'Tigers stalk the Tanglewood now. The goblins drove them down off Kelda when they took the mountain, and they are hungry. Thin them out, east or west of here.',
     done: 'Good hunting. The trails will be safer for it.', obj: [{ t: 'kill', mob: 'tiger', n: 6, label: 'Hunt jungle tigers' }], xp: 260, gold: 14, gear: true },
   { id: 'q_iron', giver: 'kael', turnin: 'kael', lvl: 5, req: ['q_onward'], title: 'Iron in the Hills',
-    text: 'Iron veins run through the rocky hills of the Whisperwood. You\'ll need a Copper Pickaxe from a forge to break them. Bring me 6 Iron Ore.',
+    text: 'Iron veins run through the rocky hills of the Tanglewood. You\'ll need a Copper Pickaxe from a forge to break them. Bring me 6 Iron Ore.',
     done: 'Good iron. Smelt it and arm yourself.', obj: [{ t: 'collect', item: 'iron_ore', n: 6, label: 'Mine Iron Ore' }], xp: 380, gold: 16 },
   { id: 'q_raiders', giver: 'kael', turnin: 'kael', lvl: 7, req: ['q_tigers'], title: 'Raiders in the Hills',
     text: 'There is a goblin raider camp east of the river, at the foot of Kelda. They ambush anyone on the north road. Break it: kill their raiders and the brutes who lead them.',
@@ -754,8 +760,25 @@ export const STATION_SPOTS = [
   { type: 'workbench', x: 252, z: -336, rot: 2.0 }, { type: 'loom', x: 222, z: -318, rot: 1.0 }, { type: 'tanning', x: 226, z: -308, rot: 0.6 },
 ];
 
-// item objectives count what is in your bag, so they say Acquire (if you already have the items, it is done)
-QUESTS.forEach(q => q.obj.forEach(o => { if (o.t === 'collect' && ITEMS[o.item]) { o.hint = o.label; o.label = `Acquire ${ITEMS[o.item].name}`; } }));
+// gathering, not slaying: ordinary creatures give trophies (they only drop while a quest wants them);
+// only bosses and named creatures are 'Defeat'. Item objectives count what is in your bag.
+export const QUEST_DROPS = { wolfpup: 'pup_pelt', bearcub: 'cub_pelt', wolf: 'wolf_fang', bear: 'bear_claw', tiger: 'tiger_pelt', goblin: 'goblin_ear', goblin_slinger: 'goblin_sling', goblin_brute: 'brute_tooth' };
+QUESTS.forEach(q => q.obj.forEach((o, i) => {
+  if (o.t === 'kill' && QUEST_DROPS[o.mob] && !(MOBS[o.mob].boss || MOBS[o.mob].elite)) { const it = QUEST_DROPS[o.mob]; q.obj[i] = { t: 'collect', item: it, n: o.n, from: o.mob, label: `Gather ${o.n} ${it === 'brute_tooth' ? 'Brute Teeth' : ITEMS[it].name + 's'}`, hint: o.label }; q.take = Object.assign({}, q.take || {}, { [it]: o.n }); }
+  else if (o.t === 'kill') o.label = o.label.replace(/^Kill /, 'Defeat ');
+  if (q.obj[i].t === 'collect' && ITEMS[q.obj[i].item] && !q.obj[i].from) { const it = ITEMS[q.obj[i].item]; q.obj[i].label = `Gather ${q.obj[i].n > 1 ? q.obj[i].n + ' ' : ''}${it.name}`; }
+}));
+// one line per item: merge objectives that ask for the same thing
+QUESTS.forEach(q => { const seen = {}; q.obj = q.obj.filter(o => { if (o.t !== 'collect') return true; if (seen[o.item]) { seen[o.item].n = Math.max(seen[o.item].n, o.n); seen[o.item].label = seen[o.item].label.replace(/\d+/, seen[o.item].n); return false; } seen[o.item] = o; return true; }); if (q.take) for (const k in q.take) if (seen[k]) q.take[k] = seen[k].n; });
+// the people who give you work say what it means for the village
+const NEED = {
+  q_timber: 'Every plank goes into the palisade. The goblins tested it again last week.', q_planks: 'The stockade needs mending before the next raid.', q_ore: 'Our smith has nothing to forge spearheads from.',
+  q_smelt: 'Ingots mean spearheads, and spearheads mean we live through the winter.', q_cotton: 'Bandages, mostly. We go through a lot of bandages these days.', q_hides: 'Leather for the guards\' jerkins. They stand watch in rags.',
+  q_crabs: 'Food is short. The goblins burn our fields.', q_litter: 'The wolves get bolder every time the goblins drive them down the mountain.', q_goblins: 'If we do not push them back, Seabreak will not see another summer.',
+  q_wolves: 'The road to the village is not safe while the pack runs.', q_herbs: 'The healers have run dry.', q_tigers: 'Woodcutters have stopped going out. Seabreak needs that timber.',
+  q_raiders: 'Every raid that leaves that camp ends at a village gate.', q_bears: 'Stonewatch cannot hold if we are fighting bears as well as goblins.', q_warcamp: 'Break the war camp and Seabreak and Saltmere both breathe easier.',
+};
+QUESTS.forEach(q => { if (NEED[q.id] && !q.text.includes(NEED[q.id])) q.text += ' ' + NEED[q.id]; });
 // every quest pays: gold, plus a weapon or armour piece for your class, or food (quests that already give something keep it)
 QUESTS.forEach((q, i) => { if (q.main) return;
   q.gold = Math.max(q.gold || 0, 3 + q.lvl * 3);

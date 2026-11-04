@@ -759,7 +759,8 @@ export function openDialog(npc) {
     c.appendChild(who);
     const { offer, ready, active } = Game.npcQuests(h, npc.id);
     if (!view) {
-      c.appendChild(el('div', 'text', esc(npc.def.hello)));
+      const MAREN = 'Your boat? I know someone who can help. But I must ask something of you first. Please, help our people in need, and help our village grow strong enough to defend ourselves from the goblin attacks. Do that, and I will lead you to someone who knows where to find repairs and supplies for your boat.';
+      c.appendChild(el('div', 'text', esc(npc.id === 'maren' && h.quests.active.mq_boat ? MAREN : npc.def.hello)));
       const opts = el('div', 'opts');
       for (const q of ready) { const b = el('button', '', `<span style="color:#ffd84a;font-weight:900">?</span> ${esc(q.title)} <span style="color:var(--good)">(complete)</span>`); b.onclick = () => { S.click(); render({ turnin: q }); }; opts.appendChild(b); }
       for (const q of offer) { const b = el('button', '', `<span style="color:#ffd84a;font-weight:900">!</span> ${esc(q.title)}`); b.onclick = () => { S.click(); render({ offer: q }); }; opts.appendChild(b); }

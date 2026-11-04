@@ -1157,7 +1157,7 @@ export class Player {
     if (!o.silent || o.el) V.number(np, crit ? total + '!' : total, crit ? 'crit' : o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : 'dmg');
     if (crit) { V.burst('spark', np, 12, { speed: 5 }); }
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
-    G.inCombat = 6; G.target = m;
+    G.inCombat = 6; G.target = m; this.hitT = G.time;
     this.stealth = 0;
   }
   // rare, epic and legendary weapons: a small chance per weapon hit (better with Dexterity) to set off their proc
@@ -1182,6 +1182,7 @@ export class Player {
   wpnXp(n) { if (BATTLE || !this.weapon) return; Game.gainMastery(this.h, familiesOf(this.weapon.wt)[0], n); }
   heal(n, quiet) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
+    if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.hurtT = G.time; }
     if (this.dead) return;
     if (this.iframes > 0 || (this.dodge && !this.dodge.charge)) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Dodged', 'miss'); return; }
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;

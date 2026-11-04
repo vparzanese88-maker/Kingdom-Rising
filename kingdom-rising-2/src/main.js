@@ -11,7 +11,8 @@ import { V } from './vfx.js';
 import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
-import { summonPets } from './pets.js';
+import { summonPets, petCommand, pets, PETS } from './pets.js';
+import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
@@ -394,7 +395,7 @@ function hooks() {
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
-  H.onKill = (mob) => { Game.onKill(G.save, mob); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
+  H.onKill = (mob) => { Game.onKill(G.save, mob); if (settings.autoLoot !== false) setTimeout(() => { if (mob.dead && Game.hasLoot(mob)) Game.lootCorpse(G.save, mob); }, 650); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
@@ -561,6 +562,55 @@ function startMainQuest(h) {
 // ---------- input ----------
 let lockBusyUntil = 0;
 function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock || document.pointerLockElement || performance.now() < lockBusyUntil - 700) return; lockBusyUntil = performance.now() + 900; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
+// ---------- pet commands (Z): tap = attack your target; hold = command wheel ----------
+const PET_OPTS = [
+  { id: 'attackTarget', icon: '⚔', name: 'Attack my target' },
+  { id: 'attack', icon: '🔥', name: 'Aggressive', tip: 'Attack anything hostile near you' },
+  { id: 'guard', icon: '🛡', name: 'Guard me', tip: 'Attack what you attack, and what attacks you' },
+  { id: 'stay', icon: '✋', name: 'Stay here', tip: 'Hold this spot; fight only what comes close' },
+  { id: 'follow', icon: '👣', name: 'Follow', tip: 'Stay at your side and never fight' },
+  { id: 'taunt', icon: '📢', name: 'Taunt', tip: 'On: enemies they hit turn on them. Off: they leave enemies to you' },
+];
+function petTarget() {
+  const p = G.player, t = G.target;
+  if (t && !t.dead && !t.pet && isFoe(t) && t.pos.distanceTo(p.pos) < 40) return t;
+  let best = null, bd = 1e9; for (const m of mobsInCone(p.pos, p.yaw, 35, 0.22)) { if (m.pet) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } }
+  return best;
+}
+function petTap() {
+  if (!pets().length) { UI.toast(BATTLE ? 'Pet orders work in the campaign' : 'You have no pet. Summon one first.', '🐾', 'bad'); return; }
+  const t = petTarget(); if (!t) { UI.toast('No target: aim at an enemy, or hit one first', '🐾', 'bad'); return; }
+  petCommand('attackTarget', t); S.click(); UI.toast(`Pets: attack ${t.name}!`, '⚔', 'gold');
+}
+let petWheel = null;
+function openPetWheel() {
+  if (!pets().length) { petTap(); return; }
+  let e = $('petwheel'); if (!e) { e = document.createElement('div'); e.id = 'petwheel'; document.body.appendChild(e); }
+  e.innerHTML = '<div class="pwc">Pet orders<small>move the mouse, let go of Z</small></div>' + PET_OPTS.map((o, i) => { const a = -Math.PI / 2 + i / PET_OPTS.length * Math.PI * 2; return `<div class="pwo" data-i="${i}" style="left:calc(50% + ${Math.cos(a) * 150}px);top:calc(50% + ${Math.sin(a) * 150}px)"><b>${o.icon}</b><span>${o.id === 'taunt' ? `Taunt: ${PETS.taunt ? 'on' : 'off'}` : o.name}</span>${o.id === PETS.mode ? '<i>current</i>' : ''}</div>`; }).join('');
+  e.hidden = false; petWheel = { x: 0, y: 0, sel: -1 }; S.click();
+}
+function petWheelMove(dx, dy) {
+  const w = petWheel; w.x = Math.max(-200, Math.min(200, w.x + dx)); w.y = Math.max(-200, Math.min(200, w.y + dy));
+  let sel = -1; if (Math.hypot(w.x, w.y) > 40) { const a = Math.atan2(w.y, w.x) + Math.PI / 2; sel = Math.round(((a / (Math.PI * 2)) * PET_OPTS.length + PET_OPTS.length) % PET_OPTS.length) % PET_OPTS.length; }
+  if (sel !== w.sel) { w.sel = sel; $('petwheel').querySelectorAll('.pwo').forEach(o => o.classList.toggle('on', +o.dataset.i === sel)); }
+}
+function closePetWheel() {
+  const w = petWheel; petWheel = null; const e = $('petwheel'); if (e) e.hidden = true; if (!w || w.sel < 0) return;
+  const o = PET_OPTS[w.sel];
+  if (o.id === 'attackTarget') { petTap(); return; }
+  petCommand(o.id); S.click(); UI.toast(o.id === 'taunt' ? `Pet taunt ${PETS.taunt ? 'on' : 'off'}` : `Pets: ${o.name}`, o.icon, 'gold');
+}
+// the pet panel: names, health, orders
+let petBarT = 0;
+function updatePetBar(dt) {
+  if ((petBarT -= dt) > 0) return; petBarT = 0.2;
+  const list = pets(); let e = $('petbar');
+  if (!list.length) { if (e) e.hidden = true; return; }
+  if (!e) { e = document.createElement('div'); e.id = 'petbar'; $('hud').appendChild(e); }
+  const mode = PET_OPTS.find(o => o.id === PETS.mode);
+  const html = `<div class="pbh"><b>${mode.icon} ${mode.name}</b><span>Taunt ${PETS.taunt ? 'on' : 'off'} · <kbd>Z</kbd> tap: attack · hold: orders</span></div>` + list.map(m => `<div class="pbp"><span>${m.name}</span><i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i>${m.tgt && !m.tgt.dead ? `<small>⚔ ${m.tgt.name}</small>` : ''}</div>`).join('');
+  if (e._h !== html) { e.innerHTML = html; e._h = html; } e.hidden = false;
+}
 function input() {
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
@@ -575,6 +625,7 @@ function input() {
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
       if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
+      if (e.code === 'KeyZ' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
       if (BATTLE && e.code === 'KeyP') { UI.toast('No crafting in Kingdom Battles', '·'); return; }
@@ -584,7 +635,7 @@ function input() {
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
-  addEventListener('keyup', (e) => { if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
+  addEventListener('keyup', (e) => { if (e.code === 'KeyZ' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petTap(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   canvas.addEventListener('mousedown', (e) => {
     if (mode !== 'game' || intro) return;
@@ -593,7 +644,7 @@ function input() {
   });
   addEventListener('mouseup', (e) => { if (mode === 'game' && G.player && document.pointerLockElement) G.player.onMouse(e.button, false); else if (G.player) G.player.press = null; });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  addEventListener('mousemove', (e) => { if (intro && document.pointerLockElement) { const k = 0.0032 * (settings.sens || 1); intro.ly = Math.max(-2.6, Math.min(2.6, intro.ly - e.movementX * k)); intro.lp = Math.max(-1.0, Math.min(1.1, intro.lp - e.movementY * k)); return; } if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
+  addEventListener('mousemove', (e) => { if (petWheel) { petWheelMove(e.movementX, e.movementY); return; } if (intro && document.pointerLockElement) { const k = 0.0032 * (settings.sens || 1); intro.ly = Math.max(-2.6, Math.min(2.6, intro.ly - e.movementX * k)); intro.lp = Math.max(-1.0, Math.min(1.1, intro.lp - e.movementY * k)); return; } if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
   addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) G.player.onWheel(e.deltaY); }, { passive: true });
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
@@ -763,6 +814,7 @@ function gameUpdate(dt) {
   if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
     if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
+  updatePetBar(dt);
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);

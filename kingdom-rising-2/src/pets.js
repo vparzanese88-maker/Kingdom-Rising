@@ -45,14 +45,31 @@ function vanish(m) {
   V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 2.5 });
   G.scene.remove(m.root); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1);
 }
+// ---- pet orders (Z): tap to send them at your target, hold for the command wheel ----
+// modes: guard (default: what you attack, or what attacks you), attack (any hostile near you), follow (never fights), stay (holds its spot)
+export const PETS = { mode: 'guard', taunt: true, order: null, stay: null };
+export const pets = () => G.mobs.filter(m => m.pet && !m.dead);
+export function petCommand(cmd, target) {
+  const list = pets(); if (!list.length) return false;
+  if (cmd === 'taunt') PETS.taunt = !PETS.taunt;
+  else if (cmd === 'attackTarget') { if (!target || target.dead) return false; PETS.order = target; for (const m of list) m.tgt = target; }
+  else { PETS.mode = cmd; PETS.order = null; if (cmd === 'stay') PETS.stay = list.map(m => m.pos.clone()); if (cmd === 'follow') for (const m of list) m.tgt = null; if (cmd !== 'stay') PETS.stay = null; }
+  return true;
+}
+const recent = (t) => t && G.time - t < 8;
 function pickTarget(m, P) {
+  if (PETS.order && !PETS.order.dead) return PETS.order;
+  if (PETS.mode === 'follow') return null;
+  const at = PETS.mode === 'stay' && m.anchor ? m.anchor : P.pos, R = PETS.mode === 'stay' ? 9 : PETS.mode === 'attack' ? 20 : 24;
   let best = null, bd = 1e9;
   for (const o of G.mobs) {
     if (o.dead || o.pet || !foe(o) || !o.root.visible) continue;
-    const dp = Math.hypot(o.pos.x - P.pos.x, o.pos.z - P.pos.z); if (dp > 22) continue;
-    // fight what is fighting you, or what you are fighting
-    if (!(o.state === 'chase' || o === G.target || o.provoked)) continue;
-    const d = Math.hypot(o.pos.x - m.pos.x, o.pos.z - m.pos.z); if (d < bd) { bd = d; best = o; }
+    const dp = Math.hypot(o.pos.x - at.x, o.pos.z - at.z); if (dp > R) continue;
+    // guard: what you are fighting, or what is fighting you; attack: anything hostile; stay: anything that comes close
+    const fighting = (o === G.target && recent(P.hitT)) || (o === P.lastHitBy && recent(P.hurtT)) || (o.state === 'chase' && dp < 14);
+    if (PETS.mode === 'guard' && !fighting) continue;
+    if (PETS.mode === 'attack' && !(fighting || o.hostile || o.provoked)) continue;
+    const d = Math.hypot(o.pos.x - m.pos.x, o.pos.z - m.pos.z) - (o === G.target ? 6 : 0); if (d < bd) { bd = d; best = o; }
   }
   return best;
 }
@@ -61,7 +78,10 @@ function petUpdate(dt) {
   if (P.dead) { vanish(this); return; }
   this.knock.multiplyScalar(0.9);
   this.atkCd -= dt; this.thinkT = (this.thinkT || 0) - dt;
-  if (this.tgt && (this.tgt.dead || Math.hypot(this.tgt.pos.x - P.pos.x, this.tgt.pos.z - P.pos.z) > 28)) this.tgt = null;
+  if (PETS.order && PETS.order.dead) PETS.order = null;
+  if (PETS.mode === 'follow' && !PETS.order) this.tgt = null;
+  if (PETS.mode === 'stay' && PETS.stay) { const k = pets().indexOf(this); this.anchor = PETS.stay[k] || this.anchor || this.pos.clone(); } else this.anchor = null;
+  if (this.tgt && (this.tgt.dead || Math.hypot(this.tgt.pos.x - P.pos.x, this.tgt.pos.z - P.pos.z) > (this.tgt === PETS.order ? 45 : 28) || (this.anchor && Math.hypot(this.tgt.pos.x - this.anchor.x, this.tgt.pos.z - this.anchor.z) > 14))) this.tgt = null;
   if (this.thinkT <= 0) { this.thinkT = 0.4; if (!this.tgt) this.tgt = pickTarget(this, P); }
   let want = null, speed = 0, act = null;
   const reach = D.range ? D.range : 1.4 + (this.radius || 0.5);
@@ -73,15 +93,16 @@ function petUpdate(dt) {
       this.atkCd = D.cd || 1.2; this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6;
       const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2);
       if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
-      t.takeHit(dmg, P, { pet: true }); t.provoked = true; t.petFoe = this; if (t.state !== 'flee') t.state = 'chase';
+      t.takeHit(dmg, P, { pet: true }); t.provoked = true; if (PETS.taunt) t.petFoe = this; else if (t.petFoe === this) t.petFoe = null; if (t.state !== 'flee') t.state = 'chase';
     }
   } else {
     // roam calmly near you on its own: pick a spot a few metres from you, amble there, wait, pick another.
     // Only when you get far away does it trot after you (where you look does not matter).
     const dP = Math.hypot(P.pos.x - this.pos.x, P.pos.z - this.pos.z);
-    if (dP > 45) { const a = Math.random() * 6.28; this.pos.set(P.pos.x + Math.cos(a) * 3, 0, P.pos.z + Math.sin(a) * 3); this.roam = null; }
+    if (this.anchor) { this.roam = this.anchor; this.roamT = 99; }
+    else if (dP > 45) { const a = Math.random() * 6.28; this.pos.set(P.pos.x + Math.cos(a) * 3, 0, P.pos.z + Math.sin(a) * 3); this.roam = null; }
     this.roamT = (this.roamT || 0) - dt;
-    const roamOk = this.roam && Math.hypot(this.roam.x - P.pos.x, this.roam.z - P.pos.z) < 7;
+    const roamOk = this.anchor || (this.roam && Math.hypot(this.roam.x - P.pos.x, this.roam.z - P.pos.z) < (PETS.mode === 'follow' ? 4 : 7));
     if (!roamOk || (this.roamT <= 0 && dP < 9)) { const a = Math.random() * 6.28, r = 2.5 + Math.random() * 3.5; this.roam = new THREE.Vector3(P.pos.x + Math.cos(a) * r, 0, P.pos.z + Math.sin(a) * r); this.roamT = 4 + Math.random() * 6; }
     const d = Math.hypot(this.roam.x - this.pos.x, this.roam.z - this.pos.z);
     if (d > 0.5) { want = this.roam; speed = dP > 9 ? D.speed : Math.min(D.speed * 0.45, 1.2 + d * 0.5); }

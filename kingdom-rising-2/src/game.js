@@ -38,9 +38,7 @@ export function newHero(o) {
     active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   // campaign heroes sail in wearing only a few tattered clothes
-  if (!BATTLE) { // the campaign: everyone starts with one rusty dagger and learns weapons by using them
-    h.equip.w1 = Object.assign(makeWeapon('dagger', 0, 0), { name: 'Rusty Dagger' }); h.equip.w2 = null; h.wseen = ['dagger'];
-  }
+  if (!BATTLE) h.wseen = [activeWeapon(h) ? activeWeapon(h).wt : h.equip.w1.wt]; // the campaign: you start with your class's weapon and learn it by using it
   if (!BATTLE) { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
   return h;
 }
@@ -465,6 +463,7 @@ export function useItem(h, id, player) {
 }
 
 // ---------- quests ----------
+const SEABREAK = ['maren', 'bram', 'torvin', 'elsa', 'lyra', 'pell', 'odo'];
 export function questState(h, q) {
   if (h.quests.done.includes(q.id)) return 'done';
   if (h.quests.active[q.id]) return questComplete(h, q) ? 'ready' : 'active';
@@ -477,6 +476,8 @@ export function objProgress(h, q, i) {
   if (o.t === 'collect') return Math.min(o.n, count(h, o.item));
   if (o.t === 'equip') return ARMOR_SLOT_LIST.some(s => h.equip[s]) ? 1 : 0;
   if (o.t === 'talk') return a && a.p[i] ? 1 : 0;
+  if (o.t === 'gold') return Math.min(o.n, h.gold);
+  if (o.t === 'sideq') return Math.min(o.n, h.quests.done.filter(id => { const x = QUESTS.find(q => q.id === id); return x && !x.main && SEABREAK.includes(x.giver); }).length);
   return a ? Math.min(o.n, a.p[i]) : 0;
 }
 export function questComplete(h, q) { return q.obj.every((o, i) => objProgress(h, q, i) >= (o.n || 1)); }
@@ -495,6 +496,7 @@ export function talkTo(h, npcId) {
 export function turnIn(h, q) {
   if (!questComplete(h, q)) return false;
   if (q.take) for (const k in q.take) if (q.take[k]) removeItem(h, k, q.take[k]);
+  if (q.takeGold) h.gold = Math.max(0, h.gold - q.takeGold);
   delete h.quests.active[q.id]; h.quests.done.push(q.id);
   h.gold += q.gold || 0;
   for (const k in q.items || {}) addItem(h, k, q.items[k]);

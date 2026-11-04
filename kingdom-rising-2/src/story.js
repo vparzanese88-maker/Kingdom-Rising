@@ -51,11 +51,12 @@ const MAREN_ASK = [
   ['maren', 'Before anything else, newcomer: where did you sail from, in a boat like that?'],
   ['you', 'Far enough that it doesn\'t matter.'],
   ['maren', 'Hm. Everyone on this island is running from something. Keep your secrets.'],
-  ['maren', 'Your boat? I know someone who can help. But I must ask something of you first.'],
+  ['maren', 'Your boat? I can help you, if you help me.'],
+  ['maren', 'I know someone who can mend her. But Seabreak needs things first, and you look like someone who gets things done.'],
   ['maren', 'Please, help our people in need, and help our village grow strong enough to defend ourselves from the goblin attacks.'],
   ['maren', 'Do that, and I will lead you to someone who knows where to find repairs and supplies for your boat.'],
   ['you', 'Then tell me where to start.'],
-  ['maren', 'With walls. Bram oversees what little defence we have. Bring him timber and stone and he will raise a palisade around Seabreak.'],
+  ['maren', 'With walls. Bring me timber and stone and I will have a palisade raised around Seabreak, with a gate on every road.'],
 ];
 // (Your past stays your own on Kelda: you came from a place that needed you, helped them rebuild and put down
 // some very dangerous enemies, then had to take this boat and leave in a hurry. That is a story for another time.)
@@ -70,20 +71,19 @@ export const CORWIN_BOAT = [
 ];
 export const SCENES = {
   mq_boat: { done: MAREN_ASK },
-  mq_walls: {
-    done: [['bram', 'That\'s all of it. Right, lads, get those stakes in the ground!'], ['bram', 'There. A proper wall, with a gate on every road. First time in years I\'ll sleep at night.'], ['bram', 'But a wall is only half of it. Without towers, they\'ll just climb over in the dark. Bring me the same again and I\'ll put up two watchtowers at the north gate.']],
-  },
-  mq_towers: {
-    done: [['bram', 'Look at that. Watchtowers, a proper wall. Seabreak looks like a real town now.'], ['bram', 'Go and tell the Elder. She\'ll want to thank you herself.']],
-  },
-  mq_elder: {
-    done: [['maren', 'You have done more for Seabreak in a few days than anyone has in years. And now I will keep my word.'], ['maren', 'The man you need is Pip, the apprentice of Master Corwin Hale, the best shipwright on Kelda. Corwin works in Saltmere, far to the north.'],
-      ['maren', 'But Pip is not in Saltmere. He went into the goblin cave west of here to see what they were up to. He never came out. We think they caught him.'],
-      ['you', 'Then I will bring him back.'], ['maren', 'Be careful. That cave goes deep. Some of it is no place for you yet: find Pip, and get out.']],
-  },
+  mq_walls: { done: [['maren', 'Timber and stone. Good. Bram! Get the men on the north road, we build today.'], ['maren', 'Watch, newcomer. By nightfall Seabreak will have a wall again.'],
+    ['maren', 'Next, our watchmen. They stand guard in rags. Bring me hides, eight of them, and I will have them armoured and give them an armoury to keep it in.']] },
+  mq_hides: { done: [['maren', 'Leather, and good leather. The tanners will have the watch in proper jerkins within the week.'], ['maren', 'Now, towers. A wall with no one looking over it is just a fence. Bring me timber and stone again, more stone this time.']] },
+  mq_towers: { done: [['maren', 'Four towers, at the gates. Now we can see them coming.'], ['maren', 'But towers need people in them. I can hire men from the farms and the docks, if I can pay them. Sixty gold will do it.']] },
+  mq_gold: { done: [['maren', 'Sixty gold. You are a generous soul, newcomer. More than you know.'], ['maren', 'The new men start tonight. We will need somewhere to keep them, and something for them to... train with.'],
+    ['maren', 'One more thing before I keep my word. A village is its people. Help at least three of them with their troubles, and come back to me.']] },
+  mq_people: { done: [['maren', 'Three of our people helped, and walls and towers and men to hold them. Seabreak is strong again. Stronger than it has ever been.'],
+    ['maren', 'And now I will keep my word. The man you need is Pip, the apprentice of Master Corwin Hale, the best shipwright on Kelda. Corwin works in Saltmere, far to the north.'],
+    ['maren', 'But Pip is not in Saltmere. He went into the goblin cave west of here to see what they were up to. He never came out. We think they caught him.'],
+    ['you', 'Then I will bring him back.'], ['maren', 'Be careful. That cave goes deep. Some of it is no place for you yet: find Pip, and get out.']] },
 };
 // the chain, in order: each main quest starts when the one before it is handed in
-export const CHAIN = ['mq_boat', 'mq_walls', 'mq_towers', 'mq_elder', 'mq_pip'];
+export const CHAIN = ['mq_boat', 'mq_walls', 'mq_hides', 'mq_towers', 'mq_gold', 'mq_people', 'mq_pip'];
 // talking to someone: if a main quest wants them, play its scene instead of the dialog window
 export function storyTalk(h, npc) {
   for (const id of Object.keys(h.quests.active)) {

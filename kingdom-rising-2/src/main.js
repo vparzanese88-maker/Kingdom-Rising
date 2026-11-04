@@ -14,7 +14,7 @@ import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
-import { buildDefenses, defensesFor } from './seabreak.js';
+import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -412,7 +412,10 @@ function hooks() {
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); if (storyTalk(G.save, npc)) return; UI.openDialog(npc); };
-  H.storyStep = (id) => { buildDefenses(defensesFor(G.save)); if (id === 'mq_walls') UI.banner('Seabreak is walled', 'A palisade with a gate on every road', 3500); if (id === 'mq_towers') UI.banner('Watchtowers raised', 'Seabreak can defend itself', 3500); UI.updateTracker(); };
+  H.storyStep = (id) => { const st = { mq_walls: 1, mq_hides: 2, mq_towers: 3, mq_gold: 4, mq_people: 5 }[id]; UI.updateTracker();
+    const NAMES = [null, ['Seabreak is walled', 'A palisade with a gate on every road'], ['The armoury is open', 'The watch has leather armour now'], ['Watchtowers raised', 'Four towers watch the gates'], ['New guards hired', 'The barracks are full'], ['The siege yard is finished', 'Seabreak is stronger than it has ever been']];
+    if (st) { UI.toast('The builders are at work...', '🔨', 'gold'); startConstruction(st, (k) => { UI.banner(NAMES[k][0], NAMES[k][1], 3500); S.levelUp && S.levelUp(); }); } };
+  H.moreGuards = (n) => spawnGuards([{ x: VILLAGE.x, z: VILLAGE.z, r: 60, n, col: '#3a7a3a' }]);
   H.relock = () => lockPointer();
   // summons in the campaign (Kingdom Battles overrides these with town pets)
   if (!BATTLE) H.spiritWolf = (p, lv, dur) => summonPets('spirit', p, 1 + (lv - 1) * 9 / (LEVEL_CAP - 1), dur, 1);
@@ -826,7 +829,7 @@ function gameUpdate(dt) {
   if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
     if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
   updatePetBar(dt);
-  updateScene(dt);
+  updateScene(dt); updateConstruction(dt, V, S);
   if (!BATTLE) updateGuards(dt, p);
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }

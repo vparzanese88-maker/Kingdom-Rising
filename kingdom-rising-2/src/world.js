@@ -412,6 +412,17 @@ function house(w, d, h, roof = 'thatch', opts = {}) {
   const wins = [];
   for (const sx of [-1, 1]) { const wn = bx(0.8, 0.8, 0.1, M.window, sx * w * 0.3, 0.5 + h * 0.6, d / 2 + 0.03, g); wins.push(wn); bx(0.95, 0.1, 0.15, M.beam, sx * w * 0.3, 0.5 + h * 0.6 - 0.45, d / 2 + 0.06, g); bx(0.08, 0.8, 0.12, M.beam, sx * w * 0.3, 0.5 + h * 0.6, d / 2 + 0.06, g); }
   for (const sz of [-1, 1]) { const wn = bx(0.1, 0.8, 0.8, M.window, sz * (w / 2 + 0.03), 0.5 + h * 0.6, 0, g); wins.push(wn); }
+  // more detail: shutters, flower boxes, a porch over the door, a woodpile lean-to
+  if (opts.detail) {
+    const shM = opts.shutter || M.clothBlue, flM = new THREE.MeshStandardMaterial({ color: '#c84a5a', roughness: 0.8 }), lfM = new THREE.MeshStandardMaterial({ color: '#4a8a3a', roughness: 0.9 });
+    for (const sx of [-1, 1]) { const wx = sx * w * 0.3, wy = 0.5 + h * 0.6;
+      for (const k of [-1, 1]) bx(0.32, 0.86, 0.06, shM, wx + k * 0.6, wy, d / 2 + 0.09, g);
+      bx(1.0, 0.22, 0.3, M.wood, wx, wy - 0.56, d / 2 + 0.18, g); for (let f = 0; f < 4; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), f % 2 ? flM : lfM); fl.position.set(wx - 0.36 + f * 0.24, wy - 0.4, d / 2 + 0.2); g.add(fl); } }
+    for (const sx of [-1, 1]) cy(0.07, 0.08, 2.5, M.beam, sx * 0.95, 0.5 + 1.25, d / 2 + 1.1, g, 6);
+    const aw = bx(2.3, 0.12, 1.5, opts.roofM || M.roofRed, 0, 0.5 + 2.6, d / 2 + 0.7, g); aw.rotation.x = 0.28;
+    const ln = bx(1.4, 0.1, d * 0.7, M.beam, w / 2 + 0.75, 0.5 + 1.6, 0, g); ln.rotation.z = -0.35;
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { const lg = cy(0.13, 0.13, d * 0.55, M.wood, w / 2 + 0.55, 0.65 + r * 0.26, -d * 0.25 + k * 0.01, g, 6); lg.rotation.x = Math.PI / 2; lg.position.x += (k - 1.5) * 0.27; }
+  }
   // chimney
   if (!opts.noChimney) { bx(0.7, h + rh + 0.8, 0.7, M.stone, w * 0.3, 0.5 + (h + rh + 0.8) / 2, -d * 0.25, g); world.chimneys = world.chimneys || []; g.userData.chimney = new THREE.Vector3(w * 0.3, 0.5 + h + rh + 0.9, -d * 0.25); }
   return g;
@@ -499,10 +510,11 @@ const PIER_Y = 1.25; // piers sit low, level with the rail of a moored boat
 function buildVillage(scene) {
   const V = VILLAGE;
   const H = [
-    [-27.5, 350, 7, 6, 3.6, 'thatch'], [29.7, 343.3, 8, 6, 3.8, 'thatch'], [-31, 374, 7, 6, 3.4, 'thatch'], [34, 366, 7, 7, 3.6, 'red'],
-    [-8.8, 336.7, 9, 7, 4.2, 'red'], [14.3, 333.4, 7, 6, 3.6, 'thatch'],
+    [-29, 350, 9, 7.5, 4.6, 'thatch'], [31.5, 342, 10, 7.5, 4.8, 'thatch'], [-33, 375, 9, 7.5, 4.4, 'red'], [36, 367, 9, 8.5, 4.6, 'red'],
+    [-9.5, 334.5, 11.5, 8.5, 5.2, 'red'], [15, 331.5, 9, 7.5, 4.6, 'thatch'],
   ];
-  for (const h of H) addHouse(scene, h[0], h[1], h[2], h[3], h[4], h[5]);
+  // Seabreak's houses: bigger, with shutters, flower boxes, porches and woodpiles
+  for (const h of H) addHouse(scene, h[0], h[1], h[2], h[3], h[4], h[5], { detail: true, shutter: h[5] === 'red' ? M.clothBlue : M.clothGreen });
   for (const s of STATION_SPOTS) station(scene, s);
   // well
   { const g = new THREE.Group(); const ring = cy(1.0, 1.05, 0.9, M.stone, 0, 0.45, 0, g, 14); const water = cy(0.85, 0.85, 0.05, new THREE.MeshStandardMaterial({ color: '#1a3a5a', roughness: 0.2 }), 0, 0.7, 0, g, 14);

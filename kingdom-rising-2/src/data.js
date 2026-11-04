@@ -754,6 +754,8 @@ export const STATION_SPOTS = [
   { type: 'workbench', x: 252, z: -336, rot: 2.0 }, { type: 'loom', x: 222, z: -318, rot: 1.0 }, { type: 'tanning', x: 226, z: -308, rot: 0.6 },
 ];
 
+// item objectives count what is in your bag, so they say Acquire (if you already have the items, it is done)
+QUESTS.forEach(q => q.obj.forEach(o => { if (o.t === 'collect' && ITEMS[o.item]) { o.hint = o.label; o.label = `Acquire ${ITEMS[o.item].name}`; } }));
 // every quest pays: gold, plus a weapon or armour piece for your class, or food (quests that already give something keep it)
 QUESTS.forEach((q, i) => { if (q.main) return;
   q.gold = Math.max(q.gold || 0, 3 + q.lvl * 3);

@@ -585,9 +585,11 @@ function rmbIcon(W) { return W ? (W.hands === 'dual' ? 'twinfury' : W.kind === '
 
 // --- crafting ---
 let craftState = null;
+const STATION_ICON = { workbench: '🪚', forge: '⚒', loom: '🧵', tanning: '🦬', campfire: '🔥', alchemy: '⚗' };
+const STATION_LINE = { workbench: 'Saw timber, carve bows and staves, shape tools.', forge: 'Smelt ore into ingots and hammer out weapons and mail.', loom: 'Spin cotton and weave cloth for robes and bandages.', tanning: 'Cure hides into leather for armour and straps.', campfire: 'Cook meat and fish into food that keeps you going.', alchemy: 'Brew potions from herbs and roots.' };
 export function openCrafting(station) {
   craftState = { station, cat: 'All', sel: null };
-  openWin('craft', station ? STATIONS[station] : 'Recipes', '', 'big');
+  openWin('craft', station ? STATIONS[station] : 'Recipes', '', 'big craftwin');
   renderCraft();
 }
 function renderCraft() {
@@ -596,35 +598,35 @@ function renderCraft() {
   const all = Game.recipesFor(h).filter(r => !st.station || r.station === st.station);
   const cats = ['All', ...new Set(all.map(r => r.cat))];
   c.innerHTML = '';
-  const lay = el('div', 'craft');
-  const catEl = el('div', 'cats');
-  for (const k of cats) { const b = el('button', st.cat === k ? 'on' : '', k); b.onclick = () => { st.cat = k; st.sel = null; renderCraft(); }; catEl.appendChild(b); }
-  if (!st.station) catEl.appendChild(el('div', '', '<p style="color:var(--dim);font-size:13px">Walk up to a crafting station and press E to craft there. This list shows every recipe you know.</p>'));
-  else catEl.appendChild(el('div', '', `<p style="color:var(--dim);font-size:13px">Showing ${STATIONS[st.station]} recipes. Other stations: workbench, forge, loom, tanning rack, campfire, alchemy table.</p>`));
-  const list = el('div', 'rlist');
+  c.appendChild(el('div', 'crhead', `<div class="cri">${STATION_ICON[st.station] || '📜'}</div><div><b>${st.station ? STATIONS[st.station] : 'Every recipe you know'}</b><span>${st.station ? STATION_LINE[st.station] || '' : 'Walk up to a crafting station and press E to craft there.'}</span></div>`));
+  if (cats.length > 2) { const ce = el('div', 'crcats'); for (const k of cats) { const b = el('button', st.cat === k ? 'on' : '', k); b.onclick = () => { S.click(); st.cat = k; st.sel = null; renderCraft(); }; ce.appendChild(b); } c.appendChild(ce); }
+  const lay = el('div', 'crlay'); c.appendChild(lay);
   const rs = all.filter(r => st.cat === 'All' || r.cat === st.cat).sort((a, b) => (Game.canCraft(h, b) - Game.canCraft(h, a)) || a.lvl - b.lvl);
+  if (!st.sel || !rs.includes(st.sel)) st.sel = rs[0] || null;
+  const grid = el('div', 'crgrid');
   for (const r of rs) {
-    const can = Game.canCraft(h, r);
-    const b = el('button', (st.sel === r ? 'on ' : '') + (can ? 'can' : h.level < r.lvl ? 'no' : ''), `<span class="i">${Icons.itemSvg(Game.recipeItem(r))}</span><div><b>${esc(Game.recipeOutputName(r))}</b><div style="font-size:12px;color:var(--dim)">${STATIONS[r.station]}${h.level < r.lvl ? ` · needs level ${r.lvl}` : ''}</div></div>`);
-    b.onclick = () => { st.sel = r; S.click(); renderCraft(); };
-    list.appendChild(b);
+    const can = Game.canCraft(h, r), low = h.level < r.lvl;
+    const t = el('button', 'crtile' + (st.sel === r ? ' sel' : '') + (can ? ' can' : low ? ' low' : ''), `<div class="ti">${Icons.itemSvg(Game.recipeItem(r))}</div><b>${esc(Game.recipeOutputName(r))}</b><small>${low ? '🔒 Level ' + r.lvl : can ? 'Ready to craft' : 'Missing materials'}</small>`);
+    t.onclick = () => { S.click(); st.sel = r; renderCraft(); }; grid.appendChild(t);
   }
-  if (!st.sel && rs.length) st.sel = rs[0];
-  const det = el('div', 'tip');
+  if (!rs.length) grid.appendChild(el('p', 'dim', 'Nothing you can make here yet.'));
+  lay.appendChild(grid);
+  const det = el('div', 'crdet');
   if (st.sel) {
-    const r = st.sel;
-    det.innerHTML = `<div class="tiphead"><div class="tic">${Icons.itemSvg(Game.recipeItem(r))}</div><b style="font-size:20px">${esc(Game.recipeOutputName(r))}</b></div><div style="color:var(--dim)">${STATIONS[r.station]} · level ${r.lvl}</div><div style="margin:8px 0">` + Object.entries(r.need).map(([k, n]) => { const have = Game.count(h, k); return `<div class="need"><span><span class="ni">${Icons.itemSvg({ id: k })}</span> ${ITEMS[k].name}</span><span class="${have >= n ? 'ok' : 'no'}">${have} / ${n}</span></div>`; }).join('') + '</div>';
-    if (r.weapon || r.armor) det.innerHTML += `<div style="color:var(--dim);font-size:13px">Crafted gear has a chance to come out Uncommon, Rare or even Epic.</div>`;
-    const row = el('div', 'row');
-    const atStation = !st.station ? false : true;
-    const cb = el('button', 'btn gold', 'Craft'); cb.disabled = !Game.canCraft(h, r) || !atStation;
-    cb.onclick = () => { if (Game.craft(h, r)) { renderCraft(); } };
-    const cb5 = el('button', 'btn', 'Craft ×5'); cb5.disabled = cb.disabled || !!(r.weapon || r.armor || r.tool);
-    cb5.onclick = () => { for (let i = 0; i < 5 && Game.canCraft(h, r); i++) Game.craft(h, r); renderCraft(); };
-    row.append(cb, cb5); det.appendChild(row);
-    if (!atStation) det.appendChild(el('div', '', `<div style="color:var(--bad);margin-top:6px">Go to a ${STATIONS[r.station]} to craft this.</div>`));
+    const r = st.sel, it = Game.recipeItem(r), can = Game.canCraft(h, r);
+    let statHtml = ''; if (it && it.kind) { const d = el('div'); showTip(d, it, null, null, null, false); statHtml = d.innerHTML; }
+    else if (it && ITEMS[it.id]) statHtml = `<div class="dim">${esc(ITEMS[it.id].desc || '')}</div>`;
+    const mats = Object.entries(r.need).map(([id, n]) => { const have = Game.count(h, id), ok = have >= n; return `<div class="crmat${ok ? ' ok' : ''}"><span class="mi">${Icons.itemSvg({ id })}</span><b>${esc(ITEMS[id] ? ITEMS[id].name : id)}</b><em>${have}/${n}</em></div>`; }).join('');
+    det.innerHTML = `<div class="crbig"><div class="ti">${Icons.itemSvg(it)}</div><div><b>${esc(Game.recipeOutputName(r))}</b>${r.n > 1 ? ` <span class="dim">×${r.n}</span>` : ''}<div class="dim">${STATIONS[r.station]} · level ${r.lvl}</div></div></div>
+      <div class="crstats">${statHtml}</div><h4>Materials</h4><div class="crmats">${mats}</div>${r.weapon || r.armor ? '<div class="dim crnote">Crafted gear sometimes comes out Uncommon, or better.</div>' : ''}`;
+    const row = el('div', 'crbtns'), here = !!st.station;
+    const mk = (label, n, cls) => { const b = el('button', 'btn ' + cls, label); b.disabled = !can || !here; b.onclick = () => { let k = 0; while (k < n && Game.canCraft(h, r)) { Game.craft(h, r); k++; } if (k) toast(`Made ${esc(Game.recipeOutputName(r))}${k > 1 ? ' ×' + k : ''}`, Icons.itemSvg(it), 'gold'); renderCraft(); }; row.appendChild(b); };
+    mk('Craft', 1, 'gold big'); if (!(r.weapon || r.armor || r.tool)) { mk('×5', 5, ''); mk('All', 99, ''); }
+    det.appendChild(row);
+    if (!here) det.appendChild(el('div', 'crwarn', `Go to a ${STATIONS[r.station]} to make this.`));
+    else if (h.level < r.lvl) det.appendChild(el('div', 'crwarn', `You need to be level ${r.lvl}.`));
   }
-  lay.append(catEl, list, det); c.appendChild(lay);
+  lay.appendChild(det);
 }
 
 // --- quest log ---

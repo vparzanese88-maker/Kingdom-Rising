@@ -247,7 +247,7 @@ const warn = (t) => { G.hooks.toast && G.hooks.toast(t, '⚠', 'bad'); S.error()
 export function equipFromInv(h, idx, slot) {
   const it = h.inv[idx]; if (!it || !it.kind) return false;
   if (!canEquip(h, it, slot)) { warn(it.kind === 'acc' && it.slot !== 'back' ? 'That is no longer worn. Sell it to a merchant.' : `${CLASSES[h.cls].name}s can't use that.`); return false; }
-  if (it.lvl > h.level) { warn(`Requires level ${it.lvl}.`); return false; }
+  // (no level requirement: any gear can be worn at any level)
   let target = it.kind === 'weapon' ? 'w1' : it.slot;
   if (it.kind === 'acc' && it.slot === 'ring') target = slot === 'ring1' || slot === 'ring2' ? slot : (!h.equip.ring1 ? 'ring1' : !h.equip.ring2 ? 'ring2' : 'ring1');
   if (slot === 'ranged') slot = 'w3';

@@ -330,9 +330,9 @@ function battleHooks() {
     const h = G.save, score = (it) => (it ? (it.armor || 0) * 1.5 + Object.values(it.stats || {}).reduce((a, b) => a + b, 0) * 2 + it.rarity * 2 : -1);
     for (const g of got) {
       let eq = false; const i = h.inv.indexOf(g);
-      if (i >= 0 && settings.autoEquip !== false && g.kind !== 'weapon' && Game.canEquip(h, g) && (g.lvl || 1) <= h.level) { const cur = h.equip[g.slot]; if (score(g) > score(cur)) eq = Game.equipFromInv(h, i); }
+      if (i >= 0 && settings.autoEquip !== false && g.kind !== 'weapon' && Game.canEquip(h, g)) { const cur = h.equip[g.slot]; if (score(g) > score(cur)) eq = Game.equipFromInv(h, i); }
       // a better weapon of the same kind you already use goes straight into that hand (either weapon set)
-      else if (i >= 0 && settings.autoEquip !== false && g.kind === 'weapon' && (g.lvl || 1) <= h.level) {
+      else if (i >= 0 && settings.autoEquip !== false && g.kind === 'weapon') {
         const wscore = (it) => (it ? (it.dmg || 0) * 2 + Object.values(it.stats || {}).reduce((a, b) => a + b, 0) * 2 + it.rarity * 2 : -1);
         const slot = ['w1', 'w2', 'w3', 'w4'].find(k => h.equip[k] && h.equip[k].wt === g.wt && wscore(g) > wscore(h.equip[k]));
         if (slot) { eq = Game.equipFromInv(h, i, slot); if (eq && G.player) G.player.refreshGear(); }

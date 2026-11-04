@@ -230,7 +230,7 @@ const WT = (kind) => {
 };
 export const WEAPON_TREE = { melee: WT('melee'), bow: WT('bow'), staff: WT('staff') };
 export const familyTree = (fam) => WEAPON_TREE[FAMILIES[fam].kind];
-export const MASTERY_CAP = 20;
+export const MASTERY_CAP = 9999; // weapon skill has no top: it keeps growing (+1% damage a point)
 export const masteryXpFor = (lv) => 60 + lv * 45;
 export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'staff') return 'int'; if (W.kind === 'bow' || W.kind === 'gun' || wt === 'daggers' || wt === 'dagger' || wt === 'fists' || wt === 'handaxes' || wt === 'spear') return 'dex'; return 'str'; }
 

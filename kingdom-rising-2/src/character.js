@@ -623,9 +623,12 @@ const _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _sq3 = new T
 // keep a strapped shield upright (point down, face outward) whatever the arm is doing
 function uprightShield(ch, st) {
   const sh = ch.weapons && ch.weapons.off; if (!sh || !sh.userData.isShield || !sh.parent) return;
+  if (!sh.userData.sized) { sh.userData.sized = true; sh.scale.multiplyScalar(0.62); } // a little smaller on the body than in your first-person view
   ch.root.updateMatrixWorld(true);
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
-  _sq3.setFromEuler(_se.set(st.block ? -0.1 : 0.08, st.block ? 0.12 : 0.62, 0));
+  // blocking: face front; otherwise it hangs flat along your side, facing out
+  const bk = sh.userData.bk = (sh.userData.bk || 0) + ((st.block ? 1 : 0) - (sh.userData.bk || 0)) * 0.25;
+  _sq3.setFromEuler(_se.set(-0.1 * bk + 0.04 * (1 - bk), 0.12 * bk + 1.5 * (1 - bk), 0));
   _sq2.multiply(_sq3);
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }

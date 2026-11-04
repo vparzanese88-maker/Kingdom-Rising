@@ -326,6 +326,23 @@ export const S = {
     // war drums underneath
     for (let i = 0; i < 8; i++) { const tt = t + 0.1 + i * 0.5 + (i % 2 ? 0.12 : 0); tone(tt, 0.5, o.node, { type: 'sine', f: enemy ? 52 : 62, f2: 34, gain: 0.5, a: 0.004 }); noise(tt, 0.12, o.node, { type: 'lowpass', f: 600, gain: 0.25 }); }
   },
+  // warrior Charge: a short gruff yell, then armour rattle, wind and pounding boots for the length of the rush
+  chargeRush(dur = 0.5) {
+    if (!ctx) return; const o = out(null, sfxBus, 0.12); const t = now();
+    for (let v = 0; v < 3; v++) tone(t + v * 0.02, 0.55, o.node, { type: 'sawtooth', f: 120 + v * 35, f2: 95 + v * 30, gain: 0.07, a: 0.03 });
+    noise(t, 0.5, o.node, { type: 'bandpass', f: 700, f2: 500, q: 1.2, gain: 0.22, a: 0.03 });
+    const w = t + 0.12; noise(w, dur + 0.2, o.node, { type: 'bandpass', f: 300, f2: 1400, q: 0.6, gain: 0.25, a: dur * 0.6 });
+    const n = Math.max(3, Math.round(dur / 0.09));
+    for (let i = 0; i < n; i++) { const s = w + i * (dur / n); tone(s, 0.12, o.node, { type: 'sine', f: 85, f2: 40, gain: 0.45, a: 0.003 }); noise(s, 0.08, o.node, { type: 'lowpass', f: 600, q: 0.7, gain: 0.35, a: 0.002 }); noise(s + 0.02, 0.07, o.node, { type: 'highpass', f: 4500, q: 1, gain: 0.08, a: 0.002 }); }
+  },
+  // the charge slams into something: deep body thud and a crack of steel
+  chargeImpact(pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.2); const t = now();
+    tone(t, 0.35, o.node, { type: 'sine', f: 110, f2: 32, gain: 0.7, a: 0.002 });
+    noise(t, 0.25, o.node, { type: 'lowpass', f: 900, f2: 200, q: 0.8, gain: 0.6, a: 0.002 });
+    noise(t, 0.12, o.node, { type: 'bandpass', f: 3200, q: 2, gain: 0.25, a: 0.001 });
+    tone(t, 0.3, o.node, { type: 'triangle', f: 640, f2: 520, gain: 0.08, a: 0.001 });
+  },
   battleCry() {
     if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now();
     for (let v = 0; v < 4; v++) { const f = 140 + v * 30; const x = tone(t + v * 0.03, 1.2, o.node, { type: 'sawtooth', f, f2: f * 1.25, gain: 0.08, a: 0.05 }); }

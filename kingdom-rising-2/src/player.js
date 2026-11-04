@@ -696,7 +696,9 @@ export class Player {
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'charge': {
-        S.battleCry(); this.dodge = { t: 0, dur: 0.38 * (1 + this.pk('a1up') * 0.2), dir: f.clone(), speed: 32, charge: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 14;
+        // a beat to brace (crouch behind the shield), then a hard, accelerating rush that bowls through everything
+        const dur = 0.42 * (1 + this.pk('a1up') * 0.2); S.chargeRush(dur);
+        this.dodge = { t: -0.3, dur, dir: f.clone(), speed: 36, charge: true, rush: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 4; this.landDip = Math.max(this.landDip || 0, 0.18);
         this.atk = { name: 'heavy', t: 0.3, dur: 0.5, hit: true, noQueue: true };
         break;
       }
@@ -1467,9 +1469,11 @@ export class Player {
       }
     } else if (this.dodge) {
       const D = this.dodge; D.t += dt / D.dur;
-      const s = D.speed * (D.charge ? 1 : (1 - D.t * 0.75));
+      if (D.rush && D.t < 0) { this.vel.x *= 0.5; this.vel.z *= 0.5; D.t += dt * 2 - dt / D.dur; } // the brace, about 0.15 s
+      const s = D.t < 0 ? 0 : D.speed * (D.rush ? Math.min(1, 0.55 + D.t * 2.2) * (D.t > 0.85 ? 0.6 : 1) : D.charge ? 1 : (1 - D.t * 0.75));
+      if (D.rush && D.t >= 0) { this.fovKick = Math.max(this.fovKick, 18 * Math.min(1, D.t * 3)); D.step = (D.step || 0) + dt; if (D.step > 0.09) { D.step = 0; V.addShake(0.07); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 6, { speed: 3, size: 0.7 }); } }
       this.vel.x = D.dir.x * s; this.vel.z = D.dir.z * s;
-      if (D.charge) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, Object.assign({ knock: side.multiplyScalar(9).add(D.dir.clone().multiplyScalar(4)), stun: 1, big: true, melee: true }, D.extra || {})); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
+      if (D.charge && D.t >= 0) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); if (D.rush) { S.chargeImpact(m.pos); G.hitstop = Math.max(G.hitstop || 0, 0.08); V.addShake(0.35); V.burst('spark', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 6 }); V.burst('dust', m.pos.clone().setY(m.pos.y + 0.3), 18, { speed: 4, size: 0.8 }); } const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, Object.assign({ knock: side.multiplyScalar(D.rush ? 7 : 9).add(D.dir.clone().multiplyScalar(D.rush ? 9 : 4)), stun: 1, big: true, melee: true }, D.extra || {})); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
       if (D.t >= 1) { this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
       const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? 12 : 2.5));

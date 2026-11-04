@@ -430,35 +430,29 @@ function renderBook() {
   c.innerHTML = '';
   abilityTab(c, h, cls, list, res, k);
 }
-// ---- Weapons tab: one simple card per weapon in your hands, then the other weapons you know ----
+// ---- Weapons tab: big, plain rows: what each key does, and what you still have to learn ----
 function renderWeapons(c) {
   const h = G.save; c.innerHTML = '';
-  const act = Game.activeWeapon(h), sets = [[h.equip.w1, h.equip.w2, act, true]];
-  if (h.equip.w3) sets.push([h.equip.w3, h.equip.w4, h.equip.w3, false]);
-  const lock = (lv) => `<span class="wlock">🔒 skill ${lv}</span>`;
-  for (const [main, off, a, inHand] of sets) {
-    if (!main || !a) continue;
-    const wt = a.wt, W = WEAPON_TYPES[wt]; if (!W) continue;
-    const fam = familiesOf(wt)[0], m = Game.wm(h, fam), need = masteryXpFor(m.lv), lv = Game.masteryOf(h, wt);
-    const st = UI.comboSteps(wt).filter(x => !/^Hold/.test(x.n)), L = Game.comboLen(h, wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
-    const nextLocks = W.kind === 'melee' ? st.map((x, i) => i >= L ? Game.stepReq(st.length, i) : 0).filter(Boolean) : [];
-    const lmb = W.kind === 'melee' ? `${L === 1 ? 'A single strike' : `A ${L}-hit combo`}: ${st.slice(0, L).map(x => x.n).join(' → ')}${nextLocks.length ? ` <span class="wlock">more strikes at skill ${nextLocks.join(', ')}</span>` : ''}` : st.map(x => x.n.replace('Tap: ', '')).join(', ');
-    const rows = [
-      ['Left click', lmb, true],
-      ['Hold left click', holdText(wt), Game.canHold(h, wt), Game.WM_HOLD],
-      S2 && ['F', `<b>${S2.name}</b>: ${S2.desc}`, Game.canSpecial(h, wt), Game.WM_F],
-      ['Right click (hold)', 'Block. Raise it just before a hit to block it completely.', true],
-    ].filter(Boolean);
-    const skill = BATTLE ? '' : `<div class="wskill"><span>${FAMILIESN(fam)} skill <b>${m.lv}</b> / ${MASTERY_CAP}</span><i><u style="width:${m.lv >= MASTERY_CAP ? 100 : Math.round(m.xp / need * 100)}%"></u></i><small>Speed ${Math.round(Game.speedOf(h, wt) * 100)}% · damage +${m.lv - 1}% · it grows each time you hit with it</small></div>`;
-    c.appendChild(el('div', 'wcard2' + (inHand ? ' now' : ''), `<div class="wc2h"><div class="bi">${Icons.itemSvg(main)}</div><div><b>${main.name}</b>${off && off !== main && !W.parts[1] ? ` <small>+ ${off.name}</small>` : ''}<div class="dim">${inHand ? 'In your hands' : 'Set 2 · press Q to swap'}</div></div></div>${skill}
-      ${rows.map(([k, t, ok, at]) => `<div class="wrow2${ok ? '' : ' off'}"><b>${k}</b><span>${ok ? t : lock(at) + ' ' + t}</span></div>`).join('')}`));
+  const act = Game.activeWeapon(h), main = h.equip.w1;
+  if (!act || !main) { c.appendChild(el('p', 'dim', 'No weapon in your hands.')); return; }
+  const wt = act.wt, W = WEAPON_TYPES[wt], fam = familiesOf(wt)[0], m = Game.wm(h, fam), need = masteryXpFor(m.lv);
+  const st = UI.comboSteps(wt).filter(x => !/^Hold/.test(x.n)), L = Game.comboLen(h, wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
+  const holdName = W.kind === 'bow' ? 'Draw and shoot' : W.kind === 'gun' ? 'Aim down the barrel' : W.kind === 'staff' ? 'Pour out the staff\'s element' : ['sword', 'swordshield', 'swordmace', 'greatsword'].includes(wt) ? 'Overhead strike' : 'Heavy blow';
+  const rows = [
+    ['LMB', 'Left click', W.kind === 'melee' ? (L === 1 ? `${st[0].n}` : `${L}-hit combo`) : st.map(x => x.n.replace('Tap: ', '')).join(', '), 0, W.kind === 'melee' ? st.slice(0, L).map(x => x.n).join(' → ') : ''],
+    ['HOLD', 'Hold left click', holdName, Game.canHold(h, wt) ? 0 : Game.WM_HOLD, holdText(wt)],
+    S2 && ['F', 'F', S2.name, Game.canSpecial(h, wt) ? 0 : Game.WM_F, S2.desc],
+    ['RMB', 'Right click', 'Block', 0, 'Hold to block. Raise it just before a hit to block it completely.'],
+  ].filter(Boolean);
+  const next = BATTLE ? null : Game.weaponUnlocks(wt).find(u => u.lv > m.lv);
+  c.appendChild(el('div', 'wsimple', `
+    <div class="wsh2"><div class="bi">${Icons.itemSvg(main)}</div><div><b>${main.name}</b>${BATTLE ? '' : `<div class="wsk"><span>${FAMILIESN(fam)} skill <b>${m.lv}</b></span><i><u style="width:${m.lv >= MASTERY_CAP ? 100 : Math.round(m.xp / need * 100)}%"></u></i><span class="dim">Speed ${Math.round(Game.speedOf(h, wt) * 100)}% · Damage +${m.lv - 1}%</span></div>`}</div></div>
+    ${rows.map(([k, label, name, lockAt, tip]) => `<div class="wrow3${lockAt ? ' off' : ''}" title="${(tip || '').replace(/"/g, '')}"><kbd>${k}</kbd><span class="wl">${label}</span><b>${name}</b>${lockAt ? `<em>🔒 skill ${lockAt}</em>` : ''}</div>`).join('')}
+    ${next ? `<div class="wnext">Next unlock: <b>${next.what}</b> at skill ${next.lv}. Hit things with it to get there.</div>` : ''}`));
+  if (!BATTLE) {
+    const seen = (h.wseen || []).filter(x => WEAPON_TYPES[x] && x !== wt);
+    if (seen.length) c.appendChild(el('div', 'wothers', '<h3>Other weapons you know</h3>' + seen.map(x => `<span><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt: x, tier: 2, rarity: 0 })}</div>${WEAPON_TYPES[x].name} <b>skill ${Game.wm(h, familiesOf(x)[0]).lv}</b></span>`).join('')));
   }
-  if (!act) c.appendChild(el('p', 'dim', 'No weapon in your hands.'));
-  if (!BATTLE) { // the other weapons you have learned
-    const seen = (h.wseen || []).filter(wt => WEAPON_TYPES[wt] && (!act || wt !== act.wt));
-    if (seen.length) c.appendChild(el('div', 'wothers', '<h3>Other weapons you know</h3>' + seen.map(wt => { const m = Game.wm(h, familiesOf(wt)[0]); return `<span><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt, tier: 2, rarity: 0 })}</div>${WEAPON_TYPES[wt].name} <b>skill ${m.lv}</b></span>`; }).join('')));
-  }
-  c.appendChild(el('p', 'bwrule', 'Two daggers or two one-handed weapons fight as a pair. A shield in the off hand blocks better.'));
 }
 const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {

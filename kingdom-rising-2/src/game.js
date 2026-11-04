@@ -215,7 +215,7 @@ export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4
 export function masteryOf(h, wt) { return BATTLE ? 99 : wm(h, familiesOf(wt)[0]).lv; }
 export function comboLen(h, wt) { const C = COMBOS[wt]; if (!C) return 0; const lv = masteryOf(h, wt); let n = 0; while (n < C.chain.length && stepReq(C.chain.length, n) <= lv) n++; return Math.max(1, n); }
 export function canHold(h, wt) { const W = WEAPON_TYPES[wt]; if (!W || W.kind === 'bow' || W.kind === 'gun') return true; return masteryOf(h, wt) >= WM_HOLD; }
-export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE ? 1 : 0.72 + 0.28 * Math.min(1, (lv - 1) / 14); } // 72% at skill 1, full speed at skill 15
+export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE ? 1 : 0.55 + 0.45 * Math.min(1, (lv - 1) / 19); } // slow and clumsy at skill 1 (55%), full speed at skill 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {

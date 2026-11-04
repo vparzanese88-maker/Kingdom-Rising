@@ -1,4 +1,5 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
+import { CLASS_STORY } from './classlore.js';
 import * as THREE from 'three';
 import { NEW_CLASSES } from './classes2.js';
 import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
@@ -129,7 +130,7 @@ const STAT_MAX = 18;
 function statBars(st) { return `<div class="bars">${Object.keys(STAT_NAMES).map(k => `<span>${STAT_NAMES[k]}</span><div class="bt"><i style="width:${st[k] / STAT_MAX * 100}%"></i></div><b>${st[k]}</b>`).join('')}</div>`; }
 function renderSummary() {
   const R = RACES[C.race], K = CLASSES[C.cls], P = poolsAt(C.cls, 1);
-  $('cSum').innerHTML = `<div class="eyebrow">Your hero</div><h3>${esc(C.name.trim() || 'Unnamed')}</h3><div class="sub">${R.name} ${K.name} · ${C.sex === 'm' ? 'Male' : 'Female'}</div>${statBars(R.stats)}<div class="kv"><span>Health</span><b>${P.hp + R.hp + R.stats.sta * 6}</b></div>${P.mana ? `<div class="kv"><span>Mana</span><b>${P.mana + R.stats.int * 6}</b></div>` : ''}<div class="kv"><span>Endurance</span><b>${P.end + R.stats.dex * 2}</b></div><div class="kv"><span>Starts with</span><b style="text-align:right">${CLASS_INFO[C.cls].start}</b></div>`;
+  $('cSum').innerHTML = `<div class="eyebrow">Your hero</div><h3>${esc(C.name.trim() || 'Unnamed')}</h3><div class="sub">${R.name} ${K.name} · ${C.sex === 'm' ? 'Male' : 'Female'}</div>${statBars(R.stats)}<div class="kv"><span>Health</span><b>${P.hp + R.hp + R.stats.sta * 6}</b></div>${P.mana ? `<div class="kv"><span>Mana</span><b>${P.mana + R.stats.int * 6}</b></div>` : ''}<div class="kv"><span>Endurance</span><b>${P.end + R.stats.dex * 2}</b></div><div class="kv"><span>Starts with</span><b style="text-align:right">${C.battle ? CLASS_INFO[C.cls].start : "Rusty Dagger"}</b></div>`;
 }
 function renderCreator() {
   const tabs = $('cTabs'); tabs.innerHTML = '';
@@ -156,13 +157,14 @@ function renderCreator() {
     sect('Class');
     for (const k of Object.keys(CLASSES)) body.appendChild(opt({ name: CLASSES[k].name, icon: `<div style="width:38px;height:38px">${Icons.itemSvg(CLS_WPN[k])}</div>`, small: CLASS_INFO[k].role, tag: CLASS_INFO[k].tag }, C.cls === k, () => { C.cls = k; C.weapon = START[k]; }));
     const I = CLASS_INFO[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
-    body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${I.start}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
+    { const ST = CLASS_STORY[C.cls]; if (ST) body.appendChild(el('div', 'clstory', `<div class="cst">${ST.title}</div><div class="cmotto">“${ST.motto}”</div><p>${ST.story}</p><h4>How they fight</h4><p>${ST.fight}</p>`)); }
+    body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${C.battle ? I.start : 'a Rusty Dagger'}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
     // the starting weapon: what each button does with it
     { const wt = (START[C.cls] || 'sword'), W = WEAPON_TYPES[wt], bt = !!C.battle;
       const st = comboSteps(wt, bt), sid = RMB_SPECIAL[wt], SP = sid && WSKILLS[sid];
       const tap = st.filter(x => !/^Hold/.test(x.n)), hold = st.filter(x => /^Hold/.test(x.n));
       const holdTxt = hold.length ? `${hold[0].n.replace('Hold: ', '')}: ${hold[0].tags.join(', ')}` : W.kind === 'bow' ? 'Draw the bow: the longer you hold, the harder, faster and straighter the arrow' : W.kind === 'gun' ? 'Raise the musket and aim down the barrel: a harder, straighter shot (zooms in)' : 'Wind up a heavy blow: hits much harder';
-      sect(`Your weapon · ${W.name}`);
+      sect(`${C.battle ? 'Your weapon' : 'Favoured weapon'} · ${W.name}`);
       body.appendChild(el('div', 'wkeys', `<div><b>Left click</b><span>${W.kind === 'melee' ? 'Combo: ' + tap.map(x => `${x.n} (${x.d}%)`).join(' → ') : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ' · ' + x.tags.join(', ') : ''}`).join('')}</span></div>
         <div><b>Hold left click</b><span>${holdTxt}</span></div>
         ${SP ? `<div><b>${bt ? 'F' : 'Right click'}</b><span><b class="wsn">${SP.name}</b> ${SP.desc} (every ${SP.cd} s)</span></div>` : ''}
@@ -171,7 +173,7 @@ function renderCreator() {
     sect('How to play');
     body.appendChild(el('ul', 'tips', I.tips.map(t => `<li>${t}</li>`).join('')));
     sect('Class abilities');
-    body.appendChild(el('p', 'cintro', `You learn five abilities as you level up (levels 1, 4, 7, 10 and 14). Each goes on your hotbar when learned; put any three on keys 1, 2 and 3 in Class Talents (N). They cost ${I.res.toLowerCase()}.`));
+    body.appendChild(el('p', 'cintro', `You learn new abilities as you level up, the last at level ${C.battle ? 9 : 18}. Choose any four for hotbar keys 1 to 4 in the ability book (K); they grow stronger every level. They cost ${I.res.toLowerCase()}.`));
     for (const a of ABILITIES[C.cls]) body.appendChild(el('div', 'abl', `<div class="ai">${Icons.abilityIcon(a.id)}</div><div><b>${a.name}</b> <span style="color:var(--mut)">level ${a.level}</span><br>${a.desc} <span style="color:var(--mut)">${a.cost ? a.cost + ' ' + I.res.toLowerCase() : 'free'}</span></div>`));
   } else if (tab === 2) {
     intro('Shape your hero. This is purely how you look; your attributes come from your race and gear.');

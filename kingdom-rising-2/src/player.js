@@ -1226,7 +1226,11 @@ export class Player {
   die() { this.dead = true; this.atk = null; this.press = null; this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
-  jump() { if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
+  // swimming: Space next to a low edge (a boat deck, a pier) climbs you out of the water
+  climbOut() { let g = null, r = 0; for (const d of [0.6, 1.2, 1.9, 2.6]) { const t = groundAt(this.pos.x + Math.sin(this.yaw) * d, this.pos.z + Math.cos(this.yaw) * d, this.pos.y + 2.8); if (t.surf && t.h - this.pos.y <= 2.8) { g = t; r = d; break; } } if (!g) return false;
+    this.pos.x += Math.sin(this.yaw) * r; this.pos.z += Math.cos(this.yaw) * r; this.pos.y = g.h; this.vel.set(0, 0, 0); this.onGround = true; this.swim = false; S.splash(this.pos, 0.6); return true; }
+  swimK() { if (BATTLE) return 1; const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
+  jump() { if (this.swim) { this.climbOut(); return; } if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
@@ -1261,7 +1265,7 @@ export class Player {
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
     for (const n of G.npcs) { if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name); else if (n.talkable) consider(n, n.pos.x, n.pos.z, 0.4, 'villager', 'Talk to ' + n.vname); }
-    if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, clamp(this.pos.z, world.myBoatHome.z - 6, world.myBoatHome.z + 6), 3.2, 'boat', 'Board your boat');
+    if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, clamp(this.pos.z, world.myBoatHome.z - 6, world.myBoatHome.z + 6), 3.2, 'boat', 'Set sail');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
     if (!G.noHarvest) for (const n of nodesNear(this.pos.x, this.pos.z)) if (n.alive) consider(n, n.x, n.z, n.type.startsWith('tree') ? 0.5 * n.s : n.type === 'cotton' || n.type === 'healroot' ? 0.2 : 0.8 * n.s, 'node', n.def.verb + ' ' + n.def.name);
@@ -1365,7 +1369,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.summonCast ? 0.35 : 1) * (this.swim ? 3.2 : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.summonCast ? 0.35 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
@@ -1398,6 +1402,7 @@ export class Player {
     const depth = wl - gh.h;
     this.swim = depth > 1.35 && this.pos.y < wl - 0.9 && !gh.surf;
     if (!this.leap) {
+      if (this.swim && !BATTLE && md.lengthSq() > 0.1) { this.swimT = (this.swimT || 0) + dt; if (this.swimT > 1) { this.swimT = 0; const sk = this.h.swimSkill || 1; if (sk < 50 && Math.random() < 1 / (6 + sk * 1.3)) { this.h.swimSkill = sk + 1; G.hooks.skillUp && G.hooks.skillUp('Swimming', sk + 1); } } }
       if (this.swim) { this.vel.y += ((wl - 1.25) - this.pos.y) * dt * 6 - this.vel.y * dt * 3; if (Math.random() < dt * 4 && md.lengthSq() > 0.1) S.splash(this.pos, 0.3); }
       else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;

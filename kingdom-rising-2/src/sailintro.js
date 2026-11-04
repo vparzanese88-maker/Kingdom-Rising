@@ -1,7 +1,7 @@
 // Campaign opening: you sail in towards Driftwood Coast on a battered little boat, in first person.
 // The same boat is then tied up at the end of the pier for the rest of the game (press E: it needs repairs).
 import * as THREE from 'three';
-import { world, addBox } from './world.js';
+import { world, addSurface } from './world.js';
 
 const mat = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85 }, o));
 const M = {
@@ -24,7 +24,7 @@ export function buildBoat() {
   // gunwale rail around the top
   const rail = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 6, 40), M.rail); rail.rotation.x = Math.PI / 2; rail.scale.set(1.15, 2.7, 1); rail.position.y = 0.76; g.add(rail);
   // a solid bottom (keeps the sea out of sight) under the floor boards, thwarts (seats)
-  box(2.05, 0.03, 5.1, M.hullDark, 0, 0.165, 0, g);
+  { const fl = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.03, 28), M.hullDark); fl.scale.set(0.7, 1, 1.66); fl.position.y = 0.17; g.add(fl); } // the bottom, shaped to the hull
   for (let i = -4; i <= 4; i++) box(1.3, 0.04, 0.2, M.plank, 0, 0.18, i * 0.42, g);
   box(1.9, 0.06, 0.32, M.plank, 0, 0.52, -1.25, g); box(2.05, 0.06, 0.3, M.plank, 0, 0.55, 0.35, g); box(1.2, 0.06, 0.28, M.plank, 0, 0.6, 1.7, g);
   // mast, boom and a torn, patched sail
@@ -82,6 +82,7 @@ export function placeHomeBoat(scene) {
   b.position.set(x, BOAT_Y, z); b.rotation.y = 0.04; scene.add(b);
   world.myBoat = b; world.myBoatHome = { x, z, yaw: 0.04 };
   // a rope from the bow to a pier post
-  addBox(x, z, 1.1 * BOAT_SCALE, 2.6 * BOAT_SCALE, 0.04, 'boat');
+  // the deck is walkable: jump down from the pier, walk about, step back up or jump off into the sea
+  addSurface(x, z, 0.62 * BOAT_SCALE, 1.75 * BOAT_SCALE, 0.04, BOAT_Y + 0.2 * BOAT_SCALE * 2 / 3);
   return b;
 }

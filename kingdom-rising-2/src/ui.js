@@ -161,6 +161,22 @@ export function progress(k, label) { const e = $('progress'); if (k == null) { e
 
 // ---------- nameplates & quest markers ----------
 const plates = new Map(); const v3 = new THREE.Vector3();
+// line of sight for nameplates and ! ? markers: hidden behind hills, walls and houses (checked a few times a second)
+const losCache = new Map(); let wallBoxes = null;
+function blocked(from, to) {
+  if (!wallBoxes) wallBoxes = world.colliders.filter(c => c.t === 'b' && c.hw * c.hd > 1.5); // houses, walls, big props
+  const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z, L = Math.hypot(dx, dz), n = Math.max(6, Math.min(40, Math.ceil(L / 2)));
+  const near = wallBoxes.filter(c => { const ex = Math.max(c.hw, c.hd) + 1; return Math.min(from.x, to.x) - ex < c.x && c.x < Math.max(from.x, to.x) + ex && Math.min(from.z, to.z) - ex < c.z && c.z < Math.max(from.z, to.z) + ex; });
+  for (let i = 1; i < n; i++) { const k = i / n, x = from.x + dx * k, y = from.y + dy * k, z = from.z + dz * k, g = heightAt(x, z);
+    if (y < g - 0.2) return true;
+    for (const c of near) { const lx = (x - c.x) * c.cos - (z - c.z) * c.sin, lz = (x - c.x) * c.sin + (z - c.z) * c.cos; if (Math.abs(lx) < c.hw - 0.2 && Math.abs(lz) < c.hd - 0.2 && y < heightAt(c.x, c.z) + 5.5) return true; } }
+  return false;
+}
+function visibleFromCam(key, pos) {
+  let e = losCache.get(key); const now = performance.now();
+  if (!e || now - e.t > 300) { e = { t: now + Math.random() * 80, v: !blocked(G.camera.position, pos) }; losCache.set(key, e); }
+  return e.v;
+}
 const HOSTILE_SVG = '<svg viewBox="0 0 64 64"><path d="M8 56 L48 16 M16 8 L56 48" stroke="#140c06" stroke-width="11" stroke-linecap="round"/><path d="M8 56 L48 16 M16 8 L56 48" stroke="#ff4a3a" stroke-width="6" stroke-linecap="round"/><path d="M40 10 L54 10 L54 24 M24 10 L10 10 L10 24" stroke="#ffd0c0" stroke-width="4" fill="none"/></svg>';
 export function updatePlates() {
   const layer = $('plates'), cam = G.camera, W = innerWidth, H = innerHeight, p = G.player;
@@ -169,8 +185,8 @@ export function updatePlates() {
   const show = (key, ent, html, cls, yOff) => {
     seen.add(key);
     let e = plates.get(key); if (!e) { e = el('div', 'plate'); layer.appendChild(e); plates.set(key, e); }
-    v3.copy(ent.pos); v3.y += yOff; v3.project(cam);
-    if (v3.z > 1 || v3.x < -1.2 || v3.x > 1.2 || v3.y < -1.2 || v3.y > 1.2) { e.style.display = 'none'; return; }
+    v3.copy(ent.pos); v3.y += yOff; const wp = v3.clone(); v3.project(cam);
+    if (v3.z > 1 || !visibleFromCam(key, wp) || v3.x < -1.2 || v3.x > 1.2 || v3.y < -1.2 || v3.y > 1.2) { e.style.display = 'none'; return; }
     e.style.display = ''; e.className = 'plate ' + cls;
     if (e._h !== html) { e.innerHTML = html; e._h = html; }
     e.style.left = ((v3.x * 0.5 + 0.5) * W) + 'px'; e.style.top = ((-v3.y * 0.5 + 0.5) * H) + 'px';

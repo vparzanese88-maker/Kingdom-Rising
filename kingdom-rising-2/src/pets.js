@@ -76,12 +76,15 @@ function petUpdate(dt) {
       t.takeHit(dmg, P, { pet: true }); t.provoked = true; t.petFoe = this; if (t.state !== 'flee') t.state = 'chase';
     }
   } else {
-    // follow a few steps behind and to the side, and settle when close
-    const side = [-1, 1, -1.6, 1.6][this.slot], back = 2.6 + (this.slot >> 1) * 1.4;
-    const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
-    const tx = P.pos.x - fx * back + fz * side * 1.6, tz = P.pos.z - fz * back - fx * side * 1.6, d = Math.hypot(tx - this.pos.x, tz - this.pos.z);
-    if (d > 40) { this.pos.set(tx, heightAt(tx, tz), tz); }
-    else if (d > (this.moving ? 0.6 : 2.2)) { want = new THREE.Vector3(tx, 0, tz); speed = Math.min(D.speed * 1.2, 2 + d * 1.5); this.moving = true; } else this.moving = false;
+    // roam calmly near you on its own: pick a spot a few metres from you, amble there, wait, pick another.
+    // Only when you get far away does it trot after you (where you look does not matter).
+    const dP = Math.hypot(P.pos.x - this.pos.x, P.pos.z - this.pos.z);
+    if (dP > 45) { const a = Math.random() * 6.28; this.pos.set(P.pos.x + Math.cos(a) * 3, 0, P.pos.z + Math.sin(a) * 3); this.roam = null; }
+    this.roamT = (this.roamT || 0) - dt;
+    const roamOk = this.roam && Math.hypot(this.roam.x - P.pos.x, this.roam.z - P.pos.z) < 7;
+    if (!roamOk || (this.roamT <= 0 && dP < 9)) { const a = Math.random() * 6.28, r = 2.5 + Math.random() * 3.5; this.roam = new THREE.Vector3(P.pos.x + Math.cos(a) * r, 0, P.pos.z + Math.sin(a) * r); this.roamT = 4 + Math.random() * 6; }
+    const d = Math.hypot(this.roam.x - this.pos.x, this.roam.z - this.pos.z);
+    if (d > 0.5) { want = this.roam; speed = dP > 9 ? D.speed : Math.min(D.speed * 0.45, 1.2 + d * 0.5); }
     if (want) this.faceTo(want, dt, 6);
   }
   if (want && speed) { const dx = want.x - this.pos.x, dz = want.z - this.pos.z, l = Math.hypot(dx, dz); if (l > 0.1) { const mv = Math.min(l, speed * dt); this.pos.x += dx / l * mv; this.pos.z += dz / l * mv; } }

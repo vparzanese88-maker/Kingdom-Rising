@@ -495,6 +495,7 @@ function lampPost(scene, x, z) { const g = new THREE.Group(); cy(0.07, 0.09, 3, 
 function barrel(scene, x, z) { const g = new THREE.Group(); cy(0.38, 0.34, 0.95, M.wood, 0, 0.47, 0, g, 12); for (const y of [0.15, 0.8]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.02, 4, 16), M.iron); r.rotation.x = Math.PI / 2; r.position.y = y; g.add(r); } placeGroup(g, x, z, 0, scene); addCircle(x, z, 0.4); }
 function crate(scene, x, z, rot = 0, s = 0.8) { const g = new THREE.Group(); bx(s, s, s, M.plank, 0, s / 2, 0, g); placeGroup(g, x, z, rot, scene); addBox(x, z, s / 2, s / 2, rot); }
 
+const PIER_Y = 1.25; // piers sit low, level with the rail of a moored boat
 function buildVillage(scene) {
   const V = VILLAGE;
   const H = [
@@ -518,8 +519,8 @@ function buildVillage(scene) {
   { const g = new THREE.Group(); const len = z1 - z0;
     for (let i = 0; i < len / 0.5; i++) { const p = bx(pw * 2, 0.1, 0.45, M.plank, 0, 0, i * 0.5 - len / 2 + 0.25, g); p.rotation.z = (hash2(i, 3) - 0.5) * 0.03; }
     for (let i = 0; i <= len / 4; i++) for (const sx of [-1, 1]) cy(0.13, 0.13, 6, M.beam, sx * pw, -3, i * 4 - len / 2, g, 6);
-    placeGroup(g, pierX, (z0 + z1) / 2, 0, scene, 0, 2.15); world.pier = { x: pierX, z0, z1, w: pw, y: 2.2 };
-    addSurface(pierX, (z0 + z1) / 2, pw, len / 2, 0, 2.2);
+    placeGroup(g, pierX, (z0 + z1) / 2, 0, scene, 0, PIER_Y - 0.05); world.pier = { x: pierX, z0, z1, w: pw, y: PIER_Y };
+    addSurface(pierX, (z0 + z1) / 2, pw, len / 2, 0, PIER_Y);
     // boats
     for (const [bxp, bzp, r] of []) { // (the old rowing boats are gone: only your own boat is moored here)
       const b = new THREE.Group();
@@ -609,7 +610,7 @@ function buildSaltmere(scene) {
   { const g = new THREE.Group(), len = z0 - z1;
     for (let i = 0; i < len / 0.5; i++) { const p = bx(pw * 2, 0.1, 0.45, M.plank, 0, 0, i * 0.5 - len / 2 + 0.25, g); p.rotation.z = (hash2(i, 9) - 0.5) * 0.03; }
     for (let i = 0; i <= len / 4; i++) for (const sx of [-1, 1]) cy(0.15, 0.15, 6, M.beam, sx * pw, -3, i * 4 - len / 2, g, 6);
-    placeGroup(g, cx, (z0 + z1) / 2, 0, scene, 0, 2.15); addSurface(cx, (z0 + z1) / 2, pw, len / 2, 0, 2.2); world.portPier = { x: cx, z0, z1 }; }
+    placeGroup(g, cx, (z0 + z1) / 2, 0, scene, 0, PIER_Y - 0.05); addSurface(cx, (z0 + z1) / 2, pw, len / 2, 0, PIER_Y); world.portPier = { x: cx, z0, z1 }; }
   { const sx = cx + 26, sz = z0 + 6, g = new THREE.Group(); // a half-built ship on the slipway: keel and ribs
     bx(0.4, 0.5, 16, M.wood, 0, 0.8, 0, g); for (let i = 0; i < 9; i++) { const z = -7 + i * 1.75, w = 2.8 * Math.sin((i + 0.5) / 9 * Math.PI); for (const s2 of [-1, 1]) { const rib = cy(0.12, 0.12, 3.4, M.wood, s2 * w * 0.55, 2.2, z, g, 5); rib.rotation.z = s2 * 0.5; } }
     for (let i = 0; i < 6; i++) bx(0.3, 0.3, 3, M.beam, -2.6, 0.2 + i * 0.32, -10 + i * 0.1, g); placeGroup(g, sx, sz, 0, scene); addBox(sx, sz, 2.5, 8, 0); }

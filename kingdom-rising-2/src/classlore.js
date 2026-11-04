@@ -1,0 +1,105 @@
+// Who each class is: a title, a line they live by, where they come from, and how they fight.
+export const CLASS_STORY = {
+  warrior: {
+    title: 'The Shield of the Line',
+    motto: 'Stand. Hold. Do not let them pass.',
+    story: 'Warriors are the soldiers who stayed when everyone else ran. They learn their trade in shield walls and on harbour walls, and they carry the scars of every one of them. In Saltmere they still tell of the six warriors who held the north gate for a whole night while the goblins came over the walls.',
+    fight: 'You fight up close and you fight to last. A shield blocks what would kill a lesser fighter, and a perfect block staggers the enemy for your counter. Charge into a pack, bash the leader senseless, plant a banner and dare them to come at you. You are the one the others stand behind.',
+  },
+  berserker: {
+    title: 'The Storm That Walks',
+    motto: 'Pain is only the drum. Listen to the rhythm.',
+    story: 'Berserkers come from the cold clans who sail in longships and fight bare-chested in the snow. They learn to let a red fury take them in battle, a fury that ignores wounds and fear alike. Most die young. The ones who do not are terrifying.',
+    fight: 'Big two-handed weapons and wide, brutal swings. You leap into the middle of a fight, roar to break their nerve and spin through everything around you. The angrier you get, the harder you hit, and some of your rages let you shrug off blows that should have dropped you. Defence is for other people.',
+  },
+  ranger: {
+    title: 'The Watcher in the Green',
+    motto: 'See them first. Hear them first. End it first.',
+    story: 'Rangers guard the wild places between towns: the roads, the river fords and the edges of the jungle. They live for weeks in the trees, reading tracks the way scholars read books. Scout Kael of the Tanglewood is one of them, and he has not slept under a roof in years.',
+    fight: 'You win fights before they start. Hold to draw your bow for a deadly, straight shot and aim for the head. Set traps on the trail, send a spirit hawk ahead of you, and when something gets too close, tumble away and keep shooting. Patience is your sharpest arrow.',
+  },
+  wizard: {
+    title: 'The Keeper of Fire and Frost',
+    motto: 'Knowledge is the only power that grows when it is spent.',
+    story: 'Wizards spend their youth in dusty towers, learning the words that bend the world. Fire, frost and raw arcane force answer them, but only after years of study and more than a few singed eyebrows. Most of the old towers are ruins now. The wizards who are left are the ones who survived their own experiments.',
+    fight: 'You are the artillery. Freeze a charging enemy in place, blink away, then drown the battlefield in fire and lightning. Your staff pours out its element while you hold the button, and your great spells hit harder than anything else on the island. You are fragile, so make sure nothing ever reaches you.',
+  },
+  musketeer: {
+    title: 'The Thunder at Range',
+    motto: 'Powder dry, aim true, one shot.',
+    story: 'Musketeers were the pride of the old harbour guard: long coats, polished buttons and guns that sound like the sky splitting open. Black powder is scarce on Kelda now, ever since the goblins started hoarding it in kegs around their fires. A musketeer who has powder is worth ten who do not.',
+    fight: 'Every shot is slow and every shot is devastating. Hold to aim down the barrel, wait for the moment, and squeeze. When they rush you, blast them with your belt pistol, throw a powder keg and smoke yourself out of sight. Reload, step back, aim again.',
+  },
+  shaman: {
+    title: 'The Voice of the Spirits',
+    motto: 'The earth remembers. The storm forgives nothing.',
+    story: 'Shamans speak with the spirits of wind, stone and beast, and the spirits sometimes answer. They were the healers and storm-callers of the old island tribes long before Saltmere had walls. A shaman walks with a spirit wolf at heel, and nobody is quite sure which of them is leading.',
+    fight: 'A spear in one hand and the old powers in the other. You heal your friends with waves of water, shock and hex your enemies, plant totems to strengthen everyone near you, and call down the storm when it matters most. You are the glue that holds a fight together.',
+  },
+  cleric: {
+    title: 'The Light in the Dark',
+    motto: 'No one falls while I still stand.',
+    story: 'Clerics serve the Light: the old faith of the lighthouse keepers, who kept a fire burning through every storm so ships could find their way home. They carry that fire into battle as healing and holy wrath. A cleric at your side means you might actually walk home tonight.',
+    fight: 'You are the healer. Mend wounds, bless your allies with endurance and shields, and pour light into the ground to burn anything evil that stands on it. When something threatens your people, a mace and holy judgement work just fine.',
+  },
+  paladin: {
+    title: 'The Sworn Blade',
+    motto: 'My oath is my armour. My faith is my sword.',
+    story: 'Paladins are knights who swore an oath to the Light and meant it. They are warriors first, but the Light rides with them: a paladin can lay hands on a dying friend and pull them back from the edge. Every paladin carries one burden: an oath broken is power lost.',
+    fight: 'Heavy armour, a sword and a shield, and holy fire to back them. You charge into the fray, smite the strongest enemy, raise auras that protect everyone near you and heal in a pinch. You are not the best healer or the best fighter, but you are both.',
+  },
+  darkknight: {
+    title: 'The Knight of the Dusk',
+    motto: 'I made a bargain with the dark. The dark is still paying.',
+    story: 'Shadow Knights were paladins once, or wanted to be. Somewhere along the way they found that the dark gives power more freely than the Light ever did. They walk in black plate, feed on the life of their enemies and raise the fallen to fight beside them. They are feared everywhere, and they like it that way.',
+    fight: 'A great two-handed blade and a cloak of shadow. You drain life with every spell, grip enemies and drag them close, curse them with plague and fill them with dread. You cannot truly heal, but you take back a little of every wound you deal.',
+  },
+  druid: {
+    title: 'The Heart of the Wild',
+    motto: 'Every root, every leaf, every claw: all one.',
+    story: 'Druids are the guardians of growing things. They keep the old groves on Kelda, and they have watched in grief as the goblins burned the high forests. A druid can make a sapling grow in seconds, call a great bear to their side or turn the sky against their enemies.',
+    fight: 'A healer who is also a storm. You mend wounds with growing vines, wrap enemies in roots, summon a bear to fight for you and call hurricanes and starfall down on whole packs. Keep your friends alive, and let the wild do the killing.',
+  },
+  monk: {
+    title: 'The Open Hand',
+    motto: 'The body is the weapon. Discipline is the edge.',
+    story: 'Monks train for years in mountain monasteries until their hands, feet and breath move as one. They need no sword: a monk\'s fists can crack stone. Before the goblins came, there was a monastery near the top of Kelda. Its bells have been silent for twenty years.',
+    fight: 'Fast and relentless with bare fists. Fly in with a kick, sweep their legs, strike their pressure points to stun them and unleash a hundred blows in a blur. When things go wrong, harden your body like iron or play dead until the danger passes.',
+  },
+  bard: {
+    title: 'The Song That Wins Wars',
+    motto: 'A good song is worth a hundred swords. A great one is worth an army.',
+    story: 'Bards are wandering musicians, storytellers and swordsmen in equal measure. Their songs carry real magic: a war song makes soldiers braver, a fire song sets their blades burning and a lullaby puts monsters to sleep. Every tavern on the island loves a bard. Every goblin hates one.',
+    fight: 'Your songs play on their own while they are on your hotbar, filling everyone near you with courage, speed, regeneration or burning blades. Meanwhile you fight with a quick blade, lull enemies to sleep and finish the fight with a crescendo that shatters them.',
+  },
+  rogue: {
+    title: 'The Knife in the Dark',
+    motto: 'You never see me. That is the point.',
+    story: 'Rogues learn their trade in back alleys, smugglers\' coves and thieves\' guilds. They are spies, poisoners and assassins, and they are very, very good at not being caught. Saltmere\'s harbourmaster pretends rogues do not exist. Saltmere\'s harbourmaster employs several.',
+    fight: 'Daggers, poison and shadows. Vanish from sight, slip behind your target and backstab them for enormous damage. Lay poison and frost traps, throw smoke to escape, kidney-shot a dangerous foe into helplessness and coat your blades in venom. Fight fair? Why would you?',
+  },
+  necromancer: {
+    title: 'The Lord of Bones',
+    motto: 'Death is not an ending. It is a resource.',
+    story: 'Necromancers study the one thing everyone fears: death itself. Most people think they are evil. Most necromancers think everyone else is squeamish. They raise skeletons to fight for them, drink the life of their enemies and curse them with rot and plague.',
+    fight: 'You never fight alone. Raise a skeleton warrior to hold the line and a skeleton mage to blast from behind it, while you curse, drain and plague everything in sight. Your drains heal you well, so you can stand in the fight longer than any other caster.',
+  },
+  elementalist: {
+    title: 'The Binder of Storms',
+    motto: 'Fire, earth, air and water. All of them obey.',
+    story: 'Elementalists do not just cast fire and stone: they bind living elementals and command them as servants. It is dangerous work. An elemental that slips its binding does not forgive. The best elementalists are calm, careful people. The rest are scorch marks.',
+    fight: 'Summon a fire elemental to burn your enemies and an earth elemental to stand between you and harm. Then throw boulders, lava and lightning, wrap foes in ice and end the fight with a firestorm or a cataclysm. Your servants fight while you build up to the big spells.',
+  },
+  enchanter: {
+    title: 'The Mind Unbound',
+    motto: 'Why fight the beast when you can simply make it forget?',
+    story: 'Enchanters are masters of the mind. They are the quietest and the most dangerous of all mages, because they do not just hurt their enemies: they confuse them, put them to sleep, send them wandering off and make them see things that are not there. Kings hire enchanters. Kings also fear them.',
+    fight: 'Control the battle. Mesmerise the most dangerous enemy, put a whole group to sleep, confuse the rest and blast their minds. Haste your friends, shield yourself with runes and send a phantom copy of yourself to fight. The best fight is the one where the enemy never lands a blow.',
+  },
+  beastmaster: {
+    title: 'The Pack Leader',
+    motto: 'Alone, I am a hunter. With them, I am the hunt.',
+    story: 'Beastmasters grow up among the animals of the wild: they run with wolves, wrestle tigers and sleep among bears. On Kelda the old beastmaster families have the hardest job of all, because the goblins have driven the beasts mad with fear. A beastmaster is the only one who can calm them.',
+    fight: 'You fight side by side with a war tiger, and later call a whole pack of wolves to your aid. Your hand axes rend and bleed, you pounce on fleeing prey and roar to stun the pack, and when you bond with your beasts, all of you fight harder together.',
+  },
+};

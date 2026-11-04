@@ -40,6 +40,13 @@ const CAST_T = {
   mesmerize: 1.0, masssleep: 1.5,
 };
 const ACT_T = { snaretrap: 0.6, explotrap: 0.6, spikepit: 0.6, frosttrap: 0.6, poisontrap: 0.6, snaretrap2: 0.6, envenom: 0.9, powderkeg: 0.5, cannonade: 1.0, rally: 0.8 };
+const GOLDC = '#ffd84a', HEALC = '#7ee07e', REDC = '#ff6a4a', BLUEC = '#8ac8ff';
+const SUPPORT = { shieldwall: GOLDC, laststand: GOLDC, fortify: GOLDC, rally: GOLDC, battlecry: REDC, bloodrage: REDC, undying: REDC, rampage: REDC, adrenaline: REDC, intimshout: REDC,
+  mending: HEALC, healingwave: HEALC, chainheal: HEALC, spiritlink: HEALC, ancestral: BLUEC, wartotem: GOLDC, barkskin: GOLDC, focus: BLUEC, eagleeye: BLUEC, quickreload: GOLDC, icebarrier: BLUEC, manasurge: BLUEC, vanish: '#b080ff', smokebomb: '#b080ff' };
+// which particles show for each running buff
+const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], undying: ['blood', 0.3], fury: ['blood', 0.28], rage: ['blood', 0.3], rampage: ['blood', 0.3], cry: ['ember', 0.25],
+  adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
+  poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2] };
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
 const ALLY_FX = { fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
@@ -686,6 +693,7 @@ export class Player {
     const f = this.fwd();
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
+    if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'charge': {
         S.battleCry(); this.dodge = { t: 0, dur: 0.38 * (1 + this.pk('a1up') * 0.2), dir: f.clone(), speed: 32, charge: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 14;
@@ -1038,9 +1046,9 @@ export class Player {
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, silent: k % 2 === 1 })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 5, { speed: 3 }); } }, k * 90);
         return true; }
       case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
-      case 'heal': { this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
-      case 'hot': { this.regen = { per: this.maxHp * a.pct * up * this.hk() / a.dur, t: a.dur }; if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
-      case 'buff': { const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
+      case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
+      case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * this.hk() / a.dur, t: a.dur }; if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
+      case 'buff': { this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
@@ -1096,6 +1104,21 @@ export class Player {
     if (c.spell && Math.random() < dt * 20) V.emit(this.W && this.W.element === 'fire' ? 'fire' : this.W && this.W.element === 'frost' ? 'frost' : 'arcane', this.handPos(), { speed: 0.8, size: 0.25, life: 0.5 });
     if (c.t < c.dur) return;
     this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); this.ability(c.i, true);
+  }
+  // buffs and heals you can see: coloured motes around you while each one lasts, green sparkles while you regenerate
+  tickAuras(dt) {
+    this.auraT = (this.auraT || 0) - dt; if (this.auraT > 0) return; this.auraT = 0.16;
+    const at = () => this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.3 + Math.random() * 1.6, (Math.random() - 0.5) * 1.2));
+    if (this.regen && this.regen.t > 0) V.emit('heal', at(), { speed: 0.4, vy: 1.2, size: 0.28, life: 0.8 });
+    const B = this.buffs; let n = 0;
+    for (const k in AURA) if (B[k] > 0 && n < 3) { n++; const [kind, sz] = AURA[k]; V.emit(kind, at(), { speed: 0.5, vy: 0.8, size: sz, life: 0.7 }); }
+    if (B.barrier > 0 && Math.random() < 0.5) V.emit('frost', at(), { speed: 0.3, size: 0.3, life: 0.6 });
+  }
+  // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
+  buffFx(name, col) {
+    V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.5), name, 'heal');
+    let e = document.getElementById('buffflash'); if (!e) { e = document.createElement('div'); e.id = 'buffflash'; document.body.appendChild(e); }
+    e.style.setProperty('--c', col); e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
   }
   // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
   tickSummon(dt) {
@@ -1412,6 +1435,7 @@ export class Player {
     if (this.block && !wasBlock) this.blockStart = G.time;
     if (this.summonCast) this.tickSummon(dt);
     if (this.abCast) this.tickAbCast(dt);
+    if (!this.dead) this.tickAuras(dt);
     if (G.battleFx) this.tickChannel(dt);
     if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
     if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);

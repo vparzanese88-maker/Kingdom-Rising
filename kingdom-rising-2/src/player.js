@@ -1000,15 +1000,15 @@ export class Player {
       case 'bolt': case 'drain': {
         const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.handPos(), dir0 = this.aimDir(from);
         for (let i = 0; i < n; i++) { const dir = dir0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (i - (n - 1) / 2) * (a.spread || 0));
-          spawnProjectile({ pos: from.clone(), vel: dir.multiplyScalar(a.speed || 40), grav: a.kind === 'rock' ? 4 : 0.5, radius: a.aoe ? 0.5 : 0.35, dmg: P(a.dmg), owner: 'player', kind: a.kind || 'arcane', scale: a.kind === 'orb' ? 1.6 : 1.2, life: 2.5, pierce: !!a.pierce,
+          spawnProjectile({ pos: from.clone(), vel: dir.multiplyScalar(a.speed || 40), grav: a.kind === 'rock' ? 4 : 0.5, radius: a.aoe ? 0.5 : 0.35, dmg: P(a.dmg), owner: 'player', kind: a.t === 'drain' ? 'arcane' : (a.kind || 'arcane'), scale: a.kind === 'orb' ? 1.6 : 1.2, life: 2.5, pierce: !!a.pierce,
             onHit: (p, m, pos) => { const at = (pos || (m && m.pos) || p.pos).clone(); let dealt = 0;
               if (a.aoe) { for (const mm of mobsInRadius(at, a.aoe * K)) { this.dealDamage(mm, p.dmg * 0.8, hitO(mm)); dealt += p.dmg * 0.8; } V.burst(el === 'fire' ? 'fire' : pk === 'spark' ? 'arcane' : pk, at, 30, { speed: 5 }); S.explode(at, 0.7, el || 'fire'); }
               else if (m) { this.dealDamage(m, p.dmg, hitO(m)); dealt = p.dmg; }
-              if (a.t === 'drain' && dealt && this.hk()) { this.heal(dealt * a.drain * this.hk()); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 12, { speed: 2 }); } } }); }
+              if (a.t === 'drain' && dealt && this.hk()) this.healOrb(at, dealt * a.drain * this.hk()); } }); }
         S.cast(el || 'arcane', this.pos, 0.8); anim('cast'); return true; }
       case 'nova': { const r = (a.r || 5) * K; let dealt = 0;
         for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m)); dealt += P(a.dmg); }
-        if (a.drainAll && dealt) this.heal(dealt * a.drainAll * this.hk());
+        if (a.drainAll && dealt && this.hk()) this.healOrb(this.pos.clone().addScaledVector(f, 3).setY(this.pos.y + 1), dealt * a.drainAll * this.hk());
         if (a.vanish) { this.stealth = Math.max(this.stealth || 0, a.vanish); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); }
         V.ring(this.pos, r, col, 0.6); V.burst(pk === 'spark' ? 'dust' : pk, this.pos.clone().setY(this.pos.y + 0.6), 50, { speed: 6, radius: r * 0.4 }); S.cast(el || 'arcane', this.pos, 1); S.rumble && S.rumble(this.pos, 0.5); V.addShake(0.25); anim('smash', 0.5); return true; }
       case 'cone': { const range = (a.range || 6) * K;
@@ -1035,14 +1035,22 @@ export class Player {
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
         V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
+        const land = () => { if (t.dead) return;
         const list = [t, ...(a.spread ? mobsInRadius(t.pos, a.spread * K).filter(m => m !== t) : [])];
         for (const m of list) {
           if (a.pull && m === t) { const to = this.pos.clone().addScaledVector(f, 2); m.pos.x = to.x; m.pos.z = to.z; }
           if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.05), hitO(m, { freeze: a.freeze ? a.stun : 0 }));
           if (a.hex) m.hexUntil = G.time + a.hex;
-          if (a.dot) { let k = 0; const iv = setInterval(() => { if (m.dead || ++k > a.dotT || this.dead) { clearInterval(iv); return; } this.dealDamage(m, P(a.dot), { silent: k % 2 === 0, el: 'arcane' }); }, 1000); }
+          if (a.dot) { let k = 0; m.status.dot = a.dotT; m.status.dotName = a.name; const iv = setInterval(() => { if (m.dead || ++k > a.dotT || this.dead) { clearInterval(iv); if (!m.dead) m.status.dot = 0; return; } m.status.dot = a.dotT - k; this.dealDamage(m, P(a.dot), { silent: k % 2 === 0, el: 'arcane' }); if (Math.random() < 0.7) V.burst(k % 2 ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.7), 6, { speed: 0.8, size: 0.5, grav: -0.5 }); }, 1000); }
           V.burst(a.poison ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 24, { speed: 2.5, size: 0.7 }); }
-        V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.6), a.name, 'bad'); return true; }
+        V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.6), a.name, 'bad'); };
+        if (a.dot) { // push a small, slow cloud of disease at the target
+          const from = this.handPos(), cl = { p: from.clone(), t: 0 }; S.cast('arcane', this.pos, 0.5);
+          const iv = setInterval(() => { if (t.dead || this.dead) { clearInterval(iv); return; } cl.t += 0.03; const to = t.pos.clone().setY(t.pos.y + (t.height || 1.6) * 0.6), d = to.clone().sub(cl.p), l = d.length();
+            cl.p.addScaledVector(d.normalize(), Math.min(l, 0.03 * 14)); for (let q = 0; q < 3; q++) V.emit(q ? 'leaf' : 'shadow', cl.p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.7)), { speed: 0.3, size: 0.55, life: 0.7, vy: 0.2 });
+            if (l < 0.6 || cl.t > 3) { clearInterval(iv); land(); } }, 30);
+        } else land();
+        return true; }
       case 'ground': { const c = groundPoint(32), r = (a.r || 6) * K, n = a.ticks || 4; V.ring(c, r, col, n * 0.5 + 0.3);
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return;
           for (const m of mobsInRadius(c, r)) if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.02), hitO(m, { silent: k > 0 }));
@@ -1058,6 +1066,15 @@ export class Player {
       case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
     }
     return false;
+  }
+  // stolen life comes home: a green light drifts from the victim back to you and heals you when it arrives
+  healOrb(from, amount) {
+    const o = { p: from.clone(), v: new THREE.Vector3(0, 3, 0), t: 0 };
+    const iv = setInterval(() => { if (this.dead) { clearInterval(iv); return; } o.t += 0.03;
+      const to = this.pos.clone().setY(this.pos.y + 1.1), d = to.clone().sub(o.p), l = d.length();
+      o.v.lerp(d.normalize().multiplyScalar(9 + o.t * 8), 0.12); o.p.addScaledVector(o.v, 0.03);
+      V.emit('heal', o.p.clone(), { speed: 0.2, size: 0.5, life: 0.45 }); if (Math.random() < 0.5) V.emit('heal', o.p.clone(), { speed: 0.6, size: 0.25, life: 0.6 });
+      if (l < 0.7 || o.t > 2.5) { clearInterval(iv); this.heal(amount); V.burst('heal', to, 18, { speed: 2.2 }); S.heal && S.heal(); } }, 30);
   }
   // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
   tickSummon(dt) {

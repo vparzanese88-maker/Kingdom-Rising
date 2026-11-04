@@ -370,7 +370,7 @@ export class Player {
   }
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
-  wSpeedK() { if (BATTLE || !this.weapon) return 1; return Game.speedOf(this.h, this.weapon.wt); }
+  wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
   speedMul() { let m = this.wSpeedK(); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
@@ -472,7 +472,7 @@ export class Player {
       else if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
       else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
       else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
-      else if (G.battleFx) { half = ARC[wt] || 0.8; half *= BATTLE ? 1 : 0.85 + 0.3 * Math.min(1, (Game.masteryOf(this.h, wt) - 1) / 19); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
+      else if (G.battleFx) { half = (ARC[wt] || 0.8) * Math.sqrt(this.weapon.size || 1); half *= BATTLE ? 1 : 0.85 + 0.3 * Math.min(1, (Game.masteryOf(this.h, wt) - 1) / 19); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
       else { targets = mobsInCone(this.pos, yaw, reach, half); if (!st.cleave) targets = targets.sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 2); }
       // Kingdom Battles: show the swing as a slash crescent exactly as wide and long as what it hits
       if (G.battleFx) { const R = st.aoe || (st.line ? reach * 1.7 : reach), H = st.aoe ? Math.PI : st.line ? 0.22 : half; slashArc(this, R, H, a.name, targets.length > 0, this.trail.mat.uniforms.color.value); }
@@ -540,7 +540,7 @@ export class Player {
     if (this.cd[key] > 0) { S.error(); return; }
     const S2 = WSKILLS[sk.id], fam = sk.fam;
     const aR = (1 + this.wp('area', fam) * 0.15) * this.areaK(), aCd = 1 - this.wp('area', fam) * 0.15;
-    this.cd[key] = S2.cd * aCd;
+    this.cd[key] = S2.cd * aCd * (this.weapon && this.weapon.size ? this.weapon.size : 1);
     const base = weaponDamage(this.h, this.weapon), f = this.fwd(), p0 = this.pos.clone();
     const spin = (r, mult, extra = {}, sound = 1.6) => {
       this.atk = { name: 'area', t: 0, dur: 0.7, hit: true, noQueue: true };

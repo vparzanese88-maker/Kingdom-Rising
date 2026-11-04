@@ -215,6 +215,18 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 #mono{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:61;pointer-events:none;text-align:center;font-family:var(--f-t);color:#f6ecd6;text-shadow:0 2px 12px #000,0 0 3px #000;opacity:0;transition:opacity .7s}
 #mono i{display:block;font-size:27px}#mono small{display:block;margin-top:4px;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#cbbd9c;font-style:normal}
 #mono.in{opacity:1}#mono.out{opacity:0}
+/* merchant */
+.shopwin2{width:min(1060px,94vw)}.shophead{display:flex;justify-content:space-between;align-items:center;padding:4px 4px 12px;border-bottom:1px solid rgba(200,160,80,.25);margin-bottom:12px}
+.shophead b{display:block;font-family:var(--f-t);font-size:24px;color:#ffe2a0}.shophead span{color:#bfae8c;font-size:13px}.shopgold{font-size:22px;color:#ffd84a;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid rgba(255,216,74,.3)}.shopgold svg{width:22px;height:22px}
+.shopcols{display:grid;grid-template-columns:1fr 1fr;gap:18px}.shoppane{padding:12px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid rgba(200,160,80,.18)}.shoppane h3{margin:0 0 8px;font-family:var(--f-t);color:#f0d8a0;letter-spacing:.06em}
+.shoptabs2{display:flex;gap:4px;margin-bottom:10px}.shoptabs2 button{flex:1;padding:7px 4px;font-size:13px;border-radius:8px;border:1px solid rgba(200,160,80,.3);background:rgba(30,20,10,.6);color:#cdb98c;cursor:pointer}.shoptabs2 button.on{background:linear-gradient(180deg,#7a5a2a,#4a3418);color:#fff2c8;border-color:#c89a4a}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:7px;max-height:52vh;overflow-y:auto;padding:2px}
+.sslot{position:relative;aspect-ratio:1;border-radius:10px;background:radial-gradient(circle at 50% 35%,rgba(90,66,36,.9),rgba(22,15,8,.95));border:1px solid #5a4020;cursor:pointer;transition:transform .08s,border-color .1s}.sslot:hover{transform:translateY(-2px);border-color:#ffd84a}
+.sslot .si{position:absolute;inset:8px 8px 16px}.sslot .si svg{width:100%;height:100%}.sslot .sp{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-size:11px;font-weight:700;color:#ffd84a;text-shadow:0 1px 2px #000}.sslot .sp svg{width:10px;height:10px;vertical-align:-1px;margin-right:2px}
+.sslot .sn{position:absolute;right:4px;top:2px;font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000}.sslot .sl{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.55);border-radius:10px;font-size:11px;font-weight:700;color:#ff9a6a}
+.sslot.r1{border-color:#5fd35f}.sslot.r2{border-color:#4fa3ff}.sslot.r3{border-color:#c06bff}.sslot.r4{border-color:#ff9a2a}.sslot.poor .sp{color:#c86a5a}.sslot.empty{background:rgba(0,0,0,.25);border-style:dashed;border-color:rgba(200,160,80,.15);cursor:default}.sslot.empty:hover{transform:none}
+.shopnote{font-size:12px;color:#a8987a;margin:-2px 0 8px}.shopfoot{margin-top:12px;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.3);font-size:13px;color:#d8c8a0}.tbuy{margin-top:6px;padding-top:6px;border-top:1px solid rgba(200,160,80,.25);color:#ffd84a;font-size:12.5px}
+
 #petwheel{position:fixed;inset:0;z-index:70;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.45),rgba(0,0,0,0) 60%)}
 #petwheel .pwc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-t);font-size:18px;color:#ffe2a0;text-shadow:0 2px 6px #000}#petwheel .pwc small{display:block;font-family:var(--f-b,sans-serif);font-size:11px;color:#c8b890}
 #petwheel .pwo{position:absolute;transform:translate(-50%,-50%);width:132px;padding:9px 6px;border-radius:12px;text-align:center;background:rgba(20,14,8,.85);border:1px solid rgba(220,180,110,.4);color:#f0e0c0;transition:transform .08s}
@@ -280,40 +292,40 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793760379",
-"./src/battle.js": "./src/battle.js?v=1793760379",
-"./src/battledata.js": "./src/battledata.js?v=1793760379",
-"./src/battlemap.js": "./src/battlemap.js?v=1793760379",
-"./src/battlequests.js": "./src/battlequests.js?v=1793760379",
-"./src/battleui.js": "./src/battleui.js?v=1793760379",
-"./src/character.js": "./src/character.js?v=1793760379",
-"./src/chat.js": "./src/chat.js?v=1793760379",
-"./src/classes2.js": "./src/classes2.js?v=1793760379",
-"./src/classlore.js": "./src/classlore.js?v=1793760379",
-"./src/combat.js": "./src/combat.js?v=1793760379",
-"./src/data.js": "./src/data.js?v=1793760379",
-"./src/fog.js": "./src/fog.js?v=1793760379",
-"./src/game.js": "./src/game.js?v=1793760379",
-"./src/guards.js": "./src/guards.js?v=1793760379",
-"./src/icons.js": "./src/icons.js?v=1793760379",
-"./src/icons2.js": "./src/icons2.js?v=1793760379",
-"./src/lore.js": "./src/lore.js?v=1793760379",
-"./src/main.js": "./src/main.js?v=1793760379",
-"./src/menu.js": "./src/menu.js?v=1793760379",
-"./src/mobs.js": "./src/mobs.js?v=1793760379",
-"./src/mp.js": "./src/mp.js?v=1793760379",
-"./src/mpsync.js": "./src/mpsync.js?v=1793760379",
-"./src/net.js": "./src/net.js?v=1793760379",
-"./src/pets.js": "./src/pets.js?v=1793760379",
-"./src/player.js": "./src/player.js?v=1793760379",
-"./src/sailintro.js": "./src/sailintro.js?v=1793760379",
-"./src/saves.js": "./src/saves.js?v=1793760379",
-"./src/state.js": "./src/state.js?v=1793760379",
-"./src/terrain.js": "./src/terrain.js?v=1793760379",
-"./src/ui.js": "./src/ui.js?v=1793760379",
-"./src/util.js": "./src/util.js?v=1793760379",
-"./src/vfx.js": "./src/vfx.js?v=1793760379",
-"./src/world.js": "./src/world.js?v=1793760379"
+"./src/audio.js": "./src/audio.js?v=1793760471",
+"./src/battle.js": "./src/battle.js?v=1793760471",
+"./src/battledata.js": "./src/battledata.js?v=1793760471",
+"./src/battlemap.js": "./src/battlemap.js?v=1793760471",
+"./src/battlequests.js": "./src/battlequests.js?v=1793760471",
+"./src/battleui.js": "./src/battleui.js?v=1793760471",
+"./src/character.js": "./src/character.js?v=1793760471",
+"./src/chat.js": "./src/chat.js?v=1793760471",
+"./src/classes2.js": "./src/classes2.js?v=1793760471",
+"./src/classlore.js": "./src/classlore.js?v=1793760471",
+"./src/combat.js": "./src/combat.js?v=1793760471",
+"./src/data.js": "./src/data.js?v=1793760471",
+"./src/fog.js": "./src/fog.js?v=1793760471",
+"./src/game.js": "./src/game.js?v=1793760471",
+"./src/guards.js": "./src/guards.js?v=1793760471",
+"./src/icons.js": "./src/icons.js?v=1793760471",
+"./src/icons2.js": "./src/icons2.js?v=1793760471",
+"./src/lore.js": "./src/lore.js?v=1793760471",
+"./src/main.js": "./src/main.js?v=1793760471",
+"./src/menu.js": "./src/menu.js?v=1793760471",
+"./src/mobs.js": "./src/mobs.js?v=1793760471",
+"./src/mp.js": "./src/mp.js?v=1793760471",
+"./src/mpsync.js": "./src/mpsync.js?v=1793760471",
+"./src/net.js": "./src/net.js?v=1793760471",
+"./src/pets.js": "./src/pets.js?v=1793760471",
+"./src/player.js": "./src/player.js?v=1793760471",
+"./src/sailintro.js": "./src/sailintro.js?v=1793760471",
+"./src/saves.js": "./src/saves.js?v=1793760471",
+"./src/state.js": "./src/state.js?v=1793760471",
+"./src/terrain.js": "./src/terrain.js?v=1793760471",
+"./src/ui.js": "./src/ui.js?v=1793760471",
+"./src/util.js": "./src/util.js?v=1793760471",
+"./src/vfx.js": "./src/vfx.js?v=1793760471",
+"./src/world.js": "./src/world.js?v=1793760471"
 }
 }
 </script>
@@ -1061,6 +1073,6 @@ body.battlefx #buffs{left:18px!important;bottom:92px!important;transform:none!im
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793760379"></script>
+<script type="module" src="./src/main.js?v=1793760471"></script>
 </body>
 </html>

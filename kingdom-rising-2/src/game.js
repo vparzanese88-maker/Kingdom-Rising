@@ -96,7 +96,9 @@ export function makeWeapon(wt, tier, rarity = 0, lvlHint) {
   const W = WEAPON_TYPES[wt], T = TIERS[tier], R = RARITY[rarity];
   const stats = rollStats(tier, rarity, weaponStat(wt));
   const name = (tier === 0 ? (W.kind === 'staff' ? 'Driftwood' : W.kind === 'bow' ? 'Driftwood' : 'Rusty') : T.name) + ' ' + W.name;
-  const it = { uid: ++uid, kind: 'weapon', wt, tier, rarity, name, dmg: Math.round(weaponBaseDmg(tier) * W.dmg * R.mult), stats, lvl: tier === 0 ? 1 : T.lvl };
+  const sz = W.kind === 'melee' && wt !== 'shield' && tier > 0 ? [0.88, 1, 1, 1.14][Math.floor(Math.random() * 4)] : 1;
+  const szName = sz < 1 ? (wt.includes('dagger') ? 'Short ' : 'Light ') : sz > 1 ? (wt.includes('dagger') ? 'Long ' : 'Heavy ') : '';
+  const it = { uid: ++uid, kind: 'weapon', wt, tier, rarity, name: szName + name, size: sz, dmg: Math.round(weaponBaseDmg(tier) * W.dmg * R.mult * Math.pow(sz, 0.9)), stats, lvl: tier === 0 ? 1 : T.lvl };
   ensureProc(it); return it;
 }
 const PROC_BY_KIND = { staff: ['flame', 'frost', 'storm', 'shadow'], bow: ['flame', 'frost', 'storm', 'venom'], gun: ['flame', 'storm', 'crush'], melee: ['flame', 'frost', 'storm', 'venom', 'crush', 'shadow'] };

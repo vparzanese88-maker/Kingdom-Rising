@@ -320,7 +320,7 @@ export function toggleMainOnly() { const h = G.player.h; h.mainOnly = !h.mainOnl
 // ---------- windows ----------
 const winRoot = () => $('windows');
 export function closeWin() {
-  hideFtip(); { const bt = document.getElementById('booktip'); if (bt) bt.hidden = true; }
+  hideFtip(); { const st = document.getElementById('shoptip'); if (st) st.hidden = true; } { const bt = document.getElementById('booktip'); if (bt) bt.hidden = true; }
   if (G.hudEdit) { exitHudEdit(); return; }
   winRoot().innerHTML = ''; UI.open = null; G.uiOpen = false;
   if (G.onUiClosed) G.onUiClosed();
@@ -478,7 +478,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   let html = `<div class="tiphead"><div class="tic r${it.rarity || 0}">${Icons.itemSvg(it)}</div><div>`;
   if (it.kind) {
     html += `<b style="color:${RARITY[it.rarity].col}">${esc(it.name)}</b><div class="dim">${RARITY[it.rarity].name} · ${it.kind === 'weapon' ? WEAPON_TYPES[it.wt].name : SLOT_LABEL[it.slot === 'ring' ? 'ring1' : it.slot]} · level ${it.lvl}</div></div></div>`;
-    if (it.kind === 'weapon' && G.battleFx) { const W = WEAPON_TYPES[it.wt]; Game.ensureProc(it); html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'A pair: fills both hands' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : W.kind === 'gun' ? 'Firearm' : W.kind === 'staff' ? 'Staff' : 'One-handed'}</div>`; if (it.proc && PROCS[it.proc]) { const P = PROCS[it.proc]; html += `<div style="color:${P.col}"><b>Proc · ${P.name}:</b> ${P.desc}. ${Math.round(procChance(it.rarity, 0) * 100)}% chance on hit, +${PROC_DEX(it.rarity)}% per Dexterity (you: ${Math.round(procChance(it.rarity, (G.player.D && G.player.D.stats.dex) || 0) * 100)}%)</div>`; } }
+    if (it.kind === 'weapon' && G.battleFx) { const W = WEAPON_TYPES[it.wt]; Game.ensureProc(it); const sp = Math.round((Math.pow(1 / (it.size || 1), 0.95) - 1) * 100); html += `<div class="big">${it.dmg} damage${sp ? ` <span style="font-size:13px;color:${sp > 0 ? '#7ee07e' : '#ff9a6a'}">${sp > 0 ? '+' : ''}${sp}% speed</span>` : ''}</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'A pair: fills both hands' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : W.kind === 'gun' ? 'Firearm' : W.kind === 'staff' ? 'Staff' : 'One-handed'}</div>`; if (it.proc && PROCS[it.proc]) { const P = PROCS[it.proc]; html += `<div style="color:${P.col}"><b>Proc · ${P.name}:</b> ${P.desc}. ${Math.round(procChance(it.rarity, 0) * 100)}% chance on hit, +${PROC_DEX(it.rarity)}% per Dexterity (you: ${Math.round(procChance(it.rarity, (G.player.D && G.player.D.stats.dex) || 0) * 100)}%)</div>`; } }
     else if (it.kind === 'weapon') { const W = WEAPON_TYPES[it.wt]; html += `<div class="big">${it.dmg} damage</div><div class="dim">${W.hands === 'two' ? 'Two-handed' : W.hands === 'dual' ? 'Dual wield' : W.hands === 'shield' ? 'With shield' : W.kind === 'bow' ? 'Ranged' : 'Staff'} · ${G.battleFx ? 'F' : 'Right click'}: ${W.areaName}</div>${G.battleFx && RMB_SPECIAL[it.wt] && WSKILLS[RMB_SPECIAL[it.wt]] ? `<div class="dim" style="font-size:12px"><b>F · ${WSKILLS[RMB_SPECIAL[it.wt]].name}:</b> ${WSKILLS[RMB_SPECIAL[it.wt]].desc}</div>` : ''}`; const cs = comboSteps(it.wt); if (cs.length) html += `<div class="tipcombo"><div class="dim">Left click${COMBOS[it.wt] ? ' combo' : ''}</div>${cs.map((x, i) => `<div><b>${i + 1}. ${x.n}</b> <span class="dim">${x.d}% dmg</span>${x.tags.length ? ' · <span style="color:#ffcf70">' + x.tags.join(', ') + '</span>' : ''}</div>`).join('')}${COMBOS[it.wt] ? `<div style="color:#9fd0ff">${COMBOS[it.wt].trait}</div>` : ''}</div>`; }
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
@@ -807,54 +807,49 @@ function rewardText(q) { const r = [`${q.xp} XP`, `${q.gold || 0} gold`]; if (q.
 // --- merchant ---
 const TOOL_SHOP = [[1, 3, 1], [2, 30, 4], [3, 110, 9], [4, 320, 14]]; // tier, price, level
 export function openMerchant(npc) {
-  const c = openWin('merchant', esc(npc.name) + "'s Wares", '', 'big shopwin');
-  let tab = 'tools', last = '';
+  const c = openWin('merchant', esc(npc.name), '', 'big shopwin2');
+  let tab = 'gear', last = '';
+  const tipEl = () => { let t = document.getElementById('shoptip'); if (!t) { t = el('div', 'tip big ftip'); t.id = 'shoptip'; document.body.appendChild(t); } return t; };
+  const showAt = (html, e) => { const t = tipEl(); t.innerHTML = html; t.hidden = false; const r = t.getBoundingClientRect(); let x = e.clientX + 18, y = e.clientY + 12; if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 18; if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8; t.style.left = Math.max(8, x) + 'px'; t.style.top = Math.max(8, y) + 'px'; };
+  const hide = () => { const t = document.getElementById('shoptip'); if (t) t.hidden = true; };
+  const itemTip = (it, extra) => { const d = el('div'); showTip(d, it, null, null, null, false); return d.innerHTML + (extra || ''); };
+  const slot = (icon, cls, price, tipHtml, onClick, lock) => {
+    const d = el('div', 'sslot ' + cls + (lock ? ' lock' : ''), `<div class="si">${icon}</div>${price != null ? `<span class="sp">${Icons.coin()}${price}</span>` : ''}${lock ? `<span class="sl">${lock}</span>` : ''}`);
+    d.onmousemove = (e) => showAt(tipHtml(), e); d.onmouseleave = hide;
+    d.onclick = (e) => { if (lock) { S.error(); return; } onClick(e); hide(); S.coins(); render(); };
+    return d;
+  };
   const render = () => {
     const h = G.player.h; c.innerHTML = '';
-    const top = el('div', 'shoptop', `<div class="shopwho"><b>${esc(npc.name)}</b><span>${esc(npc.def.title || 'Merchant')}</span></div><div class="shopgold">${Icons.coin()} <b>${h.gold}</b> gold</div>`);
-    c.appendChild(top);
-    const lay = el('div', 'shoplay'); c.appendChild(lay);
-    // buy side
-    const buy = el('div', 'shopbuy');
-    const tabs = el('div', 'shoptabs'); for (const [k, t] of [['tools', 'Tools'], ['gear', 'Arms & Armour'], ['supplies', 'Supplies']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
-    buy.appendChild(tabs);
-    const list = el('div', 'shoplist');
-    const card = (icon, name, desc, price, state, onBuy) => {
-      const d = el('div', 'scard' + (state ? ' dis' : ''), `<div class="sic">${icon}</div><div class="sinf"><b>${name}</b><span>${desc}</span></div><button class="sbuy" ${state ? 'disabled' : ''}>${state || `${Icons.coin()} ${price}`}</button>`);
-      if (!state) d.querySelector('.sbuy').onclick = () => { onBuy(); S.coins(); render(); };
-      list.appendChild(d);
-    };
-    if (tab === 'tools') {
-      for (const t of Object.keys(TOOLS)) {
-        const have = h.tools[t] || 0, next = TOOL_SHOP.find(x => x[0] > have);
-        if (!next) { card(Icons.toolSvg(t, have), `${TOOL_TIER_NAMES[have]} ${TOOLS[t].name}`, `${TOOLS[t].desc} You have the best one.`, 0, 'Owned', null); continue; }
-        const [tier, price, lvl] = next;
-        const state = h.level < lvl ? `Level ${lvl}` : h.gold < price ? `${Icons.coin()} ${price}` : '';
-        card(Icons.toolSvg(t, tier), `${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, `${TOOLS[t].desc}${have ? ` Upgrades your ${TOOL_TIER_NAMES[have]} one: works faster and on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.` : ''}`, price, state, () => { h.gold -= price; h.tools[t] = tier; toast(`Bought: ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, TOOLS[t].icon, 'gold'); G.hooks.invChanged && G.hooks.invChanged(); });
-      }
-    } else if (tab === 'gear') { // plain weapons and armour for your class: copper, then iron
-      for (const it of Game.gearStock(h)) { const pr = Game.itemValue(it) * 4, lock = it.lvl > h.level;
-        const desc = it.kind === 'weapon' ? `${it.dmg} damage · ${WEAPON_TYPES[it.wt].name}` : `${it.armor} armour · ${SLOT_LABEL[it.slot] || it.slot}`;
-        card(Icons.itemSvg(it), esc(it.name), desc + (Object.keys(it.stats).length ? ' · ' + Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(', ') : ''), pr, lock ? `Level ${it.lvl}` : h.gold < pr ? `${Icons.coin()} ${pr}` : '', () => { h.gold -= pr; Game.addGear(h, Game.copyGear(it)); toast(`Bought: ${it.name}`, Icons.itemSvg(it), 'gold'); }); }
-    } else for (const id of Game.merchantStock()) {
-      const pr = Game.buyPrice(id), I = ITEMS[id];
-      card(Icons.itemSvg({ id }), I.name, esc(I.desc || ''), pr, h.gold < pr ? `${Icons.coin()} ${pr}` : '', () => { h.gold -= pr; Game.addItem(h, id, 1); });
-    }
-    buy.appendChild(list); lay.appendChild(buy);
-    // sell side
-    const sell = el('div', 'shopsell', `<div class="shoph"><h3>Your Bag</h3><span class="dim">Click to sell one · Shift+click sells the stack</span></div>`);
-    const grid = el('div', 'grid');
-    const info = el('div', 'shopinfo', last || '<span class="dim">Hover an item to see what it sells for.</span>');
+    c.appendChild(el('div', 'shophead', `<div><b>${esc(npc.name)}</b><span>${esc(npc.def.title || 'Merchant')}</span></div><div class="shopgold">${Icons.coin()} <b>${h.gold}</b></div>`));
+    const lay = el('div', 'shopcols'); c.appendChild(lay);
+    // ---- buy ----
+    const buy = el('div', 'shoppane'); buy.appendChild(el('h3', '', 'For sale'));
+    const tabs = el('div', 'shoptabs2'); for (const [k, t] of [['gear', 'Arms & Armour'], ['supplies', 'Supplies'], ['tools', 'Tools']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); } buy.appendChild(tabs);
+    const grid = el('div', 'sgrid');
+    if (tab === 'gear') for (const it of Game.gearStock(h)) { const pr = Game.itemValue(it) * 4, lock = it.lvl > h.level ? `Lv ${it.lvl}` : '';
+      grid.appendChild(slot(Icons.itemSvg(it), 'r' + it.rarity + (h.gold < pr ? ' poor' : ''), pr, () => itemTip(it, `<div class="tbuy">${lock ? `Requires level ${it.lvl}` : h.gold < pr ? `Costs ${pr} gold: you have ${h.gold}` : `Click to buy for ${pr} gold`}</div>`), () => { if (h.gold < pr) { S.error(); return; } h.gold -= pr; Game.addGear(h, Game.copyGear(it)); last = `Bought ${esc(it.name)}`; }, lock)); }
+    else if (tab === 'supplies') for (const id of Game.merchantStock()) { const pr = Game.buyPrice(id), I = ITEMS[id];
+      grid.appendChild(slot(Icons.itemSvg({ id }), h.gold < pr ? 'poor' : '', pr, () => `<b>${esc(I.name)}</b><div>${esc(I.desc || '')}</div><div class="tbuy">${h.gold < pr ? `Costs ${pr} gold` : `Click to buy one for ${pr} gold · Shift+click buys 5`}</div>`, (e) => { const n = e.shiftKey ? 5 : 1; const k = Math.min(n, Math.floor(h.gold / pr)); if (!k) { S.error(); return; } h.gold -= pr * k; Game.addItem(h, id, k); last = `Bought ${esc(I.name)}${k > 1 ? ' ×' + k : ''}`; })); }
+    else for (const t of Object.keys(TOOLS)) { const have = h.tools[t] || 0, next = TOOL_SHOP.find(x => x[0] > have);
+      if (!next) { grid.appendChild(slot(Icons.toolSvg(t, have), 'owned', null, () => `<b>${TOOL_TIER_NAMES[have]} ${TOOLS[t].name}</b><div>${TOOLS[t].desc}</div><div class="tbuy">You have the best one.</div>`, () => {}, 'Owned')); continue; }
+      const [tier, price, lvl] = next, lock = h.level < lvl ? `Lv ${lvl}` : '';
+      grid.appendChild(slot(Icons.toolSvg(t, tier), h.gold < price ? 'poor' : '', price, () => `<b>${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}</b><div>${TOOLS[t].desc}</div>${have ? `<div class="dim">Replaces your ${TOOL_TIER_NAMES[have]} one: faster, and works on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.</div>` : ''}<div class="tbuy">${lock ? `Requires level ${lvl}` : `Click to buy for ${price} gold`}</div>`, () => { if (h.gold < price) { S.error(); return; } h.gold -= price; h.tools[t] = tier; last = `Bought ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`; }, lock)); }
+    buy.appendChild(grid); lay.appendChild(buy);
+    // ---- sell ----
+    const sell = el('div', 'shoppane'); sell.appendChild(el('h3', '', 'Your bag'));
+    sell.appendChild(el('div', 'shopnote', 'Click an item to sell it · Shift+click sells the whole stack'));
+    const bag = el('div', 'sgrid bag');
     h.inv.forEach((it, i) => {
-      const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
-      if (it) {
-        const v = Game.itemValue(it);
-        cell.onmouseenter = () => { info.innerHTML = `<b>${esc(Game.itemName(it))}</b>${!it.kind && it.n > 1 ? ` ×${it.n}` : ''} <span class="sv">${Icons.coin()} ${v}${!it.kind && it.n > 1 ? ` each · ${v * it.n} for all` : ''}</span>`; };
-        cell.onclick = (e) => { const n = !it.kind && e.shiftKey ? it.n : 1; h.gold += v * n; if (it.kind || it.n <= n) h.inv[i] = null; else it.n -= n; S.coins(); last = `Sold ${esc(Game.itemName(it))}${n > 1 ? ' ×' + n : ''} for <span class="sv">${Icons.coin()} ${v * n}</span>`; G.hooks.invChanged && G.hooks.invChanged(); render(); };
-      }
-      grid.appendChild(cell);
+      if (!it) { bag.appendChild(el('div', 'sslot empty')); return; }
+      const v = Game.itemValue(it), stack = !it.kind && it.n > 1;
+      const d = slot(Icons.itemSvg(it), it.kind ? 'r' + it.rarity : '', v, () => (it.kind ? itemTip(it) : `<b>${esc(Game.itemName(it))}</b>${stack ? ` ×${it.n}` : ''}<div>${esc((ITEMS[it.id] || {}).desc || '')}</div>`) + `<div class="tbuy">Sells for ${v} gold${stack ? ` each · ${v * it.n} for all` : ''}</div>`,
+        (e) => { const n = !it.kind && e.shiftKey ? it.n : 1; h.gold += v * n; if (it.kind || it.n <= n) h.inv[i] = null; else it.n -= n; last = `Sold ${esc(Game.itemName(it))}${n > 1 ? ' ×' + n : ''} for ${v * n} gold`; G.hooks.invChanged && G.hooks.invChanged(); });
+      if (stack) d.insertAdjacentHTML('beforeend', `<span class="sn">${it.n}</span>`);
+      bag.appendChild(d);
     });
-    sell.append(grid, info); lay.appendChild(sell);
+    sell.appendChild(bag); lay.appendChild(sell);
+    c.appendChild(el('div', 'shopfoot', last ? `✓ ${last}` : 'Hover anything to see what it is and what it costs.'));
   };
   render();
 }

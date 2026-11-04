@@ -1038,7 +1038,7 @@ export class Player {
         anim('castBig', 0.6); return true; }
       case 'summon': { // a 3 s cast at the spot you aim at, then they rise there
         const n = this.qty(a.n || 1, a.extra || 0), at = groundPoint(14);
-        this.summonCast = { t: 0, dur: 3, at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name };
+        this.summonCast = { t: 0, dur: 3, at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
         V.ring(at, 1.8, a.pet === 'skeleton' ? '#b080ff' : '#ffb060', 3.1); S.cast('arcane', this.pos, 0.7); anim('cast', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
       case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
@@ -1056,7 +1056,7 @@ export class Player {
     this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null);
     const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
     if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
-    else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big);
+    else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);
     S.cast('arcane', c.at, 1.2); V.burst(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().setY(c.at.y + 0.5), 50, { speed: 4 }); V.ring(c.at, 2.4, '#d0a0ff', 0.5);
   }
   // Kingdom Battles staffs: hold left click to pour out the staff's element
@@ -1260,7 +1260,7 @@ export class Player {
       const ang = d > 0.4 ? Math.abs(angDiff(this.yaw, Math.atan2(dx, dz))) : 0; if (ang > 1.4) return;
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
-    for (const n of G.npcs) if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name);
+    for (const n of G.npcs) { if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name); else if (n.talkable) consider(n, n.pos.x, n.pos.z, 0.4, 'villager', 'Talk to ' + n.vname); }
     if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, clamp(this.pos.z, world.myBoatHome.z - 6, world.myBoatHome.z + 6), 3.2, 'boat', 'Board your boat');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
@@ -1273,6 +1273,7 @@ export class Player {
     if (t.kind === 'npc') G.hooks.talk && G.hooks.talk(t.o);
     else if (t.kind === 'station') G.hooks.station && G.hooks.station(t.o.type);
     else if (t.kind === 'boat') G.hooks.boat && G.hooks.boat();
+    else if (t.kind === 'villager') G.hooks.chatter && G.hooks.chatter(t.o);
     else if (t.kind === 'loot') lootCorpse(this.h, t.o);
     else if (t.kind === 'skin') {
       if (!this.h.tools.knife) { G.hooks.toast && G.hooks.toast('You need a Skinning Knife (Lyra the Huntress has one).', '🔪', 'bad'); S.error(); return; }

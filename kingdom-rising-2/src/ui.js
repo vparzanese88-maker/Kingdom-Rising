@@ -9,7 +9,10 @@ import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOL
 import * as Game from './game.js';
 import { BATTLE } from './battlemap.js';
 import * as Icons from './icons.js';
-import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask } from './terrain.js';
+import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask, MOUNT, PORT } from './terrain.js';
+import { fbm } from './util.js';
+import { pois, known, LORE } from './lore.js';
+import { isExplored } from './fog.js';
 import { world } from './world.js';
 import { goFull, exitFull } from './menu.js';
 
@@ -199,29 +202,49 @@ export function updatePlates() {
 }
 
 // ---------- map rendering ----------
-let mapCanvas = null; const MAPN = 600;
+let mapCanvas = null; const MAPN = 1024;
+const mapView = { z: 1, cx: 0.5, cy: 0.5 };
 export function buildMapImage() {
   mapCanvas = document.createElement('canvas'); mapCanvas.width = mapCanvas.height = MAPN;
   const g = mapCanvas.getContext('2d'), img = g.createImageData(MAPN, MAPN);
-  const c = new THREE.Color();
+  const c = new THREE.Color(), t = new THREE.Color(), step = HALF * 2 / MAPN;
+  const COLS = { deep: new THREE.Color('#123a63'), shallow: new THREE.Color('#2f8fa8'), reef: new THREE.Color('#5cc2c0'), sand: new THREE.Color('#e2cf98'), wet: new THREE.Color('#bba774'),
+    grass: new THREE.Color('#7aa84e'), grass2: new THREE.Color('#93b65a'), jungle: new THREE.Color('#2f6a2c'), jungle2: new THREE.Color('#3f7d34'), hill: new THREE.Color('#6f8a52'), rock: new THREE.Color('#8b857a'), rock2: new THREE.Color('#a59e90'), road: new THREE.Color('#b89a6a') };
   for (let j = 0; j < MAPN; j++) for (let i = 0; i < MAPN; i++) {
-    const x = -HALF + (i + 0.5) / MAPN * HALF * 2, z = -HALF + (j + 0.5) / MAPN * HALF * 2;
+    const x = -HALF + (i + 0.5) * step, z = -HALF + (j + 0.5) * step;
     const h = heightAt(x, z), m = biomeMasks(x, z);
-    if (h < 0) c.setRGB(0.12, 0.3 + h * 0.01, 0.48);
-    else {
-      c.set('#6aa443'); c.lerp(new THREE.Color('#3c7330'), Math.min(1, m.forest)); c.lerp(new THREE.Color('#a08c48'), Math.min(1, m.dry * (1 - m.hl)) * 0.8); c.lerp(new THREE.Color('#7a8a74'), Math.min(1, m.hl)); c.lerp(new THREE.Color('#3a302c'), Math.min(1, m.ash * 1.4));
-      if (h < 2.4 && beachMask(x, z) > 0.3) c.set('#dcc68e');
-      if (h > 55 && m.ash < 0.3) c.lerp(new THREE.Color('#eef2f6'), Math.min(1, (h - 55) / 20));
-      const hx = heightAt(x + 2, z) - h; c.multiplyScalar(1 + Math.max(-0.35, Math.min(0.35, hx * 0.12)));
+    if (h < 0.2) { // the sea: turquoise over the shallows, darkening with depth, a pale line where the waves break
+      const d = Math.min(1, -h / 9); c.copy(COLS.reef).lerp(COLS.shallow, Math.min(1, d * 2.2)).lerp(COLS.deep, Math.max(0, d * 1.4 - 0.4));
+      if (h > -0.6) c.lerp(new THREE.Color('#e8f4f0'), 0.35);
+    } else {
+      // land colours by what grows there and how high it is
+      const n = fbm(x * 0.05, z * 0.05, 2) * 0.5 + 0.5;
+      c.copy(COLS.grass).lerp(COLS.grass2, n * 0.6);
+      const jungle = Math.min(1, m.forest * 1.4); c.lerp(n > 0.5 ? COLS.jungle : COLS.jungle2, jungle * 0.85);
+      c.lerp(COLS.hill, Math.min(1, Math.max(0, (h - 25) / 30)) * 0.7);
+      c.lerp(COLS.rock, Math.min(1, Math.max(0, (h - 60) / 35)));
+      c.lerp(COLS.rock2, Math.min(1, Math.max(0, (h - 100) / 30)));
+      if (beachMask(x, z) > 0.35 && h < 3) c.copy(h < 1 ? COLS.wet : COLS.sand);
+      // forest canopy texture: little dark tree crowns
+      if (jungle > 0.35 && h > 2 && hash(i, j) < jungle * 0.35) c.multiplyScalar(0.78);
+      // hill shading, lit from the north-west
+      const hx = heightAt(x + step, z) - heightAt(x - step, z), hz = heightAt(x, z + step) - heightAt(x, z - step);
+      const sh = (-hx - hz) / (step * 2) * 0.55; c.multiplyScalar(1 + Math.max(-0.45, Math.min(0.4, sh)));
     }
-    if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r && h < LAKE.y) c.setRGB(0.15, 0.35, 0.55);
-    const k = (j * MAPN + i) * 4; img.data[k] = c.r * 255; img.data[k + 1] = c.g * 255; img.data[k + 2] = c.b * 255; img.data[k + 3] = 255;
+    const k = (j * MAPN + i) * 4; img.data[k] = Math.min(255, c.r * 255); img.data[k + 1] = Math.min(255, c.g * 255); img.data[k + 2] = Math.min(255, c.b * 255); img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
-  // roads
-  g.strokeStyle = 'rgba(120,90,50,.85)'; g.lineWidth = 2;
-  for (const r of ROADS) { g.beginPath(); r.forEach(([x, z], i) => { const px = (x + HALF) / (HALF * 2) * MAPN, pz = (z + HALF) / (HALF * 2) * MAPN; i ? g.lineTo(px, pz) : g.moveTo(px, pz); }); g.stroke(); }
+  const toPx = ([x, z]) => [(x + HALF) / (HALF * 2) * MAPN, (z + HALF) / (HALF * 2) * MAPN];
+  // the river, then the roads
+  g.lineCap = g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(60,140,180,.9)'; g.lineWidth = MAPN / 260;
+  if (RIVER.length > 2) { g.beginPath(); let on = false; for (let k = 0; k < RIVER.length - 1; k++) for (let t2 = 0; t2 < 1; t2 += 0.05) { const x = RIVER[k][0] + (RIVER[k + 1][0] - RIVER[k][0]) * t2, z = RIVER[k][1] + (RIVER[k + 1][1] - RIVER[k][1]) * t2; const land = !BATTLE && beachMask(x, z) < 0.9; const [px, pz] = toPx([x, z]); if (land) { on ? g.lineTo(px, pz) : g.moveTo(px, pz); on = true; } else on = false; } g.stroke(); }
+  g.strokeStyle = 'rgba(70,50,30,.55)'; g.lineWidth = MAPN / 300 + 1.5;
+  for (const r of ROADS) { g.beginPath(); r.forEach((p, i) => { const [px, pz] = toPx(p); i ? g.lineTo(px, pz) : g.moveTo(px, pz); }); g.stroke(); }
+  g.strokeStyle = 'rgba(214,186,130,.9)'; g.lineWidth = MAPN / 300;
+  for (const r of ROADS) { g.beginPath(); r.forEach((p, i) => { const [px, pz] = toPx(p); i ? g.lineTo(px, pz) : g.moveTo(px, pz); }); g.stroke(); }
 }
+const hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
 const toMap = (x, z, N) => [(x + HALF) / (HALF * 2) * N, (z + HALF) / (HALF * 2) * N];
 function markers(h) {
   const out = [];
@@ -607,6 +630,7 @@ export function openQuestLog() {
     det.innerHTML = `<h3>${esc(q.title)}</h3><p>${esc(q.text)}</p>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="obj" style="${pr >= n ? 'color:var(--good)' : ''}">${pr >= n ? '✓' : '•'} ${esc(o.label)} ${n > 1 ? `(${pr}/${n})` : ''}</div>`; }).join('') + `<p style="color:var(--dim)">Turn in to: <b>${esc((q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story"))}</b></p><div class="reward">Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · a piece of gear' : ''}${q.items ? ' · ' + Object.entries(q.items).map(([k, n]) => n + ' ' + ITEMS[k].name).join(', ') : ''}</div>`;
     const ab = el('button', 'btn red', 'Abandon quest'); ab.style.marginTop = '10px'; ab.onclick = () => { delete h.quests.active[q.id]; qSel = null; G.hooks.questsChanged(); openQuestLog(); }; det.appendChild(ab);
   }
+  { const lb = el('button', 'lorebtn', '📖 <b>The Island of Kelda</b><small>How the goblins took the island</small>'); lb.onclick = () => { S.click(); det.innerHTML = `<h3>${LORE.title}</h3>` + LORE.text.map(t => `<p>${esc(t)}</p>`).join(''); }; list.insertBefore(lb, list.firstChild); }
   lay.append(list, det); c.appendChild(lay);
 }
 
@@ -638,7 +662,7 @@ export function questAreas(h) {
 }
 let mapSel = null;
 export function openMap() {
-  const c = openWin('map', 'Map of the Realm', '', 'mapfull');
+  const c = openWin('map', G.battleMapDraw ? 'Map of the Realm' : 'Map of Kelda', '', 'mapfull');
   const h = G.player.h, p = G.player, areas = questAreas(h);
   const wrap = el('div', 'maplay'); c.appendChild(wrap);
   const holder = el('div', 'mapcv'); wrap.appendChild(holder);
@@ -646,21 +670,23 @@ export function openMap() {
   const draw = () => {
     const N = Math.floor(Math.min(holder.clientWidth, holder.clientHeight)) || 600;
     holder.innerHTML = ''; const cv = el('canvas'); cv.width = cv.height = N * 2; cv.style.width = cv.style.height = N + 'px'; holder.appendChild(cv);
-    const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(mapCanvas, 0, 0, N * 2, N * 2);
-    if (G.fog && G.fog.canvas) g.drawImage(G.fog.canvas, 0, 0, N * 2, N * 2);
-    const s = N * 2 / (HALF * 2), P = (x, z) => [(x + HALF) * s, (z + HALF) * s], k = N / 380;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = true;
+    // zoom and pan (mouse wheel to zoom towards the cursor, drag to move)
+    const Z = mapView.z, W2 = N * 2; mapView.cx = Math.min(1 - 0.5 / Z, Math.max(0.5 / Z, mapView.cx)); mapView.cy = Math.min(1 - 0.5 / Z, Math.max(0.5 / Z, mapView.cy));
+    g.fillStyle = '#123a63'; g.fillRect(0, 0, W2, W2); g.setTransform(Z, 0, 0, Z, W2 / 2 - mapView.cx * W2 * Z, W2 / 2 - mapView.cy * W2 * Z);
+    g.drawImage(mapCanvas, 0, 0, W2, W2);
+    if (G.fog && G.fog.canvas) g.drawImage(G.fog.canvas, 0, 0, W2, W2);
+    const s = N * 2 / (HALF * 2), P = (x, z) => [(x + HALF) * s, (z + HALF) * s], k = N / 380 / Math.sqrt(Z);
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const lbl = (t, x, z, size = 30, col = '#ffe2a0') => { const [px, pz] = P(x, z); size *= k; g.font = `700 ${size}px Cinzel, serif`; g.lineWidth = size / 5; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, px, pz); g.fillStyle = col; g.fillText(t, px, pz); };
     const icon = (x, z, ch, col, size = 22) => { const [px, pz] = P(x, z); size *= k; g.beginPath(); g.arc(px, pz, size * 0.62, 0, 7); g.fillStyle = 'rgba(0,0,0,.65)'; g.fill(); g.lineWidth = 2 * k; g.strokeStyle = col; g.stroke(); g.font = `900 ${size * 0.8}px sans-serif`; g.fillStyle = col; g.fillText(ch, px, pz + 1); };
     if (G.battleMapDraw) G.battleMapDraw(g, P, k, lbl, icon, s); else {
-    lbl('Driftwood Coast', 0, 470, 26); lbl('Sunmeadow', 0, 250, 26); lbl('Whisperwood', -80, 60, 26); lbl('Frostpeak Highlands', -300, -330, 26, '#e8f2ff'); lbl('The Ashlands', 290, -380, 26, '#ffb090');
-    // zone level ranges
-    const ZP = { coast: [0, 470], meadow: [0, 250], wood: [-80, 60], highlands: [-300, -330], ashlands: [290, -380] };
-    for (const zn of ZONES) if (ZP[zn.id]) lbl(`Levels ${zn.lv}`, ZP[zn.id][0], ZP[zn.id][1] + 20, 13, '#e8dcc0');
-    icon(VILLAGE.x, VILLAGE.z, '⌂', '#fff', 26); lbl('Seabreak Village', VILLAGE.x, VILLAGE.z - 22, 18, '#fff');
-    for (const [x, z, t] of [[-40, 44, 'Ranger Outpost'], [-225, -318, 'Stonewatch'], [238, -346, 'Emberwatch']]) { icon(x, z + 20, '⌂', '#fff', 20); lbl(t, x, z, 16, '#fff'); }
-    lbl('Bandit Camp', 200, -80, 15, '#ffb0a0'); icon(200, -62, '⚔', '#ff8a7a', 18); lbl('Old Ruins', -330, -440, 15, '#ffb0a0'); lbl("Troll King's Throne", -150, -500, 15, '#ffb0a0'); icon(-150, -485, '☠', '#ff6060', 20); lbl('Volcano', 400, -500, 17, '#ff8060'); lbl('Waterfall', -366, -120, 14, '#bfe8ff');
-    for (const gc of GOBLIN_CAMPS) { icon(gc[0], gc[1], '⛺', '#9cdc5a', 16); lbl(`Goblin Camp ${gc[2]}-${gc[3]}`, gc[0], gc[1] + 16, 11, '#c8f0a0'); } }
+    // the island: region names over what you have explored, and the places you have found or been told about
+    const ZP = { coast: [0, 455], meadow: [0, 240], wood: [-350, 110], highlands: [MOUNT.x, MOUNT.z + 40], north: [-150, -300] };
+    for (const zn of ZONES) { const q = ZP[zn.id]; if (!q || !isExplored(q[0], q[1])) continue; lbl(zn.name, q[0], q[1], 24, zn.id === 'highlands' ? '#f0f0e0' : '#ffe2a0'); lbl(`Levels ${zn.lv}`, q[0], q[1] + 18, 12, '#e8dcc0'); }
+    if (isExplored(360, 60)) lbl('Tanglewood Jungle', 360, 60, 24);
+    const H0 = G.player.h;
+    for (const q of pois()) { if (!known(H0, q.id) && !isExplored(q.x, q.z)) continue; icon(q.x, q.z, q.icon, q.col, q.big ? 30 : q.camp ? 16 : 20); if (!q.camp || Z > 1.6) lbl(q.name, q.x, q.z - (q.big ? 26 : 18), q.big ? 20 : q.camp ? 11 : 15, q.col === '#ff6060' || q.col === '#ff8a7a' ? '#ffb0a0' : '#fff'); } }
     // quest areas
     for (const A of areas) { if (!A.tracked && mapSel !== A.q.id) continue; const hi = !mapSel || mapSel === A.q.id;
       for (const o of A.objs) { if (o.x == null) continue; const [px, pz] = P(o.x, o.z);
@@ -678,8 +704,16 @@ export function openMap() {
       const d = el('div', 'mq' + (mapSel === A.q.id ? ' sel' : '') + (A.tracked ? '' : ' off'), `<div class="mqh"><i style="background:${A.col}"></i><b>${esc(A.q.title)}</b>${A.ready ? '<span class="rdy">Ready</span>' : ''}</div>` + A.objs.map(o => `<div class="mqo">${o.turnin ? '?' : '◆'} ${esc(o.label)}${o.x == null ? ' <span class="dim">(anywhere)</span>' : ''}</div>`).join(''));
       d.onclick = () => { S.click(); mapSel = mapSel === A.q.id ? null : A.q.id; renderSide(); draw(); }; side.appendChild(d);
     }
-    side.insertAdjacentHTML('beforeend', `<h3>Legend</h3><div class="legend"><div><b style="color:#ffd84a">!</b> Quest to pick up</div><div><b style="color:#ffd84a">?</b> Quest to hand in</div><div><b>◆</b> Quest objective (circle = area)</div><div><b>⌂</b> Town or outpost</div><div><b style="color:#9cdc5a">⛺</b> Goblin camp (levels)</div><div><b style="color:#ff8a7a">⚔</b> Bandits · <b style="color:#ff6060">☠</b> Boss</div><div><b>➤</b> You</div></div><p class="dim">Click a quest to highlight it. M or Esc closes.</p>`);
+    side.insertAdjacentHTML('beforeend', `<h3>Legend</h3><div class="legend"><div><b style="color:#ffd84a">!</b> Quest to pick up</div><div><b style="color:#ffd84a">?</b> Quest to hand in</div><div><b>◆</b> Quest objective (circle = area)</div><div><b>⌂</b> Town or outpost</div><div><b style="color:#9cdc5a">⛺</b> Goblin camp (levels)</div><div><b style="color:#ff8a7a">⚔</b> Goblin fort · <b style="color:#ff6060">☠</b> Boss</div><div><b>➤</b> You</div></div><p class="dim">Click a quest to highlight it. M or Esc closes.</p>`);
   };
+  holder.onwheel = (e) => { e.preventDefault(); const r = holder.getBoundingClientRect(), N = Math.min(r.width, r.height), fx = (e.clientX - r.left) / N, fy = (e.clientY - r.top) / N;
+    const wx = mapView.cx + (fx - 0.5) / mapView.z, wy = mapView.cy + (fy - 0.5) / mapView.z; mapView.z = Math.max(1, Math.min(6, mapView.z * (e.deltaY < 0 ? 1.25 : 0.8)));
+    mapView.cx = wx - (fx - 0.5) / mapView.z; mapView.cy = wy - (fy - 0.5) / mapView.z; draw(); };
+  holder.onmousedown = (e) => { const r = holder.getBoundingClientRect(), N = Math.min(r.width, r.height), x0 = e.clientX, y0 = e.clientY, c0 = [mapView.cx, mapView.cy];
+    const mv = (ev) => { mapView.cx = c0[0] - (ev.clientX - x0) / N / mapView.z; mapView.cy = c0[1] - (ev.clientY - y0) / N / mapView.z; draw(); };
+    const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); };
+  if (!G.battleMapDraw && mapView.z === 1) { mapView.cx = (p.pos.x + HALF) / (HALF * 2); mapView.cy = (p.pos.z + HALF) / (HALF * 2); }
+  holder.title = 'Mouse wheel to zoom, drag to move';
   renderSide(); requestAnimationFrame(draw);
   // live map in Kingdom Battles: redraw while it is open
   if (G.fog) { const iv = setInterval(() => { if (UI.open !== 'map') { clearInterval(iv); return; } draw(); renderSide(); }, 500); }
@@ -707,7 +741,7 @@ export function openDialog(npc) {
       const q = view.offer;
       c.appendChild(el('div', 'text', `<h3>${esc(q.title)}</h3>${esc(q.text)}`));
       c.appendChild(el('div', '', q.obj.map(o => `<div class="obj">• ${esc(o.label)} ${o.n > 1 ? '(' + o.n + ')' : ''}</div>`).join('')));
-      c.appendChild(el('div', 'reward', `Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · gear' : ''}${q.give && q.give.tool ? ' · you receive a ' + TOOLS[q.give.tool[0]].name : ''}`));
+      c.appendChild(el('div', 'reward', `Rewards: ${rewardText(q)}${q.give && q.give.tool ? ' · you receive a ' + TOOLS[q.give.tool[0]].name : ''}`));
       const opts = el('div', 'opts'); opts.style.marginTop = '12px';
       const a = el('button', '', '✔ Accept'); a.style.color = 'var(--good)'; a.onclick = () => { Game.acceptQuest(h, q); toast('Quest accepted: ' + q.title, '📜', 'gold'); render(null); };
       const d = el('button', '', 'Not now.'); d.onclick = () => { S.click(); render(null); };
@@ -715,7 +749,7 @@ export function openDialog(npc) {
     } else if (view.turnin) {
       const q = view.turnin;
       c.appendChild(el('div', 'text', `<h3>${esc(q.title)}</h3>${esc(q.done)}`));
-      c.appendChild(el('div', 'reward', `Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · gear' : ''}`));
+      c.appendChild(el('div', 'reward', `Rewards: ${rewardText(q)}`));
       const opts = el('div', 'opts'); opts.style.marginTop = '12px';
       const a = el('button', '', '✔ Complete quest'); a.style.color = 'var(--good)'; a.onclick = () => { Game.turnIn(h, q); render(null); }; opts.appendChild(a); c.appendChild(opts);
     } else if (view.progress) {
@@ -740,6 +774,8 @@ export function dialogKey(code) {
   return false;
 }
 
+// what a quest pays, in words
+function rewardText(q) { const r = [`${q.xp} XP`, `${q.gold || 0} gold`]; if (q.gear) r.push((q.gearRarity || 1) >= 3 ? 'a fine weapon or armour piece' : 'a weapon or armour piece for you'); for (const k in q.items || {}) if (ITEMS[k]) r.push(`${q.items[k]}× ${ITEMS[k].name}`); return r.join(' · '); }
 // --- merchant ---
 const TOOL_SHOP = [[1, 3, 1], [2, 30, 4], [3, 110, 9], [4, 320, 14]]; // tier, price, level
 export function openMerchant(npc) {
@@ -752,7 +788,7 @@ export function openMerchant(npc) {
     const lay = el('div', 'shoplay'); c.appendChild(lay);
     // buy side
     const buy = el('div', 'shopbuy');
-    const tabs = el('div', 'shoptabs'); for (const [k, t] of [['tools', 'Tools'], ['supplies', 'Supplies']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
+    const tabs = el('div', 'shoptabs'); for (const [k, t] of [['tools', 'Tools'], ['gear', 'Arms & Armour'], ['supplies', 'Supplies']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); }
     buy.appendChild(tabs);
     const list = el('div', 'shoplist');
     const card = (icon, name, desc, price, state, onBuy) => {
@@ -768,6 +804,10 @@ export function openMerchant(npc) {
         const state = h.level < lvl ? `Level ${lvl}` : h.gold < price ? `${Icons.coin()} ${price}` : '';
         card(Icons.toolSvg(t, tier), `${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, `${TOOLS[t].desc}${have ? ` Upgrades your ${TOOL_TIER_NAMES[have]} one: works faster and on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.` : ''}`, price, state, () => { h.gold -= price; h.tools[t] = tier; toast(`Bought: ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`, TOOLS[t].icon, 'gold'); G.hooks.invChanged && G.hooks.invChanged(); });
       }
+    } else if (tab === 'gear') { // plain weapons and armour for your class: copper, then iron
+      for (const it of Game.gearStock(h)) { const pr = Game.itemValue(it) * 4, lock = it.lvl > h.level;
+        const desc = it.kind === 'weapon' ? `${it.dmg} damage · ${WEAPON_TYPES[it.wt].name}` : `${it.armor} armour · ${SLOT_LABEL[it.slot] || it.slot}`;
+        card(Icons.itemSvg(it), esc(it.name), desc + (Object.keys(it.stats).length ? ' · ' + Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(', ') : ''), pr, lock ? `Level ${it.lvl}` : h.gold < pr ? `${Icons.coin()} ${pr}` : '', () => { h.gold -= pr; Game.addGear(h, Game.copyGear(it)); toast(`Bought: ${it.name}`, Icons.itemSvg(it), 'gold'); }); }
     } else for (const id of Game.merchantStock()) {
       const pr = Game.buyPrice(id), I = ITEMS[id];
       card(Icons.itemSvg({ id }), I.name, esc(I.desc || ''), pr, h.gold < pr ? `${Icons.coin()} ${pr}` : '', () => { h.gold -= pr; Game.addItem(h, id, 1); });

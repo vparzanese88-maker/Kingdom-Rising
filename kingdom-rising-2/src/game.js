@@ -50,6 +50,7 @@ const RETIRED = ['neck', 'shoulders', 'wrists', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
 export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
+  if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
   h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set((CLASS_TREE[h.cls] || []).map(n => n.id));
@@ -521,4 +522,16 @@ export function npcMarker(h, npcId) {
 function checkEquipObjectives(h) { G.hooks.questsChanged && G.hooks.questsChanged(); }
 
 export function merchantStock() { return MERCHANT_STOCK; }
+// the merchant's arms and armour: plain copper and iron pieces for your class (the same pieces each visit)
+const gearCache = {};
+export function gearStock(h) {
+  const key = h.cls; if (gearCache[key]) return gearCache[key];
+  const out = [], wts = [...new Set(['dagger', ...CLASSES[h.cls].weapons.filter(w => WEAPON_TYPES[w] && WEAPON_TYPES[w].kind !== 'staff' || true)])].filter(w => w !== 'shield' || CLASSES[h.cls].weapons.includes('shield')).slice(0, 5);
+  for (const tier of [1, 2]) {
+    for (const wt of wts) { const it = makeWeapon(wt, tier, 0); it.stats = {}; out.push(it); }
+    for (const sl of ARMOR_SLOT_LIST) { const it = makeArmor(CLASSES[h.cls].armor, sl, tier, 0); out.push(it); }
+  }
+  return (gearCache[key] = out);
+}
+export function copyGear(it) { return Object.assign(JSON.parse(JSON.stringify(it)), { uid: ++uid }); }
 export function buyPrice(id) { return Math.max(2, ITEMS[id].value * 3); }

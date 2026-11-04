@@ -6,22 +6,26 @@ import { BATTLE, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap
 export const HALF = 600, SEG = 300, CELL = (HALF * 2) / SEG;
 export const SEA = 0;
 export const VILLAGE = { x: 0, z: 362 };
+// the island: Mount Kelda in the middle, Saltmere (the big port town) on the far north shore
+export const MOUNT = { x: 20, z: -70, r: 250 };
+export const PORT = { x: 20, z: -392 };
+const ISLE = { x: 0, z: -15 };
+// distance from the island's middle, and how far the land reaches in that direction
+export function isleR(x, z) { const dx = x - ISLE.x, dz = z - ISLE.z, a = Math.atan2(dz, dx); const R = 488 + fbm(Math.cos(a) * 1.6 + 5, Math.sin(a) * 1.6 + 2, 3) * 70 + fbm(Math.cos(a) * 5 + 1, Math.sin(a) * 5, 2) * 16; return [Math.hypot(dx, dz), R]; }
 export const SPAWN = { x: 36, z: 428, yaw: 0 };
-export const PLATEAU = { x: -430, z: -140, r: 66, top: 41 };
-export const LAKE = { x: -438, z: -148, r: 30, y: 38.5 };
-export const FALL = { x: -366, z: -140 }; // lip of the waterfall
-export const VOLCANO = { x: 400, z: -480 };
-export const CAMPS = [{ x: -40, z: 65, r: 26, h: null }, { x: -225, z: -298, r: 30, h: null }, { x: 238, z: -326, r: 30, h: null }, { x: 200, z: -62, r: 22, h: null }];
-export const RIVER = [[-356, -140], [-320, -122], [-270, -100], [-210, -82], [-140, -64], [-70, -50], [-10, -44], [60, -38], [125, -18], [175, 2], [230, 34], [300, 88], [370, 140], [440, 182], [520, 214], [600, 236]];
+export const PLATEAU = { x: 9000, z: 9000, r: 66, top: 41 }; // (the island has no plateau lake)
+export const LAKE = { x: 9000, z: 9000, r: 30, y: 38.5 };
+export const FALL = { x: 9000, z: 9000 };
+export const VOLCANO = { x: 9000, z: 9000 };
+// 0 ranger outpost (Kael), 1 Stonewatch lodge (Hilda), 2 goblin war camp, 3 goblin raider camp, 4 Gorgrak's Hold (the goblin chief, on the mountain)
+export const CAMPS = [{ x: -40, z: 65, r: 26, h: null }, { x: -300, z: -150, r: 28, h: null }, { x: 285, z: -190, r: 30, h: null }, { x: 200, z: -62, r: 22, h: null }, { x: 40, z: -175, r: 30, h: null }];
+export const RIVER = [[70, -40], [130, -12], [190, 20], [250, 58], [320, 104], [390, 148], [460, 190], [560, 232]];
 export const ROADS = [
-  [[0, 362], [3, 310], [5, 250], [-12, 170], [-28, 100], [-38, 66], [-22, 10], [-10, -44], [-28, -100], [-80, -160], [-150, -230], [-200, -275], [-225, -298]],
-  [[-28, -100], [30, -150], [100, -200], [160, -260], [205, -300], [238, -326]],
-  [[5, 250], [70, 200], [130, 120], [155, 40], [168, -6], [190, -45], [200, -62]],
-  [[-225, -298], [-270, -350], [-320, -410], [-330, -422], [-260, -440], [-190, -462], [-150, -480]],
-  [[238, -326], [290, -380], [340, -420], [372, -448], [390, -468]],
+  [[0, 362], [3, 310], [5, 250], [-12, 170], [-28, 100], [-70, 40], [-150, -20], [-230, -100], [-260, -200], [-200, -300], [-90, -365], [20, -392]],
+  [[5, 250], [70, 200], [150, 130], [215, 50], [250, -50], [262, -170], [200, -300], [100, -370], [20, -392]],
   [[0, 362], [-50, 376], [-120, 384]], [[0, 362], [50, 376], [110, 384]],
 ];
-export const LAVA_POOLS = [[250, -380, 14], [320, -350, 10], [190, -420, 12], [300, -440, 9], [400, -482, 13]];
+export const LAVA_POOLS = [];
 export const BRIDGES = []; // filled at build: {x,z,ang,len,w,y}
 // Kingdom Battles uses its own map: move the campaign landmarks out of the way
 export function applyBattleTerrain() {
@@ -39,53 +43,32 @@ export { roadDist };
 // raw height function (analytic). The mesh samples it; gameplay uses the mesh samples via heightAt().
 export function rawHeight(x, z, noCamps) {
   if (BATTLE) return battleHeight(x, z);
+  // rolling lowland with jungle hills
   let h = 4.5 + fbm(x * 0.0035, z * 0.0035, 4) * 8 + fbm(x * 0.014 + 7, z * 0.014, 3) * 2.2;
   h = Math.max(h, 2.4 + fbm(x * 0.02, z * 0.02, 2) * 0.6);
-  const north = smooth(240, -60, z);
-  h += north * (fbm(x * 0.008 + 3, z * 0.008 - 2, 3) * 9 + 3);
-  // highlands (NW)
-  const hl = smooth(-70, -270, z) * smooth(20, -200, x);
-  h += hl * (24 + ridged(x * 0.006, z * 0.006, 4) * 50);
-  // ashlands (NE)
-  const ash = smooth(-150, -290, z) * smooth(90, 250, x);
-  h += ash * (8 + fbm(x * 0.01 - 5, z * 0.01 + 9, 3) * 10);
-  // volcano
-  const dv = Math.hypot(x - VOLCANO.x, z - VOLCANO.z);
-  const v = clamp(1 - dv / 240, 0, 1);
-  h += v * v * (3 - 2 * v) * 135;
-  if (dv < 42) h -= (1 - dv / 42) * 1.0 * 48 * smooth(0, 20, 42 - dv);
-  // border mountains (west, north) and south-east headland
-  const bw = smooth(-440, -585, x), bn = smooth(-430, -585, z);
-  const border = Math.max(bw, bn);
-  h += border * (70 + ridged(x * 0.008 + 11, z * 0.008, 4) * 110);
-  // plateau with lake
-  const dp = Math.hypot(x - PLATEAU.x, z - PLATEAU.z);
-  const pl = 1 - smooth(PLATEAU.r - 6, PLATEAU.r + 4, dp);
-  h = Math.max(h * (1 - pl), lerp(h, PLATEAU.top + fbm(x * 0.05, z * 0.05, 2) * 1.5, pl));
-  const dl = Math.hypot(x - LAKE.x, z - LAKE.z);
-  if (dl < LAKE.r + 6) h = lerp(h, LAKE.y - 4.5, 1 - smooth(LAKE.r - 10, LAKE.r + 4, dl));
-  // stream from lake to the cliff lip
-  { const r = distToLine(x, z, [[LAKE.x + 20, LAKE.z + 4], [FALL.x - 3, FALL.z]]); if (r.d < 7 && dp < PLATEAU.r + 2) h = Math.min(h, lerp(LAKE.y - 1.8, h, smooth(3.5, 7, r.d))); }
-  // camps and village flatten
+  h += smooth(120, 300, Math.abs(x)) * smooth(260, 80, z) * (fbm(x * 0.009 + 3, z * 0.009 - 2, 3) * 10 + 4); // jungle hills east and west
+  // Mount Kelda: a rugged green peak in the middle of the island
+  { const d = Math.hypot(x - MOUNT.x, z - MOUNT.z), k = clamp(1 - d / MOUNT.r, 0, 1), e = k * k * (3 - 2 * k);
+    h += e * 62 + Math.pow(k, 2.4) * (40 + ridged(x * 0.007 + 4, z * 0.007 - 3, 4) * 46); }
+  // the village and the port lie flat
   const dvl = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
   h = lerp(h, 2.6 + fbm(x * 0.03, z * 0.03, 2) * 0.3, 1 - smooth(30, 52, dvl));
+  const dpt = Math.hypot(x - PORT.x, z - PORT.z);
+  h = lerp(h, 3.2 + fbm(x * 0.03, z * 0.03, 2) * 0.3, 1 - smooth(55, 85, dpt));
   if (!noCamps) for (const c of CAMPS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r * 1.8) { if (c.flat == null) c.flat = rawHeight(c.x, c.z, true); h = lerp(h, c.flat, 1 - smooth(c.r * 0.7, c.r * 1.8, d)); } }
-  // coast: beach then sea (south and east)
-  const cn = fbm(x * 0.006 + 40, z * 0.006, 3) * 26;
-  const beach = Math.max(smooth(378, 405, z + cn * 0.5), smooth(440, 500, x + cn) * smooth(-120, -40, z));
+  // the coast all the way round: beach, then the sea
+  const [r, R] = isleR(x, z);
+  const beach = smooth(R - 62, R - 30, r);
   h = lerp(h, 1.1 + (h - 1.1) * 0.08, beach);
-  const sea = Math.max(smooth(452, 505, z + cn * 0.5), smooth(495, 560, x + cn) * smooth(-120, -40, z));
-  h = lerp(h, -9, sea);
+  h = lerp(h, -9, smooth(R - 18, R + 34, r));
   // river channel
   const rd = riverDist(x, z);
   if (rd.d < 60) {
-    const w = 6.5 + rd.i * 0.25;
+    const w = 6.5 + rd.i * 0.4;
     const bed = -2.6;
     const bank = 6 + Math.max(0, h) * 0.55;
     h = Math.min(h, lerp(bed, h, smooth(w, w + bank, rd.d)));
   }
-  // lava pools
-  for (const p of LAVA_POOLS) { const d = Math.hypot(x - p[0], z - p[1]); if (d < p[2] + 8) h -= (1 - smooth(p[2] - 4, p[2] + 8, d)) * 3; }
   return h;
 }
 
@@ -103,25 +86,25 @@ export function normalAt(x, z) { const e = 1.5; const hx = heightAt(x + e, z) - 
 
 export function zoneAt(x, z) {
   if (BATTLE) return 'meadow';
-  const ash = smooth(-150, -290, z) * smooth(90, 250, x);
-  if (ash > 0.4 || Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < 200) return 'ashlands';
-  if (z < -150) return 'highlands';
-  if (z < 175) return 'wood';
-  const cn = 0;
-  if (z > 385 || x > 450) return 'coast';
-  return 'meadow';
+  const [r, R] = isleR(x, z);
+  if (r > R - 70) return z < -250 ? 'north' : 'coast';
+  if (Math.hypot(x - MOUNT.x, z - MOUNT.z) < MOUNT.r * 0.62) return 'highlands';
+  if (z < -230) return 'north';
+  if (z > 160 && Math.abs(x) < 330) return 'meadow';
+  return 'wood';
 }
 export function biomeMasks(x, z) {
   if (BATTLE) return { hl: 0, ash: 0, forest: clamp(fbm(x * 0.006 + 70, z * 0.006 - 30, 3) * 1.6, 0, 0.8), dry: clamp(fbm(x * 0.004 - 40, z * 0.004, 2) * 1.2, 0, 0.35), meadow: 1 };
+  const dm = Math.hypot(x - MOUNT.x, z - MOUNT.z);
   return {
-    hl: smooth(-70, -270, z) * smooth(20, -200, x) + Math.max(smooth(-440, -585, x), smooth(-430, -585, z)) * 0.6,
-    ash: Math.max(smooth(-150, -290, z) * smooth(90, 250, x), clamp(1 - Math.hypot(x - VOLCANO.x, z - VOLCANO.z) / 230, 0, 1)),
-    forest: smooth(220, 140, z) * (1 - smooth(-120, -200, z)),
-    dry: smooth(-40, -230, z) * smooth(-80, 140, x),
-    meadow: smooth(170, 230, z),
+    hl: clamp((1 - dm / MOUNT.r) * 1.6, 0, 1) * 0.8, // the mountain: rockier, greyer grass
+    ash: 0,
+    forest: clamp(smooth(150, 60, z) * (0.55 + smooth(80, 260, Math.abs(x)) * 0.45) * (1 - smooth(-200, -280, z) * 0.6) + smooth(0.62, 0.4, dm / MOUNT.r) * 0.3, 0, 1),
+    dry: 0.05,
+    meadow: smooth(150, 220, z) + smooth(-240, -300, z) * 0.6,
   };
 }
-export function beachMask(x, z) { if (BATTLE) return 0; const cn = fbm(x * 0.006 + 40, z * 0.006, 3) * 26; return Math.max(smooth(375, 402, z + cn * 0.5), smooth(440, 500, x + cn) * smooth(-120, -40, z)); }
+export function beachMask(x, z) { if (BATTLE) return 0; const [r, R] = isleR(x, z); return smooth(R - 66, R - 36, r); }
 export function isWater(x, z) { return heightAt(x, z) < SEA - 0.4 || (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r && heightAt(x, z) < LAKE.y - 0.3); }
 export function waterLevelAt(x, z) { if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 4 || (Math.hypot(x - PLATEAU.x, z - PLATEAU.z) < PLATEAU.r && heightAt(x, z) > 20)) return LAKE.y; return SEA; }
 
@@ -182,7 +165,7 @@ export function buildTerrain(scene) {
     tmp.lerp(m.ash > 0.4 ? COL.basalt : n > 0.5 ? COL.rock : COL.rock2, steep);
     // snow
     const snowLine = 52 + n2 * 14;
-    if (m.ash < 0.3) tmp.lerp(COL.snow, smooth(snowLine, snowLine + 10, h) * smooth(0.5, 0.75, ny) * clamp(m.hl * 2 + (h > 90 ? 1 : 0), 0, 1));
+    if (BATTLE && m.ash < 0.3) tmp.lerp(COL.snow, smooth(snowLine, snowLine + 10, h) * smooth(0.5, 0.75, ny) * clamp(m.hl * 2 + (h > 90 ? 1 : 0), 0, 1));
     // beach & underwater
     const bm = beachMask(x, z);
     if (h < 2.6 && m.ash < 0.3) tmp.lerp(COL.sand, smooth(2.6, 1.5, h) * Math.max(bm, h < 0.8 ? 1 : 0));
@@ -192,7 +175,7 @@ export function buildTerrain(scene) {
     if (rd < 14 && h < 4) tmp.lerp(COL.mud, smooth(14, 6, rd) * 0.7);
     // roads
     const roadD = roadDist(x, z);
-    if (roadD < 4.5 && h > 0.4) tmp.lerp(m.hl > 0.6 && h > snowLine ? COL.snow : COL.road, smooth(4.5, 1.8, roadD) * 0.9);
+    if (roadD < 4.5 && h > 0.4) tmp.lerp(BATTLE && m.hl > 0.6 && h > snowLine ? COL.snow : COL.road, smooth(4.5, 1.8, roadD) * 0.9);
     // village dirt
     const dvl = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
     if (dvl < 26) tmp.lerp(COL.road, (1 - dvl / 26) * 0.45 * (0.5 + n * 0.5));

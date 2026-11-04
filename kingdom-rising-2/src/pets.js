@@ -10,28 +10,37 @@ import { foe } from './combat.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 
-const MODEL = { skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
-const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff' };
+const MODEL = { skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
+const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff', skelmage: '#7a40d0' };
 let petN = 0;
 
 // lv: the summoner's power on the 1-10 scale petDef uses
-export function summonPets(kind, at, lv, dur, n, big) {
+export function dismissPets(spell) { for (const m of G.mobs.filter(o => o.pet && (spell == null || o.spell === spell))) vanish(m); }
+export function summonPets(kind, at, lv, dur, n, big, spell = kind) {
   if (!G.myTeam) G.myTeam = 'hero';
+  dismissPets(spell);
   for (let k = 0; k < n; k++) {
     const def = kind === 'spirit' ? Object.assign(petDef('wolfpack', lv, big), { name: 'Spirit Wolf' }) : petDef(kind, lv, big);
     const a = (k / Math.max(1, n)) * Math.PI * 2, r = n > 1 ? 1.8 : 0, x = at.x + Math.cos(a) * r, z = at.z + Math.sin(a) * r;
     const m = new Mob(MODEL[kind] || 'skeleton', 1, x, z);
-    m.team = G.myTeam; m.pet = def; m.petKind = kind; Object.defineProperty(m, 'name', { value: def.name, configurable: true }); m.hostile = false; m.lv = G.save ? G.save.level : 1;
-    m.maxHp = m.hp = def.hp; m.petT = dur; m.atkCd = 0.5; m.slot = petN++ % 4; m.update = petUpdate; m.takeHit = petHit;
+    m.team = G.myTeam; m.pet = def; m.petKind = kind; m.spell = spell; Object.defineProperty(m, 'name', { value: def.name, configurable: true }); m.hostile = false; m.lv = G.save ? G.save.level : 1;
+    m.maxHp = m.hp = def.hp; m.petT = Infinity; m.atkCd = 0.5; m.slot = petN++ % 4; m.update = petUpdate; m.takeHit = petHit;
+    // enemies can fight back: what a monster's attack needs from its target
+    m.level = m.lv; m.stealth = 0; m.knock = new THREE.Vector3(); m.debuff = () => {}; m.takeDamage = petHurt;
     if (def.size) m.root.scale.multiplyScalar(def.size);
-    if (GHOST[kind]) m.root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.6; o.material.emissive = new THREE.Color(GHOST[kind]); o.material.emissiveIntensity = 0.6; } });
+    if (GHOST[kind]) m.root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (kind !== 'skelmage') { o.material.transparent = true; o.material.opacity = 0.6; } if (o.material.emissive) { o.material.emissive.set(GHOST[kind]); o.material.emissiveIntensity = 0.6; } } });
     if (m.ring) m.ring.visible = false;
     G.mobs.push(m);
     V.burst(kind === 'skeleton' ? 'bone' : kind === 'fireel' ? 'fire' : 'shadow', new THREE.Vector3(x, heightAt(x, z) + 0.6, z), 40, { speed: 3 });
   }
 }
-// pets shrug off stray hits: they are here to fight for you, not to die to splash damage
+// your own splash damage never hurts them; monsters do
 function petHit() { return 0; }
+function petHurt(dmg) {
+  if (this.dead) return; const d = Math.max(1, Math.round(dmg * (1 - (this.pet.armor || 0))));
+  this.hp -= d; this.hitFlash = 0.15; V.number(this.pos.clone().setY(this.pos.y + (this.height || 1.6) + 0.3), d, 'dmg');
+  if (this.hp <= 0) { this.dead = true; G.hooks.toast && G.hooks.toast(`Your ${this.name} has fallen`, '☠', 'bad'); vanish(this); }
+}
 function vanish(m) {
   V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 2.5 });
   G.scene.remove(m.root); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1);
@@ -49,7 +58,8 @@ function pickTarget(m, P) {
 }
 function petUpdate(dt) {
   const P = G.player, D = this.pet; if (!P) return;
-  this.petT -= dt; if (this.petT <= 0 || P.dead) { vanish(this); return; }
+  if (P.dead) { vanish(this); return; }
+  this.knock.multiplyScalar(0.9);
   this.atkCd -= dt; this.thinkT = (this.thinkT || 0) - dt;
   if (this.tgt && (this.tgt.dead || Math.hypot(this.tgt.pos.x - P.pos.x, this.tgt.pos.z - P.pos.z) > 28)) this.tgt = null;
   if (this.thinkT <= 0) { this.thinkT = 0.4; if (!this.tgt) this.tgt = pickTarget(this, P); }
@@ -63,7 +73,7 @@ function petUpdate(dt) {
       this.atkCd = D.cd || 1.2; this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6;
       const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2);
       if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
-      t.takeHit(dmg, P, { pet: true }); t.provoked = true; if (t.state !== 'flee') t.state = 'chase';
+      t.takeHit(dmg, P, { pet: true }); t.provoked = true; t.petFoe = this; if (t.state !== 'flee') t.state = 'chase';
     }
   } else {
     // follow a few steps behind and to the side, and settle when close

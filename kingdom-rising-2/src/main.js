@@ -8,10 +8,13 @@ import { G } from './state.js';
 import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
+import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets } from './pets.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
+import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
+import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
 import { battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
@@ -68,14 +71,18 @@ function boot() {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
   const vill = [[-6, 352, { race: 'human', sex: 'f', outfit: 'weaver', hair: '#7b2a15', hairStyle: 2, skin: '#e0ac85', height: 0.8 }], [12, 372, { race: 'human', sex: 'm', outfit: 'worker', hair: '#d9b26a', skin: '#f1c7a5', beard: 0, height: 0.75 }], [-18, 340, { race: 'dwarf', sex: 'm', outfit: 'worker', hair: '#6b3a17', skin: '#dba07a' }], [24, 360, { race: 'elf', sex: 'f', outfit: 'merchant', hair: '#e8e8e8', skin: '#ead0b5', hairStyle: 1 }]];
-  for (const [x, z, app] of vill) G.npcs.push(new Villager(x, z, app));
+  { const SK = ['#e0ac85', '#f1c7a5', '#c08e68', '#8a6448', '#d4a882'], HA = ['#5a3a1e', '#2a1a10', '#d9b26a', '#7b2a15', '#8a8a8a'];
+    const rnd = (a) => a[Math.floor(Math.random() * a.length)], app = (i) => ({ race: 'human', sex: i % 2 ? 'f' : 'm', outfit: ['worker', 'weaver', 'smith', 'hunter'][i % 4], hair: rnd(HA), hairStyle: i % 3, skin: rnd(SK), beard: i % 4 === 0 ? 1 : 0, height: 0.75 + Math.random() * 0.12 });
+    for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28 + 0.2, r = 18 + (i % 3) * 14; vill.push([PORT.x + Math.cos(a) * r, PORT.z + Math.sin(a) * r, app(i)]); } // Saltmere's townsfolk
+    vill.push([CAMPS[0].x + 6, CAMPS[0].z - 4, app(3)], [CAMPS[1].x + 4, CAMPS[1].z + 6, app(5)]); }
+  vill.forEach(([x, z, app], i) => { const v = new Villager(x, z, app); v.talkable = true; v.vname = villagerName(i); G.npcs.push(v); });
   for (const s of SPAWNS) { const [type, x, z, r, n, l0, l1] = s; const hostileN = MOBS[type].elite ? 1 : MOBS[type].aggro > 0 ? 2.2 : 1.3; const packs = Math.max(1, Math.round(n / 3)); const centers = []; for (let j = 0; j < packs; j++) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r * 0.75; centers.push([x + Math.cos(a) * d, z + Math.sin(a) * d]); }
     for (let i = 0; i < Math.max(1, Math.round(n * hostileN)); i++) { const [cx0, cz0] = centers[i % packs]; let px, pz, k = 0; do { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * Math.max(14, r * 0.6); px = cx0 + Math.cos(a) * d; pz = cz0 + Math.sin(a) * d; k++; } while (k < 20 && heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)); G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); } }
   // fill the empty stretches between spawn areas with small roaming packs
-  { const TAB = { coast: [['wolf', 1, 2], ['rat', 1, 2], ['crab', 1, 2]], meadow: [['wolf', 1, 2], ['wolf', 2, 3], ['bear', 2, 3], ['tiger', 2, 3], ['goblin', 1, 3], ['wolf', 1, 3], ['bear', 3, 4], ['tiger', 3, 4]], edge: [['wolf', 3, 4], ['bear', 3, 5], ['tiger', 3, 5], ['goblin', 3, 5], ['boar', 3, 5]], wood: [['goblin_brute', 6, 8], ['goblin', 5, 7], ['wolf', 5, 7], ['boar', 5, 7], ['spider', 6, 8], ['wolf', 6, 7], ['boar', 6, 8], ['tiger', 7, 8]], highlands: [['skeleton', 10, 12], ['goblin_brute', 10, 12], ['frostwolf', 9, 11], ['bear', 9, 11], ['frostwolf', 10, 11], ['snowtiger', 11, 12]], ashlands: [['ashhound', 14, 16], ['imp', 15, 16], ['golem', 16, 17], ['skeleton', 15, 17]] };
+  { const TAB = { coast: [['crab', 1, 2], ['rabbit', 1, 1], ['wolf', 1, 2]], meadow: [['wolf', 1, 2], ['wolf', 2, 3], ['bear', 2, 3], ['tiger', 2, 3], ['goblin', 1, 3], ['boarlet', 1, 2], ['bear', 3, 4], ['tiger', 3, 4]], edge: [['wolf', 3, 4], ['bear', 3, 5], ['tiger', 4, 5], ['boar', 4, 5]], wood: [['tiger', 5, 8], ['boar', 5, 7], ['wolf', 5, 8], ['bear', 7, 9], ['tiger', 8, 10]], north: [['wolf', 9, 11], ['boar', 9, 10], ['bear', 10, 12], ['tiger', 11, 13]], highlands: [['bear', 12, 15], ['tiger', 13, 16], ['wolf', 12, 14], ['bear', 15, 18]] };
     for (let gx = -520; gx <= 520; gx += 60) for (let gz = -520; gz <= 460; gz += 60) {
       const x = gx + (Math.random() - 0.5) * 40, z = gz + (Math.random() - 0.5) * 40;
-      if (heightAt(x, z) < 1.2 || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 70) continue;
+      if (heightAt(x, z) < 1.2 || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 70 || Math.hypot(x - PORT.x, z - PORT.z) < 110) continue;
       if (SPAWNS.some(s2 => Math.hypot(s2[1] - x, s2[2] - z) < s2[3] * 0.8 + 20) || GOBLIN_CAMPS.some(g => Math.hypot(g[0] - x, g[1] - z) < 40) || CAMPS.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 25)) continue;
       let zn = zoneAt(x, z); if (zn === 'meadow' && z < 215) zn = 'edge'; if (zn === 'wood' && z > 150) zn = 'edge';
       const tab = TAB[zn]; if (!tab) continue;
@@ -122,8 +129,9 @@ function applyGraphics() {
 function startGame(save) {
   const h = Game.migrateHero(save.inv ? save : getSave(save.id));
   G.save = h;
-  // older campaign saves move onto the 1-50 scale once
-  if (!BATTLE && !h.lv50) { h.lv50 = true; if (h.level > 1) { h.level = Math.min(LEVEL_CAP, shownLv(h.level)); h.xp = 0; } }
+  // the island tops out at level 20: heroes from the short-lived 1-50 scale move back once
+  if (!BATTLE && h.lv50 && !h.lv20) { if (h.level > 1) { h.level = Math.max(1, Math.min(LEVEL_CAP, Math.round(1 + (h.level - 1) * 19 / 49))); h.xp = 0; } }
+  if (!BATTLE) { h.lv20 = true; h.lv50 = true; }
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
@@ -132,6 +140,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
+  if (!BATTLE) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); }
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
@@ -141,7 +150,7 @@ function saveNow() {
   if (BATTLE) return;
   const p = G.player, h = G.save; if (!p || !h) return;
   h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null;
-  h.hp = p.hp; h.tod = G.tod;
+  h.hp = p.hp; h.tod = G.tod; if (fog.on && fog.soft) h.fogEx = packFog();
   const zn = ZONES.find(z => z.id === G.zone); h.zone = zn ? zn.name : h.zone;
   putSave(h);
 }
@@ -257,6 +266,8 @@ function kitAbilities(levelOf) {
 function campaignSetup() {
   campaignLevels();
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
+  // campaign summons stay until they fall, or until you summon again
+  for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   G.itemSlots = 2; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 function startBattle() {
@@ -396,6 +407,9 @@ function hooks() {
   if (!BATTLE) H.spiritWolf = (p, lv, dur) => summonPets('spirit', p, 1 + (lv - 1) * 9 / (LEVEL_CAP - 1), dur, 1);
   H.castBar = (name, k) => { let e = $('castbar'); if (!e) { e = document.createElement('div'); e.id = 'castbar'; e.innerHTML = '<b></b><i><u></u></i>'; $('hud').appendChild(e); }
     if (name == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('b').textContent = name; e.querySelector('u').style.width = Math.round(Math.min(1, k) * 100) + '%'; };
+  H.chatter = (v) => { S.click(); const P = G.player; v.yaw = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); v.to = null; v.t = 4;
+    const r = chatter(G.save, v); chatAdd(`<b class="me" style="color:#b8e0ff">${v.vname}:</b> “${r.text}”`, 'chat'); UI.toast(`${v.vname}: “${r.text}”`, '💬');
+    if (r.found) { chatAdd(`<b class="sk">Map updated:</b> ${r.found.name}`, 'skill'); setTimeout(() => UI.toast(`Map updated: ${r.found.name}`, '🗺', 'gold'), 600); } };
   H.boat = () => { S.step('wood'); const q = G.save.quests;
     UI.toast("You can't set sail yet: she needs major repairs.", '⛵', 'bad');
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
@@ -665,6 +679,7 @@ function updateMobs(dt, p) {
   const heroes = MP.host ? [p, ...MP.remotes.values()].filter(h => !h.dead && !(h.stealth > 0)) : null;
   for (const m of G.mobs) {
     let d = m.pos.distanceTo(p.pos), tp = p;
+    if (m.petFoe) { if (m.petFoe.dead || !G.mobs.includes(m.petFoe)) m.petFoe = null; else if (!m.dead && m.state === 'chase') { const dd = m.pos.distanceTo(m.petFoe.pos); if (dd < 30) { tp = m.petFoe; d = Math.min(d, dd); } } }
     if (heroes && m.team == null && !m.netProxy) for (const h of heroes) { const dd = m.pos.distanceTo(h.pos); if (dd < d || (tp.dead && !h.dead)) { d = dd; tp = h; } }
     if (m.isStruct) continue;
     if (m.team != null) { if (!m.dead && !m.gone) m.root.visible = d < 170; m.update(dt); continue; }
@@ -745,6 +760,8 @@ function gameUpdate(dt) {
     musicFight = threat || elite ? Math.min(6, musicFight + dt) : Math.max(0, musicFight - dt * 0.4);
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
   if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
+  if (!BATTLE && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);
+    if ((G.poiT = (G.poiT || 0) - dt) <= 0) { G.poiT = 1; for (const q of pois()) if (!known(G.save, q.id) && Math.hypot(q.x - p.pos.x, q.z - p.pos.z) < (q.big ? 110 : 55)) { learn(G.save, q.id); UI.toast(`Discovered: ${q.name}`, '🗺', 'gold'); chatAdd(`<b class="sk">Discovered:</b> ${q.name}`, 'skill'); } } }
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);

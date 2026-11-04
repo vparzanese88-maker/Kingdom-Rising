@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
-import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt } from './terrain.js';
+import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 import { BATTLE, LAYOUT, WALL_R, battleRoadDist, nearTown } from './battlemap.js';
 
@@ -70,7 +70,7 @@ export function surfaceType(x, z, onSurf) {
   if (h < 0.1) return 'water';
   if (h < 2.3 && zn !== 'ashlands') return 'sand';
   if (zn === 'ashlands') return 'ash';
-  if (zn === 'highlands' && h > 55) return 'snow';
+  if (zn === 'highlands' && h > 55) return BATTLE ? 'snow' : 'stone';
   if (roadDist(x, z) < 3) return 'stone';
   return 'grass';
 }
@@ -234,6 +234,7 @@ function addNode(type, x, z, s, rotY, kind, tint) {
 // ---------- placement ----------
 function avoid(x, z, pad = 0) {
   if (Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 36 + pad) return true;
+  if (!BATTLE && Math.hypot(x - PORT.x, z - PORT.z) < 82 + pad) return true;
   for (const c of CAMPS) if (Math.hypot(x - c.x, z - c.z) < c.r + 6 + pad) return true;
   for (const g of GOBLIN_CAMPS) if (Math.hypot(x - g[0], z - g[1]) < 16 + pad) return true;
   if (roadDist(x, z) < 4.5 + pad) return true;
@@ -281,16 +282,18 @@ function scatter() {
     let dens = 0, type = null, autumn = 0;
     const forestK = smooth(240, 120, z) * (1 - smooth(-110, -230, z) * 0.5);
     const coldK = clamp(m.hl * 1.4, 0, 1), dryK = clamp(m.dry * (1 - m.hl), 0, 1), ashK = m.ash;
-    if (zn === 'coast') { if (h < 3 && rng() < 0.015) type = 'tree_palm'; }
+    if (zn === 'coast' || (zn === 'north' && h < 4)) { if (h < 5 && rng() < (h < 3 ? 0.07 : 0.035)) type = 'tree_palm'; } // palms all along the beaches
     else {
       dens = (0.05 + forestK * 0.5) * smooth(0.3, 0.6, cl) + forestK * 0.06;
       dens *= 1 - smooth(0.5, 0.95, ashK) * 0.85;
       if (h > 75) dens *= 0.15;
       const r = rng();
       if (ashK > 0.55 || (ashK > 0.25 && r < ashK)) type = 'tree_dead';
-      else if (coldK > 0.2 && rng() < coldK) type = h > 40 + rng() * 15 ? 'tree_snow' : 'tree_pine';
-      else if (zn === 'meadow' && rng() < 0.45) type = 'tree_birch';
-      else type = rng() < 0.55 ? 'tree_oak' : rng() < 0.55 ? 'tree_pine' : 'tree_birch';
+      else if (BATTLE && coldK > 0.2 && rng() < coldK) type = h > 40 + rng() * 15 ? 'tree_snow' : 'tree_pine';
+      else if (zn === 'wood') { type = rng() < 0.4 ? 'tree_palm' : 'tree_oak'; dens = Math.max(dens, 0.32 * smooth(0.25, 0.55, cl) + 0.08); } // the jungle: palms and broad trees, thick
+      else if (zn === 'highlands') type = h > 55 ? 'tree_pine' : rng() < 0.6 ? 'tree_oak' : 'tree_pine';
+      else if ((zn === 'meadow' || zn === 'north') && rng() < 0.35) type = rng() < 0.4 ? 'tree_palm' : 'tree_birch';
+      else type = rng() < 0.65 ? 'tree_oak' : 'tree_birch';
       autumn = clamp(dryK * 1.6 + ashK, 0, 1);
     }
     if (!type || (dens && rng() > dens)) continue;
@@ -301,14 +304,14 @@ function scatter() {
     addNode(type, x, z, s, R(0, 6.28), kind, type === 'tree_palm' ? null : tint);
   }
   // bushes (decor)
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < 5200; i++) {
     const x = R(-HALF, HALF), z = R(-HALF, HALF), h = heightAt(x, z); if (h < 1.5) continue;
-    const zn = zoneAt(x, z); if (zn === 'ashlands' || zn === 'coast' || (zn === 'highlands' && h > 50)) continue;
+    const zn = zoneAt(x, z); if (zn === 'ashlands' || zn === 'coast' || (zn === 'highlands' && h > 70)) continue;
     if (avoid(x, z, -2)) continue;
     addInstance('bush', x, h - 0.15, z, R(0, 6.28), R(0.6, 1.4), '#' + tmpC.setHSL(R(0.2, 0.33), 0.45, R(0.4, 0.55)).getHexString());
   }
   // rocks & ore
-  const oreZone = { meadow: ['rock', 'rock', 'copper'], wood: ['rock', 'copper', 'iron', 'iron'], highlands: ['rock', 'iron', 'mithril', 'mithril'], ashlands: ['rock', 'starmetal', 'starmetal', 'mithril'], coast: ['rock'] };
+  const oreZone = { meadow: ['rock', 'rock', 'copper'], wood: ['rock', 'copper', 'iron', 'iron'], highlands: ['rock', 'iron', 'mithril', 'mithril'], ashlands: ['rock', 'starmetal', 'starmetal', 'mithril'], coast: ['rock'], north: ['rock', 'copper', 'iron'] };
   for (let i = 0; i < 5200; i++) {
     const x = R(-HALF + 10, HALF - 10), z = R(-HALF + 10, HALF - 10), h = heightAt(x, z); if (h < 1.0) continue;
     if (avoid(x, z, -1)) continue;
@@ -316,6 +319,7 @@ function scatter() {
     const hill = smooth(0.95, 0.8, normalAt(x, z).y) + (fbm(x * 0.02 - 20, z * 0.02 + 5, 2) > 0.25 ? 0.6 : 0);
     if (rng() > (zn === 'meadow' ? 0.08 : 0.1) * (0.4 + hill * 1.4)) continue;
     let type = oreZone[zn][Math.floor(rng() * oreZone[zn].length)];
+    if (zn === 'highlands' && h > 75 && rng() < 0.35) type = 'starmetal'; // the richest veins near Kelda's top
     // copper close to the village so the first quest is easy
     const dv = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
     if (zn === 'meadow' && dv < 200 && rng() < 0.35) type = 'copper';
@@ -553,30 +557,64 @@ function buildCamps(scene) {
   tent(scene, -28, 52, 0.5, M.clothGreen); tent(scene, -54, 58, -0.3, M.clothGreen); tent(scene, -48, 84, 2.5, M.clothGreen, 1.1);
   { const g = new THREE.Group(); for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.13, 0.15, 7, M.beam, sx * 1.3, 3.5, sz * 1.3, g, 6); bx(3.4, 0.2, 3.4, M.plank, 0, 6, 0, g); for (const s of [-1, 1]) { bx(3.4, 0.9, 0.1, M.plank, 0, 6.5, s * 1.65, g); bx(0.1, 0.9, 3.4, M.plank, s * 1.65, 6.5, 0, g); } const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.6, 4), M.thatch); roof.rotation.y = Math.PI / 4; roof.position.y = 8.6; g.add(roof); for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.07, 0.07, 1.8, M.beam, sx * 1.5, 7.8, sz * 1.5, g, 5); placeGroup(g, -22, 82, 0.2, scene); addBox(-22, 82, 1.6, 1.6, 0.2); }
   banner(scene, -32, 66, M.clothGreen);
-  // Stonewatch (dwarves)
-  addHouse(scene, -204, -318, 7, 6, 3.2, 'slate', { stoneWalls: true, snow: true, cx: -225, cz: -298 });
-  addHouse(scene, -252, -312, 6, 6, 3.0, 'slate', { stoneWalls: true, snow: true, cx: -225, cz: -298 });
-  addHouse(scene, -226, -270, 8, 6, 3.4, 'slate', { stoneWalls: true, snow: true, cx: -225, cz: -298 });
-  banner(scene, -218, -300, M.clothBlue);
-  // Emberwatch tower
-  { const g = new THREE.Group(); cy(4, 4.6, 16, M.darkStone, 0, 8, 0, g, 12); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; bx(1.2, 1.2, 1.0, M.darkStone, Math.cos(a) * 4, 16.6, Math.sin(a) * 4, g, 0, -a, 0); } bx(1.4, 2.4, 0.3, M.wood, 0, 1.2, 4.5, g); fire(scene, 256, heightAt(256, -350) + 17.5, -350, 1.4); placeGroup(g, 256, -350, -0.6, scene, -0.5); addCircle(256, -350, 4.8); }
-  addHouse(scene, 216, -346, 6, 6, 3, 'slate', { stoneWalls: true, cx: 238, cz: -326 });
-  addHouse(scene, 262, -302, 6, 5, 3, 'slate', { stoneWalls: true, cx: 238, cz: -326 });
-  banner(scene, 244, -330, M.clothRed);
-  // bandit camp
+  // Stonewatch: Captain Hilda's stone lodge on the western slopes of Kelda
+  { const [cx, cz] = [CAMPS[1].x, CAMPS[1].z];
+    addHouse(scene, cx + 14, cz - 12, 8, 6, 3.4, 'slate', { stoneWalls: true, cx, cz }); addHouse(scene, cx - 14, cz - 6, 6, 6, 3.0, 'slate', { stoneWalls: true, cx, cz }); addHouse(scene, cx + 4, cz + 16, 7, 6, 3.2, 'slate', { stoneWalls: true, cx, cz });
+    banner(scene, cx + 2, cz - 2, M.clothBlue); const fg = new THREE.Group(); campfire(fg, scene, cx - 3, cz + 4); placeGroup(fg, cx - 3, cz + 4, 0, scene); addCircle(cx - 3, cz + 4, 0.9);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * 6.28; if (Math.abs(Math.sin(a - 0.4)) < 0.25) continue; const x = cx + Math.cos(a) * 25, z = cz + Math.sin(a) * 25; const g = new THREE.Group(); bx(4.6, R(1.4, 2.2), 1, M.stone, 0, 0.8, 0, g); placeGroup(g, x, z, -a + Math.PI / 2, scene, -0.2); addBox(x, z, 2.3, 0.5, -a + Math.PI / 2); } }
+  // the goblin war camp on Kelda's eastern slopes: sharpened stakes, hide tents, war drums and powder
+  goblinFort(scene, CAMPS[2].x, CAMPS[2].z, 24, false);
+  // the goblin raider camp at the foot of Kelda, east of the river
   tent(scene, 192, -54, 1.2, M.clothRed, 1.1); tent(scene, 210, -70, -0.4, M.cloth); tent(scene, 196, -76, 2.2, M.clothRed);
   station(scene, { type: 'campfire', x: 202, z: -64, rot: 0 }); world.stations.pop();
   crate(scene, 208, -56, 0.3); crate(scene, 209, -57.2, 0.9, 0.6); barrel(scene, 190, -66);
-  // ruins (skeletons)
-  { const cx = -330, cz = -420;
-    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, r = 22 + (i % 2) * 6; const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; const h = i % 3 === 0 ? 2 : R(4, 8); const g = new THREE.Group(); cy(0.7, 0.8, h, M.stone, 0, h / 2, 0, g, 8); if (h > 6) bx(1.8, 0.5, 1.8, M.stone, 0, h + 0.25, 0, g); placeGroup(g, x, z, a, scene, -0.3); addCircle(x, z, 0.8); }
-    for (let i = 0; i < 5; i++) { const a = i * 1.3, x = cx + Math.cos(a) * 12, z = cz + Math.sin(a) * 12; const g = new THREE.Group(); bx(8, R(1.5, 4), 1.2, M.stone, 0, 1, 0, g); placeGroup(g, x, z, a + 1.57, scene, -0.3); addBox(x, z, 4, 0.6, a + 1.57); }
-    const altar = new THREE.Group(); bx(4, 1.2, 2.5, M.darkStone, 0, 0.6, 0, altar); fire(scene, cx, heightAt(cx, cz) + 1.8, cz, 0.7); placeGroup(altar, cx, cz, 0, scene); addBox(cx, cz, 2, 1.25, 0);
+  // Gorgrak's Hold, high on the north face of Kelda: a palisade, a long hut and a throne of bones
+  goblinFort(scene, CAMPS[4].x, CAMPS[4].z, 27, true);
+  buildSaltmere(scene);
+}
+// a goblin fort: a ring of sharpened stakes with a gap for the gate, tents, fires, kegs; the Hold also has a long hut and a bone throne
+function goblinFort(scene, cx, cz, r, hold) {
+  const stake = new THREE.CylinderGeometry(0.02, 0.22, 3.6, 6);
+  for (let i = 0; i < 56; i++) { const a = i / 56 * Math.PI * 2; if (Math.abs(Math.sin((a - Math.atan2(VILLAGE.z - cz, VILLAGE.x - cx)) / 2)) < 0.08) continue; // the gate faces the south
+    const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; const m = new THREE.Mesh(stake, M.beam); m.castShadow = true; m.position.set(x, heightAt(x, z) + 1.5, z); m.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); scene.add(m); addCircle(x, z, 0.4); }
+  for (let i = 0; i < (hold ? 4 : 6); i++) { const a = i / 6 * 6.28 + 0.7; tent(scene, cx + Math.cos(a) * r * 0.6, cz + Math.sin(a) * r * 0.6, a + 1.6, i % 2 ? M.cloth : M.clothRed, 1.1); }
+  for (const [dx, dz] of [[-5, 3], [6, -4]]) { const fg = new THREE.Group(); campfire(fg, scene, cx + dx, cz + dz); placeGroup(fg, cx + dx, cz + dz, 0, scene); addCircle(cx + dx, cz + dz, 0.9); }
+  for (let i = 0; i < 6; i++) barrel(scene, cx + 9 + (i % 3) * 0.9, cz + 8 + Math.floor(i / 3) * 0.9); // black powder kegs
+  banner(scene, cx - 2, cz - 8, M.clothRed); banner(scene, cx + 8, cz + 1, M.clothRed);
+  if (hold) {
+    addHouse(scene, cx, cz - 14, 14, 7, 4.2, 'thatch', { cx, cz });
+    const x = cx - 10, z = cz - 2, g = new THREE.Group(); bx(5, 1, 4, M.darkStone, 0, 0.5, 0, g); bx(4, 5, 1, M.darkStone, 0, 3, -1.5, g); for (let i = 0; i < 9; i++) { const b = cy(0.12, 0.08, R(1.5, 3), M.bone, -2 + i * 0.5, 5.5 + R(-0.4, 0.4), -1.4, g, 5); b.rotation.z = R(-0.4, 0.4); } placeGroup(g, x, z, Math.atan2(cx - x, cz - z), scene); addBox(x, z, 2.5, 2, 0);
   }
-  // troll throne
-  { const x = -150, z = -486; const g = new THREE.Group(); bx(5, 1, 4, M.darkStone, 0, 0.5, 0, g); bx(4, 5, 1, M.darkStone, 0, 3, -1.5, g); for (let i = 0; i < 9; i++) { const b = cy(0.12, 0.08, R(1.5, 3), M.bone, -2 + i * 0.5, 5.5 + R(-0.4, 0.4), -1.4, g, 5); b.rotation.z = R(-0.4, 0.4); } placeGroup(g, x, z, 0, scene); addBox(x, z, 2.5, 2, 0); fire(scene, x - 4, heightAt(x - 4, z) + 1, z + 2, 0.9); fire(scene, x + 4, heightAt(x + 4, z) + 1, z + 2, 0.9);
-    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28; const r = new THREE.Mesh(new THREE.DodecahedronGeometry(R(1, 2), 0), M.darkStone); placeGroup(r, x + Math.cos(a) * 18, z + Math.sin(a) * 18, a, scene, 0.3); r.castShadow = true; }
-  }
+}
+// Saltmere: the big free port on the north shore. Stone walls, a great hall, a market, a lighthouse and a harbour with a shipyard.
+function buildSaltmere(scene) {
+  const cx = PORT.x, cz = PORT.z, WR = 72;
+  // walls with three gates: south-west and south-east (the roads) and north (the harbour)
+  const gates = [Math.atan2(-365 - cz, -90 - cx), Math.atan2(-370 - cz, 100 - cx), -Math.PI / 2];
+  const seg = 44;
+  for (let i = 0; i < seg; i++) { const a = (i + 0.5) / seg * Math.PI * 2; if (gates.some(g => Math.abs(Math.atan2(Math.sin(a - g), Math.cos(a - g))) < 0.13)) continue;
+    const x = cx + Math.cos(a) * WR, z = cz + Math.sin(a) * WR, L = 2 * Math.PI * WR / seg + 0.4; const g = new THREE.Group(); bx(L, 5, 1.6, M.stone, 0, 2.5, 0, g); for (let k = -1; k <= 1; k += 2) bx(0.9, 0.9, 1.7, M.stone, k * L * 0.3, 5.4, 0, g);
+    placeGroup(g, x, z, -a + Math.PI / 2, scene, -0.4); addBox(x, z, L / 2, 0.8, -a + Math.PI / 2); }
+  for (const g0 of gates) for (const k of [-1, 1]) { const a = g0 + k * 0.16, x = cx + Math.cos(a) * WR, z = cz + Math.sin(a) * WR; const g = new THREE.Group(); cy(2.2, 2.5, 9, M.stone, 0, 4.5, 0, g, 10); for (let i = 0; i < 8; i++) { const b = i / 8 * 6.28; bx(0.9, 0.9, 0.7, M.stone, Math.cos(b) * 2.1, 9.4, Math.sin(b) * 2.1, g, 0, -b, 0); } placeGroup(g, x, z, 0, scene, -0.3); addCircle(x, z, 2.4); banner(scene, x + Math.cos(a) * 0.1, z, M.clothBlue); }
+  // the great hall in the middle, houses in two rings, a market square
+  addHouse(scene, cx, cz - 18, 16, 10, 6, 'slate', { stoneWalls: true, cx, cz });
+  const ring = (n, r, off) => { for (let i = 0; i < n; i++) { const a = off + i / n * Math.PI * 2; if (gates.some(g => Math.abs(Math.atan2(Math.sin(a - g), Math.cos(a - g))) < 0.35)) continue; const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (Math.hypot(x - cx, z - (cz - 18)) < 14) continue; addHouse(scene, x, z, R(6.5, 9), R(5.5, 7), R(3.4, 4.6), i % 3 === 0 ? 'red' : i % 3 === 1 ? 'slate' : 'thatch', { cx, cz, stoneWalls: i % 2 === 0 }); } };
+  ring(10, 34, 0.3); ring(16, 56, 0.1);
+  for (let i = 0; i < 4; i++) { const x = cx - 9 + i * 6, z = cz + 14; const g = new THREE.Group(); bx(2.6, 0.9, 1.0, M.plank, 0, 0.45, 0, g); for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.06, 0.06, 2.6, M.beam, sx * 1.25, 1.3, sz * 0.6, g, 5); for (let k = 0; k < 5; k++) bx(0.55, 0.04, 1.6, k % 2 ? M.clothBlue : M.cloth, -1.1 + k * 0.55, 2.6, 0.1, g, 0.18, 0, 0); placeGroup(g, x, z, Math.PI, scene); addBox(x, z, 1.35, 0.6, Math.PI); }
+  for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28; lampPost(scene, cx + Math.cos(a) * 24, cz + Math.sin(a) * 24); }
+  { const fg = new THREE.Group(); campfire(fg, scene, cx + 10, cz + 4); placeGroup(fg, cx + 10, cz + 4, 0, scene); addCircle(cx + 10, cz + 4, 0.9); }
+  for (let i = 0; i < 8; i++) { barrel(scene, cx - 20 + (i % 4) * 1.0, cz + 24 + Math.floor(i / 4)); crate(scene, cx + 18 + (i % 4) * 1.1, cz + 24 + Math.floor(i / 4), i * 0.4); }
+  // the harbour: a long pier out from the north shore, a shipyard with a ship on the slip, and a lighthouse on the point
+  let z0 = cz - 60; while (z0 > cz - 200 && heightAt(cx, z0) > 0.9) z0 -= 1; z0 += 8; const z1 = z0 - 60, pw = 2.4;
+  { const g = new THREE.Group(), len = z0 - z1;
+    for (let i = 0; i < len / 0.5; i++) { const p = bx(pw * 2, 0.1, 0.45, M.plank, 0, 0, i * 0.5 - len / 2 + 0.25, g); p.rotation.z = (hash2(i, 9) - 0.5) * 0.03; }
+    for (let i = 0; i <= len / 4; i++) for (const sx of [-1, 1]) cy(0.15, 0.15, 6, M.beam, sx * pw, -3, i * 4 - len / 2, g, 6);
+    placeGroup(g, cx, (z0 + z1) / 2, 0, scene, 0, 2.15); addSurface(cx, (z0 + z1) / 2, pw, len / 2, 0, 2.2); world.portPier = { x: cx, z0, z1 }; }
+  { const sx = cx + 26, sz = z0 + 6, g = new THREE.Group(); // a half-built ship on the slipway: keel and ribs
+    bx(0.4, 0.5, 16, M.wood, 0, 0.8, 0, g); for (let i = 0; i < 9; i++) { const z = -7 + i * 1.75, w = 2.8 * Math.sin((i + 0.5) / 9 * Math.PI); for (const s2 of [-1, 1]) { const rib = cy(0.12, 0.12, 3.4, M.wood, s2 * w * 0.55, 2.2, z, g, 5); rib.rotation.z = s2 * 0.5; } }
+    for (let i = 0; i < 6; i++) bx(0.3, 0.3, 3, M.beam, -2.6, 0.2 + i * 0.32, -10 + i * 0.1, g); placeGroup(g, sx, sz, 0, scene); addBox(sx, sz, 2.5, 8, 0); }
+  { const lx = cx - 46, lz = z0 - 4, g = new THREE.Group(); cy(2.4, 3.2, 18, M.stone, 0, 9, 0, g, 12); for (let i = 0; i < 5; i++) bx(5, 0.5, 0.05, M.clothRed, 0, 3 + i * 3.4, 2.9 - i * 0.12, g); cy(1.8, 2.1, 3, M.darkStone, 0, 19.5, 0, g, 10);
+    const h0 = Math.max(1, heightAt(lx, lz)); g.position.set(lx, h0, lz); scene.add(g); addCircle(lx, lz, 3.2); fire(scene, lx, h0 + 20, lz, 1.2); }
 }
 function buildGoblinCamps(scene) {
   const hideM = new THREE.MeshStandardMaterial({ color: '#7a5a3a', roughness: 0.95, side: THREE.DoubleSide });
@@ -769,7 +807,7 @@ function buildAmbient(scene) {
 export function updateAmbient(dt, px, py, pz, zone, night) {
   if (!amb) return;
   const p = amb.geometry.attributes.position.array, n = p.length / 3, M2 = amb.material;
-  let mode = zone === 'highlands' ? 'snow' : zone === 'ashlands' ? 'ember' : (night > 0.5 && (zone === 'wood' || zone === 'meadow')) ? 'fly' : zone === 'meadow' ? 'pollen' : 'none';
+  let mode = zone === 'highlands' && BATTLE ? 'snow' : zone === 'ashlands' ? 'ember' : (night > 0.5 && (zone === 'wood' || zone === 'meadow' || zone === 'highlands')) ? 'fly' : zone === 'meadow' ? 'pollen' : 'none';
   amb.visible = mode !== 'none';
   if (!amb.visible) return;
   const cfg = { snow: { col: '#ffffff', size: 0.22, vy: -1.6, count: n, blend: THREE.NormalBlending, op: 0.9 }, ember: { col: '#ff7a2a', size: 0.18, vy: 1.2, count: n * 0.6, blend: THREE.AdditiveBlending, op: 1 }, fly: { col: '#d8ff6a', size: 0.25, vy: 0, count: n * 0.12, blend: THREE.AdditiveBlending, op: 1 }, pollen: { col: '#fff8d0', size: 0.08, vy: 0.05, count: n * 0.3, blend: THREE.AdditiveBlending, op: 0.6 } }[mode];
@@ -806,7 +844,7 @@ export function buildWorld(scene) {
     cotton: { geo: cottonGeo(), mat: leafMat, shadowDist: 30 }, healroot: { geo: herbGeo(), mat: new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: '#1a5a20', emissiveIntensity: 0.6 }), shadowDist: 20, noShadow: true },
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
-  if (!BATTLE) { buildVillage(scene); buildRaft(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
+  if (!BATTLE) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();
   buildChunks(scene);

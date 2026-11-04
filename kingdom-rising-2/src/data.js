@@ -14,8 +14,9 @@ export let LV_K = 1;
 export const shownLv = (lv) => Math.max(1, Math.round(1 + (lv - 1) * LV_K)); // designed level -> level shown in this mode
 export const designLv = (lv) => 1 + (lv - 1) / LV_K;                          // shown level -> designed level
 export const levelGap = (a, b) => (a - b) / LV_K;                             // a level difference, in designed levels
-export function campaignLevels() {
-  LEVEL_CAP = 50; LV_K = 49 / 19; LEVEL_GROWTH = 19 / 49; RANK2_LEVEL = shownLv(15);
+// LV_K stays 1 on the island (levels 1-20, the world's own design); a later continent can stretch it
+export function campaignLevels(cap = 20) {
+  LEVEL_CAP = cap; LV_K = (cap - 1) / 19; LEVEL_GROWTH = 19 / (cap - 1); RANK2_LEVEL = shownLv(15);
   for (const t of TIERS) t.lvl = shownLv(t.lvl);
   for (const q of QUESTS) q.lvl = shownLv(q.lvl || 1);
   for (const r of RECIPES) if (r.lvl) r.lvl = shownLv(r.lvl);
@@ -571,10 +572,10 @@ export const RECIPES = [];
 // ---- Zones ----
 export const ZONES = [
   { id: 'coast', name: 'Driftwood Coast', lv: '1-4', col: '#f0d890' },
-  { id: 'meadow', name: 'Sunmeadow', lv: '1-4', col: '#9ad66a' },
-  { id: 'wood', name: 'Whisperwood', lv: '4-9', col: '#3f8a3a' },
-  { id: 'highlands', name: 'Frostpeak Highlands', lv: '9-14', col: '#d8e6f2' },
-  { id: 'ashlands', name: 'The Ashlands', lv: '14-20', col: '#c4462a' },
+  { id: 'meadow', name: 'Sunmeadow', lv: '1-6', col: '#9ad66a' },
+  { id: 'wood', name: 'Tanglewood Jungle', lv: '5-12', col: '#3f8a3a' },
+  { id: 'highlands', name: 'Mount Kelda', lv: '12-20', col: '#a8b8a0' },
+  { id: 'north', name: 'Saltmere Fields', lv: '9-15', col: '#c8d890' },
 ];
 
 // ---- Mobs ----
@@ -589,6 +590,7 @@ export const MOBS = {
   boar: { name: 'Wild Boar', shape: 'quad', variant: 'boar', hpM: 1.1, dmgM: 1.0, aggro: 9, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 2, 0.8] }, skin: true, col: '#4e3a2c' },
   spider: { name: 'Forest Spider', shape: 'spider', hpM: 0.9, dmgM: 1.05, aggro: 13, speed: 5.5, size: 1.0, loot: { spider_silk: [1, 2, 0.75] }, skin: false, col: '#2a2420' },
   goblin: { name: 'Goblin Raider', shape: 'human', variant: 'goblin', hpM: 0.85, dmgM: 0.95, aggro: 13, speed: 5.2, size: 1.0, loot: { goblin_ear: [1, 1, 0.8], copper_ore: [1, 2, 0.2], raw_meat: [1, 1, 0.2] }, gold: [1, 6], skin: false, col: '#6a8a3a' },
+  goblin_chief: { armor: 0.3, name: 'Gorgrak the Goblin King', shape: 'human', variant: 'goblin', elite: true, boss: true, hpM: 7, dmgM: 1.7, aggro: 22, speed: 5, size: 2.0, loot: { goblin_ear: [3, 5, 1], iron_ore: [2, 4, 1] }, gold: [90, 160], skin: false, col: '#4a6a28', gearChance: 1 },
   goblin_brute: { armor: 0.2, name: 'Goblin Brute', shape: 'human', variant: 'goblin', hpM: 1.6, dmgM: 1.3, aggro: 13, speed: 4.6, size: 1.35, loot: { goblin_ear: [1, 2, 0.9], iron_ore: [1, 2, 0.3] }, gold: [3, 10], skin: false, col: '#5a7a32' },
   rat: { name: 'Giant Rat', shape: 'quad', variant: 'rabbit', hpM: 0.45, dmgM: 0.6, aggro: 8, speed: 5.5, size: 0.9, loot: { raw_meat: [1, 1, 0.4] }, skin: true, col: '#5a4e44' },
   boarlet: { name: 'Boarlet', shape: 'quad', variant: 'boar', hpM: 0.6, dmgM: 0.5, aggro: 0, speed: 4.5, size: 0.6, loot: { raw_meat: [1, 1, 0.8] }, skin: true, col: '#6a4e38' },
@@ -610,26 +612,28 @@ export const MOBS = {
 
 // Spawn regions [type, x, z, radius, count, lvMin, lvMax]
 export const SPAWNS = [
-  ['crab', 70, 440, 60, 8, 1, 1], ['crab', -80, 442, 60, 6, 1, 2],
-  ['wolf', 40, 260, 110, 9, 1, 3], ['bear', -60, 280, 70, 4, 2, 4], ['tiger', 120, 250, 70, 4, 2, 4], ['wolf', -150, 330, 60, 6, 1, 2], ['bear', 170, 340, 60, 3, 2, 3], ['tiger', -120, 200, 60, 3, 3, 4], ['wolf', 100, 330, 50, 5, 1, 2], ['deer', -110, 240, 90, 2, 2, 3], ['deer', 140, 230, 90, 1, 2, 3],
-  ['wolfpup', 120, 290, 60, 6, 1, 2], ['wolfpup', -120, 300, 60, 5, 1, 3], ['bearcub', 80, 200, 70, 5, 2, 3], ['bearcub', -60, 190, 70, 5, 2, 4],
+  // the south: beaches and Sunmeadow (levels 1-6)
+  ['crab', 70, 440, 60, 8, 1, 1], ['crab', -80, 442, 60, 6, 1, 2], ['crab', 260, 400, 60, 6, 1, 2], ['crab', -280, 390, 60, 6, 1, 2], ['rabbit', 120, 300, 60, 5, 1, 1], ['rabbit', -150, 260, 60, 5, 1, 1],
+  ['wolf', 40, 260, 110, 9, 1, 3], ['bear', -60, 280, 70, 4, 2, 4], ['tiger', 120, 250, 70, 4, 2, 4], ['wolf', -150, 330, 60, 6, 1, 2], ['bear', 170, 340, 60, 3, 2, 3], ['tiger', -120, 200, 60, 3, 3, 4],
+  ['wolfpup', 120, 290, 60, 6, 1, 2], ['wolfpup', -120, 300, 60, 5, 1, 3], ['bearcub', 80, 200, 70, 5, 2, 3], ['bearcub', -60, 190, 70, 5, 2, 4], ['deer', 230, 260, 70, 5, 1, 2], ['deer', -240, 240, 70, 5, 1, 2],
+  // Tanglewood Jungle, east and west (levels 5-12)
   ['wolf', 90, 90, 80, 7, 4, 6], ['wolf', -140, 80, 70, 6, 5, 6], ['boar', 160, 40, 70, 6, 5, 7], ['boar', -60, 130, 60, 4, 4, 5],
-  ['tiger', -60, 20, 50, 3, 7, 9], ['tiger', 240, 70, 50, 2, 7, 8], ['snowtiger', -330, -270, 60, 3, 11, 13],
-  ['spider', -180, 10, 70, 8, 6, 8], ['spider', 230, 120, 60, 5, 6, 7],
-  ['bandit', 200, -60, 40, 7, 7, 9], ['bandit_boss', 205, -68, 3, 1, 9, 9],
-  ['bear', -120, -170, 80, 5, 9, 11], ['frostwolf', -260, -230, 90, 8, 10, 12], ['frostwolf', -380, -330, 80, 6, 11, 13],
-  ['skeleton', -330, -420, 45, 10, 11, 13], ['troll', -200, -430, 70, 6, 12, 14], ['troll_king', -150, -480, 4, 1, 15, 15],
-  ['ashhound', 230, -260, 80, 8, 14, 16], ['imp', 320, -300, 70, 8, 15, 17], ['golem', 280, -400, 80, 7, 16, 18], ['imp', 160, -380, 60, 5, 16, 17],
-  ['tyrant', 400, -456, 3, 1, 20, 20],
+  ['tiger', -260, 60, 70, 4, 6, 8], ['tiger', 300, 90, 70, 4, 6, 8], ['tiger', -330, -60, 60, 3, 8, 10], ['tiger', 360, -40, 60, 3, 8, 10],
+  ['boar', -360, 140, 60, 5, 6, 7], ['boar', 380, 180, 60, 5, 6, 7], ['bear', -390, -120, 60, 3, 9, 11], ['bear', 400, -110, 60, 3, 9, 11], ['wolf', 330, 0, 60, 5, 8, 9], ['wolf', -320, 10, 60, 5, 8, 9],
+  // Saltmere Fields, the north (levels 9-15)
+  ['wolf', -180, -330, 70, 6, 10, 12], ['wolf', 220, -330, 70, 6, 10, 12], ['boar', -100, -300, 60, 5, 9, 11], ['bear', 150, -300, 60, 3, 12, 13], ['tiger', -260, -270, 60, 3, 12, 14], ['crab', 20, -470, 70, 6, 9, 10],
+  // Mount Kelda (levels 12-20)
+  ['bear', -60, -40, 70, 4, 13, 15], ['bear', 110, -10, 70, 4, 13, 15], ['tiger', -90, -130, 60, 3, 15, 17], ['tiger', 140, -130, 60, 3, 15, 17], ['wolf', 0, 30, 70, 6, 12, 14], ['bear', 30, -110, 50, 3, 17, 19],
+  ['goblin_chief', 40, -178, 3, 1, 20, 20],
 ];
 // goblin camps: [x, z, level min, level max]
-export const GOBLIN_CAMPS = [[160, 300, 2, 3], [-165, 230, 3, 4], [-95, 290, 2, 3], [120, 170, 4, 5], [70, 40, 5, 6], [-115, -5, 6, 8], [150, -120, 7, 9], [-300, -235, 10, 12], [-80, -260, 11, 13]];
+export const GOBLIN_CAMPS = [[160, 300, 2, 3], [-165, 230, 3, 4], [-95, 290, 2, 3], [120, 170, 4, 5], [70, 40, 5, 6], [-115, -5, 6, 8], [-280, 150, 6, 8], [330, 220, 6, 8], [-330, -230, 11, 13], [320, -280, 12, 14], [-120, -200, 14, 16], [150, -200, 15, 17], [-20, -150, 17, 19], [100, -150, 18, 19]];
 // Mob special abilities (see mobs.js): bite (bleed), charge, maul, pounce, web, poison, pound, nova, frenzy, bash, regen
 export const MOB_ABILITIES = {
   wolfpup: ['bite'], wolf: ['bite'], frostwolf: ['bite', 'frostbite'], ashhound: ['bite', 'firebite'],
   bearcub: ['maul'], bear: ['charge', 'maul'], boar: ['charge'], tiger: ['pounce', 'maul', 'bite'], snowtiger: ['pounce', 'maul', 'bite'],
   spider: ['web', 'poison'], bandit: ['bash'], bandit_boss: ['bash', 'charge'], skeleton: ['bash'],
-  troll: ['pound', 'regen'], troll_king: ['pound', 'regen', 'charge'], golem: ['pound'], imp: ['nova'], goblin: ['frenzy'], goblin_slinger: [], goblin_brute: ['charge', 'pound'], rat: ['bite'], boarlet: ['charge'],
+  troll: ['pound', 'regen'], troll_king: ['pound', 'regen', 'charge'], golem: ['pound'], imp: ['nova'], goblin: ['frenzy'], goblin_slinger: [], goblin_brute: ['charge', 'pound'], goblin_chief: ['charge', 'pound', 'frenzy'], rat: ['bite'], boarlet: ['charge'],
 };
 export const mobHp = (lv, M) => Math.round((34 + lv * 26 + lv * lv * 1.2) * M.hpM);
 export const mobDmg = (lv, M) => (4 + lv * 2.6) * M.dmgM;
@@ -638,18 +642,18 @@ export const mobXp = (lv, M) => Math.round((12 + lv * 9) * (M.elite ? 4 : 1) * (
 // ---- NPCs ----
 // role: quest giver / merchant / villager
 export const NPCS = {
-  maren: { name: 'Elder Maren', title: 'Village Elder', race: 'human', sex: 'f', outfit: 'elder', x: 2.2, z: 363.1, hello: 'The sea gives and the sea takes, stranger. Today it seems it gave us you.' },
+  maren: { name: 'Elder Maren', title: 'Village Elder', race: 'human', sex: 'f', outfit: 'elder', x: 2.2, z: 363.1, hello: 'The sea gives and the sea takes, stranger. Today it gave us you. Mind the goblins: twenty years they have ruled Kelda from the mountain, and every year they come closer.' },
   bram: { name: 'Bram', title: 'Woodcutter', race: 'human', sex: 'm', outfit: 'worker', x: -14.3, z: 355.4, hello: 'Good honest work, swinging an axe. Clears the head.' },
   torvin: { name: 'Torvin Ironhand', title: 'Blacksmith', race: 'dwarf', sex: 'm', outfit: 'smith', x: 16.5, z: 352.1, hello: 'Mind the sparks, lad. Or lass. Or whatever ye are under all that salt.' },
   elsa: { name: 'Elsa', title: 'Weaver', race: 'elf', sex: 'f', outfit: 'weaver', x: -12.1, z: 369.7, hello: 'Every thread has a story. Yours is still being spun.' },
   lyra: { name: 'Lyra', title: 'Huntress', race: 'elf', sex: 'f', outfit: 'hunter', x: 19.8, z: 370.8, hello: 'Walk soft. The meadow has ears.' },
   pell: { name: 'Old Pell', title: 'Fisherman', race: 'human', sex: 'm', outfit: 'fisher', x: -7, z: 398, hello: 'Fish ain\'t biting. Crabs are, though. Ha!' },
   odo: { name: 'Odo', title: 'Merchant', race: 'human', sex: 'm', outfit: 'merchant', x: 7.7, z: 357.6, merchant: true, hello: 'Buying, selling, a bit of both? Odo has it all. Well. Some of it.' },
-  kael: { name: 'Scout Kael', title: 'Whisperwood Warden', race: 'elf', sex: 'm', outfit: 'hunter', x: -36, z: 58, hello: 'Keep your blade close in these woods.' },
+  kael: { name: 'Scout Kael', title: 'Tanglewood Warden', race: 'elf', sex: 'm', outfit: 'hunter', x: -36, z: 58, hello: 'Keep your blade close in these woods.' },
   fen: { name: 'Fen', title: 'Herbalist', race: 'human', sex: 'f', outfit: 'weaver', x: -44, z: 70, hello: 'Healroot grows where the light breaks through the canopy.' },
-  hilda: { name: 'Captain Hilda', title: 'Stonewatch Captain', race: 'dwarf', sex: 'f', outfit: 'smith', x: -222, z: -296, hello: 'Cold enough to freeze your beard off. If ye had one.' },
-  dorn: { name: 'Dorn', title: 'Miner', race: 'dwarf', sex: 'm', outfit: 'worker', x: -234, z: -286, merchant: true, hello: 'There\'s mithril in them peaks. And trolls. Mostly trolls.' },
-  sael: { name: 'Warden Sael', title: 'Emberwatch Warden', race: 'elf', sex: 'm', outfit: 'elder', x: 238, z: -326, merchant: true, hello: 'The ash remembers the fire that made it. So should you.' },
+  hilda: { name: 'Captain Hilda', title: 'Stonewatch Captain', race: 'dwarf', sex: 'f', outfit: 'smith', x: -296, z: -158, hello: 'Stonewatch still stands. Barely. The goblins come down off Kelda every night now.' },
+  dorn: { name: 'Dorn', title: 'Miner', race: 'dwarf', sex: 'm', outfit: 'worker', x: -308, z: -144, merchant: true, hello: 'There\'s mithril on Kelda. And goblins sitting on every vein of it.' },
+  sael: { name: 'Harbourmaster Sael', title: 'Saltmere Harbour', race: 'elf', sex: 'm', outfit: 'elder', x: 34, z: -432, merchant: true, hello: 'Saltmere is the last free port on this island. We mean to keep it that way.' },
 };
 
 // Quests. obj types: talk(npc), collect(item,n), kill(mob,n), craft(item|cat,n), equip(slot), reach(x,z,r,label)
@@ -709,35 +713,33 @@ export const QUESTS = [
   { id: 'q_herbs', giver: 'fen', turnin: 'fen', lvl: 4, req: ['q_onward'], title: 'Roots of Healing',
     text: 'Gather Healroot, the glowing green herb on the forest floor, then brew 3 Healing Potions at my alchemy table.',
     done: 'Keep a few for yourself. You\'ll need them.', obj: [{ t: 'collect', item: 'healroot', n: 6, label: 'Gather Healroot' }, { t: 'craft', item: 'potion_heal', n: 3, label: 'Brew Healing Potions' }], xp: 300, gold: 12 },
-  { id: 'q_spiders', giver: 'kael', turnin: 'kael', lvl: 6, req: ['q_wolves'], title: 'Webs in the West',
-    text: 'Spiders the size of dogs nest west of here. Kill 6 and bring back 4 Spider Silk. Elsa can weave it into fine cloth.',
-    done: 'Ugh. Burn those legs from your memory.', obj: [{ t: 'kill', mob: 'spider', n: 6, label: 'Kill Forest Spiders' }, { t: 'collect', item: 'spider_silk', n: 4, label: 'Collect Spider Silk' }], xp: 420, gold: 18, gear: true },
+  { id: 'q_tigers', giver: 'kael', turnin: 'kael', lvl: 6, req: ['q_wolves'], title: 'Stripes in the Jungle',
+    text: 'Tigers stalk the Tanglewood now. The goblins drove them down off Kelda when they took the mountain, and they are hungry. Thin them out, east or west of here.',
+    done: 'Good hunting. The trails will be safer for it.', obj: [{ t: 'kill', mob: 'tiger', n: 6, label: 'Hunt jungle tigers' }], xp: 260, gold: 14, gear: true },
   { id: 'q_iron', giver: 'kael', turnin: 'kael', lvl: 5, req: ['q_onward'], title: 'Iron in the Hills',
     text: 'Iron veins run through the rocky hills of the Whisperwood. You\'ll need a Copper Pickaxe from a forge to break them. Bring me 6 Iron Ore.',
     done: 'Good iron. Smelt it and arm yourself.', obj: [{ t: 'collect', item: 'iron_ore', n: 6, label: 'Mine Iron Ore' }], xp: 380, gold: 16 },
-  { id: 'q_bandits', giver: 'kael', turnin: 'kael', lvl: 7, req: ['q_spiders'], title: 'The Cutthroat Camp',
-    text: 'Bandits have made camp east of the river crossing. Kill 6 of them and their leader, Garrick the Cutthroat.',
-    done: 'Garrick is dead? The roads will sing your name.', obj: [{ t: 'kill', mob: 'bandit', n: 6, label: 'Kill Bandits' }, { t: 'kill', mob: 'bandit_boss', n: 1, label: 'Slay Garrick the Cutthroat' }], xp: 700, gold: 40, gear: true },
-  { id: 'q_highlands', giver: 'kael', turnin: 'hilda', lvl: 9, req: ['q_bandits'], title: 'To the Frostpeaks',
-    text: 'The dwarves of Stonewatch, in the snowy highlands to the northwest, have sent for help. Follow the road over the bridge and climb.',
-    done: 'Ye made the climb! Good. Warm yer hands by the fire.', obj: [{ t: 'talk', npc: 'hilda', label: 'Find Captain Hilda at Stonewatch' }], xp: 600, gold: 20 },
-  { id: 'q_frost', giver: 'hilda', turnin: 'hilda', lvl: 10, req: ['q_highlands'], title: 'White Fangs',
-    text: 'Frost wolves stalk the passes. Kill 8 and the miners can work in peace.', done: 'That\'ll do.', obj: [{ t: 'kill', mob: 'frostwolf', n: 8, label: 'Kill Frost Wolves' }], xp: 900, gold: 30, gear: true },
+  { id: 'q_raiders', giver: 'kael', turnin: 'kael', lvl: 7, req: ['q_tigers'], title: 'Raiders in the Hills',
+    text: 'There is a goblin raider camp east of the river, at the foot of Kelda. They ambush anyone on the north road. Break it: kill their raiders and the brutes who lead them.',
+    done: 'That should keep the road open for a while. You fight like someone who has done this before.', obj: [{ t: 'kill', mob: 'goblin', n: 8, label: 'Kill goblin raiders' }, { t: 'kill', mob: 'goblin_brute', n: 2, label: 'Kill goblin brutes' }], xp: 380, gold: 22, gear: true, gearRarity: 2 },
+  { id: 'q_highlands', giver: 'kael', turnin: 'hilda', lvl: 9, req: ['q_raiders'], title: 'To Stonewatch',
+    text: 'If you mean to go further, find Captain Hilda at Stonewatch, the old lodge on the western slopes of Kelda. She has held out against the goblins longer than anyone.',
+    done: 'Kael sent you? Then you can swing a blade. Good. We need every one.', obj: [{ t: 'talk', npc: 'hilda', label: 'Find Captain Hilda at Stonewatch' }], xp: 120, gold: 5 },
+  { id: 'q_bears', giver: 'hilda', turnin: 'hilda', lvl: 10, req: ['q_highlands'], title: 'The Great Bears',
+    text: 'The big bears on Kelda\'s slopes have gone mad with the goblins hunting their cubs. They charge anything that moves. Put six of them down.',
+    done: 'Grim work, but needed. Here, this was my father\'s.', obj: [{ t: 'kill', mob: 'bear', n: 6, label: 'Kill bears on the slopes of Kelda' }], xp: 480, gold: 26, gear: true, gearRarity: 2 },
   { id: 'q_mithril', giver: 'dorn', turnin: 'dorn', lvl: 10, req: ['q_highlands'], title: 'The Shining Vein',
     text: 'Mithril! Pale blue veins up on the peaks. Ye\'ll need an Iron Pickaxe to break them. Bring me 6 Mithril Ore.',
     done: 'Beautiful. Simply beautiful.', obj: [{ t: 'collect', item: 'mithril_ore', n: 6, label: 'Mine Mithril Ore' }], xp: 900, gold: 40 },
-  { id: 'q_ruins', giver: 'hilda', turnin: 'hilda', lvl: 11, req: ['q_frost'], title: 'The Restless Dead',
-    text: 'Old ruins up north are crawling with skeletons. Put 10 of them back in the ground.', done: 'Rest easy, dead ones.', obj: [{ t: 'kill', mob: 'skeleton', n: 10, label: 'Destroy Skeleton Warriors' }], xp: 1300, gold: 45, gear: true },
-  { id: 'q_troll', giver: 'hilda', turnin: 'hilda', lvl: 13, req: ['q_ruins'], title: 'The Troll King',
-    text: 'Grumbak, king of the trolls, sits on his throne of bones high in the north. Kill his trolls and then kill him.',
-    done: 'Grumbak... dead? Drinks are on me!', obj: [{ t: 'kill', mob: 'troll', n: 5, label: 'Kill Mountain Trolls' }, { t: 'kill', mob: 'troll_king', n: 1, label: 'Slay Grumbak the Troll King' }], xp: 2200, gold: 100, gear: true, gearRarity: 3 },
-  { id: 'q_ember', giver: 'hilda', turnin: 'sael', lvl: 14, req: ['q_troll'], title: 'Into the Ash',
-    text: 'East, beyond the river, the land burns. Warden Sael holds Emberwatch there. He asked for our best. That\'s you.',
-    done: 'So you are the one they speak of. Welcome to the end of the world.', obj: [{ t: 'talk', npc: 'sael', label: 'Find Warden Sael at Emberwatch' }], xp: 1500, gold: 40 },
-  { id: 'q_hounds', giver: 'sael', turnin: 'sael', lvl: 14, req: ['q_ember'], title: 'Hounds of Cinder', text: 'Ash hounds circle our walls. Kill 8.', done: 'Well fought.', obj: [{ t: 'kill', mob: 'ashhound', n: 8, label: 'Kill Ash Hounds' }], xp: 2400, gold: 60, gear: true },
-  { id: 'q_imps', giver: 'sael', turnin: 'sael', lvl: 15, req: ['q_hounds'], title: 'Embers of Spite', text: 'Fire imps hurl flame from the rocks. Kill 8 and bring me 5 Ember Cores.', done: 'These cores will fuel our forge.', obj: [{ t: 'kill', mob: 'imp', n: 8, label: 'Kill Fire Imps' }, { t: 'collect', item: 'ember_core', n: 5, label: 'Collect Ember Cores' }], take: { ember_core: 5 }, xp: 3000, gold: 70, gear: true },
-  { id: 'q_golems', giver: 'sael', turnin: 'sael', lvl: 16, req: ['q_imps'], title: 'Hearts of Magma', text: 'Magma golems guard the starmetal fields near the volcano. Break 6 of them.', done: 'The path to the crater is open.', obj: [{ t: 'kill', mob: 'golem', n: 6, label: 'Destroy Magma Golems' }], xp: 3600, gold: 80, gear: true, gearRarity: 3 },
-  { id: 'q_tyrant', giver: 'sael', turnin: 'sael', lvl: 18, req: ['q_golems'], title: 'The Ash Tyrant', text: 'Vorgath, the Ash Tyrant, wakes in the crater of the volcano. End him, and the land can heal.', done: 'It is done. The fire dies. You are the hero of this land.', obj: [{ t: 'kill', mob: 'tyrant', n: 1, label: 'Slay Vorgath the Ash Tyrant' }], xp: 8000, gold: 500, gear: true, gearRarity: 4 },
+  { id: 'q_warcamp', giver: 'hilda', turnin: 'hilda', lvl: 12, req: ['q_bears'], title: 'The War Camp',
+    text: 'The goblins have a war camp on the eastern slopes. That is where the raids on Saltmere and on your little village are planned. Burn their courage out of them.',
+    done: 'They will think twice before they march again. Not three times, though. Goblins never think three times.', obj: [{ t: 'kill', mob: 'goblin', n: 10, label: 'Kill goblins at the war camp' }, { t: 'kill', mob: 'goblin_slinger', n: 4, label: 'Kill goblin slingers' }], xp: 640, gold: 34, gear: true, gearRarity: 2 },
+  { id: 'q_brutes', giver: 'hilda', turnin: 'hilda', lvl: 14, req: ['q_warcamp'], title: 'Brutes of Kelda',
+    text: 'Gorgrak keeps his brutes close to his Hold, high on the north face of Kelda. Every brute you kill is one less at his side when you face him.',
+    done: 'His guard is thin now. It is time.', obj: [{ t: 'kill', mob: 'goblin_brute', n: 6, label: 'Kill goblin brutes near the Hold' }], xp: 820, gold: 44, gear: true, gearRarity: 3 },
+  { id: 'q_goblinking', giver: 'hilda', turnin: 'hilda', lvl: 18, req: ['q_brutes'], title: 'The Goblin King',
+    text: 'Gorgrak the Goblin King. Twenty years ago he came ashore with a handful of goblins and now he rules this island from his Hold on Kelda. Kill him, and the island breathes again.',
+    done: 'Gorgrak is dead? Ha! They will sing about this in Saltmere for a hundred years.', obj: [{ t: 'kill', mob: 'goblin_chief', n: 1, label: 'Kill Gorgrak at the Hold on Mount Kelda' }], xp: 1800, gold: 120, gear: true, gearRarity: 4 },
 ];
 
 // Village/outpost stations positions
@@ -751,6 +753,13 @@ export const STATION_SPOTS = [
   { type: 'workbench', x: 252, z: -336, rot: 2.0 }, { type: 'loom', x: 222, z: -318, rot: 1.0 }, { type: 'tanning', x: 226, z: -308, rot: 0.6 },
 ];
 
+// every quest pays: gold, plus a weapon or armour piece for your class, or food (quests that already give something keep it)
+QUESTS.forEach((q, i) => { if (q.main) return;
+  q.gold = Math.max(q.gold || 0, 3 + q.lvl * 3);
+  if (q.gear || q.items) return;
+  if (i % 2) { q.gear = true; q.gearRarity = q.lvl >= 10 ? 2 : 1; }
+  else q.items = { [q.lvl < 4 ? 'roast_meat' : q.lvl < 10 ? 'herb_roast' : 'hunter_stew']: 2 };
+});
 export const MERCHANT_STOCK = ['potion_heal', 'bandage', 'crab_cake', 'roast_meat', 'berry_juice', 'mint_tea', 'honey_mead', 'dwarf_ale', 'linen', 'leather', 'planks', 'copper_ingot', 'iron_ingot'];
 
 // ---- the rest of the classic party (Kingdom Battles only), defined in classes2.js ----

@@ -130,16 +130,16 @@ export const NEW_CLASSES = {
     info: { tag: 'Master of the dead', diff: 3, role: 'Pets, curses and damage over time', res: 'Mana', tips: ['Raise Skeleton early: your dead fight while you cast.', 'Curses and plagues keep hurting long after you cast them.', 'Drain Life keeps you alive.'] },
     tune: { dmg: 1.12, hp: 1.29 },
     abilities: [
-      { id: 'raiseskel', name: 'Raise Skeleton', level: 1, cd: 30, cost: 35, t: 'summon', pet: 'skeleton', n: 1, extra: 2, dur: 40, desc: 'A skeleton rises to fight for you for 40 s. More skeletons as you level.' },
+      { id: 'raiseskel', name: 'Summon Skeleton Warrior', level: 1, cd: 20, cost: 35, t: 'summon', pet: 'skeleton', n: 1, extra: 0, dur: 600, desc: 'A skeleton warrior with sword and shield claws out of the ground where you aim and fights at your side. Recast to raise it again.' },
       { id: 'drainlife', name: 'Soul Rend', level: 2, cd: 6, cost: 20, t: 'drain', kind: 'arcane', col: 'shadow', speed: 40, dmg: 1.4, drain: 0.6, desc: 'Tear at the soul of the enemy you aim at and drink its life: heals you for a good part of the damage.' },
       { id: 'corruption', name: 'Corruption', level: 4, cd: 8, cost: 20, t: 'curse', range: 30, dot: 0.35, dotT: 8, desc: 'Rot the enemy you aim at from the inside for 8 s.' },
-      { id: 'bonearmor', name: 'Bone Armour', level: 6, cd: 20, cost: 25, t: 'buff', buff: 'barrier', amount: 0.3, dur: 12, desc: 'A cage of bones absorbs damage equal to 30% of your health.' },
-      { id: 'fear', name: 'Terror', level: 8, cd: 16, cost: 25, t: 'nova', r: 8, dmg: 0.2, stun: 2.5, fx: 'shadow', desc: 'Every enemy within 8 m freezes in terror for 2.5 s.' },
+      { id: 'skelmage', name: 'Summon Skeleton Mage', level: 6, cd: 20, cost: 40, t: 'summon', pet: 'skelmage', n: 1, extra: 0, dur: 600, desc: 'A skeleton mage rises where you aim and hurls bolts of dark magic at your enemies from range. Recast to raise it again.' },
+      { id: 'bonearmor', name: 'Bone Armour', level: 8, cd: 20, cost: 25, t: 'buff', buff: 'barrier', amount: 0.3, dur: 12, desc: 'A cage of bones absorbs damage equal to 30% of your health.' },
       { id: 'plague2', name: 'Plague', level: 10, cd: 14, cost: 30, t: 'curse', range: 30, dot: 0.3, dotT: 8, spread: 8, desc: 'A plague on the enemy you aim at that spreads to everyone within 8 m of it.' },
       { id: 'bonespear', name: 'Bone Spear', level: 12, cd: 8, cost: 30, t: 'bolt', kind: 'spectral', col: 'bone', speed: 60, dmg: 2.4, pierce: true, desc: 'A spear of bone that pierces every enemy in a line.' },
       { id: 'deathnova', name: 'Death Nova', level: 14, cd: 14, cost: 35, t: 'nova', r: 7, dmg: 1.6, drainAll: 0.2, fx: 'shadow', desc: 'A burst of death around you that feeds you on every life it touches.' },
       { id: 'boneprison', name: 'Bone Prison', level: 16, cd: 16, cost: 25, t: 'curse', range: 30, stun: 3, spread: 4, dmg: 0.5, desc: 'Bones burst from the ground around the enemy you aim at and its friends: held for 3 s.' },
-      { id: 'lich', name: 'Army of the Dead', level: 18, cd: 60, cost: 60, t: 'summon', pet: 'skeleton', n: 3, extra: 3, dur: 30, big: true, desc: 'Raise a host of skeleton warriors for 30 s.' },
+      { id: 'fear', name: 'Terror', level: 18, cd: 16, cost: 25, t: 'nova', r: 8, dmg: 0.2, stun: 2.5, fx: 'shadow', desc: 'Every enemy within 8 m freezes in terror for 2.5 s.' },
     ] },
   elementalist: { name: 'Elementalist', desc: 'A mage who binds the elements into servants. Summons fire and earth to fight, and throws the rest.',
     weapons: ['firestaff', 'froststaff', 'arcanestaff'], armor: 'cloth', start: 'firestaff', startName: 'Fire Staff', outfit: 'wizard',
@@ -197,7 +197,8 @@ export const NEW_CLASSES = {
 export function petDef(kind, lv, big) {
   lv = Math.max(1, Math.min(10, lv));
   const P = {
-    skeleton: { name: 'Skeleton', kind: 'skeleton', hp: 180 + lv * 40, dmg: 10 + lv * 3, cd: 1.2, speed: 6, wt: 'sword', size: big ? 1.15 : 1 },
+    skelmage: { name: 'Skeleton Mage', kind: 'skeleton', hp: 140 + lv * 30, dmg: 12 + lv * 3.5, cd: 1.6, speed: 5.5, wt: 'arcanestaff', range: 15, proj: 'arcane', size: big ? 1.05 : 0.95 },
+    skeleton: { name: 'Skeleton Warrior', kind: 'skeleton', hp: 180 + lv * 40, dmg: 10 + lv * 3, cd: 1.2, speed: 6, wt: 'sword', size: big ? 1.15 : 1 },
     bear: { name: 'Bear', quad: 'bear', hp: 380 + lv * 70, dmg: 14 + lv * 3.5, cd: 1.4, speed: 6.5, size: 1.1 + lv * 0.03, col: '#6a4a2a' },
     tiger: { name: 'War Tiger', quad: 'tiger', hp: 260 + lv * 55, dmg: 14 + lv * 4, cd: 1.1, speed: 8, size: 0.95 + lv * 0.05, col: '#d0802a' },
     wolfpack: { name: 'Pack Wolf', quad: 'wolf', hp: 200 + lv * 40, dmg: 9 + lv * 2.5, cd: 1.1, speed: 8, size: 1.1 + lv * 0.02, col: '#8a8a90' },

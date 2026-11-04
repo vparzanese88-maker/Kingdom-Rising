@@ -432,7 +432,7 @@ export class Mob {
     if (player.dead) return false;
     for (const a of this.abil) {
       if ((this.spCd[a] || 0) > 0) continue;
-      const D = { charge: [6, 18, 9], pounce: [5, 14, 8], maul: [0, this.reach + 1.2, 8], web: [5, 18, 8], pound: [0, 5, 9], nova: [0, 4.5, 8], frenzy: [0, this.reach + 0.8, 6], bash: [0, this.reach + 0.6, 7] }[a];
+      const D = { charge: [8, 18, 15], pounce: [5, 14, 8], maul: [0, this.reach + 1.2, 8], web: [5, 18, 8], pound: [0, 5, 9], nova: [0, 4.5, 8], frenzy: [0, this.reach + 0.8, 6], bash: [0, this.reach + 0.6, 7] }[a];
       if (!D || dp < D[0] || dp > D[1]) continue;
       if (Math.random() > 0.035 && a !== 'pound' && a !== 'nova') continue; // don't fire the moment it's possible
       this.spCd[a] = D[2] * rand(0.8, 1.3);
@@ -440,7 +440,7 @@ export class Mob {
       this.actionDur = { charge: 1.6, pounce: 1.4, maul: 1.25, web: 0.8, pound: 1.4, nova: 1.0, frenzy: 0.9, bash: 0.8 }[a];
       const name = { charge: 'Charge!', pounce: 'Pounce!', maul: 'Maul!', web: 'Web!', pound: 'Ground Pound!', nova: 'Fire Nova!', frenzy: 'Frenzy!', bash: 'Shield Bash!' }[a];
       this.say(name);
-      if (a === 'charge' || a === 'pounce') { const len = Math.min(20, dp + 3); G.hooks.telegraphLine && G.hooks.telegraphLine(this, player, len, Math.max(1.6, this.radius * 2.2), this.actionDur * 0.38); }
+      if (a === 'charge' || a === 'pounce') { const len = a === 'charge' ? Math.max(1, dp - 0.6) : Math.min(20, dp + 3); G.hooks.telegraphLine && G.hooks.telegraphLine(this, player, len, Math.max(1.6, this.radius * 2.2), this.actionDur * 0.38); }
       if (a === 'maul') G.hooks.telegraphCone && G.hooks.telegraphCone(this, this.reach + 1.4, this.actionDur * 0.62);
       if (a === 'charge' || a === 'maul' || a === 'pounce') S.roar(this.pos); else S.growl(this.def.variant || this.def.shape, this.pos, 1.2);
       if (a === 'pound') G.hooks.telegraphSelf && G.hooks.telegraphSelf(this, 4.5, this.actionDur * 0.65);
@@ -457,7 +457,7 @@ export class Mob {
       if (t < 0.38) { if (!this.lockDir) this.faceTo(player.pos, dt, 10); this.windup = true; } // rear up / crouch
       else {
         this.windup = false;
-        if (!this.spDir) { this.spDir = this.lockDir ? this.lockDir.clone() : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); this.spDist = this.lockLen || Math.min(20, dp + 3); this.yaw = Math.atan2(this.spDir.x, this.spDir.z); S.swing(2, this.pos); }
+        if (!this.spDir) { this.spDir = this.lockDir ? this.lockDir.clone() : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); this.spDist = this.lockLen || (a === 'charge' ? Math.max(1, dp - 0.6) : Math.min(20, dp + 3)); this.yaw = Math.atan2(this.spDir.x, this.spDir.z); S.swing(2, this.pos); }
         const sp = a === 'pounce' ? 15 : 13;
         if (this.spDist > 0) { const mv = sp * dt; this.spDist -= mv; this.pos.addScaledVector(this.spDir, mv); if (a === 'pounce') this.leapY = Math.sin(Math.min(1, (t - 0.38) / 0.4) * Math.PI) * 1.6; if (Math.random() < 0.5) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 2, { speed: 2, size: 0.5 }); }
         if (!this.didHit && dp < this.reach + player.radius + 0.6) {
@@ -490,7 +490,7 @@ export class Mob {
         if (dp < r + player.radius) { player.takeDamage(this.dmg * (a === 'pound' ? 1.7 : 1.4), this, { aoe: true }); if (a === 'pound') { player.knock(player.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), 0.7); } else player.debuff('burn', 4, this.dmg * 0.15); }
       }
     }
-    if (this.actionT >= 1) { this.action = null; this.lockDir = null; this.lockLen = 0; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, 0.6); }
+    if (this.actionT >= 1) { this.action = null; this.lockDir = null; this.lockLen = 0; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, a === 'charge' ? 1.4 : 0.6); }
     return out;
   }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }

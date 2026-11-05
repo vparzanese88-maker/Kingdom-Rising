@@ -535,7 +535,7 @@ function treesTab(c, h, cls, res) {
     const grid = el('div', 'st-grid'); const rows = Math.max(...T.nodes.map(n => n.row)) + 1; grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'st-lines'); svg.setAttribute('viewBox', `0 0 300 ${rows * 100}`); svg.setAttribute('preserveAspectRatio', 'none');
     const cx = (n) => 50 + n.col * 100, cy = (n) => 50 + n.row * 100;
-    for (const n of T.nodes) { const par = n.t === 'ult' ? null : n.req && T.nodes.find(x => x.id === n.req); const own = Game.nodeOwned(h, n);
+    for (const n of T.nodes) { const par = n.t === 'ult' ? T.nodes.find(x => x.row === n.row - 1 && x.col === n.col) : n.req && T.nodes.find(x => x.id === n.req); const own = Game.nodeOwned(h, n);
       if (par) { const l = document.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', cx(par)); l.setAttribute('y1', cy(par)); l.setAttribute('x2', cx(n)); l.setAttribute('y2', cy(n)); l.setAttribute('class', own ? 'on' : Game.nodeOwned(h, par) ? 'next' : ''); svg.appendChild(l); } }
     grid.appendChild(svg);
     for (const n of T.nodes) {

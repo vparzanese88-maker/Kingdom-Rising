@@ -186,6 +186,7 @@ class ViewModel {
         case 'swing1': r = seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'swing2': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'lowcut': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
+        case 'sweep': r = seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'kick': break;
         case 'swing3': r = seq(VP.s3a, VP.s3b, t, 0.42); if (dual) l = seq(mirror(VP.s3a), mirror(VP.s3b), t, 0.42, VP.restL); break;
         case 'off1': l = seq(mirror(VP.s1a), mirror(VP.s1b), t, 0.3, VP.restL); break;
@@ -323,13 +324,14 @@ export class Player {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
       case 'KeyQ': this.swapWeapon(); break;
-      case 'KeyF': if (G.battleFx && !this.dead) this.specialAttack(); break;
+      case 'KeyF': if (G.battleFx) this.hotbar(5); break;
+      case 'KeyC': if (G.battleFx) this.hotbar(6); break;
+      case 'KeyZ': if (G.battleFx) this.hotbar(7); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
       case 'Digit4': this.hotbar(3); break;
       case 'Digit5': this.hotbar(4); break;
-      case 'Digit6': this.hotbar(5); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': this.quaff(); break;
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
@@ -787,7 +789,7 @@ export class Player {
         break;
       }
       case 'bloodrage': { this.buffs.rage = 10; this.buffs.tq = Math.max(this.buffs.tq || 0, 10); S.roar(this.pos); S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 5 }); V.ring(this.pos, 4, '#c01818', 0.5); this.fovKick = 8; break; }
-      case 'cleavestrike': { this.atk = { name: 'swing3', t: 0.1, dur: 0.55, hit: true, noQueue: true }; S.cleave(this.pos); S.swingW(this.swingKind('swing3'), 1.6, this.pos);
+      case 'cleavestrike': { this.atk = { name: 'sweep', t: 0.05, dur: 0.55, hit: true, noQueue: true }; S.cleave(this.pos); S.swingW(this.swingKind('swing3'), 1.6, this.pos);
         setTimeout(() => { if (this.dead) return; const R = 4 * (up > 1 ? 1.3 : 1); abilityArc(this.pos.clone().setY(this.pos.y + 1.05), this.yaw, R, '#fff0c0', Math.PI * 1.15, false); let n = 0;
           for (const m of mobsInCone(this.pos, this.yaw, R, 1.5)) { n++; this.dealDamage(m, base * 1.8 * up, { big: true, melee: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(7) }); V.burst('spark', m.pos.clone().setY(m.pos.y + 1), 12, { speed: 5 }); V.burst('blood', m.pos.clone().setY(m.pos.y + 1), 10, { speed: 4 }); }
           V.addShake(n ? 0.35 : 0.15); if (n) { G.hitstop = 0.05; this.fovKick = 5; } }, 150 * ABIL_DELAY_K()); break; }
@@ -1034,24 +1036,24 @@ export class Player {
   }
   // ---- Bard songs: every song on the hotbar plays by itself, pulsing its effect on you and your side ----
   tickSongs(dt) {
-    const songs = this.h.hotbar.map(s => s && s.t === 'ab' && ABILITIES[this.h.cls].find(a => a.id === s.id)).filter(a => a && a.song && a.level <= this.h.level);
+    const songs = this.h.hotbar.map(s => s && s.t === 'ab' && ABILITIES[this.h.cls].find(a => a.id === s.id)).filter(a => a && a.song && Game.abilityKnown(this.h, a));
     this.notes = this.notes || [];
     if (songs.length && !this.dead) {
       this.noteT = (this.noteT || 0) - dt;
       if (this.noteT <= 0) { this.noteT = 0.35; const a = songs[Math.floor(Math.random() * songs.length)]; this.spawnNote(SONG_COL[a.song]); }
       // the healing song is a steady regen: a little every second, no big heals
       const regen = songs.find(a => a.song === 'heal');
-      if (regen && (this.regenT = (this.regenT || 0) - dt) <= 0) { this.regenT = 1; const up2 = G.abilScale ? G.abilScale(this.h.level) : 1; this.heal(this.maxHp * regen.pct * up2); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [(regen.r || 14) * this.areaK(), regen.pct * up2], 1); }
+      if (regen && (this.regenT = (this.regenT || 0) - dt) <= 0) { this.regenT = 1; const up2 = G.abilScale ? G.abilScale(this.h.level) : 1; this.heal(this.maxHp * regen.pct * up2); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [(regen.r || 14) * this.areaK() * 2, regen.pct * up2], 1); }
       this.songT = (this.songT || 0) - dt;
       if (this.songT <= 0) { this.songT = 3;
         const up = G.abilScale ? G.abilScale(this.h.level) : 1, K = this.areaK(), ally = (r, pct, kind) => G.hooks.allyFx && G.hooks.allyFx(this.pos, [r, pct || 0, kind, 3.6], 1);
-        for (const a of songs) { const r = (a.r || 14) * K;
+        for (const a of songs) { const r = (a.r || 14) * K * 2; // songs carry twice as far
           if (a.song === 'war') { this.buffs.cry = Math.max(this.buffs.cry || 0, 3.6); ally(r, 0, 'rally'); }
           else if (a.song === 'travel') { this.buffs.swind = Math.max(this.buffs.swind || 0, 3.6); ally(r, 0, 'haste'); }
           else if (a.song === 'flame') { this.buffs.flame = Math.max(this.buffs.flame || 0, 3.6); ally(r, 0, 'flame'); }
           else if (a.song === 'mana') { this.buffs.clarity = Math.max(this.buffs.clarity || 0, 3.6); ally(r, 0, 'clarity'); }
           else if (a.song === 'ward') { this.buffs.barrier = Math.max(this.buffs.barrier || 0, this.maxHp * 0.06 * up); this.buffs.barrierT = 3.6; ally(r, 0, 'ward'); }
-          V.ring(this.pos, r, SONG_COL[a.song], 0.9); }
+          V.ring(this.pos, 2.2, SONG_COL[a.song], 0.6); } // a small pulse at your feet, not a huge circle
         S.heal && songs.some(a => a.song === 'heal') && 0; }
     }
     // the notes drift up and fade
@@ -1334,7 +1336,7 @@ export class Player {
     }
   }
   // the campaign: landing hits with a weapon trains it (see the Weapons tab, L)
-  wpnXp(n) { if (BATTLE || !this.weapon) return; Game.gainMastery(this.h, familiesOf(this.weapon.wt)[0], n); }
+  wpnXp(n) { return; if (BATTLE || !this.weapon) return; Game.gainMastery(this.h, familiesOf(this.weapon.wt)[0], n); }
   heal(n, quiet) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
     if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.hurtT = G.time; }
@@ -1615,6 +1617,7 @@ export class Player {
       if (a.name === 'stabR') action = 'thrust1';
       if (a.name === 'stabL') { action = 'thrust1'; mirror = true; }
       if (a.name === 'smash') action = 'heavy';
+      if (a.name === 'sweep') { action = 'swing1'; spin = Math.sin(Math.min(1, a.t / 0.75) * Math.PI) * -0.5; } // a wide sideways sweep: the whole body turns into it
       if (a.held && action === 'heavy') actionT = 0.5 + Math.min(a.t, 1) * 0.5; // released from the wind-up: swing straight through, no second wind-up
       if (a.name === 'charge' && a.hold) { action = this.weapon && this.weapon.wt === 'spear' ? 'thrust3' : 'heavy'; actionT = Math.min(a.t, 1) * (action === 'heavy' ? 0.5 : 0.4); }
       if (a.name === 'spin') { action = 'area'; spin = ease(Math.min(1, a.t / 0.8)) * Math.PI * 2; }

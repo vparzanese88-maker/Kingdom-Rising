@@ -5,7 +5,7 @@ import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
 import { PROCS, procChance, PROC_DEX } from './data.js';
-import { RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import { BATTLE } from './battlemap.js';
 import * as Icons from './icons.js';
@@ -64,9 +64,10 @@ export function buildAbilityBar() {
   bar.appendChild(ws);
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
-  const rmb = mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
+  const rmb = G.battleFx ? null : mk('RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
-  const hb = Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
+  // keys 1-5: buffs, songs, heals; then F, C, Z: the damage abilities
+  const hb = G.hotbarSlots ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
@@ -81,17 +82,17 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
-    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' : 'Left click'}${G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
-    { const sid = W && G.battleFx ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo · hold for heavy' : 'Left click'}${G.battleFx ? ' · K for abilities' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    { const sid = W && G.battleFx ? null : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
-  { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `${G.battleFx ? 'F' : 'Right click'}: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
+  if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `${G.battleFx ? 'F' : 'Right click'}: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
     if (e._key !== key) {
       const ai = e.querySelector('.ai');
-      e.className = 'slot hb' + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
+      e.className = 'slot hb' + (G.hotbarSlots ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
       if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
       else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
       else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }
@@ -124,7 +125,7 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
-    { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
+    if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
       const e = abilEls.hb[i]; if (!e) return;
       if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; if (!a) return; setCd(e, p.cd['a' + (k + 1)], a.cd); const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }

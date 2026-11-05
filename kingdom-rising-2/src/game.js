@@ -2,7 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
-import { CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
+import { HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -58,15 +58,16 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
-  // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book
+  // keys 1-5: buffs, songs and heals; F, C, Z: damage abilities (no food or drink slots for now)
   if (G.hotbarSlots) {
-    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
-    const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && abilityKnown(h, a)))) hb[i] = null;
+    const T = HOTBAR_KEYS.length, A = ABILITIES[h.cls];
+    const old = (h.hotbar || []).filter(s => s && s.t === 'ab'); if (!h.hotbar || h.hotbar.length !== T) { h.hotbar = Array(T).fill(null); }
+    const hb = h.hotbar;
+    for (let i = 0; i < T; i++) { const sl = hb[i], a = sl && sl.t === 'ab' && A.find(x => x.id === sl.id); if (sl && (!a || !abilityKnown(h, a) || !slotFits(i, a))) hb[i] = null; }
     const added = [];
-    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (!abilityKnown(h, a) || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
-    // campaign: the last slots hold potions and food, filled as you find them
-    for (let i = N; i < T; i++) if (hb[i] && (hb[i].t !== 'item' || count(h, hb[i].id) <= 0)) hb[i] = null;
-    for (const id of HOTBAR_ITEMS) { if (!NI || hb.some(s => s && s.t === 'item' && s.id === id) || count(h, id) <= 0) continue; const i = hb.findIndex((s, k) => !s && k >= N); if (i < 0) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
+    const place = (a) => { if (!abilityKnown(h, a) || hb.some(s => s && s.id === a.id)) return; const i = hb.findIndex((s, k) => !s && slotFits(k, a)); if (i < 0) return; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); };
+    for (const s0 of old) { const a = A.find(x => x.id === s0.id); if (a) place(a); }
+    for (const a of A.slice().sort((x, y) => x.level - y.level)) place(a);
     if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
     return;
   }
@@ -192,7 +193,7 @@ export function heroDerived(h) {
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  const mast = BATTLE ? 1 : 1 + (wm(h, familiesOf(w.wt)[0]).lv - 1) * 0.01; // every mastery level: +1% with that weapon
+  const mast = 1; // weapons no longer level up
   return mast * w.dmg * mul * (1 + (h.level - 1) * 0.05 * LEVEL_GROWTH) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
@@ -226,10 +227,10 @@ export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && 
 // bows and muskets shoot and draw from the start, F at 5; staffs tap-cast from the start, hold stream at 3, F at 5
 export const WM_HOLD = 3, WM_F = 5;
 export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 2, 3, 4, 6][i] || 6; }
-export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : wm(h, familiesOf(wt)[0]).lv; }
+export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : Math.max(1, h.level || 1); } // no more weapon levels: weapons grow with your character level
 export function comboLen(h, wt) { const C = COMBOS[wt]; return C ? C.chain.length : 0; } // the full light-attack chain from the start
 export function canHold(h, wt) { return true; } // hold for a heavy attack from the start
-export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.55 + 0.45 * Math.min(1, (lv - 1) / 19); } // slow and clumsy at skill 1 (55%), full speed at skill 20
+export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.75 + 0.25 * Math.min(1, (lv - 1) / 19); } // a little slower at level 1 (75%), full speed at level 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {

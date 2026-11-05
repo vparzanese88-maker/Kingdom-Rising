@@ -271,7 +271,7 @@ function kitAbilities(levelOf) {
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
   G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);
-  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 4;
+  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 8;
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
 function campaignSetup() {
@@ -279,7 +279,7 @@ function campaignSetup() {
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
-  G.itemSlots = 2; G.xpReq = campaignXp; document.body.classList.add('battlefx');
+  G.itemSlots = 0; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 function startBattle() {
   const t = Battle.myTown(), cfg = SETUP.hero || {};
@@ -399,7 +399,7 @@ function hooks() {
     UI.banner(`${fn} skill ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Faster and a little harder hitting', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
   H.skillUp = (name, lv) => { chatAdd(`<b class="sk">You have become better at ${name}! (${lv})</b>`, 'skill'); if (lv % 5 === 0) UI.toast(`${name} skill ${lv}`, '🌊', 'gold'); };
   H.masteryTick = () => {}; // (skill progress is not reported, only each new point)
-  H.newWeapon = (wt) => { chatAdd(`You pick up a new kind of weapon: <b>${WEAPON_TYPES[wt].name}</b>. Use it to learn it (L).`, 'skill'); UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
+  H.newWeapon = (wt) => { chatAdd(`You pick up a new kind of weapon: <b>${WEAPON_TYPES[wt].name}</b>. `, 'skill'); UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
@@ -576,7 +576,7 @@ function startMainQuest(h) {
 // ---------- input ----------
 let lockBusyUntil = 0;
 function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock || document.pointerLockElement || performance.now() < lockBusyUntil - 700) return; lockBusyUntil = performance.now() + 900; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
-// ---------- pet commands (Z): tap = attack your target; hold = command wheel ----------
+// ---------- pet commands (G): tap = attack your target; hold = command wheel ----------
 const PET_OPTS = [
   { id: 'attackTarget', icon: '⚔', name: 'Attack my target' },
   { id: 'attack', icon: '🔥', name: 'Aggressive', tip: 'Attack anything hostile near you' },
@@ -622,7 +622,7 @@ function updatePetBar(dt) {
   if (!list.length) { if (e) e.hidden = true; return; }
   if (!e) { e = document.createElement('div'); e.id = 'petbar'; $('hud').appendChild(e); }
   const mode = PET_OPTS.find(o => o.id === PETS.mode);
-  const html = `<div class="pbh"><b>${mode.icon} ${mode.name}</b><span>Taunt ${PETS.taunt ? 'on' : 'off'} · <kbd>Z</kbd> tap: attack · hold: orders</span></div>` + list.map(m => `<div class="pbp"><span>${m.name}</span><i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i>${m.tgt && !m.tgt.dead ? `<small>⚔ ${m.tgt.name}</small>` : ''}</div>`).join('');
+  const html = `<div class="pbh"><b>${mode.icon} ${mode.name}</b><span>Taunt ${PETS.taunt ? 'on' : 'off'} · <kbd>G</kbd> tap: attack · hold: orders</span></div>` + list.map(m => `<div class="pbp"><span>${m.name}</span><i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i>${m.tgt && !m.tgt.dead ? `<small>⚔ ${m.tgt.name}</small>` : ''}</div>`).join('');
   if (e._h !== html) { e.innerHTML = html; e._h = html; } e.hidden = false;
 }
 function input() {
@@ -638,11 +638,10 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
-      if (e.code === 'KeyL') { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
       if (e.code === 'KeyQ' && G.uiOpen && UI.UI.open === 'inv' && G.player) { G.player.swapWeapon(); UI.refreshOpen(); return; } // swap weapon sets with the bag open
-      if (e.code === 'KeyZ' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
+      if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
       if (BATTLE && e.code === 'KeyP') { UI.toast('No crafting in Kingdom Battles', '·'); return; }
@@ -652,7 +651,7 @@ function input() {
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
-  addEventListener('keyup', (e) => { if (e.code === 'KeyZ' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petTap(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
+  addEventListener('keyup', (e) => { if (e.code === 'KeyG' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petTap(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   addEventListener('mousedown', () => { if (inScene()) sceneAdvance(); }, true);
   canvas.addEventListener('mousedown', (e) => { if (inScene()) return;

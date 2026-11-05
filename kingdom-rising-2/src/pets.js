@@ -45,7 +45,7 @@ function vanish(m) {
   V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 2.5 });
   G.scene.remove(m.root); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1);
 }
-// ---- pet orders (Z): tap to send them at your target, hold for the command wheel ----
+// ---- pet orders (G): tap to send them at your target, hold for the command wheel ----
 // modes: guard (default: what you attack, or what attacks you), attack (any hostile near you), follow (never fights), stay (holds its spot)
 export const PETS = { mode: 'guard', taunt: true, order: null, stay: null };
 export const pets = () => G.mobs.filter(m => m.pet && !m.dead);

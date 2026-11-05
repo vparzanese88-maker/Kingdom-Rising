@@ -523,7 +523,7 @@ function treesTab(c, h, cls, res) {
   // header: class, points, hotbar, reset
   const top = el('div', 'st-top');
   top.appendChild(el('div', 'st-cls', `<div class="st-crest">${Icons.abilityIcon(trees[0].nodes[0].ab || 'charge')}</div><div><b>${CLASSES[cls].name}</b><small>Level ${h.level} · one skill point every level</small></div>`));
-  top.appendChild(el('div', 'st-pts' + (pts ? ' have' : ''), `<b>${pts}</b><small>skill point${pts === 1 ? '' : 's'}</small>`));
+  top.appendChild(el('div', 'st-pts' + (pts ? ' have' : ''), h.yard ? '<b>∞</b><small>training points</small>' : `<b>${pts}</b><small>skill point${pts === 1 ? '' : 's'}</small>`));
   top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · drag abilities onto slots · right click a slot to clear it</small>')).appendChild(slotBar(h, cls));
   const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
   c.appendChild(top);
@@ -539,10 +539,10 @@ function treesTab(c, h, cls, res) {
       if (par) { const l = document.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', cx(par)); l.setAttribute('y1', cy(par)); l.setAttribute('x2', cx(n)); l.setAttribute('y2', cy(n)); l.setAttribute('class', own ? 'on' : Game.nodeOwned(h, par) ? 'next' : ''); svg.appendChild(l); } }
     grid.appendChild(svg);
     for (const n of T.nodes) {
-      const st = Game.nodeState(h, n), a = n.t === 'ab' && ABILITIES[cls].find(x => x.id === n.ab), slot = a ? h.hotbar.findIndex(x => x && x.id === a.id) : -1;
+      const st = Game.nodeState(h, n), a = n.ab && ABILITIES[cls].find(x => x.id === n.ab), slot = a ? h.hotbar.findIndex(x => x && x.id === a.id) : -1;
       const d = el('button', `st-node ${n.t} ${st}${a ? (isSupport(a) ? ' supab' : ' dmgab') : ''}`, `<div class="st-ic">${Icons.abilityIcon(n.icon)}</div>${slot >= 0 ? `<span class="st-k">${HOTBAR_KEYS[slot]}</span>` : ''}${n.t === 'ult' ? `<span class="st-u">${Math.min(spent, ULT_PTS)}/${ULT_PTS}</span>` : ''}`);
       d.style.gridRow = n.row + 1; d.style.gridColumn = n.col + 1; if (a && st === 'owned') draggableAb(d, h, a);
-      const kind = n.t === 'ab' ? (isSupport(a) ? 'Ability · keys 1-5 (buff, song or heal)' : 'Damage ability · F, C or Q') : n.t === 'ult' ? 'Capstone' : 'Passive';
+      const kind = a ? (n.t === 'ult' ? 'Capstone ability · ' : '') + (isSupport(a) ? 'keys 1-5 (buff, song or heal)' : 'Damage ability · F, C or Q') : n.t === 'ult' ? 'Capstone' : 'Passive';
       const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]} · drag it to another slot</em>` : `<em class="ok">Drag onto a slot, or right click to fill the first empty ${isSupport(a) ? '1-5' : 'F C Q'} slot</em>`) : '<em class="ok">Unlocked</em>')
         : st === 'open' ? '<em class="go">Click to unlock (1 point)</em>' : st === 'ready' ? '<em class="wait">Next in line: earn a point by levelling up</em>'
         : n.t === 'ult' ? `<em class="no">Spend ${ULT_PTS} points in ${T.name} to open</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;

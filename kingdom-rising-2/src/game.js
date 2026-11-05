@@ -212,12 +212,12 @@ export function weaponDamage(h, w) {
 }
 
 // ---------- skill trees ----------
-export function perk(h, id) { if (h.yard && CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(n => n.id === id)) return 1; return (h.ctree && h.ctree[id]) || 0; }
+export function perk(h, id) { return (h.ctree && h.ctree[id]) || 0; }
 export function wkind(fam) { return FAMILIES[fam] ? FAMILIES[fam].kind : 'melee'; }
 export function wm(h, wt) { h.wm = h.wm || {}; return h.wm[wt] || (h.wm[wt] = { lv: 1, xp: 0, pts: {} }); }
 export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id]) || 0; }
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
-export function classPoints(h) { if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
+export function classPoints(h) { if (h.yard && CLASS_TREES[h.cls]) return 99; /* the Training Yard: unlimited points to try builds */ if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 // ---- skill trees (classes that have them unlock their abilities inside the trees) ----
 export const slotFitsK = (i, a) => slotFits(i, a);
 export const hasTrees = (cls) => !BATTLE && !!CLASS_TREES[cls];
@@ -226,17 +226,17 @@ let _fxKey = '', _fxC = {};
 export function fxCount(h, kind) {
   if (BATTLE || !h || !CLASS_TREES[h.cls]) return 0;
   const key = h.cls + (h.yard ? '*' : '') + Object.keys(h.ctree || {}).join(',');
-  if (key !== _fxKey) { _fxKey = key; _fxC = {}; for (const n of CLASS_TREE[h.cls]) if (n.fx && (h.yard || (h.ctree && h.ctree[n.id]))) _fxC[n.fx] = (_fxC[n.fx] || 0) + 1; }
+  if (key !== _fxKey) { _fxKey = key; _fxC = {}; for (const n of CLASS_TREE[h.cls]) if (n.fx && h.ctree && h.ctree[n.id]) _fxC[n.fx] = (_fxC[n.fx] || 0) + 1; }
   return _fxC[kind] || 0;
 }
-export const nodeOwned = (h, n) => !!(n.free || (h.ctree && h.ctree[n.id]) || h.yard);
+export const nodeOwned = (h, n) => !!(n.free || (h.ctree && h.ctree[n.id]));
 export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => !n.free && h.ctree && h.ctree[n.id]).length : 0; }
 export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (next in line, need a point) | 'locked'
   if (nodeOwned(h, n)) return 'owned';
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
-  if (h.yard) return true;
+  if (h.yard && !(CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(x => x.ab === a.id))) return true; // yard: abilities outside the trees are free
   if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); if (n) return nodeOwned(h, n); }
   return h.level >= a.level; }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }

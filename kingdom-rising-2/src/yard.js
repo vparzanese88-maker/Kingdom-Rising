@@ -50,9 +50,7 @@ export function yardHero(cls, keep) {
   h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.yard = true; h.equip.chest = null; h.equip.legs = null;
   const w1 = h.equip.w1; if (w1) Object.assign(w1, Game.makeWeapon(w1.wt, 5, 3), { uid: w1.uid }); if (h.equip.w2) Object.assign(h.equip.w2, Game.makeWeapon(h.equip.w2.wt, 5, 3));
   h.hotbar = null; Game.autoFillHotbar(h);
-  // the yard shows off each class's best: the highest-level abilities (capstones and new tree abilities first) fill the bar
-  if (G.newFx && h.hotbar) { const A = ABILITIES[cls].slice().filter(a => !a.battle).sort((a, b) => ((b.campaign && !b.id.includes('_x') ? 100 : 0) + b.level) - ((a.campaign && !a.id.includes('_x') ? 100 : 0) + a.level)); h.hotbar = h.hotbar.map(() => null);
-    for (const a of A) { const i = h.hotbar.findIndex((s, k) => !s && Game.slotFitsK(k, a)); if (i >= 0) h.hotbar[i] = { t: 'ab', id: a.id }; } }
+  h.ctree = {}; Game.autoFillHotbar(h); // trees start empty in the yard: unlock with unlimited points (K), reset any time
   return h;
 }
 // weapons you can pick: everything except a lone shield
@@ -61,7 +59,7 @@ export function openYardPanel(UI) {
   const c = UI.openWin('yard', 'Training Yard', '', 'big yardwin'), h = G.save;
   const render = () => {
     c.innerHTML = '';
-    c.appendChild(el('h3', '', 'Class <small>everyone is level ' + LEVEL_CAP + ' with every ability</small>'));
+    c.appendChild(el('h3', '', 'Class <small>everyone is level ' + LEVEL_CAP + ', with unlimited skill points to spend in K</small>'));
     const cg = el('div', 'ygrid');
     for (const k of Object.keys(CLASSES)) { const b = el('button', 'ycls' + (G.save.cls === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${ABILITIES[k].length} abilities</small>`); b.onclick = () => { S.click(); const nh = yardHero(k, G.save); UI.closeWin(); YD.startGame(nh); }; cg.appendChild(b); }
     c.appendChild(cg);

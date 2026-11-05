@@ -11,7 +11,7 @@ import { V } from './vfx.js';
 import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
-import { summonPets, petCommand, pets, PETS } from './pets.js';
+import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
 import { updateBanners } from './banners.js';
@@ -582,12 +582,13 @@ let lockBusyUntil = 0;
 function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock || document.pointerLockElement || performance.now() < lockBusyUntil - 700) return; lockBusyUntil = performance.now() + 900; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
 // ---------- pet commands (G): tap = attack your target; hold = command wheel ----------
 const PET_OPTS = [
-  { id: 'attackTarget', icon: '⚔', name: 'Attack my target' },
+  { id: 'attackTarget', icon: '⚔', name: 'Attack my target', tip: 'Same as tapping Z' },
+  { id: 'guard', icon: '🛡', name: 'Defend me', tip: 'Fight only what you attack, or what attacks you or the pet' },
   { id: 'attack', icon: '🔥', name: 'Aggressive', tip: 'Attack anything hostile near you' },
-  { id: 'guard', icon: '🛡', name: 'Guard me', tip: 'Attack what you attack, and what attacks you' },
-  { id: 'stay', icon: '✋', name: 'Stay here', tip: 'Hold this spot; fight only what comes close' },
-  { id: 'follow', icon: '👣', name: 'Follow', tip: 'Stay at your side and never fight' },
-  { id: 'taunt', icon: '📢', name: 'Taunt', tip: 'On: enemies they hit turn on them. Off: they leave enemies to you' },
+  { id: 'stay', icon: '✋', name: 'Wait here', tip: 'Hold this spot; fight only what comes close' },
+  { id: 'follow', icon: '👣', name: 'Follow, don\'t fight', tip: 'Stay at your side and never fight' },
+  { id: 'taunt', icon: '📢', name: 'Taunt on / off', tip: 'On: enemies the pet hits turn on it. Off: they stay on you' },
+  { id: 'dismiss', icon: '✖', name: 'Dismiss', tip: 'Send your pets away' },
 ];
 function petTarget() {
   const p = G.player, t = G.target;
@@ -595,6 +596,7 @@ function petTarget() {
   let best = null, bd = 1e9; for (const m of mobsInCone(p.pos, p.yaw, 35, 0.22)) { if (m.pet) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } }
   return best;
 }
+function petStop() { if (!pets().length) return; stopPets(); S.click(); UI.toast('Pets: stop attacking', '✋', 'gold'); }
 function petTap() {
   if (!pets().length) { UI.toast(BATTLE ? 'Pet orders work in the campaign' : 'You have no pet. Summon one first.', '🐾', 'bad'); return; }
   const t = petTarget(); if (!t) { UI.toast('No target: aim at an enemy, or hit one first', '🐾', 'bad'); return; }
@@ -604,7 +606,7 @@ let petWheel = null;
 function openPetWheel() {
   if (!pets().length) { petTap(); return; }
   let e = $('petwheel'); if (!e) { e = document.createElement('div'); e.id = 'petwheel'; document.body.appendChild(e); }
-  e.innerHTML = '<div class="pwc">Pet orders<small>move the mouse, let go of Z</small></div>' + PET_OPTS.map((o, i) => { const a = -Math.PI / 2 + i / PET_OPTS.length * Math.PI * 2; return `<div class="pwo" data-i="${i}" style="left:calc(50% + ${Math.cos(a) * 150}px);top:calc(50% + ${Math.sin(a) * 150}px)"><b>${o.icon}</b><span>${o.id === 'taunt' ? `Taunt: ${PETS.taunt ? 'on' : 'off'}` : o.name}</span>${o.id === PETS.mode ? '<i>current</i>' : ''}</div>`; }).join('');
+  e.innerHTML = '<div class="pwc">Pet orders<small>move the mouse, let go of G</small></div>' + PET_OPTS.map((o, i) => { const a = -Math.PI / 2 + i / PET_OPTS.length * Math.PI * 2; return `<div class="pwo" data-i="${i}" style="left:calc(50% + ${Math.cos(a) * 150}px);top:calc(50% + ${Math.sin(a) * 150}px)"><b>${o.icon}</b><span>${o.id === 'taunt' ? `Taunt: ${PETS.taunt ? 'on' : 'off'}` : o.name}</span>${o.id === PETS.mode ? '<i>current</i>' : ''}</div>`; }).join('');
   e.hidden = false; petWheel = { x: 0, y: 0, sel: -1 }; S.click();
 }
 function petWheelMove(dx, dy) {
@@ -616,6 +618,7 @@ function closePetWheel() {
   const w = petWheel; petWheel = null; const e = $('petwheel'); if (e) e.hidden = true; if (!w || w.sel < 0) return;
   const o = PET_OPTS[w.sel];
   if (o.id === 'attackTarget') { petTap(); return; }
+  if (o.id === 'dismiss') { dismissPets(); S.click(); UI.toast('Pets dismissed', '✖', 'gold'); return; }
   petCommand(o.id); S.click(); UI.toast(o.id === 'taunt' ? `Pet taunt ${PETS.taunt ? 'on' : 'off'}` : `Pets: ${o.name}`, o.icon, 'gold');
 }
 // the pet panel: names, health, orders
@@ -625,8 +628,12 @@ function updatePetBar(dt) {
   const list = pets(); let e = $('petbar');
   if (!list.length) { if (e) e.hidden = true; return; }
   if (!e) { e = document.createElement('div'); e.id = 'petbar'; $('hud').appendChild(e); }
-  const mode = PET_OPTS.find(o => o.id === PETS.mode);
-  const html = `<div class="pbh"><b>${mode.icon} ${mode.name}</b><span>Taunt ${PETS.taunt ? 'on' : 'off'} · <kbd>G</kbd> tap: attack · hold: orders</span></div>` + list.map(m => `<div class="pbp"><span>${m.name}</span><i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i>${m.tgt && !m.tgt.dead ? `<small>⚔ ${m.tgt.name}</small>` : ''}</div>`).join('');
+  const mode = PET_OPTS.find(o => o.id === PETS.mode) || PET_OPTS[1], lv = G.save ? G.save.level : 1;
+  const ICON = { skeleton: '💀', skelmage: '🧙', bear: '🐻', tiger: '🐯', wolfpack: '🐺', spirit: '🐺', fireel: '🔥', earthel: '🪨', phantasm: '👻' };
+  const doing = (m) => m.tgt && !m.tgt.dead ? `<em class="fight">⚔ ${m.tgt.name}</em>` : PETS.mode === 'stay' ? '<em>✋ waiting</em>' : '<em>👣 following</em>';
+  const html = `<div class="pbh"><span class="pbm">${mode.icon} ${mode.name}</span><span class="pbt ${PETS.taunt ? 'on' : ''}">📢 Taunt ${PETS.taunt ? 'ON' : 'OFF'}</span></div>`
+    + list.map(m => `<div class="pbp"><div class="pbi">${ICON[m.petKind] || '🐾'}</div><div class="pbn"><b>${m.name}</b>${m.petKind === 'skeleton' && lv >= 10 ? '<small>🛡 shield</small>' : ''}${doing(m)}<i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i></div></div>`).join('')
+    + `<div class="pbk"><span><kbd>Z</kbd>Attack my target</span><span><kbd>G</kbd>Stop attacking</span><span><kbd>G</kbd><small>hold</small>Orders · taunt · wait · dismiss</span></div>`;
   if (e._h !== html) { e.innerHTML = html; e._h = html; } e.hidden = false;
 }
 function input() {
@@ -645,6 +652,7 @@ function input() {
       if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
+      if (e.code === 'KeyZ' && !G.uiOpen && !BATTLE && pets().length) { petTap(); return; } // Z: pets attack your target
       if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;
@@ -655,7 +663,7 @@ function input() {
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
-  addEventListener('keyup', (e) => { if (e.code === 'KeyG' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petTap(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
+  addEventListener('keyup', (e) => { if (e.code === 'KeyG' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petStop(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   addEventListener('mousedown', () => { if (inScene()) sceneAdvance(); }, true);
   canvas.addEventListener('mousedown', (e) => { if (inScene()) return;

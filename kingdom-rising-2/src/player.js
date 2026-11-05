@@ -1321,7 +1321,7 @@ export class Player {
     const c = this.channel, W = this.W;
     if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) { c.on = false; if (c.snd) { c.snd.stop(); c.snd = null; } } return; }
     c.t += dt; if (c.t < 0.3) return;
-    const cost = (G.newFx ? Math.max(16, this.maxMana * 0.11) : 16) * dt; if (this.mana < cost) // campaign: the stream drains about a ninth of your mana a second { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
+    const cost = (G.newFx ? 12 + (this.weapon.dmg || 9) * 0.6 : 16) * dt; if (this.mana < cost) // campaign: a stronger staff pours out more power and burns more mana (about 17 a second for a driftwood staff, 60 for the best) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
     this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
     const el = W.element || 'fire', base = weaponDamage(this.h, this.weapon);
     const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.13, -1.25).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main && this.ch.weapons.main.userData.tip ? this.ch.weapons.main.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos());

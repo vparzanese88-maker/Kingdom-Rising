@@ -273,7 +273,7 @@ function kitAbilities(levelOf) {
   if (BATTLE) for (const c in ABILITIES) ABILITIES[c] = ABILITIES[c].filter(a => !a.campaign); // the extra tree abilities are campaign-only
   addIcons(GEN_ICONS);
   if (BATTLE) ABILITIES.warrior = WARRIOR_BATTLE.map(a => Object.assign({}, a)); // Kingdom Battles keeps the original warrior kit
-  for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
+  if (BATTLE) for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a); // Kingdom Battles extras stay in Kingdom Battles
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
   G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);

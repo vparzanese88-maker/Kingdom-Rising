@@ -439,7 +439,7 @@ export class Player {
     if (G.newFx && (W.kind === 'gun' || W.kind === 'bow' || W.kind === 'staff') && Math.random() < 0.6) Skills.practise(this.h, Skills.skillOf(this.weapon.wt));
     if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
-    if (W.kind === 'staff') { if (G.newFx) { const cost = Math.round(3 + this.h.level * 0.5); if (this.mana < cost) { S.error(); G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); return; } this.mana -= cost; this.manaUseT = 1; } // campaign: every bolt costs a little mana
+    if (W.kind === 'staff') { // the left-click bolt is a free basic attack, like any weapon swing
       return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 }); }
     const C = COMBOS[this.weapon.wt]; if (!C) return;
     if (this.comboT <= 0) this.combo = 0;

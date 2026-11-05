@@ -697,6 +697,8 @@ export function animateHumanoid(ch, dt, st) {
     const ready = st.ready !== false; ch.relaxK = (ch.relaxK || 0) + ((ready ? 0 : 1) - (ch.relaxK || 0)) * Math.min(1, dt * 5);
     if (!ready && W.kind === 'melee' && W.hands !== 'two') // relaxed: both arms hang loose at your sides, the blade low with its tip toward the ground
       P = [0.04, 0.05 - sw * 0.7, 0, -0.42, -0.18 - bend, W.hands === 'shield' ? -0.08 + sw * 0.5 : -0.1 + sw * 0.7, W.hands === 'shield' ? -0.32 : -0.2, -0.35 - bend * 0.5, 0]; // sword arm straight down beside the hip, out from the body
+    else if (W.hands === 'two' && W.kind === 'melee' && sp > 0.6) // on the move: the big weapon in one hand, swinging with the stride; the free arm pumps (both hands go back on to swing)
+      P = [0.2 + sw * 0.15, -0.35 - sw * 1.05 - runF * 0.2, 0.15, -0.25, -0.55 - bend, sw * 1.2 - 0.05, -0.15, -0.35 - bend * 1.2, 0];
     else if (!ready && W.hands === 'two' && W.kind === 'melee') // relaxed two-hander: held low across the body, head down by the left foot
       P = [0.15, -0.3 - sw * 0.2, 0.15, 0.25, -0.55 - runF * 0.3, -0.45 + sw * 0.15, -0.25, -0.75 - runF * 0.3, 0];
     else if (!ready && W.kind === 'staff') // a walking stick: planted beside you, the other arm loose

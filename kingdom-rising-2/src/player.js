@@ -559,7 +559,7 @@ export class Player {
 
   // ---------- weapon abilities on F and C ----------
   // how much this class's abilities may heal (Kingdom Battles): potions and food are not affected
-  hk() { return G.battleFx ? (HEAL_K[this.h.cls] || 0) : 1; }
+  hk() { return (G.battleFx ? (HEAL_K[this.h.cls] || 0) : 1) * (1 + Game.fxCount(this.h, 'heal') * 0.1 + Game.fxCount(this.h, 'u_sup') * 0.25); }
   qty(b, extra) { return G.battleFx ? b + Math.round((this.h.level - 1) / (LEVEL_CAP - 1) * extra) : b; }
   // area of effect grows with level in Kingdom Battles: +4% radius per level (+36% at level 10)
   areaK() { return G.battleFx ? 1 + (this.h.level - 1) * 0.36 / (LEVEL_CAP - 1) : 1; }
@@ -712,8 +712,8 @@ export class Player {
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim || this.abCast || this.summonCast) { S.error(); return; }
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
-    if (!this.spend(ab.cost)) return;
-    this.cd[key] = ab.cd; if (isBanner) this.bannerT = G.time + 2;
+    if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)))) return;
+    this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
     const ct = CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0);
     if (ct) { this.abCast = { t: 0, dur: ct, i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
     }
@@ -1203,7 +1203,8 @@ export class Player {
   drawWeapons() { if (!this.sheathed) return false; this.sheathed = false; sheathe(this.ch, false); this.vmShow(true); S.swap && S.swap(); this.drawAnimT = 0.35; this.swapT = 0.3; return true; }
   vmShow(on) { const w = this.vm && this.vm.weapons; if (w) for (const k in w) if (w[k]) w[k].visible = on; }
   // health regeneration over time (warriors never heal instantly): frac of max health over dur seconds, stacking onto any running regen
-  addRegen(frac, dur) { const per = this.maxHp * frac * this.hk() / dur; if (this.regen && this.regen.t > 0) { const left = this.regen.per * this.regen.t; this.regen = { per: (left + per * dur) / Math.max(dur, this.regen.t), t: Math.max(dur, this.regen.t) }; } else this.regen = { per, t: dur }; }
+  regenK() { return 1 + Game.fxCount(this.h, 'heal') * 0.1 + Game.fxCount(this.h, 'u_sup') * 0.25; } // your own regeneration (not class healing power)
+  addRegen(frac, dur) { const per = this.maxHp * frac * this.regenK() / dur; if (this.regen && this.regen.t > 0) { const left = this.regen.per * this.regen.t; this.regen = { per: (left + per * dur) / Math.max(dur, this.regen.t), t: Math.max(dur, this.regen.t) }; } else this.regen = { per, t: dur }; }
   // talents that fire when you kill something
   onKillPerks(mob) {
     if (this.pk('bloodlust')) { this.addRegen(0.05, 4); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 2, vy: 1 }); }
@@ -1313,7 +1314,7 @@ export class Player {
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
     if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
-    let crit = Math.random() < this.D.crit + (this.pk('keen') ? 0.08 : 0);
+    let crit = Math.random() < this.D.crit + (this.pk('keen') ? 0.08 : 0) + Game.fxCount(this.h, 'crit') * 0.05;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
     if (this.h.cls === 'ranger' && this.pk('cap') && m.hp >= m.maxHp) crit = true;
     if (o.critBonus && Math.random() < o.critBonus) crit = true;
@@ -1324,6 +1325,7 @@ export class Player {
     if (this.h.cls === 'warrior' && this.pk('cap')) dmg *= this.hp < this.maxHp * 0.5 ? 1.32 : 1.1;
     if (this.buffs.cry > 0) dmg *= 1.3;
     if (this.buffs.bWar > 0) dmg *= this.pk('cmd') ? 1.3 : 1.2;
+    { const n = Game.fxCount(this.h, 'dmg'), u = Game.fxCount(this.h, 'u_dmg'); if (n || u) dmg *= 1 + n * 0.06 + u * 0.12; if (u && crit) dmg *= 1.2; }
     if (this.buffs.fury > 0) dmg *= 1.25;
     if (this.buffs.rage > 0) dmg *= 1.15;
     if (this.h.cls === 'berserker' && this.pk('reckless')) dmg *= 1.1;
@@ -1398,6 +1400,7 @@ export class Player {
     if (this.buffs.stand > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
     if (this.buffs.bStone > 0) { dmg = Math.max(1, Math.round(dmg * (this.pk('cmd') ? 0.55 : 0.7))); V.burst('frost', this.pos.clone().setY(this.pos.y + 1.1), 8, { speed: 3 }); }
     if (this.pk('immov')) dmg = Math.max(1, Math.round(dmg * 0.9));
+    { const n = Game.fxCount(this.h, 'taken'), u = Game.fxCount(this.h, 'u_def'); if (n || u) dmg = Math.max(1, Math.round(dmg * (1 - n * 0.05 - u * 0.12))); }
     if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; this.hurtT = 0.4; this.regenDelay = 4;
@@ -1542,6 +1545,7 @@ export class Player {
     this.endUseT -= dt; this.manaUseT -= dt;
     if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (1 + (this.fb.regen || 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
     if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.5));
+    { const r = Game.fxCount(this.h, 'regen') * 0.003 + Game.fxCount(this.h, 'u_def') * 0.005; if (r && !this.dead && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * r * dt); }
     if (this.regen) { this.hp = Math.min(this.maxHp, this.hp + this.regen.per * dt); this.regen.t -= dt; if (this.regen.t <= 0) this.regen = null; }
     const baseRegen = G.inCombat <= 0 && this.regenDelay <= 0 ? 0.02 : this.pk('secondwind') ? 0.008 : 0;
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.buffs.tq > 0 ? Math.max(0.03, baseRegen * 2) : baseRegen) * (1 + (this.fb.regen || 0)) * dt);
@@ -1570,7 +1574,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;

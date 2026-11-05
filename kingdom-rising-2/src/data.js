@@ -870,3 +870,57 @@ export const WARRIOR_BATTLE = [
     { id: 'hamstring', cost: 20, name: "Hamstring", key: '', level: 16, cd: 6, icon: '', desc: "A crippling cut: the target bleeds and is slowed for 6 s." },
     { id: 'bulwark', cost: 50, name: "Bulwark Slam", key: '', level: 18, cd: 18, icon: '', desc: "Slam your shield into the ground: knock back and stun every enemy within 6 m." },
 ];
+
+// ---- skill trees for every other class: three themed trees each, abilities unlocked inside them, generic passives ----
+// [tree name, tagline, colour, role (offense | defense | support), ability ids]
+const TREE_DEFS = {
+  berserker: [['Carnage', 'Spin, smash and cleave through crowds', '#e2533a', 'offense', ['earthsplitter', 'whirlwind', 'groundslam', 'rampage']], ['Bloodrage', 'Pain only makes you stronger', '#c02a2a', 'defense', ['bloodrage', 'adrenaline', 'undying']], ['Warcry', 'Roars that break the enemy', '#f0a030', 'support', ['battlecry', 'intimshout', 'warstomp']]],
+  ranger: [['Marksman', 'One perfect arrow at a time', '#e2a23a', 'offense', ['spectral', 'focus', 'pinning', 'barrage']], ['Trapper', 'Snares, spikes and ambushes', '#a08050', 'defense', ['snaretrap', 'disengage', 'explotrap']], ['Wildheart', 'The forest looks after its own', '#6ad04a', 'support', ['mending', 'barkskin', 'vanish']]],
+  musketeer: [['Sharpshooter', 'Steady aim, deadly shots', '#e2a23a', 'offense', ['grapeshot', 'eagleeye', 'volleyfire', 'incendiary']], ['Powder', 'Kegs, cannons and fire', '#ff7a3a', 'offense', ['powderkeg', 'cannonade', 'quickreload']], ['Skirmisher', 'Smoke, steel and dirty tricks', '#8a9ab0', 'defense', ['bayonet', 'smokebomb', 'caltrops']]],
+  shaman: [['Storm', 'Lightning and the shaking earth', '#5ac8ff', 'offense', ['earthshock', 'stormcall', 'earthbind', 'hex']], ['Ancestors', 'The old ones mend the living', '#6ad04a', 'support', ['healingwave', 'chainheal', 'spiritlink', 'ancestralward']], ['Spirits', 'Wolves and totems at your side', '#c89a4a', 'defense', ['spiritwolf', 'wartotem']]],
+  wizard: [['Pyromancy', 'Burn it all', '#ff7a3a', 'offense', ['firering', 'missiles', 'inferno']], ['Frost', 'Slow them, freeze them, shatter them', '#8ad8ff', 'defense', ['frostnova', 'icebarrier', 'timewarp']], ['Arcana', 'Raw power and the folding of space', '#b070ff', 'support', ['chain', 'blink', 'manasurge', 'lightstorm']]],
+  cleric: [['Mercy', 'Mend every wound', '#7ee07e', 'support', ['radiantheal', 'renew', 'prayer']], ['Judgement', 'The light burns the wicked', '#ffd050', 'offense', ['holysmite', 'hammeroflight', 'consecrate', 'judgement']], ['Sanctuary', 'Shields of faith', '#8ac8ff', 'defense', ['blessing', 'divineaegis', 'resolve']]],
+  paladin: [['Retribution', 'Holy steel, swung hard', '#ffb040', 'offense', ['hammerstrike', 'divinecharge', 'smitearc', 'avenger']], ['Protection', 'The wall that does not fall', '#8ac8ff', 'defense', ['devotion', 'shieldofl', 'consecration']], ['Holy', 'Light that heals', '#fff0a0', 'support', ['layonhands', 'holylight', 'crusade']]],
+  darkknight: [['Blood', 'Their life becomes yours', '#c02a2a', 'defense', ['lifetap', 'deathcoil', 'bloodfury']], ['Dread', 'Terror and the reaping blade', '#8a6aff', 'offense', ['cleave2', 'deathgrip', 'dreadroar', 'harvest']], ['Plague', 'Rot, armour of bone, an army of the dead', '#90e040', 'support', ['plague', 'darkarmor', 'armyofdead']]],
+  druid: [['Moon', 'Moonfire and falling stars', '#b0a0ff', 'offense', ['moonfire', 'hurricane', 'starfall']], ['Grove', 'Bloom, regrow, restore', '#6ad04a', 'support', ['regrowth', 'barkward', 'wildbloom', 'tranquility']], ['Wild', 'Bears, thorns and grasping roots', '#a07a4a', 'defense', ['entangle', 'callbear', 'thornwall']]],
+  monk: [['Tiger', 'A hundred fists, a single strike', '#ff8a3a', 'offense', ['tigerpalm', 'pressure', 'hundredfists', 'dragonstrike']], ['Wind', 'Never where they strike', '#c8f0ff', 'defense', ['flyingkick', 'sweepkick', 'windstep']], ['Lotus', 'Stillness and inner strength', '#f0c0ff', 'support', ['innerpeace', 'feigndeath', 'serenity']]],
+  bard: [['Valor', 'Songs that sharpen every blade', '#ffb040', 'support', ['warsong', 'flamesong', 'anthem']], ['Grace', 'Songs that mend and carry you', '#7ee07e', 'support', ['travel', 'soothe', 'clarityhymn']], ['Discord', 'Music as a weapon', '#b070ff', 'offense', ['flourish', 'lullaby', 'crescendo', 'dirge']]],
+  rogue: [['Assassin', 'From the shadows, straight to the heart', '#e2533a', 'offense', ['backstab', 'kidney', 'garrote']], ['Venom', 'Poison on every edge', '#90e040', 'offense', ['poisontrap', 'envenom', 'deadlypoison']], ['Shadow', 'Smoke, caltrops and vanishing', '#8a7aa8', 'defense', ['vanish2', 'smokescreen', 'snaretrap2', 'caltrops2']]],
+  necromancer: [['Undeath', 'Raise them, command them', '#b0c8a0', 'support', ['raiseskel', 'skelmage', 'bonearmor']], ['Blight', 'Disease and drained life', '#90e040', 'offense', ['drainlife', 'corruption', 'plague2']], ['Bone', 'Spears, prisons and terror', '#e8e0c8', 'defense', ['bonespear', 'deathnova', 'boneprison', 'fear']]],
+  elementalist: [['Flame', 'Sprites, lava and firestorms', '#ff7a3a', 'offense', ['firesprite', 'lavaburst', 'firestorm']], ['Stone', 'Golems and stone skin', '#a09080', 'defense', ['boulder', 'elemshield', 'earthel']], ['Tempest', 'Wind, ice and thunder', '#5ac8ff', 'offense', ['gale', 'frostbind', 'thunder', 'cataclysm']]],
+  enchanter: [['Mind', 'Break their thoughts', '#b070ff', 'offense', ['mindblast', 'mindrot', 'mindstorm']], ['Illusion', 'Charm, sleep and confusion', '#f0a0ff', 'defense', ['mesmerize', 'masssleep', 'phantasm', 'confusion']], ['Runes', 'Haste, wards and clarity', '#8ac8ff', 'support', ['hasteall', 'runeshield', 'clarity']]],
+  beastmaster: [['Pack', 'Never hunt alone', '#c89a4a', 'support', ['warbeast', 'mendpet', 'packfrenzy', 'packcall']], ['Fang', 'Claw, rend and pounce', '#e2533a', 'offense', ['rendclaw', 'pounce', 'whirlclaw']], ['Wild', 'The roar of the stampede', '#6ad04a', 'defense', ['feralroar', 'stampede', 'primalbond']]],
+};
+// passives by the tree's role: [effect, name choices, description]
+const FX_INFO = {
+  dmg: [['Ferocity', 'Killing Edge', 'Wrath', 'Savagery', 'Brutal Force', 'Bloodied Edge'], 'You deal 6% more damage.', 'dmg'],
+  crit: [['Keen Eye', 'Precision', 'Weak Spot', 'Deadly Aim', 'Find the Gap'], '+5% chance to land critical hits.', 'crit'],
+  cd: [['Quick Hands', 'Momentum', 'Flow', 'Practised', 'Second Nature'], 'Your abilities recharge 8% faster.', 'combo'],
+  hp: [['Toughness', 'Thick Hide', 'Iron Will', 'Hardy', 'Stout Heart'], '+8% maximum health.', 'heart'],
+  taken: [['Grit', 'Steadfast', 'Thick Skin', 'Endurance', 'Unyielding'], 'You take 5% less damage.', 'shield'],
+  regen: [['Second Wind', 'Vigour', 'Recovery', 'Mending Flesh', 'Rally'], 'Regenerate 0.3% of your health every second, even in a fight.', 'heart'],
+  armor: [['Plating', 'Warded', 'Hardened', 'Bulwark', 'Guarded'], '+10% armour.', 'shield'],
+  heal: [['Compassion', 'Warm Hands', 'Life Bloom', 'Devotion', 'Soothing Touch'], 'Your heals and regeneration are 10% stronger.', 'heart'],
+  cost: [['Efficiency', 'Deep Reserves', 'Thrift', 'Clear Mind', 'Focus'], 'Your abilities cost 10% less.', 'mana'],
+  speed: [['Fleet Foot', 'Swiftness', 'Light Step', 'Wanderer', 'Tailwind'], 'Move 4% faster.', 'wind'],
+};
+const ROLE_FX = { offense: ['dmg', 'crit', 'cd', 'dmg', 'crit'], defense: ['hp', 'taken', 'regen', 'armor', 'taken'], support: ['heal', 'cost', 'cd', 'speed', 'heal'] };
+const ULT = { offense: ['u_dmg', 'Deal 12% more damage, and your crits hit 20% harder.'], defense: ['u_def', 'Take 12% less damage and regenerate 0.5% of your health every second.'], support: ['u_sup', 'Your heals are 25% stronger and your abilities recharge 15% faster.'] };
+let _seed = 0;
+for (const [cls, defs] of Object.entries(TREE_DEFS)) {
+  if (CLASS_TREES[cls] || !ABILITIES[cls]) continue;
+  const A = (id) => ABILITIES[cls].find(a => a.id === id), lowest = ABILITIES[cls].slice().sort((a, b) => a.level - b.level)[0];
+  CLASS_TREES[cls] = defs.map(([name, tag, col, role, ids], ti) => {
+    const abs = ids.map(A).filter(Boolean).sort((a, b) => a.level - b.level), tid = cls + '_' + ti, nodes = [], used = new Set();
+    const pas = (k, row, colN, req) => { const fx = ROLE_FX[role][k], F = FX_INFO[fx], nm = F[0][(_seed++ + ti) % F[0].length]; const id = `${tid}_p${k}`; nodes.push({ id, t: 'pas', fx, name: nm, icon: F[2], row, col: colN, req, desc: F[1] }); return id; };
+    const ab = (a, row, req) => { const id = `${tid}_${a.id}`; nodes.push({ id, t: 'ab', ab: a.id, row, col: 1, req, free: a === lowest }); return id; };
+    const up = (a, row, colN, req) => { const id = 'a_' + a.id; if (used.has(id)) return null; used.add(id); nodes.push({ id, t: 'pas', name: 'Empowered ' + a.name, icon: a.id, row, col: colN, req, desc: `${a.name} is 50% stronger.` }); return id; };
+    const n0 = ab(abs[0], 0), n1 = abs[1] ? ab(abs[1], 1, n0) : null, p1 = pas(0, 1, 0, n0), p2 = pas(1, 1, 2, n0);
+    const n2 = abs[2] ? ab(abs[2], 2, n1 || n0) : null, u0 = up(abs[0], 2, 0, p1), p3 = pas(2, 2, 2, p2);
+    const n3 = abs[3] ? ab(abs[3], 3, n2) : (abs[1] ? up(abs[1], 3, 1, n2 || n1) : null), p4 = pas(3, 3, 0, u0), u1 = abs[1] && abs[3] ? up(abs[1], 3, 2, p3) : pas(4, 3, 2, p3);
+    if (abs[2]) up(abs[2], 4, 1, n3 || n2); if (abs[3]) up(abs[3], 4, 2, u1);
+    nodes.push({ id: tid + '_ult', t: 'ult', fx: ULT[role][0], name: name + ' Ascendant', icon: 'crown', row: 5, col: 1, desc: ULT[role][1] });
+    return { id: tid, name, tag, col, icon: abs[0].id, nodes };
+  });
+}
+for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior') continue; const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }

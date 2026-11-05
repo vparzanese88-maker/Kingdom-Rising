@@ -15,8 +15,8 @@ export const skillOf = (wt) => OF[wt] || null;
 export const MELEE_CLASSES = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer']);
 export const HYBRID_CLASSES = new Set(['paladin', 'darkknight', 'ranger', 'beastmaster', 'shaman', 'bard']);
 export const CASTER_CLASSES = new Set(['wizard', 'cleric', 'druid', 'necromancer', 'elementalist', 'enchanter']);
-// Double Attack: melee and hybrids, from level 5. Triple Attack: pure melee only, from level 10. Both rise at most 5 points a level:
-// Double Attack tops out at 80 and Triple Attack at 50 by level 20.
+// Double Attack: melee and hybrids, from level 10. Triple Attack: pure melee only, from level 15. Both rise at most 5 points a level:
+// by level 20 Double Attack tops out at 55 and Triple Attack at 30.
 export const DOUBLE_CLASSES = new Set([...MELEE_CLASSES, ...HYBRID_CLASSES]);
 export const TRIPLE_CLASSES = MELEE_CLASSES;
 export const DUAL_CLASSES = new Set(['warrior', 'berserker', 'rogue', 'monk', 'ranger', 'bard', 'beastmaster']);
@@ -24,8 +24,8 @@ export const ONE_HANDERS = new Set(['sword', 'mace', 'dagger', 'axe']);
 export const MAX_SKILL = 105;
 export function skillCapOf(h, id) {
   const L = h.level || 1;
-  if (id === 'double') return DOUBLE_CLASSES.has(h.cls) && L >= 5 ? Math.min(80, (L - 4) * 5) : 0;
-  if (id === 'triple') return TRIPLE_CLASSES.has(h.cls) && L >= 10 ? Math.min(50, (L - 9) * 5) : 0;
+  if (id === 'double') return DOUBLE_CLASSES.has(h.cls) && L >= 10 ? (L - 9) * 5 : 0;
+  if (id === 'triple') return TRIPLE_CLASSES.has(h.cls) && L >= 15 ? (L - 14) * 5 : 0;
   if (id === 'casting') return CASTER_CLASSES.has(h.cls) || HYBRID_CLASSES.has(h.cls) ? L * 5 + 5 : 0;
   return L * 5 + 5;
 }
@@ -44,7 +44,7 @@ export const skillDamage = (h, wt) => { const id = skillOf(wt); return id ? 1 + 
 export function canDual(h) { const a = h.equip && h.equip.w1, b = h.equip && h.equip.w2; return !!(a && b && DUAL_CLASSES.has(h.cls) && ONE_HANDERS.has(a.wt) && ONE_HANDERS.has(b.wt)); }
 // chances per swing: the higher the skill, the likelier it happens (a little more with the matching stat)
 export const dualChance = (h, dex) => Math.min(0.65, 0.1 + 0.5 * skill(h, 'dual') / MAX_SKILL + (dex || 0) * 0.001);
-export const doubleChance = (h, str) => { const v = skill(h, 'double'); return v > 0 ? Math.min(0.4, 0.35 * v / 80 + (str || 0) * 0.0005) : 0; };
-export const tripleChance = (h, str) => { const v = skill(h, 'triple'); return v > 0 ? Math.min(0.22, 0.2 * v / 50 + (str || 0) * 0.0003) : 0; };
+export const doubleChance = (h, str) => { const v = skill(h, 'double'); return v > 0 ? Math.min(0.4, 0.35 * v / 55 + (str || 0) * 0.0005) : 0; };
+export const tripleChance = (h, str) => { const v = skill(h, 'triple'); return v > 0 ? Math.min(0.22, 0.2 * v / 30 + (str || 0) * 0.0003) : 0; };
 // Casting: casters cast up to 50% faster at skill 105, hybrids up to 25%
 export const castK = (h) => { const m = CASTER_CLASSES.has(h.cls) ? 0.5 : HYBRID_CLASSES.has(h.cls) ? 0.25 : 0; return 1 - m * Math.min(1, skill(h, 'casting') / MAX_SKILL); };

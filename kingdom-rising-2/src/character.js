@@ -583,7 +583,7 @@ const POSE = {
   h_a: [0.9, -2.6, 0.3, 0.9, -1.6, -2.4, -0.4, -1.4, -0.3], h_b: [-0.2, -1.2, 0, 0.0, -0.05, -1.1, -0.1, -0.1, 0.45],
   thrA: [0.5, -0.9, 0, 0.3, -1.9, -0.9, -0.5, -1.6, -0.1], thrB: [-0.2, -1.5, 0, 0.0, -0.05, -1.4, 0.1, -0.2, 0.2],
   off1a: [-0.9, -0.3, 0, 0, -0.9, -1.4, -0.6, -1.25, 0], off1b: [0.85, -0.3, 0, 0, -0.8, -1.45, 0.7, -0.2, 0.1],
-  block: [0, -1.2, 0, 0.9, -1.7, -1.4, -0.6, -1.4, 0.05],
+  block: [0, -1.2, 0, 0.9, -1.7, -1.6, -0.6, -1.4, 0.05],
   bowAim: [0.5, -1.55, 0, -0.1, -2.4, -1.55, -0.05, 0, 0], bowDraw: [0.6, -1.55, 0, -0.2, -2.7, -1.6, -0.05, 0, 0],
   cast: [0, -0.4, 0, 0.25, -1.3, -1.6, -0.3, -0.2, 0], castB: [-0.1, -0.5, 0, 0.25, -1.3, -1.7, 0.1, -0.05, 0.15],
   staffSlam: [0, -2.4, 0, 0.2, -1.0, -1.0, -0.2, -1.0, -0.25], staffSlamB: [0, -0.9, 0, 0.2, -0.6, -0.9, -0.2, -0.6, 0.35],
@@ -623,12 +623,12 @@ const _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _sq3 = new T
 // keep a strapped shield upright (point down, face outward) whatever the arm is doing
 function uprightShield(ch, st) {
   const sh = ch.weapons && ch.weapons.off; if (!sh || !sh.userData.isShield || !sh.parent) return;
-  if (!sh.userData.sized) { sh.userData.sized = true; sh.scale.multiplyScalar(0.62); } // a little smaller on the body than in your first-person view
+  if (!sh.userData.sized) { sh.userData.sized = true; sh.scale.multiplyScalar(0.55); } // a little smaller on the body than in your first-person view
   ch.root.updateMatrixWorld(true);
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
-  // blocking: face front; otherwise it hangs flat along your side, facing out
+  // blocking: face front; otherwise it rides the forearm, angled out to the front-left
   const bk = sh.userData.bk = (sh.userData.bk || 0) + ((st.block ? 1 : 0) - (sh.userData.bk || 0)) * 0.25;
-  _sq3.setFromEuler(_se.set(-0.1 * bk + 0.04 * (1 - bk), 0.12 * bk + 1.5 * (1 - bk), 0));
+  _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk), 0));
   _sq2.multiply(_sq3);
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
@@ -670,7 +670,8 @@ export function animateHumanoid(ch, dt, st) {
     if (W.kind === 'bow') P = [0, -0.3 - sw * 0.7, 0, 0.12, -0.45 - bend, -0.55 + sw * 0.6, -0.12, -0.5 - bend * 0.6, 0];
     else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.6, 0, 0.14, -0.9 - bend * 0.4, sw * 0.9 - 0.1, -0.12, -0.35 - bend, 0];
     else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
-    else if (W.hands === 'shield') P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.75 + sw * 0.35, -0.22, -1.1 - bend * 0.4, 0];
+    // sword and board: sword arm relaxed low with the blade angled forward, shield arm bent so the shield rides the forearm in front of the hip
+    else if (W.hands === 'shield') P = [0.12, -0.15 - sw * 0.6, 0, 0.18, -0.3 - bend, -0.6 + sw * 0.15, -0.08, -1.4 - bend * 0.2, 0];
     else P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.4 + sw * 0.85, -0.16, -0.85 - bend, 0];
   }
   if (P) {

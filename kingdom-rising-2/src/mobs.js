@@ -330,7 +330,7 @@ export class Mob {
     if (!disabled) {
       this.atkCd -= dt;
       // aggro
-      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && !this.newbieCalm() && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && levelGap(player.level, this.lv) < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
+      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && !this.newbieCalm() && dp < this.def.aggro * this.aggroK(player) * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && levelGap(player.level, this.lv) < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
       if (this.state === 'chase' && player.stealth > 0 && G.battleFx && leash <= (this.def.boss ? 60 : 45)) this.loseTrack();
@@ -497,6 +497,8 @@ export class Mob {
     if (this.actionT >= 1) { this.action = null; this.lockDir = null; this.lockLen = 0; this.hitN = 0; this.windup = false; this.leapY = 0; this.atkCd = Math.max(this.atkCd, a === 'charge' ? 1.4 : 0.6); }
     return out;
   }
+  // campaign: how far away it notices you scales with the level gap, like its damage: 6% per level, from half to one and a half times
+  aggroK(player) { return G.newFx ? Math.max(0.5, Math.min(1.5, 1 + levelGap(this.lv, player.level) * 0.06)) : 1; }
   faceTo(p, dt, k) { const a = Math.atan2(p.x - this.pos.x, p.z - this.pos.z); this.yaw += angDiff(this.yaw, a) * Math.min(1, dt * k); }
   startAttack(cd) { this.action = 'attack'; this.actionT = 0; this.didHit = false; this.atkCd = cd + rand(0.6, 1.3); this.actionDur = this.def.boss ? 1.3 : this.def.ranged ? 0.8 : 0.85; }
   strike(player, dp) {

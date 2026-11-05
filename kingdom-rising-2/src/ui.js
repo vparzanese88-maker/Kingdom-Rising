@@ -59,17 +59,17 @@ export function comboText(wt) {
 let abilEls = null;
 export function buildAbilityBar() {
   // one dock at the bottom centre: level badge beside the bars, the hotbar, a thin XP line under it
-  if (G.battleFx && !document.querySelector('#bottom .barsrow')) { const bt = $('bottom'), row = el('div', 'barsrow'); bt.insertBefore(row, bt.firstChild); row.append($('lvl'), $('bars')); bt.appendChild($('xpbar')); }
+  if (G.newFx && !document.querySelector('#bottom .barsrow')) { const bt = $('bottom'), row = el('div', 'barsrow'); bt.insertBefore(row, bt.firstChild); row.append($('lvl'), $('bars')); bt.appendChild($('xpbar')); }
   const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = '';
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));
-  if (!G.battleFx) bar.appendChild(ws); // no weapon swapping any more
+  if (!G.newFx) bar.appendChild(ws); // campaign: no weapon swapping any more
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
-  const rmb = G.battleFx ? null : mk('RMB', '', 'wab');
+  const rmb = G.newFx ? null : mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
   // keys 1-5: buffs, songs, heals; then F, C, Q: the damage abilities
-  const hb = G.hotbarSlots ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
+  const hb = G.newFx ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
@@ -84,8 +84,8 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
-    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo · hold for heavy' : 'Left click'}${G.battleFx ? ' · K for abilities' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
-    { const sid = W && G.battleFx ? null : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' + (G.newFx ? ' · hold for heavy' : '') : 'Left click'}${G.newFx ? ' · K for abilities' : G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    { const sid = W && G.battleFx && !G.newFx ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
@@ -94,7 +94,7 @@ export function refreshAbilityBar() {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
     if (e._key !== key) {
       const ai = e.querySelector('.ai');
-      e.className = 'slot hb' + (G.hotbarSlots ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
+      e.className = 'slot hb' + (G.newFx ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
       if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
       else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
       else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }

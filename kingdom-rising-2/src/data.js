@@ -856,3 +856,17 @@ const SUPPORT_AB = new Set(['shieldwall', 'warbanner', 'vigorbanner', 'stonebann
   'smokebomb', 'quickreload', 'eagleeye', 'healingwave', 'ancestralward', 'chainheal', 'wartotem', 'spiritlink', 'blink', 'manasurge', 'icebarrier', 'timewarp', 'rally', 'fortify', 'tourniquet', 'secondwind', 'fielddress']);
 export const isSupport = (a) => !!(a && (a.song || ['heal', 'hot', 'buff', 'stealth'].includes(a.t) || SUPPORT_AB.has(a.id)));
 export const slotFits = (i, a) => (i < SUPPORT_SLOTS) === isSupport(a);
+
+// Kingdom Battles keeps the original warrior kit (the campaign and Training Yard use the new one above)
+export const WARRIOR_BATTLE = [
+    { id: 'charge', cost: 30, name: "Charge", key: '', level: 1, cd: 6, icon: '', desc: "Charge forward 12 m, knocking aside and stunning everything in your path." },
+    { id: 'bash', cost: 25, name: "Shield Bash", key: '', level: 2, cd: 6, icon: '', desc: "Slam your shield into the enemies in front of you: damage, knock back and stun them for 2 s." },
+    { id: 'shieldwall', cost: 40, name: "Shield Wall", key: '', level: 4, cd: 20, icon: '', desc: "Brace yourself: take 60% less damage from every direction for 6 s." },
+    { id: 'cleavestrike', cost: 30, name: "Cleaving Strike", key: '', level: 6, cd: 7, icon: '', desc: "A wide sweeping blow that hits every enemy in front of you." },
+    { id: 'laststand', cost: 35, name: "Last Stand", key: '', level: 8, cd: 40, icon: '', desc: "Refuse to fall: heal 30% of your health and take 25% less damage for 10 s." },
+    { id: 'shieldthrow', cost: 30, name: "Shield Throw", key: '', level: 10, cd: 9, icon: '', desc: "Hurl your shield: it stuns the first enemy and bounces to two more." },
+    { id: 'fortify', cost: 35, name: "Fortify", key: '', level: 12, cd: 25, icon: '', desc: "+50% armour and your guard cannot be broken for 12 s." },
+    { id: 'execute', cost: 35, name: "Execute", key: '', level: 14, cd: 10, icon: '', desc: "A massive overhead strike. Deals double damage to enemies below 35% health." },
+    { id: 'hamstring', cost: 20, name: "Hamstring", key: '', level: 16, cd: 6, icon: '', desc: "A crippling cut: the target bleeds and is slowed for 6 s." },
+    { id: 'bulwark', cost: 50, name: "Bulwark Slam", key: '', level: 18, cd: 18, icon: '', desc: "Slam your shield into the ground: knock back and stun every enemy within 6 m." },
+];

@@ -58,6 +58,17 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
+  // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book (unchanged)
+  if (G.hotbarSlots && BATTLE) {    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
+    const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
+    const added = [];
+    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+    // campaign: the last slots hold potions and food, filled as you find them
+    for (let i = N; i < T; i++) if (hb[i] && (hb[i].t !== 'item' || count(h, hb[i].id) <= 0)) hb[i] = null;
+    for (const id of HOTBAR_ITEMS) { if (!NI || hb.some(s => s && s.t === 'item' && s.id === id) || count(h, id) <= 0) continue; const i = hb.findIndex((s, k) => !s && k >= N); if (i < 0) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
+    if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
+    return;
+  }
   // keys 1-5: buffs, songs and heals; F, C, Q: damage abilities (no food or drink slots for now)
   if (G.hotbarSlots) {
     const T = HOTBAR_KEYS.length, A = ABILITIES[h.cls];
@@ -205,7 +216,7 @@ export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id])
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 export function classPoints(h) { if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 // ---- skill trees (classes that have them unlock their abilities inside the trees) ----
-export const hasTrees = (cls) => !!CLASS_TREES[cls];
+export const hasTrees = (cls) => !BATTLE && !!CLASS_TREES[cls];
 export const nodeOwned = (h, n) => !!(n.free || (h.ctree && h.ctree[n.id]) || h.yard);
 export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => !n.free && h.ctree && h.ctree[n.id]).length : 0; }
 export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (next in line, need a point) | 'locked'
@@ -214,7 +225,7 @@ export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (n
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
   if (h.yard) return true;
-  if (CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.t === 'ab' && x.ab === a.id); return !!n && nodeOwned(h, n); }
+  if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.t === 'ab' && x.ab === a.id); return !!n && nodeOwned(h, n); }
   return h.level >= a.level; }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
 export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * (tree === 'w' ? 3 : 2); }

@@ -49,7 +49,7 @@ const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], 
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
   poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
 // Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
-const DODGES = { step: { dur: 0.24, speed: 15, cost: 14, ifr: 0.2 }, roll: { dur: 0.45, speed: 14.5, cost: 20, ifr: 0.36 }, leap: { dur: 0.6, speed: 16, cost: 26, ifr: 0.5, vy: 5.5 } };
+const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur: 0.24, speed: 15, cost: 14, ifr: 0.2 }, roll: { dur: 0.45, speed: 14.5, cost: 20, ifr: 0.36 }, leap: { dur: 0.6, speed: 16, cost: 26, ifr: 0.5, vy: 5.5 } };
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
@@ -330,9 +330,9 @@ export class Player {
     switch (code) {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
-      case 'KeyQ': if (G.battleFx) this.hotbar(7); break; // no more weapon swapping: Q is the third damage key
-      case 'KeyF': if (G.battleFx) this.hotbar(5); break;
-      case 'KeyC': if (G.battleFx) this.hotbar(6); break;
+      case 'KeyQ': if (BATTLE) this.swapWeapon(); else if (G.battleFx) this.hotbar(7); break; // campaign: no weapon swapping, Q is the third damage key
+      case 'KeyF': if (BATTLE) { if (!this.dead) this.specialAttack(); } else if (G.battleFx) this.hotbar(5); break;
+      case 'KeyC': if (G.battleFx && !BATTLE) this.hotbar(6); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -341,12 +341,12 @@ export class Player {
       case 'KeyE': this.interact(); break;
       case 'KeyR': this.quaff(); break;
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
-      case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
+      case 'KeyX': if (BATTLE) break; if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
   }
   // Kingdom Battles: double-tap W, A, S or D to roll that way
   tapRoll(code) {
-    return; // dodging is on Shift now (tap), sprinting is holding Shift
+    if (!BATTLE) return; // campaign: dodging is on Shift (tap), sprinting is holding Shift
     if (!G.battleFx || !{ KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1 }[code]) return;
     const now = performance.now(), last = this.lastTap;
     this.lastTap = { code, t: now };
@@ -460,7 +460,7 @@ export class Player {
       if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
       // the wind-up takes half a second; then the heavy swing follows through on its own (letting go earlier swings early).
       // Keep holding and another heavy follows once this one has finished.
-      if (this.press && this.press.charging && this.press.t - this.press.t0 >= 0.5) { const pr = this.press; this.press = this.lmbDown ? { t: 0.23, charging: false, melee: true, again: true } : null; this.releaseHeavy(pr); }
+      if (!BATTLE && this.press && this.press.charging && this.press.t - this.press.t0 >= 0.5) { const pr = this.press; this.press = this.lmbDown ? { t: 0.23, charging: false, melee: true, again: true } : null; this.releaseHeavy(pr); }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
@@ -696,8 +696,8 @@ export class Player {
 
   hotbar(i) {
     const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
-    if (G.battleFx && i < 5 && sl.t === 'ab') { if (G.time < (this.gcdT || 0)) { S.error(); return; } } // keys 1-5 share a 1.5 s cooldown (F, C, Q do not)
-    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); if (G.battleFx && i < 5 && (this.cd['a' + (k + 1)] || 0) > cd0) this.gcdT = G.time + 1.5; } }
+    if (G.newFx && i < 5 && sl.t === 'ab') { if (G.time < (this.gcdT || 0)) { S.error(); return; } } // keys 1-5 share a 1.5 s cooldown (F, C, Q do not)
+    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); if (G.newFx && i < 5 && (this.cd['a' + (k + 1)] || 0) > cd0) this.gcdT = G.time + 1.5; } }
     else if (sl.t === 'item') { if (count(this.h, sl.id) > 0) useItem(this.h, sl.id, this); else S.error(); }
   }
   // ---------- class abilities ----------
@@ -714,7 +714,7 @@ export class Player {
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(ab.cost)) return;
     this.cd[key] = ab.cd; if (isBanner) this.bannerT = G.time + 2;
-    const ct = CAST_T[ab.id] || ACT_T[ab.id];
+    const ct = CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0);
     if (ct) { this.abCast = { t: 0, dur: ct, i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
@@ -773,7 +773,7 @@ export class Player {
       }
       case 'bash': {
         this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; S.block(true, this.pos);
-        setTimeout(() => { if (this.dead) return; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); }, 140 * ABIL_DELAY_K());
+        setTimeout(() => { if (this.dead) return; let n = 0; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) { n++; this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); S.blunt(m.pos); } const p = this.pos.clone().addScaledVector(this.fwd(), 2); V.ring(p, 2.5, '#c8d8ff', 0.35); V.burst('spark', p.setY(p.y + 1), 16, { speed: 5 }); V.addShake(n ? 0.35 : 0.1); }, 140 * ABIL_DELAY_K());
         break;
       }
       case 'shieldwall': { const dur = 6 * up; this.buffs.wall = dur; S.shieldWall(); this.atk = { name: 'smash', t: 0.55, dur: 0.35, hit: true, noQueue: true };
@@ -846,7 +846,8 @@ export class Player {
       case 'timewarp': { for (const m of mobsInRadius(this.pos, 12)) { m.status.slow = Math.max(m.status.slow, 6); m.atkCd += 2; } V.ring(this.pos, 12, '#c0a0ff', 0.9); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 4, '#a080ff', 0.6); S.cast('arcane', this.pos, 2); break; }
       case 'lightstorm': { const c = groundPoint(30), n = G.battleFx ? this.qty(5, 5) : 8 + (up > 1 ? 4 : 0); for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const near = mobsInRadius(c, 10); const m = near[Math.floor(Math.random() * near.length)]; const p = m ? m.pos.clone() : c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 12, 0, (Math.random() - 0.5) * 12)); p.y = heightAt(p.x, p.z); lightning(p.clone().add(new THREE.Vector3(0, 25, 0)), p.clone().setY(p.y + 0.5)); V.light(p.clone().setY(p.y + 2), '#a0c0ff', 6, 0.2, 18); S.cast('lightning', p, 0.8); for (const mm of mobsInRadius(p, 2.5)) this.dealDamage(mm, base * 1.1, { el: 'lightning', stun: 0.3 }); }, 300 + k * 220); this.atk = { name: 'castBig', t: 0, dur: 0.8, hit: true }; break; }
       // ---- Kingdom Battles abilities ----
-      case 'rally': { { const R = this.pk('a_warbanner') ? 25 : 15, at = groundPoint(R); plantBanner('rally', at, this.yaw, 12, R); S.bannerPlant('war'); this.atk = { name: 'smash', t: 0.55, dur: 0.3, hit: true, noQueue: true }; } this.addRegen(0.15 * up, 8); G.hooks.rally && G.hooks.rally(this.pos, this.pk('a_warbanner') ? 25 : 15); S.battleCry(); V.burst('gold', this.pos.clone().setY(this.pos.y + 2), 30, { speed: 4, vy: 3 }); break; }
+      case 'rally': { if (BATTLE) { this.heal(this.maxHp * 0.15 * up * this.hk()); G.hooks.rally && G.hooks.rally(this.pos, 14 * up); S.battleCry(); V.ring(this.pos, 14 * up, '#ffd84a', 0.8); V.burst('gold', this.pos.clone().setY(this.pos.y + 2), 50, { speed: 5, vy: 3 }); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 3, '#ffe080', 0.5); this.atk = { name: 'cheer', t: 0, dur: 0.7, hit: true, noQueue: true }; break; }
+        { const R = this.pk('a_warbanner') ? 25 : 15, at = groundPoint(R); plantBanner('rally', at, this.yaw, 12, R); S.bannerPlant('war'); this.atk = { name: 'smash', t: 0.55, dur: 0.3, hit: true, noQueue: true }; } this.addRegen(0.15 * up, 8); G.hooks.rally && G.hooks.rally(this.pos, this.pk('a_warbanner') ? 25 : 15); S.battleCry(); V.burst('gold', this.pos.clone().setY(this.pos.y + 2), 30, { speed: 4, vy: 3 }); break; }
       case 'seismic': { const R = 10 * Math.sqrt(up); for (const m of mobsInCone(this.pos, this.yaw, R, 0.75)) this.dealDamage(m, base * 2.4 * up, { slow: 3, blunt: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9) }); for (let k = 1; k <= 6; k++) { const d = k * R / 6; for (const s2 of [-0.6, -0.3, 0, 0.3, 0.6]) { const q = this.pos.clone(); q.x += Math.sin(this.yaw + s2) * d; q.z += Math.cos(this.yaw + s2) * d; q.y = heightAt(q.x, q.z); setTimeout(() => V.burst('stone', q, 5, { speed: 5, grav: 14, size: 0.35 }), k * 40); } } S.rumble(this.pos, 0.8); S.blunt(this.pos); V.addShake(0.6); G.hitstop = 0.06; this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; break; }
       case 'bladestorm': { let k = 0; const R = 4.5 * Math.sqrt(up); S.swingW('blade', 1.5, this.pos); this.buffs.storm = 2.4; const iv = setInterval(() => { k++; if (this.dead || k > 8) { clearInterval(iv); return; } for (const m of mobsInRadius(this.pos, R)) this.dealDamage(m, base * 0.6 * up, { melee: true, silent: k % 2 === 0 }); V.ring(this.pos, R, '#e8f0ff', 0.25); V.burst('spark', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 6 }); S.swingW('blade', 1, this.pos); this.atk = { name: 'spin', t: 0, dur: 0.3, hit: true, noQueue: true }; }, 300); break; }
       case 'hurlaxe': { const from = this.handPos(), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(36), grav: 3, radius: 0.6, dmg: base * 2.2 * up, owner: 'player', kind: 'axe', life: 1.6, onHit: (p, m) => { if (m) this.dealDamage(m, p.dmg, { bleed: base * 0.12 * up }); } }); S.swingW('axe', 1.3, this.pos); this.atk = { name: 'swing2', t: 0.25, dur: 0.45, hit: true, noQueue: true }; break; }
@@ -1055,17 +1056,17 @@ export class Player {
       if (this.noteT <= 0) { this.noteT = 0.35; const a = songs[Math.floor(Math.random() * songs.length)]; this.spawnNote(SONG_COL[a.song]); }
       // the healing song is a steady regen: a little every second, no big heals
       const regen = songs.find(a => a.song === 'heal');
-      if (regen && (this.regenT = (this.regenT || 0) - dt) <= 0) { this.regenT = 1; const up2 = G.abilScale ? G.abilScale(this.h.level) : 1; this.heal(this.maxHp * regen.pct * up2); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [(regen.r || 14) * this.areaK() * 2, regen.pct * up2], 1); }
+      if (regen && (this.regenT = (this.regenT || 0) - dt) <= 0) { this.regenT = 1; const up2 = G.abilScale ? G.abilScale(this.h.level) : 1; this.heal(this.maxHp * regen.pct * up2); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [(regen.r || 14) * this.areaK() * (BATTLE ? 1 : 2), regen.pct * up2], 1); }
       this.songT = (this.songT || 0) - dt;
       if (this.songT <= 0) { this.songT = 3;
         const up = G.abilScale ? G.abilScale(this.h.level) : 1, K = this.areaK(), ally = (r, pct, kind) => G.hooks.allyFx && G.hooks.allyFx(this.pos, [r, pct || 0, kind, 3.6], 1);
-        for (const a of songs) { const r = (a.r || 14) * K * 2; // songs carry twice as far
+        for (const a of songs) { const r = (a.r || 14) * K * (BATTLE ? 1 : 2); // campaign: songs carry twice as far
           if (a.song === 'war') { this.buffs.cry = Math.max(this.buffs.cry || 0, 3.6); ally(r, 0, 'rally'); }
           else if (a.song === 'travel') { this.buffs.swind = Math.max(this.buffs.swind || 0, 3.6); ally(r, 0, 'haste'); }
           else if (a.song === 'flame') { this.buffs.flame = Math.max(this.buffs.flame || 0, 3.6); ally(r, 0, 'flame'); }
           else if (a.song === 'mana') { this.buffs.clarity = Math.max(this.buffs.clarity || 0, 3.6); ally(r, 0, 'clarity'); }
           else if (a.song === 'ward') { this.buffs.barrier = Math.max(this.buffs.barrier || 0, this.maxHp * 0.06 * up); this.buffs.barrierT = 3.6; ally(r, 0, 'ward'); }
-          V.ring(this.pos, 2.2, SONG_COL[a.song], 0.6); } // a small pulse at your feet, not a huge circle
+          V.ring(this.pos, BATTLE ? r : 2.2, SONG_COL[a.song], BATTLE ? 0.9 : 0.6); } // campaign: a small pulse at your feet, not a huge circle
         S.heal && songs.some(a => a.song === 'heal') && 0; }
     }
     // the notes drift up and fade
@@ -1427,7 +1428,7 @@ export class Player {
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
-    const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
+    const kind = BATTLE ? 'old' : DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
     const cost = D.cost * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); return; }
     this.end -= cost; this.endUseT = 1;

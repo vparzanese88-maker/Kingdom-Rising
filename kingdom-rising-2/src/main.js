@@ -21,7 +21,7 @@ import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
+import { WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -267,11 +267,12 @@ function spawnBattleNpcs() {
 // Both modes fight the same way: class abilities come from the class kit (they work with any weapon),
 // no talent trees, and abilities grow a little stronger, longer and wider every level instead.
 function kitAbilities(levelOf) {
+  if (BATTLE) ABILITIES.warrior = WARRIOR_BATTLE.map(a => Object.assign({}, a)); // Kingdom Battles keeps the original warrior kit
   for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
   G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);
-  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 8;
+  G.battleFx = true; G.noTalents = true; G.hotbarSlots = BATTLE ? 4 : 8; G.newFx = !BATTLE; if (!BATTLE) document.body.classList.add('newfx');
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
 function campaignSetup() {
@@ -638,6 +639,7 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
+      if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
       if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }

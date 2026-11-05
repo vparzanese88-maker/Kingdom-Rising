@@ -396,10 +396,10 @@ let bookSel = 0;
 // the ability book (K)
 let bookTab = 'abil';
 export function openBook(tab = 'abil') {
-  tab = 'abil';
+  if (!BATTLE) tab = 'abil'; // the campaign has no weapons tab any more
   const w = $('windows'); if (UI.UI.open === 'book' && bookTab === tab) { UI.closeWin(); return; } w.innerHTML = '';
   bookTab = tab;
-  const win = el('div', 'win big bwin book'); const hd = el('header', '', '<div class="booktabs"><button data-t="abil">Abilities <small>K</small></button></div>'); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
+  const win = el('div', 'win big bwin book'); const hd = el('header', '', '<div class="booktabs"><button data-t="abil">Abilities <small>K</small></button>' + (BATTLE ? '<button data-t="wpn">Weapons <small>L</small></button>' : '') + '</div>'); const x = el('button', 'x', '✕'); x.onclick = () => { S.click(); UI.closeWin(); }; hd.appendChild(x);
   hd.querySelectorAll('.booktabs button').forEach(b => { b.onclick = () => { S.click(); bookTab = b.dataset.t; renderBook(); }; });
   const c = el('div', 'content'); win.append(hd, c); w.appendChild(win);
   UI.UI.open = 'book'; G.uiOpen = true; if (document.pointerLockElement) document.exitPointerLock();
@@ -427,6 +427,7 @@ function renderBook() {
   const t0 = document.getElementById('booktip'); if (t0) t0.hidden = true;
   const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
   const k = G.abilScale ? G.abilScale(h.level) : 1;
+  if (bookTab === 'wpn' && BATTLE) return renderWeapons(c);
   c.innerHTML = '';
   if (Game.hasTrees(cls)) return treesTab(c, h, cls, res);
   abilityTab(c, h, cls, list, res, k);
@@ -479,32 +480,33 @@ function renderWeapons(c) {
 }
 // put an ability on the hotbar: in the chosen slot if it fits there (1-5 support, F C Q damage), otherwise the first free slot of its kind
 function assignAbility(h, a) {
-  const T = HOTBAR_KEYS.length; let i = bookSel;
-  if (!slotFits(i, a)) { i = [...Array(T).keys()].find(k => slotFits(k, a) && !h.hotbar[k]); if (i == null) i = [...Array(T).keys()].find(k => slotFits(k, a)); }
+  const T = BKEYS().length; let i = bookSel;
+  if (!FITS(i, a)) { i = [...Array(T).keys()].find(k => FITS(k, a) && !h.hotbar[k]); if (i == null) i = [...Array(T).keys()].find(k => FITS(k, a)); }
   const cur = h.hotbar.findIndex(x => x && x.id === a.id), prev = h.hotbar[i];
-  if (cur >= 0) h.hotbar[cur] = prev && slotFits(cur, ABILITIES[h.cls].find(x => x.id === prev.id)) ? prev : null;
+  if (cur >= 0) h.hotbar[cur] = prev && FITS(cur, ABILITIES[h.cls].find(x => x.id === prev.id)) ? prev : null;
   h.hotbar[i] = { t: 'ab', id: a.id }; bookSel = i; G.hooks.hotbarAdded && G.hooks.hotbarAdded([]);
 }
 // drag an ability onto a slot (or from one slot to another): it goes there if it is the right kind, swapping with what was there
+const BKEYS = () => BATTLE ? ['1', '2', '3', '4'] : HOTBAR_KEYS, FITS = (i, a) => BATTLE ? i < 4 : slotFits(i, a);
 function dropAbility(h, cls, id, to, from) {
   const a = ABILITIES[cls].find(x => x.id === id); if (!a || !Game.abilityKnown(h, a)) { S.error(); return; }
-  if (!slotFits(to, a)) { S.error(); UI.toast(isSupport(a) ? `${a.name} goes on keys 1-5` : `${a.name} goes on F, C or Q`, '✋', 'bad'); return; }
+  if (!FITS(to, a)) { S.error(); UI.toast(isSupport(a) ? `${a.name} goes on keys 1-5` : `${a.name} goes on F, C or Q`, '✋', 'bad'); return; }
   const cur = from != null ? from : h.hotbar.findIndex(x => x && x.id === id), prev = h.hotbar[to];
-  if (cur >= 0 && cur !== to) h.hotbar[cur] = prev && slotFits(cur, ABILITIES[cls].find(x => x.id === prev.id)) ? prev : null;
+  if (cur >= 0 && cur !== to) h.hotbar[cur] = prev && FITS(cur, ABILITIES[cls].find(x => x.id === prev.id)) ? prev : null;
   h.hotbar[to] = { t: 'ab', id }; bookSel = to; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
 }
 // right click an ability: straight into the first empty slot of its kind
 function quickPlace(h, cls, a) {
   if (!Game.abilityKnown(h, a)) { S.error(); return; } if (h.hotbar.some(x => x && x.id === a.id)) { S.error(); UI.toast(`${a.name} is already on your hotbar`, '✋', 'bad'); return; }
-  const i = HOTBAR_KEYS.findIndex((k, j) => !h.hotbar[j] && slotFits(j, a)); if (i < 0) { S.error(); UI.toast(`No empty ${isSupport(a) ? '1-5' : 'F C Q'} slot: drag it onto one to replace it`, '✋', 'bad'); return; }
+  const i = BKEYS().findIndex((k, j) => !h.hotbar[j] && FITS(j, a)); if (i < 0) { S.error(); UI.toast(`No empty ${isSupport(a) ? '1-5' : 'F C Q'} slot: drag it onto one to replace it`, '✋', 'bad'); return; }
   h.hotbar[i] = { t: 'ab', id: a.id }; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
 }
 function draggableAb(d, h, a) { if (!Game.abilityKnown(h, a)) return; d.draggable = true; d.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ id: a.id })); e.dataTransfer.effectAllowed = 'move'; const t = document.getElementById('booktip'); if (t) t.hidden = true; };
   d.oncontextmenu = (e) => { e.preventDefault(); quickPlace(h, G.save.cls, a); }; }
 function slotBar(h, cls) {
   const bar = el('div', 'st-bar');
-  HOTBAR_KEYS.forEach((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'st-gap')); const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
-    const d = el('button', 'st-slot ' + (i < SUPPORT_SLOTS ? 'sup' : 'dmg') + (i === bookSel ? ' sel' : ''), `<span class="k">${k}</span>${a ? Icons.abilityIcon(a.id) : '<i>+</i>'}`); d.title = (a ? a.name + ' · drag to move, right click to remove' : 'Empty') + (i < SUPPORT_SLOTS ? ' · buffs, songs and heals' : ' · damage abilities');
+  BKEYS().forEach((k, i) => { if (!BATTLE && i === SUPPORT_SLOTS) bar.appendChild(el('div', 'st-gap')); const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
+    const d = el('button', 'st-slot ' + (BATTLE ? '' : i < SUPPORT_SLOTS ? 'sup' : 'dmg') + (i === bookSel ? ' sel' : ''), `<span class="k">${k}</span>${a ? Icons.abilityIcon(a.id) : '<i>+</i>'}`); d.title = (a ? a.name + ' · drag to move, right click to remove' : 'Empty') + (i < SUPPORT_SLOTS ? ' · buffs, songs and heals' : ' · damage abilities');
     d.onclick = () => { S.click(); bookSel = i; renderBook(); };
     d.oncontextmenu = (e) => { e.preventDefault(); if (h.hotbar[i]) { h.hotbar[i] = null; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); } };
     if (a) { d.draggable = true; d.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ id: a.id, from: i })); e.dataTransfer.effectAllowed = 'move'; }; }
@@ -559,7 +561,7 @@ function treesTab(c, h, cls, res) {
 const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {
   // ---- hotbar slots ----
-  c.appendChild(el('p', 'bookintro', `Keys <b>1-5</b> hold buffs, songs and heals; <b>F C Q</b> hold the abilities that deal damage. Click a slot, then an ability. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
+  c.appendChild(el('p', 'bookintro', BATTLE ? `Hotbar keys <b>1 2 3 4</b>: click a slot, then an ability, or drag one onto a slot. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>). Weapon attacks are in the <b>Weapons</b> tab (L).` : `Keys <b>1-5</b> hold buffs, songs and heals; <b>F C Q</b> hold the abilities that deal damage. Click a slot, then an ability. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
   c.appendChild(slotBar(h, cls));
   // ---- abilities: just the names; hover for the details ----
   const grid = el('div', 'bookgrid compact');

@@ -649,7 +649,7 @@ function uprightShield(ch, st) {
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
   // blocking: face front; otherwise it rides the forearm, angled out to the front-left
   const bk = sh.userData.bk = (sh.userData.bk || 0) + ((st.block ? 1 : 0) - (sh.userData.bk || 0)) * 0.25;
-  const rx = (ch.relaxK || 0) * (1 - bk); _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk) * (1 - rx) + 0.8 * rx, 0)); // relaxed: angled out about 45 degrees
+  const rx = (ch.relaxK || 0) * (1 - bk); _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk + 0.55 * (1 - bk) * (1 - rx) + 0.8 * rx, 0)); // turned outward: about 30 degrees when ready, 45 when relaxed
   _sq2.multiply(_sq3);
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
@@ -706,7 +706,7 @@ export function animateHumanoid(ch, dt, st) {
     else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.6, 0, 0.14, -0.9 - bend * 0.4, sw * 0.9 - 0.1, -0.12, -0.35 - bend, 0];
     else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
     // sword and board: sword arm relaxed low with the blade angled forward, shield arm bent so the shield rides the forearm in front of the hip
-    else if (W.hands === 'shield') P = [0.12, -0.15 - sw * 0.6, 0, 0.18, -0.3 - bend, -0.42 + sw * 0.15, -0.1, -1.2 - bend * 0.2, 0];
+    else if (W.hands === 'shield') P = [0.1, -0.3 - sw * 0.5, 0, -0.75, -0.55 - bend * 0.5, -0.3 + sw * 0.15, -1.25, -0.55 - bend * 0.2, 0]; // ready: sword arm out from the body, elbow bent, blade forward; shield arm forward and out
     else P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.4 + sw * 0.85, -0.16, -0.85 - bend, 0];
   }
   if (P) {

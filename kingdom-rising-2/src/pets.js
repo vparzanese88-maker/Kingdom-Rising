@@ -41,7 +41,7 @@ function petHit() { return 0; }
 function petHurt(dmg, src) {
   if (this.dead) return; if (src && src.pos && !src.pet) { this.lastHitBy = src; this.hurtT = G.time; } // whoever hits the pet becomes fair game
   const lv = G.save ? G.save.level : 1, shield = this.petKind === 'skeleton' && lv >= 10 ? 0.25 : 0; // skeletons raise a shield from level 10
-  const d = Math.max(1, Math.round(dmg * (1 - Math.min(0.8, (this.pet.armor || 0) + shield))));
+  const d = Math.max(1, Math.round(dmg * (1 - Math.min(0.8, (this.pet.armor || 0) + shield)) * (this.wardT > G.time ? 0.5 : 1))); // Bone Bulwark halves it
   this.hp -= d; this.hitFlash = 0.15; V.number(this.pos.clone().setY(this.pos.y + (this.height || 1.6) + 0.3), d, 'dmg');
   if (this.hp <= 0) { this.dead = true; G.hooks.toast && G.hooks.toast(`Your ${this.name} has fallen`, '☠', 'bad'); vanish(this); }
 }
@@ -97,8 +97,8 @@ function petUpdate(dt) {
     this.faceTo(t.pos, dt, 8);
     if (d > reach) { want = t.pos; speed = D.speed; }
     else if (this.atkCd <= 0) {
-      this.atkCd = (D.cd || 1.2) / (1 + ((G.save ? G.save.level : 1) - 1) * 0.035); // attacks faster as you level (about 1.7x at level 20) this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6;
-      const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2);
+      const fr = this.frenzyT > G.time; this.atkCd = (D.cd || 1.2) / (1 + ((G.save ? G.save.level : 1) - 1) * 0.035) / (fr ? 1.3 : 1); this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6; // faster as you level (about 1.7x at 20), 30% faster in an Unholy Frenzy
+      const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2) * (fr ? 1.4 : 1);
       if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
       t.takeHit(dmg, P, { pet: true }); t.provoked = true; if (PETS.taunt) t.petFoe = this; else if (t.petFoe === this) t.petFoe = null; if (t.state !== 'flee') t.state = 'chase';
     }

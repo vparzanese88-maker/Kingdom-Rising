@@ -863,7 +863,7 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) { const nodes = []; for 
 export const HOTBAR_KEYS = ['1', '2', '3', '4', '5', 'F', 'C', 'Q'], SUPPORT_SLOTS = 5;
 const SUPPORT_AB = new Set(['shieldwall', 'warbanner', 'vigorbanner', 'stonebanner', 'laststand', 'battlecry', 'adrenaline', 'rampage', 'bloodrage', 'undying', 'mending', 'disengage', 'focus', 'barkskin', 'vanish',
   'smokebomb', 'quickreload', 'eagleeye', 'healingwave', 'ancestralward', 'chainheal', 'wartotem', 'spiritlink', 'blink', 'manasurge', 'icebarrier', 'timewarp', 'rally', 'fortify', 'tourniquet', 'secondwind', 'fielddress']);
-export const isSupport = (a) => !!(a && (a.song || ['heal', 'hot', 'buff', 'stealth'].includes(a.t) || SUPPORT_AB.has(a.id)));
+export const isSupport = (a) => !!(a && (a.song || ['heal', 'hot', 'buff', 'stealth', 'petbuff', 'petheal', 'petward'].includes(a.t) || SUPPORT_AB.has(a.id)));
 export const slotFits = (i, a) => (i < SUPPORT_SLOTS) === isSupport(a);
 
 // Kingdom Battles keeps the original warrior kit (the campaign and Training Yard use the new one above)
@@ -885,6 +885,17 @@ if (ABILITIES.necromancer) ABILITIES.necromancer.push(
   { id: 'sapstrength', name: 'Sap Strength', level: 5, cd: 14, cost: 25, t: 'curse', range: 30, sap: 'strength', dmg: 0.4, kit: true, key: '', icon: '', campaign: true, desc: 'Drink the strength of the enemy you aim at: for 10 s it hits 35% weaker and you hit 25% harder.' },
   { id: 'sapspeed', name: 'Sap Speed', level: 7, cd: 14, cost: 25, t: 'curse', range: 30, sap: 'speed', dmg: 0.3, kit: true, key: '', icon: '', campaign: true, desc: 'Steal its speed: the enemy you aim at is slowed for 8 s and you move and cast faster.' },
   { id: 'manaleech', name: 'Mana Leech', level: 9, cd: 12, cost: 0, t: 'curse', range: 30, sap: 'mana', dmg: 0.5, kit: true, key: '', icon: '', campaign: true, desc: 'Pull the magic out of the enemy you aim at: damage it and refill 25% of your mana.' },
+  { id: 'unholyfrenzy', name: 'Unholy Frenzy', level: 6, cd: 30, cost: 25, t: 'petbuff', dur: 12, kit: true, key: '', icon: '', campaign: true, desc: 'Drive your undead into a frenzy for 12 s: they hit 40% harder and attack 30% faster.' },
+  { id: 'darkmending', name: 'Dark Mending', level: 8, cd: 12, cost: 15, t: 'petheal', pct: 0.15, kit: true, key: '', icon: '', campaign: true, desc: 'Pour 15% of your own health into your undead: each of them heals twice that much.' },
+  { id: 'boneshieldpet', name: 'Bone Bulwark', level: 10, cd: 30, cost: 25, t: 'petward', dur: 10, kit: true, key: '', icon: '', campaign: true, desc: 'Wrap your undead in plates of bone: they take 50% less damage for 10 s.' },
+  // Siphon: self buffs fed by what you steal
+  { id: 'bloodpact', name: 'Blood Pact', level: 3, cd: 22, cost: 25, t: 'hot', pct: 0.25, dur: 10, kit: true, key: '', icon: '', campaign: true, desc: 'Feed on the life you have stolen: regenerate 25% of your health over 10 s.' },
+  { id: 'siphonshield', name: 'Siphon Shield', level: 6, cd: 26, cost: 30, t: 'buff', buff: 'barrier', amount: 0.25, dur: 12, kit: true, key: '', icon: '', campaign: true, desc: 'Wrap yourself in stolen life: a shield that absorbs damage equal to 25% of your health, for up to 12 s.' },
+  { id: 'soulhoard', name: 'Soul Hoard', level: 12, cd: 40, cost: 0, t: 'buff', buff: 'surge', dur: 6, kit: true, key: '', icon: '', campaign: true, desc: 'Spend the souls you have hoarded: for 6 s your abilities cost nothing.' },
+  // Bone: defence and self buffs
+  { id: 'boneskin', name: 'Bone Skin', level: 3, cd: 30, cost: 30, t: 'buff', buff: 'stand', heal: 0, dur: 10, kit: true, key: '', icon: '', campaign: true, desc: 'Your skin hardens into bone: take 25% less damage for 10 s.' },
+  { id: 'bonespikes', name: 'Bone Spikes', level: 6, cd: 12, cost: 25, t: 'nova', r: 5, dmg: 0.8, stun: 1.5, fx: 'shadow', kit: true, key: '', icon: '', campaign: true, desc: 'Spikes of bone burst out of the ground around you: every enemy within 5 m is hurt and held for 1.5 s.' },
+  { id: 'marrowsurge', name: 'Marrow Surge', level: 11, cd: 25, cost: 30, t: 'buff', buff: 'focus', dur: 8, kit: true, key: '', icon: '', campaign: true, desc: 'Cold power floods your bones: for 8 s you attack and cast 35% faster.' },
   { id: 'bonegolem', name: 'Raise Bone Golem', level: 14, cd: 60, cost: 50, t: 'summon', pet: 'bonegolem', n: 1, extra: 0, dur: 600, kit: true, key: '', icon: '', campaign: true, desc: 'A towering golem of fused bones rises where you aim: it soaks up blows and crushes whatever you fight.' },
   { id: 'lichlord', name: 'Lich Lord', level: 18, cd: 90, cost: 50, t: 'buff', buff: 'lich', dur: 20, kit: true, key: '', icon: '', campaign: true, desc: 'Become a Lich Lord for 20 s: a skeleton with burning green eyes and a long flowing cape. Your spells hit 40% harder and you take 25% less damage.' },
 );
@@ -903,7 +914,7 @@ const TREE_DEFS = {
   monk: [['Tiger', 'A hundred fists, a single strike', '#ff8a3a', 'offense', ['tigerpalm', 'pressure', 'hundredfists', 'dragonstrike']], ['Wind', 'Never where they strike', '#c8f0ff', 'defense', ['flyingkick', 'sweepkick', 'windstep']], ['Lotus', 'Stillness and inner strength', '#f0c0ff', 'support', ['innerpeace', 'feigndeath', 'serenity']]],
   bard: [['Valor', 'Songs that sharpen every blade', '#ffb040', 'support', ['warsong', 'flamesong', 'anthem']], ['Grace', 'Songs that mend and carry you', '#7ee07e', 'support', ['travel', 'soothe', 'clarityhymn']], ['Discord', 'Music as a weapon', '#b070ff', 'offense', ['flourish', 'lullaby', 'crescendo', 'dirge']]],
   rogue: [['Assassin', 'From the shadows, straight to the heart', '#e2533a', 'offense', ['backstab', 'kidney', 'garrote']], ['Venom', 'Poison on every edge', '#90e040', 'offense', ['poisontrap', 'envenom', 'deadlypoison']], ['Shadow', 'Smoke, caltrops and vanishing', '#8a7aa8', 'defense', ['vanish2', 'smokescreen', 'snaretrap2', 'caltrops2']]],
-  necromancer: [['Undeath', 'Raise the dead and command them', '#b0c8a0', 'support', ['raiseskel', 'skelmage'], 'bonegolem'], ['Siphon', 'Drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2']], ['Bone', 'Bone armour, bone spears, bone prisons', '#e8e0c8', 'defense', ['bonearmor', 'bonespear', 'deathnova', 'boneprison', 'fear'], 'lichlord']],
+  necromancer: [['Undead', 'Summon the dead, strengthen them, mend them and spread terror', '#b0c8a0', 'support', ['raiseskel', 'fear', 'unholyfrenzy', 'darkmending', 'boneshieldpet', 'skelmage'], 'bonegolem'], ['Siphon', 'Curse them and drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2', 'deathnova', 'bloodpact', 'siphonshield', 'soulhoard']], ['Bone', 'Bone armour, bone skin and bone spikes: hard to kill', '#e8e0c8', 'defense', ['boneskin', 'bonespikes', 'bonearmor', 'marrowsurge', 'boneprison'], 'lichlord']],
   elementalist: [['Flame', 'Sprites, lava and firestorms', '#ff7a3a', 'offense', ['firesprite', 'lavaburst', 'firestorm']], ['Stone', 'Golems and stone skin', '#a09080', 'defense', ['boulder', 'elemshield', 'earthel']], ['Tempest', 'Wind, ice and thunder', '#5ac8ff', 'offense', ['gale', 'frostbind', 'thunder', 'cataclysm']]],
   enchanter: [['Mind', 'Break their thoughts', '#b070ff', 'offense', ['mindblast', 'mindrot', 'mindstorm']], ['Illusion', 'Charm, sleep and confusion', '#f0a0ff', 'defense', ['mesmerize', 'masssleep', 'phantasm', 'confusion']], ['Runes', 'Haste, wards and clarity', '#8ac8ff', 'support', ['hasteall', 'runeshield', 'clarity']]],
   beastmaster: [['Pack', 'Never hunt alone', '#c89a4a', 'support', ['warbeast', 'mendpet', 'packfrenzy', 'packcall']], ['Fang', 'Claw, rend and pounce', '#e2533a', 'offense', ['rendclaw', 'pounce', 'whirlclaw']], ['Wild', 'The roar of the stampede', '#6ad04a', 'defense', ['feralroar', 'stampede', 'primalbond']]],
@@ -948,7 +959,7 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior')
 
 // ---- make sure any two maxed trees can fill the whole hotbar: every tree gets at least 3 buffs/songs/heals (keys 1-5)
 // and at least 2 damage abilities (F C Q). Where a tree is short, it gets new class abilities built from proven effects.
-export const GEN_ICONS = { sapstrength: ['fist', 'nature'], sapspeed: ['wind', 'nature'], manaleech: ['drop', 'arcane'], bonegolem: ['skull', 'steel'], lichlord: ['skull', 'nature'] };
+export const GEN_ICONS = { bloodpact: ['heart', 'red'], siphonshield: ['shield', 'nature'], soulhoard: ['drop', 'nature'], boneskin: ['shield', 'steel'], bonespikes: ['burst', 'steel'], marrowsurge: ['bolt', 'steel'], unholyfrenzy: ['skull', 'red'], darkmending: ['heart', 'nature'], boneshieldpet: ['shield', 'steel'], sapstrength: ['fist', 'nature'], sapspeed: ['wind', 'nature'], manaleech: ['drop', 'arcane'], bonegolem: ['skull', 'steel'], lichlord: ['skull', 'nature'] };
 const MELEE = new Set(['warrior', 'berserker', 'paladin', 'darkknight', 'monk', 'rogue', 'beastmaster']);
 const NO_HEAL = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'wizard', 'elementalist', 'enchanter']);
 const SUP_T = [
@@ -1004,14 +1015,17 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) {
 
 // ---- layout: spread each tree's abilities across the grid (not all down the middle), passives in between,
 // every node hanging from the one above it, the capstone at the bottom
+const BOTTOM = new Set(['skelmage']); // abilities that belong at the bottom of their tree
 const A_SLOTS = [[0, 1], [1, 0], [2, 2], [3, 0], [4, 1], [1, 2], [3, 2], [2, 0], [4, 2], [4, 0], [2, 1], [3, 1], [1, 1]];
-const ALL_CELLS = []; for (let r = 1; r <= 4; r++) for (let c = 0; c < 3; c++) ALL_CELLS.push([r, c]); ALL_CELLS.push([5, 0], [5, 2], [0, 0], [0, 2]);
+const A_SLOTS_BIG = [[0, 1], [1, 0], [1, 2], [2, 0], [2, 2], [3, 0], [3, 2], [4, 0], [4, 2], [2, 1], [3, 1], [4, 1], [1, 1]];
+const ALL_CELLS = []; for (let r = 1; r <= 4; r++) for (let c = 0; c < 3; c++) ALL_CELLS.push([r, c]); ALL_CELLS.push([5, 0], [5, 2]); // (not the top row: nothing there could hang from anything)
 for (const [cls, trees] of Object.entries(CLASS_TREES)) for (const T of trees) {
   const ult = T.nodes.find(n => n.t === 'ult'), abs = T.nodes.filter(n => n.t === 'ab'), pas = T.nodes.filter(n => n.t === 'pas');
   const at = {}, key = (r, c) => r + ',' + c, put = (n, r, c) => { n.row = r; n.col = c; at[key(r, c)] = n; };
   abs.sort((x, y) => (ABILITIES[cls].find(a => a.id === x.ab) || {}).level - (ABILITIES[cls].find(a => a.id === y.ab) || {}).level);
-  const freeA = A_SLOTS.filter(([r, c]) => true); let k = 0;
-  for (const n of abs) { while (k < freeA.length && at[key(...freeA[k])]) k++; if (k >= freeA.length) break; put(n, ...freeA[k]); k++; }
+  const freeA = abs.length >= 8 ? A_SLOTS_BIG : A_SLOTS; let k = 0; // big trees fill row by row, so earlier abilities sit higher
+  for (const n of abs.filter(x => BOTTOM.has(x.ab))) put(n, 4, 1);
+  for (const n of abs.filter(x => !BOTTOM.has(x.ab))) { while (k < freeA.length && at[key(...freeA[k])]) k++; if (k >= freeA.length) break; put(n, ...freeA[k]); k++; }
   const placed = new Set(Object.values(at));
   // an ability's own upgrade goes right under it when there is room
   for (const n of pas) { if (!n.id.startsWith('a_')) continue; const owner = abs.find(x => 'a_' + x.ab === n.id); if (owner && placed.has(owner) && owner.row < 4 && !at[key(owner.row + 1, owner.col)]) { put(n, owner.row + 1, owner.col); placed.add(n); } }

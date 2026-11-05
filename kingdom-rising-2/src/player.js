@@ -1150,6 +1150,14 @@ export class Player {
         return true; }
       case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
+      case 'petbuff': case 'petheal': case 'petward': { // necromancer: strengthen, mend or shield your undead
+        const list = G.mobs.filter(m => m.pet && !m.dead); anim('cast');
+        if (!list.length) { G.hooks.toast && G.hooks.toast('You have no undead to empower', '💀', 'bad'); return true; }
+        if (a.t === 'petheal') { const give = this.hp * (a.pct || 0.15); if (this.hp - give < 1) return true; this.hp -= give; for (const m of list) { m.hp = Math.min(m.maxHp, m.hp + give * 2 * up); V.burst('heal', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 2, vy: 2 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), '+' + Math.round(give * 2 * up), 'heal'); }
+          V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 14, { speed: 2 }); S.heal(); }
+        else for (const m of list) { if (a.t === 'petbuff') m.frenzyT = G.time + (a.dur || 12) * Math.sqrt(up); else m.wardT = G.time + (a.dur || 10) * Math.sqrt(up);
+          V.burst(a.t === 'petbuff' ? 'blood' : 'bone', m.pos.clone().setY(m.pos.y + 1), 26, { speed: 3 }); V.ring(m.pos, 1.6, a.t === 'petbuff' ? '#ff4040' : '#e8e0c8', 0.5); }
+        S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
       case 'buff': { this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }

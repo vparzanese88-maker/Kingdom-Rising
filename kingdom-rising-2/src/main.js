@@ -686,10 +686,10 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
-      if (e.code === 'KeyU' && !BATTLE) { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
+      if ((e.code === 'KeyO' || e.code === 'KeyU') && !BATTLE) { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
-      if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }
+      if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
       if (e.code === 'KeyZ' && !G.uiOpen && !BATTLE && pets().length) { petTap(); return; } // Z: pets attack your target
       if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }

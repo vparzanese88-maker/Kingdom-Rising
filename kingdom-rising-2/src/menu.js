@@ -10,6 +10,7 @@ import { S, A, M } from './audio.js';
 import { confirmBox, openSettings, openControls, closeWin, comboSteps } from './ui.js';
 import { G } from './state.js';
 import * as Icons from './icons.js';
+import { crest } from './crests.js';
 import { SETUP_KEY } from './battlemap.js';
 import { BATTLE_RACES, DIFFS, TEAM_COLORS, TEAM_NAMES, TOWN_NAMES } from './battledata.js';
 
@@ -144,37 +145,28 @@ function renderCreator() {
   const intro = (t) => body.appendChild(el('p', 'cintro', t));
   const sect = (t) => body.appendChild(el('div', 'sect', t));
   if (tab === 0) {
-    intro('Your race shapes how you look and sets your starting attributes. Attributes only grow further through the gear you find and craft.');
-    sect('Race');
+    // races: a row of crests, the chosen one described underneath (fits without scrolling)
     if (C.battle && C.battle.mp) intro('Your race is also the race of your town: its walls, buildings and troops.');
-    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) body.appendChild(opt({ name: RACES[k].name, icon: RACE_INFO[k].icon, small: RACE_INFO[k].tag, tag: 'Best as ' + RACE_INFO[k].best }, C.race === k, () => { C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = C.sex === 'f' ? (k === 'dwarf' ? 4 : 1) : k === 'dwarf' ? 0 : 1; }));
-    body.appendChild(el('div', 'lore', `${RACE_INFO[C.race].lore}<br><b style="color:var(--g1)">${RACE_INFO[C.race].perk}</b>`));
-    body.appendChild(el('div', '', statBars(R.stats) + '<p class="cintro" style="margin-top:10px;font-size:13px;color:var(--mut)">Strength: melee damage. Dexterity: bows, daggers, spears, crits and endurance. Intellect: spells and mana. Stamina: health.</p>'));
+    const rg = el('div', 'crgrid races');
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) {
+      const img = racePortrait(k, C.sex); const b = el('button', 'crt race' + (C.race === k ? ' on' : ''), `${img ? `<img src="${img}" alt="">` : crest(k, 56)}<b>${RACES[k].name}</b>`); b.title = RACE_INFO[k].tag;
+      b.onclick = () => { S.click(); C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = k === 'dwarf' ? (C.sex === 'f' ? 4 : 0) : 1; renderCreator(); rebuildPreview(); };
+      b.onmouseenter = () => S.hover(); rg.appendChild(b); }
+    body.appendChild(rg);
+    body.appendChild(el('div', 'crdesc', `<div class="crh">${crest(C.race, 70)}<div><h3>${RACES[C.race].name}</h3><span class="crtag">${RACE_INFO[C.race].tag} · best as ${RACE_INFO[C.race].best}</span></div></div><p>${RACE_INFO[C.race].lore}</p><p class="crperk">${RACE_INFO[C.race].perk}</p>${statBars(R.stats)}`));
     sect('Body type');
     body.appendChild(seg([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
-    intro('Your class decides how you fight, which abilities you learn and what weapon you start with. Every class can gather, craft and do every quest.');
-    sect('Class');
-    for (const k of Object.keys(CLASSES)) body.appendChild(opt({ name: CLASSES[k].name, icon: `<div style="width:38px;height:38px">${Icons.itemSvg(CLS_WPN[k])}</div>`, small: CLASS_INFO[k].role, tag: CLASS_INFO[k].tag }, C.cls === k, () => { C.cls = k; C.weapon = START[k]; }));
-    const I = CLASS_INFO[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
-    { const ST = CLASS_STORY[C.cls]; if (ST) body.appendChild(el('div', 'clstory', `<div class="cst">${ST.title}</div><div class="cmotto">“${ST.motto}”</div><p>${ST.story}</p><h4>How they fight</h4><p>${ST.fight}</p>`)); }
-    body.appendChild(el('div', 'lore', `${CLASSES[C.cls].desc}<div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= I.diff ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res}</span><span>Starts with: ${I.start}</span><span>Health ${P0.hp} → ${P20.hp} at level 20</span></div>`));
-    // the starting weapon: what each button does with it
-    { const wt = (START[C.cls] || 'sword'), W = WEAPON_TYPES[wt], bt = !!C.battle;
-      const st = comboSteps(wt, bt), sid = RMB_SPECIAL[wt], SP = sid && WSKILLS[sid];
-      const tap = st.filter(x => !/^Hold/.test(x.n)), hold = st.filter(x => /^Hold/.test(x.n));
-      const holdTxt = hold.length ? `${hold[0].n.replace('Hold: ', '')}: ${hold[0].tags.join(', ')}` : W.kind === 'bow' ? 'Draw the bow: the longer you hold, the harder, faster and straighter the arrow' : W.kind === 'gun' ? 'Raise the musket and aim down the barrel: a harder, straighter shot (zooms in)' : 'Wind up a heavy blow: hits much harder';
-      sect(`Your weapon · ${W.name}`);
-      body.appendChild(el('div', 'wkeys', `<div><b>Left click</b><span>${W.kind === 'melee' ? 'Combo: ' + tap.map(x => `${x.n} (${x.d}%)`).join(' → ') : tap.map(x => `${x.n.replace('Tap: ', '')}${x.tags.length ? ' · ' + x.tags.join(', ') : ''}`).join('')}</span></div>
-        <div><b>Hold left click</b><span>${holdTxt}</span></div>
-        ${SP ? `<div><b>${bt ? 'F' : 'Right click'}</b><span><b class="wsn">${SP.name}</b> ${SP.desc} (every ${SP.cd} s)</span></div>` : ''}
-        <div><b>${bt ? 'Hold right click' : 'Hold F'}</b><span>Block. Raise it just before a hit for a perfect block: no damage.</span></div>
-        <div><b>${bt ? 'Double-tap W A S D' : 'Tap Shift'}</b><span>${bt ? 'Roll that way (a Shift tap rolls too)' : 'Roll out of the way'}</span></div>`)); }
-    sect('How to play');
-    body.appendChild(el('ul', 'tips', I.tips.map(t => `<li>${t}</li>`).join('')));
-    sect('Class abilities');
-    body.appendChild(el('p', 'cintro', `You learn new abilities as you level up, the last at level ${C.battle ? 9 : 18}. Choose any four for hotbar keys 1 to 4 in the ability book (K); they grow stronger every level. They cost ${I.res.toLowerCase()}.`));
-    for (const a of ABILITIES[C.cls]) body.appendChild(el('div', 'abl', `<div class="ai">${Icons.abilityIcon(a.id)}</div><div><b>${a.name}</b> <span style="color:var(--mut)">level ${a.level}</span><br>${a.desc} <span style="color:var(--mut)">${a.cost ? a.cost + ' ' + I.res.toLowerCase() : 'free'}</span></div>`));
+    // classes: a wall of crests like EverQuest; the chosen one's full story underneath
+    const cg = el('div', 'crgrid classes');
+    for (const k of Object.keys(CLASSES).filter(k => !(CLASSES[k].battleOnly && !C.battle) || true)) {
+      const b = el('button', 'crt' + (C.cls === k ? ' on' : ''), `${crest(k, 50)}<b>${CLASSES[k].name}</b>`); b.title = CLASSES[k].name + (CLASS_INFO[k] ? ' · ' + CLASS_INFO[k].role : '');
+      b.onclick = () => { S.click(); C.cls = k; C.weapon = START[k]; renderCreator(); rebuildPreview(); }; b.onmouseenter = () => S.hover(); cg.appendChild(b); }
+    body.appendChild(cg);
+    const I = CLASS_INFO[C.cls] || {}, ST = CLASS_STORY[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
+    body.appendChild(el('div', 'crdesc', `<div class="crh">${crest(C.cls, 76)}<div><h3>${CLASSES[C.cls].name}</h3><span class="crtag">${I.tag || ''}${I.role ? ' · ' + I.role : ''}</span>${ST && ST.motto ? `<div class="crmotto">“${ST.motto}”</div>` : ''}</div></div>
+      <p>${CLASSES[C.cls].desc}</p>${ST ? `<p>${ST.story}</p><p><b>How they fight.</b> ${ST.fight}</p>` : ''}
+      <div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= (I.diff || 1) ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res || 'Endurance'}</span><span>Starts with: ${I.start || ''}</span><span>Health ${P0.hp} → ${P20.hp}</span></div>`));
   } else if (tab === 2) {
     intro('Shape your hero. This is purely how you look; your attributes come from your race and gear.');
     const f = (label, input) => { const d = el('div', 'field'); d.appendChild(el('label', '', label)); d.appendChild(input); body.appendChild(d); };
@@ -318,6 +310,23 @@ function buildPreview() {
   addEventListener('pointerdown', (e) => { if (Menu.preview.active && e.clientX > innerWidth * 0.4) drag = e.clientX; });
   addEventListener('pointermove', (e) => { if (drag != null) { Menu.preview.rot += (e.clientX - drag) * 0.01; drag = e.clientX; } });
   addEventListener('pointerup', () => drag = null);
+}
+// small head-and-shoulders portraits of each race (rendered once, in the chosen body type), for the race buttons
+const PORTRAITS = {};
+function racePortrait(race, sex) {
+  const key = race + sex; if (PORTRAITS[key]) return PORTRAITS[key];
+  const P = Menu.preview; if (!P) return null;
+  try {
+    const R = racePortrait.r || (racePortrait.r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }));
+    R.setSize(128, 128, false); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping;
+    const r = RACES[race], ch = buildHumanoid({ race, sex, cls: 'warrior', outfit: 'villager', skin: r.skins[1], hair: r.hairs[0], hairStyle: race === 'dwarf' ? (sex === 'f' ? 4 : 0) : 1, beard: race === 'dwarf' && sex === 'm' ? 3 : 0, height: 1, build: 0 });
+    const old = P.holder.children.slice(); P.holder.clear(); P.holder.add(ch.root); P.holder.rotation.y = 0.35;
+    ch.root.updateMatrixWorld(true); const head = ch.head.getWorldPosition(new THREE.Vector3());
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.05, 20); cam.position.set(head.x + 0.2, head.y + 0.02, head.z + 0.95); cam.lookAt(head.x, head.y - 0.04, head.z);
+    R.setClearColor(0x000000, 0); R.render(P.scene, cam); PORTRAITS[key] = R.domElement.toDataURL('image/png');
+    P.holder.clear(); for (const o of old) P.holder.add(o);
+  } catch (e) { return null; }
+  return PORTRAITS[key];
 }
 function rebuildPreview() {
   const P = Menu.preview; if (!P) return;

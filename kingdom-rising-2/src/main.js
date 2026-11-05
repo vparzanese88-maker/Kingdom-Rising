@@ -314,6 +314,13 @@ function campaignSetup() {
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
+  // only support classes heal or buff anyone but themselves: everyone else's abilities are self-only
+  const SUPPORT = new Set(['warrior', 'cleric', 'paladin', 'druid', 'shaman', 'bard', 'enchanter']);
+  for (const c in ABILITIES) if (!SUPPORT.has(c)) for (const a of ABILITIES[c]) {
+    if (!(a.ally || a.allyBuff || /all(y|ies)/i.test(a.desc || ''))) continue;
+    delete a.ally; delete a.allyBuff; if (a.t === 'heal' || a.t === 'hot' || a.t === 'buff') delete a.r;
+    a.desc = (a.desc || '').replace(/,? ?(and|&) (every |each )?all(y|ies)( and (soldiers|troops))?( within \d+ m)?( (are|is) (healed|empowered)[^.]*)?/gi, '').replace(/[Yy]ou and (every |each )?all(y|ies)( within \d+ m)?/g, 'You').replace(/,? ?(every |each )?all(y|ies)( within \d+ m)?( of you)?/gi, '').replace(/for you, your beast/g, 'for you and your beast').replace(/\s+\./g, '.').replace(/\s{2,}/g, ' ');
+  }
   G.itemSlots = 0; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 function startBattle() {

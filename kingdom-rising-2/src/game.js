@@ -2,7 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
-import { skillDamage, DUAL_CLASSES } from './skills.js';
+import { skillDamage, skill, DUAL_CLASSES } from './skills.js';
 import { TWIN_TO_SINGLE, HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -207,7 +207,7 @@ export function heroDerived(h) {
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  const mast = BATTLE ? 1 : skillDamage(h, w.wt); // campaign: weapon skills (1H Slashing, Piercing...) add a little damage
+  const mast = BATTLE ? 1 : WEAPON_TYPES[w.wt] && WEAPON_TYPES[w.wt].kind === 'staff' ? 1 + skill(h, 'casting') * 0.002 : skillDamage(h, w.wt); // magical staffs draw on your Casting skill (non-casters get nothing from them) // campaign: weapon skills (1H Slashing, Piercing...) add a little damage
   return mast * w.dmg * mul * (1 + (h.level - 1) * 0.05 * LEVEL_GROWTH) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 

@@ -431,9 +431,9 @@ function hooks() {
     const un = wt ? Game.weaponUnlocks(wt).filter(u => u.lv === lv).map(u => `${u.key}: ${u.what}`) : [];
     const fn = FAMILIES[fam] ? FAMILIES[fam].name : fam; chatAdd(`<b class="sk">You have become better at ${fn}! (${lv})</b>${un.length ? ' Learned: ' + un.join(', ') + '.' : ' Faster and a little harder hitting.'}`, 'skill');
     UI.banner(`${fn} skill ${lv}`, un.length ? 'Learned: ' + un.join(' · ') : 'Faster and a little harder hitting', 3800); S.levelUp(); UI.refreshAbilityBar && UI.refreshAbilityBar(); };
-  H.skillUp = (name, lv) => { chatAdd(`<b class="sk">You have become better at ${name}! (${lv})</b>`, 'skill'); if (lv % 5 === 0) UI.toast(`${name} skill ${lv}`, '🌊', 'gold'); };
+  H.skillUp = (name, lv) => { chatAdd(`<b class="sk">You have become better at ${name}! (${lv})</b>`, 'skill'); }; // chat only
   H.masteryTick = () => {}; // (skill progress is not reported, only each new point)
-  H.newWeapon = (wt) => { chatAdd(`You pick up a new kind of weapon: <b>${WEAPON_TYPES[wt].name}</b>. `, 'skill'); UI.toast(`New weapon skill: ${WEAPON_TYPES[wt].name}. Use it to learn its attacks (press L)`, '⚔', 'gold'); };
+  H.newWeapon = (wt) => {}; // no weapon levels in the campaign: nothing to announce
   H.questsChanged = () => UI.updateTracker();
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };

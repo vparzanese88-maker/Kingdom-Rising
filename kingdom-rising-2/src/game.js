@@ -415,7 +415,7 @@ export function onKill(h, mob, shared = false) {
     q.obj.forEach((o, i) => { if (o.t === 'kill' && o.mob === mob.type && a.p[i] < o.n) { a.p[i]++; G.hooks.objective && G.hooks.objective(q, o, a.p[i]); } });
   }
   // weapon mastery: the weapon in your hands learns from every kill
-  { const w = activeWeapon(h); if (w && !shared) gainMastery(h, familiesOf(w.wt)[0], 6 + Math.round(designLv(mob.lv) * 2)); }
+  { const w = activeWeapon(h); if (w && !shared && BATTLE) gainMastery(h, familiesOf(w.wt)[0], 6 + Math.round(designLv(mob.lv) * 2)); } // the campaign has no weapon levels: only skills (and staffs have none)
 
   // loot table
   const D = mob.def, loot = [];

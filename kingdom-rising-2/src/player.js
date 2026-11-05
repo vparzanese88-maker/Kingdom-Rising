@@ -56,7 +56,7 @@ const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight:
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 // creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
-export function mobDefense(m, plv, magic) { const d = m.lv * 4 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
+export function mobDefense(m, plv, magic) { const d = Math.max(0, m.lv - 1) * 4 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
 const BANNERS_AB = new Set(['warbanner', 'vigorbanner', 'stonebanner', 'rally']);
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
@@ -1469,6 +1469,7 @@ export class Player {
     if (src && src.hexUntil > G.time) dmg *= 0.65; // a Shaman's Hex drains their strength
     // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
     const lv = src && (src.statLv || src.lv) || (BATTLE ? this.h.level * 2 : designLv(this.h.level));
+    if (G.newFx && src && !src.pet && src.lv && src.lv < this.h.level) dmg *= Math.max(0.5, 1 - (this.h.level - src.lv) * 0.06); // creatures below your level hit you softer (6% a level, at most half)
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));

@@ -496,6 +496,7 @@ function dressOutfit(ch, O) {
 
 // equip weapons visually on a humanoid (third person). wt: weapon type id
 export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
+  if (ch.sheathG) { ch.sheathG.parent && ch.sheathG.parent.remove(ch.sheathG); ch.sheathG = null; }
   for (const k in ch.weapons) { const w = ch.weapons[k]; w.parent && w.parent.remove(w); }
   ch.weapons = {}; ch.wt = wt;
   if (!wt) return;
@@ -514,6 +515,22 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
     ch.arms.L.grip.add(off); ch.weapons.off = off; if (parts[1] !== 'shield') off.rotation.y = Math.PI / 2;
     if (parts[1] === 'shield') { off.rotation.set(-Math.PI / 2, Math.PI / 2, 0); off.position.set(0.08, 0.0, 0.05); }
   }
+}
+// put the weapons in your hands away on your back (and draw them again): clones of the held meshes on the chest
+export function sheathe(ch, on) {
+  if (!ch.weapons || !ch.weapons.main || !ch.chest) return;
+  if (on && !ch.sheathG) {
+    const g = new THREE.Group(); g.position.set(0, 0.06, -0.16); ch.chest.add(g); ch.sheathG = g;
+    const W = WEAPON_TYPES[ch.wt], main = ch.weapons.main.clone(), off = ch.weapons.off && ch.weapons.off.clone(), shield = off && ch.weapons.off.userData.isShield;
+    main.scale.copy(ch.weapons.main.scale); main.position.set(0, 0, 0); g.add(main);
+    if (W.kind === 'bow') { main.rotation.set(0, 0, -0.75); main.position.set(0.02, 0.05, -0.04); }
+    else if (W.kind === 'gun') { main.rotation.set(0, 0, -0.42); main.position.set(0.05, -0.32, -0.05); }
+    else if (W.kind === 'staff') { main.rotation.set(0, 0, 0.5); main.position.set(0.1, -0.5, -0.04); }
+    else { main.rotation.set(0, Math.PI / 2, Math.PI + 0.55); main.position.set(0.12, 0.24, shield ? -0.12 : -0.03); }
+    if (off) { g.add(off); if (shield) { off.rotation.set(0, Math.PI / 2, Math.PI / 2); off.position.set(0, -0.04, -0.06); off.scale.copy(ch.weapons.off.scale); } else { off.rotation.set(0, Math.PI / 2, Math.PI - 0.55); off.position.set(-0.12, 0.24, -0.05); } }
+  }
+  if (ch.sheathG) ch.sheathG.visible = !!on;
+  ch.weapons.main.visible = !on; if (ch.weapons.off) ch.weapons.off.visible = !on;
 }
 // the weapons you are not holding hang on your back, so everyone can see what you carry. items: [{wt, tier, rarity} | null, ...]
 export function backWeapons(ch, items) {
@@ -632,7 +649,7 @@ function uprightShield(ch, st) {
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
   // blocking: face front; otherwise it rides the forearm, angled out to the front-left
   const bk = sh.userData.bk = (sh.userData.bk || 0) + ((st.block ? 1 : 0) - (sh.userData.bk || 0)) * 0.25;
-  _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk), 0));
+  const rx = (ch.relaxK || 0) * (1 - bk); _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk) * (1 - rx) + 1.45 * rx, 0));
   _sq2.multiply(_sq3);
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
@@ -675,11 +692,19 @@ export function animateHumanoid(ch, dt, st) {
   if (!P && st.armed && ch.wt) {
     // weapon-carry poses that move with the stride: arms pump, elbows bend more as you run, the torso twists
     carry = true; const W = WEAPON_TYPES[ch.wt], sw = armSwing, bend = runF * 0.55;
-    if (W.kind === 'bow') P = [0, -0.3 - sw * 0.7, 0, 0.12, -0.45 - bend, -0.55 + sw * 0.6, -0.12, -0.5 - bend * 0.6, 0];
+    const ready = st.ready !== false; ch.relaxK = (ch.relaxK || 0) + ((ready ? 0 : 1) - (ch.relaxK || 0)) * Math.min(1, dt * 5);
+    if (!ready && W.kind === 'melee' && W.hands !== 'two') // relaxed: both arms hang loose at your sides, the blade low with its tip toward the ground
+      P = [0.04, -0.1 - sw * 0.7, 0, 0.12, -0.4 - bend, W.hands === 'shield' ? -0.05 + sw * 0.5 : -0.1 + sw * 0.7, W.hands === 'shield' ? -0.18 : -0.12, -0.3 - bend * 0.5, 0];
+    else if (!ready && W.hands === 'two' && W.kind === 'melee') // relaxed two-hander: held low across the body, head down by the left foot
+      P = [0.15, -0.3 - sw * 0.2, 0.15, 0.25, -0.55 - runF * 0.3, -0.45 + sw * 0.15, -0.25, -0.75 - runF * 0.3, 0];
+    else if (!ready && W.kind === 'staff') // a walking stick: planted beside you, the other arm loose
+      P = [0, -0.25 - sw * 0.4, 0, 0.16, -0.75, sw * 0.8 - 0.05, -0.1, -0.3 - bend, 0];
+    else if (!ready && W.kind === 'bow') P = [0, -0.1 - sw * 0.7, 0, 0.1, -0.3 - bend, -0.15 + sw * 0.6, -0.1, -0.25 - bend * 0.5, 0];
+    else if (W.kind === 'bow') P = [0, -0.3 - sw * 0.7, 0, 0.12, -0.45 - bend, -0.55 + sw * 0.6, -0.12, -0.5 - bend * 0.6, 0];
     else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.6, 0, 0.14, -0.9 - bend * 0.4, sw * 0.9 - 0.1, -0.12, -0.35 - bend, 0];
     else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
     // sword and board: sword arm relaxed low with the blade angled forward, shield arm bent so the shield rides the forearm in front of the hip
-    else if (W.hands === 'shield') P = [0.12, -0.15 - sw * 0.6, 0, 0.18, -0.3 - bend, -0.6 + sw * 0.15, -0.08, -1.4 - bend * 0.2, 0];
+    else if (W.hands === 'shield') P = [0.12, -0.15 - sw * 0.6, 0, 0.18, -0.3 - bend, -0.42 + sw * 0.15, -0.1, -1.2 - bend * 0.2, 0];
     else P = [0, -0.4 - sw * 0.85, 0, 0.16, -0.85 - bend, -0.4 + sw * 0.85, -0.16, -0.85 - bend, 0];
   }
   if (P) {
@@ -722,6 +747,9 @@ export function animateHumanoid(ch, dt, st) {
   if (st.lie) { body.rotation.x = -Math.PI / 2; body.position.y = 0.12; }
   // hit flinch
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
+  // relaxed: tilt a one-handed weapon in the hand so its tip points a little down
+  { const m = ch.weapons && ch.weapons.main, W = ch.wt && WEAPON_TYPES[ch.wt];
+    if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || st.block ? 0 : (ch.relaxK || 0); m.rotation.x = m.userData.rx0 + rk * 0.75; } }
   uprightShield(ch, st);
   // casting with a staff: the arm comes up and the staff points where you are looking
   const grip = arms.R.grip;

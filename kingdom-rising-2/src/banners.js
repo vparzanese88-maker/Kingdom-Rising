@@ -11,6 +11,7 @@ import { heightAt } from './terrain.js';
 export const BANNER = {
   war: { name: 'War Banner', cloth: '#b01818', trim: '#ffd050', glow: '#ff7a3a', mote: 'ember', buff: 'bWar' },
   vigor: { name: 'Banner of Vigor', cloth: '#1e8a3a', trim: '#e8ffd0', glow: '#60ff90', mote: 'heal', buff: 'bVigor' },
+  rally: { name: 'Rallying Banner', cloth: '#c88a18', trim: '#fff0c0', glow: '#ffd050', mote: 'gold', buff: 'cry' },
   stone: { name: 'Banner of Stone', cloth: '#2a4a7a', trim: '#c8d8ff', glow: '#8ac8ff', mote: 'frost', buff: 'bStone' },
 };
 const list = [];
@@ -43,7 +44,7 @@ function flagTexture(B) {
   x.fillStyle = B.cloth; x.fillRect(0, 0, 128, 128);
   x.strokeStyle = B.trim; x.lineWidth = 8; x.strokeRect(6, 6, 116, 116);
   x.fillStyle = B.trim; x.globalAlpha = 0.95; x.beginPath();
-  if (B.buff === 'bWar') { x.moveTo(64, 22); x.lineTo(72, 56); x.lineTo(100, 60); x.lineTo(74, 72); x.lineTo(82, 104); x.lineTo(64, 84); x.lineTo(46, 104); x.lineTo(54, 72); x.lineTo(28, 60); x.lineTo(56, 56); x.closePath(); x.fill(); x.fillRect(60, 30, 8, 70); }
+  if (B.buff === 'bWar' || B.buff === 'cry') { x.moveTo(64, 22); x.lineTo(72, 56); x.lineTo(100, 60); x.lineTo(74, 72); x.lineTo(82, 104); x.lineTo(64, 84); x.lineTo(46, 104); x.lineTo(54, 72); x.lineTo(28, 60); x.lineTo(56, 56); x.closePath(); x.fill(); x.fillRect(60, 30, 8, 70); }
   else if (B.buff === 'bVigor') { x.moveTo(64, 100); x.bezierCurveTo(20, 70, 26, 30, 50, 34); x.bezierCurveTo(58, 34, 62, 40, 64, 46); x.bezierCurveTo(66, 40, 70, 34, 78, 34); x.bezierCurveTo(102, 30, 108, 70, 64, 100); x.fill(); x.fillStyle = B.cloth; x.fillRect(59, 50, 10, 34); x.fillRect(47, 62, 34, 10); }
   else { x.moveTo(64, 20); x.lineTo(100, 32); x.lineTo(100, 60); x.bezierCurveTo(100, 84, 84, 98, 64, 108); x.bezierCurveTo(44, 98, 28, 84, 28, 60); x.lineTo(28, 32); x.closePath(); x.fill(); x.fillStyle = B.cloth; x.fillRect(60, 34, 8, 60); x.fillRect(40, 54, 48, 8); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (texCache[B.name] = t);

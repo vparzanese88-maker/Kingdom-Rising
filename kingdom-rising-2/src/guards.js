@@ -44,6 +44,6 @@ export function updateGuards(dt, player) {
     const dp = player ? g.pos.distanceTo(player.pos) : 0; g.ch.root.visible = dp < 140; setDetail(g.ch, dp < 30);
     if (!g.ch.root.visible) continue;
     g.ch.root.position.copy(g.pos); g.ch.root.rotation.y = g.yaw;
-    animateHumanoid(g.ch, dt, { speed: want ? speed : 0, action: g.act, actionT: g.actT, armed: true });
+    animateHumanoid(g.ch, dt, { speed: want ? speed : 0, action: g.act, actionT: g.actT, armed: true, ready: !!g.tgt });
   }
 }

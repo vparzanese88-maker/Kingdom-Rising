@@ -1520,7 +1520,7 @@ export class Player {
   heal(n, quiet) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
     if (this.sheathed && !this.dead) this.drawWeapons(); this.hurtT0 = G.time;
-    if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.hurtT = G.time; }
+    if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.lastHitAt = G.time; } // (hurtT is a countdown used elsewhere)
     if (this.dead) return;
     if (this.iframes > 0 || (this.dodge && !this.dodge.charge)) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Dodged', 'miss'); return; }
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;

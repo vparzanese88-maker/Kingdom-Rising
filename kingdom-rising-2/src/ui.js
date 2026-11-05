@@ -679,14 +679,15 @@ let qSel = null;
 export function openQuestLog() {
   const c = openWin('quests', 'Journal', '', 'big');
   const h = G.player.h;
-  const act = Object.keys(h.quests.active).map(id => QUESTS.find(q => q.id === id));
+  const act = Object.keys(h.quests.active).map(id => QUESTS.find(q => q.id === id)).filter(Boolean).sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0)); // the main quest first, then side quests
   const lay = el('div', 'qlog'), list = el('div', 'qlist'), det = el('div', 'tip');
   if (!act.length) list.innerHTML = '<p style="color:var(--dim)">No active quests. Look for villagers with a gold ! over their heads.</p>';
   if (!qSel || !act.includes(qSel)) qSel = act[0];
   const isT = (q) => !(h.untracked || []).includes(q.id);
   const setT = (q, on) => { h.untracked = (h.untracked || []).filter(x => x !== q.id); if (!on) h.untracked.push(q.id); updateTracker(); openQuestLog(); };
   if (act.length) { const bar = el('div', 'qtrackall'); const a = el('button', 'btn', 'Show all'); a.onclick = () => { h.untracked = []; updateTracker(); openQuestLog(); }; const n = el('button', 'btn', 'Hide all'); n.onclick = () => { h.untracked = act.map(q => q.id); updateTracker(); openQuestLog(); }; bar.append(el('span', 'dim', 'On screen:'), a, n); list.appendChild(bar); }
-  for (const q of act) { const row = el('div', 'qrow'); const tg = el('label', 'qtrack' + (isT(q) ? ' on' : ''), `<input type="checkbox" ${isT(q) ? 'checked' : ''}><span>${isT(q) ? 'Shown' : 'Hidden'}</span>`); tg.title = 'Show this quest on screen'; tg.querySelector('input').onchange = (e) => { S.click(); setT(q, e.target.checked); }; const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${(q.giver && NPCS[q.giver] ? NPCS[q.giver].name : "Main quest")}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; row.append(b, tg); list.appendChild(row); }
+  let lastSec = null;
+  for (const q of act) { const sec = q.main ? 'Main quest' : 'Side quests'; if (sec !== lastSec) { list.appendChild(el('div', 'qsec' + (q.main ? ' main' : ''), sec)); lastSec = sec; } const row = el('div', 'qrow'); const tg = el('label', 'qtrack' + (isT(q) ? ' on' : ''), `<input type="checkbox" ${isT(q) ? 'checked' : ''}><span>${isT(q) ? 'Shown' : 'Hidden'}</span>`); tg.title = 'Show this quest on screen'; tg.querySelector('input').onchange = (e) => { S.click(); setT(q, e.target.checked); }; const b = el('button', q === qSel ? 'on' : '', `<b>${esc(q.title)}</b>${Game.questComplete(h, q) ? ' <span style="color:var(--good)">✓</span>' : ''}<div style="font-size:12px;color:var(--dim)">Level ${q.lvl} · ${(q.giver && NPCS[q.giver] ? NPCS[q.giver].name : "Main quest")}</div>`); b.onclick = () => { qSel = q; openQuestLog(); }; row.append(b, tg); list.appendChild(row); }
   list.appendChild(el('div', '', `<p style="color:var(--dim);font-size:13px;margin-top:10px">Completed: ${h.quests.done.length} / ${QUESTS.length}</p>`));
   if (qSel) {
     const q = qSel;

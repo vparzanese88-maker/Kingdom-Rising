@@ -38,7 +38,7 @@ export function newHero(o) {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
     pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), NC ? { w1: makeWeapon(ncPair ? ncPair[0] : NC.start, 0, 0), w2: ncPair ? makeWeapon(ncPair[1], 0, 0) : null } : { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
-    active: 'w1', tools: { hatchet: 0, pickaxe: 0, knife: 0 }, quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
+    active: 'w1', tools: { hatchet: 1, pickaxe: 1, knife: 1 }, // every hero starts with basic tools; better ones come from the forge quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   // campaign heroes sail in wearing only a few tattered clothes
   if (!BATTLE) h.wseen = [activeWeapon(h) ? activeWeapon(h).wt : h.equip.w1.wt]; // the campaign: you start with your class's weapon and learn it by using it
@@ -53,6 +53,7 @@ function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; 
 export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
   h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {};
+  h.tools = h.tools || {}; for (const k of ['hatchet', 'pickaxe', 'knife']) h.tools[k] = Math.max(1, h.tools[k] || 0); // older heroes get the basic tools too
   if (!BATTLE) { const fix = (it) => { if (it && it.kind === 'weapon' && TWIN_TO_SINGLE[it.wt]) { const to = TWIN_TO_SINGLE[it.wt]; it.name = (it.name || '').replace(/Twin Daggers|Daggers/, 'Dagger').replace(/Hand Axes/, 'Hand Axe').replace(/Sword & Mace/, 'Sword'); it.wt = to; } }; for (const k in h.equip) fix(h.equip[k]); (h.inv || []).forEach(fix); } h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set((CLASS_TREE[h.cls] || []).map(n => n.id));
@@ -189,6 +190,7 @@ export function autoEquip(h, i) {
   const same = (cur) => cur && cur.kind === it.kind && (it.kind === 'weapon' ? cur.wt === it.wt : cur.slot === it.slot && (cur.akind || '') === (it.akind || ''));
   const keys = it.kind === 'weapon' ? ['w1', 'w2'] : it.slot === 'ring' ? ['ring1', 'ring2'] : [it.slot];
   for (const k of keys) { const cur = h.equip[k]; if (same(cur) && power(it) > power(cur)) { slot = k; break; } }
+  if (!slot && it.kind !== 'weapon') slot = keys.find(k => !h.equip[k] && canEquip(h, it, k)) || null; // armour and trinkets go straight into an empty slot
   if (!slot || !canEquip(h, it, slot)) return;
   const ok = equipFromInv(h, i, slot === 'w1' ? undefined : slot);
   if (ok) G.hooks.toast && G.hooks.toast(`Equipped: ${it.name}`, itemSvg(it), 'gold');

@@ -107,7 +107,7 @@ function pickTarget(m, P) {
     const dp = Math.hypot(o.pos.x - at.x, o.pos.z - at.z); if (dp > R) continue;
     // guard: what you are fighting, or what is fighting you; attack: anything hostile; stay: anything that comes close
     // only what you are fighting, what hit you, or what hit the pet (an enemy just running at you is not enough)
-    const fighting = (o === G.target && recent(P.hitT)) || (o === P.lastHitBy && recent(P.hurtT)) || (o === m.lastHitBy && recent(m.hurtT));
+    const fighting = (o === G.target && recent(P.hitT)) || (o === P.lastHitBy && recent(P.lastHitAt)) || (o === m.lastHitBy && recent(m.hurtT));
     if (PETS.mode === 'guard' && !fighting) continue;
     if (PETS.mode === 'attack' && !(fighting || o.hostile || o.provoked)) continue;
     const d = Math.hypot(o.pos.x - m.pos.x, o.pos.z - m.pos.z) - (o === G.target ? 6 : 0); if (d < bd) { bd = d; best = o; }

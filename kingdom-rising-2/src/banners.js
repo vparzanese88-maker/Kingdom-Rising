@@ -83,7 +83,7 @@ export function updateBanners(dt, P) {
     if (false && (b.moteT -= dt) <= 0) { b.moteT = 0.12; const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * b.r; V.emit(B.mote, new THREE.Vector3(b.pos.x + Math.cos(a) * rr, b.pos.y + 0.2, b.pos.z + Math.sin(a) * rr), { speed: 0.3, vy: 1.4, size: 0.3, life: 1.1 }); }
     if (P && !P.dead && Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z) < b.r) {
       P.buffs[B.buff] = 0.35;
-      if (b.kind === 'vigor' && P.hp < P.maxHp) { const add = Math.min(P.maxHp - P.hp, P.maxHp * 0.03 * dt * (P.hk ? P.hk() : 1)); P.hp += add; b.healed = (b.healed || 0) + add; }
+      if (b.kind === 'vigor' && P.hp < P.maxHp) { const add = Math.min(P.maxHp - P.hp, P.maxHp * (P.pk && P.pk('cmd') ? 0.045 : 0.03) * dt * (P.hk ? P.hk() : 1)); P.hp += add; b.healed = (b.healed || 0) + add; }
       if ((b.tickT = (b.tickT || 0) - dt) <= 0) { b.tickT = 1; // once a second: show it working on you
         if (b.kind === 'vigor' && b.healed >= 1) { V.number(P.pos.clone().setY(P.pos.y + 2.1), '+' + Math.round(b.healed), 'heal'); V.burst('heal', P.pos.clone().setY(P.pos.y + 1), 12, { speed: 1.5, vy: 2 }); b.healed = 0; }
       }

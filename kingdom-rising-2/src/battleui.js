@@ -527,6 +527,7 @@ function treesTab(c, h, cls, res) {
   top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · drag abilities onto slots · right click a slot to clear it</small>')).appendChild(slotBar(h, cls));
   const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
   c.appendChild(top);
+  c.appendChild(el('div', 'st-legend', '<span><i class="lg dmg"></i>Damage ability · goes on <b>F C Q</b></span><span><i class="lg sup"></i>Buff, song or heal · goes on <b>1-5</b></span><span><i class="lg pas"></i>Passive · always on once learned</span><span><i class="lg ult"></i>Capstone · 10 points in that tree</span>'));
   const wrap = el('div', 'st-trees');
   for (const T of trees) {
     const spent = Game.treeSpent(h, T.id), col = el('div', 'st-tree'); col.style.setProperty('--tc', T.col);

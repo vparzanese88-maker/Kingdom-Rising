@@ -2,6 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
+import { skillDamage, DUAL_CLASSES } from './skills.js';
 import { TWIN_TO_SINGLE, HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -206,7 +207,7 @@ export function heroDerived(h) {
 export function weaponDamage(h, w) {
   const D = heroDerived(h);
   const s = weaponStat(w.wt), mul = s === 'int' ? D.spellMul : s === 'dex' ? D.rangedMul : D.meleeMul;
-  const mast = 1; // weapons no longer level up
+  const mast = BATTLE ? 1 : skillDamage(h, w.wt); // campaign: weapon skills (1H Slashing, Piercing...) add a little damage
   return mast * w.dmg * mul * (1 + (h.level - 1) * 0.05 * LEVEL_GROWTH) * (1 + perk(h, 'dmg') * 0.08 + (consumBuff(h).dmg || 0)) * (1 + wperk(h, familiesOf(w.wt)[0], 'wdmg') * 0.06) * (h.cls === 'wizard' && perk(h, 'cap') ? 1.15 : 1);
 }
 
@@ -250,7 +251,7 @@ export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && 
 export const WM_HOLD = 3, WM_F = 5;
 export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 2, 3, 4, 6][i] || 6; }
 export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : Math.max(1, h.level || 1); } // no more weapon levels: weapons grow with your character level
-export function comboLen(h, wt) { const C = COMBOS[wt]; return C ? C.chain.length : 0; } // the full light-attack chain from the start
+export function comboLen(h, wt) { const C = COMBOS[wt]; return C ? (BATTLE ? C.chain.length : 1) : 0; } // campaign: single swings // the full light-attack chain from the start
 export function canHold(h, wt) { return true; } // hold for a heavy attack from the start
 export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.75 + 0.25 * Math.min(1, (lv - 1) / 19); } // a little slower at level 1 (75%), full speed at level 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
@@ -292,6 +293,7 @@ export function equipFromInv(h, idx, slot) {
       if (!main && hd === 'one') target = 'w1';
       else if (isTwoHanded(main)) { warn(`Your ${main.name} needs both hands. Hold a sword or mace in your main hand to use an off hand.`); return false; }
       else if (!main) { warn('Hold a sword or mace in your main hand before equipping a shield.'); return false; }
+      else if (!BATTLE && hd === 'one' && !DUAL_CLASSES.has(h.cls)) { warn(`${CLASSES[h.cls].name}s can't dual wield: hold a shield in the off hand instead.`); return false; }
       else target = 'w2';
     } else if (hd === 'two' && h.equip.w2) {
       // the off-hand item goes back into the bag

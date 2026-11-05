@@ -16,6 +16,7 @@ import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv } from './dat
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { plantBanner } from './banners.js';
+import * as Skills from './skills.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -322,10 +323,12 @@ export class Player {
       const pivot = new THREE.Group(); pivot.position.set(0, 0.2, -0.14); pivot.add(cape); this.ch.chest.add(pivot); this.ch.lichCape = pivot;
     }
     tintGear(this.ch, this.h.equip);
+    if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, w2.tier, w2.rarity); this.ch.arms.L.grip.add(off); off.rotation.y = Math.PI / 2; this.ch.weapons.off = off; }
     backWeapons(this.ch, [this.h.equip.w3, this.h.equip.w4]);
     bake(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
     if (old) { this.ch.anim = old.anim; this.ch.root.position.copy(old.root.position); this.ch.root.rotation.copy(old.root.rotation); }
     this.vm.setWeapon(w);
+    if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, w2.tier, w2.rarity); this.vm.L.add(off); off.rotation.y = -0.45; this.vm.weapons.off = off; }
     const col = w ? (w.rarity >= 2 ? RARITY[w.rarity].col : WEAPON_TYPES[w.wt].element === 'fire' ? '#ff9050' : '#ffffff') : '#fff';
     this.trail.mat.uniforms.color.value.set(col); this.trailL.mat.uniforms.color.value.set(col);
   }
@@ -428,6 +431,7 @@ export class Player {
     const W = this.W; if (!W) return;
     if (this.block) return;
     if (this.atk) { if (this.atk.t > 0.35 && !this.atk.noQueue) this.queued = 'light'; return; }
+    if (G.newFx && (W.kind === 'gun' || W.kind === 'bow' || W.kind === 'staff') && Math.random() < 0.6) Skills.practise(this.h, Skills.skillOf(this.weapon.wt));
     if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
     if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
@@ -435,9 +439,10 @@ export class Player {
     if (this.comboT <= 0) this.combo = 0;
     const L = Game.comboLen(this.h, this.weapon.wt); // the campaign: strikes unlock as the weapon's mastery grows
     const i = this.combo % L; this.combo = i + 1;
-    const st = C.chain[i];
+    let st = C.chain[i];
+    if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
-    this.startAtk(st.a, dur, { combo: i, step: st, last: i === L - 1 });
+    this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
@@ -525,7 +530,7 @@ export class Player {
         this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed ? base * 0.09 : 0, stun: st.stun || 0 });
         if (blunt) S.blunt(m.pos);
       }
-      if (targets.length) this.wpnXp(1);
+      if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }
       if (targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) {
         const lv = G.newFx ? 0 : Game.masteryOf(this.h, wt), k = wt === 'daggers' ? 2 : 1; // campaign: no random dagger flurries, the rogue's abilities carry the damage
         const n = lv >= 9 && Math.random() < (0.02 + lv * 0.002) * k ? 3 : lv >= 5 && Math.random() < (0.04 + lv * 0.003) * k ? 2 : lv >= 2 && Math.random() < (0.08 + lv * 0.006) * k ? 1 : 0;
@@ -1235,6 +1240,14 @@ export class Player {
     if (on !== !!this.lichForm) { this.lichForm = on; this.refreshGear(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 2.6, '#40ff60', 0.6); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 4 }); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.6), 30, { speed: 3 }); S.roar && S.roar(this.pos); V.addShake(0.4); }
     if (on && this.ch && this.ch.lichCape) { const c = this.ch.lichCape, sp = Math.hypot(this.vel.x, this.vel.z); c.rotation.x = 0.15 + Math.min(0.9, sp * 0.1) + Math.sin(G.time * 3) * 0.06; }
     if (on && Math.random() < dt * 10) V.emit('heal', this.pos.clone().setY(this.pos.y + 0.2 + Math.random() * 1.8), { speed: 0.3, vy: 0.6, size: 0.3, life: 0.8 });
+  }
+  // EverQuest-style skills: practise the weapon skill, then maybe a Double Attack (main hand) and a Dual Wield swing (off hand)
+  meleeExtras(a, t, base, st) {
+    const h = this.h, wt = this.weapon && this.weapon.wt; Skills.practise(h, Skills.skillOf(wt));
+    if (a.name === 'heavy' || a.held || t.dead) return;
+    const swing = (delay, hand, dmg, label) => setTimeout(() => { if (this.dead || t.dead) return; this.dealDamage(t, dmg, { melee: true, offhand: hand === 'off' }); S.swingW('light', 0.9, this.pos); V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.5), label, 'miss'); this.atk = { name: hand === 'off' ? 'off1' : 'swing2', t: 0.25, dur: 0.22, hit: true, noQueue: true, extra: true }; }, delay);
+    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { Skills.practise(h, 'double'); swing(140, 'main', base * (st.m || 1), 'Double attack'); }
+    if (Skills.canDual(h)) { const w2 = h.equip.w2; if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { Skills.practise(h, 'dual'); swing(230, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
   // talents that fire when you kill something
   onKillPerks(mob) {

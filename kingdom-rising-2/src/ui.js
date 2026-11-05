@@ -5,6 +5,7 @@ import { G } from './state.js';
 import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
 import { PROCS, procChance, PROC_DEX } from './data.js';
+import * as Skills from './skills.js';
 import { HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import { BATTLE } from './battlemap.js';
@@ -472,6 +473,10 @@ function renderInventory(c) {
       <div><span>Armour</span><b>${D.armor}</b></div><div><span>Damage</span><b>${w ? Math.round(Game.weaponDamage(h, w)) : 0}</b></div><div><span>Critical</span><b>${(D.crit * 100).toFixed(1)}%</b></div>
     </div>
     <div class="tools">${Object.keys(TOOLS).map(t => `<div class="tl ${h.tools[t] ? '' : 'none'}" title="${h.tools[t] ? (TOOL_TIER_NAMES[h.tools[t]] + ' ' + TOOLS[t].name) : 'No ' + TOOLS[t].name}">${Icons.toolSvg(t, h.tools[t] || 1)}<span>${h.tools[t] ? TOOL_TIER_NAMES[h.tools[t]] : '—'}</span></div>`).join('')}</div>`;
+  if (G.newFx) { // EverQuest-style skills: what you have used, out of what your level allows
+    const cap = Skills.skillCap(h), cur = Skills.skillOf(w && w.wt), has = Object.keys(Skills.SKILLS).filter(k => (h.skills && h.skills[k]) || k === cur || (k === 'dual' && Skills.DUAL_CLASSES.has(h.cls)) || (k === 'double' && Skills.DOUBLE_CLASSES.has(h.cls)));
+    st.insertAdjacentHTML('beforeend', `<div class="skl"><h5>Skills <small>max ${cap} at level ${h.level}</small></h5>${has.map(k => { const v = Skills.skill(h, k); return `<div class="${k === cur ? 'on' : ''}" title="${k === 'dual' ? 'Chance of an extra off-hand swing (one-handed weapon in each hand)' : k === 'double' ? 'Chance of a second main-hand swing' : 'Each point: +0.2% damage with this kind of weapon'}"><span>${Skills.SKILLS[k]}</span><i><u style="width:${Math.round(v / cap * 100)}%"></u></i><b>${v}</b></div>`; }).join('')}</div>`);
+  }
   const left = el('div', 'invleft'); left.append(doll, st);
   // bag
   const right = el('div', 'invright');

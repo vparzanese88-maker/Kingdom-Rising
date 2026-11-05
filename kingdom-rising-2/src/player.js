@@ -55,6 +55,8 @@ const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight:
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
+// creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
+export function mobDefense(m, plv, magic) { const d = m.lv * 4 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
 const BANNERS_AB = new Set(['warbanner', 'vigorbanner', 'stonebanner', 'rally']);
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
@@ -1383,8 +1385,8 @@ export class Player {
     if (m.dead) return;
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
     if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
-    // EverQuest-style: creatures above your level are hard to hurt (you miss more and land weaker blows)
-    if (G.newFx && !m.dummy && m.lv > this.h.level) { const gap = m.lv - this.h.level; if (!o.silent && Math.random() < Math.min(0.55, gap * 0.06)) { V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), 'Miss', 'miss'); return; } dmg *= Math.max(0.25, 1 - gap * 0.08); }
+    // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
+    if (G.newFx && !m.dummy && !m.pet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el);
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
     if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
@@ -1467,7 +1469,6 @@ export class Player {
     if (src && src.hexUntil > G.time) dmg *= 0.65; // a Shaman's Hex drains their strength
     // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
     const lv = src && (src.statLv || src.lv) || (BATTLE ? this.h.level * 2 : designLv(this.h.level));
-    if (G.newFx && src && src.lv > this.h.level && !src.pet) dmg *= 1 + (src.lv - this.h.level) * 0.1; // and they hit you harder
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));

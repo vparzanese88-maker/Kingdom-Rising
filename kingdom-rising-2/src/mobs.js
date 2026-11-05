@@ -224,7 +224,7 @@ let mobId = 1;
 export class Mob {
   constructor(type, lv, x, z) {
     this.id = mobId++; this.type = type; this.def = MOBS[type]; this.lv = lv;
-    this.maxHp = mobHp(lv, this.def); this.hp = this.maxHp; this.dmg = mobDmg(lv, this.def); this.xp = mobXp(lv, this.def);
+    this.maxHp = mobHp(lv, this.def); this.hp = this.maxHp; this.dmg = mobDmg(lv, this.def) * (G.newFx ? 1 + (lv - 1) * 0.06 : 1); /* campaign: +6% damage per level on top */ this.xp = mobXp(lv, this.def);
     if (LV_K !== 1) { this.statLv = lv; this.lv = shownLv(lv); } // campaign: same strength, shown on the 1-50 scale
     this.home = new THREE.Vector3(x, heightAt(x, z), z);
     this.pos = this.home.clone(); this.yaw = Math.random() * 6.28; this.vel = new THREE.Vector3();

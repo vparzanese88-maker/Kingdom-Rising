@@ -699,7 +699,7 @@ export class Player {
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'charge': {
-        // a beat to brace (crouch behind the shield), then a hard, accelerating rush that bowls through everything
+        // a beat to brace, then a hard, accelerating rush that bowls through everything
         const dur = 0.42 * (1 + this.pk('a1up') * 0.2); S.chargeRush(dur);
         this.dodge = { t: -0.3, dur, dir: f.clone(), speed: 36, charge: true, rush: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 4; this.landDip = Math.max(this.landDip || 0, 0.18);
         this.atk = { name: 'heavy', t: 0.3, dur: 0.5, hit: true, noQueue: true };

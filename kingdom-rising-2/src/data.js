@@ -277,7 +277,7 @@ export const CLASSES = {
 // Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
 export const ABILITIES = {
   warrior: [
-    { id: 'charge', cost: 30, name: "Charge", key: '', level: 1, cd: 6, icon: '', desc: "Rush forward 12 m behind your shield, knocking aside and stunning everything in your path." },
+    { id: 'charge', cost: 30, name: "Charge", key: '', level: 1, cd: 6, icon: '', desc: "Charge forward 12 m, knocking aside and stunning everything in your path." },
     { id: 'bash', cost: 25, name: "Shield Bash", key: '', level: 2, cd: 6, icon: '', desc: "Slam your shield into the enemies in front of you: damage, knock back and stun them for 2 s." },
     { id: 'shieldwall', cost: 40, name: "Shield Wall", key: '', level: 4, cd: 20, icon: '', desc: "Brace yourself: take 60% less damage from every direction for 6 s." },
     { id: 'cleavestrike', cost: 30, name: "Cleaving Strike", key: '', level: 6, cd: 7, icon: '', desc: "A wide sweeping blow that hits every enemy in front of you." },

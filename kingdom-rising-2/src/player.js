@@ -85,7 +85,7 @@ const VP = {
   blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.22, -0.31, -0.33, 0.1, 0.42, 0.04), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
-  castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
+  castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
@@ -173,6 +173,7 @@ class ViewModel {
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
     const t = act ? act.t : 0, n = act ? act.name : '';
+    if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
     if (st.tool) {
       if (n === 'chop' || n === 'mine') r = seq(n === 'chop' ? VP.chopA : VP.s3a, n === 'chop' ? VP.chopB : VP.s3b, t, 0.45);
       else r = plerp(VP.gatherR, VP.gatherR2, 0.5 + 0.5 * Math.sin(t * Math.PI * 4));
@@ -214,6 +215,8 @@ class ViewModel {
         case 'draw': r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, t))); break;
         case 'release': r = plerp(VP.bowRdraw, VP.bowR, ease(t)); break;
         case 'cast': r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); if (W && W.kind === 'staff') l = seq(VP.castL, VP.castL, t, 0.3, VP.hideL); else l = seq(VP.castL, VP.castL, t, 0.3, l || VP.hideL); break;
+        case 'castUp': r = plerp(VP.rest, VP.handUpR, ease(Math.min(1, t))); l = plerp(VP.restL, VP.handUpL, ease(Math.min(1, t))); if (this.weapons.main) this.weapons.main.visible = t < 0.15; break;
+        case 'castRel': r = plerp(VP.handUpR, VP.handPushR, ease(Math.min(1, t * 2))); l = plerp(VP.handUpL, VP.handPushL, ease(Math.min(1, t * 2))); break;
         case 'chargeCast': r = plerp(VP.staff, VP.staffHigh, ease(Math.min(1, t))); l = plerp(VP.hideL, VP.castL, ease(Math.min(1, t))); break;
         case 'castBig': r = seq(VP.staffHigh, VP.staffSlam, t, 0.45, VP.staff); l = seq(VP.castL, VP.castL, t, 0.3, VP.hideL); break;
         case 'spell': l = seq(VP.castL, VP.castL, t, 0.25, l || VP.hideL); if (W && W.kind === 'staff') r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); break;
@@ -408,6 +411,8 @@ export class Player {
     if (this.camDist < 0.6) { const o = G.camera.position.clone(); return o.add(new THREE.Vector3(left ? -0.25 : 0.25, -0.22, -0.7).applyQuaternion(G.camera.quaternion)); }
     const p = this.pos.clone(); p.y += this.eye * 0.8; return p.addScaledVector(this.fwd(), 0.5).addScaledVector(this.right(), left ? -0.3 : 0.3);
   }
+  // where a spell leaves you: between your raised hands (campaign), not the staff
+  spellFrom() { if (!G.newFx) return this.handPos(); if (this.camDist < 0.6) { const o = G.camera.position.clone(); return o.add(new THREE.Vector3(0, 0.05, -0.75).applyQuaternion(G.camera.quaternion)); } return this.pos.clone().setY(this.pos.y + this.eye + 0.35).addScaledVector(this.fwd(), 0.55); }
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
@@ -728,7 +733,7 @@ export class Player {
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)))) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
     const ct = CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0);
-    if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && CAST_T[ab.id] ? Skills.castK(this.h) : 1), i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
+    if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && CAST_T[ab.id] ? Skills.castK(this.h) : 1), i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
@@ -1102,12 +1107,12 @@ export class Player {
     const [pk, col] = FX[a.fx] || ['spark', '#ffffff'];
     const el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.kind === 'arcane' || a.fx === 'arcane' || a.fx === 'shadow' ? 'arcane' : null;
     const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
-    const anim = (n, d = 0.45) => { this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
+    const anim = (n, d = 0.45) => { if (G.newFx && (n === 'cast' || n === 'castBig')) { n = 'castRel'; d = 0.5; } this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
     switch (a.t) {
       case 'bolt': case 'drain': {
-        const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.handPos(), dir0 = this.aimDir(from);
+        const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.spellFrom(), dir0 = this.aimDir(from);
         for (let i = 0; i < n; i++) { const dir = dir0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (i - (n - 1) / 2) * (a.spread || 0));
           spawnProjectile({ pos: from.clone(), vel: dir.multiplyScalar(a.speed || 40), grav: a.kind === 'rock' ? 4 : 0.5, radius: a.aoe ? 0.5 : 0.35, dmg: P(a.dmg), owner: 'player', kind: a.t === 'drain' ? 'arcane' : (a.kind || 'arcane'), scale: a.kind === 'orb' ? 1.6 : 1.2, life: 2.5, pierce: !!a.pierce,
             onHit: (p, m, pos) => { const at = (pos || (m && m.pos) || p.pos).clone(); let dealt = 0;
@@ -1155,7 +1160,7 @@ export class Player {
         if (a.sap) this.sapFx(a, t);
         V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.6), a.name, 'bad'); };
         if (a.dot) { // push a small, slow cloud of disease at the target
-          const from = this.handPos(), cl = { p: from.clone(), t: 0 }; S.cast('arcane', this.pos, 0.5);
+          const from = this.spellFrom(), cl = { p: from.clone(), t: 0 }; S.cast('arcane', this.pos, 0.5);
           const iv = setInterval(() => { if (t.dead || this.dead) { clearInterval(iv); return; } cl.t += 0.03; const to = t.pos.clone().setY(t.pos.y + (t.height || 1.6) * 0.6), d = to.clone().sub(cl.p), l = d.length();
             cl.p.addScaledVector(d.normalize(), Math.min(l, 0.03 * 14)); for (let q = 0; q < 3; q++) V.emit(q ? 'leaf' : 'shadow', cl.p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.7)), { speed: 0.3, size: 0.55, life: 0.7, vy: 0.2 });
             if (l < 0.6 || cl.t > 3) { clearInterval(iv); land(); } }, 30);
@@ -1171,6 +1176,7 @@ export class Player {
       case 'summon': { // a 3 s cast at the spot you aim at, then they rise there
         const n = this.qty(a.n || 1, a.extra || 0), at = groundPoint(14);
         this.summonCast = { t: 0, dur: 3 * (G.newFx ? Skills.castK(this.h) : 1), at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
+        if (G.newFx) S.castRise(this.summonCast.dur, this.castCol());
         V.ring(at, 1.8, a.pet === 'skeleton' ? '#b080ff' : '#ffb060', 3.1); S.cast('arcane', this.pos, 0.7); anim('cast', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
       case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
@@ -1191,9 +1197,10 @@ export class Player {
     const c = this.abCast; c.t += dt;
     if (this.dead || this.dodge || this.swim) { this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); if (!this.dead) G.hooks.toast && G.hooks.toast(`${c.name} was interrupted`, '✋', 'bad'); return; }
     G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur);
-    if (c.spell && Math.random() < dt * 20) V.emit(this.W && this.W.element === 'fire' ? 'fire' : this.W && this.W.element === 'frost' ? 'frost' : 'arcane', this.handPos(), { speed: 0.8, size: 0.25, life: 0.5 });
+    if (c.spell && G.newFx) this.castFx(dt, c.t / c.dur);
+    else if (c.spell && Math.random() < dt * 20) V.emit(this.W && this.W.element === 'fire' ? 'fire' : this.W && this.W.element === 'frost' ? 'frost' : 'arcane', this.handPos(), { speed: 0.8, size: 0.25, life: 0.5 });
     if (c.t < c.dur) return;
-    this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx && c.spell) Skills.practise(this.h, 'casting'); this.ability(c.i, true);
+    this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx && c.spell) { Skills.practise(this.h, 'casting'); this.castBurst(); } this.ability(c.i, true);
   }
   // buffs and heals you can see: coloured motes around you while each one lasts, green sparkles while you regenerate
   tickAuras(dt) {
@@ -1220,7 +1227,7 @@ export class Player {
   // Skyrim-style: weapons away on your back, or back in your hands (any attack, ability, block or hit draws them)
   sheatheWeapons() { if (this.sheathed || this.atk || this.dodge || !this.weapon) return; this.sheathed = true; this.press = null; this.block = false; sheathe(this.ch, true); this.vmShow(false); S.swap && S.swap(); this.drawAnimT = 0.35; }
   drawWeapons() { if (!this.sheathed) return false; this.sheathed = false; sheathe(this.ch, false); this.vmShow(true); S.swap && S.swap(); this.drawAnimT = 0.35; this.swapT = 0.3; return true; }
-  vmShow(on) { const w = this.vm && this.vm.weapons; if (w) for (const k in w) if (w[k]) w[k].visible = on; }
+  vmShow(on) { const w = this.vm && this.vm.weapons; if (this.vm) this.vm.hiddenAll = !on; if (w) for (const k in w) if (w[k]) w[k].visible = on; }
   // health regeneration over time (warriors never heal instantly): frac of max health over dur seconds, stacking onto any running regen
   regenK() { return 1 + Game.fxCount(this.h, 'heal') * 0.1 + Game.fxCount(this.h, 'u_sup') * 0.25; } // your own regeneration (not class healing power)
   addRegen(frac, dur) { const per = this.maxHp * frac * this.regenK() / dur; if (this.regen && this.regen.t > 0) { const left = this.regen.per * this.regen.t; this.regen = { per: (left + per * dur) / Math.max(dur, this.regen.t), t: Math.max(dur, this.regen.t) }; } else this.regen = { per, t: dur }; }
@@ -1251,6 +1258,18 @@ export class Player {
       if (Skills.TRIPLE_CLASSES.has(h.cls) && Skills.skillCapOf(h, 'triple') > 0 && (Skills.practise(h, 'triple'), Math.random() < Skills.tripleChance(h, this.D.stats.str))) { swing(280, 'main', base * (st.m || 1), 'Triple attack'); } }
     if (Skills.canDual(h)) { const w2 = h.equip.w2; Skills.practise(h, 'dual'); if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
+  // spellcasting look: the colour of your magic, gathering light at both raised hands, motes spiralling up around you, a ring at your feet
+  castCol() { const C = { necromancer: 'shadow', cleric: 'holy', paladin: 'holy', druid: 'nature', shaman: 'frost', elementalist: 'fire', enchanter: 'arcane', bard: 'holy', darkknight: 'shadow', ranger: 'nature', beastmaster: 'nature' }; return C[this.h.cls] || (this.W && this.W.element) || 'arcane'; }
+  castFx(dt, k) {
+    const col = this.castCol(), kind = { shadow: 'shadow', holy: 'gold', nature: 'heal', frost: 'frost', fire: 'fire', arcane: 'arcane' }[col] || 'arcane', hex = { shadow: '#70ff90', holy: '#ffe080', nature: '#80ff90', frost: '#8ad8ff', fire: '#ff9040', arcane: '#c080ff' }[col] || '#c080ff';
+    const third = this.camDist >= 0.6, top = this.pos.clone().setY(this.pos.y + this.eye + 0.45);
+    if (Math.random() < dt * 40) { for (const hp of third ? [top.clone().addScaledVector(this.right(), 0.28), top.clone().addScaledVector(this.right(), -0.28)] : [this.handPos(), this.handPos(true)]) V.emit(kind, hp, { speed: 0.4, vy: 0.5, size: 0.28 + k * 0.25, life: 0.45 }); }
+    if (Math.random() < dt * 25) { const a = G.time * 6 + Math.random() * 6.28, r = 0.9 - k * 0.4; V.emit(kind, this.pos.clone().add(new THREE.Vector3(Math.cos(a) * r, 0.2 + Math.random() * 1.8 * k, Math.sin(a) * r)), { speed: 0.2, vy: 1.4, size: 0.3, life: 0.8 }); }
+    this.castRingT = (this.castRingT || 0) - dt; if (this.castRingT <= 0) { this.castRingT = 0.45; V.ring(this.pos, 1.4 + k * 0.6, hex, 0.5); }
+    if (Math.random() < dt * 6) V.light(third ? top : this.handPos(), hex, 2 + k * 4, 0.2, 6);
+  }
+  castBurst() { const col = this.castCol(), hex = { shadow: '#70ff90', holy: '#ffe080', nature: '#80ff90', frost: '#8ad8ff', fire: '#ff9040', arcane: '#c080ff' }[col] || '#c080ff', at = this.spellFrom();
+    S.castRelease(col); V.sphereFlash(at, 1.1, hex, 0.3); V.light(at, hex, 8, 0.35); V.burst({ shadow: 'shadow', holy: 'gold', nature: 'heal', frost: 'frost', fire: 'fire', arcane: 'arcane' }[col] || 'arcane', at, 30, { speed: 4 }); this.atk = { name: 'castRel', t: 0, dur: 0.5, hit: true, noQueue: true }; }
   // talents that fire when you kill something
   onKillPerks(mob) {
     if (this.pk('bloodlust')) { this.addRegen(0.05, 4); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 2, vy: 1 }); }
@@ -1283,11 +1302,11 @@ export class Player {
   tickSummon(dt) {
     const c = this.summonCast; c.t += dt;
     if (this.dead || this.dodge) { this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (!this.dead) G.hooks.toast && G.hooks.toast(`${c.name} was interrupted`, '✋', 'bad'); return; }
-    G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur);
+    G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur); if (G.newFx) this.castFx(dt, c.t / c.dur);
     if (Math.random() < dt * 30) V.emit(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2.4, 0.1, (Math.random() - 0.5) * 2.4)), { speed: 1, vy: 2, size: 0.3, life: 0.8 });
     if (Math.random() < dt * 12) V.emit('arcane', this.handPos(), { speed: 0.6, size: 0.2, life: 0.5 });
     if (c.t < c.dur) return;
-    this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx) Skills.practise(this.h, 'casting');
+    this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx) { Skills.practise(this.h, 'casting'); this.castBurst(); }
     const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
     if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
     else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);
@@ -1715,15 +1734,18 @@ export class Player {
       if (a.name === 'release') action = 'shoot', actionT = 0.6 + a.t * 0.4;
       if (this.W && this.W.kind === 'gun' && (a.name === 'release' || a.name === 'shoot')) { action = 'gunAim'; actionT = a.t; }
       if (a.name === 'spell') action = 'cast';
+      if (a.name === 'castRel') action = 'castRel';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
+    { const cn = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast); if (cn) { action = 'castUp'; actionT = Math.min(1, cn.t / Math.min(0.8, cn.dur * 0.6)); } const mw = ch.weapons && ch.weapons.main; if (mw && G.newFx && !this.sheathed) mw.visible = !cn; }
     const roll = this.dodge && !this.dodge.charge && this.dodge.kind !== 'step' ? Math.min(1, this.dodge.t) : null;
-    const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
+    const aimStaff = action !== 'castUp' && action !== 'castRel' && this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && ((this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
-    const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
+    const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
+    const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }

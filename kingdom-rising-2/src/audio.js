@@ -361,6 +361,18 @@ export const S = {
     for (const f of ch) tone(t + 0.2, 1.4, o.node, { type: kind === 'vigor' ? 'sine' : 'sawtooth', f, gain: kind === 'vigor' ? 0.06 : 0.035, a: 0.12 }); },
   shieldWall() { if (!ctx) return; const o = out(null, sfxBus, 0.3), t = now(); for (const f of [520, 780, 1170]) tone(t, 1.0, o.node, { type: 'triangle', f, gain: 0.06, a: 0.002 }); tone(t, 1.2, o.node, { type: 'sine', f: 110, gain: 0.2, a: 0.05 }); noise(t, 0.15, o.node, { type: 'bandpass', f: 2500, q: 2, gain: 0.3, a: 0.001 }); },
   heartbeat() { if (!ctx) return; const o = out(null, sfxBus, 0.05), t = now(); for (let i = 0; i < 3; i++) { tone(t + i * 0.55, 0.15, o.node, { type: 'sine', f: 70, f2: 45, gain: 0.6, a: 0.005 }); tone(t + i * 0.55 + 0.18, 0.15, o.node, { type: 'sine', f: 60, f2: 40, gain: 0.4, a: 0.005 }); } },
+  // spellcasting: a swelling choir-like hum that climbs for the whole cast, then a bright release
+  castRise(dur = 1.5, col = 'arcane') {
+    if (!ctx) return; const o = out(null, sfxBus, 0.35), t = now(), base = { fire: 110, frost: 165, holy: 196, nature: 147, shadow: 98, arcane: 131 }[col] || 131;
+    for (const [m, g] of [[1, 0.06], [1.5, 0.04], [2, 0.035], [3, 0.02]]) tone(t, dur + 0.2, o.node, { type: 'sine', f: base * m, f2: base * m * 1.6, gain: g, a: dur * 0.8 });
+    tone(t, dur + 0.2, o.node, { type: 'triangle', f: base * 4, f2: base * 6, gain: 0.012, a: dur });
+    noise(t, dur + 0.15, o.node, { type: 'bandpass', f: 600, f2: 3200, q: 2.5, gain: 0.12, a: dur * 0.9 });
+  },
+  castRelease(col = 'arcane') {
+    if (!ctx) return; const o = out(null, sfxBus, 0.4), t = now(), base = { fire: 220, frost: 330, holy: 392, nature: 294, shadow: 196, arcane: 262 }[col] || 262;
+    for (const m of [1, 1.25, 1.5, 2]) tone(t, 0.9, o.node, { type: 'sine', f: base * m, gain: 0.05, a: 0.005 });
+    noise(t, 0.4, o.node, { type: 'highpass', f: 1800, f2: 5000, q: 0.7, gain: 0.25, a: 0.003 }); tone(t, 0.35, o.node, { type: 'sine', f: 120, f2: 50, gain: 0.3, a: 0.003 });
+  },
   battleCry() {
     if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now();
     for (let v = 0; v < 4; v++) { const f = 140 + v * 30; const x = tone(t + v * 0.03, 1.2, o.node, { type: 'sawtooth', f, f2: f * 1.25, gain: 0.08, a: 0.05 }); }

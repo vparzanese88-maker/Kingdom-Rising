@@ -630,6 +630,8 @@ function attackPose(name, t, mirror) {
     case 'mine': return seq('mineA', 'mineB', 0.5);
     case 'gather': case 'skin': return t < 0.5 ? poseLerp(POSE.gatherA, POSE.gatherB, ease(t * 2)) : poseLerp(POSE.gatherB, POSE.gatherA, ease((t - 0.5) * 2));
     case 'cheer': return POSE.cheer;
+    case 'castUp': { const k = ease(Math.min(1, t)); return [0, -0.9 - 1.9 * k, 0, -0.35 - 0.15 * k, -0.5 * (1 - k) - 0.15, -0.9 - 1.9 * k, -0.35 - 0.15 * k, -0.5 * (1 - k) - 0.15, -0.18 * k]; } // both arms rise slowly to the sky, the head and chest tip back
+    case 'castRel': { const k = ease(Math.min(1, t * 2)); return [0, -2.8 + 1.4 * k, 0, -0.5 + 0.3 * k, -0.15, -2.8 + 1.4 * k, -0.5 + 0.3 * k, -0.15, -0.18 + 0.28 * k]; } // and sweep forward to release the spell
     case 'gunAim': { const o = POSE.gunAim.slice(); o[8] = -0.12 * Math.max(0, 1 - t * 4); o[1] -= 0.25 * Math.max(0, 1 - t * 4); return o; } // musket at the shoulder; a kick back on the shot (t = time since firing)
     case 'claw': return seq('s1a', 's1b', 0.4);
     case 'slam': return seq('h_a', 'h_b', 0.55);

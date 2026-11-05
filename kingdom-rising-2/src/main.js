@@ -14,6 +14,7 @@ import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
+import * as Skills from './skills.js';
 import { NEW_CLASSES } from './classes2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
@@ -446,6 +447,8 @@ function hooks() {
     UI.banner(`Level ${lv}!`, (unlocked.length ? 'Unlocked: ' + unlocked.join(' · ') + ' · ' : '') + (G.noTalents ? 'Your abilities grow stronger' : 'New talent point: press N'), 4500);
     S.levelUp(); V.burst('gold', p.pos.clone().setY(p.pos.y + 1), 80, { speed: 5, vy: 4, grav: -1, life: 1.6 }); V.ring(p.pos, 5, '#ffe090', 0.8); V.sphereFlash(p.pos.clone().setY(p.pos.y + 1), 2, '#ffe8a0', 0.6); V.light(p.pos.clone().setY(p.pos.y + 2), '#ffd080', 6, 1.2);
     Game.autoFillHotbar(G.save); UI.refreshAbilityBar(); saveNow();
+    if (!BATTLE) { const h = G.save; if (lv === 10 && Skills.DOUBLE_CLASSES.has(h.cls)) chatAdd('<b class="sk">You have learned Double Attack!</b>', 'skill'); if (lv === 15 && Skills.TRIPLE_CLASSES.has(h.cls)) chatAdd('<b class="sk">You have learned Triple Attack!</b>', 'skill');
+      chatAdd(`Your skills can now rise to ${Skills.skillCap(h)}.`, 'skill'); }
     for (const u of unlocked) setTimeout(() => UI.toast(`Unlocked: ${u}`, '✦', 'gold'), 600);
   };
   H.talk = (npc) => { S.click(); if (storyTalk(G.save, npc)) return; UI.openDialog(npc); };
@@ -683,6 +686,7 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
+      if (e.code === 'KeyU' && !BATTLE) { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyO' && !BATTLE) { UI.toggleMainOnly(); return; }

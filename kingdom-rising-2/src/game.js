@@ -3,7 +3,7 @@ import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
 import { settings } from './saves.js';
-import { skillDamage, skill, DUAL_CLASSES } from './skills.js';
+import { skillDamage, skillSpeed, skill, DUAL_CLASSES } from './skills.js';
 import { TWIN_TO_SINGLE, HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
@@ -268,7 +268,7 @@ export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4
 export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : Math.max(1, h.level || 1); } // no more weapon levels: weapons grow with your character level
 export function comboLen(h, wt) { const C = COMBOS[wt]; return C ? (BATTLE ? C.chain.length : 1) : 0; } // campaign: single swings // the full light-attack chain from the start
 export function canHold(h, wt) { return true; } // hold for a heavy attack from the start
-export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.75 + 0.25 * Math.min(1, (lv - 1) / 19); } // a little slower at level 1 (75%), full speed at level 20
+export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE ? 1 : (YARD ? 1 : 0.75 + 0.25 * Math.min(1, (lv - 1) / 19)) * skillSpeed(h, wt); } // slower at level 1, full speed at 20, and the weapon's skill adds a little more // a little slower at level 1 (75%), full speed at level 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {

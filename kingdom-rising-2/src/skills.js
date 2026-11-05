@@ -48,3 +48,23 @@ export const doubleChance = (h, str) => { const v = skill(h, 'double'); return v
 export const tripleChance = (h, str) => { const v = skill(h, 'triple'); return v > 0 ? Math.min(0.22, 0.2 * v / 30 + (str || 0) * 0.0003) : 0; };
 // Casting: casters cast up to 50% faster at skill 105, hybrids up to 25%
 export const castK = (h) => { const m = CASTER_CLASSES.has(h.cls) ? 0.5 : HYBRID_CLASSES.has(h.cls) ? 0.25 : 0; return 1 - m * Math.min(1, skill(h, 'casting') / MAX_SKILL); };
+
+// each skill point also swings that kind of weapon a little faster (100 skill = 15% faster)
+export const skillSpeed = (h, wt) => { const id = skillOf(wt); return id ? 1 + Math.max(0, skill(h, id) - 1) * 0.0015 : 1; };
+// what each skill does, for the skills window
+export const SKILL_INFO = {
+  slash1: 'Swords and hand axes.', slash2: 'Greatswords and great axes.', blunt1: 'Maces.', blunt2: 'Warhammers and quarterstaffs.', pierce: 'Daggers.', pierce2: 'Spears.', h2h: 'Fist wraps.',
+  archery: 'Bows.', firearms: 'Muskets.', dual: 'How often your off-hand weapon swings too (with Dexterity). Needs a one-handed weapon in each hand.',
+  double: 'A chance of a second main-hand swing. Learned at level 10.', triple: 'After a double attack, a chance of a third swing. Learned at level 15.',
+  casting: 'Spells cast faster and magical staffs hit harder. Rises by casting spells.',
+};
+export const WEAPON_SKILLS = ['slash1', 'slash2', 'blunt1', 'blunt2', 'pierce', 'pierce2', 'h2h', 'archery', 'firearms'];
+export const effectOf = (h, id) => {
+  const v = skill(h, id);
+  if (WEAPON_SKILLS.includes(id)) return `+${(Math.max(0, v - 1) * 0.2).toFixed(1)}% damage · +${(Math.max(0, v - 1) * 0.15).toFixed(1)}% speed`;
+  if (id === 'dual') return `${Math.round(dualChance(h, 0) * 100)}% off-hand chance`;
+  if (id === 'double') return v ? `${Math.round(doubleChance(h, 0) * 100)}% double attack chance` : 'not learned yet';
+  if (id === 'triple') return v ? `${Math.round(tripleChance(h, 0) * 100)}% triple attack chance` : 'not learned yet';
+  if (id === 'casting') return `spells cast ${Math.round((1 - castK(h)) * 100)}% faster · staffs +${(v * 0.2).toFixed(1)}%`;
+  return '';
+};

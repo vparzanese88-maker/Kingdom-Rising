@@ -539,6 +539,14 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
 }
 export function portraitRect() { if (UI.open !== 'inv') return null; const e = document.getElementById('portrait'); return e ? e.getBoundingClientRect() : null; }
 function quickUse(i) { const h = G.player.h, it = h.inv[i]; if (!it) return; if (it.kind) Game.equipFromInv(h, i, it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(h, it) ? 'w3' : undefined); else if (ITEMS[it.id]?.use) Game.useItem(h, it.id, G.player); }
+// EverQuest-style skills window (U): every skill you have, highest first, what it does and what it gives you now
+export function openSkillsWin() {
+  const c = openWin('skillwin', 'Skills', '', 'skillwin'), h = G.player.h, cap = Skills.skillCap(h), cur = Skills.skillOf(G.player.weapon && G.player.weapon.wt);
+  const ids = Object.keys(Skills.SKILLS).filter(k => Skills.skillCapOf(h, k) > 0 || k === 'double' && Skills.DOUBLE_CLASSES.has(h.cls) || k === 'triple' && Skills.TRIPLE_CLASSES.has(h.cls) || k === 'dual' && Skills.DUAL_CLASSES.has(h.cls))
+    .filter(k => Skills.WEAPON_SKILLS.includes(k) ? (Skills.skill(h, k) > 1 || k === cur) : true).sort((a, b) => Skills.skill(h, b) - Skills.skill(h, a));
+  c.innerHTML = `<p class="dim" style="margin:0 0 8px">Skills rise as you use them, up to <b>${cap}</b> at level ${h.level}. Weapon skills make that kind of weapon hit harder and swing faster.</p>` + ids.map(k => { const v = Skills.skill(h, k), kc = Skills.skillCapOf(h, k);
+    return `<div class="swrow${k === cur ? ' on' : ''}${kc <= 0 ? ' off' : ''}"><div class="swn"><b>${Skills.SKILLS[k]}</b><small>${Skills.SKILL_INFO[k] || ''}</small></div><div class="swb"><i><u style="width:${kc > 0 ? Math.round(v / kc * 100) : 0}%"></u></i><span>${kc > 0 ? `${v} / ${kc}` : '🔒'}</span></div><div class="swe">${Skills.effectOf(h, k)}</div></div>`; }).join('');
+}
 export function refreshOpen() { if (UI.open === 'inv') renderInventory(winRoot().querySelector('.content')); if (UI.open === 'craft' && craftState) renderCraft(); if (UI.open === 'skills') renderSkills(); }
 
 // --- skills: class tree, weapon trees, dual wield mastery ---

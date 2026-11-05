@@ -1383,6 +1383,8 @@ export class Player {
     if (m.dead) return;
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
     if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
+    // EverQuest-style: creatures above your level are hard to hurt (you miss more and land weaker blows)
+    if (G.newFx && !m.dummy && m.lv > this.h.level) { const gap = m.lv - this.h.level; if (!o.silent && Math.random() < Math.min(0.55, gap * 0.06)) { V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), 'Miss', 'miss'); return; } dmg *= Math.max(0.25, 1 - gap * 0.08); }
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
     if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
@@ -1465,6 +1467,7 @@ export class Player {
     if (src && src.hexUntil > G.time) dmg *= 0.65; // a Shaman's Hex drains their strength
     // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
     const lv = src && (src.statLv || src.lv) || (BATTLE ? this.h.level * 2 : designLv(this.h.level));
+    if (G.newFx && src && src.lv > this.h.level && !src.pet) dmg *= 1 + (src.lv - this.h.level) * 0.1; // and they hit you harder
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);
     dmg = Math.max(1, Math.round(dmg * (1 - red)));

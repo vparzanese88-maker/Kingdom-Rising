@@ -649,7 +649,7 @@ function uprightShield(ch, st) {
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
   // blocking: face front; otherwise it rides the forearm, angled out to the front-left
   const bk = sh.userData.bk = (sh.userData.bk || 0) + ((st.block ? 1 : 0) - (sh.userData.bk || 0)) * 0.25;
-  const rx = (ch.relaxK || 0) * (1 - bk); _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk) * (1 - rx) + 1.45 * rx, 0));
+  const rx = (ch.relaxK || 0) * (1 - bk); _sq3.setFromEuler(_se.set(-0.1 * bk + 0.08 * (1 - bk), 0.12 * bk - 0.15 * (1 - bk) * (1 - rx) + 0.8 * rx, 0)); // relaxed: angled out about 45 degrees
   _sq2.multiply(_sq3);
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
@@ -678,6 +678,8 @@ export function animateHumanoid(ch, dt, st) {
   damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0), 0, 0.02, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0), 0, -0.02, k);
   damp(legs.L.knee, knL + (st.sit ? 1.5 : 0), 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0), 0, 0, k);
   damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k);
+  // standing armed: soft knees, weight settled, not locked straight
+  if (st.armed && ch.wt && sp < 0.6 && !air && !st.action && !st.sit && !st.swim && !st.dead) { const kb = 0.2; legs.L.knee.rotation.x += kb; legs.R.knee.rotation.x += kb; legs.L.thigh.rotation.x -= kb * 0.5; legs.R.thigh.rotation.x -= kb * 0.5; legs.L.ankle.rotation.x -= kb * 0.5; legs.R.ankle.rotation.x -= kb * 0.5; }
   // a front kick: chamber the knee, snap the leg straight out, put it back down
   if (st.action === 'kick') { const t = clamp01(st.actionT || 0), ch1 = t < 0.25 ? t / 0.25 : 1, ext = t < 0.25 ? 0 : t < 0.45 ? (t - 0.25) / 0.2 : t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3, back = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
     legs.R.thigh.rotation.x = -(0.9 * ch1 + 0.65 * ext) * back; legs.R.knee.rotation.x = (1.6 * ch1 * (1 - ext) + 0.05) * back; legs.R.ankle.rotation.x = -0.5 * ext * back;
@@ -694,7 +696,7 @@ export function animateHumanoid(ch, dt, st) {
     carry = true; const W = WEAPON_TYPES[ch.wt], sw = armSwing, bend = runF * 0.55;
     const ready = st.ready !== false; ch.relaxK = (ch.relaxK || 0) + ((ready ? 0 : 1) - (ch.relaxK || 0)) * Math.min(1, dt * 5);
     if (!ready && W.kind === 'melee' && W.hands !== 'two') // relaxed: both arms hang loose at your sides, the blade low with its tip toward the ground
-      P = [0.04, 0.05 - sw * 0.7, 0, -0.22, -0.12 - bend, W.hands === 'shield' ? -0.05 + sw * 0.5 : -0.1 + sw * 0.7, W.hands === 'shield' ? -0.18 : -0.12, -0.3 - bend * 0.5, 0]; // sword arm straight down beside the hip, out from the body
+      P = [0.04, 0.05 - sw * 0.7, 0, -0.42, -0.18 - bend, W.hands === 'shield' ? -0.08 + sw * 0.5 : -0.1 + sw * 0.7, W.hands === 'shield' ? -0.32 : -0.2, -0.35 - bend * 0.5, 0]; // sword arm straight down beside the hip, out from the body
     else if (!ready && W.hands === 'two' && W.kind === 'melee') // relaxed two-hander: held low across the body, head down by the left foot
       P = [0.15, -0.3 - sw * 0.2, 0.15, 0.25, -0.55 - runF * 0.3, -0.45 + sw * 0.15, -0.25, -0.75 - runF * 0.3, 0];
     else if (!ready && W.kind === 'staff') // a walking stick: planted beside you, the other arm loose

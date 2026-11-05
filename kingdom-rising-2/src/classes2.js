@@ -192,6 +192,36 @@ export const NEW_CLASSES = {
       { id: 'whirlclaw', name: 'Whirling Claws', level: 16, cd: 12, cost: 30, t: 'nova', r: 4.5, dmg: 1.9, bleed: 0.1, fx: 'blood', desc: 'Spin with both axes, tearing everything within 4.5 m.' },
       { id: 'packcall', name: 'Call the Pack', level: 18, cd: 50, cost: 40, t: 'summon', pet: 'wolfpack', n: 3, extra: 2, dur: 30, desc: 'A pack of wolves runs to your side for 30 s.' },
     ] },
+  blunderbuss: { name: 'Blunderbuss', campaignOnly: true, desc: 'A gunner in heavy plate who carries a flared scattergun and a belt of powder bombs. Blows whole groups apart up close.',
+    weapons: ['blunderbuss'], armor: 'mail', start: 'blunderbuss', startName: 'Blunderbuss', outfit: 'warrior',
+    colors: { main: '#4a4038', trim: '#c8902a', metal: '#8a8e96' }, pool: { hp: [125, 16], mana: [0, 0], end: [105, 6], uses: 'end' },
+    info: { tag: 'Plate-clad gunner', diff: 2, role: 'Close-range area damage, very tough', res: 'Endurance', tips: ['Every shot is a spray of shot: get close and catch several enemies in it.', 'Grenades and Mortar Barrage blow apart groups you cannot reach.', 'Your plate and Iron Hide let you stand in the middle of the fight.'] },
+    tune: { dmg: 0.9, hp: 0.95 },
+    abilities: [
+      // Scattershot: what the gun itself can do
+      { id: 'buckshot', name: 'Buckshot Blast', level: 2, cd: 7, cost: 20, t: 'cone', range: 10, ang: 0.9, dmg: 2.0, knock: 6, fx: 'fire', campaign: true, desc: 'A heavy charge of buckshot that tears through everything in front of you and knocks it back.' },
+      { id: 'chainshot', name: 'Chain Shot', level: 4, cd: 8, cost: 22, t: 'bolt', kind: 'bullet', speed: 120, dmg: 2.4, pierce: true, campaign: true, desc: 'Two balls chained together, spinning through every enemy in a line.' },
+      { id: 'dragonshell', name: "Dragon's Breath Shell", level: 9, cd: 12, cost: 30, t: 'cone', range: 12, ang: 0.7, dmg: 1.6, burn: 0.15, fx: 'fire', campaign: true, desc: 'A shell packed with burning powder: a roaring cone of fire that leaves everything ablaze.' },
+      { id: 'blackpowder', name: 'Black Powder', level: 3, cd: 22, cost: 25, t: 'buff', buff: 'cry', dur: 8, campaign: true, desc: 'Pack every charge with extra powder: you hit 30% harder for 8 s.' },
+      { id: 'quickload', name: 'Quick Load', level: 6, cd: 25, cost: 25, t: 'buff', buff: 'focus', dur: 8, campaign: true, desc: 'Ram, prime, fire, again: for 8 s you shoot 35% faster.' },
+      { id: 'freshpowder', name: 'Fresh Powder', level: 11, cd: 40, cost: 0, t: 'buff', buff: 'surge', dur: 6, campaign: true, desc: 'Break open a fresh keg: for 6 s your abilities cost nothing.' },
+      { id: 'handcannon', name: 'Hand Cannon', level: 18, cd: 30, cost: 50, t: 'cone', range: 15, ang: 0.6, dmg: 4.0, knock: 14, stun: 1, fx: 'fire', campaign: true, desc: 'Load the gun to the muzzle and let it roar: a blast that flattens everything in front of you.' },
+      // Demolition: bombs and barrages
+      { id: 'grenade', name: 'Grenade', level: 1, cd: 6, cost: 20, t: 'bolt', kind: 'keg', speed: 24, dmg: 1.8, aoe: 5, burn: 0.05, campaign: true, desc: 'Lob a powder grenade that blows up everything within 5 m of where it lands.' },
+      { id: 'shrapnel', name: 'Shrapnel Burst', level: 5, cd: 10, cost: 25, t: 'nova', r: 6, dmg: 1.6, fx: 'fire', campaign: true, desc: 'Set off a charge strapped to your plate: shrapnel shreds every enemy within 6 m.' },
+      { id: 'firebomb', name: 'Fire Bomb', level: 8, cd: 14, cost: 30, t: 'ground', r: 6, dmg: 0.5, ticks: 8, burn: 0.06, fx: 'fire', campaign: true, desc: 'A bomb of pitch and powder: the ground where you aim burns for 4 s.' },
+      { id: 'mortar', name: 'Mortar Barrage', level: 12, cd: 20, cost: 40, t: 'ground', r: 8, dmg: 1.1, ticks: 5, stun: 0.3, fx: 'fire', campaign: true, desc: 'Five shells rain down where you aim, one after another.' },
+      { id: 'blastshield', name: 'Blast Shield', level: 4, cd: 26, cost: 25, t: 'buff', buff: 'barrier', amount: 0.25, dur: 12, campaign: true, desc: 'A curved plate on your arm soaks damage equal to 25% of your health, for up to 12 s.' },
+      { id: 'sapperstride', name: "Sapper's Stride", level: 7, cd: 24, cost: 20, t: 'buff', buff: 'swind', dur: 8, campaign: true, desc: 'Move like a sapper under fire: 25% faster for 8 s.' },
+      { id: 'powderfever', name: 'Powder Fever', level: 10, cd: 30, cost: 25, t: 'buff', buff: 'rage', dur: 10, campaign: true, desc: 'The smell of powder makes you wild: you hit 15% harder for 10 s.' },
+      { id: 'greatkeg', name: 'The Great Keg', level: 18, cd: 40, cost: 55, t: 'ground', r: 11, dmg: 3.2, ticks: 1, stun: 1.5, fx: 'fire', campaign: true, desc: 'Roll out the biggest keg you own and light it: one enormous blast where you aim.' },
+      // Ironclad: plate, bracing and bashing
+      { id: 'ironhide', name: 'Iron Hide', level: 3, cd: 22, cost: 25, t: 'buff', buff: 'fort', dur: 12, campaign: true, desc: '+50% armour and your guard cannot be broken for 12 s.' },
+      { id: 'braced', name: 'Braced Stance', level: 6, cd: 30, cost: 30, t: 'buff', buff: 'stand', heal: 0, dur: 10, campaign: true, desc: 'Plant your feet and lock your plates: take 25% less damage for 10 s.' },
+      { id: 'fielddressing', name: 'Field Dressing', level: 9, cd: 22, cost: 25, t: 'hot', pct: 0.25, dur: 10, campaign: true, desc: 'Bind your wounds under your plate: regenerate 25% of your health over 10 s.' },
+      { id: 'buttstroke', name: 'Butt Stroke', level: 2, cd: 7, cost: 18, t: 'strike', reach: 3.2, dmg: 1.6, stun: 1, knock: 8, campaign: true, desc: 'Smash the stock of your gun into the enemy in front of you: knocked back and stunned.' },
+      { id: 'powdercharge', name: 'Powder Charge', level: 8, cd: 12, cost: 25, t: 'dash', dur: 0.35, speed: 28, dmg: 1.4, campaign: true, desc: 'A blast from behind hurls you forward, plate first, through everything in your way.' },
+    ] },
 };
 // what each pet is: summoned units (they fight for your town and follow you)
 export function petDef(kind, lv, big) {

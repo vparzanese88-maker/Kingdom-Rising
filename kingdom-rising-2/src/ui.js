@@ -154,6 +154,7 @@ export function updateHUD(dt) {
     add(B.wall > 0, '🛡', 'Shield Wall · -60% damage', B.wall, '#a8c8ff'); add(B.lich > 0, '💀', 'Lich Lord', B.lich, '#5aff6a'); add(B.stand > 0, '♥', 'Last Stand', B.stand, '#ffc060'); add(B.rage > 0, '🩸', 'Bloodrage', B.rage, '#ff4040');
     add(B.rampage > 0, '⚔', 'Rampage', B.rampage, '#ff7050'); add(B.ward > 0, '✧', 'Warded', B.ward, '#a8e0ff'); add(B.flame > 0, '🔥', 'Flame weapon', B.flame, '#ff9a40');
     add(B.clarity > 0, '✺', 'Clarity', B.clarity, '#a0d8ff'); add(B.focus > 0, '◎', 'Focus', B.focus, '#c0ff90'); add(B.undying > 0, '☠', 'Undying', B.undying, '#ff5050');
+    if (h.sb) for (const id in h.sb) chips.push(['✦', h.sb[id].name + ' · ' + h.sb[id].text, h.sb[id].t, '#ffd84a']);
     for (const k of ['food', 'drink']) if (h[k] && h[k].t > 0) { const F = FOOD_BUFFS[h[k].id]; chips.push([k === 'food' ? '🍖' : '🍺', F.name, h[k].t, '#e8c87a']); }
     const DB = { bleed: ['🩸', 'Bleeding'], poison: ['☠', 'Poisoned'], burn: ['🔥', 'Burning'], slow: ['🐌', 'Slowed'], stun: ['💫', 'Stunned'] }, bad = [];
     if (p.db) for (const k in p.db) if (p.db[k].t > 0 && DB[k]) bad.push([DB[k][0], DB[k][1], p.db[k].t, '#ff4a3a']);

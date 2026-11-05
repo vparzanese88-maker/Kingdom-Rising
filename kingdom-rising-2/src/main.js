@@ -24,12 +24,13 @@ import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { CROWN, CLASS_TREES, TWIN_TO_SINGLE, GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
+import { CLASS_POOLS, CROWN, CLASS_TREES, TWIN_TO_SINGLE, GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
 import * as Icons from './icons.js';
+import { initTips } from './tips.js';
 import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_GOAL, showCreator } from './menu.js';
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, YARD, SETUP, LAYOUT, computeLayout } from './battlemap.js';
@@ -117,7 +118,7 @@ function boot() {
     spawnGuards(TOWNS); }
   }
   hooks();
-  initMenu();
+  initTips(); initMenu();
   Menu.onPlay = startGame;
   addEventListener('resize', onResize); onResize();
   input();
@@ -316,6 +317,18 @@ function campaignSetup() {
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
   for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
+  // EverQuest-style buffs and heals: stat buffs take a moment to cast, have no cooldown and last 2 minutes;
+  // heals take a moment to cast and are limited only by your mana or endurance. Emergency buffs keep their cooldowns.
+  for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';
+    for (const a of ABILITIES[c]) { if (!a.kit || a.song) continue;
+      if (a.t === 'heal' || a.t === 'hot') { a.cd = 0; a.castT = a.t === 'heal' ? 2 : 1.5; a.desc = a.desc.replace(/\.?\s*$/, '.') + ` ${a.castT} s cast, no cooldown.`; continue; }
+      if (a.t !== 'buff') continue;
+      const E = { ward: { ac: [15, 3], sta: [2, 0.5] }, stand: { ac: [12, 2.5] }, fort: { ac: [20, 4] }, cry: caster ? { int: [3, 0.6] } : { str: [3, 0.6] }, rage: caster ? { int: [2, 0.4] } : { str: [2, 0.4] }, focus: { haste: [15, 0] }, swind: { run: [15, 0] }, clarity: { mregen: [2, 0.1] } }[a.buff];
+      if (!E) continue; // barriers, forms, Ice Block, invulnerability and the like stay short emergency buttons
+      a.eq = E; a.cd = 0; a.castT = 2.5; a.dur = 120; delete a.r; delete a.allyBuff;
+      const NM = { ac: 'Armour', str: 'Strength', int: 'Intellect', sta: 'Stamina', haste: 'attack speed', run: 'run speed', mregen: 'mana every second' };
+      const parts = Object.entries(E).map(([k, [b, per]]) => k === 'haste' || k === 'run' ? `+${b}% ${NM[k]}` : `${NM[k]} +${b}${per ? ` (+${per} per level)` : ''}`);
+      a.desc = `${parts.join(', ')} for 2 minutes. ${a.castT} s cast, no cooldown.`; } }
   // only support classes heal or buff anyone but themselves: everyone else's abilities are self-only
   const SUPPORT = new Set(['warrior', 'cleric', 'paladin', 'druid', 'shaman', 'bard', 'enchanter']);
   for (const c in ABILITIES) if (!SUPPORT.has(c)) for (const a of ABILITIES[c]) {

@@ -9,7 +9,7 @@ export const SKILLS = {
 };
 const OF = { sword: 'slash1', axe: 'slash1', handaxes: 'slash1', swordshield: 'slash1', swordmace: 'slash1', greatsword: 'slash2', greataxe: 'slash2',
   mace: 'blunt1', maceshield: 'blunt1', warhammer: 'blunt2', dagger: 'pierce', daggers: 'pierce', spear: 'pierce2', fists: 'h2h',
-  bow: 'archery', musket: 'firearms', quarterstaff: 'blunt2' }; // quarterstaffs are 2H Blunt; magical staffs are spell focuses with no weapon skill
+  bow: 'archery', musket: 'firearms', blunderbuss: 'firearms', quarterstaff: 'blunt2' }; // quarterstaffs are 2H Blunt; magical staffs are spell focuses with no weapon skill
 export const skillOf = (wt) => OF[wt] || null;
 // three kinds of class: pure melee (no spells), hybrids (fight and cast), casters
 export const MELEE_CLASSES = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer']);
@@ -54,7 +54,7 @@ export const skillSpeed = (h, wt) => { const id = skillOf(wt); return id ? 1 + M
 // what each skill does, for the skills window
 export const SKILL_INFO = {
   slash1: 'Swords and hand axes.', slash2: 'Greatswords and great axes.', blunt1: 'Maces.', blunt2: 'Warhammers and quarterstaffs.', pierce: 'Daggers.', pierce2: 'Spears.', h2h: 'Fist wraps.',
-  archery: 'Bows.', firearms: 'Muskets.', dual: 'How often your off-hand weapon swings too (with Dexterity). Needs a one-handed weapon in each hand.',
+  archery: 'Bows.', firearms: 'Muskets and blunderbusses.', dual: 'How often your off-hand weapon swings too (with Dexterity). Needs a one-handed weapon in each hand.',
   double: 'A chance of a second main-hand swing. Learned at level 10.', triple: 'After a double attack, a chance of a third swing. Learned at level 15.',
   casting: 'Spells cast faster and magical staffs hit harder. Rises by casting spells.',
 };

@@ -32,6 +32,12 @@ export const RACES = {
     skins: ['#e8c4a0', '#d4a882', '#c08e68', '#a87a58', '#8a6448'], hairs: ['#5a3a1e', '#7a3a1a', '#3a2a14', '#a06a30', '#2a1a10', '#4a5a2a', '#c88a4a'] },
   dwarf: { name: 'Dwarf', playable: true, desc: 'Short, broad and tough as stone. Famous beards. High Strength and Stamina, lower Dexterity and Intellect.', height: 0.74, width: 1.3, hp: 20, stats: { str: 15, dex: 9, int: 9, sta: 15 },
     skins: ['#efc2a0', '#dba07a', '#bf825d', '#94603f', '#d9a98c'], hairs: ['#b5501f', '#6b3a17', '#2a1b10', '#d6a23f', '#8a8a8a', '#e3e3e3', '#4a2a14'] },
+  halfling: { name: 'Halfling', playable: true, campaignOnly: true, desc: 'Small, cheerful and far braver than they look. Quick hands, quick feet. High Dexterity.', height: 0.7, width: 0.98, hp: 5, stats: { str: 9, dex: 16, int: 11, sta: 13 },
+    skins: ['#f4cfae', '#e8b892', '#d49e78', '#b8805a', '#f0d8c0'], hairs: ['#6a3a1a', '#4a2a12', '#8a5a2a', '#c08a4a', '#2a1a10', '#a0602a', '#d8b070'] },
+  darkelf: { name: 'Dark Elf', playable: true, campaignOnly: true, desc: 'Elves of the deep caverns, ash-grey skinned and white haired, cunning and steeped in shadow magic. High Intellect and Dexterity.', height: 1.04, width: 0.9, hp: 5, stats: { str: 10, dex: 14, int: 16, sta: 9 },
+    skins: ['#7a7896', '#6a6888', '#5a5878', '#8a86a6', '#4c4a68'], hairs: ['#f2f2f6', '#dcdce6', '#c4c4d4', '#a8a8c8', '#1a1a22', '#8a2a3a', '#b0b8e0'] },
+  gnome: { name: 'Gnome', playable: true, campaignOnly: true, desc: 'Tiny tinkerers with huge noses and bigger ideas. The cleverest people in the world. Highest Intellect.', height: 0.6, width: 0.92, hp: 0, stats: { str: 8, dex: 13, int: 18, sta: 10 },
+    skins: ['#f6d8c0', '#eec6a6', '#e0b08c', '#c8946e', '#f8e4d4'], hairs: ['#f4f4f0', '#e8d890', '#c84a2a', '#6a4020', '#e88ab0', '#4aa0d8', '#2a1a10'] },
   goblin: { name: 'Goblin', height: 0.72, width: 0.9, hp: 0, stats: { str: 8, dex: 12, int: 6, sta: 8 }, skins: ['#6a8a3a', '#7a9a44', '#5a7a32'], hairs: ['#1a1a10'] },
   orc: { name: 'Orc', playable: true, desc: 'Huge, green-skinned and tusked. Born for war. Highest Strength.', height: 1.08, width: 1.15, hp: 15, stats: { str: 17, dex: 10, int: 7, sta: 15 },
     skins: ['#6a8a4a', '#5a7a3e', '#7a9050', '#4e6a3a', '#8a9a5a'], hairs: ['#1a1410', '#2a2018', '#3a2a1a', '#5a4a3a', '#8a8a8a', '#a03a1a', '#d8d0c0'] },
@@ -39,7 +45,7 @@ export const RACES = {
   human: { name: 'Human', playable: true, desc: 'Hardy, ambitious and adaptable, the kingdoms of men build with timber and stone. Balanced in every attribute.', height: 1.0, width: 1.0, hp: 10, stats: { str: 12, dex: 12, int: 12, sta: 12 }, skins: ['#f1c7a5', '#e0ac85', '#c68863'], hairs: ['#2b1d12', '#5a3a1e', '#a0662c'] },
   elf: { name: 'Elf', height: 1.05, width: 0.9, hp: 0, stats: { str: 10, dex: 15, int: 13, sta: 10 }, skins: ['#f6dcc6', '#ead0b5', '#d8b998'], hairs: ['#f2e6b0', '#e8e8e8', '#2a1a10'] },
 };
-export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf';
+export const isElf = (r) => r === 'elf' || r === 'highelf' || r === 'woodelf' || r === 'darkelf';
 
 // Weapon families. reach in metres, area = right-click area radius, speed = attack speed multiplier.
 export const WEAPON_TYPES = {
@@ -63,6 +69,7 @@ export const WEAPON_TYPES = {
   firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
   froststaff: { name: 'Frost Staff', hands: 'staff', reach: 55, area: 7, speed: 1.05, block: 0.4, dmg: 0.95, kind: 'staff', element: 'frost', parts: ['staff'], areaName: 'Blizzard' },
   arcanestaff: { name: 'Arcane Staff', hands: 'staff', reach: 60, area: 6.5, speed: 1.15, block: 0.4, dmg: 0.95, kind: 'staff', element: 'arcane', parts: ['staff'], areaName: 'Arcane Nova' },
+  blunderbuss: { name: 'Blunderbuss', hands: 'two', reach: 22, area: 6, speed: 0.75, block: 0.3, dmg: 1.75, kind: 'gun', parts: ['blunderbuss'], areaName: 'Scattershot' },
   musket: { name: 'Musket', hands: 'two', reach: 70, area: 6, speed: 0.85, block: 0.3, dmg: 1.55, kind: 'gun', parts: ['musket'], areaName: 'Piercing Shot' },
 };
 
@@ -103,6 +110,7 @@ export const FAMILIES = {
   froststaff: { name: 'Frost Staff', kind: 'staff', skills: ['blizzard', 'icelance'] },
   arcanestaff: { name: 'Arcane Staff', kind: 'staff', skills: ['nova', 'missiles'] },
   musket: { name: 'Musket', kind: 'gun', skills: ['doubleshot', 'doubleshot'] },
+  blunderbuss: { name: 'Blunderbuss', kind: 'gun', skills: ['doubleshot', 'doubleshot'] },
 };
 export const WSKILLS = {
   fan8: { name: 'Arrow Fan', cd: 7, icon: 'rain', desc: 'Loose eight arrows at once in a wide horizontal fan.' },
@@ -270,7 +278,7 @@ export function weaponStat(wt) { const W = WEAPON_TYPES[wt]; if (W.kind === 'sta
 // How each melee weapon attacks (left click steps through the chain). m = damage multiplier, d = relative swing time.
 // cleave: hits everything in a wide arc; stun/shock: stun and an area shockwave; bleed; aoe: hit all around; line: pierce a line.
 // right-click special attack for each weapon (dual-wield sets have their own)
-export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'backstabw', dagger: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
+export const RMB_SPECIAL = { fists: 'shadowflurry', musket: 'doubleshot', blunderbuss: 'doubleshot', sword: 'wheel', swordshield: 'wheel', mace: 'skullcrack', maceshield: 'skullcrack', swordmace: 'twinfury', daggers: 'backstabw', dagger: 'tripstab', handaxes: 'whirlaxes', greatsword: 'greatcleave', greataxe: 'reaping', warhammer: 'hammerfall', spear: 'javelin', bow: 'fan8', firestaff: 'meteor', froststaff: 'blizzard', arcanestaff: 'nova' };
 export const COMBOS = {
   sword: { trait: 'Swords: +10% critical chance', chain: [{ a: 'swing1', m: 1.0 }, { a: 'swing2', m: 1.05 }, { a: 'swing3', m: 2.0, d: 1.7 }] },
   mace: { trait: 'Maces ignore armour', chain: [{ a: 'swing1', m: 1.15 }, { a: 'smash', m: 2.3, d: 1.7, stun: 1.2, shock: 3.2 }] },
@@ -850,7 +858,7 @@ import { NEW_CLASSES } from './classes2.js';
 const PAIR_PARTS = { maceshield: ['mace', 'shield'], swordshield: ['sword', 'shield'], swordmace: ['sword', 'mace'] };
 for (const [id, c] of Object.entries(NEW_CLASSES)) {
   const weapons = [...new Set(c.weapons.flatMap(w => PAIR_PARTS[w] ? [w, ...PAIR_PARTS[w]] : [w]))];
-  CLASSES[id] = { name: c.name, battleOnly: true, desc: c.desc, weapons, armor: c.armor, hp: c.pool.hp[0], mana: c.pool.mana[0], colors: c.colors };
+  CLASSES[id] = { name: c.name, battleOnly: true, campaignOnly: !!c.campaignOnly, desc: c.desc, weapons, armor: c.armor, hp: c.pool.hp[0], mana: c.pool.mana[0], colors: c.colors };
   CLASS_POOLS[id] = c.pool; CLASS_TREE[id] = [];
   ABILITIES[id] = c.abilities.map(a => Object.assign({ key: '', icon: '', kit: true }, a));
 }
@@ -985,6 +993,7 @@ const TREE_DEFS = {
   necromancer: [['Undead', 'Summon the dead, strengthen them, mend them and spread terror', '#b0c8a0', 'support', ['raiseskel', 'fear', 'unholyfrenzy', 'darkmending', 'boneshieldpet', 'skelmage'], 'bonegolem'], ['Siphon', 'Curse them and drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2', 'deathnova', 'bloodpact', 'siphonshield', 'soulhoard']], ['Bone', 'Bone armour, bone skin and bone spikes: hard to kill', '#e8e0c8', 'defense', ['boneskin', 'bonespikes', 'bonearmor', 'marrowsurge', 'boneprison'], 'lichlord']],
   elementalist: [['Fire', 'A living flame at your side, and fire to throw', '#ff7a3a', 'offense', ['callflame', 'flamelash', 'stokeflames', 'rekindle', 'embershell', 'firestorm'], 'cataclysm'], ['Frost', 'A giant of ice at your side, and frost to hold them', '#8ad8ff', 'defense', ['callfrost', 'frostshard', 'glacialarmor', 'frozenrenewal', 'wintersbite', 'blizzard', 'frostbind'], 'absolutezero'], ['Lightning', 'A storm in a body, and lightning in your hands', '#c8d0ff', 'offense', ['callstorm', 'lightninglash', 'overcharge', 'recharge', 'staticshield', 'thunder'], 'tempest']],
   enchanter: [['Mind', 'Break their thoughts', '#b070ff', 'offense', ['mindblast', 'mindrot', 'mindstorm']], ['Illusion', 'Charm, sleep and confusion', '#f0a0ff', 'defense', ['mesmerize', 'masssleep', 'phantasm', 'confusion']], ['Runes', 'Haste, wards and clarity', '#8ac8ff', 'support', ['hasteall', 'runeshield', 'clarity']]],
+  blunderbuss: [['Scattershot', 'What the gun itself can do', '#ff9a3a', 'offense', ['buckshot', 'blackpowder', 'chainshot', 'quickload', 'dragonshell', 'freshpowder'], 'handcannon'], ['Demolition', 'Grenades, fire bombs and barrages', '#ff5a2a', 'offense', ['grenade', 'blastshield', 'shrapnel', 'sapperstride', 'firebomb', 'powderfever', 'mortar'], 'greatkeg'], ['Ironclad', 'Plate, bracing and the gun stock', '#a8b0bc', 'defense', ['buttstroke', 'ironhide', 'braced', 'powdercharge', 'fielddressing']]],
   beastmaster: [['Pack', 'Never hunt alone', '#c89a4a', 'support', ['warbeast', 'mendpet', 'packfrenzy', 'packcall']], ['Fang', 'Claw, rend and pounce', '#e2533a', 'offense', ['rendclaw', 'pounce', 'whirlclaw']], ['Wild', 'The roar of the stampede', '#6ad04a', 'defense', ['feralroar', 'stampede', 'primalbond']]],
 };
 // passives by the tree's role: [effect, name choices, description]
@@ -1027,11 +1036,11 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior')
 
 // ---- make sure any two maxed trees can fill the whole hotbar: every tree gets at least 3 buffs/songs/heals (keys 1-5)
 // and at least 2 damage abilities (F C Q). Where a tree is short, it gets new class abilities built from proven effects.
-export const GEN_ICONS = { ariapower: ['bolt', 'arcane'], piercingnote: ['bolt', 'gold'], enduresong: ['wind', 'gold'], wardsong: ['shield', 'arcane'], chainchant: ['wind', 'steel'], weakchant: ['skull', 'arcane'], snaresong: ['wind', 'nature'], mesmerize2: ['burst', 'arcane'], lull: ['heart', 'frost'], callflame: ['skull', 'fire'], flamelash: ['bolt', 'fire'], stokeflames: ['burst', 'fire'], rekindle: ['heart', 'fire'], embershell: ['shield', 'fire'], callfrost: ['skull', 'frost'], frostshard: ['bolt', 'frost'], blizzard: ['meteor', 'frost'], glacialarmor: ['shield', 'frost'], frozenrenewal: ['heart', 'frost'], wintersbite: ['fist', 'frost'], absolutezero: ['burst', 'frost'], callstorm: ['skull', 'arcane'], lightninglash: ['bolt', 'gold'], overcharge: ['bolt', 'arcane'], staticshield: ['shield', 'arcane'], recharge: ['heart', 'arcane'], tempest: ['meteor', 'arcane'], pureel: ['crown', 'gold'],
+export const GEN_ICONS = { buckshot: ['burst', 'fire'], chainshot: ['bolt', 'steel'], dragonshell: ['burst', 'red'], blackpowder: ['shout', 'red'], quickload: ['bolt', 'gold'], freshpowder: ['drop', 'gold'], handcannon: ['meteor', 'fire'], grenade: ['meteor', 'red'], shrapnel: ['burst', 'steel'], firebomb: ['meteor', 'fire'], mortar: ['meteor', 'steel'], blastshield: ['shield', 'red'], sapperstride: ['wind', 'gold'], powderfever: ['shout', 'gold'], greatkeg: ['burst', 'gold'], ironhide: ['shield', 'steel'], braced: ['shield', 'gold'], fielddressing: ['heart', 'nature'], buttstroke: ['fist', 'steel'], powdercharge: ['wind', 'red'], ariapower: ['bolt', 'arcane'], piercingnote: ['bolt', 'gold'], enduresong: ['wind', 'gold'], wardsong: ['shield', 'arcane'], chainchant: ['wind', 'steel'], weakchant: ['skull', 'arcane'], snaresong: ['wind', 'nature'], mesmerize2: ['burst', 'arcane'], lull: ['heart', 'frost'], callflame: ['skull', 'fire'], flamelash: ['bolt', 'fire'], stokeflames: ['burst', 'fire'], rekindle: ['heart', 'fire'], embershell: ['shield', 'fire'], callfrost: ['skull', 'frost'], frostshard: ['bolt', 'frost'], blizzard: ['meteor', 'frost'], glacialarmor: ['shield', 'frost'], frozenrenewal: ['heart', 'frost'], wintersbite: ['fist', 'frost'], absolutezero: ['burst', 'frost'], callstorm: ['skull', 'arcane'], lightninglash: ['bolt', 'gold'], overcharge: ['bolt', 'arcane'], staticshield: ['shield', 'arcane'], recharge: ['heart', 'arcane'], tempest: ['meteor', 'arcane'], pureel: ['crown', 'gold'],
   fireball2: ['meteor', 'fire'], dragonbreath: ['burst', 'fire'], kindle: ['bolt', 'fire'], flameward: ['shield', 'fire'], phoenixform: ['crown', 'fire'], icelance2: ['bolt', 'frost'], frostarmor: ['shield', 'frost'], iceblock: ['shield', 'steel'], winterform: ['crown', 'frost'], phaseshift: ['wind', 'arcane'], invis: ['wind', 'steel'], arcaneform: ['crown', 'arcane'],
   crimsonpact: ['heart', 'red'], darkfervor: ['bolt', 'red'], dreadkick: ['fist', 'steel'], witherhex: ['skull', 'nature'], unholyshout: ['shout', 'red'], gravestance: ['shield', 'steel'], dreadstride: ['wind', 'red'], dkraise: ['skull', 'steel'], dkcommand: ['skull', 'red'], dkmend: ['heart', 'red'], graveslam: ['slam', 'steel'], gravewall: ['shield', 'nature'], bloodpact: ['heart', 'red'], siphonshield: ['shield', 'nature'], soulhoard: ['drop', 'nature'], boneskin: ['shield', 'steel'], bonespikes: ['burst', 'steel'], marrowsurge: ['bolt', 'steel'], unholyfrenzy: ['skull', 'red'], darkmending: ['heart', 'nature'], boneshieldpet: ['shield', 'steel'], sapstrength: ['fist', 'nature'], sapspeed: ['wind', 'nature'], manaleech: ['drop', 'arcane'], bonegolem: ['skull', 'steel'], lichlord: ['skull', 'nature'] };
 const MELEE = new Set(['warrior', 'berserker', 'paladin', 'darkknight', 'monk', 'rogue', 'beastmaster']);
-const NO_HEAL = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'wizard', 'elementalist', 'enchanter']);
+const NO_HEAL = new Set(['blunderbuss', 'warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'wizard', 'elementalist', 'enchanter']);
 const SUP_T = [
   (n) => ({ t: 'buff', buff: 'cry', dur: 8, r: 15, allyBuff: 'rally', cd: 22, cost: 30, name: n[0], desc: 'You and allies within 15 m hit 30% harder for 8 s.', ic: ['shout', 'red'] }),
   (n) => ({ t: 'buff', buff: 'ward', dur: 6, r: 15, allyBuff: 'ward', cd: 24, cost: 30, name: n[1], desc: 'A protective ward: you and allies within 15 m take 40% less damage for 6 s.', ic: ['shield', 'frost'] }),

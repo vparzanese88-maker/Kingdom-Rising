@@ -523,6 +523,8 @@ body.newfx #abil .slot.lock .cd{background:conic-gradient(rgba(60,40,10,.7) var(
 .swn b{display:block;color:#fff2c8;font-size:14px}.swn small{color:#a8987c;font-size:11px;line-height:1.3}
 .swb i{display:block;height:7px;border-radius:4px;background:#2a2418;overflow:hidden}.swb u{display:block;height:100%;background:linear-gradient(90deg,#c89a3a,#ffd050)}.swb span{font-size:12px;color:#e8d8b8;font-weight:700}
 .swe{font-size:12px;color:#9fd8a0;text-align:right}
+#htip{position:fixed;z-index:99999;pointer-events:none;max-width:320px;padding:9px 13px 10px;border-radius:10px;background:linear-gradient(180deg,rgba(38,28,16,.97),rgba(16,11,6,.97));border:1px solid #a8844a;box-shadow:0 0 0 1px #1a120a,0 8px 22px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,230,170,.12);color:#e8dcc0;font:13px/1.4 var(--f-b,Georgia,serif)}
+#htip b{display:block;font:700 14px/1.25 var(--f-t,Georgia,serif);color:#ffe2a0;letter-spacing:.02em}#htip small{display:block;color:#c8b48c;font-size:12.5px;margin-top:2px}
 </style>
 <script src="./vendor/peerjs.min.js"></script>
 <script type="importmap">
@@ -530,46 +532,47 @@ body.newfx #abil .slot.lock .cd{background:conic-gradient(rgba(60,40,10,.7) var(
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793907553",
-"./src/banners.js": "./src/banners.js?v=1793907553",
-"./src/battle.js": "./src/battle.js?v=1793907553",
-"./src/battledata.js": "./src/battledata.js?v=1793907553",
-"./src/battlemap.js": "./src/battlemap.js?v=1793907553",
-"./src/battlequests.js": "./src/battlequests.js?v=1793907553",
-"./src/battleui.js": "./src/battleui.js?v=1793907553",
-"./src/character.js": "./src/character.js?v=1793907553",
-"./src/chat.js": "./src/chat.js?v=1793907553",
-"./src/classes2.js": "./src/classes2.js?v=1793907553",
-"./src/classlore.js": "./src/classlore.js?v=1793907553",
-"./src/combat.js": "./src/combat.js?v=1793907553",
-"./src/crests.js": "./src/crests.js?v=1793907553",
-"./src/data.js": "./src/data.js?v=1793907553",
-"./src/fog.js": "./src/fog.js?v=1793907553",
-"./src/game.js": "./src/game.js?v=1793907553",
-"./src/guards.js": "./src/guards.js?v=1793907553",
-"./src/icons.js": "./src/icons.js?v=1793907553",
-"./src/icons2.js": "./src/icons2.js?v=1793907553",
-"./src/lore.js": "./src/lore.js?v=1793907553",
-"./src/main.js": "./src/main.js?v=1793907553",
-"./src/menu.js": "./src/menu.js?v=1793907553",
-"./src/mobs.js": "./src/mobs.js?v=1793907553",
-"./src/mp.js": "./src/mp.js?v=1793907553",
-"./src/mpsync.js": "./src/mpsync.js?v=1793907553",
-"./src/net.js": "./src/net.js?v=1793907553",
-"./src/pets.js": "./src/pets.js?v=1793907553",
-"./src/player.js": "./src/player.js?v=1793907553",
-"./src/sailintro.js": "./src/sailintro.js?v=1793907553",
-"./src/saves.js": "./src/saves.js?v=1793907553",
-"./src/seabreak.js": "./src/seabreak.js?v=1793907553",
-"./src/skills.js": "./src/skills.js?v=1793907553",
-"./src/state.js": "./src/state.js?v=1793907553",
-"./src/story.js": "./src/story.js?v=1793907553",
-"./src/terrain.js": "./src/terrain.js?v=1793907553",
-"./src/ui.js": "./src/ui.js?v=1793907553",
-"./src/util.js": "./src/util.js?v=1793907553",
-"./src/vfx.js": "./src/vfx.js?v=1793907553",
-"./src/world.js": "./src/world.js?v=1793907553",
-"./src/yard.js": "./src/yard.js?v=1793907553"
+"./src/audio.js": "./src/audio.js?v=1793910467",
+"./src/banners.js": "./src/banners.js?v=1793910467",
+"./src/battle.js": "./src/battle.js?v=1793910467",
+"./src/battledata.js": "./src/battledata.js?v=1793910467",
+"./src/battlemap.js": "./src/battlemap.js?v=1793910467",
+"./src/battlequests.js": "./src/battlequests.js?v=1793910467",
+"./src/battleui.js": "./src/battleui.js?v=1793910467",
+"./src/character.js": "./src/character.js?v=1793910467",
+"./src/chat.js": "./src/chat.js?v=1793910467",
+"./src/classes2.js": "./src/classes2.js?v=1793910467",
+"./src/classlore.js": "./src/classlore.js?v=1793910467",
+"./src/combat.js": "./src/combat.js?v=1793910467",
+"./src/crests.js": "./src/crests.js?v=1793910467",
+"./src/data.js": "./src/data.js?v=1793910467",
+"./src/fog.js": "./src/fog.js?v=1793910467",
+"./src/game.js": "./src/game.js?v=1793910467",
+"./src/guards.js": "./src/guards.js?v=1793910467",
+"./src/icons.js": "./src/icons.js?v=1793910467",
+"./src/icons2.js": "./src/icons2.js?v=1793910467",
+"./src/lore.js": "./src/lore.js?v=1793910467",
+"./src/main.js": "./src/main.js?v=1793910467",
+"./src/menu.js": "./src/menu.js?v=1793910467",
+"./src/mobs.js": "./src/mobs.js?v=1793910467",
+"./src/mp.js": "./src/mp.js?v=1793910467",
+"./src/mpsync.js": "./src/mpsync.js?v=1793910467",
+"./src/net.js": "./src/net.js?v=1793910467",
+"./src/pets.js": "./src/pets.js?v=1793910467",
+"./src/player.js": "./src/player.js?v=1793910467",
+"./src/sailintro.js": "./src/sailintro.js?v=1793910467",
+"./src/saves.js": "./src/saves.js?v=1793910467",
+"./src/seabreak.js": "./src/seabreak.js?v=1793910467",
+"./src/skills.js": "./src/skills.js?v=1793910467",
+"./src/state.js": "./src/state.js?v=1793910467",
+"./src/story.js": "./src/story.js?v=1793910467",
+"./src/terrain.js": "./src/terrain.js?v=1793910467",
+"./src/tips.js": "./src/tips.js?v=1793910467",
+"./src/ui.js": "./src/ui.js?v=1793910467",
+"./src/util.js": "./src/util.js?v=1793910467",
+"./src/vfx.js": "./src/vfx.js?v=1793910467",
+"./src/world.js": "./src/world.js?v=1793910467",
+"./src/yard.js": "./src/yard.js?v=1793910467"
 }
 }
 </script>
@@ -1321,6 +1324,30 @@ body.newfx #yardhud{top:auto!important;bottom:236px!important}
 .crdesc .crh{display:flex;gap:12px;align-items:center;margin-bottom:6px}.crdesc h3{margin:0;font:700 24px/1.1 var(--f-t);color:#fff0c8;letter-spacing:.04em}
 .crdesc .crtag{color:#d8b878;font-size:12px;font-weight:700}.crdesc .crmotto{font-style:italic;color:#b8a888;font-size:12.5px;margin-top:2px}
 .crdesc p{margin:3px 0}.crdesc .crperk{color:#ffd878;font-weight:700}.crdesc .chips{margin-top:6px}
+
+/* creator: everything fits on one page */
+#creator .body{overflow:hidden}
+.crgrid.classes{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:5px}
+.crgrid.classes .crt b{display:block!important;font-size:9px;letter-spacing:0;white-space:normal;line-height:1.1;min-height:2.2em;display:flex!important;align-items:center;justify-content:center}
+.crgrid.classes .crt{padding:4px 2px 2px!important;gap:1px}.crgrid.classes .crt svg{width:36px!important}
+@media (max-height:740px){.crdesc.compact p.clamp{-webkit-line-clamp:2}.crdesc.compact .crmotto{display:none}.crgrid.classes .crt svg{width:30px!important}}
+.crgrid.races{grid-template-columns:repeat(4,minmax(0,1fr))!important}.crt.race img{width:56px!important;height:56px!important}
+.crdesc.compact p.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:6px 0}
+.crdesc.compact .crh svg{width:50px!important}
+.quizbtn{display:flex;align-items:center;gap:8px;margin:0 0 6px auto;padding:4px 12px 4px 6px;border-radius:999px;border:1px solid #a8844a;background:linear-gradient(180deg,rgba(90,64,30,.85),rgba(40,28,14,.9));color:#ffe2a0;font:700 13px var(--f-t,Georgia,serif);cursor:pointer}
+.quizbtn span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#ffd050;color:#2a1a08;font-weight:900}
+.quizbtn:hover{border-color:#ffd050;box-shadow:0 0 12px rgba(255,208,80,.4)}
+.quiz{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,3,2,.72);pointer-events:auto;backdrop-filter:blur(3px)}
+.quizcard{position:relative;width:min(760px,92vw);padding:28px 32px 24px;border-radius:18px;background:linear-gradient(180deg,#2a1e10,#140e08);border:1px solid #a8844a;box-shadow:0 0 0 1px #1a120a,0 20px 60px rgba(0,0,0,.7);color:#e8dcc0;text-align:center}
+.quizcard h3{font:700 26px var(--f-t,Georgia,serif);color:#ffe9b0;margin:6px 0 18px}
+.quizx{position:absolute;right:14px;top:12px;background:none;border:0;color:#c8b48c;font-size:20px;cursor:pointer}
+.quizans{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.qa{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 10px;border-radius:14px;background:radial-gradient(circle at 50% 30%,rgba(90,64,30,.6),rgba(20,14,8,.9));border:1px solid #5a4020;color:#eadcc0;cursor:pointer;transition:transform .12s,border-color .15s}
+.qa:hover{transform:translateY(-3px);border-color:#ffd050;box-shadow:0 0 16px rgba(255,208,80,.3)}.qa .qi{font-size:30px}.qa b{font:700 16px var(--f-t,Georgia,serif);color:#ffe2a0}.qa small{color:#b8a888;font-size:12px}
+.quizres{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.qr{display:flex;flex-direction:column;align-items:center;gap:4px;width:130px;padding:14px 8px;border-radius:14px;background:radial-gradient(circle at 50% 30%,rgba(90,64,30,.6),rgba(20,14,8,.9));border:1px solid #5a4020;color:#eadcc0;cursor:pointer}
+.qr:hover{transform:translateY(-3px);border-color:#ffd050}.qr b{font:700 15px var(--f-t,Georgia,serif);color:#ffe2a0}.qr small{font-size:11.5px;color:#b8a888}.qr svg{width:54px!important;height:auto!important}
+.quizhint{color:#b8a888;font-size:13px;margin:4px 0 12px}
 </style>
 </head>
 <body>
@@ -1393,6 +1420,6 @@ body.newfx #yardhud{top:auto!important;bottom:236px!important}
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793907553"></script>
+<script type="module" src="./src/main.js?v=1793910467"></script>
 </body>
 </html>

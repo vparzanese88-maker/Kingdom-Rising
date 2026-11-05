@@ -101,7 +101,7 @@ const START_NAME = { shaman: 'Spear', musketeer: 'Musket', berserker: 'Great Axe
 // the new classes bring their own starting weapon and creator text
 for (const [id, c] of Object.entries(NEW_CLASSES)) { const pair = { maceshield: 'mace', swordshield: 'sword', swordmace: 'sword' }[c.start]; CLS_WPN[id] = { kind: 'weapon', wt: pair || c.start, tier: 2, rarity: 0 }; START[id] = c.start; START_NAME[id] = c.startName; }
 let tab = 0, C = null;
-const NAMES = { human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 'Owen'], f: ['Elena', 'Rowena', 'Isolde', 'Catrin', 'Alys', 'Brienne'] }, highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
+const NAMES = { halfling: { m: ['Milo', 'Pip', 'Tobold', 'Merric', 'Bramble', 'Fosco'], f: ['Rosie', 'Daisy', 'Poppy', 'Lily', 'Marigold', 'Tansy'] }, darkelf: { m: ['Vhaerun', 'Drizzan', 'Malagor', 'Zaknar', 'Ryld', 'Nalfein'], f: ['Viconia', 'Ilivarra', 'Quenthel', 'Shyntra', 'Zesstra', 'Liriel'] }, gnome: { m: ['Fizzwick', 'Bimble', 'Gimlet', 'Nackle', 'Tinker', 'Wobbin'], f: ['Nissa', 'Bree', 'Pipsy', 'Carlin', 'Zanna', 'Lorilla'] }, human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 'Owen'], f: ['Elena', 'Rowena', 'Isolde', 'Catrin', 'Alys', 'Brienne'] }, highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator(camp) {
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
@@ -116,6 +116,9 @@ const RACE_INFO = {
   highelf: { tag: 'Wise & magical', icon: '🧝', best: 'Wizard', lore: 'The last of the Silver Courts, tall and proud, with long ears and a memory that stretches back centuries. Magic runs in their blood.', perk: 'Highest Intellect: stronger spells and a bigger mana pool.' },
   woodelf: { tag: 'Swift & keen-eyed', icon: '🧝', best: 'Ranger', lore: 'Sun-browned hunters of the deep forests. They move without a sound and never miss what they aim at.', perk: 'Highest Dexterity: harder hitting bows and blades, more critical hits, faster endurance recovery.' },
   orc: { tag: 'Brutal & mighty', icon: '👹', best: 'Berserker', lore: 'Huge, tusked and green-skinned, orcs are raised for war and fear nothing. What they lack in subtlety they make up for in sheer strength.', perk: 'Highest Strength and great Stamina, plus 15 bonus health. Hits harder than anyone.' },
+  halfling: { tag: 'Small & nimble', icon: '🧑', best: 'Rogue', lore: 'Hill-folk of the green valleys who love a full pantry and a quiet life, until trouble comes. Then they are quick, lucky and very hard to hit.', perk: 'High Dexterity and good Stamina: quick blades, quick feet and plenty of critical hits.' },
+  darkelf: { tag: 'Cunning & shadowed', icon: '🧝', best: 'Necromancer', lore: 'Exiles of the deep caverns, ash-grey with white hair and red eyes. They trust no one, and they learned magic in the dark that their surface cousins fear.', perk: 'High Intellect and Dexterity: deadly spells and quick hands, but frail.' },
+  gnome: { tag: 'Tiny & brilliant', icon: '🧙', best: 'Wizard', lore: 'The smallest folk of all, with enormous noses, wild hair and wilder inventions. What a gnome cannot build, a gnome can blow up.', perk: 'Highest Intellect in the world: the biggest mana pool and the strongest spells.' },
   dwarf: { tag: 'Stout & unbreakable', icon: '🧔', best: 'Warrior', lore: 'Short, broad and stubborn as the mountains they carve. A dwarf in armour is a wall with a beard.', perk: 'Highest Strength and Stamina, plus 20 bonus health. Hard to kill.' },
 };
 const CLASS_INFO = {
@@ -148,24 +151,25 @@ function renderCreator() {
     // races: a row of crests, the chosen one described underneath (fits without scrolling)
     if (C.battle && C.battle.mp) intro('Your race is also the race of your town: its walls, buildings and troops.');
     const rg = el('div', 'crgrid races');
-    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) {
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && !(C.battle && RACES[k].campaignOnly) && (!C.battle || C.battle.mp || k === C.race))) {
       const img = racePortrait(k, C.sex); const b = el('button', 'crt race' + (C.race === k ? ' on' : ''), `${img ? `<img src="${img}" alt="">` : crest(k, 56)}<b>${RACES[k].name}</b>`); b.title = RACE_INFO[k].tag;
       b.onclick = () => { S.click(); C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = k === 'dwarf' && C.sex === 'm' ? 3 : 0; C.app.hairStyle = k === 'dwarf' ? (C.sex === 'f' ? 4 : 0) : 1; renderCreator(); rebuildPreview(); };
       b.onmouseenter = () => S.hover(); rg.appendChild(b); }
     body.appendChild(rg);
-    body.appendChild(el('div', 'crdesc', `<div class="crh">${crest(C.race, 70)}<div><h3>${RACES[C.race].name}</h3><span class="crtag">${RACE_INFO[C.race].tag} · best as ${RACE_INFO[C.race].best}</span></div></div><p>${RACE_INFO[C.race].lore}</p><p class="crperk">${RACE_INFO[C.race].perk}</p>${statBars(R.stats)}`));
+    body.appendChild(el('div', 'crdesc', `<div class="crh">${crest(C.race, 70)}<div><h3>${RACES[C.race].name}</h3><span class="crtag">${RACE_INFO[C.race].tag} · best as ${RACE_INFO[C.race].best}</span></div></div><p>${RACE_INFO[C.race].lore}</p><p class="crperk">${RACE_INFO[C.race].perk}</p>`));
     sect('Body type');
     body.appendChild(seg([{ id: 'm', name: 'Male', icon: '♂' }, { id: 'f', name: 'Female', icon: '♀' }], C.sex, (id) => { C.sex = id; C.app.hairStyle = id === 'f' ? (C.race === 'dwarf' ? 4 : 1) : C.race === 'dwarf' ? 0 : 1; C.app.beard = id === 'f' ? 0 : C.race === 'dwarf' ? 3 : 0; }));
   } else if (tab === 1) {
-    // classes: a wall of crests like EverQuest; the chosen one's full story underneath
+    // classes: a wall of crests with their names; the chosen one described underneath. Everything fits without scrolling.
+    const help = el('button', 'quizbtn', '<span>?</span> Having trouble choosing?'); help.onclick = () => { S.click(); openQuiz(); }; body.appendChild(help);
     const cg = el('div', 'crgrid classes');
-    for (const k of Object.keys(CLASSES).filter(k => !(CLASSES[k].battleOnly && !C.battle) || true)) {
-      const b = el('button', 'crt' + (C.cls === k ? ' on' : ''), `${crest(k, 50)}<b>${CLASSES[k].name}</b>`); b.title = CLASSES[k].name + (CLASS_INFO[k] ? ' · ' + CLASS_INFO[k].role : '');
+    for (const k of Object.keys(CLASSES).filter(k => !(CLASSES[k].campaignOnly && C.battle))) {
+      const b = el('button', 'crt' + (C.cls === k ? ' on' : ''), `${crest(k, 44)}<b>${CLASSES[k].name}</b>`); b.title = CLASSES[k].name + (CLASS_INFO[k] ? ' · ' + (CLASS_INFO[k].tag || '') + ' · ' + CLASS_INFO[k].role : '');
       b.onclick = () => { S.click(); C.cls = k; C.weapon = START[k]; renderCreator(); rebuildPreview(); }; b.onmouseenter = () => S.hover(); cg.appendChild(b); }
     body.appendChild(cg);
     const I = CLASS_INFO[C.cls] || {}, ST = CLASS_STORY[C.cls], P0 = poolsAt(C.cls, 1), P20 = poolsAt(C.cls, 20);
-    body.appendChild(el('div', 'crdesc', `<div class="crh">${crest(C.cls, 76)}<div><h3>${CLASSES[C.cls].name}</h3><span class="crtag">${I.tag || ''}${I.role ? ' · ' + I.role : ''}</span>${ST && ST.motto ? `<div class="crmotto">“${ST.motto}”</div>` : ''}</div></div>
-      <p>${CLASSES[C.cls].desc}</p>${ST ? `<p>${ST.story}</p><p><b>How they fight.</b> ${ST.fight}</p>` : ''}
+    body.appendChild(el('div', 'crdesc compact', `<div class="crh">${crest(C.cls, 64)}<div><h3>${CLASSES[C.cls].name}</h3><span class="crtag">${I.tag || ''}${I.role ? ' · ' + I.role : ''}</span>${ST && ST.motto ? `<div class="crmotto">“${ST.motto}”</div>` : ''}</div></div>
+      <p class="clamp">${CLASSES[C.cls].desc}${ST ? ' ' + ST.fight : ''}</p>
       <div class="chips"><span>Difficulty <span class="diff">${[1, 2, 3].map(i => `<i class="${i <= (I.diff || 1) ? 'on' : ''}"></i>`).join('')}</span></span><span>Uses ${I.res || 'Endurance'}</span><span>Starts with: ${I.start || ''}</span><span>Health ${P0.hp} → ${P20.hp}</span></div>`));
   } else if (tab === 2) {
     intro('Shape your hero. This is purely how you look; your attributes come from your race and gear.');
@@ -195,6 +199,38 @@ function renderCreator() {
     setTimeout(() => i.focus(), 50);
   }
   renderSummary();
+}
+// ---- "Having trouble choosing?": three simple questions narrow the classes down to three to five ----
+// how each class fights: m = magic, w = weapons, b = both; role: dmg, tank, sup, pet; range: close, far
+const FIT = { warrior: ['w', 'tank', 'close'], berserker: ['w', 'dmg', 'close'], ranger: ['w', 'dmg', 'far'], musketeer: ['w', 'dmg', 'far'], blunderbuss: ['w', 'dmg tank', 'close'],
+  shaman: ['b', 'sup', 'far'], wizard: ['m', 'dmg', 'far'], cleric: ['m', 'sup', 'far'], paladin: ['b', 'tank sup', 'close'], darkknight: ['b', 'tank pet', 'close'], druid: ['m', 'sup pet', 'far'],
+  monk: ['w', 'dmg', 'close'], bard: ['b', 'sup', 'close'], rogue: ['w', 'dmg', 'close'], necromancer: ['m', 'pet dmg', 'far'], elementalist: ['m', 'pet', 'far'], enchanter: ['m', 'sup', 'far'], beastmaster: ['w', 'pet', 'close'] };
+const QUIZ = [
+  { q: 'How do you like to fight?', a: [['m', '✨', 'With magic', 'Spells, fire and lightning'], ['w', '⚔', 'With weapons', 'Swords, axes, bows and guns'], ['b', '⚡', 'A bit of both', 'Steel in one hand, magic in the other']] },
+  { q: 'What do you want to do in a fight?', a: [['dmg', '💥', 'Deal huge damage', 'Be the one who drops them'], ['tank', '🛡', 'Take the hits', 'Stand in front and never fall'], ['sup', '✚', 'Help my friends', 'Heal, protect and strengthen'], ['pet', '🐾', 'Fight with pets', 'Summon servants or a beast at your side']] },
+  { q: 'Up close or from far away?', a: [['close', '👊', 'Up close', 'In the thick of it'], ['far', '🏹', 'From a distance', 'Safe behind the front line'], ['any', '↔', "I don't mind", 'Either is fine']] },
+];
+function openQuiz() {
+  const pick = [], wrap = el('div', 'quiz'); document.getElementById('creator').appendChild(wrap);
+  const close = () => wrap.remove();
+  const step = () => {
+    wrap.innerHTML = ''; const card = el('div', 'quizcard'); wrap.appendChild(card);
+    const x = el('button', 'quizx', '✕'); x.onclick = () => { S.click(); close(); }; card.appendChild(x);
+    if (pick.length < QUIZ.length) {
+      const Q = QUIZ[pick.length]; card.appendChild(el('div', 'eyebrow', `Question ${pick.length + 1} of ${QUIZ.length}`)); card.appendChild(el('h3', '', Q.q));
+      const g = el('div', 'quizans'); for (const [id, ic, name, sub] of Q.a) { const b = el('button', 'qa', `<span class="qi">${ic}</span><b>${name}</b><small>${sub}</small>`); b.onclick = () => { S.click(); pick.push(id); step(); }; b.onmouseenter = () => S.hover(); g.appendChild(b); }
+      card.appendChild(g); if (pick.length) { const bk = el('button', 'btn ghost', 'Back'); bk.onclick = () => { S.click(); pick.pop(); step(); }; card.appendChild(bk); }
+      return; }
+    const [st, role, rng] = pick, ks = Object.keys(CLASSES).filter(k => FIT[k] && !(CLASSES[k].campaignOnly && C.battle));
+    const score = (k) => { const [s0, r0, g0] = FIT[k]; return (s0 === st ? 3 : st === 'b' || s0 === 'b' ? 1 : 0) + (r0.split(' ')[0] === role ? 4 : r0.includes(role) ? 3 : 0) + (rng === 'any' ? 1 : g0 === rng ? 2 : 0); };
+    const ranked = ks.map(k => [k, score(k)]).sort((a, b) => b[1] - a[1]), top = ranked[0][1];
+    const best = ranked.filter(([, v], i) => i < 3 || (i < 5 && v >= top - 1)).map(([k]) => k);
+    card.appendChild(el('div', 'eyebrow', 'Our suggestions')); card.appendChild(el('h3', '', 'These classes suit you best'));
+    const g = el('div', 'quizres'); for (const k of best) { const I = CLASS_INFO[k] || {}; const b = el('button', 'qr', `${crest(k, 54)}<b>${CLASSES[k].name}</b><small>${I.role || ''}</small>`); b.onclick = () => { S.click(); C.cls = k; C.weapon = START[k]; close(); renderCreator(); rebuildPreview(); }; b.onmouseenter = () => S.hover(); g.appendChild(b); }
+    card.appendChild(g); card.appendChild(el('p', 'quizhint', 'Click one to pick it. You can still change your mind on the class page.'));
+    const again = el('button', 'btn ghost', 'Start over'); again.onclick = () => { S.click(); pick.length = 0; step(); }; card.appendChild(again);
+  };
+  step();
 }
 function finish() {
   if (!C.name.trim()) { tab = 4; renderCreator(); S.error(); const i = document.querySelector('#cBody input'); if (i) { i.style.borderColor = '#ff6a5a'; i.focus(); } return; }

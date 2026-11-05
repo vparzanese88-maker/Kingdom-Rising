@@ -420,7 +420,7 @@ export class Player {
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK(); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (1 + this.sbSum('haste') / 100); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -743,8 +743,8 @@ export class Player {
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)))) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
-    const ct = CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0);
-    if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && CAST_T[ab.id] ? Skills.castK(this.h) : 1), i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
+    const ct = (G.newFx && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
+    if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
@@ -1000,6 +1000,12 @@ export class Player {
     const dir = this.aimDir(from);
     if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
     const eagle = this.buffs.eagle > 0, fast = this.buffs.reload > 0;
+    if (w && w.wt === 'blunderbuss') { // a spray of shot: eight pellets in a cone, deadly up close, gone by 25 m
+      const n = 8, sp = aimed ? 0.06 : 0.11, up3 = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < n; i++) { const d = dir.clone().applyAxisAngle(up3, (Math.random() - 0.5) * sp * 2); d.y += (Math.random() - 0.5) * sp; d.normalize();
+        spawnProjectile({ wpn: mult === 1 && i === 0, pos: from.clone(), vel: d.multiplyScalar(90), grav: 2, radius: 0.16, dmg: base * (G.battleFx ? 0.62 + charge * 1.05 : 1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult * 0.22, owner: 'player', kind: 'bullet', life: 0.28 }); }
+      V.burst('smoke', from, 22, { speed: 3, size: 1.4, life: 1.8 }); V.burst('fire', from, 14, { speed: 6 }); V.light(from, '#ffb040', 8, 0.1);
+      S.gunshot(null, 1.3 + charge * 0.35); this.fovKick += 3 + charge * 2; V.addShake(0.1 + charge * 0.1); this.recoil = 1.3; return; }
     spawnProjectile({ wpn: mult === 1, pos: from, vel: dir.multiplyScalar(110 + charge * 70 + (eagle ? 40 : 0)), grav: 3, flat: 1.1 + charge * 1.2 + (eagle ? 0.6 : 0), radius: pierce ? 0.22 : 0.14, dmg: base * (G.battleFx ? 0.62 + charge * 1.05 : 1.5 + charge * 2.6) * (fast ? 1.3 : 1) * mult, owner: 'player', kind: 'bullet', life: 3, pierce, scale: pierce ? 1.8 : 1 });
     V.burst('smoke', from, 12, { speed: 2, size: 1.1, life: 1.6 }); V.burst('fire', from, 6, { speed: 4 }); V.light(from, '#ffc060', 6, 0.08);
     S.gunshot(null, 1 + charge * 0.35); this.fovKick += 2 + charge * 2; V.addShake(0.06 + charge * 0.08); this.recoil = 1;
@@ -1167,7 +1173,8 @@ export class Player {
           V.burst(a.t === 'petbuff' ? 'blood' : 'bone', m.pos.clone().setY(m.pos.y + 1), 26, { speed: 3 }); V.ring(m.pos, 1.6, a.t === 'petbuff' ? '#ff4040' : '#e8e0c8', 0.5); }
         S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
-      case 'buff': { this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
+      case 'buff': { if (a.eq && G.newFx) { this.eqBuff(a); anim('cast'); return true; }
+        this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
         else if (FORMS[a.buff]) { for (const k in FORMS) B2[k] = 0; B2[a.buff] = d; if (a.buff === 'formArcane') B2.focus = Math.max(B2.focus || 0, d); }
@@ -1269,6 +1276,14 @@ export class Player {
     else if (a.sap === 'mana') { const got = Math.round(this.maxMana * 0.25); this.mana = Math.min(this.maxMana, this.mana + got); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + got + ' mana', 'heal', '#8ac8ff'); this.buffFx('Mana siphoned', '#8ac8ff'); }
     S.cast && S.cast('arcane', this.pos, 0.5);
   }
+  // EverQuest-style buffs: real stats (or haste, run speed, mana regen) for 2 minutes; casting it again refreshes it
+  eqBuff(a) {
+    const h = this.h, L = h.level, v = {}; for (const [k, [b, per]] of Object.entries(a.eq)) v[k] = Math.round(b + per * L);
+    const NM = { ac: 'Armour', str: 'Strength', int: 'Intellect', sta: 'Stamina', haste: '% attack speed', run: '% run speed', mregen: ' mana/s' };
+    h.sb = h.sb || {}; h.sb[a.id] = Object.assign({ t: a.dur || 120, name: a.name, text: Object.entries(v).map(([k, n]) => k === 'haste' || k === 'run' || k === 'mregen' ? `+${n}${NM[k]}` : `+${n} ${NM[k]}`).join(', ') }, v);
+    this.refreshStatsOnly(); this.buffFx(a.name + ' · ' + h.sb[a.id].text, '#ffd84a'); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#ffe0a0', 0.5); S.cast('arcane', this.pos, 0.7);
+  }
+  sbSum(k) { let n = 0; const sb = this.h.sb; if (sb) for (const id in sb) n += sb[id][k] || 0; return n; }
   // the wizard's forms: the body burns, freezes or crackles in the form's colour while it lasts; Ice Block wraps you in ice
   formTick(dt) {
     if (this.formCh !== this.ch) { this.formCh = this.ch; this.formOn = null; } // new gear rebuilt the body: tint it again
@@ -1646,6 +1661,7 @@ export class Player {
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
+    if (h.sb) { let gone = false; for (const id in h.sb) { const b = h.sb[id]; b.t -= dt; if (b.mregen && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + b.mregen * dt); if (b.t <= 0) { delete h.sb[id]; gone = true; G.hooks.toast && G.hooks.toast(`${b.name} has worn off`, '✦', 'bad'); } } if (gone) this.refreshStatsOnly(); }
     for (const k of ['food', 'drink']) {
       const b = h[k];
       if (b && b.t > 0) { b.t -= dt; if (b.t <= 0) { h[k] = null; if (!h.equip[k]) G.hooks.toast && G.hooks.toast(`${FOOD_BUFFS[b.id].name} has worn off`, k === 'food' ? '🍖' : '🍺'); this.refreshStatsOnly(); } }
@@ -1694,7 +1710,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.buffs.iceblock > 0 ? 0 : 1) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.buffs.iceblock > 0 ? 0 : 1) * (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;

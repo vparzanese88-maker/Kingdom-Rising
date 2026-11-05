@@ -102,6 +102,19 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       for (const sx of [-0.009, 0.009]) mesh(cached('mrsight', () => new THREE.BoxGeometry(0.006, 0.012, 0.022)), M, g, sx, 0.22, 0.026);
       base.position.set(0, 0.6, 0); tip.position.set(0, 1.06, 0); break;
     }
+    case 'blunderbuss': {
+      // a short, thick stock, a stubby brass-banded barrel and a wide flared bell at the muzzle
+      const stock = mesh(cached('bstock', () => new THREE.BoxGeometry(0.06, 0.38, 0.1)), woodMat, g, 0, -0.14, 0.012); stock.rotation.x = 0.1;
+      mesh(cached('bbutt', () => new THREE.BoxGeometry(0.07, 0.11, 0.14)), darkWood, g, 0, -0.36, 0.03);
+      mesh(cached('bfore', () => new THREE.BoxGeometry(0.05, 0.4, 0.055)), woodMat, g, 0, 0.26, 0.0);
+      cyl(0.024, 0.026, 0.66, M, 0.38, 10);
+      mesh(cached('bbell', () => new THREE.CylinderGeometry(0.07, 0.026, 0.16, 12, 1, true)), goldMat, g, 0, 0.78, 0);
+      for (const y of [0.14, 0.42]) mesh(cached('bband', () => new THREE.CylinderGeometry(0.032, 0.032, 0.03, 10)), goldMat, g, 0, y, 0);
+      mesh(cached('mlock', () => new THREE.BoxGeometry(0.03, 0.08, 0.05)), M, g, 0.035, 0.08, 0);
+      mesh(cached('mhammer', () => new THREE.BoxGeometry(0.015, 0.05, 0.02)), M, g, 0.04, 0.13, -0.02);
+      mesh(cached('mfsight', () => new THREE.BoxGeometry(0.006, 0.014, 0.026)), goldMat, g, 0, 0.7, 0.03);
+      base.position.set(0, 0.45, 0); tip.position.set(0, 0.86, 0); break;
+    }
     case 'sword': {
       cyl(0.018, 0.02, 0.18, leatherMat, 0); mesh(sphereGeo(0.03, 8, 6), goldMat, g, 0, -0.1, 0);
       const gd = mesh(cached('guard', () => new THREE.BoxGeometry(0.2, 0.03, 0.04)), M, g, 0, 0.1, 0);
@@ -245,6 +258,9 @@ export function buildHumanoid(app = {}) {
   if (app.race === 'woodelf') { R.thick = 0.95; }
   if (app.race === 'dwarf') { R.sw = 0.26; R.hw = 0.13; R.thick = 1.35; R.legL = 0.62; R.armL = 0.5; R.head = 1.22; R.torsoH = 0.6; R.neck = 0.04; }
   if (app.race === 'orc') { R.sw = 0.25; R.hw = 0.12; R.thick = 1.25; R.head = 1.08; R.armL = 0.62; R.neck = 0.05; }
+  if (app.race === 'halfling') { R.sw = 0.2; R.thick = 1.02; R.legL = 0.72; R.armL = 0.56; R.head = 1.16; R.torsoH = 0.56; R.neck = 0.05; }
+  if (app.race === 'gnome') { R.sw = 0.18; R.thick = 0.96; R.legL = 0.62; R.armL = 0.52; R.head = 1.32; R.torsoH = 0.52; R.neck = 0.04; }
+  if (app.race === 'darkelf') { R.sw = 0.19; R.thick = 0.9; }
   if (app.race === 'goblin') { R.sw = 0.17; R.thick = 0.85; R.legL = 0.62; R.armL = 0.6; R.head = 1.35; R.torsoH = 0.52; R.neck = 0.04; }
   if (female) { R.sw *= 0.88; R.hw *= 1.12; R.thick *= 0.88; }
   R.sw *= 1 + build * 0.13; R.thick *= 1 + build * 0.22;
@@ -367,13 +383,13 @@ function buildHead2(g, app, kind, female, mats, glowM) {
   const jaw = mesh(sphereGeo(0.085, 14, 10), sk, g, 0, 0.05, 0.022); jaw.scale.set(kind === 'troll' ? 1.25 : 0.95, 0.85, 0.95);
   // nose
   const gob = app.race === 'goblin';
-  const noseLen = gob ? 0.075 : app.race === 'dwarf' ? 0.05 : kind === 'troll' ? 0.07 : 0.032;
-  const nose = mesh(cached('nose' + noseLen, () => { const c = new THREE.ConeGeometry(app.race === 'dwarf' || gob ? 0.022 : 0.016, noseLen, 8); c.rotateX(Math.PI / 2); return c; }), sk, g, 0, 0.085, 0.112);
+  const noseLen = gob ? 0.075 : app.race === 'gnome' ? 0.065 : app.race === 'dwarf' ? 0.05 : kind === 'troll' ? 0.07 : 0.032;
+  const nose = mesh(cached('nose' + noseLen, () => { const c = new THREE.ConeGeometry(app.race === 'dwarf' || app.race === 'gnome' || gob ? 0.022 : 0.016, noseLen, 8); c.rotateX(Math.PI / 2); return c; }), sk, g, 0, 0.085, 0.112);
   nose.rotation.x = gob ? 0.25 : -0.35;
   if (app.race === 'dwarf') { const tipn = mesh(sphereGeo(0.02, 8, 6), sk, g, 0, 0.075, 0.13); }
   // eyes
   const eyeWhite = kind === 'imp' || kind === 'tyrant' ? glowM : (kind === 'troll' || gob ? new THREE.MeshStandardMaterial({ color: '#f0e040', emissive: '#a08000', emissiveIntensity: 0.8 }) : mat('#f4f0e8', 0.3));
-  const iris = mat(app.eye || (app.race === 'highelf' ? '#4a6aa8' : isElf(app.race) ? '#3a7a3a' : '#3a2a1a'), 0.3);
+  const iris = mat(app.eye || (app.race === 'darkelf' ? '#d82a2a' : app.race === 'highelf' ? '#4a6aa8' : isElf(app.race) ? '#3a7a3a' : '#3a2a1a'), 0.3);
   for (const s of [-1, 1]) {
     const e = mesh(sphereGeo(0.017, 10, 8), eyeWhite, g, s * 0.037, 0.115, 0.088); e.scale.set(1.2, isElf(app.race) ? 0.75 : 0.9, 0.6);
     if (kind === 'person' && !gob) { const p = mesh(sphereGeo(0.009, 8, 6), iris, g, s * 0.037, 0.115, 0.098); }
@@ -393,6 +409,9 @@ function buildHead2(g, app, kind, female, mats, glowM) {
       const hi = app.race === 'highelf';
       const ear = mesh(cached('elfear' + hi, () => { const c = new THREE.ConeGeometry(0.024, hi ? 0.17 : 0.13, 6); c.translate(0, hi ? 0.085 : 0.065, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.095, 0.1, -0.005);
       ear.rotation.z = -s * (hi ? 0.85 : 1.05); ear.rotation.x = -0.35;
+    } else if (app.race === 'halfling' || app.race === 'gnome') { // small, slightly pointed ears
+      const ear = mesh(cached('smallear', () => { const c = new THREE.ConeGeometry(0.024, 0.075, 6); c.translate(0, 0.037, 0); c.scale(1, 1, 0.45); return c; }), sk, g, s * 0.096, 0.1, -0.004);
+      ear.rotation.z = -s * 1.15; ear.rotation.x = -0.25;
     } else if (kind === 'imp' || kind === 'tyrant' || kind === 'troll') {
       const ear = mesh(cached('impear', () => { const c = new THREE.ConeGeometry(0.03, 0.12, 5); c.translate(0, 0.06, 0); c.scale(1, 1, 0.4); return c; }), sk, g, s * 0.095, 0.1, 0);
       ear.rotation.z = -s * 1.3;

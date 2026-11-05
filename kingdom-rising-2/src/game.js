@@ -207,6 +207,7 @@ export function heroStats(h) {
     if ((k === 'w1' || k === 'w2') && k !== h.active && !pairedWt(h)) continue;
     for (const s in it.stats) base[s] += it.stats[s];
   }
+  if (h.sb) for (const id in h.sb) for (const k of ['str', 'dex', 'int', 'sta']) if (h.sb[id][k]) base[k] += h.sb[id][k]; // spell buffs: stats
   return base;
 }
 export function heroDerived(h) {
@@ -214,6 +215,7 @@ export function heroDerived(h) {
   let armor = 0; for (const k of [...ARMOR_SLOT_LIST, 'back']) if (h.equip[k]) armor += h.equip[k].armor || 0;
   const w = activeWeapon(h);
   if (w && WEAPON_TYPES[w.wt].hands === 'shield') armor += 4 + w.tier * 4;
+  if (h.sb) for (const id in h.sb) armor += h.sb[id].ac || 0; // spell buffs: armour
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15 + fxCount(h, 'armor') * 0.1));
   const res = 1 + perk(h, 'res') * 0.2;
   const F = consumBuff(h);

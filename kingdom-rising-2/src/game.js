@@ -234,7 +234,7 @@ export function wkind(fam) { return FAMILIES[fam] ? FAMILIES[fam].kind : 'melee'
 export function wm(h, wt) { h.wm = h.wm || {}; return h.wm[wt] || (h.wm[wt] = { lv: 1, xp: 0, pts: {} }); }
 export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id]) || 0; }
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
-export function classPoints(h) { if (h.yard && CLASS_TREES[h.cls]) return 99; /* the Training Yard: unlimited points to try builds */ if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
+export function classPoints(h) { if (h.yard && CLASS_TREES[h.cls]) return 99; /* the Training Yard: unlimited points to try builds */ if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - CLASS_TREE[h.cls].filter(n => n.t !== 'ult' && h.ctree && h.ctree[n.id]).length; /* capstones are free */ return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 // ---- skill trees (classes that have them unlock their abilities inside the trees) ----
 export const slotFitsK = (i, a) => slotFits(i, a);
 export const hasTrees = (cls) => !BATTLE && !!CLASS_TREES[cls];
@@ -246,14 +246,14 @@ export function fxCount(h, kind) {
   if (key !== _fxKey) { _fxKey = key; _fxC = {}; for (const n of CLASS_TREE[h.cls]) if (n.fx && h.ctree && h.ctree[n.id]) _fxC[n.fx] = (_fxC[n.fx] || 0) + 1; }
   return _fxC[kind] || 0;
 }
-export const nodeOwned = (h, n) => !!(h.ctree && h.ctree[n.id]); // nothing is free: level 1 starts with one point to spend
-export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => h.ctree && h.ctree[n.id]).length : 0; }
+export const nodeOwned = (h, n) => n.t === 'ult' && n.tree && CLASS_TREES[h.cls] ? treeSpent(h, n.tree) >= ULT_PTS : !!(h.ctree && h.ctree[n.id]); // a capstone is free: it opens by itself once the other 10 in its tree are unlocked
+export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => n.t !== 'ult' && h.ctree && h.ctree[n.id]).length : 0; }
 export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (next in line, need a point) | 'locked'
   if (nodeOwned(h, n)) return 'owned';
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
-  { const C = !BATTLE && CROWN[h.cls]; if (C && C.ab === a.id) return h.level >= a.level && C.needs.every(id => { const b = ABILITIES[h.cls].find(x => x.id === id); return b && abilityKnown(h, b); }); } // a crowning ability: all of its parts first
+  { const C = !BATTLE && CROWN[h.cls]; if (C && C.ab === a.id) return CLASS_TREES[h.cls].filter(T => treeSpent(h, T.id) >= ULT_PTS).length >= C.trees; } // a crowning ability: max out enough trees
   if (h.yard && !(CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(x => x.ab === a.id))) return true; // yard: abilities outside the trees are free
   if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); return !!n && nodeOwned(h, n); } // campaign: only what you unlock in the trees
   return h.level >= a.level; }

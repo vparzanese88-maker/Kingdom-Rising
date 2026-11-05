@@ -204,7 +204,7 @@ export const CLASS_TREES = {
     ] },
   ],
 };
-export const ULT_PTS = 9; // every tree has 10 unlocks: 9, then the capstone
+export const ULT_PTS = 10; // every tree has 10 unlocks; unlocking all 10 opens its capstone for free
 export const CLASS_TREE = {
   musketeer: [],
   shaman: [],
@@ -927,10 +927,10 @@ if (ABILITIES.elementalist) ABILITIES.elementalist.push(
   { id: 'staticshield', name: 'Static Shield', level: 9, cd: 30, cost: 25, t: 'petward', kinds: ['stormel', 'pureel'], dur: 10, wardK: 0.5, kit: true, key: '', icon: '', campaign: true, desc: 'A crackling field around your Storm Elemental (or Pure Elemental): it takes 50% less damage for 10 s.' },
   { id: 'recharge', name: 'Recharge', level: 8, cd: 15, cost: 25, t: 'petheal', kinds: ['stormel', 'pureel'], petPct: 0.3, kit: true, key: '', icon: '', campaign: true, desc: 'Recharge your Storm Elemental (or Pure Elemental): it heals 30% of its health.' },
   { id: 'tempest', name: 'Tempest', level: 18, cd: 35, cost: 60, t: 'ground', r: 8, dmg: 1.0, ticks: 6, stun: 0.4, fx: 'arcane', kit: true, key: '', icon: '', campaign: true, desc: 'A storm breaks where you aim: lightning hammers everything in it six times.' },
-  { id: 'pureel', name: 'Summon Pure Elemental', level: 20, cd: 60, cost: 70, t: 'summon', pet: 'pureel', n: 1, extra: 0, dur: 600, kit: true, key: '', icon: '', campaign: true, desc: 'Fire, frost and storm made one: the strongest single servant in the world. Takes the place of any other elemental. Opens at level 20 once you have learned all three elementals.' },
+  { id: 'pureel', name: 'Summon Pure Elemental', level: 20, cd: 60, cost: 70, t: 'summon', pet: 'pureel', n: 1, extra: 0, dur: 600, kit: true, key: '', icon: '', campaign: true, desc: 'Fire, frost and storm made one: the strongest single servant in the world. Takes the place of any other elemental. Awakens once you have maxed out any two trees.' },
 );
 // a class's crowning ability that sits outside the trees: known once all of its parts are known
-export const CROWN = { elementalist: { ab: 'pureel', needs: ['callflame', 'callfrost', 'callstorm'], name: 'Pure Elemental', tag: 'Learn Summon Fire, Frost and Storm Elemental, then reach level 20, to awaken it' } };
+export const CROWN = { elementalist: { ab: 'pureel', trees: 2, name: 'Pure Elemental', tag: 'Max out any two trees to awaken it' } };
 
 // ---- wizard: the strongest spells in the world, ways to get out of trouble, and three forms of transcendence ----
 if (ABILITIES.wizard) ABILITIES.wizard.push(
@@ -990,7 +990,7 @@ const TREE_DEFS = {
   monk: [['Tiger', 'A hundred fists, a single strike', '#ff8a3a', 'offense', ['tigerpalm', 'pressure', 'hundredfists', 'dragonstrike']], ['Wind', 'Never where they strike', '#c8f0ff', 'defense', ['flyingkick', 'sweepkick', 'windstep']], ['Lotus', 'Stillness and inner strength', '#f0c0ff', 'support', ['innerpeace', 'feigndeath', 'serenity']]],
   bard: [['Valor', 'Songs and notes that make every blow and spell land harder', '#ffb040', 'offense', ['warsong', 'piercingnote', 'ariapower', 'flamesong', 'flourish', 'crescendo']], ['Grace', 'Shields of sound, recovery, speed and warding', '#7ee07e', 'support', ['soothe', 'travel', 'enduresong', 'anthem', 'wardsong', 'clarityhymn'], null, { minDmg: 0 }], ['Discord', 'Snares, sleep, spellbinding and calm: you decide who fights', '#b070ff', 'defense', ['snaresong', 'chainchant', 'mesmerize2', 'lullaby', 'weakchant', 'lull', 'dirge'], null, { minSup: 2 }]],
   rogue: [['Assassin', 'From the shadows, straight to the heart', '#e2533a', 'offense', ['backstab', 'kidney', 'garrote']], ['Venom', 'Poison on every edge', '#90e040', 'offense', ['poisontrap', 'envenom', 'deadlypoison']], ['Shadow', 'Smoke, caltrops and vanishing', '#8a7aa8', 'defense', ['vanish2', 'smokescreen', 'snaretrap2', 'caltrops2']]],
-  necromancer: [['Undead', 'Summon the dead, strengthen them, mend them and spread terror', '#b0c8a0', 'support', ['raiseskel', 'fear', 'unholyfrenzy', 'darkmending', 'boneshieldpet', 'skelmage'], 'bonegolem'], ['Siphon', 'Curse them and drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2', 'bloodpact', 'siphonshield', 'soulhoard']], ['Bone', 'Bone armour, bone skin and bone spikes: hard to kill', '#e8e0c8', 'defense', ['boneskin', 'bonespikes', 'bonearmor', 'marrowsurge', 'boneprison'], 'lichlord']],
+  necromancer: [['Undead', 'Summon the dead, strengthen them, mend them and spread terror', '#b0c8a0', 'support', ['raiseskel', 'fear', 'unholyfrenzy', 'darkmending', 'boneshieldpet', 'skelmage'], 'bonegolem'], ['Siphon', 'Curse them and drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2', 'deathnova', 'bloodpact', 'siphonshield', 'soulhoard']], ['Bone', 'Bone armour, bone skin and bone spikes: hard to kill', '#e8e0c8', 'defense', ['boneskin', 'bonespikes', 'bonearmor', 'marrowsurge', 'boneprison'], 'lichlord']],
   elementalist: [['Fire', 'A living flame at your side, and fire to throw', '#ff7a3a', 'offense', ['callflame', 'flamelash', 'stokeflames', 'rekindle', 'embershell', 'firestorm'], 'cataclysm'], ['Frost', 'A giant of ice at your side, and frost to hold them', '#8ad8ff', 'defense', ['callfrost', 'frostshard', 'glacialarmor', 'frozenrenewal', 'wintersbite', 'blizzard', 'frostbind'], 'absolutezero'], ['Lightning', 'A storm in a body, and lightning in your hands', '#c8d0ff', 'offense', ['callstorm', 'lightninglash', 'overcharge', 'recharge', 'staticshield', 'thunder'], 'tempest']],
   enchanter: [['Mind', 'Break their thoughts', '#b070ff', 'offense', ['mindblast', 'mindrot', 'mindstorm']], ['Illusion', 'Charm, sleep and confusion', '#f0a0ff', 'defense', ['mesmerize', 'masssleep', 'phantasm', 'confusion']], ['Runes', 'Haste, wards and clarity', '#8ac8ff', 'support', ['hasteall', 'runeshield', 'clarity']]],
   blunderbuss: [['Scattershot', 'What the gun itself can do', '#ff9a3a', 'offense', ['buckshot', 'blackpowder', 'chainshot', 'quickload', 'dragonshell', 'freshpowder'], 'handcannon'], ['Demolition', 'Grenades, fire bombs and barrages', '#ff5a2a', 'offense', ['grenade', 'blastshield', 'shrapnel', 'sapperstride', 'firebomb', 'powderfever', 'mortar'], 'greatkeg'], ['Ironclad', 'Plate, bracing and the gun stock', '#a8b0bc', 'defense', ['buttstroke', 'ironhide', 'braced', 'powdercharge', 'fielddressing']]],
@@ -1100,9 +1100,9 @@ const A_SLOTS = [[0, 1], [1, 0], [2, 2], [3, 0], [4, 1], [1, 2], [3, 2], [2, 0],
 const A_SLOTS_BIG = [[0, 1], [1, 0], [1, 2], [2, 0], [2, 2], [3, 0], [3, 2], [4, 0], [4, 2], [2, 1], [3, 1], [4, 1], [1, 1]];
 const ALL_CELLS = []; for (let r = 1; r <= 4; r++) for (let c = 0; c < 3; c++) ALL_CELLS.push([r, c]); ALL_CELLS.push([5, 0], [5, 2]); // (not the top row: nothing there could hang from anything)
 for (const [cls, trees] of Object.entries(CLASS_TREES)) for (const T of trees) {
-  // exactly 10 unlocks per tree: keep every ability, drop passives from the bottom up (never the special ones) until 9 remain, then the capstone
+  // exactly 10 unlocks per tree (the capstone on top is free): keep every ability, drop passives from the bottom up (never the special ones)
   { const keep = (n) => n.t === 'ult' || n.ab || (n.fx && (n.fx === 'songreach' || n.fx.startsWith('el_')));
-    const drop = T.nodes.filter(n => !keep(n)).sort((x, y) => y.row - x.row || y.col - x.col); let extra = T.nodes.filter(n => n.t !== 'ult').length - 9;
+    const drop = T.nodes.filter(n => !keep(n)).sort((x, y) => y.row - x.row || y.col - x.col); let extra = T.nodes.filter(n => n.t !== 'ult').length - ULT_PTS;
     const gone = new Set(); for (const n of drop) { if (extra <= 0) break; gone.add(n); extra--; }
     T.nodes = T.nodes.filter(n => !gone.has(n)); }
   const ult = T.nodes.find(n => n.t === 'ult'), abs = T.nodes.filter(n => n.t === 'ab'), pas = T.nodes.filter(n => n.t === 'pas');

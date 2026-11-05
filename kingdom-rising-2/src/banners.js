@@ -61,7 +61,7 @@ export function plantBanner(kind, at, yaw, dur, r) {
   list.push(b);
   const B = BANNER[kind];
   V.burst('dust', b.pos.clone().setY(y + 0.2), 30, { speed: 5, size: 1 }); V.burst('stone', b.pos.clone().setY(y + 0.2), 14, { speed: 5, grav: 14, size: 0.25 });
-  V.burst(B.mote, b.pos.clone().setY(y + 5), 50, { speed: 5, vy: 2 }); V.light(b.pos.clone().setY(y + 5), B.glow, 8, 0.6); V.addShake(0.3);
+  V.burst(B.mote, b.pos.clone().setY(y + 2.5), 40, { speed: 5, vy: 2 }); V.light(b.pos.clone().setY(y + 2.5), B.glow, 6, 0.6); V.addShake(0.3);
   return b;
 }
 function remove(b) { G.scene.remove(b.root); b.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); const i = list.indexOf(b); if (i >= 0) list.splice(i, 1); }
@@ -73,7 +73,7 @@ export function updateBanners(dt, P) {
   for (const b of list.slice()) {
     b.t += dt; const B = BANNER[b.kind], R = b.root, ud = R.userData;
     if (b.t > b.dur) { V.burst('dust', b.pos.clone().setY(b.pos.y + 1), 20, { speed: 3, size: 0.9 }); remove(b); continue; }
-    const rise = Math.min(1, b.t / 0.25); R.scale.x = R.scale.z = 2; R.scale.y = 2 * ( 0.01 + (1 - Math.pow(1 - rise, 3)) * 0.99 + (rise < 1 ? 0 : Math.max(0, 0.08 * Math.sin((b.t - 0.25) * 20) * Math.exp(-(b.t - 0.25) * 6))));
+    const rise = Math.min(1, b.t / 0.25); R.scale.y = ( 0.01 + (1 - Math.pow(1 - rise, 3)) * 0.99 + (rise < 1 ? 0 : Math.max(0, 0.08 * Math.sin((b.t - 0.25) * 20) * Math.exp(-(b.t - 0.25) * 6))));
     const fade = b.dur - b.t < 1.5 ? (b.dur - b.t) / 1.5 : 1;
     ud.ring.material.opacity = (0.35 + 0.25 * Math.sin(b.t * 4)) * fade; ud.disc.material.opacity = 0.07 * fade;
     // waving cloth: a travelling wave that grows toward the free edge, with a little flutter

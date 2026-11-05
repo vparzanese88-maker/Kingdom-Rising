@@ -439,7 +439,8 @@ export class Player {
     if (G.newFx && (W.kind === 'gun' || W.kind === 'bow' || W.kind === 'staff') && Math.random() < 0.6) Skills.practise(this.h, Skills.skillOf(this.weapon.wt));
     if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
-    if (W.kind === 'staff') { // the left-click bolt is a free basic attack, like any weapon swing
+    if (W.kind === 'staff') { // campaign: a magical staff runs on mana, bolts included (a stronger staff costs more)
+      if (G.newFx) { const cost = Math.round(3 + (this.weapon.dmg || 9) * 0.12); if (this.mana < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Out of mana', 'miss'); return; } this.mana -= cost; this.manaUseT = 1; }
       return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 }); }
     const C = COMBOS[this.weapon.wt]; if (!C) return;
     if (this.comboT <= 0) this.combo = 0;
@@ -458,7 +459,7 @@ export class Player {
       this.end -= cost; this.endUseT = 1; }
     const charge = clamp((p.t - (W.kind === 'melee' && p.t0 != null ? p.t0 : 0.22)) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : W.kind === 'melee' ? 0.5 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
     if (W.kind === 'bow' || W.kind === 'gun') return this.startAtk('release', W.kind === 'gun' ? 0.35 : 0.3, { charge, fire: true });
-    if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });
+    if (W.kind === 'staff') { if (G.newFx) { const cost = Math.round(8 + (this.weapon.dmg || 9) * 0.35); if (this.mana < cost) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Out of mana', 'miss'); S.error(); return; } this.mana -= cost; this.manaUseT = 1; } return this.startAtk('cast', 0.45, { charge, big: true }); } // a charged staff blast costs more
     this.startAtk('heavy', 0.7 / W.speed / Math.sqrt(this.speedMul()), { charge, last: true, held: true }); this.lungeT = 0.16; this.lungeDir = this.fwd(); this.fovKick = Math.max(this.fovKick, 4 + charge * 3);
   }
   startAtk(name, dur, o = {}) {

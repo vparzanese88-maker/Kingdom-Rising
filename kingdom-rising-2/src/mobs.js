@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { MOBS, NPCS, mobHp, mobDmg, mobXp, MOB_ABILITIES, LV_K, shownLv, levelGap } from './data.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, makeWeapon, limbGeo, setDetail, bake } from './character.js';
-import { heightAt, isWater, normalAt } from './terrain.js';
+import { heightAt, isWater, normalAt, VILLAGE, SPAWN } from './terrain.js';
 import { collide } from './world.js';
 import { G } from './state.js';
 import { S } from './audio.js';
@@ -253,6 +253,8 @@ export class Mob {
   }
   get name() { return this.def.name; }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
+  // the newbie area around Seabreak and the landing beach: wolves and bears there leave you alone unless you attack them
+  newbieCalm() { if (!G.newFx || !/wolf|bear/.test(this.type)) return false; const h = this.home; return Math.hypot(h.x - VILLAGE.x, h.z - VILLAGE.z) < 230 || Math.hypot(h.x - SPAWN.x, h.z - SPAWN.z) < 230; }
   takeHit(dmg, src, opts = {}) {
     if (this.dead) return 0;
     // online mirror: the host decides what happens to this mob
@@ -327,7 +329,7 @@ export class Mob {
     if (!disabled) {
       this.atkCd -= dt;
       // aggro
-      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && levelGap(player.level, this.lv) < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
+      if (!player.dead && this.state !== 'chase' && this.state !== 'flee' && this.state !== 'return' && this.hostile && !this.newbieCalm() && dp < this.def.aggro * (player.stealth > 0 ? (G.battleFx ? 0 : 0.25) : 1) && levelGap(player.level, this.lv) < 8) { this.state = 'chase'; S.growl(this.def.variant || this.def.shape, this.pos); }
       if (player.dead && this.state === 'chase') this.state = 'return';
       const leash = this.home.distanceTo(this.pos);
       if (this.state === 'chase' && player.stealth > 0 && G.battleFx && leash <= (this.def.boss ? 60 : 45)) this.loseTrack();

@@ -229,7 +229,7 @@ export function updatePlates() {
       if (m.dead) continue;
       const d = m.pos.distanceTo(p.pos); if (d > (m.isStruct ? 70 : 32) && m !== G.target) continue;
       const ally = m.team != null && m.team === G.myTeam; if (ally && d > 16 && !m.isStruct && m !== G.target) continue;
-      const hostile = !ally && (m.hostile || m.provoked);
+      const hostile = !ally && ((m.hostile && !(m.newbieCalm && m.newbieCalm())) || m.provoked);
       const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0 || m.status.dot > 0;
       if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb && !G.newFx) continue;
       // campaign: no plate by default. The name shows for 8 s after your crosshair passes over it; the health bar

@@ -130,7 +130,7 @@ export function updateHUD(dt) {
     if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
       const e = abilEls.hb[i]; if (!e) return;
-      if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; if (!a) return; { const own = p.cd['a' + (k + 1)] || 0, ban = ['warbanner', 'vigorbanner', 'stonebanner', 'rally'].includes(a.id) ? (p.bannerT || 0) - G.time : 0, gcd = G.hotbarSlots ? (p.gcdT || 0) - G.time : 0, lock = Math.max(ban, gcd); if (lock > own) setCd(e, lock, ban >= gcd ? 2 : 1.5); else setCd(e, own, a.cd); e.classList.toggle('lock', lock > own && lock > 0); } const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
+      if (sl && sl.t === 'ab') { const k = ABILITIES[h.cls].findIndex(a => a.id === sl.id), a = ABILITIES[h.cls][k]; if (!a) return; { const own = p.cd['a' + (k + 1)] || 0, ban = 0, gcd = G.hotbarSlots && i < SUPPORT_SLOTS ? (p.gcdT || 0) - G.time : 0, lock = Math.max(ban, gcd); if (lock > own) setCd(e, lock, ban >= gcd ? 2 : 1.5); else setCd(e, own, a.cd); e.classList.toggle('lock', lock > own && lock > 0); } const cur = CLASS_POOLS[h.cls].uses === 'mana' ? p.mana : p.end; e.style.opacity = cur < a.cost ? 0.55 : 1; }
       else if (sl && sl.t === 'item') { setCd(e, p.useCd, 1); const n = Game.count(h, sl.id); let ne = e.querySelector('.n'); if (!ne) { ne = el('span', 'n'); e.appendChild(ne); } ne.textContent = n; e.style.opacity = n ? 1 : 0.4; }
       else { setCd(e, 0, 1); e.style.opacity = 1; const ne = e.querySelector('.n'); if (ne) ne.remove(); }
     });

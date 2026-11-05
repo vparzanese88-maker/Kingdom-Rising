@@ -307,7 +307,7 @@ export class Mob {
     // dots
     if (st.bleed > 0) { st.bleed -= dt; this.dotAcc = (this.dotAcc || 0) + st.bleedDps * dt; }
     if (st.burn > 0) { st.burn -= dt; this.dotAcc = (this.dotAcc || 0) + st.burnDps * dt; if (Math.random() < dt * 12) V.burst('fire', this.pos.clone().setY(this.pos.y + this.height * 0.5), 1, { speed: 1, vy: 2 }); }
-    if (this.dotAcc >= 1) { const d = Math.floor(this.dotAcc); this.dotAcc -= d; this.takeHit(d, player, { silent: true }); V.number(this.pos.clone().setY(this.pos.y + this.height), d, 'dot'); if (this.dead) return; }
+    if (this.dotAcc >= 1) { const d = Math.floor(this.dotAcc); this.dotAcc -= d; this.takeHit(d, player, { silent: true }); V.number(this.pos.clone().setY(this.pos.y + this.height), d, 'dot', st.burn > 0 && !(st.bleed > 0) ? '#ff8a3a' : st.bleed > 0 ? '#ff5a4a' : null); if (this.dead) return; }
     for (const k of ['frozen', 'stun', 'slow']) if (st[k] > 0) st[k] -= dt;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     for (const m of this.mats) m.emissive && m.emissive.setScalar(this.hitFlash > 0 ? 0.6 : 0);

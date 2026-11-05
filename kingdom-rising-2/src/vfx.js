@@ -144,6 +144,7 @@ export const V = {
   number(p, text, kind = 'dmg') {
     if (!settings.dmgNumbers || !this.numLayer) return;
     const el = document.createElement('div'); el.className = 'dnum ' + kind; el.textContent = text; this.numLayer.appendChild(el);
+    if (arguments[3]) { el.classList.add('tint'); el.style.setProperty('--nc', arguments[3]); } // a colour for elemental hits and proc names
     this.numbers.push({ el, p: p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6)), t: 0, vx: (Math.random() - 0.5) * 30 });
   },
   addShake(a) { this.shake = Math.min(1.2, this.shake + a); },

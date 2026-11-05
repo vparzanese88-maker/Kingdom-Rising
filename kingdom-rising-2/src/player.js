@@ -53,6 +53,7 @@ const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
+const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 const BANNERS_AB = new Set(['warbanner', 'vigorbanner', 'stonebanner', 'rally']);
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
@@ -1349,7 +1350,7 @@ export class Player {
     if (this.wp('leech')) this.heal(total * 0.04 * this.hk(), true);
     if (this.buffs.rage > 0) this.heal(total * 0.15 * this.hk(), true);
     const np = m.pos.clone(); np.y += m.height + 0.2;
-    if (!o.silent || o.el) V.number(np, crit ? total + '!' : total, crit ? 'crit' : o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : 'dmg');
+    if (!o.silent || o.el) V.number(np, crit ? total + '!' : total, crit ? 'crit' : o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : 'dmg', EL_COL[o.tint || o.el]); // elemental hits in their element's colour
     if (crit) { V.burst('spark', np, 12, { speed: 5 }); }
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
     G.inCombat = 6; G.target = m; this.hitT = G.time;
@@ -1361,16 +1362,16 @@ export class Player {
     if (G.time < (this.procT || 0) || Math.random() >= procChance(w.rarity, this.D.stats.dex)) return;
     this.procT = G.time + 2;
     const P = PROCS[w.proc], base = weaponDamage(this.h, w) * (w.rarity >= 4 ? 0.75 : w.rarity >= 3 ? 0.65 : 0.55), at = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6);
-    V.number(at.clone().setY(at.y + 1.2), P.name + '!', 'crit');
+    V.number(at.clone().setY(at.y + 1.2), P.name + '!', 'crit', P.col); // the proc's name in its own colour (Frostbite is ice blue)
     switch (w.proc) {
       case 'flame': this.dealDamage(m, base * 0.7, { proc: true, el: 'fire', burn: base * 0.35 }); V.burst('fire', at, 26, { speed: 4, size: 0.6 }); S.cast && S.cast('fire', m.pos, 0.6); break;
       case 'frost': this.dealDamage(m, base * 0.55, { proc: true, el: 'frost', slow: 3 }); V.burst('frost', at, 24, { speed: 3.5, size: 0.5 }); break;
       case 'storm': { const hit = [m]; let from = this.pos.clone().setY(this.pos.y + 1.4), cur = m;
-        for (let k = 0; k < 3 && cur; k++) { lightning(from, cur.pos.clone().setY(cur.pos.y + (cur.height || 1.6) * 0.6)); if (!cur.dead) this.dealDamage(cur, base * (k ? 0.4 : 0.55), { proc: true, el: 'arcane' }); from = cur.pos.clone().setY(cur.pos.y + 1); cur = mobsInRadius(cur.pos, 7).filter(x => !hit.includes(x)).sort((a, b) => a.pos.distanceTo(cur.pos) - b.pos.distanceTo(cur.pos))[0]; if (cur) hit.push(cur); }
+        for (let k = 0; k < 3 && cur; k++) { lightning(from, cur.pos.clone().setY(cur.pos.y + (cur.height || 1.6) * 0.6)); if (!cur.dead) this.dealDamage(cur, base * (k ? 0.4 : 0.55), { proc: true, el: 'arcane', tint: 'storm' }); from = cur.pos.clone().setY(cur.pos.y + 1); cur = mobsInRadius(cur.pos, 7).filter(x => !hit.includes(x)).sort((a, b) => a.pos.distanceTo(cur.pos) - b.pos.distanceTo(cur.pos))[0]; if (cur) hit.push(cur); }
         break; }
-      case 'venom': this.dealDamage(m, base * 0.2, { proc: true, bleed: base * 0.12 }); V.burst('leaf', at, 18, { speed: 2.5 }); break;
+      case 'venom': this.dealDamage(m, base * 0.2, { proc: true, bleed: base * 0.12, tint: 'poison' }); V.burst('leaf', at, 18, { speed: 2.5 }); break;
       case 'crush': this.dealDamage(m, base * 0.5, { proc: true, stun: 1.1, blunt: true, big: true }); V.ring(m.pos, 1.6, '#ffe28a', 0.3); S.blunt && S.blunt(m.pos); break;
-      case 'shadow': this.dealDamage(m, base * 0.85, { proc: true, el: 'arcane' }); V.burst('shadow', at, 22, { speed: 3, size: 0.8, grav: 0 }); break;
+      case 'shadow': this.dealDamage(m, base * 0.85, { proc: true, el: 'arcane', tint: 'shadow' }); V.burst('shadow', at, 22, { speed: 3, size: 0.8, grav: 0 }); break;
     }
   }
   // the campaign: landing hits with a weapon trains it (see the Weapons tab, L)

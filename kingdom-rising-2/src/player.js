@@ -1246,9 +1246,10 @@ export class Player {
     const h = this.h, wt = this.weapon && this.weapon.wt; Skills.practise(h, Skills.skillOf(wt));
     if (a.name === 'heavy' || a.held || t.dead) return;
     const swing = (delay, hand, dmg, label) => setTimeout(() => { if (this.dead || t.dead) return; this.dealDamage(t, dmg, { melee: true, offhand: hand === 'off' }); S.swingW('light', 0.9, this.pos); V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.5), label, 'miss'); this.atk = { name: hand === 'off' ? 'off1' : 'swing2', t: 0.25, dur: 0.22, hit: true, noQueue: true, extra: true }; }, delay);
-    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { Skills.practise(h, 'double'); swing(140, 'main', base * (st.m || 1), 'Double attack');
-      if (Math.random() < Skills.tripleChance(h, this.D.stats.str)) { Skills.practise(h, 'triple'); swing(280, 'main', base * (st.m || 1), 'Triple attack'); } }
-    if (Skills.canDual(h)) { const w2 = h.equip.w2; if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { Skills.practise(h, 'dual'); swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
+    if (Skills.skillCapOf(h, 'double') > 0) Skills.practise(h, 'double'); // every swing is practice
+    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { swing(140, 'main', base * (st.m || 1), 'Double attack');
+      if (Skills.TRIPLE_CLASSES.has(h.cls) && Skills.skillCapOf(h, 'triple') > 0 && (Skills.practise(h, 'triple'), Math.random() < Skills.tripleChance(h, this.D.stats.str))) { swing(280, 'main', base * (st.m || 1), 'Triple attack'); } }
+    if (Skills.canDual(h)) { const w2 = h.equip.w2; Skills.practise(h, 'dual'); if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
   // talents that fire when you kill something
   onKillPerks(mob) {

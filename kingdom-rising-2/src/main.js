@@ -99,6 +99,7 @@ function boot() {
       const n = zn === 'meadow' || zn === 'edge' || zn === 'coast' ? 2 + (Math.random() < 0.5 ? 1 : 0) : type === 'tiger' || type === 'snowtiger' ? 2 : type === 'rabbit' || type === 'crab' ? 4 : 3 + (Math.random() < 0.5 ? 1 : 0);
       for (let i = 0; i < n; i++) { const px = x + (Math.random() - 0.5) * 34, pz = z + (Math.random() - 0.5) * 34; if (heightAt(px, pz) < (type === 'crab' ? 0.2 : 1.2)) continue; G.mobs.push(new Mob(type, l0 + Math.floor(Math.random() * (l1 - l0 + 1)), px, pz)); }
     } }
+  spreadWildlife();
   // goblin camps: three around the fire, two on patrol
   for (const [cx, cz, l0, l1] of GOBLIN_CAMPS) {
     const lv = () => l0 + Math.floor(Math.random() * (l1 - l0 + 1));
@@ -279,6 +280,29 @@ function kitAbilities(levelOf) {
   G.battleFx = true; G.noTalents = true; G.hotbarSlots = BATTLE ? 4 : 8; G.newFx = !BATTLE; if (!BATTLE) document.body.classList.add('newfx');
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
+// spread the roaming animals out: wolves alone, in pairs or small packs; bears well apart; tigers further still; nothing near goblin camps or towns
+function spreadWildlife() {
+  const kind = (m) => /tiger/.test(m.type) ? 'tiger' : /bear/.test(m.type) ? 'bear' : /wolf/.test(m.type) ? 'wolf' : /boar/.test(m.type) ? 'boar' : null;
+  const GAP = { tiger: 75, bear: 50, boar: 28, wolf: 30 }, all = G.mobs.filter(m => kind(m) && m.team == null && !m.bossy && !m.def.elite);
+  const okSpot = (x, z) => heightAt(x, z) > 1.2 && Math.hypot(x - VILLAGE.x, z - VILLAGE.z) > 70 && Math.hypot(x - PORT.x, z - PORT.z) > 110 && !GOBLIN_CAMPS.some(g => Math.hypot(g[0] - x, g[1] - z) < 55) && !CAMPS.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 30);
+  const move = (m, x, z) => { m.pos.set(x, heightAt(x, z), z); m.home.copy(m.pos); m.root.position.copy(m.pos); };
+  const placed = [], gone = new Set();
+  // wolves: break crowds into packs of 1-4, each pack well clear of the next
+  const wolves = all.filter(m => kind(m) === 'wolf'); let wi = 0;
+  while (wi < wolves.length) { const r = Math.random(), size = r < 0.3 ? 1 : r < 0.6 ? 2 : r < 0.85 ? 3 : 4, pack = wolves.slice(wi, wi + size); wi += size;
+    const lead = pack[0]; let x = lead.pos.x, z = lead.pos.z, tries = 0;
+    while (tries++ < 30 && (!okSpot(x, z) || placed.some(p => Math.hypot(p.x - x, p.z - z) < GAP[p.k] + GAP.wolf * 0.5))) { const a = Math.random() * 6.28, d = 30 + Math.random() * 90; x = lead.pos.x + Math.cos(a) * d; z = lead.pos.z + Math.sin(a) * d; }
+    if (tries >= 30) { pack.forEach(m => gone.add(m)); continue; }
+    placed.push({ x, z, k: 'wolf' }); pack.forEach((m, i) => { const a = i * 2.1, d = i ? 2.5 + Math.random() * 2 : 0; move(m, x + Math.cos(a) * d, z + Math.sin(a) * d); }); }
+  // everything else on its own, spaced by kind (tigers the widest)
+  for (const m of all.filter(m => kind(m) !== 'wolf').sort((a, b) => GAP[kind(b)] - GAP[kind(a)])) {
+    const k = kind(m); let x = m.pos.x, z = m.pos.z, tries = 0;
+    while (tries++ < 40 && (!okSpot(x, z) || placed.some(p => Math.hypot(p.x - x, p.z - z) < Math.max(GAP[k], GAP[p.k]) * (p.k === k ? 1 : 0.5)))) { const a = Math.random() * 6.28, d = 30 + Math.random() * 120; x = m.pos.x + Math.cos(a) * d; z = m.pos.z + Math.sin(a) * d; }
+    if (tries >= 40) { gone.add(m); continue; }
+    placed.push({ x, z, k }); move(m, x, z);
+  }
+  for (const m of gone) { G.scene.remove(m.root); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1); }
+}
 function campaignSetup() {
   // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
   for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
@@ -648,7 +672,11 @@ function input() {
     if (intro) { if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') endIntro(); return; }
     if (inScene()) { e.preventDefault(); if (!e.repeat) sceneKey(e.code); return; }
     if (e.code === 'Enter' && !e.repeat && !G.uiOpen && !G.chatting) { e.preventDefault(); for (const k in G.keys) G.keys[k] = false; if (G.player) { G.player.press = null; G.player.rmbHeld = false; } if (document.pointerLockElement) document.exitPointerLock(); openChat(); return; }
-    if (e.code === 'Tab') { e.preventDefault(); if (BATTLE && mode === 'game' && !e.repeat) BUI.scoreboard(true); }
+    if (e.code === 'Tab') { e.preventDefault(); if (BATTLE && mode === 'game' && !e.repeat) BUI.scoreboard(true);
+      if (!BATTLE && mode === 'game' && !e.repeat && !G.uiOpen && G.player) { // Tab: the closest creature near your crosshair
+        const P = G.player; let best = null, bs = 1e9; const cam = G.camera, d = cam.getWorldDirection(new THREE.Vector3()), o = cam.getWorldPosition(new THREE.Vector3());
+        for (const m of G.mobs) { if (m.dead || m.pet || !isFoe(m) || !m.root.visible) continue; const c = m.pos.clone().setY(m.pos.y + (m.height || 1.5) * 0.5).sub(o), dist = c.length(); if (dist > 45) continue; const ang = Math.acos(Math.min(1, c.dot(d) / dist)); if (ang > 0.45) continue; const sc = ang * 30 + dist + (m === G.target ? 6 : 0); if (sc < bs) { bs = sc; best = m; } }
+        if (best) { G.target = best; best.lookT = G.time; S.click(); } else UI.toast('Nothing to target in front of you', '🎯', 'bad'); } }
     const p = G.player;
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };

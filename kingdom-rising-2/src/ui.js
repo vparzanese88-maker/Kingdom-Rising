@@ -167,6 +167,9 @@ export function updateHUD(dt) {
   // target frame
   const t = G.target;
   if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `<span class="lvb" style="--c:${lvlCol(t.lv, h.level)}">${t.lv}</span> ${t.def.elite ? '★ ' : ''}<span style="color:${lvlCol(t.lv, h.level)}">${esc(t.name)}</span>`; $('target').querySelector('.bar2 i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('.bar2 span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`;
+    if (G.newFx) { let dsc = $('target').querySelector('.tdesc2'); if (!dsc) { dsc = document.createElement('div'); dsc.className = 'tdesc2'; $('target').insertBefore(dsc, $('target').querySelector('.bar2')); }
+      const dl = t.lv - h.level, con = dl >= 3 ? ['Deadly', 'Looks like it would wipe the floor with you.'] : dl >= 1 ? ['Tough', 'This would be a tough fight.'] : dl === 0 ? ['Even match', 'An even match.'] : dl >= -2 ? ['Easy', 'You could take it.'] : dl >= -5 ? ['Weak', 'It is no real threat.'] : ['Trivial', 'Not worth your time.'];
+      const html = `<span class="tcon" style="color:${lvlCol(t.lv, h.level)}">Level ${t.lv} · ${con[0]}${t.def.elite ? ' · Elite' : ''}${t.def.boss ? ' · Boss' : ''}</span><span class="tdd">${esc(mobDesc(t))} ${con[1]}</span>`; if (dsc._h !== html) { dsc.innerHTML = html; dsc._h = html; } }
     { const st = t.status || {}, L = []; const a = (on, ic, nm, v, col) => { if (on) L.push([ic, nm, v, col]); };
       a(st.stun > 0, '💫', 'Stunned', st.stun, '#e0c020'); a(st.frozen > 0, '❄', 'Frozen', st.frozen, '#8ad8ff'); a(st.slow > 0, '🐌', 'Slowed', st.slow, '#4a8ad8');
       a(st.bleed > 0, '🩸', 'Bleeding', st.bleed, '#e02020'); a(st.burn > 0, '🔥', 'Burning', st.burn, '#ff7020'); a(st.dot > 0, '☣', st.dotName || 'Disease', st.dot, '#90e040');
@@ -175,6 +178,9 @@ export function updateHUD(dt) {
       const html = L.map(([ic, nm, v, col]) => `<div class="aura bad" style="--c:${col}" title="${nm}"><span>${ic}</span><b>${Math.ceil(v)}</b></div>`).join(''); if (row._h !== html) { row.innerHTML = html; row._h = html; } } }
   else { $('target').hidden = true; if (t && (t.dead || t.pos.distanceTo(p.pos) > 45)) G.target = null; }
 }
+// a line about what a creature is, for the target box
+const MOB_DESC = { wolf: 'A grey island wolf: quick, and rarely alone.', bear: 'A big brown bear. Slow to anger, hard to stop.', tiger: 'A striped jungle tiger that stalks before it pounces.', boar: 'A wild boar with sharp tusks and a short temper.', goblin: 'One of Gorgrak\'s goblins: sneaky, greedy and armed.', skeleton: 'Old bones held together by dark magic.', spider: 'A huge spider that spits venom.', crab: 'A shore crab with heavy claws.', bandit: 'A cut-throat who preys on travellers.', troll: 'A hulking troll that heals its wounds.', golem: 'Living stone, hard to break.', imp: 'A small fire imp.', rat: 'A big, mangy rat.', deer: 'A shy deer.' };
+function mobDesc(m) { const v = (m.def && (m.def.variant || m.def.shape)) || '', id = m.type || ''; for (const k in MOB_DESC) if (id.includes(k) || v === k) return MOB_DESC[k]; return m.hostile ? 'A hostile creature.' : 'A wild creature.'; }
 export function lvlCol(ml, pl) { const d = ml - pl; return d >= 3 ? '#ff3a30' : d >= 1 ? '#ffe040' : d === 0 ? '#ffffff' : d >= -2 ? '#4a7aff' : d >= -4 ? '#6ad0ff' : d >= -6 ? '#5ae05a' : '#9a9a9a'; }
 export function progress(k, label) { const e = $('progress'); if (k == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('span').textContent = label; e.querySelector('i').style.width = (Math.min(1, k) * 100) + '%'; }
 
@@ -216,7 +222,7 @@ export function updatePlates() {
       const d = n.pos.distanceTo(p.pos); if (d > 90) continue;
       const mk = Game.npcMarker(p.h, n.id);
       const m = mk === '!' ? '<div class="mk">!</div>' : mk === '?' ? '<div class="mk">?</div>' : mk === 'q' ? '<div class="mk grey">?</div>' : '';
-      const name = d < 22 ? `<div class="nm">${esc(n.name)}</div><div class="tt">&lt;${esc(n.def.title)}&gt;</div>` : '';
+      const name = (G.newFx || d < 22) ? `<div class="nm">${esc(n.name)}</div><div class="tt">&lt;${esc(n.def.title)}&gt;</div>` : '';
       if (m || name) show('n' + n.id, n, m + name, 'npc', n.height + 0.25);
     }
     for (const m of G.mobs) {
@@ -225,11 +231,17 @@ export function updatePlates() {
       const ally = m.team != null && m.team === G.myTeam; if (ally && d > 16 && !m.isStruct && m !== G.target) continue;
       const hostile = !ally && (m.hostile || m.provoked);
       const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0 || m.status.dot > 0;
-      if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb) continue;
+      if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb && !G.newFx) continue;
+      // campaign: no plate by default. The name shows for 8 s after your crosshair passes over it; the health bar
+      // shows while it is hurt, and for 8 s after it is back to full. Your target always shows both.
+      let showName = true, showHp = true;
+      if (G.newFx && !m.isStruct && !ally) { const tgt = m === G.target; if (m.hp < m.maxHp) m.hurtSeenT = G.time;
+        showName = tgt || G.time - (m.lookT || -99) < 8; showHp = tgt || G.time - (m.hurtSeenT || -99) < 8; if (!showName && !showHp && !anyDb) continue; }
       const cls = ally ? 'ally' : m.def.elite ? 'elite' : hostile ? 'hostile' : 'passive';
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
       const S2 = m.status; let db = '';
       for (const [k, ic, c] of [['stun', '💫', '#e0c020'], ['frozen', '❄', '#8ad8ff'], ['slow', '🐌', '#4a8ad8'], ['bleed', '🩸', '#c82020'], ['burn', '🔥', '#ff7020'], ['dot', '☠', '#8ae050']]) if (S2[k] > 0) db += `<span style="--c:${c}">${ic}<i>${Math.ceil(S2[k])}</i></span>`;
+      if (G.newFx && !m.isStruct && !ally) { show('m' + m.id, m, `${showName ? `<div class="nm" style="color:${lc}">${esc(m.name)}</div>` : ''}${showHp ? `<div class="hpb"><i style="width:${hpP}%"></i></div>` : ''}${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35); continue; }
       show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }
   }

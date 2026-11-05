@@ -1625,6 +1625,7 @@ export class Player {
     this.moveDir = md;
     const wasBlock = this.block;
     this.lichTick(dt);
+    if (G.newFx && (this.lookCheckT = (this.lookCheckT || 0) - dt) <= 0) { this.lookCheckT = 0.1; const r = aimRay(60); if (r && r.mob) r.mob.lookT = G.time; } // names show when your crosshair passes over
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;

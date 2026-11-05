@@ -178,7 +178,7 @@ export const CLASS_KIT = {
   bulwark: ['Earthshaker', 'Slam the ground: every enemy around you is knocked away and stunned.'],
 };
 export const BATTLE_ABILITIES = {
-  warrior: [BA('rally', 'Rallying Banner', 3, 30, 22, 'Plant your banner: you heal 15% and every one of your troops within 15 m heals 30% and hits 25% harder for 10 s.'),
+  warrior: [BA('rally', 'Rallying Banner', 3, 30, 22, 'Plant your banner: you regenerate 15% of your health over 8 s and every one of your troops within 15 m heals 30% and hits 25% harder for 10 s.'),
     BA('seismic', 'Seismic Slam', 7, 35, 10, 'Smash the ground: a shockwave rips 10 m forward in a wide cone, dealing heavy damage and slowing everything it hits.'),
     BA('bladestorm', 'Bladestorm', 11, 45, 18, 'Spin like a whirlwind of steel for 2.4 s, cutting everything within 4.5 m again and again.')],
   berserker: [BA('hurlaxe', 'Hurl Axe', 3, 20, 7, 'Throw a spinning axe that hits hard and leaves the target bleeding.'),

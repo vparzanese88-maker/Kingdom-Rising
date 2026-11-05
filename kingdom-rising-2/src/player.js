@@ -439,7 +439,8 @@ export class Player {
     if (G.newFx && (W.kind === 'gun' || W.kind === 'bow' || W.kind === 'staff') && Math.random() < 0.6) Skills.practise(this.h, Skills.skillOf(this.weapon.wt));
     if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
     if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
-    if (W.kind === 'staff') return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 });
+    if (W.kind === 'staff') { if (G.newFx) { const cost = Math.round(3 + this.h.level * 0.5); if (this.mana < cost) { S.error(); G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); return; } this.mana -= cost; this.manaUseT = 1; } // campaign: every bolt costs a little mana
+      return this.startAtk('cast', 0.55 / W.speed / (1 + this.wp('combo') * 0.12) / this.speedMul(), { charge: 0 }); }
     const C = COMBOS[this.weapon.wt]; if (!C) return;
     if (this.comboT <= 0) this.combo = 0;
     const L = Game.comboLen(this.h, this.weapon.wt); // the campaign: strikes unlock as the weapon's mastery grows
@@ -507,7 +508,7 @@ export class Player {
   }
   doHit(a) {
     const W = this.W, w = this.weapon; if (!W) return;
-    const base = weaponDamage(this.h, w);
+    let base = weaponDamage(this.h, w);
     const yaw = this.yaw;
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
@@ -559,6 +560,7 @@ export class Player {
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
+      if (G.newFx && !a.big) base *= 0.7; // campaign: plain bolts hit softer; spells and the held stream carry the damage
       const sc = big ? 1 + ch * 1.4 : 1;
       if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
       else if (el === 'frost') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
@@ -1319,7 +1321,7 @@ export class Player {
     const c = this.channel, W = this.W;
     if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) { c.on = false; if (c.snd) { c.snd.stop(); c.snd = null; } } return; }
     c.t += dt; if (c.t < 0.3) return;
-    const cost = 16 * dt; if (this.mana < cost) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
+    const cost = (G.newFx ? Math.max(16, this.maxMana * 0.11) : 16) * dt; if (this.mana < cost) // campaign: the stream drains about a ninth of your mana a second { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
     this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
     const el = W.element || 'fire', base = weaponDamage(this.h, this.weapon);
     const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.13, -1.25).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main && this.ch.weapons.main.userData.tip ? this.ch.weapons.main.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos());
@@ -1335,12 +1337,12 @@ export class Player {
     // what it does: damage ticks
     if ((c.tick -= dt) > 0) return; c.tick = 0.15;
     const hits = el === 'arcane'
-      ? G.mobs.filter(m => !m.dead && foe(m) && (() => { const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.5).sub(from), t = v.dot(dir); return t > 0 && t < range && v.addScaledVector(dir, -t).length() < (m.radius || 0.5) + 0.6; })())
+      ? G.mobs.filter(m => !m.dead && foe(m) && (() => { const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.5).sub(from), t = v.dot(dir); return t > 0 && t < range && v.addScaledVector(dir, -t).length() < (m.radius || 0.5) + 0.6; })()).sort((x, y) => x.pos.distanceToSquared(from) - y.pos.distanceToSquared(from)).slice(0, G.newFx ? 1 : 99) // campaign: the arcane beam hits one target, no area
       : mobsInCone(this.pos, this.yaw, range, 0.55);
     for (const m of hits) {
       if (el === 'fire') this.dealDamage(m, base * 0.32, { el: 'fire', burn: base * 0.06, silent: true });
       else if (el === 'frost') { m.chill = (m.chill || 0) + 0.15; this.dealDamage(m, base * 0.26, { el: 'frost', slow: 2, freeze: m.chill > 1.5 ? 1.2 : 0, silent: true }); if (m.chill > 1.5) m.chill = 0; }
-      else this.dealDamage(m, base * 0.36, { el: 'arcane', silent: true });
+      else this.dealDamage(m, base * (G.newFx ? 0.48 : 0.36), { el: 'arcane', silent: true }); // single target in the campaign, so a little harder
     }
   }
   // Kingdom Battles ranger traps: spike pits and frost runes, sprung by any enemy (troops too)

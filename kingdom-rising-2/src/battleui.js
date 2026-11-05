@@ -485,11 +485,32 @@ function assignAbility(h, a) {
   if (cur >= 0) h.hotbar[cur] = prev && slotFits(cur, ABILITIES[h.cls].find(x => x.id === prev.id)) ? prev : null;
   h.hotbar[i] = { t: 'ab', id: a.id }; bookSel = i; G.hooks.hotbarAdded && G.hooks.hotbarAdded([]);
 }
+// drag an ability onto a slot (or from one slot to another): it goes there if it is the right kind, swapping with what was there
+function dropAbility(h, cls, id, to, from) {
+  const a = ABILITIES[cls].find(x => x.id === id); if (!a || !Game.abilityKnown(h, a)) { S.error(); return; }
+  if (!slotFits(to, a)) { S.error(); UI.toast(isSupport(a) ? `${a.name} goes on keys 1-5` : `${a.name} goes on F, C or Q`, '✋', 'bad'); return; }
+  const cur = from != null ? from : h.hotbar.findIndex(x => x && x.id === id), prev = h.hotbar[to];
+  if (cur >= 0 && cur !== to) h.hotbar[cur] = prev && slotFits(cur, ABILITIES[cls].find(x => x.id === prev.id)) ? prev : null;
+  h.hotbar[to] = { t: 'ab', id }; bookSel = to; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
+}
+// right click an ability: straight into the first empty slot of its kind
+function quickPlace(h, cls, a) {
+  if (!Game.abilityKnown(h, a)) { S.error(); return; } if (h.hotbar.some(x => x && x.id === a.id)) { S.error(); UI.toast(`${a.name} is already on your hotbar`, '✋', 'bad'); return; }
+  const i = HOTBAR_KEYS.findIndex((k, j) => !h.hotbar[j] && slotFits(j, a)); if (i < 0) { S.error(); UI.toast(`No empty ${isSupport(a) ? '1-5' : 'F C Q'} slot: drag it onto one to replace it`, '✋', 'bad'); return; }
+  h.hotbar[i] = { t: 'ab', id: a.id }; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook();
+}
+function draggableAb(d, h, a) { if (!Game.abilityKnown(h, a)) return; d.draggable = true; d.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ id: a.id })); e.dataTransfer.effectAllowed = 'move'; const t = document.getElementById('booktip'); if (t) t.hidden = true; };
+  d.oncontextmenu = (e) => { e.preventDefault(); quickPlace(h, G.save.cls, a); }; }
 function slotBar(h, cls) {
   const bar = el('div', 'st-bar');
   HOTBAR_KEYS.forEach((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'st-gap')); const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
-    const d = el('button', 'st-slot ' + (i < SUPPORT_SLOTS ? 'sup' : 'dmg') + (i === bookSel ? ' sel' : ''), `<span class="k">${k}</span>${a ? Icons.abilityIcon(a.id) : '<i>+</i>'}`); d.title = (a ? a.name : 'Empty') + (i < SUPPORT_SLOTS ? ' · buffs, songs and heals' : ' · damage abilities');
-    d.onclick = () => { S.click(); bookSel = i; renderBook(); }; bar.appendChild(d); });
+    const d = el('button', 'st-slot ' + (i < SUPPORT_SLOTS ? 'sup' : 'dmg') + (i === bookSel ? ' sel' : ''), `<span class="k">${k}</span>${a ? Icons.abilityIcon(a.id) : '<i>+</i>'}`); d.title = (a ? a.name + ' · drag to move, right click to remove' : 'Empty') + (i < SUPPORT_SLOTS ? ' · buffs, songs and heals' : ' · damage abilities');
+    d.onclick = () => { S.click(); bookSel = i; renderBook(); };
+    d.oncontextmenu = (e) => { e.preventDefault(); if (h.hotbar[i]) { h.hotbar[i] = null; S.click(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); } };
+    if (a) { d.draggable = true; d.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ id: a.id, from: i })); e.dataTransfer.effectAllowed = 'move'; }; }
+    d.ondragover = (e) => { e.preventDefault(); d.classList.add('over'); }; d.ondragleave = () => d.classList.remove('over');
+    d.ondrop = (e) => { e.preventDefault(); d.classList.remove('over'); let o; try { o = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (_) { return; } dropAbility(h, cls, o.id, i, o.from); };
+    bar.appendChild(d); });
   return bar;
 }
 // ---- skill trees: three columns of nodes joined by lines; spend a point on a glowing node to unlock it ----
@@ -501,7 +522,7 @@ function treesTab(c, h, cls, res) {
   const top = el('div', 'st-top');
   top.appendChild(el('div', 'st-cls', `<div class="st-crest">${Icons.abilityIcon(trees[0].nodes[0].ab || 'charge')}</div><div><b>${CLASSES[cls].name}</b><small>Level ${h.level} · one skill point every level</small></div>`));
   top.appendChild(el('div', 'st-pts' + (pts ? ' have' : ''), `<b>${pts}</b><small>skill point${pts === 1 ? '' : 's'}</small>`));
-  top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · pick a slot, then click an ability</small>')).appendChild(slotBar(h, cls));
+  top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · drag abilities onto slots · right click a slot to clear it</small>')).appendChild(slotBar(h, cls));
   const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
   c.appendChild(top);
   const wrap = el('div', 'st-trees');
@@ -517,9 +538,9 @@ function treesTab(c, h, cls, res) {
     for (const n of T.nodes) {
       const st = Game.nodeState(h, n), a = n.t === 'ab' && ABILITIES[cls].find(x => x.id === n.ab), slot = a ? h.hotbar.findIndex(x => x && x.id === a.id) : -1;
       const d = el('button', `st-node ${n.t} ${st}`, `<div class="st-ic">${Icons.abilityIcon(n.icon)}</div>${slot >= 0 ? `<span class="st-k">${HOTBAR_KEYS[slot]}</span>` : ''}${n.t === 'ult' ? `<span class="st-u">${Math.min(spent, ULT_PTS)}/${ULT_PTS}</span>` : ''}`);
-      d.style.gridRow = n.row + 1; d.style.gridColumn = n.col + 1;
+      d.style.gridRow = n.row + 1; d.style.gridColumn = n.col + 1; if (a && st === 'owned') draggableAb(d, h, a);
       const kind = n.t === 'ab' ? 'Ability' : n.t === 'ult' ? 'Capstone' : 'Passive';
-      const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]}</em>` : `<em class="ok">Unlocked: click to put it on your hotbar (${isSupport(a) ? 'keys 1-5' : 'F, C or Q'})</em>`) : '<em class="ok">Unlocked</em>')
+      const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]} · drag it to another slot</em>` : `<em class="ok">Drag onto a slot, or right click to fill the first empty ${isSupport(a) ? '1-5' : 'F C Q'} slot</em>`) : '<em class="ok">Unlocked</em>')
         : st === 'open' ? '<em class="go">Click to unlock (1 point)</em>' : st === 'ready' ? '<em class="wait">Next in line: earn a point by levelling up</em>'
         : n.t === 'ult' ? `<em class="no">Spend ${ULT_PTS} points in ${T.name} to open</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;
       d.onmouseenter = () => bookTipAt(tip, d, `<div class="st-tt" style="--tc:${T.col}"><small>${T.name} · ${kind}</small><b>${n.name}</b>${a ? `<div class="dim">${a.cost} ${res} · every ${a.cd} s</div>` : ''}<p>${n.desc}</p>${how}</div>`);
@@ -547,7 +568,7 @@ function abilityTab(c, h, cls, list, res, k) {
     const locked = a.level > h.level, slot = h.hotbar.findIndex(s => s && s.id === a.id);
     const d = el('button', 'bookab mini' + (locked ? ' locked' : '') + (slot >= 0 ? ' on' : ''), `<div class="bi">${Icons.abilityIcon(a.id)}</div><div class="bt"><b>${a.name}</b><small>${locked ? '🔒 Level ' + a.level : a.song ? '♪ Song' : 'Level ' + a.level}</small></div>${slot >= 0 ? `<span class="inslot">${HOTBAR_KEYS[slot]}</span>` : ''}`);
     d.onmouseenter = (e) => { tip.innerHTML = `<b style="font-size:16px;color:#fff2c8">${a.name}</b><div class="dim" style="margin:3px 0">${a.song ? 'Song · plays by itself on your hotbar' : `Level ${a.level} · ${a.cost} ${res} · every ${a.cd} s`}</div><div>${a.desc}</div>${growLine(a, h.level)}`; tip.hidden = false; const r = d.getBoundingClientRect(); const tr = tip.getBoundingClientRect(); let x = r.right + 10, y = r.top; if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10; if (y + tr.height > innerHeight - 8) y = innerHeight - tr.height - 8; tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; };
-    d.onmouseleave = () => { tip.hidden = true; };
+    d.onmouseleave = () => { tip.hidden = true; }; if (!locked) draggableAb(d, h, a);
     d.onclick = () => {
       if (locked) { S.error(); UI.toast(`${a.name} unlocks at level ${a.level}`, '🔒', 'bad'); return; }
       S.click(); assignAbility(h, a); tip.hidden = true; renderBook();

@@ -169,7 +169,7 @@ export function updateHUD(dt) {
   if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `<span class="lvb" style="--c:${lvlCol(t.lv, h.level)}">${t.lv}</span> ${t.def.elite ? '★ ' : ''}<span style="color:${lvlCol(t.lv, h.level)}">${esc(t.name)}</span>`; $('target').querySelector('.bar2 i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('.bar2 span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`;
     if (G.newFx) { let dsc = $('target').querySelector('.tdesc2'); if (!dsc) { dsc = document.createElement('div'); dsc.className = 'tdesc2'; $('target').insertBefore(dsc, $('target').querySelector('.bar2')); }
       const dl = t.lv - h.level, con = dl >= 3 ? ['Deadly', 'Looks like it would wipe the floor with you.'] : dl >= 1 ? ['Tough', 'This would be a tough fight.'] : dl === 0 ? ['Even match', 'An even match.'] : dl >= -2 ? ['Easy', 'You could take it.'] : dl >= -5 ? ['Weak', 'It is no real threat.'] : ['Trivial', 'Not worth your time.'];
-      const dfn = (mk) => { const d = Math.max(0, t.lv - 1) * 4 * (mk || 1); return Math.round(Math.min(0.75, d / (d + 60 + h.level * 10)) * 100); };
+      const dfn = (mk) => { const d = Math.max(0, t.lv - 1) * 2 * (mk || 1); return Math.round(Math.min(0.75, d / (d + 60 + h.level * 10)) * 100); };
       const html = `<span class="tcon" style="color:${lvlCol(t.lv, h.level)}">Level ${t.lv} · ${con[0]}${t.def.elite ? ' · Elite' : ''}${t.def.boss ? ' · Boss' : ''}</span><span class="tdd">🛡 Blocks ${dfn(t.def.physK)}% of weapon damage · ✨ ${dfn(t.def.magicK)}% of magic</span><span class="tdd">${esc(mobDesc(t))} ${con[1]}</span>`; if (dsc._h !== html) { dsc.innerHTML = html; dsc._h = html; } }
     { const st = t.status || {}, L = []; const a = (on, ic, nm, v, col) => { if (on) L.push([ic, nm, v, col]); };
       a(st.stun > 0, '💫', 'Stunned', st.stun, '#e0c020'); a(st.frozen > 0, '❄', 'Frozen', st.frozen, '#8ad8ff'); a(st.slow > 0, '🐌', 'Slowed', st.slow, '#4a8ad8');
@@ -530,7 +530,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
   const row = el('div', 'row');
   const b = (t, fn, cls = 'btn') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); renderInventory(c); }; row.appendChild(x); };
   if (idx != null && it.kind === 'weapon') { b('Put in Set 2', () => Game.equipFromInv(hh, idx, Game.handsOf(it.wt) === 'off' ? 'w4' : 'w3')); if (it.wt === 'bow' && !Game.canEquip(hh, it)) {} else if (Game.handsOf(it.wt) === 'off') b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); else if (Game.handsOf(it.wt) === 'two') b('Equip (both hands)', () => Game.equipFromInv(hh, idx, 'w1')); else { b('Equip in Main Hand', () => Game.equipFromInv(hh, idx, 'w1')); if (hh.equip.w1 && !Game.isTwoHanded(hh.equip.w1)) b('Equip in Off Hand', () => Game.equipFromInv(hh, idx, 'w2')); } }
-  else if (idx != null && !it.kind && FOOD_BUFFS[it.id]) { b(FOOD_BUFFS[it.id].drink ? 'Put in Drink slot' : 'Put in Food slot', () => Game.equipConsumable(hh, idx)); b(FOOD_BUFFS[it.id].drink ? 'Drink one now' : 'Eat one now', () => quickUse(idx)); }
+  else if (idx != null && !it.kind && FOOD_BUFFS[it.id]) { b(FOOD_BUFFS[it.id].drink ? 'Put in Drink slot' : 'Put in Food slot', () => Game.equipConsumable(hh, idx)); }
   else if (idx != null && it.kind) b('Equip', () => Game.equipFromInv(hh, idx));
   else if (idx != null && ITEMS[it.id]?.use) b('Use', () => quickUse(idx));
   if (eqSlot) b('Take off', () => Game.unequip(hh, eqSlot));

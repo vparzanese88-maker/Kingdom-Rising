@@ -56,7 +56,7 @@ const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight:
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 // creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
-export function mobDefense(m, plv, magic) { const d = Math.max(0, m.lv - 1) * 4 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
+export function mobDefense(m, plv, magic) { const d = Math.max(0, m.lv - 1) * 2 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
 const BANNERS_AB = new Set(['warbanner', 'vigorbanner', 'stonebanner', 'rally']);
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
@@ -1328,7 +1328,7 @@ export class Player {
     const c = this.channel, W = this.W;
     if (!c || !W || W.kind !== 'staff' || this.dead || this.block || this.dodge || G.uiOpen) { if (c) { c.on = false; if (c.snd) { c.snd.stop(); c.snd = null; } } return; }
     c.t += dt; if (c.t < 0.3) return;
-    const cost = (G.newFx ? 12 + (this.weapon.dmg || 9) * 0.6 : 16) * dt; if (this.mana < cost) // campaign: a stronger staff pours out more power and burns more mana (about 17 a second for a driftwood staff, 60 for the best) { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
+    const cost = (G.newFx ? 12 + (this.weapon.dmg || 9) * 0.6 : 16) * dt; if (this.mana < cost) /* campaign: a stronger staff pours out more power and burns more mana (about 17 a second for a driftwood staff, 60 for the best) */ { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
     this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
     const el = W.element || 'fire', base = weaponDamage(this.h, this.weapon);
     const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.13, -1.25).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main && this.ch.weapons.main.userData.tip ? this.ch.weapons.main.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos());
@@ -1623,7 +1623,8 @@ export class Player {
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
     if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (1 + (this.fb.regen || 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
-    if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.5));
+    if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.5) * (1 + (this.fb.regen || 0)));
+    if (this.fb.trickle && !this.dead) { const k = this.fb.trickle * dt; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * k); this.mana = Math.min(this.maxMana, this.mana + this.maxMana * k); this.end = Math.min(this.maxEnd, this.end + this.maxEnd * k); } // drinks: a slow trickle even in a fight
     { const r = Game.fxCount(this.h, 'regen') * 0.003 + Game.fxCount(this.h, 'u_def') * 0.005; if (r && !this.dead && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * r * dt); }
     if (this.regen) { this.hp = Math.min(this.maxHp, this.hp + this.regen.per * dt); this.regen.t -= dt; if (this.regen.t <= 0) this.regen = null; }
     const baseRegen = G.inCombat <= 0 && this.regenDelay <= 0 ? 0.02 : this.pk('secondwind') ? 0.008 : 0;

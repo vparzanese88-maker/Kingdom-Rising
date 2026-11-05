@@ -486,16 +486,18 @@ export const ITEMS = {
 // food and drink: small, steady boosts while something sits in your food or drink slot (you eat one when the last wears off).
 // One lasts 24 minutes, so a stack of 20 lasts 8 hours of play. Rarer recipes give a bit more.
 export const FOOD_BUFFS = {
+  // food: small steady buffs to your attributes
   roast_meat: { rarity: 0, name: 'Hearty', desc: '+3% maximum health', hp: 0.03 },
   crab_cake: { rarity: 0, name: 'Sea Legs', desc: '+3% move speed', speed: 0.03 },
-  herb_roast: { rarity: 1, name: 'Vigour', desc: '+10% health and endurance regeneration', regen: 0.1 },
+  herb_roast: { rarity: 1, name: 'Well Fed', desc: '+5% maximum health', hp: 0.05 },
   hunter_stew: { rarity: 2, name: "Hunter's Strength", desc: '+4% damage', dmg: 0.04 },
   ember_skewer: { rarity: 3, name: 'Fire Belly', desc: '+4% critical chance', crit: 0.04 },
-  berry_juice: { rarity: 0, drink: true, name: 'Quickstep', desc: '+3% move speed', speed: 0.03 },
-  dwarf_ale: { rarity: 1, drink: true, name: 'Stout', desc: '+5% maximum health', hp: 0.05 },
-  mint_tea: { rarity: 1, drink: true, name: 'Second Wind', desc: '+15% health and endurance regeneration', regen: 0.15 },
-  honey_mead: { rarity: 2, drink: true, name: 'Courage', desc: '+5% damage', dmg: 0.05 },
-  fire_whisky: { rarity: 3, drink: true, name: 'Firewater', desc: '+6% critical chance', crit: 0.06 },
+  // drink: slow, steady regeneration of health, mana and endurance (also in a fight)
+  berry_juice: { rarity: 0, drink: true, name: 'Refreshed', desc: '+10% health, mana and endurance regeneration', regen: 0.1, trickle: 0.0015 },
+  mint_tea: { rarity: 1, drink: true, name: 'Clear Head', desc: '+20% health, mana and endurance regeneration', regen: 0.2, trickle: 0.0025 },
+  dwarf_ale: { rarity: 1, drink: true, name: 'Stout', desc: '+20% health, mana and endurance regeneration', regen: 0.2, trickle: 0.0025 },
+  honey_mead: { rarity: 2, drink: true, name: 'Warm Glow', desc: '+30% health, mana and endurance regeneration', regen: 0.3, trickle: 0.0035 },
+  fire_whisky: { rarity: 3, drink: true, name: 'Firewater', desc: '+45% health, mana and endurance regeneration', regen: 0.45, trickle: 0.005 },
 };
 export const FOOD_TIME = 1440, DRINK_TIME = 1440;
 export const TOOLS = {

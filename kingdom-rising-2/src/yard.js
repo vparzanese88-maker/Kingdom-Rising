@@ -9,7 +9,7 @@ import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
 
-export const YD = { infinite: true, dmg: [], startGame: null };
+export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
 // single dummies near, mid and far; a pack of five for area attacks; one that walks a line for aiming practice
 const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],

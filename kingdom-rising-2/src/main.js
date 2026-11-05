@@ -14,6 +14,7 @@ import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
+import { NEW_CLASSES } from './classes2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
@@ -22,7 +23,7 @@ import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
+import { TWIN_TO_SINGLE, GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -279,6 +280,10 @@ function kitAbilities(levelOf) {
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
 function campaignSetup() {
+  // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
+  for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
+  WEAPON_TYPES.dagger.speed = 0.95; // a single dagger stabs at a normal pace: the rogue's abilities should do the heavy lifting
+  for (const c in NEW_CLASSES) { const N = NEW_CLASSES[c]; if (TWIN_TO_SINGLE[N.start]) { N.start = TWIN_TO_SINGLE[N.start]; N.startName = WEAPON_TYPES[N.start].name; } }
   campaignLevels();
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
   // campaign summons stay until they fall, or until you summon again

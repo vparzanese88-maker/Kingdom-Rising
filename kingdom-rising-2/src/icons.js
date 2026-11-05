@@ -160,7 +160,7 @@ export function itemSvg(it) {
   if (!it) return '';
   if (it.kind === 'weapon') {
     const W = WEAPON_TYPES[it.wt], metal = tri(TIERS[it.tier]?.col || '#9aa1a8');
-    const shape = { sword: 'sword', mace: 'mace', shield: 'shield', swordshield: 'swordshield', maceshield: 'maceshield', swordmace: 'swordmace', greatsword: 'greatsword', greataxe: 'greataxe', warhammer: 'hammer', spear: 'spear', daggers: 'daggers', dagger: 'dagger', fists: 'mace', handaxes: 'handaxes', bow: 'bow', musket: 'musket' }[it.wt];
+    const shape = { axe: 'axe', sword: 'sword', mace: 'mace', shield: 'shield', swordshield: 'swordshield', maceshield: 'maceshield', swordmace: 'swordmace', greatsword: 'greatsword', greataxe: 'greataxe', warhammer: 'hammer', spear: 'spear', daggers: 'daggers', dagger: 'dagger', fists: 'mace', handaxes: 'handaxes', bow: 'bow', musket: 'musket' }[it.wt];
     if (W.kind === 'staff') return svg(S.staff({ orb: { fire: '#ff7a1a', frost: '#7fe0ff', arcane: '#c070ff' }[W.element] }));
     return svg(S[shape]({ metal }));
   }

@@ -53,7 +53,7 @@ export function yardHero(cls, keep) {
   return h;
 }
 // weapons you can pick: everything except a lone shield
-const PICK = () => Object.keys(WEAPON_TYPES).filter(w => w !== 'shield');
+const PICK = () => Object.keys(WEAPON_TYPES).filter(w => w !== 'shield' && !['daggers', 'handaxes', 'swordmace'].includes(w)); // no twin weapons
 export function openYardPanel(UI) {
   const c = UI.openWin('yard', 'Training Yard', '', 'big yardwin'), h = G.save;
   const render = () => {

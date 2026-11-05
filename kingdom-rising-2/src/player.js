@@ -32,7 +32,7 @@ function slashArc(pl, R, H, name, hit, col) {
 }
 // abilities land almost at once: their follow-up hits come after a third of the old wind-up
 // how wide a basic swing reaches, by the size of the weapon (radians either side): small blades narrow, big ones wide
-const ARC = { dagger: 0.42, daggers: 0.5, fists: 0.45, spear: 0.4, sword: 0.75, mace: 0.75, swordshield: 0.75, maceshield: 0.75, swordmace: 0.85, handaxes: 0.8, greatsword: 1.05, greataxe: 1.1, warhammer: 1.0 };
+const ARC = { axe: 0.8, dagger: 0.42, daggers: 0.5, fists: 0.45, spear: 0.4, sword: 0.75, mace: 0.75, swordshield: 0.75, maceshield: 0.75, swordmace: 0.85, handaxes: 0.8, greatsword: 1.05, greataxe: 1.1, warhammer: 1.0 };
 // cast and action times (seconds): big spells and big heals take a moment to gather; a few hands-on actions
 // (setting a trap, lighting a fuse, coating blades, planting a banner) take a beat; strikes and emergency moves stay instant
 const CAST_T = {
@@ -527,7 +527,7 @@ export class Player {
       }
       if (targets.length) this.wpnXp(1);
       if (targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) {
-        const lv = Game.masteryOf(this.h, wt), k = wt === 'daggers' ? 2 : 1;
+        const lv = G.newFx ? 0 : Game.masteryOf(this.h, wt), k = wt === 'daggers' ? 2 : 1; // campaign: no random dagger flurries, the rogue's abilities carry the damage
         const n = lv >= 9 && Math.random() < (0.02 + lv * 0.002) * k ? 3 : lv >= 5 && Math.random() < (0.04 + lv * 0.003) * k ? 2 : lv >= 2 && Math.random() < (0.08 + lv * 0.006) * k ? 1 : 0;
         if (n) { const t0 = targets[0]; V.number(t0.pos.clone().setY(t0.pos.y + (t0.height || 1.6) + 0.8), ['', 'Double attack!', 'Triple attack!', 'Quad attack!'][n], 'crit');
           for (let q = 1; q <= n; q++) setTimeout(() => { if (this.dead || t0.dead) return; this.dealDamage(t0, base * st.m * 0.9, { melee: true, offhand: q % 2 === 1 }); S.swingW('light', 0.8, this.pos); this.atk = { name: q % 2 ? 'stabL' : 'stabR', t: 0, dur: 0.12, hit: true, noQueue: true, extraHit: true }; }, q * 85); }

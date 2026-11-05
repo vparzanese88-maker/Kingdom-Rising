@@ -56,6 +56,7 @@ export const WEAPON_TYPES = {
   dagger: { name: 'Dagger', hands: 'one', reach: 2.1, area: 3.5, speed: 1.35, block: 0.4, dmg: 0.8, kind: 'melee', parts: ['dagger'], areaName: 'Triple Stab' },
   daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.9, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
   fists: { name: 'Fist Wraps', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.5, block: 0.4, dmg: 0.82, kind: 'melee', parts: ['fistwrap', 'fistwrap'], areaName: 'Flurry of Fists' },
+  axe: { name: 'Hand Axe', hands: 'one', reach: 2.3, area: 4, speed: 1.1, block: 0.45, dmg: 0.95, kind: 'melee', parts: ['handaxe'], areaName: 'Cleave' },
   handaxes: { name: 'Hand Axes', hands: 'dual', reach: 2.3, area: 4, speed: 1.25, block: 0.45, dmg: 0.88, kind: 'melee', parts: ['handaxe', 'handaxe'], areaName: 'Twin Fury' },
   bow: { name: 'Longbow', hands: 'bow', reach: 60, area: 6, speed: 1.0, block: 0.35, dmg: 1.05, kind: 'bow', parts: ['bow'], areaName: 'Rain of Arrows' },
   firestaff: { name: 'Fire Staff', hands: 'staff', reach: 60, area: 9, speed: 1.0, block: 0.4, dmg: 1.1, kind: 'staff', element: 'fire', parts: ['staff'], areaName: 'Meteor' },
@@ -277,6 +278,7 @@ export const COMBOS = {
   fists: { trait: 'Bare knuckles: jab, cross, jab, then an uppercut that staggers', chain: [{ a: 'stabR', m: 0.75, d: 0.5 }, { a: 'stabL', m: 0.75, d: 0.5 }, { a: 'stabR', m: 0.8, d: 0.5 }, { a: 'smash', m: 1.9, d: 1.1, stun: 0.6, knock: 6 }] },
   dagger: { trait: 'A single dagger: a quick stab. Dagger skill brings a chance of lightning-fast double, triple and quadruple attacks', chain: [{ a: 'stabR', m: 0.95, d: 0.6 }] },
   daggers: { trait: 'Twin daggers: left, right, left, right. Double the chance of lightning-fast flurries', chain: [{ a: 'stabR', m: 0.62, d: 0.5 }, { a: 'stabL', m: 0.62, d: 0.5 }] },
+  axe: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 1.0, bleed: true }, { a: 'swing2', m: 1.0, bleed: true }, { a: 'swing3', m: 1.4, bleed: true }] },
   handaxes: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 0.95, bleed: true }, { a: 'off1', m: 0.95, bleed: true }, { a: 'swing3', m: 1.7, d: 1.3, bleed: true }] },
   greatsword: { trait: 'Greatswords cleave through every enemy in front of you', chain: [{ a: 'swing1', m: 1.1, cleave: true }, { a: 'swing2', m: 1.15, cleave: true }, { a: 'smash', m: 2.2, d: 1.5, cleave: true }] },
   greataxe: { trait: 'Great axes cleave and leave deep bleeding wounds', chain: [{ a: 'swing1', m: 1.35, cleave: true, bleed: true }, { a: 'smash', m: 2.7, d: 1.6, cleave: true, bleed: true }] },
@@ -1014,3 +1016,6 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) for (const T of trees) {
   // root stays free only for the class's starting ability
 }
 for (const [cls, trees] of Object.entries(CLASS_TREES)) CLASS_TREE[cls] = trees.flatMap(T => T.nodes);
+
+// the campaign has no twin weapons in the main hand: each becomes its single version
+export const TWIN_TO_SINGLE = { daggers: 'dagger', handaxes: 'axe', swordmace: 'sword' };

@@ -2,7 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
-import { HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
+import { TWIN_TO_SINGLE, HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -16,6 +16,7 @@ let uid = Date.now() % 1e6;
 const ONE = ['sword', 'mace', 'dagger'];
 export function pairedWt(h) {
   const a = h.equip.w1, b = h.equip.w2; if (!a || !b || !ONE.includes(a.wt)) return null;
+  if (!BATTLE && b.wt !== 'shield') return null; // the campaign: no twin weapons, only a weapon and a shield pair up
   if (a.wt === 'dagger') return b.wt === 'dagger' ? 'daggers' : null;
   if (b.wt === 'shield') return a.wt === 'sword' ? 'swordshield' : 'maceshield';
   if (ONE.includes(b.wt)) return 'swordmace';
@@ -49,7 +50,8 @@ function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; 
 // bring older saves up to date
 export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
-  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
+  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {};
+  if (!BATTLE) { const fix = (it) => { if (it && it.kind === 'weapon' && TWIN_TO_SINGLE[it.wt]) { const to = TWIN_TO_SINGLE[it.wt]; it.name = (it.name || '').replace(/Twin Daggers|Daggers/, 'Dagger').replace(/Hand Axes/, 'Hand Axe').replace(/Sword & Mace/, 'Sword'); it.wt = to; } }; for (const k in h.equip) fix(h.equip[k]); (h.inv || []).forEach(fix); } h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
   const valid = new Set((CLASS_TREE[h.cls] || []).map(n => n.id));
   if (Object.entries(h.ctree).some(([k, v]) => v > 1 || !valid.has(k))) h.ctree = {};
@@ -269,7 +271,7 @@ export function gainMastery(h, wt, n) {
 }
 export function spellPower(h) { const D = heroDerived(h); const w = activeWeapon(h); return (12 + (h.level - 1) * LEVEL_GROWTH * 5 + 5) * (h.cls === 'wizard' ? D.spellMul : Math.max(D.meleeMul, D.rangedMul)) * (w ? 1 + w.tier * 0.1 : 1); }
 export function canEquip(h, it, slot) { if (it.kind === 'weapon' && it.wt === 'bow' && (slot === 'ranged' || slot === 'w3' || h.bowOk)) return true; if (it.kind === 'acc' && it.slot !== 'back') return false; return canEquip0(h, it); }
-function canEquip0(h, it) { if (YARD) return it.kind !== 'acc' || it.slot === 'back'; if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && (it.wt === 'daggers' || it.wt === 'dagger')); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
+function canEquip0(h, it) { if (YARD) return it.kind !== 'acc' || it.slot === 'back'; if (it.kind === 'weapon') return CLASSES[h.cls].weapons.includes(it.wt) || (!BATTLE && it.wt === 'dagger'); if (it.kind === 'acc') return true; return it.kind === 'armor' && it.akind === CLASSES[h.cls].armor; }
 // hands: sword and mace are one-handed, a shield is off-hand only, everything else needs both hands
 export function handsOf(wt) { return ONE.includes(wt) ? 'one' : wt === 'shield' ? 'off' : 'two'; }
 export function isTwoHanded(it) { return !!it && it.kind === 'weapon' && handsOf(it.wt) === 'two'; }

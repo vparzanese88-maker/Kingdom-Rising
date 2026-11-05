@@ -728,7 +728,7 @@ export class Player {
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)))) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
     const ct = CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0);
-    if (ct) { this.abCast = { t: 0, dur: ct, i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
+    if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && CAST_T[ab.id] ? Skills.castK(this.h) : 1), i, name: ab.name, spell: !!CAST_T[ab.id] }; if (CAST_T[ab.id]) S.charge && S.charge(this.W && this.W.element || 'arcane'); return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
@@ -1170,7 +1170,7 @@ export class Player {
         anim('castBig', 0.6); return true; }
       case 'summon': { // a 3 s cast at the spot you aim at, then they rise there
         const n = this.qty(a.n || 1, a.extra || 0), at = groundPoint(14);
-        this.summonCast = { t: 0, dur: 3, at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
+        this.summonCast = { t: 0, dur: 3 * (G.newFx ? Skills.castK(this.h) : 1), at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
         V.ring(at, 1.8, a.pet === 'skeleton' ? '#b080ff' : '#ffb060', 3.1); S.cast('arcane', this.pos, 0.7); anim('cast', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
       case 'stealth': { this.stealth = (a.dur || 4) * Math.sqrt(up); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3, size: 1.4, life: 1.4, grav: 0, a0: 0.8 }); return true; }
@@ -1193,7 +1193,7 @@ export class Player {
     G.hooks.castBar && G.hooks.castBar(c.name, c.t / c.dur);
     if (c.spell && Math.random() < dt * 20) V.emit(this.W && this.W.element === 'fire' ? 'fire' : this.W && this.W.element === 'frost' ? 'frost' : 'arcane', this.handPos(), { speed: 0.8, size: 0.25, life: 0.5 });
     if (c.t < c.dur) return;
-    this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); this.ability(c.i, true);
+    this.abCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx && c.spell) Skills.practise(this.h, 'casting'); this.ability(c.i, true);
   }
   // buffs and heals you can see: coloured motes around you while each one lasts, green sparkles while you regenerate
   tickAuras(dt) {
@@ -1246,8 +1246,9 @@ export class Player {
     const h = this.h, wt = this.weapon && this.weapon.wt; Skills.practise(h, Skills.skillOf(wt));
     if (a.name === 'heavy' || a.held || t.dead) return;
     const swing = (delay, hand, dmg, label) => setTimeout(() => { if (this.dead || t.dead) return; this.dealDamage(t, dmg, { melee: true, offhand: hand === 'off' }); S.swingW('light', 0.9, this.pos); V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.5), label, 'miss'); this.atk = { name: hand === 'off' ? 'off1' : 'swing2', t: 0.25, dur: 0.22, hit: true, noQueue: true, extra: true }; }, delay);
-    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { Skills.practise(h, 'double'); swing(140, 'main', base * (st.m || 1), 'Double attack'); }
-    if (Skills.canDual(h)) { const w2 = h.equip.w2; if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { Skills.practise(h, 'dual'); swing(230, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
+    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { Skills.practise(h, 'double'); swing(140, 'main', base * (st.m || 1), 'Double attack');
+      if (Math.random() < Skills.tripleChance(h, this.D.stats.str)) { Skills.practise(h, 'triple'); swing(280, 'main', base * (st.m || 1), 'Triple attack'); } }
+    if (Skills.canDual(h)) { const w2 = h.equip.w2; if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { Skills.practise(h, 'dual'); swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
   // talents that fire when you kill something
   onKillPerks(mob) {
@@ -1285,7 +1286,7 @@ export class Player {
     if (Math.random() < dt * 30) V.emit(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2.4, 0.1, (Math.random() - 0.5) * 2.4)), { speed: 1, vy: 2, size: 0.3, life: 0.8 });
     if (Math.random() < dt * 12) V.emit('arcane', this.handPos(), { speed: 0.6, size: 0.2, life: 0.5 });
     if (c.t < c.dur) return;
-    this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null);
+    this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx) Skills.practise(this.h, 'casting');
     const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
     if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
     else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);

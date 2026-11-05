@@ -141,20 +141,35 @@ export function updateHUD(dt) {
     const need = (G.xpReq || xpForLevel)(h.level);
     $('xpI').style.width = h.level >= LEVEL_CAP ? '100%' : (h.xp / need * 100) + '%';
     $('xpT').textContent = h.level >= LEVEL_CAP ? `Level ${LEVEL_CAP} (max)` : `Level ${h.level}  ·  ${h.xp} / ${need} XP`;
-    const b = []; if (p.buffs.cry > 0) b.push(`📯 Battle Cry ${Math.ceil(p.buffs.cry)}s`); if (p.buffs.fury > 0) b.push(`🐺 Fury ${Math.ceil(p.buffs.fury)}s`); if (p.stealth > 0) b.push(`☁ Unseen ${Math.ceil(p.stealth)}s`); if (p.buffs.nextCrit) b.push('✦ Next hit x2'); if (p.regen) b.push('❤ Regenerating');
-    { const box = $('debuffs'); const L = { bleed: ['🩸', 'Bleeding', '#c82020'], poison: ['☠', 'Poisoned', '#5ab030'], burn: ['🔥', 'Burning', '#ff7020'], slow: ['🐌', 'Slowed', '#4a8ad8'], stun: ['💫', 'Stunned', '#e0c020'] }; let html = '';
-      if (p.db) for (const k in p.db) if (p.db[k].t > 0 && L[k]) html += `<div class="dbx" style="--c:${L[k][2]}" title="${L[k][1]}"><span>${L[k][0]}</span><b>${Math.ceil(p.db[k].t)}</b><small>${L[k][1]}</small></div>`;
-      if (box._h !== html) { box.innerHTML = html; box._h = html; } }
-    for (const k of ['food', 'drink']) if (h[k] && h[k].t > 0) { const F = FOOD_BUFFS[h[k].id]; b.push(`${k === 'food' ? '🍖' : '🍺'} ${F.name} ${Math.ceil(h[k].t / 60)}m`); }
-    if (p.buffs.adren > 0) b.push(`⚡ Adrenaline ${Math.ceil(p.buffs.adren)}s`); if (p.buffs.tq > 0) b.push(`✚ Tourniquet ${Math.ceil(p.buffs.tq)}s`); if (p.buffs.surge > 0) b.push(`💧 Mana Surge ${Math.ceil(p.buffs.surge)}s`); if (p.buffs.barrier > 0) b.push(`🛡 Ice Barrier ${Math.round(p.buffs.barrier)}`); if (p.buffs.swind > 0) b.push(`💨 Second Wind ${Math.ceil(p.buffs.swind)}s`); if (p.buffs.bWar > 0) b.push('<span style="color:#ff9a6a">⚑ War Banner: +20% damage</span>'); if (p.buffs.bVigor > 0) b.push('<span style="color:#7ee07e">⚑ Banner of Vigor: healing</span>'); if (p.buffs.bStone > 0) b.push('<span style="color:#8ac8ff">⚑ Banner of Stone: -30% damage taken</span>'); if (p.buffs.wall > 0) b.push(`🛡 Shield Wall ${Math.ceil(p.buffs.wall)}s`); if (p.buffs.stand > 0) b.push(`❤ Last Stand ${Math.ceil(p.buffs.stand)}s`);
-    $('buffs').innerHTML = b.map(x => `<div class="b">${x}</div>`).join('');
+    // your buffs (green rim) and debuffs (red rim) as small icon chips with a countdown, one row each above the bars
+    const B = p.buffs, chips = [], add = (on, ic, name, t, col) => { if (on) chips.push([ic, name, t, col]); };
+    add(B.cry > 0, '📯', 'Battle Cry · +30% damage', B.cry, '#ffb050'); add(B.fury > 0, '🐺', 'Fury', B.fury, '#ff7050'); add(p.stealth > 0, '☁', 'Unseen', p.stealth, '#b0a0ff');
+    add(B.nextCrit, '✦', 'Next hit x2', 0, '#ffd050'); add(!!p.regen, '❤', 'Regenerating', p.regen && p.regen.t, '#7ee07e');
+    add(B.adren > 0, '⚡', 'Adrenaline', B.adren, '#ffd050'); add(B.tq > 0, '✚', 'Tourniquet', B.tq, '#ff8080'); add(B.surge > 0, '💧', 'Mana Surge', B.surge, '#8ac8ff');
+    add(B.barrier > 0, '❄', 'Barrier ' + Math.round(B.barrier || 0), B.barrierT, '#8ad8ff'); add(B.swind > 0, '💨', 'Second Wind', B.swind, '#c8f0ff');
+    add(B.bWar > 0, '⚑', 'War Banner · +20% damage', 0, '#ff7a3a'); add(B.bVigor > 0, '⚑', 'Banner of Vigor · healing', 0, '#60ff90'); add(B.bStone > 0, '⚑', 'Banner of Stone · -30% damage taken', 0, '#8ac8ff');
+    add(B.wall > 0, '🛡', 'Shield Wall · -60% damage', B.wall, '#a8c8ff'); add(B.stand > 0, '♥', 'Last Stand', B.stand, '#ffc060'); add(B.rage > 0, '🩸', 'Bloodrage', B.rage, '#ff4040');
+    add(B.rampage > 0, '⚔', 'Rampage', B.rampage, '#ff7050'); add(B.ward > 0, '✧', 'Warded', B.ward, '#a8e0ff'); add(B.flame > 0, '🔥', 'Flame weapon', B.flame, '#ff9a40');
+    add(B.clarity > 0, '✺', 'Clarity', B.clarity, '#a0d8ff'); add(B.focus > 0, '◎', 'Focus', B.focus, '#c0ff90'); add(B.undying > 0, '☠', 'Undying', B.undying, '#ff5050');
+    for (const k of ['food', 'drink']) if (h[k] && h[k].t > 0) { const F = FOOD_BUFFS[h[k].id]; chips.push([k === 'food' ? '🍖' : '🍺', F.name, h[k].t, '#e8c87a']); }
+    const DB = { bleed: ['🩸', 'Bleeding'], poison: ['☠', 'Poisoned'], burn: ['🔥', 'Burning'], slow: ['🐌', 'Slowed'], stun: ['💫', 'Stunned'] }, bad = [];
+    if (p.db) for (const k in p.db) if (p.db[k].t > 0 && DB[k]) bad.push([DB[k][0], DB[k][1], p.db[k].t, '#ff4a3a']);
+    const chipHtml = (L, kind) => L.map(([ic, nm, t, col]) => `<div class="aura ${kind}" style="--c:${col}" title="${nm}"><span>${ic}</span>${t > 0 ? `<b>${t >= 60 ? Math.ceil(t / 60) + 'm' : Math.ceil(t)}</b>` : ''}</div>`).join('');
+    { const html = chipHtml(chips, 'good'); const e = $('buffs'); if (e._h !== html) { e.innerHTML = html; e._h = html; } }
+    { const html = chipHtml(bad, 'bad'); const e = $('debuffs'); if (e._h !== html) { e.innerHTML = html; e._h = html; } }
   }
   // interaction prompt
   const it = !G.uiOpen && !p.gathering && !p.dead ? p.findInteract() : null;
   const pr = $('prompt'); if (it) { pr.hidden = false; pr.innerHTML = `<kbd>E</kbd>${esc(it.label)}`; } else pr.hidden = true;
   // target frame
   const t = G.target;
-  if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `<span class="lvb" style="--c:${lvlCol(t.lv, h.level)}">${t.lv}</span> ${t.def.elite ? '★ ' : ''}<span style="color:${lvlCol(t.lv, h.level)}">${esc(t.name)}</span>`; $('target').querySelector('.bar2 i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('.bar2 span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`; }
+  if (t && !t.dead && t.pos.distanceTo(p.pos) < 45) { $('target').hidden = false; $('target').querySelector('.nm').innerHTML = `<span class="lvb" style="--c:${lvlCol(t.lv, h.level)}">${t.lv}</span> ${t.def.elite ? '★ ' : ''}<span style="color:${lvlCol(t.lv, h.level)}">${esc(t.name)}</span>`; $('target').querySelector('.bar2 i').style.width = (t.hp / t.maxHp * 100) + '%'; $('target').querySelector('.bar2 span').textContent = `${Math.ceil(t.hp)} / ${t.maxHp}`;
+    { const st = t.status || {}, L = []; const a = (on, ic, nm, v, col) => { if (on) L.push([ic, nm, v, col]); };
+      a(st.stun > 0, '💫', 'Stunned', st.stun, '#e0c020'); a(st.frozen > 0, '❄', 'Frozen', st.frozen, '#8ad8ff'); a(st.slow > 0, '🐌', 'Slowed', st.slow, '#4a8ad8');
+      a(st.bleed > 0, '🩸', 'Bleeding', st.bleed, '#e02020'); a(st.burn > 0, '🔥', 'Burning', st.burn, '#ff7020'); a(st.dot > 0, '☣', st.dotName || 'Disease', st.dot, '#90e040');
+      a(t.hexUntil > G.time, '🌀', 'Hexed', t.hexUntil - G.time, '#b070ff'); a(st.fear > 0, '😱', 'Feared', st.fear, '#c060ff');
+      let row = $('target').querySelector('.tst'); if (!row) { row = document.createElement('div'); row.className = 'tst'; $('target').appendChild(row); }
+      const html = L.map(([ic, nm, v, col]) => `<div class="aura bad" style="--c:${col}" title="${nm}"><span>${ic}</span><b>${Math.ceil(v)}</b></div>`).join(''); if (row._h !== html) { row.innerHTML = html; row._h = html; } } }
   else { $('target').hidden = true; if (t && (t.dead || t.pos.distanceTo(p.pos) > 45)) G.target = null; }
 }
 export function lvlCol(ml, pl) { const d = ml - pl; return d >= 3 ? '#ff3a30' : d >= 1 ? '#ffe040' : d === 0 ? '#ffffff' : d >= -2 ? '#4a7aff' : d >= -4 ? '#6ad0ff' : d >= -6 ? '#5ae05a' : '#9a9a9a'; }

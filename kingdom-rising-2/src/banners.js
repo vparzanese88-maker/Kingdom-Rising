@@ -32,9 +32,9 @@ function build(kind) {
   root.add(cloth); root.userData.cloth = cloth;
   // the reach on the ground
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.96, 1, 64), new THREE.MeshBasicMaterial({ color: B.glow, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; root.add(ring); root.userData.ring = ring;
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; ring.visible = false; root.add(ring); root.userData.ring = ring;
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: B.glow, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending }));
-  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.06; root.add(disc); root.userData.disc = disc;
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.06; disc.visible = false; root.add(disc); root.userData.disc = disc;
   return root;
 }
 const texCache = {};
@@ -57,11 +57,11 @@ export function plantBanner(kind, at, yaw, dur, r) {
   root.position.set(at.x, y, at.z); root.rotation.y = yaw + Math.PI / 2; root.scale.set(1, 0.01, 1);
   G.scene.add(root);
   const b = { kind, root, t: 0, dur, r, pos: new THREE.Vector3(at.x, y, at.z), moteT: 0 };
-  root.userData.ring.scale.setScalar(r); root.userData.disc.scale.setScalar(r);
+  root.userData.ring.scale.setScalar(r / 2); root.userData.disc.scale.setScalar(r / 2); // (hidden: no circles)
   list.push(b);
   const B = BANNER[kind];
-  V.ring(b.pos, r, B.glow, 0.7); V.ring(b.pos, r * 0.6, B.trim, 0.5); V.burst('dust', b.pos.clone().setY(y + 0.2), 30, { speed: 5, size: 1 }); V.burst('stone', b.pos.clone().setY(y + 0.2), 14, { speed: 5, grav: 14, size: 0.25 });
-  V.burst(B.mote, b.pos.clone().setY(y + 2.5), 40, { speed: 4, vy: 2 }); V.light(b.pos.clone().setY(y + 2.5), B.glow, 6, 0.6); V.addShake(0.3);
+  V.burst('dust', b.pos.clone().setY(y + 0.2), 30, { speed: 5, size: 1 }); V.burst('stone', b.pos.clone().setY(y + 0.2), 14, { speed: 5, grav: 14, size: 0.25 });
+  V.burst(B.mote, b.pos.clone().setY(y + 5), 50, { speed: 5, vy: 2 }); V.light(b.pos.clone().setY(y + 5), B.glow, 8, 0.6); V.addShake(0.3);
   return b;
 }
 function remove(b) { G.scene.remove(b.root); b.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); const i = list.indexOf(b); if (i >= 0) list.splice(i, 1); }
@@ -73,20 +73,20 @@ export function updateBanners(dt, P) {
   for (const b of list.slice()) {
     b.t += dt; const B = BANNER[b.kind], R = b.root, ud = R.userData;
     if (b.t > b.dur) { V.burst('dust', b.pos.clone().setY(b.pos.y + 1), 20, { speed: 3, size: 0.9 }); remove(b); continue; }
-    const rise = Math.min(1, b.t / 0.25); R.scale.y = 0.01 + (1 - Math.pow(1 - rise, 3)) * 0.99 + (rise < 1 ? 0 : Math.max(0, 0.08 * Math.sin((b.t - 0.25) * 20) * Math.exp(-(b.t - 0.25) * 6)));
+    const rise = Math.min(1, b.t / 0.25); R.scale.x = R.scale.z = 2; R.scale.y = 2 * ( 0.01 + (1 - Math.pow(1 - rise, 3)) * 0.99 + (rise < 1 ? 0 : Math.max(0, 0.08 * Math.sin((b.t - 0.25) * 20) * Math.exp(-(b.t - 0.25) * 6))));
     const fade = b.dur - b.t < 1.5 ? (b.dur - b.t) / 1.5 : 1;
     ud.ring.material.opacity = (0.35 + 0.25 * Math.sin(b.t * 4)) * fade; ud.disc.material.opacity = 0.07 * fade;
     // waving cloth: a travelling wave that grows toward the free edge, with a little flutter
     const cl = ud.cloth, pos = cl.geometry.attributes.position, base = cl.geometry.userData.base, tt = b.t;
     for (let i = 0; i < pos.count; i++) { const x = base[i * 3], y = base[i * 3 + 1], u = x / W; pos.setZ(i, (Math.sin(u * 6 - tt * 5.5 + y * 0.8) * 0.16 + Math.sin(u * 13 - tt * 9) * 0.035) * u * 1.2); pos.setX(i, x - u * u * 0.08 * (1 + Math.sin(tt * 3))); }
     pos.needsUpdate = true; cl.geometry.computeVertexNormals();
-    if ((b.moteT -= dt) <= 0) { b.moteT = 0.12; const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * b.r; V.emit(B.mote, new THREE.Vector3(b.pos.x + Math.cos(a) * rr, b.pos.y + 0.2, b.pos.z + Math.sin(a) * rr), { speed: 0.3, vy: 1.4, size: 0.3, life: 1.1 }); }
+    if (false && (b.moteT -= dt) <= 0) { b.moteT = 0.12; const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * b.r; V.emit(B.mote, new THREE.Vector3(b.pos.x + Math.cos(a) * rr, b.pos.y + 0.2, b.pos.z + Math.sin(a) * rr), { speed: 0.3, vy: 1.4, size: 0.3, life: 1.1 }); }
     if (P && !P.dead && Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z) < b.r) {
       P.buffs[B.buff] = 0.35;
       if (b.kind === 'vigor' && P.hp < P.maxHp) { const add = Math.min(P.maxHp - P.hp, P.maxHp * 0.03 * dt * (P.hk ? P.hk() : 1)); P.hp += add; b.healed = (b.healed || 0) + add; }
       if ((b.tickT = (b.tickT || 0) - dt) <= 0) { b.tickT = 1; // once a second: show it working on you
         if (b.kind === 'vigor' && b.healed >= 1) { V.number(P.pos.clone().setY(P.pos.y + 2.1), '+' + Math.round(b.healed), 'heal'); V.burst('heal', P.pos.clone().setY(P.pos.y + 1), 12, { speed: 1.5, vy: 2 }); b.healed = 0; }
-        V.ring(P.pos, 1.2, B.glow, 0.5); }
+      }
     }
   }
 }

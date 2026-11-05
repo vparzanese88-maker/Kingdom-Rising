@@ -452,6 +452,10 @@ export class Player {
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
+    // campaign: a heavy blow (or a full draw / aimed shot) costs endurance, more with a stronger weapon; too tired = a normal attack
+    if (G.newFx && W.kind !== 'staff') { const cost = Math.round(8 + (this.weapon.dmg || 9) * 0.12);
+      if (this.end < cost) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); S.error(); return this.light(); }
+      this.end -= cost; this.endUseT = 1; }
     const charge = clamp((p.t - (W.kind === 'melee' && p.t0 != null ? p.t0 : 0.22)) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : W.kind === 'melee' ? 0.5 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
     if (W.kind === 'bow' || W.kind === 'gun') return this.startAtk('release', W.kind === 'gun' ? 0.35 : 0.3, { charge, fire: true });
     if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });

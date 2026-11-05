@@ -483,19 +483,21 @@ export const ITEMS = {
 
 // Food buffs: only one at a time, eating another replaces it
 // food: small buffs that last a long time. drinks: a bit stronger, shorter. One of each at a time.
+// food and drink: small, steady boosts while something sits in your food or drink slot (you eat one when the last wears off).
+// One lasts 24 minutes, so a stack of 20 lasts 8 hours of play. Rarer recipes give a bit more.
 export const FOOD_BUFFS = {
-  roast_meat: { name: 'Hearty', desc: '+6% maximum health', hp: 0.06 },
-  crab_cake: { name: 'Sea Legs', desc: '+6% move speed', speed: 0.06 },
-  herb_roast: { name: 'Vigour', desc: '+15% health and endurance regeneration', regen: 0.15 },
-  hunter_stew: { name: "Hunter's Strength", desc: '+5% damage', dmg: 0.05 },
-  ember_skewer: { name: 'Fire Belly', desc: '+4% critical chance', crit: 0.04 },
-  dwarf_ale: { drink: true, name: 'Stout', desc: '+10% maximum health', hp: 0.1 },
-  berry_juice: { drink: true, name: 'Quickstep', desc: '+10% move speed', speed: 0.1 },
-  mint_tea: { drink: true, name: 'Second Wind', desc: '+30% health and endurance regeneration', regen: 0.3 },
-  honey_mead: { drink: true, name: 'Courage', desc: '+8% damage', dmg: 0.08 },
-  fire_whisky: { drink: true, name: 'Firewater', desc: '+7% critical chance', crit: 0.07 },
+  roast_meat: { rarity: 0, name: 'Hearty', desc: '+3% maximum health', hp: 0.03 },
+  crab_cake: { rarity: 0, name: 'Sea Legs', desc: '+3% move speed', speed: 0.03 },
+  herb_roast: { rarity: 1, name: 'Vigour', desc: '+10% health and endurance regeneration', regen: 0.1 },
+  hunter_stew: { rarity: 2, name: "Hunter's Strength", desc: '+4% damage', dmg: 0.04 },
+  ember_skewer: { rarity: 3, name: 'Fire Belly', desc: '+4% critical chance', crit: 0.04 },
+  berry_juice: { rarity: 0, drink: true, name: 'Quickstep', desc: '+3% move speed', speed: 0.03 },
+  dwarf_ale: { rarity: 1, drink: true, name: 'Stout', desc: '+5% maximum health', hp: 0.05 },
+  mint_tea: { rarity: 1, drink: true, name: 'Second Wind', desc: '+15% health and endurance regeneration', regen: 0.15 },
+  honey_mead: { rarity: 2, drink: true, name: 'Courage', desc: '+5% damage', dmg: 0.05 },
+  fire_whisky: { rarity: 3, drink: true, name: 'Firewater', desc: '+6% critical chance', crit: 0.06 },
 };
-export const FOOD_TIME = 900, DRINK_TIME = 360;
+export const FOOD_TIME = 1440, DRINK_TIME = 1440;
 export const TOOLS = {
   hatchet: { name: 'Hatchet', icon: '🪓', desc: 'For chopping trees.' },
   pickaxe: { name: 'Pickaxe', icon: '⛏', desc: 'For mining stone and ore.' },

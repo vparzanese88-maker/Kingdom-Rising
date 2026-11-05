@@ -523,7 +523,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
     const cur = it.kind === 'weapon' ? hh.equip[hh.active] : hh.equip[it.slot === 'ring' ? 'ring1' : it.slot];
     if (cur && idx != null) html += `<div class="dim">Currently worn: ${esc(cur.name)} (${cur.dmg ? cur.dmg + ' damage' : (cur.armor || 0) + ' armour'})</div>`;
     html += `<div style="color:#ffd84a">Sells for ${Game.itemValue(it)} gold</div>`;
-  } else { const I = ITEMS[it.id], FB = FOOD_BUFFS[it.id]; html += `<b>${esc(I.name)}</b> <span class="dim">×${it.n}</span></div></div><div>${esc(I.desc)}</div>${FB ? `<div style="color:#ffcf70">${FB.drink ? 'Drink' : 'Food'} buff <b>${FB.name}</b>: ${FB.desc} for ${FB.drink ? 6 : 15} min. ${FB.drink ? 'Drinks are stronger but shorter than food.' : 'Food lasts long.'} Put a stack in the ${FB.drink ? 'Drink' : 'Food'} slot to keep it up automatically.</div>` : ''}<div style="color:#ffd84a">Sells for ${I.value} gold each</div>`; }
+  } else { const I = ITEMS[it.id], FB = FOOD_BUFFS[it.id]; html += `<b>${esc(I.name)}</b> <span class="dim">×${it.n}</span></div></div><div>${esc(I.desc)}</div>${FB ? `<div style="color:${RARITY[FB.rarity || 0].col};font-weight:700">${RARITY[FB.rarity || 0].name} ${FB.drink ? 'drink' : 'food'}</div><div style="color:#ffcf70">${FB.drink ? 'Drink' : 'Food'} buff <b>${FB.name}</b>: ${FB.desc} for 24 min each. Put a stack in your ${FB.drink ? 'drink' : 'food'} slot (Hero page) and you eat one whenever the last wears off: a stack of 20 lasts 8 hours. Put a stack in the ${FB.drink ? 'Drink' : 'Food'} slot to keep it up automatically.</div>` : ''}<div style="color:#ffd84a">Sells for ${I.value} gold each</div>`; }
   tipEl.innerHTML = html;
   if (!withButtons) return;
   const row = el('div', 'row');

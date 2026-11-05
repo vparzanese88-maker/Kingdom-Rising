@@ -521,6 +521,7 @@ function dressOutfit(ch, O) {
 }
 
 // equip weapons visually on a humanoid (third person). wt: weapon type id
+const AXE_ROT = -Math.PI / 2;
 export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
   if (ch.sheathG) { ch.sheathG.parent && ch.sheathG.parent.remove(ch.sheathG); ch.sheathG = null; }
   for (const k in ch.weapons) { const w = ch.weapons[k]; w.parent && w.parent.remove(w); }
@@ -533,12 +534,13 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
   if (W.kind === 'bow') { ch.arms.R.grip.remove(main); ch.arms.L.grip.add(main); main.rotation.set(-Math.PI / 2, 0, 0); main.position.set(0, 0, -0.02); }
   if (W.kind === 'staff') { main.position.y = -0.5; }
   // turn blades and axe heads so their edge faces forward instead of sideways
-  if (W.kind === 'melee') main.rotation.y = Math.PI / 2;
+  const AXE = (pt) => pt === 'handaxe' || pt === 'greataxe'; // axe heads sit on their own side of the haft: turn them the other way so the edge leads
+  if (W.kind === 'melee') main.rotation.y = AXE(parts[0]) ? AXE_ROT : Math.PI / 2;
   if (wt === 'spear') { main.position.y = -0.7; }
   if (W.hands === 'two' && wt !== 'spear') main.position.y = W.parts[0] === 'greatsword' ? -0.06 : -0.25;
   if (parts[1]) {
     const off = makeWeapon(parts[1], tier, rarity);
-    ch.arms.L.grip.add(off); ch.weapons.off = off; if (parts[1] !== 'shield') off.rotation.y = Math.PI / 2;
+    ch.arms.L.grip.add(off); ch.weapons.off = off; if (parts[1] !== 'shield') off.rotation.y = AXE(parts[1]) ? AXE_ROT : Math.PI / 2;
     if (parts[1] === 'shield') { off.rotation.set(-Math.PI / 2, Math.PI / 2, 0); off.position.set(0.08, 0.0, 0.05); }
   }
 }

@@ -162,11 +162,11 @@ export const V = {
     for (let i = this.numbers.length - 1; i >= 0; i--) {
       const n = this.numbers[i]; n.t += dt;
       if (n.t > 1.1) { n.el.remove(); this.numbers.splice(i, 1); continue; }
-      v.copy(n.p); v.y += n.t * 1.6; v.project(camera);
+      v.copy(n.p); v.y += (1 - Math.pow(1 - Math.min(1, n.t / 0.9), 3)) * 1.5; v.project(camera); // shoots up fast, then hangs
       if (v.z > 1) { n.el.style.display = 'none'; continue; }
       n.el.style.display = '';
       const x = (v.x * 0.5 + 0.5) * w + n.vx * n.t, y = (-v.y * 0.5 + 0.5) * h;
-      n.el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${n.t < 0.12 ? 0.6 + n.t * 5 : 1.2 - n.t * 0.3})`;
+      n.el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${n.t < 0.1 ? 0.4 + n.t * 12 : n.t < 0.2 ? 1.6 - (n.t - 0.1) * 5 : 1.1 - n.t * 0.25})`;
       n.el.style.opacity = n.t > 0.7 ? (1.1 - n.t) / 0.4 : 1;
     }
   },

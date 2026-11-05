@@ -58,7 +58,7 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
-  // keys 1-5: buffs, songs and heals; F, C, Z: damage abilities (no food or drink slots for now)
+  // keys 1-5: buffs, songs and heals; F, C, Q: damage abilities (no food or drink slots for now)
   if (G.hotbarSlots) {
     const T = HOTBAR_KEYS.length, A = ABILITIES[h.cls];
     const old = (h.hotbar || []).filter(s => s && s.t === 'ab'); if (!h.hotbar || h.hotbar.length !== T) { h.hotbar = Array(T).fill(null); }

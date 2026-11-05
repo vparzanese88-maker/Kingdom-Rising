@@ -477,7 +477,7 @@ function renderWeapons(c) {
   if (!held) main.appendChild(el('p', 'dim wm-note', 'Not in your hands right now. Equip one to train it.'));
   lay.appendChild(main); c.appendChild(lay);
 }
-// put an ability on the hotbar: in the chosen slot if it fits there (1-5 support, F C Z damage), otherwise the first free slot of its kind
+// put an ability on the hotbar: in the chosen slot if it fits there (1-5 support, F C Q damage), otherwise the first free slot of its kind
 function assignAbility(h, a) {
   const T = HOTBAR_KEYS.length; let i = bookSel;
   if (!slotFits(i, a)) { i = [...Array(T).keys()].find(k => slotFits(k, a) && !h.hotbar[k]); if (i == null) i = [...Array(T).keys()].find(k => slotFits(k, a)); }
@@ -501,7 +501,7 @@ function treesTab(c, h, cls, res) {
   const top = el('div', 'st-top');
   top.appendChild(el('div', 'st-cls', `<div class="st-crest">${Icons.abilityIcon(trees[0].nodes[0].ab || 'charge')}</div><div><b>${CLASSES[cls].name}</b><small>Level ${h.level} · one skill point every level</small></div>`));
   top.appendChild(el('div', 'st-pts' + (pts ? ' have' : ''), `<b>${pts}</b><small>skill point${pts === 1 ? '' : 's'}</small>`));
-  top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Z: damage · pick a slot, then click an ability</small>')).appendChild(slotBar(h, cls));
+  top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · pick a slot, then click an ability</small>')).appendChild(slotBar(h, cls));
   const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
   c.appendChild(top);
   const wrap = el('div', 'st-trees');
@@ -519,7 +519,7 @@ function treesTab(c, h, cls, res) {
       const d = el('button', `st-node ${n.t} ${st}`, `<div class="st-ic">${Icons.abilityIcon(n.icon)}</div>${slot >= 0 ? `<span class="st-k">${HOTBAR_KEYS[slot]}</span>` : ''}${n.t === 'ult' ? `<span class="st-u">${Math.min(spent, ULT_PTS)}/${ULT_PTS}</span>` : ''}`);
       d.style.gridRow = n.row + 1; d.style.gridColumn = n.col + 1;
       const kind = n.t === 'ab' ? 'Ability' : n.t === 'ult' ? 'Capstone' : 'Passive';
-      const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]}</em>` : `<em class="ok">Unlocked: click to put it on your hotbar (${isSupport(a) ? 'keys 1-5' : 'F, C or Z'})</em>`) : '<em class="ok">Unlocked</em>')
+      const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]}</em>` : `<em class="ok">Unlocked: click to put it on your hotbar (${isSupport(a) ? 'keys 1-5' : 'F, C or Q'})</em>`) : '<em class="ok">Unlocked</em>')
         : st === 'open' ? '<em class="go">Click to unlock (1 point)</em>' : st === 'ready' ? '<em class="wait">Next in line: earn a point by levelling up</em>'
         : n.t === 'ult' ? `<em class="no">Spend ${ULT_PTS} points in ${T.name} to open</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;
       d.onmouseenter = () => bookTipAt(tip, d, `<div class="st-tt" style="--tc:${T.col}"><small>${T.name} · ${kind}</small><b>${n.name}</b>${a ? `<div class="dim">${a.cost} ${res} · every ${a.cd} s</div>` : ''}<p>${n.desc}</p>${how}</div>`);
@@ -538,7 +538,7 @@ function treesTab(c, h, cls, res) {
 const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {
   // ---- hotbar slots ----
-  c.appendChild(el('p', 'bookintro', `Keys <b>1-5</b> hold buffs, songs and heals; <b>F C Z</b> hold the abilities that deal damage. Click a slot, then an ability. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
+  c.appendChild(el('p', 'bookintro', `Keys <b>1-5</b> hold buffs, songs and heals; <b>F C Q</b> hold the abilities that deal damage. Click a slot, then an ability. Every level makes them stronger (now <b>${Math.round(k * 100)}%</b>).`));
   c.appendChild(slotBar(h, cls));
   // ---- abilities: just the names; hover for the details ----
   const grid = el('div', 'bookgrid compact');

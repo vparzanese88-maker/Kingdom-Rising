@@ -850,8 +850,8 @@ export const STARTING_PAIR = PAIR_PARTS;
 // the classes with skill trees use their tree nodes as their talent list (so perks and saves line up)
 for (const [cls, trees] of Object.entries(CLASS_TREES)) { const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }
 
-// ---- the hotbar: keys 1-5 hold buffs, songs and heals; F, C and Z hold the abilities that deal damage ----
-export const HOTBAR_KEYS = ['1', '2', '3', '4', '5', 'F', 'C', 'Z'], SUPPORT_SLOTS = 5;
+// ---- the hotbar: keys 1-5 hold buffs, songs and heals; F, C and Q hold the abilities that deal damage ----
+export const HOTBAR_KEYS = ['1', '2', '3', '4', '5', 'F', 'C', 'Q'], SUPPORT_SLOTS = 5;
 const SUPPORT_AB = new Set(['shieldwall', 'warbanner', 'vigorbanner', 'stonebanner', 'laststand', 'battlecry', 'adrenaline', 'rampage', 'bloodrage', 'undying', 'mending', 'disengage', 'focus', 'barkskin', 'vanish',
   'smokebomb', 'quickreload', 'eagleeye', 'healingwave', 'ancestralward', 'chainheal', 'wartotem', 'spiritlink', 'blink', 'manasurge', 'icebarrier', 'timewarp', 'rally', 'fortify', 'tourniquet', 'secondwind', 'fielddress']);
 export const isSupport = (a) => !!(a && (a.song || ['heal', 'hot', 'buff', 'stealth'].includes(a.t) || SUPPORT_AB.has(a.id)));

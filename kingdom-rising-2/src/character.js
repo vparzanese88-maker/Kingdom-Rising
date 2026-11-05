@@ -584,7 +584,8 @@ const POSE = {
   thrA: [0.5, -0.9, 0, 0.3, -1.9, -0.9, -0.5, -1.6, -0.1], thrB: [-0.2, -1.5, 0, 0.0, -0.05, -1.4, 0.1, -0.2, 0.2],
   off1a: [-0.9, -0.3, 0, 0, -0.9, -1.4, -0.6, -1.25, 0], off1b: [0.85, -0.3, 0, 0, -0.8, -1.45, 0.7, -0.2, 0.1],
   block: [0, -1.2, 0, 0.9, -1.7, -1.6, -0.6, -1.4, 0.05],
-  bowAim: [0.5, -1.55, 0, -0.1, -2.4, -1.55, -0.05, 0, 0], bowDraw: [0.6, -1.55, 0, -0.2, -2.7, -1.6, -0.05, 0, 0],
+  bowAim: [0.5, -1.55, 0, -0.1, -2.4, -1.55, -0.05, 0, 0],
+  gunAim: [0.45, -1.45, 0, 0.25, -1.1, -1.5, -0.25, -0.25, 0], bowDraw: [0.6, -1.55, 0, -0.2, -2.7, -1.6, -0.05, 0, 0],
   cast: [0, -0.4, 0, 0.25, -1.3, -1.6, -0.3, -0.2, 0], castB: [-0.1, -0.5, 0, 0.25, -1.3, -1.7, 0.1, -0.05, 0.15],
   staffSlam: [0, -2.4, 0, 0.2, -1.0, -1.0, -0.2, -1.0, -0.25], staffSlamB: [0, -0.9, 0, 0.2, -0.6, -0.9, -0.2, -0.6, 0.35],
   chopA: [0.6, -2.2, 0.3, 1.0, -1.2, -0.3, -0.3, -0.7, -0.1], chopB: [-0.3, -1.2, -0.2, 0.3, -0.3, -0.3, -0.3, -0.7, 0.2],
@@ -612,6 +613,7 @@ function attackPose(name, t, mirror) {
     case 'mine': return seq('mineA', 'mineB', 0.5);
     case 'gather': case 'skin': return t < 0.5 ? poseLerp(POSE.gatherA, POSE.gatherB, ease(t * 2)) : poseLerp(POSE.gatherB, POSE.gatherA, ease((t - 0.5) * 2));
     case 'cheer': return POSE.cheer;
+    case 'gunAim': { const o = POSE.gunAim.slice(); o[8] = -0.12 * Math.max(0, 1 - t * 4); o[1] -= 0.25 * Math.max(0, 1 - t * 4); return o; } // musket at the shoulder; a kick back on the shot (t = time since firing)
     case 'claw': return seq('s1a', 's1b', 0.4);
     case 'slam': return seq('h_a', 'h_b', 0.55);
     case 'kick': return [0, -0.7, 0, 0.35, -1.4, -0.9, -0.3, -1.4, -0.25 * Math.sin(Math.min(1, t * 1.6) * Math.PI)]; // guard up, lean back as the leg goes out

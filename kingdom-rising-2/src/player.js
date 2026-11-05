@@ -323,10 +323,9 @@ export class Player {
     switch (code) {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
-      case 'KeyQ': this.swapWeapon(); break;
+      case 'KeyQ': if (G.battleFx) this.hotbar(7); break; // no more weapon swapping: Q is the third damage key
       case 'KeyF': if (G.battleFx) this.hotbar(5); break;
       case 'KeyC': if (G.battleFx) this.hotbar(6); break;
-      case 'KeyZ': if (G.battleFx) this.hotbar(7); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -687,7 +686,8 @@ export class Player {
 
   hotbar(i) {
     const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
-    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) this.ability(k); }
+    if (G.battleFx && i < 5 && sl.t === 'ab') { if (G.time < (this.gcdT || 0)) { S.error(); return; } } // keys 1-5 share a 1 s cooldown
+    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); if (G.battleFx && i < 5 && (this.cd['a' + (k + 1)] || 0) > cd0) this.gcdT = G.time + 1; } }
     else if (sl.t === 'item') { if (count(this.h, sl.id) > 0) useItem(this.h, sl.id, this); else S.error(); }
   }
   // ---------- class abilities ----------
@@ -811,7 +811,7 @@ export class Player {
       case 'warbanner': case 'vigorbanner': case 'stonebanner': { // drive the pole into the ground with a slam; the flag rises and snaps open
         const kind = ab.id === 'warbanner' ? 'war' : ab.id === 'vigorbanner' ? 'vigor' : 'stone', sb = this.pk('a_warbanner');
         this.atk = { name: 'smash', t: 0.3, dur: 0.5, hit: true, noQueue: true };
-        setTimeout(() => { if (this.dead) return; const at = this.pos.clone().addScaledVector(this.fwd(), 1.3); plantBanner(kind, at, this.yaw, 15 * (sb ? 1.5 : 1), 8 + (sb ? 3 : 0)); S.bannerPlant(kind);
+        setTimeout(() => { if (this.dead) return; const at = groundPoint(25); plantBanner(kind, at, this.yaw, 15 * (sb ? 1.5 : 1), 8 + (sb ? 3 : 0)); S.bannerPlant(kind);
           if (this.pk('rallying')) { this.heal(this.maxHp * 0.1 * this.hk()); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2 }); }
           if (this.pk('cmd')) { for (const m of mobsInRadius(at, 7)) this.dealDamage(m, base * 0.6 * up, { knock: m.pos.clone().sub(at).setY(0).normalize().multiplyScalar(12), stun: 1, blunt: true }); V.ring(at, 7, '#ffd050', 0.5); V.sphereFlash(at.clone().setY(at.y + 1), 2.5, '#ffd050', 0.3); S.rumble && S.rumble(at, 0.7); V.addShake(0.4); } }, 150 * ABIL_DELAY_K());
         break; }
@@ -1173,6 +1173,18 @@ export class Player {
     if (B.barrier > 0 && Math.random() < 0.5) V.emit('frost', at(), { speed: 0.3, size: 0.3, life: 0.6 });
   }
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
+  // third person: while aiming, the musket's butt sits in the right shoulder and the barrel points where you aim
+  gunToShoulder(ch, on) {
+    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return;
+    const ud = g.userData; if (!ud.home) ud.home = { p: g.position.clone(), q: g.quaternion.clone() };
+    if (!on) { if (ud.aimed) { g.position.copy(ud.home.p); g.quaternion.copy(ud.home.q); ud.aimed = false; } return; }
+    ch.root.updateMatrixWorld(true);
+    const sh = ch.arms.R.sh.getWorldPosition(new THREE.Vector3()); sh.y -= 0.04;
+    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const want = sh.clone().addScaledVector(dir, 0.42).addScaledVector(this.right(), -0.06);
+    const pq = g.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    g.position.copy(g.parent.worldToLocal(want)); g.quaternion.copy(pq.multiply(q)); ud.aimed = true;
+  }
   // talents that fire when you kill something
   onKillPerks(mob) {
     if (this.pk('bloodlust')) { const add = this.maxHp * 0.05; this.heal(add); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 2, vy: 1 }); }
@@ -1623,12 +1635,14 @@ export class Player {
       if (a.name === 'spin') { action = 'area'; spin = ease(Math.min(1, a.t / 0.8)) * Math.PI * 2; }
       if (a.name === 'area' || a.name === 'fury') { action = 'area'; spin = (a.name === 'fury' ? a.t * 3 : ease(Math.min(1, a.t / 0.8))) * Math.PI * 2; }
       if (a.name === 'release') action = 'shoot', actionT = 0.6 + a.t * 0.4;
+      if (this.W && this.W.kind === 'gun' && (a.name === 'release' || a.name === 'shoot')) { action = 'gunAim'; actionT = a.t; }
       if (a.name === 'spell') action = 'cast';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
-    } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : 0.3; }
+    } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
     const roll = this.dodge && !this.dodge.charge ? Math.min(1, this.dodge.t) : null;
     const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && ((this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;

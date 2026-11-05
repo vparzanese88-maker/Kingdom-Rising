@@ -412,6 +412,43 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 .st-slot.dmg{border-color:#6a2a20}.st-slot.dmg .k{background:#5a1a12;border-color:#a84030}
 .st-slot.sup{border-color:#3a4a2a}
 .st-slot.sel{border-color:#ffd050!important}
+
+/* ===== hotbar, redone: an iron-and-gold plate, beveled slots, keycaps, a sweeping cooldown and a flash when ready ===== */
+body.battlefx #abil{gap:7px;padding:10px 16px 14px;border-radius:18px;align-items:center;
+  background:linear-gradient(180deg,rgba(40,30,20,.92),rgba(14,10,7,.95));border:1px solid #6a5232;
+  box-shadow:0 10px 30px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,220,150,.18),inset 0 -2px 8px rgba(0,0,0,.6)}
+body.battlefx #abil::before{content:'';position:absolute;left:24px;right:24px;top:-1px;height:2px;background:linear-gradient(90deg,transparent,#e8c070,transparent);opacity:.7}
+body.battlefx #abil .sep{width:2px;height:54px;margin:0 6px;background:linear-gradient(180deg,transparent,#7a6040,transparent)}
+body.battlefx #abil .slot{width:62px;height:62px;padding:5px;border-radius:12px;border:0;overflow:visible;
+  background:radial-gradient(circle at 50% 30%,#3c2c1c,#0d0906 75%);
+  box-shadow:0 0 0 2px #1a120a,0 0 0 4px #7a5e36,0 0 0 5px #2a1e12,0 6px 12px rgba(0,0,0,.7),inset 0 0 14px rgba(0,0,0,.85);transition:transform .08s,box-shadow .2s}
+body.battlefx #abil .slot .ai{display:block;width:100%;height:100%;border-radius:8px;overflow:hidden}
+body.battlefx #abil .slot .ai svg{width:100%;height:100%;display:block}
+body.battlefx #abil .slot .k{left:50%;top:auto;bottom:-11px;transform:translateX(-50%);min-width:20px;text-align:center;padding:2px 6px;border-radius:6px;font:800 11px/1 sans-serif;color:#ffe9b0;
+  background:linear-gradient(180deg,#4a3820,#1e150c);border:1px solid #a8844a;box-shadow:0 2px 4px rgba(0,0,0,.8);z-index:3}
+body.battlefx #abil .slot .cd{border-radius:8px;inset:5px;background:conic-gradient(rgba(5,3,2,.78) var(--p,0%),rgba(0,0,0,.08) 0);font:900 22px/1 sans-serif;color:#fff;text-shadow:0 0 4px #000,0 2px 3px #000}
+body.battlefx #abil .slot .an{display:none}
+body.battlefx #abil .slot.hb.sup{box-shadow:0 0 0 2px #0e140a,0 0 0 4px #6a8a42,0 0 0 5px #1a2410,0 6px 12px rgba(0,0,0,.7),inset 0 0 14px rgba(0,0,0,.85)}
+body.battlefx #abil .slot.hb.sup .k{border-color:#8ab05a;background:linear-gradient(180deg,#34481e,#141c0a);color:#e8ffd0}
+body.battlefx #abil .slot.hb.dmg{width:72px;height:72px;box-shadow:0 0 0 2px #1a0806,0 0 0 4px #c0582e,0 0 0 6px #3a1208,0 0 18px rgba(255,90,40,.35),0 6px 14px rgba(0,0,0,.8),inset 0 0 14px rgba(0,0,0,.85)}
+body.battlefx #abil .slot.hb.dmg .k{font-size:13px;padding:3px 8px;border-color:#ff8a50;background:linear-gradient(180deg,#7a2a12,#2a0a04);color:#fff0e0}
+body.battlefx #abil .slot.hb.dmg::after{content:'';position:absolute;inset:-6px;border-radius:16px;pointer-events:none;background:radial-gradient(circle,transparent 60%,rgba(255,120,50,.18));animation:hbember 2.4s ease-in-out infinite}
+@keyframes hbember{50%{opacity:.35}}
+body.battlefx #abil .slot.wpn{width:58px;height:58px;box-shadow:0 0 0 2px #1a120a,0 0 0 4px #b89a5a,0 0 0 5px #2a1e12,0 6px 12px rgba(0,0,0,.7)}
+body.battlefx #abil .slot.small{width:50px;height:50px}
+body.battlefx #abil .slot.flash{animation:hbready .45s ease-out}
+@keyframes hbready{0%{transform:scale(1.14);filter:brightness(1.8)}100%{transform:scale(1);filter:none}}
+body.battlefx #abil .slot:active{transform:scale(.94)}
+/* ===== damage numbers, redone: chunky, outlined, a pop then a drift; crits big, orange and shaking ===== */
+.dnum{font-family:'Trebuchet MS','Arial Black',sans-serif!important;font-weight:900!important;font-style:italic;letter-spacing:-.01em;font-size:26px;color:#fff;
+  -webkit-text-stroke:1.2px rgba(0,0,0,.85);paint-order:stroke fill;text-shadow:0 3px 0 rgba(0,0,0,.55),0 0 10px rgba(0,0,0,.6)}
+.dnum.crit{font-size:40px!important;color:#ffb030!important;background:linear-gradient(180deg,#fff6b0,#ffb030 55%,#ff6a10);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-text-stroke:1px #4a1a00;filter:drop-shadow(0 0 8px rgba(255,140,30,.6)) drop-shadow(0 3px 0 rgba(0,0,0,.6));animation:dncrit .35s ease-out}
+@keyframes dncrit{0%{letter-spacing:.2em}30%{letter-spacing:-.02em;margin-left:4px}50%{margin-left:-4px}70%{margin-left:2px}100%{margin-left:0}}
+.dnum.heal{color:#8aff7a!important;font-style:normal;-webkit-text-stroke:1px #0a3a08;text-shadow:0 0 10px rgba(80,255,80,.5),0 2px 0 rgba(0,0,0,.5)}
+.dnum.fire{color:#ffa050!important}.dnum.frost{color:#a8e8ff!important}.dnum.dot{color:#ffc0a0!important;font-size:18px!important;font-style:normal}
+.dnum.bad{color:#ff6a5a!important;font-size:24px!important;font-style:normal}.dnum.miss{color:#d8d8d8!important;font-size:19px!important;font-style:normal}
+.dnum.dmg{color:#fff}
 </style>
 <script src="./vendor/peerjs.min.js"></script>
 <script type="importmap">
@@ -419,44 +456,44 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793881809",
-"./src/banners.js": "./src/banners.js?v=1793881809",
-"./src/battle.js": "./src/battle.js?v=1793881809",
-"./src/battledata.js": "./src/battledata.js?v=1793881809",
-"./src/battlemap.js": "./src/battlemap.js?v=1793881809",
-"./src/battlequests.js": "./src/battlequests.js?v=1793881809",
-"./src/battleui.js": "./src/battleui.js?v=1793881809",
-"./src/character.js": "./src/character.js?v=1793881809",
-"./src/chat.js": "./src/chat.js?v=1793881809",
-"./src/classes2.js": "./src/classes2.js?v=1793881809",
-"./src/classlore.js": "./src/classlore.js?v=1793881809",
-"./src/combat.js": "./src/combat.js?v=1793881809",
-"./src/data.js": "./src/data.js?v=1793881809",
-"./src/fog.js": "./src/fog.js?v=1793881809",
-"./src/game.js": "./src/game.js?v=1793881809",
-"./src/guards.js": "./src/guards.js?v=1793881809",
-"./src/icons.js": "./src/icons.js?v=1793881809",
-"./src/icons2.js": "./src/icons2.js?v=1793881809",
-"./src/lore.js": "./src/lore.js?v=1793881809",
-"./src/main.js": "./src/main.js?v=1793881809",
-"./src/menu.js": "./src/menu.js?v=1793881809",
-"./src/mobs.js": "./src/mobs.js?v=1793881809",
-"./src/mp.js": "./src/mp.js?v=1793881809",
-"./src/mpsync.js": "./src/mpsync.js?v=1793881809",
-"./src/net.js": "./src/net.js?v=1793881809",
-"./src/pets.js": "./src/pets.js?v=1793881809",
-"./src/player.js": "./src/player.js?v=1793881809",
-"./src/sailintro.js": "./src/sailintro.js?v=1793881809",
-"./src/saves.js": "./src/saves.js?v=1793881809",
-"./src/seabreak.js": "./src/seabreak.js?v=1793881809",
-"./src/state.js": "./src/state.js?v=1793881809",
-"./src/story.js": "./src/story.js?v=1793881809",
-"./src/terrain.js": "./src/terrain.js?v=1793881809",
-"./src/ui.js": "./src/ui.js?v=1793881809",
-"./src/util.js": "./src/util.js?v=1793881809",
-"./src/vfx.js": "./src/vfx.js?v=1793881809",
-"./src/world.js": "./src/world.js?v=1793881809",
-"./src/yard.js": "./src/yard.js?v=1793881809"
+"./src/audio.js": "./src/audio.js?v=1793882244",
+"./src/banners.js": "./src/banners.js?v=1793882244",
+"./src/battle.js": "./src/battle.js?v=1793882244",
+"./src/battledata.js": "./src/battledata.js?v=1793882244",
+"./src/battlemap.js": "./src/battlemap.js?v=1793882244",
+"./src/battlequests.js": "./src/battlequests.js?v=1793882244",
+"./src/battleui.js": "./src/battleui.js?v=1793882244",
+"./src/character.js": "./src/character.js?v=1793882244",
+"./src/chat.js": "./src/chat.js?v=1793882244",
+"./src/classes2.js": "./src/classes2.js?v=1793882244",
+"./src/classlore.js": "./src/classlore.js?v=1793882244",
+"./src/combat.js": "./src/combat.js?v=1793882244",
+"./src/data.js": "./src/data.js?v=1793882244",
+"./src/fog.js": "./src/fog.js?v=1793882244",
+"./src/game.js": "./src/game.js?v=1793882244",
+"./src/guards.js": "./src/guards.js?v=1793882244",
+"./src/icons.js": "./src/icons.js?v=1793882244",
+"./src/icons2.js": "./src/icons2.js?v=1793882244",
+"./src/lore.js": "./src/lore.js?v=1793882244",
+"./src/main.js": "./src/main.js?v=1793882244",
+"./src/menu.js": "./src/menu.js?v=1793882244",
+"./src/mobs.js": "./src/mobs.js?v=1793882244",
+"./src/mp.js": "./src/mp.js?v=1793882244",
+"./src/mpsync.js": "./src/mpsync.js?v=1793882244",
+"./src/net.js": "./src/net.js?v=1793882244",
+"./src/pets.js": "./src/pets.js?v=1793882244",
+"./src/player.js": "./src/player.js?v=1793882244",
+"./src/sailintro.js": "./src/sailintro.js?v=1793882244",
+"./src/saves.js": "./src/saves.js?v=1793882244",
+"./src/seabreak.js": "./src/seabreak.js?v=1793882244",
+"./src/state.js": "./src/state.js?v=1793882244",
+"./src/story.js": "./src/story.js?v=1793882244",
+"./src/terrain.js": "./src/terrain.js?v=1793882244",
+"./src/ui.js": "./src/ui.js?v=1793882244",
+"./src/util.js": "./src/util.js?v=1793882244",
+"./src/vfx.js": "./src/vfx.js?v=1793882244",
+"./src/world.js": "./src/world.js?v=1793882244",
+"./src/yard.js": "./src/yard.js?v=1793882244"
 }
 }
 </script>
@@ -1205,6 +1242,6 @@ body.battlefx #buffs{left:18px!important;bottom:92px!important;transform:none!im
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793881809"></script>
+<script type="module" src="./src/main.js?v=1793882244"></script>
 </body>
 </html>

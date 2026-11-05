@@ -61,12 +61,12 @@ export function buildAbilityBar() {
   const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = '';
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));
-  bar.appendChild(ws);
+  if (!G.battleFx) bar.appendChild(ws); // no weapon swapping any more
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
   const rmb = G.battleFx ? null : mk('RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
-  // keys 1-5: buffs, songs, heals; then F, C, Z: the damage abilities
+  // keys 1-5: buffs, songs, heals; then F, C, Q: the damage abilities
   const hb = G.hotbarSlots ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: 6 }, (_, i) => mk(String(i + 1), '', 'hb'));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';

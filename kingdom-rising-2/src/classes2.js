@@ -205,6 +205,12 @@ export function petDef(kind, lv, big) {
     fireel: { name: 'Fire Elemental', kind: 'imp', hp: 220 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.3, speed: 6, range: 14, proj: 'fire', size: 1.15 + lv * 0.03 },
     bonegolem: { name: 'Bone Golem', kind: 'golem', hp: 650 + lv * 110, dmg: 20 + lv * 4.5, cd: 1.6, speed: 5, size: 1.25 + lv * 0.02, armor: 0.3 },
     earthel: { name: 'Earth Elemental', kind: 'golem', hp: 520 + lv * 90, dmg: 18 + lv * 4, cd: 1.7, speed: 5, size: 1.05 + lv * 0.02 },
+    // campaign elementalist: each elemental is as strong as a necromancer's Skeleton Warrior and Skeleton Mage together;
+    // the Pure Elemental is the strongest single pet, matching all three of a necromancer's undead at once
+    flameel: { name: 'Fire Elemental', kind: 'imp', hp: 320 + lv * 70, dmg: 22 + lv * 6.5, cd: 1.3, speed: 6, range: 14, proj: 'fire', size: 1.25 + lv * 0.03 },
+    frostel: { name: 'Frost Elemental', kind: 'golem', hp: 380 + lv * 85, dmg: 20 + lv * 6, cd: 1.4, speed: 5.5, size: 1.1 + lv * 0.02, armor: 0.25, chill: true },
+    stormel: { name: 'Storm Elemental', kind: 'imp', hp: 290 + lv * 65, dmg: 17 + lv * 5, cd: 1.0, speed: 7, range: 16, proj: 'storm', size: 1.2 + lv * 0.03 },
+    pureel: { name: 'Pure Elemental', kind: 'golem', hp: 1000 + lv * 190, dmg: 44 + lv * 11.5, cd: 1.5, speed: 5.5, size: 1.6 + lv * 0.03, armor: 0.3, chill: true },
     phantasm: { name: 'Phantasm', kind: 'person', hp: 200 + lv * 45, dmg: 12 + lv * 3.5, cd: 1.1, speed: 6.5, wt: 'arcanestaff', range: 16, proj: 'arcane', size: 1 },
   }[kind] || {};
   return Object.assign({ id: 'pet_' + kind, role: P.range ? 'ranged' : 'melee', range: 0, armor: 0.15, pop: 0, cost: { gold: 0 }, lvl: 0 }, P);

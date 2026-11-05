@@ -1,7 +1,7 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { HOTBAR_KEYS, SUPPORT_SLOTS, slotFits, isSupport, CLASS_TREES, CLASS_TREE, ULT_PTS, CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS, familiesOf, MASTERY_CAP, masteryXpFor, LEVEL_CAP } from './data.js';
+import { CROWN, HOTBAR_KEYS, SUPPORT_SLOTS, slotFits, isSupport, CLASS_TREES, CLASS_TREE, ULT_PTS, CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS, familiesOf, MASTERY_CAP, masteryXpFor, LEVEL_CAP } from './data.js';
 import { settings, saveSettings } from './saves.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
@@ -558,6 +558,12 @@ function treesTab(c, h, cls, res) {
     col.appendChild(grid); wrap.appendChild(col);
   }
   c.appendChild(wrap);
+  // a crowning ability that belongs to no single tree (the elementalist's Pure Elemental)
+  const CR = !BATTLE && CROWN[cls], ca = CR && ABILITIES[cls].find(x => x.id === CR.ab);
+  if (ca) { const known = Game.abilityKnown(h, ca), slot = h.hotbar.findIndex(x => x && x.id === ca.id), have = CR.needs.filter(id => { const b = ABILITIES[cls].find(x => x.id === id); return b && Game.abilityKnown(h, b); }).length;
+    const row = el('div', 'st-crown' + (known ? ' on' : ''), `<button class="st-node ult dmgab ${known ? 'owned' : 'locked'}"><div class="st-ic">${Icons.abilityIcon(ca.id)}</div>${slot >= 0 ? `<span class="st-k">${HOTBAR_KEYS[slot]}</span>` : ''}</button><div><b>${ca.name}</b><small>${known ? (slot >= 0 ? `On hotbar key ${HOTBAR_KEYS[slot]}` : 'Awakened · drag it onto F, C or Q, or right click it') : `${CR.tag} · ${have}/${CR.needs.length} elementals${h.level < ca.level ? ` · level ${ca.level}` : ''}`}</small><p>${ca.desc}</p></div>`);
+    const b = row.querySelector('button'); if (known) { draggableAb(b, h, ca); b.onclick = () => { S.click(); assignAbility(h, ca); renderBook(); }; } else b.onclick = () => S.error();
+    c.appendChild(row); }
 }
 const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {

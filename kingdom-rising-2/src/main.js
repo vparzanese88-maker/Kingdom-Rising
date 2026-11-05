@@ -24,7 +24,7 @@ import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { TWIN_TO_SINGLE, GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
+import { CROWN, CLASS_TREES, TWIN_TO_SINGLE, GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -314,6 +314,8 @@ function campaignSetup() {
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
+  // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
+  for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
   // only support classes heal or buff anyone but themselves: everyone else's abilities are self-only
   const SUPPORT = new Set(['warrior', 'cleric', 'paladin', 'druid', 'shaman', 'bard', 'enchanter']);
   for (const c in ABILITIES) if (!SUPPORT.has(c)) for (const a of ABILITIES[c]) {

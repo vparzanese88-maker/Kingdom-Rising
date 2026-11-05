@@ -6,19 +6,21 @@ import { G } from './state.js';
 import { Mob } from './mobs.js';
 import { petDef } from './classes2.js';
 import { heightAt } from './terrain.js';
-import { foe } from './combat.js';
+import { foe, lightning } from './combat.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 
-const MODEL = { bonegolem: 'golem', skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
-const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff', skelmage: '#7a40d0' };
+const MODEL = { bonegolem: 'golem', skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', flameel: 'imp', frostel: 'golem', stormel: 'imp', pureel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
+const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff', skelmage: '#7a40d0', flameel: '#ff6a10', frostel: '#70c8ff', stormel: '#a8b8ff', pureel: '#fff0b0' };
+const SOLID = new Set(['skelmage', 'flameel', 'pureel']); // glowing but not see-through
+const ELEMS = new Set(['flameel', 'frostel', 'stormel', 'pureel']); // an elementalist keeps one elemental at a time
 let petN = 0;
 
 // lv: the summoner's power on the 1-10 scale petDef uses
 export function dismissPets(spell) { for (const m of G.mobs.filter(o => o.pet && (spell == null || o.spell === spell))) vanish(m); }
 export function summonPets(kind, at, lv, dur, n, big, spell = kind) {
   if (!G.myTeam) G.myTeam = 'hero';
-  dismissPets(spell);
+  dismissPets(spell); if (ELEMS.has(kind)) for (const o of G.mobs.filter(o => o.pet && ELEMS.has(o.petKind))) vanish(o);
   for (let k = 0; k < n; k++) {
     const def = kind === 'spirit' ? Object.assign(petDef('wolfpack', lv, big), { name: 'Spirit Wolf' }) : petDef(kind, lv, big);
     const a = (k / Math.max(1, n)) * Math.PI * 2, r = n > 1 ? 1.8 : 0, x = at.x + Math.cos(a) * r, z = at.z + Math.sin(a) * r;
@@ -29,11 +31,11 @@ export function summonPets(kind, at, lv, dur, n, big, spell = kind) {
     m.level = m.lv; m.stealth = 0; m.knock = new THREE.Vector3(); m.debuff = () => {}; m.takeDamage = petHurt;
     if (def.size) m.root.scale.multiplyScalar(def.size);
     if (kind === 'bonegolem') { const bone = new THREE.MeshStandardMaterial({ color: '#e2d8bc', roughness: 0.85 }); m.root.traverse(o => { if (o.isMesh) o.material = bone; }); } // bleached bone
-    if (GHOST[kind]) m.root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (kind !== 'skelmage') { o.material.transparent = true; o.material.opacity = 0.6; } if (o.material.emissive) { o.material.emissive.set(GHOST[kind]); o.material.emissiveIntensity = 0.6; } } });
+    if (GHOST[kind]) m.root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (!SOLID.has(kind)) { o.material.transparent = true; o.material.opacity = 0.6; } if (o.material.emissive) { o.material.emissive.set(GHOST[kind]); o.material.emissiveIntensity = 0.6; } } });
     if (m.ring) m.ring.visible = false;
     { const md = m.model; if (kind === 'skeleton' && md && md.weapons && md.weapons.off) md.weapons.off.visible = (G.save ? G.save.level : 1) >= 10; } /* the shield shows from level 10 */
     G.mobs.push(m);
-    V.burst(kind === 'skeleton' ? 'bone' : kind === 'fireel' ? 'fire' : 'shadow', new THREE.Vector3(x, heightAt(x, z) + 0.6, z), 40, { speed: 3 });
+    V.burst(kind === 'skeleton' ? 'bone' : kind === 'fireel' || kind === 'flameel' ? 'fire' : kind === 'frostel' ? 'frost' : kind === 'stormel' || kind === 'pureel' ? 'arcane' : 'shadow', new THREE.Vector3(x, heightAt(x, z) + 0.6, z), 40, { speed: 3 });
   }
 }
 // your own splash damage never hurts them; monsters do
@@ -41,7 +43,7 @@ function petHit() { return 0; }
 function petHurt(dmg, src) {
   if (this.dead) return; if (src && src.pos && !src.pet) { this.lastHitBy = src; this.hurtT = G.time; } // whoever hits the pet becomes fair game
   const lv = G.save ? G.save.level : 1, shield = this.petKind === 'skeleton' && lv >= 10 ? 0.25 : 0; // skeletons raise a shield from level 10
-  const d = Math.max(1, Math.round(dmg * (1 - Math.min(0.8, (this.pet.armor || 0) + shield)) * (this.wardT > G.time ? 0.5 : 1))); // Bone Bulwark halves it
+  const d = Math.max(1, Math.round(dmg * (1 - Math.min(0.8, (this.pet.armor || 0) + shield)) * (this.wardT > G.time ? (this.wardK || 0.5) : 1))); // Bone Bulwark halves it
   this.hp -= d; this.hitFlash = 0.15; V.number(this.pos.clone().setY(this.pos.y + (this.height || 1.6) + 0.3), d, 'dmg');
   if (this.hp <= 0) { this.dead = true; G.hooks.toast && G.hooks.toast(`Your ${this.name} has fallen`, '☠', 'bad'); vanish(this); }
 }
@@ -97,9 +99,11 @@ function petUpdate(dt) {
     this.faceTo(t.pos, dt, 8);
     if (d > reach) { want = t.pos; speed = D.speed; }
     else if (this.atkCd <= 0) {
-      const fr = this.frenzyT > G.time; this.atkCd = (D.cd || 1.2) / (1 + ((G.save ? G.save.level : 1) - 1) * 0.035) / (fr ? 1.3 : 1); this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6; // faster as you level (about 1.7x at 20), 30% faster in an Unholy Frenzy
-      const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2) * (fr ? 1.4 : 1);
-      if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
+      const fr = this.frenzyT > G.time, FK = this.frK || { dmg: 1.4, spd: 1.3 }; this.atkCd = (D.cd || 1.2) / (1 + ((G.save ? G.save.level : 1) - 1) * 0.035) / (fr ? FK.spd : 1); this.action = 'attack'; this.actionT = 0; this.actionDur = 0.6; // faster as you level (about 1.7x at 20), 30% faster in an Unholy Frenzy
+      const dmg = (D.dmg || 10) * (0.9 + Math.random() * 0.2) * (fr ? FK.dmg : 1);
+      if (D.proj === 'storm') lightning(this.pos.clone().setY(this.pos.y + (this.height || 1.6) * 0.8), t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6));
+      if ((D.chill || (fr && this.frChill)) && t.status) t.status.slow = Math.max(t.status.slow || 0, fr && this.frChill ? 2 : 1.5); /* frost slows what it strikes */
+      if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : D.proj === 'storm' ? 'arcane' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
       t.takeHit(dmg, P, { pet: true }); t.provoked = true; if (PETS.taunt) t.petFoe = this; else if (t.petFoe === this) t.petFoe = null; if (t.state !== 'flee') t.state = 'chase';
     }
   } else {

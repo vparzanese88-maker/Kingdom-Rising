@@ -54,6 +54,8 @@ const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
+const FORMS = { formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
+const CASTER_K = { wizard: 1.2, elementalist: 0.85 }; // campaign: the wizard is the strongest caster; the elementalist's power is in its elemental
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 // creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
 export function mobDefense(m, plv, magic) { const d = Math.max(0, m.lv - 1) * 2 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
@@ -274,7 +276,7 @@ class ViewModel {
 const SWORDS = { sword: 1, swordshield: 1, swordmace: 1, greatsword: 1 };
 const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
 // bard songs: a colour per kind of song (healing is green)
-const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff' };
+const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff', power: '#d070ff', endure: '#ffe07a', mward: '#a0b8ff', snare: '#8aa0a0', weaken: '#9a60c0' };
 const NOTE_TEX = {};
 function noteTex(col, ch) { const k = col + ch; if (NOTE_TEX[k]) return NOTE_TEX[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = 'bold 50px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = col; g.shadowBlur = 14; g.fillStyle = col; g.fillText(ch, 32, 34); g.shadowBlur = 0; g.fillStyle = '#ffffff'; g.globalAlpha = 0.5; g.fillText(ch, 32, 34);
@@ -1097,6 +1099,10 @@ export class Player {
           else if (a.song === 'travel') { this.buffs.swind = Math.max(this.buffs.swind || 0, 3.6); ally(r, 0, 'haste'); }
           else if (a.song === 'flame') { this.buffs.flame = Math.max(this.buffs.flame || 0, 3.6); ally(r, 0, 'flame'); }
           else if (a.song === 'mana') { this.buffs.clarity = Math.max(this.buffs.clarity || 0, 3.6); ally(r, 0, 'clarity'); }
+          else if (a.song === 'power') this.buffs.power = Math.max(this.buffs.power || 0, 3.6);
+          else if (a.song === 'endure') this.end = Math.min(this.maxEnd, this.end + this.maxEnd * 0.1 * up);
+          else if (a.song === 'mward') this.buffs.mward = Math.max(this.buffs.mward || 0, 3.6);
+          else if (a.song === 'snare' || a.song === 'weaken') { for (const m of mobsInRadius(this.pos, r)) { if (a.song === 'snare') m.status.slow = Math.max(m.status.slow || 0, 3.6); else m.hexUntil = Math.max(m.hexUntil || 0, G.time + 3.6); } }
           else if (a.song === 'ward') { this.buffs.barrier = Math.max(this.buffs.barrier || 0, this.maxHp * 0.06 * up); this.buffs.barrierT = 3.6; ally(r, 0, 'ward'); }
           V.ring(this.pos, BATTLE ? r : 2.2, SONG_COL[a.song], BATTLE ? 0.9 : 0.6); } // campaign: a small pulse at your feet, not a huge circle
         S.heal && songs.some(a => a.song === 'heal') && 0; }
@@ -1130,8 +1136,9 @@ export class Player {
               if (a.t === 'drain' && dealt && this.hk()) this.healOrb(at, dealt * a.drain * this.hk()); } }); }
         S.cast(el || 'arcane', this.pos, 0.8); anim('cast'); return true; }
       case 'nova': { const r = (a.r || 5) * K; let dealt = 0;
-        for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m)); dealt += P(a.dmg); }
+        if (!a.calm) for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m)); dealt += P(a.dmg); }
         if (a.drainAll && dealt && this.hk()) this.healOrb(this.pos.clone().addScaledVector(f, 3).setY(this.pos.y + 1), dealt * a.drainAll * this.hk());
+        if (a.calm) for (const m of mobsInRadius(this.pos, r)) { m.provoked = false; m.loseTrack ? m.loseTrack() : (m.state = 'return'); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.5), 'Lulled', 'miss'); }
         if (a.vanish) { this.stealth = Math.max(this.stealth || 0, a.vanish); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); }
         V.ring(this.pos, r, col, 0.6); V.burst(pk === 'spark' ? 'dust' : pk, this.pos.clone().setY(this.pos.y + 0.6), 50, { speed: 6, radius: r * 0.4 }); S.cast(el || 'arcane', this.pos, 1); S.rumble && S.rumble(this.pos, 0.5); V.addShake(0.25); anim('smash', 0.5); return true; }
       case 'cone': { const range = (a.range || 6) * K;
@@ -1151,17 +1158,21 @@ export class Player {
       case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
       case 'petbuff': case 'petheal': case 'petward': { // necromancer: strengthen, mend or shield your undead
-        const list = G.mobs.filter(m => m.pet && !m.dead); anim('cast');
-        if (!list.length) { G.hooks.toast && G.hooks.toast('You have no undead to empower', '💀', 'bad'); return true; }
-        if (a.t === 'petheal') { const give = this.hp * (a.pct || 0.15); if (this.hp - give < 1) return true; this.hp -= give; for (const m of list) { m.hp = Math.min(m.maxHp, m.hp + give * 2 * up); V.burst('heal', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 2, vy: 2 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), '+' + Math.round(give * 2 * up), 'heal'); }
+        const list = G.mobs.filter(m => m.pet && !m.dead && (!a.kinds || a.kinds.includes(m.petKind))); anim('cast');
+        if (!list.length) { G.hooks.toast && G.hooks.toast(a.kinds ? `${a.name} needs the right elemental at your side` : 'You have no pet to empower', '🐾', 'bad'); return true; }
+        if (a.t === 'petheal' && a.petPct) { for (const m of list) { const add = Math.min(m.maxHp - m.hp, m.maxHp * a.petPct * Math.sqrt(up)); m.hp += add; V.burst('heal', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 2, vy: 2 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), '+' + Math.round(add), 'heal'); } S.heal(); }
+        else if (a.t === 'petheal') { const give = this.hp * (a.pct || 0.15); if (this.hp - give < 1) return true; this.hp -= give; for (const m of list) { m.hp = Math.min(m.maxHp, m.hp + give * 2 * up); V.burst('heal', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 2, vy: 2 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.4), '+' + Math.round(give * 2 * up), 'heal'); }
           V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 14, { speed: 2 }); S.heal(); }
-        else for (const m of list) { if (a.t === 'petbuff') m.frenzyT = G.time + (a.dur || 12) * Math.sqrt(up); else m.wardT = G.time + (a.dur || 10) * Math.sqrt(up);
+        else for (const m of list) { if (a.t === 'petbuff') { m.frenzyT = G.time + (a.dur || 12) * Math.sqrt(up); m.frK = { dmg: a.dmgK || 1.4, spd: a.spdK || 1.3 }; m.frChill = !!a.chill; } else { m.wardT = G.time + (a.dur || 10) * Math.sqrt(up); m.wardK = a.wardK || 0.5; }
           V.burst(a.t === 'petbuff' ? 'blood' : 'bone', m.pos.clone().setY(m.pos.y + 1), 26, { speed: 3 }); V.ring(m.pos, 1.6, a.t === 'petbuff' ? '#ff4040' : '#e8e0c8', 0.5); }
         S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
       case 'buff': { this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
+        else if (FORMS[a.buff]) { for (const k in FORMS) B2[k] = 0; B2[a.buff] = d; if (a.buff === 'formArcane') B2.focus = Math.max(B2.focus || 0, d); }
+        else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
+        else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
         V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); anim('cast'); return true; }
@@ -1258,6 +1269,16 @@ export class Player {
     else if (a.sap === 'mana') { const got = Math.round(this.maxMana * 0.25); this.mana = Math.min(this.maxMana, this.mana + got); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + got + ' mana', 'heal', '#8ac8ff'); this.buffFx('Mana siphoned', '#8ac8ff'); }
     S.cast && S.cast('arcane', this.pos, 0.5);
   }
+  // the wizard's forms: the body burns, freezes or crackles in the form's colour while it lasts; Ice Block wraps you in ice
+  formTick(dt) {
+    if (this.formCh !== this.ch) { this.formCh = this.ch; this.formOn = null; } // new gear rebuilt the body: tint it again
+    const B = this.buffs, f = B.formFire > 0 ? 'formFire' : B.formFrost > 0 ? 'formFrost' : B.formArcane > 0 ? 'formArcane' : B.iceblock > 0 ? 'iceblock' : null;
+    if (f !== (this.formOn || null)) { this.formOn = f; const F = f && FORMS[f];
+      if (this.ch && this.ch.root) this.ch.root.traverse(o => { if (!o.isMesh || !o.material || !o.material.emissive) return; if (!o.userData.em0) o.userData.em0 = [o.material.emissive.getHex(), o.material.emissiveIntensity];
+        if (F) { if (!o.userData.formMat) { o.material = o.material.clone(); o.userData.formMat = true; } o.material.emissive.set(F.col); o.material.emissiveIntensity = F.k; } else { o.material.emissive.setHex(o.userData.em0[0]); o.material.emissiveIntensity = o.userData.em0[1]; } });
+      if (F) { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 2.8, F.col, 0.6); V.burst(F.mote, this.pos.clone().setY(this.pos.y + 1), 60, { speed: 5 }); V.addShake(0.35); S.cast(F.el, this.pos, 1.5); if (f !== 'iceblock') G.hooks.toast && G.hooks.toast(F.name, '✦', 'gold'); } }
+    if (f && Math.random() < dt * 24) { const F = FORMS[f]; V.emit(F.mote, this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.9, 0.2 + Math.random() * 1.8, (Math.random() - 0.5) * 0.9)), { speed: 0.4, vy: f === 'iceblock' ? 0.2 : 1.6, size: 0.35, life: 0.7 }); }
+  }
   // Lich Lord: become a skeleton with burning green eyes and a long cape while the buff lasts
   lichTick(dt) {
     const on = (this.buffs.lich || 0) > 0;
@@ -1326,7 +1347,9 @@ export class Player {
     this.summonCast = null; G.hooks.castBar && G.hooks.castBar(null); if (G.newFx) { Skills.practise(this.h, 'casting'); this.castBurst(); }
     const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
     if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
-    else summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);
+    else { summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);
+      if (this.h.cls === 'elementalist') { const fx = (k) => c.pet === 'pureel' ? ['flameel', 'frostel', 'stormel'].reduce((t, e) => t + Game.fxCount(this.h, 'el_' + e + '_' + k) * 0.08, 0) : Game.fxCount(this.h, 'el_' + c.pet + '_' + k) * 0.15;
+        for (const m of G.mobs) if (m.pet && !m.dead && m.spell === c.spell) { const hk = 1 + fx('hp'), dk = 1 + fx('dmg'); m.maxHp = m.hp = m.maxHp * hk; m.pet = Object.assign({}, m.pet, { dmg: m.pet.dmg * dk }); } } }
     S.cast('arcane', c.at, 1.2); V.burst(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().setY(c.at.y + 0.5), 50, { speed: 4 }); V.ring(c.at, 2.4, '#d0a0ff', 0.5);
   }
   // Kingdom Battles staffs: hold left click to pour out the staff's element
@@ -1410,6 +1433,11 @@ export class Player {
     if (this.buffs.cry > 0) dmg *= 1.3;
     if (this.buffs.bWar > 0) dmg *= this.pk('cmd') ? 1.3 : 1.2;
     if (this.buffs.lich > 0) dmg *= 1.4;
+    if (this.buffs.formFire > 0) { dmg *= 1.4; if (!o.silent) o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.15 }); }
+    if (this.buffs.formFrost > 0) { dmg *= 1.3; if (!o.silent) o = Object.assign({}, o, { slow: Math.max(o.slow || 0, 2) }); }
+    if (this.buffs.formArcane > 0) dmg *= 1.35;
+    if (this.buffs.power > 0 && (o.el || !(o.melee || o.ranged))) dmg *= 1.25; // Aria of Power: spells
+    if (G.newFx && CASTER_K[this.h.cls]) dmg *= CASTER_K[this.h.cls];
     { const n = Game.fxCount(this.h, 'dmg'), u = Game.fxCount(this.h, 'u_dmg'); if (n || u) dmg *= 1 + n * 0.06 + u * 0.12; if (u && crit) dmg *= 1.2; }
     if (this.buffs.fury > 0) dmg *= 1.25;
     if (this.buffs.rage > 0) dmg *= 1.15;
@@ -1487,6 +1515,8 @@ export class Player {
     if (this.buffs.bStone > 0) { dmg = Math.max(1, Math.round(dmg * (this.pk('cmd') ? 0.55 : 0.7))); V.burst('frost', this.pos.clone().setY(this.pos.y + 1.1), 8, { speed: 3 }); }
     if (this.pk('immov')) dmg = Math.max(1, Math.round(dmg * 0.9));
     if (this.buffs.lich > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
+    if (this.buffs.formFrost > 0) dmg = Math.max(1, Math.round(dmg * 0.7));
+    if (this.buffs.mward > 0 && (o.ranged || o.el || o.magic)) dmg = Math.max(1, Math.round(dmg * 0.75)); // Hymn of Warding
     { const n = Game.fxCount(this.h, 'taken'), u = Game.fxCount(this.h, 'u_def'); if (n || u) dmg = Math.max(1, Math.round(dmg * (1 - n * 0.05 - u * 0.12))); }
     if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
@@ -1614,7 +1644,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];
@@ -1645,7 +1675,7 @@ export class Player {
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
     const wasBlock = this.block;
-    this.lichTick(dt);
+    this.lichTick(dt); this.formTick(dt);
     if (G.newFx && (this.lookCheckT = (this.lookCheckT || 0) - dt) <= 0) { this.lookCheckT = 0.1; const r = aimRay(60); if (r && r.mob) r.mob.lookT = G.time; } // names show when your crosshair passes over
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
@@ -1664,7 +1694,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (this.buffs.iceblock > 0 ? 0 : 1) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;

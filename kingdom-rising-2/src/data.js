@@ -848,7 +848,7 @@ for (const [id, c] of Object.entries(NEW_CLASSES)) {
 export const STARTING_PAIR = PAIR_PARTS;
 
 // the classes with skill trees use their tree nodes as their talent list (so perks and saves line up)
-for (const [cls, trees] of Object.entries(CLASS_TREES)) { const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }
+for (const [cls, trees] of Object.entries(CLASS_TREES)) { const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.ab) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }
 
 // ---- the hotbar: keys 1-5 hold buffs, songs and heals; F, C and Q hold the abilities that deal damage ----
 export const HOTBAR_KEYS = ['1', '2', '3', '4', '5', 'F', 'C', 'Q'], SUPPORT_SLOTS = 5;
@@ -871,6 +871,14 @@ export const WARRIOR_BATTLE = [
     { id: 'bulwark', cost: 50, name: "Bulwark Slam", key: '', level: 18, cd: 18, icon: '', desc: "Slam your shield into the ground: knock back and stun every enemy within 6 m." },
 ];
 
+// ---- necromancer: siphons, a bone golem and the lich lord (campaign trees) ----
+if (ABILITIES.necromancer) ABILITIES.necromancer.push(
+  { id: 'sapstrength', name: 'Sap Strength', level: 5, cd: 14, cost: 25, t: 'curse', range: 30, sap: 'strength', dmg: 0.4, kit: true, key: '', icon: '', campaign: true, desc: 'Drink the strength of the enemy you aim at: for 10 s it hits 35% weaker and you hit 25% harder.' },
+  { id: 'sapspeed', name: 'Sap Speed', level: 7, cd: 14, cost: 25, t: 'curse', range: 30, sap: 'speed', dmg: 0.3, kit: true, key: '', icon: '', campaign: true, desc: 'Steal its speed: the enemy you aim at is slowed for 8 s and you move and cast faster.' },
+  { id: 'manaleech', name: 'Mana Leech', level: 9, cd: 12, cost: 0, t: 'curse', range: 30, sap: 'mana', dmg: 0.5, kit: true, key: '', icon: '', campaign: true, desc: 'Pull the magic out of the enemy you aim at: damage it and refill 25% of your mana.' },
+  { id: 'bonegolem', name: 'Raise Bone Golem', level: 14, cd: 60, cost: 50, t: 'summon', pet: 'bonegolem', n: 1, extra: 0, dur: 600, kit: true, key: '', icon: '', campaign: true, desc: 'A towering golem of fused bones rises where you aim: it soaks up blows and crushes whatever you fight.' },
+  { id: 'lichlord', name: 'Lich Lord', level: 18, cd: 90, cost: 50, t: 'buff', buff: 'lich', dur: 20, kit: true, key: '', icon: '', campaign: true, desc: 'Become a Lich Lord for 20 s: a skeleton with burning green eyes and a long flowing cape. Your spells hit 40% harder and you take 25% less damage.' },
+);
 // ---- skill trees for every other class: three themed trees each, abilities unlocked inside them, generic passives ----
 // [tree name, tagline, colour, role (offense | defense | support), ability ids]
 const TREE_DEFS = {
@@ -886,7 +894,7 @@ const TREE_DEFS = {
   monk: [['Tiger', 'A hundred fists, a single strike', '#ff8a3a', 'offense', ['tigerpalm', 'pressure', 'hundredfists', 'dragonstrike']], ['Wind', 'Never where they strike', '#c8f0ff', 'defense', ['flyingkick', 'sweepkick', 'windstep']], ['Lotus', 'Stillness and inner strength', '#f0c0ff', 'support', ['innerpeace', 'feigndeath', 'serenity']]],
   bard: [['Valor', 'Songs that sharpen every blade', '#ffb040', 'support', ['warsong', 'flamesong', 'anthem']], ['Grace', 'Songs that mend and carry you', '#7ee07e', 'support', ['travel', 'soothe', 'clarityhymn']], ['Discord', 'Music as a weapon', '#b070ff', 'offense', ['flourish', 'lullaby', 'crescendo', 'dirge']]],
   rogue: [['Assassin', 'From the shadows, straight to the heart', '#e2533a', 'offense', ['backstab', 'kidney', 'garrote']], ['Venom', 'Poison on every edge', '#90e040', 'offense', ['poisontrap', 'envenom', 'deadlypoison']], ['Shadow', 'Smoke, caltrops and vanishing', '#8a7aa8', 'defense', ['vanish2', 'smokescreen', 'snaretrap2', 'caltrops2']]],
-  necromancer: [['Undeath', 'Raise them, command them', '#b0c8a0', 'support', ['raiseskel', 'skelmage', 'bonearmor']], ['Blight', 'Disease and drained life', '#90e040', 'offense', ['drainlife', 'corruption', 'plague2']], ['Bone', 'Spears, prisons and terror', '#e8e0c8', 'defense', ['bonespear', 'deathnova', 'boneprison', 'fear']]],
+  necromancer: [['Undeath', 'Raise the dead and command them', '#b0c8a0', 'support', ['raiseskel', 'skelmage'], 'bonegolem'], ['Siphon', 'Drink their health, strength, speed and mana', '#90e040', 'offense', ['drainlife', 'corruption', 'sapstrength', 'sapspeed', 'manaleech', 'plague2']], ['Bone', 'Bone armour, bone spears, bone prisons', '#e8e0c8', 'defense', ['bonearmor', 'bonespear', 'deathnova', 'boneprison', 'fear'], 'lichlord']],
   elementalist: [['Flame', 'Sprites, lava and firestorms', '#ff7a3a', 'offense', ['firesprite', 'lavaburst', 'firestorm']], ['Stone', 'Golems and stone skin', '#a09080', 'defense', ['boulder', 'elemshield', 'earthel']], ['Tempest', 'Wind, ice and thunder', '#5ac8ff', 'offense', ['gale', 'frostbind', 'thunder', 'cataclysm']]],
   enchanter: [['Mind', 'Break their thoughts', '#b070ff', 'offense', ['mindblast', 'mindrot', 'mindstorm']], ['Illusion', 'Charm, sleep and confusion', '#f0a0ff', 'defense', ['mesmerize', 'masssleep', 'phantasm', 'confusion']], ['Runes', 'Haste, wards and clarity', '#8ac8ff', 'support', ['hasteall', 'runeshield', 'clarity']]],
   beastmaster: [['Pack', 'Never hunt alone', '#c89a4a', 'support', ['warbeast', 'mendpet', 'packfrenzy', 'packcall']], ['Fang', 'Claw, rend and pounce', '#e2533a', 'offense', ['rendclaw', 'pounce', 'whirlclaw']], ['Wild', 'The roar of the stampede', '#6ad04a', 'defense', ['feralroar', 'stampede', 'primalbond']]],
@@ -910,7 +918,7 @@ let _seed = 0;
 for (const [cls, defs] of Object.entries(TREE_DEFS)) {
   if (CLASS_TREES[cls] || !ABILITIES[cls]) continue;
   const A = (id) => ABILITIES[cls].find(a => a.id === id), lowest = ABILITIES[cls].slice().sort((a, b) => a.level - b.level)[0];
-  CLASS_TREES[cls] = defs.map(([name, tag, col, role, ids], ti) => {
+  CLASS_TREES[cls] = defs.map(([name, tag, col, role, ids, ultAb], ti) => {
     const abs = ids.map(A).filter(Boolean).sort((a, b) => a.level - b.level), tid = cls + '_' + ti, nodes = [], used = new Set();
     const pas = (k, row, colN, req) => { const fx = ROLE_FX[role][k], F = FX_INFO[fx], nm = F[0][(_seed++ + ti) % F[0].length]; const id = `${tid}_p${k}`; nodes.push({ id, t: 'pas', fx, name: nm, icon: F[2], row, col: colN, req, desc: F[1] }); return id; };
     const ab = (a, row, req) => { const id = `${tid}_${a.id}`; nodes.push({ id, t: 'ab', ab: a.id, row, col: 1, req, free: a === lowest }); return id; };
@@ -919,7 +927,9 @@ for (const [cls, defs] of Object.entries(TREE_DEFS)) {
     const n2 = abs[2] ? ab(abs[2], 2, n1 || n0) : null, u0 = up(abs[0], 2, 0, p1), p3 = pas(2, 2, 2, p2);
     const n3 = abs[3] ? ab(abs[3], 3, n2) : (abs[1] ? up(abs[1], 3, 1, n2 || n1) : null), p4 = pas(3, 3, 0, u0), u1 = abs[1] && abs[3] ? up(abs[1], 3, 2, p3) : pas(4, 3, 2, p3);
     if (abs[2]) up(abs[2], 4, 1, n3 || n2); if (abs[3]) up(abs[3], 4, 2, u1);
-    nodes.push({ id: tid + '_ult', t: 'ult', fx: ULT[role][0], name: name + ' Ascendant', icon: 'crown', row: 5, col: 1, desc: ULT[role][1] });
+    for (const a of abs.slice(4)) ab(a, 9, null); // more abilities: placed by the layout pass below
+    if (ultAb && A(ultAb)) nodes.push({ id: tid + '_ult', t: 'ult', ab: ultAb, row: 5, col: 1 }); // this tree's capstone is an ability
+    else nodes.push({ id: tid + '_ult', t: 'ult', fx: ULT[role][0], name: name + ' Ascendant', icon: 'crown', row: 5, col: 1, desc: ULT[role][1] });
     return { id: tid, name, tag, col, icon: abs[0].id, nodes };
   });
 }
@@ -929,7 +939,7 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior')
 
 // ---- make sure any two maxed trees can fill the whole hotbar: every tree gets at least 3 buffs/songs/heals (keys 1-5)
 // and at least 2 damage abilities (F C Q). Where a tree is short, it gets new class abilities built from proven effects.
-export const GEN_ICONS = {};
+export const GEN_ICONS = { sapstrength: ['fist', 'nature'], sapspeed: ['wind', 'nature'], manaleech: ['drop', 'arcane'], bonegolem: ['skull', 'steel'], lichlord: ['skull', 'nature'] };
 const MELEE = new Set(['warrior', 'berserker', 'paladin', 'darkknight', 'monk', 'rogue', 'beastmaster']);
 const NO_HEAL = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'wizard', 'elementalist', 'enchanter']);
 const SUP_T = [
@@ -951,7 +961,7 @@ const SUP_NAMES = {
   cleric: ['Zeal', 'Sanctified Ward', 'Mending Light', 'Swift Prayer', 'Vow of Stone'], paladin: ['Righteous Zeal', 'Aegis', 'Healing Hymn', 'Swift Judgement', 'Bulwark of Faith'],
   darkknight: ['Dark Fervor', 'Unholy Ward', 'Feast of Blood', 'Hastened Doom', 'Grave Stance'], druid: ['Wild Fury', 'Oakward', 'Bloom', 'Wind of the Wilds', 'Rooted'],
   monk: ['Tiger Focus', 'Iron Skin', 'Breath of Life', 'Flowing Strikes', 'Mountain Stance'], bard: ['Rousing Chord', 'Ballad of Shields', 'Healing Refrain', 'Quick Tempo', 'Steady Verse'],
-  rogue: ['Killing Mood', 'Shadow Cloak', 'Catch Breath', 'Adrenaline Rush', 'Evasion'], necromancer: ['Dark Pact', 'Bone Ward', 'Siphon Soul', 'Death Haste', 'Grave Chill'],
+  rogue: ['Killing Mood', 'Shadow Cloak', 'Catch Breath', 'Adrenaline Rush', 'Evasion'], necromancer: ['Unholy Command', 'Grave Ward', 'Death Pact', 'Soul Haste', 'Vampiric Resolve', 'Siphon Shield', 'Cold Wind of the Grave', 'Bone Focus'],
   elementalist: ['Elemental Fury', 'Stone Ward', 'Spring Water', 'Lightning Reflexes', 'Granite Form'], enchanter: ['Empower', 'Mirror Ward', 'Renewal Rune', 'Quicken', 'Rune of Stone'],
   beastmaster: ['Call of the Wild', 'Thick Hide', 'Lick Wounds', 'Hunt\'s Haste', 'Pack Stance'],
 };
@@ -964,7 +974,7 @@ const DMG_DESC = { strike: 'A heavy blow at the enemy in front of you: big damag
 for (const [cls, trees] of Object.entries(CLASS_TREES)) {
   if (!ABILITIES[cls]) continue; let si = 0, di = 0;
   for (const T of trees) {
-    const abs = T.nodes.filter(n => n.t === 'ab').map(n => ABILITIES[cls].find(a => a.id === n.ab));
+    const abs = T.nodes.filter(n => n.ab).map(n => ABILITIES[cls].find(a => a.id === n.ab));
     let sup = abs.filter(isSupport).length, dmg = abs.length - sup;
     const add = (def, kind) => {
       const id = `${cls}_x${kind}${kind === 's' ? si : di}`, maxLv = Math.max(...abs.map(a => a.level)), a = Object.assign({ id, key: '', icon: '', kit: true, campaign: true, level: Math.min(20, maxLv + 2) }, def); delete a.ic;
@@ -980,5 +990,27 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) {
     while (sup < 3) { const tpl = SUP_T[si % SUP_T.length], n0 = SUP_NAMES[cls] || SUP_NAMES.warrior, n = [...n0, ...SUP_MORE.map(w => T.name + ' ' + w)]; add(tpl(n, !NO_HEAL.has(cls)), 's'); si++; sup++; }
     while (dmg < 2) { add(DMG_T(MELEE.has(cls), di, cls), 'd'); di++; dmg++; }
   }
-  CLASS_TREE[cls] = trees.flatMap(T => T.nodes.map(n => { if (n.t === 'ab' && !n.name) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; return n; }));
+  CLASS_TREE[cls] = trees.flatMap(T => T.nodes.map(n => { if (n.ab && !n.name) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; return n; }));
 }
+
+// ---- layout: spread each tree's abilities across the grid (not all down the middle), passives in between,
+// every node hanging from the one above it, the capstone at the bottom
+const A_SLOTS = [[0, 1], [1, 0], [2, 2], [3, 0], [4, 1], [1, 2], [3, 2], [2, 0], [4, 2], [4, 0], [2, 1], [3, 1], [1, 1]];
+const ALL_CELLS = []; for (let r = 1; r <= 4; r++) for (let c = 0; c < 3; c++) ALL_CELLS.push([r, c]); ALL_CELLS.push([5, 0], [5, 2], [0, 0], [0, 2]);
+for (const [cls, trees] of Object.entries(CLASS_TREES)) for (const T of trees) {
+  const ult = T.nodes.find(n => n.t === 'ult'), abs = T.nodes.filter(n => n.t === 'ab'), pas = T.nodes.filter(n => n.t === 'pas');
+  const at = {}, key = (r, c) => r + ',' + c, put = (n, r, c) => { n.row = r; n.col = c; at[key(r, c)] = n; };
+  abs.sort((x, y) => (ABILITIES[cls].find(a => a.id === x.ab) || {}).level - (ABILITIES[cls].find(a => a.id === y.ab) || {}).level);
+  const freeA = A_SLOTS.filter(([r, c]) => true); let k = 0;
+  for (const n of abs) { while (k < freeA.length && at[key(...freeA[k])]) k++; if (k >= freeA.length) break; put(n, ...freeA[k]); k++; }
+  const placed = new Set(Object.values(at));
+  // an ability's own upgrade goes right under it when there is room
+  for (const n of pas) { if (!n.id.startsWith('a_')) continue; const owner = abs.find(x => 'a_' + x.ab === n.id); if (owner && placed.has(owner) && owner.row < 4 && !at[key(owner.row + 1, owner.col)]) { put(n, owner.row + 1, owner.col); placed.add(n); } }
+  for (const n of pas) { if (placed.has(n)) continue; const cell = ALL_CELLS.find(([r, c]) => !at[key(r, c)]); if (!cell) continue; put(n, ...cell); placed.add(n); }
+  if (ult) { ult.row = 5; ult.col = 1; delete ult.req; placed.add(ult); }
+  T.nodes = T.nodes.filter(n => placed.has(n));
+  for (const n of T.nodes) { if (n.t === 'ult') continue; if (n.row === 0) { delete n.req; continue; }
+    const up = at[key(n.row - 1, n.col)] || at[key(n.row - 1, 1)] || at[key(n.row - 1, n.col === 0 ? 2 : 0)] || at[key(0, 1)]; n.req = up && up !== n ? up.id : undefined; }
+  // root stays free only for the class's starting ability
+}
+for (const [cls, trees] of Object.entries(CLASS_TREES)) CLASS_TREE[cls] = trees.flatMap(T => T.nodes);

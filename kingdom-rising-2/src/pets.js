@@ -10,7 +10,7 @@ import { foe } from './combat.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 
-const MODEL = { skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
+const MODEL = { bonegolem: 'golem', skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', phantasm: 'skeleton', spirit: 'wolf' };
 const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff', skelmage: '#7a40d0' };
 let petN = 0;
 
@@ -28,6 +28,7 @@ export function summonPets(kind, at, lv, dur, n, big, spell = kind) {
     // enemies can fight back: what a monster's attack needs from its target
     m.level = m.lv; m.stealth = 0; m.knock = new THREE.Vector3(); m.debuff = () => {}; m.takeDamage = petHurt;
     if (def.size) m.root.scale.multiplyScalar(def.size);
+    if (kind === 'bonegolem') { const bone = new THREE.MeshStandardMaterial({ color: '#e2d8bc', roughness: 0.85 }); m.root.traverse(o => { if (o.isMesh) o.material = bone; }); } // bleached bone
     if (GHOST[kind]) m.root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (kind !== 'skelmage') { o.material.transparent = true; o.material.opacity = 0.6; } if (o.material.emissive) { o.material.emissive.set(GHOST[kind]); o.material.emissiveIntensity = 0.6; } } });
     if (m.ring) m.ring.visible = false;
     { const md = m.model; if (kind === 'skeleton' && md && md.weapons && md.weapons.off) md.weapons.off.visible = (G.save ? G.save.level : 1) >= 10; } /* the shield shows from level 10 */

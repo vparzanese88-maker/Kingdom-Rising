@@ -150,7 +150,7 @@ export function updateHUD(dt) {
     add(B.adren > 0, '⚡', 'Adrenaline', B.adren, '#ffd050'); add(B.tq > 0, '✚', 'Tourniquet', B.tq, '#ff8080'); add(B.surge > 0, '💧', 'Mana Surge', B.surge, '#8ac8ff');
     add(B.barrier > 0, '❄', 'Barrier ' + Math.round(B.barrier || 0), B.barrierT, '#8ad8ff'); add(B.swind > 0, '💨', 'Second Wind', B.swind, '#c8f0ff');
     add(B.bWar > 0, '⚑', 'War Banner · +20% damage', 0, '#ff7a3a'); add(B.bVigor > 0, '⚑', 'Banner of Vigor · healing', 0, '#60ff90'); add(B.bStone > 0, '⚑', 'Banner of Stone · -30% damage taken', 0, '#8ac8ff');
-    add(B.wall > 0, '🛡', 'Shield Wall · -60% damage', B.wall, '#a8c8ff'); add(B.stand > 0, '♥', 'Last Stand', B.stand, '#ffc060'); add(B.rage > 0, '🩸', 'Bloodrage', B.rage, '#ff4040');
+    add(B.wall > 0, '🛡', 'Shield Wall · -60% damage', B.wall, '#a8c8ff'); add(B.lich > 0, '💀', 'Lich Lord', B.lich, '#5aff6a'); add(B.stand > 0, '♥', 'Last Stand', B.stand, '#ffc060'); add(B.rage > 0, '🩸', 'Bloodrage', B.rage, '#ff4040');
     add(B.rampage > 0, '⚔', 'Rampage', B.rampage, '#ff7050'); add(B.ward > 0, '✧', 'Warded', B.ward, '#a8e0ff'); add(B.flame > 0, '🔥', 'Flame weapon', B.flame, '#ff9a40');
     add(B.clarity > 0, '✺', 'Clarity', B.clarity, '#a0d8ff'); add(B.focus > 0, '◎', 'Focus', B.focus, '#c0ff90'); add(B.undying > 0, '☠', 'Undying', B.undying, '#ff5050');
     for (const k of ['food', 'drink']) if (h[k] && h[k].t > 0) { const F = FOOD_BUFFS[h[k].id]; chips.push([k === 'food' ? '🍖' : '🍺', F.name, h[k].t, '#e8c87a']); }

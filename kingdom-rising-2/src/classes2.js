@@ -203,6 +203,7 @@ export function petDef(kind, lv, big) {
     tiger: { name: 'War Tiger', quad: 'tiger', hp: 260 + lv * 55, dmg: 14 + lv * 4, cd: 1.1, speed: 8, size: 0.95 + lv * 0.05, col: '#d0802a' },
     wolfpack: { name: 'Pack Wolf', quad: 'wolf', hp: 200 + lv * 40, dmg: 9 + lv * 2.5, cd: 1.1, speed: 8, size: 1.1 + lv * 0.02, col: '#8a8a90' },
     fireel: { name: 'Fire Elemental', kind: 'imp', hp: 220 + lv * 45, dmg: 14 + lv * 3.5, cd: 1.3, speed: 6, range: 14, proj: 'fire', size: 1.15 + lv * 0.03 },
+    bonegolem: { name: 'Bone Golem', kind: 'golem', hp: 650 + lv * 110, dmg: 20 + lv * 4.5, cd: 1.6, speed: 5, size: 1.25 + lv * 0.02, armor: 0.3 },
     earthel: { name: 'Earth Elemental', kind: 'golem', hp: 520 + lv * 90, dmg: 18 + lv * 4, cd: 1.7, speed: 5, size: 1.05 + lv * 0.02 },
     phantasm: { name: 'Phantasm', kind: 'person', hp: 200 + lv * 45, dmg: 12 + lv * 3.5, cd: 1.1, speed: 6.5, wt: 'arcanestaff', range: 16, proj: 'arcane', size: 1 },
   }[kind] || {};

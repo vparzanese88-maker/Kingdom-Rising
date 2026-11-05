@@ -47,7 +47,7 @@ const SUPPORT = { warbanner: '#ff7a3a', vigorbanner: HEALC, stonebanner: BLUEC, 
 // which particles show for each running buff
 const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], undying: ['blood', 0.3], fury: ['blood', 0.28], rage: ['blood', 0.3], rampage: ['blood', 0.3], cry: ['ember', 0.25],
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
-  poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
+  poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], lich: ['shadow', 0.3], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
 // Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
 const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur: 0.24, speed: 15, cost: 14, ifr: 0.2 }, roll: { dur: 0.45, speed: 14.5, cost: 20, ifr: 0.36 }, leap: { dur: 0.6, speed: 16, cost: 26, ifr: 0.5, vy: 5.5 } };
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
@@ -312,8 +312,15 @@ export class Player {
     // rebuild the body so armour colours and the weapon bake into few meshes
     const old = this.ch; const vis = old ? old.root.visible : true;
     if (old) G.scene.remove(old.root);
-    this.ch = buildHumanoid(this.app);
+    this.ch = buildHumanoid(this.lichForm ? Object.assign({}, this.app, { kind: 'skeleton' }) : this.app);
     equipWeapon(this.ch, w ? w.wt : null, w ? w.tier : 0, w ? w.rarity : 0);
+    if (this.lichForm) { // burning green eyes and a long, dark, flowing cape
+      const eyeM = new THREE.MeshBasicMaterial({ color: '#5aff6a' }); for (const x of [-0.045, 0.045]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 6), eyeM); e.position.set(x, 0.06, 0.1); this.ch.head.add(e); }
+      const glow = new THREE.PointLight('#40ff60', 1.4, 4); glow.position.set(0, 0.06, 0.2); this.ch.head.add(glow);
+      const capeG = new THREE.PlaneGeometry(0.4, 1.5, 6, 10); capeG.translate(0, -0.75, 0); const pos = capeG.attributes.position; for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), x = pos.getX(i); pos.setX(i, x * (1 - y * 0.5)); pos.setZ(i, -Math.cos(x * 6) * 0.06 - y * 0.05); } capeG.computeVertexNormals();
+      const cape = new THREE.Mesh(capeG, new THREE.MeshStandardMaterial({ color: '#2a1a3a', roughness: 0.75, side: THREE.DoubleSide, emissive: '#0c2a14', emissiveIntensity: 0.3 }));
+      const pivot = new THREE.Group(); pivot.position.set(0, 0.2, -0.14); pivot.add(cape); this.ch.chest.add(pivot); this.ch.lichCape = pivot;
+    }
     tintGear(this.ch, this.h.equip);
     backWeapons(this.ch, [this.h.equip.w3, this.h.equip.w4]);
     bake(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
@@ -1140,6 +1147,7 @@ export class Player {
           if (a.hex) m.hexUntil = G.time + a.hex;
           if (a.dot) { let k = 0; m.status.dot = a.dotT; m.status.dotName = a.name; const iv = setInterval(() => { if (m.dead || ++k > a.dotT || this.dead) { clearInterval(iv); if (!m.dead) m.status.dot = 0; return; } m.status.dot = a.dotT - k; this.dealDamage(m, P(a.dot), { silent: k % 2 === 0, el: 'arcane' }); if (Math.random() < 0.7) V.burst(k % 2 ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.7), 6, { speed: 0.8, size: 0.5, grav: -0.5 }); }, 1000); }
           V.burst(a.poison ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 24, { speed: 2.5, size: 0.7 }); }
+        if (a.sap) this.sapFx(a, t);
         V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.6), a.name, 'bad'); };
         if (a.dot) { // push a small, slow cloud of disease at the target
           const from = this.handPos(), cl = { p: from.clone(), t: 0 }; S.cast('arcane', this.pos, 0.5);
@@ -1211,6 +1219,23 @@ export class Player {
   // health regeneration over time (warriors never heal instantly): frac of max health over dur seconds, stacking onto any running regen
   regenK() { return 1 + Game.fxCount(this.h, 'heal') * 0.1 + Game.fxCount(this.h, 'u_sup') * 0.25; } // your own regeneration (not class healing power)
   addRegen(frac, dur) { const per = this.maxHp * frac * this.regenK() / dur; if (this.regen && this.regen.t > 0) { const left = this.regen.per * this.regen.t; this.regen = { per: (left + per * dur) / Math.max(dur, this.regen.t), t: Math.max(dur, this.regen.t) }; } else this.regen = { per, t: dur }; }
+  // necromancer siphons: a green stream from the target to you, and what you drink becomes yours
+  sapFx(a, t) {
+    const from = t.pos.clone().setY(t.pos.y + (t.height || 1.6) * 0.6);
+    for (let i = 0; i < 6; i++) setTimeout(() => { if (this.dead) return; const k = i / 6, p = from.clone().lerp(this.pos.clone().setY(this.pos.y + 1.2), k); V.burst(a.sap === 'mana' ? 'arcane' : 'heal', p, 6, { speed: 0.6, size: 0.45 }); }, i * 60);
+    V.light(from, '#60ff80', 5, 0.4);
+    if (a.sap === 'strength') { t.hexUntil = G.time + 10; this.buffs.cry = Math.max(this.buffs.cry || 0, 10); this.buffFx('Strength siphoned', '#60ff80'); }
+    else if (a.sap === 'speed') { t.status.slow = Math.max(t.status.slow || 0, 8); this.buffs.swind = Math.max(this.buffs.swind || 0, 8); this.buffs.focus = Math.max(this.buffs.focus || 0, 6); this.buffFx('Speed siphoned', '#60ff80'); }
+    else if (a.sap === 'mana') { const got = Math.round(this.maxMana * 0.25); this.mana = Math.min(this.maxMana, this.mana + got); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + got + ' mana', 'heal', '#8ac8ff'); this.buffFx('Mana siphoned', '#8ac8ff'); }
+    S.cast && S.cast('arcane', this.pos, 0.5);
+  }
+  // Lich Lord: become a skeleton with burning green eyes and a long cape while the buff lasts
+  lichTick(dt) {
+    const on = (this.buffs.lich || 0) > 0;
+    if (on !== !!this.lichForm) { this.lichForm = on; this.refreshGear(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 2.6, '#40ff60', 0.6); V.burst('shadow', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 4 }); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.6), 30, { speed: 3 }); S.roar && S.roar(this.pos); V.addShake(0.4); }
+    if (on && this.ch && this.ch.lichCape) { const c = this.ch.lichCape, sp = Math.hypot(this.vel.x, this.vel.z); c.rotation.x = 0.15 + Math.min(0.9, sp * 0.1) + Math.sin(G.time * 3) * 0.06; }
+    if (on && Math.random() < dt * 10) V.emit('heal', this.pos.clone().setY(this.pos.y + 0.2 + Math.random() * 1.8), { speed: 0.3, vy: 0.6, size: 0.3, life: 0.8 });
+  }
   // talents that fire when you kill something
   onKillPerks(mob) {
     if (this.pk('bloodlust')) { this.addRegen(0.05, 4); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 2, vy: 1 }); }
@@ -1331,6 +1356,7 @@ export class Player {
     if (this.h.cls === 'warrior' && this.pk('cap')) dmg *= this.hp < this.maxHp * 0.5 ? 1.32 : 1.1;
     if (this.buffs.cry > 0) dmg *= 1.3;
     if (this.buffs.bWar > 0) dmg *= this.pk('cmd') ? 1.3 : 1.2;
+    if (this.buffs.lich > 0) dmg *= 1.4;
     { const n = Game.fxCount(this.h, 'dmg'), u = Game.fxCount(this.h, 'u_dmg'); if (n || u) dmg *= 1 + n * 0.06 + u * 0.12; if (u && crit) dmg *= 1.2; }
     if (this.buffs.fury > 0) dmg *= 1.25;
     if (this.buffs.rage > 0) dmg *= 1.15;
@@ -1406,6 +1432,7 @@ export class Player {
     if (this.buffs.stand > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
     if (this.buffs.bStone > 0) { dmg = Math.max(1, Math.round(dmg * (this.pk('cmd') ? 0.55 : 0.7))); V.burst('frost', this.pos.clone().setY(this.pos.y + 1.1), 8, { speed: 3 }); }
     if (this.pk('immov')) dmg = Math.max(1, Math.round(dmg * 0.9));
+    if (this.buffs.lich > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
     { const n = Game.fxCount(this.h, 'taken'), u = Game.fxCount(this.h, 'u_def'); if (n || u) dmg = Math.max(1, Math.round(dmg * (1 - n * 0.05 - u * 0.12))); }
     if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
@@ -1533,7 +1560,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];
@@ -1563,6 +1590,7 @@ export class Player {
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
     const wasBlock = this.block;
+    this.lichTick(dt);
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;

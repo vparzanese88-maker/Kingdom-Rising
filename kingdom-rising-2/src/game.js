@@ -233,7 +233,7 @@ export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (n
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
   if (h.yard) return true;
-  if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.t === 'ab' && x.ab === a.id); if (n) return nodeOwned(h, n); }
+  if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); if (n) return nodeOwned(h, n); }
   return h.level >= a.level; }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
 export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * (tree === 'w' ? 3 : 2); }

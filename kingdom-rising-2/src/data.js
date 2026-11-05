@@ -939,7 +939,11 @@ const SUP_T = [
                     : ({ t: 'hot', pct: 0.25, dur: 10, cd: 22, cost: 25, name: n[2], desc: 'Catch your breath: regenerate 25% of your health over 10 s.', ic: ['heart', 'nature'] }),
   (n) => ({ t: 'buff', buff: 'focus', dur: 8, cd: 25, cost: 30, name: n[3], desc: 'For 8 s you attack and cast 35% faster.', ic: ['bolt', 'gold'] }),
   (n) => ({ t: 'buff', buff: 'stand', heal: 0, dur: 10, cd: 30, cost: 35, name: n[4], desc: 'Dig in: take 25% less damage for 10 s.', ic: ['shield', 'gold'] }),
+  (n) => ({ t: 'buff', buff: 'barrier', amount: 0.25, dur: 12, cd: 26, cost: 30, name: n[5], desc: 'A shield that absorbs damage equal to 25% of your health, for up to 12 s.', ic: ['shield', 'arcane'] }),
+  (n) => ({ t: 'buff', buff: 'swind', dur: 8, r: 15, allyBuff: 'haste', cd: 24, cost: 25, name: n[6], desc: 'You and allies within 15 m move faster for 8 s.', ic: ['wind', 'frost'] }),
+  (n) => ({ t: 'buff', buff: 'surge', dur: 6, cd: 40, cost: 0, name: n[7], desc: 'For 6 s your abilities cost nothing.', ic: ['drop', 'arcane'] }),
 ];
+const SUP_MORE = ['Aegis', 'Tailwind', 'Wellspring'];
 const SUP_NAMES = {
   warrior: ['Battle Fervor', 'Iron Will', 'Second Breath', 'Weapon Frenzy', 'Hold the Line'], berserker: ['Blood Frenzy', 'Thick Skull', 'Gasp of Rage', 'Red Mist', 'Unbowed'],
   ranger: ['Hunter\'s Mark', 'Leafward', 'Forest Breath', 'Quickdraw', 'Hide and Wait'], musketeer: ['Steady Volley', 'Cover Fire', 'Field Ration', 'Rapid Reload', 'Entrench'],
@@ -954,7 +958,7 @@ const SUP_NAMES = {
 const DMG_T = (melee, k, cls) => melee
   ? [{ t: 'strike', reach: 3.2, dmg: 1.9, stun: 0.8, cd: 7, cost: 20, ic: ['sword', 'steel'] }, { t: 'nova', r: 5, dmg: 1.4, cd: 10, cost: 25, ic: ['slam', 'steel'] }, { t: 'cone', range: 6, ang: 0.8, dmg: 1.5, cd: 9, cost: 25, ic: ['burst', 'red'] }][k % 3]
   : [{ t: 'bolt', kind: 'arcane', speed: 45, dmg: 1.7, cd: 5, cost: 20, ic: ['bolt', 'arcane'] }, { t: 'nova', r: 6, dmg: 1.4, cd: 10, cost: 25, ic: ['burst', 'arcane'] }, { t: 'bolt', kind: 'arcane', speed: 50, dmg: 2.2, cd: 9, cost: 30, ic: ['meteor', 'fire'] }][k % 3];
-const DMG_NAMES = { warrior: ['Shield Slam', 'Ground Pound', 'Sunder'], berserker: ['Skull Crack', 'Earthquake', 'Rending Sweep'], cleric: ['Smite', 'Holy Burst', 'Radiant Bolt'], bard: ['Sharp Note', 'Sonic Boom', 'Piercing Aria'],
+const DMG_NAMES = { ranger: ['Piercing Shot', 'Arrow Burst', 'Hunter\'s Bolt'], wizard: ['Arcane Bolt', 'Arcane Burst', 'Fireball'], monk: ['Palm Strike', 'Spinning Kick', 'Rising Fist'], enchanter: ['Psychic Bolt', 'Mind Burst', 'Spirit Lance'], warrior: ['Shield Slam', 'Ground Pound', 'Sunder'], berserker: ['Skull Crack', 'Earthquake', 'Rending Sweep'], cleric: ['Smite', 'Holy Burst', 'Radiant Bolt'], bard: ['Sharp Note', 'Sonic Boom', 'Piercing Aria'],
   paladin: ['Judging Blow', 'Holy Shock', 'Sweep of Light'], shaman: ['Lightning Bolt', 'Thunder Burst', 'Chain Spark'], druid: ['Thorn Bolt', 'Nature\'s Wrath', 'Wrath'], necromancer: ['Shadow Bolt', 'Corpse Blast', 'Soul Spike'] };
 const DMG_DESC = { strike: 'A heavy blow at the enemy in front of you: big damage and a short stun.', nova: 'A burst of force that hits every enemy around you.', cone: 'A sweeping attack that hits everything in front of you.', bolt: 'A bolt of energy that flies where you aim.' };
 for (const [cls, trees] of Object.entries(CLASS_TREES)) {
@@ -964,7 +968,7 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) {
     let sup = abs.filter(isSupport).length, dmg = abs.length - sup;
     const add = (def, kind) => {
       const id = `${cls}_x${kind}${kind === 's' ? si : di}`, maxLv = Math.max(...abs.map(a => a.level)), a = Object.assign({ id, key: '', icon: '', kit: true, campaign: true, level: Math.min(20, maxLv + 2) }, def); delete a.ic;
-      if (kind === 'd') { a.name = (DMG_NAMES[cls] || ['Power Strike', 'Shockwave', 'Force Bolt'])[di % 3]; a.desc = DMG_DESC[a.t]; }
+      if (kind === 'd') { const dn = [...(DMG_NAMES[cls] || ['Power Strike', 'Shockwave', 'Force Bolt']), T.name + ' Strike', T.name + ' Burst']; a.name = dn[di % dn.length]; a.desc = DMG_DESC[a.t]; }
       GEN_ICONS[id] = def.ic; ABILITIES[cls].push(a);
       // an empty spot on the tree grid, under whatever sits above it
       const taken = new Set(T.nodes.map(n => n.row + ',' + n.col)); let cell = null;
@@ -973,7 +977,7 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) {
       T.nodes.push({ id: `${T.id}_${id}`, t: 'ab', ab: id, row: cell[0], col: cell[1], req: above.id, name: a.name, icon: id, desc: a.desc, tree: T.id, max: 1 });
       abs.push(a);
     };
-    while (sup < 3) { const tpl = SUP_T[si % SUP_T.length], n = SUP_NAMES[cls] || SUP_NAMES.warrior; add(tpl(n, !NO_HEAL.has(cls)), 's'); si++; sup++; }
+    while (sup < 3) { const tpl = SUP_T[si % SUP_T.length], n0 = SUP_NAMES[cls] || SUP_NAMES.warrior, n = [...n0, ...SUP_MORE.map(w => T.name + ' ' + w)]; add(tpl(n, !NO_HEAL.has(cls)), 's'); si++; sup++; }
     while (dmg < 2) { add(DMG_T(MELEE.has(cls), di, cls), 'd'); di++; dmg++; }
   }
   CLASS_TREE[cls] = trees.flatMap(T => T.nodes.map(n => { if (n.t === 'ab' && !n.name) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; return n; }));

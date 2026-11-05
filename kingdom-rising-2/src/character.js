@@ -675,11 +675,11 @@ export function animateHumanoid(ch, dt, st) {
   const breathe = Math.sin(A.t * 1.8) * 0.015;
   hips.position.y = (ch.R.legL + 0.06) - bob + (st.crouch ? -0.2 : 0);
   // legs
-  damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0), 0, 0.02, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0), 0, -0.02, k);
-  damp(legs.L.knee, knL + (st.sit ? 1.5 : 0), 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0), 0, 0, k);
-  damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k);
-  // standing armed: soft knees, weight settled, not locked straight
-  if (st.armed && ch.wt && sp < 0.6 && !air && !st.action && !st.sit && !st.swim && !st.dead) { const kb = 0.2; legs.L.knee.rotation.x += kb; legs.R.knee.rotation.x += kb; legs.L.thigh.rotation.x -= kb * 0.5; legs.R.thigh.rotation.x -= kb * 0.5; legs.L.ankle.rotation.x -= kb * 0.5; legs.R.ankle.rotation.x -= kb * 0.5; legs.L.thigh.rotation.z += 0.09; legs.R.thigh.rotation.z -= 0.09; } // feet a little apart
+  // standing armed: soft knees and feet a little apart (blended in, so it never fights the stride)
+  const soft = ch.softK = (ch.softK || 0) + (((st.armed && ch.wt && sp < 0.6 && !st.airborne && !st.action && !st.sit && !st.swim && !st.dead) ? 1 : 0) - (ch.softK || 0)) * Math.min(1, dt * 6), kb = 0.2 * soft;
+  damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0) - kb * 0.5, 0, 0.02 + 0.09 * soft, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0) - kb * 0.5, 0, -0.02 - 0.09 * soft, k);
+  damp(legs.L.knee, knL + (st.sit ? 1.5 : 0) + kb, 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0) + kb, 0, 0, k);
+  damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k);
   // a front kick: chamber the knee, snap the leg straight out, put it back down
   if (st.action === 'kick') { const t = clamp01(st.actionT || 0), ch1 = t < 0.25 ? t / 0.25 : 1, ext = t < 0.25 ? 0 : t < 0.45 ? (t - 0.25) / 0.2 : t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3, back = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
     legs.R.thigh.rotation.x = -(0.9 * ch1 + 0.65 * ext) * back; legs.R.knee.rotation.x = (1.6 * ch1 * (1 - ext) + 0.05) * back; legs.R.ankle.rotation.x = -0.5 * ext * back;

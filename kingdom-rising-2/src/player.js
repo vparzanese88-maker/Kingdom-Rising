@@ -1163,6 +1163,25 @@ export class Player {
         return true; }
       case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
+      case 'stormwalk': { // a 10 m wide storm that rolls slowly away in the direction you cast, striking everything under it
+        const dir = new THREE.Vector3(f.x, 0, f.z).normalize(), c = this.pos.clone().addScaledVector(dir, 4), r = (a.r || 5) * K, speed = (a.travel || 15) / (a.dur || 6); let t = 0, tick = 0, ring = 0;
+        G.timers.push({ update: (dt) => { t += dt; c.addScaledVector(dir, speed * dt); c.y = heightAt(c.x, c.z);
+          for (let j = 0; j < 3; j++) V.emit('smoke', new THREE.Vector3(c.x + (Math.random() - 0.5) * r * 2, c.y + 9 + Math.random() * 2, c.z + (Math.random() - 0.5) * r * 2), { speed: 0.4, size: 3.2, life: 0.9, grav: 0, a0: 0.55 });
+          if (Math.random() < dt * 20) V.emit('arcane', new THREE.Vector3(c.x + (Math.random() - 0.5) * r * 2, c.y + 8, c.z + (Math.random() - 0.5) * r * 2), { speed: 0.5, vy: -6, size: 0.25, life: 1.2 });
+          if ((ring -= dt) <= 0) { ring = 0.5; V.ring(c, r, '#a8b8ff', 0.5); }
+          if ((tick -= dt) <= 0) { tick = 0.45; const hits = mobsInRadius(c, r).sort(() => Math.random() - 0.5).slice(0, 3);
+            if (!hits.length) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0, (Math.random() - 0.5) * r * 1.6)); lightning(q.clone().setY(c.y + 10), q); }
+            for (const m of hits) { const to = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6); lightning(to.clone().setY(c.y + 10), to); this.dealDamage(m, P(a.dmg), hitO(m, { el: 'lightning' })); V.light(to, '#a0c0ff', 5, 0.15); }
+            S.cast('lightning', c, 0.8); }
+          return t >= (a.dur || 6) || this.dead; } });
+        S.cast('lightning', this.pos, 1.4); anim('castBig', 0.6); return true; }
+      case 'blizzaura': { // a blizzard whirls around you and moves with you
+        const r = (a.r || 8) * K; let t = 0, tick = 0;
+        G.timers.push({ update: (dt) => { t += dt;
+          for (let j = 0; j < 6; j++) { const ang = Math.random() * 6.28, rr = Math.random() * r; V.emit('frost', new THREE.Vector3(this.pos.x + Math.cos(ang) * rr, this.pos.y + 0.3 + Math.random() * 3.5, this.pos.z + Math.sin(ang) * rr), { speed: 2.5, vy: -1, size: 0.45, life: 0.8 }); }
+          if ((tick -= dt) <= 0) { tick = 0.5; V.ring(this.pos, r, '#c8ecff', 0.45); for (const m of mobsInRadius(this.pos, r)) this.dealDamage(m, P(a.dmg), hitO(m, { el: 'frost', slow: a.slow || 2, silent: true })); }
+          return t >= (a.dur || 10) || this.dead; } });
+        V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), r * 0.6, '#c8ecff', 0.5); S.cast('frost', this.pos, 1.5); anim('castBig', 0.6); return true; }
       case 'petbuff': case 'petheal': case 'petward': { // necromancer: strengthen, mend or shield your undead
         const list = G.mobs.filter(m => m.pet && !m.dead && (!a.kinds || a.kinds.includes(m.petKind))); anim('cast');
         if (!list.length) { G.hooks.toast && G.hooks.toast(a.kinds ? `${a.name} needs the right elemental at your side` : 'You have no pet to empower', '🐾', 'bad'); return true; }
@@ -1710,7 +1729,7 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (this.buffs.iceblock > 0 ? 0 : 1) * (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (G.newFx && iz < 0 ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;

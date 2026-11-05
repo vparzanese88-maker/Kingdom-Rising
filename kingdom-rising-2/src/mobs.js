@@ -200,6 +200,7 @@ const HUMAN_VAR = {
   goblin: { kind: 'person', outfit: 'goblin', race: 'goblin', weapon: 'goblin' },
   skeleton: { kind: 'skeleton', race: 'human', weapon: 'swordshield', tier: 0 },
   troll: { kind: 'troll', race: 'human', weapon: 'warhammer', tier: 0 },
+  firegiant: { kind: 'troll', race: 'human', weapon: 'greataxe', tier: 5 },
   imp: { kind: 'imp', race: 'human' },
   golem: { kind: 'golem', race: 'human' },
   tyrant: { kind: 'tyrant', race: 'human', weapon: 'greataxe', tier: 5 },
@@ -339,6 +340,7 @@ export class Mob {
       if (this.action && this.action !== 'attack') { const mv = this.special(dt, player, dp); if (mv) { want = mv.want; speed = mv.speed; } }
       else if (this.action) {
         this.actionT += dt / this.actionDur;
+        if (G.newFx && this.action === 'attack' && !this.def.ranged && this.actionT < 0.55 && dp > this.reach * 0.6) { want = player.pos; speed = spd * 0.75; this.faceTo(player.pos, dt, 10); } // campaign: they step in as they swing
         if (this.action === 'attack' && !this.didHit && this.actionT >= 0.55) { this.didHit = true; this.strike(player, dp); }
         if (this.actionT >= 1) { this.action = null; }
       } else if (this.state === 'chase' && this.tryAbility(player, dp)) {
@@ -500,7 +502,7 @@ export class Mob {
   strike(player, dp) {
     if (this.def.ranged) { G.hooks.enemyProjectile && G.hooks.enemyProjectile(this, player); return; }
     const toP = Math.atan2(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
-    if (dp <= this.reach + player.radius + 0.4 && Math.abs(angDiff(this.yaw, toP)) < 1.2) {
+    if (dp <= this.reach + player.radius + (G.newFx ? 1.1 : 0.4) && Math.abs(angDiff(this.yaw, toP)) < (G.newFx ? 1.4 : 1.2)) {
       player.takeDamage(this.dmg * rand(0.85, 1.15), this);
       if (this.abil.includes('bite') && Math.random() < 0.35) { player.debuff('bleed', 5, this.dmg * 0.1); this.say('Bite!'); }
       if (this.abil.includes('poison') && Math.random() < 0.4) { player.debuff('poison', 6, this.dmg * 0.1); this.say('Poison!'); }

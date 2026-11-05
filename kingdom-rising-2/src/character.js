@@ -258,6 +258,7 @@ export function buildHumanoid(app = {}) {
   if (app.race === 'woodelf') { R.thick = 0.95; }
   if (app.race === 'dwarf') { R.sw = 0.26; R.hw = 0.13; R.thick = 1.35; R.legL = 0.62; R.armL = 0.5; R.head = 1.22; R.torsoH = 0.6; R.neck = 0.04; }
   if (app.race === 'orc') { R.sw = 0.25; R.hw = 0.12; R.thick = 1.25; R.head = 1.08; R.armL = 0.62; R.neck = 0.05; }
+  if (app.race === 'barbarian') { R.sw = 0.25; R.hw = 0.12; R.thick = 1.22; R.armL = 0.6; R.neck = 0.06; }
   if (app.race === 'halfling') { R.sw = 0.2; R.thick = 1.02; R.legL = 0.72; R.armL = 0.56; R.head = 1.16; R.torsoH = 0.56; R.neck = 0.05; }
   if (app.race === 'gnome') { R.sw = 0.18; R.thick = 0.96; R.legL = 0.62; R.armL = 0.52; R.head = 1.32; R.torsoH = 0.52; R.neck = 0.04; }
   if (app.race === 'darkelf') { R.sw = 0.19; R.thick = 0.9; }

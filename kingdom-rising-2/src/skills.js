@@ -9,7 +9,7 @@ export const SKILLS = {
 };
 const OF = { sword: 'slash1', axe: 'slash1', handaxes: 'slash1', swordshield: 'slash1', swordmace: 'slash1', greatsword: 'slash2', greataxe: 'slash2',
   mace: 'blunt1', maceshield: 'blunt1', warhammer: 'blunt2', dagger: 'pierce', daggers: 'pierce', spear: 'pierce2', fists: 'h2h',
-  bow: 'archery', musket: 'firearms', firestaff: 'blunt2', froststaff: 'blunt2', arcanestaff: 'blunt2' }; // staffs are two-handed blunt weapons
+  bow: 'archery', musket: 'firearms', quarterstaff: 'blunt2' }; // quarterstaffs are 2H Blunt; magical staffs are spell focuses with no weapon skill
 export const skillOf = (wt) => OF[wt] || null;
 // three kinds of class: pure melee (no spells), hybrids (fight and cast), casters
 export const MELEE_CLASSES = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer']);

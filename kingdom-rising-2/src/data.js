@@ -51,6 +51,7 @@ export const WEAPON_TYPES = {
   swordmace: { name: 'Sword & Mace', hands: 'dual', reach: 2.6, area: 4.5, speed: 1.15, block: 0.5, dmg: 0.95, kind: 'melee', parts: ['sword', 'mace'], areaName: 'Twin Fury' },
   greatsword: { name: 'Greatsword', hands: 'two', reach: 3.4, area: 6.5, speed: 0.68, block: 0.6, dmg: 1.4, kind: 'melee', parts: ['greatsword'], areaName: 'Great Cleave' },
   greataxe: { name: 'Great Axe', hands: 'two', reach: 3.2, area: 6.5, speed: 0.62, block: 0.55, dmg: 1.5, kind: 'melee', parts: ['greataxe'], areaName: 'Reaping Whirl' },
+  quarterstaff: { name: 'Quarterstaff', hands: 'two', reach: 3.2, area: 5, speed: 0.95, block: 0.6, dmg: 1.05, kind: 'melee', parts: ['quarterstaff'], areaName: 'Staff Sweep' },
   warhammer: { name: 'Warhammer', hands: 'two', reach: 3.0, area: 7, speed: 0.58, block: 0.55, dmg: 1.55, kind: 'melee', parts: ['warhammer'], areaName: 'Quake Spin' },
   spear: { name: 'Spear', hands: 'two', reach: 4.0, area: 5.5, speed: 0.95, block: 0.55, dmg: 1.12, kind: 'melee', parts: ['spear'], areaName: 'Sweeping Arc' },
   dagger: { name: 'Dagger', hands: 'one', reach: 2.1, area: 3.5, speed: 1.35, block: 0.4, dmg: 0.8, kind: 'melee', parts: ['dagger'], areaName: 'Triple Stab' },
@@ -94,6 +95,7 @@ export const FAMILIES = {
   shield: { name: 'Shield', kind: 'melee', skills: ['shieldcharge', 'shieldbash'] },
   greatsword: { name: 'Greatsword', kind: 'melee', skills: ['greatcleave', 'execute'] },
   greataxe: { name: 'Great Axe', kind: 'melee', skills: ['reaping', 'earthcleaver'] },
+  quarterstaff: { name: 'Quarterstaff', kind: 'melee', skills: ['quake', 'sweep'] },
   warhammer: { name: 'Warhammer', kind: 'melee', skills: ['quake', 'hammerfall'] },
   spear: { name: 'Spear', kind: 'melee', skills: ['sweep', 'javelin'] },
   bow: { name: 'Bow', kind: 'bow', skills: ['rain', 'multishot'] },
@@ -282,6 +284,7 @@ export const COMBOS = {
   handaxes: { trait: 'Axes make enemies bleed', chain: [{ a: 'swing1', m: 0.95, bleed: true }, { a: 'off1', m: 0.95, bleed: true }, { a: 'swing3', m: 1.7, d: 1.3, bleed: true }] },
   greatsword: { trait: 'Greatswords cleave through every enemy in front of you', chain: [{ a: 'swing1', m: 1.1, cleave: true }, { a: 'swing2', m: 1.15, cleave: true }, { a: 'smash', m: 2.2, d: 1.5, cleave: true }] },
   greataxe: { trait: 'Great axes cleave and leave deep bleeding wounds', chain: [{ a: 'swing1', m: 1.35, cleave: true, bleed: true }, { a: 'smash', m: 2.7, d: 1.6, cleave: true, bleed: true }] },
+  quarterstaff: { trait: 'A plain wooden staff: quick blunt blows that ignore some armour', chain: [{ a: 'swing1', m: 1.0, blunt: true }, { a: 'swing2', m: 1.0, blunt: true }] },
   warhammer: { trait: 'Hammers ignore armour; the second blow quakes the ground and stuns', chain: [{ a: 'swing1', m: 1.35, blunt: true }, { a: 'smash', m: 2.8, d: 1.7, blunt: true, stun: 1.8, shock: 5 }] },
   spear: { trait: 'Spears strike from far away; the 4th thrust pierces a whole line', chain: [{ a: 'thrust1', m: 0.85, d: 0.8 }, { a: 'thrust2', m: 0.85, d: 0.8 }, { a: 'thrust1', m: 0.9, d: 0.8 }, { a: 'thrust3', m: 1.9, d: 1.3, line: true, knock: 10 }] },
 };
@@ -1011,7 +1014,9 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) for (const T of trees) {
   for (const n of pas) { if (placed.has(n)) continue; const cell = ALL_CELLS.find(([r, c]) => !at[key(r, c)]); if (!cell) continue; put(n, ...cell); placed.add(n); }
   if (ult) { ult.row = 5; ult.col = 1; delete ult.req; placed.add(ult); }
   T.nodes = T.nodes.filter(n => placed.has(n));
-  for (const n of T.nodes) { if (n.t === 'ult') continue; if (n.row === 0) { delete n.req; continue; }
+  for (const n of T.nodes) { if (n.t === 'ult') continue;
+    const own = n.id.startsWith('a_') && abs.find(x => 'a_' + x.ab === n.id); if (own && own !== n) { n.req = own.id; continue; } // an upgrade needs its ability first
+    if (n.row === 0) { if (n.col !== 1 && at[key(0, 1)]) n.req = at[key(0, 1)].id; else delete n.req; continue; }
     const up = at[key(n.row - 1, n.col)] || at[key(n.row - 1, 1)] || at[key(n.row - 1, n.col === 0 ? 2 : 0)] || at[key(0, 1)]; n.req = up && up !== n ? up.id : undefined; }
   // root stays free only for the class's starting ability
 }

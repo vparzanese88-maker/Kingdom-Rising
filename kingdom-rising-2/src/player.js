@@ -421,7 +421,7 @@ export class Player {
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
     const wt = this.weapon ? this.weapon.wt : '';
-    if (wt === 'maceshield' || wt === 'warhammer') return 'blunt';
+    if (wt === 'maceshield' || wt === 'warhammer' || wt === 'quarterstaff') return 'blunt';
     if (wt === 'swordmace') return name === 'off1' ? 'blunt' : 'blade';
     if (wt === 'greataxe' || wt === 'handaxes') return 'axe';
     if (wt === 'spear') return 'spear';
@@ -512,7 +512,7 @@ export class Player {
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
       let st = a.step || { m: 1 }; const wt = this.weapon.wt;
-      const blunt = wt === 'maceshield' || wt === 'warhammer' || !!st.blunt;
+      const blunt = wt === 'maceshield' || wt === 'warhammer' || wt === 'quarterstaff' || !!st.blunt;
       const swordHit = (wt === 'swordshield' || wt === 'swordmace') && !st.blunt;
       let reach = W.reach * (a.name === 'smash' ? 1.1 : 1), half = st.cleave ? 1.3 : wt === 'spear' ? 0.35 : 0.85;
       let targets;

@@ -306,6 +306,7 @@ function spreadWildlife() {
 function campaignSetup() {
   // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
   for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
+  for (const c of ['monk', 'druid', 'cleric', 'shaman', 'enchanter']) if (CLASSES[c] && !CLASSES[c].weapons.includes('quarterstaff')) CLASSES[c].weapons.push('quarterstaff'); // plain quarterstaffs for the robed and the wanderers
   WEAPON_TYPES.dagger.speed = 0.95; // a single dagger stabs at a normal pace: the rogue's abilities should do the heavy lifting
   for (const c in NEW_CLASSES) { const N = NEW_CLASSES[c]; if (TWIN_TO_SINGLE[N.start]) { N.start = TWIN_TO_SINGLE[N.start]; N.startName = WEAPON_TYPES[N.start].name; } }
   campaignLevels();

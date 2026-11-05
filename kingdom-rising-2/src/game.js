@@ -229,8 +229,8 @@ export function fxCount(h, kind) {
   if (key !== _fxKey) { _fxKey = key; _fxC = {}; for (const n of CLASS_TREE[h.cls]) if (n.fx && h.ctree && h.ctree[n.id]) _fxC[n.fx] = (_fxC[n.fx] || 0) + 1; }
   return _fxC[kind] || 0;
 }
-export const nodeOwned = (h, n) => !!(n.free || (h.ctree && h.ctree[n.id]));
-export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => !n.free && h.ctree && h.ctree[n.id]).length : 0; }
+export const nodeOwned = (h, n) => !!(h.ctree && h.ctree[n.id]); // nothing is free: level 1 starts with one point to spend
+export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => h.ctree && h.ctree[n.id]).length : 0; }
 export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (next in line, need a point) | 'locked'
   if (nodeOwned(h, n)) return 'owned';
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));

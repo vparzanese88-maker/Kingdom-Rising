@@ -195,6 +195,12 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       const str = new THREE.Line(sg, new THREE.LineBasicMaterial({ color: '#efe8d4' })); g.add(str); g.userData.string = str; g.userData.stringZ = zt;
       base.position.set(0, -0.6, 0.1); tip.position.set(0, 0.6, 0.1); break;
     }
+    case 'quarterstaff': { // a plain hardwood staff with iron-shod ends
+      cyl(0.026, 0.028, 1.75, darkWood, 0.35, 7);
+      for (const y of [-0.5, 1.2]) mesh(cached('qsend', () => new THREE.CylinderGeometry(0.032, 0.032, 0.09, 8)), M, g, 0, y, 0);
+      for (let i = 0; i < 2; i++) { const r = mesh(cached('wrap', () => new THREE.TorusGeometry(0.035, 0.01, 5, 10)), leatherMat, g, 0, 0.3 + i * 0.08, 0); r.rotation.x = Math.PI / 2; }
+      base.position.set(0, 0.6, 0); tip.position.set(0, 1.2, 0); break;
+    }
     case 'staff': {
       const col = { fire: '#ff6a1a', frost: '#7fe0ff', arcane: '#c070ff' }[element] || '#ffd060';
       cyl(0.024, 0.03, 1.7, darkWood, 0.45, 7);

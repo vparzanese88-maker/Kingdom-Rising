@@ -923,4 +923,6 @@ for (const [cls, defs] of Object.entries(TREE_DEFS)) {
     return { id: tid, name, tag, col, icon: abs[0].id, nodes };
   });
 }
+// the bard's Valor tree carries the song-range passive
+{ const T = CLASS_TREES.bard && CLASS_TREES.bard[0], n = T && T.nodes.find(x => x.id === 'bard_0_p1'); if (n) Object.assign(n, { fx: 'songreach', name: 'Carrying Voice', icon: 'shout', desc: 'Your songs reach 25 m instead of 15 m.' }); }
 for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior') continue; const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }

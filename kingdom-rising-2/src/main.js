@@ -13,6 +13,7 @@ import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall,
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
+import { addIcons } from './icons2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
@@ -21,7 +22,7 @@ import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
 import { fog, updateFog, packFog, unpackFog } from './fog.js';
 import { buildWorld, world, cullChunks, updateGrass, updateBirds, updateAmbient, showNode, nodeKinds } from './world.js';
-import { WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
+import { GEN_ICONS, WARRIOR_BATTLE, battleLevels, campaignLevels, campaignXp, shownLv, LEVEL_CAP, SPAWNS, ZONES, NPCS, RACES, CLASSES, WEAPON_TYPES, QUESTS, MOBS, GOBLIN_CAMPS, FAMILIES, ABILITIES, familiesOf } from './data.js';
 import { Mob, NPC, Villager } from './mobs.js';
 import { Player } from './player.js';
 import * as Game from './game.js';
@@ -267,6 +268,8 @@ function spawnBattleNpcs() {
 // Both modes fight the same way: class abilities come from the class kit (they work with any weapon),
 // no talent trees, and abilities grow a little stronger, longer and wider every level instead.
 function kitAbilities(levelOf) {
+  if (BATTLE) for (const c in ABILITIES) ABILITIES[c] = ABILITIES[c].filter(a => !a.campaign); // the extra tree abilities are campaign-only
+  addIcons(GEN_ICONS);
   if (BATTLE) ABILITIES.warrior = WARRIOR_BATTLE.map(a => Object.assign({}, a)); // Kingdom Battles keeps the original warrior kit
   for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a);
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }

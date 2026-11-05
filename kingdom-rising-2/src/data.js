@@ -926,3 +926,55 @@ for (const [cls, defs] of Object.entries(TREE_DEFS)) {
 // the bard's Valor tree carries the song-range passive
 { const T = CLASS_TREES.bard && CLASS_TREES.bard[0], n = T && T.nodes.find(x => x.id === 'bard_0_p1'); if (n) Object.assign(n, { fx: 'songreach', name: 'Carrying Voice', icon: 'shout', desc: 'Your songs reach 25 m instead of 15 m.' }); }
 for (const [cls, trees] of Object.entries(CLASS_TREES)) { if (cls === 'warrior') continue; const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }
+
+// ---- make sure any two maxed trees can fill the whole hotbar: every tree gets at least 3 buffs/songs/heals (keys 1-5)
+// and at least 2 damage abilities (F C Q). Where a tree is short, it gets new class abilities built from proven effects.
+export const GEN_ICONS = {};
+const MELEE = new Set(['warrior', 'berserker', 'paladin', 'darkknight', 'monk', 'rogue', 'beastmaster']);
+const NO_HEAL = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'wizard', 'elementalist', 'enchanter']);
+const SUP_T = [
+  (n) => ({ t: 'buff', buff: 'cry', dur: 8, r: 15, allyBuff: 'rally', cd: 22, cost: 30, name: n[0], desc: 'You and allies within 15 m hit 30% harder for 8 s.', ic: ['shout', 'red'] }),
+  (n) => ({ t: 'buff', buff: 'ward', dur: 6, r: 15, allyBuff: 'ward', cd: 24, cost: 30, name: n[1], desc: 'A protective ward: you and allies within 15 m take 40% less damage for 6 s.', ic: ['shield', 'frost'] }),
+  (n, heal) => heal ? ({ t: 'hot', pct: 0.3, dur: 10, r: 15, ally: 0.2, cd: 20, cost: 30, name: n[2], desc: 'You regenerate 30% of your health over 10 s, and allies within 15 m are healed 20%.', ic: ['heart', 'nature'] })
+                    : ({ t: 'hot', pct: 0.25, dur: 10, cd: 22, cost: 25, name: n[2], desc: 'Catch your breath: regenerate 25% of your health over 10 s.', ic: ['heart', 'nature'] }),
+  (n) => ({ t: 'buff', buff: 'focus', dur: 8, cd: 25, cost: 30, name: n[3], desc: 'For 8 s you attack and cast 35% faster.', ic: ['bolt', 'gold'] }),
+  (n) => ({ t: 'buff', buff: 'stand', heal: 0, dur: 10, cd: 30, cost: 35, name: n[4], desc: 'Dig in: take 25% less damage for 10 s.', ic: ['shield', 'gold'] }),
+];
+const SUP_NAMES = {
+  warrior: ['Battle Fervor', 'Iron Will', 'Second Breath', 'Weapon Frenzy', 'Hold the Line'], berserker: ['Blood Frenzy', 'Thick Skull', 'Gasp of Rage', 'Red Mist', 'Unbowed'],
+  ranger: ['Hunter\'s Mark', 'Leafward', 'Forest Breath', 'Quickdraw', 'Hide and Wait'], musketeer: ['Steady Volley', 'Cover Fire', 'Field Ration', 'Rapid Reload', 'Entrench'],
+  shaman: ['Totem of Fury', 'Stoneward', 'Spirit Breath', 'Storm Haste', 'Earthen Stance'], wizard: ['Arcane Empowerment', 'Mana Ward', 'Restore', 'Haste Spell', 'Stoneskin'],
+  cleric: ['Zeal', 'Sanctified Ward', 'Mending Light', 'Swift Prayer', 'Vow of Stone'], paladin: ['Righteous Zeal', 'Aegis', 'Healing Hymn', 'Swift Judgement', 'Bulwark of Faith'],
+  darkknight: ['Dark Fervor', 'Unholy Ward', 'Feast of Blood', 'Hastened Doom', 'Grave Stance'], druid: ['Wild Fury', 'Oakward', 'Bloom', 'Wind of the Wilds', 'Rooted'],
+  monk: ['Tiger Focus', 'Iron Skin', 'Breath of Life', 'Flowing Strikes', 'Mountain Stance'], bard: ['Rousing Chord', 'Ballad of Shields', 'Healing Refrain', 'Quick Tempo', 'Steady Verse'],
+  rogue: ['Killing Mood', 'Shadow Cloak', 'Catch Breath', 'Adrenaline Rush', 'Evasion'], necromancer: ['Dark Pact', 'Bone Ward', 'Siphon Soul', 'Death Haste', 'Grave Chill'],
+  elementalist: ['Elemental Fury', 'Stone Ward', 'Spring Water', 'Lightning Reflexes', 'Granite Form'], enchanter: ['Empower', 'Mirror Ward', 'Renewal Rune', 'Quicken', 'Rune of Stone'],
+  beastmaster: ['Call of the Wild', 'Thick Hide', 'Lick Wounds', 'Hunt\'s Haste', 'Pack Stance'],
+};
+const DMG_T = (melee, k, cls) => melee
+  ? [{ t: 'strike', reach: 3.2, dmg: 1.9, stun: 0.8, cd: 7, cost: 20, ic: ['sword', 'steel'] }, { t: 'nova', r: 5, dmg: 1.4, cd: 10, cost: 25, ic: ['slam', 'steel'] }, { t: 'cone', range: 6, ang: 0.8, dmg: 1.5, cd: 9, cost: 25, ic: ['burst', 'red'] }][k % 3]
+  : [{ t: 'bolt', kind: 'arcane', speed: 45, dmg: 1.7, cd: 5, cost: 20, ic: ['bolt', 'arcane'] }, { t: 'nova', r: 6, dmg: 1.4, cd: 10, cost: 25, ic: ['burst', 'arcane'] }, { t: 'bolt', kind: 'arcane', speed: 50, dmg: 2.2, cd: 9, cost: 30, ic: ['meteor', 'fire'] }][k % 3];
+const DMG_NAMES = { warrior: ['Shield Slam', 'Ground Pound', 'Sunder'], berserker: ['Skull Crack', 'Earthquake', 'Rending Sweep'], cleric: ['Smite', 'Holy Burst', 'Radiant Bolt'], bard: ['Sharp Note', 'Sonic Boom', 'Piercing Aria'],
+  paladin: ['Judging Blow', 'Holy Shock', 'Sweep of Light'], shaman: ['Lightning Bolt', 'Thunder Burst', 'Chain Spark'], druid: ['Thorn Bolt', 'Nature\'s Wrath', 'Wrath'], necromancer: ['Shadow Bolt', 'Corpse Blast', 'Soul Spike'] };
+const DMG_DESC = { strike: 'A heavy blow at the enemy in front of you: big damage and a short stun.', nova: 'A burst of force that hits every enemy around you.', cone: 'A sweeping attack that hits everything in front of you.', bolt: 'A bolt of energy that flies where you aim.' };
+for (const [cls, trees] of Object.entries(CLASS_TREES)) {
+  if (!ABILITIES[cls]) continue; let si = 0, di = 0;
+  for (const T of trees) {
+    const abs = T.nodes.filter(n => n.t === 'ab').map(n => ABILITIES[cls].find(a => a.id === n.ab));
+    let sup = abs.filter(isSupport).length, dmg = abs.length - sup;
+    const add = (def, kind) => {
+      const id = `${cls}_x${kind}${kind === 's' ? si : di}`, maxLv = Math.max(...abs.map(a => a.level)), a = Object.assign({ id, key: '', icon: '', kit: true, campaign: true, level: Math.min(20, maxLv + 2) }, def); delete a.ic;
+      if (kind === 'd') { a.name = (DMG_NAMES[cls] || ['Power Strike', 'Shockwave', 'Force Bolt'])[di % 3]; a.desc = DMG_DESC[a.t]; }
+      GEN_ICONS[id] = def.ic; ABILITIES[cls].push(a);
+      // an empty spot on the tree grid, under whatever sits above it
+      const taken = new Set(T.nodes.map(n => n.row + ',' + n.col)); let cell = null;
+      for (let r = 1; r <= 5 && !cell; r++) for (const c of [0, 2, 1]) if (!taken.has(r + ',' + c) && !(r === 5 && c === 1)) { cell = [r, c]; break; }
+      if (!cell) return; const above = T.nodes.filter(n => n.col === cell[1] && n.row < cell[0] && n.t !== 'ult').sort((x, y) => y.row - x.row)[0] || T.nodes[0];
+      T.nodes.push({ id: `${T.id}_${id}`, t: 'ab', ab: id, row: cell[0], col: cell[1], req: above.id, name: a.name, icon: id, desc: a.desc, tree: T.id, max: 1 });
+      abs.push(a);
+    };
+    while (sup < 3) { const tpl = SUP_T[si % SUP_T.length], n = SUP_NAMES[cls] || SUP_NAMES.warrior; add(tpl(n, !NO_HEAL.has(cls)), 's'); si++; sup++; }
+    while (dmg < 2) { add(DMG_T(MELEE.has(cls), di, cls), 'd'); di++; dmg++; }
+  }
+  CLASS_TREE[cls] = trees.flatMap(T => T.nodes.map(n => { if (n.t === 'ab' && !n.name) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; return n; }));
+}

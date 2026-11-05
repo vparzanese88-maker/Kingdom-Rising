@@ -66,6 +66,7 @@ import { NEW_CLASSES } from './classes2.js';
     if (ab.t === 'buff') g = ab.buff === 'ward' || ab.buff === 'fort' || ab.buff === 'barrier' ? 'shield' : ab.buff === 'cry' || ab.buff === 'rage' || ab.buff === 'stand' ? 'banner' : ab.buff === 'undying' ? 'heart' : 'hourglass';
     const th = ab.t === 'heal' || ab.t === 'hot' ? (ab.fx === 'gold' ? 'gold' : 'nature') : TH[ab.fx] || (ab.t === 'curse' || ab.t === 'drain' ? 'shadow' : ab.kind === 'fireball' ? 'fire' : ab.kind === 'arcane' ? 'arcane' : 'steel');
     MAP[ab.id] = ab.song ? ['shout', { war: 'red', travel: 'frost', heal: 'nature', ward: 'gold', flame: 'fire', mana: 'arcane' }[ab.song]] : [g, th]; } }
+export function addIcons(m) { for (const k in m) if (m[k] && !MAP[k]) MAP[k] = m[k]; }
 export function hasIcon(id) { return !!MAP[id]; }
 export function abilityBadge(id) { const [g, th] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th); }
 export function glyphBadge(g, th) {

@@ -1182,6 +1182,16 @@ export class Player {
           if ((tick -= dt) <= 0) { tick = 0.5; V.ring(this.pos, r, '#c8ecff', 0.45); for (const m of mobsInRadius(this.pos, r)) this.dealDamage(m, P(a.dmg), hitO(m, { el: 'frost', slow: a.slow || 2, silent: true })); }
           return t >= (a.dur || 10) || this.dead; } });
         V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), r * 0.6, '#c8ecff', 0.5); S.cast('frost', this.pos, 1.5); anim('castBig', 0.6); return true; }
+      case 'petstrike': { // command your beasts to strike their targets (or the enemy you aim at)
+        const list = G.mobs.filter(m => m.pet && !m.dead); anim('cast');
+        if (!list.length) { G.hooks.toast && G.hooks.toast('You have no beast to command', '🐾', 'bad'); return true; }
+        const aim = aimTarget(30);
+        for (const m of list) { const t = (m.tgt && !m.tgt.dead && m.tgt) || aim; if (!t) continue; m.tgt = t; const dmg = (m.pet.dmg || 10) * (a.mult || 2) * Math.sqrt(up);
+          const hits = a.aoe ? mobsInRadius(t.pos, a.aoe) : [t];
+          for (const o of hits) { o.takeHit(dmg, this, { pet: true, stun: a.stun || 0 }); o.provoked = true; V.burst('blood', o.pos.clone().setY(o.pos.y + (o.height || 1.5) * 0.6), 16, { speed: 3 }); }
+          const back = t.pos.clone().sub(m.pos).setY(0); if (back.length() > 2) m.pos.addScaledVector(back.normalize(), Math.min(4, back.length() - 1.5)); // the beast lunges in
+          m.action = 'attack'; m.actionT = 0; m.actionDur = 0.5; if (a.aoe) V.ring(t.pos, a.aoe, '#ff6a4a', 0.5); }
+        S.roar && S.roar(this.pos); return true; }
       case 'petbuff': case 'petheal': case 'petward': { // necromancer: strengthen, mend or shield your undead
         const list = G.mobs.filter(m => m.pet && !m.dead && (!a.kinds || a.kinds.includes(m.petKind))); anim('cast');
         if (!list.length) { G.hooks.toast && G.hooks.toast(a.kinds ? `${a.name} needs the right elemental at your side` : 'You have no pet to empower', '🐾', 'bad'); return true; }

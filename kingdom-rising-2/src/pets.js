@@ -154,7 +154,7 @@ function petUpdate(dt) {
       if (D.proj === 'storm') lightning(this.pos.clone().setY(this.pos.y + (this.height || 1.6) * 0.8), t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6));
       if ((D.chill || (fr && this.frChill)) && t.status) t.status.slow = Math.max(t.status.slow || 0, fr && this.frChill ? 2 : 1.5); /* frost slows what it strikes */
       if (D.proj) { V.burst(D.proj === 'fire' ? 'fire' : D.proj === 'storm' ? 'arcane' : 'arcane', t.pos.clone().setY(t.pos.y + (t.height || 1.5) * 0.6), 18, { speed: 3 }); S.cast(D.proj, this.pos, 0.4); }
-      t.takeHit(dmg, P, { pet: true, burn: D.burns ? dmg * (D.burns === 2 ? 0.15 : 0.08) : 0, slow: D.chill ? 2.5 : 0 }); t.provoked = true; // the Fire Giant's axe sets them alight if (PETS.taunt) t.petFoe = this; else if (t.petFoe === this) t.petFoe = null; if (t.state !== 'flee') t.state = 'chase';
+      t.takeHit(dmg, P, { pet: true, burn: D.burns ? dmg * (D.burns === 2 ? 0.15 : 0.08) : 0, slow: D.chill ? 2.5 : 0 }); t.provoked = true; /* the Fire Giant's axe sets them alight */ if (PETS.taunt) t.petFoe = this; else if (t.petFoe === this) t.petFoe = null; if (t.state !== 'flee') t.state = 'chase';
     }
   } else {
     // roam calmly near you on its own: pick a spot a few metres from you, amble there, wait, pick another.

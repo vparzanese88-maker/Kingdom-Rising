@@ -316,7 +316,7 @@ function campaignSetup() {
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
-  for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
+  for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard', 'beastmaster', 'blunderbuss']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
   // EverQuest-style buffs and heals: stat buffs take a moment to cast, have no cooldown and last 2 minutes;
   // heals take a moment to cast and are limited only by your mana or endurance. Emergency buffs keep their cooldowns.
   for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';

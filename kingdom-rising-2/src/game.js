@@ -38,7 +38,7 @@ export function newHero(o) {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
     raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
     pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), NC ? { w1: makeWeapon(ncPair ? ncPair[0] : NC.start, 0, 0), w2: ncPair ? makeWeapon(ncPair[1], 0, 0) : null } : { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
-    active: 'w1', tools: { hatchet: 1, pickaxe: 1, knife: 1 }, // every hero starts with basic tools; better ones come from the forge quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
+    active: 'w1', tools: { hatchet: 1, pickaxe: 1, knife: 1 }, /* every hero starts with basic tools; better ones come from the forge */ quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };
   // campaign heroes sail in wearing only a few tattered clothes
   if (!BATTLE) h.wseen = [activeWeapon(h) ? activeWeapon(h).wt : h.equip.w1.wt]; // the campaign: you start with your class's weapon and learn it by using it

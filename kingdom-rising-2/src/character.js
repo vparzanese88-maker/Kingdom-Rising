@@ -740,7 +740,7 @@ export function animateHumanoid(ch, dt, st) {
     else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
     // sword and board: sword arm relaxed low with the blade angled forward, shield arm bent so the shield rides the forearm in front of the hip
     else if (W.hands === 'shield') P = [0.1, -0.25 - sw * 0.5, 0, -0.45, -0.6 - bend * 0.5, -0.38 + sw * 0.15, -0.3, -0.95 - bend * 0.2, 0]; // ready: the same stance, sword a little higher, shield brought up to cover the left side // ready: sword arm out from the body, elbow bent, blade forward; shield arm forward and out
-    else P = [0, -0.4 - sw * 0.85, 0, -0.5, -0.85 - bend, -0.4 + sw * 0.85, -0.5, -0.85 - bend, 0]; // no shield: both arms held out from the body, not tucked into it
+    else P = [0, -0.4 - sw * 0.85, 0, -0.5, -0.85 - bend, -0.4 + sw * 0.85, 0.28, -0.85 - bend, 0]; // no shield: both arms held out from the body, not tucked into it
   }
   if (P) {
     const mir = st.mirror ? -1 : 1;

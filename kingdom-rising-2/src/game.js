@@ -2,6 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
+import { settings } from './saves.js';
 import { skillDamage, skill, DUAL_CLASSES } from './skills.js';
 import { TWIN_TO_SINGLE, HOTBAR_KEYS, slotFits, CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
@@ -14,10 +15,10 @@ let uid = Date.now() % 1e6;
 
 // ---------- new hero ----------
 // main hand + off hand that fight together (sword + shield, mace + shield, sword + mace)
-const ONE = ['sword', 'mace', 'dagger'];
+const ONE = ['sword', 'mace', 'dagger', 'axe'];
 export function pairedWt(h) {
   const a = h.equip.w1, b = h.equip.w2; if (!a || !b || !ONE.includes(a.wt)) return null;
-  if (!BATTLE && b.wt !== 'shield') return null; // the campaign: no twin weapons, only a weapon and a shield pair up
+  if (!BATTLE && (b.wt !== 'shield' || a.wt === 'axe' || a.wt === 'dagger')) return null; // the campaign: no twin weapons, only a weapon and a shield pair up
   if (a.wt === 'dagger') return b.wt === 'dagger' ? 'daggers' : null;
   if (b.wt === 'shield') return a.wt === 'sword' ? 'swordshield' : 'maceshield';
   if (ONE.includes(b.wt)) return 'swordmace';
@@ -176,7 +177,21 @@ export function addItem(h, id, n = 1, quiet) {
 export function addGear(h, it, quiet) {
   const i = h.inv.indexOf(null); if (i < 0) { G.hooks.toast && G.hooks.toast('Your bag is full!', '⚠', 'bad'); return false; }
   h.inv[i] = it; if (!quiet && !BATTLE) G.hooks.toast && G.hooks.toast(it.name, itemSvg(it), 'r' + it.rarity);
+  if (!BATTLE && !YARD) autoEquip(h, i);
   G.hooks.invChanged && G.hooks.invChanged(); return true;
+}
+// campaign: new gear goes straight on when its slot is empty
+export function autoEquip(h, i) {
+  if (settings.autoEquip === false) return;
+  const it = h.inv[i]; if (!it || !it.kind) return; let slot = null;
+  const power = (x) => x ? (x.dmg || 0) + (x.armor || 0) + Object.values(x.stats || {}).reduce((a, b) => a + b, 0) * 2 + (x.rarity || 0) * 3 : -1;
+  // gear only replaces the very same kind of item (same weapon type, same armour type in the same slot), and only when the new one is better
+  const same = (cur) => cur && cur.kind === it.kind && (it.kind === 'weapon' ? cur.wt === it.wt : cur.slot === it.slot && (cur.akind || '') === (it.akind || ''));
+  const keys = it.kind === 'weapon' ? ['w1', 'w2'] : it.slot === 'ring' ? ['ring1', 'ring2'] : [it.slot];
+  for (const k of keys) { const cur = h.equip[k]; if (same(cur) && power(it) > power(cur)) { slot = k; break; } }
+  if (!slot || !canEquip(h, it, slot)) return;
+  const ok = equipFromInv(h, i, slot === 'w1' ? undefined : slot);
+  if (ok) G.hooks.toast && G.hooks.toast(`Equipped: ${it.name}`, itemSvg(it), 'gold');
 }
 export function removeItem(h, id, n) {
   for (let i = h.inv.length - 1; i >= 0 && n > 0; i--) { const s = h.inv[i]; if (s && !s.kind && s.id === id) { const k = Math.min(n, s.n); s.n -= k; n -= k; if (!s.n) h.inv[i] = null; } }

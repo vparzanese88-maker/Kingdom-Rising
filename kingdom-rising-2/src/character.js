@@ -614,6 +614,8 @@ function attackPose(name, t, mirror) {
     case 'cheer': return POSE.cheer;
     case 'claw': return seq('s1a', 's1b', 0.4);
     case 'slam': return seq('h_a', 'h_b', 0.55);
+    case 'kick': return [0, -0.7, 0, 0.35, -1.4, -0.9, -0.3, -1.4, -0.25 * Math.sin(Math.min(1, t * 1.6) * Math.PI)]; // guard up, lean back as the leg goes out
+    case 'lowcut': { const o = seq('s2a', 's2b', 0.3); o[8] = 0.5 * Math.sin(Math.min(1, t * 1.2) * Math.PI); return o; } // a low cut: bend right down into it
   }
   return null;
 }
@@ -657,6 +659,10 @@ export function animateHumanoid(ch, dt, st) {
   damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0), 0, 0.02, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0), 0, -0.02, k);
   damp(legs.L.knee, knL + (st.sit ? 1.5 : 0), 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0), 0, 0, k);
   damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0), 0, 0, k);
+  // a front kick: chamber the knee, snap the leg straight out, put it back down
+  if (st.action === 'kick') { const t = clamp01(st.actionT || 0), ch1 = t < 0.25 ? t / 0.25 : 1, ext = t < 0.25 ? 0 : t < 0.45 ? (t - 0.25) / 0.2 : t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3, back = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
+    legs.R.thigh.rotation.x = -(0.9 * ch1 + 0.65 * ext) * back; legs.R.knee.rotation.x = (1.6 * ch1 * (1 - ext) + 0.05) * back; legs.R.ankle.rotation.x = -0.5 * ext * back;
+    legs.L.knee.rotation.x = 0.25; legs.L.thigh.rotation.x = 0.1; }
   // default arm swing
   let armSwing = Math.sin(ph) * amp * 0.9;
   let P = null;

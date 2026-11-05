@@ -2,7 +2,7 @@
 import { NEW_CLASSES } from './classes2.js';
 import { STARTING_PAIR, levelGap, designLv, COMBOS, RMB_SPECIAL, QUEST_DROPS } from './data.js';
 import { BATTLE, YARD } from './battlemap.js';
-import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
+import { CLASS_TREES, ULT_PTS, RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, ITEMS, TOOLS, RECIPES, QUESTS, NPCS, MOBS, ABILITIES, LEVEL_CAP, LEVEL_GROWTH, RANK2_LEVEL, xpForLevel, poolsAt, derived, weaponStat, weaponBaseDmg, armorBase, ARMOR_NAMES, ARMOR_TIER_NAMES, ARMOR_SLOT_LIST, AREA_UNLOCK_LEVEL, TOOL_TIER_NAMES, MERCHANT_STOCK, ACC, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS, FOOD_TIME, DRINK_TIME, familiesOf, FAMILIES, partFamily } from './data.js';
 import { G } from './state.js';
 import { itemSvg } from './icons.js';
 import { S } from './audio.js';
@@ -61,9 +61,9 @@ export function autoFillHotbar(h) {
   // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book
   if (G.hotbarSlots) {
     const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
-    const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
+    const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && abilityKnown(h, a)))) hb[i] = null;
     const added = [];
-    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+    for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (!abilityKnown(h, a) || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
     // campaign: the last slots hold potions and food, filled as you find them
     for (let i = N; i < T; i++) if (hb[i] && (hb[i].t !== 'item' || count(h, hb[i].id) <= 0)) hb[i] = null;
     for (const id of HOTBAR_ITEMS) { if (!NI || hb.some(s => s && s.t === 'item' && s.id === id) || count(h, id) <= 0) continue; const i = hb.findIndex((s, k) => !s && k >= N); if (i < 0) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
@@ -74,10 +74,10 @@ export function autoFillHotbar(h) {
   const hb = h.hotbar;
   // keep abilities only in 1-3 and items only in 4-6
   for (let i = 0; i < 6; i++) if (hb[i] && ((i < 3) !== (hb[i].t === 'ab'))) hb[i] = null;
-  for (let i = 0; i < 3; i++) if (hb[i] && hb[i].t === 'ab') { const A = ABILITIES[h.cls].find(x => x.id === hb[i].id); if (!A || A.level > h.level) hb[i] = null; }
+  for (let i = 0; i < 3; i++) if (hb[i] && hb[i].t === 'ab') { const A = ABILITIES[h.cls].find(x => x.id === hb[i].id); if (!A || !abilityKnown(h, A)) hb[i] = null; }
   const has = (t, id) => hb.some(s => s && s.t === t && s.id === id);
   const added = [];
-  for (const a of ABILITIES[h.cls]) { if (has('ab', a.id) || h.level < a.level) continue; const i = [0, 1, 2].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
+  for (const a of ABILITIES[h.cls]) { if (has('ab', a.id) || !abilityKnown(h, a)) continue; const i = [0, 1, 2].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
   for (const id of HOTBAR_ITEMS) { if (has('item', id) || count(h, id) <= 0) continue; const i = [3, 4, 5].find(k => !hb[k]); if (i == null) break; hb[i] = { t: 'item', id }; added.push({ slot: i, t: 'item', id }); }
   if (added.length) G.hooks.hotbarAdded && G.hooks.hotbarAdded(added);
   return added;
@@ -197,17 +197,29 @@ export function weaponDamage(h, w) {
 }
 
 // ---------- skill trees ----------
-export function perk(h, id) { return (h.ctree && h.ctree[id]) || 0; }
+export function perk(h, id) { if (h.yard && CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(n => n.id === id)) return 1; return (h.ctree && h.ctree[id]) || 0; }
 export function wkind(fam) { return FAMILIES[fam] ? FAMILIES[fam].kind : 'melee'; }
 export function wm(h, wt) { h.wm = h.wm || {}; return h.wm[wt] || (h.wm[wt] = { lv: 1, xp: 0, pts: {} }); }
 export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id]) || 0; }
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
-export function classPoints(h) { return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
+export function classPoints(h) { if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
+// ---- skill trees (classes that have them unlock their abilities inside the trees) ----
+export const hasTrees = (cls) => !!CLASS_TREES[cls];
+export const nodeOwned = (h, n) => !!(n.free || (h.ctree && h.ctree[n.id]) || h.yard);
+export function treeSpent(h, tid) { const T = (CLASS_TREES[h.cls] || []).find(t => t.id === tid); return T ? T.nodes.filter(n => !n.free && h.ctree && h.ctree[n.id]).length : 0; }
+export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (next in line, need a point) | 'locked'
+  if (nodeOwned(h, n)) return 'owned';
+  const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
+  if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
+export function abilityKnown(h, a) {
+  if (h.yard) return true;
+  if (CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.t === 'ab' && x.ab === a.id); return !!n && nodeOwned(h, n); }
+  return h.level >= a.level; }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
 export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * (tree === 'w' ? 3 : 2); }
-export function spendClass(h, node) { if (!canSpend('c', h.ctree, classPoints(h), node)) return false; h.ctree[node.id] = (h.ctree[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
+export function spendClass(h, node) { if (CLASS_TREES[h.cls]) { if (nodeState(h, node) !== 'open') return false; h.ctree[node.id] = 1; G.hooks.gearChanged && G.hooks.gearChanged(); autoFillHotbar(h); return true; } if (!canSpend('c', h.ctree, classPoints(h), node)) return false; h.ctree[node.id] = (h.ctree[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
 export function spendWeapon(h, wt, node) { const m = wm(h, wt); if (!canSpend('w', m.pts, weaponPoints(h, wt), node)) return false; m.pts[node.id] = (m.pts[node.id] || 0) + 1; G.hooks.gearChanged && G.hooks.gearChanged(); return true; }
-export function resetClass(h) { h.ctree = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
+export function resetClass(h) { h.ctree = {}; if (CLASS_TREES[h.cls] && h.hotbar) for (let i = 0; i < h.hotbar.length; i++) { const sl = h.hotbar[i]; if (sl && sl.t === 'ab' && !abilityKnown(h, { id: sl.id })) h.hotbar[i] = null; } G.hooks.gearChanged && G.hooks.gearChanged(); }
 export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && G.hooks.gearChanged(); }
 // ---------- weapon skills: what a weapon lets you do grows with its mastery (campaign) ----------
 // melee: one strike to start, 2nd at mastery 2, 3rd and the hold attack at 3, 4th at 4, F special at 5, the finisher at 6
@@ -215,17 +227,15 @@ export function resetWeapon(h, wt) { wm(h, wt).pts = {}; G.hooks.gearChanged && 
 export const WM_HOLD = 3, WM_F = 5;
 export function stepReq(len, i) { if (i === len - 1 && len >= 3) return len >= 4 ? 6 : 4; return [1, 2, 3, 4, 6][i] || 6; }
 export function masteryOf(h, wt) { return BATTLE || YARD ? 99 : wm(h, familiesOf(wt)[0]).lv; }
-export function comboLen(h, wt) { const C = COMBOS[wt]; if (!C) return 0; if (wt === 'dagger' || wt === 'daggers') return C.chain.length; const lv = masteryOf(h, wt); let n = 0; while (n < C.chain.length && stepReq(C.chain.length, n) <= lv) n++; return Math.max(1, n); }
-export function canHold(h, wt) { const W = WEAPON_TYPES[wt]; if (!W || W.kind === 'bow' || W.kind === 'gun') return true; return masteryOf(h, wt) >= WM_HOLD; }
+export function comboLen(h, wt) { const C = COMBOS[wt]; return C ? C.chain.length : 0; } // the full light-attack chain from the start
+export function canHold(h, wt) { return true; } // hold for a heavy attack from the start
 export function speedOf(h, wt) { const lv = masteryOf(h, wt); return BATTLE || YARD ? 1 : 0.55 + 0.45 * Math.min(1, (lv - 1) / 19); } // slow and clumsy at skill 1 (55%), full speed at skill 20
 export function canSpecial(h, wt) { return masteryOf(h, wt) >= WM_F; }
 // the unlock list for one weapon type, for the Weapons tab and level-up messages
 export function weaponUnlocks(wt) {
   const W = WEAPON_TYPES[wt], C = COMBOS[wt], out = [];
   if (wt === 'dagger' || wt === 'daggers') { out.push({ lv: 1, what: wt === 'daggers' ? 'Left and right stabs' : 'Stab', key: 'Left click' }, { lv: 2, what: 'Chance of a lightning-fast double attack', key: 'Left click' }, { lv: 5, what: 'Chance of a triple attack', key: 'Left click' }, { lv: 9, what: 'Chance of a quadruple attack', key: 'Left click' }); }
-  else if (W.kind === 'melee' && C) C.chain.forEach((st, i) => out.push({ lv: stepReq(C.chain.length, i), what: `Combo strike ${i + 1}` + (i === C.chain.length - 1 && C.chain.length >= 3 ? ' (finisher)' : ''), key: 'Left click' }));
-  else out.push({ lv: 1, what: W.kind === 'staff' ? 'Tap: bolt' : W.kind === 'gun' ? 'Shot, hold to aim down the barrel' : 'Arrow, hold to draw', key: 'Left click' });
-  if (W.kind === 'melee' || W.kind === 'staff') out.push({ lv: WM_HOLD, what: 'Hold attack', key: 'Hold left click' });
+  else out.push({ lv: 1, what: W.kind === 'melee' ? 'Light attacks and heavy attack' : W.kind === 'staff' ? 'Bolt and channel' : W.kind === 'gun' ? 'Shot, hold to aim' : 'Arrow, hold to draw', key: 'Left click' });
   if (RMB_SPECIAL[wt]) out.push({ lv: WM_F, what: 'Weapon special', key: 'F' });
   return out.sort((a, b) => a.lv - b.lv);
 }

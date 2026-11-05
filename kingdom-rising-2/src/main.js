@@ -13,6 +13,7 @@ import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall,
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { summonPets, petCommand, pets, PETS } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
+import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
@@ -303,7 +304,7 @@ const SHARE_R = Infinity;
 function battleHooks() {
   const H = G.hooks;
   // kills: XP and your own loot go straight to you (auto loot), gold goes to the town
-  H.onKill = (mob, src, fromHost, earns = true) => {
+  H.onKill = (mob, src, fromHost, earns = true) => { if (G.player && src === G.player) G.player.onKillPerks && G.player.onKillPerks(mob);
     let sharedKill = fromHost ? !earns : false;
     if (mob.team != null) return;
     // online, on the host: every hero on the killer's side who is close by gets the full XP and their own loot
@@ -404,7 +405,7 @@ function hooks() {
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
   H.xpGained = (n, why) => UI.toast(`+${n} XP${why ? ' · ' + why : ''}`, '✦', 'xp');
-  H.onKill = (mob, src) => { if (src && src.isGuard) { mob.loot = { items: [], gold: 0, gear: [] }; mob.looted = true; return; } Game.onKill(G.save, mob); if (settings.autoLoot !== false) setTimeout(() => { if (mob.dead && Game.hasLoot(mob)) Game.lootCorpse(G.save, mob); }, 650); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
+  H.onKill = (mob, src) => { if (src && src.isGuard) { mob.loot = { items: [], gold: 0, gear: [] }; mob.looted = true; return; } if (G.player && (src === G.player || !src)) G.player.onKillPerks && G.player.onKillPerks(mob); Game.onKill(G.save, mob); if (settings.autoLoot !== false) setTimeout(() => { if (mob.dead && Game.hasLoot(mob)) Game.lootCorpse(G.save, mob); }, 650); const p = G.player; if (p && Game.perk(G.save, 'bloodlust')) p.heal(p.maxHp * 0.05); };
   H.mastery = (m) => { UI.banner(`Dual Wield Mastery: Rank ${m.rank}`, `${m.name}: ${m.desc}`, 4500); S.levelUp(); UI.refreshAbilityBar(); };
   H.levelUp = (lv, unlocked) => {
     const p = G.player; p.refreshGear(); p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd;
@@ -835,6 +836,7 @@ function gameUpdate(dt) {
   updatePetBar(dt);
   updateScene(dt); updateConstruction(dt, V, S);
   if (!BATTLE) updateGuards(dt, p);
+  updateBanners(dt, p);
   updateMobs(dt, p);
   if (BATTLE) { tickCampFires(); Battle.update(dt); BUI.update(dt); if (MP.on) { if (MP.host) Sync.hostTick(dt); else Sync.meTick(dt); } }
   updateProjectiles(dt);

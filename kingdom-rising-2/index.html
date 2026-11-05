@@ -324,6 +324,85 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:#07060a;z-index:100;font-family:var(--f-t);color:var(--gold2);font-size:24px}
 #loading small{display:block;font-family:var(--f-b);color:var(--dim);font-size:14px;margin-top:8px;text-align:center}
 @media (max-width:900px){#creator{grid-template-columns:1fr}#creator .side{background:rgba(10,8,6,.92)}#tracker,#toasts{display:none}#bars{width:300px}.craft{grid-template-columns:1fr}.charlay,.qlog{grid-template-columns:1fr}.grid{grid-template-columns:repeat(6,48px)}.cell{width:48px;height:48px}}
+
+/* ---- skill trees (K) ---- */
+.book .content:has(.st-trees),.book .content:has(.wm-lay){display:flex;flex-direction:column;gap:12px;padding:14px 18px 18px!important;background:radial-gradient(ellipse at 50% -10%,rgba(255,200,110,.10),transparent 60%),linear-gradient(180deg,#14110d,#0b0a08)}
+.st-top{display:flex;align-items:center;gap:18px;padding:10px 16px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.25));border:1px solid rgba(255,210,120,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.st-cls{display:flex;align-items:center;gap:12px;min-width:190px}.st-cls b{display:block;font:700 22px/1 Cinzel,Georgia,serif;color:#ffe9b8;letter-spacing:.04em}.st-cls small{color:#b9a78a;font-size:12px}
+.st-crest{width:46px;height:46px;filter:drop-shadow(0 0 8px rgba(255,200,100,.35))}.st-crest svg{width:100%;height:100%}
+.st-pts{display:flex;flex-direction:column;align-items:center;justify-content:center;width:84px;height:62px;border-radius:12px;background:#1b1712;border:2px solid #4a3f2c;color:#8a7b62}
+.st-pts b{font:800 28px/1 Cinzel,Georgia,serif}.st-pts small{font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.st-pts.have{border-color:#ffd050;color:#ffe080;box-shadow:0 0 18px rgba(255,208,80,.45),inset 0 0 12px rgba(255,208,80,.2);animation:stglow 1.6s ease-in-out infinite}
+@keyframes stglow{50%{box-shadow:0 0 28px rgba(255,208,80,.7),inset 0 0 16px rgba(255,208,80,.35)}}
+.st-barwrap{display:flex;flex-direction:column;gap:5px;margin-left:auto}.st-barwrap small{color:#9a8a70;font-size:11px}
+.st-bar{display:flex;gap:8px}.st-slot{position:relative;width:52px;height:52px;padding:3px;border-radius:10px;background:#16130f;border:2px solid #3a3226;cursor:pointer}
+.st-slot svg{width:100%;height:100%}.st-slot i{font-style:normal;color:#5a4e3c;font-size:22px;line-height:44px}.st-slot .k{position:absolute;left:-6px;top:-7px;background:#2a2318;border:1px solid #6a5a3a;border-radius:6px;font:700 11px/1 sans-serif;padding:3px 5px;color:#ffe0a0}
+.st-slot.sel{border-color:#ffd050;box-shadow:0 0 12px rgba(255,208,80,.55)}.st-slot:hover{border-color:#c8a860}
+.st-reset{align-self:center}
+.st-trees{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.st-tree{--tc:#ffd050;display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 14%,#15120e),#0e0c0a 40%);border:1px solid color-mix(in srgb,var(--tc) 40%,#2a2418);box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
+.st-th{position:relative;display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(90deg,color-mix(in srgb,var(--tc) 35%,transparent),transparent);border-bottom:1px solid color-mix(in srgb,var(--tc) 40%,transparent)}
+.st-th b{display:block;font:700 19px/1.1 Cinzel,Georgia,serif;color:#fff1d0;letter-spacing:.05em;text-shadow:0 0 10px color-mix(in srgb,var(--tc) 60%,transparent)}.st-th small{color:#cbb89a;font-size:12px}
+.st-ti{width:38px;height:38px}.st-ti svg{width:100%;height:100%}
+.st-sp{margin-left:auto;min-width:30px;text-align:center;font:800 18px/30px Cinzel,serif;color:var(--tc);border:1px solid color-mix(in srgb,var(--tc) 50%,transparent);border-radius:999px;background:rgba(0,0,0,.35)}
+.st-grid{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);padding:8px 6px;place-items:center}
+.st-lines{position:absolute;inset:8px 6px;width:calc(100% - 12px);height:calc(100% - 16px);pointer-events:none}
+.st-lines line{stroke:#3a3328;stroke-width:5;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.st-lines line.next{stroke:color-mix(in srgb,var(--tc) 45%,#3a3328);stroke-dasharray:6 6}
+.st-lines line.on{stroke:var(--tc);filter:drop-shadow(0 0 4px var(--tc))}
+.st-node{position:relative;z-index:1;width:58px;height:58px;padding:4px;border-radius:50%;background:#12100c;border:3px solid #3a3226;cursor:pointer;transition:transform .12s,box-shadow .2s,border-color .2s}
+.st-node.ab{border-radius:14px;width:64px;height:64px}
+.st-node.ult{width:76px;height:76px;border-radius:18px;transform:rotate(45deg)}.st-node.ult .st-ic{transform:rotate(-45deg)}
+.st-node .st-ic{width:100%;height:100%;border-radius:inherit;overflow:hidden}.st-node svg{width:100%;height:100%}
+.st-node.locked{filter:grayscale(1) brightness(.45);cursor:default}
+.st-node.ready{filter:grayscale(.5) brightness(.75);border-color:color-mix(in srgb,var(--tc) 45%,#3a3226)}
+.st-node.open{border-color:#ffd050;box-shadow:0 0 0 2px rgba(255,208,80,.25),0 0 18px rgba(255,208,80,.55);animation:stpulse 1.3s ease-in-out infinite}
+.st-node.owned{border-color:var(--tc);box-shadow:0 0 14px color-mix(in srgb,var(--tc) 70%,transparent),inset 0 0 10px color-mix(in srgb,var(--tc) 40%,transparent)}
+.st-node:not(.locked):hover{transform:scale(1.1)}.st-node.ult:not(.locked):hover{transform:rotate(45deg) scale(1.1)}
+.st-node.pop{animation:stpop .3s ease-out}
+@keyframes stpulse{50%{box-shadow:0 0 0 4px rgba(255,208,80,.15),0 0 26px rgba(255,208,80,.8)}}
+@keyframes stpop{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(1)}}
+.st-k{position:absolute;right:-8px;top:-8px;background:#ffd050;color:#2a1c00;font:800 11px/1 sans-serif;padding:3px 6px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.6)}
+.st-node.ult .st-k,.st-node.ult .st-u{transform:rotate(-45deg)}
+.st-u{position:absolute;left:50%;bottom:-24px;margin-left:-18px;width:36px;text-align:center;font:700 11px/1 sans-serif;color:#cbb89a}
+.st-tt{min-width:240px;max-width:300px}.st-tt small{display:block;color:var(--tc);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.st-tt b{display:block;font:700 18px/1.2 Cinzel,Georgia,serif;color:#fff2c8;margin:2px 0}.st-tt p{margin:6px 0;line-height:1.45}
+.st-tt em{display:block;font-style:normal;font-weight:700;margin-top:6px;font-size:13px}.st-tt .ok{color:#8ee08e}.st-tt .go{color:#ffd050}.st-tt .wait{color:#c8b890}.st-tt .no{color:#ff8a7a}
+/* ---- weapons (L) ---- */
+.wm-lay{flex:1;min-height:0;display:grid;grid-template-columns:230px 1fr;gap:14px}
+.wm-list{display:flex;flex-direction:column;gap:8px;overflow:auto;padding:12px;border-radius:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,210,120,.16)}
+.wm-list h4,.wm-path h4{margin:0 0 4px;font:700 14px Cinzel,Georgia,serif;color:#e8d4a8;letter-spacing:.08em;text-transform:uppercase}
+.wm-w{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;text-align:left;padding:8px;border-radius:10px;background:#16130f;border:1px solid #2e281e;color:#e8dcc4;cursor:pointer}
+.wm-w .bi{width:44px;height:44px}.wm-w .bi svg{width:100%;height:100%}.wm-w b{display:block;font-size:14px}.wm-w small{color:#a8987c;font-size:11px}
+.wm-w i{display:block;height:4px;border-radius:3px;background:#2a2418;margin-top:4px;overflow:hidden}.wm-w u{display:block;height:100%;background:linear-gradient(90deg,#c89a3a,#ffd050)}
+.wm-w.on{border-color:#ffd050;background:linear-gradient(90deg,rgba(255,208,80,.14),#16130f);box-shadow:0 0 12px rgba(255,208,80,.25)}.wm-w:hover{border-color:#a8884a}
+.wm-main{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:4px}
+.wm-hero{display:grid;grid-template-columns:120px 1fr 110px;gap:18px;align-items:center;padding:16px 20px;border-radius:16px;background:radial-gradient(ellipse at 10% 50%,rgba(255,200,110,.12),transparent 55%),linear-gradient(180deg,#1c1812,#110f0c);border:1px solid rgba(255,210,120,.25)}
+.wm-art{--rc:#bbb;width:120px;height:120px;padding:10px;border-radius:18px;background:radial-gradient(circle,color-mix(in srgb,var(--rc) 25%,transparent),transparent 70%),#0d0b09;border:2px solid color-mix(in srgb,var(--rc) 70%,#3a3226);box-shadow:0 0 22px color-mix(in srgb,var(--rc) 40%,transparent)}
+.wm-art svg{width:100%;height:100%;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.wm-id small{font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:12px}.wm-id>b{display:block;font:700 26px/1.15 Cinzel,Georgia,serif;color:#fff1d0;margin:2px 0 10px}
+.wm-chips{display:flex;flex-wrap:wrap;gap:8px}.wm-chips span{display:flex;align-items:baseline;gap:5px;padding:6px 10px;border-radius:9px;background:rgba(0,0,0,.35);border:1px solid #3a3226;font-weight:800;color:#fff2c8;font-size:15px}
+.wm-chips i{font-style:normal;color:#ffd050}.wm-chips small{font-weight:500;color:#a8987c;font-size:11px}
+.wm-ring{--p:0;position:relative;width:104px;height:104px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#15120e 58%,transparent 59%),conic-gradient(#ffd050 calc(var(--p)*1%),#2a2418 0)}
+.wm-ring b{font:800 34px/1 Cinzel,Georgia,serif;color:#ffe080}.wm-ring small{color:#a8987c;font-size:11px;text-transform:uppercase}.wm-ring em{position:absolute;bottom:-18px;font-style:normal;font-size:11px;color:#a8987c}
+.wm-moves{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wm-mv{position:relative;display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:start;padding:12px 14px;border-radius:12px;background:#15120e;border:1px solid #2e281e}
+.wm-mv kbd{display:flex;align-items:center;justify-content:center;height:40px;border-radius:9px;background:linear-gradient(180deg,#3a3226,#221d16);border:1px solid #6a5a3a;border-bottom-width:3px;color:#ffe0a0;font:800 12px sans-serif}
+.wm-mv small{color:#a8987c;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.wm-mv b{display:block;font-size:16px;color:#fff2c8}.wm-mv p{margin:4px 0 0;font-size:12.5px;line-height:1.4;color:#c8bba0}
+.wm-mv em{position:absolute;right:10px;top:10px;font-style:normal;font-size:12px;font-weight:700;color:#ff9a7a}.wm-mv.off{opacity:.55;filter:grayscale(.6)}
+.wm-cmb{display:flex;gap:4px;margin-top:4px}.wm-cmb i{font-style:normal;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font:700 11px sans-serif;background:#221d16;border:1px solid #3a3226;color:#6a5e4a}.wm-cmb i.on{background:#ffd050;border-color:#ffd050;color:#2a1c00}
+.wm-path{padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,210,120,.16)}.wm-path h4 small{text-transform:none;letter-spacing:0;font:400 11px sans-serif;color:#8a7b62;margin-left:6px}
+.wm-track{display:flex;gap:0;overflow-x:auto;padding:6px 2px 4px}
+.wm-st{position:relative;flex:1 0 70px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.wm-st::before{content:'';position:absolute;top:15px;left:-50%;right:50%;height:4px;background:#2a2418;z-index:0}.wm-st:first-child::before{display:none}
+.wm-st.got::before{background:linear-gradient(90deg,#c89a3a,#ffd050)}
+.wm-st i{position:relative;z-index:1;font-style:normal;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 13px sans-serif;background:#1a1611;border:2px solid #3a3226;color:#6a5e4a}
+.wm-st.big i{border-radius:9px;border-color:#8a6a2a;color:#c8a860}
+.wm-st.got i{background:#ffd050;border-color:#ffe9a0;color:#2a1c00;box-shadow:0 0 10px rgba(255,208,80,.5)}
+.wm-st.now i{outline:3px solid rgba(255,208,80,.35);outline-offset:3px}
+.wm-st span{font-size:11px;line-height:1.3;color:#c8bba0;max-width:90px}.wm-st:not(.got) span{color:#7a6e58}
+.wm-note{margin:0}
+@media (max-width:1100px){.st-trees{grid-template-columns:1fr;overflow:auto}.st-tree{min-height:520px}.wm-lay{grid-template-columns:1fr}.wm-moves{grid-template-columns:1fr}}
 </style>
 <script src="./vendor/peerjs.min.js"></script>
 <script type="importmap">
@@ -331,43 +410,44 @@ input[type=text]{width:100%;padding:12px;font:inherit;font-size:20px;background:
 "imports": {
 "three": "./vendor/three/build/three.module.min.js",
 "three/addons/": "./vendor/three/examples/jsm/",
-"./src/audio.js": "./src/audio.js?v=1793879214",
-"./src/battle.js": "./src/battle.js?v=1793879214",
-"./src/battledata.js": "./src/battledata.js?v=1793879214",
-"./src/battlemap.js": "./src/battlemap.js?v=1793879214",
-"./src/battlequests.js": "./src/battlequests.js?v=1793879214",
-"./src/battleui.js": "./src/battleui.js?v=1793879214",
-"./src/character.js": "./src/character.js?v=1793879214",
-"./src/chat.js": "./src/chat.js?v=1793879214",
-"./src/classes2.js": "./src/classes2.js?v=1793879214",
-"./src/classlore.js": "./src/classlore.js?v=1793879214",
-"./src/combat.js": "./src/combat.js?v=1793879214",
-"./src/data.js": "./src/data.js?v=1793879214",
-"./src/fog.js": "./src/fog.js?v=1793879214",
-"./src/game.js": "./src/game.js?v=1793879214",
-"./src/guards.js": "./src/guards.js?v=1793879214",
-"./src/icons.js": "./src/icons.js?v=1793879214",
-"./src/icons2.js": "./src/icons2.js?v=1793879214",
-"./src/lore.js": "./src/lore.js?v=1793879214",
-"./src/main.js": "./src/main.js?v=1793879214",
-"./src/menu.js": "./src/menu.js?v=1793879214",
-"./src/mobs.js": "./src/mobs.js?v=1793879214",
-"./src/mp.js": "./src/mp.js?v=1793879214",
-"./src/mpsync.js": "./src/mpsync.js?v=1793879214",
-"./src/net.js": "./src/net.js?v=1793879214",
-"./src/pets.js": "./src/pets.js?v=1793879214",
-"./src/player.js": "./src/player.js?v=1793879214",
-"./src/sailintro.js": "./src/sailintro.js?v=1793879214",
-"./src/saves.js": "./src/saves.js?v=1793879214",
-"./src/seabreak.js": "./src/seabreak.js?v=1793879214",
-"./src/state.js": "./src/state.js?v=1793879214",
-"./src/story.js": "./src/story.js?v=1793879214",
-"./src/terrain.js": "./src/terrain.js?v=1793879214",
-"./src/ui.js": "./src/ui.js?v=1793879214",
-"./src/util.js": "./src/util.js?v=1793879214",
-"./src/vfx.js": "./src/vfx.js?v=1793879214",
-"./src/world.js": "./src/world.js?v=1793879214",
-"./src/yard.js": "./src/yard.js?v=1793879214"
+"./src/audio.js": "./src/audio.js?v=1793881266",
+"./src/banners.js": "./src/banners.js?v=1793881266",
+"./src/battle.js": "./src/battle.js?v=1793881266",
+"./src/battledata.js": "./src/battledata.js?v=1793881266",
+"./src/battlemap.js": "./src/battlemap.js?v=1793881266",
+"./src/battlequests.js": "./src/battlequests.js?v=1793881266",
+"./src/battleui.js": "./src/battleui.js?v=1793881266",
+"./src/character.js": "./src/character.js?v=1793881266",
+"./src/chat.js": "./src/chat.js?v=1793881266",
+"./src/classes2.js": "./src/classes2.js?v=1793881266",
+"./src/classlore.js": "./src/classlore.js?v=1793881266",
+"./src/combat.js": "./src/combat.js?v=1793881266",
+"./src/data.js": "./src/data.js?v=1793881266",
+"./src/fog.js": "./src/fog.js?v=1793881266",
+"./src/game.js": "./src/game.js?v=1793881266",
+"./src/guards.js": "./src/guards.js?v=1793881266",
+"./src/icons.js": "./src/icons.js?v=1793881266",
+"./src/icons2.js": "./src/icons2.js?v=1793881266",
+"./src/lore.js": "./src/lore.js?v=1793881266",
+"./src/main.js": "./src/main.js?v=1793881266",
+"./src/menu.js": "./src/menu.js?v=1793881266",
+"./src/mobs.js": "./src/mobs.js?v=1793881266",
+"./src/mp.js": "./src/mp.js?v=1793881266",
+"./src/mpsync.js": "./src/mpsync.js?v=1793881266",
+"./src/net.js": "./src/net.js?v=1793881266",
+"./src/pets.js": "./src/pets.js?v=1793881266",
+"./src/player.js": "./src/player.js?v=1793881266",
+"./src/sailintro.js": "./src/sailintro.js?v=1793881266",
+"./src/saves.js": "./src/saves.js?v=1793881266",
+"./src/seabreak.js": "./src/seabreak.js?v=1793881266",
+"./src/state.js": "./src/state.js?v=1793881266",
+"./src/story.js": "./src/story.js?v=1793881266",
+"./src/terrain.js": "./src/terrain.js?v=1793881266",
+"./src/ui.js": "./src/ui.js?v=1793881266",
+"./src/util.js": "./src/util.js?v=1793881266",
+"./src/vfx.js": "./src/vfx.js?v=1793881266",
+"./src/world.js": "./src/world.js?v=1793881266",
+"./src/yard.js": "./src/yard.js?v=1793881266"
 }
 }
 </script>
@@ -1116,6 +1196,6 @@ body.battlefx #buffs{left:18px!important;bottom:92px!important;transform:none!im
 <div id="intro" hidden><div class="lid top"></div><div class="lid bot"></div><div class="sub"></div><div class="skip">Press Space to skip</div></div>
 <div id="death" hidden><div class="dbox"><div class="eyebrow">Defeated</div><h1>You Have Fallen</h1><p>Your spirit drifts back to the nearest settlement. You will rise with part of your health; your gear and progress are safe.</p><button class="btn big gold" id="btnRespawn">Rise Again</button></div></div>
 
-<script type="module" src="./src/main.js?v=1793879214"></script>
+<script type="module" src="./src/main.js?v=1793881266"></script>
 </body>
 </html>

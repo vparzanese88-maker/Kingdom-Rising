@@ -15,6 +15,7 @@ import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage
 import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv } from './data.js';
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
+import { plantBanner } from './banners.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
@@ -41,20 +42,27 @@ const CAST_T = {
 };
 const ACT_T = { snaretrap: 0.6, explotrap: 0.6, spikepit: 0.6, frosttrap: 0.6, poisontrap: 0.6, snaretrap2: 0.6, envenom: 0.9, powderkeg: 0.5, cannonade: 1.0, rally: 0.8 };
 const GOLDC = '#ffd84a', HEALC = '#7ee07e', REDC = '#ff6a4a', BLUEC = '#8ac8ff';
-const SUPPORT = { shieldwall: GOLDC, laststand: GOLDC, fortify: GOLDC, rally: GOLDC, battlecry: REDC, bloodrage: REDC, undying: REDC, rampage: REDC, adrenaline: REDC, intimshout: REDC,
+const SUPPORT = { warbanner: '#ff7a3a', vigorbanner: HEALC, stonebanner: BLUEC, shieldwall: BLUEC, laststand: GOLDC, fortify: GOLDC, rally: GOLDC, battlecry: REDC, bloodrage: REDC, undying: REDC, rampage: REDC, adrenaline: REDC, intimshout: REDC,
   mending: HEALC, healingwave: HEALC, chainheal: HEALC, spiritlink: HEALC, ancestral: BLUEC, wartotem: GOLDC, barkskin: GOLDC, focus: BLUEC, eagleeye: BLUEC, quickreload: GOLDC, icebarrier: BLUEC, manasurge: BLUEC, vanish: '#b080ff', smokebomb: '#b080ff' };
 // which particles show for each running buff
 const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], undying: ['blood', 0.3], fury: ['blood', 0.28], rage: ['blood', 0.3], rampage: ['blood', 0.3], cry: ['ember', 0.25],
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
-  poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2] };
+  poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
-const ALLY_FX = { fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
+const ALLY_FX = { warbanner: [8, 0, 'rally', 15], vigorbanner: [8, 0.3], stonebanner: [8, 0, 'ward', 15], fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const easeIn = (t) => t * t * t;
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+// a bright crescent where a big swing passes: flat for sweeps, upright for overhead blows
+function abilityArc(center, yaw, r, col, span, vertical, width = 0.4) {
+  const g = vertical ? new THREE.RingGeometry(r * (1 - width), r, 40, 1, -Math.PI / 3, span) : new THREE.RingGeometry(r * (1 - width), r, 40, 1, yaw - Math.PI / 2 - span / 2, span);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  m.position.copy(center); if (vertical) m.rotation.y = yaw - Math.PI / 2; else m.rotation.x = -Math.PI / 2;
+  V.temp(m, 0.3, (mm, t) => { m.material.opacity = 0.9 * (1 - t) * (1 - t); m.scale.setScalar(0.85 + t * 0.3); if (t >= 0.99) { m.geometry.dispose(); m.material.dispose(); } });
+}
 
 // ---------- first-person view model ----------
 const P = (x, y, z, rx, ry, rz) => [x, y, z, rx, ry, rz];
@@ -177,6 +185,8 @@ class ViewModel {
       switch (n) {
         case 'swing1': r = seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'swing2': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
+        case 'lowcut': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
+        case 'kick': break;
         case 'swing3': r = seq(VP.s3a, VP.s3b, t, 0.42); if (dual) l = seq(mirror(VP.s3a), mirror(VP.s3b), t, 0.42, VP.restL); break;
         case 'off1': l = seq(mirror(VP.s1a), mirror(VP.s1b), t, 0.3, VP.restL); break;
         case 'off2': l = seq(mirror(VP.s2a), mirror(VP.s2b), t, 0.3, VP.restL); break;
@@ -338,6 +348,7 @@ export class Player {
   }
   onKeyUp(code) { if ((code === 'ShiftLeft' || code === 'ShiftRight') && this.shiftT != null) { if (G.time - this.shiftT < 0.22 && !G.uiOpen) this.tryDodge(); this.shiftT = null; } }
   onMouse(btn, down) {
+    if (btn === 0) this.lmbDown = down;
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
@@ -350,7 +361,7 @@ export class Player {
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = Game.canHold(this.h, this.weapon.wt) ? { t: 0, on: false, tick: 0, snd: null } : null; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
       if (down) { this.cancelGather(); if (!this.dodge && !this.block) this.press = { t: 0, charging: false, melee: true }; }
-      else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
+      else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else if (pr.again) {} else if (pr.t > 0.22 && this.atk) this.queued = 'heavy'; else this.light(); }
       return;
     }
     if (btn === 0) { if (down) { this.cancelGather(); this.light(); } }
@@ -378,7 +389,7 @@ export class Player {
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK(); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; return m; }
+  speedMul() { let m = this.wSpeedK(); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -411,10 +422,10 @@ export class Player {
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
-    const charge = clamp((p.t - 0.22) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
+    const charge = clamp((p.t - (W.kind === 'melee' && p.t0 != null ? p.t0 : 0.22)) / (G.battleFx && W.kind === 'bow' ? 1.8 : G.battleFx && W.kind === 'gun' ? 1.4 : W.kind === 'melee' ? 0.5 : 0.8) * (1 + this.wp('heavy') * 0.3 + this.pk('heavyhit') * 0.4 + (W.kind === 'bow' ? this.pk('quickdraw') * 0.3 : 0)), 0, 1);
     if (W.kind === 'bow' || W.kind === 'gun') return this.startAtk('release', W.kind === 'gun' ? 0.35 : 0.3, { charge, fire: true });
     if (W.kind === 'staff') return this.startAtk('cast', 0.45, { charge, big: true });
-    this.startAtk('heavy', 0.75 / W.speed, { charge, last: true, held: true });
+    this.startAtk('heavy', 0.7 / W.speed / Math.sqrt(this.speedMul()), { charge, last: true, held: true }); this.lungeT = 0.16; this.lungeDir = this.fwd(); this.fovKick = Math.max(this.fovKick, 4 + charge * 3);
   }
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
@@ -434,11 +445,11 @@ export class Player {
     }
     if (G.battleFx && this.W && this.W.kind === 'melee' && this.press && this.press.melee && !G.uiOpen) {
       this.press.t += dt;
-      if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block && Game.canHold(this.h, this.weapon.wt)) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.55, hit: true, noQueue: true, hold: true }; S.charge('none'); }
+      if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block && !(this.atk && !this.atk.hold) && Game.canHold(this.h, this.weapon.wt)) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.5, hit: true, noQueue: true, hold: true }; this.press.t0 = this.press.t; S.charge('none'); }
       if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
-      if (this.press.charging && !this.press.full && this.press.t >= 1.0) { this.press.full = true; V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full power', 'crit'); }
-      // fully wound up: the heavy swing follows straight through on its own (letting go earlier swings early)
-      if (this.press && this.press.charging && this.press.t >= 1.02) { const pr = this.press; this.press = null; this.releaseHeavy(pr); }
+      // the wind-up takes half a second; then the heavy swing follows through on its own (letting go earlier swings early).
+      // Keep holding and another heavy follows once this one has finished.
+      if (this.press && this.press.charging && this.press.t - this.press.t0 >= 0.5) { const pr = this.press; this.press = this.lmbDown ? { t: 0.23, charging: false, melee: true, again: true } : null; this.releaseHeavy(pr); }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
@@ -462,7 +473,7 @@ export class Player {
       this.atk = null; this.trail.active = this.trailL.active = false;
       this.comboT = 0.55;
       if (a.last) this.combo = 0;
-      if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') this.light(); }
+      if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') this.light(); else if (q === 'heavy') { this.press = { t: 0.23, charging: false, melee: true }; } }
     }
   }
   doHit(a) {
@@ -487,6 +498,8 @@ export class Player {
       // Kingdom Battles: show the swing as a slash crescent exactly as wide and long as what it hits
       if (G.battleFx) { const R = st.aoe || (st.line ? reach * 1.7 : reach), H = st.aoe ? Math.PI : st.line ? 0.22 : half; slashArc(this, R, H, a.name, targets.length > 0, this.trail.mat.uniforms.color.value); }
       const big = !!a.last;
+      if (a.held && targets.length) { G.hitstop = Math.max(G.hitstop || 0, 0.07 + (a.charge || 0) * 0.04); V.addShake(0.25 + (a.charge || 0) * 0.2); this.fovKick = Math.max(this.fovKick, 6); for (const m of targets) { V.burst('spark', m.pos.clone().setY(m.pos.y + 1.1), 14, { speed: 6 }); V.sphereFlash(m.pos.clone().setY(m.pos.y + 1.1), 0.9, '#fff0c0', 0.15); } S.executeHit && S.executeHit(targets[0].pos, false); }
+      else if (a.held) V.addShake(0.08);
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
@@ -678,7 +691,7 @@ export class Player {
   // ---------- class abilities ----------
   ability(i, fromCast) {
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
-    if (this.h.level < ab.level) { G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
+    if (!Game.abilityKnown(this.h, ab)) { G.hooks.toast && G.hooks.toast(Game.hasTrees(this.h.cls) ? `Unlock ${ab.name} in your skill trees (K)` : `${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
     if (G.battleFx && ab.needs && !(this.weapon && (this.weapon.wt === ab.needs || (ab.needs === 'daggers' && this.weapon.wt === 'dagger')))) { G.hooks.toast && G.hooks.toast(`${ab.name} needs ${WEAPON_TYPES[ab.needs].name} in your hands`, '🗡', 'bad'); S.error(); return; }
     if (G.battleFx && ab.song) { G.hooks.toast && G.hooks.toast(`${ab.name} plays by itself while it is on your hotbar`, '♪', 'gold'); return; }
     const key = 'a' + (i + 1);
@@ -692,7 +705,7 @@ export class Player {
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
-    const up = G.abilScale ? G.abilScale(this.h.level) : this.pk('a_' + ab.id) ? 1.5 : 1;
+    const up = (G.abilScale ? G.abilScale(this.h.level) : 1) * (this.pk('a_' + ab.id) ? 1.5 : 1);
     const f = this.fwd();
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
@@ -736,16 +749,36 @@ export class Player {
         V.burst('green', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); V.ring(this.pos, 4, '#60ff90', 0.5);
         break;
       }
-      case 'bash': {
-        this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; S.block(true, this.pos);
-        setTimeout(() => { if (this.dead) return; let n = 0; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) { n++; this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); S.blunt(m.pos); } const p = this.pos.clone().addScaledVector(this.fwd(), 2); V.ring(p, 2.5, '#c8d8ff', 0.35); V.burst('spark', p.setY(p.y + 1), 16, { speed: 5 }); V.addShake(n ? 0.35 : 0.1); }, 140 * ABIL_DELAY_K());
+      case 'kick': { // a front kick: the leg snaps out (a boot in first person), the enemy goes flying
+        this.atk = { name: 'kick', t: 0, dur: 0.5, hit: true, noQueue: true }; this.kickFx(); S.kick(this.pos, false);
+        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, 2.8, 0.7).sort((a2, b2) => a2.dist2(this.pos) - b2.dist2(this.pos))[0]; const fw = this.fwd();
+          if (t) { const p = t.pos.clone().setY(t.pos.y + 1); this.dealDamage(t, base * 1.2 * up, { stun: 1.5, knock: fw.clone().multiplyScalar(t.def && t.def.boss ? 6 : 17 * (up > 1 ? 1.3 : 1)).setY(4), big: true, melee: true, blunt: true });
+            S.kick(t.pos, true); V.burst('dust', p, 24, { speed: 5, dir: fw, size: 0.8 }); V.burst('spark', p, 10, { speed: 5 }); V.sphereFlash(p, 1, '#fff0d0', 0.18); V.ring(t.pos, 2, '#ffe0b0', 0.3); G.hitstop = 0.06; V.addShake(0.35); this.fovKick = 6; V.number(p.clone().setY(p.y + t.height * 0.6 + 0.4), 'Kicked!', 'crit'); }
+          else V.addShake(0.08); }, 150 * ABIL_DELAY_K());
         break;
       }
-      case 'shieldwall': { this.buffs.wall = 6; S.block(true, this.pos); S.battleCry(); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#a8c8ff', 0.5); V.ring(this.pos, 3, '#a8c8ff', 0.5); G.hooks.toast && G.hooks.toast((G.battleFx ? 'Iron Stance' : 'Shield Wall') + ': 60% less damage for 6 s', '🛡', 'gold'); break; }
-      case 'laststand': { this.heal(this.maxHp * 0.3 * this.hk()); this.buffs.stand = 10; S.battleCry(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 3 }); V.ring(this.pos, 4, '#ffd080', 0.5); break; }
-      case 'execute': {
-        this.atk = { name: 'smash', t: 0, dur: 0.75, hit: true, noQueue: true }; S.swingW(this.swingKind('swing3'), 1.8, this.pos);
-        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (this.W ? this.W.reach : 2.5) + 0.6, 0.6).sort((a2, b2) => a2.dist2(this.pos) - b2.dist2(this.pos))[0]; if (t) { const low = t.hp < t.maxHp * 0.35; this.dealDamage(t, base * 2.6 * (low ? 2 : 1), { big: true, melee: true, critBonus: low ? 0.5 : 0, knock: t.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(6) }); if (low) V.number(t.pos.clone().setY(t.pos.y + t.height + 0.8), 'Execute!', 'crit'); G.hitstop = 0.1; V.addShake(0.45); V.burst('blood', t.pos.clone().setY(t.pos.y + 1), 20, { speed: 4 }); } }, 480 * ABIL_DELAY_K());
+      case 'bash': {
+        this.atk = { name: 'smash', t: 0.35, dur: 0.6, hit: true, noQueue: true }; S.block(true, this.pos);
+        setTimeout(() => { if (this.dead) return; for (const m of mobsInCone(this.pos, this.yaw, 3.4, 0.9)) this.dealDamage(m, base * 1.4, { stun: 2, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(9), big: true, melee: true, blunt: true }); }, 140 * ABIL_DELAY_K());
+        break;
+      }
+      case 'shieldwall': { const dur = 6 * up; this.buffs.wall = dur; S.shieldWall(); this.atk = { name: 'smash', t: 0.55, dur: 0.35, hit: true, noQueue: true };
+        V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 2.2, '#a8c8ff', 0.5); V.ring(this.pos, 3.5, '#a8c8ff', 0.6); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 4 }); V.addShake(0.2);
+        this.domeFx(dur, '#8ab8ff'); G.hooks.toast && G.hooks.toast('Shield Wall: 60% less damage for ' + Math.round(dur) + ' s', '🛡', 'gold'); break; }
+      case 'laststand': { this.heal(this.maxHp * 0.3 * this.hk()); this.buffs.stand = 10; S.battleCry(); S.heartbeat(); S.heal();
+        const p = this.pos.clone(); V.burst('gold', p.clone().setY(p.y + 1), 60, { speed: 5, vy: 4 }); V.burst('blood', p.clone().setY(p.y + 1), 20, { speed: 3 }); V.ring(p, 5, '#ffd080', 0.7); V.ring(p, 3, '#ff6a4a', 0.5); V.sphereFlash(p.clone().setY(p.y + 1), 2.4, '#ffc060', 0.5); V.light(p.clone().setY(p.y + 2), '#ffc060', 8, 0.8); V.addShake(0.3); this.fovKick = 8;
+        this.pillarFx('#ffc860'); this.domeFx(10, '#ffb040', 0.07); break; }
+      case 'execute': { // weapon raised high and glowing, a beat, then a crushing overhead blow; a kill rings like a bell
+        this.atk = { name: 'smash', t: 0, dur: 0.8, hit: true, noQueue: true }; S.executeWind(); this.fovKick = 3;
+        { const hp = this.handPos(false); V.light(hp, '#ff4020', 6, 0.5); V.burst('ember', hp, 16, { speed: 1.5, vy: 1 }); }
+        setTimeout(() => { if (this.dead) return; const fw = this.fwd(); const t = mobsInCone(this.pos, this.yaw, (this.W ? this.W.reach : 2.5) + 0.8, 0.6).sort((a2, b2) => a2.dist2(this.pos) - b2.dist2(this.pos))[0];
+          const at = t ? t.pos.clone() : this.pos.clone().addScaledVector(fw, 2.2); at.y = heightAt(at.x, at.z);
+          abilityArc(at.clone().setY(at.y + 1.1).addScaledVector(fw, -0.6), this.yaw, 1.9, '#ff5030', Math.PI, true);
+          V.ring(at, 3.2, '#ff3018', 0.5); V.burst('stone', at.clone().setY(at.y + 0.2), 22, { speed: 6, grav: 14, size: 0.28 }); V.burst('dust', at.clone().setY(at.y + 0.2), 26, { speed: 5, size: 1 }); V.addShake(0.6); G.hitstop = 0.12; this.fovKick = 10;
+          if (t) { const low = t.hp < t.maxHp * 0.35; this.dealDamage(t, base * 2.6 * up * (low ? 3 : 1), { big: true, melee: true, critBonus: low ? 0.5 : 0, knock: fw.clone().multiplyScalar(6) }); const p = t.pos.clone().setY(t.pos.y + 1.1);
+            V.burst('blood', p, low ? 60 : 30, { speed: 6 }); V.sphereFlash(p, low ? 2 : 1.2, '#ff2010', 0.3); V.light(p, '#ff3010', 10, 0.4);
+            if (t.dead) { S.executeHit(t.pos, true); V.number(p.clone().setY(p.y + t.height * 0.6 + 0.6), 'EXECUTED', 'crit'); this.buffFx('Executed', '#ff3020'); G.hitstop = 0.2; } else { S.executeHit(t.pos, false); if (low) V.number(p.clone().setY(p.y + t.height * 0.6 + 0.6), 'Execute!', 'crit'); } }
+          else S.executeHit(at, false); }, 430 * ABIL_DELAY_K());
         break;
       }
       case 'intimshout': {
@@ -754,14 +787,32 @@ export class Player {
         break;
       }
       case 'bloodrage': { this.buffs.rage = 10; this.buffs.tq = Math.max(this.buffs.tq || 0, 10); S.roar(this.pos); S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 5 }); V.ring(this.pos, 4, '#c01818', 0.5); this.fovKick = 8; break; }
-      case 'cleavestrike': { this.atk = { name: 'swing3', t: 0.1, dur: 0.6, hit: true, noQueue: true }; S.swingW(this.swingKind('swing3'), 1.6, this.pos); setTimeout(() => { if (this.dead) return; for (const m of mobsInCone(this.pos, this.yaw, 4 * (up > 1 ? 1.3 : 1), 1.4)) this.dealDamage(m, base * 1.8 * up, { big: true, melee: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(5) }); V.addShake(0.2); }, 200 * ABIL_DELAY_K()); break; }
+      case 'cleavestrike': { this.atk = { name: 'swing3', t: 0.1, dur: 0.55, hit: true, noQueue: true }; S.cleave(this.pos); S.swingW(this.swingKind('swing3'), 1.6, this.pos);
+        setTimeout(() => { if (this.dead) return; const R = 4 * (up > 1 ? 1.3 : 1); abilityArc(this.pos.clone().setY(this.pos.y + 1.05), this.yaw, R, '#fff0c0', Math.PI * 1.15, false); let n = 0;
+          for (const m of mobsInCone(this.pos, this.yaw, R, 1.5)) { n++; this.dealDamage(m, base * 1.8 * up, { big: true, melee: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(7) }); V.burst('spark', m.pos.clone().setY(m.pos.y + 1), 12, { speed: 5 }); V.burst('blood', m.pos.clone().setY(m.pos.y + 1), 10, { speed: 4 }); }
+          V.addShake(n ? 0.35 : 0.15); if (n) { G.hitstop = 0.05; this.fovKick = 5; } }, 150 * ABIL_DELAY_K()); break; }
       case 'shieldthrow': {
         const from = this.handPos(true), dir = this.aimDir(from), bounces = 2 + (up > 1 ? 2 : 0);
         spawnProjectile({ pos: from, vel: dir.multiplyScalar(34), grav: 2, radius: 0.5, dmg: base * 1.4 * up, owner: 'player', kind: 'axe', life: 1.5, onHit: (p, m, pos) => { if (!m) return; const hit = new Set([m]); let cur = m; this.dealDamage(m, p.dmg, { stun: 1.5, blunt: true }); S.blunt(m.pos); for (let k = 0; k < bounces; k++) { const nx = G.mobs.filter(o => !o.dead && !hit.has(o) && o.pos.distanceTo(cur.pos) < 10).sort((x, y) => x.pos.distanceTo(cur.pos) - y.pos.distanceTo(cur.pos))[0]; if (!nx) break; hit.add(nx); V.burst('spark', nx.pos.clone().setY(nx.pos.y + 1), 10, { speed: 4 }); this.dealDamage(nx, p.dmg * 0.8, { stun: 1.2, blunt: true }); S.blunt(nx.pos); cur = nx; } } });
         S.swingW('blunt', 1.4, this.pos); this.atk = { name: 'swing2', t: 0.3, dur: 0.45, hit: true }; break;
       }
       case 'fortify': { this.buffs.fort = 12 * up; S.block(true, this.pos); V.ring(this.pos, 3, '#c8d8ff', 0.5); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.6, '#9ab8ff', 0.5); break; }
-      case 'hamstring': { this.atk = { name: 'swing1', t: 0.2, dur: 0.45, hit: true, noQueue: true }; S.swingW(this.swingKind('swing1'), 1, this.pos); const t = mobsInCone(this.pos, this.yaw, (this.W ? this.W.reach : 2.5) + 0.5, 0.7).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; if (t) { this.dealDamage(t, base * 1.1, { slow: 6, bleed: base * 0.15, melee: true }); V.number(t.pos.clone().setY(t.pos.y + t.height + 0.6), 'Hamstrung!', 'bad'); } break; }
+      case 'hamstring': { // drop low and slash across the back of the legs: a red streak at knee height, blood, then they limp
+        this.atk = { name: 'lowcut', t: 0.15, dur: 0.45, hit: true, noQueue: true }; this.landDip = Math.max(this.landDip || 0, 0.35); S.swingW(this.swingKind('swing2'), 1.1, this.pos);
+        setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (this.W ? this.W.reach : 2.5) + 0.6, 0.75).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0];
+          abilityArc(this.pos.clone().setY(this.pos.y + 0.45), this.yaw, 2.6, '#ff3030', Math.PI * 0.8, false, 0.25);
+          if (!t) return; S.hamstring(t.pos); const bl = base * 0.3 * (this.pk('a_hamstring') ? 1.5 : 1); this.dealDamage(t, base * 1.3 * up, { slow: 6, bleed: bl, melee: true });
+          const knee = t.pos.clone().setY(t.pos.y + 0.5); V.burst('blood', knee, 34, { speed: 5, dir: this.right() }); V.sphereFlash(knee, 0.8, '#ff2020', 0.2); G.hitstop = 0.05; V.addShake(0.2);
+          V.number(t.pos.clone().setY(t.pos.y + t.height + 0.6), 'Crippled!', 'bad');
+          let k = 0; const iv = setInterval(() => { if (t.dead || ++k > 15) { clearInterval(iv); return; } V.burst('blood', t.pos.clone().setY(t.pos.y + 0.4), 3, { speed: 1 }); V.ring(t.pos, 0.9, '#c01818', 0.35); }, 400);
+        }, 120 * ABIL_DELAY_K()); break; }
+      case 'warbanner': case 'vigorbanner': case 'stonebanner': { // drive the pole into the ground with a slam; the flag rises and snaps open
+        const kind = ab.id === 'warbanner' ? 'war' : ab.id === 'vigorbanner' ? 'vigor' : 'stone', sb = this.pk('a_warbanner');
+        this.atk = { name: 'smash', t: 0.3, dur: 0.5, hit: true, noQueue: true };
+        setTimeout(() => { if (this.dead) return; const at = this.pos.clone().addScaledVector(this.fwd(), 1.3); plantBanner(kind, at, this.yaw, 15 * (sb ? 1.5 : 1), 8 + (sb ? 3 : 0)); S.bannerPlant(kind);
+          if (this.pk('rallying')) { this.heal(this.maxHp * 0.1 * this.hk()); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2 }); }
+          if (this.pk('cmd')) { for (const m of mobsInRadius(at, 7)) this.dealDamage(m, base * 0.6 * up, { knock: m.pos.clone().sub(at).setY(0).normalize().multiplyScalar(12), stun: 1, blunt: true }); V.ring(at, 7, '#ffd050', 0.5); V.sphereFlash(at.clone().setY(at.y + 1), 2.5, '#ffd050', 0.3); S.rumble && S.rumble(at, 0.7); V.addShake(0.4); } }, 150 * ABIL_DELAY_K());
+        break; }
       case 'bulwark': { this.atk = { name: 'smash', t: 0.3, dur: 0.6, hit: true, noQueue: true }; setTimeout(() => { if (this.dead) return; const p = this.pos.clone(); areaDamage(p, 6, base * 1.5, { knock: 12, stun: 2, big: true, melee: true, blunt: true }); V.ring(p, 6, '#c8d8ff', 0.5); V.burst('stone', p, 40, { speed: 8, size: 0.3, grav: 14 }); V.burst('dust', p, 30, { speed: 6, size: 1.2 }); S.blunt(p); S.rumble(p, 0.8); V.addShake(0.5); }, 230 * ABIL_DELAY_K()); break; }
       case 'whirlwind': this.atk = { name: 'fury', t: 0, dur: 2 * (up > 1 ? 1.4 : 1), hits: up > 1 ? 12 : 9, rank: 6, hit: true, noQueue: true, base: base * up }; S.swingW(this.swingKind('area'), 1.6, this.pos); break;
       case 'rampage': this.buffs.rampage = 8 * up; S.roar(this.pos); V.burst('ember', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 5 }); break;
@@ -1120,6 +1171,29 @@ export class Player {
     if (B.barrier > 0 && Math.random() < 0.5) V.emit('frost', at(), { speed: 0.3, size: 0.3, life: 0.6 });
   }
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
+  // talents that fire when you kill something
+  onKillPerks(mob) {
+    if (this.pk('bloodlust')) { const add = this.maxHp * 0.05; this.heal(add); V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 2, vy: 1 }); }
+    if (this.pk('momentum')) { const i = ABILITIES[this.h.cls].findIndex(a => a.id === 'charge'); if (i >= 0 && this.cd['a' + (i + 1)] > 0) { this.cd['a' + (i + 1)] = 0; V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), 'Charge ready!', 'crit'); } }
+  }
+  // first person: a boot snaps out from below the view and back (third person shows the leg kicking)
+  kickFx() {
+    const boot = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: '#4a3420', roughness: 0.85 });
+    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.5), mat); shin.position.z = -0.25; boot.add(shin);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.3), new THREE.MeshStandardMaterial({ color: '#2a1c10', roughness: 0.8 })); foot.position.set(0, -0.02, 0.08); boot.add(foot);
+    V.temp(boot, 0.42, (b, t) => { if (this.camDist > 0.6) { b.visible = false; return; } const ext = t < 0.35 ? easeOut(t / 0.35) : 1 - ease((t - 0.35) / 0.65), fw = this.fwd();
+      b.position.copy(this.pos).addScaledVector(fw, 0.25 + ext * 0.75).addScaledVector(this.right(), 0.12); b.position.y += 0.75 + ext * 0.35; b.rotation.set(-0.3 + ext * 0.2, this.yaw, 0); if (t >= 0.99) b.traverse(o => o.geometry && o.geometry.dispose()); });
+  }
+  // a see-through shell around you while a guard buff lasts
+  domeFx(dur, col, op = 0.12) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1.25, 28, 18), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    V.temp(m, dur, (mm, t) => { m.position.copy(this.pos); m.position.y += 1; m.visible = this.camDist > 0.6; const pulse = 1 + Math.sin(t * dur * 6) * 0.03; m.scale.set(pulse, 1.25 * pulse, pulse); m.material.opacity = op * (t > 0.85 ? (1 - t) / 0.15 : 1) * (0.8 + 0.2 * Math.sin(t * dur * 4)); if (t >= 0.99) { m.geometry.dispose(); m.material.dispose(); } });
+  }
+  // a column of light rising out of the ground around you
+  pillarFx(col) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 6, 24, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    V.temp(m, 0.9, (mm, t) => { m.position.copy(this.pos); m.position.y += 3 * Math.min(1, t * 3); m.scale.set(1 + t * 0.4, Math.min(1, t * 3), 1 + t * 0.4); m.material.opacity = 0.5 * (1 - t); if (t >= 0.99) { m.geometry.dispose(); m.material.dispose(); } });
+  }
   buffFx(name, col) {
     V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.5), name, 'heal');
     let e = document.getElementById('buffflash'); if (!e) { e = document.createElement('div'); e.id = 'buffflash'; document.body.appendChild(e); }
@@ -1206,7 +1280,7 @@ export class Player {
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
     if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
-    let crit = Math.random() < this.D.crit;
+    let crit = Math.random() < this.D.crit + (this.pk('keen') ? 0.08 : 0);
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
     if (this.h.cls === 'ranger' && this.pk('cap') && m.hp >= m.maxHp) crit = true;
     if (o.critBonus && Math.random() < o.critBonus) crit = true;
@@ -1214,8 +1288,9 @@ export class Player {
     if (crit) dmg *= 1.75;
     const arm = m.def.armor || 0; if (arm && !o.el) { if (o.blunt) { if (Math.random() < 0.3) V.number(m.pos.clone().setY(m.pos.y + m.height + 0.7), 'Crush!', 'crit'); } else dmg *= 1 - arm; }
     if (this.wp('exec') && m.hp < m.maxHp * 0.35) dmg *= 1.3;
-    if (this.h.cls === 'warrior' && this.pk('cap') && this.hp < this.maxHp * 0.5) dmg *= 1.2;
+    if (this.h.cls === 'warrior' && this.pk('cap')) dmg *= this.hp < this.maxHp * 0.5 ? 1.32 : 1.1;
     if (this.buffs.cry > 0) dmg *= 1.3;
+    if (this.buffs.bWar > 0) dmg *= 1.2;
     if (this.buffs.fury > 0) dmg *= 1.25;
     if (this.buffs.rage > 0) dmg *= 1.15;
     if (this.h.cls === 'berserker' && this.pk('reckless')) dmg *= 1.1;
@@ -1287,6 +1362,9 @@ export class Player {
     if (this.buffs.wall > 0) dmg = Math.max(1, Math.round(dmg * (this.pk('a_shieldwall') ? 0.4 : 0.4)));
     if (this.buffs.fort > 0) dmg = Math.max(1, Math.round(dmg * 0.7));
     if (this.buffs.stand > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
+    if (this.buffs.bStone > 0) { dmg = Math.max(1, Math.round(dmg * 0.7)); V.burst('frost', this.pos.clone().setY(this.pos.y + 1.1), 8, { speed: 3 }); }
+    if (this.pk('immov')) dmg = Math.max(1, Math.round(dmg * 0.9));
+    if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; this.hurtT = 0.4; this.regenDelay = 4;
     V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); S.hurt();
@@ -1296,6 +1374,7 @@ export class Player {
     if (this.hp <= 0) { this.hp = 0; this.die(); }
   }
   debuff(type, t, dps = 0) {
+    if (type === 'stun' && this.block && this.pk('immov')) return; // Immovable
     this.db = this.db || {};
     const d = this.db[type] || (this.db[type] = { t: 0, dps: 0 });
     d.t = Math.max(d.t, t); d.dps = Math.max(d.dps, dps);
@@ -1407,7 +1486,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     for (const k of ['food', 'drink']) {
       const b = h[k];
@@ -1481,6 +1560,7 @@ export class Player {
     } else {
       const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? 12 : 2.5));
       this.vel.x += (md.x * spd - this.vel.x) * k; this.vel.z += (md.z * spd - this.vel.z) * k;
+      if (this.lungeT > 0) { this.lungeT -= dt; const ls = 7.5 * Math.max(0, this.lungeT / 0.16); this.vel.x += this.lungeDir.x * ls * Math.min(1, dt * 30); this.vel.z += this.lungeDir.z * ls * Math.min(1, dt * 30); } // a heavy swing carries you a step forward
     }
     // gravity / swim
     const wl = waterLevelAt(this.pos.x, this.pos.z), gh = groundAt(this.pos.x, this.pos.z, this.pos.y);

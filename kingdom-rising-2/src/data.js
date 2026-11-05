@@ -150,24 +150,54 @@ export function classFamilies(cls) { const out = []; for (const wt of CLASSES[cl
 // ---------- Skill trees ----------
 // Class tree: 1 point per level after 1. Rows unlock after spending points in the tree (row r needs 3*r points).
 export const TREE_ROW_POINTS = 2;
+// ---- class skill trees: three per class, points from levels, abilities unlocked inside the trees ----
+// node: id, name, t ('ab' an ability, 'pas' a passive, 'ult' the tree's capstone), ab (ability id for 'ab'),
+// row/col on the tree grid (3 columns), req (the node above it you need first), free (owned from the start)
+export const CLASS_TREES = {
+  warrior: [
+    { id: 'vanguard', name: 'Vanguard', tag: 'Brute force and momentum', col: '#e2533a', icon: 'cleavestrike', nodes: [
+      { id: 'n_cleave', t: 'ab', ab: 'cleavestrike', row: 0, col: 1, free: true },
+      { id: 'n_charge', t: 'ab', ab: 'charge', row: 1, col: 1, req: 'n_cleave' },
+      { id: 'keen', t: 'pas', name: 'Keen Edge', icon: 'crit', row: 1, col: 0, req: 'n_cleave', desc: '+8% chance to land critical hits with any weapon.' },
+      { id: 'a_cleavestrike', t: 'pas', name: 'Sweeping Blows', icon: 'cleavestrike', row: 2, col: 0, req: 'keen', desc: 'Cleave hits 50% harder and reaches further.' },
+      { id: 'a_charge', t: 'pas', name: 'Bull Rush', icon: 'charge', row: 2, col: 2, req: 'n_charge', desc: 'Charge hits 50% harder and carries you further.' },
+      { id: 'n_execute', t: 'ab', ab: 'execute', row: 3, col: 1, req: 'n_charge' },
+      { id: 'bloodlust', t: 'pas', name: 'Bloodlust', icon: 'heart', row: 3, col: 0, req: 'a_cleavestrike', desc: 'Every kill restores 5% of your health.' },
+      { id: 'a_execute', t: 'pas', name: 'Headsman', icon: 'execute', row: 4, col: 1, req: 'n_execute', desc: 'Execute hits 50% harder.' },
+      { id: 'momentum', t: 'pas', name: 'Momentum', icon: 'dash', row: 4, col: 2, req: 'a_charge', desc: 'Killing an enemy makes Charge ready again.' },
+      { id: 'cap', t: 'ult', name: 'Unstoppable', icon: 'crown', row: 5, col: 1, desc: 'Deal 20% more damage while below half health, and 10% more at all times.' },
+    ] },
+    { id: 'bulwark', name: 'Bulwark', tag: 'Hold the line, take every blow', col: '#6aa8ff', icon: 'shieldwall', nodes: [
+      { id: 'n_wall', t: 'ab', ab: 'shieldwall', row: 0, col: 1 },
+      { id: 'hp', t: 'pas', name: 'Toughness', icon: 'heart', row: 1, col: 0, req: 'n_wall', desc: '+10% maximum health.' },
+      { id: 'armor', t: 'pas', name: 'Iron Skin', icon: 'shield', row: 1, col: 2, req: 'n_wall', desc: '+15% armour.' },
+      { id: 'shieldwall', t: 'pas', name: 'Shield Discipline', icon: 'shield', row: 2, col: 0, req: 'hp', desc: 'Blocking no longer slows you down.' },
+      { id: 'a_shieldwall', t: 'pas', name: 'Iron Wall', icon: 'shieldwall', row: 2, col: 2, req: 'armor', desc: 'Shield Wall lasts 50% longer.' },
+      { id: 'n_stone', t: 'ab', ab: 'stonebanner', row: 2, col: 1, req: 'n_wall' },
+      { id: 'unbreak', t: 'pas', name: 'Unbreakable Guard', icon: 'shield', row: 3, col: 0, req: 'shieldwall', desc: 'Your block can never be broken, however hard you are hit.' },
+      { id: 'n_stand', t: 'ab', ab: 'laststand', row: 3, col: 1, req: 'n_stone' },
+      { id: 'thorns', t: 'pas', name: 'Spiked Plate', icon: 'shield', row: 4, col: 2, req: 'a_shieldwall', desc: 'Enemies that hit you in melee take 15% of the damage back.' },
+      { id: 'immov', t: 'ult', name: 'Immovable', icon: 'crown', row: 5, col: 1, desc: 'Take 10% less damage from everything, and nothing can knock you down or stun you while you block.' },
+    ] },
+    { id: 'warlord', name: 'Warlord', tag: 'Banners, boots and battlefield control', col: '#f0c040', icon: 'warbanner', nodes: [
+      { id: 'n_kick', t: 'ab', ab: 'kick', row: 0, col: 1 },
+      { id: 'n_war', t: 'ab', ab: 'warbanner', row: 1, col: 1, req: 'n_kick' },
+      { id: 'a_kick', t: 'pas', name: 'Mule Kick', icon: 'kick', row: 1, col: 0, req: 'n_kick', desc: 'Kick hits 50% harder and sends them even further.' },
+      { id: 'n_ham', t: 'ab', ab: 'hamstring', row: 2, col: 0, req: 'a_kick' },
+      { id: 'drum', t: 'pas', name: 'War Drums', icon: 'warbanner', row: 2, col: 2, req: 'n_war', desc: 'While you stand by any of your banners you swing and move 10% faster.' },
+      { id: 'n_vigor', t: 'ab', ab: 'vigorbanner', row: 3, col: 1, req: 'n_war' },
+      { id: 'a_hamstring', t: 'pas', name: 'Crippling Cut', icon: 'hamstring', row: 3, col: 0, req: 'n_ham', desc: 'Hamstring bleeds 50% harder.' },
+      { id: 'a_warbanner', t: 'pas', name: 'Standard Bearer', icon: 'warbanner', row: 4, col: 1, req: 'n_vigor', desc: 'All your banners last 50% longer and reach 3 m further.' },
+      { id: 'rallying', t: 'pas', name: 'Rallying Cry', icon: 'battlecry', row: 4, col: 2, req: 'drum', desc: 'Planting a banner heals you for 10% of your health.' },
+      { id: 'cmd', t: 'ult', name: "Warlord's Command", icon: 'crown', row: 5, col: 1, desc: 'Planting a banner sends out a shockwave that knocks back and staggers every enemy within 7 m.' },
+    ] },
+  ],
+};
+export const ULT_PTS = 10; // points in a tree before its capstone opens
 export const CLASS_TREE = {
   musketeer: [],
   shaman: [],
-  warrior: [
-    { id: 'hp', row: 0, name: "Toughness", icon: 'heart', max: 1, desc: "+10% maximum health." },
-    { id: 'armor', row: 0, name: "Iron Skin", icon: 'shield', max: 1, desc: "+15% armour." },
-    { id: 'shieldwall', row: 0, name: "Shield Discipline", icon: 'shield', max: 1, desc: "Blocking with a shield no longer slows you down." },
-    { id: 'unbreak', row: 1, name: "Unbreakable Guard", icon: 'shield', max: 1, desc: "Your block can never be broken, however hard you are hit." },
-    { id: 'a_charge', row: 1, name: "Bull Rush", icon: 'charge', max: 1, desc: "Charge hits 50% harder and stuns longer." },
-    { id: 'a_bash', row: 1, name: "Concussive Bash", icon: 'bash', max: 1, desc: "Shield Bash hits 50% harder and stuns longer." },
-    { id: 'a_shieldwall', row: 2, name: "Iron Wall", icon: 'shieldwall', max: 1, desc: "Shield Wall lasts 50% longer." },
-    { id: 'a_cleavestrike', row: 2, name: "Sweeping Blows", icon: 'cleavestrike', max: 1, desc: "Cleaving Strike hits 50% harder and wider." },
-    { id: 'bloodlust', row: 2, name: "Bloodlust", icon: 'heart', max: 1, desc: "Every kill restores 5% of your health." },
-    { id: 'a_shieldthrow', row: 3, name: "Ricochet", icon: 'shieldthrow', max: 1, desc: "Shield Throw bounces to 2 more enemies and hits harder." },
-    { id: 'a_fortify', row: 3, name: "Bastion", icon: 'fortify', max: 1, desc: "Fortify lasts 50% longer." },
-    { id: 'a_execute', row: 3, name: "Headsman", icon: 'execute', max: 1, desc: "Execute hits 50% harder." },
-    { id: 'cap', row: 4, name: "Unstoppable", icon: 'crown', max: 1, desc: "Deal 20% more damage while below half health." },
-  ],
+  warrior: [], // filled from CLASS_TREES below
   berserker: [
     { id: 'dmg', row: 0, name: "Brute Force", icon: 'fist', max: 1, desc: "+8% damage with everything." },
     { id: 'hp', row: 0, name: "Thick Hide", icon: 'heart', max: 1, desc: "+10% maximum health." },
@@ -277,16 +307,16 @@ export const CLASSES = {
 // Class abilities on keys 1 2 3, unlocked by level. Rank II at level 15.
 export const ABILITIES = {
   warrior: [
-    { id: 'charge', cost: 30, name: "Charge", key: '', level: 1, cd: 6, icon: '', desc: "Charge forward 12 m, knocking aside and stunning everything in your path." },
-    { id: 'bash', cost: 25, name: "Shield Bash", key: '', level: 2, cd: 6, icon: '', desc: "Slam your shield into the enemies in front of you: damage, knock back and stun them for 2 s." },
+    { id: 'cleavestrike', cost: 25, name: "Cleave", key: '', level: 1, cd: 6, icon: '', desc: "A huge sweeping blow that cuts through every enemy in front of you and knocks them back." },
+    { id: 'charge', cost: 30, name: "Charge", key: '', level: 2, cd: 8, icon: '', desc: "Charge forward 12 m, knocking aside and stunning everything in your path." },
+    { id: 'kick', cost: 20, name: "Kick", key: '', level: 3, cd: 7, icon: '', desc: "A brutal front kick: sends the enemy flying back several metres and leaves them reeling for 1.5 s." },
     { id: 'shieldwall', cost: 40, name: "Shield Wall", key: '', level: 4, cd: 20, icon: '', desc: "Brace yourself: take 60% less damage from every direction for 6 s." },
-    { id: 'cleavestrike', cost: 30, name: "Cleaving Strike", key: '', level: 6, cd: 7, icon: '', desc: "A wide sweeping blow that hits every enemy in front of you." },
-    { id: 'laststand', cost: 35, name: "Last Stand", key: '', level: 8, cd: 40, icon: '', desc: "Refuse to fall: heal 30% of your health and take 25% less damage for 10 s." },
-    { id: 'shieldthrow', cost: 30, name: "Shield Throw", key: '', level: 10, cd: 9, icon: '', desc: "Hurl your shield: it stuns the first enemy and bounces to two more." },
-    { id: 'fortify', cost: 35, name: "Fortify", key: '', level: 12, cd: 25, icon: '', desc: "+50% armour and your guard cannot be broken for 12 s." },
-    { id: 'execute', cost: 35, name: "Execute", key: '', level: 14, cd: 10, icon: '', desc: "A massive overhead strike. Deals double damage to enemies below 35% health." },
-    { id: 'hamstring', cost: 20, name: "Hamstring", key: '', level: 16, cd: 6, icon: '', desc: "A crippling cut: the target bleeds and is slowed for 6 s." },
-    { id: 'bulwark', cost: 50, name: "Bulwark Slam", key: '', level: 18, cd: 18, icon: '', desc: "Slam your shield into the ground: knock back and stun every enemy within 6 m." },
+    { id: 'warbanner', cost: 35, name: "War Banner", key: '', level: 6, cd: 24, icon: '', desc: "Plant a red war banner for 15 s. While you fight within 8 m of it you hit 20% harder." },
+    { id: 'hamstring', cost: 20, name: "Hamstring", key: '', level: 8, cd: 6, icon: '', desc: "A low, vicious cut to the legs: the target bleeds heavily and is crippled to half speed for 6 s." },
+    { id: 'vigorbanner', cost: 35, name: "Banner of Vigor", key: '', level: 10, cd: 30, icon: '', desc: "Plant a green banner for 15 s. While you stand within 8 m of it you heal 3% of your health every second." },
+    { id: 'execute', cost: 35, name: "Execute", key: '', level: 12, cd: 10, icon: '', desc: "Raise your weapon high and bring it down with everything you have. Triple damage to enemies below 35% health." },
+    { id: 'stonebanner', cost: 35, name: "Banner of Stone", key: '', level: 14, cd: 30, icon: '', desc: "Plant a steel-blue banner for 15 s. While you stand within 8 m of it you take 30% less damage." },
+    { id: 'laststand', cost: 35, name: "Last Stand", key: '', level: 16, cd: 40, icon: '', desc: "Refuse to fall: heal 30% of your health and take 25% less damage for 10 s." },
   ],
   berserker: [
     { id: 'earthsplitter', cost: 40, name: "Leap Strike", key: '', level: 1, cd: 7, icon: '', desc: "Leap toward your aim and crash down, shattering the ground and stunning everything around you." },
@@ -816,3 +846,6 @@ for (const [id, c] of Object.entries(NEW_CLASSES)) {
   ABILITIES[id] = c.abilities.map(a => Object.assign({ key: '', icon: '', kit: true }, a));
 }
 export const STARTING_PAIR = PAIR_PARTS;
+
+// the classes with skill trees use their tree nodes as their talent list (so perks and saves line up)
+for (const [cls, trees] of Object.entries(CLASS_TREES)) { const nodes = []; for (const T of trees) for (const n of T.nodes) { if (n.t === 'ab') { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; nodes.push(n); } CLASS_TREE[cls] = nodes; }

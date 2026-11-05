@@ -343,6 +343,24 @@ export const S = {
     noise(t, 0.12, o.node, { type: 'bandpass', f: 3200, q: 2, gain: 0.25, a: 0.001 });
     tone(t, 0.3, o.node, { type: 'triangle', f: 640, f2: 520, gain: 0.08, a: 0.001 });
   },
+  // ---- warrior ability sounds ----
+  kick(pos, hit) { if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now(); noise(t, 0.16, o.node, { type: 'bandpass', f: 700, f2: 1600, q: 0.9, gain: 0.25, a: 0.02 });
+    if (hit) { tone(t + 0.1, 0.25, o.node, { type: 'sine', f: 140, f2: 45, gain: 0.7, a: 0.002 }); noise(t + 0.1, 0.18, o.node, { type: 'lowpass', f: 1200, f2: 300, q: 0.8, gain: 0.55, a: 0.002 }); noise(t + 0.1, 0.06, o.node, { type: 'highpass', f: 3000, q: 1, gain: 0.15, a: 0.001 }); } },
+  hamstring(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now(); noise(t, 0.12, o.node, { type: 'highpass', f: 2500, f2: 6000, q: 1, gain: 0.3, a: 0.005 });
+    tone(t + 0.08, 0.18, o.node, { type: 'sawtooth', f: 900, f2: 180, gain: 0.12, a: 0.002 }); noise(t + 0.08, 0.3, o.node, { type: 'bandpass', f: 600, f2: 200, q: 3, gain: 0.25, a: 0.01 });
+    tone(t + 0.14, 0.12, o.node, { type: 'square', f: 220, f2: 70, gain: 0.08, a: 0.001 }); },
+  executeWind() { if (!ctx) return; const o = out(null, sfxBus, 0.2), t = now(); noise(t, 0.45, o.node, { type: 'bandpass', f: 200, f2: 1600, q: 2, gain: 0.25, a: 0.35 }); tone(t, 0.45, o.node, { type: 'sawtooth', f: 60, f2: 140, gain: 0.08, a: 0.3 }); },
+  executeHit(pos, kill) { if (!ctx) return; const o = out(pos, sfxBus, 0.3), t = now();
+    tone(t, 0.6, o.node, { type: 'sine', f: 90, f2: 28, gain: 0.85, a: 0.002 }); noise(t, 0.35, o.node, { type: 'lowpass', f: 1400, f2: 180, q: 0.7, gain: 0.7, a: 0.001 }); noise(t, 0.1, o.node, { type: 'bandpass', f: 3500, q: 2, gain: 0.35, a: 0.001 });
+    if (kill) { for (const f of [196, 247, 294]) tone(t + 0.05, 1.6, o.node, { type: 'triangle', f, gain: 0.07, a: 0.01 }); tone(t + 0.05, 1.8, o.node, { type: 'sine', f: 98, gain: 0.18, a: 0.01 }); } },
+  cleave(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now(); noise(t, 0.4, o.node, { type: 'bandpass', f: 400, f2: 2400, q: 1.4, gain: 0.4, a: 0.08 }); tone(t + 0.1, 0.3, o.node, { type: 'sawtooth', f: 160, f2: 90, gain: 0.05, a: 0.05 }); },
+  bannerPlant(kind) { if (!ctx) return; const o = out(null, sfxBus, 0.25), t = now();
+    tone(t, 0.4, o.node, { type: 'sine', f: 100, f2: 40, gain: 0.7, a: 0.002 }); noise(t, 0.2, o.node, { type: 'lowpass', f: 900, f2: 200, q: 0.8, gain: 0.5, a: 0.002 });
+    for (let i = 0; i < 4; i++) noise(t + 0.15 + i * 0.09, 0.08, o.node, { type: 'bandpass', f: 900 + i * 100, q: 1.5, gain: 0.18, a: 0.005 }); // the cloth snapping open
+    const ch = kind === 'vigor' ? [262, 330, 392, 523] : kind === 'stone' ? [147, 220, 294] : [196, 294, 392];
+    for (const f of ch) tone(t + 0.2, 1.4, o.node, { type: kind === 'vigor' ? 'sine' : 'sawtooth', f, gain: kind === 'vigor' ? 0.06 : 0.035, a: 0.12 }); },
+  shieldWall() { if (!ctx) return; const o = out(null, sfxBus, 0.3), t = now(); for (const f of [520, 780, 1170]) tone(t, 1.0, o.node, { type: 'triangle', f, gain: 0.06, a: 0.002 }); tone(t, 1.2, o.node, { type: 'sine', f: 110, gain: 0.2, a: 0.05 }); noise(t, 0.15, o.node, { type: 'bandpass', f: 2500, q: 2, gain: 0.3, a: 0.001 }); },
+  heartbeat() { if (!ctx) return; const o = out(null, sfxBus, 0.05), t = now(); for (let i = 0; i < 3; i++) { tone(t + i * 0.55, 0.15, o.node, { type: 'sine', f: 70, f2: 45, gain: 0.6, a: 0.005 }); tone(t + i * 0.55 + 0.18, 0.15, o.node, { type: 'sine', f: 60, f2: 40, gain: 0.4, a: 0.005 }); } },
   battleCry() {
     if (!ctx) return; const o = out(null, sfxBus, 0.5); const t = now();
     for (let v = 0; v < 4; v++) { const f = 140 + v * 30; const x = tone(t + v * 0.03, 1.2, o.node, { type: 'sawtooth', f, f2: f * 1.25, gain: 0.08, a: 0.05 }); }

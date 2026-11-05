@@ -40,12 +40,13 @@ const GLYPH = {
   cloud: 'M18 44 C10 44 8 34 16 32 C14 22 26 18 30 26 C34 16 50 18 48 30 C56 30 56 44 46 44 Z',
   fist: 'M20 22 L44 22 L46 40 C46 48 40 52 32 52 C24 52 18 48 18 40 Z M20 22 L20 14 L28 14 L28 22 M28 14 L36 14 L36 22 M36 14 L44 14 L44 22',
   spiral: 'M32 32 m-12 0 a12 12 0 1 1 24 0 a8 8 0 1 1 -16 0 a4 4 0 1 1 8 0',
+  boot: 'M22 8 L36 8 L36 36 L50 40 C56 42 58 50 52 54 L20 54 L20 46 Z M20 46 L54 46',
   leaf: 'M14 50 C14 26 30 12 52 12 C52 34 38 50 14 50 Z M14 50 L40 24',
 };
 const STROKE_ONLY = new Set(['arrow', 'volley', 'snow', 'dash', 'whirl', 'trap', 'spiral']);
 // ability id -> [symbol, theme]
 const MAP = {
-  charge: ['dash', 'steel'], bash: ['shield', 'steel'], shieldwall: ['shield', 'gold'], cleavestrike: ['sword', 'steel'], laststand: ['heart', 'red'], shieldthrow: ['shield', 'frost'], fortify: ['shield', 'gold'], execute: ['skull', 'red'], hamstring: ['sword', 'red'], bulwark: ['shield', 'steel'],
+  charge: ['dash', 'steel'], bash: ['shield', 'steel'], kick: ['boot', 'steel'], warbanner: ['banner', 'red'], vigorbanner: ['banner', 'nature'], stonebanner: ['banner', 'frost'], shieldwall: ['shield', 'gold'], cleavestrike: ['whirl', 'steel'], laststand: ['heart', 'red'], shieldthrow: ['shield', 'frost'], fortify: ['shield', 'gold'], execute: ['skull', 'red'], hamstring: ['sword', 'red'], bulwark: ['shield', 'steel'],
   rally: ['banner', 'gold'], seismic: ['slam', 'steel'], bladestorm: ['whirl', 'steel'],
   earthsplitter: ['slam', 'red'], battlecry: ['shout', 'red'], intimshout: ['shout', 'shadow'], whirlwind: ['whirl', 'red'], adrenaline: ['heart', 'fire'], rampage: ['swords', 'red'], groundslam: ['slam', 'fire'], bloodrage: ['drop', 'red'], warstomp: ['burst', 'steel'], undying: ['skull', 'gold'],
   hurlaxe: ['axe', 'steel'], skullsplitter: ['axe', 'red'], frenzy: ['drop', 'fire'],

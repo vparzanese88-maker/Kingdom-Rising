@@ -1,7 +1,7 @@
 // Kingdom Battles: resource bar, command menu (B), respawn countdown and the end-of-match screen.
 import { G } from './state.js';
 import { S } from './audio.js';
-import { CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS, familiesOf, MASTERY_CAP, masteryXpFor, LEVEL_CAP } from './data.js';
+import { CLASS_TREES, CLASS_TREE, ULT_PTS, CLASSES, ARMOR_SLOT_LIST, ITEMS, ABILITIES, CLASS_POOLS, RARITY, STAT_NAMES, WEAPON_TYPES, SLOT_LABEL, RMB_SPECIAL, WSKILLS, familiesOf, MASTERY_CAP, masteryXpFor, LEVEL_CAP } from './data.js';
 import { settings, saveSettings } from './saves.js';
 import * as Game from './game.js';
 import * as UI from './ui.js';
@@ -428,31 +428,101 @@ function renderBook() {
   const h = G.save, cls = h.cls, list = ABILITIES[cls].slice().sort((a, b) => a.level - b.level), res = CLASS_POOLS[cls].uses === 'mana' ? 'mana' : 'endurance';
   const k = G.abilScale ? G.abilScale(h.level) : 1;
   c.innerHTML = '';
+  if (Game.hasTrees(cls)) return treesTab(c, h, cls, res);
   abilityTab(c, h, cls, list, res, k);
 }
-// ---- Weapons tab: big, plain rows: what each key does, and what you still have to learn ----
+// ---- Weapons tab: your weapons down the left; the chosen one's stats, moves and mastery path on the right ----
+let wView = null;
 function renderWeapons(c) {
   const h = G.save; c.innerHTML = '';
-  const act = Game.activeWeapon(h), main = h.equip.w1;
-  if (!act || !main) { c.appendChild(el('p', 'dim', 'No weapon in your hands.')); return; }
-  const wt = act.wt, W = WEAPON_TYPES[wt], fam = familiesOf(wt)[0], m = Game.wm(h, fam), need = masteryXpFor(m.lv);
+  const act = Game.activeWeapon(h);
+  if (!act) { c.appendChild(el('p', 'dim', 'No weapon in your hands.')); return; }
+  const known = [act.wt, ...((BATTLE ? [] : h.wseen) || []).filter(x => WEAPON_TYPES[x] && x !== act.wt && WEAPON_TYPES[x].kind !== 'shield')];
+  if (!wView || !known.includes(wView)) wView = act.wt;
+  const wt = wView, W = WEAPON_TYPES[wt], fam = familiesOf(wt)[0], m = Game.wm(h, fam), need = masteryXpFor(m.lv), held = wt === act.wt;
+  const item = held ? act : { kind: 'weapon', wt, tier: 2, rarity: 0, name: W.name };
+  const R = RARITY[item.rarity || 0] || RARITY[0];
+  const lay = el('div', 'wm-lay');
+  // left: every weapon you know
+  const list = el('div', 'wm-list'); list.appendChild(el('h4', '', 'Your weapons'));
+  for (const x of known) { const f = familiesOf(x)[0], mm = Game.wm(h, f), nd = masteryXpFor(mm.lv);
+    const b = el('button', 'wm-w' + (x === wt ? ' on' : ''), `<div class="bi">${Icons.itemSvg(x === act.wt ? act : { kind: 'weapon', wt: x, tier: 2, rarity: 0 })}</div><div><b>${WEAPON_TYPES[x].name}</b><small>${x === act.wt ? 'In your hands · ' : ''}Skill ${mm.lv}</small><i><u style="width:${Math.round(mm.xp / nd * 100)}%"></u></i></div>`);
+    b.onclick = () => { S.click(); wView = x; renderWeapons(c); }; list.appendChild(b); }
+  lay.appendChild(list);
+  // right: the weapon itself
+  const main = el('div', 'wm-main');
+  const dmg = held ? Math.round(Game.weaponDamage ? Game.weaponDamage(h, act) : act.dmg || 0) : null, spd = Math.round(Game.speedOf(h, wt) * 100), size = item.size > 1.05 ? 'Heavy' : item.size && item.size < 0.95 ? 'Light' : 'Standard';
+  const ring = Math.round(m.xp / need * 100);
+  main.appendChild(el('div', 'wm-hero', `<div class="wm-art" style="--rc:${R.col}">${Icons.itemSvg(item)}</div>
+    <div class="wm-id"><small style="color:${R.col}">${held ? R.name + ' ' : ''}${W.name}</small><b>${held ? act.name : W.name}</b>
+      <div class="wm-chips">${dmg != null ? `<span><i>⚔</i>${dmg}<small>damage</small></span>` : ''}<span><i>⏱</i>${spd}%<small>speed</small></span><span><i>↔</i>${(W.reach || 2.5).toFixed(1)} m<small>reach</small></span><span><i>⚖</i>${size}<small>size</small></span><span><i>✦</i>+${m.lv - 1}%<small>skill damage</small></span></div></div>
+    <div class="wm-ring" style="--p:${ring}"><b>${m.lv}</b><small>skill</small><em>${ring}%</em></div>`));
+  // moves
   const st = UI.comboSteps(wt).filter(x => !/^Hold/.test(x.n)), L = Game.comboLen(h, wt), sid = RMB_SPECIAL[wt], S2 = sid && WSKILLS[sid];
   const holdName = W.kind === 'bow' ? 'Draw and shoot' : W.kind === 'gun' ? 'Aim down the barrel' : W.kind === 'staff' ? 'Pour out the staff\'s element' : ['sword', 'swordshield', 'swordmace', 'greatsword'].includes(wt) ? 'Overhead strike' : 'Heavy blow';
-  const rows = [
-    ['LMB', 'Left click', W.kind === 'melee' ? (L === 1 ? `${st[0].n}` : `${L}-hit combo`) : st.map(x => x.n.replace('Tap: ', '')).join(', '), 0, W.kind === 'melee' ? st.slice(0, L).map(x => x.n).join(' → ') : ''],
-    ['HOLD', 'Hold left click', holdName, Game.canHold(h, wt) ? 0 : Game.WM_HOLD, holdText(wt)],
-    S2 && ['F', 'F', S2.name, Game.canSpecial(h, wt) ? 0 : Game.WM_F, S2.desc],
-    ['RMB', 'Right click', 'Block', 0, 'Hold to block. Raise it just before a hit to block it completely.'],
+  const combo = W.kind === 'melee' ? st.map((x, i) => `<i class="${i < L ? 'on' : ''}" title="${x.n}">${i + 1}</i>`).join('') : '';
+  const moves = [
+    ['LMB', 'Attack', W.kind === 'melee' ? (L === 1 ? st[0].n : `${L}-hit combo`) : st.map(x => x.n.replace('Tap: ', '')).join(', '), 0, W.kind === 'melee' ? st.slice(0, L).map(x => x.n).join(' → ') : '', combo],
+    ['HOLD', 'Hold attack', holdName, Game.canHold(h, wt) ? 0 : Game.WM_HOLD, holdText(wt)],
+    S2 && ['F', 'Special', S2.name, Game.canSpecial(h, wt) ? 0 : Game.WM_F, S2.desc],
+    ['RMB', 'Guard', 'Block', 0, 'Hold to block. Raise it just before a hit to block it completely and stagger the attacker.'],
   ].filter(Boolean);
-  const next = BATTLE ? null : Game.weaponUnlocks(wt).find(u => u.lv > m.lv);
-  c.appendChild(el('div', 'wsimple', `
-    <div class="wsh2"><div class="bi">${Icons.itemSvg(main)}</div><div><b>${main.name}</b>${BATTLE ? '' : `<div class="wsk"><span>${FAMILIESN(fam)} skill <b>${m.lv}</b></span><i><u style="width:${m.lv >= MASTERY_CAP ? 100 : Math.round(m.xp / need * 100)}%"></u></i><span class="dim">Speed ${Math.round(Game.speedOf(h, wt) * 100)}% · Damage +${m.lv - 1}%</span></div>`}</div></div>
-    ${rows.map(([k, label, name, lockAt, tip]) => `<div class="wrow3${lockAt ? ' off' : ''}" title="${(tip || '').replace(/"/g, '')}"><kbd>${k}</kbd><span class="wl">${label}</span><b>${name}</b>${lockAt ? `<em>🔒 skill ${lockAt}</em>` : ''}</div>`).join('')}
-    ${next ? `<div class="wnext">Next unlock: <b>${next.what}</b> at skill ${next.lv}. Hit things with it to get there.</div>` : ''}`));
+  main.appendChild(el('div', 'wm-moves', moves.map(([k, lab, name, lock, tip, cmb]) => `<div class="wm-mv${lock ? ' off' : ''}"><kbd>${k}</kbd><div><small>${lab}</small><b>${name}</b>${cmb ? `<div class="wm-cmb">${cmb}</div>` : ''}<p>${tip || ''}</p></div>${lock ? `<em>🔒 Skill ${lock}</em>` : ''}</div>`).join('')));
+  // mastery path: what each skill level brings
   if (!BATTLE) {
-    const seen = (h.wseen || []).filter(x => WEAPON_TYPES[x] && x !== wt);
-    if (seen.length) c.appendChild(el('div', 'wothers', '<h3>Other weapons you know</h3>' + seen.map(x => `<span><div class="bi">${Icons.itemSvg({ kind: 'weapon', wt: x, tier: 2, rarity: 0 })}</div>${WEAPON_TYPES[x].name} <b>skill ${Game.wm(h, familiesOf(x)[0]).lv}</b></span>`).join('')));
+    const un = Game.weaponUnlocks(wt), top = Math.max(10, ...un.map(u => u.lv), m.lv + 2), steps = [];
+    for (let lv = 1; lv <= top; lv++) { const here = un.filter(u => u.lv === lv); steps.push({ lv, txt: here.map(u => u.what).join(' · ') || (lv % 5 === 0 ? 'Faster swings' : ''), big: here.length > 0 }); }
+    main.appendChild(el('div', 'wm-path', `<h4>Mastery path <small>hit things with it to raise its skill · speed keeps rising to skill 20 · no cap</small></h4><div class="wm-track">${steps.map(x => `<div class="wm-st${x.lv <= m.lv ? ' got' : ''}${x.lv === m.lv ? ' now' : ''}${x.big ? ' big' : ''}" title="${x.txt}"><i>${x.lv}</i><span>${x.txt}</span></div>`).join('')}</div>`));
   }
+  if (!held) main.appendChild(el('p', 'dim wm-note', 'Not in your hands right now. Equip one to train it.'));
+  lay.appendChild(main); c.appendChild(lay);
+}
+// ---- skill trees: three columns of nodes joined by lines; spend a point on a glowing node to unlock it ----
+function bookTipAt(tip, d, html) { tip.innerHTML = html; tip.hidden = false; const r = d.getBoundingClientRect(), tr = tip.getBoundingClientRect(); let x = r.right + 12, y = r.top - 6; if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 12; if (y + tr.height > innerHeight - 8) y = innerHeight - tr.height - 8; tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; }
+function treesTab(c, h, cls, res) {
+  const trees = CLASS_TREES[cls], pts = Game.classPoints(h);
+  let tip = document.getElementById('booktip'); if (!tip) { tip = el('div', 'tip big ftip'); tip.id = 'booktip'; document.body.appendChild(tip); } tip.hidden = true;
+  // header: class, points, hotbar, reset
+  const top = el('div', 'st-top');
+  top.appendChild(el('div', 'st-cls', `<div class="st-crest">${Icons.abilityIcon(trees[0].nodes[0].ab || 'charge')}</div><div><b>${CLASSES[cls].name}</b><small>Level ${h.level} · one skill point every level</small></div>`));
+  top.appendChild(el('div', 'st-pts' + (pts ? ' have' : ''), `<b>${pts}</b><small>skill point${pts === 1 ? '' : 's'}</small>`));
+  const bar = el('div', 'st-bar');
+  for (let i = 0; i < 4; i++) { const sl = h.hotbar[i], a = sl && ABILITIES[cls].find(x => x.id === sl.id);
+    const d = el('button', 'st-slot' + (i === bookSel ? ' sel' : ''), `<span class="k">${i + 1}</span>${a ? Icons.abilityIcon(a.id) : '<i>+</i>'}`); d.title = a ? a.name : 'Empty slot';
+    d.onclick = () => { S.click(); bookSel = i; renderBook(); }; bar.appendChild(d); }
+  top.appendChild(el('div', 'st-barwrap', '<small>Hotbar: pick a slot, then click an unlocked ability</small>')).appendChild(bar);
+  const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
+  c.appendChild(top);
+  const wrap = el('div', 'st-trees');
+  for (const T of trees) {
+    const spent = Game.treeSpent(h, T.id), col = el('div', 'st-tree'); col.style.setProperty('--tc', T.col);
+    col.appendChild(el('div', 'st-th', `<div class="st-ti">${Icons.abilityIcon(T.icon)}</div><div><b>${T.name}</b><small>${T.tag}</small></div><span class="st-sp">${spent}</span>`));
+    const grid = el('div', 'st-grid'); const rows = Math.max(...T.nodes.map(n => n.row)) + 1; grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'st-lines'); svg.setAttribute('viewBox', `0 0 300 ${rows * 100}`); svg.setAttribute('preserveAspectRatio', 'none');
+    const cx = (n) => 50 + n.col * 100, cy = (n) => 50 + n.row * 100;
+    for (const n of T.nodes) { const par = n.t === 'ult' ? null : n.req && T.nodes.find(x => x.id === n.req); const own = Game.nodeOwned(h, n);
+      if (par) { const l = document.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', cx(par)); l.setAttribute('y1', cy(par)); l.setAttribute('x2', cx(n)); l.setAttribute('y2', cy(n)); l.setAttribute('class', own ? 'on' : Game.nodeOwned(h, par) ? 'next' : ''); svg.appendChild(l); } }
+    grid.appendChild(svg);
+    for (const n of T.nodes) {
+      const st = Game.nodeState(h, n), a = n.t === 'ab' && ABILITIES[cls].find(x => x.id === n.ab), slot = a ? h.hotbar.findIndex(x => x && x.id === a.id) : -1;
+      const d = el('button', `st-node ${n.t} ${st}`, `<div class="st-ic">${Icons.abilityIcon(n.icon)}</div>${slot >= 0 ? `<span class="st-k">${slot + 1}</span>` : ''}${n.t === 'ult' ? `<span class="st-u">${Math.min(spent, ULT_PTS)}/${ULT_PTS}</span>` : ''}`);
+      d.style.gridRow = n.row + 1; d.style.gridColumn = n.col + 1;
+      const kind = n.t === 'ab' ? 'Ability' : n.t === 'ult' ? 'Capstone' : 'Passive';
+      const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${slot + 1}</em>` : `<em class="ok">Unlocked: click to put it on hotbar key ${bookSel + 1}</em>`) : '<em class="ok">Unlocked</em>')
+        : st === 'open' ? '<em class="go">Click to unlock (1 point)</em>' : st === 'ready' ? '<em class="wait">Next in line: earn a point by levelling up</em>'
+        : n.t === 'ult' ? `<em class="no">Spend ${ULT_PTS} points in ${T.name} to open</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;
+      d.onmouseenter = () => bookTipAt(tip, d, `<div class="st-tt" style="--tc:${T.col}"><small>${T.name} · ${kind}</small><b>${n.name}</b>${a ? `<div class="dim">${a.cost} ${res} · every ${a.cd} s</div>` : ''}<p>${n.desc}</p>${how}</div>`);
+      d.onmouseleave = () => { tip.hidden = true; };
+      d.onclick = () => {
+        if (st === 'open') { if (Game.spendClass(h, n)) { S.levelUp ? S.objective() : S.click(); d.classList.add('pop'); if (a) { const free = [0, 1, 2, 3].find(i => !h.hotbar[i]); if (free != null) h.hotbar[free] = { t: 'ab', id: a.id }; } G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); setTimeout(renderBook, 160); } return; }
+        if (st === 'owned' && a) { S.click(); const prev = h.hotbar[bookSel]; if (slot >= 0) h.hotbar[slot] = prev; h.hotbar[bookSel] = { t: 'ab', id: a.id }; bookSel = (bookSel + 1) % 4; tip.hidden = true; G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); return; }
+        S.error();
+      };
+      grid.appendChild(d);
+    }
+    col.appendChild(grid); wrap.appendChild(col);
+  }
+  c.appendChild(wrap);
 }
 const FAMILIESN = (f) => ({ dagger: 'Dagger', sword: 'Sword', mace: 'Mace', axe: 'Axe' }[f] || (f.charAt(0).toUpperCase() + f.slice(1)));
 function abilityTab(c, h, cls, list, res, k) {

@@ -48,6 +48,11 @@ const SUPPORT = { warbanner: '#ff7a3a', vigorbanner: HEALC, stonebanner: BLUEC, 
 const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], undying: ['blood', 0.3], fury: ['blood', 0.28], rage: ['blood', 0.3], rampage: ['blood', 0.3], cry: ['ember', 0.25],
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
   poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
+// Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
+const DODGES = { step: { dur: 0.24, speed: 15, cost: 14, ifr: 0.2 }, roll: { dur: 0.45, speed: 14.5, cost: 20, ifr: 0.36 }, leap: { dur: 0.6, speed: 16, cost: 26, ifr: 0.5, vy: 5.5 } };
+const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
+  berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
+  monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
 const ABIL_DELAY_K = () => (G.battleFx ? 0.35 : 1);
 // [radius, heal fraction, buff kind, buff seconds] for abilities that help allies too
 const ALLY_FX = { warbanner: [8, 0, 'rally', 15], vigorbanner: [8, 0.3], stonebanner: [8, 0, 'ward', 15], fielddress: [8, 0.2], battlecry: [10, 0.1, 'rally', 10], rally: [14, 0.3, 'rally', 10], shieldwall: [8, 0, 'ward', 6], icebarrier: [10, 0, 'ward', 12], barkskin: [10, 0, 'ward', 8], quickreload: [14, 0, 'haste', 8], healingwave: [10, 0.15], ancestralward: [9, 0, 'ward', 8], wartotem: [10, 0, 'haste', 8], spiritlink: [12, 0.3] };
@@ -338,6 +343,7 @@ export class Player {
   }
   // Kingdom Battles: double-tap W, A, S or D to roll that way
   tapRoll(code) {
+    return; // dodging is on Shift now (tap), sprinting is holding Shift
     if (!G.battleFx || !{ KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1 }[code]) return;
     const now = performance.now(), last = this.lastTap;
     this.lastTap = { code, t: now };
@@ -1408,12 +1414,16 @@ export class Player {
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
-    const cost = 16 * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
-    if (this.end < cost) { S.error(); return; }
+    const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
+    const cost = D.cost * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
+    if (this.end < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); return; }
     this.end -= cost; this.endUseT = 1;
     let dir = dirOverride ? dirOverride : this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : this.fwd().multiplyScalar(-1);
-    this.dodge = { t: 0, dur: 0.48, dir, speed: 12 }; this.iframes = 0.38; this.atk = null; this.queued = null; this.block = false;
-    S.dodge(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 10, { speed: 2, size: 0.4 });
+    this.dodge = { t: 0, dur: D.dur, dir, speed: D.speed, kind }; this.iframes = D.ifr; this.atk = null; this.queued = null; this.block = false;
+    const feet = this.pos.clone().setY(this.pos.y + 0.1);
+    if (kind === 'step') { S.dodge(); this.landDip = Math.max(this.landDip || 0, 0.12); V.burst('dust', feet, 6, { speed: 2, size: 0.35 }); }
+    else if (kind === 'roll') { S.dodge(); S.step && S.step('dirt', this.pos, 1.4); this.landDip = Math.max(this.landDip || 0, 0.4); V.burst('dust', feet, 14, { speed: 3, size: 0.5 }); }
+    else { S.dodge(); S.jump && S.jump(); this.vel.y = D.vy; this.onGround = false; this.fovKick = Math.max(this.fovKick, 6); V.burst('dust', feet, 20, { speed: 4, size: 0.6 }); }
   }
   swapWeapon() {
     if (this.atk || this.dodge) return;
@@ -1639,9 +1649,10 @@ export class Player {
       if (a.name === 'spell') action = 'cast';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
-    const roll = this.dodge && !this.dodge.charge ? Math.min(1, this.dodge.t) : null;
+    const roll = this.dodge && !this.dodge.charge && this.dodge.kind !== 'step' ? Math.min(1, this.dodge.t) : null;
     const aimStaff = this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: true, dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && ((this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
     const vmAct = g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;

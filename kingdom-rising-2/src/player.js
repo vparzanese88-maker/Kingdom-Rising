@@ -437,6 +437,8 @@ export class Player {
       if (this.press.t > 0.22 && !this.press.charging && !this.dodge && !this.block && Game.canHold(this.h, this.weapon.wt)) { this.press.charging = true; this.atk = { name: 'charge', t: 0, dur: 0.55, hit: true, noQueue: true, hold: true }; S.charge('none'); }
       if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
       if (this.press.charging && !this.press.full && this.press.t >= 1.0) { this.press.full = true; V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full power', 'crit'); }
+      // fully wound up: the heavy swing follows straight through on its own (letting go earlier swings early)
+      if (this.press && this.press.charging && this.press.t >= 1.02) { const pr = this.press; this.press = null; this.releaseHeavy(pr); }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;

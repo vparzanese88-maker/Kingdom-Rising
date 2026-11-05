@@ -218,6 +218,7 @@ export function wperk(h, wt, id) { return (h.wm && h.wm[wt] && h.wm[wt].pts[id])
 const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 export function classPoints(h) { if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - spent(h.ctree || {}); return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 // ---- skill trees (classes that have them unlock their abilities inside the trees) ----
+export const slotFitsK = (i, a) => slotFits(i, a);
 export const hasTrees = (cls) => !BATTLE && !!CLASS_TREES[cls];
 // how many owned tree passives of one kind you have (dmg, crit, cd, hp, taken, regen, armor, heal, cost, speed, u_dmg, u_def, u_sup)
 let _fxKey = '', _fxC = {};

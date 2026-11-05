@@ -50,6 +50,9 @@ export function yardHero(cls, keep) {
   h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.yard = true; h.equip.chest = null; h.equip.legs = null;
   const w1 = h.equip.w1; if (w1) Object.assign(w1, Game.makeWeapon(w1.wt, 5, 3), { uid: w1.uid }); if (h.equip.w2) Object.assign(h.equip.w2, Game.makeWeapon(h.equip.w2.wt, 5, 3));
   h.hotbar = null; Game.autoFillHotbar(h);
+  // the yard shows off each class's best: the highest-level abilities (capstones and new tree abilities first) fill the bar
+  if (G.newFx && h.hotbar) { const A = ABILITIES[cls].slice().filter(a => !a.battle).sort((a, b) => ((b.campaign && !b.id.includes('_x') ? 100 : 0) + b.level) - ((a.campaign && !a.id.includes('_x') ? 100 : 0) + a.level)); h.hotbar = h.hotbar.map(() => null);
+    for (const a of A) { const i = h.hotbar.findIndex((s, k) => !s && Game.slotFitsK(k, a)); if (i >= 0) h.hotbar[i] = { t: 'ab', id: a.id }; } }
   return h;
 }
 // weapons you can pick: everything except a lone shield

@@ -527,7 +527,7 @@ function treesTab(c, h, cls, res) {
   top.appendChild(el('div', 'st-barwrap', '<small>Keys 1-5: buffs, songs, heals · F C Q: damage · drag abilities onto slots · right click a slot to clear it</small>')).appendChild(slotBar(h, cls));
   const rs = el('button', 'btn st-reset', 'Reset points'); rs.onclick = () => { S.click(); Game.resetClass(h); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); renderBook(); }; top.appendChild(rs);
   c.appendChild(top);
-  c.appendChild(el('div', 'st-legend', '<span><i class="lg dmg"></i>Damage ability · goes on <b>F C Q</b></span><span><i class="lg sup"></i>Buff, song or heal · goes on <b>1-5</b></span><span><i class="lg pas"></i>Passive · always on once learned</span><span><i class="lg ult"></i>Capstone · 10 points in that tree</span>'));
+  c.appendChild(el('div', 'st-legend', '<span><i class="lg dmg"></i>Damage ability · goes on <b>F C Q</b></span><span><i class="lg sup"></i>Buff, song or heal · goes on <b>1-5</b></span><span><i class="lg pas"></i>Passive · always on once learned</span><span><i class="lg ult"></i>Capstone · unlock the other 9 in that tree</span>'));
   const wrap = el('div', 'st-trees');
   for (const T of trees) {
     const spent = Game.treeSpent(h, T.id), col = el('div', 'st-tree'); col.style.setProperty('--tc', T.col);
@@ -545,7 +545,7 @@ function treesTab(c, h, cls, res) {
       const kind = a ? (n.t === 'ult' ? 'Capstone ability · ' : '') + (isSupport(a) ? 'keys 1-5 (buff, song or heal)' : 'Damage ability · F, C or Q') : n.t === 'ult' ? 'Capstone' : 'Passive';
       const how = st === 'owned' ? (a ? (slot >= 0 ? `<em class="ok">On hotbar key ${HOTBAR_KEYS[slot]} · drag it to another slot</em>` : `<em class="ok">Drag onto a slot, or right click to fill the first empty ${isSupport(a) ? '1-5' : 'F C Q'} slot</em>`) : '<em class="ok">Unlocked</em>')
         : st === 'open' ? '<em class="go">Click to unlock (1 point)</em>' : st === 'ready' ? '<em class="wait">Next in line: earn a point by levelling up</em>'
-        : n.t === 'ult' ? `<em class="no">Spend ${ULT_PTS} points in ${T.name} to open</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;
+        : n.t === 'ult' ? `<em class="no">Unlock the other ${ULT_PTS} in ${T.name} to open it</em>` : `<em class="no">Unlock ${(T.nodes.find(x => x.id === n.req) || {}).name} first</em>`;
       d.onmouseenter = () => bookTipAt(tip, d, `<div class="st-tt" style="--tc:${T.col}"><small>${T.name} · ${kind}</small><b>${n.name}</b>${a ? `<div class="dim">${a.cost} ${res} · every ${a.cd} s</div>` : ''}<p>${n.desc}</p>${how}</div>`);
       d.onmouseleave = () => { tip.hidden = true; };
       d.onclick = () => {

@@ -8,7 +8,8 @@ import { PROCS, procChance, PROC_DEX } from './data.js';
 import * as Skills from './skills.js';
 import { isSupport, NODE_TYPES, MOBS, MERCHANT_STOCK, HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
-import { BATTLE, ARENA } from './battlemap.js';
+import { BATTLE, ARENA, YARD } from './battlemap.js';
+const HERO_HUD = ARENA || YARD; // (the arena's HUD, also in the Training Yard)
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask, MOUNT, PORT } from './terrain.js';
 import { fbm } from './util.js';
@@ -61,7 +62,7 @@ let abilEls = null;
 export function buildAbilityBar() {
   // one dock at the bottom centre: level badge beside the bars, the hotbar, a thin XP line under it
   if (G.newFx && !document.querySelector('#bottom .barsrow')) { const bt = $('bottom'), row = el('div', 'barsrow'); bt.insertBefore(row, bt.firstChild); row.append($('lvl'), $('bars')); bt.appendChild($('xpbar')); }
-  if (ARENA) { const row = document.querySelector('.barsrow'); if (row && !row.classList.contains('arhp')) { row.classList.add('arhp'); $('bottom').parentNode.appendChild(row); } } // the arena: health big and alone in the bottom-left corner, abilities along the bottom
+  if (HERO_HUD) { document.body.classList.add('arenamode'); const row = document.querySelector('.barsrow'); if (row && !row.classList.contains('arhp')) { row.classList.add('arhp'); $('bottom').parentNode.appendChild(row); } } // the arena: health big and alone in the bottom-left corner, abilities along the bottom
   const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = '';
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));
@@ -133,7 +134,7 @@ export function updateHUD(dt) {
   if (p.maxMana > 0) { $('manaI').style.width = (p.mana / p.maxMana * 100) + '%'; $('manaT').textContent = `${Math.floor(p.mana)} / ${p.maxMana} Mana`; }
   $('endI').style.width = (p.end / p.maxEnd * 100) + '%'; $('endT').textContent = `${Math.floor(p.end)} / ${p.maxEnd} Endurance`;
   $('vignette').style.opacity = p.hurtT > 0 ? p.hurtT * 2 : 0;
-  if (ARENA) { let e = $('arccme'); if (!e) { e = el('div', ''); e.id = 'arccme'; document.body.appendChild(e); } const db = p.db || {}, cc = p.dead ? null : p.fearT > 0 ? ['😱', 'FEARED', p.fearT] : db.stun && db.stun.t > 0 ? ['💫', 'STUNNED', db.stun.t] : db.freeze && db.freeze.t > 0 ? ['❄', 'FROZEN', db.freeze.t] : db.slow && db.slow.t > 0 ? ['🐌', 'SLOWED', db.slow.t] : null; const k2 = cc ? cc[1] + Math.ceil(cc[2]) : ''; if (e._k !== k2) { e._k = k2; e.innerHTML = cc ? `<span>${cc[0]}</span><b>${cc[1]}</b><i>${Math.ceil(cc[2])}</i>` : ''; e.style.display = cc ? '' : 'none'; } } // you: a big, clear sign when you cannot act
+  if (HERO_HUD) { let e = $('arccme'); if (!e) { e = el('div', ''); e.id = 'arccme'; document.body.appendChild(e); } const db = p.db || {}, cc = p.dead ? null : p.fearT > 0 ? ['😱', 'FEARED', p.fearT] : db.stun && db.stun.t > 0 ? ['💫', 'STUNNED', db.stun.t] : db.freeze && db.freeze.t > 0 ? ['❄', 'FROZEN', db.freeze.t] : db.slow && db.slow.t > 0 ? ['🐌', 'SLOWED', db.slow.t] : null; const k2 = cc ? cc[1] + Math.ceil(cc[2]) : ''; if (e._k !== k2) { e._k = k2; e.innerHTML = cc ? `<span>${cc[0]}</span><b>${cc[1]}</b><i>${Math.ceil(cc[2])}</i>` : ''; e.style.display = cc ? '' : 'none'; } } // you: a big, clear sign when you cannot act
   { const ak = p.adsK || 0, e = $('adsv'); if (e && Math.abs((e._k || 0) - ak) > 0.01) { e._k = ak; e.style.opacity = ak.toFixed(2); document.body.classList.toggle('ads', ak > 0.5); } } // aiming down the barrel: dark old-photograph edges
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {

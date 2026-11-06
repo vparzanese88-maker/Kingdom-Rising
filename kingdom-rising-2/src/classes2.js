@@ -192,7 +192,7 @@ export const NEW_CLASSES = {
       { id: 'whirlclaw', name: 'Whirling Claws', level: 16, cd: 12, cost: 30, t: 'nova', r: 4.5, dmg: 1.9, bleed: 0.1, fx: 'blood', desc: 'Spin with both axes, tearing everything within 4.5 m.' },
       { id: 'packcall', name: 'Call the Pack', level: 18, cd: 50, cost: 40, t: 'summon', pet: 'wolfpack', n: 3, extra: 2, dur: 30, desc: 'A pack of wolves runs to your side for 30 s.' },
     ] },
-  blunderbuss: { name: 'Blunderbuss', campaignOnly: true, desc: 'A gunner in heavy plate who carries a flared scattergun and a belt of powder bombs. Blows whole groups apart up close.',
+  blunderbuss: { name: 'Blunderbuss', desc: 'A gunner in heavy plate who carries a flared scattergun and a belt of powder bombs. Blows whole groups apart up close.',
     weapons: ['blunderbuss'], armor: 'mail', start: 'blunderbuss', startName: 'Blunderbuss', outfit: 'warrior',
     colors: { main: '#4a4038', trim: '#c8902a', metal: '#8a8e96' }, pool: { hp: [125, 16], mana: [0, 0], end: [105, 6], uses: 'end' },
     info: { tag: 'Plate-clad gunner', diff: 2, role: 'Close-range area damage, very tough', res: 'Endurance', tips: ['Every shot is a spray of shot: get close and catch several enemies in it.', 'Grenades and Mortar Barrage blow apart groups you cannot reach.', 'Your plate and Iron Hide let you stand in the middle of the fight.'] },

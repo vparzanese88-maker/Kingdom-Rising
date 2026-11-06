@@ -272,7 +272,7 @@ function spawnBattleNpcs() {
 // Both modes fight the same way: class abilities come from the class kit (they work with any weapon),
 // no talent trees, and abilities grow a little stronger, longer and wider every level instead.
 function kitAbilities(levelOf) {
-  if (BATTLE) for (const c in ABILITIES) ABILITIES[c] = ABILITIES[c].filter(a => !a.campaign); // the extra tree abilities are campaign-only
+  if (BATTLE) for (const c in ABILITIES) if (c !== 'blunderbuss') ABILITIES[c] = ABILITIES[c].filter(a => !a.campaign); // the extra tree abilities are campaign-only (the Blunderbuss brings its own kit to Kingdom Battles)
   addIcons(GEN_ICONS);
   if (BATTLE) ABILITIES.warrior = WARRIOR_BATTLE.map(a => Object.assign({}, a)); // Kingdom Battles keeps the original warrior kit
   if (BATTLE) for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a); // Kingdom Battles extras stay in Kingdom Battles

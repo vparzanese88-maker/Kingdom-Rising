@@ -41,14 +41,15 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // no skill trees in the arena: every class fights with three abilities on F, C and Q
 // (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
-export const ARENA_KITS = {
-  warrior: ['warrior_xs2', 'execute', 'hamstring'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], ranger: ['mending', 'spectral', 'entangle2'],
-  musketeer: ['fieldbandage', 'grapeshot', 'bolas'], blunderbuss: ['fielddressing', 'buckshot', 'buttstroke'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
-  wizard: ['voidsiphon', 'disintegrate', 'temporalbolt'], cleric: ['radiantheal', 'hammeroflight', 'holysmite'], paladin: ['layonhands', 'smitearc', 'hammerstrike'],
-  darkknight: ['lifetap', 'dkraise', 'deathgrip'], druid: ['regrowth', 'callbear', 'entangle'], monk: ['serenity', 'hundredfists', 'pressure'],
-  bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'],
-  elementalist: ['cauterize', 'callflame', 'frostbind'], enchanter: ['enchanter_xd0', 'phantasm', 'mesmerize'], beastmaster: ['wildheal', 'warbeast', 'feralroar'],
+export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
+  warrior: ['warrior_xs2', 'execute', 'hamstring'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'dkraise', 'deathgrip'],
+  cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['ar_chiwave', 'ar_revival', 'pressure'],
+  bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
+  ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['quickreload', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
+  rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
 };
+export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', monk: 'Healer', bard: 'Support', druid: 'Support', shaman: 'Support' }; // everyone else: Damage
+export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
 const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', 'enchanter']);
 const RANGED_CLS = new Set(['ranger', 'musketeer', 'blunderbuss', 'wizard', 'necromancer', 'elementalist', 'enchanter', 'druid', 'shaman']);
@@ -93,6 +94,8 @@ const ARENA_NEW = {
   rogue: [{ id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
   bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
+  monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
+    { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   necromancer: [{ id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
@@ -102,7 +105,7 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
   { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) n.desc = 'Tear at the soul of the enemy you aim at: its life rushes straight back into you.'; }
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
-    const h = get(fH); if (h) { h.cd = h.t === 'drain' || h.drain || h.regen ? Math.max(h.cd || 0, CD_FIX.drain) : Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); }
+    const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q) q.cd = Math.max(q.cd || 0, CD_FIX.cc);
     const r = get(ARENA_RMB[cls]); if (r) r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30);
@@ -230,7 +233,7 @@ export function openKitInfo(UI) {
   const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
-  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to draw for a stronger, straighter shot.' : W.kind === 'gun' ? 'Fire. Hold to steady a heavier, harder-hitting shot.' : W.kind === 'staff' ? (cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to pour out a stream.') : 'Swing your weapon. Hold for a heavy blow.') : 'Punch.';
+  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
   let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb, 0, null);
   const r = h.arenaRmb, shield = W && W.hands === 'shield';
   if (shield) html += row('RMB', 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
@@ -245,7 +248,7 @@ export function openClassPicker(UI) {
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
   const g = elx('div', 'ygrid');
   for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
-    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b><small>${kit}</small>`);
+    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><em class="prole ${roleOf(k)}">${roleOf(k)}</em><b>${CLASSES[k].name}</b><small>${kit}</small>`);
     b.onclick = () => { S.click(); A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
       UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.me.alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
       else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };

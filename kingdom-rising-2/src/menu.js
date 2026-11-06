@@ -359,7 +359,7 @@ function renderArenaSetup() {
   ow.appendChild(lw); panel.appendChild(ow);
   // your champion: a portrait for every class
   { const you = AS.slots.find(x => x.you) || AS.slots[0], pw = el('div', 'arsec', `<h3>Your class <small>${CLASSES[you.cls].name}: ${Arena.kitOf(you.cls).map(id => (ABILITIES[you.cls].find(x => x.id === id) || {}).name).filter(Boolean).join(' · ')}</small></h3>`), grid = el('div', 'pgrid');
-    for (const c of Object.keys(CLASSES)) { const b = el('button', 'pcard' + (you.cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
+    for (const c of Object.keys(CLASSES)) { const b = el('button', 'pcard' + (you.cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><em class="prole ${Arena.roleOf(c)}">${Arena.roleOf(c)}</em><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
     pw.appendChild(grid); panel.appendChild(pw); }
   // fighters
   const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');

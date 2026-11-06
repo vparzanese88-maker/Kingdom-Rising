@@ -277,7 +277,7 @@ class ViewModel {
 
 // ---------- Player ----------
 const SWORDS = { sword: 1, swordshield: 1, swordmace: 1, greatsword: 1 };
-const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
+const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, monk: 1, warrior: 0.8, berserker: 0.8, rogue: 0.5, enchanter: 0.6, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
 // bard songs: a colour per kind of song (healing is green)
 const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff', power: '#d070ff', endure: '#ffe07a', mward: '#a0b8ff', snare: '#8aa0a0', weaken: '#9a60c0' };
 const NOTE_TEX = {};
@@ -390,6 +390,7 @@ export class Player {
     if (down && this.sheathed && !this.dead && !G.uiOpen && (btn === 0 || btn === 2)) { this.drawWeapons(); if (btn === 0) { this.lmbDown = false; return; } }
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
+    if (btn === 0 && this.h.arena && this.W && !(this.W.kind === 'staff' && this.h.cls === 'necromancer')) { if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
     if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
@@ -405,7 +406,6 @@ export class Player {
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = Game.canHold(this.h, this.weapon.wt) ? { t: 0, on: false, tick: 0, snd: null } : null; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
-    if (btn === 0 && this.h.arena && this.W && (this.W.kind === 'melee' || (this.W.kind === 'staff' && this.h.cls !== 'necromancer'))) { if (down) { this.cancelGather(); this.light(); } return; } // the arena: press or hold to keep attacking
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
       if (down) { this.cancelGather(); if (!this.dodge && !this.block) this.press = { t: 0, charging: false, melee: true }; }
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else if (pr.again) {} else if (pr.t > 0.22 && this.atk) this.queued = 'heavy'; else this.light(); }
@@ -1192,7 +1192,7 @@ export class Player {
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, silent: k % 2 === 1 })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 5, { speed: 3 }); } }, k * 90);
         return true; }
       case 'dash': { this.dodge = { t: 0, dur: (a.dur || 0.3) * 1.8, dir: f.clone(), speed: (a.speed || 28) / 1.8, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
-      case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
+      case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); if (!this.h.arena) V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); else { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.1), 1.6, '#a0ffc0', 0.35); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 24, { speed: 3, vy: 3 }); } V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
       case 'stormwalk': { // a 10 m wide storm that rolls slowly away in the direction you cast, striking everything under it
         const dir = new THREE.Vector3(f.x, 0, f.z).normalize(), c = this.pos.clone().addScaledVector(dir, 4), r = (a.r || 5) * K, speed = (a.travel || 15) / (a.dur || 6); let t = 0, tick = 0, ring = 0;
         G.timers.push({ update: (dt) => { t += dt; c.addScaledVector(dir, speed * dt); c.y = heightAt(c.x, c.z);
@@ -1870,7 +1870,7 @@ export class Player {
     const hs = Math.hypot(this.vel.x, this.vel.z);
     this.speed = hs;
     if (this.onGround && hs > 0.5 && !this.dodge) { this.stepAcc += hs * dt; if (this.stepAcc > (this.sprinting ? 2.2 : 1.7)) { this.stepAcc = 0; S.step(this.swim ? 'water' : surfaceType(this.pos.x, this.pos.z, this.onSurf), null, this.sprinting ? 1.2 : 0.9); if (wl - g2.h > 0.1 && wl - g2.h < 1.4) S.step('water'); } }
-    if (this.h.arena && this.lmbDown && !ui && this.W && !this.atk && !this.dodge && !this.dead && !(this.fearT > 0) && (this.W.kind === 'melee' || (this.W.kind === 'staff' && this.h.cls !== 'necromancer'))) this.light(); // held: the next attack follows straight on
+    if (this.h.arena && this.lmbDown && !ui && this.W && !this.atk && !this.dodge && !this.dead && !(this.fearT > 0) && !(this.W.kind === 'staff' && this.h.cls === 'necromancer')) this.light(); // held: the next attack follows straight on
     // attacks
     this.updateAttack(dt);
     this.updateGather(dt);

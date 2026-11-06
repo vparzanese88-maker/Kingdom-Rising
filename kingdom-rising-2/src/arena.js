@@ -16,7 +16,7 @@ import { heightAt } from './terrain.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
-import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy } from './arenanet.js';
+import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy, teamRim } from './arenanet.js';
 const AUTH = () => !AN.on || AN.host; // the host (or a single player) runs the match
 const BUILDS = 'kr2_arena_builds';
 
@@ -319,8 +319,7 @@ class ArenaBot {
     this.buffs = {}; this.hots = []; this.dots = []; this.gcd = 0; this.swingT = 0; this.thinkT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.act = ''; this.actT = 0; this.spd = 0; this.pets = [];
     this.role = Math.random() < 0.5 ? 'attack' : 'defend'; this.recalc(); this.hp = this.maxHp;
     G.scene.add(this.root); G.mobs.push(this);
-    // a ring under each fighter in its team colour
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 28), new THREE.MeshBasicMaterial({ color: teamCol(f.team), transparent: true, opacity: 0.8, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; this.root.add(ring);
+    teamRim(this.flashMats, f.team !== G.myTeam); // red glow for enemies, blue for your side (no circles)
   }
   get name() { return this.heroName; }
   get owner() { return null; }

@@ -231,7 +231,7 @@ export function updatePlates() {
     for (const m of G.mobs) {
       if (m.dead) continue;
       const d = m.pos.distanceTo(p.pos); if (d > (m.isStruct ? 70 : 32) && m !== G.target) continue;
-      const ally = m.team != null && m.team === G.myTeam; if (ally && d > 16 && !m.isStruct && m !== G.target) continue;
+      const ally = m.team != null && m.team === G.myTeam; if (ally && d > (ARENA ? 45 : 16) && !m.isStruct && m !== G.target) continue;
       const hostile = !ally && ((m.hostile && !(m.newbieCalm && m.newbieCalm())) || m.provoked);
       const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0 || m.status.dot > 0;
       if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb && !G.newFx) continue;
@@ -244,6 +244,7 @@ export function updatePlates() {
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
       const S2 = m.status; let db = '';
       for (const [k, ic, c] of [['stun', '💫', '#e0c020'], ['frozen', '❄', '#8ad8ff'], ['slow', '🐌', '#4a8ad8'], ['bleed', '🩸', '#c82020'], ['burn', '🔥', '#ff7020'], ['dot', '☠', '#8ae050']]) if (S2[k] > 0) db += `<span style="--c:${c}">${ic}<i>${Math.ceil(S2[k])}</i></span>`;
+      if (ARENA && m.arenaBot) { const foe2 = m.team !== G.myTeam, c2 = foe2 ? '#ff5a4a' : '#6ab4ff'; show('m' + m.id, m, `<div class="nm arnm" style="color:${c2}">${foe2 ? '' : '◆ '}${esc(m.name)}</div><div class="hpb arhp" style="--hc:${c2}"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, (foe2 ? 'hostile' : 'ally') + (m === G.target ? ' tgt' : ''), m.height + 0.4); continue; } // arena: always a name and a bar, red for enemies, blue for your side
       if (G.newFx && !m.isStruct && !ally) { show('m' + m.id, m, `${showName ? `<div class="nm" style="color:${lc}">${esc(m.name)}</div>` : ''}${showHp ? `<div class="hpb"><i style="width:${hpP}%"></i></div>` : ''}${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35); continue; }
       show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }

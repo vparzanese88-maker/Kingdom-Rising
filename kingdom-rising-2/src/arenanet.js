@@ -97,6 +97,14 @@ export function lobby(setup, F, O, kitName) {
 }
 const TEAMC = ['#3a7ae0', '#e04a3a', '#3ac060', '#e0b030'], TEAMN = ['Blue', 'Red', 'Green', 'Gold'];
 
+// ---------------- telling sides apart: a glowing rim of light around every fighter, red for enemies, blue for your side ----------------
+export function teamRim(mats, foe) {
+  const col = new THREE.Color(foe ? '#ff3020' : '#3a90ff'), k = foe ? 0.75 : 0.45;
+  for (const m of mats) { if (!m || m.userData.rim) continue; m.userData.rim = { value: col }; const rk = { value: k };
+    m.onBeforeCompile = (sh) => { sh.uniforms.rimCol = m.userData.rim; sh.uniforms.rimK = rk;
+      sh.fragmentShader = 'uniform vec3 rimCol; uniform float rimK;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rim = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); totalEmissiveRadiance += rimCol * pow(rim, 2.6) * rimK; }'); };
+    m.needsUpdate = true; }
+}
 // ---------------- other players' fighters, as seen on this machine ----------------
 let rid = 80000;
 export class RemoteFighter {
@@ -114,7 +122,7 @@ export class RemoteFighter {
     const ch = buildHumanoid({ race, sex: 'm', cls, outfit: cls }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8;
     try { equipWeapon(ch, CLASSES[cls].weapons[0], TIERS.length - 1, 3); } catch (e) { /* unknown weapon */ }
     try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; }
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 28), new THREE.MeshBasicMaterial({ color: TEAMC[this.team % 4] || '#d8b04a', transparent: true, opacity: 0.8, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; this.root.add(ring);
+    teamRim(this.flashMats, this.team !== G.myTeam);
     G.scene.add(this.root);
   }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }

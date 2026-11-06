@@ -177,7 +177,7 @@ export class RemoteHero {
     animateHumanoid(this.model, dt, { speed: this.spd, action: this.act || null, actionT: this.actT, armed: true });
   }
   // hit by the local player
-  takeHit(dmg, src, o = {}) { if (this.dead) return 0; dmg *= pvpK() * pvpClass(); // (the other side divides by its own class's PvP toughness) send({ t: 'pvp', to: this.netId, dmg: Math.round(dmg), o: slim(o) }); return Math.round(dmg); }
+  takeHit(dmg, src, o = {}) { if (this.dead) return 0; dmg *= pvpK() * pvpClass(); /* the other side divides by its own class PvP toughness */ send({ t: 'pvp', to: this.netId, dmg: Math.round(dmg), o: slim(o) }); return Math.round(dmg); }
   // hit by host-run troops, towers and mobs
   takeDamage(dmg, src, o = {}) { if (this.dead || !MP.host) return; send({ t: 'dmg', to: this.netId, dmg: Math.round(dmg), o: slim(o), sx: src && src.pos ? src.pos.x : null, sz: src && src.pos ? src.pos.z : null, slv: src && src.lv }); }
   debuff(type, t, dps) { if (MP.host) send({ t: 'debuff', to: this.netId, type, dur: t, dps }); }

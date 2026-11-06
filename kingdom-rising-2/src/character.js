@@ -619,13 +619,16 @@ const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 function setRot(o, x, y, z) { o.rotation.set(x, y, z); }
 function damp(o, x, y, z, k) { o.rotation.x += (x - o.rotation.x) * k; o.rotation.y += (y - o.rotation.y) * k; o.rotation.z += (z - o.rotation.z) * k; }
 
+// how far each attack steps into the blow at time t (negative: weight rocks back during the wind-up)
+const ACT_WIND = { swing1: 0.3, swing2: 0.3, swing3: 0.42, off1: 0.3, heavy: 0.5, thrust1: 0.35, thrust2: 0.35, thrust3: 0.4, area: 0.2, slam: 0.55, claw: 0.4, lowcut: 0.3, chop: 0.45, castBig: 0.5 };
+function lungeOf(name, t) { const w = ACT_WIND[name]; if (w == null) return 0; if (t < w) return -0.25 * Math.sin((t / w) * Math.PI / 2); if (t < 0.75) { const u = (t - w) / (0.75 - w); return -0.25 + 1.25 * (1 - Math.pow(1 - Math.min(1, u * 1.6), 3)); } return 1 - ease((t - 0.75) / 0.25); }
 // Key poses for melee attacks [chestY, shRx, shRy, shRz, elR, shLx, shLz, elL, spineX]
 const POSE = {
   ready: [0, -0.5, 0, 0.15, -0.9, -0.4, -0.15, -0.9, 0],
-  s1a: [0.9, -1.4, 0.6, 1.25, -0.5, -0.3, -0.3, -0.8, 0], s1b: [-0.85, -1.45, -0.7, 0.2, -0.15, -0.3, -0.2, -0.6, 0.1],
-  s2a: [-0.7, -0.5, -0.4, -0.5, -1.4, -0.3, -0.3, -0.8, 0], s2b: [0.75, -2.3, 0.5, 0.9, -0.2, -0.3, -0.3, -0.6, -0.05],
+  s1a: [1.0, -2.55, 0.5, 0.9, -1.7, -0.6, -0.45, -1.0, -0.15], s1b: [-0.95, -0.4, -0.9, 0.25, -0.2, -0.2, -0.25, -0.7, 0.3],
+  s2a: [-0.9, -2.2, -0.9, -0.3, -1.8, -0.5, -0.4, -0.9, -0.1], s2b: [0.9, -0.45, 0.6, 0.9, -0.2, -0.25, -0.3, -0.6, 0.28],
   s3a: [0.2, -3.0, 0, 0.3, -1.1, -2.9, -0.3, -1.0, -0.25], s3b: [-0.1, -0.7, 0, 0.1, -0.1, -0.7, -0.1, -0.2, 0.4],
-  h_a: [0.9, -2.6, 0.3, 0.9, -1.6, -2.4, -0.4, -1.4, -0.3], h_b: [-0.2, -1.2, 0, 0.0, -0.05, -1.1, -0.1, -0.1, 0.45],
+  h_a: [0.9, -2.6, 0.3, 0.9, -1.6, -2.4, -0.4, -1.4, -0.3], h_b: [-0.2, -0.5, 0, 0.0, -0.1, -0.45, -0.1, -0.15, 0.55],
   thrA: [0.5, -0.9, 0, 0.3, -1.9, -0.9, -0.5, -1.6, -0.1], thrB: [-0.2, -1.5, 0, 0.0, -0.05, -1.4, 0.1, -0.2, 0.2],
   off1a: [-0.9, -0.3, 0, 0, -0.9, -1.4, -0.6, -1.25, 0], off1b: [0.85, -0.3, 0, 0, -0.8, -1.45, 0.7, -0.2, 0.1],
   block: [0, -1.2, 0, 0.9, -1.7, -1.6, -0.6, -1.4, 0.05],
@@ -670,6 +673,7 @@ function attackPose(name, t, mirror) {
 }
 
 // st: { speed, airborne, action, actionT, block, dead, deadT, bowDraw, sit, lie, crouch, swim, spinT, hit }
+const _rq = new THREE.Quaternion(), _rax = new THREE.Vector3(), _rp = new THREE.Vector3();
 const _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _sq3 = new THREE.Quaternion(), _se = new THREE.Euler();
 // keep a strapped shield upright (point down, face outward) whatever the arm is doing
 function uprightShield(ch, st) {
@@ -688,28 +692,36 @@ export function animateHumanoid(ch, dt, st) {
   const { hips, spine, chest, neck, head, arms, legs, body } = ch;
   const sp = st.speed || 0;
   const k = Math.min(1, dt * 12);
-  // locomotion
-  const runF = clamp01(sp / 6.5);
-  A.walk += dt * (sp > 0.1 ? (4.6 + sp * 0.9) / Math.max(0.6, ch.R.legL / 0.9) * 0.62 : 0);
+  // locomotion: a real gait. The cadence rises with speed; the body leans in, dips as a foot passes under it and
+  // lifts in the flight phase; the swinging leg folds up under the body while the stance leg stays long
+  const runF = clamp01((sp - 1.6) / 4.2), sprF = clamp01((sp - 6.2) / 2.2), walkF = clamp01(sp / 1.4);
+  const legK = Math.max(0.6, ch.R.legL / 0.9);
+  A.walk += dt * (sp > 0.1 ? (1.7 + runF * 1.0 + sprF * 0.45) * Math.PI * 2 * 0.5 / Math.sqrt(legK) : 0); // one cycle = two steps
   const ph = A.walk;
-  const amp = clamp01(sp / 4) * (0.45 + runF * 0.45);
-  let thL = Math.sin(ph) * amp, thR = -Math.sin(ph) * amp;
-  let knL = Math.max(0, -Math.cos(ph)) * amp * 1.4 + 0.05, knR = Math.max(0, Math.cos(ph)) * amp * 1.4 + 0.05;
-  let bob = Math.abs(Math.sin(ph)) * 0.04 * amp;
-  let lean = runF * 0.18 * (st.back ? -0.6 : 1);
+  const amp = walkF * (0.4 + runF * 0.32 + sprF * 0.26);
+  const gait = (s) => { const th = Math.sin(s) * amp, swing = Math.max(0, Math.cos(s)), stance = Math.max(0, -Math.cos(s));
+    const kn = 0.05 + walkF * (0.08 * stance + (0.5 + runF * 0.85 + sprF * 0.45) * Math.pow(swing, 1.4));
+    return [th, kn, -kn * 0.32 + 0.12 * stance * walkF]; };
+  let [thL, knL, anL] = gait(ph), [thR, knR, anR] = gait(ph + Math.PI);
+  let bob = walkF * (1 - Math.abs(Math.sin(ph))) * (0.018 + runF * 0.05 + sprF * 0.02);
+  let lean = (walkF * 0.04 + runF * 0.13 + sprF * 0.2) * (st.back ? -0.6 : 1);
   const air = st.airborne && !st.swim;
-  if (air) { const up = (st.vy || 0) > 0.5; if (up) { thL = 1.15; knL = 1.5; thR = -0.35; knR = 0.75; } else { thL = 0.45; knL = 0.45; thR = 0.15; knR = 0.3; } bob = 0; }
+  if (air) { const up = (st.vy || 0) > 0.5; if (up) { thL = 1.15; knL = 1.5; thR = -0.35; knR = 0.75; } else { thL = 0.45; knL = 0.45; thR = 0.15; knR = 0.3; } anL = anR = -0.2; bob = 0; }
   const land = st.land || 0;
   if (land > 0 && !air) { thL += 0.8 * land; thR += 0.8 * land; knL += 1.4 * land; knR += 1.4 * land; bob += 0.2 * land; lean += 0.35 * land; }
+  // attacks step into the blow: weight back on the wind-up, a lunge onto the front foot as the strike lands
+  { const lg = st.action && !air && !st.roll ? lungeOf(st.action, clamp01(st.actionT || 0)) * (1 - runF * 0.8) : 0;
+    if (lg) { thL += 0.5 * lg; knL += 0.6 * Math.max(0, lg); thR -= 0.38 * lg; knR += 0.25 * Math.abs(lg); anL -= 0.2 * Math.max(0, lg); bob += 0.075 * Math.abs(lg); lean += 0.24 * lg; } }
   if (st.swim) { thL = Math.sin(A.t * 3) * 0.4; thR = -thL; knL = 0.4; knR = 0.4; lean = 0.9; }
   const breathe = Math.sin(A.t * 1.8) * 0.015;
   hips.position.y = (ch.R.legL + 0.06) - bob + (st.crouch ? -0.2 : 0);
+  hips.rotation.y += ((air ? 0 : Math.sin(ph) * amp * 0.22) - hips.rotation.y) * k;
   // legs
   // standing armed: soft knees and feet a little apart (blended in, so it never fights the stride)
   const soft = ch.softK = (ch.softK || 0) + (((st.armed && ch.wt && sp < 0.6 && !st.airborne && !st.action && !st.sit && !st.swim && !st.dead) ? 1 : 0) - (ch.softK || 0)) * Math.min(1, dt * 6), kb = 0.2 * soft;
   damp(legs.L.thigh, -thL - (st.sit ? 1.5 : 0) - kb * 0.5, 0, 0.02 + 0.09 * soft, k); damp(legs.R.thigh, -thR - (st.sit ? 1.5 : 0) - kb * 0.5, 0, -0.02 - 0.09 * soft, k);
   damp(legs.L.knee, knL + (st.sit ? 1.5 : 0) + kb, 0, 0, k); damp(legs.R.knee, knR + (st.sit ? 1.5 : 0) + kb, 0, 0, k);
-  damp(legs.L.ankle, -knL * 0.3 + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k); damp(legs.R.ankle, -knR * 0.3 + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k);
+  damp(legs.L.ankle, anL + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k); damp(legs.R.ankle, anR + (land > 0 ? 0.6 * land : 0) - kb * 0.5, 0, 0, k);
   // a front kick: chamber the knee, snap the leg straight out, put it back down
   if (st.action === 'kick') { const t = clamp01(st.actionT || 0), ch1 = t < 0.25 ? t / 0.25 : 1, ext = t < 0.25 ? 0 : t < 0.45 ? (t - 0.25) / 0.2 : t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3, back = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
     legs.R.thigh.rotation.x = -(0.9 * ch1 + 0.65 * ext) * back; legs.R.knee.rotation.x = (1.6 * ch1 * (1 - ext) + 0.05) * back; legs.R.ankle.rotation.x = -0.5 * ext * back;
@@ -758,8 +770,8 @@ export function animateHumanoid(ch, dt, st) {
   } else {
     damp(chest, breathe, Math.sin(ph) * amp * 0.12, 0, k);
     damp(spine, lean + (st.sit ? -0.05 : 0), 0, 0, k);
-    damp(arms.R.sh, armSwing, 0, 0.1, k); damp(arms.L.sh, -armSwing, 0, -0.1, k);
-    damp(arms.R.el, -0.2 - runF * 0.9, 0, 0, k); damp(arms.L.el, -0.2 - runF * 0.9, 0, 0, k);
+    damp(arms.R.sh, -armSwing * 1.1, 0, 0.1, k); damp(arms.L.sh, armSwing * 1.1, 0, -0.1, k);
+    damp(arms.R.el, -0.25 - runF * 1.0 - sprF * 0.3, 0, 0, k); damp(arms.L.el, -0.25 - runF * 1.0 - sprF * 0.3, 0, 0, k);
   }
   if (air && !st.action && !st.block) { const up = (st.vy || 0) > 0.5; damp(arms.L.sh, up ? -1.3 : -0.5, 0, up ? -0.35 : -1.0, k * 1.3); damp(arms.R.sh, up ? -0.4 : -0.5, 0, up ? 0.5 : 1.0, k * 1.3); damp(arms.L.el, -0.5, 0, 0, k); damp(arms.R.el, -0.5, 0, 0, k); }
   if (st.wave) { damp(arms.R.sh, -2.6, 0, 0.3 + Math.sin(A.t * 8) * 0.25, k); damp(arms.R.el, -0.4, 0, 0, k); }
@@ -771,8 +783,18 @@ export function animateHumanoid(ch, dt, st) {
   // spin (area attacks)
   body.rotation.y = st.spin ? st.spin : 0;
   // dodge roll
-  if (st.roll != null) { body.rotation.x = st.roll * Math.PI * 2; body.position.y = Math.sin(st.roll * Math.PI) * 0.4 * ch.scale; }
-  else if (!st.dead) { body.rotation.x = 0; body.position.y = 0; }
+  if (st.roll != null) {
+    const e = clamp01(st.roll), tuck = Math.sin(Math.PI * e), rot = (e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2) * Math.PI * 2;
+    const h0 = (ch.R.legL + 0.06) * 0.92, hNow = st.rollKind === 'leap' ? h0 + tuck * 0.15 : h0 - tuck * (h0 - 0.5 * (ch.scale || 1)), a = st.rollDir || 0;
+    _rq.setFromAxisAngle(_rax.set(Math.cos(a), 0, -Math.sin(a)), rot); body.quaternion.copy(_rq);
+    _rp.set(0, h0, 0).applyQuaternion(_rq); body.position.set(-_rp.x, hNow - _rp.y, -_rp.z);
+    // curl up: knees to the chest, arms wrapped round them, chin down
+    const tk = Math.min(1, tuck * 1.6), mix = (o, x, y, z) => { o.rotation.x += (x - o.rotation.x) * tk; o.rotation.y += (y - o.rotation.y) * tk; o.rotation.z += (z - o.rotation.z) * tk; };
+    mix(legs.L.thigh, -2.0, 0, 0.08); mix(legs.R.thigh, -2.0, 0, -0.08); mix(legs.L.knee, 2.4, 0, 0); mix(legs.R.knee, 2.4, 0, 0); mix(legs.L.ankle, 0.4, 0, 0); mix(legs.R.ankle, 0.4, 0, 0);
+    mix(spine, 0.7, 0, 0); mix(neck, 0.5, 0, 0);
+    if (!st.action) { mix(arms.L.sh, -1.2, 0, -0.3); mix(arms.R.sh, -1.2, 0, 0.3); mix(arms.L.el, -1.7, 0, 0); mix(arms.R.el, -1.7, 0, 0); }
+  }
+  else if (!st.dead) { body.rotation.x = 0; body.position.set(0, 0, 0); }
   // death
   if (st.dead) {
     const d = clamp01((st.deadT || 0) / 0.8);

@@ -1859,8 +1859,9 @@ export class Player {
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
     { const cn = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast); if (cn) { action = 'castUp'; actionT = Math.min(1, cn.t / Math.min(0.8, cn.dur * 0.6)); } const mw = ch.weapons && ch.weapons.main; if (mw && G.newFx && !this.sheathed) mw.visible = !cn; }
     const roll = this.dodge && !this.dodge.charge && this.dodge.kind !== 'step' ? Math.min(1, this.dodge.t) : null;
+    const rollDir = roll != null && this.dodge.dir ? Math.atan2(this.dodge.dir.x, this.dodge.dir.z) - this.bodyYaw : 0, rollKind = roll != null ? this.dodge.kind : null; // roll the way you dodge
     const aimStaff = action !== 'castUp' && action !== 'castRel' && this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
-    animateHumanoid(ch, dt, { aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    animateHumanoid(ch, dt, { rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && ((this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
@@ -1884,7 +1885,7 @@ export class Player {
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
-    if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.7;
+    if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? 0.7 : 0.2); // (the over-the-shoulder camera barely dips: the body does the rolling)
     if (this.dead) eyeY = this.spectate ? 0 : 0.4; // (arena spectators fly free)
     if (this.swim) eyeY = 1.35;
     const eye = this.pos.clone(); eye.y += eyeY;
@@ -1897,15 +1898,18 @@ export class Player {
     else {
       const back = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
       // over the right shoulder: the hero sits left of the crosshair
-      const sh = this.right().multiplyScalar(0.8 * Math.min(1, this.camDist / 2.5));
-      eye.y += 0.3;
+      const sh = this.right().multiplyScalar(0.72 * Math.min(1, this.camDist / 2.5));
+      eye.y += 0.12; // (a lower camera keeps the hero up in the frame, clear of the bars at the bottom)
       let d = this.camDist;
       for (let s = 0.5; s <= this.camDist; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3) { d = Math.max(0.5, s - 0.4); break; } }
-      cam.position.copy(eye).add(sh).addScaledVector(back, -d);
+      // the camera follows a smoothed point, so steps, landings and rolls don't jolt it
+      if (!this.camA || this.camA.distanceTo(eye) > 6) this.camA = eye.clone();
+      const kh = Math.min(1, dt * 18), kv = Math.min(1, dt * 9); this.camA.x += (eye.x - this.camA.x) * kh; this.camA.z += (eye.z - this.camA.z) * kh; this.camA.y += (eye.y - this.camA.y) * kv;
+      cam.position.copy(this.camA).add(sh).addScaledVector(back, -d);
     }
     // shake
     const sk = V.shake * V.shake;
-    if (sk > 0) { cam.position.x += (Math.random() - 0.5) * sk * 0.35; cam.position.y += (Math.random() - 0.5) * sk * 0.35; cam.rotation.z += (Math.random() - 0.5) * sk * 0.04; }
+    if (sk > 0) { const t = G.time; cam.position.x += Math.sin(t * 37) * Math.sin(t * 13) * sk * 0.2; cam.position.y += Math.sin(t * 41 + 1) * Math.sin(t * 11) * sk * 0.2; cam.rotation.z += Math.sin(t * 29) * sk * 0.03; } // a smooth rumble, not random jitter
     this.fovKick *= Math.max(0, 1 - dt * 4);
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
     // Kingdom Battles: zoom in a little while drawing the bow (and much more when aiming a musket)

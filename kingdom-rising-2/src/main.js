@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { G } from './state.js';
 import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
@@ -46,7 +47,7 @@ import { updateProjectiles, telegraph, enemyBlast, enemyProjectile, mobShot, mob
 
 const canvas = document.getElementById('game');
 const $ = (id) => document.getElementById(id);
-let renderer, scene, camera, composer, bloom, sun, hemi, sky, water, fall, fireLights = [], vmSun, vmHemi;
+let renderer, scene, camera, composer, bloom, grade, fill, sun, hemi, sky, water, fall, fireLights = [], vmSun, vmHemi;
 let mode = 'loading', intro = null, saveTimer = 0, zoneNow = null, lastT = performance.now();
 
 // ---------- boot ----------
@@ -64,6 +65,7 @@ function boot() {
   Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 420 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
   hemi = new THREE.HemisphereLight('#cfe4ff', '#5a4a30', 0.9); scene.add(hemi);
+  fill = new THREE.DirectionalLight('#b8ccff', 0.55); scene.add(fill, fill.target); // a soft sky bounce from the side away from the sun, so nobody is a black silhouette against it
   for (let i = 0; i < 4; i++) { const l = new THREE.PointLight('#ff9040', 0, 16, 2); scene.add(l); fireLights.push(l); }
   // soft sky environment so metal and wet surfaces have something to reflect
   { const es = new THREE.Scene(); const g = new THREE.SphereGeometry(10, 32, 16); const cols = []; const pa = g.attributes.position; const top = new THREE.Color('#9cc4ec'), hor = new THREE.Color('#f0e4cc'), gnd = new THREE.Color('#5a5040'); for (let i = 0; i < pa.count; i++) { const y = pa.getY(i) / 10; const c = y > 0 ? hor.clone().lerp(top, Math.pow(y, 0.6)) : hor.clone().lerp(gnd, Math.min(1, -y * 3)); cols.push(c.r, c.g, c.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); es.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }))); const sunM = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff4e0').multiplyScalar(6) })); sunM.position.set(5, 6, 3); es.add(sunM);
@@ -75,6 +77,16 @@ function boot() {
   composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  // a final colour grade: a gentle S-curve, a little more colour, warm highlights and cool shadows, a soft vignette
+  grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, amount: { value: 1 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
+      void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
+        vec3 s = col * col * (3.0 - 2.0 * col); col = mix(col, s, 0.22 * amount); // contrast
+        float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, 1.0 + 0.12 * amount); // saturation
+        col += amount * (vec3(0.025, 0.012, -0.02) * smoothstep(0.45, 1.0, l) + vec3(-0.012, 0.0, 0.022) * (1.0 - smoothstep(0.0, 0.4, l))); // warm highlights, cool shadows
+        vec2 d = vUv - 0.5; col *= 1.0 - amount * 0.28 * smoothstep(0.35, 0.95, dot(d, d) * 2.2); // vignette
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a); }` });
+  composer.addPass(grade);
   applyGraphics();
   if (!BATTLE) campaignSetup();
   if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
@@ -360,9 +372,10 @@ function campaignSetup() {
 // Kingdom Arena: your fighter (level 20, best gear, 20 skill points), then the match
 function startArena() {
   startGame(Arena.playerHero());
+  G.player.camDistT = G.player.camDist = 3.4; // over the shoulder, like New World (V switches to first person)
   G.hooks.allyFx = Arena.allyFx;
   Arena.initArena({ openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
-    revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead; startGame(h); G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
+    revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead, cd = G.player ? G.player.camDistT : 3; startGame(h); G.player.camDistT = G.player.camDist = cd; G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
 }
 function startBattle() {
   campaignWeapons(); // the same weapons as the campaign (no twin weapons)
@@ -793,6 +806,7 @@ function updateDayNight(dt, focus) {
   const lightDir = sunY > -0.05 ? sd : sd.clone().multiplyScalar(-1); // moonlight at night
   sun.position.copy(focus).addScaledVector(lightDir, 200); sun.target.position.copy(focus);
   sun.color.copy(night > 0.5 ? new THREE.Color('#8aa0d8') : c.sun); sun.intensity = night > 0.5 ? 0.45 : c.light * 2.0;
+  fill.position.copy(focus).add(new THREE.Vector3(-lightDir.x * 120, 60, -lightDir.z * 120)); fill.target.position.copy(focus); fill.intensity = (night > 0.5 ? 0.12 : 0.5 * c.light + 0.1);
   hemi.intensity = c.amb * 1.25; hemi.color.copy(c.hor).lerp(new THREE.Color('#ffffff'), 0.3); hemi.groundColor.set(night > 0.5 ? '#1a1a28' : '#5a4a30');
   sky.mat.uniforms.sunDir.value.copy(sd); sky.mat.uniforms.top.value.copy(c.top); sky.mat.uniforms.horizon.value.copy(c.hor); sky.mat.uniforms.sunCol.value.copy(c.sun); sky.mat.uniforms.night.value = night; sky.mat.uniforms.time.value = G.time;
   // fog: zone tint

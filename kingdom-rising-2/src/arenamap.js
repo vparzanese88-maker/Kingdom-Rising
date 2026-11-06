@@ -15,9 +15,9 @@ const S = (c, r = 0.85, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.
 const M = {};
 function mats() {
   Object.assign(M, {
-    sand: S('#d9c08a', 1), sandstone: S('#cdb48c', 0.95), stone: S('#a8977a', 0.95), dark: S('#5a4c3c', 0.95), marble: S('#ece6da', 0.6), marble2: S('#d8cfbf', 0.7),
+    sand: S('#c9ae78', 1), sandstone: S('#cdb48c', 0.95), stone: S('#a8977a', 0.95), dark: S('#5a4c3c', 0.95), marble: S('#ece6da', 0.6), marble2: S('#d8cfbf', 0.7),
     seat1: S('#c9b493', 0.95), seat2: S('#b8a280', 0.95), gold: S('#d8b04a', 0.35, 0.85), iron: S('#2e2e32', 0.45, 0.8), wood: S('#6a4a2a', 0.85),
-    black: S('#120e0a', 1), red: S('#9a2020', 0.9, 0, { side: THREE.DoubleSide }), cream: S('#efe4c8', 0.95, 0, { side: THREE.DoubleSide }), fire: new THREE.MeshBasicMaterial({ color: '#ffb040' }),
+    black: S('#120e0a', 1), floorStone: S('#b4a284', 0.95), red: S('#9a2020', 0.9, 0, { side: THREE.DoubleSide }), cream: S('#efe4c8', 0.95, 0, { side: THREE.DoubleSide }), fire: new THREE.MeshBasicMaterial({ color: '#ffb040' }),
   });
 }
 const box = (w, h, d, m, x, y, z, parent, ry = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.y = ry; o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
@@ -28,7 +28,7 @@ const faceIn = (x, z) => Math.atan2(-x, -z);
 // sand with rake lines and darker patches, drawn once on a canvas
 function sandTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
-  g.fillStyle = '#d9c08a'; g.fillRect(0, 0, 512, 512);
+  g.fillStyle = '#c9ae78'; g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 9000; i++) { const v = 170 + Math.random() * 60; g.fillStyle = `rgba(${v + 20},${v},${v - 50},0.35)`; g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 2); }
   g.strokeStyle = 'rgba(150,120,70,0.18)'; g.lineWidth = 2; for (let r = 12; r < 256; r += 9) { g.beginPath(); g.arc(256, 256, r, 0, Math.PI * 2); g.stroke(); }
   for (let i = 0; i < 26; i++) { const x = Math.random() * 512, y = Math.random() * 512, r = 10 + Math.random() * 40; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(120,90,50,0.16)'); gr.addColorStop(1, 'rgba(120,90,50,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
@@ -40,8 +40,8 @@ export function buildColosseum(scene) {
   const R = AR.R, Y = AR.Y, W = AR.WALL, root = new THREE.Group(); scene.add(root);
   // ---- the floor: raked sand, a marble centre medallion, the king-of-the-hill ring
   { const f = new THREE.Mesh(new THREE.CircleGeometry(R + 0.7, 128), new THREE.MeshStandardMaterial({ map: sandTexture(), roughness: 1 })); f.rotation.x = -Math.PI / 2; f.position.y = Y + 0.03; f.receiveShadow = true; root.add(f);
-    for (const [r0, r1, m] of [[6.6, 7.2, M.gold], [5.4, 6.6, M.marble], [5.1, 5.4, M.dark], [0, 1.6, M.marble2]]) { const ring = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 96), m); ring.rotation.x = -Math.PI / 2; ring.position.y = Y + 0.05; ring.receiveShadow = true; root.add(ring); }
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, rr = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 3.4), M.marble2); rr.rotation.x = -Math.PI / 2; rr.rotation.z = -a; rr.position.set(Math.sin(a) * 3.4, Y + 0.05, Math.cos(a) * 3.4); root.add(rr); }
+    for (const [r0, r1, m] of [[6.6, 7.2, M.gold], [5.4, 6.6, M.floorStone], [5.1, 5.4, M.dark], [0, 1.6, M.floorStone]]) { const ring = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 96), m); ring.rotation.x = -Math.PI / 2; ring.position.y = Y + 0.05; ring.receiveShadow = true; root.add(ring); }
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, rr = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 3.4), M.floorStone); rr.rotation.x = -Math.PI / 2; rr.rotation.z = -a; rr.position.set(Math.sin(a) * 3.4, Y + 0.05, Math.cos(a) * 3.4); root.add(rr); }
     const hill = new THREE.Mesh(new THREE.RingGeometry(6.6, 7.2, 96), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); hill.rotation.x = -Math.PI / 2; hill.position.y = Y + 0.08; root.add(hill); AR.hill = hill; }
   // ---- the podium wall, its marble rim and a parapet
   { const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.7, R + 0.7, W, 160, 1, true), M.stone); wall.material = M.stone.clone(); wall.material.side = THREE.BackSide; wall.position.y = Y + W / 2; wall.receiveShadow = true; root.add(wall);

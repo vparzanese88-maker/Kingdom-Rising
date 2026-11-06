@@ -357,7 +357,7 @@ class ArenaBot {
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
     const d = Math.hypot(this.pos.x, this.pos.z); if (d > AR.R - 1) { this.pos.x *= (AR.R - 1) / d; this.pos.z *= (AR.R - 1) / d; }
     this.pos.y = AR.Y; this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
-    const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3;
+    const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
     const c = this.cast; animateHumanoid(this.model, dt, { speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true });
   }

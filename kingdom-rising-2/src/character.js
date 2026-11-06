@@ -782,22 +782,22 @@ export function animateHumanoid(ch, dt, st) {
       P = [0, -0.25 - sw * 0.4, 0, 0.16, -0.75, sw * 0.8 - 0.05, -0.1, -0.3 - bend, 0];
     else if (!ready && W.kind === 'bow') P = [0, -0.1 - sw * 0.7, 0, 0.1, -0.3 - bend, -0.15 + sw * 0.6, -0.1, -0.25 - bend * 0.5, 0];
     else if (W.kind === 'bow') P = [0, -0.3 - sw * 0.7, 0, 0.12, -0.45 - bend, -0.55 + sw * 0.6, -0.12, -0.5 - bend * 0.6, 0];
-    else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.6, 0, 0.14, -0.9 - bend * 0.4, sw * 0.9 - 0.1, -0.12, -0.35 - bend, 0];
+    else if (W.kind === 'staff') P = [0, -0.4 - sw * 0.75, 0, 0.14, -0.9 - bend * 0.4 + sw * 0.15, sw * 1.15 - 0.1, -0.14, -0.4 - bend * 1.3, 0];
     else if (W.hands === 'two') P = [0.3 + sw * 0.25, -0.8 - sw * 0.25 - runF * 0.25, 0.2, 0.35, -1.25 - runF * 0.2, -0.95 + sw * 0.25 - runF * 0.25, -0.35, -1.25 - runF * 0.2, 0];
     // sword and board: sword arm relaxed low with the blade angled forward, shield arm bent so the shield rides the forearm in front of the hip
-    else if (W.hands === 'shield') P = [0.1, -0.25 - sw * 0.5, 0, -0.45, -0.6 - bend * 0.5, -0.38 + sw * 0.15, -0.3, -0.95 - bend * 0.2, 0]; // ready: the same stance, sword a little higher, shield brought up to cover the left side // ready: sword arm out from the body, elbow bent, blade forward; shield arm forward and out
-    else P = [0, -0.4 - sw * 0.85, 0, -0.5, -0.85 - bend, -0.4 + sw * 0.85, 0.28, -0.85 - bend, 0]; // no shield: both arms held out from the body, not tucked into it
+    else if (W.hands === 'shield') P = [0.1, -0.25 - sw * 0.8, 0, -0.45, -0.6 - bend * 0.6, -0.38 + sw * 0.3, -0.3, -0.95 - bend * 0.2, 0]; // ready: the same stance, sword a little higher, shield brought up to cover the left side // ready: sword arm out from the body, elbow bent, blade forward; shield arm forward and out
+    else P = [0, -0.4 - sw * 1.0, 0, -0.5, -0.85 - bend + sw * 0.2, -0.4 + sw * 1.1, 0.28, -0.85 - bend * 1.2 - sw * 0.2, 0]; // no shield: both arms held out from the body, not tucked into it
   }
   if (P) {
     const mir = st.mirror ? -1 : 1;
-    const twist = carry ? Math.sin(ph) * amp * 0.28 : 0;
-    damp(chest, carry ? breathe + Math.abs(Math.sin(ph)) * amp * 0.06 : 0, P[0] * mir * 0.7 + twist, carry ? Math.sin(ph) * amp * 0.05 : 0, k * (carry ? 1 : 1.4));
+    const twist = carry ? Math.sin(ph) * amp * 0.42 : 0; // shoulders counter the hips
+    damp(chest, carry ? breathe + Math.abs(Math.sin(ph)) * amp * 0.06 : 0, P[0] * mir * 0.7 + twist, carry ? Math.sin(ph) * amp * 0.09 : 0, k * (carry ? 1.4 : 1.4));
     damp(spine, P[8] + lean * (carry ? 0.85 : 0.5), P[0] * mir * 0.3 - twist * 0.4, 0, k * (carry ? 1 : 1.4));
     if (st.mirror) { // left hand performs the attack (dual wield off-hand)
       damp(arms.L.sh, P[1], -P[2], -P[3], k * 1.6); damp(arms.L.el, P[4], 0, 0, k * 1.6);
       damp(arms.R.sh, P[5], 0, -P[6], k * 1.6); damp(arms.R.el, P[7], 0, 0, k * 1.6);
     } else {
-      const ka = carry ? k * 0.7 : k * 1.35; // (the arms trail the body slightly)
+      const ka = carry ? k * (0.7 + Math.min(1, sp / 3) * 1.3) : k * 1.35; // (at rest the arms trail the body slightly; on the move they keep up with the stride)
       damp(arms.R.sh, P[1], P[2], P[3], ka); damp(arms.R.el, P[4], 0, 0, ka);
       damp(arms.L.sh, P[5], 0, P[6], ka); damp(arms.L.el, P[7], 0, 0, ka);
     }
@@ -809,6 +809,7 @@ export function animateHumanoid(ch, dt, st) {
   }
   if (air && !st.action && !st.block) { const up = (st.vy || 0) > 0.5; damp(arms.L.sh, up ? -1.3 : -0.5, 0, up ? -0.35 : -1.0, k * 1.3); damp(arms.R.sh, up ? -0.4 : -0.5, 0, up ? 0.5 : 1.0, k * 1.3); damp(arms.L.el, -0.5, 0, 0, k); damp(arms.R.el, -0.5, 0, 0, k); }
   if (st.wave) { damp(arms.R.sh, -2.6, 0, 0.3 + Math.sin(A.t * 8) * 0.25, k); damp(arms.R.el, -0.4, 0, 0, k); }
+  if (ch.outfit && ch.outfit.robe) { const rb = ch.outfit.robe, fl = air ? 0.35 : Math.abs(Math.sin(ph)) * amp; rb.rotation.x += ((air ? 0.2 : Math.sin(ph) * amp * 0.18 + lean * 0.4) - rb.rotation.x) * k; rb.scale.z += (0.8 * (1 + fl * 0.45) - rb.scale.z) * k; rb.scale.x += ((1 + fl * 0.22) - rb.scale.x) * k; } // a robe flares and swings with the stride
   // lean into turns when running (st.turn: how fast you are turning, radians a second)
   { const tl = Math.max(-0.28, Math.min(0.28, -(st.turn || 0) * 0.07 * runF)); ch.turnL = (ch.turnL || 0) + (tl - (ch.turnL || 0)) * Math.min(1, dt * 6); spine.rotation.z = ch.turnL; }
   // head follows look pitch

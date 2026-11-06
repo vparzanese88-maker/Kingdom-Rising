@@ -7,7 +7,7 @@ import { G } from './state.js';
 import * as Game from './game.js';
 import { CLASSES, ABILITIES, CLASS_TREES, ARMOR_SLOT_LIST, TIERS, RACES, isSupport, WEAPON_TYPES, LEVEL_CAP } from './data.js';
 import { petDef } from './classes2.js';
-import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
+import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { Mob } from './mobs.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
@@ -279,6 +279,7 @@ class ArenaBot {
     const w = h.equip.w1, wt = w ? w.wt : CLASSES[h.cls].weapons[0]; this.W = WEAPON_TYPES[wt] || WEAPON_TYPES.sword;
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8;
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, TIERS.length - 1, 3); } catch (e) { /* unknown weapon model */ }
+    try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } // (its own materials, so a hit can flash this fighter alone)
     this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
     this.abs = (h.arenaKit || []).map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
@@ -319,6 +320,10 @@ class ArenaBot {
     if (b.ward > 0) dmg *= 0.6; if (b.wall > 0) dmg *= 0.4; if (b.fort > 0) dmg *= 0.7; if (b.stand > 0) dmg *= 0.75; if (b.lich > 0) dmg *= 0.75; if (b.avatar > 0 && this.av && this.av.taken) dmg *= this.av.taken;
     if (this.barrier > 0 && b.barrier > 0) { const ab = Math.min(this.barrier, dmg); this.barrier -= ab; dmg -= ab; }
     dmg = Math.max(1, Math.round(dmg)); this.hp -= dmg; this.hurtT = G.time; this.lastHitBy = src; if (b.undying > 0 && this.hp < 1) this.hp = 1;
+    // you can see it land: a flinch, a bright flash on the body, and blood or sparks (or the spell's element)
+    this.hitT = 0.32; for (const m of this.flashMats) { if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } }
+    { const at = this.pos.clone().setY(this.pos.y + 1.15), kind = o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : o.el ? 'arcane' : this.D.armor > 120 ? 'spark' : 'blood'; V.burst(kind, at, o.melee || dmg > this.maxHp * 0.08 ? 14 : 7, { speed: 3.5 }); }
+    if (src && src.pos && !o.el) { const d = this.pos.clone().sub(src.pos).setY(0); if (d.lengthSq() > 0.01) this.status.knock.addScaledVector(d.normalize(), o.melee ? 0.9 : 0.4); }
     if (src && src.arenaF) src.arenaF.dmg += dmg; else if (src === G.player) A.F[0].dmg += dmg;
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
@@ -339,6 +344,7 @@ class ArenaBot {
     this.root.rotation.x = 0;
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     for (const k of ['stun', 'slow', 'root', 'frozen']) st[k] = Math.max(0, (st[k] || 0) - dt);
+    if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }
     if (this.stealth > 0) { this.stealth = Math.max(0, this.stealth - dt); }
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
     for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
@@ -359,7 +365,8 @@ class ArenaBot {
     this.pos.y = AR.Y; this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
     const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
-    const c = this.cast; animateHumanoid(this.model, dt, { speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true });
+    { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
+    const c = this.cast; animateHumanoid(this.model, dt, { turn: this.turnR, speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
   }
   // pick who to fight and what to do: focus the team's target, protect healers, play the objective
   think() {

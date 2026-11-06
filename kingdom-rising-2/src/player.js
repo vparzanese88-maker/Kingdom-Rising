@@ -809,7 +809,7 @@ export class Player {
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
-      case 'ar_demon': { const t = this.aimFoe(32); if (!t || !G.hooks.arenaDemon) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to call the demon', '☠', 'bad'); S.error(); break; } G.hooks.arenaDemon(this, t); this.headUpT = 1.2; S.cast('arcane', this.pos, 1.4); break; }
+      case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = groundPoint(24); G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.cast('arcane', this.pos, 1.4); break; } // (cast on the ground where you aim)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
         S.cast('holy', this.pos, 0.6); S.heal && S.heal(); this.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; break; }

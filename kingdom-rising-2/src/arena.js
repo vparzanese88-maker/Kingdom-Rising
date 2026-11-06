@@ -133,7 +133,7 @@ const ARENA_NEW = {
   monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
-    { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'A demon of the depths tears half out of the ground, seizes the enemy you aim at, lifts them over its head and bites their head off, then sinks back down.' },
+    { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Call a demon up from the ground where you aim. When it has risen it seizes the nearest enemy in reach, lifts them over its head and bites their head off; if nobody is close enough it sinks back into the depths.' },
     { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
@@ -224,23 +224,29 @@ export function initArena(hooks) {
 export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name || 'You'); }
 const RUINS_MAP = () => AR.map === 'ruins';
 // the necromancer's ultimate: the demon rises in front of the victim, lifts them overhead, bites their head off, sinks away
-export function summonDemon(caster, victim) {
-  if (!victim || victim.dead) return false; const D = makeDemon(), g = D.g, vp = victim.pos, base = gy(vp.x, vp.z, vp.y), face = caster && caster.pos ? Math.atan2(caster.pos.x - vp.x, caster.pos.z - vp.z) : 0;
-  const ox = vp.x + Math.sin(face) * 2.4, oz = vp.z + Math.cos(face) * 2.4; g.position.set(ox, base - 4.8, oz); g.rotation.y = face + Math.PI; G.scene.add(g); addOutline(g);
-  victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', 3.4); } else if (victim.status) { victim.status.stun = 3.4; victim.cast = null; victim.pending = null; }
+export function summonDemon(caster, at) {
+  // cast on the ground: the demon rises there; when it is ready to grab, it seizes the nearest enemy within reach,
+  // lifts them overhead and bites their head off; if nobody is close enough, it sinks back into the depths
+  if (at && at.pos) at = at.pos; if (!at) return false;
+  const D = makeDemon(), g = D.g, base = gy(at.x, at.z, at.y), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
+  const ox = at.x, oz = at.z; g.position.set(ox, base - 4.8, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
   V.ring(new THREE.Vector3(ox, base + 0.05, oz), 3.2, '#3a0a0a', 0.9); V.burst('stone', new THREE.Vector3(ox, base + 0.3, oz), 50, { speed: 7, grav: 14 }); V.burst('poison', new THREE.Vector3(ox, base + 0.5, oz), 40, { speed: 4 }); S.rumble && S.rumble(g.position, 1.4); S.explode && S.explode(new THREE.Vector3(ox, base, oz), 0.6); V.addShake(0.5);
-  const from = vp.clone(); let t = 0, bit = false; const hp = new THREE.Vector3(), mouth = new THREE.Vector3();
+  const team = caster === G.player ? G.myTeam : caster.team, enemies = () => A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead);
+  let t = 0, bit = false, victim = null, from = null, sinkAt = 2.4; const hp = new THREE.Vector3(), mouth = new THREE.Vector3();
   G.timers.push({ update: (dt) => { t += dt; const e = (x) => x * x * (3 - 2 * x);
-    const rise = t < 0.9 ? e(t / 0.9) : t < 2.4 ? 1 : 1 - e(Math.min(1, (t - 2.4) / 0.9)); g.position.y = base - 4.8 + rise * 4.3;
-    const A2 = D.arms.R; const lift = t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1; A2.sh.rotation.x = -0.3 - lift * 2.4; A2.el.rotation.x = -0.4 - lift * 0.4 - (t > 1.7 && t < 2.3 ? (t - 1.7) * 1.2 : 0); D.arms.L.sh.rotation.x = -0.4 - Math.sin(t * 3) * 0.2;
-    D.jaw.rotation.x = t > 1.6 && t < 2.15 ? Math.min(0.7, (t - 1.6) * 3) : 0; D.head.rotation.x = t > 1.7 && t < 2.2 ? -0.25 : 0;
+    if (t >= 0.9 && !victim && sinkAt === 2.4) { let best = null, bd = 5.5; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
+      if (best) { victim = best; from = best.pos.clone(); victim.held = true; if (victim === G.player) G.player.debuff && G.player.debuff('stun', 2.6); else if (victim.status) { victim.status.stun = 2.6; victim.cast = null; victim.pending = null; } }
+      else sinkAt = 1.1; } // (nobody in reach: straight back down)
+    const rise = t < 0.9 ? e(t / 0.9) : t < sinkAt ? 1 : 1 - e(Math.min(1, (t - sinkAt) / 0.9)); g.position.y = base - 4.8 + rise * 4.3;
+    const A2 = D.arms.R; const lift = !victim || t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1; A2.sh.rotation.x = -0.3 - lift * 2.4; A2.el.rotation.x = -0.4 - lift * 0.4 - (victim && t > 1.7 && t < 2.3 ? (t - 1.7) * 1.2 : 0); D.arms.L.sh.rotation.x = -0.4 - Math.sin(t * 3) * 0.2;
+    D.jaw.rotation.x = victim && t > 1.6 && t < 2.15 ? Math.min(0.7, (t - 1.6) * 3) : 0; D.head.rotation.x = victim && t > 1.7 && t < 2.2 ? -0.25 : 0;
     g.updateMatrixWorld(true); A2.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.15, 0.6));
-    if (!bit && victim.held) { const k = t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1, k2 = t > 1.8 ? Math.min(1, (t - 1.8) / 0.35) : 0; const at = from.clone().lerp(hp.clone().setY(hp.y - 1.0), k).lerp(mouth.clone().setY(mouth.y - 1.0), k2);
-      victim.pos.copy(at); if (victim.root) victim.root.position.copy(at); if (victim === G.player) G.player.vel && G.player.vel.set(0, 0, 0); }
-    if (!bit && t >= 2.15) { bit = true; victim.held = false; V.burst('blood', mouth, 60, { speed: 6 }); V.burst('poison', mouth, 30, { speed: 4 }); V.sphereFlash(mouth, 1.2, '#ff3020', 0.2); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.6); V.addShake(0.7);
+    if (victim && !bit && victim.held) { const k = t < 1.7 ? e((t - 0.9) / 0.8) : 1, k2 = t > 1.8 ? Math.min(1, (t - 1.8) / 0.35) : 0; const p2 = from.clone().lerp(hp.clone().setY(hp.y - 1.0), k).lerp(mouth.clone().setY(mouth.y - 1.0), k2);
+      victim.pos.copy(p2); if (victim.root) victim.root.position.copy(p2); if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0); }
+    if (victim && !bit && t >= 2.15) { bit = true; victim.held = false; V.burst('blood', mouth, 60, { speed: 6 }); V.burst('poison', mouth, 30, { speed: 4 }); V.sphereFlash(mouth, 1.2, '#ff3020', 0.2); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.6); V.addShake(0.7);
       if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } } else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
-    if (t > 3.4) { G.scene.remove(g); victim.held = false; return true; } return false; } }); // (a timer is finished when it returns true)
+    if (t > sinkAt + 1.0) { G.scene.remove(g); if (victim) victim.held = false; return true; } return false; } }); // (a timer is finished when it returns true)
   return true;
 }
 // the height of the floor under a point (stairs, balconies, ramparts on the Ruins; flat sand in the colosseum)
@@ -740,7 +746,7 @@ class ArenaBot {
         V.sphereFlash(me.clone().setY(me.y + 1), 1.4, k === 'ward' || k === 'barrier' || k === 'fort' ? '#80d8ff' : '#ffd060', 0.45); return; }
       case 'stealth': if (a.step) { const tg = T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 12 ? T : null; V.burst('shadow', me.clone().setY(me.y + 1), 30, { speed: 3 }); if (tg) { const by = tg.yaw || 0; me.set(tg.pos.x - Math.sin(by) * 1.4, me.y, tg.pos.z - Math.cos(by) * 1.4); this.yaw = by; } else me.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), a.step); }
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
-      case 'demon': if (T && !T.dead) summonDemon(this, T); return;
+      case 'demon': if (T && !T.dead) summonDemon(this, T.pos.clone()); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;
       case 'petheal': for (const p of this.pets) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * (a.petPct || 0.35)); return;

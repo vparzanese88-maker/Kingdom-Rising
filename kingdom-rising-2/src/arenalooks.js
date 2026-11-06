@@ -51,13 +51,50 @@ function mantle(ch, c, r = 0.2) { const t = add(ch.chest, new THREE.TorusGeometr
 function shoulderSpikes(ch, m, n = 3) { for (const s of [-1, 1]) { const g = new THREE.Group(); g.position.set(s * (ch.R.sw + 0.02), ch.R.torsoH - 0.2, 0); ch.chest.add(g); add(g, sph(0.09, 12, 8), m).scale.set(1, 0.7, 1.1); for (let k = 0; k < n; k++) { const sp = add(g, coneG(0.022, 0.12, 6), m, s * 0.03, 0.06, -0.04 + k * 0.04); sp.rotation.z = -s * 0.5; } } }
 function backItem(ch, obj, y = 0.05) { obj.position.set(0, ch.R.torsoH * 0.5 + y, -0.17); ch.chest.add(obj); return obj; }
 
+// ---- general kit: plate, leather and cloth pieces that give every body more detail ----
+function breastplate(ch, m, trim) { const R = ch.R, th = R.torsoH - 0.2, T = R.thick; const b = add(ch.chest, sph(0.2, 18, 12), m, 0, th * 0.55, 0.035); b.scale.set(R.sw / 0.2 * 1.02, th / 0.2 * 0.62, 0.78 * T); b.geometry = new THREE.SphereGeometry(0.2, 18, 12, -Math.PI * 0.5, Math.PI, 0, Math.PI);
+  if (trim) { const r = add(ch.chest, new THREE.TorusGeometry(0.17, 0.012, 6, 20, Math.PI), trim, 0, th * 0.18, 0.08); r.scale.set(R.sw / 0.2, 1, 1); r.rotation.x = Math.PI / 2 + 0.25; r.rotation.z = Math.PI; }
+  add(ch.spine, cylG(0.16 * T, 0.15 * T, 0.12, 16), m, 0, 0.0, 0).scale.z = 0.8; }
+function pauldrons(ch, m, size = 1) { for (const sd of ['L', 'R']) { const p = add(ch.arms[sd].sh, sph(0.1 * size, 14, 10), m, 0, 0.01, 0); p.geometry = new THREE.SphereGeometry(0.1 * size, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55); p.scale.set(1.15, 0.9, 1.1);
+  const p2 = add(ch.arms[sd].sh, sph(0.085 * size, 12, 8), m, 0, -0.05, 0); p2.geometry = new THREE.SphereGeometry(0.085 * size, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5); p2.scale.set(1.1, 0.7, 1.05); } }
+function gauntlets(ch, m, cuff = true) { const fa = ch.R.armL * 0.46, T = ch.R.thick; for (const sd of ['L', 'R']) { const el = ch.arms[sd].el; add(el, cylG(0.05 * T, 0.058 * T, fa * 0.5, 12), m, 0, -fa * 0.68, 0); if (cuff) add(el, cylG(0.068 * T, 0.06 * T, 0.05, 12), m, 0, -fa * 0.44, 0); add(ch.arms[sd].hand, sph(0.052, 10, 8), m, 0, -0.045, 0.005).scale.set(0.9 * Math.min(1.4, T), 1.2, 0.68 * Math.min(1.4, T)); } }
+function gloves(ch, c) { const m = M(c, 0.8); for (const sd of ['L', 'R']) add(ch.arms[sd].hand, sph(0.051, 10, 8), m, 0, -0.045, 0.005).scale.set(0.88 * Math.min(1.4, ch.R.thick), 1.22, 0.64 * Math.min(1.4, ch.R.thick)); }
+function greaves(ch, m) { const sl = ch.R.legL * 0.47, T = ch.R.thick; for (const sd of ['L', 'R']) { const k = ch.legs[sd].knee; add(k, cylG(0.058 * T, 0.068 * T, sl * 0.62, 12), m, 0, -sl * 0.42, 0.006); add(k, sph(0.055 * T, 10, 8), m, 0, 0, 0.03).scale.set(1, 0.9, 0.8); } }
+function bootCuffs(ch, c) { const sl = ch.R.legL * 0.47, T = ch.R.thick, m = M(c, 0.85); for (const sd of ['L', 'R']) add(ch.legs[sd].knee, cylG(0.074 * T, 0.068 * T, 0.07, 12), m, 0, -sl * 0.3, 0); }
+function belt(ch, c, buckle = '#c9a14a', pouches = 0) { const T = ch.R.thick, m = M(c, 0.7), b = add(ch.hips, new THREE.TorusGeometry(0.16 * T, 0.022, 6, 22), m, 0, 0.1, 0); b.rotation.x = Math.PI / 2; b.scale.set(1, 0.78, 1);
+  add(ch.hips, boxG(0.06, 0.045, 0.02), M(buckle, 0.35, 0.8), 0, 0.1, 0.13 * T);
+  for (let i = 0; i < pouches; i++) { const a = 0.9 + i * 0.6; add(ch.hips, boxG(0.06, 0.07, 0.04), M('#5a3a22', 0.85), Math.sin(a) * 0.16 * T, 0.06, Math.cos(a) * 0.12 * T); } }
+function robeTrim(ch, c) { const m = M(c, 0.45, 0.6), T = ch.R.thick, L = ch.R.legL; const st = add(ch.hips, boxG(0.05, L - 0.05, 0.01), m, 0, -L / 2 + 0.07, 0.17 * T); st.rotation.x = -0.06;
+  const hem = add(ch.hips, new THREE.TorusGeometry(0.245 * T, 0.012, 5, 28), m, 0, -L + 0.06, 0); hem.rotation.x = Math.PI / 2; hem.scale.set(1, 0.8, 1); add(ch.chest, boxG(0.045, (ch.R.torsoH - 0.2) * 0.9, 0.01), m, 0, (ch.R.torsoH - 0.2) * 0.45, 0.14 * T); }
+function straps(ch, c) { const m = M(c, 0.8), th = ch.R.torsoH - 0.2; for (const s of [-1, 1]) { const b = add(ch.chest, boxG(0.03, th * 1.15, 0.012), m, 0, th * 0.5, 0.135 * ch.R.thick); b.rotation.z = s * 0.55; } }
+const steel = (c = '#a8aeb6') => M(c, 0.35, 0.85);
+const DETAIL = {
+  warrior(ch) { const m = steel(); breastplate(ch, m, gold()); pauldrons(ch, m); gauntlets(ch, m); greaves(ch, m); belt(ch, '#3a2416'); },
+  paladin(ch) { const m = steel('#dcdcd4'), g = gold(); breastplate(ch, m, g); pauldrons(ch, g, 1.1); gauntlets(ch, m); greaves(ch, m); belt(ch, '#8a6a30', '#f0d070'); },
+  darkknight(ch) { const m = steel('#26262c'); breastplate(ch, m, M('#7a1010', 0.5, 0.5)); gauntlets(ch, m); greaves(ch, m); belt(ch, '#1a0a0a', '#7a1010'); },
+  berserker(ch) { gauntlets(ch, fur('#5a3a22')); straps(ch, '#3a2416'); belt(ch, '#3a2416', '#9aa0a8', 1); bootCuffs(ch, '#6a4a2a'); },
+  blunderbuss(ch) { gloves(ch, '#e8e0c8'); belt(ch, '#efe8d8', '#c9a14a', 2); bootCuffs(ch, '#1a1612'); pauldrons(ch, M('#c9a14a', 0.4, 0.8), 0.7); },
+  musketeer(ch) { gloves(ch, '#e8e0c8'); belt(ch, '#1a1612', '#c9a14a', 1); bootCuffs(ch, '#1a1612'); const cb = add(ch.hips, boxG(0.1, 0.07, 0.05), M('#1a1612', 0.7), 0.1, 0.08, -0.12); },
+  ranger(ch) { gauntlets(ch, M('#5a3a22', 0.85), false); belt(ch, '#3a2a1a', '#9aa0a8', 2); bootCuffs(ch, '#4a3220'); },
+  rogue(ch) { gauntlets(ch, M('#2a2632', 0.8), false); belt(ch, '#3a1a2a', '#9aa0a8', 3); bootCuffs(ch, '#100e12'); straps(ch, '#100e12'); },
+  monk(ch) { const w = M('#efe8d8', 0.95); for (const sd of ['L', 'R']) { const fa = ch.R.armL * 0.46; add(ch.arms[sd].el, cylG(0.046, 0.05, fa * 0.45, 10), w, 0, -fa * 0.72, 0); } },
+  beastmaster(ch) { gauntlets(ch, fur('#7a7a80')); belt(ch, '#2a1a10', '#e6dcc4', 2); bootCuffs(ch, '#7a7a80'); },
+  bard(ch) { gloves(ch, '#5a3220'); belt(ch, '#3a2010', '#f0d070', 1); bootCuffs(ch, '#5a3220'); },
+  necromancer(ch) { robeTrim(ch, '#4a4a50'); gloves(ch, '#141216'); belt(ch, '#1a1418', '#8a8a90', 1); },
+  wizard(ch) { robeTrim(ch, '#e0b84a'); gloves(ch, '#2a2a40'); belt(ch, '#3a2a1a', '#e0b84a', 1); const bk = add(ch.hips, boxG(0.09, 0.12, 0.04), M('#6a1a1a', 0.8), -0.15, 0.0, 0.05); bk.rotation.y = 0.5; },
+  elementalist(ch) { robeTrim(ch, '#ffb040'); gloves(ch, '#2a1a12'); belt(ch, '#2a1a12', '#ff7a20', 1); },
+  enchanter(ch) { robeTrim(ch, '#f0b8ff'); gloves(ch, '#3a1a3a'); belt(ch, '#3a1a3a', '#f0b8ff', 0); },
+  druid(ch) { robeTrim(ch, '#9ad060'); belt(ch, '#5a3a1a', '#9ad060', 2); },
+  shaman(ch) { gauntlets(ch, M('#5a3a22', 0.85), false); belt(ch, '#6b4a2a', '#e6dcc4', 2); bootCuffs(ch, '#7a5a3a'); },
+  cleric(ch) { robeTrim(ch, '#d8b04a'); gloves(ch, '#f4f0e6'); belt(ch, '#d8b04a', '#f0d070', 0); },
+};
 const DECOR = {
   necromancer(ch) { skullFace(ch.headG); hideHair(ch); shoulderSpikes(ch, bone(), 2); const b = bone(); for (let k = 0; k < 5; k++) add(ch.chest, sph(0.022, 8, 6), b, -0.08 + k * 0.04, ch.R.torsoH - 0.13, 0.12 - Math.abs(k - 2) * 0.012); },
   wizard(ch) { const hat = ch.outfit && ch.outfit.hat; if (hat) { const g = gold(); for (let k = 0; k < 6; k++) { const a = k * 1.1, y = 0.05 + k * 0.05; add(hat, sph(0.014, 6, 4), g, Math.sin(a) * (0.1 - k * 0.012), y, Math.cos(a) * (0.1 - k * 0.012)); } }
     const bd = add(ch.headG, coneG(0.075, 0.26, 10), M('#e8e8e8', 0.9), 0, -0.07, 0.06); bd.rotation.x = Math.PI + 0.25; },
   elementalist(ch) { const crown = new THREE.Group(); crown.position.set(0, 0.2, 0); ch.headG.add(crown); add(crown, new THREE.TorusGeometry(0.11, 0.012, 6, 18), gold()).rotation.x = Math.PI / 2;
     for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; add(crown, coneG(0.018, 0.08, 6), GL(k % 2 ? '#ffb040' : '#ff6020'), Math.sin(a) * 0.11, 0.04, Math.cos(a) * 0.11); }
-    const orbs = new THREE.Group(); orbs.position.set(0, ch.R.torsoH + 0.25, 0); ch.chest.add(orbs); ch.arenaSpin = orbs; for (const [c, a] of [['#ff6020', 0], ['#60c8ff', 2.1], ['#e0e070', 4.2]]) add(orbs, sph(0.055, 10, 8), GL(c), Math.sin(a) * 0.42, 0.1, Math.cos(a) * 0.42); },
+    const orbs = new THREE.Group(); orbs.position.set(0, ch.R.torsoH - 0.05, 0); ch.chest.add(orbs); ch.arenaSpin = orbs; for (const [c, a] of [['#ff6020', 0], ['#60c8ff', 2.1], ['#e0e070', 4.2]]) add(orbs, sph(0.05, 10, 8), GL(c), Math.sin(a) * 0.36, 0.05, Math.cos(a) * 0.36); },
   enchanter(ch) { const c = add(ch.headG, new THREE.TorusGeometry(0.128, 0.01, 6, 20), gold(), 0, 0.15, 0); c.rotation.x = Math.PI / 2 - 0.15; add(ch.headG, sph(0.022, 10, 8), GL('#ff70e0'), 0, 0.16, 0.13);
     const r = new THREE.Group(); backItem(ch, r, 0.25); ch.arenaSpin = r; for (const rad of [0.3, 0.22]) add(r, new THREE.TorusGeometry(rad, 0.008, 4, 32), GL('#f0a0ff')); },
   druid(ch) { const w = M('#7a5a36', 0.9); for (const s of [-1, 1]) { const a = new THREE.Group(); a.position.set(s * 0.08, 0.2, -0.02); a.rotation.z = -s * 0.5; ch.headG.add(a); add(a, cylG(0.012, 0.018, 0.22, 6), w, 0, 0.11, 0); for (const [y, t] of [[0.08, 0.7], [0.15, -0.6], [0.2, 0.5]]) { const b = add(a, cylG(0.008, 0.012, 0.1, 5), w, 0, y, 0); b.rotation.z = t; b.position.x = Math.sin(t) * 0.04; } }
@@ -88,7 +125,7 @@ const DECOR = {
     for (const s of [-1, 1]) { add(ch.headG, coneG(0.04, 0.1, 4), f, s * 0.08, 0.28, -0.02); add(ch.headG, sph(0.012, 6, 4), GL('#ffd040'), s * 0.04, 0.2, 0.15); for (let k = 0; k < 2; k++) add(ch.headG, coneG(0.01, 0.04, 4), wh, s * 0.03, 0.11, 0.2 - k * 0.04).rotation.x = Math.PI; }
     mantle(ch, '#7a7a80', 0.2); },
 };
-export function arenaDecor(ch, cls) { try { if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
+export function arenaDecor(ch, cls) { try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;

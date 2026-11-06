@@ -135,7 +135,23 @@ export function buildColosseum(scene) {
     AR.braziers.push({ g, fl, x, z }); addCircle(x, z, 0.7); }
   buildCrowd(root, rowR, rowY);
   AR.root = root;
+  mergeStatic(root);
   return root;
+}
+// the colosseum is thousands of fixed pieces of stone, wood and gold: fuse them into one mesh per material (identical to
+// look at, but a few dozen draw calls instead of well over a thousand). Anything that moves or changes stays separate.
+function mergeStatic(root) {
+  root.updateMatrixWorld(true);
+  const keep = new Set(); const mark = (o) => o && o.traverse(c => keep.add(c));
+  AR.gateBars.forEach(mark); AR.braziers.forEach(b => mark(b.g)); if (AR.hill) keep.add(AR.hill);
+  const groups = new Map(), drop = [];
+  root.traverse(o => { if (!o.isMesh || o.isInstancedMesh || keep.has(o) || !o.visible) return; const m = o.material;
+    if (!m || Array.isArray(m) || m.transparent || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile || AR.flagMats.includes(m) || !m.isMeshStandardMaterial) return;
+    let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.normal) g.computeVertexNormals(); if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    g.applyMatrix4(o.matrixWorld); const k = m.uuid + (o.castShadow ? 's' : ''); if (!groups.has(k)) groups.set(k, { m, sh: o.castShadow, list: [] }); groups.get(k).list.push(g); drop.push(o); });
+  for (const o of drop) o.parent && o.parent.remove(o);
+  for (const { m, sh, list } of groups.values()) { const geo = mergeGeometries(list, false); if (!geo) continue; const mesh = new THREE.Mesh(geo, m); mesh.castShadow = sh; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; root.add(mesh); }
 }
 // marble statues of heroes, each in a different pose
 function statue(parent, x, y, z, i) {
@@ -155,7 +171,7 @@ function wave(m) {
 // the crowd: thousands of spectators on the tiers, swaying, jumping up when blood is spilled
 function buildCrowd(root, rowR, rowY) {
   const body = new THREE.BoxGeometry(0.44, 0.62, 0.3); body.translate(0, 0.31, 0);
-  const head = new THREE.SphereGeometry(0.14, 8, 6); head.translate(0, 0.78, 0);
+  const head = new THREE.IcosahedronGeometry(0.14, 0); head.translate(0, 0.78, 0); // (a few faces is plenty from the sand)
   const arms = new THREE.BoxGeometry(0.62, 0.12, 0.12); arms.translate(0, 0.52, 0);
   const pts = [];
   for (let t = 0; t < rowR.length; t++) { const r = rowR[t], n = Math.floor(Math.PI * 2 * r / 0.66);
@@ -201,7 +217,7 @@ function holdingRoom(root, i) {
   // torches on the walls (one warm light per room)
   const fireM = new THREE.MeshBasicMaterial({ color: '#ffb050', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
   for (const [sx, z] of [[-1, 3.2], [1, 3.2], [-1, 8.6], [1, 8.6]]) { const t = new THREE.Group(); t.position.set(sx * (W2 - 0.15), 2.5, z); g.add(t); cyl(0.04, 0.07, 0.4, M.iron, 0, 0, 0, t, 6); const f = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.36, 7), fireM); f.position.y = 0.36; t.add(f); AR.braziers.push({ g: t, fl: [f], x: 0, z: 0 }); }
-  const lt = new THREE.PointLight('#ff9a50', 14, 14, 1.6); lt.position.set(0, 3.2, 6); g.add(lt);
+  { const glow = new THREE.Mesh(new THREE.PlaneGeometry(W2 * 2, L), new THREE.MeshBasicMaterial({ color: '#ff8a3a', transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false })); glow.rotation.x = -Math.PI / 2; glow.position.set(0, 0.08, zc); g.add(glow); } // (a warm wash of torchlight on the floor, no costly real light)
   // a team banner on the back wall, weapon racks, barrels, a bench, chains, straw
   const ban = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.8), S(COLORS[i], 0.9, 0, { side: THREE.DoubleSide })); ban.position.set(0, 2.3, L + 0.13); ban.rotation.y = Math.PI; g.add(ban); AR.gates[i] && (AR.gates[i].roomBanner = ban);
   for (const sx of [-1, 1]) { const r = new THREE.Group(); r.position.set(sx * (W2 - 0.35), 0, 6); r.rotation.y = -sx * Math.PI / 2; g.add(r); box(1.6, 0.08, 0.12, M.wood, 0, 1.6, 0, r); box(1.6, 0.08, 0.12, M.wood, 0, 0.4, 0, r); for (const x of [-0.75, 0.75]) box(0.1, 1.8, 0.12, M.wood, x, 0.9, 0, r);

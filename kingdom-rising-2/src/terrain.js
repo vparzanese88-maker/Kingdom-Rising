@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
 
-export const HALF = 600, SEG = 300, CELL = (HALF * 2) / SEG;
+export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
 export const SEA = 0;
 export const VILLAGE = { x: 0, z: 362 };
 // the island: Mount Kelda in the middle, Saltmere (the big port town) on the far north shore

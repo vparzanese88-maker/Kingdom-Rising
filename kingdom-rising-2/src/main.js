@@ -317,6 +317,16 @@ function campaignSetup() {
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
   for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard', 'beastmaster', 'blunderbuss']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
+  // what each ability costs: spells cost mana; melee and physical ranged attacks (bows, guns, thrown things) cost endurance.
+  // Pure melee classes and classes without mana use endurance for everything.
+  { const PURE = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'blunderbuss']), PHYS_T = new Set(['strike', 'dash', 'flurry', 'trap', 'petstrike']);
+    const PHYS_KIND = new Set(['bullet', 'arrow', 'keg', 'rock', 'axe', 'knife', 'javelin']), PHYS_FX = new Set(['dust', 'blood', 'steel', 'smoke']);
+    for (const c in ABILITIES) { const P = CLASS_POOLS[c] || {}; for (const a of ABILITIES[c]) {
+      if (PURE.has(c) || !(P.mana && P.mana[0] > 0)) { a.res = 'end'; continue; }
+      if (!a.t) { a.res = P.uses; continue; } // the original classes' abilities keep their class's resource
+      const MAGIC = /holy|light|shock|thunder|lightning|spark|nature|wrath|arcane|shadow|soul|frost|fire|flame|storm|spirit|mind|psychic|death|blight|plague|burst/i, SWING = /cleave|slam|kick|swing|bash|stomp|trample|stampede|whirl|sweep|claw/i;
+      const phys = PHYS_T.has(a.t) || ((a.t === 'bolt') && PHYS_KIND.has(a.kind)) || ((a.t === 'nova' || a.t === 'cone') && (SWING.test(a.name) || ((!a.fx || PHYS_FX.has(a.fx)) && !MAGIC.test(a.name)))) || (a.t === 'buff' && /shout|roar|stance|stride|fervor|blood fury|feral fury/i.test(a.name));
+      a.res = phys ? 'end' : 'mana'; } } }
   // EverQuest-style buffs and heals: stat buffs take a moment to cast, have no cooldown and last 2 minutes;
   // heals take a moment to cast and are limited only by your mana or endurance. Emergency buffs keep their cooldowns.
   for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';
@@ -637,7 +647,7 @@ let lockBusyUntil = 0;
 function lockPointer() { if (mode !== 'game' || G.uiOpen || !canvas.requestPointerLock || document.pointerLockElement || performance.now() < lockBusyUntil - 700) return; lockBusyUntil = performance.now() + 900; try { const r = canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch (e) {} }); } catch (e) { try { canvas.requestPointerLock(); } catch (e2) {} } }
 // ---------- pet commands (G): tap = attack your target; hold = command wheel ----------
 const PET_OPTS = [
-  { id: 'attackTarget', icon: '⚔', name: 'Attack my target', tip: 'Same as tapping Z' },
+  { id: 'attackTarget', icon: '⚔', name: 'Attack my target', tip: 'Your pets go after your target' },
   { id: 'guard', icon: '🛡', name: 'Defend me', tip: 'Fight only what you attack, or what attacks you or the pet' },
   { id: 'attack', icon: '🔥', name: 'Aggressive', tip: 'Attack anything hostile near you' },
   { id: 'stay', icon: '✋', name: 'Wait here', tip: 'Hold this spot; fight only what comes close' },
@@ -688,7 +698,7 @@ function updatePetBar(dt) {
   const doing = (m) => m.tgt && !m.tgt.dead ? `<em class="fight">⚔ ${m.tgt.name}</em>` : PETS.mode === 'stay' ? '<em>✋ waiting</em>' : '<em>👣 following</em>';
   const html = `<div class="pbh"><span class="pbm">${mode.icon} ${mode.name}</span><span class="pbt ${PETS.taunt ? 'on' : ''}">📢 Taunt ${PETS.taunt ? 'ON' : 'OFF'}</span></div>`
     + list.map(m => `<div class="pbp"><div class="pbi">${ICON[m.petKind] || '🐾'}</div><div class="pbn"><b>${m.name}</b>${m.petKind === 'skeleton' && lv >= 10 ? '<small>🛡 shield</small>' : ''}${doing(m)}<i><u style="width:${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%"></u></i></div></div>`).join('')
-    + `<div class="pbk"><span><kbd>Z</kbd>Attack my target</span><span><kbd>G</kbd>Stop attacking</span><span><kbd>G</kbd><small>hold</small>Orders · taunt · wait · dismiss</span></div>`;
+    + `<div class="pbk"><span><kbd>G</kbd><small>hold</small>Attack my target</span><span><kbd>G</kbd>Stop attacking</span><span><kbd>G</kbd><small>hold</small>Orders · taunt · wait · dismiss</span></div>`;
   if (e._h !== html) { e.innerHTML = html; e._h = html; } e.hidden = false;
 }
 function input() {
@@ -712,7 +722,7 @@ function input() {
       if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
-      if (e.code === 'KeyZ' && !G.uiOpen && !BATTLE && pets().length) { petTap(); return; } // Z: pets attack your target
+      if (e.code === 'KeyZ' && !G.uiOpen && !BATTLE && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)
       if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;

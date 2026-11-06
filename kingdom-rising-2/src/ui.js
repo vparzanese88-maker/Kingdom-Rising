@@ -393,7 +393,7 @@ function slotEl(h, k, tipEl, c) {
   const d = el('div', 'eq' + (it ? ' r' + (it.rarity || 0) : ' empty') + (k === h.active ? ' active' : ''));
   d.innerHTML = `<div class="ic">${it ? Icons.itemSvg(it) : Icons.itemSvg(ghost(SLOT_HINT[k]))}</div>${it && !it.kind ? `<span class="n">${it.n}</span>` : ''}<div class="lb">${SLOT_LABEL[k]}${k === h.active ? ' ✦' : ''}</div>`;
   if (!it && (k === 'food' || k === 'drink')) d.title = k === 'food' ? 'Drag food here: you eat one each time the buff runs out (long, small buffs)' : 'Drag a drink here: you drink one each time the buff runs out (shorter, stronger buffs)';
-  if (!it && (k === 'w3' || k === 'w4')) d.title = 'Weapon Set 2 hangs on your back. Drag weapons here, then Q swaps sets.';
+  if (!it && (k === 'w3' || k === 'w4')) d.title = `Weapon Set 2 hangs on your back. Drag weapons here, then ${G.newFx ? 'Z' : 'Q'} swaps sets.`;
   d.onmouseenter = () => { if (it) showTip(tipEl, it, null, k, c); };
   if (it) hoverTip(d, it, null, k, c);
   d.onclick = () => { if (it) { S.click(); selInv = { eq: k }; showTip(tipEl, it, null, k, c, true); } };
@@ -470,7 +470,7 @@ function renderInventory(c) {
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
   const bot = el('div', 'botrow wsets');
   const setBox = (keys, n, on) => { const g = el('div', 'wset' + (on ? ' on' : ''), `<div class="wsh">Set ${n}${on ? ' · in your hands' : ' · on your back'}</div>`); const r = el('div', 'wsr'); keys.forEach(k => r.appendChild(slotEl(h, k, tip, c))); g.appendChild(r); return g; };
-  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', '<b>Q</b><span>swap</span>'), setBox(SET2, n1 === 1 ? 2 : 1, false));
+  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', `<b>${G.newFx ? 'Z' : 'Q'}</b><span>swap</span>`), setBox(SET2, n1 === 1 ? 2 : 1, false));
   requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
     pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
       const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };
@@ -521,7 +521,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
     if (it.kind === 'acc' && it.slot !== 'back') html += `<div style="color:var(--bad)">No longer worn. Sell it to a merchant.</div>`;
-    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in Weapon Set 2 (Q swaps sets).</div>`;
+    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in Weapon Set 2 (${G.newFx ? 'Z' : 'Q'} swaps sets).</div>`;
     else if (!Game.canEquip(hh, it)) html += `<div style="color:var(--bad)">${CLASSES[hh.cls].name}s can't use this.</div>`;
     const cur = it.kind === 'weapon' ? hh.equip[hh.active] : hh.equip[it.slot === 'ring' ? 'ring1' : it.slot];
     if (cur && idx != null) html += `<div class="dim">Currently worn: ${esc(cur.name)} (${cur.dmg ? cur.dmg + ' damage' : (cur.armor || 0) + ' armour'})</div>`;
@@ -714,7 +714,8 @@ export function openQuestLog() {
 const QCOL = ['#ffd84a', '#6fe0ff', '#ff7ad0', '#9cff6a', '#ffa04a', '#c8a0ff'];
 export function questAreas(h) {
   const p = G.player, out = [];
-  const near = (arr, n) => arr.map(o => [o, (o.x - p.pos.x) ** 2 + (o.z - p.pos.z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, n).map(a => a[0]);
+  // the nearest one, plus the others close to it: one real spot to go to (averaging scattered ones landed in the middle of nowhere, often the village)
+  const near = (arr, n) => { const srt = arr.map(o => [o, (o.x - p.pos.x) ** 2 + (o.z - p.pos.z) ** 2]).sort((a, b) => a[1] - b[1]).map(a => a[0]); if (!srt.length) return []; const f = srt[0]; return srt.filter(o => Math.hypot(o.x - f.x, o.z - f.z) < 35).slice(0, n); };
   const area = (pts) => { if (!pts.length) return null; const cx = pts.reduce((a, o) => a + o.x, 0) / pts.length, cz = pts.reduce((a, o) => a + o.z, 0) / pts.length; const r = Math.max(14, ...pts.map(o => Math.hypot(o.x - cx, o.z - cz) + 6)); return { x: cx, z: cz, r: Math.min(r, 70) }; };
   let qi = 0;
   for (const qid of Object.keys(h.quests.active)) {

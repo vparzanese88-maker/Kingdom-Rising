@@ -12,7 +12,7 @@ import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tint
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
-import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv } from './data.js';
+import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } from './data.js';
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { plantBanner } from './banners.js';
@@ -403,9 +403,9 @@ export class Player {
   fwd() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
   right() { return new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw)); }
   busy() { return !!(this.atk || this.dodge || this.gathering || this.dead); }
-  spend(cost) {
+  spend(cost, res) {
     cost = Math.round(cost * (this.h.cls === 'wizard' && this.pk('cap') ? 0.75 : 1) * (this.buffs.surge > 0 ? 0 : 1));
-    const uses = CLASS_POOLS[this.h.cls].uses;
+    const uses = res === 'mana' && this.maxMana > 0 ? 'mana' : res === 'end' ? 'end' : CLASS_POOLS[this.h.cls].uses; // campaign: spells cost mana, physical attacks endurance
     const cur = uses === 'mana' ? this.mana : this.end;
     if (cur < cost) { G.hooks.toast && G.hooks.toast(uses === 'mana' ? 'Not enough mana' : 'Not enough endurance', '⚠', 'bad'); S.error(); return false; }
     if (uses === 'mana') { this.mana -= cost; this.manaUseT = 1.2; } else { this.end -= cost; this.endUseT = 1.2; }
@@ -741,9 +741,9 @@ export class Player {
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim || this.abCast || this.summonCast) { S.error(); return; }
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
-    if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)))) return;
+    if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.newFx ? ab.res : undefined)) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
-    const ct = (G.newFx && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
+    const ct = G.newFx && !isSupport(ab) ? 0 : (G.newFx && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
@@ -1605,7 +1605,7 @@ export class Player {
   }
   swapWeapon() {
     if (this.atk || this.dodge) return;
-    if (setIsEmpty(this.h)) { G.hooks.toast && G.hooks.toast('Weapon Set 2 is empty: put weapons in it on the Hero page (I), then Q swaps sets', '⚔', 'bad'); return; }
+    if (setIsEmpty(this.h)) { G.hooks.toast && G.hooks.toast('Weapon Set 2 is empty: put weapons in it on the Hero page (I), then Z swaps sets', '⚔', 'bad'); return; }
     swapSets(this.h); this.refreshGear(); S.swap(); this.swapT = 0.35;
     G.hooks.toast && G.hooks.toast(`Weapon Set ${this.h.setNo || 1}: ${this.h.equip.w1 ? this.h.equip.w1.name : 'bare hands'}${this.h.equip.w2 ? ' + ' + this.h.equip.w2.name : ''}`, '⚔');
     G.hooks.gearChanged && G.hooks.gearChanged(true);

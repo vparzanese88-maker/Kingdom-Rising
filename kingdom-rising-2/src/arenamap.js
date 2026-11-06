@@ -59,7 +59,7 @@ export function buildColosseum(scene) {
     for (const sx of [-1, 1]) { box(0.9, 4.6, 0.8, M.marble, sx * 3.05, 2.3, -0.2, g); box(1.1, 0.4, 1.0, M.gold, sx * 3.05, 4.65, -0.2, g); }
     box(7.0, 0.7, 0.9, M.marble, 0, 4.45, -0.2, g); box(7.2, 0.18, 1.0, M.gold, 0, 4.85, -0.2, g);
     const arch = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 8, 24, Math.PI), M.marble); arch.position.set(0, 2.0, -0.05); g.add(arch);
-    const bars = new THREE.Group(); for (let k = 0; k < 9; k++) cyl(0.05, 0.05, 4.0, M.iron, -2.2 + k * 0.55, 2.0, -0.35, bars, 6); for (const y of [0.8, 2.0, 3.2]) box(5.0, 0.1, 0.1, M.iron, 0, y, -0.35, bars); g.add(bars); AR.gateBars.push(bars);
+    const bars = new THREE.Group(); for (let k = 0; k < 9; k++) cyl(0.05, 0.05, 4.0, M.iron, -2.2 + k * 0.55, 2.0, -0.35, bars, 6); for (const y of [0.8, 2.0, 3.2]) box(5.0, 0.1, 0.1, M.iron, 0, y, -0.35, bars); for (const c of bars.children) c.position.y -= 4.0; bars.position.y = 4.0; g.add(bars); AR.gateBars.push(bars); // (pivot at the lintel: the portcullis rolls up into the arch)
     // a banner in team colour hangs over each gate
     const ban = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3.2, 2, 6), S(COLORS[i], 0.9, 0, { side: THREE.DoubleSide })); ban.position.set(0, 6.9, -0.7); g.add(ban); AR.gates.push({ a, x: Math.sin(a) * (R - 3.5), z: Math.cos(a) * (R - 3.5), banner: ban });
     const em = new THREE.Mesh(new THREE.CircleGeometry(0.5, 20), M.gold); em.position.set(0, 7.3, -0.72); em.rotation.y = Math.PI; g.add(em);
@@ -182,16 +182,16 @@ function buildCrowd(root, rowR, rowY) {
 export function updateColosseum(dt) {
   AR.time.value += dt; AR.cheer = Math.max(0, AR.cheer - dt * 0.35); AR.cheerU.value += (Math.min(1, AR.cheer) - AR.cheerU.value) * Math.min(1, dt * 4);
   for (const b of AR.braziers) b.fl.forEach((c, k) => { const s = 0.85 + Math.sin(AR.time.value * (9 + k * 3) + b.x) * 0.12 + Math.random() * 0.06; c.scale.set(s, s * (1 + k * 0.1), s); });
-  const open = AR.gatesOpen ? 1 : 0; for (const bars of AR.gateBars) bars.position.y += ((open ? 4.1 : 0) - bars.position.y) * Math.min(1, dt * 1.5);
+  const open = AR.gatesOpen ? 1 : 0; for (const bars of AR.gateBars) { bars.scale.y += ((open ? 0.03 : 1) - bars.scale.y) * Math.min(1, dt * 1.6); bars.visible = bars.scale.y > 0.035; }
 }
 export function cheer(k = 1) { AR.cheer = Math.min(2, AR.cheer + k); }
 
 // ---- a holding room behind each gate: a vaulted stone cell, torch-lit, where a team waits (and buffs) for the gate to lift
-export const ROOM = { near: 1.1, far: 11.4, half: 3.6, H: 4.4 }; // along the gate's axis from the wall at R, and half its width
+export const ROOM = { near: 1.1, far: 11.9, half: 3.6, H: 4.4 }; // along the gate's axis from the wall at R, and half its width
 function holdingRoom(root, i) {
-  const R = AR.R, Y = AR.Y, a = i * Math.PI / 2, g = new THREE.Group(); g.position.set(Math.sin(a) * R, Y, Math.cos(a) * R); g.rotation.y = a; root.add(g); // local +z runs out, away from the sand
+  const R = AR.R, Y = AR.Y, a = i * Math.PI / 2, g = new THREE.Group(); g.position.set(Math.sin(a) * (R + 0.6), Y, Math.cos(a) * (R + 0.6)); g.rotation.y = a; root.add(g); // (starts behind the wall) local +z runs out, away from the sand
   const rock = S('#6e6252', 0.95), rockD = S('#4a4036', 1), flag = S('#3c342a', 0.95), L = ROOM.far + 0.4, W2 = ROOM.half + 0.4, H = ROOM.H, zc = L / 2 + 0.2;
-  box(W2 * 2, 0.12, L, flag, 0, 0.0, zc, g);
+  box(W2 * 2, 0.12, L + 0.8, flag, 0, 0.0, zc - 0.4, g);
   for (let k = 0; k < 9; k++) box(W2 * 2 - 0.1, 0.02, 0.05, rockD, 0, 0.07, 1 + k * 1.2, g); // flagstone joints
   for (const sx of [-1, 1]) box(0.5, H, L, rock, sx * (W2 + 0.2), H / 2, zc, g);
   box(W2 * 2 + 1, H, 0.5, rock, 0, H / 2, L + 0.4, g);
@@ -209,7 +209,7 @@ function holdingRoom(root, i) {
   for (const [x, z] of [[-2.6, 10.2], [-1.9, 10.6], [2.7, 10.0]]) { const b = cyl(0.36, 0.33, 0.85, M.wood, x, 0.43, z, g, 12); for (const y of [0.15, 0.7]) cyl(0.375, 0.375, 0.05, M.iron, x, y, z, g, 12); }
   box(2.2, 0.12, 0.45, M.wood, 2.6, 0.5, 3.4, g, Math.PI / 2); for (const dz of [-0.9, 0.9]) box(0.4, 0.5, 0.12, M.wood, 2.6, 0.25, 3.4 + dz, g);
   for (let k = 0; k < 3; k++) { const c = cyl(0.03, 0.03, 1.4, M.iron, -1 + k, H - 0.7, 9.6, g, 4); c.castShadow = false; }
-  for (let k = 0; k < 6; k++) { const st = new THREE.Mesh(new THREE.ConeGeometry(0.5 + Math.random() * 0.3, 0.25, 7), S('#b89a50', 1)); st.position.set(-3 + Math.random() * 1.4, 0.12, 1.5 + Math.random() * 2); g.add(st); }
+  { const straw = S('#8a7442', 1); for (let k = 0; k < 4; k++) { const st = new THREE.Mesh(new THREE.SphereGeometry(0.45 + Math.random() * 0.2, 10, 6), straw); st.scale.y = 0.18; st.position.set(-2.7 + Math.random() * 0.8, 0.07, 9 + Math.random() * 1.5); g.add(st); } } // a low heap of straw in the back corner
 }
 // ---- the sand: stone pillars to fight around (two of them broken), weapon racks against the wall, urns
 export const PILLARS = [];

@@ -13,6 +13,7 @@ import { V } from './vfx.js';
 import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
+import * as Icons from './icons.js';
 import { arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -66,11 +67,11 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }
   { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) n.desc = 'Tear at the soul of the enemy you aim at: its life rushes straight back into you.'; }
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
-    const h = get(fH); if (h) { h.cd = h.t === 'drain' || h.drain || h.regen ? Math.max(h.cd || 0, CD_FIX.drain) : Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); h.castT = Math.min(h.castT || 0, 1.2) || h.castT; }
+    const h = get(fH); if (h) { h.cd = h.t === 'drain' || h.drain || h.regen ? Math.max(h.cd || 0, CD_FIX.drain) : Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); }
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q) q.cd = Math.max(q.cd || 0, CD_FIX.cc);
     const r = get(ARENA_RMB[cls]); if (r) r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30);
-    for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } } }
+    for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } } }
 // arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
 const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
@@ -172,6 +173,22 @@ function revive(f, place) {
 }
 // ---------- changing class during the match (K) ----------
 function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
+// I or H: what every one of your keys does
+export function openKitInfo(UI) {
+  const p = G.player, h = p.h, W = p.W, cls = h.cls, c = UI.openWin('arenakit', CLASSES[cls].name + ' · your abilities', '', 'big');
+  const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
+  const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
+  const ab = (id) => ABILITIES[cls].find(a => a.id === id);
+  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to draw for a stronger, straighter shot.' : W.kind === 'gun' ? 'Fire. Hold to steady a heavier, harder-hitting shot.' : W.kind === 'staff' ? (cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to pour out a stream.') : 'Swing your weapon. Hold for a heavy blow.') : 'Punch.';
+  let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb, 0, null);
+  const r = h.arenaRmb, shield = W && W.hands === 'shield';
+  if (shield) html += row('RMB', 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
+  else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
+  else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
+  ['F', 'C', 'Q'].forEach((k, i) => { const a = ab((h.arenaKit || [])[i]); if (a) html += row(k, a.name, a.desc, a.cd, a.id); });
+  html += row('Shift', 'Sprint / dodge', 'Hold to sprint. Tap (or double-tap a direction) to dodge-roll.', 0, null);
+  c.insertAdjacentHTML('beforeend', `<div class="kitlist">${html}</div><p class="dim" style="margin-top:8px">K changes class · Tab shows the scores · hover the bar at the bottom (hold Alt for a cursor) to read any of these again.</p>`);
+}
 export function openClassPicker(UI) {
   const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
@@ -185,7 +202,7 @@ export function openClassPicker(UI) {
   c.appendChild(g);
 }
 function elx(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); if (AN.on && AN.host) nsend({ t: 'pick', n: t }); }
+function startPick(t) { for (const f of A.F) if (f.bot) { f.bot.buffed = false; f.bot.pickT = 0; f.bot.buffAt = null; } A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); if (AN.on && AN.host) nsend({ t: 'pick', n: t }); }
 export function readyUp() { if (A.state === 'pick' && AUTH()) A.t = Math.min(A.t, 3.5); }
 function autoSpend() { const h = G.save; if (!h || Game.classPoints(h) <= 0) return; const left = Game.classPoints(h); botSpend(h, A.F.filter(o => o.team === A.me.team).length > 1); Game.autoFillHotbar(h); G.player.refreshStatsOnly && G.player.refreshStatsOnly(); A.hooks.rebuildBar && A.hooks.rebuildBar(); A.hooks.toast && A.hooks.toast(`${left} unspent skill point${left > 1 ? 's were' : ' was'} spent for you`, '✦', 'gold'); }
 function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; cheer(1.6); S.battleCry && S.battleCry(); A.hooks.closeBook && A.hooks.closeBook(); A.hooks.banner && A.hooks.banner(A.setup.objective === 'rounds' ? `Round ${A.round}` : OBJECTIVES[A.setup.objective].name, 'Fight!'); for (const f of A.F) if (f.bot) f.bot.prebuff(); }
@@ -346,7 +363,7 @@ class ArenaBot {
     this.def = { name: f.name, aggro: 1, boss: false, elite: false, skin: false, loot: null, size: 1, shape: 'human', armor: 0 };
     const w = h.equip.w1, wt = w ? w.wt : CLASSES[h.cls].weapons[0]; this.W = WEAPON_TYPES[wt] || WEAPON_TYPES.sword;
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}), spec: arenaSpec(h.cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, h.cls);
-    try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, TIERS.length - 1, 3); arenaWeaponDecor(ch, h.cls); } catch (e) { /* unknown weapon model */ }
+    try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, 3, 0); arenaWeaponDecor(ch, h.cls); } catch (e) { /* unknown weapon model */ }
     try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } // (its own materials, so a hit can flash this fighter alone)
     this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
     this.abs = [...(h.arenaKit || []), h.arenaRmb].filter(id => id && id !== 'aim').map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
@@ -426,6 +443,7 @@ class ArenaBot {
       const d = V3(this.pos.x - this.fearFrom.x, 0, this.pos.z - this.fearFrom.z); if (d.lengthSq() < 0.01) d.set(1, 0, 0); d.normalize(); d.applyAxisAngle(V3(0, 1, 0), Math.sin(G.time * 2 + this.arenaF.i) * 0.5);
       const fa = Math.atan2(d.x, d.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 6); this.pos.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 5.2 * dt); speed = 5.2; this.cast = null;
       if (Math.random() < dt * 3) V.emit('shadow', this.pos.clone().setY(this.pos.y + this.height + 0.2), { speed: 0.5, size: 0.3, life: 0.6 }); }
+    else if (A.state === 'pick' && !(st.stun > 0)) speed = this.pickTick(dt);
     else if (A.state === 'fight' && !(st.stun > 0) && !(st.frozen > 0)) {
       if ((this.thinkT -= dt) <= 0) { this.thinkT = 0.25 + Math.random() * 0.1; this.think(); }
       if (this.cast) { const c = this.cast; c.t += dt; if (c.wind && c.tgt && c.tgt.pos) { const fa = Math.atan2(c.tgt.pos.x - this.pos.x, c.tgt.pos.z - this.pos.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 5); }
@@ -443,6 +461,23 @@ class ArenaBot {
     arenaLookTick(this.model, dt);
     const c = this.cast; animateHumanoid(this.model, dt, { turn: this.turnR, speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
   }
+  // the holding room before the gates lift: take your place facing the gate, then bless the room (healers shield
+  // everyone with them, the others roar a war cry), shuffle and look about like someone waiting to fight
+  pickTick(dt) {
+    const f = this.arenaF, sp = spawnOf(f), me = this.pos; this.pickT = (this.pickT || 0) + dt; if (this.buffAt == null) this.buffAt = 3 + Math.random() * 9;
+    const dx = sp.x - me.x, dz = sp.z - me.z, d = Math.hypot(dx, dz); let speed = 0;
+    if (d > 0.35) { const v = Math.min(2.6, d * 2); me.x += dx / d * v * dt; me.z += dz / d * v * dt; speed = v; }
+    const face = d > 0.6 ? Math.atan2(dx, dz) : sp.yaw + Math.sin(this.pickT * 0.4 + f.i) * 0.35; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 3);
+    if (!this.buffed && this.pickT > this.buffAt) { this.buffed = true; this.act = 'castUp'; this.actT = 0; this.actSp = 0.9; const rm = roomOf(me.x, me.z), dur = Math.max(1, A.t) + 15;
+      if (SUPPORT_CLS.has(this.cls)) { const col = { cleric: '#fff0a0', paladin: '#ffd860', shaman: '#80d8ff', druid: '#90e060', bard: '#ff90d0', enchanter: '#d090ff' }[this.cls] || '#ffffff';
+        for (const g of A.F) { const u = unitOf(g); if (!u || u.dead || g.team !== f.team) continue; const ur = roomOf(u.pos.x, u.pos.z); if (rm && ur && ur.k !== rm.k) continue;
+          if (u === G.player) { u.buffs.barrier = Math.max(u.buffs.barrier || 0, u.maxHp * 0.12); u.buffs.barrierT = Math.max(u.buffs.barrierT || 0, dur); A.hooks.toast && A.hooks.toast(`${this.heroName} shields you with a blessing`, '✦', 'gold'); }
+          else if (u.buffs) { u.buffs.barrier = Math.max(u.buffs.barrier || 0, dur); u.barrier = Math.max(u.barrier || 0, u.maxHp * 0.12); }
+          V.sphereFlash(u.pos.clone().setY(u.pos.y + 1.1), 1.1, col, 0.6); V.burst('gold', u.pos.clone().setY(u.pos.y + 1.2), 14, { speed: 2, vy: 2 }); }
+        V.ring(me, 4, col, 0.8); S.cast && S.cast('holy', me, 0.8); }
+      else { V.burst('ember', me.clone().setY(me.y + 1.4), 26, { speed: 4 }); V.ring(me, 2.4, '#ff8040', 0.5); S.battleCry && S.battleCry(); this.buffs.cry = Math.max(this.buffs.cry || 0, dur * 0.5); } }
+    return speed;
+  }
   // pick who to fight and what to do: focus the team's target, protect healers, play the objective
   think() {
     const foes = enemiesOf(this).filter(u => !(u.stealth > 0) || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 3), me = this.pos;
@@ -454,6 +489,7 @@ class ArenaBot {
       let s = dMe * 1.0 + dTeam * 0.4 + hpk * 14; if (u.pet || u.bpet) s += 18; if (u === this.lastHitBy && G.time - (this.hurtT || 0) < 3) s -= 6;
       for (const m of mates) if (m !== this && m.lastHitBy === u && m.healer && G.time - (m.hurtT || 0) < 3) s -= 10; // peel for our healers
       if (s < bs) { bs = s; best = u; } }
+    { const cur = this.target; if (cur && cur !== best && !cur.dead && foes.includes(cur)) { const dTeam = Math.hypot(cur.pos.x - cx, cur.pos.z - cz), sc = near(cur) + dTeam * 0.4 + (cur.hp / cur.maxHp) * 14 - 7; if (sc <= bs + 0) best = cur; } } // (stick with a target instead of flipping between them)
     this.target = best;
     // a healer looks after whoever is lowest
     this.ward = null; if (this.healer) { let lo = null, lv = 0.85; for (const m of mates) { const k = m.hp / m.maxHp; if (k < lv && near(m) < 22) { lv = k; lo = m; } } this.ward = lo; }
@@ -479,14 +515,15 @@ class ArenaBot {
       if (!this.ranged) { if (dT > 2.0) { tx = T.pos.x - dir.x * 1.6; tz = T.pos.z - dir.z * 1.6; } else { tx = me.x + side.x * this.strafe * 0.25; tz = me.z + side.z * this.strafe * 0.25; } }
       else { const melee = T.arenaBot ? !T.ranged : T === G.player ? (G.player.W && !['bow', 'gun', 'staff'].includes(G.player.W.kind)) : true;
         const want = dT < 5 && melee ? 10 : dT > this.range - 2 ? this.range - 4 : dT; // kite melee, close in when out of range
-        tx = T.pos.x - dir.x * want + side.x * this.strafe * 1.4; tz = T.pos.z - dir.z * want + side.z * this.strafe * 1.4; if (Math.random() < 0.004) this.strafe *= -1; }
+        tx = T.pos.x - dir.x * want + side.x * this.strafe * 1.4; tz = T.pos.z - dir.z * want + side.z * this.strafe * 1.4; if (Math.random() < 0.0015) this.strafe *= -1; }
     } else { const mates = alliesOf(this); if (mates.length) { const m = mates[0]; tx = m.pos.x + Math.sin(this.id) * 3; tz = m.pos.z + Math.cos(this.id) * 3; } else { tx = 0; tz = 0; } }
     // low on health with no healing: fall back toward a team mate who heals
     if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
+    { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } // still in the holding room: out through the gate first
     // stay apart from everyone else
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
-    const far = !T || dT > 14; // run between fights, walk-speed footwork inside them (players run 5.2)
+    const far = !T || dT > 14 || !!roomOf(me.x, me.z); // run between fights, walk-speed footwork inside them (players run 5.2)
     let sp = (far ? 6.4 : 4.6) * (st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
     this.vel = this.vel || V3(); const want = L > 0.3 ? V3(mx / L * Math.min(sp, L * 3), 0, mz / L * Math.min(sp, L * 3)) : V3(); this.vel.lerp(want, Math.min(1, dt * 4)); me.x += this.vel.x * dt; me.z += this.vel.z * dt; sp = this.vel.length(); // speed up and slow down, no snapping
     const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 6);
@@ -510,7 +547,7 @@ class ArenaBot {
     const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
     const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
-      const ct = ((a.t === 'heal' || a.t === 'hot') ? (a.castT || 1.5) : a.castT && isSupport(a) ? Math.min(a.castT, 1.5) : 0) || wind;
+      const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
       if (ct) { this.cast = { a, tgt, t: 0, dur: ct, wind: !!wind && !(a.t === 'heal' || a.t === 'hot'), melee, at: tgt && tgt.pos ? tgt.pos.clone() : null }; return true; } this.resolve(a, tgt); return true; };
     // 1. healing: whoever on the team needs it most
     const heals = abs.filter(a => a.t === 'heal' || a.t === 'hot' || (LEG_SELF[a.id] && LEG_SELF[a.id][0] === 'heal'));
@@ -689,7 +726,7 @@ function renderHud(force) {
   const chips = (isFFA() && teams.length > 6 ? teams.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 6) : teams).map(t => `<span class="arc${t === G.myTeam ? ' me' : ''}" style="--tc:${teamCol(t)}"><i></i>${isFFA() ? teamName(t) : COLOR_NAMES[t]}<b>${sc(t)}</b></span>`).join('');
   const mm = Math.floor((A.clock || 0) / 60), ss = String(Math.floor((A.clock || 0) % 60)).padStart(2, '0');
   let mid = '';
-  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Your abilities are on <kbd>F</kbd> <kbd>C</kbd> <kbd>Q</kbd> · <kbd>K</kbd> change class · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
+  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Buff up · <kbd>K</kbd> class · <kbd>Y</kbd> ready`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
   const me = A.me, dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
   const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;

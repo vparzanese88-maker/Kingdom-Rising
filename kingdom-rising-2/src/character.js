@@ -867,3 +867,17 @@ export function bake(root) {
   if (ch) { ch.details = []; root.traverse(o => { if (o.isMesh && o.userData.detail) ch.details.push(o); }); ch.detailOn = true; ch.bakedMats = mats; }
   return mats;
 }
+
+// reach: bend a shoulder (x, y, z) and elbow (x) until the hand's grip sits on a point in the world (a few cheap
+// coordinate-descent passes, warm-started from the pose it already has). Used to put both hands on a raised musket.
+const _ikV = new THREE.Vector3();
+export function armReach(ch, side, target, passes = 4) {
+  const A = ch.arms[side]; if (!A) return; const sh = A.sh, el = A.el, g = A.grip;
+  const err = () => { sh.updateMatrixWorld(true); return g.getWorldPosition(_ikV).distanceToSquared(target); };
+  const P = [[sh.rotation, 'x', -3.2, 1.2], [sh.rotation, 'y', -1.4, 1.4], [sh.rotation, 'z', -1.6, 1.6], [el.rotation, 'x', -2.6, 0]];
+  let e = err(), step = 0.25;
+  for (let it = 0; it < passes; it++, step *= 0.5) for (const [o, k, lo, hi] of P) { const v = o[k];
+    o[k] = Math.min(hi, v + step); const e1 = err(); if (e1 < e) { e = e1; continue; }
+    o[k] = Math.max(lo, v - step); const e2 = err(); if (e2 < e) { e = e2; continue; } o[k] = v; }
+  sh.updateMatrixWorld(true); return Math.sqrt(e);
+}

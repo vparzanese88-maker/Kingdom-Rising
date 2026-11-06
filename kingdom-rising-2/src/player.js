@@ -8,7 +8,7 @@ import { V } from './vfx.js';
 import { settings } from './saves.js';
 import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS, RMB_SPECIAL } from './data.js';
 const dualRank = () => 0;
-import { buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe } from './character.js';
+import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
@@ -330,7 +330,7 @@ export class Player {
     const arenaLook = this.h.arena && !this.lichForm; // Kingdom Arena: one signature look per class, no gear
     this.ch = buildHumanoid(this.lichForm ? Object.assign({}, this.app, { kind: 'skeleton' }) : arenaLook ? Object.assign({}, this.app, { cls: this.h.cls, outfit: this.h.cls, spec: arenaSpec(this.h.cls) }) : this.app);
     if (arenaLook) arenaDecor(this.ch, this.h.cls);
-    equipWeapon(this.ch, w ? w.wt : null, w ? w.tier : 0, w ? w.rarity : 0); if (arenaLook) arenaWeaponDecor(this.ch, this.h.cls);
+    equipWeapon(this.ch, w ? w.wt : null, arenaLook ? 3 : w ? w.tier : 0, arenaLook ? 0 : w ? w.rarity : 0); if (arenaLook) arenaWeaponDecor(this.ch, this.h.cls);
     if (this.lichForm) { // burning green eyes and a long, dark, flowing cape
       const eyeM = new THREE.MeshBasicMaterial({ color: '#5aff6a' }); for (const x of [-0.045, 0.045]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 6), eyeM); e.position.set(x, 0.06, 0.1); this.ch.head.add(e); }
       const glow = new THREE.PointLight('#40ff60', 1.4, 4); glow.position.set(0, 0.06, 0.2); this.ch.head.add(glow);
@@ -339,11 +339,11 @@ export class Player {
       const pivot = new THREE.Group(); pivot.position.set(0, 0.2, -0.14); pivot.add(cape); this.ch.chest.add(pivot); this.ch.lichCape = pivot;
     }
     if (!arenaLook) tintGear(this.ch, this.h.equip);
-    if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, w2.tier, w2.rarity); this.ch.arms.L.grip.add(off); off.rotation.y = Math.PI / 2; this.ch.weapons.off = off; }
+    if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, arenaLook ? 3 : w2.tier, arenaLook ? 0 : w2.rarity); this.ch.arms.L.grip.add(off); off.rotation.y = Math.PI / 2; this.ch.weapons.off = off; }
     backWeapons(this.ch, [this.h.equip.w3, this.h.equip.w4]);
     bake(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
     if (old) { this.ch.anim = old.anim; this.ch.root.position.copy(old.root.position); this.ch.root.rotation.copy(old.root.rotation); }
-    this.vm.setWeapon(w);
+    this.vm.setWeapon(w && this.h.arena ? Object.assign({}, w, { tier: 3, rarity: 0 }) : w);
     if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, w2.tier, w2.rarity); this.vm.L.add(off); off.rotation.y = -0.45; this.vm.weapons.off = off; }
     const col = w ? (w.rarity >= 2 ? RARITY[w.rarity].col : WEAPON_TYPES[w.wt].element === 'fire' ? '#ff9050' : '#ffffff') : '#fff';
     this.trail.mat.uniforms.color.value.set(col); this.trailL.mat.uniforms.color.value.set(col);
@@ -767,7 +767,7 @@ export class Player {
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.campAb ? ab.res : undefined)) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
-    const ct = G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
+    const ct = this.h.arena ? 0 : /* the arena: cooldowns only, no cast times */ G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
@@ -1276,7 +1276,7 @@ export class Player {
         anim('castBig', 0.6); return true; }
       case 'summon': { // a 3 s cast at the spot you aim at, then they rise there
         const n = this.qty(a.n || 1, a.extra || 0), at = groundPoint(14);
-        this.summonCast = { t: 0, dur: 3 * (G.newFx ? Skills.castK(this.h) : 1), at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
+        this.summonCast = { t: 0, dur: this.h.arena ? 0.05 : 3 * (G.newFx ? Skills.castK(this.h) : 1), at, pet: a.pet, n, lv: this.h.level, dur2: a.dur || 30, big: !!a.big, name: a.name, spell: a.id };
         if (G.newFx) S.castRise(this.summonCast.dur, this.castCol());
         V.ring(at, 1.8, a.pet === 'skeleton' ? '#b080ff' : '#ffb060', 3.1); S.cast('arcane', this.pos, 0.7); anim('cast', 0.6); return true; }
       case 'trap': { const at = this.pos.clone().add(f.clone().multiplyScalar(2)); this.battleTrap(at, a.trap || 'spike', P(a.dmg), up); S.chop && S.chop(at); anim('gather', 0.45); return true; }
@@ -1321,10 +1321,14 @@ export class Player {
     if (!on) { if (ud.aimed) { g.position.copy(ud.home.p); g.quaternion.copy(ud.home.q); ud.aimed = false; } return; }
     ch.root.updateMatrixWorld(true);
     const sh = ch.arms.R.sh.getWorldPosition(new THREE.Vector3()); sh.y -= 0.04;
-    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)); // the barrel (model +y) along the aim, sights (+z) up, lock (+x) to the right: no twisting
+    const upv = new THREE.Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize(), rx = new THREE.Vector3().crossVectors(dir, upv), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(rx, dir, upv));
     const want = sh.clone().addScaledVector(dir, 0.42).addScaledVector(this.right(), -0.06);
+    // both hands on the gun: the right round the wrist of the stock, the left under the forend
+    const at = (y, z) => want.clone().addScaledVector(dir, y).addScaledVector(upv, z);
+    armReach(ch, 'R', at(-0.1, -0.05), 5); armReach(ch, 'L', at(0.42, -0.04), 5);
     const pq = g.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
-    g.position.copy(g.parent.worldToLocal(want)); g.quaternion.copy(pq.multiply(q)); ud.aimed = true;
+    g.position.copy(g.parent.worldToLocal(want.clone())); g.quaternion.copy(pq.multiply(q)); ud.aimed = true;
   }
   // Skyrim-style: weapons away on your back, or back in your hands (any attack, ability, block or hit draws them)
   sheatheWeapons() { if (this.sheathed || this.atk || this.dodge || !this.weapon) return; this.sheathed = true; this.press = null; this.block = false; sheathe(this.ch, true); this.vmShow(false); S.swap && S.swap(); this.drawAnimT = 0.35; }

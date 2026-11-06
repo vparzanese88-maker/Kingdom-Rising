@@ -373,6 +373,7 @@ function campaignSetup() {
 // Kingdom Arena: your fighter (level 20, best gear, 20 skill points), then the match
 async function startArena() {
   await Arena.prepareArena(); // online: the lobby first
+  G.hooks.arenaKit = () => Arena.openKitInfo(UI);
   startGame(Arena.playerHero());
   G.player.camDistT = G.player.camDist = 3.4; // over the shoulder, like New World (V switches to first person)
   G.hooks.allyFx = Arena.allyFx;
@@ -753,6 +754,8 @@ function input() {
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
+      if (ARENA && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do
+      if (ARENA && ['KeyJ', 'KeyM', 'KeyP', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest

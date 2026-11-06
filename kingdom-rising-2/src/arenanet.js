@@ -121,7 +121,7 @@ export class RemoteFighter {
   build(cls, race) {
     if (this.root) G.scene.remove(this.root); this.cls = cls; this.h = { race, cls };
     const ch = buildHumanoid({ race, sex: 'm', cls, outfit: cls, spec: arenaSpec(cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, cls);
-    try { equipWeapon(ch, CLASSES[cls].weapons[0], TIERS.length - 1, 3); arenaWeaponDecor(ch, cls); } catch (e) { /* unknown weapon */ }
+    try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* unknown weapon */ }
     try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; }
     teamRim(this.flashMats, this.team !== G.myTeam);
     G.scene.add(this.root);

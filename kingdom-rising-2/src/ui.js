@@ -945,7 +945,7 @@ export function openPause(onSaveQuit) {
   const m = el('div', 'pausemenu'); m.style.display = 'flex'; m.style.flexDirection = 'column'; m.style.gap = '7px';
   const b = (t, fn, cls = 'btn') => { const x = el('button', cls, t); x.onclick = () => { S.click(); fn(); }; m.appendChild(x); };
   b('Resume', () => closeWin(), 'btn big gold');
-  b('Character & Bags  ·  I', () => openInventory()); b('Class Talents  ·  N', () => openSkills('class')); b('Quest Log  ·  L', () => openQuestLog()); b('World Map  ·  M', () => openMap()); b('Recipes  ·  P', () => openCrafting(null));
+  if (G.hooks.arenaKit) b('Your abilities  ·  I', () => G.hooks.arenaKit()); else { b('Character & Bags  ·  I', () => openInventory()); b('Class Talents  ·  N', () => openSkills('class')); b('Quest Log  ·  L', () => openQuestLog()); b('World Map  ·  M', () => openMap()); b('Recipes  ·  P', () => openCrafting(null)); }
   b('Settings', () => openSettings(true)); b('How to Play', () => openControls(true));
   b(document.fullscreenElement ? 'Exit Full Screen' : 'Full Screen', () => { if (document.fullscreenElement) exitFull(); else goFull(); });
   if (BATTLE) { b('Leave battle (main screen)', () => confirmBox('Leave this battle and go back to the main screen?', () => { location.href = location.pathname; }, 'Stay', 'Leave'), 'btn red'); b('Exit game', () => window.KR2exit && window.KR2exit(), 'btn red'); }

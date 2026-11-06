@@ -50,7 +50,7 @@ export function lobby(setup, F, O, kitName) {
       if (!AN.code) { ov.innerHTML = h + `<h1>Connecting…</h1><p>${AN.err || 'Reaching the matchmaking service…'}</p>${AN.err ? '<button class="btn" id="alBack">← Back</button>' : ''}</div>`; const b = $('alBack'); if (b) b.onclick = () => { location.href = location.pathname; }; return; }
       if (!mine()) { ov.innerHTML = h + '<h1>Joining…</h1></div>'; return; }
       const me = mine(), full = AN.players.size >= cap;
-      h += `<h1>${fmt.name} · ${O[setup.objective].name}</h1><div class="alcode"><span>Game code</span><b>${AN.code}</b><button class="btn" id="alCopy">Copy</button><small>Friends press Kingdom Arena → Join online and type this code</small></div>`;
+      h += `<h1>${fmt.name} · ${O[setup.objective].name}</h1><div class="alcode"><span>Game code</span><b>${AN.code}</b><button class="btn" id="alCopy">Copy</button><small>Friends open Kingdom Arena on the title screen, type this code next to Join and press it</small></div>`;
       h += `<div class="alcols"><div class="alme"><h3>You</h3><label>Name <input id="alName" maxlength="16" value="${(me.name || '').replace(/"/g, '')}"></label>
         <label>Class <select id="alCls">${Object.keys(CLASSES).map(c => `<option value="${c}"${me.cls === c ? ' selected' : ''}>${CLASSES[c].name}</option>`).join('')}</select></label><small class="alkit">${kitName(me.cls)}</small>
         <label>Race <select id="alRace">${Object.keys(RACES).filter(r => RACES[r].playable).map(r => `<option value="${r}"${me.race === r ? ' selected' : ''}>${RACES[r].name}</option>`).join('')}</select></label>

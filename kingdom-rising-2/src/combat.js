@@ -185,6 +185,9 @@ function impact(p, mob) {
   const pos = p.pos.clone();
   if (p.onHit) p.onHit(p, mob, pos);
   else if (mob) G.player.dealDamage(mob, p.dmg, { ranged: true, el: p.el });
+  if (mob && mob.arenaBot && p.owner === 'player') { // the arena: every hit lands with a flash and a thump you can feel
+    const col = { fireball: '#ffb050', frost: '#a8e4ff', arcane: '#d8a0ff', poison: '#90ff50', spectral: '#a0ffe0', bullet: '#fff0c0', arrow: '#fff0d0', skull: '#90ff70' }[p.kind] || '#fff0d0';
+    V.sphereFlash(pos, p.kind === 'bullet' || p.kind === 'arrow' ? 0.45 : 0.8, col, 0.14); V.light(pos, col, 3.5, 0.12, 7); S.hit('flesh', pos, p.kind === 'bullet' || p.kind === 'arrow' ? 0.8 : 1.1); }
   if (mob && p.wpn && p.owner === 'player' && G.player.wpnXp) G.player.wpnXp(1);
   if (p.kind === 'arrow' || p.kind === 'spectral') { S.arrowHit(pos); if (!mob) V.burst('dust', pos, 5, { speed: 1.5, size: 0.1 }); else if (p.kind === 'arrow' && !p.pierce) { /* stick arrow into mob briefly */ } }
 }

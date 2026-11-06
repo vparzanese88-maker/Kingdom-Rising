@@ -323,8 +323,11 @@ const hpOf = (f) => { const u = unitOf(f); return u.hp / u.maxHp; };
 function bannerAll(a, b) { A.hooks.banner && A.hooks.banner(a, b); if (AN.on && AN.host) nsend({ t: 'banner', a, b }); }
 function feed(html, local) { A.feed.unshift({ html, t: G.time }); A.feed.length = Math.min(A.feed.length, 6); if (AN.on && AN.host && !local) nsend({ t: 'feed', h: html }); }
 // every hit from a computer fighter on the player goes through the same PvP rules as an online player's hit
+// a red arc round the crosshair pointing at whoever hit you
+function dmgDir(from) { const p = G.player; let e = document.getElementById('dmgdir'); if (!e) { e = document.createElement('div'); e.id = 'dmgdir'; document.body.appendChild(e); }
+  const a = Math.atan2(from.x - p.pos.x, from.z - p.pos.z) - p.yaw, arc = document.createElement('i'); arc.style.transform = `rotate(${-a}rad)`; e.appendChild(arc); setTimeout(() => arc.remove(), 900); }
 function hitPlayer(src, raw, o) {
-  const p = G.player; if (!p || p.dead) return 0; const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
+  const p = G.player; if (!p || p.dead) return 0; if (src && src.pos) dmgDir(src.pos); const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
   if (p.abCast && p.abCast.spell && Math.random() < 0.35) { p.abCast = null; G.hooks.castBar && G.hooks.castBar(null); G.hooks.toast && G.hooks.toast('Your spell was interrupted', '✋', 'bad'); }
   if (!p.dead && o && o.poison && p.debuff) p.debuff('poison', 4, o.poison * PVP_K * PACE / 4);
   if (!p.dead && o && o.fear && src && src.pos) { p.fearT = Math.max(p.fearT || 0, o.fear); p.fearFrom = src.pos.clone(); G.hooks.toast && G.hooks.toast('You are fleeing in terror!', '💀', 'bad'); }

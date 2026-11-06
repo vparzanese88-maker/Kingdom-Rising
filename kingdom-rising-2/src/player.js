@@ -54,7 +54,8 @@ const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
-const FORMS = { formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
+const FORMS = { formVoid: { name: 'Void Form', col: '#7a2aff', k: 1.0, mote: 'shadow', el: 'arcane' }, formTime: { name: 'Timeless Form', col: '#ffd060', k: 0.9, mote: 'gold', el: 'arcane' }, formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
+const B_AV = (p) => p.buffs.avatar > 0 && p.avatar;
 const CASTER_K = { wizard: 1.2, elementalist: 0.85 }; // campaign: the wizard is the strongest caster; the elementalist's power is in its elemental
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 // creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
@@ -424,7 +425,7 @@ export class Player {
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK() * (1 + this.sbSum('haste') / 100); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -1174,11 +1175,19 @@ export class Player {
           if (Math.random() < dt * 20) V.emit('arcane', new THREE.Vector3(c.x + (Math.random() - 0.5) * r * 2, c.y + 8, c.z + (Math.random() - 0.5) * r * 2), { speed: 0.5, vy: -6, size: 0.25, life: 1.2 });
           if ((ring -= dt) <= 0) { ring = 0.5; V.ring(c, r, '#a8b8ff', 0.5); }
           if ((tick -= dt) <= 0) { tick = 0.45; const hits = mobsInRadius(c, r).sort(() => Math.random() - 0.5).slice(0, 3);
-            if (!hits.length) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0, (Math.random() - 0.5) * r * 1.6)); lightning(q.clone().setY(c.y + 10), q); }
-            for (const m of hits) { const to = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6); lightning(to.clone().setY(c.y + 10), to); this.dealDamage(m, P(a.dmg), hitO(m, { el: 'lightning' })); V.light(to, '#a0c0ff', 5, 0.15); }
-            S.cast('lightning', c, 0.8); }
+            const strike = (to) => { if (a.fx === 'fire') { V.burst('fire', to, 30, { speed: 6 }); V.burst('smoke', to, 10, { speed: 3, size: 1.2 }); S.explode(to, 0.7, 'fire'); } else if (a.fx === 'arcane') { V.burst('arcane', to, 30, { speed: 5 }); V.light(to, '#c0a0ff', 5, 0.15); } else lightning(to.clone().setY(c.y + 10), to); };
+            if (!hits.length) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0, (Math.random() - 0.5) * r * 1.6)); strike(q); }
+            for (const m of hits) { const to = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6); strike(to); this.dealDamage(m, P(a.dmg), hitO(m, { el: a.fx === 'fire' ? 'fire' : a.fx === 'arcane' ? 'arcane' : 'lightning' })); }
+            S.cast(a.fx === 'fire' ? 'fire' : a.fx === 'arcane' ? 'arcane' : 'lightning', c, 0.8); }
           return t >= (a.dur || 6) || this.dead; } });
         S.cast('lightning', this.pos, 1.4); anim('castBig', 0.6); return true; }
+      case 'aura': { // a storm of blades, blood, smoke or souls whirls around you and moves with you
+        const r = (a.r || 5) * K, mote = a.fx || 'dust'; let t = 0, tick = 0;
+        G.timers.push({ update: (dt) => { t += dt;
+          for (let j = 0; j < 5; j++) { const ang = Math.random() * 6.28, rr = Math.random() * r; V.emit(mote, new THREE.Vector3(this.pos.x + Math.cos(ang) * rr, this.pos.y + 0.3 + Math.random() * 2.2, this.pos.z + Math.sin(ang) * rr), { speed: 3, vy: 0.5, size: 0.4, life: 0.6 }); }
+          if ((tick -= dt) <= 0) { tick = a.tick || 0.5; V.ring(this.pos, r, a.col || '#ffffff', 0.4); let dealt = 0; for (const m of mobsInRadius(this.pos, r)) { this.dealDamage(m, P(a.dmg), hitO(m, { silent: true })); dealt += P(a.dmg); } if (a.drain && dealt) this.heal(dealt * a.drain * this.hk(), true); }
+          return t >= (a.dur || 6) || this.dead; } });
+        V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), r * 0.5, a.col || '#ffffff', 0.4); S.roar && S.roar(this.pos); anim('castBig', 0.5); return true; }
       case 'blizzaura': { // a blizzard whirls around you and moves with you
         const r = (a.r || 8) * K; let t = 0, tick = 0;
         G.timers.push({ update: (dt) => { t += dt;
@@ -1210,7 +1219,8 @@ export class Player {
         this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
-        else if (FORMS[a.buff]) { for (const k in FORMS) B2[k] = 0; B2[a.buff] = d; if (a.buff === 'formArcane') B2.focus = Math.max(B2.focus || 0, d); }
+        else if (a.buff === 'avatar') { for (const k in FORMS) B2[k] = 0; B2.avatar = d; this.avatar = Object.assign({ name: a.name }, a.av || {}); if (this.avatar.surge) B2.surge = Math.max(B2.surge || 0, d); this.formOn = null; }
+        else if (FORMS[a.buff]) { B2.avatar = 0; for (const k in FORMS) B2[k] = 0; B2[a.buff] = d; if (a.buff === 'formArcane') B2.focus = Math.max(B2.focus || 0, d); }
         else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
@@ -1317,10 +1327,13 @@ export class Player {
     this.refreshStatsOnly(); this.buffFx(a.name + ' · ' + h.sb[a.id].text, '#ffd84a'); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, '#ffe0a0', 0.5); S.cast('arcane', this.pos, 0.7);
   }
   sbSum(k) { let n = 0; const sb = this.h.sb; if (sb) for (const id in sb) n += sb[id][k] || 0; return n; }
+  // regeneration from an avatar transformation
+  avatarTick(dt) { if (this.buffs.avatar > 0 && this.avatar && this.avatar.regen && !this.dead) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * this.avatar.regen * dt); }
   // the wizard's forms: the body burns, freezes or crackles in the form's colour while it lasts; Ice Block wraps you in ice
   formTick(dt) {
     if (this.formCh !== this.ch) { this.formCh = this.ch; this.formOn = null; } // new gear rebuilt the body: tint it again
-    const B = this.buffs, f = B.formFire > 0 ? 'formFire' : B.formFrost > 0 ? 'formFrost' : B.formArcane > 0 ? 'formArcane' : B.iceblock > 0 ? 'iceblock' : null;
+    if (B_AV(this)) FORMS.avatar = { name: this.avatar.name, col: this.avatar.col || '#ffffff', k: 0.8, mote: this.avatar.mote || 'gold', el: 'arcane' };
+    const B = this.buffs, f = B.avatar > 0 ? 'avatar' : B.formFire > 0 ? 'formFire' : B.formFrost > 0 ? 'formFrost' : B.formArcane > 0 ? 'formArcane' : B.formVoid > 0 ? 'formVoid' : B.formTime > 0 ? 'formTime' : B.iceblock > 0 ? 'iceblock' : null;
     if (f !== (this.formOn || null)) { this.formOn = f; const F = f && FORMS[f];
       if (this.ch && this.ch.root) this.ch.root.traverse(o => { if (!o.isMesh || !o.material || !o.material.emissive) return; if (!o.userData.em0) o.userData.em0 = [o.material.emissive.getHex(), o.material.emissiveIntensity];
         if (F) { if (!o.userData.formMat) { o.material = o.material.clone(); o.userData.formMat = true; } o.material.emissive.set(F.col); o.material.emissiveIntensity = F.k; } else { o.material.emissive.setHex(o.userData.em0[0]); o.material.emissiveIntensity = o.userData.em0[1]; } });
@@ -1486,6 +1499,9 @@ export class Player {
     if (this.buffs.formFire > 0) { dmg *= 1.4; if (!o.silent) o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.15 }); }
     if (this.buffs.formFrost > 0) { dmg *= 1.3; if (!o.silent) o = Object.assign({}, o, { slow: Math.max(o.slow || 0, 2) }); }
     if (this.buffs.formArcane > 0) dmg *= 1.35;
+    if (this.buffs.formVoid > 0) { dmg *= 1.4; if (!o.silent) o = Object.assign({}, o, { slow: Math.max(o.slow || 0, 1.5) }); }
+    if (this.buffs.formTime > 0) dmg *= 1.3;
+    if (this.buffs.avatar > 0 && this.avatar) { if (this.avatar.dmg) dmg *= this.avatar.dmg; if (this.avatar.leech && !o.silent) this.heal(dmg * this.avatar.leech, true); }
     if (this.buffs.power > 0 && (o.el || !(o.melee || o.ranged))) dmg *= 1.25; // Aria of Power: spells
     if (G.newFx && CASTER_K[this.h.cls]) dmg *= CASTER_K[this.h.cls];
     { const n = Game.fxCount(this.h, 'dmg'), u = Game.fxCount(this.h, 'u_dmg'); if (n || u) dmg *= 1 + n * 0.06 + u * 0.12; if (u && crit) dmg *= 1.2; }
@@ -1566,6 +1582,7 @@ export class Player {
     if (this.pk('immov')) dmg = Math.max(1, Math.round(dmg * 0.9));
     if (this.buffs.lich > 0) dmg = Math.max(1, Math.round(dmg * 0.75));
     if (this.buffs.formFrost > 0) dmg = Math.max(1, Math.round(dmg * 0.7));
+    if (this.buffs.avatar > 0 && this.avatar && this.avatar.taken) dmg = Math.max(1, Math.round(dmg * this.avatar.taken));
     if (this.buffs.mward > 0 && (o.ranged || o.el || o.magic)) dmg = Math.max(1, Math.round(dmg * 0.75)); // Hymn of Warding
     { const n = Game.fxCount(this.h, 'taken'), u = Game.fxCount(this.h, 'u_def'); if (n || u) dmg = Math.max(1, Math.round(dmg * (1 - n * 0.05 - u * 0.12))); }
     if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
@@ -1692,9 +1709,9 @@ export class Player {
   // ---------- update ----------
   update(dt) {
     const h = this.h;
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1)); // Timeless Form: abilities recharge twice as fast
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (h.sb) { let gone = false; for (const id in h.sb) { const b = h.sb[id]; b.t -= dt; if (b.mregen && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + b.mregen * dt); if (b.t <= 0) { delete h.sb[id]; gone = true; G.hooks.toast && G.hooks.toast(`${b.name} has worn off`, '✦', 'bad'); } } if (gone) this.refreshStatsOnly(); }
     for (const k of ['food', 'drink']) {
@@ -1726,7 +1743,7 @@ export class Player {
     const md = new THREE.Vector3().addScaledVector(f, iz).addScaledVector(r, ix); if (md.lengthSq() > 1) md.normalize();
     this.moveDir = md;
     const wasBlock = this.block;
-    this.lichTick(dt); this.formTick(dt);
+    this.lichTick(dt); this.formTick(dt); this.avatarTick(dt);
     if (G.newFx && (this.lookCheckT = (this.lookCheckT || 0) - dt) <= 0) { this.lookCheckT = 0.1; const r = aimRay(60); if (r && r.mob) r.mob.lookT = G.time; } // names show when your crosshair passes over
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;

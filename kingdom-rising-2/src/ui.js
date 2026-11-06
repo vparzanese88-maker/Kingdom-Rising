@@ -155,6 +155,7 @@ export function updateHUD(dt) {
     add(B.rampage > 0, '⚔', 'Rampage', B.rampage, '#ff7050'); add(B.ward > 0, '✧', 'Warded', B.ward, '#a8e0ff'); add(B.flame > 0, '🔥', 'Flame weapon', B.flame, '#ff9a40');
     add(B.clarity > 0, '✺', 'Clarity', B.clarity, '#a0d8ff'); add(B.focus > 0, '◎', 'Focus', B.focus, '#c0ff90'); add(B.undying > 0, '☠', 'Undying', B.undying, '#ff5050');
     if (h.sb) for (const id in h.sb) chips.push(['✦', h.sb[id].name + ' · ' + h.sb[id].text, h.sb[id].t, '#ffd84a']);
+    add(B.avatar > 0, '✪', (p.avatar && p.avatar.name) || 'Transformed', B.avatar, (p.avatar && p.avatar.col) || '#ffd84a'); for (const [k, nm, col] of [['formVoid', 'Void Form', '#9a5aff'], ['formTime', 'Timeless Form', '#ffd060'], ['formArcane', 'Arcane Ascension', '#c080ff'], ['formFire', 'Phoenix Form', '#ff7a2a'], ['formFrost', 'Avatar of Winter', '#7ad0ff']]) add(B[k] > 0, '✪', nm, B[k], col);
     for (const k of ['food', 'drink']) if (h[k] && h[k].t > 0) { const F = FOOD_BUFFS[h[k].id]; chips.push([k === 'food' ? '🍖' : '🍺', F.name, h[k].t, '#e8c87a']); }
     const DB = { bleed: ['🩸', 'Bleeding'], poison: ['☠', 'Poisoned'], burn: ['🔥', 'Burning'], slow: ['🐌', 'Slowed'], stun: ['💫', 'Stunned'] }, bad = [];
     if (p.db) for (const k in p.db) if (p.db[k].t > 0 && DB[k]) bad.push([DB[k][0], DB[k][1], p.db[k].t, '#ff4a3a']);

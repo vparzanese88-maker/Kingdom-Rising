@@ -68,8 +68,8 @@ import { NEW_CLASSES } from './classes2.js';
     MAP[ab.id] = ab.song ? ['shout', { war: 'red', travel: 'frost', heal: 'nature', ward: 'gold', flame: 'fire', mana: 'arcane' }[ab.song]] : [g, th]; } }
 export function addIcons(m) { for (const k in m) if (m[k] && !MAP[k]) MAP[k] = m[k]; }
 export function hasIcon(id) { return !!MAP[id]; }
-export function abilityBadge(id) { const [g, th] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th); }
-export function glyphBadge(g, th) {
+export function abilityBadge(id) { const [g, th, cap] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th, cap); }
+export function glyphBadge(g, th, cap) {
   const [c1, c2, hi, lo] = THEMES[th] || THEMES.steel; const n = ++uid;
   const path = GLYPH[g], stroke = STROKE_ONLY.has(g);
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -79,10 +79,11 @@ export function glyphBadge(g, th) {
 <filter id="sh${n}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000" flood-opacity=".8"/></filter></defs>
 <rect x="2" y="2" width="60" height="60" rx="11" fill="url(#bg${n})"/>
 <rect x="2" y="2" width="60" height="60" rx="11" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="6"/>
+${cap ? `<g opacity=".55">${Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6; return `<path d="M32 32 L${(32 + Math.cos(a - 0.12) * 40).toFixed(1)} ${(32 + Math.sin(a - 0.12) * 40).toFixed(1)} L${(32 + Math.cos(a + 0.12) * 40).toFixed(1)} ${(32 + Math.sin(a + 0.12) * 40).toFixed(1)} Z" fill="#ffe08a"/>`; }).join('')}</g><circle cx="32" cy="32" r="20" fill="none" stroke="#ffe08a" stroke-opacity=".7" stroke-width="1.5"/>` : ''}
 <g filter="url(#sh${n})">${stroke
     ? `<path d="${path}" fill="none" stroke="#1a0e04" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="url(#gl${n})" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`
     : `<path d="${path}" fill="url(#gl${n})" stroke="#1a0e04" stroke-width="2.6" stroke-linejoin="round" fill-rule="evenodd"/>`}</g>
 <ellipse cx="32" cy="14" rx="22" ry="8" fill="#fff" opacity=".13"/>
-<rect x="2" y="2" width="60" height="60" rx="11" fill="none" stroke="url(#rim${n})" stroke-width="3"/>
+<rect x="2" y="2" width="60" height="60" rx="11" fill="none" stroke="url(#rim${n})" stroke-width="${cap ? 4.5 : 3}"/>${cap ? '<path d="M24 2 L32 -3 L40 2 Z" fill="#ffe08a" stroke="#6a4410" stroke-width="1"/>' : ''}
 <rect x="5.5" y="5.5" width="53" height="53" rx="8" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2"/></svg>`;
 }

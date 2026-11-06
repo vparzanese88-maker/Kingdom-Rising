@@ -166,7 +166,7 @@ export function updateArena(dt) {
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.me); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); }
   else if (A.state === 'fight') { A.clock += dt; if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
   else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0 && AUTH()) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(6); } }
-  if (AN.on) netTick(dt);
+  if (AN.on) { netTick(dt); if (!AN.host) updatePetViews(dt); }
   // dead: fly around and watch (WASD, Space up, C down, Shift faster)
   if (p && p.dead && A.state !== 'over') { if (!p.spectate && (p.deadT || 0) > 1.4) { p.spectate = true; p.pos.y += 2.5; }
     if (p.spectate) { const k = G.keys, sp = (k.ShiftLeft || k.ShiftRight ? 26 : 12) * dt;
@@ -502,6 +502,7 @@ class ArenaBot {
     const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, el };
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
+    if (AN.on && AN.host && a.t && !['bolt', 'drain', 'curse'].includes(a.t)) { const at = lockAt || (T && T.pos) || me; nsend({ t: 'bfx', i: this.arenaF.i, k: a.t, c: col, el, x: r2(at.x), z: r2(at.z), r: a.r || 5 }); } // (the others see the effect too)
     const drainBack = (dealt, f) => { if (f && dealt) this.healSelf(dealt * f * 6); }; // (hits are scaled for PvP, so the drain is scaled back up)
     if (!a.t) return this.legacy(a, T, P);
     switch (a.t) {
@@ -569,14 +570,14 @@ function netTick(dt) {
   if ((psT -= dt) <= 0 && p) { psT = 1 / 15; const a = p.atk, cn = p.abCast && p.abCast.spell ? p.abCast : p.summonCast;
     nsend({ t: 'ps', i: A.me.i, x: r2(p.pos.x), y: r2(p.pos.y), z: r2(p.pos.z), yaw: r2(p.bodyYaw), hp: Math.round(p.hp), mh: Math.round(p.maxHp), a: a ? (ACT_NET[a.name] || a.name) : '', at: a ? r2(Math.min(1, a.t)) : cn ? r2(Math.min(1, cn.t / Math.max(0.3, cn.dur))) : 0, sp: r2(Math.hypot(p.vel.x, p.vel.z)), r: p.dodge && !p.dodge.charge && p.dodge.kind !== 'step' ? r2(Math.min(1, p.dodge.t)) : null, cu: cn ? 1 : 0, d: p.dead ? 1 : 0, st: p.stealth > 0 ? 1 : 0, c: A.me.cls }); }
   if (!AN.host) return;
-  if ((bsT -= dt) <= 0) { bsT = 1 / 12; nsend({ t: 'bs', b: A.F.filter(f => f.bot).map(f => { const b = f.bot; return [f.i, r2(b.pos.x), r2(b.pos.z), r2(b.yaw), Math.round(b.hp), Math.round(b.maxHp), b.act || '', r2(b.actT || 0), b.cast ? (b.cast.melee ? 1 : 2) : 0, r2(b.spd || 0), b.dead ? 1 : 0, b.status.stun > 0 ? 1 : 0, f.cls]; }) }); }
+  if ((bsT -= dt) <= 0) { bsT = 1 / 12; nsend({ t: 'bs', b: A.F.filter(f => f.bot).map(f => { const b = f.bot; return [f.i, r2(b.pos.x), r2(b.pos.z), r2(b.yaw), Math.round(b.hp), Math.round(b.maxHp), b.act || '', r2(b.actT || 0), b.cast ? (b.cast.melee ? 1 : 2) : 0, r2(b.spd || 0), b.dead ? 1 : 0, b.status.stun > 0 ? 1 : 0, f.cls]; }), p: A.F.filter(f => f.bot).flatMap(f => f.bot.pets.map((m, k) => [f.i, k, m.petKind || 'skeleton', r2(m.pos.x), r2(m.pos.z), r2(m.yaw || 0), m.dead ? 1 : 0])) }); }
   if ((msT -= dt) <= 0) { msT = 0.25; nsend({ t: 'ms', s: A.state, n: r2(A.t), c: r2(A.clock || 0), sc: A.score, rw: A.roundWins, r: A.round, sd: A.sudden ? 1 : 0, ho: A.hillOwner, al: A.F.map(f => f.alive ? 1 : 0), kd: A.F.map(f => [f.kills, f.deaths, Math.round(f.dmg), Math.round(f.heal), f.cls, r2(f.respawnT || 0)]), fl: A.flags.map(fl => [r2(fl.pos.x), r2(fl.pos.y), r2(fl.pos.z), fl.carrier ? fl.carrier.i : -1, fl.atHome ? 1 : 0]) }); }
 }
 function onNet(from, d) {
   const F = (i) => A.F[i], U = (i) => (i != null && i >= 0 && A.F[i] ? unitOf(A.F[i]) : null);
   switch (d.t) {
     case 'ps': { const f = F(d.i); if (f && f.rem && !f.you) f.rem.net(d); break; }
-    case 'bs': if (!AN.host) for (const b of d.b) { const f = F(b[0]); if (f && f.rem && f.rem.netBot) f.rem.netBot(b.slice(1)); } break;
+    case 'bs': if (!AN.host) { for (const b of d.b) { const f = F(b[0]); if (f && f.rem && f.rem.netBot) f.rem.netBot(b.slice(1)); } petViews(d.p || []); } break;
     case 'ms': if (!AN.host) { A.state = d.s; A.t = d.n; A.clock = d.c; A.score = d.sc; A.roundWins = d.rw; A.round = d.r; A.sudden = !!d.sd; A.hillOwner = d.ho;
       d.al.forEach((a, i) => { const f = A.F[i]; if (f && (!f.you || !a)) f.alive = !!a; });
       d.kd.forEach((k, i) => { const f = A.F[i]; if (!f) return; f.kills = k[0]; f.deaths = k[1]; f.dmg = k[2]; f.heal = k[3]; if (!f.you) { f.cls = k[4]; f.respawnT = k[5]; } });
@@ -603,9 +604,29 @@ function onNet(from, d) {
     case 'feed': if (!AN.host) { feed(d.h, true); cheer(0.9); } break;
     case 'over': if (!AN.host) finish(d.w); break;
     case 'restart': if (!AN.host) restartMatch(true); break;
+    case 'bfx': if (!AN.host) botFx(U(d.i), d); break;
     case 'shot': if (!AN.host) { const a = U(d.f), b = U(d.to); if (a && b) shot(a, b, d.c, () => {}, !!d.b, d.k); } break;
   }
 }
+// the host's computer fighters' pets, shown on a joiner's screen
+const PV = new Map();
+function petViews(list) {
+  const seen = new Set();
+  for (const [oi, k, kind, x, z, yaw, dead] of list) { const key = oi + ':' + k + ':' + kind; seen.add(key); let v = PV.get(key);
+    if (!v) { let m; try { m = new Mob(PET_MOB[kind] || 'skeleton', 1, x, z); } catch (e) { continue; } if (m.ring) m.ring.visible = false; G.scene.add(m.root); v = { m, tgt: new THREE.Vector3(x, AR.Y, z), yaw }; PV.set(key, v); }
+    v.tgt.set(x, AR.Y, z); v.yaw = yaw; v.dead = !!dead; }
+  for (const [key, v] of PV) if (!seen.has(key)) { G.scene.remove(v.m.root); PV.delete(key); }
+}
+function updatePetViews(dt) { for (const v of PV.values()) { const m = v.m, d = m.pos.distanceTo(v.tgt); m.pos.lerp(v.tgt, Math.min(1, dt * 10)); m.pos.y = AR.Y; m.yaw = v.yaw; m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.root.visible = !v.dead; m.animate(dt, { speed: Math.min(7, d * 12) }); } }
+// a computer fighter's ability, drawn on a joiner's screen (the host did the real work)
+function botFx(u, d) { if (!u) return; const me = u.pos, at = new THREE.Vector3(d.x, AR.Y, d.z), pk = d.el === 'arcane' ? 'spark' : d.el;
+  switch (d.k) { case 'nova': V.ring(me, d.r + 0.4, d.c, 0.6); V.burst(pk, me.clone().setY(me.y + 1), 30, { speed: 6 }); break;
+    case 'cone': V.burst(pk, me.clone().setY(me.y + 1).addScaledVector(new THREE.Vector3(Math.sin(u.yaw), 0, Math.cos(u.yaw)), 3), 30, { speed: 6 }); break;
+    case 'ground': case 'trap': case 'aura': case 'stormwalk': case 'blizzaura': V.ring(d.k === 'ground' ? at : me, d.k === 'ground' ? 4.5 : 6, d.c, 1.2); V.burst(pk, (d.k === 'ground' ? at : me).clone().setY(AR.Y + 0.5), 24, { speed: 4 }); break;
+    case 'strike': case 'flurry': case 'dash': V.burst(pk === 'spark' ? 'spark' : pk, at.clone().setY(AR.Y + 1.1), 14, { speed: 4 }); break;
+    case 'heal': case 'hot': V.burst('heal', me.clone().setY(me.y + 1.2), 16, { speed: 2, vy: 2 }); V.ring(me, 3, '#80ff90', 0.6); break;
+    case 'buff': V.sphereFlash(me.clone().setY(me.y + 1), 1.4, '#ffd060', 0.45); break;
+    case 'summon': V.burst('shadow', me.clone().setY(me.y + 0.8), 30, { speed: 3 }); break; } }
 // a player left the game: their fighter leaves the arena
 function playerLeft(id) {
   const f = A.F.find(x => x.owner === id); if (!f || f.left) return; f.left = true; f.alive = false;

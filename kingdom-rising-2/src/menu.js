@@ -341,7 +341,7 @@ export function showArenaSetup() {
 function renderArenaSetup() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
-  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Everyone fights at level 20 in the best gear, with 20 skill points to spend in a 60 second countdown before the gates open.</p>`));
+  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Everyone fights at level 20 in the best gear, with their class's three abilities on F, C and Q. Press K in the arena to change class.</p>`));
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
   const fw = el('div', 'arsec', '<h3>Format</h3>'); const fg = el('div', 'arseg');
@@ -358,13 +358,13 @@ function renderArenaSetup() {
   ow.appendChild(lw); panel.appendChild(ow);
   // fighters
   const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');
-  const teams = [...new Set(AS.slots.map(s => s.team))];
+  const teams = fmt.ffa ? ['all'] : [...new Set(AS.slots.map(s => s.team))]; // free for all: one list, a colour dot each
   const CN = Object.keys(CLASSES), RN = Object.keys(RACES).filter(r => RACES[r].playable);
-  for (const t of teams) { const col = el('div', 'arteam', `<div class="arth" style="--tc:${ACOL[t % ACOL.length]}"><i></i>${fmt.ffa ? 'Everyone for themselves' : ACN[t] + ' team'}</div>`);
-    AS.slots.forEach((sl, i) => { if (sl.team !== t) return; const row = el('div', 'arslot' + (sl.you ? ' you' : ''));
+  for (const t of teams) { const col = el('div', 'arteam' + (fmt.ffa ? ' wide' : ''), fmt.ffa ? `<div class="arth" style="--tc:#d8b04a"><i></i>Everyone for themselves</div>` : `<div class="arth" style="--tc:${ACOL[t % ACOL.length]}"><i></i>${ACN[t]} team</div>`);
+    AS.slots.forEach((sl, i) => { if (t !== 'all' && sl.team !== t) return; const row = el('div', 'arslot' + (sl.you ? ' you' : '') + (fmt.ffa ? ' dot' : '')); if (fmt.ffa) row.appendChild(el('i', 'ardot', '')).style.background = ACOL[sl.team % ACOL.length];
       const nm = sl.you ? el('input') : el('span', 'arnm', `Computer`); if (sl.you) { nm.value = sl.name || ''; nm.placeholder = 'Your name'; nm.maxLength = 16; nm.onkeydown = (e) => e.stopPropagation(); nm.oninput = () => { sl.name = nm.value.trim(); }; }
       if (fmt.ffa && !sl.you) nm.style.color = ACOL[t % ACOL.length];
-      const cs = el('select'); for (const c of CN) { const o = el('option', '', CLASSES[c].name); o.value = c; cs.appendChild(o); } cs.value = sl.cls; cs.onchange = () => { sl.cls = cs.value; };
+      const kitTip = (c) => Arena.kitOf(c).map(id => (ABILITIES[c].find(x => x.id === id) || {}).name).filter(Boolean).join(' · '); const cs = el('select'); for (const c of CN) { const o = el('option', '', CLASSES[c].name); o.value = c; o.title = kitTip(c); cs.appendChild(o); } cs.value = sl.cls; cs.title = CLASSES[sl.cls].name + ': ' + kitTip(sl.cls); cs.onchange = () => { sl.cls = cs.value; cs.title = CLASSES[sl.cls].name + ': ' + kitTip(sl.cls); };
       const rs = el('select'); for (const r of RN) { const o = el('option', '', RACES[r].name); o.value = r; rs.appendChild(o); } rs.value = sl.race; rs.onchange = () => { sl.race = rs.value; };
       row.append(nm, cs, rs); col.appendChild(row); });
     tl.appendChild(col); }

@@ -122,7 +122,7 @@ export class RemoteFighter {
   net(s) { if (s.c && s.c !== this.cls) this.build(s.c, this.h.race); this.tgt.set(s.x, s.y, s.z); this.tyaw = s.yaw; this.hp = s.hp; this.maxHp = s.mh; this.act = s.a || ''; this.actT = s.at || 0; this.spd = s.sp || 0; this.roll = s.r; this.castUp = s.cu; this.stealth = s.st ? 1 : 0;
     if (s.d && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s.d && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.set(0, 0, 0); this.pos.copy(this.tgt); } }
   update(dt) {
-    if (this.dead) { this.deadT = (this.deadT || 0) + dt; if (this.deadT < 1) this.root.rotation.x = -Math.min(1, this.deadT / 0.6) * Math.PI / 2; else this.root.visible = false; return; }
+    if (this.dead) { this.deadT = (this.deadT || 0) + dt; const k = Math.min(1, this.deadT / 0.6); this.root.rotation.x = -k * k * Math.PI / 2; this.root.position.y = this.pos.y + 0.12 * k; return; }
     if (this.pos.distanceTo(this.tgt) > 6) this.pos.copy(this.tgt); else this.pos.lerp(this.tgt, Math.min(1, dt * 12));
     this.yaw += Math.atan2(Math.sin(this.tyaw - this.yaw), Math.cos(this.tyaw - this.yaw)) * Math.min(1, dt * 14);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;

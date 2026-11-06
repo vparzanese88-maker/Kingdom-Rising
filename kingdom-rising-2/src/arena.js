@@ -203,7 +203,7 @@ function checkWin() {
   if (o === 'dm' || o === 'ctf' || o === 'koth') { for (const t of teamsOf()) if ((A.score[t] || 0) >= A.target) return finish(t);
     if (A.clock >= A.timeLimit) { const sc = teamsOf().map(t => [t, A.score[t] || 0]).sort((a, b) => b[1] - a[1]); if (sc.length < 2 || sc[0][1] > sc[1][1]) return finish(sc[0][0]); if (!A.sudden) { A.sudden = true; bannerAll('Sudden death', 'The next point wins'); cheer(1.2); } } }
 }
-function finish(w) { if (AN.on && AN.host) nsend({ t: 'over', w }); A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
+function finish(w) { if (AN.on && AN.host) nsend({ t: 'over', w }); celebrate(w); A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
 
 // ---------------- objectives ----------------
 function objectives(dt) {
@@ -374,7 +374,7 @@ class ArenaBot {
   // ---- thinking ----
   update(dt) {
     const st = this.status;
-    if (this.dead) { this.deadT += dt; if (this.deadT < 1) this.root.rotation.x = -Math.min(1, this.deadT / 0.6) * Math.PI / 2; else this.root.visible = false; return; }
+    if (this.dead) { this.deadT += dt; const k = Math.min(1, this.deadT / 0.6); this.root.rotation.x = -k * k * Math.PI / 2; this.root.position.y = AR.Y + 0.12 * k; return; } // the fallen lie where they fell until they get up again
     this.root.rotation.x = 0;
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     for (const k of ['stun', 'slow', 'root', 'frozen']) st[k] = Math.max(0, (st[k] || 0) - dt);
@@ -657,6 +657,8 @@ export function scoreTable() {
   return `<table class="artab"><tr><th></th><th>Fighter</th><th>Class</th><th>Kills</th><th>Deaths</th><th>Damage</th><th>Healing</th></tr>${rows.map(f => `<tr class="${f.you ? 'me' : ''}${f.alive ? '' : ' dead'}"><td><i style="background:${teamCol(f.team)}"></i></td><td>${f.name}${f.you && f.name !== 'You' ? ' (you)' : ''}</td><td>${CLASSES[f.cls] ? CLASSES[f.cls].name : f.cls}</td><td>${f.kills}</td><td>${f.deaths}</td><td>${Math.round(f.dmg)}</td><td>${Math.round(f.heal)}</td></tr>`).join('')}</table>`;
 }
 export function toggleScores(on) { let e = document.getElementById('arscores'); if (!on) { if (e) e.remove(); return; } if (!e) { e = el('div', ''); e.id = 'arscores'; document.body.appendChild(e); } e.innerHTML = `<h3>${OBJECTIVES[A.setup.objective].name}</h3>` + scoreTable(); }
+// the crowd showers the sand with gold when the match is won
+function celebrate(w) { let n = 0; const col = w != null ? teamCol(w) : '#ffd84a'; const tick = () => { if (n++ > 22) return; for (let k = 0; k < 3; k++) { const a = Math.random() * Math.PI * 2, r = Math.random() * AR.R * 0.9; V.burst(k ? 'gold' : 'spark', new THREE.Vector3(Math.sin(a) * r, AR.Y + 9 + Math.random() * 6, Math.cos(a) * r), 18, { speed: 2, grav: 2.5, life: 2.4 }); } V.light && V.light(new THREE.Vector3(0, AR.Y + 6, 0), col, 3, 0.4, 60); setTimeout(tick, 180); }; tick(); }
 // fight again with the same fighters, without reloading the page
 export function restartMatch(fromHost) {
   if (AN.on && !AN.host && !fromHost) return; if (AN.on && AN.host) nsend({ t: 'restart' });

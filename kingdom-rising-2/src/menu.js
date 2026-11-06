@@ -357,10 +357,6 @@ function renderArenaSetup() {
   const fixed = O[AS.objective].lives === 'one';
   const lw = el('div', 'arseg small'); for (const [k, nm, d] of [['one', 'One life', 'fall once and you are out'], ['respawn', 'Respawning', 'back in 6 seconds after you fall']]) { const on = fixed ? k === 'one' : (AS.lives || O[AS.objective].lives) === k; const b = el('button', 'seg' + (on ? ' on' : '') + (fixed && k !== 'one' ? ' off' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { if (fixed) { S.error(); return; } S.click(); AS.lives = k; renderArenaSetup(); }; lw.appendChild(b); }
   ow.appendChild(lw); panel.appendChild(ow);
-  // the map
-  { const mw = el('div', 'arsec', '<h3>Map</h3>'), seg = el('div', 'arseg'); const cur = AS.map || 'ruins';
-    for (const [k, nm, d] of [['ruins', 'Ruins of Aldermere', 'A ruined town: three ways to the centre, stairs, ramparts, balconies and buildings to fight from'], ['colosseum', 'The Colosseum', 'The great arena: an open ring of sand with pillars, in front of the crowd']]) { const b = el('button', 'seg' + (cur === k ? ' on' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { S.click(); AS.map = k; renderArenaSetup(); }; seg.appendChild(b); }
-    mw.appendChild(seg); panel.appendChild(mw); }
   // your champion: a portrait for every class
   { const you = AS.slots.find(x => x.you) || AS.slots[0], pw = el('div', 'arsec', `<h3>Your class <small>${CLASSES[you.cls].name}: ${Arena.kitOf(you.cls).map(id => (ABILITIES[you.cls].find(x => x.id === id) || {}).name).filter(Boolean).join(' · ')}</small></h3>`), grid = el('div', 'pgrid');
     for (const c of Object.keys(CLASSES)) { const b = el('button', 'pcard' + (you.cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><em class="prole ${Arena.roleOf(c)}">${Arena.roleOf(c)}</em><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }

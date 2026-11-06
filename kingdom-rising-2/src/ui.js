@@ -295,7 +295,11 @@ export function buildMapImage() {
     const k = (j * MAPN + i) * 4; img.data[k] = Math.min(255, c.r * 255); img.data[k + 1] = Math.min(255, c.g * 255); img.data[k + 2] = Math.min(255, c.b * 255); img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
-  if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (66 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (31 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
+  if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN, rect = (x, z, w, d, col) => { g.fillStyle = col; g.fillRect(px(x - w / 2), px(z - d / 2), w / (HALF * 2) * MAPN, d / (HALF * 2) * MAPN); }; // the Ruins of Aldermere
+    rect(0, 0, 64, 104, '#3e3a32'); rect(0, 0, 58, 98, '#9c9280');
+    for (const s2 of [-1, 1]) { rect(0, s2 * 36, 48, 12, '#b8ae98'); rect(0, s2 * 45.5, 10, 8, '#c8bea8'); rect(-20, s2 * 17.5, 6, 19, '#7a7060'); rect(-11, s2 * 19, 7, 7, '#a0422c'); rect(11, s2 * 19, 7, 7, '#a0422c'); rect(20, s2 * 15, 8, 6, '#a0422c'); for (const x of [-15.5, 15.5]) { rect(x, s2 * 26, 3, 6, '#5a5448'); rect(x, s2 * 10.5, 3, 5, '#5a5448'); } rect(-9, s2 * 5.5, 6, 3, '#8a8270'); rect(9, s2 * 5.5, 6, 3, '#8a8270'); rect(s2 * 34, 0, 8, 10, '#c8bea8'); }
+    g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#5aa878'; g.beginPath(); g.arc(px(0), px(0), (2.2 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); }
+  if (false) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (66 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (31 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
   const toPx = ([x, z]) => [(x + HALF) / (HALF * 2) * MAPN, (z + HALF) / (HALF * 2) * MAPN];
   // the river, then the roads
   g.lineCap = g.lineJoin = 'round';

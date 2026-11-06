@@ -874,7 +874,7 @@ export function buildWorld(scene) {
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
   if (YARD) buildYard(scene);
-  if (ARENA) { let mp = 'ruins'; try { mp = (JSON.parse(sessionStorage.getItem('kr2_arena_setup') || '{}').map) || 'ruins'; } catch (e) { /* default */ } if (mp === 'colosseum') buildColosseum(scene); else buildRuins(scene); } // (the Ruins of Aldermere by default)
+  if (ARENA) buildRuins(scene); // the arena is fought in the Ruins of Aldermere
   if (!BATTLE && !YARD && !ARENA) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();

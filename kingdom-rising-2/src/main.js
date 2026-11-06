@@ -276,7 +276,7 @@ function kitAbilities(levelOf) {
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
   G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);
-  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 8; G.campAb = true; /* campaign ability rules in both modes */ G.newFx = !BATTLE; if (!BATTLE) document.body.classList.add('newfx');
+  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 8; G.campAb = true; G.newFx = true; document.body.classList.add('newfx'); /* Kingdom Battles plays exactly like the campaign (no crafting, gear-only loot) */
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
 // spread the roaming animals out: wolves alone, in pairs or small packs; bears well apart; tigers further still; nothing near goblin camps or towns
@@ -341,18 +341,22 @@ function campaignAbilityRules() {
     a.desc = (a.desc || '').replace(/,? ?(and|&) (every |each )?all(y|ies)( and (soldiers|troops))?( within \d+ m)?( (are|is) (healed|empowered)[^.]*)?/gi, '').replace(/[Yy]ou and (every |each )?all(y|ies)( within \d+ m)?/g, 'You').replace(/,? ?(every |each )?all(y|ies)( within \d+ m)?( of you)?/gi, '').replace(/for you, your beast/g, 'for you and your beast').replace(/\s+\./g, '.').replace(/\s{2,}/g, ' ');
   }
 }
-function campaignSetup() {
-  // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
+function campaignWeapons() {
+  // no twin weapons (campaign and Kingdom Battles): class weapon lists and starting weapons use the single version
   for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
   for (const c of ['monk', 'druid', 'cleric', 'shaman', 'enchanter']) if (CLASSES[c] && !CLASSES[c].weapons.includes('quarterstaff')) CLASSES[c].weapons.push('quarterstaff'); // plain quarterstaffs for the robed and the wanderers
   WEAPON_TYPES.dagger.speed = 0.95; // a single dagger stabs at a normal pace: the rogue's abilities should do the heavy lifting
   for (const c in NEW_CLASSES) { const N = NEW_CLASSES[c]; if (TWIN_TO_SINGLE[N.start]) { N.start = TWIN_TO_SINGLE[N.start]; N.startName = WEAPON_TYPES[N.start].name; } }
+}
+function campaignSetup() {
+  campaignWeapons();
   campaignLevels();
   kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
   campaignAbilityRules();
   G.itemSlots = 0; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 function startBattle() {
+  campaignWeapons(); // the same weapons as the campaign (no twin weapons)
   const t = Battle.myTown(), cfg = SETUP.hero || {};
   const h = Game.newHero({ name: cfg.name || 'Hero', race: (MP.on && cfg.race) || t.race || 'human', cls: cfg.cls || 'warrior', sex: cfg.sex || 'm', app: cfg.app || { skin: '#e0ac85', hair: '#3a2a1a', hairStyle: 1, beard: 0, height: 1, build: 0 } });
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
@@ -723,8 +727,7 @@ function input() {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
-      if ((e.code === 'KeyO' || e.code === 'KeyU') && !BATTLE) { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
-      if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
+      if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
       if (e.code === 'KeyZ' && !G.uiOpen && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)

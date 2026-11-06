@@ -364,12 +364,12 @@ export class Player {
       case 'KeyE': this.interact(); break;
       case 'KeyR': this.quaff(); break;
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
-      case 'KeyX': if (BATTLE) break; if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
+      case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
   }
   // Kingdom Battles: double-tap W, A, S or D to roll that way
   tapRoll(code) {
-    if (!BATTLE) return; // campaign: dodging is on Shift (tap), sprinting is holding Shift
+    return; // both modes: dodging is on Shift (tap), sprinting is holding Shift
     if (!G.battleFx || !{ KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1 }[code]) return;
     const now = performance.now(), last = this.lastTap;
     this.lastTap = { code, t: now };
@@ -424,7 +424,7 @@ export class Player {
   spellFrom() { if (!G.newFx) return this.handPos(); if (this.camDist < 0.6) { const o = G.camera.position.clone(); return o.add(new THREE.Vector3(0, 0.05, -0.75).applyQuaternion(G.camera.quaternion)); } return this.pos.clone().setY(this.pos.y + this.eye + 0.35).addScaledVector(this.fwd(), 0.55); }
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
-  wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return BATTLE ? sz : Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
+  wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
   speedMul() { let m = this.wSpeedK() * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
@@ -493,7 +493,7 @@ export class Player {
       if (this.press.charging && this.atk && this.atk.hold) this.atk.t = Math.min(this.atk.t, 0.98);
       // the wind-up takes half a second; then the heavy swing follows through on its own (letting go earlier swings early).
       // Keep holding and another heavy follows once this one has finished.
-      if (!BATTLE && this.press && this.press.charging && this.press.t - this.press.t0 >= 0.5) { const pr = this.press; this.press = this.lmbDown ? { t: 0.23, charging: false, melee: true, again: true } : null; this.releaseHeavy(pr); }
+      if (this.press && this.press.charging && this.press.t - this.press.t0 >= 0.5) { const pr = this.press; this.press = this.lmbDown ? { t: 0.23, charging: false, melee: true, again: true } : null; this.releaseHeavy(pr); }
     }
     const a = this.atk; if (!a) return;
     a.t += dt / a.dur;
@@ -537,7 +537,7 @@ export class Player {
       else if (st.aoe) targets = mobsInRadius(this.pos, st.aoe);
       else if (st.line) targets = mobsInCone(this.pos, yaw, reach * 1.7, 0.22);
       else if (this.pk('cleave') && a.last) targets = mobsInRadius(this.pos, reach);
-      else if (G.battleFx) { half = (ARC[wt] || 0.8) * Math.sqrt(this.weapon.size || 1); half *= BATTLE ? 1 : 0.85 + 0.3 * Math.min(1, (Game.masteryOf(this.h, wt) - 1) / 19); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
+      else if (G.battleFx) { half = (ARC[wt] || 0.8) * Math.sqrt(this.weapon.size || 1); half *= 0.85 + 0.3 * Math.min(1, (Game.masteryOf(this.h, wt) - 1) / 19); reach *= 1.12; targets = mobsInCone(this.pos, yaw, reach, half); }
       else { targets = mobsInCone(this.pos, yaw, reach, half); if (!st.cleave) targets = targets.sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos)).slice(0, 2); }
       // Kingdom Battles: show the swing as a slash crescent exactly as wide and long as what it hits
       if (G.battleFx) { const R = st.aoe || (st.line ? reach * 1.7 : reach), H = st.aoe ? Math.PI : st.line ? 0.22 : half; slashArc(this, R, H, a.name, targets.length > 0, this.trail.mat.uniforms.color.value); }
@@ -1105,7 +1105,7 @@ export class Player {
       this.songT = (this.songT || 0) - dt;
       if (this.songT <= 0) { this.songT = 3;
         const up = G.abilScale ? G.abilScale(this.h.level) : 1, K = this.areaK(), ally = (r, pct, kind) => G.hooks.allyFx && G.hooks.allyFx(this.pos, [r, pct || 0, kind, 3.6], 1);
-        for (const a of songs) { const r = BATTLE ? (a.r || 14) * K : (Game.fxCount(this.h, 'songreach') ? 25 : 15); // campaign: songs reach 15 m (25 m with Carrying Voice)
+        for (const a of songs) { const r = Game.fxCount(this.h, 'songreach') ? 25 : 15; // campaign: songs reach 15 m (25 m with Carrying Voice)
           if (a.song === 'war') { this.buffs.cry = Math.max(this.buffs.cry || 0, 3.6); ally(r, 0, 'rally'); }
           else if (a.song === 'travel') { this.buffs.swind = Math.max(this.buffs.swind || 0, 3.6); ally(r, 0, 'haste'); }
           else if (a.song === 'flame') { this.buffs.flame = Math.max(this.buffs.flame || 0, 3.6); ally(r, 0, 'flame'); }
@@ -1115,7 +1115,7 @@ export class Player {
           else if (a.song === 'mward') this.buffs.mward = Math.max(this.buffs.mward || 0, 3.6);
           else if (a.song === 'snare' || a.song === 'weaken') { for (const m of mobsInRadius(this.pos, r)) { if (a.song === 'snare') m.status.slow = Math.max(m.status.slow || 0, 3.6); else m.hexUntil = Math.max(m.hexUntil || 0, G.time + 3.6); } }
           else if (a.song === 'ward') { this.buffs.barrier = Math.max(this.buffs.barrier || 0, this.maxHp * 0.06 * up); this.buffs.barrierT = 3.6; ally(r, 0, 'ward'); }
-          V.ring(this.pos, BATTLE ? r : 2.2, SONG_COL[a.song], BATTLE ? 0.9 : 0.6); } // campaign: a small pulse at your feet, not a huge circle
+          V.ring(this.pos, 2.2, SONG_COL[a.song], 0.6); } // campaign: a small pulse at your feet, not a huge circle
         S.heal && songs.some(a => a.song === 'heal') && 0; }
     }
     // the notes drift up and fade
@@ -1610,12 +1610,12 @@ export class Player {
   // swimming: Space next to a low edge (a boat deck, a pier) climbs you out of the water
   climbOut() { let g = null, r = 0; for (const d of [0.6, 1.2, 1.9, 2.6]) { const t = groundAt(this.pos.x + Math.sin(this.yaw) * d, this.pos.z + Math.cos(this.yaw) * d, this.pos.y + 2.8); if (t.surf && t.h - this.pos.y <= 2.8) { g = t; r = d; break; } } if (!g) return false;
     this.pos.x += Math.sin(this.yaw) * r; this.pos.z += Math.cos(this.yaw) * r; this.pos.y = g.h; this.vel.set(0, 0, 0); this.onGround = true; this.swim = false; S.splash(this.pos, 0.6); return true; }
-  swimK() { if (BATTLE) return 1; const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
+  swimK() { const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
   jump() { if (this.swim) { this.climbOut(); return; } if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
-    const kind = BATTLE ? 'old' : DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
+    const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
     const cost = D.cost * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); return; }
     this.end -= cost; this.endUseT = 1;
@@ -1798,7 +1798,7 @@ export class Player {
     const depth = wl - gh.h;
     this.swim = depth > 1.35 && this.pos.y < wl - 0.9 && !gh.surf;
     if (!this.leap) {
-      if (this.swim && !BATTLE && md.lengthSq() > 0.1) { this.swimT = (this.swimT || 0) + dt; if (this.swimT > 1) { this.swimT = 0; const sk = this.h.swimSkill || 1; if (sk < 50 && Math.random() < 1 / (6 + sk * 1.3)) { this.h.swimSkill = sk + 1; G.hooks.skillUp && G.hooks.skillUp('Swimming', sk + 1); } } }
+      if (this.swim && md.lengthSq() > 0.1) { this.swimT = (this.swimT || 0) + dt; if (this.swimT > 1) { this.swimT = 0; const sk = this.h.swimSkill || 1; if (sk < 50 && Math.random() < 1 / (6 + sk * 1.3)) { this.h.swimSkill = sk + 1; G.hooks.skillUp && G.hooks.skillUp('Swimming', sk + 1); } } }
       if (this.swim) { this.vel.y += ((wl - 1.25) - this.pos.y) * dt * 6 - this.vel.y * dt * 3; if (Math.random() < dt * 4 && md.lengthSq() > 0.1) S.splash(this.pos, 0.3); }
       else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;

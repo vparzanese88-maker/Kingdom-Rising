@@ -152,7 +152,7 @@ function renderCreator() {
     // races: a row of crests, the chosen one described underneath (fits without scrolling)
     if (C.battle && C.battle.mp) intro('Your race is also the race of your town: its walls, buildings and troops.');
     const rg = el('div', 'crgrid races');
-    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && !(C.battle && RACES[k].campaignOnly) && (!C.battle || C.battle.mp || k === C.race))) {
+    for (const k of Object.keys(RACES).filter(k => RACES[k].playable && (!C.battle || C.battle.mp || k === C.race))) {
       const img = racePortrait(k, C.sex); const b = el('button', 'crt race' + (C.race === k ? ' on' : ''), `${img ? `<img src="${img}" alt="">` : crest(k, 56)}<b>${RACES[k].name}</b>`); b.title = RACE_INFO[k].tag;
       b.onclick = () => { S.click(); C.race = k; const r = RACES[k]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = (k === 'dwarf' || k === 'barbarian') && C.sex === 'm' ? 3 : 0; C.app.hairStyle = k === 'dwarf' ? (C.sex === 'f' ? 4 : 0) : 1; renderCreator(); rebuildPreview(); };
       b.onmouseenter = () => S.hover(); rg.appendChild(b); }
@@ -164,7 +164,7 @@ function renderCreator() {
     // classes: a wall of crests with their names; the chosen one described underneath. Everything fits without scrolling.
     const help = el('button', 'quizbtn', '<span>?</span> Having trouble choosing?'); help.onclick = () => { S.click(); openQuiz(); }; body.appendChild(help);
     const cg = el('div', 'crgrid classes');
-    for (const k of Object.keys(CLASSES).filter(k => !(CLASSES[k].campaignOnly && C.battle))) {
+    for (const k of Object.keys(CLASSES)) {
       const b = el('button', 'crt' + (C.cls === k ? ' on' : ''), `${crest(k, 44)}<b>${CLASSES[k].name}</b>`); b.title = CLASSES[k].name + (CLASS_INFO[k] ? ' · ' + (CLASS_INFO[k].tag || '') + ' · ' + CLASS_INFO[k].role : '');
       b.onclick = () => { S.click(); C.cls = k; C.weapon = START[k]; renderCreator(); rebuildPreview(); }; b.onmouseenter = () => S.hover(); cg.appendChild(b); }
     body.appendChild(cg);
@@ -222,7 +222,7 @@ function openQuiz() {
       const g = el('div', 'quizans'); for (const [id, ic, name, sub] of Q.a) { const b = el('button', 'qa', `<span class="qi">${ic}</span><b>${name}</b><small>${sub}</small>`); b.onclick = () => { S.click(); pick.push(id); step(); }; b.onmouseenter = () => S.hover(); g.appendChild(b); }
       card.appendChild(g); if (pick.length) { const bk = el('button', 'btn ghost', 'Back'); bk.onclick = () => { S.click(); pick.pop(); step(); }; card.appendChild(bk); }
       return; }
-    const [st, role, rng] = pick, ks = Object.keys(CLASSES).filter(k => FIT[k] && !(CLASSES[k].campaignOnly && C.battle));
+    const [st, role, rng] = pick, ks = Object.keys(CLASSES).filter(k => FIT[k]);
     const score = (k) => { const [s0, r0, g0] = FIT[k]; return (s0 === st ? 3 : st === 'b' || s0 === 'b' ? 1 : 0) + (r0.split(' ')[0] === role ? 4 : r0.includes(role) ? 3 : 0) + (rng === 'any' ? 1 : g0 === rng ? 2 : 0); };
     const ranked = ks.map(k => [k, score(k)]).sort((a, b) => b[1] - a[1]), top = ranked[0][1];
     const best = ranked.filter(([, v], i) => i < 3 || (i < 5 && v >= top - 1)).map(([k]) => k);
@@ -369,7 +369,7 @@ function rebuildPreview() {
   const P = Menu.preview; if (!P) return;
   if (P.ch) P.holder.clear();
   const ch = buildHumanoid(Object.assign({ race: C.race, sex: C.sex, cls: C.cls }, C.app));
-  equipWeapon(ch, C.battle ? C.weapon : (TWIN_TO_SINGLE[C.weapon] || C.weapon), 0, 0); // the campaign has no twin weapons: show the single one you will start with
+  equipWeapon(ch, TWIN_TO_SINGLE[C.weapon] || C.weapon, 0, 0); // the campaign has no twin weapons: show the single one you will start with
   ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   P.holder.add(ch.root); P.ch = ch;
 }

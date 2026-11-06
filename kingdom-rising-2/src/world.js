@@ -4,7 +4,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
-import { YARD } from './battlemap.js';
+import { YARD, ARENA } from './battlemap.js';
+import { buildColosseum } from './arenamap.js';
 import { BATTLE, LAYOUT, WALL_R, battleRoadDist, nearTown } from './battlemap.js';
 
 export const world = {
@@ -271,7 +272,7 @@ function battleScatter() {
 }
 function scatter() {
   if (BATTLE) return battleScatter();
-  if (YARD) return;
+  if (YARD || ARENA) return;
   // trees
   const tries = 26000;
   for (let i = 0; i < tries; i++) {
@@ -868,11 +869,12 @@ export function buildWorld(scene) {
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
   if (YARD) buildYard(scene);
-  if (!BATTLE && !YARD) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
+  if (ARENA) buildColosseum(scene);
+  if (!BATTLE && !YARD && !ARENA) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();
   buildChunks(scene);
-  buildGrass(scene);
+  if (!ARENA) buildGrass(scene); // (the arena floor is sand)
   buildBirds(scene);
   buildAmbient(scene);
   return world;

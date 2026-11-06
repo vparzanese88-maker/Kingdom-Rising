@@ -1480,7 +1480,7 @@ export class Player {
     /* (no per-class damage scaling: Kingdom Battles uses the campaign abilities now) */
     dmg *= campTune(this.h.cls).dmg;
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
-    if (G.newFx && !m.dummy && !m.pet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el);
+    if (G.newFx && !m.dummy && !m.pet && !m.arenaBot && !m.botPet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el); /* (arena fighters use their own armour) */
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
     if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());

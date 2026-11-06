@@ -11,7 +11,8 @@ import { confirmBox, openSettings, openControls, closeWin, comboSteps } from './
 import { G } from './state.js';
 import * as Icons from './icons.js';
 import { crest } from './crests.js';
-import { SETUP_KEY } from './battlemap.js';
+import { SETUP_KEY, ARENA_KEY } from './battlemap.js';
+import * as Arena from './arena.js';
 import { BATTLE_RACES, DIFFS, TEAM_COLORS, TEAM_NAMES, TOWN_NAMES } from './battledata.js';
 
 const $ = (id) => document.getElementById(id);
@@ -79,6 +80,8 @@ addEventListener('click', regain, true); addEventListener('keydown', regain, tru
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
   $('btnBattle').onclick = () => { S.click(); goFull(); showBattleSetup(); };
+  if ($('btnArena')) $('btnArena').onclick = () => { S.click(); goFull(); showArenaSetup(); };
+  try { if (sessionStorage.getItem('kr2_arena_open')) { sessionStorage.removeItem('kr2_arena_open'); setTimeout(showArenaSetup, 50); } } catch (e) { /* no storage */ }
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
   $('btnFull').onclick = () => { S.click(); goFull(); };
@@ -326,6 +329,55 @@ function renderBattleSetup() {
   };
   row.append(back, go); panel.appendChild(row);
 }
+
+// ---------- Kingdom Arena setup ----------
+let AS = null;
+export function showArenaSetup() {
+  let ov = document.getElementById('bsetup'); if (!ov) { ov = el('div', ''); ov.id = 'bsetup'; document.body.appendChild(ov); }
+  ov.hidden = false; $('title').hidden = true;
+  if (!AS) { try { AS = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); } catch (e) { AS = null; } if (!AS || !AS.slots) { AS = Arena.defaultArena(); Arena.fillSlots(AS); } AS.step = 'setup'; }
+  renderArenaSetup();
+}
+function renderArenaSetup() {
+  const ov = document.getElementById('bsetup'); ov.innerHTML = '';
+  const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
+  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Everyone fights at level 20 in the best gear, with 20 skill points to spend in a 60 second countdown before the gates open.</p>`));
+  const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
+  // format
+  const fw = el('div', 'arsec', '<h3>Format</h3>'); const fg = el('div', 'arseg');
+  for (const k in F) { const b = el('button', 'seg' + (AS.fmt === k ? ' on' : ''), `<b>${F[k].name}</b>${F[k].desc ? `<small>${F[k].desc}</small>` : ''}`); b.onclick = () => { S.click(); AS.fmt = k; if (F[k].ffa && AS.objective === 'ctf') AS.objective = 'dm'; Arena.fillSlots(AS); renderArenaSetup(); }; fg.appendChild(b); }
+  fw.appendChild(fg);
+  if (fmt.ffa) { const r = el('label', 'arrange', `<span>Fighters: <b>${AS.ffaN}</b></span><input type="range" min="3" max="12" value="${AS.ffaN}">`); r.querySelector('input').oninput = (e) => { AS.ffaN = +e.target.value; Arena.fillSlots(AS); renderArenaSetup(); }; fw.appendChild(r); }
+  panel.appendChild(fw);
+  // objective
+  const ow = el('div', 'arsec', '<h3>Objective</h3>'); const og = el('div', 'arobjs');
+  for (const k in O) { const off = O[k].teams && fmt.ffa; const b = el('button', 'arob' + (AS.objective === k ? ' on' : '') + (off ? ' off' : ''), `<div class="ari">${O[k].icon}</div><b>${O[k].name}</b><span>${off ? 'Needs teams' : O[k].desc}</span>`); b.onclick = () => { if (off) { S.error(); return; } S.click(); AS.objective = k; renderArenaSetup(); }; og.appendChild(b); }
+  ow.appendChild(og);
+  const fixed = O[AS.objective].lives === 'one';
+  const lw = el('div', 'arseg small'); for (const [k, nm, d] of [['one', 'One life', 'fall once and you are out'], ['respawn', 'Respawning', 'back in 6 seconds after you fall']]) { const on = fixed ? k === 'one' : (AS.lives || O[AS.objective].lives) === k; const b = el('button', 'seg' + (on ? ' on' : '') + (fixed && k !== 'one' ? ' off' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { if (fixed) { S.error(); return; } S.click(); AS.lives = k; renderArenaSetup(); }; lw.appendChild(b); }
+  ow.appendChild(lw); panel.appendChild(ow);
+  // fighters
+  const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');
+  const teams = [...new Set(AS.slots.map(s => s.team))];
+  const CN = Object.keys(CLASSES), RN = Object.keys(RACES).filter(r => RACES[r].playable);
+  for (const t of teams) { const col = el('div', 'arteam', `<div class="arth" style="--tc:${ACOL[t % ACOL.length]}"><i></i>${fmt.ffa ? 'Everyone for themselves' : ACN[t] + ' team'}</div>`);
+    AS.slots.forEach((sl, i) => { if (sl.team !== t) return; const row = el('div', 'arslot' + (sl.you ? ' you' : ''));
+      const nm = sl.you ? el('input') : el('span', 'arnm', `Computer`); if (sl.you) { nm.value = sl.name || ''; nm.placeholder = 'Your name'; nm.maxLength = 16; nm.onkeydown = (e) => e.stopPropagation(); nm.oninput = () => { sl.name = nm.value.trim(); }; }
+      if (fmt.ffa && !sl.you) nm.style.color = ACOL[t % ACOL.length];
+      const cs = el('select'); for (const c of CN) { const o = el('option', '', CLASSES[c].name); o.value = c; cs.appendChild(o); } cs.value = sl.cls; cs.onchange = () => { sl.cls = cs.value; };
+      const rs = el('select'); for (const r of RN) { const o = el('option', '', RACES[r].name); o.value = r; rs.appendChild(o); } rs.value = sl.race; rs.onchange = () => { sl.race = rs.value; };
+      row.append(nm, cs, rs); col.appendChild(row); });
+    tl.appendChild(col); }
+  tw.appendChild(tl);
+  const rnd = el('button', 'btn', '🎲 Shuffle the computer classes'); rnd.onclick = () => { S.click(); AS.slots.forEach(sl => { if (!sl.you) { sl.cls = CN[(Math.random() * CN.length) | 0]; sl.race = RN[(Math.random() * RN.length) | 0]; } }); renderArenaSetup(); }; tw.appendChild(rnd);
+  panel.appendChild(tw);
+  const row = el('div', 'bsbtns');
+  const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); closeBattleSetup(); showTitle(); };
+  const mp = el('button', 'btn', '🌐 Online (next update)'); mp.disabled = true; mp.title = 'Online arena matches are coming in the next update';
+  const go = el('button', 'btn gold big', 'Enter the arena →'); go.onclick = () => { S.click(); const save = Object.assign({}, AS); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
+  row.append(back, mp, go); panel.appendChild(row);
+}
+const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST;
 
 // ---------- preview scene ----------
 function buildPreview() {

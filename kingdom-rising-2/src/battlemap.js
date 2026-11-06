@@ -5,6 +5,8 @@ import { fbm, ridged, smooth, lerp, clamp, distToLine, mulberry32 } from './util
 export const BATTLE = /[?&]mode=battle/.test(location.search);
 export const YARD = /[?&]mode=yard/.test(location.search); // the Training Yard: a plain field, dummies, every class and weapon
 export const SETUP_KEY = 'kr2_battle_setup';
+export const ARENA = /[?&]mode=arena/.test(location.search); // Kingdom Arena: duels and team fights in the colosseum
+export const ARENA_KEY = 'kr2_arena_setup';
 
 function readSetup() {
   try { const s = JSON.parse(sessionStorage.getItem(SETUP_KEY) || 'null'); if (s && (s.mp || (s.towns && s.towns.length >= 2))) return s; } catch (e) {}

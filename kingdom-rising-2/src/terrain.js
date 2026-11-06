@@ -1,7 +1,7 @@
 // Terrain heights, biomes/zones, terrain mesh, water, sky and lighting.
 import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
-import { BATTLE, YARD, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
+import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
 
 export const HALF = 600, SEG = 300, CELL = (HALF * 2) / SEG;
 export const SEA = 0;
@@ -36,7 +36,7 @@ export function applyBattleTerrain() {
 }
 if (BATTLE && LAYOUT.towns.length) applyBattleTerrain();
 // the Training Yard: a plain field with nothing on it
-if (YARD) { ROADS.length = 0; LAVA_POOLS.length = 0; CAMPS.length = 0; RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]); VILLAGE.x = VILLAGE.z = 9000; PORT.x = PORT.z = 9000; MOUNT.x = MOUNT.z = 9000; SPAWN.x = 0; SPAWN.z = 30; SPAWN.yaw = Math.PI; }
+if (YARD || ARENA) { ROADS.length = 0; LAVA_POOLS.length = 0; CAMPS.length = 0; RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]); VILLAGE.x = VILLAGE.z = 9000; PORT.x = PORT.z = 9000; MOUNT.x = MOUNT.z = 9000; SPAWN.x = 0; SPAWN.z = 30; SPAWN.yaw = Math.PI; }
 
 function riverDist(x, z) { return distToLine(x, z, RIVER); }
 function roadDist(x, z) { let best = 1e9; for (const r of ROADS) { const d = distToLine(x, z, r).d; if (d < best) best = d; } return best; }
@@ -45,6 +45,7 @@ export { roadDist };
 // raw height function (analytic). The mesh samples it; gameplay uses the mesh samples via heightAt().
 export function rawHeight(x, z, noCamps) {
   if (BATTLE) return battleHeight(x, z);
+  if (ARENA) return 3; // the colosseum stands on flat ground
   if (YARD) return 3 + fbm(x * 0.01, z * 0.01, 2) * 0.6 + Math.max(0, Math.hypot(x, z) - 140) * 0.25; // a flat field, rising gently far away
   // rolling lowland with jungle hills
   let h = 4.5 + fbm(x * 0.0035, z * 0.0035, 4) * 8 + fbm(x * 0.014 + 7, z * 0.014, 3) * 2.2;
@@ -88,7 +89,7 @@ export function heightAt(x, z) {
 export function normalAt(x, z) { const e = 1.5; const hx = heightAt(x + e, z) - heightAt(x - e, z), hz = heightAt(x, z + e) - heightAt(x, z - e); const n = new THREE.Vector3(-hx, 2 * e, -hz); return n.normalize(); }
 
 export function zoneAt(x, z) {
-  if (BATTLE || YARD) return 'meadow';
+  if (BATTLE || YARD || ARENA) return 'meadow';
   const [r, R] = isleR(x, z);
   if (r > R - 70) return z < -250 ? 'north' : 'coast';
   if (Math.hypot(x - MOUNT.x, z - MOUNT.z) < MOUNT.r * 0.62) return 'highlands';
@@ -97,7 +98,7 @@ export function zoneAt(x, z) {
   return 'wood';
 }
 export function biomeMasks(x, z) {
-  if (YARD) return { hl: 0, ash: 0, forest: 0, dry: 0, meadow: 1 };
+  if (YARD || ARENA) return { hl: 0, ash: 0, forest: 0, dry: 0, meadow: 1 };
   if (BATTLE) return { hl: 0, ash: 0, forest: clamp(fbm(x * 0.006 + 70, z * 0.006 - 30, 3) * 1.6, 0, 0.8), dry: clamp(fbm(x * 0.004 - 40, z * 0.004, 2) * 1.2, 0, 0.35), meadow: 1 };
   const dm = Math.hypot(x - MOUNT.x, z - MOUNT.z);
   return {
@@ -108,7 +109,7 @@ export function biomeMasks(x, z) {
     meadow: smooth(150, 220, z) + smooth(-240, -300, z) * 0.6,
   };
 }
-export function beachMask(x, z) { if (BATTLE || YARD) return 0; const [r, R] = isleR(x, z); return smooth(R - 66, R - 36, r); }
+export function beachMask(x, z) { if (BATTLE || YARD || ARENA) return 0; const [r, R] = isleR(x, z); return smooth(R - 66, R - 36, r); }
 export function isWater(x, z) { return heightAt(x, z) < SEA - 0.4 || (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r && heightAt(x, z) < LAKE.y - 0.3); }
 export function waterLevelAt(x, z) { if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 4 || (Math.hypot(x - PLATEAU.x, z - PLATEAU.z) < PLATEAU.r && heightAt(x, z) > 20)) return LAKE.y; return SEA; }
 

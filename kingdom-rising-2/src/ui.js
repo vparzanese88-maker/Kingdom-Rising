@@ -8,7 +8,7 @@ import { PROCS, procChance, PROC_DEX } from './data.js';
 import * as Skills from './skills.js';
 import { NODE_TYPES, MOBS, MERCHANT_STOCK, HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
-import { BATTLE } from './battlemap.js';
+import { BATTLE, ARENA } from './battlemap.js';
 import * as Icons from './icons.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask, MOUNT, PORT } from './terrain.js';
 import { fbm } from './util.js';
@@ -284,6 +284,7 @@ export function buildMapImage() {
     const k = (j * MAPN + i) * 4; img.data[k] = Math.min(255, c.r * 255); img.data[k + 1] = Math.min(255, c.g * 255); img.data[k + 2] = Math.min(255, c.b * 255); img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
+  if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (77 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (41 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
   const toPx = ([x, z]) => [(x + HALF) / (HALF * 2) * MAPN, (z + HALF) / (HALF * 2) * MAPN];
   // the river, then the roads
   g.lineCap = g.lineJoin = 'round';

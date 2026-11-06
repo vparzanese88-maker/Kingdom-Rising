@@ -251,7 +251,7 @@ const RACE_BLURB = { human: 'Timber and stone town · Footmen, Archers, Musketee
 let BS = null;
 // what Kingdom Battles is about, shown on the setup screen and when a match begins
 export const BATTLE_GOAL = `<div class="bsgh">👑 The objective</div><p class="bsgl">Your kingdom has called you to war. Do its bidding, survive, and rise above every other kingdom.</p>
-<div class="bsgs"><div><b>1 · Level up</b><span>Hunt beasts, goblins and bandits in the wilds. Every kill makes you stronger (top level 10).</span></div>
+<div class="bsgs"><div><b>1 · Level up</b><span>Hunt beasts, goblins and bandits in the wilds. Every kill makes you stronger (top level 20), and every level gives a skill point for your trees (K).</span></div>
 <div><b>2 · Gear up</b><span>Monsters and bosses drop weapons and armour. Red beacons on the map mark the bosses with the best loot.</span></div>
 <div><b>3 · Grow the kingdom</b><span>Your steward runs the town for you. Take jobs from the Huntmaster and Quartermaster (J) to make it gather, build and train faster.</span></div>
 <div><b>4 · Take down the enemy</b><span>Lead your army, break the enemy walls and destroy their Town Hall. The last kingdom standing wins.</span></div></div>`;

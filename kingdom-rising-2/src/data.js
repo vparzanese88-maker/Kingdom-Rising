@@ -1,11 +1,10 @@
 // Kingdom Rising 2: all game data (races, classes, weapons, abilities, items, recipes, mobs, zones, quests)
 
 export let LEVEL_CAP = 20;
-// Kingdom Battles runs a shorter climb: level 10 is the top, and every level is worth about two campaign levels
+// Kingdom Battles climbs to level 20 like the campaign, with the same skill trees (one point a level)
 export let LEVEL_GROWTH = 1;
 export function battleLevels() {
-  LEVEL_CAP = 10; RANK2_LEVEL = 6; LEVEL_GROWTH = 2;
-  for (const t of TIERS) t.lvl = Math.max(1, Math.ceil(t.lvl / 2));
+  LEVEL_CAP = 20; RANK2_LEVEL = 15; LEVEL_GROWTH = 1;
 }
 export const xpForLevel = (lv) => Math.round(80 * Math.pow(lv, 1.6));
 // The world is designed for 20 levels. The campaign stretches that climb to 50: every designed level shows as

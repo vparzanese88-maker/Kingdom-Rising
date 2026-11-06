@@ -67,10 +67,10 @@ export function buildAbilityBar() {
   if (!G.newFx) bar.appendChild(ws); // campaign: no weapon swapping any more
   const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
-  const rmb = G.newFx ? null : mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
+  const rmb = G.campAb ? null : mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
   // keys 1-5: buffs, songs, heals; then F, C, Q: the damage abilities
-  const hb = G.newFx ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
+  const hb = G.campAb ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
@@ -85,8 +85,8 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
-    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' + (G.newFx ? ' · hold for heavy' : '') : 'Left click'}${G.newFx ? ' · K for abilities' : G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
-    { const sid = W && G.battleFx && !G.newFx ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' + (G.newFx ? ' · hold for heavy' : '') : 'Left click'}${G.campAb ? ' · K for abilities' : G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    { const sid = W && G.battleFx && !G.campAb ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
@@ -95,7 +95,7 @@ export function refreshAbilityBar() {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
     if (e._key !== key) {
       const ai = e.querySelector('.ai');
-      e.className = 'slot hb' + (G.newFx ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
+      e.className = 'slot hb' + (G.campAb ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
       if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
       else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
       else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }
@@ -394,7 +394,7 @@ function slotEl(h, k, tipEl, c) {
   const d = el('div', 'eq' + (it ? ' r' + (it.rarity || 0) : ' empty') + (k === h.active ? ' active' : ''));
   d.innerHTML = `<div class="ic">${it ? Icons.itemSvg(it) : Icons.itemSvg(ghost(SLOT_HINT[k]))}</div>${it && !it.kind ? `<span class="n">${it.n}</span>` : ''}<div class="lb">${SLOT_LABEL[k]}${k === h.active ? ' ✦' : ''}</div>`;
   if (!it && (k === 'food' || k === 'drink')) d.title = k === 'food' ? 'Drag food here: you eat one each time the buff runs out (long, small buffs)' : 'Drag a drink here: you drink one each time the buff runs out (shorter, stronger buffs)';
-  if (!it && (k === 'w3' || k === 'w4')) d.title = `Weapon Set 2 hangs on your back. Drag weapons here, then ${G.newFx ? 'Z' : 'Q'} swaps sets.`;
+  if (!it && (k === 'w3' || k === 'w4')) d.title = `Weapon Set 2 hangs on your back. Drag weapons here, then Z swaps sets.`;
   d.onmouseenter = () => { if (it) showTip(tipEl, it, null, k, c); };
   if (it) hoverTip(d, it, null, k, c);
   d.onclick = () => { if (it) { S.click(); selInv = { eq: k }; showTip(tipEl, it, null, k, c, true); } };
@@ -471,7 +471,7 @@ function renderInventory(c) {
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
   const bot = el('div', 'botrow wsets');
   const setBox = (keys, n, on) => { const g = el('div', 'wset' + (on ? ' on' : ''), `<div class="wsh">Set ${n}${on ? ' · in your hands' : ' · on your back'}</div>`); const r = el('div', 'wsr'); keys.forEach(k => r.appendChild(slotEl(h, k, tip, c))); g.appendChild(r); return g; };
-  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', `<b>${G.newFx ? 'Z' : 'Q'}</b><span>swap</span>`), setBox(SET2, n1 === 1 ? 2 : 1, false));
+  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', `<b>Z</b><span>swap</span>`), setBox(SET2, n1 === 1 ? 2 : 1, false));
   requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
     pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
       const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };
@@ -522,7 +522,7 @@ function showTip(tipEl, it, idx, eqSlot, c, withButtons) {
     else if (it.armor) html += `<div class="big">${it.armor} armour</div>`;
     html += `<div style="color:var(--good)">${Object.entries(it.stats).map(([k, v]) => `+${v} ${STAT_NAMES[k]}`).join(' · ')}</div>`;
     if (it.kind === 'acc' && it.slot !== 'back') html += `<div style="color:var(--bad)">No longer worn. Sell it to a merchant.</div>`;
-    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in Weapon Set 2 (${G.newFx ? 'Z' : 'Q'} swaps sets).</div>`;
+    else if (it.kind === 'weapon' && it.wt === 'bow' && !Game.canEquip(hh, it)) html += `<div style="color:#9fd0ff">Goes in Weapon Set 2 (Z swaps sets).</div>`;
     else if (!Game.canEquip(hh, it)) html += `<div style="color:var(--bad)">${CLASSES[hh.cls].name}s can't use this.</div>`;
     const cur = it.kind === 'weapon' ? hh.equip[hh.active] : hh.equip[it.slot === 'ring' ? 'ring1' : it.slot];
     if (cur && idx != null) html += `<div class="dim">Currently worn: ${esc(cur.name)} (${cur.dmg ? cur.dmg + ' damage' : (cur.armor || 0) + ' armour'})</div>`;

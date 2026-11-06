@@ -221,12 +221,12 @@ function decorCamps() {
   }
 }
 function tickCampFires() { const t = performance.now() * 0.001; for (const c of campFires) { const k = 0.85 + Math.sin(t * 9 + c.ph) * 0.1 + Math.sin(t * 23 + c.ph) * 0.06; c.f1.scale.set(1, k, 1); c.f2.scale.set(1, 2 - k, 1); c.L.intensity = 2.4 + k * 1.2; } }
-// Kingdom Battles monsters: levels shown halved (top level 10), and tuned so a fight against your own level
+// Kingdom Battles monsters: the world's own levels (1-20, like the campaign), and tuned so a fight against your own level
 // takes a few swings and real damage, three levels up is a hard fight, and five up will usually kill you
 function battleMob(m) {
-  m.statLv = m.lv; m.lv = Math.max(1, Math.ceil(m.lv / 2));
+  m.statLv = m.lv;
   m.maxHp = Math.round(m.maxHp * 1.4); m.hp = m.maxHp;
-  m.dmg *= 0.95 - 0.03 * (m.lv - 1);
+  m.dmg *= 0.95 - 0.015 * (m.lv - 1);
   m.xp = Math.round(m.xp * 1.4);
 }
 function spawnBattleCamps() {
@@ -272,14 +272,11 @@ function spawnBattleNpcs() {
 // Both modes fight the same way: class abilities come from the class kit (they work with any weapon),
 // no talent trees, and abilities grow a little stronger, longer and wider every level instead.
 function kitAbilities(levelOf) {
-  if (BATTLE) for (const c in ABILITIES) if (c !== 'blunderbuss') ABILITIES[c] = ABILITIES[c].filter(a => !a.campaign); // the extra tree abilities are campaign-only (the Blunderbuss brings its own kit to Kingdom Battles)
-  addIcons(GEN_ICONS);
-  if (BATTLE) ABILITIES.warrior = WARRIOR_BATTLE.map(a => Object.assign({}, a)); // Kingdom Battles keeps the original warrior kit
-  if (BATTLE) for (const c in BATTLE_ABILITIES) for (const a of BATTLE_ABILITIES[c]) if (!ABILITIES[c].some(x => x.id === a.id)) ABILITIES[c].push(a); // Kingdom Battles extras stay in Kingdom Battles
+  addIcons(GEN_ICONS); // Kingdom Battles uses the campaign's abilities and skill trees too
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (CLASS_KIT[a.id]) { a.name = CLASS_KIT[a.id][0]; a.desc = CLASS_KIT[a.id][1]; }
   for (const c in ABILITIES) for (const a of ABILITIES[c]) { if (a.lv20 == null) a.lv20 = a.level; a.level = levelOf(a.lv20); }
   G.abilScale = (lv) => 1 + (lv - 1) * 0.675 / (LEVEL_CAP - 1);
-  G.battleFx = true; G.noTalents = true; G.hotbarSlots = BATTLE ? 4 : 8; G.newFx = !BATTLE; if (!BATTLE) document.body.classList.add('newfx');
+  G.battleFx = true; G.noTalents = true; G.hotbarSlots = 8; G.campAb = true; /* campaign ability rules in both modes */ G.newFx = !BATTLE; if (!BATTLE) document.body.classList.add('newfx');
 }
 // The campaign plays like Kingdom Battles, but keeps crafting and harvesting and climbs to level 50
 // spread the roaming animals out: wolves alone, in pairs or small packs; bears well apart; tigers further still; nothing near goblin camps or towns
@@ -305,14 +302,8 @@ function spreadWildlife() {
   }
   for (const m of gone) { G.scene.remove(m.root); const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1); }
 }
-function campaignSetup() {
-  // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
-  for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
-  for (const c of ['monk', 'druid', 'cleric', 'shaman', 'enchanter']) if (CLASSES[c] && !CLASSES[c].weapons.includes('quarterstaff')) CLASSES[c].weapons.push('quarterstaff'); // plain quarterstaffs for the robed and the wanderers
-  WEAPON_TYPES.dagger.speed = 0.95; // a single dagger stabs at a normal pace: the rogue's abilities should do the heavy lifting
-  for (const c in NEW_CLASSES) { const N = NEW_CLASSES[c]; if (TWIN_TO_SINGLE[N.start]) { N.start = TWIN_TO_SINGLE[N.start]; N.startName = WEAPON_TYPES[N.start].name; } }
-  campaignLevels();
-  kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
+// the campaign's ability rules, used by Kingdom Battles too: tree abilities only, mana or endurance costs, EverQuest-style buffs and heals, self-only buffs for non-support classes
+function campaignAbilityRules() {
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
@@ -349,6 +340,16 @@ function campaignSetup() {
     delete a.ally; delete a.allyBuff; if (a.t === 'heal' || a.t === 'hot' || a.t === 'buff') delete a.r;
     a.desc = (a.desc || '').replace(/,? ?(and|&) (every |each )?all(y|ies)( and (soldiers|troops))?( within \d+ m)?( (are|is) (healed|empowered)[^.]*)?/gi, '').replace(/[Yy]ou and (every |each )?all(y|ies)( within \d+ m)?/g, 'You').replace(/,? ?(every |each )?all(y|ies)( within \d+ m)?( of you)?/gi, '').replace(/for you, your beast/g, 'for you and your beast').replace(/\s+\./g, '.').replace(/\s{2,}/g, ' ');
   }
+}
+function campaignSetup() {
+  // no twin weapons in the campaign: class weapon lists and starting weapons use the single version
+  for (const c in CLASSES) { const C = CLASSES[c]; if (C.weapons) C.weapons = [...new Set(C.weapons.map(w => TWIN_TO_SINGLE[w] || w))]; }
+  for (const c of ['monk', 'druid', 'cleric', 'shaman', 'enchanter']) if (CLASSES[c] && !CLASSES[c].weapons.includes('quarterstaff')) CLASSES[c].weapons.push('quarterstaff'); // plain quarterstaffs for the robed and the wanderers
+  WEAPON_TYPES.dagger.speed = 0.95; // a single dagger stabs at a normal pace: the rogue's abilities should do the heavy lifting
+  for (const c in NEW_CLASSES) { const N = NEW_CLASSES[c]; if (TWIN_TO_SINGLE[N.start]) { N.start = TWIN_TO_SINGLE[N.start]; N.startName = WEAPON_TYPES[N.start].name; } }
+  campaignLevels();
+  kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
+  campaignAbilityRules();
   G.itemSlots = 0; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 function startBattle() {
@@ -357,8 +358,9 @@ function startBattle() {
   h.introDone = true; h.gold = ECON.start.gold; h.tools = { hatchet: 1, pickaxe: 1, knife: 0 }; h.carry = { wood: 0, stone: 0 };
   h.pos = { x: t.x + t.dir[0] * 14, z: t.z + t.dir[1] * 14, yaw: t.yaw };
   G.xpReq = ECON.xpNeed; G.gatherXp = 3; G.noHarvest = true;
-  // level 10 is the top in Kingdom Battles: spread every ability over levels 1 to 10
-  kitAbilities((lv20) => Math.max(1, Math.min(10, Math.ceil(lv20 / 2))));
+  // level 20 is the top, with the campaign's skill trees and abilities (crafting and material drops stay out)
+  kitAbilities((lv20) => Math.min(LEVEL_CAP - 2, shownLv(lv20)));
+  campaignAbilityRules();
   startGame(h);
   BUI.init({ respawn, lock: lockPointer });
   spawnBattleNpcs(); BUI.questTrack(); document.body.classList.add('battlefx');
@@ -725,7 +727,7 @@ function input() {
       if (e.code === 'KeyL' && BATTLE) { BUI.openBook('wpn'); return; }
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
-      if (e.code === 'KeyZ' && !G.uiOpen && !BATTLE && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)
+      if (e.code === 'KeyZ' && !G.uiOpen && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)
       if (e.code === 'KeyG' && !G.uiOpen) { const t0 = performance.now(); G.zDown = t0; setTimeout(() => { if (G.zDown === t0 && !petWheel) openPetWheel(); }, 260); return; }
       if (BATTLE && e.code === 'KeyJ') { if (G.uiOpen) UI.closeWin(); else BUI.openNpc('jobs'); return; }
       if (BATTLE && e.code === 'KeyE' && BUI.jobKey()) return;

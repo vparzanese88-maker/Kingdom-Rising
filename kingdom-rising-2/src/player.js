@@ -312,7 +312,7 @@ export class Player {
   skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
   get weapon() { return activeWeapon(this.h); }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
-  hpK() { return (BATTLE ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1) * campTune(this.h.cls).hp; } // (Kingdom Battles keeps its old tuning until it moves to the campaign abilities)
+  hpK() { return campTune(this.h.cls).hp; } // no per-class health scaling in either mode: classes are balanced through their abilities
   refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = Math.round(D.maxHp * this.hpK()); this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
   refreshGear(first) {
     this.sheathed = false;
@@ -353,9 +353,9 @@ export class Player {
     switch (code) {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
-      case 'KeyQ': if (BATTLE) this.swapWeapon(); else if (G.battleFx) this.hotbar(7); break; // campaign: no weapon swapping, Q is the third damage key
-      case 'KeyF': if (BATTLE) { if (!this.dead) this.specialAttack(); } else if (G.battleFx) this.hotbar(5); break;
-      case 'KeyC': if (G.battleFx && !BATTLE) this.hotbar(6); break;
+      case 'KeyQ': if (G.battleFx) this.hotbar(7); break; // Q is the third damage key (Z swaps weapons)
+      case 'KeyF': if (G.battleFx) this.hotbar(5); break;
+      case 'KeyC': if (G.battleFx) this.hotbar(6); break;
       case 'Digit1': this.hotbar(0); break;
       case 'Digit2': this.hotbar(1); break;
       case 'Digit3': this.hotbar(2); break;
@@ -730,8 +730,8 @@ export class Player {
 
   hotbar(i) {
     const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
-    if (G.newFx && i < 5 && sl.t === 'ab') { if (G.time < (this.gcdT || 0)) { S.error(); return; } } // keys 1-5 share a 1.5 s cooldown (F, C, Q do not)
-    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); if (G.newFx && i < 5 && (this.cd['a' + (k + 1)] || 0) > cd0) this.gcdT = G.time + 1.5; } }
+    if (G.campAb && i < 5 && sl.t === 'ab') { if (G.time < (this.gcdT || 0)) { S.error(); return; } } // keys 1-5 share a 1.5 s cooldown (F, C, Q do not)
+    if (sl.t === 'ab') { const k = ABILITIES[this.h.cls].findIndex(a => a.id === sl.id); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); if (G.campAb && i < 5 && (this.cd['a' + (k + 1)] || 0) > cd0) this.gcdT = G.time + 1.5; } }
     else if (sl.t === 'item') { if (count(this.h, sl.id) > 0) useItem(this.h, sl.id, this); else S.error(); }
   }
   // ---------- class abilities ----------
@@ -746,9 +746,9 @@ export class Player {
     if (this.cd[key] > 0 || this.dead || this.gathering || this.swim || this.abCast || this.summonCast) { S.error(); return; }
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
-    if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.newFx ? ab.res : undefined)) return;
+    if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.campAb ? ab.res : undefined)) return;
     this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
-    const ct = G.newFx && !isSupport(ab) ? 0 : (G.newFx && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
+    const ct = G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
@@ -1215,7 +1215,7 @@ export class Player {
           V.burst(a.t === 'petbuff' ? 'blood' : 'bone', m.pos.clone().setY(m.pos.y + 1), 26, { speed: 3 }); V.ring(m.pos, 1.6, a.t === 'petbuff' ? '#ff4040' : '#e8e0c8', 0.5); }
         S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
-      case 'buff': { if (a.eq && G.newFx) { this.eqBuff(a); anim('cast'); return true; }
+      case 'buff': { if (a.eq && G.campAb) { this.eqBuff(a); anim('cast'); return true; }
         this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
@@ -1477,7 +1477,7 @@ export class Player {
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
-    if (BATTLE) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
+    /* (no per-class damage scaling: Kingdom Battles uses the campaign abilities now) */
     dmg *= campTune(this.h.cls).dmg;
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
     if (G.newFx && !m.dummy && !m.pet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el);
@@ -1569,8 +1569,8 @@ export class Player {
       else { this.block = false; this.stagger = 0.8; V.number(this.pos.clone().setY(this.pos.y + this.eye), 'Guard broken!', 'bad'); S.hit('metal', this.pos); }
     }
     if (src && src.hexUntil > G.time) dmg *= 0.65; // a Shaman's Hex drains their strength
-    // armour is measured against how strong the attacker really is (Kingdom Battles shows mob levels halved)
-    const lv = src && (src.statLv || src.lv) || (BATTLE ? this.h.level * 2 : designLv(this.h.level));
+    // armour is measured against how strong the attacker really is
+    const lv = src && (src.statLv || src.lv) || designLv(this.h.level);
     if (G.newFx && src && !src.pet && src.lv && src.lv < this.h.level) dmg *= Math.max(0.5, 1 - (this.h.level - src.lv) * 0.06); // creatures below your level hit you softer (6% a level, at most half)
     if (this.buffs.ward > 0) dmg *= 0.6;
     const red = this.D.armor / (this.D.armor + 40 + lv * 12);

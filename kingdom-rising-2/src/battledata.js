@@ -143,14 +143,14 @@ export const ECON = {
   passiveGold: 1.6, passiveGoldPerLevel: 0.6, deliveryGold: 4, passiveXp: 0, aiPassiveXp: 1.5,
   heroCarry: 30, peasantCost: { gold: 40 }, graceTime: 480,
   carry: 15, gatherTime: 3.5,
-  levelGold: (lv) => 40 * lv,
+  levelGold: (lv) => 20 * (lv + 1), /* levels 1-20 (twice as many level-ups as the old 1-10 climb, so half as much each) */
   killGold: (u) => Math.round((u.def.cost ? u.def.cost.gold : 60) * 0.4),
-  heroKillGold: (lv) => 60 + lv * 12,
+  heroKillGold: (lv) => 66 + lv * 6,
   structGold: { tower: 220, hall: 500 },
   xpUnit: (u) => 8 + Math.round((u.def.cost ? u.def.cost.gold : 60) / 7),
-  xpHero: (lv) => 40 + lv * 15, xpStruct: { tower: 160, hall: 400 },
-  xpNeed: (lv) => 110 * lv + 60, // level 10 is the top: about 5,500 xp in all
-  respawn: (lv) => 7 + lv * 1.7,
+  xpHero: (lv) => 48 + lv * 7.5, xpStruct: { tower: 160, hall: 400 },
+  xpNeed: (lv) => 26 * lv + 30, // level 20 is the top: about 5,500 xp in all, the same climb as the old level 10
+  respawn: (lv) => 7.8 + lv * 0.85,
 };
 
 // extra class abilities that only exist in Kingdom Battles (3 per class)

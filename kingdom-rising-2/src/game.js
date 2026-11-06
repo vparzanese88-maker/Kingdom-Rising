@@ -64,7 +64,7 @@ export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
   // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book (unchanged)
-  if (G.hotbarSlots && BATTLE) {    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
+  if (G.hotbarSlots && false) { /* old Kingdom Battles 4-slot bar, no longer used: both modes share the campaign bar */    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
     const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
     const added = [];
     for (const a of ABILITIES[h.cls].slice().sort((x, y) => x.level - y.level)) { if (h.level < a.level || hb.some(s => s && s.id === a.id)) continue; const i = hb.findIndex((s, k) => !s && k < N); if (i < 0) break; hb[i] = { t: 'ab', id: a.id }; added.push({ slot: i, t: 'ab', id: a.id }); }
@@ -239,11 +239,11 @@ const spent = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 export function classPoints(h) { if (h.yard && CLASS_TREES[h.cls]) return 99; /* the Training Yard: unlimited points to try builds */ if (CLASS_TREES[h.cls]) return Math.max(0, h.level) - CLASS_TREE[h.cls].filter(n => n.t !== 'ult' && h.ctree && h.ctree[n.id]).length; /* capstones are free */ return Math.max(0, h.level - 1) - spent(h.ctree || {}); }
 // ---- skill trees (classes that have them unlock their abilities inside the trees) ----
 export const slotFitsK = (i, a) => slotFits(i, a);
-export const hasTrees = (cls) => !BATTLE && !!CLASS_TREES[cls];
+export const hasTrees = (cls) => !!CLASS_TREES[cls]; // both modes use the skill trees
 // how many owned tree passives of one kind you have (dmg, crit, cd, hp, taken, regen, armor, heal, cost, speed, u_dmg, u_def, u_sup)
 let _fxKey = '', _fxC = {};
 export function fxCount(h, kind) {
-  if (BATTLE || !h || !CLASS_TREES[h.cls]) return 0;
+  if (!h || !CLASS_TREES[h.cls]) return 0;
   const key = h.cls + (h.yard ? '*' : '') + Object.keys(h.ctree || {}).join(',');
   if (key !== _fxKey) { _fxKey = key; _fxC = {}; for (const n of CLASS_TREE[h.cls]) if (n.fx && h.ctree && h.ctree[n.id]) _fxC[n.fx] = (_fxC[n.fx] || 0) + 1; }
   return _fxC[kind] || 0;
@@ -255,9 +255,9 @@ export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (n
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
-  { const C = !BATTLE && CROWN[h.cls]; if (C && C.ab === a.id) return CLASS_TREES[h.cls].filter(T => treeSpent(h, T.id) >= ULT_PTS).length >= C.trees; } // a crowning ability: max out enough trees
+  { const C = CROWN[h.cls]; if (C && C.ab === a.id) return CLASS_TREES[h.cls].filter(T => treeSpent(h, T.id) >= ULT_PTS).length >= C.trees; } // a crowning ability: max out enough trees
   if (h.yard && !(CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(x => x.ab === a.id))) return true; // yard: abilities outside the trees are free
-  if (!BATTLE && CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); return !!n && nodeOwned(h, n); } // campaign: only what you unlock in the trees
+  if (CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); return !!n && nodeOwned(h, n); } // only what you unlock in the trees
   return h.level >= a.level; }
 export function weaponPoints(h, wt) { const m = wm(h, wt); return Math.max(0, m.lv - 1) - spent(m.pts); }
 export function canSpend(tree, ptsObj, avail, node) { if (avail <= 0) return false; if ((ptsObj[node.id] || 0) >= node.max) return false; return spent(ptsObj) >= node.row * (tree === 'w' ? 3 : 2); }
@@ -399,7 +399,7 @@ export function gainXp(h, n, why) {
     h.xp -= need(h.level); h.level++;
     const unlocked = [];
     if (h.level === AREA_UNLOCK_LEVEL) { const w = h.equip[h.active]; unlocked.push(`Right click: ${w ? WEAPON_TYPES[w.wt].areaName : 'weapon ability'}`); }
-    for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
+    if (hasTrees(h.cls)) unlocked.push('New skill point: press K'); else for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
     if (h.level === RANK2_LEVEL) unlocked.push('Class abilities upgraded to Rank II');
     G.hooks.levelUp && G.hooks.levelUp(h.level, unlocked);
   }

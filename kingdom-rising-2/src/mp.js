@@ -196,5 +196,5 @@ export function pvpIncoming(p, dmg, o) {
   return [dmg, o];
 }
 // heroes grow much stronger with level, so the scale shrinks as they do: duels last about 6 to 15 seconds at every level
-const pvpK = () => Math.max(PVP_K, 0.4 - 0.028 * (((G.save && G.save.level) || 1) - 1));
+const pvpK = () => Math.max(PVP_K, 0.4 - 0.014 * (((G.save && G.save.level) || 1) - 1));
 const slim = (o) => ({ stun: o.stun || 0, slow: o.slow || 0, freeze: o.freeze || 0, bleed: o.bleed || 0, burn: o.burn || 0, big: !!o.big });

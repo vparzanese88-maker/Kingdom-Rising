@@ -327,6 +327,8 @@ function campaignSetup() {
       const MAGIC = /holy|light|shock|thunder|lightning|spark|nature|wrath|arcane|shadow|soul|frost|fire|flame|storm|spirit|mind|psychic|death|blight|plague|burst/i, SWING = /cleave|slam|kick|swing|bash|stomp|trample|stampede|whirl|sweep|claw/i;
       const phys = PHYS_T.has(a.t) || ((a.t === 'bolt') && PHYS_KIND.has(a.kind)) || ((a.t === 'nova' || a.t === 'cone') && (SWING.test(a.name) || ((!a.fx || PHYS_FX.has(a.fx)) && !MAGIC.test(a.name)))) || (a.t === 'buff' && /shout|roar|stance|stride|fervor|blood fury|feral fury/i.test(a.name));
       a.res = phys ? 'end' : 'mana'; } } }
+  // campaign: the beastmaster keeps one beast at a time (tiger, bear or dire wolf)
+  { const wb = (ABILITIES.beastmaster || []).find(a => a.id === 'warbeast'); if (wb) { wb.extra = 0; wb.n = 1; } }
   // EverQuest-style buffs and heals: stat buffs take a moment to cast, have no cooldown and last 2 minutes;
   // heals take a moment to cast and are limited only by your mana or endurance. Emergency buffs keep their cooldowns.
   for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';

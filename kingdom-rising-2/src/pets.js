@@ -10,17 +10,18 @@ import { foe, lightning, spawnProjectile, mobsInRadius } from './combat.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 
-const MODEL = { bonegolem: 'golem', skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', fireel: 'imp', earthel: 'golem', flameel: 'skeleton', frostel: 'skeleton', stormel: 'skeleton', pureel: 'firegiant', phantasm: 'skeleton', spirit: 'wolf' };
+const MODEL = { bonegolem: 'golem', skelmage: 'skeleton', skeleton: 'skeleton', bear: 'bear', tiger: 'tiger', wolfpack: 'wolf', direwolf: 'wolf', fireel: 'imp', earthel: 'golem', flameel: 'skeleton', frostel: 'skeleton', stormel: 'skeleton', pureel: 'firegiant', phantasm: 'skeleton', spirit: 'wolf' };
 const GHOST = { phantasm: '#b080ff', spirit: '#8ad0ff', skelmage: '#7a40d0', flameel: '#ff6a10', frostel: '#70c8ff', stormel: '#a8b8ff', pureel: '#ff5a10' };
 const SOLID = new Set(['skelmage', 'pureel']); // glowing but not see-through
 const ELEMS = new Set(['flameel', 'frostel', 'stormel', 'pureel']); // an elementalist keeps one elemental at a time
+const BEASTS = new Set(['tiger', 'bear', 'direwolf']); // a beastmaster keeps one beast at a time
 let petN = 0;
 
 // lv: the summoner's power on the 1-10 scale petDef uses
 export function dismissPets(spell) { for (const m of G.mobs.filter(o => o.pet && (spell == null || o.spell === spell))) vanish(m); }
 export function summonPets(kind, at, lv, dur, n, big, spell = kind) {
   if (!G.myTeam) G.myTeam = 'hero';
-  dismissPets(spell); if (ELEMS.has(kind)) for (const o of G.mobs.filter(o => o.pet && ELEMS.has(o.petKind))) vanish(o);
+  dismissPets(spell); for (const S of [ELEMS, BEASTS]) if (S.has(kind)) for (const o of G.mobs.filter(o => o.pet && S.has(o.petKind))) vanish(o);
   for (let k = 0; k < n; k++) {
     const def = kind === 'spirit' ? Object.assign(petDef('wolfpack', lv, big), { name: 'Spirit Wolf' }) : petDef(kind, lv, big);
     const a = (k / Math.max(1, n)) * Math.PI * 2, r = n > 1 ? 1.8 : 0, x = at.x + Math.cos(a) * r, z = at.z + Math.sin(a) * r;

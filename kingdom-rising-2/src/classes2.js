@@ -241,6 +241,7 @@ export function petDef(kind, lv, big) {
     frostel: { name: 'Frost Elemental', kind: 'golem', hp: 380 + lv * 85, dmg: 20 + lv * 6, cd: 1.4, speed: 5.5, size: 1.2 + lv * 0.02, armor: 0.25, chill: true },
     stormel: { name: 'Storm Elemental', kind: 'imp', hp: 290 + lv * 65, dmg: 17 + lv * 5, cd: 1.0, speed: 7, range: 16, proj: 'storm', chain: 3, size: 1.15 + lv * 0.03 },
     pureel: { name: 'Fire Giant', kind: 'troll', hp: 1000 + lv * 190, dmg: 44 + lv * 11.5, cd: 1.5, speed: 6, size: 2.1 + lv * 0.04, armor: 0.3, burns: true, fireball: true },
+    direwolf: { name: 'Dire Wolf', quad: 'wolf', hp: 820 + lv * 150, dmg: 36 + lv * 9.5, cd: 1.1, speed: 8.5, size: 1.8 + lv * 0.05, col: '#2e2c30', armor: 0.2 }, // the beastmaster's strongest beast
     phantasm: { name: 'Phantasm', kind: 'person', hp: 200 + lv * 45, dmg: 12 + lv * 3.5, cd: 1.1, speed: 6.5, wt: 'arcanestaff', range: 16, proj: 'arcane', size: 1 },
   }[kind] || {};
   return Object.assign({ id: 'pet_' + kind, role: P.range ? 'ranged' : 'melee', range: 0, armor: 0.15, pop: 0, cost: { gold: 0 }, lvl: 0 }, P);

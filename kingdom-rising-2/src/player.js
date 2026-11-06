@@ -283,6 +283,9 @@ function noteTex(col, ch) { const k = col + ch; if (NOTE_TEX[k]) return NOTE_TEX
   const t = new THREE.CanvasTexture(c); NOTE_TEX[k] = t; return t; }
 // Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
 const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.8 * (1 + 0.35 * (LEVEL_CAP - L) / (LEVEL_CAP - 1)), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 0.59, hp: 0.74 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
+// campaign balance (from the balance model: every class within about 15% of the others' solo strength, each by its role)
+const CAMP_TUNE = { wizard: { dmg: 1.24, hp: 1.2 }, rogue: { dmg: 1.5, hp: 1.1 }, ranger: { dmg: 1.11, hp: 0.85 }, musketeer: { dmg: 1.07, hp: 0.9 }, berserker: { dmg: 1.22, hp: 1.13 }, monk: { dmg: 1.19, hp: 0.93 }, blunderbuss: { dmg: 1.07, hp: 1.3 }, elementalist: { dmg: 1.04, hp: 1.25 }, necromancer: { dmg: 0.97, hp: 0.75 }, beastmaster: { dmg: 0.69, hp: 1.23 }, warrior: { dmg: 0.93, hp: 1.25 }, paladin: { dmg: 1.18, hp: 1.12 }, darkknight: { dmg: 1.05, hp: 0.81 }, bard: { dmg: 0.62, hp: 1.16 }, shaman: { dmg: 1.5, hp: 1.11 }, druid: { dmg: 0.65, hp: 0.95 }, enchanter: { dmg: 0.8, hp: 1.15 }, cleric: { dmg: 1.13, hp: 0.8 } };
+export const campTune = (cls) => (G.newFx && CAMP_TUNE[cls]) || { dmg: 1, hp: 1 };
 export class Player {
   constructor(hero) {
     this.h = hero;
@@ -308,13 +311,14 @@ export class Player {
   skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
   get weapon() { return activeWeapon(this.h); }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
-  refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = D.maxHp; this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
+  hpK() { return (G.battleFx ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1) * campTune(this.h.cls).hp; }
+  refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = Math.round(D.maxHp * this.hpK()); this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
   refreshGear(first) {
     this.sheathed = false;
     { const aw = activeWeapon(this.h); if (aw && Game.seeWeapon(this.h, aw.wt) && !first) G.hooks.newWeapon && G.hooks.newWeapon(aw.wt); }
     const D = heroDerived(this.h); this.D = D;
     const oldMax = this.maxHp || D.maxHp;
-    this.maxHp = Math.round(D.maxHp * (G.battleFx ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1)); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd;
+    this.maxHp = Math.round(D.maxHp * this.hpK()); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd;
     if (!first) { this.hp = Math.min(this.maxHp, this.hp * (this.maxHp / oldMax)); this.mana = Math.min(this.mana, this.maxMana); this.end = Math.min(this.end, this.maxEnd); }
     const w = this.weapon;
     // rebuild the body so armour colours and the weapon bake into few meshes
@@ -1392,6 +1396,7 @@ export class Player {
     const lv10 = 1 + (c.lv - 1) * 9 / (LEVEL_CAP - 1); // pets are built on the 1-10 scale
     if (BATTLE) { if (G.hooks.summonPet) G.hooks.summonPet(c.pet, c.at, c.lv, c.dur2, c.n, c.big); }
     else { summonPets(c.pet, c.at, lv10, c.dur2, c.n, c.big, c.spell);
+      { const k = campTune(this.h.cls).dmg; if (k !== 1) for (const m of G.mobs) if (m.pet && !m.dead && m.spell === c.spell) m.pet = Object.assign({}, m.pet, { dmg: m.pet.dmg * k }); } // campaign balance applies to your pets too
       if (this.h.cls === 'elementalist') { const fx = (k) => c.pet === 'pureel' ? ['flameel', 'frostel', 'stormel'].reduce((t, e) => t + Game.fxCount(this.h, 'el_' + e + '_' + k) * 0.08, 0) : Game.fxCount(this.h, 'el_' + c.pet + '_' + k) * 0.15;
         for (const m of G.mobs) if (m.pet && !m.dead && m.spell === c.spell) { const hk = 1 + fx('hp'), dk = 1 + fx('dmg'); m.maxHp = m.hp = m.maxHp * hk; m.pet = Object.assign({}, m.pet, { dmg: m.pet.dmg * dk }); } } }
     S.cast('arcane', c.at, 1.2); V.burst(c.pet === 'skeleton' ? 'bone' : 'shadow', c.at.clone().setY(c.at.y + 0.5), 50, { speed: 4 }); V.ring(c.at, 2.4, '#d0a0ff', 0.5);
@@ -1460,6 +1465,7 @@ export class Player {
     if (m.dead) return;
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
     if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
+    dmg *= campTune(this.h.cls).dmg;
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
     if (G.newFx && !m.dummy && !m.pet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el);
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }

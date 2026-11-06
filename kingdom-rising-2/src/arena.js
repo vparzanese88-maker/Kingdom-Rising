@@ -10,7 +10,7 @@ import { petDef } from './classes2.js';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { Mob } from './mobs.js';
 import { V } from './vfx.js';
-import { S, crowdBed } from './audio.js';
+import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer } from './arenamap.js';
@@ -161,7 +161,6 @@ function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = '
 export function updateArena(dt) {
   G.tod = A.setup.tod || 0.335; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
-  if ((A.crowdT = (A.crowdT || 0) - dt) <= 0) { A.crowdT = 0.12; crowdBed(0.05 + Math.min(1.4, AR.cheer) * 0.28); } // the crowd murmurs, and roars when blood is spilled
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.me); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); }
   else if (A.state === 'fight') { A.clock += dt; if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }

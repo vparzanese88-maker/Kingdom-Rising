@@ -10,7 +10,7 @@ import { petDef } from './classes2.js';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { Mob } from './mobs.js';
 import { V } from './vfx.js';
-import { S } from './audio.js';
+import { S, crowdBed } from './audio.js';
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer } from './arenamap.js';
@@ -103,6 +103,9 @@ export function initArena(hooks) {
   G.myTeam = A.F[0].team;
   // the computer fighters
   for (const f of A.F) if (!f.you) { const h = arenaHero(f, f.name); f.bot = new ArenaBot(f, h); }
+  // capture the flag: every side sends at least one raider, the rest split between raiding and guarding
+  for (const t of teamsOf()) A.F.filter(f => f.team === t && f.bot).forEach((f, i) => { f.bot.role = i % 2 === 0 ? 'attack' : 'defend'; });
+  A.timeLimit = ['dm', 'ctf', 'koth'].includes(s.objective) ? 480 : Infinity; // 8 minutes, then the leader wins (a tie goes to sudden death)
   document.body.classList.add('arenamode');
   // banners above the gates in the teams' colours; CTF flags; the hill
   AR.gates.forEach((g, k) => { const t = teamsOf()[k]; if (g.banner && t != null && !isFFA()) g.banner.material.color.set(teamCol(t)); });
@@ -149,6 +152,7 @@ function startFight() { A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; che
 export function updateArena(dt) {
   G.tod = 0.4; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
+  if ((A.crowdT = (A.crowdT || 0) - dt) <= 0) { A.crowdT = 0.12; crowdBed(0.05 + Math.min(1.4, AR.cheer) * 0.28); } // the crowd murmurs, and roars when blood is spilled
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.F[0]); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0) startFight(); }
   else if (A.state === 'fight') { A.clock += dt; objectives(dt); respawns(dt); }
@@ -162,6 +166,8 @@ export function updateArena(dt) {
       const d = Math.hypot(p.pos.x, p.pos.z), lim = AR.R + 45; if (d > lim) { p.pos.x *= lim / d; p.pos.z *= lim / d; } } }
   // keep the player inside the sand
   if (p && !p.dead) { p.spectate = false; const d = Math.hypot(p.pos.x, p.pos.z); if (d > AR.R - 0.9) { p.pos.x *= (AR.R - 0.9) / d; p.pos.z *= (AR.R - 0.9) / d; } }
+  // the camera never goes behind the arena wall: it slides in along the ring instead
+  if (G.camera && p && !p.dead) { const c = G.camera.position, d = Math.hypot(c.x, c.z), lim = AR.R - 0.4; if (d > lim) { c.x *= lim / d; c.z *= lim / d; } }
   updateShots(dt); updateZones(dt); for (const fl of A.flags) updateFlag(fl, dt);
   renderHud();
 }
@@ -184,13 +190,14 @@ function checkWin() {
   if (A.state !== 'fight') return;
   const o = A.setup.objective;
   if (A.lives === 'one') { const at = aliveTeams(); if (at.length <= 1) { const w = at[0]; if (o === 'rounds' && w != null) { A.roundWins[w]++; if (A.roundWins[w] < A.target) { A.state = 'roundEnd'; A.t = 4; A.hooks.banner && A.hooks.banner(`${teamName(w)} wins round ${A.round}`, `${Object.entries(A.roundWins).map(([t, n]) => `${teamName(+t)} ${n}`).join(' · ')}`); cheer(1.5); return; } } return finish(w); } }
-  if (o === 'dm' || o === 'ctf' || o === 'koth') for (const t of teamsOf()) if ((A.score[t] || 0) >= A.target) return finish(t);
+  if (o === 'dm' || o === 'ctf' || o === 'koth') { for (const t of teamsOf()) if ((A.score[t] || 0) >= A.target) return finish(t);
+    if (A.clock >= A.timeLimit) { const sc = teamsOf().map(t => [t, A.score[t] || 0]).sort((a, b) => b[1] - a[1]); if (sc.length < 2 || sc[0][1] > sc[1][1]) return finish(sc[0][0]); if (!A.sudden) { A.sudden = true; A.hooks.banner && A.hooks.banner('Sudden death', 'The next point wins'); cheer(1.2); } } }
 }
 function finish(w) { A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
 
 // ---------------- objectives ----------------
 function objectives(dt) {
-  const o = A.setup.objective;
+  const o = A.setup.objective; if (A.clock >= A.timeLimit) checkWin();
   if (o === 'koth') { const on = new Set(); for (const f of A.F) if (f.alive) { const q = posOf(f); if (Math.hypot(q.x, q.z) < 7) on.add(f.team); }
     A.hillOwner = on.size === 1 ? [...on][0] : on.size > 1 ? 'contested' : null;
     if (A.hillOwner != null && A.hillOwner !== 'contested') { A.hillAcc = (A.hillAcc || 0) + dt; if (A.hillAcc >= 1) { A.hillAcc -= 1; A.score[A.hillOwner] = (A.score[A.hillOwner] || 0) + 1; } }
@@ -242,14 +249,28 @@ export function allyFx(at, [r, heal, kind, dur], up) {
 
 // ---------------- projectiles and lingering areas (bots) ----------------
 const SHOT_COL = { fire: '#ff7a20', frost: '#80d8ff', arcane: '#c080ff', shadow: '#9a60c0', holy: '#ffe080', nature: '#80e060', phys: '#e8d8b0' };
-function shot(src, tgt, col, onHit, big) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.3 : 0.18, 10, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-  const from = src.pos.clone().setY(src.pos.y + 1.35); m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0 });
+// what a shot looks like: an arrow, a musket ball, or a spell (a bright core in a soft halo of its colour)
+const SHOT_GEO = {}; const geoOf = (k, f) => SHOT_GEO[k] || (SHOT_GEO[k] = f());
+const addMat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false });
+function shotMesh(kind, col, big) {
+  const g = new THREE.Group(), k = big ? 1.35 : 1;
+  if (kind === 'arrow') { const sh = new THREE.Mesh(geoOf('ash', () => new THREE.CylinderGeometry(0.018, 0.018, 0.85, 5).rotateX(Math.PI / 2)), new THREE.MeshStandardMaterial({ color: '#7a5a3a' })); g.add(sh);
+    const tip = new THREE.Mesh(geoOf('atip', () => new THREE.ConeGeometry(0.045, 0.14, 6).rotateX(Math.PI / 2).translate(0, 0, 0.48)), new THREE.MeshStandardMaterial({ color: '#c8ccd2', metalness: 0.8, roughness: 0.3 })); g.add(tip);
+    const fl = new THREE.Mesh(geoOf('afl', () => new THREE.PlaneGeometry(0.1, 0.18).rotateX(Math.PI / 2).translate(0, 0, -0.38)), new THREE.MeshStandardMaterial({ color: '#e8e0d0', side: THREE.DoubleSide })); g.add(fl); }
+  else if (kind === 'bullet') { g.add(new THREE.Mesh(geoOf('bul', () => new THREE.SphereGeometry(0.05, 8, 6)), addMat('#fff4c8', 1))); const st = new THREE.Mesh(geoOf('bst', () => new THREE.CylinderGeometry(0.025, 0.005, 0.7, 6).rotateX(Math.PI / 2).translate(0, 0, -0.35)), addMat('#ffd080', 0.6)); g.add(st); }
+  else if (kind === 'frost') { g.add(new THREE.Mesh(geoOf('fsh', () => new THREE.OctahedronGeometry(0.14, 0).scale(0.7, 0.7, 1.9)), new THREE.MeshStandardMaterial({ color: '#d8f6ff', emissive: '#60c8ff', emissiveIntensity: 1.3, transparent: true, opacity: 0.9 }))); g.add(new THREE.Mesh(geoOf('halo', () => new THREE.SphereGeometry(0.3, 12, 10)), addMat(col, 0.28))); }
+  else { g.add(new THREE.Mesh(geoOf('core', () => new THREE.SphereGeometry(0.12, 12, 10)), addMat('#ffffff', 0.95))); g.add(new THREE.Mesh(geoOf('halo', () => new THREE.SphereGeometry(0.3, 12, 10)), addMat(col, 0.45))); g.add(new THREE.Mesh(geoOf('halo2', () => new THREE.SphereGeometry(0.5, 12, 10)), addMat(col, 0.15))); }
+  g.scale.setScalar(k); return g;
+}
+function shot(src, tgt, col, onHit, big, kind) {
+  kind = kind || (src.W && src.W.kind === 'bow' && !big ? 'arrow' : src.W && src.W.kind === 'gun' && !big ? 'bullet' : col === SHOT_COL.frost ? 'frost' : 'orb');
+  const m = shotMesh(kind, col, big), from = src.pos.clone().setY(src.pos.y + 1.35).addScaledVector(V3(Math.sin(src.yaw), 0, Math.cos(src.yaw)), 0.6);
+  m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0, kind, speed: kind === 'bullet' ? 46 : kind === 'arrow' ? 32 : 22 });
 }
 function updateShots(dt) {
   for (let i = A.shots.length - 1; i >= 0; i--) { const s = A.shots[i]; s.t += dt; const tp = s.tgt.pos.clone().setY(s.tgt.pos.y + 1.1), d = tp.clone().sub(s.m.position), L = d.length();
-    if (L < 0.6 || s.t > 2.5 || s.tgt.dead) { G.scene.remove(s.m); A.shots.splice(i, 1); if (!s.tgt.dead && L < 3) { s.onHit(); V.burst('spark', tp, 8, { speed: 3 }); } continue; }
-    s.m.position.addScaledVector(d.normalize(), Math.min(L, 22 * dt)); V.emit('spark', s.m.position.clone(), { n: 2, speed: 0.3 }); } // slow enough to see coming
+    if (L < 0.6 || s.t > 2.5 || s.tgt.dead) { G.scene.remove(s.m); A.shots.splice(i, 1); if (!s.tgt.dead && L < 3) { s.onHit(); if (s.kind === 'orb' || s.kind === 'frost') { V.burst(s.col === SHOT_COL.fire ? 'fire' : s.kind === 'frost' ? 'frost' : 'arcane', tp, 18, { speed: 4 }); V.sphereFlash(tp, 0.8, s.col, 0.2); } else V.burst('spark', tp, 6, { speed: 3 }); } continue; }
+    d.normalize(); s.m.position.addScaledVector(d, Math.min(L, s.speed * dt)); s.m.lookAt(tp); if (s.kind === 'orb' || s.kind === 'frost') { V.emit(s.col === SHOT_COL.fire ? 'fire' : s.kind === 'frost' ? 'frost' : 'arcane', s.m.position.clone(), { n: 2, speed: 0.4 }); s.m.children[1] && (s.m.children[1].scale.setScalar(1 + Math.sin(s.t * 30) * 0.15)); } } // spells trail their element and pulse; arrows and shot fly fast and point the way they go
 }
 function zone(src, at, r, dur, tick, fn, col, follow) { const ring = V3(at.x, AR.Y, at.z); A.zones.push({ src, at: ring, r, dur, tick, acc: 0, fn, col, follow }); V.ring(ring, r, col, Math.min(dur, 1.2)); }
 function updateZones(dt) {
@@ -540,7 +561,7 @@ function renderHud(force) {
   if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Your abilities are on <kbd>F</kbd> <kbd>C</kbd> <kbd>Q</kbd> · <kbd>K</kbd> change class · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
   const me = A.F[0], dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
-  const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? mm + ':' + ss : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
+  const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
   if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; }
 }
 export function scoreTable() {

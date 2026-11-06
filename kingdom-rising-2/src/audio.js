@@ -706,3 +706,19 @@ function bird() {
 function gull() { const o = out({ x: listener.x + rnd(-40, 40), y: 20, z: listener.z + rnd(-10, 40) }, ambBus, 0.4), t = now(); for (let i = 0; i < 3; i++) tone(t + i * 0.3, 0.25, o.node, { type: 'sawtooth', f: 1400, f2: 900, gain: 0.02 }); }
 function cricket() { const o = out({ x: listener.x + rnd(-15, 15), y: 0, z: listener.z + rnd(-15, 15) }, ambBus, 0.1), t = now(); for (let i = 0; i < 3; i++) tone(t + i * 0.05, 0.03, o.node, { type: 'sine', f: 4600, gain: 0.015 }); }
 export function setAmbience(st) { Object.assign(ambState, st); }
+
+// ---- the arena crowd: a bed of many voices (noise shaped into vowel-like bands, trembling the way a crowd does) that swells into a roar ----
+let crowd = null;
+export function crowdBed(level) {
+  if (!ctx || !noiseBuf) return;
+  if (!crowd) {
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const mix = ctx.createGain(), trem = ctx.createGain(), g = ctx.createGain(); g.gain.value = 0; trem.gain.value = 1;
+    for (const [f, q, v] of [[300, 0.9, 0.7], [820, 1.1, 1], [1250, 1.6, 0.5], [2400, 1.5, 0.35]]) { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; const gv = ctx.createGain(); gv.gain.value = v; src.connect(bp); bp.connect(gv); gv.connect(mix); }
+    mix.connect(trem); trem.connect(g); g.connect(ambBus); g.connect(ambWet);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 6.7; const lg = ctx.createGain(); lg.gain.value = 0.16; lfo.connect(lg); lg.connect(trem.gain); lfo.start();
+    const lfo2 = ctx.createOscillator(); lfo2.frequency.value = 0.31; const lg2 = ctx.createGain(); lg2.gain.value = 0.12; lfo2.connect(lg2); lg2.connect(trem.gain); lfo2.start(); // slow rise and fall of the murmur
+    src.start(); crowd = { g };
+  }
+  crowd.g.gain.setTargetAtTime(level, ctx.currentTime, 0.3);
+}

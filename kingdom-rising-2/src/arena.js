@@ -150,7 +150,7 @@ function startFight() { A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; che
 
 // ---------------- every frame ----------------
 export function updateArena(dt) {
-  G.tod = 0.4; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
+  G.tod = A.setup.tod || 0.335; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
   if ((A.crowdT = (A.crowdT || 0) - dt) <= 0) { A.crowdT = 0.12; crowdBed(0.05 + Math.min(1.4, AR.cheer) * 0.28); } // the crowd murmurs, and roars when blood is spilled
   const p = G.player;

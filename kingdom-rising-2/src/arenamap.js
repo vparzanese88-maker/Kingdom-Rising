@@ -15,7 +15,7 @@ const S = (c, r = 0.85, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.
 const M = {};
 function mats() {
   Object.assign(M, {
-    sand: S('#c9ae78', 1), sandstone: S('#cdb48c', 0.95), stone: S('#a8977a', 0.95), dark: S('#5a4c3c', 0.95), marble: S('#ece6da', 0.6), marble2: S('#d8cfbf', 0.7),
+    sand: S('#c0a06a', 1), sandstone: S('#cdb48c', 0.95), stone: S('#a8977a', 0.95), dark: S('#5a4c3c', 0.95), marble: S('#ece6da', 0.6), marble2: S('#d8cfbf', 0.7),
     seat1: S('#c9b493', 0.95), seat2: S('#b8a280', 0.95), gold: S('#d8b04a', 0.35, 0.85), iron: S('#2e2e32', 0.45, 0.8), wood: S('#6a4a2a', 0.85),
     black: S('#120e0a', 1), floorStone: S('#b4a284', 0.95), red: S('#9a2020', 0.9, 0, { side: THREE.DoubleSide }), cream: S('#efe4c8', 0.95, 0, { side: THREE.DoubleSide }), fire: new THREE.MeshBasicMaterial({ color: '#ffb040' }),
   });
@@ -28,7 +28,7 @@ const faceIn = (x, z) => Math.atan2(-x, -z);
 // sand with rake lines and darker patches, drawn once on a canvas
 function sandTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
-  g.fillStyle = '#c9ae78'; g.fillRect(0, 0, 512, 512);
+  g.fillStyle = '#c0a06a'; g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 9000; i++) { const v = 170 + Math.random() * 60; g.fillStyle = `rgba(${v + 20},${v},${v - 50},0.35)`; g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 2); }
   g.strokeStyle = 'rgba(150,120,70,0.18)'; g.lineWidth = 2; for (let r = 12; r < 256; r += 9) { g.beginPath(); g.arc(256, 256, r, 0, Math.PI * 2); g.stroke(); }
   for (let i = 0; i < 26; i++) { const x = Math.random() * 512, y = Math.random() * 512, r = 10 + Math.random() * 40; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(120,90,50,0.16)'); gr.addColorStop(1, 'rgba(120,90,50,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
@@ -64,6 +64,15 @@ export function buildColosseum(scene) {
     // statues flank the gate on the podium
     for (const sx of [-1, 1]) statue(g, sx * 3.05, 5.05, -0.3, i * 2 + (sx > 0 ? 1 : 0));
   }
+  // ---- marble pilasters along the podium wall, with a torch in an iron bracket between every few
+  { const N = 48, pil = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, W, 0.32), M.marble2, N), cap = new THREE.InstancedMesh(new THREE.BoxGeometry(0.75, 0.22, 0.45), M.marble, N), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+    let n = 0; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2 + 0.065; if (AR.gates.some(g => Math.abs(Math.atan2(Math.sin(a - g.a), Math.cos(a - g.a))) < 0.17)) continue; const r = R + 0.62;
+      q.setFromAxisAngle(up, a); m4.compose(new THREE.Vector3(Math.sin(a) * r, Y + W / 2, Math.cos(a) * r), q, one); pil.setMatrixAt(n, m4); m4.compose(new THREE.Vector3(Math.sin(a) * (r - 0.05), Y + W - 0.1, Math.cos(a) * (r - 0.05)), q, one); cap.setMatrixAt(n, m4); n++;
+      if (i % 4 === 2) { const tx = Math.sin(a) * (R + 0.35), tz = Math.cos(a) * (R + 0.35), tg = new THREE.Group(); tg.position.set(tx, Y + 2.9, tz); root.add(tg);
+        cyl(0.05, 0.09, 0.45, M.iron, 0, 0, 0, tg, 6); const cup = cyl(0.13, 0.07, 0.16, M.iron, 0, 0.28, 0, tg, 8); cup.castShadow = false;
+        const fl = []; for (let k = 0; k < 2; k++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.11 - k * 0.04, 0.42 + k * 0.1, 7), new THREE.MeshBasicMaterial({ color: ['#ff7a20', '#ffe090'][k], transparent: true, opacity: 0.9 - k * 0.2, blending: THREE.AdditiveBlending, depthWrite: false })); c.position.y = 0.55 + k * 0.03; tg.add(c); fl.push(c); }
+        AR.braziers.push({ g: tg, fl, x: tx, z: tz }); } }
+    pil.count = n; cap.count = n; pil.castShadow = true; root.add(pil, cap); }
   // ---- banners down the podium wall between the gates
   for (let i = 0; i < 16; i++) { const a = (i + 0.5) / 16 * Math.PI * 2; if (i % 4 === 1 || i % 4 === 2) { const r = R + 0.55, b = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 3.4, 1, 4), i % 2 ? M.red : S('#1e3a7a', 0.9, 0, { side: THREE.DoubleSide })); b.position.set(Math.sin(a) * r, Y + W - 1.9, Math.cos(a) * r); b.rotation.y = faceIn(b.position.x, b.position.z); root.add(b);
       const t = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.18), M.gold); t.position.copy(b.position).setY(Y + W - 0.25); t.rotation.y = b.rotation.y; t.position.x *= 0.999; t.position.z *= 0.999; root.add(t);

@@ -74,8 +74,9 @@ export function buildAbilityBar() {
   const hb = G.campAb ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
+  let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : ''; }
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
-  abilEls = { ws, lmb, rmb, hb, f, combo };
+  abilEls = { ws, lmb, rmb, hb, f, combo, ult };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
@@ -137,6 +138,7 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
+    if (abilEls.ult) { const c = h.ultCharge || 0, k = Math.floor(c); if (abilEls.ult._k !== k) { abilEls.ult._k = k; abilEls.ult.querySelector('.ultfill').style.height = c + '%'; abilEls.ult.querySelector('.ultpct').textContent = c >= 100 ? 'READY' : k + '%'; abilEls.ult.classList.toggle('ready', c >= 100); } }
     if (abilEls.f._rmb) { const k = ABILITIES[h.cls].indexOf(abilEls.f._rmb); setCd(abilEls.f, p.cd['a' + (k + 1)] || 0, abilEls.f._rmb.cd || 1); }
     if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {

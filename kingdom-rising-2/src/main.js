@@ -754,9 +754,10 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
+      if (YARD && (e.code === 'KeyK' || e.code === 'KeyN' || e.code === 'KeyP')) { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; } // (the yard: class and perks in one place)
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
-      if (ARENA && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do
+      if ((ARENA || YARD) && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do
       if (ARENA && e.code === 'KeyP') { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // P: perks
       if (ARENA && ['KeyJ', 'KeyM', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)

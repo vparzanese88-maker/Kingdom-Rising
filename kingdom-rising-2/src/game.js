@@ -256,7 +256,7 @@ export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (n
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
-  if (h.arenaKit) return h.arenaKit.includes(a.id) || h.arenaRmb === a.id; // Kingdom Arena: just the three kit abilities
+  if (h.arenaKit) return h.arenaKit.includes(a.id) || h.arenaRmb === a.id || h.arenaUlt === a.id; // Kingdom Arena: just the three kit abilities
   { const C = CROWN[h.cls]; if (C && C.ab === a.id) return CLASS_TREES[h.cls].filter(T => treeSpent(h, T.id) >= ULT_PTS).length >= C.trees; } // a crowning ability: max out enough trees
   if (h.yard && !(CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(x => x.ab === a.id))) return true; // yard: abilities outside the trees are free
   if (CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); return !!n && nodeOwned(h, n); } // only what you unlock in the trees

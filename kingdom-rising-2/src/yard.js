@@ -8,7 +8,8 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { loadBuild, saveBuild } from './builds.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf } from './arena.js';
+import { classPortrait } from './portraits.js';
 
 export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
@@ -35,49 +36,51 @@ function dummyUpdate(dt) {
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {
-  G.zoneLabel = 'Training Yard<small>Every class · every weapon</small>'; const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true;
+  G.zoneLabel = 'Training Yard<small>The arena classes</small>'; const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true;
   const now = performance.now(); while (YD.dmg.length && now - YD.dmg[0][0] > 8000) YD.dmg.shift();
   const tot = YD.dmg.reduce((a, b) => a + b[1], 0), span = YD.dmg.length ? Math.max(1, (now - YD.dmg[0][0]) / 1000) : 1;
   let e = document.getElementById('yardhud'); if (!e) { e = document.createElement('div'); e.id = 'yardhud'; document.getElementById('hud').appendChild(e); }
-  const h = G.save, html = `<b>Training Yard</b><span>${CLASSES[h.cls].name} · level ${h.level}</span><span class="dps">DPS <b>${YD.dmg.length ? Math.round(tot / span) : 0}</b></span><small><kbd>Y</kbd> class & weapon · <kbd>K</kbd> abilities · <kbd>O</kbd> skills</small>`;
+  const h = G.save, html = `<b>Training Yard</b><span>${CLASSES[h.cls].name} · level ${h.level}</span><span class="dps">DPS <b>${YD.dmg.length ? Math.round(tot / span) : 0}</b></span><small><kbd>Y</kbd> class & perks · <kbd>I</kbd> what your keys do · <kbd>R</kbd> ultimate</small>`;
   if (e._h !== html) { e.innerHTML = html; e._h = html; }
-  if ((YD.saveT = (YD.saveT || 0) - dt) <= 0) { YD.saveT = 1.5; saveBuild('kr2_yard_builds', G.save); }
+  if (G.save.arenaUlt) G.save.ultCharge = Math.min(100, (G.save.ultCharge || 0) + dt * 25); // (the yard: the ultimate is back in 4 seconds)
   const P = G.player; if (P && YD.infinite) { P.mana = P.maxMana; P.end = P.maxEnd; }
 }
 export function resetCooldowns() { const P = G.player; if (P) for (const k in P.cd) P.cd[k] = 0; }
 
-// the hero for a class: top level, the class weapon to start, every ability unlocked
+// the hero for a class: exactly the arena's version of it (its look, its five keys, its ultimate on R, its perks)
 export function yardHero(cls, keep) {
-  const h = Game.newHero({ name: keep ? keep.name : 'Trainee', race: keep ? keep.race : 'human', cls, sex: keep ? keep.sex : 'm', app: keep ? keep.app : { skin: '#e0ac85', hair: '#5a3a1e', hairStyle: 1, beard: 0, height: 1, build: 0 } });
-  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.yard = true; h.equip.chest = null; h.equip.legs = null;
-  const w1 = h.equip.w1; if (w1) Object.assign(w1, Game.makeWeapon(w1.wt, 5, 3), { uid: w1.uid }); if (h.equip.w2) Object.assign(h.equip.w2, Game.makeWeapon(h.equip.w2.wt, 5, 3));
-  h.hotbar = null; Game.autoFillHotbar(h);
-  h.ctree = {}; Game.autoFillHotbar(h); // trees start empty in the yard: unlock with unlimited points (K), reset any time
-  loadBuild('kr2_yard_builds', h); // ...or with the build you saved last time for this class
+  const h = arenaHero({ cls, race: keep ? keep.race : 'human', you: true }, keep ? keep.name : 'Trainee'); h.yard = true; h.ultCharge = 100;
+  if (keep && keep.cls === cls && keep.arenaPerks) { h.arenaPerks = Object.assign({}, keep.arenaPerks); recomputePK(h); }
   return h;
 }
 // weapons you can pick: everything except a lone shield
 const PICK = () => Object.keys(WEAPON_TYPES).filter(w => w !== 'shield' && !['daggers', 'handaxes', 'swordmace'].includes(w)); // no twin weapons
+let YF = 'all';
 export function openYardPanel(UI) {
   const c = UI.openWin('yard', 'Training Yard', '', 'big yardwin'), h = G.save;
   const render = () => {
-    c.innerHTML = '';
-    c.appendChild(el('h3', '', 'Class <small>everyone is level ' + LEVEL_CAP + ', with unlimited skill points to spend in K</small>'));
-    const cg = el('div', 'ygrid');
-    for (const k of Object.keys(CLASSES)) { const b = el('button', 'ycls' + (G.save.cls === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${ABILITIES[k].length} abilities</small>`); b.onclick = () => { S.click(); const nh = yardHero(k, G.save); UI.closeWin(); YD.startGame(nh); }; cg.appendChild(b); }
+    c.innerHTML = ''; const h = G.save;
+    c.appendChild(el('h3', '', 'Class <small>the arena classes: the same keys, looks, ultimate and perks</small>'));
+    const tabs = el('div', 'artabs'); for (const [k, nm] of [['all', 'All'], ['Tank', 'Tanks'], ['Healer', 'Healers'], ['Damage', 'Damage']]) { const t = el('button', 'artab' + (YF === k ? ' on' : ''), nm); t.onclick = () => { S.click(); YF = k; render(); }; tabs.appendChild(t); } c.appendChild(tabs);
+    const cg = el('div', 'pgrid yardgrid');
+    for (const k of Object.keys(CLASSES)) { if (YF !== 'all' && roleOf(k) !== YF) continue; const b = el('button', 'pcard' + (h.cls === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b>`); b.onclick = () => { S.click(); const nh = yardHero(k, G.save); UI.closeWin(); YD.startGame(nh); }; cg.appendChild(b); }
     c.appendChild(cg);
-    c.appendChild(el('h3', '', 'Weapon <small>any weapon, every attack unlocked</small>'));
-    const wg = el('div', 'ygrid w');
-    for (const wt of PICK()) { const it = Game.makeWeapon(wt, 5, 3); const act = Game.activeWeapon(G.save); const b = el('button', 'ywpn' + (act && act.wt === wt ? ' on' : ''), `<div class="bi">${Icons.itemSvg(it)}</div><b>${WEAPON_TYPES[wt].name}</b>`);
-      b.onclick = () => { S.click(); const hh = G.save; hh.equip.w1 = Object.assign(it, { name: 'Training ' + WEAPON_TYPES[wt].name, size: 1 }); hh.equip.w2 = wt === 'swordshield' || wt === 'maceshield' ? null : null; hh.active = 'w1'; G.player.refreshGear(); render(); };
-      wg.appendChild(b); }
-    c.appendChild(wg);
+    // perks: set any rank you like here, no points needed
+    c.appendChild(el('h3', '', `Perks <small>${CLASSES[h.cls].name}: set any rank to try it, no points needed</small>`));
+    const pg = el('div', 'perkgrid'); h.arenaPerks = h.arenaPerks || {};
+    for (const pk of perksFor(h.cls)) { const lv = h.arenaPerks[pk.id] || 0, r = el('div', 'perkcard' + (lv ? ' has' : ''));
+      r.innerHTML = `<div class="kiti"><span class="perkglyph${pk.passive ? ' pas' : ''}">${pk.glyph || '◆'}</span></div><div class="kitt"><b>${pk.name}</b><span>${pk.desc}</span><div class="perkpips">${[0, 1, 2].map(i => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div></div>`;
+      const bx = el('div', 'perkbtns'), plus = el('button', 'btn gold perkb', '+'), minus = el('button', 'btn perkb', '−'); plus.disabled = lv >= 3; minus.disabled = lv <= 0;
+      const set = (v) => { h.arenaPerks[pk.id] = v; recomputePK(h); const P = G.player, k2 = P.hp / P.maxHp; P.refreshStatsOnly(); P.hp = P.maxHp * k2; S.click(); render(); };
+      plus.onclick = () => set(lv + 1); minus.onclick = () => set(lv - 1); bx.append(plus, minus); r.appendChild(bx); pg.appendChild(r); }
+    c.appendChild(pg);
     const row = el('div', 'yrow');
-    const t1 = el('button', 'btn', 'Reset cooldowns'); t1.onclick = () => { S.click(); resetCooldowns(); };
-    const t2 = el('button', 'btn' + (YD.infinite ? ' gold' : ''), YD.infinite ? 'Unlimited mana & endurance: on' : 'Unlimited mana & endurance: off'); t2.onclick = () => { S.click(); YD.infinite = !YD.infinite; render(); };
+    const t1 = el('button', 'btn', 'Reset cooldowns'); t1.onclick = () => { S.click(); resetCooldowns(); G.save.ultCharge = 100; };
+    const t5 = el('button', 'btn', 'Max all perks'); t5.onclick = () => { for (const pk of perksFor(h.cls)) h.arenaPerks[pk.id] = 3; recomputePK(h); G.player.refreshStatsOnly(); G.player.hp = G.player.maxHp; S.click(); render(); };
+    const t6 = el('button', 'btn', 'Clear perks'); t6.onclick = () => { h.arenaPerks = {}; recomputePK(h); G.player.refreshStatsOnly(); S.click(); render(); };
     const t3 = el('button', 'btn', 'Clear DPS'); t3.onclick = () => { S.click(); YD.dmg.length = 0; };
     const t4 = el('button', 'btn red', 'Leave the yard'); t4.onclick = () => { location.href = location.pathname; };
-    row.append(t1, t2, t3, t4); c.appendChild(row);
+    row.append(t1, t5, t6, t3, t4); c.appendChild(row);
   };
   render();
 }

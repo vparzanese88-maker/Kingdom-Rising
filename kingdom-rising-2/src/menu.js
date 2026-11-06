@@ -342,25 +342,30 @@ export function showArenaSetup() {
 function renderArenaSetup() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
-  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Pick a class. Every class has its own attack, a right-click defence, a heal on F, a pet or big hit on C and a crowd control on Q, all on cooldowns. You earn a perk point every 10 seconds of fighting: spend them with P on your class's ten perks. Warriors, paladins, dark knights and berserkers are tanks. K changes class.</p>`));
+  panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · Ruins of Aldermere</div><h1>Choose your hero</h1>`));
+  // hero select: the chosen class on the left with every key it has, the roster on the right with filter tabs
+  { const you = AS.slots.find(x => x.you) || AS.slots[0], cls = you.cls, A2 = ABILITIES[cls] || [], ab = (id) => A2.find(x => x.id === id);
+    const wrap = el('div', 'arsel'), hero = el('div', 'arhero');
+    const keys = [['RMB', Arena.rmbOf(cls) === 'aim' ? null : Arena.rmbOf(cls), Arena.rmbOf(cls) === 'aim' ? 'Aim down the barrel' : null], ...['F', 'C', 'Q'].map((k, n) => [k, Arena.kitOf(cls)[n]]), ['R', Arena.ultOf(cls), null, true]];
+    hero.innerHTML = `<div class="arheroimg"><img src="${classPortrait(cls)}" alt=""><div class="arheroname">${CLASSES[cls].name}</div></div><div class="arkit">` + keys.map(([k, id, alt, ult]) => { const a = id && ab(id); if (!a && !alt) return ''; return `<div class="arkrow${ult ? ' ult' : ''}"><span class="arkk">${k}</span><span class="arki">${a ? Icons.abilityIcon(a.id) : ''}</span><span class="arkt"><b>${ult ? 'Ultimate · ' : ''}${a ? a.name : alt}</b><i>${a ? (a.desc || '').replace(/</g, '') : 'Zoom in for steadier, harder-hitting shots.'}</i></span></div>`; }).join('') + `</div>`;
+    const right = el('div', 'arroster'), tabs = el('div', 'artabs'), grid = el('div', 'pgrid');
+    for (const [k, nm] of [['all', 'All'], ['Tank', 'Tanks'], ['Healer', 'Healers'], ['Damage', 'Damage']]) { const t = el('button', 'artab' + (ARF === k ? ' on' : ''), nm); t.onclick = () => { S.click(); ARF = k; renderArenaSetup(); }; tabs.appendChild(t); }
+    for (const c of Object.keys(CLASSES)) { if (ARF !== 'all' && Arena.roleOf(c) !== ARF) continue; const b = el('button', 'pcard' + (cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
+    right.append(tabs, grid); wrap.append(hero, right); panel.appendChild(wrap); }
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
-  const fw = el('div', 'arsec', '<h3>Format</h3>'); const fg = el('div', 'arseg');
+  const fw = el('div', 'arsec arset', '<h3>Format</h3>'); const fg = el('div', 'arseg');
   for (const k in F) { const b = el('button', 'seg' + (AS.fmt === k ? ' on' : ''), `<b>${F[k].name}</b>${F[k].desc ? `<small>${F[k].desc}</small>` : ''}`); b.onclick = () => { S.click(); AS.fmt = k; if (F[k].ffa && AS.objective === 'ctf') AS.objective = 'dm'; Arena.fillSlots(AS); renderArenaSetup(); }; fg.appendChild(b); }
   fw.appendChild(fg);
   if (fmt.ffa) { const r = el('label', 'arrange', `<span>Fighters: <b>${AS.ffaN}</b></span><input type="range" min="3" max="12" value="${AS.ffaN}">`); r.querySelector('input').oninput = (e) => { AS.ffaN = +e.target.value; Arena.fillSlots(AS); renderArenaSetup(); }; fw.appendChild(r); }
   panel.appendChild(fw);
   // objective
-  const ow = el('div', 'arsec', '<h3>Objective</h3>'); const og = el('div', 'arobjs');
+  const ow = el('div', 'arsec arset', '<h3>Objective</h3>'); const og = el('div', 'arobjs');
   for (const k in O) { const off = O[k].teams && fmt.ffa; const b = el('button', 'arob' + (AS.objective === k ? ' on' : '') + (off ? ' off' : ''), `<div class="ari">${O[k].icon}</div><b>${O[k].name}</b><span>${off ? 'Needs teams' : O[k].desc}</span>`); b.onclick = () => { if (off) { S.error(); return; } S.click(); AS.objective = k; renderArenaSetup(); }; og.appendChild(b); }
   ow.appendChild(og);
   const fixed = O[AS.objective].lives === 'one';
   const lw = el('div', 'arseg small'); for (const [k, nm, d] of [['one', 'One life', 'fall once and you are out'], ['respawn', 'Respawning', 'back in 6 seconds after you fall']]) { const on = fixed ? k === 'one' : (AS.lives || O[AS.objective].lives) === k; const b = el('button', 'seg' + (on ? ' on' : '') + (fixed && k !== 'one' ? ' off' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { if (fixed) { S.error(); return; } S.click(); AS.lives = k; renderArenaSetup(); }; lw.appendChild(b); }
   ow.appendChild(lw); panel.appendChild(ow);
-  // your champion: a portrait for every class
-  { const you = AS.slots.find(x => x.you) || AS.slots[0], pw = el('div', 'arsec', `<h3>Your class <small>${CLASSES[you.cls].name}: ${Arena.kitOf(you.cls).map(id => (ABILITIES[you.cls].find(x => x.id === id) || {}).name).filter(Boolean).join(' · ')}</small></h3>`), grid = el('div', 'pgrid');
-    for (const c of Object.keys(CLASSES)) { const b = el('button', 'pcard' + (you.cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><em class="prole ${Arena.roleOf(c)}">${Arena.roleOf(c)}</em><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
-    pw.appendChild(grid); panel.appendChild(pw); }
   // fighters
   const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');
   const teams = fmt.ffa ? ['all'] : [...new Set(AS.slots.map(s => s.team))]; // free for all: one list, a colour dot each
@@ -386,7 +391,7 @@ function renderArenaSetup() {
   const go = el('button', 'btn gold big', 'Enter the arena →'); go.onclick = () => { S.click(); const save = Object.assign({}, AS); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
   row.append(back, mp, go); panel.appendChild(row);
 }
-const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST;
+const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST; let ARF = 'all'; // (the roster filter tab)
 
 // ---------- preview scene ----------
 function buildPreview() {

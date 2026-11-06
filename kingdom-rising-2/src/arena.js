@@ -45,12 +45,16 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
   warrior: ['warrior_xs2', 'execute', 'hamstring'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'dkraise', 'deathgrip'],
-  cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['ar_chiwave', 'ar_revival', 'pressure'],
+  cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['quickreload', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
   rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
 };
-export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', monk: 'Healer', bard: 'Support', druid: 'Support', shaman: 'Support' }; // everyone else: Damage
+export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
+// the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
+export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'avengingwrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'thousandfists',
+  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'shadowdance', necromancer: 'bonegolem', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
+export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
 const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', 'enchanter']);
@@ -106,6 +110,11 @@ function auraTick(dt) { if ((auraT -= dt) > 0) return; auraT = 0.5; noteT -= 0.5
     for (const [g, v] of units) { if (g.team !== f.team || Math.hypot(v.pos.x - u.pos.x, v.pos.z - u.pos.z) > r) continue; v.aura.atk += atk; v.aura.def = Math.min(0.5, v.aura.def + def); v.aura.regen += regen;
       if (song && notes) playNotes(G.scene, v, '#ffd860', v === u ? 3 : 2); } }
   for (const [, u] of units) if (u.aura.regen > 0) { if (u === G.player) u.heal(u.maxHp * u.aura.regen * 0.5, true); else u.healSelf(u.maxHp * u.aura.regen * 0.5); } }
+// ultimate charge: 1% a second, more for damage done and healing given; computer fighters fire theirs in a fight
+function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !h.arenaUlt || !f.alive) continue; h.ultCharge = Math.min(100, (h.ultCharge || 0) + dt * 1.0);
+    if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
+const esc2 = (t) => String(t).replace(/[<>&]/g, '');
+export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt); }
 function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 10) return; A.perkClock -= 10;
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
@@ -163,7 +172,7 @@ export function arenaHero(slot, name) {
   const R = RACES[slot.race] || RACES.human, sex = Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
-  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaPerks = {}; recomputePK(h);
+  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaUlt = ultOf(slot.cls); h.ultCharge = 0; h.arenaPerks = {}; recomputePK(h);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
   for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(w.wt, top, 3), { uid: w.uid }); }
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);
@@ -275,6 +284,7 @@ export function openKitInfo(UI) {
   else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
   else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
   ['F', 'C', 'Q'].forEach((k, i) => { const a = ab((h.arenaKit || [])[i]); if (a) html += row(k, a.name, a.desc, a.cd, a.id); });
+  { const u = h.arenaUlt && ab(h.arenaUlt); if (u) html += row('R', 'Ultimate · ' + u.name, u.desc + ' Charges over time, faster when you deal damage or heal.', 0, u.id); }
   html += row('Shift', 'Sprint / dodge', 'Hold to sprint. Tap (or double-tap a direction) to dodge-roll.', 0, null);
   c.insertAdjacentHTML('beforeend', `<div class="kitlist">${html}</div><p class="dim" style="margin-top:8px">K changes class · Tab shows the scores · hover the bar at the bottom (hold Alt for a cursor) to read any of these again.</p>`);
 }
@@ -283,7 +293,7 @@ export function openClassPicker(UI) {
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
   const g = elx('div', 'ygrid');
   for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
-    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><em class="prole ${roleOf(k)}">${roleOf(k)}</em><b>${CLASSES[k].name}</b><small>${kit}</small>`);
+    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b><small>${kit}</small>`);
     b.onclick = () => { S.click(); A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
       UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.me.alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
       else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
@@ -303,7 +313,7 @@ export function updateArena(dt) {
   notesTick(dt);
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead && !roomOf(p.pos.x, p.pos.z)) { const sp = spawnOf(A.me); p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); } // (wander the holding room and buff up until the gate lifts)
-  else if (A.state === 'fight') { A.clock += dt; perkTick(dt); auraTick(dt); if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
+  else if (A.state === 'fight') { A.clock += dt; perkTick(dt); auraTick(dt); ultTick(dt); if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
   else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0 && AUTH()) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(10); } }
   if (AN.on) { netTick(dt); if (!AN.host) updatePetViews(dt); }
   // dead: fly around and watch (WASD, Space up, C down, Shift faster)
@@ -394,9 +404,9 @@ function hitPlayer(src, raw, o) {
   if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
 }
-function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); return d; }
+function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); if (src && src.h && d > 0) ultGain(src.h, d / 40); return d; }
 // heals and buffs on a team mate (computer or player)
-function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; { const sh = from && from.h ? Game.arenaPassive(from.h, 'shieldHeal') : 0; if (sh) { const v = amt * 0.15 * sh; if (u === G.player) { u.buffs.barrier = (u.buffs.barrier || 0) + v; u.buffs.barrierT = Math.max(u.buffs.barrierT || 0, 6); } else if (u.buffs) { u.barrier = (u.barrier || 0) + v; u.buffs.barrier = Math.max(u.buffs.barrier || 0, 6); } } } /* (a healer's perk: heals leave a shield) */ if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
+function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; { const sh = from && from.h ? Game.arenaPassive(from.h, 'shieldHeal') : 0; if (sh) { const v = amt * 0.15 * sh; if (u === G.player) { u.buffs.barrier = (u.buffs.barrier || 0) + v; u.buffs.barrierT = Math.max(u.buffs.barrierT || 0, 6); } else if (u.buffs) { u.barrier = (u.barrier || 0) + v; u.buffs.barrier = Math.max(u.buffs.barrier || 0, 6); } } } /* (a healer's perk: heals leave a shield) */ if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; if (from && from.h) ultGain(from.h, amt / 50); V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
 function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (u === G.player) { u.buffs[kind] = Math.max(u.buffs[kind] || 0, dur); if (kind === 'barrier') { u.buffs.barrier = u.maxHp * 0.2; u.buffs.barrierT = dur; } } else u.addBuff(kind, dur); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.2, kind === 'ward' || kind === 'barrier' ? '#80d8ff' : '#ffd84a', 0.4); }
 // the player's own heals and buffs that reach allies (healing spells with an area, songs, totems...)
 export function allyFx(at, [r, heal, kind, dur], up, quiet) {

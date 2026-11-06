@@ -366,7 +366,7 @@ export class Player {
       case 'Digit4': this.hotbar(3); break;
       case 'Digit5': this.hotbar(4); break;
       case 'KeyE': this.interact(); break;
-      case 'KeyR': this.quaff(); break;
+      case 'KeyR': if (this.h.arenaUlt) this.ultimate(); else this.quaff(); break; // (the arena: R is your ultimate)
       case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
       case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
@@ -747,6 +747,10 @@ export class Player {
     }
   }
 
+  // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
+  ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; this.ability(k); h.ultCharge = 0;
+    V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   hotbar(i) {
     if (this.fearT > 0) { S.error(); return; }
     const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
@@ -1563,7 +1567,7 @@ export class Player {
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
     G.inCombat = 6; G.target = m; this.hitT = G.time;
     this.stealth = 0;
-    if (this.h.arena && total > 0) { this.hitMarker(m.dead, crit, o.melee); const ls = Game.arenaStat(this.h, 'lifesteal'); if (ls) this.heal(total * 0.03 * ls, true); }
+    if (this.h.arena && total > 0) { if (this.h.arenaUlt) this.h.ultCharge = Math.min(100, (this.h.ultCharge || 0) + total / 40); this.hitMarker(m.dead, crit, o.melee); const ls = Game.arenaStat(this.h, 'lifesteal'); if (ls) this.heal(total * 0.03 * ls, true); }
   }
   // the arena: an X flashes on the crosshair whenever you land a hit (red and bigger on a kill), with a crisp tick and,
   // up close, a split-second of hit-stop so every blow connects

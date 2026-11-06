@@ -331,9 +331,10 @@ function campaignSetup() {
   { const wb = (ABILITIES.beastmaster || []).find(a => a.id === 'warbeast'); if (wb) { wb.extra = 0; wb.n = 1; } }
   // EverQuest-style buffs and heals: stat buffs take a moment to cast, have no cooldown and last 2 minutes;
   // heals take a moment to cast and are limited only by your mana or endurance. Emergency buffs keep their cooldowns.
+  const ULTS = new Set(Object.values(CLASS_TREES).flatMap(T => T.flatMap(t => t.nodes.filter(n => n.t === 'ult' && n.ab).map(n => n.ab))));
   for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';
     for (const a of ABILITIES[c]) { if (!a.kit || a.song) continue;
-      if (a.t === 'heal' || a.t === 'hot') { a.cd = 0; a.castT = a.t === 'heal' ? 2 : 1.5; a.desc = a.desc.replace(/\.?\s*$/, '.') + ` ${a.castT} s cast, no cooldown.`; continue; }
+      if (a.t === 'heal' || a.t === 'hot') { const big = (a.self || a.pct || 0) >= 0.4 || ULTS.has(a.id); a.cd = big ? Math.max(a.cd || 0, 30) : 0; a.castT = a.t === 'heal' ? 2 : 1.5; // big heals and capstones keep a cooldown a.desc = a.desc.replace(/\.?\s*$/, '.') + ` ${a.castT} s cast, no cooldown.`; continue; }
       if (a.t !== 'buff') continue;
       const E = { ward: { ac: [15, 3], sta: [2, 0.5] }, stand: { ac: [12, 2.5] }, fort: { ac: [20, 4] }, cry: caster ? { int: [3, 0.6] } : { str: [3, 0.6] }, rage: caster ? { int: [2, 0.4] } : { str: [2, 0.4] }, focus: { haste: [15, 0] }, swind: { run: [15, 0] }, clarity: { mregen: [2, 0.1] } }[a.buff];
       if (!E) continue; // barriers, forms, Ice Block, invulnerability and the like stay short emergency buttons

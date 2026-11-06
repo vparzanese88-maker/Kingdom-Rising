@@ -50,7 +50,7 @@ export const EQUIP_SLOTS = ['w1', 'w2', 'w3', 'w4', 'ranged', 'head', 'back', 'c
 const RETIRED = ['neck', 'shoulders', 'wrists', 'ring1', 'ring2', 'trinket'];
 function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; return e; }
 // bring older saves up to date
-export function migrateHero(h) { if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
+export function migrateHero(h) { { const fixN = (it) => { if (it && typeof it.name === 'string' && it.name.startsWith('Rusty ')) it.name = 'Plain ' + it.name.slice(6); }; (h.inv || []).forEach(fixN); Object.values(h.equip || {}).forEach(fixN); } /* no more 'Rusty' gear */ if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
   h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {};
   h.tools = h.tools || {}; for (const k of ['hatchet', 'pickaxe', 'knife']) h.tools[k] = Math.max(1, h.tools[k] || 0); // older heroes get the basic tools too
@@ -110,7 +110,7 @@ export function setAbilitySlot(h, slot, id) {
 export function makeWeapon(wt, tier, rarity = 0, lvlHint) {
   const W = WEAPON_TYPES[wt], T = TIERS[tier], R = RARITY[rarity];
   const stats = rollStats(tier, rarity, weaponStat(wt));
-  const name = (tier === 0 ? (W.kind === 'staff' ? 'Driftwood' : W.kind === 'bow' ? 'Driftwood' : 'Rusty') : T.name) + ' ' + W.name;
+  const name = (tier === 0 ? (W.kind === 'staff' ? 'Driftwood' : W.kind === 'bow' ? 'Driftwood' : 'Plain') : T.name) + ' ' + W.name;
   const sz = W.kind === 'melee' && wt !== 'shield' && tier > 0 ? [0.88, 1, 1, 1.14][Math.floor(Math.random() * 4)] : 1;
   const szName = sz < 1 ? (wt.includes('dagger') ? 'Short ' : 'Light ') : sz > 1 ? (wt.includes('dagger') ? 'Long ' : 'Heavy ') : '';
   const it = { uid: ++uid, kind: 'weapon', wt, tier, rarity, name: szName + name, size: sz, dmg: Math.round(weaponBaseDmg(tier) * W.dmg * R.mult * Math.pow(sz, 0.9)), stats, lvl: tier === 0 ? 1 : T.lvl };

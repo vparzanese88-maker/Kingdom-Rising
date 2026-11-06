@@ -10,7 +10,7 @@ import { buildHumanoid, animateHumanoid, equipWeapon, bake, holdTool } from './c
 import { RACES, CLASSES, MOBS } from './data.js';
 import { Mob, buildQuad, animQuad } from './mobs.js';
 import { BATTLE, SETUP, LAYOUT, WALL_R, nearTown } from './battlemap.js';
-import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN } from './battledata.js';
+import { TEAM_COLORS, TEAM_NAMES, DIFFS, TOWN_NAMES, ROSTERS, MERCS, rosterOf, unitDef, unitSpec, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ECON, FOREMAN, TOWN_BASE } from './battledata.js';
 import { angDiff, rand, clamp, distToLine } from './util.js';
 import { fog, updateFog, isVisible, addPing } from './fog.js';
 import { MP, send } from './mp.js';
@@ -45,13 +45,17 @@ const STYLE = {
   highelf: { stone: '#ece6d8', wood: '#c8b898', dark: '#a89a7a', roof: '#2a8a9a', roof2: '#3a6aa8', wall2: '#f4f0e6', trim: '#e0b850' },
   woodelf: { stone: '#7a7a5a', wood: '#6a4a2a', dark: '#4a3420', roof: '#3a7a2a', roof2: '#5a8a3a', wall2: '#8a6a40', trim: '#c8d870' },
   dwarf: { stone: '#5e5a56', wood: '#5a4030', dark: '#3a3430', roof: '#4a5058', roof2: '#6a5040', wall2: '#7a7470', trim: '#c89a40' },
+  barbarian: { stone: '#7a8088', wood: '#4a3424', dark: '#2a2018', roof: '#c8ccd2', roof2: '#6a5a4a', wall2: '#8a7a68', trim: '#5a8ab0' },
+  halfling: { stone: '#a89a80', wood: '#8a6a3a', dark: '#5a4020', roof: '#5a8a3a', roof2: '#c8a050', wall2: '#efe2c0', trim: '#e0b040' },
+  gnome: { stone: '#7a7068', wood: '#6a4a30', dark: '#3a3028', roof: '#3a6ab0', roof2: '#c86a30', wall2: '#d8c8a8', trim: '#e0a030' },
+  darkelf: { stone: '#4a4458', wood: '#3a2e40', dark: '#221c2a', roof: '#5a2a6a', roof2: '#3a2a50', wall2: '#5a5068', trim: '#b060e0' },
 };
 
 // ---------- walls ----------
 const WALL_SEG = 48;
 function wallAngles(t) { const ag = Math.atan2(t.dir[1], t.dir[0]), step = Math.PI * 2 / WALL_SEG, out = []; for (let k = 1; k < WALL_SEG - 1; k++) out.push(ag + (k + 0.5) * step); return { out, step, ag }; }
 function buildWalls(t, lvl) {
-  const g = new THREE.Group(), st = STYLE[t.race] || STYLE.human, H = TOWN_LEVELS[lvl].wallH, { out, step, ag } = wallAngles(t);
+  const g = new THREE.Group(), st = (STYLE[t.people] || STYLE[t.race] || STYLE.human), H = TOWN_LEVELS[lvl].wallH, { out, step, ag } = wallAngles(t);
   const L = 2 * WALL_R * Math.sin(step / 2) + 0.15;
   const mStone = mat(st.stone, 0.95), mWood = mat(st.wood), mDark = mat(st.dark), mTrim = mat(st.trim, 0.5, 0.6), mLeaf = mat('#3e7a2e', 0.9), mBone = mat('#e8dfc4', 0.8), mIron = mat('#3a3a3e', 0.5, 0.8);
   for (const a of out) {
@@ -321,7 +325,7 @@ function house(g, race, x, z, rot, s = 1, lvl = 0) {
 // storehouse: where peasants and heroes unload wood and stone
 function buildStorehouse(g, t) {
   const [x, z] = t.storeSpot, y = heightAt(x, z), s = new THREE.Group(); s.position.set(x, y, z); s.rotation.y = Math.atan2(-t.perp[0], -t.perp[1]); g.add(s);
-  const st = STYLE[t.race] || STYLE.human, race = t.race, wood = mat(st.wood), dark = mat(st.dark), roofC = race === 'woodelf' ? LEAF[0] : st.roof;
+  const st = (STYLE[t.people] || STYLE[t.race] || STYLE.human), race = t.race, wood = mat(st.wood), dark = mat(st.dark), roofC = race === 'woodelf' ? LEAF[0] : st.roof;
   box(s, 7.8, 0.3, 4.6, mat(race === 'dwarf' ? shade(st.stone, 0.82) : st.stone, 0.95), 0, 0.15, 0);
   for (const px of [-3.4, 0, 3.4]) for (const pz of [-1.9, 1.9]) {
     if (race === 'highelf') { cyl(s, 0.2, 0.24, 3.4, mat(st.wall2, 0.7), px, 2.0, pz, 8); box(s, 0.5, 0.18, 0.5, mat(st.trim, 0.4, 0.75), px, 3.6, pz); }
@@ -346,7 +350,7 @@ function buildStorehouse(g, t) {
 // the Master Builder's yard: plans table, planks and cut stone
 function buildYard(g, t) {
   const [x, z] = t.yardSpot, y = heightAt(x, z), s = new THREE.Group(); s.position.set(x, y, z); s.rotation.y = Math.atan2(t.perp[0], t.perp[1]); g.add(s);
-  const st = STYLE[t.race] || STYLE.human;
+  const st = (STYLE[t.people] || STYLE[t.race] || STYLE.human);
   box(s, 2.2, 0.12, 1.2, mat('#7a5a3a'), 0, 1.0, 1.2); for (const [px, pz] of [[-1, 0.7], [1, 0.7], [-1, 1.7], [1, 1.7]]) cyl(s, 0.06, 0.06, 1, mat('#4a3020'), px, 0.5, pz, 5);
   box(s, 1.4, 0.02, 0.9, mat('#e8dcb0'), 0, 1.08, 1.2);
   for (let i = 0; i < 6; i++) box(s, 3.2, 0.14, 0.35, mat('#9a7650'), -1.2, 0.08 + i * 0.15, -0.8 + (i % 2) * 0.05);
@@ -361,7 +365,7 @@ function buildYard(g, t) {
 }
 // what a town gains with each upgrade: plaza, market, smithy, temple, keep, lamps and statues
 function townExtras(g, t, lvl) {
-  const st = STYLE[t.race] || STYLE.human, ag = Math.atan2(t.dir[1], t.dir[0]);
+  const st = (STYLE[t.people] || STYLE[t.race] || STYLE.human), ag = Math.atan2(t.dir[1], t.dir[0]);
   const polar = (a, r) => [t.x + Math.cos(ag + a) * r, t.z + Math.sin(ag + a) * r];
   const place = (x, z, rot) => { const s = new THREE.Group(); s.position.set(x, heightAt(x, z), z); s.rotation.y = rot; g.add(s); return s; };
   const face = (x, z) => Math.atan2(t.x - x, t.z - z);
@@ -466,7 +470,7 @@ function buildInner(t, lvl) {
   }
   townExtras(g, t, lvl);
   // barracks / training yard
-  { const a = ag + Math.PI * 0.55, x = t.x + Math.cos(a) * 16, z = t.z + Math.sin(a) * 16; t.barracks = [x, z]; const st = STYLE[t.race]; const y = heightAt(x, z); const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = Math.atan2(t.x - x, t.z - z); g.add(b);
+  { const a = ag + Math.PI * 0.55, x = t.x + Math.cos(a) * 16, z = t.z + Math.sin(a) * 16; t.barracks = [x, z]; const st = STYLE[t.people] || STYLE[t.race]; const y = heightAt(x, z); const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = Math.atan2(t.x - x, t.z - z); g.add(b);
     box(b, 7, 3.2, 5, mat(t.race === 'highelf' ? st.wall2 : st.stone, 0.95), 0, 1.6, 0); const r = cone(b, 5.4, 2.4, mat(st.roof, 0.85), 0, 4.4, 0, 4, Math.PI / 4); r.scale.set(1.3, 1, 0.9);
     for (const xx of [-2.5, 2.5]) { cyl(b, 0.08, 0.08, 4, mat('#4a3020'), xx, 2, -3.4, 5); } const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1), mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide })); fl.position.set(-2.5 + 0.7, 3.4, -3.4); b.add(fl);
     addBox(x, z, 3.6, 2.6, Math.atan2(t.x - x, t.z - z), 'house'); }
@@ -499,7 +503,7 @@ class Structure {
   }
   build() {
     for (const c of [...this.root.children]) this.root.remove(c);
-    const t = this.town, st = STYLE[t.race] || STYLE.human, g = new THREE.Group(), l = this.level;
+    const t = this.town, st = (STYLE[t.people] || STYLE[t.race] || STYLE.human), g = new THREE.Group(), l = this.level;
     const mStone = mat(st.stone, 0.95), mWood = mat(st.wood), mRoof = mat(st.roof, 0.8), mTrim = mat(st.trim, 0.5, 0.6), mTeam = mat(TEAM_COLORS[t.team], 0.9, 0, { side: THREE.DoubleSide });
     if (this.kind === 'tower') {
       const H = 10 + l * 1.5;
@@ -661,7 +665,7 @@ export class Unit {
     this.hostile = this.team !== B.myTeam; this.provoked = false; this.state = 'idle';
     this.order = opts.order || 'defend'; this.path = null; this.pi = 0; this.target = null; this.scanT = Math.random() * 0.4; this.atkCd = rand(0.2, 1);
     this.action = null; this.actionT = 0; this.off = rand(-3.2, 3.2); this.hitFlash = 0;
-    const app = { race: town.race, kind: def.kind || 'person', sex: 'm', spec: unitSpec(def.spec, TEAM_COLORS[town.team], town.race), skin: def.skin, hair: '#2a1a10', hairStyle: Math.floor(Math.random() * 3), beard: town.race === 'dwarf' ? 2 : Math.random() < 0.3 ? 1 : 0, build: def.kind === 'troll' ? 0 : rand(0, 0.6) };
+    const own = town.people && town.people !== town.race, app = { race: own ? town.people : town.race, kind: def.kind || 'person', sex: 'm', spec: unitSpec(def.spec, TEAM_COLORS[town.team], town.race), skin: own ? undefined : def.skin, /* the newer peoples' troops look like their own people */ hair: '#2a1a10', hairStyle: Math.floor(Math.random() * 3), beard: town.race === 'dwarf' ? 2 : Math.random() < 0.3 ? 1 : 0, build: def.kind === 'troll' ? 0 : rand(0, 0.6) };
     if (opts.app) Object.assign(app, opts.app);
     const ch = def.quad ? buildQuad(def.quad, def.col || '#8a8a90', def.size || 1.2) : buildHumanoid(app);
     if (def.quad) {}
@@ -910,13 +914,13 @@ function routeOut(u, dest) { return dest; }
 function routeHome(u, dest) { return dest; }
 
 // ---------- AI heroes ----------
-const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior' };
+const AI_CLASS = { human: 'warrior', orc: 'berserker', highelf: 'wizard', woodelf: 'ranger', dwarf: 'warrior', barbarian: 'berserker', halfling: 'rogue', gnome: 'enchanter', darkelf: 'necromancer' };
 const CLASS_HERO = { cleric: { wt: 'maceshield', range: 0 }, paladin: { wt: 'swordshield', range: 0 }, darkknight: { wt: 'greatsword', range: 0 }, druid: { wt: 'froststaff', range: 22, proj: 'frost' }, monk: { wt: 'fists', range: 0 }, bard: { wt: 'sword', range: 0 }, rogue: { wt: 'daggers', range: 0 }, necromancer: { wt: 'arcanestaff', range: 22, proj: 'arcane' }, elementalist: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 }, enchanter: { wt: 'arcanestaff', range: 22, proj: 'arcane' }, beastmaster: { wt: 'handaxes', range: 0 }, shaman: { wt: 'spear', range: 0 }, musketeer: { wt: 'musket', range: 26, proj: 'bullet' }, warrior: { wt: 'swordshield', range: 0, proj: null }, berserker: { wt: 'greataxe', range: 0 }, ranger: { wt: 'bow', range: 24, proj: 'arrow' }, wizard: { wt: 'firestaff', range: 22, proj: 'fire', splash: 3 } };
 export function heroUnitDef(cls) { const H = CLASS_HERO[cls] || CLASS_HERO.warrior; return { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } }; }
 function makeAIHero(t) {
-  const cls = t.heroCls || AI_CLASS[t.race] || 'warrior', H = CLASS_HERO[cls];
+  const cls = t.heroCls || AI_CLASS[t.people] || AI_CLASS[t.race] || 'warrior', H = CLASS_HERO[cls];
   const def = { id: 'hero', name: 'Hero', role: H.range ? 'ranged' : 'melee', hp: 330, dmg: 24, cd: H.range ? 1.4 : 1.1, speed: 5.4, range: H.range, proj: H.proj, splash: H.splash, wt: H.wt, tier: 2, armor: 0.25, size: 1, pop: 0, cost: { gold: 0 } };
-  const app = { cls, outfit: cls, spec: undefined, sex: Math.random() < 0.3 ? 'f' : 'm' };
+  const app = { cls, outfit: cls, spec: undefined, sex: Math.random() < 0.3 ? 'f' : 'm', race: t.people || t.race };
   const u = new Unit(t, def, t.x, t.z + 0.01, { hero: true, lv: 1, app, order: 'defend' });
   u.model.root.scale.setScalar(1.05);
   u.heroName = (t.heroName || ['Aldric', 'Grommash', 'Faelar', 'Sylvaine', 'Borin'][Math.floor(Math.random() * 5)]); u.heroLv = 1; u.xp = 0; u.cls = cls; u.abilCd = 6;
@@ -1252,9 +1256,9 @@ export function initBattle(scene) {
   const used = {};
   SETUP.towns.forEach((cfg, i) => {
     const L = LAYOUT.towns[i];
-    const race = cfg.race || 'human'; used[race] = (used[race] || 0);
+    const people = cfg.race || 'human', race = TOWN_BASE[people] || people; used[people] = (used[people] || 0); /* race: how the town is built; people: who lives there */
     const t = Object.assign({}, L, { race, ai: MP.on ? !!cfg.ai : (i !== 0 && cfg.ai !== false), owner: MP.on && cfg.owner != null && !(cfg.members || [cfg.owner]).includes(MP.myId) ? cfg.owner : null, members: MP.on ? (cfg.members || (cfg.owner != null ? [cfg.owner] : [])).slice() : [], diff: cfg.diff || 'normal', team: cfg.team ?? i, level: 0, units: [], queue: [], towerSpots: L.towers, bank: Object.assign({}, ECON.start), dead: false, isMe: i === meIdx, roster: ROSTERS[race] || ROSTERS.human });
-    t.name = cfg.name || TOWN_NAMES[race][used[race]++ % 4]; t.color = TEAM_COLORS[t.team]; t.heroCls = cfg.cls;
+    t.people = people; t.name = cfg.name || TOWN_NAMES[people][used[people]++ % 4]; t.color = TEAM_COLORS[t.team]; t.heroCls = cfg.cls;
     B.towns.push(t);
   });
   for (const t of B.towns) {

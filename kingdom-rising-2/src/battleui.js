@@ -297,12 +297,12 @@ export function scoreboard(on) {
   let d = document.getElementById('scoreb');
   if (!on) { if (d) d.remove(); clearInterval(scoreboard.iv); return; }
   if (!d) { d = el('div', ''); d.id = 'scoreb'; document.body.appendChild(d); }
-  const RN2 = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
+  const RN2 = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf', barbarian: 'Barbarian', halfling: 'Halfling', gnome: 'Gnome', darkelf: 'Dark Elf' };
   const fill = () => {
     const rows = [], p = G.player, h = G.save, my = myTown();
     if (p && h) rows.push({ me: true, name: h.name, cls: CLASSES[h.cls].name, race: RN2[h.race] || h.race, lv: h.level, town: my, hp: p.hp, mhp: p.maxHp, dead: p.dead, k: h.kills || 0, de: h.deaths || 0, gear: gearScore(h), who: 'Player' });
     for (const r of MP.remotes.values()) { const t = r.town, info = r.info || {}; rows.push({ name: r.heroName, cls: CLASSES[info.cls] ? CLASSES[info.cls].name : '', race: RN2[info.race] || '', lv: r.lv || 1, town: t, hp: r.hp, mhp: r.maxHp, dead: r.dead, k: r.kills || 0, de: r.deaths || 0, who: 'Player' }); }
-    for (const t of B.towns) if (t.hero && t.ai) { const u = t.hero; rows.push({ name: u.heroName || u.udef.name, cls: CLASSES[u.cls] ? CLASSES[u.cls].name : 'Hero', race: RN2[t.race], lv: u.heroLv || 1, town: t, hp: u.hp, mhp: u.maxHp, dead: u.dead, k: u.kills || 0, de: u.deaths || 0, who: 'Computer' }); }
+    for (const t of B.towns) if (t.hero && t.ai) { const u = t.hero; rows.push({ name: u.heroName || u.udef.name, cls: CLASSES[u.cls] ? CLASSES[u.cls].name : 'Hero', race: RN2[t.people || t.race], lv: u.heroLv || 1, town: t, hp: u.hp, mhp: u.maxHp, dead: u.dead, k: u.kills || 0, de: u.deaths || 0, who: 'Computer' }); }
     rows.sort((a, b) => (a.town.team - b.town.team) || (a.who === 'Player' ? -1 : 1) || b.lv - a.lv);
     d.innerHTML = `<div class="sbh"><b>Kingdom Battles</b><span>${fmtT(B.time)} · ${B.towns.filter(t => !t.dead).length} kingdoms standing</span></div>
       <div class="sbr sbk"><span></span><span>Hero</span><span>Class</span><span>Lv</span><span>Town</span><span>Health</span><span>Kills</span><span>Deaths</span></div>` +

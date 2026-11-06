@@ -246,8 +246,8 @@ function finish() {
 }
 
 // ---------- Kingdom Battles setup ----------
-const RACE_NAME = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
-const RACE_BLURB = { human: 'Timber and stone town · Footmen, Archers, Musketeers, Knights', orc: 'Spiked palisades · Axe Brutes, Crossbowmen, Shamans, Warlords', highelf: 'White and gold spires · Spearguards, Longbows, Battle Mages, Blademasters', woodelf: 'Living-wood walls · Wardens, Sharpshooters, Druids, Ancients', dwarf: 'Iron and stone · Ironshields, Thunderers, Ironbreakers, Rune Priests' };
+const RACE_NAME = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf', barbarian: 'Barbarian', halfling: 'Halfling', gnome: 'Gnome', darkelf: 'Dark Elf' };
+const RACE_BLURB = { human: 'Timber and stone town · Footmen, Archers, Musketeers, Knights', orc: 'Spiked palisades · Axe Brutes, Crossbowmen, Shamans, Warlords', highelf: 'White and gold spires · Spearguards, Longbows, Battle Mages, Blademasters', woodelf: 'Living-wood walls · Wardens, Sharpshooters, Druids, Ancients', dwarf: 'Iron and stone · Ironshields, Thunderers, Ironbreakers, Rune Priests' , barbarian: 'Longhouses behind spiked palisades · fights with the Orc warbands', halfling: 'Snug timber town · fights with the Human army', gnome: 'Clockwork stone halls · fights with the Dwarf army', darkelf: 'Shadowed spires · fights with the High Elf army' };
 let BS = null;
 // what Kingdom Battles is about, shown on the setup screen and when a match begins
 export const BATTLE_GOAL = `<div class="bsgh">👑 The objective</div><p class="bsgl">Your kingdom has called you to war. Do its bidding, survive, and rise above every other kingdom.</p>
@@ -305,7 +305,7 @@ function renderBattleSetup() {
     if (i > 1) { const x = el('button', 'btn bsx', '✕'); x.title = 'Remove'; x.onclick = () => { S.click(); BS.towns.splice(i, 1); renderBattleSetup(); }; row.appendChild(x); }
     list.appendChild(row);
   });
-  if (BS.towns.length < 4) { const a = el('button', 'btn bsadd', '+ Add a computer opponent'); a.onclick = () => { S.click(); BS.towns.push({ race: BATTLE_RACES[(BS.towns.length * 2) % 5], ai: true, diff: 'normal', team: BS.towns.length }); renderBattleSetup(); }; list.appendChild(a); }
+  if (BS.towns.length < 4) { const a = el('button', 'btn bsadd', '+ Add a computer opponent'); a.onclick = () => { S.click(); BS.towns.push({ race: BATTLE_RACES[(BS.towns.length * 2) % BATTLE_RACES.length], ai: true, diff: 'normal', team: BS.towns.length }); renderBattleSetup(); }; list.appendChild(a); }
   const tm = el('label', 'bsteams', `<input type="checkbox" ${BS.teams ? 'checked' : ''}> <span>Teams (otherwise everyone for themselves)</span>`); tm.querySelector('input').onchange = (e) => { BS.teams = e.target.checked; if (!BS.teams) BS.towns.forEach((t, i) => t.team = i); renderBattleSetup(); }; list.appendChild(tm);
   // map preview: towns on a ring, you at the bottom
   const N = BS.towns.length, R = 70, pts = BS.towns.map((t, i) => { const a = Math.PI / 2 + i * Math.PI * 2 / N; return [100 + Math.cos(a) * R, 100 + Math.sin(a) * R]; });

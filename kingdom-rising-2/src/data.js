@@ -412,7 +412,7 @@ export const DUAL_MASTERY = [
 export function dualRank(kills) { let r = 1; for (const m of DUAL_MASTERY) if (kills >= m.kills) r = m.rank; return r; }
 
 export const TIERS = [
-  { name: 'Driftwood', metal: 'Rusty', col: '#7d6f62', lvl: 1 },
+  { name: 'Driftwood', metal: 'Plain', col: '#7d6f62', lvl: 1 },
   { name: 'Copper', metal: 'Copper', col: '#c27a45', lvl: 1, ingot: 'copper_ingot' },
   { name: 'Iron', metal: 'Iron', col: '#9aa1a8', lvl: 5, ingot: 'iron_ingot' },
   { name: 'Steel', metal: 'Steel', col: '#c8d0d8', lvl: 9, ingot: 'steel_ingot' },
@@ -546,7 +546,7 @@ export const ARMOR_NAMES = {
 export const ARMOR_TIER_NAMES = {
   cloth: ['Ragged', 'Linen', 'Woven', 'Silk', 'Starweave', 'Archmage'],
   leather: ['Worn', 'Hide', 'Tanned', 'Hardened', 'Shadowhide', 'Wildlord'],
-  mail: ['Rusty', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
+  mail: ['Plain', 'Copper', 'Iron', 'Steel', 'Mithril', 'Starmetal'],
 };
 export const ARMOR_SLOT_LIST = Object.keys(ARMOR_SLOTS);
 export const SLOT_LABEL = Object.assign({ back: 'Back', w1: 'Main Hand', w2: 'Off Hand', w3: 'Main Hand', w4: 'Off Hand', ranged: 'Set 2', food: 'Food', drink: 'Drink', neck: 'Neck (no longer worn)', ring: 'Ring (no longer worn)', ring1: 'Ring', ring2: 'Ring', trinket: 'Charm (no longer worn)', shoulders: 'Shoulders (no longer worn)', wrists: 'Arms' }, ARMOR_SLOTS);

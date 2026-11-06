@@ -16,7 +16,7 @@ import { angDiff } from './util.js';
 export const MP = { on: false, host: false, client: false, net: null, myId: 0, code: '', players: new Map(), slots: [], remotes: new Map() };
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
-const RN = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf' };
+const RN = { human: 'Human', orc: 'Orc', highelf: 'High Elf', woodelf: 'Wood Elf', dwarf: 'Dwarf', barbarian: 'Barbarian', halfling: 'Halfling', gnome: 'Gnome', darkelf: 'Dark Elf' };
 export function send(d) { if (MP.net) MP.net.send(d); }
 
 // ---------------- lobby ----------------

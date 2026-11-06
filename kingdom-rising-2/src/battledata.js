@@ -14,8 +14,14 @@ export const TOWN_NAMES = {
   highelf: ['Silverspire', 'Aelindor', 'Sunreach', 'Lunathiel'],
   woodelf: ['Thornwood', 'Glimmerglade', 'Mossheart', 'Ellowyn'],
   dwarf: ['Ironhold', 'Khaz Durim', 'Stonebeard Deep', 'Grimforge'],
+  barbarian: ['Frosthall', 'Wolfsgard', 'Skjoldheim', 'Ravenfjord'],
+  halfling: ['Bramblebottom', 'Little Hollow', 'Pipeweed Green', 'Thistledown'],
+  gnome: ['Cogsworth', 'Gearspring', 'Tinkerton', 'Sprocketvale'],
+  darkelf: ['Umbraleth', "Nyx'Varal", 'Shadowdeep', 'Veil of Thorns'],
 };
-export const BATTLE_RACES = ['human', 'orc', 'highelf', 'woodelf', 'dwarf'];
+export const BATTLE_RACES = ['human', 'orc', 'highelf', 'woodelf', 'dwarf', 'barbarian', 'halfling', 'gnome', 'darkelf'];
+// the newer peoples build like their nearest kin (walls, buildings, troops) in their own colours
+export const TOWN_BASE = { barbarian: 'orc', halfling: 'human', gnome: 'dwarf', darkelf: 'highelf' };
 
 // unit stat lines. lvl = town level needed. range 0 = melee. spec = clothing. wt = weapon model.
 // hp/dmg are at town level 0; every town level adds 12%.

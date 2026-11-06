@@ -76,6 +76,7 @@ function boot() {
   composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: settings.quality === 'low' ? 0 : 4 })); // (multisampled: smooth edges even through the post effects)
   composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
+  { const bs = bloom.setSize.bind(bloom); bloom.setSize = (w, h) => bs(Math.max(1, w >> 1), Math.max(1, h >> 1)); } // (the glow at half resolution: it is soft anyway, and much cheaper)
   composer.addPass(new OutputPass());
   // a final colour grade: a gentle S-curve, a little more colour, warm highlights and cool shadows, a soft vignette
   grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, amount: { value: 1 }, sepia: { value: 0 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',

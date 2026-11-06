@@ -32,6 +32,10 @@ const SPEC = {
   beastmaster: { shirt: '#4a3a28', vest: '#6a5034', pants: '#3c3024', boots: '#3a2416', belt: '#2a1a10', bracers: '#6a5034', bareArms: true },
 };
 export function arenaSpec(cls) { return SPEC[cls] || null; }
+// each class's build (see BODY in character.js): brutes, knights, heavies, athletes, lean casters, sturdy priests
+const BUILD = { berserker: 'brute', beastmaster: 'brute', warrior: 'knight', paladin: 'knight', darkknight: 'knight', blunderbuss: 'heavy', shaman: 'heavy',
+  rogue: 'athlete', ranger: 'athlete', monk: 'athlete', musketeer: 'athlete', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
+export function arenaBody(cls) { return BUILD[cls] || 'athlete'; }
 
 // ---- signature pieces ----
 const bone = () => M('#e6dcc4', 0.6), iron = (c = '#3a3a40') => M(c, 0.4, 0.85), gold = () => M('#d8b04a', 0.35, 0.85), fur = (c) => M(c, 1);

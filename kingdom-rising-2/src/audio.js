@@ -116,6 +116,10 @@ const ri = (n) => 1 + Math.floor(Math.random() * n);
 // ---------------- SOUND EFFECTS ----------------
 export const S = {
   click() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.06, o.node, { type: 'triangle', f: 900, f2: 600, gain: 0.12 }); },
+  // the arena's hit confirm: a crisp, bright tick on every hit; a heavier double knock on a kill
+  hitTick(kill, crit) { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now();
+    tone(t, 0.05, o.node, { type: 'square', f: crit ? 1900 : 1500, f2: crit ? 1500 : 1100, gain: 0.06 }); noise(t, 0.03, o.node, { type: 'highpass', f: 4000, gain: 0.12 });
+    if (kill) { tone(t + 0.02, 0.22, o.node, { type: 'sine', f: 180, f2: 70, gain: 0.45 }); tone(t + 0.1, 0.18, o.node, { type: 'triangle', f: 880, f2: 660, gain: 0.12 }); noise(t + 0.02, 0.14, o.node, { type: 'lowpass', f: 900, gain: 0.35 }); } },
   hover() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.04, o.node, { type: 'sine', f: 1400, gain: 0.04 }); },
   swing(size = 1, pos) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();

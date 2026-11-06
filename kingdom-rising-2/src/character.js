@@ -17,6 +17,24 @@ export function limbGeo(r1, r2, len, seg = 12) {
     return new THREE.LatheGeometry(pts, seg);
   });
 }
+// a sculpted limb: a radius profile down its length ([t 0..1, radius]) with rounded ends (shoulder caps, knuckles of the
+// joints), so arms and legs have deltoids, biceps, forearm muscle, thighs and calves instead of being plain tubes
+export function shapeLimb(key, prof, len, seg = 14) {
+  return cached('shp' + key + len.toFixed(3), () => { const pts = [], r0 = prof[0][1], r1 = prof[prof.length - 1][1], n = 4;
+    for (let i = n; i >= 1; i--) { const a = (i / n) * Math.PI / 2; pts.push(V2(Math.max(0.0001, Math.cos(a) * r1), -len - Math.sin(a) * r1 * 0.6)); }
+    for (let i = prof.length - 1; i >= 0; i--) pts.push(V2(prof[i][1], -prof[i][0] * len));
+    for (let i = 1; i <= n; i++) { const a = (i / n) * Math.PI / 2; pts.push(V2(Math.max(0.0001, Math.cos(a) * r0), Math.sin(a) * r0 * 0.7)); }
+    pts[0].x = 0.0001; pts[pts.length - 1].x = 0.0001; return new THREE.LatheGeometry(pts, seg); });
+}
+// body types for the arena heroes: each class its own build and size, like the heroes of Smite or Marvel Rivals
+export const BODY = {
+  brute: { sw: 1.38, thick: 1.42, armL: 1.08, legL: 1.0, torsoH: 1.12, head: 0.9, mus: 1.5, h: 1.09 },
+  knight: { sw: 1.26, thick: 1.22, armL: 1.04, legL: 1.04, torsoH: 1.06, head: 0.92, mus: 1.2, h: 1.05 },
+  heavy: { sw: 1.28, thick: 1.34, armL: 1.02, legL: 0.9, torsoH: 1.04, head: 0.95, mus: 1.15, h: 0.98 },
+  athlete: { sw: 1.12, thick: 1.0, armL: 1.03, legL: 1.08, torsoH: 1.02, head: 0.92, mus: 1.08, h: 1.02 },
+  lean: { sw: 1.02, thick: 0.9, armL: 1.04, legL: 1.1, torsoH: 1.06, head: 0.92, mus: 0.9, h: 1.05 },
+  sturdy: { sw: 1.12, thick: 1.08, armL: 1.02, legL: 1.02, torsoH: 1.04, head: 0.94, mus: 1.05, h: 1.0 },
+};
 function latheGeo(key, prof, seg = 18) { return cached(key, () => new THREE.LatheGeometry(prof.map(p => V2(Math.max(0.0001, p[0]), p[1])), seg)); }
 const sphereGeo = (r, w = 16, h = 12) => cached(`sph${r}_${w}_${h}`, () => new THREE.SphereGeometry(r, w, h));
 function mat(col, rough = 0.75, metal = 0, extra = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color: col, roughness: rough, metalness: metal }, extra)); }
@@ -265,6 +283,8 @@ export function buildHumanoid(app = {}) {
   if (app.race === 'goblin') { R.sw = 0.17; R.thick = 0.85; R.legL = 0.62; R.armL = 0.6; R.head = 1.35; R.torsoH = 0.52; R.neck = 0.04; }
   if (female) { R.sw *= 0.88; R.hw *= 1.12; R.thick *= 0.88; }
   R.sw *= 1 + build * 0.13; R.thick *= 1 + build * 0.22;
+  const hero = kind === 'person' && app.body && BODY[app.body], mus = hero ? hero.mus : 1; // (arena heroes: a sculpted body in their class's build)
+  if (hero) { R.sw *= hero.sw; R.thick *= hero.thick; R.armL *= hero.armL; R.legL *= hero.legL; R.torsoH *= hero.torsoH; R.head *= hero.head; R.hw *= 1 + (hero.thick - 1) * 0.5; }
   if (kind === 'troll') { R.sw = 0.32; R.hw = 0.16; R.legL = 0.75; R.armL = 0.82; R.thick = 1.9; R.head = 1.15; R.torsoH = 0.62; }
   if (kind === 'skeleton') { R.thick = 0.45; }
   if (kind === 'imp') { R.thick = 0.8; R.head = 1.35; R.legL = 0.7; }
@@ -272,7 +292,7 @@ export function buildHumanoid(app = {}) {
   if (kind === 'tyrant') { R.sw = 0.3; R.hw = 0.14; R.thick = 1.6; R.head = 1.05; R.armL = 0.66; }
 
   const root = new THREE.Group(); root.name = 'humanoid';
-  const scale = (race.height || 1) * (app.height || 1) * (kind === 'person' ? 1 : 1);
+  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1);
   const body = new THREE.Group(); body.scale.setScalar(scale); root.add(body);
   const O = kind === 'person' ? outfitSpec(app) : {};
 
@@ -300,13 +320,17 @@ export function buildHumanoid(app = {}) {
   const torsoProf = female
     ? [[0.125 * T, -0.08], [0.12 * T, 0.0], [0.11 * T, 0.06], [0.15 * T, 0.18], [sw * 0.92, th * 0.85], [sw * 0.8, th + 0.02], [0.06, th + 0.06]]
     : [[0.13 * T, -0.08], [0.13 * T, 0.02], [0.15 * T, 0.12], [sw * 0.92, th * 0.8], [sw, th * 0.95], [sw * 0.75, th + 0.04], [0.07, th + 0.07]];
-  const torso = mesh(latheGeo(`torso${female}${T.toFixed(2)}${sw.toFixed(3)}${th.toFixed(2)}`, torsoProf, 20), kind === 'person' ? shirtM : skinM, chest);
+  if (hero && !female) torsoProf.splice(0, torsoProf.length, [0.118 * T, -0.08], [0.12 * T, 0.02], [0.14 * T, 0.1], [sw * 0.9, th * 0.66], [sw * 1.04, th * 0.88], [sw * 0.86, th + 0.02], [0.075 * T, th + 0.075]); // a V: broad chest, narrow waist
+  const torso = mesh(latheGeo(`torso${female}${T.toFixed(2)}${sw.toFixed(3)}${th.toFixed(2)}${hero ? 'h' : ''}`, torsoProf, 22), kind === 'person' ? shirtM : skinM, chest);
+  if (hero) { if (!female) for (const s2 of [-1, 1]) { const pec = mesh(cached('pecbox', () => { const g = new THREE.BoxGeometry(0.15, 0.09, 0.05, 2, 2, 1); const p3 = g.attributes.position; for (let i = 0; i < p3.count; i++) { const x = p3.getX(i), y = p3.getY(i); p3.setZ(i, p3.getZ(i) - (x * x * 2.2 + y * y * 3)); } g.computeVertexNormals(); return g; }), shirtM, chest, s2 * sw * 0.4, th * 0.8, 0.095 * T); pec.scale.set(sw / 0.25, 1, Math.min(1.3, mus) * T); pec.rotation.z = s2 * -0.12; /* a flat, square chest plate, not a round bulge */ }
+    const trap = mesh(latheGeo(`trap${sw.toFixed(3)}${T.toFixed(2)}`, [[sw * 0.78, 0], [sw * 0.5, 0.05], [0.07 * T, 0.11]], 16), shirtM, chest, 0, th - 0.02, -0.01); trap.scale.z = 0.62;
+    const lat = mesh(sphereGeo(0.1 * T, 12, 8), shirtM, chest, 0, th * 0.55, -0.05 * T); lat.scale.set(sw / 0.1 * 0.8, 1.2, 0.55); }
   torso.scale.z = kind === 'troll' || kind === 'golem' ? 0.85 : 0.66;
   if (female && kind === 'person') { for (const s of [-1, 1]) { const b = mesh(sphereGeo(0.065 * T, 10, 8), shirtM, chest, s * 0.065 * T / 0.88, th * 0.62, 0.075 * T); b.scale.set(1, 0.9, 0.8); } }
   if (kind === 'skeleton') { torso.material = skinM; torso.scale.set(0.8, 1, 0.55); for (let i = 0; i < 4; i++) { const rib = mesh(cached('rib', () => new THREE.TorusGeometry(0.11, 0.012, 4, 12, Math.PI * 1.4)), skinM, chest, 0, 0.05 + i * 0.07, 0); rib.rotation.x = Math.PI / 2; rib.rotation.z = -Math.PI * 0.2; rib.scale.set(1, 0.7, 1); } torso.scale.set(0.35, 1, 0.35); }
 
   const neck = pivot(chest, 0, th + 0.04, 0, 'neck');
-  mesh(limbGeo(0.045 * Math.min(T, 1.5), 0.05 * Math.min(T, 1.5), R.neck + 0.06), skinM, neck, 0, R.neck + 0.04, 0);
+  mesh(limbGeo((hero ? 0.056 : 0.045) * Math.min(T, 1.5), (hero ? 0.064 : 0.05) * Math.min(T, 1.5), R.neck + 0.06), skinM, neck, 0, R.neck + 0.04, 0);
   const head = pivot(neck, 0, R.neck + 0.05, 0, 'head');
   const hs = R.head;
   const headG = new THREE.Group(); headG.scale.setScalar(hs); head.add(headG);
@@ -319,11 +343,16 @@ export function buildHumanoid(app = {}) {
     const sh = pivot(chest, s * (sw - 0.02), th * 0.92, 0, 'shoulder' + side);
     const ua = R.armL * 0.52, fa = R.armL * 0.46;
     const uaM = (O.bareArms || kind !== 'person') ? skinM : shirtM;
+    if (hero) { const m = mus; mesh(shapeLimb(`ua${T.toFixed(2)}${m}`, [[0, 0.07 * T], [0.12, 0.075 * T * (0.96 + 0.1 * m)], [0.45, 0.062 * T * (0.9 + 0.12 * m)], [0.82, 0.05 * T], [1, 0.047 * T]], ua), uaM, sh).scale.z = 0.92; } else
     mesh(limbGeo(0.066 * T, 0.054 * T, ua), uaM, sh);
     const el = pivot(sh, 0, -ua, 0, 'elbow' + side);
-    mesh(limbGeo(0.054 * T, 0.042 * T, fa), (O.sleeves || O.robe) && kind === 'person' && !O.bareArms ? shirtM : skinM, el);
+    { const faM = (O.sleeves || O.robe) && kind === 'person' && !O.bareArms ? shirtM : skinM; if (hero) mesh(shapeLimb(`fa${T.toFixed(2)}${mus}`, [[0, 0.05 * T], [0.22, 0.056 * T * (0.94 + 0.1 * mus)], [0.6, 0.044 * T], [1, 0.033 * T]], fa), faM, el).scale.z = 0.86; else mesh(limbGeo(0.054 * T, 0.042 * T, fa), faM, el); }
     const hand = pivot(el, 0, -fa, 0, 'hand' + side);
-    const hm = mesh(sphereGeo(0.048, 10, 8), skinM, hand, 0, -0.045, 0.005); hm.scale.set(0.85 * Math.min(1.4, T), 1.25, 0.6 * Math.min(1.4, T));
+    if (hero) { const k = Math.min(1.35, 0.92 + T * 0.18); // a real hand: palm, a block of curled fingers, a thumb
+      const palm = mesh(cached('hpalm', () => new THREE.BoxGeometry(0.058, 0.066, 0.03)), skinM, hand, 0, -0.04, 0.004); palm.scale.setScalar(k);
+      const fg = mesh(cached('hfing', () => { const g = new THREE.CylinderGeometry(0.016, 0.016, 0.058, 8); g.rotateZ(Math.PI / 2); return g; }), skinM, hand, 0, -0.08 * k, 0.012 * k); fg.scale.set(k, k, k * 1.25);
+      const th2 = mesh(cached('hthumb', () => new THREE.CylinderGeometry(0.011, 0.013, 0.04, 6)), skinM, hand, s * -0.03 * k, -0.05 * k, 0.018 * k); th2.rotation.set(0.5, 0, s * 0.6); th2.scale.setScalar(k); }
+    else { const hm = mesh(sphereGeo(0.048, 10, 8), skinM, hand, 0, -0.045, 0.005); hm.scale.set(0.85 * Math.min(1.4, T), 1.25, 0.6 * Math.min(1.4, T)); }
     if (kind === 'troll' || kind === 'tyrant' || kind === 'imp') { for (let i = 0; i < 3; i++) { const cl = mesh(cached('claw2', () => new THREE.ConeGeometry(0.012, 0.06, 4)), mat('#2a2a20'), hand, (i - 1) * 0.02, -0.1, 0.02); cl.rotation.x = Math.PI; } }
     const grip = pivot(hand, 0, -0.06, 0.01, 'grip' + side);
     grip.rotation.x = Math.PI / 2; // weapon +Y points forward when arm hangs
@@ -336,12 +365,15 @@ export function buildHumanoid(app = {}) {
     const side = s < 0 ? 'R' : 'L';
     const tl = R.legL * 0.5, sl = R.legL * 0.47;
     const thigh = pivot(hips, s * R.hw, 0, 0, 'thigh' + side);
+    if (hero) mesh(shapeLimb(`th${T.toFixed(2)}${mus}`, [[0, 0.092 * T], [0.25, 0.094 * T * (0.97 + 0.05 * mus)], [0.7, 0.074 * T], [1, 0.06 * T]], tl), pantsM, thigh).scale.z = 0.9; else
     mesh(limbGeo(0.088 * T, 0.064 * T, tl), kind === 'person' ? pantsM : skinM, thigh);
     const knee = pivot(thigh, 0, -tl, 0, 'knee' + side);
+    if (hero) { const cv = mesh(shapeLimb(`sh${T.toFixed(2)}${mus}`, [[0, 0.06 * T], [0.28, 0.066 * T * (0.95 + 0.1 * mus)], [0.7, 0.048 * T], [1, 0.04 * T]], sl), O.boots ? bootM : pantsM, knee); cv.scale.z = 0.92; } else
     mesh(limbGeo(0.064 * T, 0.048 * T, sl), kind === 'person' ? (O.boots ? bootM : skinM) : skinM, knee);
     const ankle = pivot(knee, 0, -sl, 0, 'ankle' + side);
-    const foot = mesh(sphereGeo(0.06, 10, 8), kind === 'person' ? (O.boots ? bootM : skinM) : skinM, ankle, 0, -0.025, 0.05);
-    foot.scale.set(0.85 * Math.min(T, 1.5), 0.55, 1.8);
+    const foot = hero ? mesh(cached('hboot', () => new THREE.BoxGeometry(0.085, 0.06, 0.2)), O.boots ? bootM : skinM, ankle, 0, -0.03, 0.045) : mesh(sphereGeo(0.06, 10, 8), kind === 'person' ? (O.boots ? bootM : skinM) : skinM, ankle, 0, -0.025, 0.05);
+    if (hero) { foot.scale.set(Math.min(T, 1.4), 1, 1); const toe = mesh(sphereGeo(0.044, 10, 8), O.boots ? bootM : skinM, ankle, 0, -0.035, 0.135); toe.scale.set(1.0 * Math.min(T, 1.4), 0.7, 1.0); const heel = mesh(cached('hheel', () => new THREE.BoxGeometry(0.075, 0.025, 0.06)), mat('#1a120c', 0.9), ankle, 0, -0.058, -0.03); heel.scale.x = Math.min(T, 1.4); }
+    else foot.scale.set(0.85 * Math.min(T, 1.5), 0.55, 1.8);
     legs[side] = { thigh, knee, ankle };
     if (kind === 'skeleton') { thigh.children[0].scale.set(0.6, 1, 0.6); knee.children[0].scale.set(0.6, 1, 0.6); }
   }

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { CLASSES } from './data.js';
-import { arenaSpec, arenaDecor, arenaWeaponDecor, addOutline } from './arenalooks.js';
+import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline } from './arenalooks.js';
 
 const CACHE = {}; let R = null, scene = null, cam = null;
 const W = 220, H = 280;
@@ -22,7 +22,7 @@ export function classPortrait(cls) {
   if (CACHE[cls]) return CACHE[cls];
   try {
     if (!R) setup();
-    const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), skin: '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
+    const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
     try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
     animateHumanoid(ch, 0.016, { speed: 0, armed: true, ready: true }); bake(ch.root); addOutline(ch.root);
     ch.root.rotation.y = 0.45; scene.add(ch.root); ch.root.updateMatrixWorld(true);

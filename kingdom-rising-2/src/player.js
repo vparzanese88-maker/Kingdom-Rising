@@ -16,7 +16,7 @@ import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } 
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
-import { playNotes, addOutline, arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -328,7 +328,7 @@ export class Player {
     const old = this.ch; const vis = old ? old.root.visible : true;
     if (old) G.scene.remove(old.root);
     const arenaLook = this.h.arena && !this.lichForm; // Kingdom Arena: one signature look per class, no gear
-    this.ch = buildHumanoid(this.lichForm ? Object.assign({}, this.app, { kind: 'skeleton' }) : arenaLook ? Object.assign({}, this.app, { cls: this.h.cls, outfit: this.h.cls, spec: arenaSpec(this.h.cls) }) : this.app);
+    this.ch = buildHumanoid(this.lichForm ? Object.assign({}, this.app, { kind: 'skeleton' }) : arenaLook ? Object.assign({}, this.app, { cls: this.h.cls, outfit: this.h.cls, spec: arenaSpec(this.h.cls), body: arenaBody(this.h.cls) }) : this.app);
     if (arenaLook) arenaDecor(this.ch, this.h.cls);
     equipWeapon(this.ch, w ? w.wt : null, arenaLook ? 3 : w ? w.tier : 0, arenaLook ? 0 : w ? w.rarity : 0); if (arenaLook) arenaWeaponDecor(this.ch, this.h.cls);
     if (this.lichForm) { // burning green eyes and a long, dark, flowing cape
@@ -1562,6 +1562,15 @@ export class Player {
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
     G.inCombat = 6; G.target = m; this.hitT = G.time;
     this.stealth = 0;
+    if (this.h.arena && total > 0) this.hitMarker(m.dead, crit, o.melee);
+  }
+  // the arena: an X flashes on the crosshair whenever you land a hit (red and bigger on a kill), with a crisp tick and,
+  // up close, a split-second of hit-stop so every blow connects
+  hitMarker(kill, crit, melee) {
+    let e = document.getElementById('hitmk'); if (!e) { e = document.createElement('div'); e.id = 'hitmk'; e.innerHTML = '<i></i><i></i><i></i><i></i>'; document.body.appendChild(e); }
+    e.className = ''; void e.offsetWidth; e.className = kill ? 'kill' : crit ? 'crit' : 'on';
+    if (S.hitTick) S.hitTick(kill, crit); if (melee) G.hitstop = Math.max(G.hitstop || 0, kill ? 0.09 : 0.045);
+    if (kill) { V.addShake(0.25); this.fovKick = Math.max(this.fovKick, 3); }
   }
   // rare, epic and legendary weapons: a small chance per weapon hit (better with Dexterity) to set off their proc
   tryProc(m) {

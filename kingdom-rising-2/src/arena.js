@@ -15,7 +15,7 @@ import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
-import { playNotes, notesTick, addOutline, arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -393,7 +393,7 @@ class ArenaBot {
     this.status = { frozen: 0, stun: 0, slow: 0, root: 0, bleed: 0, bleedDps: 0, burn: 0, burnDps: 0, knock: V3() };
     this.def = { name: f.name, aggro: 1, boss: false, elite: false, skin: false, loot: null, size: 1, shape: 'human', armor: 0 };
     const w = h.equip.w1, wt = w ? w.wt : CLASSES[h.cls].weapons[0]; this.W = WEAPON_TYPES[wt] || WEAPON_TYPES.sword;
-    const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}), spec: arenaSpec(h.cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, h.cls);
+    const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}), spec: arenaSpec(h.cls), body: arenaBody(h.cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, h.cls);
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, 3, 0); arenaWeaponDecor(ch, h.cls); } catch (e) { /* unknown weapon model */ }
     try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } addOutline(ch.root); // (its own materials, so a hit can flash this fighter alone)
     this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;

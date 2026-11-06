@@ -538,7 +538,7 @@ export class Player {
   }
   doHit(a) {
     const W = this.W, w = this.weapon; if (!W) return;
-    let base = weaponDamage(this.h, w);
+    let base = weaponDamage(this.h, w) * Game.perkPow(Game.perkLvl(this.h, 'L'));
     const yaw = this.yaw;
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
@@ -767,13 +767,13 @@ export class Player {
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.campAb ? ab.res : undefined)) return;
-    this.cd[key] = ab.cd * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
+    this.cd[key] = ab.cd * Game.perkCd(Game.perkLvl(this.h, ab.id)) * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
     const ct = this.h.arena ? 0 : /* the arena: cooldowns only, no cast times */ G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
     const w = this.weapon, base = w ? weaponDamage(this.h, w) : 10 + this.h.level * 3;
     const rk = this.h.level >= RANK2_LEVEL ? 1.5 : 1;
-    const up = (G.abilScale ? G.abilScale(this.h.level) : 1) * (this.pk('a_' + ab.id) ? 1.5 : 1);
+    const up = (G.abilScale ? G.abilScale(this.h.level) : 1) * (this.pk('a_' + ab.id) ? 1.5 : 1) * Game.perkPow(Game.perkLvl(this.h, ab.id)); // (arena perks)
     const f = this.fwd();
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
@@ -1020,7 +1020,7 @@ export class Player {
 
   // the musket: a fast ball with smoke and a kick; an aimed shot hits much harder and goes exactly where you point
   fireGun(charge, aimed, mult = 1, pierce = false) {
-    const w = this.weapon, base = weaponDamage(this.h, w);
+    const w = this.weapon, base = weaponDamage(this.h, w) * Game.perkPow(Game.perkLvl(this.h, 'L'));
     // the muzzle in the world. In first person the gun model lives in its own view-model scene, so its position there
     // means nothing in the world: work the muzzle out from the camera instead (centred under the eye when aiming)
     let from;
@@ -1455,7 +1455,7 @@ export class Player {
     c.t += dt; if (c.t < 0.3) return;
     const cost = this.h.arena ? 0 : (G.newFx ? 12 + (this.weapon.dmg || 9) * 0.6 : 16) * dt; if (this.mana < cost) /* campaign: a stronger staff pours out more power and burns more mana (about 17 a second for a driftwood staff, 60 for the best) */ { if (c.on) G.hooks.toast && G.hooks.toast('Out of mana', '💧', 'bad'); if (c.snd) c.snd.stop(); this.channel = null; return; }
     this.mana -= cost; this.manaUseT = 1; c.on = true; this.atk = null;
-    const el = this.h.arena && this.h.cls === 'necromancer' ? 'poison' : (W.element || 'fire'), base = weaponDamage(this.h, this.weapon); // (the necromancer's held staff sprays poison)
+    const el = this.h.arena && this.h.cls === 'necromancer' ? 'poison' : (W.element || 'fire'), base = weaponDamage(this.h, this.weapon) * Game.perkPow(Game.perkLvl(this.h, 'L')); // (the necromancer's held staff sprays poison)
     const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.13, -1.25).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main && this.ch.weapons.main.userData.tip ? this.ch.weapons.main.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos());
     const dir = this.aimDir(from);
     if (!c.snd) { c.snd = S.spellLoop(el === 'poison' ? 'frost' : el); }

@@ -14,6 +14,7 @@ import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import * as Icons from './icons.js';
+import { classPortrait } from './portraits.js';
 import { playNotes, notesTick, addOutline, arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -48,6 +49,13 @@ export const ARENA_KITS = {
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'],
   elementalist: ['cauterize', 'callflame', 'frostbind'], enchanter: ['enchanter_xd0', 'phantasm', 'mesmerize'], beastmaster: ['wildheal', 'warbeast', 'feralroar'],
 };
+// perks: saved per class for you; computer fighters spread theirs (a little more on their damage or their heals)
+export const PERK_KEY = 'kr2_arena_perks';
+export function loadPerks(cls) { try { const all = JSON.parse(localStorage.getItem(PERK_KEY) || '{}'); if (all[cls]) return Object.assign({ L: 0, R: 0, F: 0, C: 0, Q: 0 }, all[cls]); } catch (e) { /* no storage */ } return { L: 3, R: 2, F: 2, C: 3, Q: 2 }; }
+export function savePerks(cls, p) { try { const all = JSON.parse(localStorage.getItem(PERK_KEY) || '{}'); all[cls] = p; localStorage.setItem(PERK_KEY, JSON.stringify(all)); } catch (e) { /* no storage */ } }
+function botPerks(cls) { const p = { L: 0, R: 0, F: 0, C: 0, Q: 0 }, w = SUPPORT_CLS_K.has(cls) ? { L: 2, R: 2, F: 4, C: 2, Q: 2 } : { L: 4, R: 2, F: 2, C: 3, Q: 1 }; let pts = Game.PERK_POINTS;
+  while (pts > 0) { const tot = Object.values(w).reduce((a, b) => a + b, 0); let r = Math.random() * tot, k = 'L'; for (const s2 in w) { r -= w[s2]; if (r <= 0) { k = s2; break; } } if (p[k] < Game.PERK_MAX) { p[k]++; pts--; } } return p; }
+const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', 'enchanter']);
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
 export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'sh_lshield', wizard: 'phaseshift', cleric: 'divineaegis', paladin: 'shieldofl',
   darkknight: 'gravewall', druid: 'barkward', monk: 'innerpeace', bard: 'lullaby', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace' };
@@ -100,7 +108,7 @@ export function arenaHero(slot, name) {
   const R = RACES[slot.race] || RACES.human, sex = Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
-  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls);
+  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaPerks = slot.you || slot.owner != null ? loadPerks(slot.cls) : botPerks(slot.cls);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
   for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(w.wt, top, 3), { uid: w.uid }); }
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);
@@ -175,6 +183,26 @@ function revive(f, place) {
 }
 // ---------- changing class during the match (K) ----------
 function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
+// P: perks. Spend points on your own five keys to make them stronger (in the holding room, or while you wait to respawn)
+export function openPerks(UI) {
+  const p = G.player, h = p.h, cls = h.cls, canEdit = A.state === 'pick' || !A.me.alive; h.arenaPerks = h.arenaPerks || loadPerks(cls);
+  const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · perks', '', 'big');
+  const ab = (id) => ABILITIES[cls].find(a => a.id === id), W = p.W;
+  const rows = [['L', 'LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', 'Your basic attack hits harder.', null],
+    ['R', 'RMB', h.arenaRmb === 'aim' ? 'Aim down the barrel' : ab(h.arenaRmb) ? ab(h.arenaRmb).name : 'Block', h.arenaRmb === 'aim' ? 'Sighted shots hit harder.' : 'A stronger defence that comes back sooner.', h.arenaRmb && h.arenaRmb !== 'aim' ? h.arenaRmb : 'shieldwall'],
+    ...['F', 'C', 'Q'].map((k, i) => { const a = ab((h.arenaKit || [])[i]); return [k, k, a ? a.name : '-', 'Stronger and comes back sooner.', a && a.id]; })];
+  const draw = () => { const P = h.arenaPerks, used = Object.values(P).reduce((x, y) => x + y, 0), left = Game.PERK_POINTS - used;
+    c.innerHTML = '';
+    c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> of ${Game.PERK_POINTS} points left${canEdit ? '' : ' <span class="dim">· you can change perks in the holding room or while you wait to respawn</span>'}</div>`);
+    const list = elx('div', 'perklist');
+    for (const [k, key, name, what, icon] of rows) { const lv = P[k] || 0, r = elx('div', 'perkrow');
+      r.innerHTML = `<div class="kitk">${key}</div><div class="kiti">${icon ? Icons.abilityIcon(icon) : ''}</div><div class="kitt"><b>${name}</b><span>${what} Now <b style="color:#9fe08a">+${lv * 8}% power</b>${k !== 'L' ? `, <b style="color:#9fd0ff">-${lv * 5}% cooldown</b>` : ''}</span></div><div class="perkpips">${Array.from({ length: Game.PERK_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div>`;
+      const minus = elx('button', 'btn perkb', '−'), plus = elx('button', 'btn gold perkb', '+'); minus.disabled = !canEdit || lv <= 0; plus.disabled = !canEdit || lv >= Game.PERK_MAX || left <= 0;
+      minus.onclick = () => { P[k] = lv - 1; savePerks(cls, P); S.click(); draw(); }; plus.onclick = () => { P[k] = lv + 1; savePerks(cls, P); S.click(); draw(); };
+      r.append(minus, plus); list.appendChild(r); }
+    c.appendChild(list); c.insertAdjacentHTML('beforeend', '<p class="dim" style="margin-top:8px">Each point: +8% damage, healing or shielding for that key, and abilities come back 5% sooner. Saved for this class.</p>'); };
+  draw();
+}
 // I or H: what every one of your keys does
 export function openKitInfo(UI) {
   const p = G.player, h = p.h, W = p.W, cls = h.cls, c = UI.openWin('arenakit', CLASSES[cls].name + ' · your abilities', '', 'big');
@@ -196,7 +224,7 @@ export function openClassPicker(UI) {
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
   const g = elx('div', 'ygrid');
   for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
-    const b = elx('button', 'ycls' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${kit}</small>`);
+    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b><small>${kit}</small>`);
     b.onclick = () => { S.click(); A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
       UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.me.alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
       else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
@@ -548,7 +576,7 @@ class ArenaBot {
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
     const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
-    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
+    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id)) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
       const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
       if (ct) { this.cast = { a, tgt, t: 0, dur: ct, wind: !!wind && !(a.t === 'heal' || a.t === 'hot'), melee, at: tgt && tgt.pos ? tgt.pos.clone() : null }; return true; } this.resolve(a, tgt); return true; };
@@ -579,7 +607,7 @@ class ArenaBot {
   power(a) { if (!a.t) { const L = LEG[a.id]; return L ? L[0] * (L[1] > 1 ? 1.2 : 1) : 0.8; } const n = a.dmg || 0; switch (a.t) { case 'flurry': return n * (a.hits || 3); case 'ground': return n * (a.ticks || 4) * 0.7; case 'curse': return n + (a.dot || 0) * (a.dotT || 0) * 0.8; case 'aura': case 'stormwalk': case 'blizzaura': return n * 8; case 'petstrike': return 2; case 'bolt': case 'drain': return n * (a.n ? 1.6 : 1); default: return n; } }
   // ---- carrying out an ability ----
   resolve(a, tgt, lockAt) {
-    if (this.dead) return; const P = (n) => this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
+    if (this.dead) return; const pkK = Game.perkPow(Game.perkLvl(this.h, a.id)); const P = (n) => pkK * this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
     const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, el };
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
@@ -596,7 +624,7 @@ class ArenaBot {
       case 'curse': { if (!T) return; anim('cast'); shot(this, T, col, () => { const dealt = hitUnit(this, T, P(a.dmg), o); if (a.dot) { if (T === G.player) G.player.debuff('poison', a.dotT || 6, P(a.dot) * PVP_K); else if (T.dots) T.dots.push({ dps: P(a.dot) * PVP_K, t: a.dotT || 6, src: this }); } drainBack(dealt, a.drain); }); return; }
       case 'ground': case 'trap': { const at = a.t === 'trap' ? me : (lockAt || (T ? T.pos : me)); anim('cast'); const ticks = a.ticks || (a.t === 'trap' ? 1 : 4); let first = true; zone(this, at, a.t === 'trap' ? 3 : 4.5, ticks + 0.2, 1, (u) => { hitUnit(this, u, P(a.dmg), first ? o : { slow: a.slow || 0, el }); }, col); setTimeout(() => { first = false; }, 1100); return; }
       case 'aura': case 'stormwalk': case 'blizzaura': { anim('castBig'); zone(this, me, a.t === 'aura' ? 6 : 7, a.dur || 8, 0.5, (u) => { const d = hitUnit(this, u, P(a.dmg) * (a.t === 'aura' ? 1 : 0.6), { slow: a.slow || 0, stun: Math.random() < 0.15 ? (a.stun || 0) : 0, el }); drainBack(d, a.drain); }, col, true); return; }
-      case 'heal': case 'hot': { const who = tgt || this, amt = (a.self || a.pct || 0.25) * who.maxHp; anim('castUp'); if (a.t === 'heal') healUnit(who, amt, this); else if (who === this) this.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 }); else if (who === G.player) G.player.addRegen ? G.player.addRegen(a.pct || 0.25, a.dur || 8) : healUnit(who, amt, this); else who.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 });
+      case 'heal': case 'hot': { const who = tgt || this, amt = (a.self || a.pct || 0.25) * who.maxHp * pkK; anim('castUp'); if (a.t === 'heal') healUnit(who, amt, this); else if (who === this) this.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 }); else if (who === G.player) G.player.addRegen ? G.player.addRegen(a.pct || 0.25, a.dur || 8) : healUnit(who, amt, this); else who.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 });
         if (a.ally || SUPPORT_CLS.has(this.cls)) for (const u of alliesOf(this)) if (u !== who && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < (a.r || 10)) { healUnit(u, (a.ally || 0.15) * u.maxHp, this); if (a.notes) playNotes(G.scene, u, '#ffd860', 5); }
         if (a.notes) { playNotes(G.scene, this, '#ffd860', 8); S.cast && S.cast('holy', me, 0.6); } else V.burst('heal', me.clone().setY(me.y + 1.2), 20, { speed: 2, vy: 2 }); return; }
       case 'buff': { anim('cast'); const k = a.buff; if (k === 'avatar') { this.av = a.av || { dmg: 1.3, taken: 0.8 }; this.addBuff('avatar', a.dur || 12); } else if (k && k.startsWith('form')) this.addBuff('form', a.dur || 20); else if (k === 'barrier') { this.addBuff('barrier', a.dur || 12); this.barrier = this.maxHp * (a.amount || 0.25); } else if (k) this.addBuff(k, a.dur || 8);
@@ -730,11 +758,11 @@ function renderHud(force) {
   const chips = (isFFA() && teams.length > 6 ? teams.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 6) : teams).map(t => `<span class="arc${t === G.myTeam ? ' me' : ''}" style="--tc:${teamCol(t)}"><i></i>${isFFA() ? teamName(t) : COLOR_NAMES[t]}<b>${sc(t)}</b></span>`).join('');
   const mm = Math.floor((A.clock || 0) / 60), ss = String(Math.floor((A.clock || 0) % 60)).padStart(2, '0');
   let mid = '';
-  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Buff up · <kbd>K</kbd> class · <kbd>Y</kbd> ready`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
+  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Buff up · <kbd>P</kbd> perks · <kbd>K</kbd> class · <kbd>Y</kbd> ready`}</span></div><button class="btn" id="arPerks">Perks <kbd>P</kbd></button>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
   const me = A.me, dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
   const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
-  if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; }
+  if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; const pb = hudEl.querySelector('#arPerks'); if (pb) pb.onclick = () => { S.click(); A.hooks.perks && A.hooks.perks(); }; }
 }
 export function scoreTable() {
   const rows = A.F.slice().sort((a, b) => (b.team === a.team ? 0 : a.team - b.team) || b.kills - a.kills);

@@ -61,6 +61,7 @@ let abilEls = null;
 export function buildAbilityBar() {
   // one dock at the bottom centre: level badge beside the bars, the hotbar, a thin XP line under it
   if (G.newFx && !document.querySelector('#bottom .barsrow')) { const bt = $('bottom'), row = el('div', 'barsrow'); bt.insertBefore(row, bt.firstChild); row.append($('lvl'), $('bars')); bt.appendChild($('xpbar')); }
+  if (ARENA) { const row = document.querySelector('.barsrow'); if (row && !row.classList.contains('arhp')) { row.classList.add('arhp'); $('bottom').parentNode.appendChild(row); } } // the arena: health big and alone in the bottom-left corner, abilities along the bottom
   const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = '';
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));

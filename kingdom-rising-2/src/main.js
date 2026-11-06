@@ -377,7 +377,7 @@ async function startArena() {
   startGame(Arena.playerHero());
   G.player.camDistT = G.player.camDist = 3.4; // over the shoulder, like New World (V switches to first person)
   G.hooks.allyFx = Arena.allyFx;
-  Arena.initArena({ openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
+  Arena.initArena({ perks: () => Arena.openPerks(UI), openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
     revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead, cd = G.player ? G.player.camDistT : 3; startGame(h); G.player.camDistT = G.player.camDist = cd; G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
 }
 function startBattle() {
@@ -755,7 +755,8 @@ function input() {
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if (ARENA && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do
-      if (ARENA && ['KeyJ', 'KeyM', 'KeyP', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
+      if (ARENA && e.code === 'KeyP') { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // P: perks
+      if (ARENA && ['KeyJ', 'KeyM', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest

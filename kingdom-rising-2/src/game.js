@@ -602,3 +602,10 @@ export function gearStock(h) {
 }
 export function copyGear(it) { return Object.assign(JSON.parse(JSON.stringify(it)), { uid: ++uid }); }
 export function buyPrice(id) { return Math.max(2, ITEMS[id].value * 3); }
+
+// Kingdom Arena perks: points spent on your own five keys (left click, right click, F, C, Q); each level makes that
+// key 8% stronger (damage, heals, shields) and, for abilities, 5% quicker to come back
+export const PERK_SLOTS = ['L', 'R', 'F', 'C', 'Q'], PERK_POINTS = 12, PERK_MAX = 5;
+export function perkSlot(h, id) { if (!h || !h.arenaKit) return null; const k = h.arenaKit.indexOf(id); return k >= 0 ? ['F', 'C', 'Q'][k] : id === h.arenaRmb ? 'R' : null; }
+export function perkLvl(h, id) { const s = id === 'L' ? 'L' : perkSlot(h, id); return s && h.arenaPerks ? h.arenaPerks[s] || 0 : 0; }
+export const perkPow = (lv) => 1 + 0.08 * lv, perkCd = (lv) => 1 - 0.05 * lv;

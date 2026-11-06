@@ -1,4 +1,5 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
+import { classPortrait } from './portraits.js';
 import { CLASS_STORY } from './classlore.js';
 import * as THREE from 'three';
 import { NEW_CLASSES } from './classes2.js';
@@ -341,7 +342,7 @@ export function showArenaSetup() {
 function renderArenaSetup() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
-  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Everyone fights at level 20 in the best gear, with their class's three abilities on F, C and Q. Press K in the arena to change class.</p>`));
+  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Pick a class. Every class has its own attack, a right-click defence, a heal on F, a pet or big hit on C and a crowd control on Q, all on cooldowns. Spend perk points with P in the holding room; K changes class.</p>`));
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
   const fw = el('div', 'arsec', '<h3>Format</h3>'); const fg = el('div', 'arseg');
@@ -356,6 +357,10 @@ function renderArenaSetup() {
   const fixed = O[AS.objective].lives === 'one';
   const lw = el('div', 'arseg small'); for (const [k, nm, d] of [['one', 'One life', 'fall once and you are out'], ['respawn', 'Respawning', 'back in 6 seconds after you fall']]) { const on = fixed ? k === 'one' : (AS.lives || O[AS.objective].lives) === k; const b = el('button', 'seg' + (on ? ' on' : '') + (fixed && k !== 'one' ? ' off' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { if (fixed) { S.error(); return; } S.click(); AS.lives = k; renderArenaSetup(); }; lw.appendChild(b); }
   ow.appendChild(lw); panel.appendChild(ow);
+  // your champion: a portrait for every class
+  { const you = AS.slots.find(x => x.you) || AS.slots[0], pw = el('div', 'arsec', `<h3>Your class <small>${CLASSES[you.cls].name}: ${Arena.kitOf(you.cls).map(id => (ABILITIES[you.cls].find(x => x.id === id) || {}).name).filter(Boolean).join(' · ')}</small></h3>`), grid = el('div', 'pgrid');
+    for (const c of Object.keys(CLASSES)) { const b = el('button', 'pcard' + (you.cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
+    pw.appendChild(grid); panel.appendChild(pw); }
   // fighters
   const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');
   const teams = fmt.ffa ? ['all'] : [...new Set(AS.slots.map(s => s.team))]; // free for all: one list, a colour dot each

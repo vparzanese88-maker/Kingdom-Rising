@@ -1,11 +1,11 @@
 // Online play with no game server: browsers connect straight to each other (WebRTC via PeerJS). The free
 // public PeerJS broker only introduces them by a 4-letter code. The host relays every message to everyone
 // else, so each player talks to the host only (up to 3 friends).
-const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ', PREFIX = 'kr2b-', MAX = 3;
+const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ', PREFIX = 'kr2b-', MAX = 3; // (Kingdom Arena allows up to 11 friends: new Net(11))
 const newCode = () => Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
 
 export class Net {
-  constructor() { this.role = null; this.id = null; this.code = null; this.h = {}; this.peer = null; this.conns = new Map(); this.conn = null; }
+  constructor(max = MAX) { this.max = max; this.role = null; this.id = null; this.code = null; this.h = {}; this.peer = null; this.conns = new Map(); this.conn = null; }
   static available() { return !!(window.peerjs && window.peerjs.Peer && window.RTCPeerConnection); }
   on(ev, fn) { this.h[ev] = fn; }
   emit(ev, ...a) { if (this.h[ev]) this.h[ev](...a); }
@@ -28,7 +28,7 @@ export class Net {
     conn.on('data', m => {
       if (!m) return;
       if (m.t === 'hello' && id === null) {
-        for (let i = 1; i <= MAX; i++) if (!this.conns.has(i)) { id = i; break; }
+        for (let i = 1; i <= this.max; i++) if (!this.conns.has(i)) { id = i; break; }
         if (id === null) { try { conn.send({ t: 'error', msg: 'That game is full.' }); } catch (e) { /* closed */ } setTimeout(() => conn.close(), 300); return; }
         this.conns.set(id, conn);
         conn.send({ t: 'joined', code: this.code, id });

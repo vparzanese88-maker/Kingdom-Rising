@@ -370,7 +370,8 @@ function campaignSetup() {
   G.itemSlots = 0; G.xpReq = campaignXp; document.body.classList.add('battlefx');
 }
 // Kingdom Arena: your fighter (level 20, best gear, 20 skill points), then the match
-function startArena() {
+async function startArena() {
+  await Arena.prepareArena(); // online: the lobby first
   startGame(Arena.playerHero());
   G.player.camDistT = G.player.camDist = 3.4; // over the shoulder, like New World (V switches to first person)
   G.hooks.allyFx = Arena.allyFx;

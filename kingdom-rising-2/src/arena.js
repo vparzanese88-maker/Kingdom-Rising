@@ -16,6 +16,8 @@ import { heightAt } from './terrain.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
+import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy } from './arenanet.js';
+const AUTH = () => !AN.on || AN.host; // the host (or a single player) runs the match
 const BUILDS = 'kr2_arena_builds';
 
 export const COLORS_LIST = COLORS, COLOR_NAMES_LIST = COLOR_NAMES;
@@ -91,18 +93,23 @@ function botSpend(h, team) {
 }
 
 // ---------------- start ----------------
+let FINAL = null;
+// online: the lobby decides the fighters before the hero is made
+export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
+const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  A.hooks = hooks; A.setup = readArena(); const s = A.setup; G.fovTrim = 10;
+  A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
   A.target = s.objective === 'dm' ? (isFFA() ? 10 : 15 + 5 * Math.min(2, (FORMATS[s.fmt].size || 1) - 1)) : s.objective === 'ctf' ? 3 : s.objective === 'koth' ? 100 : s.objective === 'rounds' ? 2 : 1;
   const used = new Set();
-  s.slots.forEach((sl, i) => { let nm = sl.name; if (!nm) { do nm = BOT_NAMES[(Math.random() * BOT_NAMES.length) | 0]; while (used.has(nm)); } used.add(nm); A.F.push({ i, name: sl.you ? (sl.name || 'You') : nm, cls: sl.cls, race: sl.race, team: sl.team, you: !!sl.you, kills: 0, deaths: 0, dmg: 0, heal: 0, alive: true, respawnT: 0 }); });
+  s.slots.forEach((sl, i) => { let nm = sl.name; if (!nm) { do nm = BOT_NAMES[(Math.random() * BOT_NAMES.length) | 0]; while (used.has(nm)); } used.add(nm); const you = AN.on ? sl.owner === AN.myId : !!sl.you; A.F.push({ i, name: sl.owner != null || you ? (sl.name || (you ? 'You' : 'Fighter')) : nm, cls: sl.cls, race: sl.race, team: sl.team, you, owner: sl.owner, kills: 0, deaths: 0, dmg: 0, heal: 0, alive: true, respawnT: 0 }); });
+  A.me = A.F.find(f => f.you) || A.me; AN.meIndex = A.me.i;
   for (const t of teamsOf()) { A.score[t] = 0; A.roundWins[t] = 0; }
-  G.myTeam = A.F[0].team;
+  G.myTeam = A.me.team;
   // the computer fighters
-  for (const f of A.F) if (!f.you) { const h = arenaHero(f, f.name); f.bot = new ArenaBot(f, h); }
+  for (const f of A.F) { if (f.you) continue; if (f.owner != null) f.rem = new RemoteFighter(f); else if (AUTH()) { const h = arenaHero(f, f.name); f.bot = new ArenaBot(f, h); } else f.rem = new BotProxy(f); } // other players, and the host's computer fighters
   // capture the flag: every side sends at least one raider, the rest split between raiding and guarding
   for (const t of teamsOf()) A.F.filter(f => f.team === t && f.bot).forEach((f, i) => { f.bot.role = i % 2 === 0 ? 'attack' : 'defend'; });
   A.timeLimit = ['dm', 'ctf', 'koth'].includes(s.objective) ? 480 : Infinity; // 8 minutes, then the leader wins (a tie goes to sudden death)
@@ -111,10 +118,11 @@ export function initArena(hooks) {
   AR.gates.forEach((g, k) => { const t = teamsOf()[k]; if (g.banner && t != null && !isFFA()) g.banner.material.color.set(teamCol(t)); });
   if (s.objective === 'ctf') for (const t of teamsOf()) A.flags.push(makeFlag(t));
   if (s.objective === 'koth') AR.hill.material.opacity = 0.75;
-  const P = G.player; if (P) { P.arenaF = A.F[0]; }
+  const P = G.player; if (P) { P.arenaF = A.me; }
+  if (AN.on) { AN.h.data = onNet; AN.h.left = playerLeft; AN.h.hostLeft = () => { A.hooks.banner && A.hooks.banner('The host left', 'Back to the main screen in a moment'); setTimeout(() => { location.href = location.pathname; }, 4000); }; }
   placeAll(); startPick(PICK_T);
 }
-export function playerHero() { const s = readArena(), sl = s.slots[0]; return arenaHero(sl, sl.name || 'You'); }
+export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name || 'You'); }
 function spawnOf(f) {
   const R = AR.R;
   if (isFFA()) { const n = A.F.length, a = f.i / n * Math.PI * 2; return { x: Math.sin(a) * (R - 5), z: Math.cos(a) * (R - 5), yaw: Math.atan2(-Math.sin(a), -Math.cos(a)) }; }
@@ -126,27 +134,28 @@ function revive(f, place) {
   if (f.you && A.nextCls) applyClass();
   const sp = spawnOf(f); f.alive = true; f.respawnT = 0;
   if (f.you) { const p = G.player; if (!p) return; p.spectate = false; p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.db = {}; if (place) p.place(sp.x, sp.z, sp.yaw); A.hooks.revived && A.hooks.revived(); }
-  else f.bot.revive(sp);
+  else if (f.bot) f.bot.revive(sp);
+  else if (f.owner != null && AN.host) nsend({ t: 'revive', to: f.owner }); // a player revives on their own machine
 }
 // ---------- changing class during the match (K) ----------
-function applyClass() { const f = A.F[0]; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; }
+function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
 export function openClassPicker(UI) {
-  const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.F[0].alive;
+  const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
   const g = elx('div', 'ygrid');
   for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
-    const b = elx('button', 'ycls' + ((A.nextCls || A.F[0].cls) === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${kit}</small>`);
-    b.onclick = () => { S.click(); A.nextCls = k === A.F[0].cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
-      UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.F[0].alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.F[0]); p.place(sp.x, sp.z, sp.yaw); } }
+    const b = elx('button', 'ycls' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${kit}</small>`);
+    b.onclick = () => { S.click(); A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
+      UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.me.alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
       else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
     g.appendChild(b); }
   c.appendChild(g);
 }
 function elx(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); }
-export function readyUp() { if (A.state === 'pick') A.t = Math.min(A.t, 3.5); }
-function autoSpend() { const h = G.save; if (!h || Game.classPoints(h) <= 0) return; const left = Game.classPoints(h); botSpend(h, A.F.filter(o => o.team === A.F[0].team).length > 1); Game.autoFillHotbar(h); G.player.refreshStatsOnly && G.player.refreshStatsOnly(); A.hooks.rebuildBar && A.hooks.rebuildBar(); A.hooks.toast && A.hooks.toast(`${left} unspent skill point${left > 1 ? 's were' : ' was'} spent for you`, '✦', 'gold'); }
-function startFight() { A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; cheer(1.6); S.battleCry && S.battleCry(); A.hooks.closeBook && A.hooks.closeBook(); A.hooks.banner && A.hooks.banner(A.setup.objective === 'rounds' ? `Round ${A.round}` : OBJECTIVES[A.setup.objective].name, 'Fight!'); for (const f of A.F) if (f.bot) f.bot.prebuff(); }
+function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); if (AN.on && AN.host) nsend({ t: 'pick', n: t }); }
+export function readyUp() { if (A.state === 'pick' && AUTH()) A.t = Math.min(A.t, 3.5); }
+function autoSpend() { const h = G.save; if (!h || Game.classPoints(h) <= 0) return; const left = Game.classPoints(h); botSpend(h, A.F.filter(o => o.team === A.me.team).length > 1); Game.autoFillHotbar(h); G.player.refreshStatsOnly && G.player.refreshStatsOnly(); A.hooks.rebuildBar && A.hooks.rebuildBar(); A.hooks.toast && A.hooks.toast(`${left} unspent skill point${left > 1 ? 's were' : ' was'} spent for you`, '✦', 'gold'); }
+function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; cheer(1.6); S.battleCry && S.battleCry(); A.hooks.closeBook && A.hooks.closeBook(); A.hooks.banner && A.hooks.banner(A.setup.objective === 'rounds' ? `Round ${A.round}` : OBJECTIVES[A.setup.objective].name, 'Fight!'); for (const f of A.F) if (f.bot) f.bot.prebuff(); }
 
 // ---------------- every frame ----------------
 export function updateArena(dt) {
@@ -154,9 +163,10 @@ export function updateArena(dt) {
   updateColosseum(dt);
   if ((A.crowdT = (A.crowdT || 0) - dt) <= 0) { A.crowdT = 0.12; crowdBed(0.05 + Math.min(1.4, AR.cheer) * 0.28); } // the crowd murmurs, and roars when blood is spilled
   const p = G.player;
-  if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.F[0]); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0) startFight(); }
-  else if (A.state === 'fight') { A.clock += dt; objectives(dt); respawns(dt); }
-  else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(6); } }
+  if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.me); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); }
+  else if (A.state === 'fight') { A.clock += dt; if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
+  else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0 && AUTH()) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(6); } }
+  if (AN.on) netTick(dt);
   // dead: fly around and watch (WASD, Space up, C down, Shift faster)
   if (p && p.dead && A.state !== 'over') { if (!p.spectate && (p.deadT || 0) > 1.4) { p.spectate = true; p.pos.y += 2.5; }
     if (p.spectate) { const k = G.keys, sp = (k.ShiftLeft || k.ShiftRight ? 26 : 12) * dt;
@@ -168,15 +178,15 @@ export function updateArena(dt) {
   if (p && !p.dead) { p.spectate = false; const d = Math.hypot(p.pos.x, p.pos.z); if (d > AR.R - 0.9) { p.pos.x *= (AR.R - 0.9) / d; p.pos.z *= (AR.R - 0.9) / d; } }
   // the camera never goes behind the arena wall: it slides in along the ring instead
   if (G.camera && p && !p.dead) { const c = G.camera.position, d = Math.hypot(c.x, c.z), lim = AR.R - 0.4; if (d > lim) { c.x *= lim / d; c.z *= lim / d; } }
-  updateShots(dt); updateZones(dt); for (const fl of A.flags) updateFlag(fl, dt);
+  updateShots(dt); updateZones(dt); for (const fl of A.flags) { if (AUTH()) updateFlag(fl, dt); else { fl.grp.position.copy(fl.pos); fl.cloth.rotation.y = Math.sin(G.time * 3 + fl.team) * 0.3; } }
   renderHud();
 }
 function respawns(dt) {
   if (A.lives === 'one') return;
-  for (const f of A.F) if (!f.alive) { f.respawnT -= dt; if (f.respawnT <= 0) revive(f, true); }
+  for (const f of A.F) if (!f.alive && !f.left) { f.respawnT -= dt; if (f.respawnT <= 0) revive(f, true); }
 }
 export function fighterDied(f, killer) {
-  if (!f.alive || A.state !== 'fight') return; f.alive = false; f.deaths++; f.respawnT = RESPAWN_T;
+  if (!f.alive || A.state !== 'fight' || !AUTH()) return; f.alive = false; f.deaths++; f.respawnT = RESPAWN_T;
   const k = killer && killer.arenaF ? killer.arenaF : killer && killer.owner && killer.owner.arenaF ? killer.owner.arenaF : null;
   if (k && k !== f) { k.kills++; if (A.setup.objective === 'dm') A.score[k.team] = (A.score[k.team] || 0) + (k.team === f.team ? 0 : 1); }
   feed(k ? `<b style="color:${teamCol(k.team)}">${k.name}</b> ⚔ <b style="color:${teamCol(f.team)}">${f.name}</b>` : `<b style="color:${teamCol(f.team)}">${f.name}</b> fell`);
@@ -184,16 +194,16 @@ export function fighterDied(f, killer) {
   if (f.you) A.hooks.playerDown && A.hooks.playerDown(A.lives === 'one' ? 0 : RESPAWN_T);
   checkWin();
 }
-export function playerDied() { const p = G.player; fighterDied(A.F[0], p && p.lastHitBy && G.time - (p.lastHitAt || 0) < 8 ? p.lastHitBy : null); }
+export function playerDied() { const p = G.player, k = p && p.lastHitBy && G.time - (p.lastHitAt || 0) < 8 ? p.lastHitBy : null; if (AUTH()) fighterDied(A.me, k); else { A.me.alive = false; A.me.respawnT = RESPAWN_T; nsend({ t: 'died', k: k && k.arenaF ? k.arenaF.i : -1 }); } }
 function aliveTeams() { return teamsOf().filter(t => A.F.some(f => f.team === t && f.alive)); }
 function checkWin() {
   if (A.state !== 'fight') return;
   const o = A.setup.objective;
-  if (A.lives === 'one') { const at = aliveTeams(); if (at.length <= 1) { const w = at[0]; if (o === 'rounds' && w != null) { A.roundWins[w]++; if (A.roundWins[w] < A.target) { A.state = 'roundEnd'; A.t = 4; A.hooks.banner && A.hooks.banner(`${teamName(w)} wins round ${A.round}`, `${Object.entries(A.roundWins).map(([t, n]) => `${teamName(+t)} ${n}`).join(' · ')}`); cheer(1.5); return; } } return finish(w); } }
+  if (A.lives === 'one') { const at = aliveTeams(); if (at.length <= 1) { const w = at[0]; if (o === 'rounds' && w != null) { A.roundWins[w]++; if (A.roundWins[w] < A.target) { A.state = 'roundEnd'; A.t = 4; bannerAll(`${teamName(w)} wins round ${A.round}`, `${Object.entries(A.roundWins).map(([t, n]) => `${teamName(+t)} ${n}`).join(' · ')}`); cheer(1.5); return; } } return finish(w); } }
   if (o === 'dm' || o === 'ctf' || o === 'koth') { for (const t of teamsOf()) if ((A.score[t] || 0) >= A.target) return finish(t);
-    if (A.clock >= A.timeLimit) { const sc = teamsOf().map(t => [t, A.score[t] || 0]).sort((a, b) => b[1] - a[1]); if (sc.length < 2 || sc[0][1] > sc[1][1]) return finish(sc[0][0]); if (!A.sudden) { A.sudden = true; A.hooks.banner && A.hooks.banner('Sudden death', 'The next point wins'); cheer(1.2); } } }
+    if (A.clock >= A.timeLimit) { const sc = teamsOf().map(t => [t, A.score[t] || 0]).sort((a, b) => b[1] - a[1]); if (sc.length < 2 || sc[0][1] > sc[1][1]) return finish(sc[0][0]); if (!A.sudden) { A.sudden = true; bannerAll('Sudden death', 'The next point wins'); cheer(1.2); } } }
 }
-function finish(w) { A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
+function finish(w) { if (AN.on && AN.host) nsend({ t: 'over', w }); A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
 
 // ---------------- objectives ----------------
 function objectives(dt) {
@@ -201,8 +211,9 @@ function objectives(dt) {
   if (o === 'koth') { const on = new Set(); for (const f of A.F) if (f.alive) { const q = posOf(f); if (Math.hypot(q.x, q.z) < 7) on.add(f.team); }
     A.hillOwner = on.size === 1 ? [...on][0] : on.size > 1 ? 'contested' : null;
     if (A.hillOwner != null && A.hillOwner !== 'contested') { A.hillAcc = (A.hillAcc || 0) + dt; if (A.hillAcc >= 1) { A.hillAcc -= 1; A.score[A.hillOwner] = (A.score[A.hillOwner] || 0) + 1; } }
-    AR.hill.material.color.set(A.hillOwner == null ? '#ffffff' : A.hillOwner === 'contested' ? '#ff8a30' : teamCol(A.hillOwner)); AR.hill.material.opacity = 0.55 + Math.sin(G.time * 4) * 0.2; checkWin(); }
+    paintHill(); checkWin(); }
 }
+function paintHill() { if (A.setup.objective !== 'koth') return; AR.hill.material.color.set(A.hillOwner == null ? '#ffffff' : A.hillOwner === 'contested' ? '#ff8a30' : teamCol(A.hillOwner)); AR.hill.material.opacity = 0.55 + Math.sin(G.time * 4) * 0.2; }
 // capture the flag: a banner on a pole at each team's gate
 function makeFlag(t) {
   const k = teamsOf().indexOf(t), g = AR.gates[k % 4], home = V3(g.x * 0.86, AR.Y, g.z * 0.86);
@@ -217,7 +228,7 @@ function updateFlag(fl, dt) {
   if (A.state !== 'fight') { fl.grp.position.copy(fl.pos); return; }
   if (fl.carrier) { const q = posOf(fl.carrier); fl.pos.set(q.x, AR.Y + 1.2, q.z);
     const mine = A.flags.find(x => x.team === fl.carrier.team);
-    if (mine && mine.atHome && Math.hypot(q.x - mine.home.x, q.z - mine.home.z) < 2.4) { A.score[fl.carrier.team]++; feed(`<b style="color:${teamCol(fl.carrier.team)}">${fl.carrier.name}</b> captured the <b style="color:${teamCol(fl.team)}">${COLOR_NAMES[fl.team]}</b> banner!`); cheer(2); A.hooks.banner && A.hooks.banner('Banner captured!', `${teamName(fl.carrier.team)}: ${A.score[fl.carrier.team]} of ${A.target}`); fl.carrier = null; fl.pos.copy(fl.home); fl.atHome = true; checkWin(); } }
+    if (mine && mine.atHome && Math.hypot(q.x - mine.home.x, q.z - mine.home.z) < 2.4) { A.score[fl.carrier.team]++; feed(`<b style="color:${teamCol(fl.carrier.team)}">${fl.carrier.name}</b> captured the <b style="color:${teamCol(fl.team)}">${COLOR_NAMES[fl.team]}</b> banner!`); cheer(2); bannerAll('Banner captured!', `${teamName(fl.carrier.team)}: ${A.score[fl.carrier.team]} of ${A.target}`); fl.carrier = null; fl.pos.copy(fl.home); fl.atHome = true; checkWin(); } }
   else { if (!fl.atHome) { fl.dropT -= dt; if (fl.dropT <= 0) { fl.pos.copy(fl.home); fl.atHome = true; } }
     for (const f of A.F) { if (!f.alive) continue; const q = posOf(f); if (Math.hypot(q.x - fl.pos.x, q.z - fl.pos.z) > 1.6) continue;
       if (f.team === fl.team) { if (!fl.atHome) { fl.pos.copy(fl.home); fl.atHome = true; feed(`<b style="color:${teamCol(f.team)}">${f.name}</b> returned their banner`); } }
@@ -226,10 +237,11 @@ function updateFlag(fl, dt) {
 }
 
 // ---------------- helpers shared by bots and the player ----------------
-const posOf = (f) => f.you ? G.player.pos : f.bot.pos;
-const hpOf = (f) => f.you ? G.player.hp / G.player.maxHp : f.bot.hp / f.bot.maxHp;
-const unitOf = (f) => f.you ? G.player : f.bot;
-function feed(html) { A.feed.unshift({ html, t: G.time }); A.feed.length = Math.min(A.feed.length, 6); }
+const unitOf = (f) => f.you ? G.player : (f.bot || f.rem);
+const posOf = (f) => unitOf(f).pos;
+const hpOf = (f) => { const u = unitOf(f); return u.hp / u.maxHp; };
+function bannerAll(a, b) { A.hooks.banner && A.hooks.banner(a, b); if (AN.on && AN.host) nsend({ t: 'banner', a, b }); }
+function feed(html, local) { A.feed.unshift({ html, t: G.time }); A.feed.length = Math.min(A.feed.length, 6); if (AN.on && AN.host && !local) nsend({ t: 'feed', h: html }); }
 // every hit from a computer fighter on the player goes through the same PvP rules as an online player's hit
 function hitPlayer(src, raw, o) {
   const p = G.player; if (!p || p.dead) return 0; const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
@@ -244,7 +256,7 @@ function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (u === G.player) 
 // the player's own heals and buffs that reach allies (healing spells with an area, songs, totems...)
 export function allyFx(at, [r, heal, kind, dur], up) {
   const R = r * Math.sqrt(up); V.ring(at, R, heal ? '#80ff90' : '#80d8ff', 0.7);
-  for (const f of A.F) if (!f.you && f.alive && f.team === G.myTeam && Math.hypot(f.bot.pos.x - at.x, f.bot.pos.z - at.z) < R) { if (heal) healUnit(f.bot, f.bot.maxHp * heal * up, G.player); if (kind) buffUnit(f.bot, kind === 'haste' ? 'swind' : kind, (dur || 8) * up); }
+  for (const f of A.F) { const u = unitOf(f); if (!f.you && f.alive && f.team === G.myTeam && u && Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < R) { if (heal) healUnit(u, u.maxHp * heal * up, G.player); if (kind) buffUnit(u, kind === 'haste' ? 'swind' : kind, (dur || 8) * up); } }
 }
 
 // ---------------- projectiles and lingering areas (bots) ----------------
@@ -266,6 +278,7 @@ function shot(src, tgt, col, onHit, big, kind) {
   kind = kind || (src.W && src.W.kind === 'bow' && !big ? 'arrow' : src.W && src.W.kind === 'gun' && !big ? 'bullet' : col === SHOT_COL.frost ? 'frost' : 'orb');
   const m = shotMesh(kind, col, big), from = src.pos.clone().setY(src.pos.y + 1.35).addScaledVector(V3(Math.sin(src.yaw), 0, Math.cos(src.yaw)), 0.6);
   m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0, kind, speed: kind === 'bullet' ? 46 : kind === 'arrow' ? 32 : 22 });
+  if (AN.on && AN.host && src.arenaF) nsend({ t: 'shot', f: src.arenaF.i, to: tgt === G.player ? A.me.i : tgt.arenaF ? tgt.arenaF.i : -1, k: kind, c: col, b: big ? 1 : 0 });
 }
 function updateShots(dt) {
   for (let i = A.shots.length - 1; i >= 0; i--) { const s = A.shots[i]; s.t += dt; const tp = s.tgt.pos.clone().setY(s.tgt.pos.y + 1.1), d = tp.clone().sub(s.m.position), L = d.length();
@@ -345,7 +358,7 @@ class ArenaBot {
     this.hitT = 0.32; for (const m of this.flashMats) { if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } }
     { const at = this.pos.clone().setY(this.pos.y + 1.15), kind = o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : o.el ? 'arcane' : this.D.armor > 120 ? 'spark' : 'blood'; V.burst(kind, at, o.melee || dmg > this.maxHp * 0.08 ? 14 : 7, { speed: 3.5 }); }
     if (src && src.pos && !o.el) { const d = this.pos.clone().sub(src.pos).setY(0); if (d.lengthSq() > 0.01) this.status.knock.addScaledVector(d.normalize(), o.melee ? 0.9 : 0.4); }
-    { const real = Math.min(dmg, Math.max(0, hp0)); if (src && src.arenaF) src.arenaF.dmg += real; else if (src === G.player) A.F[0].dmg += real; } // (only the health actually taken counts)
+    { const real = Math.min(dmg, Math.max(0, hp0)); if (src && src.arenaF) src.arenaF.dmg += real; else if (src === G.player) A.me.dmg += real; } // (only the health actually taken counts)
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
       if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.cast = null; this.pending = null; } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
@@ -546,6 +559,60 @@ function petTick(dt) {
   m.pos.y = AR.Y; m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.actionT = (m.actionT || 0) + dt * 2; m.animate(dt, { speed: sp, action: m.actionT < 1 ? m.action : null, actionT: m.actionT });
 }
 
+
+// ---------------- online: what goes over the wire ----------------
+const r2 = (v) => Math.round(v * 100) / 100;
+const ACT_NET = { smash: 'heavy', stabR: 'thrust1', stabL: 'thrust1', off1: 'swing1', spell: 'cast', sweep: 'swing1', spin: 'area', fury: 'area', release: 'shoot' };
+let psT = 0, bsT = 0, msT = 0;
+function netTick(dt) {
+  const p = G.player;
+  if ((psT -= dt) <= 0 && p) { psT = 1 / 15; const a = p.atk, cn = p.abCast && p.abCast.spell ? p.abCast : p.summonCast;
+    nsend({ t: 'ps', i: A.me.i, x: r2(p.pos.x), y: r2(p.pos.y), z: r2(p.pos.z), yaw: r2(p.bodyYaw), hp: Math.round(p.hp), mh: Math.round(p.maxHp), a: a ? (ACT_NET[a.name] || a.name) : '', at: a ? r2(Math.min(1, a.t)) : cn ? r2(Math.min(1, cn.t / Math.max(0.3, cn.dur))) : 0, sp: r2(Math.hypot(p.vel.x, p.vel.z)), r: p.dodge && !p.dodge.charge && p.dodge.kind !== 'step' ? r2(Math.min(1, p.dodge.t)) : null, cu: cn ? 1 : 0, d: p.dead ? 1 : 0, st: p.stealth > 0 ? 1 : 0, c: A.me.cls }); }
+  if (!AN.host) return;
+  if ((bsT -= dt) <= 0) { bsT = 1 / 12; nsend({ t: 'bs', b: A.F.filter(f => f.bot).map(f => { const b = f.bot; return [f.i, r2(b.pos.x), r2(b.pos.z), r2(b.yaw), Math.round(b.hp), Math.round(b.maxHp), b.act || '', r2(b.actT || 0), b.cast ? (b.cast.melee ? 1 : 2) : 0, r2(b.spd || 0), b.dead ? 1 : 0, b.status.stun > 0 ? 1 : 0, f.cls]; }) }); }
+  if ((msT -= dt) <= 0) { msT = 0.25; nsend({ t: 'ms', s: A.state, n: r2(A.t), c: r2(A.clock || 0), sc: A.score, rw: A.roundWins, r: A.round, sd: A.sudden ? 1 : 0, ho: A.hillOwner, al: A.F.map(f => f.alive ? 1 : 0), kd: A.F.map(f => [f.kills, f.deaths, Math.round(f.dmg), Math.round(f.heal), f.cls, r2(f.respawnT || 0)]), fl: A.flags.map(fl => [r2(fl.pos.x), r2(fl.pos.y), r2(fl.pos.z), fl.carrier ? fl.carrier.i : -1, fl.atHome ? 1 : 0]) }); }
+}
+function onNet(from, d) {
+  const F = (i) => A.F[i], U = (i) => (i != null && i >= 0 && A.F[i] ? unitOf(A.F[i]) : null);
+  switch (d.t) {
+    case 'ps': { const f = F(d.i); if (f && f.rem && !f.you) f.rem.net(d); break; }
+    case 'bs': if (!AN.host) for (const b of d.b) { const f = F(b[0]); if (f && f.rem && f.rem.netBot) f.rem.netBot(b.slice(1)); } break;
+    case 'ms': if (!AN.host) { A.state = d.s; A.t = d.n; A.clock = d.c; A.score = d.sc; A.roundWins = d.rw; A.round = d.r; A.sudden = !!d.sd; A.hillOwner = d.ho;
+      d.al.forEach((a, i) => { const f = A.F[i]; if (f && (!f.you || !a)) f.alive = !!a; });
+      d.kd.forEach((k, i) => { const f = A.F[i]; if (!f) return; f.kills = k[0]; f.deaths = k[1]; f.dmg = k[2]; f.heal = k[3]; if (!f.you) { f.cls = k[4]; f.respawnT = k[5]; } });
+      d.fl.forEach((q, i) => { const fl = A.flags[i]; if (!fl) return; fl.pos.set(q[0], q[1], q[2]); fl.carrier = q[3] >= 0 ? A.F[q[3]] : null; fl.atHome = !!q[4]; });
+      AR.gatesOpen = A.state === 'fight'; } break;
+    // a hit on my hero, from another player or the host's computer fighter (already scaled for PvP)
+    case 'hit': if (d.to === AN.myId) { const p = G.player; if (!p || p.dead) break; const src = U(d.from), [dd, o2] = pvpIncoming(p, d.d, d.o || {}), hp0 = p.hp;
+      if (dd > 0) p.takeDamage(dd, src, o2);
+      if (dd > 0 && p.abCast && p.abCast.spell && Math.random() < 0.35) { p.abCast = null; G.hooks.castBar && G.hooks.castBar(null); G.hooks.toast && G.hooks.toast('Your spell was interrupted', '✋', 'bad'); }
+      if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
+      const dealt = Math.max(0, hp0 - p.hp); if (dealt && d.from >= 0) { if (AN.host) A.F[d.from].dmg += dealt; else nsend({ t: 'dc', i: d.from, n: Math.round(dealt) }); } } break;
+    case 'dc': if (AN.host && A.F[d.i]) A.F[d.i].dmg += d.n; break;
+    case 'heal': if (d.to === AN.myId && G.player && !G.player.dead) G.player.heal(d.n, true); break;
+    case 'buff': if (d.to === AN.myId) buffUnit(G.player, d.kind, d.dur); break;
+    case 'bhit': if (AN.host) { const f = F(d.i); if (f && f.bot) f.bot.takeHit(d.dmg, U(d.from), d.o || {}); } break;
+    case 'bheal': if (AN.host) { const f = F(d.i); if (f && f.bot) f.bot.healSelf(d.n); } break;
+    case 'bbuff': if (AN.host) { const f = F(d.i); if (f && f.bot) f.bot.addBuff(d.kind, d.dur); } break;
+    case 'died': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) fighterDied(f, U(d.k)); } break;
+    case 'revive': if (d.to === AN.myId) revive(A.me, true); break;
+    case 'cls': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) f.cls = d.c; } break;
+    case 'pick': if (!AN.host) startPick(d.n); break;
+    case 'fight': if (!AN.host) startFight(); break;
+    case 'banner': if (!AN.host) A.hooks.banner && A.hooks.banner(d.a, d.b); break;
+    case 'feed': if (!AN.host) { feed(d.h, true); cheer(0.9); } break;
+    case 'over': if (!AN.host) finish(d.w); break;
+    case 'restart': if (!AN.host) restartMatch(true); break;
+    case 'shot': if (!AN.host) { const a = U(d.f), b = U(d.to); if (a && b) shot(a, b, d.c, () => {}, !!d.b, d.k); } break;
+  }
+}
+// a player left the game: their fighter leaves the arena
+function playerLeft(id) {
+  const f = A.F.find(x => x.owner === id); if (!f || f.left) return; f.left = true; f.alive = false;
+  if (f.rem) { f.rem.dead = true; f.rem.root.visible = false; const k = G.mobs.indexOf(f.rem); if (k >= 0) G.mobs.splice(k, 1); }
+  feed(`<b style="color:${teamCol(f.team)}">${f.name}</b> left the game`, !AN.host); if (AN.host) checkWin();
+}
+
 // ---------------- the HUD ----------------
 let hudEl = null, endShown = false;
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
@@ -560,7 +627,7 @@ function renderHud(force) {
   let mid = '';
   if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Your abilities are on <kbd>F</kbd> <kbd>C</kbd> <kbd>Q</kbd> · <kbd>K</kbd> change class · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
-  const me = A.F[0], dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
+  const me = A.me, dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
   const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
   if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; }
 }
@@ -570,7 +637,8 @@ export function scoreTable() {
 }
 export function toggleScores(on) { let e = document.getElementById('arscores'); if (!on) { if (e) e.remove(); return; } if (!e) { e = el('div', ''); e.id = 'arscores'; document.body.appendChild(e); } e.innerHTML = `<h3>${OBJECTIVES[A.setup.objective].name}</h3>` + scoreTable(); }
 // fight again with the same fighters, without reloading the page
-export function restartMatch() {
+export function restartMatch(fromHost) {
+  if (AN.on && !AN.host && !fromHost) return; if (AN.on && AN.host) nsend({ t: 'restart' });
   const e = document.getElementById('arenaend'); if (e) e.remove(); endShown = false;
   A.winner = null; A.sudden = false; A.round = 1; A.clock = 0; A.feed.length = 0; A.hillOwner = null; A.hillAcc = 0;
   for (const t of teamsOf()) { A.score[t] = 0; A.roundWins[t] = 0; }
@@ -585,6 +653,8 @@ function renderEnd() {
   e.innerHTML = `<div class="arendp"><div class="eyebrow">Kingdom Arena · ${OBJECTIVES[A.setup.objective].name}</div><h1 class="${won ? 'win' : 'lose'}">${A.winner == null ? 'Draw' : won ? 'Victory!' : 'Defeat'}</h1><p>${A.winner == null ? 'Nobody is left standing.' : `<b style="color:${teamCol(A.winner)}">${teamName(A.winner)}</b> ${isFFA() ? 'is the champion of the arena' : 'wins the match'}.`}</p>${scoreTable()}<div class="arbtns"><button class="btn gold big" id="arAgain">Fight again</button><button class="btn" id="arSetup">Change the match</button><button class="btn red" id="arMenu">Main menu</button></div></div>`;
   document.body.appendChild(e); if (document.pointerLockElement) document.exitPointerLock(); G.uiOpen = true;
   e.querySelector('#arAgain').onclick = () => { S.click(); restartMatch(); }; // in place: no reload, so full screen stays on
+  if (AN.on && !AN.host) { const b = e.querySelector('#arAgain'); b.disabled = true; b.textContent = 'Waiting for the host…'; }
+  if (AN.on) e.querySelector('#arSetup').style.display = 'none';
   e.querySelector('#arSetup').onclick = () => { try { sessionStorage.setItem('kr2_arena_open', '1'); } catch (er) { /* no storage */ } location.href = location.pathname; };
   e.querySelector('#arMenu').onclick = () => { location.href = location.pathname; };
 }

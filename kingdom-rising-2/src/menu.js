@@ -373,7 +373,11 @@ function renderArenaSetup() {
   panel.appendChild(tw);
   const row = el('div', 'bsbtns');
   const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); closeBattleSetup(); showTitle(); };
-  const mp = el('button', 'btn', '🌐 Online (next update)'); mp.disabled = true; mp.title = 'Online arena matches are coming in the next update';
+  const saveGo = (extra) => { const save = Object.assign({}, AS, extra); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
+  const mp = el('div', 'armp'); const hb = el('button', 'btn', '🌐 Host online'); hb.title = 'Friends join with a 4-letter code; empty places are computer fighters'; hb.onclick = () => { S.click(); saveGo({ mp: 'host' }); };
+  const ci = el('input'); ci.maxLength = 4; ci.placeholder = 'CODE'; ci.className = 'arcode'; ci.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') jb.click(); };
+  const jb = el('button', 'btn', '🔑 Join'); jb.onclick = () => { const code = ci.value.trim().toUpperCase(); if (code.length !== 4) { S.error(); ci.focus(); return; } S.click(); saveGo({ mp: 'join', code }); };
+  mp.append(hb, ci, jb);
   const go = el('button', 'btn gold big', 'Enter the arena →'); go.onclick = () => { S.click(); const save = Object.assign({}, AS); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
   row.append(back, mp, go); panel.appendChild(row);
 }

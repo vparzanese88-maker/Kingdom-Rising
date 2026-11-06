@@ -334,7 +334,7 @@ function campaignSetup() {
   const ULTS = new Set(Object.values(CLASS_TREES).flatMap(T => T.flatMap(t => t.nodes.filter(n => n.t === 'ult' && n.ab).map(n => n.ab))));
   for (const c in ABILITIES) { const caster = (CLASS_POOLS[c] || {}).uses === 'mana';
     for (const a of ABILITIES[c]) { if (!a.kit || a.song) continue;
-      if (a.t === 'heal' || a.t === 'hot') { const big = (a.self || a.pct || 0) >= 0.4 || ULTS.has(a.id); a.cd = big ? Math.max(a.cd || 0, 30) : 0; a.castT = a.t === 'heal' ? 2 : 1.5; // big heals and capstones keep a cooldown a.desc = a.desc.replace(/\.?\s*$/, '.') + ` ${a.castT} s cast, no cooldown.`; continue; }
+      if (a.t === 'heal' || a.t === 'hot') { const big = (a.self || a.pct || 0) >= 0.4 || ULTS.has(a.id); a.cd = big ? Math.max(a.cd || 0, 30) : 0; a.castT = a.t === "heal" ? 2 : 1.5; /* big heals and capstones keep a cooldown */ a.desc = a.desc.replace(/\.?\s*$/, '.') + (a.cd ? ` ${a.castT} s cast.` : ` ${a.castT} s cast, no cooldown.`); continue; }
       if (a.t !== 'buff') continue;
       const E = { ward: { ac: [15, 3], sta: [2, 0.5] }, stand: { ac: [12, 2.5] }, fort: { ac: [20, 4] }, cry: caster ? { int: [3, 0.6] } : { str: [3, 0.6] }, rage: caster ? { int: [2, 0.4] } : { str: [2, 0.4] }, focus: { haste: [15, 0] }, swind: { run: [15, 0] }, clarity: { mregen: [2, 0.1] } }[a.buff];
       if (!E) continue; // barriers, forms, Ice Block, invulnerability and the like stay short emergency buttons

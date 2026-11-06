@@ -342,7 +342,7 @@ export function showArenaSetup() {
 function renderArenaSetup() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
-  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Pick a class. Every class has its own attack, a right-click defence, a heal on F, a pet or big hit on C and a crowd control on Q, all on cooldowns. Spend perk points with P in the holding room; K changes class.</p>`));
+  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena</div><h1>Set up the fight</h1><p class="arlead">Pick a class. Every class has its own attack, a right-click defence, a heal on F, a pet or big hit on C and a crowd control on Q, all on cooldowns. You earn a perk point every 10 seconds of fighting: spend them with P on your class's ten perks. Warriors, paladins, dark knights and berserkers are tanks. K changes class.</p>`));
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
   const fw = el('div', 'arsec', '<h3>Format</h3>'); const fg = el('div', 'arseg');

@@ -605,7 +605,16 @@ export function buyPrice(id) { return Math.max(2, ITEMS[id].value * 3); }
 
 // Kingdom Arena perks: points spent on your own five keys (left click, right click, F, C, Q); each level makes that
 // key 8% stronger (damage, heals, shields) and, for abilities, 5% quicker to come back
-export const PERK_SLOTS = ['L', 'R', 'F', 'C', 'Q'], PERK_POINTS = 12, PERK_MAX = 5;
+// Kingdom Arena perks: points come with time (1 every 10 s of fighting) and buy ranks in ten perks per class.
+// h.arenaPK is the running total of what you have bought: { pow: {L,R,F,C,Q}, cd: {..}, hp, armor, speed, lifesteal, heal }
+export const PERK_SLOTS = ['L', 'R', 'F', 'C', 'Q'], PERK_MAX = 3;
 export function perkSlot(h, id) { if (!h || !h.arenaKit) return null; const k = h.arenaKit.indexOf(id); return k >= 0 ? ['F', 'C', 'Q'][k] : id === h.arenaRmb ? 'R' : null; }
-export function perkLvl(h, id) { const s = id === 'L' ? 'L' : perkSlot(h, id); return s && h.arenaPerks ? h.arenaPerks[s] || 0 : 0; }
-export const perkPow = (lv) => 1 + 0.08 * lv, perkCd = (lv) => 1 - 0.05 * lv;
+export function perkLvl(h, id, kind = 'pow') { const s = id === 'L' ? 'L' : perkSlot(h, id), P = h && h.arenaPK; return s && P && P[kind] ? P[kind][s] || 0 : 0; }
+export const perkPow = (lv) => 1 + 0.12 * lv, perkCd = (lv) => 1 - 0.1 * lv;
+export const arenaStat = (h, k) => (h && h.arenaPK && h.arenaPK[k]) || 0;
+// tanks (the heavy melee) hold the front: more health, less damage taken
+export const TANK_CLS = new Set(['warrior', 'paladin', 'darkknight', 'berserker']);
+export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * (1 + 0.08 * arenaStat(h, 'hp'));
+export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));
+export const arenaHealK = (h) => 1 + 0.1 * arenaStat(h, 'heal');
+export const arenaSpeedK = (h) => 1 + 0.04 * arenaStat(h, 'speed');

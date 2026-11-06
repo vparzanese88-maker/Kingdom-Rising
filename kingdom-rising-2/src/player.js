@@ -405,6 +405,7 @@ export class Player {
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = Game.canHold(this.h, this.weapon.wt) ? { t: 0, on: false, tick: 0, snd: null } : null; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
+    if (btn === 0 && this.h.arena && this.W && (this.W.kind === 'melee' || (this.W.kind === 'staff' && this.h.cls !== 'necromancer'))) { if (down) { this.cancelGather(); this.light(); } return; } // the arena: press or hold to keep attacking
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
       if (down) { this.cancelGather(); if (!this.dodge && !this.block) this.press = { t: 0, charging: false, melee: true }; }
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else if (pr.again) {} else if (pr.t > 0.22 && this.atk) this.queued = 'heavy'; else this.light(); }
@@ -1798,8 +1799,9 @@ export class Player {
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (G.newFx && iz < 0 ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5); /* aiming down the barrel: a slow, steady walk */
-    if (iz < 0) { spd = 2.2; sprint = false; }
+    const hero = !!this.h.arena; // Kingdom Arena plays like a hero shooter: full speed every way, always facing your aim
+    let spd = (hero ? 1.2 : 1) * (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5); /* aiming down the barrel: a slow, steady walk */
+    if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
     if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55;
@@ -1825,7 +1827,7 @@ export class Player {
       if (D.charge && D.t >= 0) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); if (D.rush) { S.chargeImpact(m.pos); G.hitstop = Math.max(G.hitstop || 0, 0.08); V.addShake(0.35); V.burst('spark', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 6 }); V.burst('dust', m.pos.clone().setY(m.pos.y + 0.3), 18, { speed: 4, size: 0.8 }); } const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, Object.assign({ knock: side.multiplyScalar(D.rush ? 7 : 9).add(D.dir.clone().multiplyScalar(D.rush ? 9 : 4)), stun: 1, big: true, melee: true }, D.extra || {})); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
       if (D.t >= 1) { this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
-      const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? (this.h.arena ? 7 : 12) : 2.5)); // (the arena: a slight Skyrim-like ease into and out of every step and strafe)
+      const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? (this.h.arena ? 10 : 12) : 2.5)); // (the arena: a slight Skyrim-like ease into and out of every step and strafe)
       this.vel.x += (md.x * spd - this.vel.x) * k; this.vel.z += (md.z * spd - this.vel.z) * k;
       if (this.lungeT > 0) { this.lungeT -= dt; const ls = 7.5 * Math.max(0, this.lungeT / 0.16); this.vel.x += this.lungeDir.x * ls * Math.min(1, dt * 30); this.vel.z += this.lungeDir.z * ls * Math.min(1, dt * 30); } // a heavy swing carries you a step forward
     }
@@ -1858,12 +1860,13 @@ export class Player {
     const hs = Math.hypot(this.vel.x, this.vel.z);
     this.speed = hs;
     if (this.onGround && hs > 0.5 && !this.dodge) { this.stepAcc += hs * dt; if (this.stepAcc > (this.sprinting ? 2.2 : 1.7)) { this.stepAcc = 0; S.step(this.swim ? 'water' : surfaceType(this.pos.x, this.pos.z, this.onSurf), null, this.sprinting ? 1.2 : 0.9); if (wl - g2.h > 0.1 && wl - g2.h < 1.4) S.step('water'); } }
+    if (this.h.arena && this.lmbDown && !ui && this.W && !this.atk && !this.dodge && !this.dead && !(this.fearT > 0) && (this.W.kind === 'melee' || (this.W.kind === 'staff' && this.h.cls !== 'necromancer'))) this.light(); // held: the next attack follows straight on
     // attacks
     this.updateAttack(dt);
     this.updateGather(dt);
     // body yaw (third person)
     const combatFace = this.atk || this.block || this.press || this.gathering;
-    if (combatFace || this.camDist < 0.6) this.bodyYaw += angDiff(this.bodyYaw, this.yaw) * Math.min(1, dt * 14);
+    if (combatFace || this.camDist < 0.6 || this.h.arena) this.bodyYaw += angDiff(this.bodyYaw, this.yaw) * Math.min(1, dt * (this.h.arena ? 18 : 14));
     else if (hs > 0.5) this.bodyYaw += angDiff(this.bodyYaw, Math.atan2(this.vel.x, this.vel.z)) * Math.min(1, dt * 10);
     { const tr = angDiff(this.prevBY ?? this.bodyYaw, this.bodyYaw) / Math.max(dt, 1e-3); this.prevBY = this.bodyYaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
     this.animate(dt, hs);

@@ -520,7 +520,7 @@ function hooks() {
   H.progress = (k, l) => UI.progress(k, l);
   H.died = () => { if (ARENA) { Arena.playerDied(); return; } setTimeout(() => { $('death').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }, 1500); };
   H.telegraph = telegraph; H.enemyBlast = enemyBlast; H.enemyProjectile = enemyProjectile; H.mobShot = mobShot; H.mobBlast = mobBlast; H.telegraphSelf = telegraphSelf; H.telegraphLine = telegraphLine; H.telegraphCone = telegraphCone;
-  H.saveQuit = quitToTitle;
+  H.saveQuit = quitToTitle; H.lock = lockPointer;
   H.applyGraphics = applyGraphics;
   H.nodeDone = (n, p) => { if (n.type.startsWith('tree')) fallTree(n, p); else if (n.def.tool === 'pickaxe') { S.rockBreak(n); V.burst('stone', new THREE.Vector3(n.x, n.y + 0.5, n.z), 30, { speed: 6, size: 0.3, grav: 14 }); V.burst('dust', new THREE.Vector3(n.x, n.y + 0.5, n.z), 20, { speed: 3, size: 1.2, life: 1.5 }); } };
   if (BATTLE) battleHooks();
@@ -722,6 +722,7 @@ function updatePetBar(dt) {
 function input() {
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'AltLeft' || e.code === 'AltRight') { e.preventDefault(); if (!e.repeat && mode === 'game' && document.pointerLockElement) { G.altFree = true; document.exitPointerLock(); } return; } // hold Alt: a free cursor (hover the hotbar to read abilities)
     if (mode !== 'game') { if (e.code === 'Escape' && $('windows').children.length) UI.closeWin(); return; }
     if (intro) { if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') endIntro(); return; }
     if (inScene()) { e.preventDefault(); if (!e.repeat) sceneKey(e.code); return; }
@@ -737,6 +738,7 @@ function input() {
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
+      if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
       if (e.code === 'KeyZ' && !G.uiOpen && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)
@@ -750,7 +752,7 @@ function input() {
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
-  addEventListener('keyup', (e) => { if (e.code === 'Tab' && ARENA) Arena.toggleScores(false); if (e.code === 'KeyG' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petStop(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
+  addEventListener('keyup', (e) => { if ((e.code === 'AltLeft' || e.code === 'AltRight') && G.altFree) { G.altFree = false; lockPointer(); } if (e.code === 'Tab' && ARENA) Arena.toggleScores(false); if (e.code === 'KeyG' && G.zDown) { const held = performance.now() - G.zDown; G.zDown = 0; if (petWheel) closePetWheel(); else if (held < 260 && mode === 'game' && !G.uiOpen) petStop(); } if (e.code === 'Tab' && BATTLE) BUI.scoreboard(false); G.keys[e.code] = false; if (mode === 'game' && G.player) G.player.onKeyUp(e.code); });
   addEventListener('blur', () => { for (const k in G.keys) G.keys[k] = false; });
   addEventListener('mousedown', () => { if (inScene()) sceneAdvance(); }, true);
   canvas.addEventListener('mousedown', (e) => { if (inScene()) return;
@@ -764,9 +766,9 @@ function input() {
   addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) G.player.onWheel(e.deltaY); }, { passive: true });
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
-    $('clickToPlay').hidden = locked || mode !== 'game' || G.uiOpen || intro || (G.player && G.player.dead);
+    $('clickToPlay').hidden = locked || mode !== 'game' || G.uiOpen || intro || (G.player && G.player.dead) || G.altFree;
     // only the Esc key (the browser dropping the lock) opens the pause menu; unlocks caused by opening/closing our own windows are ignored
-    if (locked || mode !== 'game' || G.uiOpen || intro || !G.player || G.player.dead) return;
+    if (locked || mode !== 'game' || G.uiOpen || intro || !G.player || G.player.dead || G.altFree) return;
     // never pop a menu up on its own: just show "click to continue" (Esc opens the menu)
     $('clickToPlay').hidden = false;
   });

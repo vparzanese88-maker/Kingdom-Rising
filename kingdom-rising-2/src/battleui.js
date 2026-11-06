@@ -15,7 +15,7 @@ import * as BQ from './battlequests.js';
 import { V } from './vfx.js';
 import { B, myTown, res, canPay, pop, popCap, available, hire, upgradeTown, upgradeTower, repairTower, sendAttack, recall, setFollow, directionOf, bank, peasants, peasantCap, townPlan, buyForeman, up, peasantCarry } from './battle.js';
 import { TEAM_COLORS, TOWN_LEVELS, TOWER_LEVELS, TOWER_REPAIR, ARMORY, ECON, rosterOf, DIFFS, FOREMAN } from './battledata.js';
-import { SETUP, SETUP_KEY, LAYOUT, BATTLE } from './battlemap.js';
+import { SETUP, SETUP_KEY, LAYOUT, BATTLE, ARENA, YARD } from './battlemap.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -532,6 +532,10 @@ function treesTab(c, h, cls, res) {
   for (const T of trees) {
     const spent = Game.treeSpent(h, T.id), col = el('div', 'st-tree'); col.style.setProperty('--tc', T.col);
     col.appendChild(el('div', 'st-th', `<div class="st-ti">${Icons.abilityIcon(T.icon)}</div><div><b>${T.name}</b><small>${T.tag}</small></div><span class="st-sp">${spent}</span>`));
+    // Kingdom Arena and the Training Yard: unlock a whole tree in one click
+    if ((ARENA || YARD) && spent < ULT_PTS) { const left = ULT_PTS - spent, pts = Game.classPoints(h), all = el('button', 'btn st-all' + (pts >= left ? '' : ' off'), pts >= left ? `Unlock all of ${T.name} (${left} points)` : `Needs ${left} points (${pts} left)`);
+      all.onclick = (e) => { e.stopPropagation(); if (pts < left) { S.error(); return; } let n; while ((n = T.nodes.filter(x => x.t !== 'ult').sort((a, b) => a.row - b.row || a.col - b.col).find(x => Game.nodeState(h, x) === 'open'))) { if (!Game.spendClass(h, n)) break; } S.objective(); G.hooks.hotbarAdded && G.hooks.hotbarAdded([]); setTimeout(renderBook, 120); };
+      col.appendChild(all); }
     const grid = el('div', 'st-grid'); const rows = Math.max(...T.nodes.map(n => n.row)) + 1; grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'st-lines'); svg.setAttribute('viewBox', `0 0 300 ${rows * 100}`); svg.setAttribute('preserveAspectRatio', 'none');
     const cx = (n) => 50 + n.col * 100, cy = (n) => 50 + n.row * 100;

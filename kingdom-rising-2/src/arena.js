@@ -15,6 +15,8 @@ import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
+import { loadBuild, saveBuild } from './builds.js';
+const BUILDS = 'kr2_arena_builds';
 
 export const COLORS_LIST = COLORS, COLOR_NAMES_LIST = COLOR_NAMES;
 export const OBJECTIVES = {
@@ -31,6 +33,8 @@ export const FORMATS = {
   t333: { name: '4 teams of 3', teams: 4, size: 3 }, t444: { name: '3 teams of 4', teams: 3, size: 4 }, t22: { name: '3 teams of 2', teams: 3, size: 2 },
 };
 const RESPAWN_T = 6, PICK_T = 60;
+// arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
+const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
 export function readArena() { try { const s = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (s && s.slots && s.slots.length >= 2) return s; } catch (e) { /* fall back */ } const s = defaultArena(); fillSlots(s); return s; }
 // lay out the fighters for a format: you in slot 0, then everyone else (random classes unless picked)
@@ -74,7 +78,7 @@ function botSpend(h, team) {
 
 // ---------------- start ----------------
 export function initArena(hooks) {
-  A.hooks = hooks; A.setup = readArena(); const s = A.setup;
+  A.hooks = hooks; A.setup = readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -92,7 +96,7 @@ export function initArena(hooks) {
   const P = G.player; if (P) { P.arenaF = A.F[0]; }
   placeAll(); startPick(PICK_T);
 }
-export function playerHero() { const s = readArena(), sl = s.slots[0]; return arenaHero(sl, sl.name || 'You'); }
+export function playerHero() { const s = readArena(), sl = s.slots[0], h = arenaHero(sl, sl.name || 'You'); A.loaded = loadBuild(BUILDS, h, LEVEL_CAP); return h; }
 function spawnOf(f) {
   const R = AR.R;
   if (isFFA()) { const n = A.F.length, a = f.i / n * Math.PI * 2; return { x: Math.sin(a) * (R - 5), z: Math.cos(a) * (R - 5), yaw: Math.atan2(-Math.sin(a), -Math.cos(a)) }; }
@@ -102,7 +106,7 @@ function spawnOf(f) {
 function placeAll() { for (const f of A.F) revive(f, true); }
 function revive(f, place) {
   const sp = spawnOf(f); f.alive = true; f.respawnT = 0;
-  if (f.you) { const p = G.player; if (!p) return; p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.db = {}; if (place) p.place(sp.x, sp.z, sp.yaw); A.hooks.revived && A.hooks.revived(); }
+  if (f.you) { const p = G.player; if (!p) return; p.spectate = false; p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.db = {}; if (place) p.place(sp.x, sp.z, sp.yaw); A.hooks.revived && A.hooks.revived(); }
   else f.bot.revive(sp);
 }
 function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; if (t >= 30) { A.hooks.openBook && setTimeout(() => A.hooks.openBook(), 600); } renderHud(true); }
@@ -112,14 +116,22 @@ function startFight() { if (A.round === 1) autoSpend(); A.state = 'fight'; A.clo
 
 // ---------------- every frame ----------------
 export function updateArena(dt) {
+  if ((A.saveT = (A.saveT || 0) - dt) <= 0) { A.saveT = 1.5; saveBuild(BUILDS, G.save); } // your build is kept for next time
   G.tod = 0.4; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead) { const sp = spawnOf(A.F[0]); if (Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 4) p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0) startFight(); }
   else if (A.state === 'fight') { A.clock += dt; objectives(dt); respawns(dt); }
   else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(6); } }
+  // dead: fly around and watch (WASD, Space up, C down, Shift faster)
+  if (p && p.dead && A.state !== 'over') { if (!p.spectate && (p.deadT || 0) > 1.4) { p.spectate = true; p.pos.y += 2.5; }
+    if (p.spectate) { const k = G.keys, sp = (k.ShiftLeft || k.ShiftRight ? 26 : 12) * dt;
+      const F = p.fwd(), Rt = p.right(); let mx = 0, mz = 0; if (k.KeyW) { mx += F.x; mz += F.z; } if (k.KeyS) { mx -= F.x; mz -= F.z; } if (k.KeyA) { mx -= Rt.x; mz -= Rt.z; } if (k.KeyD) { mx += Rt.x; mz += Rt.z; }
+      const L = Math.hypot(mx, mz); if (L > 0) { p.pos.x += mx / L * sp; p.pos.z += mz / L * sp; }
+      if (k.Space) p.pos.y += sp; if (k.KeyC || k.ControlLeft) p.pos.y -= sp; p.pos.y = Math.max(AR.Y + 1.2, Math.min(AR.Y + 45, p.pos.y));
+      const d = Math.hypot(p.pos.x, p.pos.z), lim = AR.R + 45; if (d > lim) { p.pos.x *= lim / d; p.pos.z *= lim / d; } } }
   // keep the player inside the sand
-  if (p && !p.dead) { const d = Math.hypot(p.pos.x, p.pos.z); if (d > AR.R - 0.9) { p.pos.x *= (AR.R - 0.9) / d; p.pos.z *= (AR.R - 0.9) / d; } }
+  if (p && !p.dead) { p.spectate = false; const d = Math.hypot(p.pos.x, p.pos.z); if (d > AR.R - 0.9) { p.pos.x *= (AR.R - 0.9) / d; p.pos.z *= (AR.R - 0.9) / d; } }
   updateShots(dt); updateZones(dt); for (const fl of A.flags) updateFlag(fl, dt);
   renderHud();
 }
@@ -183,7 +195,7 @@ const unitOf = (f) => f.you ? G.player : f.bot;
 function feed(html) { A.feed.unshift({ html, t: G.time }); A.feed.length = Math.min(A.feed.length, 6); }
 // every hit from a computer fighter on the player goes through the same PvP rules as an online player's hit
 function hitPlayer(src, raw, o) {
-  const p = G.player; if (!p || p.dead) return 0; const [d, o2] = pvpIncoming(p, raw * PVP_K, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
+  const p = G.player; if (!p || p.dead) return 0; const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
   if (p.abCast && p.abCast.spell && Math.random() < 0.35) { p.abCast = null; G.hooks.castBar && G.hooks.castBar(null); G.hooks.toast && G.hooks.toast('Your spell was interrupted', '✋', 'bad'); }
   if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
@@ -231,13 +243,13 @@ let botId = 70000;
 class ArenaBot {
   constructor(f, h) {
     this.arenaBot = true; this.arenaF = f; this.h = h; this.id = botId++; this.team = f.team; this.heroName = f.name; this.cls = h.cls; this.hostile = f.team !== G.myTeam;
-    this.pos = V3(0, AR.Y, 0); this.yaw = 0; this.radius = 0.45; this.lv = this.level = LEVEL_CAP; this.stealth = 0; this.iframes = 0; this.provoked = true; this.state = 'chase';
+    this.pos = V3(0, AR.Y, 0); this.yaw = 0; this.radius = 0.65; /* a little easier to hit than a monster this size */ this.lv = this.level = LEVEL_CAP; this.stealth = 0; this.iframes = 0; this.provoked = true; this.state = 'chase';
     this.status = { frozen: 0, stun: 0, slow: 0, root: 0, bleed: 0, bleedDps: 0, burn: 0, burnDps: 0, knock: V3() };
     this.def = { name: f.name, aggro: 1, boss: false, elite: false, skin: false, loot: null, size: 1, shape: 'human', armor: 0 };
     const w = h.equip.w1, wt = w ? w.wt : CLASSES[h.cls].weapons[0]; this.W = WEAPON_TYPES[wt] || WEAPON_TYPES.sword;
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8;
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, TIERS.length - 1, 3); } catch (e) { /* unknown weapon model */ }
-    this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 20 : 18) : 2.6;
+    this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
     this.abs = ABILITIES[h.cls].filter(a => Game.abilityKnown(h, a)); this.loadout(); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
     this.buffs = {}; this.hots = []; this.dots = []; this.gcd = 0; this.swingT = 0; this.thinkT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.act = ''; this.actT = 0; this.spd = 0; this.pets = [];
@@ -272,7 +284,7 @@ class ArenaBot {
     if (this.dead || A.state !== 'fight') return 0; const b = this.buffs;
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
-    dmg *= PVP_K; if (src && src.hexUntil > G.time) dmg *= 0.65;
+    dmg *= PVP_K * PACE; if (src && src.hexUntil > G.time) dmg *= 0.65;
     const red = this.D.armor / (this.D.armor + 40 + LEVEL_CAP * 12); dmg *= 1 - red;
     if (b.ward > 0) dmg *= 0.6; if (b.wall > 0) dmg *= 0.4; if (b.fort > 0) dmg *= 0.7; if (b.stand > 0) dmg *= 0.75; if (b.lich > 0) dmg *= 0.75; if (b.avatar > 0 && this.av && this.av.taken) dmg *= this.av.taken;
     if (this.barrier > 0 && b.barrier > 0) { const ab = Math.min(this.barrier, dmg); this.barrier -= ab; dmg -= ab; }
@@ -349,17 +361,18 @@ class ArenaBot {
     else if (this.healer && this.ward && (!T || dT > 6 || this.hp / this.maxHp < 0.5)) { const w = this.ward.pos; const away = T ? V3(w.x - T.pos.x, 0, w.z - T.pos.z).normalize() : V3(); tx = w.x + away.x * 6; tz = w.z + away.z * 6; }
     else if (T) {
       const dir = V3(T.pos.x - me.x, 0, T.pos.z - me.z).normalize(), side = V3(-dir.z, 0, dir.x);
-      if (!this.ranged) { if (dT > 2.0) { tx = T.pos.x - dir.x * 1.6; tz = T.pos.z - dir.z * 1.6; } else { tx = me.x + side.x * this.strafe * 0.6; tz = me.z + side.z * this.strafe * 0.6; } }
+      if (!this.ranged) { if (dT > 2.0) { tx = T.pos.x - dir.x * 1.6; tz = T.pos.z - dir.z * 1.6; } else { tx = me.x + side.x * this.strafe * 0.25; tz = me.z + side.z * this.strafe * 0.25; } }
       else { const melee = T.arenaBot ? !T.ranged : T === G.player ? (G.player.W && !['bow', 'gun', 'staff'].includes(G.player.W.kind)) : true;
-        const want = dT < 6 && melee ? 13 : dT > this.range - 2 ? this.range - 4 : dT; // kite melee, close in when out of range
-        tx = T.pos.x - dir.x * want + side.x * this.strafe * 3; tz = T.pos.z - dir.z * want + side.z * this.strafe * 3; if (Math.random() < 0.01) this.strafe *= -1; }
+        const want = dT < 5 && melee ? 10 : dT > this.range - 2 ? this.range - 4 : dT; // kite melee, close in when out of range
+        tx = T.pos.x - dir.x * want + side.x * this.strafe * 1.4; tz = T.pos.z - dir.z * want + side.z * this.strafe * 1.4; if (Math.random() < 0.004) this.strafe *= -1; }
     } else { const mates = alliesOf(this); if (mates.length) { const m = mates[0]; tx = m.pos.x + Math.sin(this.id) * 3; tz = m.pos.z + Math.cos(this.id) * 3; } else { tx = 0; tz = 0; } }
     // low on health with no healing: fall back toward a team mate who heals
     if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
     // stay apart from everyone else
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
-    let sp = 6.0 * (st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
+    const far = !T || dT > 14; // run between fights, walk-speed footwork inside them (players run 5.2)
+    let sp = (far ? 6.4 : 4.6) * (st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
     if (L > 0.3) { const step = Math.min(L, sp * dt); me.x += mx / L * step; me.z += mz / L * step; } else sp = 0;
     const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 10);
     return L > 0.3 ? sp : 0;
@@ -370,7 +383,7 @@ class ArenaBot {
     if (this.gcd <= 0) { const a = this.choose(T, dT, hp); if (a) return; }
     if (T && this.swingT <= 0 && dT <= this.range + 0.4) { // a plain attack
       const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? 0.75 : 1);
-      this.swingT = sw; const raw = this.base * 0.95 * this.dmgMul();
+      this.swingT = sw * 1.25; const raw = this.base * 0.95 * this.dmgMul();
       if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.aimLock = this.W.kind === 'gun' ? 0.6 : 0.4; /* plant your feet to shoot, like a player */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012; shot(this, T, this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); }); }
       else { this.act = Math.random() < 0.5 ? 'swing1' : 'swing2'; this.actT = 0; setTimeout(() => { if (!this.dead && !T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 3.4) { hitUnit(this, T, raw, { melee: true }); S.hit && S.hit('flesh', T.pos, 0.6); } }, 180); }
     }
@@ -378,7 +391,7 @@ class ArenaBot {
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
     const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
-    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 3.5 : 1.5) * (0.95 + Math.random() * 0.15); this.gcd = 1.1;
+    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const ct = (a.t === 'heal' || a.t === 'hot') ? (a.castT || 1.5) : a.castT && isSupport(a) ? Math.min(a.castT, 1.5) : 0; if (ct) { this.cast = { a, tgt, t: 0, dur: ct }; return true; } this.resolve(a, tgt); return true; };
     // 1. healing: whoever on the team needs it most
     const heals = abs.filter(a => a.t === 'heal' || a.t === 'hot' || (LEG_SELF[a.id] && LEG_SELF[a.id][0] === 'heal'));
@@ -455,7 +468,7 @@ class ArenaBot {
       if (m.ring) m.ring.visible = false; G.mobs.push(m); this.pets.push(m); V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 3 }); }
   }
 }
-function petTakeHit(dmg, src) { const m = this; if (m.dead || (src && src.team === m.team)) return 0; dmg = Math.max(1, Math.round(dmg * PVP_K * (m.wardT > 0 ? 0.5 : 1))); m.hp -= dmg; if (m.hp <= 0) { m.hp = 0; m.dead = true; m.deadT = 0; } return dmg; }
+function petTakeHit(dmg, src) { const m = this; if (m.dead || (src && src.team === m.team)) return 0; dmg = Math.max(1, Math.round(dmg * PVP_K * PACE * (m.wardT > 0 ? 0.5 : 1))); m.hp -= dmg; if (m.hp <= 0) { m.hp = 0; m.dead = true; m.deadT = 0; } return dmg; }
 function petTick(dt) {
   const m = this, o = m.owner; m.wardT = Math.max(0, (m.wardT || 0) - dt); m.frenzy = Math.max(0, (m.frenzy || 0) - dt);
   if (m.dead) { m.deadT = (m.deadT || 0) + dt; if (m.deadT > 1.2) { m.root.visible = false; if (G.mobs.includes(m)) G.mobs.splice(G.mobs.indexOf(m), 1); G.scene.remove(m.root); } else m.root.rotation.z = Math.min(1, m.deadT / 0.5) * Math.PI / 2; return; }
@@ -480,9 +493,9 @@ function renderHud(force) {
   const chips = (isFFA() && teams.length > 6 ? teams.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 6) : teams).map(t => `<span class="arc${t === G.myTeam ? ' me' : ''}" style="--tc:${teamCol(t)}"><i></i>${isFFA() ? teamName(t) : COLOR_NAMES[t]}<b>${sc(t)}</b></span>`).join('');
   const mm = Math.floor((A.clock || 0) / 60), ss = String(Math.floor((A.clock || 0) % 60)).padStart(2, '0');
   let mid = '';
-  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'Choose your abilities'}</b><span>${A.round > 1 ? 'Get ready' : `20 skill points · press <kbd>K</kbd> · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready</button>' : ''}</div>`;
+  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'Choose your abilities'}</b><span>${A.round > 1 ? 'Get ready' : `${A.loaded ? 'Your saved build is loaded · ' : ''}${Game.classPoints(G.save)} skill points left · <kbd>K</kbd> skill trees · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
-  const me = A.F[0], dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}</div>` : '';
+  const me = A.F[0], dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
   const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? mm + ':' + ss : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
   if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; }
 }

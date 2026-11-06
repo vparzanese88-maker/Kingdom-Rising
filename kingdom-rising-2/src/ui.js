@@ -6,7 +6,7 @@ import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
 import { PROCS, procChance, PROC_DEX } from './data.js';
 import * as Skills from './skills.js';
-import { NODE_TYPES, MOBS, MERCHANT_STOCK, HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { isSupport, NODE_TYPES, MOBS, MERCHANT_STOCK, HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import { BATTLE, ARENA } from './battlemap.js';
 import * as Icons from './icons.js';
@@ -65,7 +65,7 @@ export function buildAbilityBar() {
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));
   if (!G.newFx) bar.appendChild(ws); // campaign: no weapon swapping any more
-  const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); bar.appendChild(s); return s; };
+  const mk = (k, iconHtml, cls = '') => { const s = el('div', 'slot ' + cls, `<span class="ai">${iconHtml}</span><span class="k">${k}</span><div class="cd" style="display:none"></div>`); s.addEventListener('mousedown', () => { if (!document.pointerLockElement && !G.uiOpen && G.hooks.lock) G.hooks.lock(); }); bar.appendChild(s); return s; };
   const lmb = mk('LMB', '', 'wpn');
   const rmb = G.campAb ? null : mk(G.battleFx ? 'F' : 'RMB', '', 'wab');
   bar.appendChild(el('div', 'sep'));
@@ -97,7 +97,7 @@ export function refreshAbilityBar() {
       const ai = e.querySelector('.ai');
       e.className = 'slot hb' + (G.campAb ? (i >= SUPPORT_SLOTS ? ' dmg' : ' sup') : '') + (sl && sl.t === 'ab' ? ' cls ' + h.cls : '');
       if (!sl) { ai.innerHTML = ''; e.title = 'Empty'; }
-      else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} (${a.cost} ${CLASS_POOLS[h.cls].uses === 'mana' ? 'mana' : 'endurance'}): ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
+      else if (sl.t === 'ab') { const a = ABILITIES[h.cls].find(x => x.id === sl.id); ai.innerHTML = Icons.abilityIcon(a.id); e.title = `${a.name} [${HOTBAR_KEYS[i] || i + 1}] · ${a.cost ? a.cost + ' ' + ((a.res || CLASS_POOLS[h.cls].uses) === 'mana' ? 'mana' : 'endurance') : 'free'}${a.cd ? ` · ${Math.round(a.cd * 10) / 10} s cooldown` : ''}${a.castT && isSupport(a) && !/s cast/.test(a.desc || '') ? ` · ${a.castT} s cast` : ''} · ${a.desc}`; if (G.hotbarSlots) { let n = e.querySelector('.an'); if (!n) { n = el('span', 'an'); e.appendChild(n); } n.textContent = a.name; } }
       else { ai.innerHTML = Icons.itemSvg({ id: sl.id }); e.title = ITEMS[sl.id].name + ': ' + ITEMS[sl.id].desc; }
       if (e._key !== undefined && sl) pop(e);
       e._key = key;
@@ -284,7 +284,7 @@ export function buildMapImage() {
     const k = (j * MAPN + i) * 4; img.data[k] = Math.min(255, c.r * 255); img.data[k + 1] = Math.min(255, c.g * 255); img.data[k + 2] = Math.min(255, c.b * 255); img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
-  if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (77 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (41 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
+  if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (66 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (31 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
   const toPx = ([x, z]) => [(x + HALF) / (HALF * 2) * MAPN, (z + HALF) / (HALF * 2) * MAPN];
   // the river, then the roads
   g.lineCap = g.lineJoin = 'round';

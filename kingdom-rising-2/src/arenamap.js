@@ -6,7 +6,7 @@ import { G } from './state.js';
 import { addCircle } from './world.js';
 import { buildHumanoid } from './character.js';
 
-export const AR = { R: 40, Y: 3, WALL: 4.6, gates: [], gateBars: [], flagMats: [], crowdMats: [], cheer: 0, time: { value: 0 }, cheerU: { value: 0 }, hill: null, bases: [], braziers: [] };
+export const AR = { R: 30, /* a tighter ring: fighters stay close and big on screen */ Y: 3, WALL: 4.6, gates: [], gateBars: [], flagMats: [], crowdMats: [], cheer: 0, time: { value: 0 }, cheerU: { value: 0 }, hill: null, bases: [], braziers: [] };
 const TIERS = 15, STEP_H = 1.25, STEP_D = 2.25;
 export const COLORS = ['#3a7ae0', '#e04a3a', '#3ac060', '#e0b030', '#a050e0', '#30c0c0', '#e07a30', '#e050a0', '#8a8a8a', '#5a3a1a', '#f0f0f0', '#202020'];
 export const COLOR_NAMES = ['Blue', 'Red', 'Green', 'Gold', 'Purple', 'Teal', 'Orange', 'Pink', 'Grey', 'Brown', 'White', 'Black'];

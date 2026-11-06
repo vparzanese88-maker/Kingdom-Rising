@@ -1879,20 +1879,20 @@ export class Player {
     const cam = G.camera;
     this.camDist += (this.camDistT - this.camDist) * Math.min(1, dt * 8);
     const fp = this.camDist < 0.6;
-    this.ch.root.visible = !fp || this.dead;
+    this.ch.root.visible = (!fp || this.dead) && !this.spectate;
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
     if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.7;
-    if (this.dead) eyeY = 0.4;
+    if (this.dead) eyeY = this.spectate ? 0 : 0.4; // (arena spectators fly free)
     if (this.swim) eyeY = 1.35;
     const eye = this.pos.clone(); eye.y += eyeY;
     if (fp && settings.headBob && this.onGround && this.speed > 0.5) eye.y += Math.abs(Math.sin(this.vm.bob)) * 0.04;
     cam.rotation.order = 'YXZ';
     cam.rotation.set(this.pitch, this.yaw + Math.PI, 0);
     if (this.dodge && !this.dodge.charge && fp) cam.rotation.z = Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.15 * Math.sign(this.dodge.dir.dot(this.right()) || 1);
-    if (this.dead) cam.rotation.z = Math.min(1, this.deadT) * 0.6;
+    if (this.dead && !this.spectate) cam.rotation.z = Math.min(1, this.deadT) * 0.6;
     if (fp) cam.position.copy(eye);
     else {
       const back = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
@@ -1910,7 +1910,7 @@ export class Player {
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
     // Kingdom Battles: zoom in a little while drawing the bow (and much more when aiming a musket)
     { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0; this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 4 : 9)); }
-    cam.fov = settings.fov + this.fovKick + this.fovS + (this.bowZoom || 0);
+    cam.fov = settings.fov - (G.fovTrim || 0) + this.fovKick + this.fovS + (this.bowZoom || 0); // (the arena narrows the view a little so fighters look bigger)
     cam.updateProjectionMatrix();
     A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI);
   }

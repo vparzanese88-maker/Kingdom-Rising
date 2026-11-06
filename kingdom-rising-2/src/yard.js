@@ -8,6 +8,7 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
+import { loadBuild, saveBuild } from './builds.js';
 
 export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
@@ -40,6 +41,7 @@ export function updateYard(dt) {
   let e = document.getElementById('yardhud'); if (!e) { e = document.createElement('div'); e.id = 'yardhud'; document.getElementById('hud').appendChild(e); }
   const h = G.save, html = `<b>Training Yard</b><span>${CLASSES[h.cls].name} · level ${h.level}</span><span class="dps">DPS <b>${YD.dmg.length ? Math.round(tot / span) : 0}</b></span><small><kbd>Y</kbd> class & weapon · <kbd>K</kbd> abilities · <kbd>O</kbd> skills</small>`;
   if (e._h !== html) { e.innerHTML = html; e._h = html; }
+  if ((YD.saveT = (YD.saveT || 0) - dt) <= 0) { YD.saveT = 1.5; saveBuild('kr2_yard_builds', G.save); }
   const P = G.player; if (P && YD.infinite) { P.mana = P.maxMana; P.end = P.maxEnd; }
 }
 export function resetCooldowns() { const P = G.player; if (P) for (const k in P.cd) P.cd[k] = 0; }
@@ -51,6 +53,7 @@ export function yardHero(cls, keep) {
   const w1 = h.equip.w1; if (w1) Object.assign(w1, Game.makeWeapon(w1.wt, 5, 3), { uid: w1.uid }); if (h.equip.w2) Object.assign(h.equip.w2, Game.makeWeapon(h.equip.w2.wt, 5, 3));
   h.hotbar = null; Game.autoFillHotbar(h);
   h.ctree = {}; Game.autoFillHotbar(h); // trees start empty in the yard: unlock with unlimited points (K), reset any time
+  loadBuild('kr2_yard_builds', h); // ...or with the build you saved last time for this class
   return h;
 }
 // weapons you can pick: everything except a lone shield

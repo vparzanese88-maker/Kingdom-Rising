@@ -50,7 +50,7 @@ const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], 
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
   poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], lich: ['shadow', 0.3], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
 // Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
-const DODGES = { old: { dur: 0.48, speed: 12, cost: 16, ifr: 0.38 }, step: { dur: 0.24, speed: 15, cost: 14, ifr: 0.2 }, roll: { dur: 0.45, speed: 14.5, cost: 20, ifr: 0.36 }, leap: { dur: 0.6, speed: 16, cost: 26, ifr: 0.5, vy: 5.5 } };
+const DODGES = { old: { dur: 0.6, speed: 10, cost: 16, ifr: 0.42 }, step: { dur: 0.34, speed: 11, cost: 14, ifr: 0.24 }, roll: { dur: 0.62, speed: 10.5, cost: 20, ifr: 0.42 }, leap: { dur: 0.75, speed: 12.5, cost: 26, ifr: 0.55, vy: 5.5 } }; // slower, weightier dodges you can follow with your eyes
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
@@ -621,7 +621,7 @@ export class Player {
       setTimeout(() => { if (this.dead) return; let hit = false; for (const m of mobsInCone(this.pos, this.yaw, reach * aR, half)) { hit = true; this.dealDamage(m, base * mult * (extra.exec && m.hp < m.maxHp * 0.35 ? 2 : 1), Object.assign({ big: true, melee: true, knock: m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(5) }, extra)); if (this.swingKind('swing3') === 'blunt') S.blunt(m.pos); } if (hit) { G.hitstop = 0.08; V.addShake(0.3); } const p = this.pos.clone().addScaledVector(this.fwd(), reach * 0.7); p.y = heightAt(p.x, p.z); V.burst('dust', p, 14, { speed: 3, size: 0.5 }); }, delay);
     };
     const dash = (dist, mult, extra = {}) => {
-      this.dodge = { t: 0, dur: dist / 30, dir: f.clone(), speed: 30, charge: true, hitSet: new Set(), dmg: base * mult, extra }; this.fovKick = 12;
+      this.dodge = { t: 0, dur: dist / 17, dir: f.clone(), speed: 17, charge: true, hitSet: new Set(), dmg: base * mult, extra }; this.fovKick = 12;
       this.atk = { name: 'thrust3', t: 0.3, dur: 0.5, hit: true, noQueue: true };
     };
     const throwP = (kind, speed, mult, extra = {}, pierce = false, n = 1, spread = 0) => {
@@ -761,8 +761,8 @@ export class Player {
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'charge': {
         // a beat to brace, then a hard, accelerating rush that bowls through everything
-        const dur = 0.42 * (1 + this.pk('a1up') * 0.2); S.chargeRush(dur);
-        this.dodge = { t: -0.3, dur, dir: f.clone(), speed: 36, charge: true, rush: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 4; this.landDip = Math.max(this.landDip || 0, 0.18);
+        const dur = 0.85 * (1 + this.pk('a1up') * 0.2); S.chargeRush(dur); // (a heavy run you can see coming, not a teleport)
+        this.dodge = { t: -0.3, dur, dir: f.clone(), speed: 18, charge: true, rush: true, hitSet: new Set(), dmg: base * 1.3 * rk * up }; this.fovKick = 4; this.landDip = Math.max(this.landDip || 0, 0.18);
         this.atk = { name: 'heavy', t: 0.3, dur: 0.5, hit: true, noQueue: true };
         break;
       }
@@ -910,7 +910,7 @@ export class Player {
         spawnProjectile({ pos: from, vel, grav: gr, radius: 0.35, dmg: 0, owner: 'player', kind: 'keg', life: 3, aoe: true, onHit: (p, m, pos) => boom((pos || (m && m.pos) || p.pos).clone()) });
         S.swing(1, this.pos); this.atk = { name: 'swing2', t: 0.2, dur: 0.4, hit: true, noQueue: true }; break; }
       case 'quickreload': { this.buffs.reload = 8 * up; S.click(); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.3), 25, { speed: 3 }); break; }
-      case 'bayonet': { this.dodge = { t: 0, dur: 0.34 * Math.sqrt(up), dir: f.clone(), speed: 30, charge: true, hitSet: new Set(), dmg: base * 1.8 * up }; this.fovKick = 12; S.battleCry(); break; }
+      case 'bayonet': { this.dodge = { t: 0, dur: 0.6 * Math.sqrt(up), dir: f.clone(), speed: 17, charge: true, hitSet: new Set(), dmg: base * 1.8 * up }; this.fovKick = 12; S.battleCry(); break; }
       case 'eagleeye': { this.buffs.eagle = 10 * up; this.buffs.focus = Math.max(this.buffs.focus || 0, 10 * up); V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.6), 1.5, '#ffe080', 0.4); S.cast('arcane', this.pos, 0.6); break; }
       case 'volleyfire': { for (let k = 0; k < 5; k++) setTimeout(() => { if (!this.dead) this.fireGun(0.5, true, 0.85 * up); }, k * 180); break; }
       case 'incendiary': { const from = this.handPos(true), dir = this.aimDir(from); spawnProjectile({ pos: from, vel: dir.multiplyScalar(90), grav: 4, flat: 0.8, radius: 0.2, dmg: base * 2.4 * up, owner: 'player', kind: 'fireball', scale: 0.8, life: 3, onHit: (p, m, pos) => { const at = pos || (m && m.pos) || p.pos; areaDamage(at, 4 * Math.sqrt(up), p.dmg * 0.6, { el: 'fire', burn: base * 0.15 }); if (m) this.dealDamage(m, p.dmg * 0.5, { el: 'fire', burn: base * 0.15 }); V.burst('fire', at, 50, { speed: 6 }); S.explode(at, 1, 'fire'); } }); S.explode(from, 0.5, 'fire'); V.burst('smoke', from, 14, { speed: 2, size: 1.2 }); this.fovKick += 4; break; }
@@ -1166,7 +1166,7 @@ export class Player {
       case 'flurry': { const n = this.qty(a.hits || 4, a.extra || 0); anim('fury', Math.max(0.5, n * 0.09));
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, silent: k % 2 === 1 })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 5, { speed: 3 }); } }, k * 90);
         return true; }
-      case 'dash': { this.dodge = { t: 0, dur: a.dur || 0.3, dir: f.clone(), speed: a.speed || 28, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
+      case 'dash': { this.dodge = { t: 0, dur: (a.dur || 0.3) * 1.8, dir: f.clone(), speed: (a.speed || 28) / 1.8, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
       case 'stormwalk': { // a 10 m wide storm that rolls slowly away in the direction you cast, striking everything under it
         const dir = new THREE.Vector3(f.x, 0, f.z).normalize(), c = this.pos.clone().addScaledVector(dir, 4), r = (a.r || 5) * K, speed = (a.travel || 15) / (a.dur || 6); let t = 0, tick = 0, ring = 0;

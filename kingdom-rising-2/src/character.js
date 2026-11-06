@@ -690,7 +690,7 @@ function uprightShield(ch, st) {
 export function animateHumanoid(ch, dt, st) {
   const A = ch.anim; A.t += dt;
   const { hips, spine, chest, neck, head, arms, legs, body } = ch;
-  const sp = st.speed || 0;
+  const sp = Math.min(st.speed || 0, 9.5); // (a charge or dash moves faster, but the legs never blur)
   const k = Math.min(1, dt * 12);
   // locomotion: a real gait. The cadence rises with speed; the body leans in, dips as a foot passes under it and
   // lifts in the flight phase; the swinging leg folds up under the body while the stance leg stays long
@@ -713,9 +713,11 @@ export function animateHumanoid(ch, dt, st) {
   { const lg = st.action && !air && !st.roll ? lungeOf(st.action, clamp01(st.actionT || 0)) * (1 - runF * 0.8) : 0;
     if (lg) { thL += 0.5 * lg; knL += 0.6 * Math.max(0, lg); thR -= 0.38 * lg; knR += 0.25 * Math.abs(lg); anL -= 0.2 * Math.max(0, lg); bob += 0.075 * Math.abs(lg); lean += 0.24 * lg; } }
   if (st.swim) { thL = Math.sin(A.t * 3) * 0.4; thR = -thL; knL = 0.4; knR = 0.4; lean = 0.9; }
-  const breathe = Math.sin(A.t * 1.8) * 0.015;
+  const breathe = Math.sin(A.t * 1.8) * 0.028; // (visible breathing: the chest rises and falls)
   hips.position.y = (ch.R.legL + 0.06) - bob + (st.crouch ? -0.2 : 0);
   hips.rotation.y += ((air ? 0 : Math.sin(ph) * amp * 0.22) - hips.rotation.y) * k;
+  // weight: the hips sway over the stance foot when moving, and shift slowly from foot to foot when standing
+  { const idle = 1 - walkF, sway = air ? 0 : Math.sin(ph) * 0.035 * amp + idle * Math.sin(A.t * 0.7) * 0.014; hips.position.x += (sway - hips.position.x) * k; hips.rotation.z += ((air ? 0 : -Math.sin(ph) * 0.05 * amp + idle * Math.sin(A.t * 0.7) * 0.025) - hips.rotation.z) * k; }
   // legs
   // standing armed: soft knees and feet a little apart (blended in, so it never fights the stride)
   const soft = ch.softK = (ch.softK || 0) + (((st.armed && ch.wt && sp < 0.6 && !st.airborne && !st.action && !st.sit && !st.swim && !st.dead) ? 1 : 0) - (ch.softK || 0)) * Math.min(1, dt * 6), kb = 0.2 * soft;
@@ -763,7 +765,7 @@ export function animateHumanoid(ch, dt, st) {
       damp(arms.L.sh, P[1], -P[2], -P[3], k * 1.6); damp(arms.L.el, P[4], 0, 0, k * 1.6);
       damp(arms.R.sh, P[5], 0, -P[6], k * 1.6); damp(arms.R.el, P[7], 0, 0, k * 1.6);
     } else {
-      const ka = carry ? k * 0.9 : k * 1.6;
+      const ka = carry ? k * 0.7 : k * 1.35; // (the arms trail the body slightly)
       damp(arms.R.sh, P[1], P[2], P[3], ka); damp(arms.R.el, P[4], 0, 0, ka);
       damp(arms.L.sh, P[5], 0, P[6], ka); damp(arms.L.el, P[7], 0, 0, ka);
     }

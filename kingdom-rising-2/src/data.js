@@ -1221,6 +1221,41 @@ for (const [cls, trees] of Object.entries(CLASS_TREES)) {
   CLASS_TREE[cls] = trees.flatMap(T => T.nodes.map(n => { if (n.ab && !n.name) { const a = ABILITIES[cls].find(x => x.id === n.ab); n.name = a.name; n.icon = a.id; n.desc = a.desc; } n.tree = T.id; n.max = 1; return n; }));
 }
 
+// ---- balance round 2 (no hidden multipliers: every class is evened out through its own abilities)
+{ const B = {
+  darkknight: { bloodmoon: { drain: 0.15, dmg: 0.35 }, lifetap: { drain: 0.2 }, deathcoil: { drain: 0.2, dmg: 2.0 }, dreadkick: { stun: 0.5 }, harvest: { drainAll: 0.1 },
+    bloodfury: { buff: 'cry', desc: 'For 10 s you hit 30% harder.' }, crimsonpact: { pct: 0.1, desc: 'Pay for your wounds in shadow: regenerate 10% of your health over 10 s.' }, deathgrip: { stun: 0.6 },
+    darkarmor: { dur: 8, desc: '+50% armour and your guard cannot be broken for 8 s.' }, gravestance: { dur: 6, desc: 'Plant your feet like a tombstone: take 25% less damage for 6 s.' }, cleave2: { dmg: 1.5 },
+    dreadroar: { stun: 1, desc: 'A terrible roar: every enemy within 8 m freezes in fear for 1 s.' } },
+  shaman: { sh_wave: { self: 0.2, desc: 'A wave of healing water: you heal 20% and every ally within 12 m heals 28%.' }, sh_renew: { pct: 0.3, desc: 'The ancestors mend you: 30% of your health over 10 s, and allies within 12 m heal 25%.' },
+    sh_fort: { dur: 6 }, sh_ward: { dur: 6 } },
+  cleric: { renew: { pct: 0.25, desc: 'You heal 25% over 8 s, and allies within 10 m are healed 25%.' }, hammeroflight: { stun: 0.6 }, shieldoffaith: { dur: 10, desc: 'Faith made solid: a shield that absorbs damage equal to 40% of your health, for up to 10 s.' },
+    judgement: { stun: 0.6 }, holysmite: { stun: 0.4 }, radiantheal: { self: 0.16, desc: 'Holy light heals you for 16% and every ally within 10 m for 25% of their health.' } },
+  beastmaster: { wildheal: { self: 0.2, desc: 'A spirit of the wild mends you for 20% of your health.' } },
+  blunderbuss: { braced: { dur: 6, desc: 'Plant your feet and lock your plates: take 25% less damage for 6 s.' }, ironhide: { dur: 8, desc: '+50% armour and your guard cannot be broken for 8 s.' }, buttstroke: { stun: 0.6 } },
+  berserker: { berserker_xs2: { pct: 0.15, desc: 'Catch your breath: regenerate 15% of your health over 10 s.' }, berserker_xs1: { dur: 4, desc: 'A protective ward: you and allies within 15 m take 40% less damage for 4 s.' },
+    berserker_xs0: { dur: 5, desc: 'You and allies within 15 m hit 30% harder for 5 s.' }, berserker_xd0: { stun: 0.4 } },
+  rogue: { eviscerate: { cd: 6 }, backstab: { dmg: 2.2, desc: 'A dirty blow to the knee and the throat: heavy damage, and the enemy in front of you is stunned for 2 s. Your twin daggers\' F does the real backstabbing.' },
+    rogue_xs1: { dur: 8, desc: 'A protective ward: you and allies within 15 m take 40% less damage for 8 s.' }, rogue_xs2: { pct: 0.3, desc: 'Catch your breath: regenerate 30% of your health over 10 s.' }, garrote: { dmg: 1.8 } },
+  musketeer: { musketeer_xs1: { dur: 8, desc: 'A protective ward: you and allies within 15 m take 40% less damage for 8 s.' }, duckroll: { dur: 3, desc: 'Throw yourself flat and roll: for 3 s attacks pass right over you and you move faster.' },
+    fieldbandage: { pct: 0.35, desc: 'Bind a wound under fire: regenerate 35% of your health over 10 s.' },
+    musketeer_xs0: { name: 'Powder Fury', buff: 'rage', dur: 10, cd: 30, r: undefined, allyBuff: undefined, desc: 'For 10 s you hit 15% harder and 15% of the damage you deal heals you.', ic: ['flame', 'red'] } },
+  enchanter: { enchanter_xs3: { name: 'Phantom Guard', buff: 'fort', dur: 12, cd: 24, r: undefined, allyBuff: undefined, desc: 'Phantom copies of you soak the blows: take 30% less damage and your guard cannot be broken for 12 s.', ic: ['shield', 'arcane'] },
+    enchanter_xd0: { name: 'Psychic Leech', t: 'drain', kind: 'arcane', col: 'arcane', speed: 45, dmg: 1.6, cd: 6, drain: 0.4, desc: 'A bolt of thought that feeds on the mind it strikes: 40% of the damage heals you.', ic: ['drop', 'arcane'] },
+    enchanter_xs1: { dur: 8, desc: 'A protective ward: you and allies within 15 m take 40% less damage for 8 s.' }, mindblast: { dmg: 1.8 } },
+  elementalist: { firestorm: { dmg: 0.8 }, flamelash: { dmg: 1.7 }, frostshard: { dmg: 1.5 }, cauterize: { pct: 0.35, desc: 'Burn your wounds shut: regenerate 35% of your health over 8 s.' },
+    iceshell: { buff: 'ward', amount: undefined, dur: 10, cd: 24, desc: 'A shell of ice on your own skin: take 40% less damage for 10 s.' }, blizzard: { dmg: 0.6, slow: 3 } },
+  bard: { piercingnote: { dmg: 1.9 }, crescendo: { dmg: 2.2, cd: 12 }, soothe: { pct: 0.02 } },
+  wizard: { temporalbolt: { dmg: 1.7 }, voidsiphon: { dmg: 1.8 } },
+  necromancer: { sapspeed: { name: 'Bone Spear', t: 'bolt', kind: 'arcane', col: 'shadow', speed: 50, dmg: 2.4, cd: 8, pierce: true, sap: undefined, desc: 'Hurl a spear of bone that runs through every enemy in a line.', ic: ['arrow', 'shadow'] },
+    corruption: { dot: 0.45 }, bloodpact: { pct: 0.3, desc: 'Feed on the life you have stolen: regenerate 30% of your health over 10 s.' } },
+  paladin: { smitearc: { cd: 8 }, paladin_xs0: { name: 'Seal of Light', t: 'drain', kind: 'arcane', col: 'gold', speed: 45, dmg: 1.6, cd: 8, drain: 0.3, buff: undefined, dur: undefined, r: undefined, allyBuff: undefined, desc: 'A bolt of holy light: 30% of the damage it deals heals you.', ic: ['burst', 'gold'] } },
+  monk: { serenity: { t: 'hot', pct: 0.35, dur: 10, cd: 24, buff: undefined, allyBuff: undefined, r: undefined, desc: 'Breathe and be still: regenerate 35% of your health over 10 s.', ic: ['heart', 'gold'] } },
+};
+for (const [cls, m] of Object.entries(B)) { if (!ABILITIES[cls]) continue; for (const [id, f] of Object.entries(m)) { const a = ABILITIES[cls].find(x => x.id === id); if (!a) continue;
+  for (const [k, v] of Object.entries(f)) { if (k === 'ic') { GEN_ICONS[id] = v; continue; } if (v === undefined) delete a[k]; else a[k] = v; }
+  for (const T of CLASS_TREES[cls] || []) for (const n of T.nodes) if (n.ab === id) { n.name = a.name; n.desc = a.desc; } } } }
+
 // ---- layout: spread each tree's abilities across the grid (not all down the middle), passives in between,
 // every node hanging from the one above it, the capstone at the bottom
 const BOTTOM = new Set(['skelmage']); // abilities that belong at the bottom of their tree

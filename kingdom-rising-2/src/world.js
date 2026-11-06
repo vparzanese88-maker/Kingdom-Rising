@@ -6,6 +6,7 @@ import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLA
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 import { YARD, ARENA } from './battlemap.js';
 import { buildColosseum } from './arenamap.js';
+import { buildRuins } from './ruinsmap.js';
 import { BATTLE, LAYOUT, WALL_R, battleRoadDist, nearTown } from './battlemap.js';
 
 export const world = {
@@ -26,8 +27,8 @@ function gridAdd(grid, x, z, r, item) {
 }
 function gridGet(grid, x, z) { return grid.get(gk(x, z)) || []; }
 export function addCircle(x, z, r, tag) { const c = { t: 'c', x, z, r, on: true, tag }; world.colliders.push(c); gridAdd(colGrid, x, z, r, c); return c; }
-export function addBox(x, z, hw, hd, rot = 0, tag) { const c = { t: 'b', x, z, hw, hd, rot, cos: Math.cos(rot), sin: Math.sin(rot), on: true, tag }; world.colliders.push(c); gridAdd(colGrid, x, z, Math.hypot(hw, hd), c); return c; }
-export function addSurface(x, z, hw, hd, rot, y, slopeY) { const s = { x, z, hw, hd, rot, cos: Math.cos(rot), sin: Math.sin(rot), y, slope: slopeY || 0 }; world.surfaces.push(s); gridAdd(surfGrid, x, z, Math.hypot(hw, hd), s); return s; }
+export function addBox(x, z, hw, hd, rot = 0, tag, y0 = -1e9, y1 = 1e9) { const c = { t: 'b', x, z, hw, hd, rot, cos: Math.cos(rot), sin: Math.sin(rot), on: true, tag, y0, y1 }; /* (y0..y1: a wall you can stand on top of, or walk under) */ world.colliders.push(c); gridAdd(colGrid, x, z, Math.hypot(hw, hd), c); return c; }
+export function addSurface(x, z, hw, hd, rot, y, slopeY, y1) { const s = { x, z, hw, hd, rot, cos: Math.cos(rot), sin: Math.sin(rot), y, slope: slopeY || 0, ramp: y1 != null ? y1 - y : 0 }; /* (ramp: rises from y at -hd to y1 at +hd) */ world.surfaces.push(s); gridAdd(surfGrid, x, z, Math.hypot(hw, hd), s); return s; }
 
 // push a point out of colliders (in place). returns true if hit
 export function collide(p, r) {
@@ -39,6 +40,7 @@ export function collide(p, r) {
       const dx = p.x - c.x, dz = p.z - c.z, d2 = dx * dx + dz * dz, rr = c.r + r;
       if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2), k = (rr - d) / d; p.x += dx * k; p.z += dz * k; hit = true; }
     } else {
+      if (p.y != null && (p.y >= c.y1 - 0.35 || p.y + 1.7 <= c.y0)) continue; // (standing on top of it, or passing under it)
       // to local
       const dx = p.x - c.x, dz = p.z - c.z;
       const lx = dx * c.cos - dz * c.sin, lz = dx * c.sin + dz * c.cos;
@@ -53,6 +55,9 @@ export function collide(p, r) {
   }
   return hit;
 }
+// is this point inside a solid box (walls, buildings)? and is the straight line between two points clear of them?
+export function solidAt(x, y, z) { for (const c of gridGet(colGrid, x, z)) { if (!c.on || c.t !== 'b' || y < c.y0 || y > c.y1) continue; const dx = x - c.x, dz = z - c.z, lx = dx * c.cos - dz * c.sin, lz = dx * c.sin + dz * c.cos; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true; } return false; }
+export function lineClear(a, b) { const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.6); for (let i = 1; i < n; i++) { const t = i / n; if (solidAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)) return false; } return true; }
 // ground height including bridges/piers when standing above them
 export function groundAt(x, z, y = 1e9) {
   let h = heightAt(x, z), surf = null;
@@ -60,7 +65,7 @@ export function groundAt(x, z, y = 1e9) {
     const dx = x - s.x, dz = z - s.z;
     const lx = dx * s.cos - dz * s.sin, lz = dx * s.sin + dz * s.cos;
     if (Math.abs(lx) <= s.hw && Math.abs(lz) <= s.hd) {
-      const sy = s.y + (s.slope ? s.slope * (1 - Math.pow(lz / s.hd, 2)) : 0);
+      const sy = s.y + (s.slope ? s.slope * (1 - Math.pow(lz / s.hd, 2)) : 0) + (s.ramp ? s.ramp * (lz / s.hd + 1) / 2 : 0);
       if (sy > h && y > sy - 1.3) { h = sy; surf = s; }
     }
   }
@@ -869,7 +874,7 @@ export function buildWorld(scene) {
     bush: { geo: bushGeo(), mat: leafMat, shadowDist: 40 },
   });
   if (YARD) buildYard(scene);
-  if (ARENA) buildColosseum(scene);
+  if (ARENA) { let mp = 'ruins'; try { mp = (JSON.parse(sessionStorage.getItem('kr2_arena_setup') || '{}').map) || 'ruins'; } catch (e) { /* default */ } if (mp === 'colosseum') buildColosseum(scene); else buildRuins(scene); } // (the Ruins of Aldermere by default)
   if (!BATTLE && !YARD && !ARENA) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();

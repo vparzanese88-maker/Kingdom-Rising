@@ -15,6 +15,8 @@ import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
+import { RUINS, updateRuins } from './ruinsmap.js';
+import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
 import { luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -209,15 +211,23 @@ export function initArena(hooks) {
   placeAll(); startPick(PICK_T);
 }
 export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name || 'You'); }
+const RUINS_MAP = () => AR.map === 'ruins';
+// the height of the floor under a point (stairs, balconies, ramparts on the Ruins; flat sand in the colosseum)
+export function gy(x, z, y) { return RUINS_MAP() ? worldGround(x, z, (y == null ? AR.Y : y) + 0.6).h : AR.Y; }
 // everyone starts (and comes back) in a holding room behind a gate; teams get their own gate, free-for-all shares them out
 function spawnOf(f) {
+  if (RUINS_MAP()) { const ffa = isFFA(), k = ffa ? f.i % 4 : teamsOf().indexOf(f.team) % 4, rm = RUINS.rooms[k] || RUINS.rooms[0], mates = ffa ? A.F.filter(o => o.i % 4 === k) : A.F.filter(o => o.team === f.team), j = Math.max(0, mates.indexOf(f));
+    const lat = ((j % 3) - 1) * 2.2, back = 1.2 + Math.floor(j / 3) * 2.0; return { x: rm.cx - rm.dir[0] * back + (rm.ax ? 0 : lat), z: rm.cz - rm.dir[1] * back + (rm.ax ? lat : 0), yaw: Math.atan2(rm.dir[0], rm.dir[1]) }; }
   const R = AR.R, ffa = isFFA(), k = ffa ? f.i % 4 : teamsOf().indexOf(f.team) % 4, g = AR.gates[k], mates = ffa ? A.F.filter(o => o.i % 4 === k) : A.F.filter(o => o.team === f.team), j = Math.max(0, mates.indexOf(f));
   const lat = ((j % 3) - 1) * 2.2, along = R + 4.2 + Math.floor(j / 3) * 2.6, a = g.a;
   return { x: Math.sin(a) * along + Math.cos(a) * lat, z: Math.cos(a) * along - Math.sin(a) * lat, yaw: Math.atan2(-Math.sin(a), -Math.cos(a)) };
 }
 // keep a body on the sand or inside a holding room (the rooms open onto the sand once the gates are up); pillars push you aside
-function roomOf(x, z) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, al = x * Math.sin(a) + z * Math.cos(a), lat = x * Math.cos(a) - z * Math.sin(a); if (al > AR.R - 1.5 && Math.abs(lat) < ROOM.half + 0.6) return { k, a, al, lat }; } return null; }
+function roomOf(x, z) { if (RUINS_MAP()) { for (const rm of RUINS.rooms) if (Math.abs(x - rm.cx) < rm.hw + 0.3 && Math.abs(z - rm.cz) < rm.hd + 0.3) return { k: rm.k, rm, a: Math.atan2(rm.dir[0], rm.dir[1]) }; return null; } for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, al = x * Math.sin(a) + z * Math.cos(a), lat = x * Math.cos(a) - z * Math.sin(a); if (al > AR.R - 1.5 && Math.abs(lat) < ROOM.half + 0.6) return { k, a, al, lat }; } return null; }
 function confine(pos, r0 = 0.9) {
+  if (RUINS_MAP()) { const B = RUINS.bounds; pos.x = Math.max(-B.x, Math.min(B.x, pos.x)) ; pos.z = Math.max(-B.z, Math.min(B.z, pos.z)); const rm = roomOf(pos.x, pos.z);
+    if (rm && !AR.gatesOpen) { const R2 = rm.rm; pos.x = Math.max(R2.cx - R2.hw + 0.4, Math.min(R2.cx + R2.hw - 0.4, pos.x)); pos.z = Math.max(R2.cz - R2.hd + 0.4, Math.min(R2.cz + R2.hd - 0.4, pos.z)); return 'room'; }
+    return rm ? 'room' : 'sand'; }
   const R = AR.R, rm = roomOf(pos.x, pos.z);
   if (rm && (rm.al > R - r0 || !AR.gatesOpen)) { const open = AR.gatesOpen && Math.abs(rm.lat) < 2.4; let al = Math.min(ROOM.far - 0.4 + R, rm.al), lat = Math.max(-ROOM.half + 0.4, Math.min(ROOM.half - 0.4, rm.lat));
     if (!open) al = Math.max(R + ROOM.near, al); else if (al < R + 1.2) lat = Math.max(-2.3, Math.min(2.3, lat)); // (through the gate itself, only between the posts)
@@ -289,7 +299,7 @@ function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = '
 // ---------------- every frame ----------------
 export function updateArena(dt) {
   G.tod = A.setup.tod || 0.335; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
-  updateColosseum(dt);
+  if (RUINS_MAP()) updateRuins(dt); else updateColosseum(dt);
   notesTick(dt);
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead && !roomOf(p.pos.x, p.pos.z)) { const sp = spawnOf(A.me); p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); } // (wander the holding room and buff up until the gate lifts)
@@ -306,7 +316,8 @@ export function updateArena(dt) {
   // keep the player inside the sand
   let where = 'sand'; if (p && !p.dead) { p.spectate = false; where = confine(p.pos, 0.9); }
   // the camera never goes behind the arena wall: it slides in along the ring instead
-  if (G.camera && p && !p.dead) { const c = G.camera.position; if (where === 'room' || roomOf(c.x, c.z)) { const rm = roomOf(c.x, c.z) || roomOf(p.pos.x, p.pos.z); if (rm) { const pr = roomOf(p.pos.x, p.pos.z), al = Math.min(AR.R + ROOM.far, Math.max(pr ? AR.R - 3 : AR.R - 6, rm.al)), lat = Math.max(-ROOM.half + 0.2, Math.min(ROOM.half - 0.2, rm.lat)); c.x = Math.sin(rm.a) * al + Math.cos(rm.a) * lat; c.z = Math.cos(rm.a) * al - Math.sin(rm.a) * lat; c.y = Math.min(c.y, AR.Y + ROOM.H - 0.3); } } else { const d = Math.hypot(c.x, c.z), lim = AR.R - 0.4; if (d > lim) { c.x *= lim / d; c.z *= lim / d; } } }
+  if (G.camera && p && !p.dead && RUINS_MAP()) { const c = G.camera.position, h = p.pos.clone().setY(p.pos.y + 1.6), d = c.clone().sub(h), L = d.length(); for (let t = 0.15; t <= 1.0001; t += 0.05) { const q = h.clone().addScaledVector(d, t); if (solidAt(q.x, q.y, q.z)) { c.copy(h).addScaledVector(d, Math.max(0, t - 0.08)); break; } } } // (the camera never goes inside a wall)
+  else if (G.camera && p && !p.dead) { const c = G.camera.position; if (where === 'room' || roomOf(c.x, c.z)) { const rm = roomOf(c.x, c.z) || roomOf(p.pos.x, p.pos.z); if (rm) { const pr = roomOf(p.pos.x, p.pos.z), al = Math.min(AR.R + ROOM.far, Math.max(pr ? AR.R - 3 : AR.R - 6, rm.al)), lat = Math.max(-ROOM.half + 0.2, Math.min(ROOM.half - 0.2, rm.lat)); c.x = Math.sin(rm.a) * al + Math.cos(rm.a) * lat; c.z = Math.cos(rm.a) * al - Math.sin(rm.a) * lat; c.y = Math.min(c.y, AR.Y + ROOM.H - 0.3); } } else { const d = Math.hypot(c.x, c.z), lim = AR.R - 0.4; if (d > lim) { c.x *= lim / d; c.z *= lim / d; } } }
   updateShots(dt); updateZones(dt); for (const fl of A.flags) { if (AUTH()) updateFlag(fl, dt); else { fl.grp.position.copy(fl.pos); fl.cloth.rotation.y = Math.sin(G.time * 3 + fl.team) * 0.3; } }
   renderHud();
 }
@@ -345,17 +356,17 @@ function objectives(dt) {
 function paintHill() { if (A.setup.objective !== 'koth') return; AR.hill.material.color.set(A.hillOwner == null ? '#ffffff' : A.hillOwner === 'contested' ? '#ff8a30' : teamCol(A.hillOwner)); AR.hill.material.opacity = 0.55 + Math.sin(G.time * 4) * 0.2; }
 // capture the flag: a banner on a pole at each team's gate
 function makeFlag(t) {
-  const k = teamsOf().indexOf(t), g = AR.gates[k % 4], home = V3(g.x * 0.86, AR.Y, g.z * 0.86);
+  const k = teamsOf().indexOf(t), g = AR.gates[k % 4], home = RUINS_MAP() ? V3(g.x, g.y || AR.Y, g.z) : V3(g.x * 0.86, AR.Y, g.z * 0.86);
   const grp = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), new THREE.MeshStandardMaterial({ color: '#d8b04a', metalness: 0.8, roughness: 0.4 })); pole.position.y = 1.6; grp.add(pole);
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.85), new THREE.MeshStandardMaterial({ color: teamCol(t), side: THREE.DoubleSide, emissive: teamCol(t), emissiveIntensity: 0.25 })); cloth.position.set(0.67, 2.7, 0); grp.add(cloth);
   const base = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.8, 40), new THREE.MeshBasicMaterial({ color: teamCol(t), transparent: true, opacity: 0.6, side: THREE.DoubleSide })); base.rotation.x = -Math.PI / 2; base.position.copy(home).setY(AR.Y + 0.07); G.scene.add(base);
   grp.position.copy(home); G.scene.add(grp);
   return { team: t, home, pos: home.clone(), grp, cloth, carrier: null, dropT: 0, atHome: true };
 }
-function dropFlag(fl) { const q = posOf(fl.carrier); fl.carrier = null; fl.pos.set(q.x, AR.Y, q.z); fl.dropT = 15; fl.atHome = false; feed(`The <b style="color:${teamCol(fl.team)}">${COLOR_NAMES[fl.team]}</b> banner was dropped`); }
+function dropFlag(fl) { const q = posOf(fl.carrier); fl.carrier = null; fl.pos.set(q.x, gy(q.x, q.z, q.y), q.z); fl.dropT = 15; fl.atHome = false; feed(`The <b style="color:${teamCol(fl.team)}">${COLOR_NAMES[fl.team]}</b> banner was dropped`); }
 function updateFlag(fl, dt) {
   if (A.state !== 'fight') { fl.grp.position.copy(fl.pos); return; }
-  if (fl.carrier) { const q = posOf(fl.carrier); fl.pos.set(q.x, AR.Y + 1.2, q.z);
+  if (fl.carrier) { const q = posOf(fl.carrier); fl.pos.set(q.x, (RUINS_MAP() ? q.y : AR.Y) + 1.2, q.z);
     const mine = A.flags.find(x => x.team === fl.carrier.team);
     if (mine && mine.atHome && Math.hypot(q.x - mine.home.x, q.z - mine.home.z) < 2.4) { A.score[fl.carrier.team]++; feed(`<b style="color:${teamCol(fl.carrier.team)}">${fl.carrier.name}</b> captured the <b style="color:${teamCol(fl.team)}">${COLOR_NAMES[fl.team]}</b> banner!`); cheer(2); bannerAll('Banner captured!', `${teamName(fl.carrier.team)}: ${A.score[fl.carrier.team]} of ${A.target}`); fl.carrier = null; fl.pos.copy(fl.home); fl.atHome = true; checkWin(); } }
   else { if (!fl.atHome) { fl.dropT -= dt; if (fl.dropT <= 0) { fl.pos.copy(fl.home); fl.atHome = true; } }
@@ -467,7 +478,7 @@ class ArenaBot {
   }
   recalc() { const D = Game.heroDerived(this.h); this.D = D; this.baseHp = D.maxHp; this.maxHp = Math.round(D.maxHp * Game.arenaHpK(this.h)); this.base = Game.weaponDamage(this.h, this.h.equip.w1 || Game.makeWeapon('sword', 5, 3)); this.up = G.abilScale ? G.abilScale(LEVEL_CAP) : 1.675; }
   dist2(p) { const dx = p.x - this.pos.x, dz = p.z - this.pos.z; return dx * dx + dz * dz; }
-  revive(sp) { this.dead = false; this.root.visible = true; this.root.rotation.set(0, sp.yaw, 0); this.hp = this.maxHp; this.pos.set(sp.x, AR.Y, sp.z); this.yaw = sp.yaw; for (const k in this.status) if (typeof this.status[k] === 'number') this.status[k] = 0; this.buffs = {}; this.hots = []; this.dots = []; this.cast = null; this.stealth = 0; this.carry = null; }
+  revive(sp) { this.dead = false; this.root.visible = true; this.root.rotation.set(0, sp.yaw, 0); this.hp = this.maxHp; this.pos.set(sp.x, gy(sp.x, sp.z, 6), sp.z); this.yaw = sp.yaw; for (const k in this.status) if (typeof this.status[k] === 'number') this.status[k] = 0; this.buffs = {}; this.hots = []; this.dots = []; this.cast = null; this.stealth = 0; this.carry = null; }
   prebuff() { // EverQuest-style stat buffs go up before the gates open, on itself and (support classes) its team
     for (const a of this.abs) if (a.eq) { const v = {}; for (const [k, [b, per]] of Object.entries(a.eq)) v[k] = Math.round(b + per * LEVEL_CAP); this.h.sb = this.h.sb || {}; this.h.sb[a.id] = Object.assign({ t: 999, name: a.name }, v);
       if (SUPPORT_CLS.has(this.cls)) for (const u of alliesOf(this)) { if (u === G.player) { const ph = G.save; ph.sb = ph.sb || {}; ph.sb[a.id + '_' + this.id] = Object.assign({ t: 999, name: a.name + ' (' + this.heroName + ')', text: '' }, v); u.refreshStatsOnly && u.refreshStatsOnly(); } else if (u.h) { u.h.sb = u.h.sb || {}; u.h.sb[a.id + '_' + this.id] = Object.assign({ t: 999 }, v); u.recalc(); } } }
@@ -538,7 +549,7 @@ class ArenaBot {
     // knockback
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
     confine(this.pos, 1);
-    this.pos.y = AR.Y; this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
+    if (RUINS_MAP()) worldCollide(this.pos, 0.45); this.pos.y = gy(this.pos.x, this.pos.z, this.pos.y); this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
     const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
     { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
@@ -563,9 +574,18 @@ class ArenaBot {
       else { V.burst('ember', me.clone().setY(me.y + 1.4), 26, { speed: 4 }); V.ring(me, 2.4, '#ff8040', 0.5); S.battleCry && S.battleCry(); this.buffs.cry = Math.max(this.buffs.cry || 0, dur * 0.5); } }
     return speed;
   }
+  // the Ruins: walk the bot's lane (left rampart, middle street, right garden) toward its target or the centre,
+  // unless the target is close and in plain sight, when it fights in the open as usual
+  laneStep(T) { const me = this.pos, lane = RUINS.lanes[this.lane != null ? this.lane : (this.lane = this.arenaF.i % 3)];
+    if (T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 13 && lineClear(me.clone().setY(me.y + 1.5), T.pos.clone().setY(T.pos.y + 1.2))) return null;
+    let near = 0, nd = 1e9; lane.forEach((w, i) => { const d = Math.hypot(w[0] - me.x, w[1] - me.z); if (d < nd) { nd = d; near = i; } });
+    if (this.wpi == null || Math.hypot(lane[this.wpi][0] - me.x, lane[this.wpi][1] - me.z) > 14) this.wpi = near; // (remember the waypoint it is walking to)
+    const goalZ = T ? T.pos.z : (this.team === teamsOf()[0] ? 6 : -6), dir = goalZ > lane[this.wpi][1] ? 1 : -1;
+    if (Math.hypot(lane[this.wpi][0] - me.x, lane[this.wpi][1] - me.z) < 2.4) this.wpi = Math.max(0, Math.min(lane.length - 1, this.wpi + dir));
+    return lane[this.wpi]; }
   // pick who to fight and what to do: focus the team's target, protect healers, play the objective
   think() {
-    const foes = enemiesOf(this).filter(u => !(u.stealth > 0) || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 3), me = this.pos;
+    const foes = enemiesOf(this).filter(u => (!(u.stealth > 0) || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 3) && (!RUINS_MAP() || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 4 || lineClear(this.pos.clone().setY(this.pos.y + 1.5), u.pos.clone().setY(u.pos.y + 1.2)) || u === this.target)), me = this.pos;
     const near = (u) => Math.hypot(u.pos.x - me.x, u.pos.z - me.z);
     // the team's focus: the weakest enemy near the team, shared by every bot on the side
     const mates = alliesOf(this, true), cx = mates.reduce((s, u) => s + u.pos.x, 0) / mates.length, cz = mates.reduce((s, u) => s + u.pos.z, 0) / mates.length;
@@ -604,7 +624,7 @@ class ArenaBot {
     } else { const mates = alliesOf(this); if (mates.length) { const m = mates[0]; tx = m.pos.x + Math.sin(this.id) * 3; tz = m.pos.z + Math.cos(this.id) * 3; } else { tx = 0; tz = 0; } }
     // low on health with no healing: fall back toward a team mate who heals
     if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
-    { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } // still in the holding room: out through the gate first
+    { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { if (RUINS_MAP()) { tx = rm.rm.gx + rm.rm.dir[0] * 4; tz = rm.rm.gz + rm.rm.dir[1] * 4; } else { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } else if (RUINS_MAP() && !this.goal) { const w = this.laneStep(T); if (w) { tx = w[0]; tz = w[1]; } } } // still in the holding room: out through the gate first
     // stay apart from everyone else
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
@@ -723,7 +743,7 @@ function petTick(dt) {
   const reach = m.bpet.range || 1.8;
   if (d > reach) { sp = Math.min(d - reach * 0.8, (m.bpet.speed || 6.5) * dt); m.pos.x += dx / d * sp; m.pos.z += dz / d * sp; m.yaw = Math.atan2(dx, dz); sp = sp / dt; }
   m.atkCd -= dt; if (T && d <= reach + 0.4 && m.atkCd <= 0) { m.atkCd = (m.bpet.cd || 1.2) * (m.frenzy > 0 ? 0.7 : 1); const dmg = (m.bpet.dmg || 20) * (1 + (LEVEL_CAP - 1) * 0.035) * (m.burst ? m.burst : 1) * (m.frenzy > 0 ? 1.3 : 1); m.burst = 0; hitUnit(o, T, dmg, { melee: true }); m.action = 'attack'; m.actionT = 0; }
-  m.pos.y = AR.Y; m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.actionT = (m.actionT || 0) + dt * 2; m.animate(dt, { speed: sp, action: m.actionT < 1 ? m.action : null, actionT: m.actionT });
+  m.pos.y = gy(m.pos.x, m.pos.z, m.pos.y); if (RUINS_MAP()) worldCollide(m.pos, 0.4); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.actionT = (m.actionT || 0) + dt * 2; m.animate(dt, { speed: sp, action: m.actionT < 1 ? m.action : null, actionT: m.actionT });
 }
 
 

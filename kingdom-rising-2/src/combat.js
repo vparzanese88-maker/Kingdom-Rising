@@ -4,6 +4,8 @@ import { G } from './state.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 import { heightAt } from './terrain.js';
+import { solidAt } from './world.js';
+const ARENA_MODE = /[?&]mode=arena/.test(location.search);
 import { angDiff, rand } from './util.js';
 
 const tmp = new THREE.Vector3();
@@ -149,6 +151,7 @@ export function updateProjectiles(dt) {
       }
       const gh = heightAt(p.pos.x, p.pos.z);
       if (!dead && p.pos.y < gh) { p.pos.y = gh; impact(p, null); dead = true; }
+      if (!dead && ARENA_MODE && solidAt(p.pos.x, p.pos.y, p.pos.z)) { impact(p, null); dead = true; } // (the arena: shots stop at walls and buildings)
     }
     if (!dead && p.life <= 0) { if (p.aoe) impact(p, null); dead = true; }
     // trails

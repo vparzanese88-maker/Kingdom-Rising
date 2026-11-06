@@ -95,11 +95,7 @@ const DETAIL = {
 };
 const DECOR = {
   necromancer(ch) { // a shrunken head in the left hand (its stitched mouth sprays poison), a belt of skulls, burning green eyes
-    { const g = ch.arms.L.grip, hd = new THREE.Group(); hd.position.set(0, 0.02, 0.06); g.add(hd); const sk = M('#5a4a2a', 0.85), st = M('#1a1208', 0.9);
-      add(hd, sph(0.085, 12, 10), sk).scale.set(0.9, 1.05, 0.95); add(hd, boxG(0.05, 0.014, 0.012), st, 0, -0.03, 0.08);
-      for (let k = 0; k < 4; k++) add(hd, boxG(0.004, 0.025, 0.006), st, -0.018 + k * 0.012, -0.03, 0.085);
-      for (const x of [-0.03, 0.03]) { add(hd, sph(0.016, 6, 4), GL('#050505'), x, 0.015, 0.075); add(hd, sph(0.008, 6, 4), GL('#7aff5a'), x, 0.015, 0.085); }
-      for (let k = 0; k < 7; k++) { const h = add(hd, cylG(0.004, 0.002, 0.16, 3), st, -0.04 + k * 0.013, 0.1, -0.02); h.rotation.x = 0.3 + (k % 3) * 0.1; } add(hd, cylG(0.004, 0.004, 0.12, 4), st, 0, 0.1, 0); }
+    { const dg = makeShrunkenHead(); ch.arms.L.grip.add(dg); ch.dangle = dg; ch.headMouthObj = dg.userData.mouth; } // (held by its ponytail, swinging under his fist)
     { for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, r = 0.19 * ch.R.thick, sk2 = new THREE.Group(); sk2.position.set(Math.sin(a) * r, 0.04, Math.cos(a) * r * 0.85); sk2.rotation.y = a; ch.hips.add(sk2); const b = bone(); add(sk2, sph(0.045, 8, 6), b).scale.set(0.9, 1, 1); for (const x of [-0.015, 0.015]) add(sk2, sph(0.01, 5, 4), GL('#6aff5a'), x, 0.005, 0.04); } }
     skullFace(ch.headG); hideHair(ch); shoulderSpikes(ch, bone(), 2); const b = bone(); for (let k = 0; k < 5; k++) add(ch.chest, sph(0.022, 8, 6), b, -0.08 + k * 0.04, ch.R.torsoH - 0.13, 0.12 - Math.abs(k - 2) * 0.012); },
   wizard(ch) { const hat = ch.outfit && ch.outfit.hat; if (hat) { const g = gold(); for (let k = 0; k < 6; k++) { const a = k * 1.1, y = 0.05 + k * 0.05; add(hat, sph(0.014, 6, 4), g, Math.sin(a) * (0.1 - k * 0.012), y, Math.cos(a) * (0.1 - k * 0.012)); } }
@@ -149,14 +145,41 @@ export function arenaWeaponDecor(ch, cls) {
     const bowl = add(L, sph(0.13, 16, 12), wood, 0, 0.6, -0.02); bowl.scale.set(1, 1.25, 0.55); add(L, sph(0.03, 10, 8), GL('#1a0a04'), 0, 0.56, 0.05).scale.z = 0.2;
     for (let k = 0; k < 4; k++) add(L, boxG(0.002, 0.62, 0.002), str, -0.012 + k * 0.008, 0.33, 0.03);
     add(L, boxG(0.07, 0.015, 0.02), dark, 0, 0.72, 0.04); return; }
-  const tip = w.userData.orb || w.userData.tip; if (!tip) return;
+  const tip = w.userData.orb || w.userData.tip; if (!tip && cls !== 'necromancer') return;
   const col = { necromancer: '#5aff4a', wizard: '#60a0ff', elementalist: '#ff8030', enchanter: '#ff70e0', druid: '#9ad060', cleric: '#fff0a0' }[cls];
-  if (cls === 'necromancer') { if (w.userData.orb) w.userData.orb.visible = false; const s = new THREE.Group(); tip.add(s); s.position.y = 0.03; const b = bone(); add(s, sph(0.07, 12, 10), b).scale.set(0.95, 1, 1.05); add(s, boxG(0.08, 0.035, 0.06), b, 0, -0.05, 0.02);
+  if (cls === 'necromancer') { for (const c of [...w.children]) w.remove(c); w.userData.orb = null; w.userData.tip = null; const fl = add(w, sph(0.04, 10, 8), GL('#7aff5a'), 0, 0.02, 0.05); fl.castShadow = false; const fl2 = add(w, sph(0.065, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.02, 0.05); fl2.castShadow = false; w.userData.flame = fl; return; } /* (no staff any more: poison pours from his bare right hand) */
+  if (false) { const s = new THREE.Group(); tip.add(s); s.position.y = 0.03; const b = bone(); add(s, sph(0.07, 12, 10), b).scale.set(0.95, 1, 1.05); add(s, boxG(0.08, 0.035, 0.06), b, 0, -0.05, 0.02);
     for (const x of [-0.024, 0.024]) { add(s, sph(0.017, 8, 6), GL('#050505'), x, 0.005, 0.058); add(s, sph(0.008, 6, 4), GL('#6aff5a'), x, 0.005, 0.068); } s.rotation.y = Math.PI / 2; return; }
   if (col && w.userData.orb) w.userData.orb.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (o.material.color) o.material.color.set(col); if (o.material.emissive) o.material.emissive.set(col); } });
 }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
-export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; }
+export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt); }
+// the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.
+// The group's origin is the top of the ponytail (where the fist holds it); the head hangs down -Y, its face toward +Z.
+export function makeShrunkenHead() {
+  const dg = new THREE.Group(), sk = M('#5e4c2c', 0.85), skD = M('#3e3018', 0.9), st = M('#1a1208', 0.9), hair = M('#16110c', 0.95);
+  add(dg, sph(0.022, 8, 6), hair, 0, 0.0, 0); // the knot in the fist
+  for (let k = 0; k < 5; k++) { const seg = add(dg, cylG(0.014 - k * 0.0012, 0.016 - k * 0.0012, 0.045, 6), hair, (k % 2 ? 0.004 : -0.004), -0.025 - k * 0.04, 0); seg.rotation.z = (k % 2 ? 0.25 : -0.25); } // a braid
+  const hd = new THREE.Group(); hd.position.set(0, -0.3, 0); dg.add(hd);
+  add(hd, sph(0.085, 14, 12), sk).scale.set(0.88, 1.05, 0.95); add(hd, sph(0.06, 10, 8), skD, 0, -0.05, 0.03).scale.set(1, 0.7, 0.9); // shrivelled jaw
+  add(hd, boxG(0.05, 0.014, 0.012), st, 0, -0.03, 0.08); for (let k = 0; k < 4; k++) add(hd, boxG(0.004, 0.026, 0.006), st, -0.018 + k * 0.012, -0.03, 0.085); // stitched mouth
+  for (const x of [-0.03, 0.03]) { add(hd, sph(0.017, 6, 4), GL('#050505'), x, 0.016, 0.074); const e2 = add(hd, sph(0.009, 6, 4), GL('#7aff5a'), x, 0.016, 0.085); e2.castShadow = false; add(hd, boxG(0.03, 0.004, 0.006), st, x, 0.016, 0.088).rotation.z = 0.6; } // sewn-shut lids over green light
+  add(hd, coneG(0.012, 0.03, 4), skD, 0, -0.002, 0.088).rotation.x = Math.PI / 2; // nose
+  for (const x of [-1, 1]) add(hd, sph(0.022, 6, 5), skD, x * 0.075, 0, 0).scale.set(0.5, 1, 0.8); // ears
+  for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, h = add(hd, cylG(0.004, 0.0025, 0.12, 3), hair, Math.sin(a) * 0.04, 0.075, Math.cos(a) * 0.04 - 0.01); h.rotation.set(Math.cos(a) * -0.5, 0, Math.sin(a) * 0.5); } // hair gathered up into the ponytail
+  const mouth = new THREE.Object3D(); mouth.position.set(0, -0.03, 0.1); hd.add(mouth); dg.userData.mouth = mouth; dg.userData.head = hd;
+  dg.userData.sw = { ax: 0, az: 0, vx: 0, vz: 0, lp: null };
+  return dg;
+}
+// it hangs straight down whatever the arm does, facing the way you face, and swings as you move
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _v = new THREE.Vector3();
+export function swingDangle(dg, faceObj, dt, frameObj) {
+  const sw = dg.userData.sw; if (!sw || !dg.parent || dt <= 0) return; dg.parent.updateMatrixWorld(true); dg.getWorldPosition(_p);
+  faceObj.getWorldQuaternion(_q2); if (sw.lp) { _v.subVectors(_p, sw.lp).divideScalar(Math.max(dt, 1 / 120)).applyQuaternion(_q3.copy(_q2).invert()); } else _v.set(0, 0, 0); sw.lp = (sw.lp || new THREE.Vector3()).copy(_p);
+  const tx = Math.max(-0.9, Math.min(0.9, -_v.z * 0.12)), tz = Math.max(-0.9, Math.min(0.9, _v.x * 0.12));
+  sw.vx += (tx - sw.ax) * 70 * dt; sw.vz += (tz - sw.az) * 70 * dt; const damp = Math.exp(-3.5 * dt); sw.vx *= damp; sw.vz *= damp; sw.ax += sw.vx * dt; sw.az += sw.vz * dt;
+  _q3.setFromEuler(_e.set(sw.ax, 0, sw.az)); _q2.multiply(_q3); dg.parent.getWorldQuaternion(_q1); dg.quaternion.copy(_q1.invert().multiply(_q2));
+}
 
 // a dark ink outline round every fighter (an inverted shell pushed out along the normals), the way Smite and Marvel
 // Rivals draw their heroes: bodies read clearly against the sand, the crowd and each other at any distance
@@ -232,6 +255,10 @@ export function makeDemon() {
     const hand = new THREE.Group(); hand.position.set(0, -1.55, 0); el.add(hand); add(hand, boxG(0.34, 0.18, 0.3), bone, 0, -0.06, 0);
     for (let k = 0; k < 4; k++) { const f = new THREE.Group(); f.position.set(-0.15 + k * 0.1, -0.12, 0.08); f.rotation.x = 0.5; hand.add(f); add(f, cylG(0.035, 0.03, 0.42, 6), bone, 0, -0.21, 0); const f2 = new THREE.Group(); f2.position.set(0, -0.42, 0); f2.rotation.x = 0.7; f.add(f2); add(f2, cylG(0.03, 0.025, 0.34, 6), bone, 0, -0.17, 0); add(f2, coneG(0.03, 0.2, 5), claw, 0, -0.42, 0).rotation.x = Math.PI; }
     const th = add(hand, cylG(0.035, 0.03, 0.4, 6), bone, sx * 0.2, -0.15, 0.1); th.rotation.z = sx * 0.6;
+    const ooze = M('#3aff3a', 0.12, 0.05, { emissive: '#14a020', emissiveIntensity: 0.7 }); /* (green ooze slathered over the hand, hanging in drips) */
+    for (let k = 0; k < 9; k++) { const o2 = add(hand, sph(0.07 + (k % 3) * 0.025, 8, 6), ooze, (Math.random() - 0.5) * 0.36, -0.05 - Math.random() * 0.45, (Math.random() - 0.3) * 0.25); o2.scale.set(1, 1.3, 1); }
+    for (let k = 0; k < 5; k++) { const d2 = add(hand, sph(0.035, 6, 5), ooze, -0.15 + k * 0.075, -0.55 - (k % 2) * 0.12, 0.12); d2.scale.set(1, 2.6, 1); }
+    add(el, sph(0.1, 8, 6), ooze, 0, -1.3, 0.02).scale.set(1, 2, 1);
     arms[sx > 0 ? 'L' : 'R'] = { sh, el, hand }; }
   return { g, jaw, head, arms, heart, throat };
 }

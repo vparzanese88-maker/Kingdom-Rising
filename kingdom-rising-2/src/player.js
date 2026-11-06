@@ -16,7 +16,7 @@ import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } 
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -93,6 +93,7 @@ const VP = {
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
+  necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
@@ -138,7 +139,7 @@ class ViewModel {
   constructor(camera, app, cls) {
     this.g = new THREE.Group(); camera.add(this.g);
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
-    this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
+    this.cls = cls; this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
     const c = CLASSES[cls].colors;
     const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist'].includes(cls);
     const sleeve = vk === 'plate' ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#3e4048' : '#8a929c', roughness: 0.35, metalness: 0.8 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
@@ -174,6 +175,8 @@ class ViewModel {
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'handaxe') off.rotation.y = Math.PI / 2; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     if (W.kind === 'gun') main.scale.setScalar(0.62);
+    if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -184,6 +187,7 @@ class ViewModel {
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
+    if (this.necro) { if (r === VP.staff) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     const t = act ? act.t : 0, n = act ? act.name : '';
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
     if (st.tool) {
@@ -263,6 +267,9 @@ class ViewModel {
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
+    if (this.weapons.head) { const dg = this.weapons.head, sw = dg.userData.sw; this.L.updateMatrix(); const qL = this.L.quaternion.clone().invert(); const tx = Math.sin(this.bob) * 0.18 * Math.min(1, st.speed / 5) + (act ? 0.25 : 0), tz = Math.cos(this.bob * 0.5) * 0.12 * Math.min(1, st.speed / 5);
+      sw.vx += (tx - sw.ax) * 60 * dt; sw.vz += (tz - sw.az) * 60 * dt; const dmp = Math.exp(-4 * dt); sw.vx *= dmp; sw.vz *= dmp; sw.ax += sw.vx * dt; sw.az += sw.vz * dt; dg.quaternion.copy(qL.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(sw.ax - 0.15, 0.85, sw.az)))); /* (face toward the enemy, away from you) */
+      if (this.weapons.flame) { const f = 1 + Math.sin(performance.now() * 0.02) * 0.15; this.weapons.flame.scale.setScalar(f); this.weapons.flame2.scale.setScalar(f * (1.1 + Math.sin(performance.now() * 0.013) * 0.1)); } }
     // bow string pull
     if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, (this.weapons.bow.userData.stringZ || 0.02) + pull * 0.42); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
     // forearms follow from the wrist down toward the elbow (off screen)
@@ -754,13 +761,13 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = 1.5; V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = id === 'ar_demon' ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : 1.5; V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = id === 'ar_demon' ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
     for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.55).sub(o), L = v.length(); if (L > range) continue; const a2 = Math.acos(Math.min(1, v.dot(d) / L)); if (a2 < ba) { ba = a2; best = m; } } return best; }
   // the necromancer's shrunken head (in his left hand): where its mouth is in the world
-  headMouth() { const g = this.ch && this.ch.arms && this.ch.arms.L.grip; if (!g || this.camDist < 0.6) return this.spellFrom(); this.ch.root.updateMatrixWorld(true); return g.localToWorld(new THREE.Vector3(0, 0.05, 0.16)); }
+  headMouth() { const fpM = this.camDist < 0.6 && this.vm && this.vm.headMouth; if (fpM) { this.vm.g.updateMatrixWorld(true); const v = fpM.getWorldPosition(new THREE.Vector3()); return G.camera.localToWorld(G.vmCam.worldToLocal(v)); } const m = this.ch && this.ch.headMouthObj; if (!m) return this.spellFrom(); this.ch.root.updateMatrixWorld(true); return m.getWorldPosition(new THREE.Vector3()); }
   // Soul Rend: raise the head; green soul-water flows out of the enemy you aim at into its mouth; you heal, they slow
   soulRend(ab, base, up, key) {
     const t = this.aimFoe(26); if (!t) { this.cd[key] = 0; G.hooks.toast && G.hooks.toast('Aim at an enemy', '☠', 'bad'); S.error(); return; }
@@ -1956,6 +1963,10 @@ export class Player {
     if (this.ultPoseT > 0) { this.ultPoseT -= dt; const k = Math.min(1, (1.5 - this.ultPoseT) * 5, this.ultPoseT * 4); /* (the ultimate cast: arms flung up and wide, head back, a lift off the ground) */
       for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { A2.sh.rotation.x += (-2.6 - A2.sh.rotation.x) * k; A2.sh.rotation.z += (sx * -0.7 - A2.sh.rotation.z) * k; A2.el.rotation.x += (-0.25 - A2.el.rotation.x) * k; }
       if (ch.head) ch.head.rotation.x -= 0.35 * k; ch.body.position.y += 0.18 * k; if (Math.random() < 0.6) V.emit(this.h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 0.3 + Math.random() * 1.8), { speed: 1.5, vy: 2.5, size: 0.3 }); }
+    if (this.oozeT > 0) { this.oozeT -= dt; this.oozeE = (this.oozeE || 0) + dt; const k0 = Math.min(1, this.oozeE / 1.8), k = k0 * k0 * (3 - 2 * k0), out = Math.min(1, this.oozeT * 2); /* (the necromancer's ultimate: both hands rise, slowly, dripping green ooze) */
+      for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { const kk = k * out; A2.sh.rotation.x += (-2.3 - A2.sh.rotation.x) * kk; A2.sh.rotation.z += (sx * -0.45 - A2.sh.rotation.z) * kk; A2.el.rotation.x += (-0.35 - A2.el.rotation.x) * kk; }
+      if (ch.head) ch.head.rotation.x -= 0.25 * k * out;
+      ch.root.updateMatrixWorld(true); for (const A2 of [ch.arms.R, ch.arms.L]) if (Math.random() < 0.7) { const hp2 = A2.hand.getWorldPosition(new THREE.Vector3()); V.emit('poison', hp2, { speed: 0.25, vy: -2.2, size: 0.13, life: 0.75, radius: 0.08 }); if (Math.random() < 0.3) V.emit('green', hp2, { speed: 0.4, vy: 0.6, size: 0.18, life: 0.5 }); } }
     if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
     if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time); // (the bard plays once he has a song)
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));

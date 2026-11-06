@@ -20,7 +20,7 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const CLS_ICON = { berserker: '🪓', warrior: '🛡', ranger: '🏹', wizard: '🔥' };
 
-export const Menu = { onPlay: null, preview: null };
+export const Menu = { onPlay: null, preview: null, fsWanted: () => fsWanted() };
 
 export function showTitle() {
   $('title').hidden = false; $('creator').hidden = true;

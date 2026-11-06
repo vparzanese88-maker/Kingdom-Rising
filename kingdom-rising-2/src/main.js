@@ -757,7 +757,7 @@ function input() {
   addEventListener('mousedown', () => { if (inScene()) sceneAdvance(); }, true);
   canvas.addEventListener('mousedown', (e) => { if (inScene()) return;
     if (mode !== 'game' || intro) return;
-    if (!document.pointerLockElement) { if (!G.uiOpen && !G.player.dead) lockPointer(); return; }
+    if (!document.pointerLockElement) { if (!G.uiOpen && !G.player.dead) { if ((BATTLE || ARENA) && !document.fullscreenElement && Menu.fsWanted && Menu.fsWanted()) { goFull(); setTimeout(lockPointer, 350); } else lockPointer(); } return; }
     G.player.onMouse(e.button, true);
   });
   addEventListener('mouseup', (e) => { if (mode === 'game' && G.player && document.pointerLockElement) G.player.onMouse(e.button, false); else if (G.player) G.player.press = null; });
@@ -775,7 +775,7 @@ function input() {
   // a page change (title -> battle) always drops full screen in the browser: the first click puts it back
   let wantFs = false; try { wantFs = BATTLE && localStorage.getItem('kr2_fs') === '1'; } catch (e) {}
   if (wantFs) { const c = $('clickToPlay').firstElementChild; if (c) c.firstChild.textContent = 'Click to enter the battle'; }
-  $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; if (BATTLE && !document.fullscreenElement) { goFull(); setTimeout(lockPointer, 350); } lockPointer(); });
+  $('clickToPlay').addEventListener('click', () => { $('clickToPlay').hidden = true; if ((BATTLE || ARENA) && !document.fullscreenElement) { goFull(); setTimeout(lockPointer, 350); } lockPointer(); });
   addEventListener('fullscreenchange', () => { if (document.fullscreenElement && mode === 'game' && !G.uiOpen && !document.pointerLockElement) setTimeout(lockPointer, 120); });
   addEventListener('beforeunload', () => { if (mode === 'game') saveNow(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'game') saveNow(); });

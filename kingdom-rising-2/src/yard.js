@@ -105,7 +105,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 let ultBusy = false;
 export function yardUltTest() {
   const P = G.player; if (!P || ultBusy || !G.hooks.arenaDemon) return; ultBusy = true;
-  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.pos.x + fx * 10, z = P.pos.z + fz * 10;
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.pos.x + fx * 10, z = P.pos.z + fz * 10; const home = P.pos.clone();
   const ch = buildHumanoid({ race: 'human', sex: 'm', cls: 'necromancer', outfit: 'necromancer', spec: arenaSpec('necromancer'), body: arenaBody('necromancer') }); arenaDecor(ch, 'necromancer');
   try { equipWeapon(ch, CLASSES.necromancer.weapons[0], 3, 0); arenaWeaponDecor(ch, 'necromancer'); } catch (e) { /* no weapon model */ }
   addOutline(ch.root, '#8a0c06'); ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = Math.atan2(-fx, -fz); G.scene.add(ch.root);
@@ -115,6 +115,6 @@ export function yardUltTest() {
   G.timers.push({ update: (dt) => { t += dt; animateHumanoid(ch, dt, { speed: 0, armed: true, ready: true });
     if (t < 1.4) { const k = Math.min(1, t * 3); ch.arms.R.sh.rotation.x = -2.6 * k; ch.arms.L.sh.rotation.x = -2.6 * k; ch.arms.R.sh.rotation.z = 0.7 * k; ch.arms.L.sh.rotation.z = -0.7 * k; }
     if (t > 0.9 && !cast) { cast = true; G.hooks.arenaDemon(foe, P.pos.clone()); }
-    if (t > 11) { G.scene.remove(ch.root); ultBusy = false; if (P.dead) { P.dead = false; P.deadT = 0; P.hp = P.maxHp || P.hp; if (P.ch) P.ch.root.visible = true; const dd = document.getElementById('death'); if (dd) dd.hidden = true; } return true; }
+    if (t > 11) { G.scene.remove(ch.root); ultBusy = false; if (P.dead || P.pos.distanceTo(home) > 0.5) { P.dead = false; P.deadT = 0; P.hp = P.maxHp || P.hp; P.place(home.x, home.z, P.yaw); if (P.ch) P.ch.root.visible = true; const dd = document.getElementById('death'); if (dd) dd.hidden = true; } return true; }
     return false; } });
 }

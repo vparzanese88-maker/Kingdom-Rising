@@ -537,7 +537,7 @@ function hooks() {
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };
   H.progress = (k, l) => UI.progress(k, l);
-  H.died = () => { if (ARENA) { Arena.playerDied(); return; } setTimeout(() => { $('death').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }, 1500); };
+  H.died = () => { if (ARENA) { Arena.playerDied(); return; } if (YARD) { const tryUp = () => { if (!G.player || !G.player.dead) return; if (G.player.cine || G.player.held) { setTimeout(tryUp, 500); return; } respawn(); }; setTimeout(tryUp, 2500); return; } /* (the yard: back on your feet where you fell) */ setTimeout(() => { $('death').hidden = false; if (document.pointerLockElement) document.exitPointerLock(); }, 1500); };
   H.telegraph = telegraph; H.enemyBlast = enemyBlast; H.enemyProjectile = enemyProjectile; H.mobShot = mobShot; H.mobBlast = mobBlast; H.telegraphSelf = telegraphSelf; H.telegraphLine = telegraphLine; H.telegraphCone = telegraphCone;
   H.saveQuit = quitToTitle; H.lock = lockPointer;
   H.applyGraphics = applyGraphics;
@@ -549,6 +549,7 @@ function hooks() {
 function respawn() {
   const p = G.player; if (!p) return;
   if (BATTLE) { const t = Battle.myTown(); p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.place(t.x + t.dir[0] * 12, t.z + t.dir[1] * 12, t.yaw); $('death').hidden = true; lockPointer(); S.heal(); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 40, { speed: 3, vy: 3 }); return; }
+  if (YARD) { p.dead = false; p.deadT = 0; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.place(p.pos.x, p.pos.z, p.yaw); if (p.ch) p.ch.root.visible = true; $('death').hidden = true; lockPointer(); S.heal(); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 40, { speed: 3, vy: 3 }); return; } // (the yard: right where you fell)
   // nearest settlement
   const spots = [{ x: VILLAGE.x + 4, z: VILLAGE.z + 10 }, ...CAMPS.slice(0, 3).map(c => ({ x: c.x + 5, z: c.z + 5 }))];
   let best = spots[0]; for (const s of spots) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < Math.hypot(best.x - p.pos.x, best.z - p.pos.z)) best = s;

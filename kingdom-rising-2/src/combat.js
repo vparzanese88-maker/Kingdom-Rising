@@ -78,6 +78,12 @@ export function spawnProjectile(o) {
     case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
+    case 'poison': { m = new THREE.Group(); const c = new THREE.Mesh(geo.sphere, glow('#d8ff80')); c.scale.setScalar(0.13 * (p.scale || 1)); m.add(c); // a necromancer's poison: a glowing core in a sickly green slime
+      const sh = new THREE.Mesh(geo.sphere, new THREE.MeshStandardMaterial({ color: '#3a8a20', emissive: '#2a7a10', emissiveIntensity: 0.9, transparent: true, opacity: 0.8, roughness: 0.3 })); sh.scale.set(0.26, 0.3, 0.26).multiplyScalar(p.scale || 1); m.add(sh); break; }
+    case 'skull': { m = new THREE.Group(); const bone = new THREE.MeshStandardMaterial({ color: '#e8e0c8', roughness: 0.6 }), dark = new THREE.MeshBasicMaterial({ color: '#0a0a0a' }); // a screaming skull with green eyes
+      const cr = new THREE.Mesh(geo.sphere, bone); cr.scale.set(0.26, 0.24, 0.28); m.add(cr); const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.24), bone); jaw.position.set(0, -0.19, 0.06); jaw.rotation.x = 0.35; m.add(jaw);
+      for (const x of [-0.09, 0.09]) { const e = new THREE.Mesh(geo.sphere, dark); e.scale.setScalar(0.07); e.position.set(x, 0.0, 0.22); m.add(e); const g2 = new THREE.Mesh(geo.sphere, glow('#80ff60')); g2.scale.setScalar(0.035); g2.position.set(x, 0.0, 0.25); m.add(g2); }
+      const mo = new THREE.Mesh(geo.sphere, dark); mo.scale.set(0.08, 0.05, 0.04); mo.position.set(0, -0.12, 0.25); m.add(mo); break; }
     case 'bullet': m = new THREE.Mesh(geo.sphere, glow('#fff0b0')); m.scale.setScalar(0.07); break;
     case 'axe': { m = new THREE.Group(); const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#6a4020' })); m.add(h); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), new THREE.MeshStandardMaterial({ color: '#b0b8c0', metalness: 0.8, roughness: 0.3 })); b.position.y = 0.2; b.position.x = 0.08; m.add(b); break; }
     case 'javelin': { m = new THREE.Group(); const h = new THREE.Mesh(geo.arrow, new THREE.MeshStandardMaterial({ color: '#8a6a44' })); h.scale.set(2, 2, 2.2); m.add(h); break; }
@@ -152,6 +158,8 @@ export function updateProjectiles(dt) {
       if (p.kind === 'axe' || p.kind === 'knife') { p.mesh.rotation.x += dt * 20; }
       if (p.kind === 'keg') { p.mesh.rotation.x += dt * 7; p.mesh.rotation.z += dt * 3; if (Math.random() < dt * 40) V.burst('fire', p.mesh.localToWorld(new THREE.Vector3(0, 0.42, 0)), 2, { speed: 1.5, size: 0.25, life: 0.3 }); }
       if (p.kind === 'wave') p.mesh.rotateZ(Math.PI / 2);
+      if (p.kind === 'skull') { p.mesh.lookAt(p.pos.clone().add(p.vel)); p.mesh.rotateZ(Math.sin(p.life * 18) * 0.25); }
+      if (p.kind === 'poison') { const w = 1 + Math.sin(p.life * 30) * 0.12; p.mesh.children[1].scale.set(0.26 * w, 0.3 / w, 0.26 * w).multiplyScalar(p.scale || 1); }
       if (p.kind === 'meteor' || p.kind === 'rock') { p.mesh.rotation.x += dt * 8; p.mesh.rotation.z += dt * 6; }
     }
     trail(p, dt);
@@ -163,6 +171,8 @@ function trail(p, dt) {
   const k = p.kind;
   if (k === 'fireball' || k === 'impfire') { while (p.acc > 0.012) { p.acc -= 0.012; V.add.spawn(p.pos.x + rand(-0.08, 0.08), p.pos.y + rand(-0.08, 0.08), p.pos.z + rand(-0.08, 0.08), rand(-0.4, 0.4), rand(0.2, 0.9), rand(-0.4, 0.4), 0.35, 0.45 * (p.scale || 1), 0.05, PALF[0], PALF[1], 1, 0, -1, 1); } if (Math.random() < 0.3) V.norm.spawn(p.pos.x, p.pos.y, p.pos.z, 0, 0.6, 0, 0.9, 0.2, 0.7, SM[0], SM[1], 0.25, 0, -0.2, 0.3); }
   else if (k === 'meteor') { while (p.acc > 0.006) { p.acc -= 0.006; V.add.spawn(p.pos.x + rand(-0.8, 0.8), p.pos.y + rand(-0.8, 0.8), p.pos.z + rand(-0.8, 0.8), rand(-1, 1), rand(0, 2), rand(-1, 1), 0.6, 1.6, 0.2, PALF[0], PALF[1], 1, 0, -1, 1); V.norm.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.5, 0.5), 1, rand(-0.5, 0.5), 1.6, 1.0, 3.0, SM[0], SM[1], 0.45, 0, -0.3, 0.3); } }
+  else if (k === 'poison') { while (p.acc > 0.03) { p.acc -= 0.03; V.burst('poison', p.pos.clone(), 1, { speed: 0.3, size: 0.22, size1: 0.05, life: 0.6, grav: 9, vy: -0.5 }); if (Math.random() < 0.4) V.burst('leaf', p.pos.clone(), 1, { speed: 0.6, size: 0.18, life: 0.5 }); } } // it drips as it flies
+  else if (k === 'skull') { while (p.acc > 0.025) { p.acc -= 0.025; V.burst('shadow', p.pos.clone(), 1, { speed: 0.4, size: 0.5, size1: 0.1, life: 0.5, grav: 0 }); V.burst('green', p.pos.clone(), 1, { speed: 0.5, size: 0.16, life: 0.4 }); } }
   else if (k === 'frost') { while (p.acc > 0.02) { p.acc -= 0.02; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5), 0.4, 0.25, 0.02, FR[0], FR[1], 1, 0, 1, 1); } }
   else if (k === 'arcane' || k === 'orb') { while (p.acc > 0.015) { p.acc -= 0.015; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.8, 0.8), rand(-0.8, 0.8), rand(-0.8, 0.8), 0.45, 0.3 * (p.scale || 1), 0.02, AR[0], AR[1], 1, 0, 0, 1); } }
   else if (k === 'spectral') { while (p.acc > 0.008) { p.acc -= 0.008; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.5, 0.35, 0.02, SP[0], SP[1], 1, 0, 0, 0); } }

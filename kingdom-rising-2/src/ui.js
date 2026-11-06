@@ -90,6 +90,12 @@ export function refreshAbilityBar() {
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
+  { const rid = h.arenaRmb, shield = W && W.hands === 'shield', ai = abilEls.f.querySelector('.ai'); // Kingdom Arena: right click is a defensive ability (or aim, or a shield block)
+    if (rid !== undefined && !shield) { const ab = rid && rid !== 'aim' ? ABILITIES[h.cls].find(x => x.id === rid) : null; abilEls.f._rmb = ab;
+      ai.innerHTML = ab ? Icons.abilityIcon(ab.id) : Icons.abilityIcon(rid === 'aim' ? 'eagleeye' : 'shield'); abilEls.f.classList.toggle('cls', !!ab); abilEls.f.classList.remove('small');
+      abilEls.f.title = ab ? `${ab.name} [Right click]${ab.cd ? ` · ${ab.cd} s cooldown` : ''} · ${ab.desc}` : rid === 'aim' ? 'Hold right click to aim down the barrel: zoom in, steady, a little harder hitting, but you walk slowly.' : '';
+      let n = abilEls.f.querySelector('.an'); if (!n) { n = el('span', 'an'); abilEls.f.appendChild(n); } n.textContent = ab ? ab.name : rid === 'aim' ? 'Aim' : ''; }
+    else { abilEls.f._rmb = null; ai.innerHTML = Icons.abilityIcon('shield'); } }
   if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `${G.battleFx ? 'F' : 'Right click'}: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';
@@ -129,6 +135,7 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
+    if (abilEls.f._rmb) { const k = ABILITIES[h.cls].indexOf(abilEls.f._rmb); setCd(abilEls.f, p.cd['a' + (k + 1)] || 0, abilEls.f._rmb.cd || 1); }
     if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
       const e = abilEls.hb[i]; if (!e) return;

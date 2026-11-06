@@ -96,7 +96,7 @@ const PAL = {
   fire: [C('#ffe08a'), C('#ff4a10')], ember: [C('#ffb040'), C('#ff2000')], smoke: [C('#5a5450'), C('#2a2828')], frost: [C('#e8fbff'), C('#4ab8ff')], arcane: [C('#ffd0ff'), C('#8a30ff')],
   blood: [C('#c01818'), C('#5a0808')], dust: [C('#b8a888'), C('#8a7a60')], spark: [C('#fff8d0'), C('#ffa020')], heal: [C('#d0ffd0'), C('#40ff60')], lightning: [C('#ffffff'), C('#80b0ff')],
   leaf: [C('#6aa040'), C('#4a7030')], wood: [C('#a07a4a'), C('#6a4a2a')], stone: [C('#a09890'), C('#6a6460')], cotton: [C('#ffffff'), C('#e8e8e0')], gold: [C('#fff0a0'), C('#ffb020')],
-  shadow: [C('#404050'), C('#101018')], water: [C('#e8f8ff'), C('#80c0e0')], lava: [C('#ffd060'), C('#ff3000')], bone: [C('#f0e8d0'), C('#a8a090')], green: [C('#c8ff8a'), C('#40c040')],
+  shadow: [C('#404050'), C('#101018')], water: [C('#e8f8ff'), C('#80c0e0')], lava: [C('#ffd060'), C('#ff3000')], bone: [C('#f0e8d0'), C('#a8a090')], green: [C('#c8ff8a'), C('#40c040')], poison: [C('#8aff30'), C('#185a08')],
 };
 
 export const V = {
@@ -115,7 +115,7 @@ export const V = {
   trail(color) { const t = new Trail(this.scene, color); this.trails.push(t); return t; },
   burst(kind, p, n = 20, opt = {}) {
     const pal = PAL[kind] || PAL.spark, sp = opt.speed ?? 4, life = opt.life ?? 0.6, sz = opt.size ?? 0.3, up = opt.up ?? 1;
-    const sys = opt.normal || kind === 'smoke' || kind === 'dust' || kind === 'blood' || kind === 'wood' || kind === 'stone' || kind === 'leaf' || kind === 'cotton' || kind === 'shadow' || kind === 'bone' ? this.norm : this.add;
+    const sys = opt.normal || kind === 'smoke' || kind === 'dust' || kind === 'blood' || kind === 'wood' || kind === 'stone' || kind === 'leaf' || kind === 'cotton' || kind === 'shadow' || kind === 'bone' || kind === 'poison' ? this.norm : this.add;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, e = (Math.random() - 0.3) * Math.PI;
       const s = sp * (0.3 + Math.random() * 0.7);

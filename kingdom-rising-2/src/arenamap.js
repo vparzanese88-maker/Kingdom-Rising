@@ -44,16 +44,18 @@ export function buildColosseum(scene) {
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, rr = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 3.4), M.floorStone); rr.rotation.x = -Math.PI / 2; rr.rotation.z = -a; rr.position.set(Math.sin(a) * 3.4, Y + 0.05, Math.cos(a) * 3.4); root.add(rr); }
     const hill = new THREE.Mesh(new THREE.RingGeometry(6.6, 7.2, 96), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); hill.rotation.x = -Math.PI / 2; hill.position.y = Y + 0.08; root.add(hill); AR.hill = hill; }
   // ---- the podium wall, its marble rim and a parapet
-  { const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.7, R + 0.7, W, 160, 1, true), M.stone); wall.material = M.stone.clone(); wall.material.side = THREE.BackSide; wall.position.y = Y + W / 2; wall.receiveShadow = true; root.add(wall);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.55, R + 0.55, 0.7, 160, 1, true), M.marble2.clone()); base.material.side = THREE.BackSide; base.position.y = Y + 0.35; root.add(base);
+  { const GAP = 0.19, wm = M.stone.clone(), bm = M.marble2.clone(); wm.side = bm.side = THREE.BackSide; // (open at the four gates, so you can see through the bars into the holding rooms)
+    for (let i = 0; i < 4; i++) { const t0 = i * Math.PI / 2 + GAP / 2, tl = Math.PI / 2 - GAP;
+      const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.7, R + 0.7, W, 40, 1, true, t0, tl), wm); wall.position.y = Y + W / 2; wall.receiveShadow = true; root.add(wall);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.55, R + 0.55, 0.7, 40, 1, true, t0, tl), bm); base.position.y = Y + 0.35; root.add(base);
+      const over = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.7, R + 0.7, W - 4.1, 6, 1, true, t0 - GAP, GAP), wm); over.position.y = Y + 4.1 + (W - 4.1) / 2; root.add(over); }
     const rim = new THREE.Mesh(new THREE.RingGeometry(R + 0.4, R + 1.8, 160), M.marble); rim.rotation.x = -Math.PI / 2; rim.position.y = Y + W + 0.02; root.add(rim);
     const lip = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.4, R + 0.4, 0.35, 160, 1, true), M.marble.clone()); lip.material.side = THREE.BackSide; lip.position.y = Y + W - 0.1; root.add(lip);
     const par = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.5, R + 0.5, 1.0, 160, 1, true), M.marble2.clone()); par.material.side = THREE.DoubleSide; par.position.y = Y + W + 0.5; root.add(par);
-    for (let i = 0; i < 260; i++) { const a = i / 260 * Math.PI * 2; addCircle(Math.sin(a) * (R + 1.3), Math.cos(a) * (R + 1.3), 1.0); } }
+    for (let i = 0; i < 260; i++) { const a = i / 260 * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a * 4), Math.cos(a * 4))) / 4 < 0.115) continue; addCircle(Math.sin(a) * (R + 1.3), Math.cos(a) * (R + 1.3), 1.0); } } // (the gates stay passable: the holding rooms keep you in until they open)
   // ---- four great gates, each with a dark tunnel, a marble arch, gold trim and a raised portcullis
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2, x = Math.sin(a) * (R + 0.45), z = Math.cos(a) * (R + 0.45), g = new THREE.Group(); g.position.set(x, Y, z); g.rotation.y = faceIn(x, z); root.add(g);
-    box(5.2, 4.1, 0.2, M.black, 0, 2.05, 0.15, g);
     for (const sx of [-1, 1]) { box(0.9, 4.6, 0.8, M.marble, sx * 3.05, 2.3, -0.2, g); box(1.1, 0.4, 1.0, M.gold, sx * 3.05, 4.65, -0.2, g); }
     box(7.0, 0.7, 0.9, M.marble, 0, 4.45, -0.2, g); box(7.2, 0.18, 1.0, M.gold, 0, 4.85, -0.2, g);
     const arch = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 8, 24, Math.PI), M.marble); arch.position.set(0, 2.0, -0.05); g.add(arch);
@@ -64,6 +66,8 @@ export function buildColosseum(scene) {
     // statues flank the gate on the podium
     for (const sx of [-1, 1]) statue(g, sx * 3.05, 5.05, -0.3, i * 2 + (sx > 0 ? 1 : 0));
   }
+  for (let i = 0; i < 4; i++) holdingRoom(root, i);
+  arenaProps(root);
   // ---- marble pilasters along the podium wall, with a torch in an iron bracket between every few
   { const N = 48, pil = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, W, 0.32), M.marble2, N), cap = new THREE.InstancedMesh(new THREE.BoxGeometry(0.75, 0.22, 0.45), M.marble, N), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
     let n = 0; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2 + 0.065; if (AR.gates.some(g => Math.abs(Math.atan2(Math.sin(a - g.a), Math.cos(a - g.a))) < 0.17)) continue; const r = R + 0.62;
@@ -181,3 +185,46 @@ export function updateColosseum(dt) {
   const open = AR.gatesOpen ? 1 : 0; for (const bars of AR.gateBars) bars.position.y += ((open ? 4.1 : 0) - bars.position.y) * Math.min(1, dt * 1.5);
 }
 export function cheer(k = 1) { AR.cheer = Math.min(2, AR.cheer + k); }
+
+// ---- a holding room behind each gate: a vaulted stone cell, torch-lit, where a team waits (and buffs) for the gate to lift
+export const ROOM = { near: 1.1, far: 11.4, half: 3.6, H: 4.4 }; // along the gate's axis from the wall at R, and half its width
+function holdingRoom(root, i) {
+  const R = AR.R, Y = AR.Y, a = i * Math.PI / 2, g = new THREE.Group(); g.position.set(Math.sin(a) * R, Y, Math.cos(a) * R); g.rotation.y = a; root.add(g); // local +z runs out, away from the sand
+  const rock = S('#6e6252', 0.95), rockD = S('#4a4036', 1), flag = S('#3c342a', 0.95), L = ROOM.far + 0.4, W2 = ROOM.half + 0.4, H = ROOM.H, zc = L / 2 + 0.2;
+  box(W2 * 2, 0.12, L, flag, 0, 0.0, zc, g);
+  for (let k = 0; k < 9; k++) box(W2 * 2 - 0.1, 0.02, 0.05, rockD, 0, 0.07, 1 + k * 1.2, g); // flagstone joints
+  for (const sx of [-1, 1]) box(0.5, H, L, rock, sx * (W2 + 0.2), H / 2, zc, g);
+  box(W2 * 2 + 1, H, 0.5, rock, 0, H / 2, L + 0.4, g);
+  box(W2 * 2 + 1, 0.4, L, rockD, 0, H + 0.2, zc, g);
+  // heavy timber beams and stone arches along the vault
+  for (let k = 0; k < 4; k++) { const z = 1.8 + k * 2.8; box(W2 * 2, 0.3, 0.35, M.wood, 0, H - 0.15, z, g); for (const sx of [-1, 1]) box(0.45, H, 0.5, rockD, sx * (W2 - 0.05), H / 2, z, g); }
+  // torches on the walls (one warm light per room)
+  const fireM = new THREE.MeshBasicMaterial({ color: '#ffb050', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (const [sx, z] of [[-1, 3.2], [1, 3.2], [-1, 8.6], [1, 8.6]]) { const t = new THREE.Group(); t.position.set(sx * (W2 - 0.15), 2.5, z); g.add(t); cyl(0.04, 0.07, 0.4, M.iron, 0, 0, 0, t, 6); const f = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.36, 7), fireM); f.position.y = 0.36; t.add(f); AR.braziers.push({ g: t, fl: [f], x: 0, z: 0 }); }
+  const lt = new THREE.PointLight('#ff9a50', 14, 14, 1.6); lt.position.set(0, 3.2, 6); g.add(lt);
+  // a team banner on the back wall, weapon racks, barrels, a bench, chains, straw
+  const ban = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.8), S(COLORS[i], 0.9, 0, { side: THREE.DoubleSide })); ban.position.set(0, 2.3, L + 0.13); ban.rotation.y = Math.PI; g.add(ban); AR.gates[i] && (AR.gates[i].roomBanner = ban);
+  for (const sx of [-1, 1]) { const r = new THREE.Group(); r.position.set(sx * (W2 - 0.35), 0, 6); r.rotation.y = -sx * Math.PI / 2; g.add(r); box(1.6, 0.08, 0.12, M.wood, 0, 1.6, 0, r); box(1.6, 0.08, 0.12, M.wood, 0, 0.4, 0, r); for (const x of [-0.75, 0.75]) box(0.1, 1.8, 0.12, M.wood, x, 0.9, 0, r);
+    for (let k = 0; k < 4; k++) { const sp = cyl(0.02, 0.02, 1.9, M.wood, -0.5 + k * 0.33, 1.0, 0.08, r, 5); sp.rotation.z = 0.08; const tip = cyl(0.0, 0.05, 0.22, M.iron, -0.5 + k * 0.33 + 0.08, 2.0, 0.08, r, 5); } }
+  for (const [x, z] of [[-2.6, 10.2], [-1.9, 10.6], [2.7, 10.0]]) { const b = cyl(0.36, 0.33, 0.85, M.wood, x, 0.43, z, g, 12); for (const y of [0.15, 0.7]) cyl(0.375, 0.375, 0.05, M.iron, x, y, z, g, 12); }
+  box(2.2, 0.12, 0.45, M.wood, 2.6, 0.5, 3.4, g, Math.PI / 2); for (const dz of [-0.9, 0.9]) box(0.4, 0.5, 0.12, M.wood, 2.6, 0.25, 3.4 + dz, g);
+  for (let k = 0; k < 3; k++) { const c = cyl(0.03, 0.03, 1.4, M.iron, -1 + k, H - 0.7, 9.6, g, 4); c.castShadow = false; }
+  for (let k = 0; k < 6; k++) { const st = new THREE.Mesh(new THREE.ConeGeometry(0.5 + Math.random() * 0.3, 0.25, 7), S('#b89a50', 1)); st.position.set(-3 + Math.random() * 1.4, 0.12, 1.5 + Math.random() * 2); g.add(st); }
+}
+// ---- the sand: stone pillars to fight around (two of them broken), weapon racks against the wall, urns
+export const PILLARS = [];
+function arenaProps(root) {
+  const R = AR.R, Y = AR.Y;
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8, r = k % 2 ? 17 : 13.5, x = Math.sin(a) * r, z = Math.cos(a) * r, broken = k === 2 || k === 5, h = broken ? 2.2 + (k % 3) * 0.5 : 5.2;
+    const g = new THREE.Group(); g.position.set(x, Y, z); g.rotation.y = a; root.add(g);
+    box(1.6, 0.4, 1.6, M.marble2, 0, 0.2, 0, g); box(1.35, 0.25, 1.35, M.marble, 0, 0.52, 0, g);
+    const sh = cyl(0.52, 0.58, h, M.marble2, 0, 0.65 + h / 2, 0, g, 16);
+    for (let f = 0; f < 12; f++) { const fa = f / 12 * Math.PI * 2, fl = box(0.06, h, 0.06, M.marble, Math.sin(fa) * 0.55, 0.65 + h / 2, Math.cos(fa) * 0.55, g); fl.castShadow = false; }
+    if (!broken) { box(1.3, 0.3, 1.3, M.marble, 0, 0.65 + h + 0.15, 0, g); box(1.15, 0.18, 1.15, M.gold, 0, 0.65 + h + 0.39, 0, g); }
+    else for (let c = 0; c < 3; c++) { const ch = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35 + Math.random() * 0.2, 0), M.marble2); ch.position.set(Math.sin(a + c * 2) * 1.4, Y + 0.25, Math.cos(a + c * 2) * 1.4).add(g.position).setY(Y + 0.25); ch.castShadow = true; root.add(ch); }
+    addCircle(x, z, 0.75); PILLARS.push({ x, z, r: 0.85 }); }
+  // weapon racks and urns along the wall between the gates
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 4 + (k % 2 ? 0.2 : -0.2), r = R - 0.9, g = new THREE.Group(); g.position.set(Math.sin(a) * r, Y, Math.cos(a) * r); g.rotation.y = a + Math.PI; root.add(g);
+    if (k % 2) { for (const x of [-0.7, 0.7]) box(0.1, 1.5, 0.1, M.wood, x, 0.75, 0, g); box(1.6, 0.08, 0.1, M.wood, 0, 1.3, 0, g); for (let w = 0; w < 3; w++) { const sw = box(0.07, 1.2, 0.02, S('#c8ccd2', 0.3, 0.9), -0.4 + w * 0.4, 0.75, 0.08, g); sw.rotation.z = 0.06; } const shd = cyl(0.42, 0.42, 0.08, S(COLORS[k % 4], 0.8), 0.95, 0.6, 0.15, g, 16); shd.rotation.x = Math.PI / 2 - 0.2; }
+    else for (const [x, s2] of [[-0.5, 1], [0.35, 0.8], [0.9, 0.65]]) { const u = new THREE.Mesh(new THREE.SphereGeometry(0.32 * s2, 12, 8), S('#a85a30', 0.8)); u.scale.y = 1.3; u.position.set(x, 0.42 * s2, 0); u.castShadow = true; g.add(u); cyl(0.12 * s2, 0.18 * s2, 0.25 * s2, S('#a85a30', 0.8), x, 0.85 * s2, 0, g, 10); } }
+}

@@ -222,7 +222,7 @@ export function heroDerived(h) {
   armor = Math.round(armor * (1 + perk(h, 'armor') * 0.15 + fxCount(h, 'armor') * 0.1));
   const res = 1 + perk(h, 'res') * 0.2;
   const F = consumBuff(h);
-  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + fxCount(h, 'hp') * 0.08 + (F.hp || 0))), maxMana: Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, familiesOf(w.wt)[0], 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
+  return { stats: st, maxHp: Math.round((P.hp + d.hp + RACES[h.race].hp) * (1 + perk(h, 'hp') * 0.1 + fxCount(h, 'hp') * 0.08 + (F.hp || 0))), maxMana: h.arena ? 0 : Math.round((P.mana + (P.mana > 0 ? d.mana : 0)) * (h.cls === 'wizard' ? res : 1)), maxEnd: Math.round((P.end + d.end) * (h.cls !== 'wizard' ? res : 1)), armor, crit: d.crit + (F.crit || 0) + perk(h, 'crit') * 0.06 + (w ? wperk(h, familiesOf(w.wt)[0], 'crit') * 0.03 : 0), meleeMul: d.meleeMul, rangedMul: d.rangedMul, spellMul: d.spellMul };
 }
 export function weaponDamage(h, w) {
   const D = heroDerived(h);

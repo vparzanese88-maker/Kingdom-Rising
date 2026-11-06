@@ -618,3 +618,31 @@ export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 :
 export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));
 export const arenaHealK = (h) => 1 + 0.1 * arenaStat(h, 'heal');
 export const arenaSpeedK = (h) => 1 + 0.04 * arenaStat(h, 'speed');
+
+// ---- arena passives (perk trees): what they do to a hit going out and a hit coming in ----
+const pv = (h, k) => (h && h.arenaPK && h.arenaPK.p && h.arenaPK.p[k]) || 0;
+export const arenaPassive = pv;
+// out: execute, berserker rage, ambush from stealth, ally war-songs and totems; on-hit burn, chill, poison, bleed; crit chance
+export function arenaOut(src, h, tgt, dmg, o) {
+  if (!h || !h.arena) return [dmg, o];
+  const ex = pv(h, 'execute'); if (ex && tgt && tgt.maxHp && tgt.hp / tgt.maxHp < 0.35) dmg *= 1 + 0.1 * ex;
+  const rg = pv(h, 'rage'); if (rg && src && src.maxHp) dmg *= 1 + 0.06 * rg * Math.min(1, (1 - src.hp / src.maxHp) / 0.75) * 3;
+  const am = pv(h, 'ambush'); if (am && src && src.stealth > 0) dmg *= 1 + 0.2 * am;
+  if (src && src.aura && src.aura.t > 0) dmg *= 1 + (src.aura.atk || 0);
+  const add = {}; const basic = !o.silent;
+  if (basic && pv(h, 'burnHit') && Math.random() < 0.35) add.burn = (o.burn || 0) + dmg * 0.08 * pv(h, 'burnHit');
+  if (basic && pv(h, 'bleedHit') && Math.random() < 0.35) add.bleed = (o.bleed || 0) + dmg * 0.08 * pv(h, 'bleedHit');
+  if (basic && pv(h, 'poisonHit') && Math.random() < 0.35) add.poison = (o.poison || 0) + dmg * 0.08 * pv(h, 'poisonHit');
+  if (basic && pv(h, 'chillHit') && Math.random() < 0.3) add.slow = Math.max(o.slow || 0, 0.8 + 0.4 * pv(h, 'chillHit'));
+  const cr = pv(h, 'crit'); if (cr) add.critBonus = (o.critBonus || 0) + 0.05 * cr;
+  return [dmg, Object.keys(add).length ? Object.assign({}, o, add) : o];
+}
+// in: last stand at low health, ally defence auras and songs
+export function arenaIn(tgt, h, dmg) {
+  if (!h || !h.arena) return dmg;
+  const ls = pv(h, 'lastStand'); if (ls && tgt.maxHp && tgt.hp / tgt.maxHp < 0.3) dmg *= 1 - 0.1 * ls;
+  if (tgt.aura && tgt.aura.t > 0) dmg *= 1 - (tgt.aura.def || 0);
+  return dmg;
+}
+export const arenaCdAll = (h) => 1 - 0.04 * pv(h, 'cdAll');
+export const arenaHaste = (h) => 1 + 0.06 * pv(h, 'haste');

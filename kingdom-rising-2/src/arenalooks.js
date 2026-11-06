@@ -2,6 +2,7 @@
 // god in Smite). arenaSpec() is the outfit palette fed to buildHumanoid; arenaDecor() adds each class's signature
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
+import { armReach } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
 const GL = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -133,6 +134,14 @@ export function arenaDecor(ch, cls) { try { if (DETAIL[cls]) DETAIL[cls](ch); if
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
+  if (cls === 'bard') { // a lute: he clubs people with it, and plays it once he has learnt his songs
+    for (const c of [...w.children]) if (c.isMesh || (c.children && c.children.some(k => k.isMesh))) w.remove(c); const L = new THREE.Group(); w.add(L); w.userData.lute = L;
+    const wood = M('#a0602a', 0.55), dark = M('#4a2a12', 0.7), str = GL('#e8e0c8');
+    add(L, cylG(0.016, 0.02, 0.42, 8), dark, 0, 0.21, 0); const head = add(L, boxG(0.05, 0.1, 0.025), dark, 0, -0.02, -0.01); head.rotation.x = 0.4;
+    for (let k = 0; k < 4; k++) add(L, cylG(0.004, 0.004, 0.03, 4), M('#d8b04a', 0.4, 0.8), (k % 2 ? 1 : -1) * 0.03, -0.04 + (k >> 1) * 0.04, -0.01).rotation.z = Math.PI / 2;
+    const bowl = add(L, sph(0.13, 16, 12), wood, 0, 0.6, -0.02); bowl.scale.set(1, 1.25, 0.55); add(L, sph(0.03, 10, 8), GL('#1a0a04'), 0, 0.56, 0.05).scale.z = 0.2;
+    for (let k = 0; k < 4; k++) add(L, boxG(0.002, 0.62, 0.002), str, -0.012 + k * 0.008, 0.33, 0.03);
+    add(L, boxG(0.07, 0.015, 0.02), dark, 0, 0.72, 0.04); return; }
   const tip = w.userData.orb || w.userData.tip; if (!tip) return;
   const col = { necromancer: '#5aff4a', wizard: '#60a0ff', elementalist: '#ff8030', enchanter: '#ff70e0', druid: '#9ad060', cleric: '#fff0a0' }[cls];
   if (cls === 'necromancer') { if (w.userData.orb) w.userData.orb.visible = false; const s = new THREE.Group(); tip.add(s); s.position.y = 0.03; const b = bone(); add(s, sph(0.07, 12, 10), b).scale.set(0.95, 1, 1.05); add(s, boxG(0.08, 0.035, 0.06), b, 0, -0.05, 0.02);
@@ -161,3 +170,19 @@ export function playNotes(scene, unit, col = '#ffd860', n = 6) { for (let i = 0;
   NOTES.push({ s, u: unit, t: -i * 0.12, a: Math.random() * 6.28, r: 0.55 + Math.random() * 0.35, y: 0.9 + Math.random() * 0.6 }); } }
 export function notesTick(dt) { for (let i = NOTES.length - 1; i >= 0; i--) { const n = NOTES[i]; n.t += dt; const k = n.t / 1.9; if (k >= 1 || !n.u || !n.u.pos) { n.s.parent && n.s.parent.remove(n.s); n.s.material.dispose(); NOTES.splice(i, 1); continue; }
   const p = n.u.pos; n.s.visible = n.t > 0; n.s.position.set(p.x + Math.cos(n.a + n.t * 2.2) * n.r, p.y + n.y + Math.max(0, n.t) * 0.75, p.z + Math.sin(n.a + n.t * 2.2) * n.r); n.s.material.opacity = Math.min(1, (1 - k) * 2.5) * Math.min(1, Math.max(0, n.t) * 5); } }
+
+// the bard plays: the lute comes across his chest, the left hand on the neck, the right strumming over the bowl
+const _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
+export function luteToChest(ch, on, t) {
+  const w = ch.weapons && ch.weapons.main, L = w && w.userData.lute; if (!L) return;
+  if (!on) { if (w.userData.playing) { L.position.set(0, 0, 0); L.quaternion.identity(); w.userData.playing = false; } return; }
+  ch.root.updateMatrixWorld(true); const R = ch.R, th = R.torsoH - 0.2, cm = ch.chest.matrixWorld;
+  const top = new THREE.Vector3(0.24, th * 0.95, 0.2).applyMatrix4(cm); // the neck end, up by the left shoulder
+  const cq = ch.chest.getWorldQuaternion(new THREE.Quaternion()), Y = new THREE.Vector3(-0.62, -0.72, 0.12).normalize().applyQuaternion(cq), fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(cq);
+  const Z = fwd.clone().addScaledVector(Y, -fwd.dot(Y)).normalize(), X = new THREE.Vector3().crossVectors(Y, Z);
+  _q.setFromRotationMatrix(_m.makeBasis(X, Y, Z));
+  armReach(ch, 'L', top.clone().addScaledVector(Y, 0.16).addScaledVector(Z, -0.03), 4);
+  armReach(ch, 'R', top.clone().addScaledVector(Y, 0.5 + Math.sin(t * 14) * 0.03).addScaledVector(Z, 0.07).addScaledVector(X, Math.sin(t * 14) * 0.04), 4);
+  w.updateMatrixWorld(true); const inv = w.matrixWorld.clone().invert(); L.position.copy(top.clone().applyMatrix4(inv));
+  L.quaternion.copy(w.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(_q)); w.userData.playing = true;
+}

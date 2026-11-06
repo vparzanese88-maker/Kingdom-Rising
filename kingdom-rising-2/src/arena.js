@@ -15,7 +15,7 @@ import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
-import { playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -53,7 +53,25 @@ export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
 const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', 'enchanter']);
 const RANGED_CLS = new Set(['ranger', 'musketeer', 'blunderbuss', 'wizard', 'necromancer', 'elementalist', 'enchanter', 'druid', 'shaman']);
-export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm = (id) => (A2.find(a => a.id === id) || {}).name || '?', [f, c, q] = ARENA_KITS[cls] || [], r = ARENA_RMB[cls];
+// each class: six perks that sharpen its own abilities and four passives that are its alone
+const PASSIVE = {
+  thorns: ['Thorns', 'Enemies who hit you in melee take 8% of that damage back per rank.', '🌵'], lastStand: ['Last Stand', 'Below 30% health you take 10% less damage per rank.', '⛨'],
+  execute: ['Executioner', 'Hit enemies below 35% health 10% harder per rank.', '☠'], rage: ['Blood Rage', 'The more hurt you are, the harder you hit: up to 18% more per rank.', '🔥'],
+  ambush: ['Ambush', 'Your hits from stealth do 20% more per rank.', '🗡'], haste: ['Flurry', 'Attack 6% faster per rank.', '⚡'], crit: ['Keen Eye', '5% more chance to crit per rank.', '🎯'],
+  burnHit: ['Searing Strikes', 'Your hits can set enemies burning (stronger per rank).', '🔥'], chillHit: ['Frostbite', 'Your hits can chill and slow enemies (longer per rank).', '❄'],
+  poisonHit: ['Venom', 'Your hits can poison enemies (stronger per rank).', '☣'], bleedHit: ['Serrated Edge', 'Your hits can make enemies bleed (stronger per rank).', '🩸'],
+  shieldHeal: ['Guardian Light', 'Your heals also give a shield worth 15% of the heal per rank.', '✦'], cdAll: ['Focus', 'All your abilities come back 4% sooner per rank.', '⌛'],
+  songRegen: ['Song of Vigor', 'You play a song: allies near you regenerate 0.6% health a second per rank.', '♫'], songDef: ['Song of Valour', 'Allies near you take 4% less damage per rank.', '♪'],
+  songAtk: ['Song of Battle', 'Allies near you deal 5% more damage per rank.', '♬'], songArea: ['Resounding Voice', 'Your songs reach 20% further per rank.', '📯'],
+  auraDef: ['Devotion Aura', 'Allies within 9 m take 4% less damage per rank.', '🛡'], auraRegen: ['Sanctuary', 'Allies within 9 m regenerate 0.5% health a second per rank.', '✚'], auraAtk: ['Totem of Wrath', 'Allies within 9 m deal 5% more damage per rank.', '🗿'],
+  hp: ['Iron Constitution', '8% more health per rank.', '❤'], armor: ['Unbreakable', 'Take 6% less damage per rank.', '🛡'], speed: ['Fleet Foot', 'Move 4% faster per rank.', '➶'], lifesteal: ['Siphoning Strikes', 'Heal for 3% of the damage you deal per rank.', '🩸'], heal: ['Blessed Hands', 'Your healing is 10% stronger per rank.', '✚'],
+};
+const UNIQUE = { warrior: ['thorns', 'lastStand', 'execute', 'hp'], paladin: ['auraDef', 'thorns', 'shieldHeal', 'armor'], darkknight: ['lifesteal', 'lastStand', 'execute', 'armor'], berserker: ['rage', 'lifesteal', 'execute', 'haste'],
+  cleric: ['shieldHeal', 'heal', 'auraRegen', 'cdAll'], monk: ['haste', 'heal', 'lifesteal', 'cdAll'], bard: ['songRegen', 'songDef', 'songAtk', 'songArea'], druid: ['auraRegen', 'poisonHit', 'heal', 'speed'], shaman: ['auraAtk', 'burnHit', 'heal', 'speed'],
+  ranger: ['crit', 'bleedHit', 'speed', 'execute'], musketeer: ['crit', 'execute', 'burnHit', 'lifesteal'], blunderbuss: ['armor', 'lastStand', 'burnHit', 'thorns'], wizard: ['crit', 'cdAll', 'chillHit', 'speed'],
+  rogue: ['ambush', 'poisonHit', 'execute', 'crit'], necromancer: ['poisonHit', 'lifesteal', 'lastStand', 'cdAll'], elementalist: ['burnHit', 'chillHit', 'crit', 'cdAll'], enchanter: ['chillHit', 'cdAll', 'crit', 'auraDef'], beastmaster: ['rage', 'lifesteal', 'haste', 'bleedHit'] };
+const STAT_KIND = new Set(['hp', 'armor', 'speed', 'lifesteal', 'heal']);
+export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm = (id) => (A2.find(a => a.id === id) || {}).name || '?', [f, c, q] = ARENA_KITS[cls] || [];
   const W = (WEAPON_TYPES[(CLASSES[cls].weapons || [])[0]] || {}).name || 'weapon';
   const list = [
     { id: 'powL', kind: 'pow', slot: 'L', name: 'Honed ' + W, desc: 'Your basic attack hits 12% harder per rank.' },
@@ -61,24 +79,31 @@ export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm 
     { id: 'cdF', kind: 'cd', slot: 'F', name: 'Swift ' + nm(f), desc: `${nm(f)} comes back 10% sooner per rank.` },
     { id: 'powC', kind: 'pow', slot: 'C', name: 'Greater ' + nm(c), desc: `${nm(c)} is 12% stronger per rank.` },
     { id: 'cdC', kind: 'cd', slot: 'C', name: 'Swift ' + nm(c), desc: `${nm(c)} comes back 10% sooner per rank.` },
-    { id: 'powQ', kind: 'pow', slot: 'Q', name: 'Greater ' + nm(q), desc: `${nm(q)} hits 12% harder per rank.` },
-    { id: 'cdQ', kind: 'cd', slot: 'Q', name: 'Swift ' + nm(q), desc: `${nm(q)} comes back 10% sooner per rank.` },
-    r === 'aim' ? { id: 'powR', kind: 'pow', slot: 'L', name: 'Steady Hands', desc: 'Your shots hit 12% harder per rank.' } : { id: 'cdR', kind: 'cd', slot: 'R', name: 'Ready ' + (r ? nm(r) : 'Guard'), desc: `${r ? nm(r) : 'Your guard'} comes back 10% sooner per rank.` },
+    { id: 'powQ', kind: 'pow', slot: 'Q', name: 'Greater ' + nm(q), desc: `${nm(q)} is 12% stronger per rank.` },
   ];
-  if (Game.TANK_CLS.has(cls)) list.push({ id: 'hp', kind: 'hp', name: 'Iron Constitution', desc: '8% more health per rank.' }, { id: 'armor', kind: 'armor', name: 'Unbreakable', desc: 'Take 6% less damage per rank.' });
-  else if (SUPPORT_CLS_K.has(cls)) list.push({ id: 'heal', kind: 'heal', name: 'Blessed Hands', desc: 'Your healing (and healing on you) is 10% stronger per rank.' }, { id: 'speed', kind: 'speed', name: 'Light Step', desc: 'Move 4% faster per rank.' });
-  else if (RANGED_CLS.has(cls)) list.push({ id: 'speed', kind: 'speed', name: 'Fleet Foot', desc: 'Move 4% faster per rank.' }, { id: 'lifesteal', kind: 'lifesteal', name: 'Siphoning Strikes', desc: 'Heal for 3% of the damage you deal per rank.' });
-  else list.push({ id: 'lifesteal', kind: 'lifesteal', name: 'Bloodthirst', desc: 'Heal for 3% of the damage you deal per rank.' }, { id: 'hp', kind: 'hp', name: 'Thick Skin', desc: '8% more health per rank.' });
+  for (const k of UNIQUE[cls] || []) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: STAT_KIND.has(k) ? k : 'p', key: k, name: n, desc: d, glyph: g, passive: !STAT_KIND.has(k) }); }
   return list; }
 // add up what has been bought into h.arenaPK, which the combat code reads
 export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0 }; const R2 = h.arenaPerks || {};
-  for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else P[pk.kind] += n; } h.arenaPK = P; }
+  P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
 const perkLeft = (f) => (f.pp || 0) - Object.values((unitHero(f) || {}).arenaPerks || {}).reduce((a, b) => a + b, 0);
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }
 // computer fighters buy as soon as they can: tanks toughen up, healers heal harder, the rest go for damage
 function botBuy(f) { const h = f.bot.h, list = perksFor(h.cls), want = Game.TANK_CLS.has(h.cls) ? ['armor', 'hp', 'powQ', 'cdF', 'powL'] : SUPPORT_CLS_K.has(h.cls) ? ['heal', 'powF', 'cdF', 'speed', 'powL'] : ['powL', 'powC', 'cdC', 'lifesteal', 'powQ'];
   h.arenaPerks = h.arenaPerks || {}; while (perkLeft(f) > 0) { const pick = want.map(id => list.find(p => p.id === id)).find(p => p && (h.arenaPerks[p.id] || 0) < Game.PERK_MAX) || list.find(p => (h.arenaPerks[p.id] || 0) < Game.PERK_MAX); if (!pick) break; h.arenaPerks[pick.id] = (h.arenaPerks[pick.id] || 0) + 1; } applyPerkStats(f); }
+// passive auras and songs: every half second, allies near a bard, paladin, cleric, druid or shaman with those perks
+// get their regeneration, defence or attack bonus; songs float notes over everyone they touch
+let auraT = 0, noteT = 0;
+function auraTick(dt) { if ((auraT -= dt) > 0) return; auraT = 0.5; noteT -= 0.5; const notes = noteT <= 0; if (notes) noteT = 2.5;
+  const units = A.F.filter(f => f.alive).map(f => [f, unitOf(f)]).filter(([, u]) => u && !u.dead);
+  for (const [, u] of units) u.aura = { atk: 0, def: 0, regen: 0, t: 0.7 };
+  for (const [f, u] of units) { const h = unitHero(f), pv = (k) => Game.arenaPassive(h, k); if (!h) continue;
+    const song = pv('songRegen') || pv('songDef') || pv('songAtk'), r = (song ? 10 : 9) * (1 + 0.2 * pv('songArea'));
+    const atk = 0.05 * (pv('songAtk') + pv('auraAtk')), def = 0.04 * (pv('songDef') + pv('auraDef')), regen = 0.006 * pv('songRegen') + 0.005 * pv('auraRegen'); if (!atk && !def && !regen) continue;
+    for (const [g, v] of units) { if (g.team !== f.team || Math.hypot(v.pos.x - u.pos.x, v.pos.z - u.pos.z) > r) continue; v.aura.atk += atk; v.aura.def = Math.min(0.5, v.aura.def + def); v.aura.regen += regen;
+      if (song && notes) playNotes(G.scene, v, '#ffd860', v === u ? 3 : 2); } }
+  for (const [, u] of units) if (u.aura.regen > 0) { if (u === G.player) u.heal(u.maxHp * u.aura.regen * 0.5, true); else u.healSelf(u.maxHp * u.aura.regen * 0.5); } }
 function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 10) return; A.perkClock -= 10;
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
@@ -215,7 +240,7 @@ function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; con
 export function openPerks(UI) {
   const p = G.player, h = p.h, cls = h.cls, f = A.me; h.arenaPerks = h.arenaPerks || {};
   const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · perks', '', 'big');
-  const iconOf = (pk) => { const id = pk.slot && pk.slot !== 'L' ? (pk.slot === 'R' ? h.arenaRmb : (h.arenaKit || [])[['F', 'C', 'Q'].indexOf(pk.slot)]) : null; return id && id !== 'aim' ? Icons.abilityIcon(id) : `<span class="perkglyph">${{ powL: '⚔', powR: '🎯', hp: '❤', armor: '🛡', speed: '➶', lifesteal: '🩸', heal: '✚' }[pk.id] || '◆'}</span>`; };
+  const iconOf = (pk) => { const id = pk.slot && pk.slot !== 'L' ? (pk.slot === 'R' ? h.arenaRmb : (h.arenaKit || [])[['F', 'C', 'Q'].indexOf(pk.slot)]) : null; return id && id !== 'aim' ? Icons.abilityIcon(id) : `<span class="perkglyph${pk.passive ? ' pas' : ''}">${pk.glyph || { powL: '⚔' }[pk.id] || '◆'}</span>`; };
   const draw = () => { const left = perkLeft(f); c.innerHTML = '';
     c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend <span class="dim">· you earn 1 every 10 seconds of fighting${Game.TANK_CLS.has(cls) ? ' · <b style="color:#9fd0ff;font-size:13px">Tank</b>: 40% more health, 15% less damage taken' : ''}</span></div>`);
     const list = elx('div', 'perkgrid');
@@ -268,7 +293,7 @@ export function updateArena(dt) {
   notesTick(dt);
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead && !roomOf(p.pos.x, p.pos.z)) { const sp = spawnOf(A.me); p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); } // (wander the holding room and buff up until the gate lifts)
-  else if (A.state === 'fight') { A.clock += dt; perkTick(dt); if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
+  else if (A.state === 'fight') { A.clock += dt; perkTick(dt); auraTick(dt); if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
   else if (A.state === 'roundEnd') { A.t -= dt; if (A.t <= 0 && AUTH()) { A.round++; for (const f of A.F) { f.alive = true; } placeAll(); startPick(10); } }
   if (AN.on) { netTick(dt); if (!AN.host) updatePetViews(dt); }
   // dead: fly around and watch (WASD, Space up, C down, Shift faster)
@@ -358,9 +383,9 @@ function hitPlayer(src, raw, o) {
   if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
 }
-function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); return d; }
+function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); return d; }
 // heals and buffs on a team mate (computer or player)
-function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
+function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; { const sh = from && from.h ? Game.arenaPassive(from.h, 'shieldHeal') : 0; if (sh) { const v = amt * 0.15 * sh; if (u === G.player) { u.buffs.barrier = (u.buffs.barrier || 0) + v; u.buffs.barrierT = Math.max(u.buffs.barrierT || 0, 6); } else if (u.buffs) { u.barrier = (u.barrier || 0) + v; u.buffs.barrier = Math.max(u.buffs.barrier || 0, 6); } } } /* (a healer's perk: heals leave a shield) */ if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
 function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (u === G.player) { u.buffs[kind] = Math.max(u.buffs[kind] || 0, dur); if (kind === 'barrier') { u.buffs.barrier = u.maxHp * 0.2; u.buffs.barrierT = dur; } } else u.addBuff(kind, dur); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.2, kind === 'ward' || kind === 'barrier' ? '#80d8ff' : '#ffd84a', 0.4); }
 // the player's own heals and buffs that reach allies (healing spells with an area, songs, totems...)
 export function allyFx(at, [r, heal, kind, dur], up, quiet) {
@@ -457,7 +482,8 @@ class ArenaBot {
     if (this.dead || A.state !== 'fight') return 0; const b = this.buffs;
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
-    dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); if (src && src.hexUntil > G.time) dmg *= 0.65;
+    dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg); if (src && src.hexUntil > G.time) dmg *= 0.65;
+    { const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && !src.dead && src.pos) { const r2 = dmg * 0.08 * th; if (src === G.player) src.takeDamage(r2, this, { silent: true }); else if (src.arenaBot) { src.hp -= r2; if (src.hp <= 0) src.die(this); } } }
     const red = this.D.armor / (this.D.armor + 40 + LEVEL_CAP * 12); dmg *= 1 - red;
     if (b.ward > 0) dmg *= 0.6; if (b.wall > 0) dmg *= 0.4; if (b.fort > 0) dmg *= 0.7; if (b.stand > 0) dmg *= 0.75; if (b.lich > 0) dmg *= 0.75; if (b.avatar > 0 && this.av && this.av.taken) dmg *= this.av.taken;
     if (this.barrier > 0 && b.barrier > 0) { const ab = Math.min(this.barrier, dmg); this.barrier -= ab; dmg -= ab; }
@@ -518,6 +544,7 @@ class ArenaBot {
     { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
     arenaLookTick(this.model, dt);
     const c = this.cast; animateHumanoid(this.model, dt, { turn: this.turnR, speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
+    if (this.cls === 'bard') luteToChest(this.model, !!this.h.arenaSongs && !this.cast && !this.act && !this.dead, G.time);
   }
   // the holding room before the gates lift: take your place facing the gate, then bless the room (healers shield
   // everyone with them, the others roar a war cry), shuffle and look about like someone waiting to fight
@@ -603,7 +630,7 @@ class ArenaBot {
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
     const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
-    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id)) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
+    const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id, 'cd')) * Game.arenaCdAll(this.h) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
       const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
       if (ct) { this.cast = { a, tgt, t: 0, dur: ct, wind: !!wind && !(a.t === 'heal' || a.t === 'hot'), melee, at: tgt && tgt.pos ? tgt.pos.clone() : null }; return true; } this.resolve(a, tgt); return true; };

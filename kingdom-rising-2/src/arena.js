@@ -340,12 +340,12 @@ class ArenaBot {
     const red = this.D.armor / (this.D.armor + 40 + LEVEL_CAP * 12); dmg *= 1 - red;
     if (b.ward > 0) dmg *= 0.6; if (b.wall > 0) dmg *= 0.4; if (b.fort > 0) dmg *= 0.7; if (b.stand > 0) dmg *= 0.75; if (b.lich > 0) dmg *= 0.75; if (b.avatar > 0 && this.av && this.av.taken) dmg *= this.av.taken;
     if (this.barrier > 0 && b.barrier > 0) { const ab = Math.min(this.barrier, dmg); this.barrier -= ab; dmg -= ab; }
-    dmg = Math.max(1, Math.round(dmg)); this.hp -= dmg; this.hurtT = G.time; this.lastHitBy = src; if (b.undying > 0 && this.hp < 1) this.hp = 1;
+    dmg = Math.max(1, Math.round(dmg)); const hp0 = this.hp; this.hp -= dmg; this.hurtT = G.time; this.lastHitBy = src; if (b.undying > 0 && this.hp < 1) this.hp = 1;
     // you can see it land: a flinch, a bright flash on the body, and blood or sparks (or the spell's element)
     this.hitT = 0.32; for (const m of this.flashMats) { if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } }
     { const at = this.pos.clone().setY(this.pos.y + 1.15), kind = o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : o.el ? 'arcane' : this.D.armor > 120 ? 'spark' : 'blood'; V.burst(kind, at, o.melee || dmg > this.maxHp * 0.08 ? 14 : 7, { speed: 3.5 }); }
     if (src && src.pos && !o.el) { const d = this.pos.clone().sub(src.pos).setY(0); if (d.lengthSq() > 0.01) this.status.knock.addScaledVector(d.normalize(), o.melee ? 0.9 : 0.4); }
-    if (src && src.arenaF) src.arenaF.dmg += dmg; else if (src === G.player) A.F[0].dmg += dmg;
+    { const real = Math.min(dmg, Math.max(0, hp0)); if (src && src.arenaF) src.arenaF.dmg += real; else if (src === G.player) A.F[0].dmg += real; } // (only the health actually taken counts)
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
       if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.cast = null; this.pending = null; } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
@@ -569,12 +569,22 @@ export function scoreTable() {
   return `<table class="artab"><tr><th></th><th>Fighter</th><th>Class</th><th>Kills</th><th>Deaths</th><th>Damage</th><th>Healing</th></tr>${rows.map(f => `<tr class="${f.you ? 'me' : ''}${f.alive ? '' : ' dead'}"><td><i style="background:${teamCol(f.team)}"></i></td><td>${f.name}${f.you && f.name !== 'You' ? ' (you)' : ''}</td><td>${CLASSES[f.cls] ? CLASSES[f.cls].name : f.cls}</td><td>${f.kills}</td><td>${f.deaths}</td><td>${Math.round(f.dmg)}</td><td>${Math.round(f.heal)}</td></tr>`).join('')}</table>`;
 }
 export function toggleScores(on) { let e = document.getElementById('arscores'); if (!on) { if (e) e.remove(); return; } if (!e) { e = el('div', ''); e.id = 'arscores'; document.body.appendChild(e); } e.innerHTML = `<h3>${OBJECTIVES[A.setup.objective].name}</h3>` + scoreTable(); }
+// fight again with the same fighters, without reloading the page
+export function restartMatch() {
+  const e = document.getElementById('arenaend'); if (e) e.remove(); endShown = false;
+  A.winner = null; A.sudden = false; A.round = 1; A.clock = 0; A.feed.length = 0; A.hillOwner = null; A.hillAcc = 0;
+  for (const t of teamsOf()) { A.score[t] = 0; A.roundWins[t] = 0; }
+  for (const f of A.F) { f.kills = f.deaths = f.dmg = f.heal = 0; f.alive = true; f.respawnT = 0; if (f.bot) for (const pm of f.bot.pets) { pm.dead = true; G.scene.remove(pm.root); } }
+  for (const fl of A.flags) { fl.carrier = null; fl.pos.copy(fl.home); fl.atHome = true; }
+  for (const sh of A.shots) G.scene.remove(sh.m); A.shots.length = 0; A.zones.length = 0;
+  G.uiOpen = false; placeAll(); startPick(PICK_T); A.hooks.revived && A.hooks.revived();
+}
 function renderEnd() {
   if (endShown) return; endShown = true; const won = A.winner === G.myTeam;
   const e = el('div', ''); e.id = 'arenaend';
   e.innerHTML = `<div class="arendp"><div class="eyebrow">Kingdom Arena · ${OBJECTIVES[A.setup.objective].name}</div><h1 class="${won ? 'win' : 'lose'}">${A.winner == null ? 'Draw' : won ? 'Victory!' : 'Defeat'}</h1><p>${A.winner == null ? 'Nobody is left standing.' : `<b style="color:${teamCol(A.winner)}">${teamName(A.winner)}</b> ${isFFA() ? 'is the champion of the arena' : 'wins the match'}.`}</p>${scoreTable()}<div class="arbtns"><button class="btn gold big" id="arAgain">Fight again</button><button class="btn" id="arSetup">Change the match</button><button class="btn red" id="arMenu">Main menu</button></div></div>`;
   document.body.appendChild(e); if (document.pointerLockElement) document.exitPointerLock(); G.uiOpen = true;
-  e.querySelector('#arAgain').onclick = () => location.reload();
+  e.querySelector('#arAgain').onclick = () => { S.click(); restartMatch(); }; // in place: no reload, so full screen stays on
   e.querySelector('#arSetup').onclick = () => { try { sessionStorage.setItem('kr2_arena_open', '1'); } catch (er) { /* no storage */ } location.href = location.pathname; };
   e.querySelector('#arMenu').onclick = () => { location.href = location.pathname; };
 }

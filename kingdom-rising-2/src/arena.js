@@ -248,7 +248,7 @@ export function summonDemon(caster, at) {
     emT -= dt; if (emT <= 0 && fk > 0.2) { emT = 0.04; for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; V.emit('poison', new THREE.Vector3(ox + Math.cos(a) * RR, base + 0.4 + Math.random(), oz + Math.sin(a) * RR), { speed: 1.2, vy: 3.5, size: 0.35, life: 1.1 }); } }
     liT -= dt; if (liT <= 0 && fk > 0.1) { liT = 0.15; V.light(new THREE.Vector3(ox, base + 2.5, oz), '#40ff60', (5 + Math.random() * 2) * fk, 0.2, 18); }
     // everyone inside the fire ring is slowed while the demon rises (escape the circle and you are safe)
-    slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows 50% harder than a normal slow: to 32.5% speed) */ } }
+    slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows far harder than a normal slow: to 15.6% speed) */ } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
     const up = t < sinkAt ? seg(t, 1.0, 2.9) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.9) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
     g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
@@ -739,7 +739,7 @@ class ArenaBot {
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
     const far = !T || dT > 14 || !!roomOf(me.x, me.z); // run between fights, walk-speed footwork inside them (players run 5.2)
-    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.325 : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
+    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.156 : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
     this.vel = this.vel || V3(); const want = L > 0.3 ? V3(mx / L * Math.min(sp, L * 3), 0, mz / L * Math.min(sp, L * 3)) : V3(); this.vel.lerp(want, Math.min(1, dt * 4)); me.x += this.vel.x * dt; me.z += this.vel.z * dt; sp = this.vel.length(); // speed up and slow down, no snapping
     const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 6);
     return sp;

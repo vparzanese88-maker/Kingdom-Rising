@@ -1859,7 +1859,7 @@ export class Player {
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
-    if (this.ringSlowT > G.time) spd *= 0.325; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
+    if (this.ringSlowT > G.time) spd *= 0.156; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
     if (this.stagger > 0) spd *= 0.3;
     this.sprinting = sprint && md.lengthSq() > 0.1;
     // dodge / charge / leap override

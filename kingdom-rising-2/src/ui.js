@@ -63,7 +63,7 @@ export function buildAbilityBar() {
   // one dock at the bottom centre: level badge beside the bars, the hotbar, a thin XP line under it
   if (G.newFx && !document.querySelector('#bottom .barsrow')) { const bt = $('bottom'), row = el('div', 'barsrow'); bt.insertBefore(row, bt.firstChild); row.append($('lvl'), $('bars')); bt.appendChild($('xpbar')); }
   if (HERO_HUD) { document.body.classList.add('arenamode'); const row = document.querySelector('.barsrow'); if (row && !row.classList.contains('arhp')) { row.classList.add('arhp'); $('bottom').parentNode.appendChild(row); } } // the arena: health big and alone in the bottom-left corner, abilities along the bottom
-  const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = '';
+  const p = G.player, h = p.h, bar = $('abil'); bar.innerHTML = ''; { const o = $('arult'); if (o) o.remove(); }
   const ws = el('div', 'wslots');
   ws.append(el('div', 'slot mini', ''), el('div', 'slot mini', ''));
   if (!G.newFx) bar.appendChild(ws); // campaign: no weapon swapping any more
@@ -75,7 +75,8 @@ export function buildAbilityBar() {
   const hb = G.campAb ? HOTBAR_KEYS.map((k, i) => { if (i === SUPPORT_SLOTS) bar.appendChild(el('div', 'sep')); return mk(k, '', 'hb' + (i >= SUPPORT_SLOTS ? ' dmg' : ' sup')); }) : Array.from({ length: G.hotbarSlots ? G.hotbarSlots + (G.itemSlots || 0) : 6 }, (_, i) => mk(String(i + 1), '', 'hb' + (G.hotbarSlots && i >= G.hotbarSlots ? ' item' : '')));
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
-  let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : ''; }
+  let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : '';
+    if (HERO_HUD) { ult.insertAdjacentHTML('afterbegin', '<svg class="ultring" viewBox="0 0 100 100"><circle class="urbg" cx="50" cy="50" r="45"/><circle class="urfg" cx="50" cy="50" r="45" pathLength="100"/></svg>'); const w = el('div', ''); w.id = 'arult'; w.appendChild(ult); bar.lastChild.remove(); $('bottom').parentNode.appendChild(w); } } /* the arena: the ultimate is a charge ring on its own at the bottom centre */
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
   abilEls = { ws, lmb, rmb, hb, f, combo, ult };
   refreshAbilityBar();
@@ -129,7 +130,9 @@ export function updateHUD(dt) {
   if (abilEls && abilEls.combo._n > 1) { const p0 = G.player, n = abilEls.combo._n, cur = p0.atk && p0.combo ? (p0.combo - 1) % n : (p0.comboT > 0 ? p0.combo % n : -1);
     if (abilEls.combo._c !== cur) { abilEls.combo._c = cur; abilEls.combo.querySelectorAll('.cstep').forEach((e, i) => e.classList.toggle('on', i === cur)); } }
   const p = G.player, h = p.h;
-  $('hpI').style.width = (p.hp / p.maxHp * 100) + '%'; $('hpT').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
+  $('hpI').style.width = (p.hp / p.maxHp * 100) + '%';
+  if (HERO_HUD) { const e = $('hpT'), k = Math.ceil(p.hp) + '/' + p.maxHp; if (e._k !== k) { e._k = k; e.innerHTML = `<b>${Math.ceil(p.hp)}</b><small>/ ${p.maxHp}</small>`; e.parentNode.classList.toggle('low', p.hp / p.maxHp < 0.3); } } /* the arena: one big white number, the max small beside it */
+  else $('hpT').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
   $('manaBar').hidden = p.maxMana <= 0;
   if (p.maxMana > 0) { $('manaI').style.width = (p.mana / p.maxMana * 100) + '%'; $('manaT').textContent = `${Math.floor(p.mana)} / ${p.maxMana} Mana`; }
   $('endI').style.width = (p.end / p.maxEnd * 100) + '%'; $('endT').textContent = `${Math.floor(p.end)} / ${p.maxEnd} Endurance`;
@@ -139,7 +142,7 @@ export function updateHUD(dt) {
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;
-    if (abilEls.ult) { const c = h.ultCharge || 0, k = Math.floor(c); if (abilEls.ult._k !== k) { abilEls.ult._k = k; abilEls.ult.querySelector('.ultfill').style.height = c + '%'; abilEls.ult.querySelector('.ultpct').textContent = c >= 100 ? 'READY' : k + '%'; abilEls.ult.classList.toggle('ready', c >= 100); } }
+    if (abilEls.ult) { const c = h.ultCharge || 0, k = Math.floor(c); if (abilEls.ult._k !== k) { abilEls.ult._k = k; abilEls.ult.querySelector('.ultfill').style.height = c + '%'; abilEls.ult.querySelector('.ultpct').textContent = c >= 100 ? 'READY' : k + '%'; abilEls.ult.style.setProperty('--uc', Math.min(100, c).toFixed(0)); abilEls.ult.classList.toggle('ready', c >= 100); } }
     if (abilEls.f._rmb) { const k = ABILITIES[h.cls].indexOf(abilEls.f._rmb); setCd(abilEls.f, p.cd['a' + (k + 1)] || 0, abilEls.f._rmb.cd || 1); }
     if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {
@@ -210,7 +213,7 @@ function blocked(from, to) {
   const near = wallBoxes.filter(c => { const ex = Math.max(c.hw, c.hd) + 1; return Math.min(from.x, to.x) - ex < c.x && c.x < Math.max(from.x, to.x) + ex && Math.min(from.z, to.z) - ex < c.z && c.z < Math.max(from.z, to.z) + ex; });
   for (let i = 1; i < n; i++) { const k = i / n, x = from.x + dx * k, y = from.y + dy * k, z = from.z + dz * k, g = heightAt(x, z);
     if (y < g - 0.2) return true;
-    for (const c of near) { const lx = (x - c.x) * c.cos - (z - c.z) * c.sin, lz = (x - c.x) * c.sin + (z - c.z) * c.cos; if (Math.abs(lx) < c.hw - 0.2 && Math.abs(lz) < c.hd - 0.2 && y < heightAt(c.x, c.z) + 5.5) return true; } }
+    for (const c of near) { const lx = (x - c.x) * c.cos - (z - c.z) * c.sin, lz = (x - c.x) * c.sin + (z - c.z) * c.cos; if (Math.abs(lx) < c.hw - 0.2 && Math.abs(lz) < c.hd - 0.2 && (c.y1 < 1e8 ? y > c.y0 + 0.15 && y < c.y1 - 0.15 : y < Math.max(heightAt(c.x, c.z), c.y0 > -1e8 ? c.y0 : -1e9) + 5.5)) return true; } /* boxes with a height range (steps, an arch's lintel) only block inside it */ }
   return false;
 }
 function visibleFromCam(key, pos) {
@@ -243,8 +246,8 @@ export function updatePlates() {
     }
     for (const m of G.mobs) {
       if (m.dead) continue;
-      const d = m.pos.distanceTo(p.pos); if (d > (m.isStruct ? 70 : 32) && m !== G.target) continue;
-      const ally = m.team != null && m.team === G.myTeam; if (ally && d > (ARENA ? 45 : 16) && !m.isStruct && m !== G.target) continue;
+      const d = m.pos.distanceTo(p.pos), arB = ARENA && m.arenaBot; if (d > (arB ? 120 : m.isStruct ? 70 : 32) && m !== G.target) continue; /* arena heroes: enemies read from far away (plates only show in line of sight) */
+      const ally = m.team != null && m.team === G.myTeam; if (ally && d > (ARENA ? 60 : 16) && !m.isStruct && m !== G.target) continue;
       const hostile = !ally && ((m.hostile && !(m.newbieCalm && m.newbieCalm())) || m.provoked);
       const anyDb = m.status.stun > 0 || m.status.frozen > 0 || m.status.slow > 0 || m.status.bleed > 0 || m.status.burn > 0 || m.status.dot > 0;
       if (d > 14 && m.hp >= m.maxHp && m !== G.target && !hostile && !anyDb && !G.newFx) continue;
@@ -257,7 +260,7 @@ export function updatePlates() {
       const lc = lvlCol(m.lv, p.level), hpP = (m.hp / m.maxHp * 100).toFixed(0);
       const S2 = m.status; let db = '';
       for (const [k, ic, c] of [['stun', '💫', '#e0c020'], ['frozen', '❄', '#8ad8ff'], ['slow', '🐌', '#4a8ad8'], ['bleed', '🩸', '#c82020'], ['burn', '🔥', '#ff7020'], ['dot', '☠', '#8ae050']]) if (S2[k] > 0) db += `<span style="--c:${c}">${ic}<i>${Math.ceil(S2[k])}</i></span>`;
-      if (ARENA && m.arenaBot) { const foe2 = m.team !== G.myTeam, c2 = foe2 ? '#ff5a4a' : '#6ab4ff', st2 = m.status || {}, cc = m.hexUntil > G.time ? ['🐸', 'HEXED'] : st2.fear > 0 ? ['😱', 'FEARED'] : st2.stun > 0 ? (st2.mez ? ['💤', 'MESMERIZED'] : ['💫', 'STUNNED']) : st2.frozen > 0 ? ['❄', 'FROZEN'] : st2.root > 0 ? ['⛓', 'ROOTED'] : st2.slow > 0 ? ['🐌', 'SLOWED'] : null; show('m' + m.id, m, (cc ? `<div class="arcc"><span>${cc[0]}</span><b>${cc[1]}</b></div>` : '') + `<div class="nm arnm" style="color:${c2}">${foe2 ? '' : '◆ '}${esc(m.name)}</div><div class="hpb arhp" style="--hc:${c2}"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, (foe2 ? 'hostile' : 'ally') + (m === G.target ? ' tgt' : ''), m.height + 0.4); continue; } // arena: always a name and a bar, red for enemies, blue for your side
+      if (ARENA && m.arenaBot) { const foe2 = m.team !== G.myTeam, c2 = foe2 ? '#ff4a3a' : '#4aa8ff', st2 = m.status || {}, cc = m.hexUntil > G.time ? ['🐸', 'HEXED'] : st2.fear > 0 ? ['😱', 'FEARED'] : st2.stun > 0 ? (st2.mez ? ['💤', 'MESMERIZED'] : ['💫', 'STUNNED']) : st2.frozen > 0 ? ['❄', 'FROZEN'] : st2.root > 0 ? ['⛓', 'ROOTED'] : st2.slow > 0 ? ['🐌', 'SLOWED'] : null; show('m' + m.id, m, (cc ? `<div class="arcc"><span>${cc[0]}</span><b>${cc[1]}</b></div>` : '') + `<div class="nm arnm" style="color:${c2}">${esc(m.name)}</div><div class="hpb arpb" style="--hc:${c2}"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, 'arplate ' + (foe2 ? 'hostile' : 'ally') + (m === G.target ? ' tgt' : ''), m.height + 0.4); { const e = plates.get('m' + m.id); if (e) { const s = Math.max(0.74, Math.min(1, 1.08 - d / 140)).toFixed(2); if (e._s !== s) { e._s = s; e.style.setProperty('--s', s); } } } continue; } // arena: always a name and a bar, red for enemies, blue for your side
       if (G.newFx && !m.isStruct && !ally) { show('m' + m.id, m, `${showName ? `<div class="nm" style="color:${lc}">${esc(m.name)}</div>` : ''}${showHp ? `<div class="hpb"><i style="width:${hpP}%"></i></div>` : ''}${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35); continue; }
       show('m' + m.id, m, `<div class="lvrow">${hostile ? `<span class="hos" title="Hostile: attacks on sight">${HOSTILE_SVG}</span>` : ''}<div class="lvb" style="--c:${lc}">${m.def.elite ? '★' : ''}${m.lv}</div></div><div class="nm" style="color:${lc}">${esc(m.name)}</div><div class="hpb"><i style="width:${hpP}%"></i></div>${db ? `<div class="mdb">${db}</div>` : ''}`, cls + (m === G.target ? ' tgt' : ''), m.height + 0.35);
     }

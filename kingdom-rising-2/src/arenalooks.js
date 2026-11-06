@@ -163,9 +163,10 @@ export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rot
 const OUTLINE = new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { col: { value: new THREE.Color('#140e0a') } },
   vertexShader: 'void main(){ vec3 n = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); float d = -mv.z; mv.xyz += n * clamp(0.006 + d * 0.0016, 0.006, 0.05); gl_Position = projectionMatrix * mv; }',
   fragmentShader: 'uniform vec3 col; void main(){ gl_FragColor = vec4(col, 1.0); }' });
-export function addOutline(root) {
+const OUTL = {}; export function outlineMat(col) { if (!col) return OUTLINE; if (!OUTL[col]) { OUTL[col] = OUTLINE.clone(); OUTL[col].uniforms = { col: { value: new THREE.Color(col) } }; } return OUTL[col]; }
+export function addOutline(root, col) {
   const list = []; root.traverse(o => { if (o.isMesh && !o.userData.outline && o.material && !Array.isArray(o.material) && o.material.isMeshStandardMaterial && !o.material.transparent && o.material.side !== THREE.DoubleSide && /* (thin cloth: capes, robes) */ o.geometry && o.geometry.attributes.normal) list.push(o); });
-  for (const o of list) { const sh = new THREE.Mesh(o.geometry, OUTLINE); sh.userData.outline = true; sh.castShadow = false; sh.receiveShadow = false; sh.renderOrder = -1; sh.raycast = () => {}; o.add(sh); }
+  for (const o of list) { const sh = new THREE.Mesh(o.geometry, outlineMat(col)); sh.userData.outline = true; sh.castShadow = false; sh.receiveShadow = false; sh.renderOrder = -1; sh.raycast = () => {}; o.add(sh); }
 }
 
 // music notes that rise and swirl round a body (bard songs): they follow whoever they were played on

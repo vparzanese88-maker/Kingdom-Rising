@@ -91,7 +91,7 @@ const VP = {
   spRest: P(0.24, -0.3, -0.3, -1.45, 0.06, 0), thA: P(0.3, -0.25, -0.1, -1.5, 0.05, 0), thB: P(0.12, -0.2, -0.95, -1.56, 0, 0), th3A: P(0.32, 0.05, 0.0, -1.3, 0.1, 0), th3B: P(0.05, -0.25, -1.2, -1.65, 0, 0),
   blockW: P(0.15, -0.12, -0.45, -0.3, 0, 1.45), shieldRest: P(-0.48, -0.6, -0.55, 0.25, 0.5, 0.12), shieldBlock: P(-0.22, -0.31, -0.33, 0.1, 0.42, 0.04), swordLow: P(0.48, -0.5, -0.5, -0.15, 0.1, 0.1),
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
-  staff: P(0.32, -0.6, -0.58, -0.15, 0, -0.1), staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
+  staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -100,11 +100,14 @@ function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 
 // a detailed gripping hand: palm, four curled fingers, thumb, knuckles, class glove and cuff
+// what each class wears on its hands and forearms in first person
+const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather' };
 function makeHand(right, cls, skinCol) {
   const g = new THREE.Group();
   const skin = new THREE.MeshStandardMaterial({ color: skinCol, roughness: 0.6 });
-  const glove = cls === 'warrior' ? new THREE.MeshStandardMaterial({ color: '#aab2bc', roughness: 0.3, metalness: 0.85 }) : cls === 'ranger' ? new THREE.MeshStandardMaterial({ color: '#5a3a20', roughness: 0.8 }) : skin;
-  const fingerM = cls === 'ranger' ? skin : glove; // rangers wear fingerless gloves
+  const kind = VM_KIND[cls] || 'cloth', PLATE = kind === 'plate';
+  const glove = PLATE ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#4a4c56' : cls === 'paladin' ? '#c8ccd4' : '#aab2bc', roughness: 0.28, metalness: 0.9 }) : kind === 'leather' ? new THREE.MeshStandardMaterial({ color: cls === 'musketeer' ? '#2e2620' : '#5a3a20', roughness: 0.75 }) : kind === 'wraps' ? new THREE.MeshStandardMaterial({ color: '#d8ccb0', roughness: 0.9 }) : skin;
+  const fingerM = cls === 'ranger' || cls === 'rogue' || kind === 'wraps' ? skin : glove; // rangers and rogues wear fingerless gloves; brawlers wrap their palms
   const sx = right ? 1 : -1;
   // palm wraps the handle (the handle runs along local Y through the origin)
   const palm = new THREE.Mesh(new THREE.SphereGeometry(0.036, 14, 10), glove); palm.scale.set(1.15, 1.35, 1.0); palm.position.set(sx * 0.03, 0.0, 0.012); g.add(palm);
@@ -113,18 +116,18 @@ function makeHand(right, cls, skinCol) {
     const r = 0.026 - i * 0.0015;
     const f = new THREE.Mesh(new THREE.TorusGeometry(r, 0.0115 - i * 0.0008, 7, 12, Math.PI * 1.25), fingerM);
     f.rotation.x = Math.PI / 2; f.rotation.z = right ? Math.PI * 0.05 : Math.PI * 0.7; f.position.y = 0.033 - i * 0.022; g.add(f);
-    if (cls === 'warrior') { const k = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.016, 0.02), glove); k.position.set(sx * 0.005, 0.033 - i * 0.022, -0.03); g.add(k); }
+    if (PLATE) { const k = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.016, 0.02), glove); k.position.set(sx * 0.005, 0.033 - i * 0.022, -0.03); g.add(k); }
     else { const k = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 5), fingerM); k.position.set(sx * 0.0, 0.033 - i * 0.022, -0.033); g.add(k); }
   }
   // thumb over the top of the fingers
   const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.035, 4, 8), fingerM); th.position.set(-sx * 0.012, 0.03, -0.026); th.rotation.z = sx * 1.1; th.rotation.x = 0.4; g.add(th);
   // back of the hand plate / glove detail
-  if (cls === 'warrior') { const plate = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.085, 0.06), glove); plate.position.set(sx * 0.07, 0, 0.012); g.add(plate); }
+  if (PLATE) { const plate = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.085, 0.06), glove); plate.position.set(sx * 0.07, 0, 0.012); g.add(plate); }
   if (cls === 'wizard') { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0145, 0.004, 6, 14), new THREE.MeshStandardMaterial({ color: '#e0b040', metalness: 0.9, roughness: 0.3 })); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.011, 0); g.add(ring); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.007), new THREE.MeshStandardMaterial({ color: '#8a40ff', emissive: '#6a20ff', emissiveIntensity: 1.2 })); gem.position.set(0, 0.011, -0.04); g.add(gem); }
   // wrist / cuff
-  const cuffM = cls === 'warrior' ? glove : cls === 'ranger' ? new THREE.MeshStandardMaterial({ color: '#6a4628', roughness: 0.8 }) : new THREE.MeshStandardMaterial({ color: CLASSES.wizard.colors.trim, roughness: 0.4, metalness: 0.6 });
+  const cuffM = PLATE ? glove : kind !== 'cloth' ? new THREE.MeshStandardMaterial({ color: '#6a4628', roughness: 0.8 }) : new THREE.MeshStandardMaterial({ color: (CLASSES[cls] || CLASSES.wizard).colors.trim, roughness: 0.4, metalness: 0.6 });
   const wrist = new THREE.Object3D(); wrist.position.set(sx * 0.055, -0.04, 0.03); g.add(wrist);
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.041, 0.24, 14), cuffM); cuff.position.y = -0.09; wrist.add(cuff);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, 0.09, 20), cuffM); cuff.position.y = -0.02; /* (a short glove cuff; the sleeve carries on to the elbow) */ wrist.add(cuff);
   if (cls === 'ranger') for (const y of [-0.016, 0.016]) { const strap = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.004, 4, 16), new THREE.MeshStandardMaterial({ color: '#2a1a0e' })); strap.rotation.x = Math.PI / 2; strap.position.y = y; wrist.add(strap); }
   if (cls === 'warrior') { const rim = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.006, 5, 16), new THREE.MeshStandardMaterial({ color: CLASSES.warrior.colors.trim, metalness: 0.9, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.03; wrist.add(rim); }
   g.userData.wrist = wrist;
@@ -137,19 +140,21 @@ class ViewModel {
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
     this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
     const c = CLASSES[cls].colors;
-    const sleeve = cls === 'warrior' ? new THREE.MeshStandardMaterial({ color: '#8a929c', roughness: 0.4, metalness: 0.75 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
+    const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist'].includes(cls);
+    const sleeve = vk === 'plate' ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#3e4048' : '#8a929c', roughness: 0.35, metalness: 0.8 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
     const trimM = new THREE.MeshStandardMaterial({ color: c.trim, roughness: 0.45, metalness: cls === 'ranger' ? 0 : 0.6 });
     this.arms = [this.R, this.L].map(H => {
       const arm = new THREE.Group(); this.g.add(arm);
       // forearm: tapered sleeve (wizards get a wide bell sleeve), a trim ring and some cloth folds
-      const geo = cls === 'wizard' ? new THREE.CylinderGeometry(0.052, 0.085, 1, 16, 1, true) : new THREE.CylinderGeometry(0.044, 0.058, 1, 16, 1, true);
+      const geo = ROBE ? new THREE.CylinderGeometry(0.048, 0.08, 1, 20, 1, true) : new THREE.CylinderGeometry(0.039, 0.05, 1, 20, 1, true);
       const m = new THREE.Mesh(geo, sleeve); arm.add(m);
-      const trim = new THREE.Mesh(new THREE.TorusGeometry(cls === 'wizard' ? 0.055 : 0.047, 0.007, 6, 18), trimM); trim.rotation.x = Math.PI / 2; arm.add(trim);
-      if (cls === 'warrior') { for (let i = 1; i < 4; i++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.05 + i * 0.002, 0.004, 4, 16), sleeve); band.rotation.x = Math.PI / 2; band.userData.t = i * 0.12; arm.add(band); } }
+      const trim = new THREE.Mesh(new THREE.TorusGeometry(ROBE ? 0.051 : 0.042, 0.007, 8, 24), trimM); trim.rotation.x = Math.PI / 2; arm.add(trim);
+      if (vk === 'leather' || vk === 'wraps') { const br = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.047, 0.11, 20, 1, true), new THREE.MeshStandardMaterial({ color: vk === 'wraps' ? '#d8ccb0' : '#5a3a20', roughness: 0.8, side: THREE.DoubleSide })); br.userData.t = 0.03; arm.add(br); for (let i = 0; i < 2; i++) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.047, 0.004, 6, 20), new THREE.MeshStandardMaterial({ color: '#2a1a10', roughness: 0.7 })); st.rotation.x = Math.PI / 2; st.userData.t = 0.001 + i * 0.07; arm.add(st); } } /* (a leather bracer with two straps) */
+      if (vk === 'plate') { for (let i = 1; i < 4; i++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.045 + i * 0.002, 0.004, 4, 16), sleeve); band.rotation.x = Math.PI / 2; band.userData.t = i * 0.12; arm.add(band); } }
       arm.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
       return { arm, m, trim, H };
     });
-    this.anchor = [new THREE.Vector3(0.36, -1.15, -0.25), new THREE.Vector3(-0.36, -1.15, -0.25)];
+    this.anchor = [new THREE.Vector3(0.32, -0.8, 0.12), new THREE.Vector3(-0.32, -0.8, 0.12)]; // (the elbows: just below and behind the bottom edge of the screen, so a forearm never shows its cut end)
     this.weapons = {}; this.bob = 0; this.sprintK = 0;
   }
   setWeapon(w) {
@@ -257,13 +262,13 @@ class ViewModel {
     this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 0.8 * this.sprintK; this.R.rotation.z += Math.sin(ph) * amp * 1.2; this.R.rotation.x += Math.cos(ph) * amp * (1 + this.sprintK * 3);
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
-    this.g.position.set(st.swayX, -0.04 - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
+    this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     // bow string pull
     if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, (this.weapons.bow.userData.stringZ || 0.02) + pull * 0.42); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
     // forearms follow from the wrist down toward the elbow (off screen)
     for (let i = 0; i < 2; i++) {
       const { arm, m, trim, H } = this.arms[i]; arm.visible = false;
-      if (!H.visible) continue;
+      if (!H.visible) continue; arm.visible = true;
       const wr = H.children[0].userData.wrist;
       const w = new THREE.Vector3(); wr.getWorldPosition(w); this.g.worldToLocal(w);
       const a = this.anchor[i], d = a.clone().sub(w), len = d.length(); d.normalize();
@@ -302,7 +307,7 @@ export class Player {
     this.fb = {}; this.swayX = 0; this.swayY = 0; this.fovKick = 0; this.landDip = 0; this.lookDX = 0; this.lookDY = 0;
     const app = Object.assign({ race: hero.race, sex: hero.sex, cls: hero.cls }, hero.app);
     this.app = app;
-    this.vm = new ViewModel(G.vmCam, app, hero.cls);
+    this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; // (the arena: the weapon sits lower and further right, out of the way)
     this.trail = V.trail('#ffffff'); this.trailL = V.trail('#ffffff');
     this.refreshGear(true);
     this.eye = this.ch.height * 0.9;
@@ -401,7 +406,7 @@ export class Player {
     if (btn === 2 && this.h.arenaRmb !== undefined && !(this.W && this.W.hands === 'shield')) {
       this.rmbHeld = false;
       if (this.h.arenaRmb === 'aim' || (this.W && (this.W.kind === 'bow' || this.W.kind === 'gun'))) { this.adsHeld = down; return; }
-      if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); }
+      if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); const ra = ABILITIES[this.h.cls][k]; if ((this.cd['a' + (k + 1)] || 0) > cd0) this.tpT = Math.max(this.tpT || 0, Math.min(3, Math.max(1.4, (ra && ra.dur) || 0))); } } // (a defensive stance: seen from behind, like Paladins)
       return;
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
@@ -749,7 +754,7 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; }
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } { const ua = ABILITIES[h.cls][k]; this.tpT = id === 'ar_demon' ? 3.4 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
@@ -1976,7 +1981,10 @@ export class Player {
   updateCamera(dt) {
     const cam = G.camera;
     this.lookLag(dt);
-    this.camDist += (this.camDistT - this.camDist) * Math.min(1, dt * 8);
+    // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
+    this.tpT = Math.max(0, (this.tpT || 0) - dt); if (this.leap && this.h.arena) this.tpT = Math.max(this.tpT, 0.35);
+    const camWant = this.tpT > 0 && !this.dead ? Math.max(3.4, this.camDistT) : this.camDistT;
+    this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;
     this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp);
     this.vm.g.visible = fp && !this.dead;
@@ -1987,7 +1995,7 @@ export class Player {
     if (this.dead) eyeY = this.spectate ? 0 : 0.4; // (arena spectators fly free)
     if (this.swim) eyeY = 1.35;
     const eye = this.pos.clone(); eye.y += eyeY;
-    if (fp && settings.headBob && this.onGround && this.speed > 0.5) eye.y += Math.abs(Math.sin(this.vm.bob)) * 0.04;
+    if (fp && settings.headBob && !this.h.arena && this.onGround && this.speed > 0.5) eye.y += Math.abs(Math.sin(this.vm.bob)) * 0.04;
     cam.rotation.order = 'YXZ';
     cam.rotation.set(this.pitch, this.yaw + Math.PI, 0);
     if (this.dodge && !this.dodge.charge && fp) cam.rotation.z = Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.15 * Math.sign(this.dodge.dir.dot(this.right()) || 1);

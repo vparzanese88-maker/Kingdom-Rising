@@ -177,7 +177,7 @@ export class RemoteHero {
     animateHumanoid(this.model, dt, { speed: this.spd, action: this.act || null, actionT: this.actT, armed: true });
   }
   // hit by the local player
-  takeHit(dmg, src, o = {}) { if (this.dead) return 0; dmg *= pvpK(); send({ t: 'pvp', to: this.netId, dmg: Math.round(dmg), o: slim(o) }); return Math.round(dmg); }
+  takeHit(dmg, src, o = {}) { if (this.dead) return 0; dmg *= pvpK() * pvpClass(); // (the other side divides by its own class's PvP toughness) send({ t: 'pvp', to: this.netId, dmg: Math.round(dmg), o: slim(o) }); return Math.round(dmg); }
   // hit by host-run troops, towers and mobs
   takeDamage(dmg, src, o = {}) { if (this.dead || !MP.host) return; send({ t: 'dmg', to: this.netId, dmg: Math.round(dmg), o: slim(o), sx: src && src.pos ? src.pos.x : null, sz: src && src.pos ? src.pos.z : null, slv: src && src.lv }); }
   debuff(type, t, dps) { if (MP.host) send({ t: 'debuff', to: this.netId, type, dur: t, dps }); }
@@ -185,6 +185,16 @@ export class RemoteHero {
 }
 // player-vs-player damage scale: heroes hit monsters hard, but a duel between two heroes should last a while
 export const PVP_K = 0.15;
+// class fairness in duels, from the PvP model: each class's strength against other players brought to the median (damage dealt, and toughness taken)
+export const PVP_CLASS = {}; // (filled in once Kingdom Battles uses the campaign abilities: every class 1 until then)
+const pvpClass = () => (G.save && PVP_CLASS[G.save.cls]) || 1;
+// hit by another player: their class scale was applied on their side; ours divides it here. Stuns, freezes and slows from players
+// fall off when chained: each one within 10 s of the last lasts half as long as the one before
+export function pvpIncoming(p, dmg, o) {
+  const k = (G.save && PVP_CLASS[G.save.cls]) || 1; dmg /= k; o = Object.assign({}, o);
+  if (o.stun || o.freeze || o.slow) { const now = G.time; if (!p.pvpCcT || now - p.pvpCcT > 10) p.pvpCcN = 0; const f = Math.pow(0.5, p.pvpCcN || 0); if (o.stun) o.stun *= f; if (o.freeze) o.freeze *= f; if (o.slow) o.slow *= f; p.pvpCcN = (p.pvpCcN || 0) + 1; p.pvpCcT = now; }
+  return [dmg, o];
+}
 // heroes grow much stronger with level, so the scale shrinks as they do: duels last about 6 to 15 seconds at every level
 const pvpK = () => Math.max(PVP_K, 0.4 - 0.028 * (((G.save && G.save.level) || 1) - 1));
 const slim = (o) => ({ stun: o.stun || 0, slow: o.slow || 0, freeze: o.freeze || 0, bleed: o.bleed || 0, burn: o.burn || 0, big: !!o.big });

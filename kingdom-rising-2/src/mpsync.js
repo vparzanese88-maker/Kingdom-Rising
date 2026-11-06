@@ -5,7 +5,7 @@ import { V } from './vfx.js';
 import { S } from './audio.js';
 import { MOBS } from './data.js';
 import { Mob } from './mobs.js';
-import { MP, send, RemoteHero } from './mp.js';
+import { MP, send, RemoteHero, pvpIncoming } from './mp.js';
 import { B, Unit, myTown, bank, allyHeal, allyBuff, sendAttack, recall, setFollow, summonWolves, heroUnitDef, syncTownLevel, startConstructionVisual, shootVisual, questReward, spiritWolf, spiritWolfDef, summonPet } from './battle.js';
 import { petDef } from './classes2.js';
 import { unitDef } from './battledata.js';
@@ -117,7 +117,7 @@ export function onData(from, d) {
     // a player's hit on something the host runs
     case 'hit': if (MP.host) { const src = remoteFor(from) || null; const e = d.k === 'u' ? B.units.find(x => x.id === d.id) : d.k === 's' ? B.structs[d.id] : d.k === 'm' ? mobList[d.id] : null; if (e && !e.dead) { e.takeHit(d.dmg, src, d.o || {}); } } break;
     // a player hit another player
-    case 'pvp': if (d.to === MP.myId && p && !p.dead) { const src = remoteFor(from); p.takeDamage(d.dmg, src, d.o || {}); } break;
+    case 'pvp': if (d.to === MP.myId && p && !p.dead) { const src = remoteFor(from); const [dmg, o] = pvpIncoming(p, d.dmg, d.o || {}); p.takeDamage(dmg, src, o); if (!p.dead && p.debuff) { if (o.stun || o.freeze) p.debuff('stun', Math.max(o.stun || 0, o.freeze || 0)); if (o.slow) p.debuff('slow', o.slow); } } break; // their stuns and slows now land too (shortened when chained)
     case 'dmg': if (d.to === MP.myId && p && !p.dead) { p.takeDamage(d.dmg, d.sx != null ? { pos: new THREE.Vector3(d.sx, p.pos.y, d.sz), lv: d.slv } : null, d.o || {}); } break;
     case 'debuff': if (d.to === MP.myId && p && p.debuff) p.debuff(d.type, d.dur, d.dps); break;
     case 'heal': if (d.to === MP.myId && p && !p.dead) { p.heal(p.maxHp * d.pct); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 20, { speed: 2, vy: 2 }); G.hooks.toast && G.hooks.toast('An ally healed you', '✚', 'gold'); } break;

@@ -402,7 +402,7 @@ export class Player {
     if (down && this.sheathed && !this.dead && !G.uiOpen && (btn === 0 || btn === 2)) { this.drawWeapons(); if (btn === 0) { this.lmbDown = false; return; } }
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
-    if (btn === 0 && this.h.arena && this.W) { if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
+    if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down; if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
     if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
@@ -413,7 +413,7 @@ export class Player {
     if (btn === 2 && this.h.arenaRmb !== undefined && !(this.W && this.W.hands === 'shield')) {
       this.rmbHeld = false;
       if (this.h.arenaRmb === 'aim' || (this.W && (this.W.kind === 'bow' || this.W.kind === 'gun'))) { this.adsHeld = down; return; }
-      if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); const ra = ABILITIES[this.h.cls][k]; if ((this.cd['a' + (k + 1)] || 0) > cd0) this.tpT = Math.max(this.tpT || 0, Math.min(3, Math.max(1.4, (ra && ra.dur) || 0))); } } // (a defensive stance: seen from behind, like Paladins)
+      if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); const ra = ABILITIES[this.h.cls][k]; /* (third person only for ultimates, for now) */ } } // (a defensive stance: seen from behind, like Paladins)
       return;
     }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
@@ -1996,10 +1996,10 @@ export class Player {
   }
   updateCamera(dt) {
     const cam = G.camera;
-    if (this.cine) { this.ch.root.visible = !this.spectate; this.vm.g.visible = false; if (this.adsG) this.adsG.visible = false; cam.rotation.order = 'YXZ'; this.cine(cam, dt); cam.updateProjectionMatrix(); A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI); return; } // (a cinematic shot has the camera)
+    if (this.cine) { this.ch.root.visible = !this.spectate && !this.dead; this.vm.g.visible = false; if (this.adsG) this.adsG.visible = false; cam.rotation.order = 'YXZ'; this.cine(cam, dt); cam.updateProjectionMatrix(); A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI); return; } // (a cinematic shot has the camera)
     this.lookLag(dt);
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
-    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.leap && this.h.arena) this.tpT = Math.max(this.tpT, 0.35);
+    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;

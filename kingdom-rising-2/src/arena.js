@@ -133,7 +133,7 @@ const ARENA_NEW = {
   monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
-    { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Call a demon up from the ground where you aim. When it has risen it seizes the nearest enemy in reach, lifts them over its head and bites their head off; if nobody is close enough it sinks back into the depths.' },
+    { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'A ring of green hellfire bursts up where you aim and slows every enemy inside it while a skeletal demon claws its way out. Whoever is still in the ring and closest to the centre when it rises is seized, lifted over its head and has their head bitten off. If everyone escapes the ring, it hunts around and sinks back down.' },
     { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
@@ -237,7 +237,7 @@ export function summonDemon(caster, at) {
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
   let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
-  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0;
+  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null;
   const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
   const me = caster === G.player ? G.player : null; let flyCam = null;
   if (me) { me.held = true; me.ultImmT = 9; me.ultPoseT = 0; me.headUpT = 0; me.oozeT = 7.5; me.oozeE = 0; me.tpT = 0; startFly(); }
@@ -247,6 +247,8 @@ export function summonDemon(caster, at) {
     const end = sinkAt + 1.8, fk = Math.min(seg(t, 0, 1.1), 1 - seg(t, sinkAt + 1.2, end)); ring.userData.tick(fk, t);
     emT -= dt; if (emT <= 0 && fk > 0.2) { emT = 0.04; for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; V.emit('poison', new THREE.Vector3(ox + Math.cos(a) * 4.6, base + 0.4 + Math.random(), oz + Math.sin(a) * 4.6), { speed: 1.2, vy: 3.5, size: 0.35, life: 1.1 }); } }
     liT -= dt; if (liT <= 0 && fk > 0.1) { liT = 0.15; V.light(new THREE.Vector3(ox, base + 2.5, oz), '#40ff60', (5 + Math.random() * 2) * fk, 0.2, 18); }
+    // everyone inside the fire ring is slowed while the demon rises (escape the circle and you are safe)
+    slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < 4.6) { if (u === G.player) G.player.debuff && G.player.debuff('slow', 0.45); else if (u.status) u.status.slow = Math.max(u.status.slow || 0, 0.45); } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
     const up = t < sinkAt ? seg(t, 1.0, 2.9) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.9) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
     g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
@@ -261,37 +263,39 @@ export function summonDemon(caster, at) {
     const roar = seg(t, 2.35, 2.6) * (1 - seg(t, 3.0, 3.25)), roar2 = missed ? seg(t, 4.0, 4.25) * (1 - seg(t, 4.7, 5.0)) : 0, rr = Math.max(roar, roar2);
     if (rr > 0.5 && roared < (roar2 > 0.5 ? 2 : 1)) { roared++; S.growl && S.growl('wolf', center, 0.4); S.explode && S.explode(center, 0.5); V.addShake(0.8); V.ring(center.clone().setY(base + 0.2), 9, '#3aff5a', 0.7); V.burst('poison', center.clone().setY(base + 4), 50, { speed: 7 }); }
     D.throat.scale.setScalar(1 + rr * 1.2);
-    if (t >= GRAB && !victim && (!missed || t < sinkAt - 0.5)) { let best = null, bd = 5.8; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
+    if (t >= GRAB && !victim && (!missed || t < sinkAt - 0.5)) { let best = null, bd = 4.6; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
       if (best && missed) { missed = false; GRAB = t; BITE = t + 2.8; sinkAt = BITE + 1.0; } /* (caught someone mid-search) */
-      if (best) { victim = best; from = best.pos.clone(); victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', BITE - GRAB + 0.3); startCine(); } else if (victim.status) { victim.status.stun = BITE - GRAB + 0.3; victim.cast = null; victim.pending = null; } }
+      if (best) { victim = best; vroot = best.root || (best.ch && best.ch.root); from = best.pos.clone(); victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', BITE - GRAB + 0.3); startCine(); } else if (victim.status) { victim.status.stun = BITE - GRAB + 0.3; victim.cast = null; victim.pending = null; } }
       else if (!missed) { missed = true; sinkAt = 5.4; } }
     // right arm: reach, seize, hoist overhead, hold up as they struggle, bring them to the jaws
     let shx = -0.4 + Math.sin(t * 1.4) * 0.08, shz = 0.1, elx = -0.4;
     if (rising) { shx = -1.0 + Math.sin(t * 5 + 1.5) * 0.35; shz = 0.45; elx = -0.9; }
     if (victim) { const kR = seg(t, GRAB, GRAB + 0.45), kL = seg(t, GRAB + 0.5, GRAB + 1.4), kM = seg(t, BITE - 0.45, BITE);
       shx = L(L(shx, -1.35, kR), -2.75, kL); elx = L(L(elx, -0.15, kR), -0.35, kL); shz = L(shz, 0.15, kR);
-      shx = L(shx, -2.35, kM); shz = L(shz, 0.75, kM); elx = L(elx, -1.15, kM); if (t > GRAB + 1.4 && t < BITE - 0.45) shx += Math.sin(t * 9) * 0.05; }
+      shx = L(shx, -2.95, kM); shz = L(shz, 0.5, kM); elx = L(elx, -0.25, kM); if (t > GRAB + 1.4 && t < BITE - 0.45) shx += Math.sin(t * 9) * 0.05; }
     else if (missed && t < sinkAt) { shx = -0.9 + Math.sin(t * 3) * 0.3; shz = 0.3; }
     R.sh.rotation.x = shx; R.sh.rotation.z = shz; R.el.rotation.x = elx;
     // head: tracks the victim, tips back to roar, cranes up at the prize, lunges for the bite; searches when nobody is there
     let hx = rising ? 0.35 : 0.05, hy = 0; if (missed && t < sinkAt) hy = Math.sin((t - GRAB) * 3.2) * 0.45; else if (victim && !bit) { g.updateMatrixWorld(true); D.head.getWorldPosition(headW); const lv = victim.pos.clone().sub(headW); hy = 0; hx = L(hx, -Math.atan2(lv.y + 1, Math.hypot(lv.x, lv.z)) * 0.6, 0.7); }
-    hx = L(hx, -0.55, rr); if (victim) { hx = L(hx, -0.5, seg(t, GRAB + 1.4, BITE - 0.5)); hx = L(hx, 0.25, seg(t, BITE - 0.25, BITE)); }
+    hx = L(hx, -0.55, rr); if (victim) { hx = L(hx, -0.5, seg(t, GRAB + 1.4, BITE - 0.6)); hx = L(hx, -1.5, seg(t, BITE - 0.6, BITE - 0.15)); hx = L(hx, 0.1, seg(t, BITE + 0.7, BITE + 1.2)); }
     D.head.rotation.x = hx; D.head.rotation.y = hy;
-    let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (bit) jw = Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.6, BITE + 0.9)); }
+    let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (t >= BITE) jw = 0.55 + Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.9, BITE + 1.3)); }
     D.jaw.rotation.x = jw;
     g.updateMatrixWorld(true); R.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.5, 0.75));
-    if (victim && !bit && victim.held) { const kR = seg(t, GRAB + 0.25, GRAB + 0.55), kM = seg(t, BITE - 0.45, BITE); const hang = hp.clone(); hang.y -= 1.05;
-      const sh2 = t > GRAB + 1.4 ? new THREE.Vector3(Math.sin(t * 17) * 0.06, 0, Math.cos(t * 13) * 0.06) : new THREE.Vector3(); /* (they kick and struggle) */
-      const p2 = from.clone().lerp(hang.add(sh2), kR).lerp(mouth.clone().setY(mouth.y - (victim.height || 1.7) + 0.15), kM);
-      victim.pos.copy(p2); if (victim.root) { victim.root.position.copy(p2); victim.root.rotation.z = Math.sin(t * 11) * 0.25 * kR; } if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0); }
-    if (victim && !bit && t >= BITE) { bit = true; victim.held = false; if (victim.root) victim.root.rotation.z = 0;
-      V.burst('blood', mouth, 90, { speed: 7 }); V.burst('poison', mouth, 50, { speed: 5 }); V.sphereFlash(mouth, 1.6, '#ff3020', 0.25); V.sphereFlash(mouth, 2.4, '#3aff5a', 0.4); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.7); V.addShake(1.0);
+    if (victim && !bit && victim.held) { const vh = victim.height || 1.75, kR = seg(t, GRAB + 0.25, GRAB + 0.55), flip = seg(t, GRAB + 0.45, GRAB + 1.25), kM = seg(t, BITE - 0.55, BITE - 0.05), kS = seg(t, BITE, BITE + 0.55);
+      const hang = hp.clone(); hang.y -= L(1.05, 0.1, flip); /* (upright in its fist, then held by the ankle, hanging head-down) */
+      const sh2 = t > GRAB + 1.3 ? new THREE.Vector3(Math.sin(t * 17) * 0.07, 0, Math.cos(t * 13) * 0.07) : new THREE.Vector3(); /* (they kick and struggle) */
+      const over = mouth.clone(); over.y += vh * 0.98; const p2 = from.clone().lerp(hang.add(sh2), kR).lerp(over, kM); p2.y -= kS * vh * 1.05; /* (dangled over the jaws, then lowered in, head first) */
+      victim.pos.copy(p2); if (vroot) { vroot.position.copy(p2); vroot.rotation.x = Math.PI * flip; vroot.rotation.z = Math.sin(t * 11) * 0.3 * kR * (1 - kS); } if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0);
+      if (!chomp && t >= BITE) { chomp = true; V.burst('blood', mouth, 90, { speed: 7 }); V.burst('poison', mouth, 50, { speed: 5 }); V.sphereFlash(mouth, 1.6, '#ff3020', 0.25); V.sphereFlash(mouth, 2.4, '#3aff5a', 0.4); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.7); V.addShake(1.0); }
+      if (t > BITE && Math.random() < 0.5) V.emit('blood', mouth, { speed: 3, size: 0.3 }); }
+    if (victim && !bit && t >= BITE + 0.55) { bit = true; victim.held = false; if (vroot) { vroot.rotation.z = 0; vroot.rotation.x = 0; } V.burst('blood', mouth, 40, { speed: 5 }); S.growl && S.growl('wolf', mouth, 0.5); /* (swallowed whole) */
       if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } if (p.ch && p.ch.root) p.ch.root.visible = false; }
-      else if (victim.dummy) { victim.takeHit && victim.takeHit(99999, caster, {}); victim.pos.copy(from); if (victim.root) victim.root.position.copy(from); }
-      else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
+      else if (victim.dummy) { victim.takeHit && victim.takeHit(99999, caster, {}); victim.pos.copy(from); if (vroot) vroot.position.copy(from); }
+      else if (!victim.dead) { victim.hp = 0; if (vroot) vroot.visible = false; victim.die && victim.die(caster); }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
     if (bit && victim === G.player && t > BITE + 1.8 && G.player.cine && G.player.cine !== flyCam) cineOff(); // (the cinematic ends a moment after the bite)
-    if (t > end) { if (me) { me.held = false; if (me.cine === flyCam) me.cine = null; } G.scene.remove(g); G.scene.remove(ring); if (victim) { victim.held = false; if (victim.root) victim.root.rotation.z = 0; } if (victim === G.player && !bit) cineOff(); return true; }
+    if (t > end) { if (me) { me.held = false; if (me.cine === flyCam) me.cine = null; } G.scene.remove(g); G.scene.remove(ring); if (victim) { victim.held = false; if (vroot) { vroot.rotation.z = 0; vroot.rotation.x = 0; } } if (victim === G.player && !bit) cineOff(); return true; }
     return false; } }); // (a timer is finished when it returns true)
   // walls between the camera and the action: swing round until the line is clear
   function clearAng(mid, ang, r, cy) { for (let k = 0; k < 12; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; if (lineClear(mid, new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r))) return a2 - ang; } return 0; }
@@ -626,8 +630,8 @@ class ArenaBot {
   update(dt) {
     const st = this.status;
     if (this.dead) { this.deadT += dt; const k = Math.min(1, this.deadT / 0.6); this.root.rotation.x = -k * k * Math.PI / 2; this.root.position.y = AR.Y + 0.12 * k; return; } // the fallen lie where they fell until they get up again
+    if (this.held) { this.hitT = 0; return; } // (in a demon's grip: it moves and turns you)
     this.root.rotation.x = 0;
-    if (this.held) { this.hitT = 0; return; } // (in a demon's grip)
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     for (const k of ['stun', 'slow', 'root', 'frozen', 'fear']) st[k] = Math.max(0, (st[k] || 0) - dt);
     if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }

@@ -362,7 +362,7 @@ function startArena() {
   startGame(Arena.playerHero());
   G.hooks.allyFx = Arena.allyFx;
   Arena.initArena({ openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
-    revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
+    revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead; startGame(h); G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
 }
 function startBattle() {
   campaignWeapons(); // the same weapons as the campaign (no twin weapons)
@@ -736,7 +736,7 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
-      if (e.code === 'KeyK' || e.code === 'KeyN') { BUI.openBook('abil'); return; }
+      if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }

@@ -32,7 +32,21 @@ export const FORMATS = {
   t2: { name: '2 v 2', teams: 2, size: 2 }, t3: { name: '3 v 3', teams: 2, size: 3 }, t4: { name: '4 v 4', teams: 2, size: 4 }, t6: { name: '6 v 6', teams: 2, size: 6 },
   t333: { name: '4 teams of 3', teams: 4, size: 3 }, t444: { name: '3 teams of 4', teams: 3, size: 4 }, t22: { name: '3 teams of 2', teams: 3, size: 2 },
 };
-const RESPAWN_T = 6, PICK_T = 60;
+const RESPAWN_T = 6, PICK_T = 10;
+// no skill trees in the arena: every class fights with three abilities on F, C and Q
+// (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
+export const ARENA_KITS = {
+  warrior: ['cleavestrike', 'charge', 'laststand'], berserker: ['earthsplitter', 'warstomp', 'bloodrage'], ranger: ['spectral', 'entangle2', 'mending'],
+  musketeer: ['grapeshot', 'bolas', 'duckroll'], shaman: ['sh_bolt', 'sh_clap', 'sh_wave'], wizard: ['voidbolt', 'singularity', 'voidshield'],
+  cleric: ['holysmite', 'hammeroflight', 'radiantheal'], paladin: ['hammerstrike', 'divinecharge', 'holylight'], darkknight: ['lifetap', 'deathgrip', 'gravewall'],
+  druid: ['moonfire', 'entangle', 'regrowth'], monk: ['tigerpalm', 'sweepkick', 'serenity'], bard: ['piercingnote', 'lullaby', 'balladheroes'],
+  rogue: ['eviscerate', 'kidney', 'vanish2'], necromancer: ['drainlife', 'boneprison', 'bonearmor'], elementalist: ['flamelash', 'frostbind', 'cauterize'],
+  enchanter: ['mindblast', 'confusion', 'runeshield'], blunderbuss: ['buckshot', 'buttstroke', 'blastshield'], beastmaster: ['savagebite', 'pounce', 'wildheal'],
+};
+export const kitOf = (cls) => (ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
+// heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
+let kitRulesDone = false;
+function kitRules() { if (kitRulesDone) return; kitRulesDone = true; for (const cls in ARENA_KITS) for (const id of kitOf(cls)) { const a = ABILITIES[cls].find(x => x.id === id); if ((a.t === 'heal' || a.t === 'hot') && (a.cd || 0) < 12) { a.cd = 12; a.desc = (a.desc || '').replace(/,? no cooldown\.?/, '.').replace(/\.?\s*$/, '.') + ' 12 s cooldown.'; } } }
 // arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
 const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
@@ -59,7 +73,7 @@ export function arenaHero(slot, name) {
   const R = RACES[slot.race] || RACES.human, sex = Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
-  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {};
+  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
   for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(w.wt, top, 3), { uid: w.uid }); }
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);
@@ -88,7 +102,8 @@ export function initArena(hooks) {
   for (const t of teamsOf()) { A.score[t] = 0; A.roundWins[t] = 0; }
   G.myTeam = A.F[0].team;
   // the computer fighters
-  for (const f of A.F) if (!f.you) { const h = arenaHero(f, f.name); botSpend(h, A.F.filter(o => o.team === f.team).length > 1); f.bot = new ArenaBot(f, h); }
+  for (const f of A.F) if (!f.you) { const h = arenaHero(f, f.name); f.bot = new ArenaBot(f, h); }
+  document.body.classList.add('arenamode');
   // banners above the gates in the teams' colours; CTF flags; the hill
   AR.gates.forEach((g, k) => { const t = teamsOf()[k]; if (g.banner && t != null && !isFFA()) g.banner.material.color.set(teamCol(t)); });
   if (s.objective === 'ctf') for (const t of teamsOf()) A.flags.push(makeFlag(t));
@@ -96,7 +111,7 @@ export function initArena(hooks) {
   const P = G.player; if (P) { P.arenaF = A.F[0]; }
   placeAll(); startPick(PICK_T);
 }
-export function playerHero() { const s = readArena(), sl = s.slots[0], h = arenaHero(sl, sl.name || 'You'); A.loaded = loadBuild(BUILDS, h, LEVEL_CAP); return h; }
+export function playerHero() { const s = readArena(), sl = s.slots[0]; return arenaHero(sl, sl.name || 'You'); }
 function spawnOf(f) {
   const R = AR.R;
   if (isFFA()) { const n = A.F.length, a = f.i / n * Math.PI * 2; return { x: Math.sin(a) * (R - 5), z: Math.cos(a) * (R - 5), yaw: Math.atan2(-Math.sin(a), -Math.cos(a)) }; }
@@ -105,18 +120,33 @@ function spawnOf(f) {
 }
 function placeAll() { for (const f of A.F) revive(f, true); }
 function revive(f, place) {
+  if (f.you && A.nextCls) applyClass();
   const sp = spawnOf(f); f.alive = true; f.respawnT = 0;
   if (f.you) { const p = G.player; if (!p) return; p.spectate = false; p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.db = {}; if (place) p.place(sp.x, sp.z, sp.yaw); A.hooks.revived && A.hooks.revived(); }
   else f.bot.revive(sp);
 }
-function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; if (t >= 30 && !A.loaded) { /* (a saved build is already on your bar: no need to open the trees) */ A.hooks.openBook && setTimeout(() => A.hooks.openBook(), 600); } renderHud(true); }
+// ---------- changing class during the match (K) ----------
+function applyClass() { const f = A.F[0]; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; }
+export function openClassPicker(UI) {
+  const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.F[0].alive;
+  c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
+  const g = elx('div', 'ygrid');
+  for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
+    const b = elx('button', 'ycls' + ((A.nextCls || A.F[0].cls) === k ? ' on' : ''), `<b>${CLASSES[k].name}</b><small>${kit}</small>`);
+    b.onclick = () => { S.click(); A.nextCls = k === A.F[0].cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
+      UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.F[0].alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.F[0]); p.place(sp.x, sp.z, sp.yaw); } }
+      else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
+    g.appendChild(b); }
+  c.appendChild(g);
+}
+function elx(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+function startPick(t) { A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); }
 export function readyUp() { if (A.state === 'pick') A.t = Math.min(A.t, 3.5); }
 function autoSpend() { const h = G.save; if (!h || Game.classPoints(h) <= 0) return; const left = Game.classPoints(h); botSpend(h, A.F.filter(o => o.team === A.F[0].team).length > 1); Game.autoFillHotbar(h); G.player.refreshStatsOnly && G.player.refreshStatsOnly(); A.hooks.rebuildBar && A.hooks.rebuildBar(); A.hooks.toast && A.hooks.toast(`${left} unspent skill point${left > 1 ? 's were' : ' was'} spent for you`, '✦', 'gold'); }
-function startFight() { if (A.round === 1) autoSpend(); A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; cheer(1.6); S.battleCry && S.battleCry(); A.hooks.closeBook && A.hooks.closeBook(); A.hooks.banner && A.hooks.banner(A.setup.objective === 'rounds' ? `Round ${A.round}` : OBJECTIVES[A.setup.objective].name, 'Fight!'); for (const f of A.F) if (f.bot) f.bot.prebuff(); }
+function startFight() { A.state = 'fight'; A.clock = 0; AR.gatesOpen = true; cheer(1.6); S.battleCry && S.battleCry(); A.hooks.closeBook && A.hooks.closeBook(); A.hooks.banner && A.hooks.banner(A.setup.objective === 'rounds' ? `Round ${A.round}` : OBJECTIVES[A.setup.objective].name, 'Fight!'); for (const f of A.F) if (f.bot) f.bot.prebuff(); }
 
 // ---------------- every frame ----------------
 export function updateArena(dt) {
-  if ((A.saveT = (A.saveT || 0) - dt) <= 0) { A.saveT = 1.5; saveBuild(BUILDS, G.save); } // your build is kept for next time
   G.tod = 0.4; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
   const p = G.player;
@@ -213,13 +243,13 @@ export function allyFx(at, [r, heal, kind, dur], up) {
 // ---------------- projectiles and lingering areas (bots) ----------------
 const SHOT_COL = { fire: '#ff7a20', frost: '#80d8ff', arcane: '#c080ff', shadow: '#9a60c0', holy: '#ffe080', nature: '#80e060', phys: '#e8d8b0' };
 function shot(src, tgt, col, onHit, big) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.22 : 0.12, 8, 6), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const m = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.3 : 0.18, 10, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
   const from = src.pos.clone().setY(src.pos.y + 1.35); m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0 });
 }
 function updateShots(dt) {
   for (let i = A.shots.length - 1; i >= 0; i--) { const s = A.shots[i]; s.t += dt; const tp = s.tgt.pos.clone().setY(s.tgt.pos.y + 1.1), d = tp.clone().sub(s.m.position), L = d.length();
     if (L < 0.6 || s.t > 2.5 || s.tgt.dead) { G.scene.remove(s.m); A.shots.splice(i, 1); if (!s.tgt.dead && L < 3) { s.onHit(); V.burst('spark', tp, 8, { speed: 3 }); } continue; }
-    s.m.position.addScaledVector(d.normalize(), Math.min(L, 34 * dt)); if (Math.random() < 0.5) V.emit('spark', s.m.position.clone(), { n: 1, speed: 0.4 }); }
+    s.m.position.addScaledVector(d.normalize(), Math.min(L, 22 * dt)); V.emit('spark', s.m.position.clone(), { n: 2, speed: 0.3 }); } // slow enough to see coming
 }
 function zone(src, at, r, dur, tick, fn, col, follow) { const ring = V3(at.x, AR.Y, at.z); A.zones.push({ src, at: ring, r, dur, tick, acc: 0, fn, col, follow }); V.ring(ring, r, col, Math.min(dur, 1.2)); }
 function updateZones(dt) {
@@ -250,7 +280,7 @@ class ArenaBot {
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8;
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, TIERS.length - 1, 3); } catch (e) { /* unknown weapon model */ }
     this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
-    this.abs = ABILITIES[h.cls].filter(a => Game.abilityKnown(h, a)); this.loadout(); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
+    this.abs = (h.arenaKit || []).map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
     this.buffs = {}; this.hots = []; this.dots = []; this.gcd = 0; this.swingT = 0; this.thinkT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.act = ''; this.actT = 0; this.spd = 0; this.pets = [];
     this.role = Math.random() < 0.5 ? 'attack' : 'defend'; this.recalc(); this.hp = this.maxHp;
@@ -292,7 +322,7 @@ class ArenaBot {
     if (src && src.arenaF) src.arenaF.dmg += dmg; else if (src === G.player) A.F[0].dmg += dmg;
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
-      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.cast = null; } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
+      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.cast = null; this.pending = null; } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
     if (o.bleed) this.dots.push({ dps: o.bleed * PVP_K / 4, t: 4, src }); if (o.burn) this.dots.push({ dps: o.burn * PVP_K / 4, t: 4, src });
     if (this.cast && Math.random() < 0.35) this.cast = null; // hits can break a spell being cast
     if (this.hp <= 0) this.die(src);
@@ -313,11 +343,14 @@ class ArenaBot {
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
     for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
     for (const k in this.cd) this.cd[k] -= dt; this.gcd -= dt; this.swingT -= dt;
-    if (this.act) { this.actT += dt * 2.4; if (this.actT >= 1) { this.act = ''; this.actT = 0; } }
+    if (this.act) { this.actT += dt * (this.actSp || 1.6); if (this.actT >= 1) { this.act = ''; this.actT = 0; } }
+    if (this.pending && (this.pending.t -= dt) <= 0) { const f = this.pending.fn; this.pending = null; if (!(st.stun > 0)) f(); }
     let speed = 0;
     if (A.state === 'fight' && !(st.stun > 0) && !(st.frozen > 0)) {
       if ((this.thinkT -= dt) <= 0) { this.thinkT = 0.25 + Math.random() * 0.1; this.think(); }
-      if (this.cast) { this.cast.t += dt; if (this.cast.t >= this.cast.dur) { const c = this.cast; this.cast = null; this.resolve(c.a, c.tgt); } }
+      if (this.cast) { const c = this.cast; c.t += dt; if (c.wind && c.tgt && c.tgt.pos) { const fa = Math.atan2(c.tgt.pos.x - this.pos.x, c.tgt.pos.z - this.pos.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 5); }
+        if (c.wind && !c.melee && Math.random() < 0.5) V.emit('spark', this.pos.clone().setY(this.pos.y + 1.5), { n: 1, speed: 0.6 }); // a glow gathers in the caster's hands
+        if (c.t >= c.dur) { this.cast = null; if (c.melee) { this.act = 'swing2'; this.actT = 0.42; this.actSp = 1.6; } this.resolve(c.a, c.tgt, c.at); } }
       else { speed = this.move(dt); this.fight(); }
     }
     // knockback
@@ -326,7 +359,7 @@ class ArenaBot {
     this.pos.y = AR.Y; this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
     const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3;
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
-    animateHumanoid(this.model, dt, { speed: this.spd, action: (this.cast ? (this.cast.a.t === 'heal' || this.cast.a.t === 'hot' ? 'castUp' : 'cast') : this.act) || null, actionT: this.cast ? Math.min(1, this.cast.t / this.cast.dur) : this.actT, armed: true });
+    const c = this.cast; animateHumanoid(this.model, dt, { speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true });
   }
   // pick who to fight and what to do: focus the team's target, protect healers, play the objective
   think() {
@@ -373,9 +406,9 @@ class ArenaBot {
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
     const far = !T || dT > 14; // run between fights, walk-speed footwork inside them (players run 5.2)
     let sp = (far ? 6.4 : 4.6) * (st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
-    if (L > 0.3) { const step = Math.min(L, sp * dt); me.x += mx / L * step; me.z += mz / L * step; } else sp = 0;
-    const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 10);
-    return L > 0.3 ? sp : 0;
+    this.vel = this.vel || V3(); const want = L > 0.3 ? V3(mx / L * Math.min(sp, L * 3), 0, mz / L * Math.min(sp, L * 3)) : V3(); this.vel.lerp(want, Math.min(1, dt * 6)); me.x += this.vel.x * dt; me.z += this.vel.z * dt; sp = this.vel.length(); // speed up and slow down, no snapping
+    const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 6);
+    return sp;
   }
   // abilities first (heals, defences, buffs, control, damage), then plain attacks
   fight() {
@@ -384,15 +417,19 @@ class ArenaBot {
     if (T && this.swingT <= 0 && dT <= this.range + 0.4) { // a plain attack
       const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? 0.75 : 1);
       this.swingT = sw * 1.25; const raw = this.base * 0.95 * this.dmgMul();
-      if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.aimLock = this.W.kind === 'gun' ? 0.6 : 0.4; /* plant your feet to shoot, like a player */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012; shot(this, T, this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); }); }
-      else { this.act = Math.random() < 0.5 ? 'swing1' : 'swing2'; this.actT = 0; setTimeout(() => { if (!this.dead && !T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 3.4) { hitUnit(this, T, raw, { melee: true }); S.hit && S.hit('flesh', T.pos, 0.6); } }, 180); }
+      if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.actSp = 1.4; this.aimLock = this.W.kind === 'gun' ? 0.75 : 0.55; /* plant your feet to aim, then fire */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012;
+        this.pending = { t: 0.4, fn: () => { if (T.dead) return; shot(this, T, this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); }); } }; }
+      else { this.act = Math.random() < 0.5 ? 'swing1' : 'swing2'; this.actT = 0; this.actSp = 1.5; this.aimLock = 0.3; // wind up, then strike: the blow lands as the weapon comes through
+        this.pending = { t: 0.36, fn: () => { if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 3.4) { hitUnit(this, T, raw, { melee: true }); S.hit && S.hit('flesh', T.pos, 0.6); } } }; }
     }
   }
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
     const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
     const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
-      const ct = (a.t === 'heal' || a.t === 'hot') ? (a.castT || 1.5) : a.castT && isSupport(a) ? Math.min(a.castT, 1.5) : 0; if (ct) { this.cast = { a, tgt, t: 0, dur: ct }; return true; } this.resolve(a, tgt); return true; };
+      const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
+      const ct = ((a.t === 'heal' || a.t === 'hot') ? (a.castT || 1.5) : a.castT && isSupport(a) ? Math.min(a.castT, 1.5) : 0) || wind;
+      if (ct) { this.cast = { a, tgt, t: 0, dur: ct, wind: !!wind && !(a.t === 'heal' || a.t === 'hot'), melee, at: tgt && tgt.pos ? tgt.pos.clone() : null }; return true; } this.resolve(a, tgt); return true; };
     // 1. healing: whoever on the team needs it most
     const heals = abs.filter(a => a.t === 'heal' || a.t === 'hot' || (LEG_SELF[a.id] && LEG_SELF[a.id][0] === 'heal'));
     if (heals.length) { const W = this.ward; if (W && W !== this && W.hp / W.maxHp < 0.6 && SUPPORT_CLS.has(this.cls)) return use(heals.sort((x, y) => (y.self || y.pct || 0) - (x.self || x.pct || 0))[0], W); if (hp < 0.55) return use(heals[0], this); }
@@ -419,7 +456,7 @@ class ArenaBot {
   inRange(a, d) { const t = a.t; if (!t) return d <= (LEG_RANGED.has(a.id) ? 22 : 4.5); if (t === 'strike' || t === 'flurry') return d <= 3.4; if (t === 'dash') return d <= 12; if (t === 'cone') return d <= 6.5; if (t === 'nova') return d <= (a.r || 5) + 0.4; if (t === 'aura' || t === 'stormwalk' || t === 'blizzaura') return d <= 6; if (t === 'petstrike') return this.pets.some(p => !p.dead); if (t === 'trap') return d <= 3; return d <= 24; }
   power(a) { if (!a.t) { const L = LEG[a.id]; return L ? L[0] * (L[1] > 1 ? 1.2 : 1) : 0.8; } const n = a.dmg || 0; switch (a.t) { case 'flurry': return n * (a.hits || 3); case 'ground': return n * (a.ticks || 4) * 0.7; case 'curse': return n + (a.dot || 0) * (a.dotT || 0) * 0.8; case 'aura': case 'stormwalk': case 'blizzaura': return n * 8; case 'petstrike': return 2; case 'bolt': case 'drain': return n * (a.n ? 1.6 : 1); default: return n; } }
   // ---- carrying out an ability ----
-  resolve(a, tgt) {
+  resolve(a, tgt, lockAt) {
     if (this.dead) return; const P = (n) => this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
     const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, el };
     const T = tgt && tgt !== this ? tgt : this.target;
@@ -427,13 +464,13 @@ class ArenaBot {
     const drainBack = (dealt, f) => { if (f && dealt) this.healSelf(dealt * f * 6); }; // (hits are scaled for PvP, so the drain is scaled back up)
     if (!a.t) return this.legacy(a, T, P);
     switch (a.t) {
-      case 'strike': case 'flurry': { if (!T) return; anim(a.t === 'flurry' ? 'swing2' : 'swing1'); const n = P(a.dmg) * (a.t === 'flurry' ? (a.hits || 3) : 1); setTimeout(() => { if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 4.2) { drainBack(hitUnit(this, T, n, o), a.drain); V.burst(el === 'arcane' ? 'spark' : el, T.pos.clone().setY(T.pos.y + 1.1), 14, { speed: 4 }); } }, 200); return; }
+      case 'strike': case 'flurry': { if (!T) return; const n = P(a.dmg) * (a.t === 'flurry' ? (a.hits || 3) : 1); if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 4.2) { drainBack(hitUnit(this, T, n, o), a.drain); V.burst(el === 'arcane' ? 'spark' : el, T.pos.clone().setY(T.pos.y + 1.1), 14, { speed: 4 }); } return; }
       case 'dash': { if (!T) return; const d = V3(T.pos.x - me.x, 0, T.pos.z - me.z), L = d.length(); if (L > 1.5) me.addScaledVector(d.normalize(), L - 1.4); V.burst('dust', me.clone().setY(me.y + 0.3), 20, { speed: 4 }); anim('swing1'); hitUnit(this, T, P(a.dmg), o); return; }
       case 'cone': { anim('swing2'); for (const u of enemiesOf(this)) { const dx = u.pos.x - me.x, dz = u.pos.z - me.z, d = Math.hypot(dx, dz); if (d < 6.5 && Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - this.yaw), Math.cos(Math.atan2(dx, dz) - this.yaw))) < 0.9) hitUnit(this, u, P(a.dmg), o); } V.burst(el === 'arcane' ? 'spark' : el, me.clone().setY(me.y + 1).addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 3), 30, { speed: 6 }); return; }
       case 'nova': { anim('slam'); const r = (a.r || 5) + 0.4; let dealt = 0; if (!a.calm) for (const u of enemiesOf(this)) if (Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < r) dealt += hitUnit(this, u, P(a.dmg), o); V.ring(me, r, col, 0.6); V.burst(el === 'arcane' ? 'spark' : el, me.clone().setY(me.y + 1), 30, { speed: 6 }); drainBack(dealt, a.drainAll); return; }
       case 'bolt': case 'drain': { if (!T) return; anim('cast'); const n = a.n ? Math.min(3, a.n) : 1; for (let k = 0; k < n; k++) setTimeout(() => shot(this, T, col, () => { let dealt = 0; if (a.aoe) { for (const u of enemiesOf(this)) if (Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < a.aoe) dealt += hitUnit(this, u, P(a.dmg) * 0.8, o); V.burst(el === 'arcane' ? 'spark' : el, T.pos.clone().setY(T.pos.y + 1), 25, { speed: 5 }); } else dealt = hitUnit(this, T, P(a.dmg) * (n > 1 ? 0.7 : 1), o); drainBack(dealt, a.drain); }, true), k * 140); return; }
       case 'curse': { if (!T) return; anim('cast'); shot(this, T, col, () => { const dealt = hitUnit(this, T, P(a.dmg), o); if (a.dot) { if (T === G.player) G.player.debuff('poison', a.dotT || 6, P(a.dot) * PVP_K); else if (T.dots) T.dots.push({ dps: P(a.dot) * PVP_K, t: a.dotT || 6, src: this }); } drainBack(dealt, a.drain); }); return; }
-      case 'ground': case 'trap': { const at = a.t === 'trap' ? me : (T ? T.pos : me); anim('cast'); const ticks = a.ticks || (a.t === 'trap' ? 1 : 4); let first = true; zone(this, at, a.t === 'trap' ? 3 : 4.5, ticks + 0.2, 1, (u) => { hitUnit(this, u, P(a.dmg), first ? o : { slow: a.slow || 0, el }); }, col); setTimeout(() => { first = false; }, 1100); return; }
+      case 'ground': case 'trap': { const at = a.t === 'trap' ? me : (lockAt || (T ? T.pos : me)); anim('cast'); const ticks = a.ticks || (a.t === 'trap' ? 1 : 4); let first = true; zone(this, at, a.t === 'trap' ? 3 : 4.5, ticks + 0.2, 1, (u) => { hitUnit(this, u, P(a.dmg), first ? o : { slow: a.slow || 0, el }); }, col); setTimeout(() => { first = false; }, 1100); return; }
       case 'aura': case 'stormwalk': case 'blizzaura': { anim('castBig'); zone(this, me, a.t === 'aura' ? 6 : 7, a.dur || 8, 0.5, (u) => { const d = hitUnit(this, u, P(a.dmg) * (a.t === 'aura' ? 1 : 0.6), { slow: a.slow || 0, stun: Math.random() < 0.15 ? (a.stun || 0) : 0, el }); drainBack(d, a.drain); }, col, true); return; }
       case 'heal': case 'hot': { const who = tgt || this, amt = (a.self || a.pct || 0.25) * who.maxHp; anim('castUp'); if (a.t === 'heal') healUnit(who, amt, this); else if (who === this) this.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 }); else if (who === G.player) G.player.addRegen ? G.player.addRegen(a.pct || 0.25, a.dur || 8) : healUnit(who, amt, this); else who.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 });
         if (a.ally || SUPPORT_CLS.has(this.cls)) for (const u of alliesOf(this)) if (u !== who && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < (a.r || 10)) healUnit(u, (a.ally || 0.15) * u.maxHp, this); V.ring(me, a.r || 3, '#80ff90', 0.6); return; }
@@ -493,7 +530,7 @@ function renderHud(force) {
   const chips = (isFFA() && teams.length > 6 ? teams.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 6) : teams).map(t => `<span class="arc${t === G.myTeam ? ' me' : ''}" style="--tc:${teamCol(t)}"><i></i>${isFFA() ? teamName(t) : COLOR_NAMES[t]}<b>${sc(t)}</b></span>`).join('');
   const mm = Math.floor((A.clock || 0) / 60), ss = String(Math.floor((A.clock || 0) % 60)).padStart(2, '0');
   let mid = '';
-  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'Choose your abilities'}</b><span>${A.round > 1 ? 'Get ready' : `${A.loaded ? 'Your saved build is loaded · ' : ''}${Game.classPoints(G.save)} skill points left · <kbd>K</kbd> opens and closes the skill trees · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
+  if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Your abilities are on <kbd>F</kbd> <kbd>C</kbd> <kbd>Q</kbd> · <kbd>K</kbd> change class · <kbd>Y</kbd> ready · ${Ob.desc}`}</span></div>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
   const me = A.F[0], dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
   const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? mm + ':' + ss : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;

@@ -63,6 +63,7 @@ export function migrateHero(h) { { const fixN = (it) => { if (it && typeof it.na
 // hotbar (keys 1-6): slots 1-3 hold class abilities (you choose which 3), slots 4-6 hold potions and food (filled as you find them)
 export const HOTBAR_ITEMS = ['potion_heal', 'potion_heal2', 'bandage', 'crab_cake', 'roast_meat', 'herb_roast', 'hunter_stew', 'ember_skewer'];
 export function autoFillHotbar(h) {
+  if (h.arenaKit) { h.hotbar = [null, null, null, null, null, ...h.arenaKit.slice(0, 3).map(id => ({ t: 'ab', id }))]; return; } // Kingdom Arena: F, C, Q only
   // Kingdom Battles: 4 ability slots only (keys 1-4), chosen in the ability book (unchanged)
   if (G.hotbarSlots && false) { /* old Kingdom Battles 4-slot bar, no longer used: both modes share the campaign bar */    const N = G.hotbarSlots, NI = G.itemSlots || 0, T = N + NI; if (!h.hotbar || h.hotbar.length !== T) h.hotbar = Array.from({ length: T }, (_, i) => (h.hotbar && h.hotbar[i] && (i < N) === (h.hotbar[i].t === 'ab')) ? h.hotbar[i] : null);
     const hb = h.hotbar; for (let i = 0; i < N; i++) if (hb[i] && (hb[i].t !== 'ab' || !ABILITIES[h.cls].some(a => a.id === hb[i].id && a.level <= h.level))) hb[i] = null;
@@ -255,6 +256,7 @@ export function nodeState(h, n) { // 'owned' | 'open' (can buy now) | 'ready' (n
   const T = CLASS_TREES[h.cls].find(t => t.id === n.tree), reqOk = n.t === 'ult' ? treeSpent(h, T.id) >= ULT_PTS : !n.req || nodeOwned(h, T.nodes.find(x => x.id === n.req));
   if (!reqOk) return 'locked'; return classPoints(h) > 0 ? 'open' : 'ready'; }
 export function abilityKnown(h, a) {
+  if (h.arenaKit) return h.arenaKit.includes(a.id); // Kingdom Arena: just the three kit abilities
   { const C = CROWN[h.cls]; if (C && C.ab === a.id) return CLASS_TREES[h.cls].filter(T => treeSpent(h, T.id) >= ULT_PTS).length >= C.trees; } // a crowning ability: max out enough trees
   if (h.yard && !(CLASS_TREES[h.cls] && CLASS_TREE[h.cls].some(x => x.ab === a.id))) return true; // yard: abilities outside the trees are free
   if (CLASS_TREES[h.cls]) { const n = CLASS_TREE[h.cls].find(x => x.ab === a.id); return !!n && nodeOwned(h, n); } // only what you unlock in the trees

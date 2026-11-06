@@ -17,7 +17,7 @@ import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
-import { luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { makeDemon, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -48,12 +48,12 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
   cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['quickreload', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
-  rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
+  rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_plaguebreath', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
 export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'avengingwrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'thousandfists',
-  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'shadowdance', necromancer: 'bonegolem', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
+  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'shadowdance', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
@@ -132,14 +132,16 @@ const ARENA_NEW = {
   bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
   monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
-  necromancer: [{ id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
+  necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
+    { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'A demon of the depths tears half out of the ground, seizes the enemy you aim at, lifts them over its head and bites their head off, then sinks back down.' },
+    { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
 function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const cls in ARENA_NEW) for (const a of ARENA_NEW[cls]) if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === a.id)) ABILITIES[cls].push(a);
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }
   for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
-  { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) n.desc = 'Tear at the soul of the enemy you aim at: its life rushes straight back into you.'; }
+  { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) { n.desc = 'Raise the shrunken head: a stream of green soul-water pours out of the enemy you aim at into it, healing you and slowing them.'; n.slow = 2.5; } }
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
@@ -195,7 +197,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.arenaDemon = summonDemon;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -221,6 +223,26 @@ export function initArena(hooks) {
 }
 export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name || 'You'); }
 const RUINS_MAP = () => AR.map === 'ruins';
+// the necromancer's ultimate: the demon rises in front of the victim, lifts them overhead, bites their head off, sinks away
+export function summonDemon(caster, victim) {
+  if (!victim || victim.dead) return false; const D = makeDemon(), g = D.g, vp = victim.pos, base = gy(vp.x, vp.z, vp.y), face = caster && caster.pos ? Math.atan2(caster.pos.x - vp.x, caster.pos.z - vp.z) : 0;
+  const ox = vp.x + Math.sin(face) * 2.4, oz = vp.z + Math.cos(face) * 2.4; g.position.set(ox, base - 4.8, oz); g.rotation.y = face + Math.PI; G.scene.add(g); addOutline(g);
+  victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', 3.4); } else if (victim.status) { victim.status.stun = 3.4; victim.cast = null; victim.pending = null; }
+  V.ring(new THREE.Vector3(ox, base + 0.05, oz), 3.2, '#3a0a0a', 0.9); V.burst('stone', new THREE.Vector3(ox, base + 0.3, oz), 50, { speed: 7, grav: 14 }); V.burst('poison', new THREE.Vector3(ox, base + 0.5, oz), 40, { speed: 4 }); S.rumble && S.rumble(g.position, 1.4); S.explode && S.explode(new THREE.Vector3(ox, base, oz), 0.6); V.addShake(0.5);
+  const from = vp.clone(); let t = 0, bit = false; const hp = new THREE.Vector3(), mouth = new THREE.Vector3();
+  G.timers.push({ update: (dt) => { t += dt; const e = (x) => x * x * (3 - 2 * x);
+    const rise = t < 0.9 ? e(t / 0.9) : t < 2.4 ? 1 : 1 - e(Math.min(1, (t - 2.4) / 0.9)); g.position.y = base - 4.8 + rise * 4.3;
+    const A2 = D.arms.R; const lift = t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1; A2.sh.rotation.x = -0.3 - lift * 2.4; A2.el.rotation.x = -0.4 - lift * 0.4 - (t > 1.7 && t < 2.3 ? (t - 1.7) * 1.2 : 0); D.arms.L.sh.rotation.x = -0.4 - Math.sin(t * 3) * 0.2;
+    D.jaw.rotation.x = t > 1.6 && t < 2.15 ? Math.min(0.7, (t - 1.6) * 3) : 0; D.head.rotation.x = t > 1.7 && t < 2.2 ? -0.25 : 0;
+    g.updateMatrixWorld(true); A2.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.15, 0.6));
+    if (!bit && victim.held) { const k = t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1, k2 = t > 1.8 ? Math.min(1, (t - 1.8) / 0.35) : 0; const at = from.clone().lerp(hp.clone().setY(hp.y - 1.0), k).lerp(mouth.clone().setY(mouth.y - 1.0), k2);
+      victim.pos.copy(at); if (victim.root) victim.root.position.copy(at); if (victim === G.player) G.player.vel && G.player.vel.set(0, 0, 0); }
+    if (!bit && t >= 2.15) { bit = true; victim.held = false; V.burst('blood', mouth, 60, { speed: 6 }); V.burst('poison', mouth, 30, { speed: 4 }); V.sphereFlash(mouth, 1.2, '#ff3020', 0.2); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.6); V.addShake(0.7);
+      if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } } else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
+      feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
+    if (t > 3.4) { G.scene.remove(g); victim.held = false; return true; } return false; } }); // (a timer is finished when it returns true)
+  return true;
+}
 // the height of the floor under a point (stairs, balconies, ramparts on the Ruins; flat sand in the colosseum)
 export function gy(x, z, y) { return RUINS_MAP() ? worldGround(x, z, (y == null ? AR.Y : y) + 0.6).h : AR.Y; }
 // everyone starts (and comes back) in a holding room behind a gate; teams get their own gate, free-for-all shares them out
@@ -517,6 +539,7 @@ class ArenaBot {
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root || o.fear) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
       if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
+    if (o.blight) this.blightT = Math.max(this.blightT || 0, o.blight); if (this.blightT > 0 && o.poison) o = Object.assign({}, o, { poison: o.poison * 1.5 }); // (Blight: poison bites harder)
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
     if (o.bleed) this.dots.push({ dps: o.bleed * PVP_K / 4, t: 4, src }); if (o.burn) this.dots.push({ dps: o.burn * PVP_K / 4, t: 4, src });
     if (this.cast && Math.random() < 0.35) this.cast = null; // hits can break a spell being cast
@@ -532,13 +555,14 @@ class ArenaBot {
     const st = this.status;
     if (this.dead) { this.deadT += dt; const k = Math.min(1, this.deadT / 0.6); this.root.rotation.x = -k * k * Math.PI / 2; this.root.position.y = AR.Y + 0.12 * k; return; } // the fallen lie where they fell until they get up again
     this.root.rotation.x = 0;
+    if (this.held) { this.hitT = 0; return; } // (in a demon's grip)
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     for (const k of ['stun', 'slow', 'root', 'frozen', 'fear']) st[k] = Math.max(0, (st[k] || 0) - dt);
     if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }
     if (this.stealth > 0) { this.stealth = Math.max(0, this.stealth - dt); }
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
     for (const d of this.dots) if (d.spread > 0 && Math.random() < dt * 0.9) { d.spread--; const nb = A.F.map(unitOf).find(u => u && u !== this && !u.dead && u.team === this.team && u.takeHit && u.dots && Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 4.5 && !(u.dots || []).some(x => x.spread != null)); if (nb) { nb.dots.push({ dps: d.dps, t: 4, src: d.src, spread: 0 }); V.burst('green', nb.pos.clone().setY(nb.pos.y + 1), 14, { speed: 2 }); } }
-    for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
+    this.blightT = Math.max(0, (this.blightT || 0) - dt); for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt * (d.spread != null && this.blightT > 0 ? 1.5 : 1); if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
     for (const k in this.cd) this.cd[k] -= dt; this.gcd -= dt; this.swingT -= dt;
     if (this.act) { this.actT += dt * (this.actSp || 1.6); if (this.actT >= 1) { this.act = ''; this.actT = 0; } }
     if (this.pending && (this.pending.t -= dt) <= 0) { const f = this.pending.fn; this.pending = null; if (!(st.stun > 0)) f(); }
@@ -692,7 +716,7 @@ class ArenaBot {
   // ---- carrying out an ability ----
   resolve(a, tgt, lockAt) {
     if (this.dead) return; const pkK = Game.perkPow(Game.perkLvl(this.h, a.id)); const P = (n) => pkK * this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
-    const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, el };
+    const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, el, poison: a.poisonDot ? P(a.poisonDot) : 0, spread: a.spread || 0, blight: a.blight || 0 };
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
     if (AN.on && AN.host && a.t && !['bolt', 'drain', 'curse'].includes(a.t)) { const at = lockAt || (T && T.pos) || me; nsend({ t: 'bfx', i: this.arenaF.i, k: a.t, c: col, el, x: r2(at.x), z: r2(at.z), r: a.r || 5 }); } // (the others see the effect too)
@@ -716,6 +740,7 @@ class ArenaBot {
         V.sphereFlash(me.clone().setY(me.y + 1), 1.4, k === 'ward' || k === 'barrier' || k === 'fort' ? '#80d8ff' : '#ffd060', 0.45); return; }
       case 'stealth': if (a.step) { const tg = T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 12 ? T : null; V.burst('shadow', me.clone().setY(me.y + 1), 30, { speed: 3 }); if (tg) { const by = tg.yaw || 0; me.set(tg.pos.x - Math.sin(by) * 1.4, me.y, tg.pos.z - Math.cos(by) * 1.4); this.yaw = by; } else me.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), a.step); }
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
+      case 'demon': if (T && !T.dead) summonDemon(this, T); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;
       case 'petheal': for (const p of this.pets) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * (a.petPct || 0.35)); return;

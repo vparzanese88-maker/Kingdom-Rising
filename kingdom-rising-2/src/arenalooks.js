@@ -43,7 +43,7 @@ const bone = () => M('#e6dcc4', 0.6), iron = (c = '#3a3a40') => M(c, 0.4, 0.85),
 function skullFace(hg) { // a bone skull where the face should be, black sockets, green embers for eyes
   const b = bone(), dk = GL('#050505'), g = add(hg, sph(0.118, 16, 12), b, 0, 0.1, 0.018); g.scale.set(0.98, 1.05, 1.02);
   const jaw = add(hg, boxG(0.15, 0.06, 0.1), b, 0, 0.02, 0.05); jaw.rotation.x = 0.1;
-  for (const x of [-0.042, 0.042]) { add(hg, sph(0.03, 10, 8), dk, x, 0.105, 0.105); add(hg, sph(0.013, 8, 6), GL('#6aff5a'), x, 0.105, 0.124); }
+  for (const x of [-0.042, 0.042]) { add(hg, sph(0.03, 10, 8), dk, x, 0.105, 0.105); add(hg, sph(0.019, 8, 6), GL('#8aff5a'), x, 0.105, 0.124); add(hg, sph(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: '#5aff3a', transparent: true, opacity: 0.35, depthWrite: false }), x, 0.105, 0.13); }
   add(hg, coneG(0.016, 0.03, 3), dk, 0, 0.07, 0.122).rotation.x = Math.PI;
   for (let i = 0; i < 6; i++) add(hg, boxG(0.012, 0.018, 0.01), b, -0.032 + i * 0.013, 0.04, 0.1);
 }
@@ -94,7 +94,14 @@ const DETAIL = {
   cleric(ch) { robeTrim(ch, '#d8b04a'); gloves(ch, '#f4f0e6'); belt(ch, '#d8b04a', '#f0d070', 0); },
 };
 const DECOR = {
-  necromancer(ch) { skullFace(ch.headG); hideHair(ch); shoulderSpikes(ch, bone(), 2); const b = bone(); for (let k = 0; k < 5; k++) add(ch.chest, sph(0.022, 8, 6), b, -0.08 + k * 0.04, ch.R.torsoH - 0.13, 0.12 - Math.abs(k - 2) * 0.012); },
+  necromancer(ch) { // a shrunken head in the left hand (its stitched mouth sprays poison), a belt of skulls, burning green eyes
+    { const g = ch.arms.L.grip, hd = new THREE.Group(); hd.position.set(0, 0.02, 0.06); g.add(hd); const sk = M('#5a4a2a', 0.85), st = M('#1a1208', 0.9);
+      add(hd, sph(0.085, 12, 10), sk).scale.set(0.9, 1.05, 0.95); add(hd, boxG(0.05, 0.014, 0.012), st, 0, -0.03, 0.08);
+      for (let k = 0; k < 4; k++) add(hd, boxG(0.004, 0.025, 0.006), st, -0.018 + k * 0.012, -0.03, 0.085);
+      for (const x of [-0.03, 0.03]) { add(hd, sph(0.016, 6, 4), GL('#050505'), x, 0.015, 0.075); add(hd, sph(0.008, 6, 4), GL('#7aff5a'), x, 0.015, 0.085); }
+      for (let k = 0; k < 7; k++) { const h = add(hd, cylG(0.004, 0.002, 0.16, 3), st, -0.04 + k * 0.013, 0.1, -0.02); h.rotation.x = 0.3 + (k % 3) * 0.1; } add(hd, cylG(0.004, 0.004, 0.12, 4), st, 0, 0.1, 0); }
+    { for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, r = 0.19 * ch.R.thick, sk2 = new THREE.Group(); sk2.position.set(Math.sin(a) * r, 0.04, Math.cos(a) * r * 0.85); sk2.rotation.y = a; ch.hips.add(sk2); const b = bone(); add(sk2, sph(0.045, 8, 6), b).scale.set(0.9, 1, 1); for (const x of [-0.015, 0.015]) add(sk2, sph(0.01, 5, 4), GL('#6aff5a'), x, 0.005, 0.04); } }
+    skullFace(ch.headG); hideHair(ch); shoulderSpikes(ch, bone(), 2); const b = bone(); for (let k = 0; k < 5; k++) add(ch.chest, sph(0.022, 8, 6), b, -0.08 + k * 0.04, ch.R.torsoH - 0.13, 0.12 - Math.abs(k - 2) * 0.012); },
   wizard(ch) { const hat = ch.outfit && ch.outfit.hat; if (hat) { const g = gold(); for (let k = 0; k < 6; k++) { const a = k * 1.1, y = 0.05 + k * 0.05; add(hat, sph(0.014, 6, 4), g, Math.sin(a) * (0.1 - k * 0.012), y, Math.cos(a) * (0.1 - k * 0.012)); } }
     const bd = add(ch.headG, coneG(0.075, 0.26, 10), M('#e8e8e8', 0.9), 0, -0.07, 0.06); bd.rotation.x = Math.PI + 0.25; },
   elementalist(ch) { const crown = new THREE.Group(); crown.position.set(0, 0.2, 0); ch.headG.add(crown); add(crown, new THREE.TorusGeometry(0.11, 0.012, 6, 18), gold()).rotation.x = Math.PI / 2;
@@ -185,4 +192,26 @@ export function luteToChest(ch, on, t) {
   armReach(ch, 'R', top.clone().addScaledVector(Y, 0.5 + Math.sin(t * 14) * 0.03).addScaledVector(Z, 0.07).addScaledVector(X, Math.sin(t * 14) * 0.04), 4);
   w.updateMatrixWorld(true); const inv = w.matrixWorld.clone().invert(); L.position.copy(top.clone().applyMatrix4(inv));
   L.quaternion.copy(w.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(_q)); w.userData.playing = true;
+}
+
+// the necromancer's ultimate: a demon of the depths, built big from the waist up (it never shows more than that)
+export function makeDemon() {
+  const g = new THREE.Group(), skin = M('#3a1416', 0.75), dark = M('#1a0808', 0.8), horn = M('#d8ccb0', 0.5), eye = GL('#7aff5a'), claw = M('#e8e0c8', 0.4);
+  const torso = add(g, sph(1.1, 18, 14), skin, 0, 1.4, 0); torso.scale.set(1.25, 1.35, 0.85);
+  add(g, sph(0.75, 14, 10), skin, 0, 0.3, 0).scale.set(1.3, 0.9, 0.9);
+  for (let k = 0; k < 4; k++) add(g, boxG(0.9 - k * 0.08, 0.12, 0.2), dark, 0, 0.8 + k * 0.32, 0.86).rotation.x = -0.1; // ribs of the gut
+  for (const sx of [-1, 1]) { const sh = add(g, sph(0.55, 12, 10), skin, sx * 1.35, 2.35, 0); for (let k = 0; k < 3; k++) add(sh, coneG(0.12, 0.6, 6), horn, sx * 0.2, 0.4, -0.2 + k * 0.2).rotation.z = -sx * 0.5; }
+  const head = new THREE.Group(); head.position.set(0, 3.1, 0.15); g.add(head);
+  add(head, sph(0.62, 16, 12), skin).scale.set(1, 0.95, 1.05);
+  for (const sx of [-1, 1]) { const h = new THREE.Group(); h.position.set(sx * 0.45, 0.35, -0.05); h.rotation.z = -sx * 0.7; head.add(h); let y = 0, r = 0.16; for (let k = 0; k < 5; k++) { const sgm = add(h, cylG(r * 0.7, r, 0.32, 8), horn, 0, y + 0.16, 0); sgm.rotation.x = -0.2 * k; y += 0.28; r *= 0.78; h.rotation.z += sx * 0.1; } }
+  for (const sx of [-1, 1]) { add(head, sph(0.11, 8, 6), eye, sx * 0.24, 0.12, 0.52); }
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.15, 0.2); head.add(jaw); add(jaw, boxG(0.8, 0.2, 0.6), skin, 0, -0.12, 0.2);
+  for (let k = 0; k < 6; k++) { add(jaw, coneG(0.05, 0.18, 4), claw, -0.3 + k * 0.12, 0.02, 0.45); add(head, coneG(0.05, 0.18, 4), claw, -0.3 + k * 0.12, -0.2, 0.62).rotation.x = Math.PI; }
+  add(head, sph(0.3, 10, 8), GL('#200404'), 0, -0.2, 0.5).scale.set(1.2, 0.5, 0.5);
+  const arms = {};
+  for (const sx of [-1, 1]) { const sh = new THREE.Group(); sh.position.set(sx * 1.5, 2.3, 0.1); g.add(sh); add(sh, cylG(0.32, 0.26, 1.5, 10), skin, 0, -0.75, 0);
+    const el = new THREE.Group(); el.position.set(0, -1.5, 0); sh.add(el); add(el, cylG(0.26, 0.2, 1.4, 10), skin, 0, -0.7, 0);
+    const hand = new THREE.Group(); hand.position.set(0, -1.5, 0); el.add(hand); add(hand, sph(0.32, 10, 8), skin).scale.set(1.2, 0.8, 1); for (let k = 0; k < 4; k++) add(hand, coneG(0.06, 0.4, 5), claw, -0.2 + k * 0.13, -0.3, 0.15).rotation.x = Math.PI - 0.4;
+    arms[sx > 0 ? 'L' : 'R'] = { sh, el, hand }; }
+    return { g, jaw, head, arms };
 }

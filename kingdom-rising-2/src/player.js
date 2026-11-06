@@ -390,7 +390,7 @@ export class Player {
     if (down && this.sheathed && !this.dead && !G.uiOpen && (btn === 0 || btn === 2)) { this.drawWeapons(); if (btn === 0) { this.lmbDown = false; return; } }
     if (this.dead || G.uiOpen) return;
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
-    if (btn === 0 && this.h.arena && this.W && !(this.W.kind === 'staff' && this.h.cls === 'necromancer')) { if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
+    if (btn === 0 && this.h.arena && this.W) { if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
     if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
@@ -749,8 +749,31 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; this.ability(k); h.ultCharge = 0;
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; }
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
+  // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
+  aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
+    for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.55).sub(o), L = v.length(); if (L > range) continue; const a2 = Math.acos(Math.min(1, v.dot(d) / L)); if (a2 < ba) { ba = a2; best = m; } } return best; }
+  // the necromancer's shrunken head (in his left hand): where its mouth is in the world
+  headMouth() { const g = this.ch && this.ch.arms && this.ch.arms.L.grip; if (!g || this.camDist < 0.6) return this.spellFrom(); this.ch.root.updateMatrixWorld(true); return g.localToWorld(new THREE.Vector3(0, 0.05, 0.16)); }
+  // Soul Rend: raise the head; green soul-water flows out of the enemy you aim at into its mouth; you heal, they slow
+  soulRend(ab, base, up, key) {
+    const t = this.aimFoe(26); if (!t) { this.cd[key] = 0; G.hooks.toast && G.hooks.toast('Aim at an enemy', '☠', 'bad'); S.error(); return; }
+    const dmg = base * (ab.dmg || 1.4) * up; this.dealDamage(t, dmg, { el: 'arcane', slow: 2.5, silent: true }); this.heal(dmg * 0.55 * this.hk()); this.headUpT = 1.1; S.cast('arcane', this.pos, 1.0); S.heal && S.heal();
+    let tt = 0; G.timers.push({ update: (dt) => { tt += dt; if (this.dead || t.dead && tt > 0.3) return true; const a = t.pos.clone().setY(t.pos.y + (t.height || 1.6) * 0.6), b = this.headMouth(), mid = a.clone().lerp(b, 0.5).setY(Math.max(a.y, b.y) + 1.2);
+      for (let k = 0; k < 7; k++) { const u = ((tt * 1.6 + k / 7) % 1), q = a.clone().multiplyScalar((1 - u) * (1 - u)).add(mid.clone().multiplyScalar(2 * u * (1 - u))).add(b.clone().multiplyScalar(u * u)); V.burst(k % 2 ? 'poison' : 'green', q, 1, { speed: 0.15, size: 0.32 - u * 0.1, size1: 0.08, life: 0.22 }); }
+      if (Math.random() < 0.5) V.burst('poison', a, 2, { speed: 1.5, size: 0.25 }); return tt > 1.0; } });
+  }
+  // Plague Breath: the head roars out a cone of plague for a second: poison and Blight on all it touches
+  plagueBreath(ab, base, up) {
+    this.headUpT = 1.3; S.cast('arcane', this.pos, 1.2); const snd = S.spellLoop ? S.spellLoop('frost') : null; let tt = 0, tick = 0; V.addShake(0.2);
+    G.timers.push({ update: (dt) => { tt += dt; tick -= dt; if (this.dead) { if (snd) snd.stop(); return true; } const from = this.headMouth(), dir = this.aimDir(from);
+      for (let k = 0; k < 6; k++) V.burst(k % 3 ? 'poison' : 'green', from.clone().addScaledVector(dir, 0.3), 1, { dir, speed: 9 + Math.random() * 5, up: 0.35, size: 0.25, size1: 1.3, life: 0.6, a0: 0.75, grav: 2 });
+      if (Math.random() < 0.6) V.burst('shadow', from.clone().addScaledVector(dir, 2.5), 1, { dir, speed: 5, size: 0.8, size1: 2.2, life: 0.8, a0: 0.35 });
+      if ((this.pbl = (this.pbl || 0) - dt) <= 0) { this.pbl = 0.1; V.light(from.clone().addScaledVector(dir, 2.5), '#70ff40', 3.5, 0.15, 10); }
+      if (tick <= 0) { tick = 0.2; for (const m of mobsInCone(this.pos, this.yaw, 8.5, 0.6)) this.dealDamage(m, base * (ab.dmg || 0.35) * up * 0.3, { el: 'arcane', poison: base * (ab.poisonDot || 0.9) * up * 0.4, spread: 1, blight: ab.blight || 6, silent: true }); }
+      if (tt > 1.2) { if (snd) snd.stop(); return true; } return false; } });
+  }
   hotbar(i) {
     if (this.fearT > 0) { S.error(); return; }
     const sl = this.h.hotbar && this.h.hotbar[i]; if (!sl) return;
@@ -782,8 +805,11 @@ export class Player {
     // Kingdom Battles: support abilities also reach allied troops and players nearby
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
+    if (this.h.arena && this.h.cls === 'necromancer' && ab.id === 'drainlife') { this.soulRend(ab, base, up, key); return; }
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
+      case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
+      case 'ar_demon': { const t = this.aimFoe(32); if (!t || !G.hooks.arenaDemon) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to call the demon', '☠', 'bad'); S.error(); break; } G.hooks.arenaDemon(this, t); this.headUpT = 1.2; S.cast('arcane', this.pos, 1.4); break; }
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
         S.cast('holy', this.pos, 0.6); S.heal && S.heal(); this.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; break; }
@@ -1164,7 +1190,7 @@ export class Player {
     const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
     const anim = (n, d = 0.45) => { if (G.newFx && (n === 'cast' || n === 'castBig')) { n = 'castRel'; d = 0.5; } this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
-    const aimTarget = (range) => { const r = aimRay(range); return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
+    const aimTarget = (range) => { const r = aimRay(range); if (this.h.arena) return this.aimFoe(range); /* the arena: no auto-aim, only what is under the crosshair */ return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
     switch (a.t) {
       case 'bolt': case 'drain': {
         const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.spellFrom(), dir0 = this.aimDir(from);
@@ -1272,7 +1298,7 @@ export class Player {
             cl.p.addScaledVector(d.normalize(), Math.min(l, 0.03 * 14)); for (let q = 0; q < 3; q++) V.emit(q ? 'leaf' : 'shadow', cl.p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.7)), { speed: 0.3, size: 0.55, life: 0.7, vy: 0.2 });
             if (l < 0.6 || cl.t > 3) { clearInterval(iv); land(); } }, 30);
         } else if (a.fear) { const from = this.spellFrom(), dir0 = t.pos.clone().setY(t.pos.y + 1.2).sub(from).normalize(); S.cast('arcane', this.pos, 0.9); S.growl && S.growl('wolf', this.pos, 0.5); // a screaming skull flies at them
-          const sk = spawnProjectile({ pos: from, vel: dir0.multiplyScalar(24), grav: 0, radius: 0.4, dmg: 0, owner: 'none', kind: 'skull', life: 3 }); const iv = setInterval(() => { if (t.dead || this.dead || !G.projectiles.includes(sk)) { clearInterval(iv); return; } const to = t.pos.clone().setY(t.pos.y + 1.2), d = to.clone().sub(sk.pos); if (d.length() < 0.8) { clearInterval(iv); sk.life = 0; G.projectiles.splice(G.projectiles.indexOf(sk), 1); G.scene.remove(sk.mesh); V.burst('shadow', to, 30, { speed: 4 }); V.burst('green', to, 20, { speed: 3 }); land(); } else sk.vel.copy(d.normalize().multiplyScalar(24)); }, 30);
+          const sk = spawnProjectile({ pos: from, vel: dir0.multiplyScalar(20), grav: 0, radius: 1.0, dmg: 0, owner: 'none', kind: 'skull', life: 3, scale: a.bigSkull ? 3 : 1 }); const iv = setInterval(() => { if (t.dead || this.dead || !G.projectiles.includes(sk)) { clearInterval(iv); return; } const to = t.pos.clone().setY(t.pos.y + 1.2), d = to.clone().sub(sk.pos); if (d.length() < 0.8) { clearInterval(iv); sk.life = 0; G.projectiles.splice(G.projectiles.indexOf(sk), 1); G.scene.remove(sk.mesh); V.burst('shadow', to, 30, { speed: 4 }); V.burst('green', to, 20, { speed: 3 }); land(); } else sk.vel.copy(d.normalize().multiplyScalar(24)); }, 30);
         } else land();
         return true; }
       case 'ground': { const c = groundPoint(32), r = (a.r || 6) * K, n = a.ticks || 4; V.ring(c, r, col, n * 0.5 + 0.3);
@@ -1875,7 +1901,7 @@ export class Player {
     const hs = Math.hypot(this.vel.x, this.vel.z);
     this.speed = hs;
     if (this.onGround && hs > 0.5 && !this.dodge) { this.stepAcc += hs * dt; if (this.stepAcc > (this.sprinting ? 2.2 : 1.7)) { this.stepAcc = 0; S.step(this.swim ? 'water' : surfaceType(this.pos.x, this.pos.z, this.onSurf), null, this.sprinting ? 1.2 : 0.9); if (wl - g2.h > 0.1 && wl - g2.h < 1.4) S.step('water'); } }
-    if (this.h.arena && this.lmbDown && !ui && this.W && !this.atk && !this.dodge && !this.dead && !(this.fearT > 0) && !(this.W.kind === 'staff' && this.h.cls === 'necromancer')) this.light(); // held: the next attack follows straight on
+ // held: the next attack follows straight on
     // attacks
     this.updateAttack(dt);
     this.updateGather(dt);
@@ -1920,6 +1946,7 @@ export class Player {
     arenaLookTick(ch, dt);
     animateHumanoid(ch, dt, { turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
+    if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
     if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time); // (the bard plays once he has a song)
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model

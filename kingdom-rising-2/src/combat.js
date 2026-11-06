@@ -85,7 +85,7 @@ export function spawnProjectile(o) {
     case 'skull': { m = new THREE.Group(); const bone = new THREE.MeshStandardMaterial({ color: '#e8e0c8', roughness: 0.6 }), dark = new THREE.MeshBasicMaterial({ color: '#0a0a0a' }); // a screaming skull with green eyes
       const cr = new THREE.Mesh(geo.sphere, bone); cr.scale.set(0.26, 0.24, 0.28); m.add(cr); const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.24), bone); jaw.position.set(0, -0.19, 0.06); jaw.rotation.x = 0.35; m.add(jaw);
       for (const x of [-0.09, 0.09]) { const e = new THREE.Mesh(geo.sphere, dark); e.scale.setScalar(0.07); e.position.set(x, 0.0, 0.22); m.add(e); const g2 = new THREE.Mesh(geo.sphere, glow('#80ff60')); g2.scale.setScalar(0.035); g2.position.set(x, 0.0, 0.25); m.add(g2); }
-      const mo = new THREE.Mesh(geo.sphere, dark); mo.scale.set(0.08, 0.05, 0.04); mo.position.set(0, -0.12, 0.25); m.add(mo); break; }
+      const mo = new THREE.Mesh(geo.sphere, dark); mo.scale.set(0.08, 0.05, 0.04); mo.position.set(0, -0.12, 0.25); m.add(mo); m.scale.setScalar(p.scale || 1); break; }
     case 'bullet': m = new THREE.Mesh(geo.sphere, glow('#fff0b0')); m.scale.setScalar(0.07); break;
     case 'axe': { m = new THREE.Group(); const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#6a4020' })); m.add(h); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), new THREE.MeshStandardMaterial({ color: '#b0b8c0', metalness: 0.8, roughness: 0.3 })); b.position.y = 0.2; b.position.x = 0.08; m.add(b); break; }
     case 'javelin': { m = new THREE.Group(); const h = new THREE.Mesh(geo.arrow, new THREE.MeshStandardMaterial({ color: '#8a6a44' })); h.scale.set(2, 2, 2.2); m.add(h); break; }

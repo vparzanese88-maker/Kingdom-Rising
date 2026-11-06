@@ -17,7 +17,7 @@ import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
-import { makeDemon, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -225,28 +225,90 @@ export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name
 const RUINS_MAP = () => AR.map === 'ruins';
 // the necromancer's ultimate: the demon rises in front of the victim, lifts them overhead, bites their head off, sinks away
 export function summonDemon(caster, at) {
-  // cast on the ground: the demon rises there; when it is ready to grab, it seizes the nearest enemy within reach,
-  // lifts them overhead and bites their head off; if nobody is close enough, it sinks back into the depths
+  // the necromancer's ultimate, cast on the ground: a ring of green hellfire bursts up, the floor cracks and glows, and a
+  // skeletal demon claws its way slowly out of the pit and roars. When it is up it seizes the nearest enemy in reach, lifts
+  // them overhead while they struggle, and bites their head off, then sinks back as the fire dies. Nobody in reach: it
+  // searches, roars in fury, and sinks back down. Whoever is caught sees it all from a cinematic camera.
   if (at && at.pos) at = at.pos; if (!at) return false;
-  const D = makeDemon(), g = D.g, inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
-  const ox = at.x, oz = at.z; g.position.set(ox, base - 4.8, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
-  V.ring(new THREE.Vector3(ox, base + 0.05, oz), 3.2, '#3a0a0a', 0.9); V.burst('stone', new THREE.Vector3(ox, base + 0.3, oz), 50, { speed: 7, grav: 14 }); V.burst('poison', new THREE.Vector3(ox, base + 0.5, oz), 40, { speed: 4 }); S.rumble && S.rumble(g.position, 1.4); S.explode && S.explode(new THREE.Vector3(ox, base, oz), 0.6); V.addShake(0.5);
-  const team = caster === G.player ? G.myTeam : caster.team, enemies = () => inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos); /* (the Training Yard: its dummies) */
-  let t = 0, bit = false, victim = null, from = null, sinkAt = 2.4; const hp = new THREE.Vector3(), mouth = new THREE.Vector3();
-  G.timers.push({ update: (dt) => { t += dt; const e = (x) => x * x * (3 - 2 * x);
-    if (t >= 0.9 && !victim && sinkAt === 2.4) { let best = null, bd = 5.5; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
-      if (best) { victim = best; from = best.pos.clone(); victim.held = true; if (victim === G.player) G.player.debuff && G.player.debuff('stun', 2.6); else if (victim.status) { victim.status.stun = 2.6; victim.cast = null; victim.pending = null; } }
-      else sinkAt = 1.1; } // (nobody in reach: straight back down)
-    const rise = t < 0.9 ? e(t / 0.9) : t < sinkAt ? 1 : 1 - e(Math.min(1, (t - sinkAt) / 0.9)); g.position.y = base - 4.8 + rise * 4.3;
-    const A2 = D.arms.R; const lift = !victim || t < 0.9 ? 0 : t < 1.7 ? e((t - 0.9) / 0.8) : 1; A2.sh.rotation.x = -0.3 - lift * 2.4; A2.el.rotation.x = -0.4 - lift * 0.4 - (victim && t > 1.7 && t < 2.3 ? (t - 1.7) * 1.2 : 0); D.arms.L.sh.rotation.x = -0.4 - Math.sin(t * 3) * 0.2;
-    D.jaw.rotation.x = victim && t > 1.6 && t < 2.15 ? Math.min(0.7, (t - 1.6) * 3) : 0; D.head.rotation.x = victim && t > 1.7 && t < 2.2 ? -0.25 : 0;
-    g.updateMatrixWorld(true); A2.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.15, 0.6));
-    if (victim && !bit && victim.held) { const k = t < 1.7 ? e((t - 0.9) / 0.8) : 1, k2 = t > 1.8 ? Math.min(1, (t - 1.8) / 0.35) : 0; const p2 = from.clone().lerp(hp.clone().setY(hp.y - 1.0), k).lerp(mouth.clone().setY(mouth.y - 1.0), k2);
-      victim.pos.copy(p2); if (victim.root) victim.root.position.copy(p2); if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0); }
-    if (victim && !bit && t >= 2.15) { bit = true; victim.held = false; V.burst('blood', mouth, 60, { speed: 6 }); V.burst('poison', mouth, 30, { speed: 4 }); V.sphereFlash(mouth, 1.2, '#ff3020', 0.2); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.6); V.addShake(0.7);
-      if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } } else if (victim.dummy) { victim.takeHit && victim.takeHit(99999, caster, {}); victim.pos.copy(from); if (victim.root) victim.root.position.copy(from); } else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
+  const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
+  const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
+  const ring = makeHellRing(4.6, 44); ring.position.copy(center); G.scene.add(ring);
+  S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
+  const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
+  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
+  const GRAB = 3.0, BITE = 5.8; let t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
+  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3();
+  const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
+  const me = caster === G.player ? G.player : null; let flyCam = null;
+  if (me) { me.held = true; me.ultImmT = 9; me.ultPoseT = 1.5; me.headUpT = 7; me.tpT = 0; startFly(); }
+  G.timers.push({ update: (dt) => { t += dt;
+    if (me) { me.ultImmT = Math.max(me.ultImmT, 0.5); if (me.ultPoseT <= 0.05 && t < sinkAt) me.ultPoseT = 0.6; /* (holds the pose: the head raised, the demon answering) */ if (t > sinkAt + 1.6 && me.held) { me.held = false; me.cine = null; me.headUpT = 0; me.ultImmT = 0.6; } }
+    // the fire: sweeps round to a full ring in the first second, roars while the demon is up, gutters out at the end
+    const end = sinkAt + 1.8, fk = Math.min(seg(t, 0, 1.1), 1 - seg(t, sinkAt + 1.2, end)); ring.userData.tick(fk, t);
+    emT -= dt; if (emT <= 0 && fk > 0.2) { emT = 0.04; for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; V.emit('poison', new THREE.Vector3(ox + Math.cos(a) * 4.6, base + 0.4 + Math.random(), oz + Math.sin(a) * 4.6), { speed: 1.2, vy: 3.5, size: 0.35, life: 1.1 }); } }
+    liT -= dt; if (liT <= 0 && fk > 0.1) { liT = 0.15; V.light(new THREE.Vector3(ox, base + 2.5, oz), '#40ff60', (5 + Math.random() * 2) * fk, 0.2, 18); }
+    // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
+    const up = t < sinkAt ? seg(t, 1.0, 2.9) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.9) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
+    g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
+    const heartS = 1 + Math.sin(t * 7) * 0.12; D.heart.scale.setScalar(heartS);
+    const R = D.arms.R, Lf = D.arms.L, rising = t < 2.9;
+    // left arm: claws the ground while climbing, then braces and sways
+    Lf.sh.rotation.x = rising ? -1.2 + Math.sin(t * 5) * 0.35 : L(-0.5, -0.3, Math.sin(t * 1.3) * 0.5 + 0.5); Lf.sh.rotation.z = rising ? -0.5 : -0.15; Lf.el.rotation.x = rising ? -0.9 : -0.5 + Math.sin(t * 2) * 0.1;
+    // the roar: head back, jaw wide, throat blazing
+    const roar = seg(t, 2.35, 2.6) * (1 - seg(t, 3.0, 3.25)), roar2 = missed ? seg(t, 4.0, 4.25) * (1 - seg(t, 4.7, 5.0)) : 0, rr = Math.max(roar, roar2);
+    if (rr > 0.5 && roared < (roar2 > 0.5 ? 2 : 1)) { roared++; S.growl && S.growl('wolf', center, 0.4); S.explode && S.explode(center, 0.5); V.addShake(0.8); V.ring(center.clone().setY(base + 0.2), 9, '#3aff5a', 0.7); V.burst('poison', center.clone().setY(base + 4), 50, { speed: 7 }); }
+    D.throat.scale.setScalar(1 + rr * 1.2);
+    if (t >= GRAB && !victim && !missed) { let best = null, bd = 5.8; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
+      if (best) { victim = best; from = best.pos.clone(); victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', BITE - GRAB + 0.3); startCine(); } else if (victim.status) { victim.status.stun = BITE - GRAB + 0.3; victim.cast = null; victim.pending = null; } }
+      else { missed = true; sinkAt = 4.9; } }
+    // right arm: reach, seize, hoist overhead, hold up as they struggle, bring them to the jaws
+    let shx = -0.4 + Math.sin(t * 1.4) * 0.08, shz = 0.1, elx = -0.4;
+    if (rising) { shx = -1.0 + Math.sin(t * 5 + 1.5) * 0.35; shz = 0.45; elx = -0.9; }
+    if (victim) { const kR = seg(t, GRAB, GRAB + 0.45), kL = seg(t, GRAB + 0.5, GRAB + 1.4), kM = seg(t, BITE - 0.45, BITE);
+      shx = L(L(shx, -1.35, kR), -2.75, kL); elx = L(L(elx, -0.15, kR), -0.35, kL); shz = L(shz, 0.15, kR);
+      shx = L(shx, -2.35, kM); shz = L(shz, 0.75, kM); elx = L(elx, -1.15, kM); if (t > GRAB + 1.4 && t < BITE - 0.45) shx += Math.sin(t * 9) * 0.05; }
+    else if (missed && t < sinkAt) { shx = -0.9 + Math.sin(t * 3) * 0.3; shz = 0.3; }
+    R.sh.rotation.x = shx; R.sh.rotation.z = shz; R.el.rotation.x = elx;
+    // head: tracks the victim, tips back to roar, cranes up at the prize, lunges for the bite; searches when nobody is there
+    let hx = rising ? 0.35 : 0.05, hy = 0; if (missed && t < sinkAt) hy = Math.sin((t - GRAB) * 2.6) * 0.7; else if (victim && !bit) { g.updateMatrixWorld(true); D.head.getWorldPosition(headW); const lv = victim.pos.clone().sub(headW); hy = 0; hx = L(hx, -Math.atan2(lv.y + 1, Math.hypot(lv.x, lv.z)) * 0.6, 0.7); }
+    hx = L(hx, -0.55, rr); if (victim) { hx = L(hx, -0.5, seg(t, GRAB + 1.4, BITE - 0.5)); hx = L(hx, 0.25, seg(t, BITE - 0.25, BITE)); }
+    D.head.rotation.x = hx; D.head.rotation.y = hy;
+    let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (bit) jw = Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.6, BITE + 0.9)); }
+    D.jaw.rotation.x = jw;
+    g.updateMatrixWorld(true); R.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.5, 0.75));
+    if (victim && !bit && victim.held) { const kR = seg(t, GRAB + 0.25, GRAB + 0.55), kM = seg(t, BITE - 0.45, BITE); const hang = hp.clone(); hang.y -= 1.05;
+      const sh2 = t > GRAB + 1.4 ? new THREE.Vector3(Math.sin(t * 17) * 0.06, 0, Math.cos(t * 13) * 0.06) : new THREE.Vector3(); /* (they kick and struggle) */
+      const p2 = from.clone().lerp(hang.add(sh2), kR).lerp(mouth.clone().setY(mouth.y - (victim.height || 1.7) + 0.15), kM);
+      victim.pos.copy(p2); if (victim.root) { victim.root.position.copy(p2); victim.root.rotation.z = Math.sin(t * 11) * 0.25 * kR; } if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0); }
+    if (victim && !bit && t >= BITE) { bit = true; victim.held = false; if (victim.root) victim.root.rotation.z = 0;
+      V.burst('blood', mouth, 90, { speed: 7 }); V.burst('poison', mouth, 50, { speed: 5 }); V.sphereFlash(mouth, 1.6, '#ff3020', 0.25); V.sphereFlash(mouth, 2.4, '#3aff5a', 0.4); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.7); V.addShake(1.0);
+      if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } if (p.ch && p.ch.root) p.ch.root.visible = false; }
+      else if (victim.dummy) { victim.takeHit && victim.takeHit(99999, caster, {}); victim.pos.copy(from); if (victim.root) victim.root.position.copy(from); }
+      else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
-    if (t > sinkAt + 1.0) { G.scene.remove(g); if (victim) victim.held = false; return true; } return false; } }); // (a timer is finished when it returns true)
+    if (bit && victim === G.player && t > BITE + 1.8 && G.player.cine && G.player.cine !== flyCam) cineOff(); // (the cinematic ends a moment after the bite)
+    if (t > end) { if (me) { me.held = false; if (me.cine === flyCam) me.cine = null; } G.scene.remove(g); G.scene.remove(ring); if (victim) { victim.held = false; if (victim.root) victim.root.rotation.z = 0; } if (victim === G.player && !bit) cineOff(); return true; }
+    return false; } }); // (a timer is finished when it returns true)
+  // walls between the camera and the action: swing round until the line is clear
+  function clearAng(mid, ang, r, cy) { for (let k = 0; k < 12; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; if (lineClear(mid, new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r))) return a2 - ang; } return 0; }
+  // the caster's view: flies up and out of your eyes to circle the pit, watches the whole thing, then flies back
+  function startFly() { const p = G.player, t0 = t, Q0 = new THREE.Quaternion(), Qb = new THREE.Quaternion(), M4 = new THREE.Matrix4(), P0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
+    flyCam = p.cine = (cam) => { const ct = t - t0, back0 = sinkAt + 0.65, kin = e(ct / 1.0), kout = e((t - back0) / 0.95), k = kin * (1 - kout);
+      P0.copy(p.pos); P0.y += p.eye; Q0.setFromEuler(new THREE.Euler(p.pitch, p.yaw + Math.PI, 0, 'YXZ'));
+      D.head.getWorldPosition(tgt); tgt.y = Math.max(base + 1.5, tgt.y - 1.2);
+      const ang = face + 0.75 + ct * 0.2, r = 12.5, cy = base + 4.2; if (off == null || G.time - chk > 0.5) { chk = G.time; off = clearAng(tgt, ang, r, cy); } offS += (off - offS) * 0.06;
+      Ob.set(tgt.x + Math.cos(ang + offS) * r, cy, tgt.z + Math.sin(ang + offS) * r);
+      M4.lookAt(Ob, tgt, new THREE.Vector3(0, 1, 0)); Qb.setFromRotationMatrix(M4);
+      cam.position.lerpVectors(P0, Ob, k); cam.position.y += Math.sin(k * Math.PI) * 2.5; cam.quaternion.slerpQuaternions(Q0, Qb, k); }; }
+  // the victim's cinematic: letterbox bars, a low camera slowly circling the pit, framing the demon and its catch
+  function startCine() { const p = G.player; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); } requestAnimationFrame(() => bars.classList.add('on'));
+    document.body.classList.add('cine'); let cineA = null, cineChk = -9, cineS = null; const t0 = t, Hd = new THREE.Vector3(), side = Math.random() < 0.5 ? 1 : -1;
+    p.cine = (cam) => { const ct = t - t0; D.head.getWorldPosition(Hd); const vp = p.pos.clone(); vp.y += 1; const mid = Hd.clone().lerp(vp, 0.5); mid.y = Math.max(mid.y, base + 2.2);
+      const ax = vp.x - Hd.x, az = vp.z - Hd.z, al = Math.hypot(ax, az) || 1, ang = Math.atan2(az * side, -ax * side) + (ct - 1.2) * 0.18; /* (side-on to the demon and its catch, drifting slowly round) */
+      const r = L(14, 11, e(ct / 2.5)), hgt = L(-0.6, 1.2, e(ct / 2.5)), cy = Math.max(base + 1.2, mid.y + hgt);
+      if (cineA == null || G.time - cineChk > 0.5) { cineChk = G.time; let best = null; for (let k = 0; k < 12 && best == null; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5, cp = new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r); if (lineClear(mid, cp)) best = a2 - ang; } cineA = best == null ? 0 : best; } /* (swing round until no wall is in the way) */
+      cineS = cineS == null ? cineA : cineS + (cineA - cineS) * 0.08; const a3 = ang + cineS;
+      cam.position.set(mid.x + Math.cos(a3) * r, cy, mid.z + Math.sin(a3) * r); cam.lookAt(mid); cam.fov = 48; }; }
   return true;
 }
 // the height of the floor under a point (stairs, balconies, ramparts on the Ruins; flat sand in the colosseum)

@@ -36,7 +36,7 @@ import { showTitle, initMenu, Menu, renderPreview, goFull, renderStage, BATTLE_G
 import { buildHumanoid, equipWeapon, tintGear, bake, animateHumanoid } from './character.js';
 import { BATTLE, YARD, ARENA, SETUP, LAYOUT, computeLayout } from './battlemap.js';
 import * as Arena from './arena.js';
-import { spawnDummies, updateYard, openYardPanel, yardHero, YD, resetCooldowns } from './yard.js';
+import { spawnDummies, updateYard, openYardPanel, yardHero, YD, resetCooldowns, yardUltTest } from './yard.js';
 import { MP, lobby, send as mpSend, setStatus as setMpStatus, statusPanel } from './mp.js';
 import * as Sync from './mpsync.js';
 import * as Battle from './battle.js';
@@ -142,7 +142,7 @@ function boot() {
   $('loading').hidden = true;
   // online: the world is ready, now everyone makes their hero for this match
   if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: SETUP.myRace || mt.race }] } }); setMpStatus('hero'); }
-  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 0; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">Y</span> to change class or weapon, <span class="kbd">K</span> to put abilities on your hotbar. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
+  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 0; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">Y</span> to change class or weapon, <span class="kbd">K</span> to put abilities on your hotbar, <span class="kbd">U</span> to get hit by an enemy ultimate. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -761,6 +761,7 @@ function input() {
       if (ARENA && e.code === 'KeyP') { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // P: perks
       if (ARENA && ['KeyJ', 'KeyM', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)
+      if (YARD && e.code === 'KeyU') { yardUltTest(); return; } // (get hit by an enemy ultimate, to watch it)
       if (YARD && e.code === 'KeyY') { if (UI.UI.open === 'yard') UI.closeWin(); else openYardPanel(UI); return; }
       if (e.code === 'KeyT' && !BATTLE) { UI.toggleMainOnly(); return; } // T: show only the main quest
       if (e.code === 'KeyZ' && !G.uiOpen && G.player && !G.player.dead) { G.player.swapWeapon(); return; } // Z: swap weapon sets (pets attack from the G menu)

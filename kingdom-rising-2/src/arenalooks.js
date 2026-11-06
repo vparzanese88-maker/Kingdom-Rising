@@ -197,22 +197,67 @@ export function luteToChest(ch, on, t) {
 
 // the necromancer's ultimate: a demon of the depths, built big from the waist up (it never shows more than that)
 export function makeDemon() {
-  const g = new THREE.Group(), skin = M('#3a1416', 0.75), dark = M('#1a0808', 0.8), horn = M('#d8ccb0', 0.5), eye = GL('#7aff5a'), claw = M('#e8e0c8', 0.4);
-  const torso = add(g, sph(1.1, 18, 14), skin, 0, 1.4, 0); torso.scale.set(1.25, 1.35, 0.85);
-  add(g, sph(0.75, 14, 10), skin, 0, 0.3, 0).scale.set(1.3, 0.9, 0.9);
-  for (let k = 0; k < 4; k++) add(g, boxG(0.9 - k * 0.08, 0.12, 0.2), dark, 0, 0.8 + k * 0.32, 0.86).rotation.x = -0.1; // ribs of the gut
-  for (const sx of [-1, 1]) { const sh = add(g, sph(0.55, 12, 10), skin, sx * 1.35, 2.35, 0); for (let k = 0; k < 3; k++) add(sh, coneG(0.12, 0.6, 6), horn, sx * 0.2, 0.4, -0.2 + k * 0.2).rotation.z = -sx * 0.5; }
-  const head = new THREE.Group(); head.position.set(0, 3.1, 0.15); g.add(head);
-  add(head, sph(0.62, 16, 12), skin).scale.set(1, 0.95, 1.05);
-  for (const sx of [-1, 1]) { const h = new THREE.Group(); h.position.set(sx * 0.45, 0.35, -0.05); h.rotation.z = -sx * 0.7; head.add(h); let y = 0, r = 0.16; for (let k = 0; k < 5; k++) { const sgm = add(h, cylG(r * 0.7, r, 0.32, 8), horn, 0, y + 0.16, 0); sgm.rotation.x = -0.2 * k; y += 0.28; r *= 0.78; h.rotation.z += sx * 0.1; } }
-  for (const sx of [-1, 1]) { add(head, sph(0.11, 8, 6), eye, sx * 0.24, 0.12, 0.52); }
-  const jaw = new THREE.Group(); jaw.position.set(0, -0.15, 0.2); head.add(jaw); add(jaw, boxG(0.8, 0.2, 0.6), skin, 0, -0.12, 0.2);
-  for (let k = 0; k < 6; k++) { add(jaw, coneG(0.05, 0.18, 4), claw, -0.3 + k * 0.12, 0.02, 0.45); add(head, coneG(0.05, 0.18, 4), claw, -0.3 + k * 0.12, -0.2, 0.62).rotation.x = Math.PI; }
-  add(head, sph(0.3, 10, 8), GL('#200404'), 0, -0.2, 0.5).scale.set(1.2, 0.5, 0.5);
+  // a skeletal demon of the depths: horned skull with green fire in its sockets, a cage of ribs round a burning green heart,
+  // a spine of thick vertebrae, spiked shoulders and long bony arms ending in clawed hands
+  const g = new THREE.Group(), bone = M('#d9cfb4', 0.55), old = M('#a89878', 0.7), dark = M('#1a1612', 0.9), horn = M('#3a2c22', 0.5), eye = GL('#7aff5a'), fire = GL('#3aff5a'), claw = M('#2a2420', 0.35, 0.3);
+  // spine and vertebrae
+  for (let k = 0; k < 9; k++) { const v = add(g, cylG(0.17, 0.2, 0.22, 10), k % 2 ? old : bone, 0, 0.2 + k * 0.33, -0.35); add(v, boxG(0.12, 0.14, 0.32), bone, 0, 0, -0.2); }
+  // ribcage: arcs that curve out and round to a breastbone
+  for (let k = 0; k < 6; k++) { const y = 1.15 + k * 0.32, w = 0.95 + Math.sin((k + 1) / 7 * Math.PI) * 0.35;
+    for (const sx of [-1, 1]) { const rib = add(g, new THREE.TorusGeometry(w, 0.065, 6, 18, Math.PI * 0.82), k % 2 ? old : bone, 0, y, -0.25); rib.rotation.set(Math.PI / 2 - 0.12, 0, sx > 0 ? -0.15 : Math.PI + 0.15); rib.scale.set(1, 0.85, 1); } }
+  add(g, boxG(0.18, 1.7, 0.12), bone, 0, 1.9, 0.62).rotation.x = -0.12; // breastbone
+  const heart = add(g, sph(0.42, 14, 10), fire, 0, 1.85, 0.05); heart.castShadow = false; g.userData.heart = heart;
+  // shoulders: collarbones, big round joints with spikes
+  for (const sx of [-1, 1]) { add(g, cylG(0.09, 0.09, 1.5, 8), bone, sx * 0.75, 3.15, 0).rotation.z = Math.PI / 2; const shj = add(g, sph(0.36, 12, 10), bone, sx * 1.55, 3.15, -0.05);
+    for (let k = 0; k < 3; k++) { const sp = add(shj, coneG(0.09, 0.75 - k * 0.12, 6), horn, sx * 0.12, 0.3, -0.18 + k * 0.18); sp.rotation.z = -sx * (0.35 + k * 0.15); } }
+  // the skull: cranium, brow, deep sockets with green fire, cheekbones, upper teeth, swept horns
+  const head = new THREE.Group(); head.position.set(0, 4.05, 0.05); g.add(head);
+  add(head, sph(0.6, 18, 14), bone).scale.set(0.95, 0.92, 1.12);
+  add(head, boxG(0.95, 0.16, 0.3), old, 0, 0.2, 0.5).rotation.x = 0.25; // brow ridge
+  for (const sx of [-1, 1]) { const so = add(head, sph(0.17, 10, 8), dark, sx * 0.24, 0.04, 0.55); so.scale.set(1, 0.85, 0.5); const e = add(head, sph(0.08, 8, 6), eye, sx * 0.24, 0.04, 0.62); e.castShadow = false;
+    add(head, boxG(0.16, 0.12, 0.4), bone, sx * 0.4, -0.16, 0.38).rotation.y = sx * 0.3; // cheekbones
+    const h = new THREE.Group(); h.position.set(sx * 0.4, 0.42, -0.1); h.rotation.set(-0.6, 0, -sx * 0.55); head.add(h); let y = 0, r = 0.17;
+    for (let k = 0; k < 6; k++) { const sg = add(h, cylG(r * 0.75, r, 0.34, 8), horn, 0, y + 0.17, 0); sg.rotation.x = -0.22 * k; y += 0.3; r *= 0.8; } }
+  add(head, coneG(0.09, 0.2, 3), dark, 0, -0.1, 0.66).rotation.x = Math.PI; // nose hole
+  add(head, boxG(0.62, 0.14, 0.3), bone, 0, -0.33, 0.45); // upper jaw
+  for (let k = 0; k < 8; k++) add(head, coneG(0.04, 0.19, 4), bone, -0.28 + k * 0.08, -0.46, 0.58).rotation.x = Math.PI;
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.36, 0.1); head.add(jaw); add(jaw, boxG(0.64, 0.13, 0.62), bone, 0, -0.1, 0.28); for (const sx of [-1, 1]) add(jaw, boxG(0.1, 0.36, 0.14), bone, sx * 0.3, 0.06, -0.02);
+  for (let k = 0; k < 8; k++) add(jaw, coneG(0.04, 0.18, 4), bone, -0.28 + k * 0.08, 0.02, 0.55);
+  const throat = add(head, sph(0.22, 10, 8), fire, 0, -0.45, 0.25); throat.castShadow = false; // green fire down its throat
+  // long bony arms: upper bone, elbow knob, two forearm bones, a clawed hand of long finger bones
   const arms = {};
-  for (const sx of [-1, 1]) { const sh = new THREE.Group(); sh.position.set(sx * 1.5, 2.3, 0.1); g.add(sh); add(sh, cylG(0.32, 0.26, 1.5, 10), skin, 0, -0.75, 0);
-    const el = new THREE.Group(); el.position.set(0, -1.5, 0); sh.add(el); add(el, cylG(0.26, 0.2, 1.4, 10), skin, 0, -0.7, 0);
-    const hand = new THREE.Group(); hand.position.set(0, -1.5, 0); el.add(hand); add(hand, sph(0.32, 10, 8), skin).scale.set(1.2, 0.8, 1); for (let k = 0; k < 4; k++) add(hand, coneG(0.06, 0.4, 5), claw, -0.2 + k * 0.13, -0.3, 0.15).rotation.x = Math.PI - 0.4;
+  for (const sx of [-1, 1]) { const sh = new THREE.Group(); sh.position.set(sx * 1.6, 3.05, 0.05); g.add(sh);
+    add(sh, cylG(0.13, 0.11, 1.55, 10), bone, 0, -0.8, 0); add(sh, sph(0.17, 10, 8), old, 0, -1.6, 0);
+    const el = new THREE.Group(); el.position.set(0, -1.6, 0); sh.add(el); for (const dx of [-0.08, 0.08]) add(el, cylG(0.07, 0.06, 1.5, 8), dx > 0 ? bone : old, dx, -0.76, 0);
+    const hand = new THREE.Group(); hand.position.set(0, -1.55, 0); el.add(hand); add(hand, boxG(0.34, 0.18, 0.3), bone, 0, -0.06, 0);
+    for (let k = 0; k < 4; k++) { const f = new THREE.Group(); f.position.set(-0.15 + k * 0.1, -0.12, 0.08); f.rotation.x = 0.5; hand.add(f); add(f, cylG(0.035, 0.03, 0.42, 6), bone, 0, -0.21, 0); const f2 = new THREE.Group(); f2.position.set(0, -0.42, 0); f2.rotation.x = 0.7; f.add(f2); add(f2, cylG(0.03, 0.025, 0.34, 6), bone, 0, -0.17, 0); add(f2, coneG(0.03, 0.2, 5), claw, 0, -0.42, 0).rotation.x = Math.PI; }
+    const th = add(hand, cylG(0.035, 0.03, 0.4, 6), bone, sx * 0.2, -0.15, 0.1); th.rotation.z = sx * 0.6;
     arms[sx > 0 ? 'L' : 'R'] = { sh, el, hand }; }
-    return { g, jaw, head, arms };
+  return { g, jaw, head, arms, heart, throat };
+}
+
+// a full ring of green hellfire round the demon's pit, with a cracked, glowing floor inside it
+let FLAME_T = null, CRACK_T = null;
+function flameTex() { if (FLAME_T) return FLAME_T; const c = document.createElement('canvas'); c.width = 64; c.height = 128; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 92, 2, 32, 80, 54); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.beginPath(); x.moveTo(32, 2); x.bezierCurveTo(52, 50, 62, 80, 50, 110); x.quadraticCurveTo(32, 128, 14, 110); x.bezierCurveTo(2, 80, 12, 50, 32, 2); x.fill(); FLAME_T = new THREE.CanvasTexture(c); return FLAME_T; }
+function crackTex() { if (CRACK_T) return CRACK_T; const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(128, 128, 10, 128, 128, 128); gr.addColorStop(0, 'rgba(10,30,10,0.95)'); gr.addColorStop(0.7, 'rgba(15,20,12,0.85)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+  x.strokeStyle = '#6aff6a'; x.shadowColor = '#3aff4a'; x.shadowBlur = 8; x.lineCap = 'round';
+  for (let i = 0; i < 14; i++) { let a = i / 14 * Math.PI * 2 + Math.random() * 0.3, r = 8, px = 128, py = 128; x.lineWidth = 3; x.beginPath(); x.moveTo(px, py);
+    while (r < 118) { r += 10 + Math.random() * 12; a += (Math.random() - 0.5) * 0.5; px = 128 + Math.cos(a) * r; py = 128 + Math.sin(a) * r; x.lineTo(px, py); } x.stroke(); }
+  CRACK_T = new THREE.CanvasTexture(c); return CRACK_T; }
+export function makeHellRing(radius = 4.6, n = 40) {
+  const g = new THREE.Group(), flames = [], tex = flameTex();
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(radius + 0.4, 48), new THREE.MeshBasicMaterial({ map: crackTex(), transparent: true, depthWrite: false, opacity: 0 })); floor.rotation.x = -Math.PI / 2; floor.position.y = 0.05; g.add(floor);
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, fg = new THREE.Group(); fg.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius); g.add(fg);
+    const outer = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: '#22ff44', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+    const inner = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: '#d8ffc0', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+    fg.add(outer, inner); flames.push({ fg, outer, inner, ph: Math.random() * 10, sp: 7 + Math.random() * 6, a }); }
+  // k: 0..1 how fully lit the ring is (lights up in a sweep round the circle); t: time
+  g.userData.tick = (k, t) => { floor.material.opacity = Math.min(1, k * 1.2) * 0.95;
+    for (const f of flames) { const on = Math.max(0, Math.min(1, k * 1.6 - (f.a / (Math.PI * 2)) * 0.6)); const fl = 0.75 + 0.25 * Math.sin(t * f.sp + f.ph) + 0.15 * Math.sin(t * f.sp * 2.3 + f.ph * 2);
+      const h = (1.3 + 1.1 * on) * fl * on; f.outer.scale.set(0.8 * on + 0.01, h + 0.01, 1); f.outer.position.y = h * 0.45; f.inner.scale.set(0.55 * on + 0.01, h * 0.6 + 0.01, 1); f.inner.position.y = h * 0.3;
+      f.outer.material.opacity = 0.5 * on; f.inner.material.opacity = 0.42 * on; f.fg.position.x += Math.sin(t * 3 + f.ph) * 0.002; } };
+  return g;
 }

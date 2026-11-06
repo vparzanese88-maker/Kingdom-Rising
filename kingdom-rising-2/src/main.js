@@ -993,3 +993,13 @@ window.KR2 = { get intro() { return intro; }, G, startGame, quitToTitle, UI, Gam
 // online host in a hidden tab: keep the battle running on a timer so nobody's game freezes
 setInterval(() => { if (BATTLE && MP.on && MP.host && document.hidden && mode === 'game' && G.player) { G.time += 0.1; world.time.value = G.time; gameUpdate(0.1); } }, 100);
 setTimeout(() => { if (BATTLE && SETUP.mp) lobby().then(() => { computeLayout(); applyBattleTerrain(); boot(); }); else boot(); }, 60);
+
+// a newer version on the site: offer to reload, so an open tab never keeps running old code
+(function watchForUpdate() {
+  const mine = (import.meta.url.match(/[?&]v=(\d+)/) || [])[1]; if (!mine || location.protocol === 'file:') return;
+  const check = async () => { try { const r = await fetch(location.pathname + '?vcheck=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); const v = (t.match(/src\/main\.js\?v=(\d+)/) || [])[1];
+    if (v && v !== mine && !document.getElementById('newver')) { const b = document.createElement('button'); b.id = 'newver'; b.textContent = 'A new version of the game is ready. Click to update.';
+      b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:99;padding:10px 18px;border-radius:8px;border:1px solid #ffd070;background:#2a1e10;color:#ffe8b0;font:inherit;font-size:15px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.5)';
+      b.onclick = () => location.reload(); document.body.appendChild(b); } } catch (e) { /* offline */ } };
+  setTimeout(check, 20000); setInterval(check, 90000);
+})();

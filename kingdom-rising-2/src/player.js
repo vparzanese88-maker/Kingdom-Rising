@@ -16,7 +16,7 @@ import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } 
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
-import { arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { playNotes, addOutline, arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -341,7 +341,7 @@ export class Player {
     if (!arenaLook) tintGear(this.ch, this.h.equip);
     if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, arenaLook ? 3 : w2.tier, arenaLook ? 0 : w2.rarity); this.ch.arms.L.grip.add(off); off.rotation.y = Math.PI / 2; this.ch.weapons.off = off; }
     backWeapons(this.ch, [this.h.equip.w3, this.h.equip.w4]);
-    bake(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
+    bake(this.ch.root); if (arenaLook) addOutline(this.ch.root); this.ch.root.visible = vis; G.scene.add(this.ch.root);
     if (old) { this.ch.anim = old.anim; this.ch.root.position.copy(old.root.position); this.ch.root.rotation.copy(old.root.rotation); }
     this.vm.setWeapon(w && this.h.arena ? Object.assign({}, w, { tier: 3, rarity: 0 }) : w);
     if (G.newFx && Skills.canDual(this.h)) { const w2 = this.h.equip.w2, P2 = WEAPON_TYPES[w2.wt].parts[0], off = makeWeapon(P2, w2.tier, w2.rarity); this.vm.L.add(off); off.rotation.y = -0.45; this.vm.weapons.off = off; }
@@ -779,6 +779,9 @@ export class Player {
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
+      case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
+        this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
+        S.cast('holy', this.pos, 0.6); S.heal && S.heal(); this.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; break; }
       case 'charge': {
         // a beat to brace, then a hard, accelerating rush that bowls through everything
         const dur = 0.85 * (1 + this.pk('a1up') * 0.2); S.chargeRush(dur); // (a heavy run you can see coming, not a teleport)
@@ -1153,7 +1156,7 @@ export class Player {
     const FX = { gold: ['gold', '#ffd870'], shadow: ['shadow', '#9a60c0'], leaf: ['leaf', '#7ac050'], dust: ['dust', '#c8b090'], arcane: ['arcane', '#c080ff'], frost: ['frost', '#9ad8ff'], fire: ['fire', '#ff8030'], smoke: ['smoke', '#8a8a8a'], blood: ['blood', '#c02020'] };
     const [pk, col] = FX[a.fx] || ['spark', '#ffffff'];
     const el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.kind === 'arcane' || a.fx === 'arcane' || a.fx === 'shadow' ? 'arcane' : null;
-    const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
+    const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
     const anim = (n, d = 0.45) => { if (G.newFx && (n === 'cast' || n === 'castBig')) { n = 'castRel'; d = 0.5; } this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };

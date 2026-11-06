@@ -137,3 +137,23 @@ export function arenaWeaponDecor(ch, cls) {
 }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
 export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; }
+
+// a dark ink outline round every fighter (an inverted shell pushed out along the normals), the way Smite and Marvel
+// Rivals draw their heroes: bodies read clearly against the sand, the crowd and each other at any distance
+const OUTLINE = new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { col: { value: new THREE.Color('#140e0a') } },
+  vertexShader: 'void main(){ vec3 n = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); float d = -mv.z; mv.xyz += n * clamp(0.006 + d * 0.0016, 0.006, 0.05); gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'uniform vec3 col; void main(){ gl_FragColor = vec4(col, 1.0); }' });
+export function addOutline(root) {
+  const list = []; root.traverse(o => { if (o.isMesh && !o.userData.outline && o.material && !Array.isArray(o.material) && o.material.isMeshStandardMaterial && !o.material.transparent && o.geometry && o.geometry.attributes.normal) list.push(o); });
+  for (const o of list) { const sh = new THREE.Mesh(o.geometry, OUTLINE); sh.userData.outline = true; sh.castShadow = false; sh.receiveShadow = false; sh.renderOrder = -1; sh.raycast = () => {}; o.add(sh); }
+}
+
+// music notes that rise and swirl round a body (bard songs): they follow whoever they were played on
+const NOTE_T = {}; const NOTES = [];
+function noteTexture(col, ch) { const k = col + ch; if (NOTE_T[k]) return NOTE_T[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.font = 'bold 50px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = col; g.shadowBlur = 14; g.fillStyle = '#ffffff'; g.fillText(ch, 32, 34); g.shadowBlur = 0; g.fillStyle = col; g.fillText(ch, 32, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (NOTE_T[k] = t); }
+export function playNotes(scene, unit, col = '#ffd860', n = 6) { for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTexture(col, ['\u266a', '\u266b', '\u2669'][i % 3]), transparent: true, depthWrite: false })); s.scale.setScalar(0.34 + Math.random() * 0.14); scene.add(s);
+  NOTES.push({ s, u: unit, t: -i * 0.12, a: Math.random() * 6.28, r: 0.55 + Math.random() * 0.35, y: 0.9 + Math.random() * 0.6 }); } }
+export function notesTick(dt) { for (let i = NOTES.length - 1; i >= 0; i--) { const n = NOTES[i]; n.t += dt; const k = n.t / 1.9; if (k >= 1 || !n.u || !n.u.pos) { n.s.parent && n.s.parent.remove(n.s); n.s.material.dispose(); NOTES.splice(i, 1); continue; }
+  const p = n.u.pos; n.s.visible = n.t > 0; n.s.position.set(p.x + Math.cos(n.a + n.t * 2.2) * n.r, p.y + n.y + Math.max(0, n.t) * 0.75, p.z + Math.sin(n.a + n.t * 2.2) * n.r); n.s.material.opacity = Math.min(1, (1 - k) * 2.5) * Math.min(1, Math.max(0, n.t) * 5); } }

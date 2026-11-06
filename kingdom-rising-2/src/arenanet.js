@@ -2,7 +2,7 @@
 // The host runs the match (scores, objectives, respawns) and the computer fighters; every player runs their own hero.
 // Everyone sends their hero's state ~15 times a second; the host sends the computer fighters and the match state.
 // Hits go to whoever owns the target: a player's own machine for a player, the host for a computer fighter.
-import { arenaSpec, arenaDecor, arenaWeaponDecor } from './arenalooks.js';
+import { addOutline, arenaSpec, arenaDecor, arenaWeaponDecor } from './arenalooks.js';
 import * as THREE from 'three';
 import { Net } from './net.js';
 import { G } from './state.js';
@@ -122,7 +122,7 @@ export class RemoteFighter {
     if (this.root) G.scene.remove(this.root); this.cls = cls; this.h = { race, cls };
     const ch = buildHumanoid({ race, sex: 'm', cls, outfit: cls, spec: arenaSpec(cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, cls);
     try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* unknown weapon */ }
-    try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; }
+    try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } addOutline(ch.root);
     teamRim(this.flashMats, this.team !== G.myTeam);
     G.scene.add(this.root);
   }

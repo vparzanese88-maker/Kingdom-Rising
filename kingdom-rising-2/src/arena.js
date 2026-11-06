@@ -14,7 +14,7 @@ import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
 import * as Icons from './icons.js';
-import { arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { playNotes, notesTick, addOutline, arenaSpec, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -45,7 +45,7 @@ export const ARENA_KITS = {
   musketeer: ['fieldbandage', 'grapeshot', 'bolas'], blunderbuss: ['fielddressing', 'buckshot', 'buttstroke'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   wizard: ['voidsiphon', 'disintegrate', 'temporalbolt'], cleric: ['radiantheal', 'hammeroflight', 'holysmite'], paladin: ['layonhands', 'smitearc', 'hammerstrike'],
   darkknight: ['lifetap', 'dkraise', 'deathgrip'], druid: ['regrowth', 'callbear', 'entangle'], monk: ['serenity', 'hundredfists', 'pressure'],
-  bard: ['hymnrenewal', 'crescendo', 'mesmerize2'], rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'],
+  bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'raiseskel', 'ar_skullfear'],
   elementalist: ['cauterize', 'callflame', 'frostbind'], enchanter: ['enchanter_xd0', 'phantasm', 'mesmerize'], beastmaster: ['wildheal', 'warbeast', 'feralroar'],
 };
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
@@ -59,12 +59,14 @@ let kitRulesDone = false;
 const ARENA_NEW = {
   rogue: [{ id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
+  bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
   necromancer: [{ id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
 function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const cls in ARENA_NEW) for (const a of ARENA_NEW[cls]) if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === a.id)) ABILITIES[cls].push(a);
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }
+  for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
   { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) n.desc = 'Tear at the soul of the enemy you aim at: its life rushes straight back into you.'; }
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h) { h.cd = h.t === 'drain' || h.drain || h.regen ? Math.max(h.cd || 0, CD_FIX.drain) : Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); }
@@ -211,6 +213,7 @@ function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = '
 export function updateArena(dt) {
   G.tod = A.setup.tod || 0.335; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   updateColosseum(dt);
+  notesTick(dt);
   const p = G.player;
   if (A.state === 'pick') { A.t -= dt; if (p && !p.dead && !roomOf(p.pos.x, p.pos.z)) { const sp = spawnOf(A.me); p.place(sp.x, sp.z, p.yaw); } if (A.t <= 0 && AUTH()) startFight(); } // (wander the holding room and buff up until the gate lifts)
   else if (A.state === 'fight') { A.clock += dt; if (AUTH()) { objectives(dt); respawns(dt); } else { paintHill(); if (!A.me.alive) A.me.respawnT = Math.max(0, (A.me.respawnT || 0) - dt); } }
@@ -305,9 +308,9 @@ function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (tgt ===
 function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
 function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (u === G.player) { u.buffs[kind] = Math.max(u.buffs[kind] || 0, dur); if (kind === 'barrier') { u.buffs.barrier = u.maxHp * 0.2; u.buffs.barrierT = dur; } } else u.addBuff(kind, dur); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.2, kind === 'ward' || kind === 'barrier' ? '#80d8ff' : '#ffd84a', 0.4); }
 // the player's own heals and buffs that reach allies (healing spells with an area, songs, totems...)
-export function allyFx(at, [r, heal, kind, dur], up) {
-  const R = r * Math.sqrt(up); V.ring(at, R, heal ? '#80ff90' : '#80d8ff', 0.7);
-  for (const f of A.F) { const u = unitOf(f); if (!f.you && f.alive && f.team === G.myTeam && u && Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < R) { if (heal) healUnit(u, u.maxHp * heal * up, G.player); if (kind) buffUnit(u, kind === 'haste' ? 'swind' : kind, (dur || 8) * up); } }
+export function allyFx(at, [r, heal, kind, dur], up, quiet) {
+  const R = r * Math.sqrt(up); if (!quiet) V.ring(at, R, heal ? '#80ff90' : '#80d8ff', 0.7);
+  for (const f of A.F) { const u = unitOf(f); if (!f.you && f.alive && f.team === G.myTeam && u && Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < R) { if (quiet === 'notes') playNotes(G.scene, u, '#ffd860', 5); if (heal) healUnit(u, u.maxHp * heal * up, G.player); if (kind) buffUnit(u, kind === 'haste' ? 'swind' : kind, (dur || 8) * up); } }
 }
 
 // ---------------- projectiles and lingering areas (bots) ----------------
@@ -364,7 +367,7 @@ class ArenaBot {
     const w = h.equip.w1, wt = w ? w.wt : CLASSES[h.cls].weapons[0]; this.W = WEAPON_TYPES[wt] || WEAPON_TYPES.sword;
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}), spec: arenaSpec(h.cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, h.cls);
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, 3, 0); arenaWeaponDecor(ch, h.cls); } catch (e) { /* unknown weapon model */ }
-    try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } // (its own materials, so a hit can flash this fighter alone)
+    try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } addOutline(ch.root); // (its own materials, so a hit can flash this fighter alone)
     this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
     this.abs = [...(h.arenaKit || []), h.arenaRmb].filter(id => id && id !== 'aim').map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
@@ -411,7 +414,7 @@ class ArenaBot {
     { const real = Math.min(dmg, Math.max(0, hp0)); if (src && src.arenaF) src.arenaF.dmg += real; else if (src === G.player) A.me.dmg += real; } // (only the health actually taken counts)
     // control effects fall off when chained, like they do on players
     if (o.stun || o.freeze || o.slow || o.root || o.fear) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
-      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
+      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
     if (o.bleed) this.dots.push({ dps: o.bleed * PVP_K / 4, t: 4, src }); if (o.burn) this.dots.push({ dps: o.burn * PVP_K / 4, t: 4, src });
     if (this.cast && Math.random() < 0.35) this.cast = null; // hits can break a spell being cast
@@ -577,7 +580,7 @@ class ArenaBot {
   // ---- carrying out an ability ----
   resolve(a, tgt, lockAt) {
     if (this.dead) return; const P = (n) => this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
-    const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, el };
+    const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, el };
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
     if (AN.on && AN.host && a.t && !['bolt', 'drain', 'curse'].includes(a.t)) { const at = lockAt || (T && T.pos) || me; nsend({ t: 'bfx', i: this.arenaF.i, k: a.t, c: col, el, x: r2(at.x), z: r2(at.z), r: a.r || 5 }); } // (the others see the effect too)
@@ -594,7 +597,8 @@ class ArenaBot {
       case 'ground': case 'trap': { const at = a.t === 'trap' ? me : (lockAt || (T ? T.pos : me)); anim('cast'); const ticks = a.ticks || (a.t === 'trap' ? 1 : 4); let first = true; zone(this, at, a.t === 'trap' ? 3 : 4.5, ticks + 0.2, 1, (u) => { hitUnit(this, u, P(a.dmg), first ? o : { slow: a.slow || 0, el }); }, col); setTimeout(() => { first = false; }, 1100); return; }
       case 'aura': case 'stormwalk': case 'blizzaura': { anim('castBig'); zone(this, me, a.t === 'aura' ? 6 : 7, a.dur || 8, 0.5, (u) => { const d = hitUnit(this, u, P(a.dmg) * (a.t === 'aura' ? 1 : 0.6), { slow: a.slow || 0, stun: Math.random() < 0.15 ? (a.stun || 0) : 0, el }); drainBack(d, a.drain); }, col, true); return; }
       case 'heal': case 'hot': { const who = tgt || this, amt = (a.self || a.pct || 0.25) * who.maxHp; anim('castUp'); if (a.t === 'heal') healUnit(who, amt, this); else if (who === this) this.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 }); else if (who === G.player) G.player.addRegen ? G.player.addRegen(a.pct || 0.25, a.dur || 8) : healUnit(who, amt, this); else who.hots.push({ ps: amt / (a.dur || 8), t: a.dur || 8 });
-        if (a.ally || SUPPORT_CLS.has(this.cls)) for (const u of alliesOf(this)) if (u !== who && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < (a.r || 10)) healUnit(u, (a.ally || 0.15) * u.maxHp, this); V.ring(me, a.r || 3, '#80ff90', 0.6); return; }
+        if (a.ally || SUPPORT_CLS.has(this.cls)) for (const u of alliesOf(this)) if (u !== who && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < (a.r || 10)) { healUnit(u, (a.ally || 0.15) * u.maxHp, this); if (a.notes) playNotes(G.scene, u, '#ffd860', 5); }
+        if (a.notes) { playNotes(G.scene, this, '#ffd860', 8); S.cast && S.cast('holy', me, 0.6); } else V.burst('heal', me.clone().setY(me.y + 1.2), 20, { speed: 2, vy: 2 }); return; }
       case 'buff': { anim('cast'); const k = a.buff; if (k === 'avatar') { this.av = a.av || { dmg: 1.3, taken: 0.8 }; this.addBuff('avatar', a.dur || 12); } else if (k && k.startsWith('form')) this.addBuff('form', a.dur || 20); else if (k === 'barrier') { this.addBuff('barrier', a.dur || 12); this.barrier = this.maxHp * (a.amount || 0.25); } else if (k) this.addBuff(k, a.dur || 8);
         if (SUPPORT_CLS.has(this.cls) && ['ward', 'cry', 'fort', 'stand'].includes(k)) for (const u of alliesOf(this)) if (Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < 12) buffUnit(u, k, (a.dur || 8) * 0.8);
         V.sphereFlash(me.clone().setY(me.y + 1), 1.4, k === 'ward' || k === 'barrier' || k === 'fort' ? '#80d8ff' : '#ffd060', 0.45); return; }

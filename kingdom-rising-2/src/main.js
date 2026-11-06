@@ -73,7 +73,7 @@ function boot() {
   buildTerrain(scene); water = buildWater(scene); sky = buildSky(scene); fall = buildWaterfall(scene);
   buildWorld(scene); if (!BATTLE) placeHomeBoat(scene);
   V.init(scene, camera);
-  composer = new EffectComposer(renderer);
+  composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: settings.quality === 'low' ? 0 : 4 })); // (multisampled: smooth edges even through the post effects)
   composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());

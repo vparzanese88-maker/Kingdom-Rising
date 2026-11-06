@@ -228,10 +228,10 @@ export function summonDemon(caster, at) {
   // cast on the ground: the demon rises there; when it is ready to grab, it seizes the nearest enemy within reach,
   // lifts them overhead and bites their head off; if nobody is close enough, it sinks back into the depths
   if (at && at.pos) at = at.pos; if (!at) return false;
-  const D = makeDemon(), g = D.g, base = gy(at.x, at.z, at.y), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
+  const D = makeDemon(), g = D.g, inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
   const ox = at.x, oz = at.z; g.position.set(ox, base - 4.8, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
   V.ring(new THREE.Vector3(ox, base + 0.05, oz), 3.2, '#3a0a0a', 0.9); V.burst('stone', new THREE.Vector3(ox, base + 0.3, oz), 50, { speed: 7, grav: 14 }); V.burst('poison', new THREE.Vector3(ox, base + 0.5, oz), 40, { speed: 4 }); S.rumble && S.rumble(g.position, 1.4); S.explode && S.explode(new THREE.Vector3(ox, base, oz), 0.6); V.addShake(0.5);
-  const team = caster === G.player ? G.myTeam : caster.team, enemies = () => A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead);
+  const team = caster === G.player ? G.myTeam : caster.team, enemies = () => inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos); /* (the Training Yard: its dummies) */
   let t = 0, bit = false, victim = null, from = null, sinkAt = 2.4; const hp = new THREE.Vector3(), mouth = new THREE.Vector3();
   G.timers.push({ update: (dt) => { t += dt; const e = (x) => x * x * (3 - 2 * x);
     if (t >= 0.9 && !victim && sinkAt === 2.4) { let best = null, bd = 5.5; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
@@ -244,7 +244,7 @@ export function summonDemon(caster, at) {
     if (victim && !bit && victim.held) { const k = t < 1.7 ? e((t - 0.9) / 0.8) : 1, k2 = t > 1.8 ? Math.min(1, (t - 1.8) / 0.35) : 0; const p2 = from.clone().lerp(hp.clone().setY(hp.y - 1.0), k).lerp(mouth.clone().setY(mouth.y - 1.0), k2);
       victim.pos.copy(p2); if (victim.root) victim.root.position.copy(p2); if (victim === G.player && G.player.vel) G.player.vel.set(0, 0, 0); }
     if (victim && !bit && t >= 2.15) { bit = true; victim.held = false; V.burst('blood', mouth, 60, { speed: 6 }); V.burst('poison', mouth, 30, { speed: 4 }); V.sphereFlash(mouth, 1.2, '#ff3020', 0.2); S.hit && S.hit('flesh', mouth, 2); S.growl && S.growl('wolf', mouth, 0.6); V.addShake(0.7);
-      if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } } else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
+      if (victim === G.player) { const p = G.player; if (!p.dead) { p.hp = 0; p.die && p.die(caster); } } else if (victim.dummy) { victim.takeHit && victim.takeHit(99999, caster, {}); victim.pos.copy(from); if (victim.root) victim.root.position.copy(from); } else if (!victim.dead) { victim.hp = 0; if (victim.root) victim.root.visible = false; victim.die && victim.die(caster); }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
     if (t > sinkAt + 1.0) { G.scene.remove(g); if (victim) victim.held = false; return true; } return false; } }); // (a timer is finished when it returns true)
   return true;

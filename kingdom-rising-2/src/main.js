@@ -899,7 +899,7 @@ function titleCam(t) {
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
-  if (G.hitstop > 0) { G.hitstop -= dt; dt *= 0.15; }
+  if (G.hitstop > 0) { if (ARENA) G.hitstop = Math.min(G.hitstop, 0.05); G.hitstop -= dt; dt *= ARENA ? 0.4 : 0.15; } /* (the arena: a short, soft hit-stop so steady hits never stutter) */
   G.time += dt; world.time.value = G.time;
   const p = G.player;
   if (mode === 'title' || mode === 'creator') {

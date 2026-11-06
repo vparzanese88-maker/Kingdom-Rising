@@ -6,7 +6,7 @@ import { S, A } from './audio.js';
 import { settings, saveSettings, DEFAULT_SETTINGS } from './saves.js';
 import { PROCS, procChance, PROC_DEX } from './data.js';
 import * as Skills from './skills.js';
-import { HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
+import { NODE_TYPES, MOBS, MERCHANT_STOCK, HOTBAR_KEYS, SUPPORT_SLOTS, RACES, CLASSES, WEAPON_TYPES, ABILITIES, AREA_UNLOCK_LEVEL, ITEMS, TOOLS, TOOL_TIER_NAMES, QUESTS, NPCS, RARITY, STAT_NAMES, STAT_DESC, xpForLevel, LEVEL_CAP, ZONES, STATIONS, RECIPES, GOBLIN_CAMPS, ARMOR_SLOT_LIST, RANK2_LEVEL, CLASS_POOLS, TIERS, FAMILIES, WSKILLS, slotSkills, classFamilies, familyTree, COMBOS, RMB_SPECIAL, SLOT_LABEL, CLASS_TREE, WEAPON_TREE, MASTERY_CAP, masteryXpFor, FOOD_BUFFS } from './data.js';
 import * as Game from './game.js';
 import { BATTLE } from './battlemap.js';
 import * as Icons from './icons.js';
@@ -486,7 +486,7 @@ function renderInventory(c) {
       <div><span>Health</span><b style="color:#ff8a7a">${D.maxHp}</b></div>${D.maxMana ? `<div><span>Mana</span><b style="color:#8ac0ff">${D.maxMana}</b></div>` : ''}<div><span>Endurance</span><b style="color:#f2cc50">${D.maxEnd}</b></div>
       <div><span>Armour</span><b>${D.armor}</b></div><div><span>Damage</span><b>${w ? Math.round(Game.weaponDamage(h, w)) : 0}</b></div><div><span>Critical</span><b>${(D.crit * 100).toFixed(1)}%</b></div>
     </div>
-    <div class="tools">${Object.keys(TOOLS).map(t => `<div class="tl ${h.tools[t] ? '' : 'none'}" title="${h.tools[t] ? (TOOL_TIER_NAMES[h.tools[t]] + ' ' + TOOLS[t].name) : 'No ' + TOOLS[t].name}">${Icons.toolSvg(t, h.tools[t] || 1)}<span>${h.tools[t] ? TOOL_TIER_NAMES[h.tools[t]] : '—'}</span></div>`).join('')}</div>`;
+`;
   if (G.newFx) { // EverQuest-style skills: what you have used, out of what your level allows
     const cap = Skills.skillCap(h), cur = Skills.skillOf(w && w.wt), has = Object.keys(Skills.SKILLS).filter(k => (h.skills && h.skills[k]) || k === cur || (k === 'dual' && Skills.DUAL_CLASSES.has(h.cls)) || (k === 'double' && Skills.DOUBLE_CLASSES.has(h.cls)) || (k === 'triple' && Skills.TRIPLE_CLASSES.has(h.cls)) || (k === 'casting' && (Skills.CASTER_CLASSES.has(h.cls) || Skills.HYBRID_CLASSES.has(h.cls))));
     st.insertAdjacentHTML('beforeend', `<div class="skl"><h5>Skills <small>max ${cap} at level ${h.level}</small></h5>${has.map(k => { const v = Skills.skill(h, k), kc = Skills.skillCapOf(h, k); if (kc <= 0) return `<div class="off" title="Learned at level ${k === 'double' ? 10 : 15}"><span>${Skills.SKILLS[k]}</span><i></i><b>🔒 ${k === 'double' ? 10 : 15}</b></div>`; return `<div class="${k === cur ? 'on' : ''}" title="${k === 'dual' ? 'How often the off hand swings too (with Dexterity)' : k === 'double' ? 'Chance of a second main-hand swing' : k === 'triple' ? 'After a double attack, a chance of a third swing' : k === 'casting' ? (Skills.CASTER_CLASSES.has(h.cls) ? 'Spells cast faster (up to 50% at skill 105) and magical staffs hit harder (+0.2% a point). Rises by casting spells.' : 'Spells cast faster (up to 25% at skill 105, hybrid) and magical staffs hit harder. Rises by casting spells.') : 'Each point: +0.2% damage with this kind of weapon'}"><span>${Skills.SKILLS[k]}</span><i><u style="width:${Math.round(v / kc * 100)}%"></u></i><b>${v}<small>/${kc}</small></b></div>`; }).join('')}</div>`);
@@ -494,7 +494,8 @@ function renderInventory(c) {
   const left = el('div', 'invleft'); left.append(doll, st);
   // bag
   const right = el('div', 'invright');
-  right.innerHTML = `<div class="bagh"><h3>Backpack</h3><span class="goldc">${Icons.coin()} ${h.gold}</span></div>`;
+  right.innerHTML = `<div class="bagh"><h3>Backpack</h3><div class="toolbelt" title="Tool belt · used by itself when you chop, mine or skin"><small>Tool belt</small>${Object.keys(TOOLS).map(t => `<div class="tl ${h.tools[t] ? '' : 'none'}" title="${h.tools[t] ? (TOOL_TIER_NAMES[h.tools[t]] + ' ' + TOOLS[t].name) : 'No ' + TOOLS[t].name} · used by itself when you ${t === 'hatchet' ? 'chop a tree' : t === 'pickaxe' ? 'mine a rock' : 'skin a beast'}">${Icons.toolSvg(t, h.tools[t] || 1)}<span>${h.tools[t] ? TOOL_TIER_NAMES[h.tools[t]] : '—'}</span></div>`).join('')}</div>${G.newFx ? '<button class="btn skillsbtn">📜 Skills <small>(O)</small></button>' : ''}<span class="goldc">${Icons.coin()} ${h.gold}</span></div>`;
+  { const sb = right.querySelector('.skillsbtn'); if (sb) sb.onclick = () => { S.click(); openSkillsWin(); }; }
   const grid = el('div', 'grid');
   h.inv.forEach((it, i) => {
     const cell = el('div', 'cell' + (it && it.kind ? ' r' + it.rarity : '') + (selInv && selInv.i === i ? ' sel' : ''), it ? `${Icons.itemSvg(it)}${!it.kind ? `<span class="n">${it.n}</span>` : ''}` : '');
@@ -637,6 +638,16 @@ export function openCrafting(station) {
   openWin('craft', station ? STATIONS[station] : 'Recipes', '', 'big craftwin');
   renderCraft();
 }
+// where a crafting material comes from, in plain words
+function matSource(id) {
+  const out = [];
+  for (const N of Object.values(NODE_TYPES)) if (N.item === id) { out.push(`${N.verb} ${N.name}s${N.tool ? ` (${TOOLS[N.tool].name})` : ''}`); if (out.length > 1) break; }
+  if (id === 'raw_hide') out.push('Skin dead beasts (Skinning Knife)');
+  const R = RECIPES.find(r => r.out === id); if (R) out.push(`Craft at a ${STATIONS[R.station]}`);
+  const mobs = Object.values(MOBS).filter(m => !m.petOnly && m.loot && m.loot[id]).map(m => m.name); if (mobs.length) out.push('Dropped by ' + mobs.slice(0, 3).join(', '));
+  if (MERCHANT_STOCK.includes(id)) out.push('Sold by merchants');
+  return out.join(' · ') || 'Found out in the world';
+}
 function renderCraft() {
   const c = winRoot().querySelector('.content'); if (!c) return;
   const h = G.player.h, st = craftState;
@@ -651,7 +662,7 @@ function renderCraft() {
   const grid = el('div', 'crgrid');
   for (const r of rs) {
     const can = Game.canCraft(h, r), low = h.level < r.lvl;
-    const t = el('button', 'crtile' + (st.sel === r ? ' sel' : '') + (can ? ' can' : low ? ' low' : ''), `<div class="ti">${Icons.itemSvg(Game.recipeItem(r))}</div><b>${esc(Game.recipeOutputName(r))}</b><small>${low ? '🔒 Level ' + r.lvl : can ? 'Ready to craft' : 'Missing materials'}</small>`);
+    const t = el('button', 'crtile' + (st.sel === r ? ' sel' : '') + (can ? ' can' : low ? ' low' : ''), `<div class="ti">${Icons.itemSvg(Game.recipeItem(r))}</div><b>${esc(Game.recipeOutputName(r))}</b><small>${low ? '🔒 Level ' + r.lvl : can ? 'Ready to craft' : 'Missing materials'}</small><div class="crneed">${Object.entries(r.need).map(([id, n]) => { const have = Game.count(h, id); return `<span class="${have >= n ? 'ok' : 'no'}" title="${esc(ITEMS[id] ? ITEMS[id].name : id)} · ${esc(matSource(id))}">${Icons.itemSvg({ id })}<i>${have}/${n}</i></span>`; }).join('')}</div>`);
     t.onclick = () => { S.click(); st.sel = r; renderCraft(); }; grid.appendChild(t);
   }
   if (!rs.length) grid.appendChild(el('p', 'dim', 'Nothing you can make here yet.'));
@@ -661,7 +672,7 @@ function renderCraft() {
     const r = st.sel, it = Game.recipeItem(r), can = Game.canCraft(h, r);
     let statHtml = ''; if (it && it.kind) { const d = el('div'); showTip(d, it, null, null, null, false); statHtml = d.innerHTML; }
     else if (it && ITEMS[it.id]) statHtml = `<div class="dim">${esc(ITEMS[it.id].desc || '')}</div>`;
-    const mats = Object.entries(r.need).map(([id, n]) => { const have = Game.count(h, id), ok = have >= n; return `<div class="crmat${ok ? ' ok' : ''}"><span class="mi">${Icons.itemSvg({ id })}</span><b>${esc(ITEMS[id] ? ITEMS[id].name : id)}</b><em>${have}/${n}</em></div>`; }).join('');
+    const mats = Object.entries(r.need).map(([id, n]) => { const have = Game.count(h, id), ok = have >= n; return `<div class="crmat${ok ? ' ok' : ''}"><span class="mi">${Icons.itemSvg({ id })}</span><b>${esc(ITEMS[id] ? ITEMS[id].name : id)}<small class="crsrc">${ok ? 'You have enough' : esc(matSource(id))}</small></b><em>${have}/${n}</em></div>`; }).join('');
     det.innerHTML = `<div class="crbig"><div class="ti">${Icons.itemSvg(it)}</div><div><b>${esc(Game.recipeOutputName(r))}</b>${r.n > 1 ? ` <span class="dim">×${r.n}</span>` : ''}<div class="dim">${STATIONS[r.station]} · level ${r.lvl}</div></div></div>
       <div class="crstats">${statHtml}</div><h4>Materials</h4><div class="crmats">${mats}</div>${r.weapon || r.armor ? '<div class="dim crnote">Crafted gear sometimes comes out Uncommon, or better.</div>' : ''}`;
     const row = el('div', 'crbtns'), here = !!st.station;
@@ -894,7 +905,7 @@ export function openMerchant(npc) {
     else for (const t of Object.keys(TOOLS)) { const have = h.tools[t] || 0, next = TOOL_SHOP.find(x => x[0] > have);
       if (!next) { grid.appendChild(slot(Icons.toolSvg(t, have), 'owned', null, () => `<b>${TOOL_TIER_NAMES[have]} ${TOOLS[t].name}</b><div>${TOOLS[t].desc}</div><div class="tbuy">You have the best one.</div>`, () => {}, 'Owned')); continue; }
       const [tier, price, lvl] = next, lock = h.level < lvl ? `Lv ${lvl}` : '';
-      grid.appendChild(slot(Icons.toolSvg(t, tier), h.gold < price ? 'poor' : '', price, () => `<b>${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}</b><div>${TOOLS[t].desc}</div>${have ? `<div class="dim">Replaces your ${TOOL_TIER_NAMES[have]} one: faster, and works on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.</div>` : ''}<div class="tbuy">${lock ? `Requires level ${lvl}` : `Click to buy for ${price} gold`}</div>`, () => { if (h.gold < price) { S.error(); return; } h.gold -= price; h.tools[t] = tier; last = `Bought ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`; }, lock)); }
+      grid.appendChild(slot(Icons.toolSvg(t, tier), h.gold < price ? 'poor' : '', price, () => `<b>${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}</b><div>${TOOLS[t].desc}</div>${have ? `<div class="dim">Replaces your ${TOOL_TIER_NAMES[have]} one: faster, and works on tougher ${t === 'pickaxe' ? 'ore' : t === 'hatchet' ? 'trees' : 'beasts'}.</div>` : ''}<div class="tbuy">${lock ? `Requires level ${lvl}` : `Click to buy for ${price} gold`}</div>`, () => { if (h.gold < price) { S.error(); return; } h.gold -= price; h.tools[t] = tier; last = `Bought ${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name}`; toast(`${TOOL_TIER_NAMES[tier]} ${TOOLS[t].name} is on your tool belt (Hero window, I). It is used by itself whenever you ${t === 'hatchet' ? 'chop a tree' : t === 'pickaxe' ? 'mine a rock' : 'skin a beast'}.`, Icons.toolSvg(t, tier), 'gold'); }, lock)); }
     buy.appendChild(grid); lay.appendChild(buy);
     // ---- sell ----
     const sell = el('div', 'shoppane'); sell.appendChild(el('h3', '', 'Your bag'));

@@ -2,7 +2,7 @@
 import { CLASS_STORY } from './classlore.js';
 import * as THREE from 'three';
 import { NEW_CLASSES } from './classes2.js';
-import { RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
+import { TWIN_TO_SINGLE, RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
 import { listSaves, deleteSave, canCreate, MAX_SAVES, fmtTime, fmtDate, putSave, listCampaigns, MAX_CHARS } from './saves.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
 import { newHero } from './game.js';
@@ -369,7 +369,7 @@ function rebuildPreview() {
   const P = Menu.preview; if (!P) return;
   if (P.ch) P.holder.clear();
   const ch = buildHumanoid(Object.assign({ race: C.race, sex: C.sex, cls: C.cls }, C.app));
-  equipWeapon(ch, C.weapon, 0, 0);
+  equipWeapon(ch, C.battle ? C.weapon : (TWIN_TO_SINGLE[C.weapon] || C.weapon), 0, 0); // the campaign has no twin weapons: show the single one you will start with
   ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   P.holder.add(ch.root); P.ch = ch;
 }

@@ -10,6 +10,8 @@ import * as Icons from './icons.js';
 import { S } from './audio.js';
 import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon } from './arena.js';
 import { classPortrait } from './portraits.js';
+import { playUlt, ULT_ORDER } from './yardults.js';
+import { openKitInfo } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline } from './arenalooks.js';
 
@@ -59,10 +61,19 @@ export function yardHero(cls, keep) {
 // weapons you can pick: everything except a lone shield
 const PICK = () => Object.keys(WEAPON_TYPES).filter(w => w !== 'shield' && !['daggers', 'handaxes', 'swordmace'].includes(w)); // no twin weapons
 let YF = 'all';
-export function openYardPanel(UI) {
+let YT = 'class';
+// the one Training Yard window: class and perks, get hit by an ultimate, and what your keys do
+export function openYardPanel(UI, tab) {
+  if (tab) YT = tab;
   const c = UI.openWin('yard', 'Training Yard', '', 'big yardwin'), h = G.save;
   const render = () => {
     c.innerHTML = ''; const h = G.save;
+    const top = el('div', 'artabs yardtop'); for (const [k, nm] of [['class', 'Class & perks'], ['ult', 'Get hit by an ultimate'], ['keys', 'Your keys']]) { const t = el('button', 'artab' + (YT === k ? ' on' : ''), nm); t.onclick = () => { S.click(); YT = k; render(); }; top.appendChild(t); } c.appendChild(top);
+    if (YT === 'ult') { c.appendChild(el('h3', '', 'Get hit by an ultimate <small>pick one: an enemy of that class appears in front of you and uses it on you, and you watch from the victim\'s side</small>'));
+      const ug = el('div', 'pgrid yardgrid'); for (const k of ULT_ORDER) { if (!CLASSES[k]) continue; const id = ultOf(k), ab = id && ABILITIES[k].find(a => a.id === id); if (!ab) continue;
+        const b = el('button', 'pcard', `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b><span style="display:block;font-size:12px;color:#ffd070">${ab.name}</span>`); b.onclick = () => { S.click(); UI.closeWin(); setTimeout(() => playUlt(k), 120); }; ug.appendChild(b); }
+      c.appendChild(ug); return; }
+    if (YT === 'keys') { try { openKitInfo(UI, c); } catch (e) { c.appendChild(el('p', 'dim', 'Your keys are listed in the arena.')); } return; }
     c.appendChild(el('h3', '', 'Class <small>the arena classes: the same keys, looks, ultimate and perks</small>'));
     const tabs = el('div', 'artabs'); for (const [k, nm] of [['all', 'All'], ['Tank', 'Tanks'], ['Healer', 'Healers'], ['Damage', 'Damage']]) { const t = el('button', 'artab' + (YF === k ? ' on' : ''), nm); t.onclick = () => { S.click(); YF = k; render(); }; tabs.appendChild(t); } c.appendChild(tabs);
     const cg = el('div', 'pgrid yardgrid');

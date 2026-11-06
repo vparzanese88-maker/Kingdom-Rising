@@ -370,8 +370,8 @@ export function openPerks(UI) {
   draw();
 }
 // I or H: what every one of your keys does
-export function openKitInfo(UI) {
-  const p = G.player, h = p.h, W = p.W, cls = h.cls, c = UI.openWin('arenakit', CLASSES[cls].name + ' · your abilities', '', 'big');
+export function openKitInfo(UI, into) {
+  const p = G.player, h = p.h, W = p.W, cls = h.cls, c = into || UI.openWin('arenakit', CLASSES[cls].name + ' · your abilities', '', 'big');
   const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);

@@ -45,6 +45,8 @@ export function openUltPicker() {
   w.querySelector('#ultclose').onclick = close; window.addEventListener('keydown', key, true);
 }
 
+export function playUlt(cls) { const id = ultOf(cls), ab = id && (ABILITIES[cls] || []).find(a => a.id === id); if (ab) play(cls, ab); }
+export const ULT_ORDER = ORDER;
 // ---------- the show ----------
 function play(cls, ab) {
   if (cls === 'necromancer') { yardUltTest(); return; } // (the real demon, with its own cinematic)

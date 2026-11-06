@@ -316,7 +316,7 @@ function campaignSetup() {
   // campaign summons stay until they fall, or until you summon again
   for (const c in ABILITIES) for (const a of ABILITIES[c]) if (a.t === 'summon' || a.id === 'spiritwolf') a.desc = a.desc.replace(/ for \d+ s/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\.?\s*$/, '.') + ' It stays until it falls, or until you summon again.';
   // reworked classes: in the campaign they use only what is in their trees (plus a crowning ability like the Pure Elemental)
-  for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard', 'beastmaster', 'blunderbuss']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
+  for (const c of ['elementalist', 'wizard', 'darkknight', 'necromancer', 'bard', 'beastmaster', 'blunderbuss', 'shaman']) if (ABILITIES[c] && CLASS_TREES[c]) { const keep = new Set(CLASS_TREES[c].flatMap(T => T.nodes.map(n => n.ab).filter(Boolean))); if (CROWN[c]) keep.add(CROWN[c].ab); ABILITIES[c] = ABILITIES[c].filter(a => keep.has(a.id)); }
   // what each ability costs: spells cost mana; melee and physical ranged attacks (bows, guns, thrown things) cost endurance.
   // Pure melee classes and classes without mana use endurance for everything.
   { const PURE = new Set(['warrior', 'berserker', 'rogue', 'monk', 'musketeer', 'blunderbuss']), PHYS_T = new Set(['strike', 'dash', 'flurry', 'trap', 'petstrike']);

@@ -268,6 +268,7 @@ export class Mob {
     if (opts.stun) this.status.stun = Math.max(this.status.stun, this.def.boss ? opts.stun * 0.3 : opts.stun);
     if (opts.freeze) this.status.frozen = Math.max(this.status.frozen, this.def.boss ? opts.freeze * 0.3 : opts.freeze);
     if (opts.slow) this.status.slow = Math.max(this.status.slow, opts.slow);
+    if (opts.root) this.status.root = Math.max(this.status.root || 0, this.def.boss ? opts.root * 0.3 : opts.root);
     if (opts.bleed) { this.status.bleed = 4; this.status.bleedDps = opts.bleed; }
     if (opts.burn) { this.status.burn = 3; this.status.burnDps = opts.burn; }
     if (!opts.silent) {
@@ -311,13 +312,14 @@ export class Mob {
     if (st.bleed > 0) { st.bleed -= dt; this.dotAcc = (this.dotAcc || 0) + st.bleedDps * dt; }
     if (st.burn > 0) { st.burn -= dt; this.dotAcc = (this.dotAcc || 0) + st.burnDps * dt; if (Math.random() < dt * 12) V.burst('fire', this.pos.clone().setY(this.pos.y + this.height * 0.5), 1, { speed: 1, vy: 2 }); }
     if (this.dotAcc >= 1) { const d = Math.floor(this.dotAcc); this.dotAcc -= d; this.takeHit(d, player, { silent: true }); V.number(this.pos.clone().setY(this.pos.y + this.height), d, 'dot', st.burn > 0 && !(st.bleed > 0) ? '#ff8a3a' : st.bleed > 0 ? '#ff5a4a' : null); if (this.dead) return; }
-    for (const k of ['frozen', 'stun', 'slow']) if (st[k] > 0) st[k] -= dt;
+    for (const k of ['frozen', 'stun', 'slow', 'root']) if (st[k] > 0) st[k] -= dt;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     for (const m of this.mats) m.emissive && m.emissive.setScalar(this.hitFlash > 0 ? 0.6 : 0);
     if (this.frozenMesh) this.frozenMesh.visible = st.frozen > 0;
     // stun stars circling the head
     if (st.stun > 0) { if (!this.stars) { this.stars = new THREE.Group(); const sm = new THREE.MeshBasicMaterial({ color: '#ffe040' }); for (let k = 0; k < 4; k++) { const st2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), sm); const a = k / 4 * Math.PI * 2; st2.position.set(Math.cos(a) * 0.38, 0, Math.sin(a) * 0.38); this.stars.add(st2); } G.scene.add(this.stars); } this.stars.visible = true; this.stars.position.set(this.pos.x, this.pos.y + this.height + 0.25, this.pos.z); this.stars.rotation.y += dt * 5; }
     else if (this.stars) this.stars.visible = false;
+    if (st.root > 0 && Math.random() < dt * 10) V.emit('leaf', this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.1 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8)), { speed: 0.3, vy: 0.4, size: 0.25, life: 0.6 });
     if (st.slow > 0 && Math.random() < dt * 4) V.emit('frost', this.pos.clone().setY(this.pos.y + 0.3), { speed: 0.4, size: 0.18, life: 0.6 });
     if (st.bleed > 0 && Math.random() < dt * 6) V.burst('blood', this.pos.clone().setY(this.pos.y + this.height * 0.6), 1, { speed: 0.5, size: 0.08 });
     if (st.frozen > 0 && !this.frozenMesh) { this.frozenMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#bfefff', transparent: true, opacity: 0.45, roughness: 0.1, emissive: '#3080a0', emissiveIntensity: 0.4 })); this.frozenMesh.scale.set(this.radius * 1.4 / this.root.scale.x, this.height * 0.6 / this.root.scale.x, this.radius * 1.4 / this.root.scale.x); this.frozenMesh.position.y = this.height * 0.45 / this.root.scale.x; this.root.add(this.frozenMesh); }
@@ -326,7 +328,7 @@ export class Mob {
     const d2p = this.dist2(player.pos), dp = Math.sqrt(d2p);
     const px0 = this.pos.x, pz0 = this.pos.z;
     let speed = 0, want = null;
-    const spd = this.def.speed * (st.slow > 0 ? 0.5 : 1);
+    const spd = this.def.speed * (st.slow > 0 ? 0.5 : 1) * (st.root > 0 ? 0 : 1); // rooted: stuck in place, still swinging
     if (!disabled) {
       this.atkCd -= dt;
       // aggro

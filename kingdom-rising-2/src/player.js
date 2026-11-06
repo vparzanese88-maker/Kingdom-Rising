@@ -56,7 +56,7 @@ const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight:
   monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
 const FORMS = { formVoid: { name: 'Void Form', col: '#7a2aff', k: 1.0, mote: 'shadow', el: 'arcane' }, formTime: { name: 'Timeless Form', col: '#ffd060', k: 0.9, mote: 'gold', el: 'arcane' }, formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
 const B_AV = (p) => p.buffs.avatar > 0 && p.avatar;
-const CASTER_K = { wizard: 1.2, elementalist: 0.85 }; // campaign: the wizard is the strongest caster; the elementalist's power is in its elemental
+const CASTER_K = {}; // no hidden caster multipliers: the wizard out-damages through its spells
 const EL_COL = { fire: '#ff8a3a', frost: '#8ad8ff', arcane: '#c080ff', shadow: '#b070ff', storm: '#e8e8ff', lightning: '#e8e8ff', poison: '#8fe05a', venom: '#8fe05a', nature: '#8fe05a', holy: '#ffe080', light: '#ffe080' };
 // creature defence: 4 physical and 4 magical per level; how much it blocks depends on your own level too
 export function mobDefense(m, plv, magic) { const d = Math.max(0, m.lv - 1) * 2 * (magic ? (m.def.magicK || 1) : (m.def.physK || 1)); return Math.min(0.75, d / (d + 60 + plv * 10)); }
@@ -285,7 +285,7 @@ function noteTex(col, ch) { const k = col + ch; if (NOTE_TEX[k]) return NOTE_TEX
 // Kingdom Battles class tuning, from the class balance test (damage per second x toughness, levels 1, 5 and 10)
 const CLASS_TUNE = { warrior: { dmg: 1.05, hp: 1 }, berserker: { dmg: 0.88, hp: 1 }, ranger: { dmg: 1.1, hp: 1.08 }, wizard: { dmg: (L) => 0.8 * (1 + 0.35 * (LEVEL_CAP - L) / (LEVEL_CAP - 1)), hp: 1.12 }, musketeer: { dmg: 1, hp: 1.05 }, shaman: { dmg: 0.59, hp: 0.74 }, ...Object.fromEntries(Object.entries(NEW_CLASSES).map(([id, c]) => [id, c.tune || { dmg: 1, hp: 1 }])), none: { dmg: 1, hp: 1 } };
 // campaign balance (from the balance model: every class within about 15% of the others' solo strength, each by its role)
-const CAMP_TUNE = { wizard: { dmg: 1.24, hp: 1.2 }, rogue: { dmg: 1.5, hp: 1.1 }, ranger: { dmg: 1.11, hp: 0.85 }, musketeer: { dmg: 1.07, hp: 0.9 }, berserker: { dmg: 1.22, hp: 1.13 }, monk: { dmg: 1.19, hp: 0.93 }, blunderbuss: { dmg: 1.07, hp: 1.3 }, elementalist: { dmg: 1.04, hp: 1.25 }, necromancer: { dmg: 0.97, hp: 0.75 }, beastmaster: { dmg: 0.69, hp: 1.23 }, warrior: { dmg: 0.93, hp: 1.25 }, paladin: { dmg: 1.18, hp: 1.12 }, darkknight: { dmg: 1.05, hp: 0.81 }, bard: { dmg: 0.62, hp: 1.16 }, shaman: { dmg: 1.5, hp: 1.11 }, druid: { dmg: 0.65, hp: 0.95 }, enchanter: { dmg: 0.8, hp: 1.15 }, cleric: { dmg: 1.13, hp: 0.8 } };
+const CAMP_TUNE = {}; // no hidden class multipliers in the campaign: classes balance through their abilities
 export const campTune = (cls) => (G.newFx && CAMP_TUNE[cls]) || { dmg: 1, hp: 1 };
 export class Player {
   constructor(hero) {
@@ -312,7 +312,7 @@ export class Player {
   skills() { const w = this.weapon; return w ? slotSkills(w.wt, this.h.wsel || {}) : []; }
   get weapon() { return activeWeapon(this.h); }
   get W() { const w = this.weapon; return w ? WEAPON_TYPES[w.wt] : null; }
-  hpK() { return (G.battleFx ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1) * campTune(this.h.cls).hp; }
+  hpK() { return (BATTLE ? (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).hp : 1) * campTune(this.h.cls).hp; } // (Kingdom Battles keeps its old tuning until it moves to the campaign abilities)
   refreshStatsOnly() { const D = heroDerived(this.h); this.D = D; this.maxHp = Math.round(D.maxHp * this.hpK()); this.hp = Math.min(this.hp, this.maxHp); this.maxMana = D.maxMana; this.maxEnd = D.maxEnd; }
   refreshGear(first) {
     this.sheathed = false;
@@ -1132,7 +1132,7 @@ export class Player {
     const FX = { gold: ['gold', '#ffd870'], shadow: ['shadow', '#9a60c0'], leaf: ['leaf', '#7ac050'], dust: ['dust', '#c8b090'], arcane: ['arcane', '#c080ff'], frost: ['frost', '#9ad8ff'], fire: ['fire', '#ff8030'], smoke: ['smoke', '#8a8a8a'], blood: ['blood', '#c02020'] };
     const [pk, col] = FX[a.fx] || ['spark', '#ffffff'];
     const el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.kind === 'arcane' || a.fx === 'arcane' || a.fx === 'shadow' ? 'arcane' : null;
-    const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
+    const hitO = (m, extra = {}) => Object.assign({ stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, burn: a.burn ? base * a.burn : 0, bleed: a.bleed ? base * a.bleed : 0, critBonus: a.crit || 0, el: el || undefined, knock: a.knock && m ? m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(a.knock) : undefined }, extra);
     const anim = (n, d = 0.45) => { if (G.newFx && (n === 'cast' || n === 'castBig')) { n = 'castRel'; d = 0.5; } this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
@@ -1231,7 +1231,7 @@ export class Player {
         const list = [t, ...(a.spread ? mobsInRadius(t.pos, a.spread * K).filter(m => m !== t) : [])];
         for (const m of list) {
           if (a.pull && m === t) { const to = this.pos.clone().addScaledVector(f, 2); m.pos.x = to.x; m.pos.z = to.z; }
-          if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.05), hitO(m, { freeze: a.freeze ? a.stun : 0 }));
+          if (a.dmg || a.stun || a.root || a.slow) this.dealDamage(m, P(a.dmg || 0.05), hitO(m, { freeze: a.freeze ? a.stun : 0 }));
           if (a.hex) m.hexUntil = G.time + a.hex;
           if (a.dot) { let k = 0; m.status.dot = a.dotT; m.status.dotName = a.name; const iv = setInterval(() => { if (m.dead || ++k > a.dotT || this.dead) { clearInterval(iv); if (!m.dead) m.status.dot = 0; return; } m.status.dot = a.dotT - k; this.dealDamage(m, P(a.dot), { silent: k % 2 === 0, el: 'arcane' }); if (Math.random() < 0.7) V.burst(k % 2 ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.7), 6, { speed: 0.8, size: 0.5, grav: -0.5 }); }, 1000); }
           V.burst(a.poison ? 'leaf' : 'shadow', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 24, { speed: 2.5, size: 0.7 }); }
@@ -1246,7 +1246,7 @@ export class Player {
         return true; }
       case 'ground': { const c = groundPoint(32), r = (a.r || 6) * K, n = a.ticks || 4; V.ring(c, r, col, n * 0.5 + 0.3);
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return;
-          for (const m of mobsInRadius(c, r)) if (a.dmg || a.stun) this.dealDamage(m, P(a.dmg || 0.02), hitO(m, { silent: k > 0 }));
+          for (const m of mobsInRadius(c, r)) if (a.dmg || a.stun || a.slow || a.root) this.dealDamage(m, P(a.dmg || 0.02), hitO(m, { silent: k > 0 }));
           if (a.healAllies && this.hk()) { ally(c, r, a.healAllies * up * this.hk()); if (Math.hypot(this.pos.x - c.x, this.pos.z - c.z) < r) this.heal(this.maxHp * a.healAllies * up * this.hk()); }
           for (let j = 0; j < 14; j++) { const q = c.clone().add(new THREE.Vector3((Math.random() - 0.5) * r * 1.6, 0.3 + Math.random() * 2, (Math.random() - 0.5) * r * 1.6)); V.burst(pk === 'spark' ? 'arcane' : pk, q, 1, { speed: 1.5, vy: pk === 'fire' ? 3 : 1 }); }
           if (k % 2 === 0) S.cast(el || 'arcane', c, 0.6); }, 150 + k * 500);
@@ -1477,7 +1477,7 @@ export class Player {
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
-    if (G.battleFx) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
+    if (BATTLE) { const ct = (CLASS_TUNE[this.h.cls] || CLASS_TUNE.none).dmg; dmg *= typeof ct === 'function' ? ct(this.h.level) : ct; }
     dmg *= campTune(this.h.cls).dmg;
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
     if (G.newFx && !m.dummy && !m.pet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el);

@@ -15,6 +15,7 @@ import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage
 import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } from './data.js';
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
+import { buildAdsView } from './adsview.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -391,6 +392,13 @@ export class Player {
       else if (this.press) { const pr = this.press; this.press = null; if (pr.charging) this.releaseHeavy(pr); else this.light(); }
       return;
     }
+    // Kingdom Arena: right click blocks only with a shield; a bow or gun aims down the barrel; everyone else casts a fourth ability
+    if (btn === 2 && this.h.arenaRmb !== undefined && !(this.W && this.W.hands === 'shield')) {
+      this.rmbHeld = false;
+      if (this.h.arenaRmb === 'aim' || (this.W && (this.W.kind === 'bow' || this.W.kind === 'gun'))) { this.adsHeld = down; return; }
+      if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); }
+      return;
+    }
     if (btn === 2) this.rmbHeld = down; // Kingdom Battles: hold right click to block (F fires the weapon special)
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'staff') { if (down) { this.cancelGather(); if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = Game.canHold(this.h, this.weapon.wt) ? { t: 0, on: false, tick: 0, snd: null } : null; this.light(); } else { if (this.channel && this.channel.snd) this.channel.snd.stop(); this.channel = null; } return; }
     if (btn === 0 && G.battleFx && this.W && this.W.kind === 'melee') {
@@ -564,13 +572,13 @@ export class Player {
       if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
       if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });
     } else if (W.kind === 'bow') {
-      const from = this.handPos(true), dir = this.aimDir(from);
+      const from = (this.adsK || 0) > 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, -0.02, -0.75).applyQuaternion(G.camera.quaternion)) : this.handPos(true), dir = this.aimDir(from);
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
-      const speed = G.battleFx ? 34 + charge * 36 : 38 + charge * 40;
-      spawnProjectile({ wpn: true, flat: G.battleFx ? 0.6 + charge * 1.1 : 0, pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      const sight = (this.adsK || 0) > 0.7, speed = (G.battleFx ? 34 + charge * 36 : 38 + charge * 40) + (sight ? 10 : 0); /* sighted: faster, flatter, a little harder */
+      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.6 + charge * 1.1 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
-    } else if (W.kind === 'gun') { this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release');
+    } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
@@ -1001,6 +1009,7 @@ export class Player {
     // means nothing in the world: work the muzzle out from the camera instead (centred under the eye when aiming)
     let from;
     if (this.camDist < 0.6) { const k = this.aimK || 0; from = G.camera.position.clone().add(new THREE.Vector3(0.22 * (1 - k), -0.2 * (1 - k) - 0.05 * k, -1.1).applyQuaternion(G.camera.quaternion)); }
+    else if ((this.adsK || 0) > 0.6) from = G.camera.position.clone().add(new THREE.Vector3(0, -0.03, -1.15).applyQuaternion(G.camera.quaternion)); // sighted: from the muzzle you are looking down
     else { const tip = this.ch.weapons.main; from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true); }
     const dir = this.aimDir(from);
     if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
@@ -1746,6 +1755,8 @@ export class Player {
     this.lichTick(dt); this.formTick(dt); this.avatarTick(dt);
     if (G.newFx && (this.lookCheckT = (this.lookCheckT || 0) - dt) <= 0) { this.lookCheckT = 0.1; const r = aimRay(60); if (r && r.mob) r.mob.lookT = G.time; } // names show when your crosshair passes over
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
+    this.ads = !!this.adsHeld && !ui && !this.dead && !this.sheathed && !this.dodge && !this.swim && !this.gathering && !!this.W && (this.W.kind === 'bow' || this.W.kind === 'gun') && !(this.abCast || this.summonCast);
+    this.adsK = (this.adsK || 0) + ((this.ads ? 1 : 0) - (this.adsK || 0)) * Math.min(1, dt * (this.ads ? 6 : 9));
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
     if (this.summonCast) this.tickSummon(dt);
@@ -1757,12 +1768,12 @@ export class Player {
     if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 14) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); }
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
-    let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk;
+    let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk && !this.ads;
     // sprinting burns endurance; once empty you must recover a little before sprinting again
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
-    let spd = (G.newFx && iz < 0 ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1);
+    let spd = (G.newFx && iz < 0 ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5); /* aiming down the barrel: a slow, steady walk */
     if (iz < 0) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
@@ -1858,13 +1869,14 @@ export class Player {
       if (a.name === 'castRel') action = 'castRel';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
+    if (!action && (this.adsK || 0) > 0.25 && this.W) { if (this.W.kind === 'gun') { action = 'gunAim'; actionT = 1; } else if (this.W.kind === 'bow') { action = 'shoot'; actionT = 0.3; } } // aiming down the barrel: the gun stays up at the shoulder, the bow half drawn
     { const cn = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast); if (cn) { action = 'castUp'; actionT = Math.min(1, cn.t / Math.min(0.8, cn.dur * 0.6)); } const mw = ch.weapons && ch.weapons.main; if (mw && G.newFx && !this.sheathed) mw.visible = !cn; }
     const roll = this.dodge && !this.dodge.charge && this.dodge.kind !== 'step' ? Math.min(1, this.dodge.t) : null;
     const rollDir = roll != null && this.dodge.dir ? Math.atan2(this.dodge.dir.x, this.dodge.dir.z) - this.bodyYaw : 0, rollKind = roll != null ? this.dodge.kind : null; // roll the way you dodge
     const aimStaff = action !== 'castUp' && action !== 'castRel' && this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     animateHumanoid(ch, dt, { turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
-    this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && ((this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
+    this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
     const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
@@ -1877,11 +1889,23 @@ export class Player {
     // stealth fade
     ch.root.traverse(o => { if (o.isMesh && o.material) { if (this.stealth > 0) { o.material.transparent = true; o.material.opacity = 0.35; } else if (o.material.opacity < 1) { o.material.opacity = 1; o.material.transparent = false; } } });
   }
+  // the weapon you see while aiming down the barrel: built once per weapon, lifted into view, kicks when it fires
+  adsView(ae) {
+    const kind = this.W && this.W.kind === 'bow' ? 'bow' : this.weapon && this.weapon.wt === 'blunderbuss' ? 'blunderbuss' : this.W && this.W.kind === 'gun' ? 'musket' : null;
+    if (this.adsG && (this.adsG.userData.kind !== kind)) { this.adsG.parent && this.adsG.parent.remove(this.adsG); this.adsG = null; }
+    if (!kind || ae < 0.05) { if (this.adsG) this.adsG.visible = false; return; }
+    if (!this.adsG) { const ap = this.h.app || {}, cm = this.ch.mats || {}; this.adsG = buildAdsView(kind, { skin: ap.skin, cloth: cm.shirt && cm.shirt.color ? '#' + cm.shirt.color.getHexString() : undefined }); this.adsG.userData.kind = kind; G.vmCam.add(this.adsG); }
+    const g = this.adsG, e = Math.max(0, (ae - 0.45) / 0.55), r = this.recoil || 0, t = G.time, mv = Math.min(1, (this.speed || 0) / 5);
+    g.visible = ae > 0.5;
+    g.position.set(Math.sin(t * 1.3) * 0.002 + Math.sin(t * 7) * 0.004 * mv, -(1 - e) * 0.22 + Math.sin(t * 1.1) * 0.0018 + Math.abs(Math.sin(t * 7)) * 0.006 * mv, r * 0.05);
+    g.rotation.set((g.userData.base || 0) + r * 0.07 + (1 - e) * 0.35, 0, (1 - e) * -0.25 + Math.sin(t * 0.9) * 0.004);
+    if (g.userData.hammer) g.userData.hammer.rotation.x = r > 0.2 ? 0.9 : 0; // the hammer falls when it fires
+  }
   updateCamera(dt) {
     const cam = G.camera;
     this.camDist += (this.camDistT - this.camDist) * Math.min(1, dt * 8);
     const fp = this.camDist < 0.6;
-    this.ch.root.visible = (!fp || this.dead) && !this.spectate;
+    this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp);
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);
@@ -1899,14 +1923,18 @@ export class Player {
     else {
       const back = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
       // over the right shoulder: the hero sits left of the crosshair
+      const ak = this.adsK || 0, ae = ak * ak * (3 - 2 * ak); // aiming down the barrel: the camera slides in behind the stock and looks along the sights
       const sh = this.right().multiplyScalar(0.72 * Math.min(1, this.camDist / 2.5));
       eye.y += 0.12; // (a lower camera keeps the hero up in the frame, clear of the bars at the bottom)
       let d = this.camDist;
-      for (let s = 0.5; s <= this.camDist; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3) { d = Math.max(0.5, s - 0.4); break; } }
+      for (let s = 0.5; s <= d; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3) { d = Math.max(0.5, s - 0.4); break; } }
       // the camera follows a smoothed point, so steps, landings and rolls don't jolt it
       if (!this.camA || this.camA.distanceTo(eye) > 6) this.camA = eye.clone();
       const kh = Math.min(1, dt * 18), kv = Math.min(1, dt * 9); this.camA.x += (eye.x - this.camA.x) * kh; this.camA.z += (eye.z - this.camA.z) * kh; this.camA.y += (eye.y - this.camA.y) * kv;
       cam.position.copy(this.camA).add(sh).addScaledVector(back, -d);
+      // aiming down the barrel: the eye moves to the cheek weld and a detailed weapon comes up into view (drawn on top, like first person)
+      if (ae > 0.001) { const cw = this.pos.clone().addScaledVector(this.fwd(), 0.08); cw.y += this.eye - 0.02; cam.position.lerp(cw, ae); }
+      this.adsView(ae);
     }
     // shake
     const sk = V.shake * V.shake;
@@ -1914,7 +1942,7 @@ export class Player {
     this.fovKick *= Math.max(0, 1 - dt * 4);
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
     // Kingdom Battles: zoom in a little while drawing the bow (and much more when aiming a musket)
-    { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0; this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 4 : 9)); }
+    { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = Math.min(-(this.adsK || 0) * (!gun ? 20 : this.weapon && this.weapon.wt === 'blunderbuss' ? 12 : 30), /* zoom: musket furthest, then bow, then blunderbuss */ drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0); this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing || this.ads ? 5 : 9)); }
     cam.fov = settings.fov - (G.fovTrim || 0) + this.fovKick + this.fovS + (this.bowZoom || 0); // (the arena narrows the view a little so fighters look bigger)
     cam.updateProjectionMatrix();
     A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI);

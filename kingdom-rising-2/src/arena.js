@@ -42,9 +42,13 @@ export const ARENA_KITS = {
   musketeer: ['grapeshot', 'bolas', 'duckroll'], shaman: ['sh_bolt', 'sh_clap', 'sh_wave'], wizard: ['voidbolt', 'singularity', 'voidshield'],
   cleric: ['holysmite', 'hammeroflight', 'radiantheal'], paladin: ['hammerstrike', 'divinecharge', 'holylight'], darkknight: ['lifetap', 'deathgrip', 'gravewall'],
   druid: ['moonfire', 'entangle', 'regrowth'], monk: ['tigerpalm', 'sweepkick', 'serenity'], bard: ['piercingnote', 'lullaby', 'balladheroes'],
-  rogue: ['eviscerate', 'kidney', 'vanish2'], necromancer: ['drainlife', 'boneprison', 'bonearmor'], elementalist: ['flamelash', 'frostbind', 'cauterize'],
+  rogue: ['eviscerate', 'kidney', 'vanish2'], necromancer: ['corruption', 'boneprison', 'bonearmor'], elementalist: ['flamelash', 'frostbind', 'cauterize'],
   enchanter: ['mindblast', 'confusion', 'runeshield'], blunderbuss: ['buckshot', 'buttstroke', 'blastshield'], beastmaster: ['savagebite', 'pounce', 'wildheal'],
 };
+// right click: a shield blocks; a bow or a gun aims down the barrel; everyone else has a fourth ability there
+export const ARENA_RMB = { warrior: 'kick', berserker: 'whirlwind', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'sh_shock', wizard: 'blink', cleric: 'consecrate', paladin: 'consecration',
+  darkknight: 'deathcoil', druid: 'starfall', monk: 'flyingkick', bard: 'crescendo', rogue: 'backstab', necromancer: 'drainlife', elementalist: 'frostshard', enchanter: 'enchanter_xd0', beastmaster: 'whirlclaw' };
+export const rmbOf = (cls) => { const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
 let kitRulesDone = false;
@@ -75,7 +79,7 @@ export function arenaHero(slot, name) {
   const R = RACES[slot.race] || RACES.human, sex = Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
-  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls);
+  h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
   for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(w.wt, top, 3), { uid: w.uid }); }
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);

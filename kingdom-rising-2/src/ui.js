@@ -125,6 +125,7 @@ export function updateHUD(dt) {
   if (p.maxMana > 0) { $('manaI').style.width = (p.mana / p.maxMana * 100) + '%'; $('manaT').textContent = `${Math.floor(p.mana)} / ${p.maxMana} Mana`; }
   $('endI').style.width = (p.end / p.maxEnd * 100) + '%'; $('endT').textContent = `${Math.floor(p.end)} / ${p.maxEnd} Endurance`;
   $('vignette').style.opacity = p.hurtT > 0 ? p.hurtT * 2 : 0;
+  { const ak = p.adsK || 0, e = $('adsv'); if (e && Math.abs((e._k || 0) - ak) > 0.01) { e._k = ak; e.style.opacity = ak.toFixed(2); document.body.classList.toggle('ads', ak > 0.5); } } // aiming down the barrel: dark old-photograph edges
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;

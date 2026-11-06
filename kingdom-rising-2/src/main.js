@@ -78,13 +78,14 @@ function boot() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   // a final colour grade: a gentle S-curve, a little more colour, warm highlights and cool shadows, a soft vignette
-  grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, amount: { value: 1 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
+  grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, amount: { value: 1 }, sepia: { value: 0 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; uniform float sepia; varying vec2 vUv;
       void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
         vec3 s = col * col * (3.0 - 2.0 * col); col = mix(col, s, 0.22 * amount); // contrast
         float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, 1.0 + 0.12 * amount); // saturation
         col += amount * (vec3(0.025, 0.012, -0.02) * smoothstep(0.45, 1.0, l) + vec3(-0.012, 0.0, 0.022) * (1.0 - smoothstep(0.0, 0.4, l))); // warm highlights, cool shadows
         vec2 d = vUv - 0.5; col *= 1.0 - amount * 0.28 * smoothstep(0.35, 0.95, dot(d, d) * 2.2); // vignette
+        if (sepia > 0.0) { float sl = dot(col, vec3(0.299, 0.587, 0.114)); vec3 sp = vec3(sl * 1.07 + 0.03, sl * 0.9 + 0.015, sl * 0.68); col = mix(col, sp, sepia * (0.35 + 0.65 * smoothstep(0.02, 0.3, dot(d, d)))); } // aiming down the barrel: an old tintype tone, strongest at the edges
         gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a); }` });
   composer.addPass(grade);
   applyGraphics();
@@ -920,10 +921,11 @@ function loop(now) {
     const g2 = pc.getContext('2d'); g2.clearRect(0, 0, pc.width, pc.height);
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }
+  if (grade) grade.uniforms.sepia.value = G.player ? (G.player.adsK || 0) * 0.6 : 0;
   composer.render(paused ? 0 : dt);
   // first-person hands & weapon on top
   const pl = G.player;
-  if (pl && pl.vm.g.visible && !intro) {
+  if (pl && (pl.vm.g.visible || (pl.adsG && pl.adsG.visible)) && !intro) {
     camera.updateMatrixWorld(); G.vmCam.position.copy(camera.position); G.vmCam.quaternion.copy(camera.quaternion);
     G.vmCam.fov = 72 + (camera.fov - settings.fov) * 0.5; G.vmCam.aspect = camera.aspect; G.vmCam.updateProjectionMatrix();
     vmSun.color.copy(sun.color); vmSun.intensity = Math.max(0.6, sun.intensity * 0.9); vmSun.position.copy(sun.position).sub(sun.target.position).normalize().add(camera.position);

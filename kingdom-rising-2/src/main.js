@@ -178,7 +178,7 @@ function startGame(save) {
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
-  if (!h.introDone) startIntro(); else { if (!BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
+  if (!h.introDone) startIntro(); else { if (!BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
 }
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;

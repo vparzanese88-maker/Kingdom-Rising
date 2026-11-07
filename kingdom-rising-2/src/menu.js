@@ -209,7 +209,7 @@ function renderCreator() {
 // how each class fights: m = magic, w = weapons, b = both; role: dmg, tank, sup, pet; range: close, far
 const FIT = { warrior: ['w', 'tank', 'close'], berserker: ['w', 'dmg', 'close'], ranger: ['w', 'dmg', 'far'], musketeer: ['w', 'dmg', 'far'], blunderbuss: ['w', 'dmg tank', 'close'],
   shaman: ['b', 'sup', 'far'], wizard: ['m', 'dmg', 'far'], cleric: ['m', 'sup', 'far'], paladin: ['b', 'tank sup', 'close'], darkknight: ['b', 'tank pet', 'close'], druid: ['m', 'sup pet', 'far'],
-  monk: ['w', 'dmg', 'close'], bard: ['b', 'sup', 'close'], rogue: ['w', 'dmg', 'close'], necromancer: ['m', 'pet dmg', 'far'], elementalist: ['m', 'pet', 'far'], enchanter: ['m', 'sup', 'far'], beastmaster: ['w', 'pet', 'close'] };
+  monk: ['w', 'dmg', 'close'], bard: ['b', 'sup', 'close'], rogue: ['w', 'dmg', 'close'], necromancer: ['m', 'pet dmg', 'far'], elementalist: ['m', 'pet', 'far'], enchanter: ['m', 'sup', 'far'], beastmaster: ['w', 'pet', 'close'], priest: ['m', 'sup', 'far'], bombardier: ['w', 'dmg', 'far'] };
 const QUIZ = [
   { q: 'How do you like to fight?', a: [['m', '✨', 'With magic', 'Spells, fire and lightning'], ['w', '⚔', 'With weapons', 'Swords, axes, bows and guns'], ['b', '⚡', 'A bit of both', 'Steel in one hand, magic in the other']] },
   { q: 'What do you want to do in a fight?', a: [['dmg', '💥', 'Deal huge damage', 'Be the one who drops them'], ['tank', '🛡', 'Take the hits', 'Stand in front and never fall'], ['sup', '✚', 'Help my friends', 'Heal, protect and strengthen'], ['pet', '🐾', 'Fight with pets', 'Summon servants or a beast at your side']] },

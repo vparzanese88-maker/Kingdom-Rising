@@ -30,12 +30,14 @@ const SPEC = {
   ranger: { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: '#2e5a26', cloak: '#2e5a26', quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' },
   musketeer: { shirt: '#5a4a2a', vest: '#3a2c1c', trim: '#8a6a3a', pants: '#4a3a22', boots: '#2a1a10', belt: '#2a1a10', bracers: '#3a2c1c' }, // (a goblin sharpshooter's patched leathers)
   blunderbuss: { shirt: '#6a3a1a', vest: '#5a4a3a', trim: '#8a5a2a', pants: '#3a2a1a', boots: '#2a1a10', belt: '#3a2a1a', bracers: '#6a5a4a' }, // (a goblin bruiser in scrap and leather)
+  priest: { shirt: '#f6f0e2', robe: '#f8f2e4', trim: '#e8b84a', pants: '#e8e0cc', boots: '#c8a060', shawl: '#e8b84a', sash: '#e8b84a', sleeves: true, belt: '#c89a40' }, // (white and gold robes of the dawn)
+  bombardier: { shirt: '#6a3a22', vest: '#4a3a26', trim: '#c86a2a', pants: '#4a3a24', boots: '#2a1a10', belt: '#2a1a10', bracers: '#5a4a3a' }, // (a goblin sapper's scorched leathers)
   beastmaster: { shirt: '#4a3a28', vest: '#6a5034', pants: '#3c3024', boots: '#3a2416', belt: '#2a1a10', bracers: '#6a5034', bareArms: true },
 };
 export function arenaSpec(cls) { return SPEC[cls] || null; }
 // each class's build (see BODY in character.js): brutes, knights, heavies, athletes, lean casters, sturdy priests
 const BUILD = { berserker: 'brute', beastmaster: 'brute', warrior: 'knight', paladin: 'knight', darkknight: 'knight', blunderbuss: 'heavy', shaman: 'heavy',
-  rogue: 'athlete', ranger: 'athlete', monk: 'lean', musketeer: 'lean', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
+  rogue: 'athlete', ranger: 'athlete', monk: 'lean', musketeer: 'lean', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy', priest: 'lean', bombardier: 'lean' };
 export function arenaBody(cls) { return BUILD[cls] || 'athlete'; }
 
 // ---- signature pieces ----
@@ -91,6 +93,8 @@ const DETAIL = {
   enchanter(ch) { robeTrim(ch, '#f0b8ff'); gloves(ch, '#3a1a3a'); belt(ch, '#3a1a3a', '#f0b8ff', 0); },
   druid(ch) { robeTrim(ch, '#9ad060'); belt(ch, '#5a3a1a', '#9ad060', 2); },
   shaman(ch) { gauntlets(ch, M('#5a3a22', 0.85), false); belt(ch, '#6b4a2a', '#e6dcc4', 2); bootCuffs(ch, '#7a5a3a'); },
+  priest(ch) { robeTrim(ch, '#e8b84a'); gloves(ch, '#f4ecd8'); belt(ch, '#c89a40', '#fff0b0', 1); },
+  bombardier(ch) { gloves(ch, '#4a3020'); belt(ch, '#2a1a10', '#8a6a3a', 2); bootCuffs(ch, '#3a2a1a'); },
   cleric(ch) { robeTrim(ch, '#d8b04a'); gloves(ch, '#f4f0e6'); belt(ch, '#d8b04a', '#f0d070', 0); },
 };
 const DECOR = {
@@ -142,6 +146,25 @@ const DECOR = {
     for (const [x, y, rz, w, h] of [[0.06, 0.62, 0.2, 0.16, 0.12], [-0.07, 0.45, -0.15, 0.14, 0.14], [0.04, 0.3, 0.1, 0.18, 0.1]]) { const p = add(ch.chest, boxG(w, h, 0.02), rust, x, ch.R.torsoH * y, 0.14); p.rotation.z = rz; for (const dx of [-1, 1]) add(p, sph(0.01, 5, 4), iron2, dx * w * 0.38, h * 0.3, 0.012); } // (scrap plates riveted on)
     { const pa = add(ch.arms.L.sh, sph(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), iron2, 0, 0.02, 0); for (let k = 0; k < 3; k++) add(pa, coneG(0.025, 0.14, 6), iron2, -0.04 + k * 0.04, 0.12, 0); } // (one big spiked pauldron)
     { const keg = add(ch.chest, cylG(0.13, 0.13, 0.3, 12), M('#7a4a22', 0.8), 0, ch.R.torsoH * 0.5, -0.24); keg.rotation.z = Math.PI / 2; for (const dx of [-0.1, 0.1]) { const b = add(keg, new THREE.TorusGeometry(0.135, 0.012, 6, 16), iron2, 0, dx, 0); b.rotation.x = Math.PI / 2; } add(keg, cylG(0.008, 0.008, 0.12, 4), M('#e8d8a0'), 0, 0.2, 0); } }, // (a powder keg on his back, fuse and all)
+  priest(ch) { // a tall sunburst crown, a golden stole down the front, a sun disc floating behind the shoulders, a long white cape
+    const g = gold(), w = M('#fbf6ea', 0.8), hg = ch.headG; add(hg, cylG(0.125, 0.12, 0.05, 20), g, 0, 0.17, 0);
+    for (let k = 0; k < 11; k++) { const a = -Math.PI * 0.55 + k / 10 * Math.PI * 1.1, ray = add(hg, coneG(0.016, k === 5 ? 0.3 : 0.16 + (k % 2) * 0.06, 5), g, Math.sin(a) * 0.12, 0.22 + (k === 5 ? 0.1 : 0.04), Math.cos(a) * 0.1); ray.rotation.set(Math.cos(a) * 0.25, 0, -Math.sin(a) * 0.25); }
+    add(hg, sph(0.03, 12, 8), GL('#fff4c0'), 0, 0.26, 0.11);
+    for (const s of [-1, 1]) { const st = add(ch.chest, boxG(0.06, ch.R.torsoH * 1.2, 0.012), g, s * 0.06, ch.R.torsoH * 0.35, 0.14); st.rotation.z = s * 0.06; for (let k = 0; k < 3; k++) add(st, boxG(0.03, 0.006, 0.004), GL('#fffbe8'), 0, -0.12 + k * 0.1, 0.008); }
+    const disc = new THREE.Group(); backItem(ch, disc, 0.3); ch.arenaSpin = disc; add(disc, new THREE.TorusGeometry(0.36, 0.02, 6, 40), GL('#ffe9a0')); add(disc, new THREE.TorusGeometry(0.28, 0.008, 4, 40), GL('#fff6d8'));
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, r = add(disc, boxG(0.012, k % 2 ? 0.1 : 0.16, 0.004), GL('#ffe080'), Math.sin(a) * 0.44, Math.cos(a) * 0.44, 0); r.rotation.z = -a; }
+    const cape = add(ch.chest, boxG(ch.R.sw * 2.1, ch.R.torsoH + ch.R.legL * 0.9, 0.012), w, 0, ch.R.torsoH - 0.1 - (ch.R.torsoH + ch.R.legL * 0.9) / 2, -0.15); cape.rotation.x = 0.08; add(cape, boxG(ch.R.sw * 2.1, 0.03, 0.016), g, 0, -(ch.R.torsoH + ch.R.legL * 0.9) / 2 + 0.02, 0); },
+  bombardier(ch) { // a wiry goblin sapper: huge flapping ears, a singed topknot, flight goggles, a bandolier of bombs, rocket boots, a smoking pack
+    hideHair(ch); const hg = ch.headG, skin = ch.mats.skin, brass = gold(), iron2 = M('#3a3a40', 0.45, 0.8), leather = M('#5a3a22', 0.85);
+    for (const sx of [-1, 1]) { const e = new THREE.Group(); e.position.set(sx * 0.13, 0.1, -0.01); e.rotation.set(-0.2, sx * 0.2, -sx * 1.05); hg.add(e); const c = add(e, coneG(0.07, 0.36, 8), skin, 0, 0.17, 0); c.scale.z = 0.3; add(e, coneG(0.045, 0.26, 6), M('#a05a4a', 0.8), 0, 0.15, 0.012).scale.z = 0.15; add(e, new THREE.TorusGeometry(0.015, 0.004, 4, 8), brass, 0, 0.06, 0.02); } // (big wide ears with a brass ring)
+    add(hg, coneG(0.026, 0.11, 8), skin, 0, 0.07, 0.15).rotation.x = Math.PI / 2 + 0.25; // (a pointed nose)
+    for (const sx of [-1, 1]) { add(hg, cylG(0.04, 0.044, 0.04, 14), iron2, sx * 0.05, 0.12, 0.115).rotation.x = Math.PI / 2; add(hg, sph(0.036, 10, 8), GL('#ff9a3a'), sx * 0.05, 0.12, 0.137).scale.z = 0.3; } add(hg, new THREE.TorusGeometry(0.14, 0.014, 6, 24), leather, 0, 0.12, 0).rotation.x = Math.PI / 2; // (flight goggles down over the eyes)
+    for (let k = 0; k < 3; k++) { const t = add(hg, coneG(0.03, 0.14, 6), M('#2a2a2a', 0.9), 0, 0.27 + k * 0.03, -0.04 - k * 0.03); t.rotation.x = -0.6 - k * 0.3; } add(hg, sph(0.02, 6, 5), GL('#ff7a20'), 0, 0.33, -0.12); // (a singed topknot, still smouldering)
+    add(hg, boxG(0.08, 0.012, 0.01), GL('#f0e0b0'), 0, 0.04, 0.12); // (a toothy grin)
+    add(ch.chest, boxG(0.05, ch.R.torsoH * 1.1, 0.02), leather, 0, ch.R.torsoH * 0.5, 0.14).rotation.z = -0.6;
+    for (let k = 0; k < 5; k++) { const b = add(ch.chest, sph(0.042, 10, 8), iron2, 0.1 - k * 0.05, ch.R.torsoH * 0.3 + k * 0.07, 0.16); add(b, sph(0.008, 5, 4), GL('#ffb040'), 0, 0.045, 0); } // (a bandolier of little bombs)
+    { const pack = add(ch.chest, boxG(0.26, 0.3, 0.14), leather, 0, ch.R.torsoH * 0.5, -0.2); for (const x of [-0.07, 0.07]) { add(pack, cylG(0.03, 0.035, 0.28, 8), iron2, x, 0.22, -0.02); add(pack, cylG(0.04, 0.03, 0.04, 8), M('#1a1a1a'), x, 0.37, -0.02); } add(pack, sph(0.07, 10, 8), iron2, 0, -0.02, -0.08); } // (a pack of bombs with two smoking stacks)
+    for (const sd of ['L', 'R']) { const a = ch.legs[sd].ankle; const r = add(a, cylG(0.035, 0.045, 0.14, 10), iron2, 0, 0.03, -0.08); r.rotation.x = 0.2; add(a, cylG(0.04, 0.03, 0.03, 10), GL('#ff8a2a'), 0, -0.05, -0.095).castShadow = false; } }, // (rocket boots)
   beastmaster(ch) { hideHair(ch); const f = fur('#7a7a80'), wh = fur('#c8c8cc'); const head = add(ch.headG, sph(0.15, 14, 10), f, 0, 0.15, -0.02); head.scale.set(1, 0.85, 1.15);
     const sn = add(ch.headG, boxG(0.09, 0.07, 0.16), f, 0, 0.16, 0.14); add(ch.headG, boxG(0.07, 0.03, 0.12), wh, 0, 0.12, 0.15); add(ch.headG, sph(0.016, 6, 4), GL('#0a0a0a'), 0, 0.18, 0.22);
     for (const s of [-1, 1]) { add(ch.headG, coneG(0.04, 0.1, 4), f, s * 0.08, 0.28, -0.02); add(ch.headG, sph(0.012, 6, 4), GL('#ffd040'), s * 0.04, 0.2, 0.15); for (let k = 0; k < 2; k++) add(ch.headG, coneG(0.01, 0.04, 4), wh, s * 0.03, 0.11, 0.2 - k * 0.04).rotation.x = Math.PI; }
@@ -161,6 +184,8 @@ export function arenaWeaponDecor(ch, cls) {
     const bowl = add(L, sph(0.13, 16, 12), wood, 0, 0.6, -0.02); bowl.scale.set(1, 1.25, 0.55); add(L, sph(0.03, 10, 8), GL('#1a0a04'), 0, 0.56, 0.05).scale.z = 0.2;
     for (let k = 0; k < 4; k++) add(L, boxG(0.002, 0.62, 0.002), str, -0.012 + k * 0.008, 0.33, 0.03);
     add(L, boxG(0.07, 0.015, 0.02), dark, 0, 0.72, 0.04); return; }
+  if (cls === 'bombardier') { for (const c of [...w.children]) w.remove(c); w.userData.orb = null; w.userData.tip = null; const b = makeBomb(); b.position.set(0, 0.02, 0.06); w.add(b); w.userData.tip = b; return; } // (no staff: a lit bomb in his fist)
+  if (cls === 'priest' && w.userData.orb) { const o = w.userData.orb, g = gold(); const ring = add(o, new THREE.TorusGeometry(0.16, 0.014, 6, 32), g); ring.rotation.x = Math.PI / 2; for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, r = add(o, coneG(0.014, k % 2 ? 0.08 : 0.14, 5), g, Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2); r.rotation.set(0, 0, 0); r.rotation.z = -Math.PI / 2; r.rotation.y = -a; } o.traverse(m => { if (m.isMesh && m.material && m.material.emissive) { m.material = m.material.clone(); m.material.color.set('#fff2c0'); m.material.emissive.set('#ffd060'); } }); return; }
   const tip = w.userData.orb || w.userData.tip; if (!tip && cls !== 'necromancer') return;
   const col = { necromancer: '#5aff4a', wizard: '#60a0ff', elementalist: '#ff8030', enchanter: '#ff70e0', druid: '#9ad060', cleric: '#fff0a0' }[cls];
   if (cls === 'necromancer') { for (const c of [...w.children]) w.remove(c); w.userData.orb = null; w.userData.tip = null; const fl = add(w, sph(0.04, 10, 8), GL('#7aff5a'), 0, 0.02, 0.05); fl.castShadow = false; const fl2 = add(w, sph(0.065, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.02, 0.05); fl2.castShadow = false; w.userData.flame = fl; return; } /* (no staff any more: poison pours from his bare right hand) */
@@ -168,6 +193,10 @@ export function arenaWeaponDecor(ch, cls) {
     for (const x of [-0.024, 0.024]) { add(s, sph(0.017, 8, 6), GL('#050505'), x, 0.005, 0.058); add(s, sph(0.008, 6, 4), GL('#6aff5a'), x, 0.005, 0.068); } s.rotation.y = Math.PI / 2; return; }
   if (col && w.userData.orb) w.userData.orb.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (o.material.color) o.material.color.set(col); if (o.material.emissive) o.material.emissive.set(col); } });
 }
+// a goblin bomb: an iron shell, brass cap and rivets, and a fizzing fuse
+export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262a', 0.45, 0.7), brass = gold(); add(g, sph(0.09 * s, 14, 10), iron2); add(g, cylG(0.03 * s, 0.035 * s, 0.035 * s, 8), brass, 0, 0.09 * s, 0);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(g, sph(0.01 * s, 5, 4), brass, Math.cos(a) * 0.09 * s, 0, Math.sin(a) * 0.09 * s); } add(g, cylG(0.006 * s, 0.006 * s, 0.06 * s, 4), M('#d8c890'), 0.01 * s, 0.13 * s, 0).rotation.z = -0.4;
+  const sp = add(g, sph(0.018 * s, 6, 5), GL('#ffd060'), 0.022 * s, 0.16 * s, 0); sp.castShadow = false; g.userData.spark = sp; return g; }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
 export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);

@@ -7,7 +7,7 @@ import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline } from '
 
 const CACHE = {}; let R = null, scene = null, cam = null;
 const W = 220, H = 280;
-const RACE = { warrior: 'human', berserker: 'orc', ranger: 'woodelf', wizard: 'human', musketeer: 'woodelf', shaman: 'orc', cleric: 'dwarf', paladin: 'human', darkknight: 'human', druid: 'woodelf', monk: 'human', bard: 'highelf', rogue: 'human', necromancer: 'human', elementalist: 'highelf', enchanter: 'highelf', beastmaster: 'orc', blunderbuss: 'dwarf' };
+const RACE = { warrior: 'human', berserker: 'orc', ranger: 'woodelf', wizard: 'human', musketeer: 'woodelf', shaman: 'orc', cleric: 'dwarf', paladin: 'human', darkknight: 'human', druid: 'woodelf', monk: 'human', bard: 'highelf', rogue: 'human', necromancer: 'human', elementalist: 'highelf', enchanter: 'highelf', beastmaster: 'orc', blunderbuss: 'dwarf', priest: 'human', bombardier: 'halfling' };
 function setup() {
   R = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true }); R.setSize(W, H, false); R.setPixelRatio(1); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
   scene = new THREE.Scene();
@@ -22,7 +22,7 @@ export function classPortrait(cls) {
   if (CACHE[cls]) return CACHE[cls];
   try {
     if (!R) setup();
-    const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: cls === 'musketeer' ? '#7a9a3a' : cls === 'blunderbuss' ? '#4f6a2a' : '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
+    const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: cls === 'musketeer' ? '#7a9a3a' : cls === 'blunderbuss' ? '#4f6a2a' : cls === 'bombardier' ? '#8aa23a' : '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
     try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
     animateHumanoid(ch, 0.016, { speed: 0, armed: true, ready: true }); bake(ch.root); addOutline(ch.root);
     ch.root.rotation.y = 0.45; scene.add(ch.root); ch.root.updateMatrixWorld(true);

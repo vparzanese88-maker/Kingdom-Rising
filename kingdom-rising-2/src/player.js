@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun } from './arenalooks.js';
+import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -56,7 +56,7 @@ const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], 
 const DODGES = { old: { dur: 0.6, speed: 10, cost: 16, ifr: 0.42 }, step: { dur: 0.34, speed: 11, cost: 14, ifr: 0.24 }, roll: { dur: 0.62, speed: 10.5, cost: 20, ifr: 0.42 }, leap: { dur: 0.75, speed: 12.5, cost: 26, ifr: 0.55, vy: 5.5 } }; // slower, weightier dodges you can follow with your eyes
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
-  monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap' };
+  monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap', priest: 'roll', bombardier: 'leap' };
 const FORMS = { formVoid: { name: 'Void Form', col: '#7a2aff', k: 1.0, mote: 'shadow', el: 'arcane' }, formTime: { name: 'Timeless Form', col: '#ffd060', k: 0.9, mote: 'gold', el: 'arcane' }, formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
 const B_AV = (p) => p.buffs.avatar > 0 && p.avatar;
 const CASTER_K = {}; // no hidden caster multipliers: the wizard out-damages through its spells
@@ -104,7 +104,7 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 
 // a detailed gripping hand: palm, four curled fingers, thumb, knuckles, class glove and cuff
 // what each class wears on its hands and forearms in first person
-const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather' };
+const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather', bombardier: 'leather' };
 // a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
 function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, skin = new THREE.MeshStandardMaterial({ color: skinCol || '#d8a888', roughness: 0.6 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: '#8a7a60', roughness: 0.9 });
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
@@ -155,7 +155,7 @@ class ViewModel {
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
     this.cls = cls; this.skinCol = app.skin; this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
     const c = CLASSES[cls].colors;
-    const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist'].includes(cls);
+    const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist', 'priest'].includes(cls);
     const sleeve = vk === 'plate' ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#3e4048' : '#8a929c', roughness: 0.35, metalness: 0.8 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
     const trimM = new THREE.MeshStandardMaterial({ color: c.trim, roughness: 0.45, metalness: cls === 'ranger' ? 0 : 0.6 });
     this.arms = [this.R, this.L].map(H => {
@@ -197,6 +197,7 @@ class ViewModel {
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
+    if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
@@ -209,6 +210,7 @@ class ViewModel {
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
+    if (this.bomber && r === VP.staff) r = VP.necroR;
     if (this.necro) { if (r === VP.staff) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     const t = act ? act.t : 0, n = act ? act.name : '';
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
@@ -317,7 +319,7 @@ class ViewModel {
 
 // ---------- Player ----------
 const SWORDS = { sword: 1, swordshield: 1, swordmace: 1, greatsword: 1 };
-const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, monk: 1, warrior: 0.8, berserker: 0.8, rogue: 0.5, enchanter: 0.6, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
+const HEAL_K = { cleric: 1, druid: 1, shaman: 1, bard: 1, monk: 1, priest: 1, bombardier: 0.4, warrior: 0.8, berserker: 0.8, rogue: 0.5, enchanter: 0.6, paladin: 0.6, ranger: 0.35, beastmaster: 0.35, darkknight: 0.4, necromancer: 0.8 }; // shadow knights and necromancers heal only by draining: the knight a little, the necromancer a lot
 // bard songs: a colour per kind of song (healing is green)
 const SONG_COL = { war: '#ff5a4a', travel: '#6ae8ff', heal: '#6aff8a', ward: '#ffd86a', flame: '#ff9a2a', mana: '#7a7aff', power: '#d070ff', endure: '#ffe07a', mward: '#a0b8ff', snare: '#8aa0a0', weaken: '#9a60c0' };
 const NOTE_TEX = {};
@@ -638,6 +640,12 @@ export class Player {
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
+      if (this.h.arena && this.h.cls === 'bombardier') { // the goblin lobs a bomb in an arc: it bursts on whatever it hits, or where it lands
+        const v = dir.clone().multiplyScalar(26); v.y += 4.5; spawnProjectile({ wpn: true, pos: from, vel: v, grav: 16, radius: 0.3, dmg: base * 1.05, owner: 'player', kind: 'bomb', life: 3, onHit: (p, m, pos) => { for (const u of mobsInRadius(pos, 3)) this.dealDamage(u, u === m ? p.dmg : p.dmg * 0.6, { el: 'fire' }); V.burst('fire', pos, 46, { speed: 6 }); V.burst('smoke', pos, 16, { speed: 2.5, size: 0.8, life: 1.1, vy: 1.5 }); V.sphereFlash(pos, 1.6, '#ffb040', 0.2); V.ring(pos, 3, '#ff9030', 0.35); V.light(pos, '#ff8030', 5, 0.25, 9); S.explode(pos, 0.45); V.addShake(0.15); } });
+        S.swing && S.swing(); V.burst('spark', from, 6, { speed: 2 }); return; }
+      if (this.h.arena && this.h.cls === 'priest') { // a bolt of dawn light: every hit on an enemy heals the most hurt ally near you (atonement)
+        spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(48), grav: 0.5, radius: 0.24, dmg: base * 0.85, owner: 'player', kind: 'dawn', life: 3, home: true, onHit: (p, m, pos) => { if (m) { this.dealDamage(m, p.dmg, { el: 'arcane' }); G.hooks.atone && G.hooks.atone(this, 0.045); } V.burst('gold', pos, 18, { speed: 4 }); V.light(pos, '#ffe080', 3, 0.2); S.cast('holy', pos, 0.5); } });
+        S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; }
       if (this.h.arena && this.h.cls === 'necromancer') { // the necromancer's staff spits a dripping ball of poison
         spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(30), grav: 4, radius: 0.28, dmg: base * 0.75 * (1 + ch * 1.2), owner: 'player', kind: 'poison', scale: big ? 1.5 : 1, life: 3, onHit: (p, m, pos) => { for (const u of mobsInRadius(pos, big ? 2.6 : 1.6)) this.dealDamage(u, u === m ? p.dmg : p.dmg * 0.4, { el: 'arcane', poison: base * 0.35, spread: 2 }); V.burst('poison', pos, 26, { speed: 3.5, grav: 6 }); V.burst('green', pos, 8, { speed: 2 }); V.burst('leaf', pos, 10, { speed: 2 }); V.light(pos, '#60ff40', 3, 0.2); S.cast('arcane', pos, 0.5); } });
         S.cast('arcane', from, 0.7); V.burst('green', from, 8, { speed: 2 }); return; }
@@ -863,7 +871,7 @@ export class Player {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
       case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
       case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
-      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, groundPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
+      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, groundPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
       case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
       case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
       case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
@@ -1483,7 +1491,7 @@ export class Player {
     if (Skills.canDual(h)) { const w2 = h.equip.w2; Skills.practise(h, 'dual'); if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
   // spellcasting look: the colour of your magic, gathering light at both raised hands, motes spiralling up around you, a ring at your feet
-  castCol() { const C = { necromancer: 'shadow', cleric: 'holy', paladin: 'holy', druid: 'nature', shaman: 'frost', elementalist: 'fire', enchanter: 'arcane', bard: 'holy', darkknight: 'shadow', ranger: 'nature', beastmaster: 'nature' }; return C[this.h.cls] || (this.W && this.W.element) || 'arcane'; }
+  castCol() { const C = { priest: 'holy', bombardier: 'fire', necromancer: 'shadow', cleric: 'holy', paladin: 'holy', druid: 'nature', shaman: 'frost', elementalist: 'fire', enchanter: 'arcane', bard: 'holy', darkknight: 'shadow', ranger: 'nature', beastmaster: 'nature' }; return C[this.h.cls] || (this.W && this.W.element) || 'arcane'; }
   castFx(dt, k) {
     const col = this.castCol(), kind = { shadow: 'shadow', holy: 'gold', nature: 'heal', frost: 'frost', fire: 'fire', arcane: 'arcane' }[col] || 'arcane', hex = { shadow: '#70ff90', holy: '#ffe080', nature: '#80ff90', frost: '#8ad8ff', fire: '#ff9040', arcane: '#c080ff' }[col] || '#c080ff';
     const third = this.camDist >= 0.6, top = this.pos.clone().setY(this.pos.y + this.eye + 0.45);

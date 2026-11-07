@@ -13,7 +13,7 @@ import { ultOf } from './arena.js';
 import { classPortrait } from './portraits.js';
 import { yardUltTest } from './yard.js';
 
-const ORDER = ['warrior', 'paladin', 'darkknight', 'berserker', 'monk', 'rogue', 'ranger', 'musketeer', 'blunderbuss', 'wizard', 'elementalist', 'enchanter', 'necromancer', 'beastmaster', 'shaman', 'druid', 'cleric', 'bard'];
+const ORDER = ['warrior', 'paladin', 'darkknight', 'berserker', 'monk', 'rogue', 'ranger', 'musketeer', 'blunderbuss', 'wizard', 'elementalist', 'enchanter', 'necromancer', 'beastmaster', 'bombardier', 'shaman', 'druid', 'cleric', 'bard', 'priest'];
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 const basic = (c, o = {}) => new THREE.MeshBasicMaterial(Object.assign({ color: c }, o));
@@ -49,7 +49,7 @@ export function playUlt(cls) { const id = ultOf(cls), ab = id && (ABILITIES[cls]
 export const ULT_ORDER = ORDER;
 // ---------- the show ----------
 function play(cls, ab) {
-  if (['necromancer', 'paladin', 'monk', 'rogue', 'berserker', 'ranger', 'druid', 'shaman', 'darkknight', 'blunderbuss', 'elementalist', 'enchanter', 'beastmaster'].includes(cls)) { yardUltTest(cls); return; } // (finished ultimates: the real thing, with its own cinematic)
+  if (['necromancer', 'paladin', 'monk', 'rogue', 'berserker', 'ranger', 'druid', 'shaman', 'darkknight', 'blunderbuss', 'elementalist', 'enchanter', 'beastmaster', 'priest', 'bombardier'].includes(cls)) { yardUltTest(cls); return; } // (finished ultimates: the real thing, with its own cinematic)
   const P = G.player; if (!P || busy) return; busy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), cx = P.pos.x + fx * 9, cz = P.pos.z + fz * 9;
   const ch = buildHumanoid({ race: 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls) }); arenaDecor(ch, cls);

@@ -94,6 +94,12 @@ export function spawnProjectile(o) {
       m.add(new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.5, 12), wood)); for (const y of [-0.17, 0.17]) { const b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.05, 12), iron); b2.position.y = y; m.add(b2); }
       const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.16, 5), new THREE.MeshStandardMaterial({ color: '#3a2a1a' })); fuse.position.y = 0.32; m.add(fuse);
       const spark = new THREE.Mesh(geo.sphere, glow('#ffd060')); spark.scale.setScalar(0.07); spark.position.y = 0.42; m.add(spark); m.userData.spark = spark; break; }
+    case 'bomb': { // a goblin bomb: a round iron shell with rivets, a brass cap and a sputtering fuse
+      m = new THREE.Group(); const iron = new THREE.MeshStandardMaterial({ color: '#26262a', metalness: 0.7, roughness: 0.45 }), brass = new THREE.MeshStandardMaterial({ color: '#b08a3a', metalness: 0.8, roughness: 0.4 });
+      const sh = new THREE.Mesh(geo.sphere, iron); sh.scale.setScalar(0.2); m.add(sh); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.07, 8), brass); cap.position.y = 0.2; m.add(cap);
+      for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(geo.sphere, brass); r.scale.setScalar(0.02); const a = i / 6 * Math.PI * 2; r.position.set(Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2); m.add(r); }
+      const spark = new THREE.Mesh(geo.sphere, glow('#ffd060')); spark.scale.setScalar(0.06); spark.position.y = 0.3; m.add(spark); m.userData.spark = spark; m.scale.setScalar(p.scale || 1); break; }
+    case 'dawn': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#fffbe8'))); m.children[0].scale.setScalar(0.13 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ffd860', transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.32 * (p.scale || 1)); m.add(h); } break;
     case 'knife': { m = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#d0d8e0', metalness: 0.9, roughness: 0.2 })); break; }
     case 'web': m = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#f0f0f8', transparent: true, opacity: 0.85 })); m.scale.setScalar(0.22); break;
     case 'rock': m = new THREE.Mesh(geo.rock, new THREE.MeshStandardMaterial({ color: '#7a746a', roughness: 0.9, flatShading: true })); m.scale.setScalar(0.12); break;
@@ -159,6 +165,8 @@ export function updateProjectiles(dt) {
       p.mesh.position.copy(p.pos);
       if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave' || p.kind === 'javelin') p.mesh.lookAt(p.pos.clone().sub(p.vel));
       if (p.kind === 'axe' || p.kind === 'knife') { p.mesh.rotation.x += dt * 20; }
+      if (p.kind === 'bomb') { p.mesh.rotation.x += dt * 9; if (Math.random() < dt * 30) V.emit('spark', p.mesh.localToWorld(new THREE.Vector3(0, 0.3, 0)), { speed: 1.5, size: 0.12 }); }
+      if (p.kind === 'dawn' && Math.random() < dt * 40) V.emit('gold', p.pos, { speed: 0.4, size: 0.18, life: 0.4 });
       if (p.kind === 'keg') { p.mesh.rotation.x += dt * 7; p.mesh.rotation.z += dt * 3; if (Math.random() < dt * 40) V.burst('fire', p.mesh.localToWorld(new THREE.Vector3(0, 0.42, 0)), 2, { speed: 1.5, size: 0.25, life: 0.3 }); }
       if (p.kind === 'wave') p.mesh.rotateZ(Math.PI / 2);
       if (p.kind === 'skull') { p.mesh.lookAt(p.pos.clone().add(p.vel)); p.mesh.rotateZ(Math.sin(p.life * 18) * 0.25); }

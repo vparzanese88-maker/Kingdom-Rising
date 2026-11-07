@@ -105,7 +105,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 // U in the Training Yard: an enemy necromancer appears in front of you and calls its demon on you, so you can watch the
 // ultimate from the victim's side (you come back to life afterwards)
 let ultBusy = false;
-const REAL_ULT_T = { darkknight: 6, blunderbuss: 12, elementalist: 12, enchanter: 10, beastmaster: 10 }; // (table ultimates aimed at you in the yard: how far away the enemy appears)
+const REAL_ULT_T = { darkknight: 6, blunderbuss: 12, elementalist: 12, enchanter: 10, beastmaster: 10, priest: 6, bombardier: 12 }; // (table ultimates aimed at you in the yard: how far away the enemy appears)
 const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Thousand Fists', '👊', 5], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true], berserker: ['arenaStorm', 'Bladestorm', '🌪', 6], ranger: ['arenaRain', 'Rain of Arrows', '🏹', 14], druid: ['arenaOvergrowth', 'Overgrowth', '🌳', 12], shaman: ['arenaSpirit', 'Spirit of the Storm', '⚡', 8] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
 export function yardUltTest(cls = 'necromancer') { let RU = REAL_ULT[cls]; if (!RU && ULTS[cls] && REAL_ULT_T[cls]) { const U2 = ULTS[cls]; G.hooks['tbl_' + cls] = (foe, at) => U2.run(foe, U2.aim === 'foe' ? G.player : at); RU = ['tbl_' + cls, U2.name, '★', REAL_ULT_T[cls]]; }
   const P = G.player; if (!P || ultBusy || !RU || !G.hooks[RU[0]]) return; ultBusy = true;

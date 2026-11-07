@@ -143,7 +143,7 @@ function boot() {
   $('loading').hidden = true;
   // online: the world is ready, now everyone makes their hero for this match
   if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: SETUP.myRace || mt.race }] } }); setMpStatus('hero'); }
-  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 0; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">Y</span> for the menu (class, perks and your keys) and <span class="kbd">U</span> to get hit by an ultimate. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
+  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 0; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">K</span> to change class (and set perks) and <span class="kbd">U</span> to get hit by an ultimate. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -756,8 +756,8 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
-      if (YARD && (e.code === 'KeyY' || e.code === 'KeyU')) { if (UI.UI.open === 'yard' || G.uiOpen) UI.closeWin(); else openYardPanel(UI, e.code === 'KeyU' ? 'ult' : null); return; }
-      if (YARD && ['KeyK', 'KeyN', 'KeyP', 'KeyI', 'KeyH', 'KeyO', 'KeyJ', 'KeyM', 'KeyB', 'KeyL'].includes(e.code)) return; // (the yard has one window: Y opens it, U opens it on the ultimates; no other window keys) // (the yard has one window: U opens it on the ultimates, I or H on your keys)
+      if (YARD && (e.code === 'KeyK' || e.code === 'KeyY' || e.code === 'KeyU')) { if (UI.UI.open === 'yard' || G.uiOpen) UI.closeWin(); else openYardPanel(UI, e.code === 'KeyU' ? 'ult' : 'class'); return; } // (K: change class; U: get hit by an ultimate)
+      if (YARD && ['KeyN', 'KeyP', 'KeyI', 'KeyH', 'KeyO', 'KeyJ', 'KeyM', 'KeyB', 'KeyL'].includes(e.code)) return; // (the yard has one window: Y opens it, U opens it on the ultimates; no other window keys) // (the yard has one window: U opens it on the ultimates, I or H on your keys)
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if ((ARENA || YARD) && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do

@@ -45,7 +45,7 @@ export function updateYard(dt) {
   const now = performance.now(); while (YD.dmg.length && now - YD.dmg[0][0] > 8000) YD.dmg.shift();
   const tot = YD.dmg.reduce((a, b) => a + b[1], 0), span = YD.dmg.length ? Math.max(1, (now - YD.dmg[0][0]) / 1000) : 1;
   let e = document.getElementById('yardhud'); if (!e) { e = document.createElement('div'); e.id = 'yardhud'; document.getElementById('hud').appendChild(e); }
-  const h = G.save, html = `<b>Training Yard</b><span>${CLASSES[h.cls].name} · level ${h.level}</span><span class="dps">DPS <b>${YD.dmg.length ? Math.round(tot / span) : 0}</b></span><small><kbd>Y</kbd> menu · <kbd>U</kbd> get hit by an ultimate · <kbd>R</kbd> ultimate</small>`;
+  const h = G.save, html = `<b>Training Yard</b><span>${CLASSES[h.cls].name} · level ${h.level}</span><span class="dps">DPS <b>${YD.dmg.length ? Math.round(tot / span) : 0}</b></span><small><kbd>K</kbd> change class · <kbd>U</kbd> get hit by an ultimate · <kbd>R</kbd> ultimate</small>`;
   if (e._h !== html) { e.innerHTML = html; e._h = html; }
   if (G.save.arenaUlt) G.save.ultCharge = Math.min(100, (G.save.ultCharge || 0) + dt * 25); // (the yard: the ultimate is back in 4 seconds)
   const P = G.player; if (P && YD.infinite) { P.mana = P.maxMana; P.end = P.maxEnd; }

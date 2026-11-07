@@ -19,6 +19,7 @@ import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { loadDemonModel, poseDemonModel } from './heromodels.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -766,12 +767,15 @@ export function summonDemon(caster, at) {
   if (at && at.pos) at = at.pos; if (!at) return false; const RR = 5.2, FRZ = G.ringFRZ || 1.5; // (FRZ: the freeze when the ring bursts up; from dead centre only a leap dodge then gets out in time) // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
   const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
   const DS = 1.45, D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.scale.multiplyScalar(DS); g.position.set(ox, base - 6.5 * DS, oz); /* (big enough to reach anyone inside the ring) */ g.rotation.order = 'YXZ'; g.rotation.y = face; /* (yaw, then a lean in its own frame) */ G.scene.add(g); addOutline(g);
+  // the owner's demon model takes over the look once it has loaded: sized to the built demon, feet at its base, and the built one hidden (its parts still steer the hands and the head)
+  let dm = null, over = false; const dH = new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()).y / DS;
+  loadDemonModel().then(M2 => { if (over) return; const k = dH / Math.max(0.01, M2.size.y); M2.m.scale.setScalar(k); M2.m.position.set(0, 0, 0); g.traverse(o => { if (o.isMesh) o.visible = false; }); g.add(M2.m); dm = M2; }).catch(e => console.warn('demon model', e)); /* (if it fails to load, the built demon stays) */
   const ring = makeHellRing(RR, 64); ring.position.copy(center); G.scene.add(ring);
   S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
   let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
-  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null, froze = false;
+  const hp = new THREE.Vector3(), hpL = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null, froze = false;
   const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
   const me = caster === G.player ? G.player : null; let flyCam = null;
   if (me) { me.held = true; me.ultImmT = 9; me.ultPoseT = 0; me.headUpT = 0; me.oozeT = 7.5; me.oozeE = 0; me.tpT = 0; startFly(); }
@@ -793,7 +797,7 @@ export function summonDemon(caster, at) {
       let dA = want - yawC; if (!missed) { dA = Math.atan2(Math.sin(dA), Math.cos(dA)); } yawC += dA * Math.min(1, dt * (victim && t < GRAB + 0.5 ? 14 : missed ? 10 : 4)); g.rotation.y = yawC;
       const reachD = victim && from ? Math.hypot(from.x - ox, from.z - oz) : 0, leanK = victim ? seg(t, GRAB, GRAB + 0.4) * (1 - seg(t, GRAB + 0.75, GRAB + 1.4)) : 0;
       g.rotation.x = leanK * Math.min(1.0, 0.3 + reachD * 0.075); } /* (it leans right over to snatch them, then hauls them up as it straightens) */
-    emT2 = (emT2 || 0) - dt; if (emT2 <= 0 && up > 0.3) { emT2 = 0.05; for (const H of [D.arms.R.hand, D.arms.L.hand]) { H.getWorldPosition(dripP); dripP.y -= 0.5; V.emit('poison', dripP, { speed: 0.3, vy: -3, size: 0.22, life: 0.7, radius: 0.3 }); } } /* (ooze dripping from its hands) */
+    emT2 = (emT2 || 0) - dt; if (emT2 <= 0 && up > 0.3) { emT2 = 0.05; for (const H of dm ? [dm.bones.RightHand, dm.bones.LeftHand] : [D.arms.R.hand, D.arms.L.hand]) { H.getWorldPosition(dripP); dripP.y -= 0.5; V.emit('poison', dripP, { speed: 0.3, vy: -3, size: 0.22, life: 0.7, radius: 0.3 }); } } /* (ooze dripping from its hands) */
     const R = D.arms.R, Lf = D.arms.L, rising = t < 2.9;
     // left arm: claws the ground while climbing, then braces and sways
     Lf.sh.rotation.x = rising ? -1.2 + Math.sin(t * 5) * 0.35 : L(-0.5, -0.3, Math.sin(t * 1.3) * 0.5 + 0.5); Lf.sh.rotation.z = rising ? -0.5 : -0.15; Lf.el.rotation.x = rising ? -0.9 : -0.5 + Math.sin(t * 2) * 0.1;
@@ -820,6 +824,8 @@ export function summonDemon(caster, at) {
     let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (t >= BITE) jw = 0.55 + Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.9, BITE + 1.3)); }
     D.jaw.rotation.x = jw;
     g.updateMatrixWorld(true); R.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.5, 0.75));
+    if (dm) { Lf.hand.getWorldPosition(hpL); const scr = (t >= 1.0 && t < Math.min(GRAB, 3.3) && !victim) || roar2 > 0.02; poseDemonModel(dm, dt, { screaming: scr, handR: scr ? null : hp.clone(), handL: scr ? null : hpL.clone(), pitch: scr ? 0 : hx, yaw: scr ? 0 : hy }); /* (it screams as it rises and roars (and again when it finds nobody); the rest of the time its head copies the built demon's (searching, craning up, lunging to bite) and its arms reach for the built demon's hands) */
+      dm.bones.RightHand.getWorldPosition(hp); if (dm.bones.Head) dm.bones.Head.localToWorld(mouth.copy(dm.mouth || new THREE.Vector3())); } /* (the victim hangs from the model's own fist and goes into its own mouth) */
     if (victim && !bit && victim.held) { const vh = victim.height || 1.75, kR = seg(t, GRAB + 0.35, GRAB + 0.75), flip = seg(t, GRAB + 0.6, GRAB + 1.4), kM = seg(t, BITE - 0.55, BITE - 0.05), kS = seg(t, BITE, BITE + 0.55);
       const hang = hp.clone(); hang.y -= L(1.05, 0.1, flip); /* (upright in its fist, then held by the ankle, hanging head-down) */
       const sh2 = t > GRAB + 1.3 ? new THREE.Vector3(Math.sin(t * 17) * 0.07, 0, Math.cos(t * 13) * 0.07) : new THREE.Vector3(); /* (they kick and struggle) */
@@ -833,7 +839,7 @@ export function summonDemon(caster, at) {
       else if (!victim.dead) { victim.hp = 0; if (vroot) vroot.visible = false; victim.die && victim.die(caster); }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s demon devours <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
     if (bit && victim === G.player && t > BITE + 1.8 && G.player.cine && G.player.cine !== flyCam) cineOff(); // (the cinematic ends a moment after the bite)
-    if (t > end) { if (me) { me.held = false; if (me.cine === flyCam) me.cine = null; } G.scene.remove(g); G.scene.remove(ring); if (victim) { victim.held = false; if (vroot) { vroot.rotation.z = 0; vroot.rotation.x = 0; } } if (victim === G.player && !bit) cineOff(); return true; }
+    if (t > end) { over = true; if (me) { me.held = false; if (me.cine === flyCam) me.cine = null; } G.scene.remove(g); G.scene.remove(ring); if (victim) { victim.held = false; if (vroot) { vroot.rotation.z = 0; vroot.rotation.x = 0; } } if (victim === G.player && !bit) cineOff(); return true; }
     return false; } }); // (a timer is finished when it returns true)
   // walls between the camera and the action: swing round until the line is clear
   function clearAng(mid, ang, r, cy) { for (let k = 0; k < 12; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; if (lineClear(mid, new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r))) return a2 - ang; } return 0; }

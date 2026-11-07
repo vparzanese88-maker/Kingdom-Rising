@@ -9,6 +9,7 @@ const MODELS = {
   necromancer: { eyes: { col: '#3aff1a', up: 0.07, fwd: 0.11, side: 0.034, r: 0.017 }, bright: 2.1, emis: 0.18, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.45, walkSpeed: 1.5, runSpeed: 5.0 },
   blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.0, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
+  warrior: { base: 'models/warr_rig.fbx', clips: { walk: 'models/anim/warr_walk.json', run: 'models/anim/warr_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
@@ -68,7 +69,7 @@ export function attachHeroModel(ch, cls) {
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); socket.userData.codeHand = ch.arms[sd].hand; socket.userData.gripQ = g.quaternion.clone(); (ch.hmSockets = ch.hmSockets || []).push(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) { o.visible = false; o.userData.hmHide = true; } }); for (const o of hidden) if (isUnder(o, keep)) { o.visible = true; o.userData.hmHide = false; } /* (the hand items carried over to the model show again) */
-    if (D.bright) m.traverse(o => { if (o.isMesh && o.material) { const mats = Array.isArray(o.material) ? o.material : [o.material]; o.material = mats.length > 1 ? mats.map(x => { const c = x.clone(); c.color.setScalar(D.bright); if (D.emis && c.emissive && c.map) { c.emissive.setScalar(D.emis); c.emissiveMap = c.map; } return c; }) : (() => { const c = mats[0].clone(); c.color.setScalar(D.bright); if (D.emis && c.emissive && c.map) { c.emissive.setScalar(D.emis); c.emissiveMap = c.map; } return c; })(); } }); /* (his own texture glows a little too, so the dark armour never goes black) */ // (lifted so the bone and armour detail reads)
+    if (D.bright) m.traverse(o => { if (!o.isMesh || !o.material) return; const lift = (x) => { if (!x) return x; const c = x.clone(); if (c.color && c.color.setScalar) c.color.setScalar(D.bright); if (D.emis && c.emissive && c.emissive.setScalar && c.map) { c.emissive.setScalar(D.emis); c.emissiveMap = c.map; } return c; }; o.material = Array.isArray(o.material) ? o.material.map(lift) : lift(o.material); }); /* (lifted so the bone and armour detail reads; his own texture glows a little; any material without a colour is left alone) */
     if (D.eyes) addEyes(m, D.eyes, k);
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run' && kk !== 'back') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
@@ -212,4 +213,30 @@ export function tickFpArms(vm) {
     if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)
   if (vm.arms) for (const a of vm.arms) a.arm.visible = false; // (the old forearms are gone: your model's own arms are drawn instead)
+}
+
+// the necromancer's ultimate demon (a Meshy character): one load, then a fresh copy per summon. It plays its scream when
+// the demon roars; the rest of the time it holds the scream's first frame and its arms reach for where the old built
+// demon's hands are, so the grab, the lift and the bite all line up with the ultimate's own timing
+const DEMON = { base: 'models/demon_rig.fbx', scream: 'models/anim/demon_scream.json', bright: 1.0 }; let demonBase = null;
+export function loadDemonModel() {
+  if (!demonBase) demonBase = (async () => { const [base, J] = await Promise.all([loadFbx(DEMON.base), (await fetch(DEMON.scream)).json()]); const c = THREE.AnimationClip.parse(J);
+    c.tracks = c.tracks.filter(t => !/\.position$/.test(t.name) || (/^Hips\.position$/.test(t.name) && (keepHipY(t), true))); /* (only the hips' bob: bones keep their own lengths) */
+    base.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const mats = Array.isArray(o.material) ? o.material : [o.material];
+      o.material = mats.map(m0 => { const m = DEMON.bright !== 1 ? m0.clone() : m0; if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m.color) { m.color.set('#ffffff'); if (DEMON.bright !== 1) m.color.setScalar(DEMON.bright); } m.side = THREE.DoubleSide; return m; }); if (o.material.length === 1) o.material = o.material[0]; } });
+    return { base, clip: c }; })().catch(e => { demonBase = null; throw e; });
+  return demonBase.then(({ base, clip }) => { const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true); const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
+    const mixer = new THREE.AnimationMixer(m), scream = mixer.clipAction(clip); scream.play(); scream.setEffectiveWeight(1); scream.paused = true; scream.time = 0; mixer.update(0);
+    const H = bones.Head, mouth = new THREE.Vector3(); if (H) { m.updateMatrixWorld(true); const h = H.getWorldPosition(new THREE.Vector3()), f = bones.headfront ? bones.headfront.getWorldPosition(new THREE.Vector3()) : h.clone().add(new THREE.Vector3(0, 0, 25)), top = bones.head_end ? bones.head_end.getWorldPosition(new THREE.Vector3()) : h.clone().add(new THREE.Vector3(0, 30, 0)); H.worldToLocal(mouth.copy(f).addScaledVector(top.sub(h), -0.3)); } /* (the mouth: the front of the face, a little below the eyes, riding on the head bone) */
+    return { m, bones, bind, mixer, scream, mouth, size: new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()), on: false }; });
+}
+// every frame: back to the rest pose, the scream (or its first frame) on top, then each arm reaching for its target point (world space)
+export function poseDemonModel(dm, dt, o = {}) {
+  if (!dm) return; const B = dm.bones; for (const k in dm.bind) { B[k].quaternion.copy(dm.bind[k][0]); B[k].position.copy(dm.bind[k][1]); }
+  const sc = dm.scream; if (o.screaming) { if (!dm.on) { dm.on = true; sc.time = o.screamFrom || 0; } sc.paused = false; sc.setEffectiveWeight(1); dm.mixer.update(dt); } /* (the scream runs from the start each time it roars) */
+  else { dm.on = false; sc.paused = true; sc.time = 0; sc.setEffectiveWeight(1); dm.mixer.update(0); } /* (otherwise: the scream's opening stance as its idle) */
+  dm.m.updateMatrixWorld(true);
+  for (const [sd, sx, tg] of [['Right', -1, o.handR], ['Left', 1, o.handL]]) { if (!tg) continue; const pole = dm.m.localToWorld(new THREE.Vector3(sx * 220, 110, -120)); ikArm(null, B[sd + 'Arm'], B[sd + 'ForeArm'], B[sd + 'Hand'], tg, pole); }
+  if ((o.pitch || o.yaw) && B.neck) { B.neck.updateWorldMatrix(true, false); const wq = dm.m.getWorldQuaternion(_q), ax = new THREE.Vector3(1, 0, 0).applyQuaternion(wq); _q2.setFromAxisAngle(ax, o.pitch || 0).premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0).applyQuaternion(wq), o.yaw || 0)); /* (the head looks where the built demon's head does: pitch about its side axis, then turn about its up axis) */ const bw = B.neck.getWorldQuaternion(new THREE.Quaternion()), pw = B.neck.parent.getWorldQuaternion(new THREE.Quaternion()); B.neck.quaternion.copy(pw.invert().multiply(_q2.multiply(bw))); }
+  dm.m.updateMatrixWorld(true);
 }

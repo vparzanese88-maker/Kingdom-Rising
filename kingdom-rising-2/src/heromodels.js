@@ -7,7 +7,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
   necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/necro_walk.fbx', run: 'models/necro_run.fbx' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.35, footScale: 0.84, legSpread: 0.09, runRate: 0.78 },
-  monk: { base: 'models/monk_rig.fbx', clips: { walk: 'models/monk_walk.fbx', run: 'models/monk_run.fbx' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92 },
+  monk: { base: 'models/monk_rig.fbx', clips: { walk: 'models/monk_walk.fbx', run: 'models/monk_run.fbx' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92, fpFist: true },
 };
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
@@ -114,15 +114,15 @@ function ikArm(F, up, fore, hand, target, pole) { if (!up || !fore || !hand) ret
   up.quaternion.copy(aimBone(up, fore, _E.clone().sub(_S))); up.updateWorldMatrix(true, true); const tgt = _S.clone().addScaledVector(dv, d); fore.quaternion.copy(aimBone(fore, hand, tgt.sub(_E))); fore.updateWorldMatrix(true, true); }
 export function tickFpArms(vm) {
   const F = vm && vm.fpArms; if (!F || F === 'loading') return; const B = F.B;
-  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(1 / (F.reach || 1)); // (longer arms, normal-sized hands)
+  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : 1.15); // (big hands in your view; the monk's become real fists below)
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(0.6); // (shoulder pads shrunk so they never cover the view)
-  F.wrap.visible = vm.g.visible !== false; F.wrap.updateMatrixWorld(true);
+  F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   for (const [H, sd, sx] of [[vm.R, 'Left', -1], [vm.L, 'Right', 1]]) { // (the model faces the way you look, so its left arm is your right side on screen... mirrored below if needed)
-    const t = new THREE.Vector3(); const wr = H.children[0] && H.children[0].userData.wrist; (wr || H).getWorldPosition(t);
+    const t = new THREE.Vector3(); const wr = H.children[0] && H.children[0].userData.wrist; if (F.D.fpFist) { H.updateWorldMatrix(true, false); t.copy(H.localToWorld(new THREE.Vector3(0, -0.07 * 1.35, 0).applyEuler(new THREE.Euler(0.55, 0, 0)))); } else (wr || H).getWorldPosition(t); // (aim at where the wrist belongs in the pose, not at the fist, which follows the arm)
     const side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
-    if (H.children[0]) H.children[0].visible = false; }
+    if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) { fist.scale.setScalar(1.35); fist.rotation.set(0.55, 0, 0); const hb = B[arm + 'Hand']; if (hb) { hb.updateWorldMatrix(true, false); const hw = hb.getWorldPosition(new THREE.Vector3()); const loc = H.worldToLocal(hw.clone()); const wl = fist.userData.wrist ? fist.userData.wrist.position.clone().multiplyScalar(1.35).applyEuler(fist.rotation) : new THREE.Vector3(); fist.position.copy(loc.sub(wl)); } } } } // (the monk's fist rides on the end of his own arm, knuckles forward, the back of the hand toward you) // (the monk: proper balled-up fists on the ends of his own arms)
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)
   if (vm.arms) for (const a of vm.arms) a.arm.visible = false; // (the old forearms are gone: your model's own arms are drawn instead)
 }

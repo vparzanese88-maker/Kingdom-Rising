@@ -127,6 +127,7 @@ export const V = {
   },
   emit(kind, p, opt = {}) { this.burst(kind, p, opt.n || 1, opt); },
   ring(p, radius, color = '#ffb060', dur = 0.5, y = 0.15) {
+    if (this.fpPos && radius < 3 && Math.hypot(p.x - this.fpPos.x, p.z - this.fpPos.z) < 0.8) return; // (a small ring round your own feet in first person reads as a grey sheet in front of you: skip it)
     const m = new THREE.Mesh(this.ringGeo, this.ringMat.clone()); m.material.color.set(color);
     m.position.set(p.x, p.y + y, p.z); m.scale.setScalar(0.1); this.scene.add(m);
     this.rings.push({ m, r: radius, t: 0, dur });

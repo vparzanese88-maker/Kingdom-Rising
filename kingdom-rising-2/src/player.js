@@ -28,6 +28,7 @@ import { angDiff, rand, clamp } from './util.js';
 const ARC_GEO = new Map();
 const ARC_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 function slashArc(pl, R, H, name, hit, col) {
+  if (pl.weapon && pl.weapon.wt === 'fists') return; // (bare fists leave no blade crescent: it hung in front of the monk's face as a grey sheet)
   const key = R.toFixed(1) + '_' + H.toFixed(2); let g = ARC_GEO.get(key); if (!g) { g = new THREE.RingGeometry(Math.max(0.5, R * 0.35), R, 28, 1, -H, H * 2); g.rotateX(-Math.PI / 2); ARC_GEO.set(key, g); }
   const m = new THREE.Mesh(g, ARC_MAT.clone()); m.material.color.copy(col || new THREE.Color('#ffffff')); m.material.opacity = hit ? 0.75 : 0.45;
   m.position.copy(pl.pos); m.position.y += name === 'smash' ? 0.4 : 1.05; m.rotation.y = pl.yaw - Math.PI / 2;
@@ -95,8 +96,8 @@ const VP = {
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
-  jabA: P(0.22, -0.22, -0.4, -1.5, 0, -0.22), jabB: P(0.06, -0.12, -0.9, -1.57, 0, 0), guardR: P(0.22, -0.23, -0.42, -1.48, -0.05, -0.25), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
-  bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
+  jabA: P(0.17, -0.19, -0.33, -1.5, 0, -0.22), jabB: P(0.03, -0.1, -0.9, -1.57, 0, 0), /* (past arm's reach: the punch locks out fully straight) */ guardR: P(0.17, -0.19, -0.34, -1.48, -0.05, -0.25), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
+  bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.18, -0.15, -0.38, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.04, -0.42, -0.15, 0.1, 0.12), necroPush: P(0.1, -0.13, -0.6, -1.45, 0, -0.1), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
@@ -107,16 +108,20 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 // what each class wears on its hands and forearms in first person
 const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather', bombardier: 'leather' };
 // a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
-function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, skin = new THREE.MeshStandardMaterial({ color: skinCol || '#d8a888', roughness: 0.6 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: '#8a7a60', roughness: 0.9 });
+function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, skin = new THREE.MeshStandardMaterial({ color: skinCol || '#d8a888', roughness: 0.55 }), skinD = new THREE.MeshStandardMaterial({ color: new THREE.Color(skinCol || '#d8a888').multiplyScalar(0.85), roughness: 0.6 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: new THREE.Color(wrapCol).multiplyScalar(0.6), roughness: 0.9 }), nail = new THREE.MeshStandardMaterial({ color: new THREE.Color(skinCol || '#d8a888').lerp(new THREE.Color('#ffe0e0'), 0.5), roughness: 0.3 });
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
-  const back = add(new THREE.BoxGeometry(0.085, 0.085, 0.04), skin, 0, 0, 0.016); back.geometry.translate(0, 0, 0); // (back of the hand)
-  add(new THREE.CapsuleGeometry(0.019, 0.06, 4, 8), skin, 0, 0.045, -0.004, 0, 0, Math.PI / 2); // (the folded fingers: a rounded row)
-  for (let i = 0; i < 4; i++) add(new THREE.SphereGeometry(0.014, 8, 6), skin, -0.03 + i * 0.02, 0.058, 0.012); // (knuckles)
-  add(new THREE.BoxGeometry(0.08, 0.04, 0.035), skin, 0, 0.03, -0.022); // (fingers curled into the palm)
-  const th = add(new THREE.CapsuleGeometry(0.013, 0.04, 4, 8), skin, -sx * 0.012, 0.018, -0.042, 0, 0, sx * 1.35); // (the thumb tucked across the front)
-  add(new THREE.BoxGeometry(0.092, 0.02, 0.05), wrap, 0, 0.046, 0.008); // (wrap over the knuckles)
-  for (let i = 0; i < 3; i++) { const b = add(new THREE.CylinderGeometry(0.047, 0.047, 0.018, 12, 1, true), i === 1 ? dark : wrap, 0, -0.02 - i * 0.022, 0.004); b.scale.set(1, 1, 0.82); } // (wraps round the palm and wrist)
-  const wrist = new THREE.Object3D(); wrist.position.set(0, -0.07, 0.004); g.add(wrist); g.userData.wrist = wrist;
+  // the hand (local +Y is the punch direction, the back of the hand faces +Z): a rounded block, broad across the knuckles
+  add(new THREE.SphereGeometry(0.05, 16, 12), skin, 0, 0.005, 0.0).scale.set(0.95, 0.95, 0.62);
+  for (let i = 0; i < 4; i++) { const x = (-0.033 + i * 0.022) * sx, r = 0.0125 - Math.abs(i - 1.5) * 0.0008, L = 0.026 - Math.abs(i - 1.5) * 0.002;
+    add(new THREE.CapsuleGeometry(r, L, 4, 10), skin, x, 0.05, 0.004); // (the first finger bones, out to the knuckles)
+    add(new THREE.SphereGeometry(r * 1.12, 10, 8), skin, x, 0.064, 0.008); // (a knuckle)
+    add(new THREE.CapsuleGeometry(r * 0.95, L * 0.8, 4, 10), skin, x, 0.068, -0.016, Math.PI / 2); // (the fingers folded down into the palm)
+    add(new THREE.BoxGeometry(r * 1.4, 0.004, r * 1.2), nail, x, 0.058, -0.03); }
+  add(new THREE.CapsuleGeometry(0.0135, 0.034, 4, 10), skin, -sx * 0.008, 0.036, -0.036, 0, 0, sx * 1.45); // (the thumb locked across the front of the fingers)
+  add(new THREE.SphereGeometry(0.016, 10, 8), skinD, -sx * 0.038, 0.012, -0.022); // (the base of the thumb)
+  for (let i = 0; i < 3; i++) { const b = add(new THREE.CylinderGeometry(0.05, 0.05, 0.016, 16, 1, true), i === 1 ? dark : wrap, 0, -0.016 - i * 0.02, 0.0); b.scale.set(1, 1, 0.68); b.material = b.material.clone(); b.material.side = THREE.DoubleSide; } // (cloth wraps over the palm and wrist)
+  add(new THREE.BoxGeometry(0.085, 0.018, 0.006), wrap, 0, 0.03, 0.03).rotation.z = 0.15 * sx; // (a wrap across the back of the hand)
+  const wrist = new THREE.Object3D(); wrist.position.set(0, -0.07, 0.0); g.add(wrist); g.userData.wrist = wrist;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); return g; }
 function makeHand(right, cls, skinCol) {
   const g = new THREE.Group(), sx = right ? 1 : -1;
@@ -223,7 +228,7 @@ class ViewModel {
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     if (W.kind === 'gun') main.scale.setScalar(0.62);
     if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
-      if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
+      if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.cls === 'monk' ? '#c48a5e' : this.skinCol, this.cls === 'monk' ? '#8e1c1c' : undefined)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
     if (this.cls === 'wizard' && this.hero && !this.book) { const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.L.add(bk); this.book = bk; } // (the wizard's spellbook, open in your off hand)
@@ -243,7 +248,7 @@ class ViewModel {
     if (this.bomber && r === VP.staff) r = VP.necroR;
     if (this.book && (!l || l === VP.hideL)) l = VP.bookL;
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
-    if (this.necro) { if (r === VP.staff) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
+    if (this.necro) { if (r === VP.staff || r === VP.staffCast) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; if (act && /^(cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroR, VP.necroPush, act.t, 0.18, VP.necroR); } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     const t = act ? act.t : 0, n = act ? act.name : '';
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
     if (st.tool) {
@@ -659,7 +664,7 @@ export class Player {
       }
       if (targets.length) { G.hitstop = (big ? 0.09 : 0.04) * (G.battleFx ? 1.5 : 1); V.addShake((big ? 0.3 : 0.08) * (G.battleFx ? 1.6 : 1)); if (G.battleFx) for (const m of targets) { const hp = m.pos.clone(); hp.y += (m.height || 1.5) * 0.6; V.burst('spark', hp, big ? 22 : 12, { speed: big ? 9 : 6 }); if (big) V.light(hp, '#ffd8a0', 5, 0.12); } }
       const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
-      if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp.clone().setY(this.pos.y), st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
+      if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); if (this.camDist >= 0.6) V.ring(fp.clone().setY(this.pos.y), st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
       if (a.name === 'spin') { V.ring(this.pos, st.aoe || 3, '#e0e8ff', 0.35); V.burst('spark', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 7 }); S.swingW('light', 1.6, this.pos); }
       if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
       if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });
@@ -672,7 +677,7 @@ export class Player {
       S.bowShot(this.pos);
     } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff') {
-      const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : (this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
+      const from = this.camDist < 0.6 ? (this.vmWorld(this.vm.weapons.flame) || G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion))) : (this.ch.weapons.main?.userData.flame?.getWorldPosition(new THREE.Vector3()) || this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
       if (this.h.arena && this.h.cls === 'bombardier') { // the goblin lobs a bomb in an arc: it bursts on whatever it hits, or where it lands
         const v = dir.clone().multiplyScalar(26); v.y += 4.5; spawnProjectile({ wpn: true, pos: from, vel: v, grav: 16, radius: 0.3, dmg: base * 1.05, owner: 'player', kind: 'bomb', life: 3, onHit: (p, m, pos) => { for (const u of mobsInRadius(pos, 3)) this.dealDamage(u, u === m ? p.dmg : p.dmg * 0.6, { el: 'fire' }); V.burst('fire', pos, 46, { speed: 6 }); V.burst('smoke', pos, 16, { speed: 2.5, size: 0.8, life: 1.1, vy: 1.5 }); V.sphereFlash(pos, 1.6, '#ffb040', 0.2); V.ring(pos, 3, '#ff9030', 0.35); V.light(pos, '#ff8030', 5, 0.25, 9); S.explode(pos, 0.45); V.addShake(0.15); } });
@@ -682,7 +687,7 @@ export class Player {
         S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; }
       if (this.h.arena && this.h.cls === 'necromancer') { // the necromancer's staff spits a dripping ball of poison
         spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(30), grav: 4, radius: 0.28, dmg: base * 0.75 * (1 + ch * 1.2), owner: 'player', kind: 'poison', scale: big ? 1.5 : 1, life: 3, onHit: (p, m, pos) => { for (const u of mobsInRadius(pos, big ? 2.6 : 1.6)) this.dealDamage(u, u === m ? p.dmg : p.dmg * 0.4, { el: 'arcane', poison: base * 0.35, spread: 2 }); V.burst('poison', pos, 34, { speed: 3.5, grav: 6 }); V.burst('green', pos, 8, { speed: 2 }); poisonBubbles(pos, big ? 22 : 14, big ? 2 : 1.3); V.light(pos, '#60ff40', 3, 0.2); S.poisonSplash(pos, big ? 1.4 : 1); } });
-        S.poisonSpit(from); V.burst('green', from, 8, { speed: 2 }); return; }
+        S.poisonSpit(from); if (this.camDist >= 0.6) V.burst('green', from, 8, { speed: 2 }); return; }
       if (G.newFx && !a.big) base *= 0.7; // campaign: plain bolts hit softer; spells and the held stream carry the damage
       const sc = big ? 1 + ch * 1.4 : 1;
       if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
@@ -693,6 +698,8 @@ export class Player {
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
     }
   }
+  // a point in the first-person view (its own camera) as a world point on the same line of sight: spells leave the hand you see
+  vmWorld(obj) { if (!obj || !G.vmCam) return null; const p = obj.getWorldPosition(new THREE.Vector3()), d = p.distanceTo(G.vmCam.position), n = p.clone().project(G.vmCam); const dir = new THREE.Vector3(n.x, n.y, 0.5).unproject(G.camera).sub(G.camera.position).normalize(); return G.camera.position.clone().addScaledVector(dir, Math.max(1.1, d)); }
   fireBurst(pos, r, dmg, direct) {
     if (direct) this.dealDamage(direct, dmg, { el: 'fire', burn: dmg * 0.08 });
     for (const m of mobsInRadius(pos, r)) if (m !== direct) this.dealDamage(m, dmg * 0.5, { el: 'fire', burn: dmg * 0.05 });
@@ -829,7 +836,7 @@ export class Player {
       if (rank >= 8) { const pull = this.pos.clone().sub(m.pos).setY(0).normalize().multiplyScalar(4); m.status.knock.add(pull); }
     }
     S.swingW(this.swingKind(k % 2 ? 'swing1' : 'off1'), 0.8, this.pos);
-    if (rank >= 6) V.ring(this.pos, r, '#e0e8ff', 0.25);
+    if (rank >= 6 && this.camDist >= 0.6) V.ring(this.pos, r, '#e0e8ff', 0.25); // (not round your own feet in first person: it read as a grey sheet in front of you)
     if (k === a.hits && rank >= 4) { // cross slash wave
       const from = this.pos.clone(); from.y += 1; const dir = this.fwd();
       spawnProjectile({ pos: from, vel: dir.multiplyScalar(26), grav: 0, radius: 1.3, dmg: a.base * 1.6, owner: 'player', kind: 'wave', life: 0.8, pierce: true });
@@ -2104,7 +2111,7 @@ export class Player {
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;
-    this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp);
+    this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp); V.fpPos = fp && !this.dead ? this.pos : null;
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);

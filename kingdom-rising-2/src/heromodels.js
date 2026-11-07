@@ -6,10 +6,17 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { eyes: { col: '#3aff1a', up: 0.07, fwd: 0.11, side: 0.034, r: 0.017 }, bright: 2.1, emis: 0.18, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
+  necromancer: { bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.45, walkSpeed: 1.5, runSpeed: 5.0 },
   blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.0, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
   warrior: { base: 'models/warr_rig.fbx', clips: { walk: 'models/anim/warr_walk.json', run: 'models/anim/warr_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  bard: { base: 'models/bard_rig.fbx', clips: { walk: 'models/anim/bard_walk.json', run: 'models/anim/bard_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  beastmaster: { base: 'models/beast_rig.fbx', clips: { walk: 'models/anim/beast_walk.json', run: 'models/anim/beast_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  cleric: { base: 'models/cleric_rig.fbx', clips: { walk: 'models/anim/cleric_walk.json', run: 'models/anim/cleric_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  druid: { base: 'models/druid_rig.fbx', clips: { walk: 'models/anim/druid_walk.json', run: 'models/anim/druid_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  elementalist: { base: 'models/ele_rig.fbx', clips: { walk: 'models/anim/ele_walk.json', run: 'models/anim/ele_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  enchanter: { base: 'models/ench_rig.fbx', clips: { walk: 'models/anim/ench_walk.json', run: 'models/anim/ench_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  bombardier: { base: 'models/bomb_rig.fbx', clips: { walk: 'models/anim/bomb_walk.json', run: 'models/anim/bomb_run.json' }, height: 1.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]

@@ -615,7 +615,7 @@ export const arenaStat = (h, k) => (h && h.arenaPK && h.arenaPK[k]) || 0;
 // tanks (the heavy melee) hold the front: more health, less damage taken
 export const TANK_CLS = new Set(['warrior', 'paladin', 'darkknight', 'berserker', 'blunderbuss']);
 // per-class balance from the duel simulator (tools/duelsim.cjs): health and damage multipliers on top of the role's
-export const ARENA_TUNE = { paladin: { hp: 0.8, dmg: 0.72 }, darkknight: { hp: 1.18, dmg: 1.22 }, blunderbuss: { dmg: 1.06 }, berserker: { dmg: 1.08 }, bombardier: { hp: 1.2, dmg: 1.45 } }; // (first pass: paladin won 15-0 against the other tanks, the shadow knight lost to everyone, the bombardier lost to the gunners)
+export const ARENA_TUNE = { paladin: { hp: 0.92, dmg: 0.88 }, darkknight: { hp: 1.12, dmg: 1.15 }, blunderbuss: { dmg: 1.06 }, berserker: { dmg: 1.08 }, bombardier: { hp: 1.25, dmg: 1.6 } }; // (first pass: paladin won 15-0 against the other tanks, the shadow knight lost to everyone, the bombardier lost to the gunners)
 const tuneOf = (h) => ARENA_TUNE[h && h.cls] || null;
 export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * ((tuneOf(h) || {}).hp || 1) * (1 + 0.08 * arenaStat(h, 'hp'));
 export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));

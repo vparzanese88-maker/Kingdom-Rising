@@ -164,6 +164,7 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const cls in ULTS) { const U2 = ULTS[cls]; if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === U2.id)) ABILITIES[cls].push({ id: U2.id, name: U2.name, t: U2.t, cd: 90, cost: 0, fx: 'gold', level: 1, desc: U2.desc }); ARENA_ULT[cls] = U2.id; } // (the table's ultimates)
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }
   for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
+  { const l = ABILITIES.paladin && ABILITIES.paladin.find(a => a.id === 'layonhands'); if (l) { l.self = 0.3; l.ally = 0.35; l.r = 8; l.desc = 'Lay your hands on the light: you heal 30% of your health and allies within 8 m heal 35%.'; } } // (60% on a 20 s cooldown made the paladin unkillable in duels)
   { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) { n.desc = 'Raise the shrunken head: a stream of green soul-water pours out of the enemy you aim at into it, healing you and slowing them.'; n.slow = 2.5; } }
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
@@ -1051,7 +1052,7 @@ function shotMesh(kind, col, big) {
 function shot(src, tgt, col, onHit, big, kind) {
   kind = kind || (src.W && src.W.kind === 'bow' && !big ? 'arrow' : src.W && src.W.kind === 'gun' && !big ? 'bullet' : col === SHOT_COL.frost ? 'frost' : 'orb');
   const m = shotMesh(kind, col, big), from = src.pos.clone().setY(src.pos.y + 1.35).addScaledVector(V3(Math.sin(src.yaw), 0, Math.cos(src.yaw)), 0.6);
-  m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0, kind, speed: kind === 'bullet' ? 46 : kind === 'arrow' ? 32 : kind === 'bomb' ? 17 : 22, from: from.clone() });
+  m.position.copy(from); G.scene.add(m); A.shots.push({ m, tgt, onHit, col, t: 0, kind, speed: kind === 'bullet' ? 46 : kind === 'arrow' ? 32 : kind === 'bomb' ? 21 : 22, from: from.clone() });
   if (AN.on && AN.host && src.arenaF) nsend({ t: 'shot', f: src.arenaF.i, to: tgt === G.player ? A.me.i : tgt.arenaF ? tgt.arenaF.i : -1, k: kind, c: col, b: big ? 1 : 0 });
 }
 function updateShots(dt) {

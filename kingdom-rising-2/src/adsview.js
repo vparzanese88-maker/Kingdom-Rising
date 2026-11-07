@@ -3,6 +3,7 @@
 // and sights, a side-lock hammer and ramrod; the blunderbuss has a short brass barrel with a flared bell; the bow is
 // drawn to the cheek with the arrow running out to the target.
 import * as THREE from 'three';
+import { musketize } from './character.js';
 
 const M = (c, metal = 0, rough = 0.7) => new THREE.MeshStandardMaterial({ color: c, metalness: metal, roughness: rough });
 const box = (g, m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
@@ -45,6 +46,13 @@ export function buildAdsView(kind, look = {}) {
     g.userData.base = 0; g.userData.muzzle = new THREE.Vector3(0, -0.012, -0.82);
     return g;
   }
+  if (kind === 'musket') { // the detailed musket model (the same one carried in the hands), laid exactly like the first-person aim: the stock under your cheek, the barrel running straight out from just under your eye to its front sight on the centre of the screen
+    const wg = new THREE.Group(); wg.position.set(0, -0.1676, -0.3); wg.rotation.set(-Math.PI / 2 + 0.2017, 0, 0); wg.scale.setScalar(0.55); g.add(wg); musketize(wg); wg.updateMatrix();
+    const P = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(wg.matrix), lh = P(0, 0.56, -0.03), rh = P(0.01, -0.02, -0.03);
+    hand(g, skin, glove, lh.x - 0.006, lh.y - 0.02, lh.z, 0.3, 0); sleeve(g, cloth, lh.x - 0.05, lh.y - 0.1, lh.z + 0.17, 0.32, 0.65, 0.3); // (the left hand cradles the barrel at the middle band)
+    hand(g, skin, glove, rh.x + 0.02, rh.y - 0.03, rh.z, -0.15, 0); // (the right grips the wrist of the stock at the trigger)
+    g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+    g.userData.base = 0; g.userData.muzzle = P(0, 1.12, 0.045); return g; }
   const blunder = kind === 'blunderbuss', len = blunder ? 0.66 : 1.05, barM = blunder ? brass : blued, bore = -0.05, z0 = -0.3; // z0: the breech
   const zr = z0 - 0.12, zf = z0 - len + 0.04; // rear and front sight positions; their tops line up through your eye
   const yr = bore * 0.25, yf = yr * (zf / zr); // (the front blade sits in the rear notch on one line from the eye)

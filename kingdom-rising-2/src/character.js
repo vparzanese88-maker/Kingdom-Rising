@@ -100,6 +100,24 @@ function axeHeadGeo(size) {
     g.translate(0, 0, -0.015 * size); return g;
   });
 }
+// the detailed musket model (models/musket.glb: muzzle toward -x, butt +x, sights +y), loaded once and re-laid into the
+// weapon frame used here: the wrist of the stock at the origin, the barrel up +y (muzzle at y 1.11, butt plate at y -0.4), sights +z, lock +x
+let _musketTpl = null, _musketP = null; const _musketWait = [];
+export function loadMusket() { if (!_musketP) _musketP = import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res) => new GLTFLoader().load('models/musket.glb', (gl) => {
+  let src = null; gl.scene.traverse(o => { if (o.isMesh && !src) src = o; }); if (!src) return res(null);
+  const geo = src.geometry.clone(), s = 1.51 / 1.9; geo.translate(-0.45, -0.02, -0.027); /* (the wrist of the stock to the origin) */
+  geo.applyMatrix4(new THREE.Matrix4().set(0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1)); geo.scale(s, s, s); geo.computeBoundingSphere(); geo.computeBoundingBox();
+  const ca = geo.attributes.color; if (ca) { const n = ca.count, cf = new Float32Array(n * 3), c = new THREE.Color(); for (let i = 0; i < n; i++) { c.setRGB(ca.getX(i), ca.getY(i), ca.getZ(i), THREE.SRGBColorSpace); cf[i * 3] = c.r; cf[i * 3 + 1] = c.g; cf[i * 3 + 2] = c.b; } geo.setAttribute('color', new THREE.BufferAttribute(cf, 3)); } /* (the file's paint is sRGB: walnut, iron, brass) */
+  const cf = geo.attributes.color, isWood = (v) => cf && cf.getX(v) > cf.getZ(v) * 3 && cf.getX(v) < 0.3; /* (walnut: red well over blue, and dark; brass is bright, iron is grey) */
+  const ix = geo.index ? geo.index.array : null, wd = [], mt = []; if (ix) for (let i = 0; i < ix.length; i += 3) (isWood(ix[i]) ? wd : mt).push(ix[i], ix[i + 1], ix[i + 2]); /* (two parts: oiled walnut, and polished iron and brass) */
+  const tpl = new THREE.Group(); tpl.name = 'musketGLB';
+  for (const [idx, mm] of [[wd, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0 })], [mt, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.7 })]]) { if (ix && !idx.length) continue; const g2 = geo.clone(); if (ix) g2.setIndex(idx); g2.computeBoundingSphere(); const o = new THREE.Mesh(g2, mm); o.userData.keep = true; o.castShadow = true; tpl.add(o); if (!ix) break; }
+  tpl.userData.keep = true; _musketTpl = tpl; res(tpl); for (const f of _musketWait.splice(0)) f(tpl);
+}, undefined, () => res(null)))); return _musketP; }
+// swap a weapon group's code-built meshes for the detailed musket (now if it is loaded, or as soon as it is)
+export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
+  const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
+  if (_musketTpl) put(_musketTpl); else { _musketWait.push(put); loadMusket(); } return g; }
 // Weapons are built with the grip at the origin and the business end pointing +Y.
 // userData.tip / userData.base mark the edge for trails.
 export function makeWeapon(part, tier = 0, rarity = 0, element) {
@@ -120,7 +138,7 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       // iron sights on top of the barrel: a brass bead at the muzzle and a notched rear sight
       mesh(cached('mfsight', () => new THREE.BoxGeometry(0.006, 0.014, 0.026)), goldMat, g, 0, 1.0, 0.026);
       for (const sx of [-0.009, 0.009]) mesh(cached('mrsight', () => new THREE.BoxGeometry(0.006, 0.012, 0.022)), M, g, sx, 0.22, 0.026);
-      base.position.set(0, 0.6, 0); tip.position.set(0, 1.06, 0); break;
+      base.position.set(0, 0.6, 0); tip.position.set(0, 1.12, 0); musketize(g); break; /* (the code-built parts above stand in until the detailed model has loaded) */
     }
     case 'blunderbuss': {
       // a short, thick stock, a stubby brass-banded barrel and a wide flared bell at the muzzle
@@ -581,6 +599,7 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
   if (W.kind === 'melee') main.rotation.y = AXE(parts[0]) ? AXE_ROT : Math.PI / 2;
   if (wt === 'spear') { main.position.y = -0.7; }
   if (W.hands === 'two' && wt !== 'spear') main.position.y = W.parts[0] === 'greatsword' ? -0.06 : -0.25;
+  if (wt === 'musket') { main.position.y = 0; main.scale.setScalar(0.9); } // (the detailed musket: the right hand on the wrist of the stock, a little shorter than its owner)
   if (parts[1]) {
     const off = makeWeapon(parts[1], tier, rarity);
     ch.arms.L.grip.add(off); ch.weapons.off = off; if (parts[1] !== 'shield') off.rotation.y = AXE(parts[1]) ? AXE_ROT : Math.PI / 2;

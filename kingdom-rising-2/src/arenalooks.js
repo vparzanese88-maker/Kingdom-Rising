@@ -501,13 +501,7 @@ export function goblinGun(w, cls, s = 1) { if (!w || w.userData.goblin) return; 
   if (cls !== 'musketeer') for (const [y, z] of [[0.15, 0.03], [0.42, -0.03], [0.6, 0.02]]) a(new THREE.BoxGeometry(0.05, 0.08, 0.012), rust, 0.03, y, z, 0, 0, 0.3); // (mismatched patches)
   if (cls !== 'musketeer') for (let i = 0; i < 6; i++) a(new THREE.SphereGeometry(0.008, 5, 4), brass, 0.028, 0.1 + i * 0.1, 0.02); // (rivets)
   if (cls !== 'musketeer') a(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), rag, 0, -0.06, 0); // (rag-wrapped grip)
-  if (cls === 'musketeer') { // a proper flintlock musket: no scope; ramrod, trigger guard, frizzen and pan, butt plate, sling swivels
-    const wood = M('#6a3e22', 0.7), iron = M('#3a3a3c', 0.55, 0.8);
-    a(new THREE.CylinderGeometry(0.0045, 0.0045, 0.86, 8), wood, 0, 0.48, -0.028); a(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 8), brass, 0, 0.92, -0.028); // (the ramrod in its channel under the barrel, brass tip)
-    a(new THREE.TorusGeometry(0.03, 0.004, 6, 14, Math.PI), brass, 0, -0.02, -0.04, 0, Math.PI / 2, 0); a(new THREE.BoxGeometry(0.004, 0.022, 0.004), iron, 0, -0.01, -0.03, 0.4); // (trigger guard and trigger)
-    a(new THREE.BoxGeometry(0.01, 0.07, 0.035), iron, 0.032, 0.08, 0.01); a(new THREE.BoxGeometry(0.012, 0.03, 0.012), iron, 0.038, 0.115, 0.03, 0.3); a(new THREE.BoxGeometry(0.02, 0.012, 0.02), brass, 0.03, 0.1, 0.03); // (lock plate, frizzen, pan)
-    a(new THREE.BoxGeometry(0.064, 0.012, 0.135), brass, 0, -0.445, 0.03); // (brass butt plate)
-    for (const y of [-0.2, 0.7]) a(new THREE.TorusGeometry(0.012, 0.003, 5, 10), iron, 0, y, -0.05, 0, Math.PI / 2, 0); } // (sling swivels)
+  if (cls === 'musketeer') { /* (the musketeer carries the detailed musket model: nothing bolted on) */ }
   else { // the bruiser's hand-cannon: a fat flared barrel ringed with spikes, a smokestack, twin feed pipes, a brass gauge, a spring, a chained powder flask
     const bell = a(new THREE.CylinderGeometry(0.075, 0.045, 0.14, 12, 1, true), rust, 0, 0.62, 0); bell.material = bell.material.clone(); bell.material.side = THREE.DoubleSide;
     for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a(new THREE.ConeGeometry(0.012, 0.06, 5), steel, Math.cos(an) * 0.075, 0.66, Math.sin(an) * 0.075, Math.sin(an) * 1.2, 0, -Math.cos(an) * 1.2); }

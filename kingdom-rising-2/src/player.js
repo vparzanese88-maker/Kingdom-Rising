@@ -111,6 +111,14 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather', bombardier: 'leather' };
 // a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
 // first person is right under your nose: rebuild every round shape there with far more segments (smooth, high-detail hands and weapons)
+// first person with the musket: put each hand's wrist where that hand wraps the gun (the grip points in the musket's own frame: the wrist of the
+// stock at the origin, under the barrel at the middle band, 0.56 up it), backed off toward its shoulder so the palm and fingers close on the wood
+const GUN_GRIP = { R: [0, -0.015, -0.005, 0.07, 0.012, -0.02], L: [0, 0.56, 0, 0.065, -0.03, -0.035] }; /* [x, y, z on the gun, back off toward the shoulder, side, down] */
+function gunHands(vm, F) { const g = vm.gun; g.updateMatrixWorld(true);
+  for (const [H, sd] of [[vm.R, 'R'], [vm.L, 'L']]) { const wr = H.children[0] && H.children[0].userData.wrist, sh = F.B[sd === 'R' ? 'RightArm' : 'LeftArm']; if (!wr || !sh) continue; const q = GUN_GRIP[sd];
+    const p = g.localToWorld(new THREE.Vector3(q[0], q[1] + (sd === 'L' ? 0.14 * (vm.gunK || 0) : 0), q[2])); /* (aimed, the left hand reaches further out along the barrel) */ vm.g.worldToLocal(p); const s0 = sh.getWorldPosition(new THREE.Vector3()); vm.g.worldToLocal(s0);
+    const want = p.clone().addScaledVector(s0.sub(p).normalize(), q[3]); want.x += q[4]; want.y += q[5];
+    H.visible = true; H.updateMatrixWorld(true); const cur = wr.getWorldPosition(new THREE.Vector3()); vm.g.worldToLocal(cur); H.position.add(want.sub(cur)); H.updateMatrixWorld(true); } }
 function hdify(root) { root.traverse(o => { if (!o.isMesh || o.userData.hd || !o.geometry || !o.geometry.parameters) return; o.userData.hd = true; const g = o.geometry, P = g.parameters, up = (n, mx) => Math.min(mx, Math.max(n, Math.round(n * 2.5)));
   let ng = null; try { if (g.type === 'SphereGeometry') ng = new THREE.SphereGeometry(P.radius, up(P.widthSegments, 48), up(P.heightSegments, 32), P.phiStart, P.phiLength, P.thetaStart, P.thetaLength);
     else if (g.type === 'CylinderGeometry') ng = new THREE.CylinderGeometry(P.radiusTop, P.radiusBottom, P.height, up(P.radialSegments, 40), P.heightSegments, P.openEnded, P.thetaStart, P.thetaLength);
@@ -251,6 +259,7 @@ class ViewModel {
     if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.cls === 'monk' ? '#c48a5e' : this.skinCol, this.cls === 'monk' ? '#8e1c1c' : undefined)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
+    if (this.gun && w.wt === 'musket') for (const c of this.gun.children) if (c.isMesh && c !== this.gun.userData.glb) c.visible = false; /* (in first person only the detailed musket model shows: never the code-built stand-in) */
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
     if (this.cls === 'wizard' && this.hero && !this.book) { const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.L.add(bk); this.book = bk; } // (the wizard's spellbook, open in your off hand)
     if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; }
@@ -286,13 +295,17 @@ class ViewModel {
       if (W && (W.kind === 'bow' || W.hands === 'dual' || W.kind === 'staff')) l = VP.hideL;
     } else if (W && W.kind === 'gun' && st.block && !act) {
       // blocking with a musket: held level across the body, stock to the left, barrel to the right
-      if (this.gun) { this.gun.position.set(0.05, -0.13, -0.4); this.gun.rotation.set(-0.15, 0, -Math.PI / 2 + 0.08); }
+      if (this.gun && this.wt === 'musket') { this.gun.scale.setScalar(0.55); this.gun.rotation.order = 'YXZ'; this.gun.position.set(0.2, -0.17, -0.42); this.gun.rotation.set(-0.15, 0, Math.PI / 2 + 0.12); this.gunK = 0; } /* (the musket: stock at the right, barrel across to the left, so neither arm crosses the other) */
+      else if (this.gun) { this.gun.position.set(0.05, -0.13, -0.4); this.gun.rotation.set(-0.15, 0, -Math.PI / 2 + 0.08); }
       r = [0.2, -0.2, -0.38, -1.25, 0, 0.6]; l = [-0.2, -0.19, -0.4, -1.25, 0, -0.6];
     } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
       // musket at the hip, raised to the eye while aiming, with a kick on every shot
       // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
       const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0.022, k), lerp(-0.27, -0.112, k), lerp(-0.5, -0.66, k) + rc * 0.07]; /* (aimed: the stock low at the shoulder, your eye just above it, looking along the barrel to the sights) */
-      if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06 + k * 0.105, (1 - k) * 0.05 - k * 0.03, 0); }
+      if (this.gun && this.wt === 'musket') { /* the detailed musket (camera-space numbers, less the view model's own offset): at the hip pointing in toward the crosshair; aimed, the stock at the cheek and the barrel running straight out from just under your eye, its front sight on the centre of the screen */
+        const ke = k * k * (3 - 2 * k), e = lerp(0.12, 0.2017, ke) + rc * 0.2, ox = this.g.position.x, oy = this.g.position.y, oz = this.g.position.z;
+        this.gun.rotation.order = 'YXZ'; this.gun.scale.setScalar(0.55); this.gun.position.set(lerp(0.13, 0, ke) - ox, lerp(-0.2, -0.1676, ke) - oy, lerp(-0.3, -0.3, ke) + rc * 0.05 - oz); this.gun.rotation.set(-Math.PI / 2 + e, lerp(0.12, 0, ke), 0); this.gunK = ke;
+      } else if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06 + k * 0.105, (1 - k) * 0.05 - k * 0.03, 0); }
       r = [gp[0] + 0.01 + k * 0.03, gp[1] - 0.05 - k * 0.03, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02 - k * 0.04, gp[2] - 0.22, -1.4, 0, -0.2];
     } else if (act) {
       const dual = W && W.hands === 'dual';
@@ -389,7 +402,10 @@ class ViewModel {
       const rest = Math.max(0.01, len - FORE); m.scale.set(1, rest, 1); m.position.set(0, FORE + rest / 2 - 0.01, 0); /* (the forearm keeps its shape; only the sleeve beyond the elbow stretches) */
       trim.position.set(0, 0.035, 0);
     }
+    const F = this.fpArms && this.fpArms !== 'loading' ? this.fpArms : null, mk = F && this.gun && this.wt === 'musket' && this.gun.visible !== false && !st.tool; if (F) { F.reach = mk ? 1.65 + 0.2 * (this.gunK || 0) : 1.35; if (!F.wrap0) F.wrap0 = F.wrap.position.clone(); F.wrap.position.copy(F.wrap0); if (mk) F.wrap.position.z -= 0.14; } /* (a musket is long: the arms a little longer and the shoulders forward, out of sight below the view, so both hands reach it) */
+    if (mk) gunHands(this, F); /* (both hands on the musket: right round the wrist of the stock at the trigger, left cradling the fore-end) */
     if (this.fpArms) tickFpArms(this); // (a class with a 3D model: its own arms in first person)
+    if (mk) for (const nm of ['LeftHand', 'RightHand']) if (F.B[nm]) F.B[nm].scale.setScalar((F.D.fpHand || 1.15) * 1.35 / F.reach); /* (the hands stay their own size) */
   }
 }
 
@@ -1501,18 +1517,32 @@ export class Player {
   }
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
   // third person: while aiming, the musket's butt sits in the right shoulder and the barrel points where you aim
-  gunToShoulder(ch, on) {
+  gunToShoulder(ch, on, free) {
     const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return;
     const ud = g.userData; if (!ud.home) ud.home = { p: g.position.clone(), q: g.quaternion.clone() };
-    if (!on) { if (ud.aimed) { g.position.copy(ud.home.p); g.quaternion.copy(ud.home.q); ud.aimed = false; } return; }
+    const musket = !!(this.weapon && this.weapon.wt === 'musket'), port = !on && musket && free && !this.dead && !this.dodge && !this.swim && !this.sheathed && g.visible !== false; /* (the musket at port arms when not aiming: carried across the body, muzzle up to the left, stock low at the right hip) */
+    if (ud.handsSet) { ud.handsSet = false; for (const sd of ['R', 'L']) { const hd = ch.arms[sd].hand; if (hd && hd.userData.home) hd.position.copy(hd.userData.home); } } /* (the built hands back on their wrists; set again below while the gun is held) */
+    if (!on && !port) { if (ud.aimed) { g.position.copy(ud.home.p); g.quaternion.copy(ud.home.q); ud.aimed = false; } return; }
     ch.root.updateMatrixWorld(true);
-    const sh = ch.arms.R.sh.getWorldPosition(new THREE.Vector3()); sh.y -= 0.04;
-    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)); // the barrel (model +y) along the aim, sights (+z) up, lock (+x) to the right: no twisting
-    const upv = new THREE.Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize(), rx = new THREE.Vector3().crossVectors(dir, upv), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(rx, dir, upv));
-    const want = sh.clone().addScaledVector(dir, 0.42).addScaledVector(this.right(), -0.06);
+    const HB = ch.heroModel && ch.heroModel.bones, mdl = !!(musket && HB && HB.RightArm && HB.LeftArm && HB.RightForeArm && HB.RightHand); /* (a 3D hero model: fit the gun to the model's own shoulders and arm length, which its hands can reach) */
+    const wp = (o) => o.getWorldPosition(new THREE.Vector3()), sh = wp(mdl ? HB.RightArm : ch.arms.R.sh), shL = wp(mdl ? HB.LeftArm : ch.arms.L.sh), sc = g.getWorldScale(new THREE.Vector3()).x;
+    const L = mdl ? sh.distanceTo(wp(HB.RightForeArm)) + wp(HB.RightForeArm).distanceTo(wp(HB.RightHand)) : sh.distanceTo(wp(ch.arms.R.el)) + wp(ch.arms.R.el).distanceTo(wp(ch.arms.R.hand)); /* (shoulder to wrist) */
+    if (!mdl) sh.y -= 0.04;
+    let dir, upv, rx, want;
+    if (port) { const bq = ch.root.getWorldQuaternion(new THREE.Quaternion()), f = new THREE.Vector3(0, 0, 1).applyQuaternion(bq), up = new THREE.Vector3(0, 1, 0), rt = new THREE.Vector3().crossVectors(f, up), bob = Math.sin(G.time * 1.8) * 0.006;
+      dir = up.clone().multiplyScalar(0.78).addScaledVector(rt, -0.56).addScaledVector(f, 0.22).normalize(); /* (barrel up and across to the left shoulder) */
+      rx = f.clone().addScaledVector(dir, -f.dot(dir)).normalize(); upv = new THREE.Vector3().crossVectors(rx, dir); /* (the lock faces out, away from the chest) */
+      want = sh.clone().addScaledVector(up, -0.62 * L + bob).addScaledVector(f, 0.5 * L).addScaledVector(rt, -0.12 * L); } /* (the wrist of the stock in front of the right hip) */
+    else { dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)); // the barrel (model +y) along the aim, sights (+z) up, lock (+x) to the right: no twisting
+      upv = new THREE.Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize(); rx = new THREE.Vector3().crossVectors(dir, upv);
+      want = musket ? sh.clone().addScaledVector(dir, 0.32 * L).addScaledVector(upv, 0.16 * L).addScaledVector(this.right(), -0.28 * L) : sh.clone().addScaledVector(dir, 0.42).addScaledVector(this.right(), -0.06); } /* (the musket's origin is the wrist of the stock: the butt plate tucks into the shoulder behind it, the cheek down on the comb) */
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(rx, dir, upv));
     // both hands on the gun: the right round the wrist of the stock, the left under the forend
     const at = (y, z) => want.clone().addScaledVector(dir, y).addScaledVector(upv, z);
-    armReach(ch, 'R', at(-0.1, -0.05), 5); armReach(ch, 'L', at(0.42, -0.04), 5);
+    if (musket) { const back = (p, s0, d) => p.addScaledVector(s0.clone().sub(p).normalize(), d), bk = mdl ? 0.06 : 0.03, ly = port ? 0.56 : 0.34; /* (aimed, the left hand comes back to the rear band: a goblin's arms are short) */
+      const tR = back(at(0, -0.02 * sc), sh, bk), tL = back(at(ly * sc, -0.01 * sc), shL, bk); if (mdl) { for (const [sd, t] of [['R', tR], ['L', tL]]) { const hd = ch.arms[sd].hand; if (!hd || !hd.parent) continue; if (!hd.userData.home) hd.userData.home = hd.position.clone(); hd.parent.updateWorldMatrix(true, false); hd.position.copy(hd.parent.worldToLocal(t.clone())); } ud.handsSet = true; } /* (the model's hands follow the built body's hands, whose arms are longer: put those hands right where the model's should hold) */
+      else { armReach(ch, 'R', tR, 6); armReach(ch, 'L', tL, 6); } } /* (right hand round the wrist of the stock at the trigger, left under the barrel at a band) */
+    else { armReach(ch, 'R', at(-0.1, -0.05), 5); armReach(ch, 'L', at(0.42, -0.04), 5); }
     const pq = g.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
     g.position.copy(g.parent.worldToLocal(want.clone())); g.quaternion.copy(pq.multiply(q)); ud.aimed = true;
   }
@@ -2114,7 +2144,7 @@ export class Player {
       ch.root.updateMatrixWorld(true); for (const A2 of [ch.arms.R, ch.arms.L]) if (Math.random() < 0.7) { const hp2 = A2.hand.getWorldPosition(new THREE.Vector3()); V.emit('poison', hp2, { speed: 0.25, vy: -2.2, size: 0.13, life: 0.75, radius: 0.08 }); if (Math.random() < 0.3) V.emit('green', hp2, { speed: 0.4, vy: 0.6, size: 0.18, life: 0.5 }); } }
     if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
     if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time, dt); // (the bard plays once he has a song)
-    this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
+    this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))), !action || action === 'gunAim');
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
     const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
@@ -2132,6 +2162,7 @@ export class Player {
     const kind = this.W && this.W.kind === 'bow' ? 'bow' : this.weapon && this.weapon.wt === 'blunderbuss' ? 'blunderbuss' : this.W && this.W.kind === 'gun' ? 'musket' : null;
     if (this.adsG && (this.adsG.userData.kind !== kind)) { this.adsG.parent && this.adsG.parent.remove(this.adsG); this.adsG = null; }
     if (!kind || ae < 0.05) { if (this.adsG) this.adsG.visible = false; return; }
+    if (kind === 'musket' && this.vm && this.vm.fpArms && this.vm.fpArms !== 'loading' && this.vm.gun) { if (this.adsG) this.adsG.visible = false; this.vm.g.visible = ae > 0.5 && !this.dead; return; } /* (a hero with his own 3D arms: the first-person musket and arms come up, the very same down-the-barrel view) */
     if (!this.adsG) { const ap = this.h.app || {}, cm = this.ch.mats || {}; this.adsG = buildAdsView(kind, { skin: ap.skin, cloth: cm.shirt && cm.shirt.color ? '#' + cm.shirt.color.getHexString() : undefined, goblin: this.h.arena && (this.h.cls === 'musketeer' || this.h.cls === 'blunderbuss') }); this.adsG.userData.kind = kind; G.vmCam.add(this.adsG); }
     const g = this.adsG, e = Math.max(0, (ae - 0.45) / 0.55), r = this.recoil || 0, t = G.time, mv = Math.min(1, (this.speed || 0) / 5);
     g.visible = ae > 0.5;

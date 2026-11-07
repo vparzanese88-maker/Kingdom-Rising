@@ -325,16 +325,17 @@ export function buildHumanoid(app = {}) {
   if (hero && !female) torsoProf.splice(0, torsoProf.length, [0.118 * T, -0.08], [0.12 * T, 0.02], [0.14 * T, 0.1], [sw * 0.9, th * 0.66], [sw * 1.04, th * 0.88], [sw * 0.86, th + 0.02], [0.075 * T, th + 0.075]); // a V: broad chest, narrow waist
   const torso = mesh(latheGeo(`torso${female}${T.toFixed(2)}${sw.toFixed(3)}${th.toFixed(2)}${hero ? 'h' : ''}`, torsoProf, 22), kind === 'person' ? shirtM : skinM, chest);
   if (hero) { if (!female) for (const s2 of [-1, 1]) { const pec = mesh(cached('pecbox', () => { const g = new THREE.BoxGeometry(0.15, 0.09, 0.05, 2, 2, 1); const p3 = g.attributes.position; for (let i = 0; i < p3.count; i++) { const x = p3.getX(i), y = p3.getY(i); p3.setZ(i, p3.getZ(i) - (x * x * 2.2 + y * y * 3)); } g.computeVertexNormals(); return g; }), shirtM, pivot(chest, s2 * sw * 0.4, th * 0.8, 0.095 * T, 'pec')); pec.scale.set(sw / 0.25, 1, Math.min(1.3, mus) * T); pec.rotation.z = s2 * -0.12; /* a flat, square chest plate, not a round bulge */ }
-    const trap = mesh(latheGeo(`trap${sw.toFixed(3)}${T.toFixed(2)}`, [[sw * 0.78, 0], [sw * 0.5, 0.05], [0.07 * T, 0.11]], 16), shirtM, chest, 0, th - 0.02, -0.01); trap.scale.z = 0.62;
+    const trap = mesh(latheGeo(`trap2${sw.toFixed(3)}${T.toFixed(2)}`, [[sw * 0.84, 0], [sw * 0.6, 0.045], [0.12 * T, 0.095], [0.085 * T, 0.13]], 16), shirtM, chest, 0, th - 0.045, -0.012); trap.scale.z = 0.66; // (the trapezius slopes up into the neck)
     const lat = mesh(sphereGeo(0.1 * T, 12, 8), shirtM, chest, 0, th * 0.55, -0.05 * T); lat.scale.set(sw / 0.1 * 0.8, 1.2, 0.55); }
   torso.scale.z = kind === 'troll' || kind === 'golem' ? 0.85 : 0.66;
   if (female && kind === 'person') { for (const s of [-1, 1]) { const b = mesh(sphereGeo(0.065 * T, 10, 8), shirtM, chest, s * 0.065 * T / 0.88, th * 0.62, 0.075 * T); b.scale.set(1, 0.9, 0.8); } }
   if (kind === 'skeleton') { torso.material = skinM; torso.scale.set(0.8, 1, 0.55); for (let i = 0; i < 4; i++) { const rib = mesh(cached('rib', () => new THREE.TorusGeometry(0.11, 0.012, 4, 12, Math.PI * 1.4)), skinM, chest, 0, 0.05 + i * 0.07, 0); rib.rotation.x = Math.PI / 2; rib.rotation.z = -Math.PI * 0.2; rib.scale.set(1, 0.7, 1); } torso.scale.set(0.35, 1, 0.35); }
 
-  const neck = pivot(chest, 0, th + 0.04, 0, 'neck');
-  mesh(limbGeo((hero ? 0.056 : 0.045) * Math.min(T, 1.5), (hero ? 0.064 : 0.05) * Math.min(T, 1.5), R.neck + 0.06), skinM, neck, 0, R.neck + 0.04, 0);
-  const head = pivot(neck, 0, R.neck + 0.05, 0, 'head');
-  const hs = R.head;
+  const neck = pivot(chest, 0, hero ? th - 0.005 : th + 0.04, 0, 'neck');
+  if (hero) { const tk = Math.min(T, 1.5); mesh(limbGeo(0.07 * tk, 0.086 * tk, 0.13), skinM, neck, 0, 0.085, 0.004).scale.z = 0.92; } // (a short, strong neck that sits down into the shoulders, not a stalk)
+  else mesh(limbGeo(0.045 * Math.min(T, 1.5), 0.05 * Math.min(T, 1.5), R.neck + 0.06), skinM, neck, 0, R.neck + 0.04, 0);
+  const head = pivot(neck, 0, hero ? 0.048 : R.neck + 0.05, hero ? 0.008 : 0, 'head');
+  const hs = R.head * (hero ? 1.07 : 1);
   const headG = new THREE.Group(); headG.scale.setScalar(hs); head.add(headG);
   buildHead(headG, app, kind, female, mats, glowM);
 

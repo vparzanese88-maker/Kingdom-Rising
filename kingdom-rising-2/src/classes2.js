@@ -23,7 +23,7 @@ export const NEW_CLASSES = {
       { id: 'judgement', name: 'Judgement', level: 18, cd: 30, cost: 55, t: 'ground', r: 8, dmg: 1.4, ticks: 3, stun: 1, fx: 'gold', desc: 'Pillars of holy light crash down three times where you aim, stunning everything there.' },
     ] },
   paladin: { name: 'Paladin', desc: 'A holy knight in plate. Holds the line, heals a little and smites a lot.',
-    weapons: ['swordshield', 'sword', 'greatsword', 'maceshield'], armor: 'mail', start: 'swordshield', startName: 'Sword and Shield', outfit: 'warrior',
+    weapons: ['greatsword', 'sword'], armor: 'mail', start: 'greatsword', startName: 'Greatsword', outfit: 'warrior',
     colors: { main: '#e0e4f0', trim: '#e0b84a', metal: '#d0d4dc' }, pool: { hp: [125, 16], mana: [60, 5], end: [95, 5], uses: 'end' },
     info: { tag: 'Holy knight', diff: 1, role: 'Tank with some healing', res: 'Endurance', tips: ['Lay on Hands saves you (or a friend) from death.', 'Divine Charge and Hammer Strike stun what you hit.', 'Aura of Devotion protects everyone around you.'] },
     tune: { dmg: 0.78, hp: 0.85 },

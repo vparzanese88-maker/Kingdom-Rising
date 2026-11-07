@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb } from './arenalooks.js';
+import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -95,7 +95,7 @@ const VP = {
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   jabA: P(0.22, -0.22, -0.4, -1.5, 0, -0.22), jabB: P(0.06, -0.12, -0.9, -1.57, 0, 0), guardR: P(0.22, -0.23, -0.42, -1.48, -0.05, -0.25), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
-  necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
+  bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
@@ -223,6 +223,7 @@ class ViewModel {
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
+    if (this.cls === 'wizard' && this.hero && !this.book) { const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.L.add(bk); this.book = bk; } // (the wizard's spellbook, open in your off hand)
     if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
@@ -237,6 +238,7 @@ class ViewModel {
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
     if (this.bomber && r === VP.staff) r = VP.necroR;
+    if (this.book && (!l || l === VP.hideL)) l = VP.bookL;
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
     if (this.necro) { if (r === VP.staff) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     const t = act ? act.t : 0, n = act ? act.name : '';

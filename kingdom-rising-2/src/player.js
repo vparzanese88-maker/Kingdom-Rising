@@ -291,8 +291,8 @@ class ViewModel {
     } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
       // musket at the hip, raised to the eye while aiming, with a kick on every shot
       // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
-      const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0, k), lerp(-0.27, -0.036, k), lerp(-0.5, -0.4, k) + rc * 0.07];
-      if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06, (1 - k) * 0.05, 0); }
+      const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0.022, k), lerp(-0.27, -0.112, k), lerp(-0.5, -0.66, k) + rc * 0.07]; /* (aimed: the stock low at the shoulder, your eye just above it, looking along the barrel to the sights) */
+      if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06 + k * 0.105, (1 - k) * 0.05 - k * 0.03, 0); }
       r = [gp[0] + 0.01 + k * 0.03, gp[1] - 0.05 - k * 0.03, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02 - k * 0.04, gp[2] - 0.22, -1.4, 0, -0.2];
     } else if (act) {
       const dual = W && W.hands === 'dual';
@@ -2121,7 +2121,7 @@ export class Player {
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
-    this.vm.update(dt, { rendAt: this.rendLook ? this.rendLook() : null, channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8, kick: this.kickT > 0 ? 1 - this.kickT / (this.kickDur || 0.55) : 0, superman: this.supermanT > 0 ? 1 - this.supermanT / 0.45 : 0 });
+    this.vm.update(dt, { rendAt: this.rendLook ? this.rendLook() : null, channel: !!(this.channel && this.channel.on), aim: Math.max(this.aimK || 0, this.adsK || 0), recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8, kick: this.kickT > 0 ? 1 - this.kickT / (this.kickDur || 0.55) : 0, superman: this.supermanT > 0 ? 1 - this.supermanT / 0.45 : 0 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade

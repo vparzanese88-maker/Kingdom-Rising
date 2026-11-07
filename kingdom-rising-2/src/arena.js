@@ -276,7 +276,10 @@ export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, P0 =
     tgt.copy(focus(ct)); const base0 = a0 != null ? a0 : Math.atan2(p.pos.z - tgt.z, p.pos.x - tgt.x), ang = base0 + ct * 0.12; // (start on your side of the action, drift slowly round)
     if (off == null || G.time - chk > 0.5) { chk = G.time; off = 0; for (let i = 0; i < 12; i++) { const a2 = ang + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.5; if (lineClear(tgt, new THREE.Vector3(tgt.x + Math.cos(a2) * r, tgt.y + h, tgt.z + Math.sin(a2) * r))) { off = a2 - ang; break; } } }
     offS += (off - offS) * 0.05; Ob.set(tgt.x + Math.cos(ang + offS) * r, tgt.y + h, tgt.z + Math.sin(ang + offS) * r);
-    c.position.lerpVectors(P0, Ob, k); look.lerpVectors(L0, tgt, k); c.up.copy(UP); c.lookAt(look); };
+    if (opts.lift) { const M = P0.clone().lerp(Ob, 0.25); M.y = Math.max(P0.y, Ob.y) + opts.lift; const u = 1 - k; c.position.set(u * u * P0.x + 2 * u * k * M.x + k * k * Ob.x, u * u * P0.y + 2 * u * k * M.y + k * k * Ob.y, u * u * P0.z + 2 * u * k * M.z + k * k * Ob.z); } /* (lift straight up over your own head first, then glide out: never through your skull) */
+    else c.position.lerpVectors(P0, Ob, k);
+    look.lerpVectors(L0, tgt, k); c.up.copy(UP); c.lookAt(look);
+    if (p.ch && p.ch.root && k > 0 && k < 1) { const dEye = c.position.distanceTo(P0); if (dEye < 1.6) p.ch.root.visible = false; } }; // (your own body hidden while the camera is still close to your head)
   p.cine = cam; return cam; }
 // the victim's cinematic: letterbox bars, the HUD gone, a slow third-person orbit framing you and the threat, for dur seconds
 export function ultVictimCine(p, threat, dur) { if (!p || p.cine) return; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); }
@@ -762,7 +765,7 @@ export function summonDemon(caster, at) {
   // searches, roars in fury, and sinks back down. Whoever is caught sees it all from a cinematic camera.
   if (at && at.pos) at = at.pos; if (!at) return false; const RR = 5.2, FRZ = G.ringFRZ || 1.5; // (FRZ: the freeze when the ring bursts up; from dead centre only a leap dodge then gets out in time) // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
   const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
-  const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.order = 'YXZ'; g.rotation.y = face; /* (yaw, then a lean in its own frame) */ G.scene.add(g); addOutline(g);
+  const DS = 1.45, D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.scale.multiplyScalar(DS); g.position.set(ox, base - 6.5 * DS, oz); /* (big enough to reach anyone inside the ring) */ g.rotation.order = 'YXZ'; g.rotation.y = face; /* (yaw, then a lean in its own frame) */ G.scene.add(g); addOutline(g);
   const ring = makeHellRing(RR, 64); ring.position.copy(center); G.scene.add(ring);
   S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
@@ -784,7 +787,7 @@ export function summonDemon(caster, at) {
     slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows far harder than a normal slow: to 15.6% speed) */ } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
     const up = t < sinkAt ? seg(t, 1.0, 2.9) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.9) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
-    g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
+    g.position.y = base - 6.5 * DS + up * 6.0 * DS + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
     const heartS = 1 + Math.sin(t * 7) * 0.12; D.heart.scale.setScalar(heartS);
     { let want = face; if (victim && from) want = Math.atan2(from.x - ox, from.z - oz); else if (missed && t < sinkAt) want = face + e((t - GRAB) / 2.0) * Math.PI * 2 + Math.sin((t - GRAB) * 5) * 0.15; /* (a full slow turn, hunting) */
       let dA = want - yawC; if (!missed) { dA = Math.atan2(Math.sin(dA), Math.cos(dA)); } yawC += dA * Math.min(1, dt * (victim && t < GRAB + 0.5 ? 14 : missed ? 10 : 4)); g.rotation.y = yawC;
@@ -835,7 +838,7 @@ export function summonDemon(caster, at) {
   // walls between the camera and the action: swing round until the line is clear
   function clearAng(mid, ang, r, cy) { for (let k = 0; k < 12; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; if (lineClear(mid, new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r))) return a2 - ang; } return 0; }
   // the caster's view: flies up and out of your eyes to circle the pit, watches the whole thing, then flies back
-  function startFly() { const tg = new THREE.Vector3(); flyCam = ultFlyCam(G.player, () => { D.head.getWorldPosition(tg); tg.y = Math.max(base + 1.5, tg.y - 1.2); return tg; }, () => sinkAt + 0.65, { r: 12.5, h: 4.2, delay: 1, inT: 2.4 }); } // (a second in your own eyes, then the view drifts slowly out toward the demon)
+  function startFly() { const tg = new THREE.Vector3(); flyCam = ultFlyCam(G.player, () => { D.head.getWorldPosition(tg); tg.lerp(center, 0.45); tg.y = Math.max(base + 1.2, tg.y); return tg; }, () => sinkAt + 0.65, { r: 9.5, h: 10.5, delay: 1, inT: 1.4, lift: 3.5 }); } // (a second in your own eyes, then up over your head and out to a high aerial view of the fire ring and the demon, Paladins style)
   // the victim's cinematic: letterbox bars, a low camera slowly circling the pit, framing the demon and its catch
   function startCine() { const p = G.player; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); } requestAnimationFrame(() => bars.classList.add('on'));
     document.body.classList.add('cine'); let cineA = null, cineChk = -9, cineS = null; const t0 = t, Hd = new THREE.Vector3(), side = Math.random() < 0.5 ? 1 : -1;

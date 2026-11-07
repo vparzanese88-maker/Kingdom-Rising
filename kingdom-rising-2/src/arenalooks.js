@@ -28,14 +28,14 @@ const SPEC = {
   monk: { shirt: '#d8781c', robe: '#e8901e', pants: '#7a3410', boots: '#4a2a14', sash: '#a01a1a', bareArms: true, belt: '#a01a1a' }, // (a long saffron robe over dark trousers)
   rogue: { shirt: '#1e1c24', vest: '#2a2632', pants: '#18161c', boots: '#100e12', hood: '#16141a', mask: '#16141a', belt: '#3a1a2a', bracers: '#2a2632', cloak: '#141218' },
   ranger: { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: '#2e5a26', cloak: '#2e5a26', quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' },
-  musketeer: { shirt: '#e8e0c8', vest: '#1f2c56', trim: '#c9a14a', pants: '#6a7c9e', boots: '#1a1612', belt: '#1a1612', bracers: '#1f2c56' },
-  blunderbuss: { shirt: '#e8e0c8', vest: '#8a1a1a', trim: '#e8e0c8', pants: '#2a2a30', boots: '#1a1612', belt: '#e8e0c8', bracers: '#8a1a1a' },
+  musketeer: { shirt: '#5a4a2a', vest: '#3a2c1c', trim: '#8a6a3a', pants: '#4a3a22', boots: '#2a1a10', belt: '#2a1a10', bracers: '#3a2c1c' }, // (a goblin sharpshooter's patched leathers)
+  blunderbuss: { shirt: '#6a3a1a', vest: '#5a4a3a', trim: '#8a5a2a', pants: '#3a2a1a', boots: '#2a1a10', belt: '#3a2a1a', bracers: '#6a5a4a' }, // (a goblin bruiser in scrap and leather)
   beastmaster: { shirt: '#4a3a28', vest: '#6a5034', pants: '#3c3024', boots: '#3a2416', belt: '#2a1a10', bracers: '#6a5034', bareArms: true },
 };
 export function arenaSpec(cls) { return SPEC[cls] || null; }
 // each class's build (see BODY in character.js): brutes, knights, heavies, athletes, lean casters, sturdy priests
 const BUILD = { berserker: 'brute', beastmaster: 'brute', warrior: 'knight', paladin: 'knight', darkknight: 'knight', blunderbuss: 'heavy', shaman: 'heavy',
-  rogue: 'athlete', ranger: 'athlete', monk: 'lean', musketeer: 'athlete', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
+  rogue: 'athlete', ranger: 'athlete', monk: 'lean', musketeer: 'lean', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
 export function arenaBody(cls) { return BUILD[cls] || 'athlete'; }
 
 // ---- signature pieces ----
@@ -78,8 +78,8 @@ const DETAIL = {
   paladin(ch) { const m = steel('#dcdcd4'), g = gold(); breastplate(ch, m, g); pauldrons(ch, g, 1.1); gauntlets(ch, m); greaves(ch, m); belt(ch, '#8a6a30', '#f0d070'); },
   darkknight(ch) { const m = steel('#26262c'); breastplate(ch, m, M('#7a1010', 0.5, 0.5)); gauntlets(ch, m); greaves(ch, m); belt(ch, '#1a0a0a', '#7a1010'); },
   berserker(ch) { gauntlets(ch, fur('#5a3a22')); straps(ch, '#3a2416'); belt(ch, '#3a2416', '#9aa0a8', 1); bootCuffs(ch, '#6a4a2a'); },
-  blunderbuss(ch) { gloves(ch, '#e8e0c8'); belt(ch, '#efe8d8', '#c9a14a', 2); bootCuffs(ch, '#1a1612'); pauldrons(ch, M('#c9a14a', 0.4, 0.8), 0.7); },
-  musketeer(ch) { gloves(ch, '#e8e0c8'); belt(ch, '#1a1612', '#c9a14a', 1); bootCuffs(ch, '#1a1612'); const cb = add(ch.hips, boxG(0.1, 0.07, 0.05), M('#1a1612', 0.7), 0.1, 0.08, -0.12); },
+  blunderbuss(ch) { gloves(ch, '#5a3a1a'); belt(ch, '#3a2a1a', '#8a6a3a', 3); bootCuffs(ch, '#2a1a10'); },
+  musketeer(ch) { gloves(ch, '#3a2a1a'); belt(ch, '#2a1a10', '#8a6a3a', 2); bootCuffs(ch, '#2a1a10'); },
   ranger(ch) { gauntlets(ch, M('#5a3a22', 0.85), false); belt(ch, '#3a2a1a', '#9aa0a8', 2); bootCuffs(ch, '#4a3220'); },
   rogue(ch) { gauntlets(ch, M('#2a2632', 0.8), false); belt(ch, '#3a1a2a', '#9aa0a8', 3); bootCuffs(ch, '#100e12'); straps(ch, '#100e12'); },
   monk(ch) { const w = M('#efe8d8', 0.95); for (const sd of ['L', 'R']) { const fa = ch.R.armL * 0.46; add(ch.arms[sd].el, cylG(0.046, 0.05, fa * 0.45, 10), w, 0, -fa * 0.72, 0); } },
@@ -123,11 +123,25 @@ const DECOR = {
     const hb = add(ch.headG, new THREE.TorusGeometry(0.125, 0.012, 6, 20), M('#a01a1a'), 0, 0.13, 0); hb.rotation.x = Math.PI / 2; },
   rogue(ch) { const m = M('#2a2632', 0.7); for (const s of [-1, 1]) { const d = add(ch.chest, boxG(0.02, 0.16, 0.03), M('#c8ccd2', 0.3, 0.9), s * 0.12, 0.05, 0.12); d.rotation.z = s * 0.4; } add(ch.headG, boxG(0.16, 0.025, 0.02), GL('#c03060'), 0, 0.105, 0.13).visible = false; },
   ranger(ch) { const lf = M('#3a6a2a', 0.9); shoulderSpikes(ch, M('#6b4a2a'), 0); for (let k = 0; k < 3; k++) { const f = add(ch.headG, coneG(0.015, 0.14, 4), M(k === 1 ? '#a02020' : '#e8e0c0'), 0.1, 0.22, -0.08 + k * 0.02); f.rotation.z = -0.6; f.scale.z = 0.3; } },
-  musketeer(ch) { // a Union kepi, brass buttons, a white cross belt
-    const kp = new THREE.Group(); kp.position.set(0, 0.17, 0.0); kp.rotation.x = -0.18; ch.headG.add(kp); const blue = M('#1f2c56', 0.85); add(kp, cylG(0.1, 0.125, 0.12, 16), blue, 0, 0.06, -0.01).rotation.x = 0.25; const vz = add(kp, cylG(0.1, 0.1, 0.01, 16, 1, false, -Math.PI / 2, Math.PI), M('#101010', 0.4), 0, 0.0, 0.06); vz.scale.z = 0.7; add(kp, sph(0.012, 6, 4), gold(), 0, 0.08, 0.11);
-    const g = gold(); for (let k = 0; k < 6; k++) add(ch.chest, sph(0.011, 6, 4), g, 0.0, ch.R.torsoH - 0.36 + k * 0.045, 0.13); const wb = add(ch.chest, boxG(0.035, 0.55, 0.01), M('#efe8d8'), 0, ch.R.torsoH * 0.45, 0.125); wb.rotation.z = 0.75; add(ch.chest, cylG(0.03, 0.03, 0.01, 12), g, 0, ch.R.torsoH * 0.45, 0.13).rotation.x = Math.PI / 2; },
-  blunderbuss(ch) { const bs = add(ch.headG, cylG(0.13, 0.14, 0.36, 14), fur('#151515'), 0, 0.3, -0.01); add(ch.headG, sph(0.13, 14, 8), fur('#151515'), 0, 0.48, -0.01).scale.y = 0.5; add(ch.headG, cylG(0.05, 0.05, 0.01, 12), gold(), 0, 0.2, 0.13).rotation.x = Math.PI / 2;
-    for (const s of [-1, 1]) { const b = add(ch.chest, boxG(0.04, 0.6, 0.012), M('#efe8d8'), 0, ch.R.torsoH * 0.45, 0.125); b.rotation.z = s * 0.7; } const k = M('#2a2a2a', 0.6); for (let i = 0; i < 4; i++) add(ch.chest, sph(0.035, 10, 8), k, -0.12 + i * 0.08, 0.02, 0.13); },
+  musketeer(ch) { // a lanky goblin sharpshooter: long drooping ears, a hooked nose, a brass telescope monocle, a hood, glowing rounds
+    hideHair(ch); const hg = ch.headG, skin = ch.mats.skin, dark = M('#2a1e12', 0.85), leather = M('#4a3a26', 0.8), brass = gold();
+    for (const sx of [-1, 1]) { const e = new THREE.Group(); e.position.set(sx * 0.13, 0.03, -0.02); e.rotation.set(0.25, sx * 0.3, -sx * 1.25); hg.add(e); const c = add(e, coneG(0.055, 0.42, 8), skin, 0, 0.2, 0); c.scale.z = 0.35; const tip = new THREE.Group(); tip.position.y = 0.36; tip.rotation.x = 0.7; e.add(tip); add(tip, coneG(0.022, 0.12, 6), skin, 0, 0.05, 0); } // (long ears that droop at the tips)
+    const nose = add(hg, coneG(0.03, 0.17, 8), skin, 0, -0.02, 0.16); nose.rotation.x = Math.PI / 2 + 0.5; add(hg, sph(0.022, 8, 6), skin, 0, -0.07, 0.2); // (a long hooked nose)
+    for (const sx of [-1, 1]) { const ey = add(hg, sph(0.024, 8, 6), GL('#ffd23a'), sx * 0.05, 0.03, 0.125); ey.castShadow = false; }
+    const mono = add(hg, cylG(0.034, 0.03, 0.09, 12), brass, 0.05, 0.03, 0.16); mono.rotation.x = Math.PI / 2; add(hg, new THREE.TorusGeometry(0.034, 0.008, 6, 16), brass, 0.05, 0.03, 0.205); add(hg, sph(0.028, 10, 8), GL('#9ae0ff'), 0.05, 0.03, 0.206).scale.z = 0.3; // (a brass telescope monocle)
+    const hood = add(hg, sph(0.17, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), leather, 0, 0.04, -0.03); hood.rotation.x = -0.35; hood.scale.set(1.05, 1.1, 1.15); // (a patched hood)
+    add(ch.chest, boxG(0.05, ch.R.torsoH * 1.05, 0.02), dark, 0, ch.R.torsoH * 0.5, 0.135).rotation.z = 0.55; for (let k = 0; k < 6; k++) { const v = add(ch.chest, cylG(0.012, 0.012, 0.05, 6), GL(k % 2 ? '#7aff5a' : '#9ae0ff'), -0.1 + k * 0.04, ch.R.torsoH * 0.32 + k * 0.05, 0.15); v.rotation.z = 0.55; v.castShadow = false; } // (a bandolier of glowing rounds)
+    for (const [x, y, c] of [[0.08, 0.3, '#6a5a3a'], [-0.06, 0.15, '#5a6a3a']]) add(ch.chest, boxG(0.07, 0.06, 0.01), M(c, 0.85), x, ch.R.torsoH * y + 0.1, 0.14); }, // (patches)
+  blunderbuss(ch) { // a squat goblin bruiser: tusks, a red mohawk, stubby ears, welding goggles, scrap-metal plates, a powder keg on his back
+    hideHair(ch); const hg = ch.headG, skin = ch.mats.skin, rust = M('#7a4a2a', 0.6, 0.6), iron2 = M('#5a5a60', 0.45, 0.8), tusk = M('#efe6c8', 0.5);
+    for (const sx of [-1, 1]) { const e = add(hg, coneG(0.05, 0.2, 8), skin, sx * 0.15, 0.03, -0.01); e.rotation.z = -sx * 1.4; e.scale.z = 0.4; const t = add(hg, coneG(0.022, 0.09, 6), tusk, sx * 0.05, -0.08, 0.12); t.rotation.x = -0.25; } // (stubby ears, tusks jutting up from the underbite)
+    add(hg, boxG(0.16, 0.06, 0.1), skin, 0, -0.08, 0.08); // (the heavy jaw)
+    for (let k = 0; k < 5; k++) add(hg, boxG(0.03, 0.08 + (k === 2 ? 0.04 : 0), 0.05), M('#c82a1a', 0.8), 0, 0.17 + (k === 2 ? 0.02 : 0), 0.08 - k * 0.05); // (a red mohawk)
+    for (const sx of [-1, 1]) { add(hg, new THREE.TorusGeometry(0.035, 0.012, 6, 14), iron2, sx * 0.055, 0.12, 0.11).rotation.x = -0.6; add(hg, sph(0.03, 10, 8), GL('#3aa8ff'), sx * 0.055, 0.12, 0.112).scale.z = 0.3; } add(hg, new THREE.TorusGeometry(0.15, 0.012, 6, 24), M('#3a2a1a', 0.8), 0, 0.11, 0).rotation.x = Math.PI / 2 - 0.25; // (welding goggles pushed up)
+    for (const sx of [-1, 1]) { const ey = add(hg, sph(0.022, 8, 6), GL('#ff9a1a'), sx * 0.05, 0.02, 0.125); ey.castShadow = false; }
+    for (const [x, y, rz, w, h] of [[0.06, 0.62, 0.2, 0.16, 0.12], [-0.07, 0.45, -0.15, 0.14, 0.14], [0.04, 0.3, 0.1, 0.18, 0.1]]) { const p = add(ch.chest, boxG(w, h, 0.02), rust, x, ch.R.torsoH * y, 0.14); p.rotation.z = rz; for (const dx of [-1, 1]) add(p, sph(0.01, 5, 4), iron2, dx * w * 0.38, h * 0.3, 0.012); } // (scrap plates riveted on)
+    { const pa = add(ch.arms.L.sh, sph(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), iron2, 0, 0.02, 0); for (let k = 0; k < 3; k++) add(pa, coneG(0.025, 0.14, 6), iron2, -0.04 + k * 0.04, 0.12, 0); } // (one big spiked pauldron)
+    { const keg = add(ch.chest, cylG(0.13, 0.13, 0.3, 12), M('#7a4a22', 0.8), 0, ch.R.torsoH * 0.5, -0.24); keg.rotation.z = Math.PI / 2; for (const dx of [-0.1, 0.1]) { const b = add(keg, new THREE.TorusGeometry(0.135, 0.012, 6, 16), iron2, 0, dx, 0); b.rotation.x = Math.PI / 2; } add(keg, cylG(0.008, 0.008, 0.12, 4), M('#e8d8a0'), 0, 0.2, 0); } }, // (a powder keg on his back, fuse and all)
   beastmaster(ch) { hideHair(ch); const f = fur('#7a7a80'), wh = fur('#c8c8cc'); const head = add(ch.headG, sph(0.15, 14, 10), f, 0, 0.15, -0.02); head.scale.set(1, 0.85, 1.15);
     const sn = add(ch.headG, boxG(0.09, 0.07, 0.16), f, 0, 0.16, 0.14); add(ch.headG, boxG(0.07, 0.03, 0.12), wh, 0, 0.12, 0.15); add(ch.headG, sph(0.016, 6, 4), GL('#0a0a0a'), 0, 0.18, 0.22);
     for (const s of [-1, 1]) { add(ch.headG, coneG(0.04, 0.1, 4), f, s * 0.08, 0.28, -0.02); add(ch.headG, sph(0.012, 6, 4), GL('#ffd040'), s * 0.04, 0.2, 0.15); for (let k = 0; k < 2; k++) add(ch.headG, coneG(0.01, 0.04, 4), wh, s * 0.03, 0.11, 0.2 - k * 0.04).rotation.x = Math.PI; }
@@ -137,6 +151,7 @@ export function arenaDecor(ch, cls) { try { if (DETAIL[cls]) DETAIL[cls](ch); if
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
+  if (cls === 'beastmaster') { for (const k of ['main', 'off']) { const o = ch.weapons[k]; if (o) for (const c of [...o.children]) o.remove(c); } for (const sd of ['R', 'L']) { const c2 = makeClaws(0.5); c2.rotation.x = Math.PI; c2.position.set(0, -0.06, 0.015); ch.arms[sd].hand.add(c2); } return; } // (wolverine claws out of both fists, in line with the forearm)
   if (cls === 'bard') { // a lute: he clubs people with it, and plays it once he has learnt his songs
     for (const c of [...w.children]) if (c.isMesh || (c.children && c.children.some(k => k.isMesh))) w.remove(c); const L = new THREE.Group(); w.add(L); w.userData.lute = L;
     const wood = M('#a0602a', 0.55), dark = M('#4a2a12', 0.7), str = GL('#e8e0c8');
@@ -334,3 +349,9 @@ const AR_G = { shaft: new THREE.CylinderGeometry(0.018, 0.018, 0.85, 5), head: n
 export function makeArrow() { if (!AR_M) AR_M = { shaft: M('#7a5a3a', 0.7), head: M('#9aa0a8', 0.3, 0.8), fl: new THREE.MeshStandardMaterial({ color: '#d84a2a', roughness: 0.8, side: THREE.DoubleSide }) };
   const g = new THREE.Group(); const s = new THREE.Mesh(AR_G.shaft, AR_M.shaft); g.add(s); const h = new THREE.Mesh(AR_G.head, AR_M.head); h.position.y = -0.49; h.rotation.x = Math.PI; g.add(h);
   for (let i = 0; i < 2; i++) { const f = new THREE.Mesh(AR_G.fl, AR_M.fl); f.position.y = 0.36; f.rotation.y = i * Math.PI / 2; g.add(f); } return g; } // (point down -Y)
+
+// ---- the beastmaster's claws: three long steel blades from the knuckles of each fist (along the grip's +Y) ----
+export function makeClaws(len = 0.42) { const g = new THREE.Group(), steel = M('#c8ccd4', 0.22, 0.95), base = M('#3a3a40', 0.5, 0.8);
+  add(g, boxG(0.085, 0.05, 0.06), base, 0, 0.02, 0); // (the housing over the knuckles)
+  for (let i = 0; i < 3; i++) { const b = add(g, new THREE.CylinderGeometry(0.004, 0.012, len, 4), steel, -0.028 + i * 0.028, 0.045 + len / 2, 0.005); b.scale.set(1, 1, 2.2); b.rotation.x = 0.05; b.rotation.z = (i - 1) * -0.04; }
+  return g; }

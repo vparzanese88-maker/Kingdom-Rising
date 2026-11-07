@@ -613,7 +613,7 @@ export function perkLvl(h, id, kind = 'pow') { const s = id === 'L' ? 'L' : perk
 export const perkPow = (lv) => 1 + 0.12 * lv, perkCd = (lv) => 1 - 0.1 * lv;
 export const arenaStat = (h, k) => (h && h.arenaPK && h.arenaPK[k]) || 0;
 // tanks (the heavy melee) hold the front: more health, less damage taken
-export const TANK_CLS = new Set(['warrior', 'paladin', 'darkknight', 'berserker']);
+export const TANK_CLS = new Set(['warrior', 'paladin', 'darkknight', 'berserker', 'blunderbuss']);
 export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * (1 + 0.08 * arenaStat(h, 'hp'));
 export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));
 export const arenaHealK = (h) => 1 + 0.1 * arenaStat(h, 'heal');

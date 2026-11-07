@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead } from './arenalooks.js';
+import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -195,6 +195,7 @@ class ViewModel {
     if (W.kind === 'gun') main.scale.setScalar(0.62);
     if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
+    if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
@@ -1689,7 +1690,7 @@ export class Player {
   heal(n, quiet) { if (this.h.arena) n *= Game.arenaHealK(this.h); const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
     if ((this.ultImmT || 0) > 0 && !this.dead) return 0; // (casting an ultimate: untouchable while it plays)
-    if (this.bannerT > G.time) dmg *= 0.7; // (Warlord's Banner)
+    if (this.bannerT > G.time) dmg *= 0.6; // (War Banner)
     dmg *= Game.arenaTakenK(this.h); if (this.h.arena) { dmg = Game.arenaIn(this, this.h, dmg); const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && src.arenaBot && !src.dead) { src.hp -= dmg * 0.08 * th; V.burst('spark', src.pos.clone().setY(src.pos.y + 1.1), 6, { speed: 3 }); if (src.hp <= 0) src.die(this); } } // (arena: tanks, toughness and passives)
     if (this.sheathed && !this.dead) this.drawWeapons(); this.hurtT0 = G.time;
     if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.lastHitAt = G.time; } // (hurtT is a countdown used elsewhere)

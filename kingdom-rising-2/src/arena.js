@@ -45,13 +45,13 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
-  warrior: ['warrior_xs2', 'execute', 'hamstring'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'dkraise', 'deathgrip'],
+  warrior: ['ar_charge', 'execute', 'ar_bash'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'dkraise', 'deathgrip'],
   cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['quickreload', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
   rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_plaguebreath', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
 };
-export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
+export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', blunderbuss: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
 export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'ar_bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'ar_miracle', druid: 'ar_overgrowth', shaman: 'ar_spirittotem', bard: 'cacophony', monk: 'ar_fists',
   ranger: 'ar_arrowrain', musketeer: 'ar_barrage', blunderbuss: 'greatkeg', wizard: 'ar_transcend', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
@@ -143,6 +143,8 @@ const ARENA_NEW = {
     { id: 'ar_spirittotem', name: 'Spirit of the Storm', t: 'spirittotem', cd: 90, cost: 0, fx: 'lightning', level: 1, desc: 'A giant spirit totem bursts out of the ground where you aim, ancestral spirits circling it. For 7 s it pulses: every ally within 12 m heals 10% of their health, and lightning leaps from it to every enemy within 12 m. Then it cracks and sinks away.' },
     { id: 'ar_mendS', name: 'Healing Stream', t: 'mend', kind: 'water', heal: 0.22, cd: 6, cost: 0, fx: 'water', level: 1, desc: 'A stream of healing water into the ally under your crosshair, even through walls (or yourself); it splashes on to the most hurt ally near them for half as much.' }],
   ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
+  warrior: [{ id: 'ar_charge', name: 'Charge', kit: true, t: 'dash', dur: 0.4, speed: 30, dmg: 1.3, stun: 1.2, cd: 10, cost: 0, fx: 'dust', level: 1, desc: 'Lower your shield and charge: you rush forward, smash into the first enemy in your path and stun them.' },
+    { id: 'ar_bash', name: 'Shield Bash', kit: true, t: 'strike', reach: 3, dmg: 1.5, stun: 1.5, cd: 12, cost: 0, fx: 'spark', level: 1, desc: 'Slam your shield into the enemy in front of you: solid damage and a 1.5 s stun.' }],
   berserker: [{ id: 'ar_bladestorm', name: 'Bladestorm', t: 'bladestorm', cd: 90, cost: 0, fx: 'fire', level: 1, desc: 'Become a whirlwind of steel for 5 s: you spin with both axes held out, carving everything around you, and you can steer the storm through the enemy. Anyone inside is dragged in, slowed and cut again and again (60% of their health if they stay in it the whole time), and the storm ends in a blast that throws them away.' }],
   monk: [{ id: 'ar_wraps', name: 'Tighten the Wraps', t: 'wraps', cd: 16, cost: 0, fx: 'gold', level: 1, desc: 'Pull your hand wraps tight and breathe: for 5 s you regenerate 30% of your health and move 30% faster.' },
     { id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
@@ -189,8 +191,10 @@ const teamCol = (t) => COLORS[t % COLORS.length];
 // ---------------- heroes: level 20, the best gear, skill points ready ----------------
 const SKILL_IDS = ['slash1', 'slash2', 'blunt1', 'blunt2', 'pierce', 'pierce2', 'h2h', 'archery', 'firearms', 'dual', 'double', 'triple', 'casting'];
 export function arenaHero(slot, name) {
-  const R = RACES[slot.race] || RACES.human, sex = Math.random() < 0.4 ? 'f' : 'm';
+  const GOB = { musketeer: ['woodelf', '#7a9a3a'], blunderbuss: ['dwarf', '#4f6a2a'] }[slot.cls]; if (GOB) slot = Object.assign({}, slot, { race: GOB[0] }); // (the gunners are goblins)
+  const R = RACES[slot.race] || RACES.human, sex = GOB ? 'm' : Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
+  if (GOB) { app.skin = GOB[1]; app.beard = 0; }
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
   h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaUlt = ultOf(slot.cls); h.ultCharge = 0; h.arenaPerks = {}; recomputePK(h);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
@@ -635,16 +639,17 @@ const timer = (fn) => { let t = 0; G.timers.push({ update: (dt) => { t += dt; re
 const later = (sec, fn) => timer((t) => { if (t >= sec) { fn(); return true; } return false; }); // (on the game clock, not the wall clock)
 const lob = (from, to, mesh, dur, arc, onLand) => { G.scene.add(mesh); timer((t) => { const k = Math.min(1, t / dur); mesh.position.lerpVectors(from, to, k); mesh.position.y += Math.sin(k * Math.PI) * arc; mesh.rotation.x += 0.2; if (k >= 1) { onLand && onLand(); return true; } return false; }); };
 export const ULTS = {
-  warrior: { id: 'ar_banner', name: "Warlord's Banner", t: 'banner', aim: 'self', desc: 'Drive a huge war banner into the ground beside you: the shockwave throws back and stuns enemies within 6 m, and for 8 s every ally within 10 m of it takes 30% less damage and deals 20% more.',
+  warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner into the ground beside you: the shockwave throws back and stuns enemies within 6 m, and for 8 s a dome of protection stands round it: every ally inside takes 40% less damage, deals 20% more and regenerates 2% of their health a second.',
     run(c) { const p = c.pos.clone(), base = ultGround(p), C = new THREE.Vector3(p.x + 1.2, base, p.z); const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 6, 10), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 3; g.add(pole);
       const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6, 8, 8), new THREE.MeshStandardMaterial({ color: '#a01818', roughness: 0.8, side: THREE.DoubleSide })); cloth.position.set(1.05, 4.4, 0); g.add(cloth); const trim = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.8, roughness: 0.3 })); trim.position.set(1.05, 5.75, 0); g.add(trim);
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.08; g.add(aura);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), glowM('#ffcf70', 0)); g.add(dome); let regT = 0; /* (the dome of protection) */ const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.08; g.add(aura);
       g.position.copy(C).setY(base + 12); G.scene.add(g); const pos0 = cloth.geometry.attributes.position.array.slice();
       timer((t) => { if (t < 0.3) { g.position.y = base + 12 * (1 - t / 0.3); return false; }
         if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; V.burst('stone', C.clone().setY(base + 0.3), 60, { speed: 9, grav: 14 }); V.burst('dust', C.clone().setY(base + 0.3), 50, { speed: 7 }); V.ring(C.clone().setY(base + 0.2), 14, '#ffb040', 0.7); V.addShake(1); S.explode && S.explode(C, 0.9); S.battleCry && S.battleCry();
           for (const u of nearOf(ultFoes(c), C, 6)) { ultHurt(u, 0.12, c, 'stone'); const n = new THREE.Vector3(u.pos.x - C.x, 0, u.pos.z - C.z).normalize(); if (u === G.player) { u.vel && u.vel.set(n.x * 10, 6, n.z * 10); u.debuff && u.debuff('stun', 1); } else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1); if (u.status.knock) u.status.knock.set(n.x * 10, 0, n.z * 10); } } }
         const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 3) * 0.15 * (x + 1); } a.needsUpdate = true; aura.material.opacity = 0.45 + Math.sin(t * 3) * 0.15;
-        for (const u of nearOf(ultFriends(c), C, 10)) { u.bannerT = G.time + 0.4; if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
+        dome.material.opacity = 0.07 + Math.sin(t * 2.5) * 0.025; regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
+        for (const u of nearOf(ultFriends(c), C, 10)) { u.bannerT = G.time + 0.4; if (reg) ultHeal(u, 0.01); if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
         if (Math.random() < 0.4) V.emit('fire', C.clone().setY(base + 6.3), { speed: 0.4, vy: 1.5, size: 0.4, life: 0.5 });
         if (t > 8.3) { const k = Math.min(1, (t - 8.3) / 0.6); g.scale.setScalar(1 - k + 0.01); if (k >= 1) { G.scene.remove(g); return true; } } return false; }); } },
   darkknight: { id: 'ar_grasp', name: "Death's Grasp", t: 'grasp', aim: 'ground', desc: 'A pool of shadow tears open where you aim: chains of darkness burst out, seize every enemy within 6 m, drag them to your feet and drain a quarter of their health, which heals you.',
@@ -1068,7 +1073,7 @@ class ArenaBot {
   dmgMul() { let k = (this.transcendT > 0 ? 1.5 : 1) * (this.bannerT > G.time ? 1.2 : 1); const b = this.buffs; if (b.cry > 0) k *= 1.3; if (b.rage > 0) k *= 1.15; if (b.surge > 0) k *= 1.2; if (b.lich > 0) k *= 1.4; if (b.form > 0) k *= 1.35; if (b.avatar > 0 && this.av && this.av.dmg) k *= this.av.dmg; return k; }
   // ---- being hit (by the player, a team mate's enemy, a pet...) ----
   takeHit(dmg, src, o = {}) {
-    if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs; if (this.bannerT > G.time) dmg *= 0.7; /* (Warlord's Banner) */
+    if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs; if (this.bannerT > G.time) dmg *= 0.6; /* (War Banner) */
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
     dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg); if (src && src.hexUntil > G.time) dmg *= 0.65;

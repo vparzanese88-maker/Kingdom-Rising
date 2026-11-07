@@ -302,8 +302,11 @@ export function buildMapImage() {
   }
   g.putImageData(img, 0, 0);
   if (ARENA) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN, rect = (x, z, w, d, col) => { g.fillStyle = col; g.fillRect(px(x - w / 2), px(z - d / 2), w / (HALF * 2) * MAPN, d / (HALF * 2) * MAPN); }; // the Ruins of Aldermere
-    rect(0, 0, 64, 104, '#3e3a32'); rect(0, 0, 58, 98, '#9c9280');
-    for (const s2 of [-1, 1]) { rect(0, s2 * 36, 48, 12, '#b8ae98'); rect(0, s2 * 45.5, 10, 8, '#c8bea8'); rect(-20, s2 * 17.5, 6, 19, '#7a7060'); rect(-11, s2 * 19, 7, 7, '#a0422c'); rect(11, s2 * 19, 7, 7, '#a0422c'); rect(20, s2 * 15, 8, 6, '#a0422c'); for (const x of [-15.5, 15.5]) { rect(x, s2 * 26, 3, 6, '#5a5448'); rect(x, s2 * 10.5, 3, 5, '#5a5448'); } rect(-9, s2 * 5.5, 6, 3, '#8a8270'); rect(9, s2 * 5.5, 6, 3, '#8a8270'); rect(s2 * 34, 0, 8, 10, '#c8bea8'); }
+    rect(0, 0, 125, 205, '#3e3a32'); rect(0, 0, 116, 196, '#9c9280'); // (the Ruins, doubled: walls at x ±61, z ±101)
+    for (const s2 of [-1, 1]) { rect(0, s2 * 81, 117, 14, '#b8ae98'); for (const zs of [-1, 1]) rect(s2 * 33.2, zs * 93.2, 51.2, 10.4, '#7a7060'); rect(0, s2 * 93, 14, 10, '#c8bea8'); rect(0, s2 * 68.5, 16, 11, '#aaa08a');
+      rect(-40, s2 * 47, 10, 46, '#7a7060'); rect(-42.5, s2 * 47, 5, 9, '#6a6050'); rect(-40, s2 * 17, 7, 14, '#8a8270'); rect(-23, s2 * 40, 12, 14, '#a0422c'); rect(23, s2 * 40, 12, 14, '#a0422c'); rect(0, s2 * 40, 29.8, 3, '#7a5232');
+      rect(41, s2 * 38, 12, 16, '#8a3a26'); rect(53, s2 * 42, 10, 12, '#6a7c48'); for (const x of [-31.5, 31.5]) { rect(x, s2 * 57, 3, 14, '#5a5448'); rect(x, s2 * 23, 5, 5, '#5a5448'); rect(x, s2 * 17.5, 3, 6, '#5a5448'); }
+      rect(-18, s2 * 12.5, 12, 6, '#8a8270'); rect(18, s2 * 12.5, 12, 6, '#8a8270'); rect(s2 * 53, 0, 10, 14, '#c8bea8'); rect(s2 * 45, 0, 6, 16, '#b8ae98'); }
     g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#5aa878'; g.beginPath(); g.arc(px(0), px(0), (2.2 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); }
   if (false) { const px = (v) => (v + HALF) / (HALF * 2) * MAPN; g.fillStyle = '#b8a280'; g.beginPath(); g.arc(px(0), px(0), (66 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e2cf98'; g.beginPath(); g.arc(px(0), px(0), (31 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 2; g.beginPath(); g.arc(px(0), px(0), (7 / (HALF * 2)) * MAPN, 0, Math.PI * 2); g.stroke(); } // the colosseum
   const toPx = ([x, z]) => [(x + HALF) / (HALF * 2) * MAPN, (z + HALF) / (HALF * 2) * MAPN];

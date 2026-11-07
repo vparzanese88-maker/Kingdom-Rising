@@ -348,7 +348,9 @@ function renderArenaSetup() {
 function renderArenaSetup0() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
-  panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · Ruins of Aldermere</div><h1>Choose your hero</h1>`));
+  const STEP = AS.step === 'style' ? 'style' : 'hero';
+  panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · Ruins of Aldermere · step ${STEP === 'hero' ? 1 : 2} of 2</div><h1>${STEP === 'hero' ? 'Choose your hero' : 'How do you want to play?'}</h1>`));
+  if (STEP === 'hero') {
   // hero select: the chosen class on the left with every key it has, the roster on the right with filter tabs
   { const you = AS.slots.find(x => x.you) || AS.slots[0], cls = you.cls, A2 = ABILITIES[cls] || [], ab = (id) => A2.find(x => x.id === id);
     const wrap = el('div', 'arsel'), hero = el('div', 'arhero');
@@ -358,11 +360,15 @@ function renderArenaSetup0() {
     for (const [k, nm] of [['all', 'All'], ['Tank', 'Tanks'], ['Healer', 'Healers'], ['Damage', 'Damage']]) { const t = el('button', 'artab' + (ARF === k ? ' on' : ''), nm); t.onclick = () => { S.click(); ARF = k; renderArenaSetup(); }; tabs.appendChild(t); }
     for (const c of Object.keys(CLASSES)) { if (ARF !== 'all' && Arena.roleOf(c) !== ARF) continue; const b = el('button', 'pcard' + (cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
     right.append(tabs, grid); wrap.append(hero, right); panel.appendChild(wrap); }
+    const row0 = el('div', 'bsbtns'); const back0 = el('button', 'btn', '← Back to title'); back0.onclick = () => { S.click(); closeBattleSetup(); showTitle(); };
+    const next = el('button', 'btn gold big', 'Next: how to play →'); next.onclick = () => { S.click(); AS.step = 'style'; renderArenaSetup0(); document.getElementById('bsetup').scrollTop = 0; };
+    row0.append(back0, next); panel.appendChild(row0); return; }
+  { const you = AS.slots.find(x => x.you) || AS.slots[0]; const chip = el('div', 'arsec', `<div style="display:flex;align-items:center;gap:14px"><img src="${classPortrait(you.cls)}" alt="" style="width:64px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #8a6a3a"><div><div style="opacity:.7;font-size:13px">Your hero</div><div style="font:700 24px Georgia,serif;color:#f2dfb0">${CLASSES[you.cls].name}</div></div></div>`); const ch2 = el('button', 'btn', '← Change hero'); ch2.style.marginLeft = 'auto'; ch2.onclick = () => { S.click(); AS.step = 'hero'; renderArenaSetup0(); }; chip.firstChild.appendChild(ch2); panel.appendChild(chip); }
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
   const fw = el('div', 'arsec arset', '<h3>Format</h3>'); const fg = el('div', 'arseg');
-  for (const k in F) { const b = el('button', 'seg' + (AS.fmt === k ? ' on' : ''), `<b>${F[k].name}</b>${F[k].desc ? `<small>${F[k].desc}</small>` : ''}`); b.onclick = () => { S.click(); AS.fmt = k; if (F[k].ffa && AS.objective === 'ctf') AS.objective = 'dm'; Arena.fillSlots(AS); renderArenaSetup(); }; fg.appendChild(b); }
-  fw.appendChild(fg);
+  const MAINF = ['duel', 't3', 't6', 'ffa']; for (const k in F) { if (!MAINF.includes(k) && !ARMORE && AS.fmt !== k) continue; const b = el('button', 'seg' + (AS.fmt === k ? ' on' : ''), `<b>${F[k].name}</b>${F[k].desc ? `<small>${F[k].desc}</small>` : ''}`); b.onclick = () => { S.click(); AS.fmt = k; if (F[k].ffa && AS.objective === 'ctf') AS.objective = 'dm'; Arena.fillSlots(AS); renderArenaSetup(); }; fg.appendChild(b); }
+  fw.appendChild(fg); { const mo = el('button', 'artab', ARMORE ? 'Fewer formats' : 'More formats…'); mo.style.marginTop = '8px'; mo.onclick = () => { S.click(); ARMORE = !ARMORE; renderArenaSetup(); }; fw.appendChild(mo); }
   if (fmt.ffa) { const r = el('label', 'arrange', `<span>Fighters: <b>${AS.ffaN}</b></span><input type="range" min="3" max="12" value="${AS.ffaN}">`); r.querySelector('input').oninput = (e) => { AS.ffaN = +e.target.value; Arena.fillSlots(AS); renderArenaSetup(); }; fw.appendChild(r); }
   panel.appendChild(fw);
   // objective
@@ -373,7 +379,7 @@ function renderArenaSetup0() {
   const lw = el('div', 'arseg small'); for (const [k, nm, d] of [['one', 'One life', 'fall once and you are out'], ['respawn', 'Respawning', 'back in 6 seconds after you fall']]) { const on = fixed ? k === 'one' : (AS.lives || O[AS.objective].lives) === k; const b = el('button', 'seg' + (on ? ' on' : '') + (fixed && k !== 'one' ? ' off' : ''), `<b>${nm}</b><small>${d}</small>`); b.onclick = () => { if (fixed) { S.error(); return; } S.click(); AS.lives = k; renderArenaSetup(); }; lw.appendChild(b); }
   ow.appendChild(lw); panel.appendChild(ow);
   // fighters
-  const tw = el('div', 'arsec', `<h3>Fighters <small>pick every class, or leave the computer's picks</small></h3>`); const tl = el('div', 'arteams');
+  const tw = el('details', 'arsec'); if (ARFIGHT) tw.open = true; tw.ontoggle = () => { ARFIGHT = tw.open; }; tw.appendChild(el('summary', '', `<b style="font:700 18px Georgia,serif;color:#f2dfb0;cursor:pointer">Customise the computer fighters</b> <small style="opacity:.7">optional: they pick their own classes otherwise</small>`)); const tl = el('div', 'arteams');
   const teams = fmt.ffa ? ['all'] : [...new Set(AS.slots.map(s => s.team))]; // free for all: one list, a colour dot each
   const CN = Object.keys(CLASSES), RN = Object.keys(RACES).filter(r => RACES[r].playable);
   for (const t of teams) { const col = el('div', 'arteam' + (fmt.ffa ? ' wide' : ''), fmt.ffa ? `<div class="arth" style="--tc:#d8b04a"><i></i>Everyone for themselves</div>` : `<div class="arth" style="--tc:${ACOL[t % ACOL.length]}"><i></i>${ACN[t]} team</div>`);
@@ -388,7 +394,7 @@ function renderArenaSetup0() {
   const rnd = el('button', 'btn', '🎲 Shuffle the computer classes'); rnd.onclick = () => { S.click(); AS.slots.forEach(sl => { if (!sl.you) { sl.cls = CN[(Math.random() * CN.length) | 0]; sl.race = RN[(Math.random() * RN.length) | 0]; } }); renderArenaSetup(); }; tw.appendChild(rnd);
   panel.appendChild(tw);
   const row = el('div', 'bsbtns');
-  const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); closeBattleSetup(); showTitle(); };
+  const back = el('button', 'btn', '← Change hero'); back.onclick = () => { S.click(); AS.step = 'hero'; renderArenaSetup0(); };
   const saveGo = (extra) => { const save = Object.assign({}, AS, extra); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
   const mp = el('div', 'armp'); const hb = el('button', 'btn', '🌐 Host online'); hb.title = 'Friends join with a 4-letter code; empty places are computer fighters'; hb.onclick = () => { S.click(); saveGo({ mp: 'host' }); };
   const ci = el('input'); ci.maxLength = 4; ci.placeholder = 'CODE'; ci.className = 'arcode'; ci.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') jb.click(); };
@@ -397,7 +403,7 @@ function renderArenaSetup0() {
   const go = el('button', 'btn gold big', 'Enter the arena →'); go.onclick = () => { S.click(); const save = Object.assign({}, AS); delete save.step; if (O[save.objective].lives === 'one') save.lives = 'one'; try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(save)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; };
   row.append(back, mp, go); panel.appendChild(row);
 }
-const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST; let ARF = 'all'; // (the roster filter tab)
+const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST; let ARF = 'all', ARMORE = false, ARFIGHT = false; // (the roster filter tab)
 
 // ---------- preview scene ----------
 function buildPreview() {

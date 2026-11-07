@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { CLASSES } from './data.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline } from './arenalooks.js';
+import { hasHeroModel, tickHeroModel } from './heromodels.js';
 
 const CACHE = {}; let R = null, scene = null, cam = null;
 const W = 220, H = 280;
@@ -30,6 +31,12 @@ export function classPortrait(cls) {
     const look = new THREE.Vector3(0, top - h * 0.3, 0); cam.position.set(0.35, look.y + 0.08, 2.9); cam.lookAt(look);
     R.render(scene, cam); CACHE[cls] = R.domElement.toDataURL('image/jpeg', 0.86);
     scene.remove(ch.root);
+    if (hasHeroModel(cls)) { { const c2 = document.createElement('canvas'); c2.width = W; c2.height = H; const g2 = c2.getContext('2d'); g2.drawImage(R.domElement, 0, 0); g2.fillStyle = 'rgba(242,223,176,0.55)'; g2.font = '600 15px Georgia, serif'; g2.textAlign = 'center'; g2.fillText('loading ' + (CLASSES[cls].name || cls) + '…', W / 2, H * 0.55); CACHE[cls] = c2.toDataURL('image/jpeg', 0.86); } /* (a placeholder unique to this class until the model has loaded) */ // a class with a real 3D model: once it has loaded, picture the model and swap every copy of the picture already on screen
+      const t0 = performance.now(), wait = () => { const H = ch.heroModel; if (H === 'loading' || H === undefined) { if (performance.now() - t0 < 30000) setTimeout(wait, 200); return; } if (!H) return;
+        scene.add(ch.root); for (let i = 0; i < 4; i++) tickHeroModel(ch, 0.05); ch.root.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(H.m), tp = bx.max.y, hh = tp - bx.min.y, lk = new THREE.Vector3(0, tp - hh * 0.3, 0); cam.position.set(0.35, lk.y + 0.08, 2.9); cam.lookAt(lk);
+        R.render(scene, cam); const old = CACHE[cls], url = R.domElement.toDataURL('image/jpeg', 0.86); CACHE[cls] = url; scene.remove(ch.root);
+        document.querySelectorAll('img').forEach(im => { if (im.src === old) im.src = url; }); };
+      wait(); }
   } catch (e) { console.warn('portrait', cls, e); CACHE[cls] = ''; }
   return CACHE[cls];
 }

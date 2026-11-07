@@ -236,7 +236,7 @@ export function summonDemon(caster, at) {
   S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
-  let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
+  let GRAB = 2.75, BITE = 5.55, /* (timed so only the longest dodge, the leap, gets you out of the ring from dead centre) */ yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
   const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null, froze = false;
   const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
   const me = caster === G.player ? G.player : null; let flyCam = null;
@@ -252,19 +252,19 @@ export function summonDemon(caster, at) {
     // everyone inside the fire ring is slowed while the demon rises (escape the circle and you are safe)
     slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows far harder than a normal slow: to 15.6% speed) */ } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
-    const up = t < sinkAt ? seg(t, 1.0, 2.9) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.9) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
-    g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
+    const up = t < sinkAt ? seg(t, 1.0, 2.7) : 1 - seg(t, sinkAt, sinkAt + 1.9), jud = (t > 1.0 && t < 2.7) || (t > sinkAt && t < sinkAt + 1.9) ? Math.sin(t * 38) * 0.04 : 0;
+    g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.7 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
     const heartS = 1 + Math.sin(t * 7) * 0.12; D.heart.scale.setScalar(heartS);
     { let want = face; if (victim && from) want = Math.atan2(from.x - ox, from.z - oz); else if (missed && t < sinkAt) want = face + e((t - GRAB) / 2.0) * Math.PI * 2 + Math.sin((t - GRAB) * 5) * 0.15; /* (a full slow turn, hunting) */
       let dA = want - yawC; if (!missed) { dA = Math.atan2(Math.sin(dA), Math.cos(dA)); } yawC += dA * Math.min(1, dt * (victim && t < GRAB + 0.5 ? 14 : missed ? 10 : 4)); g.rotation.y = yawC;
       const reachD = victim && from ? Math.hypot(from.x - ox, from.z - oz) : 0, leanK = victim ? seg(t, GRAB, GRAB + 0.4) * (1 - seg(t, GRAB + 0.75, GRAB + 1.4)) : 0;
       g.rotation.x = leanK * Math.min(1.0, 0.3 + reachD * 0.075); } /* (it leans right over to snatch them, then hauls them up as it straightens) */
     emT2 = (emT2 || 0) - dt; if (emT2 <= 0 && up > 0.3) { emT2 = 0.05; for (const H of [D.arms.R.hand, D.arms.L.hand]) { H.getWorldPosition(dripP); dripP.y -= 0.5; V.emit('poison', dripP, { speed: 0.3, vy: -3, size: 0.22, life: 0.7, radius: 0.3 }); } } /* (ooze dripping from its hands) */
-    const R = D.arms.R, Lf = D.arms.L, rising = t < 2.9;
+    const R = D.arms.R, Lf = D.arms.L, rising = t < 2.7;
     // left arm: claws the ground while climbing, then braces and sways
     Lf.sh.rotation.x = rising ? -1.2 + Math.sin(t * 5) * 0.35 : L(-0.5, -0.3, Math.sin(t * 1.3) * 0.5 + 0.5); Lf.sh.rotation.z = rising ? -0.5 : -0.15; Lf.el.rotation.x = rising ? -0.9 : -0.5 + Math.sin(t * 2) * 0.1;
     // the roar: head back, jaw wide, throat blazing
-    const roar = seg(t, 2.35, 2.6) * (1 - seg(t, 3.0, 3.25)), roar2 = missed ? seg(t, 4.0, 4.25) * (1 - seg(t, 4.7, 5.0)) : 0, rr = Math.max(roar, roar2);
+    const roar = seg(t, 2.05, 2.3) * (1 - seg(t, 2.7, 2.95)), roar2 = missed ? seg(t, 4.0, 4.25) * (1 - seg(t, 4.7, 5.0)) : 0, rr = Math.max(roar, roar2);
     if (rr > 0.5 && roared < (roar2 > 0.5 ? 2 : 1)) { roared++; S.growl && S.growl('wolf', center, 0.4); S.explode && S.explode(center, 0.5); V.addShake(0.8); V.ring(center.clone().setY(base + 0.2), RR * 2, '#3aff5a', 0.7); V.burst('poison', center.clone().setY(base + 4), 50, { speed: 7 }); }
     D.throat.scale.setScalar(1 + rr * 1.2);
     if (t >= GRAB && !victim && (!missed || t < sinkAt - 0.5)) { let best = null, bd = RR; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }

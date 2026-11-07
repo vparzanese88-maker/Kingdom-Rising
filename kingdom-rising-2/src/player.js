@@ -1817,7 +1817,7 @@ export class Player {
     if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
-    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (1 + (this.fb.regen || 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
+    if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (h.arena ? 2 : 1) /* (the arena: endurance comes back twice as fast) */ * (1 + (this.fb.regen || 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
     if (this.manaUseT <= 0) this.mana = Math.min(this.maxMana, this.mana + dt * (5 + this.D.stats.int * 0.25) * (1 + this.pk('regen') * 0.5) * (1 + (this.fb.regen || 0)));
     if (this.fb.trickle && !this.dead) { const k = this.fb.trickle * dt; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * k); this.mana = Math.min(this.maxMana, this.mana + this.maxMana * k); this.end = Math.min(this.maxEnd, this.end + this.maxEnd * k); } // drinks: a slow trickle even in a fight
     { const r = Game.fxCount(this.h, 'regen') * 0.003 + Game.fxCount(this.h, 'u_def') * 0.005; if (r && !this.dead && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * r * dt); }

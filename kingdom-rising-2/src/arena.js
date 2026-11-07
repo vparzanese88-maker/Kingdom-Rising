@@ -229,9 +229,9 @@ export function summonDemon(caster, at) {
   // skeletal demon claws its way slowly out of the pit and roars. When it is up it seizes the nearest enemy in reach, lifts
   // them overhead while they struggle, and bites their head off, then sinks back as the fire dies. Nobody in reach: it
   // searches, roars in fury, and sinks back down. Whoever is caught sees it all from a cinematic camera.
-  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 6.9; // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
+  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 10.35; // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
   const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
-  const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
+  const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.order = 'YXZ'; g.rotation.y = face; /* (yaw, then a lean in its own frame) */ G.scene.add(g); addOutline(g);
   const ring = makeHellRing(RR, 64); ring.position.copy(center); G.scene.add(ring);
   S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
@@ -254,7 +254,9 @@ export function summonDemon(caster, at) {
     g.position.y = base - 6.5 + up * 6.0 + jud + Math.sin(t * 1.6) * 0.06 * up; g.rotation.z = Math.sin(t * 1.1) * 0.03; if (t > 1 && t < 2.9 || t > sinkAt && t < sinkAt + 1.9) V.addShake(dt * 0.6);
     const heartS = 1 + Math.sin(t * 7) * 0.12; D.heart.scale.setScalar(heartS);
     { let want = face; if (victim && from) want = Math.atan2(from.x - ox, from.z - oz); else if (missed && t < sinkAt) want = face + e((t - GRAB) / 2.0) * Math.PI * 2 + Math.sin((t - GRAB) * 5) * 0.15; /* (a full slow turn, hunting) */
-      let dA = want - yawC; if (!missed) { dA = Math.atan2(Math.sin(dA), Math.cos(dA)); } yawC += dA * Math.min(1, dt * (missed ? 10 : 4)); g.rotation.y = yawC; }
+      let dA = want - yawC; if (!missed) { dA = Math.atan2(Math.sin(dA), Math.cos(dA)); } yawC += dA * Math.min(1, dt * (victim && t < GRAB + 0.5 ? 14 : missed ? 10 : 4)); g.rotation.y = yawC;
+      const reachD = victim && from ? Math.hypot(from.x - ox, from.z - oz) : 0, leanK = victim ? seg(t, GRAB, GRAB + 0.4) * (1 - seg(t, GRAB + 0.75, GRAB + 1.4)) : 0;
+      g.rotation.x = leanK * Math.min(1.0, 0.3 + reachD * 0.075); } /* (it leans right over to snatch them, then hauls them up as it straightens) */
     emT2 = (emT2 || 0) - dt; if (emT2 <= 0 && up > 0.3) { emT2 = 0.05; for (const H of [D.arms.R.hand, D.arms.L.hand]) { H.getWorldPosition(dripP); dripP.y -= 0.5; V.emit('poison', dripP, { speed: 0.3, vy: -3, size: 0.22, life: 0.7, radius: 0.3 }); } } /* (ooze dripping from its hands) */
     const R = D.arms.R, Lf = D.arms.L, rising = t < 2.9;
     // left arm: claws the ground while climbing, then braces and sways
@@ -271,7 +273,7 @@ export function summonDemon(caster, at) {
     let shx = -0.4 + Math.sin(t * 1.4) * 0.08, shz = 0.1, elx = -0.4;
     if (rising) { shx = -1.0 + Math.sin(t * 5 + 1.5) * 0.35; shz = 0.45; elx = -0.9; }
     if (victim) { const kR = seg(t, GRAB, GRAB + 0.45), kL = seg(t, GRAB + 0.5, GRAB + 1.4), kM = seg(t, BITE - 0.45, BITE);
-      shx = L(L(shx, -1.35, kR), -2.75, kL); elx = L(L(elx, -0.15, kR), -0.35, kL); shz = L(shz, 0.15, kR);
+      shx = L(L(shx, -1.15, kR), -2.75, kL); elx = L(L(elx, -0.15, kR), -0.35, kL); shz = L(shz, 0.15, kR);
       shx = L(shx, -2.95, kM); shz = L(shz, 0.5, kM); elx = L(elx, -0.25, kM); if (t > GRAB + 1.4 && t < BITE - 0.45) shx += Math.sin(t * 9) * 0.05; }
     else if (missed && t < sinkAt) { shx = -0.9 + Math.sin(t * 3) * 0.3; shz = 0.3; }
     R.sh.rotation.x = shx; R.sh.rotation.z = shz; R.el.rotation.x = elx;
@@ -282,7 +284,7 @@ export function summonDemon(caster, at) {
     let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (t >= BITE) jw = 0.55 + Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.9, BITE + 1.3)); }
     D.jaw.rotation.x = jw;
     g.updateMatrixWorld(true); R.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.5, 0.75));
-    if (victim && !bit && victim.held) { const vh = victim.height || 1.75, kR = seg(t, GRAB + 0.25, GRAB + 0.55), flip = seg(t, GRAB + 0.45, GRAB + 1.25), kM = seg(t, BITE - 0.55, BITE - 0.05), kS = seg(t, BITE, BITE + 0.55);
+    if (victim && !bit && victim.held) { const vh = victim.height || 1.75, kR = seg(t, GRAB + 0.35, GRAB + 0.75), flip = seg(t, GRAB + 0.6, GRAB + 1.4), kM = seg(t, BITE - 0.55, BITE - 0.05), kS = seg(t, BITE, BITE + 0.55);
       const hang = hp.clone(); hang.y -= L(1.05, 0.1, flip); /* (upright in its fist, then held by the ankle, hanging head-down) */
       const sh2 = t > GRAB + 1.3 ? new THREE.Vector3(Math.sin(t * 17) * 0.07, 0, Math.cos(t * 13) * 0.07) : new THREE.Vector3(); /* (they kick and struggle) */
       const over = mouth.clone(); over.y += vh * 0.98; const p2 = from.clone().lerp(hang.add(sh2), kR).lerp(over, kM); p2.y -= kS * vh * 1.05; /* (dangled over the jaws, then lowered in, head first) */

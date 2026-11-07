@@ -164,11 +164,13 @@ class ViewModel {
   constructor(camera, app, cls) {
     this.g = new THREE.Group(); camera.add(this.g);
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
+    if (cls === 'necromancer') app = Object.assign({}, app, { skin: '#b8ae94' }); // (first person matches the 3D model: bony grey hands, dark worn armour)
     this.cls = cls; this.skinCol = app.skin; this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
     const c = CLASSES[cls].colors;
     const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist', 'priest'].includes(cls);
     const sleeve = vk === 'plate' ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#3e4048' : '#8a929c', roughness: 0.35, metalness: 0.8 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
     const trimM = new THREE.MeshStandardMaterial({ color: c.trim, roughness: 0.45, metalness: cls === 'ranger' ? 0 : 0.6 });
+    if (cls === 'necromancer') { sleeve.color.set('#1e1a15'); sleeve.metalness = 0.55; sleeve.roughness = 0.5; trimM.color.set('#c8b890'); }
     const bare = !!((arenaSpec(cls) || {}).bareArms), skinA = new THREE.MeshStandardMaterial({ color: app.skin || '#d8a888', roughness: 0.55 }), veinM = new THREE.MeshStandardMaterial({ color: new THREE.Color(app.skin || '#d8a888').lerp(new THREE.Color('#5a6a8a'), 0.25), roughness: 0.5 });
     this.arms = [this.R, this.L].map((H, side) => {
       const arm = new THREE.Group(); this.g.add(arm); const sx = side ? -1 : 1;

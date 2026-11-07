@@ -833,7 +833,7 @@ function updateDayNight(dt, focus) {
   fall.mat.uniforms.time.value = G.time; fall.mat.uniforms.light.value = 0.4 + c.light * 0.5;
   // windows & lamps glow at night
   const winGlow = Math.max(0, Math.min(1, (0.25 - sunY) / 0.3));
-  if (!updateDayNight.winMat) { scene.traverse(o => { if (o.isMesh && o.material && o.material.emissive && o.material.color && o.material.color.getHexString() === 'ffd890') updateDayNight.winMat = o.material; }); }
+  if (updateDayNight.winMat === undefined || (updateDayNight.winMat === null && G.time - (updateDayNight.winT || -99) > 10)) { updateDayNight.winMat = null; updateDayNight.winT = G.time; scene.traverse(o => { if (!updateDayNight.winMat && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.color.getHexString() === 'ffd890') updateDayNight.winMat = o.material; }); } /* (searched once, then at most every 10 s if the scene has no windows: it used to search the whole scene every frame) */
   if (updateDayNight.winMat) updateDayNight.winMat.emissiveIntensity = winGlow * 1.6;
   renderer.toneMappingExposure = 0.95 + night * 0.25;
   return night;
@@ -979,7 +979,7 @@ function gameUpdate(dt) {
   updateBirds(G.time, dt);
   updateAmbient(dt, focus.x, focus.y, focus.z, G.zone, G.night);
   V.update(dt);
-  if (!intro) { UI.updateHUD(dt); UI.updatePlates(); UI.drawMinimap(); }
+  if (!intro) { UI.updateHUD(dt); UI.updatePlates(); const tn = performance.now(); if (tn - (G.mmT || 0) > 80) { G.mmT = tn; UI.drawMinimap(); } } /* (the minimap redraws about 12 times a second, not every frame) */
   V.updateNumbers(dt, camera, innerWidth, innerHeight);
   // crosshair hit flash
   // save

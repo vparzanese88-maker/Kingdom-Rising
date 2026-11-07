@@ -2,6 +2,7 @@
 // god in Smite). arenaSpec() is the outfit palette fed to buildHumanoid; arenaDecor() adds each class's signature
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
+import { attachHeroModel, tickHeroModel } from './heromodels.js';
 import { armReach } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
@@ -246,7 +247,7 @@ for (const k in SIL) { const f0 = DECOR[k]; DECOR[k] = (ch) => { if (f0) f0(ch);
 function capeTick(ch, dt) { if (!ch.capes) return; const p = ch.root.position, lp = ch._capeP || (ch._capeP = p.clone()); const v = Math.min(9, Math.hypot(p.x - lp.x, p.z - lp.z) / Math.max(dt, 1e-3)); lp.copy(p);
   ch._capeV = (ch._capeV || 0) + (v - (ch._capeV || 0)) * Math.min(1, dt * 4); ch._capeT = (ch._capeT || 0) + dt; const fl = 0.1 + Math.min(1, ch._capeV / 7) * 0.75 + Math.sin(ch._capeT * 2.3) * 0.03 * (1 + ch._capeV * 0.2);
   for (const c of ch.capes) c.rotation.x += (fl - c.rotation.x) * Math.min(1, dt * 6); }
-export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
+export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } attachHeroModel(ch, cls); } // (a class with a real 3D model swaps it in once it has loaded)
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
@@ -278,7 +279,7 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(g, sph(0.01 * s, 5, 4), brass, Math.cos(a) * 0.09 * s, 0, Math.sin(a) * 0.09 * s); } add(g, cylG(0.006 * s, 0.006 * s, 0.06 * s, 4), M('#d8c890'), 0.01 * s, 0.13 * s, 0).rotation.z = -0.4;
   const sp = add(g, sph(0.018 * s, 6, 5), GL('#ffd060'), 0.022 * s, 0.16 * s, 0); sp.castShadow = false; g.userData.spark = sp; return g; }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
-export function arenaLookTick(ch, dt) { if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) tickHeroModel(ch, dt); if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

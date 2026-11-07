@@ -6,12 +6,12 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.35, footScale: 0.84, legSpread: 0.09, runRate: 0.78 },
-  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92,
+  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
+  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
     moves: { jab: ['punch1', 0.15, 0.62, 0.4], cross: ['punch1', 0.6, 1.25, 1.0], upper: ['punch1', 1.2, 1.9, 1.42], spin: ['spinkick', 0.55, 1.6, 1.2], lunge: ['lungeround', 1.85, 3.0, 2.25],
       fury: ['punch2', 1.8, 2.6, 0, 0, 0, true], kick: ['doublekick', 0.7, 1.75, 1.0], flykick: ['risekick', 0.05, 1.05, 0, true, 0.75], superman: ['jumppunch', 0.45, 1.6, 0, true, 0.7], flip: ['sweep', 1.62, 2.8, 0, true] },
-    combo: ['jab', 'cross', 'upper', 'jab', 'spin', 'cross', 'lunge'] },
+    combo: ['jab', 'cross', 'jab', 'spin', 'cross'], finisher: ['upper', 'lunge'], noGrip: true, fpHand: 1.0 },
 };
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
@@ -24,7 +24,7 @@ function loadClass(cls) {
     const base = await loadFbx(D.base); const clips = {};
     await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const J = url.endsWith('.json') ? await (await fetch(url)).json() : null, c = J ? THREE.AnimationClip.parse(J) : (await loadFbx(url)).animations[0]; if (!c) return; if (J && J.rest) retarget(c, J, base); // (moves are stored as small motion-only files, not whole characters)
       c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name) || (keepHipY(t), true)); clips[k] = c; }));
-    base.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; } } });
+    base.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
     return { base, clips };
   })();
   return cache[cls];
@@ -47,7 +47,7 @@ export function attachHeroModel(ch, cls) {
     const wrap = new THREE.Group(); wrap.add(m); m.scale.multiplyScalar(k); m.position.y = -box.min.y * k; ch.root.add(wrap);
     // hide the built body's skin and clothes; its weapons and hand items move onto the model's hands
     const keep = new Set(); const hands = {}; m.traverse(o => { if (o.isBone && /^LeftHand$/.test(o.name)) hands.L = o; if (o.isBone && /^RightHand$/.test(o.name)) hands.R = o; });
-    for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd]) continue; const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
+    for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; });
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
@@ -85,7 +85,7 @@ function pickMove(H, ch, dt) {
   if (!key) { if (st.rollKind === 'flip' && st.roll != null) { key = 'flip'; k = Math.min(1, Math.max(0, st.roll)); }
     else if (u.strike || /^(fury|area|spin)$/.test(nm)) { key = 'fury'; }
     else if (nm === 'kick') { key = 'kick'; k = st.actionT; }
-    else if (PUNCH.test(nm) && st.actionT != null) { k = st.actionT; const fresh = H.pK == null || k < H.pK - 0.25 || !H.inPunch; if (fresh) { H.combo = H.t - (H.lpT || -9) > 1.3 ? 0 : ((H.combo == null ? -1 : H.combo) + 1) % (H.D.combo || [0]).length; } H.lpT = H.t; H.inPunch = true; key = H.D.combo ? H.D.combo[H.combo] : LEFTP.test(nm) ? 'jab' : 'cross'; } } // (each new swing plays the next move of the combo: jab, cross, uppercut, spin kick...)
+    else if (PUNCH.test(nm) && st.actionT != null) { k = st.actionT; const fresh = H.pK == null || k < H.pK - 0.25 || !H.inPunch; if (fresh) { H.combo = H.t - (H.lpT || -9) > 1.3 ? 0 : ((H.combo == null ? -1 : H.combo) + 1) % (H.D.combo || [0]).length; } H.lpT = H.t; H.inPunch = true; key = H.D.combo ? H.D.combo[H.combo] : LEFTP.test(nm) ? 'jab' : 'cross'; if (nm === 'smash' && H.D.finisher) { if (fresh) H.fin = ((H.fin || 0) + 1) % H.D.finisher.length; key = H.D.finisher[H.fin || 0]; } } } // (the combo's last, heavy blow is an uppercut or a lunging roundhouse) // (each new swing plays the next move of the combo: jab, cross, uppercut, spin kick...)
   if (!(PUNCH.test(nm) && st.actionT != null) || H.latch) H.inPunch = false; H.pK = st.actionT;
   if (!key || !M[key]) { H.mvKey = null; return null; }
   const sl = M[key]; if (key !== H.mvKey) { H.mvKey = key; H.mvT = 0; } H.mvT += dt;
@@ -101,7 +101,9 @@ export function tickHeroModel(ch, dt) {
   const lerpW = (k, t) => { H.w[k] += (t - H.w[k]) * Math.min(1, dt * 10); };
   lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
   if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.6, H.v / H.D.walkSpeed); }
-  if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.max(0.7, H.v / H.D.runSpeed) * (H.D.runRate || 1); }
+  if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.min(1.25, Math.max(0.75, H.v / H.D.runSpeed)) * (H.D.runRate || 1); }
+  if (H.act.walk) H.act.walk.timeScale = Math.min(1.4, H.act.walk.timeScale);
+  if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)
   const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
   reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run') H.act[k].setEffectiveWeight(0);
   H.mixer.update(dt); H.t += dt; const B = H.bones;
@@ -118,7 +120,7 @@ export function tickHeroModel(ch, dt) {
   if (H.D.footScale) for (const k of ['LeftFoot', 'RightFoot']) if (B[k]) B[k].scale.setScalar(H.D.footScale);
   // the hidden built body still performs every attack, kick, flip and roll: the model's hands and feet follow it there
   H.wrap.position.copy(ch.body.position); if (H.lastMove && H.lastMove.full && H.mw > 0.5) { H.wrap.quaternion.identity(); H.wrap.position.y = 0; } else H.wrap.quaternion.copy(ch.body.quaternion); H.wrap.updateMatrixWorld(true); // (a recorded flip or jump kick moves the whole body itself: the built body's own flip is not added on top)
-  const act = !!(ch._act || ch._strike), kickL = ch.legs && (ch.legs.L.thigh.rotation.x < -0.75), kickR = ch.legs && (ch.legs.R.thigh.rotation.x < -0.75);
+  const act = !!((ch._act && ch._act !== 'aim' && ch._act !== 'block') || ch._strike), /* (holding a staff out to aim is not an attack: the model's arms stay natural) */ kicking = !!(ch._u && ch._u.kickT > 0) || ch._act === 'kick', kickL = kicking && ch.legs && (ch.legs.L.thigh.rotation.x < -0.75), kickR = kicking && ch.legs && (ch.legs.R.thigh.rotation.x < -0.75); /* (only a real kick moves the model's legs: a long running stride must not) */
   H.ikA = (H.ikA || 0) + ((act && !mvK ? 1 : 0) - (H.ikA || 0)) * Math.min(1, dt * 14); // (a recorded move drives the arms itself)
   if (H.ikA > 0.02 && ch.arms) for (const [sd, nm, sx] of [['R', 'Right', -1], ['L', 'Left', 1]]) { const hp = ch.arms[sd].hand; if (!hp) continue; const t = hp.getWorldPosition(new THREE.Vector3()), sh = B[nm + 'Arm']; if (!sh) continue; const s0 = sh.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     const pole = s0.clone().add(new THREE.Vector3(sx * 0.4, -0.6, -0.35).applyQuaternion(wq)); const keep = [B[nm + 'Arm'].quaternion.clone(), B[nm + 'ForeArm'].quaternion.clone()]; ikArm(null, B[nm + 'Arm'], B[nm + 'ForeArm'], B[nm + 'Hand'], s0.clone().lerp(t, 1), pole);
@@ -164,7 +166,7 @@ function fistOnArm(F, vm, H, fist, fore, hand, side, pk) {
 }
 export function tickFpArms(vm) {
   const F = vm && vm.fpArms; if (!F || F === 'loading') return; const B = F.B;
-  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : 1.15); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
+  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : (F.D.fpHand || 1.15)); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   for (const [H, sd, sx] of [[vm.R, 'Left', -1], [vm.L, 'Right', 1]]) { // (the model faces the way you look, so its left arm is your right side on screen... mirrored below if needed)

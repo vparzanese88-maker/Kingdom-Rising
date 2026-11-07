@@ -63,7 +63,7 @@ export const WEAPON_TYPES = {
   spear: { name: 'Spear', hands: 'two', reach: 4.0, area: 5.5, speed: 0.95, block: 0.55, dmg: 1.12, kind: 'melee', parts: ['spear'], areaName: 'Sweeping Arc' },
   dagger: { name: 'Dagger', hands: 'one', reach: 2.1, area: 3.5, speed: 1.35, block: 0.4, dmg: 0.8, kind: 'melee', parts: ['dagger'], areaName: 'Triple Stab' },
   daggers: { name: 'Twin Daggers', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.9, block: 0.4, dmg: 0.75, kind: 'melee', parts: ['dagger', 'dagger'], areaName: 'Twin Fury' },
-  fists: { name: 'Fist Wraps', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.5, block: 0.4, dmg: 0.82, kind: 'melee', parts: ['fistwrap', 'fistwrap'], areaName: 'Flurry of Fists' },
+  fists: { name: 'Fist Wraps', hands: 'dual', reach: 2.1, area: 3.5, speed: 1.05, block: 0.4, dmg: 1.17, kind: 'melee', parts: ['fistwrap', 'fistwrap'], areaName: 'Flurry of Fists' },
   axe: { name: 'Hand Axe', hands: 'one', reach: 2.3, area: 4, speed: 1.1, block: 0.45, dmg: 0.95, kind: 'melee', parts: ['handaxe'], areaName: 'Cleave' },
   handaxes: { name: 'Hand Axes', hands: 'dual', reach: 2.3, area: 4, speed: 1.25, block: 0.45, dmg: 0.88, kind: 'melee', parts: ['handaxe', 'handaxe'], areaName: 'Twin Fury' },
   bow: { name: 'Longbow', hands: 'bow', reach: 60, area: 6, speed: 1.0, block: 0.35, dmg: 1.05, kind: 'bow', parts: ['bow'], areaName: 'Rain of Arrows' },

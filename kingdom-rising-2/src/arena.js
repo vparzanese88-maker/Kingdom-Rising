@@ -194,7 +194,7 @@ export function arenaHero(slot, name) {
   const GOB = { musketeer: ['woodelf', '#7a9a3a'], blunderbuss: ['dwarf', '#4f6a2a'] }[slot.cls]; if (GOB) slot = Object.assign({}, slot, { race: GOB[0] }); // (the gunners are goblins)
   const R = RACES[slot.race] || RACES.human, sex = GOB ? 'm' : Math.random() < 0.4 ? 'f' : 'm';
   const app = { skin: R.skins[(Math.random() * R.skins.length) | 0], hair: R.hairs[(Math.random() * R.hairs.length) | 0], hairStyle: (Math.random() * 3) | 0, beard: sex === 'm' && Math.random() < 0.5 ? 1 + ((Math.random() * 2) | 0) : 0, height: 1, build: 0 };
-  if (GOB) { app.skin = GOB[1]; app.beard = 0; }
+  if (GOB) { app.skin = GOB[1]; app.beard = 0; app.height = slot.cls === 'blunderbuss' ? 1.2 : 0.82; } // (two goblins: the bruiser a touch taller and much broader than the sharpshooter)
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
   h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaUlt = ultOf(slot.cls); h.ultCharge = 0; h.arenaPerks = {}; recomputePK(h);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];

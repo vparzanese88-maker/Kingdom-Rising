@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws } from './arenalooks.js';
+import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -195,6 +195,7 @@ class ViewModel {
     if (W.kind === 'gun') main.scale.setScalar(0.62);
     if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
+    if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
@@ -2041,7 +2042,7 @@ export class Player {
     const kind = this.W && this.W.kind === 'bow' ? 'bow' : this.weapon && this.weapon.wt === 'blunderbuss' ? 'blunderbuss' : this.W && this.W.kind === 'gun' ? 'musket' : null;
     if (this.adsG && (this.adsG.userData.kind !== kind)) { this.adsG.parent && this.adsG.parent.remove(this.adsG); this.adsG = null; }
     if (!kind || ae < 0.05) { if (this.adsG) this.adsG.visible = false; return; }
-    if (!this.adsG) { const ap = this.h.app || {}, cm = this.ch.mats || {}; this.adsG = buildAdsView(kind, { skin: ap.skin, cloth: cm.shirt && cm.shirt.color ? '#' + cm.shirt.color.getHexString() : undefined }); this.adsG.userData.kind = kind; G.vmCam.add(this.adsG); }
+    if (!this.adsG) { const ap = this.h.app || {}, cm = this.ch.mats || {}; this.adsG = buildAdsView(kind, { skin: ap.skin, cloth: cm.shirt && cm.shirt.color ? '#' + cm.shirt.color.getHexString() : undefined, goblin: this.h.arena && (this.h.cls === 'musketeer' || this.h.cls === 'blunderbuss') }); this.adsG.userData.kind = kind; G.vmCam.add(this.adsG); }
     const g = this.adsG, e = Math.max(0, (ae - 0.45) / 0.55), r = this.recoil || 0, t = G.time, mv = Math.min(1, (this.speed || 0) / 5);
     g.visible = ae > 0.5;
     g.position.set(Math.sin(t * 1.3) * 0.002 + Math.sin(t * 7) * 0.004 * mv, -(1 - e) * 0.22 + Math.sin(t * 1.1) * 0.0018 + Math.abs(Math.sin(t * 7)) * 0.006 * mv, r * 0.05);

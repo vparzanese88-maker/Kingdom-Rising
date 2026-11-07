@@ -72,6 +72,11 @@ export function buildAdsView(kind, look = {}) {
   // hands: the left cradles the forend out by the middle band, the right grips the wrist
   hand(g, skin, glove, -0.012, bore - 0.055, zAt(0.55), 0.3, 0); sleeve(g, cloth, -0.06, bore - 0.13, zAt(0.55) + 0.17, 0.32, 0.65, 0.3);
   hand(g, skin, glove, 0.02, bore - 0.1, z0 + 0.24, -0.15, 0);
+  if (look.goblin) { // goblin-made: rust over the steel, rivets, a patch, wire wraps, a gauge on the side
+    const rustM = M('#7a5236', 0, 0.8); g.traverse(o => { if (o.isMesh && o.material && o.material.metalness > 0.5) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color('#7a5a40'), 0.55); o.material.roughness = 0.7; } });
+    for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.SphereGeometry(0.004, 5, 4), brass); r.position.set(0.016, bore + 0.004, zAt(0.15 + i * 0.15)); g.add(r); }
+    box(g, rustM, 0.03, 0.006, 0.06, 0.012, bore + 0.008, zAt(0.3)); const ga = cyl(g, brass, 0.014, 0.014, 0.006, 0.028, bore - 0.02, z0 - 0.05, 12); ga.rotation.set(0, Math.PI / 2, 0);
+    for (let i = 0; i < 3; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0025, 4, 10), M('#3a3a30', 0.6, 0.6)); t.position.set(0, bore, zAt(0.45 + i * 0.03)); g.add(t); } }
   g.rotation.x = Math.atan2(-yr, -zr); // tip the rifle so the sight line runs exactly through the crosshair
   g.userData.base = g.rotation.x;
   g.userData.muzzle = new THREE.Vector3(0, bore, z0 - len - (blunder ? 0.08 : 0.01));

@@ -20,6 +20,22 @@ the template; every other class goes through the same steps.
    slow, radius, timing) until the results match. Report who made it and who didn't.
 5. **Ship.** `python3 kingdom-rising-2/tools/stamp.py`, commit, push the branch and `main`.
 
+## Ground rules (agreed)
+
+- **Escape abilities count.** Some classes have an ability that can get them out (the wizard's Blink, say). That is fine:
+  they have to use it, and it has to be off cooldown. Tests run with and without it (`--use KeyF`, `--use RMB`).
+- **Test player:** tuned for a human reacting in 0.2 s (`--lag 0.2`); frame-perfect results are noted where they differ.
+- **Counterplay:** each ultimate gets its own way to survive it (get out of the ring, get off the glyph, break line of
+  sight...). Area ultimates are tuned so that from dead centre only the leap dodge, or an escape ability, gets you out.
+- **Camera:** every ultimate's caster gets a fly-out camera and cannot be hurt while it plays; whoever is hit gets the
+  victim cinematic.
+
+## Shared building blocks (src/arena.js)
+
+`ultFoes`, `ultFriends`, `ultHurt` (a fraction of max health), `ultHeal`, `ultKill`, `ultSlow`, `ultGround`,
+`ultFlyCam` (caster camera), `ultVictimCine` (victim camera). Ability visuals for players and bots live in
+`src/abilityfx.js`, one entry per ability id.
+
 ## Dodges (the yardstick for every escape test)
 
 From `src/player.js` (`DODGES`, `DODGE_OF`). In the arena a dodge costs a third of your endurance (three in a
@@ -75,12 +91,48 @@ Earlier freeze lengths (older test with a coarse ~0.07 s reaction):
 - 1.25 s, dead centre: only leap escaped.
 - 1.65 s, 25% off centre: only leap escaped; from dead centre nobody did.
 
+### Escape abilities against the necro ring (1.5 s freeze, 0.2 s reaction, dead centre)
+
+| Class and ability | Result |
+|---|---|
+| Wizard, F Blink | escaped 2.05 s |
+| Monk, F Flying Kick | escaped 2.84 s |
+| Rogue, right-click Shadow Step | escaped 2.18 s |
+| Wizard, right-click Phase Shift | caught |
+| Berserker, right-click Undying | caught |
+| Warrior, right-click Shield Wall | caught |
+
+## Paladin (ultimate and ability visuals done)
+
+- **R, Avenging Wrath:** `paladinWrath()` in `src/arena.js` (numbers in `WRATH`), sword, glyph and wings in
+  `src/arenalooks.js`.
+  - Golden wings bloom; he raises his sword, cannot be hurt, and his camera flies out.
+  - A 12 m glyph of runes burns in where he aims with a pillar of light; enemies on it move at 35% speed.
+  - A giant sword of light forms 40 m up, turns, and falls faster and faster; it lands at 2.3 s: burning cross of
+    light, shockwave, stone and gold.
+  - Within 3 m of the centre: impaled (pinned for 0.9 s, then killed). Rest of the glyph: 45% of max health and
+    thrown up. Allies on the glyph heal 30%.
+  - The sword stays in the ground glowing, then dissolves upward.
+- **F, Lay on Hands:** a shaft of light pours down, the hands blaze gold, a ring of light spreads out.
+- **C, Radiant Sweep:** a crescent of holy light across the front of the swing.
+- **Q, Hammer Strike:** a spectral golden hammer slams down on the target.
+- **Shield of Light:** a golden dome that holds while the shield lasts and shatters. Note: on the paladin, right
+  click blocks with the shield, so Shield of Light is not on a key yet.
+
+### Paladin escape test (0.2 s reaction)
+
+| Start | Step (warrior...) | Roll (berserker...) | Leap (monk...) |
+|---|---|---|---|
+| dead centre | hit (9.0 m) | hit (10.9 m) | clear (13.1 m) |
+| 25% off (3 m) | hit (12.0 m, just) | clear | clear |
+
+Nobody is impaled from either start with a 0.2 s reaction.
+
 ## Other classes (to do)
 
 | Class | Ultimate now | Status |
 |---|---|---|
 | Warrior | Stone Banner | to redo |
-| Paladin | Avenging Wrath | to redo |
 | Shadow Knight | Harbinger | to redo |
 | Berserker | Bladestorm | to redo |
 | Monk | Thousand Fists | to redo |

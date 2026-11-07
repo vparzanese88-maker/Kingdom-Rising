@@ -7,7 +7,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
   necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
-  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
+  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
     moves: { jab: ['punch1', 0.15, 0.62, 0.4], cross: ['punch1', 0.6, 1.25, 1.0], upper: ['punch1', 1.2, 1.9, 1.42], spin: ['spinkick', 0.55, 1.6, 1.2], lunge: ['lungeround', 1.85, 3.0, 2.25],
       fury: ['punch2', 1.8, 2.6, 0, 0, 0, true], kick: ['doublekick', 0.7, 1.75, 1.0], flykick: ['risekick', 0.05, 1.05, 0, true, 0.75], superman: ['jumppunch', 0.45, 1.6, 0, true, 0.7], flip: ['sweep', 1.62, 2.8, 0, true] },
@@ -25,17 +25,30 @@ function loadClass(cls) {
   cache[cls] = (async () => {
     const base = await loadFbx(D.base); const clips = {};
     await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const J = url.endsWith('.json') ? await (await fetch(url)).json() : null, c = J ? THREE.AnimationClip.parse(J) : (await loadFbx(url)).animations[0]; if (!c) return; if (J && J.rest) retarget(c, J, base); // (moves are stored as small motion-only files, not whole characters)
-      c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name) || (keepHipY(t), true)); clips[k] = c; }));
+      c.tracks = c.tracks.filter(t => !/\.position$/.test(t.name) || (/^Hips\.position$/.test(t.name) && (keepHipY(t), true))); /* (bones keep this model's own lengths: only the hips' bob comes from the clip) */ clips[k] = c; }));
     base.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
     return { base, clips };
   })();
   return cache[cls];
 }
 // a move recorded on an older version of the model: turn each bone's keys from that model's rest pose to this one's
-function retarget(clip, J, base) { const T = {}; base.traverse(o => { if (o.isBone) T[o.name] = o; }); const qs = new THREE.Quaternion(), d = new THREE.Quaternion(), q = new THREE.Quaternion();
-  for (const tr of clip.tracks) { const [bn, prop] = tr.name.split('.'); const tb = T[bn]; if (!tb) continue;
-    if (prop === 'quaternion' && J.rest[bn]) { d.fromArray(J.rest[bn]).invert().multiply(tb.quaternion); const v = tr.values; for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).multiply(d); q.toArray(v, i); } }
-    if (prop === 'position' && bn === 'Hips' && J.restPos && J.restPos.Hips) { const v = tr.values, s0 = J.restPos.Hips, k = tb.position.y / (s0[1] || 1); for (let i = 0; i < v.length; i += 3) { v[i] = tb.position.x; v[i + 1] *= k; v[i + 2] = tb.position.z; } } } }
+function retarget(clip, J, base) {
+  // world-space retarget: each bone keeps the same turn away from its rest pose, measured in the world, so parents and children agree
+  const T = {}, order = []; base.traverse(o => { if (o.isBone) { T[o.name] = o; order.push(o); } });
+  const qt = {}; let N = 0; for (const tr of clip.tracks) { const [bn, prop] = tr.name.split('.'); if (prop === 'quaternion' && T[bn]) { qt[bn] = tr; N = Math.max(N, tr.times.length); } }
+  for (const bn in qt) if (qt[bn].times.length !== N) return; // (keys out of step: leave the clip alone rather than guess)
+  const par = (b) => (b.parent && b.parent.isBone ? b.parent.name : null), Q = () => new THREE.Quaternion();
+  const sRestW = {}, tRestW = {}; for (const b of order) { const p = par(b), sl = J.rest[b.name] ? Q().fromArray(J.rest[b.name]) : b.quaternion.clone(); sRestW[b.name] = p ? sRestW[p].clone().multiply(sl) : sl; tRestW[b.name] = p ? tRestW[p].clone().multiply(b.quaternion) : b.quaternion.clone(); }
+  const out = {}; for (const bn in qt) out[bn] = new Float32Array(qt[bn].values.length);
+  const sW = {}, tW = {}, tmp = Q();
+  for (let f = 0; f < N; f++) {
+    for (const b of order) { const n = b.name, p = par(n && T[n]), tr = qt[n]; const sl = tr ? Q().fromArray(tr.values, f * 4) : (J.rest[n] ? Q().fromArray(J.rest[n]) : b.quaternion.clone());
+      sW[n] = p ? sW[p].clone().multiply(sl) : sl;
+      tW[n] = sW[n].clone().multiply(tmp.copy(sRestW[n]).invert()).multiply(tRestW[n]);
+      if (tr) { const loc = p ? tmp.copy(tW[p]).invert().multiply(tW[n]) : tW[n].clone(); loc.toArray(out[n], f * 4); } } }
+  for (const bn in qt) qt[bn].values = out[bn];
+  for (const tr of clip.tracks) { const [bn, prop] = tr.name.split('.'); const tb = T[bn]; if (prop === 'position' && bn === 'Hips' && tb && J.restPos && J.restPos.Hips) { const v = tr.values, s0 = J.restPos.Hips, k = tb.position.y / (s0[1] || 1); for (let i = 0; i < v.length; i += 3) { v[i] = tb.position.x; v[i + 1] *= k; v[i + 2] = tb.position.z; } } }
+}
 // keep the hips bobbing up and down but not travelling forward or sideways
 function keepHipY(track) { const v = track.values; if (!v || v.length < 3) return; const x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } }
 
@@ -52,7 +65,7 @@ export function attachHeroModel(ch, cls) {
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; });
-    const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
+    const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run' && kk !== 'back') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
     ch.heroModel = { m, wrap, mixer, act, D, bones, bind, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
   }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; });
@@ -98,27 +111,35 @@ function pickMove(H, ch, dt) {
 // every frame: pick the animation from how fast the character is moving and blend between them
 export function tickHeroModel(ch, dt) {
   const H = ch && ch.heroModel; if (!H || H === 'loading' || dt <= 0) return;
-  const p = ch.root.position, sp = Math.hypot(p.x - H.lp.x, p.z - H.lp.z) / dt; H.lp.copy(p); H.v += (Math.min(sp, 12) - H.v) * Math.min(1, dt * 8);
+  const p = ch.root.position, dx = p.x - H.lp.x, dz = p.z - H.lp.z, sp = Math.hypot(dx, dz) / dt; H.lp.copy(p); H.v += (Math.min(sp, 12) - H.v) * Math.min(1, dt * 8);
+  // which way he is moving compared with where he faces: forward 0, right +90°, back 180°
+  if (sp > 0.4) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(ch.root.getWorldQuaternion(new THREE.Quaternion())), a = Math.atan2(dx * fw.z - dz * fw.x, dx * fw.x + dz * fw.z); H.mvA = a; }
+  const A = sp > 0.4 ? (H.mvA || 0) : 0, back = Math.abs(A) > 1.95; H.backK = (H.backK || 0) + ((back && H.v > 0.25 ? 1 : 0) - (H.backK || 0)) * Math.min(1, dt * 10);
+  let legT = back ? A - Math.sign(A) * Math.PI : A; legT = Math.max(-1.15, Math.min(1.15, legT)) * (H.v > 0.25 ? 1 : 0); H.legYaw = (H.legYaw || 0) + (legT - (H.legYaw || 0)) * Math.min(1, dt * 9);
   const walkW = H.v < 0.25 ? 0 : H.v < H.D.runSpeed * 0.6 ? 1 : Math.max(0, 1 - (H.v - H.D.runSpeed * 0.6) / (H.D.runSpeed * 0.4)), runW = H.v < H.D.runSpeed * 0.6 ? 0 : 1 - walkW, idleW = 1 - Math.min(1, H.v / 0.25);
   const lerpW = (k, t) => { H.w[k] += (t - H.w[k]) * Math.min(1, dt * 10); };
   lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
   if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.6, H.v / H.D.walkSpeed); }
   if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.min(1.25, Math.max(0.75, H.v / H.D.runSpeed)) * (H.D.runRate || 1); }
   if (H.act.walk) H.act.walk.timeScale = Math.min(1.4, H.act.walk.timeScale);
+  if (H.act.back) { const bw = H.backK * (H.w.walk + H.w.run); H.act.back.paused = false; H.act.back.setEffectiveWeight(bw); H.act.back.timeScale = Math.min(1.6, Math.max(0.7, H.v / H.D.walkSpeed * 0.8)); if (H.act.walk) H.act.walk.setEffectiveWeight(H.w.walk * (1 - H.backK)); if (H.act.run) H.act.run.setEffectiveWeight(H.w.run * (1 - H.backK)); }
+  else if (H.backK > 0.5 && H.act.walk) { H.act.walk.timeScale = -Math.abs(H.act.walk.timeScale); if (H.act.run) H.act.run.timeScale = -Math.abs(H.act.run.timeScale); } // (no backwards clip: the walk plays in reverse)
   if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)
   const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
-  reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run') H.act[k].setEffectiveWeight(0);
+  reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run' && k !== 'back') H.act[k].setEffectiveWeight(0);
   H.mixer.update(dt); H.t += dt; const B = H.bones;
   H.mw = (H.mw || 0) + ((mvK ? 1 : 0) - (H.mw || 0)) * Math.min(1, dt * (mvK ? 30 : 9)); // (snaps into an attack, eases back out of it)
   if (H.mw > 0.01 && H.lastMove) { const [ck, a, b2] = H.lastMove.slice; const A = H.act[ck];
     if (A) { const legs = {}; const moving = Math.min(1, H.v / 1.5) * (H.lastMove.full ? 0 : 1); for (const k of LEG_BONES) if (B[k]) legs[k] = B[k].quaternion.clone(); const hipP = B.Hips ? B.Hips.position.clone() : null;
-      reset(); for (const k in H.act) H.act[k].setEffectiveWeight(k === ck ? H.mw : k === 'walk' ? H.w.walk * (1 - H.mw) : k === 'run' ? H.w.run * (1 - H.mw) : 0); A.time = H.lastMove.t; H.mixer.update(0);
+      reset(); for (const k in H.act) H.act[k].setEffectiveWeight(k === ck ? H.mw : k === 'walk' ? H.w.walk * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'run' ? H.w.run * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'back' ? (H.w.walk + H.w.run) * H.backK * (1 - H.mw) : 0); A.time = H.lastMove.t; H.mixer.update(0);
       for (const k of LEG_BONES) if (legs[k] && B[k]) B[k].quaternion.slerp(legs[k], moving); if (hipP && moving > 0) B.Hips.position.lerp(hipP, moving); } }
   // standing still: the rest pose with the arms down at the sides, a slow breath and a little weight shift
   const free = 1 - (H.mw || 0); if (H.w.idle > 0.01 && free > 0.01) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle * free); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
   // running: toes turned in a touch; smaller feet
   const mv = H.w.run + H.w.walk * 0.5, ti = (H.D.toeIn || 0) * mv; if (ti) { const up = new THREE.Vector3(0, 1, 0); turnFoot(B.LeftFoot, up, -ti); turnFoot(B.RightFoot, up, ti); } // (only the feet turn in, at the ankle: the legs stay apart)
   const spr = (H.D.legSpread || 0) * mv; if (spr) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(H.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(); spreadLeg(B.LeftUpLeg, fw, spr); spreadLeg(B.RightUpLeg, fw, -spr); } // (feet kept apart so the legs never cross)
+  // strafing or running at an angle: hips and legs turn toward where he is going, the chest turns back to face the aim
+  if (Math.abs(H.legYaw) > 0.01 && B.Hips) { const up = new THREE.Vector3(0, 1, 0); turnFoot(B.Hips, up, H.legYaw); const sp1 = B.Spine01 || B.Spine; if (sp1) turnFoot(sp1, up, -H.legYaw * 0.6); const sp2 = B.Spine02; if (sp2) turnFoot(sp2, up, -H.legYaw * 0.4); }
   if (H.D.footScale) for (const k of ['LeftFoot', 'RightFoot']) if (B[k]) B[k].scale.setScalar(H.D.footScale);
   // the hidden built body still performs every attack, kick, flip and roll: the model's hands and feet follow it there
   H.wrap.position.copy(ch.body.position); if (H.lastMove && H.lastMove.full && H.mw > 0.5) { H.wrap.quaternion.identity(); H.wrap.position.y = 0; } else H.wrap.quaternion.copy(ch.body.quaternion); H.wrap.updateMatrixWorld(true); // (a recorded flip or jump kick moves the whole body itself: the built body's own flip is not added on top)

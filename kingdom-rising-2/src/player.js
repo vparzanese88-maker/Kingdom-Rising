@@ -16,7 +16,7 @@ import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } 
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
-import { abilityFx } from './abilityfx.js';
+import { abilityFx, bodyPoseTick } from './abilityfx.js';
 import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
@@ -94,6 +94,7 @@ const VP = {
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
+  jabA: P(0.32, -0.36, -0.42, -1.4, 0, -0.25), jabB: P(0.08, -0.2, -0.86, -1.57, 0, 0), kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
   necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -156,7 +157,11 @@ class ViewModel {
       arm.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
       return { arm, m, trim, H };
     });
-    this.anchor = [new THREE.Vector3(0.32, -0.8, 0.12), new THREE.Vector3(-0.32, -0.8, 0.12)]; // (the elbows: just below and behind the bottom edge of the screen, so a forearm never shows its cut end)
+    this.anchor = [new THREE.Vector3(0.32, -0.8, 0.12), new THREE.Vector3(-0.32, -0.8, 0.12)];
+    { const vk2 = VM_KIND[cls] || 'cloth', skinM = new THREE.MeshStandardMaterial({ color: app.skin || '#d8a888', roughness: 0.6 }), wrapM = new THREE.MeshStandardMaterial({ color: vk2 === 'wraps' ? '#d8ccb0' : vk2 === 'plate' ? '#9aa2ac' : '#3a2a1c', roughness: vk2 === 'plate' ? 0.35 : 0.85, metalness: vk2 === 'plate' ? 0.8 : 0 }), pantM = new THREE.MeshStandardMaterial({ color: CLASSES[cls].colors.main, roughness: 0.85 });
+      const f = new THREE.Group(); const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.6, 14), pantM); shin.position.y = 0.3; f.add(shin); const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.06, 0.16, 14), wrapM); wrap.position.y = 0.05; f.add(wrap);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.075, 0.24), vk2 === 'wraps' ? skinM : wrapM); foot.position.set(0, -0.02, 0.06); f.add(foot); for (let i = 0; i < 3; i++) { const b2 = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.006, 5, 14), wrapM); b2.rotation.x = Math.PI / 2; b2.position.y = 0.0 + i * 0.05; f.add(b2); }
+      f.rotation.order = 'YXZ'; f.visible = false; f.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); this.g.add(f); this.foot = f; } // (your leg and foot for kicks, wrapped like the hands) // (the elbows: just below and behind the bottom edge of the screen, so a forearm never shows its cut end)
     this.weapons = {}; this.bob = 0; this.sprintK = 0;
   }
   setWeapon(w) {
@@ -176,6 +181,7 @@ class ViewModel {
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'handaxe') off.rotation.y = Math.PI / 2; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     if (W.kind === 'gun') main.scale.setScalar(0.62);
+    if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } } // (bare wrapped fists)
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
@@ -246,6 +252,11 @@ class ViewModel {
       else if (W && W.kind === 'bow') { l = [0.02, -0.13, -0.44, -0.2, 0.1, 1.5]; r = [0.3, -0.42, -0.4, -0.4, 0, 0.4]; }
       else { r = VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; }
     } else if (st.drawing) { r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, st.drawing))); }
+    if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
+      if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const J = q < 0.5 ? plerp(VP.jabA, VP.jabB, easeOut(q * 2)) : plerp(VP.jabB, VP.jabA, ease((q - 0.5) * 2)); if (side) l = mirror(J); else r = J; }
+      else if (/^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust)/.test(n)) { const left = n.startsWith('off') || n === 'stabL' || n === 'swing2'; const J = seq(VP.jabA, VP.jabB, t, 0.2, VP.rest); if (left) l = seq(mirror(VP.jabA), mirror(VP.jabB), t, 0.2, VP.restL); else r = J; } }
+    if (st.kick) { const kk = Math.sin(Math.min(1, st.kick * 1.3) * Math.PI * 0.5); r = plerp(r, VP.kickDown, kk); if (l) l = plerp(l, mirror(VP.kickDown), kk); }
+    if (this.foot) { const kk = st.kick ? Math.sin(Math.min(1, st.kick * 1.25) * Math.PI * 0.5) * (st.kick > 0.85 ? (1 - st.kick) / 0.15 : 1) : 0; this.foot.visible = kk > 0.02; if (this.foot.visible) { this.foot.position.set(0.05 - kk * 0.02, -0.8 + kk * 0.5, -0.25 - kk * 0.55); this.foot.rotation.set(-0.35 - kk * 1.05, 0.05, 0); } } // (your foot thrusts up into view)
     // sprinting: lower the weapon and pump the arms
     this.sprintK += ((st.sprint && !act && !st.block && !st.tool ? 1 : 0) - this.sprintK) * Math.min(1, dt * 8);
     if (this.sprintK > 0.01) {
@@ -559,7 +570,7 @@ export class Player {
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
       let st = a.step || { m: 1 }; const wt = this.weapon.wt;
-      const blunt = wt === 'maceshield' || wt === 'warhammer' || wt === 'quarterstaff' || !!st.blunt;
+      const blunt = wt === 'maceshield' || wt === 'warhammer' || wt === 'quarterstaff' || wt === 'fists' || !!st.blunt; // (fists land like a club: a thud, no slash, no bleeding)
       const swordHit = (wt === 'swordshield' || wt === 'swordmace') && !st.blunt;
       let reach = W.reach * (a.name === 'smash' ? 1.1 : 1), half = st.cleave ? 1.3 : wt === 'spear' ? 0.35 : 0.85;
       let targets;
@@ -579,11 +590,11 @@ export class Player {
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
-        this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed ? base * 0.09 : 0, stun: st.stun || 0 });
+        this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
         if (blunt) S.blunt(m.pos);
       }
       if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }
-      if (targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) {
+      if (false && targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) { // (no random double/triple attacks)
         const lv = G.newFx ? 0 : Game.masteryOf(this.h, wt), k = wt === 'daggers' ? 2 : 1; // campaign: no random dagger flurries, the rogue's abilities carry the damage
         const n = lv >= 9 && Math.random() < (0.02 + lv * 0.002) * k ? 3 : lv >= 5 && Math.random() < (0.04 + lv * 0.003) * k ? 2 : lv >= 2 && Math.random() < (0.08 + lv * 0.006) * k ? 1 : 0;
         if (n) { const t0 = targets[0]; V.number(t0.pos.clone().setY(t0.pos.y + (t0.height || 1.6) + 0.8), ['', 'Double attack!', 'Triple attack!', 'Quad attack!'][n], 'crit');
@@ -765,7 +776,7 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
@@ -826,6 +837,8 @@ export class Player {
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
+      case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
+      case 'ar_fists': { if (!G.hooks.arenaFists) break; G.hooks.arenaFists(this); break; } // (the whirlwind of fists, centred on you)
       case 'ar_wrath': { if (!G.hooks.arenaWrath) break; G.hooks.arenaWrath(this, groundPoint(30)); S.cast('holy', this.pos, 1.4); break; } // (judgment where you aim)
       case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = groundPoint(24); G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.cast('arcane', this.pos, 1.4); break; } // (cast on the ground where you aim)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
@@ -1433,7 +1446,7 @@ export class Player {
     if (a.name === 'heavy' || a.held || t.dead) return;
     const swing = (delay, hand, dmg, label) => setTimeout(() => { if (this.dead || t.dead) return; this.dealDamage(t, dmg, { melee: true, offhand: hand === 'off' }); S.swingW('light', 0.9, this.pos); V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.5), label, 'miss'); this.atk = { name: hand === 'off' ? 'off1' : 'swing2', t: 0.25, dur: 0.22, hit: true, noQueue: true, extra: true }; }, delay);
     if (Skills.skillCapOf(h, 'double') > 0) Skills.practise(h, 'double'); // every swing is practice
-    if (Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { swing(140, 'main', base * (st.m || 1), 'Double attack');
+    if (false && Skills.DOUBLE_CLASSES.has(h.cls) && Math.random() < Skills.doubleChance(h, this.D.stats.str)) { // (no random double/triple attacks: each click is one hit) swing(140, 'main', base * (st.m || 1), 'Double attack');
       if (Skills.TRIPLE_CLASSES.has(h.cls) && Skills.skillCapOf(h, 'triple') > 0 && (Skills.practise(h, 'triple'), Math.random() < Skills.tripleChance(h, this.D.stats.str))) { swing(280, 'main', base * (st.m || 1), 'Triple attack'); } }
     if (Skills.canDual(h)) { const w2 = h.equip.w2; Skills.practise(h, 'dual'); if (Math.random() < Skills.dualChance(h, this.D.stats.dex)) { swing(360, 'off', weaponDamage(h, w2) * 0.75, 'Off hand'); Skills.practise(h, Skills.skillOf(w2.wt)); } }
   }
@@ -1966,6 +1979,7 @@ export class Player {
     arenaLookTick(ch, dt);
     animateHumanoid(ch, dt, { turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
+    bodyPoseTick(this, ch, dt); // (kicks)
     if (this.ultPoseT > 0) { this.ultPoseT -= dt; const k = Math.min(1, (1.5 - this.ultPoseT) * 5, this.ultPoseT * 4); /* (the ultimate cast: arms flung up and wide, head back, a lift off the ground) */
       for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { A2.sh.rotation.x += (-2.6 - A2.sh.rotation.x) * k; A2.sh.rotation.z += (sx * -0.7 - A2.sh.rotation.z) * k; A2.el.rotation.x += (-0.25 - A2.el.rotation.x) * k; }
       if (ch.head) ch.head.rotation.x -= 0.35 * k; ch.body.position.y += 0.18 * k; if (Math.random() < 0.6) V.emit(this.h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 0.3 + Math.random() * 1.8), { speed: 1.5, vy: 2.5, size: 0.3 }); }
@@ -1974,7 +1988,7 @@ export class Player {
       if (ch.head) ch.head.rotation.x -= 0.25 * k * out;
       ch.root.updateMatrixWorld(true); for (const A2 of [ch.arms.R, ch.arms.L]) if (Math.random() < 0.7) { const hp2 = A2.hand.getWorldPosition(new THREE.Vector3()); V.emit('poison', hp2, { speed: 0.25, vy: -2.2, size: 0.13, life: 0.75, radius: 0.08 }); if (Math.random() < 0.3) V.emit('green', hp2, { speed: 0.4, vy: 0.6, size: 0.18, life: 0.5 }); } }
     if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
-    if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time); // (the bard plays once he has a song)
+    if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time, dt); // (the bard plays once he has a song)
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))));
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
@@ -1982,7 +1996,7 @@ export class Player {
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
-    this.vm.update(dt, { channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8 });
+    this.vm.update(dt, { channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8, kick: this.kickT > 0 ? 1 - this.kickT / (this.kickDur || 0.55) : 0 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade
@@ -2014,14 +2028,14 @@ export class Player {
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
-    if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? 0.7 : 0.2); // (the over-the-shoulder camera barely dips: the body does the rolling)
+    if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? (this.h.arena ? 0.12 : 0.7) : 0.2); // (the arena: barely a dip, no roll) // (the over-the-shoulder camera barely dips: the body does the rolling)
     if (this.dead) eyeY = this.spectate ? 0 : 0.4; // (arena spectators fly free)
     if (this.swim) eyeY = 1.35;
     const eye = this.pos.clone(); eye.y += eyeY;
     if (fp && settings.headBob && !this.h.arena && this.onGround && this.speed > 0.5) eye.y += Math.abs(Math.sin(this.vm.bob)) * 0.04;
     cam.rotation.order = 'YXZ';
     cam.rotation.set(this.pitch, this.yaw + Math.PI, 0);
-    if (this.dodge && !this.dodge.charge && fp) cam.rotation.z = Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.15 * Math.sign(this.dodge.dir.dot(this.right()) || 1);
+    if (this.dodge && !this.dodge.charge && fp && !this.h.arena) cam.rotation.z = Math.sin(Math.min(1, this.dodge.t) * Math.PI) * 0.15 * Math.sign(this.dodge.dir.dot(this.right()) || 1);
     if (this.dead && !this.spectate) cam.rotation.z = Math.min(1, this.deadT) * 0.6;
     if (fp) cam.position.copy(eye);
     else {

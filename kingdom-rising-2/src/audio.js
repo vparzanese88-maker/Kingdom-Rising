@@ -148,9 +148,9 @@ export const S = {
       S.swing(Math.max(0.55, size * 0.75), pos);
       noise(t, 0.1, o.node, { type: 'bandpass', f: 2200, f2: 5200, q: 2.2, gain: 0.4, a: 0.01 });
     } else if (kind === 'fist') {
-      // fists: a short punchy whoosh
-      noise(t, 0.14 * size, o.node, { type: 'bandpass', f: 500, f2: 1400, q: 1.4, gain: 0.5 * size, a: 0.02 });
-      noise(t, 0.1, o.node, { type: 'lowpass', f: 400, gain: 0.3, a: 0.02 });
+      // fists: a soft, low rush of air (no blade hiss)
+      noise(t, 0.12 * size, o.node, { type: 'lowpass', f: 700, f2: 260, q: 0.8, gain: 0.32 * size, a: 0.02 });
+      tone(t, 0.08, o.node, { type: 'sine', f: 120, f2: 70, gain: 0.08, a: 0.01 });
     } else if (kind === 'staff') {
       noise(t, 0.3 * size, o.node, { type: 'bandpass', f: 400, f2: 900, q: 1.4, gain: 0.35 * size, a: 0.1 });
     }

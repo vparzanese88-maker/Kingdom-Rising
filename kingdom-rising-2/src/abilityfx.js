@@ -51,3 +51,16 @@ const FX = {
   },
 };
 export function abilityFx(u, a, T) { const f = a && FX[a.id]; if (!f) return; try { f(u, a, T); } catch (e) { console.warn('abilityFx', a.id, e); } }
+
+// ---------- body poses that the generic animation can't do (kicks) ----------
+// u.kickT counts down; while it runs the legs and body take a flying-kick shape (players and computer fighters)
+export function bodyPoseTick(u, ch, dt) {
+  if (!ch || !ch.legs || !(u.kickT > 0)) return; u.kickT -= dt; const dur = u.kickDur || 0.55, k = 1 - Math.max(0, u.kickT) / dur, ext = Math.sin(Math.min(1, k * 1.25) * Math.PI * 0.5) * (k > 0.85 ? (1 - k) / 0.15 : 1);
+  const s = u.kickSide || 'R', o = s === 'R' ? 'L' : 'R', Lg = ch.legs, A2 = ch.arms;
+  Lg[s].thigh.rotation.x = -1.55 * ext; Lg[s].knee.rotation.x = 0.1 + (1 - ext) * 1.2; if (Lg[s].ankle) Lg[s].ankle.rotation.x = 0.5 * ext;
+  Lg[o].thigh.rotation.x = 0.35 * ext; Lg[o].knee.rotation.x = 1.7 * ext;
+  if (A2) { A2.R.sh.rotation.x = 0.7 * ext; A2.L.sh.rotation.x = 0.7 * ext; A2.R.sh.rotation.z = 0.5 * ext; A2.L.sh.rotation.z = -0.5 * ext; A2.R.el.rotation.x = -0.9 * ext; A2.L.el.rotation.x = -0.9 * ext; }
+  if (ch.body) ch.body.rotation.x = -0.3 * ext;
+}
+FX.flyingkick = (u) => { u.kickT = u.kickDur = 0.55; u.kickSide = Math.random() < 0.5 ? 'R' : 'L'; S.dodge && S.dodge();
+  let t = 0; G.timers.push({ update: (dt) => { t += dt; const p = u.pos.clone().setY(u.pos.y + 0.9); V.emit('frost', p, { speed: 0.4, size: 0.35, life: 0.35 }); if (Math.random() < 0.6) V.emit('gold', p, { speed: 0.6, size: 0.2, life: 0.3 }); return t > 0.5; } }); };

@@ -17,7 +17,7 @@ import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
-import { abilityFx } from './abilityfx.js';
+import { abilityFx, bodyPoseTick } from './abilityfx.js';
 import { makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -53,8 +53,8 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
-export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'thousandfists',
-  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'shadowdance', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
+export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'ar_fists',
+  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
@@ -128,10 +128,12 @@ export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (
 let kitRulesDone = false;
 // the arena's own moves, and cooldowns tuned for a three-key kit (no mana: everything runs on cooldowns)
 const ARENA_NEW = {
-  rogue: [{ id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
+  rogue: [{ id: 'ar_assassinate', name: 'Assassinate', t: 'assassinate', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Aim at an enemy: you melt into the shadows and step out right behind them, seize them and drive your blade into their back. A killing blow.' },
+    { id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
   bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
-  monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
+  monk: [{ id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
+    { id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   paladin: [{ id: 'ar_wrath', name: 'Avenging Wrath', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Spread golden wings and call down judgment where you aim: a 12 m glyph of light burns into the ground and slows enemies on it, then a giant sword of light plunges out of the sky. Anyone in its heart is impaled; everyone else on the glyph is hurt badly and thrown up; allies on it are healed. Get off the glyph before it lands.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
@@ -199,7 +201,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -306,6 +308,91 @@ export function paladinWrath(caster, at) {
       if (ak > 1.6) { const k = seg(ak, 1.6, 2.6); sword.position.y = base + 9.8 + k * 6; sword.scale.setScalar(Math.max(0.01, 1 - k)); if (Math.random() < 0.5) V.emit('gold', sword.position.clone().setY(base + Math.random() * 8), { speed: 0.4, vy: 3, size: 0.3 }); } }
     if (me && t > T.impact + 2.2 && me.held) { me.held = false; me.ultPoseT = 0; }
     if (t > T.impact + 2.8) { for (const o of [glyph, pillar, sword, cross]) G.scene.remove(o); if (wings.parent) wings.parent.remove(wings); if (me) { me.held = false; if (me.cine && !document.body.classList.contains('cine')) me.cine = null; } return true; }
+    return false; } });
+  return true;
+}
+
+// ---------- the monk's ultimate: Thousand Fists ----------
+// chi gathers into a whirlwind that drags every enemy within r into the air around him; he blurs from one to the next
+// with punches, kicks, knees and roundhouses for several seconds, then slams the ground and throws them all away.
+// Every victim takes exactly `dmg` of their max health in total.
+export const FISTS = { r: 9, pullAt: 0.6, pullDur: 0.8, dur: 4.2, dmg: 0.5, hitEvery: 0.13 };
+export function monkFists(caster) {
+  const T = Object.assign({}, FISTS, G.fistsTune || {}), me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
+  const C = caster.pos.clone(), base = ultGround(C); C.y = base; const home = caster.pos.clone();
+  const vortex = new THREE.Group(); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.TorusGeometry(T.r * (0.35 + i * 0.3), 0.08, 6, 64), new THREE.MeshBasicMaterial({ color: i % 2 ? '#bfe8ff' : '#ffd890', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.x = Math.PI / 2; vortex.add(m); } vortex.position.set(C.x, base + 0.15, C.z); G.scene.add(vortex);
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(1.1, 18, 14), new THREE.MeshBasicMaterial({ color: '#ffe0a0', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); G.scene.add(aura);
+  caster.held = true; if (me) { me.ultImmT = T.pullAt + T.pullDur + T.dur + 1.5; me.ultPoseT = 0; ultFlyCam(me, () => C.clone().setY(base + 1.2), () => T.pullAt + T.pullDur + T.dur + 0.6, { r: 11, h: 4 }); } else caster.invulnT = G.time + T.pullAt + T.pullDur + T.dur + 1.5;
+  S.cast && S.cast('holy', C, 1.2); let t = 0, caught = null, slots = [], hitT = 0, idx = 0, nHits = 0, total = 0, finished = false, done = false, emT = 0;
+  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  const setPos = (p) => { caster.pos.copy(p); if (!me && caster.root) caster.root.position.copy(p); };
+  const face = (to) => { const y = Math.atan2(to.x - caster.pos.x, to.z - caster.pos.z); if (me) { me.yaw = y; me.bodyYaw = y; } else { caster.yaw = y; if (caster.root) caster.root.rotation.y = y; } };
+  let pose = null, poseT = 0; const STRIKES = ['punchR', 'punchL', 'kickR', 'punchR', 'kneeL', 'punchL', 'roundL', 'punchR'];
+  const applyPose = () => { if (!ch || !ch.arms) return; const A2 = ch.arms, Lg = ch.legs || {}; const k = Math.max(0, 1 - poseT / 0.12);
+    if (t < T.pullAt + T.pullDur) { A2.R.sh.rotation.set(-0.6, 0, 0.9); A2.L.sh.rotation.set(-0.6, 0, -0.9); A2.R.el.rotation.x = -1.6; A2.L.el.rotation.x = -1.6; if (Lg.R) { Lg.R.thigh.rotation.x = -0.6; Lg.L.thigh.rotation.x = -0.6; Lg.R.knee.rotation.x = 1.0; Lg.L.knee.rotation.x = 1.0; } return; } // (a deep horse stance, hands drawing in the chi)
+    if (!pose) return; const s = pose.endsWith('R') ? 'R' : 'L', o = s === 'R' ? 'L' : 'R';
+    if (pose.startsWith('punch')) { A2[s].sh.rotation.set(-1.55 * k - 0.3, 0, 0); A2[s].el.rotation.x = -0.1 - (1 - k) * 1.2; A2[o].sh.rotation.set(-0.5, 0, 0); A2[o].el.rotation.x = -1.7; }
+    else if (Lg[s]) { const hi = pose.startsWith('round') ? 1.7 : pose.startsWith('knee') ? 1.3 : 1.45; Lg[s].thigh.rotation.x = -hi * k; Lg[s].knee.rotation.x = pose.startsWith('knee') ? 1.6 * k : 0.15; if (pose.startsWith('round')) Lg[s].thigh.rotation.z = (s === 'R' ? -0.6 : 0.6) * k; A2.R.sh.rotation.set(-0.4, 0, 0.6); A2.L.sh.rotation.set(-0.4, 0, -0.6); } };
+  const victimCine = new Set();
+  G.timers.push({ update: (dt) => { t += dt; poseT += dt;
+    const vk = Math.min(1, t / 0.5) * (1 - e((t - (T.pullAt + T.pullDur + T.dur)) / 0.6)); vortex.children.forEach((m, i) => { m.material.opacity = vk * (0.5 - i * 0.12); m.rotation.z = t * (2.5 + i); m.scale.setScalar(1 - Math.min(1, Math.max(0, (t - T.pullAt) / T.pullDur)) * 0.5 * (i / 2)); });
+    aura.position.copy(caster.pos).setY(caster.pos.y + 1.1); aura.material.opacity = vk * (0.18 + Math.sin(t * 12) * 0.06); aura.scale.setScalar(1 + Math.sin(t * 6) * 0.08);
+    emT -= dt; if (emT <= 0 && vk > 0.2) { emT = 0.03; const a = Math.random() * Math.PI * 2, r0 = T.r * (0.3 + Math.random() * 0.7); V.emit(Math.random() < 0.5 ? 'gold' : 'frost', new THREE.Vector3(C.x + Math.cos(a) * r0, base + 0.3 + Math.random() * 2, C.z + Math.sin(a) * r0), { speed: 1.5, size: 0.25, life: 0.6, dir: new THREE.Vector3(-Math.cos(a), 0.2, -Math.sin(a)) }); }
+    // the pull: everyone in reach is dragged into a ring in the air around him
+    if (!caught && t >= T.pullAt) { caught = ultFoes(caster).filter(u => Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r);
+      caught.forEach((u, i) => { const a = (i / Math.max(1, caught.length)) * Math.PI * 2 + Math.atan2(u.pos.x - C.x, u.pos.z - C.z) * 0; slots.push({ u, from: u.pos.clone(), a: Math.atan2(u.pos.x - C.x, u.pos.z - C.z), dealt: 0 }); u.held = true; if (u.status) { u.status.stun = T.pullDur + T.dur + 0.5; u.cast = null; } if (u === G.player) { u.debuff && u.debuff('freeze', T.pullDur + T.dur + 0.3); ultVictimCine(u, () => caster.pos.clone().setY(caster.pos.y + 1), T.pullDur + T.dur + 1.2); } });
+      V.ring(C.clone().setY(base + 0.2), T.r * 2, '#ffe8a0', 0.6); V.addShake(0.4); S.cast && S.cast('frost', C, 1.0); }
+    if (caught && !done) for (const sl of slots) { const u = sl.u; if (!u.held && t < T.pullAt + T.pullDur + T.dur) continue; const pk = e((t - T.pullAt) / T.pullDur), ring = 2.3, spin = sl.a + (t - T.pullAt) * 0.6;
+      const tgt = new THREE.Vector3(C.x + Math.sin(spin) * ring, base + 0.5 + Math.sin(t * 3 + sl.a) * 0.15, C.z + Math.cos(spin) * ring), p2 = sl.from.clone().lerp(tgt, pk); p2.x += (sl.jx || 0); p2.z += (sl.jz || 0); sl.jx = (sl.jx || 0) * 0.8; sl.jz = (sl.jz || 0) * 0.8;
+      u.pos.copy(p2); if (u.root) { u.root.position.copy(p2); u.root.rotation.z = Math.sin(t * 7 + sl.a) * 0.2 * pk; } if (u === G.player && u.vel) u.vel.set(0, 0, 0); }
+    // the flurry: he blurs to each victim in turn and strikes
+    const fs = T.pullAt + T.pullDur, fe = fs + T.dur;
+    if (caught && caught.length && t >= fs && t < fe) { hitT -= dt; if (hitT <= 0) { hitT = T.hitEvery; const sl = slots[idx % slots.length]; idx++; const u = sl.u; if (!u.dead) {
+        const dir = new THREE.Vector3(C.x - u.pos.x, 0, C.z - u.pos.z).normalize(), at = u.pos.clone().addScaledVector(dir, 1.05); at.y = base; V.burst('shadow', caster.pos.clone().setY(caster.pos.y + 1), 6, { speed: 1 }); setPos(at); face(u.pos);
+        pose = STRIKES[nHits % STRIKES.length]; poseT = 0; nHits++;
+        const per = T.dmg / Math.max(1, Math.round(T.dur / T.hitEvery / slots.length)); const left = T.dmg - sl.dealt, n = Math.min(per, left); if (n > 0) { sl.dealt += n; ultHurt(u, n, caster, 'spark'); }
+        const hp = u.pos.clone().setY(u.pos.y + (pose.startsWith('punch') ? 1.4 : 1.0)); V.sphereFlash(hp, 0.6, '#fff4c8', 0.12); V.burst('spark', hp, 8, { speed: 5 }); S.blunt && S.blunt(hp); S.hit && S.hit('flesh', hp, 0.6); sl.jx = -dir.x * 0.35; sl.jz = -dir.z * 0.35; if (nHits % 6 === 0) V.addShake(0.2); } } }
+    if (pose || t < fs) applyPose();
+    // the finish: back to the centre, a slam, and everyone thrown away; anyone short of the full share gets the rest
+    if (caught && !finished && t >= fe) { finished = true; setPos(home); pose = 'roundR'; poseT = 0;
+      V.ring(C.clone().setY(base + 0.2), T.r * 2.2, '#ffe8a0', 0.7); V.burst('gold', C.clone().setY(base + 0.6), 120, { speed: 10 }); V.burst('dust', C.clone().setY(base + 0.3), 60, { speed: 7 }); V.sphereFlash(C.clone().setY(base + 1), 3.5, '#fff0c0', 0.35); V.light(C.clone().setY(base + 2), '#ffe090', 12, 0.6, 30); V.addShake(1.1); S.explode && S.explode(C, 0.9);
+      for (const sl of slots) { const u = sl.u; if (u.dead) continue; const left = T.dmg - sl.dealt; if (left > 0.001) ultHurt(u, left, caster, 'spark'); sl.dealt = T.dmg; u.held = false; if (u.root) u.root.rotation.z = 0;
+        const d = new THREE.Vector3(u.pos.x - C.x, 0, u.pos.z - C.z).normalize(); if (u === G.player && u.vel) u.vel.set(d.x * 9, 8, d.z * 9); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1); if (u.status.knock) u.status.knock.set(d.x * 9, 0, d.z * 9); } }
+      feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> unleashes Thousand Fists${slots.length ? ` on <b>${slots.map(s => esc2(s.u.heroName || s.u.name || 'a fighter')).join(', ')}</b>` : ''}!`); }
+    if (!caught && false) return true;
+    if (t > fe + 0.6 || (caught && !caught.length && t > fs + 0.4)) { done = true; G.scene.remove(vortex); G.scene.remove(aura); caster.held = false; setPos(home); for (const sl of slots) { sl.u.held = false; if (sl.u.root) sl.u.root.rotation.z = 0; }
+      if (me) { if (me.cine && !document.body.classList.contains('cine')) me.cine = null; } return true; }
+    return false; } });
+  return true;
+}
+
+// ---------- the rogue's ultimate: Assassinate ----------
+// he melts into smoke, steps out of the shadows right behind the enemy, seizes them and drives his blade into their back
+export const ASSASSIN = { vanish: 0.35, stab: 1.15, kill: 1.3, end: 2.0 };
+export function rogueAssassinate(caster, victim) {
+  if (!victim || victim.dead || !victim.pos) return false; const T = ASSASSIN, me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
+  const vroot = victim.root || (victim.ch && victim.ch.root);
+  caster.held = true; if (me) me.ultImmT = T.end + 0.5; else caster.invulnT = G.time + T.end + 0.5;
+  V.burst('shadow', caster.pos.clone().setY(caster.pos.y + 1), 40, { speed: 3 }); V.burst('smoke', caster.pos.clone().setY(caster.pos.y + 1), 30, { speed: 2 }); S.cast && S.cast('shadow', caster.pos, 0.8);
+  if (me) ultFlyCam(me, () => victim.pos.clone().setY(victim.pos.y + 1.2), () => T.end - 0.7, { r: 5.5, h: 1.4 });
+  // a dark mark over the victim's head
+  const mark = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: '#c01010', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); G.scene.add(mark);
+  let t = 0, appeared = false, stabbed = false, killed = false, cineOn = false; const body = () => (me ? me.ch.root : caster.root);
+  G.timers.push({ update: (dt) => { t += dt;
+    mark.position.copy(victim.pos).setY(victim.pos.y + (victim.height || 1.8) + 0.5); mark.rotation.x = Math.PI / 2; mark.rotation.z = t * 4; mark.material.opacity = 0.9 * (1 - Math.max(0, (t - T.kill) / 0.4));
+    if (t < T.vanish) { const b = body(); if (b) b.visible = false; }
+    if (!appeared && t >= T.vanish) { appeared = true; const vy = victim === G.player ? victim.yaw : (victim.yaw || 0), back = new THREE.Vector3(-Math.sin(vy), 0, -Math.cos(vy)), at = victim.pos.clone().addScaledVector(back, 0.85);
+      caster.pos.copy(at); if (!me && caster.root) caster.root.position.copy(at); const fy = Math.atan2(victim.pos.x - at.x, victim.pos.z - at.z); if (me) { me.yaw = fy; me.bodyYaw = fy; } else { caster.yaw = fy; if (caster.root) caster.root.rotation.y = fy; }
+      const b = body(); if (b) b.visible = true; V.burst('shadow', at.clone().setY(at.y + 1), 40, { speed: 3 }); S.cast && S.cast('shadow', at, 1);
+      victim.held = true; if (victim.status) { victim.status.stun = T.end; victim.cast = null; } if (victim === G.player) { victim.debuff && victim.debuff('freeze', T.kill + 0.2); ultVictimCine(victim, () => caster.pos.clone().setY(caster.pos.y + 1.2), T.end + 0.4); cineOn = true; } }
+    if (appeared && ch && ch.arms) { const A2 = ch.arms, k = Math.min(1, (t - T.vanish) / 0.35), up = t < T.stab ? Math.min(1, (t - T.vanish - 0.25) / 0.45) : 0, dn = t >= T.stab ? Math.min(1, (t - T.stab) / 0.1) : 0;
+      A2.L.sh.rotation.set(-1.25 * k, 0, -0.45 * k); A2.L.el.rotation.x = -1.3 * k; // (an arm round them from behind)
+      A2.R.sh.rotation.set(-2.9 * Math.max(0, up) * (1 - dn) - 1.0 * dn, 0, 0.25); A2.R.el.rotation.x = -0.5 * (1 - dn) - 0.2; } // (the blade raised high, then driven down)
+    if (appeared && !stabbed && victim.held && vroot) { vroot.rotation.x = Math.max(0, (t - T.vanish) / (T.stab - T.vanish)) * -0.15; }
+    if (!stabbed && t >= T.stab) { stabbed = true; const p = victim.pos.clone().setY(victim.pos.y + 1.25); V.burst('blood', p, 90, { speed: 6 }); V.burst('shadow', p, 30, { speed: 4 }); V.sphereFlash(p, 1.2, '#ff2020', 0.2); V.addShake(0.8); S.hit && S.hit('flesh', p, 2); G.hitstop = 0.12;
+      V.number(p.clone().setY(p.y + 0.8), 'ASSASSINATED', 'crit'); if (vroot) vroot.rotation.x = 0.35; }
+    if (!killed && t >= T.kill) { killed = true; victim.held = false; if (vroot) vroot.rotation.x = 0; ultKill(victim, caster); feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> assassinates <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
+    if (t > T.end) { G.scene.remove(mark); caster.held = false; const b = body(); if (b) b.visible = true; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null; return true; }
     return false; } });
   return true;
 }
@@ -755,7 +842,8 @@ class ArenaBot {
     { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
     arenaLookTick(this.model, dt);
     const c = this.cast; animateHumanoid(this.model, dt, { turn: this.turnR, speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
-    if (this.cls === 'bard') luteToChest(this.model, !!this.h.arenaSongs && !this.cast && !this.act && !this.dead, G.time);
+    if (this.cls === 'bard') luteToChest(this.model, !!this.h.arenaSongs && !this.cast && !this.act && !this.dead, G.time, dt);
+    bodyPoseTick(this, this.model, dt); // (kicks)
   }
   // the holding room before the gates lift: take your place facing the gate, then bless the room (healers shield
   // everyone with them, the others roar a war cry), shuffle and look about like someone waiting to fight
@@ -908,6 +996,8 @@ class ArenaBot {
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
       case 'demon': if (T && !T.dead) summonDemon(this, T.pos.clone()); return;
       case 'wrath': if (T && !T.dead) paladinWrath(this, T.pos.clone()); return;
+      case 'fists': monkFists(this); return;
+      case 'assassinate': if (T && !T.dead) rogueAssassinate(this, T); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;
       case 'petheal': for (const p of this.pets) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * (a.petPct || 0.35)); return;

@@ -204,18 +204,24 @@ export function notesTick(dt) { for (let i = NOTES.length - 1; i >= 0; i--) { co
 
 // the bard plays: the lute comes across his chest, the left hand on the neck, the right strumming over the bowl
 const _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
-export function luteToChest(ch, on, t) {
-  const w = ch.weapons && ch.weapons.main, L = w && w.userData.lute; if (!L) return;
-  if (!on) { if (w.userData.playing) { L.position.set(0, 0, 0); L.quaternion.identity(); w.userData.playing = false; } return; }
+export function luteToChest(ch, on, t, dt = 0.016) {
+  // the bard plays his lute against his chest while a song is on; it blends there and back smoothly (no snapping when he
+  // swings it between strums), the strumming hand moves gently, and music notes rise from the strings
+  const w = ch.weapons && ch.weapons.main, L = w && w.userData.lute; if (!L) return; const U = w.userData;
+  U.calm = on ? Math.max(0, (U.calm || 0) - dt) : 0.7; const want = on && U.calm <= 0; /* (back to playing only once he has stopped swinging for a moment) */ U.pk = Math.max(0, Math.min(1, (U.pk || 0) + (want ? dt * 4 : -dt * 8))); const k = U.pk * U.pk * (3 - 2 * U.pk);
+  if (k <= 0.001) { if (U.playing) { L.position.set(0, 0, 0); L.quaternion.identity(); U.playing = false; } return; }
   ch.root.updateMatrixWorld(true); const R = ch.R, th = R.torsoH - 0.2, cm = ch.chest.matrixWorld;
   const top = new THREE.Vector3(0.24, th * 0.95, 0.2).applyMatrix4(cm); // the neck end, up by the left shoulder
   const cq = ch.chest.getWorldQuaternion(new THREE.Quaternion()), Y = new THREE.Vector3(-0.62, -0.72, 0.12).normalize().applyQuaternion(cq), fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(cq);
   const Z = fwd.clone().addScaledVector(Y, -fwd.dot(Y)).normalize(), X = new THREE.Vector3().crossVectors(Y, Z);
   _q.setFromRotationMatrix(_m.makeBasis(X, Y, Z));
-  armReach(ch, 'L', top.clone().addScaledVector(Y, 0.16).addScaledVector(Z, -0.03), 4);
-  armReach(ch, 'R', top.clone().addScaledVector(Y, 0.5 + Math.sin(t * 14) * 0.03).addScaledVector(Z, 0.07).addScaledVector(X, Math.sin(t * 14) * 0.04), 4);
-  w.updateMatrixWorld(true); const inv = w.matrixWorld.clone().invert(); L.position.copy(top.clone().applyMatrix4(inv));
-  L.quaternion.copy(w.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(_q)); w.userData.playing = true;
+  const strum = Math.sin(t * 7) * 0.02; // (a slow, even strum)
+  const hl = new THREE.Vector3(), hr = new THREE.Vector3(); ch.arms.L.hand.getWorldPosition(hl); ch.arms.R.hand.getWorldPosition(hr);
+  armReach(ch, 'L', hl.lerp(top.clone().addScaledVector(Y, 0.16).addScaledVector(Z, -0.03), k), 6);
+  armReach(ch, 'R', hr.lerp(top.clone().addScaledVector(Y, 0.5 + strum).addScaledVector(Z, 0.07).addScaledVector(X, strum * 1.2), k), 6);
+  w.updateMatrixWorld(true); const inv = w.matrixWorld.clone().invert(), wq = w.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(_q);
+  L.position.copy(top.clone().applyMatrix4(inv)).multiplyScalar(k); L.quaternion.identity().slerp(wq, k); U.playing = true;
+  if (want && k > 0.9) { U.noteT = (U.noteT || 0) - dt; if (U.noteT <= 0) { U.noteT = 0.9; U.noteAt = U.noteAt || { pos: ch.root.position }; if (ch.root.parent) playNotes(ch.root.parent, U.noteAt, ['#ffd860', '#ff9ae0', '#9ae0ff'][Math.floor(Math.random() * 3)], 2); } }
 }
 
 // the necromancer's ultimate: a demon of the depths, built big from the waist up (it never shows more than that)

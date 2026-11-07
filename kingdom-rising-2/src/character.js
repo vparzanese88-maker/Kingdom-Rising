@@ -833,13 +833,14 @@ export function animateHumanoid(ch, dt, st) {
   // dodge roll
   if (st.roll != null) {
     const e = clamp01(st.roll), tuck = Math.sin(Math.PI * e), rot = (e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2) * Math.PI * 2;
-    const a = st.rollDir || 0, wheel = st.rollKind === 'leap' && Math.abs(Math.sin(a)) > 0.6; // (a side leap is an open cartwheel, not a tucked roll)
-    const h0 = (ch.R.legL + 0.06) * 0.92, hNow = st.rollKind === 'leap' ? h0 + tuck * (wheel ? 0.55 : 0.15) : h0 - tuck * (h0 - 0.5 * (ch.scale || 1));
+    const a = st.rollDir || 0, flip = st.rollKind === 'flip', wheel = (st.rollKind === 'leap' || flip) && Math.abs(Math.sin(a)) > 0.6; // (a side leap is an open cartwheel, not a tucked roll)
+    const h0 = (ch.R.legL + 0.06) * 0.92, hNow = flip ? h0 + tuck * (wheel ? 0.8 : 0.7) : st.rollKind === 'leap' ? h0 + tuck * (wheel ? 0.55 : 0.15) : h0 - tuck * (h0 - 0.5 * (ch.scale || 1)); // (the monk's flips go high: over-the-head somersaults and aerials)
     _rq.setFromAxisAngle(_rax.set(Math.cos(a), 0, -Math.sin(a)), rot); body.quaternion.copy(_rq);
     _rp.set(0, h0, 0).applyQuaternion(_rq); body.position.set(-_rp.x, hNow - _rp.y, -_rp.z);
     // curl up: knees to the chest, arms wrapped round them, chin down
     const tk = Math.min(1, tuck * 1.6), mix = (o, x, y, z) => { o.rotation.x += (x - o.rotation.x) * tk; o.rotation.y += (y - o.rotation.y) * tk; o.rotation.z += (z - o.rotation.z) * tk; };
-    if (wheel) { mix(legs.L.thigh, 0, 0, 0.7); mix(legs.R.thigh, 0, 0, -0.7); mix(legs.L.knee, 0.1, 0, 0); mix(legs.R.knee, 0.1, 0, 0); mix(arms.L.sh, 0, 0, -2.7); mix(arms.R.sh, 0, 0, 2.7); mix(arms.L.el, 0, 0, 0); mix(arms.R.el, 0, 0, 0); mix(spine, 0, 0, 0); mix(neck, 0, 0, 0); } else {
+    if (wheel && flip) { mix(legs.L.thigh, -0.2, 0, 1.15); mix(legs.R.thigh, 0.2, 0, -1.15); mix(legs.L.knee, 0.05, 0, 0); mix(legs.R.knee, 0.05, 0, 0); mix(arms.L.sh, -0.3, 0, -1.4); mix(arms.R.sh, -0.3, 0, 1.4); mix(arms.L.el, -0.3, 0, 0); mix(arms.R.el, -0.3, 0, 0); mix(spine, 0.1, 0, 0); mix(neck, 0, 0, 0); } // (an aerial: legs split wide, arms out, no hands)
+    else if (wheel) { mix(legs.L.thigh, 0, 0, 0.7); mix(legs.R.thigh, 0, 0, -0.7); mix(legs.L.knee, 0.1, 0, 0); mix(legs.R.knee, 0.1, 0, 0); mix(arms.L.sh, 0, 0, -2.7); mix(arms.R.sh, 0, 0, 2.7); mix(arms.L.el, 0, 0, 0); mix(arms.R.el, 0, 0, 0); mix(spine, 0, 0, 0); mix(neck, 0, 0, 0); } else {
     mix(legs.L.thigh, -2.0, 0, 0.08); mix(legs.R.thigh, -2.0, 0, -0.08); mix(legs.L.knee, 2.4, 0, 0); mix(legs.R.knee, 2.4, 0, 0); mix(legs.L.ankle, 0.4, 0, 0); mix(legs.R.ankle, 0.4, 0, 0);
     mix(spine, 0.7, 0, 0); mix(neck, 0.5, 0, 0);
     if (!st.action) { mix(arms.L.sh, -1.2, 0, -0.3); mix(arms.R.sh, -1.2, 0, 0.3); mix(arms.L.el, -1.7, 0, 0); mix(arms.R.el, -1.7, 0, 0); } }
@@ -857,6 +858,12 @@ export function animateHumanoid(ch, dt, st) {
   // relaxed: tilt a one-handed weapon in the hand so its tip points a little down
   { const m = ch.weapons && ch.weapons.main, W = ch.wt && WEAPON_TYPES[ch.wt];
     if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || st.block ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0); m.rotation.x = m.userData.rx0 + rk * 0.75; } }
+  // bare fists (the monk): a guard up by the jaw, and every blow a straight punch from the shoulder, not a swing from the waist
+  if (ch.wt === 'fists' && !st.dead && st.roll == null && !st.airborne && !(ch.strikeLock > 0)) { const a = st.action, punch = a && /^(swing|thrust|off|stab|heavy|fury)/.test(a);
+    const guard = (sd) => { const s2 = sd === 'R' ? 1 : -1; arms[sd].sh.rotation.set(-0.95, 0, s2 * 0.32); arms[sd].el.rotation.set(-1.95, 0, 0); };
+    if (punch) { const tt = clamp01(st.actionT || 0), ext = Math.sin(Math.min(1, tt / 0.75) * Math.PI), sd = st.mirror ? 'L' : 'R', od = sd === 'R' ? 'L' : 'R', s2 = sd === 'R' ? 1 : -1;
+      arms[sd].sh.rotation.set(-0.95 - 0.62 * ext, s2 * 0.12 * ext, s2 * (0.32 - 0.3 * ext)); arms[sd].el.rotation.set(-1.95 * (1 - ext) - 0.05, 0, 0); guard(od); }
+    else if (st.armed && !st.block) { guard('R'); guard('L'); } }
   uprightShield(ch, st);
   // casting with a staff: the arm comes up and the staff points where you are looking
   const grip = arms.R.grip;

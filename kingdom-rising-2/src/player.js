@@ -53,10 +53,10 @@ const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], 
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
   poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], lich: ['shadow', 0.3], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
 // Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
-const DODGES = { old: { dur: 0.6, speed: 10, cost: 16, ifr: 0.42 }, step: { dur: 0.34, speed: 11, cost: 14, ifr: 0.24 }, roll: { dur: 0.62, speed: 10.5, cost: 20, ifr: 0.42 }, leap: { dur: 0.75, speed: 12.5, cost: 26, ifr: 0.55, vy: 5.5 } }; // slower, weightier dodges you can follow with your eyes
+const DODGES = { old: { dur: 0.6, speed: 10, cost: 16, ifr: 0.42 }, step: { dur: 0.34, speed: 11, cost: 14, ifr: 0.24 }, roll: { dur: 0.62, speed: 10.5, cost: 20, ifr: 0.42 }, leap: { dur: 0.75, speed: 12.5, cost: 26, ifr: 0.55, vy: 5.5 }, flip: { dur: 0.8, speed: 12.5, cost: 26, ifr: 0.6, vy: 6.6 } }; // (flip: the monk's acrobatics, a front flip, a back flip or an aerial the way you go) // slower, weightier dodges you can follow with your eyes
 const DODGE_OF = { warrior: 'step', cleric: 'step', paladin: 'step', darkknight: 'step',
   berserker: 'roll', musketeer: 'roll', wizard: 'roll', druid: 'roll', bard: 'roll', necromancer: 'roll', elementalist: 'roll', enchanter: 'roll', shaman: 'roll',
-  monk: 'leap', ranger: 'leap', rogue: 'leap', beastmaster: 'leap', priest: 'roll', bombardier: 'leap' };
+  monk: 'flip', ranger: 'leap', rogue: 'leap', beastmaster: 'leap', priest: 'roll', bombardier: 'leap' };
 const FORMS = { formVoid: { name: 'Void Form', col: '#7a2aff', k: 1.0, mote: 'shadow', el: 'arcane' }, formTime: { name: 'Timeless Form', col: '#ffd060', k: 0.9, mote: 'gold', el: 'arcane' }, formFire: { name: 'Phoenix Form', col: '#ff6a10', k: 0.9, mote: 'fire', el: 'fire' }, formFrost: { name: 'Avatar of Winter', col: '#60c8ff', k: 0.8, mote: 'frost', el: 'frost' }, formArcane: { name: 'Arcane Ascension', col: '#b060ff', k: 0.9, mote: 'arcane', el: 'arcane' }, iceblock: { name: 'Ice Block', col: '#a8e8ff', k: 1.2, mote: 'frost', el: 'frost' } };
 const B_AV = (p) => p.buffs.avatar > 0 && p.avatar;
 const CASTER_K = {}; // no hidden caster multipliers: the wizard out-damages through its spells
@@ -94,7 +94,7 @@ const VP = {
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
-  jabA: P(0.32, -0.36, -0.42, -1.4, 0, -0.25), jabB: P(0.08, -0.2, -0.86, -1.57, 0, 0), kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
+  jabA: P(0.22, -0.22, -0.4, -1.5, 0, -0.22), jabB: P(0.06, -0.12, -0.9, -1.57, 0, 0), guardR: P(0.22, -0.23, -0.42, -1.48, -0.05, -0.25), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
   necroR: P(0.27, -0.3, -0.58, -0.7, 0.15, -0.35), necroL: P(-0.3, 0.02, -0.64, -0.15, 0.1, 0.12),
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -237,6 +237,7 @@ class ViewModel {
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
     if (this.bomber && r === VP.staff) r = VP.necroR;
+    if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
     if (this.necro) { if (r === VP.staff) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     const t = act ? act.t : 0, n = act ? act.name : '';
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
@@ -460,6 +461,7 @@ export class Player {
     if (btn === 0) this.lmbDown = down;
     if (down && this.sheathed && !this.dead && !G.uiOpen && (btn === 0 || btn === 2)) { this.drawWeapons(); if (btn === 0) { this.lmbDown = false; return; } }
     if (this.dead || G.uiOpen) return;
+    if (down && btn === 2 && this.h.arena && this.h.arenaRmb === 'ar_wraps' && !this.dead && !G.uiOpen) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === 'ar_wraps'); if (k >= 0) this.ability(k); return; } // (Tighten the Wraps works even while stunned: it is how the monk breaks free)
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
     if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down; if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
@@ -890,7 +892,7 @@ export class Player {
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (this.h.arena) abilityFx(this, ab, this.aimFoe ? this.aimFoe(8) : null); // (each class's own look for its abilities)
-    if (this.h.arena && ab.t === 'wraps') { this.addRegen(0.3, 5); this.buffs.swind = Math.max(this.buffs.swind || 0, 5); S.heal && S.heal(); return; } // (Tighten the Wraps: heal over time and a burst of speed)
+    if (this.h.arena && ab.t === 'wraps') { this.addRegen(0.3, 5); this.buffs.swind = Math.max(this.buffs.swind || 0, 5); this.buffs.focus = Math.max(this.buffs.focus || 0, 5); S.heal && S.heal(); const db = this.db || {}; const freed = ['stun', 'slow', 'root'].some(k => db[k] && db[k].t > 0) || this.ultSlowT > G.time; for (const k of ['stun', 'slow', 'root']) if (db[k]) db[k].t = 0; this.ultSlowT = 0; if (freed) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'BROKE FREE', 'crit'); V.ring(this.pos.clone().setY(this.pos.y + 0.1), 3, '#ffd890', 0.4); V.burst('gold', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 4 }); } return; } // (Tighten the Wraps: heal over time, a burst of speed, and it shakes off stuns and snares) // (Tighten the Wraps: heal over time and a burst of speed)
     if (this.h.arena && ab.t === 'totem' && G.hooks.shamanTotem) { G.hooks.shamanTotem(this, groundPoint(25)); return; } // (a healing totem thrown where you aim)
     if (this.h.arena && ab.t === 'mend' && G.hooks.healerMend) { G.hooks.healerMend(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this, ab); return; } // (healers' right click: a direct heal, walls or no walls)
     if (this.h.arena && this.h.cls === 'necromancer' && ab.id === 'drainlife') { this.soulRend(ab, base, up, key); return; }
@@ -1320,7 +1322,7 @@ export class Player {
       case 'flurry': { const fast = this.h.cls === 'monk', n = Math.round(this.qty(a.hits || 4, a.extra || 0) * (fast ? 1.5 : 1)), gap = fast ? 50 : 90; anim('fury', Math.max(0.45, n * gap / 1000)); const per = fast ? P(a.dmg) / 1.5 : P(a.dmg); // (the monk's flurry: half again as many blows, nearly twice as fast)
         for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, per, hitO(t, { melee: true, silent: k % 2 === 1 })); const hp = t.pos.clone().setY(t.pos.y + 1 + (Math.random() - 0.5) * 0.5); V.burst('spark', hp, fast ? 10 : 5, { speed: fast ? 5 : 3 }); if (fast) { V.sphereFlash(hp, 0.4, '#fff0c0', 0.08); S.blunt && S.blunt(hp); if (k % 4 === 0) V.addShake(0.08); } } }, k * gap);
         return true; }
-      case 'dash': { this.dodge = { t: 0, dur: (a.dur || 0.3) * 1.8, dir: f.clone(), speed: (a.speed || 28) / 1.8, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
+      case 'dash': { this.dodge = { t: 0, dur: (a.dur || 0.3) * 1.8, dir: f.clone(), speed: (a.speed || 28) / 1.8, charge: true, hitSet: new Set(), dmg: P(a.dmg), extra: a.knockF ? { stun: a.stun || 1, knock: f.clone().multiplyScalar(a.knockF).setY(0) } : null, land: a.land ? P(a.land) : 0 }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); if (!this.h.arena) V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); else { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.1), 1.6, '#a0ffc0', 0.35); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 24, { speed: 3, vy: 3 }); } V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
       case 'stormwalk': { // a 10 m wide storm that rolls slowly away in the direction you cast, striking everything under it
         const dir = new THREE.Vector3(f.x, 0, f.z).normalize(), c = this.pos.clone().addScaledVector(dir, 4), r = (a.r || 5) * K, speed = (a.travel || 15) / (a.dur || 6); let t = 0, tick = 0, ring = 0;
@@ -1971,7 +1973,7 @@ export class Player {
       if (D.rush && D.t >= 0) { this.fovKick = Math.max(this.fovKick, 18 * Math.min(1, D.t * 3)); D.step = (D.step || 0) + dt; if (D.step > 0.09) { D.step = 0; V.addShake(0.07); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 6, { speed: 3, size: 0.7 }); } }
       this.vel.x = D.dir.x * s; this.vel.z = D.dir.z * s;
       if (D.charge && D.t >= 0) { for (const m of mobsInRadius(this.pos, 2.4)) if (!D.hitSet.has(m)) { D.hitSet.add(m); if (D.rush) { S.chargeImpact(m.pos); G.hitstop = Math.max(G.hitstop || 0, 0.08); V.addShake(0.35); V.burst('spark', m.pos.clone().setY(m.pos.y + 1), 20, { speed: 6 }); V.burst('dust', m.pos.clone().setY(m.pos.y + 0.3), 18, { speed: 4, size: 0.8 }); } const side = this.right().multiplyScalar(Math.sign(this.right().dot(m.pos.clone().sub(this.pos))) || 1); this.dealDamage(m, D.dmg, Object.assign({ knock: side.multiplyScalar(D.rush ? 7 : 9).add(D.dir.clone().multiplyScalar(D.rush ? 9 : 4)), stun: 1, big: true, melee: true }, D.extra || {})); V.addShake(0.2); } if (Math.random() < 0.6) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 3, { speed: 2, size: 0.5 }); }
-      if (D.t >= 1) { this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
+      if (D.t >= 1) { if (D.land) { const at = this.pos.clone(); for (const m of mobsInRadius(at, 3.2)) this.dealDamage(m, D.land, { stun: 0.5, melee: true, knock: new THREE.Vector3(m.pos.x - at.x, 0, m.pos.z - at.z).normalize().multiplyScalar(6) }); V.ring(at.clone().setY(at.y + 0.1), 6.4, '#ffe0a0', 0.45); V.burst('dust', at.clone().setY(at.y + 0.2), 40, { speed: 6 }); V.burst('gold', at.clone().setY(at.y + 0.4), 24, { speed: 5 }); V.addShake(0.5); S.explode && S.explode(at, 0.5); } /* (the landing slams everyone round you) */ this.dodge = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
       const k = this.knockT > 0 ? Math.min(1, dt * 1.5) : Math.min(1, dt * (this.onGround ? (this.h.arena ? 10 : 12) : 2.5)); // (the arena: a slight Skyrim-like ease into and out of every step and strafe)
       this.vel.x += (md.x * spd - this.vel.x) * k; this.vel.z += (md.z * spd - this.vel.z) * k;

@@ -158,14 +158,33 @@ function strikePose(u, ch) { const S2 = u.strike, k = Math.max(0, Math.min(1, (G
 
 // Pressure Point (monk): a superman punch: he launches forward through the air, body stretched out, rear leg kicked up,
 // and drives the fist into the target; a shock of light where it lands
-FX.pressure = (u, a, T) => { u.supermanT = 0.45; const f = V3(Math.sin(u.yaw || 0), 0, Math.cos(u.yaw || 0)); if (T && T.pos) { const d = V3(T.pos.x - u.pos.x, 0, T.pos.z - u.pos.z); if (d.lengthSq() > 0.01) f.copy(d.normalize()); }
-  if (u === G.player) { u.dodge = { t: 0, dur: 0.28, dir: f.clone(), speed: 11, charge: true, hitSet: new Set(), dmg: 0 }; u.fovKick = Math.min(14, (u.fovKick || 0) + 8); } else { const from = u.pos.clone(); let t0 = 0; G.timers.push({ update: (dt) => { t0 += dt; const k = Math.min(1, t0 / 0.28); u.pos.copy(from).addScaledVector(f, 2.6 * k); if (u.root) u.root.position.copy(u.pos); return k >= 1; } }); }
-  S.swingW && S.swingW('fist', 1.6, u.pos); let t = 0; G.timers.push({ update: (dt) => { t += dt; if (Math.random() < 0.8) V.emit('frost', u.pos.clone().setY(u.pos.y + 1.1), { speed: 0.3, size: 0.4, life: 0.3 });
-    if (t >= 0.27 && !u.__pp) { u.__pp = true; const at = (T && T.pos ? T.pos.clone() : u.pos.clone().addScaledVector(f, 1.2)).setY((T && T.pos ? T.pos.y : u.pos.y) + 1.35); V.sphereFlash(at, 1.4, '#fff4d0', 0.18); V.ring(at, 3.5, '#ffe8b0', 0.35); V.burst('spark', at, 30, { speed: 7 }); V.addShake(0.45); S.blunt && S.blunt(at); S.hit && S.hit('flesh', at, 1.6); G.hitstop = Math.max(G.hitstop || 0, 0.07); }
-    if (t > 0.5) { u.__pp = false; return true; } return false; } }); };
+FX.pressure = (u, a, T) => { u.supermanT = 0.55; const f = V3(Math.sin(u.yaw || 0), 0, Math.cos(u.yaw || 0)); if (u !== G.player && T && T.pos) { const d = V3(T.pos.x - u.pos.x, 0, T.pos.z - u.pos.z); if (d.lengthSq() > 0.01) f.copy(d.normalize()); }
+  // the Superman punch: a skip off one foot, a flying lunge with the fist out, a sonic-boom cone off the knuckles like a jet breaking the sound barrier
+  const fp = u === G.player && u.camDist < 0.6; if (u === G.player) { if (u.vel) u.vel.y = Math.max(u.vel.y || 0, 4.2); u.fovKick = Math.min(20, (u.fovKick || 0) + 14); }
+  S.swingW && S.swingW('fist', 1.8, u.pos); S.dodge && S.dodge(); S.whistle && S.whistle(u.pos, 0.35); V.burst('dust', u.pos.clone().setY(u.pos.y + 0.1), 18, { speed: 3 });
+  const add2 = (m) => { m.material.transparent = true; m.material.depthWrite = false; m.material.blending = THREE.AdditiveBlending; m.material.side = THREE.DoubleSide; G.scene.add(m); return m; };
+  const cone = add2(new THREE.Mesh(new THREE.ConeGeometry(1, 2.4, 32, 1, true), new THREE.MeshBasicMaterial({ color: '#e8f4ff', opacity: 0 }))); // (the vapour cone)
+  const rings = [0, 1, 2].map(() => add2(new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 6, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', opacity: 0 }))));
+  const fist = fp ? null : add2(new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshBasicMaterial({ color: '#ffd870', opacity: 0.55 })));
+  const q = new THREE.Quaternion().setFromUnitVectors(V3(0, -1, 0), f); let t = 0, boom = false;
+  G.timers.push({ update: (dt) => { t += dt; const hp = u.pos.clone().addScaledVector(f, fp ? 3.2 : 0.9).setY(u.pos.y + (fp ? 1.25 : 1.35)), fly = t < 0.62, k = Math.min(1, t / 0.12);
+    if (fist) { fist.position.copy(hp); fist.scale.setScalar(1 + Math.sin(t * 40) * 0.15); fist.material.opacity = fly ? 0.55 : Math.max(0, 0.55 - (t - 0.62) * 3); }
+    cone.position.copy(hp).addScaledVector(f, -1.0); cone.quaternion.copy(q); const cs = (0.25 + 0.55 * k) * (fp ? 0.6 : 1); cone.scale.set(cs, 1, cs); cone.material.opacity = (fly ? 0.22 * k : Math.max(0, 0.22 - (t - 0.62) * 1.2)) * (fp ? 0.45 : 1);
+    rings.forEach((r, i) => { const ph = ((t * 5 + i / 3) % 1); r.position.copy(hp).addScaledVector(f, -ph * 2.2); r.quaternion.setFromUnitVectors(V3(0, 0, 1), f); r.scale.setScalar((0.15 + ph * 0.9) * (fp ? 0.55 : 1)); r.material.opacity = fly ? (1 - ph) * 0.5 * (fp ? 0.45 : 1) : 0; });
+    if (!boom && t > 0.1) { boom = true; if (!fp) { V.sphereFlash(hp, 1.2, '#ffffff', 0.12); V.ring(hp, 2.5, '#e8f4ff', 0.25); } S.gunshot && S.gunshot(u.pos, 1.3); V.addShake(0.3); } // (the crack of the sound barrier)
+    V.emit('frost', u.pos.clone().setY(u.pos.y + 1.1), { speed: 0.3, size: 0.5, life: 0.3 }); if (fly) V.emit('gold', hp, { speed: 0.4, size: 0.3, life: 0.2 });
+    if (t > 1.0) { for (const m of [cone, ...rings, fist]) if (m) { G.scene.remove(m); m.geometry.dispose(); m.material.dispose(); } return true; } return false; } }); };
 
 // Tighten the Wraps (monk): he cinches his wraps, and ribbons of cloth spiral up his arms and body while it lasts
-FX.ar_wraps = (u, a) => { u.wrapT = 0.5; auraFx(u, 5, (g) => { const m = new THREE.MeshStandardMaterial({ color: '#efe6d0', roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }); const rib = [];
-  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.42 + i * 0.05, 0.035, 4, 24, Math.PI * 1.4), m); r.rotation.x = Math.PI / 2; r.position.y = 0.5 + i * 0.5; g.add(r); rib.push(r); }
-  V.burst('gold', u.pos.clone().setY(u.pos.y + 1.1), 30, { speed: 3 }); S.cast && S.cast('holy', u.pos, 0.6);
-  return (k, t) => { rib.forEach((r, i) => { r.rotation.z = t * (4 + i) * (i % 2 ? -1 : 1); r.position.y = 0.4 + i * 0.5 + Math.sin(t * 3 + i) * 0.1; r.scale.setScalar(k * (1 + Math.sin(t * 6 + i) * 0.05)); }); m.opacity = 0.85 * k; if (Math.random() < 0.4 * k) V.emit('heal', u.pos.clone().setY(u.pos.y + 0.3 + Math.random() * 1.6), { speed: 0.3, vy: 1, size: 0.2, life: 0.6 }); }; }); };
+// a strip of bandage wound round and round a limb (a helix along +Y from y0 to y1), drawn on as it winds
+function bandage(r, y0, y1, turns, w = 0.012) { const pts = []; const N = Math.ceil(turns * 18); for (let i = 0; i <= N; i++) { const k = i / N, a = k * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, y0 + (y1 - y0) * k + Math.sin(a * 0.5) * w * 0.3, Math.sin(a) * r)); }
+  const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), N * 2, w, 3, false); g.scale(1, 1, 0.9); const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#ece2c8', roughness: 0.95 })); m.castShadow = false; m.userData.full = g.index.count; g.setDrawRange(0, 0); return m; }
+FX.ar_wraps = (u, a) => { u.wrapT = 0.5; const ch = u === G.player ? u.ch : u.model, strips = [];
+  if (ch && ch.arms) { const R = ch.R || { armL: 0.58, legL: 0.9, thick: 1 }, fa = R.armL * 0.46, T = R.thick || 1;
+    for (const sd of ['L', 'R']) { const b1 = bandage(0.05 * T, -fa, -fa * 0.35, 6, 0.011); ch.arms[sd].el.add(b1); strips.push(b1); const b2 = bandage(0.042 * T, -0.09, 0.0, 3, 0.011); ch.arms[sd].hand.add(b2); strips.push(b2); // (forearm to knuckles)
+      const sl = R.legL * 0.47; const b3 = bandage(0.055 * T, -sl, -sl * 0.55, 5, 0.012); ch.legs[sd].knee.add(b3); strips.push(b3); const b4 = bandage(0.05 * T, -0.07, 0.01, 3, 0.012); b4.rotation.x = -0.2; ch.legs[sd].ankle.add(b4); strips.push(b4); } } // (shin to the arch of the foot)
+  if (u === G.player && u.vm) for (const H of [u.vm.R, u.vm.L]) { const hand = H.children[0], wr = hand && hand.userData.wrist; if (!wr) continue; const b5 = bandage(0.045, -0.12, 0.05, 6, 0.007); wr.add(b5); strips.push(b5); const b6 = bandage(0.04, -0.02, 0.05, 3, 0.007); b6.position.set(-wr.position.x, 0, -wr.position.z); wr.add(b6); strips.push(b6); } // (first person: you watch your own wrists and hands get wrapped)
+  V.burst('gold', u.pos.clone().setY(u.pos.y + 1.1), 30, { speed: 3 }); S.swap && S.swap(); let t = 0;
+  G.timers.push({ update: (dt) => { t += dt; const wind = Math.min(1, t / 0.6), un = t > 4.6 ? Math.max(0, 1 - (t - 4.6) / 0.4) : 1; for (const m of strips) m.geometry.setDrawRange(0, Math.floor(m.userData.full * wind * un / 3) * 3);
+    if (t < 0.6 && Math.random() < 0.6) { const s2 = strips[(Math.random() * strips.length) | 0]; if (s2) { const p = new THREE.Vector3(); s2.getWorldPosition(p); V.emit('cotton', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
+    if (t > 5 || u.dead) { for (const m of strips) { m.parent && m.parent.remove(m); m.geometry.dispose(); m.material.dispose(); } return true; } return false; } }); };

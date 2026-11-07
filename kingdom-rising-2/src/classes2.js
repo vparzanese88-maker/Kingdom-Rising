@@ -86,7 +86,7 @@ export const NEW_CLASSES = {
       { id: 'innerpeace', name: 'Iron Body', level: 8, cd: 20, cost: 25, t: 'buff', buff: 'barrier', amount: 0.25, dur: 8, desc: 'Steel your body: absorb damage equal to 25% of your health for 8 s.' },
       { id: 'hundredfists', name: 'Hundred Fists', level: 10, cd: 12, cost: 30, t: 'flurry', hits: 8, extra: 6, reach: 3, dmg: 0.45, desc: 'A blur of blows on the enemy in front of you. More blows as you level.' },
       { id: 'windstep', name: 'Wind Step', level: 12, cd: 18, cost: 20, t: 'buff', buff: 'swind', dur: 8, desc: 'For 8 s you move 25% faster and regain endurance quickly.' },
-      { id: 'pressure', name: 'Pressure Point', level: 14, cd: 12, cost: 25, t: 'strike', reach: 3, dmg: 2.4, stun: 2, crit: 0.4, desc: 'Strike a nerve: huge damage and a long stun.' },
+      { id: 'pressure', name: 'Superman Punch', level: 14, cd: 12, cost: 25, t: 'dash', dur: 0.34, speed: 22.4, dmg: 2.4, stun: 1.6, knockF: 10, land: 0.9, desc: 'Launch off one foot and fly fist-first 7.5 m, breaking the sound barrier: everyone in your path is punched once, knocked flying and stunned, and your landing slams everyone around you.' },
       { id: 'serenity', name: 'Serenity', level: 16, cd: 26, cost: 25, t: 'buff', buff: 'focus', dur: 10, r: 10, allyBuff: 'haste', desc: 'You and allies within 10 m attack 35% faster for 10 s.' },
       { id: 'dragonstrike', name: 'Dragon Strike', level: 18, cd: 24, cost: 40, t: 'cone', range: 9, ang: 0.5, dmg: 3.2, burn: 0.12, knock: 12, fx: 'fire', desc: 'Channel your spirit into one blow: a dragon of fire bursts out in front of you.' },
     ] },

@@ -903,7 +903,7 @@ function titleCam(t) {
 // ---------- loop ----------
 function loop(now) {
   requestAnimationFrame(loop);
-  let dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  let dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; if (window.KR2_FREEZE) dt = 0; // (tests: hold the frame still while a screenshot is taken)
   if (G.hitstop > 0) { if (ARENA) G.hitstop = Math.min(G.hitstop, 0.05); G.hitstop -= dt; dt *= ARENA ? 0.4 : 0.15; } /* (the arena: a short, soft hit-stop so steady hits never stutter) */
   G.time += dt; world.time.value = G.time;
   const p = G.player;

@@ -822,14 +822,16 @@ export function animateHumanoid(ch, dt, st) {
   // dodge roll
   if (st.roll != null) {
     const e = clamp01(st.roll), tuck = Math.sin(Math.PI * e), rot = (e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2) * Math.PI * 2;
-    const h0 = (ch.R.legL + 0.06) * 0.92, hNow = st.rollKind === 'leap' ? h0 + tuck * 0.15 : h0 - tuck * (h0 - 0.5 * (ch.scale || 1)), a = st.rollDir || 0;
+    const a = st.rollDir || 0, wheel = st.rollKind === 'leap' && Math.abs(Math.sin(a)) > 0.6; // (a side leap is an open cartwheel, not a tucked roll)
+    const h0 = (ch.R.legL + 0.06) * 0.92, hNow = st.rollKind === 'leap' ? h0 + tuck * (wheel ? 0.55 : 0.15) : h0 - tuck * (h0 - 0.5 * (ch.scale || 1));
     _rq.setFromAxisAngle(_rax.set(Math.cos(a), 0, -Math.sin(a)), rot); body.quaternion.copy(_rq);
     _rp.set(0, h0, 0).applyQuaternion(_rq); body.position.set(-_rp.x, hNow - _rp.y, -_rp.z);
     // curl up: knees to the chest, arms wrapped round them, chin down
     const tk = Math.min(1, tuck * 1.6), mix = (o, x, y, z) => { o.rotation.x += (x - o.rotation.x) * tk; o.rotation.y += (y - o.rotation.y) * tk; o.rotation.z += (z - o.rotation.z) * tk; };
+    if (wheel) { mix(legs.L.thigh, 0, 0, 0.7); mix(legs.R.thigh, 0, 0, -0.7); mix(legs.L.knee, 0.1, 0, 0); mix(legs.R.knee, 0.1, 0, 0); mix(arms.L.sh, 0, 0, -2.7); mix(arms.R.sh, 0, 0, 2.7); mix(arms.L.el, 0, 0, 0); mix(arms.R.el, 0, 0, 0); mix(spine, 0, 0, 0); mix(neck, 0, 0, 0); } else {
     mix(legs.L.thigh, -2.0, 0, 0.08); mix(legs.R.thigh, -2.0, 0, -0.08); mix(legs.L.knee, 2.4, 0, 0); mix(legs.R.knee, 2.4, 0, 0); mix(legs.L.ankle, 0.4, 0, 0); mix(legs.R.ankle, 0.4, 0, 0);
     mix(spine, 0.7, 0, 0); mix(neck, 0.5, 0, 0);
-    if (!st.action) { mix(arms.L.sh, -1.2, 0, -0.3); mix(arms.R.sh, -1.2, 0, 0.3); mix(arms.L.el, -1.7, 0, 0); mix(arms.R.el, -1.7, 0, 0); }
+    if (!st.action) { mix(arms.L.sh, -1.2, 0, -0.3); mix(arms.R.sh, -1.2, 0, 0.3); mix(arms.L.el, -1.7, 0, 0); mix(arms.R.el, -1.7, 0, 0); } }
   }
   else if (!st.dead) { body.rotation.x = 0; body.position.set(0, 0, 0); }
   // death

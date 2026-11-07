@@ -105,6 +105,18 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 // a detailed gripping hand: palm, four curled fingers, thumb, knuckles, class glove and cuff
 // what each class wears on its hands and forearms in first person
 const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather' };
+// a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
+function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, skin = new THREE.MeshStandardMaterial({ color: skinCol || '#d8a888', roughness: 0.6 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: '#8a7a60', roughness: 0.9 });
+  const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
+  const back = add(new THREE.BoxGeometry(0.085, 0.085, 0.04), skin, 0, 0, 0.016); back.geometry.translate(0, 0, 0); // (back of the hand)
+  add(new THREE.CapsuleGeometry(0.019, 0.06, 4, 8), skin, 0, 0.045, -0.004, 0, 0, Math.PI / 2); // (the folded fingers: a rounded row)
+  for (let i = 0; i < 4; i++) add(new THREE.SphereGeometry(0.014, 8, 6), skin, -0.03 + i * 0.02, 0.058, 0.012); // (knuckles)
+  add(new THREE.BoxGeometry(0.08, 0.04, 0.035), skin, 0, 0.03, -0.022); // (fingers curled into the palm)
+  const th = add(new THREE.CapsuleGeometry(0.013, 0.04, 4, 8), skin, -sx * 0.012, 0.018, -0.042, 0, 0, sx * 1.35); // (the thumb tucked across the front)
+  add(new THREE.BoxGeometry(0.092, 0.02, 0.05), wrap, 0, 0.046, 0.008); // (wrap over the knuckles)
+  for (let i = 0; i < 3; i++) { const b = add(new THREE.CylinderGeometry(0.047, 0.047, 0.018, 12, 1, true), i === 1 ? dark : wrap, 0, -0.02 - i * 0.022, 0.004); b.scale.set(1, 1, 0.82); } // (wraps round the palm and wrist)
+  const wrist = new THREE.Object3D(); wrist.position.set(0, -0.07, 0.004); g.add(wrist); g.userData.wrist = wrist;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); return g; }
 function makeHand(right, cls, skinCol) {
   const g = new THREE.Group();
   const skin = new THREE.MeshStandardMaterial({ color: skinCol, roughness: 0.6 });
@@ -141,7 +153,7 @@ class ViewModel {
   constructor(camera, app, cls) {
     this.g = new THREE.Group(); camera.add(this.g);
     this.R = new THREE.Group(); this.L = new THREE.Group(); this.R.rotation.order = this.L.rotation.order = 'YXZ'; this.g.add(this.R, this.L);
-    this.cls = cls; this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
+    this.cls = cls; this.skinCol = app.skin; this.R.add(makeHand(true, cls, app.skin)); this.L.add(makeHand(false, cls, app.skin));
     const c = CLASSES[cls].colors;
     const vk = VM_KIND[cls] || 'cloth', ROBE = ['wizard', 'necromancer', 'cleric', 'druid', 'enchanter', 'elementalist'].includes(cls);
     const sleeve = vk === 'plate' ? new THREE.MeshStandardMaterial({ color: cls === 'darkknight' ? '#3e4048' : '#8a929c', roughness: 0.35, metalness: 0.8 }) : new THREE.MeshStandardMaterial({ color: c.main, roughness: 0.85, side: THREE.DoubleSide });
@@ -181,7 +193,8 @@ class ViewModel {
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'handaxe') off.rotation.y = Math.PI / 2; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
     if (W.kind === 'gun') main.scale.setScalar(0.62);
-    if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } } // (bare wrapped fists)
+    if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
+      if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.skinCol)); } } }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const dg = makeShrunkenHead(); dg.scale.setScalar(1.0); this.L.add(dg); dg.position.set(0, 0.0, 0); this.weapons.head = dg; this.headMouth = dg.userData.mouth; this.necro = true;
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: '#8aff6a' })), fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: '#2aff3a', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); fl.position.set(0, 0.03, -0.04); fl2.position.copy(fl.position); this.R.add(fl, fl2); this.weapons.flame = fl; this.weapons.flame2 = fl2; }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
@@ -255,6 +268,7 @@ class ViewModel {
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const J = q < 0.5 ? plerp(VP.jabA, VP.jabB, easeOut(q * 2)) : plerp(VP.jabB, VP.jabA, ease((q - 0.5) * 2)); if (side) l = mirror(J); else r = J; }
       else if (/^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust)/.test(n)) { const left = n.startsWith('off') || n === 'stabL' || n === 'swing2'; const J = seq(VP.jabA, VP.jabB, t, 0.2, VP.rest); if (left) l = seq(mirror(VP.jabA), mirror(VP.jabB), t, 0.2, VP.restL); else r = J; } }
+    if (st.superman) { const sk = Math.sin(Math.min(1, st.superman * 1.4) * Math.PI * 0.5); r = plerp(r, [0.04, -0.14, -1.0, -1.57, 0, 0], sk); if (l) l = plerp(l, [-0.3, -0.45, -0.3, -0.6, 0, 0.3], sk); }
     if (st.kick) { const kk = Math.sin(Math.min(1, st.kick * 1.3) * Math.PI * 0.5); r = plerp(r, VP.kickDown, kk); if (l) l = plerp(l, mirror(VP.kickDown), kk); }
     if (this.foot) { const kk = st.kick ? Math.sin(Math.min(1, st.kick * 1.25) * Math.PI * 0.5) * (st.kick > 0.85 ? (1 - st.kick) / 0.15 : 1) : 0; this.foot.visible = kk > 0.02; if (this.foot.visible) { this.foot.position.set(0.05 - kk * 0.02, -0.8 + kk * 0.5, -0.25 - kk * 0.55); this.foot.rotation.set(-0.35 - kk * 1.05, 0.05, 0); } } // (your foot thrusts up into view)
     // sprinting: lower the weapon and pump the arms
@@ -838,6 +852,7 @@ export class Player {
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (this.h.arena) abilityFx(this, ab, this.aimFoe ? this.aimFoe(8) : null); // (each class's own look for its abilities)
+    if (this.h.arena && ab.t === 'wraps') { this.addRegen(0.3, 5); this.buffs.swind = Math.max(this.buffs.swind || 0, 5); S.heal && S.heal(); return; } // (Tighten the Wraps: heal over time and a burst of speed)
     if (this.h.arena && ab.t === 'totem' && G.hooks.shamanTotem) { G.hooks.shamanTotem(this, groundPoint(25)); return; } // (a healing totem thrown where you aim)
     if (this.h.arena && ab.t === 'mend' && G.hooks.healerMend) { G.hooks.healerMend(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this, ab); return; } // (healers' right click: a direct heal, walls or no walls)
     if (this.h.arena && this.h.cls === 'necromancer' && ab.id === 'drainlife') { this.soulRend(ab, base, up, key); return; }
@@ -1264,8 +1279,8 @@ export class Player {
           if (behind) { V.number(t.pos.clone().setY(t.pos.y + (t.height || 1.6) + 0.9), 'Backstab!', 'crit'); V.burst('blood', t.pos.clone().setY(t.pos.y + 1.1), 30, { speed: 5 }); }
           this.dealDamage(t, P(a.dmg) * (behind ? 2.4 : 1), hitO(t, { melee: true, big: true, critBonus: behind ? 1 : (a.crit || 0) })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 16, { speed: 5 }); G.hitstop = 0.07; V.addShake(0.25); }, 160 * ABIL_DELAY_K());
         return true; }
-      case 'flurry': { const n = this.qty(a.hits || 4, a.extra || 0); anim('fury', Math.max(0.5, n * 0.09));
-        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, P(a.dmg), hitO(t, { melee: true, silent: k % 2 === 1 })); V.burst('spark', t.pos.clone().setY(t.pos.y + 1), 5, { speed: 3 }); } }, k * 90);
+      case 'flurry': { const fast = this.h.cls === 'monk', n = Math.round(this.qty(a.hits || 4, a.extra || 0) * (fast ? 1.5 : 1)), gap = fast ? 50 : 90; anim('fury', Math.max(0.45, n * gap / 1000)); const per = fast ? P(a.dmg) / 1.5 : P(a.dmg); // (the monk's flurry: half again as many blows, nearly twice as fast)
+        for (let k = 0; k < n; k++) setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.8).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; S.swingW(this.swingKind('swing1'), 0.8, this.pos); if (t) { this.dealDamage(t, per, hitO(t, { melee: true, silent: k % 2 === 1 })); const hp = t.pos.clone().setY(t.pos.y + 1 + (Math.random() - 0.5) * 0.5); V.burst('spark', hp, fast ? 10 : 5, { speed: fast ? 5 : 3 }); if (fast) { V.sphereFlash(hp, 0.4, '#fff0c0', 0.08); S.blunt && S.blunt(hp); if (k % 4 === 0) V.addShake(0.08); } } }, k * gap);
         return true; }
       case 'dash': { this.dodge = { t: 0, dur: (a.dur || 0.3) * 1.8, dir: f.clone(), speed: (a.speed || 28) / 1.8, charge: true, hitSet: new Set(), dmg: P(a.dmg) }; this.iframes = Math.max(this.iframes, a.iframes || 0.2); this.fovKick = 10; S.dodge(); anim('heavy', 0.4); return true; }
       case 'heal': { this.buffFx(a.name, '#7ee07e'); this.heal(this.maxHp * (a.self || 0) * up * this.hk()); if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); if (!this.h.arena) V.ring(this.pos, (a.r || 3) * K, col === '#ffffff' ? '#80ffb0' : col, 0.7); else { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1.1), 1.6, '#a0ffc0', 0.35); V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 24, { speed: 3, vy: 3 }); } V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 4, vy: 2 }); anim('cast'); return true; }
@@ -1739,7 +1754,8 @@ export class Player {
   jump() { if (this.swim) { this.climbOut(); return; } if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.isFrozen() || this.gathering || !this.onGround || this.swim) return;
-    if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
+    if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast' && this.h.cls !== 'monk') return; // (the monk can dodge out of any strike)
+    if (this.atk && this.h.cls === 'monk') { this.atk = null; this.queued = null; }
     const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
     const cost = (this.h.arena ? (this.maxEnd || 100) / 3 - 0.01 : D.cost) /* (the arena: a dodge costs a third of your endurance, so three in a row) */ * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); return; }
@@ -1886,13 +1902,13 @@ export class Player {
     if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 14) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); }
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
-    let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && !this.atk && !this.ads;
+    let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && (!this.atk || this.h.cls === 'monk') && !this.ads; // (the monk keeps running while he strikes)
     // sprinting burns endurance; once empty you must recover a little before sprinting again
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
     if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
     const hero = !!this.h.arena; // Kingdom Arena plays like a hero shooter: full speed every way, always facing your aim
-    let spd = (hero ? 1.2 : 1) * (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5) * Game.arenaSpeedK(this.h); /* aiming down the barrel: a slow, steady walk */
+    let spd = (hero ? 1.2 : 1) * (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5) * Game.arenaSpeedK(this.h) * (hero && this.h.cls === 'monk' ? 1.15 : 1); /* aiming down the barrel: a slow, steady walk; the monk is the fastest fighter */
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
@@ -2013,7 +2029,7 @@ export class Player {
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
-    this.vm.update(dt, { channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8, kick: this.kickT > 0 ? 1 - this.kickT / (this.kickDur || 0.55) : 0 });
+    this.vm.update(dt, { channel: !!(this.channel && this.channel.on), aim: this.aimK, recoil: this.recoil, act: vmAct, block: this.block, speed: this.onGround ? hs : 0, sprint: this.sprinting && this.onGround, tool: !!g, drawing: this.press && this.press.charging && this.W.kind === 'bow' ? (this.press.t - 0.22) / 0.6 : 0, charge: this.press && this.press.charging ? Math.min(1, (this.press.t - 0.22) / 0.8) : 0, swayX: this.swayX, swayY: this.swayY - (this.swapT || 0) * 0.8, kick: this.kickT > 0 ? 1 - this.kickT / (this.kickDur || 0.55) : 0, superman: this.supermanT > 0 ? 1 - this.supermanT / 0.45 : 0 });
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade

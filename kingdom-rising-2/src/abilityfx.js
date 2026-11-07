@@ -55,15 +55,22 @@ export function abilityFx(u, a, T) { const f = a && FX[a.id]; if (!f) return; tr
 // ---------- body poses that the generic animation can't do (kicks) ----------
 // u.kickT counts down; while it runs the legs and body take a flying-kick shape (players and computer fighters)
 export function bodyPoseTick(u, ch, dt) {
+  if (ch && u.wrapT > 0 && ch.arms) { u.wrapT -= dt; const k = Math.sin(Math.min(1, (0.5 - u.wrapT) / 0.5) * Math.PI); ch.arms.R.sh.rotation.set(-1.2 * k, 0, -0.5 * k); ch.arms.L.sh.rotation.set(-1.2 * k, 0, 0.5 * k); ch.arms.R.el.rotation.x = -1.6 * k; ch.arms.L.el.rotation.x = -1.6 * k; } // (crossing the arms to cinch the wraps)
+  if (ch && u.supermanT > 0 && ch.legs && ch.arms) { u.supermanT -= dt; const k = 1 - Math.max(0, u.supermanT) / 0.45, e = Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.5) * (k > 0.75 ? 1 - (k - 0.75) / 0.25 * 0.8 : 1); // (Pressure Point: a superman punch)
+    if (ch.body) { ch.body.rotation.x = 0.75 * e; ch.body.position.y = Math.sin(Math.min(1, k * 1.2) * Math.PI) * 0.55; } ch.arms.R.sh.rotation.set(-1.65 * e - 0.3 * (1 - e), 0, 0.05); ch.arms.R.el.rotation.x = -0.05 - (1 - e) * 1.6; ch.arms.L.sh.rotation.set(0.6 * e, 0, -0.4); ch.arms.L.el.rotation.x = -1.2;
+    ch.legs.L.thigh.rotation.x = 0.9 * e; ch.legs.L.knee.rotation.x = 1.4 * e; ch.legs.R.thigh.rotation.x = -0.3 * e; ch.legs.R.knee.rotation.x = 0.3; return; }
+  if (ch && u.strike && ch.legs && ch.arms) { strikePose(u, ch); }
   if (ch && u.spinT > 0) { u.spinT -= dt; u.spinA = (u.spinA || 0) + dt * 15; ch.root.rotation.y += u.spinA; const A2 = ch.arms; // (Bladestorm: the whole body whirls, arms out, axes level)
     if (A2) { A2.R.sh.rotation.set(-0.15, 0, 1.45); A2.L.sh.rotation.set(-0.15, 0, -1.45); A2.R.el.rotation.x = -0.1; A2.L.el.rotation.x = -0.1; }
     if (ch.legs) { ch.legs.R.thigh.rotation.x = -0.35; ch.legs.L.thigh.rotation.x = 0.25; ch.legs.R.knee.rotation.x = 0.6; ch.legs.L.knee.rotation.x = 0.5; } if (ch.body) ch.body.rotation.x = 0.12; return; }
-  if (!ch || !ch.legs || !(u.kickT > 0)) return; u.kickT -= dt; const dur = u.kickDur || 0.55, k = 1 - Math.max(0, u.kickT) / dur, ext = Math.sin(Math.min(1, k * 1.25) * Math.PI * 0.5) * (k > 0.85 ? (1 - k) / 0.15 : 1);
-  const s = u.kickSide || 'R', o = s === 'R' ? 'L' : 'R', Lg = ch.legs, A2 = ch.arms;
-  Lg[s].thigh.rotation.x = -1.55 * ext; Lg[s].knee.rotation.x = 0.1 + (1 - ext) * 1.2; if (Lg[s].ankle) Lg[s].ankle.rotation.x = 0.5 * ext;
-  Lg[o].thigh.rotation.x = 0.35 * ext; Lg[o].knee.rotation.x = 1.7 * ext;
-  if (A2) { A2.R.sh.rotation.x = 0.7 * ext; A2.L.sh.rotation.x = 0.7 * ext; A2.R.sh.rotation.z = 0.5 * ext; A2.L.sh.rotation.z = -0.5 * ext; A2.R.el.rotation.x = -0.9 * ext; A2.L.el.rotation.x = -0.9 * ext; }
-  if (ch.body) ch.body.rotation.x = -0.3 * ext;
+  if (!ch || !ch.legs || !(u.kickT > 0)) return; u.kickT -= dt; const dur = u.kickDur || 0.55, k = 1 - Math.max(0, u.kickT) / dur;
+  // a real flying kick: up into the air, the lead leg shot out straight and level, the back leg tucked under, leaning back
+  const ext = Math.sin(Math.min(1, k * 1.5) * Math.PI * 0.5) * (k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1), air = Math.sin(Math.min(1, k) * Math.PI);
+  const s = u.kickSide || 'R', o = s === 'R' ? 'L' : 'R', sg = s === 'R' ? 1 : -1, Lg = ch.legs, A2 = ch.arms;
+  if (ch.body) { ch.body.position.y = air * 0.95; ch.body.rotation.x = -0.4 * ext; ch.body.rotation.y = sg * 0.35 * ext; }
+  Lg[s].thigh.rotation.set(-1.75 * ext, 0, 0); Lg[s].knee.rotation.x = 0.05 + (1 - ext) * 1.6; if (Lg[s].ankle) Lg[s].ankle.rotation.x = -0.3 * ext;
+  Lg[o].thigh.rotation.set(-1.0 * ext, 0, 0); Lg[o].knee.rotation.x = 2.2 * ext;
+  if (A2) { A2[s].sh.rotation.set(0.9 * ext, 0, sg * 0.7 * ext); A2[s].el.rotation.x = -0.4 * ext; A2[o].sh.rotation.set(-1.3 * ext, 0, -sg * 0.3 * ext); A2[o].el.rotation.x = -1.7 * ext; }
 }
 FX.flyingkick = (u) => { u.kickT = u.kickDur = 0.55; u.kickSide = Math.random() < 0.5 ? 'R' : 'L'; S.dodge && S.dodge();
   let t = 0; G.timers.push({ update: (dt) => { t += dt; const p = u.pos.clone().setY(u.pos.y + 0.9); V.emit('frost', p, { speed: 0.4, size: 0.35, life: 0.35 }); if (Math.random() < 0.6) V.emit('gold', p, { speed: 0.6, size: 0.2, life: 0.3 }); return t > 0.5; } }); };
@@ -131,3 +138,34 @@ Object.assign(FX, {
       return (k, t) => { vines.forEach((v, i) => { v.rotation.z = t * (1 + i * 0.4) * (i % 2 ? -1 : 1); v.scale.setScalar(k); }); if (Math.random() < 0.5 * k) { const an = Math.random() * 6.28; V.emit('leaf', u.pos.clone().add(new THREE.Vector3(Math.cos(an) * 0.7, Math.random() * 2, Math.sin(an) * 0.7)), { speed: 0.5, size: 0.25, life: 0.7 }); } }; }); },
   ar_shadowstep(u, a) { let t = 0; G.timers.push({ update: (dt) => { t += dt; V.emit('shadow', u.pos.clone().setY(u.pos.y + 0.5 + Math.random()), { speed: 0.6, size: 0.5, life: 0.6 }); if (Math.random() < 0.5) V.emit('smoke', u.pos.clone().setY(u.pos.y + 0.3), { speed: 0.4, size: 0.6, life: 0.7 }); return t > 0.8; } }); },
 });
+
+// ---------- the monk's fighting moves (Thousand Fists): one pose per strike, driven by u.strike = { n, t0, dur } ----------
+const ss = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+function strikePose(u, ch) { const S2 = u.strike, k = Math.max(0, Math.min(1, (G.time - S2.t0) / (S2.dur || 0.2))), hit = Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5) * (k > 0.8 ? 1 - (k - 0.8) / 0.2 * 0.6 : 1);
+  const A = ch.arms, L = ch.legs, body = ch.body, chest = ch.chest || (ch.spine), n = S2.n, side = n.endsWith('L') ? 'L' : 'R', o = side === 'R' ? 'L' : 'R', sg = side === 'R' ? 1 : -1;
+  const guard = () => { A.R.sh.rotation.set(-0.9, 0, 0.25); A.L.sh.rotation.set(-0.9, 0, -0.25); A.R.el.rotation.x = -1.9; A.L.el.rotation.x = -1.9; }; // (hands up)
+  if (n === 'stance') { guard(); L.R.thigh.rotation.set(-0.5, 0, -0.25); L.L.thigh.rotation.set(-0.5, 0, 0.25); L.R.knee.rotation.x = 0.9; L.L.knee.rotation.x = 0.9; if (body) body.position.y = -0.12; A.R.sh.rotation.set(-0.5, 0, 0.9); A.L.sh.rotation.set(-0.5, 0, -0.9); A.R.el.rotation.x = -1.6; A.L.el.rotation.x = -1.6; return; }
+  guard(); if (body) { body.position.set(0, 0, 0); body.rotation.set(0, 0, 0); }
+  if (n.startsWith('punch')) { A[side].sh.rotation.set(-1.55 * hit - 0.35 * (1 - hit), 0, sg * 0.1); A[side].el.rotation.x = -1.9 * (1 - hit) - 0.05; if (chest) chest.rotation.y = -sg * 0.55 * hit; L[o].thigh.rotation.x = -0.35; L[o].knee.rotation.x = 0.5; }
+  else if (n.startsWith('elbow')) { A[side].sh.rotation.set(-1.25, 0, sg * (0.4 + 0.7 * hit)); A[side].el.rotation.x = -2.3; if (chest) chest.rotation.y = -sg * 1.0 * hit; if (body) body.rotation.y = -sg * 0.5 * hit; }
+  else if (n.startsWith('kick')) { L[side].thigh.rotation.set(-1.7 * hit, 0, 0); L[side].knee.rotation.x = 0.15 + (1 - hit) * 1.4; L[o].knee.rotation.x = 0.4; if (body) body.rotation.x = -0.25 * hit; }
+  else if (n.startsWith('round')) { if (body) { body.rotation.y = sg * Math.PI * 2 * ss(k); body.rotation.z = -sg * 0.35 * hit; body.position.y = Math.sin(k * Math.PI) * 0.25; } L[side].thigh.rotation.set(-1.15 * hit, 0, -sg * 1.25 * hit); L[side].knee.rotation.x = 0.1; L[o].knee.rotation.x = 0.5; A.R.sh.rotation.set(-0.4, 0, 1.2); A.L.sh.rotation.set(-0.4, 0, -1.2); }
+  else if (n.startsWith('knee')) { if (body) { body.position.y = Math.sin(k * Math.PI) * 0.7; body.rotation.x = -0.2 * hit; } L[side].thigh.rotation.set(-2.1 * hit, 0, 0); L[side].knee.rotation.x = 2.3 * hit; L[o].thigh.rotation.x = 0.4 * hit; L[o].knee.rotation.x = 0.9; A.R.sh.rotation.set(-1.6, 0, 0.2); A.L.sh.rotation.set(-1.6, 0, -0.2); A.R.el.rotation.x = -1.2; A.L.el.rotation.x = -1.2; } // (a flying knee, both hands pulling the head down)
+  else if (n === 'flip') { if (body) { body.rotation.x = -Math.PI * 2 * ss(k); body.position.y = 0.9 * Math.sin(k * Math.PI) + 0.6 * Math.sin(ss(k) * Math.PI); } L.R.thigh.rotation.x = -2.2 * hit; L.R.knee.rotation.x = 0.1; L.L.thigh.rotation.x = -0.6; L.L.knee.rotation.x = 1.6 * hit; A.R.sh.rotation.set(0.6, 0, 0.9); A.L.sh.rotation.set(0.6, 0, -0.9); } // (a backflip kick)
+  else if (n === 'axe') { const up = k < 0.45 ? ss(k / 0.45) : 1 - ss((k - 0.45) / 0.55); L.R.thigh.rotation.set(-2.6 * up - 0.3 * (1 - up), 0, 0); L.R.knee.rotation.x = 0.05; if (body) body.rotation.x = 0.15 * up; } // (an axe kick, the heel coming down from overhead)
+  else if (n === 'leapspin') { if (body) { body.rotation.y = Math.PI * 4 * ss(k); body.position.y = Math.sin(k * Math.PI) * 1.4; } L.R.thigh.rotation.set(-1.3, 0, -1.3); L.R.knee.rotation.x = 0.1; L.L.thigh.rotation.x = -0.9; L.L.knee.rotation.x = 1.8; A.R.sh.rotation.set(-0.3, 0, 1.4); A.L.sh.rotation.set(-0.3, 0, -1.4); } // (the finish: a leaping double-spin kick)
+}
+
+// Pressure Point (monk): a superman punch: he launches forward through the air, body stretched out, rear leg kicked up,
+// and drives the fist into the target; a shock of light where it lands
+FX.pressure = (u, a, T) => { u.supermanT = 0.45; const f = V3(Math.sin(u.yaw || 0), 0, Math.cos(u.yaw || 0)); if (T && T.pos) { const d = V3(T.pos.x - u.pos.x, 0, T.pos.z - u.pos.z); if (d.lengthSq() > 0.01) f.copy(d.normalize()); }
+  if (u === G.player) { u.dodge = { t: 0, dur: 0.28, dir: f.clone(), speed: 11, charge: true, hitSet: new Set(), dmg: 0 }; u.fovKick = Math.min(14, (u.fovKick || 0) + 8); } else { const from = u.pos.clone(); let t0 = 0; G.timers.push({ update: (dt) => { t0 += dt; const k = Math.min(1, t0 / 0.28); u.pos.copy(from).addScaledVector(f, 2.6 * k); if (u.root) u.root.position.copy(u.pos); return k >= 1; } }); }
+  S.swingW && S.swingW('fist', 1.6, u.pos); let t = 0; G.timers.push({ update: (dt) => { t += dt; if (Math.random() < 0.8) V.emit('frost', u.pos.clone().setY(u.pos.y + 1.1), { speed: 0.3, size: 0.4, life: 0.3 });
+    if (t >= 0.27 && !u.__pp) { u.__pp = true; const at = (T && T.pos ? T.pos.clone() : u.pos.clone().addScaledVector(f, 1.2)).setY((T && T.pos ? T.pos.y : u.pos.y) + 1.35); V.sphereFlash(at, 1.4, '#fff4d0', 0.18); V.ring(at, 3.5, '#ffe8b0', 0.35); V.burst('spark', at, 30, { speed: 7 }); V.addShake(0.45); S.blunt && S.blunt(at); S.hit && S.hit('flesh', at, 1.6); G.hitstop = Math.max(G.hitstop || 0, 0.07); }
+    if (t > 0.5) { u.__pp = false; return true; } return false; } }); };
+
+// Tighten the Wraps (monk): he cinches his wraps, and ribbons of cloth spiral up his arms and body while it lasts
+FX.ar_wraps = (u, a) => { u.wrapT = 0.5; auraFx(u, 5, (g) => { const m = new THREE.MeshStandardMaterial({ color: '#efe6d0', roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }); const rib = [];
+  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.42 + i * 0.05, 0.035, 4, 24, Math.PI * 1.4), m); r.rotation.x = Math.PI / 2; r.position.y = 0.5 + i * 0.5; g.add(r); rib.push(r); }
+  V.burst('gold', u.pos.clone().setY(u.pos.y + 1.1), 30, { speed: 3 }); S.cast && S.cast('holy', u.pos, 0.6);
+  return (k, t) => { rib.forEach((r, i) => { r.rotation.z = t * (4 + i) * (i % 2 ? -1 : 1); r.position.y = 0.4 + i * 0.5 + Math.sin(t * 3 + i) * 0.1; r.scale.setScalar(k * (1 + Math.sin(t * 6 + i) * 0.05)); }); m.opacity = 0.85 * k; if (Math.random() < 0.4 * k) V.emit('heal', u.pos.clone().setY(u.pos.y + 0.3 + Math.random() * 1.6), { speed: 0.3, vy: 1, size: 0.2, life: 0.6 }); }; }); };

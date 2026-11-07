@@ -121,7 +121,7 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
 export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
-  darkknight: 'gravewall', druid: 'ar_mendD', monk: 'innerpeace', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace' };
+  darkknight: 'gravewall', druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
@@ -144,7 +144,8 @@ const ARENA_NEW = {
     { id: 'ar_mendS', name: 'Healing Stream', t: 'mend', kind: 'water', heal: 0.22, cd: 6, cost: 0, fx: 'water', level: 1, desc: 'A stream of healing water into the ally under your crosshair, even through walls (or yourself); it splashes on to the most hurt ally near them for half as much.' }],
   ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
   berserker: [{ id: 'ar_bladestorm', name: 'Bladestorm', t: 'bladestorm', cd: 90, cost: 0, fx: 'fire', level: 1, desc: 'Become a whirlwind of steel for 5 s: you spin with both axes held out, carving everything around you, and you can steer the storm through the enemy. Anyone inside is dragged in, slowed and cut again and again (60% of their health if they stay in it the whole time), and the storm ends in a blast that throws them away.' }],
-  monk: [{ id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
+  monk: [{ id: 'ar_wraps', name: 'Tighten the Wraps', t: 'wraps', cd: 16, cost: 0, fx: 'gold', level: 1, desc: 'Pull your hand wraps tight and breathe: for 5 s you regenerate 30% of your health and move 30% faster.' },
+    { id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
     { id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   paladin: [{ id: 'ar_wrath', name: 'Avenging Wrath', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Spread golden wings and call down judgment where you aim: a 12 m glyph of light burns into the ground and slows enemies on it, then a giant sword of light plunges out of the sky. Anyone in its heart is impaled; everyone else on the glyph is hurt badly and thrown up; allies on it are healed. Get off the glyph before it lands.' }],
@@ -249,11 +250,11 @@ export function ultFriends(caster) { const inAr = A.F && A.F.length > 0, team = 
   return inAr ? A.F.filter(f => f.alive && f.team === team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? [G.player] : []; }
 export const ultGround = (at) => (A.F && A.F.length > 0) ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z);
 // hurt a fraction of someone's health (ultimates are measured against the target, not the caster's weapon)
-export function ultHurt(u, frac, caster, kind = 'gold') { if (!u || u.dead) return; const n = (u.dummy ? 1200 : (u.maxHp || 1000)) * frac, /* (yard dummies count as a hero-sized pool) */ c = u.pos.clone().setY(u.pos.y + 1.2);
+export function ultHurt(u, frac, caster, kind = 'gold', quiet = false) { if (!u || u.dead) return 0; const n = (u.dummy ? 1200 / PVP_K : (u.maxHp || 1000)) * frac, /* (yard dummies: a hero-sized pool on the same scale as weapon hits on them) */ c = u.pos.clone().setY(u.pos.y + 1.2);
   if (u === G.player) { if ((u.ultImmT || 0) > 0) return; u.hp -= n; u.hurtT = 0.3; V.addShake(0.4); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
   else if (u.dummy) { u.takeHit && u.takeHit(n, caster, {}); }
   else { if (u.invulnT > G.time) return; u.hp -= n; if (u.flash) u.flash(); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
-  V.number(c, String(Math.round(n)), 'dmg'); V.burst(kind, c, 16, { speed: 4 }); }
+  if (!quiet) V.number(c, String(Math.round(n)), 'dmg'); V.burst(kind, c, 16, { speed: 4 }); return n; }
 export function ultKill(u, caster) { if (!u || u.dead) return; if (u === G.player) { u.hp = 0; u.die && u.die(caster); } else if (u.dummy) u.takeHit && u.takeHit(99999, caster, {}); else { u.hp = 0; u.die && u.die(caster); } }
 export function ultHeal(u, frac) { if (!u || u.dead) return; const n = (u.maxHp || 1000) * frac; if (u === G.player && u.heal) u.heal(n); else u.hp = Math.min(u.maxHp, u.hp + n); V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 20, { speed: 2, vy: 2 }); }
 export function ultSlow(u, k, dur) { if (!u || u.dead) return; u.ultSlowT = G.time + dur; u.ultSlowK = k; }
@@ -330,7 +331,7 @@ export function paladinWrath(caster, at) {
 // chi gathers into a whirlwind that drags every enemy within r into the air around him; he blurs from one to the next
 // with punches, kicks, knees and roundhouses for several seconds, then slams the ground and throws them all away.
 // Every victim takes exactly `dmg` of their max health in total.
-export const FISTS = { r: 9, pullAt: 0.6, pullDur: 0.8, dur: 4.2, dmg: 0.5, hitEvery: 0.13 };
+export const FISTS = { r: 9, pullAt: 0.6, pullDur: 0.8, dur: 4.2, dmg: 0.5, flurry: 0.3, hitEvery: 0.2 }; // (flurry: the share dealt by the blows; the slam deals the rest)
 export function monkFists(caster) {
   const T = Object.assign({}, FISTS, G.fistsTune || {}), me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
   const C = caster.pos.clone(), base = ultGround(C); C.y = base; const home = caster.pos.clone();
@@ -341,7 +342,7 @@ export function monkFists(caster) {
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   const setPos = (p) => { caster.pos.copy(p); if (!me && caster.root) caster.root.position.copy(p); };
   const face = (to) => { const y = Math.atan2(to.x - caster.pos.x, to.z - caster.pos.z); if (me) { me.yaw = y; me.bodyYaw = y; } else { caster.yaw = y; if (caster.root) caster.root.rotation.y = y; } };
-  let pose = null, poseT = 0; const STRIKES = ['punchR', 'punchL', 'kickR', 'punchR', 'kneeL', 'punchL', 'roundL', 'punchR'];
+  let pose = null, poseT = 0; const STRIKES = ['punchR', 'punchL', 'elbowR', 'kickR', 'roundL', 'punchL', 'kneeR', 'elbowL', 'flip', 'punchR', 'roundR', 'axe', 'punchL', 'kneeL']; caster.strike = { n: 'stance', t0: G.time, dur: 1 };
   const applyPose = () => { if (!ch || !ch.arms) return; const A2 = ch.arms, Lg = ch.legs || {}; const k = Math.max(0, 1 - poseT / 0.12);
     if (t < T.pullAt + T.pullDur) { A2.R.sh.rotation.set(-0.6, 0, 0.9); A2.L.sh.rotation.set(-0.6, 0, -0.9); A2.R.el.rotation.x = -1.6; A2.L.el.rotation.x = -1.6; if (Lg.R) { Lg.R.thigh.rotation.x = -0.6; Lg.L.thigh.rotation.x = -0.6; Lg.R.knee.rotation.x = 1.0; Lg.L.knee.rotation.x = 1.0; } return; } // (a deep horse stance, hands drawing in the chi)
     if (!pose) return; const s = pose.endsWith('R') ? 'R' : 'L', o = s === 'R' ? 'L' : 'R';
@@ -363,18 +364,18 @@ export function monkFists(caster) {
     const fs = T.pullAt + T.pullDur, fe = fs + T.dur;
     if (caught && caught.length && t >= fs && t < fe) { hitT -= dt; if (hitT <= 0) { hitT = T.hitEvery; const sl = slots[idx % slots.length]; idx++; const u = sl.u; if (!u.dead) {
         const dir = new THREE.Vector3(C.x - u.pos.x, 0, C.z - u.pos.z).normalize(), at = u.pos.clone().addScaledVector(dir, 1.05); at.y = base; V.burst('shadow', caster.pos.clone().setY(caster.pos.y + 1), 6, { speed: 1 }); setPos(at); face(u.pos);
-        pose = STRIKES[nHits % STRIKES.length]; poseT = 0; nHits++;
-        const per = T.dmg / Math.max(1, Math.round(T.dur / T.hitEvery / slots.length)); const left = T.dmg - sl.dealt, n = Math.min(per, left); if (n > 0) { sl.dealt += n; ultHurt(u, n, caster, 'spark'); }
+        pose = STRIKES[nHits % STRIKES.length]; poseT = 0; nHits++; caster.strike = { n: pose, t0: G.time, dur: T.hitEvery * 0.95 }; if (pose === 'flip' || pose.startsWith('round')) { V.burst('dust', u.pos.clone().setY(base + 0.1), 10, { speed: 3 }); S.swingW && S.swingW('fist', 1.4, caster.pos); }
+        const per = T.flurry / Math.max(1, Math.floor(T.dur / T.hitEvery / slots.length)); const left = T.flurry - sl.dealt, n = Math.min(per, left); if (n > 0) { sl.dealt += n; sl.total = (sl.total || 0) + ultHurt(u, n, caster, 'spark'); }
         const hp = u.pos.clone().setY(u.pos.y + (pose.startsWith('punch') ? 1.4 : 1.0)); V.sphereFlash(hp, 0.6, '#fff4c8', 0.12); V.burst('spark', hp, 8, { speed: 5 }); S.blunt && S.blunt(hp); S.hit && S.hit('flesh', hp, 0.6); sl.jx = -dir.x * 0.35; sl.jz = -dir.z * 0.35; if (nHits % 6 === 0) V.addShake(0.2); } } }
-    if (pose || t < fs) applyPose();
+    if (!pose && t < fs && !caster.strike) caster.strike = { n: 'stance', t0: G.time, dur: 1 };
     // the finish: back to the centre, a slam, and everyone thrown away; anyone short of the full share gets the rest
-    if (caught && !finished && t >= fe) { finished = true; setPos(home); pose = 'roundR'; poseT = 0;
+    if (caught && !finished && t >= fe) { finished = true; setPos(home); pose = 'leapspin'; poseT = 0; caster.strike = { n: 'leapspin', t0: G.time, dur: 0.55 };
       V.ring(C.clone().setY(base + 0.2), T.r * 2.2, '#ffe8a0', 0.7); V.burst('gold', C.clone().setY(base + 0.6), 120, { speed: 10 }); V.burst('dust', C.clone().setY(base + 0.3), 60, { speed: 7 }); V.sphereFlash(C.clone().setY(base + 1), 3.5, '#fff0c0', 0.35); V.light(C.clone().setY(base + 2), '#ffe090', 12, 0.6, 30); V.addShake(1.1); S.explode && S.explode(C, 0.9);
-      for (const sl of slots) { const u = sl.u; if (u.dead) continue; const left = T.dmg - sl.dealt; if (left > 0.001) ultHurt(u, left, caster, 'spark'); sl.dealt = T.dmg; u.held = false; if (u.root) u.root.rotation.z = 0;
+      for (const sl of slots) { const u = sl.u; if (u.dead) continue; const left = T.dmg - sl.dealt; if (left > 0.001) sl.total = (sl.total || 0) + ultHurt(u, left, caster, 'spark', true); sl.dealt = T.dmg; V.number(u.pos.clone().setY(u.pos.y + (u.height || 1.8) + 0.6), String(Math.round(sl.total || 0)), 'crit'); /* (the whole beating in one big number) */ u.held = false; if (u.root) u.root.rotation.z = 0;
         const d = new THREE.Vector3(u.pos.x - C.x, 0, u.pos.z - C.z).normalize(); if (u === G.player && u.vel) u.vel.set(d.x * 9, 8, d.z * 9); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1); if (u.status.knock) u.status.knock.set(d.x * 9, 0, d.z * 9); } }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> unleashes Thousand Fists${slots.length ? ` on <b>${slots.map(s => esc2(s.u.heroName || s.u.name || 'a fighter')).join(', ')}</b>` : ''}!`); }
     if (!caught && false) return true;
-    if (t > fe + 0.6 || (caught && !caught.length && t > fs + 0.4)) { done = true; G.scene.remove(vortex); G.scene.remove(aura); caster.held = false; setPos(home); for (const sl of slots) { sl.u.held = false; if (sl.u.root) sl.u.root.rotation.z = 0; }
+    if (t > fe + 0.6 || (caught && !caught.length && t > fs + 0.4)) { done = true; caster.strike = null; const bd = (caster === G.player ? caster.ch : caster.model); if (bd && bd.body) { bd.body.position.set(0, 0, 0); bd.body.rotation.set(0, 0, 0); } G.scene.remove(vortex); G.scene.remove(aura); caster.held = false; setPos(home); for (const sl of slots) { sl.u.held = false; if (sl.u.root) sl.u.root.rotation.z = 0; }
       if (me) { if (me.cine && !document.body.classList.contains('cine')) me.cine = null; } return true; }
     return false; } });
   return true;
@@ -1297,6 +1298,7 @@ class ArenaBot {
       case 'overgrowth': druidOvergrowth(this); return;
       case 'transcend': wizardTranscend(this); return;
       case 'barrage': musketBarrage(this); return;
+      case 'wraps': this.hots.push({ ps: 0.3 * this.maxHp / 5, t: 5 }); this.buffs.swind = Math.max(this.buffs.swind || 0, 5); return;
       case 'banner': case 'grasp': case 'finale': case 'kegs': case 'meteors': case 'charm': case 'pack': if (ULT_BY_T[a.t]) { const U2 = ULT_BY_T[a.t]; if (U2.aim === 'foe') { if (T) U2.run(this, T); } else U2.run(this, U2.aim === 'ground' ? (T ? T.pos.clone() : this.pos.clone()) : this.pos.clone()); return; }
       case 'totem': { const al = alliesOf(this, true).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || this; shamanTotem(this, al.pos.clone()); return; }
       case 'spirittotem': { const al = alliesOf(this, true); const c = T ? this.pos.clone().lerp(T.pos, 0.5) : this.pos.clone(); shamanSpirit(this, c); return; }

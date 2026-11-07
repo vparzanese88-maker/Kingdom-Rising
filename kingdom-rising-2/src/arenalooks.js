@@ -25,7 +25,7 @@ const SPEC = {
   paladin: { shirt: '#c8ccd4', mail: '#e8e4d8', tabard: '#f4f0e4', trim: '#e0b040', pants: '#d0ccc0', boots: '#8a6a30', pauldrons: true, belt: '#8a6a30', bracers: '#e0b040', cloak: '#f0e8d0' },
   darkknight: { shirt: '#1a1a1e', mail: '#24242a', tabard: '#4a0a0e', trim: '#8a1a1a', pants: '#141418', boots: '#0c0c0e', pauldrons: true, belt: '#1a0a0a', bracers: '#24242a', cloak: '#1a0a0e' },
   berserker: { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, sash: '#9a2a1a' },
-  monk: { shirt: '#e08a20', pants: '#e08a20', boots: '#5a3a1a', sash: '#a01a1a', bareArms: true, belt: '#a01a1a' },
+  monk: { shirt: '#d8781c', robe: '#e8901e', pants: '#7a3410', boots: '#4a2a14', sash: '#a01a1a', bareArms: true, belt: '#a01a1a' }, // (a long saffron robe over dark trousers)
   rogue: { shirt: '#1e1c24', vest: '#2a2632', pants: '#18161c', boots: '#100e12', hood: '#16141a', mask: '#16141a', belt: '#3a1a2a', bracers: '#2a2632', cloak: '#141218' },
   ranger: { shirt: '#5a3f26', vest: '#6b4a2a', pants: '#3c4a2a', boots: '#4a3220', hood: '#2e5a26', cloak: '#2e5a26', quiver: true, belt: '#3a2a1a', bracers: '#5a3a22' },
   musketeer: { shirt: '#e8e0c8', vest: '#1f2c56', trim: '#c9a14a', pants: '#6a7c9e', boots: '#1a1612', belt: '#1a1612', bracers: '#1f2c56' },
@@ -35,7 +35,7 @@ const SPEC = {
 export function arenaSpec(cls) { return SPEC[cls] || null; }
 // each class's build (see BODY in character.js): brutes, knights, heavies, athletes, lean casters, sturdy priests
 const BUILD = { berserker: 'brute', beastmaster: 'brute', warrior: 'knight', paladin: 'knight', darkknight: 'knight', blunderbuss: 'heavy', shaman: 'heavy',
-  rogue: 'athlete', ranger: 'athlete', monk: 'athlete', musketeer: 'athlete', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
+  rogue: 'athlete', ranger: 'athlete', monk: 'lean', musketeer: 'athlete', bard: 'athlete', wizard: 'lean', necromancer: 'lean', enchanter: 'lean', elementalist: 'lean', cleric: 'sturdy', druid: 'sturdy' };
 export function arenaBody(cls) { return BUILD[cls] || 'athlete'; }
 
 // ---- signature pieces ----
@@ -119,7 +119,7 @@ const DECOR = {
     const g = gold(); shoulderSpikes(ch, g, 0); const sun = add(ch.chest, cylG(0.06, 0.06, 0.012, 16), g, 0, ch.R.torsoH - 0.24, 0.135); sun.rotation.x = Math.PI / 2; },
   darkknight(ch) { const m = helm(ch.headG, '#1e1e24'); hideHair(ch); horns(ch.headG, '#1a1a1a', 1.1); ch.headG.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x050505) o.material = GL('#ff2a1a'); }); shoulderSpikes(ch, iron('#1e1e24'), 4); },
   berserker(ch) { const m = add(ch.headG, sph(0.14, 16, 12), iron('#6a6a70'), 0, 0.1, 0); m.geometry = new THREE.SphereGeometry(0.14, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55); horns(ch.headG, '#e8dcc0', 1.2); add(ch.headG, boxG(0.02, 0.09, 0.03), iron('#6a6a70'), 0, 0.09, 0.13); mantle(ch, '#6a4a2a', 0.21); },
-  monk(ch) { hideHair(ch); const b = M('#5a2a10', 0.5); for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; add(ch.chest, sph(0.022, 8, 6), b, Math.sin(a) * 0.13, ch.R.torsoH - 0.12 - (Math.cos(a) > 0 ? Math.cos(a) * 0.08 : 0), Math.cos(a) * 0.1); }
+  monk(ch) { hideHair(ch); { const red = M('#a81c1c', 0.85, 0, { side: THREE.DoubleSide }); ch.monkTails = []; for (const sx of [-1, 1]) { const pv = new THREE.Group(); pv.position.set(sx * 0.07, 0.02, -0.16 * ch.R.thick); ch.hips.add(pv); const tl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.85, 1, 6), red); tl.position.y = -0.42; pv.add(tl); ch.monkTails.push(pv); } } /* (two long sash tails that stream behind him) */ const b = M('#5a2a10', 0.5); for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; add(ch.chest, sph(0.022, 8, 6), b, Math.sin(a) * 0.13, ch.R.torsoH - 0.12 - (Math.cos(a) > 0 ? Math.cos(a) * 0.08 : 0), Math.cos(a) * 0.1); }
     const hb = add(ch.headG, new THREE.TorusGeometry(0.125, 0.012, 6, 20), M('#a01a1a'), 0, 0.13, 0); hb.rotation.x = Math.PI / 2; },
   rogue(ch) { const m = M('#2a2632', 0.7); for (const s of [-1, 1]) { const d = add(ch.chest, boxG(0.02, 0.16, 0.03), M('#c8ccd2', 0.3, 0.9), s * 0.12, 0.05, 0.12); d.rotation.z = s * 0.4; } add(ch.headG, boxG(0.16, 0.025, 0.02), GL('#c03060'), 0, 0.105, 0.13).visible = false; },
   ranger(ch) { const lf = M('#3a6a2a', 0.9); shoulderSpikes(ch, M('#6b4a2a'), 0); for (let k = 0; k < 3; k++) { const f = add(ch.headG, coneG(0.015, 0.14, 4), M(k === 1 ? '#a02020' : '#e8e0c0'), 0.1, 0.22, -0.08 + k * 0.02); f.rotation.z = -0.6; f.scale.z = 0.3; } },
@@ -153,7 +153,9 @@ export function arenaWeaponDecor(ch, cls) {
   if (col && w.userData.orb) w.userData.orb.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); if (o.material.color) o.material.color.set(col); if (o.material.emissive) o.material.emissive.set(col); } });
 }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
-export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt); }
+export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+  if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
+    ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.
 // The group's origin is the top of the ponytail (where the fist holds it); the head hangs down -Y, its face toward +Z.
 export function makeShrunkenHead() {

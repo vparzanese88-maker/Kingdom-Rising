@@ -118,6 +118,23 @@ export function loadMusket() { if (!_musketP) _musketP = import('three/addons/lo
 export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
   const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
   if (_musketTpl) put(_musketTpl); else { _musketWait.push(put); loadMusket(); } return g; }
+// the warrior's detailed sword and heater shield, loaded once and re-laid into makeWeapon's frames: models/knightsword.glb (pommel +y, tip -y, the flat
+// of the blade in xy) turned point-up with the middle of the grip at the origin; models/shield-heater.glb (face +z, point -y) as the code heater sits
+const KIT = { sword: { file: 'models/knightsword.glb', fit: (geo) => { geo.rotateZ(Math.PI); geo.translate(0, 0.333, 0); geo.scale(1.15, 1.15, 1.15); } }, /* (guard just above the fist at y 0.11, tip at y 0.92: like the code sword's 0.1 and 0.88) */
+  shield: { file: 'models/shield-heater.glb', fit: (geo) => { geo.scale(1.12, 1.12, 1.12); geo.translate(0, -0.06, 0.01); } } }; /* (about 0.44 wide and 1.07 tall before the shield group's own 1.15) */
+const _kitTpl = {}, _kitP = {}, _kitWait = { sword: [], shield: [] };
+export function loadKit(k) { if (!_kitP[k]) _kitP[k] = import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res) => new GLTFLoader().load(KIT[k].file, (gl) => {
+  let src = null; gl.scene.traverse(o => { if (o.isMesh && !src) src = o; }); if (!src) return res(null);
+  const geo = src.geometry.clone(); KIT[k].fit(geo); geo.computeBoundingSphere(); geo.computeBoundingBox(); /* (textured PBR: colour, metal-rough and normal maps; no vertex colours to convert) */
+  const o = new THREE.Mesh(geo, src.material); o.userData.keep = true; o.castShadow = true; const tpl = new THREE.Group(); tpl.name = k + 'GLB'; tpl.add(o); tpl.userData.keep = true;
+  _kitTpl[k] = tpl; res(tpl); for (const f of _kitWait[k].splice(0)) f(tpl);
+}, undefined, () => res(null)))); return _kitP[k]; }
+// swap a sword or shield group's code-built meshes for the detailed model (now if it is loaded, or as soon as it is)
+export function kitize(g, k) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
+  const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
+  if (_kitTpl[k]) put(_kitTpl[k]); else { _kitWait[k].push(put); loadKit(k); } return g; }
+// the warrior's own sword and shield: the detailed models replace the code-built ones in his hands
+export function warriorKit(ch) { const W = ch.weapons || {}; if (W.main && W.main.name === 'weapon_sword') kitize(W.main, 'sword'); if (W.off && W.off.name === 'weapon_shield') kitize(W.off, 'shield'); }
 // Weapons are built with the grip at the origin and the business end pointing +Y.
 // userData.tip / userData.base mark the edge for trails.
 export function makeWeapon(part, tier = 0, rarity = 0, element) {

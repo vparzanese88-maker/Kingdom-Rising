@@ -8,7 +8,7 @@ import { V } from './vfx.js';
 import { settings } from './saves.js';
 import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS, RMB_SPECIAL } from './data.js';
 const dualRank = () => 0;
-import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe } from './character.js';
+import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe, kitize } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
@@ -259,6 +259,7 @@ class ViewModel {
     if (w.wt === 'fists') { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } // (bare wrapped fists)
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.cls === 'monk' ? '#c48a5e' : this.skinCol, this.cls === 'monk' ? '#8e1c1c' : undefined)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
+    if (this.cls === 'warrior' && this.hero) for (const [o, k] of [[this.weapons.main, 'sword'], [this.weapons.off, 'shield']]) if (o && o.name === 'weapon_' + k) { for (const c of o.children) if (c.isMesh) c.visible = false; kitize(o, k); } /* (the warrior's detailed sword and shield in first person: the code-built stand-ins never show) */
     if (this.gun && w.wt === 'musket') for (const c of this.gun.children) if (c.isMesh && c !== this.gun.userData.glb) c.visible = false; /* (in first person only the detailed musket model shows: never the code-built stand-in) */
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); f.add(c); H.add(f); } } } // (wolverine claws out of the fists in first person)
     if (this.cls === 'wizard' && this.hero && !this.book) { const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.L.add(bk); this.book = bk; } // (the wizard's spellbook, open in your off hand)

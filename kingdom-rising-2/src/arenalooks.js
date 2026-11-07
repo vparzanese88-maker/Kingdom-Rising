@@ -3,7 +3,7 @@
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
 import { attachHeroModel, tickHeroModel } from './heromodels.js';
-import { armReach } from './character.js';
+import { armReach, warriorKit } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
 const GL = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -251,6 +251,7 @@ export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (D
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
+  if (cls === 'warrior') { warriorKit(ch); return; } // (the detailed knight's sword and heater shield)
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); return; } // (goblin-made guns)
   if (cls === 'beastmaster') { for (const k of ['main', 'off']) { const o = ch.weapons[k]; if (o) for (const c of [...o.children]) o.remove(c); } for (const sd of ['R', 'L']) { const c2 = makeClaws(0.5); c2.rotation.x = Math.PI; c2.position.set(0, -0.06, 0.015); ch.arms[sd].hand.add(c2); } return; } // (wolverine claws out of both fists, in line with the forearm)
   if (cls === 'bard') { // a lute: he clubs people with it, and plays it once he has learnt his songs

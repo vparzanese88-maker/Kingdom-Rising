@@ -363,9 +363,11 @@ export class Player {
   place(x, z, yaw) { this.pos.set(x, groundAt(x, z).h, z); /* stand on piers and bridges, not the ground under them */ this.yaw = yaw; this.bodyYaw = yaw; this.vel.set(0, 0, 0); }
 
   // ---------- input ----------
+  isFrozen() { return !!(this.db && this.db.freeze && this.db.freeze.t > 0); } // (frozen: no moving, jumping, attacking, dodging or abilities)
   onKey(code, down) {
     if (!down) return;
     if (this.dead) return;
+    if (this.isFrozen()) return;
     switch (code) {
       case 'Space': this.jump(); break;
       case 'ShiftLeft': case 'ShiftRight': this.shiftT = G.time; break;
@@ -397,6 +399,7 @@ export class Player {
   }
   onKeyUp(code) { if (code === 'KeyX') this.xHoldT = null; if ((code === 'ShiftLeft' || code === 'ShiftRight') && this.shiftT != null) { if (G.time - this.shiftT < 0.22 && !G.uiOpen) this.tryDodge(); this.shiftT = null; } }
   onMouse(btn, down) {
+    if (down && this.isFrozen()) return;
     if (down && this.fearT > 0) return; // fleeing in terror: no attacks
     if (btn === 0) this.lmbDown = down;
     if (down && this.sheathed && !this.dead && !G.uiOpen && (btn === 0 || btn === 2)) { this.drawWeapons(); if (btn === 0) { this.lmbDown = false; return; } }
@@ -1701,7 +1704,7 @@ export class Player {
   swimK() { const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
   jump() { if (this.swim) { this.climbOut(); return; } if (this.onGround && !this.busy() && !this.swim) { this.vel.y = 9.2; this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
-    if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
+    if (this.dodge || this.dead || this.isFrozen() || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
     const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
     const cost = (this.h.arena ? (this.maxEnd || 100) / 3 - 0.01 : D.cost) /* (the arena: a dodge costs a third of your endurance, so three in a row) */ * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
@@ -1812,7 +1815,7 @@ export class Player {
     this.fb = Game.consumBuff(h);
     this.knockT = Math.max(0, (this.knockT || 0) - dt);
     if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
-    const stunned = this.db && this.db.stun && this.db.stun.t > 0;
+    const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen();
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
     // regen
@@ -1999,7 +2002,7 @@ export class Player {
     if (this.cine) { this.ch.root.visible = !this.spectate && !this.dead; this.vm.g.visible = false; if (this.adsG) this.adsG.visible = false; cam.rotation.order = 'YXZ'; this.cine(cam, dt); cam.updateProjectionMatrix(); A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI); return; } // (a cinematic shot has the camera)
     this.lookLag(dt);
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
-    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
+    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;

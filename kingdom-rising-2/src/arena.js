@@ -248,7 +248,7 @@ export function summonDemon(caster, at) {
     emT -= dt; if (emT <= 0 && fk > 0.2) { emT = 0.04; for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; V.emit('poison', new THREE.Vector3(ox + Math.cos(a) * RR, base + 0.4 + Math.random(), oz + Math.sin(a) * RR), { speed: 1.2, vy: 3.5, size: 0.35, life: 1.1 }); } }
     liT -= dt; if (liT <= 0 && fk > 0.1) { liT = 0.15; V.light(new THREE.Vector3(ox, base + 2.5, oz), '#40ff60', (5 + Math.random() * 2) * fk, 0.2, 18); }
     // the moment the ring bursts up, everyone caught inside it is frozen in place for a second
-    if (!froze && t >= 0.25) { froze = true; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { if (u === G.player) G.player.debuff && G.player.debuff('stun', 1); else if (u.status) { u.status.frozen = Math.max(u.status.frozen || 0, 1); u.cast = null; } V.burst('poison', u.pos.clone().setY(u.pos.y + 1), 20, { speed: 2.5 }); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.1, '#3aff5a', 0.3); } }
+    if (!froze && t >= 0.25) { froze = true; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { if (u === G.player) { G.player.debuff && G.player.debuff('freeze', 1); G.player.ultImmT = Math.max(G.player.ultImmT || 0, 1); } else if (u.status) { u.status.frozen = Math.max(u.status.frozen || 0, 1); u.cast = null; u.invulnT = G.time + 1; } /* (frozen and untouchable for that second) */ V.burst('poison', u.pos.clone().setY(u.pos.y + 1), 20, { speed: 2.5 }); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.1, '#3aff5a', 0.3); } }
     // everyone inside the fire ring is slowed while the demon rises (escape the circle and you are safe)
     slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows far harder than a normal slow: to 15.6% speed) */ } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down
@@ -602,7 +602,7 @@ class ArenaBot {
   dmgMul() { let k = 1; const b = this.buffs; if (b.cry > 0) k *= 1.3; if (b.rage > 0) k *= 1.15; if (b.surge > 0) k *= 1.2; if (b.lich > 0) k *= 1.4; if (b.form > 0) k *= 1.35; if (b.avatar > 0 && this.av && this.av.dmg) k *= this.av.dmg; return k; }
   // ---- being hit (by the player, a team mate's enemy, a pet...) ----
   takeHit(dmg, src, o = {}) {
-    if (this.dead || A.state !== 'fight') return 0; const b = this.buffs;
+    if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs;
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
     dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg); if (src && src.hexUntil > G.time) dmg *= 0.65;

@@ -18,7 +18,7 @@ import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -53,8 +53,8 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
-export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'ar_fists',
-  ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
+export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'ar_bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'ar_fists',
+  ranger: 'ar_arrowrain', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
@@ -132,6 +132,8 @@ const ARENA_NEW = {
     { id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
   bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
+  ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
+  berserker: [{ id: 'ar_bladestorm', name: 'Bladestorm', t: 'bladestorm', cd: 90, cost: 0, fx: 'fire', level: 1, desc: 'Become a whirlwind of steel for 5 s: you spin with both axes held out, carving everything around you, and you can steer the storm through the enemy. Anyone inside is dragged in, slowed and cut again and again (60% of their health if they stay in it the whole time), and the storm ends in a blast that throws them away.' }],
   monk: [{ id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
     { id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
@@ -201,7 +203,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -236,7 +238,7 @@ export function ultFriends(caster) { const inAr = A.F && A.F.length > 0, team = 
   return inAr ? A.F.filter(f => f.alive && f.team === team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? [G.player] : []; }
 export const ultGround = (at) => (A.F && A.F.length > 0) ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z);
 // hurt a fraction of someone's health (ultimates are measured against the target, not the caster's weapon)
-export function ultHurt(u, frac, caster, kind = 'gold') { if (!u || u.dead) return; const n = (u.maxHp || 1000) * frac, c = u.pos.clone().setY(u.pos.y + 1.2);
+export function ultHurt(u, frac, caster, kind = 'gold') { if (!u || u.dead) return; const n = (u.dummy ? 1200 : (u.maxHp || 1000)) * frac, /* (yard dummies count as a hero-sized pool) */ c = u.pos.clone().setY(u.pos.y + 1.2);
   if (u === G.player) { if ((u.ultImmT || 0) > 0) return; u.hp -= n; u.hurtT = 0.3; V.addShake(0.4); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
   else if (u.dummy) { u.takeHit && u.takeHit(n, caster, {}); }
   else { if (u.invulnT > G.time) return; u.hp -= n; if (u.flash) u.flash(); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
@@ -393,6 +395,86 @@ export function rogueAssassinate(caster, victim) {
       V.number(p.clone().setY(p.y + 0.8), 'ASSASSINATED', 'crit'); if (vroot) vroot.rotation.x = 0.35; }
     if (!killed && t >= T.kill) { killed = true; victim.held = false; if (vroot) vroot.rotation.x = 0; ultKill(victim, caster); feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> assassinates <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
     if (t > T.end) { G.scene.remove(mark); caster.held = false; const b = body(); if (b) b.visible = true; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null; return true; }
+    return false; } });
+  return true;
+}
+
+// ---------- the berserker's ultimate: Bladestorm ----------
+// he becomes a whirlwind of steel: the whole body spins with both axes held straight out, carving bright arcs, inside a
+// roaring funnel of wind, dust and blood. He can be steered (players move; computer berserkers chase). Anyone inside is
+// dragged in, slowed and cut every tick; it ends in a blast that throws everyone away.
+export const STORM = { dur: 5, r: 3.6, tick: 0.25, dmg: 0.03, pull: 2.2, slow: 0.65 };
+const STORM_TRAILS = [];
+export function berserkerStorm(caster) {
+  const T = Object.assign({}, STORM, G.stormTune || {}), me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
+  if (!STORM_TRAILS.length) STORM_TRAILS.push(V.trail('#ffb070'), V.trail('#ffb070'));
+  const funnel = new THREE.Group(); const mats = [];
+  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.TorusGeometry(T.r * (0.55 + i * 0.22), 0.05 + i * 0.02, 6, 48, Math.PI * 1.3), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffe0b8' : '#ff9a60', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.x = Math.PI / 2; m.position.y = 0.6 + i * 0.55; funnel.add(m); mats.push(m.material); } // (bands of wind whipping round him, low and clear of the camera)
+  const slashRing = new THREE.Mesh(new THREE.RingGeometry(T.r * 0.55, T.r, 48, 1, 0, Math.PI * 1.2), new THREE.MeshBasicMaterial({ color: '#fff0d0', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); slashRing.rotation.x = -Math.PI / 2; funnel.add(slashRing);
+  G.scene.add(funnel);
+  if (me) { me.ultImmT = 0; me.stormT = T.dur; me.tpT = Math.max(me.tpT || 0, T.dur + 0.3); me.tpDist = 5.5; } else { caster.stormT = T.dur; }
+  caster.spinT = T.dur; caster.spinA = 0; S.cast && S.cast('fire', caster.pos, 1); V.burst('blood', caster.pos.clone().setY(caster.pos.y + 1), 30, { speed: 4 });
+  let t = 0, tickT = 0, sndT = 0, done = false; const hit = new Map(), tipA = new THREE.Vector3(), tipB = new THREE.Vector3(), hA = new THREE.Vector3(), hB = new THREE.Vector3();
+  G.timers.push({ update: (dt) => { t += dt; const p = caster.pos;
+    // computer berserkers in the yard (no brain of their own) drift at their victim
+    if (!me && !caster.arenaBot) { const f = ultFoes(caster)[0]; if (f) { const d = new THREE.Vector3(f.pos.x - p.x, 0, f.pos.z - p.z); const L2 = d.length(); if (L2 > 0.8) { p.addScaledVector(d.normalize(), Math.min(L2, 4.2 * dt)); if (caster.root) caster.root.position.copy(p); } } }
+    const k = Math.min(1, t / 0.3) * (1 - Math.max(0, (t - T.dur + 0.3) / 0.3)); funnel.position.set(p.x, p.y, p.z);
+    funnel.children.forEach((m, i) => { if (m === slashRing) return; m.rotation.z = -t * (11 + i * 4); m.material.opacity = k * (0.55 - i * 0.12); }); slashRing.rotation.z = -t * 16; slashRing.material.opacity = k * 0.35;
+    if (Math.random() < 0.8 * k) { const a = Math.random() * Math.PI * 2, r0 = T.r * (0.5 + Math.random() * 0.6); V.emit('dust', new THREE.Vector3(p.x + Math.cos(a) * r0, p.y + 0.1 + Math.random() * 0.4, p.z + Math.sin(a) * r0), { speed: 2.5, size: 0.6, life: 0.6, dir: new THREE.Vector3(-Math.sin(a), 0.4, Math.cos(a)) }); }
+    if (Math.random() < 0.5 * k) V.emit('spark', p.clone().setY(p.y + 1.2 + (Math.random() - 0.5) * 0.4), { speed: 7, size: 0.18, life: 0.3 });
+    // the axes carve bright arcs as he turns
+    if (ch && ch.arms && t < T.dur) { ch.root.updateMatrixWorld(true); ch.arms.R.hand.getWorldPosition(hA); ch.arms.L.hand.getWorldPosition(hB); const out = (h) => h.clone().sub(p.clone().setY(h.y)).normalize();
+      tipA.copy(hA).addScaledVector(out(hA), 0.9); tipB.copy(hB).addScaledVector(out(hB), 0.9); STORM_TRAILS[0].active = true; STORM_TRAILS[1].active = true; STORM_TRAILS[0].push(hA, tipA); STORM_TRAILS[1].push(hB, tipB); }
+    sndT -= dt; if (sndT <= 0 && t < T.dur) { sndT = 0.22; S.swingW && S.swingW('axe', 1.3, p); }
+    // the cuts: everyone inside is dragged in, slowed and hit every tick
+    tickT -= dt; if (tickT <= 0 && t < T.dur) { tickT = T.tick; for (const u of ultFoes(caster)) { const dx = p.x - u.pos.x, dz = p.z - u.pos.z, d = Math.hypot(dx, dz); if (d > T.r) continue;
+        ultHurt(u, T.dmg, caster, 'blood'); hit.set(u, (hit.get(u) || 0) + 1); ultSlow(u, T.slow, T.tick + 0.1); if (d > 0.8) { const pl = Math.min(d - 0.8, T.pull * T.tick); u.pos.x += dx / d * pl; u.pos.z += dz / d * pl; if (u.root) u.root.position.copy(u.pos); }
+        V.burst('blood', u.pos.clone().setY(u.pos.y + 1.1), 10, { speed: 4 }); S.hit && S.hit('flesh', u.pos, 0.6); } if (hit.size) V.addShake(0.12); }
+    if (!done && t >= T.dur) { done = true; STORM_TRAILS[0].active = false; STORM_TRAILS[1].active = false; caster.spinT = 0;
+      V.ring(p.clone().setY(p.y + 0.3), T.r * 2.6, '#ffb070', 0.6); V.burst('dust', p.clone().setY(p.y + 0.5), 70, { speed: 9 }); V.burst('blood', p.clone().setY(p.y + 1), 40, { speed: 7 }); V.addShake(0.8); S.explode && S.explode(p, 0.7);
+      for (const u of ultFoes(caster)) { const dx = u.pos.x - p.x, dz = u.pos.z - p.z, d = Math.hypot(dx, dz); if (d > T.r * 1.4) continue; ultHurt(u, 0.06, caster, 'blood'); const n = new THREE.Vector3(dx, 0, dz).normalize(); if (u === G.player && u.vel) u.vel.set(n.x * 10, 7, n.z * 10); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 0.8); if (u.status.knock) u.status.knock.set(n.x * 10, 0, n.z * 10); } }
+      feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s Bladestorm${hit.size ? ` shreds <b>${[...hit.keys()].map(u => esc2(u.heroName || u.name || 'a fighter')).join(', ')}</b>` : ' spins out'}!`); }
+    if (t > T.dur + 0.4) { G.scene.remove(funnel); return true; }
+    return false; } });
+  return true;
+}
+
+// ---------- the ranger's ultimate: Rain of Arrows ----------
+// a volley loosed straight up; a shadow spreads over the target circle; then a real storm of arrows comes down for
+// several seconds. Each tick everyone inside is struck (arrows aimed at them, stuck in them); the rest pepper the ground.
+export const RAIN = { r: 7, delay: 0.85, dur: 3.2, tick: 0.25, dmg: 0.04, perSec: 45 };
+export function rangerRain(caster, at) {
+  if (at && at.pos) at = at.pos; if (!at) return false; const T = Object.assign({}, RAIN, G.rainTune || {}), me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
+  const base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z), end = T.delay + T.dur;
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(T.r, 48), new THREE.MeshBasicMaterial({ color: '#0a0806', transparent: true, opacity: 0, depthWrite: false })); shadow.rotation.x = -Math.PI / 2; shadow.position.set(C.x, base + 0.05, C.z);
+  const rim = new THREE.Mesh(new THREE.RingGeometry(T.r - 0.15, T.r, 64), new THREE.MeshBasicMaterial({ color: '#ff3a2a', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); rim.rotation.x = -Math.PI / 2; rim.position.set(C.x, base + 0.07, C.z); G.scene.add(shadow, rim);
+  caster.held = true; if (me) { me.ultImmT = end + 0.5; me.ultPoseT = 0; ultFlyCam(me, () => C.clone().setY(base + 1), () => end - 0.4, { r: 14, h: 6 }); } else caster.invulnT = G.time + end + 0.5;
+  const live = []; // arrows in flight or stuck: { m, t, life, from, to, dur, stick: unit|null }
+  const spawn = (to, unit) => { const m = makeArrow(); const from = to.clone().add(new THREE.Vector3(2.5 + Math.random() * 1.5, 16 + Math.random() * 4, -1.5 + Math.random() * 3)); m.position.copy(from); const dir = to.clone().sub(from).normalize(); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir); G.scene.add(m); live.push({ m, t: 0, dur: 0.32 + Math.random() * 0.08, from, to, unit, landed: false }); };
+  let t = 0, volT = 0, rainAcc = 0, tickT = 0, sndT = 0; const struck = new Map(), up = [];
+  S.bowShot && S.bowShot(caster.pos);
+  G.timers.push({ update: (dt) => { t += dt;
+    // the ranger draws and looses upward, again and again, until the storm is in the air
+    if (ch && ch.arms && t < T.delay + 0.2) { ch.arms.L.sh.rotation.set(-2.6, 0, -0.2); ch.arms.R.sh.rotation.set(-2.4, 0, 0.15); ch.arms.R.el.rotation.x = -0.9 + Math.sin(t * 18) * 0.3; }
+    volT -= dt; if (t < T.delay && volT <= 0) { volT = 0.06; const m = makeArrow(); const p0 = caster.pos.clone().setY(caster.pos.y + 1.7); m.position.copy(p0); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3((Math.random() - 0.5) * 0.3, 1, (Math.random() - 0.5) * 0.3).normalize().negate()); G.scene.add(m); up.push({ m, t: 0, v: new THREE.Vector3((Math.random() - 0.5) * 3, 34, (Math.random() - 0.5) * 3) }); if (Math.random() < 0.4) S.bowShot && S.bowShot(caster.pos); }
+    for (let i = up.length - 1; i >= 0; i--) { const a = up[i]; a.t += dt; a.m.position.addScaledVector(a.v, dt); a.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), a.v.clone().normalize().negate()); if (a.t > 0.8) { G.scene.remove(a.m); up.splice(i, 1); } }
+    // the shadow of the storm spreads
+    const sk = Math.min(1, t / T.delay) * (1 - Math.max(0, (t - end) / 0.5)); shadow.material.opacity = 0.38 * sk; shadow.scale.setScalar(0.3 + 0.7 * Math.min(1, t / T.delay)); rim.material.opacity = sk * (0.5 + Math.sin(t * 10) * 0.25);
+    // the rain
+    if (t >= T.delay && t < end) { rainAcc += dt * T.perSec; while (rainAcc >= 1) { rainAcc--; const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * T.r; spawn(new THREE.Vector3(C.x + Math.cos(a) * rr, base, C.z + Math.sin(a) * rr), null); }
+      tickT -= dt; if (tickT <= 0) { tickT = T.tick; for (const u of ultFoes(caster)) { if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) > T.r) continue; for (let k = 0; k < 2; k++) spawn(u.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.9 + Math.random() * 0.7, (Math.random() - 0.5) * 0.5)), u); struck.set(u, (struck.get(u) || 0) + 1); } } }
+    sndT -= dt;
+    for (let i = live.length - 1; i >= 0; i--) { const a = live[i]; a.t += dt;
+      if (!a.landed) { const k = Math.min(1, a.t / a.dur); a.m.position.lerpVectors(a.from, a.to, k);
+        if (k >= 1) { a.landed = true; a.t = 0;
+          if (a.unit && !a.unit.dead) { const vr = a.unit.root || (a.unit.ch && a.unit.ch.root); if (vr) { vr.updateMatrixWorld(true); const lp = vr.worldToLocal(a.to.clone()), q = vr.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(a.m.quaternion); G.scene.remove(a.m); vr.add(a.m); a.m.position.copy(lp).addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(q), 0.2); a.m.quaternion.copy(q); a.stuckTo = vr; }
+            ultHurt(a.unit, T.dmg / 2, caster, 'blood'); V.burst('blood', a.to, 6, { speed: 2.5 }); if (sndT <= 0) { sndT = 0.08; S.hit && S.hit('flesh', a.to, 0.7); } }
+          else { V.burst('dust', a.to.clone().setY(a.to.y + 0.05), 3, { speed: 1.5 }); if (sndT <= 0 && Math.random() < 0.3) { sndT = 0.06; S.hit && S.hit('wood', a.to, 0.4); } a.m.position.y = a.to.y + 0.25; } } }
+      else if (a.t > (a.stuckTo ? 2.2 : 1.6)) { (a.stuckTo || G.scene).remove(a.m); live.splice(i, 1); } }
+    if (me && t > end - 0.2 && me.held) me.held = false;
+    if (t > end + 2.3 && !live.length && !up.length) { G.scene.remove(shadow, rim); caster.held = false; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null;
+      return true; }
+    if (t > end && caster.held) caster.held = false;
     return false; } });
   return true;
 }
@@ -997,6 +1079,8 @@ class ArenaBot {
       case 'demon': if (T && !T.dead) summonDemon(this, T.pos.clone()); return;
       case 'wrath': if (T && !T.dead) paladinWrath(this, T.pos.clone()); return;
       case 'fists': monkFists(this); return;
+      case 'bladestorm': berserkerStorm(this); return;
+      case 'arrowrain': if (T && !T.dead) rangerRain(this, T.pos.clone()); return;
       case 'assassinate': if (T && !T.dead) rogueAssassinate(this, T); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;

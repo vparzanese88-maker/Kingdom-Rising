@@ -326,3 +326,9 @@ export function makeWings() { // golden wings of light: three tiers of long feat
     for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.45), mat); f.position.set(sx * (0.2 + i * 0.16), 0.32, -0.04); f.rotation.z = sx * 1.2; w.add(f); } }
   g.userData.sides = sides; g.userData.mat = mat; return g;
 }
+
+// ---- arrows for the ranger's Rain of Arrows (shared geometry, cheap to make by the hundred) ----
+const AR_G = { shaft: new THREE.CylinderGeometry(0.018, 0.018, 0.85, 5), head: new THREE.ConeGeometry(0.045, 0.14, 5), fl: new THREE.PlaneGeometry(0.09, 0.15) }; let AR_M = null;
+export function makeArrow() { if (!AR_M) AR_M = { shaft: M('#7a5a3a', 0.7), head: M('#9aa0a8', 0.3, 0.8), fl: new THREE.MeshStandardMaterial({ color: '#d84a2a', roughness: 0.8, side: THREE.DoubleSide }) };
+  const g = new THREE.Group(); const s = new THREE.Mesh(AR_G.shaft, AR_M.shaft); g.add(s); const h = new THREE.Mesh(AR_G.head, AR_M.head); h.position.y = -0.49; h.rotation.x = Math.PI; g.add(h);
+  for (let i = 0; i < 2; i++) { const f = new THREE.Mesh(AR_G.fl, AR_M.fl); f.position.y = 0.36; f.rotation.y = i * Math.PI / 2; g.add(f); } return g; } // (point down -Y)

@@ -55,6 +55,9 @@ export function abilityFx(u, a, T) { const f = a && FX[a.id]; if (!f) return; tr
 // ---------- body poses that the generic animation can't do (kicks) ----------
 // u.kickT counts down; while it runs the legs and body take a flying-kick shape (players and computer fighters)
 export function bodyPoseTick(u, ch, dt) {
+  if (ch && u.spinT > 0) { u.spinT -= dt; u.spinA = (u.spinA || 0) + dt * 15; ch.root.rotation.y += u.spinA; const A2 = ch.arms; // (Bladestorm: the whole body whirls, arms out, axes level)
+    if (A2) { A2.R.sh.rotation.set(-0.15, 0, 1.45); A2.L.sh.rotation.set(-0.15, 0, -1.45); A2.R.el.rotation.x = -0.1; A2.L.el.rotation.x = -0.1; }
+    if (ch.legs) { ch.legs.R.thigh.rotation.x = -0.35; ch.legs.L.thigh.rotation.x = 0.25; ch.legs.R.knee.rotation.x = 0.6; ch.legs.L.knee.rotation.x = 0.5; } if (ch.body) ch.body.rotation.x = 0.12; return; }
   if (!ch || !ch.legs || !(u.kickT > 0)) return; u.kickT -= dt; const dur = u.kickDur || 0.55, k = 1 - Math.max(0, u.kickT) / dur, ext = Math.sin(Math.min(1, k * 1.25) * Math.PI * 0.5) * (k > 0.85 ? (1 - k) / 0.15 : 1);
   const s = u.kickSide || 'R', o = s === 'R' ? 'L' : 'R', Lg = ch.legs, A2 = ch.arms;
   Lg[s].thigh.rotation.x = -1.55 * ext; Lg[s].knee.rotation.x = 0.1 + (1 - ext) * 1.2; if (Lg[s].ankle) Lg[s].ankle.rotation.x = 0.5 * ext;

@@ -8,8 +8,9 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain } from './arena.js';
 import { classPortrait } from './portraits.js';
+import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
 import { openKitInfo } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
@@ -21,7 +22,7 @@ const dummies = [];
 const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],
   ...[0, 1, 2, 3, 4].map(i => [-26 + Math.cos(i * 1.256) * 3, 18 + Math.sin(i * 1.256) * 3, 'Pack Dummy']), [24, 22, 'Moving Dummy']];
 export function spawnDummies() {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; // (the finished ultimates work here too)
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.PI; m.home.set(x, heightAt(x, z), z);
@@ -104,7 +105,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 // U in the Training Yard: an enemy necromancer appears in front of you and calls its demon on you, so you can watch the
 // ultimate from the victim's side (you come back to life afterwards)
 let ultBusy = false;
-const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Thousand Fists', '👊', 5], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
+const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Thousand Fists', '👊', 5], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true], berserker: ['arenaStorm', 'Bladestorm', '🌪', 6], ranger: ['arenaRain', 'Rain of Arrows', '🏹', 14] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
 export function yardUltTest(cls = 'necromancer') { const RU = REAL_ULT[cls];
   const P = G.player; if (!P || ultBusy || !RU || !G.hooks[RU[0]]) return; ultBusy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), far = RU[3] || 10, x = P.pos.x + fx * far, z = P.pos.z + fz * far; const home = P.pos.clone();
@@ -114,7 +115,7 @@ export function yardUltTest(cls = 'necromancer') { const RU = REAL_ULT[cls];
   const foe = { pos: ch.root.position, team: 99, heroName: 'Training ' + CLASSES[cls].name, name: 'Training ' + CLASSES[cls].name, root: ch.root, model: ch };
   G.hooks.toast && G.hooks.toast(`An enemy ${CLASSES[cls].name} uses ${RU[1]} on you!`, RU[2], 'bad');
   let t = 0, cast = false;
-  G.timers.push({ update: (dt) => { t += dt; animateHumanoid(ch, dt, { speed: 0, armed: true, ready: true });
+  G.timers.push({ update: (dt) => { t += dt; animateHumanoid(ch, dt, { speed: 0, armed: true, ready: true }); bodyPoseTick(foe, ch, dt);
     if (t < 1.4 && !RU[4]) { const k = Math.min(1, t * 3); ch.arms.R.sh.rotation.x = -2.6 * k; ch.arms.L.sh.rotation.x = -2.6 * k; ch.arms.R.sh.rotation.z = 0.7 * k; ch.arms.L.sh.rotation.z = -0.7 * k; }
     if (t > 0.9 && !cast) { cast = true; G.hooks[RU[0]](foe, RU[4] ? P : P.pos.clone()); }
     if (t > 11) { G.scene.remove(ch.root); ultBusy = false; if (P.dead || P.pos.distanceTo(home) > 0.5) { P.dead = false; P.deadT = 0; P.hp = P.maxHp || P.hp; P.place(home.x, home.z, P.yaw); if (P.ch) P.ch.root.visible = true; const dd = document.getElementById('death'); if (dd) dd.hidden = true; } return true; }

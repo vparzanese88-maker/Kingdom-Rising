@@ -17,7 +17,7 @@ import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
-import { makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -52,7 +52,7 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
-export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'avengingwrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'thousandfists',
+export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'thousandfists',
   ranger: 'rainofarrows', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'shadowdance', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
@@ -132,6 +132,7 @@ const ARENA_NEW = {
   bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
   monk: [{ id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
+  paladin: [{ id: 'ar_wrath', name: 'Avenging Wrath', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Spread golden wings and call down judgment where you aim: a 12 m glyph of light burns into the ground and slows enemies on it, then a giant sword of light plunges out of the sky. Anyone in its heart is impaled; everyone else on the glyph is hurt badly and thrown up; allies on it are healed. Get off the glyph before it lands.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
     { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'A ring of green hellfire bursts up where you aim and slows every enemy inside it while a skeletal demon claws its way out. Whoever is still in the ring and closest to the centre when it rises is seized, lifted over its head and has their head bitten off. If everyone escapes the ring, it hunts around and sinks back down.' },
     { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
@@ -197,7 +198,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.arenaDemon = summonDemon;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -224,6 +225,90 @@ export function initArena(hooks) {
 export function playerHero() { const sl = mySlot(); return arenaHero(sl, sl.name || 'You'); }
 const RUINS_MAP = () => AR.map === 'ruins';
 // the necromancer's ultimate: the demon rises in front of the victim, lifts them overhead, bites their head off, sinks away
+// ---------- shared pieces for the ultimates (every class's big moment uses these) ----------
+// who an ultimate can hurt or help: in the arena by team; in the Training Yard the dummies (if you cast) or you (if an enemy casts)
+export function ultFoes(caster) { const inAr = A.F && A.F.length > 0, team = caster === G.player ? G.myTeam : caster.team;
+  return (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); }
+export function ultFriends(caster) { const inAr = A.F && A.F.length > 0, team = caster === G.player ? G.myTeam : caster.team;
+  return inAr ? A.F.filter(f => f.alive && f.team === team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? [G.player] : []; }
+export const ultGround = (at) => (A.F && A.F.length > 0) ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z);
+// hurt a fraction of someone's health (ultimates are measured against the target, not the caster's weapon)
+export function ultHurt(u, frac, caster, kind = 'gold') { if (!u || u.dead) return; const n = (u.maxHp || 1000) * frac, c = u.pos.clone().setY(u.pos.y + 1.2);
+  if (u === G.player) { if ((u.ultImmT || 0) > 0) return; u.hp -= n; u.hurtT = 0.3; V.addShake(0.4); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
+  else if (u.dummy) { u.takeHit && u.takeHit(n, caster, {}); }
+  else { if (u.invulnT > G.time) return; u.hp -= n; if (u.flash) u.flash(); if (u.hp <= 0) { u.hp = 0; u.die && u.die(caster); } }
+  V.number(c, String(Math.round(n)), 'dmg'); V.burst(kind, c, 16, { speed: 4 }); }
+export function ultKill(u, caster) { if (!u || u.dead) return; if (u === G.player) { u.hp = 0; u.die && u.die(caster); } else if (u.dummy) u.takeHit && u.takeHit(99999, caster, {}); else { u.hp = 0; u.die && u.die(caster); } }
+export function ultHeal(u, frac) { if (!u || u.dead) return; const n = (u.maxHp || 1000) * frac; if (u === G.player && u.heal) u.heal(n); else u.hp = Math.min(u.maxHp, u.hp + n); V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 20, { speed: 2, vy: 2 }); }
+export function ultSlow(u, k, dur) { if (!u || u.dead) return; u.ultSlowT = G.time + dur; u.ultSlowK = k; }
+// the caster's camera: flies up and out of their eyes to circle the action, then back. focus() gives the point to watch;
+// backAt() the time to fly home (seconds into the ultimate). Returns the camera function (it is set as p.cine).
+export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, Q0 = new THREE.Quaternion(), Qb = new THREE.Quaternion(), M4 = new THREE.Matrix4(), P0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
+  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, r = opts.r || 13, h = opts.h || 5, a0 = opts.ang != null ? opts.ang : p.yaw + Math.PI + 0.7;
+  const cam = (c) => { const ct = G.time - t0, k = e(ct / 1.0) * (1 - e((ct - backAt()) / 0.95)); P0.copy(p.pos); P0.y += p.eye; Q0.setFromEuler(new THREE.Euler(p.pitch, p.yaw + Math.PI, 0, 'YXZ'));
+    tgt.copy(focus(ct)); const ang = a0 + ct * 0.18;
+    if (off == null || G.time - chk > 0.5) { chk = G.time; off = 0; for (let i = 0; i < 12; i++) { const a2 = ang + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.5; if (lineClear(tgt, new THREE.Vector3(tgt.x + Math.cos(a2) * r, tgt.y + h, tgt.z + Math.sin(a2) * r))) { off = a2 - ang; break; } } }
+    offS += (off - offS) * 0.06; Ob.set(tgt.x + Math.cos(ang + offS) * r, tgt.y + h, tgt.z + Math.sin(ang + offS) * r); M4.lookAt(Ob, tgt, new THREE.Vector3(0, 1, 0)); Qb.setFromRotationMatrix(M4);
+    c.position.lerpVectors(P0, Ob, k); c.position.y += Math.sin(k * Math.PI) * 2.5; c.quaternion.slerpQuaternions(Q0, Qb, k); };
+  p.cine = cam; return cam; }
+// the victim's cinematic: letterbox bars, the HUD gone, a slow third-person orbit framing you and the threat, for dur seconds
+export function ultVictimCine(p, threat, dur) { if (!p || p.cine) return; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); }
+  requestAnimationFrame(() => bars.classList.add('on')); document.body.classList.add('cine'); const t0 = G.time, side = Math.random() < 0.5 ? 1 : -1, mid = new THREE.Vector3();
+  const cam = (c) => { const ct = G.time - t0, pc = p.pos.clone().setY(p.pos.y + 1), th = threat(ct); mid.lerpVectors(th, pc, 0.55); const ax = pc.x - th.x, az = pc.z - th.z, ang = Math.atan2(az * side, -ax * side) + ct * 0.2, r = Math.max(8, Math.hypot(ax, az) * 0.6 + 6);
+    c.position.set(mid.x + Math.cos(ang) * r, mid.y + 2 + ct * 0.3, mid.z + Math.sin(ang) * r); c.lookAt(mid); c.fov = 50;
+    if (ct > dur) { if (p.cine === cam) p.cine = null; document.body.classList.remove('cine'); bars.classList.remove('on'); } };
+  p.cine = cam; }
+
+// ---------- the paladin's ultimate: Avenging Wrath ----------
+// golden wings; a 7 m judgment glyph burns into the ground where he aims and weighs enemies down; a giant sword of light
+// plunges from the sky onto it. Its heart (2.5 m) impales and kills; the rest of the glyph hurts badly and throws people
+// up; allies on it are healed. Counterplay: get off the glyph before the sword lands.
+export const WRATH = { r: 12, core: 3, impact: 2.3, slow: 0.35, hurt: 0.45, heal: 0.3 }; // (tuned with tools/ulttest.cjs)
+export function paladinWrath(caster, at) {
+  if (at && at.pos) at = at.pos; if (!at) return false; const T = Object.assign({}, WRATH, G.wrathTune || {});
+  const base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z), me = caster === G.player ? G.player : null;
+  const glyph = makeGlyph(T.r); glyph.position.set(C.x, base + 0.06, C.z); G.scene.add(glyph);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(T.r * 0.92, T.r * 0.92, 40, 40, 1, true), new THREE.MeshBasicMaterial({ color: '#ffe080', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); pillar.position.set(C.x, base + 20, C.z); G.scene.add(pillar);
+  const sword = makeLightSword(); sword.position.set(C.x, base + 40, C.z); sword.scale.setScalar(0.01); G.scene.add(sword);
+  const cross = new THREE.Group(); for (const ry of [0, Math.PI / 2]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(T.r * 2.2, 1.1), new THREE.MeshBasicMaterial({ color: '#fff0b0', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.set(-Math.PI / 2, 0, ry); cross.add(m); } cross.position.set(C.x, base + 0.08, C.z); G.scene.add(cross);
+  // the caster: wings bloom from the back, sword raised, untouchable; his camera flies out to watch
+  const body = caster === G.player ? caster.ch && caster.ch.root : caster.root, chest = caster === G.player ? caster.ch && caster.ch.chest : caster.model && caster.model.chest;
+  const wings = makeWings(); if (chest) { wings.position.set(0, 0.15, -0.18); chest.add(wings); } wings.scale.setScalar(0.01);
+  if (me) { me.held = true; me.ultImmT = T.impact + 2.6; me.ultPoseT = 3.5; ultFlyCam(me, (ct) => C.clone().setY(base + (ct < T.impact ? 5 : 2)), () => T.impact + 1.6, { r: 15, h: 6 }); }
+  else { caster.invulnT = G.time + T.impact + 1; }
+  S.cast && S.cast('holy', C, 1.4); V.burst('gold', (body ? body.position : C).clone().setY(base + 1.5), 50, { speed: 5 });
+  let t = 0, struck = false, slT = 0, motesT = 0; const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (x, a, b) => e((x - a) / (b - a));
+  const victims = [], impaled = [];
+  G.timers.push({ update: (dt) => { t += dt;
+    if (struck && impaled.length && t >= T.impact + 0.9) { for (const u of impaled) { u.held = false; ultKill(u, caster); } impaled.length = 0; } // (pinned under the blade a moment, then it is over)
+    // wings bloom and beat slowly
+    const wk = seg(t, 0, 0.5) * (1 - seg(t, T.impact + 2.0, T.impact + 2.6)); wings.scale.setScalar(Math.max(0.01, wk * 1.15)); for (const [i, w] of wings.userData.sides.entries()) w.rotation.y = (i ? -1 : 1) * (0.35 + Math.sin(t * 3) * 0.15);
+    // the glyph burns in, turns, and fades after the strike
+    const gk = seg(t, 0, 0.45) * (1 - seg(t, T.impact + 1.4, T.impact + 2.4)); glyph.material.opacity = gk * (0.75 + Math.sin(t * 9) * 0.1); glyph.rotation.z = t * 0.6; glyph.scale.setScalar(0.3 + 0.7 * seg(t, 0, 0.45));
+    pillar.material.opacity = 0.12 * seg(t, 0.1, 0.6) * (1 - seg(t, T.impact - 0.2, T.impact + 0.2));
+    // enemies on the glyph are weighed down until it lands
+    slT -= dt; if (!struck && slT <= 0) { slT = 0.2; for (const u of ultFoes(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) { ultSlow(u, T.slow, 0.35); if (Math.random() < 0.4) V.emit('gold', u.pos.clone().setY(u.pos.y + 0.2), { speed: 0.5, vy: -1, size: 0.25 }); } }
+    // the sword forms high up, turns slowly, then falls faster and faster
+    if (!struck) { const fk = seg(t, 0.3, 0.8); sword.scale.setScalar(Math.max(0.01, fk)); const k = Math.max(0, Math.min(1, (t - 0.8) / (T.impact - 0.8))), drop = k * k * k; sword.position.y = base + 40 - (40 - 12) * drop; sword.rotation.y = t * (0.6 + drop * 3);
+      sword.userData.halo.rotation.z = t * 2; motesT -= dt; if (motesT <= 0 && fk > 0.5) { motesT = 0.05; V.emit('gold', sword.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, -Math.random() * 12, (Math.random() - 0.5) * 1.2)), { speed: 0.6, size: 0.35, life: 0.8 }); }
+      if (k > 0.85) V.addShake(dt * 2); }
+    if (!struck && t >= T.impact) { struck = true; sword.position.y = base + 12 - 2.2; sword.rotation.y = 0.3;
+      V.burst('gold', C.clone().setY(base + 0.5), 160, { speed: 12 }); V.burst('stone', C.clone().setY(base + 0.3), 70, { speed: 9, grav: 14 }); V.burst('dust', C.clone().setY(base + 0.3), 60, { speed: 7 });
+      V.ring(C.clone().setY(base + 0.2), T.r * 2.2, '#fff0a0', 0.8); V.ring(C.clone().setY(base + 0.3), T.r * 1.2, '#ffd060', 0.5); V.sphereFlash(C.clone().setY(base + 1.5), T.r * 0.9, '#fff4c0', 0.45); V.light(C.clone().setY(base + 4), '#ffe090', 16, 1.0, 40); V.addShake(1.3);
+      S.explode && S.explode(C, 1.3); S.cast && S.cast('holy', C, 1.6);
+      for (const u of ultFoes(caster)) { const d = Math.hypot(u.pos.x - C.x, u.pos.z - C.z); if (d >= T.r) continue;
+        if (d < T.core) { victims.push(u); if (u === G.player) ultVictimCine(u, () => C.clone().setY(base + 3), 2.2); u.held = true; u.pos.x = C.x + (u.pos.x - C.x) * 0.3; u.pos.z = C.z + (u.pos.z - C.z) * 0.3; if (u.root) u.root.position.copy(u.pos); V.burst('blood', u.pos.clone().setY(u.pos.y + 1), 50, { speed: 5 }); impaled.push(u); }
+        else { ultHurt(u, T.hurt, caster, 'gold'); if (u === G.player) { ultVictimCine(u, () => C.clone().setY(base + 3), 1.6); if (u.vel) { const dx = u.pos.x - C.x, dz = u.pos.z - C.z, L2 = Math.hypot(dx, dz) || 1; u.vel.set(dx / L2 * 7, 10, dz / L2 * 7); } } else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1.2); if (u.knockUp) u.knockUp(1.2); } } }
+      for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) ultHeal(u, T.heal);
+      feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> calls down Avenging Wrath${victims.length ? `, impaling <b>${victims.map(v => esc2(v.heroName || v.name || 'a fighter')).join(', ')}</b>` : ''}!`); }
+    if (struck) { const ak = t - T.impact; cross.children.forEach(m => { m.material.opacity = 0.8 * seg(ak, 0, 0.15) * (1 - seg(ak, 1.2, 2.4)); }); sword.userData.glow.material.opacity = 0.45 + Math.sin(t * 10) * 0.15;
+      if (ak > 1.6) { const k = seg(ak, 1.6, 2.6); sword.position.y = base + 9.8 + k * 6; sword.scale.setScalar(Math.max(0.01, 1 - k)); if (Math.random() < 0.5) V.emit('gold', sword.position.clone().setY(base + Math.random() * 8), { speed: 0.4, vy: 3, size: 0.3 }); } }
+    if (me && t > T.impact + 2.2 && me.held) { me.held = false; me.ultPoseT = 0; }
+    if (t > T.impact + 2.8) { for (const o of [glyph, pillar, sword, cross]) G.scene.remove(o); if (wings.parent) wings.parent.remove(wings); if (me) { me.held = false; if (me.cine && !document.body.classList.contains('cine')) me.cine = null; } return true; }
+    return false; } });
+  return true;
+}
+
 export function summonDemon(caster, at) {
   // the necromancer's ultimate, cast on the ground: a ring of green hellfire bursts up, the floor cracks and glows, and a
   // skeletal demon claws its way slowly out of the pit and roars. When it is up it seizes the nearest enemy in reach, lifts
@@ -743,7 +828,7 @@ class ArenaBot {
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
     const far = !T || dT > 14 || !!roomOf(me.x, me.z); // run between fights, walk-speed footwork inside them (players run 5.2)
-    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.156 : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
+    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.156 : this.ultSlowT > G.time ? this.ultSlowK : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.rampage > 0 ? 1.2 : 1);
     this.vel = this.vel || V3(); const want = L > 0.3 ? V3(mx / L * Math.min(sp, L * 3), 0, mz / L * Math.min(sp, L * 3)) : V3(); this.vel.lerp(want, Math.min(1, dt * 4)); me.x += this.vel.x * dt; me.z += this.vel.z * dt; sp = this.vel.length(); // speed up and slow down, no snapping
     const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 6);
     return sp;
@@ -821,6 +906,7 @@ class ArenaBot {
       case 'stealth': if (a.step) { const tg = T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 12 ? T : null; V.burst('shadow', me.clone().setY(me.y + 1), 30, { speed: 3 }); if (tg) { const by = tg.yaw || 0; me.set(tg.pos.x - Math.sin(by) * 1.4, me.y, tg.pos.z - Math.cos(by) * 1.4); this.yaw = by; } else me.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), a.step); }
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
       case 'demon': if (T && !T.dead) summonDemon(this, T.pos.clone()); return;
+      case 'wrath': if (T && !T.dead) paladinWrath(this, T.pos.clone()); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;
       case 'petheal': for (const p of this.pets) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * (a.petPct || 0.35)); return;

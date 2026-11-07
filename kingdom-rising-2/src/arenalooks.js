@@ -288,3 +288,35 @@ export function makeHellRing(radius = 4.6, n = 40) {
       f.outer.material.opacity = 0.5 * on; f.inner.material.opacity = 0.42 * on; f.fg.position.x += Math.sin(t * 3 + f.ph) * 0.002; } };
   return g;
 }
+
+// ---- the paladin's ultimate: a giant sword of light, the judgment glyph on the ground, golden wings ----
+let GLYPH_T = null;
+function glyphTex() { if (GLYPH_T) return GLYPH_T; const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), m = 256;
+  x.strokeStyle = '#ffe9a0'; x.fillStyle = '#ffe9a0'; x.shadowColor = '#ffc840'; x.shadowBlur = 14; x.lineCap = 'round';
+  const ring = (r, w) => { x.lineWidth = w; x.beginPath(); x.arc(m, m, r, 0, Math.PI * 2); x.stroke(); };
+  ring(246, 8); ring(226, 3); ring(150, 5); ring(70, 4);
+  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; x.save(); x.translate(m + Math.cos(a) * 236, m + Math.sin(a) * 236); x.rotate(a + Math.PI / 2); x.font = 'bold 22px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ'[i], 0, 0); x.restore(); }
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; x.lineWidth = i % 2 ? 3 : 6; x.beginPath(); x.moveTo(m + Math.cos(a) * 70, m + Math.sin(a) * 70); x.lineTo(m + Math.cos(a) * 226, m + Math.sin(a) * 226); x.stroke(); }
+  x.lineWidth = 10; x.beginPath(); x.moveTo(m, m - 120); x.lineTo(m, m + 120); x.moveTo(m - 80, m - 40); x.lineTo(m + 80, m - 40); x.stroke(); // a cross at the heart
+  GLYPH_T = new THREE.CanvasTexture(c); GLYPH_T.colorSpace = THREE.SRGBColorSpace; return GLYPH_T; }
+export function makeGlyph(radius) { const m = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), new THREE.MeshBasicMaterial({ map: glyphTex(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: '#ffd870' })); m.rotation.x = -Math.PI / 2; return m; }
+export function makeLightSword() {
+  // blade down -Y from the crossguard; ~12 m long; a white-hot core in a golden glow
+  const g = new THREE.Group(), gold = M('#ffd060', 0.25, 0.9, { emissive: '#ffb020', emissiveIntensity: 0.9 }), core = M('#fffbe8', 0.2, 0.2, { emissive: '#fff4c8', emissiveIntensity: 1.4 });
+  const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.02, 12, 4, 1), core); blade.scale.set(1, 1, 0.22); blade.rotation.y = Math.PI / 4; blade.position.y = -6; g.add(blade);
+  const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.05, 12.4, 4, 1), new THREE.MeshBasicMaterial({ color: '#ffd060', transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.set(1, 1, 0.35); glow.rotation.y = Math.PI / 4; glow.position.y = -6.1; g.add(glow);
+  const guard = add(g, boxG(3.4, 0.38, 0.5), gold, 0, 0.1, 0); for (const sx of [-1, 1]) { add(g, sph(0.32, 12, 10), gold, sx * 1.8, 0.1, 0); add(g, coneG(0.18, 0.6, 8), gold, sx * 1.55, -0.35, 0).rotation.z = sx * 0.5; }
+  add(g, cylG(0.17, 0.17, 2.0, 10), M('#6a4a2a', 0.6), 0, 1.25, 0); for (let i = 0; i < 4; i++) add(g, new THREE.TorusGeometry(0.19, 0.035, 6, 14), gold, 0, 0.5 + i * 0.45, 0).rotation.x = Math.PI / 2;
+  add(g, sph(0.36, 14, 12), gold, 0, 2.45, 0); const gem = add(g, sph(0.2, 12, 10), GL('#fff8c0'), 0, 0.1, 0.26); gem.castShadow = false;
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.06, 8, 40), new THREE.MeshBasicMaterial({ color: '#fff0a0', transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })); halo.position.y = 1.4; halo.rotation.x = Math.PI / 2; g.add(halo);
+  g.userData = { halo, glow };
+  return g;
+}
+export function makeWings() { // golden wings of light: three tiers of long feathers on each side, folded until they bloom
+  const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: '#ffd870', transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const sides = [];
+  for (const sx of [-1, 1]) { const w = new THREE.Group(); w.position.set(sx * 0.12, 0, 0); g.add(w); sides.push(w);
+    for (let i = 0; i < 9; i++) { const len = 0.7 + i * 0.13, f = new THREE.Mesh(new THREE.PlaneGeometry(0.16, len), mat); const a = 0.25 + i * 0.16; f.position.set(sx * (0.15 + i * 0.13), 0.15 + Math.sin(a) * 0.45 - len * 0.35, -0.05); f.rotation.z = sx * (0.35 + i * 0.09); w.add(f); }
+    for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.45), mat); f.position.set(sx * (0.2 + i * 0.16), 0.32, -0.04); f.rotation.z = sx * 1.2; w.add(f); } }
+  g.userData.sides = sides; g.userData.mat = mat; return g;
+}

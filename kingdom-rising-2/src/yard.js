@@ -8,7 +8,7 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath } from './arena.js';
 import { classPortrait } from './portraits.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
 import { openKitInfo } from './arena.js';
@@ -21,7 +21,7 @@ const dummies = [];
 const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],
   ...[0, 1, 2, 3, 4].map(i => [-26 + Math.cos(i * 1.256) * 3, 18 + Math.sin(i * 1.256) * 3, 'Pack Dummy']), [24, 22, 'Moving Dummy']];
 export function spawnDummies() {
-  G.hooks.arenaDemon = summonDemon; // (the necromancer's demon ultimate works here too)
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.PI; m.home.set(x, heightAt(x, z), z);
@@ -103,18 +103,19 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 // U in the Training Yard: an enemy necromancer appears in front of you and calls its demon on you, so you can watch the
 // ultimate from the victim's side (you come back to life afterwards)
 let ultBusy = false;
-export function yardUltTest() {
-  const P = G.player; if (!P || ultBusy || !G.hooks.arenaDemon) return; ultBusy = true;
+const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'] }; // (the classes whose ultimate is finished: the real thing, cast on you)
+export function yardUltTest(cls = 'necromancer') { const RU = REAL_ULT[cls];
+  const P = G.player; if (!P || ultBusy || !RU || !G.hooks[RU[0]]) return; ultBusy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.pos.x + fx * 10, z = P.pos.z + fz * 10; const home = P.pos.clone();
-  const ch = buildHumanoid({ race: 'human', sex: 'm', cls: 'necromancer', outfit: 'necromancer', spec: arenaSpec('necromancer'), body: arenaBody('necromancer') }); arenaDecor(ch, 'necromancer');
-  try { equipWeapon(ch, CLASSES.necromancer.weapons[0], 3, 0); arenaWeaponDecor(ch, 'necromancer'); } catch (e) { /* no weapon model */ }
+  const ch = buildHumanoid({ race: 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls) }); arenaDecor(ch, cls);
+  try { equipWeapon(ch, CLASSES[cls].weapons.includes('swordshield') ? 'swordshield' : CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
   addOutline(ch.root, '#8a0c06'); ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = Math.atan2(-fx, -fz); G.scene.add(ch.root);
-  const foe = { pos: ch.root.position, team: 99, heroName: 'Training Necromancer', name: 'Training Necromancer' };
-  G.hooks.toast && G.hooks.toast('An enemy Necromancer calls its demon on you!', '☠', 'bad');
+  const foe = { pos: ch.root.position, team: 99, heroName: 'Training ' + CLASSES[cls].name, name: 'Training ' + CLASSES[cls].name, root: ch.root, model: ch };
+  G.hooks.toast && G.hooks.toast(`An enemy ${CLASSES[cls].name} uses ${RU[1]} on you!`, RU[2], 'bad');
   let t = 0, cast = false;
   G.timers.push({ update: (dt) => { t += dt; animateHumanoid(ch, dt, { speed: 0, armed: true, ready: true });
     if (t < 1.4) { const k = Math.min(1, t * 3); ch.arms.R.sh.rotation.x = -2.6 * k; ch.arms.L.sh.rotation.x = -2.6 * k; ch.arms.R.sh.rotation.z = 0.7 * k; ch.arms.L.sh.rotation.z = -0.7 * k; }
-    if (t > 0.9 && !cast) { cast = true; G.hooks.arenaDemon(foe, P.pos.clone()); }
+    if (t > 0.9 && !cast) { cast = true; G.hooks[RU[0]](foe, P.pos.clone()); }
     if (t > 11) { G.scene.remove(ch.root); ultBusy = false; if (P.dead || P.pos.distanceTo(home) > 0.5) { P.dead = false; P.deadT = 0; P.hp = P.maxHp || P.hp; P.place(home.x, home.z, P.yaw); if (P.ch) P.ch.root.visible = true; const dd = document.getElementById('death'); if (dd) dd.hidden = true; } return true; }
     return false; } });
 }

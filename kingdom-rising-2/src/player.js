@@ -764,7 +764,7 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : 1.5; V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = id === 'ar_demon' ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
@@ -824,6 +824,7 @@ export class Player {
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
+      case 'ar_wrath': { if (!G.hooks.arenaWrath) break; G.hooks.arenaWrath(this, groundPoint(30)); S.cast('holy', this.pos, 1.4); break; } // (judgment where you aim)
       case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = groundPoint(24); G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.cast('arcane', this.pos, 1.4); break; } // (cast on the ground where you aim)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
@@ -1862,7 +1863,7 @@ export class Player {
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
-    if (this.ringSlowT > G.time) spd *= 0.156; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
+    if (this.ringSlowT > G.time) spd *= 0.156; else if (this.ultSlowT > G.time) spd *= this.ultSlowK; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
     if (this.stagger > 0) spd *= 0.3;
     this.sprinting = sprint && md.lengthSq() > 0.1;
     // dodge / charge / leap override

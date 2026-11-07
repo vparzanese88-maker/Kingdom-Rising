@@ -237,7 +237,7 @@ export function summonDemon(caster, at) {
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
   let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
-  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null;
+  const hp = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null, froze = false;
   const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
   const me = caster === G.player ? G.player : null; let flyCam = null;
   if (me) { me.held = true; me.ultImmT = 9; me.ultPoseT = 0; me.headUpT = 0; me.oozeT = 7.5; me.oozeE = 0; me.tpT = 0; startFly(); }
@@ -247,6 +247,8 @@ export function summonDemon(caster, at) {
     const end = sinkAt + 1.8, fk = Math.min(seg(t, 0, 1.1), 1 - seg(t, sinkAt + 1.2, end)); ring.userData.tick(fk, t);
     emT -= dt; if (emT <= 0 && fk > 0.2) { emT = 0.04; for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; V.emit('poison', new THREE.Vector3(ox + Math.cos(a) * RR, base + 0.4 + Math.random(), oz + Math.sin(a) * RR), { speed: 1.2, vy: 3.5, size: 0.35, life: 1.1 }); } }
     liT -= dt; if (liT <= 0 && fk > 0.1) { liT = 0.15; V.light(new THREE.Vector3(ox, base + 2.5, oz), '#40ff60', (5 + Math.random() * 2) * fk, 0.2, 18); }
+    // the moment the ring bursts up, everyone caught inside it is frozen in place for a second
+    if (!froze && t >= 0.25) { froze = true; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { if (u === G.player) G.player.debuff && G.player.debuff('stun', 1); else if (u.status) { u.status.frozen = Math.max(u.status.frozen || 0, 1); u.cast = null; } V.burst('poison', u.pos.clone().setY(u.pos.y + 1), 20, { speed: 2.5 }); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.1, '#3aff5a', 0.3); } }
     // everyone inside the fire ring is slowed while the demon rises (escape the circle and you are safe)
     slT -= dt; if (slT <= 0 && !bit && t < (victim ? GRAB : sinkAt)) { slT = 0.25; for (const u of enemies()) if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < RR) { u.ringSlowT = G.time + 0.4; /* (the demon's ring slows far harder than a normal slow: to 15.6% speed) */ } }
     // rising: a slow, heavy climb with a judder, clawing at the edge of the pit; sinking: slow, dragged back down

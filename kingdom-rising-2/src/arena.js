@@ -229,7 +229,7 @@ export function summonDemon(caster, at) {
   // skeletal demon claws its way slowly out of the pit and roars. When it is up it seizes the nearest enemy in reach, lifts
   // them overhead while they struggle, and bites their head off, then sinks back as the fire dies. Nobody in reach: it
   // searches, roars in fury, and sinks back down. Whoever is caught sees it all from a cinematic camera.
-  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 4.6; // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
+  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 6.9; // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
   const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
   const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.y = face; G.scene.add(g); addOutline(g);
   const ring = makeHellRing(RR, 64); ring.position.copy(center); G.scene.add(ring);

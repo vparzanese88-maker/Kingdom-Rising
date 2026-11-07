@@ -1704,7 +1704,7 @@ export class Player {
     if (this.dodge || this.dead || this.gathering || !this.onGround || this.swim) return;
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast') return;
     const kind = DODGE_OF[this.h.cls] || 'roll', D = DODGES[kind];
-    const cost = D.cost * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
+    const cost = (this.h.arena ? (this.maxEnd || 100) / 3 - 0.01 : D.cost) /* (the arena: a dodge costs a third of your endurance, so three in a row) */ * (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 9 ? 0.6 : 1) * (this.pk('evasive') ? 0.5 : 1);
     if (this.end < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Too tired', 'miss'); return; }
     this.end -= cost; this.endUseT = 1;
     let dir = dirOverride ? dirOverride : this.moveDir && this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : this.fwd().multiplyScalar(-1);

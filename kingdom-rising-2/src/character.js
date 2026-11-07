@@ -407,7 +407,7 @@ export function buildHumanoid(app = {}) {
   ch.detailOn = true;
   return ch;
 }
-export function setDetail(ch, on) { if (ch.detailOn === on) return; ch.detailOn = on; for (const o of ch.details) o.visible = on; }
+export function setDetail(ch, on) { if (ch.detailOn === on) return; ch.detailOn = on; const hm = ch.heroModel; for (const o of ch.details) o.visible = on && !(hm && o.userData.hmHide); } // (a 3D model replaced the built body: its hidden pieces stay hidden)
 
 function buildHead(g, app, kind, female, mats, glowM) {
   const sk = mats.skin;

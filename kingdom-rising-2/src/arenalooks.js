@@ -495,18 +495,19 @@ export function makeClaws(len = 0.42) { const g = new THREE.Group(), steel = M('
 // ---- goblin guns: cheap rusty steel, mismatched plates, pipes, gears and gadgets bolted on (barrel along +Y) ----
 export function goblinGun(w, cls, s = 1) { if (!w || w.userData.goblin) return; w.userData.goblin = true;
   const rust = M('#7a5236', 0.75, 0.45), steel = M('#6a6a66', 0.5, 0.75), brass = M('#b08a3a', 0.4, 0.85), rag = M('#8a7a5a', 0.95), dark = M('#2a2420', 0.8), glow = GL(cls === 'blunderbuss' ? '#ff9a3a' : '#7aff5a');
-  w.traverse(o => { if (o.isMesh && o.material && o.material.metalness > 0.5) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color('#7a5a40'), 0.55); o.material.roughness = Math.max(o.material.roughness, 0.6); } }); // (rust over the steel)
+  if (cls !== 'musketeer') w.traverse(o => { if (o.isMesh && o.material && o.material.metalness > 0.5) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color('#7a5a40'), 0.55); o.material.roughness = Math.max(o.material.roughness, 0.6); } }); // (rust over the steel)
   const a = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x * s, y * s, z * s); o.rotation.set(rx, ry, rz); o.scale.setScalar(s); o.castShadow = true; w.add(o); return o; };
   const gear = (x, y, z, r, ry = 0) => { const g = a(new THREE.TorusGeometry(r, r * 0.28, 5, 10), steel, x, y, z, 0, ry, 0); for (let i = 0; i < 8; i++) { const t2 = new THREE.Mesh(new THREE.BoxGeometry(r * 0.35, r * 0.35, r * 0.4), steel); const an = i / 8 * Math.PI * 2; t2.position.set(Math.cos(an) * r * 1.25, Math.sin(an) * r * 1.25, 0); g.add(t2); } return g; };
-  for (const [y, z] of [[0.15, 0.03], [0.42, -0.03], [0.6, 0.02]]) a(new THREE.BoxGeometry(0.05, 0.08, 0.012), rust, 0.03, y, z, 0, 0, 0.3); // (mismatched patches)
-  for (let i = 0; i < 6; i++) a(new THREE.SphereGeometry(0.008, 5, 4), brass, 0.028, 0.1 + i * 0.1, 0.02); // (rivets)
-  a(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), rag, 0, -0.06, 0); // (rag-wrapped grip)
-  if (cls === 'musketeer') { // a sniper contraption: an oversized scope on wobbly brackets, a gauge, a geared hammer, a glowing fuel canister
-    const sc = a(new THREE.CylinderGeometry(0.035, 0.028, 0.42, 12), brass, 0, 0.42, 0.075); a(new THREE.TorusGeometry(0.038, 0.008, 6, 14), steel, 0, 0.64, 0.075, Math.PI / 2); a(new THREE.SphereGeometry(0.032, 10, 8), GL('#9ae0ff'), 0, 0.635, 0.075).scale.y = 0.2;
-    for (const y of [0.3, 0.52]) a(new THREE.BoxGeometry(0.012, 0.012, 0.06), steel, 0, y, 0.045);
-    gear(0.04, 0.08, 0.0, 0.03, Math.PI / 2); a(new THREE.CylinderGeometry(0.025, 0.025, 0.012, 12), brass, -0.035, 0.2, 0.0, 0, 0, Math.PI / 2); a(new THREE.BoxGeometry(0.002, 0.016, 0.002), dark, -0.042, 0.2, 0.004, 0, 0, 0.6);
-    const can = a(new THREE.CylinderGeometry(0.022, 0.022, 0.09, 10), steel, -0.04, 0.05, -0.02); a(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 10), glow, -0.04, 0.05, -0.02).scale.set(1.05, 1, 1.05);
-    a(new THREE.TorusGeometry(0.05, 0.005, 4, 12, Math.PI), M('#3a3a30', 0.6, 0.6), -0.02, 0.28, -0.02, 0, Math.PI / 2, 0); } // (a tube from the canister to the breech)
+  if (cls !== 'musketeer') for (const [y, z] of [[0.15, 0.03], [0.42, -0.03], [0.6, 0.02]]) a(new THREE.BoxGeometry(0.05, 0.08, 0.012), rust, 0.03, y, z, 0, 0, 0.3); // (mismatched patches)
+  if (cls !== 'musketeer') for (let i = 0; i < 6; i++) a(new THREE.SphereGeometry(0.008, 5, 4), brass, 0.028, 0.1 + i * 0.1, 0.02); // (rivets)
+  if (cls !== 'musketeer') a(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), rag, 0, -0.06, 0); // (rag-wrapped grip)
+  if (cls === 'musketeer') { // a proper flintlock musket: no scope; ramrod, trigger guard, frizzen and pan, butt plate, sling swivels
+    const wood = M('#6a3e22', 0.7), iron = M('#3a3a3c', 0.55, 0.8);
+    a(new THREE.CylinderGeometry(0.0045, 0.0045, 0.86, 8), wood, 0, 0.48, -0.028); a(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 8), brass, 0, 0.92, -0.028); // (the ramrod in its channel under the barrel, brass tip)
+    a(new THREE.TorusGeometry(0.03, 0.004, 6, 14, Math.PI), brass, 0, -0.02, -0.04, 0, Math.PI / 2, 0); a(new THREE.BoxGeometry(0.004, 0.022, 0.004), iron, 0, -0.01, -0.03, 0.4); // (trigger guard and trigger)
+    a(new THREE.BoxGeometry(0.01, 0.07, 0.035), iron, 0.032, 0.08, 0.01); a(new THREE.BoxGeometry(0.012, 0.03, 0.012), iron, 0.038, 0.115, 0.03, 0.3); a(new THREE.BoxGeometry(0.02, 0.012, 0.02), brass, 0.03, 0.1, 0.03); // (lock plate, frizzen, pan)
+    a(new THREE.BoxGeometry(0.064, 0.012, 0.135), brass, 0, -0.445, 0.03); // (brass butt plate)
+    for (const y of [-0.2, 0.7]) a(new THREE.TorusGeometry(0.012, 0.003, 5, 10), iron, 0, y, -0.05, 0, Math.PI / 2, 0); } // (sling swivels)
   else { // the bruiser's hand-cannon: a fat flared barrel ringed with spikes, a smokestack, twin feed pipes, a brass gauge, a spring, a chained powder flask
     const bell = a(new THREE.CylinderGeometry(0.075, 0.045, 0.14, 12, 1, true), rust, 0, 0.62, 0); bell.material = bell.material.clone(); bell.material.side = THREE.DoubleSide;
     for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a(new THREE.ConeGeometry(0.012, 0.06, 5), steel, Math.cos(an) * 0.075, 0.66, Math.sin(an) * 0.075, Math.sin(an) * 1.2, 0, -Math.cos(an) * 1.2); }

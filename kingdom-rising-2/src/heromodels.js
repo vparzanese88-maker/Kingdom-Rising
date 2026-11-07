@@ -6,7 +6,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { eyes: { col: '#3aff1a', up: 0.07, fwd: 0.11, side: 0.034, r: 0.017 }, bright: 1.45, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
+  necromancer: { eyes: { col: '#3aff1a', up: 0.07, fwd: 0.11, side: 0.034, r: 0.017 }, bright: 2.1, emis: 0.18, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.45, walkSpeed: 1.5, runSpeed: 5.0 },
   blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.0, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
   berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
@@ -57,7 +57,7 @@ function keepHipY(track) { const v = track.values; if (!v || v.length < 3) retur
 
 // swap the built body for the class's model. ch: the humanoid from buildHumanoid. Safe to call before it has loaded.
 export function attachHeroModel(ch, cls) {
-  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; const hidden = []; if (ch.body) ch.body.traverse(o => { if ((o.isMesh || o.isLine) && o.visible) { o.visible = false; hidden.push(o); } }); /* (the old built body stays hidden while the model loads, so it never flashes up) */ const D = MODELS[cls];
+  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; const hidden = []; if (ch.body) ch.body.traverse(o => { if ((o.isMesh || o.isLine) && o.visible) { o.visible = false; o.userData.hmHide = true; hidden.push(o); } }); /* (the old built body stays hidden while the model loads, so it never flashes up) */ const D = MODELS[cls];
   loadClass(cls).then(({ base, clips }) => {
     if (!ch.root) return;
     const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true);
@@ -67,13 +67,13 @@ export function attachHeroModel(ch, cls) {
     const keep = new Set(); const hands = {}; m.traverse(o => { if (o.isBone && /^LeftHand$/.test(o.name)) hands.L = o; if (o.isBone && /^RightHand$/.test(o.name)) hands.R = o; });
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
-    ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; }); for (const o of hidden) if (isUnder(o, keep)) o.visible = true; /* (the hand items carried over to the model show again) */
-    if (D.bright) m.traverse(o => { if (o.isMesh && o.material) { const mats = Array.isArray(o.material) ? o.material : [o.material]; o.material = mats.length > 1 ? mats.map(x => { const c = x.clone(); c.color.setScalar(D.bright); return c; }) : (() => { const c = mats[0].clone(); c.color.setScalar(D.bright); return c; })(); } }); // (lifted so the bone and armour detail reads)
+    ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) { o.visible = false; o.userData.hmHide = true; } }); for (const o of hidden) if (isUnder(o, keep)) { o.visible = true; o.userData.hmHide = false; } /* (the hand items carried over to the model show again) */
+    if (D.bright) m.traverse(o => { if (o.isMesh && o.material) { const mats = Array.isArray(o.material) ? o.material : [o.material]; o.material = mats.length > 1 ? mats.map(x => { const c = x.clone(); c.color.setScalar(D.bright); if (D.emis && c.emissive && c.map) { c.emissive.setScalar(D.emis); c.emissiveMap = c.map; } return c; }) : (() => { const c = mats[0].clone(); c.color.setScalar(D.bright); if (D.emis && c.emissive && c.map) { c.emissive.setScalar(D.emis); c.emissiveMap = c.map; } return c; })(); } }); /* (his own texture glows a little too, so the dark armour never goes black) */ // (lifted so the bone and armour detail reads)
     if (D.eyes) addEyes(m, D.eyes, k);
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run' && kk !== 'back') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
     ch.heroModel = { m, wrap, mixer, act, D, bones, bind, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
-  }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; for (const o of hidden) o.visible = true; });
+  }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; for (const o of hidden) { o.visible = true; o.userData.hmHide = false; } });
 }
 // glowing eyes set into the model's skull, riding on its head bone
 function addEyes(m, E, k) { let head = null; m.traverse(o => { if (o.isBone && o.name === 'Head') head = o; }); if (!head) return; m.updateMatrixWorld(true);
@@ -154,7 +154,7 @@ export function tickHeroModel(ch, dt) {
   if (H.D.footScale) for (const k of ['LeftFoot', 'RightFoot']) if (B[k]) B[k].scale.setScalar(H.D.footScale);
   // the hidden built body still performs every attack, kick, flip and roll: the model's hands and feet follow it there
   H.wrap.position.copy(ch.body.position); if (H.lastMove && H.lastMove.full && H.mw > 0.5) { H.wrap.quaternion.identity(); H.wrap.position.y = 0; } else H.wrap.quaternion.copy(ch.body.quaternion); H.wrap.updateMatrixWorld(true); // (a recorded flip or jump kick moves the whole body itself: the built body's own flip is not added on top)
-  const act = !!((ch._act && ch._act !== 'aim' && ch._act !== 'block') || ch._strike), /* (holding a staff out to aim is not an attack: the model's arms stay natural) */ kicking = !!(ch._u && ch._u.kickT > 0) || ch._act === 'kick', kickL = kicking && ch.legs && (ch.legs.L.thigh.rotation.x < -0.75), kickR = kicking && ch.legs && (ch.legs.R.thigh.rotation.x < -0.75); /* (only a real kick moves the model's legs: a long running stride must not) */
+  const gunHold = !!(ch.wt && /musket|blunderbuss/.test(ch.wt)), act = !!((ch._act && ch._act !== 'aim' && ch._act !== 'block') || ch._strike || gunHold), /* (a gun is always held in both hands: the model's hands stay on the stock and fore-end) */ /* (holding a staff out to aim is not an attack: the model's arms stay natural) */ kicking = !!(ch._u && ch._u.kickT > 0) || ch._act === 'kick', kickL = kicking && ch.legs && (ch.legs.L.thigh.rotation.x < -0.75), kickR = kicking && ch.legs && (ch.legs.R.thigh.rotation.x < -0.75); /* (only a real kick moves the model's legs: a long running stride must not) */
   H.ikA = (H.ikA || 0) + ((act && !mvK ? 1 : 0) - (H.ikA || 0)) * Math.min(1, dt * 14); // (a recorded move drives the arms itself)
   if (H.ikA > 0.02 && ch.arms) for (const [sd, nm, sx] of [['R', 'Right', -1], ['L', 'Left', 1]]) { const hp = ch.arms[sd].hand; if (!hp) continue; const t = hp.getWorldPosition(new THREE.Vector3()), sh = B[nm + 'Arm']; if (!sh) continue; const s0 = sh.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     const pole = s0.clone().add(new THREE.Vector3(sx * 0.4, -0.6, -0.35).applyQuaternion(wq)); const keep = [B[nm + 'Arm'].quaternion.clone(), B[nm + 'ForeArm'].quaternion.clone()]; ikArm(null, B[nm + 'Arm'], B[nm + 'ForeArm'], B[nm + 'Hand'], s0.clone().lerp(t, 1), pole);
@@ -172,7 +172,7 @@ export function attachFpArms(vm, cls) {
   loadClass(cls).then(({ base }) => {
     const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(m), k = D.height / Math.max(0.01, box.getSize(new THREE.Vector3()).y);
     const inner = new THREE.Group(); inner.add(m); m.scale.multiplyScalar(k); m.position.y = -box.min.y * k; inner.rotation.y = Math.PI; const wrap = new THREE.Group(); wrap.add(inner); vm.g.add(wrap);
-    const B = {}, bind = {}; m.traverse(o => { if (o.isBone) { B[o.name] = o; bind[o.name] = o.quaternion.clone(); } if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const mt = o.material; if (mt && mt.map) { mt.map.anisotropy = 16; mt.map.needsUpdate = true; } if (mt) { o.material = mt.clone(); o.material.flatShading = false; } } }); // (sharpest texture filtering and smooth shading: the hands are right in front of you)
+    const B = {}, bind = {}; m.traverse(o => { if (o.isBone) { B[o.name] = o; bind[o.name] = o.quaternion.clone(); } if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const mt = o.material; if (mt && mt.map) { mt.map.anisotropy = 16; mt.map.needsUpdate = true; } if (mt) { o.material = mt.clone(); o.material.flatShading = false; if (D.bright && o.material.color) o.material.color.setScalar(D.bright); if (D.emis && o.material.emissive && o.material.map) { o.material.emissive.setScalar(D.emis); o.material.emissiveMap = o.material.map; } } } }); // (sharpest texture filtering and smooth shading: the hands are right in front of you)
     if (B.Head) B.Head.scale.setScalar(0.001); // (no head in your own view)
     wrap.updateMatrixWorld(true); const hp = new THREE.Vector3(); if (B.Head) { B.Head.getWorldPosition(hp); vm.g.worldToLocal(hp); }
     wrap.position.set(-hp.x, -hp.y - 0.1, -hp.z + 0.1); // (the camera sits at his eyes; shoulders just under the view, so arms bend at the guard and straighten on a punch)

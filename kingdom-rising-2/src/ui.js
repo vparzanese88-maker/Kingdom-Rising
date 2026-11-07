@@ -138,7 +138,7 @@ export function updateHUD(dt) {
   $('endI').style.width = (p.end / p.maxEnd * 100) + '%'; $('endT').textContent = `${Math.floor(p.end)} / ${p.maxEnd} Endurance`;
   $('vignette').style.opacity = p.hurtT > 0 ? p.hurtT * 2 : 0;
   if (HERO_HUD) { let e = $('arccme'); if (!e) { e = el('div', ''); e.id = 'arccme'; document.body.appendChild(e); } const db = p.db || {}, cc = p.dead ? null : p.fearT > 0 ? ['😱', 'FEARED', p.fearT] : db.stun && db.stun.t > 0 ? ['💫', 'STUNNED', db.stun.t] : db.freeze && db.freeze.t > 0 ? (db.freeze.label ? ['😱', db.freeze.label, db.freeze.t] : ['❄', 'FROZEN', db.freeze.t]) : db.slow && db.slow.t > 0 ? ['🐌', 'SLOWED', db.slow.t] : null; const k2 = cc ? cc[1] + Math.ceil(cc[2]) : ''; if (e._k !== k2) { e._k = k2; e.innerHTML = cc ? `<span>${cc[0]}</span><b>${cc[1]}</b><i>${Math.ceil(cc[2])}</i>` : ''; e.style.display = cc ? '' : 'none'; } } // you: a big, clear sign when you cannot act
-  { const ak = p.adsK || 0, e = $('adsv'); if (e && Math.abs((e._k || 0) - ak) > 0.01) { e._k = ak; e.style.opacity = ak.toFixed(2); document.body.classList.toggle('ads', ak > 0.5); } } // aiming down the barrel: dark old-photograph edges
+  { const ak = p.adsK || 0, e = $('adsv'); if (e && Math.abs((e._k || 0) - ak) > 0.01) { e._k = ak; e.style.opacity = '0'; document.body.classList.toggle('ads', ak > 0.5); } } // aiming down the barrel: no darkened edges any more (you aim with the gun's own sights)
   $('lowhp').style.opacity = p.hp / p.maxHp < 0.3 ? 0.5 + 0.5 * Math.sin(G.time * 5) : 0;
   if (abilEls) {
     const W = p.W;

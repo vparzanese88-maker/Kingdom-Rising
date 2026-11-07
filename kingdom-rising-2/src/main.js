@@ -932,7 +932,7 @@ function loop(now) {
     const g2 = pc.getContext('2d'); g2.clearRect(0, 0, pc.width, pc.height);
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }
-  if (grade) grade.uniforms.sepia.value = G.player ? (G.player.adsK || 0) * 0.6 : 0;
+  if (grade) grade.uniforms.sepia.value = 0; // (no sepia while aiming)
   composer.render(paused ? 0 : dt);
   // first-person hands & weapon on top
   const pl = G.player;

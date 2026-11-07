@@ -846,6 +846,7 @@ export class Player {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
       case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
       case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
+      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, groundPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
       case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
       case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
       case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
@@ -1586,6 +1587,7 @@ export class Player {
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
     if (this.transcendT > 0) dmg *= 1.5; // (Transcendence)
+    if (this.bannerT > G.time) dmg *= 1.2; // (Warlord's Banner)
     if (this.h.arena) [dmg, o] = Game.arenaOut(this, this.h, m, dmg, o); // (arena perk passives)
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
     /* (no per-class damage scaling: Kingdom Battles uses the campaign abilities now) */
@@ -1672,6 +1674,7 @@ export class Player {
   heal(n, quiet) { if (this.h.arena) n *= Game.arenaHealK(this.h); const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); const d = Math.round(this.hp - before); if (d > 0 && !quiet) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.4), '+' + d, 'heal'); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 20, { speed: 2, vy: 2, grav: -1 }); S.heal(); } }
   takeDamage(dmg, src, o = {}) {
     if ((this.ultImmT || 0) > 0 && !this.dead) return 0; // (casting an ultimate: untouchable while it plays)
+    if (this.bannerT > G.time) dmg *= 0.7; // (Warlord's Banner)
     dmg *= Game.arenaTakenK(this.h); if (this.h.arena) { dmg = Game.arenaIn(this, this.h, dmg); const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && src.arenaBot && !src.dead) { src.hp -= dmg * 0.08 * th; V.burst('spark', src.pos.clone().setY(src.pos.y + 1.1), 6, { speed: 3 }); if (src.hp <= 0) src.die(this); } } // (arena: tanks, toughness and passives)
     if (this.sheathed && !this.dead) this.drawWeapons(); this.hurtT0 = G.time;
     if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.lastHitAt = G.time; } // (hurtT is a countdown used elsewhere)

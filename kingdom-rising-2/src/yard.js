@@ -8,7 +8,7 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS } from './arena.js';
 import { classPortrait } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
@@ -22,7 +22,7 @@ const dummies = [];
 const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],
   ...[0, 1, 2, 3, 4].map(i => [-26 + Math.cos(i * 1.256) * 3, 18 + Math.sin(i * 1.256) * 3, 'Pack Dummy']), [24, 22, 'Moving Dummy']];
 export function spawnDummies() {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; // (the finished ultimates work here too)
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.PI; m.home.set(x, heightAt(x, z), z);
@@ -105,8 +105,9 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 // U in the Training Yard: an enemy necromancer appears in front of you and calls its demon on you, so you can watch the
 // ultimate from the victim's side (you come back to life afterwards)
 let ultBusy = false;
+const REAL_ULT_T = { darkknight: 6, blunderbuss: 12, elementalist: 12, enchanter: 10, beastmaster: 10 }; // (table ultimates aimed at you in the yard: how far away the enemy appears)
 const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Thousand Fists', '👊', 5], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true], berserker: ['arenaStorm', 'Bladestorm', '🌪', 6], ranger: ['arenaRain', 'Rain of Arrows', '🏹', 14], druid: ['arenaOvergrowth', 'Overgrowth', '🌳', 12], shaman: ['arenaSpirit', 'Spirit of the Storm', '⚡', 8] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
-export function yardUltTest(cls = 'necromancer') { const RU = REAL_ULT[cls];
+export function yardUltTest(cls = 'necromancer') { let RU = REAL_ULT[cls]; if (!RU && ULTS[cls] && REAL_ULT_T[cls]) { const U2 = ULTS[cls]; G.hooks['tbl_' + cls] = (foe, at) => U2.run(foe, U2.aim === 'foe' ? G.player : at); RU = ['tbl_' + cls, U2.name, '★', REAL_ULT_T[cls]]; }
   const P = G.player; if (!P || ultBusy || !RU || !G.hooks[RU[0]]) return; ultBusy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), far = RU[3] || 10, x = P.pos.x + fx * far, z = P.pos.z + fz * far; const home = P.pos.clone();
   const ch = buildHumanoid({ race: 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls) }); arenaDecor(ch, cls);

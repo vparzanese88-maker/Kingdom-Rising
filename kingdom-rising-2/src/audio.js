@@ -150,11 +150,19 @@ export const S = {
       noise(t, 0.1, o.node, { type: 'bandpass', f: 2200, f2: 5200, q: 2.2, gain: 0.4, a: 0.01 });
     } else if (kind === 'fist') {
       // fists: a soft, low rush of air (no blade hiss)
-      noise(t, 0.12 * size, o.node, { type: 'lowpass', f: 700, f2: 260, q: 0.8, gain: 0.32 * size, a: 0.02 });
-      tone(t, 0.08, o.node, { type: 'sine', f: 120, f2: 70, gain: 0.08, a: 0.01 });
+      noise(t, 0.16 * size, o.node, { type: 'bandpass', f: 500, f2: 1700, q: 0.9, gain: 0.34 * size, a: 0.03 }); /* a fast cloth-and-air whip that rises as the fist snaps out */
+      noise(t + 0.02, 0.1 * size, o.node, { type: 'lowpass', f: 400, f2: 900, q: 0.5, gain: 0.2 * size, a: 0.03 });
     } else if (kind === 'staff') {
       noise(t, 0.3 * size, o.node, { type: 'bandpass', f: 400, f2: 900, q: 1.4, gain: 0.35 * size, a: 0.1 });
     }
+  },
+  // a real punch landing: a sharp skin slap on top, a meaty mid smack, and a deep body thump underneath (no resonant ring, which reads as knocking on wood)
+  punch(pos, big = false) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(), k = big ? 1.3 : 1;
+    noise(t, 0.025, o.node, { type: 'highpass', f: 2600, q: 0.5, gain: 0.55 * k, a: 0.001 });
+    noise(t, 0.06, o.node, { type: 'bandpass', f: 1300, f2: 500, q: 0.6, gain: 0.7 * k, a: 0.001 });
+    noise(t + 0.004, 0.14, o.node, { type: 'lowpass', f: 1600, f2: 180, q: 0.4, gain: 0.75 * k, a: 0.002 });
+    tone(t, 0.16 * k, o.node, { type: 'sine', f: 140, f2: 48, gain: 0.85 * k, a: 0.002 });
+    tone(t, 0.05, o.node, { type: 'triangle', f: 260, f2: 90, gain: 0.25 * k, a: 0.001 });
   },
   blunt(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); tone(t, 0.22, o.node, { type: 'sine', f: 95, f2: 45, gain: 0.7 }); noise(t, 0.16, o.node, { type: 'lowpass', f: 900, f2: 200, gain: 0.7 }); noise(t + 0.01, 0.07, o.node, { type: 'bandpass', f: 600, q: 3, gain: 0.35 }); },
   heavySwing(pos) { if (!ctx) return; S.swing(1.6, pos); const o = out(pos, sfxBus, 0.2); noise(now(), 0.45, o.node, { type: 'lowpass', f: 400, f2: 1500, q: 2, gain: 0.35, a: 0.12 }); },

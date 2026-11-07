@@ -96,8 +96,8 @@ const VP = {
   bowL: P(-0.3, -0.06, -0.62, 0, 0.1, 0.18), bowR: P(-0.17, -0.15, -0.58, -1.5, 0, 0), bowRdraw: P(-0.13, -0.12, -0.3, -1.5, 0, 0),
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
-  jabA: P(0.17, -0.19, -0.33, -1.5, 0, -0.22), jabB: P(0.03, -0.1, -0.9, -1.57, 0, 0), /* (past arm's reach: the punch locks out fully straight) */ guardR: P(0.17, -0.19, -0.34, -1.48, -0.05, -0.25), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
-  bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.18, -0.15, -0.38, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.04, -0.42, -0.15, 0.1, 0.12), necroPush: P(0.1, -0.13, -0.6, -1.45, 0, -0.1), /* (close and big in your view; the push throws the spell at the crosshair) */
+  jabA: P(0.13, -0.15, -0.3, -1.25, -0.15, -0.5), jabB: P(0.035, -0.115, -0.42, -1.55, 0, 0.05), /* (the guard up by the chin, knuckles turned in; the jab lands under the crosshair, knuckles flat) */ guardR: P(0.13, -0.15, -0.3, -1.25, -0.15, -0.5), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
+  bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.18, -0.15, -0.38, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.04, -0.42, -0.15, 0.1, 0.12), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
@@ -108,20 +108,30 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 // what each class wears on its hands and forearms in first person
 const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather', bombardier: 'leather' };
 // a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
-function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, skin = new THREE.MeshStandardMaterial({ color: skinCol || '#d8a888', roughness: 0.55 }), skinD = new THREE.MeshStandardMaterial({ color: new THREE.Color(skinCol || '#d8a888').multiplyScalar(0.85), roughness: 0.6 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: new THREE.Color(wrapCol).multiplyScalar(0.6), roughness: 0.9 }), nail = new THREE.MeshStandardMaterial({ color: new THREE.Color(skinCol || '#d8a888').lerp(new THREE.Color('#ffe0e0'), 0.5), roughness: 0.3 });
-  const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
-  // the hand (local +Y is the punch direction, the back of the hand faces +Z): a rounded block, broad across the knuckles
-  add(new THREE.SphereGeometry(0.05, 16, 12), skin, 0, 0.005, 0.0).scale.set(0.95, 0.95, 0.62);
-  for (let i = 0; i < 4; i++) { const x = (-0.033 + i * 0.022) * sx, r = 0.0125 - Math.abs(i - 1.5) * 0.0008, L = 0.026 - Math.abs(i - 1.5) * 0.002;
-    add(new THREE.CapsuleGeometry(r, L, 4, 10), skin, x, 0.05, 0.004); // (the first finger bones, out to the knuckles)
-    add(new THREE.SphereGeometry(r * 1.12, 10, 8), skin, x, 0.064, 0.008); // (a knuckle)
-    add(new THREE.CapsuleGeometry(r * 0.95, L * 0.8, 4, 10), skin, x, 0.068, -0.016, Math.PI / 2); // (the fingers folded down into the palm)
-    add(new THREE.BoxGeometry(r * 1.4, 0.004, r * 1.2), nail, x, 0.058, -0.03); }
-  add(new THREE.CapsuleGeometry(0.0135, 0.034, 4, 10), skin, -sx * 0.008, 0.036, -0.036, 0, 0, sx * 1.45); // (the thumb locked across the front of the fingers)
-  add(new THREE.SphereGeometry(0.016, 10, 8), skinD, -sx * 0.038, 0.012, -0.022); // (the base of the thumb)
-  for (let i = 0; i < 3; i++) { const b = add(new THREE.CylinderGeometry(0.05, 0.05, 0.016, 16, 1, true), i === 1 ? dark : wrap, 0, -0.016 - i * 0.02, 0.0); b.scale.set(1, 1, 0.68); b.material = b.material.clone(); b.material.side = THREE.DoubleSide; } // (cloth wraps over the palm and wrist)
-  add(new THREE.BoxGeometry(0.085, 0.018, 0.006), wrap, 0, 0.03, 0.03).rotation.z = 0.15 * sx; // (a wrap across the back of the hand)
-  const wrist = new THREE.Object3D(); wrist.position.set(0, -0.07, 0.0); g.add(wrist); g.userData.wrist = wrist;
+function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, C = new THREE.Color(skinCol || '#d8a888');
+  const skin = new THREE.MeshStandardMaterial({ color: C, roughness: 0.62 }), skinD = new THREE.MeshStandardMaterial({ color: C.clone().multiplyScalar(0.84), roughness: 0.66 }), skinL = new THREE.MeshStandardMaterial({ color: C.clone().lerp(new THREE.Color('#ffd8c0'), 0.18), roughness: 0.5 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.92 }), nail = new THREE.MeshStandardMaterial({ color: C.clone().lerp(new THREE.Color('#f4d4cc'), 0.55), roughness: 0.3 });
+  const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+  const seg = (A, B, r, m, r2 = r) => { const d = B.clone().sub(A), L = d.length(), o = new THREE.Mesh(new THREE.CylinderGeometry(r2, r, Math.max(0.001, L), 12, 1, true), m); for (const [Q, rr] of [[A, r], [B, r2]]) { const c = new THREE.Mesh(new THREE.SphereGeometry(rr, 12, 8), m); c.position.copy(Q); g.add(c); } o.position.copy(A).add(B).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(o); return o; }; // (a limb segment with rounded joints at both ends)
+  const V = (x, y, z) => new THREE.Vector3(x * sx, y, z);
+  // a real closed fist. Local +Y is where the knuckles point (the punch), +Z is the back of the hand, the thumb is on the -X side (mirrored for the left hand)
+  const body = add(new THREE.SphereGeometry(0.05, 20, 14), skin, 0, 0.0, 0.0); body.scale.set(0.92, 0.9, 0.5); // (the back of the hand and the palm: broad and flat)
+  add(new THREE.SphereGeometry(0.03, 14, 10), skinD, sx * -0.03, -0.022, -0.012).scale.set(0.8, 1.15, 0.85); // (the heel of the thumb)
+  add(new THREE.SphereGeometry(0.028, 14, 10), skin, sx * 0.03, -0.026, -0.008).scale.set(0.8, 1.2, 0.8); // (the outer heel of the palm)
+  for (let i = 0; i < 4; i++) { // index (thumb side) to little finger
+    const x = -0.031 + i * 0.021, r = [0.0118, 0.0122, 0.0114, 0.0098][i], dy = [0, 0.002, 0, -0.006][i];
+    const K = V(x, 0.042 + dy, 0.014), P = V(x * 1.02, 0.05 + dy, -0.02), M = V(x * 1.0, 0.022 + dy, -0.034);
+    add(new THREE.SphereGeometry(r * 1.18, 12, 10), skinL, K.x, K.y, K.z); // (the knuckle standing up on the back of the hand)
+    seg(V(x * 0.7, -0.02, 0.018), K, 0.0034, skinD); // (a tendon running back over the hand)
+    seg(K, P, r * 1.08, skin, r); // (the first finger bone: the flat front face you hit with)
+    seg(P, M, r * 0.98, skin, r * 0.9); // (the middle bone folded back down into the palm)
+    const nl = add(new THREE.BoxGeometry(r * 1.45, r * 1.3, 0.003), nail, M.x, M.y - 0.006, M.z - r * 0.82); nl.rotation.x = 0.15; }
+  // the thumb locks across the middle bones of the index and middle fingers
+  seg(V(-0.04, -0.03, -0.004), V(-0.043, 0.0, -0.03), 0.015, skin, 0.0135); seg(V(-0.043, 0.0, -0.03), V(-0.014, 0.016, -0.05), 0.0135, skin, 0.012); seg(V(-0.014, 0.016, -0.05), V(0.006, 0.02, -0.05), 0.012, skin, 0.0108);
+  { const nl = add(new THREE.BoxGeometry(0.003, 0.014, 0.016), nail, sx * 0.012, 0.022, -0.06); nl.rotation.y = sx * 0.2; }
+  // the wrist, then a thin red wrap round the wrist and one over the knuckles' base, like the model's
+  seg(V(0, -0.03, -0.002), V(0, -0.1, -0.004), 0.034, skin, 0.037).scale.set(1.12, 1, 0.78);
+  for (const [y, h] of [[-0.06, 0.012], [-0.077, 0.01]]) { const b = add(new THREE.CylinderGeometry(0.0395, 0.0395, h, 18, 1, true), wrap, 0, y, -0.003); b.scale.set(1.12, 1, 0.8); b.material = wrap.clone(); b.material.side = THREE.DoubleSide; }
+  const wrist = new THREE.Object3D(); wrist.position.set(0, -0.085, 0.0); g.add(wrist); g.userData.wrist = wrist;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); return g; }
 function makeHand(right, cls, skinCol) {
   const g = new THREE.Group(), sx = right ? 1 : -1;
@@ -306,9 +316,15 @@ class ViewModel {
       else if (W && W.kind === 'bow') { l = [0.02, -0.13, -0.44, -0.2, 0.1, 1.5]; r = [0.3, -0.42, -0.4, -0.4, 0, 0.4]; }
       else { r = VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; }
     } else if (st.drawing) { r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, st.drawing))); }
+    if (this.necro && act && /^(cast|castRel|shoot|spell|release|chargeCast)/.test(n)) { // (the necromancer's right hand THRUSTS forward: a short draw back, a hard shove out to the crosshair, a beat at full reach, then back)
+      const k = t < 0.1 ? -0.25 * ease(t / 0.1) : t < 0.26 ? -0.25 + 1.25 * easeOut((t - 0.1) / 0.16) : t < 0.45 ? 1 : 1 - ease((t - 0.45) / 0.55); r = plerp(VP.necroR, VP.necroPush, k); l = VP.necroL;
+    } else if (this.necro && st.channel) { const j = Math.sin(performance.now() * 0.03) * 0.004; r = plerp(VP.necroR, VP.necroPush, 0.85); r = [r[0] + j, r[1] + j, r[2], r[3], r[4], r[5]]; l = VP.necroL; }
+    this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
-      if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const J = q < 0.5 ? plerp(VP.jabA, VP.jabB, easeOut(q * 2)) : plerp(VP.jabB, VP.jabA, ease((q - 0.5) * 2)); if (side) l = mirror(J); else r = J; }
-      else if (/^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust)/.test(n)) { const left = n.startsWith('off') || n === 'stabL' || n === 'swing2'; const J = seq(VP.jabA, VP.jabB, t, 0.2, VP.rest); if (left) l = seq(mirror(VP.jabA), mirror(VP.jabB), t, 0.2, VP.restL); else r = J; } }
+      if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }
+      else if (/^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust)/.test(n)) { // a real punch: snap straight out to the crosshair, the fist turning over, a beat at full reach, back to the guard; the other hand stays up
+        const left = n.startsWith('off') || n === 'stabL' || n === 'swing2', k = t < 0.28 ? easeOut(t / 0.28) : t < 0.42 ? 1 : 1 - ease((t - 0.42) / 0.58), J = plerp(VP.jabA, VP.jabB, k), G2 = plerp(VP.guardR, [0.17, -0.19, -0.16, -1.2, -0.2, -0.6], k * 0.6);
+        if (left) { l = mirror(J); r = G2; this.punchL = k; } else { r = J; l = mirror(G2); this.punchR = k; } this.punchK = k; } }
     if (st.superman) { const sk = Math.sin(Math.min(1, st.superman * 1.4) * Math.PI * 0.5); r = plerp(r, [0.04, -0.14, -1.0, -1.57, 0, 0], sk); if (l) l = plerp(l, [-0.3, -0.45, -0.3, -0.6, 0, 0.3], sk); }
     if (st.kick) { const kk = Math.sin(Math.min(1, st.kick * 1.3) * Math.PI * 0.5); r = plerp(r, VP.kickDown, kk); if (l) l = plerp(l, mirror(VP.kickDown), kk); }
     if (this.foot) { const kk = st.kick ? Math.sin(Math.min(1, st.kick * 1.25) * Math.PI * 0.5) * (st.kick > 0.85 ? (1 - st.kick) / 0.15 : 1) : 0; this.foot.visible = kk > 0.02; if (this.foot.visible) { const ch = Math.min(1, kk / 0.45), ex = Math.max(0, (kk - 0.35) / 0.65), e2 = ex * ex * (3 - 2 * ex); this.foot.position.set(0.22 - 0.16 * e2, -0.62 + 0.18 * ch + 0.3 * e2, -0.3 - 0.52 * e2); this.foot.rotation.set(0.95 - 0.6 * e2, 0.45 - 0.2 * e2, 0); } } // (a flying side kick: the knee chambers up, then the heel drives straight out at the crosshair, sole first)
@@ -653,7 +669,7 @@ export class Player {
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
         this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
-        if (blunt) S.blunt(m.pos);
+        if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
       }
       if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }
       if (false && targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) { // (no random double/triple attacks)

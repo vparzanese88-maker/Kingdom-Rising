@@ -6,8 +6,12 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/necro_walk.fbx', run: 'models/necro_run.fbx' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.35, footScale: 0.84, legSpread: 0.09, runRate: 0.78 },
-  monk: { base: 'models/monk_rig.fbx', clips: { walk: 'models/monk_walk.fbx', run: 'models/monk_run.fbx' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92, fpFist: true },
+  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.35, footScale: 0.84, legSpread: 0.09, runRate: 0.78 },
+  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92,
+    // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
+    moves: { jab: ['punch1', 0.15, 0.62, 0.4], cross: ['punch1', 0.6, 1.25, 1.0], upper: ['punch1', 1.2, 1.9, 1.42], spin: ['spinkick', 0.55, 1.6, 1.2], lunge: ['lungeround', 1.85, 3.0, 2.25],
+      fury: ['punch2', 1.8, 2.6, 0, 0, 0, true], kick: ['doublekick', 0.7, 1.75, 1.0], flykick: ['risekick', 0.05, 1.05, 0, true, 0.75], superman: ['jumppunch', 0.45, 1.6, 0, true, 0.7], flip: ['sweep', 1.62, 2.8, 0, true] },
+    combo: ['jab', 'cross', 'upper', 'jab', 'spin', 'cross', 'lunge'] },
 };
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
@@ -18,13 +22,18 @@ function loadClass(cls) {
   if (cache[cls]) return cache[cls]; const D = MODELS[cls];
   cache[cls] = (async () => {
     const base = await loadFbx(D.base); const clips = {};
-    await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const o = await loadFbx(url); const c = o.animations[0]; if (!c) return;
+    await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const J = url.endsWith('.json') ? await (await fetch(url)).json() : null, c = J ? THREE.AnimationClip.parse(J) : (await loadFbx(url)).animations[0]; if (!c) return; if (J && J.rest) retarget(c, J, base); // (moves are stored as small motion-only files, not whole characters)
       c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name) || (keepHipY(t), true)); clips[k] = c; }));
     base.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; } } });
     return { base, clips };
   })();
   return cache[cls];
 }
+// a move recorded on an older version of the model: turn each bone's keys from that model's rest pose to this one's
+function retarget(clip, J, base) { const T = {}; base.traverse(o => { if (o.isBone) T[o.name] = o; }); const qs = new THREE.Quaternion(), d = new THREE.Quaternion(), q = new THREE.Quaternion();
+  for (const tr of clip.tracks) { const [bn, prop] = tr.name.split('.'); const tb = T[bn]; if (!tb) continue;
+    if (prop === 'quaternion' && J.rest[bn]) { d.fromArray(J.rest[bn]).invert().multiply(tb.quaternion); const v = tr.values; for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).multiply(d); q.toArray(v, i); } }
+    if (prop === 'position' && bn === 'Hips' && J.restPos && J.restPos.Hips) { const v = tr.values, s0 = J.restPos.Hips, k = tb.position.y / (s0[1] || 1); for (let i = 0; i < v.length; i += 3) { v[i] = tb.position.x; v[i + 1] *= k; v[i + 2] = tb.position.z; } } } }
 // keep the hips bobbing up and down but not travelling forward or sideways
 function keepHipY(track) { const v = track.values; if (!v || v.length < 3) return; const x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } }
 
@@ -41,7 +50,7 @@ export function attachHeroModel(ch, cls) {
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd]) continue; const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; });
-    const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); }
+    const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
     ch.heroModel = { m, wrap, mixer, act, D, bones, bind, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
   }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; });
@@ -63,6 +72,27 @@ function turnFoot(f, ax, ang) { if (!f) return; f.updateWorldMatrix(true, false)
 function spreadLeg(up, fw, ang) { if (!up) return; up.updateWorldMatrix(true, false); _q.setFromAxisAngle(fw, ang); const bw = up.getWorldQuaternion(_q2); const pw = up.parent.getWorldQuaternion(new THREE.Quaternion()); up.quaternion.copy(pw.invert().multiply(_q.multiply(bw))); }
 const isUnder = (o, set) => { for (let p = o; p; p = p.parent) if (set.has(p)) return true; return false; };
 
+// which recorded move (if any) the character is doing right now, and how far into it
+const LEG_BONES = ['LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'];
+const PUNCH = /^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust|jab)/, LEFTP = /^(off|stabL|swing2)/;
+function pickMove(H, ch, dt) {
+  const M = H.D.moves, u = ch._u || {}, st = ch._st || {}, nm = (u.atk && u.atk.name) || ch._act || '';
+  // whole moves (flying kick, superman punch) start once and play to the end on their own clock
+  const trig = u.kickT > 0 ? 'flykick' : u.supermanT > 0 ? 'superman' : null;
+  if (trig && (!H.latch || H.latch.key !== trig) && H.trigPrev !== trig) H.latch = { key: trig, t: 0 }; H.trigPrev = trig;
+  let key = null, k = null;
+  if (H.latch) { const sl = M[H.latch.key]; H.latch.t += dt; k = H.latch.t / (sl[5] || 0.6); if (k >= 1) H.latch = null; else key = H.latch.key; }
+  if (!key) { if (st.rollKind === 'flip' && st.roll != null) { key = 'flip'; k = Math.min(1, Math.max(0, st.roll)); }
+    else if (u.strike || /^(fury|area|spin)$/.test(nm)) { key = 'fury'; }
+    else if (nm === 'kick') { key = 'kick'; k = st.actionT; }
+    else if (PUNCH.test(nm) && st.actionT != null) { k = st.actionT; const fresh = H.pK == null || k < H.pK - 0.25 || !H.inPunch; if (fresh) { H.combo = H.t - (H.lpT || -9) > 1.3 ? 0 : ((H.combo == null ? -1 : H.combo) + 1) % (H.D.combo || [0]).length; } H.lpT = H.t; H.inPunch = true; key = H.D.combo ? H.D.combo[H.combo] : LEFTP.test(nm) ? 'jab' : 'cross'; } } // (each new swing plays the next move of the combo: jab, cross, uppercut, spin kick...)
+  if (!(PUNCH.test(nm) && st.actionT != null) || H.latch) H.inPunch = false; H.pK = st.actionT;
+  if (!key || !M[key]) { H.mvKey = null; return null; }
+  const sl = M[key]; if (key !== H.mvKey) { H.mvKey = key; H.mvT = 0; } H.mvT += dt;
+  let t; if (sl[6]) { const span = sl[2] - sl[1]; t = sl[1] + ((H.mvT * 1.6) % span); }
+  else { k = Math.min(1, Math.max(0, k || 0)); t = sl[3] ? (k < 0.3 ? sl[1] + (sl[3] - sl[1]) * (k / 0.3) : sl[3] + (sl[2] - sl[3]) * ((k - 0.3) / 0.7)) : sl[1] + (sl[2] - sl[1]) * k; } // (the blow lands 30% of the way into the attack, when the game's hit does)
+  H.lastMove = { slice: sl, t, full: !!sl[4] }; return key;
+}
 // every frame: pick the animation from how fast the character is moving and blend between them
 export function tickHeroModel(ch, dt) {
   const H = ch && ch.heroModel; if (!H || H === 'loading' || dt <= 0) return;
@@ -72,22 +102,28 @@ export function tickHeroModel(ch, dt) {
   lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
   if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.6, H.v / H.D.walkSpeed); }
   if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.max(0.7, H.v / H.D.runSpeed) * (H.D.runRate || 1); }
-  for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
+  const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
+  reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run') H.act[k].setEffectiveWeight(0);
   H.mixer.update(dt); H.t += dt; const B = H.bones;
+  H.mw = (H.mw || 0) + ((mvK ? 1 : 0) - (H.mw || 0)) * Math.min(1, dt * (mvK ? 30 : 9)); // (snaps into an attack, eases back out of it)
+  if (H.mw > 0.01 && H.lastMove) { const [ck, a, b2] = H.lastMove.slice; const A = H.act[ck];
+    if (A) { const legs = {}; const moving = Math.min(1, H.v / 1.5) * (H.lastMove.full ? 0 : 1); for (const k of LEG_BONES) if (B[k]) legs[k] = B[k].quaternion.clone(); const hipP = B.Hips ? B.Hips.position.clone() : null;
+      reset(); for (const k in H.act) H.act[k].setEffectiveWeight(k === ck ? H.mw : k === 'walk' ? H.w.walk * (1 - H.mw) : k === 'run' ? H.w.run * (1 - H.mw) : 0); A.time = H.lastMove.t; H.mixer.update(0);
+      for (const k of LEG_BONES) if (legs[k] && B[k]) B[k].quaternion.slerp(legs[k], moving); if (hipP && moving > 0) B.Hips.position.lerp(hipP, moving); } }
   // standing still: the rest pose with the arms down at the sides, a slow breath and a little weight shift
-  if (H.w.idle > 0.01) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
+  const free = 1 - (H.mw || 0); if (H.w.idle > 0.01 && free > 0.01) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle * free); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
   // running: toes turned in a touch; smaller feet
   const mv = H.w.run + H.w.walk * 0.5, ti = (H.D.toeIn || 0) * mv; if (ti) { const up = new THREE.Vector3(0, 1, 0); turnFoot(B.LeftFoot, up, -ti); turnFoot(B.RightFoot, up, ti); } // (only the feet turn in, at the ankle: the legs stay apart)
   const spr = (H.D.legSpread || 0) * mv; if (spr) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(H.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(); spreadLeg(B.LeftUpLeg, fw, spr); spreadLeg(B.RightUpLeg, fw, -spr); } // (feet kept apart so the legs never cross)
   if (H.D.footScale) for (const k of ['LeftFoot', 'RightFoot']) if (B[k]) B[k].scale.setScalar(H.D.footScale);
   // the hidden built body still performs every attack, kick, flip and roll: the model's hands and feet follow it there
-  H.wrap.position.copy(ch.body.position); H.wrap.quaternion.copy(ch.body.quaternion); H.wrap.updateMatrixWorld(true);
+  H.wrap.position.copy(ch.body.position); if (H.lastMove && H.lastMove.full && H.mw > 0.5) { H.wrap.quaternion.identity(); H.wrap.position.y = 0; } else H.wrap.quaternion.copy(ch.body.quaternion); H.wrap.updateMatrixWorld(true); // (a recorded flip or jump kick moves the whole body itself: the built body's own flip is not added on top)
   const act = !!(ch._act || ch._strike), kickL = ch.legs && (ch.legs.L.thigh.rotation.x < -0.75), kickR = ch.legs && (ch.legs.R.thigh.rotation.x < -0.75);
-  H.ikA = (H.ikA || 0) + ((act ? 1 : 0) - (H.ikA || 0)) * Math.min(1, dt * 14);
+  H.ikA = (H.ikA || 0) + ((act && !mvK ? 1 : 0) - (H.ikA || 0)) * Math.min(1, dt * 14); // (a recorded move drives the arms itself)
   if (H.ikA > 0.02 && ch.arms) for (const [sd, nm, sx] of [['R', 'Right', -1], ['L', 'Left', 1]]) { const hp = ch.arms[sd].hand; if (!hp) continue; const t = hp.getWorldPosition(new THREE.Vector3()), sh = B[nm + 'Arm']; if (!sh) continue; const s0 = sh.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     const pole = s0.clone().add(new THREE.Vector3(sx * 0.4, -0.6, -0.35).applyQuaternion(wq)); const keep = [B[nm + 'Arm'].quaternion.clone(), B[nm + 'ForeArm'].quaternion.clone()]; ikArm(null, B[nm + 'Arm'], B[nm + 'ForeArm'], B[nm + 'Hand'], s0.clone().lerp(t, 1), pole);
     if (H.ikA < 0.99) { B[nm + 'Arm'].quaternion.copy(keep[0].slerp(B[nm + 'Arm'].quaternion.clone(), H.ikA)); B[nm + 'ForeArm'].quaternion.copy(keep[1].slerp(B[nm + 'ForeArm'].quaternion.clone(), H.ikA)); } }
-  if (ch.legs) for (const [sd, nm, on] of [['R', 'Right', kickR], ['L', 'Left', kickL]]) { if (!on) continue; const t = ch.legs[sd].ankle.getWorldPosition(new THREE.Vector3()), hip = B[nm + 'UpLeg']; if (!hip) continue; const h0 = hip.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
+  if (ch.legs && !mvK) for (const [sd, nm, on] of [['R', 'Right', kickR], ['L', 'Left', kickL]]) { if (!on) continue; const t = ch.legs[sd].ankle.getWorldPosition(new THREE.Vector3()), hip = B[nm + 'UpLeg']; if (!hip) continue; const h0 = hip.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     ikArm(null, B[nm + 'UpLeg'], B[nm + 'Leg'], B[nm + 'Foot'], t, h0.clone().add(new THREE.Vector3(0, 0.3, 0.8).applyQuaternion(wq))); } // (kicks: the model's leg goes where the built leg kicks)
 }
 
@@ -112,9 +148,23 @@ function ikArm(F, up, fore, hand, target, pole) { if (!up || !fore || !hand) ret
   _T.copy(target); const dv = _T.clone().sub(_S); let d = dv.length(); if (d < 1e-4) return; d = Math.min(d, (a + b) * 0.999); dv.normalize(); const cosA = Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d))), sinA = Math.sqrt(1 - cosA * cosA);
   _P.copy(pole).sub(_S); const n = _P.sub(dv.clone().multiplyScalar(_P.dot(dv))).normalize(); _E.copy(_S).addScaledVector(dv, a * cosA).addScaledVector(n, a * sinA);
   up.quaternion.copy(aimBone(up, fore, _E.clone().sub(_S))); up.updateWorldMatrix(true, true); const tgt = _S.clone().addScaledVector(dv, d); fore.quaternion.copy(aimBone(fore, hand, tgt.sub(_E))); fore.updateWorldMatrix(true, true); }
+// the monk's fist continues straight out of his own forearm: knuckles along the arm, the palm turned in on guard, rolling over palm-down as the punch lands
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _z = new THREE.Vector3(), _x = new THREE.Vector3(), _m = new THREE.Matrix4(), _fq = new THREE.Quaternion(), _hq = new THREE.Quaternion();
+function fistOnArm(F, vm, H, fist, fore, hand, side, pk) {
+  if (!fore || !hand) return; const S = F.D.fistScale || 1.12; fist.scale.setScalar(S);
+  fore.updateWorldMatrix(true, false); hand.updateWorldMatrix(true, false); fore.getWorldPosition(_a); hand.getWorldPosition(_b);
+  H.updateWorldMatrix(true, false); H.getWorldQuaternion(_hq).invert();
+  _d.copy(_b).sub(_a).normalize().applyQuaternion(_hq); // (the forearm's direction, in the hand's own space)
+  const k = Math.min(1, Math.max(0, pk)); vm.g.getWorldQuaternion(_fq);
+  _z.set(side * (0.85 - 0.75 * k), 0.45 + 0.6 * k, 0.15).normalize().applyQuaternion(_fq).applyQuaternion(_hq); // (where the back of the hand faces: outward on guard, up at full reach)
+  _z.addScaledVector(_d, -_z.dot(_d)).normalize(); _x.crossVectors(_d, _z).normalize();
+  _m.makeBasis(_x, _d, _z); fist.quaternion.setFromRotationMatrix(_m);
+  const loc = H.worldToLocal(_b.clone()), wl = fist.userData.wrist ? fist.userData.wrist.position.clone().multiplyScalar(S).applyQuaternion(fist.quaternion) : new THREE.Vector3();
+  fist.position.copy(loc.sub(wl)).addScaledVector(_d, -0.02 * S);
+}
 export function tickFpArms(vm) {
   const F = vm && vm.fpArms; if (!F || F === 'loading') return; const B = F.B;
-  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : 1.15); // (big hands in your view; the monk's become real fists below)
+  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : 1.15); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   for (const [H, sd, sx] of [[vm.R, 'Left', -1], [vm.L, 'Right', 1]]) { // (the model faces the way you look, so its left arm is your right side on screen... mirrored below if needed)
@@ -122,7 +172,7 @@ export function tickFpArms(vm) {
     const side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
-    if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) { fist.scale.setScalar(1.35); fist.rotation.set(0.55, 0, 0); const hb = B[arm + 'Hand']; if (hb) { hb.updateWorldMatrix(true, false); const hw = hb.getWorldPosition(new THREE.Vector3()); const loc = H.worldToLocal(hw.clone()); const wl = fist.userData.wrist ? fist.userData.wrist.position.clone().multiplyScalar(1.35).applyEuler(fist.rotation) : new THREE.Vector3(); fist.position.copy(loc.sub(wl)); } } } } // (the monk's fist rides on the end of his own arm, knuckles forward, the back of the hand toward you) // (the monk: proper balled-up fists on the ends of his own arms)
+    if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)
   if (vm.arms) for (const a of vm.arms) a.arm.visible = false; // (the old forearms are gone: your model's own arms are drawn instead)
 }

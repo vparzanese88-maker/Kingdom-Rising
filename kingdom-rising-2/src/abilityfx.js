@@ -141,7 +141,7 @@ export function abilityFx(u, a, T) { const f = a && FX[a.id]; if (!f) return; tr
 
 // ---------- body poses that the generic animation can't do (kicks) ----------
 // u.kickT counts down; while it runs the legs and body take a flying-kick shape (players and computer fighters)
-export function bodyPoseTick(u, ch, dt) { if (ch) ch._strike = !!(u.strike || u.kickT > 0 || u.supermanT > 0 || u.wrapT > 0);
+export function bodyPoseTick(u, ch, dt) { if (ch) ch._u = u; if (ch) ch._strike = !!(u.strike || u.kickT > 0 || u.supermanT > 0 || u.wrapT > 0);
   if (ch && u.wrapT > 0 && ch.arms) { u.wrapT -= dt; const k = Math.sin(Math.min(1, (0.5 - u.wrapT) / 0.5) * Math.PI); ch.arms.R.sh.rotation.set(-1.2 * k, 0, -0.5 * k); ch.arms.L.sh.rotation.set(-1.2 * k, 0, 0.5 * k); ch.arms.R.el.rotation.x = -1.6 * k; ch.arms.L.el.rotation.x = -1.6 * k; } // (crossing the arms to cinch the wraps)
   if (ch && u.supermanT > 0 && ch.legs && ch.arms) { u.supermanT -= dt; const k = 1 - Math.max(0, u.supermanT) / 0.45, e = Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.5) * (k > 0.75 ? 1 - (k - 0.75) / 0.25 * 0.8 : 1); // (Pressure Point: a superman punch)
     if (ch.body) { ch.body.rotation.x = 0.75 * e; ch.body.position.y = Math.sin(Math.min(1, k * 1.2) * Math.PI) * 0.55; } ch.arms.R.sh.rotation.set(-1.65 * e - 0.3 * (1 - e), 0, 0.05); ch.arms.R.el.rotation.x = -0.05 - (1 - e) * 1.6; ch.arms.L.sh.rotation.set(0.6 * e, 0, -0.4); ch.arms.L.el.rotation.x = -1.2;

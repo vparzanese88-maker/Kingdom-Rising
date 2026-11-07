@@ -65,11 +65,25 @@ export function areaDamage(p, r, dmg, opts = {}) {
 // ---- projectiles ----
 const geo = { sphere: new THREE.SphereGeometry(1, 14, 10), rock: new THREE.IcosahedronGeometry(1, 1), arrow: (() => { const g = new THREE.CylinderGeometry(0.012, 0.012, 0.8, 5); g.rotateX(Math.PI / 2); return g; })(), shard: (() => { const g = new THREE.OctahedronGeometry(0.2, 0); g.scale(0.6, 0.6, 2.2); return g; })() };
 const matCache = {};
+const HDSPH = new THREE.SphereGeometry(1, 40, 28);
 function glow(c) { return matCache[c] || (matCache[c] = new THREE.MeshBasicMaterial({ color: c })); }
 // a splash of poison: bubbles of slime boil up from where it burst, swell and pop
 export function poisonBubbles(pos, n = 14, r = 1.4) { const bm = new THREE.MeshStandardMaterial({ color: '#9aff5a', emissive: '#3aaa20', emissiveIntensity: 0.7, transparent: true, opacity: 0.6, roughness: 0.05 }), list = [];
   for (let i = 0; i < n; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), bm); const a = Math.random() * Math.PI * 2, d = Math.random() * r; b.position.set(pos.x + Math.cos(a) * d, pos.y + Math.random() * 0.4, pos.z + Math.sin(a) * d); b.userData = { t: -Math.random() * 0.5, life: 0.5 + Math.random() * 0.7, s: 0.06 + Math.random() * 0.14, vy: 0.3 + Math.random() * 0.9 }; b.scale.setScalar(0.001); G.scene.add(b); list.push(b); }
   G.timers.push({ update(dt) { let alive = 0; for (const b of list) { const u = b.userData; u.t += dt; if (u.t < 0) { alive++; continue; } if (u.t > u.life) { if (b.parent) { G.scene.remove(b); V.burst('poison', b.position, 4, { speed: 1.2, size: 0.12, life: 0.3 }); } continue; } alive++; const k = u.t / u.life; b.scale.setScalar(u.s * (0.3 + k * 0.9)); b.position.y += u.vy * dt; } if (!alive) { bm.dispose(); return true; } return false; } }); }
+// the screaming fear skull (Necromancer): also held, smaller, in his left hand in first person
+export function makeFearSkull(hd = false) { let m; const SPH = hd ? HDSPH : geo.sphere; /* (high detail when it is held right in front of you) */ m = new THREE.Group(); const bone = new THREE.MeshStandardMaterial({ color: '#d8ceb0', roughness: 0.55 }), boneD = new THREE.MeshStandardMaterial({ color: '#9a8e70', roughness: 0.7 }), dark = new THREE.MeshBasicMaterial({ color: '#050403' }); // a screaming skull: sunken sockets with burning eyes, cracked bone, a jaw that snaps open and shut
+      const cr = new THREE.Mesh(SPH, bone); cr.scale.set(0.26, 0.25, 0.3); cr.position.y = 0.04; m.add(cr);
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.12), bone); brow.position.set(0, 0.06, 0.2); brow.rotation.x = -0.25; m.add(brow);
+      for (const x of [-1, 1]) { const ck = new THREE.Mesh(SPH, bone); ck.scale.set(0.08, 0.06, 0.09); ck.position.set(x * 0.16, -0.06, 0.16); m.add(ck); const tmp2 = new THREE.Mesh(SPH, boneD); tmp2.scale.set(0.05, 0.1, 0.12); tmp2.position.set(x * 0.24, -0.02, 0.0); m.add(tmp2); }
+      for (const x of [-0.095, 0.095]) { const e = new THREE.Mesh(SPH, dark); e.scale.set(0.085, 0.075, 0.06); e.position.set(x, -0.005, 0.235); m.add(e); const g2 = new THREE.Mesh(SPH, glow('#a0ff60')); g2.scale.setScalar(0.04); g2.position.set(x, -0.005, 0.27); m.add(g2); const g3 = new THREE.Mesh(SPH, new THREE.MeshBasicMaterial({ color: '#40ff20', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); g3.scale.setScalar(0.09); g3.position.copy(g2.position); m.add(g3); }
+      { const ns = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.08, 3), dark); ns.position.set(0, -0.09, 0.27); ns.rotation.x = Math.PI; m.add(ns); }
+      for (let i = 0; i < 8; i++) { const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.02), bone); t2.position.set(-0.105 + i * 0.03, -0.15, 0.25 - Math.abs(i - 3.5) * 0.012); m.add(t2); } // (upper teeth)
+      const jaw = new THREE.Group(); jaw.position.set(0, -0.13, 0.04); m.add(jaw); const jb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.07, 0.24), bone); jb.position.set(0, -0.05, 0.08); jaw.add(jb);
+      for (let i = 0; i < 8; i++) { const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.045, 0.02), bone); t2.position.set(-0.1 + i * 0.0285, 0.0, 0.2 - Math.abs(i - 3.5) * 0.012); jaw.add(t2); } // (lower teeth)
+      const mo = new THREE.Mesh(SPH, dark); mo.scale.set(0.11, 0.06, 0.08); mo.position.set(0, -0.17, 0.17); m.add(mo); m.userData.jaw = jaw;
+      for (let i = 0; i < 4; i++) { const ck2 = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.006), dark); ck2.position.set(-0.05 + i * 0.05, 0.2 - i * 0.02, 0.1 + i * 0.03); ck2.rotation.set(0.6, 0, 0.4 - i * 0.3); m.add(ck2); } // (cracks)
+  return m; }
 export function spawnProjectile(o) {
   // o: {pos, vel, grav, radius, dmg, owner, kind, life, pierce, aoe, el, onHit, scale}
   const p = Object.assign({ grav: 0, radius: 0.3, life: 4, pierce: false, hitSet: new Set(), t: 0 }, o);
@@ -89,18 +103,7 @@ export function spawnProjectile(o) {
       const sh = new THREE.Mesh(geo.sphere, new THREE.MeshStandardMaterial({ color: '#4a9a20', emissive: '#2a8a10', emissiveIntensity: 0.8, transparent: true, opacity: 0.7, roughness: 0.15, metalness: 0.1 })); sh.scale.set(0.22, 0.25, 0.22).multiplyScalar(sc); m.add(sh);
       const bm = new THREE.MeshStandardMaterial({ color: '#9aff5a', emissive: '#3aaa20', emissiveIntensity: 0.7, transparent: true, opacity: 0.55, roughness: 0.05 }); m.userData.bub = [];
       for (let i = 0; i < 11; i++) { const bb = new THREE.Mesh(geo.sphere, bm); const v = new THREE.Vector3().randomDirection(); bb.userData = { v, r: (0.03 + Math.random() * 0.05) * sc, ph: Math.random() * 6, sp: 6 + Math.random() * 8 }; m.add(bb); m.userData.bub.push(bb); } break; }
-    case 'skull': { m = new THREE.Group(); const bone = new THREE.MeshStandardMaterial({ color: '#d8ceb0', roughness: 0.55 }), boneD = new THREE.MeshStandardMaterial({ color: '#9a8e70', roughness: 0.7 }), dark = new THREE.MeshBasicMaterial({ color: '#050403' }); // a screaming skull: sunken sockets with burning eyes, cracked bone, a jaw that snaps open and shut
-      const cr = new THREE.Mesh(geo.sphere, bone); cr.scale.set(0.26, 0.25, 0.3); cr.position.y = 0.04; m.add(cr);
-      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.12), bone); brow.position.set(0, 0.06, 0.2); brow.rotation.x = -0.25; m.add(brow);
-      for (const x of [-1, 1]) { const ck = new THREE.Mesh(geo.sphere, bone); ck.scale.set(0.08, 0.06, 0.09); ck.position.set(x * 0.16, -0.06, 0.16); m.add(ck); const tmp2 = new THREE.Mesh(geo.sphere, boneD); tmp2.scale.set(0.05, 0.1, 0.12); tmp2.position.set(x * 0.24, -0.02, 0.0); m.add(tmp2); }
-      for (const x of [-0.095, 0.095]) { const e = new THREE.Mesh(geo.sphere, dark); e.scale.set(0.085, 0.075, 0.06); e.position.set(x, -0.005, 0.235); m.add(e); const g2 = new THREE.Mesh(geo.sphere, glow('#a0ff60')); g2.scale.setScalar(0.04); g2.position.set(x, -0.005, 0.27); m.add(g2); const g3 = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#40ff20', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); g3.scale.setScalar(0.09); g3.position.copy(g2.position); m.add(g3); }
-      { const ns = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.08, 3), dark); ns.position.set(0, -0.09, 0.27); ns.rotation.x = Math.PI; m.add(ns); }
-      for (let i = 0; i < 8; i++) { const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.02), bone); t2.position.set(-0.105 + i * 0.03, -0.15, 0.25 - Math.abs(i - 3.5) * 0.012); m.add(t2); } // (upper teeth)
-      const jaw = new THREE.Group(); jaw.position.set(0, -0.13, 0.04); m.add(jaw); const jb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.07, 0.24), bone); jb.position.set(0, -0.05, 0.08); jaw.add(jb);
-      for (let i = 0; i < 8; i++) { const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.045, 0.02), bone); t2.position.set(-0.1 + i * 0.0285, 0.0, 0.2 - Math.abs(i - 3.5) * 0.012); jaw.add(t2); } // (lower teeth)
-      const mo = new THREE.Mesh(geo.sphere, dark); mo.scale.set(0.11, 0.06, 0.08); mo.position.set(0, -0.17, 0.17); m.add(mo); m.userData.jaw = jaw;
-      for (let i = 0; i < 4; i++) { const ck2 = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.006), dark); ck2.position.set(-0.05 + i * 0.05, 0.2 - i * 0.02, 0.1 + i * 0.03); ck2.rotation.set(0.6, 0, 0.4 - i * 0.3); m.add(ck2); } // (cracks)
-      m.scale.setScalar(p.scale || 1); break; }
+    case 'skull': { m = makeFearSkull(); m.scale.setScalar(p.scale || 1); break; }
     case 'bullet': m = new THREE.Mesh(geo.sphere, glow('#fff0b0')); m.scale.setScalar(0.07); break;
     case 'axe': { m = new THREE.Group(); const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#6a4020' })); m.add(h); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), new THREE.MeshStandardMaterial({ color: '#b0b8c0', metalness: 0.8, roughness: 0.3 })); b.position.y = 0.2; b.position.x = 0.08; m.add(b); break; }
     case 'javelin': { m = new THREE.Group(); const h = new THREE.Mesh(geo.arrow, new THREE.MeshStandardMaterial({ color: '#8a6a44' })); h.scale.set(2, 2, 2.2); m.add(h); break; }

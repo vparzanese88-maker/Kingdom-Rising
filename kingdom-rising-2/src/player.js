@@ -18,6 +18,7 @@ import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
 import { attachFpArms, tickFpArms } from './heromodels.js';
+import { makeFearSkull } from './combat.js';
 import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
@@ -28,6 +29,7 @@ import { angDiff, rand, clamp } from './util.js';
 const ARC_GEO = new Map();
 const ARC_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 function slashArc(pl, R, H, name, hit, col) {
+  if (pl.camDist < 0.6) return; // (in first person the crescent lies across your view like a grey sheet: the blade's own trail is enough)
   if (pl.weapon && pl.weapon.wt === 'fists') return; // (bare fists leave no blade crescent: it hung in front of the monk's face as a grey sheet)
   const key = R.toFixed(1) + '_' + H.toFixed(2); let g = ARC_GEO.get(key); if (!g) { g = new THREE.RingGeometry(Math.max(0.5, R * 0.35), R, 28, 1, -H, H * 2); g.rotateX(-Math.PI / 2); ARC_GEO.set(key, g); }
   const m = new THREE.Mesh(g, ARC_MAT.clone()); m.material.color.copy(col || new THREE.Color('#ffffff')); m.material.opacity = hit ? 0.75 : 0.45;
@@ -108,6 +110,14 @@ function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(res
 // what each class wears on its hands and forearms in first person
 const VM_KIND = { warrior: 'plate', paladin: 'plate', darkknight: 'plate', berserker: 'wraps', monk: 'wraps', ranger: 'leather', rogue: 'leather', musketeer: 'leather', blunderbuss: 'leather', beastmaster: 'leather', bard: 'leather', bombardier: 'leather' };
 // a closed fist, knuckles forward (local +Y is the punch direction, the back of the hand on +Z), wrapped in cloth
+// first person is right under your nose: rebuild every round shape there with far more segments (smooth, high-detail hands and weapons)
+function hdify(root) { root.traverse(o => { if (!o.isMesh || o.userData.hd || !o.geometry || !o.geometry.parameters) return; o.userData.hd = true; const g = o.geometry, P = g.parameters, up = (n, mx) => Math.min(mx, Math.max(n, Math.round(n * 2.5)));
+  let ng = null; try { if (g.type === 'SphereGeometry') ng = new THREE.SphereGeometry(P.radius, up(P.widthSegments, 48), up(P.heightSegments, 32), P.phiStart, P.phiLength, P.thetaStart, P.thetaLength);
+    else if (g.type === 'CylinderGeometry') ng = new THREE.CylinderGeometry(P.radiusTop, P.radiusBottom, P.height, up(P.radialSegments, 40), P.heightSegments, P.openEnded, P.thetaStart, P.thetaLength);
+    else if (g.type === 'ConeGeometry') ng = new THREE.ConeGeometry(P.radius, P.height, up(P.radialSegments, 40), P.heightSegments, P.openEnded);
+    else if (g.type === 'CapsuleGeometry') ng = new THREE.CapsuleGeometry(P.radius, P.length, up(P.capSegments, 12), up(P.radialSegments, 32));
+    else if (g.type === 'TorusGeometry') ng = new THREE.TorusGeometry(P.radius, P.tube, up(P.radialSegments, 24), up(P.tubularSegments, 96), P.arc); } catch (e) { ng = null; }
+  if (ng) o.geometry = ng; }); }
 let _staffP = null; function loadStaff() { if (!_staffP) _staffP = import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res) => new GLTFLoader().load('models/staff_bone.glb', g => res(g.scene), undefined, () => res(null)))); return _staffP; } // (the bone staff model, loaded once)
 function makeFist(right, skinCol, wrapCol = '#d8ccb0') { const g = new THREE.Group(), sx = right ? 1 : -1, C = new THREE.Color(skinCol || '#d8a888');
   const skin = new THREE.MeshStandardMaterial({ color: C, roughness: 0.62 }), skinD = new THREE.MeshStandardMaterial({ color: C.clone().multiplyScalar(0.84), roughness: 0.66 }), skinL = new THREE.MeshStandardMaterial({ color: C.clone().lerp(new THREE.Color('#ffd8c0'), 0.18), roughness: 0.5 }), wrap = new THREE.MeshStandardMaterial({ color: wrapCol, roughness: 0.92 }), nail = new THREE.MeshStandardMaterial({ color: C.clone().lerp(new THREE.Color('#f4d4cc'), 0.55), roughness: 0.3 });
@@ -246,12 +256,13 @@ class ViewModel {
     if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; this.necro = true;
       // left hand: a bone staff held upright (its head is where Soul Rend pours out); right hand: torn open and dripping poison
-      const tip = new THREE.Object3D(); this.headMouth = tip; const sg = new THREE.Group(); sg.add(tip); this.L.add(sg); this.weapons.staffL = sg; tip.position.set(0, 0.95, 0);
-      loadStaff().then(m => { if (!m) return; const c = m.clone(); c.scale.setScalar(0.95); c.position.set(0, 0.14, 0); sg.rotation.set(-0.25, 0, 0.32); tip.position.set(0, 0.6, 0); c.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); sg.add(c); }).catch(() => {});
+      // left hand: the fear spell's screaming skull, small, held up in the palm (Soul Rend pours from its mouth)
+      const sk = makeFearSkull(true); sk.scale.setScalar(0.26); sk.position.set(0.01, 0.06, 0.0); sk.rotation.set(-0.15, Math.PI * 0.35, 0); /* (turned three-quarters toward you so you see its face) */ sk.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); this.L.add(sk); this.weapons.skullL = sk;
+      const tip = new THREE.Object3D(); tip.position.set(0, -0.17, 0.2); sk.add(tip); this.headMouth = tip;
       const fl = new THREE.Object3D(); fl.position.set(0, 0.03, -0.04); this.R.add(fl); this.weapons.flame = fl; // (where his spells leave the hand: no orb any more)
       const wound = new THREE.MeshBasicMaterial({ color: '#5aff3a', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
       for (const [x, y, z, r] of [[0.012, 0.02, 0.028, 0.5], [-0.016, 0.0, 0.026, -0.3], [0.004, -0.03, 0.022, 0.15]]) { const cut = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), wound); cut.scale.set(0.6, 2.8, 0.4); cut.position.set(x, y, z); cut.rotation.z = r; this.R.add(cut); } // (glowing gashes on the back of the hand)
-      const dm = new THREE.MeshBasicMaterial({ color: '#4cff2a', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); this.drips = []; for (let i = 0; i < 9; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), dm.clone()); d.visible = false; d.scale.set(0.8, 1.5, 0.8); this.g.add(d); this.drips.push({ m: d, life: 0, v: new THREE.Vector3() }); } }
+      const dm = new THREE.MeshBasicMaterial({ color: '#4cff2a', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); this.drips = []; for (let i = 0; i < 9; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8), dm.clone()); d.visible = false; d.scale.set(0.8, 1.5, 0.8); this.g.add(d); this.drips.push({ m: d, life: 0, v: new THREE.Vector3() }); } }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -357,8 +368,9 @@ class ViewModel {
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
+    this.hdT = (this.hdT || 0) - dt; if (this.hdT <= 0) { this.hdT = 1; hdify(this.g); } // (anything new in view gets the high-detail treatment)
     if (this.drips && this.R.visible) { this.dripT = (this.dripT || 0) - dt; const hp = this.R.getWorldPosition(new THREE.Vector3()); this.g.worldToLocal(hp);
-      if (this.dripT <= 0) { this.dripT = 0.12 + Math.random() * 0.22; const d = this.drips.find(q => q.life <= 0); if (d) { d.life = 0.9; d.m.visible = true; d.m.position.copy(hp).add(new THREE.Vector3((Math.random() - 0.5) * 0.03, -0.03, 0.01)); d.v.set((Math.random() - 0.5) * 0.04, -0.05, 0); d.m.material.opacity = 0.9; } }
+      if (this.dripT <= 0) { this.dripT = 0.9 + Math.random() * 1.1; const d = this.drips.find(q => q.life <= 0); if (d) { d.life = 0.9; d.m.visible = true; d.m.position.copy(hp).add(new THREE.Vector3((Math.random() - 0.5) * 0.03, -0.03, 0.01)); d.v.set((Math.random() - 0.5) * 0.04, -0.05, 0); d.m.material.opacity = 0.75; } }
       for (const d of this.drips) { if (d.life <= 0) continue; d.life -= dt; d.v.y -= 1.6 * dt; d.m.position.addScaledVector(d.v, dt); d.m.material.opacity = Math.max(0, d.life / 0.9) * 0.9; if (d.life <= 0) d.m.visible = false; } } // (poison running off the hand and falling away)
     if (this.weapons.head) { const dg = this.weapons.head, sw = dg.userData.sw; this.L.updateMatrix(); const qL = this.L.quaternion.clone().invert(); const tx = Math.sin(this.bob) * 0.18 * Math.min(1, st.speed / 5) + (act ? 0.25 : 0), tz = Math.cos(this.bob * 0.5) * 0.12 * Math.min(1, st.speed / 5);
       sw.vx += (tx - sw.ax) * 60 * dt; sw.vz += (tz - sw.az) * 60 * dt; const dmp = Math.exp(-4 * dt); sw.vx *= dmp; sw.vz *= dmp; sw.ax += sw.vx * dt; sw.az += sw.vz * dt; dg.quaternion.copy(qL.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(sw.ax - 0.15, 0.85, sw.az)))); /* (face toward the enemy, away from you) */

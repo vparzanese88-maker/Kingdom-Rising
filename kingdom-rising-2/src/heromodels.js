@@ -6,9 +6,9 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
+  necromancer: { eyes: { col: '#3aff1a', up: 0.07, fwd: 0.11, side: 0.034, r: 0.017 }, bright: 1.45, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.45, walkSpeed: 1.5, runSpeed: 5.0 },
-  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 1.4, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
+  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.0, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
   berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
@@ -68,11 +68,19 @@ export function attachHeroModel(ch, cls) {
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; }); for (const o of hidden) if (isUnder(o, keep)) o.visible = true; /* (the hand items carried over to the model show again) */
+    if (D.bright) m.traverse(o => { if (o.isMesh && o.material) { const mats = Array.isArray(o.material) ? o.material : [o.material]; o.material = mats.length > 1 ? mats.map(x => { const c = x.clone(); c.color.setScalar(D.bright); return c; }) : (() => { const c = mats[0].clone(); c.color.setScalar(D.bright); return c; })(); } }); // (lifted so the bone and armour detail reads)
+    if (D.eyes) addEyes(m, D.eyes, k);
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run' && kk !== 'back') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
     ch.heroModel = { m, wrap, mixer, act, D, bones, bind, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
   }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; for (const o of hidden) o.visible = true; });
 }
+// glowing eyes set into the model's skull, riding on its head bone
+function addEyes(m, E, k) { let head = null; m.traverse(o => { if (o.isBone && o.name === 'Head') head = o; }); if (!head) return; m.updateMatrixWorld(true);
+  const hp = head.getWorldPosition(new THREE.Vector3()), fw = new THREE.Vector3(0, 0, 1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())), sd = new THREE.Vector3(1, 0, 0).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())), s = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y / 1.95; /* (offsets are for a 1.95 m model: scaled to this one's size) */
+  const core = new THREE.MeshBasicMaterial({ color: E.col }), halo = new THREE.MeshBasicMaterial({ color: E.col, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (const sx of [-1, 1]) { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.SphereGeometry(E.r * s, 10, 8), core)); const h = new THREE.Mesh(new THREE.SphereGeometry(E.r * 2.2 * s, 10, 8), halo); g.add(h);
+    g.position.copy(hp).addScaledVector(fw, E.fwd * s).addScaledVector(sd, sx * E.side * s).add(new THREE.Vector3(0, E.up * s, 0)); m.parent ? m.parent.add(g) : m.add(g); head.attach(g); } }
 // a relaxed standing pose built from the model's own rest pose: arms brought down to the sides, elbows soft
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function aimBone(bone, child, worldDir) { bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false); const a = bone.getWorldPosition(new THREE.Vector3()), b = child.getWorldPosition(new THREE.Vector3()), cur = b.sub(a).normalize();
@@ -164,7 +172,7 @@ export function attachFpArms(vm, cls) {
   loadClass(cls).then(({ base }) => {
     const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(m), k = D.height / Math.max(0.01, box.getSize(new THREE.Vector3()).y);
     const inner = new THREE.Group(); inner.add(m); m.scale.multiplyScalar(k); m.position.y = -box.min.y * k; inner.rotation.y = Math.PI; const wrap = new THREE.Group(); wrap.add(inner); vm.g.add(wrap);
-    const B = {}, bind = {}; m.traverse(o => { if (o.isBone) { B[o.name] = o; bind[o.name] = o.quaternion.clone(); } if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+    const B = {}, bind = {}; m.traverse(o => { if (o.isBone) { B[o.name] = o; bind[o.name] = o.quaternion.clone(); } if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const mt = o.material; if (mt && mt.map) { mt.map.anisotropy = 16; mt.map.needsUpdate = true; } if (mt) { o.material = mt.clone(); o.material.flatShading = false; } } }); // (sharpest texture filtering and smooth shading: the hands are right in front of you)
     if (B.Head) B.Head.scale.setScalar(0.001); // (no head in your own view)
     wrap.updateMatrixWorld(true); const hp = new THREE.Vector3(); if (B.Head) { B.Head.getWorldPosition(hp); vm.g.worldToLocal(hp); }
     wrap.position.set(-hp.x, -hp.y - 0.1, -hp.z + 0.1); // (the camera sits at his eyes; shoulders just under the view, so arms bend at the guard and straighten on a punch)

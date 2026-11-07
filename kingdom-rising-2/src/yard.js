@@ -13,7 +13,7 @@ import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
 import { openKitInfo } from './arena.js';
-import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
+import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick, arenaLookTick } from './arenalooks.js';
 
 export const YD = { infinite: false, dmg: [], startGame: null };
@@ -30,7 +30,7 @@ function spawnLineUp() {
   keys.forEach((cls, i) => { const x = (i - (n - 1) / 2) * gap;
     try { const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: cls === 'musketeer' ? '#7a9a3a' : cls === 'blunderbuss' ? '#4f6a2a' : cls === 'bombardier' ? '#8aa23a' : '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
       try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
-      addOutline(ch.root, '#1a1208'); ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = 0; G.scene.add(ch.root);
+      ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = 0; G.scene.add(ch.root);
       const tag = nameTag(CLASSES[cls].name); tag.position.set(x, heightAt(x, z) + 2.55, z); G.scene.add(tag);
       LINE.push({ cls, ch, x, z, t: Math.random() * 3 }); } catch (e) { console.warn('line-up', cls, e); } });
 }
@@ -59,7 +59,9 @@ function dummyUpdate(dt) {
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {
-  for (const f of LINE) { f.t += dt; animateHumanoid(f.ch, dt, { speed: 0, armed: true, ready: true }); arenaLookTick(f.ch, dt); }
+  { const P = G.player; YD.lineN = (YD.lineN || 0) + 1; for (const f of LINE) { // (the line-up stands still: posed once, then left alone; the 3D models only get a light update now and then, when you are near)
+      if (!f.posed) { for (let i = 0; i < 20; i++) animateHumanoid(f.ch, 0.05, { speed: 0, armed: true, ready: true }); f.posed = true; if (!f.ch.heroModel) { try { bake(f.ch.root); } catch (e) { /* keep it unbaked */ } } addOutline(f.ch.root, '#1a1208'); f.ch.root.updateMatrixWorld(true); f.ch.root.traverse(o => { o.matrixAutoUpdate = false; }); } // (a standing figure is merged into a few meshes: far less to draw)
+      const H = f.ch.heroModel; if (H && H !== 'loading' && P && (YD.lineN + f.x * 7 | 0) % 6 === 0 && Math.hypot(P.pos.x - f.x, P.pos.z - f.z) < 14) { f.ch.root.traverse(o => { o.matrixAutoUpdate = true; }); arenaLookTick(f.ch, dt * 6); f.ch.root.updateMatrixWorld(true); f.ch.root.traverse(o => { o.matrixAutoUpdate = false; }); } } }
   { const f = lineUpNear(), cur = G.save && G.save.cls; const key = f && f.cls !== cur ? f.cls : null; if (key !== YD.lineHint) { YD.lineHint = key; const el2 = document.getElementById('linehint') || (() => { const d = document.createElement('div'); d.id = 'linehint'; d.style.cssText = 'position:fixed;left:50%;bottom:24%;transform:translateX(-50%);padding:8px 16px;border-radius:8px;background:rgba(15,10,6,0.82);border:1px solid #8a6a3a;color:#f2dfb0;font:600 17px Georgia,serif;pointer-events:none;z-index:30'; document.body.appendChild(d); return d; })(); el2.hidden = !key; if (key) el2.innerHTML = `Press <b style="color:#ffd27a">E</b> to become the <b>${CLASSES[key].name}</b>`; } }
   notesTick(dt); // (music notes: the bard's songs)
   G.zoneLabel = 'Training Yard<small>The arena classes</small>'; const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true;

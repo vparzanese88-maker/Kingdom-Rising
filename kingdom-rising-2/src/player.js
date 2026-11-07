@@ -425,7 +425,7 @@ export class Player {
       return;
     }
     // Kingdom Arena: right click blocks only with a shield; a bow or gun aims down the barrel; everyone else casts a fourth ability
-    if (btn === 2 && this.h.arenaRmb !== undefined && !(this.W && this.W.hands === 'shield')) {
+    if (btn === 2 && this.h.arenaRmb !== undefined && (!(this.W && this.W.hands === 'shield') || /^ar_(mend|totem)/.test(this.h.arenaRmb || ''))) { // (healers' right click heals even with a shield in hand)
       this.rmbHeld = false;
       if (this.h.arenaRmb === 'aim' || (this.W && (this.W.kind === 'bow' || this.W.kind === 'gun'))) { this.adsHeld = down; return; }
       if (down && this.h.arenaRmb) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) { const cd0 = this.cd['a' + (k + 1)] || 0; this.ability(k); const ra = ABILITIES[this.h.cls][k]; /* (third person only for ultimates, for now) */ } } // (a defensive stance: seen from behind, like Paladins)
@@ -466,6 +466,11 @@ export class Player {
   // where a spell leaves you: between your raised hands (campaign), not the staff
   spellFrom() { if (!G.newFx) return this.handPos(); if (this.camDist < 0.6) { const o = G.camera.position.clone(); return o.add(new THREE.Vector3(0, 0.05, -0.75).applyQuaternion(G.camera.quaternion)); } return this.pos.clone().setY(this.pos.y + this.eye + 0.35).addScaledVector(this.fwd(), 0.55); }
   aimDir(from) { const a = aimRay(120); return a.point.clone().sub(from).normalize(); }
+  arcaneRound() { // one round of the musketeer's Arcane Barrage
+    const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.1, -0.9).applyQuaternion(G.camera.quaternion)) : this.handPos(); const dir = this.aimDir(from); dir.x += (Math.random() - 0.5) * 0.02; dir.y += (Math.random() - 0.5) * 0.02; dir.normalize();
+    const base = weaponDamage(this.h, this.weapon) * 0.32;
+    spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(85), grav: 0, radius: 0.18, dmg: base, owner: 'player', kind: 'bullet', life: 1.6 });
+    this.recoil = Math.min(1, (this.recoil || 0) + 0.35); V.burst('arcane', from, 6, { speed: 3 }); V.light(from, '#b8a0ff', 3, 0.06, 6); S.gunshot && S.gunshot(this.pos, 0.45); this.fovKick = Math.min(4, (this.fovKick || 0) + 0.6); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
   speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
@@ -776,7 +781,7 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; }
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain' || id === 'ar_overgrowth' || id === 'ar_spirittotem' || id === 'ar_miracle') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
@@ -833,11 +838,18 @@ export class Player {
     if (G.hooks.allyFx && ALLY_FX[ab.id]) { const fx = ALLY_FX[ab.id].slice(); fx[1] = (fx[1] || 0) * this.hk(); G.hooks.allyFx(this.pos, fx, up); }
     if (SUPPORT[ab.id]) this.buffFx(ab.name, SUPPORT[ab.id]); // the original classes' buffs and heals announce themselves too
     if (this.h.arena) abilityFx(this, ab, this.aimFoe ? this.aimFoe(8) : null); // (each class's own look for its abilities)
+    if (this.h.arena && ab.t === 'totem' && G.hooks.shamanTotem) { G.hooks.shamanTotem(this, groundPoint(25)); return; } // (a healing totem thrown where you aim)
+    if (this.h.arena && ab.t === 'mend' && G.hooks.healerMend) { G.hooks.healerMend(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this, ab); return; } // (healers' right click: a direct heal, walls or no walls)
     if (this.h.arena && this.h.cls === 'necromancer' && ab.id === 'drainlife') { this.soulRend(ab, base, up, key); return; }
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
       case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
+      case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
+      case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
+      case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
+      case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
+      case 'ar_overgrowth': { if (!G.hooks.arenaOvergrowth) break; G.hooks.arenaOvergrowth(this); break; }
       case 'ar_arrowrain': { if (!G.hooks.arenaRain) break; G.hooks.arenaRain(this, groundPoint(40)); break; } // (the storm comes down where you aim)
       case 'ar_bladestorm': { if (!G.hooks.arenaStorm) break; G.hooks.arenaStorm(this); break; } // (you steer the whirlwind)
       case 'ar_fists': { if (!G.hooks.arenaFists) break; G.hooks.arenaFists(this); break; } // (the whirlwind of fists, centred on you)
@@ -1573,6 +1585,7 @@ export class Player {
   }
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
+    if (this.transcendT > 0) dmg *= 1.5; // (Transcendence)
     if (this.h.arena) [dmg, o] = Game.arenaOut(this, this.h, m, dmg, o); // (arena perk passives)
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
     /* (no per-class damage scaling: Kingdom Battles uses the campaign abilities now) */
@@ -1818,7 +1831,7 @@ export class Player {
   // ---------- update ----------
   update(dt) {
     const h = this.h;
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1)); // Timeless Form: abilities recharge twice as fast
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1) * (this.transcendT > 0 ? 3 : 1)); // (Transcendence: abilities recharge three times as fast) // Timeless Form: abilities recharge twice as fast
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
@@ -1984,10 +1997,9 @@ export class Player {
     bodyPoseTick(this, ch, dt); // (kicks)
     if (this.ultPoseT > 0) { this.ultPoseT -= dt; const k = Math.min(1, (1.5 - this.ultPoseT) * 5, this.ultPoseT * 4); /* (the ultimate cast: arms flung up and wide, head back, a lift off the ground) */
       for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { A2.sh.rotation.x += (-2.6 - A2.sh.rotation.x) * k; A2.sh.rotation.z += (sx * -0.7 - A2.sh.rotation.z) * k; A2.el.rotation.x += (-0.25 - A2.el.rotation.x) * k; }
-      if (ch.head) ch.head.rotation.x -= 0.35 * k; ch.body.position.y += 0.18 * k; if (Math.random() < 0.6) V.emit(this.h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 0.3 + Math.random() * 1.8), { speed: 1.5, vy: 2.5, size: 0.3 }); }
+      ch.body.position.y += 0.1 * k; /* (no head thrown back) */ if (Math.random() < 0.6) V.emit(this.h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 0.3 + Math.random() * 1.8), { speed: 1.5, vy: 2.5, size: 0.3 }); }
     if (this.oozeT > 0) { this.oozeT -= dt; this.oozeE = (this.oozeE || 0) + dt; const k0 = Math.min(1, this.oozeE / 1.8), k = k0 * k0 * (3 - 2 * k0), out = Math.min(1, this.oozeT * 2); /* (the necromancer's ultimate: both hands rise, slowly, dripping green ooze) */
       for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { const kk = k * out; A2.sh.rotation.x += (-2.3 - A2.sh.rotation.x) * kk; A2.sh.rotation.z += (sx * -0.45 - A2.sh.rotation.z) * kk; A2.el.rotation.x += (-0.35 - A2.el.rotation.x) * kk; }
-      if (ch.head) ch.head.rotation.x -= 0.25 * k * out;
       ch.root.updateMatrixWorld(true); for (const A2 of [ch.arms.R, ch.arms.L]) if (Math.random() < 0.7) { const hp2 = A2.hand.getWorldPosition(new THREE.Vector3()); V.emit('poison', hp2, { speed: 0.25, vy: -2.2, size: 0.13, life: 0.75, radius: 0.08 }); if (Math.random() < 0.3) V.emit('green', hp2, { speed: 0.4, vy: 0.6, size: 0.18, life: 0.5 }); } }
     if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
     if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time, dt); // (the bard plays once he has a song)
@@ -2021,7 +2033,8 @@ export class Player {
     if (this.cine) { this.ch.root.visible = !this.spectate && !this.dead; this.vm.g.visible = false; if (this.adsG) this.adsG.visible = false; cam.rotation.order = 'YXZ'; this.cine(cam, dt); cam.updateProjectionMatrix(); A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI); return; } // (a cinematic shot has the camera)
     this.lookLag(dt);
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
-    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
+    this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; if (this.lmbHeld && this.barrageCd <= 0 && !this.held && !this.isFrozen() && !this.dead) { this.barrageCd = 0.09; this.arcaneRound(); } }
+    if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;

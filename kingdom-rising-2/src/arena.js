@@ -17,7 +17,7 @@ import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
-import { abilityFx, bodyPoseTick } from './abilityfx.js';
+import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -53,8 +53,8 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
-export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'ar_bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'miracle', druid: 'tranquility', shaman: 'wrathstorm', bard: 'cacophony', monk: 'ar_fists',
-  ranger: 'ar_arrowrain', musketeer: 'deadeye', blunderbuss: 'greatkeg', wizard: 'timestop', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
+export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'ar_bladestorm', paladin: 'ar_wrath', darkknight: 'harbinger', cleric: 'ar_miracle', druid: 'ar_overgrowth', shaman: 'ar_spirittotem', bard: 'cacophony', monk: 'ar_fists',
+  ranger: 'ar_arrowrain', musketeer: 'ar_barrage', blunderbuss: 'greatkeg', wizard: 'ar_transcend', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
 // perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
@@ -120,8 +120,8 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
-export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'sh_lshield', wizard: 'phaseshift', cleric: 'divineaegis', paladin: 'shieldofl',
-  darkknight: 'gravewall', druid: 'barkward', monk: 'innerpeace', bard: 'lullaby', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace' };
+export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
+  darkknight: 'gravewall', druid: 'ar_mendD', monk: 'innerpeace', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
@@ -131,7 +131,17 @@ const ARENA_NEW = {
   rogue: [{ id: 'ar_assassinate', name: 'Assassinate', t: 'assassinate', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Aim at an enemy: you melt into the shadows and step out right behind them, seize them and drive your blade into their back. A killing blow.' },
     { id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
-  bard: [{ id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
+  bard: [{ id: 'ar_mendB', name: 'Mending Chord', t: 'mend', kind: 'song', heal: 0.18, cd: 6, cost: 0, fx: 'gold', level: 1, desc: 'A flowing chord of music into the ally under your crosshair, even through walls (or yourself); allies around them hear it too and heal a little.' },
+    { id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
+  musketeer: [{ id: 'ar_barrage', name: 'Arcane Barrage', t: 'barrage', cd: 90, cost: 0, fx: 'arcane', level: 1, desc: 'Ram a glowing ball of raw magic down the barrel: for 10 s your rifle crackles with power and fires as fast as you hold the trigger, a stream of arcane rounds (no reloading).' }],
+  wizard: [{ id: 'ar_transcend', name: 'Transcendence', t: 'transcend', cd: 90, cost: 0, fx: 'arcane', level: 1, desc: 'Transcend into pure arcane energy for 10 s: your body becomes light, you float, and your abilities recharge three times as fast while everything you cast hits 50% harder.' }],
+  cleric: [{ id: 'ar_mendC', name: 'Divine Light', t: 'mend', kind: 'holy', heal: 0.32, cd: 6, cost: 0, fx: 'holy', level: 1, desc: 'Pour a beam of holy light into the ally under your crosshair, even through walls (or yourself if you aim at nobody): the strongest single heal in the arena.' },
+    { id: 'ar_miracle', name: 'Miracle', t: 'miracle', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Call a miracle down on the ally under your crosshair (or yourself): a pillar of light heals them to full and wraps them in a golden shield that makes them untouchable for 3 s, and everyone near them heals by half their health.' }],
+  druid: [{ id: 'ar_mendD', name: 'Living Vine', t: 'mend', kind: 'nature', heal: 0.2, cd: 5, cost: 0, fx: 'leaf', level: 1, desc: 'Send a stream of living leaves into the ally under your crosshair, even through walls (or yourself): it heals now and keeps healing for 4 s.' },
+    { id: 'ar_overgrowth', name: 'Overgrowth', t: 'overgrowth', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Plant your staff and the wild comes: a forest bursts out of the ground around you and races outward across the whole arena. Every ally it reaches is healed (a third of their health at once and more over time), every enemy it reaches is tangled and slowed, and then the trees slowly wither back into the earth.' }],
+  shaman: [{ id: 'ar_totem', name: 'Healing Totem', t: 'totem', cd: 8, cost: 0, fx: 'water', level: 1, desc: 'Throw a healing totem where you aim: it plants itself and pulses healing to every ally within 6 m each second for 6 s (36% of their health in all). One totem at a time.' },
+    { id: 'ar_spirittotem', name: 'Spirit of the Storm', t: 'spirittotem', cd: 90, cost: 0, fx: 'lightning', level: 1, desc: 'A giant spirit totem bursts out of the ground where you aim, ancestral spirits circling it. For 7 s it pulses: every ally within 12 m heals 10% of their health, and lightning leaps from it to every enemy within 12 m. Then it cracks and sinks away.' },
+    { id: 'ar_mendS', name: 'Healing Stream', t: 'mend', kind: 'water', heal: 0.22, cd: 6, cost: 0, fx: 'water', level: 1, desc: 'A stream of healing water into the ally under your crosshair, even through walls (or yourself); it splashes on to the most hurt ally near them for half as much.' }],
   ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
   berserker: [{ id: 'ar_bladestorm', name: 'Bladestorm', t: 'bladestorm', cd: 90, cost: 0, fx: 'fire', level: 1, desc: 'Become a whirlwind of steel for 5 s: you spin with both axes held out, carving everything around you, and you can steer the storm through the enemy. Anyone inside is dragged in, slowed and cut again and again (60% of their health if they stay in it the whole time), and the storm ends in a blast that throws them away.' }],
   monk: [{ id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
@@ -152,7 +162,7 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q) q.cd = Math.max(q.cd || 0, CD_FIX.cc);
-    const r = get(ARENA_RMB[cls]); if (r) r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30);
+    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
     for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } } }
 // arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
 const PACE = 0.75;
@@ -203,7 +213,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -248,13 +258,14 @@ export function ultHeal(u, frac) { if (!u || u.dead) return; const n = (u.maxHp 
 export function ultSlow(u, k, dur) { if (!u || u.dead) return; u.ultSlowT = G.time + dur; u.ultSlowK = k; }
 // the caster's camera: flies up and out of their eyes to circle the action, then back. focus() gives the point to watch;
 // backAt() the time to fly home (seconds into the ultimate). Returns the camera function (it is set as p.cine).
-export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, Q0 = new THREE.Quaternion(), Qb = new THREE.Quaternion(), M4 = new THREE.Matrix4(), P0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
-  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, r = opts.r || 13, h = opts.h || 5, a0 = opts.ang != null ? opts.ang : p.yaw + Math.PI + 0.7;
-  const cam = (c) => { const ct = G.time - t0, k = e(ct / 1.0) * (1 - e((ct - backAt()) / 0.95)); P0.copy(p.pos); P0.y += p.eye; Q0.setFromEuler(new THREE.Euler(p.pitch, p.yaw + Math.PI, 0, 'YXZ'));
-    tgt.copy(focus(ct)); const ang = a0 + ct * 0.18;
+export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, P0 = new THREE.Vector3(), L0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(), look = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
+  // a smooth pull-back: from your eyes, straight back and up, turning to keep the action in view; never rolls or flips
+  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, r = opts.r || 13, h = opts.h || 5, a0 = opts.ang != null ? opts.ang : null, UP = new THREE.Vector3(0, 1, 0);
+  const cam = (c) => { const ct = G.time - t0, k = e(ct / 1.1) * (1 - e((ct - backAt()) / 1.0)); P0.copy(p.pos); P0.y += p.eye; L0.copy(P0).add(new THREE.Vector3(Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), Math.cos(p.yaw) * Math.cos(p.pitch)).multiplyScalar(-12));
+    tgt.copy(focus(ct)); const base0 = a0 != null ? a0 : Math.atan2(p.pos.z - tgt.z, p.pos.x - tgt.x), ang = base0 + ct * 0.12; // (start on your side of the action, drift slowly round)
     if (off == null || G.time - chk > 0.5) { chk = G.time; off = 0; for (let i = 0; i < 12; i++) { const a2 = ang + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.5; if (lineClear(tgt, new THREE.Vector3(tgt.x + Math.cos(a2) * r, tgt.y + h, tgt.z + Math.sin(a2) * r))) { off = a2 - ang; break; } } }
-    offS += (off - offS) * 0.06; Ob.set(tgt.x + Math.cos(ang + offS) * r, tgt.y + h, tgt.z + Math.sin(ang + offS) * r); M4.lookAt(Ob, tgt, new THREE.Vector3(0, 1, 0)); Qb.setFromRotationMatrix(M4);
-    c.position.lerpVectors(P0, Ob, k); c.position.y += Math.sin(k * Math.PI) * 2.5; c.quaternion.slerpQuaternions(Q0, Qb, k); };
+    offS += (off - offS) * 0.05; Ob.set(tgt.x + Math.cos(ang + offS) * r, tgt.y + h, tgt.z + Math.sin(ang + offS) * r);
+    c.position.lerpVectors(P0, Ob, k); look.lerpVectors(L0, tgt, k); c.up.copy(UP); c.lookAt(look); };
   p.cine = cam; return cam; }
 // the victim's cinematic: letterbox bars, the HUD gone, a slow third-person orbit framing you and the threat, for dur seconds
 export function ultVictimCine(p, threat, dur) { if (!p || p.cine) return; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); }
@@ -479,12 +490,146 @@ export function rangerRain(caster, at) {
   return true;
 }
 
+// ---------- healers ----------
+// the ally under your crosshair (walls don't matter, like Paladins' healers): the one nearest the aim line within range
+export function aimAlly(p, range = 45) { const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.16;
+  for (const u of ultFriends(p)) { if (u === p) continue; const v = u.pos.clone().setY(u.pos.y + 1.1).sub(o), L2 = v.length(); if (L2 > range) continue; const a = Math.acos(Math.min(1, v.dot(d) / L2)); if (a < ba) { ba = a; best = u; } } return best; }
+const chestOf = (u) => u.pos.clone().setY(u.pos.y + 1.15);
+const handOfU = (u) => { const ch = u === G.player ? u.ch : u.model; const h = ch && ch.arms && ch.arms.R.hand; if (h && !(u === G.player && u.camDist < 0.6)) { ch.root.updateMatrixWorld(true); return h.getWorldPosition(new THREE.Vector3()); } return u === G.player ? G.camera.position.clone().add(new THREE.Vector3(0.15, -0.2, -0.5).applyQuaternion(G.camera.quaternion)) : chestOf(u); };
+// the healers' right click: a direct heal into one ally (or yourself), each with its own look and a twist
+export function healerMend(caster, target, a) { target = target || caster; const kind = a.kind || 'holy', from = handOfU(caster), to = chestOf(target);
+  if (target === caster) healBeam(to.clone().setY(to.y + 2.2), to, kind); else healBeam(from, to, kind);
+  ultHeal(target, a.heal || 0.2); S.heal && S.heal(); S.cast && S.cast(kind === 'holy' ? 'holy' : kind === 'water' ? 'frost' : kind === 'nature' ? 'nature' : 'holy', target.pos, 0.6);
+  if (kind === 'nature') { let n = 0; const tick = () => { if (n++ >= 4 || target.dead) return; ultHeal(target, 0.04); V.burst('leaf', chestOf(target), 6, { speed: 1.5 }); setTimeout(tick, 1000); }; setTimeout(tick, 1000); }
+  if (kind === 'water') { const next = ultFriends(caster).filter(u => u !== target && Math.hypot(u.pos.x - target.pos.x, u.pos.z - target.pos.z) < 10).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (next) setTimeout(() => { healBeam(chestOf(target), chestOf(next), 'water'); ultHeal(next, (a.heal || 0.2) / 2); }, 220); }
+  if (kind === 'song') for (const u of ultFriends(caster)) if (u !== target && Math.hypot(u.pos.x - target.pos.x, u.pos.z - target.pos.z) < 8) { ultHeal(u, 0.07); playNotes(G.scene, u, '#ffb0f0', 2); }
+  if (kind === 'song') playNotes(G.scene, target, '#ffb0f0', 4);
+}
+// the cleric's ultimate: Miracle. A pillar of light on one ally: healed to full, untouchable for 3 s in a golden shield,
+// and everyone near them heals by half their health
+export function clericMiracle(caster, target) { target = target || caster; const me = caster === G.player ? G.player : null, base = ultGround(target.pos), P = () => target.pos;
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.6, 40, 32, 1, true), new THREE.MeshBasicMaterial({ color: '#fff2b8', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3, 2), new THREE.MeshBasicMaterial({ color: '#ffd870', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })), wire = new THREE.Mesh(new THREE.IcosahedronGeometry(1.33, 1), new THREE.MeshBasicMaterial({ color: '#fff4c0', wireframe: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.04, 8, 32), new THREE.MeshBasicMaterial({ color: '#fff4b0', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); halo.rotation.x = Math.PI / 2;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.7, 48), new THREE.MeshBasicMaterial({ color: '#ffe8a0', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); ring.rotation.x = -Math.PI / 2;
+  G.scene.add(pillar, shell, wire, halo, ring); if (me) { me.ultPoseT = 1.6; me.ultImmT = Math.max(me.ultImmT || 0, 1.5); }
+  S.cast && S.cast('holy', target.pos, 1.6); let t = 0, landed = false;
+  G.timers.push({ update: (dt) => { t += dt; const p = P();
+    pillar.position.set(p.x, base + 20, p.z); pillar.material.opacity = 0.5 * Math.min(1, t / 0.25) * (1 - Math.max(0, (t - 0.9) / 0.6)); pillar.scale.set(1 + Math.sin(t * 20) * 0.04, 1, 1 + Math.sin(t * 20) * 0.04);
+    if (!landed && t >= 0.3) { landed = true; ultHeal(target, 1); if (target === G.player) target.ultImmT = Math.max(target.ultImmT || 0, 3); else target.invulnT = G.time + 3; if (target.db) for (const k in target.db) if (k !== 'freeze') target.db[k].t = 0; if (target.status) { target.status.stun = 0; target.status.slow = 0; target.status.root = 0; }
+      for (const u of ultFriends(caster)) if (u !== target && Math.hypot(u.pos.x - p.x, u.pos.z - p.z) < 8) ultHeal(u, 0.5);
+      V.burst('gold', p.clone().setY(p.y + 1.2), 90, { speed: 6 }); V.sphereFlash(p.clone().setY(p.y + 1.2), 3, '#fff4c0', 0.4); V.light(p.clone().setY(p.y + 2.5), '#fff0c0', 12, 1.0, 20); V.addShake(0.3);
+      feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> works a Miracle on <b>${target === caster ? 'themself' : esc2(target.heroName || target.name || 'an ally')}</b>!`); }
+    const sk = landed ? Math.min(1, (t - 0.3) / 0.2) * (1 - Math.max(0, (t - 3.0) / 0.3)) : 0;
+    for (const m of [shell, wire]) { m.position.set(p.x, p.y + 1.05, p.z); m.scale.setScalar(1 + Math.sin(t * 5) * 0.03); } shell.material.opacity = 0.16 * sk; wire.material.opacity = 0.35 * sk; wire.rotation.y = t * 0.6;
+    halo.position.set(p.x, p.y + (target.height || 1.8) + 0.35, p.z); halo.material.opacity = 0.9 * sk;
+    ring.position.set(p.x, base + 0.06, p.z); const rk = Math.max(0, Math.min(1, (t - 0.3) / 0.7)); ring.scale.setScalar(1 + rk * 11); ring.material.opacity = landed ? 0.8 * (1 - rk) : 0;
+    if (landed && sk > 0.2 && Math.random() < 0.6) { const a = Math.random() * Math.PI * 2; V.emit('gold', p.clone().add(new THREE.Vector3(Math.cos(a) * 0.9, Math.random() * 2, Math.sin(a) * 0.9)), { speed: 0.2, vy: 1.5, size: 0.25, life: 0.8 }); }
+    if (t > 3.4) { G.scene.remove(pillar, shell, wire, halo, ring); return true; } return false; } });
+  return true;
+}
+// the druid's ultimate: Overgrowth. A forest bursts out around the druid and races across the whole arena; allies it
+// reaches are healed, enemies are tangled and slowed; then the trees slowly wither back into the earth
+export const OVERGROWTH = { speed: 22, reach: 90, life: 6.5, wither: 2.4, heal: 0.33, hot: 0.15, slow: 0.5, slowDur: 2.5 };
+let TREE_G = null;
+function treeParts() { if (TREE_G) return TREE_G; TREE_G = { trunk: new THREE.CylinderGeometry(0.12, 0.22, 2.2, 7), crown: new THREE.IcosahedronGeometry(1.0, 0), bark: new THREE.MeshStandardMaterial({ color: '#5a3a1e', roughness: 0.9 }), leaf: [new THREE.MeshStandardMaterial({ color: '#3f8a2e', roughness: 0.8, flatShading: true }), new THREE.MeshStandardMaterial({ color: '#5aa83a', roughness: 0.8, flatShading: true })], dead: new THREE.MeshStandardMaterial({ color: '#7a6034', roughness: 0.95, flatShading: true }) }; return TREE_G; }
+function makeTree() { const P = treeParts(), g = new THREE.Group(); const tr = new THREE.Mesh(P.trunk, P.bark); tr.position.y = 1.1; g.add(tr); const n = 2 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < n; i++) { const c = new THREE.Mesh(P.crown, P.leaf[i % 2]); c.position.set((Math.random() - 0.5) * 0.7, 2.3 + i * 0.55, (Math.random() - 0.5) * 0.7); c.scale.setScalar(0.9 - i * 0.18 + Math.random() * 0.2); g.add(c); } g.userData.crowns = g.children.slice(1); return g; }
+export function druidOvergrowth(caster) { const T = Object.assign({}, OVERGROWTH, G.overTune || {}), me = caster === G.player ? G.player : null, C = caster.pos.clone(), base = ultGround(C);
+  if (me) { me.ultPoseT = 2.0; me.ultImmT = Math.max(me.ultImmT || 0, 2); ultFlyCam(me, (ct) => C.clone().setY(base + 1), () => 3.2, { r: 22, h: 14 }); me.held = true; setTimeout(() => { me.held = false; }, 4200); }
+  V.burst('leaf', C.clone().setY(base + 1.5), 80, { speed: 6 }); S.cast && S.cast('nature', C, 1.6); V.ring(C.clone().setY(base + 0.1), 10, '#7ae060', 0.8);
+  const trees = [], reached = new Set(); let t = 0, front = 0, spawned = 0; const total = Math.ceil(T.reach / T.speed);
+  G.timers.push({ update: (dt) => { t += dt; const prev = front; front = Math.min(T.reach, t * T.speed);
+    // new trees along the advancing front (denser near the druid, a living wave across the arena)
+    if (front > prev) { const ringArea = Math.PI * (front * front - prev * prev), want = Math.min(28, Math.max(1, Math.round(ringArea / 26))); for (let i = 0; i < want && spawned < 220; i++) { const a = Math.random() * Math.PI * 2, rr = prev + Math.random() * (front - prev); const x = C.x + Math.cos(a) * rr, z = C.z + Math.sin(a) * rr; if (RUINS_MAP() && solidAt && solidAt(x, z, base + 1)) continue;
+        const tr = makeTree(); tr.position.set(x, ultGround(new THREE.Vector3(x, base, z)), z); tr.rotation.y = Math.random() * 6.28; tr.scale.setScalar(0.01); G.scene.add(tr); trees.push({ m: tr, born: t, size: 0.7 + Math.random() * 0.6 }); spawned++; if (Math.random() < 0.3) V.burst('leaf', tr.position.clone().setY(tr.position.y + 0.5), 6, { speed: 2 }); } }
+    // the wave reaches people: allies heal, enemies are tangled
+    for (const u of ultFriends(caster)) if (!reached.has(u) && Math.hypot(u.pos.x - C.x, u.pos.z - C.z) <= front) { reached.add(u); ultHeal(u, T.heal); let n = 0; const hot = () => { if (n++ >= 5 || u.dead) return; ultHeal(u, T.hot / 5); V.burst('leaf', u.pos.clone().setY(u.pos.y + 1), 5, { speed: 1.5 }); setTimeout(hot, 1000); }; setTimeout(hot, 1000); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1.1), 1.2, '#9aff7a', 0.3); }
+    for (const u of ultFoes(caster)) if (!reached.has(u) && Math.hypot(u.pos.x - C.x, u.pos.z - C.z) <= front) { reached.add(u); ultSlow(u, T.slow, T.slowDur); if (u === G.player) { u.debuff && u.debuff('slow', T.slowDur); } V.burst('leaf', u.pos.clone().setY(u.pos.y + 0.4), 14, { speed: 2 }); V.burst('wood', u.pos.clone().setY(u.pos.y + 0.3), 8, { speed: 1.5 }); }
+    // each tree springs up, sways, then withers brown and sinks away
+    for (let i = trees.length - 1; i >= 0; i--) { const tr = trees[i], age = t - tr.born, m = tr.m; const grow = Math.min(1, age / 0.6), ease = grow * grow * (3 - 2 * grow);
+      const wAt = T.life - (tr.born / (total + 1)) * 0.0, wk = Math.max(0, Math.min(1, (t - wAt - tr.born * 0.15) / T.wither));
+      if (wk > 0 && !m.userData.dead) { m.userData.dead = true; for (const c of m.userData.crowns) c.material = treeParts().dead; }
+      m.scale.setScalar(Math.max(0.01, tr.size * ease * (1 - wk * 0.6))); m.position.y = ultGround(m.position) - wk * 2.2; m.rotation.z = Math.sin(t * 1.5 + i) * 0.03 * (1 - wk);
+      if (wk > 0 && Math.random() < 0.02) V.emit('leaf', m.position.clone().setY(m.position.y + 2.5), { speed: 0.5, vy: -1, size: 0.3, life: 1.2 });
+      if (wk >= 1) { G.scene.remove(m); trees.splice(i, 1); } }
+    if (t > 2 && !trees.length) return true; return false; } });
+  return true;
+}
+
+// the shaman's right click: a healing totem thrown where he aims; it pulses healing to allies around it
+const TOTEMS = new Map(); // (one per shaman)
+export function shamanTotem(caster, at) { if (at && at.pos) at = at.pos; if (!at) return; const old = TOTEMS.get(caster); if (old) old.end = 0;
+  const base = ultGround(at), to = new THREE.Vector3(at.x, base, at.z), from = (caster.pos || to).clone().setY((caster.pos ? caster.pos.y : base) + 1.6), m = makeTotem(0.8); m.position.copy(from); G.scene.add(m);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(5.7, 6, 48), new THREE.MeshBasicMaterial({ color: '#7ad0ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(to.x, base + 0.06, to.z); G.scene.add(ring);
+  const st = { end: 6.6 }; TOTEMS.set(caster, st); let t = 0, landed = false, pulse = 0; S.swingW && S.swingW('staff', 1, from);
+  G.timers.push({ update: (dt) => { t += dt;
+    if (!landed) { const k = Math.min(1, t / 0.45); m.position.lerpVectors(from, to, k); m.position.y += Math.sin(k * Math.PI) * 2.2; m.rotation.x = (1 - k) * 6; if (k >= 1) { landed = true; m.rotation.x = 0; m.position.copy(to); V.burst('dust', to.clone().setY(base + 0.2), 20, { speed: 3 }); V.burst('water', to.clone().setY(base + 0.5), 20, { speed: 3 }); S.hit && S.hit('wood', to, 1); } }
+    else { pulse -= dt; m.userData.band.position.y = 0.05 + ((t * 0.8) % 1) * 2.2; m.userData.glowMat.opacity = 0.5 + Math.sin(t * 6) * 0.3; ring.material.opacity = 0.35 + Math.sin(t * 4) * 0.15;
+      if (pulse <= 0 && t < st.end) { pulse = 1; V.ring(to.clone().setY(base + 0.1), 12, '#7ad0ff', 0.6); for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - to.x, u.pos.z - to.z) < 6) { ultHeal(u, 0.06); healBeam(to.clone().setY(base + 1.6), u.pos.clone().setY(u.pos.y + 1.1), 'water'); } } }
+    if (t > st.end) { const k = Math.min(1, (t - st.end) / 0.5); m.scale.setScalar(0.8 * (1 - k) + 0.01); ring.material.opacity = 0.35 * (1 - k); if (k >= 1) { G.scene.remove(m, ring); if (TOTEMS.get(caster) === st) TOTEMS.delete(caster); return true; } }
+    return false; } });
+}
+// the shaman's ultimate: Spirit of the Storm. A giant totem bursts up; ancestral spirits circle it; for 7 s it heals allies
+// within 12 m and lightning leaps from its crown to every enemy within 12 m; then it cracks and sinks
+export const SPIRIT = { r: 12, dur: 7, heal: 0.1, dmg: 0.06 };
+export function shamanSpirit(caster, at) { if (at && at.pos) at = at.pos; at = at || caster.pos; const T = Object.assign({}, SPIRIT, G.spiritTune || {}), me = caster === G.player ? G.player : null, base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z);
+  const big = makeTotem(3.2, '#a8e8ff'); big.position.copy(C).setY(base - 6); G.scene.add(big); const crown = () => C.clone().setY(big.position.y + 3.2 * 2.0);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(T.r - 0.2, T.r, 72), new THREE.MeshBasicMaterial({ color: '#a8e8ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, base + 0.07, C.z); G.scene.add(ring);
+  const spirits = []; for (let i = 0; i < 3; i++) { const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: ['#a8e8ff', '#d8ffb0', '#ffe0a0'][i], transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); G.scene.add(s2); spirits.push(s2); }
+  if (me) { me.ultPoseT = 1.8; me.ultImmT = Math.max(me.ultImmT || 0, 2.4); me.held = true; ultFlyCam(me, () => C.clone().setY(base + 3), () => 1.6, { r: 16, h: 7 }); setTimeout(() => { me.held = false; }, 2600); }
+  V.burst('dust', C.clone().setY(base + 0.5), 70, { speed: 8 }); V.burst('stone', C.clone().setY(base + 0.4), 40, { speed: 7, grav: 14 }); V.addShake(0.7); S.explode && S.explode(C, 0.8); S.cast && S.cast('frost', C, 1.6);
+  let t = 0, pulse = 0.6;
+  G.timers.push({ update: (dt) => { t += dt;
+    const rise = Math.min(1, t / 0.7), sink = Math.max(0, (t - T.dur) / 1.0); big.position.y = base - 6 + 6 * rise * rise * (3 - 2 * rise) - sink * 7; big.rotation.y = Math.sin(t * 0.4) * 0.05; big.userData.band.position.y = 0.05 + ((t * 0.6) % 1) * 2.2; big.userData.glowMat.opacity = 0.5 + Math.sin(t * 5) * 0.3;
+    ring.material.opacity = (0.5 + Math.sin(t * 3) * 0.2) * Math.min(1, t / 0.7) * (1 - Math.min(1, sink));
+    spirits.forEach((s2, i) => { const a = t * (1.6 + i * 0.3) + i * 2.1, rr = 3 + i * 1.2; s2.position.set(C.x + Math.cos(a) * rr, base + 2 + Math.sin(t * 2 + i) * 1.2 + i, C.z + Math.sin(a) * rr); s2.material.opacity = 0.8 * (1 - Math.min(1, sink)); if (Math.random() < 0.6) V.emit(i === 0 ? 'frost' : i === 1 ? 'leaf' : 'gold', s2.position, { speed: 0.3, size: 0.4, life: 0.6 }); });
+    pulse -= dt; if (pulse <= 0 && t < T.dur) { pulse = 1; const cr = crown(); V.ring(C.clone().setY(base + 0.15), T.r * 2, '#a8e8ff', 0.7); S.thunder ? S.thunder(cr) : S.explode && S.explode(cr, 0.3);
+      for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) { ultHeal(u, T.heal); healBeam(cr, u.pos.clone().setY(u.pos.y + 1.1), 'water'); }
+      for (const u of ultFoes(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) { boltFx(cr, u.pos.clone().setY(u.pos.y + 1.1), '#cfe8ff'); ultHurt(u, T.dmg, caster, 'lightning'); ultSlow(u, 0.6, 0.6); } }
+    if (t > T.dur + 1.1) { G.scene.remove(big, ring); for (const s2 of spirits) G.scene.remove(s2); return true; } return false; } });
+  return true;
+}
+
+// the wizard's ultimate: Transcendence. He becomes pure arcane energy for 10 s: a glowing body in a crackling aura with
+// orbiting motes, floating; abilities recharge 3x faster and everything he casts hits 50% harder
+export function wizardTranscend(caster) { const me = caster === G.player ? G.player : null, dur = 10; caster.transcendT = dur;
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.95, 20, 16), new THREE.MeshBasicMaterial({ color: '#8ab8ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })), core = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), new THREE.MeshBasicMaterial({ color: '#e8f0ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const rings = []; for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.9 + i * 0.18, 0.025, 6, 40), new THREE.MeshBasicMaterial({ color: i === 1 ? '#d8b0ff' : '#9ad0ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); rings.push(r); }
+  G.scene.add(aura, core, ...rings); const ch = me ? me.ch : caster.model; const glowM = []; if (ch && ch.root) ch.root.traverse(o => { if (o.isMesh && o.material && o.material.emissive && !o.userData.outline) { glowM.push([o.material, o.material.emissive.clone(), o.material.emissiveIntensity]); } });
+  if (me) { me.ultPoseT = 1.4; me.ultImmT = Math.max(me.ultImmT || 0, 1.2); me.tpT = Math.max(me.tpT || 0, 1.6); me.tpDist = 4; }
+  V.burst('arcane', caster.pos.clone().setY(caster.pos.y + 1), 90, { speed: 7 }); V.sphereFlash(caster.pos.clone().setY(caster.pos.y + 1), 3, '#d8e8ff', 0.4); V.light(caster.pos.clone().setY(caster.pos.y + 1.5), '#a8c8ff', 10, 0.8, 20); S.cast && S.cast('arcane', caster.pos, 1.8); V.addShake(0.4);
+  let t = 0; G.timers.push({ update: (dt) => { t += dt; caster.transcendT = Math.max(0, dur - t); const p = caster.pos, k = Math.min(1, t / 0.4) * Math.min(1, (dur - t) / 0.6), c = p.clone().setY(p.y + 1.05);
+    aura.position.copy(c); core.position.copy(c); aura.material.opacity = 0.16 * k * (1 + Math.sin(t * 9) * 0.25); core.material.opacity = 0.22 * k; aura.scale.setScalar(1 + Math.sin(t * 5) * 0.06);
+    rings.forEach((r, i) => { r.position.copy(c); r.rotation.set(t * (1.3 + i * 0.4) + i, t * (0.9 - i * 0.3), i * 0.7); r.material.opacity = 0.7 * k; });
+    for (const [m, e0] of glowM) { m.emissive.setRGB(0.35 * k, 0.5 * k, 1.0 * k); m.emissiveIntensity = 0.8; }
+    if (ch && ch.root && !(me && me.camDist < 0.6)) ch.root.position.y += 0.25 * k + Math.sin(t * 2.5) * 0.06; // (floating)
+    if (Math.random() < 0.8 * k) { const a = Math.random() * Math.PI * 2; V.emit(Math.random() < 0.5 ? 'arcane' : 'frost', c.clone().add(new THREE.Vector3(Math.cos(a) * 0.8, (Math.random() - 0.5) * 1.6, Math.sin(a) * 0.8)), { speed: 0.6, vy: 1.2, size: 0.22, life: 0.6 }); }
+    if (me && me.camDist < 0.6 && Math.random() < 0.5 && me.vm) { const hh = G.camera.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, -0.35, -0.6).applyQuaternion(G.camera.quaternion)); V.emit('arcane', hh, { speed: 0.3, size: 0.12, life: 0.3 }); } // (your hands crackle in first person)
+    if (t > dur) { G.scene.remove(aura, core, ...rings); for (const [m, e0, ei] of glowM) { m.emissive.copy(e0); m.emissiveIntensity = ei; } caster.transcendT = 0; return true; } return false; } });
+  return true;
+}
+
+// the musketeer's ultimate: Arcane Barrage. A glowing ball of raw magic rammed down the barrel; for 10 s the rifle crackles
+// and fires a stream of arcane rounds as fast as the trigger is held (players hold left click; computer musketeers fire at their target)
+export function musketBarrage(caster) { const me = caster === G.player ? G.player : null, dur = 10; caster.barrageT = dur;
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshBasicMaterial({ color: '#c8b0ff' })), halo = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), new THREE.MeshBasicMaterial({ color: '#9a7aff', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })); ball.add(halo); G.scene.add(ball);
+  const muzzle = () => me ? (me.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion)) : me.handPos ? me.handPos() : me.pos.clone().setY(me.pos.y + 1.4)) : caster.pos.clone().setY(caster.pos.y + 1.4).addScaledVector(new THREE.Vector3(Math.sin(caster.yaw || 0), 0, Math.cos(caster.yaw || 0)), 0.8);
+  S.cast && S.cast('arcane', caster.pos, 1.4); let t = 0;
+  G.timers.push({ update: (dt) => { t += dt; const mz = muzzle();
+    if (t < 0.6) { const k = t / 0.6; ball.position.copy(mz).add(new THREE.Vector3(0, 0.6 * (1 - k), 0)); ball.scale.setScalar(1 - k * 0.5); halo.material.opacity = 0.5 + Math.sin(t * 30) * 0.2; if (t > 0.55) { V.burst('arcane', mz, 30, { speed: 3 }); V.sphereFlash(mz, 0.6, '#c8b0ff', 0.2); S.hit && S.hit('metal', mz, 0.6); } } // (rammed home)
+    else ball.visible = false;
+    if (t > 0.6 && Math.random() < 0.5) V.emit(Math.random() < 0.5 ? 'arcane' : 'lightning', mz, { speed: 0.6, size: 0.18, life: 0.25 }); // (the barrel crackles)
+    if (t > dur) { G.scene.remove(ball); caster.barrageT = 0; return true; } return false; } });
+  return true;
+}
+
 export function summonDemon(caster, at) {
   // the necromancer's ultimate, cast on the ground: a ring of green hellfire bursts up, the floor cracks and glows, and a
   // skeletal demon claws its way slowly out of the pit and roars. When it is up it seizes the nearest enemy in reach, lifts
   // them overhead while they struggle, and bites their head off, then sinks back as the fire dies. Nobody in reach: it
   // searches, roars in fury, and sinks back down. Whoever is caught sees it all from a cinematic camera.
-  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 10.35, FRZ = G.ringFRZ || 1.5; // (FRZ: the freeze when the ring bursts up; from dead centre only a leap dodge then gets out in time) // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
+  if (at && at.pos) at = at.pos; if (!at) return false; const RR = 5.2, FRZ = G.ringFRZ || 1.5; // (FRZ: the freeze when the ring bursts up; from dead centre only a leap dodge then gets out in time) // (the ring: everyone inside is slowed, and the demon can grab anyone still inside it)
   const inAr = A.F && A.F.length > 0, base = inAr ? gy(at.x, at.z, at.y) : heightAt(at.x, at.z), face = caster && caster.pos ? Math.atan2(caster.pos.x - at.x, caster.pos.z - at.z) : 0;
   const D = makeDemon(), g = D.g, ox = at.x, oz = at.z, center = new THREE.Vector3(ox, base, oz); g.position.set(ox, base - 6.5, oz); g.rotation.order = 'YXZ'; g.rotation.y = face; /* (yaw, then a lean in its own frame) */ G.scene.add(g); addOutline(g);
   const ring = makeHellRing(RR, 64); ring.position.copy(center); G.scene.add(ring);
@@ -559,14 +704,7 @@ export function summonDemon(caster, at) {
   // walls between the camera and the action: swing round until the line is clear
   function clearAng(mid, ang, r, cy) { for (let k = 0; k < 12; k++) { const a2 = ang + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; if (lineClear(mid, new THREE.Vector3(mid.x + Math.cos(a2) * r, cy, mid.z + Math.sin(a2) * r))) return a2 - ang; } return 0; }
   // the caster's view: flies up and out of your eyes to circle the pit, watches the whole thing, then flies back
-  function startFly() { const p = G.player, t0 = t, Q0 = new THREE.Quaternion(), Qb = new THREE.Quaternion(), M4 = new THREE.Matrix4(), P0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
-    flyCam = p.cine = (cam) => { const ct = t - t0, back0 = sinkAt + 0.65, kin = e(ct / 1.0), kout = e((t - back0) / 0.95), k = kin * (1 - kout);
-      P0.copy(p.pos); P0.y += p.eye; Q0.setFromEuler(new THREE.Euler(p.pitch, p.yaw + Math.PI, 0, 'YXZ'));
-      D.head.getWorldPosition(tgt); tgt.y = Math.max(base + 1.5, tgt.y - 1.2);
-      const ang = face + 0.75 + ct * 0.2, r = 12.5, cy = base + 4.2; if (off == null || G.time - chk > 0.5) { chk = G.time; off = clearAng(tgt, ang, r, cy); } offS += (off - offS) * 0.06;
-      Ob.set(tgt.x + Math.cos(ang + offS) * r, cy, tgt.z + Math.sin(ang + offS) * r);
-      M4.lookAt(Ob, tgt, new THREE.Vector3(0, 1, 0)); Qb.setFromRotationMatrix(M4);
-      cam.position.lerpVectors(P0, Ob, k); cam.position.y += Math.sin(k * Math.PI) * 2.5; cam.quaternion.slerpQuaternions(Q0, Qb, k); }; }
+  function startFly() { const tg = new THREE.Vector3(); flyCam = ultFlyCam(G.player, () => { D.head.getWorldPosition(tg); tg.y = Math.max(base + 1.5, tg.y - 1.2); return tg; }, () => sinkAt + 0.65, { r: 12.5, h: 4.2 }); }
   // the victim's cinematic: letterbox bars, a low camera slowly circling the pit, framing the demon and its catch
   function startCine() { const p = G.player; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); } requestAnimationFrame(() => bars.classList.add('on'));
     document.body.classList.add('cine'); let cineA = null, cineChk = -9, cineS = null; const t0 = t, Hd = new THREE.Vector3(), side = Math.random() < 0.5 ? 1 : -1;
@@ -636,7 +774,7 @@ export function openKitInfo(UI, into) {
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
   const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
   let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb, 0, null);
-  const r = h.arenaRmb, shield = W && W.hands === 'shield';
+  const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
   if (shield) html += row('RMB', 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
   else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
   else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
@@ -854,7 +992,7 @@ class ArenaBot {
   healSelf(n) { if (this.dead) return; this.hp = Math.min(this.maxHp, this.hp + n * Game.arenaHealK(this.h)); }
   heal(n) { this.healSelf(n); }
   addBuff(kind, dur) { this.buffs[kind] = Math.max(this.buffs[kind] || 0, dur); if (kind === 'barrier') this.barrier = this.maxHp * 0.22; }
-  dmgMul() { let k = 1; const b = this.buffs; if (b.cry > 0) k *= 1.3; if (b.rage > 0) k *= 1.15; if (b.surge > 0) k *= 1.2; if (b.lich > 0) k *= 1.4; if (b.form > 0) k *= 1.35; if (b.avatar > 0 && this.av && this.av.dmg) k *= this.av.dmg; return k; }
+  dmgMul() { let k = this.transcendT > 0 ? 1.5 : 1; const b = this.buffs; if (b.cry > 0) k *= 1.3; if (b.rage > 0) k *= 1.15; if (b.surge > 0) k *= 1.2; if (b.lich > 0) k *= 1.4; if (b.form > 0) k *= 1.35; if (b.avatar > 0 && this.av && this.av.dmg) k *= this.av.dmg; return k; }
   // ---- being hit (by the player, a team mate's enemy, a pet...) ----
   takeHit(dmg, src, o = {}) {
     if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs;
@@ -898,7 +1036,8 @@ class ArenaBot {
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
     for (const d of this.dots) if (d.spread > 0 && Math.random() < dt * 0.9) { d.spread--; const nb = A.F.map(unitOf).find(u => u && u !== this && !u.dead && u.team === this.team && u.takeHit && u.dots && Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 4.5 && !(u.dots || []).some(x => x.spread != null)); if (nb) { nb.dots.push({ dps: d.dps, t: 4, src: d.src, spread: 0 }); V.burst('green', nb.pos.clone().setY(nb.pos.y + 1), 14, { speed: 2 }); } }
     this.blightT = Math.max(0, (this.blightT || 0) - dt); for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt * (d.spread != null && this.blightT > 0 ? 1.5 : 1); if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
-    for (const k in this.cd) this.cd[k] -= dt; this.gcd -= dt; this.swingT -= dt;
+    if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; const Tg = this.target; if (Tg && !Tg.dead && this.barrageCd <= 0 && Math.hypot(Tg.pos.x - this.pos.x, Tg.pos.z - this.pos.z) < 30) { this.barrageCd = 0.09; this.yaw = Math.atan2(Tg.pos.x - this.pos.x, Tg.pos.z - this.pos.z); shot(this, Tg, '#b0a0ff', () => hitUnit(this, Tg, this.base * 0.32 * this.up * this.dmgMul(), {}), false, 'bullet'); V.emit('arcane', this.pos.clone().setY(this.pos.y + 1.4).addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 0.9), { speed: 2, size: 0.3, life: 0.2 }); } }
+    for (const k in this.cd) this.cd[k] -= dt * (this.transcendT > 0 ? 3 : 1); this.gcd -= dt; this.swingT -= dt;
     if (this.act) { this.actT += dt * (this.actSp || 1.6); if (this.actT >= 1) { this.act = ''; this.actT = 0; } }
     if (this.pending && (this.pending.t -= dt) <= 0) { const f = this.pending.fn; this.pending = null; if (!(st.stun > 0)) f(); }
     let speed = 0;
@@ -1081,6 +1220,13 @@ class ArenaBot {
       case 'fists': monkFists(this); return;
       case 'bladestorm': berserkerStorm(this); return;
       case 'arrowrain': if (T && !T.dead) rangerRain(this, T.pos.clone()); return;
+      case 'mend': { const al = alliesOf(this, true).filter(u => Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 45).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || this; healerMend(this, al, a); return; }
+      case 'miracle': { const al = alliesOf(this, true).filter(u => Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 45).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || this; clericMiracle(this, al); return; }
+      case 'overgrowth': druidOvergrowth(this); return;
+      case 'transcend': wizardTranscend(this); return;
+      case 'barrage': musketBarrage(this); return;
+      case 'totem': { const al = alliesOf(this, true).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || this; shamanTotem(this, al.pos.clone()); return; }
+      case 'spirittotem': { const al = alliesOf(this, true); const c = T ? this.pos.clone().lerp(T.pos, 0.5) : this.pos.clone(); shamanSpirit(this, c); return; }
       case 'assassinate': if (T && !T.dead) rogueAssassinate(this, T); return;
       case 'summon': this.summon(a); return;
       case 'petbuff': for (const p of this.pets) p.frenzy = 12; return;

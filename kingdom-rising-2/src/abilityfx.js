@@ -67,3 +67,67 @@ export function bodyPoseTick(u, ch, dt) {
 }
 FX.flyingkick = (u) => { u.kickT = u.kickDur = 0.55; u.kickSide = Math.random() < 0.5 ? 'R' : 'L'; S.dodge && S.dodge();
   let t = 0; G.timers.push({ update: (dt) => { t += dt; const p = u.pos.clone().setY(u.pos.y + 0.9); V.emit('frost', p, { speed: 0.4, size: 0.35, life: 0.35 }); if (Math.random() < 0.6) V.emit('gold', p, { speed: 0.6, size: 0.2, life: 0.3 }); return t > 0.5; } }); };
+
+// ---------- healing beams for the healers' right click (and anything else that pours from one to another) ----------
+// kind: 'holy' (golden beam), 'nature' (leaves along a vine), 'water' (a rippling stream), 'song' (notes flowing)
+export function healBeam(from, to, kind = 'holy') {
+  const col = { holy: '#ffe08a', nature: '#7ae060', water: '#7ad0ff', song: '#ffb0f0' }[kind] || '#ffffff';
+  const dir = to.clone().sub(from), L = dir.length(), mid = from.clone().lerp(to, 0.5);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(kind === 'holy' ? 0.14 : 0.07, kind === 'holy' ? 0.14 : 0.07, L, 10, 1, true), glow(col, 0.85)); beam.position.copy(mid); beam.quaternion.setFromUnitVectors(V3(0, 1, 0), dir.clone().normalize());
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, L, 6, 1, true), glow('#ffffff', 0.9)); core.position.copy(mid); core.quaternion.copy(beam.quaternion);
+  const pk = kind === 'nature' ? 'leaf' : kind === 'water' ? 'water' : kind === 'song' ? 'arcane' : 'gold';
+  play(0.45, kind === 'nature' || kind === 'song' ? [] : [beam, core], (k, t) => { beam.material.opacity = 0.85 * (1 - k); core.material.opacity = 0.9 * (1 - k); beam.scale.x = beam.scale.z = 1 + Math.sin(t * 40) * 0.2;
+    const n = kind === 'nature' || kind === 'song' ? 6 : 3; for (let i = 0; i < n; i++) { const f = Math.random(), p = from.clone().lerp(to, f); if (kind !== 'holy') p.y += Math.sin(f * Math.PI) * (kind === 'water' ? 0.6 : 0.9) + Math.sin(t * 20 + f * 9) * 0.15; V.emit(pk, p, { speed: 0.4, size: kind === 'song' ? 0.35 : 0.28, life: 0.5 }); } });
+  V.burst(pk, to, 24, { speed: 2.5, vy: 1.5 }); V.sphereFlash(to, 0.9, col, 0.25); V.light(to, col, 4, 0.3, 10);
+}
+
+// a jagged lightning bolt from one point to another (flashes and fades)
+export function boltFx(from, to, col = '#cfe4ff') {
+  const pts = [from.clone()]; for (let i = 1; i < 9; i++) { const p = from.clone().lerp(to, i / 9); p.x += (Math.random() - 0.5) * 0.8; p.z += (Math.random() - 0.5) * 0.8; p.y += (Math.random() - 0.5) * 0.4; pts.push(p); } pts.push(to.clone());
+  const g = new THREE.Group(); for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], len = a.distanceTo(b), m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 5), glow(col, 0.95)); m.position.copy(a).lerp(b, 0.5); m.quaternion.setFromUnitVectors(V3(0, 1, 0), b.clone().sub(a).normalize()); g.add(m); }
+  play(0.18, [g], (k) => { g.children.forEach(m => { m.material.opacity = 0.95 * (1 - k); }); }); V.sphereFlash(to, 1.0, col, 0.2); V.light(to, col, 6, 0.2, 14); V.burst('lightning', to, 14, { speed: 4 });
+}
+// a carved totem pole: stacked faces with glowing rune eyes, spread wings on top. size ~1 = 1.8 m tall
+export function makeTotem(size = 1, glowCol = '#7ad0ff') {
+  const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#6a4426', roughness: 0.85 }), dark = new THREE.MeshStandardMaterial({ color: '#3a2414', roughness: 0.9 }), paint = new THREE.MeshStandardMaterial({ color: '#b83a2a', roughness: 0.8 }), eyeM = new THREE.MeshBasicMaterial({ color: glowCol }), run = new THREE.MeshBasicMaterial({ color: glowCol, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+  const faces = 3; for (let i = 0; i < faces; i++) { const y = 0.3 + i * 0.5; add(new THREE.CylinderGeometry(0.22, 0.24, 0.5, 10), i % 2 ? dark : wood, 0, y, 0); for (const x of [-0.08, 0.08]) add(new THREE.SphereGeometry(0.045, 6, 5), eyeM, x, y + 0.08, 0.2); add(new THREE.BoxGeometry(0.2, 0.05, 0.06), paint, 0, y - 0.1, 0.21); add(new THREE.ConeGeometry(0.05, 0.12, 4), dark, 0, y, 0.25).rotation.x = Math.PI / 2; }
+  for (const sx of [-1, 1]) { const w = add(new THREE.BoxGeometry(0.55, 0.12, 0.06), paint, sx * 0.4, 1.7, 0); w.rotation.z = sx * 0.3; add(new THREE.BoxGeometry(0.3, 0.08, 0.05), wood, sx * 0.62, 1.82, 0).rotation.z = sx * 0.55; }
+  add(new THREE.ConeGeometry(0.2, 0.35, 8), wood, 0, 1.95, 0); const band = add(new THREE.TorusGeometry(0.25, 0.025, 6, 20), run, 0, 0.05, 0); band.rotation.x = Math.PI / 2;
+  g.scale.setScalar(size); g.userData.band = band; g.userData.glowMat = run; return g;
+}
+
+// ---------- defensive and buff abilities: a visible effect on the body for as long as it lasts ----------
+// build(group) returns tick(k, t, unitPos) ; the group follows the unit; ends after dur, or early when a shield breaks
+function auraFx(u, dur, build, barrier) { const g = new THREE.Group(); const tick = build(g); G.scene.add(g); let t = 0;
+  G.timers.push({ update: (dt) => { t += dt; const k = Math.min(1, t / 0.25) * Math.min(1, (dur - t) / 0.35); g.position.copy(u.pos);
+    const fp = u === G.player && u.camDist < 0.6; g.visible = !fp || !!build.fpOk;
+    tick(Math.max(0, k), t, g); const broke = barrier && t > 0.4 && u.buffs && !(u.buffs.barrier > 0);
+    if (t >= dur || broke || u.dead) { if (broke) V.burst('spark', u.pos.clone().setY(u.pos.y + 1), 30, { speed: 5 }); G.scene.remove(g); return true; } return false; } }); }
+const orbit = (g, n, mk, r, y) => { const a = []; for (let i = 0; i < n; i++) { const m = mk(i); g.add(m); a.push({ m, a: i / n * Math.PI * 2, y: y + (i % 3) * 0.4 }); } return (t, sp = 2) => a.forEach((o, i) => { const ang = o.a + t * sp; o.m.position.set(Math.cos(ang) * r, o.y + Math.sin(t * 2 + i) * 0.1, Math.sin(ang) * r); o.m.rotation.set(t * 2 + i, t * 3, 0); }); };
+const bone = () => new THREE.MeshStandardMaterial({ color: '#e8e0c8', roughness: 0.6 });
+Object.assign(FX, {
+  bonearmor(u, a) { auraFx(u, a.dur || 12, (g) => { const bm = bone(); const spin = orbit(g, 9, (i) => { const m = new THREE.Mesh(i % 2 ? new THREE.ConeGeometry(0.06, 0.32, 5) : new THREE.CapsuleGeometry(0.04, 0.22, 3, 6), bm); return m; }, 0.75, 0.5);
+      const aur = new THREE.Mesh(new THREE.SphereGeometry(0.9, 16, 12), glow('#d8ffd0', 0)); aur.position.y = 1; g.add(aur); S.hit && S.hit('bone', u.pos, 1); V.burst('bone', u.pos.clone().setY(u.pos.y + 1), 30, { speed: 3 });
+      return (k, t) => { spin(t, 2.4); g.children.forEach(c => { if (c !== aur) c.scale.setScalar(k); }); aur.material.opacity = 0.08 * k; }; }, true); },
+  shieldwall(u, a) { auraFx(u, a.dur || 8, (g) => { const wall = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.0), glow('#c8d8ff', 0)); wall.position.set(0, 1.0, 0.75); g.add(wall); const rim = new THREE.Mesh(new THREE.RingGeometry(0.85, 0.95, 4, 1), glow('#ffffff', 0)); rim.rotation.z = Math.PI / 4; rim.scale.set(1, 1.25, 1); rim.position.copy(wall.position); g.add(rim); S.block && S.block(true, u.pos);
+      return (k, t) => { g.rotation.y = u === G.player ? u.yaw : (u.yaw || 0); wall.material.opacity = 0.22 * k * (1 + Math.sin(t * 6) * 0.15); rim.material.opacity = 0.6 * k; }; }); },
+  undying(u, a) { auraFx(u, a.dur || 6, (g) => { const fl = []; for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.55 - i * 0.12, 1.9 + i * 0.3, 10, 1, true), glow(i ? '#ff5020' : '#c01010', 0)); m.position.y = 1.0; g.add(m); fl.push(m); } S.cast && S.cast('fire', u.pos, 0.9);
+      return (k, t) => { fl.forEach((m, i) => { m.material.opacity = (0.22 - i * 0.05) * k; m.scale.set(1 + Math.sin(t * 9 + i) * 0.08, 1 + Math.sin(t * 7 + i) * 0.1, 1); m.rotation.y = t * (2 + i); }); if (Math.random() < 0.6 * k) V.emit('fire', u.pos.clone().setY(u.pos.y + 0.3 + Math.random() * 1.6), { speed: 0.5, vy: 2, size: 0.3, life: 0.5 }); }; }); },
+  phaseshift(u, a) { auraFx(u, a.dur || 2.5, (g) => { const rings = []; for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.7 + i * 0.12, 0.02, 6, 32), glow('#c8a0ff', 0)); r.position.y = 0.3 + i * 0.7; r.rotation.x = Math.PI / 2; g.add(r); rings.push(r); } const ch = u.ch || u.model; const mats = []; if (ch && ch.root) ch.root.traverse(o => { if (o.isMesh && o.material && !o.userData.outline) mats.push(o.material); });
+      V.burst('arcane', u.pos.clone().setY(u.pos.y + 1), 40, { speed: 4 }); S.cast && S.cast('arcane', u.pos, 0.9);
+      return (k, t) => { rings.forEach((r, i) => { r.material.opacity = 0.7 * k; r.position.y = 0.3 + i * 0.7 + Math.sin(t * 4 + i) * 0.2; }); for (const m of mats) { m.transparent = k > 0.05; m.opacity = 1 - 0.6 * k; } if (k <= 0.01) for (const m of mats) { m.opacity = 1; m.transparent = false; } }; }); },
+  gravewall(u, a) { auraFx(u, Math.min(a.dur || 12, 12), (g) => { const st = []; const stone = new THREE.MeshStandardMaterial({ color: '#6a6a72', roughness: 0.9 }); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.8, 0.12), stone); const an = i / 6 * Math.PI * 2; m.position.set(Math.cos(an) * 1.1, -0.8, Math.sin(an) * 1.1); m.rotation.y = -an + Math.PI / 2; g.add(m); st.push(m); }
+      const aur = new THREE.Mesh(new THREE.SphereGeometry(0.95, 14, 10), glow('#7a4aa0', 0)); aur.position.y = 1; g.add(aur); V.burst('stone', u.pos.clone().setY(u.pos.y + 0.3), 30, { speed: 3 });
+      return (k, t) => { st.forEach((m, i) => { m.position.y = -0.8 + Math.min(1, t * 3) * 1.2 - (1 - k) * 1.2; }); aur.material.opacity = 0.1 * k; g.rotation.y = t * 0.3; }; }, true); },
+  innerpeace(u, a) { auraFx(u, a.dur || 8, (g) => { const lotus = new THREE.Group(); for (let i = 0; i < 8; i++) { const p = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 4), glow('#ffd8a0', 0.7)); const an = i / 8 * Math.PI * 2; p.position.set(Math.cos(an) * 0.45, 0.08, Math.sin(an) * 0.45); p.rotation.set(Math.PI / 2 - 0.6, 0, -an + Math.PI / 2); p.rotation.order = 'YXZ'; p.rotation.y = -an; lotus.add(p); } g.add(lotus); const aur = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 10), glow('#ffe8b0', 0)); aur.position.y = 1; g.add(aur);
+      return (k, t) => { lotus.rotation.y = t * 0.5; lotus.scale.setScalar(k); lotus.children.forEach(c => { c.material.opacity = 0.6 * k; }); aur.material.opacity = 0.1 * k * (1 + Math.sin(t * 2) * 0.3); if (Math.random() < 0.3 * k) V.emit('gold', u.pos.clone().setY(u.pos.y + 0.3 + Math.random() * 1.6), { speed: 0.2, vy: 1, size: 0.2, life: 0.8 }); }; }, true); },
+  iceshell(u, a) { auraFx(u, a.dur || 12, (g) => { const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 1), new THREE.MeshStandardMaterial({ color: '#bfe8ff', roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0, flatShading: true })); shell.position.y = 1; g.add(shell); const sh = []; for (let i = 0; i < 6; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#dff4ff', roughness: 0.1, transparent: true, opacity: 0.8 })); const an = i / 6 * Math.PI * 2; c.position.set(Math.cos(an) * 0.9, 0.1, Math.sin(an) * 0.9); g.add(c); sh.push(c); }
+      V.burst('frost', u.pos.clone().setY(u.pos.y + 1), 40, { speed: 3 }); S.cast && S.cast('frost', u.pos, 0.9);
+      return (k, t) => { shell.material.opacity = 0.28 * k; shell.rotation.y = t * 0.3; sh.forEach(c => c.scale.setScalar(k)); }; }, true); },
+  runeshield(u, a) { auraFx(u, a.dur || 12, (g) => { const rs = []; for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.03, 6, 6), glow(i === 1 ? '#ff90f0' : '#d0a0ff', 0)); r.position.y = 0.4 + i * 0.6; g.add(r); rs.push(r); } S.cast && S.cast('arcane', u.pos, 0.8);
+      return (k, t) => { rs.forEach((r, i) => { r.material.opacity = 0.8 * k; r.rotation.set(Math.PI / 2 + Math.sin(t + i) * 0.3, t * (1.5 - i * 0.5), 0); }); if (Math.random() < 0.3 * k) V.emit('arcane', u.pos.clone().setY(u.pos.y + Math.random() * 2), { speed: 0.4, size: 0.18, life: 0.5 }); }; }, true); },
+  naturesembrace(u, a) { auraFx(u, a.dur || 15, (g) => { const vm = new THREE.MeshStandardMaterial({ color: '#4a8a2e', roughness: 0.8 }); const vines = []; for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 5, 24, Math.PI * 1.5), vm); v.position.y = 0.4 + i * 0.55; v.rotation.x = Math.PI / 2; g.add(v); vines.push(v); } V.burst('leaf', u.pos.clone().setY(u.pos.y + 1), 30, { speed: 3 });
+      return (k, t) => { vines.forEach((v, i) => { v.rotation.z = t * (1 + i * 0.4) * (i % 2 ? -1 : 1); v.scale.setScalar(k); }); if (Math.random() < 0.5 * k) { const an = Math.random() * 6.28; V.emit('leaf', u.pos.clone().add(new THREE.Vector3(Math.cos(an) * 0.7, Math.random() * 2, Math.sin(an) * 0.7)), { speed: 0.5, size: 0.25, life: 0.7 }); } }; }); },
+  ar_shadowstep(u, a) { let t = 0; G.timers.push({ update: (dt) => { t += dt; V.emit('shadow', u.pos.clone().setY(u.pos.y + 0.5 + Math.random()), { speed: 0.6, size: 0.5, life: 0.6 }); if (Math.random() < 0.5) V.emit('smoke', u.pos.clone().setY(u.pos.y + 0.3), { speed: 0.4, size: 0.6, life: 0.7 }); return t > 0.8; } }); },
+});

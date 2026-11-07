@@ -49,7 +49,7 @@ export function playUlt(cls) { const id = ultOf(cls), ab = id && (ABILITIES[cls]
 export const ULT_ORDER = ORDER;
 // ---------- the show ----------
 function play(cls, ab) {
-  if (['necromancer', 'paladin', 'monk', 'rogue', 'berserker', 'ranger'].includes(cls)) { yardUltTest(cls); return; } // (finished ultimates: the real thing, with its own cinematic)
+  if (['necromancer', 'paladin', 'monk', 'rogue', 'berserker', 'ranger', 'druid', 'shaman'].includes(cls)) { yardUltTest(cls); return; } // (finished ultimates: the real thing, with its own cinematic)
   const P = G.player; if (!P || busy) return; busy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), cx = P.pos.x + fx * 9, cz = P.pos.z + fz * 9;
   const ch = buildHumanoid({ race: 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls) }); arenaDecor(ch, cls);

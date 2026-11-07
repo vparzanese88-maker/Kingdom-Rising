@@ -17,6 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
+import { attachFpArms, tickFpArms } from './heromodels.js';
 import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
@@ -345,6 +346,7 @@ class ViewModel {
       const rest = Math.max(0.01, len - FORE); m.scale.set(1, rest, 1); m.position.set(0, FORE + rest / 2 - 0.01, 0); /* (the forearm keeps its shape; only the sleeve beyond the elbow stretches) */
       trim.position.set(0, 0.035, 0);
     }
+    if (this.fpArms) tickFpArms(this); // (a class with a 3D model: its own arms in first person)
   }
 }
 
@@ -375,7 +377,7 @@ export class Player {
     this.fb = {}; this.swayX = 0; this.swayY = 0; this.fovKick = 0; this.landDip = 0; this.lookDX = 0; this.lookDY = 0;
     const app = Object.assign({ race: hero.race, sex: hero.sex, cls: hero.cls }, hero.app);
     this.app = app;
-    this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; // (the arena: the weapon sits lower and further right, out of the way)
+    this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; if (hero.arena) attachFpArms(this.vm, hero.cls); // (the arena: the weapon sits lower and further right, out of the way)
     this.trail = V.trail('#ffffff'); this.trailL = V.trail('#ffffff');
     this.refreshGear(true);
     this.eye = this.ch.height * 0.9;
@@ -604,11 +606,11 @@ export class Player {
     if (a.name === 'fury') { const k = Math.floor(a.t * a.hits); if (k > (a.done || 0) && k <= a.hits) { a.done = k; this.furyHit(a, k); } }
     // trails
     const tr = this.camDist < 0.6 ? this.vm.weapons.main : this.ch.weapons.main;
-    const trActive = W && W.kind === 'melee' && a.t > hitAt - 0.25 && a.t < hitAt + 0.25 && a.name !== 'off1' && a.name !== 'stabL';
+    const trActive = !!tr && tr.userData && tr.userData.tip && this.weapon && this.weapon.wt !== 'fists' && W && W.kind === 'melee' && a.t > hitAt - 0.25 && a.t < hitAt + 0.25 && a.name !== 'off1' && a.name !== 'stabL';
     this.trail.active = trActive;
     if (trActive && tr) this.trail.push(tr.userData.base.getWorldPosition(new THREE.Vector3()), tr.userData.tip.getWorldPosition(new THREE.Vector3()));
     const trl = this.camDist < 0.6 ? this.vm.weapons.off : this.ch.weapons.off;
-    const offActive = W && W.hands === 'dual' && (a.name === 'off1' || a.name === 'stabL' || a.name === 'spin' || a.name === 'swing3' || a.name === 'fury' || a.name === 'heavy' || a.name === 'smash') && a.t > 0.1 && a.t < 0.8;
+    const offActive = !!trl && trl.userData && trl.userData.tip && this.weapon && this.weapon.wt !== 'fists' && W && W.hands === 'dual' && (a.name === 'off1' || a.name === 'stabL' || a.name === 'spin' || a.name === 'swing3' || a.name === 'fury' || a.name === 'heavy' || a.name === 'smash') && a.t > 0.1 && a.t < 0.8;
     this.trailL.active = offActive;
     if (offActive && trl) this.trailL.push(trl.userData.base.getWorldPosition(new THREE.Vector3()), trl.userData.tip.getWorldPosition(new THREE.Vector3()));
     if (a.t >= 1) {
@@ -657,7 +659,7 @@ export class Player {
       }
       if (targets.length) { G.hitstop = (big ? 0.09 : 0.04) * (G.battleFx ? 1.5 : 1); V.addShake((big ? 0.3 : 0.08) * (G.battleFx ? 1.6 : 1)); if (G.battleFx) for (const m of targets) { const hp = m.pos.clone(); hp.y += (m.height || 1.5) * 0.6; V.burst('spark', hp, big ? 22 : 12, { speed: big ? 9 : 6 }); if (big) V.light(hp, '#ffd8a0', 5, 0.12); } }
       const fp = this.pos.clone().addScaledVector(this.fwd(), reach * 0.8); fp.y = heightAt(fp.x, fp.z);
-      if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp, st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
+      if (st.shock) { for (const m of mobsInRadius(fp, st.shock)) if (!targets.includes(m)) this.dealDamage(m, base * st.m * 0.5, { melee: true, blunt, slow: 2, knock: m.pos.clone().sub(fp).setY(0).normalize().multiplyScalar(6) }); V.ring(fp.clone().setY(this.pos.y), st.shock, '#ffe0a0', 0.45); V.burst('stone', fp, 26, { speed: 7, size: 0.3, grav: 14 }); V.burst('dust', fp, 20, { speed: 4, size: 1, life: 1.2 }); S.hit('stone', fp); S.rumble(fp, 0.5); V.addShake(0.35); }
       if (a.name === 'spin') { V.ring(this.pos, st.aoe || 3, '#e0e8ff', 0.35); V.burst('spark', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 7 }); S.swingW('light', 1.6, this.pos); }
       if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
       if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });

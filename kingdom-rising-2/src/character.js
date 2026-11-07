@@ -731,6 +731,7 @@ function uprightShield(ch, st) {
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
 export function animateHumanoid(ch, dt, st) {
+  ch._act = st.action || (st.block ? 'block' : null) || (st.aimStaff ? 'aim' : null); // (read by the 3D hero models: their arms follow the built body while it attacks)
   const A = ch.anim; A.t += dt; const S = ch.style || null; if (ch._so) styleUndo(ch);
   const { hips, spine, chest, neck, head, arms, legs, body } = ch;
   const sp = Math.min(st.speed || 0, 9.5); // (a charge or dash moves faster, but the legs never blur)

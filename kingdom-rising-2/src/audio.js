@@ -241,10 +241,27 @@ export const S = {
       const z = tone(t, 0.3, o.node, { type: 'sawtooth', f: 90, gain: 0.12 * b, a: 0.002 }); const lfo = ctx.createOscillator(); lfo.frequency.value = 60; const lg = ctx.createGain(); lg.gain.value = 40; lfo.connect(lg); lg.connect(z.o.frequency); lfo.start(t); lfo.stop(t + 0.35);
       for (let i = 0; i < 8; i++) noise(t + Math.random() * 0.25, 0.03, o.node, { type: 'bandpass', f: 3000 + Math.random() * 4000, gain: 0.45 });
       noise(t + 0.15, 1.6 * b, o.node, { type: 'lowpass', f: 220, f2: 60, gain: 0.55 * b, a: 0.2 });
+    } else if (el === 'shadow' || el === 'poison' || el === 'demon') { S.demon(pos, b);
     } else {
       noise(t, 0.3, o.node, { type: 'bandpass', f: 1500, q: 2, gain: 0.25 }); tone(t, 0.3, o.node, { type: 'sine', f: 600, f2: 1200, gain: 0.08 });
     }
   },
+  // dark magic: a distorted growl from deep down, a hiss of whispering voices, a sub-bass drop, a cracking snarl on top
+  demon(pos, big = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.3), t = now(), b = Math.min(2, big);
+    const ws = ctx.createWaveShaper(), cv = new Float32Array(512); for (let i = 0; i < 512; i++) { const x = i / 256 - 1; cv[i] = Math.tanh(x * 6); } ws.curve = cv; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 3; const dg = ctx.createGain(); dg.gain.value = 0.35 * b; ws.connect(lp); lp.connect(dg); dg.connect(o.node);
+    for (const [f, d] of [[55, 0], [58.5, 7], [82, -5]]) { const g1 = tone(t, 0.9 * b, ws, { type: 'sawtooth', f, f2: f * 0.6, gain: 0.5, a: 0.04, detune: d }); const lfo = ctx.createOscillator(); lfo.frequency.value = 9 + Math.random() * 7; const lg = ctx.createGain(); lg.gain.value = f * 0.25; lfo.connect(lg); lg.connect(g1.o.frequency); lfo.start(t); lfo.stop(t + 1 * b); }
+    noise(t, 0.8 * b, o.node, { type: 'bandpass', f: 1400, f2: 500, q: 5, gain: 0.22, a: 0.08 }); noise(t + 0.05, 0.7 * b, o.node, { type: 'bandpass', f: 2600, f2: 900, q: 8, gain: 0.12, a: 0.1 }); // (whispers)
+    tone(t, 0.7 * b, o.node, { type: 'sine', f: 70, f2: 28, gain: 0.5 * b, a: 0.01 }); // (the sub drop)
+    noise(t, 0.12, o.node, { type: 'highpass', f: 1800, gain: 0.25, a: 0.002 }); for (let i = 0; i < 5; i++) noise(t + 0.05 + Math.random() * 0.4, 0.04, o.node, { type: 'bandpass', f: 300 + Math.random() * 500, q: 2, gain: 0.3 }); }, // (a snarl and bone cracks)
+  // a gob of poison leaves the hand: a wet heave and a gurgle of bubbles
+  poisonSpit(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.15), t = now();
+    noise(t, 0.22, o.node, { type: 'lowpass', f: 900, f2: 300, gain: 0.55, a: 0.01 }); tone(t, 0.16, o.node, { type: 'sine', f: 180, f2: 70, gain: 0.3 });
+    for (let i = 0; i < 9; i++) { const tt = t + 0.02 + Math.random() * 0.3, f = 300 + Math.random() * 500; tone(tt, 0.05, o.node, { type: 'sine', f, f2: f * 2.2, gain: 0.12 + Math.random() * 0.08, a: 0.002 }); } },
+  // it bursts: a heavy splat, sizzling, and a scatter of popping bubbles
+  poisonSplash(pos, big = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now();
+    noise(t, 0.14, o.node, { type: 'lowpass', f: 1400, f2: 250, gain: 0.8 * big, a: 0.001 }); tone(t, 0.12, o.node, { type: 'sine', f: 140, f2: 50, gain: 0.45 * big });
+    noise(t + 0.03, 0.7 * big, o.node, { type: 'highpass', f: 3500, f2: 6000, gain: 0.12, a: 0.05 }); // (a sizzle)
+    for (let i = 0; i < 14 * big; i++) { const tt = t + 0.04 + Math.random() * 0.55, f = 350 + Math.random() * 900; tone(tt, 0.04, o.node, { type: 'sine', f, f2: f * 2.6, gain: 0.1 + Math.random() * 0.1, a: 0.002 }); } },
   // a looping spell sound for as long as a staff stream is held: fire roars, frost hisses, arcane hums. returns { stop() }
   spellLoop(el = 'fire') {
     if (!ctx) return { stop() {} };

@@ -270,6 +270,7 @@ export class Mob {
     if (opts.slow) this.status.slow = Math.max(this.status.slow, opts.slow);
     if (opts.root) this.status.root = Math.max(this.status.root || 0, this.def.boss ? opts.root * 0.3 : opts.root);
     if (opts.bleed) { this.status.bleed = 4; this.status.bleedDps = opts.bleed; }
+    if (opts.plague) { const st0 = this.status; st0.plague = 6; st0.plagueDps = Math.max(st0.plague > 0 ? st0.plagueDps || 0 : 0, opts.plague); if (st0.plagueAcc == null) st0.plagueAcc = 0; } // (Plague Breath: once a second for 6 s)
     if (opts.burn) { this.status.burn = 3; this.status.burnDps = opts.burn; }
     if (!opts.silent) {
       const kind = this.def.variant === 'skeleton' ? 'bone' : this.def.variant === 'golem' ? 'stone' : 'flesh';
@@ -310,6 +311,7 @@ export class Mob {
     }
     // dots
     if (st.bleed > 0) { st.bleed -= dt; this.dotAcc = (this.dotAcc || 0) + st.bleedDps * dt; }
+    if (st.plague > 0) { st.plague -= dt; st.plagueAcc = (st.plagueAcc || 0) + dt; if (st.plagueAcc >= 1 && !this.dead) { st.plagueAcc -= 1; this.takeHit(st.plagueDps, null, { silent: false, tint: 'poison' }); V.burst('poison', this.pos.clone().setY(this.pos.y + (this.height || 1.6) * 0.6), 10, { speed: 1.5 }); } }
     if (st.burn > 0) { st.burn -= dt; this.dotAcc = (this.dotAcc || 0) + st.burnDps * dt; if (Math.random() < dt * 12) V.burst('fire', this.pos.clone().setY(this.pos.y + this.height * 0.5), 1, { speed: 1, vy: 2 }); }
     if (this.dotAcc >= 1) { const d = Math.floor(this.dotAcc); this.dotAcc -= d; this.takeHit(d, player, { silent: true }); V.number(this.pos.clone().setY(this.pos.y + this.height), d, 'dot', st.burn > 0 && !(st.bleed > 0) ? '#ff8a3a' : st.bleed > 0 ? '#ff5a4a' : null); if (this.dead) return; }
     for (const k of ['frozen', 'stun', 'slow', 'root']) if (st[k] > 0) st[k] -= dt;

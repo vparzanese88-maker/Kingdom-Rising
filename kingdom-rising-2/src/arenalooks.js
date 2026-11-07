@@ -245,17 +245,39 @@ export function arenaLookTick(ch, dt) { if (ch && ch.capes) capeTick(ch, dt); if
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.
 // The group's origin is the top of the ponytail (where the fist holds it); the head hangs down -Y, its face toward +Z.
 export function makeShrunkenHead() {
-  const dg = new THREE.Group(), sk = M('#5e4c2c', 0.85), skD = M('#3e3018', 0.9), st = M('#1a1208', 0.9), hair = M('#16110c', 0.95);
-  add(dg, sph(0.022, 8, 6), hair, 0, 0.0, 0); // the knot in the fist
-  for (let k = 0; k < 5; k++) { const seg = add(dg, cylG(0.014 - k * 0.0012, 0.016 - k * 0.0012, 0.045, 6), hair, (k % 2 ? 0.004 : -0.004), -0.025 - k * 0.04, 0); seg.rotation.z = (k % 2 ? 0.25 : -0.25); } // a braid
-  const hd = new THREE.Group(); hd.position.set(0, -0.3, 0); dg.add(hd);
-  add(hd, sph(0.085, 14, 12), sk).scale.set(0.88, 1.05, 0.95); add(hd, sph(0.06, 10, 8), skD, 0, -0.05, 0.03).scale.set(1, 0.7, 0.9); // shrivelled jaw
-  add(hd, boxG(0.05, 0.014, 0.012), st, 0, -0.03, 0.08); for (let k = 0; k < 4; k++) add(hd, boxG(0.004, 0.026, 0.006), st, -0.018 + k * 0.012, -0.03, 0.085); // stitched mouth
-  for (const x of [-0.03, 0.03]) { add(hd, sph(0.017, 6, 4), GL('#050505'), x, 0.016, 0.074); const e2 = add(hd, sph(0.009, 6, 4), GL('#7aff5a'), x, 0.016, 0.085); e2.castShadow = false; add(hd, boxG(0.03, 0.004, 0.006), st, x, 0.016, 0.088).rotation.z = 0.6; } // sewn-shut lids over green light
-  add(hd, coneG(0.012, 0.03, 4), skD, 0, -0.002, 0.088).rotation.x = Math.PI / 2; // nose
-  for (const x of [-1, 1]) add(hd, sph(0.022, 6, 5), skD, x * 0.075, 0, 0).scale.set(0.5, 1, 0.8); // ears
-  for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, h = add(hd, cylG(0.004, 0.0025, 0.12, 3), hair, Math.sin(a) * 0.04, 0.075, Math.cos(a) * 0.04 - 0.01); h.rotation.set(Math.cos(a) * -0.5, 0, Math.sin(a) * 0.5); } // hair gathered up into the ponytail
-  const mouth = new THREE.Object3D(); mouth.position.set(0, -0.03, 0.1); hd.add(mouth); dg.userData.mouth = mouth; dg.userData.head = hd;
+  const dg = new THREE.Group(), sk = M('#5a4426', 0.72), skD = M('#3a2a14', 0.85), skL = M('#7a6038', 0.7), st = M('#120c06', 0.9), thread = M('#2a1a0a', 0.95), hair = M('#100c08', 0.95), hairL = M('#2a2016', 0.95), bn = M('#e0d4b4', 0.5);
+  // the hair, gathered and knotted in the fist, then a long matted braid down to the scalp
+  add(dg, sph(0.024, 10, 8), hair, 0, 0.0, 0).scale.set(1, 1.3, 1); add(dg, new THREE.TorusGeometry(0.02, 0.006, 6, 12), bn, 0, -0.02, 0).rotation.x = Math.PI / 2; // (a bone ring cinching the hair)
+  for (let k = 0; k < 6; k++) { const seg = add(dg, cylG(0.013 - k * 0.0009, 0.015 - k * 0.0009, 0.042, 7), k % 2 ? hairL : hair, (k % 2 ? 0.005 : -0.005), -0.04 - k * 0.036, 0); seg.rotation.z = (k % 2 ? 0.3 : -0.3); }
+  for (let k = 0; k < 3; k++) add(dg, sph(0.009, 8, 6), M(['#8a2a1a', '#c8a040', '#3a6a5a'][k], 0.5, 0.3), 0.012, -0.07 - k * 0.06, 0.006); // (beads threaded on the braid)
+  const hd = new THREE.Group(); hd.position.set(0, -0.31, 0); dg.add(hd);
+  // the skull: a shrivelled, lumpy, wrinkled shape (sunken temples and cheeks, a pinched chin)
+  const g = new THREE.SphereGeometry(0.085, 28, 22), P = g.attributes.position;
+  for (let i = 0; i < P.count; i++) { let x = P.getX(i), y = P.getY(i), z = P.getZ(i); const nx = x / 0.085, ny = y / 0.085, nz = z / 0.085;
+    x *= 0.86; y *= 1.08; if (ny < 0) { x *= 1 - 0.22 * ny * ny; z *= 1 - 0.1 * ny * ny; } // (narrow jaw)
+    if (nz > 0.3 && Math.abs(ny) < 0.45) { const ch = Math.max(0, 1 - Math.abs(Math.abs(nx) - 0.55) / 0.25) * Math.max(0, 1 - Math.abs(ny + 0.12) / 0.3); x *= 1 - 0.12 * ch; z *= 1 - 0.07 * ch; } // (sunken cheeks)
+    if (nz > 0.6 && ny > 0.05 && ny < 0.35) z += 0.006; // (a heavy brow)
+    const w = Math.sin(ny * 46 + Math.sin(nx * 9) * 2) * 0.0024 + Math.sin(nx * 31 + nz * 17) * 0.0016; // (deep wrinkles)
+    const L = Math.hypot(x, y, z) || 1; P.setXYZ(i, x + x / L * w, y + y / L * w, z + z / L * w); }
+  g.computeVertexNormals(); add(hd, g, sk);
+  for (const [x, y, z, r] of [[0.03, 0.05, 0.05, 0.022], [-0.045, -0.02, 0.05, 0.018], [0.05, -0.03, -0.03, 0.025], [-0.02, 0.07, -0.04, 0.02]]) add(hd, sph(r, 8, 6), skD, x, y, z).scale.set(1, 0.6, 0.35); // (dark blotches on the leather)
+  // sewn-shut eyes: sunken lids, coarse X stitches, green light leaking through the slit
+  for (const x of [-0.029, 0.029]) { add(hd, sph(0.019, 10, 8), skD, x, 0.016, 0.066).scale.set(1.1, 0.7, 0.5); const sl = add(hd, boxG(0.026, 0.003, 0.004), GL('#8aff5a'), x, 0.016, 0.077); sl.castShadow = false;
+    const gl = add(hd, sph(0.016, 8, 6), new THREE.MeshBasicMaterial({ color: '#4aff2a', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }), x, 0.016, 0.08); gl.castShadow = false;
+    for (let k = 0; k < 3; k++) for (const r of [0.6, -0.6]) add(hd, boxG(0.0022, 0.016, 0.0022), thread, x - 0.009 + k * 0.009, 0.016, 0.079).rotation.z = r; }
+  // the nose: shrivelled, flattened, with a bone ring through it
+  add(hd, coneG(0.012, 0.03, 6), skL, 0, -0.004, 0.083).rotation.x = Math.PI / 2 + 0.3; for (const x of [-0.006, 0.006]) add(hd, sph(0.004, 5, 4), st, x, -0.016, 0.086); add(hd, new THREE.TorusGeometry(0.008, 0.0018, 4, 10), bn, 0, -0.022, 0.086);
+  // the mouth: pursed, puckered lips sewn shut with thick thread, the thread ends dangling
+  add(hd, sph(0.02, 10, 6), skL, 0, -0.035, 0.074).scale.set(1.25, 0.55, 0.6); add(hd, boxG(0.034, 0.003, 0.005), st, 0, -0.035, 0.085);
+  for (let k = 0; k < 6; k++) { const s2 = add(hd, boxG(0.0028, 0.024, 0.003), thread, -0.016 + k * 0.0064, -0.035, 0.087); s2.rotation.z = (k % 2 ? 0.35 : -0.35); }
+  for (const x of [-0.019, 0.019]) { const t = add(hd, cylG(0.0016, 0.0012, 0.06, 4), thread, x, -0.065, 0.083); t.rotation.z = x > 0 ? -0.15 : 0.15; }
+  // shrivelled ears with a notch, and the matted hair swept up from all round the scalp into the braid
+  for (const x of [-1, 1]) { const e = add(hd, sph(0.022, 8, 6), skD, x * 0.073, 0.002, -0.004); e.scale.set(0.38, 1, 0.75); add(hd, sph(0.006, 6, 4), bn, x * 0.08, -0.02, 0.002); }
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, rr = 0.058, h = add(hd, coneG(0.012, 0.13, 4), k % 3 ? hair : hairL, Math.sin(a) * rr * 0.7, 0.08, Math.cos(a) * rr * 0.7 - 0.006); h.rotation.set(Math.cos(a) * -0.55, 0, Math.sin(a) * 0.55); h.scale.z = 0.45; }
+  for (let k = 0; k < 6; k++) { const a = 2.4 + k * 0.3, lk = add(hd, coneG(0.006, 0.1 + Math.random() * 0.05, 3), hair, Math.sin(a) * 0.06, -0.02, Math.cos(a) * 0.06); lk.rotation.set(Math.PI + Math.cos(a) * 0.2, 0, Math.sin(a) * 0.25); } // (loose strands hanging at the back)
+  // green slime oozing from the sewn mouth
+  for (let k = 0; k < 2; k++) { const dr = add(hd, sph(0.006, 6, 5), new THREE.MeshStandardMaterial({ color: '#7aff3a', emissive: '#2a9a10', emissiveIntensity: 0.9, transparent: true, opacity: 0.85, roughness: 0.1 }), -0.006 + k * 0.012, -0.05 - k * 0.012, 0.082); dr.scale.set(1, 1.8 + k, 1); dr.castShadow = false; }
+  const mouth = new THREE.Object3D(); mouth.position.set(0, -0.035, 0.1); hd.add(mouth); dg.userData.mouth = mouth; dg.userData.head = hd;
   dg.userData.sw = { ax: 0, az: 0, vx: 0, vz: 0, lp: null };
   return dg;
 }
@@ -266,7 +288,10 @@ export function swingDangle(dg, faceObj, dt, frameObj) {
   faceObj.getWorldQuaternion(_q2); if (sw.lp) { _v.subVectors(_p, sw.lp).divideScalar(Math.max(dt, 1 / 120)).applyQuaternion(_q3.copy(_q2).invert()); } else _v.set(0, 0, 0); sw.lp = (sw.lp || new THREE.Vector3()).copy(_p);
   const tx = Math.max(-0.9, Math.min(0.9, -_v.z * 0.12)), tz = Math.max(-0.9, Math.min(0.9, _v.x * 0.12));
   sw.vx += (tx - sw.ax) * 70 * dt; sw.vz += (tz - sw.az) * 70 * dt; const damp = Math.exp(-3.5 * dt); sw.vx *= damp; sw.vz *= damp; sw.ax += sw.vx * dt; sw.az += sw.vz * dt;
-  _q3.setFromEuler(_e.set(sw.ax, 0, sw.az)); _q2.multiply(_q3); dg.parent.getWorldQuaternion(_q1); dg.quaternion.copy(_q1.invert().multiply(_q2));
+  _q3.setFromEuler(_e.set(sw.ax, 0, sw.az)); _q2.multiply(_q3);
+  sw.lk = (sw.lk || 0) + ((dg.userData.lookAt ? 1 : 0) - (sw.lk || 0)) * Math.min(1, dt * 6); if (dg.userData.lookAt) sw.lastAt = (sw.lastAt || new THREE.Vector3()).copy(dg.userData.lookAt);
+  if (sw.lk > 0.01 && sw.lastAt) { const d = sw.lastAt.clone().sub(_p).normalize(); _q3.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); _q2.slerp(_q3, sw.lk); } // (Soul Rend: the head turns its face to the victim)
+  dg.parent.getWorldQuaternion(_q1); dg.quaternion.copy(_q1.invert().multiply(_q2));
 }
 
 // a dark ink outline round every fighter (an inverted shell pushed out along the normals), the way Smite and Marvel

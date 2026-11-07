@@ -241,6 +241,11 @@ function half(sz, team) {
     put(BOX(2.6, 1.0, 0.7), M.stone, s * 7.5, Y + 0.5, Z(31), RY(0.3 * s)); addBox(s * 7.5, Z(31), 1.3, 0.35, RY(0.3 * s), 'map', Y, Y + 1.0);
     awning(s * 11.8, Z(57), 3.4, 2.2, 2.6, RY(s * Math.PI / 2), -1); cache(s * 12.5, Z(25.5), Y, 2); barrel(s * 13.5, Z(51)); barrel(s * 13.2, Z(52.1));
     for (const z of [28, 60]) { put(CYL(0.12, 0.15, 3.4, 6), M.iron, s * 14, Y + 1.7, Z(z)); lantern(s * 14, Y + 3.5, Z(z)); addCircle(s * 14, Z(z), 0.2); } }
+  // collapsed walls across the street, offset so nobody can run straight down the middle: a zig-zag through the gaps by the houses
+  { const wallAt = (x0, x1, z) => { const c = (x0 + x1) / 2, L = x1 - x0; rb(c, Z(z), L, 2.6, 1.3, Y, 0, M.stone); put(BOX(L + 0.4, 0.35, 1.6), M.stoneD, c, Y + 2.75, Z(z), 0, 0, false);
+      for (let k = 0; k < 4; k++) { const bx = x0 + (k + 0.5) * L / 4; put(BOX(1.1 + (k % 2) * 0.5, 0.9, 1.0), k % 2 ? M.stone2 : M.stoneL, bx, Y + 3.3, Z(z) + (k % 2 ? 0.2 : -0.2) * sz, 0.2 * (k - 1.5), 0, false); }
+      rubble(x0 + 1.5, Z(z + 1.6), 5, 1.8); rubble(x1 - 1.5, Z(z - 1.6), 5, 1.8); };
+    wallAt(-10.5, 6, 48); /* (the near collapse: get round it on the right) */ wallAt(-6, 12.5, 34); /* (the far collapse: get round it on the left) */ }
   // the triumphal arch where the street meets the plaza (broken on one side)
   for (const s of [-1, 1]) { wall(s * 13.6, Z(26), 2.6, 2.6, Y, 9, M.marble); put(BOX(3.2, 0.6, 3.2), M.stone, s * 13.6, Y + 0.3, Z(26), 0, 0, false); put(BOX(3.0, 0.8, 3.0), M.marble, s * 13.6, Y + 9.3, Z(26), 0, 0, false); }
   { const N = 18, ea = 13.6, eb = 5.2, P = (k) => { const a = Math.PI * k / N; return [Math.cos(a) * ea, Y + 9.6 + Math.sin(a) * eb]; }; /* an elliptical arch of stone blocks, its keystone fallen */
@@ -347,7 +352,7 @@ export function buildRuins(scene) {
   // the three lanes, as waypoints from the south base to the north base (the computer fighters walk them); each is the north half mirrored
   const north = [
     [[-26, 0], [-33, 3], [-40, 6], [-40, 14], [-40, 20], [-40, 25], [-38, 32], [-38, 42], [-38, 52], [-38, 62], [-40, 70.5], [-40, 78], [-36, 80.5], [-28, 81], [-19, 82], [-10, 82.5], [0, 83]],
-    [[4, 0], [0, 10], [0, 18], [0, 26], [0, 34], [0, 42], [0, 50], [0, 58], [0, 64], [0, 70], [0, 76], [0, 83]],
+    [[4, 0], [0, 10], [0, 18], [0, 26], [-6, 28.5], [-11, 31], [-11, 37.5], [-11, 42.5], [0, 43], [10.5, 44], [11, 51], [6, 55], [2, 58], [0, 64], [0, 70], [0, 76], [0, 83]], /* (the middle street zig-zags round its two collapsed walls) */
     [[26, 0], [32, 5], [38, 11], [41, 20], [41, 29], [41, 38], [41, 47], [41, 55], [40, 63], [40, 70], [40, 76], [34, 79], [28, 81], [19, 82], [10, 82.5], [0, 83]]];
   RUINS.lanes = north.map(l => [...l.slice(1).reverse().map(([x, z]) => [x, -z]), ...l]);
   // fuse everything that never moves into one mesh per material

@@ -1219,18 +1219,22 @@ class ArenaBot {
   }
   // the Ruins: walk the bot's lane (left rampart, middle street, right garden) toward its target or the centre,
   // unless the target is close and in plain sight, when it fights in the open as usual
-  laneStep(T) { const me = this.pos, lane = RUINS.lanes[this.lane != null ? this.lane : (this.lane = this.arenaF.i % 3)];
+  // each computer fighter has its own habits, so a team doesn't move like one machine
+  persona() { if (!this.pers) { const r = (a, b) => a + Math.random() * (b - a); this.pers = { teamW: r(0.12, 0.55), stick: Math.random(), off: r(-1.6, 1.6), wait: r(0, 3.2), chase: r(14, 26) }; } return this.pers; }
+  laneStep(T) { const me = this.pos, Pp = this.persona(), lane = RUINS.lanes[this.lane != null ? this.lane : (this.lane = this.arenaF.i % 3)];
+    if (this.dead) { this.laneT0 = null; } else if (this.laneT0 == null) this.laneT0 = G.time; if (!T && G.time - (this.laneT0 || 0) < Pp.wait) return [me.x, me.z]; // (they don't all leave the gate on the same frame)
     if (T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 13 && lineClear(me.clone().setY(me.y + 1.5), T.pos.clone().setY(T.pos.y + 1.2))) return null;
     let near = 0, nd = 1e9; lane.forEach((w, i) => { const d = Math.hypot(w[0] - me.x, w[1] - me.z); if (d < nd) { nd = d; near = i; } });
-    if (this.wpi == null || Math.hypot(lane[this.wpi][0] - me.x, lane[this.wpi][1] - me.z) > 14) this.wpi = near; // (remember the waypoint it is walking to)
+    if (this.wpi == null || Math.hypot(lane[this.wpi][0] - me.x, lane[this.wpi][1] - me.z) > 18) this.wpi = near; // (remember the waypoint it is walking to)
     let goalZ = T ? T.pos.z : (this.team === teamsOf()[0] ? 6 : -6);
     if (T) { // the enemy is on another route: go back to the plaza where the routes meet, then take theirs
       let tl = this.lane, td = 1e9; RUINS.lanes.forEach((L2, li) => L2.forEach(w => { const d = Math.hypot(w[0] - T.pos.x, w[1] - T.pos.z); if (d < td) { td = d; tl = li; } }));
-      if (tl !== this.lane && td < 12) { if (Math.abs(me.z) < 7) { this.lane = tl; this.wpi = null; return this.laneStep(T); } goalZ = 0; }
+      if (tl !== this.lane && td < 12 && (Pp.stick < 0.55 || Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < Pp.chase)) { if (Math.abs(me.z) < 7) { this.lane = tl; this.wpi = null; return this.laneStep(T); } goalZ = 0; } /* (stubborn ones keep pushing their own route unless the enemy is close) */
       else if (Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 24 && Math.abs(lane[this.wpi][1] - T.pos.z) < 5) return null; } // (same route and level with them: go straight at them)
     const dir = goalZ > lane[this.wpi][1] ? 1 : -1;
-    if (Math.hypot(lane[this.wpi][0] - me.x, lane[this.wpi][1] - me.z) < 2.4) this.wpi = Math.max(0, Math.min(lane.length - 1, this.wpi + dir));
-    return lane[this.wpi]; }
+    if (Math.hypot(lane[this.wpi][0] + Pp.off - me.x, lane[this.wpi][1] - me.z) < 2.4) this.wpi = Math.max(0, Math.min(lane.length - 1, this.wpi + dir)); /* (measured to the point it actually walks to) */
+    { const k = this.stk; if (!k || Math.hypot(me.x - k.x, me.z - k.z) > 0.6) this.stk = { x: me.x, z: me.z, t: G.time }; else if (G.time - k.t > 2.5) { this.wpi = Math.max(0, Math.min(lane.length - 1, this.wpi + dir)); this.side = (Math.random() < 0.5 ? -1 : 1) * 2.5; this.sideT = G.time + 1.2; this.stk = null; } } // (wedged for a while: step to one side and go on to the next point)
+    const w = lane[this.wpi], sd = G.time < (this.sideT || 0) ? this.side : 0; return [w[0] + Pp.off + sd, w[1]]; } /* (each walks a little to one side of the line, not in single file) */
   // pick who to fight and what to do: focus the team's target, protect healers, play the objective
   think() {
     const foes = enemiesOf(this).filter(u => (!(u.stealth > 0) || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 3) && (!RUINS_MAP() || Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 4 || lineClear(this.pos.clone().setY(this.pos.y + 1.5), u.pos.clone().setY(u.pos.y + 1.2)) || u === this.target)), me = this.pos;
@@ -1239,7 +1243,7 @@ class ArenaBot {
     const mates = alliesOf(this, true), cx = mates.reduce((s, u) => s + u.pos.x, 0) / mates.length, cz = mates.reduce((s, u) => s + u.pos.z, 0) / mates.length;
     let best = null, bs = 1e9;
     for (const u of foes) { const dTeam = Math.hypot(u.pos.x - cx, u.pos.z - cz), dMe = near(u), hpk = (u.hp / u.maxHp);
-      let s = dMe * 1.0 + dTeam * 0.4 + hpk * 14; if (u.pet || u.bpet) s += 18; if (u === this.lastHitBy && G.time - (this.hurtT || 0) < 3) s -= 6;
+      let s = dMe * 1.0 + dTeam * this.persona().teamW + hpk * 14; if (u.pet || u.bpet) s += 18; if (u === this.lastHitBy && G.time - (this.hurtT || 0) < 3) s -= 6;
       for (const m of mates) if (m !== this && m.lastHitBy === u && m.healer && G.time - (m.hurtT || 0) < 3) s -= 10; // peel for our healers
       if (s < bs) { bs = s; best = u; } }
     { const cur = this.target; if (cur && cur !== best && !cur.dead && foes.includes(cur)) { const dTeam = Math.hypot(cur.pos.x - cx, cur.pos.z - cz), sc = near(cur) + dTeam * 0.4 + (cur.hp / cur.maxHp) * 14 - 7; if (sc <= bs + 0) best = cur; } } // (stick with a target instead of flipping between them)

@@ -20,10 +20,10 @@ const SPEC = {
   druid: { shirt: '#5a4a2a', robe: '#3e5226', trim: '#9ad060', pants: '#3a3020', boots: '#4a3220', shawl: '#6a7a34', sash: '#8a6a3a', sleeves: true },
   shaman: { shirt: '#6a4226', vest: '#2a6a7a', trim: '#e0c070', pants: '#3a2a1e', boots: '#4a3220', belt: '#6b4a2a', shawl: '#8a6a44', sash: '#c04020', bracers: '#5a3a22' },
   cleric: { shirt: '#ece6d8', robe: '#f2ece0', trim: '#d8b04a', pants: '#d8d0c0', boots: '#8a6a3a', sash: '#d8b04a', sleeves: true },
-  bard: { shirt: '#f0d070', vest: '#a0285a', trim: '#f0d070', pants: '#3a2a5a', boots: '#5a3220', belt: '#3a2010', cloak: '#3a6ab0', bracers: '#a0285a' },
+  bard: { shirt: '#f0d070', vest: '#a0285a', trim: '#f0d070', pants: '#3a2a5a', boots: '#5a3220', belt: '#3a2010', bracers: '#a0285a' },
   warrior: { shirt: '#5b5f66', mail: '#9aa0a8', tabard: '#8a1a1a', trim: '#d8b04a', pants: '#3a2f28', boots: '#2b211a', pauldrons: true, belt: '#3a2a1a', bracers: '#9aa0a8' },
-  paladin: { shirt: '#c8ccd4', mail: '#e8e4d8', tabard: '#f4f0e4', trim: '#e0b040', pants: '#d0ccc0', boots: '#8a6a30', pauldrons: true, belt: '#8a6a30', bracers: '#e0b040', cloak: '#f0e8d0' },
-  darkknight: { shirt: '#1a1a1e', mail: '#24242a', tabard: '#4a0a0e', trim: '#8a1a1a', pants: '#141418', boots: '#0c0c0e', pauldrons: true, belt: '#1a0a0a', bracers: '#24242a', cloak: '#1a0a0e' },
+  paladin: { shirt: '#c8ccd4', mail: '#e8e4d8', tabard: '#f4f0e4', trim: '#e0b040', pants: '#d0ccc0', boots: '#8a6a30', pauldrons: true, belt: '#8a6a30', bracers: '#e0b040' },
+  darkknight: { shirt: '#1a1a1e', mail: '#24242a', tabard: '#4a0a0e', trim: '#8a1a1a', pants: '#141418', boots: '#0c0c0e', pauldrons: true, belt: '#1a0a0a', bracers: '#24242a' },
   berserker: { shirt: '#8a5a3a', vest: '#5a3a22', pants: '#3a2a1e', boots: '#3a2416', belt: '#2a1a10', bracers: '#5a3a22', bareArms: true, sash: '#9a2a1a' },
   monk: { shirt: '#d8781c', robe: '#e8901e', pants: '#7a3410', boots: '#4a2a14', sash: '#a01a1a', bareArms: true, belt: '#a01a1a' }, // (a long saffron robe over dark trousers)
   rogue: { shirt: '#1e1c24', vest: '#2a2632', pants: '#18161c', boots: '#100e12', hood: '#16141a', mask: '#16141a', belt: '#3a1a2a', bracers: '#2a2632', cloak: '#141218' },
@@ -170,6 +170,41 @@ const DECOR = {
     for (const s of [-1, 1]) { add(ch.headG, coneG(0.04, 0.1, 4), f, s * 0.08, 0.28, -0.02); add(ch.headG, sph(0.012, 6, 4), GL('#ffd040'), s * 0.04, 0.2, 0.15); for (let k = 0; k < 2; k++) add(ch.headG, coneG(0.01, 0.04, 4), wh, s * 0.03, 0.11, 0.2 - k * 0.04).rotation.x = Math.PI; }
     mantle(ch, '#7a7a80', 0.2); },
 };
+// ---- silhouettes: the big shapes that tell the classes apart from across the map (capes, great pauldrons, tall headgear) ----
+function cape(ch, col, o = {}) { const R = ch.R, w = (o.w || 2.1) * R.sw, len = o.len || (R.torsoH + R.legL * 0.8), pv = new THREE.Group();
+  pv.position.set(0, R.torsoH - 0.1, -0.135 * R.thick - 0.015); ch.chest.add(pv);
+  const g = new THREE.PlaneGeometry(w, len, 8, 12); g.translate(0, -len / 2, 0); const P = g.attributes.position;
+  for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), d = -y / len; let nx = x * (1 + 0.35 * d), ny = y; // (flares toward the hem)
+    if (o.tatter && d > 0.86) ny += (Math.sin(x * 61) * 0.5 + 0.5) * len * 0.12 * (d - 0.86) / 0.14; // (a ragged hem)
+    P.setXYZ(i, nx, ny, -Math.pow(x / (w * 0.5), 2) * 0.07 + Math.sin(d * 9 + x * 5) * 0.008); } g.computeVertexNormals();
+  const m = new THREE.Mesh(g, M(col, 0.85, 0, { side: THREE.DoubleSide })); m.castShadow = true; m.userData.keep = true; pv.add(m);
+  if (o.trim) { const t = new THREE.Mesh(new THREE.BoxGeometry(w * 1.3, 0.035, 0.012), M(o.trim, 0.4, 0.7)); t.position.set(0, -len + 0.02, 0.004); pv.add(t); }
+  if (o.clasp) for (const sx of [-1, 1]) add(ch.chest, sph(0.03, 10, 8), M(o.clasp, 0.35, 0.85), sx * R.sw * 0.7, R.torsoH - 0.08, 0.06);
+  pv.rotation.x = 0.1; (ch.capes = ch.capes || []).push(pv); return pv; }
+function bigPauldrons(ch, m, size, rim, spikes = 0) { for (const sd of ['L', 'R']) { const sx = sd === 'L' ? 1 : -1, g = new THREE.Group(); g.position.set(sx * 0.02, 0.03, 0); ch.arms[sd].sh.add(g);
+    for (let k = 0; k < 3; k++) { const p = add(g, new THREE.SphereGeometry(0.11 * size * (1 - k * 0.12), 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), m, sx * 0.012 * k, -k * 0.045 * size, 0); p.scale.set(1.25, 0.75, 1.15); p.rotation.z = -sx * (0.25 + k * 0.12); }
+    if (rim) { const r = add(g, new THREE.TorusGeometry(0.115 * size, 0.012, 6, 20), rim, 0, 0.004, 0); r.rotation.x = Math.PI / 2; r.scale.set(1.25, 1.15, 1); }
+    for (let k = 0; k < spikes; k++) { const sp = add(g, coneG(0.03 * size, 0.2 * size, 6), m, sx * (0.02 + k * 0.02), 0.08 * size, -0.06 + k * 0.05); sp.rotation.z = -sx * (0.5 + k * 0.15); } } }
+const SIL = {
+  warrior(ch) { bigPauldrons(ch, steel(), 1.5, gold()); cape(ch, '#8a1a1a', { trim: '#d8b04a', clasp: '#d8b04a' }); },
+  paladin(ch) { bigPauldrons(ch, gold(), 1.7, steel('#f0ece0')); cape(ch, '#f2ecdc', { trim: '#e0b040', clasp: '#e0b040', w: 2.3 }); },
+  darkknight(ch) { bigPauldrons(ch, iron('#1e1e24'), 1.75, M('#7a1010', 0.5, 0.5), 3); cape(ch, '#1a0a0e', { tatter: true, w: 2.3, len: ch.R.torsoH + ch.R.legL * 0.95 }); },
+  berserker(ch) { cape(ch, '#5a3a22', { w: 2.4, len: ch.R.torsoH + 0.25, tatter: true }); },
+  cleric(ch) { cape(ch, '#f2ece0', { trim: '#d8b04a', clasp: '#d8b04a' }); },
+  bard(ch) { cape(ch, '#3a6ab0', { w: 1.8, len: ch.R.torsoH + ch.R.legL * 0.45, trim: '#f0d070' }); },
+  necromancer(ch) { const b = bone(); for (let k = 0; k < 7; k++) { const a = -1.2 + k * 0.4, sp = add(ch.chest, coneG(0.022, 0.2 + (k === 3 ? 0.12 : 0.04 * (3 - Math.abs(k - 3))), 6), b, Math.sin(a) * 0.14, ch.R.torsoH + 0.1, -Math.cos(a) * 0.08 - 0.02); sp.rotation.x = -0.3; sp.rotation.z = -a * 0.4; } // (a tall collar of bone spikes behind the head)
+    cape(ch, '#0e0c10', { tatter: true, w: 2.2, len: ch.R.torsoH + ch.R.legL * 0.95 }); },
+  wizard(ch) { const hat = ch.outfit && ch.outfit.hat; if (hat) { hat.scale.multiplyScalar(1.35); hat.rotation.z = -0.12; } },
+  druid(ch) { ch.headG.children.forEach(c => { if (c.isGroup && c.children.length >= 3 && Math.abs(c.position.x) === 0.08) c.scale.setScalar(1.9); }); },
+  shaman(ch) { for (let k = 0; k < 9; k++) { const a = -1.3 + k * 0.325, f = add(ch.headG, coneG(0.026, 0.34, 4), M(k % 2 ? '#f0e8d0' : '#2a2a2a'), Math.sin(a) * 0.15, 0.26 + Math.cos(a) * 0.04, -Math.cos(a) * 0.05 - 0.05); f.scale.z = 0.3; f.rotation.set(-0.35, 0, -a * 0.55); } },
+  enchanter(ch) { for (const sx of [-1, 1]) { const pv = new THREE.Group(); pv.position.set(sx * 0.16, ch.R.torsoH - 0.05, -0.08); ch.chest.add(pv); const r = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 1.0, 1, 8).translate(0, -0.5, 0), M('#e070c8', 0.7, 0, { side: THREE.DoubleSide })); r.userData.keep = true; pv.add(r); pv.rotation.set(0.15, sx * 0.3, 0); (ch.capes = ch.capes || []).push(pv); } },
+  rogue(ch) { const hood = add(ch.headG, coneG(0.08, 0.16, 8), M('#16141a', 0.85), 0, 0.2, -0.1); hood.rotation.x = -1.1; },
+};
+for (const k in SIL) { const f0 = DECOR[k]; DECOR[k] = (ch) => { if (f0) f0(ch); SIL[k](ch); }; }
+// capes swing out behind as you move and settle when you stop (until the full cloth springs take over)
+function capeTick(ch, dt) { if (!ch.capes) return; const p = ch.root.position, lp = ch._capeP || (ch._capeP = p.clone()); const v = Math.min(9, Math.hypot(p.x - lp.x, p.z - lp.z) / Math.max(dt, 1e-3)); lp.copy(p);
+  ch._capeV = (ch._capeV || 0) + (v - (ch._capeV || 0)) * Math.min(1, dt * 4); ch._capeT = (ch._capeT || 0) + dt; const fl = 0.1 + Math.min(1, ch._capeV / 7) * 0.75 + Math.sin(ch._capeT * 2.3) * 0.03 * (1 + ch._capeV * 0.2);
+  for (const c of ch.capes) c.rotation.x += (fl - c.rotation.x) * Math.min(1, dt * 6); }
 export function arenaDecor(ch, cls) { try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
@@ -198,7 +233,7 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(g, sph(0.01 * s, 5, 4), brass, Math.cos(a) * 0.09 * s, 0, Math.sin(a) * 0.09 * s); } add(g, cylG(0.006 * s, 0.006 * s, 0.06 * s, 4), M('#d8c890'), 0.01 * s, 0.13 * s, 0).rotation.z = -0.4;
   const sp = add(g, sph(0.018 * s, 6, 5), GL('#ffd060'), 0.022 * s, 0.16 * s, 0); sp.castShadow = false; g.userData.spark = sp; return g; }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
-export function arenaLookTick(ch, dt) { if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+export function arenaLookTick(ch, dt) { if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

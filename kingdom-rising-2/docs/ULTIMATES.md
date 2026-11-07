@@ -128,23 +128,28 @@ Earlier freeze lengths (older test with a coarse ~0.07 s reaction):
 
 Nobody is impaled from either start with a 0.2 s reaction.
 
-## Other classes (to do)
+## Every class's ultimate (current)
 
-| Class | Ultimate now | Status |
-|---|---|---|
-| Warrior | Stone Banner | to redo |
-| Shadow Knight | Harbinger | to redo |
-| Berserker | Bladestorm | to redo |
-| Monk | Thousand Fists | to redo |
-| Rogue | Shadow Dance | to redo |
-| Ranger | Rain of Arrows | to redo |
-| Musketeer | Deadeye | to redo |
-| Blunderbuss | Great Keg | to redo |
-| Wizard | Time Stop | to redo |
-| Elementalist | Pure Element | to redo |
-| Enchanter | Mind Shatter | to redo |
-| Beastmaster | Dire Beast | to redo |
-| Shaman | Wrathstorm | to redo |
-| Druid | Tranquility | to redo |
-| Cleric | Miracle | to redo |
-| Bard | Cacophony | to redo |
+| Class | Ultimate | Aim | What it does | Counterplay |
+|---|---|---|---|---|
+| Warrior | War Banner of Defense | self | Dome: allies take 40% less, deal 20% more, regen 2%/s; stun shockwave | Fight outside the dome, wait it out |
+| Paladin | Avenging Wrath | ground | 12 m glyph slows, sword of light impales the core, hurts the rest | Leap off the glyph before impact |
+| Shadow Knight | Grasp of the Grave | ground | Chains drag enemies in and drain 25% | Leave the pool before the chains land |
+| Berserker | Bladestorm | self | Steerable whirlwind, pulls and cuts (up to 60% if you stay) | Dodge out; it is slowed by distance |
+| Monk | Thousand Fists | self | Pulls everyone in 9 m, combo of strikes, 50% each | Be outside 9 m when it starts |
+| Rogue | Assassinate | foe | Shadow step behind and a killing blow | Escape abilities, stay near allies |
+| Ranger | Rain of Arrows | ground | 7 m shadow then 3 s of arrows (about half health if you stay) | Get out from under the shadow |
+| Musketeer | Arcane Barrage | self | 10 s of no-reload arcane fire | Break line of sight |
+| Blunderbuss | Powder Keg Barrage | ground | Five kegs, 15% each within 4 m | Read the bounces, move |
+| Wizard | Transcendence | self | 10 s: 3x cooldowns, +50% damage | Kite him until it ends |
+| Necromancer | Maw of the Abyss | ground | Ring slows, demon grabs the closest to centre | Leap or blink out of the ring |
+| Elementalist | Meteor Storm | ground | Five meteors, 18% each within 4 m | Watch the red marks |
+| Enchanter | Mass Charm | ground | 8 m charm for 3 s, then 20% | Do not stand in groups |
+| Beastmaster | Call of the Wild | self | Three spirit wolves maul for 5 s | Group up, kill the beastmaster |
+| Shaman | Spirit of the Storm | ground | Totem heals allies 10%/pulse, lightning on foes | Break the fight away from the totem |
+| Druid | Overgrowth | self | Forest heals allies and tangles enemies across the arena | Burst before it lands, cleanse |
+| Cleric | Miracle | ally | Full heal + 3 s untouchable on one ally, half heal nearby | Swap targets |
+| Bard | Grand Finale | self | Mesmerise in 10 m, allies heal 40% and speed up | Stay out of 10 m |
+| Priest (new) | Salvation | self | 14 m dome, 6 s: allies heal 60% and cannot die for 3 s; enemies slowed and scorched | Pull the fight out of the dome, or wait 3 s |
+| Goblin Bombardier (new) | Big Bertha | ground | 3 s fuse, then 70% within 3 m and 30% within 9 m, thrown away | Run as soon as it lands |
+

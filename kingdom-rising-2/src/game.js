@@ -614,7 +614,10 @@ export const perkPow = (lv) => 1 + 0.12 * lv, perkCd = (lv) => 1 - 0.1 * lv;
 export const arenaStat = (h, k) => (h && h.arenaPK && h.arenaPK[k]) || 0;
 // tanks (the heavy melee) hold the front: more health, less damage taken
 export const TANK_CLS = new Set(['warrior', 'paladin', 'darkknight', 'berserker', 'blunderbuss']);
-export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * (1 + 0.08 * arenaStat(h, 'hp'));
+// per-class balance from the duel simulator (tools/duelsim.cjs): health and damage multipliers on top of the role's
+export const ARENA_TUNE = {};
+const tuneOf = (h) => ARENA_TUNE[h && h.cls] || null;
+export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * ((tuneOf(h) || {}).hp || 1) * (1 + 0.08 * arenaStat(h, 'hp'));
 export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));
 export const arenaHealK = (h) => 1 + 0.1 * arenaStat(h, 'heal');
 export const arenaSpeedK = (h) => 1 + 0.04 * arenaStat(h, 'speed');
@@ -625,6 +628,7 @@ export const arenaPassive = pv;
 // out: execute, berserker rage, ambush from stealth, ally war-songs and totems; on-hit burn, chill, poison, bleed; crit chance
 export function arenaOut(src, h, tgt, dmg, o) {
   if (!h || !h.arena) return [dmg, o];
+  { const T = tuneOf(h); if (T && T.dmg) dmg *= T.dmg; }
   const ex = pv(h, 'execute'); if (ex && tgt && tgt.maxHp && tgt.hp / tgt.maxHp < 0.35) dmg *= 1 + 0.1 * ex;
   const rg = pv(h, 'rage'); if (rg && src && src.maxHp) dmg *= 1 + 0.06 * rg * Math.min(1, (1 - src.hp / src.maxHp) / 0.75) * 3;
   const am = pv(h, 'ambush'); if (am && src && src.stealth > 0) dmg *= 1 + 0.2 * am;

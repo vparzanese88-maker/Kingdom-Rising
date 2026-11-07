@@ -51,9 +51,9 @@ function skullFace(hg) { // a bone skull where the face should be, black sockets
 }
 function hideHair(ch) { ch.headG.traverse(o => { if (o.isMesh && o.material === ch.mats.hair) o.visible = false; }); }
 function horns(hg, c = '#e8dcc0', big = 1) { for (const s of [-1, 1]) { const h = new THREE.Group(); h.position.set(s * 0.12, 0.17, 0); h.rotation.z = -s * 1.1; hg.add(h); let y = 0, r = 0.035 * big; for (let k = 0; k < 4; k++) { const seg = add(h, cylG(r * 0.75, r, 0.06 * big, 8), M(c, 0.5), 0, y + 0.03 * big, 0); seg.rotation.z = s * 0.25 * k; y += 0.055 * big; r *= 0.75; h.rotation.z += s * 0.12; } } }
-function helm(hg, col, open = false) { const m = iron(col); const h = add(hg, sph(0.142, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), m, 0, 0.1, 0); h.geometry = new THREE.SphereGeometry(0.142, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62);
+function helm(hg, col, open = false) { const m = iron(col), oy = open ? 0.045 : 0; const h = add(hg, sph(0.142, 16, 12), m, 0, 0.1 + oy, 0); h.geometry = new THREE.SphereGeometry(0.142, 16, 12, 0, Math.PI * 2, 0, Math.PI * (open ? 0.5 : 0.62)); // (an open helm sits above the brows, so the face shows)
   if (!open) { const face = add(hg, cylG(0.135, 0.13, 0.13, 16, 1, true), m, 0, 0.05, 0); face.geometry = new THREE.CylinderGeometry(0.135, 0.128, 0.13, 16, 1, true, -Math.PI * 0.85, Math.PI * 1.7); face.material = m.clone(); face.material.side = THREE.DoubleSide; add(hg, boxG(0.16, 0.012, 0.02), GL('#050505'), 0, 0.09, 0.132); add(hg, boxG(0.012, 0.07, 0.02), m, 0, 0.05, 0.135); }
-  add(hg, cylG(0.146, 0.146, 0.022, 18), m, 0, 0.11, 0); return m; }
+  add(hg, cylG(0.146, 0.146, 0.022, 18), m, 0, 0.11 + oy, 0); return m; }
 function mantle(ch, c, r = 0.2) { const t = add(ch.chest, new THREE.TorusGeometry(r, 0.07, 8, 16), fur(c), 0, ch.R.torsoH - 0.18, 0); t.rotation.x = Math.PI / 2; t.scale.set(1, 0.75, 1); return t; }
 function shoulderSpikes(ch, m, n = 3) { for (const s of [-1, 1]) { const g = new THREE.Group(); g.position.set(s * (ch.R.sw + 0.02), ch.R.torsoH - 0.2, 0); ch.chest.add(g); add(g, sph(0.09, 12, 8), m).scale.set(1, 0.7, 1.1); for (let k = 0; k < n; k++) { const sp = add(g, coneG(0.022, 0.12, 6), m, s * 0.03, 0.06, -0.04 + k * 0.04); sp.rotation.z = -s * 0.5; } } }
 function backItem(ch, obj, y = 0.05) { obj.position.set(0, ch.R.torsoH * 0.5 + y, -0.17); ch.chest.add(obj); return obj; }
@@ -64,8 +64,14 @@ function breastplate(ch, m, trim) { const R = ch.R, th = R.torsoH - 0.2, T = R.t
   add(ch.spine, cylG(0.16 * T, 0.15 * T, 0.12, 16), m, 0, 0.0, 0).scale.z = 0.8; }
 function pauldrons(ch, m, size = 1) { for (const sd of ['L', 'R']) { const p = add(ch.arms[sd].sh, sph(0.1 * size, 14, 10), m, 0, 0.01, 0); p.geometry = new THREE.SphereGeometry(0.1 * size, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55); p.scale.set(1.15, 0.9, 1.1);
   const p2 = add(ch.arms[sd].sh, sph(0.085 * size, 12, 8), m, 0, -0.05, 0); p2.geometry = new THREE.SphereGeometry(0.085 * size, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5); p2.scale.set(1.1, 0.7, 1.05); } }
-function gauntlets(ch, m, cuff = true) { const fa = ch.R.armL * 0.46, T = ch.R.thick; for (const sd of ['L', 'R']) { const el = ch.arms[sd].el; add(el, cylG(0.05 * T, 0.058 * T, fa * 0.5, 12), m, 0, -fa * 0.68, 0); if (cuff) add(el, cylG(0.068 * T, 0.06 * T, 0.05, 12), m, 0, -fa * 0.44, 0); add(ch.arms[sd].hand, sph(0.052, 10, 8), m, 0, -0.045, 0.005).scale.set(0.9 * Math.min(1.4, T), 1.2, 0.68 * Math.min(1.4, T)); } }
-function gloves(ch, c) { const m = M(c, 0.8); for (const sd of ['L', 'R']) add(ch.arms[sd].hand, sph(0.051, 10, 8), m, 0, -0.045, 0.005).scale.set(0.88 * Math.min(1.4, ch.R.thick), 1.22, 0.64 * Math.min(1.4, ch.R.thick)); }
+// gloved hands: the hero hand's fingers take the glove's material (nails hidden); a plain hand gets a mitten
+function handMeshes(ch, sd) { const h = ch.arms[sd].hand, out = []; for (const o of h.children) if (o.isMesh && (o.material === ch.mats.skin || o.userData.nail)) out.push(o); return out; }
+function gloveHand(ch, sd, m, armour) { const hm = handMeshes(ch, sd); if (hm.length < 10) return false;
+  for (const o of hm) { if (o.userData.nail) { o.visible = false; continue; } o.material = m; }
+  if (armour) { const h = ch.arms[sd].hand, s = sd === 'L' ? 1 : -1; const kp = add(h, boxG(0.016, 0.03, 0.064), m, s * 0.014, -0.07, 0.003); kp.rotation.x = 0; for (let i = 0; i < 4; i++) add(h, sph(0.008, 6, 4), m, s * 0.02, -0.074, 0.022 - i * 0.0145); add(h, boxG(0.012, 0.05, 0.058), m, s * 0.014, -0.035, 0.003); }
+  return true; }
+function gauntlets(ch, m, cuff = true) { const fa = ch.R.armL * 0.46, T = ch.R.thick; for (const sd of ['L', 'R']) { const el = ch.arms[sd].el; add(el, cylG(0.05 * T, 0.058 * T, fa * 0.5, 12), m, 0, -fa * 0.68, 0); if (cuff) add(el, cylG(0.068 * T, 0.06 * T, 0.05, 12), m, 0, -fa * 0.44, 0); if (!gloveHand(ch, sd, m, m.metalness > 0.5)) add(ch.arms[sd].hand, sph(0.052, 10, 8), m, 0, -0.045, 0.005).scale.set(0.9 * Math.min(1.4, T), 1.2, 0.68 * Math.min(1.4, T)); } }
+function gloves(ch, c) { const m = M(c, 0.8); for (const sd of ['L', 'R']) if (!gloveHand(ch, sd, m, false)) add(ch.arms[sd].hand, sph(0.051, 10, 8), m, 0, -0.045, 0.005).scale.set(0.88 * Math.min(1.4, ch.R.thick), 1.22, 0.64 * Math.min(1.4, ch.R.thick)); }
 function greaves(ch, m) { const sl = ch.R.legL * 0.47, T = ch.R.thick; for (const sd of ['L', 'R']) { const k = ch.legs[sd].knee; add(k, cylG(0.058 * T, 0.068 * T, sl * 0.62, 12), m, 0, -sl * 0.42, 0.006); add(k, sph(0.055 * T, 10, 8), m, 0, 0, 0.03).scale.set(1, 0.9, 0.8); } }
 function bootCuffs(ch, c) { const sl = ch.R.legL * 0.47, T = ch.R.thick, m = M(c, 0.85); for (const sd of ['L', 'R']) add(ch.legs[sd].knee, cylG(0.074 * T, 0.068 * T, 0.07, 12), m, 0, -sl * 0.3, 0); }
 function belt(ch, c, buckle = '#c9a14a', pouches = 0) { const T = ch.R.thick, m = M(c, 0.7), b = add(ch.hips, new THREE.TorusGeometry(0.16 * T, 0.022, 6, 22), m, 0, 0.1, 0); b.rotation.x = Math.PI / 2; b.scale.set(1, 0.78, 1);
@@ -124,7 +130,7 @@ const DECOR = {
   darkknight(ch) { const m = helm(ch.headG, '#1e1e24'); hideHair(ch); horns(ch.headG, '#1a1a1a', 1.1); ch.headG.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x050505) o.material = GL('#ff2a1a'); }); shoulderSpikes(ch, iron('#1e1e24'), 4); },
   berserker(ch) { const m = add(ch.headG, sph(0.14, 16, 12), iron('#6a6a70'), 0, 0.1, 0); m.geometry = new THREE.SphereGeometry(0.14, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55); horns(ch.headG, '#e8dcc0', 1.2); add(ch.headG, boxG(0.02, 0.09, 0.03), iron('#6a6a70'), 0, 0.09, 0.13); mantle(ch, '#6a4a2a', 0.21); },
   monk(ch) { hideHair(ch); { const red = M('#a81c1c', 0.85, 0, { side: THREE.DoubleSide }); ch.monkTails = []; for (const sx of [-1, 1]) { const pv = new THREE.Group(); pv.position.set(sx * 0.07, 0.02, -0.16 * ch.R.thick); ch.hips.add(pv); const tl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.85, 1, 6), red); tl.position.y = -0.42; pv.add(tl); ch.monkTails.push(pv); } } /* (two long sash tails that stream behind him) */ const b = M('#5a2a10', 0.5); for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; add(ch.chest, sph(0.022, 8, 6), b, Math.sin(a) * 0.13, ch.R.torsoH - 0.12 - (Math.cos(a) > 0 ? Math.cos(a) * 0.08 : 0), Math.cos(a) * 0.1); }
-    const hb = add(ch.headG, new THREE.TorusGeometry(0.125, 0.012, 6, 20), M('#a01a1a'), 0, 0.13, 0); hb.rotation.x = Math.PI / 2; },
+    const hb = add(ch.headG, new THREE.TorusGeometry(0.125, 0.012, 6, 20), M('#a01a1a'), 0, 0.17, 0); hb.rotation.x = Math.PI / 2; },
   rogue(ch) { const m = M('#2a2632', 0.7); for (const s of [-1, 1]) { const d = add(ch.chest, boxG(0.02, 0.16, 0.03), M('#c8ccd2', 0.3, 0.9), s * 0.12, 0.05, 0.12); d.rotation.z = s * 0.4; } add(ch.headG, boxG(0.16, 0.025, 0.02), GL('#c03060'), 0, 0.105, 0.13).visible = false; },
   ranger(ch) { const lf = M('#3a6a2a', 0.9); shoulderSpikes(ch, M('#6b4a2a'), 0); for (let k = 0; k < 3; k++) { const f = add(ch.headG, coneG(0.015, 0.14, 4), M(k === 1 ? '#a02020' : '#e8e0c0'), 0.1, 0.22, -0.08 + k * 0.02); f.rotation.z = -0.6; f.scale.z = 0.3; } },
   musketeer(ch) { // a lanky goblin sharpshooter: long drooping ears, a hooked nose, a brass telescope monocle, a hood, glowing rounds
@@ -205,7 +211,7 @@ for (const k in SIL) { const f0 = DECOR[k]; DECOR[k] = (ch) => { if (f0) f0(ch);
 function capeTick(ch, dt) { if (!ch.capes) return; const p = ch.root.position, lp = ch._capeP || (ch._capeP = p.clone()); const v = Math.min(9, Math.hypot(p.x - lp.x, p.z - lp.z) / Math.max(dt, 1e-3)); lp.copy(p);
   ch._capeV = (ch._capeV || 0) + (v - (ch._capeV || 0)) * Math.min(1, dt * 4); ch._capeT = (ch._capeT || 0) + dt; const fl = 0.1 + Math.min(1, ch._capeV / 7) * 0.75 + Math.sin(ch._capeT * 2.3) * 0.03 * (1 + ch._capeV * 0.2);
   for (const c of ch.capes) c.rotation.x += (fl - c.rotation.x) * Math.min(1, dt * 6); }
-export function arenaDecor(ch, cls) { try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
+export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } }
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
@@ -445,3 +451,30 @@ export function goblinGun(w, cls, s = 1) { if (!w || w.userData.goblin) return; 
     const spr = a(new THREE.TorusGeometry(0.018, 0.004, 4, 10), steel, -0.04, 0.16, 0.02); for (let i = 1; i < 4; i++) { const c = spr.clone(); c.position.y += i * 0.012 * s; w.add(c); }
     gear(-0.045, 0.06, -0.01, 0.035, Math.PI / 2); const fl = a(new THREE.SphereGeometry(0.035, 10, 8), M('#5a3a1a', 0.8), 0.05, -0.02, -0.04); fl.scale.set(1, 1.3, 0.7); for (let i = 0; i < 3; i++) a(new THREE.TorusGeometry(0.008, 0.002, 4, 8), steel, 0.05, 0.03 + i * 0.012, -0.04, Math.PI / 2 * (i % 2)); }
 }
+
+// ---- how each class stands, walks and runs (read by animateHumanoid via ch.style; see styleApply in herodetail.js) ----
+// crouch/wide/toe/hunch/chest/head/arms/elbow are offsets (radians, crouch in m); cadence/stride/bob/swing multiply the
+// gait; swagger rolls the hips with the stride, rock sways side to side, runLean tips forward at a run.
+export const STYLE = {
+  warrior: { wide: 0.14, chest: 0.168, arms: 0.21, elbow: 0.13, stride: 1.05, swing: 1.0 }, // proud, square, ready
+  paladin: { wide: 0.07, chest: 0.28, head: -0.078, arms: 0.12, cadence: 0.88, bob: 0.45, swing: 0.6, stride: 1.05 }, // upright, stately, a glide
+  darkknight: { hunch: 0.232, head: 0.286, wide: 0.196, arms: 0.27, elbow: 0.195, cadence: 0.78, stride: 1.25, bob: 1.2, swing: 0.55, runLean: 0.13 }, // menacing, head low, heavy long strides
+  berserker: { hunch: 0.464, head: -0.065, wide: 0.28, toe: 0.24, arms: 0.57, elbow: 0.455, crouch: 0.075, swagger: 1.8, bob: 1.6, swing: 1.5, runLean: 0.195 }, // an ape-like brute
+  blunderbuss: { wide: 0.336, toe: 0.384, crouch: 0.075, arms: 0.42, elbow: 0.26, rock: 0.11, cadence: 1.25, stride: 0.72, bob: 0.7, swing: 0.7 }, // a squat waddle
+  monk: { tiptoe: 0.15, chest: 0.084, crouch: 0.045, stride: 1.25, cadence: 1.05, bob: 1.1, swing: 0.85, runLean: 0.104, idleSway: 0.03 }, // light on the balls of the feet, flowing
+  rogue: { crouch: 0.15, hunch: 0.348, head: -0.052, stride: 1.1, cadence: 1.08, bob: 0.45, swing: 0.45, elbow: 0.325, runLean: 0.156 }, // low and sneaky, smooth
+  ranger: { hunch: 0.145, crouch: 0.06, head: -0.052, stride: 1.15, swing: 0.8, runLean: 0.156 }, // alert, leaning in
+  musketeer: { hunch: 0.522, head: -0.39, crouch: 0.12, elbow: 0.26, cadence: 1.4, stride: 0.78, bob: 0.8, swing: 0.55, jitter: 0.03 }, // a hunched goblin scuttle
+  beastmaster: { hunch: 0.609, head: -0.416, crouch: 0.15, wide: 0.21, arms: 0.48, elbow: 0.585, swagger: 1.0, runLean: 0.364, stride: 1.15, swing: 1.2 }, // a feral prowl
+  bard: { chest: 0.14, head: -0.065, swagger: 1.7, bob: 1.7, cadence: 1.05, swing: 1.2, idleSway: 0.05 }, // jaunty, bouncy
+  wizard: { hunch: 0.203, head: 0.078, stride: 0.82, swing: 0.45, bob: 0.5, cadence: 0.92 }, // a scholar's stoop
+  necromancer: { hunch: 0.319, head: 0.208, arms: 0.15, elbow: 0.39, armFwd: 0.15, bob: 0.12, swing: 0.15, stride: 0.88, cadence: 0.85 }, // a creepy, near-floating glide
+  elementalist: { chest: 0.168, arms: 0.36, elbow: 0.325, bob: 1.25, swing: 0.9, cadence: 1.05 }, // energetic, arms out and crackling
+  enchanter: { wide: -0.07, chest: 0.14, swagger: 1.5, rock: 0.04, bob: 0.65, swing: 0.6, idleSway: 0.04 }, // graceful, a narrow sway
+  cleric: { chest: 0.112, head: -0.052, cadence: 0.84, stride: 0.82, bob: 0.4, swing: 0.4 }, // dignified, slow
+  druid: { hunch: 0.116, toe: 0.12, stride: 1.12, bob: 1.15, swing: 1.0, cadence: 0.95 }, // earthy, loping
+  shaman: { wide: 0.224, crouch: 0.06, chest: 0.07, arms: 0.24, swagger: 1.3, bob: 1.1, cadence: 0.95 }, // heavy and tribal
+  priest: { chest: 0.14, head: -0.039, clasp: 1, cadence: 0.8, stride: 0.8, bob: 0.25, swing: 0.25 }, // serene, hands clasped, a slow glide
+  bombardier: { hunch: 0.493, head: -0.364, crouch: 0.105, arms: 0.45, elbow: 0.39, cadence: 1.5, stride: 0.75, bob: 0.9, swing: 1.1, jitter: 0.05 }, // a jittery goblin scurry
+};
+export function arenaStyle(cls) { return STYLE[cls] || null; }

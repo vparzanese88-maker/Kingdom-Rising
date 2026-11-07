@@ -7,7 +7,7 @@ import { G } from './state.js';
 import * as Game from './game.js';
 import { CLASSES, ABILITIES, CLASS_TREES, ARMOR_SLOT_LIST, TIERS, RACES, isSupport, WEAPON_TYPES, LEVEL_CAP } from './data.js';
 import { petDef } from './classes2.js';
-import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
+import { buildHumanoid, equipWeapon, animateHumanoid, bake, setDetail } from './character.js';
 import { Mob } from './mobs.js';
 import { V } from './vfx.js';
 import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
@@ -1186,7 +1186,7 @@ class ArenaBot {
     const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
     { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
-    arenaLookTick(this.model, dt);
+    arenaLookTick(this.model, dt); if (G.player && this.model) { const near = this.pos.distanceToSquared(G.player.pos) < 900; if (near !== this.model.detailOn) setDetail(this.model, near); } // (close-up detail only within 30 m)
     const c = this.cast; animateHumanoid(this.model, dt, { turn: this.turnR, speed: this.spd, action: (c ? (c.melee ? 'swing2' : 'castUp') : this.act) || null, actionT: c ? (c.melee ? 0.42 * Math.min(1, c.t / c.dur) : Math.min(1, c.t / c.dur)) : this.actT, armed: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
     if (this.cls === 'bard') luteToChest(this.model, !!this.h.arenaSongs && !this.cast && !this.act && !this.dead, G.time, dt);
     bodyPoseTick(this, this.model, dt); // (kicks)

@@ -3,6 +3,8 @@ import { NEW_CLASSES } from './classes2.js';
 import * as THREE from 'three';
 import { RACES, CLASSES, WEAPON_TYPES, TIERS, RARITY, isElf } from './data.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { heroHead, heroHand, deltoids, veins, stitching, addDangle, addJiggle, tickSecondary, styleUndo, styleApply } from './herodetail.js';
+export { addDangle, addJiggle } from './herodetail.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y);
 const geoCache = new Map();
@@ -28,12 +30,12 @@ export function shapeLimb(key, prof, len, seg = 14) {
 }
 // body types for the arena heroes: each class its own build and size, like the heroes of Smite or Marvel Rivals
 export const BODY = {
-  brute: { sw: 1.38, thick: 1.42, armL: 1.08, legL: 1.0, torsoH: 1.12, head: 0.9, mus: 1.5, h: 1.09 },
-  knight: { sw: 1.26, thick: 1.22, armL: 1.04, legL: 1.04, torsoH: 1.06, head: 0.92, mus: 1.2, h: 1.05 },
-  heavy: { sw: 1.28, thick: 1.34, armL: 1.02, legL: 0.9, torsoH: 1.04, head: 0.95, mus: 1.15, h: 0.98 },
-  athlete: { sw: 1.12, thick: 1.0, armL: 1.03, legL: 1.08, torsoH: 1.02, head: 0.92, mus: 1.08, h: 1.02 },
-  lean: { sw: 1.02, thick: 0.9, armL: 1.04, legL: 1.1, torsoH: 1.06, head: 0.92, mus: 0.9, h: 1.05 },
-  sturdy: { sw: 1.12, thick: 1.08, armL: 1.02, legL: 1.02, torsoH: 1.04, head: 0.94, mus: 1.05, h: 1.0 },
+  brute: { sw: 1.38, thick: 1.42, armL: 1.08, legL: 1.0, torsoH: 1.12, head: 0.8, mus: 1.5, h: 1.09 },
+  knight: { sw: 1.26, thick: 1.22, armL: 1.04, legL: 1.04, torsoH: 1.06, head: 0.82, mus: 1.2, h: 1.05 },
+  heavy: { sw: 1.28, thick: 1.34, armL: 1.02, legL: 0.9, torsoH: 1.04, head: 0.86, mus: 1.15, h: 0.98 },
+  athlete: { sw: 1.12, thick: 1.0, armL: 1.03, legL: 1.08, torsoH: 1.02, head: 0.84, mus: 1.08, h: 1.02 },
+  lean: { sw: 1.02, thick: 0.9, armL: 1.04, legL: 1.1, torsoH: 1.06, head: 0.84, mus: 0.9, h: 1.05 },
+  sturdy: { sw: 1.12, thick: 1.08, armL: 1.02, legL: 1.02, torsoH: 1.04, head: 0.85, mus: 1.05, h: 1.0 },
 };
 function latheGeo(key, prof, seg = 18) { return cached(key, () => new THREE.LatheGeometry(prof.map(p => V2(Math.max(0.0001, p[0]), p[1])), seg)); }
 const sphereGeo = (r, w = 16, h = 12) => cached(`sph${r}_${w}_${h}`, () => new THREE.SphereGeometry(r, w, h));
@@ -322,7 +324,7 @@ export function buildHumanoid(app = {}) {
     : [[0.13 * T, -0.08], [0.13 * T, 0.02], [0.15 * T, 0.12], [sw * 0.92, th * 0.8], [sw, th * 0.95], [sw * 0.75, th + 0.04], [0.07, th + 0.07]];
   if (hero && !female) torsoProf.splice(0, torsoProf.length, [0.118 * T, -0.08], [0.12 * T, 0.02], [0.14 * T, 0.1], [sw * 0.9, th * 0.66], [sw * 1.04, th * 0.88], [sw * 0.86, th + 0.02], [0.075 * T, th + 0.075]); // a V: broad chest, narrow waist
   const torso = mesh(latheGeo(`torso${female}${T.toFixed(2)}${sw.toFixed(3)}${th.toFixed(2)}${hero ? 'h' : ''}`, torsoProf, 22), kind === 'person' ? shirtM : skinM, chest);
-  if (hero) { if (!female) for (const s2 of [-1, 1]) { const pec = mesh(cached('pecbox', () => { const g = new THREE.BoxGeometry(0.15, 0.09, 0.05, 2, 2, 1); const p3 = g.attributes.position; for (let i = 0; i < p3.count; i++) { const x = p3.getX(i), y = p3.getY(i); p3.setZ(i, p3.getZ(i) - (x * x * 2.2 + y * y * 3)); } g.computeVertexNormals(); return g; }), shirtM, chest, s2 * sw * 0.4, th * 0.8, 0.095 * T); pec.scale.set(sw / 0.25, 1, Math.min(1.3, mus) * T); pec.rotation.z = s2 * -0.12; /* a flat, square chest plate, not a round bulge */ }
+  if (hero) { if (!female) for (const s2 of [-1, 1]) { const pec = mesh(cached('pecbox', () => { const g = new THREE.BoxGeometry(0.15, 0.09, 0.05, 2, 2, 1); const p3 = g.attributes.position; for (let i = 0; i < p3.count; i++) { const x = p3.getX(i), y = p3.getY(i); p3.setZ(i, p3.getZ(i) - (x * x * 2.2 + y * y * 3)); } g.computeVertexNormals(); return g; }), shirtM, pivot(chest, s2 * sw * 0.4, th * 0.8, 0.095 * T, 'pec')); pec.scale.set(sw / 0.25, 1, Math.min(1.3, mus) * T); pec.rotation.z = s2 * -0.12; /* a flat, square chest plate, not a round bulge */ }
     const trap = mesh(latheGeo(`trap${sw.toFixed(3)}${T.toFixed(2)}`, [[sw * 0.78, 0], [sw * 0.5, 0.05], [0.07 * T, 0.11]], 16), shirtM, chest, 0, th - 0.02, -0.01); trap.scale.z = 0.62;
     const lat = mesh(sphereGeo(0.1 * T, 12, 8), shirtM, chest, 0, th * 0.55, -0.05 * T); lat.scale.set(sw / 0.1 * 0.8, 1.2, 0.55); }
   torso.scale.z = kind === 'troll' || kind === 'golem' ? 0.85 : 0.66;
@@ -337,7 +339,7 @@ export function buildHumanoid(app = {}) {
   buildHead(headG, app, kind, female, mats, glowM);
 
   // arms
-  const arms = {};
+  const arms = {}; const ch0 = { biceps: [] };
   for (const s of [-1, 1]) { // -1 = right (character's right is -x when facing +z)
     const side = s < 0 ? 'R' : 'L';
     const sh = pivot(chest, s * (sw - 0.02), th * 0.92, 0, 'shoulder' + side);
@@ -345,13 +347,11 @@ export function buildHumanoid(app = {}) {
     const uaM = (O.bareArms || kind !== 'person') ? skinM : shirtM;
     if (hero) { const m = mus; mesh(shapeLimb(`ua${T.toFixed(2)}${m}`, [[0, 0.07 * T], [0.12, 0.075 * T * (0.96 + 0.1 * m)], [0.45, 0.062 * T * (0.9 + 0.12 * m)], [0.82, 0.05 * T], [1, 0.047 * T]], ua), uaM, sh).scale.z = 0.92; } else
     mesh(limbGeo(0.066 * T, 0.054 * T, ua), uaM, sh);
+    if (hero && mus > 1.05 && kind === 'person') { const bp = pivot(sh, 0, -ua * 0.45, 0.02 * T, 'bicep'); const bi = mesh(sphereGeo(0.05, 12, 8), uaM, bp); bi.scale.set(0.95 * T, 1.9, 0.9 * T * (0.7 + 0.25 * mus)); ch0.biceps.push(bp); }
     const el = pivot(sh, 0, -ua, 0, 'elbow' + side);
     { const faM = (O.sleeves || O.robe) && kind === 'person' && !O.bareArms ? shirtM : skinM; if (hero) mesh(shapeLimb(`fa${T.toFixed(2)}${mus}`, [[0, 0.05 * T], [0.22, 0.056 * T * (0.94 + 0.1 * mus)], [0.6, 0.044 * T], [1, 0.033 * T]], fa), faM, el).scale.z = 0.86; else mesh(limbGeo(0.054 * T, 0.042 * T, fa), faM, el); }
     const hand = pivot(el, 0, -fa, 0, 'hand' + side);
-    if (hero) { const k = Math.min(1.35, 0.92 + T * 0.18); // a real hand: palm, a block of curled fingers, a thumb
-      const palm = mesh(cached('hpalm', () => new THREE.BoxGeometry(0.058, 0.066, 0.03)), skinM, hand, 0, -0.04, 0.004); palm.scale.setScalar(k);
-      const fg = mesh(cached('hfing', () => { const g = new THREE.CylinderGeometry(0.016, 0.016, 0.058, 8); g.rotateZ(Math.PI / 2); return g; }), skinM, hand, 0, -0.08 * k, 0.012 * k); fg.scale.set(k, k, k * 1.25);
-      const th2 = mesh(cached('hthumb', () => new THREE.CylinderGeometry(0.011, 0.013, 0.04, 6)), skinM, hand, s * -0.03 * k, -0.05 * k, 0.018 * k); th2.rotation.set(0.5, 0, s * 0.6); th2.scale.setScalar(k); }
+    if (hero) heroHand(hand, s, skinM, Math.min(1.35, 0.92 + T * 0.18), s < 0); // a real hand: palm, jointed fingers with nails, a thumb (the right one closed round the grip)
     else { const hm = mesh(sphereGeo(0.048, 10, 8), skinM, hand, 0, -0.045, 0.005); hm.scale.set(0.85 * Math.min(1.4, T), 1.25, 0.6 * Math.min(1.4, T)); }
     if (kind === 'troll' || kind === 'tyrant' || kind === 'imp') { for (let i = 0; i < 3; i++) { const cl = mesh(cached('claw2', () => new THREE.ConeGeometry(0.012, 0.06, 4)), mat('#2a2a20'), hand, (i - 1) * 0.02, -0.1, 0.02); cl.rotation.x = Math.PI; } }
     const grip = pivot(hand, 0, -0.06, 0.01, 'grip' + side);
@@ -380,6 +380,16 @@ export function buildHumanoid(app = {}) {
 
   const ch = { root, body, hips, spine, chest, neck, head, headG, arms, legs, mats, R, scale, app, kind, height: (hipH + 0.2 + th + R.neck + 0.3 * hs) * scale, weapons: {}, anim: { t: Math.random() * 10, walk: 0, blend: 0 } };
   if (kind === 'person') dressOutfit(ch, O);
+  if (hero && kind === 'person') { try {
+    deltoids(ch, (O.bareArms) ? skinM : shirtM, mus);
+    if (O.bareArms || mus >= 1.4) veins(ch, skinM, { mus });
+    stitching(ch, O, mats);
+    // cloth that hangs: the tabards swing from the belt, the cloak from the shoulders, a hair tail from the crown
+    for (const k2 of ['tabard1', 'tabard-1']) { const tb = ch.outfit[k2]; if (!tb) continue; const pv = pivot(hips, tb.position.x, tb.position.y + 0.31, tb.position.z, 'tabardP'); hips.remove(tb); pv.add(tb); tb.position.set(0, -0.31, 0); ch.outfit[k2] = tb; addDangle(ch, pv, { hang: 0.55, drag: k2 === 'tabard1' ? 0.07 : 0.1, gain: 0.05, max: 0.9 }); }
+    if (ch.outfit.cloak) { ch.outfit.cloak.rotation.x = 0.1; addDangle(ch, ch.outfit.cloak, { hang: 0.85, drag: 0.13, gain: 0.06, max: 1.25, k: 40, damp: 5 }); ch.cloakDangle = true; }
+    if (headG.userData.hairTail) addDangle(ch, headG.userData.hairTail, { hang: 0.9, drag: 0.08, gain: 0.05, k: 50, damp: 5 });
+    chest.traverse(o => { if (o.name === 'pec') addJiggle(ch, o, { amt: 0.0016 * mus }); }); for (const b of ch0.biceps) addJiggle(ch, b, { amt: 0.0012 * mus });
+  } catch (e) { console.warn('hero detail', e); } }
   if (kind === 'troll') { const lc = mesh(latheGeo('loin', [[0.2, -0.2], [0.22, 0], [0.2, 0.08]]), mat('#5a4030'), hips); }
   if (kind === 'imp') { // wings + tail
     for (const s of [-1, 1]) { const w = mesh(cached('impwing', () => { const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.5, 0.25); sh.lineTo(0.42, -0.05); sh.lineTo(0.3, -0.02); sh.lineTo(0.2, -0.12); sh.lineTo(0, -0.05); return new THREE.ShapeGeometry(sh); }), mat('#5a1208', 0.7, 0, { side: THREE.DoubleSide }), chest, s * 0.05, th * 0.8, -0.1); w.scale.x = s; w.rotation.y = s * 0.4; w.userData.keep = true; ch['wing' + (s < 0 ? 'R' : 'L')] = w; }
@@ -401,7 +411,7 @@ export function setDetail(ch, on) { if (ch.detailOn === on) return; ch.detailOn 
 function buildHead(g, app, kind, female, mats, glowM) {
   const sk = mats.skin;
   const n0 = g.children.length;
-  try { buildHead2(g, app, kind, female, mats, glowM); } finally { g.children.forEach((c, i) => { if (i >= n0 && c.isMesh && c.geometry.boundingSphere == null) c.geometry.computeBoundingSphere(); if (i >= n0 && c.isMesh && c.geometry.boundingSphere.radius < 0.045) { c.userData.detail = true; c.castShadow = false; } }); }
+  try { if (kind === 'person' && app.body && BODY[app.body]) heroHead(g, app, mats, female); else buildHead2(g, app, kind, female, mats, glowM); } finally { g.children.forEach((c, i) => { if (i >= n0 && c.isMesh && c.geometry.boundingSphere == null) c.geometry.computeBoundingSphere(); if (i >= n0 && c.isMesh && c.geometry.boundingSphere.radius < 0.045) { c.userData.detail = true; c.castShadow = false; } }); }
 }
 function buildHead2(g, app, kind, female, mats, glowM) {
   const sk = mats.skin;
@@ -720,7 +730,7 @@ function uprightShield(ch, st) {
   sh.quaternion.copy(_sq1.invert().multiply(_sq2));
 }
 export function animateHumanoid(ch, dt, st) {
-  const A = ch.anim; A.t += dt;
+  const A = ch.anim; A.t += dt; const S = ch.style || null; if (ch._so) styleUndo(ch);
   const { hips, spine, chest, neck, head, arms, legs, body } = ch;
   const sp = Math.min(st.speed || 0, 9.5); // (a charge or dash moves faster, but the legs never blur)
   const k = Math.min(1, dt * 12);
@@ -728,14 +738,14 @@ export function animateHumanoid(ch, dt, st) {
   // lifts in the flight phase; the swinging leg folds up under the body while the stance leg stays long
   const runF = clamp01((sp - 1.6) / 4.2), sprF = clamp01((sp - 6.2) / 2.2), walkF = clamp01(sp / 1.4);
   const legK = Math.max(0.6, ch.R.legL / 0.9);
-  A.walk += dt * (sp > 0.1 ? (1.7 + runF * 1.0 + sprF * 0.45) * Math.PI * 2 * 0.5 / Math.sqrt(legK) : 0); // one cycle = two steps
+  A.walk += dt * (sp > 0.1 ? (1.7 + runF * 1.0 + sprF * 0.45) * Math.PI * 2 * 0.5 / Math.sqrt(legK) * (S && S.cadence || 1) : 0); // one cycle = two steps
   const ph = A.walk;
-  const amp = walkF * (0.4 + runF * 0.32 + sprF * 0.26);
+  const amp = walkF * (0.4 + runF * 0.32 + sprF * 0.26) * (S && S.stride || 1);
   const gait = (s) => { const th = Math.sin(s) * amp, swing = Math.max(0, Math.cos(s)), stance = Math.max(0, -Math.cos(s));
     const kn = 0.05 + walkF * (0.08 * stance + (0.5 + runF * 0.85 + sprF * 0.45) * Math.pow(swing, 1.4));
     return [th, kn, -kn * 0.32 + 0.12 * stance * walkF]; };
   let [thL, knL, anL] = gait(ph), [thR, knR, anR] = gait(ph + Math.PI);
-  let bob = walkF * (1 - Math.abs(Math.sin(ph))) * (0.018 + runF * 0.05 + sprF * 0.02);
+  let bob = walkF * (1 - Math.abs(Math.sin(ph))) * (0.018 + runF * 0.05 + sprF * 0.02) * (S && S.bob != null ? S.bob : 1);
   let lean = (walkF * 0.04 + runF * 0.13 + sprF * 0.2) * (st.back ? -0.6 : 1);
   const air = st.airborne && !st.swim;
   if (air) { const up = (st.vy || 0) > 0.5; if (up) { thL = 1.15; knL = 1.5; thR = -0.35; knR = 0.75; } else { thL = 0.45; knL = 0.45; thR = 0.15; knR = 0.3; } anL = anR = -0.2; bob = 0; }
@@ -761,7 +771,7 @@ export function animateHumanoid(ch, dt, st) {
     legs.R.thigh.rotation.x = -(0.9 * ch1 + 0.65 * ext) * back; legs.R.knee.rotation.x = (1.6 * ch1 * (1 - ext) + 0.05) * back; legs.R.ankle.rotation.x = -0.5 * ext * back;
     legs.L.knee.rotation.x = 0.25; legs.L.thigh.rotation.x = 0.1; }
   // default arm swing
-  let armSwing = Math.sin(ph) * amp * 0.9;
+  let armSwing = Math.sin(ph) * amp * 0.9 * (S && S.swing != null ? S.swing : 1);
   let P = null;
   if (st.action) P = attackPose(st.action, clamp01(st.actionT || 0));
   if (!P && st.block) P = POSE.block;
@@ -814,9 +824,10 @@ export function animateHumanoid(ch, dt, st) {
   { const tl = Math.max(-0.28, Math.min(0.28, -(st.turn || 0) * 0.07 * runF)); ch.turnL = (ch.turnL || 0) + (tl - (ch.turnL || 0)) * Math.min(1, dt * 6); spine.rotation.z = ch.turnL; }
   // head follows look pitch
   damp(neck, (st.lookPitch || 0) * 0.5 - lean * 0.3, -(chest.rotation.y) * 0.6, 0, k);
-  if (ch.outfit && ch.outfit.cloak) ch.outfit.cloak.rotation.x = 0.1 + runF * 0.6 + Math.sin(A.t * 2.2) * 0.04;
+  if (ch.outfit && ch.outfit.cloak && !ch.cloakDangle) ch.outfit.cloak.rotation.x = 0.1 + runF * 0.6 + Math.sin(A.t * 2.2) * 0.04;
   if (ch.outfit && ch.outfit.robe) ch.outfit.robe.rotation.z = Math.sin(ph) * 0.04 * amp;
   if (ch.wingL) { const f = Math.sin(A.t * 14) * 0.6; ch.wingL.rotation.y = 0.4 + f; ch.wingR.rotation.y = -0.4 - f; }
+  if (S) styleApply(ch, st, S, ph, amp, walkF, runF);
   // spin (area attacks)
   body.rotation.y = st.spin ? st.spin : 0;
   // dodge roll
@@ -852,6 +863,7 @@ export function animateHumanoid(ch, dt, st) {
   if (grip && grip.userData.rx0 == null) grip.userData.rx0 = grip.rotation.x;
   if (st.aimStaff) { const p = st.aimPitch || 0; damp(arms.R.sh, -1.45 - p, 0.12, 0.08, k * 2.2); damp(arms.R.el, -0.12, 0, 0, k * 2.2); if (grip) grip.rotation.x += ((grip.userData.rx0 - 1.45) - grip.rotation.x) * Math.min(1, dt * 14); }
   else if (grip && grip.userData.rx0 != null) grip.rotation.x += (grip.userData.rx0 - grip.rotation.x) * Math.min(1, dt * 10);
+  if (ch.dangles || ch.jiggles) tickSecondary(ch, dt);
 }
 
 // ---------- baking: merge each joint's meshes into one vertex-coloured mesh (far fewer draw calls) ----------
@@ -868,6 +880,7 @@ export function bake(root) {
     const collect = (node, parentMat) => {
       for (const c of [...node.children]) {
         if (!c.isMesh) continue;
+        if (!c.visible) { node.remove(c); continue; } // (hidden parts, like hair under a helmet, are not baked in)
         c.updateMatrix();
         const rel = new THREE.Matrix4().multiplyMatrices(parentMat, c.matrix);
         const m = c.material;

@@ -16,6 +16,8 @@ const MODELS = {
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
 const cache = {}; const loader = new FBXLoader();
+// Meshy meshes can carry zero-length normals; in the shader those become invalid pixels that the glow pass smears into a black screen
+export function fixNormals(geo) { const n = geo && geo.attributes.normal; if (!n) return; const a = n.array; for (let i = 0; i < a.length; i += 3) { const l = a[i] * a[i] + a[i + 1] * a[i + 1] + a[i + 2] * a[i + 2]; if (!(l > 1e-8)) { a[i] = 0; a[i + 1] = 1; a[i + 2] = 0; } } n.needsUpdate = true; }
 const loadFbx = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
 // one load per class: the rigged character and its animation clips (root motion stripped so it runs on the spot)
 function loadClass(cls) {
@@ -24,7 +26,7 @@ function loadClass(cls) {
     const base = await loadFbx(D.base); const clips = {};
     await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const J = url.endsWith('.json') ? await (await fetch(url)).json() : null, c = J ? THREE.AnimationClip.parse(J) : (await loadFbx(url)).animations[0]; if (!c) return; if (J && J.rest) retarget(c, J, base); // (moves are stored as small motion-only files, not whole characters)
       c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name) || (keepHipY(t), true)); clips[k] = c; }));
-    base.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
+    base.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
     return { base, clips };
   })();
   return cache[cls];

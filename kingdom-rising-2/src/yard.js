@@ -6,6 +6,7 @@ import { Mob } from './mobs.js';
 import { CLASSES, WEAPON_TYPES, ABILITIES, LEVEL_CAP } from './data.js';
 import { heightAt } from './terrain.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { fixNormals } from './heromodels.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
@@ -31,14 +32,14 @@ function layYardTiles() {
     const nx = Math.round((TX[1] - TX[0]) / TILE), nz = Math.round((TZ[1] - TZ[0]) / TILE), cells = [];
     for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) cells.push([TX[0] + (i + 0.5) * TILE, TZ[0] + (j + 0.5) * TILE, Math.random() < 0.28 ? 1 : 0]); // (mostly plain grass, about one tile in four with flowers)
     objs.forEach((o, kind) => { if (!o) return; let mesh = null; o.traverse(x => { if (x.isMesh && !mesh) mesh = x; }); if (!mesh) return; o.updateMatrixWorld(true);
-      const geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld); geo.computeBoundingBox(); const bb = geo.boundingBox, c = bb.getCenter(new THREE.Vector3()), size = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
+      const geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld); fixNormals(geo); geo.computeBoundingBox(); const bb = geo.boundingBox, c = bb.getCenter(new THREE.Vector3()), size = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
       geo.translate(-c.x, 0, -c.z); const k = TILE / size;
       // where the top of the soil is: the middle of the heights near the centre of the tile (grass and flowers stick up above it)
-      const P = geo.attributes.position, ys = []; for (let i = 0; i < P.count; i++) { if (Math.abs(P.getX(i)) < size * 0.3 && Math.abs(P.getZ(i)) < size * 0.3) ys.push(P.getY(i)); } ys.sort((a, b) => a - b); const top = ys.length ? ys[Math.floor(ys.length * 0.35)] : bb.max.y;
+      const P = geo.attributes.position, N = geo.attributes.normal, ys = []; for (let i = 0; i < P.count; i++) { if (Math.abs(P.getX(i)) < size * 0.35 && Math.abs(P.getZ(i)) < size * 0.35 && P.getY(i) > (bb.min.y + bb.max.y) / 2 && (!N || N.getY(i) > 0.75)) ys.push(P.getY(i)); } ys.sort((a, b) => a - b); const top = ys.length ? ys[Math.floor(ys.length * 0.5)] : bb.max.y; /* (the upward-facing ground surface in the upper half of the tile) */
       const mats = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map(m => { const n = new THREE.MeshLambertMaterial({ map: m.map || null, color: '#ffffff' }); if (n.map) { n.map.colorSpace = THREE.SRGBColorSpace; n.map.anisotropy = 4; } return n; });
       const mine = cells.filter(c => c[2] === kind); if (!objs[1 - kind]) mine.push(...cells.filter(c => c[2] !== kind)); // (if one tile failed to load, the other covers everything)
       const inst = new THREE.InstancedMesh(geo, mats.length > 1 ? mats : mats[0], Math.max(1, mine.length)), M = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(k * 1.002, k, k * 1.002), pos = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-      mine.forEach(([x, z], n) => { q.setFromAxisAngle(up, Math.floor(Math.random() * 4) * Math.PI / 2); pos.set(x, heightAt(x, z) - top * k + 0.03, z); M.compose(pos, q, sc); inst.setMatrixAt(n, M); });
+      mine.forEach(([x, z], n) => { q.setFromAxisAngle(up, Math.floor(Math.random() * 4) * Math.PI / 2); pos.set(x, Math.max(heightAt(x, z), heightAt(x - TILE / 2, z - TILE / 2), heightAt(x + TILE / 2, z - TILE / 2), heightAt(x - TILE / 2, z + TILE / 2), heightAt(x + TILE / 2, z + TILE / 2)) - top * k + 0.14, z); M.compose(pos, q, sc); inst.setMatrixAt(n, M); });
       inst.count = mine.length; inst.receiveShadow = true; inst.castShadow = false; inst.frustumCulled = false; inst.userData.yardTile = true; G.scene.add(inst); });
   });
 }

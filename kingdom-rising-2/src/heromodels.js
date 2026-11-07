@@ -54,7 +54,7 @@ function keepHipY(track) { const v = track.values; if (!v || v.length < 3) retur
 
 // swap the built body for the class's model. ch: the humanoid from buildHumanoid. Safe to call before it has loaded.
 export function attachHeroModel(ch, cls) {
-  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; const D = MODELS[cls];
+  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; const hidden = []; if (ch.body) ch.body.traverse(o => { if ((o.isMesh || o.isLine) && o.visible) { o.visible = false; hidden.push(o); } }); /* (the old built body stays hidden while the model loads, so it never flashes up) */ const D = MODELS[cls];
   loadClass(cls).then(({ base, clips }) => {
     if (!ch.root) return;
     const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true);
@@ -64,11 +64,11 @@ export function attachHeroModel(ch, cls) {
     const keep = new Set(); const hands = {}; m.traverse(o => { if (o.isBone && /^LeftHand$/.test(o.name)) hands.L = o; if (o.isBone && /^RightHand$/.test(o.name)) hands.R = o; });
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd] || D.noGrip) continue; /* (the monk's model has its own wraps and fists: the old built ones are not carried over) */ const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     for (const c of keep) if (c.userData && c.userData.flame) { c.position.set(0, 0.09, 0.03); c.rotation.set(0, 0, 0); } // (the necromancer's green flame sits in his open right palm)
-    ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; });
+    ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; }); for (const o of hidden) if (isUnder(o, keep)) o.visible = true; /* (the hand items carried over to the model show again) */
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); if (kk !== 'walk' && kk !== 'run' && kk !== 'back') act[kk].paused = true; } // (attack clips don't run on their own: the move code sets their time)
     const bones = {}, bind = {}; m.traverse(o => { if (o.isBone) { bones[o.name] = o; bind[o.name] = [o.quaternion.clone(), o.position.clone()]; } });
     ch.heroModel = { m, wrap, mixer, act, D, bones, bind, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
-  }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; });
+  }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; for (const o of hidden) o.visible = true; });
 }
 // a relaxed standing pose built from the model's own rest pose: arms brought down to the sides, elbows soft
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();

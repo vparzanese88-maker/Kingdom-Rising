@@ -9,19 +9,36 @@ import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
 import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS } from './arena.js';
-import { classPortrait } from './portraits.js';
+import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
 import { openKitInfo } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid } from './character.js';
-import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick } from './arenalooks.js';
+import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick, arenaLookTick } from './arenalooks.js';
 
 export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
 // single dummies near, mid and far; a pack of five for area attacks; one that walks a line for aiming practice
 const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],
   ...[0, 1, 2, 3, 4].map(i => [-26 + Math.cos(i * 1.256) * 3, 18 + Math.sin(i * 1.256) * 3, 'Pack Dummy']), [24, 22, 'Moving Dummy']];
+// every class standing shoulder to shoulder behind the start: walk up to one and press E to become that class
+const LINE = []; YD.line = LINE;
+function nameTag(text) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 30px Georgia, serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(text, 128, 42); g.fillStyle = '#f2dfb0'; g.fillText(text, 128, 42);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); sp.scale.set(1.6, 0.4, 1); return sp; }
+function spawnLineUp() {
+  const keys = Object.keys(CLASSES), n = keys.length, gap = 1.75, z = -8;
+  keys.forEach((cls, i) => { const x = (i - (n - 1) / 2) * gap;
+    try { const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: cls === 'musketeer' ? '#7a9a3a' : cls === 'blunderbuss' ? '#4f6a2a' : cls === 'bombardier' ? '#8aa23a' : '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
+      try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
+      addOutline(ch.root, '#1a1208'); ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = 0; G.scene.add(ch.root);
+      const tag = nameTag(CLASSES[cls].name); tag.position.set(x, heightAt(x, z) + 2.55, z); G.scene.add(tag);
+      LINE.push({ cls, ch, x, z, t: Math.random() * 3 }); } catch (e) { console.warn('line-up', cls, e); } });
+}
+// the class figure you are standing at, if any
+export function lineUpNear() { const P = G.player; if (!P) return null; let best = null, bd = 2.4 * 2.4; for (const f of LINE) { const d = (P.pos.x - f.x) ** 2 + (P.pos.z - f.z) ** 2; if (d < bd) { bd = d; best = f; } } return best; }
+export function lineUpSwitch() { const f = lineUpNear(); if (!f || !YD.startGame) return false; const P = G.player, pos = P.pos.clone(), yaw = P.yaw; YD.startGame(yardHero(f.cls, G.save)); G.player.place(pos.x, pos.z, yaw); S.levelUp && S.levelUp(); return true; }
 export function spawnDummies() {
+  if (!LINE.length) spawnLineUp();
   G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
@@ -42,6 +59,8 @@ function dummyUpdate(dt) {
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {
+  for (const f of LINE) { f.t += dt; animateHumanoid(f.ch, dt, { speed: 0, armed: true, ready: true }); arenaLookTick(f.ch, dt); }
+  { const f = lineUpNear(), cur = G.save && G.save.cls; const key = f && f.cls !== cur ? f.cls : null; if (key !== YD.lineHint) { YD.lineHint = key; const el2 = document.getElementById('linehint') || (() => { const d = document.createElement('div'); d.id = 'linehint'; d.style.cssText = 'position:fixed;left:50%;bottom:24%;transform:translateX(-50%);padding:8px 16px;border-radius:8px;background:rgba(15,10,6,0.82);border:1px solid #8a6a3a;color:#f2dfb0;font:600 17px Georgia,serif;pointer-events:none;z-index:30'; document.body.appendChild(d); return d; })(); el2.hidden = !key; if (key) el2.innerHTML = `Press <b style="color:#ffd27a">E</b> to become the <b>${CLASSES[key].name}</b>`; } }
   notesTick(dt); // (music notes: the bard's songs)
   G.zoneLabel = 'Training Yard<small>The arena classes</small>'; const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true;
   const now = performance.now(); while (YD.dmg.length && now - YD.dmg[0][0] > 8000) YD.dmg.shift();

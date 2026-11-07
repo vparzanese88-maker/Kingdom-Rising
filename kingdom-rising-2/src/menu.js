@@ -339,7 +339,13 @@ export function showArenaSetup() {
   if (!AS) { try { AS = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); } catch (e) { AS = null; } if (!AS || !AS.slots) { AS = Arena.defaultArena(); Arena.fillSlots(AS); } AS.step = 'setup'; }
   renderArenaSetup();
 }
+// re-drawing the setup keeps every scrolled list where it was (clicking a class or option no longer jumps back to the top)
 function renderArenaSetup() {
+  const ov = document.getElementById('bsetup'), keep = []; if (ov) { keep.push([-1, ov.scrollTop]); ov.querySelectorAll('*').forEach((e2, n) => { if (e2.scrollTop > 0) keep.push([n, e2.scrollTop]); }); }
+  renderArenaSetup0();
+  if (ov) { const all = ov.querySelectorAll('*'); for (const [n, top] of keep) { const e2 = n < 0 ? ov : all[n]; if (e2) e2.scrollTop = top; } }
+}
+function renderArenaSetup0() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
   panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · Ruins of Aldermere</div><h1>Choose your hero</h1>`));

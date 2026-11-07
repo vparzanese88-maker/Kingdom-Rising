@@ -490,7 +490,7 @@ export class Player {
     if (this.dead || G.uiOpen) return;
     if (down && btn === 2 && this.h.arena && this.h.arenaRmb === 'ar_wraps' && !this.dead && !G.uiOpen) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === 'ar_wraps'); if (k >= 0) this.ability(k); return; } // (Tighten the Wraps works even while stunned: it is how the monk breaks free)
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
-    if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down; if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
+    if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down && !this.dead; if (this.dead) return; if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
     if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
@@ -1813,7 +1813,7 @@ export class Player {
     if (type === 'stun') { this.atk = null; this.press = null; this.cancelGather(); }
   }
   knock(v, stun = 0) { if (this.iframes > 0) return; this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
-  die() { this.dead = true; this.atk = null; this.press = null; this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
+  die() { this.dead = true; this.atk = null; this.press = null; this.lmbHeld = false; this.lmbDown = false; /* (a click held at death does not carry on firing after you come back) */ this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
   // swimming: Space next to a low edge (a boat deck, a pier) climbs you out of the water

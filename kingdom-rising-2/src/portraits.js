@@ -7,7 +7,7 @@ import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline } from '
 
 const CACHE = {}; let R = null, scene = null, cam = null;
 const W = 220, H = 280;
-const RACE = { warrior: 'human', berserker: 'orc', ranger: 'woodelf', wizard: 'human', musketeer: 'woodelf', shaman: 'orc', cleric: 'dwarf', paladin: 'human', darkknight: 'human', druid: 'woodelf', monk: 'human', bard: 'highelf', rogue: 'human', necromancer: 'human', elementalist: 'highelf', enchanter: 'highelf', beastmaster: 'orc', blunderbuss: 'dwarf', priest: 'human', bombardier: 'halfling' };
+export const RACE = { warrior: 'human', berserker: 'orc', ranger: 'woodelf', wizard: 'human', musketeer: 'woodelf', shaman: 'orc', cleric: 'dwarf', paladin: 'human', darkknight: 'human', druid: 'woodelf', monk: 'human', bard: 'highelf', rogue: 'human', necromancer: 'human', elementalist: 'highelf', enchanter: 'highelf', beastmaster: 'orc', blunderbuss: 'dwarf', priest: 'human', bombardier: 'halfling' };
 function setup() {
   R = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true }); R.setSize(W, H, false); R.setPixelRatio(1); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
   scene = new THREE.Scene();

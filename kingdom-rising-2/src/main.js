@@ -756,8 +756,8 @@ function input() {
     if (!e.repeat) {
       const map = { KeyI: 'inv', KeyJ: 'quests', KeyN: 'talents', KeyM: 'map', KeyP: 'craft' };
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
-      if (YARD && (e.code === 'KeyK' || e.code === 'KeyY' || e.code === 'KeyU')) { if (UI.UI.open === 'yard' || G.uiOpen) UI.closeWin(); else openYardPanel(UI, e.code === 'KeyU' ? 'ult' : 'class'); return; } // (K: change class; U: get hit by an ultimate)
-      if (YARD && ['KeyN', 'KeyP', 'KeyI', 'KeyH', 'KeyO', 'KeyJ', 'KeyM', 'KeyB', 'KeyL'].includes(e.code)) return; // (the yard has one window: Y opens it, U opens it on the ultimates; no other window keys) // (the yard has one window: U opens it on the ultimates, I or H on your keys)
+      if (YARD && (e.code === 'KeyK' || e.code === 'KeyU')) { if (UI.UI.open === 'yard' || G.uiOpen) UI.closeWin(); else openYardPanel(UI, e.code === 'KeyU' ? 'ult' : 'class'); return; } // (K: change class; U: get hit by an ultimate)
+      if (YARD && ['KeyY', 'KeyN', 'KeyP', 'KeyI', 'KeyH', 'KeyO', 'KeyJ', 'KeyM', 'KeyB', 'KeyL'].includes(e.code)) return; // (the yard has one window: Y opens it, U opens it on the ultimates; no other window keys) // (the yard has one window: U opens it on the ultimates, I or H on your keys)
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if ((ARENA || YARD) && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do

@@ -6,7 +6,8 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const MODELS = {
-  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/necro_walk.fbx', run: 'models/necro_run.fbx' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 },
+  necromancer: { base: 'models/necro_rig.fbx', clips: { walk: 'models/necro_walk.fbx', run: 'models/necro_run.fbx' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.32, footScale: 0.84 },
+  monk: { base: 'models/monk_rig.fbx', clips: { walk: 'models/monk_walk.fbx', run: 'models/monk_run.fbx' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5, toeIn: 0.15, footScale: 0.92 },
 };
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
@@ -40,9 +41,23 @@ export function attachHeroModel(ch, cls) {
     for (const sd of ['L', 'R']) { const g = ch.arms && ch.arms[sd] && ch.arms[sd].grip; if (!g || !hands[sd]) continue; const socket = new THREE.Group(); socket.scale.setScalar(1 / k); hands[sd].add(socket); for (const c of [...g.children]) { socket.add(c); keep.add(c); } ch.arms[sd].grip = socket; }
     ch.body.traverse(o => { if ((o.isMesh || o.isLine) && !isUnder(o, keep)) o.visible = false; });
     const mixer = new THREE.AnimationMixer(m), act = {}; for (const kk in clips) { act[kk] = mixer.clipAction(clips[kk]); act[kk].play(); act[kk].setEffectiveWeight(0); }
-    ch.heroModel = { m, wrap, mixer, act, D, w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0 };
+    const bones = {}; m.traverse(o => { if (o.isBone) bones[o.name] = o; });
+    ch.heroModel = { m, wrap, mixer, act, D, bones, idle: idlePose(m, bones), w: { idle: 1, walk: 0, run: 0 }, lp: ch.root.position.clone(), v: 0, t: 0 };
   }).catch(e => { console.warn('hero model', cls, e); ch.heroModel = null; });
 }
+// a relaxed standing pose built from the model's own rest pose: arms brought down to the sides, elbows soft
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
+function aimBone(bone, child, worldDir) { bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false); const a = bone.getWorldPosition(new THREE.Vector3()), b = child.getWorldPosition(new THREE.Vector3()), cur = b.sub(a).normalize();
+  const qw = new THREE.Quaternion().setFromUnitVectors(cur, worldDir.clone().normalize()), bw = bone.getWorldQuaternion(new THREE.Quaternion()), pw = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  return pw.invert().multiply(qw.multiply(bw)); }
+function idlePose(m, B) { const out = {}; m.updateMatrixWorld(true); const keep = {}; for (const k in B) keep[k] = B[k].quaternion.clone();
+  for (const [sd, sx] of [['Left', 1], ['Right', -1]]) { const arm = B[sd + 'Arm'], fore = B[sd + 'ForeArm'], hand = B[sd + 'Hand']; if (!arm || !fore || !hand) continue;
+    const side = new THREE.Vector3(arm.getWorldPosition(new THREE.Vector3()).x - m.getWorldPosition(new THREE.Vector3()).x, 0, 0).normalize();
+    out[arm.name] = aimBone(arm, fore, new THREE.Vector3(side.x * 0.2, -1, 0.05)); arm.quaternion.copy(out[arm.name]); arm.updateMatrixWorld(true);
+    out[fore.name] = aimBone(fore, hand, new THREE.Vector3(side.x * 0.12, -1, 0.3)); fore.quaternion.copy(out[fore.name]); fore.updateMatrixWorld(true); }
+  for (const k in keep) B[k].quaternion.copy(keep[k]); return out; }
+// turn a leg on its own axis (toes in or out), in world space so it works whatever way the bone was built
+function twistLeg(up, low, ang) { if (!up || !low || !ang) return; up.updateWorldMatrix(true, false); low.updateWorldMatrix(true, false); const ax = low.getWorldPosition(_v1).sub(up.getWorldPosition(_v2)).normalize(); _q.setFromAxisAngle(ax, ang); const bw = up.getWorldQuaternion(_q2); const pw = up.parent.getWorldQuaternion(new THREE.Quaternion()); up.quaternion.copy(pw.invert().multiply(_q.multiply(bw))); }
 const isUnder = (o, set) => { for (let p = o; p; p = p.parent) if (set.has(p)) return true; return false; };
 
 // every frame: pick the animation from how fast the character is moving and blend between them
@@ -52,9 +67,14 @@ export function tickHeroModel(ch, dt) {
   const walkW = H.v < 0.25 ? 0 : H.v < H.D.runSpeed * 0.6 ? 1 : Math.max(0, 1 - (H.v - H.D.runSpeed * 0.6) / (H.D.runSpeed * 0.4)), runW = H.v < H.D.runSpeed * 0.6 ? 0 : 1 - walkW, idleW = 1 - Math.min(1, H.v / 0.25);
   const lerpW = (k, t) => { H.w[k] += (t - H.w[k]) * Math.min(1, dt * 10); };
   lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
-  if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk + H.w.idle); H.act.walk.timeScale = H.w.idle > 0.9 ? 0.0001 : Math.max(0.6, H.v / H.D.walkSpeed); } // (standing still: the walk held on its first frame)
+  if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.6, H.v / H.D.walkSpeed); }
   if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.max(0.7, H.v / H.D.runSpeed); }
-  H.mixer.update(dt);
+  H.mixer.update(dt); H.t += dt; const B = H.bones;
+  // standing still: the rest pose with the arms down at the sides, a slow breath and a little weight shift
+  if (H.w.idle > 0.01) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
+  // running: toes turned in a touch; smaller feet
+  const ti = (H.D.toeIn || 0) * (H.w.run + H.w.walk * 0.5); if (ti) { twistLeg(B.LeftUpLeg, B.LeftLeg, -ti); twistLeg(B.RightUpLeg, B.RightLeg, ti); }
+  if (H.D.footScale) for (const k of ['LeftFoot', 'RightFoot']) if (B[k]) B[k].scale.setScalar(H.D.footScale);
   // the built body's lean and turn follow the model's facing: keep the model upright on the root
   H.wrap.rotation.set(0, ch.body.rotation.y || 0, 0);
 }

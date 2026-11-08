@@ -465,7 +465,7 @@ class ViewModel {
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     if (this.eleOrb) { const o = this.eleOrb, gl = o.userData.glb; if (gl && !o.userData.c0) { o.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(gl), c = bx.getCenter(new THREE.Vector3()); o.userData.c0 = o.worldToLocal(c); }
       const c0 = o.userData.c0 || new THREE.Vector3(0, 0.5, 0), tm = performance.now() * 0.001; o.rotation.set(0, tm * 0.8, 0); o.updateMatrix(); const off = c0.clone().multiply(o.scale).applyEuler(o.rotation);
-      o.position.set(this.R.position.x - 0.01, this.R.position.y + 0.11 + Math.sin(tm * 2.4) * 0.012, this.R.position.z - 0.02).sub(off); } /* (hovering a hand's width above the palm with a gentle bob, turning slowly) */
+      o.position.set(this.R.position.x - 0.045, this.R.position.y + 0.2 + Math.sin(tm * 2.4) * 0.012, this.R.position.z - 0.03).sub(off); } /* (hovering a hand's width above the palm with a gentle bob, turning slowly) */
     this.hdT = (this.hdT || 0) - dt; if (this.hdT <= 0) { this.hdT = 1; hdify(this.g); } // (anything new in view gets the high-detail treatment)
     if (this.drips && this.R.visible) { this.dripT = (this.dripT || 0) - dt; const hp = this.R.getWorldPosition(new THREE.Vector3()); this.g.worldToLocal(hp);
       if (this.dripT <= 0) { this.dripT = 0.9 + Math.random() * 1.1; const d = this.drips.find(q => q.life <= 0); if (d) { d.life = 0.9; d.m.visible = true; d.m.position.copy(hp).add(new THREE.Vector3((Math.random() - 0.5) * 0.03, -0.03, 0.01)); d.v.set((Math.random() - 0.5) * 0.04, -0.05, 0); d.m.material.opacity = 0.75; } }

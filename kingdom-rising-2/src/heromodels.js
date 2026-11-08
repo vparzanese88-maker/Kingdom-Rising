@@ -278,7 +278,8 @@ function fpReachShift(F, vm, tgt) {
   F.wrap.position.z -= F.shz; F.wrap.position.y -= D.fpDrop || 0; F.wrap.updateMatrixWorld(true);
 }
 // does this view-model hand hold anything (a weapon, a book, a bomb)? Only then does the model's hand close round it
-function holding(H) { for (let i = 1; i < H.children.length; i++) { const c = H.children[i]; if (c.visible === false) continue; if (c.isMesh || (c.children && c.children.length)) return true; } return false; }
+const seen = (o) => { if (o.visible === false) return false; if (o.isMesh) return true; for (const c of o.children) if (seen(c)) return true; return false; };
+function holding(H) { for (let i = 1; i < H.children.length; i++) { const c = H.children[i]; if (c.isMesh) { c.visible = false; continue; } /* (bare meshes stuck straight on the hand were decorations of the old code hand: gone with it) */ if (seen(c)) return true; } return false; }
 // where the wrist must go, and how the hand must turn, so the closed fingers wrap the handle: the view-model hand's local Y is the handle's line.
 // The fingers point across the handle, away from the shoulder; the palm faces forward (you see the back of the hand). MODELS fpPalm: -1 turns the palm toward you
 function gripPose(F, vm, H, sd, out) {

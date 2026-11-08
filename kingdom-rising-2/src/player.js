@@ -268,7 +268,7 @@ class ViewModel {
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; this.necro = true;
       // left hand: a bone staff held upright (its head is where Soul Rend pours out); right hand: torn open and dripping poison
       // left hand: the fear spell's screaming skull, small, held up in the palm (Soul Rend pours from its mouth)
-      const sk = makeFearSkull(true); sk.scale.setScalar(0.26); sk.position.set(0.01, 0.06, 0.0); sk.rotation.set(-0.15, Math.PI * 0.35, 0); /* (turned three-quarters toward you so you see its face) */ sk.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); this.L.add(sk); this.weapons.skullL = sk;
+      const sk = makeFearSkull(true); sk.scale.setScalar(0.26); sk.position.set(0.01, 0.06, 0.0); sk.rotation.set(-0.15, Math.PI * 0.35, 0); /* (turned three-quarters toward you so you see its face) */ sk.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; o.visible = false; } }); /* (not drawn any more: it only marks where Soul Rend pours from) */ this.L.add(sk); this.weapons.skullL = sk;
       const tip = new THREE.Object3D(); tip.position.set(0, -0.17, 0.2); sk.add(tip); this.headMouth = tip;
       const fl = new THREE.Object3D(); fl.position.set(0, 0.03, -0.04); this.R.add(fl); this.weapons.flame = fl; // (where his spells leave the hand: no orb any more)
       const wound = new THREE.MeshBasicMaterial({ color: '#5aff3a', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });

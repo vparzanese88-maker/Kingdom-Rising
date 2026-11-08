@@ -733,7 +733,7 @@ export class Player {
       if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
       if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });
     } else if (W.kind === 'bow') {
-      const from = (this.adsK || 0) > 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, -0.02, -0.75).applyQuaternion(G.camera.quaternion)) : this.handPos(true), dir = this.aimDir(from);
+      const from = (this.adsK || 0) > 0.6 && this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, -0.02, -0.75).applyQuaternion(G.camera.quaternion)) : this.handPos(true), dir = this.aimDir(from);
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
       const sight = (this.adsK || 0) > 0.7, speed = (G.battleFx ? 34 + charge * 36 : 38 + charge * 40) + (sight ? 10 : 0); /* sighted: faster, flatter, a little harder */
@@ -909,6 +909,14 @@ export class Player {
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; } V.ultUntil = performance.now() + 7000; /* (an ultimate may draw its big rings) */
     const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 || id === 'ar_bertha' ? 0 : Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain' || id === 'ar_overgrowth' || id === 'ar_spirittotem' || id === 'ar_miracle' || id === 'ar_bertha') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
+  // where a ground-aimed ultimate lands: on the enemy you aim at (or the one nearest the crosshair's line, within about
+  // 13 degrees left or right, when the aim point is near or beyond them), else the ground under the crosshair. Aiming a
+  // little high no longer throws it 30 m past the enemy in front of you
+  ultPoint(range) { const r = aimRay(range + 10); if (r.mob && foe(r.mob) && Math.hypot(r.mob.pos.x - this.pos.x, r.mob.pos.z - this.pos.z) <= range + 2) return r.mob.pos.clone();
+    const gp = groundPoint(range), d = G.camera.getWorldDirection(new THREE.Vector3()), ya = Math.atan2(d.x, d.z), gd = Math.hypot(gp.x - this.pos.x, gp.z - this.pos.z); let best = null, ba = 0.23;
+    for (const m of G.mobs) { if (m.dead || !foe(m) || m.pet || m.ally || !m.pos) continue; const dx = m.pos.x - this.pos.x, dz = m.pos.z - this.pos.z, L = Math.hypot(dx, dz); if (L > range + 2 || L < 1.5) continue;
+      let da = Math.atan2(dx, dz) - ya; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < ba && (gd > L - 3 || Math.hypot(gp.x - m.pos.x, gp.z - m.pos.z) < 6)) { ba = da; best = m; } }
+    return best ? best.pos.clone() : gp; }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
     for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.55).sub(o), L = v.length(); if (L > range) continue; const a2 = Math.acos(Math.min(1, v.dot(d) / L)); if (a2 < ba) { ba = a2; best = m; } } return best; }
@@ -982,15 +990,15 @@ export class Player {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
       case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
       case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
-      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, groundPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
+      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, this.ultPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
       case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
       case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
       case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
       case 'ar_overgrowth': { if (!G.hooks.arenaOvergrowth) break; G.hooks.arenaOvergrowth(this); break; }
-      case 'ar_arrowrain': { if (!G.hooks.arenaRain) break; G.hooks.arenaRain(this, groundPoint(40)); break; } // (the storm comes down where you aim)
+      case 'ar_arrowrain': { if (!G.hooks.arenaRain) break; G.hooks.arenaRain(this, this.ultPoint(40)); break; } // (the storm comes down where you aim)
       case 'ar_bladestorm': { if (!G.hooks.arenaStorm) break; G.hooks.arenaStorm(this); break; } // (you steer the whirlwind)
       case 'ar_fists': { if (!G.hooks.arenaFists) break; G.hooks.arenaFists(this); break; } // (the whirlwind of fists, centred on you)
-      case 'ar_wrath': { if (!G.hooks.arenaWrath) break; G.hooks.arenaWrath(this, groundPoint(30)); S.cast('holy', this.pos, 1.4); break; } // (judgment where you aim)
+      case 'ar_wrath': { if (!G.hooks.arenaWrath) break; G.hooks.arenaWrath(this, this.ultPoint(30)); S.cast('holy', this.pos, 1.4); break; } // (judgment where you aim)
       case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = groundPoint(24); G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.demon(this.pos, 1.8); break; } // (cast on the ground where you aim)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
@@ -1237,7 +1245,7 @@ export class Player {
     // means nothing in the world: work the muzzle out from the camera instead (centred under the eye when aiming)
     let from;
     if (this.camDist < 0.6) { const k = this.aimK || 0; from = G.camera.position.clone().add(new THREE.Vector3(0.22 * (1 - k), -0.2 * (1 - k) - 0.05 * k, -1.1).applyQuaternion(G.camera.quaternion)); }
-    else if ((this.adsK || 0) > 0.6) from = G.camera.position.clone().add(new THREE.Vector3(0, -0.03, -1.15).applyQuaternion(G.camera.quaternion)); // sighted: from the muzzle you are looking down
+    else if ((this.adsK || 0) > 0.6 && this.camDist < 0.6) from = G.camera.position.clone().add(new THREE.Vector3(0, -0.03, -1.15).applyQuaternion(G.camera.quaternion)); // sighted: from the muzzle you are looking down
     else { const tip = this.ch.weapons.main; from = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(true); }
     const dir = this.aimDir(from);
     if (!aimed && !(this.buffs.eagle > 0)) { dir.x += (Math.random() - 0.5) * 0.012; dir.y += (Math.random() - 0.5) * 0.008; dir.z += (Math.random() - 0.5) * 0.012; dir.normalize(); }
@@ -2195,7 +2203,7 @@ export class Player {
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;
-    this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp); V.fpPos = fp && !this.dead ? this.pos : null;
+    const tpAim = !fp && !!(this.h.arena && this.ch.heroModel && this.ch.heroModel !== 'loading'); /* (a hero with his own 3D model aims over the shoulder in third person: he stays in view with his real weapon, no down-the-sights view with the old built arms) */ this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp && !tpAim); V.fpPos = fp && !this.dead ? this.pos : null;
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.25 : 1.8 + this.camDist * 0.25, fp ? 0.55 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
     this.landDip *= Math.max(0, 1 - dt * 6);
@@ -2223,8 +2231,8 @@ export class Player {
       const kh = Math.min(1, dt * 18), kv = Math.min(1, dt * 9); this.camA.x += (eye.x - this.camA.x) * kh; this.camA.z += (eye.z - this.camA.z) * kh; this.camA.y += (eye.y - this.camA.y) * kv;
       cam.position.copy(this.camA).add(sh).addScaledVector(back, -d);
       // aiming down the barrel: the eye moves to the cheek weld and a detailed weapon comes up into view (drawn on top, like first person)
-      if (ae > 0.001) { const cw = this.pos.clone().addScaledVector(this.fwd(), 0.08); cw.y += this.eye - 0.02; cam.position.lerp(cw, ae); }
-      this.adsView(ae);
+      if (ae > 0.001 && !tpAim) { const cw = this.pos.clone().addScaledVector(this.fwd(), 0.08); cw.y += this.eye - 0.02; cam.position.lerp(cw, ae); }
+      this.adsView(tpAim ? 0 : ae);
     }
     // shake
     const sk = V.shake * V.shake;

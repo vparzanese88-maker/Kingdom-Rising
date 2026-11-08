@@ -82,6 +82,7 @@ function placeProp(kind, base, at) {
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere && im.computeBoundingSphere(); im.castShadow = true; im.receiveShadow = kind === 'rock'; im.matrixAutoUpdate = false; im.updateMatrix(); im.name = 'yard_' + kind;
     G.scene.add(im); }
   for (const [x, z, h] of at) addCircle(x, z, kind === 'tree' ? Math.max(0.5, h * 0.06) : h * halfW * 0.8, 'yardprop'); // (you walk round the trunks and rocks, not through them)
+  if (kind === 'tree') { G.camOcc = G.camOcc || []; for (const [x, z, h] of at) G.camOcc.push({ x, y: heightAt(x, z) + h * 0.68, z, r: h * Math.max(0.3, halfW * 0.9) + 0.9, sy: 0.75, tag: 'yardtree' }); } // (the crowns: ultimate cameras keep out of them and never look through them)
 }
 function dummyUpdate(dt) {
   const m = this; m.dead = false; if (m.held) return; // (in the demon's grip)

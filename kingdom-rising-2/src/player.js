@@ -104,6 +104,7 @@ const VP = {
   bookR: P(0.2, -0.3, -0.46, -0.88, -0.15, 0.05), /* (the wizard's book open in his right hand, low and to the right, its pages tipped up toward you) */
   bookCast: P(0.13, -0.17, -0.6, -1.15, -0.1, 0.05),
   beastR: P(0.26, -0.26, -0.46, 0, 1.77, -1.823), beastBack: P(0.32, -0.28, -0.34, 0, 1.6, -1.6), beastStab: P(0.08, -0.2, -0.72, 0, 1.65, -1.75),
+  eleR: P(0.2, -0.3, -0.5, 0.2, 0.2, 0.1), /* (the elementalist's open hand, palm up, low on the right under his floating orb) */
   necroGap: 0.62, necroScy: P(0.6, 0.2, -0.85, -0.3, 0.35, -0.38), necroScyA: P(0.75, 0.15, -0.6, -0.2, -0.5, -1.1), necroScyB: P(-0.35, -0.1, -0.7, -0.4, -0.3, 1.0), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
@@ -267,6 +268,7 @@ class ViewModel {
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.cls === 'monk' ? '#c48a5e' : this.skinCol, this.cls === 'monk' ? '#8e1c1c' : undefined)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.hero) classKitFP(this); /* (each class's detailed weapon models in first person: the code-built stand-ins never show) */
+    this.eleOrb = null; if (this.cls === 'elementalist' && this.hero && this.weapons.main) { const o = this.weapons.main; this.g.add(o); o.scale.multiplyScalar(0.5); this.eleOrb = o; } /* (the elementalist's orb is not held: it floats over his open palm, half size) */
     if (this.cls === 'paladin' && this.hero && main.name === 'weapon_greatsword') { for (const c of main.children) if (c.isMesh) c.visible = false; const sg = new THREE.Group(); sg.scale.setScalar(1.2); main.add(sg); kitize(sg, 'warrior_sword', { fp: true }); } /* (the paladin's greatsword in first person: the detailed, textured knight's blade drawn at greatsword length, not the flat code-built slab) */
     if (this.weapons.heldR && this.cls === 'necromancer') this.weapons.heldR.scale.setScalar(0.8); /* (the scythe a little smaller in first person, so its blade hangs inside the top of the view) */
     if (this.cls === 'bard' && this.hero && main.name === 'weapon_sword') kitize(main, 'bard_lute', { fp: true }); /* (the bard's lute, held by the neck) */
@@ -293,7 +295,7 @@ class ViewModel {
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = this.hero && st.aim > 0.01 ? plerp(VP.bowR, VP.bowRdraw, ease(Math.min(1, st.aim))) : VP.bowR; /* (aiming a bow draws the string back to the cheek) */
-    if (this.bomber && (r === VP.staff || r === VP.rest)) r = VP.bombR;
+    if (this.bomber && (r === VP.staff || r === VP.rest)) r = VP.bombR; if (this.eleOrb && r === VP.staff) r = VP.eleR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = VP.bookR; if (l === VP.hideL) l = null; } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
     if (this.necro && this.weapons.heldR) { r = VP.necroScy; l = VP.necroL; } /* (both hands on the scythe; any swing or cast is a right-to-left reap) */
@@ -403,6 +405,9 @@ class ViewModel {
     if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
+    if (this.eleOrb) { const o = this.eleOrb, gl = o.userData.glb; if (gl && !o.userData.c0) { o.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(gl), c = bx.getCenter(new THREE.Vector3()); o.userData.c0 = o.worldToLocal(c); }
+      const c0 = o.userData.c0 || new THREE.Vector3(0, 0.5, 0), tm = performance.now() * 0.001; o.rotation.set(0, tm * 0.8, 0); o.updateMatrix(); const off = c0.clone().multiply(o.scale).applyEuler(o.rotation);
+      o.position.set(this.R.position.x - 0.01, this.R.position.y + 0.11 + Math.sin(tm * 2.4) * 0.012, this.R.position.z - 0.02).sub(off); } /* (hovering a hand's width above the palm with a gentle bob, turning slowly) */
     this.hdT = (this.hdT || 0) - dt; if (this.hdT <= 0) { this.hdT = 1; hdify(this.g); } // (anything new in view gets the high-detail treatment)
     if (this.drips && this.R.visible) { this.dripT = (this.dripT || 0) - dt; const hp = this.R.getWorldPosition(new THREE.Vector3()); this.g.worldToLocal(hp);
       if (this.dripT <= 0) { this.dripT = 0.9 + Math.random() * 1.1; const d = this.drips.find(q => q.life <= 0); if (d) { d.life = 0.9; d.m.visible = true; d.m.position.copy(hp).add(new THREE.Vector3((Math.random() - 0.5) * 0.03, -0.03, 0.01)); d.v.set((Math.random() - 0.5) * 0.04, -0.05, 0); d.m.material.opacity = 0.75; } }

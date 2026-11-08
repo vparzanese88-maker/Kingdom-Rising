@@ -178,7 +178,7 @@ export function classKit(ch, cls) { const C = CLASS_KIT[cls], W = ch.weapons || 
   if (C.belt) beltKit(ch, C.belt); }
 // worn on the belt: rides the hero model's hips once it has loaded (the built body's are hidden), else the root at hip height
 function beltKit(ch, k) { const B = KIT[k].belt, h = new THREE.Group(); h.name = 'kit_' + k; kitize(h, k); let n = 0;
-  const go = () => { if (!ch.root) return; const hm = ch.heroModel; if (hm === 'loading' && ++n < 600) { setTimeout(go, 100); return; } const s = ch.scale || 1; h.position.set(B[0] * s, B[1] * s, B[2] * s); h.rotation.set(B[3], B[4], B[5]); ch.root.add(h);
+  const go = () => { if (!ch.root) return; const hm = ch.heroModel; if (hm === 'loading' && ++n < 600) { setTimeout(go, 100); return; } let s = ch.scale || 1; if (hm && hm.m && ch.height > 0) s *= new THREE.Box3().setFromObject(hm.m).getSize(new THREE.Vector3()).y / ch.height; /* (sized to the model like the hand items) */ h.position.set(B[0] * s, B[1] * s, B[2] * s); h.rotation.set(B[3], B[4], B[5]); h.scale.setScalar(s); ch.root.add(h);
     const hip = hm && hm.bones && hm.bones.Hips; if (hip) { ch.root.updateMatrixWorld(true); hip.attach(h); } };
   go(); }
 // first person: the same models in the view model's hands, the code-built stand-ins never shown (the necromancer keeps his own first-person look)
@@ -354,7 +354,7 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
 // ---------- Humanoid ----------
 // app: { race, sex, cls, outfit, skin, hair, beardCol, hairStyle, beard, height(0.9..1.1), build(-1..1) }
 // kind (for monsters): 'skeleton','troll','imp','golem','tyrant'
-const ARENA_SIZE = { berserker: 1.756, paladin: 1.561, darkknight: 1.463, warrior: 1.341, cleric: 1.268, beastmaster: 1.22, shaman: 1.18, monk: 1.141, wizard: 1.102, necromancer: 1.073, elementalist: 1.044, druid: 1.015, ranger: 0.985, priest: 0.956, bard: 0.927, enchanter: 0.898, rogue: 0.859, blunderbuss: 1, musketeer: 1, bombardier: 1 }; /* (body, camera and reach follow the class's model size: berserker biggest, goblins smallest; goblins already get a small body from their race) */
+const ARENA_SIZE = { berserker: 1.756, paladin: 1.561, darkknight: 1.463, warrior: 1.341, cleric: 1.268, beastmaster: 1.22, shaman: 1.18, monk: 1.141, wizard: 1.102, necromancer: 1.073, elementalist: 1.044, druid: 1.015, ranger: 0.985, priest: 0.956, bard: 0.927, enchanter: 0.898, rogue: 0.859, blunderbuss: 2, musketeer: 1, bombardier: 1 }; /* (body, camera and reach follow the class's model size: berserker biggest, goblins smallest; goblins already get a small body from their race) */
 export function buildHumanoid(app = {}) {
   const race = RACES[app.race || 'human'] || RACES.human;
   const kind = app.kind || 'person';

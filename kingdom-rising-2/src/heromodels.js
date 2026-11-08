@@ -20,7 +20,7 @@ export const HERO_SIZE = 1.5625; /* (arena heroes: 1.25 x 1.25, a quarter bigger
 const MODELS = {
   necromancer: { bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.12, walkSpeed: 1.5, runSpeed: 5.0 },
-  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 1.3, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
+  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.6, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
   warrior: { base: 'models/warr_rig.fbx', clips: { walk: 'models/anim/warr_walk.json', run: 'models/anim/warr_run.json' }, height: 2.75, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   bard: { base: 'models/bard_rig.fbx', clips: { walk: 'models/anim/bard_walk.json', run: 'models/anim/bard_run.json' }, height: 1.9, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   beastmaster: { skinFix: 0.75, base: 'models/beast_rig.fbx', clips: { walk: 'models/anim/beast_walk.json', run: 'models/anim/beast_run.json' }, height: 2.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)

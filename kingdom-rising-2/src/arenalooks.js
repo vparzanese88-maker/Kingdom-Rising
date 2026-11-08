@@ -2,7 +2,7 @@
 // god in Smite). arenaSpec() is the outfit palette fed to buildHumanoid; arenaDecor() adds each class's signature
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
-import { attachHeroModel, tickHeroModel } from './heromodels.js';
+import { attachHeroModel, tickHeroModel, heroHeight } from './heromodels.js';
 import { armReach, classKit, kitize } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
@@ -284,8 +284,12 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
 // weapons were posed for it): left to the model's own wrist, a staff hung head-down at rest and long blades swung out flat as he ran.
 // Guns are already laid this way by tickHeroModel; a recorded move (the monk's) drives the hands itself, so it eases off during one.
 const _gq = new THREE.Quaternion(), _gp = new THREE.Quaternion(), _gi = new THREE.Quaternion();
+// the hand items were made for the built body (its hands scale them by ch.scale); the model is a different height, so they grow or shrink by
+// the same ratio and keep their size against him: a giant's great axe stays great, the little goblin's bomb stays fist-sized
+export function heldScale(ch) { const cls = ch.app && (ch.app.cls || ch.app.outfit); return ch.height > 0 && cls ? (ch.scale || 1) * heroHeight(cls) / ch.height : 1; }
 function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets || (ch.wt && /musket|blunderbuss/.test(ch.wt))) return; const k = 1 - Math.min(1, H.mw || 0);
-  for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
+  const sz = heldScale(ch);
+  for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; if (so.userData.s0 == null) so.userData.s0 = so.scale.x; so.scale.setScalar(so.userData.s0 * sz); /* (sized to the model, see heldScale) */ chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
     _gq.copy(chd.getWorldQuaternion(_gq)).multiply(so.userData.gripQ); so.parent.getWorldQuaternion(_gp).invert(); _gp.multiply(_gq); so.quaternion.copy(k >= 0.999 ? _gp : _gi.identity().slerp(_gp, k)); } }
 export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);

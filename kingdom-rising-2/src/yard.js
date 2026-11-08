@@ -40,8 +40,8 @@ function spawnLineUp() {
       const tag = nameTag(CLASSES[cls].name); tag.position.set(x, heightAt(x, z) + heroHeight(cls) + 0.35, z); G.scene.add(tag);
       LINE.push({ cls, ch, x, z, t: Math.random() * 3 }); return ch; } catch (e) { console.warn('line-up', cls, e); return null; } };
   // your own hero loads first (model, arms and weapons): only then do the figures follow, one at a time, each after the last has arrived
-  let i = 0, wait = 0; const ready = (ch) => !ch || (ch.heroModel && ch.heroModel !== 'loading');
-  const step = () => { const P = G.player; if (i === 0 && P && !ready(P.ch) && wait < 30) { wait += 0.5; return setTimeout(step, 500); } if (i >= keys.length) return; const ch = one(keys[i], i); i++; let t = 0; const next = () => { t += 0.25; if (ready(ch) || t > 8) setTimeout(step, 150); else setTimeout(next, 250); }; next(); };
+  let i = 0, wait = 0; const ready = (ch) => !ch || (ch.heroModel && ch.heroModel !== 'loading'); const kitsIn = (ch) => { const W = ch && ch.weapons || {}; for (const k of ['main', 'off']) { const w = W[k]; if (!w) continue; let g = !!w.userData.glb; if (!g) w.traverse(c => { if (c.userData && c.userData.glb) g = true; }); if (!g) return false; } return true; }; /* (your own sword and shield have arrived) */
+  const step = () => { const P = G.player; if (i === 0 && P && (!ready(P.ch) || !kitsIn(P.ch)) && wait < 40) { wait += 0.5; return setTimeout(step, 500); } if (i >= keys.length) return; const ch = one(keys[i], i); i++; let t = 0; const next = () => { t += 0.25; if (ready(ch) || t > 8) setTimeout(step, 150); else setTimeout(next, 250); }; next(); };
   setTimeout(step, 1500);
 }
 // the class figure you are standing at, if any

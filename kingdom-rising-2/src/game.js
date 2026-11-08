@@ -633,7 +633,10 @@ export function arenaOut(src, h, tgt, dmg, o) {
   const rg = pv(h, 'rage'); if (rg && src && src.maxHp) dmg *= 1 + 0.06 * rg * Math.min(1, (1 - src.hp / src.maxHp) / 0.75) * 3;
   const am = pv(h, 'ambush'); if (am && src && src.stealth > 0) dmg *= 1 + 0.2 * am;
   if (src && src.aura && src.aura.t > 0) dmg *= 1 + (src.aura.atk || 0);
+  if (src && src.weakT > G.time) dmg *= src.weakK || 0.75; // (weakened, e.g. by the Berserker's Intimidating Shout)
   const add = {}; const basic = !o.silent;
+  if (h.cls === 'rogue' && o.melee && !o.big && !o.silent && src) { src.envN = (src.envN || 0) + 1; if (src.envN % 3 === 0) add.poison = (o.poison || 0) + dmg * 0.45; } // (Envenom, a passive now: every third dagger hit poisons)
+  if (src && src.swT > G.time && o.melee && o.big && tgt) { src.swT = 0; const hp0 = tgt.hp; G.timers.push({ update: () => { if (!src.dead) { const k = tgt.dead || tgt.hp <= 0 ? 0.25 : tgt.hp < hp0 ? 0.08 : 0; if (k) { const n = (src.maxHp || 0) * k; if (src === G.player) src.heal(n); else if (src.healSelf) src.healSelf(n); V.burst('heal', src.pos.clone().setY(src.pos.y + 1.2), 20, { speed: 2, vy: 2 }); } } return true; } }); } // (Second Wind on the Warrior's Execute: the blow heals 8%, a kill 25%)
   if (basic && pv(h, 'burnHit') && Math.random() < 0.35) add.burn = (o.burn || 0) + dmg * 0.08 * pv(h, 'burnHit');
   if (basic && pv(h, 'bleedHit') && Math.random() < 0.35) add.bleed = (o.bleed || 0) + dmg * 0.08 * pv(h, 'bleedHit');
   if (basic && pv(h, 'poisonHit') && Math.random() < 0.35) add.poison = (o.poison || 0) + dmg * 0.08 * pv(h, 'poisonHit');

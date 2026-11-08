@@ -8,7 +8,7 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules } from './arena.js';
 import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
@@ -59,6 +59,7 @@ function dummyUpdate(dt) {
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {
+  playerRules(G.player); // (the arena's control rules: roots, silence, mesmerize, the shield's defensive)
   { const P = G.player; YD.lineN = (YD.lineN || 0) + 1; for (const f of LINE) { // (the line-up stands still: posed once, then left alone; the 3D models only get a light update now and then, when you are near)
       if (!f.posed) { for (let i = 0; i < 20; i++) animateHumanoid(f.ch, 0.05, { speed: 0, armed: true, ready: true }); f.posed = true; if (!f.ch.heroModel) { try { bake(f.ch.root); } catch (e) { /* keep it unbaked */ } } addOutline(f.ch.root, '#1a1208'); f.ch.root.updateMatrixWorld(true); f.ch.root.traverse(o => { o.matrixAutoUpdate = false; }); } // (a standing figure is merged into a few meshes: far less to draw)
       const H = f.ch.heroModel; if (H && H !== 'loading' && P && (YD.lineN + f.x * 7 | 0) % 6 === 0 && Math.hypot(P.pos.x - f.x, P.pos.z - f.z) < 14) { f.ch.root.traverse(o => { o.matrixAutoUpdate = true; }); arenaLookTick(f.ch, dt * 6); f.ch.root.updateMatrixWorld(true); f.ch.root.traverse(o => { o.matrixAutoUpdate = false; }); } } }

@@ -137,7 +137,7 @@ Object.assign(FX, {
   bo_cluster(u) { V.burst('spark', handOf(u), 12, { speed: 3 }); },
   bo_sticky(u, a, T) { if (!T || !T.pos) return; after(300 / 1000, () => { if (!T.pos) return; const goo = new THREE.Mesh(new THREE.CircleGeometry(1.4, 24), new THREE.MeshStandardMaterial({ color: '#8a6a1a', roughness: 0.2, transparent: true, opacity: 0.85 })); goo.rotation.x = -Math.PI / 2; const c = T.pos.clone(); play(1.8, [goo], (k) => { goo.position.set(c.x, c.y + 0.05, c.z); goo.scale.setScalar(Math.min(1, k * 8)); goo.material.opacity = 0.85 * (1 - Math.max(0, (k - 0.8) / 0.2)); }); V.burst('fire', chest(c, 0.6), 30, { speed: 4 }); }); },
 });
-export function abilityFx(u, a, T) { const f = a && FX[a.id]; if (!f) return; try { f(u, a, T); } catch (e) { console.warn('abilityFx', a.id, e); } }
+export function abilityFx(u, a, T) { if (a && G.hooks.abilityRule) { try { G.hooks.abilityRule(u, a, T); } catch (e) { console.warn('abilityRule', a.id, e); } } /* (arena.js: the parts of a few abilities that are rules, not looks) */ const f = a && FX[a.id]; if (!f) return; try { f(u, a, T); } catch (e) { console.warn('abilityFx', a.id, e); } }
 
 // ---------- body poses that the generic animation can't do (kicks) ----------
 // u.kickT counts down; while it runs the legs and body take a flying-kick shape (players and computer fighters)

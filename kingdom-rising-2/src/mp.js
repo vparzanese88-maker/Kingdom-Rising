@@ -192,7 +192,7 @@ const pvpClass = () => (G.save && PVP_CLASS[G.save.cls]) || 1;
 // fall off when chained: each one within 10 s of the last lasts half as long as the one before
 export function pvpIncoming(p, dmg, o) {
   const k = (G.save && PVP_CLASS[G.save.cls]) || 1; dmg /= k; o = Object.assign({}, o);
-  if (o.stun || o.freeze || o.slow) { const now = G.time; if (!p.pvpCcT || now - p.pvpCcT > 10) p.pvpCcN = 0; const f = Math.pow(0.5, p.pvpCcN || 0); if (o.stun) o.stun *= f; if (o.freeze) o.freeze *= f; if (o.slow) o.slow *= f; p.pvpCcN = (p.pvpCcN || 0) + 1; p.pvpCcT = now; }
+  if (o.stun || o.freeze || o.slow || o.root || o.silence) { const now = G.time; if (!p.pvpCcT || now - p.pvpCcT > 10) p.pvpCcN = 0; const f = Math.pow(0.5, p.pvpCcN || 0); if (o.stun) o.stun *= f; if (o.freeze) o.freeze *= f; if (o.slow) o.slow *= f; if (o.root) o.root *= f; if (o.silence) o.silence *= f; p.pvpCcN = (p.pvpCcN || 0) + 1; p.pvpCcT = now; } /* (roots and silences fall off when chained too) */
   return [dmg, o];
 }
 // heroes grow much stronger with level, so the scale shrinks as they do: duels last about 6 to 15 seconds at every level

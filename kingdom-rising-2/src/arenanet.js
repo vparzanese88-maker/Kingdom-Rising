@@ -140,7 +140,7 @@ export class RemoteFighter {
     animateHumanoid(this.model, dt, { speed: this.spd, action: this.castUp ? 'castUp' : this.act || null, actionT: this.castUp ? Math.min(1, this.actT) : this.actT, roll: this.roll != null ? this.roll : null, armed: true });
   }
   // hit by something running on this machine: the owner applies it
-  takeHit(dmg, src, o = {}) { if (this.dead) return 0; if (src && src.team === this.team && src !== G.player) return 0; const d = dmg * AN.k(); send({ t: 'hit', to: this.owner, d: Math.round(d), o: slim(o), from: srcIndex(src) }); this.hitT = 0.32; for (const m of this.flashMats) if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } return Math.round(d); }
+  takeHit(dmg, src, o = {}) { if (this.dead) return 0; if (src && src.team === this.team && src !== G.player) return 0; const d = dmg * AN.k(); send({ t: 'hit', to: this.owner, d: Math.round(d), o: slim(o, src), from: srcIndex(src) }); this.hitT = 0.32; for (const m of this.flashMats) if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } return Math.round(d); }
   takeDamage(dmg, src, o) { return this.takeHit(dmg / AN.k0(), src, o); }
   healSelf(n) { send({ t: 'heal', to: this.owner, n: Math.round(n) }); }
   heal(n) { this.healSelf(n); }
@@ -155,11 +155,11 @@ export class BotProxy extends RemoteFighter {
     if (s[11] && s[11] !== this.cls) this.build(s[11], this.h.race);
     this.tgt.set(s[0], 3, s[1]); this.tyaw = s[2]; this.hp = s[3]; this.maxHp = s[4]; this.act = s[5] || ''; this.actT = s[6] || 0; this.castUp = s[7] === 2; if (s[7] === 1) { this.act = 'swing2'; this.actT = 0.3; } this.spd = s[8]; this.status.stun = s[10] ? 1 : 0;
     if (s[9] && !this.dead) { this.dead = true; this.deadT = 0; } else if (!s[9] && this.dead) { this.dead = false; this.root.visible = true; this.root.rotation.set(0, 0, 0); this.pos.copy(this.tgt); } }
-  takeHit(dmg, src, o = {}) { if (this.dead) return 0; if (src && src.team === this.team && src !== G.player) return 0; send({ t: 'bhit', i: this.arenaF.i, dmg: Math.round(dmg), o: slim(o), from: srcIndex(src) }); this.hitT = 0.32; for (const m of this.flashMats) if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } V.burst(o.el ? 'arcane' : 'blood', this.pos.clone().setY(this.pos.y + 1.15), 8, { speed: 3 }); return Math.round(dmg * AN.k() * 0.7); }
+  takeHit(dmg, src, o = {}) { if (this.dead) return 0; if (src && src.team === this.team && src !== G.player) return 0; send({ t: 'bhit', i: this.arenaF.i, dmg: Math.round(dmg), o: slim(o, src), from: srcIndex(src) }); this.hitT = 0.32; for (const m of this.flashMats) if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } V.burst(o.el ? 'arcane' : 'blood', this.pos.clone().setY(this.pos.y + 1.15), 8, { speed: 3 }); return Math.round(dmg * AN.k() * 0.7); }
   healSelf(n) { send({ t: 'bheal', i: this.arenaF.i, n: Math.round(n) }); }
   addBuff(kind, dur) { send({ t: 'bbuff', i: this.arenaF.i, kind, dur }); }
 }
-const slim = (o) => ({ stun: o.stun || 0, slow: o.slow || 0, root: o.root || 0, freeze: o.freeze || 0, bleed: o.bleed || 0, burn: o.burn || 0, el: o.el || 0, melee: !!o.melee });
+const slim = (o, src) => { o = AN.shape ? AN.shape(src, o) : o; return { stun: o.stun || 0, slow: o.slow || 0, root: o.root || 0, freeze: typeof o.freeze === 'number' ? o.freeze : 0, bleed: o.bleed || 0, burn: o.burn || 0, el: o.el || 0, melee: !!o.melee, mez: !!o.mez, silence: o.silence || 0, weaken: o.weaken || 0 }; }; // (AN.shape: arena.js caps the control a hit from this machine carries)
 const srcIndex = (src) => !src ? -1 : src === G.player ? (AN.meIndex ?? -1) : src.arenaF ? src.arenaF.i : src.owner && src.owner.arenaF ? src.owner.arenaF.i : -1;
 // (set by arena.js) the damage scales used in the arena
 AN.k = () => 0.15 * 0.75; AN.k0 = () => 0.15;

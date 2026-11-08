@@ -13,6 +13,7 @@ import { V } from './vfx.js';
 import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
+import { spawnProjectile } from './combat.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
@@ -116,7 +117,7 @@ function auraTick(dt) { if ((auraT -= dt) > 0) return; auraT = 0.5; noteT -= 0.5
   for (const [, u] of units) if (u.aura.regen > 0) { if (u === G.player) u.heal(u.maxHp * u.aura.regen * 0.5, true); else u.healSelf(u.maxHp * u.aura.regen * 0.5); } }
 // ultimate charge: 1% a second, more for damage done and healing given; computer fighters fire theirs in a fight
 function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !h.arenaUlt || !f.alive) continue; h.ultCharge = Math.min(100, (h.ultCharge || 0) + dt * 1.0);
-    if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
+    if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && !(f.bot.status.silence > 0) && Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
 const esc2 = (t) => String(t).replace(/[<>&]/g, '');
 export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt); }
 function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 10) return; A.perkClock -= 10;
@@ -168,12 +169,38 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   { const l = ABILITIES.paladin && ABILITIES.paladin.find(a => a.id === 'layonhands'); if (l) { l.self = 0.3; l.ally = 0.35; l.r = 8; l.desc = 'Lay your hands on the light: you heal 30% of your health and allies within 8 m heal 35%.'; } const so = ABILITIES.paladin && ABILITIES.paladin.find(a => a.id === 'shieldofl'); if (so) { so.amount = 0.18; so.dur = 6; so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s.'; }
     const lt = ABILITIES.darkknight && ABILITIES.darkknight.find(a => a.id === 'lifetap'); if (lt) { lt.dmg = 1.8; lt.drain = 0.8; lt.desc = 'A bolt of shadow that tears at the life of the enemy you aim at: you drink 80% of the damage it does.'; } } // (the shadow knight sustains by draining, the paladin by healing) // (60% on a 20 s cooldown made the paladin unkillable in duels)
   { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) { n.desc = 'Raise the shrunken head: a stream of green soul-water pours out of the enemy you aim at into it, healing you and slowing them.'; n.slow = 2.5; } }
+  designRules(); // (docs/CLASS_DESIGN.md: the crowd-control budget, mesmerize, roots, the new tools)
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q) q.cd = Math.max(q.cd || 0, CD_FIX.cc);
     const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
-    for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } } }
+    for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } }
+  ccBudget(); }
+// the design pass (docs/CLASS_DESIGN.md, top ten list): numbers and descriptions change together, so the setup screen,
+// the I / H key list and the hotbar tooltips always say what the ability really does
+const abIn = (cls, id) => (ABILITIES[cls] || []).find(a => a.id === id);
+const fix = (cls, id, o) => { const a = abIn(cls, id); if (a) Object.assign(a, o); return a; };
+function designRules() {
+  // 3. the stun pile-up: one area slow instead of an area stun, short mesmerizes, short freezes, a root instead of a stun
+  fix('berserker', 'intimshout', { t: 'nova', kit: true, r: 8, dmg: 0.2, stun: 0, slow: 4, weaken: [0.25, 4], cd: 16, fx: 'fire', desc: 'A terrifying war shout: every enemy within 8 m is slowed and deals 25% less damage for 4 s.' });
+  fix('bard', 'mesmerize2', { stun: 3, mez: true, cd: 16, desc: 'Hold the enemy you aim at spellbound for up to 3 s. Any damage after the first moment wakes them.' });
+  fix('enchanter', 'mesmerize', { stun: 3, mez: true, cd: 12, desc: 'The enemy you aim at stands entranced for up to 3 s. Any damage after the first moment wakes them.' });
+  fix('elementalist', 'frostbind', { stun: 1.5, spread: 3, desc: 'Encase the enemy you aim at, and anyone within 3 m of it, in ice for 1.5 s.' });
+  fix('druid', 'entangle', { r: 6, stun: 0, root: 1.5, slow: 3.5, desc: 'Vines burst from the ground: enemies within 6 m are rooted in place for 1.5 s, then slowed for 2 s.' });
+  fix('beastmaster', 'feralroar', { r: 6, stun: 1, desc: 'A beast\'s roar: every enemy within 6 m is stunned for 1 s.' });
+  // 1. roots really root now, so they are short; single-target stuns stay within the 1.6 s budget
+  fix('ranger', 'entangle2', { root: 1.8, spread: 4, cd: 13, desc: 'Vines burst up around the enemy you aim at: it and everything within 4 m are rooted in place for 1.8 s (they can still shoot and cast).' });
+  fix('musketeer', 'bolas', { root: 1.5, desc: 'Hurl weighted cords at the enemy you aim at: its legs are tied and it is rooted in place for 1.5 s (it can still shoot and cast).' });
+  fix('priest', 'pr_chains', { root: 2, desc: 'Golden chains burst out of the ground around the enemy you aim at and hold them in place for 2 s (they can still shoot and cast).' });
+  fix('rogue', 'kidney', { stun: 1.5, desc: 'A cruel jab that stuns the enemy for 1.5 s.' });
+  fix('shaman', 'sh_hex', { stun: 2.5, poly: true, desc: 'Turn the enemy you aim at into a harmless frog for 2.5 s.' });
+}
+// the hard-control budget on every arena key: 1.6 s on one target, 1.0 s from an area wider than 4 m (ultimates may go to 2.5 s)
+function ccBudget() {
+  for (const cls in ARENA_KITS) for (const id of [...ARENA_KITS[cls], ARENA_RMB[cls]]) { const a = abIn(cls, id); if (!a || !a.stun || a.mez || a.poly) continue;
+    const cap = isAreaAb(a) ? CC.area : CC.single; if (a.stun <= cap) continue; const old = a.stun; a.stun = cap; if (a.desc) a.desc = a.desc.split(`${old} s`).join(`${cap} s`); }
+}
 // arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
 const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
@@ -943,6 +970,7 @@ function startFight() { if (AN.on && AN.host) nsend({ t: 'fight' }); A.state = '
 
 // ---------------- every frame ----------------
 export function updateArena(dt) {
+  playerRules(G.player); // (the control rules on your hero: roots, silence, mesmerize, the shield's defensive)
   G.tod = A.setup.tod || 0.335; { const tr = document.getElementById('tracker'); if (tr && !tr.hidden) tr.hidden = true; } G.zoneLabel = 'Kingdom Arena<small>' + OBJECTIVES[A.setup.objective].name + '</small>';
   if (RUINS_MAP()) updateRuins(dt); else updateColosseum(dt);
   notesTick(dt);
@@ -1032,17 +1060,120 @@ function feed(html, local) { A.feed.unshift({ html, t: G.time }); A.feed.length 
 function dmgDir(from) { const p = G.player; let e = document.getElementById('dmgdir'); if (!e) { e = document.createElement('div'); e.id = 'dmgdir'; document.body.appendChild(e); }
   const a = Math.atan2(from.x - p.pos.x, from.z - p.pos.z) - p.yaw, arc = document.createElement('i'); arc.style.transform = `rotate(${-a}rad)`; e.appendChild(arc); setTimeout(() => arc.remove(), 900); }
 function hitPlayer(src, raw, o) {
-  const p = G.player; if (!p || p.dead) return 0; if (src && src.pos) dmgDir(src.pos); const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, o || {}); const hp0 = p.hp; p.takeDamage(d, src, o2);
+  const p = G.player; if (!p || p.dead) return 0; if (src && src.pos) dmgDir(src.pos); const dodged = isDodging(p); const [d, o2] = pvpIncoming(p, raw * PVP_K * PACE, ccShape(src, o || {})); const hp0 = p.hp; p.takeDamage(d, src, o2);
   if (p.abCast && p.abCast.spell && Math.random() < 0.35) { p.abCast = null; G.hooks.castBar && G.hooks.castBar(null); G.hooks.toast && G.hooks.toast('Your spell was interrupted', '✋', 'bad'); }
   if (!p.dead && o && o.poison && p.debuff) p.debuff('poison', 4, o.poison * PVP_K * PACE / 4);
   if (!p.dead && o && o.fear && src && src.pos) { p.fearT = Math.max(p.fearT || 0, o.fear); p.fearFrom = src.pos.clone(); G.hooks.toast && G.hooks.toast('You are fleeing in terror!', '💀', 'bad'); }
-  if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
+  if (!p.dead && p.debuff) ccPlayer(p, o2, dodged); // (roots root, silences silence: see the crowd-control rules below)
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
 }
-function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); if (src && src.h && d > 0) ultGain(src.h, d / 40); return d; }
+function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) { [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); o = ccShape(src, o); } const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); if (src && src.h && d > 0) ultGain(src.h, d / 40); return d; }
+// ---------- crowd control (docs/CLASS_DESIGN.md, roster-wide rules 1-5) ----------
+// a root really roots (no walking, jumping or dodging; you can still aim, shoot and cast); a mesmerize breaks on damage
+// after a short grace and lasts 3 s at most; a silence stops abilities but not the basic attack; no hard control lasts
+// longer than 1.6 s on one target, 1.0 s from an area wider than 4 m, 2.5 s from an ultimate; and when a hard control
+// ends, half a second of immunity follows so chained stuns cannot lock anyone down forever
+export const CC = { single: 1.6, area: 1.0, areaR: 4, ult: 2.5, mez: 3, poly: 2.5, mezGrace: 0.75, immune: 0.5, cleanseImm: 1.0 };
+const abOf = (u, id) => { const h = u && u.h; return id && h && ABILITIES[h.cls] ? ABILITIES[h.cls].find(a => a.id === id) || null : null; };
+export const isAreaAb = (a) => !!a && (a.t === 'nova' ? (a.r || 5) > CC.areaR : (a.spread || 0) > CC.areaR || ['ground', 'aura', 'stormwalk', 'blizzaura'].includes(a.t) || (!a.t && ((LEG[a.id] && LEG[a.id][1] > 1) || a.id === 'earthsplitter')));
+// the stun a hit may carry, by what it came from (the ability its source used last)
+export function ccShape(src, o) {
+  if (!o || !(o.stun || o.freeze)) return o;
+  const a = src && G.time - (src._abT ?? -9) < 1.6 ? abOf(src, src._abId) : null, ult = !!(a && src.h && src.h.arenaUlt === a.id);
+  const cap = o.mez ? CC.mez : a && a.poly ? CC.poly : ult ? CC.ult : isAreaAb(a) ? CC.area : CC.single;
+  const fz = typeof o.freeze === 'number' ? o.freeze : 0; if ((o.stun || 0) <= cap && fz <= cap) return o;
+  const out = Object.assign({}, o); if (out.stun) out.stun = Math.min(out.stun, cap); if (fz) out.freeze = Math.min(fz, cap); return out;
+}
+const isDodging = (p) => (p.ultImmT || 0) > 0 || p.iframes > 0 || !!(p.dodge && !p.dodge.charge);
+const dbOn = (p, k) => !!(p && p.db && p.db[k] && p.db[k].t > 0);
+const setDb = (p, k, t) => { p.db = p.db || {}; const d = p.db[k] || (p.db[k] = { t: 0, dps: 0 }); d.t = Math.max(d.t, t); };
+export const isRooted = (u) => u === G.player ? dbOn(u, 'root') : !!(u && u.status && u.status.root > 0);
+export const isSilenced = (u) => u === G.player ? dbOn(u, 'silence') : !!(u && u.status && u.status.silence > 0);
+const headOfU = (u) => u.pos.clone().setY(u.pos.y + (u === G.player ? (u.eye || 1.7) + 0.35 : (u.height || 1.8) + 0.5));
+// a hit landed on the player (from a computer fighter or another player): apply its control effects
+function ccPlayer(p, o2, dodged) {
+  playerRules(p); if (!p || p.dead || dodged) return; // (a dodge or an untouchable moment slips the control too)
+  const imm = (p.ccImmT || 0) > G.time, st = Math.max(o2.stun || 0, typeof o2.freeze === 'number' ? o2.freeze : 0);
+  if (imm && (st || o2.root)) V.number(headOfU(p), 'Immune', 'miss');
+  else { if (st) { p.debuff('stun', st); if (o2.mez) { p.mezAt = G.time; p.mezUntil = G.time + st; V.number(headOfU(p), 'Mesmerized', 'bad'); } }
+    if (o2.root) { setDb(p, 'root', o2.root); p.rootAt = p.pos.clone(); V.number(headOfU(p), 'Rooted!', 'bad'); } }
+  if (o2.slow) p.debuff('slow', o2.slow);
+  if (o2.silence) { setDb(p, 'silence', o2.silence); p.abCast = null; V.number(headOfU(p), 'Silenced!', 'bad'); S.error && S.error(); }
+  if (o2.weaken) weakUnit(p, o2.weaken);
+}
+const wakeFx = (u) => { V.number(headOfU(u), 'Woke up', 'miss'); V.burst('arcane', headOfU(u), 10, { speed: 2 }); };
+// the rules live on the hero object itself (player.js is left as it is): roots, silence, mesmerize, the shield's defensive
+export function playerRules(p = G.player) {
+  if (!p || p._ccRules) return p; p._ccRules = true;
+  const up = p.update, dodge = p.tryDodge, jump = p.jump, ability = p.ability, ult = p.ultimate, take = p.takeDamage, knock = p.knock, mouse = p.onMouse;
+  p.update = function (dt) {
+    const r = isRooted(this) && !this.held && !this.dead, k0 = this.ultSlowT, k1 = this.ultSlowK;
+    if (r) { this.ultSlowT = G.time + 1; this.ultSlowK = 0; if (!this.rootAt) this.rootAt = this.pos.clone(); } // (no walking: speed 0, so the legs stand still too)
+    up.call(this, dt);
+    if (r) { if (this.ultSlowK === 0) { this.ultSlowT = k0; this.ultSlowK = k1; } if (!this.held && this.rootAt) { this.pos.x = this.rootAt.x; this.pos.z = this.rootAt.z; if (this.vel) { this.vel.x = 0; this.vel.z = 0; } } } // (nor dashing, blinking or being shoved out of it)
+    else this.rootAt = null;
+    const hard = !this.dead && (dbOn(this, 'stun') || dbOn(this, 'freeze') || isRooted(this) || this.fearT > 0); if (this._hardWas && !hard) this.ccImmT = G.time + CC.immune; this._hardWas = hard;
+    if (this.mezUntil && (G.time > this.mezUntil || !dbOn(this, 'stun'))) this.mezUntil = 0;
+    blockDefensive(this, dt);
+  };
+  p.tryDodge = function (d) { if (isRooted(this)) { V.number(headOfU(this), 'Rooted', 'miss'); return; } return dodge.call(this, d); };
+  p.jump = function () { if (isRooted(this) && !this.swim) return; return jump.call(this); };
+  p.ability = function (i, fromCast) { const a = ABILITIES[this.h.cls][i]; if (a && this.h.arena) { if (isSilenced(this) && !fromCast) { silencedNote(this); return; } this._abId = a.id; this._abT = G.time; } return ability.call(this, i, fromCast); };
+  p.ultimate = function () { if (this.h.arena && isSilenced(this)) { silencedNote(this); return; } return ult.call(this); };
+  p.takeDamage = function (dmg, src, o = {}) { const r = take.call(this, dmg, src, o);
+    if (dmg > 0 && this.mezUntil > G.time && G.time - (this.mezAt || 0) > CC.mezGrace && this.db && this.db.stun) { this.db.stun.t = 0; this.mezUntil = 0; this.ccImmT = G.time + CC.immune; wakeFx(this); } // (damage wakes you from a mesmerize)
+    if (o && o.melee && this.boneT > G.time && src && src !== this && !src.dead) slowUnit(src, 1); return r; }; // (Bone Guard: melee attackers are slowed)
+  p.knock = function (v, stun = 0) { if (this.ironT > G.time) { if (stun) this.debuff('stun', stun); return; } return knock.call(this, v, stun); }; // (Iron Hide: cannot be knocked back)
+  p.onMouse = function (btn, down) { if (btn === 2 && this.h.arena && RMB_CAST.has(this.h.arenaRmb)) { if (down && !this.dead && !G.uiOpen && !dbOn(this, 'stun') && !this.isFrozen()) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); } return; } return mouse.call(this, btn, down); }; // (a gun class whose right click is an ability, not aiming)
+  return p;
+}
+const RMB_CAST = new Set(['ar_ironhide']);
+// the rule half of a few abilities (called for players and computer fighters alike, as the ability goes off)
+const nearU = (list, at, r) => list.filter(u => u && !u.dead && u.pos && Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < r);
+function abilityRule(u, a, T) {
+  if (!u || !a || !(u === G.player ? u.h && u.h.arena : u.arenaBot)) return;
+  if (a.weaken) for (const e of nearU(ultFoes(u), u.pos, (a.r || 8) + 0.4)) weakUnit(e, a.weaken); // (Intimidating Shout)
+  if (a.cleanse) for (const f of nearU(ultFriends(u), u.pos, a.r || 12)) cleanseUnit(f); // (Purifying Light)
+  if (a.boneGuard) u.boneT = G.time + (a.dur || 6) * (u === G.player ? 1.3 : 1); // (Bone Guard: melee attackers are slowed while it holds)
+  if (a.ironHide) u.ironT = G.time + (a.dur || 5) * (u === G.player ? 1.3 : 1); // (Iron Hide: no knockback)
+  if (a.id === 'execute' && u.h && u.h.cls === 'warrior') u.swT = G.time + 1.5; // (Second Wind, see Game.arenaOut)
+  if (a.t === 'mindlock') mindLock(u, a, T);
+}
+G.hooks.abilityRule = abilityRule;
+// the Enchanter's Mind Lock: a bolt that silences the enemy it hits and anyone within 3 m of them (abilities, not attacks)
+function mindLock(u, a, T) {
+  const me = u === G.player, r = a.aoe || 3, sil = a.silence || 2;
+  const burst = (at, hitFn) => { for (const e of nearU(ultFoes(u), at, r)) hitFn(e); V.burst('arcane', at, 30, { speed: 4 }); V.ring(at.clone().setY(at.y + 0.05), r, '#d090ff', 0.45); S.cast && S.cast('arcane', at, 0.9); };
+  if (me) { const base = Game.weaponDamage(u.h, u.weapon || Game.makeWeapon('quarterstaff', 5, 3)) * (G.abilScale ? G.abilScale(u.h.level) : 1) * Game.perkPow(Game.perkLvl(u.h, a.id)), from = u.spellFrom(), dir = u.aimDir(from);
+    spawnProjectile({ pos: from, vel: dir.multiplyScalar(a.speed || 50), grav: 0.5, radius: 0.35, dmg: base * (a.dmg || 0.8), owner: 'player', kind: 'arcane', scale: 1.5, life: 2.5,
+      onHit: (pr, m, pos) => { const at = (pos || (m && m.pos) || pr.pos).clone(); burst(at, (e) => { if (e.takeHit && e !== u) u.dealDamage(e, pr.dmg * (e === m ? 1 : 0.8), { el: 'arcane', silence: sil }); if (!e.arenaBot && !(e.owner != null)) silenceUnit(e, sil); }); } });
+    u.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; return; }
+  if (!T || T.dead) return; const pkK = Game.perkPow(Game.perkLvl(u.h, a.id)), dmg = pkK * u.base * (a.dmg || 0.8) * u.up * u.dmgMul(); u.act = 'cast'; u.actT = 0;
+  shot(u, T, SHOT_COL.arcane, () => burst(T.pos.clone(), (e) => hitUnit(u, e, dmg * (e === T ? 1 : 0.8), { el: 'arcane', silence: sil })), true);
+}
+AN.shape = ccShape; // (hits sent to other players carry the same capped control)
+function silencedNote(p) { S.error && S.error(); if (!(p._silT > G.time)) { p._silT = G.time + 0.6; V.number(headOfU(p), 'Silenced', 'bad'); } }
+// shield classes: hold the block for a second and the class's defensive goes up by itself (Shield Wall, Shield of Light)
+export const SHIELD_DEF = new Set(['shieldwall', 'shieldofl']);
+function blockDefensive(p, dt) {
+  const h = p.h; if (!h || !h.arena || !p.W || p.W.hands !== 'shield' || !SHIELD_DEF.has(h.arenaRmb)) return;
+  if (!p.block || p.dead) { p.blockHeldT = 0; return; } p.blockHeldT = (p.blockHeldT || 0) + dt; if (p.blockHeldT < 1) return;
+  const k = ABILITIES[h.cls].findIndex(a => a.id === h.arenaRmb); if (k < 0 || (p.cd['a' + (k + 1)] || 0) > 0 || isSilenced(p)) return;
+  p.blockHeldT = 0; p.ability(k); p.atk = null; // (the shield stays up)
+}
+function slowUnit(u, t) { if (!u || u.dead) return; if (u === G.player) u.debuff('slow', t); else if (u.status && u.arenaBot) u.status.slow = Math.max(u.status.slow || 0, t); else if (u.debuff) u.debuff('slow', t); }
+// weakened: deals less damage for a while (Game.arenaOut reads weakT and weakK)
+function weakUnit(u, w) { if (!u || u.dead) return; const [k, t] = Array.isArray(w) ? w : [0.25, w]; u.weakT = Math.max(u.weakT || 0, G.time + t); u.weakK = 1 - k; V.number(headOfU(u), 'Weakened', 'bad'); }
+export function silenceUnit(u, t, src) { if (!u || u.dead) return; if (u === G.player) ccPlayer(u, { silence: t }); else if (u.arenaBot) { u.status.silence = Math.max(u.status.silence || 0, t); u.cast = null; u.pending = null; V.number(headOfU(u), 'Silenced!', 'bad'); } else if (u.takeHit && u.owner != null) u.takeHit(0, src || G.player, { silence: t }); else { u.silenceT = G.time + t; V.number(headOfU(u), 'Silenced!', 'bad'); } }
+// cleanse: stun, root, slow, fear, silence, mesmerize, poison, bleed and burn come off, and a moment of immunity follows
+export function cleanseUnit(u, imm = CC.cleanseImm) { if (!u || u.dead) return;
+  if (u === G.player) { const db = u.db || {}; for (const k of ['stun', 'slow', 'root', 'freeze', 'silence', 'poison', 'bleed', 'burn']) if (db[k]) db[k].t = 0; u.fearT = 0; u.mezUntil = 0; u.ultSlowT = 0; u.ccImmT = G.time + imm; }
+  else if (u.arenaBot) { const st = u.status; for (const k of ['stun', 'slow', 'root', 'frozen', 'fear', 'silence', 'bleed', 'burn']) st[k] = 0; st.mez = false; u.dots = []; u.ultSlowT = 0; u.ccImmT = G.time + imm; }
+  else if (u.owner != null && u.addBuff) { u.addBuff('cleanse', imm); return; } else return;
+  V.burst('gold', u.pos.clone().setY(u.pos.y + 1.2), 24, { speed: 3, vy: 2 }); V.ring(u.pos.clone().setY(u.pos.y + 0.1), 1.4, '#fff4c0', 0.4); V.number(headOfU(u), 'Cleansed', 'heal'); }
 // heals and buffs on a team mate (computer or player)
 function healUnit(u, amt, from) { if (!u || u.dead || amt <= 0) return; { const sh = from && from.h ? Game.arenaPassive(from.h, 'shieldHeal') : 0; if (sh) { const v = amt * 0.15 * sh; if (u === G.player) { u.buffs.barrier = (u.buffs.barrier || 0) + v; u.buffs.barrierT = Math.max(u.buffs.barrierT || 0, 6); } else if (u.buffs) { u.barrier = (u.barrier || 0) + v; u.buffs.barrier = Math.max(u.buffs.barrier || 0, 6); } } } /* (a healer's perk: heals leave a shield) */ if (u === G.player) { u.heal(amt, true); } else u.healSelf(amt); if (from && from.arenaF) from.arenaF.heal += amt; if (from && from.h) ultGain(from.h, amt / 50); V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 12, { speed: 2, vy: 2 }); }
-function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (u === G.player) { u.buffs[kind] = Math.max(u.buffs[kind] || 0, dur); if (kind === 'barrier') { u.buffs.barrier = u.maxHp * 0.2; u.buffs.barrierT = dur; } } else u.addBuff(kind, dur); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.2, kind === 'ward' || kind === 'barrier' ? '#80d8ff' : '#ffd84a', 0.4); }
+function buffUnit(u, kind, dur) { if (!u || u.dead) return; if (kind === 'cleanse') { cleanseUnit(u, dur); return; } if (u === G.player) { u.buffs[kind] = Math.max(u.buffs[kind] || 0, dur); if (kind === 'barrier') { u.buffs.barrier = u.maxHp * 0.2; u.buffs.barrierT = dur; } } else u.addBuff(kind, dur); V.sphereFlash(u.pos.clone().setY(u.pos.y + 1), 1.2, kind === 'ward' || kind === 'barrier' ? '#80d8ff' : '#ffd84a', 0.4); }
 // the player's own heals and buffs that reach allies (healing spells with an area, songs, totems...)
 export function allyFx(at, [r, heal, kind, dur], up, quiet) {
   const R = r * Math.sqrt(up); if (!quiet) V.ring(at, R, heal ? '#80ff90' : '#80d8ff', 0.7);
@@ -1149,11 +1280,16 @@ class ArenaBot {
     // you can see it land: a flinch, a bright flash on the body, and blood or sparks (or the spell's element)
     this.hitT = 0.32; for (const m of this.flashMats) { if (m.emissive) { m.emissive.setRGB(1, 0.92, 0.85); m.emissiveIntensity = 0.65; } }
     { const at = this.pos.clone().setY(this.pos.y + 1.15), kind = o.el === 'fire' ? 'fire' : o.el === 'frost' ? 'frost' : o.el ? 'arcane' : this.D.armor > 120 ? 'spark' : 'blood'; V.burst(kind, at, o.melee || dmg > this.maxHp * 0.08 ? 14 : 7, { speed: 3.5 }); }
-    if (src && src.pos && !o.el) { const d = this.pos.clone().sub(src.pos).setY(0); if (d.lengthSq() > 0.01) this.status.knock.addScaledVector(d.normalize(), o.melee ? 0.9 : 0.4); }
+    if (src && src.pos && !o.el && !(this.ironT > G.time)) { const d = this.pos.clone().sub(src.pos).setY(0); if (d.lengthSq() > 0.01) this.status.knock.addScaledVector(d.normalize(), o.melee ? 0.9 : 0.4); }
     { const real = Math.min(dmg, Math.max(0, hp0)); if (src && src.arenaF) src.arenaF.dmg += real; else if (src === G.player) A.me.dmg += real; } // (only the health actually taken counts)
     // control effects fall off when chained, like they do on players
+    { const st = this.status; if (st.mez && st.stun > 0 && !o.mez && G.time - (this.mezAt ?? G.time) > CC.mezGrace) { st.stun = 0; st.mez = false; this.mezAt = null; this.ccImmT = G.time + CC.immune; wakeFx(this); } } // (damage wakes a mesmerized fighter)
+    if (o.melee && this.boneT > G.time && src && src !== this) slowUnit(src, 1); // (Bone Guard)
+    o = ccShape(src, o); const imm = (this.ccImmT || 0) > G.time; if (imm && (o.stun || o.freeze || o.root || o.fear)) { V.number(headOfU(this), 'Immune', 'miss'); o = Object.assign({}, o, { stun: 0, freeze: 0, root: 0, fear: 0 }); }
+    if (o.silence) { const now = G.time; if (!this.silT || now - this.silT > 10) this.silN = 0; const sf = Math.pow(0.5, this.silN || 0); this.silN = (this.silN || 0) + 1; this.silT = now; this.status.silence = Math.max(this.status.silence || 0, o.silence * sf); this.cast = null; this.pending = null; V.number(headOfU(this), 'Silenced!', 'bad'); }
+    if (o.weaken) weakUnit(this, o.weaken);
     if (o.stun || o.freeze || o.slow || o.root || o.fear) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
-      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
+      if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; if (o.mez) this.mezAt = G.time; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
     if (o.blight) this.blightT = Math.max(this.blightT || 0, o.blight); if (this.blightT > 0 && o.poison) o = Object.assign({}, o, { poison: o.poison * 1.5 }); // (Blight: poison bites harder)
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
     if (o.plague) { const ex = this.dots.find(x => x.plague && x.src === src); if (ex) { ex.t = 6; ex.dps = Math.max(ex.dps, o.plague * PVP_K); } else this.dots.push({ dps: o.plague * PVP_K, t: 6, src, plague: true, acc: 0 }); } // (Plague Breath: a sore that bites once a second for 6 s)
@@ -1173,7 +1309,8 @@ class ArenaBot {
     if (this.held) { this.hitT = 0; return; } // (in a demon's grip: it moves and turns you)
     this.root.rotation.x = 0;
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
-    for (const k of ['stun', 'slow', 'root', 'frozen', 'fear']) st[k] = Math.max(0, (st[k] || 0) - dt);
+    { const hard0 = st.stun > 0 || st.root > 0 || st.frozen > 0 || st.fear > 0; for (const k of ['stun', 'slow', 'root', 'frozen', 'fear', 'silence']) st[k] = Math.max(0, (st[k] || 0) - dt);
+      if (hard0 && !(st.stun > 0 || st.root > 0 || st.frozen > 0 || st.fear > 0)) this.ccImmT = G.time + CC.immune; /* (a hard control just ended: a moment of immunity) */ if (st.mez && st.stun > 0) { if (this.mezAt == null) this.mezAt = G.time; } else { st.mez = false; this.mezAt = null; } }
     if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }
     if (this.stealth > 0) { this.stealth = Math.max(0, this.stealth - dt); }
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
@@ -1310,7 +1447,7 @@ class ArenaBot {
   }
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
-    const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
+    if (this.status.silence > 0) return null; /* (silenced: basic attacks only) */ const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
     const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id, 'cd')) * Game.arenaCdAll(this.h) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
       const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
@@ -1342,7 +1479,7 @@ class ArenaBot {
   power(a) { if (!a.t) { const L = LEG[a.id]; return L ? L[0] * (L[1] > 1 ? 1.2 : 1) : 0.8; } const n = a.dmg || 0; switch (a.t) { case 'flurry': return n * (a.hits || 3); case 'ground': return n * (a.ticks || 4) * 0.7; case 'curse': return n + (a.dot || 0) * (a.dotT || 0) * 0.8; case 'aura': case 'stormwalk': case 'blizzaura': return n * 8; case 'petstrike': return 2; case 'bolt': case 'drain': return n * (a.n ? 1.6 : 1); default: return n; } }
   // ---- carrying out an ability ----
   resolve(a, tgt, lockAt) {
-    if (this.dead) return; abilityFx(this, a, (tgt && tgt !== this ? tgt : this.target)); /* (the class's own look for the ability) */ const pkK = Game.perkPow(Game.perkLvl(this.h, a.id)); const P = (n) => pkK * this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
+    if (this.dead) return; this._abId = a.id; this._abT = G.time; abilityFx(this, a, (tgt && tgt !== this ? tgt : this.target)); /* (the class's own look for the ability) */ const pkK = Game.perkPow(Game.perkLvl(this.h, a.id)); const P = (n) => pkK * this.base * (n || 0) * this.up * this.dmgMul(), me = this.pos, el = a.kind === 'fireball' || a.fx === 'fire' ? 'fire' : a.kind === 'frost' || a.fx === 'frost' ? 'frost' : a.fx === 'shadow' ? 'shadow' : a.fx === 'gold' ? 'holy' : a.fx === 'leaf' ? 'nature' : 'arcane';
     const col = SHOT_COL[el], o = { stun: a.stun || 0, slow: a.slow || 0, root: a.root || 0, fear: a.fear || 0, mez: !!a.mez, el, poison: a.poisonDot ? P(a.poisonDot) : 0, spread: a.spread || 0, blight: a.blight || 0 };
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
@@ -1394,7 +1531,7 @@ class ArenaBot {
   legacy(a, T, P) {
     const S2 = LEG_SELF[a.id]; if (S2) { const [k, dur, amt] = S2; if (k === 'heal') { healUnit(this, (amt || 0.25) * this.maxHp, this); } else if (k === 'dash') { if (T && this.ranged) { const d = V3(this.pos.x - T.pos.x, 0, this.pos.z - T.pos.z).normalize(); this.pos.addScaledVector(d, 8); V.burst('dust', this.pos.clone(), 20); } }
       else if (k === 'stealth') this.stealth = dur; else { this.addBuff(k, dur); if (amt) this.hots.push({ ps: amt * this.maxHp / dur, t: dur }); } this.act = 'cast'; this.actT = 0; return; }
-    const L = LEG[a.id]; if (!L || !T) return; const [m, n, stun, slow] = L, o = { stun: stun || 0, slow: slow || 0 };
+    const L = LEG[a.id]; if (!L || !T) return; const [m, n, stun, slow] = L, o = { stun: stun || 0, slow: slow || 0 }; if (a.id === 'execute') Object.assign(o, { melee: true, big: true }); /* (Second Wind reads these) */
     if (LEG_RANGED.has(a.id)) { this.act = this.ranged ? 'shoot' : 'cast'; this.actT = 0; shot(this, T, SHOT_COL.phys, () => { for (const u of enemiesOf(this)) if (u === T || (n > 1 && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3.5)) hitUnit(this, u, P(m), o); }, true); }
     else { this.act = 'swing2'; this.actT = 0; for (const u of enemiesOf(this)) { const d = Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z); if (u === T ? d < 4.5 : n > 1 && d < 5) hitUnit(this, u, P(m), o); } V.burst('dust', this.pos.clone().setY(this.pos.y + 0.5), 20, { speed: 5 }); }
   }
@@ -1446,10 +1583,10 @@ function onNet(from, d) {
       d.fl.forEach((q, i) => { const fl = A.flags[i]; if (!fl) return; fl.pos.set(q[0], q[1], q[2]); fl.carrier = q[3] >= 0 ? A.F[q[3]] : null; fl.atHome = !!q[4]; });
       AR.gatesOpen = A.state === 'fight'; } break;
     // a hit on my hero, from another player or the host's computer fighter (already scaled for PvP)
-    case 'hit': if (d.to === AN.myId) { const p = G.player; if (!p || p.dead) break; const src = U(d.from), [dd, o2] = pvpIncoming(p, d.d, d.o || {}), hp0 = p.hp;
+    case 'hit': if (d.to === AN.myId) { const p = G.player; if (!p || p.dead) break; const src = U(d.from), dodged = isDodging(p), [dd, o2] = pvpIncoming(p, d.d, ccShape(src, d.o || {})), hp0 = p.hp;
       if (dd > 0) p.takeDamage(dd, src, o2);
       if (dd > 0 && p.abCast && p.abCast.spell && Math.random() < 0.35) { p.abCast = null; G.hooks.castBar && G.hooks.castBar(null); G.hooks.toast && G.hooks.toast('Your spell was interrupted', '✋', 'bad'); }
-      if (!p.dead && p.debuff) { if (o2.stun || o2.freeze) p.debuff('stun', Math.max(o2.stun || 0, o2.freeze || 0)); if (o2.slow || o2.root) p.debuff('slow', Math.max(o2.slow || 0, (o2.root || 0) * 1.3)); }
+      if (!p.dead && p.debuff) ccPlayer(p, o2, dodged);
       const dealt = Math.max(0, hp0 - p.hp); if (dealt && d.from >= 0) { if (AN.host) A.F[d.from].dmg += dealt; else nsend({ t: 'dc', i: d.from, n: Math.round(dealt) }); } } break;
     case 'dc': if (AN.host && A.F[d.i]) A.F[d.i].dmg += d.n; break;
     case 'heal': if (d.to === AN.myId && G.player && !G.player.dead) G.player.heal(d.n, true); break;

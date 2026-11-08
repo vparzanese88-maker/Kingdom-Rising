@@ -1,6 +1,6 @@
 // The Goblin Bombardier's kit (Kingdom Arena and the Training Yard):
-//  LMB  thrown bombs: his own hand bomb, lobbed in an arc; it bounces two or three times off the ground and walls and goes
-//       off 1.6 s after it leaves his hand (at once if it hits an enemy)
+//  LMB  thrown bombs: his own hand bomb, lobbed in an arc; it bounces two or three times off the ground and walls (each hop
+//       lower) and goes off 0.45 s after it settles (at once if it hits an enemy)
 //  Q    sticky bombs: 5 charges (one back every 0.5 s); they stick to whatever they hit (ground, walls, an enemy, and ride
 //       along on them); 5 out at most (a sixth makes the oldest fall away); they wait for the detonator (20 s at most)
 //  RMB  the detonator: every thrown and sticky bomb he has out goes off at once; sticky bombs in a much bigger blast
@@ -22,7 +22,7 @@ import { AN, send } from './arenanet.js';
 import { ABILITIES } from './data.js';
 
 export const BOMB = {
-  throw: { fuse: 1.6, r: 3.2, k: 1.1, speed: 20, up: 4 }, // (k: of the thrower's weapon damage, at the centre; half that at the edge)
+  throw: { fuse: 0.45, max: 3.2, bounceV: 1.0, rest: 0.45, r: 3.2, k: 1.1, speed: 20, up: 4 }, // (k: of the thrower's weapon damage, at the centre; half that at the edge; fuse: it goes off this long after it settles (its third bounce, or rolling), max s after the throw at most)
   sticky: { max: 5, charges: 5, per: 0.5, r: 3.2, bigR: 4.5, k: 0.55, smallK: 0.6, life: 20, speed: 25, up: 2.5, gap: 0.25 }, // (k: of the ability damage per sticky when detonated; smallK: share of that when one goes off by itself after life s)
   ult: { plant: 0.8, fuse: 9, r: 16, core: 5, coreK: 0.9, edgeK: 0.25, defuse: 3, defuseR: 1.7 },
 };
@@ -67,7 +67,7 @@ function ensureTick() { if (ticking) return; ticking = true; G.timers.push({ upd
 function add(b) { b.t = 0; b.born = G.time; if (!b.mesh) b.mesh = b.kind === 'u' ? bigModel() : b.kind === 's' ? stickyModel() : bombModel(1.3); b.mesh.position.copy(b.pos); G.scene.add(b.mesh); BX.list.push(b); ensureTick(); return b; }
 function remove(b) { const i = BX.list.indexOf(b); if (i >= 0) BX.list.splice(i, 1); if (b.mesh) G.scene.remove(b.mesh); for (const m of b.rings || []) G.scene.remove(m); if (b.defusing && G.hooks.castBar) G.hooks.castBar(null); }
 // a thrown bomb (LMB). dmg: its full damage at the centre of the blast
-export function throwBomb(owner, from, vel, dmg) { const b = add({ id: ++BX.seq, kind: 'b', owner, oi: oiOf(owner), pos: from.clone(), vel: vel.clone(), dmg, fuse: BOMB.throw.fuse, spin: new THREE.Vector3(8 + Math.random() * 4, Math.random() * 3, 2) });
+export function throwBomb(owner, from, vel, dmg) { const b = add({ id: ++BX.seq, kind: 'b', owner, oi: oiOf(owner), pos: from.clone(), vel: vel.clone(), dmg, fuse: BOMB.throw.max, spin: new THREE.Vector3(8 + Math.random() * 4, Math.random() * 3, 2) });
   net({ e: 'n', o: b.oi, id: b.id, k: 'b', p: P3(from), v: P3(vel) }); return b; }
 // a sticky bomb (Q): uses a charge; the oldest of the five out falls away
 export function stickyCharges(h) { const s = h.stk || (h.stk = { n: BOMB.sticky.charges, at: 0, last: -9 }), per = BOMB.sticky.per * (h.stkK || 1);
@@ -92,7 +92,8 @@ function wallNormal(p, r) { // pushed out of a wall, building, tree, rock or pil
   const q = p.clone(); let hit = collide(q, r);
   if (inArena() && AR.map !== 'ruins') { const d = Math.hypot(q.x, q.z), R = AR.R - 0.2; if (d > R) { q.x *= R / d; q.z *= R / d; hit = true; } for (const P of PILLARS) { const dx = q.x - P.x, dz = q.z - P.z, dd = Math.hypot(dx, dz), m = P.r + r; if (dd < m && dd > 1e-3) { q.x = P.x + dx / dd * m; q.z = P.z + dz / dd * m; hit = true; } } }
   if (!hit) return null; const n = new THREE.Vector3(q.x - p.x, 0, q.z - p.z); if (n.lengthSq() < 1e-8) return null; return n.normalize(); }
-function bounced(b, sp) { b.bounces = (b.bounces || 0) + 1; if (sp > 2.5) { S.bombBounce(b.pos, sp / 10); if (sp > 5) V.burst('dust', b.pos.clone(), 5, { speed: 1.5, size: 0.25 }); } }
+function settle(b) { if (b.kind !== 'b' || b.settled) return; b.settled = true; b.fuse = Math.min(b.fuse, b.t + BOMB.throw.fuse); } // (a thrown bomb's short fuse runs once it has done its bouncing)
+function bounced(b, sp) { b.bounces = (b.bounces || 0) + 1; if (b.bounces >= 3) settle(b); if (sp > 2.5) { S.bombBounce(b.pos, sp / 10); if (sp > 5) V.burst('dust', b.pos.clone(), 5, { speed: 1.5, size: 0.25 }); } }
 function fly(b, dt) {
   b.vel.y -= GRAV * dt; const steps = Math.max(1, Math.ceil(b.vel.length() * dt / 0.2)), h = dt / steps;
   for (let i = 0; i < steps; i++) { const np = b.pos.clone().addScaledVector(b.vel, h);
@@ -100,8 +101,8 @@ function fly(b, dt) {
     if (wn) { if (b.kind === 's') { stickWorld(b, wn); return; } const vn = b.vel.dot(wn); if (vn < 0) { const sp = b.vel.length(); b.vel.addScaledVector(wn, -1.55 * vn); b.vel.x *= 0.85; b.vel.z *= 0.85; bounced(b, sp); } np.copy(b.pos).addScaledVector(b.vel, h); if (wallNormal(np, BR)) np.copy(b.pos); }
     const gh = ground(np.x, np.z, b.pos.y);
     if (np.y - BR < gh) { np.y = gh + BR; if (b.kind === 's') { b.pos.copy(np); stickWorld(b, UP); return; }
-      if (b.vel.y < -1.6) { const sp = -b.vel.y; b.vel.y = sp * 0.45; b.vel.x *= 0.72; b.vel.z *= 0.72; bounced(b, sp); }
-      else { b.vel.y = 0; const f = Math.max(0, 1 - 5 * h); b.vel.x *= f; b.vel.z *= f; b.rolling = true; } }
+      if (b.vel.y < -BOMB.throw.bounceV) { const sp = -b.vel.y; b.vel.y = sp * BOMB.throw.rest; b.vel.x *= 0.72; b.vel.z *= 0.72; bounced(b, sp); }
+      else { b.vel.y = 0; const f = Math.max(0, 1 - 5 * h); b.vel.x *= f; b.vel.z *= f; b.rolling = true; settle(b); } }
     b.pos.copy(np); }
 }
 function stickWorld(b, n) { b.stuck = { u: null, n: n.clone() }; b.vel.set(0, 0, 0); S.bombStick(b.pos); V.burst('poison', b.pos.clone(), 6, { speed: 1, size: 0.12 }); if (!b.ghost) net({ e: 's', o: b.oi, id: b.id, p: P3(b.pos), u: -1, n: P3(n) }); }
@@ -191,7 +192,7 @@ const gk = (o, id) => o + ':' + id;
 export function bombNet(d, U) {
   const key = gk(d.o, d.id), b = BX.list.find(x => x.ghost && x.key === key), p = d.p ? new THREE.Vector3(d.p[0], d.p[1], d.p[2]) : null;
   switch (d.e) {
-    case 'n': { if (b) return; const owner = U(d.o) || { pos: p ? p.clone() : new THREE.Vector3(), team: -1 }; const nb = { id: d.id, key, ghost: true, kind: d.k, owner, oi: d.o, pos: p, vel: new THREE.Vector3(d.v[0], d.v[1], d.v[2]), dmg: 0, fuse: d.k === 'u' ? BOMB.ult.fuse : d.k === 's' ? BOMB.sticky.life : BOMB.throw.fuse, spin: new THREE.Vector3(8, 1, 2) };
+    case 'n': { if (b) return; const owner = U(d.o) || { pos: p ? p.clone() : new THREE.Vector3(), team: -1 }; const nb = { id: d.id, key, ghost: true, kind: d.k, owner, oi: d.o, pos: p, vel: new THREE.Vector3(d.v[0], d.v[1], d.v[2]), dmg: 0, fuse: d.k === 'u' ? BOMB.ult.fuse : d.k === 's' ? BOMB.sticky.life : BOMB.throw.max, spin: new THREE.Vector3(8, 1, 2) };
       if (d.k === 'u') { nb.stuck = { u: null, n: UP.clone() }; nb.beepT = 0; nb.defuse = 0; add(nb); nb.rings = ultRings(BOMB.ult.r, BOMB.ult.core); for (const m of nb.rings) { m.position.set(p.x, p.y + 0.07, p.z); G.scene.add(m); } S.bombStick(p); } else add(nb); break; }
     case 's': { if (!b) return; if (p) b.pos.copy(p); const u = d.u >= 0 ? U(d.u) : null; if (u) { stickUnit(b, u, p); } else { b.stuck = { u: null, n: d.n ? new THREE.Vector3(d.n[0], d.n[1], d.n[2]) : UP.clone() }; b.vel.set(0, 0, 0); S.bombStick(b.pos); } break; }
     case 'x': { if (b) remove(b); if (p) { boomFx(p, d.b || 0); if (d.b === 2) bigBoomGhostMark(p); } break; }

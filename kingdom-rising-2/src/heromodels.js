@@ -125,7 +125,7 @@ function fistFrame(hb, o) { let sk = null; for (let r = hb, n = 0; r && !sk && n
 // weapon (two-handers, the gun's fore-end, the bow's string) is put on the model's weapon itself, where the built hand is on the built one.
 const _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion(), _pm = new THREE.Matrix4(), _pm2 = new THREE.Matrix4(), _pm3 = new THREE.Matrix4(), _pv = new THREE.Vector3(), _pv2 = new THREE.Vector3(), _pv3 = new THREE.Vector3(), _pv4 = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1);
 function builtGrip(so, out) { const chd = so.userData.codeHand; chd.updateWorldMatrix(true, false); return out.multiplyMatrices(chd.matrixWorld, _pm3.compose(so.userData.gripP, so.userData.gripQ, _ps)); }
-const REST_TILT = { sword: 0.6, dagger: 0.35, mace: 0.6, bow: -1.35 }; /* (radians, tip down, while he is not attacking) */
+const REST_TILT = { sword: 0.6, dagger: 0.35, mace: 0.6, greatsword: 0.75, bow: -1.35 }; /* (radians, tip down, while he is not attacking) */
 function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatrixWorld(true); const W = ch.weapons || {}, main = W.main, so = {};
   for (const s of ch.hmSockets) if (s.userData.side && s.userData.fist) so[s.userData.side] = s;
   const lead = main && so.L && main.parent === so.L && !(so.R && main.parent === so.R) ? 'L' : 'R'; /* (the bow is held in the left fist) */

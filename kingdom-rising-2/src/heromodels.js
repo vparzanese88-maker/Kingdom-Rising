@@ -220,7 +220,7 @@ function curlHand(F, o, sd, P, pos, nrm, mp, mn) {
     q.copy(H0).addScaledVector(fw, k + r * s2).addScaledVector(dn, cv - r * c).addScaledVector(ww, wv).applyMatrix4(bmi); mp[i * 3] = q.x; mp[i * 3 + 1] = q.y; mp[i * 3 + 2] = q.z;
     if (mn && nrm) { v.fromBufferAttribute(nrm, i).applyMatrix3(nm3); const nu = v.dot(fw), nv = v.dot(dn), nw = v.dot(ww); q.set(0, 0, 0).addScaledVector(fw, nu * c - nv * s2).addScaledVector(dn, nu * s2 + nv * c).addScaledVector(ww, nw).applyMatrix3(nmi).normalize(); mn[i * 3] = q.x; mn[i * 3 + 1] = q.y; mn[i * 3 + 2] = q.z; } }
   const bi = sk.boneInverses[P.hb], toB = (x) => x.clone().applyMatrix4(bi), C = H0.clone().addScaledVector(fw, k).addScaledVector(dn, cv);
-  const o0 = toB(H0); F.grip[sd] = { C: toB(C), fw: toB(H0.clone().add(fw)).sub(o0).normalize(), dn: toB(H0.clone().add(dn)).sub(o0).normalize() }; // (the handle's centre and the hand's own axes, in the hand bone's space)
+  const o0 = toB(H0); F.grip[sd] = { dbg: [Lh, k, R, vp, cv, list.length, H0.toArray(), fw.toArray(), E0.distanceTo(H0)], C: toB(C), fw: toB(H0.clone().add(fw)).sub(o0).normalize(), dn: toB(H0.clone().add(dn)).sub(o0).normalize() }; // (the handle's centre and the hand's own axes, in the hand bone's space)
 }
 export function attachFpArms(vm, cls) {
   if (!vm || !hasHeroModel(cls) || vm.fpArms) return; vm.fpArms = 'loading'; const D = MODELS[cls];

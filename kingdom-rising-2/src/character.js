@@ -158,7 +158,7 @@ export function loadKit(k) { if (!_kitP[k]) _kitP[k] = (_fbxL = _fbxL || import(
   geo.rotateX(f[0]); geo.rotateY(f[1]); geo.rotateZ(f[2]); geo.scale(f[3], f[3], f[3]); geo.translate(f[4], f[5], f[6]);
   const na = geo.attributes.normal; if (na) { const a = na.array; for (let i = 0; i < a.length; i += 3) { const l = a[i] * a[i] + a[i + 1] * a[i + 1] + a[i + 2] * a[i + 2]; if (!(l > 1e-8)) { a[i] = 0; a[i + 1] = 1; a[i + 2] = 0; } else { const s = 1 / Math.sqrt(l); a[i] *= s; a[i + 1] *= s; a[i + 2] *= s; } } } /* (Meshy normals can be zero-length: the glow pass smears those into black) */
   geo.computeBoundingSphere(); geo.computeBoundingBox();
-  const mt = Array.isArray(src.material) ? src.material[0] : src.material; if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 8; } if (mt.color) mt.color.set('#ffffff'); if (mt.specular) mt.specular.set('#2a2a2a'); mt.shininess = 24;
+  const mt = Array.isArray(src.material) ? src.material[0] : src.material; if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 16; } /* (sharpest filtering: these weapons sit right under your eye in first person) */ if (mt.color) mt.color.set('#ffffff'); if (mt.specular) mt.specular.set('#2a2a2a'); mt.shininess = 24;
   const o = new THREE.Mesh(geo, mt); o.userData.keep = true; o.castShadow = true; const tpl = new THREE.Group(); tpl.name = k + 'Kit'; tpl.add(o); tpl.userData.keep = true; /* (keep: bake() leaves it whole, with its own texture) */
   _kitTpl[k] = tpl; res(tpl); for (const fn of (_kitWait[k] || []).splice(0)) fn(tpl);
 }, undefined, () => res(null)))); return _kitP[k]; }

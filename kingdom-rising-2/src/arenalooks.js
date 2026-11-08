@@ -252,7 +252,7 @@ export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (D
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true; weaponDecor(ch, cls, w); classKit(ch, cls); if (cls === 'necromancer') necroSupport(ch); }
 // the necromancer holds his scythe in both hands: a marker low on the shaft (in the scythe holder's frame) that the hero model's left fist goes to
-function necroSupport(ch) { const h = ch.arms && ch.arms.R && ch.arms.R.grip && ch.arms.R.grip.children.find(c => c.name === 'kit_necro_scythe'); if (!h) return; const m = new THREE.Object3D(); m.name = 'necro_support'; m.position.set(0, -0.4, 0); m.rotation.set(0, Math.PI, 0); h.add(m); ch.hmSupport = m; } // (then each class's detailed weapon models replace the code-built ones as they load)
+function necroSupport(ch) { const h = ch.arms && ch.arms.R && ch.arms.R.grip && ch.arms.R.grip.children.find(c => c.name === 'kit_necro_scythe'); if (!h) return; const m = new THREE.Object3D(); m.name = 'necro_support'; m.position.set(0, 0.22, 0); m.rotation.set(0, Math.PI, 0); h.add(m); ch.hmSupport = m; } // (then each class's detailed weapon models replace the code-built ones as they load)
 function weaponDecor(ch, cls, w) {
   if (/^(druid|enchanter|priest|necromancer|elementalist)$/.test(cls) && w.name === 'weapon_staff') w.userData.restTilt = 'upF'; // (staff, scepter, scythe and orb carried upright at rest, head up, fingers forward, never leaning out like a lance)
   if (cls === 'warrior') { w.scale.multiplyScalar(1.25); if (ch.weapons.off) ch.weapons.off.scale.multiplyScalar(1.45); return; } // (a knight's long sword and a full heater shield on his big frame, not a boy's)

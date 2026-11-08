@@ -353,6 +353,7 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
 // ---------- Humanoid ----------
 // app: { race, sex, cls, outfit, skin, hair, beardCol, hairStyle, beard, height(0.9..1.1), build(-1..1) }
 // kind (for monsters): 'skeleton','troll','imp','golem','tyrant'
+const ARENA_SIZE = { berserker: 1.439, paladin: 1.317, darkknight: 1.317, warrior: 1.195, cleric: 1.171, beastmaster: 1.146, shaman: 1.122, monk: 1.049, wizard: 1.049, necromancer: 1.024, elementalist: 1.0, blunderbuss: 1, ranger: 0.951, rogue: 0.927, bard: 0.951, druid: 0.951, enchanter: 0.951, priest: 0.951, musketeer: 1, bombardier: 1 }; /* (body, camera and reach follow the class's model size: berserker biggest, goblins smallest; goblins already get a small body from their race) */
 export function buildHumanoid(app = {}) {
   const race = RACES[app.race || 'human'] || RACES.human;
   const kind = app.kind || 'person';
@@ -380,7 +381,7 @@ export function buildHumanoid(app = {}) {
   if (kind === 'tyrant') { R.sw = 0.3; R.hw = 0.14; R.thick = 1.6; R.head = 1.05; R.armL = 0.66; }
 
   const root = new THREE.Group(); root.name = 'humanoid';
-  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? 1.5625 : 1); // (the arena classes stand a quarter bigger, then a quarter again)
+  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? 1.5625 * (ARENA_SIZE[app.cls] || 1) : 1); // (the arena classes stand a quarter bigger, then a quarter again; each class its own size)
   const body = new THREE.Group(); body.scale.setScalar(scale); root.add(body);
   const O = kind === 'person' ? outfitSpec(app) : {};
 

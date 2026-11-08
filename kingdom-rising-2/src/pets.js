@@ -165,7 +165,8 @@ function petUpdate(dt) {
     else if (dP > 45) { const a = Math.random() * 6.28; this.pos.set(P.pos.x + Math.cos(a) * 3, 0, P.pos.z + Math.sin(a) * 3); this.roam = null; }
     this.roamT = (this.roamT || 0) - dt;
     const roamOk = this.anchor || (this.roam && Math.hypot(this.roam.x - P.pos.x, this.roam.z - P.pos.z) < (PETS.mode === 'follow' ? 4 : 7));
-    if (!roamOk || (this.roamT <= 0 && dP < 9)) { const a = Math.random() * 6.28, r = 2.5 + Math.random() * 3.5; this.roam = new THREE.Vector3(P.pos.x + Math.cos(a) * r, 0, P.pos.z + Math.sin(a) * r); this.roamT = 4 + Math.random() * 6; }
+    const fy = P.yaw || 0, behind = this.roam && ((this.roam.x - P.pos.x) * Math.sin(fy) + (this.roam.z - P.pos.z) * Math.cos(fy)) < -0.5; /* (a spot behind you is between you and your camera: a glowing elemental there blinds the view) */
+    if (!roamOk || behind || (this.roamT <= 0 && dP < 9)) { const a = fy + (Math.random() - 0.5) * 3.0, r = 3 + Math.random() * 3.5; this.roam = new THREE.Vector3(P.pos.x + Math.sin(a) * r, 0, P.pos.z + Math.cos(a) * r); this.roamT = 4 + Math.random() * 6; } /* (it ambles about in front of you and to the sides, where you can see it) */
     const d = Math.hypot(this.roam.x - this.pos.x, this.roam.z - this.pos.z);
     if (d > 0.5) { want = this.roam; speed = dP > 9 ? D.speed : Math.min(D.speed * 0.45, 1.2 + d * 0.5); }
     if (want) this.faceTo(want, dt, 6);

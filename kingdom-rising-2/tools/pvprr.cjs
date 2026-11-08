@@ -22,7 +22,7 @@ const ROUNDS = +(process.argv[2] || 3), OUT = process.argv[3] || 'pvprr.json', C
   for (const [A, B] of pairs) {
     if (done.has(A + ':' + B)) continue; const t0 = Date.now(); let r;
     for (let tries = 0; tries < 3 && !r; tries++) { try {
-      if (nPairs && nPairs % 25 === 0) await boot(); // (a fresh page now and then: memory)
+      if (nPairs && nPairs % (+process.env.EVERY || 12) === 0) await boot(); // (a fresh page now and then: memory)
       r = await p.evaluate(async ([A, B, ROUNDS, CAP]) => { const Ar = await import('./src/arena.js'); const Aa = Ar.A, G = KR2.G, P = G.player;
         const hide = () => { P.stealth = 1e6; P.ultImmT = 1e6; P.hp = P.maxHp; P.dead = false; P.place(0, -96, 0); };
         const bots = Aa.F.filter(f => !f.you), out = [];
@@ -34,11 +34,15 @@ const ROUNDS = +(process.argv[2] || 3), OUT = process.argv[3] || 'pvprr.json', C
           for (const f of bots) { const h = f.bot.h; h.ultCharge = 0; h.arenaPerks = {}; f.pp = 5; Ar.recomputePK(h); f.bot.recalc(); f.bot.hp = f.bot.maxHp; f.bot.buffs = {}; f.bot.dots = []; f.bot.hots = []; for (const k in f.bot.cd) f.bot.cd[k] = Math.random() * 2; }
           Aa.target = 1e9; Aa.timeLimit = Infinity; Aa.t = 0.1; hide(); KR2.sim(0.3); Aa.perkClock = 9.9; // (perk tick right away: 6 points)
           let t = 0, k0 = bots.map(f => f.kills), dmg0 = bots.map(f => f.dmg); let w = -1;
-          while (t < CAP) { hide(); KR2.sim(0.5); t += 0.5; const kk = bots.map((f, i) => f.kills - k0[i]); if (kk[0] || kk[1]) { w = kk[0] && kk[1] ? -1 : kk[0] ? 0 : 1; break; } if (bots[0].bot.dead && bots[1].bot.dead) break; }
+          const trail = []; let met = false;
+          while (t < CAP) { hide(); KR2.sim(0.5); t += 0.5; trail.push(bots[0].bot.pos.clone());
+            // no contact yet after 10 s: put the second fighter where the first one stood 3 s ago (walkable ground, ~10-15 m away)
+            if (!met) { const d = bots[0].bot.pos.distanceTo(bots[1].bot.pos); if (d < 18 || bots[0].dmg > dmg0[0] || bots[1].dmg > dmg0[1]) met = true; else if (t >= 10 && t % 5 === 0) { const q = trail[Math.max(0, trail.length - 7)]; bots[1].bot.pos.copy(q); met = true; } } const kk = bots.map((f, i) => f.kills - k0[i]); if (kk[0] || kk[1]) { w = kk[0] && kk[1] ? -1 : kk[0] ? 0 : 1; break; } if (bots[0].bot.dead && bots[1].bot.dead) break; }
           const ia = sw ? 1 : 0, ib = 1 - ia, fa = bots[ia], fb = bots[ib];
           out.push({ w: w < 0 ? -1 : w === ia ? 0 : 1, sw, t, hpA: Math.round(Math.max(0, fa.bot.hp) / fa.bot.maxHp * 100), hpB: Math.round(Math.max(0, fb.bot.hp) / fb.bot.maxHp * 100), maxA: fa.bot.maxHp, maxB: fb.bot.maxHp, dA: Math.round(fa.dmg - dmg0[ia]), dB: Math.round(fb.dmg - dmg0[ib]) });
         }
-        return out; }, [A, B, ROUNDS, CAP]);
+        out.mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : 0; out.n = { mobs: G.mobs.length, scene: G.scene.children.length, timers: G.timers.length, shots: Aa.shots.length }; return { out, mem: out.mem, n: out.n }; }, [A, B, ROUNDS, CAP]);
+      if (r) { console.log('mem', r.mem, JSON.stringify(r.n)); r = r.out; }
     } catch (e) { console.log('retry', A, B, e.message.slice(0, 200)); await relaunch(); } }
     if (!r) continue; nPairs++;
     res.push({ a: A, b: B, rounds: r }); fs.writeFileSync(OUT, JSON.stringify(res));

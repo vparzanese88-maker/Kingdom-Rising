@@ -426,7 +426,7 @@ class ViewModel {
     const F = this.fpArms && this.fpArms !== 'loading' ? this.fpArms : null, mk = F && this.gun && this.wt === 'musket' && this.gun.visible !== false && !st.tool; if (F) { F.reach = mk ? 1.65 + 0.2 * (this.gunK || 0) : 1.35; if (!F.wrap0) F.wrap0 = F.wrap.position.clone(); F.wrap.position.copy(F.wrap0); if (mk) F.wrap.position.z -= 0.14; } /* (a musket is long: the arms a little longer and the shoulders forward, out of sight below the view, so both hands reach it) */
     if (mk) gunHands(this, F); /* (both hands on the musket: right round the wrist of the stock at the trigger, left cradling the fore-end) */
     if (this.fpArms) tickFpArms(this); // (a class with a 3D model: its own arms in first person)
-    if (mk) for (const nm of ['LeftHand', 'RightHand']) if (F.B[nm] && !(F.code && F.code[nm === 'LeftHand' ? 'Left' : 'Right'])) F.B[nm].scale.setScalar((F.D.fpHand || 1.15) * 1.35 / F.reach); /* (the hands stay their own size) */
+    if (mk) for (const nm of ['LeftHand', 'RightHand']) if (F.B[nm] && !(F.code && F.code[nm === 'LeftHand' ? 'Left' : 'Right'])) F.B[nm].scale.setScalar((F.D.fpHand || 1.15) * 1.35 / F.reach * (nm === 'RightHand' ? 1 - 0.75 * (this.gunK || 0) : 1)); /* (aimed, the trigger hand tucks away under the stock so it never blocks the sights) */ /* (the hands stay their own size) */
   }
 }
 

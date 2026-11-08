@@ -129,9 +129,9 @@ const PI = Math.PI, KIT = {
   ranger_bow: { f: [0, -PI / 2, 0, 0.017, 0, 0, 0.094], cut: (g) => keepTris(g, (x, y) => !(x > 8.3 && Math.abs(y) < 38)), str: [0.646, 0.252] }, /* (riser at the origin, string toward +z; its own string is cut out so the code string, which draws, takes its place) */
   shaman_spear: { f: [0, 0, 0, 0.0244, 0, 0.76, 0], tip: 1.9 }, /* (butt at -0.4, feathered head at 1.6-1.92: the code spear) */
   shaman_doll: { f: [0, 0, 0, 0.0032, 0, 0.038, 0], tp: [0, 0, 0, -PI / 2, 0, 0], fp: [0.0, 0.02, -0.02, -0.25, 0.3, 0] }, /* (held round the belly, upright, face forward) */
-  priest_scepter: { f: [0, 0, 0, 0.0116, 0, 0.674, 0], tip: 1.02 }, /* (fist on the shaft under the cross; the cross where the staff's orb was) */
+  priest_scepter: { f: [0, 0, 0, 0.0116, 0, 0.674, 0], tip: 1.02, tpf: [0, 0, 0, 0.55, 0, -0.12, 0] }, /* (the CLERIC's holy scepter (the file name is the owner's): a one-hander in her fist a quarter of the way up, the cross on top) */ /* (fist on the shaft under the cross; the cross where the staff's orb was) */
   priest_censer: { f: [0, 0, 0, 0.0047, 0, -0.202, 0], tp: [0, 0, 0, -PI / 2, 0, 0], fp: [0, 0.0, 0.0, -0.5, 0, 0], dangle: true }, /* (hung from its ring in the fist) */
-  cleric_hammer: { f: [0, 0, 0, 0.0095, 0, 0.2375, 0] }, /* (one-handed: the winged head at 0.5-0.69, a little over the code mace) */
+  cleric_hammer: { f: [0, 0, 0, 0.0095, 0, 0.2375, 0], tpf: [0, 0, 0, 1.4] }, /* (really the PALADIN's two-handed winged hammer: in third person a long haft below the fist for the second hand, the head at 0.7-1.0) */ /* (one-handed: the winged head at 0.5-0.69, a little over the code mace) */
   cleric_shield: { f: [0, 0, 0, 0.011, 0, -0.1, 0.03], fpf: [0, PI, 0] }, /* (first person: the cross face outward, toward the enemy) */ /* (cross face +z, point down, like the code kite) */
   druid_staff: { f: [0, 0, 0, 0.0195, 0, 0.526, 0], tip: 1.31 }, /* (foot at -0.4 like the code staff, the glowing seed at the top) */
   ench_staff: { f: [0, 0, 0, 0.0185, 0, 0.479, 0], tip: 1.3 },
@@ -146,7 +146,7 @@ const PI = Math.PI, KIT = {
 };
 // which class carries what: main / off replace that code-built weapon (when it is the one named), L / R are new things held in that fist
 const CLASS_KIT = { warrior: { main: ['sword', 'warrior_sword'], off: ['shield', 'warrior_shield'] }, darkknight: { main: ['greatsword', 'darkknight_sword'] }, berserker: { main: ['greataxe', 'bers_axe'] },
-  ranger: { main: ['bow', 'ranger_bow'] }, shaman: { main: ['spear', 'shaman_spear'], L: 'shaman_doll' }, priest: { main: ['staff', 'priest_scepter'], L: 'priest_censer' }, cleric: { main: ['mace', 'cleric_hammer'], off: ['shield', 'cleric_shield'] },
+  ranger: { main: ['bow', 'ranger_bow'] }, shaman: { main: ['spear', 'shaman_spear'], L: 'shaman_doll' }, priest: { L: 'priest_censer' }, cleric: { main: ['mace', 'priest_scepter'], off: ['shield', 'cleric_shield'] }, paladin: { main: ['greatsword', 'cleric_hammer'] },
   druid: { main: ['staff', 'druid_staff'] }, enchanter: { main: ['staff', 'ench_staff'] }, elementalist: { main: ['staff', 'ele_orb'] }, rogue: { main: ['dagger', 'rogue_dagger'], off: ['dagger', 'rogue_dagger'] },
   necromancer: { R: 'necro_scythe' }, bombardier: { belt: 'bomb_detonator' } }; /* (the wizard's book, the bombardier's grenade, the bard's lute and the beastmaster's claws replace code-built pieces in arenalooks.js / player.js) */
 function keepTris(g, ok) { const p = g.attributes.position, n = p.count / 3, keep = []; for (let t = 0; t < n; t++) { let all = true; for (let j = 0; j < 3; j++) if (ok(p.getX(t * 3 + j), p.getY(t * 3 + j))) { all = false; break; } if (!all) keep.push(t); }

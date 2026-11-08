@@ -43,7 +43,7 @@ const MODELS = {
       charged: ['charged', 0.15, 1.7, 0.85], counter: ['counter', 4.8, 6.35, 5.8],
       fury: ['punchB', 0.45, 1.5, 0, 0, 0, true], kick: ['risekick', 0.05, 1.45, 0.5], /* (a leaping side kick, the leg driven out flat: much cleaner than the old flailing one) */ flykick: ['jump', 1.4, 3.5, 0, true, 1.1], superman: ['thrust', 0.15, 1.4, 0, true, 0.75], flip: ['dodge', 0.1, 1.25, 0, true],
       dead: ['dead', 0, 2.95, 0, true], cheer: ['cheer', 0.2, 6.0, 0, true] },
-    combo: ['jab', 'cross', 'hook', 'upper', 'spin', 'jab', 'slam'], finisher: ['charged', 'counter'], idleClip: 'stance', noGrip: true, fpHand: 1.0 }, // (the owner's new monk moves: punch combos, spinning strike, ground slam; charged palm and counterstrike finish a combo; fighting stance at rest, a real death fall, a cheer when the arena is won)
+    combo: ['jab', 'cross', 'hook', 'upper', 'spin', 'jab', 'slam'], finisher: ['charged', 'counter'], idleClip: 'stance', idleHold: 0.4, noGrip: true, fpHand: 1.0 }, // (the owner's new monk moves: punch combos, spinning strike, ground slam; charged palm and counterstrike finish a combo; fighting stance at rest, a real death fall, a cheer when the arena is won)
 };
 export const heroHeight = (cls) => (MODELS[cls] ? MODELS[cls].height * HERO_SIZE : 2.6); /* (how tall a class stands in the world) */
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
@@ -224,7 +224,7 @@ export function tickHeroModel(ch, dt) {
   if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)
   const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
   reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run' && k !== 'back') H.act[k].setEffectiveWeight(0);
-  const stA = H.D.idleClip && H.act[H.D.idleClip]; if (stA) { stA.paused = false; stA.setEffectiveWeight(H.w.idle); } /* (standing still: his own recorded fighting stance, looping) */
+  const stA = H.D.idleClip && H.act[H.D.idleClip]; if (stA) { if (H.D.idleHold != null) { stA.paused = true; stA.time = H.D.idleHold; } else stA.paused = false; stA.setEffectiveWeight(H.w.idle); } /* (idleHold: stand still in one frame of the stance instead of looping it) */ /* (standing still: his own recorded fighting stance, looping) */
   forceMix(H.mixer); H.mixer.update(dt); H.t += dt; const B = H.bones;
   if (B.Hips && H.heavy > 0) { const hy = B.Hips.position.y; H.hipAvg = H.hipAvg == null ? hy : H.hipAvg + (hy - H.hipAvg) * Math.min(1, dt * 2.5); B.Hips.position.y = H.hipAvg + (hy - H.hipAvg) * (1 - 0.7 * H.heavy * Math.min(1, H.w.run + H.w.walk)); } /* (a heavy hero's hips barely rise and fall: weight, not bounce) */
   H.mw = (H.mw || 0) + ((mvK ? 1 : 0) - (H.mw || 0)) * Math.min(1, dt * (mvK ? 30 : 9)); // (snaps into an attack, eases back out of it)

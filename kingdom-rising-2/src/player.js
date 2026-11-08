@@ -111,6 +111,7 @@ const VP = {
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
 if (typeof window !== 'undefined') window.KR2_VP = VP; /* (tuning hook: poses can be adjusted live from the console) */
+const _wv = new THREE.Vector3(), _wq = new THREE.Quaternion(), _wy = new THREE.Vector3(0, 1, 0);
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
@@ -291,7 +292,11 @@ class ViewModel {
   }
   setTool(tool, tier) { if (this.tool) { this.tool.parent.remove(this.tool); this.tool = null; } for (const k in this.weapons) this.weapons[k].visible = !tool; if (tool) { this.tool = makeWeapon(tool, tier); this.R.add(this.tool); this.tool.traverse(o => { if (o.isMesh) o.castShadow = false; }); } }
   apply(H, p) { H.position.set(p[0], p[1], p[2]); H.rotation.set(p[3], p[4], p[5]); }
-  glueL(d) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -d, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; } // (the left hand d further down the right hand's handle)
+  glueL(d, wrap) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -d, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; if (wrap) this.wrapL(); } // (the left hand d further down the right hand's handle)
+  // a support hand on a two-handed grip wraps the handle from the side its own forearm comes from (the left shoulder), turned round the handle to face it:
+  // copying the right hand's angle as it is put the left palm on the far side of the hilt at one end of a swing, the wrist rolled over 180 degrees
+  wrapL() { const q = this.L.quaternion, d = _wv.set(-0.3, -0.45, 0.1).sub(this.L.position).applyQuaternion(_wq.copy(q).invert()); /* (the shoulder, in the hand's own frame) */
+    if (d.x * d.x + d.z * d.z < 1e-6) return; const th = Math.atan2(d.z, -d.x); q.multiply(_wq.setFromAxisAngle(_wy, th)); this.L.rotation.setFromQuaternion(q, 'YXZ'); } /* (turned about the handle so the palm, on its -x side, faces the shoulder) */
   update(dt, st) {
     const W = this.W, act = st.act;
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
@@ -394,7 +399,7 @@ class ViewModel {
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);
     if (this.necro && this.weapons.heldR && !st.tool) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -VP.necroGap, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; } /* (the necromancer's left hand low on the scythe's shaft, near the bottom of the view) */
-    else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
+    else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14, true);
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
     // bob & sway: arms swing with each stride, harder and faster when sprinting
     this.bob += dt * st.speed * 1.75;
@@ -405,7 +410,7 @@ class ViewModel {
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.x -= spread; this.L.position.y -= spread * 0.6; this.L.rotation.z += spread * 1.2; }
     this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 1.6; this.R.rotation.z += Math.sin(ph) * amp * 0.5; this.R.rotation.x += Math.cos(ph) * amp * 2.2;
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 1.6; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * 2.2; }
-    if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
+    if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14, true); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     if (this.eleOrb) { const o = this.eleOrb, gl = o.userData.glb; if (gl && !o.userData.c0) { o.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(gl), c = bx.getCenter(new THREE.Vector3()); o.userData.c0 = o.worldToLocal(c); }

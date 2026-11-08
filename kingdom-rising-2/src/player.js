@@ -99,6 +99,7 @@ const VP = {
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   jabA: P(0.26, -0.19, -0.36, -1.25, -0.15, -0.5), jabB: P(0.035, -0.115, -0.42, -1.55, 0, 0.05), /* (the guard up by the chin, knuckles turned in; the jab lands under the crosshair, knuckles flat) */ guardR: P(0.26, -0.19, -0.36, -1.25, -0.15, -0.5), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
+  necroScy: P(0.3, -0.06, -0.5, -0.25, 0, -0.28), necroScyA: P(0.42, 0.0, -0.42, -0.1, 0.5, -0.75), necroScyB: P(-0.22, -0.2, -0.55, -0.45, -0.6, 0.85), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -272,9 +273,7 @@ class ViewModel {
       const sk = makeFearSkull(true); sk.scale.setScalar(0.26); sk.position.set(0.01, 0.06, 0.0); sk.rotation.set(-0.15, Math.PI * 0.35, 0); /* (turned three-quarters toward you so you see its face) */ sk.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; o.visible = false; } }); /* (not drawn any more: it only marks where Soul Rend pours from) */ this.L.add(sk); this.weapons.skullL = sk;
       const tip = new THREE.Object3D(); tip.position.set(0, -0.17, 0.2); sk.add(tip); this.headMouth = tip;
       const fl = new THREE.Object3D(); fl.position.set(0, 0.03, -0.04); this.R.add(fl); this.weapons.flame = fl; // (where his spells leave the hand: no orb any more)
-      const wound = new THREE.MeshBasicMaterial({ color: '#5aff3a', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
-      for (const [x, y, z, r] of [[0.012, 0.02, 0.028, 0.5], [-0.016, 0.0, 0.026, -0.3], [0.004, -0.03, 0.022, 0.15]]) { const cut = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), wound); cut.scale.set(0.6, 2.8, 0.4); cut.position.set(x, y, z); cut.rotation.z = r; this.R.add(cut); } // (glowing gashes on the back of the hand)
-      const dm = new THREE.MeshBasicMaterial({ color: '#4cff2a', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); this.drips = []; for (let i = 0; i < 9; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8), dm.clone()); d.visible = false; d.scale.set(0.8, 1.5, 0.8); this.g.add(d); this.drips.push({ m: d, life: 0, v: new THREE.Vector3() }); } }
+      /* (no glowing gashes or poison drips on his hand any more: both hands hold the scythe) */ }
     this.g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
     this.W = W;
   }
@@ -288,7 +287,8 @@ class ViewModel {
     if (this.bomber && r === VP.staff) r = VP.necroR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = mirror(VP.bookL); } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
-    if (this.necro) { if (r === VP.staff || r === VP.staffCast) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; if (act && /^(cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroR, VP.necroPush, act.t, 0.18, VP.necroR); } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
+    if (this.necro && this.weapons.heldR) { r = VP.necroScy; l = VP.necroL; if (act && /^(scythe|reap|swing|slash|cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroScyA, VP.necroScyB, act.t, 0.3, VP.necroScy); } /* (both hands on the scythe; any swing or cast is a right-to-left reap) */
+    else if (this.necro) { if (r === VP.staff || r === VP.staffCast) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; if (act && /^(cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroR, VP.necroPush, act.t, 0.18, VP.necroR); } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     if (this.rogueOff && (!l || l === VP.hideL)) l = VP.restL; /* (the rogue: a dagger in each hand) */
     const t = act ? act.t : 0; let n = act ? act.name : ''; if (this.rogueOff && n === 'stabR') { if (act !== this._altAct) { this._altAct = act; this._alt = !this._alt; } if (this._alt) n = 'stabL'; } /* (his stabs alternate hands) */
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
@@ -372,7 +372,8 @@ class ViewModel {
     }
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);
-    if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
+    if (this.necro && this.weapons.heldR && !st.tool) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.46, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; } /* (the necromancer's left hand low on the scythe's shaft, near the bottom of the view) */
+    else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) { this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -0.14, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; }
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
     // bob & sway: arms swing with each stride, harder and faster when sprinting
     this.bob += dt * st.speed * 1.75;

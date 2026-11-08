@@ -252,6 +252,7 @@ export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (D
 export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true; weaponDecor(ch, cls, w); classKit(ch, cls); } // (then each class's detailed weapon models replace the code-built ones as they load)
 function weaponDecor(ch, cls, w) {
+  if (cls === 'warrior') { w.scale.multiplyScalar(1.25); if (ch.weapons.off) ch.weapons.off.scale.multiplyScalar(1.45); return; } // (a knight's long sword and a full heater shield on his big frame, not a boy's)
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); return; } // (goblin-made guns)
   if (cls === 'beastmaster') { for (const k of ['main', 'off']) { const o = ch.weapons[k]; if (o) for (const c of [...o.children]) o.remove(c); } for (const sd of ['R', 'L']) { const c2 = makeClaws(0.5); c2.name = 'claws'; c2.rotation.x = Math.PI / 2; c2.position.set(0, 0.005, 0); if (sd === 'L') c2.scale.x = -1; ch.arms[sd].grip.add(c2); kitize(c2, 'beast_claw'); } return; } // (bear-claw gauntlets on both fists, the claws in line with the forearm; held in the grip so they move onto the hero model's hands)
   if (cls === 'bard') { // a lute: he clubs people with it, and plays it once he has learnt his songs
@@ -288,7 +289,14 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
 // the same ratio and keep their size against him: a giant's great axe stays great, the little goblin's bomb stays fist-sized
 // the socket sits in the closed fist, where a grip goes (between the palm and the curled fingers), not at the wrist joint the hand bone turns on
 function palm(so) { const hb = so.parent; if (so.userData.mid === undefined) { let m = null; hb.traverse(o => { if (!m && o !== hb && o.isBone && /Middle1$|Middle_?01$/i.test(o.name)) m = o; }); if (!m) hb.traverse(o => { if (!m && o !== hb && o.isBone && /Index1$|Index_?01$/i.test(o.name)) m = o; }); so.userData.mid = m; }
-  const m = so.userData.mid; if (!m) return; m.updateWorldMatrix(true, false); hb.getWorldPosition(_ga); m.getWorldPosition(_gb); _ga.lerp(_gb, 0.85); so.position.copy(hb.worldToLocal(_ga)); }
+  const m = so.userData.mid; if (!m) { const pl = so.userData.palmL === undefined ? (so.userData.palmL = skinPalm(hb)) : so.userData.palmL; if (pl) so.position.copy(pl); return; } m.updateWorldMatrix(true, false); hb.getWorldPosition(_ga); m.getWorldPosition(_gb); _ga.lerp(_gb, 0.85); so.position.copy(hb.worldToLocal(_ga)); }
+// a rig with no finger bones (the Meshy heroes): the middle of the hand is the average of the skin the hand bone moves, in its rest pose,
+// in the hand bone's own frame (worked out once per model and hand)
+function skinPalm(hb) { let sk = null; for (let r = hb, n = 0; r && !sk && n < 40; r = r.parent, n++) { if (r.isBone) continue; r.traverse(o => { if (!sk && o.isSkinnedMesh && o.skeleton && o.skeleton.bones.includes(hb)) sk = o; }); }
+  if (!sk) return null; const g = sk.geometry, C = (g.userData.palm = g.userData.palm || {}); if (C[hb.name] !== undefined) return C[hb.name]; const bi = sk.skeleton.bones.indexOf(hb), P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight; if (!P || !SI || !SW) return (C[hb.name] = null);
+  const mt = new THREE.Matrix4().multiplyMatrices(sk.skeleton.boneInverses[bi], sk.bindMatrix), v = new THREE.Vector3(), sum = new THREE.Vector3(); let n = 0;
+  for (let i = 0; i < P.count; i++) { let best = -1, bw = 0; for (let j = 0; j < 4; j++) { const w = SW.getComponent(i, j); if (w > bw) { bw = w; best = SI.getComponent(i, j); } } if (best !== bi || bw < 0.5) continue; sum.add(v.fromBufferAttribute(P, i).applyMatrix4(mt)); n++; }
+  return (C[hb.name] = n > 8 ? sum.multiplyScalar(1 / n) : null); }
 export function heldScale(ch) { const cls = ch.app && (ch.app.cls || ch.app.outfit); return ch.height > 0 && cls ? (ch.scale || 1) * heroHeight(cls) / ch.height : 1; }
 // at rest and on the run a held weapon has its own carry, laid in a frame: x his right, z his front, y down (a "body" carry ignores the arm;
 // a "fore" carry rides the forearm, y running from elbow to hand, so a sword or a strapped-on shield swings with it). Each entry gives the

@@ -86,3 +86,7 @@ From the balance tester's report (duels and Training Yard dummies, timers on gam
 - Rogue Assassinate: the base description still said "A killing blow"; it now says what it does (below half health they die; anyone else loses 45% of their health and is silenced for 2 s).
 - ARENA_TUNE: druid dmg 1 -> 1.4, bombardier hp 1.35 -> 1.4 and dmg 1.6 -> 1.75, priest dmg 1 -> 1.1, monk dmg 1 -> 0.82 (dummy single-target 9,330 -> about 7,650).
 - Seen, not changed: computer healers never cast their right-click heal (abilities of type `mend`: Mending Chord, Living Vine, Divine Light, Flash of Dawn, Healing Stream), because the bot's heal list only takes `heal` and `hot`. Turning it on would change every healer's duels, so it wants its own test run.
+- Musketeer: the goblin's hands drawn at a sensible size in first person and the trigger hand tucks under the stock when aiming, so the barrel and sights are clear down the aim-down-sights view (no more giant green fist). scratchpad/fpa/d45_musketeer_idle.png, d45_musketeer_aim.png
+- Ranger (code change, not yet re-captured): a hero always has an arrow nocked and pointing at the target, so the drawing hand no longer pops in as an open palm; aiming draws the string back.
+- Blunderbuss (code change, not yet re-captured): held level at the hip instead of tipped up; abilities keep the gun in both hands.
+- Cleric: shield face outward toward the enemy in first person (owner's rule for every shield).

@@ -113,6 +113,28 @@ if (typeof window !== 'undefined') window.KR2_VP = VP; /* (tuning hook: poses ca
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
+// hero first-person attack motions: keyframed poses over the action time (wind-up held, a fast strike through the target, a follow-through, then home)
+function kf(t, K) { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const a = K[i - 1], b = K[i], u = (t - a[0]) / Math.max(1e-4, b[0] - a[0]); return plerp(a[1], b[1], (b[2] || ease)(u)); } return K[K.length - 1][1]; }
+const rot = (p, dx, dy, dz) => [p[0], p[1], p[2], p[3] + dx, p[4] + dy, p[5] + dz];
+const lin = (u) => u;
+const HM = { /* (right-hand poses; the left hand uses mirror()) */
+  // one-handed sword: forehand (wind out high right, cut across to low left), backhand (low left up to high right), overhead (raised behind the head, down through the crosshair)
+  fhA: P(0.62, 0.12, -0.22, -1.05, -1.45, 0.55), fhM: P(0.08, -0.12, -0.62, -1.4, 0.05, 0.4), fhB: P(-0.5, -0.38, -0.42, -1.35, 1.45, 0.3),
+  bhA: P(-0.42, -0.45, -0.32, -1.75, 1.25, -0.65), bhM: P(0.05, -0.2, -0.62, -1.45, 0, -0.55), bhB: P(0.6, 0.12, -0.42, -1.0, -1.4, -0.6),
+  ovA: P(0.24, 0.4, -0.12, 0.75, 0, -0.12), ovM: P(0.1, -0.05, -0.62, -1.3, 0, -0.04), ovB: P(0.04, -0.6, -0.55, -2.25, 0, 0),
+  // two-handed overhead chop (the left hand rides the haft): raised high over the right shoulder, slammed down through the crosshair, buried low
+  chA: P(0.3, 0.42, -0.08, 0.95, -0.2, -0.4), chM: P(0.08, -0.1, -0.6, -1.25, 0, -0.05), chB: P(-0.02, -0.66, -0.55, -2.25, 0.15, 0.15),
+  // two-handed diagonal cleave: high right to low left
+  clA: P(0.62, 0.3, -0.18, -0.55, -1.25, -0.95), clM: P(0.1, -0.15, -0.62, -1.3, 0, -0.3), clB: P(-0.48, -0.52, -0.48, -1.6, 1.25, 0.6),
+  // claws: the arm thrown out wide to the right and back, then raked across the whole view to low left
+  cwA: P(0.62, -0.02, -0.26), cwM: P(0.08, -0.24, -0.66), cwB: P(-0.42, -0.42, -0.46),
+  // dagger: cocked back by the hip, snapped out to the crosshair; and a short backhand slash
+  dgA: P(0.32, -0.34, -0.22, -1.0, 0.12, -0.35), dgB: P(0.06, -0.15, -0.8, -1.52, 0.04, -0.1),
+  dsA: P(0.5, -0.02, -0.3, -1.2, -1.0, 0.4), dsB: P(-0.32, -0.34, -0.52, -1.35, 1.1, 0.3),
+};
+// a swing: home -> wind-up (eased, then held a beat) -> strike through the middle (fast) -> follow-through -> home
+function swingK(t, home, A, M, B, w = 0.28) { return kf(t, [[0, home], [w, A], [w + 0.08, A], [w + 0.16, M, easeIn], [w + 0.26, B, easeOut], [0.74, B], [1, home]]); }
+function stabK(t, home, A, B) { return kf(t, [[0, home], [0.2, A], [0.26, A], [0.36, B, easeOut], [0.55, B], [1, home]]); }
 
 // a detailed gripping hand: palm, four curled fingers, thumb, knuckles, class glove and cuff
 // what each class wears on its hands and forearms in first person
@@ -371,6 +393,32 @@ class ViewModel {
       if ((!act || n === 'castUp') && !st.block) { const k = n === 'castUp' ? Math.sin(Math.min(1, t) * Math.PI) * 0.6 : 0; r = plerp(R0, RB, k); l = mirror(r); if (this.weapons.main) this.weapons.main.visible = true; } /* (an ability: both daggers kept in hand, drawn back a little) */
       else if (act && /^(stab|swing|off|thrust|lowcut|sweep|heavy|smash)/.test(n)) { if (!(t >= (this._rgT || 0))) this._rgS = !this._rgS; this._rgT = t; const S2 = seq(RB, RS, t, 0.25, R0); r = R0; l = mirror(R0); if (this._rgS) l = mirror(S2); else r = S2; } }
     if (this.book && this.bookR && !st.tool && act && /^(cast|spell|chargeCast|castBig|castRel|shoot|release)/.test(n)) r = seq(VP.bookCast, VP.bookCast, t, 0.25, VP.bookR); /* (casting: the open book pushed out toward the target) */
+    if (this.hero && !st.tool && !st.block && act && !this.bomber && !this.necro) { const c = this.cls, wt = this.wt, ab = n === 'castUp', t1 = Math.min(1, t); /* (hero first-person attack and ability motions) */
+      if (n !== this._hmName || t < (this._hmT || 0) - 1e-4) { this._hmName = n; if (!ab) this._hmN = (this._hmN || 0) + 1; } this._hmT = t; /* (a new action: its name changed or its clock restarted) */
+      const odd = (this._hmN || 0) % 2 === 1;
+      if (c === 'beastmaster' && W && W.kind === 'melee') { /* (wide claw rakes, the hands alternating: the right sweeps across to the left, then the left back across to the right) */
+        const R0 = VP.beastR, sw = (h) => { const P0 = h === 1 ? R0 : mirror(R0), sgn = h; const A = [HM.cwA[0] * sgn, HM.cwA[1], HM.cwA[2]], M = [HM.cwM[0] * sgn, HM.cwM[1], HM.cwM[2]], B = [HM.cwB[0] * sgn, HM.cwB[1], HM.cwB[2]];
+          const pos = swingK(t1, P0.slice(0, 3), A, M, B, 0.24), q = swingK(t1, [0, 0, 0], [0.25, -0.6 * sgn, 0.35 * sgn], [0, 0, 0], [-0.35, 0.65 * sgn, -0.3 * sgn], 0.24); return [pos[0], pos[1], pos[2], P0[3] + q[0], P0[4] + q[1], P0[5] + q[2]]; };
+        if (ab) { const k = kf(t1, [[0, 0], [0.35, 1], [0.6, 1], [1, 0]]); r = plerp(R0, P(0.4, -0.05, -0.3, -0.5, 1.6, -1.4), k); l = mirror(plerp(R0, P(0.4, -0.05, -0.3, -0.5, 1.6, -1.4), k)); } /* (an ability: both claws flung up and out, a roar) */
+        else if (odd) { r = sw(1); l = mirror(R0); } else { l = sw(-1); r = R0; } }
+      else if (c === 'rogue' && W && W.kind === 'melee') { /* (alternating daggers: right stab, left slash, right slash, left stab) */
+        const R0 = VP.rogR, m4 = (this._hmN || 0) % 4, slash = m4 === 2 || m4 === 3, right = odd;
+        const one = slash ? swingK(t1, R0, HM.dsA, plerp(HM.dsA, HM.dsB, 0.5), HM.dsB, 0.2) : stabK(t1, R0, HM.dgA, HM.dgB);
+        if (ab) { const k = kf(t1, [[0, 0], [0.3, 1], [0.65, 1], [1, 0]]); r = plerp(R0, P(0.3, -0.12, -0.3, -0.4, 0.3, -1.2), k); l = mirror(r); } /* (an ability: both blades flipped back along the forearms, ready) */
+        else if (right) { r = one; l = mirror(R0); } else { l = mirror(one); r = R0; } }
+      else if (W && W.kind === 'melee' && W.hands !== 'two' && wt !== 'spear' && wt !== 'fists' && !ab) { /* (one-handed sword or mace: forehand, backhand, overhead) */
+        const home = r, m3 = n === 'swing3' || n === 'heavy' || n === 'smash' ? 2 : n === 'swing2' || n === 'off2' || n === 'lowcut' ? 1 : n === 'swing1' || n === 'sweep' || n === 'off1' ? 0 : -1;
+        if (m3 >= 0) { r = m3 === 0 ? swingK(t1, VP.rest, HM.fhA, HM.fhM, HM.fhB) : m3 === 1 ? swingK(t1, VP.rest, HM.bhA, HM.bhM, HM.bhB) : swingK(t1, VP.rest, HM.ovA, HM.ovM, HM.ovB, 0.34);
+          if (W.hands === 'shield') { const k = kf(t1, [[0, 0], [0.3, 1], [0.7, 1], [1, 0]]); l = plerp(VP.shieldRest, P(-0.6, -0.7, -0.45, 0.35, 0.75, 0.2), k * (m3 === 1 ? 0.4 : 1)); } } else r = home; }
+      else if (W && W.kind === 'melee' && W.hands === 'two' && wt !== 'spear' && !ab) { /* (two-handers: heavy overhead chops and diagonal cleaves, both hands on the haft) */
+        const chop = n === 'swing1' || n === 'swing3' || n === 'heavy' || n === 'smash' || n === 'charge';
+        if (/^(swing|heavy|smash|sweep|lowcut)/.test(n)) r = chop ? swingK(t1, VP.rest2, HM.chA, HM.chM, HM.chB, 0.34) : swingK(t1, VP.rest2, HM.clA, HM.clM, HM.clB, 0.3); }
+      if (ab && W && W.kind === 'melee' && c !== 'beastmaster' && c !== 'rogue' && wt !== 'fists') { /* (abilities: F raises the weapon high to the sky, C draws it back across the chest, Q a big two-handed overhead slam) */
+        const i2 = act.i || 0, base = W.hands === 'two' ? VP.rest2 : VP.rest;
+        if (i2 === 0) r = kf(t1, [[0, base], [0.35, P(0.3, 0.12, -0.5, 0.15, 0, -0.35)], [0.7, P(0.3, 0.16, -0.5, 0.2, 0, -0.35)], [1, base]]);
+        else if (i2 === 1) { r = kf(t1, [[0, base], [0.3, P(0.42, -0.1, -0.22, -1.2, -1.0, 0.6)], [0.48, P(0.42, -0.1, -0.22, -1.2, -1.0, 0.6)], [0.62, HM.fhB, easeIn], [1, base]]); }
+        else r = kf(t1, [[0, base], [0.4, HM.chA], [0.52, HM.chA], [0.64, HM.chB, easeIn], [0.8, HM.chB], [1, base]]);
+        if (W.hands === 'shield') l = kf(t1, [[0, VP.shieldRest], [0.35, VP.shieldBlock], [0.7, VP.shieldBlock], [1, VP.shieldRest]]); } }
     this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }
@@ -2197,7 +2245,7 @@ export class Player {
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))), !action || action === 'gunAim');
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
-    const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
+    const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)), i: castNow.i } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }

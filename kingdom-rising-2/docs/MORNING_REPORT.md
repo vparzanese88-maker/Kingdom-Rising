@@ -38,3 +38,8 @@ Finished the rework in src/bomber.js (keys: LMB bomb, Q sticky bombs, right clic
 - Hero models get a soft fill (their own texture lit a little), so backlit heroes read as armour and fur instead of black cut-outs (beastmaster a bit more).
 - Bombardier: the owner's stick grenade sits in his right fist (pulled back into the palm, not out on the fingertips) through idle, run, strafe, jump, throws and casts; the detonator rides his left hip on the belt. (His bomb gameplay is another helper's.) scratchpad/tp3/bombardier_v4.png
 - Third-person aiming (bow and guns, right mouse): a hero with his own 3D model now aims over the shoulder and stays in view with his real weapon, instead of switching to the down-the-sights view with the old code-built box arms; arrows and shots leave from his hands. scratchpad/tp3/ranger_v4.png (last column)
+
+## First person
+- Necromancer: right hand high on the scythe shaft just under the blade, shaft leaning up and right, blade facing left across the top of the view, left hand low on the shaft at the bottom right; every attack is a right-to-left reap (no skull, no poison on the hand). scratchpad/fpa/c1_necromancer_idle.png, c1_necromancer_0.3.png
+- Bombardier: a closed, hand-sized fist with the grenade's stick through it and its head out above the thumb; an overhand lob on each throw. scratchpad/fpa/c2_bombardier_idle.png
+- All classes: a short smoothing on both first-person hands, so poses that change in one frame (between chained swings, as an ability starts) glide instead of popping through the view; weapon heroes keep their weapon in hand through abilities (no hand flying up past the camera); a hand on the same shaft as the other (two-handers, the scythe) rides with it through the walk bob.

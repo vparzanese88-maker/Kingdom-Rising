@@ -3,7 +3,7 @@
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
 import { attachHeroModel, tickHeroModel, heroHeight } from './heromodels.js';
-import { armReach, classKit, kitize } from './character.js';
+import { armReach, classKit, kitize, makeWeapon } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
 const GL = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -254,6 +254,7 @@ export function arenaWeaponDecor(ch, cls) {
 function weaponDecor(ch, cls, w) {
   if (cls === 'warrior') { w.scale.multiplyScalar(1.25); if (ch.weapons.off) ch.weapons.off.scale.multiplyScalar(1.45); return; } // (a knight's long sword and a full heater shield on his big frame, not a boy's)
   if (cls === 'darkknight' && w.name === 'weapon_greatsword') w.scale.multiplyScalar(0.78); // (his barbed greatsword at 0.7 of his height, not 0.9)
+  if (cls === 'rogue' && w.name === 'weapon_dagger' && !ch.weapons.off && ch.arms && ch.arms.L && ch.arms.L.grip) { const off = makeWeapon('dagger', 3, 0); off.rotation.y = Math.PI / 2; ch.arms.L.grip.add(off); ch.weapons.off = off; } // (her second dagger, in the left fist: classKit swaps in the detailed one)
   if (cls === 'paladin' && w.name === 'weapon_greatsword') w.scale.z *= 2.6; // (no model of his own yet: the built greatsword, its blade given some body so it never thins to a line edge-on)
   if (cls === 'ranger' && w.name === 'weapon_bow') { w.rotation.set(0, Math.PI, 0); w.position.set(0, 0, 0); w.scale.multiplyScalar(0.7); } // (the grip runs up through the fist, so the limbs stand up and down out of it with the string toward him, not out along the fingers; a 0.6-height bow)
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); return; } // (goblin-made guns)

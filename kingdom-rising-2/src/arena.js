@@ -1554,7 +1554,7 @@ class ArenaBot {
     const T = this.target, me = this.pos, dT = T ? Math.hypot(T.pos.x - me.x, T.pos.z - me.z) : 99, hp = this.hp / this.maxHp;
     if (this.gcd <= 0) { const a = this.choose(T, dT, hp); if (a) return; }
     if (T && this.swingT <= 0 && dT <= this.range + 0.4) { // a plain attack
-      const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? 0.75 : 1);
+      const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 || this.buffs.rampage > 0 ? 0.75 : 1); /* (Pack Frenzy: faster blows too) */
       this.swingT = sw * 1.25 * Game.ARENA_PACE; const raw = this.base * 0.95 * this.dmgMul() * Game.ARENA_PACE; /* (slower, heavier blows: same damage per second, each hit lands harder) */
       if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.actSp = 1.4; this.aimLock = this.W.kind === 'gun' ? 0.75 : 0.55; /* plant your feet to aim, then fire */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012;
         this.pending = { t: 0.4, fn: () => { if (T.dead) return; if (this.cls === 'bombardier') { botBomb(this, T, raw * BOMB.throw.k, false); return; } /* (a real bomb, lobbed to land at their feet) */ const bomb = this.cls === 'bombardier', pri = this.cls === 'priest'; shot(this, T, bomb ? SHOT_COL.fire : pri ? SHOT_COL.holy : this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); if (pri) atone(this, 0.045); if (bomb) { for (const u of enemiesOf(this)) if (u !== T && !u.dead && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3) hitUnit(this, u, raw * 0.6, { ranged: true }); V.burst('fire', T.pos.clone().setY(T.pos.y + 0.8), 40, { speed: 6 }); V.ring(T.pos.clone().setY(T.pos.y + 0.1), 3, '#ff9030', 0.35); S.explode && S.explode(T.pos, 0.4); } }, false, bomb ? 'bomb' : undefined); } }; }
@@ -1581,7 +1581,7 @@ class ArenaBot {
     // 4. pets out before the fight is joined
     const sm = abs.find(a => a.t === 'summon' && !this.pets.some(p => !p.dead)); if (sm && dT < 30) return use(sm, this);
     // 5. damage buffs when the fight is on
-    if (dT < this.range + 6) { const b = abs.find(a => (a.t === 'buff' && ['cry', 'rage', 'focus', 'surge', 'avatar', 'formVoid', 'formTime', 'formArcane', 'swind'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['cry', 'rage', 'focus', 'rampage', 'surge'].includes(LEG_SELF[a.id][0])) || a.t === 'petbuff'); if (b && Math.random() < 0.6) return use(b, this); }
+    if (dT < this.range + 6) { const b = abs.find(a => (a.t === 'buff' && ['cry', 'rage', 'focus', 'surge', 'avatar', 'formVoid', 'formTime', 'formArcane', 'swind', 'rampage'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['cry', 'rage', 'focus', 'rampage', 'surge'].includes(LEG_SELF[a.id][0])) || a.t === 'petbuff'); if (b && Math.random() < 0.6) return use(b, this); }
     // 6. control: break a cast, stop a melee chasing a caster, finish a runner
     const tCasting = T.cast || (T === G.player && G.player.abCast);
     const cc = abs.filter(a => !isSupport(a) && ((a.stun || 0) >= 0.8 || a.root || (LEG[a.id] && LEG[a.id][2] >= 0.8)) && this.inRange(a, dT));
@@ -1602,7 +1602,7 @@ class ArenaBot {
     const T = tgt && tgt !== this ? tgt : this.target;
     const anim = (n) => { this.act = n; this.actT = 0; };
     if (AN.on && AN.host && a.t && !['bolt', 'drain', 'curse'].includes(a.t)) { const at = lockAt || (T && T.pos) || me; nsend({ t: 'bfx', i: this.arenaF.i, k: a.t, c: col, el, x: r2(at.x), z: r2(at.z), r: a.r || 5 }); } // (the others see the effect too)
-    const drainBack = (dealt, f) => { if (f && dealt) this.healSelf(dealt * f * 6); }; // (hits are scaled for PvP, so the drain is scaled back up)
+    const drainBack = (dealt, f) => { if (f && dealt) this.healSelf(dealt * f); }; // (dealt is the health really taken, so the drain is that share of it: it was x6, a full heal from every Shadow Tap)
     if (!a.t) return this.legacy(a, T, P);
     if (a.regen) { this.hots.push({ ps: a.regen[0] * this.maxHp / a.regen[1], t: a.regen[1] }); V.burst('heal', me.clone().setY(me.y + 1.2), 14, { speed: 2, vy: 2 }); }
     switch (a.t) {

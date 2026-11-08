@@ -47,11 +47,11 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
-  warrior: ['ar_charge', 'execute', 'ar_bash'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'dkraise', 'deathgrip'],
-  cleric: ['radiantheal', 'prayer', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
+  warrior: ['ar_charge', 'execute', 'ar_bash'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'gravewall', 'deathgrip'],
+  cleric: ['radiantheal', 'ar_purify', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
-  ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['quickreload', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
-  rogue: ['envenom', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_plaguebreath', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'phantasm', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
+  ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['ar_bandage', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
+  rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_plaguebreath', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'ar_mindlock', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
   priest: ['pr_halo', 'pr_word', 'pr_chains'], bombardier: ['bo_rocket', 'bo_cluster', 'bo_sticky'],
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', blunderbuss: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer', priest: 'Healer' }; // everyone else: Damage
@@ -124,8 +124,8 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
-export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'aim', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
-  darkknight: 'gravewall', druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_smoke' };
+export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_ironhide', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
+  /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_smoke' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
@@ -138,9 +138,11 @@ const ARENA_NEW = {
     { id: 'ar_shadowstep', name: 'Shadow Step', kit: true, t: 'stealth', dur: 3, cd: 18, cost: 0, fx: 'shadow', step: 7, level: 1, desc: 'Step through the shadows 7 m forward (behind the enemy you aim at, if one is close) and vanish for 3 s.' }],
   bard: [{ id: 'ar_mendB', name: 'Mending Chord', t: 'mend', kind: 'song', heal: 0.18, cd: 6, cost: 0, fx: 'gold', level: 1, desc: 'A flowing chord of music into the ally under your crosshair, even through walls (or yourself); allies around them hear it too and heal a little.' },
     { id: 'ar_mendsong', name: 'Song of Mending', t: 'hot', self: 0.3, pct: 0.3, ally: 0.25, r: 10, dur: 6, notes: true, cd: 15, cost: 0, fx: 'gold', level: 1, desc: 'Play a mending song: you heal 30% over 6 s and every ally within 10 m of you heals 25% at once. Notes swirl round everyone it touches.' }],
-  musketeer: [{ id: 'ar_barrage', name: 'Arcane Barrage', t: 'barrage', cd: 90, cost: 0, fx: 'arcane', level: 1, desc: 'Ram a glowing ball of raw magic down the barrel: for 10 s your rifle crackles with power and fires as fast as you hold the trigger, a stream of arcane rounds (no reloading).' }],
+  musketeer: [{ id: 'ar_bandage', name: 'Field Bandage', kit: true, t: 'heal', self: 0.001, regen: [0.22, 3], cd: 15, cost: 0, fx: 'leaf', level: 1, desc: 'Slap a bandage on and ram the next ball home: you heal 22% of your health over 3 s and your musket is reloaded at once.' },
+    { id: 'ar_barrage', name: 'Arcane Barrage', t: 'barrage', cd: 90, cost: 0, fx: 'arcane', level: 1, desc: 'Ram a glowing ball of raw magic down the barrel: for 10 s your rifle crackles with power and fires as fast as you hold the trigger, a stream of arcane rounds (no reloading).' }],
   wizard: [{ id: 'ar_transcend', name: 'Transcendence', t: 'transcend', cd: 90, cost: 0, fx: 'arcane', level: 1, desc: 'Transcend into pure arcane energy for 10 s: your body becomes light, you float, and your abilities recharge three times as fast while everything you cast hits 50% harder.' }],
-  cleric: [{ id: 'ar_mendC', name: 'Divine Light', t: 'mend', kind: 'holy', heal: 0.32, cd: 6, cost: 0, fx: 'holy', level: 1, desc: 'Pour a beam of holy light into the ally under your crosshair, even through walls (or yourself if you aim at nobody): the strongest single heal in the arena.' },
+  cleric: [{ id: 'ar_purify', name: 'Purifying Light', kit: true, t: 'heal', self: 0.1, ally: 0.1, r: 12, cleanse: true, cd: 22, cost: 0, fx: 'gold', level: 1, desc: 'A wave of purifying light: you and every ally within 12 m are cleansed of stuns, roots, slows, fear, silence, mesmerize, poison, bleeding and burning, cannot be controlled for 1 s, and heal 10%.' },
+    { id: 'ar_mendC', name: 'Divine Light', t: 'mend', kind: 'holy', heal: 0.32, cd: 6, cost: 0, fx: 'holy', level: 1, desc: 'Pour a beam of holy light into the ally under your crosshair, even through walls (or yourself if you aim at nobody): the strongest single heal in the arena.' },
     { id: 'ar_miracle', name: 'Miracle', t: 'miracle', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Call a miracle down on the ally under your crosshair (or yourself): a pillar of light heals them to full and wraps them in a golden shield that makes them untouchable for 3 s, and everyone near them heals by half their health.' }],
   druid: [{ id: 'ar_mendD', name: 'Living Vine', t: 'mend', kind: 'nature', heal: 0.2, cd: 5, cost: 0, fx: 'leaf', level: 1, desc: 'Send a stream of living leaves into the ally under your crosshair, even through walls (or yourself): it heals now and keeps healing for 4 s.' },
     { id: 'ar_overgrowth', name: 'Overgrowth', t: 'overgrowth', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Plant your staff and the wild comes: a forest bursts out of the ground around you and races outward across the whole arena. Every ally it reaches is healed (a third of their health at once and more over time), every enemy it reaches is tangled and slowed, and then the trees slowly wither back into the earth.' }],
@@ -156,6 +158,8 @@ const ARENA_NEW = {
     { id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
   paladin: [{ id: 'ar_wrath', name: 'Avenging Wrath', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Spread golden wings and call down judgment where you aim: a 12 m glyph of light burns into the ground and slows enemies on it, then a giant sword of light plunges out of the sky. Anyone in its heart is impaled; everyone else on the glyph is hurt badly and thrown up; allies on it are healed. Get off the glyph before it lands.' }],
+  enchanter: [{ id: 'ar_mindlock', name: 'Mind Lock', kit: true, t: 'mindlock', kind: 'arcane', speed: 50, dmg: 0.8, aoe: 3, silence: 2, cd: 14, cost: 0, fx: 'arcane', level: 1, desc: 'A bolt of binding thought at where you aim: the enemy it hits, and anyone within 3 m of them, is silenced for 2 s (no abilities or ultimate; they can still move and attack).' }],
+  blunderbuss: [{ id: 'ar_ironhide', name: 'Iron Hide', kit: true, t: 'buff', buff: 'barrier', amount: 0.25, dur: 5, ironHide: true, cd: 20, cost: 0, fx: 'spark', level: 1, desc: 'Brace like an anvil: a hide of iron absorbs damage equal to 25% of your health for 5 s, and nothing can knock you back while it holds.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
     { id: 'ar_demon', name: 'Maw of the Abyss', t: 'demon', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'A ring of green hellfire bursts up where you aim and slows every enemy inside it while a skeletal demon claws its way out. Whoever is still in the ring and closest to the centre when it rises is seized, lifted over its head and has their head bitten off. If everyone escapes the ring, it hunts around and sinks back down.' },
     { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
@@ -195,6 +199,15 @@ function designRules() {
   fix('priest', 'pr_chains', { root: 2, desc: 'Golden chains burst out of the ground around the enemy you aim at and hold them in place for 2 s (they can still shoot and cast).' });
   fix('rogue', 'kidney', { stun: 1.5, desc: 'A cruel jab that stuns the enemy for 1.5 s.' });
   fix('shaman', 'sh_hex', { stun: 2.5, poly: true, desc: 'Turn the enemy you aim at into a harmless frog for 2.5 s.' });
+  // 5. the shield classes get their defensive back: held block raises it (warrior, paladin); Bone Guard moves to C
+  fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
+  { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
+  fix('darkknight', 'gravewall', { amount: 0.25, dur: 6, cd: 18, boneGuard: true, desc: 'A shell of bone and shadow absorbs damage equal to 25% of your health for up to 6 s; enemies who hit you in melee while it holds are slowed for 1 s.' });
+  // 4. self-sustain: Second Wind on Execute, Leeching Stab on F (Envenom becomes a passive), Field Bandage, Iron Hide
+  { const ex = abIn('warrior', 'execute'); if (ex && !/Second Wind/.test(ex.desc || '')) ex.desc = (ex.desc || '').replace(/\.?\s*$/, '.') + ' Second Wind: the blow heals you 8% of your health, or 25% if it kills.'; }
+  fix('rogue', 'ar_leechstab', { desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s. Envenom (passive): every third dagger hit also poisons.' });
+  // 8. Assassinate with counterplay
+  fix('rogue', 'ar_assassinate', { desc: 'Aim at an enemy within 30 m: a shadow mark flares over them for half a second (they hear a whisper and can dodge or blink away to break it), then you step out of the shadows behind them and drive your blade in. Below half health they die; anyone else loses 45% of their health and is silenced for 2 s. You stay invisible for 2 s after.' });
 }
 // the hard-control budget on every arena key: 1.6 s on one target, 1.0 s from an area wider than 4 m (ultimates may go to 2.5 s)
 function ccBudget() {
@@ -429,8 +442,28 @@ export function monkFists(caster) {
 
 // ---------- the rogue's ultimate: Assassinate ----------
 // he melts into smoke, steps out of the shadows right behind the enemy, seizes them and drives his blade into their back
-export const ASSASSIN = { vanish: 0.35, stab: 1.15, kill: 1.3, end: 2.0 };
+export const ASSASSIN = { mark: 0.5, vanish: 0.35, stab: 1.15, kill: 1.3, end: 2.0, below: 0.5, hurt: 0.45, silence: 2, stealth: 2 };
+// first a shadow mark flares over the victim for half a second (with a whisper): a dodge, a blink, a dash or an
+// untouchable moment breaks it and the rogue gets half the charge back. Then the strike: below half health it kills,
+// otherwise it takes 45% of their health and silences them for 2 s. The rogue stays invisible for 2 s after.
 export function rogueAssassinate(caster, victim) {
+  if (!victim || victim.dead || !victim.pos) return false; const T = ASSASSIN, me = caster === G.player, at0 = victim.pos.clone();
+  const mark = new THREE.Group(), mm = new THREE.MeshBasicMaterial({ color: '#7a20c0', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 28), mm); ring.rotation.x = Math.PI / 2; mark.add(ring); const eye = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff2040', transparent: true, opacity: 0, depthWrite: false })); mark.add(eye); mark.userData.eye = eye; }
+  G.scene.add(mark); caster.held = true; if (me) caster.ultImmT = Math.max(caster.ultImmT || 0, T.mark + 0.1); else caster.invulnT = G.time + T.mark + 0.1;
+  V.burst('shadow', caster.pos.clone().setY(caster.pos.y + 1), 30, { speed: 2.5 }); S.cast && S.cast('shadow', caster.pos, 0.6);
+  if (victim === G.player) { S.whisper && S.whisper(); G.hooks.toast && G.hooks.toast('A shadow marks you: dodge or blink away!', '🗡', 'bad'); } else if (me) S.whisper && S.whisper();
+  const untouchable = (v) => (v.ultImmT || 0) > 0 || v.invulnT > G.time || (v.buffs && (v.buffs.phase > 0 || v.buffs.iceblock > 0)) || (v === G.player && (v.iframes > 0 || !!(v.dodge && !v.dodge.charge)));
+  let t = 0;
+  G.timers.push({ update: (dt) => { t += dt; const k = Math.min(1, t / T.mark);
+    mark.position.copy(victim.pos).setY(victim.pos.y + (victim.height || 1.8) + 0.55); mark.rotation.y = t * 6; mm.opacity = 0.9 * Math.min(1, t * 6); mark.scale.setScalar(1.6 - 0.6 * k); mark.userData.eye.material.opacity = k; if (Math.random() < 0.5) V.emit('shadow', mark.position.clone(), { speed: 0.6, size: 0.3, life: 0.4 });
+    const broke = victim.dead || caster.dead || untouchable(victim) || Math.hypot(victim.pos.x - at0.x, victim.pos.z - at0.z) > 3;
+    if (broke) { G.scene.remove(mark); caster.held = false; if (me) caster.ultImmT = 0; if (!victim.dead) { V.number(headOfU(victim), 'Escaped!', 'miss'); V.burst('shadow', victim.pos.clone().setY(victim.pos.y + 1), 24, { speed: 3 }); } if (caster.h) caster.h.ultCharge = Math.max(caster.h.ultCharge || 0, 50); if (me) G.hooks.toast && G.hooks.toast('They slipped your mark (half your charge back)', '🗡', 'bad'); return true; }
+    if (t >= T.mark) { G.scene.remove(mark); caster.held = false; assassinStrike(caster, victim); return true; }
+    return false; } });
+  return true;
+}
+function assassinStrike(caster, victim) {
   if (!victim || victim.dead || !victim.pos) return false; const T = ASSASSIN, me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
   const vroot = victim.root || (victim.ch && victim.ch.root);
   caster.held = true; if (me) me.ultImmT = T.end + 0.5; else caster.invulnT = G.time + T.end + 0.5;
@@ -451,9 +484,10 @@ export function rogueAssassinate(caster, victim) {
       A2.R.sh.rotation.set(-2.9 * Math.max(0, up) * (1 - dn) - 1.0 * dn, 0, 0.25); A2.R.el.rotation.x = -0.5 * (1 - dn) - 0.2; } // (the blade raised high, then driven down)
     if (appeared && !stabbed && victim.held && vroot) { vroot.rotation.x = Math.max(0, (t - T.vanish) / (T.stab - T.vanish)) * -0.15; }
     if (!stabbed && t >= T.stab) { stabbed = true; const p = victim.pos.clone().setY(victim.pos.y + 1.25); V.burst('blood', p, 90, { speed: 6 }); V.burst('shadow', p, 30, { speed: 4 }); V.sphereFlash(p, 1.2, '#ff2020', 0.2); V.addShake(0.8); S.hit && S.hit('flesh', p, 2); G.hitstop = 0.12;
-      V.number(p.clone().setY(p.y + 0.8), 'ASSASSINATED', 'crit'); if (vroot) vroot.rotation.x = 0.35; }
-    if (!killed && t >= T.kill) { killed = true; victim.held = false; if (vroot) vroot.rotation.x = 0; ultKill(victim, caster); feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> assassinates <b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>!`); }
-    if (t > T.end) { G.scene.remove(mark); caster.held = false; const b = body(); if (b) b.visible = true; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null; return true; }
+      V.number(p.clone().setY(p.y + 0.8), (victim.hp || 0) / (victim.maxHp || 1) < T.below && !victim.dummy ? 'ASSASSINATED' : 'BACKSTAB', 'crit'); if (vroot) vroot.rotation.x = 0.35; }
+    if (!killed && t >= T.kill) { killed = true; victim.held = false; if (vroot) vroot.rotation.x = 0; const low = victim.dummy ? false : (victim.hp || 0) / (victim.maxHp || 1) < T.below; const who = `<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>`, vn = `<b>${esc2(victim.heroName || victim.name || 'a fighter')}</b>`;
+      if (low) { ultKill(victim, caster); feed(`${who} assassinates ${vn}!`); } else { if (victim === G.player && victim.db && victim.db.freeze) victim.db.freeze.t = 0; ultHurt(victim, T.hurt, caster, 'blood'); silenceUnit(victim, T.silence, caster); feed(`${who} cuts down ${vn} (silenced)`); } }
+    if (t > T.end) { G.scene.remove(mark); caster.held = false; caster.stealth = Math.max(caster.stealth || 0, T.stealth); /* (melts back into the shadows) */ const b = body(); if (b) b.visible = true; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null; return true; }
     return false; } });
   return true;
 }
@@ -940,9 +974,10 @@ export function openKitInfo(UI, into) {
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
   const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? 'Lob a bomb in an arc: it bursts on whatever it hits or where it lands, hurting everyone within 3 m. Hold to keep throwing.' : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
-  let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb, 0, null);
+  const hs = { ranger: ' Headshots: 2x on a full draw, 1.5x on a quick shot (Spectral Arrow 1.75x), and each one heals you 5% of your health.', musketeer: ' Headshots: 2x, or 2.25x aimed down the sights.', wizard: ' Your bolts fly straight where you aim (no homing). Headshots: 1.5x (Temporal Bolt and Disintegrate too).', elementalist: ' Headshots: 1.5x with frost and arcane bolts and Lightning Lash.' }[cls] || '';
+  let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb + hs, 0, null);
   const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
-  if (shield) html += row('RMB', 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
+  if (shield) { const d = SHIELD_DEF.has(r) && ab(r); html += row('RMB', d ? 'Block · ' + d.name : 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.' + (d ? ` Keep it up for 1 s and ${d.name} goes up by itself: ${d.desc.replace(/\s*Hold block for 1 s to raise it\.?/, '')}` : ''), d ? d.cd : 0, d ? d.id : 'shieldwall'); }
   else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
   else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
   ['F', 'C', 'Q'].forEach((k, i) => { const a = ab((h.arenaKit || [])[i]); if (a) html += row(k, a.name, a.desc, a.cd, a.id); });
@@ -1456,7 +1491,7 @@ class ArenaBot {
     const heals = abs.filter(a => a.t === 'heal' || a.t === 'hot' || (LEG_SELF[a.id] && LEG_SELF[a.id][0] === 'heal'));
     if (heals.length) { const W = this.ward; if (W && W !== this && W.hp / W.maxHp < 0.6 && SUPPORT_CLS.has(this.cls)) return use(heals.sort((x, y) => (y.self || y.pct || 0) - (x.self || x.pct || 0))[0], W); if (hp < 0.55) return use(heals[0], this); }
     // 2. defences when under pressure
-    if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
+    if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
     // 3. protect a team mate who is being beaten on
     if (SUPPORT_CLS.has(this.cls)) { const w = alliesOf(this).find(u => u.hp / u.maxHp < 0.5 && G.time - ((u === G.player ? u.lastHitAt : u.hurtT) || 0) < 2); const d = w && abs.find(a => a.t === 'buff' && ['ward', 'barrier', 'fort'].includes(a.buff) && !a.eq); if (d) { this.cd[d.id] = Math.max(d.cd || 10, 10); this.gcd = 1.1; buffUnit(w, d.buff, d.dur || 8); this.act = 'cast'; this.actT = 0; return true; } }
     if (!T) return null;

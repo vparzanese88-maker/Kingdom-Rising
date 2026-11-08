@@ -99,7 +99,7 @@ export function refreshAbilityBar() {
       ai.innerHTML = ab ? Icons.abilityIcon(ab.id) : Icons.abilityIcon(rid === 'aim' ? 'eagleeye' : 'shield'); abilEls.f.classList.toggle('cls', !!ab); abilEls.f.classList.remove('small');
       abilEls.f.title = ab ? `${ab.name} [Right click]${ab.cd ? ` · ${ab.cd} s cooldown` : ''} · ${ab.desc}` : rid === 'aim' ? 'Hold right click to aim down the barrel: zoom in, steady, a little harder hitting, but you walk slowly.' : '';
       let n = abilEls.f.querySelector('.an'); if (!n) { n = el('span', 'an'); abilEls.f.appendChild(n); } n.textContent = ab ? ab.name : rid === 'aim' ? 'Aim' : ''; }
-    else { abilEls.f._rmb = null; ai.innerHTML = Icons.abilityIcon('shield'); } }
+    else { const sd = shield && (rid === 'shieldwall' || rid === 'shieldofl') ? ABILITIES[h.cls].find(x => x.id === rid) : null; abilEls.f._rmb = sd; ai.innerHTML = Icons.abilityIcon(sd ? sd.id : 'shield'); if (sd) abilEls.f.title = `Hold right click to block (a perfect block just before a hit). Keep it up for 1 s to raise ${sd.name}${sd.cd ? ` (${sd.cd} s cooldown)` : ''}: ${sd.desc.replace(/\s*Hold block for 1 s to raise it\.?/, '')}`; } } // (shield classes: the block raises the defensive, its cooldown shows here)
   if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; abilEls.rmb.querySelector('.ai').innerHTML = id ? Icons.abilityIcon(WSKILLS[id].icon) : ''; abilEls.rmb.title = id ? `${G.battleFx ? 'F' : 'Right click'}: ${WSKILLS[id].name}. ${WSKILLS[id].desc}` : ''; }
   (h.hotbar || []).forEach((sl, i) => {
     const e = abilEls.hb[i], key = sl ? sl.t + ':' + sl.id : '';

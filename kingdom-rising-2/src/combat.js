@@ -89,6 +89,8 @@ export function spawnProjectile(o) {
   const p = Object.assign({ grav: 0, radius: 0.3, life: 4, pierce: false, hitSet: new Set(), t: 0 }, o);
   // Kingdom Battles: your arrows fly straight first, then slowly drop
   if (G.battleFx && p.owner === 'player' && (p.kind === 'arrow' || p.kind === 'spectral') && !p.flat) { p.flat = 0.35; p.grav *= 0.6; }
+  // the arena: remember who fired it (and whether they were aiming down the sights) for the headshot rules; no homing
+  if (p.owner === 'player' && G.player && G.player.h && G.player.h.arena) { p.arenaCls = G.player.h.cls; p.arenaHs = true; p.ads = (G.player.adsK || 0) > 0.7; if (p.arenaCls === 'wizard') { p.home = false; p.homing = false; } }
   let m;
   switch (p.kind) {
     case 'fireball': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#fff0b0'))); m.children[0].scale.setScalar(0.18 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ff6010', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.34 * (p.scale || 1)); m.add(h); } break;
@@ -141,6 +143,28 @@ function headHit(p, m) {
   const t = Math.max(-0.6, Math.min(1.2, _hw.dot(_hv)));
   return _hw.addScaledVector(_hv, -t).length() < h.r + p.radius * 0.6;
 }
+// the arena's headshot multipliers (docs/CLASS_DESIGN.md rule 6): Ranger 2x drawn, 1.5x quick, Spectral Arrow 1.75x;
+// Musketeer 2x, 2.25x aimed down the sights; Wizard bolts and the Elementalist's frost and lightning 1.5x. Spread and
+// arcing shots (pellets, bombs, poison, dawn bolts, healers' bolts) never headshot.
+export const HEADSHOT = { rangerDrawn: 2, rangerQuick: 1.5, spectral: 1.75, musket: 2, musketAds: 2.25, caster: 1.5, rangerHeal: 0.05 };
+function headK(p) {
+  if (p.owner !== 'player' || !p.dmg) return 1;
+  if (!p.arenaCls) return G.battleFx && (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'bullet') ? 2 : 1;
+  const H = HEADSHOT, c = p.arenaCls;
+  if (c === 'ranger') return p.kind === 'spectral' ? H.spectral : p.kind === 'arrow' ? (p.charged ? H.rangerDrawn : H.rangerQuick) : 1;
+  if (c === 'musketeer') return p.kind === 'bullet' ? (p.ads ? H.musketAds : H.musket) : 1;
+  if (c === 'wizard') return p.kind === 'arcane' ? H.caster : 1;
+  if (c === 'elementalist') return p.kind === 'frost' || p.kind === 'arcane' ? H.caster : 1;
+  return 1;
+}
+// a headshot you landed: a red-and-gold crosshair flash, a sharp tink, HEADSHOT over them (the ranger heals a little)
+function headshotFx(p, m, k) {
+  V.number(p.pos.clone().setY(m.pos.y + (m.height || 1.8) + 0.75), 'HEADSHOT ×' + k, 'crit');
+  let e = document.getElementById('hitmk'); if (!e) { e = document.createElement('div'); e.id = 'hitmk'; e.innerHTML = '<i></i><i></i><i></i><i></i>'; document.body.appendChild(e); }
+  e.className = ''; void e.offsetWidth; e.className = 'head'; S.headTink && S.headTink();
+  const P = G.player; if (p.arenaCls === 'ranger' && P && !P.dead && P.heal) P.heal(P.maxHp * HEADSHOT.rangerHeal);
+  G.headshots = (G.headshots || 0) + 1;
+}
 export function updateProjectiles(dt) {
   const P = G.projectiles;
   for (let i = P.length - 1; i >= 0; i--) {
@@ -161,10 +185,11 @@ export function updateProjectiles(dt) {
           const r = Math.max(m.radius, m.height * 0.5) + p.radius * 1.4 + 0.15;
           if (c.distanceToSquared(p.pos) < r * r) {
             p.hitSet.add(m);
-            // Kingdom Battles headshots: any arrow or musket ball through anything with a head
-            const head = G.battleFx && (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'bullet') && headHit(p, m);
-            const d0 = p.dmg; if (head) { p.dmg *= 2; V.number(p.pos.clone().setY(m.pos.y + m.height + 0.4), 'Headshot!', 'crit'); S.hit('flesh', m.pos, 1.6); G.hitstop = 0.06; }
-            impact(p, m); p.dmg = d0;
+            // headshots: Kingdom Battles, any arrow or musket ball through anything with a head (x2); the arena (and the
+            // Training Yard), only the precise weapons, each with its own reward (see headK)
+            const hk = headK(p), head = hk > 1 && headHit(p, m);
+            const d0 = p.dmg; if (head) { p.dmg *= hk; G.hitstop = Math.max(G.hitstop || 0, 0.06); if (!p.arenaHs) { V.number(p.pos.clone().setY(m.pos.y + m.height + 0.4), 'Headshot!', 'crit'); S.hit('flesh', m.pos, 1.6); } }
+            impact(p, m); p.dmg = d0; if (head && p.arenaHs) headshotFx(p, m, hk);
             if (!p.pierce) { dead = true; break; }
           }
         }

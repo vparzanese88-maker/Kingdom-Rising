@@ -25,7 +25,7 @@ const ROUNDS = +(process.argv[2] || 3), OUT = process.argv[3] || 'pvprr.json', C
       if (nPairs && nPairs % (+process.env.EVERY || 12) === 0) await boot(); // (a fresh page now and then: memory)
       r = await p.evaluate(async ([A, B, ROUNDS, CAP, TRACE]) => { const Ar = await import('./src/arena.js'); const Aa = Ar.A, G = KR2.G, P = G.player;
         const hide = () => { P.stealth = 1e6; P.ultImmT = 1e6; P.hp = P.maxHp; P.dead = false; P.place(0, -96, 0); };
-        const bots = Aa.F.filter(f => !f.you), out = [];
+        const bots = Aa.F.filter(f => !f.you), out = []; for (const f of ['updateHUD', 'updatePlates', 'drawMinimap']) if (KR2.UI[f]) try { KR2.UI[f] = () => {}; } catch (e) { /* frozen */ } // (no HUD while simulating: twice as fast)
         const setCls = (f, cls) => { if (f.bot && f.bot.cls === cls) return; const Ctor = f.bot.constructor, old = f.bot; for (const pm of old.pets || []) { pm.dead = true; G.scene.remove(pm.root); } G.scene.remove(old.root); old.dead = true; const i = G.mobs.indexOf(old); if (i >= 0) G.mobs.splice(i, 1);
           f.cls = cls; const h = Ar.arenaHero(f, f.name); f.bot = new Ctor(f, h); };
         for (let rd = 0; rd < ROUNDS; rd++) {

@@ -121,6 +121,12 @@ export const S = {
   hitTick(kill, crit) { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now();
     tone(t, 0.05, o.node, { type: 'square', f: crit ? 1900 : 1500, f2: crit ? 1500 : 1100, gain: 0.06 }); noise(t, 0.03, o.node, { type: 'highpass', f: 4000, gain: 0.12 });
     if (kill) { tone(t + 0.02, 0.22, o.node, { type: 'sine', f: 180, f2: 70, gain: 0.45 }); tone(t + 0.1, 0.18, o.node, { type: 'triangle', f: 880, f2: 660, gain: 0.12 }); noise(t + 0.02, 0.14, o.node, { type: 'lowpass', f: 900, gain: 0.35 }); } },
+  // an arena headshot: a sharp metallic tink, high and bright, over the normal hit tick
+  headTink() { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now();
+    tone(t, 0.16, o.node, { type: 'triangle', f: 3150, f2: 2900, gain: 0.16 }); tone(t, 0.11, o.node, { type: 'sine', f: 4720, f2: 4400, gain: 0.08 }); tone(t + 0.004, 0.06, o.node, { type: 'square', f: 2200, f2: 1700, gain: 0.04 }); noise(t, 0.025, o.node, { type: 'highpass', f: 6500, gain: 0.2 }); },
+  // a marked victim's warning (Assassinate): a breathy, falling whisper
+  whisper() { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now();
+    noise(t, 0.55, o.node, { type: 'bandpass', f: 2600, f2: 900, q: 3, gain: 0.32, a: 0.12 }); noise(t + 0.18, 0.4, o.node, { type: 'bandpass', f: 1800, f2: 700, q: 4, gain: 0.22, a: 0.1 }); tone(t, 0.6, o.node, { type: 'sine', f: 220, f2: 140, gain: 0.05, a: 0.2 }); },
   hover() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.04, o.node, { type: 'sine', f: 1400, gain: 0.04 }); },
   swing(size = 1, pos) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();

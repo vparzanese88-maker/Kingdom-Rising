@@ -99,7 +99,8 @@ const VP = {
   staff: P(0.3, -0.36, -0.8, -0.6, 0.05, -0.2), /* (low on the right, the head tipped forward so you see it ahead of you) */ staffCast: P(0.15, -0.28, -0.5, -1.38, 0.06, -0.08), staffHigh: P(0.2, -0.24, -0.5, -0.2, 0, -0.1), staffSlam: P(0.14, -0.42, -0.72, -1.05, 0, 0),
   castL: P(-0.18, -0.24, -0.62, -1.4, 0, 0), handUpR: P(0.26, 0.06, -0.6, -0.25, 0, -0.25), handUpL: P(-0.26, 0.06, -0.6, -0.25, 0, 0.25), handPushR: P(0.16, -0.12, -0.78, -1.45, 0, -0.1), handPushL: P(-0.16, -0.12, -0.78, -1.45, 0, 0.1), chopA: P(0.38, 0.2, -0.3, 0.3, -0.3, -0.3), chopB: P(0.02, -0.35, -0.65, -1.7, 0.2, 0.2),
   jabA: P(0.26, -0.19, -0.36, -1.25, -0.15, -0.5), jabB: P(0.035, -0.115, -0.42, -1.55, 0, 0.05), /* (the guard up by the chin, knuckles turned in; the jab lands under the crosshair, knuckles flat) */ guardR: P(0.26, -0.19, -0.36, -1.25, -0.15, -0.5), /* (fists: a boxer's guard by the jaw, jabs straight out along the eye line) */ kickDown: P(0.42, -0.85, -0.35, -0.3, 0, -0.3),
-  necroGap: 0.46, necroScy: P(0.3, -0.06, -0.5, -0.25, 0, -0.28), necroScyA: P(0.42, 0.0, -0.42, -0.1, 0.5, -0.75), necroScyB: P(-0.22, -0.2, -0.55, -0.45, -0.6, 0.85), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
+  bombR: P(0.22, -0.22, -0.42, 0.15, 1.45, -1.57), bombUp: P(0.32, 0.02, -0.25, 0.9, 1.45, -1.57), bombThrow: P(0.1, -0.12, -0.7, -0.6, 1.45, -1.57), /* (the grenade fist: knuckles forward, thumb up; the throw winds up by the ear and lobs it out ahead) */
+  necroGap: 0.62, necroScy: P(0.6, 0.2, -0.85, -0.3, 0.35, -0.38), necroScyA: P(0.75, 0.15, -0.6, -0.2, -0.5, -1.1), necroScyB: P(-0.35, -0.1, -0.7, -0.4, -0.3, 1.0), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
 };
@@ -262,12 +263,13 @@ class ViewModel {
       if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); H.add(makeFist(right, this.cls === 'monk' ? '#c48a5e' : this.skinCol, this.cls === 'monk' ? '#8e1c1c' : undefined)); } } }
     if ((this.cls === 'musketeer' || this.cls === 'blunderbuss') && this.hero && this.gun) goblinGun(this.gun, this.cls); // (the goblin's own gun in first person too)
     if (this.hero) classKitFP(this); /* (each class's detailed weapon models in first person: the code-built stand-ins never show) */
+    if (this.weapons.heldR && this.cls === 'necromancer') this.weapons.heldR.scale.setScalar(0.8); /* (the scythe a little smaller in first person, so its blade hangs inside the top of the view) */
     if (this.cls === 'bard' && this.hero && main.name === 'weapon_sword') kitize(main, 'bard_lute', { fp: true }); /* (the bard's lute, held by the neck) */
     if (this.gun && w.wt === 'musket') for (const c of this.gun.children) if (c.isMesh && c !== this.gun.userData.glb) c.visible = false; /* (in first person only the detailed musket model shows: never the code-built stand-in) */
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); H.add(f); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); if (!right) c.scale.x = -1; H.add(c); kitize(c, 'beast_claw', { fp: true }); } } } // (bear-claw gauntlets on the fists in first person: beside the fist, not in it, so they show over the hero model's own hands)
     if (this.cls === 'wizard' && this.hero && !this.book) { main.parent && main.parent.remove(main); delete this.weapons.main; const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.R.add(bk); this.book = bk; this.bookR = true; kitize(bk, 'wizard_book', { fp: true }); } // (the wizard carries only his spellbook, open in his right hand: no staff)
     this.rogueOff = false; if (this.cls === 'rogue' && this.hero && !this.weapons.off && W.parts.length === 1 && W.parts[0] === 'dagger') { const off = makeWeapon('dagger', w.tier, w.rarity); off.scale.multiplyScalar(this.hero ? 1.5 : 1); off.rotation.y = -0.45; this.L.add(off); this.weapons.off = off; this.rogueOff = true; kitize(off, 'rogue_dagger', { fp: true }); } // (the rogue carries a second dagger in his left hand, like his model)
-    if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; kitize(b, 'bomb_grenade', { fp: true }); }
+    if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; while (this.R.children.length) this.R.remove(this.R.children[0]); this.R.add(makeFist(true, this.skinCol, '#3a2a1c')); const b = makeBomb(1.0); b.position.set(0, 0.018, -0.012); b.rotation.z = Math.PI / 2; this.R.add(b); /* (a closed fist, hand-sized, the grenade's stick through it and its head out above the thumb) */ this.weapons.bomb = b; this.bomber = true; kitize(b, 'bomb_grenade', { fp: true }); }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; this.necro = true;
       // left hand: a bone staff held upright (its head is where Soul Rend pours out); right hand: torn open and dripping poison
       // left hand: the fear spell's screaming skull, small, held up in the palm (Soul Rend pours from its mouth)
@@ -286,7 +288,7 @@ class ViewModel {
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
-    if (this.bomber && r === VP.staff) r = VP.necroR;
+    if (this.bomber && (r === VP.staff || r === VP.rest)) r = VP.bombR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = mirror(VP.bookL); } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
     if (this.necro && this.weapons.heldR) { r = VP.necroScy; l = VP.necroL; } /* (both hands on the scythe; any swing or cast is a right-to-left reap) */
@@ -357,6 +359,7 @@ class ViewModel {
       const k = t < 0.1 ? -0.25 * ease(t / 0.1) : t < 0.26 ? -0.25 + 1.25 * easeOut((t - 0.1) / 0.16) : t < 0.45 ? 1 : 1 - ease((t - 0.45) / 0.55); r = plerp(VP.necroR, VP.necroPush, k); l = VP.necroL;
     } else if (this.necro && !this.weapons.heldR && st.channel) { const j = Math.sin(performance.now() * 0.03) * 0.004; r = plerp(VP.necroR, VP.necroPush, 0.85); r = [r[0] + j, r[1] + j, r[2], r[3], r[4], r[5]]; l = VP.necroL; }
     if (this.necro && this.weapons.heldR && !st.tool) { r = VP.necroScy; l = VP.necroL; if (act && /^(scythe|reap|swing|slash|cast|castRel|shoot|spell|release|heavy|smash)/.test(n)) r = seq(VP.necroScyA, VP.necroScyB, t, 0.3, VP.necroScy); } /* (whatever the act, the scythe stays in both hands: every attack is a right-to-left reap) */
+    if (this.bomber && !st.tool) { r = VP.bombR; if (act) r = seq(VP.bombUp, VP.bombThrow, t, 0.35, VP.bombR); } /* (the bombardier: the grenade in his fist, an overhand lob on every throw) */
     this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }
@@ -373,6 +376,7 @@ class ViewModel {
       r = plerp(r, sp, this.sprintK);
       if (l && W && W.kind !== 'bow') l = plerp(l, [-0.36, -0.45, -0.42, -0.2, -0.5, 1.0], this.sprintK);
     }
+    { const k = 1 - Math.exp(-Math.min(0.1, dt) * 30), sm = (o, p) => !o || !p ? p : p.map((v, i) => { const d = v - o[i]; return Math.abs(d) > 2.5 ? v : o[i] + d * k; }); r = this._sr = sm(this._sr, r); if (l) l = this._sl = sm(this._sl, l); else this._sl = null; } /* (a short smoothing on both hands: a pose that changes in a single frame, between chained swings or as an ability starts, glides instead of popping through the view) */
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);
     if (this.necro && this.weapons.heldR && !st.tool) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -VP.necroGap, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; } /* (the necromancer's left hand low on the scythe's shaft, near the bottom of the view) */

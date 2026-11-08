@@ -136,7 +136,7 @@ const PI = Math.PI, KIT = {
   druid_staff: { f: [0, 0, 0, 0.0195, 0, 0.526, 0], tip: 1.31 }, /* (foot at -0.4 like the code staff, the glowing seed at the top) */
   ench_staff: { f: [0, 0, 0, 0.0185, 0, 0.479, 0], tip: 1.3 },
   ele_orb: { f: [0, 0, 0, 0.0045, 0, 0.6575, 0], tip: 0.68, fpPos: [0, -0.133, 0] }, /* (no staff: the fire-and-ice orb held up by its crystal pendant, just above the fist) */
-  necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI, 0], fp: [0, 0, 0, 0, PI, 0] }, /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
+  necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI, 0], fp: [0, 0, 0, 0, 0, 0.05], fpPos: [-0.245, -0.3, 0] }, /* (first person: the blade faces left, the shaft runs through the fist high up, just under the blade) */ /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
   rogue_dagger: { f: [0, 0, PI, 0.0055, 0, 0.157, 0] }, /* (guard at 0.09, point at 0.42: the code dagger) */
   bomb_grenade: { f: [0, 0, 0, 0.0036, 0, 0.072, 0] }, /* (gripped by the stick, the head up) */
   bomb_detonator: { f: [0, 0, 0, 0.0027, 0, 0.027, 0], belt: [0.2, 0.9, 0.04, 0, 0, 0] }, /* (the plunger box clipped to his belt on the left hip, button up) */

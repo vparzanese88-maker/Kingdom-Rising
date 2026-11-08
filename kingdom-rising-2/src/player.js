@@ -288,7 +288,7 @@ class ViewModel {
     const W = this.W, act = st.act;
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
-    if (W && W.kind === 'bow') r = VP.bowR;
+    if (W && W.kind === 'bow') r = this.hero && st.aim > 0.01 ? plerp(VP.bowR, VP.bowRdraw, ease(Math.min(1, st.aim))) : VP.bowR; /* (aiming a bow draws the string back to the cheek) */
     if (this.bomber && (r === VP.staff || r === VP.rest)) r = VP.bombR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = mirror(VP.bookL); } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
@@ -407,7 +407,7 @@ class ViewModel {
       sw.lk = (sw.lk || 0) + ((st.rendAt ? 1 : 0) - (sw.lk || 0)) * Math.min(1, dt * 6); if (sw.lk > 0.01 && (st.rendAt || sw.lastAt)) { if (st.rendAt) sw.lastAt = st.rendAt.clone(); const cam = this.g.parent; cam.updateMatrixWorld(true); const tc = sw.lastAt.clone().applyMatrix4(cam.matrixWorldInverse), hp = new THREE.Vector3(); dg.getWorldPosition(hp); hp.applyMatrix4(cam.matrixWorldInverse); const dir = tc.sub(hp).normalize(); const qT = qL.clone().multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir)); dg.quaternion.slerp(qT, sw.lk); } /* (Soul Rend: it turns its face to the victim) */
       if (this.weapons.flame) { const f = 1 + Math.sin(performance.now() * 0.02) * 0.15; this.weapons.flame.scale.setScalar(f); if (this.weapons.flame2) this.weapons.flame2.scale.setScalar(f * (1.1 + Math.sin(performance.now() * 0.013) * 0.1)); } }
     // bow string pull
-    if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0; const a = s.geometry.attributes.position; a.setZ(1, (this.weapons.bow.userData.stringZ || 0.02) + pull * 0.42); a.needsUpdate = true; this.weapons.arrow.visible = pull > 0.05 || st.drawing > 0; }
+    if (this.weapons.bow) { const s = this.weapons.bow.userData.string; const pull = Math.max(st.drawing ? Math.min(1, st.drawing) : n === 'shoot' && t < 0.5 ? easeOut(t * 2) : 0, this.hero && !act ? Math.min(1, st.aim || 0) : 0); const a = s.geometry.attributes.position; a.setZ(1, (this.weapons.bow.userData.stringZ || 0.02) + pull * 0.42); a.needsUpdate = true; this.weapons.arrow.visible = this.hero ? !(n === 'shoot' && t > 0.5 && t < 0.8) : pull > 0.05 || st.drawing > 0; } /* (a hero always has an arrow nocked, so the drawing hand always holds it: no open palm popping in after a shot) */
     // forearms follow from the wrist down toward the elbow (off screen)
     for (let i = 0; i < 2; i++) {
       const { arm, m, trim, H } = this.arms[i]; arm.visible = false;

@@ -280,7 +280,14 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(g, sph(0.01 * s, 5, 4), brass, Math.cos(a) * 0.09 * s, 0, Math.sin(a) * 0.09 * s); } add(g, cylG(0.006 * s, 0.006 * s, 0.06 * s, 4), M('#d8c890'), 0.01 * s, 0.13 * s, 0).rotation.z = -0.4;
   const sp = add(g, sph(0.018 * s, 6, 5), GL('#ffd060'), 0.022 * s, 0.16 * s, 0); sp.castShadow = false; g.userData.spark = sp; return g; }
 // a little life every frame: the elementalist's orbs circle, the enchanter's runes turn
-export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) tickHeroModel(ch, dt); if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+// what a hero model holds keeps the angle the built body's hand gives it (that body still performs every carry, swing and cast, and its
+// weapons were posed for it): left to the model's own wrist, a staff hung head-down at rest and long blades swung out flat as he ran.
+// Guns are already laid this way by tickHeroModel; a recorded move (the monk's) drives the hands itself, so it eases off during one.
+const _gq = new THREE.Quaternion(), _gp = new THREE.Quaternion(), _gi = new THREE.Quaternion();
+function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets || (ch.wt && /musket|blunderbuss/.test(ch.wt))) return; const k = 1 - Math.min(1, H.mw || 0);
+  for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
+    _gq.copy(chd.getWorldQuaternion(_gq)).multiply(so.userData.gripQ); so.parent.getWorldQuaternion(_gp).invert(); _gp.multiply(_gq); so.quaternion.copy(k >= 0.999 ? _gp : _gi.identity().slerp(_gp, k)); } }
+export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

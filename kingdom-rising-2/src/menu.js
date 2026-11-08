@@ -1,6 +1,6 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
 import { classPortrait } from './portraits.js';
-import { CLASS_STORY } from './classlore.js';
+import { CLASS_STORY, arenaLore, FACTIONS, ROLES, WORLD } from './classlore.js';
 import * as THREE from 'three';
 import { NEW_CLASSES } from './classes2.js';
 import { TWIN_TO_SINGLE, RACES, CLASSES, WEAPON_TYPES, STAT_NAMES, CLASS_POOLS, poolsAt, ABILITIES, weaponStat, slotSkills, WSKILLS, FAMILIES, COMBOS, RMB_SPECIAL } from './data.js';
@@ -349,21 +349,33 @@ function renderArenaSetup0() {
   const ov = document.getElementById('bsetup'); ov.innerHTML = '';
   const panel = el('div', 'bsp arsp'); ov.appendChild(panel);
   const STEP = AS.step === 'style' ? 'style' : 'hero';
-  panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · Ruins of Aldermere · step ${STEP === 'hero' ? 1 : 2} of 2</div><h1>${STEP === 'hero' ? 'Choose your hero' : 'How do you want to play?'}</h1>`));
+  panel.appendChild(el('div', 'bsh arhead', `<div class="eyebrow">Kingdom Arena · ${WORLD.name} · ${WORLD.place} · step ${STEP === 'hero' ? 1 : 2} of 2</div><h1>${STEP === 'hero' ? 'Choose your hero' : 'How do you want to play?'}</h1>`));
   if (STEP === 'hero') {
-  // hero select: the chosen class on the left with every key it has, the roster on the right with filter tabs
+  // hero select: role tabs and the roster, a big portrait of the chosen hero with its title, quote, story and every key it has
   { const you = AS.slots.find(x => x.you) || AS.slots[0], cls = you.cls, A2 = ABILITIES[cls] || [], ab = (id) => A2.find(x => x.id === id);
-    const wrap = el('div', 'arsel'), hero = el('div', 'arhero');
+    const L = arenaLore(cls), FA = FACTIONS[L.faction] || FACTIONS.banners, RO = ROLES[L.role] || ROLES.Damage;
+    const wrap = el('div', 'hsel'); wrap.style.setProperty('--fc', FA.col); wrap.style.setProperty('--rc', RO.col);
     const keys = [['RMB', Arena.rmbOf(cls) === 'aim' ? null : Arena.rmbOf(cls), Arena.rmbOf(cls) === 'aim' ? 'Aim down the barrel' : null], ...['F', 'C', 'Q'].map((k, n) => [k, Arena.kitOf(cls)[n]]), ['R', Arena.ultOf(cls), null, true]];
-    hero.innerHTML = `<div class="arheroimg"><img src="${classPortrait(cls)}" alt=""><div class="arheroname">${CLASSES[cls].name}</div></div><div class="arkit">` + keys.map(([k, id, alt, ult]) => { const a = id && ab(id); if (!a && !alt) return ''; return `<div class="arkrow${ult ? ' ult' : ''}"><span class="arkk">${k}</span><span class="arki">${a ? Icons.abilityIcon(a.id) : ''}</span><span class="arkt"><b>${ult ? 'Ultimate · ' : ''}${a ? a.name : alt}</b><i>${a ? (a.desc || '').replace(/</g, '') : 'Zoom in for steadier, harder-hitting shots.'}</i></span></div>`; }).join('') + `</div>`;
-    const right = el('div', 'arroster'), tabs = el('div', 'artabs'), grid = el('div', 'pgrid');
-    for (const [k, nm] of [['all', 'All'], ['Tank', 'Tanks'], ['Healer', 'Healers'], ['Damage', 'Damage']]) { const t = el('button', 'artab' + (ARF === k ? ' on' : ''), nm); t.onclick = () => { S.click(); ARF = k; renderArenaSetup(); }; tabs.appendChild(t); }
-    for (const c of Object.keys(CLASSES)) { if (ARF !== 'all' && Arena.roleOf(c) !== ARF) continue; const b = el('button', 'pcard' + (cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><b>${CLASSES[c].name}</b>`); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
-    right.append(tabs, grid); wrap.append(hero, right); panel.appendChild(wrap); }
+    const kit = keys.map(([k, id, alt, ult]) => { const a = id && ab(id); if (!a && !alt) return ''; return `<div class="hs-ab${ult ? ' ult' : ''}">${keyCap(k)}<span class="hs-abi">${a ? Icons.abilityIcon(a.id) : HS_ICON.aim}</span><span class="hs-abt"><b>${a ? esc(a.name) : alt}${ult ? '<em>Ultimate</em>' : ''}</b><i>${a ? esc((a.desc || '').replace(/<[^>]*>/g, '')) : 'Zoom in for steadier, harder-hitting shots.'}</i></span></div>`; }).join('');
+    const diffN = ['', 'Easy', 'Medium', 'Hard'][L.diff] || 'Medium';
+    const show = el('div', 'hs-show', `<div class="hs-art"><div class="hs-sig">${FA.sig}</div><img src="${classPortrait(cls)}" alt=""><div class="hs-artname"><span class="hs-rolebig">${HS_ICON[L.role] || ''}${RO.name}</span></div></div>`
+      + `<div class="hs-info"><div class="hs-fac"><span>${FA.sig}</span>${FA.name}</div><h2 class="hs-name">${CLASSES[cls].name}</h2><div class="hs-epi">${esc(L.epithet)}</div>`
+      + `<div class="hs-meta"><span class="hs-role" title="${esc(RO.text)}">${HS_ICON[L.role] || ''}${RO.name}</span>${L.chips.map(c2 => `<span class="hs-chip">${esc(c2)}</span>`).join('')}<span class="hs-diff" title="How hard this hero is to play well">Difficulty <span class="hs-pips">${[1, 2, 3].map(n => `<i class="${n <= L.diff ? 'on' : ''}"></i>`).join('')}</span><b>${diffN}</b></span></div>`
+      + (L.quote ? `<blockquote class="hs-quote">${esc(L.quote)}</blockquote>` : '') + (L.story ? `<p class="hs-story">${esc(L.story)}</p>` : '')
+      + `<div class="hs-kith">Abilities</div><div class="hs-kit">${kit}</div></div>`);
+    const right = el('div', 'hs-roster'), tabs = el('div', 'hs-tabs'), grid = el('div', 'hs-grid');
+    const CL = Object.keys(CLASSES), roleIs = (c, k) => k === 'all' || arenaLore(c).role === k;
+    if (ARF !== 'all' && !ROLES[ARF]) ARF = 'all';
+    for (const [k, nm] of [['all', 'All'], ['Tank', 'Tank'], ['Damage', 'Damage'], ['Flank', 'Flank'], ['Support', 'Support']]) { const t = el('button', 'hs-tab' + (ARF === k ? ' on' : ''), `${HS_ICON[k]}<span>${nm}</span><small>${CL.filter(c => roleIs(c, k)).length}</small>`); if (ROLES[k]) t.style.setProperty('--rc', ROLES[k].col); t.title = ROLES[k] ? ROLES[k].text : 'Every hero'; t.onclick = () => { S.click(); ARF = k; renderArenaSetup(); }; tabs.appendChild(t); }
+    for (const c of CL) { if (!roleIs(c, ARF)) continue; const l2 = arenaLore(c), r2 = ROLES[l2.role] || ROLES.Damage; const b = el('button', 'hs-card' + (cls === c ? ' on' : ''), `<img src="${classPortrait(c)}" alt=""><span class="hs-cr" style="--rc:${r2.col}">${HS_ICON[l2.role] || ''}</span><b>${CLASSES[c].name}</b>`); b.title = `${CLASSES[c].name}, ${l2.epithet} · ${r2.name} · ${(FACTIONS[l2.faction] || {}).name || ''}`; b.style.setProperty('--fc', (FACTIONS[l2.faction] || FACTIONS.banners).col); b.onclick = () => { S.click(); you.cls = c; renderArenaSetup(); }; grid.appendChild(b); }
+    right.append(tabs, grid); wrap.append(show, right); panel.appendChild(wrap); }
     const row0 = el('div', 'bsbtns'); const back0 = el('button', 'btn', '← Back to title'); back0.onclick = () => { S.click(); closeBattleSetup(); showTitle(); };
     const next = el('button', 'btn gold big', 'Next: how to play →'); next.onclick = () => { S.click(); AS.step = 'style'; renderArenaSetup0(); document.getElementById('bsetup').scrollTop = 0; };
     row0.append(back0, next); panel.appendChild(row0); return; }
-  { const you = AS.slots.find(x => x.you) || AS.slots[0]; const chip = el('div', 'arsec', `<div style="display:flex;align-items:center;gap:14px"><img src="${classPortrait(you.cls)}" alt="" style="width:64px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #8a6a3a"><div><div style="opacity:.7;font-size:13px">Your hero</div><div style="font:700 24px Georgia,serif;color:#f2dfb0">${CLASSES[you.cls].name}</div></div></div>`); const ch2 = el('button', 'btn', '← Change hero'); ch2.style.marginLeft = 'auto'; ch2.onclick = () => { S.click(); AS.step = 'hero'; renderArenaSetup0(); }; chip.firstChild.appendChild(ch2); panel.appendChild(chip); }
+  { const you = AS.slots.find(x => x.you) || AS.slots[0], L = arenaLore(you.cls), FA = FACTIONS[L.faction] || FACTIONS.banners, RO = ROLES[L.role] || ROLES.Damage;
+    const chip = el('div', 'arsec hs-you', `<img src="${classPortrait(you.cls)}" alt=""><div class="hs-youtx"><small>Your hero · ${FA.sig} ${FA.name}</small><b>${CLASSES[you.cls].name} <i>${esc(L.epithet)}</i></b><span class="hs-role" style="--rc:${RO.col}">${HS_ICON[L.role] || ''}${RO.name}</span></div>`);
+    const ch2 = el('button', 'btn', '← Change hero'); ch2.onclick = () => { S.click(); AS.step = 'hero'; renderArenaSetup0(); }; chip.appendChild(ch2); panel.appendChild(chip);
+    panel.appendChild(el('p', 'hs-lead', `${esc(WORLD.text[2])}`)); }
   const F = Arena.FORMATS, O = Arena.OBJECTIVES, fmt = F[AS.fmt];
   // format
   const fw = el('div', 'arsec arset', '<h3>Format</h3>'); const fg = el('div', 'arseg');
@@ -404,6 +416,18 @@ function renderArenaSetup0() {
   row.append(back, mp, go); panel.appendChild(row);
 }
 const ACOL = Arena.COLORS_LIST, ACN = Arena.COLOR_NAMES_LIST; let ARF = 'all', ARMORE = false, ARFIGHT = false; // (the roster filter tab)
+// hero select icons: one for each role tab, the mouse and the aim row
+const HS_SVG = (body) => `<svg viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+const HS_ICON = {
+  all: HS_SVG('<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>'),
+  Tank: HS_SVG('<path d="M12 2l8 3v6c0 5.2-3.4 9.3-8 11-4.6-1.7-8-5.8-8-11V5z"/>'),
+  Damage: HS_SVG('<path d="M11 2h2v4.1a6 6 0 0 1 4.9 4.9H22v2h-4.1a6 6 0 0 1-4.9 4.9V22h-2v-4.1A6 6 0 0 1 6.1 13H2v-2h4.1A6 6 0 0 1 11 6.1zm1 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>'),
+  Flank: HS_SVG('<path d="M21 3l-1 4.5-9.2 9.2-2.5-2.5L17.5 5zM7.6 14.9l1.5 1.5-1.8 1.8 1.4 1.4-1.4 1.4-1.4-1.4-1.8 1.8-1.4-1.4 1.8-1.8-1.4-1.4 1.4-1.4 1.4 1.4z"/>'),
+  Support: HS_SVG('<path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/>'),
+  aim: HS_SVG('<circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 1h2v6h-2zM11 17h2v6h-2zM1 11h6v2H1zM17 11h6v2h-6z"/>'),
+};
+// a key on the keyboard, or the mouse with its right button lit
+const keyCap = (k) => k === 'RMB' || k === 'LMB' ? `<span class="hs-key mouse" title="${k === 'RMB' ? 'Right mouse button' : 'Left mouse button'}"><svg viewBox="0 0 24 32" aria-hidden="true"><rect x="2" y="2" width="20" height="28" rx="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v11" stroke="currentColor" stroke-width="2"/><path d="${k === 'RMB' ? 'M13 3.2a9 9 0 0 1 8 8.8h-8z' : 'M11 3.2a9 9 0 0 0-8 8.8h8z'}" class="lit"/></svg></span>` : `<span class="hs-key">${k}</span>`;
 
 // ---------- preview scene ----------
 function buildPreview() {

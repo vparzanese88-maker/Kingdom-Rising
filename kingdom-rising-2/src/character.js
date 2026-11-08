@@ -122,8 +122,8 @@ export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb
 // time a hero who carries it appears (never all at start) and re-laid into the frame of the code-built part they replace: grip at the origin,
 // the business end up +y, about the code part's length, so every swing, block and cast pose still fits. f: [turn x, y, z, scale to metres, move x, y, z]
 const PI = Math.PI, KIT = {
-  warrior_sword: { f: [0, 0, PI, 0.012, 0, 0.338, 0] }, /* (point-up: guard just above the fist at y 0.1, point at 0.91, like the code sword) */
-  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03] }, /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
+  warrior_sword: { f: [0, 0, PI, 0.012, 0, 0.338, 0], fpf: [0, PI / 2, 0] }, /* (first person: the blade turned a quarter about its length, edge forward) */ /* (point-up: guard just above the fist at y 0.1, point at 0.91, like the code sword) */
+  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03], fpf: [0, PI, 0] }, /* (first person: lion face turned outward, away from you) */ /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
   darkknight_sword: { f: [0, 0, PI, 0.0196, 0, 0.527, 0] }, /* (guard at 0.2, point at 1.46: the code greatsword) */
   bers_axe: { f: [0, 0, 0, 0.016, 0, 0.57, 0] }, /* (the ram-skull heads at y 1.05 like the code great axe, edges out along x) */
   ranger_bow: { f: [0, -PI / 2, 0, 0.017, 0, 0, 0.094], cut: (g) => keepTris(g, (x, y) => !(x > 8.3 && Math.abs(y) < 38)), str: [0.646, 0.252] }, /* (riser at the origin, string toward +z; its own string is cut out so the code string, which draws, takes its place) */
@@ -165,7 +165,7 @@ export function loadKit(k) { if (!_kitP[k]) _kitP[k] = (_fbxL = _fbxL || import(
 // swap a group's code-built meshes for the detailed model (now if it is loaded, or as soon as it is). o.fp: first person (the code parts hide at once, no shadows)
 export function kitize(g, k, o = {}) { if (!g || !KIT[k]) return g; if (o.fp) for (const c of g.children) if (c.isMesh) c.visible = false;
   const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = o.fp ? false : cs.length ? cs[0].castShadow : true, cull = o.fp ? false : cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
-    const m = tpl.clone(), K = KIT[k]; m.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); if (o.fp && K.fpPos) m.position.fromArray(K.fpPos); if (!o.fp && K.tpf) { const T = K.tpf; m.rotation.set(T[0], T[1], T[2], 'YXZ'); if (T[3]) m.scale.setScalar(T[3]); if (T.length > 4) m.position.set(T[4], T[5], T[6]); } /* (third person only: turn, size, move in the hand) */ g.add(m); g.userData.glb = m;
+    const m = tpl.clone(), K = KIT[k]; m.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); if (o.fp && K.fpPos) m.position.fromArray(K.fpPos); if (o.fp && K.fpf) m.rotation.set(K.fpf[0], K.fpf[1], K.fpf[2], 'YXZ'); /* (fpf: a first-person-only turn of the kit model) */ if (!o.fp && K.tpf) { const T = K.tpf; m.rotation.set(T[0], T[1], T[2], 'YXZ'); if (T[3]) m.scale.setScalar(T[3]); if (T.length > 4) m.position.set(T[4], T[5], T[6]); } /* (third person only: turn, size, move in the hand) */ g.add(m); g.userData.glb = m;
     if (K.tip != null && g.userData.tip) g.userData.tip.position.set(0, K.tip, 0);
     if (K.str && g.userData.string) { const [h, z] = K.str, a = g.userData.string.geometry.attributes.position; a.setXYZ(0, 0, -h, z); a.setXYZ(1, 0, 0, z); a.setXYZ(2, 0, h, z); a.needsUpdate = true; g.userData.string.geometry.computeBoundingSphere(); g.userData.stringZ = z; } };
   if (_kitTpl[k]) put(_kitTpl[k]); else { (_kitWait[k] = _kitWait[k] || []).push(put); loadKit(k); } return g; }

@@ -153,7 +153,7 @@ function headK(p) {
   const H = HEADSHOT, c = p.arenaCls;
   if (c === 'ranger') return p.kind === 'spectral' ? H.spectral : p.kind === 'arrow' ? (p.charged ? H.rangerDrawn : H.rangerQuick) : 1;
   if (c === 'musketeer') return p.kind === 'bullet' ? (p.ads ? H.musketAds : H.musket) : 1;
-  if (c === 'wizard') return p.kind === 'arcane' ? H.caster : 1;
+  if (c === 'wizard') return p.kind === 'arcane' || p.kind === 'fireball' ? H.caster : 1; /* (his staff bolts, whatever their element) */
   if (c === 'elementalist') return p.kind === 'frost' || p.kind === 'arcane' ? H.caster : 1;
   return 1;
 }

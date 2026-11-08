@@ -388,7 +388,7 @@ export function buildHumanoid(app = {}) {
   if (kind === 'tyrant') { R.sw = 0.3; R.hw = 0.14; R.thick = 1.6; R.head = 1.05; R.armL = 0.66; }
 
   const root = new THREE.Group(); root.name = 'humanoid';
-  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? 0.7 * (ARENA_SIZE[app.cls] || 1) : 1); // (the arena classes stand a quarter bigger, then a quarter again; each class its own size)
+  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? (1.9 / 2.34) * (ARENA_SIZE[app.cls] || 1) : 1); // (the arena classes stand a quarter bigger, then a quarter again; each class its own size)
   const body = new THREE.Group(); body.scale.setScalar(scale); root.add(body);
   const O = kind === 'person' ? outfitSpec(app) : {};
 

@@ -34,13 +34,14 @@ const ROUNDS = +(process.argv[2] || 3), OUT = process.argv[3] || 'pvprr.json', C
           for (const f of bots) { const h = f.bot.h; h.ultCharge = 0; h.arenaPerks = {}; f.pp = 5; Ar.recomputePK(h); f.bot.recalc(); f.bot.hp = f.bot.maxHp; f.bot.buffs = {}; f.bot.dots = []; f.bot.hots = []; for (const k in f.bot.cd) f.bot.cd[k] = Math.random() * 2; }
           Aa.target = 1e9; Aa.timeLimit = Infinity; Aa.t = 0.1; hide(); KR2.sim(0.3); Aa.perkClock = 9.9; // (perk tick right away: 6 points)
           let t = 0, k0 = bots.map(f => f.kills), dmg0 = bots.map(f => f.dmg); let w = -1;
-          const trail = []; let met = false;
+          const trail = []; let met = false, t0m = 0;
           while (t < CAP) { hide(); KR2.sim(0.5); t += 0.5; trail.push(bots[0].bot.pos.clone());
-            // no contact yet after 10 s: put the second fighter where the first one stood 3 s ago (walkable ground, ~10-15 m away)
             if (TRACE && t % 5 === 0) out.push({ tr: `r${rd} t${t} ` + bots.map(f => { const u = f.bot; return `${u.cls} ${u.pos.x.toFixed(0)},${u.pos.z.toFixed(0)} hp${Math.round(u.hp)} tg${u.target ? (u.target === P ? 'P' : u.target.cls) : '-'} ln${u.lane} st${u.state} dead${u.dead ? 1 : 0}`; }).join(' | ') + ` d${bots[0].bot.pos.distanceTo(bots[1].bot.pos).toFixed(0)} st ${Aa.state}` });
-            if (!met) { const d = bots[0].bot.pos.distanceTo(bots[1].bot.pos); if (d < 18 || bots[0].dmg > dmg0[0] || bots[1].dmg > dmg0[1]) met = true; else if (t >= 10 && t % 5 === 0) { const q = trail[Math.max(0, trail.length - 7)]; bots[1].bot.pos.copy(q); met = true; } } const kk = bots.map((f, i) => f.kills - k0[i]); if (kk[0] || kk[1]) { w = kk[0] && kk[1] ? -1 : kk[0] ? 0 : 1; break; } if (bots[0].bot.dead && bots[1].bot.dead) break; }
+            // the duel starts in the plaza where the routes meet: once a fighter walks through it, both are set down 12 m apart there (no hunting round the ruins)
+            if (!met) { const near = bots.find(f => Math.hypot(f.bot.pos.x, f.bot.pos.z - 3) < 5); if (near || t >= 25) { const y = near ? near.bot.pos.y : bots[0].bot.pos.y; const s2 = rd % 2 ? -1 : 1; bots[0].bot.pos.set(0, y, 3 - 6 * s2); bots[1].bot.pos.set(0, y, 3 + 6 * s2); for (const f of bots) { f.bot.vel && f.bot.vel.set(0, 0, 0); f.bot.wpi = null; } met = true; t0m = t; } }
+            const kk = bots.map((f, i) => f.kills - k0[i]); if (kk[0] || kk[1]) { w = kk[0] && kk[1] ? -1 : kk[0] ? 0 : 1; break; } if (bots[0].bot.dead && bots[1].bot.dead) break; }
           const ia = sw ? 1 : 0, ib = 1 - ia, fa = bots[ia], fb = bots[ib];
-          out.push({ w: w < 0 ? -1 : w === ia ? 0 : 1, sw, t, hpA: Math.round(Math.max(0, fa.bot.hp) / fa.bot.maxHp * 100), hpB: Math.round(Math.max(0, fb.bot.hp) / fb.bot.maxHp * 100), maxA: fa.bot.maxHp, maxB: fb.bot.maxHp, dA: Math.round(fa.dmg - dmg0[ia]), dB: Math.round(fb.dmg - dmg0[ib]) });
+          out.push({ w: w < 0 ? -1 : w === ia ? 0 : 1, sw, t: t - t0m, hpA: Math.round(Math.max(0, fa.bot.hp) / fa.bot.maxHp * 100), hpB: Math.round(Math.max(0, fb.bot.hp) / fb.bot.maxHp * 100), maxA: fa.bot.maxHp, maxB: fb.bot.maxHp, dA: Math.round(fa.dmg - dmg0[ia]), dB: Math.round(fb.dmg - dmg0[ib]) });
         }
         out.mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : 0; out.n = { mobs: G.mobs.length, scene: G.scene.children.length, timers: G.timers.length, shots: Aa.shots.length }; return { out, mem: out.mem, n: out.n }; }, [A, B, ROUNDS, CAP, !!process.env.TRACE]);
       if (r) { console.log('mem', r.mem, JSON.stringify(r.n)); for (const o of r.out) if (o.tr) console.log(o.tr); r = r.out.filter(o => !o.tr); }

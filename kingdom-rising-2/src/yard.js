@@ -1,5 +1,6 @@
 // The Training Yard: a plain field with practice dummies, every class at the top level and every weapon.
 // Y opens the yard panel: pick a class, pick a weapon, reset cooldowns, unlimited mana and endurance.
+import { heroHeight } from './heromodels.js';
 import * as THREE from 'three';
 import { G } from './state.js';
 import { Mob } from './mobs.js';
@@ -26,12 +27,13 @@ const LINE = []; YD.line = LINE;
 function nameTag(text) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 30px Georgia, serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(text, 128, 42); g.fillStyle = '#f2dfb0'; g.fillText(text, 128, 42);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); sp.scale.set(1.6, 0.4, 1); return sp; }
 function spawnLineUp() {
-  const keys = Object.keys(CLASSES), n = keys.length, gap = 1.75, z = -8;
-  keys.forEach((cls, i) => { const x = (i - (n - 1) / 2) * gap;
+  const keys = Object.keys(CLASSES), z = -8; /* (spaced by each class's size so no two figures touch, giants included) */
+  const wid = (c) => heroHeight(c) * 0.42 + 0.9, xs = []; let run = 0; keys.forEach((c, i) => { if (i) run += (wid(keys[i - 1]) + wid(c)) / 2; xs.push(run); }); const mid = run / 2;
+  keys.forEach((cls, i) => { const x = xs[i] - mid;
     try { const ch = buildHumanoid({ race: RACE[cls] || 'human', sex: 'm', cls, outfit: cls, spec: arenaSpec(cls), body: arenaBody(cls), skin: cls === 'musketeer' ? '#7a9a3a' : cls === 'blunderbuss' ? '#4f6a2a' : cls === 'bombardier' ? '#8aa23a' : '#d8a888', hair: '#3a2a1a' }); arenaDecor(ch, cls);
       try { equipWeapon(ch, CLASSES[cls].weapons[0], 3, 0); arenaWeaponDecor(ch, cls); } catch (e) { /* no weapon model */ }
       ch.root.position.set(x, heightAt(x, z), z); ch.root.rotation.y = 0; G.scene.add(ch.root);
-      const tag = nameTag(CLASSES[cls].name); tag.position.set(x, heightAt(x, z) + 2.55, z); G.scene.add(tag);
+      const tag = nameTag(CLASSES[cls].name); tag.position.set(x, heightAt(x, z) + heroHeight(cls) + 0.35, z); G.scene.add(tag);
       LINE.push({ cls, ch, x, z, t: Math.random() * 3 }); } catch (e) { console.warn('line-up', cls, e); } });
 }
 // the class figure you are standing at, if any

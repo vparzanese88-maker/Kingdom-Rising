@@ -18,3 +18,4 @@ Helpers:
 - Necromancer kit.
 - Balance metrics: duels, dummy damage, team fights.
 - Next, when a slot frees: animation and ultimate polish (dodges, lunges, monk kicks, spell casts, ultimates), then an ability-sense review.
+7. **Arena map redone to look beautiful** (a separate helper), plus docs/MESHY_WISHLIST.md listing what the owner should get from Meshy to make the world come alive. The full report is due by 6 am Eastern.

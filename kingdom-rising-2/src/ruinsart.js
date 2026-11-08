@@ -225,9 +225,9 @@ export function backdrop(put, M, Y) { seedV = 2024; const ring = (R0, R1, n, fn)
 
 // ---- the owner's Meshy props (trees and rocks), loaded after the map and drawn instanced ----
 export function plantMeshy(root, list, done) { if (!list.tree.length && !list.rock.length) return; const L = new FBXLoader();
-  const load = (kind, url, at) => L.load(url, (base) => { try { place(root, kind, base, at); if (done) done(kind); } catch (e) { console.warn('arena prop', kind, e); } }, undefined, () => { /* (the procedural stand-ins stay) */ });
-  setTimeout(() => { load('tree', 'models/props/yard_tree.fbx', list.tree); load('rock', 'models/props/yard_rock.fbx', list.rock); }, 2500); }
-function place(root, kind, base, at) { if (!at.length) return; base.updateMatrixWorld(true); const parts = [], box = new THREE.Box3();
+  const load = (kind, url, at, quiet = []) => L.load(url, (base) => { try { place(root, kind, base, at, true); if (quiet.length) place(root, kind, base, quiet, false); if (done) done(kind); } catch (e) { console.warn('arena prop', kind, e); } }, undefined, () => { /* (the procedural stand-ins stay) */ });
+  setTimeout(() => { load('tree', 'models/props/yard_tree.fbx', list.tree); load('rock', 'models/props/yard_rock.fbx', list.rock, list.edge || []); }, 2500); }
+function place(root, kind, base, at, shadow = true) { if (!at.length) return; base.updateMatrixWorld(true); const parts = [], box = new THREE.Box3();
   base.traverse(o => { if (!o.isMesh || !o.geometry) return; const geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); fixNormals(geo); geo.computeBoundingBox(); box.union(geo.boundingBox);
     const mats = (Array.isArray(o.material) ? o.material : [o.material]).map(m0 => { const m = new THREE.MeshStandardMaterial({ map: m0.map || null, color: '#ffffff', roughness: 0.92, metalness: 0, side: kind === 'tree' ? THREE.DoubleSide : THREE.FrontSide, alphaTest: m0.map && kind === 'tree' ? 0.4 : 0 });
       if (m.map) { m.map.colorSpace = SRGB; m.map.anisotropy = 4; m.map.needsUpdate = true; } if (kind === 'rock') m.color.setRGB(1.5, 1.42, 1.32); else m.color.setRGB(1.05, 1.0, 0.86); return m; });
@@ -236,4 +236,4 @@ function place(root, kind, base, at) { if (!at.length) return; base.updateMatrix
   const norm = new THREE.Matrix4().makeScale(1 / H, 1 / H, 1 / H).multiply(new THREE.Matrix4().makeTranslation(-cx, -box.min.y, -cz)), Mx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
   for (const [geo, mat] of parts) { geo.applyMatrix4(norm); geo.computeBoundingSphere(); for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
     const im = new THREE.InstancedMesh(geo, mat, at.length); at.forEach(([x, y, z, h, ry], i) => { q.setFromAxisAngle(up, ry); s.setScalar(h); p.set(x, y - (kind === 'rock' ? h * 0.18 : 0.1), z); im.setMatrixAt(i, Mx.compose(p, q, s)); });
-    im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); root.add(im); } }
+    im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); root.add(im); } } // (the rocks along the outer walls cast no shadow: fewer triangles in the shadow pass)

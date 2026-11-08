@@ -25,8 +25,8 @@ function put(geo, mat, x, y, z, ry = 0, rx = 0, sh = true) { const m4 = new THRE
 // texture coordinates in metres from where each face sits in the world (so a long wall and a small block show the same stone size)
 function worldUV(g, tile) { const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv; for (let i = 0; i < P.count; i++) { const ax = Math.abs(N.getX(i)), ay = Math.abs(N.getY(i)), az = Math.abs(N.getZ(i)), x = P.getX(i), y = P.getY(i), z = P.getZ(i);
   if (ay >= ax && ay >= az) U.setXY(i, x / tile, z / tile); else if (ax >= az) U.setXY(i, z / tile, y / tile); else U.setXY(i, x / tile, y / tile); } }
-const seg = (v, s = 4) => Math.min(24, Math.max(1, Math.ceil(v / s))); // (big boxes are cut up, so the baked shade and firelight have vertices to sit on)
-const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d, seg(w), seg(h, 2.6), seg(d));
+const seg = (v, s = 5) => Math.min(24, Math.max(1, Math.ceil(v / s))); // (big boxes are cut up, so the baked shade and firelight have vertices to sit on)
+const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d, seg(w), seg(h, 3), seg(d));
 const LIGHTS = []; // baked light sources: { x, y, z, r, k, c: [r, g, b] }
 const FIRE = [1, 0.5, 0.18], TREES = [], ROCKS = [];
 const CYL = (r1, r2, h, n = 10) => new THREE.CylinderGeometry(r1, r2, h, n);
@@ -387,11 +387,11 @@ export function buildRuins(scene) {
     if (mat === M.barkT || mat === M.leafT || mat === M.leafTD) fallback.push(['tree', m]); if (mat === M.rockT) fallback.push(['rock', m]); }
   geoBuckets.clear(); AR.root = root; GS.mapLook = ruinsLook;
   // the owner's Meshy trees and rocks take over from the stand-ins once they load
-  plantMeshy(root, { tree: TREES.slice(), rock: [...ROCKS, ...EDGE_ROCKS] }, (kind) => { for (const [k, m] of fallback) if (k === kind) m.visible = false; });
+  plantMeshy(root, { tree: TREES.slice(), rock: ROCKS.slice(), edge: EDGE_ROCKS }, (kind) => { for (const [k, m] of fallback) if (k === kind) m.visible = false; });
   return root;
 }
 // the ground's paint: white on a layer = that surface (cobbles wherever nothing else is painted)
-const EDGE_ROCKS = []; { let q = 5; const r = () => (q = (q * 16807) % 2147483647) / 2147483647; for (const sx of [-1, 1]) for (let z = -88; z <= 88; z += 7 + r() * 6) { if (Math.abs(z) < 12 || Math.abs(Math.abs(z) - 79) < 6) continue; EDGE_ROCKS.push([sx * (59.6 - r() * 0.4), Y, z, 1.3 + r() * 1.4, r() * 6]); } }
+const EDGE_ROCKS = []; { let q = 5; const r = () => (q = (q * 16807) % 2147483647) / 2147483647; for (const sx of [-1, 1]) for (let z = -86; z <= 86; z += 13 + r() * 8) { if (Math.abs(z) < 12 || Math.abs(Math.abs(z) - 79) < 6) continue; EDGE_ROCKS.push([sx * (59.6 - r() * 0.4), Y, z, 1.3 + r() * 1.4, r() * 6]); } }
 function paintGround(L, px, pz, pr) { let q = 11; const r = () => (q = (q * 16807) % 2147483647) / 2147483647;
   const st = (l, blur, a, col) => { const g = L[l].g; g.save(); g.filter = `blur(${blur}px)`; g.globalAlpha = a; g.fillStyle = g.strokeStyle = col || '#fff'; return g; };
   const rect = (l, x0, z0, x1, z1, blur = 3, a = 1, col) => { const g = st(l, blur, a, col); g.fillRect(px(Math.min(x0, x1)), pz(Math.min(z0, z1)), pr(Math.abs(x1 - x0)), pr(Math.abs(z1 - z0))); g.restore(); };

@@ -253,6 +253,7 @@ export function arenaWeaponDecor(ch, cls) {
   const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true; weaponDecor(ch, cls, w); classKit(ch, cls); } // (then each class's detailed weapon models replace the code-built ones as they load)
 function weaponDecor(ch, cls, w) {
   if (cls === 'warrior') { w.scale.multiplyScalar(1.25); if (ch.weapons.off) ch.weapons.off.scale.multiplyScalar(1.45); return; } // (a knight's long sword and a full heater shield on his big frame, not a boy's)
+  if (cls === 'darkknight' && w.name === 'weapon_greatsword') w.scale.multiplyScalar(0.78); // (his barbed greatsword at 0.7 of his height, not 0.9)
   if (cls === 'paladin' && w.name === 'weapon_greatsword') w.scale.z *= 2.6; // (no model of his own yet: the built greatsword, its blade given some body so it never thins to a line edge-on)
   if (cls === 'ranger' && w.name === 'weapon_bow') { w.rotation.set(0, Math.PI, 0); w.position.set(0, 0, 0); w.scale.multiplyScalar(0.7); } // (the grip runs up through the fist, so the limbs stand up and down out of it with the string toward him, not out along the fingers; a 0.6-height bow)
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); return; } // (goblin-made guns)

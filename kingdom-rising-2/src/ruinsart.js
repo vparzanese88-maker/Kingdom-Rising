@@ -39,9 +39,9 @@ function flagstones(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#5a5246'
     for (const [a, b, w, h] of parts) { const x = (i + a) * s + (j % 2) * s * 0.5, y = (j + b) * s, W = w * s, H = h * s, v = 180 + rr() * 50; wrapDraw(n, x, y, W, H, (px, py) => { g.fillStyle = rgb(v + 6, v, v - 10); g.beginPath(); g.roundRect(px + 3, py + 3, W - 6, H - 6, 9); g.fill();
       g.fillStyle = `rgba(255,248,230,${0.06 + rr() * 0.08})`; g.fillRect(px + 8, py + 8, W - 16, H * 0.3); }); } }
   blotches(g, n, 30, '70,90,40', 6, 22, 0.35); /* (moss in the joints) */ speckle(g, n, 3000, 0.04, 0.12, true); speckle(g, n, 3000, 0.05, 0.14, false); blotches(g, n, 10, '50,44,36', 40, 110, 0.18); return c; }
-function cobbles(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#4a4238'; g.fillRect(0, 0, n, n); const k = 11, s = n / k;
-  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) { const x = (i + (j % 2) * 0.5) * s + (rr() - 0.5) * 6, y = j * s + (rr() - 0.5) * 6, rx = s * (0.4 + rr() * 0.06), ry = s * (0.38 + rr() * 0.06), v = 150 + rr() * 70, tw = rr() * 10 - 5;
-    wrapDraw(n, x - rx, y - ry, rx * 2, ry * 2, (px, py) => { const cx = px + rx, cy = py + ry, gr = g.createRadialGradient(cx - rx * 0.3, cy - ry * 0.35, 1, cx, cy, rx * 1.1); gr.addColorStop(0, rgb(v + 30 + tw, v + 26, v + 18 - tw)); gr.addColorStop(1, rgb(v - 40 + tw, v - 44, v - 50 - tw)); g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rx, ry, rr() * 0.6, 0, 7); g.fill(); }); }
+function cobbles(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#6a5c4c'; g.fillRect(0, 0, n, n); const k = 8, s = n / k;
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) { const x = (i + (j % 2) * 0.5) * s + (rr() - 0.5) * 6, y = j * s + (rr() - 0.5) * 6, rx = s * (0.4 + rr() * 0.06), ry = s * (0.38 + rr() * 0.06), v = 150 + rr() * 45, tw = rr() * 12 - 6;
+    wrapDraw(n, x - rx, y - ry, rx * 2, ry * 2, (px, py) => { const cx = px + rx, cy = py + ry, gr = g.createRadialGradient(cx - rx * 0.3, cy - ry * 0.35, 1, cx, cy, rx * 1.1); gr.addColorStop(0, rgb(v + 16 + tw, v + 10, v - tw)); gr.addColorStop(1, rgb(v - 22 + tw, v - 28, v - 36 - tw)); g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rx, ry, rr() * 0.6, 0, 7); g.fill(); }); }
   blotches(g, n, 24, '70,92,38', 5, 16, 0.4); speckle(g, n, 2000, 0.04, 0.1, false); blotches(g, n, 8, '40,34,28', 50, 120, 0.2); return c; }
 function grass(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#5f7a34'; g.fillRect(0, 0, n, n); blotches(g, n, 40, '120,140,50', 20, 70, 0.35); blotches(g, n, 30, '40,70,30', 20, 60, 0.35); blotches(g, n, 10, '140,120,70', 15, 40, 0.3);
   for (let i = 0; i < 9000; i++) { const x = rr() * n, y = rr() * n, l = 3 + rr() * 8, a = -Math.PI / 2 + (rr() - 0.5) * 0.9, v = rr(); g.strokeStyle = v < 0.5 ? `rgba(150,180,70,${0.35 + rr() * 0.4})` : `rgba(40,70,25,${0.3 + rr() * 0.4})`; g.lineWidth = 1 + rr(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
@@ -66,9 +66,9 @@ function rooftiles(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#5a2a1a';
 function marble(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#eee8dc'; g.fillRect(0, 0, n, n); blotches(g, n, 30, '220,210,190', 30, 100, 0.35);
   for (let i = 0; i < 14; i++) { g.strokeStyle = `rgba(150,140,125,${0.15 + rr() * 0.25})`; g.lineWidth = 0.8 + rr() * 1.6; g.beginPath(); let x = rr() * n, y = rr() * n; g.moveTo(x, y); for (let k = 0; k < 14; k++) { x += 20 + rr() * 20; y += (rr() - 0.5) * 30; g.lineTo(x, y); } g.stroke(); }
   blotches(g, n, 10, '120,110,90', 20, 50, 0.15); speckle(g, n, 1500, 0.03, 0.08, false); return c; }
-function leaves(n = 256, alpha = false) { const [c, g] = canvas(n); if (!alpha) { g.fillStyle = '#3c5a28'; g.fillRect(0, 0, n, n); }
+function leaves(n = 256, alpha = false, gold = false) { const [c, g] = canvas(n); if (!alpha) { g.fillStyle = gold ? '#a86a28' : '#3c5a28'; g.fillRect(0, 0, n, n); }
   for (let i = 0; i < (alpha ? 260 : 700); i++) { const x = rr() * n, y = alpha ? n * (0.02 + rr() * 0.96) : rr() * n, s = (alpha ? 6 : 5) + rr() * 6, a = rr() * 6.28, v = rr();
-    const col = v < 0.3 ? 'rgb(64,98,40)' : v < 0.65 ? 'rgb(92,128,52)' : v < 0.9 ? 'rgb(128,160,64)' : 'rgb(170,180,80)';
+    const col = gold ? (v < 0.3 ? 'rgb(190,110,40)' : v < 0.65 ? 'rgb(235,160,60)' : v < 0.9 ? 'rgb(255,205,100)' : 'rgb(255,240,170)') : v < 0.3 ? 'rgb(64,98,40)' : v < 0.65 ? 'rgb(92,128,52)' : v < 0.9 ? 'rgb(128,160,64)' : 'rgb(170,180,80)';
     wrapDraw(n, x - s, y - s, s * 2, s * 2, (px, py) => { g.save(); g.translate(px + s, py + s); g.rotate(a); g.fillStyle = col; g.beginPath(); g.ellipse(0, 0, s, s * 0.55, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(30,50,20,0.5)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(-s, 0); g.lineTo(s, 0); g.stroke(); g.restore(); }); }
   if (alpha) { g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 18; i++) { g.beginPath(); g.arc(rr() * n, rr() * n, 4 + rr() * 10, 0, 7); g.fill(); } g.globalCompositeOperation = 'source-over'; }
   return c; }
@@ -93,9 +93,9 @@ function mosaic(n = 1024) { const [c, g] = canvas(n); const C = n / 2, R = n / 2
 export function makeKit() {
   seedV = 777; const T = {};
   const add = (k, c, tile, nk) => { T[k] = { map: tex(c), tile, normal: nk ? normalFrom(c, nk) : null }; };
-  add('ashlar', ashlar(), 3.2, 2.4); add('ashlarD', ashlar(512, [96, 120, 104, 88, 104], 6, 190), 4.2, 2.6); add('flag', flagstones(), 4.2, 2.0); add('cobble', cobbles(), 2.4, 2.4);
+  add('ashlar', ashlar(), 3.2, 2.4); add('ashlarD', ashlar(512, [96, 120, 104, 88, 104], 6, 190), 4.2, 2.6); add('flag', flagstones(), 4.2, 2.0); add('cobble', cobbles(), 3.4, 1.6);
   add('plaster', plaster(), 3.6, 0.8); add('wood', planks(), 2.2, 1.6); add('roof', rooftiles(), 2.0, 2.2); add('marble', marble(), 3.0, 0.6); add('grass', grass(), 3.6, 0); add('earth', earth(), 4.0, 0);
-  add('leaf', leaves(256), 2.6, 0); add('bark', bark(), 1.6, 1.4); T.ivy = { map: tex(leaves(256, true)), tile: 0 }; T.cloth = { map: tex(clothPattern()), tile: 0 }; { const c = mosaic(); T.mosaic = { map: tex(c), tile: 0, normal: normalFrom(c, 1.6) }; }
+  add('leaf', leaves(256), 2.6, 0); add('gold', leaves(256, false, true), 2.6, 0); add('bark', bark(), 1.6, 1.4); T.ivy = { map: tex(leaves(256, true)), tile: 0 }; T.cloth = { map: tex(clothPattern()), tile: 0 }; { const c = mosaic(); T.mosaic = { map: tex(c), tile: 0, normal: normalFrom(c, 1.6) }; }
   return T; }
 
 // a standard material with an optional texture from the kit; tile 0: the geometry keeps its own UVs
@@ -145,10 +145,10 @@ export function buildGround(T, o) { // o: { W, D, Y, paint(ctxs, px, pz, pr), bo
     sh.fragmentShader = 'uniform sampler2D tShade, tCob, tGrass, tEarth, tFlag; uniform vec2 gSize;\n' + sh.fragmentShader
       .replace('#include <map_fragment>', `vec4 sp = texture2D(map, vMapUv); vec2 wp = (vMapUv - 0.5) * vec2(gSize.x, -gSize.y);
         vec3 sh3 = texture2D(tShade, vMapUv).rgb; float wg = sp.r, we = sp.g, wf = sp.b, wc = max(0.0, 1.0 - wg - we - wf), ws = max(0.001, wg + we + wf + wc);
-        vec3 col = (texture2D(tCob, wp / 2.4).rgb * vec3(0.92, 0.88, 0.82) * wc + texture2D(tGrass, wp / 3.6).rgb * wg + texture2D(tEarth, wp / 4.0).rgb * we + texture2D(tFlag, wp / 4.2).rgb * vec3(0.95, 0.92, 0.86) * wf) / ws;
+        vec3 col = (texture2D(tCob, wp / 3.4).rgb * vec3(0.96, 0.9, 0.82) * wc + texture2D(tGrass, wp / 3.6).rgb * wg + texture2D(tEarth, wp / 4.0).rgb * we + texture2D(tFlag, wp / 4.2).rgb * vec3(0.95, 0.92, 0.86) * wf) / ws;
         col *= 0.86 + 0.28 * sh3.b; col *= sh3.r; diffuseColor.rgb *= col;`)
       .replace('#include <normal_fragment_maps>', `#ifdef USE_NORMALMAP_TANGENTSPACE
-        vec3 mapN = texture2D(normalMap, wp / 2.4).xyz * 2.0 - 1.0; mapN.xy *= normalScale * (wc / ws); normal = normalize(tbn * mapN);
+        vec3 mapN = texture2D(normalMap, wp / 3.4).xyz * 2.0 - 1.0; mapN.xy *= normalScale * (wc / ws); normal = normalize(tbn * mapN);
         #endif`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.52, 0.2) * sh3.g * 0.85 * diffuseColor.rgb;'); };
   m.customProgramCacheKey = () => 'kr2ground';
@@ -164,7 +164,7 @@ export function bakeVerts(list, mat, lights, Y) { const cell = 10, grid = new Ma
     for (let i = 0; i < N; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), up = y - Y, ny0 = n.getY(i), ao = emissive ? 1 : ny0 > 0.6 ? 0.96 : (0.5 + 0.5 * Math.min(1, Math.max(0, (up + 0.15) / 2.6))) * (ny0 < -0.6 ? 0.8 : 1), top = up > 9 ? 1.04 : 1;
       let r = tint * ao * top * (1 + warm), gg = tint * ao * top, b = tint * ao * top * (1 - warm);
       if (soot < 1) { const s = 0.5 + 0.5 * Math.sin(x * 0.37 + Math.sin(z * 0.23) * 3) * Math.sin(z * 0.31 + y * 0.6); const k = 1 - (1 - soot) * Math.max(0, s - 0.35) * 1.5; r *= k; gg *= k; b *= k; }
-      if (moss && up < 1.6) { const m = (1 - Math.max(0, up) / 1.6) * moss; r *= 1 - 0.3 * m; b *= 1 - 0.45 * m; gg *= 1 + 0.02 * m; }
+      if (moss && up < 1.6) { const m = (1 - Math.max(0, up) / 1.6) * moss; r *= 1 - 0.16 * m; b *= 1 - 0.26 * m; gg *= 1 - 0.04 * m; }
       col[i * 3] = r; col[i * 3 + 1] = gg; col[i * 3 + 2] = b;
       const ls = grid.get(key(Math.floor(x / cell), Math.floor(z / cell))); if (!ls || emissive) continue; const nx = n.getX(i), ny = n.getY(i), nz = n.getZ(i); let gr = 0, gG = 0, gb = 0;
       for (const l of ls) { const dx = l.x - x, dy = l.y - y, dz = l.z - z, d = Math.hypot(dx, dy, dz); if (d > l.r) continue; const f = (1 - d / l.r), lam = 0.35 + 0.65 * Math.max(0, (dx * nx + dy * ny + dz * nz) / (d + 1e-4)), k = f * f * lam * l.k; gr += l.c[0] * k; gG += l.c[1] * k; gb += l.c[2] * k; }

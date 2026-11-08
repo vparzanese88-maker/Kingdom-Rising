@@ -339,10 +339,10 @@ export function buildRuins(scene) {
     lamp: new THREE.MeshBasicMaterial({ color: '#ffd890' }), flame: new THREE.MeshBasicMaterial({ color: '#ff9a30' }), flameCore: new THREE.MeshBasicMaterial({ color: '#fff0a0' }), ember: new THREE.MeshBasicMaterial({ color: '#ffe2a0' }),
     crystal: S('#7ac8ff', 0.2, 0.1, { emissive: '#3a90ff', emissiveIntensity: 1.6 }), crystalR: S('#ff8a7a', 0.2, 0.1, { emissive: '#ff3a2a', emissiveIntensity: 1.4 }), crystalG: S('#ffe08a', 0.2, 0.1, { emissive: '#ffb02a', emissiveIntensity: 1.2 }),
     bark: T('bark', '#c0a088', 0.95), barkT: T('bark', '#b09078', 0.95), char: T('bark', '#3a302c', 1), leaf: T('leaf', '#d8f0a8', 0.9), leafD: T('leaf', '#a8c888', 0.95), leafT: T('leaf', '#d0e8a0', 0.9), leafTD: T('leaf', '#a0c080', 0.95),
-    leafGlow: T('leaf', '#ffe2a0', 0.7, 0, { emissive: '#ff9a2a', emissiveIntensity: 0.75 }), leafGlowD: T('leaf', '#f0b060', 0.75, 0, { emissive: '#e0701a', emissiveIntensity: 0.55 }),
+    leafGlow: T('gold', '#ffffff', 0.7, 0, { emissive: '#ffb050', emissiveIntensity: 0.9 }), leafGlowD: T('gold', '#e8b080', 0.75, 0, { emissive: '#e07020', emissiveIntensity: 0.7 }),
     ivy: T('ivy', '#d8f0a0', 0.9, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }), ivyD: T('ivy', '#a8c880', 0.95, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }),
     rock: T('ashlarD', '#b8ae9e', 0.95, 0, { flatShading: true }), rockT: T('ashlarD', '#b0a696', 0.95, 0, { flatShading: true }), farStone: S('#b0988a', 1), farRoof: S('#8a5848', 1), farHill: S('#8a8ca8', 1, 0, { flatShading: true }), farPlain: S('#8a7a60', 1) };
-  M.leafGlow.emissiveMap = K.leaf.map; M.leafGlowD.emissiveMap = K.leaf.map;
+  M.leafGlow.emissiveMap = K.gold.map; M.leafGlowD.emissiveMap = K.gold.map;
   for (const k of ['stone', 'stone2', 'stoneD', 'stoneL', 'flag', 'marble']) M[k].userData.moss = 0.9; M.stoneD.userData.soot = 0.7; M.stone.userData.soot = 0.82; M.stone2.userData.soot = 0.8; M.plaster.userData.soot = 0.78; M.timber.userData.soot = 0.85;
   M.team = COLORS.map(c => kitMat(K, 'cloth', c, 0.85, 0, D2));
   M.mosaic = T('mosaic', '#f4ead8', 0.85); M.goldInlay = G(S('#e8c060', 0.32, 0.85, { vertexColors: true })); M.ironBars = S('#2e2e32', 0.45, 0.8); LIGHTS.length = 0; TREES.length = 0; ROCKS.length = 0;

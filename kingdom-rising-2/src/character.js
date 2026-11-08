@@ -353,7 +353,7 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
 // ---------- Humanoid ----------
 // app: { race, sex, cls, outfit, skin, hair, beardCol, hairStyle, beard, height(0.9..1.1), build(-1..1) }
 // kind (for monsters): 'skeleton','troll','imp','golem','tyrant'
-const ARENA_SIZE = { berserker: 1.756, paladin: 1.512, darkknight: 1.512, warrior: 1.268, cleric: 1.22, beastmaster: 1.195, shaman: 1.171, monk: 1.073, wizard: 1.073, necromancer: 1.049, elementalist: 1.024, blunderbuss: 1, ranger: 0.951, rogue: 0.902, bard: 0.951, druid: 0.951, enchanter: 0.951, priest: 0.951, musketeer: 1, bombardier: 1 }; /* (body, camera and reach follow the class's model size: berserker biggest, goblins smallest; goblins already get a small body from their race) */
+const ARENA_SIZE = { berserker: 1.756, paladin: 1.561, darkknight: 1.463, warrior: 1.341, cleric: 1.268, beastmaster: 1.22, shaman: 1.18, monk: 1.141, wizard: 1.102, necromancer: 1.073, elementalist: 1.044, druid: 1.015, ranger: 0.985, priest: 0.956, bard: 0.927, enchanter: 0.898, rogue: 0.859, blunderbuss: 1, musketeer: 1, bombardier: 1 }; /* (body, camera and reach follow the class's model size: berserker biggest, goblins smallest; goblins already get a small body from their race) */
 export function buildHumanoid(app = {}) {
   const race = RACES[app.race || 'human'] || RACES.human;
   const kind = app.kind || 'person';

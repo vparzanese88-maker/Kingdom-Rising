@@ -5,28 +5,39 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
+// Meshy painted bare skin a strong salmon; under the arena's warm sun it read as red. Pull those skin pixels toward a
+// natural tan (only warm, fairly saturated pixels are touched, so leather, metal and cloth stay as they are)
+function calmSkin(tex, amt) {
+  const run = () => { const im = tex.image; if (!im || !im.width) return; const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const g = cv.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, cv.width, cv.height), p = d.data;
+    for (let i = 0; i < p.length; i += 4) { const r = p[i], gg = p[i + 1], b = p[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); if (mx !== r || mx < 90) continue; const sat = (mx - mn) / mx; if (sat < 0.28 || gg < b) continue; const hue = (gg - b) / Math.max(1, mx - mn); if (hue > 0.45) continue; /* (red-salmon skin tones only: orange robes stay orange) */
+      const k = amt * Math.min(1, (sat - 0.28) / 0.25), L = 0.3 * r + 0.59 * gg + 0.11 * b, tr = L * 1.12, tg = L * 0.96, tb = L * 0.82; /* (a neutral tan of the same brightness) */
+      p[i] = r + (tr - r) * k; p[i + 1] = gg + (tg - gg) * k; p[i + 2] = b + (tb - b) * k; }
+    g.putImageData(d, 0, 0); tex.image = cv; tex.needsUpdate = true; };
+  const im = tex.image; if (im && im.width && (im.complete === undefined || im.complete)) run(); else if (im && im.addEventListener) im.addEventListener('load', run, { once: true }); else setTimeout(run, 500);
+}
 export const HERO_SIZE = 1.5625; /* (arena heroes: 1.25 x 1.25, a quarter bigger again) */
 const MODELS = {
-  necromancer: { bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.15, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
-  musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.05, walkSpeed: 1.5, runSpeed: 5.0 },
-  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 1.2, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
-  warrior: { base: 'models/warr_rig.fbx', clips: { walk: 'models/anim/warr_walk.json', run: 'models/anim/warr_run.json' }, height: 2.6, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  bard: { base: 'models/bard_rig.fbx', clips: { walk: 'models/anim/bard_walk.json', run: 'models/anim/bard_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  beastmaster: { base: 'models/beast_rig.fbx', clips: { walk: 'models/anim/beast_walk.json', run: 'models/anim/beast_run.json' }, height: 2.45, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  cleric: { base: 'models/cleric_rig.fbx', clips: { walk: 'models/anim/cleric_walk.json', run: 'models/anim/cleric_run.json' }, height: 2.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  druid: { base: 'models/druid_rig.fbx', clips: { walk: 'models/anim/druid_walk.json', run: 'models/anim/druid_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  elementalist: { base: 'models/ele_rig.fbx', clips: { walk: 'models/anim/ele_walk.json', run: 'models/anim/ele_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  enchanter: { base: 'models/ench_rig.fbx', clips: { walk: 'models/anim/ench_walk.json', run: 'models/anim/ench_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  necromancer: { bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
+  musketeer: { base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.12, walkSpeed: 1.5, runSpeed: 5.0 },
+  blunderbuss: { base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 1.3, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
+  warrior: { base: 'models/warr_rig.fbx', clips: { walk: 'models/anim/warr_walk.json', run: 'models/anim/warr_run.json' }, height: 2.75, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  bard: { base: 'models/bard_rig.fbx', clips: { walk: 'models/anim/bard_walk.json', run: 'models/anim/bard_run.json' }, height: 1.9, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  beastmaster: { skinFix: 0.75, base: 'models/beast_rig.fbx', clips: { walk: 'models/anim/beast_walk.json', run: 'models/anim/beast_run.json' }, height: 2.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  cleric: { base: 'models/cleric_rig.fbx', clips: { walk: 'models/anim/cleric_walk.json', run: 'models/anim/cleric_run.json' }, height: 2.6, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  druid: { base: 'models/druid_rig.fbx', clips: { walk: 'models/anim/druid_walk.json', run: 'models/anim/druid_run.json' }, height: 2.08, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  elementalist: { base: 'models/ele_rig.fbx', clips: { walk: 'models/anim/ele_walk.json', run: 'models/anim/ele_run.json' }, height: 2.14, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  enchanter: { base: 'models/ench_rig.fbx', clips: { walk: 'models/anim/ench_walk.json', run: 'models/anim/ench_run.json' }, height: 1.84, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   bombardier: { base: 'models/bomb_rig.fbx', clips: { walk: 'models/anim/bomb_walk.json', run: 'models/anim/bomb_run.json' }, height: 1.0, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  paladin: { base: 'models/pal_rig.fbx', clips: { walk: 'models/anim/pal_walk.json', run: 'models/anim/pal_run.json' }, height: 3.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  darkknight: { base: 'models/dk_rig.fbx', clips: { walk: 'models/anim/dk_walk.json', run: 'models/anim/dk_run.json' }, height: 3.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  ranger: { base: 'models/rang_rig.fbx', clips: { walk: 'models/anim/rang_walk.json', run: 'models/anim/rang_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  rogue: { bright: 1.35, base: 'models/rogue_rig.fbx', clips: { walk: 'models/anim/rogue_walk.json', run: 'models/anim/rogue_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  wizard: { base: 'models/wiz_rig.fbx', clips: { walk: 'models/anim/wiz_walk.json', run: 'models/anim/wiz_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  shaman: { base: 'models/sham_rig.fbx', clips: { walk: 'models/anim/sham_walk.json', run: 'models/anim/sham_run.json' }, height: 2.4, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  priest: { base: 'models/priest_rig.fbx', clips: { walk: 'models/anim/priest_walk.json', run: 'models/anim/priest_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 3.6, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  monk: { base: 'models/monk2_rig.fbx', clips: Object.assign(Object.fromEntries(['walk', 'run', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), Object.fromEntries(['punchA', 'punchB', 'attack', 'double', 'charged', 'counter', 'thrust', 'jump', 'dodge', 'stance', 'dead', 'cheer'].map(k => [k, 'models/anim/monk2_' + k + '.json']))), height: 2.2, walkSpeed: 1.6, runSpeed: 5.5,
+  paladin: { base: 'models/pal_rig.fbx', clips: { walk: 'models/anim/pal_walk.json', run: 'models/anim/pal_run.json' }, height: 3.2, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  darkknight: { base: 'models/dk_rig.fbx', clips: { walk: 'models/anim/dk_walk.json', run: 'models/anim/dk_run.json' }, height: 3.0, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  ranger: { base: 'models/rang_rig.fbx', clips: { walk: 'models/anim/rang_walk.json', run: 'models/anim/rang_run.json' }, height: 2.02, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  rogue: { bright: 1.35, base: 'models/rogue_rig.fbx', clips: { walk: 'models/anim/rogue_walk.json', run: 'models/anim/rogue_run.json' }, height: 1.76, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  wizard: { base: 'models/wiz_rig.fbx', clips: { walk: 'models/anim/wiz_walk.json', run: 'models/anim/wiz_run.json' }, height: 2.26, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  shaman: { base: 'models/sham_rig.fbx', clips: { walk: 'models/anim/sham_walk.json', run: 'models/anim/sham_run.json' }, height: 2.42, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  priest: { base: 'models/priest_rig.fbx', clips: { walk: 'models/anim/priest_walk.json', run: 'models/anim/priest_run.json' }, height: 1.96, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  berserker: { skinFix: 0.75, base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 3.6, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  monk: { skinFix: 0.75, base: 'models/monk2_rig.fbx', clips: Object.assign(Object.fromEntries(['walk', 'run', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), Object.fromEntries(['punchA', 'punchB', 'attack', 'double', 'charged', 'counter', 'thrust', 'jump', 'dodge', 'stance', 'dead', 'cheer'].map(k => [k, 'models/anim/monk2_' + k + '.json']))), height: 2.34, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
     moves: { jab: ['punchB', 0.3, 0.85, 0.6], cross: ['punchB', 0.85, 1.25, 1.0], hook: ['punchA', 0.5, 1.15, 0.9], upper: ['punchA', 1.15, 1.8, 1.4], spin: ['double', 0.2, 1.55, 1.2], slam: ['attack', 0.3, 1.6, 1.1],
       charged: ['charged', 0.15, 1.7, 0.85], counter: ['counter', 4.8, 6.35, 5.8],
@@ -47,7 +58,7 @@ function loadClass(cls) {
     const base = await loadFbx(D.base); const clips = {};
     await Promise.all(Object.entries(D.clips).map(async ([k, url]) => { const J = url.endsWith('.json') ? await (await fetch(url)).json() : null, c = J ? THREE.AnimationClip.parse(J) : (await loadFbx(url)).animations[0]; if (!c) return; if (J && J.rest) retarget(c, J, base); // (moves are stored as small motion-only files, not whole characters)
       c.tracks = c.tracks.filter(t => !/\.position$/.test(t.name) || (/^Hips\.position$/.test(t.name) && (keepHipY(t), true))); /* (bones keep this model's own lengths: only the hips' bob comes from the clip) */ clips[k] = c; }));
-    base.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; if (m.specular) m.specular.setScalar(0.08); /* (Phong rigs like the dark knight had a white sheen) */ m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
+    base.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } if (m && m.map && D.skinFix) calmSkin(m.map, D.skinFix); if (m) { m.color && m.color.set('#ffffff'); m.shininess = 6; if (m.specular) m.specular.setScalar(0.08); /* (Phong rigs like the dark knight had a white sheen) */ m.side = THREE.DoubleSide; } /* (both sides drawn: no seeing through thin cloth and sleeves) */ } });
     return { base, clips };
   })();
   return cache[cls];

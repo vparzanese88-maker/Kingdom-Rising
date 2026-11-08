@@ -319,6 +319,13 @@ export const S = {
     if (el === 'lightning') { noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 0.9, a: 0.001 }); noise(t + 0.2, 1.4, o.node, { type: 'lowpass', f: 200, f2: 50, gain: 0.5, a: 0.2 }); }
     if (big > 1.5) { noise(t + 0.1, 2.5, o.node, { type: 'lowpass', f: 400, f2: 60, gain: 0.6, a: 0.1 }); for (let i = 0; i < 10; i++) noise(t + 0.2 + Math.random(), 0.05, o.node, { type: 'bandpass', f: 2000 + Math.random() * 3000, q: 3, gain: 0.2 }); }
   },
+  // the Goblin Bombardier: the planted bomb's beep (louder the closer you are, sharper as it nears the end), a bomb's clank
+  // as it bounces, the wet slap of a sticky bomb, and the detonator's plunger
+  bombBeep(pos, k = 0) { if (!ctx) return; const o = out(pos, sfxBus, 0.05); const d = pos ? Math.hypot(pos.x - listener.x, pos.z - listener.z) : 0, near = 1 + Math.max(0, 1 - d / 22) * 1.6, t = now();
+    tone(t, 0.09, o.node, { type: 'square', f: 1850 + k * 500, gain: 0.07 * near, a: 0.002 }); tone(t, 0.09, o.node, { type: 'sine', f: 925 + k * 250, gain: 0.08 * near, a: 0.002 }); },
+  bombBounce(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); tone(t, 0.12, o.node, { type: 'triangle', f: 340 + Math.random() * 80, f2: 180, gain: 0.16 * Math.min(1, k) }); noise(t, 0.05, o.node, { type: 'bandpass', f: 1900, q: 2, gain: 0.14 * Math.min(1, k) }); },
+  bombStick(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); noise(t, 0.14, o.node, { type: 'lowpass', f: 900, f2: 260, q: 4, gain: 0.35 }); tone(t, 0.1, o.node, { type: 'sine', f: 220, f2: 90, gain: 0.18 }); },
+  detonator() { if (!ctx) return; const o = out(null, sfxBus, 0), t = now(); noise(t, 0.04, o.node, { type: 'highpass', f: 2500, gain: 0.25, a: 0.001 }); tone(t + 0.03, 0.08, o.node, { type: 'square', f: 140, f2: 70, gain: 0.12 }); },
   whistle(pos, dur = 1.2) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); tone(now(), dur, o.node, { type: 'sine', f: 1400, f2: 300, gain: 0.08, a: 0.2 }); noise(now(), dur, o.node, { type: 'bandpass', f: 600, f2: 200, q: 2, gain: 0.25, a: 0.3 }); },
   rumble(pos, dur = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); noise(now(), dur, o.node, { type: 'lowpass', f: 200, f2: 60, gain: 0.7, a: 0.05 }); tone(now(), dur, o.node, { type: 'sine', f: 55, f2: 35, gain: 0.5 }); },
   roar(pos) {

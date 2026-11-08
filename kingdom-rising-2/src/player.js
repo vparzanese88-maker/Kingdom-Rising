@@ -115,7 +115,7 @@ function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 // hero first-person attack motions: keyframed poses over the action time (wind-up held, a fast strike through the target, a follow-through, then home)
-function kf(t, K) { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const a = K[i - 1], b = K[i], u = (t - a[0]) / Math.max(1e-4, b[0] - a[0]); return plerp(a[1], b[1], (b[2] || ease)(u)); } return K[K.length - 1][1]; }
+function kf(t, K) { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const a = K[i - 1], b = K[i], u = (t - a[0]) / Math.max(1e-4, b[0] - a[0]); const e = (b[2] || ease)(u); return typeof a[1] === 'number' ? a[1] + (b[1] - a[1]) * e : plerp(a[1], b[1], e); } return K[K.length - 1][1]; }
 const rot = (p, dx, dy, dz) => [p[0], p[1], p[2], p[3] + dx, p[4] + dy, p[5] + dz];
 const lin = (u) => u;
 const HM = { /* (right-hand poses; the left hand uses mirror()) */
@@ -398,7 +398,7 @@ class ViewModel {
     if (this.book && this.bookR && !st.tool && act && /^(cast|spell|chargeCast|castBig|castRel|shoot|release)/.test(n)) r = seq(VP.bookCast, VP.bookCast, t, 0.25, VP.bookR); /* (casting: the open book pushed out toward the target) */
     if (this.hero && !st.tool && !st.block && act && !this.bomber && !this.necro) { const c = this.cls, wt = this.wt, ab = n === 'castUp', t1 = Math.min(1, t); /* (hero first-person attack and ability motions) */
       if (n !== this._hmName || t < (this._hmT || 0) - 1e-4) { this._hmName = n; if (!ab) this._hmN = (this._hmN || 0) + 1; } this._hmT = t; /* (a new action: its name changed or its clock restarted) */
-      const odd = (this._hmN || 0) % 2 === 1;
+      const odd = (this._hmN || 0) % 2 === 1, war = c === 'warrior', H1 = war ? VP.warR : VP.rest, SH = war ? VP.warShield : VP.shieldRest; /* (the warrior's own rest poses) */
       if (c === 'beastmaster' && W && W.kind === 'melee') { /* (wide claw rakes, the hands alternating: the right sweeps across to the left, then the left back across to the right) */
         const R0 = VP.beastR, sw = (h) => { const P0 = h === 1 ? R0 : mirror(R0), sgn = h; const A = [HM.cwA[0] * sgn, HM.cwA[1], HM.cwA[2]], M = [HM.cwM[0] * sgn, HM.cwM[1], HM.cwM[2]], B = [HM.cwB[0] * sgn, HM.cwB[1], HM.cwB[2]];
           const pos = swingK(t1, P0.slice(0, 3), A, M, B, 0.24), q = swingK(t1, [0, 0, 0], [0.25, -0.6 * sgn, 0.35 * sgn], [0, 0, 0], [-0.35, 0.65 * sgn, -0.3 * sgn], 0.24); return [pos[0], pos[1], pos[2], P0[3] + q[0], P0[4] + q[1], P0[5] + q[2]]; };
@@ -411,17 +411,17 @@ class ViewModel {
         else if (right) { r = one; l = mirror(R0); } else { l = mirror(one); r = R0; } }
       else if (W && W.kind === 'melee' && W.hands !== 'two' && wt !== 'spear' && wt !== 'fists' && !ab) { /* (one-handed sword or mace: forehand, backhand, overhead) */
         const home = r, m3 = n === 'swing3' || n === 'heavy' || n === 'smash' ? 2 : n === 'swing2' || n === 'off2' || n === 'lowcut' ? 1 : n === 'swing1' || n === 'sweep' || n === 'off1' ? 0 : -1;
-        if (m3 >= 0) { r = m3 === 0 ? swingK(t1, VP.rest, HM.fhA, HM.fhM, HM.fhB) : m3 === 1 ? swingK(t1, VP.rest, HM.bhA, HM.bhM, HM.bhB) : swingK(t1, VP.rest, HM.ovA, HM.ovM, HM.ovB, 0.34);
-          if (W.hands === 'shield') { const k = kf(t1, [[0, 0], [0.3, 1], [0.7, 1], [1, 0]]); l = plerp(VP.shieldRest, P(-0.6, -0.7, -0.45, 0.35, 0.75, 0.2), k * (m3 === 1 ? 0.4 : 1)); } } else r = home; }
+        if (m3 >= 0) { r = m3 === 0 ? swingK(t1, H1, HM.fhA, HM.fhM, HM.fhB) : m3 === 1 ? swingK(t1, H1, HM.bhA, HM.bhM, HM.bhB) : swingK(t1, H1, HM.ovA, HM.ovM, HM.ovB, 0.34);
+          if (W.hands === 'shield') { const k = kf(t1, [[0, 0], [0.3, 1], [0.7, 1], [1, 0]]); l = plerp(SH, P(-0.6, -0.7, -0.45, 0.35, 0.75, 0.2), k * (m3 === 1 ? 0.4 : 1)); } } else r = home; }
       else if (W && W.kind === 'melee' && W.hands === 'two' && wt !== 'spear' && !ab) { /* (two-handers: heavy overhead chops and diagonal cleaves, both hands on the haft) */
         const chop = n === 'swing1' || n === 'swing3' || n === 'heavy' || n === 'smash' || n === 'charge';
         if (/^(swing|heavy|smash|sweep|lowcut)/.test(n)) r = chop ? swingK(t1, VP.rest2, HM.chA, HM.chM, HM.chB, 0.34) : swingK(t1, VP.rest2, HM.clA, HM.clM, HM.clB, 0.3); }
       if (ab && W && W.kind === 'melee' && c !== 'beastmaster' && c !== 'rogue' && wt !== 'fists') { /* (abilities: F raises the weapon high to the sky, C draws it back across the chest, Q a big two-handed overhead slam) */
-        const i2 = act.i || 0, base = W.hands === 'two' ? VP.rest2 : VP.rest;
+        const i2 = act.i || 0, base = W.hands === 'two' ? VP.rest2 : H1;
         if (i2 === 0) r = kf(t1, [[0, base], [0.35, P(0.3, 0.12, -0.5, 0.15, 0, -0.35)], [0.7, P(0.3, 0.16, -0.5, 0.2, 0, -0.35)], [1, base]]);
         else if (i2 === 1) { r = kf(t1, [[0, base], [0.3, P(0.42, -0.1, -0.22, -1.2, -1.0, 0.6)], [0.48, P(0.42, -0.1, -0.22, -1.2, -1.0, 0.6)], [0.62, HM.fhB, easeIn], [1, base]]); }
         else r = kf(t1, [[0, base], [0.4, HM.chA], [0.52, HM.chA], [0.64, HM.chB, easeIn], [0.8, HM.chB], [1, base]]);
-        if (W.hands === 'shield') l = kf(t1, [[0, VP.shieldRest], [0.35, VP.shieldBlock], [0.7, VP.shieldBlock], [1, VP.shieldRest]]); } }
+        if (W.hands === 'shield') l = kf(t1, [[0, SH], [0.35, VP.shieldBlock], [0.7, VP.shieldBlock], [1, SH]]); } }
     this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }

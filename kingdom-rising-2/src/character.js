@@ -136,7 +136,7 @@ const PI = Math.PI, KIT = {
   druid_staff: { f: [0, 0, 0, 0.0195, 0, 0.526, 0], tip: 1.31 }, /* (foot at -0.4 like the code staff, the glowing seed at the top) */
   ench_staff: { f: [0, 0, 0, 0.0185, 0, 0.479, 0], tip: 1.3 },
   ele_orb: { f: [0, 0, 0, 0.0045, 0, 0.6575, 0], tip: 0.68, fpPos: [0, -0.133, 0] }, /* (no staff: the fire-and-ice orb held up by its crystal pendant, just above the fist) */
-  necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI, 0] }, /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
+  necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI, 0], fp: [0, 0, 0, 0, PI, 0] }, /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
   rogue_dagger: { f: [0, 0, PI, 0.0055, 0, 0.157, 0] }, /* (guard at 0.09, point at 0.42: the code dagger) */
   bomb_grenade: { f: [0, 0, 0, 0.0036, 0, 0.072, 0] }, /* (gripped by the stick, the head up) */
   bomb_detonator: { f: [0, 0, 0, 0.0027, 0, 0.027, 0], belt: [0.2, 0.9, 0.04, 0, 0, 0] }, /* (the plunger box clipped to his belt on the left hip, button up) */
@@ -185,7 +185,8 @@ function beltKit(ch, k) { const B = KIT[k].belt, h = new THREE.Group(); h.name =
 export function classKitFP(vm) { const C = CLASS_KIT[vm.cls], W = vm.weapons || {}; if (!C) return;
   for (const s of ['main', 'off']) if (C[s] && W[s] && W[s].name === 'weapon_' + C[s][0]) kitize(W[s], C[s][1], { fp: true });
   if (C.main && C.main[0] === 'bow' && W.bow && W.bow.name === 'weapon_bow') kitize(W.bow, C.main[1], { fp: true });
-  if (C.L) { const h = kitHolder(C.L, true); if (h) { vm.L.add(h); W.held = h; if (!vm.book || /^kit_/.test(vm.book.name)) vm.book = h; } } }
+  if (C.L) { const h = kitHolder(C.L, true); if (h) { vm.L.add(h); W.held = h; if (!vm.book || /^kit_/.test(vm.book.name)) vm.book = h; } }
+  if (C.R) { const h = kitHolder(C.R, true); if (h) { vm.R.add(h); W.heldR = h; } } } /* (a new thing in the right fist: the necromancer's scythe) */
 // Weapons are built with the grip at the origin and the business end pointing +Y.
 // userData.tip / userData.base mark the edge for trails.
 export function makeWeapon(part, tier = 0, rarity = 0, element) {

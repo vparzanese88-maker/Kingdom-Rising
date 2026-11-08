@@ -20,7 +20,7 @@ const FX = {
     const p = u.pos.clone(), col = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.4, 14, 24, 1, true), glow('#fff0b0', 0)); col.position.set(p.x, p.y + 7, p.z);
     const disc = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.6, 48), glow('#ffd860', 0.9)); disc.rotation.x = -Math.PI / 2; disc.position.set(p.x, p.y + 0.06, p.z);
     S.cast && S.cast('holy', p, 0.9); V.light(p.clone().setY(p.y + 2), '#ffe8a0', 7, 0.9, 16);
-    play(1.3, [col, disc], (k, t) => { col.material.opacity = 0.55 * Math.sin(Math.min(1, k * 1.4) * Math.PI); col.position.set(u.pos.x, u.pos.y + 7, u.pos.z); disc.scale.setScalar(1 + ease(k) * 10); disc.material.opacity = 0.9 * (1 - k);
+    const colK = fpSelf(u) ? 0 : u === G.player ? 0.2 : 0.4; /* (your own view: no shaft round your eyes; over your shoulder: a soft one that never washes you out) */ if (u === G.player) col.scale.set(2.2, 1.6, 2.2); play(1.3, [col, disc], (k, t) => { col.material.opacity = colK * Math.sin(Math.min(1, k * 1.4) * Math.PI); col.position.set(u.pos.x, u.pos.y + 7 * col.scale.y, u.pos.z); disc.scale.setScalar(1 + ease(k) * 10); disc.material.opacity = 0.9 * (1 - k);
       if (Math.random() < 0.7) { const a = Math.random() * Math.PI * 2; V.emit('gold', u.pos.clone().add(V3(Math.cos(a) * 0.8, Math.random() * 2, Math.sin(a) * 0.8)), { speed: 0.3, vy: 2.5, size: 0.25, life: 0.8 }); }
       if (t < 0.6 && Math.random() < 0.6) V.emit('gold', handOf(u), { speed: 0.6, size: 0.3, life: 0.4 }); });
   },

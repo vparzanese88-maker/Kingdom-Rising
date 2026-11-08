@@ -306,6 +306,7 @@ export function tickFpArms(vm) {
   for (const H of [vm.R, vm.L]) {
     const t = tgt(H), side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
+    else if (ao) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], vm.g.localToWorld(new THREE.Vector3(side * 0.34, -1.1, 0.05)), pole); /* (a hand with nothing to do hangs down at his side, out of the view) */
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
     const g = grips[arm], hd = B[arm + 'Hand']; if (g && hd && hd.parent && H.visible) { hd.parent.updateWorldMatrix(true, false); hd.quaternion.copy(hd.parent.getWorldQuaternion(_fq3).invert().multiply(g.q)); } // (the hand turned so its fingers wrap the handle)
     if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }

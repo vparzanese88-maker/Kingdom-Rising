@@ -5,6 +5,7 @@ New mechanism for every Kingdom Arena hero: the weapon is fixed in the hero mode
 - Cleric: the winged hammer sits in her fist with its faces turned to strike forward (along the knuckles), held forward-down at rest and in hand through every swing, ability and the ultimate; shield face-out on the forearm. scratchpad/tp3/cleric_v2.png
 - Shaman (new shaman_rig model): the new feathered spear (0.94 of her height) is gripped in her right fist, point up-forward at rest and on the run, point forward on the thrust; the doll rides in her left hand. scratchpad/tp3/shaman_v2.png
 - Rogue: a second dagger in her left fist (the arena gave her only one), so a detailed dagger sits in each closed fist, blades forward-down at rest and on the run, both moving with her hands through strafe, jump, every stab, abilities and the ultimate; no leftover built blades. Her stabs themselves are still small (an animation job). scratchpad/tp4/rogue_d2.png
+- Beastmaster: the bear-claw gauntlets (models/w/beast_claw.fbx) are worn on both fists, pushed up the hand so the claws reach past the knuckles and fingertips, fur cuff over the wrist; they ride with his hands through idle, run, strafe, jump, both swipes, abilities and the ultimate; the old code claws and hand axe stay hidden. scratchpad/tp4/beastmaster_d2.png, beastmaster_c2.png
 
 ## Necromancer
 Kit rework (Kingdom Arena and the Training Yard; code in src/necro.js, player.js reap(), arena.js bot logic):

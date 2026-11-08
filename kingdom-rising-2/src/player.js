@@ -105,7 +105,7 @@ const VP = {
   bookCast: P(0.13, -0.17, -0.6, -1.15, -0.1, 0.05),
   beastR: P(0.26, -0.26, -0.46, 0, 1.77, -1.823), beastBack: P(0.32, -0.28, -0.34, 0, 1.6, -1.6), beastStab: P(0.08, -0.2, -0.72, 0, 1.65, -1.75),
   eleR: P(0.2, -0.3, -0.5, 0.2, 0.2, 0.1), /* (the elementalist's open hand, palm up, low on the right under his floating orb) */
-  warR: P(0.36, -0.6, -0.6, -0.5, -0.1, -0.25), warShield: P(-0.3, -0.42, -0.36, 0.15, 0.5, 0.1), warBlock: P(-0.15, -0.28, -0.32, 0.1, 0.32, 0.04), /* (warrior: sword lower; shield closer and bigger; block slides it toward the centre, not onto it) */
+  warR: P(0.34, -0.55, -0.58, -0.45, -0.1, -0.2), warShield: P(-0.4, -0.52, -0.38, 0.2, 0.5, 0.12), warBlock: P(-0.15, -0.28, -0.32, 0.1, 0.32, 0.04), /* (warrior: sword lower; shield closer and bigger; block slides it toward the centre, not onto it) */
   necroGap: 0.62, necroScy: P(0.6, 0.2, -0.85, -0.3, 0.35, -0.38), necroScyA: P(0.75, 0.15, -0.6, -0.2, -0.5, -1.1), necroScyB: P(-0.35, -0.1, -0.7, -0.4, -0.3, 1.0), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
@@ -469,7 +469,7 @@ export class Player {
     this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; if (hero.arena) attachFpArms(this.vm, hero.cls); // (the arena: the weapon sits lower and further right, out of the way)
     this.trail = V.trail('#ffffff'); this.trailL = V.trail('#ffffff');
     this.refreshGear(true);
-    this.eye = this.ch.height * 0.9;
+    this.eye = this.h.arena && hasHeroModel(this.h.cls) ? heroHeight(this.h.cls) * 0.92 : this.ch.height * 0.9; /* (first person sees from the hero model's own eye height, not the hidden built body's) */
     const D = heroDerived(hero); this.hp = this.maxHp; this.mana = this.maxMana; this.end = this.maxEnd;
   }
   get level() { return this.h.level; }

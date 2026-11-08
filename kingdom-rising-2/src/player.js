@@ -105,7 +105,7 @@ const VP = {
   bookCast: P(0.13, -0.17, -0.6, -1.15, -0.1, 0.05),
   beastR: P(0.26, -0.26, -0.46, 0, 1.77, -1.823), beastBack: P(0.32, -0.28, -0.34, 0, 1.6, -1.6), beastStab: P(0.08, -0.2, -0.72, 0, 1.65, -1.75),
   eleR: P(0.2, -0.3, -0.5, 0.2, 0.2, 0.1), /* (the elementalist's open hand, palm up, low on the right under his floating orb) */
-  warR: P(0.36, -0.36, -0.62, -0.35, -0.1, -0.25), warShield: P(-0.36, -0.42, -0.62, 0.15, 0.45, 0.1),
+  warR: P(0.36, -0.6, -0.6, -0.5, -0.1, -0.25), warShield: P(-0.3, -0.42, -0.36, 0.15, 0.5, 0.1), warBlock: P(-0.15, -0.28, -0.32, 0.1, 0.32, 0.04), /* (warrior: sword lower; shield closer and bigger; block slides it toward the centre, not onto it) */
   necroGap: 0.62, necroScy: P(0.6, 0.2, -0.85, -0.3, 0.35, -0.38), necroScyA: P(0.75, 0.15, -0.6, -0.2, -0.5, -1.1), necroScyB: P(-0.35, -0.1, -0.7, -0.4, -0.3, 1.0), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
@@ -360,7 +360,7 @@ class ViewModel {
     } else if (st.channel && W && W.kind === 'staff') {
       const j = Math.sin(performance.now() * 0.03) * 0.004; r = [0.13 + j, -0.25 + j, -0.42, -1.48, 0.06, -0.1]; l = [-0.15, -0.24, -0.55, -1.4, 0, 0.12];
     } else if (st.block) {
-      if (W && W.hands === 'shield') { l = VP.shieldBlock; } // just the shield comes up; the sword stays where it was
+      if (W && W.hands === 'shield') { l = this.hero && this.cls === 'warrior' ? VP.warBlock : VP.shieldBlock; } // just the shield comes up; the sword stays where it was
       else if (W && W.kind === 'staff') r = [0.05, -0.3, -0.5, -0.1, 0, 1.3];
       else if (W && W.kind === 'bow') { l = [0.02, -0.13, -0.44, -0.2, 0.1, 1.5]; r = [0.3, -0.42, -0.4, -0.4, 0, 0.4]; }
       else { r = this.hero && W && W.hands === 'two' ? [0.3, -0.28, -0.5, -0.25, 0.2, 0.7] : VP.blockW; if (W && W.hands === 'dual') l = [-0.12, -0.2, -0.45, -0.3, 0, -1.45]; } /* (a hero's two-hander blocks on the slant, the blade rising to the right, not flat across the view) */
@@ -398,13 +398,13 @@ class ViewModel {
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
     // bob & sway: arms swing with each stride, harder and faster when sprinting
     this.bob += dt * st.speed * 1.75;
-    const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.022 + this.sprintK * 0.05);
+    const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.022 + this.sprintK * 0.024); /* (running and sprinting: a smooth front-and-back roll, the two hands alternating, never thrashing) */
     const ph = this.bob;
-    const spread = run * (0.09 + this.sprintK * 0.06);
+    const spread = run * 0.05;
     this.R.position.x += spread; this.R.position.y -= spread * 0.6; this.R.rotation.z -= spread * 1.2;
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.x -= spread; this.L.position.y -= spread * 0.6; this.L.rotation.z += spread * 1.2; }
-    this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 0.8 * this.sprintK; this.R.rotation.z += Math.sin(ph) * amp * 1.2; this.R.rotation.x += Math.cos(ph) * amp * (1 + this.sprintK * 3);
-    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 0.8 * this.sprintK; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * (1 + this.sprintK * 3); }
+    this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 1.6; this.R.rotation.z += Math.sin(ph) * amp * 0.5; this.R.rotation.x += Math.cos(ph) * amp * 2.2;
+    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 1.6; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * 2.2; }
     if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);

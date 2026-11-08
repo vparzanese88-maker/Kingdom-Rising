@@ -123,7 +123,7 @@ export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb
 // the business end up +y, about the code part's length, so every swing, block and cast pose still fits. f: [turn x, y, z, scale to metres, move x, y, z]
 const PI = Math.PI, KIT = {
   warrior_sword: { f: [0, 0, PI, 0.012, 0, 0.338, 0], fpf: [0, PI / 2, 0, 1.3] }, /* (first person: the blade turned a quarter about its length, edge forward) */ /* (point-up: guard just above the fist at y 0.1, point at 0.91, like the code sword) */
-  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03], fpf: [0, PI, 0, 1.35] }, /* (first person: lion face turned outward, away from you) */ /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
+  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03], fpf: [0, PI, 0, 1.7] }, /* (first person: lion face turned outward, away from you) */ /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
   darkknight_sword: { f: [0, 0, PI, 0.0196, 0, 0.527, 0] }, /* (guard at 0.2, point at 1.46: the code greatsword) */
   bers_axe: { f: [0, 0, 0, 0.016, 0, 0.57, 0] }, /* (the ram-skull heads at y 1.05 like the code great axe, edges out along x) */
   ranger_bow: { f: [0, -PI / 2, 0, 0.017, 0, 0, 0.094], cut: (g) => keepTris(g, (x, y) => !(x > 8.3 && Math.abs(y) < 38)), str: [0.646, 0.252] }, /* (riser at the origin, string toward +z; its own string is cut out so the code string, which draws, takes its place) */

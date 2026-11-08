@@ -28,12 +28,12 @@ export function classPortrait(cls) {
     animateHumanoid(ch, 0.016, { speed: 0, armed: true, ready: true }); bake(ch.root); addOutline(ch.root);
     ch.root.rotation.y = 0.45; scene.add(ch.root); ch.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(ch.root), top = box.max.y, h = top - box.min.y;
-    const look = new THREE.Vector3(0, top - h * 0.3, 0); cam.position.set(0.35, look.y + 0.08, 2.9); cam.lookAt(look);
+    const look = new THREE.Vector3(0, top - h * 0.3, 0); cam.position.set(0.15 * h, look.y + 0.035 * h, 1.26 * h); cam.lookAt(look); /* (framed by the hero's own height: giants and goblins both fit) */
     R.render(scene, cam); CACHE[cls] = R.domElement.toDataURL('image/jpeg', 0.86);
     scene.remove(ch.root);
     if (hasHeroModel(cls)) { { const c2 = document.createElement('canvas'); c2.width = W; c2.height = H; const g2 = c2.getContext('2d'); g2.drawImage(R.domElement, 0, 0); g2.fillStyle = 'rgba(242,223,176,0.55)'; g2.font = '600 15px Georgia, serif'; g2.textAlign = 'center'; g2.fillText('loading ' + (CLASSES[cls].name || cls) + '…', W / 2, H * 0.55); CACHE[cls] = c2.toDataURL('image/jpeg', 0.86); } /* (a placeholder unique to this class until the model has loaded) */ // a class with a real 3D model: once it has loaded, picture the model and swap every copy of the picture already on screen
       const t0 = performance.now(), wait = () => { const H = ch.heroModel; if (H === 'loading' || H === undefined) { if (performance.now() - t0 < 30000) setTimeout(wait, 200); return; } if (!H) return;
-        scene.add(ch.root); for (let i = 0; i < 4; i++) tickHeroModel(ch, 0.05); ch.root.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(H.m), tp = bx.max.y, hh = tp - bx.min.y, lk = new THREE.Vector3(0, tp - hh * 0.3, 0); cam.position.set(0.35, lk.y + 0.08, 2.9); cam.lookAt(lk);
+        scene.add(ch.root); for (let i = 0; i < 4; i++) tickHeroModel(ch, 0.05); ch.root.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(H.m), tp = bx.max.y, hh = tp - bx.min.y, lk = new THREE.Vector3(0, tp - hh * 0.3, 0); cam.position.set(0.15 * hh, lk.y + 0.035 * hh, 1.26 * hh); cam.lookAt(lk); /* (framed by the model's own height) */
         R.render(scene, cam); const old = CACHE[cls], url = R.domElement.toDataURL('image/jpeg', 0.86); CACHE[cls] = url; scene.remove(ch.root);
         document.querySelectorAll('img').forEach(im => { if (im.src === old) im.src = url; }); };
       wait(); }

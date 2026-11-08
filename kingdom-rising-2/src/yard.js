@@ -1,7 +1,9 @@
 // The Training Yard: a plain field with practice dummies, every class at the top level and every weapon.
 // Y opens the yard panel: pick a class, pick a weapon, reset cooldowns, unlimited mana and endurance.
-import { heroHeight } from './heromodels.js';
+import { heroHeight, fixNormals } from './heromodels.js';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { addCircle } from './world.js';
 import { G } from './state.js';
 import { Mob } from './mobs.js';
 import { CLASSES, WEAPON_TYPES, ABILITIES, LEVEL_CAP } from './data.js';
@@ -19,9 +21,9 @@ import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTi
 
 export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
-// single dummies near, mid and far; a pack of five for area attacks; one that walks a line for aiming practice
-const SPOTS = [[0, 12, 'Training Dummy'], [-8, 20, 'Training Dummy'], [8, 20, 'Training Dummy'], [0, 38, 'Far Dummy'],
-  ...[0, 1, 2, 3, 4].map(i => [-26 + Math.cos(i * 1.256) * 3, 18 + Math.sin(i * 1.256) * 3, 'Pack Dummy']), [24, 22, 'Moving Dummy']];
+// six dummies standing evenly in a ring on open ground in front of the start: hit one from outside, or step into the middle for area attacks
+const RING = { x: 0, z: 50, r: 8 };
+const SPOTS = [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * Math.PI * 2; return [RING.x + Math.sin(a) * RING.r, RING.z + Math.cos(a) * RING.r, 'Training Dummy']; });
 // every class standing shoulder to shoulder behind the start: walk up to one and press E to become that class
 const LINE = []; YD.line = LINE;
 function nameTag(text) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 30px Georgia, serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(text, 128, 42); g.fillStyle = '#f2dfb0'; g.fillText(text, 128, 42);
@@ -44,11 +46,42 @@ export function spawnDummies() {
   G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
-    Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.PI; m.home.set(x, heightAt(x, z), z);
+    Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.atan2(x - RING.x, z - RING.z); /* (each one faces out of the ring) */ m.home.set(x, heightAt(x, z), z);
     m.walk = name === 'Moving Dummy' ? { a: 0 } : null; m.update = dummyUpdate; m.loot = null;
     const take = m.takeHit.bind(m); m.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); YD.dmg.push([performance.now(), Math.max(0, d || dmg)]); m.lastHit = G.time; if (m.hp < m.maxHp * 0.5) m.hp = m.maxHp; m.dead = false; return d; };
     G.mobs.push(m); dummies.push(m);
   }
+  plantProps();
+}
+// trees and rocks around the yard: the owner's Meshy models, fetched once in the background and drawn as one instanced mesh per part
+// (a few draw calls for all of them, nothing done per frame; if a model fails to load the yard simply has none)
+const PROPS = {
+  tree: { url: 'models/props/yard_tree.fbx', at: [[-22, 46, 8.5, 0.4], [24, 58, 9.5, 2.1], [-34, 22, 7, 4.0], [36, 26, 7.5, 1.2], [-10, 74 - 12, 6.5, 5.3]] }, /* [x, z, height m, turn] */
+  rock: { url: 'models/props/yard_rock.fbx', at: [[-17, 38, 1.4, 0.3], [15, 64, 1.9, 1.7], [-27, 50, 1.1, 2.6], [28, 35, 1.3, 4.4], [-38, 27, 0.9, 0.9], [20, 52, 0.8, 3.3]] },
+};
+let propsOn = false;
+function plantProps() {
+  if (propsOn) return; propsOn = true;
+  const L = new FBXLoader();
+  for (const kind in PROPS) { const P = PROPS[kind];
+    L.load(P.url, (base) => { try { placeProp(kind, base, P.at); } catch (e) { console.warn('yard prop', kind, e); } }, undefined, (e) => console.warn('yard prop failed to load', kind, e)); }
+}
+function placeProp(kind, base, at) {
+  base.updateMatrixWorld(true); const parts = [], box = new THREE.Box3();
+  base.traverse(o => { if (!o.isMesh || !o.geometry) return; const geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); fixNormals(geo); geo.computeBoundingBox(); box.union(geo.boundingBox);
+    const mats = (Array.isArray(o.material) ? o.material : [o.material]).map(m => { if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; m.map.needsUpdate = true; } if (m.color) m.color.set('#ffffff'); if ('shininess' in m) m.shininess = 4; if (m.specular) m.specular.setScalar(0.05); return m; });
+    parts.push([geo, mats.length === 1 ? mats[0] : mats]); });
+  if (!parts.length) return;
+  const H = Math.max(0.01, box.max.y - box.min.y), cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2; // (stand the model on its base, centred, one metre tall)
+  const norm = new THREE.Matrix4().makeScale(1 / H, 1 / H, 1 / H).multiply(new THREE.Matrix4().makeTranslation(-cx, -box.min.y, -cz));
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
+  const halfW = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2 / H;
+  for (const [geo, mat] of parts) { geo.applyMatrix4(norm); geo.computeBoundingBox(); geo.computeBoundingSphere();
+    const im = new THREE.InstancedMesh(geo, mat, at.length);
+    at.forEach(([x, z, h, turn], i) => { const y = heightAt(x, z) - (kind === 'rock' ? h * 0.12 : 0.15); /* (sunk a little so no edge floats) */ q.setFromAxisAngle(up, turn); s.set(h * (kind === 'rock' ? 1.15 : 1), h, h * (kind === 'rock' ? 1.15 : 1)); p.set(x, y, z); im.setMatrixAt(i, M.compose(p, q, s)); });
+    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere && im.computeBoundingSphere(); im.castShadow = true; im.receiveShadow = kind === 'rock'; im.matrixAutoUpdate = false; im.updateMatrix(); im.name = 'yard_' + kind;
+    G.scene.add(im); }
+  for (const [x, z, h] of at) addCircle(x, z, kind === 'tree' ? Math.max(0.5, h * 0.06) : h * halfW * 0.8, 'yardprop'); // (you walk round the trunks and rocks, not through them)
 }
 function dummyUpdate(dt) {
   const m = this; m.dead = false; if (m.held) return; // (in the demon's grip)

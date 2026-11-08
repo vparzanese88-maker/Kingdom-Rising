@@ -232,7 +232,8 @@ function curlHand(F, o, sd, P, pos, nrm, mp, mn) {
     q.copy(H0).addScaledVector(fw, k + r * s2).addScaledVector(dn, cv - r * c).addScaledVector(ww, wv).applyMatrix4(bmi); mp[i * 3] = q.x; mp[i * 3 + 1] = q.y; mp[i * 3 + 2] = q.z;
     if (mn && nrm) { v.fromBufferAttribute(nrm, i).applyMatrix3(nm3); const nu = v.dot(fw), nv = v.dot(dn), nw = v.dot(ww); q.set(0, 0, 0).addScaledVector(fw, nu * c - nv * s2).addScaledVector(dn, nu * s2 + nv * c).addScaledVector(ww, nw).applyMatrix3(nmi).normalize(); mn[i * 3] = q.x; mn[i * 3 + 1] = q.y; mn[i * 3 + 2] = q.z; } }
   const bi = sk.boneInverses[P.hb], toB = (x) => x.clone().applyMatrix4(bi), C = H0.clone().addScaledVector(fw, k).addScaledVector(dn, cv);
-  const o0 = toB(H0); F.grip[sd] = { dbg: [Lh, k, R, vp, cv, list.length, H0.toArray(), fw.toArray(), E0.distanceTo(H0)], C: toB(C), fw: toB(H0.clone().add(fw)).sub(o0).normalize(), dn: toB(H0.clone().add(dn)).sub(o0).normalize() }; // (the handle's centre and the hand's own axes, in the hand bone's space)
+  const th = new THREE.Vector3(0, 0, 1); th.addScaledVector(fw, -th.dot(fw)); const hs = new THREE.Vector3().crossVectors(fw, dn).dot(th) >= 0 ? 1 : -1; /* (the thumb points forward in the rest pose: which side of the palm it is on) */
+  const o0 = toB(H0); F.grip[sd] = { hs, C: toB(C), fw: toB(H0.clone().add(fw)).sub(o0).normalize(), dn: toB(H0.clone().add(dn)).sub(o0).normalize() }; // (the handle's centre and the hand's own axes, in the hand bone's space)
 }
 export function attachFpArms(vm, cls) {
   if (!vm || !hasHeroModel(cls) || vm.fpArms) return; vm.fpArms = 'loading'; const D = MODELS[cls];
@@ -285,8 +286,9 @@ function holding(H) { for (let i = 1; i < H.children.length; i++) { const c = H.
 function gripPose(F, vm, H, sd, out) {
   const G = F.grip && F.grip[sd], hand = F.B[sd + 'Hand'], sh = F.B[sd + 'Arm']; if (!G || !hand || !sh) return false;
   H.updateWorldMatrix(true, false); const hq = H.getWorldQuaternion(_fq1), Y = new THREE.Vector3(0, 1, 0).applyQuaternion(hq), Pw = H.getWorldPosition(new THREE.Vector3()), og = F.D.fpGripOff; if (og) Pw.add(new THREE.Vector3(og[0], og[1], og[2]).applyQuaternion(hq));
-  const S = sh.getWorldPosition(_fv1), fw = Pw.clone().sub(S); fw.addScaledVector(Y, -fw.dot(Y)); if (fw.lengthSq() < 1e-6) fw.set(-1, 0, 0).applyQuaternion(hq); fw.normalize();
-  const camF = new THREE.Vector3(0, 0, -1).applyQuaternion(vm.g.getWorldQuaternion(_fq3)), pn = new THREE.Vector3().crossVectors(Y, fw); if (pn.dot(camF) * (F.D.fpPalm || 1) < 0) pn.negate();
+  // the fingers point the way the forearm runs (last frame's), turned round the handle: the wrist stays nearly straight; the thumb toward the weapon's business end (+Y)
+  const fd = F.fd && F.fd[sd], fw = fd ? vm.g.localToWorld(fd.clone()).sub(vm.g.getWorldPosition(_fv1)) : Pw.clone().sub(sh.getWorldPosition(_fv1)); fw.addScaledVector(Y, -fw.dot(Y)); if (fw.lengthSq() < 1e-6) fw.set(sd === 'Right' ? -1 : 1, 0, 0).applyQuaternion(hq); fw.normalize();
+  const pn = new THREE.Vector3().crossVectors(Y, fw).multiplyScalar(G.hs * (F.D.fpThumb || 1));
   _fm1.makeBasis(fw, pn, new THREE.Vector3().crossVectors(fw, pn)); _fm2.makeBasis(G.fw, G.dn, new THREE.Vector3().crossVectors(G.fw, G.dn)).transpose(); _fm1.multiply(_fm2); out.q.setFromRotationMatrix(_fm1);
   hand.updateWorldMatrix(true, false); const ws = hand.getWorldScale(_fv2); out.t.copy(Pw).sub(G.C.clone().multiply(ws).applyQuaternion(out.q)); return true;
 }
@@ -304,6 +306,7 @@ export function tickFpArms(vm) {
     const t = tgt(H), side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
+    if (H.visible && B[arm + 'ForeArm'] && B[arm + 'Hand']) { const e = B[arm + 'ForeArm'].getWorldPosition(new THREE.Vector3()), w2 = B[arm + 'Hand'].getWorldPosition(new THREE.Vector3()); vm.g.worldToLocal(e); vm.g.worldToLocal(w2); F.fd = F.fd || {}; const d = w2.sub(e).normalize(); F.fd[arm] = F.fd[arm] ? F.fd[arm].lerp(d, 0.5).normalize() : d; } // (the forearm's line, for next frame's grip)
     const g = grips[arm], hd = B[arm + 'Hand']; if (g && hd && hd.parent && H.visible) { hd.parent.updateWorldMatrix(true, false); hd.quaternion.copy(hd.parent.getWorldQuaternion(_fq3).invert().multiply(g.q)); } // (the hand turned so its fingers wrap the handle)
     if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)

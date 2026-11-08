@@ -470,7 +470,7 @@ export class Player {
     this.fb = {}; this.swayX = 0; this.swayY = 0; this.fovKick = 0; this.landDip = 0; this.lookDX = 0; this.lookDY = 0;
     const app = Object.assign({ race: hero.race, sex: hero.sex, cls: hero.cls }, hero.app);
     this.app = app;
-    this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; if (hero.arena) attachFpArms(this.vm, hero.cls); // (the arena: the weapon sits lower and further right, out of the way)
+    this.vm = new ViewModel(G.vmCam, app, hero.cls); this.vm.hero = !!hero.arena; if (hero.arena) { attachFpArms(this.vm, hero.cls); if (hasHeroModel(hero.cls)) { for (const H of [this.vm.R, this.vm.L]) if (H.children[0]) H.children[0].visible = false; if (this.vm.arms) for (const a of this.vm.arms) a.arm.visible = false; } } /* (the old code-built arms and hands never show, not even while the model's own arms load) */ // (the arena: the weapon sits lower and further right, out of the way)
     this.trail = V.trail('#ffffff'); this.trailL = V.trail('#ffffff');
     this.refreshGear(true);
     this.eye = this.h.arena && hasHeroModel(this.h.cls) ? heroHeight(this.h.cls) * 0.92 : this.ch.height * 0.9; /* (first person sees from the hero model's own eye height, not the hidden built body's) */

@@ -752,7 +752,7 @@ function setRot(o, x, y, z) { o.rotation.set(x, y, z); }
 function damp(o, x, y, z, k) { o.rotation.x += (x - o.rotation.x) * k; o.rotation.y += (y - o.rotation.y) * k; o.rotation.z += (z - o.rotation.z) * k; }
 
 // how far each attack steps into the blow at time t (negative: weight rocks back during the wind-up)
-const ACT_WIND = { swing1: 0.3, swing2: 0.3, swing3: 0.42, off1: 0.3, heavy: 0.5, thrust1: 0.35, thrust2: 0.35, thrust3: 0.4, stab: 0.3, area: 0.2, slam: 0.55, claw: 0.4, lowcut: 0.3, chop: 0.45, castBig: 0.5 };
+const ACT_WIND = { swing1: 0.3, swing2: 0.3, swing3: 0.42, off1: 0.3, heavy: 0.5, thrust1: 0.35, thrust2: 0.35, thrust3: 0.4, stab: 0.3, cast: 0.17, area: 0.2, slam: 0.55, claw: 0.4, lowcut: 0.3, chop: 0.45, castBig: 0.5 };
 function lungeOf(name, t) { const w = ACT_WIND[name]; if (w == null) return 0; if (t < w) return -0.25 * Math.sin((t / w) * Math.PI / 2); if (t < 0.75) { const u = (t - w) / (0.75 - w); return -0.25 + 1.25 * (1 - Math.pow(1 - Math.min(1, u * 1.6), 3)); } return 1 - ease((t - 0.75) / 0.25); }
 // Key poses for melee attacks [chestY, shRx, shRy, shRz, elR, shLx, shLz, elL, spineX]
 const POSE = {
@@ -767,7 +767,7 @@ const POSE = {
   block: [0, -1.2, 0, 0.9, -1.7, -1.6, -0.6, -1.4, 0.05],
   bowAim: [0.5, -1.55, 0, -0.1, -2.4, -1.55, -0.05, 0, 0],
   gunAim: [0.45, -1.45, 0, 0.25, -1.1, -1.5, -0.25, -0.25, 0], bowDraw: [0.6, -1.55, 0, -0.2, -2.7, -1.6, -0.05, 0, 0],
-  cast: [0, -0.4, 0, 0.25, -1.3, -1.6, -0.3, -0.2, 0], castB: [-0.1, -0.5, 0, 0.25, -1.3, -1.7, 0.1, -0.05, 0.15],
+  cast: [-0.5, -0.55, 0, 0.3, -1.45, -1.0, -0.55, -2.1, -0.1], castB: [0.38, -0.5, 0, 0.25, -1.25, -1.72, 0.08, -0.04, 0.24], // a spell thrown, not handed over: the free hand gathers it at the shoulder with that side drawn back, then the body turns in and drives the palm out at the target
   staffSlam: [0, -2.4, 0, 0.2, -1.0, -1.0, -0.2, -1.0, -0.25], staffSlamB: [0, -0.9, 0, 0.2, -0.6, -0.9, -0.2, -0.6, 0.35],
   chopA: [0.6, -2.2, 0.3, 1.0, -1.2, -0.3, -0.3, -0.7, -0.1], chopB: [-0.3, -1.2, -0.2, 0.3, -0.3, -0.3, -0.3, -0.7, 0.2],
   mineA: [0, -2.9, 0, 0.2, -1.2, -2.8, -0.2, -1.2, -0.3], mineB: [0, -0.9, 0, 0.1, -0.3, -0.9, -0.1, -0.3, 0.45],
@@ -788,7 +788,7 @@ function attackPose(name, t, mirror) {
     case 'stab': return seq('stabA', 'stabB', 0.3);
     case 'thrust3': return seq('h_a', 'thrB', 0.4);
     case 'area': return seq('s1a', 's1b', 0.2);
-    case 'cast': return seq('cast', 'castB', 0.3);
+    case 'cast': return t < 0.15 ? poseLerp(POSE.ready, POSE.cast, ease(t / 0.15)) : t < 0.34 ? poseLerp(POSE.cast, POSE.castB, ease((t - 0.15) / 0.19)) : t < 0.72 ? POSE.castB : poseLerp(POSE.castB, POSE.ready, ease((t - 0.72) / 0.28)); // (the palm snaps out as the spell leaves, around 30% in, and holds there)
     case 'castBig': return seq('staffSlam', 'staffSlamB', 0.5);
     case 'shoot': return t < 0.45 ? poseLerp(POSE.bowAim, POSE.bowDraw, ease(t / 0.45)) : t < 0.6 ? POSE.bowDraw : poseLerp(POSE.bowDraw, POSE.bowAim, ease((t - 0.6) / 0.4)); // draw the string back, hold, loose
     case 'chop': return seq('chopA', 'chopB', 0.45);

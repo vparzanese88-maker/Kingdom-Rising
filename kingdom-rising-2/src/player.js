@@ -2218,7 +2218,7 @@ export class Player {
     const fp = this.camDist < 0.6;
     const tpAim = !fp && !!(this.h.arena && this.ch.heroModel && this.ch.heroModel !== 'loading'); /* (a hero with his own 3D model aims over the shoulder in third person: he stays in view with his real weapon, no down-the-sights view with the old built arms) */ this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp && !tpAim); V.fpPos = fp && !this.dead ? this.pos : null;
     this.vm.g.visible = fp && !this.dead;
-    for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.25 : 1.8 + this.camDist * 0.25, fp ? 0.55 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
+    for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.4 : 1.8 + this.camDist * 0.25, fp ? 0.85 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
     if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? (this.h.arena ? 0.12 : 0.7) : 0.2); // (the arena: barely a dip, no roll) // (the over-the-shoulder camera barely dips: the body does the rolling)

@@ -317,7 +317,7 @@ class ViewModel {
       if (this.gun && this.wt === 'musket') { /* the detailed musket (camera-space numbers, less the view model's own offset): at the hip pointing in toward the crosshair; aimed, the stock at the cheek and the barrel running straight out from just under your eye, its front sight on the centre of the screen */
         const ke = k * k * (3 - 2 * k), e = lerp(0.12, 0.2017, ke) + rc * 0.2, ox = this.g.position.x, oy = this.g.position.y, oz = this.g.position.z;
         this.gun.rotation.order = 'YXZ'; this.gun.scale.setScalar(0.55); this.gun.position.set(lerp(0.13, 0, ke) - ox, lerp(-0.2, -0.1676, ke) - oy, lerp(-0.3, -0.3, ke) + rc * 0.05 - oz); this.gun.rotation.set(-Math.PI / 2 + e, lerp(0.12, 0, ke), 0); this.gunK = ke;
-      } else if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06 + k * 0.105, (1 - k) * 0.05 - k * 0.03, 0); }
+      } else if (this.gun) { this.gun.position.set(gp[0], gp[1], gp[2]); this.gun.rotation.set(-Math.PI / 2 + rc * 0.22 + (1 - k) * 0.06 + k * 0.105 - (this.hero && this.cls === 'blunderbuss' ? 0.14 * (1 - k) : 0), (1 - k) * 0.05 - k * 0.03, 0); } /* (the blunderbuss at the hip: muzzle level with the crosshair, not tipped up) */
       r = [gp[0] + 0.01 + k * 0.03, gp[1] - 0.05 - k * 0.03, gp[2] + 0.14, -1.2, 0, 0.1]; l = [gp[0] - 0.02, gp[1] - 0.02 - k * 0.04, gp[2] - 0.22, -1.4, 0, -0.2];
     } else if (act) {
       const dual = W && W.hands === 'dual';

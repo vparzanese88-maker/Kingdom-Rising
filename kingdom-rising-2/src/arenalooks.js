@@ -283,14 +283,31 @@ export function makeBomb(s = 1) { const g = new THREE.Group(), iron2 = M('#26262
 // what a hero model holds keeps the angle the built body's hand gives it (that body still performs every carry, swing and cast, and its
 // weapons were posed for it): left to the model's own wrist, a staff hung head-down at rest and long blades swung out flat as he ran.
 // Guns are already laid this way by tickHeroModel; a recorded move (the monk's) drives the hands itself, so it eases off during one.
-const _gq = new THREE.Quaternion(), _gp = new THREE.Quaternion(), _gi = new THREE.Quaternion();
 // the hand items were made for the built body (its hands scale them by ch.scale); the model is a different height, so they grow or shrink by
 // the same ratio and keep their size against him: a giant's great axe stays great, the little goblin's bomb stays fist-sized
 export function heldScale(ch) { const cls = ch.app && (ch.app.cls || ch.app.outfit); return ch.height > 0 && cls ? (ch.scale || 1) * heroHeight(cls) / ch.height : 1; }
-function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets || (ch.wt && /musket|blunderbuss/.test(ch.wt))) return; const k = 1 - Math.min(1, H.mw || 0);
-  const sz = heldScale(ch);
+// at rest and on the run a held weapon has its own carry, laid in a frame: x his right, z his front, y down (a "body" carry ignores the arm;
+// a "fore" carry rides the forearm, y running from elbow to hand, so a sword or a strapped-on shield swings with it). Each entry gives the
+// weapon's own +y (where it points) and +x (a one-hander's edge, an axe's bit) in that frame. While he attacks it eases over to the angle the
+// built hand gives it, since the swings were made with that body.
+const CARRY = { sword: ['fore', [0, 0.64, 0.77], [0, 0.77, -0.64]], dagger: ['fore', [0, 0.64, 0.77], [0, 0.77, -0.64]], mace: ['fore', [0, 0.5, 0.87], [1, 0, 0]], handaxe: ['fore', [0, 0.5, 0.87], [0, 0.87, -0.5]],
+  staff: ['body', [0, -0.97, 0.24], [1, 0, 0]], spear: ['body', [0, -0.97, 0.24], [1, 0, 0]], greatsword: ['body', [0, -0.42, 0.91], [0, 0.91, 0.42]], greataxe: ['body', [0, -0.42, 0.91], [0, 0.91, 0.42]], warhammer: ['body', [0, -0.42, 0.91], [0, 0.91, 0.42]],
+  shield: ['fore', [0, -1, 0], [0, 0, -1]] }; // (the shield stands up the forearm, its face (+z) out to his left)
+const _gq = new THREE.Quaternion(), _gp = new THREE.Quaternion(), _gi = new THREE.Quaternion(), _gc = new THREE.Quaternion(), _gm = new THREE.Matrix4(), _gx = new THREE.Vector3(), _gy = new THREE.Vector3(), _gz = new THREE.Vector3(), _ga = new THREE.Vector3(), _gb = new THREE.Vector3(), _gr = new THREE.Vector3();
+// what the socket's main item is, if it has a carry: [kind, the item]
+function carryOf(ch, sd) { const W = ch.weapons || {}; for (const k of sd === 'R' ? ['main'] : ['off', 'main']) { const w = W[k]; if (!w || !w.name || !w.parent || !ch.hmSockets.includes(w.parent)) continue; const kind = w.name.replace(/^weapon_/, ''); if (CARRY[kind] && (sd === 'L' ? k === 'off' : true)) return [kind, w]; } return null; }
+function carryQ(ch, H, sd, kind, w, out) { const C = CARRY[kind], B = H.bones, nm = sd === 'R' ? 'Right' : 'Left'; ch.root.getWorldQuaternion(_gq); _gr.set(-1, 0, 0).applyQuaternion(_gq); /* (his right: the root faces +z) */
+  if (C[0] === 'fore' && B[nm + 'ForeArm'] && B[nm + 'Hand']) { B[nm + 'ForeArm'].getWorldPosition(_ga); B[nm + 'Hand'].getWorldPosition(_gb); _gy.subVectors(_gb, _ga).normalize(); } else _gy.set(0, -1, 0);
+  _gx.copy(_gr).addScaledVector(_gy, -_gr.dot(_gy)); if (_gx.lengthSq() < 1e-4) _gx.set(0, 0, 1).applyQuaternion(_gq); _gx.normalize(); _gz.crossVectors(_gx, _gy); // (the frame)
+  const f = (v) => new THREE.Vector3().addScaledVector(_gx, v[0]).addScaledVector(_gy, v[1]).addScaledVector(_gz, v[2]).normalize();
+  const wy = f(C[1]), wx = f(C[2]); wx.addScaledVector(wy, -wx.dot(wy)).normalize(); const wz = new THREE.Vector3().crossVectors(wx, wy);
+  _gm.makeBasis(wx, wy, wz); out.setFromRotationMatrix(_gm); return out.multiply(_gc.copy(w.quaternion).invert()); } // (the socket turns so the item, at its own angle in it, lies so)
+function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets || (ch.wt && /musket|blunderbuss/.test(ch.wt))) return; const k = 1 - Math.min(1, H.mw || 0), atk = Math.min(1, H.ikA || 0);
+  const sz = heldScale(ch); ch.root.updateMatrixWorld(true);
   for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; if (so.userData.s0 == null) so.userData.s0 = so.scale.x; so.scale.setScalar(so.userData.s0 * sz); /* (sized to the model, see heldScale) */ chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
-    _gq.copy(chd.getWorldQuaternion(_gq)).multiply(so.userData.gripQ); so.parent.getWorldQuaternion(_gp).invert(); _gp.multiply(_gq); so.quaternion.copy(k >= 0.999 ? _gp : _gi.identity().slerp(_gp, k)); } }
+    _gp.copy(chd.getWorldQuaternion(_gp)).multiply(so.userData.gripQ); /* (the built hand's angle, in the world) */ const sd = chd === (ch.arms.R && ch.arms.R.hand) ? 'R' : 'L', c = carryOf(ch, sd);
+    if (c && atk < 0.999) { carryQ(ch, H, sd, c[0], c[1], _gq); _gq.slerp(_gp, atk); _gp.copy(_gq); }
+    so.parent.getWorldQuaternion(_gq).invert(); _gq.multiply(_gp); so.quaternion.copy(k >= 0.999 ? _gq : _gi.identity().slerp(_gq, k)); } }
 export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }

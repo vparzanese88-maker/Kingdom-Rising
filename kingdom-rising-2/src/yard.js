@@ -26,8 +26,8 @@ const RING = { x: 0, z: 47, r: 8 }; /* (between the two weapon racks; the class 
 const SPOTS = [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * Math.PI * 2; return [RING.x + Math.sin(a) * RING.r, RING.z + Math.cos(a) * RING.r, 'Training Dummy']; });
 // every class standing shoulder to shoulder behind the start: walk up to one and press E to become that class
 const LINE = []; YD.line = LINE;
-function nameTag(text) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 30px Georgia, serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(text, 128, 42); g.fillStyle = '#f2dfb0'; g.fillText(text, 128, 42);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); sp.scale.set(1.6, 0.4, 1); return sp; }
+function nameTag(text) { const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 30px Georgia, serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(text, 256, 42); g.fillStyle = '#f2dfb0'; g.fillText(text, 256, 42); /* (wide enough for the longest name, Goblin Bombardier) */
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); sp.scale.set(3.2, 0.4, 1); return sp; }
 function spawnLineUp() {
   const keys = Object.keys(CLASSES), z = -8; /* (spaced by each class's size so no two figures touch, giants included) */
   const wid = (c) => heroHeight(c) * 0.42 + 0.9, xs = []; let run = 0; keys.forEach((c, i) => { if (i) run += (wid(keys[i - 1]) + wid(c)) / 2; xs.push(run); }); const mid = run / 2;

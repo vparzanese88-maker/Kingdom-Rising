@@ -978,6 +978,7 @@ export function openKitInfo(UI, into) {
   let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb + hs, 0, null);
   const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
   if (shield) { const d = SHIELD_DEF.has(r) && ab(r); html += row('RMB', d ? 'Block · ' + d.name : 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.' + (d ? ` Keep it up for 1 s and ${d.name} goes up by itself: ${d.desc.replace(/\s*Hold block for 1 s to raise it\.?/, '')}` : ''), d ? d.cd : 0, d ? d.id : 'shieldwall'); }
+  else if (r === null && W) html += row('RMB', 'Block', 'Hold to raise your guard. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
   else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
   else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
   ['F', 'C', 'Q'].forEach((k, i) => { const a = ab((h.arenaKit || [])[i]); if (a) html += row(k, a.name, a.desc, a.cd, a.id); });
@@ -1159,7 +1160,7 @@ export function playerRules(p = G.player) {
     if (dmg > 0 && this.mezUntil > G.time && G.time - (this.mezAt || 0) > CC.mezGrace && this.db && this.db.stun) { this.db.stun.t = 0; this.mezUntil = 0; this.ccImmT = G.time + CC.immune; wakeFx(this); } // (damage wakes you from a mesmerize)
     if (o && o.melee && this.boneT > G.time && src && src !== this && !src.dead) slowUnit(src, 1); return r; }; // (Bone Guard: melee attackers are slowed)
   p.knock = function (v, stun = 0) { if (this.ironT > G.time) { if (stun) this.debuff('stun', stun); return; } return knock.call(this, v, stun); }; // (Iron Hide: cannot be knocked back)
-  p.onMouse = function (btn, down) { if (btn === 2 && this.h.arena && RMB_CAST.has(this.h.arenaRmb)) { if (down && !this.dead && !G.uiOpen && !dbOn(this, 'stun') && !this.isFrozen()) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); } return; } return mouse.call(this, btn, down); }; // (a gun class whose right click is an ability, not aiming)
+  p.onMouse = function (btn, down) { if (btn === 2 && this.h.arena && RMB_CAST.has(this.h.arenaRmb)) { if (down && !this.dead && !G.uiOpen && !dbOn(this, 'stun') && !this.isFrozen()) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); } return; } if (btn === 2 && this.h.arena && this.h.arenaRmb === null && this.W) { this.rmbHeld = down && !this.dead && !G.uiOpen; return; } return mouse.call(this, btn, down); }; // (a gun class whose right click is an ability, not aiming; a class with no right-click ability blocks with it, e.g. the Shadow Knight)
   return p;
 }
 const RMB_CAST = new Set(['ar_ironhide']);

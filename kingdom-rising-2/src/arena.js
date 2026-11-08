@@ -988,7 +988,7 @@ function checkWin() {
   if (o === 'dm' || o === 'ctf' || o === 'koth') { for (const t of teamsOf()) if ((A.score[t] || 0) >= A.target) return finish(t);
     if (A.clock >= A.timeLimit) { const sc = teamsOf().map(t => [t, A.score[t] || 0]).sort((a, b) => b[1] - a[1]); if (sc.length < 2 || sc[0][1] > sc[1][1]) return finish(sc[0][0]); if (!A.sudden) { A.sudden = true; bannerAll('Sudden death', 'The next point wins'); cheer(1.2); } } }
 }
-function finish(w) { if (AN.on && AN.host) nsend({ t: 'over', w }); celebrate(w); A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
+function finish(w) { if (AN.on && AN.host) nsend({ t: 'over', w }); celebrate(w); if (w != null) for (const f of A.F) if (f.team === w) { const u = unitOf(f), c = u && (u === G.player ? u.ch : u.model); if (c) c.cheerT = 6; } /* (the winners' heroes cheer, if their model has a cheer) */ A.state = 'over'; A.winner = w; AR.gatesOpen = false; cheer(2); A.hooks.over && A.hooks.over(w); renderEnd(); }
 
 // ---------------- objectives ----------------
 function objectives(dt) {

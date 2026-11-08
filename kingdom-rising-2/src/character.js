@@ -118,23 +118,74 @@ export function loadMusket() { if (!_musketP) _musketP = import('three/addons/lo
 export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
   const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
   if (_musketTpl) put(_musketTpl); else { _musketWait.push(put); loadMusket(); } return g; }
-// the warrior's detailed sword and heater shield, loaded once and re-laid into makeWeapon's frames: models/knightsword.glb (pommel +y, tip -y, the flat
-// of the blade in xy) turned point-up with the middle of the grip at the origin; models/shield-heater.glb (face +z, point -y) as the code heater sits
-const KIT = { sword: { file: 'models/knightsword.glb', fit: (geo) => { geo.rotateZ(Math.PI); geo.translate(0, 0.333, 0); geo.scale(1.15, 1.15, 1.15); } }, /* (guard just above the fist at y 0.11, tip at y 0.92: like the code sword's 0.1 and 0.88) */
-  shield: { file: 'models/shield-heater.glb', fit: (geo) => { geo.scale(1.12, 1.12, 1.12); geo.translate(0, -0.06, 0.01); } } }; /* (about 0.44 wide and 1.07 tall before the shield group's own 1.15) */
-const _kitTpl = {}, _kitP = {}, _kitWait = { sword: [], shield: [] };
-export function loadKit(k) { if (!_kitP[k]) _kitP[k] = import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res) => new GLTFLoader().load(KIT[k].file, (gl) => {
-  let src = null; gl.scene.traverse(o => { if (o.isMesh && !src) src = o; }); if (!src) return res(null);
-  const geo = src.geometry.clone(); KIT[k].fit(geo); geo.computeBoundingSphere(); geo.computeBoundingBox(); /* (textured PBR: colour, metal-rough and normal maps; no vertex colours to convert) */
-  const o = new THREE.Mesh(geo, src.material); o.userData.keep = true; o.castShadow = true; const tpl = new THREE.Group(); tpl.name = k + 'GLB'; tpl.add(o); tpl.userData.keep = true;
-  _kitTpl[k] = tpl; res(tpl); for (const f of _kitWait[k].splice(0)) f(tpl);
+// the arena classes' detailed weapons (Meshy models in models/w/: textured, no skeleton, about 95 units tall), loaded once per file the first
+// time a hero who carries it appears (never all at start) and re-laid into the frame of the code-built part they replace: grip at the origin,
+// the business end up +y, about the code part's length, so every swing, block and cast pose still fits. f: [turn x, y, z, scale to metres, move x, y, z]
+const PI = Math.PI, KIT = {
+  warrior_sword: { f: [0, 0, PI, 0.012, 0, 0.338, 0] }, /* (point-up: guard just above the fist at y 0.1, point at 0.91, like the code sword) */
+  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03] }, /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
+  darkknight_sword: { f: [0, 0, PI, 0.0196, 0, 0.527, 0] }, /* (guard at 0.2, point at 1.46: the code greatsword) */
+  bers_axe: { f: [0, 0, 0, 0.016, 0, 0.57, 0] }, /* (the ram-skull heads at y 1.05 like the code great axe, edges out along x) */
+  ranger_bow: { f: [0, -PI / 2, 0, 0.017, 0, 0, 0.094], cut: (g) => keepTris(g, (x, y) => !(x > 8.3 && Math.abs(y) < 38)), str: [0.646, 0.252] }, /* (riser at the origin, string toward +z; its own string is cut out so the code string, which draws, takes its place) */
+  shaman_spear: { f: [0, 0, 0, 0.0244, 0, 0.76, 0], tip: 1.9 }, /* (butt at -0.4, feathered head at 1.6-1.92: the code spear) */
+  shaman_doll: { f: [0, 0, 0, 0.0032, 0, 0.038, 0], tp: [0, 0, 0, -PI / 2, 0, 0], fp: [0.0, 0.02, -0.02, -0.25, 0.3, 0] }, /* (held round the belly, upright, face forward) */
+  priest_scepter: { f: [0, 0, 0, 0.0116, 0, 0.674, 0], tip: 1.02 }, /* (fist on the shaft under the cross; the cross where the staff's orb was) */
+  priest_censer: { f: [0, 0, 0, 0.0047, 0, -0.202, 0], tp: [0, 0, 0, -PI / 2, 0, 0], fp: [0, 0.0, 0.0, -0.5, 0, 0], dangle: true }, /* (hung from its ring in the fist) */
+  cleric_hammer: { f: [0, 0, 0, 0.0095, 0, 0.2375, 0] }, /* (one-handed: the winged head at 0.5-0.69, a little over the code mace) */
+  cleric_shield: { f: [0, 0, 0, 0.011, 0, -0.1, 0.03] }, /* (cross face +z, point down, like the code kite) */
+  druid_staff: { f: [0, 0, 0, 0.0195, 0, 0.526, 0], tip: 1.31 }, /* (foot at -0.4 like the code staff, the glowing seed at the top) */
+  ench_staff: { f: [0, 0, 0, 0.0185, 0, 0.479, 0], tip: 1.3 },
+  ele_orb: { f: [0, 0, 0, 0.0045, 0, 0.6575, 0], tip: 0.68, fpPos: [0, -0.133, 0] }, /* (no staff: the fire-and-ice orb held up by its crystal pendant, just above the fist) */
+  necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI, 0] }, /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
+  rogue_dagger: { f: [0, 0, PI, 0.0055, 0, 0.157, 0] }, /* (guard at 0.09, point at 0.42: the code dagger) */
+  bomb_grenade: { f: [0, 0, 0, 0.0036, 0, 0.072, 0] }, /* (gripped by the stick, the head up) */
+  bomb_detonator: { f: [0, 0, 0, 0.0027, 0, 0.027, 0], belt: [0.2, 0.9, 0.04, 0, 0, 0] }, /* (the plunger box clipped to his belt on the left hip, button up) */
+  bard_lute: { f: [0, 0, PI, 0.0084, 0, 0.235, 0] }, /* (held by the neck near the pegs, the bowl up +y, face +z: the code lute's frame) */
+  beast_claw: { f: [PI + 0.637, 0, 0, 0.0038, -0.0076, -0.042, 0.025] }, /* (the code claws' frame: knuckles at the origin, the claws up +y, the fur cuff down the forearm) */
+  wizard_book: { f: [PI / 2, 0, 0, 0.0032, 0, 0.1235, 0] }, /* (the code book's frame: lying open, pages up +y, spine at the origin) */
+};
+// which class carries what: main / off replace that code-built weapon (when it is the one named), L / R are new things held in that fist
+const CLASS_KIT = { warrior: { main: ['sword', 'warrior_sword'], off: ['shield', 'warrior_shield'] }, darkknight: { main: ['greatsword', 'darkknight_sword'] }, berserker: { main: ['greataxe', 'bers_axe'] },
+  ranger: { main: ['bow', 'ranger_bow'] }, shaman: { main: ['spear', 'shaman_spear'], L: 'shaman_doll' }, priest: { main: ['staff', 'priest_scepter'], L: 'priest_censer' }, cleric: { main: ['mace', 'cleric_hammer'], off: ['shield', 'cleric_shield'] },
+  druid: { main: ['staff', 'druid_staff'] }, enchanter: { main: ['staff', 'ench_staff'] }, elementalist: { main: ['staff', 'ele_orb'] }, rogue: { main: ['dagger', 'rogue_dagger'], off: ['dagger', 'rogue_dagger'] },
+  necromancer: { R: 'necro_scythe' }, bombardier: { belt: 'bomb_detonator' } }; /* (the wizard's book, the bombardier's grenade, the bard's lute and the beastmaster's claws replace code-built pieces in arenalooks.js / player.js) */
+function keepTris(g, ok) { const p = g.attributes.position, n = p.count / 3, keep = []; for (let t = 0; t < n; t++) { let all = true; for (let j = 0; j < 3; j++) if (ok(p.getX(t * 3 + j), p.getY(t * 3 + j))) { all = false; break; } if (!all) keep.push(t); }
+  for (const k in g.attributes) { const a = g.attributes[k], s = a.itemSize, out = new Float32Array(keep.length * 3 * s); keep.forEach((t, i) => out.set(a.array.subarray(t * 3 * s, t * 3 * s + 3 * s), i * 3 * s)); g.setAttribute(k, new THREE.BufferAttribute(out, s)); } }
+const _kitTpl = {}, _kitP = {}, _kitWait = {}; let _fbxL = null;
+export function loadKit(k) { if (!_kitP[k]) _kitP[k] = (_fbxL = _fbxL || import('three/addons/loaders/FBXLoader.js').then(({ FBXLoader }) => new FBXLoader())).then((L) => new Promise((res) => L.load('models/w/' + k + '.fbx', (fb) => {
+  let src = null; fb.updateMatrixWorld(true); fb.traverse(o => { if (o.isMesh && !src) src = o; }); if (!src) return res(null); const K = KIT[k], f = K.f;
+  let geo = src.geometry.clone(); if (geo.index) geo = geo.toNonIndexed(); geo.applyMatrix4(src.matrixWorld); /* (the file's node turns it upright and scales it x100) */ if (K.cut) K.cut(geo); geo.clearGroups();
+  geo.rotateX(f[0]); geo.rotateY(f[1]); geo.rotateZ(f[2]); geo.scale(f[3], f[3], f[3]); geo.translate(f[4], f[5], f[6]);
+  const na = geo.attributes.normal; if (na) { const a = na.array; for (let i = 0; i < a.length; i += 3) { const l = a[i] * a[i] + a[i + 1] * a[i + 1] + a[i + 2] * a[i + 2]; if (!(l > 1e-8)) { a[i] = 0; a[i + 1] = 1; a[i + 2] = 0; } else { const s = 1 / Math.sqrt(l); a[i] *= s; a[i + 1] *= s; a[i + 2] *= s; } } } /* (Meshy normals can be zero-length: the glow pass smears those into black) */
+  geo.computeBoundingSphere(); geo.computeBoundingBox();
+  const mt = Array.isArray(src.material) ? src.material[0] : src.material; if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 8; } if (mt.color) mt.color.set('#ffffff'); if (mt.specular) mt.specular.set('#2a2a2a'); mt.shininess = 24;
+  const o = new THREE.Mesh(geo, mt); o.userData.keep = true; o.castShadow = true; const tpl = new THREE.Group(); tpl.name = k + 'Kit'; tpl.add(o); tpl.userData.keep = true; /* (keep: bake() leaves it whole, with its own texture) */
+  _kitTpl[k] = tpl; res(tpl); for (const fn of (_kitWait[k] || []).splice(0)) fn(tpl);
 }, undefined, () => res(null)))); return _kitP[k]; }
-// swap a sword or shield group's code-built meshes for the detailed model (now if it is loaded, or as soon as it is)
-export function kitize(g, k) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
-  const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
-  if (_kitTpl[k]) put(_kitTpl[k]); else { _kitWait[k].push(put); loadKit(k); } return g; }
-// the warrior's own sword and shield: the detailed models replace the code-built ones in his hands
-export function warriorKit(ch) { const W = ch.weapons || {}; if (W.main && W.main.name === 'weapon_sword') kitize(W.main, 'sword'); if (W.off && W.off.name === 'weapon_shield') kitize(W.off, 'shield'); }
+// swap a group's code-built meshes for the detailed model (now if it is loaded, or as soon as it is). o.fp: first person (the code parts hide at once, no shadows)
+export function kitize(g, k, o = {}) { if (!g || !KIT[k]) return g; if (o.fp) for (const c of g.children) if (c.isMesh) c.visible = false;
+  const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = o.fp ? false : cs.length ? cs[0].castShadow : true, cull = o.fp ? false : cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
+    const m = tpl.clone(), K = KIT[k]; m.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); if (o.fp && K.fpPos) m.position.fromArray(K.fpPos); g.add(m); g.userData.glb = m;
+    if (K.tip != null && g.userData.tip) g.userData.tip.position.set(0, K.tip, 0);
+    if (K.str && g.userData.string) { const [h, z] = K.str, a = g.userData.string.geometry.attributes.position; a.setXYZ(0, 0, -h, z); a.setXYZ(1, 0, 0, z); a.setXYZ(2, 0, h, z); a.needsUpdate = true; g.userData.string.geometry.computeBoundingSphere(); g.userData.stringZ = z; } };
+  if (_kitTpl[k]) put(_kitTpl[k]); else { (_kitWait[k] = _kitWait[k] || []).push(put); loadKit(k); } return g; }
+// a new thing held in a fist (no code-built part to replace): a holder in the grip's frame (third person) or the view-model hand's (first person)
+function kitHolder(k, fp) { const K = KIT[k], P = fp ? K.fp : K.tp; if (!P) return null; const h = new THREE.Group(); h.name = 'kit_' + k; h.position.set(P[0], P[1], P[2]); h.rotation.set(P[3], P[4], P[5]); kitize(h, k, { fp }); return h; }
+// third person: the class's detailed weapons replace the code-built ones in its hands (called from arenaWeaponDecor)
+export function classKit(ch, cls) { const C = CLASS_KIT[cls], W = ch.weapons || {}; if (!C || !ch.arms) return;
+  for (const s of ['main', 'off']) if (C[s] && W[s] && W[s].name === 'weapon_' + C[s][0]) kitize(W[s], C[s][1]);
+  for (const sd of ['L', 'R']) if (C[sd] && ch.arms[sd] && ch.arms[sd].grip) { const h = kitHolder(C[sd]); if (!h) continue; ch.arms[sd].grip.add(h); if (KIT[C[sd]].dangle) { h.rotation.set(0, 0, 0); h.userData.sw = { ax: 0, az: 0, vx: 0, vz: 0, lp: null }; if (!ch.dangle) ch.dangle = h; } }
+  if (C.belt) beltKit(ch, C.belt); }
+// worn on the belt: rides the hero model's hips once it has loaded (the built body's are hidden), else the root at hip height
+function beltKit(ch, k) { const B = KIT[k].belt, h = new THREE.Group(); h.name = 'kit_' + k; kitize(h, k); let n = 0;
+  const go = () => { if (!ch.root) return; const hm = ch.heroModel; if (hm === 'loading' && ++n < 600) { setTimeout(go, 100); return; } const s = ch.scale || 1; h.position.set(B[0] * s, B[1] * s, B[2] * s); h.rotation.set(B[3], B[4], B[5]); ch.root.add(h);
+    const hip = hm && hm.bones && hm.bones.Hips; if (hip) { ch.root.updateMatrixWorld(true); hip.attach(h); } };
+  go(); }
+// first person: the same models in the view model's hands, the code-built stand-ins never shown (the necromancer keeps his own first-person look)
+export function classKitFP(vm) { const C = CLASS_KIT[vm.cls], W = vm.weapons || {}; if (!C) return;
+  for (const s of ['main', 'off']) if (C[s] && W[s] && W[s].name === 'weapon_' + C[s][0]) kitize(W[s], C[s][1], { fp: true });
+  if (C.main && C.main[0] === 'bow' && W.bow && W.bow.name === 'weapon_bow') kitize(W.bow, C.main[1], { fp: true });
+  if (C.L) { const h = kitHolder(C.L, true); if (h) { vm.L.add(h); W.held = h; if (!vm.book || /^kit_/.test(vm.book.name)) vm.book = h; } } }
 // Weapons are built with the grip at the origin and the business end pointing +Y.
 // userData.tip / userData.base mark the edge for trails.
 export function makeWeapon(part, tier = 0, rarity = 0, element) {

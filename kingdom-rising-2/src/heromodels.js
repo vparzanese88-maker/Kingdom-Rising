@@ -17,12 +17,21 @@ const MODELS = {
   elementalist: { base: 'models/ele_rig.fbx', clips: { walk: 'models/anim/ele_walk.json', run: 'models/anim/ele_run.json' }, height: 1.95, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   enchanter: { base: 'models/ench_rig.fbx', clips: { walk: 'models/anim/ench_walk.json', run: 'models/anim/ench_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   bombardier: { base: 'models/bomb_rig.fbx', clips: { walk: 'models/anim/bomb_walk.json', run: 'models/anim/bomb_run.json' }, height: 1.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  paladin: { base: 'models/pal_rig.fbx', clips: { walk: 'models/anim/pal_walk.json', run: 'models/anim/pal_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  darkknight: { base: 'models/dk_rig.fbx', clips: { walk: 'models/anim/dk_walk.json', run: 'models/anim/dk_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  ranger: { base: 'models/rang_rig.fbx', clips: { walk: 'models/anim/rang_walk.json', run: 'models/anim/rang_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  rogue: { bright: 1.35, base: 'models/rogue_rig.fbx', clips: { walk: 'models/anim/rogue_walk.json', run: 'models/anim/rogue_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  wizard: { base: 'models/wiz_rig.fbx', clips: { walk: 'models/anim/wiz_walk.json', run: 'models/anim/wiz_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  shaman: { base: 'models/sham_rig.fbx', clips: { walk: 'models/anim/sham_walk.json', run: 'models/anim/sham_run.json' }, height: 2.05, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  priest: { base: 'models/priest_rig.fbx', clips: { walk: 'models/anim/priest_walk.json', run: 'models/anim/priest_run.json' }, height: 1.85, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   berserker: { base: 'models/bers_rig.fbx', clips: { walk: 'models/anim/bers_walk.json', run: 'models/anim/bers_run.json' }, height: 2.1, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
-  monk: { base: 'models/monk_rig.fbx', clips: Object.fromEntries(['walk', 'run', 'punch1', 'punch2', 'kick', 'sweep', 'risekick', 'roundhouse', 'jumppunch', 'lungeround', 'spinkick', 'doublekick', 'flykick', 'flystrike', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
+  monk: { base: 'models/monk2_rig.fbx', clips: Object.assign(Object.fromEntries(['walk', 'run', 'back'].map(k => [k, 'models/anim/monk_' + k + '.json'])), Object.fromEntries(['punchA', 'punchB', 'attack', 'double', 'charged', 'counter', 'thrust', 'jump', 'dodge', 'stance', 'dead', 'cheer'].map(k => [k, 'models/anim/monk2_' + k + '.json']))), height: 2.05, walkSpeed: 1.6, runSpeed: 5.5,
     // slices of the recorded moves: [clip, start s, end s, the moment the blow lands, whole-body move, fixed play time, loops]
-    moves: { jab: ['punch1', 0.15, 0.62, 0.4], cross: ['punch1', 0.6, 1.25, 1.0], upper: ['punch1', 1.2, 1.9, 1.42], spin: ['spinkick', 0.55, 1.6, 1.2], lunge: ['lungeround', 1.85, 3.0, 2.25],
-      fury: ['punch2', 1.8, 2.6, 0, 0, 0, true], kick: ['doublekick', 0.7, 1.75, 1.0], flykick: ['risekick', 0.05, 1.05, 0, true, 0.75], superman: ['jumppunch', 0.45, 1.6, 0, true, 0.7], flip: ['sweep', 1.62, 2.8, 0, true] },
-    combo: ['jab', 'cross', 'jab', 'spin', 'cross'], finisher: ['upper', 'lunge'], noGrip: true, fpHand: 1.0 },
+    moves: { jab: ['punchB', 0.3, 0.85, 0.6], cross: ['punchB', 0.85, 1.25, 1.0], hook: ['punchA', 0.5, 1.15, 0.9], upper: ['punchA', 1.15, 1.8, 1.4], spin: ['double', 0.2, 1.55, 1.2], slam: ['attack', 0.3, 1.6, 1.1],
+      charged: ['charged', 0.15, 1.7, 0.85], counter: ['counter', 4.8, 6.35, 5.8],
+      fury: ['punchB', 0.45, 1.5, 0, 0, 0, true], kick: ['double', 0.35, 1.7, 0.95], flykick: ['jump', 1.4, 3.5, 0, true, 1.1], superman: ['thrust', 0.15, 1.4, 0, true, 0.75], flip: ['dodge', 0.1, 1.25, 0, true],
+      dead: ['dead', 0, 2.95, 0, true], cheer: ['cheer', 0.2, 6.0, 0, true] },
+    combo: ['jab', 'cross', 'hook', 'upper', 'spin', 'jab', 'slam'], finisher: ['charged', 'counter'], idleClip: 'stance', noGrip: true, fpHand: 1.0 }, // (the owner's new monk moves: punch combos, spinning strike, ground slam; charged palm and counterstrike finish a combo; fighting stance at rest, a real death fall, a cheer when the arena is won)
 };
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
 
@@ -115,7 +124,9 @@ function pickMove(H, ch, dt) {
   const trig = u.kickT > 0 ? 'flykick' : u.supermanT > 0 ? 'superman' : null;
   if (trig && (!H.latch || H.latch.key !== trig) && H.trigPrev !== trig) H.latch = { key: trig, t: 0 }; H.trigPrev = trig;
   let key = null, k = null;
-  if (H.latch) { const sl = M[H.latch.key]; H.latch.t += dt; k = H.latch.t / (sl[5] || 0.6); if (k >= 1) H.latch = null; else key = H.latch.key; }
+  if (st.dead && M.dead) { H.latch = null; H.deadT = (H.deadT || 0) + dt; key = 'dead'; k = H.deadT / (M.dead[2] - M.dead[1]); } else H.deadT = 0; /* (a real fall to the ground, then he lies still) */
+  if (!key && ch.cheerT > 0 && M.cheer) { ch.cheerT -= dt; key = 'cheer'; k = 1 - ch.cheerT / 6; } /* (the arena is won: arms up for the crowd) */
+  if (key) {} else if (H.latch) { const sl = M[H.latch.key]; H.latch.t += dt; k = H.latch.t / (sl[5] || 0.6); if (k >= 1) H.latch = null; else key = H.latch.key; }
   if (!key) { if (st.rollKind === 'flip' && st.roll != null) { key = 'flip'; k = Math.min(1, Math.max(0, st.roll)); }
     else if (u.strike || /^(fury|area|spin)$/.test(nm)) { key = 'fury'; }
     else if (nm === 'kick') { key = 'kick'; k = st.actionT; }
@@ -146,14 +157,15 @@ export function tickHeroModel(ch, dt) {
   if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)
   const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
   reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run' && k !== 'back') H.act[k].setEffectiveWeight(0);
+  const stA = H.D.idleClip && H.act[H.D.idleClip]; if (stA) { stA.paused = false; stA.setEffectiveWeight(H.w.idle); } /* (standing still: his own recorded fighting stance, looping) */
   H.mixer.update(dt); H.t += dt; const B = H.bones;
   H.mw = (H.mw || 0) + ((mvK ? 1 : 0) - (H.mw || 0)) * Math.min(1, dt * (mvK ? 30 : 9)); // (snaps into an attack, eases back out of it)
   if (H.mw > 0.01 && H.lastMove) { const [ck, a, b2] = H.lastMove.slice; const A = H.act[ck];
     if (A) { const legs = {}; const moving = Math.min(1, H.v / 1.5) * (H.lastMove.full ? 0 : 1); for (const k of LEG_BONES) if (B[k]) legs[k] = B[k].quaternion.clone(); const hipP = B.Hips ? B.Hips.position.clone() : null;
-      reset(); for (const k in H.act) H.act[k].setEffectiveWeight(k === ck ? H.mw : k === 'walk' ? H.w.walk * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'run' ? H.w.run * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'back' ? (H.w.walk + H.w.run) * H.backK * (1 - H.mw) : 0); A.time = H.lastMove.t; H.mixer.update(0);
+      reset(); for (const k in H.act) H.act[k].setEffectiveWeight(k === ck ? H.mw : k === 'walk' ? H.w.walk * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'run' ? H.w.run * (1 - H.mw) * (1 - (H.act.back ? H.backK : 0)) : k === 'back' ? (H.w.walk + H.w.run) * H.backK * (1 - H.mw) : k === H.D.idleClip ? H.w.idle * (1 - H.mw) : 0); A.time = H.lastMove.t; H.mixer.update(0);
       for (const k of LEG_BONES) if (legs[k] && B[k]) B[k].quaternion.slerp(legs[k], moving); if (hipP && moving > 0) B.Hips.position.lerp(hipP, moving); } }
   // standing still: the rest pose with the arms down at the sides, a slow breath and a little weight shift
-  const free = 1 - (H.mw || 0); if (H.w.idle > 0.01 && free > 0.01) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle * free); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
+  const free = 1 - (H.mw || 0); if (H.w.idle > 0.01 && free > 0.01 && !stA) { for (const k in H.idle) B[k].quaternion.slerp(H.idle[k], H.w.idle * free); const br = Math.sin(H.t * 1.7) * 0.025 * H.w.idle; if (B.Spine01) B.Spine01.rotateX(br); if (B.neck) B.neck.rotateX(-br * 0.6); if (B.Hips) B.Hips.rotateZ(Math.sin(H.t * 0.6) * 0.02 * H.w.idle); }
   // running: toes turned in a touch; smaller feet
   const mv = H.w.run + H.w.walk * 0.5, ti = (H.D.toeIn || 0) * mv; if (ti) { const up = new THREE.Vector3(0, 1, 0); turnFoot(B.LeftFoot, up, -ti); turnFoot(B.RightFoot, up, ti); } // (only the feet turn in, at the ankle: the legs stay apart)
   const spr = (H.D.legSpread || 0) * mv; if (spr) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(H.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(); spreadLeg(B.LeftUpLeg, fw, spr); spreadLeg(B.RightUpLeg, fw, -spr); } // (feet kept apart so the legs never cross)
@@ -176,6 +188,40 @@ export function tickHeroModel(ch, dt) {
 // ---------- first person: your own model's arms, reaching to where the view model's hands are ----------
 // A second copy of the model sits in the view-model space with its eyes at the camera (head shrunk away so it never
 // fills the screen); each frame both arms are bent with two-bone IK so the model's hands land on the view-model hands.
+// keep only the triangles skinned to the arms (upper arm, forearm, hand): the first-person copy is a pair of arms with nothing behind them.
+// Each arm becomes its own mesh, and each hand gets a "closed" shape (a morph target): the rig has no finger bones, so the fingers
+// are bent round a handle-sized cylinder past the knuckles, and the hand closes whenever it holds something
+const ARM_SIDES = { Right: ['RightArm', 'RightForeArm', 'RightHand'], Left: ['LeftArm', 'LeftForeArm', 'LeftHand'] };
+function armsOnly(F) { const { m, D } = F; F.hm = { Right: [], Left: [] }; F.grip = {}; const metas = [];
+  m.traverse(o => { if (o.isSkinnedMesh && o.skeleton) metas.push(o); });
+  for (const o of metas) { const g0 = o.geometry, si = g0.attributes.skinIndex, sw = g0.attributes.skinWeight, pos = g0.attributes.position; if (!si || !sw || !pos) continue; const n = si.count, idx = g0.index ? g0.index.array : null, tri = idx ? idx.length : n;
+    const per = {}; for (const sd in ARM_SIDES) { const ids = new Set(), hb = o.skeleton.bones.findIndex(b => b.name === sd + 'Hand'); o.skeleton.bones.forEach((b, i) => { if (ARM_SIDES[sd].includes(b.name)) ids.add(i); }); const aw = new Float32Array(n), hw = new Float32Array(n);
+      for (let i = 0; i < n; i++) for (let k = 0; k < 4; k++) { const j = si.getComponent(i, k), w = sw.getComponent(i, k); if (ids.has(j)) aw[i] += w; if (j === hb) hw[i] += w; }
+      const keep = []; for (let t = 0; t < tri; t += 3) { const a = idx ? idx[t] : t, b = idx ? idx[t + 1] : t + 1, c = idx ? idx[t + 2] : t + 2; if (aw[a] > 0.5 && aw[b] > 0.5 && aw[c] > 0.5) keep.push(a, b, c); } per[sd] = { keep, hw, hb }; }
+    const total = per.Right.keep.length + per.Left.keep.length; if (total < tri * 0.01) continue; // (no arms found on this mesh: leave it whole)
+    const mp = new Float32Array(pos.array.length), mn = g0.attributes.normal ? new Float32Array(g0.attributes.normal.array.length) : null; for (let i = 0; i < n; i++) { mp[i * 3] = pos.getX(i); mp[i * 3 + 1] = pos.getY(i); mp[i * 3 + 2] = pos.getZ(i); if (mn) { const nn = g0.attributes.normal; mn[i * 3] = nn.getX(i); mn[i * 3 + 1] = nn.getY(i); mn[i * 3 + 2] = nn.getZ(i); } }
+    for (const sd in per) if (per[sd].hb >= 0) curlHand(F, o, sd, per[sd], pos, g0.attributes.normal, mp, mn);
+    const mA = new THREE.BufferAttribute(mp, 3), nA = mn ? new THREE.BufferAttribute(mn, 3) : null; let first = true;
+    for (const sd in per) { if (!per[sd].keep.length) continue; const g = new THREE.BufferGeometry(); for (const k in g0.attributes) g.setAttribute(k, g0.attributes[k]); g.setIndex(per[sd].keep); g.morphAttributes.position = [mA]; if (nA) g.morphAttributes.normal = [nA]; g.morphTargetsRelative = false; if (Array.isArray(o.material)) g.addGroup(0, per[sd].keep.length, 0);
+      let mesh; if (first) { mesh = o; o.geometry = g; first = false; } else { mesh = new THREE.SkinnedMesh(g, o.material); mesh.castShadow = false; mesh.frustumCulled = false; mesh.position.copy(o.position); mesh.quaternion.copy(o.quaternion); mesh.scale.copy(o.scale); o.parent.add(mesh); mesh.bind(o.skeleton, o.bindMatrix); }
+      mesh.updateMorphTargets(); mesh.morphTargetInfluences[0] = 0; F.hm[sd].push(mesh); } }
+}
+// the closed hand, in the skeleton's bind space: fingers past the knuckles wrap round a cylinder lying across the palm
+function curlHand(F, o, sd, P, pos, nrm, mp, mn) {
+  const sk = o.skeleton, hand = sk.bones[P.hb], fore = sk.bones.find(b => b.name === sd + 'ForeArm'); if (!fore) return; const inv = (b) => new THREE.Matrix4().copy(sk.boneInverses[sk.bones.indexOf(b)]).invert();
+  const H0 = new THREE.Vector3().setFromMatrixPosition(inv(hand)), E0 = new THREE.Vector3().setFromMatrixPosition(inv(fore)), fw = H0.clone().sub(E0).normalize(), dn = new THREE.Vector3(0, -1, 0); dn.addScaledVector(fw, -dn.dot(fw)).normalize(); const ww = new THREE.Vector3().crossVectors(fw, dn);
+  const bm = o.bindMatrix, bmi = o.bindMatrixInverse, nm3 = new THREE.Matrix3().getNormalMatrix(bm), nmi = new THREE.Matrix3().getNormalMatrix(bmi), v = new THREE.Vector3(), q = new THREE.Vector3(); const us = [], list = [];
+  for (let i = 0; i < pos.count; i++) { if (P.hw[i] < 0.5) continue; v.fromBufferAttribute(pos, i).applyMatrix4(bm).sub(H0); list.push(i); us.push(v.dot(fw)); }
+  if (list.length < 30) return; const sorted = us.slice().sort((a, b) => a - b), Lh = sorted[Math.floor(sorted.length * 0.97)]; if (!(Lh > 0)) return;
+  const cfg = F.D.fpCurl || [0.5, 0.11, 3.6], k = cfg[0] * Lh, R = cfg[1] * Lh; let vp = -Infinity; // (knuckles at half the hand's length; a handle about a ninth of it in radius)
+  for (let j = 0; j < list.length; j++) { if (us[j] < 0.25 * Lh || us[j] > k) continue; v.fromBufferAttribute(pos, list[j]).applyMatrix4(bm).sub(H0); vp = Math.max(vp, v.dot(dn)); } if (!isFinite(vp)) vp = 0.12 * Lh;
+  const cv = vp + R; // (the handle's centre: just off the palm's surface)
+  for (let j = 0; j < list.length; j++) { const i = list[j], u = us[j]; if (u <= k) continue; v.fromBufferAttribute(pos, i).applyMatrix4(bm).sub(H0); const vv = v.dot(dn), wv = v.dot(ww), r = cv - vv, th = Math.min(cfg[2], (u - k) / R), c = Math.cos(th), s2 = Math.sin(th);
+    q.copy(H0).addScaledVector(fw, k + r * s2).addScaledVector(dn, cv - r * c).addScaledVector(ww, wv).applyMatrix4(bmi); mp[i * 3] = q.x; mp[i * 3 + 1] = q.y; mp[i * 3 + 2] = q.z;
+    if (mn && nrm) { v.fromBufferAttribute(nrm, i).applyMatrix3(nm3); const nu = v.dot(fw), nv = v.dot(dn), nw = v.dot(ww); q.set(0, 0, 0).addScaledVector(fw, nu * c - nv * s2).addScaledVector(dn, nu * s2 + nv * c).addScaledVector(ww, nw).applyMatrix3(nmi).normalize(); mn[i * 3] = q.x; mn[i * 3 + 1] = q.y; mn[i * 3 + 2] = q.z; } }
+  const bi = sk.boneInverses[P.hb], toB = (x) => x.clone().applyMatrix4(bi), C = H0.clone().addScaledVector(fw, k).addScaledVector(dn, cv);
+  const o0 = toB(H0); F.grip[sd] = { C: toB(C), fw: toB(H0.clone().add(fw)).sub(o0).normalize(), dn: toB(H0.clone().add(dn)).sub(o0).normalize() }; // (the handle's centre and the hand's own axes, in the hand bone's space)
+}
 export function attachFpArms(vm, cls) {
   if (!vm || !hasHeroModel(cls) || vm.fpArms) return; vm.fpArms = 'loading'; const D = MODELS[cls];
   loadClass(cls).then(({ base }) => {
@@ -185,7 +231,7 @@ export function attachFpArms(vm, cls) {
     if (B.Head) B.Head.scale.setScalar(0.001); // (no head in your own view)
     wrap.updateMatrixWorld(true); const hp = new THREE.Vector3(); if (B.Head) { B.Head.getWorldPosition(hp); vm.g.worldToLocal(hp); }
     wrap.position.set(-hp.x, -hp.y - 0.1, -hp.z + 0.1); // (the camera sits at his eyes; shoulders just under the view, so arms bend at the guard and straighten on a punch)
-    vm.fpArms = { m, wrap, B, bind, D, reach: 1.35 }; // (first-person arms are drawn a little longer than life, like every shooter does, so they can reach the screen)
+    vm.fpArms = { m, wrap, B, bind, D, reach: 1.35 }; if (D.fpArmsOnly !== false && !D.fpFist) armsOnly(vm.fpArms); /* (only the arms are drawn: no body, collar, hair, hood or cloak can ever come into the view) */ // (first-person arms are drawn a little longer than life, like every shooter does, so they can reach the screen)
   }).catch(e => { console.warn('fp arms', cls, e); vm.fpArms = null; });
 }
 const _S = new THREE.Vector3(), _T = new THREE.Vector3(), _E = new THREE.Vector3(), _P = new THREE.Vector3();
@@ -207,16 +253,45 @@ function fistOnArm(F, vm, H, fist, fore, hand, side, pk) {
   const loc = H.worldToLocal(_b.clone()), wl = fist.userData.wrist ? fist.userData.wrist.position.clone().multiplyScalar(S).applyQuaternion(fist.quaternion) : new THREE.Vector3();
   fist.position.copy(loc.sub(wl)).addScaledVector(_d, -0.02 * S);
 }
+// first-person arms are short next to where the view model holds a weapon: the shoulders slide forward (and a little down,
+// always below the view) just far enough that both arms reach their hands without stretching thin. Per class in MODELS:
+// fpReach (arm length multiplier, default 1), fpShift (furthest the shoulders may slide, default 0.42), fpDrop (shoulders lowered)
+const _fv1 = new THREE.Vector3(), _fv2 = new THREE.Vector3(), _fv3 = new THREE.Vector3(), _fq1 = new THREE.Quaternion(), _fq3 = new THREE.Quaternion(), _fm1 = new THREE.Matrix4(), _fm2 = new THREE.Matrix4();
+function chainLen(F, arm) { const B = F.B, a = B[arm + 'Arm'], b = B[arm + 'ForeArm'], c = B[arm + 'Hand']; if (!a || !b || !c) return 0; a.getWorldPosition(_fv1); b.getWorldPosition(_fv2); c.getWorldPosition(_fv3); return _fv1.distanceTo(_fv2) + _fv2.distanceTo(_fv3); }
+function fpReachShift(F, vm, tgt) {
+  const D = F.D, mx = D.fpShift != null ? D.fpShift : D.fpFist ? 0 : 0.42; let need = 0;
+  for (const [H, arm] of [[vm.R, 'Right'], [vm.L, 'Left']]) { if (!H.visible || !F.B[arm + 'Arm']) continue; const L = chainLen(F, arm) * 0.94; F.B[arm + 'Arm'].getWorldPosition(_fv1); vm.g.worldToLocal(_fv1); const t = vm.g.worldToLocal(tgt(H)).sub(_fv1);
+    t.y += D.fpDrop || 0; const r2 = L * L - t.x * t.x - t.y * t.y; const dz = -t.z - Math.sqrt(Math.max(0, r2)); if (dz > need) need = dz; } // (how far forward the shoulder must come for the hand to land on its grip)
+  need = Math.min(mx, Math.max(0, need)); F.shz = F.shz == null ? need : F.shz + (need - F.shz) * (need > F.shz ? 0.5 : 0.15); // (comes forward at once when a swing reaches out, settles back slowly)
+  F.wrap.position.z -= F.shz; F.wrap.position.y -= D.fpDrop || 0; F.wrap.updateMatrixWorld(true);
+}
+// does this view-model hand hold anything (a weapon, a book, a bomb)? Only then does the model's hand close round it
+function holding(H) { for (let i = 1; i < H.children.length; i++) { const c = H.children[i]; if (c.visible === false) continue; if (c.isMesh || (c.children && c.children.length)) return true; } return false; }
+// where the wrist must go, and how the hand must turn, so the closed fingers wrap the handle: the view-model hand's local Y is the handle's line.
+// The fingers point across the handle, away from the shoulder; the palm faces forward (you see the back of the hand). MODELS fpPalm: -1 turns the palm toward you
+function gripPose(F, vm, H, sd, out) {
+  const G = F.grip && F.grip[sd], hand = F.B[sd + 'Hand'], sh = F.B[sd + 'Arm']; if (!G || !hand || !sh) return false;
+  H.updateWorldMatrix(true, false); const hq = H.getWorldQuaternion(_fq1), Y = new THREE.Vector3(0, 1, 0).applyQuaternion(hq), Pw = H.getWorldPosition(new THREE.Vector3()), og = F.D.fpGripOff; if (og) Pw.add(new THREE.Vector3(og[0], og[1], og[2]).applyQuaternion(hq));
+  const S = sh.getWorldPosition(_fv1), fw = Pw.clone().sub(S); fw.addScaledVector(Y, -fw.dot(Y)); if (fw.lengthSq() < 1e-6) fw.set(-1, 0, 0).applyQuaternion(hq); fw.normalize();
+  const camF = new THREE.Vector3(0, 0, -1).applyQuaternion(vm.g.getWorldQuaternion(_fq3)), pn = new THREE.Vector3().crossVectors(Y, fw); if (pn.dot(camF) * (F.D.fpPalm || 1) < 0) pn.negate();
+  _fm1.makeBasis(fw, pn, new THREE.Vector3().crossVectors(fw, pn)); _fm2.makeBasis(G.fw, G.dn, new THREE.Vector3().crossVectors(G.fw, G.dn)).transpose(); _fm1.multiply(_fm2); out.q.setFromRotationMatrix(_fm1);
+  hand.updateWorldMatrix(true, false); const ws = hand.getWorldScale(_fv2); out.t.copy(Pw).sub(G.C.clone().multiply(ws).applyQuaternion(out.q)); return true;
+}
 export function tickFpArms(vm) {
   const F = vm && vm.fpArms; if (!F || F === 'loading') return; const B = F.B;
-  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar(F.reach || 1); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : (F.D.fpHand || 1.15)); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
-  for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(0.6); // (shoulder pads shrunk so they never cover the view)
+  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); const ao = F.D.fpArmsOnly !== false && !F.D.fpFist; /* (arms only: the shoulders need no shrinking, so the arm is scaled to a natural size instead) */ for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar((F.reach || 1) * (ao ? 0.6 * (F.D.fpReach || 1.35) : 1)); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : (F.D.fpHand || (ao ? 1 : 1.15))); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
+  for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(ao ? 1 : 0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
-  for (const [H, sd, sx] of [[vm.R, 'Left', -1], [vm.L, 'Right', 1]]) { // (the model faces the way you look, so its left arm is your right side on screen... mirrored below if needed)
-    const t = new THREE.Vector3(); const wr = H.children[0] && H.children[0].userData.wrist; if (F.D.fpFist) { H.updateWorldMatrix(true, false); t.copy(H.localToWorld(new THREE.Vector3(0, -0.07 * 1.35, 0).applyEuler(new THREE.Euler(0.55, 0, 0)))); } else (wr || H).getWorldPosition(t); // (aim at where the wrist belongs in the pose, not at the fist, which follows the arm)
-    const side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
+  const grips = {}; F.hk = F.hk || {};
+  for (const [H, sd] of [[vm.R, 'Right'], [vm.L, 'Left']]) { const hold = ao && H.visible && holding(H); F.hk[sd] = (F.hk[sd] || 0) + ((hold ? 1 : 0) - (F.hk[sd] || 0)) * 0.4; if (F.hm) for (const ms of F.hm[sd]) if (ms.morphTargetInfluences) ms.morphTargetInfluences[0] = F.hk[sd]; // (the hand closes round what it holds, and opens when empty)
+    if (hold) { const g = { q: new THREE.Quaternion(), t: new THREE.Vector3() }; if (gripPose(F, vm, H, sd, g)) grips[sd] = g; } }
+  const tgt = (H) => { const g = grips[H === vm.R ? 'Right' : 'Left']; if (g) return g.t.clone(); const t = new THREE.Vector3(), wr = H.children[0] && H.children[0].userData.wrist; if (F.D.fpFist) { H.updateWorldMatrix(true, false); t.copy(H.localToWorld(new THREE.Vector3(0, -0.07 * 1.35, 0).applyEuler(new THREE.Euler(0.55, 0, 0)))); } else (wr || H).getWorldPosition(t); return t; }; // (a held handle: the wrist goes where the closed fingers wrap it; otherwise aim at where the wrist belongs in the pose)
+  fpReachShift(F, vm, tgt);
+  for (const H of [vm.R, vm.L]) {
+    const t = tgt(H), side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
+    const g = grips[arm], hd = B[arm + 'Hand']; if (g && hd && hd.parent && H.visible) { hd.parent.updateWorldMatrix(true, false); hd.quaternion.copy(hd.parent.getWorldQuaternion(_fq3).invert().multiply(g.q)); } // (the hand turned so its fingers wrap the handle)
     if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)
   if (vm.arms) for (const a of vm.arms) a.arm.visible = false; // (the old forearms are gone: your model's own arms are drawn instead)

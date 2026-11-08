@@ -3,7 +3,7 @@
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
 import { attachHeroModel, tickHeroModel } from './heromodels.js';
-import { armReach, warriorKit } from './character.js';
+import { armReach, classKit, kitize } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
 const GL = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -128,7 +128,7 @@ const DECOR = {
     const bm = M('#2a2420', 0.95); const bd = add(ch.headG, coneG(0.085, 0.32, 12), bm, 0, -0.1, 0.07); bd.rotation.x = Math.PI + 0.22; bd.scale.z = 0.6; for (const s of [-1, 1]) add(ch.headG, boxG(0.05, 0.012, 0.016), bm, s * 0.026, 0.052, 0.108).rotation.z = s * -0.3; // (a long dark beard and moustache)
     if (hat) { const band = add(hat, new THREE.TorusGeometry(0.12, 0.014, 6, 24), gold(), 0, 0.02, 0); band.rotation.x = Math.PI / 2; for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(hat, sph(0.014, 8, 6), M(k % 2 ? '#3ab8c8' : '#d8b04a', 0.3, 0.6), Math.sin(a) * 0.125, 0.02, Math.cos(a) * 0.125); } } // (a jewelled hat band)
     for (const s of [-1, 1]) { const lp = add(ch.chest, boxG(0.06, ch.R.torsoH * 0.7, 0.012), gold(), s * 0.06, ch.R.torsoH * 0.42, 0.135); lp.rotation.z = s * 0.25; } // (gold-embroidered lapels)
-    const bk = makeBook(); bk.position.set(0, -0.04, 0.06); bk.rotation.set(-1.2, 0, 0); ch.arms.L.grip.add(bk); }, // (an open book of spells in the off hand, flames rising from the pages)
+    const bk = makeBook(); bk.position.set(0, -0.04, 0.06); bk.rotation.set(-1.2, 0, 0); ch.arms.L.grip.add(bk); kitize(bk, 'wizard_book'); }, // (an open book of spells in the off hand, flames rising from the pages)
   elementalist(ch) { const crown = new THREE.Group(); crown.position.set(0, 0.2, 0); ch.headG.add(crown); add(crown, new THREE.TorusGeometry(0.11, 0.012, 6, 18), gold()).rotation.x = Math.PI / 2;
     for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; add(crown, coneG(0.018, 0.08, 6), GL(k % 2 ? '#ffb040' : '#ff6020'), Math.sin(a) * 0.11, 0.04, Math.cos(a) * 0.11); }
     const orbs = new THREE.Group(); orbs.position.set(0, ch.R.torsoH - 0.05, 0); ch.chest.add(orbs); ch.arenaSpin = orbs; for (const [c, a] of [['#ff6020', 0], ['#60c8ff', 2.1], ['#e0e070', 4.2]]) add(orbs, sph(0.05, 10, 8), GL(c), Math.sin(a) * 0.36, 0.05, Math.cos(a) * 0.36); },
@@ -250,10 +250,10 @@ function capeTick(ch, dt) { if (!ch.capes) return; const p = ch.root.position, l
 export function arenaDecor(ch, cls) { ch.style = STYLE[cls] || null; try { if (DETAIL[cls]) DETAIL[cls](ch); if (DECOR[cls]) DECOR[cls](ch); } catch (e) { console.warn('arena look', cls, e); } attachHeroModel(ch, cls); } // (a class with a real 3D model swaps it in once it has loaded)
 // the weapon in the hand: a necromancer's staff wears a little skull with green eyes; casters' orbs take their class colour
 export function arenaWeaponDecor(ch, cls) {
-  const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true;
-  if (cls === 'warrior') { warriorKit(ch); return; } // (the detailed knight's sword and heater shield)
+  const w = ch.weapons && ch.weapons.main; if (!w || w.userData.arenaDecor) return; w.userData.arenaDecor = true; weaponDecor(ch, cls, w); classKit(ch, cls); } // (then each class's detailed weapon models replace the code-built ones as they load)
+function weaponDecor(ch, cls, w) {
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); return; } // (goblin-made guns)
-  if (cls === 'beastmaster') { for (const k of ['main', 'off']) { const o = ch.weapons[k]; if (o) for (const c of [...o.children]) o.remove(c); } for (const sd of ['R', 'L']) { const c2 = makeClaws(0.5); c2.rotation.x = Math.PI; c2.position.set(0, -0.06, 0.015); ch.arms[sd].hand.add(c2); } return; } // (wolverine claws out of both fists, in line with the forearm)
+  if (cls === 'beastmaster') { for (const k of ['main', 'off']) { const o = ch.weapons[k]; if (o) for (const c of [...o.children]) o.remove(c); } for (const sd of ['R', 'L']) { const c2 = makeClaws(0.5); c2.name = 'claws'; c2.rotation.x = Math.PI / 2; c2.position.set(0, 0.005, 0); if (sd === 'L') c2.scale.x = -1; ch.arms[sd].grip.add(c2); kitize(c2, 'beast_claw'); } return; } // (bear-claw gauntlets on both fists, the claws in line with the forearm; held in the grip so they move onto the hero model's hands)
   if (cls === 'bard') { // a lute: he clubs people with it, and plays it once he has learnt his songs
     for (const c of [...w.children]) if (c.isMesh || (c.children && c.children.some(k => k.isMesh))) w.remove(c); const L = new THREE.Group(); w.add(L); w.userData.lute = L;
     const wood = M('#a0602a', 0.55), dark = M('#4a2a12', 0.7), str = GL('#e8e0c8');
@@ -261,8 +261,8 @@ export function arenaWeaponDecor(ch, cls) {
     for (let k = 0; k < 4; k++) add(L, cylG(0.004, 0.004, 0.03, 4), M('#d8b04a', 0.4, 0.8), (k % 2 ? 1 : -1) * 0.03, -0.04 + (k >> 1) * 0.04, -0.01).rotation.z = Math.PI / 2;
     const bowl = add(L, sph(0.13, 16, 12), wood, 0, 0.6, -0.02); bowl.scale.set(1, 1.25, 0.55); add(L, sph(0.03, 10, 8), GL('#1a0a04'), 0, 0.56, 0.05).scale.z = 0.2;
     for (let k = 0; k < 4; k++) add(L, boxG(0.002, 0.62, 0.002), str, -0.012 + k * 0.008, 0.33, 0.03);
-    add(L, boxG(0.07, 0.015, 0.02), dark, 0, 0.72, 0.04); return; }
-  if (cls === 'bombardier') { for (const c of [...w.children]) w.remove(c); w.userData.orb = null; w.userData.tip = null; const b = makeBomb(); b.position.set(0, 0.02, 0.06); w.add(b); w.userData.tip = b; return; } // (no staff: a lit bomb in his fist)
+    add(L, boxG(0.07, 0.015, 0.02), dark, 0, 0.72, 0.04); kitize(L, 'bard_lute'); return; } // (the detailed lute takes the code one's place once loaded)
+  if (cls === 'bombardier') { for (const c of [...w.children]) w.remove(c); w.userData.orb = null; w.userData.tip = null; const b = makeBomb(); b.position.set(0, 0.02, 0.06); w.add(b); w.userData.tip = b; kitize(b, 'bomb_grenade'); return; } // (no staff: a lit bomb in his fist)
   if (cls === 'priest' && w.userData.orb) { const o = w.userData.orb, g = gold(); const ring = add(o, new THREE.TorusGeometry(0.16, 0.014, 6, 32), g); ring.rotation.x = Math.PI / 2; for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, r = add(o, coneG(0.014, k % 2 ? 0.08 : 0.14, 5), g, Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2); r.rotation.set(0, 0, 0); r.rotation.z = -Math.PI / 2; r.rotation.y = -a; } o.traverse(m => { if (m.isMesh && m.material && m.material.emissive) { m.material = m.material.clone(); m.material.color.set('#fff2c0'); m.material.emissive.set('#ffd060'); } }); return; }
   const tip = w.userData.orb || w.userData.tip; if (!tip && cls !== 'necromancer') return;
   const col = { necromancer: '#5aff4a', wizard: '#60a0ff', elementalist: '#ff8030', enchanter: '#ff70e0', druid: '#9ad060', cleric: '#fff0a0' }[cls];

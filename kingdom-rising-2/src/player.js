@@ -307,7 +307,7 @@ class ViewModel {
       if (this.gun && this.wt === 'musket') { this.gun.scale.setScalar(0.55); this.gun.rotation.order = 'YXZ'; this.gun.position.set(0.2, -0.17, -0.42); this.gun.rotation.set(-0.15, 0, Math.PI / 2 + 0.12); this.gunK = 0; } /* (the musket: stock at the right, barrel across to the left, so neither arm crosses the other) */
       else if (this.gun) { this.gun.position.set(0.05, -0.13, -0.4); this.gun.rotation.set(-0.15, 0, -Math.PI / 2 + 0.08); }
       r = [0.2, -0.2, -0.38, -1.25, 0, 0.6]; l = [-0.2, -0.19, -0.4, -1.25, 0, -0.6];
-    } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast')) {
+    } else if (W && W.kind === 'gun' && (!act || n === 'shoot' || n === 'draw' || n === 'release' || n === 'cast' || (this.hero && n === 'castUp'))) { /* (a hero's abilities keep the gun in both hands) */
       // musket at the hip, raised to the eye while aiming, with a kick on every shot
       // the musket sits in camera space: at the hip, or raised under the eye when aiming; the right hand holds the grip
       const k = st.aim || 0, rc = st.recoil || 0, gp = [lerp(0.24, 0.022, k), lerp(-0.27, -0.112, k), lerp(-0.5, -0.66, k) + rc * 0.07]; /* (aimed: the stock low at the shoulder, your eye just above it, looking along the barrel to the sights) */
@@ -342,7 +342,7 @@ class ViewModel {
         case 'draw': r = plerp(VP.bowR, VP.bowRdraw, easeOut(Math.min(1, t))); break;
         case 'release': r = plerp(VP.bowRdraw, VP.bowR, ease(t)); break;
         case 'cast': r = seq(VP.staffCast, VP.staffCast, t, 0.3, VP.staff); if (W && W.kind === 'staff') l = seq(VP.castL, VP.castL, t, 0.3, VP.hideL); else l = seq(VP.castL, VP.castL, t, 0.3, l || VP.hideL); break;
-        case 'castUp': r = plerp(VP.rest, VP.handUpR, ease(Math.min(1, t))); l = plerp(VP.restL, VP.handUpL, ease(Math.min(1, t))); if (this.weapons.main) this.weapons.main.visible = t < 0.15; break;
+        case 'castUp': if (this.hero && W && W.kind !== 'staff') { const k = Math.sin(Math.min(1, t) * Math.PI) * 0.5; r = plerp(r, VP.handUpR, k * 0.5); if (l) l = plerp(l, VP.handUpL, k * 0.5); break; } /* (a hero with a weapon keeps it in hand through an ability: the hands lift a little, never up past the view) */ r = plerp(VP.rest, VP.handUpR, ease(Math.min(1, t))); l = plerp(VP.restL, VP.handUpL, ease(Math.min(1, t))); if (this.weapons.main) this.weapons.main.visible = t < 0.15; break;
         case 'castRel': r = plerp(VP.handUpR, VP.handPushR, ease(Math.min(1, t * 2))); l = plerp(VP.handUpL, VP.handPushL, ease(Math.min(1, t * 2))); break;
         case 'chargeCast': r = plerp(VP.staff, VP.staffHigh, ease(Math.min(1, t))); l = plerp(VP.hideL, VP.castL, ease(Math.min(1, t))); break;
         case 'castBig': r = seq(VP.staffHigh, VP.staffSlam, t, 0.45, VP.staff); l = seq(VP.castL, VP.castL, t, 0.3, VP.hideL); break;
@@ -362,8 +362,8 @@ class ViewModel {
     if (this.necro && this.weapons.heldR && !st.tool) { r = VP.necroScy; l = VP.necroL; if (act && /^(scythe|reap|swing|slash|cast|castRel|shoot|spell|release|heavy|smash)/.test(n)) r = seq(VP.necroScyA, VP.necroScyB, t, 0.3, VP.necroScy); } /* (whatever the act, the scythe stays in both hands: every attack is a right-to-left reap) */
     if (this.bomber && !st.tool) { r = VP.bombR; if (act) r = seq(VP.bombUp, VP.bombThrow, t, 0.35, VP.bombR); } /* (the bombardier: the grenade in his fist, an overhand lob on every throw) */
     if (this.cls === 'rogue' && this.hero && !st.tool && W && W.kind === 'melee') { /* (the rogue: a dagger in each fist, low, blades pointing ahead; his stabs alternate hands) */
-      if (!act && !st.block) { r = VP.rogR; l = mirror(VP.rogR); }
-      else if (act && /^(stab|swing|off|thrust|lowcut|sweep|heavy|smash)/.test(n)) { if (act !== this._rgA) { this._rgA = act; this._rgS = !this._rgS; } const S2 = seq(VP.rogBack, VP.rogStab, t, 0.25, VP.rogR); r = VP.rogR; l = mirror(VP.rogR); if (this._rgS) l = mirror(S2); else r = S2; } }
+      if ((!act || n === 'castUp') && !st.block) { const k = n === 'castUp' ? Math.sin(Math.min(1, t) * Math.PI) * 0.6 : 0; r = plerp(VP.rogR, VP.rogBack, k); l = mirror(r); if (this.weapons.main) this.weapons.main.visible = true; } /* (an ability: both daggers kept in hand, drawn back a little) */
+      else if (act && /^(stab|swing|off|thrust|lowcut|sweep|heavy|smash)/.test(n)) { if (!(t >= (this._rgT || 0))) this._rgS = !this._rgS; this._rgT = t; const S2 = seq(VP.rogBack, VP.rogStab, t, 0.25, VP.rogR); r = VP.rogR; l = mirror(VP.rogR); if (this._rgS) l = mirror(S2); else r = S2; } }
     this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }

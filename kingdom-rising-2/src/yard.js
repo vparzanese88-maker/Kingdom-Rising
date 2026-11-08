@@ -62,9 +62,9 @@ const PROPS = {
 let propsOn = false;
 function plantProps() {
   if (propsOn) return; propsOn = true;
-  const L = new FBXLoader();
-  for (const kind in PROPS) { const P = PROPS[kind];
-    L.load(P.url, (base) => { try { placeProp(kind, base, P.at); } catch (e) { console.warn('yard prop', kind, e); } }, undefined, (e) => console.warn('yard prop failed to load', kind, e)); }
+  setTimeout(() => { const L = new FBXLoader(); /* (a moment after the yard opens, so the heroes load first) */
+    for (const kind in PROPS) { const P = PROPS[kind];
+      L.load(P.url, (base) => { try { placeProp(kind, base, P.at); } catch (e) { console.warn('yard prop', kind, e); } }, undefined, (e) => console.warn('yard prop failed to load', kind, e)); } }, 1500);
 }
 function placeProp(kind, base, at) {
   base.updateMatrixWorld(true); const parts = [], box = new THREE.Box3();

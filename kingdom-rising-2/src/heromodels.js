@@ -234,13 +234,13 @@ function shieldPose(ch, H, B, dt) {
   if (H.shSide == null) { H.m.updateMatrixWorld(true); const p = arm.getWorldPosition(new THREE.Vector3()), w = H.wrap.getWorldPosition(new THREE.Vector3()); H.shSide = p.sub(w).applyQuaternion(wq.clone().invert()).x >= 0 ? 1 : -1; }
   const sx = H.shSide;
   if (bk > 0.01) { const k0 = arm.quaternion.clone(), k1 = fore.quaternion.clone();
-    arm.quaternion.copy(aimBone(arm, fore, new THREE.Vector3(sx * 0.4, -0.55, 0.75).applyQuaternion(wq))); arm.updateMatrixWorld(true); /* (upper arm forward, elbow low) */
-    fore.quaternion.copy(aimBone(fore, hand, new THREE.Vector3(-sx * 0.06, 1, 0.22).applyQuaternion(wq))); /* (forearm raised upright before him, fist by his chin: the shield stands up in front, point down) */
+    arm.quaternion.copy(aimBone(arm, fore, new THREE.Vector3(sx * 0.45, -0.4, 0.8).applyQuaternion(wq))); arm.updateMatrixWorld(true); /* (upper arm forward, elbow low) */
+    fore.quaternion.copy(aimBone(fore, hand, new THREE.Vector3(-sx * 0.95, 0.06, 0.25).applyQuaternion(wq))); /* (forearm raised upright before him, fist by his chin: the shield stands up in front, point down) */
     if (bk < 0.999) { arm.quaternion.copy(k0.slerp(arm.quaternion.clone(), bk)); fore.quaternion.copy(k1.slerp(fore.quaternion.clone(), bk)); } }
   // lay the shield on the outside of the forearm: across it, face out to his left at rest (point back), straight ahead on block (point down)
   arm.updateMatrixWorld(true); const e = fore.getWorldPosition(new THREE.Vector3()), axis = hand.getWorldPosition(new THREE.Vector3()).sub(e).normalize();
   const Z = new THREE.Vector3(sx, 0, 0).lerp(new THREE.Vector3(0, 0.05, 1), bk).applyQuaternion(wq); Z.addScaledVector(axis, -Z.dot(axis)); if (Z.lengthSq() < 1e-6) return; Z.normalize();
-  const up = new THREE.Vector3(0, 1, 0); up.addScaledVector(Z, -up.dot(Z)); const Y = up.lengthSq() > 1e-6 ? up.normalize().lerp(axis.clone().addScaledVector(Z, -axis.dot(Z)).normalize(), bk).normalize() : axis.clone(); const X = new THREE.Vector3().crossVectors(Y, Z).normalize(); Y.crossVectors(Z, X); /* (at rest it stands point-down at his side; on block it turns with the raised forearm, still point-down) */
+  const yR = new THREE.Vector3(0, 0, 1).applyQuaternion(wq), yB = new THREE.Vector3(0, 1, 0); const Y = yR.lerp(yB, bk); Y.addScaledVector(Z, -Y.dot(Z)); if (Y.lengthSq() < 1e-6) return; Y.normalize(); const X = new THREE.Vector3().crossVectors(Y, Z).normalize(); Y.crossVectors(Z, X); /* (at rest the top points forward, the point back, face out to his left; on block it stands upright facing the enemy) */
   const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); mt.quaternion.copy(fore.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW));
 }
 export function tickHeroModel(ch, dt) {

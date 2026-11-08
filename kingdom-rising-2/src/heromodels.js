@@ -198,7 +198,10 @@ export function tickHeroModel(ch, dt) {
   let legT = back ? A - Math.sign(A) * Math.PI : A; legT = Math.max(-1.15, Math.min(1.15, legT)) * (H.v > 0.25 ? 1 : 0); H.legYaw = (H.legYaw || 0) + (legT - (H.legYaw || 0)) * Math.min(1, dt * 9);
   const walkW = H.v < 0.25 ? 0 : H.v < H.D.runSpeed * 0.6 ? 1 : Math.max(0, 1 - (H.v - H.D.runSpeed * 0.6) / (H.D.runSpeed * 0.4)), runW = H.v < H.D.runSpeed * 0.6 ? 0 : 1 - walkW, idleW = 1 - Math.min(1, H.v / 0.25);
   const lerpW = (k, t) => { H.w[k] += (t - H.w[k]) * Math.min(1, dt * 10); };
-  lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
+  // heavy heroes run heavy: part of the run is the walk (synced to the same stride), so the feet stay closer to the ground
+  // and the legs don't splay into a bounding leap; their hips bob less (below). A light hero keeps the full run
+  const heavy = H.D.runRate ? 0 : Math.max(0, Math.min(1, (H.D.height * HERO_SIZE - 4.6) / 1.4)), hv = H.act.walk && H.act.run ? runW * 0.55 * heavy : 0; H.heavy = heavy;
+  lerpW('walk', (walkW + hv) * (1 - idleW)); lerpW('run', (runW - hv) * (1 - idleW)); lerpW('idle', idleW);
   const sf = Math.max(0.6, (H.D.height * HERO_SIZE) / 2.6); /* (stride grows with the hero: a giant takes slow, long steps, a goblin quick little ones) */ if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.3, H.v / (H.D.walkSpeed * sf)); }
   if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.min(1.6, Math.max(0.35, H.v / (H.D.runSpeed * sf))) * (H.D.runRate || 1); }
   if (H.act.walk) H.act.walk.timeScale = Math.min(1.4, H.act.walk.timeScale);
@@ -209,6 +212,7 @@ export function tickHeroModel(ch, dt) {
   reset(); const mvK = H.D.moves ? pickMove(H, ch, dt) : null; for (const k in H.act) if (k !== 'walk' && k !== 'run' && k !== 'back') H.act[k].setEffectiveWeight(0);
   const stA = H.D.idleClip && H.act[H.D.idleClip]; if (stA) { stA.paused = false; stA.setEffectiveWeight(H.w.idle); } /* (standing still: his own recorded fighting stance, looping) */
   H.mixer.update(dt); H.t += dt; const B = H.bones;
+  if (B.Hips && H.heavy > 0) { const hy = B.Hips.position.y; H.hipAvg = H.hipAvg == null ? hy : H.hipAvg + (hy - H.hipAvg) * Math.min(1, dt * 2.5); B.Hips.position.y = H.hipAvg + (hy - H.hipAvg) * (1 - 0.6 * H.heavy * Math.min(1, H.w.run + H.w.walk)); } /* (a heavy hero's hips barely rise and fall: weight, not bounce) */
   H.mw = (H.mw || 0) + ((mvK ? 1 : 0) - (H.mw || 0)) * Math.min(1, dt * (mvK ? 30 : 9)); // (snaps into an attack, eases back out of it)
   if (H.mw > 0.01 && H.lastMove) { const [ck, a, b2] = H.lastMove.slice; const A = H.act[ck];
     if (A) { const legs = {}; const moving = Math.min(1, H.v / 1.5) * (H.lastMove.full ? 0 : 1); for (const k of LEG_BONES) if (B[k]) legs[k] = B[k].quaternion.clone(); const hipP = B.Hips ? B.Hips.position.clone() : null;
@@ -343,7 +347,7 @@ function gripPose(F, vm, H, sd, out) {
 }
 export function tickFpArms(vm) {
   const F = vm && vm.fpArms; if (!F || F === 'loading') return; const B = F.B;
-  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); const ao = F.D.fpArmsOnly !== false && !F.D.fpFist; /* (arms only: the shoulders need no shrinking, so the arm is scaled to a natural size instead) */ for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar((F.reach || 1) * (ao ? 0.6 * (F.D.fpReach || 1.35) : 1)); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : (F.D.fpHand || (ao ? 1 : 1.15))); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); // (big hands in your view; the monk's become real fists below)
+  for (const k in F.bind) B[k].quaternion.copy(F.bind[k]); if (B.Head) B.Head.scale.setScalar(0.001); const ao = F.D.fpArmsOnly !== false && !F.D.fpFist; /* (arms only: the shoulders need no shrinking, so the arm is scaled to a natural size instead) */ for (const nm of ['LeftArm', 'RightArm']) if (B[nm]) B[nm].scale.setScalar((F.reach || 1) * (ao ? 0.6 * (F.D.fpReach || 1.35) : 1)); for (const nm of ['LeftHand', 'RightHand']) if (B[nm]) B[nm].scale.setScalar(F.D.fpFist ? 0.001 : (F.D.fpHand || (ao ? 1 : 1.15))); if (F.D.fpFist) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(1.28, 1, 1.28); else if (F.D.fpFore) for (const nm of ['LeftForeArm', 'RightForeArm']) if (B[nm]) B[nm].scale.set(F.D.fpFore, 1, F.D.fpFore); /* (fpFore: a bulky sleeve drawn slimmer in first person) */ // (big hands in your view; the monk's become real fists below)
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(ao ? 1 : 0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   const grips = {}; F.hk = F.hk || {};

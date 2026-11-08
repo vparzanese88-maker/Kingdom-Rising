@@ -31,13 +31,13 @@ function mouthOf(u) { if (u === G.player && u.headMouth) return u.headMouth(); c
 // ---------- the look: a purple drain beam from the victim, green orbs of life running back along it, a green glow at his hand ----------
 const MAT = (col, op) => new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false });
 function makeFx() { const g = new THREE.Group(), cyl = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true);
-  const beam = new THREE.Mesh(cyl, MAT('#a040ff', 0.55)), core = new THREE.Mesh(cyl, MAT('#f0d0ff', 0.8)); beam.frustumCulled = core.frustumCulled = false; g.add(beam, core);
+  const beam = new THREE.Mesh(cyl, MAT('#a040ff', 0.7)), core = new THREE.Mesh(cyl, MAT('#f0d0ff', 0.8)); beam.frustumCulled = core.frustumCulled = false; g.add(beam, core);
   const orbs = []; for (let i = 0; i < 4; i++) { const o = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), MAT('#5aff6a', 0.95)); o.frustumCulled = false; g.add(o); orbs.push(o); }
   const heal = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), MAT('#40ff60', 0.6)); heal.frustumCulled = false; g.add(heal);
   g.visible = false; G.scene.add(g); return { g, beam, core, orbs, heal, ph: 0 }; }
 function drawFx(fx, from, to, dt) { // from: the victim's chest; to: his hand
   fx.g.visible = true; fx.ph = (fx.ph + dt * 1.5) % 1; const d = to.clone().sub(from), L = Math.max(0.01, d.length()), mid = from.clone().lerp(to, 0.5), q = new THREE.Quaternion().setFromUnitVectors(UP, d.clone().divideScalar(L));
-  const w = 0.09 + Math.sin(G.time * 30) * 0.02; fx.beam.position.copy(mid); fx.beam.quaternion.copy(q); fx.beam.scale.set(w, L, w); fx.core.position.copy(mid); fx.core.quaternion.copy(q); fx.core.scale.set(0.03, L, 0.03);
+  const w = 0.16 + Math.sin(G.time * 30) * 0.03; fx.beam.position.copy(mid); fx.beam.quaternion.copy(q); fx.beam.scale.set(w, L, w); fx.core.position.copy(mid); fx.core.quaternion.copy(q); fx.core.scale.set(0.05, L, 0.05); if (Math.random() < dt * 45) V.emit('arcane', from.clone().addScaledVector(d, Math.random()), { speed: 0.3, size: 0.32, life: 0.25 }); /* (purple motes along the beam) */
   fx.orbs.forEach((o, i) => { const u = (fx.ph + i / fx.orbs.length) % 1; o.position.copy(from).addScaledVector(d, u); o.position.y += Math.sin(u * Math.PI) * 0.25; o.scale.setScalar(0.7 + u * 0.6); }); // (life running from them into him)
   fx.heal.position.copy(to); fx.heal.scale.setScalar(0.85 + Math.sin(G.time * 12) * 0.18);
   if (Math.random() < dt * 25) V.emit('shadow', from.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.5)), { speed: 0.6, size: 0.35, life: 0.4 });

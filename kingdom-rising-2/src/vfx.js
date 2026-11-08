@@ -114,6 +114,10 @@ export const V = {
   setScale(h) { this.add.mat.uniforms.scale.value = h * 0.9; this.norm.mat.uniforms.scale.value = h * 0.9; },
   trail(color) { const t = new Trail(this.scene, color); this.trails.push(t); return t; },
   burst(kind, p, n = 20, opt = {}) {
+    // first person: smoke, fire and sparks born right at your face (a muzzle blast, a cast) are moved out to the lower
+    // right, a couple of metres ahead, and made smaller: they never cover the crosshair or wash the screen
+    if (this.fpPos && this.camera && (kind === 'smoke' || kind === 'fire' || kind === 'spark' || kind === 'ember')) { const c = this.camera, v = new THREE.Vector3().copy(p).applyMatrix4(c.matrixWorldInverse);
+      if (v.z > -2.6 && v.length() < 3.2) { v.z = -2.6; v.x = Math.max(v.x, 0.75); v.y = Math.min(v.y, -0.55); p = v.applyMatrix4(c.matrixWorld); n = Math.max(1, Math.ceil(n * 0.55)); opt = Object.assign({}, opt, { size: (opt.size ?? 0.3) * (kind === 'smoke' ? 0.45 : 0.6), speed: (opt.speed ?? 4) * 0.6, life: (opt.life ?? 0.6) * (kind === 'smoke' ? 0.6 : 1) }); } }
     const pal = PAL[kind] || PAL.spark, sp = opt.speed ?? 4, life = opt.life ?? 0.6, sz = opt.size ?? 0.3, up = opt.up ?? 1;
     const sys = opt.normal || kind === 'smoke' || kind === 'dust' || kind === 'blood' || kind === 'wood' || kind === 'stone' || kind === 'leaf' || kind === 'cotton' || kind === 'shadow' || kind === 'bone' || kind === 'poison' ? this.norm : this.add;
     for (let i = 0; i < n; i++) {
@@ -134,6 +138,7 @@ export const V = {
     this.rings.push({ m, r: radius, t: 0, dur });
   },
   sphereFlash(p, radius, color, dur = 0.35) {
+    if (this.camera) { const cp = this.camera.position, d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z); if (d < radius * 1.05 + 0.6) { radius = Math.max(0, d - 0.9) * 0.9; if (radius < 0.15) return; } } // (a flash round your own head would white out the screen: it shrinks to stay clear of the camera)
     const m = new THREE.Mesh(this.sphereGeo, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     m.position.copy(p); m.scale.setScalar(radius * 0.3); this.scene.add(m);
     this.flashes.push({ m, r: radius, t: 0, dur });

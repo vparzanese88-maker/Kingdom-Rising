@@ -752,7 +752,7 @@ function setRot(o, x, y, z) { o.rotation.set(x, y, z); }
 function damp(o, x, y, z, k) { o.rotation.x += (x - o.rotation.x) * k; o.rotation.y += (y - o.rotation.y) * k; o.rotation.z += (z - o.rotation.z) * k; }
 
 // how far each attack steps into the blow at time t (negative: weight rocks back during the wind-up)
-const ACT_WIND = { swing1: 0.3, swing2: 0.3, swing3: 0.42, off1: 0.3, heavy: 0.5, thrust1: 0.35, thrust2: 0.35, thrust3: 0.4, area: 0.2, slam: 0.55, claw: 0.4, lowcut: 0.3, chop: 0.45, castBig: 0.5 };
+const ACT_WIND = { swing1: 0.3, swing2: 0.3, swing3: 0.42, off1: 0.3, heavy: 0.5, thrust1: 0.35, thrust2: 0.35, thrust3: 0.4, stab: 0.3, area: 0.2, slam: 0.55, claw: 0.4, lowcut: 0.3, chop: 0.45, castBig: 0.5 };
 function lungeOf(name, t) { const w = ACT_WIND[name]; if (w == null) return 0; if (t < w) return -0.25 * Math.sin((t / w) * Math.PI / 2); if (t < 0.75) { const u = (t - w) / (0.75 - w); return -0.25 + 1.25 * (1 - Math.pow(1 - Math.min(1, u * 1.6), 3)); } return 1 - ease((t - 0.75) / 0.25); }
 // Key poses for melee attacks [chestY, shRx, shRy, shRz, elR, shLx, shLz, elL, spineX]
 const POSE = {
@@ -762,6 +762,7 @@ const POSE = {
   s3a: [0.2, -3.0, 0, 0.3, -1.1, -2.9, -0.3, -1.0, -0.25], s3b: [-0.1, -0.7, 0, 0.1, -0.1, -0.7, -0.1, -0.2, 0.4],
   h_a: [0.9, -2.6, 0.3, 0.9, -1.6, -2.4, -0.4, -1.4, -0.3], h_b: [-0.2, -0.5, 0, 0.0, -0.1, -0.45, -0.1, -0.15, 0.55],
   thrA: [0.55, 0.4, 0, 0.2, -0.55, -0.35, -0.4, -1.0, -0.12], thrB: [-0.35, -0.38, 0, 0.08, -0.05, -0.6, 0.1, -0.5, 0.28], // pull the weapon back to the hip, then drive it straight out
+  stabA: [0.75, -2.0, 0.35, 0.55, -2.1, -0.9, -0.5, -1.2, -0.12], stabB: [-0.6, -1.45, -0.1, 0.12, -0.05, -0.55, -0.2, -1.3, 0.42], // a dagger stab: blade drawn back by the ear, shoulders turned away, then the whole body drives it out and down
   off1a: [-0.9, -0.3, 0, 0, -0.9, -1.4, -0.6, -1.25, 0], off1b: [0.85, -0.3, 0, 0, -0.8, -1.45, 0.7, -0.2, 0.1],
   block: [0, -1.2, 0, 0.9, -1.7, -1.6, -0.6, -1.4, 0.05],
   bowAim: [0.5, -1.55, 0, -0.1, -2.4, -1.55, -0.05, 0, 0],
@@ -784,6 +785,7 @@ function attackPose(name, t, mirror) {
     case 'off1': return seq('off1a', 'off1b', 0.3);
     case 'heavy': return seq('h_a', 'h_b', 0.5);
     case 'thrust1': case 'thrust2': return seq('thrA', 'thrB', 0.35);
+    case 'stab': return seq('stabA', 'stabB', 0.3);
     case 'thrust3': return seq('h_a', 'thrB', 0.4);
     case 'area': return seq('s1a', 's1b', 0.2);
     case 'cast': return seq('cast', 'castB', 0.3);
@@ -895,11 +897,12 @@ export function animateHumanoid(ch, dt, st) {
     const twist = carry ? Math.sin(ph) * amp * 0.42 : 0; // shoulders counter the hips
     damp(chest, carry ? breathe + Math.abs(Math.sin(ph)) * amp * 0.06 : 0, P[0] * mir * 0.7 + twist, carry ? Math.sin(ph) * amp * 0.09 : 0, k * (carry ? 1.4 : 1.4));
     damp(spine, P[8] + lean * (carry ? 0.85 : 0.5), P[0] * mir * 0.3 - twist * 0.4, 0, k * (carry ? 1 : 1.4));
+    const kc = 1 - 0.7 * (st.chain || 0); /* (a chained swing: the arms glide from the last follow-through into the new wind-up) */
     if (st.mirror) { // left hand performs the attack (dual wield off-hand)
-      damp(arms.L.sh, P[1], -P[2], -P[3], k * 1.6); damp(arms.L.el, P[4], 0, 0, k * 1.6);
-      damp(arms.R.sh, P[5], 0, -P[6], k * 1.6); damp(arms.R.el, P[7], 0, 0, k * 1.6);
+      damp(arms.L.sh, P[1], -P[2], -P[3], k * 1.6 * kc); damp(arms.L.el, P[4], 0, 0, k * 1.6 * kc);
+      damp(arms.R.sh, P[5], 0, -P[6], k * 1.6 * kc); damp(arms.R.el, P[7], 0, 0, k * 1.6 * kc);
     } else {
-      const ka = carry ? k * (0.7 + Math.min(1, sp / 3) * 1.3) : k * 1.35; // (at rest the arms trail the body slightly; on the move they keep up with the stride)
+      const ka = carry ? k * (0.7 + Math.min(1, sp / 3) * 1.3) : k * 1.35 * kc; // (at rest the arms trail the body slightly; on the move they keep up with the stride)
       damp(arms.R.sh, P[1], P[2], P[3], ka); damp(arms.R.el, P[4], 0, 0, ka);
       damp(arms.L.sh, P[5], 0, P[6], ka); damp(arms.L.el, P[7], 0, 0, ka);
     }

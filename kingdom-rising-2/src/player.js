@@ -10,14 +10,14 @@ import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS
 const dualRank = () => 0;
 import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe, kitize, classKitFP } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
-import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds } from './world.js';
+import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds, solidAt } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
 import { FOOD_BUFFS, ITEMS, PROCS, procChance, LEVEL_CAP, designLv, isSupport } from './data.js';
 import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { attachFpArms, tickFpArms } from './heromodels.js';
+import { attachFpArms, tickFpArms, heroHeight, hasHeroModel } from './heromodels.js';
 import { makeFearSkull } from './combat.js';
 import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
@@ -686,7 +686,7 @@ export class Player {
       this.atk = null; this.trail.active = this.trailL.active = false;
       this.comboT = 0.55;
       if (a.last) this.combo = 0;
-      if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') this.light(); else if (q === 'heavy') { this.press = { t: 0.23, charging: false, melee: true }; } }
+      if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') { this.light(); if (this.atk) this.atk.chained = true; } else if (q === 'heavy') { this.press = { t: 0.23, charging: false, melee: true }; } }
     }
   }
   doHit(a) {
@@ -917,6 +917,10 @@ export class Player {
     for (const m of G.mobs) { if (m.dead || !foe(m) || m.pet || m.ally || !m.pos) continue; const dx = m.pos.x - this.pos.x, dz = m.pos.z - this.pos.z, L = Math.hypot(dx, dz); if (L > range + 2 || L < 1.5) continue;
       let da = Math.atan2(dx, dz) - ya; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < ba && (gd > L - 3 || Math.hypot(gp.x - m.pos.x, gp.z - m.pos.z) < 6)) { ba = da; best = m; } }
     return best ? best.pos.clone() : gp; }
+  // the enemy an ultimate is aimed at: the one under the crosshair, else the one nearest the crosshair's line within about
+  // 13 degrees left or right (pitch does not matter: aiming a little high or low at someone still counts)
+  ultFoe(range) { const t = this.aimFoe(range); if (t) return t; const d = G.camera.getWorldDirection(new THREE.Vector3()), ya = Math.atan2(d.x, d.z); let best = null, ba = 0.23;
+    for (const m of G.mobs) { if (m.dead || !foe(m) || m.pet || m.ally || !m.pos) continue; const dx = m.pos.x - this.pos.x, dz = m.pos.z - this.pos.z, L = Math.hypot(dx, dz); if (L > range || L < 0.5) continue; let da = Math.atan2(dx, dz) - ya; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < ba) { ba = da; best = m; } } return best; }
   // who is under the crosshair: the aim ray, or an enemy within a hair (about 4 degrees) of it, never someone off to the side
   aimFoe(range) { const r = aimRay(range); if (r.mob && foe(r.mob)) return r.mob; const cam = G.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3()); let best = null, ba = 0.07;
     for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const v = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.55).sub(o), L = v.length(); if (L > range) continue; const a2 = Math.acos(Math.min(1, v.dot(d) / L)); if (a2 < ba) { ba = a2; best = m; } } return best; }
@@ -988,9 +992,9 @@ export class Player {
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
     if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
-      case 'ar_assassinate': { const tg = this.aimFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
+      case 'ar_assassinate': { const tg = this.ultFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
       case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
-      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, this.ultPoint(32), this.aimFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
+      case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, this.ultPoint(32), this.ultFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
       case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
       case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
       case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
@@ -2134,8 +2138,8 @@ export class Player {
     else if (a) {
       actionT = Math.min(1, a.t); action = a.name;
       if (a.name === 'off1') { action = 'swing1'; mirror = true; }
-      if (a.name === 'stabR') action = 'thrust1';
-      if (a.name === 'stabL') { action = 'thrust1'; mirror = true; }
+      if (a.name === 'stabR') action = this.weapon && /dagger/.test(this.weapon.wt) ? 'stab' : 'thrust1'; /* (daggers: a real lunging stab; fists keep their punch) */
+      if (a.name === 'stabL') { action = this.weapon && /dagger/.test(this.weapon.wt) ? 'stab' : 'thrust1'; mirror = true; }
       if (a.name === 'smash') action = 'heavy';
       if (a.name === 'sweep') { action = 'swing1'; spin = Math.sin(Math.min(1, a.t / 0.75) * Math.PI) * -0.5; } // a wide sideways sweep: the whole body turns into it
       if (a.name === 'reap') { action = 'swing2'; spin = Math.sin(Math.min(1, a.t / 0.75) * Math.PI) * 0.45; } // (the necromancer's scythe: a big two-handed reap, the body turning into it)
@@ -2150,13 +2154,18 @@ export class Player {
       if (a.name === 'castRel') action = 'castRel';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
     } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
+    // chained swings: between one attack ending and the next starting the body holds the attack's end pose (its guard)
+    // for a moment instead of dropping to the idle or run pose for a frame, so a held-click combo flows swing to swing
+    let chain = 0; if (a && action && this.W && this.W.kind === 'melee') { if (this.queued && actionT > 0.75) actionT = 0.75; /* (another swing is queued: skip the recovery back to guard) */ if (a.chained) chain = Math.max(0, 1 - a.t / 0.35); } /* (and the next swing grows out of the last one's follow-through: the arms ease over instead of snapping) */
+    if (a && action && this.W && this.W.kind === 'melee' && !spin) this._lastAct = { action, mirror, at: G.time }; else if (a) this._lastAct = null;
+    if (!action && !g && this._lastAct && G.time - this._lastAct.at < 0.22 && !this.dodge && !this.dead) { action = this._lastAct.action; actionT = 1; mirror = this._lastAct.mirror; }
     if (!action && (this.adsK || 0) > 0.25 && this.W) { if (this.W.kind === 'gun') { action = 'gunAim'; actionT = 1; } else if (this.W.kind === 'bow') { action = 'shoot'; actionT = 0.3; } } // aiming down the barrel: the gun stays up at the shoulder, the bow half drawn
     { const cn = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast); if (cn) { action = 'castUp'; actionT = Math.min(1, cn.t / Math.min(0.8, cn.dur * 0.6)); } const mw = ch.weapons && ch.weapons.main; if (mw && G.newFx && !this.sheathed) mw.visible = !cn; }
     const roll = this.dodge && !this.dodge.charge && this.dodge.kind !== 'step' ? Math.min(1, this.dodge.t) : null;
     const rollDir = roll != null && this.dodge.dir ? Math.atan2(this.dodge.dir.x, this.dodge.dir.z) - this.bodyYaw : 0, rollKind = roll != null ? this.dodge.kind : null; // roll the way you dodge
     const aimStaff = action !== 'castUp' && action !== 'castRel' && this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     arenaLookTick(ch, dt);
-    animateHumanoid(ch, dt, { turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    animateHumanoid(ch, dt, { chain, turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
     bodyPoseTick(this, ch, dt); // (kicks)
     if (this.ultPoseT > 0) { this.ultPoseT -= dt; const k = Math.min(1, (1.5 - this.ultPoseT) * 5, this.ultPoseT * 4); /* (the ultimate cast: arms flung up and wide, head back, a lift off the ground) */
@@ -2222,10 +2231,13 @@ export class Player {
       const back = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
       // over the right shoulder: the hero sits left of the crosshair
       const ak = this.adsK || 0, ae = ak * ak * (3 - 2 * ak); // aiming down the barrel: the camera slides in behind the stock and looks along the sights
-      const sh = this.right().multiplyScalar(0.72 * Math.min(1, this.camDist / 2.5));
-      eye.y += 0.12; // (a lower camera keeps the hero up in the frame, clear of the bars at the bottom)
-      let d = this.camDist;
-      for (let s = 0.5; s <= d; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3) { d = Math.max(0.5, s - 0.4); break; } }
+      // framed by the hero's real height (the 3D model, not the hidden built body): the camera sits just above the head,
+      // further back and further over the shoulder for a giant (so he never hides what he faces), close and low for a goblin
+      const HH = this.h.arena && hasHeroModel(this.h.cls) ? heroHeight(this.h.cls) : this.ch.height, hk = Math.max(0.8, Math.min(2.4, HH / 2.6)), tpk = Math.min(1, this.camDist / 2.5);
+      const sh = this.right().multiplyScalar((this.h.arena ? 0.28 * HH + 0.1 : 0.72) * tpk);
+      eye.y += this.h.arena ? (HH * 0.94 + 0.2 - this.eye) * tpk : 0.12; // (a lower camera keeps the hero up in the frame, clear of the bars at the bottom)
+      let d = this.camDist * (this.h.arena ? hk : 1);
+      for (let s = 0.5; s <= d; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3 || solidAt(p.x, p.y, p.z)) { d = Math.max(0.5, s - 0.4); break; } } /* (walls too: a giant's longer camera never ends up inside a building) */
       // the camera follows a smoothed point, so steps, landings and rolls don't jolt it
       if (!this.camA || this.camA.distanceTo(eye) > 6) this.camA = eye.clone();
       const kh = Math.min(1, dt * 18), kv = Math.min(1, dt * 9); this.camA.x += (eye.x - this.camA.x) * kh; this.camA.z += (eye.z - this.camA.z) * kh; this.camA.y += (eye.y - this.camA.y) * kv;

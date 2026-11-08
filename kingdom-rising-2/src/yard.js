@@ -30,7 +30,7 @@ function nameTag(text) { const c = document.createElement('canvas'); c.width = 5
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); sp.scale.set(3.2, 0.4, 1); return sp; }
 let lineStarted = false;
 function spawnLineUp() {
-  if (lineStarted) return; lineStarted = true; /* (the 20 figures load one by one after you arrive, so the yard opens fast) */
+  if (lineStarted || /[?&]noline/.test(location.search)) return; lineStarted = true; /* (?noline: tests skip the 20 figures) */ /* (the 20 figures load one by one after you arrive, so the yard opens fast) */
   const keys = Object.keys(CLASSES), z = -8; /* (spaced by each class's size so no two figures touch, giants included) */
   const wid = (c) => heroHeight(c) * 0.42 + 0.9, xs = []; let run = 0; keys.forEach((c, i) => { if (i) run += (wid(keys[i - 1]) + wid(c)) / 2; xs.push(run); }); const mid = run / 2;
   const one = (cls, i) => { const x = xs[i] - mid;

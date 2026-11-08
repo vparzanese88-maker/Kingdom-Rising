@@ -21,7 +21,7 @@ const MODELS = {
   necromancer: { fpFore: 0.55, fpDrop: 0.15, bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { fpHand: 0.45, base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.12, walkSpeed: 1.5, runSpeed: 5.0 },
   blunderbuss: { fpHand: 0.72, base: 'models/bb_rig.fbx', clips: { walk: 'models/anim/bb_walk.json', run: 'models/anim/bb_run.json' }, height: 2.6, walkSpeed: 1.5, runSpeed: 5.0, runRate: 1.7 }, // (only a walk was made: running plays it faster)
-  warrior: { fpHand: 0.72, fill: 0.38, fpDrop: 0.15, base: 'models/warr2_rig.fbx', clips: { walk: 'models/anim/warr2_walk.json', run: 'models/anim/warr2_run.json', slash: 'models/anim/warr2_slash.json', dead: 'models/anim/warr2_dead.json' }, moves: { slash: ['slash', 0.55, 1.75, 1.33], dead: ['dead', 0, 2.95, 0, true] }, combo: ['slash'], moveFor: { swing1: 'slash', swing2: 'slash' }, /* (only the side slash plays the recording; the overhand and the stab follow the built body) */ /* (the owner's recorded Left Slash: the sword swings round in front of him, never through his own body) */ height: 2.75, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
+  warrior: { fpHand: 0.72, fill: 0.38, fpDrop: 0.15, base: 'models/warr2_rig.fbx', clips: { walk: 'models/anim/warr2_walk.json', run: 'models/anim/warr2_run.json', slash: 'models/anim/warr2_slash.json', dead: 'models/anim/warr2_dead.json' }, moves: { slash: ['slash', 0.55, 1.75, 1.33], dead: ['dead', 0, 2.95, 0, true] }, combo: ['slash'], moveFor: {}, /* (only the side slash plays the recording; the overhand and the stab follow the built body) */ /* (the owner's recorded Left Slash: the sword swings round in front of him, never through his own body) */ height: 2.75, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   bard: { fpDrop: 0.18, base: 'models/bard_rig.fbx', clips: { walk: 'models/anim/bard_walk.json', run: 'models/anim/bard_run.json' }, height: 1.9, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   beastmaster: { fill: 0.42, skinFix: 0.75, base: 'models/beast_rig.fbx', clips: { walk: 'models/anim/beast_walk.json', run: 'models/anim/beast_run.json' }, height: 2.5, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
   cleric: { base: 'models/cleric_rig.fbx', clips: { walk: 'models/anim/cleric_walk.json', run: 'models/anim/cleric_run.json' }, height: 2.6, walkSpeed: 1.6, runSpeed: 5.5 }, // (borrows the monk's walk and run, retargeted)
@@ -128,6 +128,41 @@ const _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion(), _pm = new THR
 function builtGrip(so, out) { const chd = so.userData.codeHand; chd.updateWorldMatrix(true, false); return out.multiplyMatrices(chd.matrixWorld, _pm3.compose(so.userData.gripP, so.userData.gripQ, _ps)); }
 const SUPPORT = { musket: [0, 0.42, 0, 0, Math.PI, 0], blunderbuss: [0, 0.26, 0, 0, Math.PI, 0] }; /* (where the left fist holds a gun, in the gun's own frame: under the fore-stock) */
 const REST_TILT = { sword: 0.6, dagger: 0.35, mace: 0.6, greatsword: 0.75, bow: 'up' }; /* ('up': the bow stands upright out of the fist at rest, however the arm swings) */ /* (radians, tip down, while he is not attacking) */
+// ---------- third person melee swings v2: the hand follows a clean arc around the outside of the model's own body ----------
+// The old way copied a hidden built body whose proportions differ, so blades cut through the hero. Each blow is now an arc
+// around the model's own right shoulder: wound back, swept through, followed through, with the blade pointing out along
+// the arc and its edge leading the cut, while the chest twists with it (the support hand still takes a two-hander's haft)
+const _sa = new THREE.Vector3(), _sb = new THREE.Vector3();
+function arcDir(kind, a, R, U, F) { // a: 0 at the wind-up, 1 at the end of the follow-through; returns a unit direction from the shoulder
+  const dir = (yaw, el) => { const ce = Math.cos(el); return F.clone().multiplyScalar(Math.cos(yaw) * ce).addScaledVector(R, Math.sin(yaw) * ce).addScaledVector(U, Math.sin(el)).normalize(); };
+  const L = (x, y) => x + (y - x) * a, D = Math.PI / 180;
+  switch (kind) {
+    case 'over': { const ph = L(150, -40) * D, yw = 12 * D; return F.clone().multiplyScalar(Math.cos(ph) * Math.cos(yw)).addScaledVector(R, Math.sin(yw) * Math.cos(ph) + 0.12).addScaledVector(U, Math.sin(ph)).normalize(); } /* (from behind the head, over and down the front) */
+    case 'back': return dir(L(-75, 105) * D, L(8, -4) * D); /* (backhand: from the left, across to the right) */
+    case 'low': return dir(L(100, -70) * D, L(-12, -30) * D); /* (a low cut at the legs) */
+    case 'stab': return dir(L(45, -4) * D, L(-35, -6) * D);
+    default: return dir(L(105, -75) * D, L(22, -6) * D); /* (a side cut: wound back past the right shoulder, swept across the front to the left) */
+  }
+}
+function meleeArc(ch, H, B, act, mvK) {
+  ch._arc = null; if (/[?&]noarc/.test(location.search)) return; const st = ch._st || {}, nm = ch._act || '', kT = st.actionT, W = ch.weapons || {}, main = W.main;
+  if (!act || mvK || kT == null || !main || !/^weapon_/.test(main.name || '') || /bow|staff|musket|blunderbuss|wand|orb|book|lute|censer|scepter|doll|detonator|grenade|fists/.test(main.name)) return;
+  const kind = /^(swing3|smash|heavy|chop|slam|cleave)/.test(nm) ? 'over' : /^(stab|thrust|lunge|bash)/.test(nm) ? 'stab' : /^(swing2|reap|off)/.test(nm) ? 'back' : /^lowcut/.test(nm) ? 'low' : /^(swing|slash|sweep|strike)/.test(nm) ? 'side' : null; if (!kind) return;
+  const sh = B.RightArm, fo = B.RightForeArm, hd = B.RightHand; if (!sh || !fo || !hd) return;
+  const k = Math.max(0, Math.min(1, kT)), sm = (x) => x * x * (3 - 2 * x);
+  const w = k < 0.28 ? sm(k / 0.28) : k < 0.8 ? 1 : 1 - sm((k - 0.8) / 0.2); /* (blended in during the wind-up, out during the recovery) */
+  const a = k < 0.3 ? 0 : k < 0.64 ? sm((k - 0.3) / 0.34) * 0.86 : 0.86 + 0.14 * sm(Math.min(1, (k - 0.64) / 0.16)); /* (held at the wind-up, swept fast, then the follow-through eases out) */
+  const wq = H.wrap.getWorldQuaternion(new THREE.Quaternion()), U = new THREE.Vector3(0, 1, 0), F = new THREE.Vector3(0, 0, 1).applyQuaternion(wq).setY(0).normalize(), R = new THREE.Vector3().crossVectors(F, U).normalize(); /* (R: the hero's right) */
+  H.m.updateMatrixWorld(true); const S = sh.getWorldPosition(new THREE.Vector3()), len = S.distanceTo(fo.getWorldPosition(_sa)) + _sa.distanceTo(hd.getWorldPosition(_sb));
+  const reach = kind === 'stab' ? len * (0.55 + 0.42 * a) : len * 0.9; const d0 = arcDir(kind, a, R, U, F), p = S.clone().addScaledVector(d0, reach);
+  const tan = arcDir(kind, Math.min(1, a + 0.02), R, U, F).sub(arcDir(kind, Math.max(0, a - 0.02), R, U, F)); /* (which way the hand is travelling) */
+  let blade = kind === 'stab' ? F.clone().addScaledVector(U, -0.05).normalize() : d0.clone().addScaledVector(U, kind === 'over' ? 0 : 0.18).normalize(); /* (the blade carries on out from the arm; a stab points straight ahead) */
+  let edge = kind === 'stab' ? U.clone().negate() : tan.lengthSq() > 1e-8 ? tan.normalize() : F.clone(); edge.addScaledVector(blade, -edge.dot(blade)); if (edge.lengthSq() < 1e-6) { edge.copy(R).addScaledVector(blade, -R.dot(blade)); if (edge.lengthSq() < 1e-6) edge.copy(F).addScaledVector(blade, -F.dot(blade)); } edge.normalize(); /* (the sharp edge faces where the blade is going) */
+  const X = edge, Y = blade, Z = new THREE.Vector3().crossVectors(X, Y).normalize(); X.crossVectors(Y, Z);
+  const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); /* (the weapon's own frame: y along the blade, x the edge) */
+  const qS = qW.multiply(main.quaternion.clone().normalize().invert()).normalize(); /* (the socket's angle that lays the weapon so) */ if (![qS.x, qS.y, qS.z, qS.w, p.x, p.y, p.z].every(Number.isFinite)) return;
+  const wT = /[?&]arcw0/.test(location.search) ? 0 : w; ch._arc = { p, q: qS, w: wT, pole: S.clone().addScaledVector(R, 0.6 * len).addScaledVector(U, -0.5 * len).addScaledVector(F, -0.3 * len) };
+}
 function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatrixWorld(true); const W = ch.weapons || {}, main = W.main, so = {};
   for (const s of ch.hmSockets) if (s.userData.side && s.userData.fist) so[s.userData.side] = s;
   const lead = main && so.L && main.parent === so.L && !(so.R && main.parent === so.R) ? 'L' : 'R'; /* (the bow is held in the left fist) */
@@ -136,6 +171,7 @@ function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatri
     const r = (fore.getWorldPosition(_pv4).distanceTo(sm) + hand.getWorldPosition(new THREE.Vector3()).distanceTo(_pv4)) / Math.max(1e-4, eb.distanceTo(sb) + hb.distanceTo(eb));
     const tgt = new THREE.Vector3().setFromMatrixPosition(gb).sub(sb).multiplyScalar(r).add(sm), qf = new THREE.Quaternion().setFromRotationMatrix(_pm2.extractRotation(gb)); /* (where the fist goes, and its angle) */
     const pole = eb.clone().sub(sb).multiplyScalar(r).add(sm).multiplyScalar(2).sub(tgt.clone().add(sm).multiplyScalar(0.5)); /* (the elbow bends the built elbow's way) */
+    if (sd === lead && sd === 'R' && ch._arc) { const A2 = ch._arc; if (!/[?&]arcq/.test(location.search)) { tgt.lerp(A2.p, A2.w); pole.lerp(A2.pole, A2.w); } if (!/[?&]arcp/.test(location.search)) qf.slerp(A2.q, A2.w); } /* (melee: the arc around the model's own body, not the built body's swing) */
     if (free < 0.999) qf.slerp(cf, 1 - free); /* (at rest the fist keeps the clip's angle, then the rest carry below turns the wrist) */
     { const it = s.children.find(c => c.name && /^weapon_/.test(c.name)), tl = it && (it.userData.restTilt != null ? it.userData.restTilt : REST_TILT[it.name.slice(7)]); /* (userData.restTilt: one class's own rest angle, e.g. 'upF' for a staff carried upright, fingers forward) */ if (tl === 'up' || tl === 'upF') { const rest = 1 - Math.min(1, H.ikA || 0); if (rest > 0.01) { const cy = _pv4.set(0, 1, 0).applyQuaternion(qf), q2 = _pq.setFromUnitVectors(cy, new THREE.Vector3(0, 1, 0)); const up = q2.clone().multiply(qf), cz = new THREE.Vector3(0, 0, 1).applyQuaternion(up).setY(0), tz = (tl === 'upF' ? new THREE.Vector3(sd === 'L' ? -0.3 : 0.3, 0, 1) : new THREE.Vector3(sd === 'L' ? -1 : 1, 0, 0.35)).applyQuaternion(ch.root.getWorldQuaternion(_pq2)).setY(0); if (cz.lengthSq() > 1e-4 && tz.lengthSq() > 1e-4) q2.premultiply(new THREE.Quaternion().setFromUnitVectors(cz.normalize(), tz.normalize())); qf.premultiply(_pq2.identity().slerp(q2, rest)); /* (and turned broadside, the string toward his body, so it reads from the front and behind) */ } } else if (tl) { const rest = 1 - Math.min(1, H.ikA || 0), T2 = Array.isArray(tl) ? tl : [tl, 0]; if (rest > 0.01) { const rq = ch.root.getWorldQuaternion(_pq2); qf.premultiply(_pq.setFromAxisAngle(_pv4.set(1, 0, 0).applyQuaternion(rq), T2[0] * rest)); if (T2[1]) qf.premultiply(_pq.setFromAxisAngle(_pv4.set(0, 0, 1).applyQuaternion(rq), T2[1] * rest)); } } } /* ([tip down, tip out]: out to his side (-) keeps a sword clear of his own shield) */ /* (at rest a blade's tip drops toward the ground; the fist turns with it) */
     const qfr = qf.clone(); const o = sd === lead ? null : so[lead], sup = o && main && main.parent === o && SUPPORT[main.name.slice(7)];
@@ -297,6 +333,7 @@ export function tickHeroModel(ch, dt) {
     H.twS = (H.twS || 0) + (tw - (H.twS || 0)) * Math.min(1, dt * 18); H.bdS = (H.bdS || 0) + (bend - (H.bdS || 0)) * Math.min(1, dt * 18);
     if (Math.abs(H.twS) > 0.005 || Math.abs(H.bdS) > 0.005) { const wqq = H.wrap.getWorldQuaternion(new THREE.Quaternion()), upA = new THREE.Vector3(0, 1, 0), rtA = new THREE.Vector3(1, 0, 0).applyQuaternion(wqq);
       for (const [nmB, f] of [['Spine', 0.35], ['Spine01', 0.35], ['Spine02', 0.3]]) { const bb = B[nmB]; if (!bb) continue; turnFoot(bb, upA, H.twS * f); turnFoot(bb, rtA, H.bdS * f); } H.m.updateMatrixWorld(true); } }
+  try { meleeArc(ch, H, B, act, mvK); } catch (e) { ch._arc = null; }
   if (ch.hmSockets && ch.arms && (H.ikA || 0) > 0.02) puppetArms(ch, H, B); /* (the owner: no hands pulled to the middle of the body, ever: outside attacks the model's own clips drive the arms and the weapon simply rides the fist) */ /* (holding something: the model's arms and fists follow the built body's all the time, and the weapon is fixed in the fist) */
   else if (H.ikA > 0.02 && ch.arms) for (const [sd, nm, sx] of [['R', 'Right', -1], ['L', 'Left', 1]]) { const hp = ch.arms[sd].hand; if (!hp) continue; const t = hp.getWorldPosition(new THREE.Vector3()), sh = B[nm + 'Arm']; if (!sh) continue; const s0 = sh.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     const pole = s0.clone().add(new THREE.Vector3(sx * 0.4, -0.6, -0.35).applyQuaternion(wq)); const keep = [B[nm + 'Arm'].quaternion.clone(), B[nm + 'ForeArm'].quaternion.clone()]; ikArm(null, B[nm + 'Arm'], B[nm + 'ForeArm'], B[nm + 'Hand'], s0.clone().lerp(t, 1), pole);

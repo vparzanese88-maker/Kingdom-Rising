@@ -2254,6 +2254,7 @@ export class Player {
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.4 : 1.8 + this.camDist * 0.25, fp ? 0.85 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
     this.landDip *= Math.max(0, 1 - dt * 6);
+    { const HM = this.ch && this.ch.heroModel; if (HM && HM !== 'loading' && HM.bones && HM.bones.Head && this._eyeHM !== HM) { this._eyeHM = HM; HM.m.updateMatrixWorld(true); const hy = HM.bones.Head.getWorldPosition(new THREE.Vector3()).y - this.ch.root.getWorldPosition(new THREE.Vector3()).y, top = heroHeight(this.h.cls); if (hy > 0.3 && hy < top) this.eye = hy + (top - hy) * 0.38; } } /* (your eye sits where the model's own eyes are, measured from its head bone, so a figure of your own class looks you straight in the eye) */
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
     if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? (this.h.arena ? 0.12 : 0.7) : 0.2); // (the arena: barely a dip, no roll) // (the over-the-shoulder camera barely dips: the body does the rolling)
     if (this.dead) eyeY = this.spectate ? 0 : 0.4; // (arena spectators fly free)

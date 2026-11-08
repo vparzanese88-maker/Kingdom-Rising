@@ -92,7 +92,7 @@ const VP = {
   s2a: P(-0.38, -0.45, -0.4, -1.75, 1.1, -0.6), s2b: P(0.45, 0.05, -0.5, -1.0, -1.2, -0.6),
   s3a: P(0.2, 0.3, -0.22, 0.5, 0, -0.1), s3b: P(0.05, -0.5, -0.55, -2.2, 0, 0),
   wOhA: P(0.3, 0.32, -0.28, 0.75, -0.15, -0.35), wOhB: P(-0.02, -0.5, -0.62, -2.1, 0.1, 0.1), /* (warrior overhand: the blade raised high over the right shoulder, then cut straight down the middle) */
-  wSdA: P(0.62, -0.02, -0.36, -1.4, -1.25, 0.35), wSdB: P(-0.48, -0.26, -0.5, -1.4, 1.4, 0.3), /* (side slash: wide from the right, across and through to the left) */
+  wSdA: P(0.62, -0.02, -0.36, -1.4, -1.25, 1.15), wSdB: P(-0.48, -0.26, -0.5, -1.4, 1.4, 1.45), /* (side slash: wide from the right, across and through to the left) */
   wStA: P(0.34, -0.42, -0.22, -1.5, 0.05, -0.15), wStB: P(0.06, -0.2, -1.0, -1.57, 0, 0), /* (stab: drawn back to the hip, then driven straight out at the crosshair) */
   ohA: P(0.2, 0.3, -0.32, 1.25, 0, 0.12), ohB: P(0.04, -0.5, -0.62, -1.55, 0, 0.05),
   ha: P(0.45, 0.25, -0.15, 0.6, -0.5, -0.3), hb: P(0, -0.45, -0.62, -2.1, 0.3, 0),
@@ -397,6 +397,7 @@ class ViewModel {
       const k = this.sprintK, dip = (p) => p && [p[0], p[1] - 0.05 * k, p[2] + 0.02 * k, p[3] - 0.1 * k, p[4], p[5]]; /* (sprinting: the weapons dip a little and tip forward, the same grip, never turned sideways) */
       r = dip(r); if (l) l = dip(l);
     }
+    if (act && this.hero && this.cls === 'warrior' && l && W && W.hands === 'shield' && /^(swing|stab)/.test(n)) { const k = Math.sin(Math.min(1, Math.max(0, t)) * Math.PI); l = plerp(l, [-0.68, -0.64, -0.36, 0.25, 0.95, 0.4], k * 0.9); } /* (the shield arm swings down and out to the left, clear of the blade, then comes back) */
     { const k = 1 - Math.exp(-Math.min(0.1, dt) * 30), sm = (o, p) => !o || !p ? p : p.map((v, i) => { const d = v - o[i]; return Math.abs(d) > 2.5 ? v : o[i] + d * k; }); r = this._sr = sm(this._sr, r); if (l) l = this._sl = sm(this._sl, l); else this._sl = null; } /* (a short smoothing on both hands: a pose that changes in a single frame, between chained swings or as an ability starts, glides instead of popping through the view) */
     // two-handers: left hand on the grip below the right
     this.apply(this.R, r);

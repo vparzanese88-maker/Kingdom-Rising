@@ -263,7 +263,8 @@ class ViewModel {
     if (this.cls === 'bard' && this.hero && main.name === 'weapon_sword') kitize(main, 'bard_lute', { fp: true }); /* (the bard's lute, held by the neck) */
     if (this.gun && w.wt === 'musket') for (const c of this.gun.children) if (c.isMesh && c !== this.gun.userData.glb) c.visible = false; /* (in first person only the detailed musket model shows: never the code-built stand-in) */
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); H.add(f); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); if (!right) c.scale.x = -1; H.add(c); kitize(c, 'beast_claw', { fp: true }); } } } // (bear-claw gauntlets on the fists in first person: beside the fist, not in it, so they show over the hero model's own hands)
-    if (this.cls === 'wizard' && this.hero && !this.book) { const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.L.add(bk); this.book = bk; kitize(bk, 'wizard_book', { fp: true }); } // (the wizard's spellbook, open in your off hand)
+    if (this.cls === 'wizard' && this.hero && !this.book) { main.parent && main.parent.remove(main); delete this.weapons.main; const bk = makeBook(1.0); bk.position.set(0, 0.02, -0.08); bk.rotation.set(0.5, 0, 0); this.R.add(bk); this.book = bk; this.bookR = true; kitize(bk, 'wizard_book', { fp: true }); } // (the wizard carries only his spellbook, open in his right hand: no staff)
+    this.rogueOff = false; if (this.cls === 'rogue' && this.hero && !this.weapons.off && W.parts.length === 1 && W.parts[0] === 'dagger') { const off = makeWeapon('dagger', w.tier, w.rarity); off.scale.multiplyScalar(this.hero ? 1.5 : 1); off.rotation.y = -0.45; this.L.add(off); this.weapons.off = off; this.rogueOff = true; kitize(off, 'rogue_dagger', { fp: true }); } // (the rogue carries a second dagger in his left hand, like his model)
     if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; const b = makeBomb(1.0); b.position.set(0, 0.02, -0.06); this.R.add(b); this.weapons.bomb = b; this.bomber = true; kitize(b, 'bomb_grenade', { fp: true }); }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; this.necro = true;
       // left hand: a bone staff held upright (its head is where Soul Rend pours out); right hand: torn open and dripping poison
@@ -285,10 +286,11 @@ class ViewModel {
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = VP.bowR;
     if (this.bomber && r === VP.staff) r = VP.necroR;
-    if (this.book && (!l || l === VP.hideL)) l = VP.bookL;
+    if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = mirror(VP.bookL); } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
     if (this.necro) { if (r === VP.staff || r === VP.staffCast) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; if (act && /^(cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroR, VP.necroPush, act.t, 0.18, VP.necroR); } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
-    const t = act ? act.t : 0, n = act ? act.name : '';
+    if (this.rogueOff && (!l || l === VP.hideL)) l = VP.restL; /* (the rogue: a dagger in each hand) */
+    const t = act ? act.t : 0; let n = act ? act.name : ''; if (this.rogueOff && n === 'stabR') { if (act !== this._altAct) { this._altAct = act; this._alt = !this._alt; } if (this._alt) n = 'stabL'; } /* (his stabs alternate hands) */
     if (this.weapons.main && n !== 'castUp' && !st.sheathed) this.weapons.main.visible = !this.hiddenAll; // the staff comes back after a cast
     if (st.tool) {
       if (n === 'chop' || n === 'mine') r = seq(n === 'chop' ? VP.chopA : VP.s3a, n === 'chop' ? VP.chopB : VP.s3b, t, 0.45);
@@ -407,7 +409,7 @@ class ViewModel {
     const F = this.fpArms && this.fpArms !== 'loading' ? this.fpArms : null, mk = F && this.gun && this.wt === 'musket' && this.gun.visible !== false && !st.tool; if (F) { F.reach = mk ? 1.65 + 0.2 * (this.gunK || 0) : 1.35; if (!F.wrap0) F.wrap0 = F.wrap.position.clone(); F.wrap.position.copy(F.wrap0); if (mk) F.wrap.position.z -= 0.14; } /* (a musket is long: the arms a little longer and the shoulders forward, out of sight below the view, so both hands reach it) */
     if (mk) gunHands(this, F); /* (both hands on the musket: right round the wrist of the stock at the trigger, left cradling the fore-end) */
     if (this.fpArms) tickFpArms(this); // (a class with a 3D model: its own arms in first person)
-    if (mk) for (const nm of ['LeftHand', 'RightHand']) if (F.B[nm]) F.B[nm].scale.setScalar((F.D.fpHand || 1.15) * 1.35 / F.reach); /* (the hands stay their own size) */
+    if (mk) for (const nm of ['LeftHand', 'RightHand']) if (F.B[nm] && !(F.code && F.code[nm === 'LeftHand' ? 'Left' : 'Right'])) F.B[nm].scale.setScalar((F.D.fpHand || 1.15) * 1.35 / F.reach); /* (the hands stay their own size) */
   }
 }
 

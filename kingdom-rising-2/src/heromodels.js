@@ -162,10 +162,10 @@ export function tickHeroModel(ch, dt) {
   const walkW = H.v < 0.25 ? 0 : H.v < H.D.runSpeed * 0.6 ? 1 : Math.max(0, 1 - (H.v - H.D.runSpeed * 0.6) / (H.D.runSpeed * 0.4)), runW = H.v < H.D.runSpeed * 0.6 ? 0 : 1 - walkW, idleW = 1 - Math.min(1, H.v / 0.25);
   const lerpW = (k, t) => { H.w[k] += (t - H.w[k]) * Math.min(1, dt * 10); };
   lerpW('walk', walkW * (1 - idleW)); lerpW('run', runW * (1 - idleW)); lerpW('idle', idleW);
-  if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.6, H.v / H.D.walkSpeed); }
-  if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.min(1.25, Math.max(0.75, H.v / H.D.runSpeed)) * (H.D.runRate || 1); }
+  const sf = Math.max(0.6, (H.D.height * HERO_SIZE) / 2.6); /* (stride grows with the hero: a giant takes slow, long steps, a goblin quick little ones) */ if (H.act.walk) { H.act.walk.setEffectiveWeight(H.w.walk); H.act.walk.timeScale = Math.max(0.3, H.v / (H.D.walkSpeed * sf)); }
+  if (H.act.run) { H.act.run.setEffectiveWeight(H.w.run); H.act.run.timeScale = Math.min(1.6, Math.max(0.35, H.v / (H.D.runSpeed * sf))) * (H.D.runRate || 1); }
   if (H.act.walk) H.act.walk.timeScale = Math.min(1.4, H.act.walk.timeScale);
-  if (H.act.back) { const bw = H.backK * (H.w.walk + H.w.run); H.act.back.paused = false; H.act.back.setEffectiveWeight(bw); H.act.back.timeScale = Math.min(1.6, Math.max(0.7, H.v / H.D.walkSpeed * 0.8)); if (H.act.walk) H.act.walk.setEffectiveWeight(H.w.walk * (1 - H.backK)); if (H.act.run) H.act.run.setEffectiveWeight(H.w.run * (1 - H.backK)); }
+  if (H.act.back) { const bw = H.backK * (H.w.walk + H.w.run); H.act.back.paused = false; H.act.back.setEffectiveWeight(bw); H.act.back.timeScale = Math.min(1.6, Math.max(0.3, H.v / (H.D.walkSpeed * sf) * 0.8)); if (H.act.walk) H.act.walk.setEffectiveWeight(H.w.walk * (1 - H.backK)); if (H.act.run) H.act.run.setEffectiveWeight(H.w.run * (1 - H.backK)); }
   else if (H.backK > 0.5 && H.act.walk) { H.act.walk.timeScale = -Math.abs(H.act.walk.timeScale); if (H.act.run) H.act.run.timeScale = -Math.abs(H.act.run.timeScale); } // (no backwards clip: the walk plays in reverse)
   if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)
   const reset = () => { for (const k in H.bind) { const b = H.bones[k]; b.quaternion.copy(H.bind[k][0]); b.position.copy(H.bind[k][1]); b.scale.set(1, 1, 1); } }; // (start every frame from the rest pose, so nothing builds up frame after frame: no spinning)
@@ -279,6 +279,16 @@ function fpReachShift(F, vm, tgt) {
   need = Math.min(mx, Math.max(0, need)); F.shz = F.shz == null ? need : F.shz + (need - F.shz) * (need > F.shz ? 0.5 : 0.15); // (comes forward at once when a swing reaches out, settles back slowly)
   F.wrap.position.z -= F.shz; F.wrap.position.y -= D.fpDrop || 0; F.wrap.updateMatrixWorld(true);
 }
+// the colour of the model's own hand, sampled once from its texture (the skin, the glove or the gauntlet), for the view model's fist
+function handColor(F, hand) {
+  F.tint = F.tint || {}; if (F.tint[hand.name] !== undefined) return F.tint[hand.name]; let col = null;
+  try { F.m.traverse(o => { if (col || !o.isSkinnedMesh || !o.material || !o.material.map || !o.material.map.image) return; const bi = o.skeleton.bones.indexOf(hand); if (bi < 0) return; const g = o.geometry, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, uv = g.attributes.uv; if (!si || !sw || !uv) return;
+    const N = 128, cv = document.createElement('canvas'); cv.width = cv.height = N; const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(o.material.map.image, 0, 0, N, N); const px = cx.getImageData(0, 0, N, N).data; let r = 0, gg = 0, b = 0, n = 0;
+    for (let i = 0; i < si.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === bi) w += sw.getComponent(i, k); if (w < 0.6) continue; const u = uv.getX(i), v = uv.getY(i), x = Math.min(N - 1, Math.max(0, Math.floor((u - Math.floor(u)) * N))), y = Math.min(N - 1, Math.max(0, Math.floor((1 - (v - Math.floor(v))) * N))), j = (y * N + x) * 4; r += px[j]; gg += px[j + 1]; b += px[j + 2]; n++; }
+    if (n > 20) col = new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace).multiplyScalar(F.D.bright || 1); }); } catch (e) { col = null; }
+  return (F.tint[hand.name] = col); }
+function codeHandTint(F, fist, hand) { if (!hand || fist.userData.tinted) return; fist.userData.tinted = true; const col = handColor(F, hand); if (!col) return;
+  fist.traverse(o => { const mt = o.material; if (!o.isMesh || !mt || !mt.color || (mt.emissive && mt.emissive.getHex()) || mt.roughness <= 0.3) return; /* (nails, rings and gems keep their own colours) */ const dark = Math.abs(mt.roughness - 0.6) < 0.01; o.material = mt.clone(); o.material.color.copy(col).multiplyScalar(dark ? 0.82 : 1); o.material.metalness = Math.min(mt.metalness || 0, 0.5); }); }
 // does this view-model hand hold anything (a weapon, a book, a bomb)? Only then does the model's hand close round it
 const seen = (o) => { if (o.visible === false) return false; if (o.isMesh) return true; for (const c of o.children) if (seen(c)) return true; return false; };
 function holding(H) { for (let i = 1; i < H.children.length; i++) { const c = H.children[i]; if (c.isMesh) { c.visible = false; continue; } /* (bare meshes stuck straight on the hand were decorations of the old code hand: gone with it) */ if (seen(c)) return true; } return false; }
@@ -299,8 +309,11 @@ export function tickFpArms(vm) {
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(ao ? 1 : 0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   const grips = {}; F.hk = F.hk || {};
-  for (const [H, sd] of [[vm.R, 'Right'], [vm.L, 'Left']]) { const hold = ao && H.visible && holding(H); F.hk[sd] = (F.hk[sd] || 0) + ((hold ? 1 : 0) - (F.hk[sd] || 0)) * 0.4; if (F.hm) for (const ms of F.hm[sd]) if (ms.morphTargetInfluences) ms.morphTargetInfluences[0] = F.hk[sd]; // (the hand closes round what it holds, and opens when empty)
-    if (hold) { const g = { q: new THREE.Quaternion(), t: new THREE.Vector3() }; if (gripPose(F, vm, H, sd, g)) grips[sd] = g; } }
+  const modelGrip = F.D.fpGrip === 'model'; F.code = F.code || {};
+  for (const [H, sd] of [[vm.R, 'Right'], [vm.L, 'Left']]) { const hold = ao && H.visible && holding(H); F.code[sd] = hold && !modelGrip;
+    F.hk[sd] = (F.hk[sd] || 0) + ((hold && modelGrip ? 1 : 0) - (F.hk[sd] || 0)) * 0.4; if (F.hm) for (const ms of F.hm[sd]) if (ms.morphTargetInfluences) ms.morphTargetInfluences[0] = F.hk[sd]; // (fpGrip 'model': the model's own hand closes round what it holds)
+    if (F.code[sd] && B[sd + 'Hand']) B[sd + 'Hand'].scale.setScalar(0.001); // (otherwise a held weapon sits in the view model's own closed fist, made in the colours of the model's hand, on the end of the model's forearm)
+    if (hold && modelGrip) { const g = { q: new THREE.Quaternion(), t: new THREE.Vector3() }; if (gripPose(F, vm, H, sd, g)) grips[sd] = g; } }
   const tgt = (H) => { const g = grips[H === vm.R ? 'Right' : 'Left']; if (g) return g.t.clone(); const t = new THREE.Vector3(), wr = H.children[0] && H.children[0].userData.wrist; if (F.D.fpFist) { H.updateWorldMatrix(true, false); t.copy(H.localToWorld(new THREE.Vector3(0, -0.07 * 1.35, 0).applyEuler(new THREE.Euler(0.55, 0, 0)))); } else (wr || H).getWorldPosition(t); return t; }; // (a held handle: the wrist goes where the closed fingers wrap it; otherwise aim at where the wrist belongs in the pose)
   fpReachShift(F, vm, tgt);
   for (const H of [vm.R, vm.L]) {
@@ -309,7 +322,7 @@ export function tickFpArms(vm) {
     else if (ao) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], vm.g.localToWorld(new THREE.Vector3(side * 0.34, -1.1, 0.05)), pole); /* (a hand with nothing to do hangs down at his side, out of the view) */
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }
     const g = grips[arm], hd = B[arm + 'Hand']; if (g && hd && hd.parent && H.visible) { hd.parent.updateWorldMatrix(true, false); hd.quaternion.copy(hd.parent.getWorldQuaternion(_fq3).invert().multiply(g.q)); } // (the hand turned so its fingers wrap the handle)
-    if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist; if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
+    if (H.children[0]) { const fist = H.children[0]; fist.visible = !!F.D.fpFist || !!F.code[arm]; if (F.code[arm]) codeHandTint(F, fist, B[arm + 'Hand']); if (F.D.fpFist) fistOnArm(F, vm, H, fist, B[arm + 'ForeArm'], B[arm + 'Hand'], side, side > 0 ? vm.punchR || 0 : vm.punchL || 0); } }
   if (vm.foot && vm.foot.visible) { const t = vm.foot.getWorldPosition(new THREE.Vector3()), hip = B.RightUpLeg; if (hip) { const h0 = hip.getWorldPosition(new THREE.Vector3()); ikArm(F, B.RightUpLeg, B.RightLeg, B.RightFoot, t, h0.clone().add(vm.g.localToWorld(new THREE.Vector3(0, 0.5, -1)).sub(vm.g.getWorldPosition(new THREE.Vector3())))); } vm.foot.traverse(o => { if (o.isMesh) o.visible = false; }); } // (your own leg kicks into view)
   if (vm.arms) for (const a of vm.arms) a.arm.visible = false; // (the old forearms are gone: your model's own arms are drawn instead)
 }

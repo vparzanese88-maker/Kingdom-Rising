@@ -12,8 +12,8 @@ I process every file with pitch and formant shifting (that changes the size of t
 
 | Effect | Used for |
 |---|---|
-| Deep giant: pitch down 3–5, formants down | Berserker, Death Knight, Beastmaster |
-| Demon double: your voice plus a copy an octave down, with grit | Necro, Death Knight's ultimate |
+| Deep giant: pitch down 3–5, formants down | Berserker, Shadow Knight, Beastmaster |
+| Demon double: your voice plus a copy an octave down, with grit | Necro, Shadow Knight's ultimate |
 | Hollow undead: a little lower, metallic ring, whisper layer | Necro |
 | Holy: slightly brighter, cathedral reverb, soft choir double | Paladin, Cleric, Priest |
 | Ethereal: higher formants, shimmer and echo | Enchanter, Druid, Wood-Elf types |
@@ -48,7 +48,7 @@ Slow and strong.
 - Taunt: "Kneel, and I may spare you."
 - Win: "Glory to the Dawn!"
 
-### Death Knight: cold, slow and heavy, like it barely bothers
+### Shadow Knight: cold, slow and heavy, like it barely bothers
 Deep and calm. Never shout except on the ultimate.
 - Pick: "Death was only the beginning."
 - Ult: "RISE… AND SERVE ME!"
@@ -158,7 +158,7 @@ Sharp and powerful.
 - Taunt: "You fight me? You fight the earth."
 - Win: "Nature obeys."
 
-### Necro: whispering, creepy and hungry
+### Necromancer: whispering, creepy and hungry
 Slow, raspy, almost sweet. I add the hollow and demon layers.
 - Pick: "The dead remember your name."
 - Ult: "COME FORTH, DEVOURER!"
@@ -235,7 +235,7 @@ Smooth and slow, nearly a whisper.
 - Taunt: "You think you chose to attack me?"
 - Win: "As I foresaw."
 
-### Bombardier: crazy goblin, cackling, talks fast
+### Goblin Bombardier: crazy goblin, cackling, talks fast
 Squeaky and fast. Lots of laughing. I pitch it up more.
 - Pick: "Boom time! Hee hee!"
 - Ult: "BIG ONE! BIIIG ONE!"

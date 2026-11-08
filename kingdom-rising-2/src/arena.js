@@ -25,6 +25,7 @@ import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from '
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
 import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy, teamRim } from './arenanet.js';
+import { BOMB, BX, throwBomb, throwSticky, stickyCharges, detonate, plantBomb, bombNet, lobVel, liveBombs, nearestDanger, bombsNear } from './bomber.js';
 const AUTH = () => !AN.on || AN.host; // the host (or a single player) runs the match
 const BUILDS = 'kr2_arena_builds';
 
@@ -52,7 +53,7 @@ export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['ar_bandage', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
   rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_plaguebreath', 'ar_skullfear'], elementalist: ['lightninglash', 'callflame', 'frostbind'], enchanter: ['mindrot', 'ar_mindlock', 'mesmerize'], beastmaster: ['packfrenzy', 'warbeast', 'feralroar'],
-  priest: ['pr_halo', 'pr_word', 'pr_chains'], bombardier: ['bo_rocket', 'bo_cluster', 'bo_sticky'],
+  priest: ['pr_halo', 'pr_word', 'pr_chains'], bombardier: ['bo_rocket', 'bo_smoke', 'bo_stickies'], /* (Q sticky bombs; right click the detonator; the old Cluster and Sticky Bomb are retired) */
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', blunderbuss: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer', priest: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
@@ -125,13 +126,15 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
 export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_ironhide', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
-  /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_smoke' };
+  /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_detonate' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
 let kitRulesDone = false;
 // the arena's own moves, and cooldowns tuned for a three-key kit (no mana: everything runs on cooldowns)
 const ARENA_NEW = {
+  bombardier: [{ id: 'bo_stickies', name: 'Sticky Bombs', t: 'stickies', kit: true, charges: 5, cd: 0.5, cost: 0, fx: 'fire', level: 1, desc: 'Throw a sticky bomb where you aim: it sticks to whatever it hits (the ground, a wall, or an enemy, and rides along on them). You carry 5, and one comes back every 0.5 s. Up to 5 can be out at once: throw a sixth and the oldest falls off. They wait for your detonator (right click), then each one goes up in a big 4.5 m blast; one left alone for 20 s goes off by itself, smaller.' },
+    { id: 'bo_detonate', name: 'Detonator', t: 'detonate', kit: true, cd: 0.3, cost: 0, fx: 'fire', level: 1, desc: 'Slam the plunger on your belt: every bomb you have out goes off at once. Thrown bombs burst as normal; sticky bombs go up in a much bigger blast. It never sets off Big Bertha.' }],
   priest: [{ id: 'ar_mendP', name: 'Flash of Dawn', t: 'mend', kind: 'dawn', heal: 0.2, cd: 6, cost: 0, fx: 'holy', level: 1, desc: 'A flash of dawn light into the ally under your crosshair, even through walls (or yourself): it heals them and wraps them in a shield of light that soaks damage for 4 s.' }],
   rogue: [{ id: 'ar_assassinate', name: 'Assassinate', t: 'assassinate', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Aim at an enemy: you melt into the shadows and step out right behind them, seize them and drive your blade into their back. A killing blow.' },
     { id: 'ar_leechstab', name: 'Leeching Stab', kit: true, t: 'strike', dmg: 1.3, cd: 10, cost: 0, fx: 'blood', regen: [0.3, 6], level: 1, desc: 'A deep stab that drinks from the wound: you regenerate 30% of your health over 6 s.' },
@@ -177,8 +180,8 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
-    const q = get(fQ); if (q) q.cd = Math.max(q.cd || 0, CD_FIX.cc);
-    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
+    const q = get(fQ); if (q && !q.charges) q.cd = Math.max(q.cd || 0, CD_FIX.cc); /* (charges: the bombardier's sticky bombs come back one at a time) */
+    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem' && r.t !== 'detonate') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
     for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } }
   ccBudget(); }
 // the design pass (docs/CLASS_DESIGN.md, top ten list): numbers and descriptions change together, so the setup screen,

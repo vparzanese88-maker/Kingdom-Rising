@@ -22,7 +22,7 @@ import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTi
 export const YD = { infinite: false, dmg: [], startGame: null };
 const dummies = [];
 // six dummies standing evenly in a ring on open ground in front of the start: hit one from outside, or step into the middle for area attacks
-const RING = { x: 0, z: 50, r: 8 };
+const RING = { x: 0, z: 47, r: 8 }; /* (between the two weapon racks; the class line-up is behind the start, at z = -8) */
 const SPOTS = [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * Math.PI * 2; return [RING.x + Math.sin(a) * RING.r, RING.z + Math.cos(a) * RING.r, 'Training Dummy']; });
 // every class standing shoulder to shoulder behind the start: walk up to one and press E to become that class
 const LINE = []; YD.line = LINE;
@@ -47,7 +47,7 @@ export function spawnDummies() {
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.atan2(x - RING.x, z - RING.z); /* (each one faces out of the ring) */ m.home.set(x, heightAt(x, z), z);
-    m.walk = name === 'Moving Dummy' ? { a: 0 } : null; m.update = dummyUpdate; m.loot = null;
+    m.walk = null; /* (no walking dummy any more; dummyUpdate still supports one) */ m.update = dummyUpdate; m.loot = null;
     const take = m.takeHit.bind(m); m.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); YD.dmg.push([performance.now(), Math.max(0, d || dmg)]); m.lastHit = G.time; if (m.hp < m.maxHp * 0.5) m.hp = m.maxHp; m.dead = false; return d; };
     G.mobs.push(m); dummies.push(m);
   }
@@ -56,8 +56,8 @@ export function spawnDummies() {
 // trees and rocks around the yard: the owner's Meshy models, fetched once in the background and drawn as one instanced mesh per part
 // (a few draw calls for all of them, nothing done per frame; if a model fails to load the yard simply has none)
 const PROPS = {
-  tree: { url: 'models/props/yard_tree.fbx', at: [[-22, 46, 8.5, 0.4], [24, 58, 9.5, 2.1], [-34, 22, 7, 4.0], [36, 26, 7.5, 1.2], [-10, 74 - 12, 6.5, 5.3]] }, /* [x, z, height m, turn] */
-  rock: { url: 'models/props/yard_rock.fbx', at: [[-17, 38, 1.4, 0.3], [15, 64, 1.9, 1.7], [-27, 50, 1.1, 2.6], [28, 35, 1.3, 4.4], [-38, 27, 0.9, 0.9], [20, 52, 0.8, 3.3]] },
+  tree: { url: 'models/props/yard_tree.fbx', at: [[-25, 50, 9, 0.4], [27, 57, 8, 2.1], [-33, 17, 7, 4.0], [35, 21, 7.5, 1.2], [7, 66, 10, 5.3]] }, /* [x, z, height m, turn] */
+  rock: { url: 'models/props/yard_rock.fbx', at: [[-16, 35, 1.4, 0.3], [19, 52, 1.2, 1.7], [-24, 61, 1.0, 2.6], [27, 32, 1.3, 4.4], [-37, 29, 0.9, 0.9], [-9, 64, 1.6, 3.3]] },
 };
 let propsOn = false;
 function plantProps() {
@@ -94,6 +94,7 @@ function dummyUpdate(dt) {
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {
+  if (!YD.faced && G.player) { YD.faced = true; const P = G.player; P.yaw = P.bodyYaw = Math.atan2(RING.x - P.pos.x, RING.z - P.pos.z); } // (you start looking at the ring of dummies)
   playerRules(G.player); // (the arena's control rules: roots, silence, mesmerize, the shield's defensive)
   { const P = G.player; YD.lineN = (YD.lineN || 0) + 1; for (const f of LINE) { // (the line-up stands still: posed once, then left alone; the 3D models only get a light update now and then, when you are near)
       if (!f.posed) { for (let i = 0; i < 20; i++) animateHumanoid(f.ch, 0.05, { speed: 0, armed: true, ready: true }); f.posed = true; if (!f.ch.heroModel) { try { bake(f.ch.root); } catch (e) { /* keep it unbaked */ } } addOutline(f.ch.root, '#1a1208'); f.ch.root.updateMatrixWorld(true); f.ch.root.traverse(o => { o.matrixAutoUpdate = false; }); } // (a standing figure is merged into a few meshes: far less to draw)

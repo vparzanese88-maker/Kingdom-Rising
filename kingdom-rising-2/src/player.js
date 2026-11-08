@@ -261,7 +261,7 @@ class ViewModel {
     if (W.kind === 'staff') main.position.y = -0.55;
     if (w.wt === 'spear') main.position.y = -0.55;
     if (W.hands === 'two' && w.wt !== 'spear') main.position.y = -0.1;
-    if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = (W.parts[0] === 'sword' || W.parts[0] === 'greatsword' || W.parts[0] === 'dagger') ? 0.45 : W.parts[0] === 'handaxe' || W.parts[0] === 'greataxe' ? Math.PI / 2 : 0; // swords show the blade at an angle; axe edges face forward
+    if (W.kind === 'melee' && w.wt !== 'spear') main.rotation.y = this.cls === 'rogue' && this.hero ? 0 : (W.parts[0] === 'sword' || W.parts[0] === 'greatsword' || W.parts[0] === 'dagger') ? 0.45 : W.parts[0] === 'handaxe' || W.parts[0] === 'greataxe' ? Math.PI / 2 : 0; // swords show the blade at an angle; axe edges face forward
     if (W.hands === 'two' && w.wt !== 'spear') main.scale.multiplyScalar(0.8);
     if (W.parts[1]) { const off = makeWeapon(W.parts[1], w.tier, w.rarity); this.L.add(off); this.weapons.off = off; if (W.parts[1] === 'sword' || W.parts[1] === 'dagger') off.rotation.y = -0.45; if (W.parts[1] === 'handaxe') off.rotation.y = Math.PI / 2; if (W.parts[1] === 'shield') { off.rotation.set(0, 0, 0); off.scale.setScalar(0.46); off.position.set(0.06, 0.1, -0.13); } }
     for (const k in this.weapons) this.weapons[k].scale.multiplyScalar(1.5);
@@ -277,8 +277,8 @@ class ViewModel {
     if (this.cls === 'bard' && this.hero && main.name === 'weapon_sword') kitize(main, 'bard_lute', { fp: true }); /* (the bard's lute, held by the neck) */
     if (this.gun && w.wt === 'musket') for (const c of this.gun.children) if (c.isMesh && c !== this.gun.userData.glb) c.visible = false; /* (in first person only the detailed musket model shows: never the code-built stand-in) */
     if (this.cls === 'beastmaster' && this.hero) { for (const k of ['main', 'off']) { const o = this.weapons[k]; if (o) { o.parent && o.parent.remove(o); delete this.weapons[k]; } } if (!this.fists) { this.fists = true; for (const [H, right] of [[this.R, true], [this.L, false]]) { while (H.children.length) H.remove(H.children[0]); const f = makeFist(right, this.skinCol, '#3a2a1c'); H.add(f); const c = makeClaws(0.55); c.position.set(0, 0.03, 0.0); if (!right) c.scale.x = -1; H.add(c); kitize(c, 'beast_claw', { fp: true }); } } } // (bear-claw gauntlets on the fists in first person: beside the fist, not in it, so they show over the hero model's own hands)
-    if (this.cls === 'wizard' && this.hero && !this.book) { main.parent && main.parent.remove(main); delete this.weapons.main; const bk = makeBook(1.0); bk.position.set(0, 0, 0.03); bk.rotation.set(Math.PI / 2, 0, Math.PI); bk.scale.setScalar(0.8); /* (spine down the palm, the open pages turned toward you) */ this.R.add(bk); this.book = bk; this.bookR = true; kitize(bk, 'wizard_book', { fp: true }); } // (the wizard carries only his spellbook, open in his right hand: no staff)
-    this.rogueOff = false; if (this.cls === 'rogue' && this.hero && !this.weapons.off && W.parts.length === 1 && W.parts[0] === 'dagger') { const off = makeWeapon('dagger', w.tier, w.rarity); off.scale.multiplyScalar(this.hero ? 1.5 : 1); off.rotation.y = -0.45; this.L.add(off); this.weapons.off = off; this.rogueOff = true; kitize(off, 'rogue_dagger', { fp: true }); } // (the rogue carries a second dagger in his left hand, like his model)
+    if (this.cls === 'wizard' && this.hero && !this.book) { main.parent && main.parent.remove(main); delete this.weapons.main; const bk = makeBook(1.0); bk.position.set(0, 0, 0.03); bk.rotation.set(Math.PI / 2, 0, 0); bk.scale.setScalar(1.04); /* (spine down the palm, the open pages turned toward you: right way up, 30% bigger than before) */ this.R.add(bk); this.book = bk; this.bookR = true; kitize(bk, 'wizard_book', { fp: true }); } // (the wizard carries only his spellbook, open in his right hand: no staff)
+    this.rogueOff = false; if (this.cls === 'rogue' && this.hero && !this.weapons.off && W.parts.length === 1 && W.parts[0] === 'dagger') { const off = makeWeapon('dagger', w.tier, w.rarity); off.scale.multiplyScalar(this.hero ? 1.5 : 1); off.rotation.y = 0; /* (straight in the fist, like the right one) */ this.L.add(off); this.weapons.off = off; this.rogueOff = true; kitize(off, 'rogue_dagger', { fp: true }); } // (the rogue carries a second dagger in his left hand, like his model)
     if (this.cls === 'bombardier' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; while (this.R.children.length) this.R.remove(this.R.children[0]); this.R.add(makeFist(true, this.skinCol, '#3a2a1c')); const b = makeBomb(1.0); b.position.set(0, 0.018, -0.012); b.rotation.z = Math.PI / 2; this.R.add(b); /* (a closed fist, hand-sized, the grenade's stick through it and its head out above the thumb) */ this.weapons.bomb = b; this.bomber = true; kitize(b, 'bomb_grenade', { fp: true }); }
     if (this.cls === 'necromancer' && this.hero) { main.parent && main.parent.remove(main); delete this.weapons.main; this.necro = true;
       // left hand: a bone staff held upright (its head is where Soul Rend pours out); right hand: torn open and dripping poison
@@ -391,9 +391,8 @@ class ViewModel {
     // sprinting: lower the weapon and pump the arms
     this.sprintK += ((st.sprint && !act && !st.block && !st.tool ? 1 : 0) - this.sprintK) * Math.min(1, dt * 8);
     if (this.sprintK > 0.01) {
-      const sp = W && W.kind === 'bow' ? [0.05, -0.3, -0.5, 0.2, 0.3, 0.9] : W && W.kind === 'staff' ? [0.35, -0.55, -0.45, -0.6, 0.4, -0.7] : [0.36, -0.42, -0.42, -0.25, 0.5, -1.0];
-      r = plerp(r, sp, this.sprintK);
-      if (l && W && W.kind !== 'bow') l = plerp(l, [-0.36, -0.45, -0.42, -0.2, -0.5, 1.0], this.sprintK);
+      const k = this.sprintK, dip = (p) => p && [p[0], p[1] - 0.05 * k, p[2] + 0.02 * k, p[3] - 0.1 * k, p[4], p[5]]; /* (sprinting: the weapons dip a little and tip forward, the same grip, never turned sideways) */
+      r = dip(r); if (l) l = dip(l);
     }
     { const k = 1 - Math.exp(-Math.min(0.1, dt) * 30), sm = (o, p) => !o || !p ? p : p.map((v, i) => { const d = v - o[i]; return Math.abs(d) > 2.5 ? v : o[i] + d * k; }); r = this._sr = sm(this._sr, r); if (l) l = this._sl = sm(this._sl, l); else this._sl = null; } /* (a short smoothing on both hands: a pose that changes in a single frame, between chained swings or as an ability starts, glides instead of popping through the view) */
     // two-handers: left hand on the grip below the right
@@ -402,14 +401,14 @@ class ViewModel {
     else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14, true);
     else if (l) { this.apply(this.L, l); this.L.visible = true; } else this.L.visible = false;
     // bob & sway: arms swing with each stride, harder and faster when sprinting
-    this.bob += dt * st.speed * 1.75;
-    const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.022 + this.sprintK * 0.024); /* (running and sprinting: a smooth front-and-back roll, the two hands alternating, never thrashing) */
+    this.bob += dt * (3.2 + Math.min(st.speed, 8) * 0.75); /* (a steady stride: quicker when sprinting, never frantic) */
+    const run = Math.min(1, st.speed / 5) * (act ? 0.35 : 1), amp = run * (0.016 + this.sprintK * 0.008); /* (running and sprinting: a smooth front-and-back roll, the two hands alternating, never thrashing) */
     const ph = this.bob;
     const spread = run * 0.05;
     this.R.position.x += spread; this.R.position.y -= spread * 0.6; this.R.rotation.z -= spread * 1.2;
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.x -= spread; this.L.position.y -= spread * 0.6; this.L.rotation.z += spread * 1.2; }
-    this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 1.6; this.R.rotation.z += Math.sin(ph) * amp * 0.5; this.R.rotation.x += Math.cos(ph) * amp * 2.2;
-    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 1.6; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * 2.2; }
+    this.R.position.y += Math.sin(ph) * amp; this.R.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.R.position.z += Math.cos(ph) * amp * 1.6; this.R.rotation.z += Math.sin(ph) * amp * 0.3; this.R.rotation.x += Math.cos(ph) * amp * 1.2;
+    if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 1.6; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * 1.2; }
     if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(0.14, true); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);

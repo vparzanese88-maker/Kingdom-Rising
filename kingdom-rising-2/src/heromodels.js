@@ -16,7 +16,7 @@ function calmSkin(tex, amt) {
     g.putImageData(d, 0, 0); tex.image = cv; tex.needsUpdate = true; };
   const im = tex.image; if (im && im.width && (im.complete === undefined || im.complete)) run(); else if (im && im.addEventListener) im.addEventListener('load', run, { once: true }); else setTimeout(run, 500);
 }
-export const HERO_SIZE = 1.953125; /* (arena heroes: 1.25 x 1.25 x 1.25) */
+export const HERO_SIZE = 1.5625; /* (arena heroes at their normal size: 1.25 x 1.25) */
 const MODELS = {
   necromancer: { fpFore: 0.55, fpDrop: 0.15, bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { fpHand: 0.45, base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.12, walkSpeed: 1.5, runSpeed: 5.0 },
@@ -43,7 +43,7 @@ const MODELS = {
       charged: ['charged', 0.15, 1.7, 0.85], counter: ['counter', 4.8, 6.35, 5.8],
       fury: ['punchB', 0.45, 1.5, 0, 0, 0, true], kick: ['risekick', 0.05, 1.45, 0.5], /* (a leaping side kick, the leg driven out flat: much cleaner than the old flailing one) */ flykick: ['jump', 1.4, 3.5, 0, true, 1.1], superman: ['thrust', 0.15, 1.4, 0, true, 0.75], flip: ['dodge', 0.1, 1.25, 0, true],
       dead: ['dead', 0, 2.95, 0, true], cheer: ['cheer', 0.2, 6.0, 0, true] },
-    combo: ['jab', 'cross', 'hook', 'upper', 'spin', 'jab', 'slam'], finisher: ['charged', 'counter'], idleClip: 'stance', idleHold: 0.4, noGrip: true, fpHand: 1.0, fpFist: true }, // (the owner's new monk moves: punch combos, spinning strike, ground slam; charged palm and counterstrike finish a combo; fighting stance at rest, a real death fall, a cheer when the arena is won)
+    combo: ['jab', 'cross', 'hook', 'upper', 'spin', 'jab', 'slam'], finisher: ['charged', 'counter'], idleClip: 'stance', idleHold: 0.4, noGrip: true, fpHand: 1.0 }, // (the owner's new monk moves: punch combos, spinning strike, ground slam; charged palm and counterstrike finish a combo; fighting stance at rest, a real death fall, a cheer when the arena is won)
 };
 export const heroHeight = (cls) => (MODELS[cls] ? MODELS[cls].height * HERO_SIZE : 2.6); /* (how tall a class stands in the world) */
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);
@@ -221,7 +221,8 @@ function wearShield(ch, H) {
     const qW = new THREE.Quaternion().setFromRotationMatrix(_sm.makeBasis(X, Y, Z)), qF = fore.getWorldQuaternion(_sq).clone();
     const sF = fore.getWorldScale(new THREE.Vector3()).x; H.shBasis = { q: qF.invert().multiply(qW), len, sF };
     const local = hand.position.clone().multiplyScalar(0.5); mt.position.copy(local); mt.quaternion.copy(H.shBasis.q); mt.scale.setScalar(1 / sF); /* (world-sized mount, half way down the forearm) */ }
-  if (!H.shSized && sh.userData.glb) { H.m.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(sh), hgt = (Math.max(bx.getSize(_sv).x, _sv.y, _sv.z) || 1) / Math.max(1e-6, sh.getWorldScale(_sv2).x) * Math.max(1e-6, mt.getWorldScale(_sv2).x); /* (its height at scale 1 on the mount, measured once the whole arm is up to date) */ const want = heroHeight(ch.app && (ch.app.cls || ch.app.outfit)) * 0.47; /* (a full heater shield: about two fifths of his height) */
+  let hasG = !!sh.userData.glb; if (!hasG && !H.shSized) sh.traverse(c => { if (c.userData && c.userData.glb) hasG = true; });
+  if (!H.shSized && hasG) { H.m.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(sh), hgt = (Math.max(bx.getSize(_sv).x, _sv.y, _sv.z) || 1) / Math.max(1e-6, sh.getWorldScale(_sv2).x) * Math.max(1e-6, mt.getWorldScale(_sv2).x); /* (its height at scale 1 on the mount, measured once the whole arm is up to date) */ const want = heroHeight(ch.app && (ch.app.cls || ch.app.outfit)) * 0.47; /* (a full heater shield: about two fifths of his height) */
     sh.scale.setScalar(1).multiplyScalar(want / Math.max(0.01, hgt)); sh.position.set(0, 0, 0.13 * want); H.shSized = true; } /* (sits just off the back of the forearm, face outward) */
 }
 // the shield arm: at rest it hangs by his side, the shield facing out to the left; on block the forearm comes up in front of him
@@ -406,7 +407,7 @@ export function tickFpArms(vm) {
   for (const nm of ['LeftShoulder', 'RightShoulder', 'neck', 'Spine', 'Spine01', 'Spine02']) if (B[nm] && nm.endsWith('Shoulder')) B[nm].scale.setScalar(ao ? 1 : 0.6); // (shoulder pads shrunk so they never cover the view)
   F.wrap.visible = vm.g.visible !== false && !F.hideTest; F.wrap.updateMatrixWorld(true);
   const grips = {}; F.hk = F.hk || {};
-  const modelGrip = F.D.fpGrip === 'model'; F.code = F.code || {};
+  const modelGrip = F.D.fpGrip !== 'code'; F.code = F.code || {}; /* (the owner: always the class model's own hand, never a code-built one) */
   for (const [H, sd] of [[vm.R, 'Right'], [vm.L, 'Left']]) { const hold = ao && H.visible && (holding(H) || !!vm.fists); /* (bare fists: the view model's closed fist, never the model's open hand) */ F.code[sd] = hold && !modelGrip;
     F.hk[sd] = (F.hk[sd] || 0) + ((hold && modelGrip ? 1 : 0) - (F.hk[sd] || 0)) * 0.4; if (F.hm) for (const ms of F.hm[sd]) if (ms.morphTargetInfluences) ms.morphTargetInfluences[0] = F.hk[sd]; // (fpGrip 'model': the model's own hand closes round what it holds)
     if (F.code[sd] && B[sd + 'Hand']) B[sd + 'Hand'].scale.setScalar(0.001); // (otherwise a held weapon sits in the view model's own closed fist, made in the colours of the model's hand, on the end of the model's forearm)

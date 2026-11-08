@@ -620,7 +620,7 @@ const tuneOf = (h) => ARENA_TUNE[h && h.cls] || null;
 export const arenaHpK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 1.4 : 1) * ((tuneOf(h) || {}).hp || 1) * (1 + 0.08 * arenaStat(h, 'hp'));
 export const arenaTakenK = (h) => !h || !h.arena ? 1 : (TANK_CLS.has(h.cls) ? 0.85 : 1) * (1 - 0.06 * arenaStat(h, 'armor'));
 export const arenaHealK = (h) => 1 + 0.1 * arenaStat(h, 'heal');
-export const arenaSpeedK = (h) => 1.1 * (1 + 0.04 * arenaStat(h, 'speed')); /* (everyone 10% quicker on their feet) */
+export const arenaSpeedK = (h) => 1 + 0.04 * arenaStat(h, 'speed');
 
 // ---- arena passives (perk trees): what they do to a hit going out and a hit coming in ----
 const pv = (h, k) => (h && h.arenaPK && h.arenaPK.p && h.arenaPK.p[k]) || 0;

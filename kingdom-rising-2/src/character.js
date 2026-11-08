@@ -123,7 +123,7 @@ export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb
 // the business end up +y, about the code part's length, so every swing, block and cast pose still fits. f: [turn x, y, z, scale to metres, move x, y, z]
 const PI = Math.PI, KIT = {
   warrior_sword: { f: [0, 0, PI, 0.012, 0, 0.338, 0], fpf: [0, PI / 2, 0, 0.92] }, /* (first person: the blade turned a quarter about its length, edge forward) */ /* (point-up: guard just above the fist at y 0.1, point at 0.91, like the code sword) */
-  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03], fpf: [0, PI, 0, 0.95] }, /* (first person: lion face turned outward, away from you) */ /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
+  warrior_shield: { f: [0, 0, 0, 0.011, 0, -0.06, 0.03], fpf: [0, PI, 0, 0.95, 0, -0.32, 0] }, /* (first person: lion face turned outward, away from you) */ /* (lion face +z, point down: 0.72 wide and 1.05 tall before the shield group's own 1.15) */
   darkknight_sword: { f: [0, 0, PI, 0.0196, 0, 0.527, 0] }, /* (guard at 0.2, point at 1.46: the code greatsword) */
   bers_axe: { f: [0, 0, 0, 0.016, 0, 0.57, 0] }, /* (the ram-skull heads at y 1.05 like the code great axe, edges out along x) */
   ranger_bow: { f: [0, -PI / 2, 0, 0.017, 0, 0, 0.094], cut: (g) => keepTris(g, (x, y) => !(x > 8.3 && Math.abs(y) < 38)), str: [0.646, 0.252] }, /* (riser at the origin, string toward +z; its own string is cut out so the code string, which draws, takes its place) */
@@ -137,7 +137,7 @@ const PI = Math.PI, KIT = {
   ench_staff: { f: [0, 0, 0, 0.0185, 0, 0.479, 0], tip: 1.3 },
   ele_orb: { f: [0, 0, 0, 0.0045, 0, 0.6575, 0], tip: 0.68, fpPos: [0, -0.133, 0] }, /* (no staff: the fire-and-ice orb held up by its crystal pendant, just above the fist) */
   necro_scythe: { f: [0, 0, 0, 0.019, 0, 0.285, 0], tp: [0, 0, 0, 0, PI / 2, 0], /* (third person: the blade toward his knuckles, forward when he stands with it upright) */ tpf: [0, 0, 0, 0, -0.245, 0, 0], /* (third person: the shaft, not the middle of the blade's sweep, runs through his fist) */ fp: [0, 0, 0, 0, 0, 0.05], fpPos: [-0.245, -0.3, 0] }, /* (first person: the blade faces left, the shaft runs through the fist high up, just under the blade) */ /* (a 1.8 m bone scythe, the fist a third of the way up the shaft) */
-  rogue_dagger: { f: [0, 0, PI, 0.0055, 0, 0.157, 0] }, /* (guard at 0.09, point at 0.42: the code dagger) */
+  rogue_dagger: { f: [0, 0, PI, 0.0055, 0, 0.157, 0], fpf: [0, PI, 0], fpPos: [0, -0.04, 0], fpCut: 0.04 }, /* (first person: turned 180, the guard just above the fist, the grip and pommel below y 0.04 cut away so only the blade shows) */ /* (guard at 0.09, point at 0.42: the code dagger) */
   bomb_grenade: { f: [0, 0, 0, 0.0036, 0, 0.072, 0] }, /* (gripped by the stick, the head up) */
   bomb_detonator: { f: [0, 0, 0, 0.0027, 0, 0.027, 0], belt: [0.2, 0.9, 0.04, 0, 0, 0] }, /* (the plunger box clipped to his belt on the left hip, button up) */
   bard_lute: { f: [0, 0, PI, 0.0084, 0, 0.235, 0] }, /* (held by the neck near the pegs, the bowl up +y, face +z: the code lute's frame) */
@@ -161,11 +161,17 @@ export function loadKit(k) { if (!_kitP[k]) _kitP[k] = (_fbxL = _fbxL || import(
   const mt = Array.isArray(src.material) ? src.material[0] : src.material; if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 16; } /* (sharpest filtering: these weapons sit right under your eye in first person) */ if (mt.color) mt.color.set('#ffffff'); if (mt.specular) mt.specular.set('#2a2a2a'); mt.shininess = 24;
   const o = new THREE.Mesh(geo, mt); o.userData.keep = true; o.castShadow = true; const tpl = new THREE.Group(); tpl.name = k + 'Kit'; tpl.add(o); tpl.userData.keep = true; /* (keep: bake() leaves it whole, with its own texture) */
   _kitTpl[k] = tpl; res(tpl); for (const fn of (_kitWait[k] || []).splice(0)) fn(tpl);
-}, undefined, () => res(null)))); return _kitP[k]; }
+}, undefined, () => { res(null); for (const fn of (_kitWait[k] || []).splice(0)) fn(null); }))); return _kitP[k]; }
 // swap a group's code-built meshes for the detailed model (now if it is loaded, or as soon as it is). o.fp: first person (the code parts hide at once, no shadows)
-export function kitize(g, k, o = {}) { if (!g || !KIT[k]) return g; if (o.fp) for (const c of g.children) if (c.isMesh) c.visible = false;
-  const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = o.fp ? false : cs.length ? cs[0].castShadow : true, cull = o.fp ? false : cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
-    const m = tpl.clone(), K = KIT[k]; m.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; for (const mt of [].concat(c.material)) if (mt) mt.side = THREE.DoubleSide; } }); /* (both faces drawn: no see-through holes in thin Meshy parts, e.g. the lute) */ if (o.fp && K.fpPos) m.position.fromArray(K.fpPos); if (o.fp && K.fpf) { m.rotation.set(K.fpf[0], K.fpf[1], K.fpf[2], 'YXZ'); if (K.fpf[3]) m.scale.multiplyScalar(K.fpf[3]); } /* (fpf: a first-person-only turn of the kit model) */ if (!o.fp && K.tpf) { const T = K.tpf; m.rotation.set(T[0], T[1], T[2], 'YXZ'); if (T[3]) m.scale.setScalar(T[3]); if (T.length > 4) m.position.set(T[4], T[5], T[6]); } /* (third person only: turn, size, move in the hand) */ g.add(m); g.userData.glb = m;
+// first person only: a kit model with everything below y = cut dropped (a dagger's grip and pommel, hidden in the fist)
+const _fpCut = {};
+function fpCutGeo(k, geo, cut) { if (_fpCut[k]) return _fpCut[k]; const pos = geo.attributes.position, keep = [];
+  for (let i = 0; i < pos.count; i += 3) if (pos.getY(i) >= cut && pos.getY(i + 1) >= cut && pos.getY(i + 2) >= cut) keep.push(i, i + 1, i + 2);
+  const out = new THREE.BufferGeometry(); for (const nm in geo.attributes) { const A = geo.attributes[nm], n = A.itemSize, arr = new A.array.constructor(keep.length * n); keep.forEach((v, j) => { for (let c = 0; c < n; c++) arr[j * n + c] = A.array[v * n + c]; }); out.setAttribute(nm, new THREE.BufferAttribute(arr, n, A.normalized)); }
+  out.computeBoundingSphere(); out.computeBoundingBox(); return (_fpCut[k] = out); }
+export function kitize(g, k, o = {}) { if (!g || !KIT[k]) return g; for (const c of g.children) if (c.isMesh) c.visible = false; /* (the old code-built weapon never shows, even for a moment while the detailed one loads) */
+  const put = (tpl) => { if (!tpl) { if (!g.userData.glb) for (const c of g.children) if (c.isMesh) c.visible = true; return; } if (g.userData.glb) return; /* (no detailed model after all: the code-built one comes back) */ const cs = g.children.filter(c => c.isMesh); const shadow = o.fp ? false : cs.length ? cs[0].castShadow : true, cull = o.fp ? false : cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
+    const m = tpl.clone(), K = KIT[k]; m.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; for (const mt of [].concat(c.material)) if (mt) mt.side = THREE.DoubleSide; } }); /* (both faces drawn: no see-through holes in thin Meshy parts, e.g. the lute) */ if (o.fp && K.fpCut != null) m.traverse(c => { if (c.isMesh) c.geometry = fpCutGeo(k, c.geometry, K.fpCut); }); if (o.fp && K.fpPos) m.position.fromArray(K.fpPos); if (o.fp && K.fpf) { m.rotation.set(K.fpf[0], K.fpf[1], K.fpf[2], 'YXZ'); if (K.fpf[3]) m.scale.multiplyScalar(K.fpf[3]); if (K.fpf[4] != null) m.position.add(new THREE.Vector3(K.fpf[4], K.fpf[5] || 0, K.fpf[6] || 0)); } /* (fpf[4..6]: a first-person offset, e.g. a shield slid down over the wrist) */ /* (fpf: a first-person-only turn of the kit model) */ if (!o.fp && K.tpf) { const T = K.tpf; m.rotation.set(T[0], T[1], T[2], 'YXZ'); if (T[3]) m.scale.setScalar(T[3]); if (T.length > 4) m.position.set(T[4], T[5], T[6]); } /* (third person only: turn, size, move in the hand) */ g.add(m); g.userData.glb = m;
     if (K.tip != null && g.userData.tip) g.userData.tip.position.set(0, K.tip, 0);
     if (K.str && g.userData.string) { const [h, z] = K.str, a = g.userData.string.geometry.attributes.position; a.setXYZ(0, 0, -h, z); a.setXYZ(1, 0, 0, z); a.setXYZ(2, 0, h, z); a.needsUpdate = true; g.userData.string.geometry.computeBoundingSphere(); g.userData.stringZ = z; } };
   if (_kitTpl[k]) put(_kitTpl[k]); else { (_kitWait[k] = _kitWait[k] || []).push(put); loadKit(k); } return g; }
@@ -382,7 +388,7 @@ export function buildHumanoid(app = {}) {
   if (kind === 'tyrant') { R.sw = 0.3; R.hw = 0.14; R.thick = 1.6; R.head = 1.05; R.armL = 0.66; }
 
   const root = new THREE.Group(); root.name = 'humanoid';
-  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? 1.953125 * (ARENA_SIZE[app.cls] || 1) : 1); // (the arena classes stand a quarter bigger, then a quarter again; each class its own size)
+  const scale = (race.height || 1) * (app.height || 1) * (hero ? hero.h : 1) * (app.spec ? 1.5625 * (ARENA_SIZE[app.cls] || 1) : 1); // (the arena classes stand a quarter bigger, then a quarter again; each class its own size)
   const body = new THREE.Group(); body.scale.setScalar(scale); root.add(body);
   const O = kind === 'person' ? outfitSpec(app) : {};
 

@@ -568,7 +568,7 @@ export function rangerRain(caster, at) {
   const base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z), end = T.delay + T.dur;
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(T.r, 48), new THREE.MeshBasicMaterial({ color: '#0a0806', transparent: true, opacity: 0, depthWrite: false })); shadow.rotation.x = -Math.PI / 2; shadow.position.set(C.x, base + 0.05, C.z);
   const rim = new THREE.Mesh(new THREE.RingGeometry(T.r - 0.15, T.r, 64), new THREE.MeshBasicMaterial({ color: '#ff3a2a', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); rim.rotation.x = -Math.PI / 2; rim.position.set(C.x, base + 0.07, C.z); G.scene.add(shadow, rim);
-  caster.held = true; if (me) { me.ultImmT = end + 0.5; me.ultPoseT = 0; ultFlyCam(me, () => C.clone().setY(base + 1), () => end - 0.4, { r: 11, h: 4.6, inT: 0.9 }); } else caster.invulnT = G.time + end + 0.5;
+  caster.held = true; if (me) { me.ultImmT = T.delay + 1.5; me.ultPoseT = 0; ultFlyCam(me, () => C.clone().setY(base + 1), () => T.delay + 0.5, { r: 11, h: 4.6, inT: 0.9 }); } else caster.invulnT = G.time + end + 0.5; /* (the shot pulls back once the volley is up, so the ranger keeps shooting while it rains: the balance tester found the whole storm cost more basic damage than it dealt) */
   const live = []; // arrows in flight or stuck: { m, t, life, from, to, dur, stick: unit|null }
   const spawn = (to, unit) => { const m = makeArrow(); m.scale.setScalar(1.7); const sk2 = new THREE.Mesh(RAIN_STREAK.g, RAIN_STREAK.m); sk2.position.y = 1.9; m.add(sk2); m.userData.streak = sk2; /* (big arrows with a bright streak behind each one: from the camera's seat the storm reads as falling light, not specks) */ const from = to.clone().add(new THREE.Vector3(2.5 + Math.random() * 1.5, 16 + Math.random() * 4, -1.5 + Math.random() * 3)); m.position.copy(from); const dir = to.clone().sub(from).normalize(); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir); G.scene.add(m); live.push({ m, t: 0, dur: 0.32 + Math.random() * 0.08, from, to, unit, landed: false }); };
   let t = 0, volT = 0, rainAcc = 0, tickT = 0, sndT = 0; const struck = new Map(), up = [];
@@ -592,10 +592,10 @@ export function rangerRain(caster, at) {
             ultHurt(a.unit, T.dmg / 2, caster, 'blood'); V.burst('blood', a.to, 6, { speed: 2.5 }); if (sndT <= 0) { sndT = 0.08; S.hit && S.hit('flesh', a.to, 0.7); } }
           else { V.burst('dust', a.to.clone().setY(a.to.y + 0.05), 5, { speed: 2.2, size: 0.5 }); if (Math.random() < 0.5) V.emit('spark', a.to.clone().setY(a.to.y + 0.1), { n: 3, speed: 3, size: 0.18, life: 0.25 }); if (sndT <= 0 && Math.random() < 0.3) { sndT = 0.06; S.hit && S.hit('wood', a.to, 0.4); } a.m.position.y = a.to.y + 0.25; } } }
       else if (a.t > (a.stuckTo ? 2.2 : 1.6)) { (a.stuckTo || G.scene).remove(a.m); live.splice(i, 1); } }
-    if (me && t > end - 0.2 && me.held) me.held = false;
+    if (me && t > T.delay + 1.3 && me.held) me.held = false;
     if (t > end + 2.3 && !live.length && !up.length) { G.scene.remove(shadow, rim); caster.held = false; if (me && me.cine && !document.body.classList.contains('cine')) me.cine = null;
       return true; }
-    if (t > end && caster.held) caster.held = false;
+    if (t > T.delay + 1.3 && caster.held) caster.held = false;
     return false; } });
   return true;
 }

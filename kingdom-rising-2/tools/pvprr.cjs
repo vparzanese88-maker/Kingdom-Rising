@@ -15,7 +15,8 @@ const ROUNDS = +(process.argv[2] || 3), OUT = process.argv[3] || 'pvprr.json', C
   const res = fs.existsSync(OUT) && !process.env.FRESH ? JSON.parse(fs.readFileSync(OUT)) : [];
   const done = new Set(res.map(r => r.a + ':' + r.b));
   const SET = JSON.stringify({ fmt: 'ffa', ffaN: 3, objective: 'dm', lives: 'many', slots: [{ you: true, cls: 'cleric', race: 'human', team: 0 }, { cls: 'warrior', race: 'human', team: 1 }, { cls: 'wizard', race: 'human', team: 2 }] });
-  const boot = async () => { await p.evaluate((s) => sessionStorage.setItem('kr2_arena_setup', s), SET);
+  const crypto = require('crypto'), path = require('path'); const codeHash = () => ['arena.js', 'combat.js', 'game.js', 'classes2.js', 'player.js'].map(f => crypto.createHash('md5').update(fs.readFileSync(path.join(__dirname, '../src', f))).digest('hex').slice(0, 6)).join('.');
+  const boot = async () => { console.log('boot code', codeHash()); await p.evaluate((s) => sessionStorage.setItem('kr2_arena_setup', s), SET);
     await p.goto(base + '?mode=arena&nomodels', { timeout: 180000, waitUntil: 'domcontentloaded' }); await p.waitForFunction(() => document.getElementById('loading') && document.getElementById('loading').hidden, null, { timeout: 200000 }); };
   const relaunch = async () => { try { await b.close(); } catch (e2) { /* gone */ } await new Promise(z => setTimeout(z, 30000)); b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }); p = await b.newPage({ viewport: { width: 320, height: 180 } }); await p.goto(base + '?nomodels', { timeout: 180000, waitUntil: 'domcontentloaded' }); await boot(); };
   await boot(); let nPairs = 0;

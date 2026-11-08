@@ -31,7 +31,7 @@ function ashlar(n = 512, rows = [70, 92, 78, 96, 84, 92], mortar = 5, base = 205
         g.strokeStyle = 'rgba(255,250,235,0.18)'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + m, py + h - m); g.lineTo(px + m, py + m); g.lineTo(px + w - m, py + m); g.stroke(); // (a lit top-left edge)
         g.strokeStyle = 'rgba(30,24,18,0.25)'; g.beginPath(); g.moveTo(px + w - m, py + m); g.lineTo(px + w - m, py + h - m); g.lineTo(px + m, py + h - m); g.stroke();
         if (rr() < 0.35) { g.strokeStyle = 'rgba(40,32,24,0.45)'; g.lineWidth = 1.2; g.beginPath(); let cx = px + w * rr(), cy = py + m; g.moveTo(cx, cy); for (let k = 0; k < 5; k++) { cx += (rr() - 0.5) * 18; cy += h / 5; g.lineTo(cx, cy); } g.stroke(); } // a crack
-        if (rr() < 0.25) { g.fillStyle = 'rgba(40,34,26,0.35)'; g.beginPath(); g.arc(px + (rr() < 0.5 ? m + 6 : w - m - 6), py + (rr() < 0.5 ? m + 6 : h - m - 6), 4 + rr() * 6, 0, 7); g.fill(); } }); // a chipped corner
+        }); // (no chipped-corner dots: they read as rivets)
       x += w; } y += h; }
   speckle(g, n, 2600, 0.04, 0.12, true); speckle(g, n, 2600, 0.05, 0.16, false); blotches(g, n, 14, '60,52,40', 30, 90, 0.18); blotches(g, n, 6, '250,240,220', 30, 80, 0.12); return c; }
 function flagstones(n = 512) { const [c, g] = canvas(n); g.fillStyle = '#5a5246'; g.fillRect(0, 0, n, n); const cells = 4, s = n / cells;
@@ -110,7 +110,7 @@ export function glowify(m) { m.userData.glow = true; m.onBeforeCompile = (sh) =>
   m.customProgramCacheKey = () => 'kr2glow'; }
 
 // ---- the golden hour: a fixed low sun, warm light and cool shade, warm haze (called each frame from the day/night update) ----
-const LOOK = { dir: new THREE.Vector3(-0.66, 0.40, -0.34).normalize(), sun: new THREE.Color('#ffc07a'), top: new THREE.Color('#33558f'), hor: new THREE.Color('#ffb784'), sunSky: new THREE.Color('#ffd49a'),
+const LOOK = { dir: new THREE.Vector3(-0.66, 0.40, -0.34).normalize(), sun: new THREE.Color('#ffd09a'), top: new THREE.Color('#33558f'), hor: new THREE.Color('#ffb784'), sunSky: new THREE.Color('#ffd49a'),
   sky: new THREE.Color('#9fb0dc'), ground: new THREE.Color('#7a5444'), fill: new THREE.Color('#90a4e0'), fog: new THREE.Color('#d6a48a') };
 export function ruinsLook({ sun, hemi, fill, sky, scene, renderer, focus }) {
   sun.position.copy(focus).addScaledVector(LOOK.dir, 200); sun.target.position.copy(focus); sun.color.copy(LOOK.sun); sun.intensity = 2.9;

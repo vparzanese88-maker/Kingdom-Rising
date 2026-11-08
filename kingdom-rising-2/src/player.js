@@ -289,7 +289,7 @@ class ViewModel {
     if (this.bomber && r === VP.staff) r = VP.necroR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = mirror(VP.bookL); } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }
-    if (this.necro && this.weapons.heldR) { r = VP.necroScy; l = VP.necroL; if (act && /^(scythe|reap|swing|slash|cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroScyA, VP.necroScyB, act.t, 0.3, VP.necroScy); } /* (both hands on the scythe; any swing or cast is a right-to-left reap) */
+    if (this.necro && this.weapons.heldR) { r = VP.necroScy; l = VP.necroL; } /* (both hands on the scythe; any swing or cast is a right-to-left reap) */
     else if (this.necro) { if (r === VP.staff || r === VP.staffCast) r = VP.necroR; if (!l || l === VP.hideL) l = VP.necroL; if (act && /^(cast|castRel|shoot|spell|release)/.test(act.name)) r = seq(VP.necroR, VP.necroPush, act.t, 0.18, VP.necroR); } // (the necromancer: an open spell hand on the right, the shrunken head held out on the left)
     if (this.rogueOff && (!l || l === VP.hideL)) l = VP.restL; /* (the rogue: a dagger in each hand) */
     const t = act ? act.t : 0; let n = act ? act.name : ''; if (this.rogueOff && n === 'stabR') { if (act !== this._altAct) { this._altAct = act; this._alt = !this._alt; } if (this._alt) n = 'stabL'; } /* (his stabs alternate hands) */
@@ -356,6 +356,7 @@ class ViewModel {
     if (this.necro && !this.weapons.heldR && act && /^(cast|castRel|shoot|spell|release|chargeCast)/.test(n)) { // (the necromancer's right hand THRUSTS forward: a short draw back, a hard shove out to the crosshair, a beat at full reach, then back)
       const k = t < 0.1 ? -0.25 * ease(t / 0.1) : t < 0.26 ? -0.25 + 1.25 * easeOut((t - 0.1) / 0.16) : t < 0.45 ? 1 : 1 - ease((t - 0.45) / 0.55); r = plerp(VP.necroR, VP.necroPush, k); l = VP.necroL;
     } else if (this.necro && !this.weapons.heldR && st.channel) { const j = Math.sin(performance.now() * 0.03) * 0.004; r = plerp(VP.necroR, VP.necroPush, 0.85); r = [r[0] + j, r[1] + j, r[2], r[3], r[4], r[5]]; l = VP.necroL; }
+    if (this.necro && this.weapons.heldR && !st.tool) { r = VP.necroScy; l = VP.necroL; if (act && /^(scythe|reap|swing|slash|cast|castRel|shoot|spell|release|heavy|smash)/.test(n)) r = seq(VP.necroScyA, VP.necroScyB, t, 0.3, VP.necroScy); } /* (whatever the act, the scythe stays in both hands: every attack is a right-to-left reap) */
     this.punchR = this.punchL = 0;
     if (this.wt === 'fists' && act && !st.kick) { // (fists jab straight out instead of swinging like a blade)
       if (n === 'fury' || n === 'area' || n === 'spin') { const q = (t * 7) % 1, side = Math.floor(t * 7) % 2; const kq = q < 0.35 ? easeOut(q / 0.35) : 1 - ease((q - 0.35) / 0.65), J = plerp(VP.jabA, VP.jabB, kq); if (side) { l = mirror(J); r = VP.guardR; this.punchL = kq; } else { r = J; l = mirror(VP.guardR); this.punchR = kq; } }
@@ -2196,7 +2197,7 @@ export class Player {
     const fp = this.camDist < 0.6;
     this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp); V.fpPos = fp && !this.dead ? this.pos : null;
     this.vm.g.visible = fp && !this.dead;
-    for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); }
+    for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.25 : 1.8 + this.camDist * 0.25, fp ? 0.55 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
     this.landDip *= Math.max(0, 1 - dt * 6);
     let eyeY = this.eye - this.landDip + (this.block ? -0.05 : 0);
     if (this.dodge && !this.dodge.charge) eyeY -= Math.sin(Math.min(1, this.dodge.t) * Math.PI) * (fp ? (this.h.arena ? 0.12 : 0.7) : 0.2); // (the arena: barely a dip, no roll) // (the over-the-shoulder camera barely dips: the body does the rolling)

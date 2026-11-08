@@ -17,7 +17,7 @@ import { spawnProjectile } from './combat.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
-import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear } from './world.js';
+import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { loadDemonModel, poseDemonModel } from './heromodels.js';
@@ -312,19 +312,39 @@ export function ultHurt(u, frac, caster, kind = 'gold', quiet = false) { if (!u 
 export function ultKill(u, caster) { if (!u || u.dead) return; if (u === G.player) { u.hp = 0; u.die && u.die(caster); } else if (u.dummy) u.takeHit && u.takeHit(99999, caster, {}); else { u.hp = 0; u.die && u.die(caster); } }
 export function ultHeal(u, frac) { if (!u || u.dead) return; const n = (u.maxHp || 1000) * frac; if (u === G.player && u.heal) u.heal(n); else u.hp = Math.min(u.maxHp, u.hp + n); V.burst('heal', u.pos.clone().setY(u.pos.y + 1.2), 20, { speed: 2, vy: 2 }); }
 export function ultSlow(u, k, dur) { if (!u || u.dead) return; u.ultSlowT = G.time + dur; u.ultSlowK = k; }
+// what an ultimate's camera must never sit in or look through: walls and buildings (solidAt), trunks and pillars (round
+// colliders, as columns 5 m tall), tree crowns and other big props (G.camOcc: ellipsoids { x, y, z, r, sy }), and the ground
+const camHit = (x, y, z, near) => { if (solidAt(x, y, z)) return true; if (y < heightAt(x, z) + 0.5) return true;
+  for (const o of G.camOcc || []) { const dx = x - o.x, dy = (y - o.y) / (o.sy || 1), dz = z - o.z; if (dx * dx + dy * dy + dz * dz < o.r * o.r) return true; }
+  for (const c of near) { if (y > c.top) continue; const dx = x - c.x, dz = z - c.z; if (dx * dx + dz * dz < (c.r + 0.35) * (c.r + 0.35)) return true; } return false; };
+const camNear = (a, b, pad = 2) => { const x0 = Math.min(a.x, b.x) - pad, x1 = Math.max(a.x, b.x) + pad, z0 = Math.min(a.z, b.z) - pad, z1 = Math.max(a.z, b.z) + pad, out = [];
+  for (const c of world.colliders) if (c.on && c.t === 'c' && c.x > x0 - c.r && c.x < x1 + c.r && c.z > z0 - c.r && c.z < z1 + c.r && c.r < 4) out.push({ x: c.x, z: c.z, r: c.r, top: heightAt(c.x, c.z) + 5 }); return out; };
+// is the straight line from a to b free for a camera (the end point too)? skip: how far from a to start checking (a is often inside the effect)
+export function camClear(a, b, skip = 0) { const near = camNear(a, b), d = a.distanceTo(b), n = Math.max(2, Math.ceil(d / 0.45)); for (let i = 1; i <= n; i++) { const t = i / n; if (t * d < skip) continue; if (camHit(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, near)) return false; } return true; }
 // the caster's camera: flies up and out of their eyes to circle the action, then back. focus() gives the point to watch;
 // backAt() the time to fly home (seconds into the ultimate). Returns the camera function (it is set as p.cine).
-export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, P0 = new THREE.Vector3(), L0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(), look = new THREE.Vector3(); let off = null, offS = 0, chk = -9;
-  // a smooth pull-back: from your eyes, straight back and up, turning to keep the action in view; never rolls or flips
-  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, r = opts.r || 13, h = opts.h || 5, a0 = opts.ang != null ? opts.ang : null, UP = new THREE.Vector3(0, 1, 0);
-  const d0 = opts.delay || 0, inT = opts.inT || 1.1; const cam = (c) => { const ct = G.time - t0, k = e((ct - d0) / inT) * (1 - e((ct - backAt()) / 1.0)); /* (opts.delay: stay in your eyes a moment first; opts.inT: how slowly it pulls away) */ P0.copy(p.pos); P0.y += p.eye; L0.copy(P0).add(new THREE.Vector3(Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), Math.cos(p.yaw) * Math.cos(p.pitch)).multiplyScalar(12)); /* (looking where you look: it pointed behind you before) */ if (opts.look0) L0.copy(opts.look0()); /* (opts.look0: what you look at before the camera leaves your eyes) */
-    tgt.copy(focus(ct)); const base0 = a0 != null ? a0 : Math.atan2(p.pos.z - tgt.z, p.pos.x - tgt.x), ang = base0 + ct * 0.12; // (start on your side of the action, drift slowly round)
-    if (off == null || G.time - chk > 0.5) { chk = G.time; off = 0; for (let i = 0; i < 12; i++) { const a2 = ang + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.5; if (lineClear(tgt, new THREE.Vector3(tgt.x + Math.cos(a2) * r, tgt.y + h, tgt.z + Math.sin(a2) * r))) { off = a2 - ang; break; } } }
-    offS += (off - offS) * 0.05; Ob.set(tgt.x + Math.cos(ang + offS) * r, tgt.y + h, tgt.z + Math.sin(ang + offS) * r);
-    if (opts.lift) { const M = P0.clone().lerp(Ob, 0.25); M.y = Math.max(P0.y, Ob.y) + opts.lift; const u = 1 - k; c.position.set(u * u * P0.x + 2 * u * k * M.x + k * k * Ob.x, u * u * P0.y + 2 * u * k * M.y + k * k * Ob.y, u * u * P0.z + 2 * u * k * M.z + k * k * Ob.z); } /* (lift straight up over your own head first, then glide out: never through your skull) */
-    else c.position.lerpVectors(P0, Ob, k);
-    look.lerpVectors(L0, tgt, k); c.up.copy(UP); c.lookAt(look);
-    if (p.ch && p.ch.root && k < 1) { const dEye = c.position.distanceTo(P0); if (dEye < 3.2 * (p.ch.scale || 1)) p.ch.root.visible = false; } }; /* (your own body stays hidden until the camera is well clear of your head: big heroes have big heads, so never a view of the inside of your face) */ // (your own body hidden while the camera is still close to your head)
+// It frames the landing AND whoever it caught (opts.frame !== false): the shot widens to hold every enemy near the
+// impact, and it picks its side of the action so no wall, tree crown, trunk or pillar sits in the shot or on the way out.
+export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, P0 = new THREE.Vector3(), L0 = new THREE.Vector3(), Ob = new THREE.Vector3(), tgt = new THREE.Vector3(), look = new THREE.Vector3(), aim = new THREE.Vector3(), M = new THREE.Vector3(), Q = new THREE.Vector3(); let off = null, offS = 0, chk = -9, rS = null, hS = null, rW = 0, hW = 0, fc = null;
+  const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, r = opts.r || 13, h = opts.h || 5, a0 = opts.ang != null ? opts.ang : null, UP = new THREE.Vector3(0, 1, 0), lift = opts.lift != null ? opts.lift : 2.5;
+  const d0 = opts.delay || 0, inT = opts.inT || 1.1, vr = opts.vr || Math.max(8, r * 0.6);
+  const path = (k, out) => { M.copy(P0).lerp(Ob, 0.25); M.y = Math.max(P0.y, Ob.y) + lift; const u = 1 - k; return out.set(u * u * P0.x + 2 * u * k * M.x + k * k * Ob.x, u * u * P0.y + 2 * u * k * M.y + k * k * Ob.y, u * u * P0.z + 2 * u * k * M.z + k * k * Ob.z); }; /* (lift up over your own head first, then glide out: never through your skull) */
+  const cam = (c) => { const ct = G.time - t0, k = e((ct - d0) / inT) * (1 - e((ct - backAt()) / 1.0)); /* (opts.delay: stay in your eyes a moment first; opts.inT: how slowly it pulls away) */ P0.copy(p.pos); P0.y += p.eye; L0.copy(P0).add(new THREE.Vector3(Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), Math.cos(p.yaw) * Math.cos(p.pitch)).multiplyScalar(12)); /* (looking where you look) */ if (opts.look0) L0.copy(opts.look0()); /* (opts.look0: what you look at before the camera leaves your eyes) */
+    aim.copy(focus(ct));
+    if (G.time - chk > 0.5 || off == null) { chk = G.time; // (every half second: who to hold in the shot, how wide, and from which side)
+      let cx = aim.x, cz = aim.z, cy = aim.y, n = 1, spread = 0; if (opts.frame !== false) { const vs = ultFoes(p).filter(u => u && u.pos && u !== p && Math.hypot(u.pos.x - aim.x, u.pos.z - aim.z) < vr); for (const u of vs) { cx += u.pos.x; cz += u.pos.z; cy += u.pos.y + 1.2; n++; } cx /= n; cz /= n; cy /= n; for (const u of vs) spread = Math.max(spread, Math.hypot(u.pos.x - cx, u.pos.z - cz)); spread = Math.max(spread, Math.hypot(aim.x - cx, aim.z - cz)); }
+      fc = new THREE.Vector3(aim.x + (cx - aim.x) * 0.6, aim.y + (cy - aim.y) * 0.5, aim.z + (cz - aim.z) * 0.6); rW = Math.max(r, spread * 2.0 + 5); hW = h * rW / r;
+      const base0 = a0 != null ? a0 : Math.atan2(p.pos.z - fc.z, p.pos.x - fc.x), ang = base0 + ct * 0.12; let best = null;
+      for (const [rr, hh] of [[rW, hW], [rW * 0.75, hW * 0.9], [rW, hW * 1.6], [rW * 0.6, hW * 1.5]]) { for (let i = 0; i < 13 && best == null; i++) { const a2 = ang + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.48; Q.set(fc.x + Math.cos(a2) * rr, fc.y + hh, fc.z + Math.sin(a2) * rr);
+          if (!camClear(fc, Q, 2.5)) continue; Ob.copy(Q); let ok = true; for (const kk of [0.35, 0.6, 0.85]) { path(kk, M); const pt = M.clone(); if (camHit(pt.x, pt.y, pt.z, camNear(pt, pt, 1))) { ok = false; break; } } if (!ok && i < 12) continue; best = [a2 - ang, rr, hh]; } if (best) break; }
+      if (best) { off = best[0]; rW = best[1]; hW = best[2]; } else off = off || 0;
+      if (rS == null) { rS = rW; hS = hW; offS = off; } }
+    tgt.lerp(fc, tgt.lengthSq() === 0 ? 1 : 0.08); rS += (rW - rS) * 0.05; hS += (hW - hS) * 0.05;
+    const base1 = a0 != null ? a0 : Math.atan2(p.pos.z - tgt.z, p.pos.x - tgt.x), ang1 = base1 + ct * 0.12; let dO = off - offS; dO = Math.atan2(Math.sin(dO), Math.cos(dO)); offS += dO * 0.06;
+    Ob.set(tgt.x + Math.cos(ang1 + offS) * rS, tgt.y + hS, tgt.z + Math.sin(ang1 + offS) * rS);
+    if (lift > 0) path(k, c.position); else c.position.lerpVectors(P0, Ob, k);
+    look.lerpVectors(L0, aim.clone().lerp(tgt, 0.5), k); c.up.copy(UP); c.lookAt(look);
+    if (p.ch && p.ch.root && k < 1) { const dEye = c.position.distanceTo(P0); if (dEye < 3.2 * (p.ch.scale || 1)) p.ch.root.visible = false; } }; /* (your own body stays hidden until the camera is well clear of your head: big heroes have big heads, so never a view of the inside of your face) */
   p.cine = cam; return cam; }
 // the victim's cinematic: letterbox bars, the HUD gone, a slow third-person orbit framing you and the threat, for dur seconds
 export function ultVictimCine(p, threat, dur) { if (!p || p.cine) return; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); }

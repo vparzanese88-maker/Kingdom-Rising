@@ -17,7 +17,7 @@ import { A } from './arena.js';
 import { AN, send } from './arenanet.js';
 import { ABILITIES } from './data.js';
 
-export const SIPHON = { dur: 5, cd: 9, tick: 0.2, range: 20, k: 0.45, heal: 0.6, slow: 0.6 }; // (k: of weapon damage per second while on a target; heal: share of it that comes back)
+export const SIPHON = { dur: 5, cd: 9, tick: 0.2, range: 20, k: 0.45, heal: 0.55, slow: 0.6 }; // (k: of weapon damage per second while on a target; heal: share of it that comes back)
 export const REAP = { k: 0.62, dur: 0.66, half: 1.15, reachK: 1.35 }; // (the scythe: k of weapon damage to everyone in the sweep; half: radians either side; reach: his eye height x reachK)
 export const NX = { bot: null };
 G.hooks.reap = REAP; // (player.js reads the scythe's numbers from here) // (bot: { hit, heal } from arena.js, for computer fighters)

@@ -62,20 +62,20 @@ class Particles {
 // ---- weapon trail ribbon ----
 class Trail {
   constructor(scene, color) {
-    this.n = 18; this.pts = [];
+    this.n = 18; this.len = 10; this.pts = []; /* (len: how many samples the streak keeps: short, so it never trails across half the view) */
     const g = new THREE.BufferGeometry();
     this.pos = new Float32Array(this.n * 2 * 3); this.alpha = new Float32Array(this.n * 2);
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
     const idx = []; for (let i = 0; i < this.n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
-    this.mat = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color(color) }, op: { value: 1 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-      vertexShader: `attribute float alpha; varying float vA; void main(){ vA = alpha; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
-      fragmentShader: `uniform vec3 color; uniform float op; varying float vA; void main(){ gl_FragColor = vec4(color, vA*op*0.55); }` });
+    this.mat = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color(color) }, op: { value: 1 }, nearF: { value: new THREE.Vector2(1.8, 4.0) } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute float alpha; uniform vec2 nearF; varying float vA; void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); vA = alpha * smoothstep(nearF.x, nearF.y, -mv.z); gl_Position = projectionMatrix*mv;} `, /* (nearF: the ribbon fades out where it passes close to the camera, so a big blade swung past the lens never paints a sheet over the screen) */
+      fragmentShader: `uniform vec3 color; uniform float op; varying float vA; void main(){ gl_FragColor = vec4(mix(vec3(1.0), color, 0.45), vA*op*0.42); }` }); /* (mostly white: a rare weapon's colour only tints the streak, it no longer washes the view purple) */
     this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 11; scene.add(this.mesh);
     this.active = false; this.fade = 0;
   }
-  push(a, b) {
-    this.pts.unshift([a.clone(), b.clone()]); if (this.pts.length > this.n) this.pts.pop();
+  push(a, b) { /* (only the outer part of the blade leaves a streak: a thin crescent near the tip, not a sheet from hilt to tip) */
+    this.pts.unshift([a.clone().lerp(b, this.thin == null ? 0.55 : this.thin), b.clone()]); if (this.pts.length > this.len) this.pts.pop();
   }
   update(dt) {
     if (!this.active) { this.fade -= dt * 5; if (this.fade <= 0) { this.pts.length = 0; this.mesh.visible = false; return; } if (this.pts.length > 2) this.pts.pop(); }
@@ -85,7 +85,7 @@ class Trail {
     for (let i = 0; i < this.n; i++) {
       const p = this.pts[Math.min(i, L - 1)] || [new THREE.Vector3(), new THREE.Vector3()];
       this.pos.set([p[0].x, p[0].y, p[0].z], i * 6); this.pos.set([p[1].x, p[1].y, p[1].z], i * 6 + 3);
-      const a = i < L ? (1 - i / L) * this.fade : 0; this.alpha[i * 2] = a * 0.2; this.alpha[i * 2 + 1] = a;
+      const a = i < L ? Math.pow(1 - i / L, 1.6) * this.fade : 0; this.alpha[i * 2] = a * 0.2; this.alpha[i * 2 + 1] = a;
     }
     this.mesh.geometry.attributes.position.needsUpdate = true; this.mesh.geometry.attributes.alpha.needsUpdate = true;
   }

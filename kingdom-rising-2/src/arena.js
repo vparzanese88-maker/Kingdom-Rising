@@ -320,7 +320,7 @@ export function ultFlyCam(p, focus, backAt, opts = {}) { const t0 = G.time, P0 =
     if (opts.lift) { const M = P0.clone().lerp(Ob, 0.25); M.y = Math.max(P0.y, Ob.y) + opts.lift; const u = 1 - k; c.position.set(u * u * P0.x + 2 * u * k * M.x + k * k * Ob.x, u * u * P0.y + 2 * u * k * M.y + k * k * Ob.y, u * u * P0.z + 2 * u * k * M.z + k * k * Ob.z); } /* (lift straight up over your own head first, then glide out: never through your skull) */
     else c.position.lerpVectors(P0, Ob, k);
     look.lerpVectors(L0, tgt, k); c.up.copy(UP); c.lookAt(look);
-    if (p.ch && p.ch.root && k > 0 && k < 1) { const dEye = c.position.distanceTo(P0); if (dEye < 1.6) p.ch.root.visible = false; } }; // (your own body hidden while the camera is still close to your head)
+    if (p.ch && p.ch.root && k < 1) { const dEye = c.position.distanceTo(P0); if (dEye < 3.2 * (p.ch.scale || 1)) p.ch.root.visible = false; } }; /* (your own body stays hidden until the camera is well clear of your head: big heroes have big heads, so never a view of the inside of your face) */ // (your own body hidden while the camera is still close to your head)
   p.cine = cam; return cam; }
 // the victim's cinematic: letterbox bars, the HUD gone, a slow third-person orbit framing you and the threat, for dur seconds
 export function ultVictimCine(p, threat, dur) { if (!p || p.cine) return; let bars = document.getElementById('cinebars'); if (!bars) { bars = document.createElement('div'); bars.id = 'cinebars'; bars.innerHTML = '<i></i><i></i>'; document.body.appendChild(bars); }

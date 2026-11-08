@@ -118,7 +118,7 @@ function auraTick(dt) { if ((auraT -= dt) > 0) return; auraT = 0.5; noteT -= 0.5
   for (const [, u] of units) if (u.aura.regen > 0) { if (u === G.player) u.heal(u.maxHp * u.aura.regen * 0.5, true); else u.healSelf(u.maxHp * u.aura.regen * 0.5); } }
 // ultimate charge: 1% a second, more for damage done and healing given; computer fighters fire theirs in a fight
 function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !h.arenaUlt || !f.alive) continue; h.ultCharge = Math.min(100, (h.ultCharge || 0) + dt * 1.0);
-    if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && !(f.bot.status.silence > 0) && Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
+    if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && !(f.bot.status.silence > 0) && (f.bot.cls === 'bombardier' ? bertWant(f.bot, h, dt) : Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12)) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
 const esc2 = (t) => String(t).replace(/[<>&]/g, '');
 export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt); }
 function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 10) return; A.perkClock -= 10;
@@ -802,23 +802,13 @@ export const ULTS = {
           for (const u of nearOf(ultFoes(c), C, R)) { ultHurt(u, 0.02, c, 'holy', true); ultSlow(u, 0.6, 0.7); V.burst('gold', u.pos.clone().setY(u.pos.y + 1.2), 6, { speed: 2 }); } }
         if (me && t > 4.4 && me.cine === cam) me.cine = null;
         if (t > D) { G.scene.remove(dome, wire, rim, sun, ...rays); wings.parent && wings.parent.remove(wings); const body = me ? c.ch && c.ch.body : c.model && c.model.body; if (body) body.position.y = 0; return true; } return false; }); } },
-  bombardier: { id: 'ar_bertha', name: 'Big Bertha', t: 'bertha', aim: 'ground', desc: 'Heave the biggest bomb a goblin ever built onto where you aim. It lands with a thud, its fuse fizzing for 3 s while a red ring spreads around it, then it goes up: anyone within 3 m of it takes 70% of their health, anyone within 9 m takes 30% and is thrown away. Run.',
-    run(c, at) { const base = ultGround(at), to = new THREE.Vector3(at.x, base + 1.1, at.z), me = c === G.player ? c : null;
-      const bomb = new THREE.Group(), iron = new THREE.MeshStandardMaterial({ color: '#2a2a2e', roughness: 0.45, metalness: 0.7 }), rust = new THREE.MeshStandardMaterial({ color: '#7a4a2a', roughness: 0.8, metalness: 0.3 });
-      bomb.add(new THREE.Mesh(new THREE.SphereGeometry(1.1, 24, 18), iron)); for (let i = 0; i < 14; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6), rust); const v = new THREE.Vector3().randomDirection(); sp.position.copy(v).multiplyScalar(1.1); sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v); bomb.add(sp); }
-      for (const y of [-0.45, 0.45]) { const b = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.07, 6, 24), rust); b.rotation.x = Math.PI / 2; b.position.y = y; bomb.add(b); }
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.3, 10), rust); cap.position.y = 1.15; bomb.add(cap); const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 5), new THREE.MeshStandardMaterial({ color: '#d8c890' })); fuse.position.set(0.15, 1.6, 0); fuse.rotation.z = -0.4; bomb.add(fuse);
-      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), glowM('#ffd060', 1)); spark.position.set(0.3, 1.95, 0); bomb.add(spark);
-      for (const x of [-0.35, 0.35]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), glowM('#ff3a1a', 0.9)); e.position.set(x, 0.25, 1.0); bomb.add(e); } /* (a grinning painted face) */ { const gr = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 4, 12, Math.PI), glowM('#ff3a1a', 0.9)); gr.position.set(0, -0.15, 1.02); gr.rotation.z = Math.PI; bomb.add(gr); }
-      bomb.scale.setScalar(0.4); if (me) { me.ultPoseT = 0.9; me.ultImmT = 1.2; const cam = ultFlyCam(me, () => to.clone().setY(base + 2), () => 4.4, { r: 16, h: 7 }); later(5.5, () => { if (me.cine === cam) me.cine = null; }); } S.cast && S.cast('fire', c.pos, 1.2);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(8.6, 9, 80), glowM('#ff3020', 0)), core = new THREE.Mesh(new THREE.CircleGeometry(3, 40), glowM('#ff2010', 0)); for (const m of [ring, core]) { m.rotation.x = -Math.PI / 2; m.position.set(at.x, base + 0.07, at.z); G.scene.add(m); }
-      lob(c.pos.clone().setY(c.pos.y + 1.8), to, bomb, 1.0, 7, () => { bomb.scale.setScalar(1); bomb.rotation.set(0, Math.random() * 6, 0); V.burst('dust', to, 40, { speed: 5 }); V.addShake(0.5); S.explode && S.explode(to, 0.3);
-        let tick = 0; timer((t, dt) => { const k = Math.min(1, t / 3); ring.material.opacity = 0.55 + 0.35 * Math.sin(t * (6 + t * 6)); ring.scale.setScalar(0.2 + 0.8 * Math.min(1, t / 0.5)); core.material.opacity = 0.25 + 0.2 * Math.sin(t * 12); bomb.scale.setScalar(1 + k * 0.25 + Math.sin(t * (10 + t * 10)) * 0.04 * k);
-          spark.position.set(0.3 - k * 0.15, 1.95 - k * 0.6, 0); V.emit('spark', bomb.position.clone().add(spark.position.clone().multiplyScalar(bomb.scale.x)), { speed: 3, vy: 3, size: 0.18 }); tick -= dt; if (tick <= 0) { tick = Math.max(0.12, 0.5 - t * 0.14); S.click && S.click(); }
-          if (t >= 3) { G.scene.remove(bomb, ring, core); V.burst('fire', to, 260, { speed: 18 }); V.burst('smoke', to, 120, { speed: 7 }); V.burst('lava', to, 50, { speed: 12 }); V.sphereFlash(to, 9, '#ffb040', 0.6); V.ring(to, 18, '#ff8030', 0.8); V.ring(to, 12, '#fff0a0', 0.5); V.light(to, '#ff9040', 24, 0.9, 50); V.addShake(1.6); S.explode && S.explode(to, 1.6);
-            for (const u of nearOf(ultFoes(c), to, 9)) { const d = Math.hypot(u.pos.x - to.x, u.pos.z - to.z); ultHurt(u, d < 3 ? 0.7 : 0.3, c, 'fire'); const n = new THREE.Vector3(u.pos.x - to.x, 0, u.pos.z - to.z).normalize(); if (u === G.player) u.vel && u.vel.set(n.x * 14, 10, n.z * 14); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 0.9); if (u.status.knock) u.status.knock.set(n.x * 14, 0, n.z * 14); } if (u.status) u.status.burn = Math.max(u.status.burn || 0, 3); }
-            const sc = new THREE.Mesh(new THREE.CircleGeometry(6, 40), new THREE.MeshBasicMaterial({ color: '#120804', transparent: true, opacity: 0.85, depthWrite: false })); sc.rotation.x = -Math.PI / 2; sc.position.set(to.x, base + 0.05, to.z); G.scene.add(sc); timer((t2) => { sc.material.opacity = 0.85 * Math.max(0, 1 - t2 / 8); if (Math.random() < 0.4) V.emit('ember', to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 8, 0.1, (Math.random() - 0.5) * 8)), { speed: 0.4, vy: 1.5, size: 0.3 }); if (t2 > 8) { G.scene.remove(sc); return true; } return false; });
-            return true; } return false; }); }); } },
+  bombardier: { id: 'ar_bertha', name: 'Big Bertha', t: 'bertha', aim: 'self', desc: `Kneel and plant the biggest bomb a goblin ever built at your feet (${BOMB.ult.plant} s). It beeps for ${BOMB.ult.fuse} s, faster and faster (everyone hears it, louder the closer they are), then goes off: enemies within ${BOMB.ult.core} m take ${Math.round(BOMB.ult.coreK * 100)}% of their health, and out to ${BOMB.ult.r} m it falls off to ${Math.round(BOMB.ult.edgeK * 100)}%; everyone caught is thrown away. Enemies can run, or defuse it by standing on it for ${BOMB.ult.defuse} s. Your detonator never sets it off.`,
+    run(c) { const me = c === G.player ? c : null, at = c.pos.clone(); // (planted, not thrown: a short kneel at your feet, then it starts beeping; no cinematic camera)
+      if (c.h) c.h.bertHeld = 0; if (me) { me.held = true; me.ultPoseT = 0; me.tpT = 0; me.atk = { name: 'gather', t: 0, dur: BOMB.ult.plant, hit: true, noQueue: true }; G.hooks.castBar && G.hooks.castBar('Planting Big Bertha', 0); }
+      else if (c.arenaBot) { c.act = 'gather'; c.actT = 0; c.actSp = 1 / BOMB.ult.plant; c.aimLock = BOMB.ult.plant + 0.1; c.cast = null; }
+      S.cast && S.cast('fire', at, 0.6); let t = 0;
+      timer((tt, dt) => { t += dt; if (me) { G.hooks.castBar && G.hooks.castBar('Planting Big Bertha', t / BOMB.ult.plant); me.vel && me.vel.set(0, me.vel.y, 0); } if (Math.random() < 0.5) V.emit('spark', at.clone().setY(at.y + 0.3), { speed: 1.5, size: 0.12 });
+        if (t < BOMB.ult.plant) return false; if (me) { me.held = false; G.hooks.castBar && G.hooks.castBar(null); } if (!c.dead) plantBomb(c, me ? me.pos.clone() : c.pos.clone()); return true; }); } },
 };
 export const ULT_BY_T = {}; for (const cls in ULTS) ULT_BY_T[ULTS[cls].t] = ULTS[cls];
 export function runTableUlt(caster, ab, aimAt, aimFoe) { const u = ULT_BY_T[ab.t]; if (!u) return false; if (u.aim === 'foe') { if (!aimFoe) return 'noaim'; u.run(caster, aimFoe); } else u.run(caster, u.aim === 'ground' ? aimAt : caster.pos.clone()); return true; }
@@ -838,11 +828,11 @@ export function summonDemon(caster, at) {
   S.rumble && S.rumble(center, 1.6); V.addShake(0.25);
   const team = caster === G.player ? G.myTeam : caster.team, enemies = () => (inAr ? A.F.filter(f => f.alive && f.team !== team).map(unitOf).filter(u => u && !u.dead) : caster === G.player ? (G.mobs || []).filter(m => !m.dead && !m.pet && !m.ally && m.pos) : [G.player].filter(u => u && !u.dead)).filter(u => !((u.ultImmT || 0) > 0)); /* (the Training Yard: its dummies) */
   const e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, seg = (t, a, b) => e((t - a) / (b - a)), L = (a, b, k) => a + (b - a) * k;
-  let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 6.8, roared = 0, emT = 0, liT = 0;
+  let GRAB = 3.0, BITE = 5.8, yawC = face, t = 0, bit = false, victim = null, from = null, missed = false, sinkAt = 7.8, roared = 0, emT = 0, liT = 0;
   const hp = new THREE.Vector3(), hpL = new THREE.Vector3(), mouth = new THREE.Vector3(), headW = new THREE.Vector3(), dripP = new THREE.Vector3(); let emT2 = 0, slT = 0, chomp = false, vroot = null, froze = false;
   const cineOff = () => { const p = G.player; if (p && p.cine) { p.cine = null; } document.body.classList.remove('cine'); const bars = document.getElementById('cinebars'); if (bars) bars.classList.remove('on'); };
   const me = caster === G.player ? G.player : null; let flyCam = null;
-  if (me) { me.held = true; me.ultImmT = 9; me.ultPoseT = 0; me.headUpT = 0; me.oozeT = 7.5; me.oozeE = 0; me.tpT = 0; startFly(); }
+  if (me) { me.held = true; me.ultImmT = 10; me.ultPoseT = 0; me.headUpT = 0; me.oozeT = 8.5; /* (a second longer than before: the demon lingers over its kill) */ me.oozeE = 0; me.tpT = 0; startFly(); }
   G.timers.push({ update: (dt) => { t += dt;
     if (me) { me.ultImmT = Math.max(me.ultImmT, 0.5); me.oozeT = Math.max(me.oozeT, t < sinkAt + 1.0 ? 0.6 : 0); if (t > sinkAt + 1.6 && me.held) { me.held = false; me.cine = null; me.oozeT = 0; me.ultImmT = 0.6; } }
     // the fire: sweeps round to a full ring in the first second, roars while the demon is up, gutters out at the end
@@ -864,22 +854,22 @@ export function summonDemon(caster, at) {
     emT2 = (emT2 || 0) - dt; if (emT2 <= 0 && up > 0.3) { emT2 = 0.05; for (const H of dm ? [dm.bones.RightHand, dm.bones.LeftHand] : [D.arms.R.hand, D.arms.L.hand]) { H.getWorldPosition(dripP); dripP.y -= 0.5; V.emit('poison', dripP, { speed: 0.3, vy: -3, size: 0.22, life: 0.7, radius: 0.3 }); } } /* (ooze dripping from its hands) */
     const R = D.arms.R, Lf = D.arms.L, rising = t < 2.9;
     // left arm: claws the ground while climbing, then braces and sways
-    Lf.sh.rotation.x = rising ? -1.2 + Math.sin(t * 5) * 0.35 : L(-0.5, -0.3, Math.sin(t * 1.3) * 0.5 + 0.5); Lf.sh.rotation.z = rising ? -0.5 : -0.15; Lf.el.rotation.x = rising ? -0.9 : -0.5 + Math.sin(t * 2) * 0.1;
+    const reach = rising || (missed && t < sinkAt) || (t < GRAB && !victim); /* (rising and hunting: both arms stretched up out of the pit, claws grasping, feeling for someone to grab) */ Lf.sh.rotation.x = reach ? -2.55 + Math.sin(t * 3.6) * 0.32 : L(-0.5, -0.3, Math.sin(t * 1.3) * 0.5 + 0.5); Lf.sh.rotation.z = reach ? -0.35 + Math.sin(t * 2.3) * 0.15 : -0.15; Lf.el.rotation.x = reach ? -0.35 + Math.sin(t * 4.1) * 0.25 : -0.5 + Math.sin(t * 2) * 0.1;
     // the roar: head back, jaw wide, throat blazing
     const roar = seg(t, 2.35, 2.6) * (1 - seg(t, 3.0, 3.25)), roar2 = missed ? seg(t, 4.0, 4.25) * (1 - seg(t, 4.7, 5.0)) : 0, rr = Math.max(roar, roar2);
     if (rr > 0.5 && roared < (roar2 > 0.5 ? 2 : 1)) { roared++; S.growl && S.growl('wolf', center, 0.4); S.explode && S.explode(center, 0.5); V.addShake(0.8); V.ring(center.clone().setY(base + 0.2), RR * 2, '#3aff5a', 0.7); V.burst('poison', center.clone().setY(base + 4), 50, { speed: 7 }); }
     D.throat.scale.setScalar(1 + rr * 1.2);
     if (t >= GRAB && !victim && (!missed || t < sinkAt - 0.5)) { let best = null, bd = RR; for (const u of enemies()) { const d = Math.hypot(u.pos.x - ox, u.pos.z - oz); if (d < bd) { bd = d; best = u; } }
-      if (best && missed) { missed = false; GRAB = t; BITE = t + 2.8; sinkAt = BITE + 1.0; } /* (caught someone mid-search) */
+      if (best && missed) { missed = false; GRAB = t; BITE = t + 2.8; sinkAt = BITE + 2.0; } /* (caught someone mid-search) */
       if (best) { victim = best; vroot = best.root || (best.ch && best.ch.root); from = best.pos.clone(); victim.held = true; if (victim === G.player) { G.player.debuff && G.player.debuff('stun', BITE - GRAB + 0.3); startCine(); } else if (victim.status) { victim.status.stun = BITE - GRAB + 0.3; victim.cast = null; victim.pending = null; } }
-      else if (!missed) { missed = true; sinkAt = 5.4; } }
+      else if (!missed) { missed = true; sinkAt = 6.4; } }
     // right arm: reach, seize, hoist overhead, hold up as they struggle, bring them to the jaws
     let shx = -0.4 + Math.sin(t * 1.4) * 0.08, shz = 0.1, elx = -0.4;
-    if (rising) { shx = -1.0 + Math.sin(t * 5 + 1.5) * 0.35; shz = 0.45; elx = -0.9; }
+    if (reach) { shx = -2.55 + Math.sin(t * 3.6 + 1.7) * 0.32; shz = 0.35 + Math.sin(t * 2.3 + 1) * 0.15; elx = -0.35 + Math.sin(t * 4.1 + 2) * 0.25; }
     if (victim) { const kR = seg(t, GRAB, GRAB + 0.45), kL = seg(t, GRAB + 0.5, GRAB + 1.4), kM = seg(t, BITE - 0.45, BITE);
       shx = L(L(shx, -1.15, kR), -2.75, kL); elx = L(L(elx, -0.15, kR), -0.35, kL); shz = L(shz, 0.15, kR);
       shx = L(shx, -2.95, kM); shz = L(shz, 0.5, kM); elx = L(elx, -0.25, kM); if (t > GRAB + 1.4 && t < BITE - 0.45) shx += Math.sin(t * 9) * 0.05; }
-    else if (missed && t < sinkAt) { shx = -0.9 + Math.sin(t * 3) * 0.3; shz = 0.3; }
+    /* (searching when nobody is there: handled by reach above) */
     R.sh.rotation.x = shx; R.sh.rotation.z = shz; R.el.rotation.x = elx;
     // head: tracks the victim, tips back to roar, cranes up at the prize, lunges for the bite; searches when nobody is there
     let hx = rising ? 0.35 : 0.05, hy = 0; if (missed && t < sinkAt) hy = Math.sin((t - GRAB) * 3.2) * 0.45; else if (victim && !bit) { g.updateMatrixWorld(true); D.head.getWorldPosition(headW); const lv = victim.pos.clone().sub(headW); hy = 0; hx = L(hx, -Math.atan2(lv.y + 1, Math.hypot(lv.x, lv.z)) * 0.6, 0.7); }
@@ -888,7 +878,7 @@ export function summonDemon(caster, at) {
     let jw = rr * 0.75 + Math.max(0, Math.sin(t * 2.2)) * 0.06; if (victim) { jw = Math.max(jw, seg(t, BITE - 1.0, BITE - 0.2) * 0.85 * (1 - seg(t, BITE - 0.05, BITE))); if (t >= BITE) jw = 0.55 + Math.max(0, Math.sin((t - BITE) * 14)) * 0.35 * (1 - seg(t, BITE + 0.9, BITE + 1.3)); }
     D.jaw.rotation.x = jw;
     g.updateMatrixWorld(true); R.hand.getWorldPosition(hp); D.head.localToWorld(mouth.set(0, -0.5, 0.75));
-    if (dm) { Lf.hand.getWorldPosition(hpL); const scr = (t >= 1.0 && t < Math.min(GRAB, 3.3) && !victim) || roar2 > 0.02; poseDemonModel(dm, dt, { screaming: scr, handR: scr ? null : hp.clone(), handL: scr ? null : hpL.clone(), pitch: scr ? 0 : hx, yaw: scr ? 0 : hy }); /* (it screams as it rises and roars (and again when it finds nobody); the rest of the time its head copies the built demon's (searching, craning up, lunging to bite) and its arms reach for the built demon's hands) */
+    if (dm) { Lf.hand.getWorldPosition(hpL); const scr = rr > 0.35; /* (the scream pose only for the roars: otherwise its arms follow the reaching built arms) */ poseDemonModel(dm, dt, { screaming: scr, handR: scr ? null : hp.clone(), handL: scr ? null : hpL.clone(), pitch: scr ? 0 : hx, yaw: scr ? 0 : hy }); /* (it screams as it rises and roars (and again when it finds nobody); the rest of the time its head copies the built demon's (searching, craning up, lunging to bite) and its arms reach for the built demon's hands) */
       dm.bones.RightHand.getWorldPosition(hp); if (dm.bones.Head) dm.bones.Head.localToWorld(mouth.copy(dm.mouth || new THREE.Vector3())); } /* (the victim hangs from the model's own fist and goes into its own mouth) */
     if (victim && !bit && victim.held) { const vh = victim.height || 1.75, kR = seg(t, GRAB + 0.35, GRAB + 0.75), flip = seg(t, GRAB + 0.6, GRAB + 1.4), kM = seg(t, BITE - 0.55, BITE - 0.05), kS = seg(t, BITE, BITE + 0.55);
       const hang = hp.clone(); hang.y -= L(1.05, 0.1, flip); /* (upright in its fist, then held by the ankle, hanging head-down) */
@@ -976,7 +966,7 @@ export function openKitInfo(UI, into) {
   const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
-  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? 'Lob a bomb in an arc: it bursts on whatever it hits or where it lands, hurting everyone within 3 m. Hold to keep throwing.' : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
+  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? `Throw a bomb in an arc: it bounces two or three times off the ground and walls and goes off ${BOMB.throw.fuse} s after it leaves your hand (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Your detonator (right click) sets it off early. Hold to keep throwing.` : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
   const hs = { ranger: ' Headshots: 2x on a full draw, 1.5x on a quick shot (Spectral Arrow 1.75x), and each one heals you 5% of your health.', musketeer: ' Headshots: 2x, or 2.25x aimed down the sights.', wizard: ' Your bolts fly straight where you aim (no homing). Headshots: 1.5x (Temporal Bolt and Disintegrate too).', elementalist: ' Headshots: 1.5x with frost and arcane bolts and Lightning Lash.' }[cls] || '';
   let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb + hs, 0, null);
   const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
@@ -1106,6 +1096,7 @@ function hitPlayer(src, raw, o) {
   if (!p.dead && p.debuff) ccPlayer(p, o2, dodged); // (roots root, silences silence: see the crowd-control rules below)
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
 }
+BX.bot = { hit: (src, tgt, raw, o) => hitUnit(src, tgt, raw, o), foes: (src) => enemiesOf(src) }; // (computer fighters' bombs hurt through the arena's rules)
 function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) { [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); o = ccShape(src, o); } const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); if (src && src.h && d > 0) ultGain(src.h, d / 40); return d; }
 // ---------- crowd control (docs/CLASS_DESIGN.md, roster-wide rules 1-5) ----------
 // a root really roots (no walking, jumping or dodging; you can still aim, shoot and cast); a mesmerize breaks on damage
@@ -1157,7 +1148,7 @@ export function playerRules(p = G.player) {
   };
   p.tryDodge = function (d) { if (isRooted(this)) { V.number(headOfU(this), 'Rooted', 'miss'); return; } return dodge.call(this, d); };
   p.jump = function () { if (isRooted(this) && !this.swim) return; return jump.call(this); };
-  p.ability = function (i, fromCast) { const a = ABILITIES[this.h.cls][i]; if (a && this.h.arena) { if (isSilenced(this) && !fromCast) { silencedNote(this); return; } this._abId = a.id; this._abT = G.time; } return ability.call(this, i, fromCast); };
+  p.ability = function (i, fromCast) { const a = ABILITIES[this.h.cls][i]; if (a && this.h.arena) { if (isSilenced(this) && !fromCast) { silencedNote(this); return; } this._abId = a.id; this._abT = G.time; if (a.t === 'stickies' || a.t === 'detonate') return bomberKey(this, a, i); } return ability.call(this, i, fromCast); };
   p.ultimate = function () { if (this.h.arena && isSilenced(this)) { silencedNote(this); return; } return ult.call(this); };
   p.takeDamage = function (dmg, src, o = {}) { const r = take.call(this, dmg, src, o);
     if (dmg > 0 && this.mezUntil > G.time && G.time - (this.mezAt || 0) > CC.mezGrace && this.db && this.db.stun) { this.db.stun.t = 0; this.mezUntil = 0; this.ccImmT = G.time + CC.immune; wakeFx(this); } // (damage wakes you from a mesmerize)
@@ -1167,6 +1158,32 @@ export function playerRules(p = G.player) {
   return p;
 }
 const RMB_CAST = new Set(['ar_ironhide']);
+// ---- a computer bombardier: lob bombs at the target, glue sticky bombs on them (or round itself as a trap when nobody is in sight),
+// set them off when enemies are in the blast, and plant Big Bertha where they are bunched up
+function botBomb(b, T, dmg, sticky) { const from = b.pos.clone().setY(b.pos.y + (b.height || 1.2) * 0.75).addScaledVector(V3(Math.sin(b.yaw), 0, Math.cos(b.yaw)), 0.35);
+  const d = Math.hypot(T.pos.x - from.x, T.pos.z - from.z), fl = Math.max(0.4, Math.min(1.2, d / (sticky ? 22 : 17))), tv = T.vel || V3(), aim = T.pos.clone().addScaledVector(V3(tv.x, 0, tv.z), fl * 0.8);
+  aim.x += (Math.random() - 0.5) * d * 0.06; aim.z += (Math.random() - 0.5) * d * 0.06; aim.y += sticky ? (T.height || 1.6) * 0.5 : 0.25; /* (stickies at the body, bombs at the feet; a little scatter with range) */
+  const v = lobVel(from, aim, fl); b.yaw = Math.atan2(T.pos.x - b.pos.x, T.pos.z - b.pos.z); return sticky ? throwSticky(b, from, v, dmg) : throwBomb(b, from, v, dmg); }
+function bomberBot(b, dt) { if ((b.bombT = (b.bombT || 0) - dt) > 0 || b.status.silence > 0 || b.status.stun > 0) return; b.bombT = 0.15;
+  const foes = enemiesOf(b), near = bombsNear(b, foes), live = liveBombs(b, 's').length, s = stickyCharges(b.h), T = b.target;
+  const det = abOf(b, 'bo_detonate'), stk = abOf(b, 'bo_stickies');
+  // the detonator: a thrown bomb next to someone, or enough sticky bombs on or round them (or the last chance before they get away)
+  if (det && near.n && (near.st >= 3 || near.n > near.st || s.n <= 0 || (T && T.hp / T.maxHp < 0.3) || Math.random() < 0.08)) { detonate(b); b.act = 'cast'; b.actT = 0; b.gcd = Math.max(b.gcd, 0.3); return; }
+  if (!stk || s.n <= 0 || b.cast || b.dashing) return; const up = Game.perkPow(Game.perkLvl(b.h, stk.id)) * b.up * b.dmgMul(), dmg = b.base * BOMB.sticky.k * up;
+  if (T && !T.dead) { const dT = Math.hypot(T.pos.x - b.pos.x, T.pos.z - b.pos.z); if (dT < 22 && (b.stkT = (b.stkT || 0) - 0.15) <= 0) { b.stkT = 0.35 + Math.random() * 0.35; if (botBomb(b, T, dmg, true)) { b.act = 'cast'; b.actT = 0; b.actSp = 2.2; } } return; }
+  if (live < 3 && Math.random() < 0.04) { const a = b.yaw + (Math.random() - 0.5) * 2, at = b.pos.clone().add(V3(Math.sin(a) * (3 + Math.random() * 5), 0, Math.cos(a) * (3 + Math.random() * 5))); at.y = gy(at.x, at.z, b.pos.y); /* (a trap of sticky bombs round itself) */
+    const from = b.pos.clone().setY(b.pos.y + 1); throwSticky(b, from, lobVel(from, at, 0.6), dmg); } }
+function bertWant(b, h, dt) { const foes = enemiesOf(b), n = (r) => foes.filter(u => Math.hypot(u.pos.x - b.pos.x, u.pos.z - b.pos.z) < r).length; h.bertHeld = (h.bertHeld || 0) + 0.25 * dt * 4;
+  return n(BOMB.ult.core + 4) >= 2 || n(BOMB.ult.r * 0.6) >= 3 || (n(6) >= 1 && h.bertHeld > 20); } // (into a crowd; or, having waited, on whoever is close)
+// the Goblin Bombardier's Q (a sticky bomb, from 5 charges) and right click (the detonator), for your own hero
+function bomberKey(p, a, i) { if (p.dead || p.swim || p.held || G.uiOpen) return; const key = 'a' + (i + 1);
+  if (a.t === 'detonate') { if ((p.cd[key] || 0) > 0) return; p.cd[key] = a.cd || 0.3; const n = detonate(p); S.detonator && S.detonator(); V.burst('spark', p.pos.clone().setY(p.pos.y + 0.9), 6, { speed: 2 }); if (!n) V.number(p.pos.clone().setY(p.pos.y + (p.eye || 1.6) + 0.3), 'No bombs out', 'miss'); return; }
+  const h = p.h; h.stkK = Game.perkCd(Game.perkLvl(h, a.id, 'cd')) * Game.arenaCdAll(h); const s = stickyCharges(h); if (s.n <= 0) { S.error && S.error(); return; }
+  const fp = p.camDist < 0.6, from = fp ? G.camera.position.clone().add(new THREE.Vector3(0.2, -0.16, -0.75).applyQuaternion(G.camera.quaternion)) : p.handPos(), dir = p.aimDir(from);
+  const v = dir.multiplyScalar(BOMB.sticky.speed); v.y += BOMB.sticky.up; const up = (G.abilScale ? G.abilScale(h.level) : 1) * Game.perkPow(Game.perkLvl(h, a.id));
+  const b = throwSticky(p, from, v, Game.weaponDamage(h, p.weapon) * BOMB.sticky.k * up); if (!b) return;
+  if (p.atk) { p.atk = null; p.queued = null; } p.atk = { name: 'castRel', t: 0.15, dur: 0.4, hit: true, noQueue: true }; S.swing && S.swing(0.8, p.pos);
+  const s2 = stickyCharges(h); p.cd[key] = s2.n <= 0 ? s2.next : 0; }
 // the rule half of a few abilities (called for players and computer fighters alike, as the ability goes off)
 const nearU = (list, at, r) => list.filter(u => u && !u.dead && u.pos && Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < r);
 function abilityRule(u, a, T) {
@@ -1371,7 +1388,7 @@ class ArenaBot {
       if (this.cast) { const c = this.cast; c.t += dt; if (c.wind && c.tgt && c.tgt.pos) { const fa = Math.atan2(c.tgt.pos.x - this.pos.x, c.tgt.pos.z - this.pos.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 5); }
         if (c.wind && !c.melee && Math.random() < 0.5) V.emit('spark', this.pos.clone().setY(this.pos.y + 1.5), { n: 1, speed: 0.6 }); // a glow gathers in the caster's hands
         if (c.t >= c.dur) { this.cast = null; if (c.melee) { this.act = 'swing2'; this.actT = 0.42; this.actSp = 1.6; } this.resolve(c.a, c.tgt, c.at); } }
-      else { speed = this.move(dt); this.fight(); }
+      else { speed = this.move(dt); if (this.cls === 'bombardier') bomberBot(this, dt); this.fight(); }
     }
     // knockback
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
@@ -1462,6 +1479,7 @@ class ArenaBot {
     // low on health with no healing: fall back toward a team mate who heals
     if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
     { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { if (RUINS_MAP()) { tx = rm.rm.gx + rm.rm.dir[0] * 4; tz = rm.rm.gz + rm.rm.dir[1] * 4; } else { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } else if (RUINS_MAP() && !this.goal) { const w = this.laneStep(T); if (w) { tx = w[0]; tz = w[1]; } } } // still in the holding room: out through the gate first
+    { const bz = nearestDanger(this); if (bz) { const reach = bz.d / 5.5 + BOMB.ult.defuse + 0.6; if (bz.left > reach && this.hp / this.maxHp > 0.4 && (bz.d < 9 || this.persona().stick > 0.6)) { tx = bz.x; tz = bz.z; } else { const ax = me.x - bz.x, az = me.z - bz.z, al = Math.hypot(ax, az) || 1; tx = bz.x + ax / al * (bz.r + 3); tz = bz.z + az / al * (bz.r + 3); } } } // (an enemy Big Bertha: defuse it if there is time, else run out of its blast)
     // stay apart from everyone else
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
@@ -1479,7 +1497,7 @@ class ArenaBot {
       const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? 0.75 : 1);
       this.swingT = sw * 1.25; const raw = this.base * 0.95 * this.dmgMul();
       if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.actSp = 1.4; this.aimLock = this.W.kind === 'gun' ? 0.75 : 0.55; /* plant your feet to aim, then fire */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012;
-        this.pending = { t: 0.4, fn: () => { if (T.dead) return; const bomb = this.cls === 'bombardier', pri = this.cls === 'priest'; shot(this, T, bomb ? SHOT_COL.fire : pri ? SHOT_COL.holy : this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); if (pri) atone(this, 0.045); if (bomb) { for (const u of enemiesOf(this)) if (u !== T && !u.dead && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3) hitUnit(this, u, raw * 0.6, { ranged: true }); V.burst('fire', T.pos.clone().setY(T.pos.y + 0.8), 40, { speed: 6 }); V.ring(T.pos.clone().setY(T.pos.y + 0.1), 3, '#ff9030', 0.35); S.explode && S.explode(T.pos, 0.4); } }, false, bomb ? 'bomb' : undefined); } }; }
+        this.pending = { t: 0.4, fn: () => { if (T.dead) return; if (this.cls === 'bombardier') { botBomb(this, T, raw * BOMB.throw.k, false); return; } /* (a real bomb, lobbed to land at their feet) */ const bomb = this.cls === 'bombardier', pri = this.cls === 'priest'; shot(this, T, bomb ? SHOT_COL.fire : pri ? SHOT_COL.holy : this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); if (pri) atone(this, 0.045); if (bomb) { for (const u of enemiesOf(this)) if (u !== T && !u.dead && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3) hitUnit(this, u, raw * 0.6, { ranged: true }); V.burst('fire', T.pos.clone().setY(T.pos.y + 0.8), 40, { speed: 6 }); V.ring(T.pos.clone().setY(T.pos.y + 0.1), 3, '#ff9030', 0.35); S.explode && S.explode(T.pos, 0.4); } }, false, bomb ? 'bomb' : undefined); } }; }
       else { this.act = Math.random() < 0.5 ? 'swing1' : 'swing2'; this.actT = 0; this.actSp = 1.5; this.aimLock = 0.3; // wind up, then strike: the blow lands as the weapon comes through
         this.pending = { t: 0.36, fn: () => { if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 3.4) { hitUnit(this, T, raw, { melee: true }); S.hit && S.hit('flesh', T.pos, 0.6); } } }; }
     }
@@ -1643,6 +1661,7 @@ function onNet(from, d) {
     case 'over': if (!AN.host) finish(d.w); break;
     case 'restart': if (!AN.host) restartMatch(true); break;
     case 'bfx': if (!AN.host) botFx(U(d.i), d); break;
+    case 'bomb': bombNet(d, U); break; // (another machine's bombs: thrown, stuck, gone off, Big Bertha)
     case 'shot': if (!AN.host) { const a = U(d.f), b = U(d.to); if (a && b) shot(a, b, d.c, () => {}, !!d.b, d.k); } break;
   }
 }

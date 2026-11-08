@@ -69,7 +69,7 @@ function plantProps() {
 function placeProp(kind, base, at) {
   base.updateMatrixWorld(true); const parts = [], box = new THREE.Box3();
   base.traverse(o => { if (!o.isMesh || !o.geometry) return; const geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); fixNormals(geo); geo.computeBoundingBox(); box.union(geo.boundingBox);
-    const mats = (Array.isArray(o.material) ? o.material : [o.material]).map(m => { if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; m.map.needsUpdate = true; } if (m.color) m.color.set('#ffffff'); if ('shininess' in m) m.shininess = 4; if (m.specular) m.specular.setScalar(0.05); return m; });
+    const mats = (Array.isArray(o.material) ? o.material : [o.material]).map(m => { if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; m.map.needsUpdate = true; } if (m.color) m.color.setScalar(kind === 'rock' ? 1.6 : 1); /* (the rock's texture is dark: lifted so it reads as grey stone, not a black lump) */ if ('shininess' in m) m.shininess = 4; if (m.specular) m.specular.setScalar(0.05); return m; });
     parts.push([geo, mats.length === 1 ? mats[0] : mats]); });
   if (!parts.length) return;
   const H = Math.max(0.01, box.max.y - box.min.y), cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2; // (stand the model on its base, centred, one metre tall)

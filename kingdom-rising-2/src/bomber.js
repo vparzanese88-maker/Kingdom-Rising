@@ -19,6 +19,7 @@ import { foe } from './combat.js';
 import { A, gy, ultFoes, ultHurt } from './arena.js';
 import { AR, PILLARS } from './arenamap.js';
 import { AN, send } from './arenanet.js';
+import { ABILITIES } from './data.js';
 
 export const BOMB = {
   throw: { fuse: 1.6, r: 3.2, k: 1.1, speed: 20, up: 4 }, // (k: of the thrower's weapon damage, at the centre; half that at the edge)
@@ -180,8 +181,9 @@ function ultTick(b, dt) { const U = BOMB.ult, k = clamp01(b.t / b.fuse), m = b.m
   if (b.defuse >= U.defuse) { defused(b, on[0]); net({ e: 'd', o: b.oi, id: b.id }); return; }
   if (b.t >= b.fuse) bigBoom(b);
 }
-// the Q slot shows how many sticky bombs are in hand; the right-click slot how many bombs are out
+// the Q slot shows how many sticky bombs are in hand
 function bomberHud() { const P = G.player; if (!P || !P.h || P.h.cls !== 'bombardier' || !P.h.arena) return; const s = stickyCharges(P.h);
+  { const k = (ABILITIES[P.h.cls] || []).findIndex(a => a.id === 'bo_stickies'); if (k >= 0 && P.cd) P.cd['a' + (k + 1)] = s.n <= 0 ? s.next : 0; } // (the slot's cooldown shows the wait for the next sticky bomb when none are left)
   const slot = [...document.querySelectorAll('#abil .slot.hb')].find(e => (e.title || '').startsWith('Sticky Bombs')); if (slot) { let c = slot.querySelector('.bchg'); if (!c) { c = document.createElement('b'); c.className = 'bchg'; c.style.cssText = 'position:absolute;top:2px;right:4px;font:700 14px Georgia,serif;color:#ffd060;text-shadow:0 1px 2px #000,0 0 4px #000;pointer-events:none;z-index:3'; slot.appendChild(c); } const t = String(s.n); if (c.textContent !== t) c.textContent = t; slot.classList.toggle('empty', s.n <= 0); } }
 
 // ---------- online: copies of other machines' bombs ----------
@@ -206,3 +208,5 @@ export function nearestDanger(u) { // the closest enemy Big Bertha this fighter 
   let best = null, bd = 1e9; for (const b of BX.list) { if (b.kind !== 'u' || !b.owner || b.owner === u || (b.owner.team != null && b.owner.team === u.team)) continue; const d = Math.hypot(u.pos.x - b.pos.x, u.pos.z - b.pos.z); if (d < BOMB.ult.r + 2 && d < bd) { bd = d; best = { x: b.pos.x, z: b.pos.z, d, left: b.fuse - b.t, r: BOMB.ult.r }; } } return best; }
 export function bombsNear(owner, foes) { // how many of this goblin's bombs would catch an enemy if they went off now
   let n = 0, st = 0; for (const b of BX.list) { if (b.owner !== owner || b.ghost || b.kind === 'u') continue; const r = b.kind === 's' ? BOMB.sticky.bigR : BOMB.throw.r; if (foes.some(u => u && !u.dead && Math.hypot(u.pos.x - b.pos.x, u.pos.z - b.pos.z) < r * 0.85)) { n++; if (b.kind === 's') st++; } } return { n, st }; }
+// your own hero's left click (player.js calls this from the staff attack): the bomb leaves your fist in an arc
+G.hooks.bombThrow = (p, from, dir, base) => { const T = BOMB.throw, v = dir.clone().multiplyScalar(T.speed); v.y += T.up; if (p.vel) v.addScaledVector(new THREE.Vector3(p.vel.x, 0, p.vel.z), 0.5); /* (a little of your run carries into the throw) */ return throwBomb(p, from, v, base * T.k); };

@@ -416,6 +416,13 @@ class ViewModel {
       else if (W && W.kind === 'melee' && W.hands === 'two' && wt !== 'spear' && !ab) { /* (two-handers: heavy overhead chops and diagonal cleaves, both hands on the haft) */
         const chop = n === 'swing1' || n === 'swing3' || n === 'heavy' || n === 'smash' || n === 'charge';
         if (/^(swing|heavy|smash|sweep|lowcut)/.test(n)) r = chop ? swingK(t1, VP.rest2, HM.chA, HM.chM, HM.chB, 0.34) : swingK(t1, VP.rest2, HM.clA, HM.clM, HM.clB, 0.3); }
+      if (W && W.kind === 'staff' && !this.book) { /* (staff casters: the staff drawn back by the shoulder, then the whole arm throws it forward at the crosshair, the free palm shoving out with it) */
+        const SW = P(0.4, -0.14, -0.32, -0.15, -0.05, -0.4), LW = P(-0.32, -0.18, -0.36, -0.7, 0, 0.35), i2 = ab ? (act.i || 0) : -1;
+        if (/^(cast|spell|castRel|shoot|release)/.test(n)) { r = kf(t1, [[0, VP.staff], [0.22, SW], [0.28, SW], [0.4, VP.staffCast, easeOut], [0.62, VP.staffCast], [1, VP.staff]]); l = kf(t1, [[0, VP.hideL], [0.22, LW], [0.28, LW], [0.4, VP.castL, easeOut], [0.62, VP.castL], [1, VP.hideL]]); }
+        else if (i2 === 0 || n === 'castBig') { r = kf(t1, [[0, VP.staff], [0.4, VP.staffHigh], [0.5, VP.staffHigh], [0.62, VP.staffSlam, easeIn], [0.8, VP.staffSlam], [1, VP.staff]]); l = kf(t1, [[0, VP.hideL], [0.4, VP.handUpL], [0.62, VP.castL], [1, VP.hideL]]); } /* (F: the staff hoisted high, then slammed down ahead) */
+        else if (i2 === 1) { r = kf(t1, [[0, VP.staff], [0.4, P(0.3, -0.3, -0.6, -0.9, 0, -0.2)], [1, VP.staff]]); l = kf(t1, [[0, VP.hideL], [0.3, LW], [0.45, VP.handPushL, easeOut], [0.75, VP.handPushL], [1, VP.hideL]]); } /* (C: the staff held, the free palm thrusts out) */
+        else if (i2 >= 2) { r = kf(t1, [[0, VP.staff], [0.45, VP.staffHigh], [0.8, VP.staffHigh], [1, VP.staff]]); l = kf(t1, [[0, VP.hideL], [0.45, VP.handUpL], [0.8, VP.handUpL], [1, VP.hideL]]); } /* (Q: staff and palm raised to the sky) */
+        if (i2 >= 0 && this.weapons.main) this.weapons.main.visible = !this.hiddenAll; }
       if (ab && W && W.kind === 'melee' && c !== 'beastmaster' && c !== 'rogue' && wt !== 'fists') { /* (abilities: F raises the weapon high to the sky, C draws it back across the chest, Q a big two-handed overhead slam) */
         const i2 = act.i || 0, base = W.hands === 'two' ? VP.rest2 : H1;
         if (i2 === 0) r = kf(t1, [[0, base], [0.35, P(0.3, 0.12, -0.5, 0.15, 0, -0.35)], [0.7, P(0.3, 0.16, -0.5, 0.2, 0, -0.35)], [1, base]]);

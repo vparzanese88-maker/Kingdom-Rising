@@ -239,7 +239,7 @@ export const NEW_CLASSES = {
   bombardier: { name: 'Goblin Bombardier', desc: 'A grinning goblin with a sack of home-made bombs, rocket boots that only sometimes explode, and no sense of danger at all.',
     weapons: ['firestaff'], armor: 'leather', start: 'firestaff', startName: 'Bomb Sack', outfit: 'ranger',
     colors: { main: '#6a4a2a', trim: '#ff8a2a', metal: '#7a6a5a' }, pool: { hp: [85, 10], mana: [0, 0], end: [100, 6], uses: 'end' },
-    info: { tag: 'Goblin bomber', diff: 2, role: 'Area damage from a distance', res: 'Endurance', tips: ['Your bombs fly in an arc and burst where they land: lob them over walls and onto groups.', 'Rocket Boots blast you out of trouble and scorch where you took off.', 'Sticky Bomb glues an enemy to the floor so the rest of your bombs land.'] },
+    info: { tag: 'Goblin bomber', diff: 2, role: 'Area damage from a distance', res: 'Endurance', tips: ['Your bombs bounce two or three times before they go off: bank them off walls and round corners, and press right click to set them off early.', 'Glue up to five sticky bombs onto an enemy or a doorway, then right click: each one goes up in a big blast.', 'Plant Big Bertha where the enemy has to come, and stand guard: they can defuse it by standing on it.'] },
     tune: { dmg: 0.95, hp: 0.82 },
     abilities: [
       { id: 'bo_rocket', name: 'Rocket Boots', level: 1, cd: 9, cost: 20, t: 'dash', dur: 0.35, speed: 32, dmg: 0.8, fx: 'fire', desc: 'Light the rockets strapped to your boots: you blast forward through everything in your way, scorching it.' },

@@ -137,7 +137,7 @@ function arcDir(kind, a, R, U, F) { // a: 0 at the wind-up, 1 at the end of the 
   const dir = (yaw, el) => { const ce = Math.cos(el); return F.clone().multiplyScalar(Math.cos(yaw) * ce).addScaledVector(R, Math.sin(yaw) * ce).addScaledVector(U, Math.sin(el)).normalize(); };
   const L = (x, y) => x + (y - x) * a, D = Math.PI / 180;
   switch (kind) {
-    case 'over': { const ph = L(150, -40) * D, yw = 12 * D; return F.clone().multiplyScalar(Math.cos(ph) * Math.cos(yw)).addScaledVector(R, Math.sin(yw) * Math.cos(ph) + 0.12).addScaledVector(U, Math.sin(ph)).normalize(); } /* (from behind the head, over and down the front) */
+    case 'over': { const ph = L(132, -40) * D, yw = 12 * D; return F.clone().multiplyScalar(Math.cos(ph) * Math.cos(yw)).addScaledVector(R, Math.sin(yw) * Math.cos(ph) + 0.26).addScaledVector(U, Math.sin(ph)).normalize(); } /* (from behind the head, over and down the front) */
     case 'back': return dir(L(-75, 105) * D, L(8, -4) * D); /* (backhand: from the left, across to the right) */
     case 'low': return dir(L(100, -70) * D, L(-12, -30) * D); /* (a low cut at the legs) */
     case 'stab': return dir(L(45, -4) * D, L(-35, -6) * D);

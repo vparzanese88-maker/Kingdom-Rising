@@ -836,6 +836,7 @@ function updateDayNight(dt, focus) {
   if (updateDayNight.winMat === undefined || (updateDayNight.winMat === null && G.time - (updateDayNight.winT || -99) > 10)) { updateDayNight.winMat = null; updateDayNight.winT = G.time; scene.traverse(o => { if (!updateDayNight.winMat && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.color.getHexString() === 'ffd890') updateDayNight.winMat = o.material; }); } /* (searched once, then at most every 10 s if the scene has no windows: it used to search the whole scene every frame) */
   if (updateDayNight.winMat) updateDayNight.winMat.emissiveIntensity = winGlow * 1.6;
   renderer.toneMappingExposure = 0.95 + night * 0.25;
+  if (G.mapLook) return G.mapLook({ sun, hemi, fill, sky, scene, renderer, focus }); // (a map with its own fixed light: the arena's golden hour)
   return night;
 }
 function updateFires(dt, focus) {

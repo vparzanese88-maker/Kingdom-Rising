@@ -7,19 +7,28 @@
 // west) for 3- and 4-team games. The north half is the south half mirrored, so both teams get exactly the same map.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { addBox, addSurface, addCircle } from './world.js';
+import { addBox, addSurface, addCircle, world } from './world.js';
 import { AR, COLORS } from './arenamap.js';
+import { makeKit, kitMat, glowify, buildGround, bakeVerts, heartwood, motes, backdrop, plantMeshy, ruinsLook, tufts } from './ruinsart.js';
+import { G as GS } from './state.js';
 
 const Y = 3; // ground level
 const S = (c, r = 0.9, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
-let M = null, root = null;
+let M = null, root = null, KIT = null;
 let rnd = Math.random; // seeded per half, so both halves get the same "random" scatter
 function seed(s) { rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const geoBuckets = new Map(); // material -> geometries, merged at the end into one mesh each
 function put(geo, mat, x, y, z, ry = 0, rx = 0, sh = true) { const m4 = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
   let g = geo.index ? geo.toNonIndexed() : geo.clone(); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k); if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-  g.applyMatrix4(m4); const k = mat.uuid + (sh ? 's' : ''); if (!geoBuckets.has(k)) geoBuckets.set(k, { mat, sh, list: [] }); geoBuckets.get(k).list.push(g); }
-const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  g.applyMatrix4(m4); const tile = mat.userData.tile; if (tile) worldUV(g, tile);
+  const k = mat.uuid + (sh ? 's' : ''); if (!geoBuckets.has(k)) geoBuckets.set(k, { mat, sh, list: [] }); geoBuckets.get(k).list.push(g); }
+// texture coordinates in metres from where each face sits in the world (so a long wall and a small block show the same stone size)
+function worldUV(g, tile) { const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv; for (let i = 0; i < P.count; i++) { const ax = Math.abs(N.getX(i)), ay = Math.abs(N.getY(i)), az = Math.abs(N.getZ(i)), x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+  if (ay >= ax && ay >= az) U.setXY(i, x / tile, z / tile); else if (ax >= az) U.setXY(i, z / tile, y / tile); else U.setXY(i, x / tile, y / tile); } }
+const seg = (v, s = 4) => Math.min(24, Math.max(1, Math.ceil(v / s))); // (big boxes are cut up, so the baked shade and firelight have vertices to sit on)
+const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d, seg(w), seg(h, 2.6), seg(d));
+const LIGHTS = []; // baked light sources: { x, y, z, r, k, c: [r, g, b] }
+const FIRE = [1, 0.5, 0.18], TREES = [], ROCKS = [];
 const CYL = (r1, r2, h, n = 10) => new THREE.CylinderGeometry(r1, r2, h, n);
 
 // ---- the level kit ----
@@ -48,21 +57,21 @@ function rail(x1, z1, x2, z2, y, mat = M.timber, h = 1.0, yb = y) { const dx = x
   put(BOX(0.14, 0.12, L), mat, cx, ym + h, cz, rot, rx, false); put(BOX(0.1, 0.1, L), mat, cx, ym + h * 0.45, cz, rot, rx, false);
   for (let i = 0; i < 4; i++) { const ya = y + dy * i / 4, yc = y + dy * (i + 1) / 4; addBox(x1 + dx * (i + 0.5) / 4, z1 + dz * (i + 0.5) / 4, 0.1, len / 8, rot, 'map', Math.min(ya, yc), Math.max(ya, yc) + h); }
   const n = Math.max(1, Math.round(len / 1.1)); for (let i = 0; i <= n; i++) { const t = i / n; put(BOX(0.1, h, 0.1), mat, x1 + dx * t, y + dy * t + h / 2, z1 + dz * t, rot, 0, false); } }
-function lantern(x, y, z) { put(BOX(0.22, 0.34, 0.22), M.iron, x, y, z, 0, 0, false); put(new THREE.SphereGeometry(0.13, 8, 6), M.lamp, x, y, z, 0, 0, false); put(new THREE.ConeGeometry(0.2, 0.2, 4), M.iron, x, y + 0.27, z, Math.PI / 4, 0, false); }
+function lantern(x, y, z) { LIGHTS.push({ x, y, z, r: 5, k: 0.5, c: [1, 0.62, 0.28] }); put(BOX(0.22, 0.34, 0.22), M.iron, x, y, z, 0, 0, false); put(new THREE.SphereGeometry(0.13, 8, 6), M.lamp, x, y, z, 0, 0, false); put(new THREE.ConeGeometry(0.2, 0.2, 4), M.iron, x, y + 0.27, z, Math.PI / 4, 0, false); }
 // a torch on a wall: bracket and flame (ry: the way it faces out of the wall)
-function torch(x, y, z, ry = 0) { put(BOX(0.12, 0.12, 0.5), M.iron, x - Math.sin(ry) * 0.2, y - 0.15, z - Math.cos(ry) * 0.2, ry, 0.5, false); put(CYL(0.09, 0.06, 0.45, 6), M.timber, x, y, z, 0, 0, false);
+function torch(x, y, z, ry = 0) { LIGHTS.push({ x: x + Math.sin(ry) * 0.3, y: y + 0.4, z: z + Math.cos(ry) * 0.3, r: 6.5, k: 0.75, c: FIRE }); put(BOX(0.12, 0.12, 0.5), M.iron, x - Math.sin(ry) * 0.2, y - 0.15, z - Math.cos(ry) * 0.2, ry, 0.5, false); put(CYL(0.09, 0.06, 0.45, 6), M.timber, x, y, z, 0, 0, false);
   put(new THREE.ConeGeometry(0.17, 0.55, 7), M.flame, x, y + 0.45, z, 0, 0, false); put(new THREE.ConeGeometry(0.09, 0.32, 6), M.flameCore, x, y + 0.38, z, 0, 0, false); }
 // a fire bowl on a stand
-function brazier(x, z, y = Y, s = 1) { put(CYL(0.12 * s, 0.3 * s, 1.1 * s, 8), M.iron, x, y + 0.55 * s, z); put(CYL(0.55 * s, 0.3 * s, 0.4 * s, 10), M.iron, x, y + 1.25 * s, z);
+function brazier(x, z, y = Y, s = 1) { LIGHTS.push({ x, y: y + 1.9 * s, z, r: 10 * s, k: 1.0, c: FIRE }); world.fires.push({ pos: new THREE.Vector3(x, y + 1.55 * s, z), size: 0.45 * s, light: true }); put(CYL(0.12 * s, 0.3 * s, 1.1 * s, 8), M.iron, x, y + 0.55 * s, z); put(CYL(0.55 * s, 0.3 * s, 0.4 * s, 10), M.iron, x, y + 1.25 * s, z);
   put(new THREE.ConeGeometry(0.45 * s, 1.0 * s, 8), M.flame, x, y + 1.85 * s, z, 0, 0, false); put(new THREE.ConeGeometry(0.25 * s, 0.6 * s, 7), M.flameCore, x, y + 1.7 * s, z, 0, 0, false); addBox(x, z, 0.4 * s, 0.4 * s, 0, 'map', y, y + 1.5 * s); }
-function crystal(x, y, z, s = 1, mat = M.crystal) { for (let k = 0; k < 4; k++) { const g = new THREE.OctahedronGeometry(0.35 * s * (1 - k * 0.15), 0); g.scale(0.6, 2.2, 0.6); put(g, mat, x + Math.sin(k * 2.3) * 0.35 * s, y + 0.6 * s * (1 - k * 0.1), z + Math.cos(k * 2.3) * 0.35 * s, k, (k - 1.5) * 0.25, false); } }
-function tree(x, z, s = 1, glow = false, y = Y) { put(CYL(0.25 * s, 0.45 * s, 4 * s, 7), M.bark, x, y + 2 * s, z); if (y <= Y + 0.1) addCircle(x, z, 0.5 * s); else addBox(x, z, 0.4 * s, 0.4 * s, 0, 'map', y, y + 4 * s);
-  for (let k = 0; k < 6; k++) { const a = k * 1.3 + x, c = new THREE.IcosahedronGeometry((1.3 + (k % 2) * 0.45) * s, 1); put(c, glow ? M.leafGlow : (k % 3 ? M.leaf : M.leafD), x + Math.sin(a) * 1.0 * s, y + (4.0 + (k % 3) * 0.65) * s, z + Math.cos(a) * 1.0 * s, a, 0, true); } }
+function crystal(x, y, z, s = 1, mat = M.crystal) { LIGHTS.push({ x, y: y + 0.8 * s, z, r: 5 * s, k: 0.6, c: mat === M.crystalR ? [1, 0.3, 0.25] : mat === M.crystalG ? [1, 0.75, 0.3] : [0.3, 0.7, 1] }); for (let k = 0; k < 4; k++) { const g = new THREE.OctahedronGeometry(0.35 * s * (1 - k * 0.15), 0); g.scale(0.6, 2.2, 0.6); put(g, mat, x + Math.sin(k * 2.3) * 0.35 * s, y + 0.6 * s * (1 - k * 0.1), z + Math.cos(k * 2.3) * 0.35 * s, k, (k - 1.5) * 0.25, false); } }
+function tree(x, z, s = 1, glow = false, y = Y) { if (!glow) TREES.push([x, y, z, 7.2 * s, x * 1.7 + z]); put(CYL(0.25 * s, 0.45 * s, 4 * s, 7), glow ? M.bark : M.barkT, x, y + 2 * s, z); if (y <= Y + 0.1) addCircle(x, z, 0.5 * s); else addBox(x, z, 0.4 * s, 0.4 * s, 0, 'map', y, y + 4 * s);
+  for (let k = 0; k < 6; k++) { const a = k * 1.3 + x, c = new THREE.IcosahedronGeometry((1.3 + (k % 2) * 0.45) * s, 1); put(c, glow ? M.leafGlow : (k % 3 ? M.leafT : M.leafTD), x + Math.sin(a) * 1.0 * s, y + (4.0 + (k % 3) * 0.65) * s, z + Math.cos(a) * 1.0 * s, a, 0, true); } }
 function bush(x, z, s = 1, y = Y) { for (let k = 0; k < 3; k++) { const g = new THREE.IcosahedronGeometry(0.55 * s * (1 - k * 0.15), 0); g.scale(1.2, 0.8, 1.1); put(g, k ? M.leaf : M.leafD, x + Math.sin(k * 2.1 + x) * 0.45 * s, y + 0.35 * s, z + Math.cos(k * 2.1 + z) * 0.45 * s, k + x, 0, false); } }
-function rock(x, z, s = 1, y = Y) { const g = new THREE.DodecahedronGeometry(s, 0); g.scale(1.2, 0.7, 1); put(g, M.rock, x, y + 0.3 * s, z, x * 1.7); if (s > 0.45) addCircle(x, z, s * 0.9); }
+function rock(x, z, s = 1, y = Y) { ROCKS.push([x, y, z, s * 1.25, x * 1.7]); const g = new THREE.DodecahedronGeometry(s, 0); g.scale(1.2, 0.7, 1); put(g, M.rockT, x, y + 0.3 * s, z, x * 1.7); if (s > 0.45) addCircle(x, z, s * 0.9); }
 // hanging ivy down a wall face (x,z just in front of the face, ry the way the face looks)
 function vine(x, z, y0, h, ry, w = 1.4) { let y = y0; const n = 3 + Math.floor(rnd() * 3); for (let i = 0; i < n && y > Y + 0.3; i++) { const ww = w * (1 - i * 0.18) * (0.7 + rnd() * 0.5), hh = h / n * (0.8 + rnd() * 0.5), off = (rnd() - 0.5) * w * 0.4;
-  put(BOX(ww, hh, 0.08), i % 2 ? M.leaf : M.leafD, x + Math.cos(ry) * off, y - hh / 2, z - Math.sin(ry) * off, ry, 0, false); y -= hh * 0.85; } }
+  const g = new THREE.PlaneGeometry(ww * 1.25, hh * 1.2), fw = 0.06 + i * 0.03; put(g, i % 2 ? M.ivy : M.ivyD, x + Math.cos(ry) * off + Math.sin(ry) * fw, y - hh / 2, z - Math.sin(ry) * off + Math.cos(ry) * fw, ry, 0, false); y -= hh * 0.85; } }
 // scattered stones and broken masonry
 function rubble(x, z, n = 6, spread = 1.6, y = Y) { for (let i = 0; i < n; i++) { const a = rnd() * Math.PI * 2, r = rnd() * spread, s = 0.15 + rnd() * 0.3, g = i % 3 ? new THREE.DodecahedronGeometry(s, 0) : BOX(s * 2.2, s * 1.2, s * 1.6);
   put(g, i % 3 ? M.rock : M.stone, x + Math.cos(a) * r, y + s * 0.5, z + Math.sin(a) * r, a, (rnd() - 0.5) * 0.6, false); } }
@@ -94,6 +103,11 @@ function awning(x, z, w, d, y, ry, team) { for (const [lx, lz] of [[-w / 2, -d /
   put(BOX(w + 0.4, 0.05, d + 0.5), team < 0 ? M.cloth : M.team[team % M.team.length], x, Y + y + 0.3, z, ry, -0.13, false);
   put(BOX(w - 0.2, 0.9, d - 0.4), M.timber, x, Y + 0.45, z, ry); addBox(x, z, (w - 0.2) / 2, (d - 0.4) / 2, ry, 'map', Y, Y + 0.9); addSurface(x, z, (w - 0.2) / 2, (d - 0.4) / 2, ry, Y + 0.9);
   for (let i = 0; i < 3; i++) put(new THREE.SphereGeometry(0.22, 6, 5), i % 2 ? M.fruit : M.fruit2, x + (i - 1) * 0.6 * Math.cos(ry), Y + 1.05, z - (i - 1) * 0.6 * Math.sin(ry), 0, 0, false); }
+// a string of pennants across a street, sagging between two points (with a lantern in the middle)
+function bunting(x1, y1, z1, x2, y2, z2, team, lamp = true) { const n = 16, P = (t) => [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t - Math.sin(Math.PI * t) * 1.3, z1 + (z2 - z1) * t], ry = Math.atan2(x2 - x1, z2 - z1) + Math.PI / 2;
+  for (let i = 0; i < n; i++) { const a = P(i / n), b = P((i + 1) / n), L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]); put(BOX(0.04, 0.04, L), M.timber, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, ry - Math.PI / 2, -Math.atan2(b[1] - a[1], Math.hypot(b[0] - a[0], b[2] - a[2])), false);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.32, 0, 0, 0.32, 0, 0, 0, -0.75, 0], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0.2, 0.9, 0.8, 0.9, 0.5, 0.3], 2)); g.computeVertexNormals(); const m = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, mz = (a[2] + b[2]) / 2; put(g, i % 2 ? M.gold : M.team[team % M.team.length], m, my, mz, ry, 0, false); }
+  if (lamp) { const c = P(0.5); lantern(c[0], c[1] - 0.4, c[2]); } }
 function cart(x, z, ry) { const at = (lx, lz) => [x + lx * Math.cos(ry) + lz * Math.sin(ry), z - lx * Math.sin(ry) + lz * Math.cos(ry)];
   rb(x, z, 1.8, 0.7, 3.2, Y + 0.7, ry, M.crate); addSurface(x, z, 0.9, 1.6, ry, Y + 1.4); for (const [lx, lz] of [[-1.0, -0.9], [1.0, -0.9], [-1.0, 0.9], [1.0, 0.9]]) { const [wx, wz] = at(lx, lz); put(CYL(0.6, 0.6, 0.14, 12), M.timber, wx, Y + 0.6, wz, ry + Math.PI / 2, Math.PI / 2); }
   { const [hx, hz] = at(0, 2.4); put(BOX(0.12, 0.12, 2.0), M.timber, hx, Y + 0.75, hz, ry, 0.25, false); } { const [sx, sz] = at(0.2, -0.3); put(CYL(0.5, 0.5, 1.0, 10), M.hay, sx, Y + 1.9, sz, ry, Math.PI / 2, false); } }
@@ -195,7 +209,7 @@ function spawnRoom(k, cx, cz, dir, team) { // dir: unit vector out of the room t
   const bars = []; for (let i = 0; i < 13; i++) { const b = CYL(0.06, 0.06, 4.7, 6); b.translate(-3.3 + i * 0.55, -2.35, 0); bars.push(b); }
   for (const yy of [-0.8, -2.3, -3.8]) { const b = BOX(7, 0.12, 0.12); b.translate(0, yy, 0); bars.push(b); }
   for (let i = 0; i < 13; i++) { const sp = new THREE.ConeGeometry(0.1, 0.3, 5); sp.rotateX(Math.PI); sp.translate(-3.3 + i * 0.55, -4.8, 0); bars.push(sp); }
-  const bg = mergeGeometries(bars.map(g => g.index ? g.toNonIndexed() : g), false); const bm = new THREE.Mesh(bg, M.iron); bm.position.set(gx, fy + 4.7, gz); bm.rotation.y = ax ? Math.PI / 2 : 0; root.add(bm); AR.gateBars.push(bm);
+  const bg = mergeGeometries(bars.map(g => g.index ? g.toNonIndexed() : g), false); const bm = new THREE.Mesh(bg, M.ironBars); bm.position.set(gx, fy + 4.7, gz); bm.rotation.y = ax ? Math.PI / 2 : 0; root.add(bm); AR.gateBars.push(bm);
   for (const s of [-1, 1]) for (const a of [-2, 2]) { if (ax) torch(cx + a, fy + 3, cz + s * (hw - 0.25), s > 0 ? Math.PI : 0); else torch(cx + s * (hw - 0.25), fy + 3, cz + a, s > 0 ? -Math.PI / 2 : Math.PI / 2); }
   banner(cx - dir[0] * (hd - 0.1), fy + 3.2, cz - dir[1] * (hd - 0.1), ax ? (dir[0] > 0 ? Math.PI / 2 : -Math.PI / 2) : (dir[1] > 0 ? 0 : Math.PI), team, 2.2, 3.6);
   for (const s of [-1, 1]) { const bx = cx + (ax ? 0 : s * (hw - 0.5)), bz = cz + (ax ? s * (hw - 0.5) : 0); rb(bx, bz, ax ? 3 : 0.8, 0.5, ax ? 0.8 : 3, fy, 0, M.timber); } // benches
@@ -241,6 +255,7 @@ function half(sz, team) {
     put(BOX(2.6, 1.0, 0.7), M.stone, s * 7.5, Y + 0.5, Z(31), RY(0.3 * s)); addBox(s * 7.5, Z(31), 1.3, 0.35, RY(0.3 * s), 'map', Y, Y + 1.0);
     awning(s * 11.8, Z(57), 3.4, 2.2, 2.6, RY(s * Math.PI / 2), -1); cache(s * 12.5, Z(25.5), Y, 2); barrel(s * 13.5, Z(51)); barrel(s * 13.2, Z(52.1));
     for (const z of [28, 60]) { put(CYL(0.12, 0.15, 3.4, 6), M.iron, s * 14, Y + 1.7, Z(z)); lantern(s * 14, Y + 3.5, Z(z)); addCircle(s * 14, Z(z), 0.2); } }
+  { const F1 = hL.F1; for (const z of [55, 29]) bunting(-15.5, F1 + 2.6, Z(z), 15.5, F1 + 2.2, Z(z + 1.5), team); }
   // collapsed walls across the street, offset so nobody can run straight down the middle: a zig-zag through the gaps by the houses
   { const wallAt = (x0, x1, z) => { const c = (x0 + x1) / 2, L = x1 - x0; rb(c, Z(z), L, 2.6, 1.3, Y, 0, M.stone); put(BOX(L + 0.4, 0.35, 1.6), M.stoneD, c, Y + 2.75, Z(z), 0, 0, false);
       for (let k = 0; k < 4; k++) { const bx = x0 + (k + 0.5) * L / 4; put(BOX(1.1 + (k % 2) * 0.5, 0.9, 1.0), k % 2 ? M.stone2 : M.stoneL, bx, Y + 3.3, Z(z) + (k % 2 ? 0.2 : -0.2) * sz, 0.2 * (k - 1.5), 0, false); }
@@ -316,17 +331,22 @@ function half(sz, team) {
 }
 
 export function buildRuins(scene) {
-  M = { stone: S('#b8ab92', 0.92), stone2: S('#a89a80', 0.9), stoneD: S('#8a7e6c', 0.95), stoneL: S('#cfc4ac', 0.92), moss: S('#6a7c48', 1), flag: S('#9c907a', 0.95), marble: S('#e8e2d4', 0.6),
-    plaster: S('#e6dcc2', 0.95), timber: S('#5a3a20', 0.85), floor: S('#7a5232', 0.9), crate: S('#8a6236', 0.9), roof: S('#8a3a26', 0.8), glass: S('#20303a', 0.3, 0.2), iron: S('#2e2e32', 0.45, 0.8), dark: S('#1a1612', 1),
-    bronze: S('#7a6a3a', 0.45, 0.75), copper: S('#5a9a86', 0.6, 0.5), hay: S('#c8a850', 1), water: S('#3a6a80', 0.15, 0.3), cloth: S('#c8b48a', 0.95, 0, { side: THREE.DoubleSide }),
-    fruit: S('#c8402a', 0.7), fruit2: S('#e0a030', 0.7), flower: S('#d870b0', 0.8), emblem: S('#f0e6c8', 0.9, 0, { side: THREE.DoubleSide }), gold: S('#d8a83a', 0.8, 0.1, { side: THREE.DoubleSide }),
-    lamp: new THREE.MeshBasicMaterial({ color: '#ffd080' }), flame: new THREE.MeshBasicMaterial({ color: '#ff9a30' }), flameCore: new THREE.MeshBasicMaterial({ color: '#fff0a0' }),
+  const K = KIT || (KIT = makeKit()), T = (key, c, r = 0.9, m = 0, o = {}) => kitMat(K, key, c, r, m, o), G = (o) => { glowify(o); return o; }, D2 = { side: THREE.DoubleSide };
+  M = { stone: T('ashlar', '#e6d6b8', 0.9), stone2: T('ashlar', '#d2c0a0', 0.9), stoneD: T('ashlarD', '#a89684', 0.92), stoneL: T('ashlar', '#f2e6cc', 0.88), moss: T('grass', '#b8c890', 1), flag: T('flag', '#eadcc2', 0.92), marble: T('marble', '#f6f0e4', 0.5),
+    plaster: T('plaster', '#fff2dc', 0.95), timber: T('wood', '#8a5e3c', 0.85), floor: T('wood', '#a87850', 0.88), crate: T('wood', '#c89a66', 0.9), roof: T('roof', '#ffd2b4', 0.78), glass: S('#20303a', 0.3, 0.2), iron: G(S('#3a3634', 0.5, 0.75, { vertexColors: true })), dark: S('#120e0c', 1),
+    bronze: G(S('#8a7440', 0.42, 0.8, { vertexColors: true })), copper: G(S('#5fa58e', 0.55, 0.45, { vertexColors: true })), hay: T('wood', '#f0d080', 1), water: S('#1e4e5e', 0.06, 0.2, { transparent: true, opacity: 0.88 }), cloth: T(null, '#e0c89a', 0.95, 0, D2),
+    fruit: S('#c8402a', 0.7), fruit2: S('#e0a030', 0.7), flower: S('#d870b0', 0.8), emblem: S('#f0e6c8', 0.9, 0, D2), gold: Object.assign(T('cloth', '#e0b040', 0.8, 0.1, D2), {}),
+    lamp: new THREE.MeshBasicMaterial({ color: '#ffd890' }), flame: new THREE.MeshBasicMaterial({ color: '#ff9a30' }), flameCore: new THREE.MeshBasicMaterial({ color: '#fff0a0' }), ember: new THREE.MeshBasicMaterial({ color: '#ffe2a0' }),
     crystal: S('#7ac8ff', 0.2, 0.1, { emissive: '#3a90ff', emissiveIntensity: 1.6 }), crystalR: S('#ff8a7a', 0.2, 0.1, { emissive: '#ff3a2a', emissiveIntensity: 1.4 }), crystalG: S('#ffe08a', 0.2, 0.1, { emissive: '#ffb02a', emissiveIntensity: 1.2 }),
-    bark: S('#5a4030', 0.95), leaf: S('#4a7a3a', 0.9), leafD: S('#355a2c', 0.95), leafGlow: S('#7ad0a0', 0.6, 0, { emissive: '#2a9a6a', emissiveIntensity: 0.9 }), rock: S('#8a8478', 0.95, 0, { flatShading: true }) };
-  M.team = COLORS.map(c => S(c, 0.85, 0, { side: THREE.DoubleSide }));
+    bark: T('bark', '#c0a088', 0.95), barkT: T('bark', '#b09078', 0.95), char: T('bark', '#3a302c', 1), leaf: T('leaf', '#d8f0a8', 0.9), leafD: T('leaf', '#a8c888', 0.95), leafT: T('leaf', '#d0e8a0', 0.9), leafTD: T('leaf', '#a0c080', 0.95),
+    leafGlow: T('leaf', '#ffe2a0', 0.7, 0, { emissive: '#ff9a2a', emissiveIntensity: 0.75 }), leafGlowD: T('leaf', '#f0b060', 0.75, 0, { emissive: '#e0701a', emissiveIntensity: 0.55 }),
+    ivy: T('ivy', '#d8f0a0', 0.9, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }), ivyD: T('ivy', '#a8c880', 0.95, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }),
+    rock: T('ashlarD', '#b8ae9e', 0.95, 0, { flatShading: true }), rockT: T('ashlarD', '#b0a696', 0.95, 0, { flatShading: true }), farStone: S('#b0988a', 1), farRoof: S('#8a5848', 1), farHill: S('#9a8270', 1, 0, { flatShading: true }) };
+  M.leafGlow.emissiveMap = K.leaf.map; M.leafGlowD.emissiveMap = K.leaf.map;
+  for (const k of ['stone', 'stone2', 'stoneD', 'stoneL', 'flag', 'marble']) M[k].userData.moss = 0.9; M.stoneD.userData.soot = 0.7; M.stone.userData.soot = 0.82; M.stone2.userData.soot = 0.8; M.plaster.userData.soot = 0.78; M.timber.userData.soot = 0.85;
+  M.team = COLORS.map(c => kitMat(K, 'cloth', c, 0.85, 0, D2));
+  M.mosaic = T('mosaic', '#f4ead8', 0.85); M.goldInlay = G(S('#e8c060', 0.32, 0.85, { vertexColors: true })); M.ironBars = S('#2e2e32', 0.45, 0.8); LIGHTS.length = 0; TREES.length = 0; ROCKS.length = 0;
   root = new THREE.Group(); scene.add(root); geoBuckets.clear(); RUINS.rooms.length = 0; AR.gates.length = 0; AR.gateBars.length = 0; AR.R = 80; AR.map = 'ruins';
-  // the ground: worn flagstones in the streets and plaza, grass at the edges
-  { const tex = groundTexture(); const g = new THREE.Mesh(new THREE.PlaneGeometry(126, 206, 1, 1), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 })); g.rotation.x = -Math.PI / 2; g.position.y = Y + 0.02; g.receiveShadow = true; root.add(g); }
   // the outer walls: tall ruined walls all round, crenellated, with buttresses and ivy, cliffs beyond
   seed(99);
   for (const s of [-1, 1]) { wall(s * 61, 0, 3, 205, Y - 1, 21, M.stoneD); wall(0, s * 101, 125, 3, Y - 1, 21, M.stoneD); }
@@ -336,11 +356,10 @@ export function buildRuins(scene) {
     for (let k = -7; k <= 7; k++) { put(new THREE.ConeGeometry(4.5, 12 + (k & 1) * 6, 6), M.rock, s * 66, Y + 14, k * 14 + 4); } for (let k = -4; k <= 4; k++) put(new THREE.ConeGeometry(5, 14 + (k & 1) * 6, 6), M.rock, k * 15, Y + 15, s * 106); }
   half(-1, 0); half(1, 1);
   // the centre: a sunken ring round an ancient glowing tree (the hill to hold in King of the Hill), braziers, a ring of columns
-  { const pave = new THREE.Mesh(new THREE.CircleGeometry(10.6, 48), S('#cfc3a6', 0.85)); pave.rotation.x = -Math.PI / 2; pave.position.y = Y + 0.035; pave.receiveShadow = true; root.add(pave);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(6.6, 7.2, 64), S('#d8b04a', 0.4, 0.7)); ring.rotation.x = -Math.PI / 2; ring.position.y = Y + 0.05; root.add(ring);
-    const ring2 = new THREE.Mesh(new THREE.RingGeometry(10.3, 10.6, 64), S('#8a7e6c', 0.9)); ring2.rotation.x = -Math.PI / 2; ring2.position.y = Y + 0.045; root.add(ring2);
+  { const flat = (g) => { g.rotateX(-Math.PI / 2); return g; }; put(flat(new THREE.CircleGeometry(10.6, 48)), M.mosaic, 0, Y + 0.035, 0, 0, 0, false);
+    put(flat(new THREE.RingGeometry(6.6, 7.2, 64, 2)), M.goldInlay, 0, Y + 0.05, 0, 0, 0, false); put(flat(new THREE.RingGeometry(10.3, 10.75, 64)), M.stoneD, 0, Y + 0.045, 0, 0, 0, false);
     const hill = new THREE.Mesh(new THREE.RingGeometry(6.6, 7.2, 96), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); hill.rotation.x = -Math.PI / 2; hill.position.y = Y + 0.08; root.add(hill); AR.hill = hill;
-    put(CYL(3.4, 3.7, 0.3, 24), M.stone, 0, Y + 0.15, 0); put(CYL(2.6, 2.9, 0.6, 24), M.marble, 0, Y + 0.3, 0); addCircle(0, 0, 2.9); tree(0, 0, 2.0, true, Y + 0.6);
+    put(CYL(3.4, 3.7, 0.3, 24), M.stone, 0, Y + 0.15, 0); put(CYL(2.6, 2.9, 0.6, 24), M.marble, 0, Y + 0.3, 0); addCircle(0, 0, 2.9); heartwood(put, M, 0, Y + 0.6, 0, LIGHTS); addBox(0, 0, 1.7, 1.7, 0.4, 'map', Y, Y + 9.5); /* (the trunk stops arrows and blocks sight) */ motes(root, AR.time, 0, Y + 1, 0, 14, 16, 240);
     crystal(2.0, Y + 0.6, 0.9, 0.6); crystal(-1.8, Y + 0.6, -1.1, 0.6); crystal(0.5, Y + 0.6, 2.1, 0.5); crystal(-0.6, Y + 0.6, -2.2, 0.5);
     for (const [x, z] of [[6.3, 6.3], [-6.3, 6.3], [6.3, -6.3], [-6.3, -6.3]]) brazier(x, z);
     seed(7); const tops = []; for (let k = 0; k < 16; k++) { const a = (k + 0.5) / 16 * Math.PI * 2, m = Math.min(k, 15 - k), broken = [1, 4, 6].includes(m % 8); const top = column(Math.cos(a) * 11.2, Math.sin(a) * 11.2, 6.5, Y, broken); tops.push(broken ? null : top); }
@@ -355,17 +374,38 @@ export function buildRuins(scene) {
     [[4, 0], [0, 10], [0, 18], [0, 26], [-6, 28.5], [-11, 31], [-11, 37.5], [-11, 42.5], [0, 43], [10.5, 44], [11, 51], [6, 55], [2, 58], [0, 64], [0, 70], [0, 76], [0, 83]], /* (the middle street zig-zags round its two collapsed walls) */
     [[26, 0], [32, 5], [38, 11], [41, 20], [41, 29], [41, 38], [41, 47], [41, 55], [40, 63], [40, 70], [40, 76], [34, 79], [28, 81], [19, 82], [10, 82.5], [0, 83]]];
   RUINS.lanes = north.map(l => [...l.slice(1).reverse().map(([x, z]) => [x, -z]), ...l]);
-  // fuse everything that never moves into one mesh per material
-  for (const { mat, sh, list } of geoBuckets.values()) { const geo = mergeGeometries(list, false); if (!geo) continue; const m = new THREE.Mesh(geo, mat); m.castShadow = sh; m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); root.add(m); }
-  geoBuckets.clear(); AR.root = root;
+  backdrop(put, M, Y);
+  { let q = 77; const r = () => (q = (q * 16807) % 2147483647) / 2147483647, spots = [], ok = (x, z) => !world.colliders.some(c => c.t === 'c' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.2 : (c.y0 < Y + 0.5 && c.y1 > Y + 0.3 && Math.abs((x - c.x) * c.cos - (z - c.z) * c.sin) < c.hw + 0.2 && Math.abs((x - c.x) * c.sin + (z - c.z) * c.cos) < c.hd + 0.2));
+    const area = (x0, x1, z0, z1, n) => { for (let i = 0; i < n; i++) { const x = x0 + r() * (x1 - x0), z = z0 + r() * (z1 - z0); for (const sz of [-1, 1]) if (ok(x, z * sz)) spots.push([x, Y, z * sz]); } };
+    area(33.5, 59.5, 13, 72, 420); area(-59.5, -56.5, 10, 72, 90); area(56.5, 59.5, 10, 30, 40); area(-59.5, -46, 12, 72, 60); area(-30, 30, 20, 26, 30); area(15, 30, 26, 72, 40); area(-30, -15, 26, 72, 40);
+    tufts(root, spots.filter(([x, , z]) => !(x > 35 && x < 47 && Math.abs(z) > 30 && Math.abs(z) < 46))); }
+  // the ground: one painted plane (cobbled streets, flagstone plaza, grass and earth), shaded at the foot of every wall and lit by the fires
+  root.add(buildGround(K, { W: 126, D: 206, Y, paint: paintGround, boxes: world.colliders, lights: LIGHTS }));
+  // bake the light into every piece, then fuse everything that never moves into one mesh per material
+  const fallback = [];
+  for (const { mat, sh, list } of geoBuckets.values()) { bakeVerts(list, mat, LIGHTS, Y); const geo = mergeGeometries(list, false); if (!geo) continue; const m = new THREE.Mesh(geo, mat); m.castShadow = sh; m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); root.add(m);
+    if (mat === M.barkT || mat === M.leafT || mat === M.leafTD) fallback.push(['tree', m]); if (mat === M.rockT) fallback.push(['rock', m]); }
+  geoBuckets.clear(); AR.root = root; GS.mapLook = ruinsLook;
+  // the owner's Meshy trees and rocks take over from the stand-ins once they load
+  plantMeshy(root, { tree: TREES.slice(), rock: [...ROCKS, ...EDGE_ROCKS] }, (kind) => { for (const [k, m] of fallback) if (k === kind) m.visible = false; });
   return root;
 }
-function groundTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 1024; const g = c.getContext('2d');
-  g.fillStyle = '#8a8270'; g.fillRect(0, 0, 1024, 1024);
-  for (let y = 0; y < 1024; y += 32) for (let x = (y / 32) % 2 * 24; x < 1024; x += 48) { const v = 110 + Math.random() * 40; g.fillStyle = `rgb(${v + 14},${v + 8},${v - 6})`; g.fillRect(x + 1, y + 1, 46, 30); }
-  for (let i = 0; i < 60; i++) { const x = Math.random() * 1024, y = Math.random() * 1024, r = 20 + Math.random() * 70, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(90,120,60,0.55)'); gr.addColorStop(1, 'rgba(90,120,60,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 6.5); t.anisotropy = 4; return t;
-}
+// the ground's paint: white on a layer = that surface (cobbles wherever nothing else is painted)
+const EDGE_ROCKS = []; { let q = 5; const r = () => (q = (q * 16807) % 2147483647) / 2147483647; for (const sx of [-1, 1]) for (let z = -88; z <= 88; z += 7 + r() * 6) { if (Math.abs(z) < 12 || Math.abs(Math.abs(z) - 79) < 6) continue; EDGE_ROCKS.push([sx * (59.6 - r() * 0.4), Y, z, 1.3 + r() * 1.4, r() * 6]); } }
+function paintGround(L, px, pz, pr) { let q = 11; const r = () => (q = (q * 16807) % 2147483647) / 2147483647;
+  const st = (l, blur, a, col) => { const g = L[l].g; g.save(); g.filter = `blur(${blur}px)`; g.globalAlpha = a; g.fillStyle = g.strokeStyle = col || '#fff'; return g; };
+  const rect = (l, x0, z0, x1, z1, blur = 3, a = 1, col) => { const g = st(l, blur, a, col); g.fillRect(px(Math.min(x0, x1)), pz(Math.min(z0, z1)), pr(Math.abs(x1 - x0)), pr(Math.abs(z1 - z0))); g.restore(); };
+  const disc = (l, x, z, rad, blur = 3, a = 1, col) => { const g = st(l, blur, a, col); g.beginPath(); g.arc(px(x), pz(z), pr(rad), 0, 7); g.fill(); g.restore(); };
+  const line = (l, pts, w, blur = 3, a = 1) => { const g = st(l, blur, a); g.lineWidth = pr(w); g.lineCap = g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(px(x), pz(z)) : g.moveTo(px(x), pz(z))); g.stroke(); g.restore(); };
+  rect('flag', -30, -25, 30, 25, 4); for (const sx of [-1, 1]) rect('flag', sx * 30, -9, sx * 50, 9, 3); // the plaza and the side approaches
+  for (const sx of [-1, 1]) rect('grass', sx * 61, -101, sx * 56.5, 101, 5, 0.75); // grass along the foot of the outer walls
+  for (const sz of [-1, 1]) { const Z = (z) => z * sz;
+    rect('grass', 33, Z(12), 61, Z(73), 6); rect('grass', 35, Z(30), 47, Z(46), 2, 1, '#000'); rect('flag', 35.2, Z(30.2), 46.8, Z(45.8), 1); // the garden, and the chapel's stone floor
+    line('earth', [[30, Z(4)], [38, Z(11)], [41, Z(20)], [41, Z(29)]], 3.2, 4, 0.85); line('earth', [[41, Z(47)], [41, Z(55)], [40, Z(63)], [40, Z(72)]], 3.2, 4, 0.85); line('earth', [[53, Z(48)], [53, Z(62)], [46, Z(66)], [40, Z(66)]], 2.6, 4, 0.7); disc('earth', 51, Z(20), 6, 5, 0.6);
+    rect('earth', -61, Z(10), -45, Z(73), 5, 0.85); rect('grass', -61, Z(14), -57.5, Z(70), 5, 0.7); line('earth', [[-30, Z(3)], [-40, Z(8)], [-40, Z(24)]], 4.5, 5, 0.55); // the outer path below the rampart
+    for (const sx of [-1, 1]) { rect('earth', sx * 15, Z(26), sx * 30, Z(72), 6, 0.35); disc('grass', sx * 28, Z(14), 2.5, 4, 0.7); disc('grass', sx * 27.5, Z(6), 1.8, 4, 0.5); } // the alleys
+    line('earth', [[0, Z(63)], [0, Z(52)], [9, Z(48)], [10, Z(40)], [-9, Z(36)], [-8, Z(28)]], 2.2, 5, 0.22); } // (feet have worn the zig-zag through the street)
+  for (let i = 0; i < 220; i++) { const x = (r() - 0.5) * 118, z = (r() - 0.5) * 196; if (Math.abs(z) > 74) continue; disc('grass', x, z, 0.4 + r() * 1.6, 2, 0.3 + r() * 0.4); } // weeds in the cracks
+  for (let i = 0; i < 40; i++) { const x = (r() - 0.5) * 110, z = (r() - 0.5) * 140; disc('earth', x, z, 1 + r() * 2.5, 4, 0.25); } }
 // gates: the portcullis rolls up when the fight starts
-export function updateRuins(dt) { const open = AR.gatesOpen ? 1 : 0; for (const b of AR.gateBars) { b.scale.y += ((open ? 0.03 : 1) - b.scale.y) * Math.min(1, dt * 1.6); b.visible = b.scale.y > 0.035; } }
+export function updateRuins(dt) { AR.time.value += dt; const open = AR.gatesOpen ? 1 : 0; for (const b of AR.gateBars) { b.scale.y += ((open ? 0.03 : 1) - b.scale.y) * Math.min(1, dt * 1.6); b.visible = b.scale.y > 0.035; } }

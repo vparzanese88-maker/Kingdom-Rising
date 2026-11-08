@@ -314,9 +314,9 @@ function carryQ(ch, H, sd, kind, w, out) { const C = CARRY[kind], B = H.bones, n
   const f = (v) => new THREE.Vector3().addScaledVector(_gx, v[0]).addScaledVector(_gy, v[1]).addScaledVector(_gz, v[2]).normalize();
   const wy = f(C[1]), wx = f(C[2]); wx.addScaledVector(wy, -wx.dot(wy)).normalize(); const wz = new THREE.Vector3().crossVectors(wx, wy);
   _gm.makeBasis(wx, wy, wz); out.setFromRotationMatrix(_gm); return out.multiply(_gc.copy(w.quaternion).invert()); } // (the socket turns so the item, at its own angle in it, lies so)
-function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets || (ch.wt && /musket|blunderbuss/.test(ch.wt))) return; const k = 1 - Math.min(1, H.mw || 0), atk = Math.min(1, H.ikA || 0);
+function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !ch.hmSockets) return; const k = 1 - Math.min(1, H.mw || 0), atk = Math.min(1, H.ikA || 0);
   const sz = heldScale(ch); ch.root.updateMatrixWorld(true);
-  for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; if (so.userData.s0 == null) so.userData.s0 = so.scale.x; so.scale.setScalar(so.userData.s0 * sz); /* (sized to the model, see heldScale) */ chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
+  for (const so of ch.hmSockets) { const chd = so.userData.codeHand; if (!chd || !so.parent || !so.userData.gripQ) continue; if (so.userData.s0 == null) so.userData.s0 = so.scale.x; so.scale.setScalar(so.userData.s0 * sz); /* (sized to the model, see heldScale) */ if (so.userData.fist) { so.position.copy(so.userData.fist.p); so.quaternion.copy(so.userData.fist.q); continue; } /* (fixed in the model's fist: puppetArms turns the hand itself) */ chd.updateWorldMatrix(true, false); so.parent.updateWorldMatrix(true, false);
     _gp.copy(chd.getWorldQuaternion(_gp)).multiply(so.userData.gripQ); /* (the built hand's angle, in the world) */ const sd = chd === (ch.arms.R && ch.arms.R.hand) ? 'R' : 'L', c = carryOf(ch, sd);
     if (c && (atk < 0.999 || CARRY[c[0]][3])) { carryQ(ch, H, sd, c[0], c[1], _gq); if (!CARRY[c[0]][3]) _gq.slerp(_gp, atk); _gp.copy(_gq); }
     palm(so);

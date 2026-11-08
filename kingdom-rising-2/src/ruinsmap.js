@@ -345,6 +345,8 @@ export function buildRuins(scene) {
   M.leafGlow.emissiveMap = K.gold.map; M.leafGlowD.emissiveMap = K.gold.map;
   for (const k of ['stone', 'stone2', 'stoneD', 'stoneL', 'flag', 'marble']) M[k].userData.moss = 0.9; M.stoneD.userData.soot = 0.7; M.stone.userData.soot = 0.82; M.stone2.userData.soot = 0.8; M.plaster.userData.soot = 0.78; M.timber.userData.soot = 0.85;
   M.team = COLORS.map(c => kitMat(K, 'cloth', c, 0.85, 0, D2));
+  for (const k of ['flame', 'flameCore', 'lamp', 'ember']) M[k].color.multiplyScalar(k === 'flame' ? 2.2 : 1.8); // (brighter than white: the bloom pass makes them glow)
+  for (const k of ['flame', 'flameCore']) M[k].onBeforeCompile = (sh) => { sh.uniforms.time = AR.time; sh.vertexShader = 'uniform float time;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat fk = sin(time * 11.0 + position.y * 6.0 + position.x * 2.3) * 0.05 + sin(time * 17.0 + position.z * 3.1) * 0.03; transformed.x += fk; transformed.z += fk * 0.8; transformed.y += sin(time * 13.0 + position.x * 4.0) * 0.04;'); }; // (the flames lick and flicker, on the GPU)
   M.mosaic = T('mosaic', '#f4ead8', 0.85); M.goldInlay = G(S('#e8c060', 0.32, 0.85, { vertexColors: true })); M.ironBars = S('#2e2e32', 0.45, 0.8); LIGHTS.length = 0; TREES.length = 0; ROCKS.length = 0;
   root = new THREE.Group(); scene.add(root); geoBuckets.clear(); RUINS.rooms.length = 0; AR.gates.length = 0; AR.gateBars.length = 0; AR.R = 80; AR.map = 'ruins';
   // the outer walls: tall ruined walls all round, crenellated, with buttresses and ivy, cliffs beyond

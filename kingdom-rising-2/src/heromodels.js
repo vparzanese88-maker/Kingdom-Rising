@@ -16,7 +16,7 @@ function calmSkin(tex, amt) {
     g.putImageData(d, 0, 0); tex.image = cv; tex.needsUpdate = true; };
   const im = tex.image; if (im && im.width && (im.complete === undefined || im.complete)) run(); else if (im && im.addEventListener) im.addEventListener('load', run, { once: true }); else setTimeout(run, 500);
 }
-export const HERO_SIZE = 1.5625; /* (arena heroes at their normal size: 1.25 x 1.25) */
+export const HERO_SIZE = 1.25; /* (arena heroes at their original size, before the size-ups) */
 const MODELS = {
   necromancer: { fpFore: 0.55, fpDrop: 0.15, bright: 1.35, base: 'models/necro_rig.fbx', clips: { walk: 'models/anim/necro_walk.json', run: 'models/anim/necro_run.json' }, height: 2.2, walkSpeed: 1.6, runSpeed: 5.5, runRate: 0.85 },
   musketeer: { fpHand: 0.45, base: 'models/musk_rig.fbx', clips: { walk: 'models/anim/musk_walk.json', run: 'models/anim/musk_run.json' }, height: 1.12, walkSpeed: 1.5, runSpeed: 5.0 },

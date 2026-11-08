@@ -811,7 +811,7 @@ const _rq = new THREE.Quaternion(), _rax = new THREE.Vector3(), _rp = new THREE.
 const _sq1 = new THREE.Quaternion(), _sq2 = new THREE.Quaternion(), _sq3 = new THREE.Quaternion(), _se = new THREE.Euler();
 // keep a strapped shield upright (point down, face outward) whatever the arm is doing
 function uprightShield(ch, st) {
-  const sh = ch.weapons && ch.weapons.off; if (!sh || !sh.userData.isShield || !sh.parent) return;
+  const sh = ch.weapons && ch.weapons.off; if (!sh || !sh.userData.isShield || !sh.parent || sh.parent.name === 'shieldMount') return; /* (a shield worn on the 3D model's forearm sets its own angle) */
   if (!sh.userData.sized) { sh.userData.sized = true; sh.scale.multiplyScalar(0.55); } // a little smaller on the body than in your first-person view
   ch.root.updateMatrixWorld(true);
   sh.parent.getWorldQuaternion(_sq1); ch.body.getWorldQuaternion(_sq2);
@@ -952,7 +952,7 @@ export function animateHumanoid(ch, dt, st) {
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
   // relaxed: tilt a one-handed weapon in the hand so its tip points a little down
   { const m = ch.weapons && ch.weapons.main, W = ch.wt && WEAPON_TYPES[ch.wt];
-    if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || st.block ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0); m.rotation.x = m.userData.rx0 + rk * 0.75; } }
+    if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || (st.block && W.hands !== 'shield') ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0); m.rotation.x = m.userData.rx0 + rk * 0.75; } }
   // bare fists (the monk): a guard up by the jaw, and every blow a straight punch from the shoulder, not a swing from the waist
   if (ch.wt === 'fists' && !st.dead && st.roll == null && !st.airborne && !(ch.strikeLock > 0)) { const a = st.action, punch = a && /^(swing|thrust|off|stab|heavy|fury)/.test(a);
     const guard = (sd) => { const s2 = sd === 'R' ? 1 : -1; arms[sd].sh.rotation.set(-0.95, 0, s2 * 0.32); arms[sd].el.rotation.set(-1.95, 0, 0); };

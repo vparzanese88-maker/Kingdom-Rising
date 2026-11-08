@@ -205,8 +205,46 @@ function pickMove(H, ch, dt) {
 // frame" copy before each update makes the mixer write every bone it drives, every time
 function forceMix(mixer) { const prev = mixer._accuIndex, bs = mixer._bindings; if (prev == null || !bs) return; for (const pm of bs) { const e = pm.valueSize, o = prev * e + e, b = pm.buffer; for (let i = 0; i < e; i++) b[o + i] = 1e9; } }
 // every frame: pick the animation from how fast the character is moving and blend between them
+// a shield is worn the way a real one is: the forearm through the strap, the fist on the grip near the rim, the face outward.
+// It rides the model's own left forearm (so it swings, rolls and turns with his arm) instead of the hand
+const _sv = new THREE.Vector3(), _sv2 = new THREE.Vector3(), _sq = new THREE.Quaternion(), _sm = new THREE.Matrix4();
+function wearShield(ch, H) {
+  const sh = ch.weapons && ch.weapons.off; if (!sh || !/^weapon_shield/.test(sh.name || '')) return;
+  const B = H.bones || {}; const fore = B.LeftForeArm, hand = B.LeftHand; if (!fore || !hand) return;
+  if (!H.shMount) { const mt = new THREE.Group(); mt.name = 'shieldMount'; fore.add(mt); H.shMount = mt; }
+  const mt = H.shMount;
+  if (sh.parent !== mt) { mt.add(sh); sh.position.set(0, 0, 0); sh.quaternion.identity(); sh.scale.setScalar(1); H.shSized = false; }
+  if (!H.shBasis) { // worked out once from the bind pose: the forearm's axis and the back of the forearm (the side the shield sits on)
+    H.m.updateMatrixWorld(true); const e = fore.getWorldPosition(_sv), w = hand.getWorldPosition(_sv2), axis = w.clone().sub(e), len = axis.length(); axis.normalize();
+    const up = new THREE.Vector3(0, 1, 0); const dors = up.clone().sub(axis.clone().multiplyScalar(up.dot(axis))).normalize(); /* (palms-down bind pose: the back of the forearm faces up) */
+    const Z = dors, Y = new THREE.Vector3().crossVectors(axis, Z).normalize(), X = new THREE.Vector3().crossVectors(Y, Z).normalize(); /* (the shield lies across the forearm: face out, top toward his front when the arm hangs, point back) */
+    const qW = new THREE.Quaternion().setFromRotationMatrix(_sm.makeBasis(X, Y, Z)), qF = fore.getWorldQuaternion(_sq).clone();
+    const sF = fore.getWorldScale(new THREE.Vector3()).x; H.shBasis = { q: qF.invert().multiply(qW), len, sF };
+    const local = hand.position.clone().multiplyScalar(0.5); mt.position.copy(local); mt.quaternion.copy(H.shBasis.q); mt.scale.setScalar(1 / sF); /* (world-sized mount, half way down the forearm) */ }
+  if (!H.shSized && sh.userData.glb) { H.m.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(sh), hgt = (Math.max(bx.getSize(_sv).x, _sv.y, _sv.z) || 1) / Math.max(1e-6, sh.getWorldScale(_sv2).x) * Math.max(1e-6, mt.getWorldScale(_sv2).x); /* (its height at scale 1 on the mount, measured once the whole arm is up to date) */ const want = heroHeight(ch.app && (ch.app.cls || ch.app.outfit)) * 0.47; /* (a full heater shield: about two fifths of his height) */
+    sh.scale.setScalar(1).multiplyScalar(want / Math.max(0.01, hgt)); sh.position.set(0, 0, 0.06 * want); H.shSized = true; } /* (sits just off the back of the forearm, face outward) */
+}
+// the shield arm: at rest it hangs by his side, the shield facing out to the left; on block the forearm comes up in front of him
+// and, being strapped to it, the shield turns with it to face the enemy, point down toward the elbow
+function shieldPose(ch, H, B, dt) {
+  const mt = H.shMount, arm = B.LeftArm, fore = B.LeftForeArm, hand = B.LeftHand; if (!mt || !H.shBasis || !arm || !fore || !hand || mt.children.length === 0) return;
+  const st = ch._st || {}; H.bk = (H.bk || 0) + ((st.block && !st.action ? 1 : 0) - (H.bk || 0)) * Math.min(1, dt * 12); const bk = H.bk;
+  const wq = H.wrap.getWorldQuaternion(new THREE.Quaternion());
+  if (H.shSide == null) { H.m.updateMatrixWorld(true); const p = arm.getWorldPosition(new THREE.Vector3()), w = H.wrap.getWorldPosition(new THREE.Vector3()); H.shSide = p.sub(w).applyQuaternion(wq.clone().invert()).x >= 0 ? 1 : -1; }
+  const sx = H.shSide;
+  if (bk > 0.01) { const k0 = arm.quaternion.clone(), k1 = fore.quaternion.clone();
+    arm.quaternion.copy(aimBone(arm, fore, new THREE.Vector3(sx * 0.4, -0.55, 0.75).applyQuaternion(wq))); arm.updateMatrixWorld(true); /* (upper arm forward, elbow low) */
+    fore.quaternion.copy(aimBone(fore, hand, new THREE.Vector3(-sx * 0.06, 1, 0.22).applyQuaternion(wq))); /* (forearm raised upright before him, fist by his chin: the shield stands up in front, point down) */
+    if (bk < 0.999) { arm.quaternion.copy(k0.slerp(arm.quaternion.clone(), bk)); fore.quaternion.copy(k1.slerp(fore.quaternion.clone(), bk)); } }
+  // lay the shield on the outside of the forearm: across it, face out to his left at rest (point back), straight ahead on block (point down)
+  arm.updateMatrixWorld(true); const e = fore.getWorldPosition(new THREE.Vector3()), axis = hand.getWorldPosition(new THREE.Vector3()).sub(e).normalize();
+  const Z = new THREE.Vector3(sx, 0, 0).lerp(new THREE.Vector3(0, 0.05, 1), bk).applyQuaternion(wq); Z.addScaledVector(axis, -Z.dot(axis)); if (Z.lengthSq() < 1e-6) return; Z.normalize();
+  const Y = axis.clone(), X = new THREE.Vector3().crossVectors(Y, Z); /* (along the forearm: the point toward the elbow) */
+  const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); mt.quaternion.copy(fore.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW));
+}
 export function tickHeroModel(ch, dt) {
   const H = ch && ch.heroModel; if (!H || H === 'loading' || dt <= 0) return;
+  try { wearShield(ch, H); } catch (e) { /* (keeps the hand-held shield if anything is missing) */ }
   const p = ch.root.position, dx = p.x - H.lp.x, dz = p.z - H.lp.z, sp = Math.hypot(dx, dz) / dt; H.lp.copy(p); H.v += (Math.min(sp, 12) - H.v) * Math.min(1, dt * 8);
   // which way he is moving compared with where he faces: forward 0, right +90°, back 180°
   if (sp > 0.4) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(ch.root.getWorldQuaternion(new THREE.Quaternion())), a = Math.atan2(dx * fw.z - dz * fw.x, dx * fw.x + dz * fw.z); H.mvA = a; }
@@ -253,6 +291,7 @@ export function tickHeroModel(ch, dt) {
   /* (guns too: puppetArms keeps both hands on the stock and fore-end the way the built body holds it) */
   if (ch.legs && !mvK) for (const [sd, nm, on] of [['R', 'Right', kickR], ['L', 'Left', kickL]]) { if (!on) continue; const t = ch.legs[sd].ankle.getWorldPosition(new THREE.Vector3()), hip = B[nm + 'UpLeg']; if (!hip) continue; const h0 = hip.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     ikArm(null, B[nm + 'UpLeg'], B[nm + 'Leg'], B[nm + 'Foot'], t, h0.clone().add(new THREE.Vector3(0, 0.3, 0.8).applyQuaternion(wq))); } // (kicks: the model's leg goes where the built leg kicks)
+  try { shieldPose(ch, H, B, dt); } catch (e) { /* (leave the arm to its clip) */ }
 }
 
 // (shared IK helper is defined below)

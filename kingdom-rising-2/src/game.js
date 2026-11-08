@@ -629,6 +629,7 @@ export const arenaPassive = pv;
 export function arenaOut(src, h, tgt, dmg, o) {
   if (!h || !h.arena) return [dmg, o];
   { const T = tuneOf(h); if (T && T.dmg) dmg *= T.dmg; }
+  if (o && o.basic) dmg *= ARENA_PACE; // (basic attacks hit harder to make up for the slower swing)
   const ex = pv(h, 'execute'); if (ex && tgt && tgt.maxHp && tgt.hp / tgt.maxHp < 0.35) dmg *= 1 + 0.1 * ex;
   const rg = pv(h, 'rage'); if (rg && src && src.maxHp) dmg *= 1 + 0.06 * rg * Math.min(1, (1 - src.hp / src.maxHp) / 0.75) * 3;
   const am = pv(h, 'ambush'); if (am && src && src.stealth > 0) dmg *= 1 + 0.2 * am;
@@ -652,4 +653,5 @@ export function arenaIn(tgt, h, dmg) {
   return dmg;
 }
 export const arenaCdAll = (h) => 1 - 0.04 * pv(h, 'cdAll');
-export const arenaHaste = (h) => 1 + 0.06 * pv(h, 'haste');
+export const ARENA_PACE = 1.35; /* (every basic attack in the arena and yard: 35% slower and 35% harder) */
+export const arenaHaste = (h) => (1 + 0.06 * pv(h, 'haste')) / ARENA_PACE;

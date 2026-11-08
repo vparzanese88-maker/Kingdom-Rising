@@ -711,7 +711,7 @@ export class Player {
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
-        this.dealDamage(m, base * st.m, { knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
+        this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
         if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
       }
       if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }

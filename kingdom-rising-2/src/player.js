@@ -2246,7 +2246,7 @@ export class Player {
       // framed by the hero's real height (the 3D model, not the hidden built body): the camera sits just above the head,
       // further back and further over the shoulder for a giant (so he never hides what he faces), close and low for a goblin
       const HH = this.h.arena && hasHeroModel(this.h.cls) ? heroHeight(this.h.cls) : this.ch.height, hk = Math.max(0.8, Math.min(2.4, HH / 2.6)), tpk = Math.min(1, this.camDist / 2.5);
-      const sh = this.right().multiplyScalar((this.h.arena ? 0.28 * HH + 0.1 : 0.72) * tpk);
+      const sh = this.right().multiplyScalar((this.h.arena ? 0.34 * HH + 0.1 : 0.72) * tpk);
       eye.y += this.h.arena ? (HH * 0.94 + 0.2 - this.eye) * tpk : 0.12; // (a lower camera keeps the hero up in the frame, clear of the bars at the bottom)
       let d = this.camDist * (this.h.arena ? hk : 1);
       for (let s = 0.5; s <= d; s += 0.4) { const p = eye.clone().add(sh).addScaledVector(back, -s); if (p.y < heightAt(p.x, p.z) + 0.3 || solidAt(p.x, p.y, p.z) || (G.camOcc && G.camOcc.some(o => { const dx = p.x - o.x, dy = (p.y - o.y) / (o.sy || 1), dz = p.z - o.z; return dx * dx + dy * dy + dz * dz < (o.r - 0.6) * (o.r - 0.6); }))) { d = Math.max(0.5, s - 0.4); break; } } /* (and tree crowns: the camera pulls in rather than sit inside the leaves) */ /* (walls too: a giant's longer camera never ends up inside a building) */

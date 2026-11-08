@@ -64,3 +64,4 @@ Art pass on the Kingdom Arena map, layout and gameplay unchanged (same spawn roo
 - Monk: real closed, wrapped fists (no more open curled hands) and the jab now drives well out to the crosshair. scratchpad/fpa/c4_monk_idle.png, c4_monk_0.12.png
 - Berserker: the ram-skull great axe is gripped near the spiked butt in his fist through idle, run, strafe, jump, swings, abilities and the ultimate (it no longer copies a turning angle, so no twirl); trimmed from 0.87 to about 0.68 of his height. scratchpad/tp3/berserker_v8.png
 - Wizard: only his spellbook, in his right hand, spine in the palm and its face turned toward you, low on the right; casting pushes the book out toward the target; the empty left hand stays out of view. scratchpad/fpa/d38_wizard_idle.png, d38_wizard_0.12.png
+- Wizard: only his spellbook, in his right hand (no staff), held open in the fist at his side, out in front of him while he casts, raised in the ultimate. scratchpad/tp3/wizard_v9.png

@@ -105,6 +105,7 @@ const VP = {
   bookCast: P(0.13, -0.17, -0.6, -1.15, -0.1, 0.05),
   beastR: P(0.26, -0.26, -0.46, 0, 1.77, -1.823), beastBack: P(0.32, -0.28, -0.34, 0, 1.6, -1.6), beastStab: P(0.08, -0.2, -0.72, 0, 1.65, -1.75),
   eleR: P(0.2, -0.3, -0.5, 0.2, 0.2, 0.1), /* (the elementalist's open hand, palm up, low on the right under his floating orb) */
+  warR: P(0.36, -0.36, -0.62, -0.35, -0.1, -0.25), warShield: P(-0.36, -0.42, -0.62, 0.15, 0.45, 0.1),
   necroGap: 0.62, necroScy: P(0.6, 0.2, -0.85, -0.3, 0.35, -0.38), necroScyA: P(0.75, 0.15, -0.6, -0.2, -0.5, -1.1), necroScyB: P(-0.35, -0.1, -0.7, -0.4, -0.3, 1.0), /* (the scythe: right hand high on the shaft, leaning up and right; a swing sweeps right to left, blade leading) */
   bookL: P(-0.26, -0.28, -0.55, -0.55, 0.15, 0.2), necroR: P(0.17, -0.18, -0.27, -0.9, 0.15, -0.35), necroL: P(-0.2, -0.2, -0.32, -0.1, 0.1, 0.08), necroPush: P(0.07, -0.12, -0.74, -1.5, 0, -0.05), /* (close and big in your view; the push throws the spell at the crosshair) */
   gatherR: P(0.12, -0.6, -0.55, -1.2, 0, 0), gatherR2: P(0.08, -0.7, -0.5, -1.4, 0, 0),
@@ -318,6 +319,7 @@ class ViewModel {
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? VP.bowL : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = this.hero && st.aim > 0.01 ? plerp(VP.bowR, VP.bowRdraw, ease(Math.min(1, st.aim))) : VP.bowR; /* (aiming a bow draws the string back to the cheek) */
+    if (this.hero && this.cls === 'warrior') { if (r === VP.rest) r = VP.warR; if (l === VP.shieldRest) l = VP.warShield; } /* (the warrior: sword upright in his right fist, the shield's back toward you on the left forearm, both clear of each other) */
     if (this.bomber && (r === VP.staff || r === VP.rest)) r = VP.bombR; if (this.eleOrb && r === VP.staff) r = VP.eleR;
     if (this.book && this.bookR) { if (r === VP.staff || r === VP.rest) r = VP.bookR; if (l === VP.hideL) l = null; } else if (this.book && (!l || l === VP.hideL)) l = VP.bookL; /* (the wizard's book rides in the right hand) */
     if (this.wt === 'fists' && !this.necro) { if (r === VP.rest || r === VP.rest2) r = VP.guardR; if (!l || l === VP.restL || l === VP.hideL) l = mirror(VP.guardR); }

@@ -172,6 +172,8 @@ function petUpdate(dt) {
     if (want) this.faceTo(want, dt, 6);
   }
   if (want && speed) { const dx = want.x - this.pos.x, dz = want.z - this.pos.z, l = Math.hypot(dx, dz); if (l > 0.1) { const mv = Math.min(l, speed * dt); this.pos.x += dx / l * mv; this.pos.z += dz / l * mv; } }
+  { const fy = P.yaw || 0, fx = Math.sin(fy), fz = Math.cos(fy), rx = this.pos.x - P.pos.x, rz = this.pos.z - P.pos.z, along = rx * fx + rz * fz, side = rx * fz - rz * fx, rad = (this.radius || 0.8) + 1.2;
+    if (along < rad && along > -9 && Math.abs(side) < rad + 1.5) { const sg = side >= 0 ? 1 : -1, push = Math.min(1, dt * 4); this.pos.x += fz * sg * (rad + 1.5 - Math.abs(side)) * push + fx * Math.max(0, rad - along) * push * 0.5; this.pos.z -= fx * sg * (rad + 1.5 - Math.abs(side)) * push - fz * Math.max(0, rad - along) * push * 0.5; } } /* (never in the lane between you and your camera, or right at your side in first person: it eases out to the side and forward) */
   this.pos.y = heightAt(this.pos.x, this.pos.z);
   if (this.action) { this.actionT += dt / this.actionDur; if (this.actionT >= 1) this.action = null; }
   this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;

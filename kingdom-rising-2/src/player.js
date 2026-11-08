@@ -1009,7 +1009,7 @@ export class Player {
       case 'ar_banner': case 'ar_grasp': case 'ar_finale': case 'ar_kegs': case 'ar_meteors': case 'ar_charm': case 'ar_pack': case 'ar_salvation': case 'ar_bertha': { const r2 = G.hooks.tableUlt && G.hooks.tableUlt(this, ab, this.ultPoint(32), this.ultFoe(30)); if (r2 === 'noaim') { this.h.ultRefund = true; S.error(); } break; } // (the rest of the ultimates)
       case 'ar_barrage': { if (G.hooks.arenaBarrage) G.hooks.arenaBarrage(this); this.barrageCd = 0.6; break; } // (a magic ball down the barrel: full-auto for 10 s)
       case 'ar_transcend': { if (G.hooks.arenaTranscend) G.hooks.arenaTranscend(this); break; } // (pure energy: faster cooldowns, more damage)
-      case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, groundPoint(20)); break; }
+      case 'ar_spirittotem': { if (!G.hooks.arenaSpirit) break; G.hooks.arenaSpirit(this, this.ultPoint(20)); break; }
       case 'ar_overgrowth': { if (!G.hooks.arenaOvergrowth) break; G.hooks.arenaOvergrowth(this); break; }
       case 'ar_arrowrain': { if (!G.hooks.arenaRain) break; G.hooks.arenaRain(this, this.ultPoint(40)); break; } // (the storm comes down where you aim)
       case 'ar_bladestorm': { if (!G.hooks.arenaStorm) break; G.hooks.arenaStorm(this); break; } // (you steer the whirlwind)

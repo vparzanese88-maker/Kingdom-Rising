@@ -1,7 +1,7 @@
 // The Goblin Bombardier's kit (Kingdom Arena and the Training Yard):
 //  LMB  thrown bombs: his own hand bomb, lobbed in an arc; it bounces two or three times off the ground and walls (each hop
 //       lower) and goes off 0.45 s after it settles (at once if it hits an enemy)
-//  Q    sticky bombs: 5 charges (one back every 0.5 s); they stick to whatever they hit (ground, walls, an enemy, and ride
+//  Q    sticky bombs: 5 charges (once all 5 are thrown, one back every 0.5 s); they stick to whatever they hit (ground, walls, an enemy, and ride
 //       along on them); 5 out at most (a sixth makes the oldest fall away); they wait for the detonator (20 s at most)
 //  RMB  the detonator: every thrown and sticky bomb he has out goes off at once; sticky bombs in a much bigger blast
 //  R    Big Bertha, planted at his feet: it beeps faster and faster for 9 s, then a 16 m blast; enemies can run, or
@@ -70,10 +70,10 @@ function remove(b) { const i = BX.list.indexOf(b); if (i >= 0) BX.list.splice(i,
 export function throwBomb(owner, from, vel, dmg) { const b = add({ id: ++BX.seq, kind: 'b', owner, oi: oiOf(owner), pos: from.clone(), vel: vel.clone(), dmg, fuse: BOMB.throw.max, spin: new THREE.Vector3(8 + Math.random() * 4, Math.random() * 3, 2) });
   net({ e: 'n', o: b.oi, id: b.id, k: 'b', p: P3(from), v: P3(vel) }); return b; }
 // a sticky bomb (Q): uses a charge; the oldest of the five out falls away
-export function stickyCharges(h) { const s = h.stk || (h.stk = { n: BOMB.sticky.charges, at: 0, last: -9 }), per = BOMB.sticky.per * (h.stkK || 1);
-  while (s.n < BOMB.sticky.charges && G.time - s.at >= per) { s.n++; s.at += per; } if (s.n >= BOMB.sticky.charges) s.at = G.time; s.next = s.n < BOMB.sticky.charges ? Math.max(0, per - (G.time - s.at)) : 0; return s; }
+export function stickyCharges(h) { const s = h.stk || (h.stk = { n: BOMB.sticky.charges, at: 0, last: -9, rech: false }), per = BOMB.sticky.per * (h.stkK || 1); // (rech: all five have been thrown, so they come back one every 0.5 s until he holds five again)
+  if (s.rech) { while (s.n < BOMB.sticky.charges && G.time - s.at >= per) { s.n++; s.at += per; } if (s.n >= BOMB.sticky.charges) s.rech = false; } s.next = s.rech ? Math.max(0, per - (G.time - s.at)) : 0; return s; }
 export function throwSticky(owner, from, vel, dmg) { const h = owner.h; const s = stickyCharges(h); if (s.n <= 0 || G.time - s.last < BOMB.sticky.gap) return null;
-  if (s.n >= BOMB.sticky.charges) s.at = G.time; s.n--; s.last = G.time;
+  s.n--; s.last = G.time; if (s.n <= 0 && !s.rech) { s.rech = true; s.at = G.time; } /* (the last one thrown: the recharge starts) */
   const out = BX.list.filter(b => b.owner === owner && b.kind === 's' && !b.ghost).sort((x, y) => x.born - y.born);
   while (out.length >= BOMB.sticky.max) { const old = out.shift(); fizzle(old); net({ e: 'r', o: old.oi, id: old.id }); }
   const b = add({ id: ++BX.seq, kind: 's', owner, oi: oiOf(owner), pos: from.clone(), vel: vel.clone(), dmg, fuse: BOMB.sticky.life, spin: new THREE.Vector3(6, 2, 3) });

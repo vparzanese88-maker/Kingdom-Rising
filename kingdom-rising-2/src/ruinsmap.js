@@ -332,7 +332,7 @@ function half(sz, team) {
 
 export function buildRuins(scene) {
   const K = KIT || (KIT = makeKit()), T = (key, c, r = 0.9, m = 0, o = {}) => kitMat(K, key, c, r, m, o), G = (o) => { glowify(o); return o; }, D2 = { side: THREE.DoubleSide };
-  M = { stone: T('ashlar', '#e6d6b8', 0.9), stone2: T('ashlar', '#d2c0a0', 0.9), stoneD: T('ashlarD', '#a89684', 0.92), stoneL: T('ashlar', '#f2e6cc', 0.88), moss: T('grass', '#b8c890', 1), flag: T('flag', '#eadcc2', 0.92), marble: T('marble', '#f6f0e4', 0.5),
+  M = { stone: T('ashlar', '#e6d6b8', 0.9), stone2: T('ashlar', '#d2c0a0', 0.9), stoneD: T('ashlarD', '#b4a898', 0.92), stoneL: T('ashlar', '#f2e6cc', 0.88), moss: T('grass', '#b8c890', 1), flag: T('flag', '#eadcc2', 0.92), marble: T('marble', '#f6f0e4', 0.5),
     plaster: T('plaster', '#fff2dc', 0.95), timber: T('wood', '#8a5e3c', 0.85), floor: T('wood', '#a87850', 0.88), crate: T('wood', '#c89a66', 0.9), roof: T('roof', '#ffd2b4', 0.78), glass: S('#20303a', 0.3, 0.2), iron: G(S('#3a3634', 0.5, 0.75, { vertexColors: true })), dark: S('#120e0c', 1),
     bronze: G(S('#8a7440', 0.42, 0.8, { vertexColors: true })), copper: G(S('#5fa58e', 0.55, 0.45, { vertexColors: true })), hay: T('wood', '#f0d080', 1), water: S('#1e4e5e', 0.06, 0.2, { transparent: true, opacity: 0.88 }), cloth: T(null, '#e0c89a', 0.95, 0, D2),
     fruit: S('#c8402a', 0.7), fruit2: S('#e0a030', 0.7), flower: S('#d870b0', 0.8), emblem: S('#f0e6c8', 0.9, 0, D2), gold: Object.assign(T('cloth', '#e0b040', 0.8, 0.1, D2), {}),
@@ -341,7 +341,7 @@ export function buildRuins(scene) {
     bark: T('bark', '#c0a088', 0.95), barkT: T('bark', '#b09078', 0.95), char: T('bark', '#3a302c', 1), leaf: T('leaf', '#d8f0a8', 0.9), leafD: T('leaf', '#a8c888', 0.95), leafT: T('leaf', '#d0e8a0', 0.9), leafTD: T('leaf', '#a0c080', 0.95),
     leafGlow: T('leaf', '#ffe2a0', 0.7, 0, { emissive: '#ff9a2a', emissiveIntensity: 0.75 }), leafGlowD: T('leaf', '#f0b060', 0.75, 0, { emissive: '#e0701a', emissiveIntensity: 0.55 }),
     ivy: T('ivy', '#d8f0a0', 0.9, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }), ivyD: T('ivy', '#a8c880', 0.95, 0, { side: THREE.DoubleSide, alphaTest: 0.45 }),
-    rock: T('ashlarD', '#b8ae9e', 0.95, 0, { flatShading: true }), rockT: T('ashlarD', '#b0a696', 0.95, 0, { flatShading: true }), farStone: S('#b0988a', 1), farRoof: S('#8a5848', 1), farHill: S('#9a8270', 1, 0, { flatShading: true }) };
+    rock: T('ashlarD', '#b8ae9e', 0.95, 0, { flatShading: true }), rockT: T('ashlarD', '#b0a696', 0.95, 0, { flatShading: true }), farStone: S('#b0988a', 1), farRoof: S('#8a5848', 1), farHill: S('#8a8ca8', 1, 0, { flatShading: true }), farPlain: S('#8a7a60', 1) };
   M.leafGlow.emissiveMap = K.leaf.map; M.leafGlowD.emissiveMap = K.leaf.map;
   for (const k of ['stone', 'stone2', 'stoneD', 'stoneL', 'flag', 'marble']) M[k].userData.moss = 0.9; M.stoneD.userData.soot = 0.7; M.stone.userData.soot = 0.82; M.stone2.userData.soot = 0.8; M.plaster.userData.soot = 0.78; M.timber.userData.soot = 0.85;
   M.team = COLORS.map(c => kitMat(K, 'cloth', c, 0.85, 0, D2));

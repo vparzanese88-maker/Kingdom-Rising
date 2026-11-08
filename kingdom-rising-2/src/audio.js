@@ -326,6 +326,12 @@ export const S = {
   bombBounce(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); tone(t, 0.12, o.node, { type: 'triangle', f: 340 + Math.random() * 80, f2: 180, gain: 0.16 * Math.min(1, k) }); noise(t, 0.05, o.node, { type: 'bandpass', f: 1900, q: 2, gain: 0.14 * Math.min(1, k) }); },
   bombStick(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); noise(t, 0.14, o.node, { type: 'lowpass', f: 900, f2: 260, q: 4, gain: 0.35 }); tone(t, 0.1, o.node, { type: 'sine', f: 220, f2: 90, gain: 0.18 }); },
   detonator() { if (!ctx) return; const o = out(null, sfxBus, 0), t = now(); noise(t, 0.04, o.node, { type: 'highpass', f: 2500, gain: 0.25, a: 0.001 }); tone(t + 0.03, 0.08, o.node, { type: 'square', f: 140, f2: 70, gain: 0.12 }); },
+  // the Necromancer's scythe: a long, deep reaping whoosh with a thin ring of the blade; a wet, heavy slice when it bites
+  reap(pos, size = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.15), t = now();
+    noise(t, 0.42 * size, o.node, { type: 'bandpass', f: 380, f2: 1500, q: 1.4, gain: 0.5 * size, a: 0.16 }); noise(t + 0.08, 0.3, o.node, { type: 'highpass', f: 2600, f2: 5200, gain: 0.12, a: 0.12 });
+    tone(t + 0.05, 0.5, o.node, { type: 'sine', f: 2350, f2: 2280, gain: 0.025, a: 0.01 }); tone(t, 0.4, o.node, { type: 'sine', f: 90, f2: 55, gain: 0.12 * size, a: 0.12 }); },
+  reapHit(pos, n = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(), b = Math.min(1.6, 0.8 + n * 0.25);
+    noise(t, 0.16, o.node, { type: 'bandpass', f: 2400, f2: 700, q: 1.5, gain: 0.45 * b, a: 0.004 }); noise(t + 0.02, 0.22, o.node, { type: 'lowpass', f: 900, f2: 200, gain: 0.5 * b }); tone(t, 0.2, o.node, { type: 'sine', f: 160, f2: 55, gain: 0.35 * b }); },
   whistle(pos, dur = 1.2) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); tone(now(), dur, o.node, { type: 'sine', f: 1400, f2: 300, gain: 0.08, a: 0.2 }); noise(now(), dur, o.node, { type: 'bandpass', f: 600, f2: 200, q: 2, gain: 0.25, a: 0.3 }); },
   rumble(pos, dur = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); noise(now(), dur, o.node, { type: 'lowpass', f: 200, f2: 60, gain: 0.7, a: 0.05 }); tone(now(), dur, o.node, { type: 'sine', f: 55, f2: 35, gain: 0.5 }); },
   roar(pos) {

@@ -25,6 +25,7 @@ import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from '
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
 import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy, teamRim } from './arenanet.js';
+import { NX, SIPHON, REAP, siphonKey, botSiphon, siphonOn, siphNet } from './necro.js';
 import { BOMB, BX, throwBomb, throwSticky, stickyCharges, detonate, plantBomb, bombNet, lobVel, liveBombs, nearestDanger, bombsNear } from './bomber.js';
 const AUTH = () => !AN.on || AN.host; // the host (or a single player) runs the match
 const BUILDS = 'kr2_arena_builds';
@@ -133,7 +134,7 @@ export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (
 let kitRulesDone = false;
 // the arena's own moves, and cooldowns tuned for a three-key kit (no mana: everything runs on cooldowns)
 const ARENA_NEW = {
-  bombardier: [{ id: 'bo_stickies', name: 'Sticky Bombs', t: 'stickies', kit: true, charges: 5, cd: 0.5, cost: 0, fx: 'fire', level: 1, desc: 'Throw a sticky bomb where you aim: it sticks to whatever it hits (the ground, a wall, or an enemy, and rides along on them). You carry 5, and one comes back every 0.5 s. Up to 5 can be out at once: throw a sixth and the oldest falls off. They wait for your detonator (right click), then each one goes up in a big 4.5 m blast; one left alone for 20 s goes off by itself, smaller.' },
+  bombardier: [{ id: 'bo_stickies', name: 'Sticky Bombs', t: 'stickies', kit: true, charges: 5, cd: 0.5, cost: 0, fx: 'fire', level: 1, desc: 'Throw a sticky bomb where you aim: it sticks to whatever it hits (the ground, a wall, or an enemy, and rides along on them). You carry 5: once all 5 are thrown they come back, one every 0.5 s. Up to 5 can be out at once: throw a sixth and the oldest falls off. They wait for your detonator (right click), then each one goes up in a big 4.5 m blast; one left alone for 20 s goes off by itself, smaller.' },
     { id: 'bo_detonate', name: 'Detonator', t: 'detonate', kit: true, cd: 0.3, cost: 0, fx: 'fire', level: 1, desc: 'Slam the plunger on your belt: every bomb you have out goes off at once. Thrown bombs burst as normal; sticky bombs go up in a much bigger blast. It never sets off Big Bertha.' }],
   priest: [{ id: 'ar_mendP', name: 'Flash of Dawn', t: 'mend', kind: 'dawn', heal: 0.2, cd: 6, cost: 0, fx: 'holy', level: 1, desc: 'A flash of dawn light into the ally under your crosshair, even through walls (or yourself): it heals them and wraps them in a shield of light that soaks damage for 4 s.' }],
   rogue: [{ id: 'ar_assassinate', name: 'Assassinate', t: 'assassinate', cd: 90, cost: 0, fx: 'shadow', level: 1, desc: 'Aim at an enemy: you melt into the shadows and step out right behind them, seize them and drive your blade into their back. A killing blow.' },
@@ -175,7 +176,7 @@ function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
   for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
   { const l = ABILITIES.paladin && ABILITIES.paladin.find(a => a.id === 'layonhands'); if (l) { l.self = 0.3; l.ally = 0.35; l.r = 8; l.desc = 'Lay your hands on the light: you heal 30% of your health and allies within 8 m heal 35%.'; } const so = ABILITIES.paladin && ABILITIES.paladin.find(a => a.id === 'shieldofl'); if (so) { so.amount = 0.18; so.dur = 6; so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s.'; }
     const lt = ABILITIES.darkknight && ABILITIES.darkknight.find(a => a.id === 'lifetap'); if (lt) { lt.dmg = 1.8; lt.drain = 0.8; lt.desc = 'A bolt of shadow that tears at the life of the enemy you aim at: you drink 80% of the damage it does.'; } } // (the shadow knight sustains by draining, the paladin by healing) // (60% on a 20 s cooldown made the paladin unkillable in duels)
-  { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) { n.desc = 'Raise the shrunken head: a stream of green soul-water pours out of the enemy you aim at into it, healing you and slowing them.'; n.slow = 2.5; } }
+  { const n = ABILITIES.necromancer && ABILITIES.necromancer.find(a => a.id === 'drainlife'); if (n) { n.name = 'Life Siphon'; n.cd = SIPHON.cd; n.desc = `Press to start, press again to stop (${SIPHON.dur} s at most). While it is on, a purple beam drains the life of whoever is under your crosshair (a player or a monster, up to ${SIPHON.range} m away, not through walls), slowing them, and a green orb of it flows back and heals you. Aim away and nothing happens. The ${SIPHON.cd} s cooldown starts when it stops.`; n.slow = SIPHON.slow; } }
   designRules(); // (docs/CLASS_DESIGN.md: the crowd-control budget, mesmerize, roots, the new tools)
   for (const cls in ARENA_KITS) { const [fH, fC, fQ] = ARENA_KITS[cls], A2 = ABILITIES[cls] || [], get = (id) => A2.find(x => x.id === id);
     const h = get(fH); if (h && (h.t === 'drain' || h.drain || h.regen)) h.cd = Math.max(h.cd || 0, CD_FIX.drain); else if (h && (h.t === 'heal' || h.t === 'hot' || (LEG_SELF[h.id] && LEG_SELF[h.id][0] === 'heal'))) h.cd = Math.min(20, Math.max(h.cd || 0, CD_FIX.heal)); else if (h) h.cd = Math.max(h.cd || 0, 8); // (only heals get the heal cooldown)
@@ -966,7 +967,7 @@ export function openKitInfo(UI, into) {
   const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
-  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? `Throw a bomb in an arc: it bounces two or three times off the ground and walls, each hop lower, and goes off ${BOMB.throw.fuse} s after its last bounce (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Your detonator (right click) sets it off early. Hold to keep throwing.` : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? 'Spit a dripping ball of poison. Hold to spray poison in a cone; it creeps onto nearby enemies.' : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
+  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? `Throw a bomb in an arc: it bounces two or three times off the ground and walls, each hop lower, and goes off ${BOMB.throw.fuse} s after its last bounce (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Your detonator (right click) sets it off early. Hold to keep throwing.` : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? `Reap with your scythe: a wide sweep (about ${Math.round(REAP.half * 2 * 180 / Math.PI)} degrees) that cuts every enemy in front of you. Hold to keep reaping.` : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
   const hs = { ranger: ' Headshots: 2x on a full draw, 1.5x on a quick shot (Spectral Arrow 1.75x), and each one heals you 5% of your health.', musketeer: ' Headshots: 2x, or 2.25x aimed down the sights.', wizard: ' Your bolts fly straight where you aim (no homing). Headshots: 1.5x (Temporal Bolt and Disintegrate too).', elementalist: ' Headshots: 1.5x with frost and arcane bolts and Lightning Lash.' }[cls] || '';
   let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb + hs, 0, null);
   const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
@@ -1096,7 +1097,8 @@ function hitPlayer(src, raw, o) {
   if (!p.dead && p.debuff) ccPlayer(p, o2, dodged); // (roots root, silences silence: see the crowd-control rules below)
   const dealt = Math.max(0, hp0 - p.hp); if (src && src.arenaF) src.arenaF.dmg += dealt; return dealt;
 }
-BX.bot = { hit: (src, tgt, raw, o) => hitUnit(src, tgt, raw, o), foes: (src) => enemiesOf(src) }; // (computer fighters' bombs hurt through the arena's rules)
+BX.bot = { hit: (src, tgt, raw, o) => hitUnit(src, tgt, raw, o), foes: (src) => enemiesOf(src) };
+NX.bot = { hit: (src, tgt, raw, o) => hitUnit(src, tgt, raw, o), heal: (u, n) => u.healSelf && u.healSelf(n) }; // (computer necromancers' Life Siphon hurts and heals through the arena's rules) // (computer fighters' bombs hurt through the arena's rules)
 function hitUnit(src, tgt, raw, o) { if (!tgt || tgt.dead) return 0; if (src && src.arenaBot) { [raw, o] = Game.arenaOut(src, src.h, tgt, raw, o || {}); o = ccShape(src, o); } const d = tgt === G.player ? hitPlayer(src, raw, o) : tgt.takeHit ? (tgt.takeHit(raw, src, o) || 0) : 0; const ls = src && src.arenaBot ? Game.arenaStat(src.h, 'lifesteal') : 0; if (ls && d > 0) src.healSelf(d * 0.03 * ls); if (src && src.h && d > 0) ultGain(src.h, d / 40); return d; }
 // ---------- crowd control (docs/CLASS_DESIGN.md, roster-wide rules 1-5) ----------
 // a root really roots (no walking, jumping or dodging; you can still aim, shoot and cast); a mesmerize breaks on damage
@@ -1148,7 +1150,7 @@ export function playerRules(p = G.player) {
   };
   p.tryDodge = function (d) { if (isRooted(this)) { V.number(headOfU(this), 'Rooted', 'miss'); return; } return dodge.call(this, d); };
   p.jump = function () { if (isRooted(this) && !this.swim) return; return jump.call(this); };
-  p.ability = function (i, fromCast) { const a = ABILITIES[this.h.cls][i]; if (a && this.h.arena) { if (isSilenced(this) && !fromCast) { silencedNote(this); return; } this._abId = a.id; this._abT = G.time; if (a.t === 'stickies' || a.t === 'detonate') return bomberKey(this, a, i); } return ability.call(this, i, fromCast); };
+  p.ability = function (i, fromCast) { const a = ABILITIES[this.h.cls][i]; if (a && this.h.arena) { if (isSilenced(this) && !fromCast) { silencedNote(this); return; } this._abId = a.id; this._abT = G.time; if (a.t === 'stickies' || a.t === 'detonate') return bomberKey(this, a, i); if (a.id === 'drainlife' && this.h.cls === 'necromancer') return siphonKey(this, a, i); /* (Life Siphon: F on, F off) */ } return ability.call(this, i, fromCast); };
   p.ultimate = function () { if (this.h.arena && isSilenced(this)) { silencedNote(this); return; } return ult.call(this); };
   p.takeDamage = function (dmg, src, o = {}) { const r = take.call(this, dmg, src, o);
     if (dmg > 0 && this.mezUntil > G.time && G.time - (this.mezAt || 0) > CC.mezGrace && this.db && this.db.stun) { this.db.stun.t = 0; this.mezUntil = 0; this.ccImmT = G.time + CC.immune; wakeFx(this); } // (damage wakes you from a mesmerize)
@@ -1175,6 +1177,14 @@ function bomberBot(b, dt) { if ((b.bombT = (b.bombT || 0) - dt) > 0 || b.status.
     const from = b.pos.clone().setY(b.pos.y + 1); throwSticky(b, from, lobVel(from, at, 0.6), dmg); } }
 function bertWant(b, h, dt) { const foes = enemiesOf(b), n = (r) => foes.filter(u => Math.hypot(u.pos.x - b.pos.x, u.pos.z - b.pos.z) < r).length; h.bertHeld = (h.bertHeld || 0) + 0.25 * dt * 4;
   return n(BOMB.ult.core + 4) >= 2 || n(BOMB.ult.r * 0.6) >= 3 || (n(6) >= 1 && h.bertHeld > 20); } // (into a crowd; or, having waited, on whoever is close)
+// ---- a computer necromancer: reaps up close with the scythe; Life Siphon on whoever it faces, kept on while it can see them
+export const necroReach = (u) => Math.max(3.4, Math.min(5, (u === G.player ? (u.eye || 1.7) : (u.height || 1.8) * 0.93) * REAP.reachK));
+G.hooks.necroReach = necroReach;
+function reapBot(b, n) { const R = necroReach(b); let k = 0; for (const u of enemiesOf(b)) { const dx = u.pos.x - b.pos.x, dz = u.pos.z - b.pos.z, d = Math.hypot(dx, dz); if (d > R + (u.radius || 0.5)) continue; const off = Math.atan2(Math.sin(Math.atan2(dx, dz) - b.yaw), Math.cos(Math.atan2(dx, dz) - b.yaw)); if (d > 1.2 && Math.abs(off) > REAP.half + 0.2) continue; hitUnit(b, u, n, { melee: true }); k++; V.burst('blood', u.pos.clone().setY(u.pos.y + 1.1), 10, { speed: 4 }); }
+  S.reap && S.reap(b.pos, 1); if (k) { S.reapHit && S.reapHit(b.pos, k); } }
+function necroBot(b, dt) { if ((b.necT = (b.necT || 0) - dt) > 0 || siphonOn(b) || b.status.silence > 0 || b.status.stun > 0) return; b.necT = 0.2;
+  const a = abOf(b, 'drainlife'), T = b.target; if (!a || (b.cd[a.id] || 0) > 0 || !T || T.dead) return; const d = Math.hypot(T.pos.x - b.pos.x, T.pos.z - b.pos.z), hp = b.hp / b.maxHp;
+  if (d < SIPHON.range - 3 && (hp < 0.85 || d > 6 || Math.random() < 0.3)) { const off = Math.atan2(Math.sin(Math.atan2(T.pos.x - b.pos.x, T.pos.z - b.pos.z) - b.yaw), Math.cos(Math.atan2(T.pos.x - b.pos.x, T.pos.z - b.pos.z) - b.yaw)); if (Math.abs(off) < 0.3) { botSiphon(b, a); b.act = 'cast'; b.actT = 0; } } } // (aimed at someone: drink from them, sooner when hurt)
 // the Goblin Bombardier's Q (a sticky bomb, from 5 charges) and right click (the detonator), for your own hero
 function bomberKey(p, a, i) { if (p.dead || p.swim || p.held || G.uiOpen) return; const key = 'a' + (i + 1);
   if (a.t === 'detonate') { if ((p.cd[key] || 0) > 0) return; p.cd[key] = a.cd || 0.3; const n = detonate(p); S.detonator && S.detonator(); V.burst('spark', p.pos.clone().setY(p.pos.y + 0.9), 6, { speed: 2 }); if (!n) V.number(p.pos.clone().setY(p.pos.y + (p.eye || 1.6) + 0.3), 'No bombs out', 'miss'); return; }
@@ -1293,7 +1303,7 @@ class ArenaBot {
     const ch = buildHumanoid({ race: h.race, sex: h.sex, cls: h.cls, outfit: h.cls, app: h.app, ...(h.app || {}), spec: arenaSpec(h.cls), body: arenaBody(h.cls) }); this.model = ch; this.root = ch.root; this.height = ch.height || 1.8; arenaDecor(ch, h.cls);
     try { equipWeapon(ch, CLASSES[h.cls].weapons.includes('swordshield') && h.equip.w2 ? 'swordshield' : wt, 3, 0); arenaWeaponDecor(ch, h.cls); } catch (e) { /* unknown weapon model */ }
     try { bake(ch.root); this.flashMats = Object.values(ch.bakedMats || {}); } catch (e) { this.flashMats = []; } addOutline(ch.root, f.team !== G.myTeam ? '#8a0c06' : '#0a2a66'); /* (enemies wear a red edge, friends a blue one: readable at any range) */ // (its own materials, so a hit can flash this fighter alone)
-    this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind); this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : 2.6;
+    this.ranged = ['bow', 'gun', 'staff'].includes(this.W.kind) && h.cls !== 'necromancer'; this.range = this.ranged ? (this.W.kind === 'gun' ? 16 : 15) : h.cls === 'necromancer' ? necroReach(this) - 0.4 : 2.6; /* (the necromancer reaps with his scythe up close) */
     this.abs = [...(h.arenaKit || []), h.arenaRmb].filter(id => id && id !== 'aim').map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
     this.buffs = {}; this.hots = []; this.dots = []; this.gcd = 0; this.swingT = 0; this.thinkT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.act = ''; this.actT = 0; this.spd = 0; this.pets = [];
@@ -1388,7 +1398,7 @@ class ArenaBot {
       if (this.cast) { const c = this.cast; c.t += dt; if (c.wind && c.tgt && c.tgt.pos) { const fa = Math.atan2(c.tgt.pos.x - this.pos.x, c.tgt.pos.z - this.pos.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 5); }
         if (c.wind && !c.melee && Math.random() < 0.5) V.emit('spark', this.pos.clone().setY(this.pos.y + 1.5), { n: 1, speed: 0.6 }); // a glow gathers in the caster's hands
         if (c.t >= c.dur) { this.cast = null; if (c.melee) { this.act = 'swing2'; this.actT = 0.42; this.actSp = 1.6; } this.resolve(c.a, c.tgt, c.at); } }
-      else { speed = this.move(dt); if (this.cls === 'bombardier') bomberBot(this, dt); this.fight(); }
+      else { speed = this.move(dt); if (this.cls === 'bombardier') bomberBot(this, dt); if (this.cls === 'necromancer') necroBot(this, dt); this.fight(); }
     }
     // knockback
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
@@ -1498,13 +1508,14 @@ class ArenaBot {
       this.swingT = sw * 1.25 * Game.ARENA_PACE; const raw = this.base * 0.95 * this.dmgMul() * Game.ARENA_PACE; /* (slower, heavier blows: same damage per second, each hit lands harder) */
       if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.actSp = 1.4; this.aimLock = this.W.kind === 'gun' ? 0.75 : 0.55; /* plant your feet to aim, then fire */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012;
         this.pending = { t: 0.4, fn: () => { if (T.dead) return; if (this.cls === 'bombardier') { botBomb(this, T, raw * BOMB.throw.k, false); return; } /* (a real bomb, lobbed to land at their feet) */ const bomb = this.cls === 'bombardier', pri = this.cls === 'priest'; shot(this, T, bomb ? SHOT_COL.fire : pri ? SHOT_COL.holy : this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); if (pri) atone(this, 0.045); if (bomb) { for (const u of enemiesOf(this)) if (u !== T && !u.dead && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3) hitUnit(this, u, raw * 0.6, { ranged: true }); V.burst('fire', T.pos.clone().setY(T.pos.y + 0.8), 40, { speed: 6 }); V.ring(T.pos.clone().setY(T.pos.y + 0.1), 3, '#ff9030', 0.35); S.explode && S.explode(T.pos, 0.4); } }, false, bomb ? 'bomb' : undefined); } }; }
+      else if (this.cls === 'necromancer') { this.act = 'swing2'; this.actT = 0; this.actSp = 1.3; this.aimLock = 0.35; this.pending = { t: 0.3, fn: () => reapBot(this, raw * REAP.k) }; } /* (the scythe: a wide sweep that catches everyone in front of him) */
       else { this.act = Math.random() < 0.5 ? 'swing1' : 'swing2'; this.actT = 0; this.actSp = 1.5; this.aimLock = 0.3; // wind up, then strike: the blow lands as the weapon comes through
         this.pending = { t: 0.36, fn: () => { if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 3.4) { hitUnit(this, T, raw, { melee: true }); S.hit && S.hit('flesh', T.pos, 0.6); } } }; }
     }
   }
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
-    if (this.status.silence > 0) return null; /* (silenced: basic attacks only) */ const abs = this.abs.filter(a => this.ready(a)); if (!abs.length) return null;
+    if (this.status.silence > 0) return null; /* (silenced: basic attacks only) */ const abs = this.abs.filter(a => this.ready(a) && !(a.id === 'drainlife' && this.cls === 'necromancer')); /* (Life Siphon: necroBot runs it) */ if (!abs.length) return null;
     const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id, 'cd')) * Game.arenaCdAll(this.h) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
       const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
@@ -1619,7 +1630,7 @@ function petTick(dt) {
 
 // ---------------- online: what goes over the wire ----------------
 const r2 = (v) => Math.round(v * 100) / 100;
-const ACT_NET = { smash: 'heavy', stabR: 'thrust1', stabL: 'thrust1', off1: 'swing1', spell: 'cast', sweep: 'swing1', spin: 'area', fury: 'area', release: 'shoot' };
+const ACT_NET = { reap: 'swing2', smash: 'heavy', stabR: 'thrust1', stabL: 'thrust1', off1: 'swing1', spell: 'cast', sweep: 'swing1', spin: 'area', fury: 'area', release: 'shoot' };
 let psT = 0, bsT = 0, msT = 0;
 function netTick(dt) {
   const p = G.player;
@@ -1661,6 +1672,7 @@ function onNet(from, d) {
     case 'over': if (!AN.host) finish(d.w); break;
     case 'restart': if (!AN.host) restartMatch(true); break;
     case 'bfx': if (!AN.host) botFx(U(d.i), d); break;
+    case 'siph': siphNet(d, U); break; // (another machine's necromancer is draining someone: draw the beam)
     case 'bomb': bombNet(d, U); break; // (another machine's bombs: thrown, stuck, gone off, Big Bertha)
     case 'shot': if (!AN.host) { const a = U(d.f), b = U(d.to); if (a && b) shot(a, b, d.c, () => {}, !!d.b, d.k); } break;
   }

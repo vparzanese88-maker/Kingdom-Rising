@@ -93,7 +93,7 @@ function mosaic(n = 1024) { const [c, g] = canvas(n); const C = n / 2, R = n / 2
 export function makeKit() {
   seedV = 777; const T = {};
   const add = (k, c, tile, nk) => { T[k] = { map: tex(c), tile, normal: nk ? normalFrom(c, nk) : null }; };
-  add('ashlar', ashlar(), 3.2, 2.4); add('ashlarD', ashlar(512, [56, 64, 72, 64, 60, 68, 64, 64], 6, 190), 2.6, 2.6); add('flag', flagstones(), 4.2, 2.0); add('cobble', cobbles(), 2.4, 2.4);
+  add('ashlar', ashlar(), 3.2, 2.4); add('ashlarD', ashlar(512, [96, 120, 104, 88, 104], 6, 190), 4.2, 2.6); add('flag', flagstones(), 4.2, 2.0); add('cobble', cobbles(), 2.4, 2.4);
   add('plaster', plaster(), 3.6, 0.8); add('wood', planks(), 2.2, 1.6); add('roof', rooftiles(), 2.0, 2.2); add('marble', marble(), 3.0, 0.6); add('grass', grass(), 3.6, 0); add('earth', earth(), 4.0, 0);
   add('leaf', leaves(256), 2.6, 0); add('bark', bark(), 1.6, 1.4); T.ivy = { map: tex(leaves(256, true)), tile: 0 }; T.cloth = { map: tex(clothPattern()), tile: 0 }; { const c = mosaic(); T.mosaic = { map: tex(c), tile: 0, normal: normalFrom(c, 1.6) }; }
   return T; }
@@ -220,8 +220,8 @@ export function tufts(root, spots) { if (!spots.length) return; const t = tex(bl
 export function backdrop(put, M, Y) { seedV = 2024; const ring = (R0, R1, n, fn) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + rr() * 0.1, r = R0 + rr() * (R1 - R0), x = Math.cos(a) * r * 0.75, z = Math.sin(a) * r * 1.05; if (Math.abs(x) < 70 && Math.abs(z) < 110) continue; fn(x, z, a); } };
   ring(120, 175, 48, (x, z, a) => { const h = 10 + rr() * 22, w = 6 + rr() * 8; put(new THREE.BoxGeometry(w, h, w * (0.6 + rr() * 0.6)), M.farStone, x, Y + h / 2 - 1, z, a, 0, false); if (rr() < 0.45) { const c = new THREE.ConeGeometry(w * 0.75, 5 + rr() * 6, 4); c.rotateY(Math.PI / 4); put(c, M.farRoof, x, Y + h + 2, z, a, 0, false); } else for (let k = 0; k < 3; k++) put(new THREE.BoxGeometry(w * 0.3, 2 + rr() * 3, w * 0.3), M.farStone, x + (rr() - 0.5) * w * 0.6, Y + h, z + (rr() - 0.5) * w * 0.4, rr(), 0, false); });
   ring(130, 160, 10, (x, z, a) => { const h = 34 + rr() * 22; put(new THREE.CylinderGeometry(4, 5.5, h, 10), M.farStone, x, Y + h / 2, z, 0, 0, false); if (rr() < 0.5) put(new THREE.ConeGeometry(6, 10, 10), M.farRoof, x, Y + h + 5, z, 0, 0, false); }); // broken spires
-  { const g = new THREE.CircleGeometry(1600, 32); g.rotateX(-Math.PI / 2); put(g, M.farHill, 0, Y - 0.05, 0, 0, 0, false); } // (the plain beyond the walls, under the campaign's grass)
-  ring(260, 360, 30, (x, z) => { const h = 50 + rr() * 90, g = new THREE.ConeGeometry(60 + rr() * 60, h, 7, 1); put(g, M.farHill, x, Y + h / 2 - 8, z, rr() * 3, 0, false); }); }
+  { const g = new THREE.CircleGeometry(1600, 32); g.rotateX(-Math.PI / 2); put(g, M.farPlain, 0, Y - 0.05, 0, 0, 0, false); } // (the plain beyond the walls, under the campaign's grass)
+  ring(330, 420, 26, (x, z) => { const h = 28 + rr() * 45, w = 70 + rr() * 60, g = new THREE.IcosahedronGeometry(1, 1); g.scale(w, h, w * (0.7 + rr() * 0.5)); put(g, M.farHill, x, Y - 4, z, rr() * 3, 0, false); }); } // (low rolling hills, blue with distance)
 
 // ---- the owner's Meshy props (trees and rocks), loaded after the map and drawn instanced ----
 export function plantMeshy(root, list, done) { if (!list.tree.length && !list.rock.length) return; const L = new FBXLoader();

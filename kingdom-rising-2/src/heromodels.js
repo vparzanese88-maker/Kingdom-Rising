@@ -190,13 +190,13 @@ function bowString(ch, B) { const W = ch.weapons || {}, bw = W.main; if (!bw || 
 // a recorded attack (made without a weapon): the weapon runs straight on from the forearm and its edge leads the way the hand is moving
 function moveWeapon(ch, H, B, mvK, dt) { const main = ch.weapons && ch.weapons.main; if (!main || !main.parent || !/^weapon_(sword|greatsword|greataxe|axe|mace|warhammer|handaxe)/.test(main.name) || !B.RightHand || !B.RightForeArm) return;
   const ud = main.userData; const on = !!(mvK && PUNCH.test(ch._act || '') && H.D.moves && H.D.moves[mvK] && !/^(dead|cheer|roll|flip)$/.test(mvK)); H.mwK = (H.mwK || 0) + ((on ? 1 : 0) - (H.mwK || 0)) * Math.min(1, dt * 14);
-  if (H.mwK < 0.01) { if (ud.mwBase) { main.quaternion.copy(ud.mwBase); ud.mwBase = null; } H.mwPrev = null; return; } if (!ud.mwBase) ud.mwBase = main.quaternion.clone();
+  if (H.mwK < 0.01) { if (ud.mwBase) { main.quaternion.copy(ud.mwBase); main.position.copy(ud.mwBaseP); ud.mwBase = null; } H.mwPrev = null; return; } if (!ud.mwBase) { ud.mwBase = main.quaternion.clone(); ud.mwBaseP = main.position.clone(); }
   B.RightHand.updateWorldMatrix(true, false); const hp = B.RightHand.getWorldPosition(new THREE.Vector3()), fp = B.RightForeArm.getWorldPosition(new THREE.Vector3()), d = hp.clone().sub(fp).normalize();
   const v = H.mwPrev ? hp.clone().sub(H.mwPrev) : new THREE.Vector3(); H.mwPrev = hp.clone(); v.addScaledVector(d, -v.dot(d));
   let edge = v.lengthSq() > 1e-8 ? v.normalize() : (H.mwEdge ? H.mwEdge.clone() : new THREE.Vector3(0, 1, 0)); edge.addScaledVector(d, -edge.dot(d)); if (edge.lengthSq() < 1e-6) return; edge.normalize(); H.mwEdge = H.mwEdge ? H.mwEdge.lerp(edge, 0.35).normalize() : edge.clone(); edge = H.mwEdge.clone(); edge.addScaledVector(d, -edge.dot(d)).normalize();
   const Z = new THREE.Vector3().crossVectors(edge, d).normalize(), qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(edge, d, Z)); /* (y along the blade or haft, x the edge) */
   main.parent.updateWorldMatrix(true, false); const lq = main.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW); if (![lq.x, lq.y, lq.z, lq.w].every(Number.isFinite)) return;
-  main.quaternion.copy(ud.mwBase).slerp(lq, H.mwK); }
+  main.quaternion.copy(ud.mwBase).slerp(lq, H.mwK); main.position.copy(ud.mwBaseP).applyQuaternion(main.quaternion.clone().multiply(ud.mwBase.clone().invert())); } /* (turned about the fist: the haft stays in his hands) */
 function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatrixWorld(true); const W = ch.weapons || {}, main = W.main, so = {};
   for (const s of ch.hmSockets) if (s.userData.side && s.userData.fist) so[s.userData.side] = s;
   const lead = main && so.L && main.parent === so.L && !(so.R && main.parent === so.R) ? 'L' : 'R'; /* (the bow is held in the left fist) */

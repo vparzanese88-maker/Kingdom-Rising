@@ -1066,6 +1066,7 @@ export class Player {
   // ---------- class abilities ----------
   ability(i, fromCast) {
     if (this.held) return; /* (during an ultimate's animation, or in a demon's grip: no casting) */
+    if ((this.axeOut || this.axeThrow) && ABILITIES[this.h.cls][i] && ['earthsplitter', 'ar_legsweep'].includes(ABILITIES[this.h.cls][i].id)) { S.error && S.error(); return; } /* (no axe in hand: no axe moves until it is back) */
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.sheathed) this.drawWeapons();
     if (!Game.abilityKnown(this.h, ab)) { G.hooks.toast && G.hooks.toast(Game.hasTrees(this.h.cls) ? `Unlock ${ab.name} in your skill trees (K)` : `${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
@@ -1790,7 +1791,7 @@ export class Player {
     else { const to = hand.clone().sub(A.pos), d = to.length(), sp = 26; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { G.scene.remove(A.fly); if (w) w.visible = true; this.axeOut = null; S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); }
     A.fly.position.copy(A.pos); A.fly.rotateOnWorldAxis(A.axis, -dt * 20); if (Math.random() < 0.5) V.emit('blood', A.pos.clone(), { speed: 0.4, size: 0.18, life: 0.25 });
     if (!A.sndT || G.time - A.sndT > 0.28) { A.sndT = G.time; S.swingW && S.swingW('blade', 0.7, A.pos, this.weapon && this.weapon.wt, this.h.cls); }
-    const hits = A.out ? A.hitOut : A.hitBack; for (const m of mobsInRadius(A.pos, 1.9)) { if (hits.has(m) || m.dead || m === this) continue; hits.add(m); this.dealDamage(m, A.dmg * (A.out ? 1 : 0.7), { ranged: true, knock: A.dir.clone().multiplyScalar(A.out ? 1.5 : -1) }); V.burst('blood', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 16, { speed: 3 }); }
+    const hits = A.out ? A.hitOut : A.hitBack; for (const m of mobsInRadius(A.pos, 1.9)) { if (hits.has(m) || m.dead || m === this) continue; hits.add(m); this.dealDamage(m, A.dmg * (A.out ? 1 : 0.7), { ranged: true, stun: A.out ? 1.2 : 0, knock: A.dir.clone().multiplyScalar(A.out ? 1.5 : -1) }); if (A.out) { A.out = false; V.addShake(0.2); S.hit && S.hit('metal', m.pos); } /* (a hit on the way out stuns, and the axe turns straight back) */ V.burst('blood', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 16, { speed: 3 }); }
   }
   // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
   tickSummon(dt) {

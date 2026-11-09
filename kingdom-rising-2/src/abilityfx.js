@@ -152,7 +152,7 @@ export function bodyPoseTick(u, ch, dt) { if (ch) ch._u = u; if (ch) ch._strike 
     if (ch.body) { ch.body.rotation.x = 0.75 * e; ch.body.position.y = Math.sin(Math.min(1, k * 1.2) * Math.PI) * 0.55; } ch.arms.R.sh.rotation.set(-1.65 * e - 0.3 * (1 - e), 0, 0.05); ch.arms.R.el.rotation.x = -0.05 - (1 - e) * 1.6; ch.arms.L.sh.rotation.set(0.6 * e, 0, -0.4); ch.arms.L.el.rotation.x = -1.2;
     ch.legs.L.thigh.rotation.x = 0.9 * e; ch.legs.L.knee.rotation.x = 1.4 * e; ch.legs.R.thigh.rotation.x = -0.3 * e; ch.legs.R.knee.rotation.x = 0.3; return; }
   if (ch && u.strike && ch.legs && ch.arms) { strikePose(u, ch); }
-  if (ch && u.spinT > 0) { u.spinT -= dt; u.spinA = (u.spinA || 0) + dt * 15; ch.root.rotation.y += u.spinA; const A2 = ch.arms; // (Bladestorm: the whole body whirls, arms out, axes level)
+  if (ch && u.spinT > 0) { u.spinT -= dt; u.spinA = (u.spinA || 0) + dt * (u.spinW || 15); ch.root.rotation.y += u.spinA; const A2 = ch.arms; // (Bladestorm: the whole body whirls, arms out, axes level)
     if (A2) { A2.R.sh.rotation.set(-0.15, 0, 1.45); A2.L.sh.rotation.set(-0.15, 0, -1.45); A2.R.el.rotation.x = -0.1; A2.L.el.rotation.x = -0.1; }
     if (ch.legs) { ch.legs.R.thigh.rotation.x = -0.35; ch.legs.L.thigh.rotation.x = 0.25; ch.legs.R.knee.rotation.x = 0.6; ch.legs.L.knee.rotation.x = 0.5; } if (ch.body) ch.body.rotation.x = 0.12; return; }
   if (!ch || !ch.legs || !(u.kickT > 0)) return; u.kickT -= dt; const dur = u.kickDur || 0.55, k = 1 - Math.max(0, u.kickT) / dur;

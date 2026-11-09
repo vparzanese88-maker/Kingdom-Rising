@@ -127,7 +127,7 @@ function fistFrame(hb, o) { let sk = null; for (let r = hb, n = 0; r && !sk && n
 const _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion(), _pm = new THREE.Matrix4(), _pm2 = new THREE.Matrix4(), _pm3 = new THREE.Matrix4(), _pv = new THREE.Vector3(), _pv2 = new THREE.Vector3(), _pv3 = new THREE.Vector3(), _pv4 = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1);
 function builtGrip(so, out) { const chd = so.userData.codeHand; chd.updateWorldMatrix(true, false); return out.multiplyMatrices(chd.matrixWorld, _pm3.compose(so.userData.gripP, so.userData.gripQ, _ps)); }
 const SUPPORT = { musket: [0, 0.42, 0, 0, Math.PI, 0], blunderbuss: [0, 0.26, 0, 0, Math.PI, 0] }; /* (where the left fist holds a gun, in the gun's own frame: under the fore-stock) */
-const REST_TILT = { sword: 0.6, dagger: 0.35, mace: 0.6, greatsword: 0.75, bow: 'up' }; /* ('up': the bow stands upright out of the fist at rest, however the arm swings) */ /* (radians, tip down, while he is not attacking) */
+const REST_TILT = { sword: 0.6, dagger: 0.35, mace: 0.6, greatsword: 0.75, bow: 'up', spear: 'upF' }; /* ('up': the bow stands upright out of the fist at rest, however the arm swings) */ /* (radians, tip down, while he is not attacking) */
 // ---------- third person melee swings v2: the hand follows a clean arc around the outside of the model's own body ----------
 // The old way copied a hidden built body whose proportions differ, so blades cut through the hero. Each blow is now an arc
 // around the model's own right shoulder: wound back, swept through, followed through, with the blade pointing out along
@@ -141,23 +141,24 @@ function arcDir(kind, a, R, U, F) { // a: 0 at the wind-up, 1 at the end of the 
     case 'back': return dir(L(-75, 105) * D, L(8, -4) * D); /* (backhand: from the left, across to the right) */
     case 'low': return dir(L(100, -70) * D, L(-12, -30) * D); /* (a low cut at the legs) */
     case 'stab': return dir(L(45, -4) * D, L(-35, -6) * D);
+    case 'spear': return dir(L(78, 4) * D, L(14, 6) * D); /* (the spear drawn back high past the right shoulder, then driven straight out in front) */
     default: return dir(L(105, -75) * D, L(22, -6) * D); /* (a side cut: wound back past the right shoulder, swept across the front to the left) */
   }
 }
 function meleeArc(ch, H, B, act, mvK) {
   ch._arc = null; if (/[?&]noarc/.test(location.search)) return; const st = ch._st || {}, nm = ch._act || '', kT = st.actionT, W = ch.weapons || {}, main = W.main;
   if (!act || mvK || kT == null || !main || !/^weapon_/.test(main.name || '') || /bow|staff|musket|blunderbuss|wand|orb|book|lute|censer|scepter|doll|detonator|grenade|fists/.test(main.name)) return;
-  const kind = /^(swing3|smash|heavy|chop|slam|cleave)/.test(nm) ? 'over' : /^(stab|thrust|lunge|bash)/.test(nm) ? 'stab' : /^(swing2|reap|off)/.test(nm) ? 'back' : /^lowcut/.test(nm) ? 'low' : /^(swing|slash|sweep|strike)/.test(nm) ? 'side' : null; if (!kind) return;
+  let kind = /^(swing3|smash|heavy|chop|slam|cleave)/.test(nm) ? 'over' : /^(stab|thrust|lunge|bash)/.test(nm) ? 'stab' : /^(swing2|reap|off)/.test(nm) ? 'back' : /^lowcut/.test(nm) ? 'low' : /^(swing|slash|sweep|strike)/.test(nm) ? 'side' : null; if (!kind) return; const spear = kind === 'stab' && /spear/.test(main.name); if (spear) kind = 'spear';
   const sh = B.RightArm, fo = B.RightForeArm, hd = B.RightHand; if (!sh || !fo || !hd) return;
   const k = Math.max(0, Math.min(1, kT)), sm = (x) => x * x * (3 - 2 * x);
   const w = k < 0.28 ? sm(k / 0.28) : k < 0.8 ? 1 : 1 - sm((k - 0.8) / 0.2); /* (blended in during the wind-up, out during the recovery) */
   const a = k < 0.3 ? 0 : k < 0.64 ? sm((k - 0.3) / 0.34) * 0.86 : 0.86 + 0.14 * sm(Math.min(1, (k - 0.64) / 0.16)); /* (held at the wind-up, swept fast, then the follow-through eases out) */
   const wq = H.wrap.getWorldQuaternion(new THREE.Quaternion()), U = new THREE.Vector3(0, 1, 0), F = new THREE.Vector3(0, 0, 1).applyQuaternion(wq).setY(0).normalize(), R = new THREE.Vector3().crossVectors(F, U).normalize(); /* (R: the hero's right) */
   H.m.updateMatrixWorld(true); const S = sh.getWorldPosition(new THREE.Vector3()), len = S.distanceTo(fo.getWorldPosition(_sa)) + _sa.distanceTo(hd.getWorldPosition(_sb));
-  const reach = kind === 'stab' ? len * (0.55 + 0.42 * a) : len * 0.9; const d0 = arcDir(kind, a, R, U, F), p = S.clone().addScaledVector(d0, reach);
+  const reach = kind === 'spear' ? len * (0.32 + 0.66 * a) : kind === 'stab' ? len * (0.55 + 0.42 * a) : len * 0.9; const d0 = arcDir(kind, a, R, U, F), p = S.clone().addScaledVector(d0, reach);
   const tan = arcDir(kind, Math.min(1, a + 0.02), R, U, F).sub(arcDir(kind, Math.max(0, a - 0.02), R, U, F)); /* (which way the hand is travelling) */
-  let blade = kind === 'stab' ? F.clone().addScaledVector(U, -0.05).normalize() : d0.clone().addScaledVector(U, kind === 'over' ? 0 : 0.18).normalize(); /* (the blade carries on out from the arm; a stab points straight ahead) */
-  let edge = kind === 'stab' ? U.clone().negate() : tan.lengthSq() > 1e-8 ? tan.normalize() : F.clone(); edge.addScaledVector(blade, -edge.dot(blade)); if (edge.lengthSq() < 1e-6) { edge.copy(R).addScaledVector(blade, -R.dot(blade)); if (edge.lengthSq() < 1e-6) edge.copy(F).addScaledVector(blade, -F.dot(blade)); } edge.normalize(); /* (the sharp edge faces where the blade is going) */
+  let blade = kind === 'spear' ? F.clone().addScaledVector(U, 1 - 0.62 * a).normalize() : kind === 'stab' ? F.clone().addScaledVector(U, -0.05).normalize() : d0.clone().addScaledVector(U, kind === 'over' ? 0 : 0.18).normalize(); /* (the blade carries on out from the arm; a stab points straight ahead) */
+  let edge = kind === 'spear' ? R.clone() : kind === 'stab' ? U.clone().negate() : tan.lengthSq() > 1e-8 ? tan.normalize() : F.clone(); edge.addScaledVector(blade, -edge.dot(blade)); if (edge.lengthSq() < 1e-6) { edge.copy(R).addScaledVector(blade, -R.dot(blade)); if (edge.lengthSq() < 1e-6) edge.copy(F).addScaledVector(blade, -F.dot(blade)); } edge.normalize(); /* (the sharp edge faces where the blade is going) */
   const X = edge, Y = blade, Z = new THREE.Vector3().crossVectors(X, Y).normalize(); X.crossVectors(Y, Z);
   const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); /* (the weapon's own frame: y along the blade, x the edge) */
   const qS = qW.multiply(main.quaternion.clone().normalize().invert()).normalize(); /* (the socket's angle that lays the weapon so) */ if (![qS.x, qS.y, qS.z, qS.w, p.x, p.y, p.z].every(Number.isFinite)) return;

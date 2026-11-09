@@ -392,8 +392,9 @@ const OUTLINE = new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { col
   vertexShader: 'void main(){ vec3 n = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); float d = -mv.z; mv.xyz += n * clamp(0.006 + d * 0.0016, 0.006, 0.05); gl_Position = projectionMatrix * mv; }',
   fragmentShader: 'uniform vec3 col; void main(){ gl_FragColor = vec4(col, 1.0); }' });
 const OUTL = {}; export function outlineMat(col) { if (!col) return OUTLINE; if (!OUTL[col]) { OUTL[col] = OUTLINE.clone(); OUTL[col].uniforms = { col: { value: new THREE.Color(col) } }; } return OUTL[col]; }
+const inWeapon = (o) => { for (let q = o; q; q = q.parent) if (q.name && /^weapon_/.test(q.name)) return true; return false; };
 export function addOutline(root, col) {
-  const list = []; root.traverse(o => { if (o.isMesh && !o.userData.outline && o.material && !Array.isArray(o.material) && o.material.isMeshStandardMaterial && !o.material.transparent && o.material.side !== THREE.DoubleSide && /* (thin cloth: capes, robes) */ o.geometry && o.geometry.attributes.normal) list.push(o); });
+  const list = []; root.traverse(o => { if (o.isMesh && !o.userData.outline && o.material && !Array.isArray(o.material) && o.material.isMeshStandardMaterial && !o.material.transparent && o.material.side !== THREE.DoubleSide && /* (thin cloth: capes, robes) */ o.geometry && o.geometry.attributes.normal && !inWeapon(o)) list.push(o); }); /* (never round a held weapon: on its thin parts the shell swells over the whole gun or blade) */
   for (const o of list) { const sh = new THREE.Mesh(o.geometry, outlineMat(col)); sh.userData.outline = true; sh.castShadow = false; sh.receiveShadow = false; sh.renderOrder = -1; sh.raycast = () => {}; o.add(sh); }
 }
 
@@ -557,7 +558,7 @@ export function goblinGun(w, cls, s = 1) { if (!w || w.userData.goblin) return; 
   else { // the bruiser's hand-cannon: a fat flared barrel ringed with spikes, a smokestack, twin feed pipes, a brass gauge, a spring, a chained powder flask
     for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a(new THREE.ConeGeometry(0.009, 0.045, 5), steel, Math.cos(an) * 0.074, 0.835, 0.03 + Math.sin(an) * 0.074, Math.sin(an) * 1.0, 0, -Math.cos(an) * 1.0); } /* (short spikes round the bell's lip) */
     a(new THREE.CylinderGeometry(0.015, 0.02, 0.1, 8), dark, 0.0, 0.25, 0.06); a(new THREE.CylinderGeometry(0.025, 0.015, 0.03, 8), dark, 0, 0.31, 0.06); // (a little smokestack)
-    for (const x of [-0.04, 0.04]) a(new THREE.CylinderGeometry(0.009, 0.009, 0.36, 6), brass, x, 0.35, -0.035);
+    w.traverse(o => { if (o.isMesh && o.geometry && o.geometry.parameters && o.geometry.parameters.height === 0.66 && o.geometry.parameters.radiusTop === 0.021) o.material = M('#3a3632', 0.45, 0.85); }); /* (a dark blued-iron barrel, not bright steel) */
     a(new THREE.CylinderGeometry(0.03, 0.03, 0.014, 12), brass, 0.045, 0.12, 0.0, 0, 0, Math.PI / 2); a(new THREE.SphereGeometry(0.012, 6, 5), glow, 0.054, 0.12, 0);
     const fl = a(new THREE.SphereGeometry(0.035, 10, 8), M('#5a3a1a', 0.8), 0.05, -0.02, -0.04); fl.scale.set(1, 1.3, 0.7); for (let i = 0; i < 3; i++) a(new THREE.TorusGeometry(0.008, 0.002, 4, 8), steel, 0.05, 0.03 + i * 0.012, -0.04, Math.PI / 2 * (i % 2)); }
 }

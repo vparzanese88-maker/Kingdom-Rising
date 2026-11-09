@@ -468,7 +468,7 @@ export function tickFpArms(vm) {
   const tgt = (H) => { const g = grips[H === vm.R ? 'Right' : 'Left']; if (g) return g.t.clone(); const t = new THREE.Vector3(), wr = H.children[0] && H.children[0].userData.wrist; if (F.D.fpFist) { H.updateWorldMatrix(true, false); t.copy(H.localToWorld(new THREE.Vector3(0, -0.07 * 1.35, 0).applyEuler(new THREE.Euler(0.55, 0, 0)))); } else (wr || H).getWorldPosition(t); return t; }; // (a held handle: the wrist goes where the closed fingers wrap it; otherwise aim at where the wrist belongs in the pose)
   fpReachShift(F, vm, tgt);
   for (const H of [vm.R, vm.L]) {
-    const t = tgt(H), side = H === vm.R ? 1 : -1, pole = vm.g.localToWorld(new THREE.Vector3(side * 0.7, -0.9, 0.2));
+    const t = tgt(H), side = H === vm.R ? 1 : -1, bowR = H === vm.R && vm.weapons && vm.weapons.bow, dr = bowR ? Math.min(1, vm.bowDraw || 0) : 0, pole = vm.g.localToWorld(bowR ? new THREE.Vector3(0.7 + 0.3 * dr, -0.9 + 0.95 * dr, 0.2 + 0.5 * dr) : new THREE.Vector3(side * 0.7, -0.9, 0.2)); /* (drawing a bow: the elbow comes up and back out to the right, at the shoulder's height, so the forearm runs out of the view instead of up through it) */
     const arm = side > 0 ? 'Right' : 'Left'; if (H.visible) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], t, pole);
     else if (ao) ikArm(F, B[arm + 'Arm'], B[arm + 'ForeArm'], B[arm + 'Hand'], vm.g.localToWorld(new THREE.Vector3(side * 0.34, -1.1, 0.05)), pole); /* (a hand with nothing to do hangs down at his side, out of the view) */
     else { B[arm + 'Arm'] && B[arm + 'Arm'].rotateX(1.2); }

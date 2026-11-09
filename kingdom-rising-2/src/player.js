@@ -795,7 +795,7 @@ export class Player {
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
       const sight = (this.adsK || 0) > 0.7, speed = (G.battleFx ? 34 + charge * 36 : 38 + charge * 40) + (sight ? 10 : 0); /* sighted: faster, flatter, a little harder */
-      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.6 + charge * 1.1 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.6 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.45 + charge * 0.9 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.75 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
     } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff' && a.name === 'reap') { this.reap(a, base);

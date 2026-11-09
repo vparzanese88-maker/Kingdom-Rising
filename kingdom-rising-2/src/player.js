@@ -691,7 +691,7 @@ export class Player {
     this.recoil = Math.min(1, (this.recoil || 0) + 0.35); V.burst('arcane', from, 6, { speed: 3 }); V.light(from, '#b8a0ff', 3, 0.06, 6); S.gunshot && S.gunshot(this.pos, 0.45); this.fovKick = Math.min(4, (this.fovKick || 0) + 0.6); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -1510,7 +1510,7 @@ export class Player {
       case 'cone': { const range = (a.range || 6) * K;
         for (const m of mobsInCone(this.pos, this.yaw, range, a.ang || 0.6)) this.dealDamage(m, P(a.dmg), hitO(m, { melee: true }));
         for (let i = 0; i < 40; i++) { const an = this.yaw + (Math.random() - 0.5) * (a.ang || 0.6) * 2, d = Math.random() * range; V.burst(pk === 'spark' ? 'dust' : pk, new THREE.Vector3(this.pos.x + Math.sin(an) * d, this.pos.y + 0.6 + Math.random(), this.pos.z + Math.cos(an) * d), 1, { speed: 1.5 }); }
-        S.swingW(this.swingKind('swing3'), 1.5, this.pos); if (el) S.cast(el, this.pos, 0.8); V.addShake(0.2); anim('swing3', 0.5); return true; }
+        S.swingW(this.swingKind('swing3'), 1.5, this.pos); if (el) S.cast(el, this.pos, 0.8); V.addShake(0.2); anim(a.anim || 'swing3', a.animDur || 0.5); return true; }
       case 'strike': { anim('heavy', 0.5); S.swingW(this.swingKind('swing3'), 1.4, this.pos);
         setTimeout(() => { if (this.dead) return; const t = mobsInCone(this.pos, this.yaw, (a.reach || 3) + 0.5, 0.7).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; if (!t) return;
           // behind it? (it faces away from you)
@@ -1579,6 +1579,7 @@ export class Player {
         else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
+        if (a.buff === 'shout') { S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + this.eye * 0.9), 40, { speed: 5 }); V.addShake(0.35); }
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
         if (a.buff !== 'flame') { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); } anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;

@@ -46,7 +46,7 @@ const GLYPH = {
 const STROKE_ONLY = new Set(['arrow', 'volley', 'snow', 'dash', 'whirl', 'trap', 'spiral']);
 // ability id -> [symbol, theme]
 const MAP = {
-  ar_shbash: ['shield', 'steel'], ar_charge: ['shield', 'gold'], ar_flameblade: ['sword', 'fire'], ar_mendbanner: ['banner', 'nature'], ar_banner: ['shield', 'gold'],
+  ar_shbash: ['shield', 'steel'], ar_charge: ['shield', 'gold'], ar_flameblade: ['sword', 'fire'], ar_legsweep: ['boot', 'steel'], ar_battleshout: ['fist', 'fire'], ar_mendbanner: ['banner', 'nature'], ar_banner: ['shield', 'gold'],
   charge: ['dash', 'steel'], bash: ['shield', 'steel'], kick: ['boot', 'steel'], warbanner: ['banner', 'red'], vigorbanner: ['banner', 'nature'], stonebanner: ['banner', 'frost'], shieldwall: ['shield', 'gold'], cleavestrike: ['whirl', 'steel'], laststand: ['heart', 'red'], shieldthrow: ['shield', 'frost'], fortify: ['shield', 'gold'], execute: ['skull', 'red'], hamstring: ['sword', 'red'], bulwark: ['shield', 'steel'],
   rally: ['banner', 'gold'], seismic: ['slam', 'steel'], bladestorm: ['whirl', 'steel'],
   earthsplitter: ['slam', 'red'], battlecry: ['shout', 'red'], intimshout: ['shout', 'shadow'], whirlwind: ['whirl', 'red'], adrenaline: ['heart', 'fire'], rampage: ['swords', 'red'], groundslam: ['slam', 'fire'], bloodrage: ['drop', 'red'], warstomp: ['burst', 'steel'], undying: ['skull', 'gold'],

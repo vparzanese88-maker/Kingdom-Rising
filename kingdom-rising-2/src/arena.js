@@ -616,7 +616,7 @@ function bannerSpot(caster, reach, ahead) { const p = caster.pos, yw = caster.ya
   return at; }
 // a banner driven into the ground: a heavy slam and a puff of dirt round its foot
 function bannerSlam(at, big = 1) { S.slam && S.slam(at, big); const p = at.clone ? at.clone() : new THREE.Vector3(at.x, at.y, at.z);
-  V.burst('dust', p.clone().setY(p.y + 0.15), Math.round(26 * big), { speed: 2.4 * big, size: 0.55 * big, life: 0.9, vy: 0.8 }); V.burst('stone', p.clone().setY(p.y + 0.2), Math.round(12 * big), { speed: 3 * big, grav: 14, size: 0.14 }); V.addShake && V.addShake(0.25 * big); }
+  V.burst('dust', p.clone().setY(p.y + 0.15), Math.round(60 * big), { speed: 3.4 * big, size: 1.1 * big, life: 1.4, vy: 0.9 }); V.burst('dust', p.clone().setY(p.y + 0.4), Math.round(20 * big), { speed: 1.2, size: 1.6 * big, life: 1.8, vy: 0.5 }); V.burst('stone', p.clone().setY(p.y + 0.2), Math.round(12 * big), { speed: 3 * big, grav: 14, size: 0.14 }); V.addShake && V.addShake(0.25 * big); }
 export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.yaw || 0, at = bannerSpot(caster, 5, 1.6), base = ultGround(at); at.y = base;
   const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 8), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 1.2; g.add(pole);
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.06, 6, 6), new THREE.MeshStandardMaterial({ map: flagTex('cross'), alphaTest: 0.5, transparent: true, roughness: 0.85, side: THREE.DoubleSide })); cloth.position.set(0.42, 1.83, 0); g.add(cloth); bannerFittings(g, 2.38, 0.8, 0.42);
@@ -843,7 +843,7 @@ export const ULTS = {
         if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; ultImpact(C, { r: 7, col: '#ffc050', colCol: '#fff0b0', shake: 1.4, vol: 1.2, wallH: 2.2 }); later(0.12, () => ultImpact(C, { r: 10, col: '#ff9a30', column: false, scorch: false, sparks: false, shake: 0.5, vol: 0, noFlash: true })); bannerSlam(C, 1.5); S.battleCry && S.battleCry();
           }
         const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 3) * 0.15 * (x + 1); } a.needsUpdate = true; aura.material.opacity = 0.45 + Math.sin(t * 3) * 0.15;
-        dome.material.opacity = 0.07 + Math.sin(t * 2.5) * 0.025; regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
+        { const cd = G.camera ? G.camera.position.distanceTo(C) : 99, kk = Math.max(0, Math.min(1, (cd - 9) / 4)); dome.material.opacity = 0.018 + (0.052 + Math.sin(t * 2.5) * 0.025) * kk; } /* (seen from inside or near its skin the dome fills the screen, and its pulse read as a flicker: it fades right down there) */ regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
         for (const u of nearOf(ultFriends(c), C, 10)) { u.defBannerT = G.time + 0.4; if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
         if (Math.random() < 0.4) V.emit('fire', C.clone().setY(base + 12.6), { speed: 0.4, vy: 1.5, size: 0.4, life: 0.5 });
         if (t > 8.3) { const k = Math.min(1, (t - 8.3) / 0.6); g.scale.setScalar(2 * (1 - k) + 0.01); if (k >= 1) { G.scene.remove(g); return true; } } return false; }); } },
@@ -1737,7 +1737,7 @@ class ArenaBot {
   }
 }
 // a burning fighter: flames lick up his body and the burn's damage pops up in orange every half second
-export function burnFx(u, d, dt) { const h = u.height || 1.8; if (Math.random() < dt * 22) V.emit('fire', u.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, h * (0.25 + Math.random() * 0.6), (Math.random() - 0.5) * 0.5)), { speed: 0.5, vy: 1.6, size: 0.45, life: 0.45 });
+export function burnFx(u, d, dt) { const h = u.height || 1.8; for (let i = 0, n = Math.random() < (dt * 40) % 1 ? Math.ceil(dt * 40) : Math.floor(dt * 40); i < n; i++) V.emit('fire', u.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, h * (0.15 + Math.random() * 0.75), (Math.random() - 0.5) * 0.6)), { speed: 0.6, vy: 2.2, size: 0.75, size1: 0.1, life: 0.6 }); /* (real tongues of flame up the body, not a faint glow) */
   d.acc = (d.acc || 0) + dt; if (d.acc >= 0.5) { d.acc -= 0.5; V.number(u.pos.clone().setY(u.pos.y + h + 0.2), String(Math.max(1, Math.round(d.dps * 0.5 / PVP_K))), 'dmg', '#ff8a2a'); } }
 // the Training Yard's sparring warrior: a real arena fighter (health, armour, hits, stuns, knockdowns, death) who never
 // walks or fights back. He falls when he dies and gets up again where he started a few seconds later

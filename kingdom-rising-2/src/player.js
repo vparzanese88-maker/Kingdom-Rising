@@ -129,7 +129,7 @@ function fireMesh() { if (FIRE) return FIRE; const L = new THREE.TextureLoader()
       void main() { vec2 u = vUv; float m1 = texture2D(tMask, vec2(u.x * 0.55 + 0.1, u.y * 0.9 - uT * 0.55)).r, m2 = texture2D(tMask, vec2(u.x * 0.4 + 0.5 + sin(uT * 1.3) * 0.05, u.y * 0.6 - uT * 0.9)).r;
         float m = m1 * 0.65 + m2 * 0.55; float x = abs(u.x - 0.5) * 2.0; float core = 1.0 - smoothstep(0.0, 1.0, x); float ends = smoothstep(0.0, 0.08, u.y) * (1.0 - smoothstep(0.78, 1.0, u.y));
         float a = smoothstep(0.28, 0.85, m * core * (1.15 - u.y * 0.35)) * ends * uA; vec3 c = texture2D(tCol, vec2(u.x * 0.5 + 0.25, u.y * 0.7 - uT * 0.7)).rgb;
-        c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.75, 1.0, core) * 0.45); gl_FragColor = vec4(c * a * 1.4, a); }` });
+        c *= vec3(1.0, 0.5, 0.28); c = mix(c, vec3(1.0, 0.55, 0.2), smoothstep(0.8, 1.0, core) * 0.3); gl_FragColor = vec4(c * a * 1.6, a); /* (deep red-orange fire, only a hot orange core) */ }` });
   FIRE = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), m); FIRE.frustumCulled = false; FIRE.renderOrder = 5; FIRE.visible = false; return FIRE; }
 setTimeout(() => { try { fireMesh(); } catch (e) { /* no fire textures */ } }, 3000); /* (the flame pictures load early, so the first Flame Blade already burns) */
 const _fa = new THREE.Vector3(), _fb = new THREE.Vector3(), _fx = new THREE.Vector3(), _fy = new THREE.Vector3(), _fz = new THREE.Vector3(), _fm = new THREE.Matrix4();
@@ -1859,7 +1859,7 @@ export class Player {
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
     if (G.newFx && !m.dummy && !m.pet && !m.arenaBot && !m.botPet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el); /* (arena fighters use their own armour) */
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
-    if (this.buffs.flame > 0 && !o.silent) { const fb = dmg * 0.25; dmg += fb; o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.4 }); V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 18, { speed: 3, size: 0.5 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.5), '+' + Math.round(fb) + ' fire', 'dmg', '#ff8a2a'); } /* (Flame Blade: a quarter more damage as fire on the hit, then a burn of 40% more over 4 s) */
+    if (this.buffs.flame > 0 && !o.silent && !o.proc && (o.melee || o.basic)) { const fb = dmg * 0.25; dmg += fb; o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.4 }); { const hp = m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6); V.burst('fire', hp, 34, { speed: 4.5, size: 0.8, size1: 0.1, life: 0.55 }); V.burst('ember', hp, 22, { speed: 6, life: 0.8 }); V.light && V.light(hp, '#ff4a1a', 6, 0.25, 6); } V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.5), '+' + Math.round(fb) + ' fire', 'dmg', '#ff8a2a'); } /* (Flame Blade: a quarter more damage as fire on the hit, then a burn of 40% more over 4 s) */
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
     let crit = Math.random() < this.D.crit + (this.pk('keen') ? 0.08 : 0) + Game.fxCount(this.h, 'crit') * 0.05;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
@@ -2117,7 +2117,7 @@ export class Player {
     if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
     const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen() || (this.ch && this.ch.kdLeft > 0.35); /* (on the ground or getting up; free again as he finds his feet) */
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
-    if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
+    if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); bladeFire(this, dt); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
     // regen
     this.endUseT -= dt; this.manaUseT -= dt;
     if (this.endUseT <= 0 && !this.block) this.end = Math.min(this.maxEnd, this.end + dt * (14 + (h.race === 'woodelf' ? 3 : 0)) * (h.arena ? 2 : 1) /* (the arena: endurance comes back twice as fast) */ * (1 + (this.fb.regen || 0)) * (1 + (this.h.cls !== 'wizard' ? 0 : 0)));
@@ -2149,7 +2149,6 @@ export class Player {
     if (G.battleFx) this.tickChannel(dt);
     if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
     if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);
-    bladeFire(this, dt);
     if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 10) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); const bs = tip && tip.userData.base ? tip.userData.base.getWorldPosition(new THREE.Vector3()) : null; if (bs) for (let i = 0; i < 2; i++) V.burst('fire', bs.clone().lerp(q, Math.random()), 1, { speed: 0.4, size: 0.2, size1: 0.04, life: 0.3, vy: 1.2 }); } /* (the whole blade burns, guard to point) */
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
@@ -2230,7 +2229,7 @@ export class Player {
     if (combatFace || this.camDist < 0.6 || this.h.arena) this.bodyYaw += angDiff(this.bodyYaw, this.yaw) * Math.min(1, dt * (this.h.arena ? 18 : 14));
     else if (hs > 0.5) this.bodyYaw += angDiff(this.bodyYaw, Math.atan2(this.vel.x, this.vel.z)) * Math.min(1, dt * 10);
     { const tr = angDiff(this.prevBY ?? this.bodyYaw, this.bodyYaw) / Math.max(dt, 1e-3); this.prevBY = this.bodyYaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
-    this.animate(dt, hs);
+    this.animate(dt, hs); bladeFire(this, dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
     this.updateCamera(dt);
   }
   animate(dt, hs) {

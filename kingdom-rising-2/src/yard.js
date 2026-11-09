@@ -12,7 +12,7 @@ import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
 import { PVP_K } from './mp.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, mendBanner, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules, SparBot } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, mendBanner, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules, SparBot, burnFx } from './arena.js';
 import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
@@ -100,6 +100,7 @@ function dummyUpdate(dt) {
   if (m.walk) { m.walk.a += dt * 0.35; m.pos.x = 24 + Math.sin(m.walk.a) * 12; m.yaw = Math.cos(m.walk.a) > 0 ? Math.PI / 2 : -Math.PI / 2; }
   for (const k in m.status) if (typeof m.status[k] === 'number' && m.status[k] > 0 && k !== 'knock') m.status[k] = Math.max(0, m.status[k] - dt);
   if (m.status.knock && m.status.knock.lengthSq && m.status.knock.lengthSq() > 0) { m.status.knock.set(0, 0, 0); m.pos.x = m.walk ? m.pos.x : m.home.x; m.pos.z = m.home.z; }
+  if (m.status.burn > 0 && m.status.burnDps > 0) { const d = m._burn = m._burn || { acc: 0 }; d.dps = m.status.burnDps * PVP_K; const a0 = d.acc; burnFx(m, d, dt); if (d.acc < a0) YD.dmg.push([performance.now(), m.status.burnDps * 0.5]); } /* (burning: flames up the dummy, the burn's ticks on the DPS meter) */
   if (G.time - (m.lastHit || -99) > 3) m.hp = m.maxHp;
   m.pos.y = heightAt(m.pos.x, m.pos.z); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw;
   m.animate(dt, { speed: m.walk ? 1.5 : 0, action: null, actionT: 0 });

@@ -76,9 +76,10 @@ export function buildAbilityBar() {
   bar.appendChild(el('div', 'sep'));
   const f = mk(G.battleFx ? 'RMB' : 'F', Icons.abilityIcon('shield'), 'small'); f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : 'Hold F to block';
   let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : '';
-    if (HERO_HUD) { ult.insertAdjacentHTML('afterbegin', '<svg class="ultring" viewBox="0 0 100 100"><circle class="urbg" cx="50" cy="50" r="45"/><circle class="urfg" cx="50" cy="50" r="45" pathLength="100"/></svg>'); const w = el('div', ''); w.id = 'arult'; w.appendChild(ult); bar.lastChild.remove(); $('bottom').parentNode.appendChild(w); } } /* the arena: the ultimate is a charge ring on its own at the bottom centre */
+    if (HERO_HUD) { ult.insertAdjacentHTML('afterbegin', '<svg class="ultring" viewBox="0 0 100 100"><circle class="urbg" cx="50" cy="50" r="45"/><circle class="urfg" cx="50" cy="50" r="45" pathLength="100"/></svg>'); const w = el('div', ''); w.id = 'arult'; w.appendChild(ult); bar.lastChild.remove(); $('bottom').insertBefore(w, bar); } } /* the arena: the ultimate is a charge ring on its own at the bottom centre */
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
-  abilEls = { ws, lmb, rmb, hb, f, combo, ult };
+  const pp = HERO_HUD ? el('div', 'perkpts', '') : null; if (pp) { pp.hidden = true; bar.insertBefore(pp, bar.firstChild); } /* (unspent perk points, beside the abilities) */
+  abilEls = { ws, lmb, rmb, hb, f, combo, ult, pp };
   refreshAbilityBar();
 }
 export function refreshAbilityBar() {
@@ -143,6 +144,7 @@ export function updateHUD(dt) {
   if (abilEls) {
     const W = p.W;
     if (abilEls.ult) { const c = h.ultCharge || 0, k = Math.floor(c); if (abilEls.ult._k !== k) { abilEls.ult._k = k; abilEls.ult.querySelector('.ultfill').style.height = c + '%'; abilEls.ult.querySelector('.ultpct').textContent = c >= 100 ? 'READY' : k + '%'; abilEls.ult.style.setProperty('--uc', Math.min(100, c).toFixed(0)); abilEls.ult.classList.toggle('ready', c >= 100); } }
+    if (abilEls.pp && G.hooks.perkPts) { const n = Math.max(0, G.hooks.perkPts() | 0); if (abilEls.pp._n !== n) { abilEls.pp._n = n; abilEls.pp.hidden = n <= 0; abilEls.pp.innerHTML = `<b>${n}</b><small>perk point${n === 1 ? '' : 's'}</small><kbd>P</kbd>`; } }
     if (abilEls.f._rmb) { const k = ABILITIES[h.cls].indexOf(abilEls.f._rmb); setCd(abilEls.f, p.cd['a' + (k + 1)] || 0, abilEls.f._rmb.cd || 1); }
     if (abilEls.rmb) { const id = p.weapon ? RMB_SPECIAL[p.weapon.wt] : null; if (id) setCd(abilEls.rmb, p.cd.w0, WSKILLS[id].cd); }
     (h.hotbar || []).forEach((sl, i) => {

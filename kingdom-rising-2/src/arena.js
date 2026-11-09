@@ -97,6 +97,7 @@ export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm 
 // add up what has been bought into h.arenaPK, which the combat code reads
 export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
   P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
+G.hooks.perkPts = () => { const f = A.me && A.F && A.F.length ? A.me : (G.yardPP || (G.yardPP = { you: true, pp: 99 })); return perkLeft(f); }; // (the HUD badge beside the abilities)
 const perkLeft = (f) => { const h = unitHero(f) || {}, R2 = h.arenaPerks || {}; return (f.pp || 0) - BASIC_PERKS.reduce((a, k) => a + (R2[k] || 0), 0); }; // (old perks bought before the trim don't use up points)
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }

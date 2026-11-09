@@ -90,21 +90,14 @@ const STAT_KIND = new Set(['hp', 'armor', 'speed', 'lifesteal', 'heal', 'wpn', '
 const BASIC_PERKS = ['hp', 'wpn', 'spell', 'mres', 'sres', 'speed'];
 export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm = (id) => (A2.find(a => a.id === id) || {}).name || '?', [f, c, q] = ARENA_KITS[cls] || [];
   const W = (WEAPON_TYPES[(CLASSES[cls].weapons || [])[0]] || {}).name || 'weapon';
-  const list = [
-    { id: 'powL', kind: 'pow', slot: 'L', name: 'Honed ' + W, desc: 'Your basic attack hits 12% harder per rank.' },
-    { id: 'powF', kind: 'pow', slot: 'F', name: 'Greater ' + nm(f), desc: `${nm(f)} is 12% stronger per rank.` },
-    { id: 'cdF', kind: 'cd', slot: 'F', name: 'Swift ' + nm(f), desc: `${nm(f)} comes back 10% sooner per rank.` },
-    { id: 'powC', kind: 'pow', slot: 'C', name: 'Greater ' + nm(c), desc: `${nm(c)} is 12% stronger per rank.` },
-    { id: 'cdC', kind: 'cd', slot: 'C', name: 'Swift ' + nm(c), desc: `${nm(c)} comes back 10% sooner per rank.` },
-    { id: 'powQ', kind: 'pow', slot: 'Q', name: 'Greater ' + nm(q), desc: `${nm(q)} is 12% stronger per rank.` },
-  ];
+  // the owner: only the basic perks for now (more will be added later)
+  const list = [];
   for (const k of BASIC_PERKS) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: k, key: k, name: n, desc: d, glyph: g, basic: true }); }
-  for (const k of UNIQUE[cls] || []) { if (BASIC_PERKS.includes(k)) continue; const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: STAT_KIND.has(k) ? k : 'p', key: k, name: n, desc: d, glyph: g, passive: !STAT_KIND.has(k) }); }
   return list; }
 // add up what has been bought into h.arenaPK, which the combat code reads
 export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
   P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
-const perkLeft = (f) => (f.pp || 0) - Object.values((unitHero(f) || {}).arenaPerks || {}).reduce((a, b) => a + b, 0);
+const perkLeft = (f) => { const h = unitHero(f) || {}, R2 = h.arenaPerks || {}; return (f.pp || 0) - BASIC_PERKS.reduce((a, k) => a + (R2[k] || 0), 0); }; // (old perks bought before the trim don't use up points)
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }
 // computer fighters buy as soon as they can: tanks toughen up, healers heal harder, the rest go for damage

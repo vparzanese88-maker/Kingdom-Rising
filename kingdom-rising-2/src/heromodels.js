@@ -169,8 +169,21 @@ function bowDraw(ch, H, B, act) { ch._bowD = null; const W = ch.weapons || {}, m
   const SL = shL.getWorldPosition(new THREE.Vector3()), SR = shR.getWorldPosition(new THREE.Vector3()), Hp = hd.getWorldPosition(new THREE.Vector3()), len = SL.distanceTo(B.LeftForeArm.getWorldPosition(new THREE.Vector3())) + B.LeftForeArm.getWorldPosition(new THREE.Vector3()).distanceTo(B.LeftHand.getWorldPosition(new THREE.Vector3()));
   const k = Math.max(0, Math.min(1, (ch._st && ch._st.actionT) || 0)), w = Math.min(1, k / 0.12); /* (snapped up into the draw) */
   const L = SL.clone().addScaledVector(F, 0.93 * len).addScaledVector(R, 0.22 * len).addScaledVector(U, 0.04 * len); /* (bow arm straight out toward the target, in front of the eyes' line) */
-  const Rr = Hp.clone().addScaledVector(F, 0.1 * len).addScaledVector(U, -0.2 * len).addScaledVector(R, 0.1 * len); /* (the anchor: the string hand at the corner of the jaw) */
+  const Rr = Hp.clone().addScaledVector(F, 0.14 * len).addScaledVector(U, 0.06 * len).addScaledVector(R, 0.12 * len); /* (the anchor: the string hand at the corner of the jaw) */
   ch._bowD = { L, R: Rr, poleR: SR.clone().addScaledVector(R, 0.9 * len).addScaledVector(U, 0.05 * len).addScaledVector(F, -0.6 * len), w }; }
+// the bow's string pulled back to the drawing fingers while he draws, with an arrow laid from the string to the bow; straight again after the loose
+function bowString(ch, B) { const W = ch.weapons || {}, bw = W.main; if (!bw || bw.name !== 'weapon_bow' || !bw.userData.string) return; const sg = bw.userData.string, pa = sg.geometry.attributes.position; if (!sg.userData.mid) sg.userData.mid = new THREE.Vector3(pa.getX(1), pa.getY(1), pa.getZ(1));
+  const D = ch._bowD, hd = B.RightHand; let ar = bw.userData.arrow3;
+  if (!D || !hd || D.w < 0.05) { pa.setXYZ(1, sg.userData.mid.x, sg.userData.mid.y, sg.userData.mid.z); pa.needsUpdate = true; if (ar) ar.visible = false; return; }
+  hd.updateWorldMatrix(true, false); const hp = hd.getWorldPosition(new THREE.Vector3()); bw.updateWorldMatrix(true, false); sg.updateWorldMatrix(true, false);
+  const lp = sg.worldToLocal(hp.clone()), m = sg.userData.mid; pa.setXYZ(1, m.x + (lp.x - m.x) * D.w, m.y + (lp.y - m.y) * D.w, m.z + (lp.z - m.z) * D.w); pa.needsUpdate = true; /* (the nocking point on the fingers) */
+  if (!ar) { ar = new THREE.Group(); const wood = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), st = new THREE.MeshStandardMaterial({ color: '#b8bcc0', roughness: 0.3, metalness: 0.9 }), fe = new THREE.MeshStandardMaterial({ color: '#d8d0c0', roughness: 0.9, side: THREE.DoubleSide });
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 6), wood); sh.position.y = 0.5; ar.add(sh); const h2 = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.06, 4), st); h2.position.y = 1.02; ar.add(h2);
+    for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.11), fe); v.position.set(0, 0.08, 0); v.rotation.y = i * Math.PI * 2 / 3; v.translateX(0.015); ar.add(v); }
+    const fl = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffb040', transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })); fl.position.y = 1.0; fl.scale.set(1, 1.6, 1); ar.add(fl);
+    ar.traverse(o => { if (o.isMesh) o.castShadow = false; }); ch.root.add(ar); /* (on the hero's root: hidden with him, e.g. in your own first person) */ bw.userData.arrow3 = ar; }
+  const rest = bw.localToWorld(new THREE.Vector3(0, 0.03, 0)), dir = rest.clone().sub(hp), L = dir.length(); if (L < 1e-3) return; dir.divideScalar(L);
+  ch.root.updateWorldMatrix(true, false); const rq = ch.root.getWorldQuaternion(new THREE.Quaternion()), rs = ch.root.getWorldScale(new THREE.Vector3()).x || 1; ar.visible = true; ar.position.copy(ch.root.worldToLocal(hp.clone())); ar.quaternion.copy(rq.invert().multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir))); ar.scale.setScalar(Math.max(0.5, L + 0.12) / rs); /* (nock on the string, shaft over the rest, the head just past the bow) */ }
 function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatrixWorld(true); const W = ch.weapons || {}, main = W.main, so = {};
   for (const s of ch.hmSockets) if (s.userData.side && s.userData.fist) so[s.userData.side] = s;
   const lead = main && so.L && main.parent === so.L && !(so.R && main.parent === so.R) ? 'L' : 'R'; /* (the bow is held in the left fist) */
@@ -344,7 +357,8 @@ export function tickHeroModel(ch, dt) {
       for (const [nmB, f] of [['Spine', 0.35], ['Spine01', 0.35], ['Spine02', 0.3]]) { const bb = B[nmB]; if (!bb) continue; turnFoot(bb, upA, H.twS * f); turnFoot(bb, rtA, H.bdS * f); } H.m.updateMatrixWorld(true); } }
   try { meleeArc(ch, H, B, act, mvK); } catch (e) { ch._arc = null; }
   try { bowDraw(ch, H, B, act); } catch (e) { ch._bowD = null; }
-  if (ch.hmSockets && ch.arms && (H.ikA || 0) > 0.02) puppetArms(ch, H, B); /* (the owner: no hands pulled to the middle of the body, ever: outside attacks the model's own clips drive the arms and the weapon simply rides the fist) */ /* (holding something: the model's arms and fists follow the built body's all the time, and the weapon is fixed in the fist) */
+  if (ch.hmSockets && ch.arms && (H.ikA || 0) > 0.02) puppetArms(ch, H, B);
+  try { bowString(ch, B); } catch (e) { /* (leave the string straight) */ } /* (the owner: no hands pulled to the middle of the body, ever: outside attacks the model's own clips drive the arms and the weapon simply rides the fist) */ /* (holding something: the model's arms and fists follow the built body's all the time, and the weapon is fixed in the fist) */
   else if (H.ikA > 0.02 && ch.arms) for (const [sd, nm, sx] of [['R', 'Right', -1], ['L', 'Left', 1]]) { const hp = ch.arms[sd].hand; if (!hp) continue; const t = hp.getWorldPosition(new THREE.Vector3()), sh = B[nm + 'Arm']; if (!sh) continue; const s0 = sh.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     const pole = s0.clone().add(new THREE.Vector3(sx * 0.4, -0.6, -0.35).applyQuaternion(wq)); const keep = [B[nm + 'Arm'].quaternion.clone(), B[nm + 'ForeArm'].quaternion.clone()]; ikArm(null, B[nm + 'Arm'], B[nm + 'ForeArm'], B[nm + 'Hand'], s0.clone().lerp(t, 1), pole);
     if (H.ikA < 0.99) { B[nm + 'Arm'].quaternion.copy(keep[0].slerp(B[nm + 'Arm'].quaternion.clone(), H.ikA)); B[nm + 'ForeArm'].quaternion.copy(keep[1].slerp(B[nm + 'ForeArm'].quaternion.clone(), H.ikA)); } }

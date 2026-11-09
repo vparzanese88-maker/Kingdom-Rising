@@ -555,13 +555,11 @@ export function goblinGun(w, cls, s = 1) { if (!w || w.userData.goblin) return; 
   if (cls !== 'musketeer') a(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), rag, 0, -0.06, 0); // (rag-wrapped grip)
   if (cls === 'musketeer') { /* (the musketeer carries the detailed musket model: nothing bolted on) */ }
   else { // the bruiser's hand-cannon: a fat flared barrel ringed with spikes, a smokestack, twin feed pipes, a brass gauge, a spring, a chained powder flask
-    const bell = a(new THREE.CylinderGeometry(0.075, 0.045, 0.14, 12, 1, true), rust, 0, 0.62, 0); bell.material = bell.material.clone(); bell.material.side = THREE.DoubleSide;
-    for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a(new THREE.ConeGeometry(0.012, 0.06, 5), steel, Math.cos(an) * 0.075, 0.66, Math.sin(an) * 0.075, Math.sin(an) * 1.2, 0, -Math.cos(an) * 1.2); }
+    for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a(new THREE.ConeGeometry(0.009, 0.045, 5), steel, Math.cos(an) * 0.074, 0.835, 0.03 + Math.sin(an) * 0.074, Math.sin(an) * 1.0, 0, -Math.cos(an) * 1.0); } /* (short spikes round the bell's lip) */
     a(new THREE.CylinderGeometry(0.015, 0.02, 0.1, 8), dark, 0.0, 0.25, 0.06); a(new THREE.CylinderGeometry(0.025, 0.015, 0.03, 8), dark, 0, 0.31, 0.06); // (a little smokestack)
     for (const x of [-0.04, 0.04]) a(new THREE.CylinderGeometry(0.009, 0.009, 0.36, 6), brass, x, 0.35, -0.035);
     a(new THREE.CylinderGeometry(0.03, 0.03, 0.014, 12), brass, 0.045, 0.12, 0.0, 0, 0, Math.PI / 2); a(new THREE.SphereGeometry(0.012, 6, 5), glow, 0.054, 0.12, 0);
-    const spr = a(new THREE.TorusGeometry(0.018, 0.004, 4, 10), steel, -0.04, 0.16, 0.02); for (let i = 1; i < 4; i++) { const c = spr.clone(); c.position.y += i * 0.012 * s; w.add(c); }
-    gear(-0.045, 0.06, -0.01, 0.035, Math.PI / 2); const fl = a(new THREE.SphereGeometry(0.035, 10, 8), M('#5a3a1a', 0.8), 0.05, -0.02, -0.04); fl.scale.set(1, 1.3, 0.7); for (let i = 0; i < 3; i++) a(new THREE.TorusGeometry(0.008, 0.002, 4, 8), steel, 0.05, 0.03 + i * 0.012, -0.04, Math.PI / 2 * (i % 2)); }
+    const fl = a(new THREE.SphereGeometry(0.035, 10, 8), M('#5a3a1a', 0.8), 0.05, -0.02, -0.04); fl.scale.set(1, 1.3, 0.7); for (let i = 0; i < 3; i++) a(new THREE.TorusGeometry(0.008, 0.002, 4, 8), steel, 0.05, 0.03 + i * 0.012, -0.04, Math.PI / 2 * (i % 2)); }
 }
 
 // ---- how each class stands, walks and runs (read by animateHumanoid via ch.style; see styleApply in herodetail.js) ----

@@ -115,6 +115,12 @@ export function loadMusket() { if (!_musketP) _musketP = import('three/addons/lo
   tpl.userData.keep = true; _musketTpl = tpl; res(tpl); for (const f of _musketWait.splice(0)) f(tpl);
 }, undefined, () => res(null)))); return _musketP; }
 // swap a weapon group's code-built meshes for the detailed musket (now if it is loaded, or as soon as it is)
+// the blunderbuss's stock, drawn as a side profile (along the gun, up) and given thickness: comb, butt, wrist, pistol grip, fore-end
+function bbStockGeo() { const sh = new THREE.Shape(); const P = [[-0.42, -0.1], [-0.41, 0.035], [-0.3, 0.032], [-0.16, 0.02], [-0.06, 0.014], [0.12, 0.014], [0.33, 0.012], [0.35, -0.004], [0.33, -0.02], [0.1, -0.026], [0.0, -0.03], [-0.05, -0.05], [-0.1, -0.075], [-0.15, -0.07], [-0.25, -0.08], [-0.36, -0.1]];
+  sh.moveTo(P[0][0], P[0][1]); sh.splineThru(P.slice(1).map(([x, y]) => new THREE.Vector2(x, y))); sh.lineTo(P[0][0], P[0][1]);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.007, bevelSegments: 2, curveSegments: 6 }); geo.translate(0, 0, -0.02);
+  geo.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1)); geo.computeVertexNormals(); return geo; } /* (profile x -> along the gun, profile y -> up, extrusion -> across) */
+function bbBellGeo() { const pts = []; for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(0.025 + 0.045 * Math.pow(t, 2.2), 0.66 + 0.185 * t)); } const geo = new THREE.LatheGeometry(pts, 20); return geo; } /* (the bell flares like a trumpet: narrow, then wide at the mouth) */
 export function musketize(g) { const put = (tpl) => { if (!tpl || g.userData.glb) return; const cs = g.children.filter(c => c.isMesh); const shadow = cs.length ? cs[0].castShadow : true, cull = cs.length ? cs[0].frustumCulled : true, lay = cs.length ? cs[0].layers.mask : 1; for (const c of cs) g.remove(c);
   const o = tpl.clone(); o.traverse(c => { if (c.isMesh) { c.castShadow = shadow; c.frustumCulled = cull; c.layers.mask = lay; } }); g.add(o); g.userData.glb = o; };
   if (_musketTpl) put(_musketTpl); else { _musketWait.push(put); loadMusket(); } return g; }
@@ -216,17 +222,20 @@ export function makeWeapon(part, tier = 0, rarity = 0, element) {
       base.position.set(0, 0.6, 0); tip.position.set(0, 1.12, 0); musketize(g); break; /* (the code-built parts above stand in until the detailed model has loaded) */
     }
     case 'blunderbuss': {
-      // a short, thick stock, a stubby brass-banded barrel and a wide flared bell at the muzzle
-      const stock = mesh(cached('bstock', () => new THREE.BoxGeometry(0.06, 0.38, 0.1)), woodMat, g, 0, -0.14, 0.012); stock.rotation.x = 0.1;
-      mesh(cached('bbutt', () => new THREE.BoxGeometry(0.07, 0.11, 0.14)), darkWood, g, 0, -0.36, 0.03);
-      mesh(cached('bfore', () => new THREE.BoxGeometry(0.05, 0.4, 0.055)), woodMat, g, 0, 0.26, 0.0);
-      cyl(0.024, 0.026, 0.66, M, 0.38, 10);
-      mesh(cached('bbell', () => new THREE.CylinderGeometry(0.07, 0.026, 0.16, 12, 1, true)), goldMat, g, 0, 0.78, 0);
-      for (const y of [0.14, 0.42]) mesh(cached('bband', () => new THREE.CylinderGeometry(0.032, 0.032, 0.03, 10)), goldMat, g, 0, y, 0);
-      mesh(cached('mlock', () => new THREE.BoxGeometry(0.03, 0.08, 0.05)), M, g, 0.035, 0.08, 0);
-      mesh(cached('mhammer', () => new THREE.BoxGeometry(0.015, 0.05, 0.02)), M, g, 0.04, 0.13, -0.02);
-      mesh(cached('mfsight', () => new THREE.BoxGeometry(0.006, 0.014, 0.026)), goldMat, g, 0, 0.7, 0.03);
-      base.position.set(0, 0.45, 0); tip.position.set(0, 0.86, 0); break;
+      // a gunsmith's blunderbuss: a curved walnut stock with a pistol grip and brass butt plate, a tapered barrel bound in brass, and a wide flared bell
+      mesh(cached('bbStock', bbStockGeo), woodMat, g, 0, 0, 0);
+      mesh(cached('bbPlate', () => new THREE.BoxGeometry(0.058, 0.012, 0.13)), goldMat, g, 0, -0.418, -0.03).rotation.x = -0.12;
+      mesh(cached('bbBarrel', () => new THREE.CylinderGeometry(0.021, 0.025, 0.66, 14)), M, g, 0, 0.36, 0.03);
+      { const bm = goldMat.clone(); bm.side = THREE.DoubleSide; mesh(cached('bbBell', bbBellGeo), bm, g, 0, 0.0, 0.03); } /* (open trumpet: the inside drawn too) */
+      mesh(cached('bbLip', () => new THREE.TorusGeometry(0.07, 0.008, 6, 20)), goldMat, g, 0, 0.845, 0.03).rotation.x = Math.PI / 2;
+      for (const y of [0.1, 0.32, 0.56]) mesh(cached('bbBand', () => new THREE.CylinderGeometry(0.029, 0.029, 0.022, 14)), goldMat, g, 0, y, 0.03);
+      mesh(cached('bbLock', () => new THREE.BoxGeometry(0.012, 0.11, 0.04)), M, g, 0.03, 0.0, 0.012);
+      const hm = mesh(cached('bbHammer', () => new THREE.BoxGeometry(0.012, 0.012, 0.05)), M, g, 0.032, -0.035, 0.04); hm.rotation.x = -0.6;
+      mesh(cached('bbPan', () => new THREE.BoxGeometry(0.02, 0.025, 0.012)), goldMat, g, 0.032, 0.03, 0.034);
+      mesh(cached('bbTrig', () => new THREE.BoxGeometry(0.006, 0.008, 0.035)), M, g, 0, -0.02, -0.05).rotation.x = 0.3;
+      const tg = mesh(cached('bbGuard', () => new THREE.TorusGeometry(0.032, 0.004, 5, 14, Math.PI)), goldMat, g, 0, -0.02, -0.045); tg.rotation.y = Math.PI / 2; tg.rotation.z = Math.PI;
+      mesh(cached('mfsight', () => new THREE.BoxGeometry(0.006, 0.014, 0.026)), goldMat, g, 0, 0.62, 0.055);
+      base.position.set(0, 0.45, 0.03); tip.position.set(0, 0.86, 0.03); break;
     }
     case 'sword': {
       cyl(0.018, 0.02, 0.18, leatherMat, 0); mesh(sphereGeo(0.03, 8, 6), goldMat, g, 0, -0.1, 0);

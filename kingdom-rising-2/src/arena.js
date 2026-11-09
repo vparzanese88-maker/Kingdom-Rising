@@ -63,7 +63,7 @@ export const ARENA_ULT = { warrior: 'stonebanner', berserker: 'ar_bladestorm', p
   ranger: 'ar_arrowrain', musketeer: 'ar_barrage', blunderbuss: 'greatkeg', wizard: 'ar_transcend', rogue: 'ar_assassinate', necromancer: 'ar_demon', elementalist: 'pureel', enchanter: 'mindshatter', beastmaster: 'direbeast' };
 export const ultOf = (cls) => { kitRules(); const id = ARENA_ULT[cls]; return (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const roleOf = (cls) => ROLE[cls] || 'Damage';
-// perks: ten for every class, three ranks each, bought with points that come with time (1 every 10 s of fighting)
+// perks: ten for every class, three ranks each, bought with points that come with time (1 every 30 s of fighting)
 const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', 'enchanter', 'priest']);
 const RANGED_CLS = new Set(['priest', 'bombardier', 'ranger', 'musketeer', 'blunderbuss', 'wizard', 'necromancer', 'elementalist', 'enchanter', 'druid', 'shaman']);
 // each class: six perks that sharpen its own abilities and four passives that are its alone
@@ -127,7 +127,7 @@ function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !
     if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && !(f.bot.status.silence > 0) && (f.bot.cls === 'bombardier' ? bertWant(f.bot, h, dt) : Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12)) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
 const esc2 = (t) => String(t).replace(/[<>&]/g, '');
 export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt); }
-function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 10) return; A.perkClock -= 10;
+function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 30) return; A.perkClock -= 30; /* (one perk point every 30 s) */
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
@@ -1071,7 +1071,7 @@ export function openPerks(UI) {
     { const A2 = ABILITIES[cls] || [], ab = (id) => id && id !== 'aim' ? A2.find(a => a.id === id) : null, kit = h.arenaKit || ARENA_KITS[cls] || [], rows = [['F', ab(kit[0])], ['C', ab(kit[1])], ['Q', ab(kit[2])], ['Right click', ab(h.arenaRmb)], ['R · Ultimate', ULTS[cls] ? { id: ARENA_ULT[cls], name: ULTS[cls].name, desc: ULTS[cls].desc } : null]];
       const box = elx('div', 'perkgrid'); box.style.marginBottom = '14px'; c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Your abilities</b></div>');
       for (const [k, a] of rows) { if (!a) continue; const r = elx('div', 'perkcard has'); r.innerHTML = `<div class="kiti">${Icons.abilityIcon(a.id)}</div><div class="kitt"><b>${a.name} <span class="dim" style="font-weight:400">· ${k}${a.cd ? ` · ${a.cd} s cooldown` : ''}</span></b><span>${a.desc || ''}</span></div>`; box.appendChild(r); } c.appendChild(box); } /* (the skill menu: every key's ability and what it does, then the perk tree below) */
-    c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend <span class="dim">· you earn 1 every 10 seconds of fighting${Game.TANK_CLS.has(cls) ? ' · <b style="color:#9fd0ff;font-size:13px">Tank</b>: 40% more health, 15% less damage taken' : ''}</span></div>`);
+    c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend</div>`); /* (the owner: players don't need the earning rate or the tank numbers) */
     const list = elx('div', 'perkgrid');
     for (const pk of perksFor(cls)) { const lv = h.arenaPerks[pk.id] || 0, r = elx('div', 'perkcard' + (lv ? ' has' : ''));
       r.innerHTML = `<div class="kiti">${iconOf(pk)}</div><div class="kitt"><b>${pk.name}</b><span>${pk.desc}</span><div class="perkpips">${Array.from({ length: Game.PERK_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div></div>`;

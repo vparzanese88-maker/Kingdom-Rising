@@ -723,7 +723,7 @@ export class Player {
     if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
     if (G.newFx && this.h.arena && this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') { if (this.comboT <= 0) this.warN = 0; const BW = [['swing1', 1.1], ['swing2', 1.1]], q = BW[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.05, d: q[1] }); } /* (the berserker: wide sweeps, right to left then left to right) */
     else if (G.newFx && this.h.arena && (this.h.cls === 'paladin' || this.h.cls === 'darkknight') && W.hands === 'two' && W.kind === 'melee') { /* (the paladin's hammer and the shadow knight's greatsword: the same heavy three-blow combo) */ if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
-    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.75]], q = W3[(this.warN = (this.warN || 0)) % 1]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.55, d: q[1] }); /* (slowed again so you can follow the blade; m keeps damage per second roughly level) */ /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
+    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.15, 1.03], ['swing2', 0.8, 0.75]], q = W3[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[2], d: q[1] }); /* (two-hit combo, same slow pace as the single slash: 0.7 s of recording over 1.0 s, then 0.55 s over 0.8 s; damage per second kept level) */ /* (slowed again so you can follow the blade; m keeps damage per second roughly level) */ /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
     this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });
   }
@@ -785,6 +785,7 @@ export class Player {
       this.comboT = 0.55;
       if (a.last) this.combo = 0;
       if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') { this.light(); if (this.atk) this.atk.chained = true; } else if (q === 'heavy') { this.press = { t: 0.23, charging: false, melee: true }; } }
+      else if (this.lmbHeld && this.h.arena && !this.held && !this.dead && !G.uiOpen) { this.light(); if (this.atk) this.atk.chained = true; } /* (holding attack: the next blow starts this very frame, so the combo loops without a hitch) */
     }
   }
   doHit(a) {
@@ -2156,7 +2157,7 @@ export class Player {
     // sprinting burns endurance; once empty you must recover a little before sprinting again
     if (this.end <= 1) this.sprintTired = true; else if (this.end > 20) this.sprintTired = false;
     if (sprint && this.sprintTired) sprint = false;
-    if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 12 * dt); this.endUseT = 0.8; }
+    if (sprint && md.lengthSq() > 0.1 && this.onGround) { this.end = Math.max(0, this.end - 36 * dt); /* (sprinting burns endurance three times as fast) */ this.endUseT = 0.8; }
     const hero = !!this.h.arena; // Kingdom Arena plays like a hero shooter: full speed every way, always facing your aim
     let spd = (hero ? 1.2 : 1) * (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5) * Game.arenaSpeedK(this.h) * (hero && this.h.cls === 'monk' ? 1.15 : 1); /* aiming down the barrel: a slow, steady walk; the monk is the fastest fighter */
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }

@@ -11,7 +11,7 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules } from './arena.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, mendBanner, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules } from './arena.js';
 import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
@@ -49,7 +49,7 @@ export function lineUpNear() { const P = G.player; if (!P) return null; let best
 export function lineUpSwitch() { const f = lineUpNear(); if (!f || !YD.startGame) return false; const P = G.player, pos = P.pos.clone(), yaw = P.yaw; YD.startGame(yardHero(f.cls, G.save)); G.player.place(pos.x, pos.z, yaw); S.levelUp && S.levelUp(); return true; }
 export function spawnDummies() {
   if (!LINE.length) spawnLineUp();
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
+  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.atan2(x - RING.x, z - RING.z); /* (each one faces out of the ring) */ m.home.set(x, heightAt(x, z), z);

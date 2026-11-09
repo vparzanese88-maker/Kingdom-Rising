@@ -94,7 +94,7 @@ export function refreshAbilityBar() {
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();
   abilEls.f.title = G.battleFx ? 'Hold right click to block. Raise it just before a hit for a perfect block (no damage).' : 'Hold F to block';
-  { const rid = h.arenaRmb, shield = W && W.hands === 'shield', ai = abilEls.f.querySelector('.ai'); // Kingdom Arena: right click is a defensive ability (or aim, or a shield block)
+  { const rid = h.arenaRmb, shield = W && W.hands === 'shield' && rid !== 'ar_shbash', ai = abilEls.f.querySelector('.ai'); // Kingdom Arena: right click is a defensive ability (or aim, or a shield block)
     if (rid !== undefined && !shield) { const ab = rid && rid !== 'aim' ? ABILITIES[h.cls].find(x => x.id === rid) : null; abilEls.f._rmb = ab;
       ai.innerHTML = ab ? Icons.abilityIcon(ab.id) : Icons.abilityIcon(rid === 'aim' ? 'eagleeye' : 'shield'); abilEls.f.classList.toggle('cls', !!ab); abilEls.f.classList.remove('small');
       abilEls.f.title = ab ? `${ab.name} [Right click]${ab.cd ? ` · ${ab.cd} s cooldown` : ''} · ${ab.desc}` : rid === 'aim' ? 'Hold right click to aim down the barrel: zoom in, steady, a little harder hitting, but you walk slowly.' : rid === null ? 'Hold right click to block. Raise it just before a hit for a perfect block.' : '';

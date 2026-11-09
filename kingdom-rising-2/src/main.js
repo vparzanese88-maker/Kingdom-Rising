@@ -758,6 +758,7 @@ function input() {
       if (UI.dialogKey(e.code)) { e.preventDefault(); return; }
       if (YARD && e.code === 'KeyE' && !G.uiOpen && lineUpSwitch()) { e.preventDefault(); return; } // (E at a class in the line-up: become that class)
       if (YARD && (e.code === 'KeyK' || e.code === 'KeyU')) { if (UI.UI.open === 'yard' || G.uiOpen) UI.closeWin(); else openYardPanel(UI, e.code === 'KeyU' ? 'ult' : 'class'); return; } // (K: change class; U: get hit by an ultimate)
+      if (YARD && e.code === 'KeyP') { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // P: skills & perks
       if (YARD && ['KeyY', 'KeyN', 'KeyP', 'KeyI', 'KeyH', 'KeyO', 'KeyJ', 'KeyM', 'KeyB', 'KeyL'].includes(e.code)) return; // (the yard has one window: Y opens it, U opens it on the ultimates; no other window keys) // (the yard has one window: U opens it on the ultimates, I or H on your keys)
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }

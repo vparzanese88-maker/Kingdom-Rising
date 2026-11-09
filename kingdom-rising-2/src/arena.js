@@ -49,7 +49,7 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
-  warrior: ['ar_charge', 'execute', 'ar_bash'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'gravewall', 'deathgrip'],
+  warrior: ['ar_flameblade', 'ar_mendbanner', 'ar_charge'], berserker: ['berserker_xs2', 'earthsplitter', 'intimshout'], paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'gravewall', 'deathgrip'],
   cleric: ['radiantheal', 'ar_purify', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
   bard: ['ar_mendsong', 'crescendo', 'mesmerize2'], druid: ['regrowth', 'callbear', 'entangle'], shaman: ['sh_wave', 'sh_wolf', 'sh_hex'],
   ranger: ['focus', 'spectral', 'entangle2'], musketeer: ['ar_bandage', 'grapeshot', 'bolas'], blunderbuss: ['powdercharge', 'buckshot', 'buttstroke'], wizard: ['blink', 'disintegrate', 'temporalbolt'],
@@ -154,7 +154,7 @@ const ARENA_NEW = {
     { id: 'ar_spirittotem', name: 'Spirit of the Storm', t: 'spirittotem', cd: 90, cost: 0, fx: 'lightning', level: 1, desc: 'A giant spirit totem bursts out of the ground where you aim, ancestral spirits circling it. For 7 s it pulses: every ally within 12 m heals 10% of their health, and lightning leaps from it to every enemy within 12 m. Then it cracks and sinks away.' },
     { id: 'ar_mendS', name: 'Healing Stream', t: 'mend', kind: 'water', heal: 0.22, cd: 6, cost: 0, fx: 'water', level: 1, desc: 'A stream of healing water into the ally under your crosshair, even through walls (or yourself); it splashes on to the most hurt ally near them for half as much.' }],
   ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
-  warrior: [{ id: 'ar_charge', name: 'Charge', kit: true, t: 'dash', dur: 0.4, speed: 30, dmg: 1.3, stun: 1.2, cd: 10, cost: 0, fx: 'dust', level: 1, desc: 'Lower your shield and charge: you rush forward, smash into the first enemy in your path and stun them.' },
+  warrior: [{ id: 'ar_charge', name: 'Shield Charge', kit: true, t: 'dash', dur: 0.55, speed: 30, dmg: 1.1, stun: 1.3, knockF: 9, plow: true, cd: 10, cost: 0, fx: 'dust', level: 1, desc: 'Raise your shield and plow forward: every enemy in your path is knocked down and stunned for 1.3 s.' },
     { id: 'ar_bash', name: 'Shield Bash', kit: true, t: 'strike', reach: 3, dmg: 1.5, stun: 1.5, cd: 12, cost: 0, fx: 'spark', level: 1, desc: 'Slam your shield into the enemy in front of you: solid damage and a 1.5 s stun.' }],
   berserker: [{ id: 'ar_bladestorm', name: 'Bladestorm', t: 'bladestorm', cd: 90, cost: 0, fx: 'fire', level: 1, desc: 'Become a whirlwind of steel for 5 s: you spin with both axes held out, carving everything around you, and you can steer the storm through the enemy. Anyone inside is dragged in, slowed and cut again and again (60% of their health if they stay in it the whole time), and the storm ends in a blast that throws them away.' }],
   monk: [{ id: 'ar_wraps', name: 'Tighten the Wraps', t: 'wraps', cd: 24, cost: 0, fx: 'gold', level: 1, desc: 'Pull your hand wraps tight and breathe: you break free of any stun, root or slow (it works even while you are stunned), and for 5 s you regenerate 30% of your health, move 30% faster and attack 35% faster. 24 s cooldown.' },
@@ -204,6 +204,8 @@ function designRules() {
   fix('rogue', 'kidney', { stun: 1.5, desc: 'A cruel jab that stuns the enemy for 1.5 s.' });
   fix('shaman', 'sh_hex', { stun: 2.5, poly: true, desc: 'Turn the enemy you aim at into a harmless frog for 2.5 s.' });
   // 5. the shield classes get their defensive back: held block raises it (warrior, paladin); Bone Guard moves to C
+  if (!abIn('warrior', 'ar_flameblade')) ABILITIES.warrior.push({ id: 'ar_flameblade', name: 'Flame Blade', t: 'buff', buff: 'flame', dur: 8, kit: true, level: 1, cd: 16, cost: 0, fx: 'fire', desc: 'Set your sword ablaze for 8 s: every blow adds burning fire damage, and the blade burns while it lasts.' });
+  if (!abIn('warrior', 'ar_mendbanner')) ABILITIES.warrior.push({ id: 'ar_mendbanner', name: 'Banner of Mending', t: 'mendbanner', kit: true, level: 1, cd: 18, cost: 0, fx: 'leaf', desc: 'Plant a small banner bearing a red cross: for 8 s you and your allies within 5 m slowly regain health.' });
   if (!abIn('warrior', 'ar_shbash')) ABILITIES.warrior.push({ id: 'ar_shbash', name: 'Shield Bash', t: 'shbash', kit: true, level: 1, cd: 6, cost: 0, dmg: 0.8, stun: 1.2, fx: 'frost', desc: 'Drive your shield into whoever is in front of you: a solid hit that knocks them back and stuns them for 1.2 s.' });
   fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
   { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
@@ -270,7 +272,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -559,6 +561,45 @@ export function berserkerStorm(caster) {
   return true;
 }
 
+// banner cloth pictures: a gold-rimmed shield on deep blue (the War Banner), a red cross on white (the Banner of Mending)
+const FLAG_T = {}; export function flagTex(kind) { if (FLAG_T[kind]) return FLAG_T[kind]; const W = 512, H = 680, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); const cross = kind === 'cross';
+  // the cloth: a swallowtail banner (the notch is cut out with alpha), a soft vertical gradient and a woven texture
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, H); g.lineTo(W / 2, H - 120); g.lineTo(0, H); g.closePath(); g.save(); g.clip();
+  const gr = g.createLinearGradient(0, 0, W, H); if (cross) { gr.addColorStop(0, '#fbf6e8'); gr.addColorStop(1, '#e2d6b8'); } else { gr.addColorStop(0, '#2a4a8e'); gr.addColorStop(0.55, '#1a3068'); gr.addColorStop(1, '#0e1c44'); } g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.globalAlpha = cross ? 0.05 : 0.08; g.fillStyle = cross ? '#6a5a3a' : '#000'; for (let y = 0; y < H; y += 4) g.fillRect(0, y, W, 1); for (let x = 0; x < W; x += 4) g.fillRect(x, 0, 1, H); g.globalAlpha = 1;
+  // a double gold border with corner flourishes
+  const gold = (y0) => { const gg = g.createLinearGradient(0, y0 - 40, 0, y0 + 40); gg.addColorStop(0, '#fff0b0'); gg.addColorStop(0.5, '#d8a838'); gg.addColorStop(1, '#8a6018'); return gg; };
+  g.strokeStyle = gold(H / 2); g.lineWidth = 16; g.beginPath(); g.moveTo(16, 16); g.lineTo(W - 16, 16); g.lineTo(W - 16, H - 22); g.lineTo(W / 2, H - 140); g.lineTo(16, H - 22); g.closePath(); g.stroke();
+  g.lineWidth = 4; g.beginPath(); g.moveTo(40, 40); g.lineTo(W - 40, 40); g.lineTo(W - 40, H - 60); g.lineTo(W / 2, H - 168); g.lineTo(40, H - 60); g.closePath(); g.stroke();
+  const flour = (x, y, sx, sy) => { g.save(); g.translate(x, y); g.scale(sx, sy); g.fillStyle = '#e0b448'; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(40, 4, 52, 26, 30, 40); g.bezierCurveTo(44, 22, 26, 12, 0, 14); g.closePath(); g.fill(); g.beginPath(); g.arc(34, 30, 6, 0, Math.PI * 2); g.fill(); g.restore(); };
+  flour(48, 48, 1, 1); flour(W - 48, 48, -1, 1);
+  if (cross) { // a red cross with a gold edge, laurel branches below
+    g.fillStyle = '#d8a838'; g.fillRect(200, 110, 112, 340); g.fillRect(110, 216, 292, 112); g.fillStyle = '#b81414'; g.fillRect(212, 122, 88, 316); g.fillRect(122, 228, 268, 88); g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(212, 122, 22, 316); g.fillRect(122, 228, 268, 20);
+    g.fillStyle = '#5a8a3a'; for (const sd of [-1, 1]) for (let i = 0; i < 6; i++) { g.save(); g.translate(256 + sd * (60 + i * 22), 470 - i * 14); g.rotate(sd * (0.6 + i * 0.12)); g.beginPath(); g.ellipse(0, 0, 9, 22, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+  } else { // a heater shield on crossed swords, stars above
+    g.save(); g.translate(256, 280); for (const r of [-0.7, 0.7]) { g.save(); g.rotate(r); g.fillStyle = '#c8ccd4'; g.fillRect(-7, -190, 14, 300); g.fillStyle = '#d8a838'; g.fillRect(-34, 92, 68, 12); g.fillStyle = '#5a3a1a'; g.fillRect(-6, 104, 12, 46); g.fillStyle = '#d8a838'; g.beginPath(); g.arc(0, 156, 11, 0, Math.PI * 2); g.fill(); g.restore(); } g.restore();
+    const shield = (sc, col) => { g.beginPath(); g.moveTo(256, 150 - 30 * sc); g.lineTo(256 + 110 * sc, 190 - 14 * sc); g.quadraticCurveTo(256 + 108 * sc, 330 + 10 * sc, 256, 420 + 24 * sc); g.quadraticCurveTo(256 - 108 * sc, 330 + 10 * sc, 256 - 110 * sc, 190 - 14 * sc); g.closePath(); g.fillStyle = col; g.fill(); };
+    shield(1.08, '#8a6018'); shield(1.0, '#e0b448'); shield(0.84, '#9a1414'); g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(170, 170, 86, 230);
+    g.fillStyle = '#e0b448'; g.fillRect(248, 190, 16, 190); g.fillRect(196, 250, 120, 16); g.beginPath(); g.arc(256, 258, 16, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff0b0'; for (const [x, y] of [[150, 110], [256, 92], [362, 110]]) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 6 : 15; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.closePath(); g.fill(); } }
+  g.restore();
+  // gold fringe along the swallowtail
+  g.strokeStyle = '#d8a838'; g.lineWidth = 3; for (let i = 0; i <= 26; i++) { const k = i / 26, x = k < 0.5 ? k * 2 * (W / 2) : W / 2 + (k - 0.5) * 2 * (W / 2), y = k < 0.5 ? H - 120 * (k * 2) : H - 120 + 120 * ((k - 0.5) * 2); g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x, y); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; FLAG_T[kind] = t; return t; }
+// a banner pole's fittings: a gold crossbar over the cloth, an orb and spearhead finial, and two tasselled cords
+export function bannerFittings(g, top, w, x0) { const goldM = new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.85, roughness: 0.3 }), cordM = new THREE.MeshStandardMaterial({ color: '#9a1414', roughness: 0.9 });
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.025, w * 0.025, w * 1.12, 8), goldM); bar.rotation.z = Math.PI / 2; bar.position.set(x0, top, 0); g.add(bar); for (const e of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(w * 0.045, 8, 6), goldM); k.position.set(x0 + e * w * 0.58, top, 0); g.add(k); }
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(w * 0.07, 12, 10), goldM); orb.position.y = top + w * 0.1; g.add(orb); const tip = new THREE.Mesh(new THREE.ConeGeometry(w * 0.05, w * 0.26, 4), goldM); tip.position.y = top + w * 0.3; g.add(tip);
+  for (const e of [-1, 1]) { const cord = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.008, w * 0.008, w * 0.5, 4), cordM); cord.position.set(x0 + e * w * 0.5, top - w * 0.25, w * 0.02); g.add(cord); const tas = new THREE.Mesh(new THREE.ConeGeometry(w * 0.035, w * 0.14, 6), goldM); tas.position.set(x0 + e * w * 0.5, top - w * 0.55, w * 0.02); g.add(tas); } }
+// the warrior's Banner of Mending (C): a small banner with a red cross; allies within 5 m slowly heal for 8 s
+export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.yaw || 0, at = new THREE.Vector3(p.x + Math.sin(yw) * 1.6, p.y, p.z + Math.cos(yw) * 1.6), base = ultGround(at); at.y = base;
+  const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 8), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 1.2; g.add(pole);
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.06, 6, 6), new THREE.MeshStandardMaterial({ map: flagTex('cross'), alphaTest: 0.5, transparent: true, roughness: 0.85, side: THREE.DoubleSide })); cloth.position.set(0.42, 1.83, 0); g.add(cloth); bannerFittings(g, 2.38, 0.8, 0.42);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4.85, 5, 48), glowM('#7aff8a', 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring);
+  g.position.copy(at); g.rotation.y = yw; G.scene.add(g); S.cast && S.cast('nature', at, 0.8); const pos0 = cloth.geometry.attributes.position.array.slice(); let regT = 0;
+  timer((t, dt) => { const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 6) * 0.06 * (x + 0.4); } a.needsUpdate = true; ring.material.opacity = 0.25 + Math.sin(t * 3) * 0.08;
+    regT -= dt || 1 / 60; if (regT <= 0) { regT = 0.5; for (const u of nearOf(ultFriends(caster), at, 5)) { ultHeal(u, 0.008); if (Math.random() < 0.5) V.emit('green', u.pos.clone().setY(u.pos.y + 1.5), { speed: 0.3, vy: 1, size: 0.25 }); } }
+    if (t > 8) { G.scene.remove(g); return true; } return false; }); }
 // ---------- the ranger's ultimate: Rain of Arrows ----------
 // a volley loosed straight up; a shadow spreads over the target circle; then a real storm of arrows comes down for
 // several seconds. Each tick everyone inside is struck (arrows aimed at them, stuck in them); the rest pepper the ground.
@@ -767,18 +808,18 @@ export function ultImpact(at, o = {}) { const R = o.r || 6, col = o.col || '#ffb
   return C; }
 const lob = (from, to, mesh, dur, arc, onLand) => { G.scene.add(mesh); timer((t) => { const k = Math.min(1, t / dur); mesh.position.lerpVectors(from, to, k); mesh.position.y += Math.sin(k * Math.PI) * arc; mesh.rotation.x += 0.2; if (k >= 1) { onLand && onLand(); return true; } return false; }); };
 export const ULTS = {
-  warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner into the ground beside you: the shockwave throws back and stuns enemies within 6 m, and for 8 s a dome of protection stands round it: every ally inside takes 40% less damage, deals 20% more and regenerates 2% of their health a second.',
+  warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner bearing a shield into the ground in front of you: for 8 s a dome of protection stands round it, and every ally inside takes 40% less damage.',
     run(c) { const p = c.pos.clone(), yw = c.yaw || 0, C0 = new THREE.Vector3(p.x + Math.sin(yw) * 5.5, p.y, p.z + Math.cos(yw) * 5.5), base = ultGround(C0), C = new THREE.Vector3(C0.x, base, C0.z), me = c === G.player ? c : null; const g = new THREE.Group(); /* (planted 5.5 m in front, where you and your camera can see it, not beside your head) */
       if (me) { me.held = true; me.ultImmT = Math.max(me.ultImmT || 0, 2.6); me.ultPoseT = 1.6; ultFlyCam(me, (ct) => C.clone().setY(base + (ct < 0.5 ? 4 : 2.2)), () => 1.9, { r: 10, h: 3.6, inT: 0.6 }); later(2.2, () => { me.held = false; }); } /* (the camera swings out to watch it crash down and the shockwave roll over the enemies) */ const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 6, 10), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 3; g.add(pole);
-      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6, 8, 8), new THREE.MeshStandardMaterial({ color: '#a01818', roughness: 0.8, side: THREE.DoubleSide })); cloth.position.set(1.05, 4.4, 0); g.add(cloth); const trim = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.8, roughness: 0.3 })); trim.position.set(1.05, 5.75, 0); g.add(trim);
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6, 8, 8), new THREE.MeshStandardMaterial({ map: flagTex('shield'), alphaTest: 0.5, transparent: true, roughness: 0.8, side: THREE.DoubleSide })); bannerFittings(g, 5.75, 2.0, 1.05); /* (a shield on the flag: this banner is pure defence) */ cloth.position.set(1.05, 4.4, 0); g.add(cloth); const trim = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.8, roughness: 0.3 })); trim.position.set(1.05, 5.75, 0); g.add(trim);
       const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), glowM('#ffcf70', 0)); g.add(dome); dome.scale.setScalar(0.5); let regT = 0; /* (the dome of protection) */ const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.04; aura.scale.setScalar(0.5); g.add(aura);
       g.position.copy(C).setY(base + 22); g.rotation.y = yw; G.scene.add(g); const pos0 = cloth.geometry.attributes.position.array.slice(); g.scale.setScalar(2.0); /* (hero-sized: twice the old banner, its flag flying out to the side, broadside to you) */
       timer((t) => { if (t < 0.55) { const f = t / 0.55; g.position.y = base + 22 * (1 - f * f); V.emit('gold', g.position.clone().setY(g.position.y + 13), { speed: 0.5, size: 0.6, life: 0.35 }); V.emit('fire', g.position.clone().setY(g.position.y + 1), { speed: 0.6, size: 0.7, life: 0.3 }); return false; } /* (it falls out of the sky like a comet, trailing gold) */
         if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; ultImpact(C, { r: 7, col: '#ffc050', colCol: '#fff0b0', shake: 1.4, vol: 1.2, wallH: 2.2 }); later(0.12, () => ultImpact(C, { r: 10, col: '#ff9a30', column: false, scorch: false, sparks: false, shake: 0.5, vol: 0 })); S.battleCry && S.battleCry();
-          for (const u of nearOf(ultFoes(c), C, 6)) { ultHurt(u, 0.12, c, 'stone'); const n = new THREE.Vector3(u.pos.x - C.x, 0, u.pos.z - C.z).normalize(); if (u === G.player) { u.vel && u.vel.set(n.x * 10, 6, n.z * 10); u.debuff && u.debuff('stun', 1); } else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1); if (u.status.knock) u.status.knock.set(n.x * 10, 0, n.z * 10); } } }
+          }
         const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 3) * 0.15 * (x + 1); } a.needsUpdate = true; aura.material.opacity = 0.45 + Math.sin(t * 3) * 0.15;
         dome.material.opacity = 0.07 + Math.sin(t * 2.5) * 0.025; regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
-        for (const u of nearOf(ultFriends(c), C, 10)) { u.bannerT = G.time + 0.4; if (reg) ultHeal(u, 0.01); if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
+        for (const u of nearOf(ultFriends(c), C, 10)) { u.defBannerT = G.time + 0.4; if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
         if (Math.random() < 0.4) V.emit('fire', C.clone().setY(base + 12.6), { speed: 0.4, vy: 1.5, size: 0.4, life: 0.5 });
         if (t > 8.3) { const k = Math.min(1, (t - 8.3) / 0.6); g.scale.setScalar(2 * (1 - k) + 0.01); if (k >= 1) { G.scene.remove(g); return true; } } return false; }); } },
   darkknight: { id: 'ar_grasp', name: "Death's Grasp", t: 'grasp', aim: 'ground', desc: 'A pool of shadow tears open where you aim: chains of darkness burst out, seize every enemy within 6 m, drag them to your feet and drain a quarter of their health, which heals you.',
@@ -998,10 +1039,13 @@ function revive(f, place) {
 function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
 // P: perks. Points come with time; spend them on any of your class's ten perks (three ranks each), whenever you like
 export function openPerks(UI) {
-  const p = G.player, h = p.h, cls = h.cls, f = A.me; h.arenaPerks = h.arenaPerks || {};
-  const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · perks', '', 'big');
+  const p = G.player, h = p.h, cls = h.cls, f = A.me || (G.yardPP || (G.yardPP = { you: true, pp: 99 })); h.arenaPerks = h.arenaPerks || {};
+  const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · skills & perks', '', 'big');
   const iconOf = (pk) => { const id = pk.slot && pk.slot !== 'L' ? (pk.slot === 'R' ? h.arenaRmb : (h.arenaKit || [])[['F', 'C', 'Q'].indexOf(pk.slot)]) : null; return id && id !== 'aim' ? Icons.abilityIcon(id) : `<span class="perkglyph${pk.passive ? ' pas' : ''}">${pk.glyph || { powL: '⚔' }[pk.id] || '◆'}</span>`; };
   const draw = () => { const left = perkLeft(f); c.innerHTML = '';
+    { const A2 = ABILITIES[cls] || [], ab = (id) => id && id !== 'aim' ? A2.find(a => a.id === id) : null, kit = h.arenaKit || ARENA_KITS[cls] || [], rows = [['F', ab(kit[0])], ['C', ab(kit[1])], ['Q', ab(kit[2])], ['Right click', ab(h.arenaRmb)], ['R · Ultimate', ULTS[cls] ? { id: ARENA_ULT[cls], name: ULTS[cls].name, desc: ULTS[cls].desc } : null]];
+      const box = elx('div', 'perkgrid'); box.style.marginBottom = '14px'; c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Your abilities</b></div>');
+      for (const [k, a] of rows) { if (!a) continue; const r = elx('div', 'perkcard has'); r.innerHTML = `<div class="kiti">${Icons.abilityIcon(a.id)}</div><div class="kitt"><b>${a.name} <span class="dim" style="font-weight:400">· ${k}${a.cd ? ` · ${a.cd} s cooldown` : ''}</span></b><span>${a.desc || ''}</span></div>`; box.appendChild(r); } c.appendChild(box); } /* (the skill menu: every key's ability and what it does, then the perk tree below) */
     c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend <span class="dim">· you earn 1 every 10 seconds of fighting${Game.TANK_CLS.has(cls) ? ' · <b style="color:#9fd0ff;font-size:13px">Tank</b>: 40% more health, 15% less damage taken' : ''}</span></div>`);
     const list = elx('div', 'perkgrid');
     for (const pk of perksFor(cls)) { const lv = h.arenaPerks[pk.id] || 0, r = elx('div', 'perkcard' + (lv ? ' has' : ''));
@@ -1385,7 +1429,7 @@ class ArenaBot {
   dmgMul() { let k = (this.transcendT > 0 ? 1.5 : 1) * (this.bannerT > G.time ? 1.2 : 1); const b = this.buffs; if (b.cry > 0) k *= 1.3; if (b.rage > 0) k *= 1.15; if (b.surge > 0) k *= 1.2; if (b.lich > 0) k *= 1.4; if (b.form > 0) k *= 1.35; if (b.avatar > 0 && this.av && this.av.dmg) k *= this.av.dmg; return k; }
   // ---- being hit (by the player, a team mate's enemy, a pet...) ----
   takeHit(dmg, src, o = {}) {
-    if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs; if (this.bannerT > G.time) dmg *= 0.6; /* (War Banner) */
+    if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs; if (this.bannerT > G.time || this.defBannerT > G.time) dmg *= 0.6; /* (War Banner) */
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
     dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg); if (src && src.hexUntil > G.time) dmg *= 0.65;

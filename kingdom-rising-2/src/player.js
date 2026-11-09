@@ -128,6 +128,14 @@ function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStanda
   ar.traverse(o => { if (o.isMesh) o.castShadow = false; }); return ar; }
 const BB_GRIP = { R: new THREE.Vector3(0, -0.085, -0.055), Ry: new THREE.Vector3(0, 0.78, 0.63).normalize(), L: new THREE.Vector3(0, 0.24, -0.035), Ly: new THREE.Vector3(0, 1, 0) }; /* (the blunderbuss's hand places, in the gun's own frame: y along the barrel, z up; Ry/Ly the line each hand closes round) */
 const CAM_MIN = 2.2; /* (the closest the camera comes to a hero) */
+// a slash streak where a blade lands: a bright curved stroke that flashes, widens and fades in a fifth of a second
+let _slashTex = null;
+function slashImpact(p, name) { if (!_slashTex) { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'); g.translate(128, 150); g.lineCap = 'round';
+    for (const [w, a, col] of [[26, 0.25, '#ffb040'], [14, 0.6, '#ffe2a0'], [6, 1, '#ffffff']]) { g.strokeStyle = col; g.globalAlpha = a; g.lineWidth = w; g.beginPath(); g.arc(0, 0, 118, Math.PI * 1.18, Math.PI * 1.82); g.stroke(); }
+    _slashTex = new THREE.CanvasTexture(c); _slashTex.colorSpace = THREE.SRGBColorSpace; }
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: _slashTex, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+  const back = /swing2|off|back/.test(name || ''), over = /swing3|smash|chop|heavy/.test(name || ''); m.material.rotation = over ? -1.25 + (Math.random() - 0.5) * 0.3 : (back ? -0.35 : 0.35) + (Math.random() - 0.5) * 0.4; m.position.copy(p); m.renderOrder = 999; m.scale.set(1.3, 0.65, 1);
+  V.temp(m, 0.2, (mm, t) => { const k = 0.8 + t * 0.7; m.scale.set(1.3 * k, 0.65 * k, 1); m.material.opacity = (t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85); if (t >= 0.99) m.material.dispose(); }); }
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 
@@ -685,7 +693,7 @@ export class Player {
     if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
     if (G.newFx && this.h.arena && this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') { if (this.comboT <= 0) this.warN = 0; const BW = [['swing1', 1.1], ['swing2', 1.1]], q = BW[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.05, d: q[1] }); } /* (the berserker: wide sweeps, right to left then left to right) */
     else if (G.newFx && this.h.arena && (this.h.cls === 'paladin' || this.h.cls === 'darkknight') && W.hands === 'two' && W.kind === 'melee') { /* (the paladin's hammer and the shadow knight's greatsword: the same heavy three-blow combo) */ if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
-    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.0], ['swing2', 1.0], ['swing3', 1.15]], q = W3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.0, d: q[1] }); } /* (the warrior's combo: the three blows of the owner's Triple Combo Attack, round and round) */
+    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.35], ['swing2', 1.35], ['swing3', 1.55]], q = W3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.3, d: q[1] }); /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior's combo: the three blows of the owner's Triple Combo Attack, round and round) */
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
     this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });
   }
@@ -777,6 +785,7 @@ export class Player {
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
         this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
+        if (W && W.kind === 'melee' && this.weapon && this.weapon.wt !== 'fists') slashImpact(m.pos.clone().setY(m.pos.y + (m.height || 1.8) * 0.6).lerp(this.pos.clone().setY(m.pos.y + 1.1), 0.18), a.name); /* (a bright slash streak where the blow lands) */
         if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
       }
       if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }

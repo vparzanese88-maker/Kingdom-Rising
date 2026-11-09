@@ -113,6 +113,14 @@ function sample(name, dest, rate = 1, gain = 1) {
 }
 const rnd = (a, b) => a + Math.random() * (b - a);
 const ri = (n) => 1 + Math.floor(Math.random() * n);
+// which big weapon is swung: the paladin's hammer is carried as a 'greatsword' item
+function heavyKind(wt, cls) {
+  if (wt === 'warhammer' || (wt === 'greatsword' && cls === 'paladin')) return 'hammer';
+  if (wt === 'maceshield') return 'mace';
+  if (wt === 'greatsword' || wt === 'greataxe') return wt;
+  return null;
+}
+let lastImpact = 0;
 
 // ---------------- SOUND EFFECTS ----------------
 export const S = {
@@ -136,8 +144,10 @@ export const S = {
     noise(t, 0.25 * size, o.node, { type: 'bandpass', f: 300 / size, f2: 1200 / size, q: 0.8, gain: 0.18 * size, a: 0.08 });
   },
   // weapon-specific swings: blunt (mace/hammer), axe, spear, light (daggers), staff; blades use the recorded sword swings
-  swingW(kind, size = 1, pos) {
+  swingW(kind, size = 1, pos, wt, cls) {
     if (!ctx) return;
+    const hv = wt ? heavyKind(wt, cls) : null; // (big weapons: a deep, heavy whoosh instead of the light swish)
+    if (hv && kind !== 'light' && kind !== 'fist' && kind !== 'spear') return S.heavyWhoosh(hv, size, pos);
     if (kind === 'blade') return S.swing(size, pos);
     const o = out(pos, sfxBus, 0.1), t = now();
     if (kind === 'blunt') {
@@ -161,6 +171,51 @@ export const S = {
     } else if (kind === 'staff') {
       noise(t, 0.3 * size, o.node, { type: 'bandpass', f: 400, f2: 900, q: 1.4, gain: 0.35 * size, a: 0.1 });
     }
+  },
+  // big weapons cutting the air: a low, wide noise sweep that swells to the middle of the swing and falls away (a doppler pitch drop),
+  // a deep body of air underneath and a sub tone that bends down; blades add a slowed recorded swing for the edge, hammers stay dull
+  heavyWhoosh(hv, size = 1, pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now();
+    const blunt = hv === 'hammer' || hv === 'mace', k = Math.min(1.2, 0.7 + size * 0.3) * (hv === 'mace' ? 0.85 : 1);
+    const dur = (hv === 'mace' ? 0.34 : blunt ? 0.42 : 0.38) * rnd(0.95, 1.05), pk = t + dur * 0.4;
+    const sweep = (n, f0, f1, f2) => { const fr = n.fl.frequency; fr.cancelScheduledValues(t); fr.setValueAtTime(f0, t); fr.exponentialRampToValueAtTime(f1, pk); fr.exponentialRampToValueAtTime(f2, t + dur); };
+    const lo = blunt ? 0.7 : hv === 'greataxe' ? 0.85 : 1; // (hammers lowest, axes a touch below swords)
+    sweep(noise(t, dur, o.node, { type: 'bandpass', q: 1.1, gain: 0.42 * k, a: dur * 0.38, d: dur * 0.62 }), 170 * lo, 720 * lo, 240 * lo);
+    sweep(noise(t, dur, o.node, { type: 'lowpass', q: 1.6, gain: (blunt ? 0.5 : 0.36) * k, a: dur * 0.36, d: dur * 0.64 }), 110 * lo, 420 * lo, 140 * lo);
+    tone(t + dur * 0.15, dur * 0.85, o.node, { type: 'sine', f: (blunt ? 78 : 96) * rnd(0.95, 1.05), f2: blunt ? 46 : 58, gain: (blunt ? 0.16 : 0.1) * k, a: dur * 0.25, d: dur * 0.6 });
+    if (!blunt) {
+      sweep(noise(t, dur, o.node, { type: 'bandpass', q: 2.2, gain: 0.14 * k, a: dur * 0.38, d: dur * 0.6 }), 700, 2100 * lo, 900);
+      const gt = ctx.createGain(); gt.gain.setValueAtTime(1, t); gt.gain.setValueAtTime(1, t + dur * 0.7); gt.gain.exponentialRampToValueAtTime(0.0001, t + dur); gt.connect(o.node);
+      sample('swing' + ri(10), gt, rnd(0.66, 0.74), 0.42 * k); // (a recorded swing slowed down, gated so it never runs past the whoosh)
+    } else {
+      sweep(noise(t + 0.03, dur - 0.03, o.node, { type: 'bandpass', q: 3, gain: 0.22 * k, a: dur * 0.33, d: dur * 0.6 }), 120, 320, 110); // (a hollow, rounded roar of air off the head)
+    }
+  },
+  // a big hammer or mace landing: a deep thump you feel, a lower boom under it, and a short crunch of armour and bone
+  slam(pos, big = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(), k = Math.min(1.3, big);
+    tone(t, 0.3 * k, o.node, { type: 'sine', f: 82 * rnd(0.95, 1.05), f2: 36, gain: 0.72 * k, a: 0.002 });
+    tone(t + 0.008, 0.45 * Math.min(1.15, k), o.node, { type: 'sine', f: 52, f2: 30, gain: 0.38 * k, a: 0.006 });
+    tone(t, 0.07, o.node, { type: 'triangle', f: 190, f2: 70, gain: 0.22 * k, a: 0.001 });
+    noise(t, 0.3, o.node, { type: 'lowpass', f: 1400, f2: 110, q: 0.7, gain: 0.62 * k, a: 0.002 });
+    noise(t, 0.09, o.node, { type: 'bandpass', f: 1500, f2: 480, q: 0.9, gain: 0.42 * k, a: 0.001 });
+    for (const dt of [0.006, 0.022, 0.041]) noise(t + dt * rnd(0.8, 1.2), 0.035, o.node, { type: 'bandpass', f: rnd(1800, 3200), q: 3.5, gain: 0.16 * k, a: 0.001 });
+  },
+  // a greatsword or greataxe biting in: a sharp edge, a heavy wet chop and a low body hit under it
+  heavyCleave(pos, big = 1) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.18), t = now(), k = Math.min(1.3, big);
+    noise(t, 0.035, o.node, { type: 'bandpass', f: 3800, q: 2.5, gain: 0.14 * k, a: 0.001 });
+    noise(t, 0.09, o.node, { type: 'bandpass', f: 2300, f2: 650, q: 1.2, gain: 0.42 * k, a: 0.001 });
+    noise(t + 0.005, 0.24, o.node, { type: 'lowpass', f: 1700, f2: 180, q: 0.8, gain: 0.5 * k, a: 0.002 });
+    tone(t, 0.26, o.node, { type: 'sine', f: 115 * rnd(0.92, 1.08), f2: 46, gain: 0.5 * k, a: 0.002 });
+    tone(t, 0.06, o.node, { type: 'triangle', f: 240, f2: 110, gain: 0.12 * k, a: 0.001 });
+  },
+  // the melee landing sound for big weapons; returns false for small ones so the caller keeps its usual sound
+  meleeImpact(wt, cls, pos, big) {
+    if (!ctx) return false; const hv = heavyKind(wt, cls); if (!hv) return false;
+    const t = now(); if (t - lastImpact < 0.035) return true; lastImpact = t; // (one cleave through a crowd: one sound, not a stack)
+    if (hv === 'hammer') S.slam(pos, big ? 1.2 : 1); else if (hv === 'mace') S.slam(pos, big ? 0.95 : 0.8); else S.heavyCleave(pos, big ? 1.2 : 1);
+    return true;
   },
   // a real punch landing: a sharp skin slap on top, a meaty mid smack, and a deep body thump underneath (no resonant ring, which reads as knocking on wood)
   punch(pos, big = false) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(), k = big ? 1.3 : 1;

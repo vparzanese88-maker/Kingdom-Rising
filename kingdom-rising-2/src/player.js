@@ -737,7 +737,7 @@ export class Player {
     if (a.hold) { if (this.press && this.press.charging) a.t = Math.min(a.t, 0.98); else if (a.t >= 1) { this.atk = null; return; } } // a held wind-up stays wound up until you let go
     const W = this.W;
     const hitAt = W && W.kind === 'gun' && (a.name === 'shoot' || a.name === 'release') ? 0.02 : a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
-    if (a.swingSnd && (hitAt - a.t) * a.dur <= 0.13) { if (a.swingSnd.reap) S.reap && S.reap(this.pos, 1); else S.swingW(a.swingSnd.k, a.swingSnd.v, this.pos); a.swingSnd = null; } // whoosh lands with the blow
+    if (a.swingSnd && (hitAt - a.t) * a.dur <= 0.13) { if (a.swingSnd.reap) S.reap && S.reap(this.pos, 1); else S.swingW(a.swingSnd.k, a.swingSnd.v, this.pos, this.weapon && this.weapon.wt, this.h.cls); a.swingSnd = null; } // whoosh lands with the blow
     if (!a.hit && a.t >= hitAt) { a.hit = true; this.doHit(a); }
     // fury flurry: several hits
     if (a.name === 'fury') { const k = Math.floor(a.t * a.hits); if (k > (a.done || 0) && k <= a.hits) { a.done = k; this.furyHit(a, k); } }
@@ -786,7 +786,7 @@ export class Player {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
         this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' ? base * 0.09 : 0, stun: st.stun || 0 });
         if (W && W.kind === 'melee' && this.weapon && this.weapon.wt !== 'fists') slashImpact(m.pos.clone().setY(m.pos.y + (m.height || 1.8) * 0.6).lerp(this.pos.clone().setY(m.pos.y + 1.1), 0.18), a.name); /* (a bright slash streak where the blow lands) */
-        if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
+        if (S.meleeImpact && S.meleeImpact(wt, this.h.cls, m.pos, big)) { /* big weapons: a deep slam or a heavy cleave */ } else if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
       }
       if (targets.length) { this.wpnXp(1); if (G.newFx && !a.extra) this.meleeExtras(a, targets[0], base, st); }
       if (false && targets.length && (wt === 'dagger' || wt === 'daggers') && a.name !== 'heavy' && !a.extraHit) { // (no random double/triple attacks)

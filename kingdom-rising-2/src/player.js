@@ -352,8 +352,8 @@ class ViewModel {
     } else if (act) {
       const dual = W && W.hands === 'dual';
       switch (n) {
-        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); if (this.hero && W && W.hands === 'two' && W.kind === 'melee') r = [r[0], r[1] - 0.1, r[2] - 0.03, r[3], r[4], r[5]]; break; /* (a two-hander's side sweep passes through the lower third of the view, as in Skyrim, so the arms never wipe across the middle) */
-        case 'swing2': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker') ? seq(mirror(VP.wSdA), mirror(VP.wSdB), t, 0.34) : seq(VP.s2a, VP.s2b, t, 0.3); if (this.hero && W && W.hands === 'two' && W.kind === 'melee') r = [r[0], r[1] - 0.1, r[2] - 0.03, r[3], r[4], r[5]]; break; /* (the warrior's backhand: the side slash mirrored, from the left across to the right, edge leading) */
+        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); if (this.hero && ((W && W.hands === 'two' && W.kind === 'melee') || this.cls === 'warrior')) r = [r[0], r[1] - 0.1, r[2] - 0.03, r[3], r[4], r[5]]; break; /* (a two-hander's side sweep passes through the lower third of the view, as in Skyrim, so the arms never wipe across the middle) */
+        case 'swing2': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker') ? seq(mirror(VP.wSdA), mirror(VP.wSdB), t, 0.34) : seq(VP.s2a, VP.s2b, t, 0.3); if (this.hero && ((W && W.hands === 'two' && W.kind === 'melee') || this.cls === 'warrior')) r = [r[0], r[1] - 0.1, r[2] - 0.03, r[3], r[4], r[5]]; break; /* (the warrior's backhand: the side slash mirrored, from the left across to the right, edge leading) */
         case 'lowcut': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'sweep': r = seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'kick': break;

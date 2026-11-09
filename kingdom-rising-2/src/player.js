@@ -29,6 +29,7 @@ import { angDiff, rand, clamp } from './util.js';
 const ARC_GEO = new Map();
 const ARC_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 function slashArc(pl, R, H, name, hit, col) {
+  return; // (the owner: no reach marker on a swing at all: it read as an area-of-effect ring)
   if (pl.camDist < 0.6) return; // (in first person the crescent lies across your view like a grey sheet: the blade's own trail is enough)
   if (pl.weapon && pl.weapon.wt === 'fists') return; // (bare fists leave no blade crescent: it hung in front of the monk's face as a grey sheet)
   const key = R.toFixed(1) + '_' + H.toFixed(2); let g = ARC_GEO.get(key); if (!g) { g = new THREE.RingGeometry(Math.max(0.5, R * 0.35), R, 28, 1, -H, H * 2); g.rotateX(-Math.PI / 2); ARC_GEO.set(key, g); }

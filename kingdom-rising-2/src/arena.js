@@ -126,7 +126,7 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
-export const ARENA_RMB = { warrior: 'shieldwall', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_ironhide', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
+export const ARENA_RMB = { warrior: 'ar_shbash', berserker: 'undying', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_ironhide', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
   /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_detonate' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
@@ -204,6 +204,7 @@ function designRules() {
   fix('rogue', 'kidney', { stun: 1.5, desc: 'A cruel jab that stuns the enemy for 1.5 s.' });
   fix('shaman', 'sh_hex', { stun: 2.5, poly: true, desc: 'Turn the enemy you aim at into a harmless frog for 2.5 s.' });
   // 5. the shield classes get their defensive back: held block raises it (warrior, paladin); Bone Guard moves to C
+  if (!abIn('warrior', 'ar_shbash')) ABILITIES.warrior.push({ id: 'ar_shbash', name: 'Shield Bash', t: 'shbash', kit: true, level: 1, cd: 6, cost: 0, dmg: 0.8, stun: 1.2, fx: 'frost', desc: 'Drive your shield into whoever is in front of you: a solid hit that knocks them back and stuns them for 1.2 s.' });
   fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
   { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
   fix('darkknight', 'gravewall', { amount: 0.25, dur: 6, cd: 18, boneGuard: true, desc: 'A shell of bone and shadow absorbs damage equal to 25% of your health for up to 6 s; enemies who hit you in melee while it holds are slowed for 1 s.' });
@@ -1209,7 +1210,7 @@ export function playerRules(p = G.player) {
   p.onMouse = function (btn, down) { if (btn === 2 && this.h.arena && RMB_CAST.has(this.h.arenaRmb)) { if (down && !this.dead && !G.uiOpen && !dbOn(this, 'stun') && !this.isFrozen()) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); } return; } if (btn === 2 && this.h.arena && this.h.arenaRmb === null && this.W) { this.rmbHeld = down && !this.dead && !G.uiOpen; return; } return mouse.call(this, btn, down); }; // (a gun class whose right click is an ability, not aiming; a class with no right-click ability blocks with it, e.g. the Shadow Knight)
   return p;
 }
-const RMB_CAST = new Set(['ar_ironhide']);
+const RMB_CAST = new Set(['ar_ironhide', 'ar_shbash']); /* (right click casts these at once) */
 // ---- a computer bombardier: lob bombs at the target, glue sticky bombs on them (or round itself as a trap when nobody is in sight),
 // set them off when enemies are in the blast, and plant Big Bertha where they are bunched up
 function botBomb(b, T, dmg, sticky) { const from = b.pos.clone().setY(b.pos.y + (b.height || 1.2) * 0.75).addScaledVector(V3(Math.sin(b.yaw), 0, Math.cos(b.yaw)), 0.35);

@@ -1446,6 +1446,7 @@ export class Player {
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); if (this.h.arena) return this.aimFoe(range); /* the arena: no auto-aim, only what is under the crosshair */ return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
     switch (a.t) {
+      case 'shbash': { this.atk = { name: 'shieldbash', t: 0, dur: 0.8, hit: true, noQueue: true }; S.block(true, this.pos); setTimeout(() => { if (this.dead) return; const f = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), p = this.pos.clone().addScaledVector(f, 1.5); areaDamage(p, 1.9, P(a.dmg || 0.8), { knock: 6, stun: a.stun || 1.2, melee: true }); V.burst('dust', p, 18, { speed: 4, size: 0.5 }); S.blunt(p); S.hit('stone', p); V.addShake(0.25); }, 330); return true; } /* (the warrior's right click: a shove with the shield that knocks back and stuns whoever is in front) */
       case 'bolt': case 'drain': {
         const n = a.n ? this.qty(a.n, a.extra || 0) : 1, from = this.spellFrom(), dir0 = this.aimDir(from);
         for (let i = 0; i < n; i++) { const dir = dir0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (i - (n - 1) / 2) * (a.spread || 0));
@@ -2156,6 +2157,7 @@ export class Player {
       else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;
     }
+    { const rd = this.ch && this.ch._rootDelta; if (rd && (rd.x || rd.z)) { this.pos.x += rd.x; this.pos.z += rd.z; rd.set(0, 0, 0); } } /* (a recorded attack that steps forward carries you forward with it) */
     collide(this.pos, this.radius);
     // world bounds
     this.pos.x = clamp(this.pos.x, -590, 590); this.pos.z = clamp(this.pos.z, -590, 590);

@@ -161,7 +161,7 @@ function meleeArc(ch, H, B, act, mvK) {
   let edge = kind === 'spear' ? R.clone() : kind === 'stab' ? U.clone().negate() : tan.lengthSq() > 1e-8 ? tan.normalize() : F.clone(); edge.addScaledVector(blade, -edge.dot(blade)); if (edge.lengthSq() < 1e-6) { edge.copy(R).addScaledVector(blade, -R.dot(blade)); if (edge.lengthSq() < 1e-6) edge.copy(F).addScaledVector(blade, -F.dot(blade)); } edge.normalize(); /* (the sharp edge faces where the blade is going) */
   const X = edge, Y = blade, Z = new THREE.Vector3().crossVectors(X, Y).normalize(); X.crossVectors(Y, Z);
   const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); /* (the weapon's own frame: y along the blade, x the edge) */
-  const qS = qW.multiply(main.quaternion.clone().normalize().invert()).normalize(); /* (the socket's angle that lays the weapon so) */ if (![qS.x, qS.y, qS.z, qS.w, p.x, p.y, p.z].every(Number.isFinite)) return;
+  const qS = qW.multiply((main.userData.baseQ || main.quaternion).clone().normalize().invert()).normalize(); /* (the socket's angle that lays the weapon so) */ if (![qS.x, qS.y, qS.z, qS.w, p.x, p.y, p.z].every(Number.isFinite)) return;
   const wT = /[?&]arcw0/.test(location.search) ? 0 : w; ch._arc = { p, q: qS, w: wT, pole: S.clone().addScaledVector(R, 0.6 * len).addScaledVector(U, -0.5 * len).addScaledVector(F, -0.3 * len) };
 }
 function puppetArms(ch, H, B) { ch.root.updateMatrixWorld(true); H.m.updateMatrixWorld(true); const W = ch.weapons || {}, main = W.main, so = {};
@@ -342,6 +342,9 @@ export function tickHeroModel(ch, dt) {
   /* (guns too: puppetArms keeps both hands on the stock and fore-end the way the built body holds it) */
   if (ch.legs && !mvK) for (const [sd, nm, on] of [['R', 'Right', kickR], ['L', 'Left', kickL]]) { if (!on) continue; const t = ch.legs[sd].ankle.getWorldPosition(new THREE.Vector3()), hip = B[nm + 'UpLeg']; if (!hip) continue; const h0 = hip.getWorldPosition(new THREE.Vector3()), wq = H.m.getWorldQuaternion(new THREE.Quaternion());
     ikArm(null, B[nm + 'UpLeg'], B[nm + 'Leg'], B[nm + 'Foot'], t, h0.clone().add(new THREE.Vector3(0, 0.3, 0.8).applyQuaternion(wq))); } // (kicks: the model's leg goes where the built leg kicks)
+  { const sp = ch.weapons && ch.weapons.main; if (sp && sp.name === 'weapon_spear' && sp.parent) { const ud = sp.userData; if (!ud.baseQ) { ud.baseQ = sp.quaternion.clone(); ud.baseP = sp.position.clone(); } const rest = 1 - Math.min(1, H.ikA || 0); sp.quaternion.copy(ud.baseQ); sp.position.copy(ud.baseP);
+    if (rest > 0.01) { sp.parent.updateWorldMatrix(true, false); const pq = sp.parent.getWorldQuaternion(new THREE.Quaternion()), wq0 = pq.clone().multiply(ud.baseQ), cy = new THREE.Vector3(0, 1, 0).applyQuaternion(wq0), fw = new THREE.Vector3(0, 0, 1).applyQuaternion(H.wrap.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(), ty = new THREE.Vector3(0, 1, 0).addScaledVector(fw, 0.12).normalize();
+      const wq1 = new THREE.Quaternion().setFromUnitVectors(cy, ty).multiply(wq0), lq = pq.invert().multiply(wq1); if ([lq.x, lq.y, lq.z, lq.w].every(Number.isFinite)) { sp.quaternion.slerp(lq, rest); sp.position.copy(ud.baseP).applyQuaternion(sp.quaternion.clone().multiply(ud.baseQ.clone().invert())); } } /* (turned about the fist, so the haft stays in her hand) */ } } /* (the shaman's spear stands upright in her fist when she is not attacking, never held out sideways like a lance) */
   try { shieldPose(ch, H, B, dt); } catch (e) { /* (leave the arm to its clip) */ }
 }
 

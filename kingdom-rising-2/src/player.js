@@ -706,7 +706,7 @@ export class Player {
     return 'blade';
   }
   // ---------- attacks ----------
-  light() { if (this.held) return; /* (no swinging while held) */
+  light() { if (this.held || this.axeOut || this.axeThrow) return; /* (no axe in hand while it is thrown) */ /* (no swinging while held) */
     if (this.dodge || this.gathering || this.swim) return;
     const W = this.W; if (!W) return;
     if (this.block) return;
@@ -1490,6 +1490,7 @@ export class Player {
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); if (this.h.arena) return this.aimFoe(range); /* the arena: no auto-aim, only what is under the crosshair */ return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
     switch (a.t) {
+      case 'axethrow': { if (this.axeOut || this.axeThrow) return false; this.axeThrow = { t: 0, dur: 1.0, dmg: base * 1.4 * up, thrown: false }; this.atk = { name: 'axethrow', t: 0, dur: 1.0, hit: true, noQueue: true }; S.heavySwing && S.heavySwing(this.pos); return true; }
       case 'mendbanner': { if (G.hooks.mendBanner) G.hooks.mendBanner(this); anim('cast'); return true; }
       case 'shbash': { this.atk = { name: 'shieldbash', t: 0, dur: 0.8, hit: true, noQueue: true }; S.block(true, this.pos); setTimeout(() => { if (this.dead) return; const f = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), p = this.pos.clone().addScaledVector(f, 1.5); areaDamage(p, 1.9, P(a.dmg || 0.8), { knock: 6, stun: a.stun || 1.2, melee: true }); V.burst('dust', p, 18, { speed: 4, size: 0.5 }); S.blunt(p); S.hit('stone', p); V.addShake(0.25); }, 330); return true; } /* (the warrior's right click: a shove with the shield that knocks back and stuns whoever is in front) */
       case 'bolt': case 'drain': {
@@ -1579,7 +1580,7 @@ export class Player {
         else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
-        if (a.buff === 'shout') { S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + this.eye * 0.9), 40, { speed: 5 }); V.addShake(0.35); }
+        if (a.buff === 'shout') { this.shoutT = 1.0; S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + this.eye * 0.9), 40, { speed: 5 }); V.addShake(0.35); }
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
         if (a.buff !== 'flame') { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); } anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
@@ -1773,6 +1774,23 @@ export class Player {
     V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.5), name, 'heal');
     let e = document.getElementById('buffflash'); if (!e) { e = document.createElement('div'); e.id = 'buffflash'; document.body.appendChild(e); }
     e.style.setProperty('--c', col); e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
+  }
+  // the berserker's axe throw: wind up, hurl (the axe leaves his hand), it spins out cutting everything in its path,
+  // whirls back to him cutting again, and he hops to catch it
+  tickAxe(dt) {
+    if (this.shoutT > 0) this.shoutT -= dt;
+    if (this.axeCatch) { this.axeCatch.t += dt; if (this.axeCatch.t >= this.axeCatch.dur) this.axeCatch = null; }
+    const T = this.axeThrow, w = this.ch && this.ch.weapons && this.ch.weapons.main;
+    if (T) { T.t += dt; if (!T.thrown && T.t / T.dur >= 0.61) { T.thrown = true; if (w) { w.updateWorldMatrix(true, true); const fly = w.clone(true), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); w.matrixWorld.decompose(p, q, sc); fly.position.copy(p); fly.quaternion.copy(q); fly.scale.copy(sc); fly.visible = true; G.scene.add(fly); w.visible = false;
+          const cam = G.camera.getWorldDirection(new THREE.Vector3()); const dir = new THREE.Vector3(cam.x, Math.max(-0.15, Math.min(0.2, cam.y)), cam.z).normalize();
+          this.axeOut = { fly, dir, pos: p.clone(), out: true, gone: 0, hitOut: new Set(), hitBack: new Set(), dmg: T.dmg, life: 0, axis: new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize() }; S.swingW && S.swingW('blade', 1.5, this.pos, this.weapon && this.weapon.wt, this.h.cls); } }
+      if (T.t >= T.dur) this.axeThrow = null; }
+    const A = this.axeOut; if (!A) return; A.life += dt; const hand = this.handPos ? this.handPos() : this.pos.clone().setY(this.pos.y + 1.4);
+    if (A.out) { const st = 24 * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; if (A.gone >= 15 || A.life > 1.2) A.out = false; }
+    else { const to = hand.clone().sub(A.pos), d = to.length(), sp = 26; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { G.scene.remove(A.fly); if (w) w.visible = true; this.axeOut = null; S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); }
+    A.fly.position.copy(A.pos); A.fly.rotateOnWorldAxis(A.axis, -dt * 20); if (Math.random() < 0.5) V.emit('blood', A.pos.clone(), { speed: 0.4, size: 0.18, life: 0.25 });
+    if (!A.sndT || G.time - A.sndT > 0.28) { A.sndT = G.time; S.swingW && S.swingW('blade', 0.7, A.pos, this.weapon && this.weapon.wt, this.h.cls); }
+    const hits = A.out ? A.hitOut : A.hitBack; for (const m of mobsInRadius(A.pos, 1.9)) { if (hits.has(m) || m.dead || m === this) continue; hits.add(m); this.dealDamage(m, A.dmg * (A.out ? 1 : 0.7), { ranged: true, knock: A.dir.clone().multiplyScalar(A.out ? 1.5 : -1) }); V.burst('blood', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 16, { speed: 3 }); }
   }
   // summoning: hold still-ish for 3 s while the spell gathers at the spot, then the pets appear (dodging breaks it)
   tickSummon(dt) {
@@ -2234,7 +2252,7 @@ export class Player {
     if (combatFace || this.camDist < 0.6 || this.h.arena) this.bodyYaw += angDiff(this.bodyYaw, this.yaw) * Math.min(1, dt * (this.h.arena ? 18 : 14));
     else if (hs > 0.5) this.bodyYaw += angDiff(this.bodyYaw, Math.atan2(this.vel.x, this.vel.z)) * Math.min(1, dt * 10);
     { const tr = angDiff(this.prevBY ?? this.bodyYaw, this.bodyYaw) / Math.max(dt, 1e-3); this.prevBY = this.bodyYaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
-    this.animate(dt, hs); bladeFire(this, dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
+    this.animate(dt, hs); bladeFire(this, dt); this.tickAxe(dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
     this.updateCamera(dt);
   }
   animate(dt, hs) {

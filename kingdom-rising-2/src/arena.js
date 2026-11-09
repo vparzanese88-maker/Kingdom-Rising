@@ -77,6 +77,7 @@ const PASSIVE = {
   songRegen: ['Song of Vigor', 'You play a song: allies near you regenerate 0.6% health a second per rank.', '♫'], songDef: ['Song of Valour', 'Allies near you take 4% less damage per rank.', '♪'],
   songAtk: ['Song of Battle', 'Allies near you deal 5% more damage per rank.', '♬'], songArea: ['Resounding Voice', 'Your songs reach 20% further per rank.', '📯'],
   auraDef: ['Devotion Aura', 'Allies within 9 m take 4% less damage per rank.', '🛡'], auraRegen: ['Sanctuary', 'Allies within 9 m regenerate 0.5% health a second per rank.', '✚'], auraAtk: ['Totem of Wrath', 'Allies within 9 m deal 5% more damage per rank.', '🗿'],
+  wpn: ['Weapon Mastery', 'Your weapon hits (basic attacks and physical blows) do 8% more damage per rank.', '⚔'], spell: ['Arcane Might', 'Your spells (fire, frost, holy, shadow, nature and other magic) do 8% more damage per rank.', '✦'], mres: ['Plate and Parry', 'Take 6% less damage from melee hits per rank.', '⛨'], sres: ['Spellward', 'Take 6% less damage from spells per rank.', '❂'],
   hp: ['Iron Constitution', '8% more health per rank.', '❤'], armor: ['Unbreakable', 'Take 6% less damage per rank.', '🛡'], speed: ['Fleet Foot', 'Move 4% faster per rank.', '➶'], lifesteal: ['Siphoning Strikes', 'Heal for 3% of the damage you deal per rank.', '🩸'], heal: ['Blessed Hands', 'Your healing is 10% stronger per rank.', '✚'],
 };
 const UNIQUE = { warrior: ['thorns', 'lastStand', 'execute', 'hp'], paladin: ['auraDef', 'thorns', 'shieldHeal', 'armor'], darkknight: ['lifesteal', 'lastStand', 'execute', 'armor'], berserker: ['rage', 'lifesteal', 'execute', 'haste'],
@@ -84,7 +85,9 @@ const UNIQUE = { warrior: ['thorns', 'lastStand', 'execute', 'hp'], paladin: ['a
   ranger: ['crit', 'bleedHit', 'speed', 'execute'], musketeer: ['crit', 'execute', 'burnHit', 'lifesteal'], blunderbuss: ['armor', 'lastStand', 'burnHit', 'thorns'], wizard: ['crit', 'cdAll', 'chillHit', 'speed'],
   rogue: ['ambush', 'poisonHit', 'execute', 'crit'], necromancer: ['poisonHit', 'lifesteal', 'lastStand', 'cdAll'], elementalist: ['burnHit', 'chillHit', 'crit', 'cdAll'], enchanter: ['chillHit', 'cdAll', 'crit', 'auraDef'], beastmaster: ['rage', 'lifesteal', 'haste', 'bleedHit'],
   priest: ['shieldHeal', 'heal', 'auraRegen', 'cdAll'], bombardier: ['burnHit', 'crit', 'execute', 'speed'] };
-const STAT_KIND = new Set(['hp', 'armor', 'speed', 'lifesteal', 'heal']);
+const STAT_KIND = new Set(['hp', 'armor', 'speed', 'lifesteal', 'heal', 'wpn', 'spell', 'mres', 'sres']);
+// the basic perks every class has (the owner: health, weapon and spell damage, melee and spell defence, speed)
+const BASIC_PERKS = ['hp', 'wpn', 'spell', 'mres', 'sres', 'speed'];
 export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm = (id) => (A2.find(a => a.id === id) || {}).name || '?', [f, c, q] = ARENA_KITS[cls] || [];
   const W = (WEAPON_TYPES[(CLASSES[cls].weapons || [])[0]] || {}).name || 'weapon';
   const list = [
@@ -95,16 +98,17 @@ export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm 
     { id: 'cdC', kind: 'cd', slot: 'C', name: 'Swift ' + nm(c), desc: `${nm(c)} comes back 10% sooner per rank.` },
     { id: 'powQ', kind: 'pow', slot: 'Q', name: 'Greater ' + nm(q), desc: `${nm(q)} is 12% stronger per rank.` },
   ];
-  for (const k of UNIQUE[cls] || []) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: STAT_KIND.has(k) ? k : 'p', key: k, name: n, desc: d, glyph: g, passive: !STAT_KIND.has(k) }); }
+  for (const k of BASIC_PERKS) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: k, key: k, name: n, desc: d, glyph: g, basic: true }); }
+  for (const k of UNIQUE[cls] || []) { if (BASIC_PERKS.includes(k)) continue; const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: STAT_KIND.has(k) ? k : 'p', key: k, name: n, desc: d, glyph: g, passive: !STAT_KIND.has(k) }); }
   return list; }
 // add up what has been bought into h.arenaPK, which the combat code reads
-export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0 }; const R2 = h.arenaPerks || {};
+export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
   P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
 const perkLeft = (f) => (f.pp || 0) - Object.values((unitHero(f) || {}).arenaPerks || {}).reduce((a, b) => a + b, 0);
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }
 // computer fighters buy as soon as they can: tanks toughen up, healers heal harder, the rest go for damage
-function botBuy(f) { const h = f.bot.h, list = perksFor(h.cls), want = Game.TANK_CLS.has(h.cls) ? ['armor', 'hp', 'powQ', 'cdF', 'powL'] : SUPPORT_CLS_K.has(h.cls) ? ['heal', 'powF', 'cdF', 'speed', 'powL'] : ['powL', 'powC', 'cdC', 'lifesteal', 'powQ'];
+function botBuy(f) { const h = f.bot.h, list = perksFor(h.cls), want = Game.TANK_CLS.has(h.cls) ? ['mres', 'armor', 'hp', 'powQ', 'cdF', 'powL', 'sres'] : SUPPORT_CLS_K.has(h.cls) ? ['heal', 'powF', 'cdF', 'hp', 'speed', 'powL'] : ['wpn', 'powL', 'powC', 'spell', 'cdC', 'lifesteal', 'powQ'];
   h.arenaPerks = h.arenaPerks || {}; while (perkLeft(f) > 0) { const pick = want.map(id => list.find(p => p.id === id)).find(p => p && (h.arenaPerks[p.id] || 0) < Game.PERK_MAX) || list.find(p => (h.arenaPerks[p.id] || 0) < Game.PERK_MAX); if (!pick) break; h.arenaPerks[pick.id] = (h.arenaPerks[pick.id] || 0) + 1; } applyPerkStats(f); }
 // passive auras and songs: every half second, allies near a bard, paladin, cleric, druid or shaman with those perks
 // get their regeneration, defence or attack bonus; songs float notes over everyone they touch
@@ -610,11 +614,14 @@ function bannerSpot(caster, reach, ahead) { const p = caster.pos, yw = caster.ya
   if (!at) at = new THREE.Vector3(p.x + Math.sin(yw) * ahead, p.y, p.z + Math.cos(yw) * ahead);
   const dx = at.x - p.x, dz = at.z - p.z, d = Math.hypot(dx, dz); if (d > reach) { at.x = p.x + dx / d * reach; at.z = p.z + dz / d * reach; } else if (d < 1.4) { at.x = p.x + Math.sin(yw) * 1.4; at.z = p.z + Math.cos(yw) * 1.4; }
   return at; }
+// a banner driven into the ground: a heavy slam and a puff of dirt round its foot
+function bannerSlam(at, big = 1) { S.slam && S.slam(at, big); const p = at.clone ? at.clone() : new THREE.Vector3(at.x, at.y, at.z);
+  V.burst('dust', p.clone().setY(p.y + 0.15), Math.round(26 * big), { speed: 2.4 * big, size: 0.55 * big, life: 0.9, vy: 0.8 }); V.burst('stone', p.clone().setY(p.y + 0.2), Math.round(12 * big), { speed: 3 * big, grav: 14, size: 0.14 }); V.addShake && V.addShake(0.25 * big); }
 export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.yaw || 0, at = bannerSpot(caster, 5, 1.6), base = ultGround(at); at.y = base;
   const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 8), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 1.2; g.add(pole);
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.06, 6, 6), new THREE.MeshStandardMaterial({ map: flagTex('cross'), alphaTest: 0.5, transparent: true, roughness: 0.85, side: THREE.DoubleSide })); cloth.position.set(0.42, 1.83, 0); g.add(cloth); bannerFittings(g, 2.38, 0.8, 0.42);
   const ring = new THREE.Mesh(new THREE.RingGeometry(4.85, 5, 48), glowM('#7aff8a', 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring); useBannerModel(g, 'mend', 2.7, [ring]);
-  g.position.copy(at); g.rotation.y = yw; G.scene.add(g); S.cast && S.cast('nature', at, 0.8); const pos0 = cloth.geometry.attributes.position.array.slice(); let regT = 0;
+  g.position.copy(at); g.rotation.y = yw; G.scene.add(g); bannerSlam(at, 0.8); const pos0 = cloth.geometry.attributes.position.array.slice(); let regT = 0;
   timer((t, dt) => { const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 6) * 0.06 * (x + 0.4); } a.needsUpdate = true; ring.material.opacity = 0.25 + Math.sin(t * 3) * 0.08;
     regT -= dt || 1 / 60; if (regT <= 0) { regT = 0.5; for (const u of nearOf(ultFriends(caster), at, 5)) { ultHeal(u, 0.008); if (Math.random() < 0.5) V.emit('green', u.pos.clone().setY(u.pos.y + 1.5), { speed: 0.3, vy: 1, size: 0.25 }); } }
     if (t > 8) { G.scene.remove(g); return true; } return false; }); }
@@ -818,7 +825,7 @@ export function ultImpact(at, o = {}) { const R = o.r || 6, col = o.col || '#ffb
   V.temp(wall, 0.8, (m, t) => { const e = 1 - Math.pow(1 - t, 2.4), hh = Math.max(0.05, (o.wallH || 1.6) * (1 - t)); m.scale.set(0.5 + R * 1.1 * e, hh, 0.5 + R * 1.1 * e); m.position.y = base + hh / 2; m.material.opacity = 0.4 * (0.35 + 0.65 * near) * (1 - t); if (t >= 0.98) m.material.dispose(); });
   if (o.column !== false && near > 0.05) { const cm = new THREE.Mesh(IMP_COL, glowM(o.colCol || col, 0.75)); const H = o.colH || 18; cm.position.set(C.x, base + H / 2, C.z);
     V.temp(cm, 0.5, (m, t) => { const w = R * 0.32 * (1 - t * 0.8); m.scale.set(w, H * (0.6 + t * 0.6), w); m.position.y = base + m.scale.y / 2; m.material.opacity = 0.75 * near * (1 - t) * (1 - t); if (t >= 0.98) m.material.dispose(); }); }
-  if (near > 0.05) V.sphereFlash(C.clone().setY(base + 0.8), R * 0.5 * near, o.flash || '#fff2c8', 0.3); V.light(C.clone().setY(base + 2.5), col, 16, 0.7, R * 6);
+  if (!o.noFlash) { if (near > 0.05) V.sphereFlash(C.clone().setY(base + 0.8), R * 0.5 * near, o.flash || '#fff2c8', 0.3); V.light(C.clone().setY(base + 2.5), col, 16, 0.7, R * 6); }
   V.burst(o.debris || 'stone', C.clone().setY(base + 0.3), 55, { speed: 6 + R, grav: 16, size: 0.35 }); V.burst('dust', C.clone().setY(base + 0.4), 70, { speed: R * 1.3, size: 1.2, life: 1.2 }); if (o.sparks !== false) V.burst(o.spark || 'spark', C.clone().setY(base + 0.8), 60, { speed: 12 + R });
   if (o.scorch !== false) { const sc = new THREE.Mesh(IMP_DISC, new THREE.MeshBasicMaterial({ color: o.scorchCol || '#120a04', transparent: true, opacity: 0.75, depthWrite: false })); sc.rotation.x = -Math.PI / 2; sc.position.set(C.x, base + 0.05, C.z); sc.scale.setScalar(R * 0.55);
     V.temp(sc, o.scorchT || 4, (m, t) => { m.material.opacity = 0.75 * Math.min(1, (1 - t) * 3); if (t >= 0.98) m.material.dispose(); }); }
@@ -828,12 +835,12 @@ const lob = (from, to, mesh, dur, arc, onLand) => { G.scene.add(mesh); timer((t)
 export const ULTS = {
   warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner bearing a shield into the ground where you aim (up to 10 m away): for 8 s a dome of protection stands round it, and every ally inside takes 40% less damage.',
     run(c) { const p = c.pos.clone(), yw = c.yaw || 0, C0 = bannerSpot(c, 10, 5.5), /* (where you aim, up to the dome's edge) */ base = ultGround(C0), C = new THREE.Vector3(C0.x, base, C0.z), me = c === G.player ? c : null; const g = new THREE.Group(); /* (planted 5.5 m in front, where you and your camera can see it, not beside your head) */
-      if (me) { me.held = true; me.ultImmT = Math.max(me.ultImmT || 0, 2.6); me.ultPoseT = 1.6; ultFlyCam(me, (ct) => C.clone().setY(base + (ct < 0.5 ? 4 : 2.2)), () => 1.9, { r: 10, h: 3.6, inT: 0.6 }); later(2.2, () => { me.held = false; }); } /* (the camera swings out to watch it crash down and the shockwave roll over the enemies) */ const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 6, 10), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 3; g.add(pole);
+      if (me) { me.held = true; me.ultImmT = Math.max(me.ultImmT || 0, 2.6); me.ultPoseT = 1.6; ultFlyCam(me, (ct) => C.clone().setY(base + (ct < 0.5 ? 4 : 2.2)), () => 1.9, { r: 15, h: 5, inT: 0.6 }); /* (outside the 10 m dome: inside its skin the screen flickered) */ later(2.2, () => { me.held = false; }); } /* (the camera swings out to watch it crash down and the shockwave roll over the enemies) */ const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 6, 10), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 3; g.add(pole);
       const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6, 8, 8), new THREE.MeshStandardMaterial({ map: flagTex('shield'), alphaTest: 0.5, transparent: true, roughness: 0.8, side: THREE.DoubleSide })); bannerFittings(g, 5.75, 2.0, 1.05); /* (a shield on the flag: this banner is pure defence) */ cloth.position.set(1.05, 4.4, 0); g.add(cloth); const trim = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.8, roughness: 0.3 })); trim.position.set(1.05, 5.75, 0); g.add(trim);
       const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), glowM('#ffcf70', 0)); g.add(dome); dome.scale.setScalar(0.5); let regT = 0; /* (the dome of protection) */ const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.04; aura.scale.setScalar(0.5); g.add(aura); useBannerModel(g, 'shield', 6.6, [dome, aura]);
       g.position.copy(C).setY(base + 22); g.rotation.y = yw; G.scene.add(g); const pos0 = cloth.geometry.attributes.position.array.slice(); g.scale.setScalar(2.0); /* (hero-sized: twice the old banner, its flag flying out to the side, broadside to you) */
       timer((t) => { if (t < 0.55) { const f = t / 0.55; g.position.y = base + 22 * (1 - f * f); V.emit('gold', g.position.clone().setY(g.position.y + 13), { speed: 0.5, size: 0.6, life: 0.35 }); V.emit('fire', g.position.clone().setY(g.position.y + 1), { speed: 0.6, size: 0.7, life: 0.3 }); return false; } /* (it falls out of the sky like a comet, trailing gold) */
-        if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; ultImpact(C, { r: 7, col: '#ffc050', colCol: '#fff0b0', shake: 1.4, vol: 1.2, wallH: 2.2 }); later(0.12, () => ultImpact(C, { r: 10, col: '#ff9a30', column: false, scorch: false, sparks: false, shake: 0.5, vol: 0 })); S.battleCry && S.battleCry();
+        if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; ultImpact(C, { r: 7, col: '#ffc050', colCol: '#fff0b0', shake: 1.4, vol: 1.2, wallH: 2.2 }); later(0.12, () => ultImpact(C, { r: 10, col: '#ff9a30', column: false, scorch: false, sparks: false, shake: 0.5, vol: 0, noFlash: true })); bannerSlam(C, 1.5); S.battleCry && S.battleCry();
           }
         const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 3) * 0.15 * (x + 1); } a.needsUpdate = true; aura.material.opacity = 0.45 + Math.sin(t * 3) * 0.15;
         dome.material.opacity = 0.07 + Math.sin(t * 2.5) * 0.025; regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
@@ -1450,7 +1457,7 @@ class ArenaBot {
     if (this.dead || A.state !== 'fight' || this.invulnT > G.time) return 0; const b = this.buffs; if (this.bannerT > G.time || this.defBannerT > G.time) dmg *= 0.6; /* (War Banner) */
     if (b.iceblock > 0 || b.phase > 0) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.3), 'Immune', 'miss'); return 0; }
     if (src && src.team === this.team) return 0;
-    dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg); if (src && src.hexUntil > G.time) dmg *= 0.65;
+    dmg *= PVP_K * PACE * Game.arenaTakenK(this.h); dmg = Game.arenaIn(this, this.h, dmg, o); if (src && src.hexUntil > G.time) dmg *= 0.65;
     { const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && !src.dead && src.pos) { const r2 = dmg * 0.08 * th; if (src === G.player) src.takeDamage(r2, this, { silent: true }); else if (src.arenaBot) { src.hp -= r2; if (src.hp <= 0) src.die(this); } } }
     const red = this.D.armor / (this.D.armor + 40 + LEVEL_CAP * 12); dmg *= 1 - red;
     if (b.ward > 0) dmg *= 0.6; if (b.wall > 0) dmg *= 0.4; if (b.fort > 0) dmg *= 0.7; if (b.stand > 0) dmg *= 0.75; if (b.lich > 0) dmg *= 0.75; if (b.avatar > 0 && this.av && this.av.taken) dmg *= this.av.taken;
@@ -1473,7 +1480,7 @@ class ArenaBot {
     if (o.blight) this.blightT = Math.max(this.blightT || 0, o.blight); if (this.blightT > 0 && o.poison) o = Object.assign({}, o, { poison: o.poison * 1.5 }); // (Blight: poison bites harder)
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
     if (o.plague) { const ex = this.dots.find(x => x.plague && x.src === src); if (ex) { ex.t = 6; ex.dps = Math.max(ex.dps, o.plague * PVP_K); } else this.dots.push({ dps: o.plague * PVP_K, t: 6, src, plague: true, acc: 0 }); } // (Plague Breath: a sore that bites once a second for 6 s)
-    if (o.bleed) this.dots.push({ dps: o.bleed * PVP_K / 4, t: 4, src }); if (o.burn) this.dots.push({ dps: o.burn * PVP_K / 4, t: 4, src });
+    if (o.bleed) this.dots.push({ dps: o.bleed * PVP_K / 4, t: 4, src }); if (o.burn) { const ex = this.dots.find(x => x.fire && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.burn * PVP_K / 4); } else this.dots.push({ dps: o.burn * PVP_K / 4, t: 4, src, fire: true, acc: 0 }); } /* (one burn per attacker, refreshed by each fiery hit) */
     if (this.cast && Math.random() < 0.35) this.cast = null; // hits can break a spell being cast
     if (this.hp <= 0) this.die(src);
     return dmg;
@@ -1495,6 +1502,7 @@ class ArenaBot {
     if (this.stealth > 0) { this.stealth = Math.max(0, this.stealth - dt); }
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
     for (const d of this.dots) if (d.spread > 0 && Math.random() < dt * 0.9) { d.spread--; const nb = A.F.map(unitOf).find(u => u && u !== this && !u.dead && u.team === this.team && u.takeHit && u.dots && Math.hypot(u.pos.x - this.pos.x, u.pos.z - this.pos.z) < 4.5 && !(u.dots || []).some(x => x.spread != null)); if (nb) { nb.dots.push({ dps: d.dps, t: 4, src: d.src, spread: 0 }); V.burst('green', nb.pos.clone().setY(nb.pos.y + 1), 14, { speed: 2 }); } }
+    for (const d of this.dots) if (d.fire) burnFx(this, d, dt);
     this.blightT = Math.max(0, (this.blightT || 0) - dt); for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; if (d.plague) { d.acc += dt; if (d.acc >= 1) { d.acc -= 1; const n = d.dps * (this.blightT > 0 ? 1.5 : 1); this.hp -= n; V.number(this.pos.clone().setY(this.pos.y + 2.1), String(Math.round(n / PVP_K)), 'dmg'); V.burst('poison', this.pos.clone().setY(this.pos.y + 1.2), 10, { speed: 1.5 }); } } else this.hp -= d.dps * dt * (d.spread != null && this.blightT > 0 ? 1.5 : 1); if (d.t <= 0) this.dots.splice(i, 1); if (this.hp <= 0) { this.die(d.src); return; } }
     if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; const Tg = this.target; if (Tg && !Tg.dead && this.barrageCd <= 0 && Math.hypot(Tg.pos.x - this.pos.x, Tg.pos.z - this.pos.z) < 30) { this.barrageCd = 0.09; this.yaw = Math.atan2(Tg.pos.x - this.pos.x, Tg.pos.z - this.pos.z); shot(this, Tg, '#b0a0ff', () => hitUnit(this, Tg, this.base * 0.32 * this.up * this.dmgMul(), {}), false, 'bullet'); V.emit('arcane', this.pos.clone().setY(this.pos.y + 1.4).addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 0.9), { speed: 2, size: 0.3, life: 0.2 }); } }
     for (const k in this.cd) this.cd[k] -= dt * (this.transcendT > 0 ? 3 : 1); this.gcd -= dt; this.swingT -= dt;
@@ -1728,6 +1736,9 @@ class ArenaBot {
       if (m.ring) m.ring.visible = false; G.mobs.push(m); this.pets.push(m); V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 3 }); }
   }
 }
+// a burning fighter: flames lick up his body and the burn's damage pops up in orange every half second
+export function burnFx(u, d, dt) { const h = u.height || 1.8; if (Math.random() < dt * 22) V.emit('fire', u.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, h * (0.25 + Math.random() * 0.6), (Math.random() - 0.5) * 0.5)), { speed: 0.5, vy: 1.6, size: 0.45, life: 0.45 });
+  d.acc = (d.acc || 0) + dt; if (d.acc >= 0.5) { d.acc -= 0.5; V.number(u.pos.clone().setY(u.pos.y + h + 0.2), String(Math.max(1, Math.round(d.dps * 0.5 / PVP_K))), 'dmg', '#ff8a2a'); } }
 // the Training Yard's sparring warrior: a real arena fighter (health, armour, hits, stuns, knockdowns, death) who never
 // walks or fights back. He falls when he dies and gets up again where he started a few seconds later
 export class SparBot extends ArenaBot {
@@ -1745,7 +1756,7 @@ export class SparBot extends ArenaBot {
     for (const k of ['stun', 'slow', 'root', 'frozen', 'fear', 'silence']) st[k] = Math.max(0, (st[k] || 0) - dt);
     if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }
     for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
-    for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.t <= 0) this.dots.splice(i, 1); }
+    for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.fire) burnFx(this, d, dt); if (d.t <= 0) this.dots.splice(i, 1); }
     if (this.hp <= 0) { this.die(); return; }
     if (G.time - (this.hurtT || -99) > 8) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.25 * dt); // (left alone for a while, he heals back up)
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); } // (shoved by hits and charges, but he never walks)

@@ -714,7 +714,7 @@ export class Player {
     if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
     if (G.newFx && this.h.arena && this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') { if (this.comboT <= 0) this.warN = 0; const BW = [['swing1', 1.1], ['swing2', 1.1]], q = BW[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.05, d: q[1] }); } /* (the berserker: wide sweeps, right to left then left to right) */
     else if (G.newFx && this.h.arena && (this.h.cls === 'paladin' || this.h.cls === 'darkknight') && W.hands === 'two' && W.kind === 'melee') { /* (the paladin's hammer and the shadow knight's greatsword: the same heavy three-blow combo) */ if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
-    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.35]], q = W3[(this.warN = (this.warN || 0)) % 1]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.3, d: q[1] }); /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
+    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.75]], q = W3[(this.warN = (this.warN || 0)) % 1]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.55, d: q[1] }); /* (slowed again so you can follow the blade; m keeps damage per second roughly level) */ /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
     this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });
   }
@@ -1850,7 +1850,7 @@ export class Player {
     // campaign: every creature has physical and magical defence that grows with its level (spells and elements check magical)
     if (G.newFx && !m.dummy && !m.pet && !m.arenaBot && !m.botPet && m.lv) dmg *= 1 - mobDefense(m, this.h.level, !!o.el); /* (arena fighters use their own armour) */
     if (this.buffs.poisonW > 0 && !o.silent && this.W && this.W.kind !== 'staff' && (o.melee || o.ranged)) { o = Object.assign({}, o, { bleed: (o.bleed || 0) + dmg * 0.18 }); if (Math.random() < 0.5) V.burst('leaf', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2 }); }
-    if (this.buffs.flame > 0 && !o.silent) { o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.2 }); if (Math.random() < 0.5) V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 8, { speed: 2.5 }); }
+    if (this.buffs.flame > 0 && !o.silent) { const fb = dmg * 0.25; dmg += fb; o = Object.assign({}, o, { burn: (o.burn || 0) + dmg * 0.4 }); V.burst('fire', m.pos.clone().setY(m.pos.y + (m.height || 1.6) * 0.6), 18, { speed: 3, size: 0.5 }); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.5), '+' + Math.round(fb) + ' fire', 'dmg', '#ff8a2a'); } /* (Flame Blade: a quarter more damage as fire on the hit, then a burn of 40% more over 4 s) */
     if (this.buffs.leech > 0) this.heal(dmg * 0.06 * this.hk());
     let crit = Math.random() < this.D.crit + (this.pk('keen') ? 0.08 : 0) + Game.fxCount(this.h, 'crit') * 0.05;
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
@@ -1931,7 +1931,7 @@ export class Player {
     if (this.defBannerT > G.time) dmg *= 0.6; /* (inside the War Banner's dome) */
     if ((this.ultImmT || 0) > 0 && !this.dead) return 0; // (casting an ultimate: untouchable while it plays)
     if (this.bannerT > G.time) dmg *= 0.6; // (War Banner)
-    dmg *= Game.arenaTakenK(this.h); if (this.h.arena) { dmg = Game.arenaIn(this, this.h, dmg); const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && src.arenaBot && !src.dead) { src.hp -= dmg * 0.08 * th; V.burst('spark', src.pos.clone().setY(src.pos.y + 1.1), 6, { speed: 3 }); if (src.hp <= 0) src.die(this); } } // (arena: tanks, toughness and passives)
+    dmg *= Game.arenaTakenK(this.h); if (this.h.arena) { dmg = Game.arenaIn(this, this.h, dmg, o); const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && src.arenaBot && !src.dead) { src.hp -= dmg * 0.08 * th; V.burst('spark', src.pos.clone().setY(src.pos.y + 1.1), 6, { speed: 3 }); if (src.hp <= 0) src.die(this); } } // (arena: tanks, toughness and passives)
     if (this.sheathed && !this.dead) this.drawWeapons(); this.hurtT0 = G.time;
     if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.lastHitAt = G.time; } // (hurtT is a countdown used elsewhere)
     if (this.dead) return;

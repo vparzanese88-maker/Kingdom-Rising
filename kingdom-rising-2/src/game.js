@@ -626,9 +626,12 @@ export const arenaSpeedK = (h) => 1 + 0.04 * arenaStat(h, 'speed');
 const pv = (h, k) => (h && h.arenaPK && h.arenaPK.p && h.arenaPK.p[k]) || 0;
 export const arenaPassive = pv;
 // out: execute, berserker rage, ambush from stealth, ally war-songs and totems; on-hit burn, chill, poison, bleed; crit chance
+// a spell hit: anything elemental or magical (an arrow, a bullet or a sword is not, even with an ability behind it)
+export const isSpell = (o) => !!(o && (o.el || o.spell || o.magic) && !o.basic);
 export function arenaOut(src, h, tgt, dmg, o) {
   if (!h || !h.arena) return [dmg, o];
   { const T = tuneOf(h); if (T && T.dmg) dmg *= T.dmg; }
+  if (o && isSpell(o)) dmg *= 1 + 0.08 * arenaStat(h, 'spell'); else dmg *= 1 + 0.08 * arenaStat(h, 'wpn'); /* (the basic damage perks: spells, or everything struck with the weapon) */
   if (o && o.basic) dmg *= ARENA_PACE; // (basic attacks hit harder to make up for the slower swing)
   const ex = pv(h, 'execute'); if (ex && tgt && tgt.maxHp && tgt.hp / tgt.maxHp < 0.35) dmg *= 1 + 0.1 * ex;
   const rg = pv(h, 'rage'); if (rg && src && src.maxHp) dmg *= 1 + 0.06 * rg * Math.min(1, (1 - src.hp / src.maxHp) / 0.75) * 3;
@@ -646,8 +649,9 @@ export function arenaOut(src, h, tgt, dmg, o) {
   return [dmg, Object.keys(add).length ? Object.assign({}, o, add) : o];
 }
 // in: last stand at low health, ally defence auras and songs
-export function arenaIn(tgt, h, dmg) {
+export function arenaIn(tgt, h, dmg, o) {
   if (!h || !h.arena) return dmg;
+  if (o && isSpell(o)) dmg *= Math.max(0.4, 1 - 0.06 * arenaStat(h, 'sres')); else if (o && o.melee) dmg *= Math.max(0.4, 1 - 0.06 * arenaStat(h, 'mres')); /* (the basic defence perks) */
   const ls = pv(h, 'lastStand'); if (ls && tgt.maxHp && tgt.hp / tgt.maxHp < 0.3) dmg *= 1 - 0.1 * ls;
   if (tgt.aura && tgt.aura.t > 0) dmg *= 1 - (tgt.aura.def || 0);
   return dmg;

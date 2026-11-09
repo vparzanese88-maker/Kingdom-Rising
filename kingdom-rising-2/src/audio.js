@@ -147,6 +147,7 @@ export const S = {
   swingW(kind, size = 1, pos, wt, cls) {
     if (!ctx) return;
     const hv = wt ? heavyKind(wt, cls) : null; // (big weapons: a deep, heavy whoosh instead of the light swish)
+    if (cls === 'berserker' && kind !== 'fist') return S.zerkSlash(size, pos); /* (the berserker's great axe: its own deep slash) */
     if (hv && kind !== 'light' && kind !== 'fist' && kind !== 'spear') return S.heavyWhoosh(hv, size, pos);
     if (kind === 'blade') return S.swing(size, pos);
     const o = out(pos, sfxBus, 0.1), t = now();
@@ -174,6 +175,18 @@ export const S = {
   },
   // big weapons cutting the air: a low, wide noise sweep that swells to the middle of the swing and falls away (a doppler pitch drop),
   // a deep body of air underneath and a sub tone that bends down; blades add a slowed recorded swing for the edge, hammers stay dull
+  // the berserker's great axe tearing through the air: a long, deep rushing whoosh, a sub-bass rumble under it and a
+  // short ringing edge as the blade cuts, so it reads as a heavy slash, not wind
+  zerkSlash(size = 1, pos) {
+    if (!ctx) return; const o = out(pos, sfxBus, 0.14), t = now(), k = Math.min(1.3, 0.8 + size * 0.3), dur = 0.56 * rnd(0.95, 1.06), pk = t + dur * 0.45;
+    const sweep = (n, f0, f1, f2) => { const fr = n.fl.frequency; fr.cancelScheduledValues(t); fr.setValueAtTime(f0, t); fr.exponentialRampToValueAtTime(f1, pk); fr.exponentialRampToValueAtTime(f2, t + dur); };
+    sweep(noise(t, dur, o.node, { type: 'bandpass', q: 1.0, gain: 0.55 * k, a: dur * 0.42, d: dur * 0.58 }), 90, 420, 120);
+    sweep(noise(t, dur, o.node, { type: 'lowpass', q: 1.8, gain: 0.5 * k, a: dur * 0.4, d: dur * 0.6 }), 60, 260, 80);
+    tone(t + dur * 0.2, dur * 0.8, o.node, { type: 'sine', f: 62 * rnd(0.95, 1.05), f2: 34, gain: 0.22 * k, a: dur * 0.3, d: dur * 0.55 });
+    tone(t + dur * 0.3, dur * 0.6, o.node, { type: 'triangle', f: 48, f2: 30, gain: 0.12 * k, a: dur * 0.25, d: dur * 0.5 });
+    sweep(noise(pk - 0.03, 0.16, o.node, { type: 'bandpass', q: 3.2, gain: 0.2 * k, a: 0.02, d: 0.13 }), 1400, 2600, 1100);
+    tone(pk, 0.22, o.node, { type: 'sine', f: 1850 * rnd(0.97, 1.03), f2: 1700, gain: 0.035 * k, a: 0.005, d: 0.2 });
+  },
   heavyWhoosh(hv, size = 1, pos) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now();
     const blunt = hv === 'hammer' || hv === 'mace', k = Math.min(1.2, 0.7 + size * 0.3) * (hv === 'mace' ? 0.85 : 1);

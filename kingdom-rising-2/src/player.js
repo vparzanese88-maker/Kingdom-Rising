@@ -306,14 +306,14 @@ class ViewModel {
   }
   setTool(tool, tier) { if (this.tool) { this.tool.parent.remove(this.tool); this.tool = null; } for (const k in this.weapons) this.weapons[k].visible = !tool; if (tool) { this.tool = makeWeapon(tool, tier); this.R.add(this.tool); this.tool.traverse(o => { if (o.isMesh) o.castShadow = false; }); } }
   apply(H, p) { H.position.set(p[0], p[1], p[2]); H.rotation.set(p[3], p[4], p[5]); }
-  glueL(d, wrap) { this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -d, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; if (wrap) this.wrapL(); } // (the left hand d further down the right hand's handle)
+  glueL(d, wrap) { this.twoHold = true; this.R.updateMatrixWorld(true); this.L.position.copy(this.R.localToWorld(new THREE.Vector3(0, -d, 0))); this.g.worldToLocal(this.L.position); this.L.rotation.copy(this.R.rotation); this.L.visible = true; if (wrap) this.wrapL(); } // (the left hand d further down the right hand's handle)
   // a support hand on a two-handed grip wraps the handle from the side its own forearm comes from (the left shoulder), turned round the handle to face it:
   // copying the right hand's angle as it is put the left palm on the far side of the hilt at one end of a swing, the wrist rolled over 180 degrees
   wrapL() { const q = this.L.quaternion, d = _wv.set(-0.3, -0.45, 0.1).sub(this.L.position).applyQuaternion(_wq.copy(q).invert()); /* (the shoulder, in the hand's own frame) */
     if (d.x * d.x + d.z * d.z < 1e-6) return; const th = Math.atan2(d.z, -d.x); q.multiply(_wq.setFromAxisAngle(_wy, th)); this.L.rotation.setFromQuaternion(q, 'YXZ'); } /* (turned about the handle so the palm, on its -x side, faces the shoulder) */
   update(dt, st) {
     const W = this.W, act = st.act;
-    this.gunHold = false;
+    this.gunHold = false; this.twoHold = false;
     let r = W ? (W.kind === 'staff' ? VP.staff : this.wt === 'spear' ? VP.spRest : W.hands === 'two' ? VP.rest2 : VP.rest) : VP.rest;
     let l = !W ? VP.hideL : W.hands === 'shield' ? VP.shieldRest : W.hands === 'dual' ? VP.restL : W.kind === 'bow' ? (this.hero ? VP.heroBowL : VP.bowL) : W.kind === 'staff' ? VP.hideL : null;
     if (W && W.kind === 'bow') r = this.hero && st.aim > 0.01 ? plerp(VP.bowR, VP.bowRdraw, ease(Math.min(1, st.aim))) : VP.bowR; /* (aiming a bow draws the string back to the cheek) */
@@ -352,7 +352,7 @@ class ViewModel {
     } else if (act) {
       const dual = W && W.hands === 'dual';
       switch (n) {
-        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); break;
+        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); if (this.hero && W && W.hands === 'two' && W.kind === 'melee') r = [r[0], r[1] - 0.1, r[2] - 0.03, r[3], r[4], r[5]]; break; /* (a two-hander's side sweep passes through the lower third of the view, as in Skyrim, so the arms never wipe across the middle) */
         case 'swing2': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'lowcut': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'sweep': r = seq(VP.s1a, VP.s1b, t, 0.3); break;

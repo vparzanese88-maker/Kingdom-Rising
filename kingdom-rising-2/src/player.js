@@ -117,7 +117,7 @@ const VP = {
 if (typeof window !== 'undefined') window.KR2_VP = VP; /* (tuning hook: poses can be adjusted live from the console) */
 const _wv = new THREE.Vector3(), _wq = new THREE.Quaternion(), _wy = new THREE.Vector3(0, 1, 0);
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
-const GUN_GRIP = { R: new THREE.Vector3(0, -0.085, -0.055), Ry: new THREE.Vector3(0, 0.78, 0.63).normalize(), L: new THREE.Vector3(0, 0.24, -0.035), Ly: new THREE.Vector3(0, 1, 0) }; /* (the blunderbuss's hand places, in the gun's own frame: y along the barrel, z up; Ry/Ly the line each hand closes round) */
+const BB_GRIP = { R: new THREE.Vector3(0, -0.085, -0.055), Ry: new THREE.Vector3(0, 0.78, 0.63).normalize(), L: new THREE.Vector3(0, 0.24, -0.035), Ly: new THREE.Vector3(0, 1, 0) }; /* (the blunderbuss's hand places, in the gun's own frame: y along the barrel, z up; Ry/Ly the line each hand closes round) */
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 
@@ -422,7 +422,7 @@ class ViewModel {
     if (this.L.visible && !(W && W.hands === 'two')) { this.L.position.y += Math.sin(ph + Math.PI) * amp; this.L.position.x += Math.cos(ph * 0.5) * amp * 0.6; this.L.position.z += Math.cos(ph + Math.PI) * amp * 1.6; this.L.rotation.x += Math.cos(ph + Math.PI) * amp * 1.2; }
     if (this.necro && this.weapons.heldR && !st.tool) this.glueL(VP.necroGap); else if (W && W.hands === 'two' && W.kind !== 'gun' && !st.tool) this.glueL(this.wt === 'greataxe' && this.hero ? 0.27 : 0.14, true); /* (a hand on the same shaft rides with the other through the bob: the grip never slides off the handle) */
     if (this.gunHold && this.gun) { const gn = this.gun; gn.position.x += spread * 0.6; gn.position.y += Math.sin(ph) * amp - spread * 0.4; gn.position.z += Math.cos(ph) * amp * 1.6; gn.rotation.x += Math.cos(ph) * amp * 0.8; gn.updateMatrix(); /* (the walk bob moves the gun, and the hands go with it) */
-      for (const [H, gp2, dir] of [[this.R, GUN_GRIP.R, GUN_GRIP.Ry], [this.L, GUN_GRIP.L, GUN_GRIP.Ly]]) { H.position.copy(gp2).applyMatrix4(gn.matrix); H.quaternion.copy(gn.quaternion).multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)); H.visible = true; } } /* (right hand round the pistol grip, left cupped under the fore-end: fingers wrap the wood, wrists straight) */
+      for (const [H, gp2, dir] of [[this.R, BB_GRIP.R, BB_GRIP.Ry], [this.L, BB_GRIP.L, BB_GRIP.Ly]]) { H.position.copy(gp2).applyMatrix4(gn.matrix); H.quaternion.copy(gn.quaternion).multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)); H.visible = true; } } /* (right hand round the pistol grip, left cupped under the fore-end: fingers wrap the wood, wrists straight) */
     const bob = settings.headBob ? Math.abs(Math.sin(this.bob)) * 0.01 * run : 0;
     this.g.position.set(st.swayX + (this.hero ? 0.035 : 0), -0.04 - (this.hero ? 0.03 : 0) - bob - 0.004 * Math.sin(performance.now() * 0.0015) + st.swayY, -0.16);
     if (this.eleOrb) { const o = this.eleOrb, gl = o.userData.glb; if (gl && !o.userData.c0) { o.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(gl), c = bx.getCenter(new THREE.Vector3()); o.userData.c0 = o.worldToLocal(c); }

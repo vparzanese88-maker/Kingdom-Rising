@@ -494,7 +494,7 @@ export class Player {
     this.h = hero;
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3(); this.yaw = 0; this.pitch = 0; this.bodyYaw = 0;
     this.radius = 0.4; this.onGround = true; this.swim = false; this.dead = false;
-    this.camDist = 0; this.camDistT = 0;
+    this.camDist = 3.2; this.camDistT = 3.2;
     this.cd = { w0: 0, w1: 0, a1: 0, a2: 0, a3: 0, dodge: 0 }; this.useCd = 0;
     this.atk = null; this.queued = null; this.combo = 0; this.comboT = 0; this.press = null; this.block = false;
     this.dodge = null; this.iframes = 0; this.stealth = 0; this.buffs = { cry: 0, fury: 0, nextCrit: false }; this.regen = null;
@@ -569,7 +569,7 @@ export class Player {
       case 'Digit5': this.hotbar(4); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': if (this.h.arenaUlt) this.ultimate(); else this.quaff(); break; // (the arena: R is your ultimate)
-      case 'KeyV': if (!this.hero) this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break; /* (heroes have no first-person view to switch to) */
+      case 'KeyV': break; /* (heroes have no first-person view to switch to) */
       case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
   }
@@ -1605,7 +1605,7 @@ export class Player {
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
   // third person: while aiming, the musket's butt sits in the right shoulder and the barrel points where you aim
   gunToShoulder(ch, on, free) {
-    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return; if (ch.heroModel && ch.heroModel.D && ch.heroModel.D.oneHandGun) return; /* (the musketeer: one-handed, the gun rides his right fist) */
+    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return; if (!on && ch.heroModel && ch.heroModel.D && ch.heroModel.D.oneHandGun) { const ud0 = g.userData; if (ud0.aimed && ud0.home) { g.position.copy(ud0.home.p); g.quaternion.copy(ud0.home.q); ud0.aimed = false; } return; } /* (the musketeer: one-handed at rest; right click draws the rifle up to the shoulder) */
     const ud = g.userData; if (!ud.home) ud.home = { p: g.position.clone(), q: g.quaternion.clone() };
     const bbuss = !!(this.weapon && this.weapon.wt === 'blunderbuss' && ch.heroModel && ch.heroModel.bones), musket = !!(this.weapon && this.weapon.wt === 'musket') || bbuss, port = !on && musket && free && !this.dead && !this.dodge && !this.swim && !this.sheathed && g.visible !== false; /* (the musket at port arms when not aiming: carried across the body, muzzle up to the left, stock low at the right hip) */
     if (ud.handsSet) { ud.handsSet = false; for (const sd of ['R', 'L']) { const hd = ch.arms[sd].hand; if (hd && hd.userData.home) hd.position.copy(hd.userData.home); } } /* (the built hands back on their wrists; set again below while the gun is held) */
@@ -2271,11 +2271,11 @@ export class Player {
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
     this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; if (this.lmbHeld && this.barrageCd <= 0 && !this.held && !this.isFrozen() && !this.dead) { this.barrageCd = 0.09; this.arcaneRound(); } }
     if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
-    if (this.hero) this.camDistT = Math.max(CAM_MIN, this.camDistT); /* (the owner: no first-person view: the camera always stays behind the hero) */
+    this.camDistT = Math.max(CAM_MIN, this.camDistT); if (this.camDist < CAM_MIN * 0.5 && !this.cine) this.camDist = CAM_MIN; /* (the owner: no first-person view: the camera always stays behind the hero) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;
-    const tpAim = !fp && !!(this.h.arena && this.ch.heroModel && this.ch.heroModel !== 'loading'); /* (a hero with his own 3D model aims over the shoulder in third person: he stays in view with his real weapon, no down-the-sights view with the old built arms) */ this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp && !tpAim); V.fpPos = fp && !this.dead ? this.pos : null;
+    const tpAim = !fp; /* (the owner: no first-person view at all: aiming is always over the shoulder) */ /* (a hero with his own 3D model aims over the shoulder in third person: he stays in view with his real weapon, no down-the-sights view with the old built arms) */ this.ch.root.visible = (!fp || this.dead) && !this.spectate && !((this.adsK || 0) > 0.5 && !fp && !tpAim); V.fpPos = fp && !this.dead ? this.pos : null;
     this.vm.g.visible = fp && !this.dead;
     for (const t of [this.trail, this.trailL]) { const want = fp ? G.vmScene : G.scene; if (t.mesh.parent !== want) want.add(t.mesh); if (t.mat.uniforms.nearF) t.mat.uniforms.nearF.value.set(fp ? 0.4 : 1.8 + this.camDist * 0.25, fp ? 0.85 : 3.6 + this.camDist * 0.3); } /* (first person: only the bit of streak right on the lens fades; third person: anything nearer than the hero fades out) */
     this.landDip *= Math.max(0, 1 - dt * 6);

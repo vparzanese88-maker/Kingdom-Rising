@@ -19,7 +19,10 @@ function setup() {
   scene.add(new THREE.HemisphereLight('#d8c8b0', '#2a2018', 0.9));
   cam = new THREE.PerspectiveCamera(26, W / H, 0.1, 30);
 }
+// pre-rendered pictures (models/portraits/<class>.jpg): the menus show these at once instead of building every class in 3D
+const STATIC = new Set([]);
 export function classPortrait(cls) {
+  if (STATIC.has(cls)) return 'models/portraits/' + cls + '.jpg';
   if (CACHE[cls]) return CACHE[cls];
   try {
     if (!R) setup();

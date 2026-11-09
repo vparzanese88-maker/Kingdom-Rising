@@ -143,7 +143,7 @@ function boot() {
   $('loading').hidden = true;
   // online: the world is ready, now everyone makes their hero for this match
   if (BATTLE && MP.on && !SETUP.hero) { mode = 'creator'; Menu.onBattleHero = (hero) => { SETUP.hero = hero; SETUP.race = hero.race; mpSend({ t: 'hero', info: { name: hero.name, cls: hero.cls, race: hero.race, sex: hero.sex, app: hero.app } }); MP.players.set(MP.myId, Object.assign(MP.players.get(MP.myId) || {}, hero)); $('creator').hidden = true; startBattle(); }; const mt = Battle.myTown(); const nm = (MP.players.get(MP.myId) || {}).name; showCreator({ battle: { mp: true, live: true, name: nm, towns: [{ race: SETUP.myRace || mt.race }] } }); setMpStatus('hero'); }
-  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 0; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">K</span> to change class (and set perks) and <span class="kbd">U</span> to get hit by an ultimate. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
+  else if (BATTLE) startBattle(); else if (ARENA) startArena(); else if (YARD) { YD.startGame = (h) => { const cd = G.player ? G.player.camDistT : 0; startGame(h); G.player.camDistT = G.player.camDist = cd || 3.2; G.vmFov = 80; }; YD.startGame(yardHero('warrior')); setTimeout(() => UI.hint('Welcome to the <b>Training Yard</b>. Press <span class="kbd">K</span> to change class (and set perks) and <span class="kbd">U</span> to get hit by an ultimate. The dummies show your damage per second.', 12000), 1200); } else { mode = 'title'; showTitle(); }
   // first interaction: start audio + full screen
   const first = () => { A.init(); M.play(mode === 'game' ? 'explore' : 'title'); removeEventListener('pointerdown', first); removeEventListener('keydown', first); };
   addEventListener('pointerdown', first); addEventListener('keydown', first);
@@ -378,7 +378,7 @@ async function startArena() {
   await Arena.prepareArena(); // online: the lobby first
   G.hooks.arenaKit = () => Arena.openKitInfo(UI);
   startGame(Arena.playerHero());
-  G.player.camDistT = G.player.camDist = 0; G.vmFov = 80; // first person, like Paladins (V switches to over the shoulder)
+  G.player.camDistT = G.player.camDist = 3.2; G.vmFov = 80; // third person, behind the hero (the owner dropped the first-person view)
   G.hooks.allyFx = Arena.allyFx;
   Arena.initArena({ perks: () => Arena.openPerks(UI), openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
     revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead, cd = G.player ? G.player.camDistT : 3; startGame(h); G.player.camDistT = G.player.camDist = cd; G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });

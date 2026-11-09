@@ -127,6 +127,7 @@ function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStanda
   const fl = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffb040', transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })); fl.position.z = -0.82; fl.scale.set(1, 1.6, 1); fl.userData.flame = true; ar.add(fl); ar.userData.flame = fl;
   ar.traverse(o => { if (o.isMesh) o.castShadow = false; }); return ar; }
 const BB_GRIP = { R: new THREE.Vector3(0, -0.085, -0.055), Ry: new THREE.Vector3(0, 0.78, 0.63).normalize(), L: new THREE.Vector3(0, 0.24, -0.035), Ly: new THREE.Vector3(0, 1, 0) }; /* (the blunderbuss's hand places, in the gun's own frame: y along the barrel, z up; Ry/Ly the line each hand closes round) */
+const CAM_MIN = 2.2; /* (the closest the camera comes to a hero) */
 function plerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function seq(a, b, t, wind = 0.35, rest = VP.rest) { return t < wind ? plerp(rest, a, ease(t / wind)) : t < 0.72 ? plerp(a, b, easeOut((t - wind) / (0.72 - wind))) : plerp(b, rest, ease((t - 0.72) / 0.28)); }
 
@@ -568,7 +569,7 @@ export class Player {
       case 'Digit5': this.hotbar(4); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': if (this.h.arenaUlt) this.ultimate(); else this.quaff(); break; // (the arena: R is your ultimate)
-      case 'KeyV': this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break;
+      case 'KeyV': if (!this.hero) this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break; /* (heroes have no first-person view to switch to) */
       case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
   }
@@ -1603,7 +1604,7 @@ export class Player {
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
   // third person: while aiming, the musket's butt sits in the right shoulder and the barrel points where you aim
   gunToShoulder(ch, on, free) {
-    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return;
+    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return; if (ch.heroModel && ch.heroModel.D && ch.heroModel.D.oneHandGun) return; /* (the musketeer: one-handed, the gun rides his right fist) */
     const ud = g.userData; if (!ud.home) ud.home = { p: g.position.clone(), q: g.quaternion.clone() };
     const bbuss = !!(this.weapon && this.weapon.wt === 'blunderbuss' && ch.heroModel && ch.heroModel.bones), musket = !!(this.weapon && this.weapon.wt === 'musket') || bbuss, port = !on && musket && free && !this.dead && !this.dodge && !this.swim && !this.sheathed && g.visible !== false; /* (the musket at port arms when not aiming: carried across the body, muzzle up to the left, stock low at the right hip) */
     if (ud.handsSet) { ud.handsSet = false; for (const sd of ['R', 'L']) { const hd = ch.arms[sd].hand; if (hd && hd.userData.home) hd.position.copy(hd.userData.home); } } /* (the built hands back on their wrists; set again below while the gun is held) */
@@ -2268,6 +2269,7 @@ export class Player {
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
     this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; if (this.lmbHeld && this.barrageCd <= 0 && !this.held && !this.isFrozen() && !this.dead) { this.barrageCd = 0.09; this.arcaneRound(); } }
     if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
+    if (this.hero) this.camDistT = Math.max(CAM_MIN, this.camDistT); /* (the owner: no first-person view: the camera always stays behind the hero) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;

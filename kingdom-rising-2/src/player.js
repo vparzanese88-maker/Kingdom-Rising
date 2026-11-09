@@ -146,7 +146,10 @@ function bladeFire(p, dt) { const w = p.ch && p.ch.weapons && p.ch.weapons.main,
   w.userData.base.getWorldPosition(_fa); w.userData.tip.getWorldPosition(_fb); _fy.subVectors(_fb, _fa); const len = _fy.length(); if (len < 0.05) { F.visible = false; return; } _fy.divideScalar(len);
   _fz.subVectors(G.camera.position, _fa); _fx.crossVectors(_fy, _fz); if (_fx.lengthSq() < 1e-6) _fx.set(1, 0, 0); _fx.normalize(); _fz.crossVectors(_fx, _fy).normalize(); /* (turned about the blade to face you) */
   _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.72, len * 1.4, 1); /* (wide enough to show round the blade, which hides the middle of the strip) */ /* (from just below the guard to well past the point) */
-  const u = F.material.uniforms; u.uT.value += dt; u.uA.value = Math.min(1, p.buffs.flame * 2); F.visible = true; }
+  const ig = p.flameIgniteT != null ? G.time - p.flameIgniteT : 99, flare = Math.max(0, 1 - ig / 0.7); /* (the ignition: the flames roar up big and bright, then settle into a steady burn) */
+  if (ig < 0.7 && !p.flameLit) { p.flameLit = true; for (let i = 0; i <= 6; i++) { const q = _fa.clone().lerp(_fb, i / 6); V.burst('fire', q, 7, { speed: 2.6, size: 0.65, size1: 0.08, life: 0.55, vy: 1.6 }); V.burst('ember', q, 4, { speed: 4, life: 0.9 }); } S.cast && S.cast('fire', _fb, 1.1); V.light && V.light(_fb, '#ff4a14', 9, 0.5, 9); }
+  if (ig >= 0.7) p.flameLit = false;
+  F.scale.x *= 1 + flare * 0.9; F.scale.y *= 1 + flare * 0.25; const u = F.material.uniforms; u.uT.value += dt * (1 + flare * 2); u.uA.value = Math.min(1, p.buffs.flame * 2) * (1 + flare * 0.8); F.visible = true; }
 // a proper arrow for a hero archer, laid along -z from the nock at the origin: a slim dark shaft, three fletchings, a nock and a steel broadhead with a little flame on it
 function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), steel = new THREE.MeshStandardMaterial({ color: '#b8bcc0', roughness: 0.3, metalness: 0.9 }), feath = new THREE.MeshStandardMaterial({ color: '#d8d0c0', roughness: 0.9, side: THREE.DoubleSide }), red = new THREE.MeshStandardMaterial({ color: '#8a1a14', roughness: 0.9, side: THREE.DoubleSide });
   const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.82, 6), wood); sh.rotation.x = Math.PI / 2; sh.position.z = -0.41; ar.add(sh);
@@ -723,9 +726,9 @@ export class Player {
     if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
     if (G.newFx && this.h.arena && this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') { if (this.comboT <= 0) this.warN = 0; const BW = [['swing1', 1.1], ['swing2', 1.1]], q = BW[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.05, d: q[1] }); } /* (the berserker: wide sweeps, right to left then left to right) */
     else if (G.newFx && this.h.arena && (this.h.cls === 'paladin' || this.h.cls === 'darkknight') && W.hands === 'two' && W.kind === 'melee') { /* (the paladin's hammer and the shadow knight's greatsword: the same heavy three-blow combo) */ if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
-    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing1', 1.15, 1.03], ['swing2', 1.05, 0.98]] /* (the backhand gets the time to be a long, full stroke) */, q = W3[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[2], d: q[1] }); /* (two-hit combo, same slow pace as the single slash: 0.7 s of recording over 1.0 s, then 0.55 s over 0.8 s; damage per second kept level) */ /* (slowed again so you can follow the blade; m keeps damage per second roughly level) */ /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
+    if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (G.time - (this.warLast || -9) > 2.2) this.warN = 0; this.warLast = G.time; /* (the combo only starts over after a real pause, so clicking at your own pace still alternates the two swings) */ const W3 = [['swing1', 1.15, 1.03, 0.42], ['swing2', 1.4, 1.25, 0.5]], q = W3[(this.warN = (this.warN || 0)) % 2]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[2], d: q[1], hitK: q[3] }); /* (the owner's Double Combo Attack: the blow lands 42% / 50% of the way in, as it does on screen) */ /* (two-hit combo, same slow pace as the single slash: 0.7 s of recording over 1.0 s, then 0.55 s over 0.8 s; damage per second kept level) */ /* (slowed again so you can follow the blade; m keeps damage per second roughly level) */ /* (slower, weightier blows: about a third slower, each hitting a third harder) */ } /* (the warrior: one standard slash, the owner's Right Hand Sword Slash, every time) */
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
-    this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });
+    this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1, hitK: st.hitK });
   }
   releaseHeavy(p) {
     const W = this.W; if (!W) return;
@@ -766,7 +769,7 @@ export class Player {
     a.t += dt / a.dur;
     if (a.hold) { if (this.press && this.press.charging) a.t = Math.min(a.t, 0.98); else if (a.t >= 1) { this.atk = null; return; } } // a held wind-up stays wound up until you let go
     const W = this.W;
-    const hitAt = W && W.kind === 'gun' && (a.name === 'shoot' || a.name === 'release') ? 0.02 : a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
+    const hitAt = a.hitK != null ? a.hitK : W && W.kind === 'gun' && (a.name === 'shoot' || a.name === 'release') ? 0.02 : a.name === 'smash' ? 0.62 : a.name === 'spin' ? 0.5 : a.name === 'swing3' || a.name === 'thrust3' ? 0.5 : a.name === 'heavy' ? 0.3 : a.name === 'area' ? 0.25 : a.name === 'cast' ? 0.3 : a.name === 'shoot' ? 0.5 : a.name === 'release' ? 0.02 : a.name === 'castBig' ? 0.55 : 0.4;
     if (a.swingSnd && (hitAt - a.t) * a.dur <= 0.13) { if (a.swingSnd.reap) S.reap && S.reap(this.pos, 1); else S.swingW(a.swingSnd.k, a.swingSnd.v, this.pos, this.weapon && this.weapon.wt, this.h.cls); a.swingSnd = null; } // whoosh lands with the blow
     if (!a.hit && a.t >= hitAt) { a.hit = true; this.doHit(a); }
     // fury flurry: several hits
@@ -1568,7 +1571,7 @@ export class Player {
         S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
       case 'buff': { if (a.eq && G.campAb) { this.eqBuff(a); anim('cast'); return true; }
-        this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'flame' ? '#ff8a3a' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
+        if (a.buff === 'flame') this.flameIgniteT = G.time; else this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); /* (Flame Blade: no screen flash or bubble: the sword itself ignites) */ const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
         else if (a.buff === 'avatar') { for (const k in FORMS) B2[k] = 0; B2.avatar = d; this.avatar = Object.assign({ name: a.name }, a.av || {}); if (this.avatar.surge) B2.surge = Math.max(B2.surge || 0, d); this.formOn = null; }
@@ -1577,7 +1580,7 @@ export class Player {
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
-        V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); anim('cast'); return true; }
+        if (a.buff !== 'flame') { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); } anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
         const land = () => { if (t.dead) return;
         const list = [t, ...(a.spread ? mobsInRadius(t.pos, a.spread * K).filter(m => m !== t) : [])];

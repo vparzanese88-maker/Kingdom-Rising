@@ -884,6 +884,7 @@ function updateMobs(dt, p) {
     if (m.team != null) { if (!m.dead && !m.gone) m.root.visible = d < 170; m.update(dt); continue; }
     if (d > 110 && !m.dead) { m.root.visible = false; if (d > 150) continue; }
     else if (!m.dead) m.root.visible = true;
+    if (!m.dead && m.root.visible && camera) { const c = camera.position, dy = c.y - (m.pos.y + (m.height || 1.6) * 0.6); if ((c.x - m.pos.x) ** 2 + (c.z - m.pos.z) ** 2 + dy * dy < 2.6) m.root.visible = false; } /* (the camera inside a dummy or creature: hide it, instead of the screen filling with the inside of its body) */
     if (d < 150) m.update(dt, tp);
     if (m.state === 'chase' && !m.dead) chasing = true;
   }

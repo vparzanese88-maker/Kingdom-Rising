@@ -603,7 +603,7 @@ export function bannerFittings(g, top, w, x0) { const goldM = new THREE.MeshStan
 const BANNER_URL = { shield: 'models/props/banner_a.fbx', mend: 'models/props/banner_b.fbx' }, BANNER = {};
 export function preloadBanners() { for (const k in BANNER_URL) { if (BANNER[k]) continue; BANNER[k] = 'loading';
     new FBXLoader().load(BANNER_URL[k], (o) => { try { o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
-      o.traverse(m => { if (!m.isMesh) return; m.castShadow = true; for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 4; } if ('shininess' in mt) mt.shininess = 12; } });
+      o.traverse(m => { if (!m.isMesh) return; m.castShadow = true; for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 4; if (mt.emissive) { mt.emissiveMap = mt.map; mt.emissive.setScalar(0.42); } } if ('shininess' in mt) mt.shininess = 12; /* (a soft glow from its own colours: with the sun behind it the cloth went a dull navy-grey) */ } });
       const g = new THREE.Group(); o.position.set(-c.x, -bb.min.y, -c.z); g.add(o); g.scale.setScalar(1 / Math.max(0.01, sz.y)); /* (one metre tall, standing on its foot, centred on its pole) */ BANNER[k] = g; } catch (e) { BANNER[k] = null; console.warn('banner model', k, e); } }, undefined, (e) => { BANNER[k] = null; console.warn('banner model failed to load', k, e); }); } }
 function bannerModel(k, h) { const b = BANNER[k]; if (!b || b === 'loading') { preloadBanners(); return null; } const m = b.clone(); m.scale.multiplyScalar(h); m.rotation.y = Math.PI; /* (its face turned toward the warrior who planted it) */ return m; }
 // swap the drawn flag for the model: everything but the glow rings and the dome is hidden
@@ -1475,7 +1475,7 @@ class ArenaBot {
     if (o.silence) { const now = G.time; if (!this.silT || now - this.silT > 10) this.silN = 0; const sf = Math.pow(0.5, this.silN || 0); this.silN = (this.silN || 0) + 1; this.silT = now; this.status.silence = Math.max(this.status.silence || 0, o.silence * sf); this.cast = null; this.pending = null; V.number(headOfU(this), 'Silenced!', 'bad'); }
     if (o.weaken) weakUnit(this, o.weaken);
     if (o.stun || o.freeze || o.slow || o.root || o.fear) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
-      if (o.stun && o.knock && this.model) this.model.kdLeft = Math.max(this.model.kdLeft || 0, Math.min(2.8, Math.max(2.3, o.stun * f + 1.2))); /* (knocked down: the recorded fall plays for the stun) */
+      if (o.stun && o.knock && this.model) this.model.kdLeft = Math.max(this.model.kdLeft || 0, Math.min(3.0, Math.max(2.7, o.stun * f + 1.4))); /* (knocked down: the recorded fall plays for the stun) */
       if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; if (o.mez) this.mezAt = G.time; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
     if (o.blight) this.blightT = Math.max(this.blightT || 0, o.blight); if (this.blightT > 0 && o.poison) o = Object.assign({}, o, { poison: o.poison * 1.5 }); // (Blight: poison bites harder)
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
@@ -1751,7 +1751,7 @@ export class SparBot extends ArenaBot {
     const st = this.status, ch = this.model;
     if (this.held) { this.hitT = 0; return; } // (in a demon's grip)
     if (this.dead) { this.deadT += dt; if (this.deadT > 6) { this.reset(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 18, { speed: 2, vy: 2 }); } // (back on his feet where he started)
-      else { this.root.position.copy(this.pos); animateHumanoid(ch, dt, { speed: 0, armed: true, dead: true, deadT: this.deadT }); return; } }
+      else { this.root.position.copy(this.pos); animateHumanoid(ch, dt, { speed: 0, armed: true, dead: true, deadT: this.deadT }); arenaLookTick(ch, dt); return; } } // (the model's own death fall: it only plays through arenaLookTick)
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     for (const k of ['stun', 'slow', 'root', 'frozen', 'fear', 'silence']) st[k] = Math.max(0, (st[k] || 0) - dt);
     if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }

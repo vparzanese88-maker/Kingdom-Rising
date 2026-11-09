@@ -131,12 +131,21 @@ function fireMesh() { if (FIRE) return FIRE; const L = new THREE.TextureLoader()
         float a = smoothstep(0.28, 0.85, m * core * (1.15 - u.y * 0.35)) * ends * uA; vec3 c = texture2D(tCol, vec2(u.x * 0.5 + 0.25, u.y * 0.7 - uT * 0.7)).rgb;
         c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.75, 1.0, core) * 0.45); gl_FragColor = vec4(c * a * 1.4, a); }` });
   FIRE = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), m); FIRE.frustumCulled = false; FIRE.renderOrder = 5; FIRE.visible = false; return FIRE; }
+setTimeout(() => { try { fireMesh(); } catch (e) { /* no fire textures */ } }, 3000); /* (the flame pictures load early, so the first Flame Blade already burns) */
 const _fa = new THREE.Vector3(), _fb = new THREE.Vector3(), _fx = new THREE.Vector3(), _fy = new THREE.Vector3(), _fz = new THREE.Vector3(), _fm = new THREE.Matrix4();
-function bladeFire(p, dt) { const w = p.ch && p.ch.weapons && p.ch.weapons.main, on = p.buffs.flame > 0 && !p.dead && w && w.userData.tip && w.userData.base && p.W && p.W.kind !== 'staff' && p.ch.root.visible;
+// a model sword has no guard and point markers: find them from its shape (its longest side; the point is the far end
+// from the hand, the blade starts about a fifth of the way up from the hilt)
+function bladeEnds(w) { if (w.userData.tip && w.userData.base) return true; if (w.userData.noEnds) return false;
+  w.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(w.matrixWorld).invert(), bb = new THREE.Box3(), tmp = new THREE.Box3(), M = new THREE.Matrix4(); let any = false;
+  w.traverse(o => { if (!o.isMesh || !o.geometry) return; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); tmp.copy(o.geometry.boundingBox).applyMatrix4(M.multiplyMatrices(inv, o.matrixWorld)); bb.union(tmp); any = true; });
+  if (!any) { w.userData.noEnds = true; return false; } const sz = bb.getSize(new THREE.Vector3()), ax = sz.x > sz.y && sz.x > sz.z ? 'x' : sz.y > sz.z ? 'y' : 'z';
+  const c = bb.getCenter(new THREE.Vector3()), lo = c.clone(), hi = c.clone(); lo[ax] = bb.min[ax]; hi[ax] = bb.max[ax]; const far = hi.lengthSq() > lo.lengthSq() ? hi : lo, near = far === hi ? lo : hi;
+  const tip = new THREE.Object3D(), base = new THREE.Object3D(); tip.position.copy(far); base.position.copy(near).lerp(far, 0.2); w.add(tip); w.add(base); w.userData.tip = tip; w.userData.base = base; return true; }
+function bladeFire(p, dt) { const w = p.ch && p.ch.weapons && p.ch.weapons.main, on = p.buffs.flame > 0 && !p.dead && w && p.W && p.W.kind !== 'staff' && p.ch.root.visible && bladeEnds(w);
   if (!on) { if (FIRE) FIRE.visible = false; return; } const F = fireMesh(); if (F.parent !== G.scene) G.scene.add(F);
   w.userData.base.getWorldPosition(_fa); w.userData.tip.getWorldPosition(_fb); _fy.subVectors(_fb, _fa); const len = _fy.length(); if (len < 0.05) { F.visible = false; return; } _fy.divideScalar(len);
   _fz.subVectors(G.camera.position, _fa); _fx.crossVectors(_fy, _fz); if (_fx.lengthSq() < 1e-6) _fx.set(1, 0, 0); _fx.normalize(); _fz.crossVectors(_fx, _fy).normalize(); /* (turned about the blade to face you) */
-  _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.34, len * 1.4, 1); /* (from just below the guard to well past the point) */
+  _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.44, len * 1.4, 1); /* (from just below the guard to well past the point) */
   const u = F.material.uniforms; u.uT.value += dt; u.uA.value = Math.min(1, p.buffs.flame * 2); F.visible = true; }
 // a proper arrow for a hero archer, laid along -z from the nock at the origin: a slim dark shaft, three fletchings, a nock and a steel broadhead with a little flame on it
 function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), steel = new THREE.MeshStandardMaterial({ color: '#b8bcc0', roughness: 0.3, metalness: 0.9 }), feath = new THREE.MeshStandardMaterial({ color: '#d8d0c0', roughness: 0.9, side: THREE.DoubleSide }), red = new THREE.MeshStandardMaterial({ color: '#8a1a14', roughness: 0.9, side: THREE.DoubleSide });
@@ -1984,7 +1993,7 @@ export class Player {
     V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.2), label, 'bad');
     if (type === 'stun') { this.atk = null; this.press = null; this.cancelGather(); }
   }
-  knock(v, stun = 0) { if (this.iframes > 0) return; if (stun > 0.3 && this.ch) this.ch.kdLeft = Math.max(this.ch.kdLeft || 0, Math.min(2.8, Math.max(2.3, stun + 1.2))); /* (knocked down) */ this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
+  knock(v, stun = 0) { if (this.iframes > 0) return; if (stun > 0.3 && this.ch) this.ch.kdLeft = Math.max(this.ch.kdLeft || 0, Math.min(3.0, Math.max(2.7, stun + 1.4))); /* (knocked down) */ this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
   die() { this.dead = true; this.atk = null; this.press = null; this.lmbHeld = false; this.lmbDown = false; /* (a click held at death does not carry on firing after you come back) */ this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
@@ -2106,7 +2115,7 @@ export class Player {
     this.fb = Game.consumBuff(h);
     this.knockT = Math.max(0, (this.knockT || 0) - dt);
     if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
-    const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen() || (this.ch && this.ch.kdLeft > 0); /* (on the ground or getting up) */
+    const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen() || (this.ch && this.ch.kdLeft > 0.35); /* (on the ground or getting up; free again as he finds his feet) */
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
     // regen

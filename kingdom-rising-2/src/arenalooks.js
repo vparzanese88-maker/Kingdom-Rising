@@ -256,7 +256,7 @@ function necroSupport(ch) { const h = ch.arms && ch.arms.R && ch.arms.R.grip && 
 function weaponDecor(ch, cls, w) {
   if (/^(druid|enchanter|priest|necromancer|elementalist)$/.test(cls) && w.name === 'weapon_staff') w.userData.restTilt = 'upF'; // (staff, scepter, scythe and orb carried upright at rest, head up, fingers forward, never leaning out like a lance)
   if (cls === 'warrior') { w.userData.restTilt = [1.05, -0.45]; w.scale.multiplyScalar(1.25); if (ch.weapons.off) ch.weapons.off.scale.multiplyScalar(1.45); return; } // (a knight's long sword and a full heater shield on his big frame, not a boy's)
-  if (cls === 'berserker' && w.name === 'weapon_greataxe') w.scale.multiplyScalar(0.78); // (the ram-skull great axe at 0.68 of his height, not 0.87)
+  if (cls === 'berserker' && w.name === 'weapon_greataxe') w.scale.multiplyScalar(0.78 * 1.2); /* (the owner: 20% bigger) */ // (the ram-skull great axe at 0.68 of his height, not 0.87)
   if (cls === 'darkknight' && w.name === 'weapon_greatsword') w.scale.multiplyScalar(0.78); // (his barbed greatsword at 0.7 of his height, not 0.9)
   if (cls === 'rogue' && w.name === 'weapon_dagger' && !ch.weapons.off && ch.arms && ch.arms.L && ch.arms.L.grip) { const off = makeWeapon('dagger', 3, 0); off.rotation.y = Math.PI / 2; ch.arms.L.grip.add(off); ch.weapons.off = off; }
   if (cls === 'rogue') for (const k of ['main', 'off']) if (ch.weapons[k] && ch.weapons[k].name === 'weapon_dagger') ch.weapons[k].userData.restTilt = -0.75; // (her blades stand forward and up out of the top of each fist at rest, pommels at the bottom, not hanging point-down) // (her second dagger, in the left fist: classKit swaps in the detailed one)

@@ -11,7 +11,8 @@ import { heightAt } from './terrain.js';
 import * as Game from './game.js';
 import * as Icons from './icons.js';
 import { S } from './audio.js';
-import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, mendBanner, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules } from './arena.js';
+import { PVP_K } from './mp.js';
+import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDemon, mendBanner, paladinWrath, monkFists, rogueAssassinate, berserkerStorm, rangerRain, druidOvergrowth, shamanSpirit, healerMend, shamanTotem, clericMiracle, wizardTranscend, musketBarrage, aimAlly, runTableUlt, ULTS, playerRules, SparBot } from './arena.js';
 import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
@@ -19,7 +20,7 @@ import { openKitInfo } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick, arenaLookTick } from './arenalooks.js';
 
-export const YD = { infinite: false, dmg: [], startGame: null };
+export const YD = { infinite: false, dmg: [], startGame: null }; window.KR2Y = YD; /* (for tests) */
 const dummies = [];
 // six dummies standing evenly in a ring on open ground in front of the start: hit one from outside, or step into the middle for area attacks
 const RING = { x: 0, z: 47, r: 8 }; /* (between the two weapon racks; the class line-up is behind the start, at z = -8) */
@@ -58,7 +59,11 @@ export function spawnDummies() {
     G.mobs.push(m); dummies.push(m);
   }
   plantProps();
+  setTimeout(spawnSparrer, 2500); /* (after your own hero has loaded) */
 }
+// a sparring warrior beside the ring: takes real hits, gets knocked down, dies and gets up again, but never moves or fights back
+function spawnSparrer() { if (YD.spar) return; try { const x = RING.x + RING.r + 6, z = RING.z; const b = new SparBot(x, z, -Math.PI / 2); YD.spar = b;
+    const take = b.takeHit.bind(b); b.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); if (d > 0) YD.dmg.push([performance.now(), d / PVP_K]); return d; }; } catch (e) { console.warn('sparring warrior', e); } }
 // trees and rocks around the yard: the owner's Meshy models, fetched once in the background and drawn as one instanced mesh per part
 // (a few draw calls for all of them, nothing done per frame; if a model fails to load the yard simply has none)
 const PROPS = {

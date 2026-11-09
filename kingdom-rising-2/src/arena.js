@@ -13,7 +13,7 @@ import { V } from './vfx.js';
 import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
-import { spawnProjectile } from './combat.js';
+import { spawnProjectile, groundPoint } from './combat.js';
 import * as Icons from './icons.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
@@ -21,6 +21,7 @@ import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, w
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { loadDemonModel, poseDemonModel } from './heromodels.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
@@ -205,7 +206,7 @@ function designRules() {
   fix('shaman', 'sh_hex', { stun: 2.5, poly: true, desc: 'Turn the enemy you aim at into a harmless frog for 2.5 s.' });
   // 5. the shield classes get their defensive back: held block raises it (warrior, paladin); Bone Guard moves to C
   if (!abIn('warrior', 'ar_flameblade')) ABILITIES.warrior.push({ id: 'ar_flameblade', name: 'Flame Blade', t: 'buff', buff: 'flame', dur: 8, kit: true, level: 1, cd: 16, cost: 0, fx: 'fire', desc: 'Set your sword ablaze for 8 s: every blow adds burning fire damage, and the blade burns while it lasts.' });
-  if (!abIn('warrior', 'ar_mendbanner')) ABILITIES.warrior.push({ id: 'ar_mendbanner', name: 'Banner of Mending', t: 'mendbanner', kit: true, level: 1, cd: 18, cost: 0, fx: 'leaf', desc: 'Plant a small banner bearing a red cross: for 8 s you and your allies within 5 m slowly regain health.' });
+  if (!abIn('warrior', 'ar_mendbanner')) ABILITIES.warrior.push({ id: 'ar_mendbanner', name: 'Banner of Mending', t: 'mendbanner', kit: true, level: 1, cd: 18, cost: 0, fx: 'leaf', desc: 'Plant a small holy banner where you aim (up to 5 m away): for 8 s you and your allies within 5 m of it slowly regain health.' });
   if (!abIn('warrior', 'ar_shbash')) ABILITIES.warrior.push({ id: 'ar_shbash', name: 'Shield Bash', t: 'shbash', kit: true, level: 1, cd: 6, cost: 0, dmg: 0.8, stun: 1.2, fx: 'frost', desc: 'Drive your shield into whoever is in front of you: a solid hit that knocks them back and stuns them for 1.2 s.' });
   fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
   { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
@@ -273,6 +274,7 @@ export async function prepareArena() { const s = readArena(); FINAL = s.mp ? awa
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
   G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  if ((s.slots || []).some(x => x && x.cls === 'warrior')) preloadBanners(); /* (the warrior's banner models) */
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
@@ -592,10 +594,26 @@ export function bannerFittings(g, top, w, x0) { const goldM = new THREE.MeshStan
   const orb = new THREE.Mesh(new THREE.SphereGeometry(w * 0.07, 12, 10), goldM); orb.position.y = top + w * 0.1; g.add(orb); const tip = new THREE.Mesh(new THREE.ConeGeometry(w * 0.05, w * 0.26, 4), goldM); tip.position.y = top + w * 0.3; g.add(tip);
   for (const e of [-1, 1]) { const cord = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.008, w * 0.008, w * 0.5, 4), cordM); cord.position.set(x0 + e * w * 0.5, top - w * 0.25, w * 0.02); g.add(cord); const tas = new THREE.Mesh(new THREE.ConeGeometry(w * 0.035, w * 0.14, 6), goldM); tas.position.set(x0 + e * w * 0.5, top - w * 0.55, w * 0.02); g.add(tas); } }
 // the warrior's Banner of Mending (C): a small banner with a red cross; allies within 5 m slowly heal for 8 s
-export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.yaw || 0, at = new THREE.Vector3(p.x + Math.sin(yw) * 1.6, p.y, p.z + Math.cos(yw) * 1.6), base = ultGround(at); at.y = base;
+// the owner's two Meshy banners for the warrior: the blue shield banner (War Banner ultimate) and the green-and-gold
+// chalice banner (Mending Banner). Loaded once, the first time a warrior is about; until then the drawn flags stand in
+const BANNER_URL = { shield: 'models/props/banner_a.fbx', mend: 'models/props/banner_b.fbx' }, BANNER = {};
+export function preloadBanners() { for (const k in BANNER_URL) { if (BANNER[k]) continue; BANNER[k] = 'loading';
+    new FBXLoader().load(BANNER_URL[k], (o) => { try { o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
+      o.traverse(m => { if (!m.isMesh) return; m.castShadow = true; for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 4; } if ('shininess' in mt) mt.shininess = 12; } });
+      const g = new THREE.Group(); o.position.set(-c.x, -bb.min.y, -c.z); g.add(o); g.scale.setScalar(1 / Math.max(0.01, sz.y)); /* (one metre tall, standing on its foot, centred on its pole) */ BANNER[k] = g; } catch (e) { BANNER[k] = null; console.warn('banner model', k, e); } }, undefined, (e) => { BANNER[k] = null; console.warn('banner model failed to load', k, e); }); } }
+function bannerModel(k, h) { const b = BANNER[k]; if (!b || b === 'loading') { preloadBanners(); return null; } const m = b.clone(); m.scale.multiplyScalar(h); m.rotation.y = Math.PI; /* (its face turned toward the warrior who planted it) */ return m; }
+// swap the drawn flag for the model: everything but the glow rings and the dome is hidden
+function useBannerModel(g, k, h, keep) { const m = bannerModel(k, h); if (!m) return false; for (const ch of g.children) if (!keep.includes(ch)) ch.visible = false; g.add(m); return true; }
+// where a banner goes: the spot you aim at (the player), but never further than its aura reaches, and not on your toes
+function bannerSpot(caster, reach, ahead) { const p = caster.pos, yw = caster.yaw || 0; let at = null;
+  if (caster === G.player) { try { at = groundPoint(reach); } catch (e) { at = null; } }
+  if (!at) at = new THREE.Vector3(p.x + Math.sin(yw) * ahead, p.y, p.z + Math.cos(yw) * ahead);
+  const dx = at.x - p.x, dz = at.z - p.z, d = Math.hypot(dx, dz); if (d > reach) { at.x = p.x + dx / d * reach; at.z = p.z + dz / d * reach; } else if (d < 1.4) { at.x = p.x + Math.sin(yw) * 1.4; at.z = p.z + Math.cos(yw) * 1.4; }
+  return at; }
+export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.yaw || 0, at = bannerSpot(caster, 5, 1.6), base = ultGround(at); at.y = base;
   const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 8), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 1.2; g.add(pole);
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.06, 6, 6), new THREE.MeshStandardMaterial({ map: flagTex('cross'), alphaTest: 0.5, transparent: true, roughness: 0.85, side: THREE.DoubleSide })); cloth.position.set(0.42, 1.83, 0); g.add(cloth); bannerFittings(g, 2.38, 0.8, 0.42);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(4.85, 5, 48), glowM('#7aff8a', 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4.85, 5, 48), glowM('#7aff8a', 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring); useBannerModel(g, 'mend', 2.7, [ring]);
   g.position.copy(at); g.rotation.y = yw; G.scene.add(g); S.cast && S.cast('nature', at, 0.8); const pos0 = cloth.geometry.attributes.position.array.slice(); let regT = 0;
   timer((t, dt) => { const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 6) * 0.06 * (x + 0.4); } a.needsUpdate = true; ring.material.opacity = 0.25 + Math.sin(t * 3) * 0.08;
     regT -= dt || 1 / 60; if (regT <= 0) { regT = 0.5; for (const u of nearOf(ultFriends(caster), at, 5)) { ultHeal(u, 0.008); if (Math.random() < 0.5) V.emit('green', u.pos.clone().setY(u.pos.y + 1.5), { speed: 0.3, vy: 1, size: 0.25 }); } }
@@ -808,11 +826,11 @@ export function ultImpact(at, o = {}) { const R = o.r || 6, col = o.col || '#ffb
   return C; }
 const lob = (from, to, mesh, dur, arc, onLand) => { G.scene.add(mesh); timer((t) => { const k = Math.min(1, t / dur); mesh.position.lerpVectors(from, to, k); mesh.position.y += Math.sin(k * Math.PI) * arc; mesh.rotation.x += 0.2; if (k >= 1) { onLand && onLand(); return true; } return false; }); };
 export const ULTS = {
-  warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner bearing a shield into the ground in front of you: for 8 s a dome of protection stands round it, and every ally inside takes 40% less damage.',
-    run(c) { const p = c.pos.clone(), yw = c.yaw || 0, C0 = new THREE.Vector3(p.x + Math.sin(yw) * 5.5, p.y, p.z + Math.cos(yw) * 5.5), base = ultGround(C0), C = new THREE.Vector3(C0.x, base, C0.z), me = c === G.player ? c : null; const g = new THREE.Group(); /* (planted 5.5 m in front, where you and your camera can see it, not beside your head) */
+  warrior: { id: 'ar_banner', name: 'War Banner of Defense', t: 'banner', aim: 'self', desc: 'Drive a huge war banner bearing a shield into the ground where you aim (up to 10 m away): for 8 s a dome of protection stands round it, and every ally inside takes 40% less damage.',
+    run(c) { const p = c.pos.clone(), yw = c.yaw || 0, C0 = bannerSpot(c, 10, 5.5), /* (where you aim, up to the dome's edge) */ base = ultGround(C0), C = new THREE.Vector3(C0.x, base, C0.z), me = c === G.player ? c : null; const g = new THREE.Group(); /* (planted 5.5 m in front, where you and your camera can see it, not beside your head) */
       if (me) { me.held = true; me.ultImmT = Math.max(me.ultImmT || 0, 2.6); me.ultPoseT = 1.6; ultFlyCam(me, (ct) => C.clone().setY(base + (ct < 0.5 ? 4 : 2.2)), () => 1.9, { r: 10, h: 3.6, inT: 0.6 }); later(2.2, () => { me.held = false; }); } /* (the camera swings out to watch it crash down and the shockwave roll over the enemies) */ const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 6, 10), new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.8 })); pole.position.y = 3; g.add(pole);
       const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6, 8, 8), new THREE.MeshStandardMaterial({ map: flagTex('shield'), alphaTest: 0.5, transparent: true, roughness: 0.8, side: THREE.DoubleSide })); bannerFittings(g, 5.75, 2.0, 1.05); /* (a shield on the flag: this banner is pure defence) */ cloth.position.set(1.05, 4.4, 0); g.add(cloth); const trim = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: '#d8a838', metalness: 0.8, roughness: 0.3 })); trim.position.set(1.05, 5.75, 0); g.add(trim);
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), glowM('#ffcf70', 0)); g.add(dome); dome.scale.setScalar(0.5); let regT = 0; /* (the dome of protection) */ const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.04; aura.scale.setScalar(0.5); g.add(aura);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 8), trim.material); tip.position.y = 6.25; g.add(tip); const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), glowM('#ffcf70', 0)); g.add(dome); dome.scale.setScalar(0.5); let regT = 0; /* (the dome of protection) */ const aura = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), glowM('#ffb040', 0)); aura.rotation.x = -Math.PI / 2; aura.position.y = 0.04; aura.scale.setScalar(0.5); g.add(aura); useBannerModel(g, 'shield', 6.6, [dome, aura]);
       g.position.copy(C).setY(base + 22); g.rotation.y = yw; G.scene.add(g); const pos0 = cloth.geometry.attributes.position.array.slice(); g.scale.setScalar(2.0); /* (hero-sized: twice the old banner, its flag flying out to the side, broadside to you) */
       timer((t) => { if (t < 0.55) { const f = t / 0.55; g.position.y = base + 22 * (1 - f * f); V.emit('gold', g.position.clone().setY(g.position.y + 13), { speed: 0.5, size: 0.6, life: 0.35 }); V.emit('fire', g.position.clone().setY(g.position.y + 1), { speed: 0.6, size: 0.7, life: 0.3 }); return false; } /* (it falls out of the sky like a comet, trailing gold) */
         if (!g.userData.hit) { g.userData.hit = true; g.position.y = base; ultImpact(C, { r: 7, col: '#ffc050', colCol: '#fff0b0', shake: 1.4, vol: 1.2, wallH: 2.2 }); later(0.12, () => ultImpact(C, { r: 10, col: '#ff9a30', column: false, scorch: false, sparks: false, shake: 0.5, vol: 0 })); S.battleCry && S.battleCry();
@@ -1402,7 +1420,7 @@ class ArenaBot {
     this.abs = [...(h.arenaKit || []), h.arenaRmb].filter(id => id && id !== 'aim').map(id => ABILITIES[h.cls].find(a => a.id === id)).filter(Boolean); this.cd = {}; for (const a of this.abs) this.cd[a.id] = Math.random() * 3;
     this.healer = this.abs.some(a => a.t === 'heal' && (a.ally || SUPPORT_CLS.has(h.cls)));
     this.buffs = {}; this.hots = []; this.dots = []; this.gcd = 0; this.swingT = 0; this.thinkT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.act = ''; this.actT = 0; this.spd = 0; this.pets = [];
-    this.role = Math.random() < 0.5 ? 'attack' : 'defend'; this.recalc(); this.hp = this.maxHp;
+    this.role = Math.random() < 0.5 ? 'attack' : 'defend'; this.recalc(); this.hp = this.maxHp; if (h.cls === 'warrior') preloadBanners();
     G.scene.add(this.root); G.mobs.push(this);
     teamRim(this.flashMats, f.team !== G.myTeam); // red glow for enemies, blue for your side (no circles)
   }
@@ -1450,6 +1468,7 @@ class ArenaBot {
     if (o.silence) { const now = G.time; if (!this.silT || now - this.silT > 10) this.silN = 0; const sf = Math.pow(0.5, this.silN || 0); this.silN = (this.silN || 0) + 1; this.silT = now; this.status.silence = Math.max(this.status.silence || 0, o.silence * sf); this.cast = null; this.pending = null; V.number(headOfU(this), 'Silenced!', 'bad'); }
     if (o.weaken) weakUnit(this, o.weaken);
     if (o.stun || o.freeze || o.slow || o.root || o.fear) { const now = G.time; if (!this.ccT || now - this.ccT > 10) this.ccN = 0; const f = Math.pow(0.5, this.ccN || 0); this.ccN = (this.ccN || 0) + 1; this.ccT = now;
+      if (o.stun && o.knock && this.model) this.model.kdLeft = Math.max(this.model.kdLeft || 0, Math.min(2.8, Math.max(2.3, o.stun * f + 1.2))); /* (knocked down: the recorded fall plays for the stun) */
       if (o.stun || o.freeze) { this.status.stun = Math.max(this.status.stun, (o.stun || o.freeze) * f); this.status.mez = !!o.mez; if (o.mez) this.mezAt = G.time; this.cast = null; this.pending = null; } if (o.fear && src && src.pos) { this.status.fear = Math.max(this.status.fear || 0, o.fear * f); this.fearFrom = src.pos.clone(); this.cast = null; this.pending = null; this.dashing = null; V.number(this.pos.clone().setY(this.pos.y + this.height + 0.5), 'Feared!', 'crit'); } if (o.slow) this.status.slow = Math.max(this.status.slow, o.slow * f); if (o.root) this.status.root = Math.max(this.status.root, o.root * f); }
     if (o.blight) this.blightT = Math.max(this.blightT || 0, o.blight); if (this.blightT > 0 && o.poison) o = Object.assign({}, o, { poison: o.poison * 1.5 }); // (Blight: poison bites harder)
     if (o.poison) { const ex = this.dots.find(x => x.spread != null && x.src === src); if (ex) { ex.t = 4; ex.dps = Math.max(ex.dps, o.poison * PVP_K / 4); } else this.dots.push({ dps: o.poison * PVP_K / 4, t: 4, src, spread: o.spread || 0 }); } // a necromancer's poison: it can creep onto enemies standing close
@@ -1707,6 +1726,33 @@ class ArenaBot {
       Object.defineProperty(m, 'name', { value: `${this.heroName}'s ${D.name || kind}`, configurable: true }); m.team = this.team; m.hostile = this.team !== G.myTeam; m.bpet = D; m.botPet = true; m.owner = this; m.arenaOwner = this.arenaF;
       m.maxHp = m.hp = D.hp; m.lv = LEVEL_CAP; m.level = LEVEL_CAP; m.atkCd = 1; m.stealth = 0; m.update = petTick; m.takeHit = petTakeHit; m.takeDamage = (d, s) => petTakeHit.call(m, d / PVP_K, s); m.debuff = () => {}; m.knock = V3();
       if (m.ring) m.ring.visible = false; G.mobs.push(m); this.pets.push(m); V.burst('shadow', m.pos.clone().setY(m.pos.y + 0.8), 30, { speed: 3 }); }
+  }
+}
+// the Training Yard's sparring warrior: a real arena fighter (health, armour, hits, stuns, knockdowns, death) who never
+// walks or fights back. He falls when he dies and gets up again where he started a few seconds later
+export class SparBot extends ArenaBot {
+  constructor(x, z, yaw, cls = 'warrior') { const f = { i: -1, name: 'Sparring ' + CLASSES[cls].name, cls, team: 99, dmg: 0, heal: 0, kills: 0, deaths: 0, alive: true };
+    super(f, arenaHero({ cls, race: 'human', team: 99 }, f.name)); this.spar = true; this.home = { x, z, yaw }; this.reset(); }
+  reset() { this.revive(this.home); this.pos.y = heightAt(this.pos.x, this.pos.z); this.root.position.copy(this.pos); this.root.rotation.set(0, this.yaw, 0); if (this.model) this.model.kdLeft = 0; this.status.knock.set(0, 0, 0); }
+  takeHit(dmg, src, o) { const st0 = A.state, me0 = A.me; A.state = 'fight'; if (!A.me) A.me = { dmg: 0 }; try { return super.takeHit(dmg, src, o); } finally { A.state = st0; A.me = me0; } } // (scored like an arena hit, outside a match)
+  die() { this.hp = 0; this.dead = true; this.deadT = 0; this.cast = null; this.dots = []; this.hots = []; }
+  update(dt) {
+    const st = this.status, ch = this.model;
+    if (this.held) { this.hitT = 0; return; } // (in a demon's grip)
+    if (this.dead) { this.deadT += dt; if (this.deadT > 6) { this.reset(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 18, { speed: 2, vy: 2 }); } // (back on his feet where he started)
+      else { this.root.position.copy(this.pos); animateHumanoid(ch, dt, { speed: 0, armed: true, dead: true, deadT: this.deadT }); return; } }
+    for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
+    for (const k of ['stun', 'slow', 'root', 'frozen', 'fear', 'silence']) st[k] = Math.max(0, (st[k] || 0) - dt);
+    if (this.hitT > 0) { this.hitT = Math.max(0, this.hitT - dt); const f = this.hitT / 0.32; for (const m of this.flashMats) if (m.emissive) m.emissiveIntensity = 0.65 * f * f; }
+    for (let i = this.hots.length - 1; i >= 0; i--) { const h = this.hots[i]; h.t -= dt; this.healSelf(h.ps * dt); if (h.t <= 0) this.hots.splice(i, 1); }
+    for (let i = this.dots.length - 1; i >= 0; i--) { const d = this.dots[i]; d.t -= dt; this.hp -= d.dps * dt; if (d.t <= 0) this.dots.splice(i, 1); }
+    if (this.hp <= 0) { this.die(); return; }
+    if (G.time - (this.hurtT || -99) > 8) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.25 * dt); // (left alone for a while, he heals back up)
+    if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); } // (shoved by hits and charges, but he never walks)
+    this.pos.y = heightAt(this.pos.x, this.pos.z); this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; this.root.visible = true;
+    arenaLookTick(ch, dt);
+    animateHumanoid(ch, dt, { speed: 0, armed: true, ready: true, hit: this.hitT > 0.16 ? (this.hitT - 0.16) * 4 : 0 });
+    bodyPoseTick(this, ch, dt);
   }
 }
 function petTakeHit(dmg, src) { const m = this; if (m.dead || (src && src.team === m.team)) return 0; dmg = Math.max(1, Math.round(dmg * PVP_K * PACE * (m.wardT > 0 ? 0.5 : 1))); m.hp -= dmg; if (m.hp <= 0) { m.hp = 0; m.dead = true; m.deadT = 0; } return dmg; }

@@ -117,6 +117,27 @@ const VP = {
 if (typeof window !== 'undefined') window.KR2_VP = VP; /* (tuning hook: poses can be adjusted live from the console) */
 const _wv = new THREE.Vector3(), _wq = new THREE.Quaternion(), _wy = new THREE.Vector3(0, 1, 0);
 function mirror(p) { return [-p[0], p[1], p[2], p[3], -p[4], -p[5]]; }
+// Flame Blade: the owner's two flame pictures wrapped round the sword: the coloured fire, cut into licking tongues by the
+// grey wisp picture, both rising up the blade at different speeds. One strip from guard to past the point, always turned
+// to face the camera, glowing (additive), with soft edges
+let FIRE = null;
+function fireMesh() { if (FIRE) return FIRE; const L = new THREE.TextureLoader(), tx = (u) => { const t = L.load(u); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+  const col = tx('models/fx/flame_col.jpg'); col.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.ShaderMaterial({ uniforms: { tCol: { value: col }, tMask: { value: tx('models/fx/flame_mask.jpg') }, uT: { value: 0 }, uA: { value: 1 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tCol, tMask; uniform float uT, uA; varying vec2 vUv;
+      void main() { vec2 u = vUv; float m1 = texture2D(tMask, vec2(u.x * 0.55 + 0.1, u.y * 0.9 - uT * 0.55)).r, m2 = texture2D(tMask, vec2(u.x * 0.4 + 0.5 + sin(uT * 1.3) * 0.05, u.y * 0.6 - uT * 0.9)).r;
+        float m = m1 * 0.65 + m2 * 0.55; float x = abs(u.x - 0.5) * 2.0; float core = 1.0 - smoothstep(0.0, 1.0, x); float ends = smoothstep(0.0, 0.08, u.y) * (1.0 - smoothstep(0.78, 1.0, u.y));
+        float a = smoothstep(0.28, 0.85, m * core * (1.15 - u.y * 0.35)) * ends * uA; vec3 c = texture2D(tCol, vec2(u.x * 0.5 + 0.25, u.y * 0.7 - uT * 0.7)).rgb;
+        c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.75, 1.0, core) * 0.45); gl_FragColor = vec4(c * a * 1.4, a); }` });
+  FIRE = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), m); FIRE.frustumCulled = false; FIRE.renderOrder = 5; FIRE.visible = false; return FIRE; }
+const _fa = new THREE.Vector3(), _fb = new THREE.Vector3(), _fx = new THREE.Vector3(), _fy = new THREE.Vector3(), _fz = new THREE.Vector3(), _fm = new THREE.Matrix4();
+function bladeFire(p, dt) { const w = p.ch && p.ch.weapons && p.ch.weapons.main, on = p.buffs.flame > 0 && !p.dead && w && w.userData.tip && w.userData.base && p.W && p.W.kind !== 'staff' && p.ch.root.visible;
+  if (!on) { if (FIRE) FIRE.visible = false; return; } const F = fireMesh(); if (F.parent !== G.scene) G.scene.add(F);
+  w.userData.base.getWorldPosition(_fa); w.userData.tip.getWorldPosition(_fb); _fy.subVectors(_fb, _fa); const len = _fy.length(); if (len < 0.05) { F.visible = false; return; } _fy.divideScalar(len);
+  _fz.subVectors(G.camera.position, _fa); _fx.crossVectors(_fy, _fz); if (_fx.lengthSq() < 1e-6) _fx.set(1, 0, 0); _fx.normalize(); _fz.crossVectors(_fx, _fy).normalize(); /* (turned about the blade to face you) */
+  _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.34, len * 1.4, 1); /* (from just below the guard to well past the point) */
+  const u = F.material.uniforms; u.uT.value += dt; u.uA.value = Math.min(1, p.buffs.flame * 2); F.visible = true; }
 // a proper arrow for a hero archer, laid along -z from the nock at the origin: a slim dark shaft, three fletchings, a nock and a steel broadhead with a little flame on it
 function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), steel = new THREE.MeshStandardMaterial({ color: '#b8bcc0', roughness: 0.3, metalness: 0.9 }), feath = new THREE.MeshStandardMaterial({ color: '#d8d0c0', roughness: 0.9, side: THREE.DoubleSide }), red = new THREE.MeshStandardMaterial({ color: '#8a1a14', roughness: 0.9, side: THREE.DoubleSide });
   const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.82, 6), wood); sh.rotation.x = Math.PI / 2; sh.position.z = -0.41; ar.add(sh);
@@ -673,7 +694,7 @@ export class Player {
     return 'blade';
   }
   // ---------- attacks ----------
-  light() {
+  light() { if (this.held) return; /* (no swinging while held) */
     if (this.dodge || this.gathering || this.swim) return;
     const W = this.W; if (!W) return;
     if (this.block) return;
@@ -1031,6 +1052,7 @@ export class Player {
   }
   // ---------- class abilities ----------
   ability(i, fromCast) {
+    if (this.held) return; /* (during an ultimate's animation, or in a demon's grip: no casting) */
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.sheathed) this.drawWeapons();
     if (!Game.abilityKnown(this.h, ab)) { G.hooks.toast && G.hooks.toast(Game.hasTrees(this.h.cls) ? `Unlock ${ab.name} in your skill trees (K)` : `${ab.name} unlocks at level ${ab.level}`, '🔒', 'bad'); S.error(); return; }
@@ -1962,7 +1984,7 @@ export class Player {
     V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.2), label, 'bad');
     if (type === 'stun') { this.atk = null; this.press = null; this.cancelGather(); }
   }
-  knock(v, stun = 0) { if (this.iframes > 0) return; this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
+  knock(v, stun = 0) { if (this.iframes > 0) return; if (stun > 0.3 && this.ch) this.ch.kdLeft = Math.max(this.ch.kdLeft || 0, Math.min(2.8, Math.max(2.3, stun + 1.2))); /* (knocked down) */ this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
   die() { this.dead = true; this.atk = null; this.press = null; this.lmbHeld = false; this.lmbDown = false; /* (a click held at death does not carry on firing after you come back) */ this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
@@ -2084,7 +2106,7 @@ export class Player {
     this.fb = Game.consumBuff(h);
     this.knockT = Math.max(0, (this.knockT || 0) - dt);
     if (this.db) for (const k in this.db) { const d = this.db[k]; if (d.t <= 0) continue; d.t -= dt; if (d.dps && !this.dead) { d.acc = (d.acc || 0) + d.dps * dt; if (d.acc >= 1) { const n = Math.floor(d.acc); d.acc -= n; this.hp -= n; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; V.number(this.pos.clone().setY(this.pos.y + this.eye), n, 'dot'); if (k === 'burn') V.burst('fire', this.pos.clone().setY(this.pos.y + 1), 3, { speed: 1 }); if (k === 'bleed') V.burst('blood', this.pos.clone().setY(this.pos.y + 1), 2, { speed: 1, size: 0.08 }); if (this.hp <= 0) { this.hp = 0; this.die(); } } } }
-    const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen();
+    const stunned = (this.db && this.db.stun && this.db.stun.t > 0) || this.isFrozen() || (this.ch && this.ch.kdLeft > 0); /* (on the ground or getting up) */
     if (this.dead) { this.deadT += dt; this.animate(dt, 0); this.updateCamera(dt); return; }
     if (this.held) { this.vel.set(0, 0, 0); this.animate(dt, 0); this.updateCamera(dt); return; } // (in a demon's grip: it moves you)
     // regen
@@ -2118,7 +2140,8 @@ export class Player {
     if (G.battleFx) this.tickChannel(dt);
     if (G.battleFx && this.h.cls === 'bard') this.tickSongs(dt);
     if (this.buffs.clarity > 0 && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.maxMana * 0.05 * dt);
-    if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 30) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); const bs = tip && tip.userData.base ? tip.userData.base.getWorldPosition(new THREE.Vector3()) : null; if (bs) for (let i = 0; i < 2; i++) V.burst('fire', bs.clone().lerp(q, Math.random()), 1, { speed: 0.4, size: 0.2, size1: 0.04, life: 0.3, vy: 1.2 }); } /* (the whole blade burns, guard to point) */
+    bladeFire(this, dt);
+    if (this.buffs.flame > 0 && this.W && this.W.kind !== 'staff' && Math.random() < dt * 10) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; const q = tip && tip.userData.tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(); V.burst('fire', q, 1, { speed: 0.6, size: 0.22, size1: 0.05, life: 0.35, vy: 1 }); const bs = tip && tip.userData.base ? tip.userData.base.getWorldPosition(new THREE.Vector3()) : null; if (bs) for (let i = 0; i < 2; i++) V.burst('fire', bs.clone().lerp(q, Math.random()), 1, { speed: 0.4, size: 0.2, size1: 0.04, life: 0.3, vy: 1.2 }); } /* (the whole blade burns, guard to point) */
     // charge heavy holds the swing
     const charging = this.press && this.press.charging;
     let sprint = !ui && this.shiftT != null && G.time - this.shiftT >= 0.22 && iz > 0 && !this.block && !charging && (!this.atk || this.h.cls === 'monk') && !this.ads; // (the monk keeps running while he strikes)
@@ -2129,6 +2152,7 @@ export class Player {
     const hero = !!this.h.arena; // Kingdom Arena plays like a hero shooter: full speed every way, always facing your aim
     let spd = (hero ? 1.2 : 1) * (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5) * Game.arenaSpeedK(this.h) * (hero && this.h.cls === 'monk' ? 1.15 : 1); /* aiming down the barrel: a slow, steady walk; the monk is the fastest fighter */
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
+    else if (iz < 0 && hero) { spd *= sprint ? 0.7 * 5.2 / 8.2 : 0.7; sprint = false; } /* (heroes back up at a walk: no sprinting backwards) */
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
     if (this.ringSlowT > G.time) spd *= 0.156; else if (this.ultSlowT > G.time) spd *= this.ultSlowK; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)

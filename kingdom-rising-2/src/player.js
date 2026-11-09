@@ -352,18 +352,18 @@ class ViewModel {
     } else if (act) {
       const dual = W && W.hands === 'dual';
       switch (n) {
-        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); break;
+        case 'swing1': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wSdA, VP.wSdB, t, 0.34) : seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'swing2': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'lowcut': r = seq(VP.s2a, VP.s2b, t, 0.3); break;
         case 'sweep': r = seq(VP.s1a, VP.s1b, t, 0.3); break;
         case 'kick': break;
-        case 'swing3': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker') ? seq(VP.wOhA, VP.wOhB, t, 0.4) : seq(VP.s3a, VP.s3b, t, 0.42); if (dual) l = seq(mirror(VP.s3a), mirror(VP.s3b), t, 0.42, VP.restL); break;
+        case 'swing3': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wOhA, VP.wOhB, t, 0.4) : seq(VP.s3a, VP.s3b, t, 0.42); if (dual) l = seq(mirror(VP.s3a), mirror(VP.s3b), t, 0.42, VP.restL); break;
         case 'off1': l = seq(mirror(VP.s1a), mirror(VP.s1b), t, 0.3, VP.restL); break;
         case 'off2': l = seq(mirror(VP.s2a), mirror(VP.s2b), t, 0.3, VP.restL); break;
         case 'charge': if (G.battleFx && SWORDS[this.wt]) { const k = Math.min(1, t); r = plerp(VP.rest, VP.ohA, ease(k)); if (this.wt === 'greatsword') l = null; break; }
         case 'charge': { const k = Math.min(1, t); r = plerp(this.wt === 'spear' ? VP.spRest : VP.rest, this.wt === 'spear' ? VP.th3A : VP.ha, ease(k)); r = r.map((v, i) => v + (i < 3 ? Math.sin(performance.now() * 0.05) * 0.004 * st.charge : 0)); if (dual) l = plerp(VP.restL, mirror(VP.ha), ease(k)); break; }
         case 'smash': r = seq(VP.ha, VP.hb, t, 0.5); if (dual || (W && W.hands === 'two')) l = seq(mirror(VP.ha), mirror(VP.hb), t, 0.5, VP.restL); break;
-        case 'stabR': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker') ? seq(VP.wStA, VP.wStB, t, 0.36) : seq(VP.thA, VP.thB, t, 0.3, VP.rest); break;
+        case 'stabR': r = this.hero && (this.cls === 'warrior' || this.cls === 'berserker' || this.cls === 'paladin' || this.cls === 'darkknight') ? seq(VP.wStA, VP.wStB, t, 0.36) : seq(VP.thA, VP.thB, t, 0.3, VP.rest); break;
         case 'stabL': l = seq(mirror(VP.thA), mirror(VP.thB), t, 0.3, VP.restL); break;
         case 'spin': { const k = ease(Math.min(1, t / 0.8)); const a2 = lerp(-2.6, 2.6, k); r = [lerp(0.6, -0.6, k), -0.15, -0.42, -1.4, a2 * 0.55, 0.3]; l = [lerp(0.6, -0.6, (k + 0.15) % 1), -0.22, -0.42, -1.4, a2 * 0.55, -0.3]; break; }
         case 'heavy': if (G.battleFx && SWORDS[this.wt]) { r = seq(VP.ohA, VP.ohB, t, 0.12, VP.ohA); break; }
@@ -682,7 +682,7 @@ export class Player {
     const i = this.combo % L; this.combo = i + 1;
     let st = C.chain[i];
     if (G.newFx) { this.swingN = (this.swingN || 0) + 1; const pick = C.chain[this.swingN % Math.min(2, C.chain.length)]; st = Object.assign({}, C.chain[0], { a: pick.a, m: 1.0 }); } // single swings, alternating left and right
-    if (G.newFx && this.h.arena && this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') { if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
+    if (G.newFx && this.h.arena && ((this.h.cls === 'berserker' && this.weapon.wt === 'greataxe') || ((this.h.cls === 'paladin' || this.h.cls === 'darkknight') && W.hands === 'two' && W.kind === 'melee'))) { /* (the paladin's hammer and the shadow knight's greatsword: the same heavy three-blow combo) */ if (this.comboT <= 0) this.warN = 0; const B3 = [['swing3', 1.35], ['swing1', 1.1], ['stabR', 0.85]], q = B3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: q[1], d: q[1] }); } /* (the berserker's combo: an overhead chop, a side sweep, then a thrust with the axe head; the slower the blow, the harder it lands) */
     if (G.newFx && this.h.arena && this.h.cls === 'warrior' && W.hands === 'shield') { if (this.comboT <= 0) this.warN = 0; const W3 = [['swing3', 1.15], ['swing1', 1.0], ['stabR', 0.9]], q = W3[(this.warN = (this.warN || 0)) % 3]; this.warN++; st = Object.assign({}, C.chain[0], { a: q[0], m: 1.0, d: q[1] }); } /* (the warrior's combo: an overhand slash, a side slash, then a stab, round and round) */
     const dur = 0.52 * (st.d || 1) / (W.speed * this.speedMul());
     this.startAtk(st.a, dur, { combo: i, step: st, last: G.newFx ? false : i === L - 1 });

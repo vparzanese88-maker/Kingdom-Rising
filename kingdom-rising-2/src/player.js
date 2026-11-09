@@ -128,7 +128,7 @@ function fireMesh() { if (FIRE) return FIRE; const L = new THREE.TextureLoader()
     fragmentShader: `uniform sampler2D tCol, tMask; uniform float uT, uA; varying vec2 vUv;
       void main() { vec2 u = vUv; float m1 = texture2D(tMask, vec2(u.x * 0.55 + 0.1, u.y * 0.9 - uT * 0.55)).r, m2 = texture2D(tMask, vec2(u.x * 0.4 + 0.5 + sin(uT * 1.3) * 0.05, u.y * 0.6 - uT * 0.9)).r;
         float m = m1 * 0.65 + m2 * 0.55; float x = abs(u.x - 0.5) * 2.0; float core = 1.0 - smoothstep(0.0, 1.0, x); float ends = smoothstep(0.0, 0.08, u.y) * (1.0 - smoothstep(0.78, 1.0, u.y));
-        float a = smoothstep(0.28, 0.85, m * core * (1.15 - u.y * 0.35)) * ends * uA; vec3 c = texture2D(tCol, vec2(u.x * 0.5 + 0.25, u.y * 0.7 - uT * 0.7)).rgb;
+        float a = smoothstep(0.2, 0.7, m * (0.35 + core * 0.9) * (1.2 - u.y * 0.35)) * ends * uA; vec3 c = texture2D(tCol, vec2(u.x * 0.5 + 0.25, u.y * 0.7 - uT * 0.7)).rgb;
         c *= vec3(1.0, 0.5, 0.28); c = mix(c, vec3(1.0, 0.55, 0.2), smoothstep(0.8, 1.0, core) * 0.3); gl_FragColor = vec4(c * a * 1.6, a); /* (deep red-orange fire, only a hot orange core) */ }` });
   FIRE = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), m); FIRE.frustumCulled = false; FIRE.renderOrder = 5; FIRE.visible = false; return FIRE; }
 setTimeout(() => { try { fireMesh(); } catch (e) { /* no fire textures */ } }, 3000); /* (the flame pictures load early, so the first Flame Blade already burns) */
@@ -145,7 +145,7 @@ function bladeFire(p, dt) { const w = p.ch && p.ch.weapons && p.ch.weapons.main,
   if (!on) { if (FIRE) FIRE.visible = false; return; } const F = fireMesh(); if (F.parent !== G.scene) G.scene.add(F);
   w.userData.base.getWorldPosition(_fa); w.userData.tip.getWorldPosition(_fb); _fy.subVectors(_fb, _fa); const len = _fy.length(); if (len < 0.05) { F.visible = false; return; } _fy.divideScalar(len);
   _fz.subVectors(G.camera.position, _fa); _fx.crossVectors(_fy, _fz); if (_fx.lengthSq() < 1e-6) _fx.set(1, 0, 0); _fx.normalize(); _fz.crossVectors(_fx, _fy).normalize(); /* (turned about the blade to face you) */
-  _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.44, len * 1.4, 1); /* (from just below the guard to well past the point) */
+  _fm.makeBasis(_fx, _fy, _fz); F.quaternion.setFromRotationMatrix(_fm); F.position.copy(_fa).addScaledVector(_fy, -len * 0.05); F.scale.set(0.72, len * 1.4, 1); /* (wide enough to show round the blade, which hides the middle of the strip) */ /* (from just below the guard to well past the point) */
   const u = F.material.uniforms; u.uT.value += dt; u.uA.value = Math.min(1, p.buffs.flame * 2); F.visible = true; }
 // a proper arrow for a hero archer, laid along -z from the nock at the origin: a slim dark shaft, three fletchings, a nock and a steel broadhead with a little flame on it
 function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), steel = new THREE.MeshStandardMaterial({ color: '#b8bcc0', roughness: 0.3, metalness: 0.9 }), feath = new THREE.MeshStandardMaterial({ color: '#d8d0c0', roughness: 0.9, side: THREE.DoubleSide }), red = new THREE.MeshStandardMaterial({ color: '#8a1a14', roughness: 0.9, side: THREE.DoubleSide });

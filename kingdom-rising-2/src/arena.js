@@ -1147,7 +1147,7 @@ function lmbAttack(p) {
   const W = p.W, wt = p.weapon && p.weapon.wt, cls = p.h.cls;
   if (!W) return ['Punch', 'Throw a punch at whoever is in front of you.', 'fist', 'steel'];
   if (cls === 'warrior' && W.hands === 'shield' && wt === 'swordshield') return ['Sword Combo', 'Two sword swings, one flowing into the other. Sword blows crit 10% more often.', 'sword', 'steel']; // (the owner's Double Combo Attack)
-  if (cls === 'berserker' && wt === 'greataxe') return ['Great Axe Combo', 'Three blows: a wide sweep, a quick backswing, then a slow, heavy blow that hits hardest. Every blow leaves enemies bleeding.', 'axe', 'red'];
+  if (cls === 'berserker' && wt === 'greataxe') return ['Great Axe Combo', 'Three blows: a wide sweep, a quick backswing, then a slow, heavy blow that hits hardest.', 'axe', 'red'];
   if ((cls === 'paladin' || cls === 'darkknight') && W.kind === 'melee' && W.hands === 'two') return cls === 'paladin' ? ['Hammer Combo', 'Three crushing blows: a two-handed overhead smash, a wide sweep, then a heavy overhead finisher. The slower the blow, the harder it lands.', 'hammer', 'gold'] : ['Greatsword Combo', 'Three slashing blows: a backhand cut, a wide sweep across, then a thrust. The slower the blow, the harder it lands.', 'sword', 'shadow']; // (the paladin's hammer is carried as a greatsword; each knight has his own combo)
   if (cls === 'necromancer' && W.kind === 'staff') return ['Scythe Reap', `A wide sweep of your scythe (about ${Math.round(REAP.half * 360 / Math.PI)} degrees) that cuts every enemy in front of you.`, 'whirl', 'nature'];
   if (cls === 'bombardier' && W.kind === 'staff') return ['Bomb Toss', `Lob a bomb: it bounces two or three times, then goes off (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Right click sets it off early.`, 'burst', 'fire'];
@@ -1160,10 +1160,10 @@ function lmbAttack(p) {
   if (wt === 'fists') return cls === 'monk' ? ['Fist Combo', 'Jab, cross, hook and uppercut, then a spinning kick that lands head high, a jab and a two-fisted slam; you keep running while you strike.', 'fist', 'steel'] : ['Jab and Cross', 'Fast punches, left and right.', 'fist', 'steel'];
   if (wt === 'dagger' || wt === 'daggers') return cls === 'rogue' ? ['Dagger Combo', 'Two quick stabs, then a leaping spin that slashes both blades down on everyone around you.', 'swords', 'shadow'] : ['Dagger Stabs', 'Quick, short-reaching stabs.', 'swords', 'shadow'];
   if (wt === 'spear') return ['Spear Thrust', 'Long-reaching thrusts with your spear.', 'spear', 'steel'];
-  if (wt === 'axe' || wt === 'handaxes') return ['Axe Chops', 'Quick chops, left and right, that leave enemies bleeding.', 'axe', 'nature'];
+  if (wt === 'axe' || wt === 'handaxes') return ['Axe Chops', 'Quick chops, left and right.', 'axe', 'nature'];
   if (wt === 'maceshield') return ['Mace Blows', 'A swing and a smash with your mace, in turn.', 'hammer', 'gold'];
   if (wt === 'mace' || wt === 'warhammer') return [wt === 'mace' ? 'Mace Blows' : 'Hammer Blows', 'Heavy, blunt blows at whoever is in front of you.', 'hammer', 'steel'];
-  if (wt === 'greatsword' || wt === 'greataxe') return [wt === 'greatsword' ? 'Greatsword Swings' : 'Great Axe Swings', 'Wide two-handed swings through everyone in front of you' + (wt === 'greataxe' ? ', leaving them bleeding.' : '.'), wt === 'greatsword' ? 'sword' : 'axe', 'red'];
+  if (wt === 'greatsword' || wt === 'greataxe') return [wt === 'greatsword' ? 'Greatsword Swings' : 'Great Axe Swings', 'Wide two-handed swings through everyone in front of you' + '.', wt === 'greatsword' ? 'sword' : 'axe', 'red'];
   if (/sword/.test(wt)) return ['Sword Slashes', 'Quick slashes, one way and then back.' + (wt === 'swordshield' || wt === 'swordmace' ? ' Sword blows crit 10% more often.' : ''), 'sword', 'steel'];
   return [W.name, 'Swing your weapon at whoever is in front of you.', 'sword', 'steel'];
 }

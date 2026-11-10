@@ -73,7 +73,9 @@ export const KIT = {
   buckshot: ['buckshot', 'fire', 'A wide shotgun blast that knocks back everything in front of you.'],
   buttstroke: ['stock', 'steel', 'Smash the enemy in front of you with your gun stock: knocked back and stunned.'],
   ar_ironhide: ['anvil', 'steel', 'Absorb 25% of your health for 5 s. You cannot be knocked back.'],
-  ar_kegs: ['keg', 'red', 'Lob five exploding powder kegs where you aim.', 1],
+  ar_heavyblast: ['blastdash', 'fire', 'A point-blank blast that hits everything in front of you very hard. The kick throws you backwards.'],
+  ar_buttsmack: ['stock', 'steel', 'Smash the enemy in front of you with your gun butt and knock them down.'],
+  ar_kegs: ['keg', 'red', 'Fire both barrels into the ground: you are blasted into the air, and everyone within 9 m loses half their health and is dazed for 1 s.', 1],
   // wizard
   ar_missiles: ['missiles', 'arcane', 'For 6 s your attacks are homing missiles: twice as fast, and they explode.'],
   blink: ['portal', 'arcane', 'Teleport 14 m through a portal.'],

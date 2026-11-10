@@ -400,7 +400,7 @@ export function addOutline(root, col) {
 
 // music notes that rise and swirl round a body (bard songs): they follow whoever they were played on
 const NOTE_T = {}; const NOTES = [];
-function noteTexture(col, ch) { const k = col + ch; if (NOTE_T[k]) return NOTE_T[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+export function noteTexture(col, ch) { const k = col + ch; if (NOTE_T[k]) return NOTE_T[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = 'bold 50px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = col; g.shadowBlur = 14; g.fillStyle = '#ffffff'; g.fillText(ch, 32, 34); g.shadowBlur = 0; g.fillStyle = col; g.fillText(ch, 32, 34);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (NOTE_T[k] = t); }
 export function playNotes(scene, unit, col = '#ffd860', n = 6) { for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTexture(col, ['\u266a', '\u266b', '\u2669'][i % 3]), transparent: true, depthWrite: false })); s.scale.setScalar(0.34 + Math.random() * 0.14); scene.add(s);

@@ -19,7 +19,7 @@ import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
 import { attachFpArms, tickFpArms, heroHeight, hasHeroModel, bowRest } from './heromodels.js';
 import { makeFearSkull } from './combat.js';
-import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
+import { noteTexture, luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
@@ -900,6 +900,7 @@ export class Player {
     const W = this.W, w = this.weapon; if (!W) return;
     let base = weaponDamage(this.h, w) * Game.perkPow(Game.perkLvl(this.h, 'L'));
     const yaw = this.yaw;
+    if (this.h.arena && this.h.cls === 'bard') { this.noteWave(base); return; } // (the owner: the bard strums; a wave of notes flies at the crosshair, the lute never swings)
     if (W.kind === 'melee') {
       if (a.name === 'area') return;
       let st = a.step || { m: 1 }; const wt = this.weapon.wt;
@@ -977,6 +978,15 @@ export class Player {
     const n = (this.mmN = (this.mmN || 0) + 1), lane = MM_LANES[n % MM_LANES.length], side = new THREE.Vector3(-dir.z, 0, dir.x); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize().multiplyScalar(lane[0]);
     const p = spawnProjectile({ wpn: true, pos: from.clone(), vel: dir.clone().multiplyScalar(tgt ? MM_SPEED : MM_SPEED * 1.3), grav: 0, radius: 0.18, dmg: base * MM_DMG, owner: 'player', kind: 'missile', el: 'arcane', life: 3.2, block: true, onHit: (pr, m, pos) => this.missileBurst(pr, m, pos) });
     if (tgt) p.seek = { tgt, S: from.clone(), dir: dir.clone(), side, up: lane[1], u: 0, speed: MM_SPEED }; return p; }
+  // the bard's left click: a strum, and a bright wave of music notes flies straight at the crosshair, hitting the first enemy in its way
+  noteWave(base) { const from = this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0.1, -0.2, -0.9).applyQuaternion(G.camera.quaternion)) : this.pos.clone().setY(this.pos.y + 1.25).addScaledVector(this.fwd(), 0.5), dir = this.aimDir(from);
+    const grp = new THREE.Group(), cols = ['#ffd860', '#ff9ae0', '#9ae0ff'], chs = ['♪', '♫', '♬'];
+    for (let i = 0; i < 3; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTexture(cols[i], chs[i]), transparent: true, depthWrite: false })); sp.scale.setScalar(0.42); sp.userData.ph = i * 2.1; grp.add(sp); }
+    G.scene.add(grp); grp.position.copy(from);
+    const pr = spawnProjectile({ wpn: true, pos: from.clone(), vel: dir.clone().multiplyScalar(42), grav: 0, radius: 0.3, dmg: base * 0.95, owner: 'player', kind: 'dawn', scale: 0.5, life: 1.2, onHit: (p2, m, pos) => { if (m) this.dealDamage(m, p2.dmg, { ranged: true, basic: true, el: 'arcane' }); V.burst('gold', pos, 14, { speed: 3 }); if (m) playNotes(G.scene, m, cols[(Math.random() * 3) | 0], 2); S.cast && S.cast('holy', pos, 0.3); } });
+    let t = 0; G.timers.push({ update: (dt) => { t += dt; const live = pr && pr.pos && t < 1.25 && !(pr.life <= 0) && !pr.hitDone; if (pr && pr.pos) grp.position.copy(pr.pos); grp.children.forEach((sp, i) => { sp.position.set(Math.cos(t * 14 + sp.userData.ph) * 0.28, Math.sin(t * 14 + sp.userData.ph) * 0.28, 0); });
+      if (!live || t > 1.25 || (pr && pr.dead)) { G.scene.remove(grp); grp.children.forEach(sp => sp.material.dispose()); return true; } return false; } });
+    S.swingW && S.swingW('light', 0.4, this.pos); S.cast && S.cast('holy', this.pos, 0.25); }
   // Arcane Ascension: while he hovers every bolt explodes, a violet blast that hurts everyone round where it lands (m, who it hit, already took the bolt)
   ascBlast(pos, dmg, m) { const R = 3.2; for (const o of mobsInRadius(pos, R)) if (o !== m) this.dealDamage(o, dmg * 0.7, { ranged: true, el: 'arcane' });
     // (the owner: menacing, not an orb) a black-violet blast tears outward, jagged violet lightning cracks out from it, dark smoke boils up,

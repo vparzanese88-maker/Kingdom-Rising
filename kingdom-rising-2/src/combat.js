@@ -240,7 +240,7 @@ export function updateProjectiles(dt) {
       if (p.kind === 'meteor' || p.kind === 'rock') { p.mesh.rotation.x += dt * 8; p.mesh.rotation.z += dt * 6; }
     }
     trail(p, dt);
-    if (dead) { if (p.mesh) G.scene.remove(p.mesh); P.splice(i, 1); }
+    if (dead) { p.dead = true; if (p.mesh) G.scene.remove(p.mesh); P.splice(i, 1); }
   }
 }
 function trail(p, dt) {

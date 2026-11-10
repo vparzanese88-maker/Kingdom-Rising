@@ -1187,7 +1187,7 @@ export function lmbAttack(p) {
   const W = p.W, wt = p.weapon && p.weapon.wt, cls = p.h.cls;
   if (!W) return ['Punch', 'Throw a punch at whoever is in front of you.', 'fist', 'steel'];
   if (cls === 'beastmaster') return ['Claw Swipes', 'Rake whoever is in front of you with your bear claws, left and right.', 'claws', 'red']; /* (the owner: his weapons are bear claws, not axes) */
-  if (cls === 'bard') return ['Lute Strum', 'Strum your lute: the notes strike whoever is in front of you.', 'notes', 'gold'];
+  if (cls === 'bard') return ['Lute Strum', 'Strum your lute: a wave of music notes flies at the crosshair and hits the first enemy in its way.', 'notes', 'gold'];
   if (cls === 'rogue') return ['Dagger Combo', 'A quick thrust, then a slash, in turn.', 'dagger', 'shadow'];
   if (cls === 'warrior' && W.hands === 'shield' && wt === 'swordshield') return ['Sword Combo', 'Two sword swings, one flowing into the other.', 'sword', 'steel']; // (the owner's Double Combo Attack)
   if (cls === 'berserker' && wt === 'greataxe') return ['Great Axe Combo', 'Three blows: a wide sweep, a quick backswing, then a slow, heavy blow that hits hardest.', 'axe', 'red'];

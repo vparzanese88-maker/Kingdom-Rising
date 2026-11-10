@@ -16,7 +16,7 @@ import { arenaHero, perksFor, recomputePK, kitOf, rmbOf, ultOf, roleOf, summonDe
 import { classPortrait, RACE } from './portraits.js';
 import { bodyPoseTick } from './abilityfx.js';
 import { playUlt, ULT_ORDER } from './yardults.js';
-import { openKitInfo } from './arena.js';
+import { openKitInfo, abilityCards } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick, arenaLookTick } from './arenalooks.js';
 
@@ -152,6 +152,8 @@ export function openYardPanel(UI, tab) {
     const cg = el('div', 'pgrid yardgrid');
     for (const k of Object.keys(CLASSES)) { if (YF !== 'all' && roleOf(k) !== YF) continue; const b = el('button', 'pcard' + (h.cls === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b>`); b.onclick = () => { S.click(); const nh = yardHero(k, G.save); UI.closeWin(); YD.startGame(nh); }; cg.appendChild(b); }
     c.appendChild(cg);
+    // every key of the class you are: left and right click, F, C, Q and the ultimate (the same cards as the skills window on P)
+    if (G.player && G.player.h) { c.appendChild(el('h3', '', `Your abilities <small>${CLASSES[G.player.h.cls].name}: every key, left and right click included</small>`)); c.appendChild(abilityCards(G.player)); }
     // perks: set any rank you like here, no points needed
     c.appendChild(el('h3', '', `Perks <small>${CLASSES[h.cls].name}: set any rank to try it, no points needed</small>`));
     const pg = el('div', 'perkgrid'); h.arenaPerks = h.arenaPerks || {};

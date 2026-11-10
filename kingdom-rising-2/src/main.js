@@ -1000,7 +1000,7 @@ addEventListener('pointerdown', function early() { A.init(); removeEventListener
 for (const ev of ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'click']) addEventListener(ev, () => { if (!A.running) A.init(); }, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && A.ready && !A.running) A.init(); });
 setTimeout(function soundHint() { if (A.ready && !A.running && G.player) { UI.toast && UI.toast('Click the game to turn the sound on', '🔊', 'gold'); } else if (!A.ready || !A.running) setTimeout(soundHint, 3000); }, 4000);
-window.KR2 = { get intro() { return intro; }, G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
+window.KR2 = { get intro() { return intro; }, G, startGame, quitToTitle, UI, Game, Battle, sim(sec, st = 0.033) { let t = 0; while (t < sec) { G.time += st; world.time.value = G.time; gameUpdate(st); t += st; } } }; /* (st: the frame time; tests can step finer than 30 a second) */
 // online host in a hidden tab: keep the battle running on a timer so nobody's game freezes
 setInterval(() => { if (BATTLE && MP.on && MP.host && document.hidden && mode === 'game' && G.player) { G.time += 0.1; world.time.value = G.time; gameUpdate(0.1); } }, 100);
 setTimeout(() => { if (BATTLE && SETUP.mp) lobby().then(() => { computeLayout(); applyBattleTerrain(); boot(); }); else boot(); }, 60);

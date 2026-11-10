@@ -13,8 +13,9 @@ import { V } from './vfx.js';
 import { S } from './audio.js'; // (no crowd chatter: it sounded bad)
 import { PVP_K, pvpIncoming } from './mp.js';
 import { heightAt } from './terrain.js';
-import { spawnProjectile, groundPoint } from './combat.js';
+import { spawnProjectile, groundPoint, HEADSHOT } from './combat.js';
 import * as Icons from './icons.js';
+import { glyphBadge } from './icons2.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
@@ -1065,15 +1066,77 @@ function revive(f, place) {
 }
 // ---------- changing class during the match (K) ----------
 function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
+// ---------- every key the hero has, as cards: left click, right click, F, C, Q, then the ultimate ----------
+// (the skills window on P, and K in the Training Yard; I or H lists the same left and right click)
+// a key badge: the letter on a key cap, or the mouse with the button that is meant lit up
+const KB_MOUSE = (right) => `<svg viewBox="0 0 24 32" aria-hidden="true"><rect x="2" y="2" width="20" height="28" rx="10" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M12 2v11" stroke="currentColor" stroke-width="2.6"/><path d="${right ? 'M13 3.2a9 9 0 0 1 8 8.8h-8z' : 'M11 3.2a9 9 0 0 0-8 8.8h8z'}" class="lit"/></svg>`;
+export const keyBadge = (k) => k === 'LMB' || k === 'RMB' ? `<kbd class="kbadge mouse" title="${k === 'LMB' ? 'Left click' : 'Right click'}">${KB_MOUSE(k === 'RMB')}${k}</kbd>` : `<kbd class="kbadge">${k}</kbd>`;
+const NO_HOLD = /\s*Hold block for 1 s to raise it\.?/; // (a defensive cast straight from right click, not raised by holding a block)
+// left click: the class's basic attack as player.js light() plays it in the arena and the yard. [name, what it does, badge glyph, badge colour]
+function lmbAttack(p) {
+  const W = p.W, wt = p.weapon && p.weapon.wt, cls = p.h.cls;
+  if (!W) return ['Punch', 'Throw a punch at whoever is in front of you.', 'fist', 'steel'];
+  const heavy3 = 'Three heavy blows: an overhead strike, a side sweep, then a thrust. The slower the blow, the harder it lands.';
+  if (cls === 'warrior' && W.hands === 'shield' && wt === 'swordshield') return ['Sword Combo', 'Two sword swings, one flowing into the other. Sword blows crit 10% more often.', 'sword', 'steel']; // (the owner's Double Combo Attack)
+  if (cls === 'berserker' && wt === 'greataxe') return ['Great Axe Combo', 'Three blows: a wide sweep, a quick backswing, then a slow, heavy blow that hits hardest. Every blow leaves enemies bleeding.', 'axe', 'red'];
+  if ((cls === 'paladin' || cls === 'darkknight') && W.kind === 'melee' && W.hands === 'two') return cls === 'paladin' ? ['Hammer Combo', heavy3, 'hammer', 'gold'] : ['Greatsword Combo', heavy3, 'sword', 'shadow']; // (the paladin's hammer is carried as a greatsword)
+  if (cls === 'necromancer' && W.kind === 'staff') return ['Scythe Reap', `A wide sweep of your scythe (about ${Math.round(REAP.half * 360 / Math.PI)} degrees) that cuts every enemy in front of you.`, 'whirl', 'nature'];
+  if (cls === 'bombardier' && W.kind === 'staff') return ['Bomb Toss', `Lob a bomb: it bounces two or three times, then goes off (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Right click sets it off early.`, 'burst', 'fire'];
+  if (cls === 'priest' && W.kind === 'staff') return ['Dawn Bolt', 'A bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you.', 'fireball', 'gold'];
+  if (W.kind === 'bow') return ['Arrow', `Draw and loose an arrow, about one a second.${cls === 'ranger' ? ` Headshots hit ${HEADSHOT.rangerQuick}x and heal you ${Math.round(HEADSHOT.rangerHeal * 100)}% of your health.` : ''}`, 'arrow', 'nature'];
+  if (wt === 'blunderbuss') return ['Scattershot', 'A blast of eight pellets in a cone: deadly up close, spent by 25 m.', 'volley', 'fire'];
+  if (W.kind === 'gun') return ['Musket Shot', `A heavy ball straight where you aim, about one shot a second.${cls === 'musketeer' ? ` Headshots hit ${HEADSHOT.musket}x (${HEADSHOT.musketAds}x aimed down the barrel).` : ''}`, 'burst', 'steel'];
+  if (W.kind === 'staff') { const hs = cls === 'wizard' || (cls === 'elementalist' && W.element !== 'fire') ? ` Headshots hit ${HEADSHOT.caster}x.` : ''; // (combat.js headK)
+    return W.element === 'fire' ? ['Fire Bolt', 'A ball of fire that bursts where it lands, burning the enemy it hits and scorching those around it.' + hs, 'fireball', 'fire'] : W.element === 'frost' ? ['Frost Bolt', 'An icy bolt that slows the enemy it hits for 3 s.' + hs, 'snow', 'frost'] : ['Arcane Bolt', 'A fast bolt of arcane force, straight where you aim.' + hs, 'fireball', 'arcane']; }
+  if (wt === 'fists') return ['Jab and Cross', 'Fast punches, left and right' + (cls === 'monk' ? ', and you keep running while you strike.' : '.'), 'fist', 'steel'];
+  if (wt === 'dagger' || wt === 'daggers') return ['Dagger Stabs', 'Quick, short-reaching stabs.', 'swords', 'shadow'];
+  if (wt === 'spear') return ['Spear Thrust', 'Long-reaching thrusts with your spear.', 'spear', 'steel'];
+  if (wt === 'axe' || wt === 'handaxes') return ['Axe Chops', 'Quick chops, left and right, that leave enemies bleeding.', 'axe', 'nature'];
+  if (wt === 'maceshield') return ['Mace Blows', 'A swing and a smash with your mace, in turn.', 'hammer', 'gold'];
+  if (wt === 'mace' || wt === 'warhammer') return [wt === 'mace' ? 'Mace Blows' : 'Hammer Blows', 'Heavy, blunt blows at whoever is in front of you.', 'hammer', 'steel'];
+  if (wt === 'greatsword' || wt === 'greataxe') return [wt === 'greatsword' ? 'Greatsword Swings' : 'Great Axe Swings', 'Wide two-handed swings through everyone in front of you' + (wt === 'greataxe' ? ', leaving them bleeding.' : '.'), wt === 'greatsword' ? 'sword' : 'axe', 'red'];
+  if (/sword/.test(wt)) return ['Sword Slashes', 'Quick slashes, one way and then back.' + (wt === 'swordshield' || wt === 'swordmace' ? ' Sword blows crit 10% more often.' : ''), 'sword', 'steel'];
+  return [W.name, 'Swing your weapon at whoever is in front of you.', 'sword', 'steel'];
+}
+// right click, by the arena's own rules (this file's onMouse, then player.js onMouse): a few abilities fire at once; a class with no
+// right-click ability blocks; a shield blocks (healers' heals and totems still cast); a bow or a gun aims down the sights; the rest cast
+function rmbAction(p) {
+  const h = p.h, W = p.W, r = h.arenaRmb, a = r && r !== 'aim' ? (ABILITIES[h.cls] || []).find(x => x.id === r) : null;
+  const cast = (x) => ({ name: x.name, meta: x.cd ? `${x.cd} s cooldown` : '', desc: (x.desc || '').replace(NO_HOLD, ''), icon: Icons.abilityIcon(x.id) });
+  const block = (d) => ({ name: d ? 'Block · ' + d.name : 'Block', meta: 'hold to block', desc: `Raise your ${W && W.hands === 'shield' ? 'shield' : 'guard'}. Raise it just before a hit for a perfect block.` + (d ? ` Keep it up for 1 s and ${d.name} goes up by itself: ${(d.desc || '').replace(NO_HOLD, '')}` : ''), icon: Icons.abilityIcon(d ? d.id : 'shieldwall') });
+  if (r === undefined) return null;
+  if (a && RMB_CAST.has(r)) return cast(a);
+  if (r === null) return W ? block(null) : null;
+  if (W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r)) return block(SHIELD_DEF.has(r) && a);
+  if (r === 'aim' || (W && (W.kind === 'bow' || W.kind === 'gun'))) return W && W.kind === 'bow'
+    ? { name: 'Aim', meta: 'hold to aim', desc: 'Zoom in and steady your aim: arrows fly faster and flatter and hit 15% harder, but you walk slowly.', icon: glyphBadge('aim', 'nature') }
+    : { name: 'Aim down the barrel', meta: 'hold to aim', desc: 'Zoom in and steady your aim: shots fly true and hit 15% harder, but you walk slowly.', icon: glyphBadge('aim', 'steel') };
+  return a ? cast(a) : null;
+}
+// left and right click as cards: { k, name, meta, desc, icon }
+export function mouseKeys(p) {
+  const L = lmbAttack(p), W = p.W, R = rmbAction(p);
+  const lmb = { k: 'LMB', name: L[0], desc: L[1], icon: glyphBadge(L[2], L[3]), meta: !W ? 'hold to keep punching' : W.kind === 'bow' || W.kind === 'gun' ? 'hold to keep firing' : W.kind === 'staff' ? (p.h.cls === 'bombardier' ? 'hold to keep throwing' : p.h.cls === 'necromancer' ? 'hold to keep reaping' : 'hold to keep casting') : 'hold to keep attacking' };
+  return R ? [lmb, Object.assign({ k: 'RMB' }, R)] : [lmb];
+}
+// the cards themselves, two to a row: left click and right click, F and C, Q and the ultimate
+export function abilityCards(p) {
+  const h = p.h, cls = h.cls, A2 = ABILITIES[cls] || [], ab = (id) => id && id !== 'aim' ? A2.find(a => a.id === id) : null, kit = h.arenaKit || ARENA_KITS[cls] || [];
+  const u = ab(h.arenaUlt || ARENA_ULT[cls]) || (ULTS[cls] ? { id: ARENA_ULT[cls], name: ULTS[cls].name, desc: ULTS[cls].desc } : null); /* (the hero's own ultimate: the berserker's Bladestorm is not in ULTS) */
+  const rows = [...mouseKeys(p), ...['F', 'C', 'Q'].map((k, i) => { const a = ab(kit[i]); return a && { k, name: a.name, meta: a.cd ? `${a.cd} s cooldown` : '', desc: a.desc || '', icon: Icons.abilityIcon(a.id) }; }), u && { k: 'R', name: u.name, ult: true, desc: u.desc || '', icon: Icons.abilityIcon(u.id) }];
+  const box = elx('div', 'perkgrid abilgrid');
+  for (const r of rows) { if (!r) continue; const card = elx('div', 'perkcard has abilcard' + (r.k === 'LMB' || r.k === 'RMB' ? ' mousecard' : ''));
+    card.innerHTML = `<div class="kiti">${r.icon}</div><div class="kitt">${r.ult ? `<b><span style="font-size:1.45em;letter-spacing:.02em">${r.name}</span> ${keyBadge('R')}<small class="dim" style="font-size:.72em;font-weight:600;letter-spacing:.12em">ULTIMATE</small></b>` : `<b>${r.name} ${keyBadge(r.k)}${r.meta ? `<span class="dim" style="font-weight:400">${r.meta}</span>` : ''}</b>`}<span>${r.desc}</span></div>`; /* (the ultimate's name reads big, the ULTIMATE tag small) */
+    box.appendChild(card); }
+  return box;
+}
 // P: perks. Points come with time; spend them on any of your class's ten perks (three ranks each), whenever you like
 export function openPerks(UI) {
   const p = G.player, h = p.h, cls = h.cls, f = A.me || (G.yardPP || (G.yardPP = { you: true, pp: 99 })); h.arenaPerks = h.arenaPerks || {};
   const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · skills & perks', '', 'big');
   const iconOf = (pk) => { const id = pk.slot && pk.slot !== 'L' ? (pk.slot === 'R' ? h.arenaRmb : (h.arenaKit || [])[['F', 'C', 'Q'].indexOf(pk.slot)]) : null; return id && id !== 'aim' ? Icons.abilityIcon(id) : `<span class="perkglyph${pk.passive ? ' pas' : ''}">${pk.glyph || { powL: '⚔' }[pk.id] || '◆'}</span>`; };
   const draw = () => { const left = perkLeft(f); c.innerHTML = '';
-    { const A2 = ABILITIES[cls] || [], ab = (id) => id && id !== 'aim' ? A2.find(a => a.id === id) : null, kit = h.arenaKit || ARENA_KITS[cls] || [], rows = [['F', ab(kit[0])], ['C', ab(kit[1])], ['Q', ab(kit[2])], ['Right click', ab(h.arenaRmb)], ['R · Ultimate', ab(h.arenaUlt || ARENA_ULT[cls]) || (ULTS[cls] ? { id: ARENA_ULT[cls], name: ULTS[cls].name, desc: ULTS[cls].desc } : null)]] /* (the hero's own ultimate: the berserker's Bladestorm is not in ULTS, so it was missing here) */;
-      const box = elx('div', 'perkgrid'); box.style.marginBottom = '14px'; c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Your abilities</b></div>');
-      for (const [k, a] of rows) { if (!a) continue; const r = elx('div', 'perkcard has'); const ult = /Ultimate/.test(k); r.innerHTML = `<div class="kiti">${Icons.abilityIcon(a.id)}</div><div class="kitt">${ult ? `<b><span style="font-size:1.45em;letter-spacing:.02em">${a.name}</span> <small class="dim" style="font-size:.72em;font-weight:600;letter-spacing:.12em">R · ULTIMATE</small></b>` : `<b>${a.name} <span class="dim" style="font-weight:400">· ${k}${a.cd ? ` · ${a.cd} s cooldown` : ''}</span></b>`}<span>${a.desc || ''}</span></div>`; /* (the ultimate's name reads big, the ULTIMATE tag small) */ box.appendChild(r); } c.appendChild(box); } /* (the skill menu: every key's ability and what it does, then the perk tree below) */
+    { c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Your abilities</b></div>'); const box = abilityCards(p); box.style.marginBottom = '14px'; c.appendChild(box); } /* (the skill menu: every key, left and right click included, and what it does, then the perks below) */
     c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend</div>`); /* (the owner: players don't need the earning rate or the tank numbers) */
     const list = elx('div', 'perkgrid');
     for (const pk of perksFor(cls)) { const lv = h.arenaPerks[pk.id] || 0, r = elx('div', 'perkcard' + (lv ? ' has' : ''));
@@ -1087,17 +1150,11 @@ export function openPerks(UI) {
 // I or H: what every one of your keys does
 export function openKitInfo(UI, into) {
   const p = G.player, h = p.h, W = p.W, cls = h.cls, c = into || UI.openWin('arenakit', CLASSES[cls].name + ' · your abilities', '', 'big');
-  const icon = (id) => { try { return Icons.abilityIcon(id); } catch (e) { return ''; } };
+  const icon = (id) => { if (String(id).startsWith('<')) return id; try { return Icons.abilityIcon(id); } catch (e) { return ''; } }; // (an icon may come ready-made: left and right click)
   const row = (key, name, desc, cd, id) => `<div class="kitrow"><div class="kitk">${key}</div>${id ? `<div class="kiti">${icon(id)}</div>` : '<div class="kiti"></div>'}<div class="kitt"><b>${name}</b>${cd ? `<i>${cd} s cooldown</i>` : ''}<span>${desc}</span></div></div>`;
   const ab = (id) => ABILITIES[cls].find(a => a.id === id);
-  const lmb = W ? (W.kind === 'bow' ? 'Shoot an arrow. Hold to keep shooting.' : W.kind === 'gun' ? 'Fire. Hold to keep firing.' : W.kind === 'staff' ? (cls === 'bombardier' ? `Throw a bomb in an arc: it bounces two or three times off the ground and walls, each hop lower, and goes off ${BOMB.throw.fuse} s after its last bounce (at once if it hits an enemy), hurting everyone within ${BOMB.throw.r} m. Your detonator (right click) sets it off early. Hold to keep throwing.` : cls === 'priest' ? 'Fire a bolt of dawn light. Every bolt that hits an enemy heals the most hurt ally near you. Hold to keep firing.' : cls === 'necromancer' ? `Reap with your scythe: a wide sweep (about ${Math.round(REAP.half * 2 * 180 / Math.PI)} degrees) that cuts every enemy in front of you. Hold to keep reaping.` : 'Cast a bolt from your staff. Hold to keep casting.') : 'Swing your weapon. Hold to keep swinging.') : 'Punch.';
-  const hs = { ranger: ' Headshots: 2x on a full draw, 1.5x on a quick shot (Spectral Arrow 1.75x), and each one heals you 5% of your health.', musketeer: ' Headshots: 2x, or 2.25x aimed down the sights.', wizard: ' Your bolts fly straight where you aim (no homing). Headshots: 1.5x (Temporal Bolt and Disintegrate too).', elementalist: ' Headshots: 1.5x with frost and arcane bolts and Lightning Lash.' }[cls] || '';
-  let html = row('LMB', W ? WEAPON_TYPES[p.weapon.wt].name : 'Fists', lmb + hs, 0, null);
-  const r = h.arenaRmb, shield = W && W.hands === 'shield' && !/^ar_(mend|totem)/.test(r || '');
-  if (shield) { const d = SHIELD_DEF.has(r) && ab(r); html += row('RMB', d ? 'Block · ' + d.name : 'Block', 'Hold to raise your shield. Raise it just before a hit for a perfect block.' + (d ? ` Keep it up for 1 s and ${d.name} goes up by itself: ${d.desc.replace(/\s*Hold block for 1 s to raise it\.?/, '')}` : ''), d ? d.cd : 0, d ? d.id : 'shieldwall'); }
-  else if (r === null && W) html += row('RMB', 'Block', 'Hold to raise your guard. Raise it just before a hit for a perfect block.', 0, 'shieldwall');
-  else if (r === 'aim') html += row('RMB', 'Aim down the barrel', 'Hold to aim: zoom in, steadier and a little harder-hitting shots, but you walk slowly.', 0, null);
-  else if (r && ab(r)) { const a = ab(r); html += row('RMB', a.name, a.desc, a.cd, a.id); }
+  let html = '';
+  for (const m of mouseKeys(p)) html += row(m.k, m.name, m.desc + (m.meta && !/cooldown/.test(m.meta) ? ` <i>(${m.meta})</i>` : ''), m.k === 'RMB' && /cooldown/.test(m.meta) ? parseFloat(m.meta) : 0, m.icon); // (the same left and right click as the skills window)
   ['F', 'C', 'Q'].forEach((k, i) => { const a = ab((h.arenaKit || [])[i]); if (a) html += row(k, a.name, a.desc, a.cd, a.id); });
   { const u = h.arenaUlt && ab(h.arenaUlt); if (u) html += row('R', `<span style="font-size:1.45em;letter-spacing:.02em">${u.name}</span> <small style="font-size:.72em;opacity:.75;font-weight:600">ULTIMATE</small>`, u.desc + ' Charges over time, faster when you deal damage or heal.', 0, u.id); }
   html += row('Shift', 'Sprint / dodge', 'Hold to sprint. Tap (or double-tap a direction) to dodge-roll.', 0, null);

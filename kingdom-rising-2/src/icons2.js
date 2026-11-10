@@ -42,8 +42,10 @@ const GLYPH = {
   spiral: 'M32 32 m-12 0 a12 12 0 1 1 24 0 a8 8 0 1 1 -16 0 a4 4 0 1 1 8 0',
   boot: 'M22 8 L36 8 L36 36 L50 40 C56 42 58 50 52 54 L20 54 L20 46 Z M20 46 L54 46',
   leaf: 'M14 50 C14 26 30 12 52 12 C52 34 38 50 14 50 Z M14 50 L40 24',
+  aim: 'M32 32 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0 M32 6 L32 22 M32 42 L32 58 M6 32 L22 32 M42 32 L58 32', // (a crosshair: right click aims down the sights)
+  spear: 'M8 53 L11 56 L42 25 L39 22 Z M39 22 L45 11 L56 8 L53 19 L42 25 Z', // (a spear: the shaft and its leaf-shaped head)
 };
-const STROKE_ONLY = new Set(['arrow', 'volley', 'snow', 'dash', 'whirl', 'trap', 'spiral']);
+const STROKE_ONLY = new Set(['arrow', 'volley', 'snow', 'dash', 'whirl', 'trap', 'spiral', 'aim']);
 // ability id -> [symbol, theme]
 const MAP = {
   ar_shbash: ['shield', 'steel'], ar_charge: ['shield', 'gold'], ar_flameblade: ['sword', 'fire'], ar_legsweep: ['boot', 'steel'], ar_axethrow: ['axe', 'blood'], ar_battleshout: ['fist', 'fire'], ar_mendbanner: ['banner', 'nature'], ar_banner: ['shield', 'gold'],

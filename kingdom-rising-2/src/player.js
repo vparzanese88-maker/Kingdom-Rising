@@ -923,7 +923,7 @@ export class Player {
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
-        this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt, critBonus: (swordHit ? 0.1 : 0) + (st.crit || 0), bleed: st.bleed && wt !== 'fists' && !this.h.arena ? base * 0.09 : 0, /* (the owner: no weapon bleed in the arena or the new campaign classes) */ stun: st.stun || 0 });
+        this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt: blunt && !this.h.arena, critBonus: this.h.arena ? 0 : (swordHit ? 0.1 : 0) + (st.crit || 0), /* (the owner: none of the old weapon-type rules in the arena or the new campaign classes) */ bleed: st.bleed && wt !== 'fists' && !this.h.arena ? base * 0.09 : 0, /* (the owner: no weapon bleed in the arena or the new campaign classes) */ stun: this.h.arena ? 0 : st.stun || 0 });
         if (W && W.kind === 'melee' && this.weapon && this.weapon.wt !== 'fists') slashImpact(m.pos.clone().setY(m.pos.y + (m.height || 1.8) * 0.6).lerp(this.pos.clone().setY(m.pos.y + 1.1), 0.18), a.name); /* (a bright slash streak where the blow lands) */
         if (S.meleeImpact && S.meleeImpact(wt, this.h.cls, m.pos, big)) { /* big weapons: a deep slam or a heavy cleave */ } else if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
       }

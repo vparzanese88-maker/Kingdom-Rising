@@ -283,7 +283,7 @@ export function arenaHero(slot, name) {
   for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(k === 'w1' && slot.cls === 'wizard' ? 'arcanestaff' : w.wt, top, 3), { uid: w.uid }); if (w) delete w.proc; } /* (the owner: no weapon procs in the arena: a legendary sword's random Flametongue set people burning without Flame Blade) */ /* (the owner: the wizard's main attack is arcane, not fire) */
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);
   h.skills = {}; for (const id of SKILL_IDS) h.skills[id] = 999; // capped by level inside the skill system
-  h.hotbar = null; Game.autoFillHotbar(h);
+  h.hotbar = null; Game.autoFillHotbar(h); Game.plainKit(h);
   return h;
 }
 // the owner: the campaign plays the new classes too: each class's own kit, right click, ultimate, look and perks. A campaign hero starts at
@@ -1146,7 +1146,7 @@ const NO_HOLD = /\s*Hold block for 1 s to raise it\.?/; // (a defensive cast str
 function lmbAttack(p) {
   const W = p.W, wt = p.weapon && p.weapon.wt, cls = p.h.cls;
   if (!W) return ['Punch', 'Throw a punch at whoever is in front of you.', 'fist', 'steel'];
-  if (cls === 'warrior' && W.hands === 'shield' && wt === 'swordshield') return ['Sword Combo', 'Two sword swings, one flowing into the other. Sword blows crit 10% more often.', 'sword', 'steel']; // (the owner's Double Combo Attack)
+  if (cls === 'warrior' && W.hands === 'shield' && wt === 'swordshield') return ['Sword Combo', 'Two sword swings, one flowing into the other.', 'sword', 'steel']; // (the owner's Double Combo Attack)
   if (cls === 'berserker' && wt === 'greataxe') return ['Great Axe Combo', 'Three blows: a wide sweep, a quick backswing, then a slow, heavy blow that hits hardest.', 'axe', 'red'];
   if ((cls === 'paladin' || cls === 'darkknight') && W.kind === 'melee' && W.hands === 'two') return cls === 'paladin' ? ['Hammer Combo', 'Three crushing blows: a two-handed overhead smash, a wide sweep, then a heavy overhead finisher. The slower the blow, the harder it lands.', 'hammer', 'gold'] : ['Greatsword Combo', 'Three slashing blows: a backhand cut, a wide sweep across, then a thrust. The slower the blow, the harder it lands.', 'sword', 'shadow']; // (the paladin's hammer is carried as a greatsword; each knight has his own combo)
   if (cls === 'necromancer' && W.kind === 'staff') return ['Scythe Reap', `A wide sweep of your scythe (about ${Math.round(REAP.half * 360 / Math.PI)} degrees) that cuts every enemy in front of you.`, 'whirl', 'nature'];

@@ -50,13 +50,17 @@ export function newHero(o) {
 // steel, mithril, starmetal), so the campaign's fights keep their balance without loot; top: the arena's full-strength kit
 // the level a campaign hero needs for an ability: F at 1, C at 3, Q at 5, the ultimate at 7 (everything else, and every arena hero: 1)
 export function kitNeed(h, id) { if (!h || !h.camp) return 1; if (id === h.arenaUlt) return 7; const k = (h.arenaKit || []).indexOf(id); return k >= 0 ? [1, 3, 5][k] : 1; }
+// the owner: the new classes carry their own fixed weapons and outfit: no metal tiers or rarities in the names (no 'Starmetal Musket'),
+// just what it is, and no random item procs
+export function plainKit(h) { const e = h.equip || {}; for (const k in e) { const it = e[k]; if (!it || typeof it !== 'object') continue; delete it.proc; it.rarity = 0;
+    if (it.wt && WEAPON_TYPES[it.wt]) it.name = WEAPON_TYPES[it.wt].name; else if (it.slot) it.name = it.slot.charAt(0).toUpperCase() + it.slot.slice(1); } return h; }
 export function fixedKit(h, top) {
   const NC = NEW_CLASSES[h.cls], pair = NC && STARTING_PAIR[NC.start], START = { shaman: 'spear', musketeer: 'musket', berserker: 'greataxe', warrior: 'sword', ranger: 'bow', wizard: 'arcanestaff' };
   const w1 = h.cls === 'wizard' ? 'arcanestaff' : NC ? (pair ? pair[0] : NC.start) : START[h.cls] || 'sword', w2 = NC ? (pair ? pair[1] : null) : h.cls === 'warrior' ? 'shield' : null;
   const dl = designLv(h.level || 1); let tier = 0; for (let i = 0; i < TIERS.length; i++) if (TIERS[i].lvl <= dl) tier = i; if (top) tier = TIERS.length - 1; const rar = top ? 3 : 1;
   const e = h.equip || (h.equip = emptyEquip()); if (h.kitTier === tier && h.kitTop === !!top && e.w1 && e.w1.wt === w1) return false;
   const keep = (k, it) => { if (e[k] && e[k].uid) it.uid = e[k].uid; delete it.proc; return it; };
-  e.w1 = keep('w1', makeWeapon(w1, tier, rar)); e.w2 = w2 ? keep('w2', makeWeapon(w2, tier, rar)) : null; e.w3 = e.w4 = null; if ('ranged' in e) e.ranged = null; h.active = 'w1'; h.setNo = 1;
+  e.w1 = keep('w1', makeWeapon(w1, tier, rar)); e.w2 = w2 ? keep('w2', makeWeapon(w2, tier, rar)) : null; e.w3 = e.w4 = null; if ('ranged' in e) e.ranged = null; h.active = 'w1'; h.setNo = 1; plainKit(h);
   for (const s of ARMOR_SLOT_LIST) e[s] = keep(s, makeArmor(CLASSES[h.cls].armor || 'leather', s, tier, rar));
   if (h.inv) h.inv = h.inv.map(it => it && (it.kind === 'weapon' || it.kind === 'armor' || it.kind === 'acc') ? null : it); /* (older heroes' bags: their spare arms and armour go) */
   h.wseen = [w1]; h.kitTier = tier; h.kitTop = !!top; return true; }

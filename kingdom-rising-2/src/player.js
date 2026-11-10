@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { attachFpArms, tickFpArms, heroHeight, hasHeroModel } from './heromodels.js';
+import { attachFpArms, tickFpArms, heroHeight, hasHeroModel, bowRest } from './heromodels.js';
 import { makeFearSkull } from './combat.js';
 import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
@@ -25,6 +25,7 @@ import * as Skills from './skills.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe, poisonBubbles } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
+const BOW_CYCLE = 0.95, BOW_REL = 0.55; // the arena bow: one shot's length before haste (s), and how far into it the arrow is loosed
 // Kingdom Battles: a glowing slash crescent that covers the swing's real hit area
 const ARC_GEO = new Map();
 const ARC_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
@@ -729,7 +730,7 @@ export class Player {
     if (this.atk) { if (this.atk.t > 0.35 && !this.atk.noQueue) this.queued = 'light'; return; }
     if (G.newFx && (W.kind === 'gun' || W.kind === 'bow' || W.kind === 'staff') && Math.random() < 0.6) Skills.practise(this.h, Skills.skillOf(this.weapon.wt));
     if (W.kind === 'gun') return this.startAtk('shoot', (this.buffs.reload > 0 ? 0.45 : 0.9) / this.speedMul(), { charge: 0 });
-    if (W.kind === 'bow') return this.startAtk('shoot', 0.5 / (1 + this.wp('combo') * 0.12) / (1 + this.pk('quickdraw') * 0.3) / this.speedMul(), { charge: 0 });
+    if (W.kind === 'bow') { const q = (1 + this.wp('combo') * 0.12) * (1 + this.pk('quickdraw') * 0.3) * this.speedMul(); if (this.h.arena) return this.startAtk('shoot', BOW_CYCLE / q, { charge: 0, hitK: BOW_REL, dmgK: BOW_CYCLE / 0.5 }); return this.startAtk('shoot', 0.5 / q, { charge: 0 }); } /* (the arena and yard: a deliberate archer, about one arrow a second held (it was nearly two), each arrow hitting as much harder as it is slower, so damage per second stays level; the loose comes after a real draw) */
     if (W.kind === 'staff' && this.h.arena && this.h.cls === 'necromancer') { this.startAtk('reap', ((G.hooks.reap && G.hooks.reap.dur) || 0.66) / this.speedMul(), { charge: 0 }); this.atk.swingSnd = { reap: true }; return; } // (the necromancer reaps with his scythe: a.name 'reap' plays the first-person reap)
     if (W.kind === 'staff') { // campaign: a magical staff runs on mana, bolts included (a stronger staff costs more)
       if (G.newFx && !this.h.arena) { const cost = Math.round(3 + (this.weapon.dmg || 9) * 0.12); if (this.mana < cost) { S.error(); V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Out of mana', 'miss'); return; } this.mana -= cost; this.manaUseT = 1; }
@@ -852,11 +853,11 @@ export class Player {
       if (st.line) { V.burst('spark', fp, 14, { speed: 5 }); }
       if (big && !st.shock && W.hands === 'two') V.burst('dust', fp, 12, { speed: 3, size: 0.45 });
     } else if (W.kind === 'bow') {
-      const from = (this.adsK || 0) > 0.6 && this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, -0.02, -0.75).applyQuaternion(G.camera.quaternion)) : this.handPos(true), dir = this.aimDir(from);
+      const from = (this.adsK || 0) > 0.6 && this.camDist < 0.6 ? G.camera.position.clone().add(new THREE.Vector3(0, -0.02, -0.75).applyQuaternion(G.camera.quaternion)) : (this.camDist >= 0.6 && bowRest(this.ch)) || this.handPos(true), dir = this.aimDir(from); /* (third person: the arrow leaves the hero's own bow, where it lay on the rest, and flies to the crosshair; it used to start inside his chest) */
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
       const sight = (this.adsK || 0) > 0.7, speed = (G.battleFx ? 34 + charge * 36 : 38 + charge * 40) + (sight ? 10 : 0); /* sighted: faster, flatter, a little harder */
-      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.45 + charge * 0.9 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.75 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.45 + charge * 0.9 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.75 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.dmgK || 1) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
       S.bowShot(this.pos);
     } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff' && a.name === 'reap') { this.reap(a, base);
@@ -2318,7 +2319,7 @@ export class Player {
     const rollDir = roll != null && this.dodge.dir ? Math.atan2(this.dodge.dir.x, this.dodge.dir.z) - this.bodyYaw : 0, rollKind = roll != null ? this.dodge.kind : null; // roll the way you dodge
     const aimStaff = action !== 'castUp' && action !== 'castRel' && this.W && this.W.kind === 'staff' && ((this.channel && this.channel.on) || this.summonCast || (this.abCast && this.abCast.spell) || (this.atk && (this.atk.name === 'cast' || this.atk.name === 'castBig')));
     arenaLookTick(ch, dt);
-    animateHumanoid(ch, dt, { chain, charging: !!(this.dodge && this.dodge.charge), turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
+    animateHumanoid(ch, dt, { chain, bowRel: a && a.name === 'shoot' && a.hitK != null ? a.hitK : null, /* (the hero model's bow: when this shot's arrow is loosed) */ charging: !!(this.dodge && this.dodge.charge), turn: this.turnR || 0, rollDir, rollKind, aimStaff, aimPitch: this.pitch, speed: hs, vy: this.vel.y, land: this.landT || 0, airborne: !this.onGround && !this.swim, swim: this.swim, action, actionT, mirror, block: this.block, armed: !this.sheathed, ready: !!(this.atk || this.block || this.press || G.inCombat > 0 || G.time - (this.hitT || -99) < 5 || G.time - (this.hurtT0 || -99) < 5 || (this.abCast) || (this.channel && this.channel.on)), dead: this.dead, deadT: this.deadT, roll, spin, lookPitch: -this.pitch * 0.6, back: this.moveDir && this.moveDir.dot(this.fwd()) < -0.3 });
     { const D = this.dodge; ch.body.rotation.z = D && D.kind === 'step' ? -Math.sin(Math.min(1, D.t) * Math.PI) * 0.3 * (Math.sign(D.dir.dot(this.right())) || 1) : 0; } // a side step leans into it
     bodyPoseTick(this, ch, dt); // (kicks)
     if (this.ultPoseT > 0) { this.ultPoseT -= dt; const k = Math.min(1, (1.5 - this.ultPoseT) * 5, this.ultPoseT * 4); /* (the ultimate cast: arms flung up and wide, head back, a lift off the ground) */

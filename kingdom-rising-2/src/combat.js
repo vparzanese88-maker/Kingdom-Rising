@@ -84,6 +84,16 @@ export function makeFearSkull(hd = false) { let m; const SPH = hd ? HDSPH : geo.
       const mo = new THREE.Mesh(SPH, dark); mo.scale.set(0.11, 0.06, 0.08); mo.position.set(0, -0.17, 0.17); m.add(mo); m.userData.jaw = jaw;
       for (let i = 0; i < 4; i++) { const ck2 = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.006), dark); ck2.position.set(-0.05 + i * 0.05, 0.2 - i * 0.02, 0.1 + i * 0.03); ck2.rotation.set(0.6, 0, 0.4 - i * 0.3); m.add(ck2); } // (cracks)
   return m; }
+// the ranger's arrow in flight, made to read from the camera behind him: a longer, thicker shaft, bright fletching, his flaming tip, and a
+// pale streak trailing it (grown out from the bow as it flies, so it never pokes back through him; see updateProjectiles)
+const ARW = { k: 1.3, streak: 2.6, r: 0.022 }, arwM = {}, arwG = {};
+function heroArrowFx(m) {
+  const M = arwM.f || (arwM.f = { vane: new THREE.MeshBasicMaterial({ color: '#f2ede2', side: THREE.DoubleSide }), vane2: new THREE.MeshBasicMaterial({ color: '#c8321e', side: THREE.DoubleSide }), fl: new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), st: new THREE.MeshBasicMaterial({ color: '#ffe2a8', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }) });
+  const Gm = arwG.f || (arwG.f = { vane: (() => { const g = new THREE.PlaneGeometry(0.035, 0.14); g.rotateX(Math.PI / 2); g.translate(0.022, 0, 0); return g; })(), fl: new THREE.SphereGeometry(0.04, 8, 6), st: (() => { const g = new THREE.CylinderGeometry(0, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); return g; })() }); /* (the streak: a long cone, wide at the arrow (z 0), to a point behind it (z 1)) */
+  for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(Gm.vane, i ? M.vane : M.vane2); v.rotation.z = i * Math.PI * 2 / 3; v.position.z = 0.32; m.add(v); } /* (one red cock feather, two white) */
+  const fl = new THREE.Mesh(Gm.fl, M.fl); fl.position.z = -0.43; fl.scale.set(1, 1, 2.4); m.add(fl); /* (the flaming tip) */
+  const sk = new THREE.Mesh(Gm.st, M.st); sk.position.z = 0.36; sk.scale.set(ARW.r / ARW.k, ARW.r / ARW.k, 0.01); sk.frustumCulled = false; m.add(sk); m.userData.streak = sk;
+  m.scale.setScalar(ARW.k); }
 export function spawnProjectile(o) {
   // o: {pos, vel, grav, radius, dmg, owner, kind, life, pierce, aoe, el, onHit, scale}
   const p = Object.assign({ grav: 0, radius: 0.3, life: 4, pierce: false, hitSet: new Set(), t: 0 }, o);
@@ -97,7 +107,7 @@ export function spawnProjectile(o) {
     case 'meteor': { m = new THREE.Group(); const r = new THREE.Mesh(geo.rock, new THREE.MeshStandardMaterial({ color: '#3a2218', emissive: '#ff4010', emissiveIntensity: 0.9, roughness: 0.9, flatShading: true })); r.scale.setScalar(1.1); m.add(r); const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ff7020', transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(1.9); m.add(h); break; }
     case 'frost': m = new THREE.Mesh(geo.shard, new THREE.MeshStandardMaterial({ color: '#c8f4ff', emissive: '#60c8ff', emissiveIntensity: 1.2, transparent: true, opacity: 0.9 })); m.scale.setScalar(p.scale || 1); break;
     case 'arcane': case 'orb': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#f4d8ff'))); m.children[0].scale.setScalar(0.15 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#a040ff', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.32 * (p.scale || 1)); m.add(h); } break;
-    case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'arrow' && p.owner === 'player' && G.player && G.player.hero && G.player.h && G.player.h.cls === 'ranger') { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); fl.position.z = -0.42; fl.scale.set(1, 1, 2.2); m.add(fl); } /* (the ranger's arrows keep their flaming tips in flight) */ if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
+    case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'arrow' && p.owner === 'player' && G.player && G.player.h && G.player.h.arena && G.player.h.cls === 'ranger') heroArrowFx(m); /* (the ranger's arrows: made to be seen in flight) */ if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
     case 'poison': { m = new THREE.Group(); const sc = p.scale || 1; // a glob of bubbling poison: a glowing heart, a slime skin and bubbles boiling all over it
@@ -207,6 +217,7 @@ export function updateProjectiles(dt) {
     if (p.mesh) {
       p.mesh.position.copy(p.pos);
       if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave' || p.kind === 'javelin') p.mesh.lookAt(p.pos.clone().sub(p.vel));
+      if (p.mesh.userData.streak) p.mesh.userData.streak.scale.z = Math.max(0.01, Math.min(ARW.streak, p.t * p.vel.length() - 0.5)) / ARW.k; /* (the streak only as long as the way it has come, so it starts at the bow) */
       if (p.kind === 'axe' || p.kind === 'knife') { p.mesh.rotation.x += dt * 20; }
       if (p.kind === 'bomb') { p.mesh.rotation.x += dt * 9; if (Math.random() < dt * 30) V.emit('spark', p.mesh.localToWorld(new THREE.Vector3(0, 0.3, 0)), { speed: 1.5, size: 0.12 }); }
       if (p.kind === 'dawn' && Math.random() < dt * 40) V.emit('gold', p.pos, { speed: 0.4, size: 0.18, life: 0.4 });

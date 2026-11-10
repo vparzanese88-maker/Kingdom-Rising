@@ -7,7 +7,7 @@ export const KIT = {
   ar_mendbanner: ['mendbanner', 'nature', 'Plant a banner that heals you and nearby allies for 8 s.'],
   ar_charge: ['shieldcharge', 'gold', 'Charge behind your shield, knocking down and stunning everyone in your path.'],
   ar_shbash: ['shieldbash', 'steel', 'Bash the enemy in front of you: knocked back and stunned for 1.2 s.'],
-  ar_banner: ['shieldbanner', 'gold', 'Plant a giant war banner. Allies within 10 m take 40% less damage for 8 s.', 1],
+  ar_banner: ['shieldbanner', 'gold', 'Plant a giant war banner. You and allies within 10 m take 75% less damage for 8 s.', 1],
   // berserker
   earthsplitter: ['leap', 'red', 'Leap up to 18 m and smash down, knocking down and stunning everyone nearby.'],
   ar_legsweep: ['claws', 'red', 'A brutal slash that hits everyone in front of you hard and slows them for 3 s.'],
@@ -40,7 +40,8 @@ export const KIT = {
   // bard
   ar_mendsong: ['notes', 'nature', 'Heal yourself 30% over 6 s and allies within 10 m 25% at once.'],
   ar_anthem: ['boot', 'gold', 'You and every ally within 15 m move 40% faster for 6 s.'],
-  ar_ballad: ['shieldglow', 'frost', 'You and every ally within 15 m take 40% less damage for 6 s.'],
+  ar_ballad: ['shieldglow', 'frost', 'Heal yourself and every ally within 15 m by 20%, and all take 40% less damage for 6 s.'],
+  ar_warsong: ['notewave', 'red', 'You and every ally within 15 m deal 25% more damage and attack 30% faster for 6 s.'],
   crescendo: ['notewave', 'arcane', 'A blast of sound that knocks back everyone within 7 m.'],
   mesmerize2: ['spiraleye', 'arcane', 'Put the enemy you aim at to sleep for up to 3 s. Damage wakes them.'],
   ar_mendB: ['notes', 'gold', 'Heal the ally you aim at (or yourself). Allies near them heal a little too.'],

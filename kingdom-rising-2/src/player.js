@@ -923,6 +923,7 @@ export class Player {
       if (big && this.pk('heavyhit')) st = Object.assign({}, st, { m: st.m * 1.25 });
       for (const m of targets) {
         const kn = m.pos.clone().sub(this.pos).setY(0).normalize().multiplyScalar(st.knock || (big ? 6 : 1.5));
+        if (this.h.arena && this.h.cls === 'bard') { playNotes(G.scene, m, ['#ffd860', '#ff9ae0', '#9ae0ff'][(Math.random() * 3) | 0], 3); S.cast && S.cast('holy', m.pos, 0.35); } /* (a strum: the notes strike, not the lute) */
         this.dealDamage(m, base * st.m, { basic: true, knock: kn, big, offhand: a.name === 'off1' || a.name === 'stabL', melee: true, blunt: blunt && !this.h.arena, critBonus: this.h.arena ? 0 : (swordHit ? 0.1 : 0) + (st.crit || 0), /* (the owner: none of the old weapon-type rules in the arena or the new campaign classes) */ bleed: st.bleed && wt !== 'fists' && !this.h.arena ? base * 0.09 : 0, /* (the owner: no weapon bleed in the arena or the new campaign classes) */ stun: this.h.arena ? 0 : st.stun || 0 });
         if (W && W.kind === 'melee' && this.weapon && this.weapon.wt !== 'fists') slashImpact(m.pos.clone().setY(m.pos.y + (m.height || 1.8) * 0.6).lerp(this.pos.clone().setY(m.pos.y + 1.1), 0.18), a.name); /* (a bright slash streak where the blow lands) */
         if (S.meleeImpact && S.meleeImpact(wt, this.h.cls, m.pos, big)) { /* big weapons: a deep slam or a heavy cleave */ } else if (blunt) wt === 'fists' ? S.punch(m.pos, big) : S.blunt(m.pos);
@@ -2514,7 +2515,7 @@ export class Player {
       for (const [A2, sx] of [[ch.arms.R, 1], [ch.arms.L, -1]]) { const kk = k * out; A2.sh.rotation.x += (-2.3 - A2.sh.rotation.x) * kk; A2.sh.rotation.z += (sx * -0.45 - A2.sh.rotation.z) * kk; A2.el.rotation.x += (-0.35 - A2.el.rotation.x) * kk; }
       ch.root.updateMatrixWorld(true); for (const A2 of [ch.arms.R, ch.arms.L]) if (Math.random() < 0.7) { const hp2 = A2.hand.getWorldPosition(new THREE.Vector3()); V.emit('poison', hp2, { speed: 0.25, vy: -2.2, size: 0.13, life: 0.75, radius: 0.08 }); if (Math.random() < 0.3) V.emit('green', hp2, { speed: 0.4, vy: 0.6, size: 0.18, life: 0.5 }); } }
     if (this.headUpT > 0) { this.headUpT -= dt; const A2 = ch.arms.L; A2.sh.rotation.set(-2.0, 0, -0.35); A2.el.rotation.x = -0.5; } // (the necromancer holds the shrunken head up)
-    if (this.h.arena && this.h.cls === 'bard') luteToChest(ch, !!this.h.arenaSongs && !this.atk && !this.abCast && !this.dead && !this.dodge, G.time, dt); // (the bard plays once he has a song)
+    if (this.h.arena && this.h.cls === 'bard') { const U = ch.weapons && ch.weapons.main && ch.weapons.main.userData; if (U) U.calm = 0; luteToChest(ch, !this.dead && !this.dodge, G.time, dt); } // (the owner: the bard always holds the lute against his chest and strums it; he never swings it like a club)
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))), !action || action === 'gunAim');
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);

@@ -78,7 +78,7 @@ export function buildAbilityBar() {
   let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : '';
     if (HERO_HUD) { ult.insertAdjacentHTML('afterbegin', '<svg class="ultring" viewBox="0 0 100 100"><circle class="urbg" cx="50" cy="50" r="45"/><circle class="urfg" cx="50" cy="50" r="45" pathLength="100"/></svg>'); const w = el('div', ''); w.id = 'arult'; w.appendChild(ult); bar.lastChild.remove(); $('bottom').insertBefore(w, bar); } } /* the arena: the ultimate is a charge ring on its own at the bottom centre */
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
-  const pp = HERO_HUD ? el('div', 'perkpts', '') : null; if (pp) { pp.hidden = true; bar.insertBefore(pp, bar.firstChild); } /* (unspent perk points, beside the abilities) */
+  const pp = HERO_HUD || h.camp ? el('div', 'perkpts', '') : null; if (pp) { pp.hidden = true; bar.insertBefore(pp, bar.firstChild); } /* (unspent perk points, beside the abilities) */
   abilEls = { ws, lmb, rmb, hb, f, combo, ult, pp };
   refreshAbilityBar();
 }
@@ -156,6 +156,8 @@ export function updateHUD(dt) {
       else if (sl && sl.t === 'item') { setCd(e, p.useCd, 1); const n = Game.count(h, sl.id); let ne = e.querySelector('.n'); if (!ne) { ne = el('span', 'n'); e.appendChild(ne); } ne.textContent = n; e.style.opacity = n ? 1 : 0.4; }
       else { setCd(e, 0, 1); e.style.opacity = 1; const ne = e.querySelector('.n'); if (ne) ne.remove(); }
     });
+    if (h.camp) { const lockIt = (e, id) => { if (!e || !id) return; const need = Game.kitNeed(h, id), lk = h.level < need; if (e._lk !== lk) { e._lk = lk; e.classList.toggle('locked', lk); let t = e.querySelector('.lvlock'); if (lk && !t) { t = el('span', 'lvlock', 'Lv ' + need); e.appendChild(t); } else if (!lk && t) t.remove(); } };
+      (h.hotbar || []).forEach((sl, i) => { if (sl && sl.t === 'ab') lockIt(abilEls.hb[i], sl.id); }); lockIt(abilEls.ult, h.arenaUlt); } /* (the campaign: abilities you have not reached the level for are greyed out with the level they open at) */
     abilEls.f.classList.toggle('active', p.block);
   }
   hudT -= dt;
@@ -500,7 +502,7 @@ function renderInventory(c) {
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
   const bot = el('div', 'botrow wsets');
   const setBox = (keys, n, on) => { const g = el('div', 'wset' + (on ? ' on' : ''), `<div class="wsh">Set ${n}${on ? ' · in your hands' : ' · on your back'}</div>`); const r = el('div', 'wsr'); keys.forEach(k => r.appendChild(slotEl(h, k, tip, c))); g.appendChild(r); return g; };
-  bot.append(el('div', 'wsh', `${esc(CLASSES[h.cls].name)}'s kit: ${esc((h.equip.w1 && h.equip.w1.name) || '')}${h.equip.w2 ? ' and ' + esc(h.equip.w2.name) : ''}`));
+  /* (no gear shown: each class carries its own weapons and look) */
   requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
     pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
       const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };

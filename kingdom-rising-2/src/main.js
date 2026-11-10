@@ -170,6 +170,7 @@ function startGame(save) {
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
+  if (!BATTLE && !YARD && !ARENA) Arena.campHero(h); /* (the campaign: the new classes, levelled from 1) */
   const p = new Player(h); G.player = p;
   if (h.pos) p.place(h.pos.x, h.pos.z, h.pos.yaw); else p.place(SPAWN.x, SPAWN.z, Math.atan2(VILLAGE.x - SPAWN.x, VILLAGE.z - SPAWN.z));
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
@@ -764,6 +765,7 @@ function input() {
       if (e.code === 'KeyK' || e.code === 'KeyN') { if (ARENA) { if (UI.UI.open === 'arenacls') UI.closeWin(); else Arena.openClassPicker(UI); return; } /* the arena has no skill trees: K changes class */ BUI.openBook('abil'); return; }
       if (e.code === 'KeyO' || e.code === 'KeyU') { if (UI.UI.open === 'skillwin') UI.closeWin(); else UI.openSkillsWin(); return; }
       if ((ARENA || YARD) && (e.code === 'KeyI' || e.code === 'KeyH')) { if (UI.UI.open === 'arenakit') UI.closeWin(); else Arena.openKitInfo(UI); return; } // the arena: I or H shows what your keys do
+      if (!ARENA && !YARD && !BATTLE && G.save && G.save.camp && (e.code === 'KeyP' || e.code === 'KeyN' || e.code === 'KeyK')) { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // the campaign: P (or the old talent keys) opens your perks
       if (ARENA && e.code === 'KeyP') { if (UI.UI.open === 'arenaperks') UI.closeWin(); else Arena.openPerks(UI); return; } // P: perks
       if (ARENA && ['KeyJ', 'KeyM', 'KeyO', 'KeyU', 'KeyL', 'KeyB'].includes(e.code)) return; // (no bags, quests, map or crafting in the arena)
       if (ARENA && e.code === 'KeyY') { Arena.readyUp(); if (G.uiOpen && UI.UI.open !== 'pause') UI.closeWin(); return; } // Y: ready (skip the rest of the countdown)

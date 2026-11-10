@@ -101,7 +101,8 @@ const CLASS_PERKS = { warrior: ['mendWide', 'chargeFar'] };
 // add up what has been bought into h.arenaPK, which the combat code reads
 export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
   P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
-G.hooks.perkPts = () => { const f = A.me && A.F && A.F.length ? A.me : (G.yardPP || (G.yardPP = { you: true, pp: 99 })); return perkLeft(f); }; // (the HUD badge beside the abilities)
+const freePP = () => { const h = G.player && G.player.h; return h && h.camp ? { you: true, pp: Math.min(20, h.level || 1) } : (G.yardPP || (G.yardPP = { you: true, pp: 99 })); }; /* (the campaign: a perk point per level; the yard: all of them) */
+G.hooks.perkPts = () => { const f = A.me && A.F && A.F.length ? A.me : freePP(); return perkLeft(f); }; // (the HUD badge beside the abilities)
 const perkLeft = (f) => { const h = unitHero(f) || {}, R2 = h.arenaPerks || {}, own = h.cls ? (CLASS_PERKS[h.cls] || []) : []; return (f.pp || 0) - BASIC_PERKS.concat(own).reduce((a, k) => a + (R2[k] || 0), 0); }; /* (a class's own perks use points too) */ // (old perks bought before the trim don't use up points)
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }
@@ -266,6 +267,10 @@ export function arenaHero(slot, name) {
   h.hotbar = null; Game.autoFillHotbar(h);
   return h;
 }
+// the owner: the campaign plays the new classes too: each class's own kit, right click, ultimate, look and perks. A campaign hero starts at
+// level 1 and unlocks F at once, C at level 3, Q at 5 and the ultimate at 7, with a perk point every level up to 20 (the arena is max level)
+export function campHero(h) { kitRules(); h.arena = true; h.camp = true; h.arenaKit = kitOf(h.cls); h.arenaRmb = rmbOf(h.cls); h.arenaUlt = ultOf(h.cls); h.arenaPerks = h.arenaPerks || {}; if (h.ultCharge == null) h.ultCharge = 0;
+  recomputePK(h); h.skills = h.skills || {}; for (const id of SKILL_IDS) h.skills[id] = Math.max(h.skills[id] || 0, 999); h.hotbar = null; Game.autoFillHotbar(h); return h; }
 // a computer fighter spends its 20 points: two full trees, leaning on a healing tree when it has team mates
 function botSpend(h, team) {
   const T = CLASS_TREES[h.cls]; if (!T) return;
@@ -1137,7 +1142,7 @@ export function abilityCards(p) {
 }
 // P: perks. Points come with time; spend them on any of your class's ten perks (three ranks each), whenever you like
 export function openPerks(UI) {
-  const p = G.player, h = p.h, cls = h.cls, f = A.me || (G.yardPP || (G.yardPP = { you: true, pp: 99 })); h.arenaPerks = h.arenaPerks || {};
+  const p = G.player, h = p.h, cls = h.cls, f = A.me || freePP(); h.arenaPerks = h.arenaPerks || {};
   const c = UI.openWin('arenaperks', CLASSES[cls].name + ' · skills & perks', '', 'big');
   const iconOf = (pk) => { const id = pk.slot && pk.slot !== 'L' ? (pk.slot === 'R' ? h.arenaRmb : (h.arenaKit || [])[['F', 'C', 'Q'].indexOf(pk.slot)]) : null; return id && id !== 'aim' ? Icons.abilityIcon(id) : `<span class="perkglyph${pk.passive ? ' pas' : ''}">${pk.glyph || { powL: '⚔' }[pk.id] || '◆'}</span>`; };
   const draw = () => { const left = perkLeft(f); c.innerHTML = '';

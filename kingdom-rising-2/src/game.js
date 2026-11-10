@@ -48,6 +48,8 @@ export function newHero(o) {
 // the owner: the old gear system is over. Every hero is fixed: his class's own modelled weapon (and shield or second weapon) and his class's
 // armour, never dropped, crafted, bought or swapped. The kit's strength still climbs with his level by the old material tiers (copper, iron,
 // steel, mithril, starmetal), so the campaign's fights keep their balance without loot; top: the arena's full-strength kit
+// the level a campaign hero needs for an ability: F at 1, C at 3, Q at 5, the ultimate at 7 (everything else, and every arena hero: 1)
+export function kitNeed(h, id) { if (!h || !h.camp) return 1; if (id === h.arenaUlt) return 7; const k = (h.arenaKit || []).indexOf(id); return k >= 0 ? [1, 3, 5][k] : 1; }
 export function fixedKit(h, top) {
   const NC = NEW_CLASSES[h.cls], pair = NC && STARTING_PAIR[NC.start], START = { shaman: 'spear', musketeer: 'musket', berserker: 'greataxe', warrior: 'sword', ranger: 'bow', wizard: 'arcanestaff' };
   const w1 = h.cls === 'wizard' ? 'arcanestaff' : NC ? (pair ? pair[0] : NC.start) : START[h.cls] || 'sword', w2 = NC ? (pair ? pair[1] : null) : h.cls === 'warrior' ? 'shield' : null;
@@ -65,7 +67,7 @@ function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; 
 // bring older saves up to date
 export function migrateHero(h) { { const fixN = (it) => { if (it && typeof it.name === 'string' && it.name.startsWith('Rusty ')) it.name = 'Plain ' + it.name.slice(6); }; (h.inv || []).forEach(fixN); Object.values(h.equip || {}).forEach(fixN); } /* no more 'Rusty' gear */ if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
-  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; if (!h.arena) fixedKit(h); /* (the fixed kit, for heroes made under the old gear system too) */
+  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; if (!h.arena || h.camp) fixedKit(h); /* (the fixed kit, for heroes made under the old gear system too) */
   h.tools = h.tools || {}; for (const k of ['hatchet', 'pickaxe', 'knife']) h.tools[k] = Math.max(1, h.tools[k] || 0); // older heroes get the basic tools too
   { const fix = (it) => { if (it && it.kind === 'weapon' && TWIN_TO_SINGLE[it.wt]) { const to = TWIN_TO_SINGLE[it.wt]; it.name = (it.name || '').replace(/Twin Daggers|Daggers/, 'Dagger').replace(/Hand Axes/, 'Hand Axe').replace(/Sword & Mace/, 'Sword'); it.wt = to; } }; for (const k in h.equip) fix(h.equip[k]); (h.inv || []).forEach(fix); } h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
@@ -416,7 +418,8 @@ export function gainXp(h, n, why) {
     if (h.level === AREA_UNLOCK_LEVEL) { const w = h.equip[h.active]; unlocked.push(`Right click: ${w ? WEAPON_TYPES[w.wt].areaName : 'weapon ability'}`); }
     if (hasTrees(h.cls)) unlocked.push('New skill point: press K'); else for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
     if (h.level === RANK2_LEVEL) unlocked.push('Class abilities upgraded to Rank II');
-    if (!h.arena && fixedKit(h)) { G.hooks.gearChanged && G.hooks.gearChanged(); unlocked.push(`Your ${CLASSES[h.cls].name.toLowerCase()}'s kit grows stronger (${TIERS[h.kitTier].name})`); }
+    if ((!h.arena || h.camp) && fixedKit(h)) { G.hooks.gearChanged && G.hooks.gearChanged(); }
+    if (h.camp) { unlocked.length = 0; unlocked.push('Perk point: press P'); for (const id of [...(h.arenaKit || []), h.arenaUlt]) if (id && kitNeed(h, id) === h.level) { const a = ABILITIES[h.cls].find(x => x.id === id); if (a) unlocked.push(`${id === h.arenaUlt ? 'Ultimate [R]' : '[' + ['F', 'C', 'Q'][h.arenaKit.indexOf(id)] + ']'} ${a.name}`); } }
     G.hooks.levelUp && G.hooks.levelUp(h.level, unlocked);
   }
   if (h.level >= LEVEL_CAP) h.xp = 0;

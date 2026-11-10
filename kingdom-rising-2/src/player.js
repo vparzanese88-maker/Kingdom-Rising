@@ -1833,7 +1833,7 @@ export class Player {
   // the moment a buff or heal lands: its name over you and a glow at the edge of the screen in its colour
   // third person: while aiming, the musket's butt sits in the right shoulder and the barrel points where you aim
   gunToShoulder(ch, on, free) {
-    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return; if (!on && ch.heroModel && ch.heroModel.D && ch.heroModel.D.oneHandGun) { const ud0 = g.userData; if (ud0.aimed && ud0.home) { g.position.copy(ud0.home.p); g.quaternion.copy(ud0.home.q); ud0.aimed = false; } return; } /* (the musketeer: one-handed at rest; right click draws the rifle up to the shoulder) */
+    const g = ch.weapons && ch.weapons.main; if (!g || !g.parent) return; /* (the owner: the musketeer too carries his rifle in both hands at port arms, steady while he runs, and shoulders it to aim) */
     const ud = g.userData; if (!ud.home) ud.home = { p: g.position.clone(), q: g.quaternion.clone() };
     const bbuss = !!(this.weapon && this.weapon.wt === 'blunderbuss' && ch.heroModel && ch.heroModel.bones), musket = !!(this.weapon && this.weapon.wt === 'musket') || bbuss, port = !on && musket && free && !this.dead && !this.dodge && !this.swim && !this.sheathed && g.visible !== false; /* (the musket at port arms when not aiming: carried across the body, muzzle up to the left, stock low at the right hip) */
     if (ud.handsSet) { ud.handsSet = false; for (const sd of ['R', 'L']) { const hd = ch.arms[sd].hand; if (hd && hd.userData.home) hd.position.copy(hd.userData.home); } } /* (the built hands back on their wrists; set again below while the gun is held) */

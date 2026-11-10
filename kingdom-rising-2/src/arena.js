@@ -1164,7 +1164,7 @@ function lmbAttack(p) {
   if (wt === 'maceshield') return ['Mace Blows', 'A swing and a smash with your mace, in turn.', 'hammer', 'gold'];
   if (wt === 'mace' || wt === 'warhammer') return [wt === 'mace' ? 'Mace Blows' : 'Hammer Blows', 'Heavy, blunt blows at whoever is in front of you.', 'hammer', 'steel'];
   if (wt === 'greatsword' || wt === 'greataxe') return [wt === 'greatsword' ? 'Greatsword Swings' : 'Great Axe Swings', 'Wide two-handed swings through everyone in front of you' + '.', wt === 'greatsword' ? 'sword' : 'axe', 'red'];
-  if (/sword/.test(wt)) return ['Sword Slashes', 'Quick slashes, one way and then back.' + (wt === 'swordshield' || wt === 'swordmace' ? ' Sword blows crit 10% more often.' : ''), 'sword', 'steel'];
+  if (/sword/.test(wt)) return ['Sword Slashes', 'Quick slashes, one way and then back.', 'sword', 'steel'];
   return [W.name, 'Swing your weapon at whoever is in front of you.', 'sword', 'steel'];
 }
 // right click, by the arena's own rules (this file's onMouse, then player.js onMouse): a few abilities fire at once; a class with no

@@ -42,9 +42,22 @@ export function newHero(o) {
   };
   // campaign heroes sail in wearing only a few tattered clothes
   h.wseen = [activeWeapon(h) ? activeWeapon(h).wt : h.equip.w1.wt]; // the campaign: you start with your class's weapon and learn it by using it
-  { const rag = (slot, name) => Object.assign(makeArmor('cloth', slot, 0, 0), { name, armor: 1, stats: {}, rags: true }); h.equip.chest = rag('chest', 'Tattered Shirt'); h.equip.legs = rag('legs', 'Tattered Trousers'); }
+  fixedKit(h);
   return h;
 }
+// the owner: the old gear system is over. Every hero is fixed: his class's own modelled weapon (and shield or second weapon) and his class's
+// armour, never dropped, crafted, bought or swapped. The kit's strength still climbs with his level by the old material tiers (copper, iron,
+// steel, mithril, starmetal), so the campaign's fights keep their balance without loot; top: the arena's full-strength kit
+export function fixedKit(h, top) {
+  const NC = NEW_CLASSES[h.cls], pair = NC && STARTING_PAIR[NC.start], START = { shaman: 'spear', musketeer: 'musket', berserker: 'greataxe', warrior: 'sword', ranger: 'bow', wizard: 'arcanestaff' };
+  const w1 = h.cls === 'wizard' ? 'arcanestaff' : NC ? (pair ? pair[0] : NC.start) : START[h.cls] || 'sword', w2 = NC ? (pair ? pair[1] : null) : h.cls === 'warrior' ? 'shield' : null;
+  const dl = designLv(h.level || 1); let tier = 0; for (let i = 0; i < TIERS.length; i++) if (TIERS[i].lvl <= dl) tier = i; if (top) tier = TIERS.length - 1; const rar = top ? 3 : 1;
+  const e = h.equip || (h.equip = emptyEquip()); if (h.kitTier === tier && h.kitTop === !!top && e.w1 && e.w1.wt === w1) return false;
+  const keep = (k, it) => { if (e[k] && e[k].uid) it.uid = e[k].uid; delete it.proc; return it; };
+  e.w1 = keep('w1', makeWeapon(w1, tier, rar)); e.w2 = w2 ? keep('w2', makeWeapon(w2, tier, rar)) : null; e.w3 = e.w4 = null; if ('ranged' in e) e.ranged = null; h.active = 'w1'; h.setNo = 1;
+  for (const s of ARMOR_SLOT_LIST) e[s] = keep(s, makeArmor(CLASSES[h.cls].armor || 'leather', s, tier, rar));
+  if (h.inv) h.inv = h.inv.map(it => it && (it.kind === 'weapon' || it.kind === 'armor' || it.kind === 'acc') ? null : it); /* (older heroes' bags: their spare arms and armour go) */
+  h.wseen = [w1]; h.kitTier = tier; h.kitTop = !!top; return true; }
 
 export const EQUIP_SLOTS = ['w1', 'w2', 'w3', 'w4', 'ranged', 'head', 'back', 'chest', 'arms', 'hands', 'waist', 'legs', 'feet', 'food', 'drink'];
 const RETIRED = ['neck', 'shoulders', 'wrists', 'ring1', 'ring2', 'trinket'];
@@ -52,7 +65,7 @@ function emptyEquip() { const e = {}; for (const k of EQUIP_SLOTS) e[k] = null; 
 // bring older saves up to date
 export function migrateHero(h) { { const fixN = (it) => { if (it && typeof it.name === 'string' && it.name.startsWith('Rusty ')) it.name = 'Plain ' + it.name.slice(6); }; (h.inv || []).forEach(fixN); Object.values(h.equip || {}).forEach(fixN); } /* no more 'Rusty' gear */ if (h.wm) for (const k of Object.keys(h.wm)) if (WEAPON_TYPES[k]) { const f = familiesOf(k)[0]; if (!h.wm[f]) h.wm[f] = h.wm[k]; delete h.wm[k]; }
   if (h.quests) for (const id of Object.keys(h.quests.active || {})) if (!QUESTS.some(q => q.id === id)) delete h.quests.active[id]; // quests that are no longer in the world
-  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {};
+  h.equip = Object.assign(emptyEquip(), h.equip || {}); h.ctree = h.ctree || {}; if (!h.arena) fixedKit(h); /* (the fixed kit, for heroes made under the old gear system too) */
   h.tools = h.tools || {}; for (const k of ['hatchet', 'pickaxe', 'knife']) h.tools[k] = Math.max(1, h.tools[k] || 0); // older heroes get the basic tools too
   { const fix = (it) => { if (it && it.kind === 'weapon' && TWIN_TO_SINGLE[it.wt]) { const to = TWIN_TO_SINGLE[it.wt]; it.name = (it.name || '').replace(/Twin Daggers|Daggers/, 'Dagger').replace(/Hand Axes/, 'Hand Axe').replace(/Sword & Mace/, 'Sword'); it.wt = to; } }; for (const k in h.equip) fix(h.equip[k]); (h.inv || []).forEach(fix); } h.wm = h.wm || {}; h.hotbar = h.hotbar || [null, null, null, null, null, null];
   // talents became single-point passives: refund anything from the old trees
@@ -403,6 +416,7 @@ export function gainXp(h, n, why) {
     if (h.level === AREA_UNLOCK_LEVEL) { const w = h.equip[h.active]; unlocked.push(`Right click: ${w ? WEAPON_TYPES[w.wt].areaName : 'weapon ability'}`); }
     if (hasTrees(h.cls)) unlocked.push('New skill point: press K'); else for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
     if (h.level === RANK2_LEVEL) unlocked.push('Class abilities upgraded to Rank II');
+    if (!h.arena && fixedKit(h)) { G.hooks.gearChanged && G.hooks.gearChanged(); unlocked.push(`Your ${CLASSES[h.cls].name.toLowerCase()}'s kit grows stronger (${TIERS[h.kitTier].name})`); }
     G.hooks.levelUp && G.hooks.levelUp(h.level, unlocked);
   }
   if (h.level >= LEVEL_CAP) h.xp = 0;
@@ -430,8 +444,7 @@ export function onKill(h, mob, shared = false) {
   let gold = 0; if (D.gold) gold = D.gold[0] + Math.floor(Math.random() * (D.gold[1] - D.gold[0] + 1)); else if (Math.random() < 0.4) gold = 1 + Math.floor(designLv(mob.lv) * Math.random());
   const gear = [];
   const named = D.elite || D.boss || mob.bossy, dl = designLv(mob.lv), step = named ? (dl < 8 ? 1 : dl < 15 ? 2 : 3) : 0;
-  if (Math.random() < (D.gearChance ?? (dl >= 4 ? 0.07 : 0.03))) gear.push(randomGear(h, mob.lv, step));
-  if (D.boss) gear.push(randomGear(h, mob.lv, Math.min(4, step + 1)));
+  /* (no arms or armour drop any more: heroes are fixed) */
   mob.loot = { items: loot, gold, gear };
   G.hooks.questsChanged && G.hooks.questsChanged();
 }
@@ -478,7 +491,7 @@ export function recipeItem(r) { if (r.out) return { id: r.out, n: r.n }; if (r.t
 export function recipeIcon(r) { if (r.out) return ITEMS[r.out].icon; if (r.tool) return TOOLS[r.tool].icon; if (r.weapon) return itemIcon({ kind: 'weapon', wt: r.weapon }); if (r.armor) return itemIcon({ kind: 'armor', slot: r.slot }); if (r.acc) return itemIcon({ kind: 'acc', slot: r.acc }); }
 export function recipesFor(h) {
   return RECIPES.filter(r => {
-    if (r.weapon && !CLASSES[h.cls].weapons.includes(r.weapon)) return false;
+    if (r.weapon || r.armor || r.acc) return false; /* (no arms or armour are made any more) */
     if (r.armor && r.armor !== CLASSES[h.cls].armor) return false;
     if (r.tool && (h.tools[r.tool] || 0) >= r.tier) return false;
     return true;
@@ -557,7 +570,7 @@ export function turnIn(h, q) {
   delete h.quests.active[q.id]; h.quests.done.push(q.id);
   h.gold += q.gold || 0;
   for (const k in q.items || {}) addItem(h, k, q.items[k]);
-  if (q.gear) addGear(h, randomGear(h, Math.max(q.lvl + 1, h.level), q.gearRarity || 2));
+  if (q.gear) h.gold += 20 + q.lvl * 6; /* (quests that gave a piece of gear give gold instead) */
   S.questDone();
   G.hooks.questDone && G.hooks.questDone(q);
   gainXp(h, q.xp, 'Quest');
@@ -591,7 +604,7 @@ function checkEquipObjectives(h) { G.hooks.questsChanged && G.hooks.questsChange
 export function merchantStock() { return MERCHANT_STOCK; }
 // the merchant's arms and armour: plain copper and iron pieces for your class (the same pieces each visit)
 const gearCache = {};
-export function gearStock(h) {
+export function gearStock(h) { return []; /* (no arms or armour for sale: heroes are fixed) */
   const key = h.cls; if (gearCache[key]) return gearCache[key];
   const out = [], wts = [...new Set(['dagger', ...CLASSES[h.cls].weapons.filter(w => WEAPON_TYPES[w] && WEAPON_TYPES[w].kind !== 'staff' || true)])].filter(w => w !== 'shield' || CLASSES[h.cls].weapons.includes('shield')).slice(0, 5);
   for (const tier of [1, 2]) {

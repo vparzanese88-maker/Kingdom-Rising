@@ -495,13 +495,12 @@ function renderInventory(c) {
   // paper doll
   const doll = el('div', 'doll');
   const L = el('div', 'col'), R = el('div', 'col');
-  LEFT_SLOTS.forEach(k => L.appendChild(slotEl(h, k, tip, c)));
-  RIGHT_SLOTS.forEach(k => R.appendChild(slotEl(h, k, tip, c)));
+  /* (the owner: no gear slots: every hero carries his class's own fixed weapon and armour) */
   const mid = el('div', 'mid');
   mid.innerHTML = `<div class="who"><b>${esc(h.name)}</b><span>Level ${h.level} ${RACES[h.race].name} ${CLASSES[h.cls].name}</span></div><canvas id="portrait" width="560" height="680"></canvas>`;
   const bot = el('div', 'botrow wsets');
   const setBox = (keys, n, on) => { const g = el('div', 'wset' + (on ? ' on' : ''), `<div class="wsh">Set ${n}${on ? ' · in your hands' : ' · on your back'}</div>`); const r = el('div', 'wsr'); keys.forEach(k => r.appendChild(slotEl(h, k, tip, c))); g.appendChild(r); return g; };
-  const n1 = h.setNo === 2 ? 2 : 1; bot.append(setBox(SET1, n1, true), el('div', 'wsq', `<b>Z</b><span>swap</span>`), setBox(SET2, n1 === 1 ? 2 : 1, false));
+  bot.append(el('div', 'wsh', `${esc(CLASSES[h.cls].name)}'s kit: ${esc((h.equip.w1 && h.equip.w1.name) || '')}${h.equip.w2 ? ' and ' + esc(h.equip.w2.name) : ''}`));
   requestAnimationFrame(() => { const pc = document.getElementById('portrait'); if (!pc) return; const r = pc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); pc.width = Math.round(r.width * dpr); pc.height = Math.round(r.height * dpr);
     pc.title = 'Drag to turn your hero'; pc.onpointerdown = (e) => { if (e.button !== 0) return; let x = e.clientX; pc.style.cursor = 'grabbing';
       const mv = (ev) => { G.portraitYaw = (G.portraitYaw ?? 0) + (ev.clientX - x) * 0.012; x = ev.clientX; };
@@ -911,7 +910,7 @@ function rewardText(q) { const r = [`${q.xp} XP`, `${q.gold || 0} gold`]; if (q.
 const TOOL_SHOP = [[1, 3, 1], [2, 30, 4], [3, 110, 9], [4, 320, 14]]; // tier, price, level
 export function openMerchant(npc) {
   const c = openWin('merchant', esc(npc.name), '', 'big shopwin2');
-  let tab = 'gear', last = '';
+  let tab = 'supplies', last = '';
   const tipEl = () => { let t = document.getElementById('shoptip'); if (!t) { t = el('div', 'tip big ftip'); t.id = 'shoptip'; document.body.appendChild(t); } return t; };
   const showAt = (html, e) => { const t = tipEl(); t.innerHTML = html; t.hidden = false; const r = t.getBoundingClientRect(); let x = e.clientX + 18, y = e.clientY + 12; if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 18; if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8; t.style.left = Math.max(8, x) + 'px'; t.style.top = Math.max(8, y) + 'px'; };
   const hide = () => { const t = document.getElementById('shoptip'); if (t) t.hidden = true; };
@@ -928,7 +927,7 @@ export function openMerchant(npc) {
     const lay = el('div', 'shopcols'); c.appendChild(lay);
     // ---- buy ----
     const buy = el('div', 'shoppane'); buy.appendChild(el('h3', '', 'For sale'));
-    const tabs = el('div', 'shoptabs2'); for (const [k, t] of [['gear', 'Arms & Armour'], ['supplies', 'Supplies'], ['tools', 'Tools']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); } buy.appendChild(tabs);
+    const tabs = el('div', 'shoptabs2'); for (const [k, t] of [['supplies', 'Supplies'], ['tools', 'Tools']]) { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { S.click(); tab = k; render(); }; tabs.appendChild(b); } buy.appendChild(tabs);
     const grid = el('div', 'sgrid');
     if (tab === 'gear') for (const it of Game.gearStock(h)) { const pr = Game.itemValue(it) * 4, lock = '';
       grid.appendChild(slot(Icons.itemSvg(it), 'r' + it.rarity + (h.gold < pr ? ' poor' : ''), pr, () => itemTip(it, `<div class="tbuy">${lock ? `Requires level ${it.lvl}` : h.gold < pr ? `Costs ${pr} gold: you have ${h.gold}` : `Click to buy for ${pr} gold`}</div>`), () => { if (h.gold < pr) { S.error(); return; } h.gold -= pr; Game.addGear(h, Game.copyGear(it)); last = `Bought ${esc(it.name)}`; }, lock)); }

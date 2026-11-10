@@ -429,9 +429,9 @@ function battleHooks() {
     // only weapons and armour drop (no materials, no cloaks); bosses always drop a few good pieces
     const gearOnly = () => { for (let k = 0; k < 6; k++) { const g = Game.randomGear(G.save, mob.lv, mob.bossy ? 3 : mob.def.elite ? 2 : 1); if (g.kind !== 'acc') return g; } return null; };
     mob.loot.items = []; mob.loot.gear = mob.loot.gear.filter(g => g.kind !== 'acc');
-    const n = mob.bossy ? 3 : Math.random() < (mob.def.elite ? 0.7 : 0.22) ? 1 : 0; for (let k = 0; k < n; k++) { const g = gearOnly(); if (g) mob.loot.gear.push(g); }
+    mob.loot.gear = []; /* (the owner: no gear system any more: kills pay gold) */
     mob.loot.gold = (mob.loot.gold || 0) + 6 + mob.lv * 4 + (mob.bossy ? 150 + mob.lv * 20 : 0);
-    if (mob.bossy) UI.banner(`${mob.name} defeated!`, 'Boss loot is in your bag', 3500);
+    if (mob.bossy) UI.banner(`${mob.name} defeated!`, `+${mob.loot.gold} gold`, 3500);
     const got = mob.loot.gear.slice();
     Game.lootCorpse(G.save, mob);
     // auto-equip better armour (never weapons) unless turned off, then celebrate each piece

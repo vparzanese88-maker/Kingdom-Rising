@@ -90,16 +90,16 @@ export const KIT = {
   ar_assassinate: ['daggermark', 'shadow', 'Mark an enemy within 30 m, then appear behind them and stab: below half health they die, anyone else loses 45%.', 1],
   // necromancer
   drainlife: ['drain', 'nature', 'Toggle a beam that drains your target for up to 5 s, slowing them and healing you.'],
-  ar_plaguebreath: ['plague', 'nature', 'Spray plague in front of you: poisoned for 6 s, and poison hurts them 50% more.'],
-  ar_skullfear: ['skull2', 'shadow', 'Throw a screaming skull: the enemy flees in terror for 3 s.'],
+  ar_bonespikes: ['ribcage', 'steel', 'A line of bone spears bursts out of the ground toward where you aim, hitting and slowing everyone on it.'],
+  ar_boneprison: ['ribcage', 'shadow', 'A cage of ribs bursts up around the enemy you aim at and roots them for 1.5 s.'],
   bonearmor: ['ribcage', 'steel', 'A cage of bones absorbs 30% of your health.'],
-  ar_demon: ['demon', 'nature', 'A demon rises from hellfire where you aim, slowing everyone in the ring and devouring the closest enemy.', 1],
+  ar_demon: ['drain', 'shadow', 'Siphon beams drain every enemy within 12 m for 4 s and heal you; then bone spikes erupt under them and knock them down.', 1],
   // elementalist
   lightninglash: ['bolt', 'frost', 'A quick lightning strike that jolts the enemy you aim at.'],
   ar_flamewave: ['flame', 'fire', 'A rolling wave of fire burns everyone in front of you.'],
   frostbind: ['crystal', 'frost', 'Freeze the enemy you aim at, and anyone within 3 m, for 1.5 s.'],
-  iceshell: ['shieldglow', 'frost', 'Ice armour: more armour and stamina for 2 minutes.'],
-  ar_meteors: ['meteor', 'fire', 'Five meteors crash where you aim over 3 s, each burning 18% health within 4 m.', 1],
+  ar_iceshell: ['shieldglow', 'frost', 'A shell of ice absorbs 30% of your health for 5 s.'],
+  ar_meteors: ['meteor', 'fire', 'Meteors, ice shards and lightning rain down where you aim: fire burns, ice slows and lightning stuns.', 1],
   // enchanter
   mindrot: ['brain', 'shadow', 'Weaken and damage the enemy you aim at, and those near it, for 8 s.'],
   ar_mindlock: ['lock', 'arcane', 'Silence the enemy you hit, and anyone within 3 m, for 2 s.'],

@@ -1240,7 +1240,7 @@ export class Player {
       case 'ar_bladestorm': { if (!G.hooks.arenaStorm) break; G.hooks.arenaStorm(this); break; } // (you steer the whirlwind)
       case 'ar_fists': { if (!G.hooks.arenaFists) break; G.hooks.arenaFists(this); break; } // (the whirlwind of fists, centred on you)
       case 'ar_wrath': { if (!G.hooks.arenaWrath) break; G.hooks.arenaWrath(this, this.ultPoint(30)); S.cast('holy', this.pos, 1.4); break; } // (judgment where you aim)
-      case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = this.ultPoint(24); /* (on the enemy you aim at, not the fence behind them) */ G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.demon(this.pos, 1.8); break; } // (cast on the ground where you aim)
+      case 'ar_demon': { if (!G.hooks.arenaHarvest) break; G.hooks.arenaHarvest(this); break; } // (the owner: Soul Harvest: siphon beams to every enemy round him, then bone spikes)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
         S.cast('holy', this.pos, 0.6); S.heal && S.heal(); this.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; break; }
@@ -1645,7 +1645,13 @@ export class Player {
         const back = dir.clone().setY(0); if (back.lengthSq() < 1e-4) back.copy(f); back.normalize().multiplyScalar(-1); this.vel.x = back.x * 13; this.vel.z = back.z * 13; this.vel.y = Math.max(this.vel.y, 7.5); this.onGround = false; this.iframes = Math.max(this.iframes || 0, 0.35);
         V.burst('fire', from.clone(), 26, { speed: 4, size: 0.6 }); S.bowShot && S.bowShot(this.pos); S.cast && S.cast('fire', this.pos, 0.9); this.recoil = Math.max(this.recoil || 0, 2.4); anim('flip', 0.95); return true; } /* ('flip', not 'shoot': the bow-drawing pose would pin his arms out in front while he goes over) */
       case 'arcshield': { /* (Arcane Shield: a faint violet shell that soaks up a share of his health in damage for a few seconds) */
-        this.arcShield = this.maxHp * (a.amount || 0.35) * (this._extK || 1); this.arcShieldT = G.time + (a.dur || 5); G.hooks.arcShieldFx && G.hooks.arcShieldFx(this, () => this.arcShield > 0 && G.time < this.arcShieldT); this.atk = { name: 'spell', t: 0, dur: 0.35, hit: true }; break; }
+        this.arcShield = this.maxHp * (a.amount || 0.35) * (this._extK || 1); this.arcShieldT = G.time + (a.dur || 5); G.hooks.arcShieldFx && G.hooks.arcShieldFx(this, () => this.arcShield > 0 && G.time < this.arcShieldT, a.shell); this.atk = { name: 'spell', t: 0, dur: 0.35, hit: true }; break; }
+      case 'bonespikes': { /* (the owner: Bone Spikes: a line of bone spears bursts out of the ground toward where you aim) */
+        const dir = f.clone().setY(0).normalize(), hitS = new Set(); for (let i = 0; i < 9; i++) setTimeout(() => { if (this.dead) return; const d = 1.6 + i * 1.5, p = this.pos.clone().addScaledVector(dir, d); p.y = heightAt(p.x, p.z);
+          for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.14 + Math.random() * 0.06, 1.2 + Math.random() * 0.9, 5), new THREE.MeshStandardMaterial({ color: '#e8dcc0', roughness: 0.7 })); sp.position.set(p.x + (Math.random() - 0.5) * 0.9, p.y - 0.9, p.z + (Math.random() - 0.5) * 0.9); sp.rotation.set((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6); G.scene.add(sp); V.temp(sp, 1.4, (o, kk) => { o.position.y = p.y - 0.9 + Math.min(1, kk * 9) * 1.3 - Math.max(0, kk - 0.65) * 4; if (kk >= 0.99) { o.geometry.dispose(); o.material.dispose(); } }); }
+          V.burst('bone', p.clone().setY(p.y + 0.3), 8, { speed: 3 }); V.burst('dust', p.clone().setY(p.y + 0.2), 6, { speed: 2 }); S.hit && S.hit('stone', p, 0.5);
+          for (const m of mobsInRadius(p, 1.6)) if (!hitS.has(m) && !m.isStruct) { hitS.add(m); this.dealDamage(m, P(a.dmg), hitO(m, { ranged: true, slow: a.slow || 2 })); } }, i * 55);
+        S.cast('shadow', this.pos, 0.9); anim('cast', 0.4); return true; }
       case 'thorns': case 'flamewave': { /* (the owner: the druid's Thorn Volley and the elementalist's Flame Wave, instead of pets) */
         const fire = a.t === 'flamewave', R = 11, from = this.handPos();
         for (const m of mobsInCone(this.pos, this.yaw, R, 0.6)) { this.dealDamage(m, P(a.dmg), hitO(m, { ranged: true, el: fire ? 'fire' : undefined, slow: fire ? 0 : (a.slow || 2.5), burn: fire ? P(a.dmg) * (a.burn || 0.3) : 0 })); V.burst(fire ? 'fire' : 'leaf', m.pos.clone().setY(m.pos.y + 1), 14, { speed: 3 }); }
@@ -1789,6 +1795,10 @@ export class Player {
         if (a.buff !== 'flame' && !wizPhase) { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); } anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
         const land = () => { if (t.dead) return;
+        if (a.boneCage) { const p = t.pos.clone(); p.y = heightAt(p.x, p.z); const cage = new THREE.Group(), bone = new THREE.MeshStandardMaterial({ color: '#e8dcc0', roughness: 0.75 }); /* (Bone Prison: a cage of ribs bursts up round them) */
+          for (let i = 0; i < 9; i++) { const a2 = i / 9 * Math.PI * 2, rib = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.07, 5, 10, Math.PI * 0.9), bone); rib.position.set(Math.cos(a2) * 0.55, 1.0, Math.sin(a2) * 0.55); rib.rotation.set(0, -a2 + Math.PI / 2, Math.PI / 2); cage.add(rib); }
+          cage.position.copy(p).setY(p.y - 2.2); G.scene.add(cage); V.burst('bone', p.clone().setY(p.y + 0.4), 24, { speed: 4 }); S.hit && S.hit('stone', p, 1);
+          V.temp(cage, (a.root || 1.5) + 0.5, (o, kk) => { const T = (a.root || 1.5) + 0.5, tt = kk * T; o.position.y = p.y - 2.2 + Math.min(1, tt / 0.18) * 2.2 - Math.max(0, tt - T + 0.35) * 6; if (!t.dead) { o.position.x = t.pos.x; o.position.z = t.pos.z; } if (kk >= 0.99) o.traverse(q => { if (q.isMesh) q.geometry.dispose(); }); }); }
         const list = [t, ...(a.spread ? mobsInRadius(t.pos, a.spread * K).filter(m => m !== t) : [])];
         for (const m of list) {
           if (a.pull && m === t) { const to = this.pos.clone().addScaledVector(f, 2); m.pos.x = to.x; m.pos.z = to.z; }

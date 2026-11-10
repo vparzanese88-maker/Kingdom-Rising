@@ -938,17 +938,18 @@ export class Player {
     } else if (W.kind === 'staff') {
       const from = this.camDist < 0.6 ? (this.vmWorld(this.vm.weapons.flame) || G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion))) : (this.ch.weapons.main?.userData.flame?.getWorldPosition(new THREE.Vector3()) || this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
+      const invCrit = this.phaseInvis && this.stealth > 0; if (invCrit) { this.stealth = 0; this.phaseInvis = false; } // (the first cast out of Phase Shift crits, and ends it)
       if (this.h.arena && this.h.cls === 'bombardier' && G.hooks.bombThrow) { // the goblin throws the bomb from his fist: it bounces, then goes off (bomber.js)
         G.hooks.bombThrow(this, from, dir, base); S.swing && S.swing(); V.burst('spark', from, 6, { speed: 2 }); return; }
       if (this.h.arena && this.h.cls === 'priest') { // a bolt of dawn light: every hit on an enemy heals the most hurt ally near you (atonement)
         spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(48), grav: 0.5, radius: 0.24, dmg: base * 0.85, owner: 'player', kind: 'dawn', life: 3, home: true, onHit: (p, m, pos) => { if (m) { this.dealDamage(m, p.dmg, { el: 'arcane' }); G.hooks.atone && G.hooks.atone(this, 0.045); } V.burst('gold', pos, 18, { speed: 4 }); V.light(pos, '#ffe080', 3, 0.2); S.cast('holy', pos, 0.5); } });
         S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; }
       if (G.newFx && !a.big) base *= 0.7; // campaign: plain bolts hit softer; spells and the held stream carry the damage
-      if (this.h.arena && this.h.cls === 'wizard' && this.buffs.missiles > 0) { this.magicMissile(from, dir, base); S.cast('arcane', from, 0.5); V.burst('arcane', from, 7, { speed: 2.5 }); V.light(from, '#b060ff', 2.2, 0.12, 8); return; } /* (Magic Missiles: each cast a seeking missile) */
+      if (this.h.arena && this.h.cls === 'wizard' && this.buffs.missiles > 0) { { const mp = this.magicMissile(from, dir, base); if (mp) mp.forceCrit = invCrit; } S.cast('arcane', from, 0.5); V.burst('arcane', from, 7, { speed: 2.5 }); V.light(from, '#b060ff', 2.2, 0.12, 8); return; } /* (Magic Missiles: each cast a seeking missile) */
       const sc = big ? 1 + ch * 1.4 : 1;
       if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
       else if (el === 'frost') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
-      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * ((this.h.arena && this.h.cls === 'wizard' ? 1.0 : 0.95) + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, /* (the arena wizard's plain bolt: a touch harder than other arcane staffs, so his damage stays where it was with fire) */ onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); if (this.transcendT > 0) this.ascBlast(pos, p.dmg, m); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
+      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * ((this.h.arena && this.h.cls === 'wizard' ? 1.0 : 0.95) + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, /* (the arena wizard's plain bolt: a touch harder than other arcane staffs, so his damage stays where it was with fire) */ onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane', forceCrit: invCrit }); if (this.transcendT > 0) this.ascBlast(pos, p.dmg, m); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
       if (this.pk('echo') && !a.echoed && Math.random() < 0.15) { setTimeout(() => { if (!this.dead) this.doHit(Object.assign({}, a, { echoed: true })); }, 140 * ABIL_DELAY_K()); }
       S.cast(el, from, big ? 1.4 : 0.8);
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
@@ -964,7 +965,7 @@ export class Player {
   // Arcane Ascension: while he hovers every bolt explodes, a violet blast that hurts everyone round where it lands (m, who it hit, already took the bolt)
   ascBlast(pos, dmg, m) { const R = 3.2; for (const o of mobsInRadius(pos, R)) if (o !== m) this.dealDamage(o, dmg * 0.7, { ranged: true, el: 'arcane' });
     V.burst('void', pos, 34, { normal: true, speed: 6, size: 0.6, life: 0.6 }); V.burst('arcane', pos, 30, { speed: 8, size: 0.35 }); V.burst('spark', pos, 10, { speed: 6, size: 0.12 }); V.sphereFlash && V.sphereFlash(pos, R * 0.8, '#c080ff', 0.25); V.light(pos, '#9a30ff', 6, 0.3, 10); S.explode ? S.explode(pos, 0.6, 'arcane') : S.cast('arcane', pos, 0.8); V.addShake(0.08); }
-  missileBurst(pr, m, pos) { if (m) this.dealDamage(m, pr.dmg, { ranged: true, el: 'arcane', basic: true }); if (this.transcendT > 0) this.ascBlast(pos, pr.dmg, m); for (const o of mobsInRadius(pos, MM_SPLASH)) if (o !== m) this.dealDamage(o, pr.dmg * 0.35, { ranged: true, el: 'arcane' }); /* (a small burst: a little damage to anyone close by) */
+  missileBurst(pr, m, pos) { if (m) this.dealDamage(m, pr.dmg, { ranged: true, el: 'arcane', basic: true, forceCrit: pr.forceCrit }); if (this.transcendT > 0) this.ascBlast(pos, pr.dmg, m); for (const o of mobsInRadius(pos, MM_SPLASH)) if (o !== m) this.dealDamage(o, pr.dmg * 0.35, { ranged: true, el: 'arcane' }); /* (a small burst: a little damage to anyone close by) */
     V.burst('void', pos, 22, { normal: true, speed: 3.5, size: 0.42, life: 0.5 }); V.burst('arcane', pos, 18, { speed: 5.5, size: 0.28 }); V.burst('spark', pos, 6, { speed: 4, size: 0.1 }); V.light(pos, '#8a2cff', 4, 0.2, 8); S.cast('arcane', pos, 0.7); if (!m) S.hit && S.hit('stone', pos, 0.5); }
   // a point in the first-person view (its own camera) as a world point on the same line of sight: spells leave the hand you see
   vmWorld(obj) { if (!obj || !G.vmCam) return null; const p = obj.getWorldPosition(new THREE.Vector3()), d = p.distanceTo(G.vmCam.position), n = p.clone().project(G.vmCam); const dir = new THREE.Vector3(n.x, n.y, 0.5).unproject(G.camera).sub(G.camera.position).normalize(); return G.camera.position.clone().addScaledVector(dir, Math.max(1.1, d)); }
@@ -1113,7 +1114,7 @@ export class Player {
   }
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
-  ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if (h.camp && h.level < 7) { S.error && S.error(); G.hooks.toast && G.hooks.toast('Your ultimate unlocks at level 7', '🔒', 'bad'); return; } if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; } V.ultUntil = performance.now() + 7000; /* (an ultimate may draw its big rings) */
+  ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if (this.phaseInvis && this.stealth > 0) { this.stealth = 0; this.phaseInvis = false; } if (h.camp && h.level < 7) { S.error && S.error(); G.hooks.toast && G.hooks.toast('Your ultimate unlocks at level 7', '🔒', 'bad'); return; } if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; } V.ultUntil = performance.now() + 7000; /* (an ultimate may draw its big rings) */
     const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; if (h.ultRefund) { h.ultRefund = false; return; } this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 || id === 'ar_bertha' || id === 'ar_banner' ? 0 : /* (the warrior: no cast pose for his banner) */ Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); V.ring(this.pos, 5, h.cls === 'necromancer' ? '#3aff5a' : '#ffd060', 0.6); V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain' || id === 'ar_overgrowth' || id === 'ar_spirittotem' || id === 'ar_miracle' || id === 'ar_bertha') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // where a ground-aimed ultimate lands: on the enemy you aim at (or the one nearest the crosshair's line, within about
@@ -1170,6 +1171,7 @@ export class Player {
   // ---------- class abilities ----------
   ability(i, fromCast) {
     if (this.held) return; /* (during an ultimate's animation, or in a demon's grip: no casting) */
+    if (this.phaseInvis && this.stealth > 0) { this.stealth = 0; this.phaseInvis = false; } // (any ability ends Phase Shift's invisibility)
     if ((this.axeOut || this.axeThrow) && ABILITIES[this.h.cls][i] && ['earthsplitter', 'ar_legsweep'].includes(ABILITIES[this.h.cls][i].id)) { S.error && S.error(); return; } /* (no axe in hand: no axe moves until it is back) */
     const ab = ABILITIES[this.h.cls][i]; if (!ab) return;
     if (this.h.camp && this.h.level < Game.kitNeed(this.h, ab.id)) { S.error && S.error(); G.hooks.toast && G.hooks.toast(`${ab.name} unlocks at level ${Game.kitNeed(this.h, ab.id)}`, '🔒', 'bad'); return; } /* (the campaign: abilities unlock as you level) */
@@ -1709,6 +1711,7 @@ export class Player {
         else if (a.buff === 'avatar') { for (const k in FORMS) B2[k] = 0; B2.avatar = d; this.avatar = Object.assign({ name: a.name }, a.av || {}); if (this.avatar.surge) B2.surge = Math.max(B2.surge || 0, d); this.formOn = null; }
         else if (FORMS[a.buff]) { B2.avatar = 0; for (const k in FORMS) B2[k] = 0; B2[a.buff] = d; if (a.buff === 'formArcane') B2.focus = Math.max(B2.focus || 0, d); }
         else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
+        else if (a.buff === 'phase' && this.h.arena && this.h.cls === 'wizard') { this.stealth = d; this.phaseInvis = true; B2.swind = Math.max(B2.swind || 0, d); for (const m of G.mobs) if (!m.dead && m.target === this) m.target = null; V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 26, { speed: 2.5 }); } /* (the owner: Phase Shift fades him almost invisible; his first left click from it is a crit, and any attack ends it) */
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
         if (a.buff === 'shout') { this.shoutT = 1.0; S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.addShake(0.35); this.roarStreams(); } /* (the owner: no red burst round him; red streams pour from his mouth) */
@@ -2032,6 +2035,7 @@ export class Player {
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
     if (this.h.cls === 'ranger' && this.pk('cap') && m.hp >= m.maxHp) crit = true;
     if (o.critBonus && Math.random() < o.critBonus) crit = true;
+    if (o.forceCrit) crit = true; // (a cast out of Phase Shift: always a crit)
     if (this.buffs.focus > 0 && this.h.cls !== 'ranger' && Math.random() < 0.1) crit = true;
     if (crit) dmg *= 1.75;
     const arm = m.def.armor || 0; if (arm && !o.el) { if (o.blunt) { if (Math.random() < 0.3) V.number(m.pos.clone().setY(m.pos.y + m.height + 0.7), 'Crush!', 'crit'); } else dmg *= 1 - arm; }
@@ -2467,7 +2471,7 @@ export class Player {
     // charge glow on weapon
     if (this.press && this.press.charging && Math.random() < 0.5) { const tip = this.camDist < 0.6 ? null : this.ch.weapons.main; if (this.camDist < 0.6 || (tip && tip.userData.tip)) { const p = tip ? tip.userData.tip.getWorldPosition(new THREE.Vector3()) : this.handPos(this.W.kind === 'bow'); V.emit(this.W.element || 'spark', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     // stealth fade
-    ch.root.traverse(o => { if (o.isMesh && o.material) { if (this.stealth > 0) { o.material.transparent = true; o.material.opacity = 0.35; } else if (o.material.opacity < 1) { o.material.opacity = 1; o.material.transparent = false; } } });
+    ch.root.traverse(o => { if (o.isMesh && o.material) { if (this.stealth > 0) { o.material.transparent = true; o.material.opacity = this.phaseInvis ? 0.1 : 0.35; } else if (o.material.opacity < 1) { o.material.opacity = 1; o.material.transparent = false; } } });
   }
   // the weapon you see while aiming down the barrel: built once per weapon, lifted into view, kicks when it fires
   adsView(ae) {

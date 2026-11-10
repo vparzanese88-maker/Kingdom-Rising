@@ -313,15 +313,15 @@ export const S = {
       noise(t, 0.6 * b, o.node, { type: 'highpass', f: 4000, f2: 2000, gain: 0.3 * b, a: 0.05 });
       noise(t + 0.1, 0.4, o.node, { type: 'bandpass', f: 900, q: 3, gain: 0.12 });
     } else if (el === 'arcane') {
-      // a dark, punchy arcane whoosh (no rising whistle): a low thump, a falling rush of air and a cold glassy edge; bigger
-      // casts add a deep boom, a growling drone and crackles, so abilities land heavier than the plain bolt
-      tone(t, 0.22 + 0.12 * b, o.node, { type: 'sine', f: 150, f2: 48, gain: 0.32 * Math.min(1.6, b + 0.3), a: 0.004 });
-      noise(t, 0.28 + 0.15 * b, o.node, { type: 'bandpass', f: 2200, f2: 380, q: 1.1, gain: 0.42 * Math.min(1.5, b + 0.2), a: 0.01 });
-      noise(t, 0.12, o.node, { type: 'highpass', f: 5200, f2: 3000, gain: 0.1, a: 0.002 });
-      tone(t, 0.25, o.node, { type: 'triangle', f: 880, f2: 520, gain: 0.025, a: 0.005 }); tone(t, 0.25, o.node, { type: 'triangle', f: 893, f2: 527, gain: 0.025, a: 0.005 });
-      if (b >= 0.9) { tone(t, 0.7 * b, o.node, { type: 'sine', f: 70, f2: 32, gain: 0.4 * Math.min(1.5, b), a: 0.01 }); tone(t, 0.55 * b, o.node, { type: 'sawtooth', f: 55, f2: 41, gain: 0.06 * b, a: 0.02 }); tone(t, 0.55 * b, o.node, { type: 'sawtooth', f: 82, f2: 61, gain: 0.04 * b, a: 0.02 });
-        noise(t + 0.02, 0.8 * b, o.node, { type: 'lowpass', f: 600, f2: 120, gain: 0.5 * Math.min(1.5, b), a: 0.02 });
-        for (let i = 0; i < 3 + 3 * b; i++) noise(t + 0.03 + Math.random() * 0.35 * b, 0.025, o.node, { type: 'bandpass', f: 2500 + Math.random() * 2500, q: 2, gain: 0.3 }); }
+      // a spell: a bright shimmering chord that blooms and rings out (detuned pairs beat against each other, so it glitters),
+      // twinkling sparkles over it and a soft rush of air as the bolt leaves. Bigger casts (abilities) add a low choir-like
+      // swell, a deep resonant boom under it and a longer tail of sparkles, so they land heavier than the plain bolt
+      const sm = Math.min(1.4, 0.6 + b * 0.5), root = 440 * (b >= 0.9 ? 0.5 : 1);
+      [1, 1.5, 2, 3].forEach((r, i) => { const f = root * r, g = (0.05 - i * 0.008) * sm, d = 0.45 + 0.35 * b; tone(t, d, o.node, { type: 'sine', f, gain: g, a: 0.02 }); tone(t, d, o.node, { type: 'sine', f: f * 1.006, gain: g, a: 0.02 }); tone(t + 0.01, d * 0.8, o.node, { type: 'triangle', f: f * 2.003, gain: g * 0.25, a: 0.03 }); });
+      noise(t, 0.3 + 0.12 * b, o.node, { type: 'bandpass', f: 3200, f2: 900, q: 1.4, gain: 0.22 * sm, a: 0.015 });
+      for (let i = 0; i < 4 + 4 * b; i++) { const f = 2600 + Math.random() * 3600; tone(t + 0.03 + Math.random() * (0.25 + 0.3 * b), 0.12 + Math.random() * 0.12, o.node, { type: 'sine', f, f2: f * 1.02, gain: 0.03 + Math.random() * 0.025, a: 0.003 }); } /* (twinkles) */
+      if (b >= 0.9) { [110, 131, 165, 220].forEach((f, i) => { tone(t, 0.9 * b, o.node, { type: 'triangle', f, gain: 0.045 * Math.min(1.5, b), a: 0.06 }); tone(t, 0.9 * b, o.node, { type: 'triangle', f: f * 1.008, gain: 0.04 * Math.min(1.5, b), a: 0.07 }); });
+        tone(t, 0.8 * b, o.node, { type: 'sine', f: 82, f2: 41, gain: 0.32 * Math.min(1.5, b), a: 0.015 }); noise(t, 0.7 * b, o.node, { type: 'lowpass', f: 900, f2: 160, gain: 0.3 * Math.min(1.5, b), a: 0.04 }); }
     } else if (el === 'lightning') {
       // a sharp electric crack, a buzzing zap, then thunder rolling away
       noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 1.0 * b, a: 0.001 });

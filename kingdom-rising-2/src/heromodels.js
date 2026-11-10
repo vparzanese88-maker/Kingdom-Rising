@@ -619,7 +619,7 @@ export function tickHeroModel(ch, dt) {
   const H = ch && ch.heroModel; if (!H || H === 'loading' || dt <= 0) return;
   try { wearShield(ch, H); } catch (e) { /* (keeps the hand-held shield if anything is missing) */ }
   if (H.D.bowScale) { const bw = ch.weapons && ch.weapons.main, wd = H.D.bowWide || 1; if (bw && bw.name === 'weapon_bow' && bw.userData.hmScale !== H.D.bowScale) { bw.scale.multiplyScalar(H.D.bowScale / (bw.userData.hmScale || 1)); bw.scale.x *= wd / (bw.userData.hmWide || 1); bw.userData.hmScale = H.D.bowScale; bw.userData.hmWide = wd; } } /* (a class's own bow size on the model, about the grip in its fist; bowWide: broader limbs, so it reads as a bow from behind, not a stick) */
-  const p = ch.root.position, dx = p.x - H.lp.x, dz = p.z - H.lp.z, sp = Math.hypot(dx, dz) / dt; H.lp.copy(p); H.v += (Math.min(sp, 12) - H.v) * Math.min(1, dt * 8);
+  const p = ch.root.position, dx = p.x - H.lp.x, dz = p.z - H.lp.z, sp = ch.hoverStill ? 0 : Math.hypot(dx, dz) / dt; /* (hovering (the wizard's ultimate): no legs moving, he glides in his idle stance) */ H.lp.copy(p); H.v += (Math.min(sp, 12) - H.v) * Math.min(1, dt * 8);
   // which way he is moving compared with where he faces: forward 0, right +90°, back 180°
   if (sp > 0.4) { const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(ch.root.getWorldQuaternion(new THREE.Quaternion())), a = Math.atan2(dx * fw.z - dz * fw.x, dx * fw.x + dz * fw.z); H.mvA = a; }
   const A = sp > 0.4 ? (H.mvA || 0) : 0, back = Math.abs(A) > 1.95; H.backK = (H.backK || 0) + ((back && H.v > 0.25 ? 1 : 0) - (H.backK || 0)) * Math.min(1, dt * 10);

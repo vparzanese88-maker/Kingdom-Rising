@@ -348,7 +348,7 @@ export const ABILITIES = {
     { id: 'spectral', cost: 20, name: "Spectral Arrow", key: '', level: 1, cd: 4, icon: '', desc: "A glowing arrow that pierces every enemy in a line for heavy damage." },
     { id: 'mending', cost: 25, name: "Mending", key: '', level: 2, cd: 15, icon: '', desc: "Light healing magic: restore 25% of your health over 6 s." },
     { id: 'disengage', cost: 20, name: "Disengage", key: '', level: 4, cd: 8, icon: '', desc: "Leap backwards out of danger and slow every enemy near where you stood." },
-    { id: 'focus', cost: 30, name: "Hunter's Focus", key: '', level: 6, cd: 20, icon: '', desc: "Attack 50% faster and crit 10% more often for 8 s." },
+    { id: 'focus', cost: 30, name: "Hunter's Focus", key: '', level: 6, cd: 20, icon: '', desc: "Attack twice as fast for 8 s." },
     { id: 'barkskin', cost: 30, name: "Hunter's Hide", key: '', level: 8, cd: 20, icon: '', desc: "Your skin toughens like old leather: absorb damage equal to 20% of your health for 10 s." },
     { id: 'snaretrap', cost: 25, name: "Snare Trap", key: '', level: 10, cd: 12, icon: '', desc: "Set a trap at your feet. The first enemy to step on it is rooted in place and hurt." },
     { id: 'vanish', cost: 35, name: "Camouflage", key: '', level: 12, cd: 25, icon: '', desc: "Blend into the wilds for 5 s. Enemies lose track of you and your next hit deals double damage." },

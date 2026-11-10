@@ -4,7 +4,7 @@ import { G } from './state.js';
 import { V } from './vfx.js';
 import { S } from './audio.js';
 import { heightAt } from './terrain.js';
-import { solidAt } from './world.js';
+import { solidAt, blockAt } from './world.js';
 const ARENA_MODE = /[?&]mode=arena/.test(location.search);
 import { angDiff, rand } from './util.js';
 
@@ -87,12 +87,13 @@ export function makeFearSkull(hd = false) { let m; const SPH = hd ? HDSPH : geo.
 // the ranger's arrow in flight, made to read from the camera behind him: a longer, thicker shaft, bright fletching, his flaming tip, and a
 // pale streak trailing it (grown out from the bow as it flies, so it never pokes back through him; see updateProjectiles)
 const ARW = { k: 1.3, streak: 3.2, r: 0.03 }, arwM = {}, arwG = {};
-function heroArrowFx(m) {
+function heroArrowFx(m, p) {
   const M = arwM.f || (arwM.f = { vane: new THREE.MeshBasicMaterial({ color: '#f2ede2', side: THREE.DoubleSide }), vane2: new THREE.MeshBasicMaterial({ color: '#c8321e', side: THREE.DoubleSide }), fl: new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), st: new THREE.MeshBasicMaterial({ color: '#ffe2a8', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }) });
   const Gm = arwG.f || (arwG.f = { vane: (() => { const g = new THREE.PlaneGeometry(0.035, 0.14); g.rotateX(Math.PI / 2); g.translate(0.022, 0, 0); return g; })(), fl: new THREE.SphereGeometry(0.04, 8, 6), st: (() => { const g = new THREE.CylinderGeometry(0, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); return g; })() }); /* (the streak: a long cone, wide at the arrow (z 0), to a point behind it (z 1)) */
   for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(Gm.vane, i ? M.vane : M.vane2); v.rotation.z = i * Math.PI * 2 / 3; v.position.z = 0.32; m.add(v); } /* (one red cock feather, two white) */
   const fl = new THREE.Mesh(Gm.fl, M.fl); fl.position.z = -0.43; fl.scale.set(1, 1, 2.4); m.add(fl); /* (the flaming tip) */
-  const sk = new THREE.Mesh(Gm.st, M.st); sk.position.z = 0.36; sk.scale.set(ARW.r / ARW.k, ARW.r / ARW.k, 0.01); sk.frustumCulled = false; m.add(sk); m.userData.streak = sk;
+  if (!M.stF) { M.stF = new THREE.MeshBasicMaterial({ color: '#b8ff60', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); M.stB = new THREE.MeshBasicMaterial({ color: '#ff6a18', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); } /* (Hunter's Focus: a long bright green-gold streak; Blazing Arrow: a fiery one) */
+  const sk = new THREE.Mesh(Gm.st, p && p.fireArrow ? M.stB : p && p.focus ? M.stF : M.st); sk.position.z = 0.36; sk.scale.set(ARW.r / ARW.k, ARW.r / ARW.k, 0.01); sk.frustumCulled = false; m.add(sk); m.userData.streak = sk;
   m.scale.setScalar(ARW.k); }
 export function spawnProjectile(o) {
   // o: {pos, vel, grav, radius, dmg, owner, kind, life, pierce, aoe, el, onHit, scale}
@@ -106,8 +107,8 @@ export function spawnProjectile(o) {
     case 'fireball': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#fff0b0'))); m.children[0].scale.setScalar(0.18 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ff6010', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.34 * (p.scale || 1)); m.add(h); } break;
     case 'meteor': { m = new THREE.Group(); const r = new THREE.Mesh(geo.rock, new THREE.MeshStandardMaterial({ color: '#3a2218', emissive: '#ff4010', emissiveIntensity: 0.9, roughness: 0.9, flatShading: true })); r.scale.setScalar(1.1); m.add(r); const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ff7020', transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(1.9); m.add(h); break; }
     case 'frost': m = new THREE.Mesh(geo.shard, new THREE.MeshStandardMaterial({ color: '#c8f4ff', emissive: '#60c8ff', emissiveIntensity: 1.2, transparent: true, opacity: 0.9 })); m.scale.setScalar(p.scale || 1); break;
-    case 'arcane': case 'orb': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#f4d8ff'))); m.children[0].scale.setScalar(0.15 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#a040ff', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.32 * (p.scale || 1)); m.add(h); } break;
-    case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'arrow' && p.owner === 'player' && G.player && G.player.h && G.player.h.arena && G.player.h.cls === 'ranger') heroArrowFx(m); /* (the ranger's arrows: made to be seen in flight) */ if (p.kind === 'spectral') m.scale.setScalar(1.6); break; }
+    case 'arcane': case 'orb': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#f4d8ff'))); m.children[0].scale.setScalar(0.15 * (p.scale || 1)); m.children[0].renderOrder = 3; { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#a040ff', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.32 * (p.scale || 1)); h.renderOrder = 2; m.add(h); const sh = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#7a22ff', transparent: true, opacity: 0.38, depthWrite: false })); sh.scale.setScalar(0.4 * (p.scale || 1)); sh.renderOrder = 1; m.add(sh); } break; /* (a violet shell drawn normally round the glow: purple in daylight too) */
+    case 'arrow': case 'spectral': { m = new THREE.Group(); const sh = new THREE.Mesh(geo.arrow, p.kind === 'spectral' ? glow('#80ffd0') : new THREE.MeshStandardMaterial({ color: '#8a6a44' })); m.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), p.kind === 'spectral' ? glow('#e0fff4') : new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.45; m.add(tip); if (p.kind === 'arrow' && p.owner === 'player' && G.player && G.player.h && G.player.h.arena && G.player.h.cls === 'ranger') heroArrowFx(m, p); /* (the ranger's arrows: made to be seen in flight) */ if (p.kind === 'spectral') m.scale.setScalar(1.6); if (p.kind === 'arrow' && p.scale) m.scale.multiplyScalar(p.scale); /* (Blazing Arrow: a huge one) */ break; }
     case 'wave': { m = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 4, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#c0e0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); break; }
     case 'impfire': m = new THREE.Mesh(geo.sphere, glow('#ff8020')); m.scale.setScalar(0.25); break;
     case 'poison': { m = new THREE.Group(); const sc = p.scale || 1; // a glob of bubbling poison: a glowing heart, a slime skin and bubbles boiling all over it
@@ -129,6 +130,9 @@ export function spawnProjectile(o) {
       const sh = new THREE.Mesh(geo.sphere, iron); sh.scale.setScalar(0.2); m.add(sh); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.07, 8), brass); cap.position.y = 0.2; m.add(cap);
       for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(geo.sphere, brass); r.scale.setScalar(0.02); const a = i / 6 * Math.PI * 2; r.position.set(Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2); m.add(r); }
       const spark = new THREE.Mesh(geo.sphere, glow('#ffd060')); spark.scale.setScalar(0.06); spark.position.y = 0.3; m.add(spark); m.userData.spark = spark; m.scale.setScalar(p.scale || 1); break; }
+    case 'missile': { m = new THREE.Group(); const sc = p.scale || 1; const core = new THREE.Mesh(geo.sphere, glow('#ffffff')); core.scale.setScalar(0.075 * sc); m.add(core); /* (a magic missile: a white-hot heart in a violet glow, with a wide purple halo that throbs as it flies) */
+      const mid = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#dba4ff', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); mid.scale.setScalar(0.15 * sc); m.add(mid);
+      const halo = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#7418ff', transparent: true, opacity: 0.5, depthWrite: false })); halo.scale.setScalar(0.32 * sc); halo.renderOrder = 2; m.add(halo); m.userData.halo = halo; mid.renderOrder = 3; core.renderOrder = 4; break; } /* (the shell drawn normally, not added, so it stays violet against the sky and the grass instead of washing white) */
     case 'dawn': m = new THREE.Group(); m.add(new THREE.Mesh(geo.sphere, glow('#fffbe8'))); m.children[0].scale.setScalar(0.13 * (p.scale || 1)); { const h = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#ffd860', transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.setScalar(0.32 * (p.scale || 1)); m.add(h); } break;
     case 'knife': { m = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#d0d8e0', metalness: 0.9, roughness: 0.2 })); break; }
     case 'web': m = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color: '#f0f0f8', transparent: true, opacity: 0.85 })); m.scale.setScalar(0.22); break;
@@ -181,6 +185,7 @@ export function updateProjectiles(dt) {
     const p = P[i]; p.t += dt; p.life -= dt;
     // 'flat': fly straight for that long, then let gravity ease in over 0.8 s
     p.vel.y -= p.grav * (p.flat ? Math.min(1, Math.max(0, (p.t - p.flat) / 0.8)) : 1) * dt;
+    if (p.seek) seekStep(p, dt); /* (a magic missile: its arc to the target, the target's position taken afresh every frame) */
     if (p.homing) { let best = null, bd = 25; for (const m of G.mobs) { if (m.dead || !foe(m)) continue; const d = m.pos.distanceTo(p.pos); if (d < bd) { bd = d; best = m; } } if (best) { const tgt = best.pos.clone(); tgt.y += best.height * 0.5; const want = tgt.sub(p.pos).normalize().multiplyScalar(p.vel.length()); p.vel.lerp(want, Math.min(1, dt * 4)); } }
     const step = p.vel.clone().multiplyScalar(dt);
     const sub = Math.max(1, Math.ceil(step.length() / 0.6));
@@ -213,15 +218,19 @@ export function updateProjectiles(dt) {
       const gh = heightAt(p.pos.x, p.pos.z);
       if (!dead && p.pos.y < gh) { p.pos.y = gh; impact(p, null); dead = true; }
       if (!dead && ARENA_MODE && solidAt(p.pos.x, p.pos.y, p.pos.z)) { impact(p, null); dead = true; } // (the arena: shots stop at walls and buildings)
+      if (!dead && p.block) { /* (the owner: magic missiles burst on anything else they meet on the way: a wall, a tree, a rock, a friend in the way) */
+        if (blockAt(p.pos.x, p.pos.y, p.pos.z, gh)) { impact(p, null); dead = true; }
+        else for (const m of G.mobs) { if (m.dead || foe(m) || m.hidden) continue; if (Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z) < (m.radius || 0.5) + p.radius && p.pos.y > m.pos.y - 0.1 && p.pos.y < m.pos.y + (m.height || 1.7) + 0.1) { impact(p, null); dead = true; break; } } }
     }
     if (!dead && p.life <= 0) { if (p.aoe) impact(p, null); dead = true; }
     // trails
     if (p.mesh) {
       p.mesh.position.copy(p.pos);
       if (p.kind === 'arrow' || p.kind === 'spectral' || p.kind === 'frost' || p.kind === 'wave' || p.kind === 'javelin') p.mesh.lookAt(p.pos.clone().sub(p.vel));
-      if (p.mesh.userData.streak) p.mesh.userData.streak.scale.z = Math.max(0.01, Math.min(ARW.streak, p.t * p.vel.length() - 0.5)) / ARW.k; /* (the streak only as long as the way it has come, so it starts at the bow) */
+      if (p.mesh.userData.streak) p.mesh.userData.streak.scale.z = Math.max(0.01, Math.min(ARW.streak * (p.focus ? 2.6 : p.fireArrow ? 1.8 : 1), p.t * p.vel.length() - 0.5)) / ARW.k / (p.scale || 1); /* (the streak only as long as the way it has come, so it starts at the bow) */
       if (p.kind === 'axe' || p.kind === 'knife') { p.mesh.rotation.x += dt * 20; }
       if (p.kind === 'bomb') { p.mesh.rotation.x += dt * 9; if (Math.random() < dt * 30) V.emit('spark', p.mesh.localToWorld(new THREE.Vector3(0, 0.3, 0)), { speed: 1.5, size: 0.12 }); }
+      if (p.kind === 'missile') { const h = p.mesh.userData.halo, w = 1 + Math.sin(p.t * 38) * 0.22; if (h) h.scale.setScalar(0.34 * (p.scale || 1) * w); }
       if (p.kind === 'dawn' && Math.random() < dt * 40) V.emit('gold', p.pos, { speed: 0.4, size: 0.18, life: 0.4 });
       if (p.kind === 'keg') { p.mesh.rotation.x += dt * 7; p.mesh.rotation.z += dt * 3; if (Math.random() < dt * 40) V.burst('fire', p.mesh.localToWorld(new THREE.Vector3(0, 0.42, 0)), 2, { speed: 1.5, size: 0.25, life: 0.3 }); }
       if (p.kind === 'wave') p.mesh.rotateZ(Math.PI / 2);
@@ -242,13 +251,34 @@ function trail(p, dt) {
   else if (k === 'poison') { while (p.acc > 0.03) { p.acc -= 0.03; V.burst('poison', p.pos.clone(), 1, { speed: 0.3, size: 0.22, size1: 0.05, life: 0.6, grav: 9, vy: -0.5 }); if (Math.random() < 0.4) V.burst('leaf', p.pos.clone(), 1, { speed: 0.6, size: 0.18, life: 0.5 }); } } // it drips as it flies
   else if (k === 'skull') { while (p.acc > 0.025) { p.acc -= 0.025; V.burst('shadow', p.pos.clone(), 1, { speed: 0.4, size: 0.5, size1: 0.1, life: 0.5, grav: 0 }); V.burst('green', p.pos.clone(), 1, { speed: 0.5, size: 0.16, life: 0.4 }); } }
   else if (k === 'frost') { while (p.acc > 0.02) { p.acc -= 0.02; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5), 0.4, 0.25, 0.02, FR[0], FR[1], 1, 0, 1, 1); } }
-  else if (k === 'arcane' || k === 'orb') { while (p.acc > 0.015) { p.acc -= 0.015; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.8, 0.8), rand(-0.8, 0.8), rand(-0.8, 0.8), 0.45, 0.3 * (p.scale || 1), 0.02, AR[0], AR[1], 1, 0, 0, 1); } }
+  else if (k === 'missile') { const q0 = p.lastP || p.pos, n = Math.max(1, Math.floor(p.acc / 0.006)); let j = 0; p.lastP = p.pos.clone(); while (p.acc > 0.006) { p.acc -= 0.006; const f = (++j) / n, qx = q0.x + (p.pos.x - q0.x) * f, qy = q0.y + (p.pos.y - q0.y) * f, qz = q0.z + (p.pos.z - q0.z) * f; /* (spread along the way it came this frame, so the tail is a smooth ribbon of light, not beads) */ V.norm.spawn(qx + rand(-0.04, 0.04), qy + rand(-0.04, 0.04), qz + rand(-0.04, 0.04), rand(-0.15, 0.15), rand(-0.15, 0.15), rand(-0.15, 0.15), 0.5, 0.26 * (p.scale || 1), 0.03, MMN[0], MMN[1], 0.85, 0, 0, 0); /* (a violet tail that traces the missile's arc, drawn normally so it stays purple) */
+      if (Math.random() < 0.5) V.add.spawn(qx, qy, qz, rand(-0.25, 0.25), rand(-0.25, 0.25), rand(-0.25, 0.25), 0.3, 0.2 * (p.scale || 1), 0.02, MM[0], MM[1], 1, 0, 0, 0);
+      if (Math.random() < 0.3) V.add.spawn(qx, qy, qz, rand(-1.6, 1.6), rand(-1.6, 1.6), rand(-1.6, 1.6), 0.32, 0.11, 0.01, MMS[0], MMS[1], 1, 0, 0, 1.5); } } /* (and sparks thrown off it) */
+  else if (k === 'arcane' || k === 'orb') { while (p.acc > 0.015) { p.acc -= 0.015; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.8, 0.8), rand(-0.8, 0.8), rand(-0.8, 0.8), 0.45, 0.3 * (p.scale || 1), 0.02, AR[0], AR[1], 1, 0, 0, 1); if (Math.random() < 0.6) V.norm.spawn(p.pos.x, p.pos.y, p.pos.z, rand(-0.3, 0.3), rand(-0.3, 0.3), rand(-0.3, 0.3), 0.4, 0.22 * (p.scale || 1), 0.03, MMN[0], MMN[1], 0.7, 0, 0, 0); } }
   else if (k === 'spectral') { while (p.acc > 0.008) { p.acc -= 0.008; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.5, 0.35, 0.02, SP[0], SP[1], 1, 0, 0, 0); } }
+  else if (k === 'arrow' && p.fireArrow) { while (p.acc > 0.008) { p.acc -= 0.008; V.add.spawn(p.pos.x + rand(-0.12, 0.12), p.pos.y + rand(-0.12, 0.12), p.pos.z + rand(-0.12, 0.12), rand(-0.6, 0.6), rand(0.3, 1.2), rand(-0.6, 0.6), 0.45, 0.6, 0.05, PALF[0], PALF[1], 1, 0, -1, 1); } } /* (Blazing Arrow: flames pour off it) */
+  else if (k === 'arrow' && p.focus) { while (p.acc > 0.012) { p.acc -= 0.012; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.75, 0.16, 0.02, FOC[0], FOC[1], 0.8, 0, 0, 0); } } /* (Hunter's Focus: a long green-gold wake behind every arrow) */
   else if (k === 'arrow' && p.charged) { while (p.acc > 0.02) { p.acc -= 0.02; V.add.spawn(p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.3, 0.12, 0.02, SP[0], SP[1], 0.6, 0, 0, 0); } }
   else if (k === 'wave') { while (p.acc > 0.02) { p.acc -= 0.02; V.add.spawn(p.pos.x + rand(-1, 1), p.pos.y, p.pos.z + rand(-1, 1), 0, 0.5, 0, 0.3, 0.3, 0.02, LI[0], LI[1], 0.8, 0, 0, 0); } }
 }
 const C = (h) => new THREE.Color(h);
-const PALF = [C('#ffe08a'), C('#ff3a08')], SM = [C('#4a4440'), C('#222')], FR = [C('#ffffff'), C('#50b8ff')], AR = [C('#ffd8ff'), C('#7a20ff')], SP = [C('#e0fff4'), C('#30ffa0')], LI = [C('#ffffff'), C('#80b0ff')];
+const MM = [C('#f4dcff'), C('#6a14ff')], MMN = [C('#a55cff'), C('#2e0878')], MMS = [C('#ffffff'), C('#c070ff')], FOC = [C('#fff2a0'), C('#60ff70')], PALF = [C('#ffe08a'), C('#ff3a08')], SM = [C('#4a4440'), C('#222')], FR = [C('#ffffff'), C('#50b8ff')], AR = [C('#ffd8ff'), C('#7a20ff')], SP = [C('#e0fff4'), C('#30ffa0')], LI = [C('#ffffff'), C('#80b0ff')];
+// a magic missile's flight: a curve (a quadratic Bezier) from where it left the spellbook, out to one side through its control point, and in
+// to the target's chest wherever the target is now, so it bends round after a runner; the missile moves along it at its own speed. If the
+// target is lost (dead, gone, hidden) it flies on straight
+const UPV = new THREE.Vector3(0, 1, 0);
+function seekStep(p, dt) { const s = p.seek, t = s.tgt;
+  if (!t || t.dead || t.hidden || t.stealth > 0 || (t.isMob !== false && G.mobs.indexOf(t) < 0)) { s.tgt = null; return; }
+  const T = t.pos.clone(); T.y += (t.height || 1.7) * 0.6;
+  if (!s.C) { const L = Math.max(2, s.S.distanceTo(T)); s.C = s.S.clone().addScaledVector(s.dir, L * 0.38).addScaledVector(s.side, L * 0.3).addScaledVector(UPV, L * 0.24 * s.up + 0.4); }
+  const len = Math.max(1, (s.S.distanceTo(T) + s.S.distanceTo(s.C) + s.C.distanceTo(T)) / 2); s.u = Math.min(1, s.u + (s.speed || 30) * dt / len);
+  const u = s.u, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u, B = s.S.clone().multiplyScalar(a).addScaledVector(s.C, b).addScaledVector(T, c);
+  if (u >= 1) B.lerp(T, 1).addScaledVector(T.clone().sub(p.pos).normalize(), 0.3); /* (at the end of the curve: into the target) */
+  p.vel.copy(B.sub(p.pos)).divideScalar(Math.max(dt, 1e-4)); }
+// the enemy nearest the crosshair (o: the camera, f: the way it looks), within range and inside a cone round the aim; null if none
+export function missileTarget(o, f, range, cone) { let best = null, bc = Math.cos(cone); const d = new THREE.Vector3();
+  for (const m of G.mobs) { if (m.dead || m.hidden || m.stealth > 0 || !foe(m) || m.noTarget) continue; d.copy(m.pos); d.y += (m.height || 1.7) * 0.6; d.sub(o); const L = d.length(); if (L > range || L < 0.6) continue; const cs = d.dot(f) / L; if (cs > bc) { bc = cs; best = m; } }
+  return best; }
 function impact(p, mob) {
   const pos = p.pos.clone();
   if (p.onHit) p.onHit(p, mob, pos);
@@ -331,12 +361,12 @@ export function telegraphCone(mob, r, delay) {
   let t = 0;
   G.timers.push({ update(dt) { t += dt; const p = mob.pos; m.position.set(p.x, heightAt(p.x, p.z) + 0.15, p.z); m.rotation.y = mob.yaw - Math.PI / 2; m.material.opacity = 0.2 + 0.25 * Math.min(1, t / delay); if (t >= delay || mob.dead) { G.scene.remove(m); return true; } return false; } });
 }
-export function lightning(a, b) {
+export function lightning(a, b, col) {
   if (Math.random() < 0.8) S.zap(b, 0.9);
   const pts = []; const n = 10;
   for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); if (i && i < n) p.add(new THREE.Vector3(rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5))); pts.push(p); }
   const g = new THREE.BufferGeometry().setFromPoints(pts);
-  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: '#d8e8ff', transparent: true }));
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col || '#d8e8ff', transparent: true }));
   const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.06, 4), new THREE.MeshBasicMaterial({ color: '#a8c8ff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   V.temp(l, 0.25, (m, k) => { m.material.opacity = 1 - k; });
   V.temp(tube, 0.25, (m, k) => { m.material.opacity = 1 - k; });

@@ -3,7 +3,7 @@
 import { heroHeight, fixNormals } from './heromodels.js';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { addCircle } from './world.js';
+import { addCircle, world } from './world.js';
 import { G } from './state.js';
 import { Mob } from './mobs.js';
 import { CLASSES, WEAPON_TYPES, ABILITIES, LEVEL_CAP } from './data.js';
@@ -24,6 +24,7 @@ export const YD = { infinite: false, dmg: [], startGame: null }; window.KR2Y = Y
 const dummies = [];
 // six dummies standing evenly in a ring on open ground in front of the start: hit one from outside, or step into the middle for area attacks
 const RING = { x: 0, z: 47, r: 8 }; /* (between the two weapon racks; the class line-up is behind the start, at z = -8) */
+const RUN = { x0: -25, x1: 25, z: 28, speed: 5.5, turn: 0.4 }; /* (the owner: a dummy running back and forth along a 50 m line, to try the magic missiles and other aimed shots on a moving target: across the field between the start and the ring, clear of the racks, rocks and trees) */
 const SPOTS = [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * Math.PI * 2; return [RING.x + Math.sin(a) * RING.r, RING.z + Math.cos(a) * RING.r, 'Training Dummy']; });
 // every class standing shoulder to shoulder behind the start: walk up to one and press E to become that class
 const LINE = []; YD.line = LINE;
@@ -58,6 +59,11 @@ export function spawnDummies() {
     const take = m.takeHit.bind(m); m.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); YD.dmg.push([performance.now(), Math.max(0, d || dmg)]); m.lastHit = G.time; if (m.hp < m.maxHp * 0.5) m.hp = m.maxHp; m.dead = false; return d; };
     G.mobs.push(m); dummies.push(m);
   }
+  { const m = new Mob('bandit', 10, RUN.x0, RUN.z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 }); /* (the running dummy: after the ring's six, so tests that take the first dummy still get a standing one) */
+    Object.defineProperty(m, 'name', { value: 'Running Dummy', configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.PI / 2; m.home.set(RUN.x0, heightAt(RUN.x0, RUN.z), RUN.z);
+    m.walk = null; m.runner = { dir: 1, pause: 0, yaw: Math.PI / 2 }; m.update = dummyUpdate; m.loot = null;
+    const take = m.takeHit.bind(m); m.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); YD.dmg.push([performance.now(), Math.max(0, d || dmg)]); m.lastHit = G.time; if (m.hp < m.maxHp * 0.5) m.hp = m.maxHp; m.dead = false; return d; };
+    G.mobs.push(m); dummies.push(m); YD.runner = m; }
   plantProps();
   setTimeout(spawnSparrer, 2500); /* (after your own hero has loaded) */
 }
@@ -92,18 +98,22 @@ function placeProp(kind, base, at) {
     at.forEach(([x, z, h, turn], i) => { const y = heightAt(x, z) - (kind === 'rock' ? h * 0.12 : 0.15); /* (sunk a little so no edge floats) */ q.setFromAxisAngle(up, turn); s.set(h * (kind === 'rock' ? 1.15 : 1), h, h * (kind === 'rock' ? 1.15 : 1)); p.set(x, y, z); im.setMatrixAt(i, M.compose(p, q, s)); });
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere && im.computeBoundingSphere(); im.castShadow = true; im.receiveShadow = kind === 'rock'; im.matrixAutoUpdate = false; im.updateMatrix(); im.name = 'yard_' + kind;
     G.scene.add(im); }
-  for (const [x, z, h] of at) addCircle(x, z, kind === 'tree' ? Math.max(0.5, h * 0.06) : h * halfW * 0.8, 'yardprop'); // (you walk round the trunks and rocks, not through them)
+  for (const [x, z, h] of at) addCircle(x, z, kind === 'tree' ? Math.max(0.5, h * 0.06) : h * halfW * 0.8, 'yardprop').top = heightAt(x, z) + (kind === 'tree' ? h * 0.9 : h * 0.8); // (you walk round the trunks and rocks, not through them; top: how tall each is, for magic missiles)
+  if (kind === 'tree') { world.crowns = world.crowns || []; for (const [x, z, h] of at) world.crowns.push({ x, y: heightAt(x, z) + h * 0.68, z, r: h * Math.max(0.3, halfW * 0.9) * 0.8, sy: 0.75 }); } // (the crowns, which magic missiles burst on)
   if (kind === 'tree') { G.camOcc = G.camOcc || []; for (const [x, z, h] of at) G.camOcc.push({ x, y: heightAt(x, z) + h * 0.68, z, r: h * Math.max(0.3, halfW * 0.9) + 0.9, sy: 0.75, tag: 'yardtree' }); } // (the crowns: ultimate cameras keep out of them and never look through them)
 }
 function dummyUpdate(dt) {
   const m = this; m.dead = false; if (m.held) return; // (in the demon's grip)
   if (m.walk) { m.walk.a += dt * 0.35; m.pos.x = 24 + Math.sin(m.walk.a) * 12; m.yaw = Math.cos(m.walk.a) > 0 ? Math.PI / 2 : -Math.PI / 2; }
+  if (m.runner) { const R = m.runner, frozen = m.status.stun > 0 || m.status.freeze > 0 || m.status.root > 0; /* (runs 50 m, slows to a stop, turns round and runs back; a stun or root holds him, a slow slows him) */
+    if (R.pause > 0) R.pause -= dt; else if (!frozen) { const sp = RUN.speed * (m.status.slow > 0 ? 0.5 : 1); m.pos.x += R.dir * sp * dt; if (m.pos.x >= RUN.x1) { m.pos.x = RUN.x1; R.dir = -1; R.pause = RUN.turn; } else if (m.pos.x <= RUN.x0) { m.pos.x = RUN.x0; R.dir = 1; R.pause = RUN.turn; } }
+    m.pos.z = RUN.z; const want = R.dir > 0 ? Math.PI / 2 : -Math.PI / 2; R.yaw += Math.atan2(Math.sin(want - R.yaw), Math.cos(want - R.yaw)) * Math.min(1, dt * 12); m.yaw = R.yaw; R.moving = R.pause <= 0 && !frozen; }
   for (const k in m.status) if (typeof m.status[k] === 'number' && m.status[k] > 0 && k !== 'knock') m.status[k] = Math.max(0, m.status[k] - dt);
-  if (m.status.knock && m.status.knock.lengthSq && m.status.knock.lengthSq() > 0) { m.status.knock.set(0, 0, 0); m.pos.x = m.walk ? m.pos.x : m.home.x; m.pos.z = m.home.z; }
+  if (m.status.knock && m.status.knock.lengthSq && m.status.knock.lengthSq() > 0) { m.status.knock.set(0, 0, 0); m.pos.x = (m.walk || m.runner) ? m.pos.x : m.home.x; m.pos.z = m.home.z; }
   if (m.status.burn > 0 && m.status.burnDps > 0) { const d = m._burn = m._burn || { acc: 0 }; d.dps = m.status.burnDps * PVP_K; const a0 = d.acc; burnFx(m, d, dt); if (d.acc < a0) YD.dmg.push([performance.now(), m.status.burnDps * 0.5]); } /* (burning: flames up the dummy, the burn's ticks on the DPS meter) */
   if (G.time - (m.lastHit || -99) > 3) m.hp = m.maxHp;
   m.pos.y = heightAt(m.pos.x, m.pos.z); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw;
-  m.animate(dt, { speed: m.walk ? 1.5 : 0, action: null, actionT: 0 });
+  m.animate(dt, { speed: m.walk ? 1.5 : m.runner && m.runner.moving ? RUN.speed * (m.status.slow > 0 ? 0.5 : 1) : 0, action: null, actionT: 0 });
 }
 // damage per second over the last 8 seconds, and cheats while training
 export function updateYard(dt) {

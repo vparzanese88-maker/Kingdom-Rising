@@ -23,7 +23,7 @@ import { luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, a
 import { plantBanner } from './banners.js';
 import * as Skills from './skills.js';
 import * as Game from './game.js';
-import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe, poisonBubbles } from './combat.js';
+import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe, poisonBubbles, missileTarget } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
 // the two knights' own three-blow combos (they shared one): [action, length and damage (the slower the blow, the harder it lands), when the hit
 // lands as a share of the blow (empty: the usual share for that action, and the built swing's weapon reaches the target then)]. The paladin
@@ -38,6 +38,8 @@ const ROGUE3 = [['stabR', 0.6, 0.95, 0.64, undefined, 'rtA'], ['stabR', 0.6, 0.9
 // the monk's seven blows, each the length of its own recording (they were all squeezed into a quarter of a second): [action, length, hit share,
 // the model's move]; damage keeps step with length. The spinning kick takes its time, so the kick shows and its hit lands with the foot
 const MONK7 = [['stabR', 0.5, 0.4, 'jab'], ['stabL', 0.5, 0.4, 'cross'], ['stabR', 0.6, 0.4, 'hook'], ['stabL', 0.6, 0.4, 'upper'], ['stabR', 1.3, 0.62, 'spin'], ['stabL', 0.5, 0.4, 'jab'], ['stabR', 1.0, 0.6, 'slam']];
+const MM_SPEED = 30, MM_DMG = 0.85, MM_RANGE = 70, MM_CONE = 0.6, MM_SPLASH = 1.6, MM_LANES = [[1, 0.3], [-1, 0.3], [0.55, 0.8], [-0.55, 0.8], [0, 1.1]]; // the wizard's Magic Missiles: speed (m/s), damage against a bolt, how far and how wide round the crosshair they find a target (m, radians), the burst's reach, and the arcs (side, rise) they take in turn
+const AIM_T0 = 0.1, AIM_FULL = 1.4, AIM_MAX = 2.5; // the ranger's zoomed charge shot: the draw starts counting after a tenth of a second and reaches full power 1.4 s later, at 2.5x an ordinary arrow
 const BOW_CYCLE = 0.95, BOW_REL = 0.55; // the arena bow: one shot's length before haste (s), and how far into it the arrow is loosed
 // Kingdom Battles: a glowing slash crescent that covers the swing's real hit area
 const ARC_GEO = new Map();
@@ -179,6 +181,51 @@ function heroArrow() { const ar = new THREE.Group(), wood = new THREE.MeshStanda
 const BB_GRIP = { R: new THREE.Vector3(0, -0.085, -0.055), Ry: new THREE.Vector3(0, 0.78, 0.63).normalize(), L: new THREE.Vector3(0, 0.24, -0.035), Ly: new THREE.Vector3(0, 1, 0) }; /* (the blunderbuss's hand places, in the gun's own frame: y along the barrel, z up; Ry/Ly the line each hand closes round) */
 const CAM_MIN = 2.2; /* (the closest the camera comes to a hero) */
 // a slash streak where a blade lands: a bright curved stroke that flashes, widens and fades in a fifth of a second
+// Hunter's Focus on the bow: motes of green-gold light spiral up and down both limbs, a halo throbs at the grip and the string burns
+// bright while the buff lasts (third person and first person alike: each bow carries its own little set of motes, its own layer)
+let _moteTex = null;
+function moteTex() { if (_moteTex) return _moteTex; const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.85)'); g.addColorStop(0.55, 'rgba(255,255,255,0.25)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  _moteTex = new THREE.CanvasTexture(c); _moteTex.colorSpace = THREE.SRGBColorSpace; return _moteTex; }
+const FOCUS_MOTES = 12, FOCUS_COLS = ['#f4ff9a', '#7dff6a', '#ffe36a'];
+function focusBow(bw, on, t, dt, k) { if (!bw || bw.name !== 'weapon_bow') return; let fx = bw.userData.focusFx; const sg = bw.userData.string;
+  if (!on) { if (fx && fx.visible) { fx.visible = false; if (sg && sg.userData.c0) sg.material.color.copy(sg.userData.c0); } return; }
+  if (!fx) { fx = new THREE.Group(); fx.name = 'focusFx'; let mask = null; bw.traverse(c => { if (mask == null && c.isMesh && c.visible) mask = c.layers.mask; });
+    const mk = (col, sz) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: moteTex(), color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); m.scale.setScalar(sz); if (mask != null) m.layers.mask = mask; m.frustumCulled = false; fx.add(m); return m; };
+    fx.userData.motes = Array.from({ length: FOCUS_MOTES }, (_, i) => mk(FOCUS_COLS[i % 3], 0.06)); fx.userData.halo = mk('#b8ff70', 0.3); fx.userData.halo2 = mk('#fff4b0', 0.14);
+    bw.add(fx); bw.userData.focusFx = fx; }
+  fx.visible = true; const pa = sg && sg.geometry.attributes.position, h = pa ? Math.abs(pa.getY(2)) || 0.6 : 0.6, zt = pa ? pa.getZ(2) : 0.12, M = fx.userData.motes;
+  for (let i = 0; i < M.length; i++) { const ph = i / M.length * Math.PI * 2, u = Math.sin(t * 1.7 + ph * 1.3), th = t * 7 + ph * 2, r = 0.05 + 0.02 * Math.sin(t * 3 + ph); /* (each mote runs up and down a limb, circling it) */
+    M[i].position.set(Math.cos(th) * r, u * h * 1.02, zt * u * u * 0.8 + Math.sin(th) * r); const tw = 0.6 + 0.4 * Math.sin(t * 11 + ph * 3); M[i].material.opacity = tw * k; M[i].scale.setScalar(0.045 + 0.035 * tw); }
+  const pulse = 0.5 + 0.5 * Math.sin(t * 6); fx.userData.halo.material.opacity = (0.35 + 0.35 * pulse) * k; fx.userData.halo.scale.setScalar(0.24 + 0.1 * pulse); fx.userData.halo2.material.opacity = (0.5 + 0.4 * pulse) * k;
+  if (sg) { if (!sg.userData.c0) sg.userData.c0 = sg.material.color.clone(); sg.material.color.set('#eaff9a').lerp(new THREE.Color('#ffffff'), pulse * 0.5); } }
+// Magic Missiles on the spellbook: violet motes circle the book in a tilted ring and a halo throbs round it while the spell lasts
+const BOOK_MOTES = 10;
+function bookAura(bk, on, t, k) { if (!bk) return; let fx = bk.userData.mmFx;
+  if (!on) { if (fx && fx.visible) fx.visible = false; return; }
+  if (!fx) { fx = new THREE.Group(); fx.name = 'mmFx'; let mask = null; bk.traverse(c => { if (mask == null && c.isMesh) mask = c.layers.mask; });
+    const mk = (col, sz, norm) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: moteTex(), color: col, transparent: true, depthWrite: false, blending: norm ? THREE.NormalBlending : THREE.AdditiveBlending })); m.scale.setScalar(sz); if (mask != null) m.layers.mask = mask; m.frustumCulled = false; fx.add(m); return m; };
+    fx.userData.m = Array.from({ length: BOOK_MOTES }, (_, i) => mk(i % 2 ? '#c890ff' : '#7a1cff', 0.07, i % 2 === 0)); fx.userData.halo = mk('#8a2cff', 0.42, true); fx.userData.glow = mk('#e0b8ff', 0.22);
+    bk.add(fx); bk.userData.mmFx = fx; }
+  fx.visible = true; const M = fx.userData.m, s = 1 / Math.max(0.2, bk.getWorldScale(new THREE.Vector3()).x); /* (sized in metres whatever the hand's scale) */
+  for (let i = 0; i < M.length; i++) { const a = t * 4 + i / M.length * Math.PI * 2, r = 0.2 * s; M[i].position.set(Math.cos(a) * r, Math.sin(a * 2) * 0.05 * s + 0.05 * s, Math.sin(a) * r); M[i].material.opacity = (0.65 + 0.35 * Math.sin(t * 9 + i)) * k; M[i].scale.setScalar(0.07 * s); }
+  const pulse = 0.5 + 0.5 * Math.sin(t * 7); fx.userData.halo.material.opacity = (0.25 + 0.2 * pulse) * k; fx.userData.halo.scale.setScalar((0.36 + 0.08 * pulse) * s); fx.userData.glow.material.opacity = (0.5 + 0.3 * pulse) * k; fx.userData.glow.scale.setScalar(0.2 * s); }
+// Blink, the owner's way: a violet rift tears open where the wizard stands and swallows him, void lightning leaps the gap along a stream of
+// purple light, and he bursts out of a second rift at the far end in a shower of violet shards, a rune ring flaring on the ground at both
+function riftFx(P, d, opening) { const g = new THREE.Group(); g.position.copy(P); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d.clone().setY(0).lengthSq() > 1e-4 ? d.clone().setY(0).normalize() : new THREE.Vector3(0, 0, 1));
+  const add = (geo, col, op, norm) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: norm ? THREE.NormalBlending : THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.userData.op = op; m.renderOrder = 5 + g.children.length; g.add(m); return m; };
+  const disc = add(new THREE.CircleGeometry(0.74, 40), '#1c0548', 0.88, true), rimN = add(new THREE.RingGeometry(0.64, 0.86, 48), '#7a1cff', 0.95, true), rim = add(new THREE.RingGeometry(0.7, 0.8, 48), '#d0a0ff', 0.9), rim2 = add(new THREE.RingGeometry(0.86, 0.9, 48), '#b070ff', 0.55), swirl = add(new THREE.RingGeometry(0.18, 0.6, 5, 1, 0, Math.PI * 1.4), '#9b4dff', 0.7, true); /* (a dark violet void ringed in saturated purple (drawn normally, so it shows against a bright sky) with a glowing edge and a slow swirl) */
+  g.scale.set(0.05, 0.05, 1); G.scene.add(g); let t = 0; const T = 0.62;
+  G.timers.push({ update: (dt) => { t += dt; const k = t / T; if (k >= 1) { G.scene.remove(g); g.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); return true; }
+    const open = k < 0.18 ? 1 - Math.pow(1 - k / 0.18, 3) : k > 0.6 ? Math.max(0, 1 - (k - 0.6) / 0.4) : 1, s = open * (opening ? 1 : 1.12); g.scale.set(Math.max(0.02, s), Math.max(0.02, s * 1.55), 1); /* (a tall oval, as tall as he is) */
+    swirl.rotation.z -= dt * 9; rim.rotation.z += dt * 2; for (const m of g.children) m.material.opacity = m.userData.op * (k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1); return false; } }); }
+function blinkFx(from, to) { const A = from.clone().setY(from.y + 1.15), B = to.clone().setY(to.y + 1.15), d = B.clone().sub(A), L = d.length(); if (L > 0.01) d.divideScalar(L); else d.set(0, 0, 1);
+  riftFx(A, d, true); riftFx(B, d, false);
+  V.burst('void', A, 46, { normal: true, speed: 3.2, size: 0.55, life: 0.7 }); V.burst('arcane', A, 30, { speed: 6, size: 0.3 }); V.ring(from, 2.4, '#8a3cff', 0.5); /* (where he was: violet smoke and light bursting, a small flash, a ring on the ground) */
+  { const n = Math.max(12, Math.round(L * 3)); for (let i = 1; i < n; i++) { const q = A.clone().lerp(B, i / n); V.burst('void', q, 1, { normal: true, speed: 0.6, size: 0.45, life: 0.65 }); if (i % 3 === 0) V.burst('arcane', q, 1, { speed: 1.2, size: 0.22, life: 0.45 }); } } /* (the way he went: an unbroken trail of purple, three puffs to the metre) */
+  lightning(A, B, '#a45cff'); lightning(A.clone().setY(A.y + 0.35), B.clone().setY(B.y - 0.2), '#7a2cff');
+  V.burst('void', B, 70, { normal: true, speed: 5.5, size: 0.6, life: 0.75 }); V.burst('arcane', B, 40, { speed: 8, size: 0.32 }); V.burst('spark', B, 14, { speed: 6, size: 0.12 }); V.light(B, '#8a2cff', 6, 0.4, 12); V.ring(to, 3.3, '#9b4dff', 0.55); V.addShake(0.12); /* (where he lands: a burst of violet smoke and shards, a flash) */
+  S.cast('arcane', to, 1.4); S.explode && S.explode(to, 0.22); }
 let _slashTex = null;
 // a red crescent slash mark swept through the air in front of a hero, level at chest height, flaring and fading fast
 const RED_SLASH = { tex: null };
@@ -668,7 +715,7 @@ export class Player {
     if (this.dead || G.uiOpen) return;
     if (down && btn === 2 && this.h.arena && this.h.arenaRmb === 'ar_wraps' && !this.dead && !G.uiOpen) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === 'ar_wraps'); if (k >= 0) this.ability(k); return; } // (Tighten the Wraps works even while stunned: it is how the monk breaks free)
     if (down && this.db && this.db.stun && this.db.stun.t > 0) return;
-    if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down && !this.dead; if (this.dead) return; if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
+    if (btn === 0 && this.h.arena && this.W) { this.lmbHeld = down && !this.dead; if (this.dead) return; if (down ? this.aimShotOn() : this.press && this.press.aimShot) { if (down) { this.cancelGather(); this.press = { t: 0, aimShot: true, charging: false }; } else { const pr = this.press; this.press = null; this.aimShotRelease(pr); } return; } /* (the owner: the ranger zoomed in holds left click to draw a strong shot, a bar under the crosshair rising to full power, and lets go to loose it) */ if (down) { this.cancelGather(); this.press = null; this.light(); } return; } // the arena: hold to keep firing // the arena: one click, one attack (no holding) // the arena: no heavy attacks; press or hold to keep attacking (bows and guns too) // the arena: press or hold to keep attacking
     // Kingdom Battles bows: hold left click to draw, release to shoot (a longer draw is stronger and straighter)
     if (btn === 0 && G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun')) {
       if (down) { this.cancelGather(); if (!this.atk && !this.dodge && !this.block) this.press = { t: 0, charging: false }; }
@@ -724,7 +771,7 @@ export class Player {
     this.recoil = Math.min(1, (this.recoil || 0) + 0.35); V.burst('arcane', from, 6, { speed: 3 }); V.light(from, '#b8a0ff', 3, 0.06, 6); S.gunshot && S.gunshot(this.pos, 0.45); this.fovKick = Math.min(4, (this.fovKick || 0) + 0.6); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= this.h.cls === 'ranger' ? 1.5 : 1.35; /* (the owner: the ranger's Hunter's Focus, 50% faster) */ if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= this.h.cls === 'ranger' ? 2 : 1.35; if (this.buffs.missiles > 0) m *= 2; /* (the owner: Magic Missiles cast twice as fast) */ /* (the owner: the ranger's Hunter's Focus, twice as fast, and no extra crits) */ if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -781,9 +828,18 @@ export class Player {
     const W = this.W;
     if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : this.h.arena && this.h.cls === 'warrior' ? 1.3 : 0.9 }; } /* (the warrior's sword swings: a fuller whoosh, the light swish was easy to miss) */
   }
+  aimShotOn() { return !!(this.h.arena && this.h.cls === 'ranger' && this.W && this.W.kind === 'bow' && this.ads && !this.dead); }
+  aimCharge() { const p = this.press; return p && p.aimShot && p.charging ? clamp((p.t - AIM_T0) / AIM_FULL, 0, 1) : 0; }
+  aimShotRelease(pr) { if (!pr || this.dead || !this.W || this.W.kind !== 'bow') return; const c = pr.charging ? clamp((pr.t - AIM_T0) / AIM_FULL, 0, 1) : 0;
+    if (c < 0.06) { if (!this.atk) this.light(); return; } /* (a tap while zoomed: an ordinary shot) */
+    const K = G.battleFx ? 2.8 : 1.7, plain = (0.9 + 0.25 * K) * (BOW_CYCLE / 0.5); this.startAtk('release', 0.34, { charge: c, fire: true, aimed: true, hitK: 0.03, dmgK: plain * (1 + (AIM_MAX - 1) * c) / (0.9 + K * c) }); /* (dmgK: an ordinary arena arrow's damage (a 'shoot' counts as a quarter draw, times BOW_CYCLE / 0.5), times up to AIM_MAX at a full draw, whatever the bow's own draw formula) */
+    this.recoil = Math.max(this.recoil || 0, 0.6 + c); this.fovKick = Math.max(this.fovKick || 0, 1 + c * 3); if (c >= 1) { V.addShake(0.18); S.bowShot(this.pos); } }
   updateAttack(dt) {
+    if (this.press && this.press.aimShot && !G.uiOpen) { if (this.dead || !this.W || this.W.kind !== 'bow') this.press = null; else if (!this.atk && !this.dodge) { /* (a shot already in flight finishes first; then the string comes back) */
+      if (!this.press.charging) { this.press.charging = true; S.bowDraw(); } this.press.t += dt * (this.buffs.focus > 0 ? 2 : 1); /* (Hunter's Focus draws twice as fast too) */
+      if (!this.press.full && this.aimCharge() >= 1) { this.press.full = true; S.bowDraw(); V.number(this.pos.clone().setY(this.pos.y + 2.3), 'Full power', 'crit'); } } }
     // charging heavy (hold left click)
-    if (G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun') && this.press && !G.uiOpen) {
+    if (G.battleFx && this.W && (this.W.kind === 'bow' || this.W.kind === 'gun') && this.press && !this.press.aimShot && !G.uiOpen) { /* (not the ranger's zoomed charge shot: it keeps its own clock above) */
       this.press.t += dt;
       const fullAt = this.W.kind === 'gun' ? 1.62 : 2.02;
       if (this.press.charging && !this.press.full && this.press.t >= fullAt) { this.press.full = true; S.bowDraw(); V.number(this.pos.clone().setY(this.pos.y + 2.3), this.W.kind === 'gun' ? 'Steady aim' : 'Full draw', 'crit'); }
@@ -823,7 +879,7 @@ export class Player {
       this.comboT = 0.55;
       if (a.last) this.combo = 0;
       if (this.queued) { const q = this.queued; this.queued = null; if (q === 'light') { this.light(); if (this.atk) this.atk.chained = true; } else if (q === 'heavy') { this.press = { t: 0.23, charging: false, melee: true }; } }
-      else if (this.lmbHeld && this.h.arena && !this.held && !this.dead && !G.uiOpen) { this.light(); if (this.atk) this.atk.chained = true; } /* (holding attack: the next blow starts this very frame, so the combo loops without a hitch) */
+      else if (this.lmbHeld && this.h.arena && !this.held && !this.dead && !G.uiOpen && !(this.press && this.press.aimShot)) { this.light(); if (this.atk) this.atk.chained = true; } /* (holding attack: the next blow starts this very frame, so the combo loops without a hitch) */
     }
   }
   doHit(a) {
@@ -875,7 +931,7 @@ export class Player {
       const charge = a.name === 'release' ? a.charge : 0.25;
       // a long draw (hold left click up to ~2 s in Kingdom Battles) hits much harder, flies faster and stays straight far longer
       const sight = (this.adsK || 0) > 0.7, speed = (G.battleFx ? 24 + charge * 30 : 27 + charge * 34) + (sight ? 10 : 0); /* (about a quarter slower than before, so you can follow each arrow from the bow to the target) */ /* sighted: faster, flatter, a little harder */
-      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.45 + charge * 0.9 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.75 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.dmgK || 1) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95 });
+      spawnProjectile({ wpn: true, flat: (G.battleFx ? 0.45 + charge * 0.9 : 0) + (sight ? 0.5 : 0), pos: from, vel: dir.multiplyScalar(speed), grav: (9 - charge * (G.battleFx ? 6 : 4)) * (G.battleFx ? 0.75 : 1) * (sight ? 0.7 : 1), radius: 0.15, dmg: base * (0.9 + charge * (G.battleFx ? 2.8 : 1.7)) * (a.dmgK || 1) * (a.name === 'release' ? 1 + this.wp('heavy') * 0.15 : 1) * (sight ? 1.15 : 1), owner: 'player', kind: 'arrow', life: 4, charged: charge > 0.7, pierce: charge > 0.95, focus: this.buffs.focus > 0, aimed: a.aimed ? charge : 0, scale: a.aimed ? 1 + charge * 0.5 : 1 }); /* (focus: Hunter's Focus marks every arrow with a long glowing streak; aimed: the zoomed charge shot, bigger and brighter the longer it was drawn) */
       S.bowShot(this.pos);
     } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff' && a.name === 'reap') { this.reap(a, base);
@@ -888,15 +944,25 @@ export class Player {
         spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(48), grav: 0.5, radius: 0.24, dmg: base * 0.85, owner: 'player', kind: 'dawn', life: 3, home: true, onHit: (p, m, pos) => { if (m) { this.dealDamage(m, p.dmg, { el: 'arcane' }); G.hooks.atone && G.hooks.atone(this, 0.045); } V.burst('gold', pos, 18, { speed: 4 }); V.light(pos, '#ffe080', 3, 0.2); S.cast('holy', pos, 0.5); } });
         S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; }
       if (G.newFx && !a.big) base *= 0.7; // campaign: plain bolts hit softer; spells and the held stream carry the damage
+      if (this.h.arena && this.h.cls === 'wizard' && this.buffs.missiles > 0) { this.magicMissile(from, dir, base); S.cast('arcane', from, 0.5); V.burst('arcane', from, 7, { speed: 2.5 }); V.light(from, '#b060ff', 2.2, 0.12, 8); return; } /* (Magic Missiles: each cast a seeking missile) */
       const sc = big ? 1 + ch * 1.4 : 1;
       if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
       else if (el === 'frost') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
-      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * (0.95 + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
+      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * ((this.h.arena && this.h.cls === 'wizard' ? 1.0 : 0.95) + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, /* (the arena wizard's plain bolt: a touch harder than other arcane staffs, so his damage stays where it was with fire) */ onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
       if (this.pk('echo') && !a.echoed && Math.random() < 0.15) { setTimeout(() => { if (!this.dead) this.doHit(Object.assign({}, a, { echoed: true })); }, 140 * ABIL_DELAY_K()); }
       S.cast(el, from, big ? 1.4 : 0.8);
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
     }
   }
+  // Magic Missiles: a missile that seeks the enemy nearest the crosshair (within MM_CONE of it), sweeping out to one side and curving in to
+  // it, lane after lane (right, left, high right, high left, over the top), so a stream of them fans out and closes on the target. With no
+  // target it flies straight down the crosshair. It bursts on whatever it touches first: the target, another fighter, a wall, a tree
+  magicMissile(from, dir, base) { const cam = G.camera, f = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), tgt = missileTarget(cam.position, f, MM_RANGE, MM_CONE);
+    const n = (this.mmN = (this.mmN || 0) + 1), lane = MM_LANES[n % MM_LANES.length], side = new THREE.Vector3(-dir.z, 0, dir.x); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize().multiplyScalar(lane[0]);
+    const p = spawnProjectile({ wpn: true, pos: from.clone(), vel: dir.clone().multiplyScalar(tgt ? MM_SPEED : MM_SPEED * 1.3), grav: 0, radius: 0.18, dmg: base * MM_DMG, owner: 'player', kind: 'missile', el: 'arcane', life: 3.2, block: true, onHit: (pr, m, pos) => this.missileBurst(pr, m, pos) });
+    if (tgt) p.seek = { tgt, S: from.clone(), dir: dir.clone(), side, up: lane[1], u: 0, speed: MM_SPEED }; return p; }
+  missileBurst(pr, m, pos) { if (m) this.dealDamage(m, pr.dmg, { ranged: true, el: 'arcane', basic: true }); for (const o of mobsInRadius(pos, MM_SPLASH)) if (o !== m) this.dealDamage(o, pr.dmg * 0.35, { ranged: true, el: 'arcane' }); /* (a small burst: a little damage to anyone close by) */
+    V.burst('void', pos, 22, { normal: true, speed: 3.5, size: 0.42, life: 0.5 }); V.burst('arcane', pos, 18, { speed: 5.5, size: 0.28 }); V.burst('spark', pos, 6, { speed: 4, size: 0.1 }); V.light(pos, '#8a2cff', 4, 0.2, 8); S.cast('arcane', pos, 0.45); if (!m) S.hit && S.hit('stone', pos, 0.5); }
   // a point in the first-person view (its own camera) as a world point on the same line of sight: spells leave the hand you see
   vmWorld(obj) { if (!obj || !G.vmCam) return null; const p = obj.getWorldPosition(new THREE.Vector3()), d = p.distanceTo(G.vmCam.position), n = p.clone().project(G.vmCam); const dir = new THREE.Vector3(n.x, n.y, 0.5).unproject(G.camera).sub(G.camera.position).normalize(); return G.camera.position.clone().addScaledVector(dir, Math.max(1.1, d)); }
   fireBurst(pos, r, dmg, direct) {
@@ -1358,10 +1424,7 @@ export class Player {
         const from = this.pos.clone(); let to = from.clone();
         for (let s = 0.5; s <= 14 + this.pk('a2up') * 6; s += 0.5) { const p = from.clone().addScaledVector(dir, s); if (isWater(p.x, p.z)) break; const q = p.clone(); if (collide(q, this.radius)) break; if (heightAt(p.x, p.z) - this.pos.y > 4) break; to = p; }
         to.y = groundAt(to.x, to.z, to.y + 2).h;
-        V.burst('arcane', from.clone().setY(from.y + 1), 50, { speed: 4, size: 0.4 }); V.sphereFlash(from.clone().setY(from.y + 1), 1.4, '#c080ff', 0.3);
-        this.pos.copy(to); this.vel.set(0, 0, 0);
-        V.burst('arcane', to.clone().setY(to.y + 1), 50, { speed: 4, size: 0.4 }); V.sphereFlash(to.clone().setY(to.y + 1), 1.4, '#c080ff', 0.3);
-        S.cast('arcane', to, 1.2); this.fovKick = 10;
+        this.pos.copy(to); this.vel.set(0, 0, 0); blinkFx(from, to); this.fovKick = 12; /* (the owner: a far more striking, purple Blink: see blinkFx) */
         break;
       }
       case 'chain': {
@@ -1545,6 +1608,17 @@ export class Player {
         if (a.calm) for (const m of mobsInRadius(this.pos, r)) { m.provoked = false; m.loseTrack ? m.loseTrack() : (m.state = 'return'); V.number(m.pos.clone().setY(m.pos.y + (m.height || 1.6) + 0.5), 'Lulled', 'miss'); }
         if (a.vanish) { this.stealth = Math.max(this.stealth || 0, a.vanish); this.buffs.nextCrit = true; for (const m of G.mobs) if (!m.dead && m.state === 'chase' && m.pos.distanceTo(this.pos) < 30) m.loseTrack ? m.loseTrack() : (m.state = 'return'); S.stealth(); }
         V.ring(this.pos, r, col, 0.6); V.burst(pk === 'spark' ? 'dust' : pk, this.pos.clone().setY(this.pos.y + 0.6), 50, { speed: 6, radius: r * 0.4 }); S.cast(el || 'arcane', this.pos, 1); S.rumble && S.rumble(this.pos, 0.5); V.addShake(0.25); anim('smash', 0.5); return true; }
+      case 'missiles': { /* (Magic Missiles: for a few seconds every cast is a seeking missile, twice as fast) */ this.buffs.missiles = (a.dur || 6) * (1 + 0.15 * Game.arenaPassive(this.h, 'mmLong')); this.buffFx(a.name, '#b070ff'); V.burst('void', this.pos.clone().setY(this.pos.y + 1.2), 36, { normal: true, speed: 3, size: 0.45, life: 0.6 }); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1.2), 24, { speed: 4.5, size: 0.3 }); V.ring(this.pos, 2.2, '#8a3cff', 0.4); S.cast('arcane', this.pos, 1.3); this.fovKick = Math.max(this.fovKick || 0, 5); anim('cast', 0.35); return true; }
+      case 'firearrow': { /* (Blazing Arrow: a huge burning arrow that hits like a ram and stuns; the recoil throws him back in a flip) */
+        const from = this.camDist >= 0.6 ? ((bowRest(this.ch)) || this.handPos(true)) : this.handPos(true), dir = this.aimDir(from), dmg = P(a.dmg);
+        spawnProjectile({ pos: from, vel: dir.clone().multiplyScalar(62), grav: 1.2, radius: 0.32, dmg, owner: 'player', kind: 'arrow', fireArrow: true, scale: 2.4, life: 2.2, onHit: (pr, m, pos) => { V.burst('fire', pos.clone(), 60, { speed: 7, size: 0.9 }); V.burst('ember', pos.clone(), 30, { speed: 5 }); V.light && V.light(pos, '#ff7a20', 8, 0.35, 9); S.explode && S.explode(pos, 0.7); V.addShake(0.35); if (m) this.dealDamage(m, pr.dmg, hitO(m, { ranged: true, stun: a.stun || 1.5, el: 'fire', burn: pr.dmg * 0.08, big: true })); } });
+        const back = dir.clone().setY(0); if (back.lengthSq() < 1e-4) back.copy(f); back.normalize().multiplyScalar(-1); this.vel.x = back.x * 13; this.vel.z = back.z * 13; this.vel.y = Math.max(this.vel.y, 7.5); this.onGround = false; this.iframes = Math.max(this.iframes || 0, 0.35);
+        V.burst('fire', from.clone(), 26, { speed: 4, size: 0.6 }); S.bowShot && S.bowShot(this.pos); S.cast && S.cast('fire', this.pos, 0.9); this.recoil = Math.max(this.recoil || 0, 2.4); anim('flip', 0.95); return true; } /* ('flip', not 'shoot': the bow-drawing pose would pin his arms out in front while he goes over) */
+      case 'bola': { /* (Bola Shot: two arrows side by side, joined by a cord; the catch slows the target and heals him 10%) */
+        const from = this.camDist >= 0.6 ? ((bowRest(this.ch)) || this.handPos(true)) : this.handPos(true), dir = this.aimDir(from), side = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); let caught = false; const pair = [];
+        for (const sgn of [-1, 1]) pair.push(spawnProjectile({ pos: from.clone().addScaledVector(side, 0.28 * sgn), vel: dir.clone().multiplyScalar(58).addScaledVector(side, 0.9 * sgn), grav: 2.5, radius: 0.24, dmg: P(a.dmg) * 0.5, owner: 'player', kind: 'arrow', life: 2.5, onHit: (pr, m, pos) => { V.burst('leaf', pos.clone(), 14, { speed: 3 }); if (m) { this.dealDamage(m, pr.dmg, hitO(m, { ranged: true, slow: a.slow || 3 })); if (!caught) { caught = true; this.heal(this.maxHp * 0.1); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.2), 24, { speed: 2, vy: 2 }); S.heal && S.heal(); } } } }));
+        { const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 5), new THREE.MeshStandardMaterial({ color: '#6a4a2a', roughness: 0.9 })); G.scene.add(cord); let ct = 0; G.timers.push({ update: (dt) => { ct += dt; const A = pair[0], B = pair[1]; const live = A && B && A.mesh && B.mesh && A.mesh.parent && B.mesh.parent; if (!live || ct > 2.6) { G.scene.remove(cord); cord.geometry.dispose(); return true; } const pa = A.mesh.position, pb = B.mesh.position; cord.position.copy(pa).lerp(pb, 0.5); cord.scale.y = Math.max(0.05, pa.distanceTo(pb)); cord.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pb.clone().sub(pa).normalize()); return false; } }); } /* (the cord between the two arrows in flight) */
+        S.bowShot && S.bowShot(this.pos); anim('shoot', 0.4); return true; }
       case 'zslash': { const range = (a.range || 5) * K; /* (the berserker's C: a fast, brutal slash; a red crescent tears through the air in front of him) */
         /* (the owner: a new slash that sweeps low across their legs, the red streak and the sound in time with it and going the same way. His recorded Weapon Combo's low two-handed sweep plays (right to left at thigh height); the axe head itself paints the blood-red streak while it sweeps, and the cut, the blood and the deep slash sound land as the axe crosses in front of him, a whoosh just before) */
         const HM = this.ch && this.ch.heroModel, mv = HM && HM !== 'loading' && HM.M && HM.D.abMoves && HM.M[HM.D.abMoves[a.id]], L = mv ? (mv[5] || 0.6) : 0.42, blow = L * (mv ? (mv[7] || 0.475) : 0.5), dmg = P(a.dmg);
@@ -1943,7 +2017,7 @@ export class Player {
     if (this.buffs.nextCrit && !o.silent) { crit = true; this.buffs.nextCrit = false; dmg *= 2; this.stealth = 0; }
     if (this.h.cls === 'ranger' && this.pk('cap') && m.hp >= m.maxHp) crit = true;
     if (o.critBonus && Math.random() < o.critBonus) crit = true;
-    if (this.buffs.focus > 0 && Math.random() < 0.1) crit = true;
+    if (this.buffs.focus > 0 && this.h.cls !== 'ranger' && Math.random() < 0.1) crit = true;
     if (crit) dmg *= 1.75;
     const arm = m.def.armor || 0; if (arm && !o.el) { if (o.blunt) { if (Math.random() < 0.3) V.number(m.pos.clone().setY(m.pos.y + m.height + 0.7), 'Crush!', 'crit'); } else dmg *= 1 - arm; }
     if (this.wp('exec') && m.hp < m.maxHp * 0.35) dmg *= 1.3;
@@ -2180,7 +2254,7 @@ export class Player {
     const h = this.h;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1) * (this.transcendT > 0 ? 3 : 1)); // (Transcendence: abilities recharge three times as fast) // Timeless Form: abilities recharge twice as fast
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
-    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
+    for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward', 'missiles']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); /* (missiles: the wizard's Magic Missiles) */ if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
     if (h.sb) { let gone = false; for (const id in h.sb) { const b = h.sb[id]; b.t -= dt; if (b.mregen && this.maxMana) this.mana = Math.min(this.maxMana, this.mana + b.mregen * dt); if (b.t <= 0) { delete h.sb[id]; gone = true; G.hooks.toast && G.hooks.toast(`${b.name} has worn off`, '✦', 'bad'); } } if (gone) this.refreshStatsOnly(); }
     for (const k of ['food', 'drink']) {
@@ -2307,6 +2381,9 @@ export class Player {
     if (combatFace || this.camDist < 0.6 || this.h.arena) this.bodyYaw += angDiff(this.bodyYaw, this.yaw) * Math.min(1, dt * (this.h.arena ? 18 : 14));
     else if (hs > 0.5) this.bodyYaw += angDiff(this.bodyYaw, Math.atan2(this.vel.x, this.vel.z)) * Math.min(1, dt * 10);
     { const tr = angDiff(this.prevBY ?? this.bodyYaw, this.bodyYaw) / Math.max(dt, 1e-3); this.prevBY = this.bodyYaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
+    { const on = this.h.arena && this.h.cls === 'wizard' && this.buffs.missiles > 0 && !this.dead; bookAura(this.ch && this.ch.weapons && this.ch.weapons.main, on, G.time, on ? Math.min(1, this.buffs.missiles * 2) : 0); } /* (Magic Missiles: violet motes round the spellbook while it lasts) */
+    { const on = this.h.arena && this.h.cls === 'ranger' && this.buffs.focus > 0 && !this.dead, k = on ? Math.min(1, this.buffs.focus * 2) : 0; focusBow(this.ch && this.ch.weapons && this.ch.weapons.main, on && this.camDist >= 0.6, G.time, dt, k); focusBow(this.vm && this.vm.weapons && this.vm.weapons.main, on && this.camDist < 0.6, G.time, dt, k); /* (Hunter's Focus: the bow lit up, fading out over its last half second) */
+      if (on && this.camDist >= 0.6 && Math.random() < dt * 14) { const bw = this.ch.weapons.main; if (bw && bw.name === 'weapon_bow') { const q = bw.localToWorld(new THREE.Vector3((Math.random() - 0.5) * 0.1, (Math.random() * 2 - 1) * 0.6, 0.05)); V.burst('green', q, 1, { speed: 0.5, size: 0.12, life: 0.45, vy: 1.2 }); } } }
     this.animate(dt, hs); bladeFire(this, dt); this.tickAxe(dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
     this.updateCamera(dt);
   }
@@ -2336,7 +2413,7 @@ export class Player {
       if (a.name === 'spell') action = 'cast';
       if (a.name === 'castRel') action = 'castRel';
       if (this.W && this.W.kind === 'melee' && this.weapon.wt === 'spear' && a.name.startsWith('thrust')) action = a.name;
-    } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; }
+    } else if (this.press && this.press.charging) { action = this.W.kind === 'bow' ? 'shoot' : this.W.kind === 'gun' ? 'gunAim' : this.W.kind === 'staff' ? 'castBig' : 'heavy'; actionT = this.press.aimShot ? 0.06 + 0.42 * Math.min(1, this.aimCharge() * 1.6) : this.W.kind === 'melee' ? 0.5 : this.W.kind === 'gun' ? 1 : 0.3; } /* (the zoomed charge shot: the string hand comes back to the jaw over the first part of the draw and holds there) */
     // chained swings: between one attack ending and the next starting the body holds the attack's end pose (its guard)
     // for a moment instead of dropping to the idle or run pose for a frame, so a held-click combo flows swing to swing
     let chain = 0; if (a && action && this.W && this.W.kind === 'melee') { if (this.queued && actionT > 0.75 && !(this.h.arena && this.h.cls === 'warrior' && /^swing[12]$/.test(a.name))) actionT = 0.75; /* (another swing is queued: skip the recovery back to guard) */ /* (not the warrior's two swings: they are one loop with no recovery, and holding them at 0.75 made the next one jump) */ if (a.chained) chain = Math.max(0, 1 - a.t / 0.35); } /* (and the next swing grows out of the last one's follow-through: the arms ease over instead of snapping) */
@@ -2362,7 +2439,7 @@ export class Player {
     this.gunToShoulder(ch, this.camDist > 0.6 && this.W && this.W.kind === 'gun' && (this.adsK > 0.3 || (this.press && this.press.charging) || (this.atk && (this.atk.name === 'release' || this.atk.name === 'shoot'))), !action || action === 'gunAim');
     // view model
     const castNow = G.newFx && ((this.abCast && this.abCast.spell) ? this.abCast : this.summonCast);
-    const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
+    const vmAct = castNow ? { name: 'castUp', t: Math.min(1, castNow.t / Math.min(0.8, castNow.dur * 0.6)) } : g ? { name: g.anim, t: actionT } : a ? { name: a.name, t: Math.min(1, a.t) } : this.press && this.press.charging ? { name: this.W.kind === 'bow' ? 'draw' : this.W.kind === 'staff' ? 'chargeCast' : 'charge', t: this.press.aimShot ? Math.min(1, this.aimCharge() * 1.6) : Math.min(1, (this.press.t - 0.22) / 0.6) } : null;
     this.swayX += (-this.lookDX * 0.0004 - this.swayX) * Math.min(1, dt * 8); this.swayY += (this.lookDY * 0.0004 - this.swayY) * Math.min(1, dt * 8); this.lookDX = this.lookDY = 0;
     this.recoil = Math.max(0, (this.recoil || 0) - dt * 5);
     { const aiming = this.W && this.W.kind === 'gun' && this.press && this.press.charging; this.aimK = (this.aimK || 0) + ((aiming ? 1 : 0) - (this.aimK || 0)) * Math.min(1, dt * 9); }
@@ -2391,7 +2468,7 @@ export class Player {
     this.lookLag(dt);
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
     this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; if (this.lmbHeld && this.barrageCd <= 0 && !this.held && !this.isFrozen() && !this.dead) { this.barrageCd = 0.09; this.arcaneRound(); } }
-    if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
+    if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !(this.press && this.press.aimShot) && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
     this.camDistT = Math.max(CAM_MIN, this.camDistT); if (this.camDist < CAM_MIN * 0.5 && !this.cine) this.camDist = CAM_MIN; /* (the owner: no first-person view: the camera always stays behind the hero) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));

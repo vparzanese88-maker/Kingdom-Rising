@@ -56,6 +56,13 @@ export function collide(p, r) {
   return hit;
 }
 // is this point inside a solid box (walls, buildings)? and is the straight line between two points clear of them?
+// what a magic missile flies into on its way (gh: the ground height there): a wall or building (a box, within its height), a tree trunk,
+// rock, post or well (a circle, up to its top if it was given one, else the bottom 2.5 m), or a tree's crown (world.crowns: squashed balls)
+export function blockAt(x, y, z, gh) { for (const c of gridGet(colGrid, x, z)) { if (!c.on) continue;
+    if (c.t === 'b') { if (y < c.y0 || y > c.y1) continue; const dx = x - c.x, dz = z - c.z, lx = dx * c.cos - dz * c.sin, lz = dx * c.sin + dz * c.cos; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true; }
+    else if (c.t === 'c') { if (y > (c.top != null ? c.top : gh + 2.5)) continue; const dx = x - c.x, dz = z - c.z; if (dx * dx + dz * dz < c.r * c.r) return true; } }
+  for (const o of world.crowns || []) { const dx = x - o.x, dz = z - o.z, dy = (y - o.y) / (o.sy || 1); if (dx * dx + dz * dz + dy * dy < o.r * o.r) return true; }
+  return false; }
 export function solidAt(x, y, z) { for (const c of gridGet(colGrid, x, z)) { if (!c.on || c.t !== 'b' || y < c.y0 || y > c.y1) continue; const dx = x - c.x, dz = z - c.z, lx = dx * c.cos - dz * c.sin, lz = dx * c.sin + dz * c.cos; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true; } return false; }
 export function lineClear(a, b) { const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.6); for (let i = 1; i < n; i++) { const t = i / n; if (solidAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)) return false; } return true; }
 // ground height including bridges/piers when standing above them

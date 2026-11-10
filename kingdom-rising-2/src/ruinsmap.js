@@ -361,8 +361,7 @@ export function buildRuins(scene) {
   { const flat = (g) => { g.rotateX(-Math.PI / 2); return g; }; put(flat(new THREE.CircleGeometry(10.6, 48)), M.mosaic, 0, Y + 0.035, 0, 0, 0, false);
     put(flat(new THREE.RingGeometry(6.6, 7.2, 64, 2)), M.goldInlay, 0, Y + 0.05, 0, 0, 0, false); put(flat(new THREE.RingGeometry(10.3, 10.75, 64)), M.stoneD, 0, Y + 0.045, 0, 0, 0, false);
     const hill = new THREE.Mesh(new THREE.RingGeometry(6.6, 7.2, 96), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); hill.rotation.x = -Math.PI / 2; hill.position.y = Y + 0.08; root.add(hill); AR.hill = hill;
-    put(CYL(3.4, 3.7, 0.3, 24), M.stone, 0, Y + 0.15, 0); put(CYL(2.6, 2.9, 0.6, 24), M.marble, 0, Y + 0.3, 0); addCircle(0, 0, 2.9); heartwood(put, M, 0, Y + 0.6, 0, LIGHTS); addBox(0, 0, 1.7, 1.7, 0.4, 'map', Y, Y + 9.5); /* (the trunk stops arrows and blocks sight) */ motes(root, AR.time, 0, Y + 1, 0, 14, 16, 240);
-    crystal(2.0, Y + 0.6, 0.9, 0.6); crystal(-1.8, Y + 0.6, -1.1, 0.6); crystal(0.5, Y + 0.6, 2.1, 0.5); crystal(-0.6, Y + 0.6, -2.2, 0.5);
+    /* (the owner: no tree, plinth or crystals in the middle: the hill is open ground) */
     for (const [x, z] of [[6.3, 6.3], [-6.3, 6.3], [6.3, -6.3], [-6.3, -6.3]]) brazier(x, z);
     seed(7); const tops = []; for (let k = 0; k < 16; k++) { const a = (k + 0.5) / 16 * Math.PI * 2, m = Math.min(k, 15 - k), broken = [1, 4, 6].includes(m % 8); const top = column(Math.cos(a) * 11.2, Math.sin(a) * 11.2, 6.5, Y, broken); tops.push(broken ? null : top); }
     for (let k = 0; k < 16; k++) { const k2 = (k + 1) % 16; if (tops[k] == null || tops[k2] == null) continue; const a1 = (k + 0.5) / 16 * Math.PI * 2, a2 = (k2 + 0.5) / 16 * Math.PI * 2, x1 = Math.cos(a1) * 11.2, z1 = Math.sin(a1) * 11.2, x2 = Math.cos(a2) * 11.2, z2 = Math.sin(a2) * 11.2;

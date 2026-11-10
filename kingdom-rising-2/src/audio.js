@@ -753,7 +753,7 @@ setInterval(() => {
     const c = loopCh(name);
     const rate = target ? (name === 'title' ? 0.25 : 0.6) : 0.3; /* (the title music eases in over about 4 s instead of arriving at full volume) */
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.19 : name === 'combat' ? 0.3 : 0.45) /* (title music half as loud: it was the loudest thing in the game from the very first screen) */ / (c.el._routed === true ? 0.6 : 1)));
+    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.12 : name === 'combat' ? 0.22 : 0.34) /* (title music about a third of what it was, battle and boss music a quarter quieter: the owner found it far too loud) */ / (c.el._routed === true ? 0.6 : 1)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }
@@ -764,7 +764,7 @@ setInterval(() => {
     if ((song.ctx === 'town') !== townOn) song.fadeOut = true;
     const target = song.fadeOut || fight ? 0 : 1;
     song.lv += Math.sign(target - song.lv) * Math.min(Math.abs(target - song.lv), dt * (target ? 0.25 : 0.4));
-    routeEl(song.el); song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * musicVol(song.el) * 0.34 / (song.el._routed === true ? 0.6 : 1)));
+    routeEl(song.el); song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * musicVol(song.el) * 0.26 / (song.el._routed === true ? 0.6 : 1)));
     if (fight && song.lv <= 0.001 && !song.el.paused) song.el.pause();
     if (!fight && !song.fadeOut && song.el.paused && song.el.currentTime > 0) song.el.play().catch(() => {});
     if (song.fadeOut && song.lv <= 0.001) { song.el.pause(); song.el = null; song.silenceUntil = now + (townOn ? 1500 : 20000); }

@@ -28,7 +28,7 @@ export function listCampaigns() {
 export function canCreate() { return listCampaigns().length < MAX_SAVES; }
 
 export const DEFAULT_SETTINGS = {
-  master: 0.8, music: 0.55, sfx: 0.85, ambient: 0.7,
+  master: 0.8, music: 0.4, sfx: 0.85, ambient: 0.7,
   sens: 1.0, invertY: false, fov: 75,
   quality: 'medium', shadows: true, bloom: true, grass: true, viewDist: 1, dmgNumbers: true, headBob: true, autoEquip: true, autoLoot: true,
 };

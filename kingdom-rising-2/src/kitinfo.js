@@ -39,10 +39,12 @@ export const KIT = {
   ar_fists: ['fiststorm', 'gold', 'Lift every enemy within 9 m into the air, pummel them, then slam them away.', 1],
   // bard
   ar_mendsong: ['notes', 'nature', 'Heal yourself 30% over 6 s and allies within 10 m 25% at once.'],
+  ar_anthem: ['boot', 'gold', 'You and every ally within 15 m move 40% faster for 6 s.'],
+  ar_ballad: ['shieldglow', 'frost', 'You and every ally within 15 m take 40% less damage for 6 s.'],
   crescendo: ['notewave', 'arcane', 'A blast of sound that knocks back everyone within 7 m.'],
   mesmerize2: ['spiraleye', 'arcane', 'Put the enemy you aim at to sleep for up to 3 s. Damage wakes them.'],
   ar_mendB: ['notes', 'gold', 'Heal the ally you aim at (or yourself). Allies near them heal a little too.'],
-  ar_finale: ['lute', 'gold', 'For 6 s allies within 15 m heal 40% and move 30% faster; enemies within 10 m are mesmerized for 2.5 s.', 1],
+  ar_finale: ['lute', 'gold', 'For 6 s allies within 15 m heal 50%, move 45% faster and take 40% less damage; enemies within 10 m are mesmerized for 2.5 s.', 1],
   // druid
   regrowth: ['sprout', 'nature', 'Heal yourself 35% over 8 s and allies within 10 m 20%.'],
   ar_thorns: ['vines', 'nature', 'A spray of thorns hits everyone in front of you and slows them for 2.5 s.'],

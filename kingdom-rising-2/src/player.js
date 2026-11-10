@@ -826,7 +826,7 @@ export class Player {
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
     const W = this.W;
-    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : this.h.arena && this.h.cls === 'warrior' ? 1.3 : 0.9 }; } /* (the warrior's sword swings: a fuller whoosh, the light swish was easy to miss) */
+    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : this.h.arena && this.h.cls === 'warrior' ? 0.95 : 0.9 }; /* (the owner: the warrior's slashes were a little loud) */ } /* (the warrior's sword swings: a fuller whoosh, the light swish was easy to miss) */
   }
   aimShotOn() { return !!(this.h.arena && this.h.cls === 'ranger' && this.W && this.W.kind === 'bow' && this.ads && !this.dead); }
   aimCharge() { const p = this.press; return p && p.aimShot && p.charging ? clamp((p.t - AIM_T0) / AIM_FULL, 0, 1) : 0; }
@@ -1698,7 +1698,7 @@ export class Player {
         S.cast('arcane', this.pos, 0.8); return true; }
       case 'hot': { this.buffFx(a.name, '#7ee07e'); this.regen = { per: this.maxHp * a.pct * up * (this.hk() || this.regenK()) / a.dur, t: a.dur }; /* classes that cannot heal still regenerate themselves */ if (a.r) ally(this.pos, a.r * K, (a.ally || 0) * up * this.hk()); S.heal(); V.burst('heal', this.pos.clone().setY(this.pos.y + 1), 30, { speed: 2, vy: 2 }); V.ring(this.pos, (a.r || 2.5) * K, '#80ffb0', 0.6); anim('cast'); return true; }
       case 'buff': { if (a.eq && G.campAb) { this.eqBuff(a); anim('cast'); return true; }
-        if (a.buff === 'flame') this.flameIgniteT = G.time; else this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); /* (Flame Blade: no screen flash or bubble: the sword itself ignites) */ const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
+        if (a.buff === 'flame') this.flameIgniteT = G.time; else if (a.buff !== 'shout') this.buffFx(a.name, a.buff === 'poisonW' ? '#7ae050' : a.buff === 'barrier' ? '#8ac8ff' : '#ffd84a'); /* (Flame Blade: no screen flash or bubble: the sword itself ignites) */ const B2 = this.buffs, d = (a.dur || 8) * Math.sqrt(up);
         if (a.buff === 'barrier') { B2.barrier = this.maxHp * (a.amount || 0.25) * up; B2.barrierT = d; }
         else if (a.buff === 'stand') { this.heal(this.maxHp * (a.heal || 0) * up * this.hk()); B2.stand = d; }
         else if (a.buff === 'avatar') { for (const k in FORMS) B2[k] = 0; B2.avatar = d; this.avatar = Object.assign({ name: a.name }, a.av || {}); if (this.avatar.surge) B2.surge = Math.max(B2.surge || 0, d); this.formOn = null; }
@@ -1706,7 +1706,7 @@ export class Player {
         else if (a.buff === 'iceblock') { B2.iceblock = a.dur || 3; this.iframes = Math.max(this.iframes, a.dur || 3); this.vel.set(0, 0, 0); V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 50, { speed: 3 }); }
         else if (a.buff === 'phase') { B2.phase = d; this.iframes = Math.max(this.iframes, d); B2.swind = Math.max(B2.swind || 0, d); V.burst('arcane', this.pos.clone().setY(this.pos.y + 1), 40, { speed: 3 }); }
         else B2[a.buff] = Math.max(B2[a.buff] || 0, d);
-        if (a.buff === 'shout') { this.shoutT = 1.0; S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.burst('blood', this.pos.clone().setY(this.pos.y + this.eye * 0.9), 40, { speed: 5 }); V.addShake(0.35); }
+        if (a.buff === 'shout') { this.shoutT = 1.0; S.roar ? S.roar(this.pos) : S.battleCry && S.battleCry(); V.addShake(0.35); this.roarStreams(); } /* (the owner: no red burst round him; red streams pour from his mouth) */
         if (a.allyBuff) ally(this.pos, (a.r || 10) * K, 0, a.allyBuff, d);
         if (a.buff !== 'flame') { V.sphereFlash(this.pos.clone().setY(this.pos.y + 1), 1.8, col === '#ffffff' ? '#ffd890' : col, 0.5); if (a.r) V.ring(this.pos, a.r * K, col === '#ffffff' ? '#ffd890' : col, 0.6); S.cast('arcane', this.pos, 0.7); } anim('cast'); return true; }
       case 'curse': { const t = aimTarget(a.range || 25); anim('cast'); S.cast('arcane', this.pos, 0.7); if (!t) return true;
@@ -1901,6 +1901,13 @@ export class Player {
     let e = document.getElementById('buffflash'); if (!e) { e = document.createElement('div'); e.id = 'buffflash'; document.body.appendChild(e); }
     e.style.setProperty('--c', col); e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
   }
+  // Battle Shout: streams of red pour out of his mouth for the length of the roar, a cone of crimson breath spraying forward and fading
+  roarStreams() { const RED = [new THREE.Color('#ff3020'), new THREE.Color('#5a0404')], HOT = [new THREE.Color('#ffd0b0'), new THREE.Color('#d01010')]; let t = 0;
+    G.timers.push({ update: (dt) => { t += dt; if (t > 1.0 || this.dead) return true; const HM = this.ch && this.ch.heroModel, hd = HM && HM !== 'loading' && HM.bones && HM.bones.Head;
+      const f = hd ? new THREE.Vector3(0, 0, 1).applyQuaternion(HM.wrap.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize() : this.fwd(), m = hd ? hd.getWorldPosition(new THREE.Vector3()).addScaledVector(f, 0.22).add(new THREE.Vector3(0, -0.06, 0)) : this.pos.clone().setY(this.pos.y + this.eye * 0.92).addScaledVector(f, 0.3);
+      const k = 1 - t, n = Math.round(14 * k + 4); for (let i = 0; i < n; i++) { const d = f.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.55, (Math.random() - 0.35) * 0.4, (Math.random() - 0.5) * 0.55)).normalize(), sp = 7 + Math.random() * 6;
+        V.norm.spawn(m.x, m.y, m.z, d.x * sp, d.y * sp, d.z * sp, 0.45 + Math.random() * 0.25, 0.22 + Math.random() * 0.12, 0.6, RED[0], RED[1], 0.85 * k + 0.15, 0, 0, 2.5); if (i % 3 === 0) V.add.spawn(m.x, m.y, m.z, d.x * sp * 1.2, d.y * sp * 1.2, d.z * sp * 1.2, 0.3, 0.12, 0.3, HOT[0], HOT[1], 1, 0, 0, 2); }
+      return false; } }); }
   // the berserker's axe throw: wind up, hurl (the axe leaves his hand), it spins out cutting everything in its path,
   // whirls back to him cutting again, and he hops to catch it
   tickAxe(dt) {
@@ -1917,7 +1924,7 @@ export class Player {
     const A = this.axeOut; if (!A) return; if (w) w.visible = false; /* (every frame: animate() turns the hand weapon back on, so the axe looked to be in his hand and in the air at once) */ A.life += dt; const hand = this.handPos ? this.handPos() : this.pos.clone().setY(this.pos.y + 1.4);
     const endAxe = () => { G.scene.remove(A.fly); if (w) w.visible = true; this.axeOut = null; const tr = A.tr; tr.active = false; setTimeout(() => { const i = V.trails.indexOf(tr); if (i >= 0) V.trails.splice(i, 1); if (tr.mesh) { tr.mesh.parent && tr.mesh.parent.remove(tr.mesh); tr.mesh.geometry && tr.mesh.geometry.dispose(); } }, 600); };
     if (A.out) { const f = Math.min(1, A.gone / 24), st = (42 - 24 * f * f) * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; const gy = heightAt(A.pos.x, A.pos.z); if (A.pos.y < gy + 0.35) { A.pos.y = gy + 0.35; A.out = false; A.backT = 0; V.burst('dust', A.pos.clone(), 14, { speed: 4, size: 0.6 }); S.hit && S.hit('metal', A.pos); } /* (it bites into the ground where you aimed low, and comes back) */ else if (A.gone >= 24 || A.life > 1.3) { A.out = false; A.backT = 0; } } /* (eases out to the turn: out to 24 m at up to 42 m/s, the owner wanted it further and faster) */
-    else { A.backT = (A.backT || 0) + dt; const to = hand.clone().sub(A.pos), d = to.length(), sp = 14 + Math.min(1, A.backT / 0.3) * 30; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { endAxe(); S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); } /* (and picks up speed on the way home) */
+    else { A.backT = (A.backT || 0) + dt; const to = hand.clone().sub(A.pos), d = to.length(), sp = 14 + Math.min(1, A.backT / 0.3) * 30; if (!this.axeCatch && d / sp < 0.42 && !this.axeThrow && !(this.atk && this.atk.name === 'axethrow')) this.axeCatch = { t: 0, dur: 0.9 }; /* (the owner: back before his throw has finished, it simply returns to his hand, no hop to catch it) */ if (d < 1.0 || A.life > 4) { endAxe(); S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); } /* (and picks up speed on the way home) */
     A.spinA += dt * 22; A.fly.rotateOnWorldAxis(A.axis, dt * 22); /* (helicopter spin) */
     { const hd = new THREE.Vector3(0, 1, 0).applyQuaternion(A.fly.quaternion); A.fly.position.copy(A.pos).addScaledVector(hd, -0.6 * A.sc); /* (it whirls about its balance point up the haft, not the end of the handle) */
       const tip = A.pos.clone().addScaledVector(hd, 0.7 * A.sc); A.tr.active = true; A.tr.push(tip.clone().addScaledVector(A.axis, -0.12 * A.sc), tip.clone().addScaledVector(A.axis, 0.12 * A.sc)); } /* (a red band traced by the spinning head: it has height, so it shows from behind as a red swirl, not an edge-on sliver) */
@@ -2329,9 +2336,10 @@ export class Player {
       if (k >= 1) {
         this.leap = null; const p = this.pos.clone(); p.y = heightAt(p.x, p.z);
         for (const m of mobsInRadius(p, L.r || 7)) this.dealDamage(m, L.dmg, { stun: 2, knock: m.pos.clone().sub(p).setY(0).normalize().multiplyScalar(8), big: true, melee: true });
-        V.ring(p, 7, '#ffd090', 0.5); V.ring(p, 4.5, '#ff8040', 0.4); V.burst('stone', p, 50, { speed: 9, size: 0.35, grav: 14, life: 1.2 }); V.burst('dust', p, 40, { speed: 6, size: 1.2, life: 1.5, radius: 3 });
+        V.ring(p, 7, '#ffd090', 0.5); V.ring(p, 4.5, '#ff8040', 0.4); V.burst('stone', p, 110, { speed: 13, size: 0.45, grav: 16, life: 1.5 }); V.burst('dust', p, 80, { speed: 8, size: 1.7, life: 1.9, radius: 3.5 }); V.burst('spark', p.clone().setY(p.y + 0.4), 40, { speed: 10, size: 0.16 }); V.burst('dust', p.clone().setY(p.y + 0.2), 30, { speed: 3, size: 2.2, life: 2.4, vy: 5 }); /* (the owner: a far heavier landing: more rock and dust, sparks, a column of dust thrown up) */
+        V.light(p.clone().setY(p.y + 1), '#ffcf90', 12, 0.35, 16); this.fovKick = Math.max(this.fovKick || 0, 12);
         { const R = L.r || 7; for (let k = 0; k < 3; k++) setTimeout(() => { V.ring(p, R * (0.8 + k * 0.2), k ? '#c8a070' : '#ffe0b0', 0.55 + k * 0.1, 0.12); for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, rr = R * (0.45 + k * 0.25), q = p.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0.1, Math.sin(a) * rr)); q.y = heightAt(q.x, q.z) + 0.1; V.burst('dust', q, 1, { speed: 1.2, size: 0.9, life: 0.8, vy: 1.4 }); } }, k * 130); } /* (the owner: a ripple through the ground: three shockwaves racing out over the area, dust kicked up along each) */
-        S.explode(p, 1.4); S.rumble(p, 1.2); V.addShake(0.8); G.hitstop = 0.08; this.vel.set(0, 0, 0); this.onGround = true;
+        S.explode(p, 1.8); S.rumble(p, 1.6); V.addShake(1.3); G.hitstop = 0.13; this.vel.set(0, 0, 0); this.onGround = true;
       }
     } else if (this.dodge) {
       const D = this.dodge; D.t += dt / D.dur;

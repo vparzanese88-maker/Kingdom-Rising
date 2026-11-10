@@ -64,6 +64,9 @@ export const KIT = {
   ar_bandage: ['bandage', 'nature', 'Heal 22% over 3 s and reload instantly.'],
   grapeshot: ['pistol', 'fire', 'A pistol blast that knocks back everyone in a cone in front of you.'],
   bolas: ['bola', 'steel', 'Tie up the enemy you aim at: rooted for 1.5 s.'],
+  ar_powerload: ['musket', 'fire', 'Fire a blazing slug of lead that hits very hard and sets the target alight. The kick blasts you backwards.'],
+  ar_beartrap: ['beartrap', 'steel', 'Drop a bear trap at your feet. The first enemy to step in is rooted for 2.5 s. One trap at a time.'],
+  ar_buckwide: ['buckshot', 'fire', 'One wide buckshot blast that hits and slows everyone in front of you for 2.5 s.'],
   ar_barrage: ['musket', 'arcane', 'For 10 s your rifle fires a nonstop stream of magic rounds with no reloading.', 1],
   // blunderbuss
   powdercharge: ['blastdash', 'fire', 'A blast hurls you forward, plowing through everything in your way.'],

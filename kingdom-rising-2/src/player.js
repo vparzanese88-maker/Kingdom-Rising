@@ -32,6 +32,7 @@ import { angDiff, rand, clamp } from './util.js';
 const PAL3 = [['swing3', 1.35, 0.75], ['swing1', 1.1], ['smash', 1.3]], DK3 = [['swing2', 1.0], ['swing1', 1.25, 0.54], ['stabR', 0.85]];
 // the rogue: two quick stabs, then her recorded Double Blade Spin, which cuts everyone around her: [action, length, damage, hit share, radius]
 export const WARR = { w3: [['swing1', 1.05, 0.9, 0.42], ['swing2', 1.4, 1.1, 0.5]] }; /* (his recorded Double Combo: the diagonal cut, then the sweep back up; each hit where the blade lands in it. The built swings were [['swing1', 1.1, 1.0, 0.62], ['swing2', 1.1, 1.0, 0.62]]) */ /* (the warrior's swings: [name, length, damage, where the blow lands]) */
+const BACK_SPEED = 2.1; /* (every hero's walk backwards, m/s) */
 const BERS_CLEAVE = true; /* (the berserker's basic attack: the owner's Weapon Combo 2 (three cleaves); false brings back his two-handed barbarian Attack chop) */
 const ROGUE3 = [['stabR', 0.6, 0.95, 0.64, undefined, 'rtA'], ['stabR', 0.6, 0.95, 0.46, undefined, 'rtB'], ['sweep', 2.2, 2.9, 0.7, 3.4]]; /* (6th: her recorded blow: the thrust, then the wide slash of the owner's Thrust Slash; the hit lands where the blade does) */
 // the monk's seven blows, each the length of its own recording (they were all squeezed into a quarter of a second): [action, length, hit share,
@@ -723,7 +724,7 @@ export class Player {
     this.recoil = Math.min(1, (this.recoil || 0) + 0.35); V.burst('arcane', from, 6, { speed: 3 }); V.light(from, '#b8a0ff', 3, 0.06, 6); S.gunshot && S.gunshot(this.pos, 0.45); this.fovKick = Math.min(4, (this.fovKick || 0) + 0.6); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= 1.35; if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= this.h.cls === 'ranger' ? 1.5 : 1.35; /* (the owner: the ranger's Hunter's Focus, 50% faster) */ if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -2217,7 +2218,7 @@ export class Player {
     if (G.newFx && (this.lookCheckT = (this.lookCheckT || 0) - dt) <= 0) { this.lookCheckT = 0.1; const r = aimRay(60); if (r && r.mob) r.mob.lookT = G.time; } // names show when your crosshair passes over
     if (this.xHoldT != null && !ui && K.KeyX && G.time - this.xHoldT > 0.4) { this.xHoldT = null; this.sheatheWeapons(); }
     this.ads = !!this.adsHeld && !ui && !this.dead && !this.sheathed && !this.dodge && !this.swim && !this.gathering && !!this.W && (this.W.kind === 'bow' || this.W.kind === 'gun') && !(this.abCast || this.summonCast);
-    this.adsK = (this.adsK || 0) + ((this.ads ? 1 : 0) - (this.adsK || 0)) * Math.min(1, dt * (this.ads ? 6 : 9));
+    this.adsK = (this.adsK || 0) + ((this.ads ? 1 : 0) - (this.adsK || 0)) * Math.min(1, dt * (this.ads ? 12 : 14)); /* (the owner: zoom in faster: about twice as quick as it was) */
     this.block = !this.sheathed && !ui && !!(G.battleFx ? this.rmbHeld : K.KeyF) && !this.atk && !this.dodge && !this.gathering && this.stagger <= 0 && !this.swim && !!this.W;
     if (this.block && !wasBlock) this.blockStart = G.time;
     if (this.summonCast) this.tickSummon(dt);
@@ -2237,7 +2238,7 @@ export class Player {
     const hero = !!this.h.arena; // Kingdom Arena plays like a hero shooter: full speed every way, always facing your aim
     let spd = (hero ? (sprint ? 9 / 8.2 : 6 / 5.2) : 1) * /* (arena and yard heroes: run 6 m/s, sprint 9 m/s) */ (G.newFx && iz < 0 && !hero ? 0.6 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * /* campaign: backing up is slow, so you cannot simply walk out of every swing */ (1 + this.sbSum('run') / 100) * (this.summonCast || (this.abCast && this.abCast.spell) ? 0.35 : this.abCast ? 0.55 : 1) * (this.swim ? 3.2 * this.swimK() : sprint ? 8.2 : 5.2) * (1 + this.pk('speed') * 0.1 + Game.fxCount(this.h, 'speed') * 0.04) * (this.buffs.adren > 0 ? 1.3 : 1) * (this.buffs.swind > 0 ? 1.25 : 1) * (1 + (this.fb.speed || 0)) * (this.buffs.wolfRun > 0 ? 1 + (this.wolfK || 0.12) : 1) * (1 - (this.adsK || 0) * 0.5) * Game.arenaSpeedK(this.h) * (hero && this.h.cls === 'monk' ? 1.15 : 1); /* aiming down the barrel: a slow, steady walk; the monk is the fastest fighter */
     if (iz < 0 && !hero) { spd = 2.2; sprint = false; }
-    else if (iz < 0 && hero) { const bk = this.h.cls === 'berserker' ? 0.35 : 0.7; spd *= sprint ? bk * 5.2 / 8.2 : bk; sprint = false; } /* (heroes back up at a walk: no sprinting backwards. The berserker, the biggest, backs up at a heavy walk, about 2 m/s (the owner: at 4.2 m/s his reversed walk could not keep up and looked frantic)) */
+    else if (iz < 0 && hero) { spd = Math.min(spd, BACK_SPEED) * (this.buffs.iceblock > 0 ? 0 : 1); sprint = false; } /* (the owner: every hero backs up at the same walking pace, 2.1 m/s, whatever his class or buffs (no sprinting backwards); each body's walk plays backwards at the rate that keeps its feet on the ground at that pace, so it reads as a normal walk) */
     if (this.block && !(this.pk('shieldwall') && this.W && this.W.hands === 'shield')) spd *= 0.45;
     if (this.gathering || stunned) spd = 0;
     if (this.ringSlowT > G.time) spd *= 0.156; else if (this.ultSlowT > G.time) spd *= this.ultSlowK; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
@@ -2436,7 +2437,7 @@ export class Player {
     this.fovKick *= Math.max(0, 1 - dt * 4);
     this.fovS = (this.fovS || 0) + ((this.sprinting ? 7 : 0) - (this.fovS || 0)) * Math.min(1, dt * 6);
     // Kingdom Battles: zoom in a little while drawing the bow (and much more when aiming a musket)
-    { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = Math.min(-(this.adsK || 0) * (!gun ? 20 : this.weapon && this.weapon.wt === 'blunderbuss' ? 12 : 30), /* zoom: musket furthest, then bow, then blunderbuss */ drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0); this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing || this.ads ? 5 : 9)); }
+    { const gun = this.W && this.W.kind === 'gun'; const drawing = G.battleFx && this.press && this.press.charging && this.W && (this.W.kind === 'bow' || gun); const want = Math.min(-(this.adsK || 0) * (!gun ? 25 : this.weapon && this.weapon.wt === 'blunderbuss' ? 15 : 37), /* zoom: musket furthest, then bow, then blunderbuss (the owner: each a little deeper, about a quarter more) */ drawing ? (gun ? -Math.min(1, (this.press.t - 0.22) / 1.4) * 22 - 8 : -Math.min(1, (this.press.t - 0.22) / 1.8) * 9 - 3) : 0); this.bowZoom = (this.bowZoom || 0) + (want - (this.bowZoom || 0)) * Math.min(1, dt * (drawing ? 5 : this.ads ? 11 : 12)); }
     cam.fov = settings.fov - (G.fovTrim || 0) + this.fovKick + this.fovS + (this.bowZoom || 0); // (the arena narrows the view a little so fighters look bigger)
     cam.updateProjectionMatrix();
     A.setListener(cam.position.x, cam.position.y, cam.position.z, this.yaw + Math.PI);

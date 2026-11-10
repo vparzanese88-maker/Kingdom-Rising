@@ -193,7 +193,9 @@ export function updateProjectiles(dt) {
           if (m.dead || p.hitSet.has(m) || !foe(m)) continue;
           const c = tmp.copy(m.pos); c.y += m.height * 0.5;
           const r = Math.max(m.radius, m.height * 0.5) + p.radius * 1.4 + 0.15;
-          if (c.distanceToSquared(p.pos) < r * r) {
+          const slim = p.radius <= 0.4; /* (arrows, bullets and small bolts strike a body-shaped hitbox, an upright capsule as wide as the body and as tall as it, from the feet to the top of the head: the old ball round the chest was half the body's height wide, so an arrow flying a metre past a shoulder or over a head still hit (the owner: the ranger's hitboxes felt off). Big orbs keep the ball) */
+          const touch = slim ? (Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z) < m.radius + p.radius + 0.12 && p.pos.y > m.pos.y - 0.1 && p.pos.y < m.pos.y + m.height + 0.12) : c.distanceToSquared(p.pos) < r * r;
+          if (touch) {
             p.hitSet.add(m);
             // headshots: Kingdom Battles, any arrow or musket ball through anything with a head (x2); the arena (and the
             // Training Yard), only the precise weapons, each with its own reward (see headK)

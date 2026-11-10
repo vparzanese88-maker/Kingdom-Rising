@@ -630,7 +630,7 @@ export function tickHeroModel(ch, dt) {
       ts = (tau - H.act.run.time) / dt; } /* (the rate followed through the frame in small steps, so a quick little hero's fast loop is not jumbled; while the walk blends in, the run plays steadily) */
     H.act.run.timeScale = ts; }
   // backing up: the same foot-held rate, but never more steps a second than a hero his size can take backwards (3.4 for a 1.8 m man; past that his feet slide)
-  const backMax = (g, c) => 3.4 * Math.sqrt(1.8 / hh) / (g ? g.steps : 2) * c;
+  const backMax = (g, c) => 5.1 * Math.sqrt(1.8 / hh) / (g ? g.steps : 2) * c; /* (every hero now backs up at the same 2.1 m/s: the small ones (the goblin, the halfling) need quicker steps for their feet to keep up, so the cap is half again higher; the big ones never reach it) */
   if (H.act.back) { const gb = gaitOf(H, 'back'), bc = H.act.back.getClip().duration, bw = H.backK * (H.w.walk + H.w.run); H.act.back.paused = false; H.act.back.setEffectiveWeight(bw); H.act.back.timeScale = Math.min(backMax(gb, bc), Math.max(0.3, H.v / ((gb ? gb.u : 0.75) * hh))); if (H.act.walk) H.act.walk.setEffectiveWeight(H.w.walk * (1 - H.backK)); if (H.act.run) H.act.run.setEffectiveWeight(H.w.run * (1 - H.backK)); }
   else if (H.backK > 0.5 && H.act.walk) { H.act.walk.timeScale = -Math.min(backMax(gw, wc), Math.abs(H.act.walk.timeScale)); if (H.act.run) H.act.run.timeScale = -Math.abs(H.act.run.timeScale); } // (no backwards clip: the walk plays in reverse)
   if (H.act.walk && H.act.run && H.w.walk > 0.02 && H.w.run > 0.02) { const wc = H.act.walk.getClip().duration, rc = H.act.run.getClip().duration; H.act.walk.time = (H.act.run.time / rc) * wc; } // (walk and run kept in step while blending, so the legs never fight each other)

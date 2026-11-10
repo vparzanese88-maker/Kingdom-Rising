@@ -970,9 +970,10 @@ export function animateHumanoid(ch, dt, st) {
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
   // relaxed: tilt a one-handed weapon in the hand so its tip points a little down
   { const m = ch.weapons && ch.weapons.main, W = ch.wt && WEAPON_TYPES[ch.wt];
-    if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || (st.block && W.hands !== 'shield') ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0), want = m.userData.rx0 + rk * 0.75;
+    if (m && W && W.kind === 'melee' && W.hands !== 'two' && !(ch.heroModel && ch.heroModel !== 'loading' && ch.heroModel.D && ch.heroModel.D.holdFix)) { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; /* (not when the hero model fixes the weapon in its fist itself: the rogue) */ const rk = st.action || (st.block && W.hands !== 'shield') ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0), want = m.userData.rx0 + rk * 0.75;
       if (m.userData.psHold) { /* (the warrior's built swing holds the sword in his fist itself: setting one Euler angle here spun it round in his hand) */ }
       else if (m.userData.psEase > 0) { m.userData.psEase -= dt; m.rotation.x += (want - m.rotation.x) * Math.min(1, dt * 12); } /* (and when it lets go the sword settles back into its carry, not in one jump) */
+      else if (ch.heroModel && ch.heroModel !== 'loading' && ch.heroModel.D && ch.heroModel.D.rideFist) m.rotation.x += (want - m.rotation.x) * Math.min(1, dt * 14); /* (the warrior's recorded swings: the sword eases between its relaxed carry and straight out of his fist, no jump) */
       else m.rotation.x = want; } }
   // bare fists (the monk): a guard up by the jaw, and every blow a straight punch from the shoulder, not a swing from the waist
   if (ch.wt === 'fists' && !st.dead && st.roll == null && !st.airborne && !(ch.strikeLock > 0)) { const a = st.action, punch = a && /^(swing|thrust|off|stab|heavy|fury)/.test(a);

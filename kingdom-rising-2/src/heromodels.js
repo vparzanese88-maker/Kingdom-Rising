@@ -107,8 +107,18 @@ const REC = {
   beastmaster: { clips: { bpc: A_('beast_pcombo'), bwc: A_('beast_wcombo1'), bboth: A_('beast_bothpunch'), bjump: A_('beast_jpunch'), bslash: A_('beast_rslash') }, heightClips: ['bjump', 'bwc'],
     moves: { bmL: ['bpc', 0.33, 0.95, 0.63, false, 0, false, 0.48], bmR: ['bpc', 0.95, 1.6, 1.27, false, 0, false, 0.49], abFrenzy: ['bwc', 0.4, 2.7, 0.8, true, 1.2], abBeast: ['bboth', 0.3, 1.6, 0.6, false, 0.8], abRoar: ['bslash', 0.2, 1.13, 0.53, false, 0.6], abDire: ['bjump', 0.13, 2.6, 1.27, true, 1.6] },
     moveFor: { stabL: 'bmL', stabR: 'bmR', swing2: 'bmL', swing1: 'bmR' }, abMoves: { packfrenzy: 'abFrenzy', warbeast: 'abBeast', feralroar: 'abRoar', direbeast: 'abDire', ar_pack: 'abDire' } }, /* (Punch Combo: the left jab and the right cross of his basic attack) */
+  /* shared from other classes' recordings (the owner: use them for other classes where they fit; each file carries its body's rest pose, so it is fitted to this one) */
+  paladin: { clips: { pslam: A_('shmn_slam'), pcharged: A_('wiz_charged'), pcast1: A_('priest_cast1') }, heightClips: ['pslam'], oneHand: ['abLay'],
+    moves: { abHammer: ['pslam', 0.2, 2.6, 1.63, true, 1.2], abLay: ['pcast1', 0.33, 1.8, 1.4, false, 0.8], abWrath: ['pcharged', 0.47, 3.67, 1.9, true, 2.0] },
+    abMoves: { hammerstrike: 'abHammer', layonhands: 'abLay', ar_wrath: 'abWrath' } }, /* (the Charged Ground Slam for Hammer Strike, a two-handed cast for Lay on Hands, the Charged Spell Cast for Wrath) */
+  darkknight: { clips: { kcast1: A_('necro_cast1'), kcast2: A_('necro_cast2'), kspin: A_('necro_spin') }, heightClips: ['kcast2'], oneHand: ['abTap', 'abWall', 'abGrip'],
+    moves: { abTap: ['kcast1', 0.33, 1.8, 0.63, false, 0.8], abWall: ['kcast1', 0.33, 1.8, 1.4, false, 0.8], abGrip: ['kcast2', 0.1, 1.5, 1.23, false, 0.7], abHarb: ['kspin', 0.1, 2.03, 0.93, true, 1.3] },
+    abMoves: { lifetap: 'abTap', gravewall: 'abWall', deathgrip: 'abGrip', ar_grasp: 'abGrip', harbinger: 'abHarb' } }, /* (the necromancer's casts and his scythe spin) */
+  cleric: { clips: { ccast1: A_('priest_cast1'), ccast2: A_('priest_cast2') }, heightClips: ['ccast2'],
+    moves: { abRad: ['ccast1', 0.33, 1.8, 1.4, false, 0.8], abPur: ['ccast1', 0.33, 1.8, 0.63, false, 0.7], abSmite: ['ccast2', 0.1, 1.5, 1.23, false, 0.7], abMend: ['ccast1', 0.33, 1.8, 1.4, false, 0.7], abMir: ['ccast1', 0.33, 2.67, 1.4, true, 1.6] },
+    abMoves: { radiantheal: 'abRad', ar_purify: 'abPur', holysmite: 'abSmite', ar_mendC: 'abMend', ar_miracle: 'abMir' } }, /* (the priest's casts) */
 };
-for (const c in REC) { const D = MODELS[c], R = REC[c]; if (!D) continue; D.clips = Object.assign({}, D.clips, R.clips); D.moves = Object.assign({}, D.moves, R.moves); if (R.moveFor) D.moveFor = Object.assign({}, D.moveFor, R.moveFor); D.abMoves = Object.assign({}, D.abMoves, R.abMoves); if (R.heightClips) D.heightClips = [...(D.heightClips || []), ...R.heightClips]; }
+for (const c in REC) { const D = MODELS[c], R = REC[c]; if (!D) continue; D.clips = Object.assign({}, D.clips, R.clips); D.moves = Object.assign({}, D.moves, R.moves); if (R.moveFor) D.moveFor = Object.assign({}, D.moveFor, R.moveFor); D.abMoves = Object.assign({}, D.abMoves, R.abMoves); if (R.heightClips) D.heightClips = [...(D.heightClips || []), ...R.heightClips]; if (R.oneHand) D.oneHand = [...(D.oneHand || []), ...R.oneHand]; }
 const OWN_BASICS = { warrior: { kd: ['kd', 0.1, 1.25, 0], up: ['up', 1.85, 6.2, 0] } }; /* (the warrior's own: his dodges, jump and death in MODELS, and the old knock-down and get-up) */
 export const heroHeight = (cls) => (MODELS[cls] ? MODELS[cls].height * HERO_SIZE : 2.6); /* (how tall a class stands in the world) */
 export const hasHeroModel = (cls) => !!MODELS[cls] && !/[?&]nomodels/.test(location.search);

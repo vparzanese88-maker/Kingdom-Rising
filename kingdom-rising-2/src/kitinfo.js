@@ -20,7 +20,7 @@ export const KIT = {
   hammerstrike: ['hammerhit', 'gold', 'A crushing hammer blow that stuns the enemy in front of you.'],
   shieldofl: ['shieldglow', 'gold', 'Hold block for 1 s to raise a shield of light that absorbs 18% of your health for 6 s.'],
   ar_wrath: ['wingsword', 'gold', 'Call a giant sword of light down where you aim. Huge damage on a 12 m glyph; allies on it heal.', 1],
-  // dark knight
+  // shadowknight
   lifetap: ['drain', 'shadow', 'A shadow bolt that heals you for 80% of the damage it does.'],
   gravewall: ['ribcage', 'shadow', 'A bone shell absorbs 25% of your health for 6 s and slows melee attackers.'],
   deathgrip: ['grasp', 'shadow', 'Pull the enemy you aim at to you and stun them.'],

@@ -259,7 +259,7 @@ function weaponDecor(ch, cls, w) {
   if (cls === 'berserker' && w.name === 'weapon_greataxe') w.scale.multiplyScalar(0.78 * 1.2); /* (the owner: 20% bigger) */ // (the ram-skull great axe at 0.68 of his height, not 0.87)
   if (cls === 'darkknight' && w.name === 'weapon_greatsword') w.scale.multiplyScalar(0.78); // (his barbed greatsword at 0.7 of his height, not 0.9)
   if (cls === 'rogue' && w.name === 'weapon_dagger' && !ch.weapons.off && ch.arms && ch.arms.L && ch.arms.L.grip) { const off = makeWeapon('dagger', 3, 0); off.rotation.y = Math.PI / 2; ch.arms.L.grip.add(off); ch.weapons.off = off; }
-  if (cls === 'rogue') for (const k of ['main', 'off']) if (ch.weapons[k] && ch.weapons[k].name === 'weapon_dagger') ch.weapons[k].userData.restTilt = -0.75; // (her blades stand forward and up out of the top of each fist at rest, pommels at the bottom, not hanging point-down) // (her second dagger, in the left fist: classKit swaps in the detailed one)
+  if (cls === 'rogue') for (const k of ['main', 'off']) if (ch.weapons[k] && ch.weapons[k].name === 'weapon_dagger') ch.weapons[k].userData.restTilt = -1.6; // (her blades stand forward and up out of the top of each fist at rest, pommels at the bottom, not hanging point-down) // (her second dagger, in the left fist: classKit swaps in the detailed one)
   if (false && cls === 'paladin') w.scale.z *= 2.6; // (no model of his own yet: the built greatsword, its blade given some body so it never thins to a line edge-on)
   if (cls === 'ranger' && w.name === 'weapon_bow') { w.rotation.set(0, Math.PI, 0); w.position.set(0, 0, 0); w.scale.multiplyScalar(0.7); } // (the grip runs up through the fist, so the limbs stand up and down out of it with the string toward him, not out along the fingers; a 0.6-height bow)
   if (cls === 'musketeer' || cls === 'blunderbuss') { goblinGun(w, cls); if (cls === 'blunderbuss') w.scale.multiplyScalar(0.7); return; } // (the hand-cannon about half his height once sized to the model, not a bazooka) // (goblin-made guns)
@@ -331,7 +331,14 @@ function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !
     if (c && (atk < 0.999 || CARRY[c[0]][3])) { carryQ(ch, H, sd, c[0], c[1], _gq); if (!CARRY[c[0]][3]) _gq.slerp(_gp, atk); _gp.copy(_gq); }
     palm(so);
     so.parent.getWorldQuaternion(_gq).invert(); _gq.multiply(_gp); so.quaternion.copy(k >= 0.999 ? _gq : _gi.identity().slerp(_gq, k)); } }
-export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+// the owner: the rogue's daggers point forward when she is not striking (her grip runs the blade along the forearm, which is right for a
+// thrust but leaves the blades hanging down at her thighs at rest); blends back to the grip as a blow starts
+const _rq = new THREE.Quaternion(), _rq2 = new THREE.Quaternion(), _rv = new THREE.Vector3(), _rw = new THREE.Vector3();
+function bladesForward(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !H.D || !H.D.holdFix || !ch.hmSockets) return; const rest0 = 1 - Math.min(1, (H.ikA || 0) + (H.mw || 0));
+  const rq = ch.root.getWorldQuaternion(_rq2), fw = _rw.set(0, 0.25, 1).applyQuaternion(rq).normalize();
+  for (const so of ch.hmSockets) for (const c of so.children) { if (!c.name || c.name !== 'weapon_dagger') continue; const rest = so.userData.side === 'L' ? 1 : rest0; if (rest < 0.02) continue; /* (the off hand's blade always points forward; the striking hand's goes back to the grip for the blow) */ c.updateWorldMatrix(true, false); const wq = c.getWorldQuaternion(new THREE.Quaternion()), cur = _rv.set(0, 1, 0).applyQuaternion(wq);
+    const dq = new THREE.Quaternion().setFromUnitVectors(cur, fw), nq = new THREE.Quaternion().slerp(dq, rest).multiply(wq); c.parent.getWorldQuaternion(_rq).invert(); c.quaternion.copy(_rq.multiply(nq)); } }
+export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); bladesForward(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

@@ -89,8 +89,8 @@ export const KIT = {
   ar_leechstab: ['daggerdrop', 'red', 'A deep stab that heals you 30% over 6 s. Every third hit poisons.'],
   eviscerate: ['dagger', 'red', 'A huge stab that makes them bleed. Double damage from behind.'],
   kidney: ['dizzy', 'shadow', 'Stun the enemy in front of you for 1.5 s.'],
-  ar_shadowstep: ['footsteps', 'shadow', 'Step 7 m through the shadows (behind your target if one is close) and vanish for 3 s.'],
-  ar_assassinate: ['daggermark', 'shadow', 'Mark an enemy within 30 m, then appear behind them and stab: below half health they die, anyone else loses 45%.', 1],
+  ar_shadowstep: ['cloud', 'shadow', 'Vanish in a puff of black smoke: invisible for 4 s. Your next attack crits; attacking ends it.'],
+  ar_assassinate: ['daggermark', 'shadow', 'Vanish in black smoke and strike from behind the enemy you aim at: stunned, and 75% of their health gone (at or below that, they die). Each kill recharges it for 4 s at 50%, then 25%.', 1],
   // necromancer
   drainlife: ['drain', 'nature', 'Toggle a beam that drains your target for up to 5 s, slowing them and healing you.'],
   ar_bonespikes: ['ribcage', 'steel', 'A line of bone spears bursts out of the ground toward where you aim, hitting and slowing everyone on it.'],

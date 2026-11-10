@@ -228,7 +228,7 @@ Object.assign(FX, {
       return (k, t) => { rs.forEach((r, i) => { r.material.opacity = 0.8 * k; r.rotation.set(Math.PI / 2 + Math.sin(t + i) * 0.3, t * (1.5 - i * 0.5), 0); }); if (Math.random() < 0.3 * k) V.emit('arcane', u.pos.clone().setY(u.pos.y + Math.random() * 2), { speed: 0.4, size: 0.18, life: 0.5 }); }; }, true); },
   naturesembrace(u, a) { auraFx(u, a.dur || 15, (g) => { const vm = new THREE.MeshStandardMaterial({ color: '#4a8a2e', roughness: 0.8 }); const vines = []; for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 5, 24, Math.PI * 1.5), vm); v.position.y = 0.4 + i * 0.55; v.rotation.x = Math.PI / 2; g.add(v); vines.push(v); } V.burst('leaf', u.pos.clone().setY(u.pos.y + 1), 30, { speed: 3 });
       return (k, t) => { vines.forEach((v, i) => { v.rotation.z = t * (1 + i * 0.4) * (i % 2 ? -1 : 1); v.scale.setScalar(k); }); if (Math.random() < 0.5 * k) { const an = Math.random() * 6.28; V.emit('leaf', u.pos.clone().add(new THREE.Vector3(Math.cos(an) * 0.7, Math.random() * 2, Math.sin(an) * 0.7)), { speed: 0.5, size: 0.25, life: 0.7 }); } }; }); },
-  ar_shadowstep(u, a) { let t = 0; G.timers.push({ update: (dt) => { t += dt; V.emit('shadow', u.pos.clone().setY(u.pos.y + 0.5 + Math.random()), { speed: 0.6, size: 0.5, life: 0.6 }); if (Math.random() < 0.5) V.emit('smoke', u.pos.clone().setY(u.pos.y + 0.3), { speed: 0.4, size: 0.6, life: 0.7 }); return t > 0.8; } }); },
+  ar_shadowstep(u, a) { FX.phaseshift(u, a); }, /* (the owner: Shadow Step is the same fade as Phase Shift; the black puff comes from the caster) */
 });
 
 // ---------- the monk's fighting moves (Thousand Fists): one pose per strike, driven by u.strike = { n, t0, dur } ----------

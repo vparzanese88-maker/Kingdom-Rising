@@ -751,9 +751,9 @@ setInterval(() => {
     const target = name === wantLoop ? 1 : 0;
     if (!loops[name] && !target) continue;
     const c = loopCh(name);
-    const rate = target ? 0.6 : 0.3;
+    const rate = target ? (name === 'title' ? 0.25 : 0.6) : 0.3; /* (the title music eases in over about 4 s instead of arriving at full volume) */
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.38 : name === 'combat' ? 0.3 : 0.45) / (c.el._routed === true ? 0.6 : 1)));
+    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.19 : name === 'combat' ? 0.3 : 0.45) /* (title music half as loud: it was the loudest thing in the game from the very first screen) */ / (c.el._routed === true ? 0.6 : 1)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }

@@ -238,7 +238,7 @@ function keepHipY(track) { const v = track.values; if (!v || v.length < 3) retur
 
 // swap the built body for the class's model. ch: the humanoid from buildHumanoid. Safe to call before it has loaded.
 export function attachHeroModel(ch, cls) {
-  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; const hidden = []; if (ch.body) ch.body.traverse(o => { if ((o.isMesh || o.isLine) && o.visible) { o.visible = false; o.userData.hmHide = true; hidden.push(o); } }); /* (the old built body stays hidden while the model loads, so it never flashes up) */ const D = MODELS[cls];
+  if (!ch || !hasHeroModel(cls) || ch.heroModel) return; ch.heroModel = 'loading'; ch.heroCls = cls; const hidden = []; if (ch.body) ch.body.traverse(o => { if ((o.isMesh || o.isLine) && o.visible) { o.visible = false; o.userData.hmHide = true; hidden.push(o); } }); /* (the old built body stays hidden while the model loads, so it never flashes up) */ const D = MODELS[cls];
   loadClass(cls).then(({ base, clips }) => {
     if (!ch.root) return;
     const m = SkeletonUtils.clone(base); m.updateMatrixWorld(true);

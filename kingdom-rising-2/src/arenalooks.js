@@ -338,7 +338,15 @@ function bladesForward(ch) { const H = ch.heroModel; if (!H || H === 'loading' |
   const rq = ch.root.getWorldQuaternion(_rq2), fw = _rw.set(0, 0.25, 1).applyQuaternion(rq).normalize();
   for (const so of ch.hmSockets) for (const c of so.children) { if (!c.name || c.name !== 'weapon_dagger') continue; const rest = so.userData.side === 'L' ? 1 : rest0; if (rest < 0.02) continue; /* (the off hand's blade always points forward; the striking hand's goes back to the grip for the blow) */ c.updateWorldMatrix(true, false); const wq = c.getWorldQuaternion(new THREE.Quaternion()), cur = _rv.set(0, 1, 0).applyQuaternion(wq);
     const dq = new THREE.Quaternion().setFromUnitVectors(cur, fw), nq = new THREE.Quaternion().slerp(dq, rest).multiply(wq); c.parent.getWorldQuaternion(_rq).invert(); c.quaternion.copy(_rq.multiply(nq)); } }
-export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); bladesForward(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+// (the owner) resting weapons: whatever the recording does with the hand, at rest a caster's staff stands upright, the Shadowknight's
+// greatsword hangs point-down in front of his feet and the ranger's bow stands up and down; blended out as the arm attacks or aims
+const REST_DIR = { enchanter: [0, 1, 0.12], druid: [0, 1, 0.12] }; /* (4th: the hand that holds it; the ranger's bow is in his left) */
+function restWeapon(ch) { const H = ch.heroModel, d = REST_DIR[ch.heroCls]; if (!d || !H || H === 'loading' || !ch.hmSockets) return; const rest = 1 - Math.min(1, (H.ikA || 0) + (H.mw || 0)); if (rest < 0.02) return;
+  const rq = ch.root.getWorldQuaternion(_rq2), fw = _rw.set(d[0], d[1], d[2]).applyQuaternion(rq).normalize();
+  for (const so of ch.hmSockets) { if ((so.userData.side === 'L') !== (d[3] === 'L')) continue; for (const c of so.children) { if (!c.name || !/^weapon_/.test(c.name)) continue;
+    c.updateWorldMatrix(true, false); const wq = c.getWorldQuaternion(new THREE.Quaternion()), cur = _rv.set(0, 1, 0).applyQuaternion(wq);
+    const dq = new THREE.Quaternion().setFromUnitVectors(cur, fw), nq = new THREE.Quaternion().slerp(dq, rest).multiply(wq); c.parent.getWorldQuaternion(_rq).invert(); c.quaternion.copy(_rq.multiply(nq)); } } }
+export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); gripFollow(ch); bladesForward(ch); restWeapon(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

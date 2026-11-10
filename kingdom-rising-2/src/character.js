@@ -967,7 +967,7 @@ export function animateHumanoid(ch, dt, st) {
   if (st.hit > 0) { spine.rotation.x -= st.hit * 0.4; }
   // relaxed: tilt a one-handed weapon in the hand so its tip points a little down
   { const m = ch.weapons && ch.weapons.main, W = ch.wt && WEAPON_TYPES[ch.wt];
-    if (m && W && W.kind === 'melee' && W.hands !== 'two' && !(ch.heroModel && ch.heroModel !== 'loading')) { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; /* (not for the new hero models: they carry their weapons themselves, and turning one Euler angle of a weapon mounted at y = 90 degrees twisted it about the wrong axis: the rogue's daggers sideways and upside down, the cleric's mace, the warrior's sword) */ const rk = st.action || (st.block && W.hands !== 'shield') ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0), want = m.userData.rx0 + rk * 0.75;
+    if (m && W && W.kind === 'melee' && W.hands !== 'two') { if (m.userData.rx0 == null) m.userData.rx0 = m.rotation.x; const rk = st.action || (st.block && W.hands !== 'shield') ? 0 : W.hands === 'shield' ? 0.55 + 0.45 * (ch.relaxK || 0) : (ch.relaxK || 0), want = m.userData.rx0 + rk * 0.75;
       if (m.userData.psHold) { /* (the warrior's built swing holds the sword in his fist itself: setting one Euler angle here spun it round in his hand) */ }
       else if (m.userData.psEase > 0) { m.userData.psEase -= dt; m.rotation.x += (want - m.rotation.x) * Math.min(1, dt * 12); } /* (and when it lets go the sword settles back into its carry, not in one jump) */
       else m.rotation.x = want; } }

@@ -977,7 +977,7 @@ export class Player {
   hk() { return (G.battleFx ? (HEAL_K[this.h.cls] || 0) : 1) * (1 + Game.fxCount(this.h, 'heal') * 0.1 + Game.fxCount(this.h, 'u_sup') * 0.25); }
   qty(b, extra) { return G.battleFx ? b + Math.round((this.h.level - 1) / (LEVEL_CAP - 1) * extra) : b; }
   // area of effect grows with level in Kingdom Battles: +4% radius per level (+36% at level 10)
-  areaK() { return G.battleFx ? 1 + (this.h.level - 1) * 0.36 / (LEVEL_CAP - 1) : 1; }
+  areaK() { return (G.battleFx ? 1 + (this.h.level - 1) * 0.36 / (LEVEL_CAP - 1) : 1) * (this._extK || 1); }
   specialAttack() { const w = this.weapon; if (!w) return; const id = RMB_SPECIAL[w.wt]; if (!id) return; if (!Game.canSpecial(this.h, w.wt)) { if (!(this.cd.lockF > 0)) { this.cd.lockF = 1.5; G.hooks.toast && G.hooks.toast(`${WSKILLS[id].name} unlocks at ${WEAPON_TYPES[w.wt].name} mastery ${Game.WM_F} (press L)`, '🔒', 'bad'); S.error(); } return; } this.weaponAbility(0, { fam: familiesOf(w.wt)[0], id }); }
   weaponAbility(slot, skOverride) {
     const W = this.W; if (!W || this.swim) return;
@@ -1180,7 +1180,7 @@ export class Player {
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.campAb ? ab.res : undefined)) return;
-    this.cd[key] = ab.cd * Game.perkCd(Game.perkLvl(this.h, ab.id, 'cd')) * Game.arenaCdAll(this.h) * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
+    this._extK = 1; this.cd[key] = ab.cd * Game.perkCd(Game.perkLvl(this.h, ab.id, 'cd')) * (ab.id === 'ar_mendbanner' ? 1 - 0.1 * Game.arenaPassive(this.h, 'bannerSwift') : 1) * Game.arenaCdAll(this.h) * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); if (isBanner) this.bannerT = G.time + 2;
     const ct = this.h.arena ? 0 : /* the arena: cooldowns only, no cast times */ G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
     }
@@ -1198,7 +1198,9 @@ export class Player {
     if (this.h.arena && ab.t === 'mend' && G.hooks.healerMend) { G.hooks.healerMend(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this, ab); return; } // (healers' right click: a direct heal, walls or no walls)
     if (this.h.arena && this.h.cls === 'necromancer' && ab.id === 'drainlife') { this.soulRend(ab, base, up, key); return; }
     if (ab.regen) { this.addRegen(ab.regen[0], ab.regen[1]); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.1), 18, { speed: 2, vy: 2 }); }
-    if (!(G.battleFx && (ab.kit ? this.runKit(ab, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
+    { const ext = 1 + 0.15 * Game.perkLvl(this.h, ab.id, 'ext'); this._extK = ext; } /* (the tree's Reach: wider areas this cast) */
+    const abR = this._extK > 1 ? Object.assign({}, ab, ...['dur', 'stun', 'slow', 'root', 'r', 'range', 'aoe'].filter(k => typeof ab[k] === 'number').map(k => ({ [k]: ab[k] * this._extK }))) : ab; /* (and longer effects) */
+    if (!(G.battleFx && (ab.kit ? this.runKit(abR, base, up, f) : this.classGear(ab.id, base, up, f)))) switch (ab.id) {
       case 'ar_plaguebreath': this.plagueBreath(ab, base, up); break;
       case 'ar_assassinate': { const tg = this.ultFoe(30); if (!tg || !G.hooks.arenaAssassinate) { this.h.ultRefund = true; G.hooks.toast && G.hooks.toast('Aim at an enemy to assassinate', '🗡', 'bad'); S.error(); break; } G.hooks.arenaAssassinate(this, tg); break; } // (behind them, and a blade in the back)
       case 'ar_miracle': { if (!G.hooks.arenaMiracle) break; G.hooks.arenaMiracle(this, (G.hooks.aimAlly && G.hooks.aimAlly(this, 45)) || this); break; } // (the ally you aim at, or yourself)
@@ -2058,7 +2060,7 @@ export class Player {
     if (o.melee && W && W.kind === 'melee') { V.burst('spark', np.clone().setY(np.y - m.height * 0.4), 4, { speed: 4, size: 0.12 }); }
     G.inCombat = 6; G.target = m; this.hitT = G.time;
     this.stealth = 0;
-    if (this.h.arena && total > 0) { if (this.h.arenaUlt) this.h.ultCharge = Math.min(100, (this.h.ultCharge || 0) + total / 40); this.hitMarker(m.dead, crit, o.melee); const ls = Game.arenaStat(this.h, 'lifesteal'); if (ls) this.heal(total * 0.03 * ls, true); }
+    if (this.h.arena && total > 0) { if (this.h.arenaUlt) this.h.ultCharge = Math.min(100, (this.h.ultCharge || 0) + total / 40 * (G.hooks.ultRate ? G.hooks.ultRate(this.h) : 1)); this.hitMarker(m.dead, crit, o.melee); const ls = Game.arenaStat(this.h, 'lifesteal'); if (ls) this.heal(total * 0.03 * ls, true); }
   }
   // the arena: an X flashes on the crosshair whenever you land a hit (red and bigger on a kill), with a crisp tick and,
   // up close, a split-second of hit-stop so every blow connects

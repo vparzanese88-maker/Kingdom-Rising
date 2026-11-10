@@ -69,6 +69,7 @@ const SUPPORT_CLS_K = new Set(['cleric', 'druid', 'shaman', 'paladin', 'bard', '
 const RANGED_CLS = new Set(['priest', 'bombardier', 'ranger', 'musketeer', 'blunderbuss', 'wizard', 'necromancer', 'elementalist', 'enchanter', 'druid', 'shaman']);
 // each class: six perks that sharpen its own abilities and four passives that are its alone
 const PASSIVE = {
+  bannerLong: ['Lasting Banners', 'Your banners stand 20% longer per rank: the Banner of Mending and the War Banner alike.', '⏳'], bannerSwift: ['Swift Banners', 'Your Banner of Mending comes back 10% sooner and your War Banner charges 15% faster per rank.', '⚑'],
   mendWide: ['Wide Mending', 'Your Banner of Mending and the ring it heals inside grow 20% bigger per rank.', '🚩'], chargeFar: ['Long Charge', 'Your Shield Charge drives 25% further per rank.', '🛡'], /* (the warrior's own perks: the owner asked for them) */
   thorns: ['Thorns', 'Enemies who hit you in melee take 8% of that damage back per rank.', '🌵'], lastStand: ['Last Stand', 'Below 30% health you take 10% less damage per rank.', '⛨'],
   execute: ['Executioner', 'Hit enemies below 35% health 10% harder per rank.', '☠'], rage: ['Blood Rage', 'The more hurt you are, the harder you hit: up to 18% more per rank.', '🔥'],
@@ -95,20 +96,30 @@ export function perksFor(cls) { kitRules(); const A2 = ABILITIES[cls] || [], nm 
   // the owner: only the basic perks for now (more will be added later)
   const list = [];
   for (const k of BASIC_PERKS) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: k, key: k, name: n, desc: d, glyph: g, basic: true }); }
-  for (const k of (CLASS_PERKS[cls] || [])) { const [n, d, g] = PASSIVE[k]; list.push({ id: k, kind: 'p', key: k, name: n, desc: d, glyph: g }); } /* (a class's own perks after the basic ones) */
+  // the skill tree (the owner): a column for each of F, C, Q and the ultimate, three tiers down each; a tier opens once the one above it has a rank
+  const ult = ultOf(cls), cols = [['F', f], ['C', c], ['Q', q], ['U', ult]];
+  for (const [slot, id] of cols) { if (!id) continue; const an = nm(id), own = (TREE_OVERRIDE[cls] || {})[slot];
+    const tiers = own || ['pow', 'cd', 'ext']; tiers.forEach((t, i) => { if (PASSIVE[t]) { const [n, d, g] = PASSIVE[t]; list.push({ id: t, kind: 'p', key: t, name: n, desc: d, glyph: g, tree: slot, tier: i + 1, ab: id }); return; }
+      const T = { pow: ['Power', slot === 'U' ? `${an} hits 12% harder per rank.` : `${an} hits (and heals) 12% harder per rank.`, '⚔'], cd: slot === 'U' ? ['Charge', `Your ultimate charges 15% faster per rank.`, '★'] : ['Haste', `${an} comes back 10% sooner per rank.`, '⌛'], ext: ['Reach', `${an} reaches 15% further and its effects last 15% longer per rank.`, '◎'] }[t];
+      list.push({ id: t + slot, kind: t, slot, name: `${T[0]}`, desc: T[1], glyph: T[2], tree: slot, tier: i + 1, ab: id }); }); }
   return list; }
-const CLASS_PERKS = { warrior: ['mendWide', 'chargeFar'] };
+// a class's own perks in its tree (the owner asked for the warrior's): his banner column carries Wide Mending, Swift Banners and Lasting Banners; his charge ends in Long Charge
+const TREE_OVERRIDE = { warrior: { C: ['mendWide', 'bannerSwift', 'bannerLong'], Q: ['pow', 'cd', 'chargeFar'] } };
+export function treeOpen(h, pk) { if (!pk.tree || pk.tier <= 1) return true; const R2 = h.arenaPerks || {}, up = perksFor(h.cls).find(x => x.tree === pk.tree && x.tier === pk.tier - 1); return !up || (R2[up.id] || 0) > 0; }
+export function treeBelowHas(h, pk) { if (!pk.tree) return false; const R2 = h.arenaPerks || {}, dn = perksFor(h.cls).find(x => x.tree === pk.tree && x.tier === pk.tier + 1); return !!dn && (R2[dn.id] || 0) > 0; }
+const CLASS_PERKS = {};
 // add up what has been bought into h.arenaPK, which the combat code reads
-export function recomputePK(h) { const P = { pow: {}, cd: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
-  P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
+export function recomputePK(h) { const P = { pow: {}, cd: {}, ext: {}, hp: 0, armor: 0, speed: 0, lifesteal: 0, heal: 0, wpn: 0, spell: 0, mres: 0, sres: 0 }; const R2 = h.arenaPerks || {};
+  P.p = {}; for (const pk of perksFor(h.cls)) { const n = R2[pk.id] || 0; if (!n) continue; if (pk.kind === 'pow' || pk.kind === 'cd' || pk.kind === 'ext') P[pk.kind][pk.slot] = (P[pk.kind][pk.slot] || 0) + n; else if (pk.kind === 'p') P.p[pk.key] = n; else P[pk.kind] += n; } h.arenaPK = P; h.arenaSongs = !!(P.p.songRegen || P.p.songDef || P.p.songAtk); }
 const freePP = () => { const h = G.player && G.player.h; return h && h.camp ? { you: true, pp: Math.min(20, h.level || 1) } : (G.yardPP || (G.yardPP = { you: true, pp: 99 })); }; /* (the campaign: a perk point per level; the yard: all of them) */
+G.hooks.ultRate = (h) => ultRate(h); /* (the player's damage-driven charge uses it too) */
 G.hooks.perkPts = () => { const f = A.me && A.F && A.F.length ? A.me : freePP(); return perkLeft(f); }; // (the HUD badge beside the abilities)
-const perkLeft = (f) => { const h = unitHero(f) || {}, R2 = h.arenaPerks || {}, own = h.cls ? (CLASS_PERKS[h.cls] || []) : []; return (f.pp || 0) - BASIC_PERKS.concat(own).reduce((a, k) => a + (R2[k] || 0), 0); }; /* (a class's own perks use points too) */ // (old perks bought before the trim don't use up points)
+const perkLeft = (f) => { const h = unitHero(f) || {}, R2 = h.arenaPerks || {}; return (f.pp || 0) - (h.cls ? perksFor(h.cls) : []).reduce((a, pk) => a + (R2[pk.id] || 0), 0); }; /* (every rank bought, in the tree or the basics) */ /* (a class's own perks use points too) */ // (old perks bought before the trim don't use up points)
 const unitHero = (f) => f.you ? G.player && G.player.h : f.bot ? f.bot.h : null;
 function applyPerkStats(f) { const h = unitHero(f); if (!h) return; recomputePK(h); if (f.you) { const p = G.player, k = p.hp / p.maxHp; p.refreshStatsOnly(); p.hp = p.maxHp * k; } else if (f.bot) { const b = f.bot, k = b.hp / b.maxHp; b.maxHp = Math.round(b.baseHp * Game.arenaHpK(h)); b.hp = b.maxHp * k; } }
 // computer fighters buy as soon as they can: tanks toughen up, healers heal harder, the rest go for damage
 function botBuy(f) { const h = f.bot.h, list = perksFor(h.cls), want = Game.TANK_CLS.has(h.cls) ? ['mres', 'armor', 'hp', 'powQ', 'cdF', 'powL', 'sres'] : SUPPORT_CLS_K.has(h.cls) ? ['heal', 'powF', 'cdF', 'hp', 'speed', 'powL'] : ['wpn', 'powL', 'powC', 'spell', 'cdC', 'lifesteal', 'powQ'];
-  h.arenaPerks = h.arenaPerks || {}; while (perkLeft(f) > 0) { const pick = want.map(id => list.find(p => p.id === id)).find(p => p && (h.arenaPerks[p.id] || 0) < Game.PERK_MAX) || list.find(p => (h.arenaPerks[p.id] || 0) < Game.PERK_MAX); if (!pick) break; h.arenaPerks[pick.id] = (h.arenaPerks[pick.id] || 0) + 1; } applyPerkStats(f); }
+  h.arenaPerks = h.arenaPerks || {}; while (perkLeft(f) > 0) { const ok = (p) => p && (h.arenaPerks[p.id] || 0) < Game.PERK_MAX && treeOpen(h, p), pick = want.map(id => list.find(p => p.id === id)).find(ok) || list.find(ok); /* (the tree's locks hold for bots too) */ if (!pick) break; h.arenaPerks[pick.id] = (h.arenaPerks[pick.id] || 0) + 1; } applyPerkStats(f); }
 // passive auras and songs: every half second, allies near a bard, paladin, cleric, druid or shaman with those perks
 // get their regeneration, defence or attack bonus; songs float notes over everyone they touch
 let auraT = 0, noteT = 0;
@@ -122,10 +133,11 @@ function auraTick(dt) { if ((auraT -= dt) > 0) return; auraT = 0.5; noteT -= 0.5
       if (song && notes) playNotes(G.scene, v, '#ffd860', v === u ? 3 : 2); } }
   for (const [, u] of units) if (u.aura.regen > 0) { if (u === G.player) u.heal(u.maxHp * u.aura.regen * 0.5, true); else u.healSelf(u.maxHp * u.aura.regen * 0.5); } }
 // ultimate charge: 1% a second, more for damage done and healing given; computer fighters fire theirs in a fight
-function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !h.arenaUlt || !f.alive) continue; h.ultCharge = Math.min(100, (h.ultCharge || 0) + dt * 1.0);
+function ultTick(dt) { for (const f of A.F) { const h = unitHero(f); if (!h || !h.arenaUlt || !f.alive) continue; h.ultCharge = Math.min(100, (h.ultCharge || 0) + dt * 1.0 * ultRate(h));
     if (f.bot && h.ultCharge >= 100 && f.bot.target && !f.bot.dead && !f.bot.cast && !(f.bot.status.silence > 0) && (f.bot.cls === 'bombardier' ? bertWant(f.bot, h, dt) : Math.hypot(f.bot.target.pos.x - f.bot.pos.x, f.bot.target.pos.z - f.bot.pos.z) < 12)) { const a = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); if (a) { h.ultCharge = 0; V.ultUntil = performance.now() + 7000; f.bot.act = 'castUp'; f.bot.actT = 0; f.bot.resolve(a, a.t === 'heal' || a.t === 'hot' || a.t === 'buff' ? f.bot : f.bot.target); V.burst('gold', f.bot.pos.clone().setY(f.bot.pos.y + 1.5), 40, { speed: 5 }); feed(`<b>${esc2(f.name)}</b> unleashes ${a.name}!`); } } } }
 const esc2 = (t) => String(t).replace(/[<>&]/g, '');
-export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt); }
+export function ultRate(h) { return (1 + 0.15 * Game.perkLvl(h, h && h.arenaUlt, 'cd')) * (1 + 0.15 * Game.arenaPassive(h, 'bannerSwift')); } /* (the tree's Charge, and the warrior's Swift Banners) */
+export function ultGain(h, amt) { if (h && h.arenaUlt) h.ultCharge = Math.min(100, (h.ultCharge || 0) + amt * ultRate(h)); }
 function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock < 30) return; A.perkClock -= 30; /* (one perk point every 30 s) */
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
@@ -639,7 +651,7 @@ export function mendBanner(caster) { const p = caster.pos.clone(), yw = caster.y
     if (!landed) { landed = true; g.position.y = base; bannerSlam(at, 0.8 * SZ); S.explode && S.explode(at, 0.45); /* (the War Banner's boom, quieter) */ ultImpact(at, { r: 3 * SZ, col: '#9aff8a', column: false, noFlash: true, scorch: false, sparks: false, shake: 0.45, vol: 0, wallH: 1 }); }
     t -= DROP; const a = cloth.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = pos0[i * 3]; a.array[i * 3 + 2] = Math.sin(t * 5 + x * 6) * 0.06 * (x + 0.4); } a.needsUpdate = true; ring.material.opacity = 0.25 + Math.sin(t * 3) * 0.08;
     regT -= dt || 1 / 60; if (regT <= 0) { regT = 0.5; for (const u of nearOf(ultFriends(caster), at, R)) { ultHeal(u, 0.008); if (Math.random() < 0.5) V.emit('green', u.pos.clone().setY(u.pos.y + 1.5), { speed: 0.3, vy: 1, size: 0.25 }); } }
-    if (t > 8) { G.scene.remove(g); return true; } return false; }); }
+    if (t > 8 * (1 + 0.2 * Game.arenaPassive(caster.h, 'bannerLong'))) { G.scene.remove(g); return true; } return false; }); }
 // ---------- the ranger's ultimate: Rain of Arrows ----------
 // a volley loosed straight up; a shadow spreads over the target circle; then a real storm of arrows comes down for
 // several seconds. Each tick everyone inside is struck (arrows aimed at them, stuck in them); the rest pepper the ground.
@@ -861,7 +873,7 @@ export const ULTS = {
          /* (seen from inside or near its skin the dome fills the screen, and its pulse read as a flicker: it fades right down there) */ regT -= 1 / 60; const reg = regT <= 0; if (reg) regT = 0.5;
         for (const u of nearOf(ultFriends(c), C, 10)) { u.defBannerT = G.time + 0.4; if (Math.random() < 0.05) V.emit('gold', u.pos.clone().setY(u.pos.y + 1.8), { speed: 0.3, vy: 1, size: 0.25 }); }
         if (Math.random() < 0.4) V.emit('fire', C.clone().setY(base + 6.3), { speed: 0.4, vy: 1.5, size: 0.4, life: 0.5 });
-        if (t > 8.3) { const k = Math.min(1, (t - 8.3) / 0.6); g.scale.setScalar(1 - k + 0.01); if (k >= 1) { G.scene.remove(g); return true; } } return false; }); } },
+        const LB = 8.3 * (1 + 0.2 * Game.arenaPassive(c.h, 'bannerLong')); if (t > LB) { const k = Math.min(1, (t - LB) / 0.6); /* (Lasting Banners) */ g.scale.setScalar(1 - k + 0.01); if (k >= 1) { G.scene.remove(g); return true; } } return false; }); } },
   darkknight: { id: 'ar_grasp', name: "Death's Grasp", t: 'grasp', aim: 'ground', desc: 'A pool of shadow tears open where you aim: chains of darkness burst out, seize every enemy within 6 m, drag them to your feet and drain a quarter of their health, which heals you.',
     run(c, at) { const base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z); const pool = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshBasicMaterial({ color: '#0a0012', transparent: true, opacity: 0, depthWrite: false })); pool.rotation.x = -Math.PI / 2; pool.position.set(C.x, base + 0.05, C.z); G.scene.add(pool);
       const rims = [[5.55, 6, 0.9], [3.6, 3.8, 0.55], [1.6, 1.75, 0.7]].map(([a, b, o]) => { const m = new THREE.Mesh(new THREE.RingGeometry(a, b, 64, 1), glowM('#a848ff', 0)); m.rotation.x = -Math.PI / 2; m.position.set(C.x, base + 0.08, C.z); m.userData.o = o; G.scene.add(m); return m; }); /* (glowing rims and rings, so the pool reads as a gate of shadow, not a dark patch on the grass) */
@@ -1148,13 +1160,16 @@ export function openPerks(UI) {
   const draw = () => { const left = perkLeft(f); c.innerHTML = '';
     { c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Your abilities</b></div>'); const box = abilityCards(p); box.style.marginBottom = '14px'; c.appendChild(box); } /* (the skill menu: every key, left and right click included, and what it does, then the perks below) */
     c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>${left}</b> perk point${left === 1 ? '' : 's'} to spend</div>`); /* (the owner: players don't need the earning rate or the tank numbers) */
-    const list = elx('div', 'perkgrid');
-    for (const pk of perksFor(cls)) { const lv = h.arenaPerks[pk.id] || 0, r = elx('div', 'perkcard' + (lv ? ' has' : ''));
-      r.innerHTML = `<div class="kiti">${iconOf(pk)}</div><div class="kitt"><b>${pk.name}</b><span>${pk.desc}</span><div class="perkpips">${Array.from({ length: Game.PERK_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div></div>`;
-      const plus = elx('button', 'btn gold perkb', '+'), minus = elx('button', 'btn perkb', '−'); plus.disabled = lv >= Game.PERK_MAX || left <= 0; minus.disabled = lv <= 0;
+    const all = perksFor(cls), card = (pk) => { const lv = h.arenaPerks[pk.id] || 0, open = treeOpen(h, pk), r = elx('div', 'perkcard' + (lv ? ' has' : '') + (open ? '' : ' locked'));
+      r.innerHTML = `<div class="kiti">${pk.tree ? `<span class="perkglyph">${pk.glyph}</span>` : iconOf(pk)}</div><div class="kitt"><b>${pk.name}</b><span>${open ? pk.desc : 'Take a rank in the perk above to open this.'}</span><div class="perkpips">${Array.from({ length: Game.PERK_MAX }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</div></div>`;
+      const plus = elx('button', 'btn gold perkb', '+'), minus = elx('button', 'btn perkb', '−'); plus.disabled = !open || lv >= Game.PERK_MAX || left <= 0; minus.disabled = lv <= 0 || (lv === 1 && treeBelowHas(h, pk));
       plus.onclick = () => { h.arenaPerks[pk.id] = lv + 1; applyPerkStats(f); S.click(); draw(); }; minus.onclick = () => { h.arenaPerks[pk.id] = lv - 1; applyPerkStats(f); S.click(); draw(); };
-      const bx = elx('div', 'perkbtns'); bx.append(plus, minus); r.appendChild(bx); list.appendChild(r); }
-    c.appendChild(list); };
+      const bx = elx('div', 'perkbtns'); bx.append(plus, minus); r.appendChild(bx); return r; };
+    c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Basic perks</b></div>'); const basics = elx('div', 'perkgrid'); for (const pk of all.filter(x => !x.tree)) basics.appendChild(card(pk)); c.appendChild(basics);
+    c.insertAdjacentHTML('beforeend', '<div class="perkhead"><b>Skill tree</b> <small>each ability has three tiers; a tier opens once the one above has a rank</small></div>');
+    const tree = elx('div', 'perktree'); for (const slot of ['F', 'C', 'Q', 'U']) { const col = all.filter(x => x.tree === slot).sort((a, b) => a.tier - b.tier); if (!col.length) continue; const ab = (ABILITIES[cls] || []).find(a => a.id === col[0].ab);
+      const cl = elx('div', 'treecol'); cl.innerHTML = `<div class="treehead"><div class="kiti">${Icons.abilityIcon(col[0].ab)}</div><b>${slot === 'U' ? 'R' : slot}</b><span>${ab ? ab.name : ''}</span></div>`; col.forEach((pk, k) => { if (k) cl.appendChild(elx('div', 'treelink' + ((h.arenaPerks[col[k - 1].id] || 0) ? ' on' : ''))); cl.appendChild(card(pk)); }); tree.appendChild(cl); }
+    c.appendChild(tree); };
   draw();
 }
 // I or H: what every one of your keys does

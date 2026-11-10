@@ -624,7 +624,7 @@ export function buyPrice(id) { return Math.max(2, ITEMS[id].value * 3); }
 // Kingdom Arena perks: points come with time (1 every 30 s of fighting) and buy ranks in ten perks per class.
 // h.arenaPK is the running total of what you have bought: { pow: {L,R,F,C,Q}, cd: {..}, hp, armor, speed, lifesteal, heal }
 export const PERK_SLOTS = ['L', 'R', 'F', 'C', 'Q'], PERK_MAX = 3;
-export function perkSlot(h, id) { if (!h || !h.arenaKit) return null; const k = h.arenaKit.indexOf(id); return k >= 0 ? ['F', 'C', 'Q'][k] : id === h.arenaRmb ? 'R' : null; }
+export function perkSlot(h, id) { if (!h || !h.arenaKit || !id) return null; const k = h.arenaKit.indexOf(id); return k >= 0 ? ['F', 'C', 'Q'][k] : id === h.arenaRmb ? 'R' : id === h.arenaUlt ? 'U' : null; }
 export function perkLvl(h, id, kind = 'pow') { const s = id === 'L' ? 'L' : perkSlot(h, id), P = h && h.arenaPK; return s && P && P[kind] ? P[kind][s] || 0 : 0; }
 export const perkPow = (lv) => 1 + 0.12 * lv, perkCd = (lv) => 1 - 0.1 * lv;
 export const arenaStat = (h, k) => (h && h.arenaPK && h.arenaPK[k]) || 0;

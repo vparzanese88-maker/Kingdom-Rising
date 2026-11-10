@@ -560,10 +560,13 @@ export const STORM = { dur: 5, r: 3.6, tick: 0.25, dmg: 0.03, pull: 2.2, slow: 0
 const STORM_TRAILS = [];
 export function berserkerStorm(caster) {
   const T = Object.assign({}, STORM, G.stormTune || {}), me = caster === G.player ? G.player : null, ch = me ? me.ch : caster.model;
-  if (!STORM_TRAILS.length) STORM_TRAILS.push(V.trail('#ffb070'), V.trail('#ffb070'));
-  const funnel = new THREE.Group(); const mats = [];
-  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.TorusGeometry(T.r * (0.55 + i * 0.22), 0.05 + i * 0.02, 6, 48, Math.PI * 1.3), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffe0b8' : '#ff9a60', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.x = Math.PI / 2; m.position.y = 0.6 + i * 0.55; funnel.add(m); mats.push(m.material); } // (bands of wind whipping round him, low and clear of the camera)
-  const slashRing = new THREE.Mesh(new THREE.RingGeometry(T.r * 0.55, T.r, 48, 1, 0, Math.PI * 1.2), new THREE.MeshBasicMaterial({ color: '#fff0d0', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); slashRing.rotation.x = -Math.PI / 2; funnel.add(slashRing);
+  if (!STORM_TRAILS.length) STORM_TRAILS.push(V.trail('#d81010'), V.trail('#d81010'));
+  // (the owner: intimidating, no cream circles) blood-red blade arcs whip round him at every height and tilt, a dark crimson
+  // vortex of blood mist and dust boils round him
+  const funnel = new THREE.Group(), arcs = [];
+  for (let i = 0; i < 11; i++) { const R = T.r * (0.55 + Math.random() * 0.5), th = 0.9 + Math.random() * 0.9, g = new THREE.RingGeometry(R - 0.22 - Math.random() * 0.14, R, 32, 1, 0, th);
+    const dark = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: '#5a0000', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })), hot = new THREE.Mesh(new THREE.RingGeometry(R - 0.075, R, 32, 1, 0, th), new THREE.MeshBasicMaterial({ color: '#ff2a10', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    const a = new THREE.Group(); a.add(dark, hot); a.userData = { y: 0.35 + Math.random() * 1.7, tilt: (Math.random() - 0.5) * 0.7, w: 13 + Math.random() * 9, ph: Math.random() * 6.28, fl: 0 }; funnel.add(a); arcs.push(a); }
   G.scene.add(funnel);
   if (me) { me.ultImmT = 0; me.stormT = T.dur; me.tpT = Math.max(me.tpT || 0, T.dur + 0.3); me.tpDist = 5.5; } else { caster.stormT = T.dur; }
   caster.spinT = T.dur; caster.spinA = 0; caster.spinW = Math.PI * 2 * Math.max(1, Math.round(15 * T.dur / (Math.PI * 2))) / T.dur; /* (about 15 rad/s, rounded so the last turn ends facing the way he started: no snap when it stops) */ S.cast && S.cast('fire', caster.pos, 1); V.burst('blood', caster.pos.clone().setY(caster.pos.y + 1), 30, { speed: 4 });
@@ -572,9 +575,12 @@ export function berserkerStorm(caster) {
     // computer berserkers in the yard (no brain of their own) drift at their victim
     if (!me && !caster.arenaBot) { const f = ultFoes(caster)[0]; if (f) { const d = new THREE.Vector3(f.pos.x - p.x, 0, f.pos.z - p.z); const L2 = d.length(); if (L2 > 0.8) { p.addScaledVector(d.normalize(), Math.min(L2, 4.2 * dt)); if (caster.root) caster.root.position.copy(p); } } }
     const k = Math.min(1, t / 0.3) * Math.max(0, 1 - Math.max(0, (t - T.dur + 0.3) / 0.3)); funnel.position.set(p.x, p.y, p.z);
-    funnel.children.forEach((m, i) => { if (m === slashRing) return; m.rotation.z = -t * (11 + i * 4); m.material.opacity = k * (0.55 - i * 0.12); }); slashRing.rotation.z = -t * 16; slashRing.material.opacity = k * 0.35;
-    if (Math.random() < 0.8 * k) { const a = Math.random() * Math.PI * 2, r0 = T.r * (0.5 + Math.random() * 0.6); V.emit('dust', new THREE.Vector3(p.x + Math.cos(a) * r0, p.y + 0.1 + Math.random() * 0.4, p.z + Math.sin(a) * r0), { speed: 2.5, size: 0.6, life: 0.6, dir: new THREE.Vector3(-Math.sin(a), 0.4, Math.cos(a)) }); }
-    if (Math.random() < 0.5 * k) V.emit('spark', p.clone().setY(p.y + 1.2 + (Math.random() - 0.5) * 0.4), { speed: 7, size: 0.18, life: 0.3 });
+    for (const a of arcs) { const u = a.userData; u.fl -= dt; if (u.fl <= 0) { u.fl = 0.08 + Math.random() * 0.25; u.on = Math.random() < 0.75; u.y = 0.35 + Math.random() * 1.7; u.tilt = (Math.random() - 0.5) * 0.8; } /* (each arc flickers out and snaps back at a new height and slant, like blades flashing past) */
+      a.position.y = u.y; a.rotation.set(-Math.PI / 2 + u.tilt, 0, -t * u.w + u.ph); const o = (u.on ? 1 : 0.15) * k; a.children[0].material.opacity = 0.75 * o; a.children[1].material.opacity = 0.95 * o; }
+    for (let n = 0; n < 2; n++) if (Math.random() < 0.9 * k) { const a = Math.random() * Math.PI * 2, r0 = T.r * (0.4 + Math.random() * 0.7), q = new THREE.Vector3(p.x + Math.cos(a) * r0, p.y + 0.1 + Math.random() * 1.6, p.z + Math.sin(a) * r0), tg = new THREE.Vector3(-Math.sin(a), 0.25, Math.cos(a));
+      V.emit(Math.random() < 0.55 ? 'shadow' : 'dust', q, { speed: 4.5, size: 0.7, life: 0.55, dir: tg, a0: 0.7 }); } /* (a dark vortex) */
+    if (Math.random() < 0.7 * k) { const a = Math.random() * Math.PI * 2; V.emit('blood', new THREE.Vector3(p.x + Math.cos(a) * T.r * 0.8, p.y + 0.6 + Math.random() * 1.2, p.z + Math.sin(a) * T.r * 0.8), { speed: 6, size: 0.22, life: 0.45, dir: new THREE.Vector3(-Math.sin(a), 0.2, Math.cos(a)) }); } /* (blood mist flung round) */
+    if (Math.random() < 0.4 * k) V.emit('spark', p.clone().setY(p.y + 1.2 + (Math.random() - 0.5) * 0.6), { speed: 8, size: 0.14, life: 0.25 });
     // the axes carve bright arcs as he turns
     if (ch && ch.arms && t < T.dur) { ch.root.updateMatrixWorld(true); ch.arms.R.hand.getWorldPosition(hA); ch.arms.L.hand.getWorldPosition(hB); const out = (h) => h.clone().sub(p.clone().setY(h.y)).normalize();
       tipA.copy(hA).addScaledVector(out(hA), 0.9); tipB.copy(hB).addScaledVector(out(hB), 0.9); STORM_TRAILS[0].active = true; STORM_TRAILS[1].active = true; STORM_TRAILS[0].push(hA, tipA); STORM_TRAILS[1].push(hB, tipB); }
@@ -584,10 +590,10 @@ export function berserkerStorm(caster) {
         ultHurt(u, T.dmg, caster, 'blood'); hit.set(u, (hit.get(u) || 0) + 1); ultSlow(u, T.slow, T.tick + 0.1); if (d > 0.8) { const pl = Math.min(d - 0.8, T.pull * T.tick); u.pos.x += dx / d * pl; u.pos.z += dz / d * pl; if (u.root) u.root.position.copy(u.pos); }
         V.burst('blood', u.pos.clone().setY(u.pos.y + 1.1), 10, { speed: 4 }); S.hit && S.hit('flesh', u.pos, 0.6); } if (hit.size) V.addShake(0.12); }
     if (!done && t >= T.dur) { done = true; STORM_TRAILS[0].active = false; STORM_TRAILS[1].active = false; caster.spinT = 0; caster.stormT = 0; /* (the spin really stops when the storm ends) */
-      V.ring(p.clone().setY(p.y + 0.3), T.r * 2.6, '#ffb070', 0.6); V.burst('dust', p.clone().setY(p.y + 0.5), 70, { speed: 9 }); V.burst('blood', p.clone().setY(p.y + 1), 40, { speed: 7 }); V.addShake(0.8); S.explode && S.explode(p, 0.7);
+      V.burst('shadow', p.clone().setY(p.y + 0.8), 50, { speed: 10, size: 0.9, life: 0.6, a0: 0.85 }); V.burst('dust', p.clone().setY(p.y + 0.5), 60, { speed: 9 }); V.burst('blood', p.clone().setY(p.y + 1), 70, { speed: 9, size: 0.3 }); V.light(p.clone().setY(p.y + 1), '#ff1a00', 6, 0.35, 12); /* (a blast of blood and shadow, no ring) */ V.addShake(0.8); S.explode && S.explode(p, 0.7);
       for (const u of ultFoes(caster)) { const dx = u.pos.x - p.x, dz = u.pos.z - p.z, d = Math.hypot(dx, dz); if (d > T.r * 1.4) continue; ultHurt(u, 0.06, caster, 'blood'); const n = new THREE.Vector3(dx, 0, dz).normalize(); if (u === G.player && u.vel) u.vel.set(n.x * 10, 7, n.z * 10); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 0.8); if (u.status.knock) u.status.knock.set(n.x * 10, 0, n.z * 10); } }
       feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b>'s Bladestorm${hit.size ? ` shreds <b>${[...hit.keys()].map(u => esc2(u.heroName || u.name || 'a fighter')).join(', ')}</b>` : ' spins out'}!`); }
-    if (t > T.dur + 0.4) { G.scene.remove(funnel); return true; }
+    if (t > T.dur + 0.4) { G.scene.remove(funnel); funnel.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); return true; }
     return false; } });
   return true;
 }

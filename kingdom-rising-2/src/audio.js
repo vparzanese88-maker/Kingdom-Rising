@@ -313,10 +313,15 @@ export const S = {
       noise(t, 0.6 * b, o.node, { type: 'highpass', f: 4000, f2: 2000, gain: 0.3 * b, a: 0.05 });
       noise(t + 0.1, 0.4, o.node, { type: 'bandpass', f: 900, q: 3, gain: 0.12 });
     } else if (el === 'arcane') {
-      // a shimmering, ringing hum
-      tone(t, 0.6 * b, o.node, { type: 'sine', f: 330, f2: 990, gain: 0.16, a: 0.03 }); tone(t, 0.6 * b, o.node, { type: 'sine', f: 337, f2: 1004, gain: 0.16, a: 0.03 });
-      tone(t + 0.08, 0.9, o.node, { type: 'triangle', f: 1320, f2: 1760, gain: 0.05 });
-      noise(t, 0.35, o.node, { type: 'bandpass', f: 2600, q: 6, gain: 0.14 });
+      // a dark, punchy arcane whoosh (no rising whistle): a low thump, a falling rush of air and a cold glassy edge; bigger
+      // casts add a deep boom, a growling drone and crackles, so abilities land heavier than the plain bolt
+      tone(t, 0.22 + 0.12 * b, o.node, { type: 'sine', f: 150, f2: 48, gain: 0.32 * Math.min(1.6, b + 0.3), a: 0.004 });
+      noise(t, 0.28 + 0.15 * b, o.node, { type: 'bandpass', f: 2200, f2: 380, q: 1.1, gain: 0.42 * Math.min(1.5, b + 0.2), a: 0.01 });
+      noise(t, 0.12, o.node, { type: 'highpass', f: 5200, f2: 3000, gain: 0.1, a: 0.002 });
+      tone(t, 0.25, o.node, { type: 'triangle', f: 880, f2: 520, gain: 0.025, a: 0.005 }); tone(t, 0.25, o.node, { type: 'triangle', f: 893, f2: 527, gain: 0.025, a: 0.005 });
+      if (b >= 0.9) { tone(t, 0.7 * b, o.node, { type: 'sine', f: 70, f2: 32, gain: 0.4 * Math.min(1.5, b), a: 0.01 }); tone(t, 0.55 * b, o.node, { type: 'sawtooth', f: 55, f2: 41, gain: 0.06 * b, a: 0.02 }); tone(t, 0.55 * b, o.node, { type: 'sawtooth', f: 82, f2: 61, gain: 0.04 * b, a: 0.02 });
+        noise(t + 0.02, 0.8 * b, o.node, { type: 'lowpass', f: 600, f2: 120, gain: 0.5 * Math.min(1.5, b), a: 0.02 });
+        for (let i = 0; i < 3 + 3 * b; i++) noise(t + 0.03 + Math.random() * 0.35 * b, 0.025, o.node, { type: 'bandpass', f: 2500 + Math.random() * 2500, q: 2, gain: 0.3 }); }
     } else if (el === 'lightning') {
       // a sharp electric crack, a buzzing zap, then thunder rolling away
       noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 1.0 * b, a: 0.001 });

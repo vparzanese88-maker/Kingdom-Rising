@@ -38,7 +38,7 @@ const ROGUE3 = [['stabR', 0.6, 0.95, 0.64, undefined, 'rtA'], ['stabR', 0.6, 0.9
 // the monk's seven blows, each the length of its own recording (they were all squeezed into a quarter of a second): [action, length, hit share,
 // the model's move]; damage keeps step with length. The spinning kick takes its time, so the kick shows and its hit lands with the foot
 const MONK7 = [['stabR', 0.5, 0.4, 'jab'], ['stabL', 0.5, 0.4, 'cross'], ['stabR', 0.6, 0.4, 'hook'], ['stabL', 0.6, 0.4, 'upper'], ['stabR', 1.3, 0.62, 'spin'], ['stabL', 0.5, 0.4, 'jab'], ['stabR', 1.0, 0.6, 'slam']];
-const MM_SPEED = 30, MM_DMG = 0.85, MM_RANGE = 70, MM_CONE = 0.6, MM_SPLASH = 1.6, MM_LANES = [[1, 0.3], [-1, 0.3], [0.55, 0.8], [-0.55, 0.8], [0, 1.1]]; // the wizard's Magic Missiles: speed (m/s), damage against a bolt, how far and how wide round the crosshair they find a target (m, radians), the burst's reach, and the arcs (side, rise) they take in turn
+const MM_SPEED = 30, MM_DMG = 1.2, MM_RANGE = 70, MM_CONE = 0.6, MM_SPLASH = 1.6, MM_LANES = [[1, 0.3], [-1, 0.3], [0.55, 0.8], [-0.55, 0.8], [0, 1.1]]; // the wizard's Magic Missiles: speed (m/s), damage against a bolt, how far and how wide round the crosshair they find a target (m, radians), the burst's reach, and the arcs (side, rise) they take in turn
 const AIM_T0 = 0.1, AIM_FULL = 1.4, AIM_MAX = 2.5; // the ranger's zoomed charge shot: the draw starts counting after a tenth of a second and reaches full power 1.4 s later, at 2.5x an ordinary arrow
 const BOW_CYCLE = 0.95, BOW_REL = 0.55; // the arena bow: one shot's length before haste (s), and how far into it the arrow is loosed
 // Kingdom Battles: a glowing slash crescent that covers the swing's real hit area
@@ -771,7 +771,7 @@ export class Player {
     this.recoil = Math.min(1, (this.recoil || 0) + 0.35); V.burst('arcane', from, 6, { speed: 3 }); V.light(from, '#b8a0ff', 3, 0.06, 6); S.gunshot && S.gunshot(this.pos, 0.45); this.fovKick = Math.min(4, (this.fovKick || 0) + 0.6); }
   // the campaign: a weapon you have only just picked up is clumsy in your hand; skill makes it quicker
   wSpeedK() { if (!this.weapon) return 1; const sz = Math.pow(1 / (this.weapon.size || 1), 0.95); return Game.speedOf(this.h, this.weapon.wt) * sz; } // skill, and the weapon's size (light = quick, heavy = slow)
-  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= this.h.cls === 'ranger' ? 2 : 1.35; if (this.buffs.missiles > 0) m *= 2; /* (the owner: Magic Missiles cast twice as fast) */ /* (the owner: the ranger's Hunter's Focus, twice as fast, and no extra crits) */ if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
+  speedMul() { let m = this.wSpeedK() * (this.h.arena ? Game.arenaHaste(this.h) : 1) * (1 + this.sbSum('haste') / 100) * (this.buffs.avatar > 0 && this.avatar && this.avatar.haste ? this.avatar.haste : 1); if (this.h.arena && this.h.cls === 'warrior') m *= 0.8; /* (the warrior's sword swings slower and heavier: a clear, full slash) */ if (this.buffs.rampage > 0) m *= 1.4; if (this.buffs.focus > 0) m *= this.h.cls === 'ranger' ? 2 : 1.35; if (this.buffs.missiles > 0) m *= 2; if (this.transcendT > 0) m *= 1.5; /* (Arcane Ascension: casts half again as fast) */ /* (the owner: Magic Missiles cast twice as fast) */ /* (the owner: the ranger's Hunter's Focus, twice as fast, and no extra crits) */ if (this.W && this.W.hands === 'dual' && dualRank(this.h.dualKills) >= 2) m *= 1.08; if (this.buffs.fury > 0) m *= 1.5; if (this.buffs.shout > 0) m *= 1.35; /* (Battle Shout) */ if (this.pk('drum') && (this.buffs.bWar > 0 || this.buffs.bVigor > 0 || this.buffs.bStone > 0)) m *= 1.1; return m; }
 
   // what a swing sounds like: maces and hammers whoosh low, axes chop, spears swish, daggers flick, swords ring
   swingKind(name) {
@@ -948,7 +948,7 @@ export class Player {
       const sc = big ? 1 + ch * 1.4 : 1;
       if (el === 'fire') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(34 - ch * 6), grav: 3.5 + ch * 3, radius: 0.25 * sc, dmg: base * (1 + ch * 1.6), owner: 'player', kind: 'fireball', scale: sc, life: 4, onHit: (p, m, pos) => this.fireBurst(pos, (big ? 2.6 : 1.6) * sc * 0.8, p.dmg, m) });
       else if (el === 'frost') spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(46), grav: 2.5, radius: 0.22 * sc, dmg: base * (1 + ch * 1.4), owner: 'player', kind: 'frost', scale: sc, life: 3, pierce: big, onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { slow: 3, freeze: big && ch > 0.8 ? 2 : 0, el: 'frost' }); V.burst('frost', pos, 14 * sc, { speed: 4 }); S.cast('frost', pos); } });
-      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * ((this.h.arena && this.h.cls === 'wizard' ? 1.0 : 0.95) + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, /* (the arena wizard's plain bolt: a touch harder than other arcane staffs, so his damage stays where it was with fire) */ onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
+      else spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(52), grav: 1.5, radius: 0.22 * sc, dmg: base * ((this.h.arena && this.h.cls === 'wizard' ? 1.0 : 0.95) + ch * 1.5), owner: 'player', kind: 'arcane', scale: sc, life: 3, home: true, /* (the arena wizard's plain bolt: a touch harder than other arcane staffs, so his damage stays where it was with fire) */ onHit: (p, m, pos) => { if (m) this.dealDamage(m, p.dmg, { el: 'arcane' }); if (this.transcendT > 0) this.ascBlast(pos, p.dmg, m); V.burst('arcane', pos, 16 * sc, { speed: 4 }); V.light(pos, '#a050ff', 3, 0.2); S.cast('arcane', pos, 0.6); } });
       if (this.pk('echo') && !a.echoed && Math.random() < 0.15) { setTimeout(() => { if (!this.dead) this.doHit(Object.assign({}, a, { echoed: true })); }, 140 * ABIL_DELAY_K()); }
       S.cast(el, from, big ? 1.4 : 0.8);
       V.burst(el === 'fire' ? 'fire' : el, from, 8, { speed: 2 }); V.light(from, el === 'fire' ? '#ff7020' : el === 'frost' ? '#60c0ff' : '#b060ff', 2, 0.15, 8);
@@ -961,8 +961,11 @@ export class Player {
     const n = (this.mmN = (this.mmN || 0) + 1), lane = MM_LANES[n % MM_LANES.length], side = new THREE.Vector3(-dir.z, 0, dir.x); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize().multiplyScalar(lane[0]);
     const p = spawnProjectile({ wpn: true, pos: from.clone(), vel: dir.clone().multiplyScalar(tgt ? MM_SPEED : MM_SPEED * 1.3), grav: 0, radius: 0.18, dmg: base * MM_DMG, owner: 'player', kind: 'missile', el: 'arcane', life: 3.2, block: true, onHit: (pr, m, pos) => this.missileBurst(pr, m, pos) });
     if (tgt) p.seek = { tgt, S: from.clone(), dir: dir.clone(), side, up: lane[1], u: 0, speed: MM_SPEED }; return p; }
-  missileBurst(pr, m, pos) { if (m) this.dealDamage(m, pr.dmg, { ranged: true, el: 'arcane', basic: true }); for (const o of mobsInRadius(pos, MM_SPLASH)) if (o !== m) this.dealDamage(o, pr.dmg * 0.35, { ranged: true, el: 'arcane' }); /* (a small burst: a little damage to anyone close by) */
-    V.burst('void', pos, 22, { normal: true, speed: 3.5, size: 0.42, life: 0.5 }); V.burst('arcane', pos, 18, { speed: 5.5, size: 0.28 }); V.burst('spark', pos, 6, { speed: 4, size: 0.1 }); V.light(pos, '#8a2cff', 4, 0.2, 8); S.cast('arcane', pos, 0.45); if (!m) S.hit && S.hit('stone', pos, 0.5); }
+  // Arcane Ascension: while he hovers every bolt explodes, a violet blast that hurts everyone round where it lands (m, who it hit, already took the bolt)
+  ascBlast(pos, dmg, m) { const R = 3.2; for (const o of mobsInRadius(pos, R)) if (o !== m) this.dealDamage(o, dmg * 0.7, { ranged: true, el: 'arcane' });
+    V.burst('void', pos, 34, { normal: true, speed: 6, size: 0.6, life: 0.6 }); V.burst('arcane', pos, 30, { speed: 8, size: 0.35 }); V.burst('spark', pos, 10, { speed: 6, size: 0.12 }); V.sphereFlash && V.sphereFlash(pos, R * 0.8, '#c080ff', 0.25); V.light(pos, '#9a30ff', 6, 0.3, 10); S.explode ? S.explode(pos, 0.6, 'arcane') : S.cast('arcane', pos, 0.8); V.addShake(0.08); }
+  missileBurst(pr, m, pos) { if (m) this.dealDamage(m, pr.dmg, { ranged: true, el: 'arcane', basic: true }); if (this.transcendT > 0) this.ascBlast(pos, pr.dmg, m); for (const o of mobsInRadius(pos, MM_SPLASH)) if (o !== m) this.dealDamage(o, pr.dmg * 0.35, { ranged: true, el: 'arcane' }); /* (a small burst: a little damage to anyone close by) */
+    V.burst('void', pos, 22, { normal: true, speed: 3.5, size: 0.42, life: 0.5 }); V.burst('arcane', pos, 18, { speed: 5.5, size: 0.28 }); V.burst('spark', pos, 6, { speed: 4, size: 0.1 }); V.light(pos, '#8a2cff', 4, 0.2, 8); S.cast('arcane', pos, 0.7); if (!m) S.hit && S.hit('stone', pos, 0.5); }
   // a point in the first-person view (its own camera) as a world point on the same line of sight: spells leave the hand you see
   vmWorld(obj) { if (!obj || !G.vmCam) return null; const p = obj.getWorldPosition(new THREE.Vector3()), d = p.distanceTo(G.vmCam.position), n = p.clone().project(G.vmCam); const dir = new THREE.Vector3(n.x, n.y, 0.5).unproject(G.camera).sub(G.camera.position).normalize(); return G.camera.position.clone().addScaledVector(dir, Math.max(1.1, d)); }
   fireBurst(pos, r, dmg, direct) {
@@ -1433,7 +1436,7 @@ export class Player {
       case 'chain': {
         const from = this.handPos(); const a = aimRay(35);
         let tgt = a.mob || mobsInCone(this.pos, this.yaw, 30, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0];
-        S.cast('lightning', this.pos, 1);
+        S.cast('arcane', this.pos, 1.4); setTimeout(() => S.cast('arcane', this.pos, 1.1), 60);
         this.atk = { name: 'spell', t: 0, dur: 0.45, hit: true };
         if (!tgt) { lightning(from, a.point); break; }
         const hit = new Set(); let prev = from, dmg = base * 1.7 * rk * up;
@@ -1617,6 +1620,8 @@ export class Player {
         spawnProjectile({ pos: from, vel: dir.clone().multiplyScalar(62), grav: 1.2, radius: 0.32, dmg, owner: 'player', kind: 'arrow', fireArrow: true, scale: 2.4, life: 2.2, onHit: (pr, m, pos) => { V.burst('fire', pos.clone(), 60, { speed: 7, size: 0.9 }); V.burst('ember', pos.clone(), 30, { speed: 5 }); V.light && V.light(pos, '#ff7a20', 8, 0.35, 9); S.explode && S.explode(pos, 0.7); V.addShake(0.35); if (m) this.dealDamage(m, pr.dmg, hitO(m, { ranged: true, stun: a.stun || 1.5, el: 'fire', burn: pr.dmg * 0.08, big: true })); } });
         const back = dir.clone().setY(0); if (back.lengthSq() < 1e-4) back.copy(f); back.normalize().multiplyScalar(-1); this.vel.x = back.x * 13; this.vel.z = back.z * 13; this.vel.y = Math.max(this.vel.y, 7.5); this.onGround = false; this.iframes = Math.max(this.iframes || 0, 0.35);
         V.burst('fire', from.clone(), 26, { speed: 4, size: 0.6 }); S.bowShot && S.bowShot(this.pos); S.cast && S.cast('fire', this.pos, 0.9); this.recoil = Math.max(this.recoil || 0, 2.4); anim('flip', 0.95); return true; } /* ('flip', not 'shoot': the bow-drawing pose would pin his arms out in front while he goes over) */
+      case 'arcshield': { /* (Arcane Shield: a faint violet shell that soaks up a share of his health in damage for a few seconds) */
+        this.arcShield = this.maxHp * (a.amount || 0.35) * (this._extK || 1); this.arcShieldT = G.time + (a.dur || 5); G.hooks.arcShieldFx && G.hooks.arcShieldFx(this, () => this.arcShield > 0 && G.time < this.arcShieldT); this.atk = { name: 'spell', t: 0, dur: 0.35, hit: true }; break; }
       case 'bola': { /* (Bola Shot: two arrows side by side, joined by a cord; the catch slows the target and heals him 10%) */
         const from = this.camDist >= 0.6 ? ((bowRest(this.ch)) || this.handPos(true)) : this.handPos(true), dir = this.aimDir(from), side = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); let caught = false; const pair = [];
         for (const sgn of [-1, 1]) pair.push(spawnProjectile({ pos: from.clone().addScaledVector(side, 0.28 * sgn), vel: dir.clone().multiplyScalar(58).addScaledVector(side, 0.9 * sgn), grav: 2.5, radius: 0.24, dmg: P(a.dmg) * 0.5, owner: 'player', kind: 'arrow', life: 2.5, onHit: (pr, m, pos) => { V.burst('leaf', pos.clone(), 14, { speed: 3 }); if (m) { this.dealDamage(m, pr.dmg, hitO(m, { ranged: true, slow: a.slow || 3 })); if (!caught) { caught = true; this.heal(this.maxHp * 0.1); V.burst('heal', this.pos.clone().setY(this.pos.y + 1.2), 24, { speed: 2, vy: 2 }); S.heal && S.heal(); } } } }));
@@ -2012,7 +2017,7 @@ export class Player {
   }
   dealDamage(m, dmg, o = {}) {
     if (m.dead) return;
-    if (this.transcendT > 0) dmg *= 1.5; // (Transcendence)
+    if (this.transcendT > 0) dmg *= 1.5; // (Arcane Ascension)
     if (this.bannerT > G.time) dmg *= 1.2; // (Warlord's Banner)
     if (this.h.arena) [dmg, o] = Game.arenaOut(this, this.h, m, dmg, o); // (arena perk passives)
     if (G.battleFx && this.stealth > 0 && !o.silent) this.stealth = 0;
@@ -2138,6 +2143,7 @@ export class Player {
     if (this.buffs.mward > 0 && (o.ranged || o.el || o.magic)) dmg = Math.max(1, Math.round(dmg * 0.75)); // Hymn of Warding
     { const n = Game.fxCount(this.h, 'taken'), u = Game.fxCount(this.h, 'u_def'); if (n || u) dmg = Math.max(1, Math.round(dmg * (1 - n * 0.05 - u * 0.12))); }
     if (this.pk('thorns') && src && src.takeHit && !src.dead && !src.isStruct && o.melee !== false && src.pos && src.pos.distanceTo(this.pos) < 4) { const back = Math.max(1, Math.round(dmg * 0.15)); src.takeHit(back, this, { silent: true }); V.burst('spark', src.pos.clone().setY(src.pos.y + 1), 6, { speed: 3 }); }
+    if (this.arcShield > 0 && G.time < this.arcShieldT) { const ab = Math.min(this.arcShield, dmg); this.arcShield -= ab; dmg -= ab; this.arcHitT = G.time; S.cast && S.cast('arcane', this.pos, 0.35); if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'arcane'); return; } } // (Arcane Shield)
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; this.hurtT = 0.4; this.regenDelay = 4;
     V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); S.hurt();
@@ -2163,9 +2169,9 @@ export class Player {
   climbOut() { let g = null, r = 0; for (const d of [0.6, 1.2, 1.9, 2.6]) { const t = groundAt(this.pos.x + Math.sin(this.yaw) * d, this.pos.z + Math.cos(this.yaw) * d, this.pos.y + 2.8); if (t.surf && t.h - this.pos.y <= 2.8) { g = t; r = d; break; } } if (!g) return false;
     this.pos.x += Math.sin(this.yaw) * r; this.pos.z += Math.cos(this.yaw) * r; this.pos.y = g.h; this.vel.set(0, 0, 0); this.onGround = true; this.swim = false; S.splash(this.pos, 0.6); return true; }
   swimK() { const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
-  jump() { if (this.swim) { this.climbOut(); return; } if (this.onGround && !this.dodge && !this.gathering && !this.dead && !this.swim) { this.vel.y = 9.2; /* (you can jump mid-swing, and swing mid-jump) */ this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
+  jump() { if (this.swim) { this.climbOut(); return; } if (this.transcendT > 0) return; /* (Arcane Ascension: no jumping while he hovers) */ if (this.onGround && !this.dodge && !this.gathering && !this.dead && !this.swim) { this.vel.y = 9.2; /* (you can jump mid-swing, and swing mid-jump) */ this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
-    if (this.dodge || this.dead || this.isFrozen() || this.gathering || !this.onGround || this.swim) return;
+    if (this.dodge || this.dead || this.isFrozen() || this.gathering || !this.onGround || this.swim || this.transcendT > 0) return; // (Arcane Ascension: no dodging while he hovers)
     if (this.atk && this.atk.t < 0.6 && this.atk.name !== 'cast' && this.h.cls !== 'monk') return; // (the monk can dodge out of any strike)
     if (this.atk && this.h.cls === 'monk') { this.atk = null; this.queued = null; }
     const kind = 'roll', D = DODGES[kind]; /* (the owner: every class rolls for now; the per-class side steps, leaps and flips are set aside) */
@@ -2262,7 +2268,7 @@ export class Player {
   // ---------- update ----------
   update(dt) {
     const h = this.h;
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1) * (this.transcendT > 0 ? 3 : 1)); // (Transcendence: abilities recharge three times as fast) // Timeless Form: abilities recharge twice as fast
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1)); // Timeless Form: abilities recharge twice as fast
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward', 'missiles']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); /* (missiles: the wizard's Magic Missiles) */ if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);
@@ -2327,6 +2333,7 @@ export class Player {
     if (this.gathering || stunned) spd = 0;
     if (this.ringSlowT > G.time) spd *= 0.156; else if (this.ultSlowT > G.time) spd *= this.ultSlowK; else if (this.db && this.db.slow && this.db.slow.t > 0) spd *= 0.55; // (the demon's ring: a deeper slow)
     if (this.stagger > 0) spd *= 0.3;
+    if (this.transcendT > 0) spd *= 1.4; // (Arcane Ascension: he glides faster)
     this.sprinting = sprint && md.lengthSq() > 0.1;
     // dodge / charge / leap override
     if (this.leap) {
@@ -2377,13 +2384,14 @@ export class Player {
     } else if (this.pos.y > g2.h + 0.15) this.onGround = this.swim;
     // step down slopes smoothly
     if (this.onGround && !this.swim && this.pos.y - g2.h < 0.5 && this.vel.y <= 0) this.pos.y = g2.h;
+    if (this.hoverH > 0.005 && !this.leap) { this.pos.y = Math.max(g2.h, wl) + this.hoverH; this.vel.y = 0; this.onGround = true; this.swim = false; } // (Arcane Ascension: he hovers this high over the ground, or the water)
     this.onSurf = g2.surf;
     // lava
     if (world.lavaPools) for (const L of world.lavaPools) if (Math.hypot(this.pos.x - L.x, this.pos.z - L.z) < L.r && this.pos.y < L.y + 0.6) { this.pos.y = Math.max(this.pos.y, L.y - 0.3); this.lavaT = (this.lavaT || 0) + dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.iframes = 0; this.takeDamage(this.maxHp * 0.12, null); V.burst('fire', this.pos, 20, { speed: 3 }); } }
     // footsteps
     const hs = Math.hypot(this.vel.x, this.vel.z);
     this.speed = hs;
-    if (this.onGround && hs > 0.5 && !this.dodge) { this.stepAcc += hs * dt; if (this.stepAcc > (this.sprinting ? 2.2 : 1.7)) { this.stepAcc = 0; S.step(this.swim ? 'water' : surfaceType(this.pos.x, this.pos.z, this.onSurf), null, this.sprinting ? 1.2 : 0.9); if (wl - g2.h > 0.1 && wl - g2.h < 1.4) S.step('water'); } }
+    if (this.onGround && hs > 0.5 && !this.dodge && !(this.hoverH > 0.005)) { this.stepAcc += hs * dt; if (this.stepAcc > (this.sprinting ? 2.2 : 1.7)) { this.stepAcc = 0; S.step(this.swim ? 'water' : surfaceType(this.pos.x, this.pos.z, this.onSurf), null, this.sprinting ? 1.2 : 0.9); if (wl - g2.h > 0.1 && wl - g2.h < 1.4) S.step('water'); } }
  // held: the next attack follows straight on
     // attacks
     this.updateAttack(dt);
@@ -2396,7 +2404,7 @@ export class Player {
     { const on = this.h.arena && this.h.cls === 'wizard' && this.buffs.missiles > 0 && !this.dead; bookAura(this.ch && this.ch.weapons && this.ch.weapons.main, on, G.time, on ? Math.min(1, this.buffs.missiles * 2) : 0); } /* (Magic Missiles: violet motes round the spellbook while it lasts) */
     { const on = this.h.arena && this.h.cls === 'ranger' && this.buffs.focus > 0 && !this.dead, k = on ? Math.min(1, this.buffs.focus * 2) : 0; focusBow(this.ch && this.ch.weapons && this.ch.weapons.main, on && this.camDist >= 0.6, G.time, dt, k); focusBow(this.vm && this.vm.weapons && this.vm.weapons.main, on && this.camDist < 0.6, G.time, dt, k); /* (Hunter's Focus: the bow lit up, fading out over its last half second) */
       if (on && this.camDist >= 0.6 && Math.random() < dt * 14) { const bw = this.ch.weapons.main; if (bw && bw.name === 'weapon_bow') { const q = bw.localToWorld(new THREE.Vector3((Math.random() - 0.5) * 0.1, (Math.random() * 2 - 1) * 0.6, 0.05)); V.burst('green', q, 1, { speed: 0.5, size: 0.12, life: 0.45, vy: 1.2 }); } } }
-    this.animate(dt, hs); bladeFire(this, dt); this.tickAxe(dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
+    this.animate(dt, this.hoverH > 0.2 ? 0 : hs); /* (hovering: no running legs, he glides) */ bladeFire(this, dt); this.tickAxe(dt); /* (after the arm has moved, so the fire sits on the blade, not a frame behind it) */
     this.updateCamera(dt);
   }
   animate(dt, hs) {

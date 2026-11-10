@@ -96,7 +96,7 @@ const PAL = {
   fire: [C('#ffe08a'), C('#ff4a10')], ember: [C('#ffb040'), C('#ff2000')], smoke: [C('#5a5450'), C('#2a2828')], frost: [C('#e8fbff'), C('#4ab8ff')], arcane: [C('#ffd0ff'), C('#8a30ff')],
   blood: [C('#c01818'), C('#5a0808')], dust: [C('#b8a888'), C('#8a7a60')], spark: [C('#fff8d0'), C('#ffa020')], heal: [C('#d0ffd0'), C('#40ff60')], lightning: [C('#ffffff'), C('#80b0ff')],
   leaf: [C('#6aa040'), C('#4a7030')], wood: [C('#a07a4a'), C('#6a4a2a')], stone: [C('#a09890'), C('#6a6460')], cotton: [C('#ffffff'), C('#e8e8e0')], gold: [C('#fff0a0'), C('#ffb020')],
-  shadow: [C('#404050'), C('#101018')], void: [C('#b47aff'), C('#3c0c96')], /* (void: deep violet, for the wizard's spells drawn with normal blending so they stay purple against a bright sky) */ water: [C('#e8f8ff'), C('#80c0e0')], lava: [C('#ffd060'), C('#ff3000')], bone: [C('#f0e8d0'), C('#a8a090')], green: [C('#c8ff8a'), C('#40c040')], poison: [C('#8aff30'), C('#185a08')],
+  shadow: [C('#404050'), C('#101018')], void: [C('#b47aff'), C('#3c0c96')], vsmoke: [C('#a070e0'), C('#4a2088')], /* (the wizard's purple smoke) */ /* (void: deep violet, for the wizard's spells drawn with normal blending so they stay purple against a bright sky) */ water: [C('#e8f8ff'), C('#80c0e0')], lava: [C('#ffd060'), C('#ff3000')], bone: [C('#f0e8d0'), C('#a8a090')], green: [C('#c8ff8a'), C('#40c040')], poison: [C('#8aff30'), C('#185a08')],
 };
 
 export const V = {
@@ -112,6 +112,9 @@ export const V = {
     this.sphereGeo = new THREE.SphereGeometry(1, 20, 14);
   },
   setScale(h) { this.add.mat.uniforms.scale.value = h * 0.9; this.norm.mat.uniforms.scale.value = h * 0.9; },
+  // a puff of purple smoke that engulfs a body standing at p (feet) and drifts apart over about 3 s
+  puff(p, k = 1) { for (let i = 0; i < 3; i++) this.burst('vsmoke', new THREE.Vector3(p.x, p.y + 0.35 + i * 0.6, p.z), Math.round(22 * k), { normal: true, speed: 1.4, up: 0.5, vy: 0.25, size: 1.2 * k, size1: 2.6 * k, life: 2.6, radius: 1.3 * k, grav: -0.25, a0: 0.5 });
+    this.burst('void', new THREE.Vector3(p.x, p.y + 1, p.z), Math.round(18 * k), { normal: true, speed: 3, size: 0.45, life: 0.6 }); },
   trail(color) { const t = new Trail(this.scene, color); this.trails.push(t); return t; },
   burst(kind, p, n = 20, opt = {}) {
     // first person: smoke, fire and sparks born right at your face (a muzzle blast, a cast) are moved out to the lower

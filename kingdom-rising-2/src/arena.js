@@ -1645,7 +1645,7 @@ class ArenaBot {
     if (st.knock && st.knock.lengthSq() > 0.01) { this.pos.addScaledVector(st.knock, dt * 6); st.knock.multiplyScalar(Math.max(0, 1 - dt * 6)); }
     confine(this.pos, 1);
     if (RUINS_MAP()) worldCollide(this.pos, 0.45); this.pos.y = gy(this.pos.x, this.pos.z, this.pos.y); this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
-    const vis = !(this.stealth > 0 && this.team !== G.myTeam && !this.phaseInvis); /* (Phase Shift: a faint shimmer, not gone) */ this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
+    const vis = !(this.stealth > 0 && this.team !== G.myTeam); this.root.visible = (vis || Math.hypot(this.pos.x - G.player.pos.x, this.pos.z - G.player.pos.z) < 3) && !(G.camera && G.camera.position.distanceTo(this.pos.clone().setY(this.pos.y + 1)) < 1.15); // (hidden when the camera is inside them)
     this.spd += (speed - this.spd) * Math.min(1, dt * 8);
     { const tr = Math.atan2(Math.sin(this.yaw - (this.prevYaw ?? this.yaw)), Math.cos(this.yaw - (this.prevYaw ?? this.yaw))) / Math.max(dt, 1e-3); this.prevYaw = this.yaw; this.turnR = (this.turnR || 0) + (tr - (this.turnR || 0)) * Math.min(1, dt * 8); }
     arenaLookTick(this.model, dt); if (G.player && this.model) { const near = this.pos.distanceToSquared(G.player.pos) < 900; if (near !== this.model.detailOn) setDetail(this.model, near); } // (close-up detail only within 30 m)

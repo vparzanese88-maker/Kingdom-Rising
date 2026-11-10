@@ -81,7 +81,8 @@ addEventListener('click', regain, true); addEventListener('keydown', regain, tru
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
   $('btnBattle').onclick = () => { S.click(); goFull(); showBattleSetup(); };
-  if ($('btnArena')) $('btnArena').onclick = () => { S.click(); goFull(); showArenaSetup(); };
+  if ($('btnArena')) $('btnArena').onclick = (e) => { S.click(); goFull(); if (e && e.shiftKey) { showArenaSetup(); return; } quickArena(); }; /* (the owner: Kingdom Arena is quick play; shift-click opens the full setup) */
+  if ($('btnArenaCustom')) $('btnArenaCustom').onclick = (e) => { e.stopPropagation(); S.click(); goFull(); showArenaSetup(); };
   try { if (sessionStorage.getItem('kr2_arena_open')) { sessionStorage.removeItem('kr2_arena_open'); setTimeout(showArenaSetup, 50); } } catch (e) { /* no storage */ }
   $('btnSettingsT').onclick = () => { S.click(); openSettings(false); };
   $('btnControlsT').onclick = () => { S.click(); openControls(false); };
@@ -331,6 +332,13 @@ function renderBattleSetup() {
   row.append(back, go); panel.appendChild(row);
 }
 
+// ---------- Kingdom Arena quick play ----------
+// the owner: one click and you are in: a 6 v 6 King of the Hill match. The enemy is six different classes; your team is five more
+// (no repeats); you pick your own class in the holding room during the 60 s countdown, and a team mate with that class takes another
+function quickArena() { const all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length), sh = (a) => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
+  const s = Arena.defaultArena(); s.fmt = 't6'; s.objective = 'koth'; s.lives = 'respawn'; s.quick = true; Arena.fillSlots(s, false);
+  const mine = sh(all).slice(0, 6), foe = sh(all).slice(0, 6); s.slots.forEach((sl, i) => { sl.cls = sl.team === 0 ? mine[i] : foe[i - 6]; if (sl.you) { sl.name = ''; } });
+  try { sessionStorage.setItem(ARENA_KEY, JSON.stringify(s)); } catch (e) { /* no storage */ } location.href = location.pathname + '?mode=arena'; }
 // ---------- Kingdom Arena setup ----------
 let AS = null;
 export function showArenaSetup() {

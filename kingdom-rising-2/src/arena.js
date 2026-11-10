@@ -1132,7 +1132,10 @@ function revive(f, place) {
   else if (f.owner != null && AN.host) nsend({ t: 'revive', to: f.owner }); // a player revives on their own machine
 }
 // ---------- changing class during the match (K) ----------
-function applyClass() { const f = A.me; f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
+function quickSwap(cls) { if (!A.setup || !A.setup.quick || AN.on) return; const mate = A.F.find(o => !o.you && o.team === A.me.team && o.cls === cls && o.bot); if (!mate) return;
+  const used = new Set(A.F.filter(o => o.team === A.me.team).map(o => o.cls)), all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length && !used.has(k)); if (!all.length) return; const nc = all[(Math.random() * all.length) | 0];
+  const old = mate.bot; G.scene.remove(old.root); const ix = G.mobs.indexOf(old); if (ix >= 0) G.mobs.splice(ix, 1); old.dead = true; mate.cls = nc; mate.bot = new ArenaBot(mate, arenaHero(mate, mate.name)); mate.bot.role = old.role; mate.bot.revive(spawnOf(mate)); } /* (the owner's quick play: whoever on your team had the class you picked fills a different one) */
+function applyClass() { const f = A.me; quickSwap(A.nextCls); f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
 // ---------- every key the hero has, as cards: left click, right click, F, C, Q, then the ultimate ----------
 // (the skills window on P, and K in the Training Yard; I or H lists the same left and right click)
 // a key badge: the letter on a key cap, or the mouse with the button that is meant lit up
@@ -1229,6 +1232,7 @@ export function openKitInfo(UI, into) {
   html += row('Shift', 'Sprint / dodge', 'Hold to sprint. Tap (or double-tap a direction) to dodge-roll.', 0, null);
   c.insertAdjacentHTML('beforeend', `<div class="kitlist">${html}</div><p class="dim" style="margin-top:8px">K changes class · Tab shows the scores · hover the bar at the bottom (hold Alt for a cursor) to read any of these again.</p>`);
 }
+export const isQuick = () => !!(A.setup && A.setup.quick);
 export function openClassPicker(UI) {
   const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));

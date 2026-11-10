@@ -692,11 +692,14 @@ export function equipWeapon(ch, wt, tier = 0, rarity = 0) {
   }
 }
 // put the weapons in your hands away on your back (and draw them again): clones of the held meshes on the chest
+// a copy of a weapon (or any part) without its userData: Object3D.clone deep-copies userData through JSON, and a weapon's userData holds
+// the whole loaded model (its geometry, and its texture encoded as an image): one copy of the berserker's axe took up to seconds (his throw paused)
+export function cloneLite(o) { const ud = o.userData; o.userData = {}; let c; try { c = o.clone(false); } finally { o.userData = ud; } for (const k of o.children) c.add(cloneLite(k)); return c; }
 export function sheathe(ch, on) {
   if (!ch.weapons || !ch.weapons.main || !ch.chest) return;
   if (on && !ch.sheathG) {
     const g = new THREE.Group(); g.position.set(0, 0.06, -0.16); ch.chest.add(g); ch.sheathG = g;
-    const W = WEAPON_TYPES[ch.wt], main = ch.weapons.main.clone(), off = ch.weapons.off && ch.weapons.off.clone(), shield = off && ch.weapons.off.userData.isShield;
+    const W = WEAPON_TYPES[ch.wt], main = cloneLite(ch.weapons.main), off = ch.weapons.off && cloneLite(ch.weapons.off), shield = off && ch.weapons.off.userData.isShield;
     main.scale.copy(ch.weapons.main.scale); main.position.set(0, 0, 0); g.add(main);
     if (W.kind === 'bow') { main.rotation.set(0, 0, -0.75); main.position.set(0.02, 0.05, -0.04); }
     else if (W.kind === 'gun') { main.rotation.set(0, 0, -0.42); main.position.set(0.05, -0.32, -0.05); }

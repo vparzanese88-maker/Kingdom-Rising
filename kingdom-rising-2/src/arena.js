@@ -21,7 +21,7 @@ import { RUINS, updateRuins } from './ruinsmap.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
-import { loadDemonModel, poseDemonModel } from './heromodels.js';
+import { loadDemonModel, poseDemonModel, fixNormals } from './heromodels.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
 import { ARENA_KEY } from './battlemap.js';
@@ -601,7 +601,7 @@ export function bannerFittings(g, top, w, x0) { const goldM = new THREE.MeshStan
 const BANNER_URL = { shield: 'models/props/banner_a.fbx', mend: 'models/props/banner_b.fbx' }, BANNER = {};
 export function preloadBanners() { for (const k in BANNER_URL) { if (BANNER[k]) continue; BANNER[k] = 'loading';
     new FBXLoader().load(BANNER_URL[k], (o) => { try { o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
-      o.traverse(m => { if (!m.isMesh) return; m.castShadow = true; for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 4; if (mt.emissive) { mt.emissiveMap = mt.map; mt.emissive.setScalar(0.42); } } if ('shininess' in mt) mt.shininess = 12; /* (a soft glow from its own colours: with the sun behind it the cloth went a dull navy-grey) */ } });
+      o.traverse(m => { if (!m.isMesh) return; fixNormals(m.geometry); /* (the warrior's banner model carries 3 zero-length normals: on a real graphics card those pixels come out invalid and the glow pass smeared them over the whole screen, black) */ m.castShadow = true; for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { if (mt.map) { mt.map.colorSpace = THREE.SRGBColorSpace; mt.map.anisotropy = 4; if (mt.emissive) { mt.emissiveMap = mt.map; mt.emissive.setScalar(0.42); } } if ('shininess' in mt) mt.shininess = 12; /* (a soft glow from its own colours: with the sun behind it the cloth went a dull navy-grey) */ } });
       const g = new THREE.Group(); o.position.set(-c.x, -bb.min.y, -c.z); g.add(o); g.scale.setScalar(1 / Math.max(0.01, sz.y)); /* (one metre tall, standing on its foot, centred on its pole) */ BANNER[k] = g; } catch (e) { BANNER[k] = null; console.warn('banner model', k, e); } }, undefined, (e) => { BANNER[k] = null; console.warn('banner model failed to load', k, e); }); } }
 function bannerModel(k, h) { const b = BANNER[k]; if (!b || b === 'loading') { preloadBanners(); return null; } const m = b.clone(); m.scale.multiplyScalar(h); m.rotation.y = Math.PI; /* (its face turned toward the warrior who planted it) */ return m; }
 // swap the drawn flag for the model: everything but the glow rings and the dome is hidden

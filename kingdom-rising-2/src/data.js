@@ -333,7 +333,7 @@ export const ABILITIES = {
     { id: 'laststand', cost: 35, name: "Last Stand", key: '', level: 16, cd: 40, icon: '', desc: "Refuse to fall: regenerate 30% of your health over 10 s and take 25% less damage for 10 s." },
   ],
   berserker: [
-    { id: 'earthsplitter', cost: 40, name: "Leap Strike", key: '', level: 1, cd: 7, icon: '', desc: "Leap toward your aim and crash down, shattering the ground and stunning everything around you." },
+    { id: 'earthsplitter', cost: 40, name: "Leap Strike", key: '', level: 1, cd: 7, icon: '', desc: "Leap to where you aim (up to 24 m away) and crash down, shattering the ground and stunning everything around you." },
     { id: 'battlecry', cost: 40, name: "Battle Cry", key: '', level: 2, cd: 20, icon: '', desc: "A furious roar: heal 20% health and deal 30% more damage for 10 s." },
     { id: 'intimshout', cost: 35, name: "Intimidating Shout", key: '', level: 4, cd: 18, icon: '', desc: "A terrifying shout: every enemy within 9 m is stunned with fear for 2.5 s." },
     { id: 'whirlwind', cost: 35, name: "Whirlwind", key: '', level: 6, cd: 10, icon: '', desc: "Spin like a storm for 2 s, cutting everything around you again and again." },

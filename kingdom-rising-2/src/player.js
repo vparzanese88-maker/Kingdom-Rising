@@ -8,7 +8,7 @@ import { V } from './vfx.js';
 import { settings } from './saves.js';
 import { WEAPON_TYPES, CLASSES, ABILITIES, AREA_UNLOCK_LEVEL, RANK2_LEVEL, CLASS_POOLS, RARITY, TIERS, WSKILLS, FAMILIES, slotSkills, familiesOf, COMBOS, RMB_SPECIAL } from './data.js';
 const dualRank = () => 0;
-import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe, kitize, classKitFP } from './character.js';
+import { armReach, buildHumanoid, equipWeapon, animateHumanoid, makeWeapon, holdTool, tintGear, bake, backWeapons, sheathe, kitize, classKitFP, cloneLite } from './character.js';
 import { heightAt, isWater, waterLevelAt, zoneAt, SEA } from './terrain.js';
 import { world, collide, groundAt, surfaceType, nodesNear, hideNode, nodeKinds, solidAt } from './world.js';
 import { activeWeapon, swapSets, setIsEmpty, pairedWt, heroDerived, weaponDamage, gatherReward, toolProblem, useItem, count, lootCorpse, hasLoot, addItem, perk, wperk, ensureProc } from './game.js';
@@ -68,6 +68,9 @@ const SUPPORT = { warbanner: '#ff7a3a', vigorbanner: HEALC, stonebanner: BLUEC, 
 const AURA = { wall: ['gold', 0.3], fort: ['gold', 0.3], stand: ['gold', 0.35], undying: ['blood', 0.3], fury: ['blood', 0.28], rage: ['blood', 0.3], rampage: ['blood', 0.3], cry: ['ember', 0.25],
   adren: ['spark', 0.22], swind: ['spark', 0.22], wolfRun: ['spark', 0.22], haste: ['spark', 0.22], focus: ['arcane', 0.24], eagle: ['arcane', 0.24], surge: ['arcane', 0.3], clarity: ['frost', 0.24], ward: ['frost', 0.28],
   poisonW: ['leaf', 0.24], flame: ['fire', 0.3], leech: ['shadow', 0.3], storm: ['spark', 0.3], tq: ['gold', 0.25], reload: ['ember', 0.2], lich: ['shadow', 0.3], bWar: ['ember', 0.28], bVigor: ['heal', 0.3], bStone: ['frost', 0.28] };
+// the berserker's thrown axe leaves its own solid blood-red streak (one shader, built once)
+const AXE_TRAIL_FS = 'uniform vec3 color; uniform float op; varying float vA; void main(){ gl_FragColor = vec4(color, min(1.0, vA*op*1.6)); }';
+function axeTrail() { const tr = V.trail('#d80000'); tr.thin = 0; tr.len = 14; if (tr.mat) { tr.mat.visible = true; tr.mat.blending = THREE.NormalBlending; tr.mat.fragmentShader = AXE_TRAIL_FS; tr.mat.needsUpdate = true; } return tr; }
 // Shift dodges: a quick side step, a rolling dodge that goes further, a leaping roll that goes furthest
 const DODGES = { old: { dur: 0.6, speed: 10, cost: 16, ifr: 0.42 }, step: { dur: 0.34, speed: 11, cost: 14, ifr: 0.24 }, roll: { dur: 0.8, speed: 8.6, cost: 20, ifr: 0.5 }, leap: { dur: 0.75, speed: 12.5, cost: 26, ifr: 0.55, vy: 5.5 }, flip: { dur: 0.8, speed: 12.5, cost: 26, ifr: 0.6, vy: 6.6 } }; // (flip: the monk's acrobatics, a front flip, a back flip or an aerial the way you go) // slower, weightier dodges you can follow with your eyes
 const DODGE_OF = { warrior: 'roll', cleric: 'step', paladin: 'step', darkknight: 'step',
@@ -1155,9 +1158,9 @@ export class Player {
         break;
       }
       case 'earthsplitter': {
-        const tgt = groundPoint(14);
-        this.leap = { t: 0, dur: 0.75, from: this.pos.clone(), to: tgt, dmg: base * 2.6 * rk * up, r: 7 * (1 + this.pk('a3up') * 0.3) };
-        this.atk = { name: 'heavy', t: 0, dur: 0.9, hit: true, noQueue: true };
+        const tgt = groundPoint(24), ld = Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z), dur = Math.max(0.65, Math.min(1.05, 0.55 + ld * 0.021)); /* (he lands where you aim, up to 24 m: it stopped at 14 m, so anything aimed further came up short; a longer leap takes a little longer) */
+        this.leap = { t: 0, dur, from: this.pos.clone(), to: tgt, dmg: base * 2.6 * rk * up, r: 7 * (1 + this.pk('a3up') * 0.3), hgt: 3.6 + ld * 0.1 };
+        this.atk = { name: 'heavy', t: 0, dur: dur + 0.15, hit: true, noQueue: true };
         S.heavySwing(this.pos); S.jump();
         break;
       }
@@ -1811,18 +1814,19 @@ export class Player {
   // the berserker's axe throw: wind up, hurl (the axe leaves his hand), it spins out cutting everything in its path,
   // whirls back to him cutting again, and he hops to catch it
   tickAxe(dt) {
+    if (!this._axeWarm && this.h.cls === 'berserker' && G.renderer && G.camera) { this._axeWarm = true; try { const tr = axeTrail(); G.renderer.compile(tr.mesh, G.camera, G.scene); const i = V.trails.indexOf(tr); if (i >= 0) V.trails.splice(i, 1); tr.mesh.parent && tr.mesh.parent.remove(tr.mesh); this._axeWarmMat = tr.mat; } catch (e) {} } /* (the streak's shader is built now, not in the middle of his first throw) */
     if (this.shoutT > 0) this.shoutT -= dt;
     if (this.axeCatch) { this.axeCatch.t += dt; if (this.axeCatch.t >= this.axeCatch.dur) this.axeCatch = null; }
     const T = this.axeThrow, w = this.ch && this.ch.weapons && this.ch.weapons.main;
-    if (T) { T.t += dt; if (!T.thrown && T.t / T.dur >= 0.61) { T.thrown = true; if (w) { w.updateWorldMatrix(true, true); const fly = w.clone(true), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); w.matrixWorld.decompose(p, q, sc); fly.position.copy(p); fly.scale.copy(sc); fly.visible = true; G.scene.add(fly); w.visible = false;
-          const cam = G.camera.getWorldDirection(new THREE.Vector3()); const dir = new THREE.Vector3(cam.x, Math.max(-0.15, Math.min(0.2, cam.y)), cam.z).normalize();
+    if (T) { T.t += dt; if (!T.thrown && T.t / T.dur >= 0.61) { T.thrown = true; if (w) { w.updateWorldMatrix(true, true); const fly = cloneLite(w), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); w.matrixWorld.decompose(p, q, sc); fly.position.copy(p); fly.scale.copy(sc); fly.visible = true; G.scene.add(fly); w.visible = false; /* (a light copy: the full clone copied the whole loaded axe model through JSON every throw, the pause the owner felt) */
+          const dir = (() => { const ar = aimRay(60), at = ar.point.clone(); if (!ar.mob) at.y = Math.max(at.y, heightAt(at.x, at.z) + Math.max(1.3, (this.eye || 1.8) * 0.6)); const d = at.sub(p); if (d.lengthSq() < 1) return G.camera.getWorldDirection(new THREE.Vector3()); d.normalize(); d.y = Math.max(-0.4, Math.min(0.45, d.y)); return d.normalize(); })(); /* (it flies at the crosshair: whoever is under it (chest high), or chest high above the ground there (heroes are big: 1.1 m was their knees); the old line ran parallel to the camera from his hand, well below the crosshair, and into the dirt) */
           const flat = new THREE.Vector3(dir.x, 0, dir.z).normalize(); const axis = new THREE.Vector3(0, Math.cos(0.3), 0).addScaledVector(flat, -Math.sin(0.3)); { const hy = new THREE.Vector3(0, Math.sin(0.3), 0).addScaledVector(flat, Math.cos(0.3)); fly.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(hy, axis), hy, axis)); } /* (laid flat like a helicopter blade: haft level (its y), the blades' faces (its z) to the sky, tipped back 17 degrees so the camera behind sees the whirling disc, not a thin line) */
-          const tr = V.trail('#d80000'); tr.thin = 0; tr.len = 14; if (tr.mat) { tr.mat.visible = true; tr.mat.blending = THREE.NormalBlending; tr.mat.fragmentShader = 'uniform vec3 color; uniform float op; varying float vA; void main(){ gl_FragColor = vec4(color, min(1.0, vA*op*1.6)); }'; tr.mat.needsUpdate = true; } /* (its own solid blood-red streak: the shared trail is mostly white and additive, which washes out over grass) */
+          const tr = axeTrail(); /* (its own solid blood-red streak: the shared trail is mostly white and additive, which washes out over grass) */
           this.axeOut = { fly, dir, pos: p.clone().addScaledVector(flat, 0.6 * sc.y), out: true, gone: 0, hitOut: new Set(), hitBack: new Set(), dmg: T.dmg, life: 0, tr, sc: sc.y, axis, spinA: 0 }; S.swingW && S.swingW('blade', 1.5, this.pos, this.weapon && this.weapon.wt, this.h.cls); } }
       if (T.t >= T.dur) this.axeThrow = null; }
     const A = this.axeOut; if (!A) return; if (w) w.visible = false; /* (every frame: animate() turns the hand weapon back on, so the axe looked to be in his hand and in the air at once) */ A.life += dt; const hand = this.handPos ? this.handPos() : this.pos.clone().setY(this.pos.y + 1.4);
     const endAxe = () => { G.scene.remove(A.fly); if (w) w.visible = true; this.axeOut = null; const tr = A.tr; tr.active = false; setTimeout(() => { const i = V.trails.indexOf(tr); if (i >= 0) V.trails.splice(i, 1); if (tr.mesh) { tr.mesh.parent && tr.mesh.parent.remove(tr.mesh); tr.mesh.geometry && tr.mesh.geometry.dispose(); } }, 600); };
-    if (A.out) { const f = Math.min(1, A.gone / 24), st = (42 - 24 * f * f) * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; if (A.gone >= 24 || A.life > 1.3) { A.out = false; A.backT = 0; } } /* (eases out to the turn: out to 24 m at up to 42 m/s, the owner wanted it further and faster) */
+    if (A.out) { const f = Math.min(1, A.gone / 24), st = (42 - 24 * f * f) * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; const gy = heightAt(A.pos.x, A.pos.z); if (A.pos.y < gy + 0.35) { A.pos.y = gy + 0.35; A.out = false; A.backT = 0; V.burst('dust', A.pos.clone(), 14, { speed: 4, size: 0.6 }); S.hit && S.hit('metal', A.pos); } /* (it bites into the ground where you aimed low, and comes back) */ else if (A.gone >= 24 || A.life > 1.3) { A.out = false; A.backT = 0; } } /* (eases out to the turn: out to 24 m at up to 42 m/s, the owner wanted it further and faster) */
     else { A.backT = (A.backT || 0) + dt; const to = hand.clone().sub(A.pos), d = to.length(), sp = 14 + Math.min(1, A.backT / 0.3) * 30; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { endAxe(); S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); } /* (and picks up speed on the way home) */
     A.spinA += dt * 22; A.fly.rotateOnWorldAxis(A.axis, dt * 22); /* (helicopter spin) */
     { const hd = new THREE.Vector3(0, 1, 0).applyQuaternion(A.fly.quaternion); A.fly.position.copy(A.pos).addScaledVector(hd, -0.6 * A.sc); /* (it whirls about its balance point up the haft, not the end of the handle) */
@@ -2231,7 +2235,7 @@ export class Player {
     if (this.leap) {
       const L = this.leap; L.t += dt / L.dur; const k = Math.min(1, L.t);
       this.pos.x = lerp(L.from.x, L.to.x, k); this.pos.z = lerp(L.from.z, L.to.z, k);
-      this.pos.y = lerp(L.from.y, L.to.y, k) + Math.sin(k * Math.PI) * 5;
+      this.pos.y = lerp(L.from.y, L.to.y, k) + Math.sin(k * Math.PI) * (L.hgt || 5);
       if (k >= 1) {
         this.leap = null; const p = this.pos.clone(); p.y = heightAt(p.x, p.z);
         for (const m of mobsInRadius(p, L.r || 7)) this.dealDamage(m, L.dmg, { stun: 2, knock: m.pos.clone().sub(p).setY(0).normalize().multiplyScalar(8), big: true, melee: true });

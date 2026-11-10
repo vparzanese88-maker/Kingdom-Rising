@@ -2068,7 +2068,7 @@ export class Player {
     if (kill) { V.addShake(0.25); this.fovKick = Math.max(this.fovKick, 3); }
   }
   // rare, epic and legendary weapons: a small chance per weapon hit (better with Dexterity) to set off their proc
-  tryProc(m) {
+  tryProc(m) { if (this.h.arena) return; /* (arena and yard: no weapon procs, only abilities add fire, frost or poison) */
     const w = this.weapon; if (!w || w.rarity < 2) return; ensureProc(w);
     if (G.time < (this.procT || 0) || Math.random() >= procChance(w.rarity, this.D.stats.dex)) return;
     this.procT = G.time + 2;

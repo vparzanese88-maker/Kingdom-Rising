@@ -260,7 +260,7 @@ export function arenaHero(slot, name) {
   const h = Game.newHero({ name, race: slot.race, cls: slot.cls, sex, app });
   h.level = LEVEL_CAP; h.introDone = true; h.gold = 0; h.arena = true; h.ctree = {}; kitRules(); h.arenaKit = kitOf(slot.cls); h.arenaRmb = rmbOf(slot.cls); h.arenaUlt = ultOf(slot.cls); h.ultCharge = 0; h.arenaPerks = {}; recomputePK(h);
   const top = TIERS.length - 1, C = CLASSES[slot.cls];
-  for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(k === 'w1' && slot.cls === 'wizard' ? 'arcanestaff' : w.wt, top, 3), { uid: w.uid }); } /* (the owner: the wizard's main attack is arcane, not fire) */
+  for (const k of ['w1', 'w2']) { const w = h.equip[k]; if (w) Object.assign(w, Game.makeWeapon(k === 'w1' && slot.cls === 'wizard' ? 'arcanestaff' : w.wt, top, 3), { uid: w.uid }); if (w) delete w.proc; } /* (the owner: no weapon procs in the arena: a legendary sword's random Flametongue set people burning without Flame Blade) */ /* (the owner: the wizard's main attack is arcane, not fire) */
   for (const s of ARMOR_SLOT_LIST) h.equip[s] = Game.makeArmor(C.armor || 'leather', s, top, 3);
   h.skills = {}; for (const id of SKILL_IDS) h.skills[id] = 999; // capped by level inside the skill system
   h.hotbar = null; Game.autoFillHotbar(h);

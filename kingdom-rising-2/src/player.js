@@ -2328,6 +2328,7 @@ export class Player {
         this.leap = null; const p = this.pos.clone(); p.y = heightAt(p.x, p.z);
         for (const m of mobsInRadius(p, L.r || 7)) this.dealDamage(m, L.dmg, { stun: 2, knock: m.pos.clone().sub(p).setY(0).normalize().multiplyScalar(8), big: true, melee: true });
         V.ring(p, 7, '#ffd090', 0.5); V.ring(p, 4.5, '#ff8040', 0.4); V.burst('stone', p, 50, { speed: 9, size: 0.35, grav: 14, life: 1.2 }); V.burst('dust', p, 40, { speed: 6, size: 1.2, life: 1.5, radius: 3 });
+        { const R = L.r || 7; for (let k = 0; k < 3; k++) setTimeout(() => { V.ring(p, R * (0.8 + k * 0.2), k ? '#c8a070' : '#ffe0b0', 0.55 + k * 0.1, 0.12); for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, rr = R * (0.45 + k * 0.25), q = p.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0.1, Math.sin(a) * rr)); q.y = heightAt(q.x, q.z) + 0.1; V.burst('dust', q, 1, { speed: 1.2, size: 0.9, life: 0.8, vy: 1.4 }); } }, k * 130); } /* (the owner: a ripple through the ground: three shockwaves racing out over the area, dust kicked up along each) */
         S.explode(p, 1.4); S.rumble(p, 1.2); V.addShake(0.8); G.hitstop = 0.08; this.vel.set(0, 0, 0); this.onGround = true;
       }
     } else if (this.dodge) {

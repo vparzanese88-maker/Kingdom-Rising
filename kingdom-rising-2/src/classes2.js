@@ -36,7 +36,7 @@ export const NEW_CLASSES = {
       { id: 'shieldofl', name: 'Shield of Light', level: 10, cd: 20, cost: 25, t: 'buff', buff: 'barrier', amount: 0.3, dur: 10, desc: 'A shield of light absorbs damage equal to 30% of your health.' },
       { id: 'avenger', name: "Avenger's Wrath", level: 12, cd: 26, cost: 30, t: 'buff', buff: 'cry', dur: 10, desc: 'For 10 s you hit 25% harder.' },
       { id: 'holylight', name: 'Holy Light', level: 14, cd: 18, cost: 30, t: 'hot', pct: 0.45, dur: 6, r: 10, ally: 0.2, desc: 'Heal over 6 s, and allies within 10 m heal a little.' },
-      { id: 'smitearc', name: 'Radiant Sweep', level: 16, cd: 10, cost: 30, t: 'cone', range: 5, ang: 1.2, dmg: 2.0, knock: 8, fx: 'gold', desc: 'A wide sweep of holy steel that knocks back everything in front of you.' },
+      { id: 'smitearc', name: 'Radiant Sweep', level: 16, cd: 10, cost: 30, t: 'cone', range: 5, ang: 1.2, dmg: 2.0, knock: 8, fx: 'gold', anim: 'swing1', desc: 'A wide sweep of holy steel that knocks back everything in front of you.' },
       { id: 'crusade', name: 'Crusade', level: 18, cd: 40, cost: 45, t: 'buff', buff: 'stand', dur: 10, heal: 0.3, r: 14, allyBuff: 'rally', desc: 'A little healing, and for 10 s you and nearby allies fight on with renewed strength.' },
     ] },
   darkknight: { name: 'Shadow Knight', desc: 'A knight who traded his oath for power. Drains the life of his foes to fuel his own.',

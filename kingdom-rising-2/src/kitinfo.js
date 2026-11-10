@@ -51,7 +51,7 @@ export const KIT = {
   ar_overgrowth: ['tree', 'nature', 'A forest sweeps across the arena, healing allies and entangling enemies it reaches.', 1],
   // shaman
   sh_wave: ['wave', 'frost', 'Heal yourself 20% and allies within 12 m 28%.'],
-  sh_wolf: ['wolf', 'frost', 'Summon a spirit wolf to fight beside you.'],
+  ar_chainbolt: ['bolt', 'frost', 'A bolt of lightning at your target that jumps to two more enemies nearby, slowing them all.'],
   sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
   ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 36% over 6 s.'],
   ar_spirittotem: ['bolt', 'frost', 'A storm cloud forms over you, then a giant bolt strikes every enemy within 12 m and leaps on to each of the others.', 1],
@@ -108,10 +108,10 @@ export const KIT = {
   ar_charm: ['heartspiral', 'arcane', 'Charm every enemy in an 8 m area for 3 s, then hit them for 20% of their health.', 1],
   // beastmaster
   packfrenzy: ['claws', 'red', 'Attack much faster for 8 s.'],
-  warbeast: ['paw', 'gold', 'Summon your war tiger. It grows stronger as you level.'],
+  ar_pounce: ['paw', 'red', 'Leap up to 14 m onto an enemy and knock everyone where you land to the ground.'],
   feralroar: ['roar', 'red', 'Stun every enemy within 6 m for 1 s.'],
   naturesembrace: ['leafshield', 'nature', 'For 15 s take 30% less damage and heal 3% every second.'],
-  ar_pack: ['wolf', 'frost', 'Three spirit wolves hunt the nearest enemies within 18 m for 5 s.', 1],
+  ar_pack: ['roar', 'red', 'Become a huge bear-man for 10 s: you heal 20%, hit 50% harder and take 30% less damage.', 1],
   // priest
   pr_halo: ['halo', 'gold', 'A ring of light heals allies around you 25% and you 15%.'],
   pr_word: ['shieldglow', 'gold', 'A shield absorbs about 20% of your health for 6 s.'],

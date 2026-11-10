@@ -1,7 +1,7 @@
 // Kingdom Rising 2 audio: procedural music, synthesized sound effects, ambience, plus CC0 sword samples.
 import { settings } from './saves.js';
 
-let ctx = null, master, musicBus, musicOut, sfxBus, ambBus, reverb, reverbSend, comp, sfxWet, ambWet;
+let ctx = null, swBus, master, musicBus, musicOut, sfxBus, ambBus, reverb, reverbSend, comp, sfxWet, ambWet;
 const samples = {};
 let listener = { x: 0, y: 0, z: 0, yaw: 0 };
 let noiseBuf = null;
@@ -20,7 +20,7 @@ export const A = {
     musicBus = ctx.createGain(); sfxBus = ctx.createGain(); ambBus = ctx.createGain();
     // music skips the effects compressor (its make-up gain would push recorded music far too loud)
     musicOut = ctx.createGain(); musicOut.connect(ctx.destination); musicBus.connect(musicOut);
-    sfxBus.connect(master); ambBus.connect(master);
+    sfxBus.connect(master); ambBus.connect(master); swBus = ctx.createGain(); swBus.gain.value = 0.5; swBus.connect(sfxBus); /* (the owner: weapon slashes and swooshes at half volume) */
     reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(2.8, 2.5);
     reverbSend = ctx.createGain(); reverbSend.gain.value = 0.9;
     reverbSend.connect(reverb); reverb.connect(master);
@@ -139,7 +139,7 @@ export const S = {
     noise(t, 0.55, o.node, { type: 'bandpass', f: 2600, f2: 900, q: 3, gain: 0.32, a: 0.12 }); noise(t + 0.18, 0.4, o.node, { type: 'bandpass', f: 1800, f2: 700, q: 4, gain: 0.22, a: 0.1 }); tone(t, 0.6, o.node, { type: 'sine', f: 220, f2: 140, gain: 0.05, a: 0.2 }); },
   hover() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.04, o.node, { type: 'sine', f: 1400, gain: 0.04 }); },
   swing(size = 1, pos) {
-    if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now();
+    if (!ctx) return; const o = out(pos, swBus, 0.1); const t = now();
     if (!sample('swing' + ri(10), o.node, rnd(0.9, 1.1) / Math.sqrt(size), 0.55)) {
       noise(t, 0.22 * size, o.node, { type: 'bandpass', f: 600, f2: 2400 / size, q: 1.5, gain: 0.35, a: 0.06 });
     }
@@ -152,7 +152,7 @@ export const S = {
     if (cls === 'berserker' && kind !== 'fist') return S.zerkSlash(size, pos); /* (the berserker's great axe: its own deep slash) */
     if (hv && kind !== 'light' && kind !== 'fist' && kind !== 'spear') return S.heavyWhoosh(hv, size, pos);
     if (kind === 'blade') return S.swing(size, pos);
-    const o = out(pos, sfxBus, 0.1), t = now();
+    const o = out(pos, swBus, 0.1), t = now();
     if (kind === 'blunt') {
       noise(t, 0.32 * size, o.node, { type: 'lowpass', f: 260, f2: 720, q: 1.2, gain: 0.55 * size, a: 0.1 });
       noise(t + 0.04, 0.26 * size, o.node, { type: 'bandpass', f: 180, f2: 420, q: 2.5, gain: 0.35 * size, a: 0.08 });
@@ -180,7 +180,7 @@ export const S = {
   // the berserker's great axe tearing through the air: a long, deep rushing whoosh, a sub-bass rumble under it and a
   // short ringing edge as the blade cuts, so it reads as a heavy slash, not wind
   zerkSlash(size = 1, pos) {
-    if (!ctx) return; const o = out(pos, sfxBus, 0.14), t = now(), k = Math.min(1.3, 0.8 + size * 0.3), dur = 0.56 * rnd(0.95, 1.06), pk = t + dur * 0.45;
+    if (!ctx) return; const o = out(pos, swBus, 0.14), t = now(), k = Math.min(1.3, 0.8 + size * 0.3), dur = 0.56 * rnd(0.95, 1.06), pk = t + dur * 0.45;
     const sweep = (n, f0, f1, f2) => { const fr = n.fl.frequency; fr.cancelScheduledValues(t); fr.setValueAtTime(f0, t); fr.exponentialRampToValueAtTime(f1, pk); fr.exponentialRampToValueAtTime(f2, t + dur); };
     sweep(noise(t, dur, o.node, { type: 'bandpass', q: 1.0, gain: 0.55 * k, a: dur * 0.42, d: dur * 0.58 }), 90, 420, 120);
     sweep(noise(t, dur, o.node, { type: 'lowpass', q: 1.8, gain: 0.5 * k, a: dur * 0.4, d: dur * 0.6 }), 60, 260, 80);
@@ -190,7 +190,7 @@ export const S = {
     tone(pk, 0.22, o.node, { type: 'sine', f: 1850 * rnd(0.97, 1.03), f2: 1700, gain: 0.035 * k, a: 0.005, d: 0.2 });
   },
   heavyWhoosh(hv, size = 1, pos) {
-    if (!ctx) return; const o = out(pos, sfxBus, 0.12), t = now();
+    if (!ctx) return; const o = out(pos, swBus, 0.12), t = now();
     const blunt = hv === 'hammer' || hv === 'mace', k = Math.min(1.2, 0.7 + size * 0.3) * (hv === 'mace' ? 0.85 : 1);
     const dur = (hv === 'mace' ? 0.34 : blunt ? 0.42 : 0.38) * rnd(0.95, 1.05), pk = t + dur * 0.4;
     const sweep = (n, f0, f1, f2) => { const fr = n.fl.frequency; fr.cancelScheduledValues(t); fr.setValueAtTime(f0, t); fr.exponentialRampToValueAtTime(f1, pk); fr.exponentialRampToValueAtTime(f2, t + dur); };

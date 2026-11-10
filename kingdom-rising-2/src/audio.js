@@ -8,8 +8,9 @@ let noiseBuf = null;
 
 export const A = {
   get ready() { return !!ctx; },
+  get running() { return !!ctx && ctx.state === 'running'; },
   init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (ctx) { if (ctx.state !== 'running') ctx.resume().catch(() => {}); return; } /* (any state but running, incl. Safari's 'interrupted': try again on every click or key) */
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
@@ -729,7 +730,7 @@ function startSong(now) {
   song.el = el; song.lv = 0; song.ctx = key; song.fadeOut = false;
   el.play().then(() => { M.blocked = false; }).catch(() => { M.blocked = true; song.el = null; song.silenceUntil = now + 1500; });
 }
-function routeEl(el) { if (!ctx || el._routed) return; try { const s = ctx.createMediaElementSource(el); s.connect(musicBus); el._routed = true; } catch (e) { el._routed = 'no'; } }
+function routeEl(el) { if (!ctx || el._routed || ctx.state !== 'running') return; /* (only once sound is really on: music routed into a still-muted sound system went silent with it) */ try { const s = ctx.createMediaElementSource(el); s.connect(musicBus); el._routed = true; } catch (e) { el._routed = 'no'; } }
 const musicVol = (el) => (el && el._routed === true ? 1 : settings.master * settings.music);
 export const M = {
   soonSong() { song.silenceUntil = performance.now() + 1500; },

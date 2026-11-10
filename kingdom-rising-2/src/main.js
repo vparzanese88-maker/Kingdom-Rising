@@ -995,6 +995,11 @@ function gameUpdate(dt) {
 M.play('title');
 setTimeout(() => { if (M.blocked) { const l = $('loading'); if (l && !l.hidden) l.querySelector('small').innerHTML = 'Building the world... <b style="color:#ffe2a0">Click anywhere to begin</b>'; } }, 600);
 addEventListener('pointerdown', function early() { A.init(); removeEventListener('pointerdown', early); }, { once: true });
+// browsers keep sound off until the player clicks or presses a key; the Training Yard and the Arena start the sound system before that,
+// so turn it on at EVERY click, tap or key (caught before anything else can swallow the event) until it is really running
+for (const ev of ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'click']) addEventListener(ev, () => { if (!A.running) A.init(); }, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && A.ready && !A.running) A.init(); });
+setTimeout(function soundHint() { if (A.ready && !A.running && G.player) { UI.toast && UI.toast('Click the game to turn the sound on', '🔊', 'gold'); } else if (!A.ready || !A.running) setTimeout(soundHint, 3000); }, 4000);
 window.KR2 = { get intro() { return intro; }, G, startGame, quitToTitle, UI, Game, Battle, sim(sec) { let t = 0; while (t < sec) { G.time += 0.033; world.time.value = G.time; gameUpdate(0.033); t += 0.033; } } };
 // online host in a hidden tab: keep the battle running on a timer so nobody's game freezes
 setInterval(() => { if (BATTLE && MP.on && MP.host && document.hidden && mode === 'game' && G.player) { G.time += 0.1; world.time.value = G.time; gameUpdate(0.1); } }, 100);

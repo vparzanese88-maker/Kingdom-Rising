@@ -760,7 +760,7 @@ export class Player {
   startAtk(name, dur, o = {}) {
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
     const W = this.W;
-    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : 0.9 }; }
+    if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : this.h.arena && this.h.cls === 'warrior' ? 1.3 : 0.9 }; } /* (the warrior's sword swings: a fuller whoosh, the light swish was easy to miss) */
   }
   updateAttack(dt) {
     // charging heavy (hold left click)
@@ -1809,8 +1809,8 @@ export class Player {
       if (T.t >= T.dur) this.axeThrow = null; }
     const A = this.axeOut; if (!A) return; if (w) w.visible = false; /* (every frame: animate() turns the hand weapon back on, so the axe looked to be in his hand and in the air at once) */ A.life += dt; const hand = this.handPos ? this.handPos() : this.pos.clone().setY(this.pos.y + 1.4);
     const endAxe = () => { G.scene.remove(A.fly); if (w) w.visible = true; this.axeOut = null; const tr = A.tr; tr.active = false; setTimeout(() => { const i = V.trails.indexOf(tr); if (i >= 0) V.trails.splice(i, 1); if (tr.mesh) { tr.mesh.parent && tr.mesh.parent.remove(tr.mesh); tr.mesh.geometry && tr.mesh.geometry.dispose(); } }, 600); };
-    if (A.out) { const f = Math.min(1, A.gone / 15), st = (28 - 18 * f * f) * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; if (A.gone >= 15 || A.life > 1.3) { A.out = false; A.backT = 0; } } /* (eases out to the turn) */
-    else { A.backT = (A.backT || 0) + dt; const to = hand.clone().sub(A.pos), d = to.length(), sp = 10 + Math.min(1, A.backT / 0.35) * 20; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { endAxe(); S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); } /* (and picks up speed on the way home) */
+    if (A.out) { const f = Math.min(1, A.gone / 24), st = (42 - 24 * f * f) * dt; A.pos.addScaledVector(A.dir, st); A.gone += st; if (A.gone >= 24 || A.life > 1.3) { A.out = false; A.backT = 0; } } /* (eases out to the turn: out to 24 m at up to 42 m/s, the owner wanted it further and faster) */
+    else { A.backT = (A.backT || 0) + dt; const to = hand.clone().sub(A.pos), d = to.length(), sp = 14 + Math.min(1, A.backT / 0.3) * 30; if (!this.axeCatch && d / sp < 0.42) this.axeCatch = { t: 0, dur: 0.9 }; if (d < 1.0 || A.life > 4) { endAxe(); S.hit && S.hit('metal', this.pos); return; } A.pos.addScaledVector(to.divideScalar(d), Math.min(d, sp * dt)); } /* (and picks up speed on the way home) */
     A.spinA += dt * 22; A.fly.rotateOnWorldAxis(A.axis, dt * 22); /* (helicopter spin) */
     { const hd = new THREE.Vector3(0, 1, 0).applyQuaternion(A.fly.quaternion); A.fly.position.copy(A.pos).addScaledVector(hd, -0.6 * A.sc); /* (it whirls about its balance point up the haft, not the end of the handle) */
       const tip = A.pos.clone().addScaledVector(hd, 0.7 * A.sc); A.tr.active = true; A.tr.push(tip.clone().addScaledVector(A.axis, -0.12 * A.sc), tip.clone().addScaledVector(A.axis, 0.12 * A.sc)); } /* (a red band traced by the spinning head: it has height, so it shows from behind as a red swirl, not an edge-on sliver) */

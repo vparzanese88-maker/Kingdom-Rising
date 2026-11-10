@@ -107,6 +107,7 @@ const REC = {
   beastmaster: { clips: { bpc: A_('beast_pcombo'), bwc: A_('beast_wcombo1'), bboth: A_('beast_bothpunch'), bjump: A_('beast_jpunch'), bslash: A_('beast_rslash') }, heightClips: ['bjump', 'bwc'],
     moves: { bmL: ['bpc', 0.33, 0.95, 0.63, false, 0, false, 0.48], bmR: ['bpc', 0.95, 1.6, 1.27, false, 0, false, 0.49], abFrenzy: ['bwc', 0.4, 2.7, 0.8, true, 1.2], abBeast: ['bboth', 0.3, 1.6, 0.6, false, 0.8], abRoar: ['bslash', 0.2, 1.13, 0.53, false, 0.6], abDire: ['bjump', 0.13, 2.6, 1.27, true, 1.6] },
     moveFor: { stabL: 'bmL', stabR: 'bmR', swing2: 'bmL', swing1: 'bmR' }, abMoves: { packfrenzy: 'abFrenzy', warbeast: 'abBeast', feralroar: 'abRoar', direbeast: 'abDire', ar_pack: 'abDire' } }, /* (Punch Combo: the left jab and the right cross of his basic attack) */
+  berserker: { clips: { combo1: A_('bers_combo1') }, heightClips: ['combo1'], moves: { rend: ['combo1', 1.95, 2.75, 2.33, true, 0.62, false, 0.475] }, abMoves: { ar_legsweep: 'rend' } }, /* (Rending Slash: the low two-handed sweep across the legs from his own Weapon Combo, right to left at thigh height, played fast and planted) */
   /* shared from other classes' recordings (the owner: use them for other classes where they fit; each file carries its body's rest pose, so it is fitted to this one) */
   paladin: { clips: { pslam: A_('shmn_slam'), pcharged: A_('wiz_charged'), pcast1: A_('priest_cast1') }, heightClips: ['pslam'], oneHand: ['abLay'],
     moves: { abHammer: ['pslam', 0.2, 2.6, 1.63, true, 1.2], abLay: ['pcast1', 0.33, 1.8, 1.4, false, 0.8], abWrath: ['pcharged', 0.47, 3.67, 1.9, true, 2.0] },
@@ -472,6 +473,7 @@ const isUnder = (o, set) => { for (let p = o; p; p = p.parent) if (set.has(p)) r
 
 // which recorded move (if any) the character is doing right now, and how far into it
 const LEG_BONES = ['LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'];
+const LEAP_REC = 0.6; /* (after Leap Strike lands: how long he takes to rise out of the chop) */
 const PUNCH = /^(swing|off|heavy|stab|smash|lowcut|sweep|charge|thrust|jab|shieldbash)/, LEFTP = /^(off|stabL|swing2)/;
 function pickMove(H, ch, dt) {
   const M = H.M, u = ch._u || {}, st = ch._st || {}, nm = (u.atk && u.atk.name) || ch._act || '';
@@ -487,13 +489,14 @@ function pickMove(H, ch, dt) {
   if (!key && ch.cheerT > 0 && M.cheer) { ch.cheerT -= dt; key = 'cheer'; k = 1 - ch.cheerT / 6; } /* (the arena is won: arms up for the crowd) */
   if (key) {} else if (H.latch) { const sl = M[H.latch.key]; H.latch.t += dt; k = H.latch.t / (sl[5] || 0.6); if (k >= 1) H.latch = null; else key = H.latch.key; }
   if (!st.airborne) H.airT = 0;
+  if (H.leapHold > 0 && !u.leap && ((u.atk && u.atk.name !== 'heavy') || (u.vel ? Math.hypot(u.vel.x, u.vel.z) : 0) >= 1.5)) H.leapHold = 0; /* (rising out of Leap Strike's chop: cut short the moment he attacks or moves off) */
   if (!key) { if (st.rollKind === 'flip' && st.roll != null) { key = 'flip'; k = Math.min(1, Math.max(0, st.roll)); }
     else if (st.roll != null && M.roll) { const ra = Math.atan2(Math.sin(st.rollDir || 0), Math.cos(st.rollDir || 0)); key = Math.abs(ra) > 2.3 && M.rollB ? 'rollB' : ra > 0.8 && M.rollL ? 'rollL' : ra < -0.8 && M.rollR ? 'rollR' : 'roll'; k = Math.min(1, Math.max(0, st.roll)); } /* (the dodge's own direction picks the clip: forward roll, roll left, spin right, leap back) */ /* (a recorded roll for the dodge, e.g. the warrior's) */
     else if (u.axeThrow && M.athrow) { key = 'athrow'; k = Math.min(1, u.axeThrow.t / u.axeThrow.dur); } /* (the axe throw: wind up and hurl) */
     else if (u.axeCatch && M.acatch) { key = 'acatch'; k = Math.min(1, u.axeCatch.t / u.axeCatch.dur); } /* (it spins back: a hop and a catch) */
     else if (u.shoutT > 0 && M.shoutM) { key = 'shoutM'; k = 1 - u.shoutT / 1.0; } /* (Battle Shout) */
     else if (u.stormT > 0 && M.storm) { key = 'storm'; } /* (Bladestorm: the recorded spin, looping) */
-    else if (u.leap && M.leap) { key = 'leap'; k = Math.min(1, Math.max(0, u.leap.t / (u.leap.dur || 0.75))); H.leapHold = 0.3; } else if (H.leapHold > 0 && M.leap && !st.dead) { H.leapHold -= dt; key = 'leap'; k = 1; } /* (he stays down in the slam a moment after landing, then rises) */ /* (Leap Strike: up, over and crashing down as the leap lands) */
+    else if (u.leap && M.leap) { key = 'leap'; k = (M.leap[7] || 0.6) * Math.min(1, Math.max(0, u.leap.t)); H.leapHold = LEAP_REC; } else if (H.leapHold > 0 && M.leap && !st.dead) { H.leapHold -= dt; key = 'leap'; const hk = M.leap[7] || 0.6; k = hk + (1 - hk) * (1 - Math.max(0, H.leapHold) / LEAP_REC); } /* (the owner: the leap's animation in time with the leap. The leap's own clock (already 0..1; it was divided by the leap's length again, so the animation ran ahead of him) carries the jump up and over through the whole flight, the chop landing exactly as he does; then he rises out of it with the rest of the recording, unless you attack or move off first) */
     else if (st.charging && M.charge) { key = 'charge'; } /* (a shield charge: the recorded charge loops while he drives forward) */
     else if (st.airborne && M.jump && !st.action) { H.airT = (H.airT || 0) + dt; key = 'jump'; k = Math.min(1, H.airT / 0.85); } /* (a recorded jump while he is in the air) */
     else if (u.strike || /^(fury|area|spin)$/.test(nm)) { key = 'fury'; }

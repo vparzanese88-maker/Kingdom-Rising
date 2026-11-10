@@ -421,7 +421,7 @@ export function luteToChest(ch, on, t, dt = 0.016) {
   const cq = ch.chest.getWorldQuaternion(new THREE.Quaternion()), Y = new THREE.Vector3(-0.62, -0.72, 0.12).normalize().applyQuaternion(cq), fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(cq);
   const Z = fwd.clone().addScaledVector(Y, -fwd.dot(Y)).normalize(), X = new THREE.Vector3().crossVectors(Y, Z);
   _q.setFromRotationMatrix(_m.makeBasis(X, Y, Z));
-  const strum = Math.sin(t * 7) * 0.02; // (a slow, even strum)
+  const strum = Math.sin(t * 7) * 0.02 + (U.stroke || 0) * 0.16; // (a slow, even strum; on an attack, one bold stroke down across the strings)
   const hl = new THREE.Vector3(), hr = new THREE.Vector3(); ch.arms.L.hand.getWorldPosition(hl); ch.arms.R.hand.getWorldPosition(hr);
   armReach(ch, 'L', hl.lerp(top.clone().addScaledVector(Y, 0.16).addScaledVector(Z, -0.03), k), 6);
   armReach(ch, 'R', hr.lerp(top.clone().addScaledVector(Y, 0.5 + strum).addScaledVector(Z, 0.07).addScaledVector(X, strum * 1.2), k), 6);

@@ -18,8 +18,9 @@ export const KIT = {
   layonhands: ['hand', 'gold', 'Heal yourself 30% and allies within 8 m 35%.'],
   smitearc: ['sweep', 'gold', 'A wide holy sweep that knocks back everyone in front of you.'],
   hammerstrike: ['hammerhit', 'gold', 'A crushing hammer blow that stuns the enemy in front of you.'],
+  ar_lightslice: ['sweep', 'gold', 'A hammer swing that hurls a crescent of golden light through everyone in its path: strong damage to enemies, a small heal for allies.'],
   shieldofl: ['shieldglow', 'gold', 'Hold block for 1 s to raise a shield of light that absorbs 18% of your health for 6 s.'],
-  ar_wrath: ['wingsword', 'gold', 'Call a giant sword of light down where you aim. Huge damage on a 12 m glyph; allies on it heal.', 1],
+  ar_wrath: ['wingsword', 'gold', 'Slam your hammer down: a fissure of holy light tears 10 m forward in one second, hurting and throwing up enemies and healing allies 30%.', 1],
   // shadowknight
   lifetap: ['drain', 'shadow', 'A shadow bolt that heals you for 80% of the damage it does.'],
   gravewall: ['ribcage', 'shadow', 'A bone shell absorbs 25% of your health for 6 s and slows melee attackers.'],

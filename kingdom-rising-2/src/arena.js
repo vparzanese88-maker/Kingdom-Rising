@@ -143,7 +143,7 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   for (const f of A.F) { f.pp = Math.min(30, (f.pp || 0) + 1); if (f.bot) botBuy(f); }
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
-export const ARENA_RMB = { warrior: 'ar_shbash', berserker: 'ar_axethrow', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_buttsmack', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'shieldofl',
+export const ARENA_RMB = { warrior: 'ar_shbash', berserker: 'ar_axethrow', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_buttsmack', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'ar_lightslice',
   /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'ar_iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_detonate' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
@@ -178,7 +178,7 @@ const ARENA_NEW = {
     { id: 'ar_fists', name: 'Thousand Fists', t: 'fists', cd: 90, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi into a whirlwind that drags every enemy within 9 m into the air around you, then blur between them with a storm of punches, kicks and knees, and finish with a ground-shaking slam that throws them all away. Each one takes half of their health.' },
     { id: 'ar_chiwave', name: 'Chi Wave', kit: true, t: 'heal', self: 0.15, ally: 0.28, r: 12, cd: 9, cost: 0, fx: 'leaf', level: 1, desc: 'A wave of chi washes out from you: allies within 12 m heal 28% at once, you 15%.' },
     { id: 'ar_revival', name: 'Revival', kit: true, t: 'heal', self: 0.4, ally: 0.5, r: 18, cd: 40, cost: 0, fx: 'gold', level: 1, desc: 'Gather your chi and release it: you and every ally within 18 m heal 40-50% of their health. 40 s cooldown.' }],
-  paladin: [{ id: 'ar_wrath', name: 'Avenging Wrath', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Spread golden wings and call down judgment where you aim: a 12 m glyph of light burns into the ground and slows enemies on it, then a giant sword of light plunges out of the sky. Anyone in its heart is impaled; everyone else on the glyph is hurt badly and thrown up; allies on it are healed. Get off the glyph before it lands.' }],
+  paladin: [{ id: 'ar_wrath', name: 'Dawnbreaker', t: 'wrath', cd: 90, cost: 0, fx: 'holy', level: 1, desc: 'Slam your hammer into the ground: a fissure of holy light tears 10 m across the ground in front of you in one second. Enemies it passes are hurt badly and thrown up; allies it passes heal 30%.' }],
   enchanter: [{ id: 'ar_mindlock', name: 'Mind Lock', kit: true, t: 'mindlock', kind: 'arcane', speed: 50, dmg: 0.8, aoe: 3, silence: 2, cd: 14, cost: 0, fx: 'arcane', level: 1, desc: 'A bolt of binding thought at where you aim: the enemy it hits, and anyone within 3 m of them, is silenced for 2 s (no abilities or ultimate; they can still move and attack).' }],
   blunderbuss: [{ id: 'ar_ironhide', name: 'Iron Hide', kit: true, t: 'buff', buff: 'barrier', amount: 0.25, dur: 5, ironHide: true, cd: 20, cost: 0, fx: 'spark', level: 1, desc: 'Brace like an anvil: a hide of iron absorbs damage equal to 25% of your health for 5 s, and nothing can knock you back while it holds.' }],
   necromancer: [{ id: 'ar_plaguebreath', name: 'Plague Breath', t: 'cone', dmg: 0.35, poisonDot: 0.9, blight: 6, spread: 1, cd: 12, cost: 0, fx: 'leaf', level: 1, desc: 'The shrunken head vomits a roaring spray of plague: everything in front of you is poisoned and Blighted for 6 s (all poison hurts a Blighted enemy 50% more).' },
@@ -201,7 +201,7 @@ function kitRules0() {
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q && !q.charges) q.cd = Math.max(q.cd || 0, CD_FIX.cc); /* (charges: the bombardier's sticky bombs come back one at a time) */
     if (cls === 'wizard') { const ps = get('phaseshift'); if (ps) { ps.dur = 4; ps.desc = 'Fade almost invisible for 4 s and move 25% faster: enemies lose sight of you. Your first left click out of it is a critical hit; any attack or ability ends it.'; } }
-    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem' && r.t !== 'detonate') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
+    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem' && r.t !== 'detonate' && r.t !== 'lightslice') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
     for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } }
   ccBudget(); }
 // the design pass (docs/CLASS_DESIGN.md, top ten list): numbers and descriptions change together, so the setup screen,
@@ -249,6 +249,7 @@ function designRules() {
   if (!abIn('warrior', 'ar_mendbanner')) ABILITIES.warrior.push({ id: 'ar_mendbanner', name: 'Banner of Mending', t: 'mendbanner', kit: true, level: 1, cd: 18, cost: 0, fx: 'leaf', desc: 'Plant a holy banner where you aim (up to 5 m away): for 8 s you and your allies inside its ring (12 m across) slowly regain health.' });
   if (!abIn('warrior', 'ar_shbash')) ABILITIES.warrior.push({ id: 'ar_shbash', name: 'Shield Bash', t: 'shbash', kit: true, level: 1, cd: 6, cost: 0, dmg: 0.8, stun: 1.2, fx: 'frost', desc: 'Drive your shield into whoever is in front of you: a solid hit that knocks them back and stuns them for 1.2 s.' });
   fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
+  if (!abIn('paladin', 'ar_lightslice')) ABILITIES.paladin.push({ id: 'ar_lightslice', name: 'Light Slice', t: 'lightslice', kit: true, level: 1, cd: 5, cost: 0, fx: 'holy', desc: 'Swing your hammer and hurl a crescent of golden light that flies through everyone in its path: enemies take solid damage, allies it passes heal a little.' }); /* (the owner: his right click; he is an off healer, so the heal is weak and the damage strong) */
   { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
   fix('darkknight', 'gravewall', { amount: 0.25, dur: 6, cd: 18, boneGuard: true, desc: 'A shell of bone and shadow absorbs damage equal to 25% of your health for up to 6 s; enemies who hit you in melee while it holds are slowed for 1 s.' });
   // 4. self-sustain: Second Wind on Execute, Leeching Stab on F (Envenom becomes a passive), Field Bandage, Iron Hide
@@ -317,7 +318,7 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinWrath; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinFissure; G.hooks.lightSlice = lightSlice; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   if ((s.slots || []).some(x => x && x.cls === 'warrior')) preloadBanners(); /* (the warrior's banner models) */
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
@@ -451,6 +452,60 @@ export function paladinWrath(caster, at) {
     if (me && t > T.impact + 2.2 && me.held) { me.held = false; me.ultPoseT = 0; }
     if (t > T.impact + 2.8) { for (const o of [glyph, pillar, sword, cross]) G.scene.remove(o); if (wings.parent) wings.parent.remove(wings); if (me) { me.held = false; if (me.cine && !document.body.classList.contains('cine')) me.cine = null; } return true; }
     return false; } });
+  return true;
+}
+
+// ---------- the paladin's ultimate: Dawnbreaker ----------
+// (the owner) no cinematic: he slams his hammer into the ground and a fissure of holy light tears 10 m across the ground in front
+// of him in one second. Enemies it passes are hurt and thrown up; allies it passes are healed.
+export const FISSURE = { len: 10, dur: 1, w: 2.4, delay: 0.27, hurt: 0.4, heal: 0.3 };
+const fisMat = (col, op) => new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+export function paladinFissure(caster) {
+  const T = Object.assign({}, FISSURE, G.fissureTune || {}), yaw = caster.yaw || 0, dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), side = new THREE.Vector3(dir.z, 0, -dir.x);
+  const O = caster.pos.clone().addScaledVector(dir, 1.0); O.y = ultGround(O); const done = new Set(), parts = [], STEP = 0.5, N = Math.round(T.len / STEP);
+  let t = 0, made = 0, slammed = false, ended = false, jag = 0, prev = O.clone(), tEnd = 0;
+  const seg = (a, b, w, col, op, y) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) + 0.12, m = new THREE.Mesh(new THREE.PlaneGeometry(w, L), col === 'scorch' ? new THREE.MeshBasicMaterial({ color: '#1a0e02', transparent: true, opacity: op, depthWrite: false }) : fisMat(col, op));
+    m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, Math.atan2(dx, dz), 0); m.position.set((a.x + b.x) / 2, Math.max(a.y, b.y) + y, (a.z + b.z) / 2); m.renderOrder = 3; G.scene.add(m); parts.push({ m, op, born: t, shaft: false }); return m; };
+  G.timers.push({ update: (dt) => { t += dt;
+    if (!slammed && t >= T.delay) { slammed = true; V.burst('gold', O.clone().setY(O.y + 0.4), 90, { speed: 9 }); V.burst('stone', O.clone().setY(O.y + 0.3), 40, { speed: 7, grav: 14 }); V.burst('dust', O.clone().setY(O.y + 0.3), 30, { speed: 5 });
+      V.ring(O.clone().setY(O.y + 0.15), 6, '#ffe08a', 0.45); V.light(O.clone().setY(O.y + 1.5), '#ffd870', 12, 0.5, 18); V.addShake(0.9); S.hit && S.hit('stone', O, 1.6); S.cast && S.cast('holy', O, 1.4); }
+    if (slammed && !ended) { const fd = Math.min(T.len, (t - T.delay) / T.dur * T.len), want = Math.min(N, Math.floor(fd / STEP));
+      while (made < want) { made++; jag = Math.max(-0.5, Math.min(0.5, jag + (Math.random() - 0.5) * 0.55)); const p = O.clone().addScaledVector(dir, made * STEP).addScaledVector(side, jag * Math.min(1, made / 3)); p.y = ultGround(p);
+        seg(prev, p, 2.2, 'scorch', 0.75, 0.03); seg(prev, p, 1.3, '#ff9a20', 0.55, 0.05); seg(prev, p, 0.42, '#fff4c0', 1, 0.07); /* (burnt ground, the molten edge, the white-gold heart of the crack) */
+        if (made % 2 === 0) { const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.32, 4.5, 10, 1, true), fisMat('#ffe28a', 0.42)); sh.position.set(p.x, p.y + 2.25, p.z); G.scene.add(sh); parts.push({ m: sh, op: 0.42, born: t, shaft: true }); }
+        V.burst('gold', p.clone().setY(p.y + 0.3), 14, { speed: 4, vy: 4 }); V.burst('stone', p.clone().setY(p.y + 0.2), 6, { speed: 4, grav: 14 }); if (made % 3 === 0) { V.light(p.clone().setY(p.y + 1), '#ffd060', 6, 0.35, 9); S.hit && S.hit('stone', p, 0.6); }
+        prev = p; }
+      V.addShake(dt * 0.8);
+      for (const u of ultFoes(caster).concat(ultFriends(caster))) { if (done.has(u) || u === caster) continue; const dx = u.pos.x - O.x, dz = u.pos.z - O.z, along = dx * dir.x + dz * dir.z, lat = Math.abs(dx * side.x + dz * side.z);
+        if (along < -0.8 || along > fd + 0.3 || lat > T.w) continue; done.add(u);
+        if (ultFriends(caster).includes(u)) { ultHeal(u, T.heal); V.burst('gold', u.pos.clone().setY(u.pos.y + 1), 24, { speed: 2, vy: 3 }); continue; }
+        ultHurt(u, T.hurt, caster, 'gold'); V.burst('gold', u.pos.clone().setY(u.pos.y + 0.5), 30, { speed: 6, vy: 6 });
+        if (u === G.player) { if (u.vel) { u.vel.y = 9; u.onGround = false; } } else { if (u.status) u.status.stun = Math.max(u.status.stun || 0, 1.0); if (u.knockUp) u.knockUp(1.0); } }
+      if (made >= N) { ended = true; tEnd = t; const E = prev.clone(); V.burst('gold', E.clone().setY(E.y + 0.5), 110, { speed: 10, vy: 6 }); V.burst('stone', E.clone().setY(E.y + 0.3), 40, { speed: 8, grav: 14 }); V.ring(E.clone().setY(E.y + 0.15), 5, '#fff0a0', 0.4); V.light(E.clone().setY(E.y + 2), '#ffe090', 14, 0.6, 20); V.addShake(0.6);
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.1, 10, 14, 1, true), fisMat('#fff0b0', 0.5)); col.position.set(E.x, E.y + 5, E.z); G.scene.add(col); parts.push({ m: col, op: 0.5, born: t, shaft: true }); S.cast && S.cast('holy', E, 1.2);
+        feed(`<b>${caster && caster.heroName ? esc2(caster.heroName) : 'You'}</b> tears the ground open with Dawnbreaker!`); } }
+    // the light shafts rise and fade in 0.7 s; the crack glows, pulsing, for 1.4 s after it reaches the end, then fades
+    const k = ended ? Math.max(0, 1 - Math.max(0, t - tEnd - 1.4) / 0.8) : 1;
+    for (const q of parts) { if (q.shaft) { const a = (t - q.born) / 0.7; q.m.material.opacity = q.op * Math.max(0, 1 - a); q.m.scale.y = 1 + a * 0.6; q.m.position.y += dt * 1.5; } else q.m.material.opacity = q.op * k * (q.m.material.blending === THREE.AdditiveBlending ? 0.85 + Math.sin(t * 14 + q.born * 9) * 0.15 : 1); }
+    if (ended && t > tEnd + 2.3) { for (const q of parts) { G.scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); } return true; }
+    return false; } });
+  return true;
+}
+// the paladin's right click, Light Slice: a swing of the hammer throws a crescent of golden energy that flies on through everyone
+// in its way: enemies take solid damage, allies it passes get a small heal (he is an off healer, not a main one)
+export const SLICE = { speed: 30, range: 24, w: 1.9, hurt: 0.14, heal: 0.05 };
+export function lightSlice(caster, from, dir) {
+  const T = Object.assign({}, SLICE, G.sliceTune || {}); dir = dir.clone(); dir.y = Math.max(-0.25, Math.min(0.25, dir.y)); dir.normalize();
+  const g = new THREE.Group(); for (const [r, w, col, op] of [[1.7, 0.36, '#fff6c8', 1], [1.7, 0.9, '#ffc840', 0.6], [1.6, 1.5, '#ff9a20', 0.25]]) { const m = new THREE.Mesh(new THREE.RingGeometry(r - w / 2, r + w / 2, 28, 1, -1.15, 2.3), fisMat(col, op)); g.add(m); }
+  g.children.forEach(m => { m.rotation.z = 0; }); g.position.copy(from); g.lookAt(from.clone().add(dir)); g.rotateX(-Math.PI / 2); g.rotateZ(Math.PI / 2); /* (a flat crescent, its curve leading) */ G.scene.add(g);
+  const done = new Set(); let d = 0, trailT = 0; S.swingW && S.swingW('heavy', 1.1, from); S.cast && S.cast('holy', from, 0.8);
+  G.timers.push({ update: (dt) => { const step = T.speed * dt; d += step; g.position.addScaledVector(dir, step); const p = g.position;
+    trailT -= dt; if (trailT <= 0) { trailT = 0.03; V.emit('gold', p.clone(), { speed: 0.6, size: 0.45, life: 0.45 }); }
+    for (const u of ultFoes(caster).concat(ultFriends(caster))) { if (done.has(u) || u === caster) continue; const c = u.pos.clone().setY(u.pos.y + 1.1); if (c.distanceTo(p) > T.w + 0.4) continue; done.add(u);
+      if (ultFriends(caster).includes(u)) { ultHeal(u, T.heal); continue; } ultHurt(u, T.hurt, caster, 'gold'); V.burst('gold', c, 22, { speed: 5 }); V.light(c, '#ffd060', 4, 0.2, 8); S.hit && S.hit('blunt', c, 0.9); }
+    if (solidAt(p.x, p.y, p.z) || p.y < heightAt(p.x, p.z) - 0.2) d = T.range + 1;
+    if (d > T.range) { V.burst('gold', p.clone(), 30, { speed: 4 }); G.scene.remove(g); g.children.forEach(m => { m.geometry.dispose(); m.material.dispose(); }); return true; }
+    for (const m of g.children) m.material.opacity *= 1 - dt * 0.4; return false; } });
   return true;
 }
 
@@ -1494,7 +1549,7 @@ export function playerRules(p = G.player) {
   p.onMouse = function (btn, down) { if (btn === 2 && this.h.arena && RMB_CAST.has(this.h.arenaRmb)) { if (down && this.axeOut && this.axeOut.out) { this.axeOut.out = false; return; } /* (right click again: the thrown axe comes back at once) */ if (down && !this.dead && !G.uiOpen && !dbOn(this, 'stun') && !this.isFrozen()) { const k = ABILITIES[this.h.cls].findIndex(a => a.id === this.h.arenaRmb); if (k >= 0) this.ability(k); } return; } if (btn === 2 && this.h.arena && this.h.arenaRmb === null && this.W) { this.rmbHeld = down && !this.dead && !G.uiOpen; return; } return mouse.call(this, btn, down); }; // (a gun class whose right click is an ability, not aiming; a class with no right-click ability blocks with it, e.g. the Shadow Knight)
   return p;
 }
-const RMB_CAST = new Set(['ar_ironhide', 'ar_shbash', 'ar_axethrow', 'ar_buttsmack']); /* (right click casts these at once) */
+const RMB_CAST = new Set(['ar_ironhide', 'ar_shbash', 'ar_axethrow', 'ar_buttsmack', 'ar_lightslice']); /* (right click casts these at once) */
 // ---- a computer bombardier: lob bombs at the target, glue sticky bombs on them (or round itself as a trap when nobody is in sight),
 // set them off when enemies are in the blast, and plant Big Bertha where they are bunched up
 function botBomb(b, T, dmg, sticky) { const from = b.pos.clone().setY(b.pos.y + (b.height || 1.2) * 0.75).addScaledVector(V3(Math.sin(b.yaw), 0, Math.cos(b.yaw)), 0.35);
@@ -1916,7 +1971,8 @@ class ArenaBot {
       case 'stealth': if (a.step) { const tg = T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 12 ? T : null; V.burst('shadow', me.clone().setY(me.y + 1), 30, { speed: 3 }); if (tg) { const by = tg.yaw || 0; me.set(tg.pos.x - Math.sin(by) * 1.4, me.y, tg.pos.z - Math.cos(by) * 1.4); this.yaw = by; } else me.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), a.step); }
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
       case 'demon': necroHarvest(this); return; /* (Soul Harvest) */
-      case 'wrath': if (T && !T.dead) paladinWrath(this, T.pos.clone()); return;
+      case 'wrath': if (T && !T.dead) { this.yaw = Math.atan2(T.pos.x - this.pos.x, T.pos.z - this.pos.z); paladinFissure(this); } return;
+      case 'lightslice': { if (!T || T.dead) return; anim('swing2'); const fr = this.pos.clone().setY(this.pos.y + 1.2), dr = T.pos.clone().setY(T.pos.y + 1.1).sub(fr).normalize(); lightSlice(this, fr, dr); return; }
       case 'fists': monkFists(this); return;
       case 'bladestorm': berserkerStorm(this); return;
       case 'arrowrain': if (T && !T.dead) rangerRain(this, T.pos.clone()); return;

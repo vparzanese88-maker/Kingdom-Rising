@@ -17,3 +17,6 @@
 | `../../audio/rec/battle-music.mp3` | Combat | Battle Theme A | cynicmusic | CC0 | https://opengameart.org/content/battle-theme-a |
 
 CC-BY 3.0 tracks are used unchanged; licence: https://creativecommons.org/licenses/by/3.0/
+
+## Ability icons (Kingdom Arena)
+The ability icon drawings (`src/kiticons.js`) are from game-icons.net, by Lorc, Delapouite, Skoll, sbed, Carl Olsen and other contributors, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). They are recoloured and framed for the game.

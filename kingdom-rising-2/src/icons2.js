@@ -158,12 +158,34 @@ const KIT_GLYPH = {
   rocketboot: { f: BOOT + ' M22 48 C20 54 24 56 22 62 C28 58 30 54 28 48 Z M34 48 C32 54 36 56 34 62 C40 58 42 54 40 48 Z M46 48 C44 52 48 54 46 59 C50 56 52 52 50 48 Z' },
 };
 import { KIT } from './kitinfo.js';
+import { GI, GI_GLYPH } from './kiticons.js';
+// the arena badge: one look for every ability. A deep themed backdrop lit from above, the drawing in a bright metal gradient with a dark outline and
+// shadow, a bevelled gold frame (thicker, with a crown notch and a sunburst behind, for an ultimate)
+const GI_TH = { steel: ['#7f8fa3', '#151b24', '#ffffff', '#b8c4d4'], red: ['#c8321e', '#2a0604', '#fff4e6', '#ffb48a'], fire: ['#ff8a1a', '#3a0e02', '#fffbe0', '#ffc040'], frost: ['#3aa8ee', '#06203c', '#f4fdff', '#9fe0ff'],
+  arcane: ['#9a52f0', '#170630', '#fdf4ff', '#d4a8ff'], nature: ['#4cb434', '#0a2206', '#f6ffec', '#aef08a'], gold: ['#f0b830', '#2e1a02', '#fffdf0', '#ffe08a'], shadow: ['#5e4e82', '#0c0914', '#f0eaff', '#b4a4dc'] };
+export function giBadge(d, th, cap) {
+  const [c1, c2, hi, lo] = GI_TH[th] || GI_TH.steel, n = ++uid;
+  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>
+<radialGradient id="gb${n}" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${c1}"/><stop offset=".62" stop-color="${c2}"/><stop offset="1" stop-color="#000"/></radialGradient>
+<linearGradient id="gr${n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c4"/><stop offset=".35" stop-color="#e2b04c"/><stop offset=".7" stop-color="#8a5a18"/><stop offset="1" stop-color="#4a2c08"/></linearGradient>
+<linearGradient id="gg${n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".55" stop-color="${lo}"/><stop offset="1" stop-color="${c1}"/></linearGradient>
+<filter id="gs${n}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="10" flood-color="#000" flood-opacity=".85"/><feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="${c1}" flood-opacity=".55"/></filter>
+<clipPath id="gc${n}"><rect x="3" y="3" width="58" height="58" rx="9"/></clipPath></defs>
+<rect x="3" y="3" width="58" height="58" rx="9" fill="url(#gb${n})"/>
+<g clip-path="url(#gc${n})">${cap ? `<g opacity=".38">${Array.from({ length: 16 }, (_, i) => { const a = i * Math.PI / 8; return `<path d="M32 32 L${(32 + Math.cos(a - 0.09) * 46).toFixed(1)} ${(32 + Math.sin(a - 0.09) * 46).toFixed(1)} L${(32 + Math.cos(a + 0.09) * 46).toFixed(1)} ${(32 + Math.sin(a + 0.09) * 46).toFixed(1)} Z" fill="#ffe6a0"/>`; }).join('')}</g>` : ''}
+<ellipse cx="32" cy="8" rx="34" ry="14" fill="#fff" opacity=".10"/>
+<g transform="translate(9 9) scale(0.0898)" filter="url(#gs${n})"><path d="${d}" fill="url(#gg${n})" stroke="#0a0604" stroke-width="22" stroke-linejoin="round" paint-order="stroke"/></g></g>
+<rect x="3" y="3" width="58" height="58" rx="9" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="5"/>
+<rect x="2" y="2" width="60" height="60" rx="10" fill="none" stroke="url(#gr${n})" stroke-width="${cap ? 4 : 2.6}"/>
+<rect x="5.6" y="5.6" width="52.8" height="52.8" rx="7" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1"/>${cap ? `<path d="M25 2.5 L32 -2.5 L39 2.5 Z M25 61.5 L32 66.5 L39 61.5 Z" fill="#ffe08a" stroke="#5a3a0c" stroke-width="1"/>` : ''}</svg>`;
+}
 // an arena kit ability's own icon (kitinfo.js), or null when it has none
-export function kitIcon(id) { const k = KIT[id]; if (!k || !KIT_GLYPH[k[0]] && !GLYPH[k[0]]) return null; return glyphBadge(k[0], k[1], !!k[3]); }
+export function kitIcon(id) { const k = KIT[id]; if (k && GI[id]) return giBadge(GI[id], k[1], !!k[3]); if (!k || !KIT_GLYPH[k[0]] && !GLYPH[k[0]]) return null; return glyphBadge(k[0], k[1], !!k[3]); }
 export function addIcons(m) { for (const k in m) if (m[k] && !MAP[k]) MAP[k] = m[k]; }
 export function hasIcon(id) { return !!MAP[id]; }
 export function abilityBadge(id) { const [g, th, cap] = MAP[id] || ['burst', 'steel']; return glyphBadge(g, th, cap); }
 export function glyphBadge(g, th, cap) {
+  if (GI_GLYPH[g]) return giBadge(GI_GLYPH[g], th, cap); /* (the arena's left clicks and Aim: the same badge as every ability) */
   const [c1, c2, hi, lo] = THEMES[th] || THEMES.steel; const n = ++uid;
   const kg = KIT_GLYPH[g], path = kg ? (kg.f || kg.s) : GLYPH[g], stroke = kg ? !kg.f : STROKE_ONLY.has(g), over = kg && kg.f && kg.s ? kg.s : null; /* (a kit glyph: a filled shape, lines, or both) */
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>

@@ -53,8 +53,8 @@ export const KIT = {
   sh_wave: ['wave', 'frost', 'Heal yourself 20% and allies within 12 m 28%.'],
   sh_wolf: ['wolf', 'frost', 'Summon a spirit wolf to fight beside you.'],
   sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
-  ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 6 m by 36% over 6 s.'],
-  ar_spirittotem: ['stormtotem', 'frost', 'Raise a giant totem for 7 s that heals allies and zaps enemies within 12 m with lightning.', 1],
+  ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 36% over 6 s.'],
+  ar_spirittotem: ['bolt', 'frost', 'A storm cloud forms over you, then a giant bolt strikes every enemy within 12 m and leaps on to each of the others.', 1],
   // ranger
   ar_firearrow: ['arrow', 'fire', 'A huge burning arrow that sets the target alight and stuns it for 1.5 s. You flip backwards.'],
   focus: ['eye', 'gold', 'Shoot twice as fast for 8 s.'],

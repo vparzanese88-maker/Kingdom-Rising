@@ -168,7 +168,7 @@ const ARENA_NEW = {
   druid: [{ id: 'ar_mendD', name: 'Living Vine', t: 'mend', kind: 'nature', heal: 0.2, cd: 5, cost: 0, fx: 'leaf', level: 1, desc: 'Send a stream of living leaves into the ally under your crosshair, even through walls (or yourself): it heals now and keeps healing for 4 s.' },
     { id: 'ar_overgrowth', name: 'Overgrowth', t: 'overgrowth', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Plant your staff and the wild comes: a forest bursts out of the ground around you and races outward across the whole arena. Every ally it reaches is healed (a third of their health at once and more over time), every enemy it reaches is tangled and slowed, and then the trees slowly wither back into the earth.' }],
   shaman: [{ id: 'ar_totem', name: 'Healing Totem', t: 'totem', cd: 8, cost: 0, fx: 'water', level: 1, desc: 'Throw a healing totem where you aim: it plants itself and pulses healing to every ally within 6 m each second for 6 s (36% of their health in all). One totem at a time.' },
-    { id: 'ar_spirittotem', name: 'Spirit of the Storm', t: 'spirittotem', cd: 90, cost: 0, fx: 'lightning', level: 1, desc: 'A giant spirit totem bursts out of the ground where you aim, ancestral spirits circling it. For 7 s it pulses: every ally within 12 m heals 10% of their health, and lightning leaps from it to every enemy within 12 m. Then it cracks and sinks away.' },
+    { id: 'ar_spirittotem', name: 'Call of Lightning', t: 'spirittotem', cd: 90, cost: 0, fx: 'lightning', level: 1, desc: 'A giant spirit totem bursts out of the ground where you aim, ancestral spirits circling it. For 7 s it pulses: every ally within 12 m heals 10% of their health, and lightning leaps from it to every enemy within 12 m. Then it cracks and sinks away.' },
     { id: 'ar_mendS', name: 'Healing Stream', t: 'mend', kind: 'water', heal: 0.22, cd: 6, cost: 0, fx: 'water', level: 1, desc: 'A stream of healing water into the ally under your crosshair, even through walls (or yourself); it splashes on to the most hurt ally near them for half as much.' }],
   ranger: [{ id: 'ar_arrowrain', name: 'Rain of Arrows', t: 'arrowrain', cd: 90, cost: 0, fx: 'leaf', level: 1, desc: 'Loose a volley into the sky over where you aim: a shadow spreads over a 7 m circle, then a storm of arrows comes down on it for 3 s. Anyone caught inside is struck again and again (about half their health if they stay); arrows stick in them and in the ground. Get out from under the shadow.' }],
   warrior: [{ id: 'ar_charge', name: 'Shield Charge', kit: true, t: 'dash', dur: 0.275, speed: 30, /* (the owner: half the distance it went (dur 0.55); Long Charge adds a quarter of it back per rank) */ dmg: 1.1, stun: 1.3, knockF: 9, plow: true, cd: 10, cost: 0, fx: 'dust', level: 1, desc: 'Raise your shield and plow forward: every enemy in your path is knocked down and stunned for 1.3 s.' },
@@ -783,33 +783,38 @@ export function druidOvergrowth(caster) { const T = Object.assign({}, OVERGROWTH
 const TOTEMS = new Map(); // (one per shaman)
 export function shamanTotem(caster, at) { if (at && at.pos) at = at.pos; if (!at) return; const old = TOTEMS.get(caster); if (old) old.end = 0;
   const base = ultGround(at), to = new THREE.Vector3(at.x, base, at.z), from = (caster.pos || to).clone().setY((caster.pos ? caster.pos.y : base) + 1.6), m = makeTotem(0.8); m.position.copy(from); G.scene.add(m);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(5.7, 6, 48), new THREE.MeshBasicMaterial({ color: '#7ad0ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(to.x, base + 0.06, to.z); G.scene.add(ring);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(9.7, 10, 64), new THREE.MeshBasicMaterial({ color: '#7ad0ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(to.x, base + 0.06, to.z); G.scene.add(ring);
   const st = { end: 6.6 }; TOTEMS.set(caster, st); let t = 0, landed = false, pulse = 0; S.swingW && S.swingW('staff', 1, from);
   G.timers.push({ update: (dt) => { t += dt;
     if (!landed) { const k = Math.min(1, t / 0.45); m.position.lerpVectors(from, to, k); m.position.y += Math.sin(k * Math.PI) * 2.2; m.rotation.x = (1 - k) * 6; if (k >= 1) { landed = true; m.rotation.x = 0; m.position.copy(to); V.burst('dust', to.clone().setY(base + 0.2), 20, { speed: 3 }); V.burst('water', to.clone().setY(base + 0.5), 20, { speed: 3 }); S.hit && S.hit('wood', to, 1); } }
     else { pulse -= dt; m.userData.band.position.y = 0.05 + ((t * 0.8) % 1) * 2.2; m.userData.glowMat.opacity = 0.5 + Math.sin(t * 6) * 0.3; ring.material.opacity = 0.35 + Math.sin(t * 4) * 0.15;
-      if (pulse <= 0 && t < st.end) { pulse = 1; V.ring(to.clone().setY(base + 0.1), 12, '#7ad0ff', 0.6); for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - to.x, u.pos.z - to.z) < 6) { ultHeal(u, 0.06); healBeam(to.clone().setY(base + 1.6), u.pos.clone().setY(u.pos.y + 1.1), 'water'); } } }
+      if (pulse <= 0 && t < st.end) { pulse = 1; V.ring(to.clone().setY(base + 0.1), 20, '#7ad0ff', 0.6); for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - to.x, u.pos.z - to.z) < 10) { ultHeal(u, 0.06); healBeam(to.clone().setY(base + 1.6), u.pos.clone().setY(u.pos.y + 1.1), 'water'); } } }
     if (t > st.end) { const k = Math.min(1, (t - st.end) / 0.5); m.scale.setScalar(0.8 * (1 - k) + 0.01); ring.material.opacity = 0.35 * (1 - k); if (k >= 1) { G.scene.remove(m, ring); if (TOTEMS.get(caster) === st) TOTEMS.delete(caster); return true; } }
     return false; } });
 }
-// the shaman's ultimate: Spirit of the Storm. A giant totem bursts up; ancestral spirits circle it; for 7 s it heals allies
-// within 12 m and lightning leaps from its crown to every enemy within 12 m; then it cracks and sinks
-export const SPIRIT = { r: 12, dur: 7, heal: 0.1, dmg: 0.06 };
-export function shamanSpirit(caster, at) { if (at && at.pos) at = at.pos; at = at || caster.pos; const T = Object.assign({}, SPIRIT, G.spiritTune || {}), me = caster === G.player ? G.player : null, base = ultGround(at), C = new THREE.Vector3(at.x, base, at.z);
-  const big = makeTotem(3.2, '#a8e8ff'); big.position.copy(C).setY(base - 6); G.scene.add(big); const crown = () => C.clone().setY(big.position.y + 3.2 * 2.0);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(T.r - 0.2, T.r, 72), new THREE.MeshBasicMaterial({ color: '#a8e8ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, base + 0.07, C.z); G.scene.add(ring);
-  const spirits = []; for (let i = 0; i < 3; i++) { const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: ['#a8e8ff', '#d8ffb0', '#ffe0a0'][i], transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); G.scene.add(s2); spirits.push(s2); }
-  if (me) { me.ultPoseT = 1.8; me.ultImmT = Math.max(me.ultImmT || 0, 2.4); me.held = true; ultFlyCam(me, () => C.clone().setY(base + 3), () => 1.6, { r: 16, h: 7 }); setTimeout(() => { me.held = false; }, 2600); }
-  V.burst('dust', C.clone().setY(base + 0.5), 70, { speed: 8 }); V.burst('stone', C.clone().setY(base + 0.4), 40, { speed: 7, grav: 14 }); V.addShake(0.7); S.explode && S.explode(C, 0.8); S.cast && S.cast('frost', C, 1.6);
-  let t = 0, pulse = 0.6;
-  G.timers.push({ update: (dt) => { t += dt;
-    const rise = Math.min(1, t / 0.7), sink = Math.max(0, (t - T.dur) / 1.0); big.position.y = base - 6 + 6 * rise * rise * (3 - 2 * rise) - sink * 7; big.rotation.y = Math.sin(t * 0.4) * 0.05; big.userData.band.position.y = 0.05 + ((t * 0.6) % 1) * 2.2; big.userData.glowMat.opacity = 0.5 + Math.sin(t * 5) * 0.3;
-    ring.material.opacity = (0.5 + Math.sin(t * 3) * 0.2) * Math.min(1, t / 0.7) * (1 - Math.min(1, sink));
-    spirits.forEach((s2, i) => { const a = t * (1.6 + i * 0.3) + i * 2.1, rr = 3 + i * 1.2; s2.position.set(C.x + Math.cos(a) * rr, base + 2 + Math.sin(t * 2 + i) * 1.2 + i, C.z + Math.sin(a) * rr); s2.material.opacity = 0.8 * (1 - Math.min(1, sink)); if (Math.random() < 0.6) V.emit(i === 0 ? 'frost' : i === 1 ? 'leaf' : 'gold', s2.position, { speed: 0.3, size: 0.4, life: 0.6 }); });
-    pulse -= dt; if (pulse <= 0 && t < T.dur) { pulse = 1; const cr = crown(); V.ring(C.clone().setY(base + 0.15), T.r * 2, '#a8e8ff', 0.7); S.thunder ? S.thunder(cr) : S.explode && S.explode(cr, 0.3);
-      for (const u of ultFriends(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) { ultHeal(u, T.heal); healBeam(cr, u.pos.clone().setY(u.pos.y + 1.1), 'water'); }
-      for (const u of ultFoes(caster)) if (Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r) { boltFx(cr, u.pos.clone().setY(u.pos.y + 1.1), '#cfe8ff'); ultHurt(u, T.dmg, caster, 'lightning'); ultSlow(u, 0.6, 0.6); } }
-    if (t > T.dur + 1.1) { G.scene.remove(big, ring); for (const s2 of spirits) G.scene.remove(s2); return true; } return false; } });
+// the shaman's ultimate: Call of Lightning (the owner's design). An epic cast: a black and grey storm cloud boils up over the shaman,
+// then a giant bolt comes down on every enemy within 12 m, and every bolt leaps on from its victim to each of the others in the circle,
+// so with three caught each is struck three times (once by the sky, once by each other's bolt)
+export const SPIRIT = { r: 12, strike: 0.13, jump: 0.07, slow: 1.2 };
+export function shamanSpirit(caster) { const T = Object.assign({}, SPIRIT, G.spiritTune || {}), me = caster === G.player ? G.player : null, C = caster.pos.clone(), base = ultGround(C), CH = base + 11; /* (the cloud's height) */
+  const cloud = new THREE.Group(), puffs = []; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 + Math.random() * 0.3, r = i < 4 ? 0.8 * i : 2.5 + Math.random() * 4.5, m = new THREE.Mesh(new THREE.SphereGeometry(1.6 + Math.random() * 1.6, 12, 9), new THREE.MeshStandardMaterial({ color: i % 3 ? '#2a2c30' : '#55585e', roughness: 1, transparent: true, opacity: 0, depthWrite: false, emissive: '#000000' }));
+    m.position.set(Math.cos(a) * r, (Math.random() - 0.5) * 1.2, Math.sin(a) * r); m.scale.y = 0.55; cloud.add(m); puffs.push(m); }
+  cloud.position.set(C.x, CH, C.z); G.scene.add(cloud);
+  if (me) { me.ultPoseT = 1.6; me.ultImmT = Math.max(me.ultImmT || 0, 1.8); me.held = true; setTimeout(() => { me.held = false; }, 1500); }
+  S.cast && S.cast('lightning', C, 1.6); V.burst('shadow', C.clone().setY(base + 1.2), 40, { speed: 4, vy: 4, size: 0.8, life: 1.2 }); V.addShake(0.3);
+  const strike = (from, u, frac, big) => { if (!u || u.dead) return; const to = u.pos.clone().setY(u.pos.y + 1.1); boltFx(from, to, '#e8f4ff'); boltFx(from, to, '#9ad0ff'); if (big) boltFx(from, to, '#ffffff');
+    V.light(to, '#bfe0ff', big ? 10 : 6, 0.25, 14); V.burst('spark', to, big ? 30 : 16, { speed: 8, size: 0.14 }); V.burst('frost', to, 12, { speed: 4 }); S.thunder ? S.thunder(to) : S.explode && S.explode(to, 0.4); ultHurt(u, frac, caster, 'lightning'); ultSlow(u, 0.5, T.slow); };
+  let t = 0, fired = false, flash = 0;
+  G.timers.push({ update: (dt) => { t += dt; const grow = Math.min(1, t / 1.1), fade = Math.max(0, (t - 2.6) / 1.2);
+    cloud.rotation.y += dt * 0.25; cloud.scale.setScalar(0.35 + 0.65 * grow * grow * (3 - 2 * grow)); puffs.forEach((m, i) => { m.material.opacity = 0.92 * Math.min(1, grow * 1.4) * (1 - Math.min(1, fade)); m.position.y += Math.sin(t * 2 + i) * dt * 0.2; });
+    if (Math.random() < 0.6 * (1 - fade)) V.emit(Math.random() < 0.5 ? 'shadow' : 'smoke', new THREE.Vector3(C.x + (Math.random() - 0.5) * 12, CH + (Math.random() - 0.5) * 2, C.z + (Math.random() - 0.5) * 12), { speed: 0.6, size: 2.4, life: 1.6, a0: 0.6 });
+    flash -= dt; if (flash <= 0 && fade < 1) { flash = 0.15 + Math.random() * 0.35; const q = new THREE.Vector3(C.x + (Math.random() - 0.5) * 8, CH, C.z + (Math.random() - 0.5) * 8); V.light(q, '#cfe6ff', 8, 0.12, 20); for (const m of puffs) m.material.emissive.setRGB(0.15, 0.18, 0.25); setTimeout(() => { for (const m of puffs) m.material.emissive.setRGB(0, 0, 0); }, 70); }
+    if (!fired && t >= 1.2) { fired = true; const foes = ultFoes(caster).filter(u => !u.dead && Math.hypot(u.pos.x - C.x, u.pos.z - C.z) < T.r);
+      V.addShake(0.9); G.hitstop = Math.max(G.hitstop || 0, 0.05); S.explode && S.explode(C, 0.8, 'frost');
+      foes.forEach((u, i) => { const from = new THREE.Vector3(u.pos.x + (Math.random() - 0.5) * 2, CH - 0.5, u.pos.z + (Math.random() - 0.5) * 2); later(i * 0.06, () => strike(from, u, T.strike, true));
+        foes.forEach((v, j) => { if (j === i) return; later(0.35 + i * 0.18 + j * 0.06, () => { if (!u.dead) strike(u.pos.clone().setY(u.pos.y + 1.1), v, T.jump, false); }); }); }); /* (each bolt leaps on to every other enemy in the circle) */
+      if (!foes.length) { const q = C.clone().add(new THREE.Vector3(4, 0, 3)); boltFx(new THREE.Vector3(q.x, CH, q.z), q.setY(base + 0.1), '#e8f4ff'); } }
+    if (t > 4) { G.scene.remove(cloud); cloud.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); return true; } return false; } });
   return true;
 }
 

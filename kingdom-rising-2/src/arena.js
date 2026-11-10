@@ -18,6 +18,7 @@ import * as Icons from './icons.js';
 import { glyphBadge } from './icons2.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
+import { KIT } from './kitinfo.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
 import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
@@ -185,7 +186,8 @@ const ARENA_NEW = {
     { id: 'ar_skullfear', name: 'Skull of Terror', kit: true, t: 'curse', dmg: 0.5, fear: 3, bigSkull: true, cd: 14, cost: 0, fx: 'shadow', level: 1, desc: 'Hurl a screaming skull at the enemy you aim at: it flees from you in terror for 3 s.' }],
 };
 const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
-function kitRules() { if (kitRulesDone) return; kitRulesDone = true;
+function kitRules() { if (kitRulesDone) return; kitRulesDone = true; kitRules0(); for (const cls in ABILITIES) for (const x of ABILITIES[cls] || []) if (KIT[x.id]) x.desc = KIT[x.id][2]; /* (the owner: short, plain descriptions: kitinfo.js) */ for (const cls in ULTS) for (const u of [].concat(ULTS[cls])) if (u && KIT[u.id]) u.desc = KIT[u.id][2]; }
+function kitRules0() {
   for (const cls in ARENA_NEW) for (const a of ARENA_NEW[cls]) if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === a.id)) ABILITIES[cls].push(a);
   for (const cls in ULTS) { const U2 = ULTS[cls]; if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === U2.id)) ABILITIES[cls].push({ id: U2.id, name: U2.name, t: U2.t, cd: 90, cost: 0, fx: 'gold', level: 1, desc: U2.desc }); ARENA_ULT[cls] = U2.id; } // (the table's ultimates)
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }

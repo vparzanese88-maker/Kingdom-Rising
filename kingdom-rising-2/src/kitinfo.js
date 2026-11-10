@@ -1,0 +1,123 @@
+// Kingdom Rising II: the arena classes' abilities in plain words, and the icon each one wears.
+// KIT[id] = [glyph, theme, short description, ultimate?]. Glyphs are drawn in icons2.js (GLYPH and KIT_GLYPH).
+// The short text replaces the long description everywhere the arena kits are shown (setup screen, tooltips, perk tree).
+export const KIT = {
+  // warrior
+  ar_flameblade: ['flamesword', 'fire', 'Set your sword on fire for 8 s. Every hit burns.'],
+  ar_mendbanner: ['mendbanner', 'nature', 'Plant a banner that heals you and nearby allies for 8 s.'],
+  ar_charge: ['shieldcharge', 'gold', 'Charge behind your shield, knocking down and stunning everyone in your path.'],
+  ar_shbash: ['shieldbash', 'steel', 'Bash the enemy in front of you: knocked back and stunned for 1.2 s.'],
+  ar_banner: ['shieldbanner', 'gold', 'Plant a giant war banner. Allies within 10 m take 40% less damage for 8 s.', 1],
+  // berserker
+  earthsplitter: ['leap', 'red', 'Leap up to 18 m and smash down, knocking down and stunning everyone nearby.'],
+  ar_legsweep: ['claws', 'red', 'A brutal slash that hits everyone in front of you hard and slows them for 3 s.'],
+  ar_battleshout: ['roar', 'red', 'Roar to swing 35% faster for 8 s.'],
+  ar_axethrow: ['axethrow', 'steel', 'Throw your axe up to 24 m. It stuns the first enemy, then flies back. Right click again to recall it.'],
+  ar_bladestorm: ['whirlaxes', 'red', 'Spin into a storm of axes for 5 s, pulling in and shredding everyone around you.', 1],
+  // paladin
+  layonhands: ['hand', 'gold', 'Heal yourself 30% and allies within 8 m 35%.'],
+  smitearc: ['sweep', 'gold', 'A wide holy sweep that knocks back everyone in front of you.'],
+  hammerstrike: ['hammerhit', 'gold', 'A crushing hammer blow that stuns the enemy in front of you.'],
+  shieldofl: ['shieldglow', 'gold', 'Hold block for 1 s to raise a shield of light that absorbs 18% of your health for 6 s.'],
+  ar_wrath: ['wingsword', 'gold', 'Call a giant sword of light down where you aim. Huge damage on a 12 m glyph; allies on it heal.', 1],
+  // dark knight
+  lifetap: ['drain', 'shadow', 'A shadow bolt that heals you for 80% of the damage it does.'],
+  gravewall: ['ribcage', 'shadow', 'A bone shell absorbs 25% of your health for 6 s and slows melee attackers.'],
+  deathgrip: ['grasp', 'shadow', 'Pull the enemy you aim at to you and stun them.'],
+  ar_grasp: ['chains', 'shadow', 'Shadow chains grab every enemy within 6 m, drag them to you and drain a quarter of their health.', 1],
+  // cleric
+  radiantheal: ['suncross', 'gold', 'Heal yourself 16% and allies within 10 m 25%.'],
+  ar_purify: ['sparkle', 'frost', 'Cleanse yourself and allies within 12 m of stuns, slows and damage over time, and heal 10%.'],
+  holysmite: ['lightdown', 'gold', 'A bolt of holy fire that hits hard and briefly stuns.'],
+  ar_mendC: ['beam', 'gold', 'A strong heal on the ally you aim at (or yourself). Works through walls.'],
+  ar_miracle: ['angel', 'gold', 'Fully heal the ally you aim at (or yourself) and make them untouchable for 3 s. Allies near them heal 50%.', 1],
+  // monk
+  flyingkick: ['kick', 'gold', 'Fly forward with a kick that hits everything in your way.'],
+  hundredfists: ['fistburst', 'red', 'A rapid flurry of punches on the enemy in front of you.'],
+  pressure: ['punch', 'gold', 'Launch fist-first 7.5 m, knocking flying and stunning everyone you hit.'],
+  ar_wraps: ['wrapfist', 'nature', 'Break free of any stun, root or slow. For 5 s heal 30%, move 30% faster and attack 35% faster.'],
+  ar_fists: ['fiststorm', 'gold', 'Lift every enemy within 9 m into the air, pummel them, then slam them away.', 1],
+  // bard
+  ar_mendsong: ['notes', 'nature', 'Heal yourself 30% over 6 s and allies within 10 m 25% at once.'],
+  crescendo: ['notewave', 'arcane', 'A blast of sound that knocks back everyone within 7 m.'],
+  mesmerize2: ['spiraleye', 'arcane', 'Put the enemy you aim at to sleep for up to 3 s. Damage wakes them.'],
+  ar_mendB: ['notes', 'gold', 'Heal the ally you aim at (or yourself). Allies near them heal a little too.'],
+  ar_finale: ['lute', 'gold', 'For 6 s allies within 15 m heal 40% and move 30% faster; enemies within 10 m are mesmerized for 2.5 s.', 1],
+  // druid
+  regrowth: ['sprout', 'nature', 'Heal yourself 35% over 8 s and allies within 10 m 20%.'],
+  callbear: ['paw', 'nature', 'Summon a bear to fight beside you.'],
+  entangle: ['vines', 'nature', 'Root enemies within 6 m for 1.5 s, then slow them for 2 s.'],
+  ar_mendD: ['leaf', 'nature', 'Heal the ally you aim at (or yourself) now and over 4 s. Works through walls.'],
+  ar_overgrowth: ['tree', 'nature', 'A forest sweeps across the arena, healing allies and entangling enemies it reaches.', 1],
+  // shaman
+  sh_wave: ['wave', 'frost', 'Heal yourself 20% and allies within 12 m 28%.'],
+  sh_wolf: ['wolf', 'frost', 'Summon a spirit wolf to fight beside you.'],
+  sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
+  ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 6 m by 36% over 6 s.'],
+  ar_spirittotem: ['stormtotem', 'frost', 'Raise a giant totem for 7 s that heals allies and zaps enemies within 12 m with lightning.', 1],
+  // ranger
+  ar_firearrow: ['arrow', 'fire', 'A huge burning arrow that sets the target alight and stuns it for 1.5 s. You flip backwards.'],
+  focus: ['eye', 'gold', 'Shoot twice as fast for 8 s.'],
+  ar_bola: ['bola', 'nature', 'Two arrows tied by a cord: slows the target for 3 s and heals you 10%.'],
+  ar_arrowrain: ['volley', 'nature', 'Rain arrows on a 7 m circle for 3 s.', 1],
+  // musketeer
+  ar_bandage: ['bandage', 'nature', 'Heal 22% over 3 s and reload instantly.'],
+  grapeshot: ['pistol', 'fire', 'A pistol blast that knocks back everyone in a cone in front of you.'],
+  bolas: ['bola', 'steel', 'Tie up the enemy you aim at: rooted for 1.5 s.'],
+  ar_barrage: ['musket', 'arcane', 'For 10 s your rifle fires a nonstop stream of magic rounds with no reloading.', 1],
+  // blunderbuss
+  powdercharge: ['blastdash', 'fire', 'A blast hurls you forward, plowing through everything in your way.'],
+  buckshot: ['buckshot', 'fire', 'A wide shotgun blast that knocks back everything in front of you.'],
+  buttstroke: ['stock', 'steel', 'Smash the enemy in front of you with your gun stock: knocked back and stunned.'],
+  ar_ironhide: ['anvil', 'steel', 'Absorb 25% of your health for 5 s. You cannot be knocked back.'],
+  ar_kegs: ['keg', 'red', 'Lob five exploding powder kegs where you aim.', 1],
+  // wizard
+  ar_missiles: ['missiles', 'arcane', 'For 6 s your attacks are homing missiles: twice as fast, and they explode.'],
+  blink: ['portal', 'arcane', 'Teleport 14 m through a portal.'],
+  ar_arcshield: ['shieldglow', 'arcane', 'A shield that absorbs 35% of your health for 5 s.'],
+  phaseshift: ['ghost', 'shadow', 'Turn invisible for 4 s and move 25% faster. Your next attack crits; attacking ends it.'],
+  ar_transcend: ['ascend', 'arcane', 'Hover for 10 s: move and cast faster, hit 50% harder, and every bolt explodes. No dodging or jumping.', 1],
+  // rogue
+  ar_leechstab: ['daggerdrop', 'red', 'A deep stab that heals you 30% over 6 s. Every third hit poisons.'],
+  eviscerate: ['dagger', 'red', 'A huge stab that makes them bleed. Double damage from behind.'],
+  kidney: ['dizzy', 'shadow', 'Stun the enemy in front of you for 1.5 s.'],
+  ar_shadowstep: ['footsteps', 'shadow', 'Step 7 m through the shadows (behind your target if one is close) and vanish for 3 s.'],
+  ar_assassinate: ['daggermark', 'shadow', 'Mark an enemy within 30 m, then appear behind them and stab: below half health they die, anyone else loses 45%.', 1],
+  // necromancer
+  drainlife: ['drain', 'nature', 'Toggle a beam that drains your target for up to 5 s, slowing them and healing you.'],
+  ar_plaguebreath: ['plague', 'nature', 'Spray plague in front of you: poisoned for 6 s, and poison hurts them 50% more.'],
+  ar_skullfear: ['skull2', 'shadow', 'Throw a screaming skull: the enemy flees in terror for 3 s.'],
+  bonearmor: ['ribcage', 'steel', 'A cage of bones absorbs 30% of your health.'],
+  ar_demon: ['demon', 'nature', 'A demon rises from hellfire where you aim, slowing everyone in the ring and devouring the closest enemy.', 1],
+  // elementalist
+  lightninglash: ['bolt', 'frost', 'A quick lightning strike that jolts the enemy you aim at.'],
+  callflame: ['flameface', 'fire', 'Summon a fire elemental that throws fire at your enemies.'],
+  frostbind: ['crystal', 'frost', 'Freeze the enemy you aim at, and anyone within 3 m, for 1.5 s.'],
+  iceshell: ['shieldglow', 'frost', 'Ice armour: more armour and stamina for 2 minutes.'],
+  ar_meteors: ['meteor', 'fire', 'Five meteors crash where you aim over 3 s, each burning 18% health within 4 m.', 1],
+  // enchanter
+  mindrot: ['brain', 'shadow', 'Weaken and damage the enemy you aim at, and those near it, for 8 s.'],
+  ar_mindlock: ['lock', 'arcane', 'Silence the enemy you hit, and anyone within 3 m, for 2 s.'],
+  mesmerize: ['spiraleye', 'arcane', 'Entrance the enemy you aim at for up to 3 s. Damage wakes them.'],
+  runeshield: ['runeshield', 'arcane', 'A rune absorbs 35% of your health.'],
+  ar_charm: ['heartspiral', 'arcane', 'Charm every enemy in an 8 m area for 3 s, then hit them for 20% of their health.', 1],
+  // beastmaster
+  packfrenzy: ['claws', 'red', 'Attack much faster for 8 s.'],
+  warbeast: ['paw', 'gold', 'Summon your war tiger. It grows stronger as you level.'],
+  feralroar: ['roar', 'red', 'Stun every enemy within 6 m for 1 s.'],
+  naturesembrace: ['leafshield', 'nature', 'For 15 s take 30% less damage and heal 3% every second.'],
+  ar_pack: ['wolf', 'frost', 'Three spirit wolves hunt the nearest enemies within 18 m for 5 s.', 1],
+  // priest
+  pr_halo: ['halo', 'gold', 'A ring of light heals allies around you 25% and you 15%.'],
+  pr_word: ['shieldglow', 'gold', 'A shield absorbs about 20% of your health for 6 s.'],
+  pr_chains: ['chains', 'gold', 'Chain the enemy you aim at in place for 2 s.'],
+  ar_mendP: ['sun', 'gold', 'Heal the ally you aim at (or yourself) and shield them for 4 s. Works through walls.'],
+  ar_salvation: ['wings', 'gold', 'Open a 14 m dome for 6 s: allies heal 60% and cannot die for 3 s; enemies are slowed and burned.', 1],
+  // bombardier
+  aim: ['aim', 'steel', 'Aim down your sights.'],
+  bo_rocket: ['rocketboot', 'fire', 'Rocket forward, burning everything in your way.'],
+  bo_smoke: ['cloud', 'shadow', 'Drop a smoke bomb and dash 6 m away, unseen for 2.5 s.'],
+  bo_stickies: ['bomb', 'nature', 'Throw sticky bombs that cling to anything. You carry 5; they refill over time.'],
+  bo_detonate: ['plunger', 'fire', 'Set off all your bombs at once. Sticky bombs blow up bigger.'],
+  ar_bertha: ['bomb', 'red', 'Plant a huge bomb that beeps for 9 s, then explodes for massive damage. Enemies can defuse it.', 1],
+};

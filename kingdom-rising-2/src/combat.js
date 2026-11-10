@@ -86,9 +86,9 @@ export function makeFearSkull(hd = false) { let m; const SPH = hd ? HDSPH : geo.
   return m; }
 // the ranger's arrow in flight, made to read from the camera behind him: a longer, thicker shaft, bright fletching, his flaming tip, and a
 // pale streak trailing it (grown out from the bow as it flies, so it never pokes back through him; see updateProjectiles)
-const ARW = { k: 1.3, streak: 2.6, r: 0.022 }, arwM = {}, arwG = {};
+const ARW = { k: 1.3, streak: 3.2, r: 0.03 }, arwM = {}, arwG = {};
 function heroArrowFx(m) {
-  const M = arwM.f || (arwM.f = { vane: new THREE.MeshBasicMaterial({ color: '#f2ede2', side: THREE.DoubleSide }), vane2: new THREE.MeshBasicMaterial({ color: '#c8321e', side: THREE.DoubleSide }), fl: new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), st: new THREE.MeshBasicMaterial({ color: '#ffe2a8', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }) });
+  const M = arwM.f || (arwM.f = { vane: new THREE.MeshBasicMaterial({ color: '#f2ede2', side: THREE.DoubleSide }), vane2: new THREE.MeshBasicMaterial({ color: '#c8321e', side: THREE.DoubleSide }), fl: new THREE.MeshBasicMaterial({ color: '#ffa030', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), st: new THREE.MeshBasicMaterial({ color: '#ffe2a8', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }) });
   const Gm = arwG.f || (arwG.f = { vane: (() => { const g = new THREE.PlaneGeometry(0.035, 0.14); g.rotateX(Math.PI / 2); g.translate(0.022, 0, 0); return g; })(), fl: new THREE.SphereGeometry(0.04, 8, 6), st: (() => { const g = new THREE.CylinderGeometry(0, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); return g; })() }); /* (the streak: a long cone, wide at the arrow (z 0), to a point behind it (z 1)) */
   for (let i = 0; i < 3; i++) { const v = new THREE.Mesh(Gm.vane, i ? M.vane : M.vane2); v.rotation.z = i * Math.PI * 2 / 3; v.position.z = 0.32; m.add(v); } /* (one red cock feather, two white) */
   const fl = new THREE.Mesh(Gm.fl, M.fl); fl.position.z = -0.43; fl.scale.set(1, 1, 2.4); m.add(fl); /* (the flaming tip) */

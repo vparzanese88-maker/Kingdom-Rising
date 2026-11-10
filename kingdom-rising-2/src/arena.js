@@ -808,7 +808,7 @@ export function arcShieldFx(u, alive) { const mat = new THREE.MeshBasicMaterial(
   V.burst('arcane', u.pos.clone().setY(u.pos.y + 1.1), 40, { speed: 3.5, radius: 1.1 }); S.cast && S.cast('arcane', u.pos, 1.0);
   G.timers.push({ update: (dt) => { t += dt; const on = end < 0 && alive() && !u.dead; if (!on && end < 0) { end = t; V.burst('arcane', u.pos.clone().setY(u.pos.y + 1.1), 46, { speed: 5, radius: 1.0 }); V.burst('void', u.pos.clone().setY(u.pos.y + 1.1), 20, { normal: true, speed: 4, size: 0.4 }); S.cast && S.cast('arcane', u.pos, 0.6); }
     const k = end < 0 ? Math.min(1, t * 5) : Math.max(0, 1 - (t - end) * 5), hit = Math.max(0, 1 - (G.time - (u.arcHitT || -9)) * 4), lift = (u.hoverH || 0) && u !== G.player ? u.hoverH : 0;
-    const c = u.pos.clone(); c.y += 1.15 + lift; shell.position.copy(c); wire.position.copy(c); const pul = 1 + Math.sin(t * 5) * 0.025 + hit * 0.06; shell.scale.set(0.85 * pul, 1.4 * pul, 0.85 * pul); wire.scale.copy(shell.scale); wire.rotation.y = t * 0.6;
+    const c = u.pos.clone(); c.y += 0.98 + lift; shell.position.copy(c); wire.position.copy(c); const pul = 1 + Math.sin(t * 5) * 0.025 + hit * 0.06; shell.scale.set(0.82 * pul, 1.12 * pul, 0.82 * pul); /* (the owner: lower, from his feet to just over his hat) */ wire.scale.copy(shell.scale); wire.rotation.y = t * 0.6;
     mat.opacity = (0.13 + hit * 0.12) * k; rim.opacity = (0.05 + hit * 0.18) * k; const hidden = u === G.player && u.camDist < 0.6; shell.visible = wire.visible = !hidden; /* (first person: you would be inside it; the screen tint shows it instead) */
     if (end >= 0 && t - end > 0.25) { G.scene.remove(shell, wire); g.dispose(); wire.geometry.dispose(); mat.dispose(); rim.dispose(); return true; } return false; } });
 }

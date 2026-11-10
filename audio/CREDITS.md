@@ -32,3 +32,6 @@ Converted to mono or stereo MP3 and trimmed of silence.
 | `cannon1.mp3` | Cannon and bombard fire | https://opengameart.org/content/cannon-fire | Thimras | CC0 |
 | `battlecrowd.mp3` | The roar of a battle (looped) | https://opengameart.org/content/crowd-shoutingspeaking-ambience | StarNinjas | CC0 |
 | `battle-music.mp3` | Battle music ("Battle Theme A") | https://opengameart.org/content/battle-theme-a | cynicmusic | CC0 |
+| `wiz_bolt1.mp3`, `wiz_bolt2.mp3` | Kingdom Rising II wizard's plain spell bolt (from `spell_01.ogg`, `spell_02.ogg`) | https://opengameart.org/content/80-cc0-rpg-sfx | rubberduck | CC0 |
+| `wiz_cast.mp3` | Kingdom Rising II wizard's abilities (from `magical_6.ogg`) | https://opengameart.org/content/magic-spell-sfx | JaggedStone | CC0 |
+| `wiz_tele.mp3` | Kingdom Rising II wizard's Blink (from `teleport.wav`) | https://opengameart.org/content/teleport-spell | Ogrebane | CC0 |

@@ -115,6 +115,18 @@ export const V = {
   // a puff of purple smoke that engulfs a body standing at p (feet) and drifts apart over about 3 s
   puff(p, k = 1) { for (let i = 0; i < 3; i++) this.burst('vsmoke', new THREE.Vector3(p.x, p.y + 0.35 + i * 0.6, p.z), Math.round(22 * k), { normal: true, speed: 1.4, up: 0.5, vy: 0.25, size: 1.2 * k, size1: 2.6 * k, life: 2.6, radius: 1.3 * k, grav: -0.25, a0: 0.5 });
     this.burst('void', new THREE.Vector3(p.x, p.y + 1, p.z), Math.round(18 * k), { normal: true, speed: 3, size: 0.45, life: 0.6 }); },
+  // a standing violet portal at p (feet), facing yaw: a swirling dark-centred oval in a bright rim that opens fast, spins, and
+  // shrinks away to nothing over dur seconds (the wizard's Blink, where he leaves and where he arrives)
+  portal(p, yaw, dur = 3) { if (!this.portalTex) { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'), m = 128;
+      const g = x.createRadialGradient(m, m, 0, m, m, m); g.addColorStop(0, 'rgba(8,0,24,1)'); g.addColorStop(0.45, 'rgba(40,6,96,0.95)'); g.addColorStop(0.8, 'rgba(140,60,255,0.9)'); g.addColorStop(0.95, 'rgba(220,170,255,0.9)'); g.addColorStop(1, 'rgba(220,170,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(m, m, m, 0, Math.PI * 2); x.fill();
+      x.lineCap = 'round'; for (let k = 0; k < 5; k++) { x.strokeStyle = `rgba(${180 + k * 10},${110 + k * 15},255,0.55)`; x.lineWidth = 5 - k * 0.6; x.beginPath(); for (let i = 0; i <= 60; i++) { const u = i / 60, a = k / 5 * Math.PI * 2 + u * Math.PI * 2.6, r = 14 + u * 104; const px = m + Math.cos(a) * r, py = m + Math.sin(a) * r; i ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke(); }
+      this.portalTex = new THREE.CanvasTexture(c); this.portalTex.colorSpace = THREE.SRGBColorSpace; }
+    const grp = new THREE.Group(), disc = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ map: this.portalTex, transparent: true, depthWrite: false, side: THREE.DoubleSide })), rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.055, 8, 56), new THREE.MeshBasicMaterial({ color: '#c890ff', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })), halo = new THREE.Mesh(new THREE.TorusGeometry(1.08, 0.16, 8, 56), new THREE.MeshBasicMaterial({ color: '#6a20d0', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+    grp.add(disc, rim, halo); grp.position.set(p.x, p.y + 1.2, p.z); grp.rotation.y = yaw; this.scene.add(grp); const sx = 0.78, sy = 1.18;
+    this.temp(grp, dur, (o, k, dt) => { const t = k * dur, open = Math.min(1, t / 0.18), s = open * (1 - k) * (1 + Math.sin(t * 9) * 0.02); o.scale.set(sx * Math.max(0.001, s), sy * Math.max(0.001, s), 1); o.position.y = p.y + 0.05 + sy * Math.max(0.001, s) * 1.0; disc.rotation.z -= dt * 3.2; halo.material.opacity = 0.35 * (1 - k * 0.5);
+      if (Math.random() < 0.6 * (1 - k)) { const a = Math.random() * Math.PI * 2, q = new THREE.Vector3(Math.cos(a) * sx * s, Math.sin(a) * sy * s, 0).applyEuler(o.rotation).add(o.position); this.burst('arcane', q, 1, { speed: 0.6, size: 0.14, life: 0.5 }); }
+      if (k >= 0.999) { for (const m of [disc, rim, halo]) { m.geometry.dispose(); m.material.dispose(); } } });
+    this.burst('void', new THREE.Vector3(p.x, p.y + 1.2, p.z), 24, { normal: true, speed: 3, size: 0.45, life: 0.5 }); this.light(new THREE.Vector3(p.x, p.y + 1.2, p.z), '#8a2cff', 4, 0.4, 9); },
   trail(color) { const t = new Trail(this.scene, color); this.trails.push(t); return t; },
   burst(kind, p, n = 20, opt = {}) {
     // first person: smoke, fire and sparks born right at your face (a muzzle blast, a cast) are moved out to the lower

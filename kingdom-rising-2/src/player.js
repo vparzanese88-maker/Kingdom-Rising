@@ -1451,7 +1451,7 @@ export class Player {
         const from = this.pos.clone(); let to = from.clone();
         for (let s = 0.5; s <= 14 + this.pk('a2up') * 6; s += 0.5) { const p = from.clone().addScaledVector(dir, s); if (isWater(p.x, p.z)) break; const q = p.clone(); if (collide(q, this.radius)) break; if (heightAt(p.x, p.z) - this.pos.y > 4) break; to = p; }
         to.y = groundAt(to.x, to.z, to.y + 2).h;
-        this.pos.copy(to); this.vel.set(0, 0, 0); V.puff(from, 1.1); V.puff(to, 1.1); V.light(to.clone().setY(to.y + 1), '#8a2cff', 4, 0.3, 10); S.cast('arcane', to, 1.3); this.fovKick = 10; /* (the owner: a far more striking, purple Blink: see blinkFx) */
+        this.pos.copy(to); this.vel.set(0, 0, 0); { const yw = Math.atan2(dir.x, dir.z); V.portal(from, yw); V.portal(to, yw); } S.tele ? S.tele(to) : S.cast('arcane', to, 1.3); this.fovKick = 10; /* (the owner: a portal where he leaves and one where he steps out, each shrinking away over 3 s) */ /* (the owner: a far more striking, purple Blink: see blinkFx) */
         break;
       }
       case 'chain': {

@@ -58,6 +58,7 @@ function loadSamples() {
   const base = '../audio/rec/';
   const names = [];
   for (let i = 1; i <= 10; i++) { names.push('swing' + i, 'clash' + i); }
+  names.push('wiz_bolt1', 'wiz_bolt2', 'wiz_cast', 'wiz_tele'); /* (the wizard's spells: CC0 recordings, audio/CREDITS.md) */
   for (const n of names) {
     fetch(base + n + '.mp3').then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && ctx.decodeAudioData(ab)).then(buf => { if (buf) samples[n] = buf; }).catch(() => {});
   }
@@ -299,6 +300,7 @@ export const S = {
     tone(t, 0.15, o.node, { type: 'triangle', f: 160, f2: 110, gain: 0.35 }); noise(t, 0.2, o.node, { type: 'highpass', f: 2500, f2: 6000, gain: 0.2, a: 0.01 });
   },
   arrowHit(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1); const t = now(); noise(t, 0.06, o.node, { type: 'bandpass', f: 1200, q: 2, gain: 0.5 }); tone(t, 0.12, o.node, { type: 'triangle', f: 300, f2: 180, gain: 0.2 }); },
+  tele(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); if (!sample('wiz_tele', o.node, 1, 0.8 * k)) this.cast('arcane', pos, 1.2); }, // (the wizard's Blink portals)
   cast(el = 'fire', pos, big = 1) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now(), b = Math.min(2.5, big);
     if (el === 'fire') {
@@ -313,6 +315,11 @@ export const S = {
       noise(t, 0.6 * b, o.node, { type: 'highpass', f: 4000, f2: 2000, gain: 0.3 * b, a: 0.05 });
       noise(t + 0.1, 0.4, o.node, { type: 'bandpass', f: 900, q: 3, gain: 0.12 });
     } else if (el === 'arcane') {
+      // recorded CC0 spell sounds (audio/CREDITS.md): a quick magical whoosh for a plain bolt, a full spell for abilities with a low boom
+      // under it. Until they have loaded (or if they can't), the synthesized spell below plays instead
+      if (b < 0.9 ? sample(Math.random() < 0.5 ? 'wiz_bolt1' : 'wiz_bolt2', o.node, 0.94 + Math.random() * 0.12, 0.55 + 0.35 * b) : sample('wiz_cast', o.node, 1.02 - Math.min(0.12, (b - 1) * 0.1), Math.min(1.1, 0.6 + 0.25 * b))) {
+        if (b >= 0.9) { tone(t, 0.7, o.node, { type: 'sine', f: 90, f2: 38, gain: 0.3 * Math.min(1.5, b), a: 0.01 }); noise(t, 0.5, o.node, { type: 'lowpass', f: 700, f2: 150, gain: 0.25 * Math.min(1.5, b), a: 0.02 }); }
+      } else {
       // a spell: a bright shimmering chord that blooms and rings out (detuned pairs beat against each other, so it glitters),
       // twinkling sparkles over it and a soft rush of air as the bolt leaves. Bigger casts (abilities) add a low choir-like
       // swell, a deep resonant boom under it and a longer tail of sparkles, so they land heavier than the plain bolt
@@ -322,6 +329,7 @@ export const S = {
       for (let i = 0; i < 4 + 4 * b; i++) { const f = 2600 + Math.random() * 3600; tone(t + 0.03 + Math.random() * (0.25 + 0.3 * b), 0.12 + Math.random() * 0.12, o.node, { type: 'sine', f, f2: f * 1.02, gain: 0.03 + Math.random() * 0.025, a: 0.003 }); } /* (twinkles) */
       if (b >= 0.9) { [110, 131, 165, 220].forEach((f, i) => { tone(t, 0.9 * b, o.node, { type: 'triangle', f, gain: 0.045 * Math.min(1.5, b), a: 0.06 }); tone(t, 0.9 * b, o.node, { type: 'triangle', f: f * 1.008, gain: 0.04 * Math.min(1.5, b), a: 0.07 }); });
         tone(t, 0.8 * b, o.node, { type: 'sine', f: 82, f2: 41, gain: 0.32 * Math.min(1.5, b), a: 0.015 }); noise(t, 0.7 * b, o.node, { type: 'lowpass', f: 900, f2: 160, gain: 0.3 * Math.min(1.5, b), a: 0.04 }); }
+      }
     } else if (el === 'lightning') {
       // a sharp electric crack, a buzzing zap, then thunder rolling away
       noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 1.0 * b, a: 0.001 });

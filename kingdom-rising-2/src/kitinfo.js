@@ -45,7 +45,7 @@ export const KIT = {
   ar_finale: ['lute', 'gold', 'For 6 s allies within 15 m heal 40% and move 30% faster; enemies within 10 m are mesmerized for 2.5 s.', 1],
   // druid
   regrowth: ['sprout', 'nature', 'Heal yourself 35% over 8 s and allies within 10 m 20%.'],
-  callbear: ['paw', 'nature', 'Summon a bear to fight beside you.'],
+  ar_thorns: ['vines', 'nature', 'A spray of thorns hits everyone in front of you and slows them for 2.5 s.'],
   entangle: ['vines', 'nature', 'Root enemies within 6 m for 1.5 s, then slow them for 2 s.'],
   ar_mendD: ['leaf', 'nature', 'Heal the ally you aim at (or yourself) now and over 4 s. Works through walls.'],
   ar_overgrowth: ['tree', 'nature', 'A forest sweeps across the arena, healing allies and entangling enemies it reaches.', 1],
@@ -96,7 +96,7 @@ export const KIT = {
   ar_demon: ['demon', 'nature', 'A demon rises from hellfire where you aim, slowing everyone in the ring and devouring the closest enemy.', 1],
   // elementalist
   lightninglash: ['bolt', 'frost', 'A quick lightning strike that jolts the enemy you aim at.'],
-  callflame: ['flameface', 'fire', 'Summon a fire elemental that throws fire at your enemies.'],
+  ar_flamewave: ['flame', 'fire', 'A rolling wave of fire burns everyone in front of you.'],
   frostbind: ['crystal', 'frost', 'Freeze the enemy you aim at, and anyone within 3 m, for 1.5 s.'],
   iceshell: ['shieldglow', 'frost', 'Ice armour: more armour and stamina for 2 minutes.'],
   ar_meteors: ['meteor', 'fire', 'Five meteors crash where you aim over 3 s, each burning 18% health within 4 m.', 1],

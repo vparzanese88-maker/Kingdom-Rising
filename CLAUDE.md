@@ -14,6 +14,9 @@ Run `python3 omaha/tools/stamp.py` before committing Omaha 1944 changes, so play
 ## Kingdom Rising II (kingdom-rising-2/): stamp before committing
 Run `python3 kingdom-rising-2/tools/stamp.py` before committing changes in `kingdom-rising-2/`, so players' browsers load the new code instead of a cached copy.
 
+## Kingdom Rising II: keep ability text, icons and perks in step
+Every time a class ability is added, replaced or changed in `kingdom-rising-2/`, update its entry in `src/kitinfo.js` in the same change (short description, an icon that shows what it does, ultimate flag), check its perk-tree column and any class perks that mention it still make sense, and check the left-click label in `lmbAttack` (arena.js) matches the weapon the class holds. No class has pet or summon abilities.
+
 ## Always give the play link
 End every reply that creates or changes a game with its GitHub Pages link, so it can be sent to friends:
 - Arcade (all games): https://vparzanese88-maker.github.io/Kingdom-Rising/arcade.html

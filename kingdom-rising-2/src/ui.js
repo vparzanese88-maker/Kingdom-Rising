@@ -169,7 +169,7 @@ export function updateHUD(dt) {
     $('xpT').textContent = h.level >= LEVEL_CAP ? `Level ${LEVEL_CAP} (max)` : `Level ${h.level}  ·  ${h.xp} / ${need} XP`;
     // your buffs (green rim) and debuffs (red rim) as small icon chips with a countdown, one row each above the bars
     const B = p.buffs, chips = [], add = (on, ic, name, t, col) => { if (on) chips.push([ic, name, t, col]); };
-    add(B.cry > 0, '📯', 'Battle Cry · +30% damage', B.cry, '#ffb050'); add(B.anthem > 0, '🎵', 'Anthem of Swiftness · 40% faster', B.anthem, '#ffd860'); add(B.warsong > 0, '🎶', 'War Song · +25% damage, 30% faster attacks', B.warsong, '#ff5a4a'); add(B.fury > 0, '🐺', 'Fury', B.fury, '#ff7050'); add(p.stealth > 0, '☁', 'Unseen', p.stealth, '#b0a0ff');
+    add(B.cry > 0, '📯', 'Battle Cry · +30% damage', B.cry, '#ffb050'); add(B.anthem > 0, '🎵', 'Anthem of Swiftness · 40% faster, 3x endurance', B.anthem, '#ffd860'); add(B.warsong > 0, '🎶', 'War Song · +25% damage, 30% faster attacks', B.warsong, '#ff5a4a'); add(B.fury > 0, '🐺', 'Fury', B.fury, '#ff7050'); add(p.stealth > 0, '☁', 'Unseen', p.stealth, '#b0a0ff');
     add(B.nextCrit, '✦', 'Next hit x2', 0, '#ffd050'); add(!!p.regen, '❤', 'Regenerating', p.regen && p.regen.t, '#7ee07e');
     add(B.adren > 0, '⚡', 'Adrenaline', B.adren, '#ffd050'); add(B.tq > 0, '✚', 'Tourniquet', B.tq, '#ff8080'); add(B.surge > 0, '💧', 'Mana Surge', B.surge, '#8ac8ff');
     add(B.barrier > 0, '❄', 'Barrier ' + Math.round(B.barrier || 0), B.barrierT, '#8ad8ff'); add(B.swind > 0, '💨', 'Second Wind', B.swind, '#c8f0ff');

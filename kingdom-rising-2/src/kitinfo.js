@@ -39,7 +39,7 @@ export const KIT = {
   ar_fists: ['fiststorm', 'gold', 'Lift every enemy within 9 m into the air, pummel them, then slam them away.', 1],
   // bard
   ar_mendsong: ['notes', 'nature', 'Heal yourself 30% over 6 s and allies within 10 m 25% at once.'],
-  ar_anthem: ['boot', 'gold', 'You and every ally within 15 m move 40% faster for 6 s.'],
+  ar_anthem: ['boot', 'gold', 'You and every ally within 15 m move 40% faster and regain endurance three times as fast for 6 s.'],
   ar_ballad: ['shieldglow', 'frost', 'Heal yourself and every ally within 15 m by 20%, and all take 40% less damage for 6 s.'],
   ar_warsong: ['notewave', 'red', 'You and every ally within 15 m deal 25% more damage and attack 30% faster for 6 s.'],
   crescendo: ['notewave', 'arcane', 'A blast of sound that knocks back everyone within 7 m.'],

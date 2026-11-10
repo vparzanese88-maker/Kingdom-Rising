@@ -21,7 +21,7 @@ import { RUINS, updateRuins } from './ruinsmap.js';
 import { KIT } from './kitinfo.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
-import { makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
+import { noteTexture, makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { loadDemonModel, poseDemonModel, fixNormals } from './heromodels.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from './arenamap.js';
@@ -728,7 +728,17 @@ const handOfU = (u) => { const ch = u === G.player ? u.ch : u.model; const h = c
 // the healers' right click: a direct heal into one ally (or yourself), each with its own look and a twist
 export function atone(caster, frac = 0.04) { const fr = ultFriends(caster).filter(u => !u.dead && Math.hypot(u.pos.x - caster.pos.x, u.pos.z - caster.pos.z) < 25).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (!fr) return; if (fr.hp >= fr.maxHp) return;
   healBeam(chestOf(caster), chestOf(fr), 'holy'); ultHeal(fr, frac); }
+// the bard's Mending Chord: a bright green music note soars from his lute to the ally, curving in like a homing missile, and heals on arrival
+function noteMissile(caster, target, from, onHit) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTexture('#7aff8a', '♫'), transparent: true, depthWrite: false })); sp.scale.setScalar(0.7); G.scene.add(sp);
+  const self = target === caster, start = self ? chestOf(target).add(new THREE.Vector3(0, 2.6, 0)) : from.clone(), side = new THREE.Vector3((Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2); let t = 0;
+  const T = self ? 0.35 : Math.max(0.3, Math.min(1.1, start.distanceTo(chestOf(target)) / 24));
+  G.timers.push({ update: (dt) => { t += dt; const k = Math.min(1, t / T), e = k * k * (3 - 2 * k), end = chestOf(target), mid = start.clone().lerp(end, 0.5).add(new THREE.Vector3(0, self ? 0 : 1.6, 0)).add(side);
+    const p = start.clone().multiplyScalar((1 - e) * (1 - e)).add(mid.clone().multiplyScalar(2 * (1 - e) * e)).add(end.clone().multiplyScalar(e * e)); sp.position.copy(p); sp.material.rotation = Math.sin(t * 12) * 0.3;
+    if (Math.random() < 0.8) V.emit('heal', p, { speed: 0.3, size: 0.22, life: 0.35 });
+    if (k >= 1 || target.dead) { G.scene.remove(sp); sp.material.dispose(); if (!target.dead) onHit(); return true; } return false; } }); }
 export function healerMend(caster, target, a) { target = target || caster; const kind = a.kind || 'holy', from = handOfU(caster), to = chestOf(target);
+  if (kind === 'song') { noteMissile(caster, target, from, () => { ultHeal(target, a.heal || 0.2); S.heal && S.heal(); playNotes(G.scene, target, '#7aff8a', 7); V.light(chestOf(target), '#7aff8a', 5, 0.35, 10); V.burst('heal', chestOf(target), 14, { speed: 1.5, vy: 1.5 });
+      for (const u of ultFriends(caster)) if (u !== target && Math.hypot(u.pos.x - target.pos.x, u.pos.z - target.pos.z) < 8) { ultHeal(u, 0.07); playNotes(G.scene, u, '#7aff8a', 1); } }); return; } /* (the owner: Mending Chord: a green note homes in on the ally; they light up with green notes, those near them get one each) */
   if (target === caster) healBeam(to.clone().setY(to.y + 2.2), to, kind === 'dawn' ? 'holy' : kind); else healBeam(from, to, kind === 'dawn' ? 'holy' : kind);
   ultHeal(target, a.heal || 0.2); S.heal && S.heal(); S.cast && S.cast(kind === 'holy' ? 'holy' : kind === 'water' ? 'frost' : kind === 'nature' ? 'nature' : 'holy', target.pos, 0.6);
   if (kind === 'nature') { let n = 0; const tick = () => { if (n++ >= 4 || target.dead) return; ultHeal(target, 0.04); V.burst('leaf', chestOf(target), 6, { speed: 1.5 }); setTimeout(tick, 1000); }; setTimeout(tick, 1000); }

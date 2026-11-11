@@ -31,6 +31,9 @@ function sampleTrack() {
 export function trackAt(d) { if (!SAMP) sampleTrack(); const f = Math.max(0, Math.min(SAMP.length - 1.0001, d / STEP)), i = Math.floor(f), k = f - i, a = SAMP[i], b = SAMP[i + 1];
   const tx = a[2] + (b[2] - a[2]) * k, tz = a[3] + (b[3] - a[3]) * k, tl = Math.hypot(tx, tz) || 1; return { x: a[0] + (b[0] - a[0]) * k, z: a[1] + (b[1] - a[1]) * k, tx: tx / tl, tz: tz / tl }; }
 export const cartXZ = () => trackAt(PL.d);
+// the cart is out of sight (a collapsed wall between): a point on the track, near and in sight, closest to the cart. The track
+// is clear all the way, so walking along it always gets round the walls. clear(x, z, px, pz): nothing solid between
+export function cartApproach(x, z, clear) { for (let k = 1; k <= 14; k++) for (const s of [1, -1]) { const p = trackAt(PL.d + s * k * 2); if (Math.hypot(p.x - x, p.z - z) < 12 && clear(x, z, p.x, p.z)) return p; } return null; }
 export const cpDist = (k) => PAY.CPS[k] * PL.len;
 
 // ---------- the rules (host) ----------

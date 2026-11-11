@@ -18,7 +18,7 @@ import * as Icons from './icons.js';
 import { glyphBadge } from './icons2.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
-import { PL, PAY, buildPayload, payloadReset, payloadTick, payloadView, payloadNet, payloadApply, payloadHud, payloadCheckpointFx, cartXZ, trackAt } from './payload.js'; // (Payload: the Reliquary Cart)
+import { PL, PAY, buildPayload, payloadReset, payloadTick, payloadView, payloadNet, payloadApply, payloadHud, payloadCheckpointFx, cartXZ, trackAt, cartApproach } from './payload.js'; // (Payload: the Reliquary Cart)
 import { buildHillRing, paintHillRing } from './hillring.js'; // (King of the Hill: the boundary of light)
 import { KIT } from './kitinfo.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
@@ -1908,7 +1908,8 @@ class ArenaBot {
     if (o === 'payload' && PL.on) { const c = cartXZ(), att = this.team === PL.att, dC = Math.hypot(c.x - me.x, c.z - me.z), w = this.id * 2.3 + G.time * (0.15 + (this.id % 4) * 0.04);
       if (Math.abs(me.z) > 74 || Math.abs(me.z) < 7) this.lane = 1; this.persona().stick = 0; // (the cart runs down the middle street: take that route, and leave other routes at the plaza)
       const ah = trackAt(PL.d + (att ? 1.0 : 2.2)), rr = this.healer ? 2.8 : this.ranged ? 2.5 : 1.8; // (attackers crowd round it, defenders stand in its way; healers a little behind their pushers)
-      this.goal = { x: ah.x + Math.sin(w) * rr, z: ah.z + Math.cos(w) * rr, r: 1.2, must: dC > PAY.ZONE - 0.6 && (!this.target || Math.hypot(this.target.pos.x - me.x, this.target.pos.z - me.z) > 4) }; }
+      this.goal = { x: ah.x + Math.sin(w) * rr, z: ah.z + Math.cos(w) * rr, r: 1.2, must: dC > PAY.ZONE - 0.6 && (!this.target || Math.hypot(this.target.pos.x - me.x, this.target.pos.z - me.z) > 4) };
+      if (dC > PAY.ZONE && dC < 26) { const eye = (x, z, y) => V3(x, y, z), clr = (x, z, px, pz) => lineClear(eye(x, z, me.y + 1.5), eye(px, pz, AR.Y + 1.5)); if (!clr(me.x, me.z, c.x, c.z)) { const p = cartApproach(me.x, me.z, clr); if (p) this.goal = { x: p.x, z: p.z, r: 1.0, must: this.goal.must }; } } } /* (a wall between them and the cart: go round it along the track instead of walking into the wall) */
     if (o === 'koth') { const w = this.id * 1.7 + G.time * (0.18 + (this.id % 5) * 0.03); this.goal = { x: Math.sin(w) * 3.6, z: Math.cos(w * 0.8) * 3.6, r: 1.0 }; } /* (holding the hill they keep moving about on it, like people do, not frozen on one spot) */
     if (o === 'ctf') { const mine = A.flags.find(f => f.team === this.team), carry = A.flags.find(f => f.carrier === this.arenaF);
       if (carry) this.goal = { x: mine.home.x, z: mine.home.z, r: 0.5, must: true };

@@ -345,7 +345,7 @@ function sunCrown() { const g = new THREE.Group(), gold = new THREE.MeshStandard
   for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, sp = new THREE.Mesh(new THREE.ConeGeometry(0.06, i % 2 ? 0.22 : 0.36, 4), gold); sp.position.set(Math.cos(a) * (0.5 + (i % 2 ? 0.11 : 0.18)), 0, Math.sin(a) * (0.5 + (i % 2 ? 0.11 : 0.18))); sp.rotation.set(0, -a, -Math.PI / 2); g.add(sp); }
   const glow = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.2, 6, 30), addM('#fff0b0', 0.25)); glow.rotation.x = Math.PI / 2; g.add(glow); return g; }
 function haloDawn(c, a, ctx) {
-  const from = castFrom(c), dir = aimDirOf(c, from, ctx.T); dir.y = Math.max(-0.2, Math.min(0.2, dir.y)); dir.normalize(); faceDir(c, dir); const g = sunCrown(); g.position.copy(from); G.scene.add(g); const n = ctx.P(a.dmg);
+  const from = castFrom(c), dir = aimDirOf(c, from, ctx.T); dir.y = Math.max(-0.2, Math.min(0.2, dir.y)); dir.normalize(); faceDir(c, dir); const g = sunCrown(); g.scale.setScalar(1.6); g.position.copy(from); G.scene.add(g); const n = ctx.P(a.dmg);
   const far = from.clone().addScaledVector(dir, HALO.out); for (let k = 1; k <= 16; k++) { const q = from.clone().addScaledVector(dir, HALO.out * k / 16); if (solidAt(q.x, q.y, q.z) || q.y < gy(q) + 0.2) { far.copy(from).addScaledVector(dir, Math.max(1, HALO.out * (k - 1) / 16)); break; } }
   const passed = [new Set(), new Set()]; let t = 0, snd = 0; S.kb('halo', from, 1); anim(c, 'castRel', 0.5);
   tick((dt) => { t += dt; let p, leg; if (t < HALO.tOut) { leg = 0; const k = t / HALO.tOut; p = from.clone().lerp(far, 1 - (1 - k) * (1 - k)); } else { leg = 1; const k = Math.min(1, (t - HALO.tOut) / HALO.tBack), hand = handOf(c); p = far.clone().lerp(hand, k * k); if (k >= 1) { kill(g); S.kb('chime', hand, 0.5); V.burst('gold', hand, 16, { speed: 2 }); return true; } }
@@ -392,7 +392,7 @@ function chainsLight(c, a, ctx) {
 // ======================================================================= BOMBARDIER
 // Tar Bomb: a clay pot of tar lobbed where you aim splats into a black, bubbling puddle 5 m across for 6 s: enemies wading in it are
 // slowed hard. The detonator (right click) sets every puddle you have out ablaze: it roars up in flame for 3 s, burning whoever is in it.
-const TAR = { r: 2.6, dur: 6, burn: 3, slowT: 0.6, fireK: 0.35 };
+const TAR = { r: 2.6, dur: 6, burn: 3, slowT: 0.6, fireK: 0.18 };
 function blobGeo(r) { const s = new THREE.Shape(), N = 22; for (let i = 0; i <= N; i++) { const a0 = i / N * Math.PI * 2, rr = r * (0.82 + Math.random() * 0.3 + (i % 5 === 0 ? 0.16 : 0)); const x = Math.cos(a0) * rr, y = Math.sin(a0) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); } return new THREE.ShapeGeometry(s); }
 function tarPool(c, at, ctx, a) {
   const g = new THREE.Group(); g.position.copy(at); G.scene.add(g); const mat = new THREE.MeshStandardMaterial({ color: '#0d0907', roughness: 0.12, metalness: 0.35, emissive: '#000000', transparent: true, opacity: 0.96, polygonOffset: true, polygonOffsetFactor: -3 });

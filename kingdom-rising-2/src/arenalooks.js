@@ -334,9 +334,12 @@ function gripFollow(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !
 // the owner: the rogue's daggers point forward when she is not striking (her grip runs the blade along the forearm, which is right for a
 // thrust but leaves the blades hanging down at her thighs at rest); blends back to the grip as a blow starts
 const _rq = new THREE.Quaternion(), _rq2 = new THREE.Quaternion(), _rv = new THREE.Vector3(), _rw = new THREE.Vector3();
+const _bfH = new THREE.Vector3(), _bfF = new THREE.Vector3(), _bfFw = new THREE.Vector3();
 function bladesForward(ch) { const H = ch.heroModel; if (!H || H === 'loading' || !H.D || !H.D.holdFix || !ch.hmSockets) return; const rest0 = 1 - Math.min(1, (H.ikA || 0) + (H.mw || 0));
-  const rq = ch.root.getWorldQuaternion(_rq2), fw = _rw.set(0, 0.25, 1).applyQuaternion(rq).normalize();
-  for (const so of ch.hmSockets) for (const c of so.children) { if (!c.name || c.name !== 'weapon_dagger') continue; const rest = so.userData.side === 'L' ? 1 : rest0; if (rest < 0.02) continue; /* (the off hand's blade always points forward; the striking hand's goes back to the grip for the blow) */ c.updateWorldMatrix(true, false); const wq = c.getWorldQuaternion(new THREE.Quaternion()), cur = _rv.set(0, 1, 0).applyQuaternion(wq);
+  const rq = ch.root.getWorldQuaternion(_rq2), fw = _rw;
+  for (const so of ch.hmSockets) for (const c of so.children) { if (!c.name || c.name !== 'weapon_dagger') continue; const rest = so.userData.side === 'L' ? 1 : rest0; if (rest < 0.02) continue; /* (the off hand's blade always follows its forearm; the striking hand's goes back to the grip for the blow) */
+    const hand = so.parent, fore = hand && hand.parent; if (!fore) continue; hand.getWorldPosition(_bfH); fore.getWorldPosition(_bfF); fw.subVectors(_bfH, _bfF); if (fw.lengthSq() < 1e-8) continue; fw.normalize().addScaledVector(_bfFw.set(0, 0, 1).applyQuaternion(rq), 0.18).normalize(); /* (the owner: the blade runs on out of the front of the fist along the line of the forearm, a touch toward her front: hanging down beside her thighs when she stands, leading the arm when she thrusts; never sticking straight out of a hanging fist) */
+    c.updateWorldMatrix(true, false); const wq = c.getWorldQuaternion(new THREE.Quaternion()), cur = _rv.set(0, 1, 0).applyQuaternion(wq);
     const dq = new THREE.Quaternion().setFromUnitVectors(cur, fw), nq = new THREE.Quaternion().slerp(dq, rest).multiply(wq); c.parent.getWorldQuaternion(_rq).invert(); c.quaternion.copy(_rq.multiply(nq)); } }
 // (the owner) resting weapons: whatever the recording does with the hand, at rest a caster's staff stands upright, the Shadowknight's
 // greatsword hangs point-down in front of his feet and the ranger's bow stands up and down; blended out as the arm attacks or aims

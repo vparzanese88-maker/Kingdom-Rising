@@ -211,7 +211,7 @@ function coil(u, life) { const pts = [], R = 0.55, H = 1.4; for (let i = 0; i <=
   const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.09, 6), rootM); const thorns = []; for (let i = 0; i < 10; i++) { const th = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.25, 4), rootM); const p = pts[4 + i * 3]; th.position.copy(p).multiplyScalar(1.15).setY(p.y); th.lookAt(V3(p.x * 3, p.y, p.z * 3)); th.rotateX(Math.PI / 2); m.add(th); thorns.push(th); }
   G.scene.add(m); timer((t) => { if (!u.dead) m.position.copy(u.pos).setY(u.pos.y + lift(u)); const k = Math.min(1, t / 0.2), out = Math.max(0, (t - life) / 0.35); m.scale.set(1, Math.max(0.01, k * (1 - out)), 1); if (t > life + 0.35 || u.dead) { kill(m); return true; } return false; }); }
 export function druidElder(c) {
-  const T = Object.assign({}, ELDER, G.elderTune || {}), me = isMe(c), dir = fwdOf(c), P = c.pos.clone().addScaledVector(dir, 2.6); P.y = gy(P); afterCast(c, 2.2);
+  const T = Object.assign({}, ELDER, G.elderTune || {}), me = isMe(c), dir = fwdOf(c), P = c.pos.clone().addScaledVector(dir, -1.2).addScaledVector(V3(dir.z, 0, -dir.x), 3.2); P.y = gy(P); /* (at his left shoulder, a little behind him: it stands over him like a guardian and never blocks his view) */ afterCast(c, 2.2);
   snd(c.pos, (N, Tn) => { N(0, 0.6, { type: 'lowpass', f: 300, f2: 800, gain: 0.4, a: 0.3 }); Tn(0, 0.5, { type: 'sine', f: 50, f2: 80, gain: 0.3, a: 0.3 }); [392, 494, 587].forEach((f, i) => Tn(0.1 + i * 0.08, 0.6, { type: 'sine', f, gain: 0.04, a: 0.1 })); }, 0.3);
   const tree = elderTree(), U = tree.userData; tree.position.copy(P); tree.rotation.y = Math.random() * 6.28; tree.visible = false; G.scene.add(tree); let grown = false, roots = [], pulseT = 1, gone = false;
   later(T.grow, () => { if (c.dead) return; grown = true; tree.visible = true; const gp = P.clone().setY(P.y + 0.4);
@@ -238,17 +238,17 @@ export function druidElder(c) {
 }
 
 // ======================= SHAMAN: Call of Lightning =======================
-export const STORM = { charge: 0.65, dur: 4.0, every: 0.45, r: 14, hop: 8, hops: 3, strike: 0.055, jump: 0.035, rain: 0.03, finale: 0.1, finStun: 0.8, slow: 0.8 };
+export const STORM = { charge: 0.65, dur: 4.0, every: 0.55, r: 14, hop: 8, hops: 3, strike: 0.045, jump: 0.035, rain: 0.03, finale: 0.1, finStun: 0.8, slow: 0.8 };
 const boltCore = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), up = V3(0, 1, 0);
 // a forked bolt from a to b: a white-hot core in a blue glow, flickering out in a fifth of a second
 function bolt(a, b, o = {}) { const g = new THREE.Group(), L = a.distanceTo(b), N = Math.max(3, Math.round(L / (o.step || 1.1))), d = b.clone().sub(a), ax = d.clone().normalize(), s1 = V3(ax.z, 0, -ax.x); if (s1.lengthSq() < 0.01) s1.set(1, 0, 0); s1.normalize(); const s2 = ax.clone().cross(s1).normalize();
-  const core = glowM('#ffffff', 1), glow = glowM(o.col || '#6ab0ff', 0.55), mats = [core, glow]; const jag = o.jag || Math.min(1.4, L * 0.08);
+  const core = glowM('#ffffff', 1), glow = glowM(o.col || '#4a90ff', 0.4), mats = [core, glow]; const jag = o.jag || Math.min(1.4, L * 0.08);
   const path = (p0, p1, n, j, w) => { const pts = [p0]; for (let i = 1; i < n; i++) { const s = i / n, p = p0.clone().lerp(p1, s).addScaledVector(s1, (Math.random() - 0.5) * 2 * j).addScaledVector(s2, (Math.random() - 0.5) * 2 * j); pts.push(p); } pts.push(p1);
     for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1], l = p.distanceTo(q), mid = p.clone().lerp(q, 0.5), qu = new THREE.Quaternion().setFromUnitVectors(up, q.clone().sub(p).normalize());
-      for (const [m, r] of [[core, w], [glow, w * 4.5]]) { const c = new THREE.Mesh(boltCore, m); c.scale.set(r, l + r, r); c.position.copy(mid); c.quaternion.copy(qu); g.add(c); } } return pts; };
+      for (const [m, r] of [[core, w], [glow, w * 3.2]]) { const c = new THREE.Mesh(boltCore, m); c.scale.set(r, l + r, r); c.position.copy(mid); c.quaternion.copy(qu); g.add(c); } } return pts; };
   const pts = path(a, b, N, jag, o.w || 0.06);
   for (let f = 0; f < (o.forks ?? 2); f++) { const i = 1 + Math.floor(Math.random() * (pts.length - 2)), p = pts[i], e = p.clone().addScaledVector(ax, L * 0.15).addScaledVector(s1, (Math.random() - 0.5) * L * 0.4).addScaledVector(s2, (Math.random() - 0.5) * L * 0.3); path(p, e, 3, jag * 0.6, (o.w || 0.06) * 0.6); }
-  G.scene.add(g); const life = o.life || 0.22; timer((t) => { const k = 1 - t / life, fl = Math.random() < 0.3 ? 0.3 : 1; core.opacity = Math.max(0, k) * fl; glow.opacity = 0.55 * Math.max(0, k) * fl; if (t >= life) { G.scene.remove(g); mats.forEach(m => m.dispose()); return true; } return false; }); }
+  G.scene.add(g); const life = o.life || 0.22; timer((t) => { const k = 1 - t / life, fl = Math.random() < 0.3 ? 0.3 : 1; core.opacity = Math.max(0, k) * fl; glow.opacity = 0.4 * Math.max(0, k) * fl; if (t >= life) { G.scene.remove(g); mats.forEach(m => m.dispose()); return true; } return false; }); }
 let cloudTex = null;
 export function shamanStorm(c) {
   const T = Object.assign({}, STORM, G.stormTune || {}), me = isMe(c); afterCast(c, 1.8); if (!me) c.invulnT = Math.max(c.invulnT || 0, G.time + 1.0);
@@ -269,7 +269,7 @@ export function shamanStorm(c) {
     flT -= dt; if (flT <= 0 && fade < 1) { flT = 0.08 + Math.random() * 0.25; const f = flashes[Math.floor(Math.random() * flashes.length)]; f.material.opacity = 0.9 * grow; f.position.set((Math.random() - 0.5) * 9, -0.8, (Math.random() - 0.5) * 9); }
     for (const f of flashes) f.material.opacity *= Math.max(0, 1 - dt * 14);
     if (t < T.charge && Math.random() < 0.7) { const tip = tipOf(); bolt(tip, tip.clone().add(V3((Math.random() - 0.5) * 2.4, (Math.random() - 0.3) * 1.6, (Math.random() - 0.5) * 2.4)), { w: 0.025, forks: 0, life: 0.08, step: 0.4, jag: 0.25 }); V.emit('lightning', tip, { speed: 1.5, size: 0.14, life: 0.25 }); }
-    if (!charged && t >= T.charge) { charged = true; const tip = tipOf(); bolt(cloud.position.clone().setY(cloud.position.y - 0.5), tip, { w: 0.16, forks: 4, life: 0.32 }); bolt(cloud.position.clone(), tip, { w: 0.07, forks: 2, col: '#c0a8ff', life: 0.3 });
+    if (!charged && t >= T.charge) { charged = true; const tip = tipOf(); bolt(cloud.position.clone().setY(cloud.position.y - 0.5), tip, { w: 0.11, forks: 4, life: 0.32 }); bolt(cloud.position.clone(), tip, { w: 0.07, forks: 2, col: '#c0a8ff', life: 0.3 });
       V.light(tip, '#d8ecff', 18, 0.35, 26); V.burst('lightning', tip, 60, { speed: 10, size: 0.18 }); V.burst('frost', c.pos.clone().setY(c.pos.y + 0.3), 40, { speed: 8, vy: 1 }); shakeAt(c.pos, 0.8); stopFor(c, 0.05); thunder(tip, true);
       for (const u of near(ultFriends(c), c.pos, T.r)) { ultHeal(u, T.rain); V.burst('water', chest(u), 10, { speed: 2 }); } }
     // the storm: a forked bolt every few tenths of a second on an enemy round him, leaping on to the ones beside it
@@ -281,7 +281,7 @@ export function shamanStorm(c) {
         else { const a = Math.random() * 6.28, q = C.clone().add(V3(Math.sin(a) * (4 + Math.random() * 6), 0, Math.cos(a) * (4 + Math.random() * 6))); q.y = gy(q); bolt(V3(q.x, cloud.position.y - 0.5, q.z), q, { w: 0.08, forks: 2 }); V.light(q.clone().setY(q.y + 1), '#cfe8ff', 8, 0.2, 14); V.burst('lightning', q.clone().setY(q.y + 0.2), 16, { speed: 6 }); thunder(q, false); }
         if (wave % 2 === 0) for (const u of near(ultFriends(c), C, T.r)) { ultHeal(u, T.rain); V.burst('water', chest(u), 8, { speed: 2 }); } } }
     // the finale: the storm's heart breaks over him, a bolt on every enemy round him at once
-    if (!fin && t >= T.charge + T.dur) { fin = true; const tip = tipOf(); bolt(cloud.position.clone().setY(cloud.position.y - 0.5), tip, { w: 0.22, forks: 5, life: 0.35 }); V.light(tip, '#e8f4ff', 22, 0.4, 30); shakeAt(c.pos, 1.1); stopFor(c, 0.07); thunder(tip, true);
+    if (!fin && t >= T.charge + T.dur) { fin = true; const tip = tipOf(); bolt(cloud.position.clone().setY(cloud.position.y - 0.5), tip, { w: 0.13, forks: 5, life: 0.35 }); V.light(tip, '#e8f4ff', 22, 0.4, 30); shakeAt(c.pos, 1.1); stopFor(c, 0.07); thunder(tip, true);
       snd(c.pos, (N, Tn) => { Tn(0, 1.4, { type: 'sine', f: 58, f2: 24, gain: 0.8, a: 0.002 }); N(0.05, 2.0, { type: 'lowpass', f: 600, f2: 50, gain: 0.7, a: 0.1 }); }, 0.4);
       for (const u of near(foesOf(c), c.pos, T.r)) { strike(V3(u.pos.x, cloud.position.y - 0.5, u.pos.z), u, T.finale, true); later(0.03, () => !u.dead && strike(tip, u, 0, false)); stun(u, T.finStun); }
       ann(c, 'Call of Lightning'); }
@@ -292,23 +292,24 @@ export function shamanStorm(c) {
 // ======================= CLERIC: Wings of Salvation =======================
 export const WINGS = { open: 0.45, beat: 0.7, dur: 4.4, hover: 1.5, range: 30, heal: 0.35, hot: 0.03, hotEvery: 0.5, hotDur: 4, saveAt: 0.35, save: 2, blast: 7.5, blastHurt: 0.08, push: 9 };
 const featherTex = () => canvasTex('u5feather', 64, 256, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.6, 'rgba(255,244,210,1)'); g.addColorStop(1, 'rgba(255,200,90,1)'); x.fillStyle = g; x.beginPath(); x.moveTo(w / 2, 0); x.bezierCurveTo(w * 1.05, h * 0.25, w * 0.95, h * 0.8, w / 2, h); x.bezierCurveTo(w * 0.05, h * 0.8, -w * 0.05, h * 0.25, w / 2, 0); x.fill(); x.strokeStyle = 'rgba(220,170,80,0.9)'; x.lineWidth = 2; x.beginPath(); x.moveTo(w / 2, 4); x.lineTo(w / 2, h - 4); x.stroke(); });
-function wing(sgn) { const g = new THREE.Group(), feathers = [], body = new THREE.MeshBasicMaterial({ map: featherTex(), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide, color: '#ffffff' }), glow = new THREE.MeshBasicMaterial({ map: featherTex(), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: '#ffc850' });
+function wing(sgn) { const g = new THREE.Group(), feathers = [], body = new THREE.MeshBasicMaterial({ map: featherTex(), transparent: true, alphaTest: 0.1, depthWrite: false, side: THREE.DoubleSide, color: '#ffffff' }), glow = new THREE.MeshBasicMaterial({ map: featherTex(), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: '#ffc850' });
   const rows = [[11, 3.4, 0.5, 0.0], [9, 2.3, 0.42, 0.06], [7, 1.3, 0.36, 0.12]];
   for (const [n, L, W, dz] of rows) for (let i = 0; i < n; i++) { const s = i / (n - 1), a = 0.25 + s * 1.95, len = L * (0.55 + 0.45 * Math.sin(Math.min(1, s * 1.15) * Math.PI * 0.85)), root = V3(s * 2.0 * (L > 3 ? 1 : L / 3), 0.6 - s * 0.6, 0);
     const piv = new THREE.Group(); piv.position.copy(root); piv.position.z = -dz; for (const [m, k] of [[body, 1], [glow, 1.35]]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(W * k, len * k), m); f.position.y = -len * k / 2; piv.add(f); } piv.rotation.z = a; piv.userData.a = a; g.add(piv); feathers.push(piv); }
   g.scale.x = sgn; g.userData = { feathers, mats: [body, glow] }; return g; }
 export function clericWings(c, aim) {
   const T = Object.assign({}, WINGS, G.wingsTune || {}), me = isMe(c); afterCast(c, T.dur + 0.4); untouchable(c, T.beat + 0.3);
-  const rig = new THREE.Group(), L = wing(1), R = wing(-1); rig.add(L, R); G.scene.add(rig); const halo = sprite(radial('u5halo', [[0, 'rgba(255,255,240,1)'], [0.3, 'rgba(255,220,120,0.6)'], [1, 'rgba(255,170,40,0)']]), 3.5); rig.add(halo);
+  const rig = new THREE.Group(), L = wing(1), R = wing(-1); rig.add(L, R); L.position.y = R.position.y = 0; const WS = 0.62; /* (a span of about 6 m: big, but never a wall in front of the camera) */ G.scene.add(rig); const halo = sprite(radial('u5halo', [[0, 'rgba(255,255,240,1)'], [0.3, 'rgba(255,220,120,0.6)'], [1, 'rgba(255,170,40,0)']]), 3.5); rig.add(halo);
   S.castRise ? S.castRise(T.beat, 'holy') : null; snd(c.pos, (N, Tn) => { [523, 659, 784, 1047].forEach((f, i) => Tn(i * 0.06, 1.6, { type: 'sine', f, gain: 0.06, a: 0.2 })); [262, 330, 392].forEach(f => Tn(0, 1.8, { type: 'triangle', f, gain: 0.05, a: 0.3 })); N(0, 0.6, { type: 'bandpass', f: 1200, f2: 5000, q: 1, gain: 0.2, a: 0.3 }); }, 0.4);
   const hots = []; let beaten = false, flapT = 0;
   timer((t, dt) => { const open = ease(t / T.open), fold = ease((t - T.dur) / 0.5); if (c.dead && !fold) { kill(rig); c.hoverH = 0; return true; }
     c.hoverH = T.hover * ease(t / 0.6) * (1 - fold); if (!me && (c.model || c.ch) && (c.model || c.ch).root) (c.model || c.ch).root.position.y += c.hoverH;
     const yaw = me ? (c.bodyYaw ?? c.yaw) : (c.yaw || 0), f = V3(Math.sin(yaw), 0, Math.cos(yaw)); const back = c.pos.clone().addScaledVector(f, -0.32).setY(c.pos.y + lift(c) + hgt(c) * 0.68);
-    rig.position.copy(back); rig.rotation.set(0, yaw, 0); halo.position.set(0, hgt(c) * 0.42, 0.32); halo.material.opacity = 0.7 * open * (1 - fold);
+    rig.position.copy(back); rig.rotation.set(0, yaw, 0); rig.scale.setScalar(WS); halo.position.set(0, hgt(c) * 0.42 / WS, 0.32 / WS); halo.material.opacity = 0.7 * open * (1 - fold);
     // a deep beat as they open, then slow sweeps
     const beat = t < T.beat ? -0.6 * Math.sin(Math.min(1, t / T.beat) * Math.PI) : 0.25 * Math.sin((t - T.beat) * 3.2);
-    for (const [w, s] of [[L, 1], [R, -1]]) { w.rotation.set(0.25 + beat * 0.3, s * (0.35 + beat), s * (0.15 - 0.9 * (1 - open) + 1.2 * fold)); w.userData.feathers.forEach((p, i) => { p.rotation.z = p.userData.a * (0.15 + 0.85 * open) * (1 - 0.7 * fold) + Math.sin(t * 6 + i * 0.4) * 0.02; }); w.scale.y = Math.max(0.01, open * (1 - fold)); w.userData.mats[1].opacity = 0.55 * (0.75 + 0.25 * Math.sin(t * 5)); }
+    const settle = ease((t - T.beat) / 0.5); /* (after the beat they sweep back and turn half see-through: you can see past them) */
+    for (const [w, s] of [[L, 1], [R, -1]]) { w.userData.mats[0].opacity = 1 - 0.55 * settle; w.rotation.set(0.25 + beat * 0.3 - 0.25 * settle, s * (0.35 + 0.75 * settle + beat), s * (0.15 - 0.9 * (1 - open) + 1.2 * fold)); w.userData.feathers.forEach((p, i) => { p.rotation.z = p.userData.a * (0.15 + 0.85 * open) * (1 - 0.7 * fold) + Math.sin(t * 6 + i * 0.4) * 0.02; }); w.scale.y = Math.max(0.01, open * (1 - fold)); w.userData.mats[1].opacity = (0.55 - 0.3 * settle) * (0.75 + 0.25 * Math.sin(t * 5)); }
     flapT -= dt; if (flapT <= 0 && open > 0.5 && fold < 0.2) { flapT = 0.05; const side = Math.random() < 0.5 ? 1 : -1, p = back.clone().addScaledVector(V3(f.z, 0, -f.x), side * (1 + Math.random() * 3)).setY(back.y + Math.random() * 1.5 - 0.5); V.emit('cotton', p, { speed: 0.6, vy: -0.4, size: 0.18, life: 1.6, grav: 0.6 }); V.emit('gold', p, { speed: 0.4, size: 0.25, life: 0.6 }); }
     if (!beaten && t >= T.beat) { beaten = true; const cp = chest(c); V.light(cp, '#fff0b0', 16, 0.6, 30); V.burst('gold', cp, 80, { speed: 9, size: 0.4 }); V.burst('cotton', cp, 60, { speed: 7, size: 0.22, life: 1.8, grav: 1 }); shakeAt(c.pos, 0.5); S.cast && S.cast('holy', c.pos, 1.4);
       snd(c.pos, (N, Tn) => { N(0, 0.5, { type: 'lowpass', f: 900, f2: 200, gain: 0.7, a: 0.03 }); Tn(0, 0.5, { type: 'sine', f: 90, f2: 45, gain: 0.5, a: 0.01 }); [1047, 1319, 1568, 2093].forEach((fq, i) => Tn(0.05 + i * 0.05, 1.2, { type: 'sine', f: fq, gain: 0.05, a: 0.01 })); }, 0.4);

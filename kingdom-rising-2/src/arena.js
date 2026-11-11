@@ -1876,7 +1876,7 @@ class ArenaBot {
     this.ward = null; if (this.healer) { let lo = null, lv = 0.85; for (const m of mates) { const k = m.hp / m.maxHp; if (k < lv && near(m) < 22) { lv = k; lo = m; } } this.ward = lo; }
     // the objective
     this.goal = null; const o = A.setup.objective;
-    if (o === 'koth') this.goal = { x: Math.sin(this.id) * 3, z: Math.cos(this.id) * 3, r: 4 };
+    if (o === 'koth') { const w = this.id * 1.7 + G.time * (0.18 + (this.id % 5) * 0.03); this.goal = { x: Math.sin(w) * 3.6, z: Math.cos(w * 0.8) * 3.6, r: 1.0 }; } /* (holding the hill they keep moving about on it, like people do, not frozen on one spot) */
     if (o === 'ctf') { const mine = A.flags.find(f => f.team === this.team), carry = A.flags.find(f => f.carrier === this.arenaF);
       if (carry) this.goal = { x: mine.home.x, z: mine.home.z, r: 0.5, must: true };
       else if (mine && !mine.atHome && !mine.carrier) this.goal = { x: mine.pos.x, z: mine.pos.z, r: 0.5, must: true };
@@ -1899,7 +1899,7 @@ class ArenaBot {
         tx = T.pos.x - dir.x * want + side.x * this.strafe * 1.4; tz = T.pos.z - dir.z * want + side.z * this.strafe * 1.4; if (Math.random() < 0.0015) this.strafe *= -1; }
     } else { const mates = alliesOf(this); if (mates.length) { const m = mates[0]; tx = m.pos.x + Math.sin(this.id) * 3; tz = m.pos.z + Math.cos(this.id) * 3; } else { tx = 0; tz = 0; } }
     // low on health with no healing: fall back toward a team mate who heals
-    if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
+    { const tank = ROLE[this.cls] === 'Tank', lim = tank ? 0.15 : 0.32; if (this.hp / this.maxHp < lim && !this.healer && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).filter(u => u.healer && !u.dead).sort((a, b) => Math.hypot(a.pos.x - me.x, a.pos.z - me.z) - Math.hypot(b.pos.x - me.x, b.pos.z - me.z))[0]; if (hl) { tx = hl.pos.x; tz = hl.pos.z; } else if (T && !tank) { const aw = V3(me.x - T.pos.x, 0, me.z - T.pos.z).normalize(); tx = me.x + aw.x * 8; tz = me.z + aw.z * 8; } } } /* (low on health: damage dealers fall back to a healer (or away from their attacker); tanks hold the line until nearly dead) */
     { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { if (RUINS_MAP()) { tx = rm.rm.gx + rm.rm.dir[0] * 4; tz = rm.rm.gz + rm.rm.dir[1] * 4; } else { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } else if (RUINS_MAP()) { const toGoal = this.goal && (this.goal.must || dT > 9 || !T), w = this.laneStep(toGoal ? { pos: V3(this.goal.x, me.y, this.goal.z) } : T); if (w) { tx = w[0]; tz = w[1]; } } } /* (the Ruins: objectives too are reached along the routes; straight at them only once close and in sight. Walking straight at the hill jammed every computer player against the middle street's collapsed walls) */ // still in the holding room: out through the gate first
     { const bz = nearestDanger(this); if (bz) { const reach = bz.d / 5.5 + BOMB.ult.defuse + 0.6; if (bz.left > reach && this.hp / this.maxHp > 0.4 && (bz.d < 9 || this.persona().stick > 0.6)) { tx = bz.x; tz = bz.z; } else { const ax = me.x - bz.x, az = me.z - bz.z, al = Math.hypot(ax, az) || 1; tx = bz.x + ax / al * (bz.r + 3); tz = bz.z + az / al * (bz.r + 3); } } } // (an enemy Big Bertha: defuse it if there is time, else run out of its blast)
     // stay apart from everyone else
@@ -1948,7 +1948,8 @@ class ArenaBot {
         if (a.t === 'buff' && a.buff === 'flame' && fightNear && dT < 6) return use(a, this);
         if (a.t === 'wraps' && (hp < 0.45 || st.slow > 0 || st.root > 0)) return use(a, this);
         if (a.t === 'mendbanner' && fightNear && (nHurt >= 1 || hp < 0.75)) return use(a, this);
-        if (a.t === 'lightslice' && T && dT < 18) return use(a, T); } }
+        if (a.t === 'lightslice' && T && dT < 18) return use(a, T);
+        if (a.t === 'axethrow' && T && dT > 5 && dT < 22) return use(a, T); /* (the berserker: the axe at someone out of reach) */ } }
     // 2. defences when under pressure
     if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
     // 3. protect a team mate who is being beaten on
@@ -1957,7 +1958,7 @@ class ArenaBot {
     // 4. pets out before the fight is joined
     const sm = abs.find(a => a.t === 'summon' && !this.pets.some(p => !p.dead)); if (sm && dT < 30) return use(sm, this);
     // 5. damage buffs when the fight is on
-    if (dT < this.range + 6) { const b = abs.find(a => (a.t === 'buff' && ['cry', 'rage', 'focus', 'surge', 'avatar', 'formVoid', 'formTime', 'formArcane', 'swind', 'rampage'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['cry', 'rage', 'focus', 'rampage', 'surge'].includes(LEG_SELF[a.id][0])) || a.t === 'petbuff'); if (b && Math.random() < 0.6) return use(b, this); }
+    if (dT < this.range + 6) { const b = abs.find(a => (a.t === 'buff' && ['cry', 'rage', 'focus', 'surge', 'avatar', 'formVoid', 'formTime', 'formArcane', 'swind', 'rampage', 'shout'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['cry', 'rage', 'focus', 'rampage', 'surge'].includes(LEG_SELF[a.id][0])) || a.t === 'petbuff'); if (b && Math.random() < 0.6) return use(b, this); }
     // 6. control: break a cast, stop a melee chasing a caster, finish a runner
     const tCasting = T.cast || (T === G.player && G.player.abCast);
     const cc = abs.filter(a => !isSupport(a) && ((a.stun || 0) >= 0.8 || a.root || (LEG[a.id] && LEG[a.id][2] >= 0.8)) && this.inRange(a, dT));

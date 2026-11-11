@@ -11,6 +11,7 @@ import { V } from './vfx.js';
 import { buildHumanoid, animateHumanoid, equipWeapon, bake } from './character.js';
 import { CLASSES, RACES, TIERS } from './data.js';
 import { ARENA_KEY } from './battlemap.js';
+import { mountHeroSelect, heroClasses } from './heroselect.js';
 
 export const AN = { on: false, host: false, net: null, myId: 0, code: '', players: new Map(), started: false, h: {} };
 export const send = (d) => { if (AN.net) AN.net.send(d); };
@@ -33,60 +34,98 @@ class LoopNet {
   close() { if (this.ch) this.ch.close(); }
 }
 
-// ---------------- the lobby ----------------
-// The host's match settings come from the setup screen. Everyone picks a name, a class, a race and (in team
-// formats) a side; empty places are filled with computer fighters. Resolves with the final setup.
+// ---------------- the lobby: a champion select (heroselect.js), after Paladins and Smite ----------------
+// The host's match settings come from the setup screen. Everyone picks a name, a race, (in team formats) a side, and a
+// class on the champion select: click a portrait to pick it, Lock In to keep it. A class a person on your team has
+// picked (locked or not) is taken for the rest of that team; the enemy may pick it too. Computer players fill the empty
+// places and switch class when a person wants theirs. The host decides every pick (first come, first served) and tells
+// everyone; its Start gives the stragglers 15 s to lock in. Resolves with the final setup.
+const LOCK_S = 15;
 export function lobby(setup, F, O, kitName) {
   return new Promise((resolve) => {
     AN.on = true; AN.host = setup.mp === 'host';
     const loop = /[?&]net=loop/.test(location.search);
     const net = AN.net = loop ? new LoopNet() : new Net(11);
     let nm = ''; try { nm = localStorage.getItem(NAME_KEY) || ''; } catch (e) { /* no storage */ }
+    let pref = null; try { pref = localStorage.getItem('kr2_mpcls'); } catch (e) { /* no storage */ } if (!CLASSES[pref]) pref = (setup.slots[0] || {}).cls || 'warrior';
     let fmt, teams, cap; const refmt = () => { fmt = F[setup.fmt] || F.t3; teams = fmt.ffa ? null : Array.from({ length: fmt.teams }, (_, i) => i); cap = fmt.ffa ? 12 : fmt.teams * fmt.size; }; refmt(); // (a joiner learns the host's format from the lobby)
     const mine = () => AN.players.get(AN.myId);
     const ov = el('div', ''); ov.id = 'arlobby'; document.body.appendChild(ov);
     const teamCount = (t) => [...AN.players.values()].filter(p => p.team === t).length;
+    AN.bots = []; AN.lockEnd = 0; let botCls = {}, HS = null, deny = null;
+    // ---- the host's rules ----
+    const holder = (t, cls, except) => teams && cls ? [...AN.players.entries()].find(([id, p]) => id !== except && p.team === t && p.cls === cls) : null; // (a person on team t with this class)
+    const freeFor = (t, want, except) => { if (want && !holder(t, want, except)) return want; const left = heroClasses().filter(c => !holder(t, c, except)); return left[(Math.random() * left.length) | 0] || 'warrior'; };
+    // the computer players on each side: the setup's classes, kept as they are until a person takes one, then that one switches to a class nobody on the side has
+    const refreshBots = () => { if (!teams) { AN.bots = []; return; } const out = [];
+      for (const t of teams) { const n = Math.max(0, fmt.size - teamCount(t)), people = new Set([...AN.players.values()].filter(p => p.team === t && p.cls).map(p => p.cls));
+        let arr = (botCls[t] || setup.slots.filter(s => s.team === t).map(s => s.cls)).slice(0, n); const pool = setup.slots.filter(s => s.team === t).map(s => s.cls).concat(heroClasses().sort(() => Math.random() - 0.5));
+        while (arr.length < n) arr.push(null);
+        const used = new Set(people); arr = arr.map(c => { if (c && !used.has(c)) { used.add(c); return c; } return null; }); arr = arr.map(c => { if (c) return c; const nc = pool.find(x => !used.has(x)) || heroClasses()[0]; used.add(nc); return nc; });
+        botCls[t] = arr; arr.forEach(c => out.push({ team: t, cls: c })); }
+      AN.bots = out; };
+    const accept = (id, p0) => { const prev = AN.players.get(id), p = Object.assign({}, p0); deny = null;
+      if (prev && prev.locked) { p.cls = prev.cls; p.locked = true; p.team = prev.team; } // (locked in: the pick and the side stay)
+      if (teams && !prev && teamCount(p.team) >= fmt.size) p.team = teams.find(t => teamCount(t) < fmt.size) ?? 0;
+      if (teams && prev && p.team !== prev.team && teamCount(p.team) >= fmt.size) p.team = prev.team;
+      const h = holder(p.team, p.cls, id); if (h) { deny = { id, msg: `${h[1].name} has already picked ${(CLASSES[p.cls] || {}).name || p.cls}` }; p.cls = prev && prev.team === p.team ? prev.cls : null; p.locked = false; if (holder(p.team, p.cls, id)) p.cls = null; }
+      if (!p.cls) p.locked = false;
+      AN.players.set(id, p); broadcastPlayers(); };
+    const broadcastPlayers = () => { refreshBots(); send({ t: 'players', list: [...AN.players.entries()], bots: AN.bots, lockLeft: AN.lockEnd ? Math.max(1, AN.lockEnd - Date.now()) : 0, deny, fmt: setup.fmt, objective: setup.objective, ffaN: setup.ffaN, lives: setup.lives }); if (deny && deny.id === AN.myId && HS) HS.flash(deny.msg); deny = null; };
+    const upd = (o) => { const p = Object.assign({}, mine(), o); try { if (o.name) localStorage.setItem(NAME_KEY, o.name); if (o.locked && p.cls) localStorage.setItem('kr2_mpcls', p.cls); } catch (e) { /* no storage */ }
+      if (AN.host) accept(AN.myId, p); else { AN.players.set(AN.myId, p); send({ t: 'me', p }); } render(); };
+    // ---- the screen ----
+    let barFmt = null;
     const render = () => {
-      const isHost = AN.host; let h = `<div class="arlp"><div class="eyebrow">Kingdom Arena · Online</div>`;
-      if (!AN.code) { ov.innerHTML = h + `<h1>Connecting…</h1><p>${AN.err || 'Reaching the matchmaking service…'}</p>${AN.err ? '<button class="btn" id="alBack">← Back</button>' : ''}</div>`; const b = $('alBack'); if (b) b.onclick = () => { location.href = location.pathname; }; return; }
-      if (!mine()) { ov.innerHTML = h + '<h1>Joining…</h1></div>'; return; }
-      const me = mine(), full = AN.players.size >= cap;
-      h += `<h1>${fmt.name} · ${O[setup.objective].name}</h1><div class="alcode"><span>Invite link</span><input id="alLink" readonly value="${location.origin + location.pathname}?mode=arena&amp;join=${AN.code}" style="flex:1;min-width:0;font-size:15px;padding:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a;border-radius:8px"><button class="btn gold" id="alCopy">Copy link</button><small>Send this link to your friends: opening it puts them straight in this lobby. Or they press Play Online on the title screen and type the code <b style="letter-spacing:.15em">${AN.code}</b>.</small></div>`;
-      h += `<div class="alcols"><div class="alme"><h3>You</h3><label>Name <input id="alName" maxlength="16" value="${(me.name || '').replace(/"/g, '')}"></label>
-        <label>Class <select id="alCls">${Object.keys(CLASSES).map(c => `<option value="${c}"${me.cls === c ? ' selected' : ''}>${CLASSES[c].name}</option>`).join('')}</select></label><small class="alkit">${kitName(me.cls)}</small>
-        <label>Race <select id="alRace">${Object.keys(RACES).filter(r => RACES[r].playable).map(r => `<option value="${r}"${me.race === r ? ' selected' : ''}>${RACES[r].name}</option>`).join('')}</select></label>
-        ${teams ? `<div class="alteams">${teams.map(t => `<button class="seg${me.team === t ? ' on' : ''}" data-team="${t}" style="--tc:${TEAMC[t]}"><i></i>${TEAMN[t]} <small>${teamCount(t)}/${fmt.size}</small></button>`).join('')}</div>` : ''}</div>`;
-      h += `<div class="alplayers"><h3>Players <small>${AN.players.size} of ${cap} · the rest are computer fighters</small></h3>${[...AN.players.entries()].sort((a, b) => a[0] - b[0]).map(([id, p]) => `<div class="alp${id === AN.myId ? ' me' : ''}"><i style="background:${teams ? TEAMC[p.team] : '#d8b04a'}"></i><b>${p.name}${id === 0 ? ' <em>host</em>' : ''}</b><span>${(CLASSES[p.cls] || {}).name || ''} · ${(RACES[p.race] || {}).name || ''}</span></div>`).join('')}</div></div>`;
-      h += `<div class="albtns"><button class="btn" id="alLeave">← Leave</button>${isHost ? `<button class="btn gold big" id="alStart">Start the match →</button>` : '<span class="alwait">Waiting for the host to start…</span>'}</div></div>`;
-      const focus = document.activeElement && document.activeElement.id === 'alName';
-      ov.innerHTML = h;
-      const nameI = $('alName'); nameI.onkeydown = (e) => e.stopPropagation(); nameI.onchange = nameI.oninput = () => upd({ name: nameI.value.trim().slice(0, 16) || 'Fighter' }, false); if (focus) { nameI.focus(); nameI.setSelectionRange(nameI.value.length, nameI.value.length); }
-      $('alCls').onchange = (e) => { try { localStorage.setItem('kr2_mpcls', e.target.value); } catch (er) { /* no storage */ } upd({ cls: e.target.value }); }; $('alRace').onchange = (e) => upd({ race: e.target.value });
-      ov.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { const t = +b.dataset.team; if (teamCount(t) >= fmt.size && me.team !== t) { S.error(); return; } upd({ team: t }); });
-      $('alCopy').onclick = () => { const li = $('alLink'), url = li ? li.value : AN.code; try { navigator.clipboard.writeText(url); } catch (e) { /* no clipboard */ } if (li) li.select(); S.click(); const b = $('alCopy'); if (b) { b.textContent = 'Copied ✓'; setTimeout(() => { if ($('alCopy')) $('alCopy').textContent = 'Copy link'; }, 1600); } };
-      $('alLeave').onclick = () => { location.href = location.pathname; };
-      const st = $('alStart'); if (st) st.onclick = () => { S.click(); start(); };
+      if (!AN.code || !mine()) { if (HS) { HS.destroy(); HS = null; } ov.classList.remove('chsmode');
+        ov.innerHTML = `<div class="arlp"><div class="eyebrow">Kingdom Arena · Online</div>` + (!AN.code ? `<h1>Connecting…</h1><p>${AN.err || 'Reaching the matchmaking service…'}</p>${AN.err ? '<button class="btn" id="alBack">← Back</button>' : ''}</div>` : '<h1>Joining…</h1></div>'); const b = $('alBack'); if (b) b.onclick = () => { location.href = location.pathname; }; return; }
+      if (!HS || barFmt !== setup.fmt) build();
+      paintBar(); HS.update();
     };
-    const upd = (o, rerender = true) => { Object.assign(mine(), o); try { if (o.name) localStorage.setItem(NAME_KEY, o.name); } catch (e) { /* no storage */ } if (AN.host) broadcastPlayers(); else send({ t: 'me', p: mine() }); if (rerender) render(); };
-    const broadcastPlayers = () => send({ t: 'players', list: [...AN.players.entries()], fmt: setup.fmt, objective: setup.objective, ffaN: setup.ffaN, lives: setup.lives });
+    const roster = () => { const out = [...AN.players.entries()].sort((a, b) => a[0] - b[0]).map(([id, p]) => ({ key: 'p' + id, name: p.name, cls: p.cls, team: teams ? p.team : 0, me: id === AN.myId, host: id === 0, locked: !!p.locked }));
+      if (teams) AN.bots.forEach((b, i) => out.push({ key: 'b' + i, name: 'Computer', cls: b.cls, team: b.team, bot: true, locked: true })); return out; };
+    const build = () => {
+      if (HS) HS.destroy(); ov.innerHTML = ''; ov.classList.add('chsmode'); barFmt = setup.fmt;
+      const top = el('div', 'chs-inv', `<span>Invite code</span><b>${AN.code}</b><input id="alLink" readonly value="${location.origin + location.pathname}?mode=arena&amp;join=${AN.code}"><button class="btn gold" id="alCopy">Copy invite link</button>`);
+      top.title = 'Send the link to your friends: opening it puts them straight in this lobby. Or they press Play Online on the title screen and type the code.';
+      const bar = el('div', 'chs-barin', ''); bar.style.cssText = 'display:contents';
+      bar.innerHTML = `<button class="btn" id="alLeave">← Leave</button><label>Name <input id="alName" maxlength="16"></label><label>Race <select id="alRace">${Object.keys(RACES).filter(r => RACES[r].playable).map(r => `<option value="${r}">${RACES[r].name}</option>`).join('')}</select></label>${teams ? `<div class="alteams">${teams.map(t => `<button class="seg" data-team="${t}" style="--tc:${TEAMC[t]}"><i></i>${TEAMN[t]} <small></small></button>`).join('')}</div>` : ''}<span class="sp"></span><span class="alwait" id="alInfo"></span>${AN.host ? '<button class="btn gold big" id="alStart" style="font-size:18px;padding:11px 22px">Start the match →</button>' : ''}`;
+      HS = mountHeroSelect(ov, { eyebrow: 'Kingdom Arena · Online · Champion select', title: 'Choose your champion', sub: `${fmt.name} · ${O[setup.objective].name} · empty places are computer players`, top, bar, initial: pref,
+        teamName: (t) => TEAMN[t] || '', teamCol: (t) => TEAMC[t] || '#e2bd6a',
+        state: () => { const me = mine() || {}; return { teams, myTeam: teams ? me.team : 0, roster: roster(), mine: { cls: me.cls, locked: !!me.locked }, timer: AN.lockEnd ? { t: (AN.lockEnd - Date.now()) / 1000, max: LOCK_S, label: 'Lock in now!' } : { label: AN.host ? 'Start when ready' : 'Waiting for the host' } }; },
+        onPick: (cls) => upd({ cls }), onLock: () => upd({ locked: true }) });
+      const me = mine(), nameI = $('alName'); nameI.value = me.name || ''; nameI.onkeydown = (e) => e.stopPropagation(); nameI.onchange = nameI.oninput = () => { const v = nameI.value.trim().slice(0, 16) || 'Fighter'; const p = Object.assign({}, mine(), { name: v }); try { localStorage.setItem(NAME_KEY, v); } catch (e) { /* no storage */ } if (AN.host) accept(AN.myId, p); else { AN.players.set(AN.myId, p); send({ t: 'me', p }); } HS.update(); };
+      const rs = $('alRace'); rs.value = me.race; rs.onchange = (e) => upd({ race: e.target.value });
+      ov.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { const t = +b.dataset.team, m = mine(); if (m.locked || m.team === t) { S.error(); return; } if (teamCount(t) >= fmt.size) { S.error(); HS.flash('That side is full'); return; } S.click(); upd({ team: t }); });
+      $('alCopy').onclick = () => { const li = $('alLink'), url = li ? li.value : AN.code; try { navigator.clipboard.writeText(url); } catch (e) { /* no clipboard */ } S.click(); const b = $('alCopy'); if (b) { b.textContent = 'Copied ✓'; setTimeout(() => { if ($('alCopy')) $('alCopy').textContent = 'Copy invite link'; }, 1600); } };
+      $('alLeave').onclick = () => { location.href = location.pathname; };
+      const st = $('alStart'); if (st) st.onclick = () => { S.click(); const ppl = [...AN.players.values()]; if (AN.lockEnd || ppl.every(p => p.locked)) start(); else { AN.lockEnd = Date.now() + LOCK_S * 1000; broadcastPlayers(); render(); } };
+    };
+    const paintBar = () => { const me = mine(); ov.querySelectorAll('[data-team]').forEach(b => { const t = +b.dataset.team; b.classList.toggle('on', me.team === t); b.disabled = !!me.locked && me.team !== t; b.querySelector('small').textContent = `${teamCount(t)}/${fmt.size}`; });
+      const ppl = [...AN.players.values()], nL = ppl.filter(p => p.locked).length, info = $('alInfo'); if (info) info.textContent = `${ppl.length} of ${cap} players · ${nL} locked in${AN.host ? '' : ' · the host starts the match'}`;
+      const st = $('alStart'); if (st) st.textContent = AN.lockEnd ? 'Start now →' : nL === ppl.length ? 'Start the match →' : 'Start · 15 s to lock in →'; };
     // the host builds the final fighter list: every player in a place on their side, computer fighters in the rest
-    const start = () => {
+    const start = () => { if (AN.started) return;
+      for (const [id, p] of AN.players) if (!p.cls) p.cls = freeFor(p.team, null, id); refreshBots();
       const slots = []; const people = [...AN.players.entries()].sort((a, b) => a[0] - b[0]);
       if (fmt.ffa) { const n = Math.max(setup.ffaN || 6, people.length); for (let i = 0; i < n; i++) { const pe = people[i]; slots.push(pe ? { owner: pe[0], name: pe[1].name, cls: pe[1].cls, race: pe[1].race, team: i } : { cls: (setup.slots[i] || {}).cls || pick(), race: (setup.slots[i] || {}).race || 'human', team: i }); } }
-      else for (const t of teams) { const mine2 = people.filter(([, p]) => p.team === t); for (let k = 0; k < fmt.size; k++) { const pe = mine2[k]; const def = setup.slots.filter(s => s.team === t)[k] || {}; slots.push(pe ? { owner: pe[0], name: pe[1].name, cls: pe[1].cls, race: pe[1].race, team: t } : { cls: def.cls || pick(), race: def.race || 'human', team: t }); } }
+      else for (const t of teams) { const mine2 = people.filter(([, p]) => p.team === t), bots = botCls[t] || []; let bi = 0; for (let k = 0; k < fmt.size; k++) { const pe = mine2[k]; const def = setup.slots.filter(s => s.team === t)[k] || {}; slots.push(pe ? { owner: pe[0], name: pe[1].name, cls: pe[1].cls, race: pe[1].race, team: t } : { cls: bots[bi++] || def.cls || pick(), race: def.race || 'human', team: t }); } }
       const final = Object.assign({}, setup, { slots, mp: undefined }); send({ t: 'start', setup: final }); go(final);
     };
-    const pick = () => { const k = Object.keys(CLASSES); return k[(Math.random() * k.length) | 0]; };
-    const go = (final) => { AN.started = true; ov.remove(); resolve(final); };
-    net.on('ready', ({ code, id }) => { AN.code = code; AN.myId = id; AN.players.set(id, { name: nm || (AN.host ? 'Host' : 'Fighter ' + id), cls: (setup.slots[0] || {}).cls || 'warrior', race: (setup.slots[0] || {}).race || 'human', team: teams ? (id % teams.length) : 0 }); if (!AN.host) send({ t: 'me', p: AN.players.get(id) }); render(); });
+    const pick = () => { const k = heroClasses(); return k[(Math.random() * k.length) | 0]; };
+    const go = (final) => { AN.started = true; clearInterval(tick); if (HS) HS.destroy(); ov.remove(); resolve(final); };
+    // the host's lock-in countdown: at zero (or once everyone has locked in) the match starts, unpicked players get a free class
+    const tick = setInterval(() => { if (!AN.host || !AN.lockEnd || AN.started) return; if (Date.now() >= AN.lockEnd || [...AN.players.values()].every(p => p.locked)) start(); }, 250);
+    net.on('ready', ({ code, id }) => { AN.code = code; AN.myId = id; const p = { name: nm || (AN.host ? 'Host' : 'Fighter ' + id), cls: null, locked: false, race: (setup.slots[0] || {}).race || 'human', team: teams ? (id % teams.length) : 0 };
+      AN.players.set(id, p); if (AN.host) refreshBots(); else send({ t: 'me', p }); render(); });
     net.on('error', (msg) => { AN.err = msg; render(); });
     net.on('join', () => { if (AN.host) broadcastPlayers(); });
     net.on('leave', (id) => { AN.players.delete(id); if (AN.started) AN.h.left && AN.h.left(id); else { if (AN.host) broadcastPlayers(); render(); } });
     net.on('hostleft', () => { if (AN.h.hostLeft) AN.h.hostLeft(); else { AN.err = 'The host left the game.'; AN.code = ''; render(); } });
     net.on('data', (from, d) => {
       if (!AN.started) {
-        if (d.t === 'me' && AN.host) { const prev = AN.players.get(from); const p = Object.assign({}, d.p); if (teams && !prev && teamCount(p.team) >= fmt.size) p.team = teams.find(t => teamCount(t) < fmt.size) ?? 0; AN.players.set(from, p); broadcastPlayers(); render(); }
-        else if (d.t === 'players' && !AN.host) { const myP = AN.players.get(AN.myId); AN.players = new Map(d.list); if (myP && !AN.players.has(AN.myId)) AN.players.set(AN.myId, myP); Object.assign(setup, { fmt: d.fmt, objective: d.objective, ffaN: d.ffaN, lives: d.lives }); refmt(); render(); }
+        if (d.t === 'me' && AN.host) { accept(from, d.p); render(); }
+        else if (d.t === 'players' && !AN.host) { const myP = AN.players.get(AN.myId); AN.players = new Map(d.list); if (myP && !AN.players.has(AN.myId)) AN.players.set(AN.myId, myP); AN.bots = d.bots || []; AN.lockEnd = d.lockLeft ? Date.now() + d.lockLeft : 0; Object.assign(setup, { fmt: d.fmt, objective: d.objective, ffaN: d.ffaN, lives: d.lives }); refmt(); render(); if (d.deny && d.deny.id === AN.myId && HS) HS.flash(d.deny.msg); }
         else if (d.t === 'start' && !AN.host) go(d.setup);
         return;
       }

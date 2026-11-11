@@ -1632,6 +1632,7 @@ export class Player {
     const anim = (n, d = 0.45) => { if (G.newFx && (n === 'cast' || n === 'castBig')) { n = 'castRel'; d = 0.5; } this.atk = { name: n, t: 0.15, dur: d, hit: true, noQueue: true }; };
     const ally = (at, r, pct, kind, dur) => { if (G.hooks.allyFx) G.hooks.allyFx(at, [r, pct || 0, kind, dur], 1); };
     const aimTarget = (range) => { const r = aimRay(range); if (this.h.arena) return this.aimFoe(range); /* the arena: no auto-aim, only what is under the crosshair */ return r.mob && foe(r.mob) ? r.mob : mobsInCone(this.pos, this.yaw, range, 0.45).sort((x, y) => x.dist2(this.pos) - y.dist2(this.pos))[0]; };
+    if (G.hooks.kb && G.hooks.kb.has(a.t)) return G.hooks.kb.cast(this, a, { P }); // (kitsb.js: the elementalist's, enchanter's, beastmaster's, priest's and bombardier's reworked moves)
     switch (a.t) {
       case 'axethrow': { if (this.axeOut || this.axeThrow) return false; this.axeThrow = { t: 0, dur: 1.0, dmg: base * 1.4 * up, thrown: false }; this.atk = { name: 'axethrow', t: 0, dur: 1.0, hit: true, noQueue: true }; S.heavySwing && S.heavySwing(this.pos); return true; }
       case 'mendbanner': { if (G.hooks.mendBanner) G.hooks.mendBanner(this); anim('cast'); return true; }
@@ -1677,6 +1678,13 @@ export class Player {
         if (!G.hooks.lightSlice) return true; const from = this.pos.clone().setY(this.pos.y + 1.3).addScaledVector(f.clone().setY(0).normalize(), 0.8), dir = this.aimDir(from);
         setTimeout(() => { if (!this.dead) G.hooks.lightSlice(this, this.pos.clone().setY(this.pos.y + 1.3).addScaledVector(dir.clone().setY(0).normalize(), 0.8), dir); }, 180); /* (it leaves the hammer as the swing comes through) */
         this.lungeT = 0.12; this.lungeDir = f.clone(); anim('swing2', 0.5); return true; }
+      case 'soulrend': case 'gravegrasp': case 'shadowchains': case 'thornvolley': case 'roots': case 'smite': { /* (kits5.js: the Shadowknight's Soul Rend, Grasp of the Grave and Shadow Chains, the druid's Thorn Volley and Strangling Roots, the cleric's Holy Smite; the same effects computer fighters get) */
+        const K5 = G.hooks.k5; if (!K5) return true; const left = a.t === 'shadowchains', from = () => left ? this.handPos(true) : (a.t === 'thornvolley' ? this.spellFrom() : this.handPos()), dir = this.aimDir(from());
+        const tg = a.t === 'smite' ? aimTarget(30) : null, at = tg ? tg.pos.clone() : groundPoint(a.t === 'roots' ? 16 : 30);
+        const ctx = { dmg: (a.dmg || 1) * up, slow: a.slow, root: a.root, stun: a.stun, from, dir, at, hit: (u, k, o2) => { const h0 = u.hp; this.dealDamage(u, base * k, hitO(u, o2)); return Math.max(0, h0 - (u.hp || 0)); }, heal: (n) => this.heal(n * this.hk()) };
+        if (a.t !== 'smite' && a.t !== 'roots') { const fw = dir.clone().setY(0); if (fw.lengthSq() > 0.01) this.yaw = Math.atan2(fw.x, fw.z); }
+        ({ soulrend: K5.soulRend, gravegrasp: K5.graveGrasp, shadowchains: K5.shadowChains, thornvolley: K5.thornVolley, roots: K5.strangleRoots, smite: K5.holySmite })[a.t](this, ctx);
+        if (a.t === 'soulrend') { this.lungeT = 0.16; this.lungeDir = f.clone(); anim('swing1', 0.7); } else if (a.t === 'gravegrasp') anim('smash', 0.6); else anim('cast', 0.42); return true; }
       case 'chainbolt': { /* (the owner: the shaman's Chain Lightning: a bolt at the enemy you aim at, leaping on to two more nearby) */
         const from = this.handPos(), first = aimTarget(30); const hit = []; let cur = first, src = from.clone(), k = 1;
         while (cur && hit.length < 3) { hit.push(cur); const to = cur.pos.clone().setY(cur.pos.y + (cur.height || 1.6) * 0.6); lightning(src, to, '#cfe8ff'); lightning(src, to, '#9ad0ff'); V.burst('spark', to, 14, { speed: 5 }); V.light(to, '#bfe0ff', 4, 0.2, 10);
@@ -2447,7 +2455,8 @@ export class Player {
       const L = this.leap; L.t += dt / L.dur; const k = Math.min(1, L.t);
       this.pos.x = lerp(L.from.x, L.to.x, k); this.pos.z = lerp(L.from.z, L.to.z, k);
       this.pos.y = lerp(L.from.y, L.to.y, k) + Math.sin(k * Math.PI) * (L.hgt || 5);
-      if (k >= 1) {
+      if (k >= 1 && L.onLand) { this.leap = null; this.vel.set(0, 0, 0); this.onGround = true; L.onLand(); } /* (a leap with its own landing: the beastmaster's Pounce) */
+      else if (k >= 1) {
         this.leap = null; const p = this.pos.clone(); p.y = heightAt(p.x, p.z);
         for (const m of mobsInRadius(p, L.r || 7)) this.dealDamage(m, L.dmg, { stun: 2, knock: m.pos.clone().sub(p).setY(0).normalize().multiplyScalar(8), big: true, melee: true });
         V.ring(p, 7, '#ffd090', 0.5); V.ring(p, 4.5, '#ff8040', 0.4); V.burst('stone', p, 110, { speed: 13, size: 0.45, grav: 16, life: 1.5 }); V.burst('dust', p, 80, { speed: 8, size: 1.7, life: 1.9, radius: 3.5 }); V.burst('spark', p.clone().setY(p.y + 0.4), 40, { speed: 10, size: 0.16 }); V.burst('dust', p.clone().setY(p.y + 0.2), 30, { speed: 3, size: 2.2, life: 2.4, vy: 5 }); /* (the owner: a far heavier landing: more rock and dust, sparks, a column of dust thrown up) */

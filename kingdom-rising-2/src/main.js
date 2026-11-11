@@ -382,7 +382,7 @@ async function startArena() {
   startGame(Arena.playerHero());
   G.player.camDistT = G.player.camDist = 3.2; G.vmFov = 80; // third person, behind the hero (the owner dropped the first-person view)
   G.hooks.allyFx = Arena.allyFx;
-  setTimeout(() => { try { if (Arena.isQuick() && !UI.UI.open) Arena.openClassPicker(UI); } catch (e) { /* not ready */ } }, 900); /* (quick play: pick your class during the countdown) */
+  setTimeout(() => { try { if (Arena.isQuick() && !UI.UI.open && !/[?&](host|join)=/.test(location.search)) Arena.openClassPicker(UI); } catch (e) { /* not ready */ } }, 900); /* (quick play: pick your class during the countdown) */
   Arena.initArena({ perks: () => Arena.openPerks(UI), openBook: () => { if (!G.uiOpen) BUI.openBook('abil'); }, closeBook: () => { if (G.uiOpen) UI.closeWin(); }, banner: (a, b) => UI.banner(a, b, 3500),
     revived: () => { $('death').hidden = true; if (!G.uiOpen) lockPointer(); S.heal(); }, swapHero: (h) => { const dead = G.player && G.player.dead, cd = G.player ? G.player.camDistT : 3; startGame(h); G.player.camDistT = G.player.camDist = cd; G.hooks.allyFx = Arena.allyFx; if (dead) { G.player.dead = true; G.player.deadT = 2; } }, rebuildBar: () => UI.buildAbilityBar(), toast: (t, i, k) => UI.toast(t, i, k), playerDown: () => {}, over: () => {} });
 }

@@ -280,3 +280,8 @@ FX.ar_wraps = (u, a) => { u.wrapT = 0.5; const ch = u === G.player ? u.ch : u.mo
   G.timers.push({ update: (dt) => { t += dt; const wind = Math.min(1, t / 0.6), un = t > 4.6 ? Math.max(0, 1 - (t - 4.6) / 0.4) : 1; for (const m of strips) m.geometry.setDrawRange(0, Math.floor(m.userData.full * wind * un / 3) * 3);
     if (t < 0.6 && Math.random() < 0.6) { const s2 = strips[(Math.random() * strips.length) | 0]; if (s2) { const p = new THREE.Vector3(); s2.getWorldPosition(p); V.emit('cotton', p, { speed: 0.6, size: 0.12, life: 0.4 }); } }
     if (t > 5 || u.dead) { for (const m of strips) { m.parent && m.parent.remove(m); m.geometry.dispose(); m.material.dispose(); } return true; } return false; } }); };
+// (kits5.js) Healing Wave: water geysers burst up under the shaman and every ally it heals; Hundred Fists: phantom chi fists and a
+// palm of light; Holy Smite's falling sword of light is drawn by the rule itself, so its old pillar look is retired
+FX.sh_wave = (u, a) => { if (G.hooks.k5) G.hooks.k5.healGeysers(u, (a && a.r) || 12); };
+FX.hundredfists = (u) => { if (G.hooks.k5) G.hooks.k5.chiFlurry(u, 0.6); };
+delete FX.holysmite;

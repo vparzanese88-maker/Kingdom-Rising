@@ -408,6 +408,33 @@ export const S = {
   bombBounce(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); tone(t, 0.12, o.node, { type: 'triangle', f: 340 + Math.random() * 80, f2: 180, gain: 0.16 * Math.min(1, k) }); noise(t, 0.05, o.node, { type: 'bandpass', f: 1900, q: 2, gain: 0.14 * Math.min(1, k) }); },
   bombStick(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.1), t = now(); noise(t, 0.14, o.node, { type: 'lowpass', f: 900, f2: 260, q: 4, gain: 0.35 }); tone(t, 0.1, o.node, { type: 'sine', f: 220, f2: 90, gain: 0.18 }); },
   detonator() { if (!ctx) return; const o = out(null, sfxBus, 0), t = now(); noise(t, 0.04, o.node, { type: 'highpass', f: 2500, gain: 0.25, a: 0.001 }); tone(t + 0.03, 0.08, o.node, { type: 'square', f: 140, f2: 70, gain: 0.12 }); },
+  // the five reworked kits (kitsb.js): every move its own synthesized sound. k: loudness
+  kb(name, pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.25), t = now(), d = o.node, R = Math.random;
+    const N = (at, dur, opt) => noise(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.5) * k })), T = (at, dur, opt) => tone(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.3) * k }));
+    switch (name) {
+      case 'flamewave': N(0, 1.0, { type: 'lowpass', f: 1100, f2: 160, q: 0.8, gain: 0.85, a: 0.03 }); T(0, 0.8, { type: 'sine', f: 75, f2: 34, gain: 0.6, a: 0.02 }); N(0.05, 1.2, { type: 'bandpass', f: 500, f2: 260, q: 0.9, gain: 0.35, a: 0.15 }); for (let i = 0; i < 14; i++) N(0.1 + R() * 1.1, 0.02, { type: 'highpass', f: 2500 + R() * 3500, gain: 0.25 }); break;
+      case 'thunder': N(0, 0.05, { type: 'highpass', f: 2600, gain: 1.1, a: 0.001 }); N(0, 0.16, { type: 'bandpass', f: 1800, q: 0.7, gain: 0.8, a: 0.001 }); T(0, 0.14, { type: 'square', f: 160, f2: 45, gain: 0.12 }); N(0.07, 1.3, { type: 'lowpass', f: 360, f2: 50, q: 0.7, gain: 0.75, a: 0.05 }); T(0.05, 0.9, { type: 'sine', f: 62, f2: 30, gain: 0.5 }); for (let i = 0; i < 5; i++) N(0.02 + R() * 0.25, 0.03, { type: 'highpass', f: 4000, gain: 0.35 }); break;
+      case 'zapsmall': N(0, 0.04, { type: 'highpass', f: 3000, gain: 0.5, a: 0.001 }); N(0, 0.1, { type: 'bandpass', f: 1500, q: 1, gain: 0.3 }); break;
+      case 'iceform': N(0, 0.5, { type: 'bandpass', f: 2600, f2: 5200, q: 6, gain: 0.35, a: 0.02 }); N(0, 0.35, { type: 'lowpass', f: 1400, f2: 300, gain: 0.5 }); for (let i = 0; i < 9; i++) T(R() * 0.35, 0.18 + R() * 0.3, { type: 'sine', f: 2200 + R() * 4200, gain: 0.05 }); for (let i = 0; i < 7; i++) N(R() * 0.4, 0.025, { type: 'bandpass', f: 3500 + R() * 3000, q: 5, gain: 0.35 }); break;
+      case 'shatter': N(0, 0.35, { type: 'highpass', f: 3200, f2: 1800, gain: 0.55, a: 0.001 }); N(0, 0.12, { type: 'bandpass', f: 1200, q: 1, gain: 0.4 }); for (let i = 0; i < 14; i++) T(R() * 0.3, 0.12 + R() * 0.35, { type: 'sine', f: 3000 + R() * 5500, gain: 0.05 }); break;
+      case 'icewall': N(0, 0.7, { type: 'lowpass', f: 900, f2: 120, q: 0.8, gain: 0.8, a: 0.01 }); T(0, 0.6, { type: 'sine', f: 70, f2: 38, gain: 0.55 }); for (let i = 0; i < 10; i++) N(0.05 + R() * 0.5, 0.05, { type: 'bandpass', f: 1500 + R() * 2500, q: 4, gain: 0.3 }); for (let i = 0; i < 6; i++) T(0.1 + R() * 0.4, 0.4, { type: 'sine', f: 2500 + R() * 3000, gain: 0.04 }); break;
+      case 'glass': N(0, 0.35, { type: 'bandpass', f: 2600, f2: 7000, q: 2.5, gain: 0.4, a: 0.05 }); for (let i = 0; i < 4; i++) T(i * 0.04, 0.4, { type: 'sine', f: 1800 + i * 640, f2: 2600 + i * 700, gain: 0.05 }); break;
+      case 'lock': T(0, 0.09, { type: 'triangle', f: 980, f2: 700, gain: 0.25 }); N(0, 0.03, { type: 'highpass', f: 3000, gain: 0.5, a: 0.001 }); T(0.13, 0.22, { type: 'triangle', f: 640, f2: 420, gain: 0.3 }); N(0.13, 0.05, { type: 'bandpass', f: 2200, q: 3, gain: 0.6, a: 0.001 }); T(0.13, 0.5, { type: 'sine', f: 1960, gain: 0.04 }); T(0, 0.6, { type: 'sine', f: 220, f2: 110, gain: 0.12, a: 0.05 }); break;
+      case 'tick': for (let i = 0; i < 6; i++) { N(i * 0.5, 0.02, { type: 'bandpass', f: i % 2 ? 2300 : 3400, q: 8, gain: 0.55, a: 0.001 }); T(i * 0.5, 0.06, { type: 'sine', f: i % 2 ? 1400 : 2100, gain: 0.06 }); } T(0, 2.8, { type: 'sine', f: 330, f2: 300, gain: 0.04, a: 0.6 }); T(0, 2.8, { type: 'sine', f: 495, f2: 450, gain: 0.03, a: 0.8 }); break;
+      case 'vanish': N(0, 0.6, { type: 'bandpass', f: 7000, f2: 1200, q: 2, gain: 0.35, a: 0.01 }); for (let i = 0; i < 6; i++) T(i * 0.05, 0.35, { type: 'sine', f: 3200 - i * 380, gain: 0.05 }); T(0, 0.5, { type: 'sine', f: 420, f2: 140, gain: 0.12 }); break;
+      case 'rake': for (let i = 0; i < 3; i++) { N(i * 0.055, 0.1, { type: 'bandpass', f: 3200 - i * 300, f2: 700, q: 1.6, gain: 0.55, a: 0.004 }); } N(0.06, 0.22, { type: 'lowpass', f: 800, f2: 180, gain: 0.45 }); T(0, 0.3, { type: 'sawtooth', f: 120, f2: 80, gain: 0.06, a: 0.03 }); break;
+      case 'roar': [1, 1.49, 2.03, 2.6].forEach((m, i) => T(0, 1.5, { type: 'sawtooth', f: 96 * m, f2: 64 * m, gain: 0.1 - i * 0.015, a: 0.06 })); N(0, 1.4, { type: 'bandpass', f: 800, f2: 350, q: 0.9, gain: 0.5, a: 0.06 }); N(0, 1.0, { type: 'lowpass', f: 260, f2: 60, gain: 0.6, a: 0.04 }); T(0, 0.9, { type: 'sine', f: 55, f2: 32, gain: 0.45 }); break;
+      case 'land': N(0, 0.5, { type: 'lowpass', f: 700, f2: 90, gain: 0.95, a: 0.002 }); T(0, 0.45, { type: 'sine', f: 90, f2: 30, gain: 0.8 }); for (let i = 0; i < 8; i++) N(0.04 + R() * 0.3, 0.04, { type: 'bandpass', f: 900 + R() * 1500, q: 3, gain: 0.3 }); break;
+      case 'quills': for (let i = 0; i < 10; i++) N(i * 0.03 + R() * 0.02, 0.05, { type: 'bandpass', f: 1800 + R() * 1800, q: 4, gain: 0.35, a: 0.002 }); T(0, 0.9, { type: 'sawtooth', f: 70, f2: 58, gain: 0.08, a: 0.1 }); N(0, 0.9, { type: 'lowpass', f: 400, f2: 200, gain: 0.3, a: 0.1 }); break;
+      case 'halo': T(0, 0.9, { type: 'sine', f: 880, f2: 990, gain: 0.07, a: 0.05 }); T(0, 0.9, { type: 'sine', f: 1320, f2: 1480, gain: 0.05, a: 0.05 }); N(0, 0.5, { type: 'bandpass', f: 1500, f2: 4000, q: 3, gain: 0.3, a: 0.04 }); break;
+      case 'chime': [1047, 1319, 1568, 2093].forEach((f, i) => T(i * 0.045, 0.7, { type: 'sine', f, gain: 0.06, a: 0.004 })); break;
+      case 'word': [392, 494, 587, 784, 988].forEach((f, i) => { T(0.02 * i, 1.4, { type: 'sine', f, gain: 0.05, a: 0.18 }); T(0.02 * i, 1.4, { type: 'triangle', f: f * 1.003, gain: 0.025, a: 0.2 }); }); N(0, 0.9, { type: 'bandpass', f: 3000, f2: 6000, q: 2, gain: 0.2, a: 0.1 }); T(0, 0.25, { type: 'sine', f: 196, f2: 98, gain: 0.25 }); break;
+      case 'chains': for (let i = 0; i < 9; i++) { const at = 0.03 + R() * 0.45; T(at, 0.18, { type: 'triangle', f: 700 + R() * 900, f2: 500, gain: 0.12 }); N(at, 0.03, { type: 'bandpass', f: 2500 + R() * 2000, q: 5, gain: 0.35, a: 0.001 }); } N(0, 0.3, { type: 'lowpass', f: 800, f2: 200, gain: 0.5 }); T(0.45, 0.4, { type: 'sine', f: 1568, gain: 0.05 }); break;
+      case 'tarthrow': N(0, 0.25, { type: 'bandpass', f: 400, f2: 900, q: 1.2, gain: 0.35, a: 0.03 }); break;
+      case 'tarsplat': N(0, 0.3, { type: 'lowpass', f: 650, f2: 140, q: 3, gain: 0.9, a: 0.003 }); T(0, 0.22, { type: 'sine', f: 170, f2: 55, gain: 0.55 }); for (let i = 0; i < 8; i++) { const at = 0.2 + R() * 1.0; T(at, 0.07, { type: 'sine', f: 180 + R() * 120, f2: 420 + R() * 300, gain: 0.12 }); } break;
+      case 'bubble': T(0, 0.07, { type: 'sine', f: 160 + R() * 100, f2: 380 + R() * 260, gain: 0.08 }); break;
+      case 'ignite': N(0, 1.1, { type: 'lowpass', f: 1600, f2: 200, q: 0.7, gain: 0.95, a: 0.02 }); T(0, 0.7, { type: 'sine', f: 85, f2: 32, gain: 0.7 }); N(0.1, 2.0, { type: 'bandpass', f: 600, f2: 350, q: 0.8, gain: 0.35, a: 0.3 }); for (let i = 0; i < 20; i++) N(0.1 + R() * 2, 0.02, { type: 'highpass', f: 2500 + R() * 3000, gain: 0.3 }); break;
+    } },
   // the Necromancer's scythe: a long, deep reaping whoosh with a thin ring of the blade; a wet, heavy slice when it bites
   reap(pos, size = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.15), t = now();
     noise(t, 0.42 * size, o.node, { type: 'bandpass', f: 380, f2: 1500, q: 1.4, gain: 0.5 * size, a: 0.16 }); noise(t + 0.08, 0.3, o.node, { type: 'highpass', f: 2600, f2: 5200, gain: 0.12, a: 0.12 });
@@ -415,6 +442,9 @@ export const S = {
   reapHit(pos, n = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(), b = Math.min(1.6, 0.8 + n * 0.25);
     noise(t, 0.16, o.node, { type: 'bandpass', f: 2400, f2: 700, q: 1.5, gain: 0.45 * b, a: 0.004 }); noise(t + 0.02, 0.22, o.node, { type: 'lowpass', f: 900, f2: 200, gain: 0.5 * b }); tone(t, 0.2, o.node, { type: 'sine', f: 160, f2: 55, gain: 0.35 * b }); },
   whistle(pos, dur = 1.2) { if (!ctx) return; const o = out(pos, sfxBus, 0.2); tone(now(), dur, o.node, { type: 'sine', f: 1400, f2: 300, gain: 0.08, a: 0.2 }); noise(now(), dur, o.node, { type: 'bandpass', f: 600, f2: 200, q: 2, gain: 0.25, a: 0.3 }); },
+  // the Payload cart: a wooden creak and iron grind from its axles; a brass fanfare at a checkpoint (falling, for the side that lost it)
+  cartCreak(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.15), t = now(); noise(t, 0.42, o.node, { type: 'bandpass', f: 700 + Math.random() * 500, f2: 380, q: 11, gain: 0.3 * k, a: 0.05 }); tone(t + 0.03, 0.34, o.node, { type: 'sawtooth', f: 150 + Math.random() * 50, f2: 105, gain: 0.025 * k, a: 0.06 }); noise(t, 0.3, o.node, { type: 'lowpass', f: 240, gain: 0.3 * k, a: 0.02 }); },
+  fanfare(good = true) { if (!ctx) return; const o = out(null, sfxBus, 0.5), t = now(), n = good ? [392, 523, 659, 784] : [523, 494, 415, 330]; n.forEach((f, i) => { const d = i === 3 ? 1.3 : 0.24; tone(t + i * 0.15, d, o.node, { type: 'sawtooth', f, gain: 0.05, a: 0.02 }); tone(t + i * 0.15, d, o.node, { type: 'triangle', f: f * 2, gain: 0.05, a: 0.01 }); }); for (let i = 0; i < 4; i++) tone(t + i * 0.15, 0.3, o.node, { type: 'sine', f: 75, f2: 40, gain: 0.35, a: 0.004 }); },
   rumble(pos, dur = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.4); noise(now(), dur, o.node, { type: 'lowpass', f: 200, f2: 60, gain: 0.7, a: 0.05 }); tone(now(), dur, o.node, { type: 'sine', f: 55, f2: 35, gain: 0.5 }); },
   roar(pos) {
     if (!ctx) return; const o = out(pos, sfxBus, 0.4); const t = now();
@@ -851,3 +881,44 @@ export function crowdBed(level) {
   }
   crowd.g.gain.setTargetAtTime(level, ctx.currentTime, 0.3);
 }
+// ---- class kit sounds (Shadow Knight, monk, druid, shaman, cleric): each ability its own voice ----
+Object.assign(S, {
+  // Shadow Chains: a whirr of iron links paying out, then a heavy clank as the hook bites
+  chainThrow(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.25), t = now();
+    for (let i = 0; i < 9; i++) { const tt = t + i * 0.028; noise(tt, 0.05, o.node, { type: 'bandpass', f: 3200 + Math.random() * 2400, q: 6, gain: 0.32 - i * 0.025, a: 0.001 }); tone(tt, 0.06, o.node, { type: 'triangle', f: 2100 + Math.random() * 900, gain: 0.05 }); }
+    noise(t, 0.3, o.node, { type: 'bandpass', f: 500, f2: 1800, q: 1.2, gain: 0.25, a: 0.02 }); },
+  chainLatch(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.3), t = now();
+    tone(t, 0.25, o.node, { type: 'square', f: 180, f2: 70, gain: 0.12, a: 0.001 }); noise(t, 0.12, o.node, { type: 'bandpass', f: 2600, q: 4, gain: 0.6, a: 0.001 });
+    [1450, 1980, 2630].forEach((f, i) => tone(t + 0.01 + i * 0.012, 0.35, o.node, { type: 'triangle', f, gain: 0.06, a: 0.001 })); tone(t, 0.6, o.node, { type: 'sawtooth', f: 62, f2: 48, gain: 0.08, a: 0.01 }); },
+  chainSnap(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); noise(t, 0.08, o.node, { type: 'highpass', f: 3000, gain: 0.5, a: 0.001 }); for (let i = 0; i < 5; i++) tone(t + i * 0.04, 0.08, o.node, { type: 'triangle', f: 2400 - i * 220, gain: 0.05 }); },
+  // Soul Rend: a deep rip of shadow and a ghostly wail drawn out of the victim
+  soulRip(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.35), t = now();
+    noise(t, 0.35, o.node, { type: 'bandpass', f: 300, f2: 1600, q: 0.9, gain: 0.55, a: 0.005 }); tone(t, 0.45, o.node, { type: 'sawtooth', f: 90, f2: 40, gain: 0.16, a: 0.003 });
+    const w = tone(t + 0.08, 0.9, o.node, { type: 'sine', f: 520, f2: 260, gain: 0.09, a: 0.08 }); if (w && w.o) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 7; lg.gain.value = 22; l.connect(lg); lg.connect(w.o.frequency); l.start(t); l.stop(t + 1.1); }
+    tone(t + 0.1, 0.8, o.node, { type: 'sine', f: 780, f2: 330, gain: 0.05, a: 0.1, detune: 14 }); },
+  // Grasp of the Grave: the ground cracks, then bone knuckles clatter up out of it
+  graveCrack(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.25), t = now();
+    tone(t, 0.5, o.node, { type: 'sine', f: 70, f2: 28, gain: 0.7, a: 0.002 }); noise(t, 0.4, o.node, { type: 'lowpass', f: 1400, f2: 160, gain: 0.6, a: 0.002 });
+    for (let i = 0; i < 6; i++) noise(t + 0.12 + i * 0.05, 0.04, o.node, { type: 'bandpass', f: 1800 + Math.random() * 1400, q: 5, gain: 0.3, a: 0.001 }); },
+  boneClack(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); for (let i = 0; i < 3; i++) { noise(t + i * 0.035, 0.035, o.node, { type: 'bandpass', f: 2200 + Math.random() * 1500, q: 7, gain: 0.35 * k, a: 0.001 }); tone(t + i * 0.035, 0.05, o.node, { type: 'triangle', f: 900 + Math.random() * 500, gain: 0.05 * k }); } },
+  // the monk's chi: a rising hum and a clap of air on the palm strike
+  chiPalm(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.35), t = now();
+    noise(t, 0.18, o.node, { type: 'lowpass', f: 2400, f2: 300, gain: 0.8, a: 0.001 }); tone(t, 0.4, o.node, { type: 'sine', f: 140, f2: 45, gain: 0.6, a: 0.002 });
+    [660, 990, 1320].forEach((f, i) => tone(t + 0.02, 0.9, o.node, { type: 'sine', f, gain: 0.06 / (i + 1), a: 0.01 })); },
+  chiHum(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.4), t = now(); tone(t, 0.5, o.node, { type: 'sine', f: 220, f2: 440, gain: 0.08, a: 0.1 }); tone(t, 0.5, o.node, { type: 'sine', f: 331, f2: 662, gain: 0.05, a: 0.1 }); noise(t, 0.4, o.node, { type: 'bandpass', f: 600, f2: 2400, q: 2, gain: 0.12, a: 0.1 }); },
+  // Thorn Volley: a whip of wood and a fan of thwips; thorns thunk home
+  thornVolley(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); noise(t, 0.12, o.node, { type: 'bandpass', f: 900, f2: 2600, q: 2, gain: 0.5, a: 0.002 });
+    for (let i = 0; i < 5; i++) { noise(t + 0.02 + i * 0.03, 0.09, o.node, { type: 'bandpass', f: 3000 - i * 250, f2: 1200, q: 3, gain: 0.25, a: 0.002 }); } tone(t, 0.12, o.node, { type: 'triangle', f: 320, f2: 140, gain: 0.12 }); },
+  thornThunk(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.15), t = now(); tone(t, 0.09, o.node, { type: 'triangle', f: 420, f2: 160, gain: 0.25, a: 0.001 }); noise(t, 0.05, o.node, { type: 'bandpass', f: 1600, q: 2, gain: 0.3, a: 0.001 }); },
+  // Strangling Roots: earth tearing as the root burrows, then wood creaking tight
+  rootBurrow(pos, dur = 0.6) { if (!ctx) return; const o = out(pos, sfxBus, 0.2), t = now(); noise(t, dur, o.node, { type: 'lowpass', f: 380, f2: 900, q: 1.5, gain: 0.5, a: 0.03 }); for (let i = 0; i < 8; i++) noise(t + i * dur / 8, 0.05, o.node, { type: 'bandpass', f: 700 + Math.random() * 600, q: 3, gain: 0.2, a: 0.002 }); },
+  rootSnare(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.25), t = now(); tone(t, 0.3, o.node, { type: 'sine', f: 90, f2: 40, gain: 0.5, a: 0.002 }); noise(t, 0.2, o.node, { type: 'lowpass', f: 1200, f2: 200, gain: 0.5, a: 0.002 });
+    for (let i = 0; i < 4; i++) { const c = tone(t + 0.1 + i * 0.09, 0.14, o.node, { type: 'sawtooth', f: 160 + i * 30, f2: 120 + i * 40, gain: 0.07, a: 0.01 }); } },
+  // Healing Wave: water bursting up out of the ground under each ally
+  geyser(pos, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, 0.3), t = now(); noise(t, 0.7 * k, o.node, { type: 'bandpass', f: 500, f2: 2600, q: 0.7, gain: 0.5 * k, a: 0.01 }); noise(t + 0.15, 0.6, o.node, { type: 'highpass', f: 3500, gain: 0.15 * k, a: 0.05 }); tone(t, 0.3, o.node, { type: 'sine', f: 120, f2: 60, gain: 0.25 * k, a: 0.003 });
+    for (let i = 0; i < 5; i++) tone(t + 0.25 + i * 0.07, 0.08, o.node, { type: 'sine', f: 900 + Math.random() * 900, f2: 1800, gain: 0.04 * k }); },
+  // Holy Smite: a rising choir note, then the blade of light slams down
+  smiteFall(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.4), t = now(); [523, 659, 784, 1047].forEach((f, i) => tone(t, 0.45, o.node, { type: 'sine', f, f2: f * 1.5, gain: 0.05, a: 0.05 })); noise(t, 0.4, o.node, { type: 'bandpass', f: 1500, f2: 5000, q: 1.5, gain: 0.2, a: 0.1 }); },
+  smiteHit(pos) { if (!ctx) return; const o = out(pos, sfxBus, 0.45), t = now(); tone(t, 0.5, o.node, { type: 'sine', f: 95, f2: 34, gain: 0.8, a: 0.002 }); noise(t, 0.3, o.node, { type: 'lowpass', f: 3000, f2: 300, gain: 0.7, a: 0.001 });
+    [1047, 1319, 1568, 2093].forEach((f, i) => tone(t + 0.01, 1.4, o.node, { type: 'sine', f, gain: 0.07 / (1 + i * 0.5), a: 0.003 })); },
+});

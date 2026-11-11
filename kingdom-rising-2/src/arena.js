@@ -18,9 +18,12 @@ import * as Icons from './icons.js';
 import { glyphBadge } from './icons2.js';
 import { classPortrait } from './portraits.js';
 import { RUINS, updateRuins } from './ruinsmap.js';
+import { PL, PAY, buildPayload, payloadReset, payloadTick, payloadView, payloadNet, payloadApply, payloadHud, payloadCheckpointFx, cartXZ, trackAt } from './payload.js'; // (Payload: the Reliquary Cart)
+import { buildHillRing, paintHillRing } from './hillring.js'; // (King of the Hill: the boundary of light)
 import { KIT } from './kitinfo.js';
 import { collide as worldCollide, groundAt as worldGround, solidAt, lineClear, world } from './world.js';
 import { abilityFx, bodyPoseTick, healBeam, boltFx, makeTotem } from './abilityfx.js';
+import { K5 } from './kits5.js';
 import { noteTexture, makeArrow, makeLightSword, makeGlyph, makeWings, makeDemon, makeHellRing, luteToChest, playNotes, notesTick, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick } from './arenalooks.js';
 import { loadDemonModel, poseDemonModel, fixNormals } from './heromodels.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -28,7 +31,9 @@ import { AR, COLORS, COLOR_NAMES, updateColosseum, cheer, ROOM, PILLARS } from '
 import { ARENA_KEY } from './battlemap.js';
 import { loadBuild, saveBuild } from './builds.js';
 import { AN, send as nsend, lobby as netLobby, RemoteFighter, BotProxy, teamRim } from './arenanet.js';
+import { mountHeroSelect } from './heroselect.js';
 import { NX, SIPHON, REAP, siphonKey, botSiphon, siphonOn, siphNet } from './necro.js';
+import { KB, KB_AB, igniteTar } from './kitsb.js';
 import { BOMB, BX, throwBomb, throwSticky, stickyCharges, detonate, plantBomb, bombNet, lobVel, liveBombs, nearestDanger, bombsNear } from './bomber.js';
 const AUTH = () => !AN.on || AN.host; // the host (or a single player) runs the match
 const BUILDS = 'kr2_arena_builds';
@@ -40,6 +45,7 @@ export const OBJECTIVES = {
   dm: { name: 'Deathmatch', icon: '💀', desc: 'Score kills. The first fighter or team to reach the kill target wins.', lives: 'respawn' },
   ctf: { name: 'Capture the Flag', icon: '🚩', desc: 'Steal the enemy banner from their gate and carry it to yours while your own is safe. First to 3 captures.', lives: 'respawn', teams: true },
   koth: { name: 'King of the Hill', icon: '👑', desc: 'Hold the golden ring in the centre. Only your side standing in it scores. First to 100 points.', lives: 'respawn' },
+  payload: { name: 'Payload', icon: '⛓', desc: 'Like Paladins: the south side escorts the Reliquary Cart along the rails to the shrine by the north base, the north side stops it. Stand by the cart to push it; checkpoints add time. Two teams.', lives: 'respawn', teams: true },
 };
 export const FORMATS = {
   duel: { name: 'Duel', desc: 'One against one', teams: 2, size: 1 },
@@ -52,12 +58,12 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 // (a main attack, a control or mobility move, and a heal or defence), and so do the computer fighters
 // every class: F a heal, C a pet (pet classes) or a big hit, Q a snare, root, fear or mesmerize
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
-  warrior: ['ar_flameblade', 'ar_mendbanner', 'ar_charge'], berserker: ['earthsplitter', 'ar_legsweep', 'ar_battleshout'], /* (the owner: Leap Strike on F, a leg sweep on C, a battle shout on Q) */ paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['lifetap', 'gravewall', 'deathgrip'],
+  warrior: ['ar_flameblade', 'ar_mendbanner', 'ar_charge'], berserker: ['earthsplitter', 'ar_legsweep', 'ar_battleshout'], /* (the owner: Leap Strike on F, a leg sweep on C, a battle shout on Q) */ paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['ar_soulrend', 'gravewall', 'ar_gravegrasp'], /* (Soul Rend on F, Bone Guard on C, Grasp of the Grave on Q; right click Shadow Chains) */
   cleric: ['radiantheal', 'ar_purify', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
-  bard: ['ar_warsong', 'ar_anthem', 'ar_ballad'], druid: ['regrowth', 'ar_thorns', 'entangle'], shaman: ['sh_wave', 'ar_chainbolt', 'sh_hex'],
+  bard: ['ar_warsong', 'ar_anthem', 'ar_ballad'], druid: ['regrowth', 'ar_thorns', 'ar_roots'], shaman: ['sh_wave', 'ar_chainbolt', 'sh_hex'],
   ranger: ['ar_firearrow', 'focus', 'ar_bola'], /* (the owner: F a huge fire arrow that hurls him back and stuns, C Hunter's Focus, Q a double-arrow bola that slows and heals him) */ musketeer: ['ar_powerload', 'ar_beartrap', 'ar_buckwide'], blunderbuss: ['ar_heavyblast', 'buckshot', 'powdercharge'], wizard: ['ar_missiles', 'blink', 'ar_arcshield'], /* (the owner: F Magic Missiles, C Blink, Q Temporal Bolt; Disintegrate left the kit) */
-  rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_bonespikes', 'ar_boneprison'], elementalist: ['lightninglash', 'ar_flamewave', 'frostbind'], enchanter: ['mindrot', 'ar_mindlock', 'mesmerize'], beastmaster: ['packfrenzy', 'ar_pounce', 'feralroar'],
-  priest: ['pr_halo', 'pr_word', 'pr_chains'], bombardier: ['bo_rocket', 'bo_smoke', 'bo_stickies'], /* (Q sticky bombs; right click the detonator; the old Cluster and Sticky Bomb are retired) */
+  rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_bonespikes', 'ar_boneprison'], elementalist: ['el_flamewave', 'el_lash', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], /* (kitsb.js: the reworked kits) */
+  priest: ['pr_sunhalo', 'pr_word2', 'pr_chains2'], bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'], /* (kitsb.js: the priest's three heals (right click Flash of Dawn, F Halo of Dawn, C Word of Shielding) and Chains of Light; the bombardier's Tar Bomb replaces the smoke bomb) */ /* (Q sticky bombs; right click the detonator; the old Cluster and Sticky Bomb are retired) */
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', blunderbuss: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer', priest: 'Healer' }; // everyone else: Damage
 // the ultimate on R: charges over time and faster as you deal damage or heal; one big ability per class
@@ -144,7 +150,7 @@ function perkTick(dt) { A.perkClock = (A.perkClock || 0) + dt; if (A.perkClock <
   if (A.me) { S.click(); A.hooks.toast && A.hooks.toast(`Perk point earned · ${perkLeft(A.me)} to spend (P)`, '◆', 'gold'); } }
 // right click: a defensive move (a shield blocks instead); the bow and the guns aim down the barrel
 export const ARENA_RMB = { warrior: 'ar_shbash', berserker: 'ar_axethrow', ranger: 'aim', musketeer: 'aim', blunderbuss: 'ar_buttsmack', shaman: 'ar_totem', wizard: 'phaseshift', cleric: 'ar_mendC', paladin: 'ar_lightslice',
-  /* darkknight: blocks (Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'ar_iceshell', enchanter: 'runeshield', beastmaster: 'naturesembrace', priest: 'ar_mendP', bombardier: 'bo_detonate' };
+  darkknight: 'ar_shadowchains', /* (the owner: Shadow Chains on his right click; Bone Guard is on C) */ druid: 'ar_mendD', monk: 'ar_wraps', bard: 'ar_mendB', rogue: 'ar_shadowstep', necromancer: 'bonearmor', elementalist: 'el_icewall', enchanter: 'en_decoy', beastmaster: 'bm_hide', priest: 'ar_mendP', bombardier: 'bo_detonate' };
 export const rmbOf = (cls) => { kitRules(); const id = ARENA_RMB[cls]; return id === 'aim' || (ABILITIES[cls] || []).some(a => a.id === id) ? id : null; };
 export const kitOf = (cls) => (kitRules(), ARENA_KITS[cls] || []).filter(id => (ABILITIES[cls] || []).some(a => a.id === id));
 // heals in a three-button kit get a real cooldown (12 s at least), or they could be cast over and over
@@ -189,6 +195,7 @@ const CD_FIX = { heal: 15, drain: 8, pet: 60, cc: 12, def: 20 };
 function kitRules() { if (kitRulesDone) return; kitRulesDone = true; kitRules0(); for (const cls in ABILITIES) for (const x of ABILITIES[cls] || []) if (KIT[x.id]) x.desc = KIT[x.id][2]; /* (the owner: short, plain descriptions: kitinfo.js) */ for (const cls in ULTS) for (const u of [].concat(ULTS[cls])) if (u && KIT[u.id]) u.desc = KIT[u.id][2]; }
 function kitRules0() {
   for (const cls in ARENA_NEW) for (const a of ARENA_NEW[cls]) if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === a.id)) ABILITIES[cls].push(a);
+  for (const cls in KB_AB) for (const a of KB_AB[cls]) if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === a.id)) ABILITIES[cls].push(a); // (kitsb.js)
   for (const cls in ULTS) { const U2 = ULTS[cls]; if (ABILITIES[cls] && !ABILITIES[cls].some(x => x.id === U2.id)) ABILITIES[cls].push({ id: U2.id, name: U2.name, t: U2.t, cd: 90, cost: 0, fx: 'gold', level: 1, desc: U2.desc }); ARENA_ULT[cls] = U2.id; } // (the table's ultimates)
   { const r = ABILITIES.rogue && ABILITIES.rogue.find(a => a.id === 'eviscerate'); if (r) { r.name = 'Backstab'; r.desc = 'Drive your blade into the enemy in front of you: huge damage and it bleeds; double damage from behind.'; r.backstab = true; } }
   for (const c of ['enchanter', 'bard']) for (const a of ABILITIES[c] || []) if (/^mesmerize/.test(a.id) || a.id === 'lullaby') a.mez = true; // (shown as MESMERIZED over their head)
@@ -201,7 +208,7 @@ function kitRules0() {
     const c = get(fC); if (c && c.t === 'summon') { c.cd = CD_FIX.pet; c.desc = (c.desc || '').replace(/\.?\s*$/, '.') + ' 60 s cooldown.'; }
     const q = get(fQ); if (q && !q.charges) q.cd = Math.max(q.cd || 0, CD_FIX.cc); /* (charges: the bombardier's sticky bombs come back one at a time) */
     if (cls === 'wizard') { const ps = get('phaseshift'); if (ps) { ps.dur = 4; ps.desc = 'Fade almost invisible for 4 s and move 25% faster: enemies lose sight of you. Your first left click out of it is a critical hit; any attack or ability ends it.'; } }
-    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem' && r.t !== 'detonate' && r.t !== 'lightslice') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
+    const r = get(ARENA_RMB[cls]); if (r && r.t !== 'mend' && r.t !== 'totem' && r.t !== 'detonate' && r.t !== 'lightslice' && r.t !== 'shadowchains') r.cd = Math.min(Math.max(r.cd || 0, CD_FIX.def), 30); // (healers' direct heals stay quick)
     for (const id of [fH, fC, fQ, ARENA_RMB[cls]]) { const x = get(id); if (x) { x.cost = 0; x.castT = 0; if (x.desc) x.desc = x.desc.replace(/,?\s*[\d.]+ s cast,?/, ''); if (x.desc) x.desc = x.desc.replace(/,? no cooldown\.?/, '.'); } } }
   ccBudget(); }
 // the design pass (docs/CLASS_DESIGN.md, top ten list): numbers and descriptions change together, so the setup screen,
@@ -251,6 +258,11 @@ function designRules() {
   fix('warrior', 'shieldwall', { t: 'buff', buff: 'wall', dur: 3.9, kit: true, cd: 20, cost: 0, fx: 'frost', desc: 'Brace behind your shield: you take 60% less damage from every direction for 5 s. Hold block for 1 s to raise it.' });
   if (!abIn('paladin', 'ar_lightslice')) ABILITIES.paladin.push({ id: 'ar_lightslice', name: 'Light Slice', t: 'lightslice', kit: true, level: 1, cd: 5, cost: 0, fx: 'holy', desc: 'Swing your hammer and hurl a crescent of golden light that flies through everyone in its path: enemies take solid damage, allies it passes heal a little.' }); /* (the owner: his right click; he is an off healer, so the heal is weak and the damage strong) */
   { const so = abIn('paladin', 'shieldofl'); if (so) so.desc = 'A shield of light absorbs damage equal to 18% of your health for up to 6 s. Hold block for 1 s to raise it.'; }
+  if (!abIn('darkknight', 'ar_soulrend')) ABILITIES.darkknight.push({ id: 'ar_soulrend', name: 'Soul Rend', t: 'soulrend', kit: true, level: 1, cd: 9, cost: 0, fx: 'shadow', dmg: 1.7, drain: 0.6, desc: '' },
+    { id: 'ar_gravegrasp', name: 'Grasp of the Grave', t: 'gravegrasp', kit: true, level: 1, cd: 13, cost: 0, fx: 'shadow', dmg: 1.0, root: 1.2, desc: '' },
+    { id: 'ar_shadowchains', name: 'Shadow Chains', t: 'shadowchains', kit: true, level: 1, cd: 9, cost: 0, fx: 'shadow', dmg: 0.6, slow: 3, desc: '' }); /* (the owner's Shadowknight: a dark necrotic knight; Shadow Chains on his right click slows) */
+  if (!abIn('druid', 'ar_roots')) ABILITIES.druid.push({ id: 'ar_roots', name: 'Strangling Roots', t: 'roots', kit: true, level: 1, cd: 13, cost: 0, fx: 'leaf', dmg: 0.6, root: 1.5, slow: 3.5, desc: '' });
+  fix('druid', 'ar_thorns', { t: 'thornvolley' }); fix('cleric', 'holysmite', { t: 'smite', dmg: 1.7, stun: 0.6 });
   fix('darkknight', 'gravewall', { amount: 0.25, dur: 6, cd: 18, boneGuard: true, desc: 'A shell of bone and shadow absorbs damage equal to 25% of your health for up to 6 s; enemies who hit you in melee while it holds are slowed for 1 s.' });
   // 4. self-sustain: Second Wind on Execute, Leeching Stab on F (Envenom becomes a passive), Field Bandage, Iron Hide
   { const ex = abIn('warrior', 'execute'); if (ex && !/Second Wind/.test(ex.desc || '')) ex.desc = (ex.desc || '').replace(/\.?\s*$/, '.') + ' Second Wind: the blow heals you 8% of your health, or 25% if it kills.'; }
@@ -267,9 +279,11 @@ function ccBudget() {
 const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
 export function readArena() { { const q = new URLSearchParams(location.search), jc = (q.get('join') || '').toUpperCase(); if (/^[A-Z]{4}$/.test(jc) || q.get('host')) { /* (the owner's invite link (?join=CODE) and Play Online's Host (?host=1): a 6 v 6 King of the Hill online lobby, no setup screens) */
-    if (!readArena.q) { const s = defaultArena(); s.fmt = 't6'; s.objective = 'koth'; s.lives = 'respawn'; s.quick = true; fillSlots(s, false); const all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length), sh = (a) => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]); const m = sh(all), f = sh(all); s.slots.forEach((sl, i) => { sl.cls = sl.team === 0 ? m[i % m.length] : f[i % f.length]; });
+    if (!readArena.q) { const s = defaultArena(); s.fmt = 't6'; s.objective = OBJECTIVES[q.get('obj')] && ['koth', 'payload'].includes(q.get('obj')) ? q.get('obj') : jc.length === 4 ? 'koth' : quickObjective(); /* (the host picks King of the Hill or Payload; otherwise they take turns) */ s.lives = 'respawn'; s.quick = true; fillSlots(s, false); const all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length), sh = (a) => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]); const m = sh(all), f = sh(all); s.slots.forEach((sl, i) => { sl.cls = sl.team === 0 ? m[i % m.length] : f[i % f.length]; });
       { let c0 = null; try { c0 = localStorage.getItem('kr2_mpcls'); } catch (e) { /* no storage */ } if (c0 && CLASSES[c0] && s.slots[0]) s.slots[0].cls = c0; } s.mp = jc.length === 4 ? 'join' : 'host'; if (s.mp === 'join') s.code = jc; readArena.q = s; } return readArena.q; } }
   try { const s = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (s && s.slots && s.slots.length >= 2) return s; } catch (e) { /* fall back */ } const s = defaultArena(); fillSlots(s); return s; }
+// quick play and hosting take turns between King of the Hill and Payload
+export function quickObjective() { let n = 0; try { n = +(localStorage.getItem('kr2_quickobj') || 0); localStorage.setItem('kr2_quickobj', String(n + 1)); } catch (e) { /* no storage */ } return n % 2 ? 'payload' : 'koth'; }
 // lay out the fighters for a format: you in slot 0, then everyone else (random classes unless picked)
 export function fillSlots(s, keep = true) {
   const F = FORMATS[s.fmt], n = F.ffa ? Math.max(3, Math.min(12, s.ffaN || 6)) : F.teams * F.size, old = keep ? s.slots || [] : [], cls = Object.keys(CLASSES), races = Object.keys(RACES).filter(r => RACES[r].playable);
@@ -321,10 +335,11 @@ let FINAL = null;
 export async function prepareArena() { const s = readArena(); FINAL = s.mp ? await netLobby(s, FORMATS, OBJECTIVES, (c) => kitOf(c).map(id => (ABILITIES[c].find(a => a.id === id) || {}).name).join(' · ')) : s; }
 const mySlot = () => (FINAL || readArena()).slots.find(x => AN.on ? x.owner === AN.myId : x.you) || (FINAL || readArena()).slots[0];
 export function initArena(hooks) {
-  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinFissure; G.hooks.lightSlice = lightSlice; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
+  G.hooks.k5 = K5; G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinFissure; G.hooks.lightSlice = lightSlice; G.hooks.arenaFists = monkFists; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.healerMend = healerMend; G.hooks.atone = atone; G.hooks.aimAlly = aimAlly; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.tableUlt = runTableUlt; G.hooks.arenaSpirit = shamanSpirit; G.hooks.arenaAssassinate = rogueAssassinate;   A.hooks = hooks; A.setup = FINAL || readArena(); const s = A.setup; G.fovTrim = 10;
   if ((s.slots || []).some(x => x && x.cls === 'warrior')) preloadBanners(); /* (the warrior's banner models) */
   const objective = OBJECTIVES[s.objective] ? s.objective : 'elim';
   if (objective === 'ctf' && isFFA()) s.objective = 'dm';
+  if (s.objective === 'payload' && (FORMATS[s.fmt] || {}).teams !== 2) s.objective = 'koth'; // (the cart needs exactly two sides: attackers and defenders)
   A.lives = OBJECTIVES[s.objective].lives === 'one' ? 'one' : (s.lives || OBJECTIVES[s.objective].lives);
   A.target = s.objective === 'dm' ? (isFFA() ? 10 : 15 + 5 * Math.min(2, (FORMATS[s.fmt].size || 1) - 1)) : s.objective === 'ctf' ? 3 : s.objective === 'koth' ? 100 : s.objective === 'rounds' ? 2 : 1;
   const used = new Set();
@@ -341,7 +356,8 @@ export function initArena(hooks) {
   // banners above the gates in the teams' colours; CTF flags; the hill
   AR.gates.forEach((g, k) => { const t = teamsOf()[k]; if (t != null && !isFFA()) { if (g.banner) g.banner.material.color.set(teamCol(t)); if (g.roomBanner) g.roomBanner.material.color.set(teamCol(t)); } });
   if (s.objective === 'ctf') for (const t of teamsOf()) A.flags.push(makeFlag(t));
-  if (s.objective === 'koth') AR.hill.material.opacity = 0.75;
+  if (s.objective === 'koth') { AR.hill.material.opacity = 0; buildHillRing(G.scene); } // (the old flat ring stays hidden: the boundary of light replaces it)
+  if (s.objective === 'payload') { const ts = teamsOf(); buildPayload(G.scene, teamCol(ts[0]), teamCol(ts[1])); payloadReset(ts[0], ts[1]); }
   const P = G.player; if (P) { P.arenaF = A.me; }
   if (AN.on) { AN.h.data = onNet; AN.h.left = playerLeft; AN.h.hostLeft = () => { A.hooks.banner && A.hooks.banner('The host left', 'Back to the main screen in a moment'); setTimeout(() => { location.href = location.pathname; }, 4000); }; }
   placeAll(); startPick(PICK_T);
@@ -496,7 +512,7 @@ export function paladinFissure(caster) {
 }
 // the paladin's right click, Light Slice: a swing of the hammer throws a crescent of golden energy that flies on through everyone
 // in its way: enemies take solid damage, allies it passes get a small heal (he is an off healer, not a main one)
-export const SLICE = { speed: 30, range: 24, w: 1.9, hurt: 0.14, heal: 0.05 };
+export const SLICE = { speed: 30, range: 24, w: 1.9, hurt: 0.1, heal: 0.05 };
 export function lightSlice(caster, from, dir) {
   const T = Object.assign({}, SLICE, G.sliceTune || {}); dir = dir.clone(); dir.y = Math.max(-0.25, Math.min(0.25, dir.y)); dir.normalize();
   const g = new THREE.Group(); for (const [r, w, col, op] of [[1.7, 0.36, '#fff6c8', 1], [1.7, 0.9, '#ffc840', 0.6], [1.6, 1.5, '#ff9a20', 0.25]]) { const m = new THREE.Mesh(new THREE.RingGeometry(r - w / 2, r + w / 2, 28, 1, -1.15, 2.3), fisMat(col, op)); g.add(m); }
@@ -1269,9 +1285,13 @@ function revive(f, place) {
   else if (f.owner != null && AN.host) nsend({ t: 'revive', to: f.owner }); // a player revives on their own machine
 }
 // ---------- changing class during the match (K) ----------
-function quickSwap(cls) { if (!A.setup || !A.setup.quick || AN.on) return; const mate = A.F.find(o => !o.you && o.team === A.me.team && o.cls === cls && o.bot); if (!mate) return;
-  const used = new Set(A.F.filter(o => o.team === A.me.team).map(o => o.cls)), all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length && !used.has(k)); if (!all.length) return; const nc = all[(Math.random() * all.length) | 0];
+function quickSwap(cls, who = A.me) { if (!A.setup || (AN.on ? !AN.host : !A.setup.quick) || isFFA()) return; const mate = A.F.find(o => o !== who && !o.you && o.team === who.team && o.cls === cls && o.bot); if (!mate) return; /* (offline quick play, or the host online for anyone's pick) */
+  const used = new Set(A.F.filter(o => o.team === who.team).map(o => o.cls).concat(cls)), all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length && !used.has(k)); if (!all.length) return; const nc = all[(Math.random() * all.length) | 0];
   const old = mate.bot; G.scene.remove(old.root); const ix = G.mobs.indexOf(old); if (ix >= 0) G.mobs.splice(ix, 1); old.dead = true; mate.cls = nc; mate.bot = new ArenaBot(mate, arenaHero(mate, mate.name)); mate.bot.role = old.role; mate.bot.revive(spawnOf(mate)); } /* (the owner's quick play: whoever on your team had the class you picked fills a different one) */
+// the class a fighter plays right now, as this machine knows it (another player's from their own updates)
+const clsNow = (o) => o.you ? o.cls : AN.on && !AN.host && o.rem && o.rem.cls ? o.rem.cls : o.cls;
+// a person (not a computer player) on that fighter's team who already plays the class: the champion select's rule
+const clsHolder = (f, cls) => isFFA() ? null : A.F.find(o => o !== f && o.team === f.team && (o.you || o.owner != null) && clsNow(o) === cls) || null;
 function applyClass() { const f = A.me; quickSwap(A.nextCls); f.cls = A.nextCls; A.nextCls = null; const h = arenaHero(f, f.name); A.hooks.swapHero && A.hooks.swapHero(h); if (G.player) G.player.arenaF = f; if (AN.on) nsend({ t: 'cls', c: f.cls }); }
 // ---------- every key the hero has, as cards: left click, right click, F, C, Q, then the ultimate ----------
 // (the skills window on P, and K in the Training Yard; I or H lists the same left and right click)
@@ -1373,20 +1393,23 @@ export function openKitInfo(UI, into) {
   c.insertAdjacentHTML('beforeend', `<div class="kitlist">${html}</div><p class="dim" style="margin-top:8px">K changes class · Tab shows the scores · hover the bar at the bottom (hold Alt for a cursor) to read any of these again.</p>`);
 }
 export const isQuick = () => !!(A.setup && A.setup.quick);
-export function openClassPicker(UI) {
-  const c = UI.openWin('arenacls', 'Change class or team', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
-  c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
-  const g = elx('div', 'ygrid');
-  for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
-    const b = elx('button', 'ycls pcard' + ((A.nextCls || A.me.cls) === k ? ' on' : ''), `<img src="${classPortrait(k)}" alt=""><b>${CLASSES[k].name}</b><small>${kit}</small>`);
-    b.onclick = () => { S.click(); A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
-      UI.closeWin(); if (A.nextCls && (A.state === 'pick' || !A.me.alive)) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
-      else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
-    g.appendChild(b); }
-  c.appendChild(g);
-  if (!FORMATS[A.setup.fmt] || !FORMATS[A.setup.fmt].ffa) { const tr = elx('div', 'yteams', '<h3 style="margin:14px 0 6px">Change team <small>you swap places with a computer player and start again from that side</small></h3>'); const n = (FORMATS[A.setup.fmt] && FORMATS[A.setup.fmt].teams) || 2;
-    for (let t = 0; t < n; t++) { const b = elx('button', 'btn' + (A.me.team === t ? ' gold' : ''), `${COLOR_NAMES_LIST[t] || 'Team ' + (t + 1)} team${A.me.team === t ? ' ✓' : ''}`); b.style.cssText = `margin-right:8px;border-color:${COLORS_LIST[t] || '#888'}`; b.onclick = () => { S.click(); UI.closeWin(); requestTeam(t); }; tr.appendChild(b); }
-    c.appendChild(tr); }
+export function openClassPicker(UI) { // the champion select (heroselect.js): a person on your team keeps their class to themselves; a computer team mate switches
+  const c = UI.openWin('arenacls', 'Champion select', '', 'chswin'), now = () => A.state === 'pick' || !A.me.alive, ffa = isFFA(); let sel = A.nextCls || A.me.cls;
+  const commit = (k) => { if (clsHolder(A.me, k)) { S.error(); return; } A.nextCls = k === A.me.cls ? null : k; try { const st = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (st && st.slots && st.slots[0]) { st.slots[0].cls = k; sessionStorage.setItem(ARENA_KEY, JSON.stringify(st)); } } catch (e) { /* no storage */ }
+    try { if (AN.on) localStorage.setItem('kr2_mpcls', k); } catch (e) { /* no storage */ }
+    UI.closeWin(); if (A.nextCls && now()) { applyClass(); if (A.state === 'pick') { const p = G.player, sp = spawnOf(A.me); p.place(sp.x, sp.z, sp.yaw); } }
+    else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
+  const bar = elx('div', ''); bar.style.display = 'contents';
+  const back = elx('button', 'btn', '← Back to the fight'); back.onclick = () => { S.click(); UI.closeWin(); }; bar.appendChild(back);
+  if (!ffa) { const n = (FORMATS[A.setup.fmt] && FORMATS[A.setup.fmt].teams) || 2; bar.appendChild(elx('span', 'alwait', 'Change team <small style="opacity:.7">(swap places with a computer player)</small>'));
+    for (let t = 0; t < n; t++) { const b = elx('button', 'btn' + (A.me.team === t ? ' gold' : ''), `${COLOR_NAMES_LIST[t] || 'Team ' + (t + 1)}${A.me.team === t ? ' ✓' : ''}`); b.style.cssText = `border-color:${COLORS_LIST[t] || '#888'}`; b.onclick = () => { S.click(); UI.closeWin(); requestTeam(t); }; bar.appendChild(b); } }
+  bar.appendChild(elx('span', 'sp')); bar.appendChild(elx('span', 'alwait', 'Click a portrait, then Lock In (or double-click) · K closes'));
+  mountHeroSelect(c, { eyebrow: 'Kingdom Arena · ' + (A.state === 'pick' ? 'Holding room' : 'Change class'), title: 'Choose your champion', sub: now() ? 'You switch as soon as you lock in' : A.lives === 'one' ? 'You switch when the next round starts' : 'You switch when you next respawn', bar, initial: sel, live: true,
+    teamName: (t) => (COLOR_NAMES_LIST[t] || '') + ' team', teamCol: (t) => COLORS_LIST[t] || '#e2bd6a',
+    state: () => ({ teams: ffa ? null : teamsOf(), myTeam: A.me.team, mine: { cls: sel, locked: false },
+      roster: A.F.map(f => ({ key: 'f' + f.i, name: f.name, cls: f.you ? sel : clsNow(f), team: f.team, me: !!f.you, bot: !f.you && f.owner == null, host: AN.on && f.owner === 0, locked: f.you ? sel === (A.nextCls || A.me.cls) : true })),
+      timer: A.state === 'pick' ? { t: A.t, max: PICK_T, label: 'Gates open' } : { label: now() ? 'Pick now' : 'In the fight' } }),
+    onPick: (k) => { sel = k; }, onLock: () => commit(sel) });
 }
 // (the owner) changing team mid-game: you trade places with a computer player on the other side, so the teams stay even. Offline or
 // as the host it happens at once; a friend asks the host, who swaps and tells everyone (every machine runs swapTeams the same way)
@@ -1428,6 +1451,7 @@ export function updateArena(dt) {
   // the camera never goes behind the arena wall: it slides in along the ring instead
   if (G.camera && p && !p.dead && RUINS_MAP()) { const c = G.camera.position, h = p.pos.clone().setY(p.pos.y + 1.6), d = c.clone().sub(h), L = d.length(); for (let t = 0.15; t <= 1.0001; t += 0.05) { const q = h.clone().addScaledVector(d, t); if (solidAt(q.x, q.y, q.z)) { c.copy(h).addScaledVector(d, Math.max(0, t - 0.08)); break; } } } // (the camera never goes inside a wall)
   else if (G.camera && p && !p.dead) { const c = G.camera.position; if (where === 'room' || roomOf(c.x, c.z)) { const rm = roomOf(c.x, c.z) || roomOf(p.pos.x, p.pos.z); if (rm) { const pr = roomOf(p.pos.x, p.pos.z), al = Math.min(AR.R + ROOM.far, Math.max(pr ? AR.R - 3 : AR.R - 6, rm.al)), lat = Math.max(-ROOM.half + 0.2, Math.min(ROOM.half - 0.2, rm.lat)); c.x = Math.sin(rm.a) * al + Math.cos(rm.a) * lat; c.z = Math.cos(rm.a) * al - Math.sin(rm.a) * lat; c.y = Math.min(c.y, AR.Y + ROOM.H - 0.3); } } else { const d = Math.hypot(c.x, c.z), lim = AR.R - 0.4; if (d > lim) { c.x *= lim / d; c.z *= lim / d; } } }
+  if (A.setup.objective === 'payload') payloadView(dt); else if (A.setup.objective === 'koth') paintHillRing(dt, A.state === 'fight' ? A.hillOwner : null, teamCol);
   updateShots(dt); updateZones(dt); for (const fl of A.flags) { if (AUTH()) updateFlag(fl, dt); else { fl.grp.position.copy(fl.pos); fl.cloth.rotation.y = Math.sin(G.time * 3 + fl.team) * 0.3; } }
   renderHud();
 }
@@ -1462,8 +1486,11 @@ function objectives(dt) {
     A.hillOwner = on.size === 1 ? [...on][0] : on.size > 1 ? 'contested' : null;
     if (A.hillOwner != null && A.hillOwner !== 'contested') { A.hillAcc = (A.hillAcc || 0) + dt; if (A.hillAcc >= 1) { A.hillAcc -= 1; A.score[A.hillOwner] = (A.score[A.hillOwner] || 0) + 1; } }
     paintHill(); checkWin(); }
+  if (o === 'payload') { const fs = []; for (const f of A.F) if (f.alive) { const q = posOf(f); if (q) fs.push({ team: f.team, x: q.x, z: q.z }); }
+    for (const e of payloadTick(dt, fs)) { if (e.cp != null) { payloadCheckpointFx(e.cp); cheer(1.4); bannerAll('Checkpoint reached!', `+${PAY.CP_BONUS} seconds for the ${teamName(PL.att)}`); feed(`<b style="color:${teamCol(PL.att)}">${teamName(PL.att)}</b> pushed the cart past checkpoint ${e.cp + 1}`); }
+      if (e.win != null) { bannerAll(e.win === PL.att ? 'The cart reached the shrine!' : 'Time is up!', `${teamName(e.win)} wins`); return finish(e.win); } } }
 }
-function paintHill() { if (A.setup.objective !== 'koth') return; AR.hill.material.color.set(A.hillOwner == null ? '#ffffff' : A.hillOwner === 'contested' ? '#ff8a30' : teamCol(A.hillOwner)); AR.hill.material.opacity = 0.55 + Math.sin(G.time * 4) * 0.2; }
+function paintHill() { if (A.setup.objective !== 'koth') return; AR.hill.material.opacity = 0; } // (drawn every frame by paintHillRing, in updateArena)
 // capture the flag: a banner on a pole at each team's gate
 function makeFlag(t) {
   const k = teamsOf().indexOf(t), g = AR.gates[k % 4], home = RUINS_MAP() ? V3(g.x, g.y || AR.Y, g.z) : V3(g.x * 0.86, AR.Y, g.z * 0.86);
@@ -1577,7 +1604,8 @@ function bomberBot(b, dt) { if ((b.bombT = (b.bombT || 0) - dt) > 0 || b.status.
   const foes = enemiesOf(b), near = bombsNear(b, foes), live = liveBombs(b, 's').length, s = stickyCharges(b.h), T = b.target;
   const det = abOf(b, 'bo_detonate'), stk = abOf(b, 'bo_stickies');
   // the detonator: a thrown bomb next to someone, or enough sticky bombs on or round them (or the last chance before they get away)
-  if (det && near.n && (near.st >= 3 || near.n > near.st || s.n <= 0 || (T && T.hp / T.maxHp < 0.3) || Math.random() < 0.08)) { detonate(b); b.act = 'cast'; b.actT = 0; b.gcd = Math.max(b.gcd, 0.3); return; }
+  if (det && near.n && (near.st >= 3 || near.n > near.st || s.n <= 0 || (T && T.hp / T.maxHp < 0.3) || Math.random() < 0.08)) { detonate(b); igniteTar(b); b.act = 'cast'; b.actT = 0; b.gcd = Math.max(b.gcd, 0.3); return; }
+  if (det && KB.tars.some(t => t.owner === b && !t.lit && foes.some(u => Math.hypot(u.pos.x - t.at.x, u.pos.z - t.at.z) < 2.6))) { igniteTar(b); S.detonator && S.detonator(); b.act = 'cast'; b.actT = 0; return; } // (kitsb.js: set the tar alight with someone in it)
   if (!stk || s.n <= 0 || b.cast || b.dashing) return; const up = Game.perkPow(Game.perkLvl(b.h, stk.id)) * b.up * b.dmgMul(), dmg = b.base * BOMB.sticky.k * up;
   if (T && !T.dead) { const dT = Math.hypot(T.pos.x - b.pos.x, T.pos.z - b.pos.z); if (dT < 22 && (b.stkT = (b.stkT || 0) - 0.15) <= 0) { b.stkT = 0.35 + Math.random() * 0.35; if (botBomb(b, T, dmg, true)) { b.act = 'cast'; b.actT = 0; b.actSp = 2.2; } } return; }
   if (live < 3 && Math.random() < 0.04) { const a = b.yaw + (Math.random() - 0.5) * 2, at = b.pos.clone().add(V3(Math.sin(a) * (3 + Math.random() * 5), 0, Math.cos(a) * (3 + Math.random() * 5))); at.y = gy(at.x, at.z, b.pos.y); /* (a trap of sticky bombs round itself) */
@@ -1587,6 +1615,7 @@ function bertWant(b, h, dt) { const foes = enemiesOf(b), n = (r) => foes.filter(
 // ---- a computer necromancer: reaps up close with the scythe; Life Siphon on whoever it faces, kept on while it can see them
 export const necroReach = (u) => Math.max(3.4, Math.min(5, (u === G.player ? (u.eye || 1.7) : (u.height || 1.8) * 0.93) * REAP.reachK));
 G.hooks.necroReach = necroReach;
+KB.hit = (src, tgt, raw, o) => hitUnit(src, tgt, raw, o); KB.heal = (u, amt, from) => healUnit(u, amt, from); KB.slow = (u, t) => slowUnit(u, t); // (kitsb.js uses the arena's own hit, heal and slow)
 function reapBot(b, n) { const R = necroReach(b); let k = 0; for (const u of enemiesOf(b)) { const dx = u.pos.x - b.pos.x, dz = u.pos.z - b.pos.z, d = Math.hypot(dx, dz); if (d > R + (u.radius || 0.5)) continue; const off = Math.atan2(Math.sin(Math.atan2(dx, dz) - b.yaw), Math.cos(Math.atan2(dx, dz) - b.yaw)); if (d > 1.2 && Math.abs(off) > REAP.half + 0.2) continue; hitUnit(b, u, n, { melee: true }); k++; V.burst('blood', u.pos.clone().setY(u.pos.y + 1.1), 10, { speed: 4 }); }
   S.reap && S.reap(b.pos, 1); if (k) { S.reapHit && S.reapHit(b.pos, k); } }
 function necroBot(b, dt) { if ((b.necT = (b.necT || 0) - dt) > 0 || siphonOn(b) || b.status.silence > 0 || b.status.stun > 0) return; b.necT = 0.2;
@@ -1594,7 +1623,7 @@ function necroBot(b, dt) { if ((b.necT = (b.necT || 0) - dt) > 0 || siphonOn(b) 
   if (d < SIPHON.range - 3 && (hp < 0.85 || d > 6 || Math.random() < 0.3)) { const off = Math.atan2(Math.sin(Math.atan2(T.pos.x - b.pos.x, T.pos.z - b.pos.z) - b.yaw), Math.cos(Math.atan2(T.pos.x - b.pos.x, T.pos.z - b.pos.z) - b.yaw)); if (Math.abs(off) < 0.3) { botSiphon(b, a); b.act = 'cast'; b.actT = 0; } } } // (aimed at someone: drink from them, sooner when hurt)
 // the Goblin Bombardier's Q (a sticky bomb, from 5 charges) and right click (the detonator), for your own hero
 function bomberKey(p, a, i) { if (p.dead || p.swim || p.held || G.uiOpen) return; const key = 'a' + (i + 1);
-  if (a.t === 'detonate') { if ((p.cd[key] || 0) > 0) return; p.cd[key] = a.cd || 0.3; const n = detonate(p); S.detonator && S.detonator(); V.burst('spark', p.pos.clone().setY(p.pos.y + 0.9), 6, { speed: 2 }); if (!n) V.number(p.pos.clone().setY(p.pos.y + (p.eye || 1.6) + 0.3), 'No bombs out', 'miss'); return; }
+  if (a.t === 'detonate') { if ((p.cd[key] || 0) > 0) return; p.cd[key] = a.cd || 0.3; const n = detonate(p) + igniteTar(p); S.detonator && S.detonator(); V.burst('spark', p.pos.clone().setY(p.pos.y + 0.9), 6, { speed: 2 }); if (!n) V.number(p.pos.clone().setY(p.pos.y + (p.eye || 1.6) + 0.3), 'No bombs out', 'miss'); return; }
   const h = p.h; h.stkK = Game.perkCd(Game.perkLvl(h, a.id, 'cd')) * Game.arenaCdAll(h); const s = stickyCharges(h); if (s.n <= 0) { S.error && S.error(); return; }
   const fp = p.camDist < 0.6, from = fp ? G.camera.position.clone().add(new THREE.Vector3(0.2, -0.16, -0.75).applyQuaternion(G.camera.quaternion)) : p.handPos(), dir = p.aimDir(from);
   const v = dir.multiplyScalar(BOMB.sticky.speed); v.y += BOMB.sticky.up; const up = (G.abilScale ? G.abilScale(h.level) : 1) * Game.perkPow(Game.perkLvl(h, a.id));
@@ -1876,6 +1905,10 @@ class ArenaBot {
     this.ward = null; if (this.healer) { let lo = null, lv = 0.85; for (const m of mates) { const k = m.hp / m.maxHp; if (k < lv && near(m) < 22) { lv = k; lo = m; } } this.ward = lo; }
     // the objective
     this.goal = null; const o = A.setup.objective;
+    if (o === 'payload' && PL.on) { const c = cartXZ(), att = this.team === PL.att, dC = Math.hypot(c.x - me.x, c.z - me.z), w = this.id * 2.3 + G.time * (0.15 + (this.id % 4) * 0.04);
+      if (Math.abs(me.z) > 74 || Math.abs(me.z) < 7) this.lane = 1; this.persona().stick = 0; // (the cart runs down the middle street: take that route, and leave other routes at the plaza)
+      const ah = trackAt(PL.d + (att ? 1.0 : 2.2)), rr = this.healer ? 2.8 : this.ranged ? 2.5 : 1.8; // (attackers crowd round it, defenders stand in its way; healers a little behind their pushers)
+      this.goal = { x: ah.x + Math.sin(w) * rr, z: ah.z + Math.cos(w) * rr, r: 1.2, must: dC > PAY.ZONE - 0.6 && (!this.target || Math.hypot(this.target.pos.x - me.x, this.target.pos.z - me.z) > 4) }; }
     if (o === 'koth') { const w = this.id * 1.7 + G.time * (0.18 + (this.id % 5) * 0.03); this.goal = { x: Math.sin(w) * 3.6, z: Math.cos(w * 0.8) * 3.6, r: 1.0 }; } /* (holding the hill they keep moving about on it, like people do, not frozen on one spot) */
     if (o === 'ctf') { const mine = A.flags.find(f => f.team === this.team), carry = A.flags.find(f => f.carrier === this.arenaF);
       if (carry) this.goal = { x: mine.home.x, z: mine.home.z, r: 0.5, must: true };
@@ -1940,6 +1973,7 @@ class ArenaBot {
     { const me = this.pos, W = this.ward, hurtW = W && W.hp / W.maxHp < 0.7 ? W : null, fightNear = !!T && dT < this.range + 8, recent = G.time - (this.hurtT || 0) < 2.5;
       const nHurt = alliesOf(this, true).filter(u => u.hp / u.maxHp < 0.7 && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < 15).length, st = this.status;
       for (const a of abs) {
+        if (KB.has(a.t)) { const w = KB.want(this, a, T, dT, hp); if (w) return use(a, w); continue; } // (kitsb.js)
         if (a.t === 'mend' && (hurtW || hp < 0.6)) return use(a, hurtW || this);
         if (a.t === 'totem' && (nHurt >= 2 || (hurtW && fightNear))) return use(a, this);
         if (a.t === 'bardsong' && ((a.buff === 'ward' && (nHurt >= 2 || hp < 0.55)) || (a.buff === 'warsong' && fightNear && dT < this.range + 4) || (a.buff === 'anthem' && (!T || dT > 16) && Math.random() < 0.3))) return use(a, this);
@@ -1949,6 +1983,8 @@ class ArenaBot {
         if (a.t === 'wraps' && (hp < 0.45 || st.slow > 0 || st.root > 0)) return use(a, this);
         if (a.t === 'mendbanner' && fightNear && (nHurt >= 1 || hp < 0.75)) return use(a, this);
         if (a.t === 'lightslice' && T && dT < 18) return use(a, T);
+        if (a.t === 'shadowchains' && T && dT > 4 && dT < 18) return use(a, T); /* (the Shadowknight: chain the one getting away) */
+        if (a.t === 'soulrend' && T && dT < 4.8 && (hp < 0.8 || Math.random() < 0.5)) return use(a, T);
         if (a.t === 'axethrow' && T && dT > 5 && dT < 22) return use(a, T); /* (the berserker: the axe at someone out of reach) */ } }
     // 2. defences when under pressure
     if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
@@ -1970,7 +2006,7 @@ class ArenaBot {
     const pa = abs.find(a => (a.t === 'petheal' && this.pets.some(p => !p.dead && p.hp < p.maxHp * 0.6)) || (a.t === 'petward' && this.pets.some(p => !p.dead))); if (pa) return use(pa, this);
     return null;
   }
-  inRange(a, d) { const t = a.t; if (!t) return d <= (LEG_RANGED.has(a.id) ? 22 : 4.5); if (t === 'strike' || t === 'flurry') return d <= 3.4; if (t === 'dash') return d <= 12; if (t === 'cone') return d <= 6.5; if (t === 'nova') return d <= (a.r || 5) + 0.4; if (t === 'aura' || t === 'stormwalk' || t === 'blizzaura') return d <= 6; if (t === 'petstrike') return this.pets.some(p => !p.dead); if (t === 'trap') return d <= 3; return d <= 24; }
+  inRange(a, d) { const t = a.t; if (!t) return d <= (LEG_RANGED.has(a.id) ? 22 : 4.5); if (t === 'strike' || t === 'flurry') return d <= 3.4; if (t === 'dash') return d <= 12; if (t === 'cone') return d <= 6.5; if (t === 'nova') return d <= (a.r || 5) + 0.4; if (t === 'aura' || t === 'stormwalk' || t === 'blizzaura') return d <= 6; if (t === 'petstrike') return this.pets.some(p => !p.dead); if (t === 'trap') return d <= 3; if (t === 'soulrend') return d <= 5; if (t === 'gravegrasp') return d <= 10; if (t === 'shadowchains') return d <= 19; if (t === 'thornvolley') return d <= 13; if (t === 'roots') return d <= 16; if (t === 'smite') return d <= 28; return d <= 24; }
   power(a) { if (!a.t) { const L = LEG[a.id]; return L ? L[0] * (L[1] > 1 ? 1.2 : 1) : 0.8; } const n = a.dmg || 0; switch (a.t) { case 'flurry': return n * (a.hits || 3); case 'ground': return n * (a.ticks || 4) * 0.7; case 'curse': return n + (a.dot || 0) * (a.dotT || 0) * 0.8; case 'aura': case 'stormwalk': case 'blizzaura': return n * 8; case 'petstrike': return 2; case 'bolt': case 'drain': return n * (a.n ? 1.6 : 1); default: return n; } }
   // ---- carrying out an ability ----
   resolve(a, tgt, lockAt) {
@@ -1982,6 +2018,7 @@ class ArenaBot {
     const drainBack = (dealt, f) => { if (f && dealt) this.healSelf(dealt * f); }; // (dealt is the health really taken, so the drain is that share of it: it was x6, a full heal from every Shadow Tap)
     if (!a.t) return this.legacy(a, T, P);
     if (a.regen) { this.hots.push({ ps: a.regen[0] * this.maxHp / a.regen[1], t: a.regen[1] }); V.burst('heal', me.clone().setY(me.y + 1.2), 14, { speed: 2, vy: 2 }); }
+    if (KB.has(a.t)) { KB.cast(this, a, { P, T, lockAt }); return; } // (kitsb.js: five reworked kits)
     switch (a.t) {
       case 'strike': case 'flurry': case 'buttsmack': { if (!T) return; const n = P(a.dmg) * (a.t === 'flurry' ? (a.hits || 3) : 1); if (!T.dead && Math.hypot(T.pos.x - this.pos.x, T.pos.z - this.pos.z) < 4.2) { drainBack(hitUnit(this, T, n, o), a.drain); V.burst(el === 'arcane' ? 'spark' : el, T.pos.clone().setY(T.pos.y + 1.1), 14, { speed: 4 }); } return; }
       case 'dash': case 'pounce': { if (!T) return; const d = V3(T.pos.x - me.x, 0, T.pos.z - me.z), L = d.length(); this.dashing = { dir: d.normalize(), left: Math.max(0, L - 1.4), t: 0, onEnd: () => { anim('swing1'); hitUnit(this, T, P(a.dmg), o); } }; V.burst('dust', me.clone().setY(me.y + 0.3), 14, { speed: 3 }); return; }
@@ -2006,6 +2043,10 @@ class ArenaBot {
       case 'mendbanner': anim('cast'); mendBanner(this); return;
       case 'wrath': if (T && !T.dead) { this.yaw = Math.atan2(T.pos.x - this.pos.x, T.pos.z - this.pos.z); paladinFissure(this); } return;
       case 'lightslice': { if (!T || T.dead) return; anim('swing2'); const fr = this.pos.clone().setY(this.pos.y + 1.2), dr = T.pos.clone().setY(T.pos.y + 1.1).sub(fr).normalize(); lightSlice(this, fr, dr); return; }
+      case 'soulrend': case 'gravegrasp': case 'shadowchains': case 'thornvolley': case 'roots': case 'smite': { /* (kits5.js: the same effect the player gets) */ const tg = T && !T.dead ? T : null; if (tg) this.yaw = Math.atan2(tg.pos.x - me.x, tg.pos.z - me.z);
+        const fr = () => handOfU(this), at = tg ? tg.pos.clone() : me.clone().addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 8), dir = (tg ? chestOf(tg) : at.clone().setY(at.y + 1.2)).sub(fr()).normalize();
+        const ctx = { dmg: a.dmg || 1, slow: a.slow, root: a.root, stun: a.stun, from: fr, dir, at, hit: (u, k, o2) => hitUnit(this, u, P(k), Object.assign({ el }, o2)), heal: (n) => this.healSelf(n) };
+        anim(a.t === 'soulrend' ? 'swing1' : a.t === 'gravegrasp' ? 'slam' : 'cast'); ({ soulrend: K5.soulRend, gravegrasp: K5.graveGrasp, shadowchains: K5.shadowChains, thornvolley: K5.thornVolley, roots: K5.strangleRoots, smite: K5.holySmite })[a.t](this, ctx); return; }
       case 'fists': monkFists(this); return;
       case 'bladestorm': berserkerStorm(this); return;
       case 'arrowrain': if (T && !T.dead) rangerRain(this, T.pos.clone()); return;
@@ -2100,7 +2141,7 @@ function netTick(dt) {
     nsend({ t: 'ps', i: A.me.i, x: r2(p.pos.x), y: r2(p.pos.y), z: r2(p.pos.z), yaw: r2(p.bodyYaw), hp: Math.round(p.hp), mh: Math.round(p.maxHp), a: a ? (ACT_NET[a.name] || a.name) : '', at: a ? r2(Math.min(1, a.t)) : cn ? r2(Math.min(1, cn.t / Math.max(0.3, cn.dur))) : 0, sp: r2(Math.hypot(p.vel.x, p.vel.z)), r: p.dodge && !p.dodge.charge && p.dodge.kind !== 'step' ? r2(Math.min(1, p.dodge.t)) : null, cu: cn ? 1 : 0, d: p.dead ? 1 : 0, st: p.stealth > 0 ? 1 : 0, c: A.me.cls }); }
   if (!AN.host) return;
   if ((bsT -= dt) <= 0) { bsT = 1 / 12; nsend({ t: 'bs', b: A.F.filter(f => f.bot).map(f => { const b = f.bot; return [f.i, r2(b.pos.x), r2(b.pos.z), r2(b.yaw), Math.round(b.hp), Math.round(b.maxHp), b.act || '', r2(b.actT || 0), b.cast ? (b.cast.melee ? 1 : 2) : 0, r2(b.spd || 0), b.dead ? 1 : 0, b.status.stun > 0 ? 1 : 0, f.cls]; }), p: A.F.filter(f => f.bot).flatMap(f => f.bot.pets.map((m, k) => [f.i, k, m.petKind || 'skeleton', r2(m.pos.x), r2(m.pos.z), r2(m.yaw || 0), m.dead ? 1 : 0])) }); }
-  if ((msT -= dt) <= 0) { msT = 0.25; nsend({ t: 'ms', s: A.state, n: r2(A.t), c: r2(A.clock || 0), sc: A.score, rw: A.roundWins, r: A.round, sd: A.sudden ? 1 : 0, ho: A.hillOwner, al: A.F.map(f => f.alive ? 1 : 0), kd: A.F.map(f => [f.kills, f.deaths, Math.round(f.dmg), Math.round(f.heal), f.cls, r2(f.respawnT || 0)]), fl: A.flags.map(fl => [r2(fl.pos.x), r2(fl.pos.y), r2(fl.pos.z), fl.carrier ? fl.carrier.i : -1, fl.atHome ? 1 : 0]) }); }
+  if ((msT -= dt) <= 0) { msT = 0.25; nsend({ t: 'ms', s: A.state, n: r2(A.t), c: r2(A.clock || 0), sc: A.score, rw: A.roundWins, r: A.round, sd: A.sudden ? 1 : 0, ho: A.hillOwner, al: A.F.map(f => f.alive ? 1 : 0), kd: A.F.map(f => [f.kills, f.deaths, Math.round(f.dmg), Math.round(f.heal), f.cls, r2(f.respawnT || 0)]), fl: A.flags.map(fl => [r2(fl.pos.x), r2(fl.pos.y), r2(fl.pos.z), fl.carrier ? fl.carrier.i : -1, fl.atHome ? 1 : 0]), pl: A.setup.objective === 'payload' ? payloadNet() : undefined }); }
 }
 function onNet(from, d) {
   const F = (i) => A.F[i], U = (i) => (i != null && i >= 0 && A.F[i] ? unitOf(A.F[i]) : null);
@@ -2111,6 +2152,7 @@ function onNet(from, d) {
       d.al.forEach((a, i) => { const f = A.F[i]; if (f && (!f.you || !a)) f.alive = !!a; });
       d.kd.forEach((k, i) => { const f = A.F[i]; if (!f) return; f.kills = k[0]; f.deaths = k[1]; f.dmg = k[2]; f.heal = k[3]; if (!f.you) { f.cls = k[4]; f.respawnT = k[5]; } });
       d.fl.forEach((q, i) => { const fl = A.flags[i]; if (!fl) return; fl.pos.set(q[0], q[1], q[2]); fl.carrier = q[3] >= 0 ? A.F[q[3]] : null; fl.atHome = !!q[4]; });
+      if (d.pl) payloadApply(d.pl);
       AR.gatesOpen = A.state === 'fight'; } break;
     // a hit on my hero, from another player or the host's computer fighter (already scaled for PvP)
     case 'hit': if (d.to === AN.myId) { const p = G.player; if (!p || p.dead) break; const src = U(d.from), dodged = isDodging(p), [dd, o2] = pvpIncoming(p, d.d, ccShape(src, d.o || {})), hp0 = p.hp;
@@ -2128,7 +2170,8 @@ function onNet(from, d) {
     case 'revive': if (d.to === AN.myId) revive(A.me, true); break;
     case 'teamReq': if (AN.host) { const ia = A.F.findIndex(x => x.owner === from), ib = swapPartner(d.team); if (ia >= 0 && ib >= 0 && A.F[ia].team !== d.team) { swapTeams(ia, ib); nsend({ t: 'swapT', a: ia, b: ib }); } } break;
     case 'swapT': if (!AN.host) swapTeams(d.a, d.b); break;
-    case 'cls': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) f.cls = d.c; } break;
+    case 'cls': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) { const by = clsHolder(f, d.c); if (by) nsend({ t: 'clsNo', to: from, c: f.cls, by: by.name }); else { quickSwap(d.c, f); f.cls = d.c; } } } break; // (the host decides: a class a person on that team already plays is refused; a computer team mate with it switches)
+    case 'clsNo': if (d.to === AN.myId && d.c && d.c !== A.me.cls) { A.hooks.toast && A.hooks.toast(`${d.by} already plays ${(CLASSES[A.me.cls] || {}).name}: you stay a ${(CLASSES[d.c] || {}).name}`, '✋', 'bad'); A.nextCls = d.c; applyClass(); } break;
     case 'pick': if (!AN.host) startPick(d.n); break;
     case 'fight': if (!AN.host) startFight(); break;
     case 'banner': if (!AN.host) A.hooks.banner && A.hooks.banner(d.a, d.b); break;
@@ -2174,15 +2217,16 @@ function renderHud(force) {
   if (!hudEl) { hudEl = el('div', ''); hudEl.id = 'arenahud'; document.getElementById('hud').appendChild(hudEl); }
   const o = A.setup.objective, Ob = OBJECTIVES[o];
   const teams = teamsOf();
-  const sc = (t) => o === 'rounds' ? A.roundWins[t] : o === 'elim' ? A.F.filter(f => f.team === t && f.alive).length : A.score[t] || 0;
-  const tgt = o === 'elim' ? '' : ` / ${A.target}`;
+  const sc = (t) => o === 'payload' ? (t === PL.att ? 'Attack' : 'Defend') : o === 'rounds' ? A.roundWins[t] : o === 'elim' ? A.F.filter(f => f.team === t && f.alive).length : A.score[t] || 0;
+  const tgt = o === 'elim' || o === 'payload' ? '' : ` / ${A.target}`;
   const chips = (isFFA() && teams.length > 6 ? teams.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 6) : teams).map(t => `<span class="arc${t === G.myTeam ? ' me' : ''}" style="--tc:${teamCol(t)}"><i></i>${isFFA() ? teamName(t) : COLOR_NAMES[t]}<b>${sc(t)}</b></span>`).join('');
   const mm = Math.floor((A.clock || 0) / 60), ss = String(Math.floor((A.clock || 0) % 60)).padStart(2, '0');
   let mid = '';
   if (A.state === 'pick') mid = `<div class="arpick"><div class="arcount">${Math.ceil(A.t)}</div><div><b>${A.round > 1 ? 'Next round' : 'The gates open soon'}</b><span>${A.round > 1 ? 'Get ready' : `Buff up · <kbd>P</kbd> perks · <kbd>K</kbd> class · <kbd>Y</kbd> ready`}</span></div><button class="btn" id="arPerks">Perks <kbd>P</kbd></button>${A.t > 4 ? '<button class="btn gold" id="arReady">Ready <kbd>Y</kbd></button>' : ''}</div>`;
   const hill = o === 'koth' && A.state === 'fight' ? `<div class="arhill">${A.hillOwner == null ? 'The hill is empty' : A.hillOwner === 'contested' ? 'The hill is contested!' : `<b style="color:${teamCol(A.hillOwner)}">${teamName(A.hillOwner)}</b> holds the hill`}</div>` : '';
+  const pay = o === 'payload' && PL.on && A.state !== 'over' ? payloadHud(null, teamName(PL.att), teamName(PL.dfn)) : '';
   const me = A.me, dead = !me.alive && A.state === 'fight' ? `<div class="ardead">${A.lives === 'one' ? 'You have fallen. Watch your side finish the fight.' : `Back in the fight in ${Math.ceil(me.respawnT)}`}<small>Fly around to watch: <kbd>W A S D</kbd> move · <kbd>Space</kbd> up · <kbd>C</kbd> down · <kbd>Shift</kbd> faster</small></div>` : '';
-  const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
+  const html = `<div class="arbar"><div class="arobj">${Ob.icon} ${Ob.name}${o === 'rounds' ? ` · Round ${A.round}` : ''}<small>${A.state === 'fight' ? (isFinite(A.timeLimit) ? (A.sudden ? 'sudden death' : (() => { const r = Math.max(0, A.timeLimit - A.clock); return Math.floor(r / 60) + ':' + String(Math.floor(r % 60)).padStart(2, '0') + ' left'; })()) : mm + ':' + ss) : ''}${tgt ? ' · first to ' + A.target : ''}</small></div><div class="archips">${chips}</div></div>${mid}${hill}${pay}${dead}<div class="arfeed">${A.feed.filter(f => G.time - f.t < 8).map(f => `<div>${f.html}</div>`).join('')}</div>`;
   if (hudEl._h !== html || force) { hudEl.innerHTML = html; hudEl._h = html; const b = hudEl.querySelector('#arReady'); if (b) b.onclick = () => { S.click(); readyUp(); }; const pb = hudEl.querySelector('#arPerks'); if (pb) pb.onclick = () => { S.click(); A.hooks.perks && A.hooks.perks(); }; }
 }
 export function scoreTable() {
@@ -2200,6 +2244,7 @@ export function restartMatch(fromHost) {
   for (const t of teamsOf()) { A.score[t] = 0; A.roundWins[t] = 0; }
   for (const f of A.F) { f.kills = f.deaths = f.dmg = f.heal = 0; f.alive = true; f.respawnT = 0; if (f.bot) for (const pm of f.bot.pets) { pm.dead = true; G.scene.remove(pm.root); } }
   for (const fl of A.flags) { fl.carrier = null; fl.pos.copy(fl.home); fl.atHome = true; }
+  if (A.setup.objective === 'payload') { const ts = teamsOf(); payloadReset(ts[0], ts[1]); }
   for (const sh of A.shots) G.scene.remove(sh.m); A.shots.length = 0; A.zones.length = 0;
   G.uiOpen = false; placeAll(); startPick(PICK_T); A.hooks.revived && A.hooks.revived();
 }

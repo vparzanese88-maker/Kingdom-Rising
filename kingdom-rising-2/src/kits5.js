@@ -33,13 +33,13 @@ export function soulRend(c, ctx) {
   const T = SOULREND, me = c === G.player; S.heavyWhoosh && S.heavyWhoosh(c.pos); S.cast && S.cast('shadow', c.pos, 0.5);
   // the wake of the blade: a crescent of shadow swept right to left as the blow comes across, in black smoke with a violet edge
   later(T.hitAt - 0.12, () => { if (c.dead) return; const y0 = c.pos.y + hgt(c) * 0.5, yaw = c.yaw || 0, seg = 16, g = new THREE.Group(); G.scene.add(g);
-    const dark = new THREE.MeshBasicMaterial({ color: '#12001e', transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }), edge = glowM('#b45aff', 0.95), core = glowM('#ffd0ff', 0.9); const parts = [];
+    const dark = new THREE.MeshBasicMaterial({ color: '#12001e', transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }), edge = glowM('#b45aff', 0.95), core = glowM('#e8b0ff', 0.9); const parts = [];
     for (let i = 0; i < seg; i++) { const a0 = T.ang - (i / seg) * T.ang * 2, a1 = T.ang - ((i + 1) / seg) * T.ang * 2;
-      for (const [r0, r1, m, dy] of [[1.4, T.r, dark, 0], [T.r - 0.35, T.r, edge, 0.01], [T.r - 0.12, T.r + 0.05, core, 0.02]]) { const geo = new THREE.RingGeometry(r0, r1, 3, 1, Math.PI / 2 - a0, a0 - a1 + 0.02); const mm = new THREE.Mesh(geo, m); mm.rotation.x = -Math.PI / 2; mm.position.y = dy - i * 0.035; mm.visible = false; g.add(mm); parts.push([mm, i]); } }
+      for (const [r0, r1, m, dy] of [[2.4, T.r, dark, 0], [T.r - 0.45, T.r, edge, 0.01], [T.r - 0.12, T.r + 0.05, core, 0.02]]) { const geo = new THREE.RingGeometry(r0, r1, 3, 1, a1 - Math.PI / 2, a0 - a1 + 0.02); const mm = new THREE.Mesh(geo, m); mm.rotation.x = -Math.PI / 2; mm.position.y = dy - i * 0.035; mm.visible = false; g.add(mm); parts.push([mm, i]); } }
     g.position.set(c.pos.x, y0, c.pos.z); g.rotation.y = yaw; g.rotation.z = 0.12;
     timer((t) => { const show = Math.min(seg, Math.floor(t / 0.11 * seg)); for (const [m, i] of parts) { m.visible = i < show; const age = t - i / seg * 0.11; m.scale.setScalar(1 + Math.max(0, age) * 0.25); }
-      const k = Math.max(0, 1 - Math.max(0, t - 0.12) / 0.38); dark.opacity = 0.55 * k; edge.opacity = 0.95 * k; core.opacity = 0.9 * k;
-      if (t < 0.15) for (let j = 0; j < 3; j++) { const a = yaw + T.ang - Math.random() * T.ang * 2 * Math.min(1, t / 0.11), r = 2 + Math.random() * (T.r - 2); const p = V3(c.pos.x + Math.sin(a) * r, y0 - 0.2 + Math.random() * 0.4, c.pos.z + Math.cos(a) * r); V.emit('shadow', p, { speed: 0.8, vy: 0.6, size: 0.9, size1: 1.8, life: 0.8, grav: -0.5, a0: 0.7 }); if (Math.random() < 0.5) V.emit('void', p, { speed: 2, size: 0.25, life: 0.4, normal: true }); }
+      const k = Math.max(0, 1 - Math.max(0, t - 0.12) / 0.38); dark.opacity = 0.4 * k; edge.opacity = 0.95 * k; core.opacity = 0.9 * k;
+      if (t < 0.15) for (let j = 0; j < 2; j++) { const a = yaw + T.ang - Math.random() * T.ang * 2 * Math.min(1, t / 0.11), r = 2 + Math.random() * (T.r - 2); const p = V3(c.pos.x + Math.sin(a) * r, y0 - 0.2 + Math.random() * 0.4, c.pos.z + Math.cos(a) * r); V.emit('shadow', p, { speed: 0.8, vy: 0.6, size: 0.45, size1: 0.9, life: 0.6, grav: -0.5, a0: 0.45 }); if (Math.random() < 0.5) V.emit('void', p, { speed: 2, size: 0.25, life: 0.4, normal: true }); }
       if (t > 0.55) { kill(g); return true; } return false; }); });
   later(T.hitAt, () => { if (c.dead) return; const f = fwdOf(c); let n = 0;
     for (const u of foes(c)) { const dx = u.pos.x - c.pos.x, dz = u.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d > T.r + 0.6) continue; const da = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1)))); if (d > 1.2 && da > T.ang + 0.15) continue;
@@ -59,7 +59,7 @@ function soulWisp(from, to, onArrive) { const sp = glowSprite('soul', [[0, 'rgba
 // path: they are yanked toward him, slowed, and stay chained to him for 3 s (a little of their life runs back along it)
 // unless they get more than 16 m away and it snaps
 export const CHAINS = { range: 21, speed: 46, tether: 3, snap: 16, yank: 7, tick: 0.12, every: 1 };
-const linkGeo = new THREE.TorusGeometry(0.13, 0.04, 6, 12);
+const linkGeo = new THREE.TorusGeometry(0.17, 0.05, 6, 12);
 let linkMat = null, hookMat = null;
 export function shadowChains(c, ctx) {
   const T = CHAINS; if (!linkMat) { linkMat = new THREE.MeshStandardMaterial({ color: '#2c2734', metalness: 0.9, roughness: 0.35, emissive: '#5a14b0', emissiveIntensity: 0.7 }); linkMat.userData.keep = true; hookMat = new THREE.MeshStandardMaterial({ color: '#3a3044', metalness: 0.9, roughness: 0.3, emissive: '#8a30ff', emissiveIntensity: 1.1 }); hookMat.userData.keep = true; }
@@ -68,7 +68,7 @@ export function shadowChains(c, ctx) {
   const glow = glowSprite('chainglow', [[0, 'rgba(230,180,255,0.9)'], [0.4, 'rgba(140,50,255,0.45)'], [1, 'rgba(40,0,90,0)']], 1.2); hook.add(glow); g.add(hook); G.scene.add(g);
   const dir = ctx.dir.clone(); dir.y = Math.max(-0.3, Math.min(0.3, dir.y)); dir.normalize(); const head = ctx.from().clone(); let d = 0, state = 'out', victim = null, tt = 0, tick = 0, back = 0, sagK = 1, snapT = 0, lastHead = head.clone();
   S.chainThrow && S.chainThrow(c.pos);
-  const lay = (a, b, sag, jit) => { const L = a.distanceTo(b), n = Math.max(2, Math.min(N, Math.round(L / 0.2))); const q = new THREE.Quaternion(), up = V3(0, 1, 0); const dirv = b.clone().sub(a).normalize();
+  const lay = (a, b, sag, jit) => { const L = a.distanceTo(b), n = Math.max(2, Math.min(N, Math.round(L / 0.26))); const q = new THREE.Quaternion(), up = V3(0, 1, 0); const dirv = b.clone().sub(a).normalize();
     for (let i = 0; i < N; i++) { const m = links[i]; if (i >= n) { m.visible = false; continue; } m.visible = true; const s = i / (n - 1); const p = a.clone().lerp(b, s); p.y -= Math.sin(s * Math.PI) * sag * L * 0.06; if (jit) { p.x += (Math.random() - 0.5) * jit; p.y += (Math.random() - 0.5) * jit; p.z += (Math.random() - 0.5) * jit; } m.position.copy(p); q.setFromUnitVectors(up, dirv); m.quaternion.copy(q); m.rotateY(i % 2 ? Math.PI / 2 : 0); m.rotateX(Math.PI / 2); } };
   timer((t, dt) => { const hand = ctx.from(); if (c.dead) state = 'done';
     if (state === 'out') { const step = T.speed * dt; head.addScaledVector(dir, step); d += step; hook.position.copy(head); hook.lookAt(head.clone().add(dir)); lay(hand, head, 0.4 * Math.min(1, d / 6), 0); if (Math.random() < 0.7) V.emit('void', head, { normal: true, speed: 0.4, size: 0.3, life: 0.35 });
@@ -103,10 +103,10 @@ export function graveGrasp(c, ctx) {
     const rise = (p, s, grab) => { const h = boneHand(s); h.position.copy(p).setY(p.y - 1.4 * s); h.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * 6.28, (Math.random() - 0.5) * 0.4); h.userData.curl(0); G.scene.add(h); hands.push({ h, born: t0, p: p.clone(), s, grab }); S.boneClack && S.boneClack(p, grab ? 1 : 0.5); V.burst('dust', p.clone().setY(p.y + 0.2), 10, { speed: 3 }); V.burst('bone', p.clone().setY(p.y + 0.3), 6, { speed: 3 }); };
     const N = Math.round(T.len / 0.9); let jag = 0, tEnd = -1;
     timer((t, dt) => { t0 = t; const want = Math.min(N, Math.floor(t / T.dur * N));
-      while (made < want) { made++; jag = Math.max(-0.4, Math.min(0.4, jag + (Math.random() - 0.5) * 0.5)); const p = O.clone().addScaledVector(f, made * 0.9).addScaledVector(side, jag); p.y = gy(p); seg(prev, p, 1.5, 'dark', 0.8, 0.03); seg(prev, p, 0.55, '#8a30ff', 0.75, 0.05); seg(prev, p, 0.16, '#f0c8ff', 1, 0.07);
-        if (made % 2 === 0) rise(p.clone().addScaledVector(side, (Math.random() - 0.5) * 1.4), 1.3 + Math.random() * 0.4, false); V.emit('void', p.clone().setY(p.y + 0.2), { normal: true, speed: 1, vy: 3, size: 0.5, life: 0.6 }); prev = p;
+      while (made < want) { made++; jag = Math.max(-0.4, Math.min(0.4, jag + (Math.random() - 0.5) * 0.5)); const p = O.clone().addScaledVector(f, made * 0.9).addScaledVector(side, jag); p.y = gy(p); seg(prev, p, 2.0, 'dark', 0.85, 0.03); seg(prev, p, 0.7, '#8a30ff', 0.8, 0.05); seg(prev, p, 0.16, '#f0c8ff', 1, 0.07);
+        if (made % 2 === 0) rise(p.clone().addScaledVector(side, (Math.random() - 0.5) * 1.4), 2.2 + Math.random() * 0.6, false); if (made % 3 === 1) V.burst('void', p.clone().setY(p.y + 0.3), 10, { normal: true, speed: 0.6, vy: 4, size: 0.6, size1: 0.1, life: 0.7, grav: -1 }); V.emit('void', p.clone().setY(p.y + 0.2), { normal: true, speed: 1, vy: 3, size: 0.5, life: 0.6 }); prev = p;
         for (const u of foes(c)) { if (done.has(u)) continue; const dx = u.pos.x - O.x, dz = u.pos.z - O.z, along = dx * f.x + dz * f.z, lat = Math.abs(dx * side.x + dz * side.z); if (along < -0.8 || along > made * 0.9 + 0.5 || lat > T.w) continue; done.add(u);
-          ctx.hit(u, ctx.dmg, { root: ctx.root || T.hold, slow: 0 }); rise(u.pos.clone().setY(gy(u.pos)), 2.1, u); V.burst('blood', chest(u), 10, { speed: 3 }); V.light(u.pos.clone().setY(u.pos.y + 1), '#a040ff', 5, 0.3, 9); } }
+          ctx.hit(u, ctx.dmg, { root: ctx.root || T.hold, slow: 0 }); rise(u.pos.clone().setY(gy(u.pos)), 3.4, u); V.burst('blood', chest(u), 10, { speed: 3 }); V.light(u.pos.clone().setY(u.pos.y + 1), '#a040ff', 5, 0.3, 9); } }
       if (made >= N && tEnd < 0) tEnd = t;
       for (const H of hands) { const a = t - H.born, life = H.grab ? T.hold + 0.5 : 1.0, up = Math.min(1, a / 0.16), down = Math.max(0, (a - life) / 0.3);
         H.h.position.y = H.p.y - 1.4 * H.s * (1 - up) - 1.6 * H.s * down + (H.grab ? 0.15 * H.s : 0); H.h.userData.curl(Math.min(1, Math.max(0, (a - 0.14) / 0.18)) * (H.grab ? 1 : 0.85)); if (H.grab && !H.grab.dead && down === 0) { H.h.position.x = H.grab.pos.x; H.h.position.z = H.grab.pos.z; } }

@@ -62,6 +62,8 @@ function fly(c, o) { const p = o.from.clone(), v = o.dir.clone().multiplyScalar(
 // cached canvas textures (made once)
 const TEX = {};
 function canvasTex(key, w, h, draw) { if (TEX[key]) return TEX[key]; const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return (TEX[key] = t); }
+const scorchTex = () => canvasTex('scorch', 64, 256, (x, w, h) => { for (let i = 0; i < 260; i++) { const px = w / 2 + (Math.random() - 0.5) * w * 0.8 * Math.random(), py = Math.random() * h, r = 4 + Math.random() * 12, g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(20,10,4,0.55)'); g.addColorStop(1, 'rgba(20,10,4,0)'); x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2); } });
+const emberTex = () => canvasTex('embers', 64, 256, (x, w, h) => { for (let i = 0; i < 160; i++) { const px = w / 2 + (Math.random() - 0.5) * w * 0.7 * Math.random(), py = Math.random() * h, r = 1.5 + Math.random() * 5, g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,170,60,0.9)'); g.addColorStop(0.5, 'rgba(255,80,10,0.5)'); g.addColorStop(1, 'rgba(255,40,0,0)'); x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2); } });
 const ICE = () => { const m = new THREE.MeshStandardMaterial({ color: '#d6f4ff', emissive: '#3a9ee0', emissiveIntensity: 0.55, roughness: 0.08, metalness: 0.25, transparent: true, opacity: 0.82, flatShading: true }); return m; };
 
 // ======================================================================= ELEMENTALIST
@@ -69,8 +71,8 @@ const ICE = () => { const m = new THREE.MeshStandardMaterial({ color: '#d6f4ff',
 const FLAME = { len: 14, speed: 17, w0: 2.6, w1: 5.6 };
 function flameWave(c, a, ctx) {
   const dir = flatDir(aimDirOf(c, castFrom(c), ctx.T)), side = V3(dir.z, 0, -dir.x), O = c.pos.clone().addScaledVector(dir, 0.9); faceDir(c, dir);
-  const g = new THREE.Group(), N = 15, tongues = [], coneG = new THREE.ConeGeometry(0.42, 1, 7, 1, true).translate(0, 0.5, 0);
-  for (let i = 0; i < N; i++) { const outer = new THREE.Mesh(coneG, addM('#ff5a14', 0.75)), inner = new THREE.Mesh(coneG, addM('#ffd36a', 0.9)); inner.scale.set(0.55, 0.7, 0.55); outer.add(inner); g.add(outer); tongues.push({ m: outer, u: i / (N - 1) - 0.5, ph: Math.random() * 9, k: 0.7 + Math.random() * 0.6 }); }
+  const g = new THREE.Group(), N = 19, tongues = [], coneG = new THREE.ConeGeometry(0.3, 1, 6, 1, true).translate(0, 0.5, 0);
+  for (let i = 0; i < N; i++) { const outer = new THREE.Mesh(coneG, addM(i % 3 ? '#ff4a0a' : '#ff7a1a', 0.5)), inner = new THREE.Mesh(coneG, addM('#ffb347', 0.55)); inner.scale.set(0.45, 0.62, 0.45); outer.add(inner); g.add(outer); tongues.push({ m: outer, u: i / (N - 1) - 0.5 + (Math.random() - 0.5) * 0.03, ph: Math.random() * 9, k: 0.55 + Math.random() * 0.8 }); }
   G.scene.add(g); const n = ctx.P(a.dmg), done = new Set(); let d = 0, t = 0, scT = 0, liT = 0, prev = null; const scorch = [];
   S.kb('flamewave', O, 1.1); S.cast && S.cast('fire', O, 0.7); anim(c, 'castRel', 0.55); kick(c, 0.25, 5);
   tick((dt) => { t += dt; const run = d < FLAME.len; if (run) d = Math.min(FLAME.len, d + FLAME.speed * dt); const k = d / FLAME.len, w = FLAME.w0 + (FLAME.w1 - FLAME.w0) * k, H = 2.3 * ease(t / 0.18) * (1 - ease((k - 0.82) / 0.18));
@@ -78,12 +80,13 @@ function flameWave(c, a, ctx) {
     for (const q of tongues) { const lat = q.u * w, bow = (1 - (q.u * 2) * (q.u * 2)) * 0.9, p = C.clone().addScaledVector(side, lat).addScaledVector(dir, bow); p.y = gy(p) - 0.05; q.m.position.copy(p); const fl = 0.75 + 0.35 * Math.sin(t * 22 + q.ph) + 0.15 * Math.sin(t * 37 + q.ph * 2);
       q.m.scale.set(1 + 0.15 * Math.sin(t * 17 + q.ph), Math.max(0.01, H * q.k * fl * (1 - Math.abs(q.u) * 0.5)), 1); q.m.rotation.set(-0.35, Math.atan2(dir.x, dir.z), Math.sin(t * 9 + q.ph) * 0.12);
       if (run && Math.random() < 0.35) V.emit('fire', p.clone().setY(p.y + H * q.k * 0.8), { speed: 1.6, size: 0.7, life: 0.45, vy: 2.5 }); if (run && Math.random() < 0.12) V.emit('ember', p.clone().setY(p.y + 0.4), { speed: 3, size: 0.14, life: 0.9, vy: 3 }); }
-    if (run) { scT -= dt; if (scT <= 0) { scT = 0.05; const b = C.clone().addScaledVector(dir, -0.6); if (prev) { const L = prev.distanceTo(b) + 0.4, sm = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.95, L), new THREE.MeshBasicMaterial({ color: '#140a04', transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-          sm.rotation.order = 'YXZ'; sm.rotation.set(-Math.PI / 2, Math.atan2(dir.x, dir.z), 0); sm.position.set((prev.x + b.x) / 2, gy(b) + 0.04, (prev.z + b.z) / 2); G.scene.add(sm); const glow = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.6, L), addM('#ff6a18', 0.5)); glow.rotation.copy(sm.rotation); glow.position.copy(sm.position).setY(sm.position.y + 0.02); G.scene.add(glow); scorch.push({ sm, glow, t }); } prev = b; }
-      liT -= dt; if (liT <= 0) { liT = 0.12; V.light(C.clone().setY(C.y + 1.4), '#ff7a20', 7, 0.2, 12); V.burst('smoke', C.clone().setY(C.y + 2.2).addScaledVector(dir, -1.2), 3, { speed: 1, size: 1.6, life: 1.3, vy: 1.5 }); }
+    if (run) { scT -= dt; if (scT <= 0) { scT = 0.03; const b = C.clone().addScaledVector(dir, -0.8); if (!scorch.length) { const sm = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: scorchTex(), color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })), glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: emberTex(), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3 }));
+          for (const m of [sm, glow]) { m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, Math.atan2(dir.x, dir.z), 0); G.scene.add(m); } scorch.push({ sm, glow, t }); }
+        const s0 = scorch[0], L = Math.max(0.1, b.clone().sub(O).dot(dir)), mid = O.clone().addScaledVector(dir, L / 2); s0.sm.scale.set(w * 0.95, L, 1); s0.glow.scale.set(w * 0.8, L, 1); s0.sm.position.set(mid.x, gy(mid) + 0.04, mid.z); s0.glow.position.set(mid.x, gy(mid) + 0.06, mid.z); s0.t = t; prev = b; }
+      liT -= dt; if (liT <= 0) { liT = 0.12; V.light(C.clone().setY(C.y + 1.4), '#ff7a20', 7, 0.2, 12); if (d > 3) V.burst('smoke', C.clone().setY(C.y + 1.8).addScaledVector(dir, -1.0), 2, { speed: 0.8, size: 1.1, life: 1.0, vy: 1.6 }); }
       for (const u of foes(c)) { if (done.has(u)) continue; const dx = u.pos.x - O.x, dz = u.pos.z - O.z, al = dx * dir.x + dz * dir.z, lat = Math.abs(dx * side.x + dz * side.z); if (al < d - 1.6 || al > d + 1.2 || lat > w / 2 + 0.6) continue; done.add(u);
         hurt(c, u, n, { el: 'fire', burn: n * (a.burn || 0.3), ranged: true, knock: isP(c) ? dir.clone().multiplyScalar(5) : undefined }); V.burst('fire', chest(u), 30, { speed: 4, size: 0.6 }); V.burst('ember', chest(u), 14, { speed: 5 }); S.hit && S.hit('flesh', u.pos, 0.7); kick(c, 0.12, 0, 0.03); } }
-    for (const s of scorch) { const age = t - s.t; s.glow.material.opacity = Math.max(0, 0.5 * (1 - age / 0.9)) * (0.8 + Math.sin(t * 20 + s.t * 30) * 0.2); s.sm.material.opacity = 0.7 * (1 - ease((age - 2.2) / 1.2)); if (Math.random() < 0.02 && age < 1.5) V.emit('ember', s.sm.position.clone().setY(s.sm.position.y + 0.1), { speed: 0.6, size: 0.12, life: 0.8, vy: 1.5 }); }
+    for (const s of scorch) { const age = t - s.t; s.glow.material.opacity = Math.max(0, 0.9 * (1 - age / 1.4)) * (0.8 + Math.sin(t * 20) * 0.2); s.sm.material.opacity = 0.85 * (1 - ease((age - 2.0) / 1.2)); if (Math.random() < 0.5 && age < 1.2) { const q = O.clone().addScaledVector(dir, Math.random() * d).addScaledVector(side, (Math.random() - 0.5) * w * 0.7); V.emit('ember', q.setY(gy(q) + 0.1), { speed: 0.6, size: 0.12, life: 0.8, vy: 1.5 }); } }
     if (!run && H <= 0.01 && g.parent) { kill(g); coneG.dispose(); }
     if (!run && t > FLAME.len / FLAME.speed + 3.6) { for (const s of scorch) { kill(s.sm); kill(s.glow); } if (g.parent) { kill(g); coneG.dispose(); } return true; } return false; });
   return true;
@@ -93,15 +96,15 @@ function flameWave(c, a, ctx) {
 const LASH = { reach: 9, arc: 1.25, dur: 0.2 };
 function jag(a, b, n, amp) { const pts = [a.clone()]; const d = b.clone().sub(a); for (let i = 1; i < n; i++) { const p = a.clone().addScaledVector(d, i / n); p.x += (Math.random() - 0.5) * amp; p.y += (Math.random() - 0.5) * amp; p.z += (Math.random() - 0.5) * amp; pts.push(p); } pts.push(b.clone()); return pts; }
 function boltMesh(pts, w, col, op) { const g = new THREE.Group(); for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = a.distanceTo(b); const m = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.7, w, L, 4, 1, true), addM(col, op)); m.position.copy(a).lerp(b, 0.5); m.quaternion.setFromUnitVectors(V3(0, 1, 0), b.clone().sub(a).normalize()); g.add(m); } return g; }
-function flashBolt(a, b, life = 0.14, w = 0.05) { const pts = jag(a, b, Math.max(4, Math.round(a.distanceTo(b) * 1.4)), 0.45), core = boltMesh(pts, w, '#ffffff', 1), glow = boltMesh(pts, w * 3.2, '#7ab8ff', 0.45); const g = new THREE.Group(); g.add(core, glow);
-  V.temp(g, life, (o, k) => { o.children.forEach((x, i) => x.children.forEach(m => { m.material.opacity = (i ? 0.45 : 1) * (1 - k); })); if (k >= 0.999) kill(o); }); return g; }
+function flashBolt(a, b, life = 0.14, w = 0.05) { const pts = jag(a, b, Math.max(4, Math.round(a.distanceTo(b) * 1.4)), 0.45), core = boltMesh(pts, w, '#ffffff', 1), glow = boltMesh(pts, w * 2.6, '#4a8aff', 0.3); const g = new THREE.Group(); g.add(core, glow);
+  V.temp(g, life, (o, k) => { o.children.forEach((x, i) => x.children.forEach(m => { m.material.opacity = (i ? 0.3 : 1) * (1 - k); })); if (k >= 0.999) kill(o); }); return g; }
 function lightningLash(c, a, ctx) {
   const from0 = castFrom(c), aim = flatDir(aimDirOf(c, from0, ctx.T)), y0 = Math.atan2(aim.x, aim.z), n = ctx.P(a.dmg), done = new Set(); faceDir(c, aim); let t = 0, ang = y0 + LASH.arc, last = null;
   S.kb('thunder', c.pos, 1); anim(c, 'castRel', 0.45); kick(c, 0.3, 6);
   V.light(from0, '#bfe0ff', 10, 0.25, 14);
   tick((dt) => { t += dt; const k = Math.min(1, t / LASH.dur), a2 = y0 + LASH.arc - ease(k) * LASH.arc * 2, from = handOf(c);
     const tip = c.pos.clone().add(V3(Math.sin(a2) * LASH.reach, 0, Math.cos(a2) * LASH.reach)); tip.y = Math.max(gy(tip) + 0.5, from.y - 0.35);
-    flashBolt(from, tip, 0.16, 0.045); if (last) { flashBolt(last, tip, 0.12, 0.03); } last = tip;
+    flashBolt(from, tip, 0.12, 0.03); if (Math.random() < 0.5) { const br = tip.clone().add(V3((Math.random() - 0.5) * 2, -0.6 - Math.random(), (Math.random() - 0.5) * 2)); flashBolt(tip, br, 0.1, 0.02); } last = tip;
     V.burst('lightning', tip, 6, { speed: 4, size: 0.18, life: 0.3 }); if (Math.random() < 0.5) V.burst('spark', tip.clone().setY(gy(tip) + 0.1), 4, { speed: 3 });
     for (const u of foes(c)) { if (done.has(u)) continue; const dx = u.pos.x - c.pos.x, dz = u.pos.z - c.pos.z, dist = Math.hypot(dx, dz); if (dist > LASH.reach + 0.6) continue; const ua = Math.atan2(dx, dz), off = Math.atan2(Math.sin(ua - y0), Math.cos(ua - y0)), cur = a2 - y0;
       if (off > LASH.arc + 0.15 || off < cur - 0.05) continue; done.add(u); const cp = chest(u);
@@ -113,10 +116,10 @@ function lightningLash(c, a, ctx) {
 // Frostbind: a spinning shard of ice; where it strikes, jagged crystals burst out of the ground around everyone within 3 m and hold them
 const PRISON = [];
 function crystalPrison(at, r, dur, small) {
-  const g = new THREE.Group(), mat = ICE(), cr = [], n = small ? 5 : 8; g.position.copy(at); G.scene.add(g);
-  for (let i = 0; i < n; i++) { const a0 = i / n * Math.PI * 2 + Math.random() * 0.4, h = (small ? 0.8 : 1.5) + Math.random() * (small ? 0.5 : 0.9), m = new THREE.Mesh(new THREE.ConeGeometry(0.16 + Math.random() * 0.12, h, 4), mat); m.userData.h = h;
-    const rr = r * (0.75 + Math.random() * 0.35); m.position.set(Math.cos(a0) * rr, h * 0.45, Math.sin(a0) * rr); m.rotation.set(Math.sin(a0) * -0.38, Math.random() * 3, Math.cos(a0) * 0.38); m.userData.a = a0; m.scale.setScalar(0.01); g.add(m); cr.push(m); }
-  for (let i = 0; i < (small ? 3 : 6); i++) { const a0 = Math.random() * Math.PI * 2, h = 0.4 + Math.random() * 0.4, m = new THREE.Mesh(new THREE.OctahedronGeometry(0.18 + Math.random() * 0.1, 0), mat); m.position.set(Math.cos(a0) * r * 1.3, h * 0.3, Math.sin(a0) * r * 1.3); m.scale.setScalar(0.01); m.userData.h = 1; g.add(m); cr.push(m); }
+  const g = new THREE.Group(), mat = ICE(), cr = [], n = small ? 5 : 11; g.position.copy(at); G.scene.add(g); mat.opacity = 0.7;
+  for (let i = 0; i < n; i++) { const a0 = i / n * Math.PI * 2 + Math.random() * 0.4, h = (small ? 0.8 : 1.9) + Math.random() * (small ? 0.5 : 0.8), m = new THREE.Mesh(new THREE.ConeGeometry(0.2 + Math.random() * 0.16, h, 4), mat); m.userData.h = h;
+    const rr = r * (0.8 + Math.random() * 0.35); m.position.set(Math.cos(a0) * rr, h * 0.42, Math.sin(a0) * rr); m.rotation.set(Math.sin(a0) * -0.22, Math.random() * 3, Math.cos(a0) * 0.22); m.userData.a = a0; m.scale.setScalar(0.01); g.add(m); cr.push(m); }
+  for (let i = 0; i < (small ? 3 : 9); i++) { const a0 = Math.random() * Math.PI * 2, h = 0.4 + Math.random() * 0.4, m = new THREE.Mesh(new THREE.OctahedronGeometry(0.22 + Math.random() * 0.16, 0), mat); m.position.set(Math.cos(a0) * r * 1.3, h * 0.3, Math.sin(a0) * r * 1.3); m.scale.setScalar(0.01); m.userData.h = 1; g.add(m); cr.push(m); }
   const frost = new THREE.Mesh(new THREE.CircleGeometry(r * 1.8, 9), new THREE.MeshBasicMaterial({ color: '#e8f8ff', transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); frost.rotation.x = -Math.PI / 2; frost.position.y = 0.03; g.add(frost);
   let t = 0, broke = false; V.burst('frost', at.clone().setY(at.y + 0.6), 40, { speed: 4, size: 0.4 }); V.light(at.clone().setY(at.y + 1), '#9ad8ff', 7, 0.3, 10); S.kb('iceform', at, 1);
   tick((dt) => { t += dt; const grow = Math.min(1, t / 0.14), ov = grow < 1 ? grow : 1 + Math.sin(Math.min(1, (t - 0.14) / 0.12) * Math.PI) * 0.12; frost.material.opacity = 0.55 * Math.min(1, t / 0.2) * (broke ? Math.max(0, 1 - (t - dur) / 0.6) : 1);
@@ -133,7 +136,7 @@ function frostbind(c, a, ctx) {
   fly(c, { from, dir, speed: 42, range: 32, mesh, radius: 0.8, spin: (m, dt, t, v) => { m.lookAt(m.position.clone().add(v)); m.rotateZ(t * 14); }, trail: (p) => { V.emit('frost', p.clone(), { speed: 0.5, size: 0.28, life: 0.4 }); if (Math.random() < 0.4) V.emit('spark', p.clone(), { speed: 0.4, size: 0.08, life: 0.3 }); },
     onEnd: (hit, at) => { const base = hit ? hit.pos.clone() : at.clone(); base.y = gy(base); const caught = foes(c).filter(u => Math.hypot(u.pos.x - base.x, u.pos.z - base.z) < (a.spread || 3) + (u === hit ? 9 : 0));
       if (!caught.length) { crystalPrison(base, 0.5, 0.6, true); V.burst('frost', at, 30, { speed: 5 }); return; }
-      for (const u of caught) { hurt(c, u, n * (u === hit ? 1 : 0.7), { el: 'frost', stun: a.stun || 1.5, freeze: true, ranged: true }); const pr = crystalPrison(u.pos.clone().setY(gy(u.pos)), 0.62, Math.min(1.6, a.stun || 1.5), false); PRISON.push(pr); }
+      for (const u of caught) { hurt(c, u, n * (u === hit ? 1 : 0.7), { el: 'frost', stun: a.stun || 1.5, freeze: true, ranged: true }); const pr = crystalPrison(u.pos.clone().setY(gy(u.pos)), 0.5, Math.min(1.6, a.stun || 1.5), false); PRISON.push(pr); }
       kick(c, 0.2, 0, 0.05); } });
   return true;
 }

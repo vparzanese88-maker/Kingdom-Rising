@@ -117,18 +117,18 @@ export function graveGrasp(c, ctx) {
 // ======================= DRUID =======================
 // Thorn Volley (C): a fan of five real thorns, each as long as a forearm, flies out of the staff. They stick in whoever they
 // hit (and stay there a moment) or in the ground; every thorn hurts and slows
-export const THORNS = { n: 5, spread: 0.16, speed: 42, range: 17, per: 0.4 };
+export const THORNS = { n: 5, spread: 0.075, speed: 34, range: 17, per: 0.5 };
 let thornM = null;
 function thornMesh() { if (!thornM) { thornM = [new THREE.MeshStandardMaterial({ color: '#6a4424', roughness: 0.8 }), new THREE.MeshStandardMaterial({ color: '#5aa83a', roughness: 0.7, side: THREE.DoubleSide, emissive: '#1a4a08', emissiveIntensity: 0.4 })]; thornM.forEach(m => { m.userData.keep = true; }); }
   const g = new THREE.Group(); const sp = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.95, 6), thornM[0]); sp.rotation.x = Math.PI / 2; g.add(sp); for (const r of [0, Math.PI / 2]) { const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.3), thornM[1]); lf.position.z = -0.42; lf.rotation.z = r; g.add(lf); } return g; }
 export function thornVolley(c, ctx) {
   const T = THORNS, from = ctx.from().clone(), dir0 = ctx.dir.clone(); dir0.y = Math.max(-0.25, Math.min(0.25, dir0.y)); dir0.normalize(); const per = new Map(); S.thornVolley && S.thornVolley(c.pos); V.burst('leaf', from, 16, { speed: 4 });
-  for (let i = 0; i < T.n; i++) { const dir = dir0.clone().applyAxisAngle(V3(0, 1, 0), (i - (T.n - 1) / 2) * T.spread); dir.y += (Math.random() - 0.5) * 0.04; const m = thornMesh(); m.position.copy(from); G.scene.add(m); let d = 0, stuck = null, st = 0, off = null, vy = 0;
+  for (let i = 0; i < T.n; i++) { const dir = dir0.clone().applyAxisAngle(V3(0, 1, 0), (i - (T.n - 1) / 2) * T.spread); dir.y += (Math.random() - 0.5) * 0.04; const m = thornMesh(); m.scale.setScalar(1.9); m.position.copy(from); G.scene.add(m); let d = 0, stuck = null, st = 0, off = null, vy = 0;
     later(i * 0.025, () => timer((t, dt) => { if (!stuck) { const step = T.speed * dt; vy -= 2.5 * dt; const v = dir.clone().multiplyScalar(T.speed).setY(dir.y * T.speed + vy); m.position.addScaledVector(v, dt); d += step; m.lookAt(m.position.clone().add(v)); if (Math.random() < 0.5) V.emit('leaf', m.position, { speed: 0.3, size: 0.18, life: 0.4 });
-        for (const u of foes(c)) { const hh = hgt(u); if (Math.hypot(u.pos.x - m.position.x, u.pos.z - m.position.z) < 0.7 + (u.radius || 0.4) * 0.5 && m.position.y > u.pos.y - 0.2 && m.position.y < u.pos.y + hh + 0.2) { const k = per.get(u) || 0; per.set(u, k + 1); ctx.hit(u, ctx.dmg * T.per * (k ? 0.6 : 1), { slow: ctx.slow || 2.5, ranged: true, silent: k > 0 }); stuck = u; off = m.position.clone().sub(u.pos); off.y = Math.min(off.y, hh * 0.8); S.thornThunk && S.thornThunk(m.position); V.burst('blood', m.position, 6, { speed: 2 }); V.burst('leaf', m.position, 6, { speed: 2 }); break; } }
+        for (const u of foes(c)) { const hh = hgt(u); if (Math.hypot(u.pos.x - m.position.x, u.pos.z - m.position.z) < 0.7 + (u.radius || 0.4) * 0.5 && m.position.y > u.pos.y - 0.2 && m.position.y < u.pos.y + hh + 0.2) { const k = per.get(u) || 0; per.set(u, k + 1); ctx.hit(u, ctx.dmg * T.per * (k ? 0.55 : 1), { slow: ctx.slow || 2.5, ranged: true, silent: k > 0 }); stuck = u; off = m.position.clone().sub(u.pos); off.y = Math.min(off.y, hh * 0.8); S.thornThunk && S.thornThunk(m.position); V.burst('blood', m.position, 6, { speed: 2 }); V.burst('leaf', m.position, 6, { speed: 2 }); break; } }
         if (!stuck && (m.position.y < gy(m.position) + 0.05 || solidAt(m.position.x, m.position.y, m.position.z))) { stuck = 'ground'; m.position.addScaledVector(v.clone().normalize(), 0.3); V.burst('dust', m.position, 6, { speed: 2 }); S.thornThunk && S.thornThunk(m.position); }
         if (!stuck && d > T.range) { kill(m); return true; } return false; }
-      st += dt; if (stuck !== 'ground' && stuck && !stuck.dead) m.position.copy(stuck.pos).add(off); if (st > 1.4) m.scale.setScalar(Math.max(0.01, 1 - (st - 1.4) / 0.3)); if (st > 1.7) { m.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); G.scene.remove(m); return true; } return false; })); }
+      st += dt; if (stuck !== 'ground' && stuck && !stuck.dead) m.position.copy(stuck.pos).add(off); if (st > 1.4) m.scale.setScalar(1.9 * Math.max(0.01, 1 - (st - 1.4) / 0.3)); if (st > 1.7) { m.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); G.scene.remove(m); return true; } return false; })); }
 }
 
 // Strangling Roots (Q): a root burrows under the ground toward where he aims, throwing up a furrow of earth, and bursts up at
@@ -139,9 +139,9 @@ let vineM = null;
 export function strangleRoots(c, ctx) {
   const T = ROOTS, A0 = c.pos.clone(), at = ctx.at.clone(), dd = V3(at.x - A0.x, 0, at.z - A0.z); if (dd.length() > T.range) at.copy(A0).addScaledVector(dd.normalize(), T.range); else if (dd.length() < 2) at.copy(A0).addScaledVector(fwdOf(c), 6); at.y = gy(at);
   if (!vineM) { vineM = new THREE.MeshStandardMaterial({ color: '#4a5a22', roughness: 0.85, emissive: '#1a3008', emissiveIntensity: 0.35 }); vineM.userData.keep = true; }
-  const L = Math.hypot(at.x - A0.x, at.z - A0.z), dur = Math.max(0.2, L / T.speed), mounds = []; S.rootBurrow && S.rootBurrow(c.pos, dur); let em = 0, erupted = false;
+  A0.addScaledVector(V3(at.x - A0.x, 0, at.z - A0.z).normalize(), 1.4); const L = Math.hypot(at.x - A0.x, at.z - A0.z), dur = Math.max(0.2, L / T.speed), mounds = []; S.rootBurrow && S.rootBurrow(c.pos, dur); let em = 0, erupted = false;
   timer((t, dt) => { const k = Math.min(1, t / dur), p = A0.clone().lerp(at, k); p.y = gy(p); em -= dt;
-    if (k < 1 && em <= 0) { em = 0.035; V.burst('dust', p.clone().setY(p.y + 0.15), 4, { speed: 2.5, vy: 2 }); V.burst('wood', p.clone().setY(p.y + 0.1), 2, { speed: 2.5, vy: 3 }); const mo = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4a3a24', roughness: 1 })); mo.scale.set(1, 0.5, 1.4); mo.rotation.y = Math.atan2(at.x - A0.x, at.z - A0.z); mo.position.copy(p); G.scene.add(mo); mounds.push([mo, t]); }
+    if (k < 1 && em <= 0) { em = 0.018; V.burst('dust', p.clone().setY(p.y + 0.15), 4, { speed: 2.5, vy: 2 }); V.burst('wood', p.clone().setY(p.y + 0.1), 2, { speed: 2.5, vy: 3 }); const mo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4a3a24', roughness: 1 })); mo.scale.set(0.9, 0.5, 2.0); mo.rotation.y = Math.atan2(at.x - A0.x, at.z - A0.z); mo.position.copy(p); G.scene.add(mo); mounds.push([mo, t]); }
     for (const [mo, b] of mounds) { const a = t - b; mo.scale.y = 0.5 * Math.max(0.01, 1 - Math.max(0, a - 0.5) / 0.6); }
     if (k >= 1 && !erupted) { erupted = true; rootsErupt(c, ctx, at); }
     if (t > dur + 1.2) { for (const [mo] of mounds) kill(mo); return true; } return false; });
@@ -151,7 +151,7 @@ function rootsErupt(c, ctx, at) {
   const caught = foes(c).filter(u => Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < T.r), spots = caught.length ? caught : [null];
   const hold = ctx.root || 1.5;
   for (const u of spots) { if (u) ctx.hit(u, ctx.dmg, { root: hold, slow: ctx.slow || 3.5 }); const base = u ? u.pos.clone() : at.clone(), hh = u ? hgt(u) : 2.2, vines = [];
-    for (let i = 0; i < 4; i++) { const cur = new Helix(u ? 0.55 + (u.radius || 0.3) * 0.5 : 0.4 + i * 0.15, hh * (u ? 0.75 : 0.9), 1.6 + i * 0.25, i * Math.PI / 2), geo = new THREE.TubeGeometry(cur, 48, 0.085 - i * 0.008, 6, false), m = new THREE.Mesh(geo, vineM); geo.setDrawRange(0, 0); G.scene.add(m);
+    for (let i = 0; i < 4; i++) { const cur = new Helix(u ? 0.55 + (u.radius || 0.3) * 0.5 : 0.4 + i * 0.15, hh * (u ? 0.85 : 0.9), 1.6 + i * 0.25, i * Math.PI / 2), geo = new THREE.TubeGeometry(cur, 48, 0.13 - i * 0.012, 6, false), m = new THREE.Mesh(geo, vineM); geo.setDrawRange(0, 0); G.scene.add(m);
       for (let j = 0; j < 6; j++) { const th = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.14, 4), vineM), q = cur.getPoint(0.15 + j * 0.13); th.position.copy(q).multiplyScalar(1.12); th.lookAt(q.clone().multiplyScalar(3)); th.rotateX(Math.PI / 2); th.visible = false; th.userData.s = 0.15 + j * 0.13; m.add(th); }
       vines.push(m); }
     const total = vines[0].geometry.index.count; const life = u ? hold + 0.4 : 0.9;

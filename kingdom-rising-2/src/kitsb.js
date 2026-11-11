@@ -78,7 +78,7 @@ function flameWave(c, a, ctx) {
   tick((dt) => { t += dt; const run = d < FLAME.len; if (run) d = Math.min(FLAME.len, d + FLAME.speed * dt); const k = d / FLAME.len, w = FLAME.w0 + (FLAME.w1 - FLAME.w0) * k, H = 2.3 * ease(t / 0.18) * (1 - ease((k - 0.82) / 0.18));
     const C = O.clone().addScaledVector(dir, d); C.y = gy(C);
     for (const q of tongues) { const lat = q.u * w, bow = (1 - (q.u * 2) * (q.u * 2)) * 0.9, p = C.clone().addScaledVector(side, lat).addScaledVector(dir, bow); p.y = gy(p) - 0.05; q.m.position.copy(p); const fl = 0.75 + 0.35 * Math.sin(t * 22 + q.ph) + 0.15 * Math.sin(t * 37 + q.ph * 2);
-      q.m.scale.set(1 + 0.15 * Math.sin(t * 17 + q.ph), Math.max(0.01, H * q.k * fl * (1 - Math.abs(q.u) * 0.5)), 1); q.m.rotation.set(-0.35, Math.atan2(dir.x, dir.z), Math.sin(t * 9 + q.ph) * 0.12);
+      q.m.scale.set(1 + 0.15 * Math.sin(t * 17 + q.ph), Math.max(0.01, H * q.k * fl * (1 - Math.abs(q.u) * 0.5)), 1); q.m.rotation.set(-0.35, Math.atan2(dir.x, dir.z), Math.sin(t * 9 + q.ph) * 0.12); { const dens = 0.45 + 0.55 * (w / FLAME.w1); q.m.material.opacity = 0.42 * dens; q.m.children[0].material.opacity = 0.45 * dens; }
       if (run && Math.random() < 0.35) V.emit('fire', p.clone().setY(p.y + H * q.k * 0.8), { speed: 1.6, size: 0.7, life: 0.45, vy: 2.5 }); if (run && Math.random() < 0.12) V.emit('ember', p.clone().setY(p.y + 0.4), { speed: 3, size: 0.14, life: 0.9, vy: 3 }); }
     if (run) { scT -= dt; if (scT <= 0) { scT = 0.03; const b = C.clone().addScaledVector(dir, -0.8); if (!scorch.length) { const sm = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: scorchTex(), color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })), glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: emberTex(), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3 }));
           for (const m of [sm, glow]) { m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, Math.atan2(dir.x, dir.z), 0); G.scene.add(m); } scorch.push({ sm, glow, t }); }
@@ -182,8 +182,8 @@ function mirrorShards(c, a, ctx) {
     trail: (p) => { V.emit('arcane', p.clone(), { speed: 0.5, size: 0.22, life: 0.35 }); if (Math.random() < 0.5) V.emit('spark', p.clone(), { speed: 0.6, size: 0.07, life: 0.3 }); },
     onEnd: (hit, at) => { S.kb('shatter', at, 1.1); V.burst('arcane', at, 30, { speed: 5, size: 0.25 }); V.light(at, '#e0a0ff', 6, 0.2, 9); shardBurst(at, tex);
       if (!hit) return; hurt(c, hit, n, { el: 'arcane', ranged: true }); kick(c, 0.15, 0, 0.04);
-      const near = foes(c).filter(u => u !== hit && u.pos.distanceTo(hit.pos) < 9).sort((x, y) => x.pos.distanceTo(hit.pos) - y.pos.distanceTo(hit.pos)).slice(0, 3);
-      for (const u of near) ricochet(c, at, u, tex, () => { hurt(c, u, n * 0.5, { el: 'arcane', ranged: true }); S.kb('zapsmall', u.pos, 0.5); }); } });
+      const near = foes(c).filter(u => u !== hit && u.pos.distanceTo(hit.pos) < 9).sort((x, y) => x.pos.distanceTo(hit.pos) - y.pos.distanceTo(hit.pos)).slice(0, 2);
+      for (const u of near) ricochet(c, at, u, tex, () => { hurt(c, u, n * 0.35, { el: 'arcane', ranged: true }); S.kb('zapsmall', u.pos, 0.5); }); } });
   return true;
 }
 function shardGeo() { const s = new THREE.Shape(); s.moveTo(0, 0.16); s.lineTo(0.09, -0.1); s.lineTo(-0.07, -0.08); s.lineTo(0, 0.16); return new THREE.ShapeGeometry(s); }
@@ -199,7 +199,7 @@ function padlock(u, dur) { const g = new THREE.Group(), gold = new THREE.MeshSta
   const sh = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 16, Math.PI), gold); sh.position.set(0, 0.2, 0); g.add(sh); const aura = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), addM('#c060ff', 0.25)); g.add(aura);
   const links = []; for (let i = 0; i < 10; i++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 5, 10), gold); g.add(l); links.push(l); }
   G.scene.add(g); let t = 0, snapped = false;
-  tick((dt) => { t += dt; if (u.dead && t < dur) t = dur; const hp = head(u), k = Math.min(1, t / 0.12), out = Math.max(0, (t - dur) / 0.3); g.position.copy(hp).setY(hp.y + 0.15 + Math.sin(t * 4) * 0.04); g.lookAt(G.camera.position.x, g.position.y, G.camera.position.z); g.scale.setScalar(Math.max(0.01, (0.4 + 0.6 * k) * (1 + (snapped && t < 0.4 ? Math.sin((t - 0.18) / 0.22 * Math.PI) * 0.18 : 0)) * (1 - out)));
+  tick((dt) => { t += dt; if (u.dead && t < dur) t = dur; const hp = head(u), k = Math.min(1, t / 0.12), out = Math.max(0, (t - dur) / 0.3); g.position.copy(hp).setY(hp.y + 0.15 + Math.sin(t * 4) * 0.04); g.lookAt(G.camera.position.x, g.position.y, G.camera.position.z); g.scale.setScalar(1.5 * Math.max(0.01, (0.4 + 0.6 * k) * (1 + (snapped && t < 0.4 ? Math.sin((t - 0.18) / 0.22 * Math.PI) * 0.18 : 0)) * (1 - out)));
     sh.position.y = t < 0.18 ? 0.32 : 0.2; if (!snapped && t >= 0.18) { snapped = true; S.kb('lock', hp, 1); V.burst('arcane', hp, 18, { speed: 3, size: 0.2 }); V.light(hp, '#c080ff', 4, 0.15, 6); }
     aura.material.opacity = 0.22 + Math.sin(t * 8) * 0.08; links.forEach((l, i) => { const a0 = i / links.length * Math.PI * 2 + t * 2.2; l.position.set(Math.cos(a0) * 0.42, -0.42 + Math.sin(a0 * 2 + t) * 0.05, Math.sin(a0) * 0.42); l.rotation.set(a0, i % 2 ? Math.PI / 2 : 0, 0); l.visible = snapped; });
     if (out >= 1) { V.burst('arcane', g.position.clone(), 14, { speed: 2 }); kill(g); return true; } return false; }); }
@@ -227,7 +227,7 @@ function pocketWatch(u, dur) { const g = new THREE.Group(), pivot = new THREE.Gr
   G.scene.add(g); let t = 0; S.kb('tick', u.pos, 0.9);
   tick((dt) => { t += dt; const awake = t > 0.6 && !stunned(u) && !u.dummy, end = t >= dur || u.dead || awake; if (end && !g.userData.endT) { g.userData.endT = t; S.kb('chime', u.pos, 0.6); V.burst('gold', watch.getWorldPosition(V3()), 20, { speed: 3 }); }
     const out = g.userData.endT ? (t - g.userData.endT) / 0.25 : 0, hp = head(u), toCam = V3(G.camera.position.x - u.pos.x, 0, G.camera.position.z - u.pos.z).normalize(), f = V3(Math.sin(u.yaw || 0), 0, Math.cos(u.yaw || 0)); const fr = f.clone().lerp(toCam, 0.5).normalize();
-    g.position.copy(hp).addScaledVector(fr, 0.55).setY(hp.y + 0.15); g.lookAt(g.position.clone().add(fr)); pivot.rotation.z = Math.sin(t * 3.4) * 0.75; g.scale.setScalar(Math.max(0.01, Math.min(1, t / 0.15) * (1 - out))); glow.material.opacity = 0.25 + Math.sin(t * 6.8) * 0.1;
+    g.position.copy(hp).addScaledVector(fr, 0.55).setY(hp.y + 0.15); g.lookAt(g.position.clone().add(fr)); pivot.rotation.z = Math.sin(t * 3.4) * 0.75; g.scale.setScalar(1.4 * Math.max(0.01, Math.min(1, t / 0.15) * (1 - out))); glow.material.opacity = 0.25 + Math.sin(t * 6.8) * 0.1;
     if (Math.random() < 0.4) V.emit('gold', watch.getWorldPosition(V3()), { speed: 0.3, size: 0.12, life: 0.5 }); if (Math.random() < 0.15) V.emit('arcane', hp.clone().add(V3((Math.random() - 0.5) * 0.5, 0.3, (Math.random() - 0.5) * 0.5)), { speed: 0.4, size: 0.18, life: 0.8, vy: 0.6 });
     if (out >= 1) { kill(g); return true; } return false; }); }
 function mesmerize(c, a, ctx) {
@@ -245,7 +245,7 @@ function bodyRoot(c) { return isP(c) ? c.ch && c.ch.root : c.root || (c.model &&
 function mirrorImage(c, a, ctx) {
   const src = bodyRoot(c), dur = a.dur || 4, inv = a.stealth || 3; let copy = null; const mats = [];
   if (src) { try { src.updateMatrixWorld(true); copy = skClone(src); copy.visible = true; copy.position.copy(src.position); copy.quaternion.copy(src.quaternion); copy.scale.copy(src.scale);
-      copy.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.material = [].concat(o.material).map(m0 => { const m = m0.clone(); m.transparent = true; m.opacity = 0.62; m.depthWrite = true; if (m.emissive) { m.emissive = new THREE.Color('#b060ff'); m.emissiveIntensity = 0.55; } if (m.color) m.color.lerp(new THREE.Color('#d8c8ff'), 0.45); mats.push(m); return m; }); if (o.material.length === 1) o.material = o.material[0]; o.frustumCulled = false; o.castShadow = false; } });
+      copy.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.material = [].concat(o.material).map(m0 => { const m = m0.clone(); m.transparent = true; m.opacity = 0.85; m.depthWrite = true; if (m.emissive) { m.emissive = new THREE.Color('#9040ff'); m.emissiveIntensity = 0.7; } if (m.color) m.color.lerp(new THREE.Color('#c8b0ff'), 0.35); mats.push(m); return m; }); if (o.material.length === 1) o.material = o.material[0]; o.frustumCulled = false; o.castShadow = false; } });
       G.scene.add(copy); } catch (e) { copy = null; } }
   const at = c.pos.clone(), D = { decoy: true, pos: at.clone(), yaw: c.yaw || 0, team: isP(c) ? G.myTeam : c.team, hp: 1, maxHp: c.maxHp || 1000, height: hgt(c), radius: 0.5, status: {}, buffs: {}, dead: false, owner: c, heroName: c.heroName || 'You', name: c.heroName || 'You', vel: V3(), cast: null, stealth: 0, hurtT: 0,
     takeHit() { shatter(); return 0; }, takeDamage() { shatter(); return 0; }, debuff() {}, knock() {}, flash() {}, healSelf() {}, addBuff() {} };
@@ -259,7 +259,7 @@ function mirrorImage(c, a, ctx) {
   else { c.stealth = Math.max(c.stealth || 0, inv); c.phaseInvis = true; c.target = null; }
   anim(c, 'castRel', 0.35);
   tick((dt) => { t += dt; if (gone) return true; if (t >= dur) { shatter(); return true; }
-    if (copy) { const fl = 0.5 + Math.sin(t * 13) * 0.08 + (Math.random() < 0.04 ? -0.3 : 0); mats.forEach(m => { m.opacity = fl; }); if (Math.random() < 0.3) V.emit('arcane', at.clone().add(V3((Math.random() - 0.5) * 0.8, Math.random() * 1.9, (Math.random() - 0.5) * 0.8)), { speed: 0.3, size: 0.12, life: 0.6, vy: 0.5 }); }
+    if (copy) { const fl = 0.82 + Math.sin(t * 13) * 0.06 + (Math.random() < 0.04 ? -0.35 : 0); mats.forEach(m => { m.opacity = fl; }); if (Math.random() < 0.3) V.emit('arcane', at.clone().add(V3((Math.random() - 0.5) * 0.8, Math.random() * 1.9, (Math.random() - 0.5) * 0.8)), { speed: 0.3, size: 0.12, life: 0.6, vy: 0.5 }); }
     // enemy fighters that lost you go for the copy
     for (const u of foes(c)) if (u.arenaBot && !u.dead && (u.target === c || !u.target || u.target === D) && u.pos.distanceTo(at) < 30) u.target = D;
     // the player's own shots and swings (when a computer enchanter left it) break it
@@ -315,8 +315,8 @@ function feralRoar(c, a, ctx) {
   S.kb('roar', c.pos, 1.2); anim(c, 'castBig', 0.7); kick(c, 0.5, 8); const fronts = [];
   for (let i = 0; i < 5; i++) { const geo = new THREE.CylinderGeometry(1, 1, 1, 24, 1, true, Math.PI - ROAR.half * 0.9 + yaw - Math.PI, ROAR.half * 1.8); const m = new THREE.Mesh(geo, addM(i % 2 ? '#ffe8c0' : '#ffffff', 0.0)); m.position.copy(mouth).setY(mouth.y - 0.5); G.scene.add(m); fronts.push({ m, d: i * 0.07 }); }
   let t = 0; const done = new Set(), n = ctx.P(a.dmg || 0.4);
-  tick((dt) => { t += dt; for (const f of fronts) { const k = (t - f.d) / 0.5; if (k < 0) continue; const r = 0.5 + ease(k) * ROAR.r; f.m.scale.set(r, 0.6 + k * 2.4, r); f.m.material.opacity = Math.max(0, 0.42 * (1 - k)) * Math.min(1, k * 6); f.m.position.y = mouth.y - 0.5 - k * 0.6; }
-    const R = 0.5 + ease(t / 0.5) * ROAR.r; if (t < 0.55) { for (let i = 0; i < 4; i++) { const ang = yaw + (Math.random() - 0.5) * ROAR.half * 2, q = c.pos.clone().add(V3(Math.sin(ang) * R, 0, Math.cos(ang) * R)); q.y = gy(q) + 0.15; V.burst('dust', q, 1, { speed: 2.5, size: 1.1, life: 0.9, dir: V3(Math.sin(ang), 0.25, Math.cos(ang)) }); if (Math.random() < 0.3) V.burst('leaf', q, 1, { speed: 4, dir: V3(Math.sin(ang), 0.6, Math.cos(ang)) }); }
+  tick((dt) => { t += dt; for (const f of fronts) { const k = (t - f.d) / 0.5; if (k < 0) continue; const r = 0.5 + ease(k) * ROAR.r; f.m.scale.set(r, 0.6 + k * 2.4, r); f.m.material.opacity = Math.max(0, 0.16 * (1 - k)) * Math.min(1, k * 6); f.m.position.y = mouth.y - 0.5 - k * 0.6; }
+    const R = 0.5 + ease(t / 0.5) * ROAR.r; if (t < 0.55) { for (let i = 0; i < 7; i++) { const ang = yaw + (Math.random() - 0.5) * ROAR.half * 2, q = c.pos.clone().add(V3(Math.sin(ang) * R, 0, Math.cos(ang) * R)); q.y = gy(q) + 0.15; V.burst('dust', q, 1, { speed: 2.5, size: 1.1, life: 0.9, dir: V3(Math.sin(ang), 0.25, Math.cos(ang)) }); if (Math.random() < 0.3) V.burst('leaf', q, 1, { speed: 4, dir: V3(Math.sin(ang), 0.6, Math.cos(ang)) }); }
       for (const u of foes(c)) { if (done.has(u)) continue; const dx = u.pos.x - c.pos.x, dz = u.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d > R + 0.4 || d > ROAR.r + 0.5) continue; const off = Math.atan2(Math.sin(Math.atan2(dx, dz) - yaw), Math.cos(Math.atan2(dx, dz) - yaw)); if (Math.abs(off) > ROAR.half + 0.12 && d > 1.5) continue;
         done.add(u); hurt(c, u, n, { stun: a.stun || 1, slow: a.slow || 2.5, ranged: true, knock: isP(c) ? dir.clone().multiplyScalar(4) : undefined }); V.burst('dust', chest(u), 14, { speed: 4, dir }); } }
     if (t > 0.9) { for (const f of fronts) kill(f.m); return true; } return false; });
@@ -325,11 +325,11 @@ function feralRoar(c, a, ctx) {
 // Primal Hide (right click): bone-tipped quills burst out of his back and shoulders: for 4 s he takes 40% less damage and heals 20%
 function primalHide(c, a, ctx) {
   const dur = a.dur || 4, g = new THREE.Group(), H = hgt(c), qm = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.7 }), tip = new THREE.MeshStandardMaterial({ color: '#efe6d0', roughness: 0.5 }), qs = [];
-  for (let i = 0; i < 26; i++) { const u = Math.random(), ang = Math.PI + (Math.random() - 0.5) * 2.6, y = H * (0.6 + u * 0.3), L = 0.35 + Math.random() * 0.4; const q = new THREE.Group(), sh = new THREE.Mesh(new THREE.ConeGeometry(0.035, L, 5).translate(0, L / 2, 0), qm), tp = new THREE.Mesh(new THREE.ConeGeometry(0.02, L * 0.35, 5).translate(0, L * 1.0, 0), tip); q.add(sh, tp);
-    const r = H * 0.13; q.position.set(Math.sin(ang) * r, y, Math.cos(ang) * r); q.lookAt(V3(Math.sin(ang) * 3, y + 1.6 + Math.random(), Math.cos(ang) * 3)); q.rotateX(Math.PI / 2); q.scale.setScalar(0.01); q.userData.d = Math.random() * 0.12; g.add(q); qs.push(q); }
+  for (let i = 0; i < 26; i++) { const u = Math.random(), ang = Math.PI + (Math.random() - 0.5) * 2.6, y = H * (0.58 + u * 0.28), L = 0.5 + Math.random() * 0.45; const q = new THREE.Group(), sh = new THREE.Mesh(new THREE.ConeGeometry(0.045, L, 5).translate(0, L / 2, 0), qm), tp = new THREE.Mesh(new THREE.ConeGeometry(0.02, L * 0.35, 5).translate(0, L * 1.0, 0), tip); q.add(sh, tp);
+    const r = H * 0.19; q.position.set(Math.sin(ang) * r, y, Math.cos(ang) * r); q.lookAt(V3(Math.sin(ang) * 3, y + 1.6 + Math.random(), Math.cos(ang) * 3)); q.rotateX(Math.PI / 2); q.scale.setScalar(0.01); q.userData.d = Math.random() * 0.12; g.add(q); qs.push(q); }
   G.scene.add(g); S.kb('quills', c.pos, 1); S.growl && S.growl('bear', c.pos, 0.9); kick(c, 0.3, 4); anim(c, 'castBig', 0.5);
   V.burst('dust', c.pos.clone().setY(c.pos.y + H * 0.7), 30, { speed: 3, size: 0.8 }); V.burst('blood', c.pos.clone().setY(c.pos.y + H * 0.7), 10, { speed: 2, size: 0.25 });
-  if (isP(c)) { const B2 = c.buffs; B2.avatar = dur; c.avatar = { name: a.name, taken: a.taken || 0.6, regen: (a.heal || 0.2) / dur, col: '#a06030' }; c.formOn = null; }
+  if (isP(c)) { const B2 = c.buffs; B2.avatar = dur; c.avatar = { name: a.name, taken: a.taken || 0.6, regen: (a.heal || 0.2) / dur, col: '#a06030', mote: 'dust' }; c.formOn = 'avatar'; } /* (formOn set: no form flash or toast; the quills are the look) */
   else { c.av = { taken: a.taken || 0.6 }; c.addBuff && c.addBuff('avatar', dur); c.hots && c.hots.push({ ps: (a.heal || 0.2) * c.maxHp / dur, t: dur }); }
   let t = 0; tick((dt) => { t += dt; g.position.copy(c.pos); g.rotation.y = isP(c) ? (c.bodyYaw != null ? c.bodyYaw : c.yaw) : c.yaw || 0; const out = ease((t - dur) / 0.25);
     for (const q of qs) { const k = (t - q.userData.d) / 0.12, s = k < 0 ? 0.01 : k < 1 ? k * 1.25 : 1 + Math.sin(t * 30 + q.userData.d * 50) * 0.04 * (1 - out); q.scale.setScalar(Math.max(0.01, s * (1 - out))); }

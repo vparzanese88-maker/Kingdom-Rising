@@ -113,7 +113,7 @@ export const KIT = {
   ar_iceshell: ['shieldglow', 'frost', 'A shell of ice absorbs 30% of your health for 5 s.'],
   ar_meteors: ['meteor', 'fire', 'Meteors, ice shards and lightning rain down where you aim: fire burns, ice slows and lightning stuns.', 1],
   // enchanter
-  en_shards: ['spiraleye', 'arcane', 'Throw a spinning pane of enchanted glass: it shatters on the first enemy it hits and the shards ricochet into up to 3 more nearby.'],
+  en_shards: ['spiraleye', 'arcane', 'Throw a spinning pane of enchanted glass: it shatters on the first enemy it hits and the shards ricochet into up to 2 more nearby.'],
   en_mindlock: ['lock', 'arcane', 'A bolt of binding thought: the enemy it hits, and anyone within 3 m, is silenced for 2 s as a padlock of light snaps shut over their head.'],
   en_mesmer: ['spiraleye', 'arcane', 'A golden pocket watch swings before the eyes of the enemy you hit: entranced for up to 3 s. Damage wakes them.'],
   en_decoy: ['runeshield', 'arcane', 'Vanish for 3 s and leave a glass copy of yourself. Enemies go for the copy; when it is hit (or after 4 s) it shatters, slowing enemies within 4 m.'],

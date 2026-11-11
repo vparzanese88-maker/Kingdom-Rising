@@ -17,7 +17,7 @@ void main(){ float v = vUv.y, u = vUv.x * 6.2831853; float fade = pow(1.0 - v, 1
   float bands = 0.65 + 0.35 * sin(v * 12.0 - time * 2.2 + sin(u * 5.0) * 1.5);
   float foot = (1.0 - smoothstep(0.0, 0.07, v)) * 0.9;
   float fl = step(0.5, fract(time * 5.0 + sin(u * 3.0) * 0.3)); vec3 c = mix(col, col2, flick * fl);
-  float al = (fade * (0.22 + 0.42 * sh * bands) + foot) * k; gl_FragColor = vec4(c * al, 1.0); }`;
+  float al = (fade * (0.34 + 0.6 * sh * bands) + foot * 1.25) * k; gl_FragColor = vec4(c * al, 1.0); }`;
 // the ground glyph: rim, an inner ring, twelve spokes, a band of turning runes, and the fill (radius 'fill' of 0..1) in the holder's colour
 const GLYPH_FS = `uniform float time, k, fill, flick; uniform vec3 col, col2, base; uniform sampler2D runes; varying vec2 vUv;
 void main(){ vec2 p = vUv * 2.0 - 1.0; float r = length(p); if (r > 1.0) discard; float a = atan(p.y, p.x);

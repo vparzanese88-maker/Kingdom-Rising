@@ -105,8 +105,8 @@ export function buildPayload(scene, attCol = '#3a8cff', defCol = '#ff4a3a') {
     im.receiveShadow = true; im.castShadow = false; root.add(im); }
   const railShape = [[-0.06, 0], [-0.04, 0.1], [-0.07, 0.11], [-0.07, 0.16], [0.07, 0.16], [0.07, 0.11], [0.04, 0.1], [0.06, 0]];
   for (const o of [-0.78, 0.78]) { const rm = new THREE.Mesh(sweep(railShape, o, Y + 0.12), SM('#5a5450', 0.3, 0.9)); rm.castShadow = true; root.add(rm); }
-  { const n = Math.floor(PL.len / 1.25) * 2, gk = new THREE.DodecahedronGeometry(0.24, 0); gk.scale(1.3, 0.55, 1); const im = new THREE.InstancedMesh(gk, stone, n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(); let s = 17; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < n; i++) { const p = trackAt((i >> 1) * 1.25 + r() * 0.4), sd = i & 1 ? 1 : -1, w = 1.62 + r() * 0.12; q.setFromEuler(new THREE.Euler(0, r() * 6.28, 0)); m4.compose(new THREE.Vector3(p.x + p.tz * w * sd, Y + 0.04, p.z - p.tx * w * sd), q, new THREE.Vector3(0.8 + r() * 0.5, 0.7 + r() * 0.6, 0.8 + r() * 0.4)); im.setMatrixAt(i, m4); }
+  { const n = Math.floor(PL.len / 1.25) * 2, gk = new THREE.DodecahedronGeometry(0.24, 0); gk.scale(1.3, 0.55, 1); const im = new THREE.InstancedMesh(gk, SM('#8e8474', 0.95, 0, { flatShading: true }), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(); let s = 17; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < n; i++) { const p = trackAt((i >> 1) * 1.25 + r() * 0.4), sd = i & 1 ? 1 : -1, w = 1.62 + r() * 0.12; q.setFromEuler(new THREE.Euler(0, r() * 6.28, 0)); m4.compose(new THREE.Vector3(p.x + p.tz * w * sd, Y + 0.04, p.z - p.tx * w * sd), q, new THREE.Vector3(0.6 + r() * 0.4, 0.5 + r() * 0.4, 0.6 + r() * 0.3)); im.setMatrixAt(i, m4); }
     im.receiveShadow = true; root.add(im); }
   // checkpoints: a pair of carved waystones with braziers, joined by a band of runes across the track that lights in the attackers' colour once passed
   const runes = runeTex(11); cpMarks = [];

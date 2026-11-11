@@ -29,8 +29,8 @@ export function paintHillRing(dt, owner, colOf) {
   else if (!cont) H.fill = Math.max(0, H.fill - dt * 0.35);
   if (H.holder != null && H.fill > 0) _c1.set(colOf(H.holder)); else _c1.copy(_idle); H.col.lerp(_c1, Math.min(1, dt * 5 + 0.02));
   const c = cont && Math.sin(t * 10) > 0 ? _c2 : H.col;
-  H.rim.material.color.copy(c); H.rim.material.opacity = held || cont ? 0.7 : 0.5;
-  H.wall.material.uniforms.col.value.copy(c); H.wall.material.uniforms.k.value = cont ? 0.42 : held ? 0.34 : 0.22;
+  H.rim.material.color.copy(c); H.rim.material.opacity = held || cont ? 0.55 : 0.4;
+  H.wall.material.uniforms.col.value.copy(c); H.wall.material.uniforms.k.value = cont ? 0.26 : held ? 0.22 : 0.15;
   H.fillR.visible = H.fill > 0.02 && H.fill < 0.995; H.fillR.scale.setScalar(Math.max(0.01, H.fill * H.R)); H.fillR.material.color.copy(H.col);
 }
 export function hideHillRing() { if (H && H.root.parent) H.root.parent.remove(H.root); }

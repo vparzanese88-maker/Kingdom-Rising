@@ -43,7 +43,7 @@ export function soulRend(c, ctx) {
       if (t > 0.55) { kill(g); return true; } return false; }); });
   later(T.hitAt, () => { if (c.dead) return; const f = fwdOf(c); let n = 0;
     for (const u of foes(c)) { const dx = u.pos.x - c.pos.x, dz = u.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d > T.r + 0.6) continue; const da = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1)))); if (d > 1.2 && da > T.ang + 0.15) continue;
-      const dealt = ctx.hit(u, ctx.dmg, { melee: true, big: true }) || 0; n++; const cp = chest(u); V.burst('blood', cp, 18, { speed: 5 }); V.burst('void', cp, 14, { normal: true, speed: 3, size: 0.4 }); S.hit && S.hit('flesh', cp, 1.1);
+      const dealt = ctx.hit(u, ctx.dmg, { melee: true }) || 0; n++; const cp = chest(u); V.burst('blood', cp, 18, { speed: 5 }); V.burst('void', cp, 14, { normal: true, speed: 3, size: 0.4 }); S.hit && S.hit('flesh', cp, 1.1);
       soulWisp(u, c, () => { const amt = dealt * T.drain; if (amt > 0) ctx.heal(amt); }); }
     if (n) { V.addShake(me ? 0.35 : 0.15); if (me) G.hitstop = Math.max(G.hitstop || 0, 0.08); S.soulRip && S.soulRip(c.pos); } });
 }
@@ -141,8 +141,8 @@ export function strangleRoots(c, ctx) {
   if (!vineM) { vineM = new THREE.MeshStandardMaterial({ color: '#4a5a22', roughness: 0.85, emissive: '#1a3008', emissiveIntensity: 0.35 }); vineM.userData.keep = true; }
   A0.addScaledVector(V3(at.x - A0.x, 0, at.z - A0.z).normalize(), 1.4); const L = Math.hypot(at.x - A0.x, at.z - A0.z), dur = Math.max(0.2, L / T.speed), mounds = []; S.rootBurrow && S.rootBurrow(c.pos, dur); let em = 0, erupted = false;
   timer((t, dt) => { const k = Math.min(1, t / dur), p = A0.clone().lerp(at, k); p.y = gy(p); em -= dt;
-    if (k < 1 && em <= 0) { em = 0.018; V.burst('dust', p.clone().setY(p.y + 0.15), 4, { speed: 2.5, vy: 2 }); V.burst('wood', p.clone().setY(p.y + 0.1), 2, { speed: 2.5, vy: 3 }); const mo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4a3a24', roughness: 1 })); mo.scale.set(0.9, 0.5, 2.0); mo.rotation.y = Math.atan2(at.x - A0.x, at.z - A0.z); mo.position.copy(p); G.scene.add(mo); mounds.push([mo, t]); }
-    for (const [mo, b] of mounds) { const a = t - b; mo.scale.y = 0.5 * Math.max(0.01, 1 - Math.max(0, a - 0.5) / 0.6); }
+    if (k < 1 && em <= 0) { em = 0.018; V.burst('dust', p.clone().setY(p.y + 0.15), 4, { speed: 2.5, vy: 2 }); V.burst('wood', p.clone().setY(p.y + 0.1), 2, { speed: 2.5, vy: 3 }); const mo = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4a3a24', roughness: 1 })); mo.scale.set(0.9, 0.5, 2.0); mo.rotation.y = Math.atan2(at.x - A0.x, at.z - A0.z); mo.position.copy(p); G.scene.add(mo); mounds.push([mo, t]); }
+    for (const [mo, b] of mounds) { const a = t - b; mo.scale.y = 0.5 * Math.max(0.01, 1 - Math.max(0, a - 0.3) / 0.5); }
     if (k >= 1 && !erupted) { erupted = true; rootsErupt(c, ctx, at); }
     if (t > dur + 1.2) { for (const [mo] of mounds) kill(mo); return true; } return false; });
 }

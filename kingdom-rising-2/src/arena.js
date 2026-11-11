@@ -1986,7 +1986,8 @@ class ArenaBot {
         if (a.t === 'lightslice' && T && dT < 18) return use(a, T);
         if (a.t === 'shadowchains' && T && dT > 4 && dT < 18) return use(a, T); /* (the Shadowknight: chain the one getting away) */
         if (a.t === 'soulrend' && T && dT < 4.8 && (hp < 0.8 || Math.random() < 0.5)) return use(a, T);
-        if (a.t === 'axethrow' && T && dT > 5 && dT < 22) return use(a, T); /* (the berserker: the axe at someone out of reach) */ } }
+        if (a.t === 'axethrow' && T && dT > 5 && dT < 22) return use(a, T);
+        if (a.t === 'kbword' && (nHurt >= 1 || hp < 0.7)) return use(a, this); /* (the priest's Word of Shielding: heal + shield the hurt team around her) */ /* (the berserker: the axe at someone out of reach) */ } }
     // 2. defences when under pressure
     if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
     // 3. protect a team mate who is being beaten on

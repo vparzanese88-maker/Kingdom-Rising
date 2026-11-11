@@ -20,6 +20,7 @@ import { A, gy, ultFoes, ultHurt } from './arena.js';
 import { AR, PILLARS } from './arenamap.js';
 import { AN, send } from './arenanet.js';
 import { ABILITIES } from './data.js';
+import { berthaDress, berthaTick, berthaBoom } from './ultsb.js'; // (Big Bertha's siren, countdown, red-hot shaking and mushroom cloud)
 
 export const BOMB = {
   throw: { fuse: 0.45, max: 3.2, bounceV: 1.0, rest: 0.45, r: 3.2, k: 1.1, speed: 20, up: 4 }, // (k: of the thrower's weapon damage, at the centre; half that at the edge; fuse: it goes off this long after it settles (its third bounce, or rolling), max s after the throw at most)
@@ -83,7 +84,7 @@ export function detonate(owner) { let n = 0; for (const b of BX.list.slice()) if
 export const liveBombs = (owner, kind) => BX.list.filter(b => b.owner === owner && !b.ghost && (!kind || b.kind === kind));
 // Big Bertha, planted at the feet
 export function plantBomb(owner, at) { const p = at.clone(); p.y = ground(p.x, p.z, p.y + 0.5); const b = add({ id: ++BX.seq, kind: 'u', owner, oi: oiOf(owner), pos: p, vel: new THREE.Vector3(), fuse: BOMB.ult.fuse, stuck: { u: null, n: UP.clone() }, beepT: 0, defuse: 0, team: owner && owner.team });
-  b.mesh.rotation.y = Math.random() * 6; b.rings = ultRings(BOMB.ult.r, BOMB.ult.core); for (const m of b.rings) { m.position.set(p.x, p.y + 0.07, p.z); G.scene.add(m); }
+  b.mesh.rotation.y = Math.random() * 6; berthaDress(b); b.rings = ultRings(BOMB.ult.r, BOMB.ult.core); for (const m of b.rings) { m.position.set(p.x, p.y + 0.07, p.z); G.scene.add(m); }
   V.burst('dust', p.clone().setY(p.y + 0.2), 26, { speed: 3 }); S.bombStick(p); S.blunt && S.blunt(p);
   net({ e: 'n', o: b.oi, id: b.id, k: 'u', p: P3(p), v: [0, 0, 0] }); return b; }
 
@@ -134,7 +135,7 @@ function boom(b, mode) { // mode: 'norm' (a thrown bomb's fuse or contact, a sti
     hurt(b.owner, u, dmg * (u === on ? 1.15 : 1 - 0.5 * clamp01(d / r))); }
 }
 function bigBoom(b) { // Big Bertha goes up
-  const pos = b.pos.clone().setY(b.pos.y + 0.4), U = BOMB.ult; remove(b); boomFx(pos, 2); net({ e: 'x', o: b.oi, id: b.id, p: P3(pos), b: 2 });
+  const pos = b.pos.clone().setY(b.pos.y + 0.4), U = BOMB.ult; remove(b); boomFx(pos, 2); berthaBoom(pos, b.pos.y, U.r); net({ e: 'x', o: b.oi, id: b.id, p: P3(pos), b: 2 });
   const sc = new THREE.Mesh(new THREE.CircleGeometry(6, 40), new THREE.MeshBasicMaterial({ color: '#120804', transparent: true, opacity: 0.85, depthWrite: false })); sc.rotation.x = -Math.PI / 2; sc.position.set(pos.x, b.pos.y + 0.05, pos.z); G.scene.add(sc);
   let t2 = 0; G.timers.push({ update: (dt) => { t2 += dt; sc.material.opacity = 0.85 * Math.max(0, 1 - t2 / 8); if (Math.random() < 0.4) V.emit('ember', pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 8, -0.3, (Math.random() - 0.5) * 8)), { speed: 0.4, vy: 1.5, size: 0.3 }); if (t2 > 8) { G.scene.remove(sc); return true; } return false; } });
   if (b.ghost || (inArena() && A.state !== 'fight')) return;
@@ -172,7 +173,7 @@ function ultTick(b, dt) { const U = BOMB.ult, k = clamp01(b.t / b.fuse), m = b.m
   b.beepT -= dt; if (b.beepT <= 0) { b.beepT = 0.95 * Math.pow(1 - k, 1.4) + 0.085; S.bombBeep(b.pos, k); b.flash = 0.09; V.light(b.pos.clone().setY(b.pos.y + 0.7), '#ff2010', 2 + k * 3, 0.08, 8); }
   b.flash = Math.max(0, (b.flash || 0) - dt); m.userData.led.material = b.flash > 0 ? LED : LED_OFF; m.userData.glow.material.opacity = b.flash > 0 ? 0.8 : 0; m.userData.hand.rotation.y = -k * Math.PI * 2;
   const [ring, core, dz] = b.rings; ring.material.opacity = 0.35 + (b.flash > 0 ? 0.45 : 0) + k * 0.2; ring.scale.setScalar(Math.min(1, 0.1 + b.t * 2)); core.material.opacity = 0.08 + k * 0.14 + (b.flash > 0 ? 0.1 : 0);
-  m.scale.setScalar(1 + (b.flash > 0 ? 0.04 : 0)); if (Math.random() < dt * 8) V.emit('spark', b.pos.clone().setY(b.pos.y + 0.62), { speed: 1.2, size: 0.1 });
+  m.scale.setScalar(1 + (b.flash > 0 ? 0.04 : 0)); berthaTick(b, dt, k); if (Math.random() < dt * 8) V.emit('spark', b.pos.clone().setY(b.pos.y + 0.62), { speed: 1.2, size: 0.1 });
   // defusing: an enemy standing on it for 3 s (counted on every machine for the bar; only the owner's machine decides)
   const on = ultFoes(b.owner).filter(u => u && !u.dead && u.pos && Math.hypot(u.pos.x - b.pos.x, u.pos.z - b.pos.z) < U.defuseR && Math.abs(u.pos.y - b.pos.y) < 2);
   if (on.length) b.defuse += dt; else b.defuse = Math.max(0, b.defuse - dt * 2);
@@ -193,9 +194,9 @@ export function bombNet(d, U) {
   const key = gk(d.o, d.id), b = BX.list.find(x => x.ghost && x.key === key), p = d.p ? new THREE.Vector3(d.p[0], d.p[1], d.p[2]) : null;
   switch (d.e) {
     case 'n': { if (b) return; const owner = U(d.o) || { pos: p ? p.clone() : new THREE.Vector3(), team: -1 }; const nb = { id: d.id, key, ghost: true, kind: d.k, owner, oi: d.o, pos: p, vel: new THREE.Vector3(d.v[0], d.v[1], d.v[2]), dmg: 0, fuse: d.k === 'u' ? BOMB.ult.fuse : d.k === 's' ? BOMB.sticky.life : BOMB.throw.max, spin: new THREE.Vector3(8, 1, 2) };
-      if (d.k === 'u') { nb.stuck = { u: null, n: UP.clone() }; nb.beepT = 0; nb.defuse = 0; add(nb); nb.rings = ultRings(BOMB.ult.r, BOMB.ult.core); for (const m of nb.rings) { m.position.set(p.x, p.y + 0.07, p.z); G.scene.add(m); } S.bombStick(p); } else add(nb); break; }
+      if (d.k === 'u') { nb.stuck = { u: null, n: UP.clone() }; nb.beepT = 0; nb.defuse = 0; add(nb); berthaDress(nb); nb.rings = ultRings(BOMB.ult.r, BOMB.ult.core); for (const m of nb.rings) { m.position.set(p.x, p.y + 0.07, p.z); G.scene.add(m); } S.bombStick(p); } else add(nb); break; }
     case 's': { if (!b) return; if (p) b.pos.copy(p); const u = d.u >= 0 ? U(d.u) : null; if (u) { stickUnit(b, u, p); } else { b.stuck = { u: null, n: d.n ? new THREE.Vector3(d.n[0], d.n[1], d.n[2]) : UP.clone() }; b.vel.set(0, 0, 0); S.bombStick(b.pos); } break; }
-    case 'x': { if (b) remove(b); if (p) { boomFx(p, d.b || 0); if (d.b === 2) bigBoomGhostMark(p); } break; }
+    case 'x': { if (b) remove(b); if (p) { boomFx(p, d.b || 0); if (d.b === 2) { bigBoomGhostMark(p); berthaBoom(p, p.y - 0.4, BOMB.ult.r); } } break; }
     case 'r': if (b) fizzle(b); break;
     case 'd': if (b) defused(b, null); break;
   }

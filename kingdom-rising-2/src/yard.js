@@ -19,6 +19,7 @@ import { playUlt, ULT_ORDER } from './yardults.js';
 import { openKitInfo, abilityCards } from './arena.js';
 import { buildHumanoid, equipWeapon, animateHumanoid, bake } from './character.js';
 import { arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, addOutline, notesTick, arenaLookTick } from './arenalooks.js';
+import { install as installU5 } from './ults5.js'; // (the Shadow Knight's, monk's, druid's, shaman's and cleric's ultimates)
 
 export const YD = { infinite: false, dmg: [], startGame: null }; window.KR2Y = YD; /* (for tests) */
 const dummies = [];
@@ -51,7 +52,7 @@ export function lineUpNear() { const P = G.player; if (!P) return null; let best
 export function lineUpSwitch() { const f = lineUpNear(); if (!f || !YD.startGame) return false; const P = G.player, pos = P.pos.clone(), yaw = P.yaw; YD.startGame(yardHero(f.cls, G.save)); G.player.place(pos.x, pos.z, yaw); S.levelUp && S.levelUp(); return true; }
 export function spawnDummies() {
   if (!LINE.length) spawnLineUp();
-  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinFissure; G.hooks.lightSlice = lightSlice; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; // (the finished ultimates work here too)
+  G.hooks.mendBanner = mendBanner; G.hooks.arenaDemon = summonDemon; G.hooks.arenaWrath = paladinFissure; G.hooks.lightSlice = lightSlice; G.hooks.arenaFists = monkFists; G.hooks.arenaAssassinate = rogueAssassinate; G.hooks.arenaStorm = berserkerStorm; G.hooks.arenaRain = rangerRain; G.hooks.arenaOvergrowth = druidOvergrowth; G.hooks.arenaSpirit = shamanSpirit; G.hooks.healerMend = healerMend; G.hooks.shamanTotem = shamanTotem; G.hooks.arenaMiracle = clericMiracle; G.hooks.arenaTranscend = wizardTranscend; G.hooks.arenaBarrage = musketBarrage; G.hooks.aimAlly = aimAlly; G.hooks.tableUlt = runTableUlt; installU5(); // (the finished ultimates work here too; ults5.js takes over its five)
   for (const [x, z, name] of SPOTS) {
     const m = new Mob('bandit', 10, x, z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0 });
     Object.defineProperty(m, 'name', { value: name, configurable: true }); m.maxHp = m.hp = 1e7; m.lv = LEVEL_CAP; m.yaw = Math.atan2(x - RING.x, z - RING.z); /* (each one faces out of the ring) */ m.home.set(x, heightAt(x, z), z);
@@ -189,7 +190,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 // ultimate from the victim's side (you come back to life afterwards)
 let ultBusy = false;
 const REAL_ULT_T = { darkknight: 6, blunderbuss: 12, elementalist: 12, enchanter: 10, beastmaster: 10, priest: 6, bombardier: 12 }; // (table ultimates aimed at you in the yard: how far away the enemy appears)
-const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Thousand Fists', '👊', 5], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true], berserker: ['arenaStorm', 'Bladestorm', '🌪', 6], ranger: ['arenaRain', 'Rain of Arrows', '🏹', 14], druid: ['arenaOvergrowth', 'Overgrowth', '🌳', 12], shaman: ['arenaSpirit', 'Spirit of the Storm', '⚡', 8] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
+const REAL_ULT = { necromancer: ['arenaDemon', 'Maw of the Abyss', '☠'], paladin: ['arenaWrath', 'Avenging Wrath', '✝'], monk: ['arenaFists', 'Palm of Heaven', '👊', 7], rogue: ['arenaAssassinate', 'Assassinate', '🗡', 12, true], berserker: ['arenaStorm', 'Bladestorm', '🌪', 6], ranger: ['arenaRain', 'Rain of Arrows', '🏹', 14], druid: ['arenaOvergrowth', 'Wrath of the Elder Tree', '🌳', 8], shaman: ['arenaSpirit', 'Call of Lightning', '⚡', 8] }; // (true: aimed at you rather than your spot) // [hook, name, icon, how far away the enemy appears] // (the classes whose ultimate is finished: the real thing, cast on you)
 export function yardUltTest(cls = 'necromancer') { let RU = REAL_ULT[cls]; if (!RU && ULTS[cls] && REAL_ULT_T[cls]) { const U2 = ULTS[cls]; G.hooks['tbl_' + cls] = (foe, at) => U2.run(foe, U2.aim === 'foe' ? G.player : at); RU = ['tbl_' + cls, U2.name, '★', REAL_ULT_T[cls]]; }
   const P = G.player; if (!P || ultBusy || !RU || !G.hooks[RU[0]]) return; ultBusy = true;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), far = RU[3] || 10, x = P.pos.x + fx * far, z = P.pos.z + fz * far; const home = P.pos.clone();

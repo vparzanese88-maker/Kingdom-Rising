@@ -127,6 +127,8 @@ let lastImpact = 0;
 // ---------------- SOUND EFFECTS ----------------
 export const S = {
   click() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.06, o.node, { type: 'triangle', f: 900, f2: 600, gain: 0.12 }); },
+  // ults5.js: the five reworked ultimates write their own sounds with these: fn(N, T) where N(at, dur, opt) is filtered noise and T(at, dur, opt) a tone, at seconds from now
+  synth(pos, fn, wet = 0.25, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, wet), t = now(), d = o.node; fn((at, dur, opt) => noise(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.5) * k })), (at, dur, opt) => tone(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.3) * k }))); },
   // the arena's hit confirm: a crisp, bright tick on every hit; a heavier double knock on a kill
   hitTick(kill, crit) { if (!ctx) return; const o = out(null, sfxBus, 0); const t = now();
     tone(t, 0.05, o.node, { type: 'square', f: crit ? 1900 : 1500, f2: crit ? 1500 : 1100, gain: 0.06 }); noise(t, 0.03, o.node, { type: 'highpass', f: 4000, gain: 0.12 });

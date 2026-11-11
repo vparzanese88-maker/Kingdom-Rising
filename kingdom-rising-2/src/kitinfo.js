@@ -22,25 +22,25 @@ export const KIT = {
   shieldofl: ['shieldglow', 'gold', 'Hold block for 1 s to raise a shield of light that absorbs 18% of your health for 6 s.'],
   ar_wrath: ['wingsword', 'gold', 'Slam your hammer down: a fissure of holy light tears 10 m forward in one second, hurting and throwing up enemies and healing allies 30%.', 1],
   // shadowknight
-  ar_soulrend: ['drain', 'shadow', 'A wide greatsword slash in a wake of shadow. Each enemy cut has its soul torn out; it flies back to you and heals you for 60% of the damage.'],
+  ar_soulrend: ['drain', 'shadow', 'A wide greatsword slash in a wake of shadow. Each enemy cut has its soul torn out; it flies back to you and heals you for 60% of the damage. For 1.5 s after it you take 40% less damage.'],
   ar_gravegrasp: ['grasp', 'shadow', 'Drive your sword into the ground: a shadow crack tears 10 m ahead and skeletal hands burst out. Everyone on it is hurt and held in place for 1.2 s.'],
   ar_shadowchains: ['chains', 'shadow', 'Throw an iron chain up to 21 m. It hooks the first enemy, yanks them toward you and slows them, then holds them for 3 s, draining a little life. It snaps if they get 16 m away.'],
   lifetap: ['drain', 'shadow', 'A shadow bolt that heals you for 80% of the damage it does.'],
   gravewall: ['ribcage', 'shadow', 'A bone shell absorbs 25% of your health for 6 s and slows melee attackers.'],
   deathgrip: ['grasp', 'shadow', 'Pull the enemy you aim at to you and stun them.'],
-  ar_grasp: ['chains', 'shadow', 'Shadow chains grab every enemy within 6 m, drag them to you and drain a quarter of their health.', 1],
+  ar_grasp: ['chains', 'shadow', 'A giant skeletal hand bursts up where you aim, crushes every enemy within 4.5 m (their souls heal you) and slams them into the ground: 45% of their health and a stun. Abyssal Armor: you take 40% less damage for 6 s.', 1],
   // cleric
   radiantheal: ['suncross', 'gold', 'Heal yourself 16% and allies within 10 m 25%.'],
   ar_purify: ['sparkle', 'frost', 'Cleanse yourself and allies within 12 m of stuns, slows and damage over time, and heal 10%.'],
   holysmite: ['lightdown', 'gold', 'A sword of light falls from the sky onto the enemy you aim at (or where you aim). Everyone within 2.4 m is hit hard and stunned for 0.6 s.'],
   ar_mendC: ['beam', 'gold', 'A strong heal on the ally you aim at (or yourself). Works through walls.'],
-  ar_miracle: ['angel', 'gold', 'Fully heal the ally you aim at (or yourself) and make them untouchable for 3 s. Allies near them heal 50%.', 1],
+  ar_miracle: ['angel', 'gold', 'Wings of light lift you off the ground: every ally within 30 m (you too) heals 35% at once and 25% more over 4 s, is cleansed, and anyone near death is untouchable for 2 s. The wing beat hurls nearby enemies away.', 1],
   // monk
   flyingkick: ['kick', 'gold', 'Fly forward with a kick that hits everything in your way.'],
   hundredfists: ['fistburst', 'red', 'A blur of punches on the enemy in front of you. Gold chi fists pour off your hands and the flurry ends with a palm of light.'],
   pressure: ['punch', 'gold', 'Launch fist-first 7.5 m, knocking flying and stunning everyone you hit.'],
   ar_wraps: ['wrapfist', 'nature', 'Break free of any stun, root or slow. For 5 s heal 30%, move 30% faster and attack 35% faster.'],
-  ar_fists: ['fiststorm', 'gold', 'Lift every enemy within 9 m into the air, pummel them, then slam them away.', 1],
+  ar_fists: ['fiststorm', 'gold', 'A fan of chi arms punches a storm of fists 12 m down the lane in front of you, then a giant palm of light falls on the end of it: 50% of their health in all and a 1.2 s stun.', 1],
   // bard
   ar_mendsong: ['notes', 'nature', 'Heal yourself 30% over 6 s and allies within 10 m 25% at once.'],
   ar_anthem: ['boot', 'gold', 'You and every ally within 15 m move 40% faster and regain endurance three times as fast for 6 s.'],
@@ -56,13 +56,13 @@ export const KIT = {
   ar_roots: ['vines', 'nature', 'A root burrows underground to where you aim (up to 16 m) and bursts up. Thorned vines wrap every enemy within 3.5 m: held in place for 1.5 s, then slowed.'],
   entangle: ['vines', 'nature', 'Root enemies within 6 m for 1.5 s, then slow them for 2 s.'],
   ar_mendD: ['leaf', 'nature', 'Heal the ally you aim at (or yourself) now and over 4 s. Works through walls.'],
-  ar_overgrowth: ['tree', 'nature', 'A forest sweeps across the arena, healing allies and entangling enemies it reaches.', 1],
+  ar_overgrowth: ['tree', 'nature', 'A great tree tears out of the ground in front of you; its roots whip out to everyone within 15 m, seizing enemies (20% damage, rooted 1.6 s) and healing allies 25%. For 6 s it heals allies within 12 m 5% a second.', 1],
   // shaman
   sh_wave: ['wave', 'frost', 'Water bursts up under you and every ally within 12 m. You heal 20%, they heal 28%.'],
   ar_chainbolt: ['bolt', 'frost', 'A bolt of lightning at your target that jumps to two more enemies nearby, slowing them all.'],
   sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
   ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 36% over 6 s.'],
-  ar_spirittotem: ['bolt', 'frost', 'A storm cloud forms over you, then a giant bolt strikes every enemy within 12 m and leaps on to each of the others.', 1],
+  ar_spirittotem: ['bolt', 'frost', 'A bolt from the sky charges your spear and a storm follows you for 4 s: forked lightning strikes the enemies round you and leaps between them, the rain heals your allies, and then the storm breaks on every enemy within 14 m, stunning them.', 1],
   // ranger
   ar_firearrow: ['arrow', 'fire', 'A huge burning arrow that sets the target alight and stuns it for 1.5 s. You flip backwards.'],
   focus: ['eye', 'gold', 'Shoot twice as fast for 8 s.'],
@@ -111,7 +111,7 @@ export const KIT = {
   ar_flamewave: ['flame', 'fire', 'A rolling wave of fire burns everyone in front of you.'],
   frostbind: ['crystal', 'frost', 'Freeze the enemy you aim at, and anyone within 3 m, for 1.5 s.'],
   ar_iceshell: ['shieldglow', 'frost', 'A shell of ice absorbs 30% of your health for 5 s.'],
-  ar_meteors: ['meteor', 'fire', 'Meteors, ice shards and lightning rain down where you aim: fire burns, ice slows and lightning stuns.', 1],
+  ar_meteors: ['meteor', 'fire', 'A storm cloud opens where you aim: lightning strikes every enemy under it and ice spears rain, then a meteor crashes through it for 28%.', 1],
   // enchanter
   en_shards: ['spiraleye', 'arcane', 'Throw a spinning pane of enchanted glass: it shatters on the first enemy it hits and the shards ricochet into up to 2 more nearby.'],
   en_mindlock: ['lock', 'arcane', 'A bolt of binding thought: the enemy it hits, and anyone within 3 m, is silenced for 2 s as a padlock of light snaps shut over their head.'],
@@ -121,7 +121,7 @@ export const KIT = {
   ar_mindlock: ['lock', 'arcane', 'Silence the enemy you hit, and anyone within 3 m, for 2 s.'],
   mesmerize: ['spiraleye', 'arcane', 'Entrance the enemy you aim at for up to 3 s. Damage wakes them.'],
   runeshield: ['runeshield', 'arcane', 'A rune absorbs 35% of your health.'],
-  ar_charm: ['heartspiral', 'arcane', 'Charm every enemy in an 8 m area for 3 s, then hit them for 20% of their health.', 1],
+  ar_charm: ['heartspiral', 'arcane', 'A giant clock holds every enemy within 8 m helpless for 3 s; at midnight it shatters onto them for 22% of their health.', 1],
   // beastmaster
   bm_rend: ['claws', 'red', 'Lunge and rake the enemies in front of you twice with your claws, tearing glowing claw marks through the air. The second rake makes them bleed.'],
   bm_pounce: ['paw', 'red', 'Leap up to 15 m onto the enemy you aim at: you tear claw gouges into the ground and knock everyone within 3 m down for 1 s.'],
@@ -131,7 +131,7 @@ export const KIT = {
   ar_pounce: ['paw', 'red', 'Leap up to 14 m onto an enemy and knock everyone where you land to the ground.'],
   feralroar: ['roar', 'red', 'Stun every enemy within 6 m for 1 s.'],
   naturesembrace: ['leafshield', 'nature', 'For 15 s take 30% less damage and heal 3% every second.'],
-  ar_pack: ['roar', 'red', 'Become a huge bear-man for 10 s: you heal 20%, hit 50% harder and take 30% less damage.', 1],
+  ar_pack: ['roar', 'red', 'Become a huge bear-man for 10 s: heal 20%, slam down enemies within 6 m, hit 50% harder and take 30% less damage.', 1],
   // priest
   pr_sunhalo: ['halo', 'gold', 'Throw a spiked halo of dawn like a boomerang: out 16 m and back to you. Allies it passes heal 12% each way; enemies it cuts are hurt and slowed.'],
   pr_word2: ['shieldglow', 'gold', 'Speak a word of light: golden letters stream to you and every ally within 14 m, healing 15% and shielding 15% of their health for 5 s.'],
@@ -140,7 +140,7 @@ export const KIT = {
   pr_word: ['shieldglow', 'gold', 'A shield absorbs about 20% of your health for 6 s.'],
   pr_chains: ['chains', 'gold', 'Chain the enemy you aim at in place for 2 s.'],
   ar_mendP: ['sun', 'gold', 'Heal the ally you aim at (or yourself) and shield them for 4 s. Works through walls.'],
-  ar_salvation: ['wings', 'gold', 'Open a 14 m dome for 6 s: allies heal 60% and cannot die for 3 s; enemies are slowed and burned.', 1],
+  ar_salvation: ['wings', 'gold', 'Wings of dawn lift you: rays of light heal every ally within 16 m 60% and they cannot die for 3 s; spears of light fall on enemies.', 1],
   // bombardier
   aim: ['aim', 'steel', 'Aim down your sights.'],
   bo_rocket: ['rocketboot', 'fire', 'Rocket forward, burning everything in your way.'],

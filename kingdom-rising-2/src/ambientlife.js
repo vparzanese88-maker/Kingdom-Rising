@@ -76,7 +76,7 @@ export function buildAmbientLife(scene, opts = {}) {
   sizes.forEach((n, f) => {
     const cx = (rnd() - 0.5) * 70, cz = (rnd() - 0.5) * 150, F = {
       cx, cz, ox: cx, oz: cz, // centre of the circling (it wanders slowly)
-      R: 14 + rnd() * 22, ang: rnd() * 6.283, w: (0.07 + rnd() * 0.06) * (f & 1 ? -1 : 1), h: GROUND + 25 + rnd() * 18, hw: rnd() * 6.283,
+      R: 14 + rnd() * 22, ang: rnd() * 6.283, w: (0.07 + rnd() * 0.06) * (f & 1 ? -1 : 1), h: GROUND + 30 + rnd() * 13, hw: rnd() * 6.283,
       glide: 0, nextGlide: 3 + rnd() * 8, wander: rnd() * 100, scale: f === 2 ? 0.75 : 1 + rnd() * 0.25, rate: f === 2 ? 15 : 10 + rnd() * 3, birds: [] };
     for (let i = 0; i < n; i++) {
       const b = { i: idx++, slot: new THREE.Vector3((rnd() - 0.5) * 9, (rnd() - 0.5) * 3, -rnd() * 9), pos: new THREE.Vector3(), vel: new THREE.Vector3(),

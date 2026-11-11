@@ -12,6 +12,7 @@ import { AR, COLORS } from './arenamap.js';
 import { makeKit, kitMat, glowify, buildGround, bakeVerts, heartwood, motes, backdrop, plantMeshy, ruinsLook, tufts } from './ruinsart.js';
 import { G as GS } from './state.js';
 import { buildAmbientLife, updateAmbientLife } from './ambientlife.js';
+import { buildRuinsDecor } from './ruinsdecor.js';
 
 const Y = 3; // ground level
 const S = (c, r = 0.9, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
@@ -80,13 +81,13 @@ function rubble(x, z, n = 6, spread = 1.6, y = Y) { for (let i = 0; i < n; i++) 
 function crate(x, z, s = 1.2, y = Y, ry = 0) { put(BOX(s, s, s), M.crate, x, y + s / 2, z, ry); for (const yy of [0.12, s - 0.12]) put(BOX(s + 0.04, 0.1, s + 0.04), M.timber, x, y + yy, z, ry, 0, false);
   put(BOX(0.1, s * 1.3, s + 0.03), M.timber, x, y + s / 2, z, ry + Math.PI / 2, 0.8, false); addBox(x, z, s / 2, s / 2, ry, 'map', y, y + s); addSurface(x, z, s / 2, s / 2, ry, y + s); }
 function barrel(x, z, y = Y) { put(CYL(0.42, 0.42, 1.05, 10), M.crate, x, y + 0.52, z); for (const yy of [0.2, 0.85]) put(CYL(0.44, 0.44, 0.07, 10), M.iron, x, y + yy, z, 0, 0, false); addBox(x, z, 0.4, 0.4, 0, 'map', y, y + 1.05); }
-function cache(x, z, y = Y, k = 0) { crate(x, z, 1.2, y, 0.2 * k); crate(x + 1.35, z + 0.2, 1.0, y, -0.15); if (k % 2 === 0) crate(x + 0.1, z, 0.9, y + 1.2, 0.5); barrel(x - 1.1, z + 0.9, y); barrel(x + 0.6, z + 1.25, y); }
+function cache(x, z, y = Y, k = 0) { crate(x, z, 1.2, y, 0.2 * k); crate(x + 1.35, z + 0.2, 1.0, y, -0.15); if (k % 2 === 0) crate(x + 0.1, z, 0.9, y + 1.2, 0.5); barrel(x - 1.1, z + 0.9, y); barrel(x + 0.6, z + 1.25, y); addBox(x + 0.2, z + 0.55, 1.75, 1.2, 0, 'map', y, y + 0.9); } // (the pile's hull, below the crate tops: no pocket between crates and barrels to wedge in)
 // a column: base, shaft, capital; a broken one is short with a jagged top and a fallen drum beside it
 function column(x, z, h = 6.5, y = Y, broken = false, mat = M.marble, ground = true) {
   put(BOX(1.5, 0.45, 1.5), M.stone, x, y + 0.22, z); const sh = broken ? h * (0.3 + rnd() * 0.25) : h;
   put(CYL(0.5, 0.6, sh, 12), mat, x, y + 0.45 + sh / 2, z);
   if (!broken) { put(BOX(1.4, 0.5, 1.4), mat, x, y + 0.45 + sh + 0.25, z); put(CYL(0.62, 0.5, 0.3, 12), mat, x, y + 0.45 + sh + 0.0, z, 0, 0, false); }
-  else { put(new THREE.ConeGeometry(0.5, 0.6, 6), mat, x + 0.15, y + 0.45 + sh + 0.2, z, 0, 0.4, false); const a = rnd() * 6.28; put(CYL(0.5, 0.5, 1.4, 12), mat, x + Math.cos(a) * 2.0, y + 0.5, z + Math.sin(a) * 2.0, a, Math.PI / 2); rubble(x, z, 4, 1.8, y); }
+  else { put(new THREE.ConeGeometry(0.5, 0.6, 6), mat, x + 0.15, y + 0.45 + sh + 0.2, z, 0, 0.4, false); let a = rnd() * 6.28; if (Math.hypot(x, z) < 13) a = Math.atan2(z, x) + (a - 3.14) * 0.15; /* (round the hill: the drum lies outside the ring, never across a gap between columns) */ put(CYL(0.5, 0.5, 1.4, 12), mat, x + Math.cos(a) * 2.0, y + 0.5, z + Math.sin(a) * 2.0, a, Math.PI / 2); addBox(x + Math.cos(a) * 2.0, z + Math.sin(a) * 2.0, 0.5, 0.7, a, 'map', y, y + 1.0); rubble(x, z, 4, 1.8, y); }
   if (ground) addCircle(x, z, 0.72); else addBox(x, z, 0.72, 0.72, 0, 'map', y, y + sh + 1); return y + 0.45 + sh + (broken ? 0 : 0.5); }
 // a statue of an old hero on a plinth
 function statue(x, z, ry, y = Y, mat = M.bronze) { put(BOX(2.0, 1.6, 2.0), M.stone, x, y + 0.8, z, ry); put(BOX(2.3, 0.25, 2.3), M.stone2, x, y + 1.7, z, ry, 0, false);
@@ -133,10 +134,11 @@ function house(x, z, w, d, ry, o = {}) {
         if (hl.flowers) { const off = Math.sign(fixed) * (th / 2 + 0.2); if (alongX) lb(hl.c, fixed + off, hl.w, 0.3, 0.3, y0 + b - 0.3, M.leaf, false, false); else lb(fixed + off, hl.c, 0.3, 0.3, hl.w, y0 + b - 0.3, M.leaf, false, false); } } }
     piece(c, a1, 0, h); };
   const door = (c, wd = 2.0) => ({ c, w: wd, b: 0, t: 2.7 }), win = (c, fl) => ({ c, w: 1.2, b: 1.0, t: 2.4, flowers: fl });
+  const gwin = (c) => o.openWin ? door(c, 1.6) : win(c); // (o.openWin: the ground floor's front and back windows are open archways, no sill to snag on)
   const sBot = d / 2 - 2.5, sTop = -d / 2 + 3.0, sHole = sBot - 0.45 * (sBot - sTop), dX = o.doorX || 0.5;
   // ground floor
-  wl(true, d / 2, -w / 2 - t / 2, w / 2 + t / 2, Y, H1, wm, [door(dX, o.doorW), ...[-w / 3, w / 3].filter(c => Math.abs(c - dX) > 2).map(c => win(c))]);
-  wl(true, -d / 2, -w / 2 - t / 2, w / 2 + t / 2, Y, H1, wm, o.back ? [door(dX, o.doorW), ...[-w / 3, w / 3].filter(c => Math.abs(c - dX) > 2).map(c => win(c))] : [win(-w / 4), win(w / 4)]);
+  wl(true, d / 2, -w / 2 - t / 2, w / 2 + t / 2, Y, H1, wm, [door(dX, o.doorW), ...[-w / 3, w / 3].filter(c => Math.abs(c - dX) > 2).map(gwin)]);
+  wl(true, -d / 2, -w / 2 - t / 2, w / 2 + t / 2, Y, H1, wm, o.back ? [door(dX, o.doorW), ...[-w / 3, w / 3].filter(c => Math.abs(c - dX) > 2).map(gwin)] : [win(-w / 4), win(w / 4)]);
   for (const sx of [-1, 1]) wl(false, sx * w / 2, -d / 2 + t / 2, d / 2 - t / 2, Y, H1, wm, [win(-d / 4), win(d / 4)]);
   // timber framing: corner posts, a beam under the first floor, a plinth course
   for (const [lx, lz] of [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]]) lb(lx, lz, 0.5, loggia ? H1 : RF - Y - 0.3, 0.5, Y, M.timber, false);
@@ -174,7 +176,7 @@ function house(x, z, w, d, ry, o = {}) {
       if (o.balcony !== false) { const [ax, az] = at(-(w / 2 + 0.9), d / 2 - 0.1), [bx, bz] = at(-(w / 2 + 0.9), -d / 2 + 1.9); stairs(ax, az, F1, bx, bz, RF, 1.6, M.timber, true, false, false);
         lb(-(w / 2 + 0.9), -d / 2 + 1.3, 1.7, 0.3, 1.8, RF - 0.3, M.timber); ls(-(w / 2 + 0.9), -d / 2 + 1.3, 0.85, 0.9, RF); { const [e1x, e1z] = at(-(w / 2 + 1.75), -d / 2 + 0.45), [e2x, e2z] = at(-w / 2 - 0.05, -d / 2 + 0.45), [e3x, e3z] = at(-(w / 2 + 1.75), -d / 2 + 1.9); rail(e1x, e1z, e2x, e2z, RF); rail(e3x, e3z, e1x, e1z, RF); }
         const [r1x, r1z] = at(-(w / 2 + 1.75), d / 2 - 0.1), [r2x, r2z] = at(-(w / 2 + 1.75), -d / 2 + 1.9); rail(r1x, r1z, r2x, r2z, F1, M.timber, 1.0, RF);
-        for (const lz of [d / 4, -d / 4]) lb(-(w / 2 + 0.9), lz, 0.18, F1 + (RF - F1) * (d / 2 - lz) / d - Y - 0.1, 0.18, Y, M.timber, false); } }
+        for (const lz of [d / 4, -d / 4]) lb(-(w / 2 + 0.9), lz, 0.18, F1 + (RF - F1) * (d / 2 - lz) / d - Y - 0.1, 0.18, Y, M.timber); } }
   }
   // the balcony over the front, and the outside stairs up to it along the +x side
   if (o.balcony !== false) { const bw = w + 3.4; lb(0, d / 2 + 1.1, bw, 0.3, 2.2, F1 - 0.3, M.floor); ls(0, d / 2 + 1.1, bw / 2, 1.1, F1);
@@ -184,9 +186,9 @@ function house(x, z, w, d, ry, o = {}) {
     for (const lx of [-bw / 2 + 0.3, -w / 6, w / 6, bw / 2 - 0.3]) { const [px, pz] = at(lx, d / 2 + 1.9); put(CYL(0.14, 0.16, F1 - 0.3 - Y, 6), M.timber, px, Y + (F1 - 0.3 - Y) / 2, pz); addBox(px, pz, 0.16, 0.16, 0, 'map', Y, F1 - 0.3); }
     { const [ax, az] = at(w / 2 + 0.9, -d / 2 + 0.8), [bx, bz] = at(w / 2 + 0.9, d / 2 - 0.05); stairs(ax, az, Y, bx, bz, F1, 1.6, M.timber, true, false, false); const [r1x, r1z] = at(w / 2 + 1.75, -d / 2 + 0.8), [r2x, r2z] = at(w / 2 + 1.75, d / 2 - 0.05); rail(r1x, r1z, r2x, r2z, Y, M.timber, 1.0, F1); } }
   // inside: a table and benches, barrels; a lantern by the door; ivy and flower boxes outside
-  if (o.pews) { for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) { const lx = sx > 0 ? 3.2 : -2.6, lz = d / 2 - 3.2 - i * 2.3; if (lz < -d / 2 + 2) continue; const [px, pz] = at(lx, lz); rb(px, pz, sx > 0 ? 3.2 : 2.0, 0.5, 0.5, Y, ry, M.timber); }
-    { const [ax, az] = at(3.4, -d / 2 + 1.3); rb(ax, az, 2.4, 1.1, 1.0, Y, ry, M.marble); crystal(ax, Y + 1.1, az, 0.6, M.crystalG); } }
-  else { const [tx, tz] = at(w / 4, -d / 6); rb(tx, tz, 2.2, 0.9, 1.2, Y, ry, M.timber); addSurface(tx, tz, 1.1, 0.6, ry, Y + 0.9); for (const s of [-1, 1]) { const [bx, bz] = at(w / 4, -d / 6 + s * 1.1); rb(bx, bz, 2.0, 0.45, 0.4, Y, ry, M.timber, false); }
+  if (o.pews) { for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) { const lx = sx > 0 ? 3.0 : -2.6, lz = d / 2 - 3.2 - i * 2.3; if (lz < -d / 2 + 2) continue; const [px, pz] = at(lx, lz); rb(px, pz, sx > 0 ? 2.8 : 2.0, 0.5, 0.5, Y, ry, M.timber); } // (a 1.4 m aisle between the pews and the wall)
+    { const [ax, az] = at(3.4, -d / 2 + 2.2); rb(ax, az, 2.4, 1.1, 1.0, Y, ry, M.marble); crystal(ax, Y + 1.1, az, 0.6, M.crystalG); } }
+  else { const [tx, tz] = at(w / 4, -d / 6); rb(tx, tz, 2.2, 0.9, 1.2, Y, ry, M.timber); addSurface(tx, tz, 1.1, 0.6, ry, Y + 0.9); for (const s of [-1, 1]) { const [bx, bz] = at(w / 4, -d / 6 + s * 1.1); rb(bx, bz, 2.0, 0.45, 0.4, Y, ry, M.timber); }
     const [kx, kz] = at(w / 2 - 0.9, -d / 2 + 0.9); barrel(kx, kz); const [k2x, k2z] = at(w / 2 - 0.9, d / 2 - 1.3); barrel(k2x, k2z); }
   { const [lx2, lz2] = at(dX + 1.5, d / 2 + 0.35); lantern(lx2, Y + 2.5, lz2); }
   if (o.vines !== false) for (const lz of [-d / 2 + 1.2, d / 2 - 1.5]) { const sx = -1, [vx, vz] = at(sx * (w / 2 + 0.26), lz); vine(vx, vz, loggia ? F1 + 0.8 : RF + 0.6, loggia ? 4.5 : 6, ry + (fx > 0 ? -Math.PI / 2 : Math.PI / 2), 1.3); }
@@ -250,7 +252,7 @@ function half(sz, team) {
   { const F1 = hL.F1; put(BOX(29.8, 0.4, 3.0), M.floor, 0, F1 - 0.2, Z(40)); addSurface(0, Z(40), 14.9, 1.5, 0, F1); addBox(0, Z(40), 14.9, 1.5, 0, 'map', F1 - 0.4, F1); // the timber bridge across the street
     for (const s of [-1, 1]) rail(-14.8, Z(40) + s * 1.45, 14.8, Z(40) + s * 1.45, F1);
     for (const s of [-1, 1]) { rb(s * 7, Z(40), 1.4, F1 - 0.4 - Y, 1.6, Y, 0, M.stone); put(BOX(1.8, 0.4, 2.0), M.stone2, s * 7, F1 - 0.6, Z(40), 0, 0, false); }
-    for (const s of [-1, 1]) for (const x of [-11, 0, 11]) put(BOX(0.25, 0.25, 7.6), M.timber, x, F1 - 1.6, Z(40) + s * 1.2, Math.PI / 2, (x ? Math.sign(x) : 1) * 0.42, false); // braces
+    /* (no diagonal braces under the bridge: they crossed the street at head height) */
     banner(0, F1 - 1.9, Z(38.4), back, team, 1.8, 2.8); banner(0, F1 - 1.9, Z(41.6), face, team, 1.8, 2.8); lantern(-7, F1 + 1.4, Z(40)); lantern(7, F1 + 1.4, Z(40)); }
   for (const s of [-1, 1]) { put(BOX(3.2, 1.1, 0.7), M.stone, s * 6.5, Y + 0.55, Z(52)); addBox(s * 6.5, Z(52), 1.6, 0.35, 0, 'map', Y, Y + 1.1); rubble(s * 5, Z(53.5), 5); // low walls to duck behind
     put(BOX(2.6, 1.0, 0.7), M.stone, s * 7.5, Y + 0.5, Z(31), RY(0.3 * s)); addBox(s * 7.5, Z(31), 1.3, 0.35, RY(0.3 * s), 'map', Y, Y + 1.0);
@@ -263,7 +265,7 @@ function half(sz, team) {
       rubble(x0 + 1.5, Z(z + 1.6), 5, 1.8); rubble(x1 - 1.5, Z(z - 1.6), 5, 1.8); };
     wallAt(-10.5, 6, 48); /* (the near collapse: get round it on the right) */ wallAt(-6, 12.5, 34); /* (the far collapse: get round it on the left) */ }
   // the triumphal arch where the street meets the plaza (broken on one side)
-  for (const s of [-1, 1]) { wall(s * 13.6, Z(26), 2.6, 2.6, Y, 9, M.marble); put(BOX(3.2, 0.6, 3.2), M.stone, s * 13.6, Y + 0.3, Z(26), 0, 0, false); put(BOX(3.0, 0.8, 3.0), M.marble, s * 13.6, Y + 9.3, Z(26), 0, 0, false); }
+  for (const s of [-1, 1]) { wall(s * 13.6, Z(26), 2.6, 2.6, Y, 9, M.marble); put(BOX(3.2, 0.6, 3.2), M.stone, s * 13.6, Y + 0.3, Z(26), 0, 0, false); addBox(s * 13.6, Z(26), 1.6, 1.6, 0, 'map', Y, Y + 0.6); put(BOX(3.0, 0.8, 3.0), M.marble, s * 13.6, Y + 9.3, Z(26), 0, 0, false); }
   { const N = 18, ea = 13.6, eb = 5.2, P = (k) => { const a = Math.PI * k / N; return [Math.cos(a) * ea, Y + 9.6 + Math.sin(a) * eb]; }; /* an elliptical arch of stone blocks, its keystone fallen */
     for (let k = 0; k < N; k++) { if (k === 9 || k === 10) continue; const [x1, y1] = P(k), [x2, y2] = P(k + 1), L = Math.hypot(x2 - x1, y2 - y1); const g = BOX(L + 0.08, 1.5, 2.2); g.rotateZ(Math.atan2(y2 - y1, x2 - x1)); put(g, k % 2 ? M.marble : M.stoneL, (x1 + x2) / 2, (y1 + y2) / 2, Z(26)); }
     put(BOX(2.2, 1.4, 2.0), M.marble, 4.5, Y + 0.7, Z(21), RY(0.7), 0.3); addBox(4.5, Z(21), 1.1, 1.0, RY(0.7), 'map', Y, Y + 1.4); /* (the fallen keystone) */ for (const s of [-1, 1]) banner(s * 13.6, Y + 5.6, Z(24.6), back, team, 1.7, 3.6); rubble(-7, Z(24), 8, 2.5); put(BOX(3.5, 1.4, 2.0), M.marble, -9, Y + 0.7, Z(23.5), RY(0.4), 0.15); addBox(-9, Z(23.5), 1.75, 1.0, RY(0.4), 'map', Y, Y + 1.4); }
@@ -281,14 +283,21 @@ function half(sz, team) {
   pyramid(-42.5, Y + 15.7, Z(47), 5, 9, 2.2, 0); for (const [x1, z1, x2, z2] of [[-44.8, 51.4, -40.2, 51.4], [-44.8, 42.6, -44.8, 51.4], [-40.2, 42.6, -40.2, 51.4]]) rail(x1, Z(z1), x2, Z(z2), Y + 12.5, M.stone, 0.9);
   banner(-40.05, Y + 11.4, Z(47), RY(Math.PI / 2), team, 1.6, 2.6); brazier(-43.5, Z(49.5), Y + 12.5, 0.8); crystal(-37, Y + 9, Z(66), 0.8, tc);
   for (const z of [36, 58]) { torch(-35.3, Y + 10.6, Z(z), Math.PI / 2); } cache(-43, Z(60), Y + 9, 3);
+  { const z = Z(48.6); put(BOX(2.2, 3.4, 1.6), M.stoneD, -33.9, Y + 1.7, z); put(BOX(2.4, 0.3, 1.8), M.moss, -33.9, Y + 3.5, z, 0, 0, false); addBox(-33.9, z, 1.1, 0.8, 0, 'map', Y, Y + 3.4); rubble(-33.6, Z(47.2), 4, 0.8); } // (a fallen block seals the blind slot between the rampart and the lane wall)
+  // a gatehouse across the walkway at the top of the plaza stairs: the only way along the rampart is through its 3.2 m arch
+  { const gz = Z(28.2), GH = 4.6; for (const [x0, x1] of [[-45.6, -41.6], [-38.4, -34.4]]) { const c = (x0 + x1) / 2; wall(c, gz, x1 - x0, 2.4, Y + 9, GH, M.stoneD); put(BOX(x1 - x0 + 0.3, 0.3, 2.7), M.stone, c, Y + 9 + GH + 0.15, gz, 0, 0, false); }
+    put(BOX(3.6, 1.0, 2.4), M.stone, -40, Y + 9 + GH - 0.5, gz); addBox(-40, gz, 1.8, 1.2, 0, 'map', Y + 9 + GH - 1.0, Y + 9 + GH); // (the lintel: 3.6 m clear under it)
+    for (let i = 0; i < 6; i++) put(BOX(0.9, 0.8, 0.6), M.stoneD, -44.9 + i * 1.95, Y + 9 + GH + 0.7, gz - sz * 0.9, 0, 0, false); // merlons
+    for (const e of [-1, 1]) torch(-40 + e * 2.15, Y + 11.4, gz - sz * 1.3, back);
+    banner(-40, Y + 13.2, gz - sz * 1.25, back, team, 1.4, 1.6); }
   // the bridge from the rampart over the alley to the left house's roof terrace
   stairs(-34.85, Z(40), Y + 9, -29.15, Z(40), hL.RF, 2.4, M.timber, true, false, false); for (const s of [-1, 1]) rail(-34.85, Z(40) + s * 1.25, -29.15, Z(40) + s * 1.25, Y + 9, M.timber, 1.0, hL.RF);
-  for (const s of [-1, 1]) put(BOX(0.2, 2.2, 0.2), M.timber, -32.2, (Y + 9 + hL.RF) / 2 - 1.5, Z(40) + s * 1.1, 0, 0, false);
+  /* (no posts hanging in the alley under the bridge) */
   // the outer path below the rampart: from the courtyard down a stair, past a stable and stores, with a stair up to the walkway
   stairs(-52, Z(74), Y + 4, -52, Z(63.5), Y, 6);
   stairs(-47.5, Z(33), Y, -47.5, Z(52), Y + 9, 4); block(-47.25, Z(53.75), 4.5, 3.5, Y - 0.1, 9.1, M.stone, M.flag); rail(-49.5, Z(52), -49.5, Z(55.5), Y + 9, M.stone, 0.9); rail(-49.5, Z(55.5), -45.2, Z(55.5), Y + 9, M.stone, 0.9);
-  { for (const [lx, lz] of [[-58, 54], [-53, 54], [-58, 60], [-53, 60]]) { put(CYL(0.16, 0.18, 3.4, 6), M.timber, lx + 0.3, Y + 1.7, Z(lz)); addCircle(lx + 0.3, Z(lz), 0.2); } // a stable lean-to
-    put(BOX(6.4, 0.2, 7.4), M.roof, -55.2, Y + 3.5, Z(57), 0, 0, false); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 0.6, Z(56), Math.PI / 2, Math.PI / 2); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 0.6, Z(58), Math.PI / 2, Math.PI / 2); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 1.6, Z(57), Math.PI / 2, Math.PI / 2); addBox(-56, Z(57), 0.7, 1.8, 0, 'map', Y, Y + 2.2); }
+  { for (const [lx, lz] of [[-58, 54], [-53, 54], [-58, 60], [-53, 60]]) { put(CYL(0.16, 0.18, 3.4, 6), M.timber, lx + 0.3, Y + 1.7, Z(lz)); addBox(lx + 0.3, Z(lz), 0.2, 0.2, 0, 'map', Y, Y + 3.4); } // a stable lean-to (its roof is a lookout: a stair up its south end)
+    put(BOX(6.4, 0.2, 7.4), M.roof, -55.2, Y + 3.5, Z(57), 0, 0, false); addBox(-55.2, Z(57), 3.2, 3.7, 0, 'map', Y + 3.4, Y + 3.6); addSurface(-55.2, Z(57), 3.2, 3.7, 0, Y + 3.6); stairs(-53.1, Z(47.6), Y, -53.1, Z(53.35), Y + 3.6, 1.5, M.timber, true, false, false); rail(-53.85, Z(50.5), -53.85, Z(53.3), Y + 1.8, M.timber, 1.0, Y + 3.6); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 0.6, Z(56), Math.PI / 2, Math.PI / 2); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 0.6, Z(58), Math.PI / 2, Math.PI / 2); put(CYL(0.6, 0.6, 1.2, 10), M.hay, -56, Y + 1.6, Z(57), Math.PI / 2, Math.PI / 2); addBox(-56, Z(57), 0.7, 1.8, 0, 'map', Y, Y + 2.2); }
   cart(-54.5, Z(45), RY(0.3)); cache(-56, Z(36), Y, 4); cache(-50.5, Z(27), Y, 5); well(-53, Z(18)); tree(-56, Z(28), 1.1); bush(-57.5, Z(50), 1.3); bush(-46.5, Z(66), 1.0); well(-22, Z(68)); cart(24, Z(67.5), RY(1.2)); cache(-14, Z(70.5), Y, 8); bush(15, Z(72.5), 1.2); bush(-30, Z(72.5), 1.1); rubble(-26, Z(65), 7, 2.2); rubble(-50, Z(40), 8, 2); rubble(-55, Z(53), 6, 1.5);
   for (const z of [32, 50]) torch(-45.3, Y + 3.2, Z(z), -Math.PI / 2);
   // the lane walls: tall ruined facades between the lanes, and a ruined tower (left) and a bell tower (right) by the plaza
@@ -302,12 +311,12 @@ function half(sz, team) {
 
   // ===== RIGHT: down into the garden, through the chapel (a gallery upstairs), past a garden terrace with a gazebo =====
   stairs(40, Z(74), Y + 4, 40, Z(63), Y, 8);
-  const ch = house(41, Z(38), 12, 16, RY(Math.PI), { fx: FX, upper: 'loggia', balcony: false, back: true, doorX: 0, doorW: 2.6, pews: true, wall: M.stoneL, roofH: 4.2, upDoors: [{ side: 1, lz: -2 }, { side: -1, lz: -6.5 }], vines: true });
-  { const [fx2, fz2] = ch.at(0, 8.25); put(BOX(3.6, 0.5, 0.5), M.stone, fx2, Y + 3.0, fz2, RY(Math.PI)); banner(fx2, Y + 5.6, fz2 + Z(-0.35), back, team, 1.8, 3.0); const [bx2, bz2] = ch.at(0, -8.25); banner(bx2, Y + 5.6, bz2 + Z(0.35), face, team, 1.8, 3.0);
-    torch(39.2, Y + 2.6, Z(29.6), back); torch(42.8, Y + 2.6, Z(29.6), back); }
+  const ch = house(41, Z(38), 12, 16, RY(Math.PI), { fx: FX, upper: 'loggia', balcony: false, back: true, doorX: 0, doorW: 3.4, openWin: true, pews: true, wall: M.stoneL, roofH: 4.2, upDoors: [{ side: 1, lz: -2 }, { side: -1, lz: -6.5 }], vines: true });
+  { const [fx2, fz2] = ch.at(0, 8.25); put(BOX(4.4, 0.5, 0.5), M.stone, fx2, Y + 3.0, fz2, RY(Math.PI)); banner(fx2, Y + 5.6, fz2 + Z(-0.35), back, team, 1.8, 3.0); const [bx2, bz2] = ch.at(0, -8.25); banner(bx2, Y + 5.6, bz2 + Z(0.35), face, team, 1.8, 3.0);
+    torch(38.85, Y + 2.9, Z(29.6), back); torch(43.15, Y + 2.9, Z(29.6), back); }
   // the bridge from the right house's roof down to the chapel gallery
   stairs(29.15, Z(40), hL.RF, 35.0, Z(40), ch.F1, 2.4, M.timber, true, false, false); for (const s of [-1, 1]) rail(29.15, Z(40) + s * 1.25, 34.75, Z(40) + s * 1.25, hL.RF, M.timber, 1.0, ch.F1);
-  for (const s of [-1, 1]) put(BOX(0.2, 4.0, 0.2), M.timber, 32, Y + 2.6, Z(40) + s * 1.1, 0, 0, false);
+  /* (no posts floating in the alley under the bridge) */
   // the garden terrace (level with the chapel gallery, joined by a plank) with a gazebo
   block(53, Z(42), 10, 12, Y - 0.1, ch.F1 - Y + 0.1, M.stone, M.moss); stairs(53, Z(60), Y, 53, Z(48), ch.F1, 4); put(BOX(1.4, 0.25, 2.6), M.floor, 47.4, ch.F1 - 0.12, Z(44.5)); addSurface(47.4, Z(44.5), 0.75, 1.3, 0, ch.F1);
   for (const [x1, z1, x2, z2] of [[48.2, 36.2, 57.8, 36.2], [48.2, 36.2, 48.2, 43.0], [48.2, 46.0, 48.2, 47.8], [48.2, 47.8, 50.8, 47.8], [55.2, 47.8, 57.8, 47.8]]) rail(x1, Z(z1), x2, Z(z2), ch.F1, M.stone, 0.9);
@@ -369,7 +378,7 @@ export function buildRuins(scene) {
       put(BOX(1.1, 0.8, Math.hypot(x2 - x1, z2 - z1) + 1.2), M.marble, (x1 + x2) / 2, tops[k] + 0.4, (z1 + z2) / 2, Math.atan2(x2 - x1, z2 - z1)); } }
   // spawn rooms: south (team 0) and north (team 1); west and east for 3- and 4-team games
   spawnRoom(0, 0, -93, [0, 1], 0); spawnRoom(1, 0, 93, [0, -1], 1); spawnRoom(2, -53, 0, [1, 0], 2); spawnRoom(3, 53, 0, [-1, 0], 3);
-  for (const s of [-1, 1]) { block(s * 45, 0, 6, 16, Y - 0.1, 4.1, M.stone, M.flag); stairs(s * 42, 0, Y + 4, s * 34, 0, Y, 6); for (const z of [-7.5, 7.5]) { put(BOX(0.5, 1.0, 1.0), M.stone, s * 42.4, Y + 4.5, z); } torch(s * 41.8, Y + 3, -4, s > 0 ? -Math.PI / 2 : Math.PI / 2); torch(s * 41.8, Y + 3, 4, s > 0 ? -Math.PI / 2 : Math.PI / 2); banner(s * 41.85, Y + 1.8, 6.2, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? 3 : 2, 1.4, 2.2); }
+  for (const s of [-1, 1]) { block(s * 45, 0, 6, 16, Y - 0.1, 4.1, M.stone, M.flag); stairs(s * 42, 0, Y + 4, s * 34, 0, Y, 6); for (const z of [-7.5, 7.5]) { put(BOX(0.5, 1.0, 1.0), M.stone, s * 42.4, Y + 4.5, z); addBox(s * 42.4, z, 0.25, 0.5, 0, 'map', Y + 4, Y + 5); } torch(s * 41.8, Y + 3, -4, s > 0 ? -Math.PI / 2 : Math.PI / 2); torch(s * 41.8, Y + 3, 4, s > 0 ? -Math.PI / 2 : Math.PI / 2); banner(s * 41.85, Y + 1.8, 6.2, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? 3 : 2, 1.4, 2.2); }
   // the three lanes, as waypoints from the south base to the north base (the computer fighters walk them); each is the north half mirrored
   const north = [
     [[-26, 0], [-33, 3], [-40, 6], [-40, 14], [-40, 20], [-40, 25], [-38, 32], [-38, 42], [-38, 52], [-38, 62], [-40, 70.5], [-40, 78], [-36, 80.5], [-28, 81], [-19, 82], [-10, 82.5], [0, 83]],
@@ -389,6 +398,7 @@ export function buildRuins(scene) {
     if (mat === M.barkT || mat === M.leafT || mat === M.leafTD) fallback.push(['tree', m]); if (mat === M.rockT) fallback.push(['rock', m]); }
   geoBuckets.clear(); AR.root = root; GS.mapLook = ruinsLook;
   buildAmbientLife(root); // birds over the walls, butterflies and pollen round the plaza
+  buildRuinsDecor(root); // ground detail, wildflowers, lanterns and washing overhead, smoke, dust, the mountains far off (looks only)
   // the owner's Meshy trees and rocks take over from the stand-ins once they load
   plantMeshy(root, { tree: TREES.slice(), rock: ROCKS.slice(), edge: EDGE_ROCKS }, (kind) => { for (const [k, m] of fallback) if (k === kind) m.visible = false; });
   return root;

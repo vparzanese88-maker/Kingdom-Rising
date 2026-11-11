@@ -1900,7 +1900,7 @@ class ArenaBot {
     } else { const mates = alliesOf(this); if (mates.length) { const m = mates[0]; tx = m.pos.x + Math.sin(this.id) * 3; tz = m.pos.z + Math.cos(this.id) * 3; } else { tx = 0; tz = 0; } }
     // low on health with no healing: fall back toward a team mate who heals
     if (this.hp / this.maxHp < 0.25 && !this.abs.some(a => a.t === 'heal' || a.t === 'hot')) { const hl = alliesOf(this).find(u => u.healer); if (hl) { tx = hl.pos.x; tz = hl.pos.z; } }
-    { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { if (RUINS_MAP()) { tx = rm.rm.gx + rm.rm.dir[0] * 4; tz = rm.rm.gz + rm.rm.dir[1] * 4; } else { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } else if (RUINS_MAP() && !this.goal) { const w = this.laneStep(T); if (w) { tx = w[0]; tz = w[1]; } } } // still in the holding room: out through the gate first
+    { const rm = roomOf(me.x, me.z); if (rm && AR.gatesOpen) { if (RUINS_MAP()) { tx = rm.rm.gx + rm.rm.dir[0] * 4; tz = rm.rm.gz + rm.rm.dir[1] * 4; } else { tx = Math.sin(rm.a) * (AR.R - 4); tz = Math.cos(rm.a) * (AR.R - 4); } } else if (RUINS_MAP()) { const toGoal = this.goal && (this.goal.must || dT > 9 || !T), w = this.laneStep(toGoal ? { pos: V3(this.goal.x, me.y, this.goal.z) } : T); if (w) { tx = w[0]; tz = w[1]; } } } /* (the Ruins: objectives too are reached along the routes; straight at them only once close and in sight. Walking straight at the hill jammed every computer player against the middle street's collapsed walls) */ // still in the holding room: out through the gate first
     { const bz = nearestDanger(this); if (bz) { const reach = bz.d / 5.5 + BOMB.ult.defuse + 0.6; if (bz.left > reach && this.hp / this.maxHp > 0.4 && (bz.d < 9 || this.persona().stick > 0.6)) { tx = bz.x; tz = bz.z; } else { const ax = me.x - bz.x, az = me.z - bz.z, al = Math.hypot(ax, az) || 1; tx = bz.x + ax / al * (bz.r + 3); tz = bz.z + az / al * (bz.r + 3); } } } // (an enemy Big Bertha: defuse it if there is time, else run out of its blast)
     // stay apart from everyone else
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
@@ -1935,6 +1935,20 @@ class ArenaBot {
     // 1. healing: whoever on the team needs it most
     const heals = abs.filter(a => a.t === 'heal' || a.t === 'hot' || (LEG_SELF[a.id] && LEG_SELF[a.id][0] === 'heal'));
     if (heals.length) { const W = this.ward; if (W && W !== this && W.hp / W.maxHp < 0.6 && SUPPORT_CLS.has(this.cls)) return use(heals.sort((x, y) => (y.self || y.pct || 0) - (x.self || x.pct || 0))[0], W); if (hp < 0.55) return use(heals[0], this); }
+    // 1b. (the owner) the newer kits, each used when a person would: mends and totems on a hurt team mate, the war song as a fight opens,
+    // the defence song when the team is hurt, the speed song between fights, shields and invisibility under pressure, wraps to break free
+    { const me = this.pos, W = this.ward, hurtW = W && W.hp / W.maxHp < 0.7 ? W : null, fightNear = !!T && dT < this.range + 8, recent = G.time - (this.hurtT || 0) < 2.5;
+      const nHurt = alliesOf(this, true).filter(u => u.hp / u.maxHp < 0.7 && Math.hypot(u.pos.x - me.x, u.pos.z - me.z) < 15).length, st = this.status;
+      for (const a of abs) {
+        if (a.t === 'mend' && (hurtW || hp < 0.6)) return use(a, hurtW || this);
+        if (a.t === 'totem' && (nHurt >= 2 || (hurtW && fightNear))) return use(a, this);
+        if (a.t === 'bardsong' && ((a.buff === 'ward' && (nHurt >= 2 || hp < 0.55)) || (a.buff === 'warsong' && fightNear && dT < this.range + 4) || (a.buff === 'anthem' && (!T || dT > 16) && Math.random() < 0.3))) return use(a, this);
+        if (a.t === 'arcshield' && hp < 0.7 && recent) return use(a, this);
+        if (a.t === 'buff' && a.buff === 'phase' && hp < 0.4 && recent) return use(a, this);
+        if (a.t === 'buff' && a.buff === 'flame' && fightNear && dT < 6) return use(a, this);
+        if (a.t === 'wraps' && (hp < 0.45 || st.slow > 0 || st.root > 0)) return use(a, this);
+        if (a.t === 'mendbanner' && fightNear && (nHurt >= 1 || hp < 0.75)) return use(a, this);
+        if (a.t === 'lightslice' && T && dT < 18) return use(a, T); } }
     // 2. defences when under pressure
     if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
     // 3. protect a team mate who is being beaten on
@@ -1988,6 +2002,7 @@ class ArenaBot {
       case 'stealth': if (a.step) { const tg = T && Math.hypot(T.pos.x - me.x, T.pos.z - me.z) < 12 ? T : null; V.burst('shadow', me.clone().setY(me.y + 1), 30, { speed: 3 }); if (tg) { const by = tg.yaw || 0; me.set(tg.pos.x - Math.sin(by) * 1.4, me.y, tg.pos.z - Math.cos(by) * 1.4); this.yaw = by; } else me.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), a.step); }
         this.stealth = a.dur || 4; V.burst('smoke', me.clone().setY(me.y + 1), 30, { speed: 3 }); this.target = null; return;
       case 'demon': necroHarvest(this); return; /* (Soul Harvest) */
+      case 'mendbanner': anim('cast'); mendBanner(this); return;
       case 'wrath': if (T && !T.dead) { this.yaw = Math.atan2(T.pos.x - this.pos.x, T.pos.z - this.pos.z); paladinFissure(this); } return;
       case 'lightslice': { if (!T || T.dead) return; anim('swing2'); const fr = this.pos.clone().setY(this.pos.y + 1.2), dr = T.pos.clone().setY(T.pos.y + 1.1).sub(fr).normalize(); lightSlice(this, fr, dr); return; }
       case 'fists': monkFists(this); return;

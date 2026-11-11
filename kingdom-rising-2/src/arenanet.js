@@ -51,7 +51,7 @@ export function lobby(setup, F, O, kitName) {
       if (!AN.code) { ov.innerHTML = h + `<h1>Connecting…</h1><p>${AN.err || 'Reaching the matchmaking service…'}</p>${AN.err ? '<button class="btn" id="alBack">← Back</button>' : ''}</div>`; const b = $('alBack'); if (b) b.onclick = () => { location.href = location.pathname; }; return; }
       if (!mine()) { ov.innerHTML = h + '<h1>Joining…</h1></div>'; return; }
       const me = mine(), full = AN.players.size >= cap;
-      h += `<h1>${fmt.name} · ${O[setup.objective].name}</h1><div class="alcode"><span>Game code</span><b>${AN.code}</b><button class="btn" id="alCopy">Copy</button><small>Friends open Kingdom Arena on the title screen, type this code next to Join and press it</small></div>`;
+      h += `<h1>${fmt.name} · ${O[setup.objective].name}</h1><div class="alcode"><span>Invite link</span><input id="alLink" readonly value="${location.origin + location.pathname}?mode=arena&amp;join=${AN.code}" style="flex:1;min-width:0;font-size:15px;padding:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a;border-radius:8px"><button class="btn gold" id="alCopy">Copy link</button><small>Send this link to your friends: opening it puts them straight in this lobby. Or they press Play Online on the title screen and type the code <b style="letter-spacing:.15em">${AN.code}</b>.</small></div>`;
       h += `<div class="alcols"><div class="alme"><h3>You</h3><label>Name <input id="alName" maxlength="16" value="${(me.name || '').replace(/"/g, '')}"></label>
         <label>Class <select id="alCls">${Object.keys(CLASSES).map(c => `<option value="${c}"${me.cls === c ? ' selected' : ''}>${CLASSES[c].name}</option>`).join('')}</select></label><small class="alkit">${kitName(me.cls)}</small>
         <label>Race <select id="alRace">${Object.keys(RACES).filter(r => RACES[r].playable).map(r => `<option value="${r}"${me.race === r ? ' selected' : ''}>${RACES[r].name}</option>`).join('')}</select></label>
@@ -61,9 +61,9 @@ export function lobby(setup, F, O, kitName) {
       const focus = document.activeElement && document.activeElement.id === 'alName';
       ov.innerHTML = h;
       const nameI = $('alName'); nameI.onkeydown = (e) => e.stopPropagation(); nameI.onchange = nameI.oninput = () => upd({ name: nameI.value.trim().slice(0, 16) || 'Fighter' }, false); if (focus) { nameI.focus(); nameI.setSelectionRange(nameI.value.length, nameI.value.length); }
-      $('alCls').onchange = (e) => upd({ cls: e.target.value }); $('alRace').onchange = (e) => upd({ race: e.target.value });
+      $('alCls').onchange = (e) => { try { localStorage.setItem('kr2_mpcls', e.target.value); } catch (er) { /* no storage */ } upd({ cls: e.target.value }); }; $('alRace').onchange = (e) => upd({ race: e.target.value });
       ov.querySelectorAll('[data-team]').forEach(b => b.onclick = () => { const t = +b.dataset.team; if (teamCount(t) >= fmt.size && me.team !== t) { S.error(); return; } upd({ team: t }); });
-      $('alCopy').onclick = () => { try { navigator.clipboard.writeText(AN.code); } catch (e) { /* no clipboard */ } S.click(); };
+      $('alCopy').onclick = () => { const li = $('alLink'), url = li ? li.value : AN.code; try { navigator.clipboard.writeText(url); } catch (e) { /* no clipboard */ } if (li) li.select(); S.click(); const b = $('alCopy'); if (b) { b.textContent = 'Copied ✓'; setTimeout(() => { if ($('alCopy')) $('alCopy').textContent = 'Copy link'; }, 1600); } };
       $('alLeave').onclick = () => { location.href = location.pathname; };
       const st = $('alStart'); if (st) st.onclick = () => { S.click(); start(); };
     };
@@ -101,7 +101,7 @@ const TEAMC = ['#3a7ae0', '#e04a3a', '#3ac060', '#e0b030'], TEAMN = ['Blue', 'Re
 // ---------------- telling sides apart: a glowing rim of light around every fighter, red for enemies, blue for your side ----------------
 export function teamRim(mats, foe) {
   const col = new THREE.Color(foe ? '#ff3020' : '#3a90ff'), k = foe ? 0.75 : 0.45;
-  for (const m of mats) { if (!m || m.userData.rim) continue; m.userData.rim = { value: col }; const rk = { value: k };
+  for (const m of mats) { if (!m) continue; if (m.userData.rim) { m.userData.rim.value.copy(col); if (m.userData.rimK) m.userData.rimK.value = k; continue; } /* (called again after a team swap: recolour) */ m.userData.rim = { value: col }; const rk = m.userData.rimK = { value: k };
     m.onBeforeCompile = (sh) => { sh.uniforms.rimCol = m.userData.rim; sh.uniforms.rimK = rk;
       sh.fragmentShader = 'uniform vec3 rimCol; uniform float rimK;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  { float rim = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); totalEmissiveRadiance += rimCol * pow(rim, 2.6) * rimK; }'); };
     m.needsUpdate = true; }

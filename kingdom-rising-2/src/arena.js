@@ -266,7 +266,10 @@ function ccBudget() {
 // arena fights are slower and heavier than in the open world (more like New World): everyone deals 25% less to other fighters, so fights last longer and each hit counts
 const PACE = 0.75;
 export function defaultArena() { return { fmt: 't3', ffaN: 6, objective: 'elim', lives: 'one', slots: [] }; }
-export function readArena() { try { const s = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (s && s.slots && s.slots.length >= 2) return s; } catch (e) { /* fall back */ } const s = defaultArena(); fillSlots(s); return s; }
+export function readArena() { { const q = new URLSearchParams(location.search), jc = (q.get('join') || '').toUpperCase(); if (/^[A-Z]{4}$/.test(jc) || q.get('host')) { /* (the owner's invite link (?join=CODE) and Play Online's Host (?host=1): a 6 v 6 King of the Hill online lobby, no setup screens) */
+    if (!readArena.q) { const s = defaultArena(); s.fmt = 't6'; s.objective = 'koth'; s.lives = 'respawn'; s.quick = true; fillSlots(s, false); const all = Object.keys(CLASSES).filter(k => ABILITIES[k] && ABILITIES[k].length), sh = (a) => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]); const m = sh(all), f = sh(all); s.slots.forEach((sl, i) => { sl.cls = sl.team === 0 ? m[i % m.length] : f[i % f.length]; });
+      { let c0 = null; try { c0 = localStorage.getItem('kr2_mpcls'); } catch (e) { /* no storage */ } if (c0 && CLASSES[c0] && s.slots[0]) s.slots[0].cls = c0; } s.mp = jc.length === 4 ? 'join' : 'host'; if (s.mp === 'join') s.code = jc; readArena.q = s; } return readArena.q; } }
+  try { const s = JSON.parse(sessionStorage.getItem(ARENA_KEY) || 'null'); if (s && s.slots && s.slots.length >= 2) return s; } catch (e) { /* fall back */ } const s = defaultArena(); fillSlots(s); return s; }
 // lay out the fighters for a format: you in slot 0, then everyone else (random classes unless picked)
 export function fillSlots(s, keep = true) {
   const F = FORMATS[s.fmt], n = F.ffa ? Math.max(3, Math.min(12, s.ffaN || 6)) : F.teams * F.size, old = keep ? s.slots || [] : [], cls = Object.keys(CLASSES), races = Object.keys(RACES).filter(r => RACES[r].playable);
@@ -278,7 +281,7 @@ const BOT_NAMES = ['Aldric', 'Brynja', 'Cassius', 'Dagny', 'Eamon', 'Freya', 'Go
 
 export const A = { setup: null, F: [], state: 'pick', t: PICK_T, score: {}, round: 1, roundWins: {}, feed: [], flags: [], hillOwner: null, shots: [], zones: [], winner: null, hooks: {} };
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const teamsOf = () => [...new Set(A.F.map(f => f.team))];
+const teamsOf = () => [...new Set(A.F.map(f => f.team))].sort((a, b) => a - b); // (sorted: a team swap must not reorder the spawn rooms)
 const isFFA = () => !!FORMATS[A.setup.fmt].ffa;
 const teamName = (t) => isFFA() ? (A.F.find(f => f.team === t) || {}).name : COLOR_NAMES[t] + ' team';
 const teamCol = (t) => COLORS[t % COLORS.length];
@@ -1371,7 +1374,7 @@ export function openKitInfo(UI, into) {
 }
 export const isQuick = () => !!(A.setup && A.setup.quick);
 export function openClassPicker(UI) {
-  const c = UI.openWin('arenacls', 'Change class', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
+  const c = UI.openWin('arenacls', 'Change class or team', '', 'big yardwin'), now = A.state === 'pick' || !A.me.alive;
   c.appendChild(elx('h3', '', `Pick a class <small>${now ? 'you switch right away' : A.lives === 'one' ? 'you switch when the next round starts' : 'you switch when you next respawn'}</small>`));
   const g = elx('div', 'ygrid');
   for (const k of Object.keys(CLASSES)) { const kit = kitOf(k).map(id => (ABILITIES[k].find(a => a.id === id) || {}).name).join(' · ');
@@ -1381,7 +1384,21 @@ export function openClassPicker(UI) {
       else if (A.nextCls) A.hooks.toast && A.hooks.toast(`You will fight as a ${CLASSES[k].name} ${A.lives === 'one' ? 'next round' : 'when you respawn'}`, '⚔', 'gold'); };
     g.appendChild(b); }
   c.appendChild(g);
+  if (!FORMATS[A.setup.fmt] || !FORMATS[A.setup.fmt].ffa) { const tr = elx('div', 'yteams', '<h3 style="margin:14px 0 6px">Change team <small>you swap places with a computer player and start again from that side</small></h3>'); const n = (FORMATS[A.setup.fmt] && FORMATS[A.setup.fmt].teams) || 2;
+    for (let t = 0; t < n; t++) { const b = elx('button', 'btn' + (A.me.team === t ? ' gold' : ''), `${COLOR_NAMES_LIST[t] || 'Team ' + (t + 1)} team${A.me.team === t ? ' ✓' : ''}`); b.style.cssText = `margin-right:8px;border-color:${COLORS_LIST[t] || '#888'}`; b.onclick = () => { S.click(); UI.closeWin(); requestTeam(t); }; tr.appendChild(b); }
+    c.appendChild(tr); }
 }
+// (the owner) changing team mid-game: you trade places with a computer player on the other side, so the teams stay even. Offline or
+// as the host it happens at once; a friend asks the host, who swaps and tells everyone (every machine runs swapTeams the same way)
+export function requestTeam(t) { if (A.me.team === t) return; if (AN.on && !AN.host) { nsend({ t: 'teamReq', team: t }); return; } const ia = A.F.indexOf(A.me), ib = swapPartner(t); if (ib < 0) { A.hooks.toast && A.hooks.toast('No free place on that team', '✋', 'bad'); return; } swapTeams(ia, ib); if (AN.on) nsend({ t: 'swapT', a: ia, b: ib }); }
+function swapPartner(t) { return A.F.findIndex(f => f.team === t && f.bot && !f.owner && !f.you); }
+function swapTeams(ia, ib) { const fa = A.F[ia], fb = A.F[ib]; if (!fa || !fb) return; const t = fa.team; fa.team = fb.team; fb.team = t;
+  for (const f of [fa, fb]) { const u = unitOf(f); if (u && u !== G.player) u.team = f.team; }
+  G.myTeam = A.me.team; if (G.player) G.player.team = A.me.team;
+  for (const f of A.F) { const u = unitOf(f); if (!u || u === G.player) continue; u.hostile = f.team !== G.myTeam; teamRim(u.flashMats || [], u.hostile); }
+  for (const fl of A.flags || []) if (fl.carrier === fa || fl.carrier === fb) dropFlag(fl);
+  for (const f of [fa, fb]) revive(f, true); /* (both start again from their new side's spawn room) */
+  if (fa.you || fb.you) { A.hooks.toast && A.hooks.toast(`You joined the ${COLOR_NAMES_LIST[A.me.team] || ''} team`, '⚑', 'gold'); renderHud(true); } }
 function elx(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 function startPick(t) { for (const f of A.F) if (f.bot) { f.bot.buffed = false; f.bot.pickT = 0; f.bot.buffAt = null; } A.state = 'pick'; A.t = t; AR.gatesOpen = false; renderHud(true); if (AN.on && AN.host) nsend({ t: 'pick', n: t }); }
 export function readyUp() { if (A.state === 'pick' && AUTH()) A.t = Math.min(A.t, 3.5); }
@@ -2093,6 +2110,8 @@ function onNet(from, d) {
     case 'bbuff': if (AN.host) { const f = F(d.i); if (f && f.bot) f.bot.addBuff(d.kind, d.dur); } break;
     case 'died': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) fighterDied(f, U(d.k)); } break;
     case 'revive': if (d.to === AN.myId) revive(A.me, true); break;
+    case 'teamReq': if (AN.host) { const ia = A.F.findIndex(x => x.owner === from), ib = swapPartner(d.team); if (ia >= 0 && ib >= 0 && A.F[ia].team !== d.team) { swapTeams(ia, ib); nsend({ t: 'swapT', a: ia, b: ib }); } } break;
+    case 'swapT': if (!AN.host) swapTeams(d.a, d.b); break;
     case 'cls': if (AN.host) { const f = A.F.find(x => x.owner === from); if (f) f.cls = d.c; } break;
     case 'pick': if (!AN.host) startPick(d.n); break;
     case 'fight': if (!AN.host) startFight(); break;

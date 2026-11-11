@@ -81,6 +81,7 @@ addEventListener('click', regain, true); addEventListener('keydown', regain, tru
 export function initMenu() {
   $('btnNew').onclick = () => { S.click(); goFull(); if (canCreate()) showCreator(null); };
   $('btnBattle').onclick = () => { S.click(); goFull(); showBattleSetup(); };
+  if ($('btnOnline')) $('btnOnline').onclick = () => { S.click(); goFull(); showOnline(); }; /* (the owner: a quick, easy multiplayer menu) */
   if ($('btnArena')) $('btnArena').onclick = (e) => { S.click(); goFull(); if (e && e.shiftKey) { showArenaSetup(); return; } quickArena(); }; /* (the owner: Kingdom Arena is quick play; shift-click opens the full setup) */
   if ($('btnArenaCustom')) $('btnArenaCustom').onclick = (e) => { e.stopPropagation(); S.click(); goFull(); showArenaSetup(); };
   try { if (sessionStorage.getItem('kr2_arena_open')) { sessionStorage.removeItem('kr2_arena_open'); setTimeout(showArenaSetup, 50); } } catch (e) { /* no storage */ }
@@ -332,6 +333,24 @@ function renderBattleSetup() {
   row.append(back, go); panel.appendChild(row);
 }
 
+// ---------- Play Online: the owner's quick, easy multiplayer menu ----------
+// two big choices. Host: straight into a lobby with an invite link to send. Join: paste the link or type the 4-letter code.
+function showOnline() {
+  let ov = document.getElementById('bsetup'); if (!ov) { ov = el('div', ''); ov.id = 'bsetup'; document.body.appendChild(ov); }
+  ov.hidden = false; $('title').hidden = true; ov.innerHTML = '';
+  const panel = el('div', 'bsp'); ov.appendChild(panel);
+  panel.appendChild(el('div', 'bsh', `<div class="eyebrow">Kingdom Arena · Online</div><h1>Play with friends</h1>`));
+  panel.appendChild(el('div', 'bsgoal', `<div><b>1 · One of you hosts</b><span>Press Host a game. You get an invite link.</span></div><div><b>2 · Send the link</b><span>Paste it to your friends in any chat. They open it and they are in.</span></div><div><b>3 · Pick a side and a class</b><span>Everyone picks in the lobby, then the host starts. Press K in the match to change class or team.</span></div>`));
+  const g = el('div', 'bsmodes');
+  const host = el('button', 'bsmode', `<div class="bsi">🏰</div><b>Host a game</b><span>6 v 6 King of the Hill. Computer players fill any empty places, and leave as friends join.</span>`);
+  host.onclick = () => { S.click(); location.href = location.pathname + '?mode=arena&host=1'; };
+  const join = el('div', 'bsmode', `<div class="bsi">🔑</div><b>Join a game</b><span>Paste the invite link, or type the 4-letter code.</span><input id="onCode" placeholder="link or CODE" style="margin-top:8px;font-size:20px;letter-spacing:.08em;width:100%;max-width:300px;text-align:center;padding:8px;background:#120c07;color:#ffe2a0;border:1px solid #8a6a2a;border-radius:8px"><button class="btn gold" id="onJoin" style="margin-top:8px">Join →</button>`);
+  g.append(host, join); panel.appendChild(g);
+  const inp = join.querySelector('#onCode'); inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') join.querySelector('#onJoin').click(); };
+  join.querySelector('#onJoin').onclick = () => { const v = inp.value.trim(), m = v.match(/[?&]join=([A-Za-z]{4})/), code = (m ? m[1] : v).toUpperCase(); if (!/^[A-Z]{4}$/.test(code)) { S.error(); inp.focus(); return; } S.click(); location.href = location.pathname + '?mode=arena&join=' + code; };
+  const back = el('button', 'btn', '← Back to title'); back.onclick = () => { S.click(); ov.hidden = true; showTitle(); }; panel.appendChild(back);
+  setTimeout(() => inp.focus(), 50);
+}
 // ---------- Kingdom Arena quick play ----------
 // the owner: one click and you are in: a 6 v 6 King of the Hill match. The enemy is six different classes; your team is five more
 // (no repeats); you pick your own class in the holding room during the 60 s countdown, and a team mate with that class takes another
